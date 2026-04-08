@@ -16,3 +16,6 @@ plans/
 # Build artifacts
 flexirule/public/js/*.bundle.js
 build_output.txt
+
+# Salesforce Flow comparison documentation
+salesforce_flow_to_flexirule/
