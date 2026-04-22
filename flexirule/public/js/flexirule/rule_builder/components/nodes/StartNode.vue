@@ -14,16 +14,26 @@ const sourcePos = computed(
 );
 
 const displayLabel = computed(() => {
-	if (props.data?.document_type && props.data?.trigger_event) {
-		return `${props.data.document_type} / ${props.data.trigger_event}`;
+	const data = props.data || {};
+	if (data.document_type && data.trigger_event) {
+		return `${data.document_type} / ${data.trigger_event}`;
 	}
+	if (data.trigger_type) return data.trigger_type;
 	return props.label || __("Start");
 });
 
 const summaryData = computed(() => {
 	const data = props.data || {};
 	const parts = [];
-	if (data.trigger_type) parts.push(`${__("Type")}: ${data.trigger_type}`);
+
+	if (data.exposed_as_subrule) {
+		parts.push(__("Sub-Rule"));
+	}
+
+	if (data.document_type && !data.trigger_event) {
+		parts.push(`${__("Doc")}: ${data.document_type}`);
+	}
+
 	if (data.priority) parts.push(`${__("Priority")}: ${data.priority}`);
 	return parts;
 });

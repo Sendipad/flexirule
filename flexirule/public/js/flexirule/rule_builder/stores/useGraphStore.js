@@ -937,6 +937,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 				data: {
 					action_id: "start",
 					action_type: "Entry Action",
+					trigger_type: ruleDoc.trigger_type,
 					document_type: ruleDoc.document_type,
 					trigger_event: ruleDoc.trigger_event,
 					compiled_expression: ruleDoc.compiled_expression,
@@ -1017,6 +1018,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			};
 
 			if (isRoot) {
+				nodeData.trigger_type = ruleDoc.trigger_type;
 				nodeData.document_type = ruleDoc.document_type;
 				nodeData.trigger_event = ruleDoc.trigger_event;
 				nodeData.trigger_condition = ruleDoc.trigger_condition;
@@ -1192,6 +1194,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 				data: {
 					action_id: "root",
 					action_type: "Entry Action",
+					trigger_type: ruleDoc.trigger_type,
 					document_type: ruleDoc.document_type,
 					trigger_event: ruleDoc.trigger_event,
 					trigger_condition: ruleDoc.trigger_condition,
