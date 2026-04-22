@@ -254,6 +254,7 @@ def _validate_action_contracts(
 	contract = get_contract(action_type)
 	operation = _safe_get(action, "operation")
 	operation_metadata = operation_metadata or {}
+	return_type = None
 	process_operation = None
 	if action_type == "Process" and _safe_get(action, "process_name") and operation:
 		process_operation = operation_metadata.get(f"{_safe_get(action, 'process_name')}:{operation}")

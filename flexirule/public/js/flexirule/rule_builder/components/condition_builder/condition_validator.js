@@ -2,11 +2,14 @@
  * Validates a condition tree recursively.
  * Returns an object with { valid: boolean, message?: string }
  */
-export function validateConditions(node, isRoot = false) {
+export function validateConditions(node, isRoot = false, isMandatory = true) {
 	// 1. Check for Groups (including Root)
 	// A group is identified by the presence of a 'conditions' array
 	if (node.conditions !== undefined) {
 		if (!node.conditions || node.conditions.length === 0) {
+			// If it's an optional root group, empty is allowed
+			if (isRoot && !isMandatory) return { valid: true };
+
 			return {
 				valid: false,
 				message: isRoot

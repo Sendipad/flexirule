@@ -266,8 +266,11 @@ onMounted(async () => {
 });
 
 function validate() {
-	const isMandatory = props.node?.type !== "start";
-	const result = validateConditions(localConditions.value, isMandatory);
+	const type = props.node?.data?.action_type || props.node?.type;
+	// Only 'Condition' nodes MUST have a condition defined.
+	// For all other nodes, conditions are optional execution filters.
+	const isMandatory = type === "Condition";
+	const result = validateConditions(localConditions.value, true, isMandatory);
 	if (!result.valid) {
 		return { valid: false, errors: [result.message] };
 	}
