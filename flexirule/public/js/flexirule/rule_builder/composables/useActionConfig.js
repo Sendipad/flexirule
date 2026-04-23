@@ -39,6 +39,10 @@ export function useActionConfig(props) {
 			if (op === "Create ToDo") return "ToDo";
 			if (op === "Add Comment") return "Comment";
 		}
+		if (actionType === "Query Records") {
+			if (op === "Query Report") return "Report";
+			return store.rule_doc?.document_type || "";
+		}
 
 		const TRIGGER_DOC_TYPES = ["Set Value", "Entry Action", "Notify", "Document Action"];
 		if (!actionType || TRIGGER_DOC_TYPES.includes(actionType)) {

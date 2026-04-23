@@ -168,6 +168,12 @@ class RaiseErrorHandler(ActionHandler):
 		Uses action.value_template for the error message.
 		"""
 		value_template = getattr(action, "value_template", "") or "Validation Error"
+		config = self._parse_config(getattr(action, "config", None))
+		error_type = (
+			config.get("error_type") or getattr(action, "operation", None) or "Validation Error"
+		).strip()
+		error_title = (config.get("error_title") or "").strip() or None
+		error_code = (config.get("error_code") or "").strip()
 
 		# Render Jinja template with SafeFrappeAPI to prevent write operations
 		template_context = {
@@ -178,9 +184,15 @@ class RaiseErrorHandler(ActionHandler):
 		}
 		# nosemgrep: frappe-semgrep-rules.rules.security.frappe-ssti
 		message = frappe.render_template(value_template, template_context)  # nosemgrep: frappe-ssti
+		if error_code:
+			message = f"[{error_code}] {message}"
 
-		engine._log("INFO", _("Raising error: {0}").format(message))
-		frappe.throw(message)
+		engine._log("INFO", _("Raising {0}: {1}").format(error_type, message))
+
+		if error_type == "Permission Error":
+			frappe.throw(message, frappe.PermissionError)
+		else:
+			frappe.throw(message, title=error_title)
 
 
 class NotifyHandler(ActionHandler):

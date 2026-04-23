@@ -367,4 +367,32 @@ const hasDetails = computed(() => {
 	background-color: #fff !important;
 	border: 2px solid var(--accent-color) !important;
 }
+
+/* RTL Support */
+[dir="rtl"] .process-node-card:not(.is-vertical) {
+	border-left: 1px solid #d1d8dd;
+	border-right: 4px solid var(--accent-color);
+}
+
+[dir="rtl"] .node-header {
+	flex-direction: row;
+}
+
+[dir="rtl"] .type-text {
+	text-align: right;
+}
+
+[dir="rtl"] .action-btn {
+	margin-left: 0;
+	margin-right: auto;
+}
+
+[dir="rtl"] .detail-row {
+	flex-direction: row;
+}
+
+[dir="rtl"] .detail-row i {
+	margin-right: 0;
+	margin-left: 6px;
+}
 </style>

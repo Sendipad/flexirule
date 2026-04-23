@@ -684,4 +684,32 @@ onMounted(() => {
 .action-selector-card.selected .handle-source {
 	border-color: var(--primary) !important;
 }
+/* RTL Support */
+[dir="rtl"] .node-header {
+	flex-direction: row;
+}
+
+[dir="rtl"] .header-text {
+	text-align: right;
+}
+
+[dir="rtl"] .delete-btn {
+	margin-left: 0;
+	margin-right: auto;
+}
+
+[dir="rtl"] .search-icon {
+	left: auto;
+	right: 8px;
+}
+
+[dir="rtl"] .search-input-group input {
+	padding-left: 10px !important;
+	padding-right: 24px !important;
+}
+
+[dir="rtl"] .result-option i {
+	margin-right: 0;
+	margin-left: 10px;
+}
 </style>

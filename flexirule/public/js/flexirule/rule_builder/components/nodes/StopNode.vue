@@ -198,4 +198,13 @@ function openConfig() {
 	left: 50% !important;
 	transform: translateX(-50%) !important;
 }
+/* RTL Support */
+[dir="rtl"] .node-content {
+	flex-direction: row;
+}
+
+[dir="rtl"] .action-btn {
+	margin-left: 0;
+	margin-right: auto;
+}
 </style>

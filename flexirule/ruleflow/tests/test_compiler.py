@@ -74,6 +74,22 @@ class TestConditionCompiler(FrappeTestCase):
 		expected = "((doc.get('description') is None or doc.get('description') == ''))"
 		self.assertEqual(result, expected)
 
+	def test_compile_is_empty_condition(self):
+		"""Test compiling an 'is_empty' condition"""
+		condition = {"left": {"ref": "vars.similar_jv"}, "op": "is_empty"}
+
+		result = self.compiler.compile([condition])
+		expected = "(is_empty_value(vars.get('similar_jv')))"
+		self.assertEqual(result, expected)
+
+	def test_compile_length_gt_condition(self):
+		"""Test compiling a list length comparison condition"""
+		condition = {"left": {"ref": "vars.similar_jv"}, "op": "length_gt", "right": {"value": 0}}
+
+		result = self.compiler.compile([condition])
+		expected = "((length_of(vars.get('similar_jv')) > 0))"
+		self.assertEqual(result, expected)
+
 	def test_compile_collection_condition(self):
 		"""Test compiling a collection condition"""
 		condition = {

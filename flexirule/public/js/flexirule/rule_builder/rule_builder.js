@@ -26,7 +26,7 @@ class RuleBuilder {
 
 	setup_page() {
 		// Set page title
-		this.page.set_title(__("Editing {0}", [this.rule]));
+		this.page.set_title(__(this.rule));
 
 		// Clear existing actions
 		this.page.clear_actions();

@@ -114,7 +114,7 @@
    "options": "JSON"
   },
   {
-   "depends_on": "eval:['Set Value', 'Stop', 'Notify'].includes(doc.action_type)",
+   "depends_on": "eval:['Set Value', 'Notify', 'Raise Error'].includes(doc.action_type) || (doc.action_type==='Stop' && doc.operation==='Error')",
    "fieldname": "section_break_quick_action",
    "fieldtype": "Section Break",
    "label": "Quick Action Configuration"
@@ -128,12 +128,12 @@
    "mandatory_depends_on": "eval:doc.action_type=='Set Value'"
   },
   {
-   "depends_on": "eval:['Set Value', 'Stop', 'Notify'].includes(doc.action_type) && (doc.action_type !== 'Stop' || doc.operation === 'Error')",
+   "depends_on": "eval:['Set Value', 'Notify', 'Raise Error'].includes(doc.action_type) || (doc.action_type==='Stop' && doc.operation==='Error')",
    "description": "Jinja template for value, error message, or notification",
    "fieldname": "value_template",
    "fieldtype": "Code",
    "label": "Action Template",
-   "mandatory_depends_on": "eval:['Set Value', 'Stop', 'Notify'].includes(doc.action_type) && (doc.action_type !== 'Stop' || doc.operation === 'Error')",
+   "mandatory_depends_on": "eval:['Set Value', 'Notify', 'Raise Error'].includes(doc.action_type) || (doc.action_type==='Stop' && doc.operation==='Error')",
    "options": "Jinja"
   },
   {

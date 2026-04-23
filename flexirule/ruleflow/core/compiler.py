@@ -49,6 +49,13 @@ class ConditionCompiler:
 		"has_field": "has field",
 		"contains": "contains",
 		"not_contains": "not contains",
+		"is_empty": "is empty",
+		"is_not_empty": "is not empty",
+		"length_eq": "length equals",
+		"length_gt": "length greater than",
+		"length_gte": "length greater or equal",
+		"length_lt": "length less than",
+		"length_lte": "length less or equal",
 	}
 
 	# Fieldtype to valid operators mapping
@@ -95,10 +102,30 @@ class ConditionCompiler:
 		"Geolocation": ["is_set", "is_not_set"],
 		"JSON": ["is_set", "is_not_set"],
 		# Table (not directly comparable)
-		"Table": [],
-		"Table MultiSelect": [],
+		"Table": [
+			"is_set",
+			"is_not_set",
+			"is_empty",
+			"is_not_empty",
+			"length_eq",
+			"length_gt",
+			"length_gte",
+			"length_lt",
+			"length_lte",
+		],
+		"Table MultiSelect": [
+			"is_set",
+			"is_not_set",
+			"is_empty",
+			"is_not_empty",
+			"length_eq",
+			"length_gt",
+			"length_gte",
+			"length_lt",
+			"length_lte",
+		],
 		# Default fallback
-		"_default": ["==", "!=", "is_set", "is_not_set"],
+		"_default": ["==", "!=", "is_set", "is_not_set", "is_empty", "is_not_empty"],
 	}
 
 	def compile(self, conditions) -> str:
@@ -199,6 +226,10 @@ class ConditionCompiler:
 			return f"({lhs_code} is not None and {lhs_code} != '')"
 		if op == "is_not_set":
 			return f"({lhs_code} is None or {lhs_code} == '')"
+		if op == "is_empty":
+			return f"is_empty_value({lhs_code})"
+		if op == "is_not_empty":
+			return f"(not is_empty_value({lhs_code}))"
 		if op == "is_submittable":
 			return f"is_submittable({lhs_code})"
 		if op == "has_field":
@@ -244,6 +275,15 @@ class ConditionCompiler:
 			return f"({rhs_code} in str({lhs_code}) if {lhs_code} else False)"
 		if op == "not_contains":
 			return f"({rhs_code} not in str({lhs_code}) if {lhs_code} else True)"
+		if op in {"length_eq", "length_gt", "length_gte", "length_lt", "length_lte"}:
+			length_operator_map = {
+				"length_eq": "==",
+				"length_gt": ">",
+				"length_gte": ">=",
+				"length_lt": "<",
+				"length_lte": "<=",
+			}
+			return f"(length_of({lhs_code}) {length_operator_map[op]} {rhs_code})"
 
 		return f"{lhs_code} {py_op} {rhs_code}"
 

@@ -274,4 +274,19 @@ function openConfig() {
 .action-btn:hover {
 	color: white;
 }
+/* RTL Support */
+[dir="rtl"] .start-node-d:not(.is-vertical) .node-body {
+	border-radius: 40px 4px 4px 40px;
+	padding: 8px 10px 8px 16px;
+}
+
+[dir="rtl"] .icon-section {
+	margin-left: 10px;
+	margin-right: 0;
+}
+
+[dir="rtl"] .action-btn {
+	margin-left: 0;
+	margin-right: auto;
+}
 </style>

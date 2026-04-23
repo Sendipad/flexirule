@@ -18,6 +18,7 @@ const ACTION_TYPE_DESCRIPTION = {
 	"Sub-Rule": "Invoke another rule as a reusable component within this flow.",
 	"Set Value": "Update a field in the current document with a calculated value.",
 	Notify: "Send a notification as a toast, realtime message, email, Notification Log entry, or provider dispatch.",
+	"Raise Error": "Stop execution immediately with a configured error message.",
 	"Query Records":
 		"Query records from a DocType. Supports Query List, Query Doc, Exist Record, and Query Report modes.",
 	"Document Action":
@@ -118,6 +119,17 @@ const DEFAULT_ACTION_TYPE_CONTRACT = {
 		css: { icon: "fa fa-bell", color: "#0ea5e9" },
 		operation_label: "Notification Type",
 		operation_options: ["Toast", "System", "Email", "System Notification", "Provider"],
+	},
+	"Raise Error": {
+		required_fields: ["value_template"],
+		has_next_true: false,
+		has_next_false: false,
+		terminal: true,
+		css: { icon: "fa fa-exclamation-triangle", color: "#dc2626" },
+		field_labels: {
+			value_template: "Error Message Template",
+			config: "Error Details",
+		},
 	},
 	"Query Records": {
 		required_fields: ["reference_doctype", "operation"],

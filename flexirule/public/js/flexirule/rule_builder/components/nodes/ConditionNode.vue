@@ -327,4 +327,28 @@ function openConfig() {
 .handle-false {
 	border-color: #dc3545 !important;
 }
+/* RTL Support */
+[dir="rtl"] .condition-node-card .out-right {
+	right: auto;
+	left: -30px;
+}
+
+[dir="rtl"] .condition-node-card .out-right .port-label {
+	left: auto;
+	right: 50%;
+	transform: translateX(50%);
+}
+
+[dir="rtl"] .node-header {
+	flex-direction: row;
+}
+
+[dir="rtl"] .type-text {
+	text-align: right;
+}
+
+[dir="rtl"] .action-btn {
+	margin-left: 0;
+	margin-right: auto;
+}
 </style>

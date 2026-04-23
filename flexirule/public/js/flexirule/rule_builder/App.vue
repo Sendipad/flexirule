@@ -1,9 +1,10 @@
 <template>
-	<div class="rule-builder-container" :class="{ 'is-read-only': isReadOnly }">
+	<div class="rule-builder-container" :class="{ 'is-read-only': isReadOnly, 'is-rtl': isRTL }">
 		<!-- Main Canvas + Sidebar -->
 		<div class="builder-main">
 			<div class="canvas-container" ref="flowWrapper" @dragover="onDragOver" @drop="onDrop">
 				<VueFlow
+					:dir="isRTL ? 'rtl' : 'ltr'"
 					:edges-editable="false"
 					v-model:nodes="store.nodes"
 					v-model:edges="store.edges"
@@ -258,7 +259,11 @@ const showSidebar = computed(() => {
 	return store.show_sidebar && store.selected_id !== null;
 });
 const sidebarOrder = computed(() => (store.settings?.sidebar_position === "Right" ? 2 : 0));
-const isRTL = computed(() => document.documentElement.dir === "rtl");
+const isRTL = computed(() => {
+	const dir = document.documentElement.getAttribute("dir") || document.body.getAttribute("dir");
+	if (dir === "rtl") return true;
+	return window.frappe?.utils?.is_rtl() ? true : false;
+});
 const isReadOnly = computed(() => store.is_read_only);
 
 function closeSidebar() {
@@ -799,5 +804,123 @@ function onEdgeClick({ edge, event }) {
 	border: 1px solid #ffedd5;
 	font-size: 11px;
 	font-weight: 700;
+}
+
+/* RTL Support */
+.is-rtl,
+[dir="rtl"] .rule-builder-container {
+	direction: rtl !important;
+}
+
+.is-rtl :deep(.process-node-card),
+.is-rtl :deep(.start-node-card),
+.is-rtl :deep(.condition-node-card),
+.is-rtl :deep(.loop-node-card),
+.is-rtl :deep(.stop-node-card),
+.is-rtl :deep(.action-selector-card),
+[dir="rtl"] .process-node-card,
+[dir="rtl"] .start-node-card,
+[dir="rtl"] .condition-node-card,
+[dir="rtl"] .loop-node-card,
+[dir="rtl"] .stop-node-card,
+[dir="rtl"] .action-selector-card {
+	direction: rtl !important;
+}
+
+.is-rtl :deep(.node-header),
+[dir="rtl"] .node-header {
+	flex-direction: row !important;
+}
+
+.is-rtl :deep(.detail-row),
+[dir="rtl"] .detail-row {
+	flex-direction: row !important;
+}
+
+.is-rtl :deep(.detail-row i),
+[dir="rtl"] .detail-row i {
+	margin-left: 6px !important;
+	margin-right: 0 !important;
+}
+
+.is-rtl :deep(.action-btn),
+[dir="rtl"] .action-btn {
+	margin-right: auto !important;
+	margin-left: 0 !important;
+}
+
+/* Process Node RTL */
+.is-rtl :deep(.process-node-card:not(.is-vertical)),
+[dir="rtl"] .process-node-card:not(.is-vertical) {
+	border-left: 1px solid #d1d8dd !important;
+	border-right: 4px solid var(--accent-color) !important;
+}
+
+.is-rtl :deep(.node-header .type-text),
+[dir="rtl"] .node-header .type-text {
+	text-align: right !important;
+}
+
+/* Start Node RTL */
+.is-rtl :deep(.start-node-d:not(.is-vertical) .node-body),
+[dir="rtl"] .start-node-d:not(.is-vertical) .node-body {
+	border-radius: 40px 4px 4px 40px !important;
+	padding: 8px 10px 8px 16px !important;
+}
+
+.is-rtl :deep(.start-node-d .icon-section),
+[dir="rtl"] .start-node-d .icon-section {
+	margin-left: 10px !important;
+	margin-right: 0 !important;
+}
+
+/* Condition Node RTL */
+.is-rtl :deep(.condition-node-card .out-right),
+[dir="rtl"] .condition-node-card .out-right {
+	right: auto !important;
+	left: -30px !important;
+}
+
+.is-rtl :deep(.condition-node-card .out-right .port-label),
+[dir="rtl"] .condition-node-card .out-right .port-label {
+	left: auto !important;
+	right: 50% !important;
+	transform: translateX(50%) !important;
+}
+
+/* Execution Badge RTL */
+.is-rtl :deep(.execution-badge),
+[dir="rtl"] .execution-badge {
+	left: auto !important;
+	right: -8px !important;
+}
+
+.is-rtl :deep(.node-header .type-text),
+[dir="rtl"] .node-header .type-text {
+	text-align: right !important;
+	margin-right: 8px !important;
+	margin-left: 0 !important;
+}
+
+/* Sidebar RTL Adjustment */
+.is-rtl .sidebar-rtl {
+	border-left: none;
+	border-right: 1px solid var(--border-color);
+}
+
+/* Action Selector RTL */
+.is-rtl .search-icon {
+	left: auto;
+	right: 8px;
+}
+
+.is-rtl .search-input-group input {
+	padding-left: 10px !important;
+	padding-right: 24px !important;
+}
+
+.is-rtl .result-option i {
+	margin-left: 10px;
+	margin-right: 0;
 }
 </style>

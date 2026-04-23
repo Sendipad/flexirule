@@ -464,6 +464,12 @@ function updateField(fieldname, value) {
 			if (actionType === "Query Records" && value === "Query Report") {
 				props.node.data.reference_doctype = "Report";
 				props.node.data.reference_docname = null;
+			} else if (
+				actionType === "Query Records" &&
+				props.node.data.reference_doctype === "Report"
+			) {
+				// Switching away from report mode should restore an editable doctype context.
+				props.node.data.reference_doctype = store.rule_doc?.document_type || null;
 			}
 
 			if (actionType === "Process" && !props.node.data.process_name && value) {
@@ -512,6 +518,38 @@ function updateField(fieldname, value) {
 		}
 
 		props.node.data[fieldname] = value;
+		store.mark_dirty();
+	}
+}
+
+function ensureActionDefaults() {
+	if (!props.node?.data) return;
+	const actionType = props.node.data.action_type;
+	const currentRuleDoctype = store.rule_doc?.document_type || "";
+
+	if (actionType === "Query Records") {
+		if (!props.node.data.operation) {
+			props.node.data.operation = "Query List";
+			store.mark_dirty();
+		}
+		if (props.node.data.operation === "Query Report") {
+			if (props.node.data.reference_doctype !== "Report") {
+				props.node.data.reference_doctype = "Report";
+				store.mark_dirty();
+			}
+		} else if (!props.node.data.reference_doctype && currentRuleDoctype) {
+			props.node.data.reference_doctype = currentRuleDoctype;
+			store.mark_dirty();
+		}
+	}
+
+	if (
+		actionType === "Document Action" &&
+		!forcedReferenceDoctype.value &&
+		!props.node.data.reference_doctype &&
+		currentRuleDoctype
+	) {
+		props.node.data.reference_doctype = currentRuleDoctype;
 		store.mark_dirty();
 	}
 }
@@ -565,6 +603,16 @@ watch(
 watch(
 	() => props.node?.id,
 	() => refreshVariables(),
+	{ immediate: true }
+);
+
+watch(
+	() => [
+		props.node?.data?.action_type,
+		props.node?.data?.operation,
+		store.rule_doc?.document_type,
+	],
+	() => ensureActionDefaults(),
 	{ immediate: true }
 );
 

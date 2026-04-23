@@ -44,6 +44,7 @@ const props = defineProps({
 const store = useStore();
 const localConditions = ref({ op: "and", conditions: [] });
 const showOldDoc = ref(false);
+const variableFields = ref([]);
 
 /**
  * Hydrates conditions with ephemeral IDs for Vue reactivity.
@@ -147,7 +148,15 @@ function save() {
  * Compute fields available for conditions.
  */
 const docFields = computed(() => {
-	let fields = [...store.doc_fields];
+	const dedupe = new Map();
+	const pushField = (field) => {
+		if (!field?.value) return;
+		dedupe.set(field.value, field);
+	};
+
+	store.doc_fields.forEach(pushField);
+	variableFields.value.forEach(pushField);
+	let fields = Array.from(dedupe.values());
 
 	if (showOldDoc.value) {
 		const oldFields = store.doc_fields
@@ -257,13 +266,46 @@ const docFields = computed(() => {
 	return fields.sort((a, b) => a.label.localeCompare(b.label));
 });
 
+async function refreshVariableFields() {
+	if (!props.node?.id || props.node?.type === "start") {
+		variableFields.value = [];
+		return;
+	}
+
+	try {
+		const available = await store.getAvailableVariables(props.node.id);
+		variableFields.value = (available || []).filter((field) =>
+			field?.value?.startsWith("vars.")
+		);
+	} catch (e) {
+		variableFields.value = [];
+	}
+}
+
 // Load metadata on mount if needed
 onMounted(async () => {
 	const doctype = props.node.data?.document_type || store.rule_doc?.document_type;
 	if (doctype && !store.doc_fields.length) {
 		await store.fetch_metadata(doctype);
 	}
+	await refreshVariableFields();
 });
+
+watch(
+	() => [
+		props.node?.id,
+		store.nodes.map((node) => [
+			node.id,
+			node.data?.return_variable,
+			node.data?.return_type,
+			node.data?.resolved_output_schema,
+		]),
+	],
+	() => {
+		refreshVariableFields();
+	},
+	{ deep: true }
+);
 
 function validate() {
 	const type = props.node?.data?.action_type || props.node?.type;

@@ -15,6 +15,7 @@ import json
 
 import frappe
 from frappe import _
+from frappe.utils import add_days, get_first_day, get_last_day, getdate, nowdate
 
 from flexirule.ruleflow.core.action_handlers import ActionHandler, HandlerRegistry
 from flexirule.ruleflow.core.permissions import can_skip_permissions
@@ -108,6 +109,7 @@ class QueryRecordsHandler(ActionHandler):
 	def _count_records(self, reference_doctype, config, context, action, ignore_permissions):
 		"""Count records matching filters."""
 		filters = self._resolve_filters(config.get("filters", {}), context)
+		filters = self._normalize_filters_for_backend(filters)
 		# Skip permission check is already handled by frappe.db functions if we don't pass ignore_permissions arg to them,
 		# actually frappe.db.count doesn't take ignore_permissions. We check read permission manually if needed.
 		if not ignore_permissions and not frappe.has_permission(reference_doctype, "read"):
@@ -128,6 +130,7 @@ class QueryRecordsHandler(ActionHandler):
 			)
 
 		filters = self._resolve_filters(config.get("filters", {}), context)
+		filters = self._normalize_filters_for_backend(filters)
 		field = config.get("field", "name")
 		mode = action.operation
 
@@ -158,6 +161,7 @@ class QueryRecordsHandler(ActionHandler):
 			)
 
 		filters = self._resolve_filters(config.get("filters", {}), context)
+		filters = self._normalize_filters_for_backend(filters)
 		aggregate_field = config.get("field", "name")
 		group_field = config.get("group_by_field", aggregate_field)
 		agg_function = config.get("agg_function", "count").lower()
@@ -214,17 +218,176 @@ class QueryRecordsHandler(ActionHandler):
 				return query.where(table[field] < val)
 			if op == "<=":
 				return query.where(table[field] <= val)
-			if op == "like":
-				return query.where(table[field].like(val))
-			if op == "not like":
-				return query.where(table[field].not_like(val))
-			if op == "in":
-				return query.where(table[field].isin(val))
+				if op == "like":
+					return query.where(table[field].like(val))
+				if op == "not like":
+					return query.where(table[field].not_like(val))
+				if op == "starts with":
+					return query.where(table[field].like(f"{val}%"))
+				if op == "ends with":
+					return query.where(table[field].like(f"%{val}"))
+				if op == "in":
+					return query.where(table[field].isin(val))
 			if op == "not in":
 				return query.where(table[field].notin(val))
+			if op in ("Between", "between"):
+				start, end = self._coerce_between_value(val)
+				return query.where(table[field].between(start, end))
+			if op == "Timespan":
+				start, end = self._resolve_timespan_range(val)
+				return query.where(table[field].between(start, end))
 
 		# Default equality
 		return query.where(table[field] == value)
+
+	def _coerce_between_value(self, value):
+		"""Normalize Between value into [start, end]."""
+		if isinstance(value, list | tuple) and len(value) >= 2:
+			return value[0], value[1]
+		if isinstance(value, str) and "," in value:
+			parts = [p.strip() for p in value.split(",", 1)]
+			return parts[0], parts[1]
+		return value, value
+
+	def _resolve_timespan_range(self, value):
+		"""Resolve Frappe-like timespan keyword to date range."""
+		token = (value or "").strip().lower()
+		today = getdate(nowdate())
+		week_start = add_days(today, -today.weekday())
+		month_start = get_first_day(today)
+		month_end = get_last_day(today)
+		next_week_start = add_days(week_start, 7)
+
+		def shift_month(year, month, delta):
+			idx = (year * 12 + (month - 1)) + delta
+			new_year = idx // 12
+			new_month = (idx % 12) + 1
+			return new_year, new_month
+
+		if token == "last 7 days":
+			return add_days(today, -7), today
+		if token == "last 14 days":
+			return add_days(today, -14), today
+		if token == "last 30 days":
+			return add_days(today, -30), today
+		if token == "last 90 days":
+			return add_days(today, -90), today
+		if token == "last week":
+			last_week_start = add_days(week_start, -7)
+			return last_week_start, add_days(last_week_start, 6)
+		if token == "last month":
+			last_month_end = add_days(month_start, -1)
+			return get_first_day(last_month_end), get_last_day(last_month_end)
+		if token == "last quarter":
+			current_quarter = ((today.month - 1) // 3) + 1
+			if current_quarter == 1:
+				year = today.year - 1
+				quarter = 4
+			else:
+				year = today.year
+				quarter = current_quarter - 1
+			start_month = (quarter - 1) * 3 + 1
+			end_month = start_month + 2
+			start = getdate(f"{year}-{start_month:02d}-01")
+			end = get_last_day(getdate(f"{year}-{end_month:02d}-01"))
+			return start, end
+		if token == "last 6 months":
+			start_year, start_month = shift_month(today.year, today.month, -6)
+			start = getdate(f"{start_year}-{start_month:02d}-01")
+			return start, today
+		if token == "last year":
+			return getdate(f"{today.year - 1}-01-01"), getdate(f"{today.year - 1}-12-31")
+		if token == "yesterday":
+			yesterday = add_days(today, -1)
+			return yesterday, yesterday
+		if token == "today":
+			return today, today
+		if token == "tomorrow":
+			tomorrow = add_days(today, 1)
+			return tomorrow, tomorrow
+		if token == "this week":
+			return week_start, add_days(week_start, 6)
+		if token == "this month":
+			return month_start, month_end
+		if token == "this quarter":
+			quarter_start_month = ((today.month - 1) // 3) * 3 + 1
+			quarter_end_month = quarter_start_month + 2
+			start = getdate(f"{today.year}-{quarter_start_month:02d}-01")
+			end = get_last_day(getdate(f"{today.year}-{quarter_end_month:02d}-01"))
+			return start, end
+		if token == "this year":
+			return getdate(f"{today.year}-01-01"), getdate(f"{today.year}-12-31")
+		if token == "next 7 days":
+			return today, add_days(today, 7)
+		if token == "next 14 days":
+			return today, add_days(today, 14)
+		if token == "next 30 days":
+			return today, add_days(today, 30)
+		if token == "next week":
+			return next_week_start, add_days(next_week_start, 6)
+		if token == "next month":
+			year, month = shift_month(today.year, today.month, 1)
+			start = getdate(f"{year}-{month:02d}-01")
+			return start, get_last_day(start)
+		if token == "next quarter":
+			current_quarter = ((today.month - 1) // 3) + 1
+			if current_quarter == 4:
+				year = today.year + 1
+				quarter = 1
+			else:
+				year = today.year
+				quarter = current_quarter + 1
+			start_month = (quarter - 1) * 3 + 1
+			end_month = start_month + 2
+			start = getdate(f"{year}-{start_month:02d}-01")
+			end = get_last_day(getdate(f"{year}-{end_month:02d}-01"))
+			return start, end
+		if token == "next 6 months":
+			return today, add_days(today, 182)
+		if token == "next year":
+			return getdate(f"{today.year + 1}-01-01"), getdate(f"{today.year + 1}-12-31")
+
+		# Unknown token => fallback to today
+		return today, today
+
+	def _normalize_single_filter_operator(self, op, val):
+		"""Normalize UI operators to backend-safe operators/values."""
+		if op == "starts with":
+			return "like", f"{val}%"
+		if op == "ends with":
+			return "like", f"%{val}"
+		return op, val
+
+	def _normalize_filters_for_backend(self, filters):
+		"""Recursively normalize filter operators for get_list/count/exists/qb compatibility."""
+		if isinstance(filters, dict):
+			normalized = {}
+			for key, value in filters.items():
+				if isinstance(value, list) and len(value) == 2 and isinstance(value[0], str):
+					op, val = self._normalize_single_filter_operator(value[0], value[1])
+					normalized[key] = [op, val]
+				else:
+					normalized[key] = self._normalize_filters_for_backend(value)
+			return normalized
+
+		if isinstance(filters, list):
+			normalized_list = []
+			for item in filters:
+				if isinstance(item, list):
+					if len(item) == 4:
+						dt, field, op, val = item
+						op, val = self._normalize_single_filter_operator(op, val)
+						normalized_list.append([dt, field, op, val])
+						continue
+					if len(item) == 3:
+						field, op, val = item
+						op, val = self._normalize_single_filter_operator(op, val)
+						normalized_list.append([field, op, val])
+						continue
+				normalized_list.append(self._normalize_filters_for_backend(item))
+			return normalized_list
+
+		return filters
 
 	def _query_list(self, reference_doctype, config, context, action, ignore_permissions):
 		"""Execute frappe.get_list with configured filters, fields, etc."""
@@ -237,8 +400,10 @@ class QueryRecordsHandler(ActionHandler):
 
 		# Resolve template expressions in filters
 		filters = self._resolve_filters(filters, context)
+		filters = self._normalize_filters_for_backend(filters)
 		if or_filters:
 			or_filters = self._resolve_filters(or_filters, context)
+			or_filters = self._normalize_filters_for_backend(or_filters)
 
 		kwargs = {
 			"doctype": reference_doctype,
@@ -276,6 +441,7 @@ class QueryRecordsHandler(ActionHandler):
 		"""Check if records exist matching filters. Returns boolean."""
 		filters = config.get("filters", {})
 		filters = self._resolve_filters(filters, context)
+		filters = self._normalize_filters_for_backend(filters)
 
 		exists = frappe.db.exists(reference_doctype, filters)
 		return bool(exists)
@@ -288,6 +454,7 @@ class QueryRecordsHandler(ActionHandler):
 
 		report_filters = config.get("filters", {})
 		report_filters = self._resolve_filters(report_filters, context)
+		report_filters = self._normalize_filters_for_backend(report_filters)
 
 		from frappe.desk.query_report import run as run_report
 

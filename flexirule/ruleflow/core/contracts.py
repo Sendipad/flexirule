@@ -192,7 +192,10 @@ ACTION_TYPE_CONTRACT: dict[str, dict[str, Any]] = {
 		"has_next_false": False,
 		"terminal": True,
 		"css": {"icon": "fa fa-exclamation-triangle", "color": "#dc2626"},
-		"field_labels": {"value_template": "Error Message Template"},
+		"field_labels": {
+			"value_template": "Error Message Template",
+			"config": "Error Details (JSON)",
+		},
 	},
 	"Query Records": {
 		"required_fields": ["reference_doctype", "operation"],

@@ -43,6 +43,7 @@ import SubRuleConfig from "./types/SubRuleConfig.vue";
 import WaitConfig from "./types/WaitConfig.vue";
 import SetValueConfig from "./types/SetValueConfig.vue";
 import NotifyConfig from "./types/NotifyConfig.vue";
+import RaiseErrorConfig from "./types/RaiseErrorConfig.vue";
 import QueryRecordsConfig from "./types/QueryRecordsConfig.vue";
 import DocumentActionConfig from "./types/DocumentActionConfig.vue";
 
@@ -65,6 +66,9 @@ const configComponents = {
 	"set value": SetValueConfig,
 	setvalue: SetValueConfig,
 	notify: NotifyConfig,
+	"raise-error": RaiseErrorConfig,
+	"raise error": RaiseErrorConfig,
+	raiseerror: RaiseErrorConfig,
 	query: QueryRecordsConfig,
 	"query-records": QueryRecordsConfig,
 	"query records": QueryRecordsConfig,

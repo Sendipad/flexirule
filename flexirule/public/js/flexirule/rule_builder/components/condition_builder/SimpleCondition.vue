@@ -63,6 +63,16 @@ const operators = computed(() => {
 const valueFieldSchema = computed(() => {
 	if (!selectedField.value) return { fieldtype: "Data" };
 
+	if (
+		["length_eq", "length_gt", "length_gte", "length_lt", "length_lte"].includes(props.node.op)
+	) {
+		return {
+			fieldtype: "Int",
+			label: __("Length"),
+			placeholder: __("e.g. 1"),
+		};
+	}
+
 	// Helper operators
 	if (props.node.op === "has_field") {
 		return {
@@ -255,7 +265,15 @@ const valueTypeOptions = [
 			<!-- Value Group (Type + Value) -->
 			<div
 				class="condition-col value-group-col"
-				v-if="!['is_set', 'is_not_set', 'is_submittable'].includes(node.op)"
+				v-if="
+					![
+						'is_set',
+						'is_not_set',
+						'is_submittable',
+						'is_empty',
+						'is_not_empty',
+					].includes(node.op)
+				"
 			>
 				<select
 					v-model="isMapped"

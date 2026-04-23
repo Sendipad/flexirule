@@ -238,6 +238,9 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		} else if (type === "stop") {
 			baseData.action_type = "Stop";
 			baseData.operation = "Success";
+		} else if (type === "raise-error" || type === "raise error") {
+			baseData.action_type = "Raise Error";
+			baseData.config = { error_type: "Validation Error" };
 		} else if (type === "loop") {
 			baseData.action_type = "Loop";
 			baseData.config = { collection_variable: "", item_variable: "item" };
@@ -953,8 +956,22 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			const actionTypeRaw = normalizeActionType(originalActionType);
 			let type = mapActionTypeToNodeType(actionTypeRaw);
 
-			if (originalActionType === "Raise Error" && !action.operation) {
-				action.operation = "Error";
+			if (originalActionType === "Raise Error" && action.operation === "Error") {
+				let parsedConfig = {};
+				if (action.config && typeof action.config === "string") {
+					try {
+						parsedConfig = JSON.parse(action.config) || {};
+					} catch (e) {
+						parsedConfig = {};
+					}
+				} else if (action.config && typeof action.config === "object") {
+					parsedConfig = { ...action.config };
+				}
+				if (!parsedConfig.error_type) {
+					parsedConfig.error_type = "Validation Error";
+				}
+				action.config = parsedConfig;
+				action.operation = null;
 			}
 
 			const isRoot =

@@ -729,6 +729,27 @@ class RuleEngine:
 			meta = _get_meta(doctype)
 			return bool(meta and fieldname and meta.has_field(fieldname))
 
+		def _length_of(value):
+			if value is None:
+				return 0
+			if isinstance(value, str):
+				return len(value.strip())
+			if isinstance(value, list | tuple | dict | set):
+				return len(value)
+			try:
+				return len(value)
+			except Exception:
+				return 0
+
+		def _is_empty_value(value):
+			if value is None:
+				return True
+			if isinstance(value, str):
+				return value.strip() == ""
+			if isinstance(value, list | tuple | dict | set):
+				return len(value) == 0
+			return False
+
 		return {
 			"doc": doc,
 			"old_doc": context.get("old_doc"),
@@ -744,6 +765,8 @@ class RuleEngine:
 			"get_meta": _get_meta,
 			"resolve": FieldResolver.resolve,
 			"check_link_match": check_link_match,
+			"length_of": _length_of,
+			"is_empty_value": _is_empty_value,
 			"True": True,
 			"False": False,
 			"None": None,

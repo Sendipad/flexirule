@@ -338,4 +338,13 @@ function openConfig() {
 .out-do .port-label {
 	color: #fab005;
 }
+/* RTL Support */
+[dir="rtl"] .node-header {
+	flex-direction: row;
+}
+
+[dir="rtl"] .action-btn {
+	margin-left: 0;
+	margin-right: auto;
+}
 </style>
