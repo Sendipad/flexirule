@@ -1,5 +1,6 @@
 <!-- Used as Autocomplete, Barcode, Color, Currency, Data, Date, Duration, Link, Dynamic Link, Float, Int, Password, Percent, Time, Read Only, HTML Control -->
 <script setup>
+import { ref, onMounted, nextTick, useSlots } from "vue";
 const emit = defineEmits(["update:modelValue"]);
 
 const props = defineProps({

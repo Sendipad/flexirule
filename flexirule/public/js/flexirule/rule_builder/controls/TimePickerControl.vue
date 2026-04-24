@@ -67,7 +67,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from "vue";
+import { computed, nextTick, onMounted, ref } from "vue";
 
 const emit = defineEmits(["update:modelValue"]);
 

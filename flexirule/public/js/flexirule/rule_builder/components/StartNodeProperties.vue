@@ -5,7 +5,8 @@
   not Rule Action fields.
 -->
 <script setup>
-import { useStore } from "../store";
+import { computed, ref, watch } from "vue";
+import { useStore } from "../stores";
 import LinkControl from "../controls/LinkControl.vue";
 
 const props = defineProps({
@@ -19,6 +20,7 @@ const store = useStore();
 
 // Trigger event options from store
 const trigger_event_options = computed(() => store.trigger_event_options || []);
+const trigger_type_options = computed(() => store.trigger_type_options || []);
 const priority_options = Array.from({ length: 21 }, (_, i) => String(i));
 
 const skip_roles = ref([]);
@@ -33,7 +35,19 @@ function update_field(fieldname, value) {
 // Check if conditions are configured
 const has_conditions = computed(() => {
 	const cond = props.nodeData?.trigger_condition;
-	return cond && cond !== "{}" && cond !== "null";
+	if (!cond) return false;
+	if (typeof cond === "string") {
+		return (
+			cond !== "{}" &&
+			cond !== "null" &&
+			cond.trim() !== "" &&
+			cond !== '{"op":"and","conditions":[]}'
+		);
+	}
+	if (typeof cond === "object") {
+		return cond.conditions && cond.conditions.length > 0;
+	}
+	return false;
 });
 
 const rule_status = computed(() => props.nodeData?.status || __("Draft"));
@@ -137,26 +151,51 @@ watch(
 
 <template>
 	<div class="start-node-properties">
-		<!-- Document Type (Read-only) -->
+		<!-- Rule Info -->
+		<div class="form-group">
+			<label class="control-label">{{ __("Rule Name") }}</label>
+			<input class="form-control" type="text" disabled :value="nodeData?.rule_name" />
+		</div>
+
+		<!-- Trigger Type -->
+		<div class="form-group">
+			<label class="control-label">{{ __("Trigger Type") }}</label>
+			<select
+				class="form-control"
+				:value="nodeData?.trigger_type"
+				:disabled="readOnly"
+				@change="update_field('trigger_type', $event.target.value)"
+			>
+				<option v-for="opt in trigger_type_options" :key="opt" :value="opt">
+					{{ __(opt) }}
+				</option>
+			</select>
+		</div>
+
+		<!-- Document Type -->
 		<div class="form-group">
 			<label class="control-label">{{ __("Document Type") }}</label>
-			<input type="text" class="form-control" :value="nodeData?.document_type" readonly />
+			<LinkControl
+				:df="{ fieldtype: 'Link', options: 'DocType', label: '' }"
+				:modelValue="nodeData?.document_type"
+				:read_only="readOnly"
+				:hideLabel="true"
+				@update:modelValue="(val) => update_field('document_type', val)"
+			/>
 		</div>
 
-		<!-- Rule Name / Status -->
-		<div class="form-group">
-			<label class="control-label">{{ __("Rule Status") }}</label>
-			<input type="text" class="form-control" :value="rule_status" readonly />
-		</div>
-
-		<div class="form-group">
-			<label class="control-label">{{ __("Version") }}</label>
-			<input type="text" class="form-control" :value="nodeData?.version" readonly />
-		</div>
-
-		<div class="form-group" v-if="nodeData?.previous_rule">
-			<label class="control-label">{{ __("Previous Rule") }}</label>
-			<input type="text" class="form-control" :value="nodeData?.previous_rule" readonly />
+		<!-- Status & Version -->
+		<div class="form-row">
+			<div class="form-group col-6">
+				<label class="control-label">{{ __("Status") }}</label>
+				<div :class="['status-badge', rule_status.toLowerCase()]">
+					{{ rule_status }}
+				</div>
+			</div>
+			<div class="form-group col-6">
+				<label class="control-label">{{ __("Version") }}</label>
+				<div class="version-badge">v{{ nodeData?.version || 1 }}</div>
+			</div>
 		</div>
 
 		<!-- Trigger Event -->

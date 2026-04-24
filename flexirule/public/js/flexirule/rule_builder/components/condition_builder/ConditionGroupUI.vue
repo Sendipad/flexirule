@@ -1,4 +1,5 @@
 <script setup>
+import { inject } from "vue";
 /**
  * ConditionGroupUI - Nested group editor with AND/OR toggle
  */

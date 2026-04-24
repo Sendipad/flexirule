@@ -1,17 +1,3 @@
-import {
-	ref,
-	computed,
-	watch,
-	reactive,
-	onMounted,
-	onUnmounted,
-	onBeforeUnmount,
-	watchEffect,
-	nextTick,
-	provide,
-	inject,
-	useSlots,
-} from "vue";
 import LinkControl from "./controls/LinkControl.vue";
 import DataControl from "./controls/DataControl.vue";
 import SelectControl from "./controls/SelectControl.vue";
@@ -40,32 +26,6 @@ export function registerGlobalComponents(app) {
 		.component("MultiFieldPickerControl", MultiFieldPickerControl)
 		.component("MultiSelectControl", MultiSelectControl)
 		.component("PercentSliderControl", PercentSliderControl);
-}
 
-export function registerVueGlobals(app) {
-	const globals = {
-		ref,
-		computed,
-		watch,
-		reactive,
-		onMounted,
-		onUnmounted,
-		onBeforeUnmount,
-		watchEffect,
-		nextTick,
-		provide,
-		inject,
-		useSlots,
-		__: window.__ || ((s) => s),
-	};
-
-	// Expose to window for script setup availability without imports
-	Object.keys(globals).forEach((key) => {
-		window[key] = globals[key];
-	});
-
-	// Expose to app for templates
-	Object.keys(globals).forEach((key) => {
-		app.config.globalProperties[key] = globals[key];
-	});
+	app.config.globalProperties.__ = window.__ || ((s) => s);
 }

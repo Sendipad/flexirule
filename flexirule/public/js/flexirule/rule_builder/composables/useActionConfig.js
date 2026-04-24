@@ -1,5 +1,5 @@
 import { reactive, ref, computed, watch, onMounted } from "vue";
-import { useStore } from "../store";
+import { useStore } from "../stores";
 
 export function useActionConfig(props) {
 	const store = useStore();

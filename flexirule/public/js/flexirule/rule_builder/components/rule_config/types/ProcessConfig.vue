@@ -56,7 +56,7 @@
 import { onMounted, ref, reactive, watch, computed } from "vue";
 import ProcessEngine from "../engines/ProcessEngine.js";
 import SchemaRenderer from "../SchemaRenderer.vue";
-import { useStore } from "../../../store";
+import { useStore } from "../../../stores";
 import TransformControl from "../../../controls/TransformControl.vue";
 
 const props = defineProps({

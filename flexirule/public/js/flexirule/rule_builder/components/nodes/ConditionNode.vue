@@ -1,6 +1,6 @@
 <script setup>
 import { Handle, Position } from "@vue-flow/core";
-import { useStore } from "../../store";
+import { useStore } from "../../stores";
 import { getContract } from "../../../core/contracts";
 import { computed } from "vue";
 

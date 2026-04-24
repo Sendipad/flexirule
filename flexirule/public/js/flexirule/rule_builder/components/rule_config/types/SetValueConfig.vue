@@ -46,7 +46,7 @@
 </template>
 
 <script setup>
-import { watch } from "vue";
+import { computed, watch } from "vue";
 import { useActionConfig } from "../../../composables/useActionConfig";
 import FieldPickerControl from "../../../controls/FieldPickerControl.vue";
 import TextGeneratorControl from "../../../controls/TextGeneratorControl.vue";

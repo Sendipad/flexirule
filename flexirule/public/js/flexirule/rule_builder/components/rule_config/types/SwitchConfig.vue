@@ -11,7 +11,7 @@
 
 <script setup>
 import { computed } from "vue";
-import { useStore } from "../../../store";
+import { useStore } from "../../../stores";
 import SwitchNodeConfig from "../../node_configs/SwitchNodeConfig.vue";
 
 const props = defineProps({

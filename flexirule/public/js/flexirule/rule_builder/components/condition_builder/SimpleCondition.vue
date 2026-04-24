@@ -3,7 +3,6 @@
  * SimpleCondition - Leaf condition editor (left op right)
  * Uses backend-driven operator configuration
  */
-import { useStore } from "../../store";
 import ControlFactory from "../../controls/ControlFactory.vue";
 import SelectControl from "../../controls/SelectControl.vue";
 import FieldPickerControl from "../../controls/FieldPickerControl.vue";

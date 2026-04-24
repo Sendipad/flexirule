@@ -1382,6 +1382,85 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		return newNodes;
 	}
 
+	function hasOutgoingEdge(nodeId) {
+		return (edges.value || []).some((edge) => edge.source === nodeId);
+	}
+
+	function getAutoConnectSource(selectedId) {
+		const selectedNode = (nodes.value || []).find((node) => node.id === selectedId);
+		const selectedActionType = selectedNode?.data?.action_type || selectedNode?.type;
+		if (
+			selectedNode &&
+			selectedNode.type !== "selector" &&
+			selectedNode.type !== "condition" &&
+			!isTerminalAction(selectedActionType) &&
+			!hasOutgoingEdge(selectedNode.id)
+		) {
+			return selectedNode;
+		}
+
+		const startNode = (nodes.value || []).find(
+			(node) => node.id === "start" || node.type === "start"
+		);
+		if (startNode && !hasOutgoingEdge(startNode.id)) {
+			return startNode;
+		}
+
+		return null;
+	}
+
+	function autoConnectNode(nodeId, parentNode = null, selectedId = null) {
+		const sourceNode = parentNode || getAutoConnectSource(selectedId);
+		if (!sourceNode) return;
+
+		const sourceHandle = sourceNode.type === "condition" ? null : "default";
+		const edgeId = `e-${sourceNode.id}-${nodeId}-${sourceHandle || "default"}`;
+		const exists = (edges.value || []).some(
+			(edge) =>
+				edge.source === sourceNode.id &&
+				edge.target === nodeId &&
+				(edge.sourceHandle || "default") === (sourceHandle || "default")
+		);
+		if (exists) return;
+
+		edges.value = [
+			...edges.value,
+			{
+				id: edgeId,
+				source: sourceNode.id,
+				target: nodeId,
+				sourceHandle: sourceHandle || "default",
+				type: "add",
+				animated: sourceNode.type === "start",
+			},
+		];
+	}
+
+	function autoConnectStartNode() {
+		const startNode = (nodes.value || []).find(
+			(el) => el.id === "start" || el.type === "start"
+		);
+		if (!startNode) return;
+
+		// Check if start node has any outgoing edges
+		const hasStartEdge = (edges.value || []).some((el) => el.source === startNode.id);
+		if (hasStartEdge) return;
+
+		const firstNode = (nodes.value || []).find(
+			(el) => el.type !== "start" && el.data?.is_enabled !== 0
+		);
+		if (firstNode) {
+			edges.value.push({
+				id: `e-${startNode.id}-${firstNode.id}`,
+				source: startNode.id,
+				target: firstNode.id,
+				sourceHandle: "default",
+				type: "add",
+				animated: true,
+			});
+		}
+	}
+
 	return {
 		// State
 		nodes,
@@ -1420,5 +1499,11 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		normalize_action_data,
 		clean_graph_data,
 		clean_action_config,
+
+		// Auto-connection
+		hasOutgoingEdge,
+		getAutoConnectSource,
+		autoConnectNode,
+		autoConnectStartNode,
 	};
 });

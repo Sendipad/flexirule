@@ -1,12 +1,17 @@
 <script setup>
+import { computed } from "vue";
 import { Handle, Position } from "@vue-flow/core";
-import { useStore } from "../../store";
+import { useRuleStore, useGraphStore, useUIStore } from "../../stores";
 import { getContract } from "../../../core/contracts";
 
 const props = defineProps(["data", "label", "id", "selected", "sourcePosition", "targetPosition"]);
-const store = useStore();
+const ruleStore = useRuleStore();
+const graphStore = useGraphStore();
+const uiStore = useUIStore();
+// Legacy
+const store = uiStore;
 
-const isHorizontal = computed(() => store.settings?.layout_direction !== "Top to Bottom");
+const isHorizontal = computed(() => ruleStore.settings?.layout_direction !== "Top to Bottom");
 
 const targetPos = computed(
 	() => props.targetPosition || (isHorizontal.value ? Position.Left : Position.Top)
@@ -16,10 +21,10 @@ const sourcePos = computed(
 );
 
 const isEffectiveDisabled = computed(() => {
-	return store.effectiveDisabledIds?.has(props.id);
+	return graphStore.effectiveDisabledIds?.has(props.id);
 });
 
-const isReadOnly = computed(() => store.is_read_only);
+const isReadOnly = computed(() => ruleStore.is_read_only);
 
 const nodeMeta = computed(() => {
 	const actionType = props.data?.action_type || "Process";
@@ -34,7 +39,7 @@ const nodeMeta = computed(() => {
 });
 
 const testResult = computed(() => {
-	const path = store.test_execution_path || [];
+	const path = ruleStore.test_execution_path || [];
 	return path.find((entry) => entry.action_id === props.id);
 });
 
@@ -64,11 +69,11 @@ const isConfigured = computed(() => {
 });
 
 function deleteNode() {
-	frappe.confirm(__("Delete this node?"), () => store.delete_node(props.id));
+	frappe.confirm(__("Delete this node?"), () => graphStore.delete_node(props.id));
 }
 
 function openConfig() {
-	store.open_config(props.id);
+	ruleStore.open_config(props.id);
 }
 
 const hasDetails = computed(() => {
@@ -94,7 +99,7 @@ const hasDetails = computed(() => {
 	>
 		<!-- Execution Badge -->
 		<div v-if="testResult" class="execution-badge" :title="__('Visit Order')">
-			{{ store.test_execution_path.indexOf(testResult) + 1 }}
+			{{ ruleStore.test_execution_path.indexOf(testResult) + 1 }}
 		</div>
 		<Handle type="target" :position="targetPos" class="handle-target" />
 

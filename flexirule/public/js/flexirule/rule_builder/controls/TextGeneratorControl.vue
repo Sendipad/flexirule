@@ -433,7 +433,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from "vue";
+import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { EditorContent, Editor } from "@tiptap/vue-3";
 import StarterKit from "@tiptap/starter-kit";
 import Mention from "@tiptap/extension-mention";
@@ -789,7 +789,6 @@ watch(
 );
 
 // Cleanup editors on unmount
-import { onBeforeUnmount } from "vue";
 onBeforeUnmount(() => {
 	for (const ed of editorInstances.values()) {
 		ed.destroy();

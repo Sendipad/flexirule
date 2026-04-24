@@ -33,7 +33,7 @@
 
 <script setup>
 import { computed, ref } from "vue";
-import { useStore } from "../../store";
+import { useStore } from "../../stores";
 import { mapActionTypeToNodeType } from "../../composables/useActionTypeMapper";
 import ProcessConfig from "./types/ProcessConfig.vue";
 import ConditionConfig from "./types/ConditionConfig.vue";

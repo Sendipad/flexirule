@@ -52,6 +52,7 @@
 </template>
 
 <script setup>
+import { ref, watch } from "vue";
 import ContextPicker from "./ContextPicker.vue";
 
 const props = defineProps({

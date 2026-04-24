@@ -36,6 +36,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 	const processes = ref([]);
 	const available_rules = ref([]);
 	const trigger_event_options = ref([]);
+	const trigger_type_options = ref([]);
 
 	// ── Derived ──
 	const is_active = computed(() => rule_doc.value?.is_active === 1);
@@ -120,6 +121,10 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 				if (trigger_field && trigger_field.options) {
 					trigger_event_options.value = trigger_field.options.split("\n");
 				}
+				const type_field = meta.fields.find((f) => f.fieldname === "trigger_type");
+				if (type_field && type_field.options) {
+					trigger_type_options.value = type_field.options.split("\n");
+				}
 			}
 		}
 
@@ -133,19 +138,14 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		const visual_data = flexirule.utils.safe_json_parse(rule_doc.value.visual_data, null);
 
 		// Build graph from actions (mirrors workflow_builder: get_workflow_elements)
-		if (rule_doc.value.actions && rule_doc.value.actions.length > 0) {
-			graphStore.sync_actions_to_graph(rule_doc.value);
+		graphStore.sync_actions_to_graph(rule_doc.value);
 
-			if (visual_data && visual_data.length > 0) {
-				graphStore.merge_visual_layout(visual_data);
-			}
-		} else {
-			if (visual_data && visual_data.length > 0) {
-				graphStore.nodes = visual_data.filter((el) => el.position);
-				graphStore.edges = visual_data.filter((el) => el.source);
-			} else {
-				graphStore.initialize_default_graph(rule_doc.value);
-			}
+		if (visual_data && visual_data.length > 0) {
+			graphStore.merge_visual_layout(visual_data);
+		}
+
+		if (!graphStore.nodes.length) {
+			graphStore.initialize_default_graph(rule_doc.value);
 		}
 
 		graphStore.normalize_graph_nodes();
@@ -643,6 +643,29 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		return JSON.stringify(graphStore.getStateSnapshot()) !== initial_state.value;
 	}
 
+	// ── UI Helpers (Delegated to UI Store) ──
+	function open_config(nodeId) {
+		const uiStore = useUIStore();
+		uiStore.select(nodeId);
+		if (settings.value?.action_config_mode === "Dialog") {
+			uiStore.open_config_modal();
+		} else {
+			uiStore.show_sidebar = true;
+		}
+	}
+
+	function next_config_node() {
+		const uiStore = useUIStore();
+		const graphStore = useGraphStore();
+		uiStore.navigate_node(graphStore.nodes, 1);
+	}
+
+	function prev_config_node() {
+		const uiStore = useUIStore();
+		const graphStore = useGraphStore();
+		uiStore.navigate_node(graphStore.nodes, -1);
+	}
+
 	// ── Undo/Redo coordination ──
 	function undo() {
 		if (is_read_only.value) return;
@@ -780,6 +803,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		processes,
 		available_rules,
 		trigger_event_options,
+		trigger_type_options,
 		nodes,
 		edges,
 
@@ -815,5 +839,10 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		get_process_operations,
 		get_operation_config_fields,
 		fetch_available_rules,
+
+		// UI/Legacy
+		open_config,
+		next_config_node,
+		prev_config_node,
 	};
 });

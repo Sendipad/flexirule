@@ -1,8 +1,8 @@
 <script setup>
 import { Handle, Position } from "@vue-flow/core";
 
-import { useStore } from "../../store";
 import { computed } from "vue";
+import { useStore } from "../../stores";
 
 const props = defineProps(["data", "label", "sourcePosition", "targetPosition"]);
 const store = useStore();

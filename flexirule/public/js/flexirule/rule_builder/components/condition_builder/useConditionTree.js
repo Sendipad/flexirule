@@ -1,3 +1,4 @@
+import { ref, watch } from "vue";
 /**
  * useConditionTree - Logic for managing condition group state
  */

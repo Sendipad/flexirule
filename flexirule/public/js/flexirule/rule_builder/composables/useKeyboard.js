@@ -9,7 +9,7 @@
  *   onMounted(() => registerShortcuts(handlers))
  *   onUnmounted(() => unregisterShortcuts())
  */
-import { onUnmounted } from "vue";
+import { onMounted, onUnmounted } from "vue";
 
 /**
  * Default keyboard shortcut bindings.

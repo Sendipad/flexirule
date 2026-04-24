@@ -32,7 +32,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted } from "vue";
-import { useStore } from "../../../store";
+import { useStore } from "../../../stores";
 import ConditionBuilder from "../../condition_builder/ConditionBuilder.vue";
 import { validateConditions } from "../../condition_builder/condition_validator.js";
 import { getConditionPayload } from "../../../utils/condition_payload";

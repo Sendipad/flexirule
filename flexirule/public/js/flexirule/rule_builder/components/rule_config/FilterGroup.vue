@@ -533,7 +533,7 @@ import FieldPickerControl from "../../controls/FieldPickerControl.vue";
 import AutocompleteControl from "../../controls/AutocompleteControl.vue";
 import LinkControl from "../../controls/LinkControl.vue";
 import ControlFactory from "../../controls/ControlFactory.vue";
-import { useStore } from "../../store";
+import { useStore } from "../../stores";
 
 const props = defineProps({
 	modelValue: {

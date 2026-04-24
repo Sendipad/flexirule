@@ -81,6 +81,7 @@ export const useUIStore = defineStore("rule-builder-ui", () => {
 		use_modern_layout,
 		test_execution_path,
 		test_context,
+		local_clipboard,
 
 		// Computed
 		has_selection,

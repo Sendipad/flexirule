@@ -1,4 +1,5 @@
 <script setup>
+import { computed, ref, watch } from "vue";
 /**
  * MultiFieldPickerControl - Select multiple DocType fields
  * Returns array of field names

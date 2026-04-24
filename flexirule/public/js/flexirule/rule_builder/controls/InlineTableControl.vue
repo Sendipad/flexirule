@@ -1,4 +1,5 @@
 <script setup>
+import { computed, ref, watch } from "vue";
 /**
  * InlineTableControl - Repeatable rows with columns
  * Supports per-field hooks: get_options, onchange

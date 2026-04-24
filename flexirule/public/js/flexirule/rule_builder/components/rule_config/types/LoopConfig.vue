@@ -7,7 +7,7 @@
 </template>
 
 <script setup>
-import { useStore } from "../../../store";
+import { useStore } from "../../../stores";
 import LoopNodeConfig from "../../node_configs/LoopNodeConfig.vue";
 import ConditionStep from "./ConditionStep.vue";
 

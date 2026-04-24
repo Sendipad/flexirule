@@ -1,4 +1,5 @@
 <script setup>
+import { computed } from "vue";
 /**
  * PercentSliderControl - Slider input for 0-100 values
  */

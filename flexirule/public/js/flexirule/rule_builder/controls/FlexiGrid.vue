@@ -94,6 +94,7 @@
 	</div>
 </template>
 <script setup>
+import { computed, reactive, ref, watch } from "vue";
 import ControlFactory from "./ControlFactory.vue";
 import { useFieldNormalization } from "../composables/useFieldNormalization";
 

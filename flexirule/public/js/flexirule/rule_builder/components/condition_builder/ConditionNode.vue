@@ -1,4 +1,5 @@
 <script setup>
+import { inject } from "vue";
 /**
  * ConditionNode - Routes to correct component based on node type
  */

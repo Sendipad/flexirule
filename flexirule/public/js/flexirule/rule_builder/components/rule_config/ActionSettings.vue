@@ -176,7 +176,7 @@
 
 <script setup>
 import { computed } from "vue";
-import { useStore } from "../../store";
+import { useStore } from "../../stores";
 import ControlFactory from "../../controls/ControlFactory.vue";
 import AutocompleteControl from "../../controls/AutocompleteControl.vue";
 import { getContract } from "../../../core/contracts.js";

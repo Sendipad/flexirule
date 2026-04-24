@@ -77,8 +77,8 @@
  * ConditionBuilder - Main container for condition editing
  * Owns the root condition group state and provides methods via inject
  */
-import { reactive, watch, nextTick, provide, computed, onMounted } from "vue";
-import { useStore } from "../../store";
+import { ref, reactive, watch, nextTick, provide, computed, onMounted } from "vue";
+import { useRuleStore } from "../../stores/useRuleStore";
 
 import ConditionNode from "./ConditionNode.vue";
 
@@ -90,7 +90,7 @@ const props = defineProps({
 
 const emit = defineEmits(["update:modelValue"]);
 
-const store = useStore();
+const ruleStore = useRuleStore();
 
 // Create a reactive copy of the model
 const rootGroup = reactive(JSON.parse(JSON.stringify(props.modelValue)));
@@ -200,7 +200,7 @@ provide(
 	computed(() => props.docFields)
 );
 provide("operatorConfig", operatorConfig);
-provide("store", store);
+provide("store", ruleStore);
 provide(
 	"readOnly",
 	computed(() => props.readOnly)

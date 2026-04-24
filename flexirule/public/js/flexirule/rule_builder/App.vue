@@ -6,8 +6,8 @@
 				<VueFlow
 					:dir="isRTL ? 'rtl' : 'ltr'"
 					:edges-editable="false"
-					v-model:nodes="store.nodes"
-					v-model:edges="store.edges"
+					v-model:nodes="graphStore.nodes"
+					v-model:edges="graphStore.edges"
 					:default-viewport="{ zoom: 1 }"
 					:min-zoom="0.2"
 					:max-zoom="2"
@@ -99,7 +99,7 @@
 								@click="
 									() =>
 										layoutGraph(
-											store.settings?.layout_direction === 'Top to Bottom'
+											ruleStore.settings?.layout_direction === 'Top to Bottom'
 												? 'TB'
 												: 'LR'
 										)
@@ -137,13 +137,13 @@
 						<button
 							v-if="!isReadOnly"
 							class="btn btn-sm btn-primary btn-activate"
-							@click="store.activate_rule"
-							:disabled="store.is_loading"
+							@click="ruleStore.activate_rule"
+							:disabled="ruleStore.is_loading"
 						>
 							<i
 								:class="[
 									'fa',
-									store.is_loading ? 'fa-spinner fa-spin' : 'fa-rocket',
+									ruleStore.is_loading ? 'fa-spinner fa-spin' : 'fa-rocket',
 								]"
 							></i>
 							{{ __("Set to Active") }}
@@ -151,13 +151,13 @@
 						<button
 							v-else
 							class="btn btn-sm btn-outline-warning btn-unlock"
-							@click="store.deactivate_rule"
-							:disabled="store.is_loading"
+							@click="ruleStore.deactivate_rule"
+							:disabled="ruleStore.is_loading"
 						>
 							<i
 								:class="[
 									'fa',
-									store.is_loading ? 'fa-spinner fa-spin' : 'fa-unlock',
+									ruleStore.is_loading ? 'fa-spinner fa-spin' : 'fa-unlock',
 								]"
 							></i>
 							{{ __("Unlock for Editing") }}
@@ -176,21 +176,26 @@
 			</div>
 		</div>
 		<RuleConfigModal
-			v-if="store.show_config_modal"
-			v-model="store.show_config_modal"
-			:node="store.nodes.find((n) => n.id === store.selected_id)"
-			@save="store.mark_dirty()"
+			v-if="uiStore.show_config_modal"
+			v-model="uiStore.show_config_modal"
+			:node="graphStore.nodes.find((n) => n.id === uiStore.selected_id)"
+			@save="ruleStore.mark_dirty()"
 		/>
 	</div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch, nextTick } from "vue";
-import { VueFlow, Panel, PanelPosition } from "@vue-flow/core";
-import { useVueFlow } from "@vue-flow/core";
+import { ref, computed, onMounted, onUnmounted, watch, nextTick, provide } from "vue";
+import { VueFlow, Panel, PanelPosition, useVueFlow } from "@vue-flow/core";
 import { Background } from "@vue-flow/background";
-import { useStore } from "./store";
+
+import { useRuleStore } from "./stores/useRuleStore";
+import { useGraphStore } from "./stores/useGraphStore";
+import { useUIStore } from "./stores/useUIStore";
+import { useMetaStore } from "./stores/useMetaStore";
+
 import { useRuleGraph } from "./composables/useRuleGraph";
+import { useClipboard } from "./composables/useClipboard";
 import { isTerminalAction } from "../core/contracts";
 import { mapActionTypeToNodeType } from "./composables/useActionTypeMapper";
 
@@ -213,19 +218,29 @@ const edgeTypes = {
 };
 
 const props = defineProps({ rule: String });
-const store = useStore();
-const { zoomIn, zoomOut, removeEdges, getSelectedNodes, getSelectedEdges, project } = useVueFlow();
-const { layoutGraph } = useRuleGraph();
-let vfInstance = null;
 
+const ruleStore = useRuleStore();
+const graphStore = useGraphStore();
+const uiStore = useUIStore();
+const metaStore = useMetaStore();
+
+const { zoomIn, zoomOut, removeEdges, fitView } = useVueFlow();
+const { layoutGraph } = useRuleGraph();
+const { copySelectedToClipboard, pasteFromClipboard } = useClipboard();
+
+const flowWrapper = ref(null);
+const mousePos = ref({ x: 0, y: 0 });
 const showDisabledNodes = ref(true);
 
-// Watch for changes in showDisabledNodes or store.nodes to update 'hidden' flag
+function updateMousePos(e) {
+	mousePos.value = { x: e.clientX, y: e.clientY };
+}
+
 watch(
-	[showDisabledNodes, () => store.nodes],
+	[showDisabledNodes, () => graphStore.nodes],
 	() => {
 		const showAll = showDisabledNodes.value;
-		store.nodes.forEach((node) => {
+		graphStore.nodes.forEach((node) => {
 			if (node.type === "start") {
 				node.hidden = false;
 				return;
@@ -239,7 +254,7 @@ watch(
 
 // Watch for layout direction or nodes changes to re-layout the graph
 watch(
-	[() => store.settings?.layout_direction, () => store.nodes.length],
+	[() => ruleStore.settings?.layout_direction, () => graphStore.nodes.length],
 	([newDir, nodeCount], [oldDir, oldNodeCount]) => {
 		if (newDir && nodeCount > 0) {
 			// Only auto-layout if direction changed OR if it's the first time nodes are loaded
@@ -255,36 +270,36 @@ watch(
 );
 
 const showSidebar = computed(() => {
-	if (store.settings?.action_config_mode === "Dialog") return false;
-	return store.show_sidebar && store.selected_id !== null;
+	if (ruleStore.settings?.action_config_mode === "Dialog") return false;
+	return uiStore.show_sidebar && uiStore.selected_id !== null;
 });
-const sidebarOrder = computed(() => (store.settings?.sidebar_position === "Right" ? 2 : 0));
+const sidebarOrder = computed(() => (ruleStore.settings?.sidebar_position === "Right" ? 2 : 0));
 const isRTL = computed(() => {
 	const dir = document.documentElement.getAttribute("dir") || document.body.getAttribute("dir");
 	if (dir === "rtl") return true;
 	return window.frappe?.utils?.is_rtl() ? true : false;
 });
-const isReadOnly = computed(() => store.is_read_only);
+const isReadOnly = computed(() => ruleStore.is_read_only);
 
 function closeSidebar() {
-	store.selected_id = null;
-	store.show_sidebar = false;
+	uiStore.selected_id = null;
+	uiStore.show_sidebar = false;
 }
 
 function onPaneReady(instance) {
-	vfInstance = instance;
 	instance.fitView();
 }
 
 onMounted(async () => {
-	if (props.rule) store.rule_name = props.rule;
-	await store.fetch();
-	autoConnectStartNode();
+	if (props.rule) ruleStore.rule_name = props.rule;
+	await ruleStore.fetch();
+	graphStore.autoConnectStartNode();
 	window.addEventListener("keydown", handleKeydown);
+	window.addEventListener("mousemove", updateMousePos);
 
 	setTimeout(() => {
-		if (store.nodes.length > 0) {
-			const dir = store.settings?.layout_direction === "Top to Bottom" ? "TB" : "LR";
+		if (graphStore.nodes.length > 0) {
+			const dir = ruleStore.settings?.layout_direction === "Top to Bottom" ? "TB" : "LR";
 			layoutGraph(dir);
 		}
 	}, 100);
@@ -292,154 +307,11 @@ onMounted(async () => {
 
 onUnmounted(() => {
 	window.removeEventListener("keydown", handleKeydown);
+	window.removeEventListener("mousemove", updateMousePos);
 });
 
-async function copySelectedToClipboard() {
-	const selectedNodes = getSelectedNodes.value;
-	if (!selectedNodes.length) return;
-
-	// Don't allow copying start node
-	const filterNodes = selectedNodes.filter((n) => n.id !== "start" && n.type !== "start");
-	if (!filterNodes.length) {
-		frappe.show_alert({ message: __("Start node cannot be copied"), indicator: "orange" }, 2);
-		return;
-	}
-
-	const selectedEdges = getSelectedEdges.value;
-
-	// Map to clean objects to avoid circular references and VueFlow internal state
-	const payload = {
-		type: "flexirule-clipboard",
-		version: 1,
-		nodes: filterNodes.map((n) => {
-			const nodeData = JSON.parse(JSON.stringify(n.data || {}));
-			// Sync condition_json for Condition nodes if missing
-			if (
-				nodeData.action_type === "Condition" &&
-				!nodeData.condition_json &&
-				nodeData.config
-			) {
-				nodeData.condition_json = JSON.stringify(nodeData.config);
-			}
-			return {
-				id: n.id,
-				type: n.type,
-				position: { ...n.position },
-				label: n.label,
-				data: nodeData,
-			};
-		}),
-		edges: selectedEdges.map((e) => ({
-			id: e.id,
-			source: e.source,
-			target: e.target,
-			sourceHandle: e.sourceHandle,
-		})),
-	};
-
-	const payloadStr = JSON.stringify(payload);
-	store.local_clipboard = payloadStr;
-	localStorage.setItem("flexirule-clipboard", payloadStr); // Cross-tab fallback
-
-	try {
-		// Try modern clipboard API first
-		if (navigator?.clipboard && window.isSecureContext) {
-			await navigator.clipboard.writeText(payloadStr);
-			frappe.show_alert({ message: __("Nodes copied to clipboard"), indicator: "blue" }, 2);
-		} else {
-			throw new Error("Clipboard API unavailable");
-		}
-	} catch (e) {
-		// Fallback for insecure contexts or API failure
-		const textArea = document.createElement("textarea");
-		textArea.value = payloadStr;
-		textArea.style.position = "fixed";
-		textArea.style.left = "-9999px";
-		textArea.style.top = "0";
-		document.body.appendChild(textArea);
-		textArea.focus();
-		textArea.select();
-
-		try {
-			const successful = document.execCommand("copy");
-			if (successful) {
-				frappe.show_alert(
-					{
-						message: __("Nodes copied to clipboard (system fallback)"),
-						indicator: "blue",
-					},
-					2
-				);
-			} else {
-				throw new Error("execCommand copy failed");
-			}
-		} catch (err) {
-			console.warn("FlexiRule: All clipboard copy methods failed", err);
-			frappe.show_alert(
-				{
-					message: __("Nodes copied to local session only (cross-browser copy failed)"),
-					indicator: "orange",
-				},
-				3
-			);
-		}
-		document.body.removeChild(textArea);
-	}
-}
-
-async function pasteFromClipboard() {
-	if (isReadOnly.value) return;
-
-	let payload = null;
-
-	// 1. Try system clipboard
-	try {
-		if (navigator?.clipboard && window.isSecureContext) {
-			const text = await navigator.clipboard.readText();
-			const parsed = JSON.parse(text);
-			if (parsed.type === "flexirule-clipboard") {
-				payload = parsed;
-			}
-		}
-	} catch (e) {
-		console.warn("FlexiRule: System clipboard read failed, trying local fallback", e);
-	}
-
-	// 2. Fallback to local clipboard (Pinia or localStorage for cross-tab)
-	if (!payload) {
-		try {
-			const local = localStorage.getItem("flexirule-clipboard") || store.local_clipboard;
-			if (local) {
-				const parsed = JSON.parse(local);
-				if (parsed.type === "flexirule-clipboard") {
-					payload = parsed;
-				}
-			}
-		} catch (e) {
-			console.error("FlexiRule: Local clipboard fallback failed", e);
-		}
-	}
-
-	if (!payload) {
-		frappe.show_alert({ message: __("Clipboard is empty or invalid"), indicator: "orange" }, 3);
-		return;
-	}
-
-	// Calculate paste position: mouse position in flow coordinates
-	// Fallback to center if mouse is outside canvas
-	const bounds = flowWrapper.value.getBoundingClientRect();
-	const flowX = mousePos.value.x - bounds.left;
-	const flowY = mousePos.value.y - bounds.top;
-
-	const position = project({ x: flowX, y: flowY });
-
-	const newNodes = store.pasteNodes(payload.nodes, payload.edges, position);
-
-	if (newNodes.length) {
-		// Select the first pasted node
-		store.selected_id = newNodes[0].id;
-		frappe.show_alert({ message: __("Nodes pasted"), indicator: "green" }, 2);
-	}
+async function pasteFromClipboardWrapper() {
+	await pasteFromClipboard(mousePos.value, flowWrapper.value);
 }
 
 function handleKeydown(e) {
@@ -449,17 +321,17 @@ function handleKeydown(e) {
 	// Save: Ctrl+S
 	if ((e.ctrlKey || e.metaKey) && e.key === "s") {
 		e.preventDefault();
-		store.save_changes();
+		ruleStore.save_changes();
 	}
 	// Undo: Ctrl+Z
 	if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
 		e.preventDefault();
-		if (store.can_undo()) store.undo();
+		if (ruleStore.can_undo()) ruleStore.undo();
 	}
 	// Redo: Ctrl+Y or Ctrl+Shift+Z
 	if ((e.ctrlKey || e.metaKey) && (e.key === "y" || (e.key === "z" && e.shiftKey))) {
 		e.preventDefault();
-		if (store.can_redo()) store.redo();
+		if (ruleStore.can_redo()) ruleStore.redo();
 	}
 	// Copy: Ctrl+C
 	if ((e.ctrlKey || e.metaKey) && e.key === "c") {
@@ -468,78 +340,28 @@ function handleKeydown(e) {
 	}
 	// Paste: Ctrl+V
 	if ((e.ctrlKey || e.metaKey) && e.key === "v") {
-		pasteFromClipboard();
+		pasteFromClipboardWrapper();
 	}
-}
-
-function hasOutgoingEdge(nodeId) {
-	return (store.edges || []).some((edge) => edge.source === nodeId);
-}
-
-function getAutoConnectSource() {
-	const selectedNode = (store.nodes || []).find((node) => node.id === store.selected_id);
-	const selectedActionType = selectedNode?.data?.action_type || selectedNode?.type;
-	if (
-		selectedNode &&
-		selectedNode.type !== "selector" &&
-		selectedNode.type !== "condition" &&
-		!isTerminalAction(selectedActionType) &&
-		!hasOutgoingEdge(selectedNode.id)
-	) {
-		return selectedNode;
-	}
-
-	const startNode = (store.nodes || []).find(
-		(node) => node.id === "start" || node.type === "start"
-	);
-	if (startNode && !hasOutgoingEdge(startNode.id)) {
-		return startNode;
-	}
-
-	return null;
-}
-
-function autoConnectNode(nodeId, parentNode = null) {
-	const sourceNode = parentNode || getAutoConnectSource();
-	if (!sourceNode) return;
-
-	const sourceHandle = sourceNode.type === "condition" ? null : "default";
-	const edgeId = `e-${sourceNode.id}-${nodeId}-${sourceHandle || "default"}`;
-	const exists = (store.edges || []).some(
-		(edge) =>
-			edge.source === sourceNode.id &&
-			edge.target === nodeId &&
-			(edge.sourceHandle || "default") === (sourceHandle || "default")
-	);
-	if (exists) return;
-
-	store.edges = [
-		...store.edges,
-		{
-			id: edgeId,
-			source: sourceNode.id,
-			target: nodeId,
-			sourceHandle: sourceHandle || "default",
-			type: "add",
-			animated: sourceNode.type === "start",
-		},
-	];
 }
 
 function insertNodeOnEdge(payload) {
 	if (payload.isPaste) {
 		let clipboard = null;
 		try {
-			const local = localStorage.getItem("flexirule-clipboard") || store.local_clipboard;
+			const local = localStorage.getItem("flexirule-clipboard") || uiStore.local_clipboard;
 			if (local) clipboard = JSON.parse(local);
 		} catch (e) {
 			console.error("Paste on edge failed:", e);
 		}
 
 		if (clipboard && clipboard.nodes?.length) {
-			const newNodeId = store.paste_on_edge(payload.edgeId, clipboard.nodes, clipboard.edges);
+			const newNodeId = graphStore.paste_on_edge(
+				payload.edgeId,
+				clipboard.nodes,
+				clipboard.edges
+			);
 			if (newNodeId) {
-				const dir = store.settings?.layout_direction === "Left to Right" ? "LR" : "TB";
+				const dir = ruleStore.settings?.layout_direction === "Left to Right" ? "LR" : "TB";
 				setTimeout(() => layoutGraph(dir), 50);
 				frappe.show_alert({ message: __("Nodes pasted on edge"), indicator: "green" }, 2);
 			}
@@ -547,67 +369,46 @@ function insertNodeOnEdge(payload) {
 		return;
 	}
 
-	const newNodeId = store.insert_node_on_edge(
+	const newNodeId = graphStore.insert_node_on_edge(
 		payload.edgeId,
 		payload.actionType || "selector",
 		payload
 	);
 	if (newNodeId) {
-		const dir = store.settings?.layout_direction === "Top to Bottom" ? "TB" : "LR";
+		const dir = ruleStore.settings?.layout_direction === "Top to Bottom" ? "TB" : "LR";
 		setTimeout(() => {
 			layoutGraph(dir);
 			// Auto-open config for nodes that require immediate configuration
 			const NEEDS_CONFIG_NOW = ["Condition", "Loop", "Switch"];
-			const insertedNode = store.nodes.find((n) => n.id === newNodeId);
+			const insertedNode = graphStore.nodes.find((n) => n.id === newNodeId);
 			if (insertedNode && NEEDS_CONFIG_NOW.includes(insertedNode.data?.action_type)) {
-				store.open_config(newNodeId);
+				ruleStore.open_config(newNodeId);
 			}
 		}, 80);
 	}
 }
-function autoConnectStartNode() {
-	const startNode = (store.nodes || []).find((el) => el.id === "start" || el.type === "start");
-	if (!startNode) return;
-
-	// Check if start node has any outgoing edges
-	const hasStartEdge = (store.edges || []).some((el) => el.source === startNode.id);
-	if (hasStartEdge) return;
-
-	const firstNode = (store.nodes || []).find(
-		(el) => el.type !== "start" && el.data?.is_enabled !== 0
-	);
-	if (firstNode) {
-		store.edges.push({
-			id: `e-${startNode.id}-${firstNode.id}`,
-			source: startNode.id,
-			target: firstNode.id,
-			sourceHandle: "default",
-			type: "add",
-			animated: true,
-		});
-	}
-}
 
 function onNodeClick(event) {
-	store.selected_id = event.node.id;
+	uiStore.selected_id = event.node.id;
 
-	const trigger = store.settings?.open_config_on || "Click";
+	const trigger = ruleStore.settings?.open_config_on || "Click";
 	if (trigger === "Click" && event.node.type !== "start") {
-		store.open_config(event.node.id);
+		ruleStore.open_config(event.node.id);
 	}
 }
 
 function onNodeDblClick(event) {
-	store.selected_id = event.node.id;
+	uiStore.selected_id = event.node.id;
 
-	const trigger = store.settings?.open_config_on || "Click";
+	const trigger = ruleStore.settings?.open_config_on || "Click";
 	if (trigger === "Double Click" && event.node.type !== "start") {
-		store.open_config(event.node.id);
+		ruleStore.open_config(event.node.id);
 	}
 }
+
 function onPaneClick() {
-	store.selected_id = null;
-	store.show_sidebar = false;
+	uiStore.selected_id = null;
+	uiStore.show_sidebar = false;
 }
 
 function onConnect(params) {
@@ -615,17 +416,14 @@ function onConnect(params) {
 	const id = `e-${params.source}-${params.target}-${sourceHandle}`;
 
 	// Check for existing connection to avoid duplicates
-	const exists = (store.edges || []).some(
+	const exists = (graphStore.edges || []).some(
 		(e) =>
 			e.source === params.source &&
 			e.target === params.target &&
 			(e.sourceHandle || "default") === sourceHandle
 	);
 
-	if (exists) {
-		// console.warn("Connection already exists", id);
-		return;
-	}
+	if (exists) return;
 
 	const newEdge = {
 		id,
@@ -633,21 +431,22 @@ function onConnect(params) {
 		target: params.target,
 		sourceHandle,
 		type: "add",
-		animated: store.nodes.find((el) => el.id === params.source)?.type === "start",
+		animated: graphStore.nodes.find((el) => el.id === params.source)?.type === "start",
 	};
-	store.edges = [...store.edges, newEdge];
-	store.mark_dirty();
+	graphStore.edges = [...graphStore.edges, newEdge];
+	ruleStore.mark_dirty();
 }
 
 function onNodesChange(changes) {
 	const hasDrag = changes.some((c) => c.type === "position" && c.dragging === false);
-	if (hasDrag) store.mark_position_change();
+	if (hasDrag) ruleStore.mark_position_change();
 }
 
 function onEdgesChange(changes) {
 	changes.forEach((change) => {
 		if (change.type === "remove") {
-			store.delete_edge(change.id);
+			graphStore.delete_edge(change.id, ruleStore.is_read_only);
+			ruleStore.mark_dirty();
 		}
 	});
 }

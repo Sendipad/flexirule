@@ -105,7 +105,7 @@
 
 <script setup>
 import { ref, watch, onMounted, computed } from "vue";
-import { useStore } from "../../../store";
+import { useStore } from "../../../stores";
 import AutocompleteControl from "../../../controls/AutocompleteControl.vue";
 import TransformControl from "../../../controls/TransformControl.vue";
 

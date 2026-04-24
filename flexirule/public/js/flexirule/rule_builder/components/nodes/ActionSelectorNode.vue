@@ -9,7 +9,7 @@ import {
 	loadContractsFromBackend,
 	isTerminalAction,
 } from "../../../core/contracts";
-import { useStore } from "../../store";
+import { useStore } from "../../stores";
 import { mapActionTypeToNodeType } from "../../composables/useActionTypeMapper";
 
 const props = defineProps(["data", "label", "id", "selected", "sourcePosition", "targetPosition"]);

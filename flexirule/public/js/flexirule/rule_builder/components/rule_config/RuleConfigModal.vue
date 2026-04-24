@@ -43,7 +43,7 @@
 								<div class="toolbar-group navigation">
 									<button
 										class="toolbar-btn"
-										@click="store.prev_config_node()"
+										@click="ruleStore.prev_config_node()"
 										:disabled="currentNodeIndex <= 0"
 										:title="__('Previous')"
 									>
@@ -55,7 +55,7 @@
 									</div>
 									<button
 										class="toolbar-btn"
-										@click="store.next_config_node()"
+										@click="ruleStore.next_config_node()"
 										:disabled="currentNodeIndex >= totalNodes - 1"
 										:title="__('Next')"
 									>
@@ -104,13 +104,13 @@
 					<div class="config-modal-body">
 						<!-- Logic Mode (Conditions) -->
 						<div
-							v-show="store.config_modal_mode === 'logic'"
+							v-show="uiStore.config_modal_mode === 'logic'"
 							class="conditions-container"
 						>
 							<div class="conditions-view">
 								<ConditionStep
 									:node="draftNode"
-									:read-only="store.is_read_only"
+									:read-only="ruleStore.is_read_only"
 									:ref="panelRefs.logic"
 								/>
 							</div>
@@ -118,7 +118,7 @@
 
 						<!-- Standard Action Setup -->
 						<div
-							v-show="store.config_modal_mode !== 'logic'"
+							v-show="uiStore.config_modal_mode !== 'logic'"
 							class="standard-config-container"
 						>
 							<!-- Start Node Setup (Full width) -->
@@ -134,9 +134,9 @@
 									</header>
 									<StartNodeProperties
 										:nodeData="draftNode.data"
-										:readOnly="store.is_read_only"
+										:readOnly="ruleStore.is_read_only"
 										@update:field="(f, v) => (draftNode.data[f] = v)"
-										@open:conditions="store.config_modal_mode = 'logic'"
+										@open:conditions="uiStore.config_modal_mode = 'logic'"
 									/>
 								</div>
 							</div>
@@ -147,7 +147,7 @@
 								<aside class="sidebar-variables" v-if="showContextSidebar">
 									<InputPanel
 										:node="draftNode"
-										:readOnly="store.is_read_only"
+										:readOnly="ruleStore.is_read_only"
 										mode="variables"
 									/>
 								</aside>
@@ -163,7 +163,7 @@
 											>
 												<ActionSettings
 													:node="draftNode"
-													:readOnly="store.is_read_only"
+													:readOnly="ruleStore.is_read_only"
 													@update:field="on_update_action_field"
 												/>
 											</div>
@@ -173,7 +173,7 @@
 												<div class="core-setup-panel">
 													<InputPanel
 														:node="draftNode"
-														:readOnly="store.is_read_only"
+														:readOnly="ruleStore.is_read_only"
 														:ref="panelRefs.input"
 														mode="config"
 													/>
@@ -181,7 +181,7 @@
 												<div class="core-config-panel">
 													<ConfigurationPanel
 														:node="draftNode"
-														:readOnly="store.is_read_only"
+														:readOnly="ruleStore.is_read_only"
 														:ref="panelRefs.config"
 													/>
 												</div>
@@ -193,7 +193,7 @@
 									<aside class="sidebar-mutation">
 										<OutputPanel
 											:node="draftNode"
-											:readOnly="store.is_read_only"
+											:readOnly="ruleStore.is_read_only"
 											:ref="panelRefs.output"
 										/>
 									</aside>
@@ -215,7 +215,7 @@
 					<footer class="config-modal-footer">
 						<div class="footer-left">
 							<div
-								v-if="store.is_dirty && !store.is_read_only"
+								v-if="ruleStore.is_dirty && !ruleStore.is_read_only"
 								class="dirty-indicator"
 							>
 								<i class="fa fa-circle mr-1"></i>
@@ -224,10 +224,10 @@
 						</div>
 						<div class="footer-right">
 							<button class="btn btn-default btn-sm" @click="cancel">
-								{{ store.is_read_only ? __("Close") : __("Cancel") }}
+								{{ ruleStore.is_read_only ? __("Close") : __("Cancel") }}
 							</button>
 							<button
-								v-if="!store.is_read_only"
+								v-if="!ruleStore.is_read_only"
 								class="btn btn-primary btn-sm ml-2"
 								@click="save"
 							>
@@ -250,7 +250,7 @@ import OutputPanel from "./OutputPanel.vue";
 import ActionSettings from "./ActionSettings.vue";
 import ConditionStep from "./types/ConditionStep.vue";
 import StartNodeProperties from "../StartNodeProperties.vue";
-import { useStore } from "../../store";
+import { useRuleStore, useGraphStore, useUIStore } from "../../stores";
 import { useRuleConfig } from "../../composables/useRuleConfig";
 import { getContract } from "../../../core/contracts.js";
 
@@ -260,7 +260,11 @@ const props = defineProps({
 });
 
 const emit = defineEmits(["update:modelValue", "save"]);
-const store = useStore();
+const ruleStore = useRuleStore();
+const graphStore = useGraphStore();
+const uiStore = useUIStore();
+// Legacy support
+const store = uiStore;
 
 const { draftNode, panelRefs, save, cancel } = useRuleConfig(props, emit);
 
@@ -274,17 +278,17 @@ const contract = computed(() => {
 	return type ? getContract(type) : null;
 });
 
-const totalNodes = computed(() => store.nodes.length);
+const totalNodes = computed(() => graphStore.nodes.length);
 const currentNodeIndex = computed(() => {
-	if (!store.selected_id) return -1;
-	return store.nodes.findIndex((n) => n.id === store.selected_id);
+	if (!uiStore.selected_id) return -1;
+	return graphStore.nodes.findIndex((n) => n.id === uiStore.selected_id);
 });
 
 const title = computed(() => {
 	if (!draftNode.value) return __("Rule Configuration");
 	let baseTitle =
 		draftNode.value.data?.action_label || draftNode.value.label || __("Rule Configuration");
-	let suffix = store.config_modal_mode === "logic" ? ` [${__("Logic")}]` : "";
+	let suffix = uiStore.config_modal_mode === "logic" ? ` [${__("Logic")}]` : "";
 	return baseTitle + suffix;
 });
 
@@ -315,11 +319,11 @@ function on_update_action_field({ fieldname, value, scope }) {
 			nextConfig[fieldname] = value;
 		}
 		draftNode.value.data.config = nextConfig;
-		store.mark_dirty();
+		ruleStore.mark_dirty();
 		return;
 	}
 	draftNode.value.data[fieldname] = value;
-	store.mark_dirty();
+	ruleStore.mark_dirty();
 }
 
 function getIcon(type) {

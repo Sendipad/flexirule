@@ -133,7 +133,7 @@
 
 <script setup>
 import { ref, watch, onMounted, computed } from "vue";
-import { useStore } from "../../store";
+import { useStore } from "../../stores";
 import ControlFactory from "../../controls/ControlFactory.vue";
 import AutocompleteControl from "../../controls/AutocompleteControl.vue";
 import {

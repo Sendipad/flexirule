@@ -6,9 +6,10 @@ import "../utils/utils.js";
 import "../utils/patches.js";
 import "../controls/flexi_autocomplete.js";
 import "../core/ProcessConfigurator.js";
-import { useStore } from "./store";
+import { useRuleStore } from "./stores/useRuleStore";
+import { useUIStore } from "./stores/useUIStore";
 import RuleBuilderComponent from "./App.vue";
-import { registerGlobalComponents, registerVueGlobals } from "./globals.js";
+import { registerGlobalComponents } from "./globals.js";
 
 class RuleBuilder {
 	constructor({ wrapper, page, rule }) {
@@ -40,14 +41,14 @@ class RuleBuilder {
 				? translatedSaveLabel
 				: "Save Rule";
 		this.save_btn = this.page.set_primary_action(this.save_button_label, () =>
-			this.store.save_changes()
+			this.ruleStore.save_changes()
 		);
 
 		// Secondary button - Reset
 		this.page.add_button(
 			__("Reset Changes"),
 			() => {
-				this.store.fetch();
+				this.ruleStore.fetch();
 			},
 			{ icon: "refresh" }
 		);
@@ -64,7 +65,7 @@ class RuleBuilder {
 
 		// Clear visualization if any
 		this.clear_test_btn = this.page.add_inner_button(__("Clear Test Path"), () => {
-			this.store.clear_test_result();
+			this.uiStore.clear_test_result();
 			this.update_test_ui([]);
 		});
 		this.clear_test_btn.hide();
@@ -88,21 +89,24 @@ class RuleBuilder {
 
 		// Create Vue app
 		let app = createApp(RuleBuilderComponent, { rule: this.rule });
-		registerVueGlobals(app);
 		app.use(pinia);
 		registerGlobalComponents(app);
 
-		// Get store reference
-		this.store = useStore(pinia);
-		this.store.rule_name = this.rule;
+		// Get store references
+		this.ruleStore = useRuleStore(pinia);
+		this.uiStore = useUIStore(pinia);
+		this.ruleStore.rule_name = this.rule;
 
 		// Initial sync
-		this.update_test_ui(this.store.test_execution_path);
+		this.update_test_ui(this.uiStore.test_execution_path);
 
 		// Watch for state changes
-		this.store.$subscribe((mutation, state) => {
+		this.ruleStore.$subscribe((mutation, state) => {
 			this.update_save_button(state.is_dirty);
 			this.update_status_button(state.rule_doc?.is_active);
+		});
+
+		this.uiStore.$subscribe((mutation, state) => {
 			this.update_test_ui(state.test_execution_path);
 		});
 
@@ -111,12 +115,11 @@ class RuleBuilder {
 		// We can also watch rule_doc specifically if needed, but the main subscribe is usually enough for state changes.
 		// Also manual call after mount if data is already there (it fetches async)
 
-		// Use a watcher on rule_doc specifically if the above sub misses deep updates (Pinia default subscribes to all)
-		// Checks if rule_doc is loaded
-		const unwatch = this.store.$onAction(({ name, after }) => {
+		// Use a watcher on rule_doc specifically
+		const unwatch = this.ruleStore.$onAction(({ name, after }) => {
 			if (name === "fetch") {
 				after(() => {
-					this.update_status_button(this.store.rule_doc?.is_active);
+					this.update_status_button(this.ruleStore.rule_doc?.is_active);
 				});
 			}
 		});
@@ -126,24 +129,24 @@ class RuleBuilder {
 	}
 
 	async toggle_rule_active() {
-		if (!this.store.rule_doc) return;
+		if (!this.ruleStore.rule_doc) return;
 
 		// Do not allow silent state mutation. Use lifecycle API transitions.
 		try {
 			frappe.dom.freeze(__("Updating rule status..."));
 
-			if (this.store.rule_doc.is_active) {
-				await this.store.deactivate_rule();
+			if (this.ruleStore.rule_doc.is_active) {
+				await this.ruleStore.deactivate_rule();
 			} else {
 				// If there are unsaved edits, persist first, then activate.
-				if (this.store.is_dirty) {
-					await this.store.save_changes();
-					if (this.store.is_dirty) {
+				if (this.ruleStore.is_dirty) {
+					await this.ruleStore.save_changes();
+					if (this.ruleStore.is_dirty) {
 						// Save failed or was blocked; keep current status.
 						return;
 					}
 				}
-				await this.store.activate_rule();
+				await this.ruleStore.activate_rule();
 			}
 		} finally {
 			frappe.dom.unfreeze();
@@ -170,8 +173,8 @@ class RuleBuilder {
 		</span>`;
 
 		if (
-			this.store.rule_doc?.trigger_type === "Callable Event" &&
-			this.store.rule_doc?.exposed_as_subrule
+			this.ruleStore.rule_doc?.trigger_type === "Callable Event" &&
+			this.ruleStore.rule_doc?.exposed_as_subrule
 		) {
 			badges_html += ` <span class="indicator-pill blue" style="font-size: 10px; padding: 2px 10px; font-weight: 700;">
 				${__("Sub-Rule")}
@@ -229,7 +232,7 @@ class RuleBuilder {
 					fieldname: "doctype",
 					label: __("Document Type"),
 					options: "DocType",
-					default: this.store.rule_doc?.document_type,
+					default: this.ruleStore.rule_doc?.document_type,
 					reqd: 1,
 				},
 				{
@@ -264,7 +267,7 @@ class RuleBuilder {
 							const pathTrace =
 								r.message.path_trace || r.message.execution_path || [];
 							if (pathTrace.length) {
-								this.store.set_test_result(
+								this.uiStore.set_test_result(
 									pathTrace,
 									r.message.vars || r.message.context_snapshot
 								);

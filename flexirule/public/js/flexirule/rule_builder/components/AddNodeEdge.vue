@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed } from "vue";
 import { BaseEdge, getSimpleBezierPath, EdgeLabelRenderer } from "@vue-flow/core";
-import { useStore } from "../store";
+import { useStore } from "../stores";
 import ActionPopover from "./ActionPopover.vue";
 
 defineOptions({ inheritAttrs: false });

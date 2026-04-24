@@ -107,7 +107,7 @@
 
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue";
-import { useStore } from "../../store";
+import { useStore } from "../../stores";
 
 const props = defineProps({
 	nodeData: Object,

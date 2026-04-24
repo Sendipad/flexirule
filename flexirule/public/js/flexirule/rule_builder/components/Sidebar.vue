@@ -90,7 +90,8 @@
 </template>
 
 <script setup>
-import { useStore } from "../store";
+import { computed, onMounted } from "vue";
+import { useRuleStore, useGraphStore, useUIStore } from "../stores";
 import ActionFieldProperties from "./ActionFieldProperties.vue";
 import StartNodeProperties from "./StartNodeProperties.vue";
 
@@ -98,13 +99,17 @@ import StartNodeProperties from "./StartNodeProperties.vue";
 import "../../core/ProcessConfigurator.js";
 
 const emit = defineEmits(["close"]);
-const store = useStore();
+const ruleStore = useRuleStore();
+const graphStore = useGraphStore();
+const uiStore = useUIStore();
+// Legacy support for remaining store. calls
+const store = uiStore;
 
 // Selected node from store - find the original reference for reactivity
 const selectedNode = computed(() => {
-	const id = store.selected_id;
+	const id = uiStore.selected_id;
 	if (!id) return null;
-	return (store.nodes || []).find((el) => el.id === id);
+	return (graphStore.nodes || []).find((el) => el.id === id);
 });
 
 // Sidebar title
@@ -140,8 +145,8 @@ const isConfigurable = computed(() => {
 function update_start_field(fieldname, value) {
 	if (!selectedNode.value?.data) return;
 	selectedNode.value.data[fieldname] = value;
-	store.touch_node(selectedNode.value.id);
-	store.mark_dirty();
+	graphStore.touch_node(selectedNode.value.id);
+	ruleStore.mark_dirty();
 }
 
 function update_action_field(fieldname, value) {
@@ -230,13 +235,13 @@ function update_edge(field, newTarget) {
 			: "false";
 
 	// Remove existing edge
-	store.edges = store.edges.filter(
+	graphStore.edges = graphStore.edges.filter(
 		(el) => !(el.source === nodeId && el.sourceHandle === handleType)
 	);
 
 	// Add new edge if target specified
 	if (newTarget) {
-		store.edges.push({
+		graphStore.edges.push({
 			id: `e-${nodeId}-${newTarget}-${handleType}`,
 			source: nodeId,
 			target: newTarget,
@@ -247,19 +252,17 @@ function update_edge(field, newTarget) {
 
 function delete_node() {
 	if (selectedNode.value) {
-		store.delete_node(selectedNode.value.id);
+		graphStore.delete_node(selectedNode.value.id);
 		emit("close");
 	}
 }
 
 async function open_config_dialog() {
-	store.config_modal_mode = "setup";
-	store.show_config_modal = true;
+	uiStore.open_config_modal("setup");
 }
 
 async function open_condition_dialog() {
-	store.config_modal_mode = "logic";
-	store.show_config_modal = true;
+	uiStore.open_config_modal("logic");
 }
 
 // Load Rule Action metadata on mount

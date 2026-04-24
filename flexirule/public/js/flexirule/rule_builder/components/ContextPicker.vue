@@ -19,7 +19,8 @@
 </template>
 
 <script setup>
-import { useStore } from "../store";
+import { computed, onMounted, ref } from "vue";
+import { useStore } from "../stores";
 
 const props = defineProps({
 	modelValue: String,

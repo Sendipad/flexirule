@@ -1,5 +1,5 @@
 import { ref, reactive, computed, watch } from "vue";
-import { useStore } from "../store";
+import { useStore } from "../stores";
 import { getContract, validateAgainstContract } from "../../core/contracts.js";
 
 /**

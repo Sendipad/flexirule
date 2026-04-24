@@ -20,7 +20,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, nextTick } from "vue";
+import { nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 
 const resizing = ref(false);
 const isMobile = ref(false);
@@ -144,7 +144,6 @@ onUnmounted(() => {
 });
 
 // Watch for activePanel changes on mobile
-import { watch } from "vue";
 watch(activePanel, () => {
 	if (isMobile.value) applyMobileLayout();
 });

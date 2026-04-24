@@ -1,5 +1,10 @@
 <script setup>
-import { useStore } from "../store";
+import { ref, watch, onMounted, onUnmounted, nextTick, useSlots } from "vue";
+import { useRuleStore } from "../stores/useRuleStore";
+import { useUIStore } from "../stores/useUIStore";
+
+const ruleStore = useRuleStore();
+const uiStore = useUIStore();
 
 const props = defineProps({
 	df: { type: Object, required: true },
