@@ -152,7 +152,7 @@ class RuleBuilder {
 			frappe.dom.unfreeze();
 		}
 
-		this.update_status_button(this.store.rule_doc?.is_active);
+		this.update_status_button(this.ruleStore.rule_doc?.is_active);
 	}
 
 	update_status_button(is_active) {

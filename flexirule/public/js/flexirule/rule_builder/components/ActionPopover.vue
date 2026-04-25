@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from "vue";
+import { ref, computed, onMounted, onUnmounted, nextTick } from "vue";
 import {
 	ACTION_TYPE_CONTRACT,
 	PROCESS_REGISTRY,
@@ -16,24 +16,81 @@ const props = defineProps({
 const emit = defineEmits(["select", "close"]);
 
 const searchQuery = ref("");
-const showResults = ref(true);
 const processOperations = ref([]);
 const selectedIndex = ref(-1);
 const canPaste = ref(false);
 
 const popoverRef = ref(null);
+const searchInputRef = ref(null);
 
-// Fuzzy match helper
-function fuzzyMatch(text, query) {
-	if (!query) return true;
-	const lowerText = text.toLowerCase();
-	const q = query.toLowerCase().trim();
-	if (lowerText.includes(q)) return true;
-	const words = lowerText.split(/[\s_-]+/).filter(Boolean);
-	const acronym = words.map((w) => w[0]).join("");
-	if (acronym.includes(q)) return true;
-	const qWords = q.split(/\s+/).filter(Boolean);
-	return qWords.every((qw) => words.some((w) => w.startsWith(qw) || w.includes(qw)));
+function normalize(value) {
+	return String(value || "")
+		.toLowerCase()
+		.trim()
+		.replace(/[_-]+/g, " ")
+		.replace(/\s+/g, " ");
+}
+
+function acronym(value) {
+	return normalize(value)
+		.split(" ")
+		.filter(Boolean)
+		.map((part) => part[0])
+		.join("");
+}
+
+function scoreText(text, query) {
+	const hay = normalize(text);
+	const needle = normalize(query);
+	if (!needle) return 1;
+	if (!hay) return 0;
+	if (hay === needle) return 100;
+	if (hay.startsWith(needle)) return 70;
+	if (hay.includes(` ${needle}`)) return 60;
+	if (hay.includes(needle)) return 45;
+	const acr = acronym(hay);
+	if (acr.startsWith(needle) || acr.includes(needle)) return 35;
+	const terms = needle.split(" ").filter(Boolean);
+	if (terms.every((term) => hay.includes(term))) return 25;
+	return 0;
+}
+
+function parseScopedQuery(rawQuery) {
+	const query = String(rawQuery || "");
+	const startsWithScope = query.startsWith(":");
+	if (startsWithScope) {
+		const scopedBody = query.slice(1);
+		const secondSepIdx = scopedBody.indexOf(":");
+		if (secondSepIdx === -1) {
+			return {
+				scopeTerm: scopedBody.trim(),
+				opTerm: "",
+				isScoped: false,
+				isScopePicker: true,
+			};
+		}
+		return {
+			scopeTerm: scopedBody.slice(0, secondSepIdx).trim(),
+			opTerm: scopedBody.slice(secondSepIdx + 1).trim(),
+			isScoped: true,
+			isScopePicker: false,
+		};
+	}
+	const sepIdx = query.indexOf(":");
+	if (sepIdx === -1) {
+		return {
+			scopeTerm: "",
+			opTerm: query.trim(),
+			isScoped: false,
+			isScopePicker: false,
+		};
+	}
+	return {
+		scopeTerm: query.slice(0, sepIdx).trim(),
+		opTerm: query.slice(sepIdx + 1).trim(),
+		isScoped: true,
+		isScopePicker: false,
+	};
 }
 
 const ACTION_CATEGORIES = {
@@ -95,66 +152,210 @@ const actionTypes = computed(() => {
 	}
 });
 
+function getScopedAction(scopeTerm) {
+	if (!scopeTerm) return null;
+	let best = null;
+	let bestScore = 0;
+	(actionTypes.value || []).forEach((action) => {
+		const score = Math.max(
+			scoreText(action.label, scopeTerm),
+			scoreText(action.value, scopeTerm),
+			scoreText(action.category, scopeTerm),
+			scoreText(action.description, scopeTerm)
+		);
+		if (score > bestScore) {
+			bestScore = score;
+			best = action;
+		}
+	});
+	return bestScore > 0 ? best : null;
+}
+
+function getActionOperations(action) {
+	if (!action) return [];
+	const baseOps = (getOperationOptions(action.value) || []).map((op) => ({
+		operation: op.value,
+		label: op.label || op.value,
+		process_name: action.value === "Process" ? op.process_name || null : null,
+		description: op.description || "",
+	}));
+	if (action.value !== "Process") return baseOps;
+
+	const processOps = (processOperations.value || []).map((op) => ({
+		operation: op.operation,
+		label: op.label || op.operation,
+		process_name: op.process,
+		description: op.description || "",
+	}));
+
+	const merged = [];
+	const seen = new Set();
+	[...baseOps, ...processOps].forEach((op) => {
+		const key = `${op.process_name || ""}:${op.operation || ""}`;
+		if (!key || seen.has(key)) return;
+		seen.add(key);
+		merged.push(op);
+	});
+	return merged;
+}
+
+function toActionItem(action, score = 0) {
+	return {
+		type: "action",
+		score,
+		label: action.label,
+		value: action.value,
+		actionType: action.value,
+		icon: action.icon,
+		color: action.color,
+		description: action.description,
+	};
+}
+
+function toScopeActionItem(action) {
+	return {
+		type: "scope_action",
+		score: 999,
+		label: `${action.label}:`,
+		value: action.value,
+		actionType: action.value,
+		icon: action.icon,
+		color: action.color,
+		description: __("Filter operations in {0}").replace("{0}", action.label),
+	};
+}
+
+function toOperationItem(action, op, score = 0) {
+	return {
+		type: "op",
+		score,
+		label: `${action.label}: ${
+			window.__ ? __(op.label || op.operation) : op.label || op.operation
+		}`,
+		value: action.value,
+		operation: op.operation,
+		process_name: op.process_name || null,
+		icon: action.icon,
+		color: action.color,
+		description: op.description || action.description,
+	};
+}
+
 const filteredResults = computed(() => {
 	try {
-		const q = searchQuery.value;
+		const { scopeTerm, opTerm, isScoped, isScopePicker } = parseScopedQuery(searchQuery.value);
 		const results = [];
 
-		(actionTypes.value || []).forEach((t) => {
-			const ops = getOperationOptions(t.value) || [];
-			const matchAction =
-				fuzzyMatch(t.label, q) || fuzzyMatch(t.description, q) || fuzzyMatch(t.value, q);
-			if (matchAction) {
-				results.push({ type: "header", label: t.label });
-				results.push({ type: "action", ...t });
-			}
+		if (isScopePicker) {
+			const scopeMatches = (actionTypes.value || [])
+				.map((action) => ({
+					action,
+					score: Math.max(
+						scoreText(action.label, scopeTerm),
+						scoreText(action.value, scopeTerm),
+						scoreText(action.description, scopeTerm),
+						scoreText(action.category, scopeTerm)
+					),
+				}))
+				.filter(({ score }) => !scopeTerm || score > 0)
+				.sort((a, b) => b.score - a.score || a.action.label.localeCompare(b.action.label));
 
-			const matchingOps = ops.filter(
-				(op) => fuzzyMatch(op.label || op.value, q) || fuzzyMatch(op.value, q)
-			);
-			if (matchingOps.length) {
-				if (!matchAction) results.push({ type: "header", label: t.label });
-				matchingOps.forEach((op) => {
-					results.push({
-						type: "op",
-						label: `${t.label} → ${
-							window.__ ? __(op.label || op.value) : op.label || op.value
-						}`,
-						value: t.value,
-						operation: op.value,
-						process_name: t.value === "Process" ? op.process_name || null : null,
-						icon: t.icon,
-						color: t.color,
-						description: t.description,
-					});
-				});
-			}
-		});
-
-		const matchingProcessOps = (processOperations.value || []).filter(
-			(op) =>
-				fuzzyMatch(op.label, q) ||
-				fuzzyMatch(op.process, q) ||
-				fuzzyMatch(op.description || "", q)
-		);
-
-		if (matchingProcessOps.length) {
-			results.push({
-				type: "header",
-				label: window.__ ? __("Process Operations") : "Process Operations",
+			if (!scopeMatches.length) return [];
+			results.push({ type: "header", label: __("Action Scope") });
+			scopeMatches.slice(0, 25).forEach(({ action }) => {
+				results.push(toScopeActionItem(action));
 			});
-			matchingProcessOps.forEach((op) =>
-				results.push({
-					type: "process_op",
-					label: `${op.process} → ${op.label}`,
-					value: "Process",
-					process_name: op.process,
-					operation: op.operation,
-					icon: "fa fa-cog",
-					color: "#8b5cf6",
-					description: op.description || "",
-				})
-			);
+
+			const primaryAction = scopeMatches[0]?.action || null;
+			if (primaryAction) {
+				const opItems = getActionOperations(primaryAction)
+					.map((op) => ({
+						op,
+						score: Math.max(
+							scoreText(op.label || op.operation, scopeTerm),
+							scoreText(op.operation, scopeTerm)
+						),
+					}))
+					.filter(({ score }) => !scopeTerm || score > 0)
+					.sort((a, b) => b.score - a.score || a.op.label.localeCompare(b.op.label))
+					.slice(0, 25)
+					.map(({ op, score }) => toOperationItem(primaryAction, op, score));
+				if (opItems.length) {
+					results.push({
+						type: "header",
+						label: __("Operations in {0}").replace("{0}", primaryAction.label),
+					});
+					results.push(...opItems);
+				}
+			}
+
+			return results;
+		}
+
+		if (isScoped) {
+			const scopedAction = getScopedAction(scopeTerm);
+			if (!scopedAction) return [];
+			results.push({ type: "header", label: scopedAction.label });
+			results.push(toScopeActionItem(scopedAction));
+
+			const operations = getActionOperations(scopedAction)
+				.map((op) => ({
+					op,
+					score: Math.max(
+						scoreText(op.label || op.operation, opTerm),
+						scoreText(op.operation, opTerm)
+					),
+				}))
+				.filter(({ score }) => !opTerm || score > 0)
+				.sort((a, b) => b.score - a.score || a.op.label.localeCompare(b.op.label))
+				.slice(0, 25)
+				.map(({ op, score }) => toOperationItem(scopedAction, op, score));
+
+			return [...results, ...operations];
+		}
+
+		const query = opTerm;
+		const actionMatches = (actionTypes.value || [])
+			.map((action) => ({
+				action,
+				score: Math.max(
+					scoreText(action.label, query),
+					scoreText(action.value, query),
+					scoreText(action.description, query)
+				),
+			}))
+			.filter(({ score }) => !query || score > 0)
+			.sort((a, b) => b.score - a.score || a.action.label.localeCompare(b.action.label));
+
+		if (actionMatches.length) {
+			results.push({ type: "header", label: __("Actions") });
+			actionMatches.slice(0, 25).forEach(({ action, score }) => {
+				results.push(toActionItem(action, score));
+			});
+		}
+
+		if (query) {
+			const opMatches = [];
+			(actionTypes.value || []).forEach((action) => {
+				getActionOperations(action).forEach((op) => {
+					const score = Math.max(
+						scoreText(op.label || op.operation, query),
+						scoreText(op.operation, query)
+					);
+					if (score > 0) {
+						opMatches.push({ action, op, score });
+					}
+				});
+			});
+			if (opMatches.length) {
+				results.push({ type: "header", label: __("Operations") });
+				opMatches
+					.sort((a, b) => b.score - a.score || a.op.label.localeCompare(b.op.label))
+					.slice(0, 30)
+					.forEach(({ action, op, score }) =>
+						results.push(toOperationItem(action, op, score))
+					);
+			}
 		}
 
 		return results;
@@ -192,6 +393,12 @@ async function loadProcessOperations() {
 
 function selectItem(item) {
 	if (item.type === "header") return;
+	if (item.type === "scope_action") {
+		searchQuery.value = `${item.value}: `;
+		selectedIndex.value = -1;
+		nextTick(() => searchInputRef.value?.focus());
+		return;
+	}
 	const selection = {
 		action_type: item.value || "Process",
 		operation: item.operation || null,
@@ -201,19 +408,27 @@ function selectItem(item) {
 	emit("select", selection);
 }
 
+function nextSelectableIndex(startIndex, direction) {
+	const total = filteredResults.value.length;
+	if (!total) return -1;
+	let index = startIndex;
+	for (let step = 0; step < total; step++) {
+		index = (index + direction + total) % total;
+		if (filteredResults.value[index]?.type !== "header") return index;
+	}
+	return -1;
+}
+
 function onKeydown(e) {
 	if (e.key === "Escape") emit("close");
 	if (!filteredResults.value.length) return;
 
 	if (e.key === "ArrowDown") {
 		e.preventDefault();
-		selectedIndex.value = (selectedIndex.value + 1) % filteredResults.value.length;
-		if (filteredResults.value[selectedIndex.value]?.type === "header") onKeydown(e);
+		selectedIndex.value = nextSelectableIndex(selectedIndex.value, 1);
 	} else if (e.key === "ArrowUp") {
 		e.preventDefault();
-		selectedIndex.value =
-			(selectedIndex.value - 1 + filteredResults.value.length) % filteredResults.value.length;
-		if (filteredResults.value[selectedIndex.value]?.type === "header") onKeydown(e);
+		selectedIndex.value = nextSelectableIndex(selectedIndex.value, -1);
 	} else if (e.key === "Enter" && selectedIndex.value !== -1) {
 		e.preventDefault();
 		selectItem(filteredResults.value[selectedIndex.value]);
@@ -249,10 +464,7 @@ onMounted(() => {
 	checkClipboard();
 	document.addEventListener("mousedown", onClickOutside);
 	// Search input focus
-	setTimeout(() => {
-		const input = popoverRef.value?.querySelector("input");
-		if (input) input.focus();
-	}, 100);
+	setTimeout(() => searchInputRef.value?.focus(), 100);
 });
 
 onUnmounted(() => {
@@ -277,9 +489,10 @@ onUnmounted(() => {
 		<div class="popover-search">
 			<i class="fa fa-search"></i>
 			<input
+				ref="searchInputRef"
 				type="text"
 				v-model="searchQuery"
-				:placeholder="__('Search actions...')"
+				:placeholder="__('Search actions or type Action: operation')"
 				class="form-control"
 			/>
 		</div>

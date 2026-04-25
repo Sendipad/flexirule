@@ -71,11 +71,31 @@
 								: __("Context Variables")
 						}}
 					</h5>
-					<button class="btn btn-xs btn-link" @click="refreshVariables">
-						<i class="fa fa-refresh"></i>
-					</button>
+					<div class="section-actions">
+						<button
+							class="btn btn-xs btn-link"
+							@click="variablesCollapsed = !variablesCollapsed"
+							:title="
+								variablesCollapsed
+									? __('Expand Context Variables')
+									: __('Collapse Context Variables')
+							"
+						>
+							<i
+								class="fa"
+								:class="variablesCollapsed ? 'fa-chevron-down' : 'fa-chevron-up'"
+							></i>
+						</button>
+						<button
+							v-if="!variablesCollapsed"
+							class="btn btn-xs btn-link"
+							@click="refreshVariables"
+						>
+							<i class="fa fa-refresh"></i>
+						</button>
+					</div>
 				</div>
-				<div class="variable-search mb-2">
+				<div v-if="!variablesCollapsed" class="variable-search mb-2">
 					<div class="input-group input-group-sm">
 						<div class="input-group-prepend">
 							<span class="input-group-text"><i class="fa fa-search"></i></span>
@@ -89,7 +109,7 @@
 					</div>
 				</div>
 
-				<div class="variable-list v2-scrollbar">
+				<div v-if="!variablesCollapsed" class="variable-list v2-scrollbar">
 					<div v-if="loading" class="text-center p-3">
 						<div class="spinner-border spinner-border-sm text-muted"></div>
 					</div>
@@ -122,15 +142,18 @@
 						</div>
 					</template>
 				</div>
+				<div v-else class="section-collapsed-note">
+					{{ __("Context variables are collapsed.") }}
+				</div>
 			</div>
 
 			<!-- DocType Fields (Only in 'config' mode when a DocType is selected) -->
 			<div
-				v-if="mode === 'config' && node.data?.reference_doctype"
+				v-if="mode === 'config' && doctypeContext"
 				class="panel-section doctype-fields-section"
 			>
 				<h5 class="section-title">
-					{{ __("{0} Fields").replace("{0}", node.data.reference_doctype) }}
+					{{ __("{0} Fields").replace("{0}", doctypeContext) }}
 				</h5>
 				<div class="variable-list v2-scrollbar mt-2">
 					<div v-if="loadingFields" class="text-center p-2">
@@ -179,6 +202,7 @@ const doctypeFields = ref([]);
 const loading = ref(false);
 const loadingFields = ref(false);
 const searchQuery = ref("");
+const variablesCollapsed = ref(false);
 
 const contract = computed(() => {
 	const type = props.node?.data?.action_type || props.node?.type;
@@ -235,6 +259,15 @@ const showReferenceDocname = computed(() => {
 const showInputSource = computed(() => {
 	if (!contract.value) return false;
 	return ["Query Records", "Document Action"].includes(props.node.data?.action_type);
+});
+
+const doctypeContext = computed(() => {
+	const explicitDoctype = props.node?.data?.reference_doctype;
+	if (explicitDoctype) return explicitDoctype;
+	if (props.node?.data?.action_type === "Condition") {
+		return store.rule_doc?.document_type || null;
+	}
+	return null;
 });
 
 const forcedReferenceDoctype = computed(() => {
@@ -413,7 +446,7 @@ async function refreshVariables() {
 }
 
 async function loadDoctypeFields() {
-	const dt = props.node?.data?.reference_doctype;
+	const dt = doctypeContext.value;
 	if (!dt) {
 		doctypeFields.value = [];
 		return;
@@ -595,7 +628,7 @@ watch(
 );
 
 watch(
-	() => props.node?.data?.reference_doctype,
+	() => doctypeContext.value,
 	() => loadDoctypeFields(),
 	{ immediate: true }
 );
@@ -692,6 +725,18 @@ defineExpose({
 	display: flex;
 	flex-direction: column;
 	gap: 12px;
+}
+
+.section-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+}
+
+.section-actions {
+	display: inline-flex;
+	align-items: center;
 }
 
 .section-title {
@@ -809,5 +854,14 @@ defineExpose({
 	background: #f8fafc;
 	border: 1px dashed #e2e8f0;
 	border-radius: 8px;
+}
+
+.section-collapsed-note {
+	font-size: 11px;
+	color: #94a3b8;
+	background: #fff;
+	border: 1px dashed #e2e8f0;
+	border-radius: 8px;
+	padding: 10px 12px;
 }
 </style>

@@ -4,6 +4,7 @@ import { computed, inject, onMounted, ref, watch } from "vue";
  * CollectionUI - Child table iterator editor
  */
 import ConditionNode from "./ConditionNode.vue";
+import { useStore } from "../../stores";
 
 const props = defineProps({
 	node: { type: Object, required: true },
@@ -13,8 +14,8 @@ const props = defineProps({
 
 const emit = defineEmits(["remove"]);
 
-const { addCondition, addGroup, addCollection } = inject("conditionActions");
-const store = inject("store");
+const { addCondition, addGroup } = inject("conditionActions");
+const store = useStore();
 
 // Filter to show only Table fields
 const tableFields = computed(() => {
@@ -24,10 +25,28 @@ const tableFields = computed(() => {
 // Child fields for the selected table
 const childDocFields = ref([]);
 
+const aliasValue = computed(() => {
+	const rawAlias = String(props.node.alias || "").trim();
+	if (!rawAlias) return "row";
+	return rawAlias.replace(/[^\w]/g, "_");
+});
+
+function addConditionForCollection() {
+	const alias = aliasValue.value;
+	const firstAliasField = childDocFields.value.find((f) =>
+		String(f?.value || "").startsWith(`${alias}.`)
+	);
+	addCondition(props.node.where, alias);
+	const last = props.node.where?.conditions?.[props.node.where.conditions.length - 1];
+	if (last?.left && firstAliasField?.value) {
+		last.left.ref = firstAliasField.value;
+	}
+}
+
 // Resolve child table metadata
 function fetchChildMeta() {
 	const collectionPath = props.node.collection;
-	const alias = props.node.alias || "row";
+	const alias = aliasValue.value;
 
 	if (!collectionPath) {
 		childDocFields.value = props.docFields.filter((f) => f.fieldtype !== "Table");
@@ -35,9 +54,9 @@ function fetchChildMeta() {
 	}
 
 	// Auto-set alias from table name
-	if (!props.node.alias) {
+	if (!props.node.alias || props.node.alias !== alias) {
 		const parts = collectionPath.split(".");
-		props.node.alias = parts[parts.length - 1].replace(/[^a-zA-Z0-9_]/g, "_");
+		props.node.alias = alias || parts[parts.length - 1].replace(/[^a-zA-Z0-9_]/g, "_");
 	}
 
 	// Find table field metadata
@@ -45,18 +64,38 @@ function fetchChildMeta() {
 
 	if (fieldMeta && fieldMeta.options) {
 		const childDoctype = fieldMeta.options;
-		const childFields = store.get_fields_for_doctype(childDoctype, alias);
+		const getAliasFields = () =>
+			typeof store.get_fields_for_doctype === "function"
+				? store.get_fields_for_doctype(childDoctype, alias)
+				: [];
 		const parentFields = props.docFields.filter((f) => f.fieldtype !== "Table");
-
-		if (childFields.length > 0) {
-			childDocFields.value = [...childFields, ...parentFields];
-		} else {
-			// Fetch if not cached
-			store.fetch_metadata(childDoctype).then(() => {
-				const fields = store.get_fields_for_doctype(childDoctype, alias);
-				childDocFields.value = [...fields, ...parentFields];
+		const mergeFields = (aliasFields) => {
+			const merged = [];
+			const seen = new Set();
+			[...(aliasFields || []), ...parentFields].forEach((field) => {
+				const key = String(field?.value || "");
+				if (!key || seen.has(key)) return;
+				seen.add(key);
+				merged.push(field);
 			});
+			childDocFields.value = merged;
+		};
+
+		const childFields = getAliasFields();
+		if (childFields.length > 0) {
+			mergeFields(childFields);
+			return;
 		}
+
+		// Fetch if not cached
+		if (typeof store.fetch_metadata === "function") {
+			store.fetch_metadata(childDoctype).then(() => {
+				mergeFields(getAliasFields());
+			});
+			return;
+		}
+
+		mergeFields([]);
 	} else {
 		childDocFields.value = props.docFields.filter((f) => f.fieldtype !== "Table");
 	}
@@ -115,7 +154,7 @@ onMounted(fetchChildMeta);
 			<div class="d-flex gap-1 align-items-end" v-if="!readOnly">
 				<button
 					class="btn btn-xs btn-default"
-					@click="addCondition(node.where, node.alias || 'row')"
+					@click="addConditionForCollection"
 					:title="__('Add Condition')"
 				>
 					<i class="fa fa-plus"></i>

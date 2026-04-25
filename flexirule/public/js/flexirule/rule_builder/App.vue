@@ -16,6 +16,8 @@
 					:nodes-draggable="!isReadOnly"
 					:nodes-connectable="!isReadOnly"
 					:elements-selectable="true"
+					:selection-on-drag="true"
+					:pan-on-drag="[2]"
 					:delete-key-active="!isReadOnly"
 					fit-view-on-init
 					:edge-types="edgeTypes"

@@ -152,17 +152,29 @@ class ActionHandler(ABC):
 	def _safe_eval(self, expression, context):
 		"""Evaluate expressions using frappe.safe_eval."""
 		import frappe
+		from frappe.utils import add_days, getdate, nowdate
 
 		safe_frappe = context.get("frappe") or frappe
+		safe_expression = (expression or "").strip()
+		# frappe.safe_eval can block module attribute traversal like frappe.utils.add_days.
+		# Normalize common date helpers to direct safe locals.
+		safe_expression = safe_expression.replace("frappe.utils.add_days", "add_days")
+		safe_expression = safe_expression.replace("frappe.utils.nowdate", "nowdate")
+		safe_expression = safe_expression.replace("frappe.utils.getdate", "getdate")
 		eval_locals = {
 			"doc": context.get("doc"),
 			"old_doc": context.get("old_doc"),
 			"vars": context.get("vars", {}),
 			"item": context.get("item"),
 			"loop": context.get("loop"),
+			"add_days": add_days,
+			"nowdate": nowdate,
+			"getdate": getdate,
+			"any": any,
+			"all": all,
 		}
 		return frappe.safe_eval(
-			expression,
+			safe_expression,
 			eval_globals={"frappe": safe_frappe},
 			eval_locals=eval_locals,
 		)

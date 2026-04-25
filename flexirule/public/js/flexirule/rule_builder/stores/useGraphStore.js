@@ -142,31 +142,112 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 
 	// ── Available variables (upstream context) ──
 	async function getAvailableVariables(upToNodeId = null, ruleDoc = null) {
-		const doctype = ruleDoc?.document_type;
-		const context_vars = [];
-		const sortedNodes = getTopologicalSort(nodes.value, edges.value);
+		const buildExecutionLinks = () => {
+			const links = [];
+			const seen = new Set();
+			const addLink = (source, target, sourceHandle = "default") => {
+				if (!source || !target) return;
+				const key = `${source}->${target}:${sourceHandle || "default"}`;
+				if (seen.has(key)) return;
+				seen.add(key);
+				links.push({
+					source,
+					target,
+					sourceHandle: sourceHandle || "default",
+				});
+			};
 
-		let limitIndex = sortedNodes.length;
-		if (upToNodeId) {
-			const idx = sortedNodes.findIndex((n) => n.id === upToNodeId);
-			if (idx !== -1) limitIndex = idx;
-		}
-
-		for (let i = 0; i < limitIndex; i++) {
-			const node = sortedNodes[i];
-			const data = node.data || {};
-			if (!data.return_variable) continue;
-
-			context_vars.push({
-				label: data.return_variable,
-				value: `vars.${data.return_variable}`,
-				type: mapReturnTypeToFieldType(data.return_type),
+			(edges.value || []).forEach((edge) => {
+				addLink(edge.source, edge.target, edge.sourceHandle);
 			});
 
-			if (
-				data.resolved_output_schema &&
-				!["Yes / No", "List of Values", "List of Records"].includes(data.return_type)
-			) {
+			(nodes.value || []).forEach((node) => {
+				const data = node?.data || {};
+				addLink(node.id, data.next_step_if_true, "true");
+				addLink(node.id, data.next_step_if_false, "false");
+			});
+
+			return links;
+		};
+
+		const findUpstreamNodeIds = (targetId, links) => {
+			if (!targetId) return null;
+			const reverse = new Map();
+			(links || []).forEach((link) => {
+				if (!reverse.has(link.target)) reverse.set(link.target, []);
+				reverse.get(link.target).push(link.source);
+			});
+
+			const stack = [targetId];
+			const visited = new Set([targetId]);
+			const upstream = new Set();
+			while (stack.length) {
+				const current = stack.pop();
+				const sources = reverse.get(current) || [];
+				sources.forEach((sourceId) => {
+					if (visited.has(sourceId)) return;
+					visited.add(sourceId);
+					upstream.add(sourceId);
+					stack.push(sourceId);
+				});
+			}
+
+			return upstream;
+		};
+
+		const normalizeReturnVariable = (value) => {
+			const raw = String(value || "").trim();
+			if (!raw) return "";
+			const noWrapper = raw.replace(/^\{\{\s*|\s*\}\}$/g, "");
+			const noVarsPrefix = noWrapper.replace(/^vars\./, "");
+			const noDocPrefix = noVarsPrefix.replace(/^doc\./, "");
+			const normalized = noDocPrefix.replace(/\s+/g, "_").replace(/[^\w.]/g, "_");
+			return normalized || noVarsPrefix || raw;
+		};
+
+		const startNode = nodes.value.find(
+			(n) => n.id === "start" || n.type === "start" || n.data?.action_type === "Entry Action"
+		);
+		const doctype = ruleDoc?.document_type || startNode?.data?.document_type || null;
+		const context_vars = [];
+		const seenContextValues = new Set();
+		const executionLinks = buildExecutionLinks();
+		const sortedNodes = getTopologicalSort(nodes.value, executionLinks);
+		const upstreamNodeIds = findUpstreamNodeIds(upToNodeId, executionLinks);
+		const scopedNodes =
+			upToNodeId && upstreamNodeIds
+				? sortedNodes.filter((n) => upstreamNodeIds.has(n.id))
+				: sortedNodes;
+
+		for (const node of scopedNodes) {
+			const data = node.data || {};
+			if (!data.return_variable) continue;
+			const rawReturnVariable = String(data.return_variable || "").trim();
+			const normalizedReturnVariable = normalizeReturnVariable(rawReturnVariable);
+			if (!normalizedReturnVariable) continue;
+			const candidateRoots = [`vars.${normalizedReturnVariable}`];
+			const legacyRoot =
+				rawReturnVariable.startsWith("vars.") || !rawReturnVariable
+					? rawReturnVariable
+					: `vars.${rawReturnVariable}`;
+			if (legacyRoot && legacyRoot !== candidateRoots[0]) {
+				candidateRoots.push(legacyRoot);
+			}
+
+			candidateRoots.forEach((root, idx) => {
+				if (!root || seenContextValues.has(root)) return;
+				seenContextValues.add(root);
+				context_vars.push({
+					label:
+						idx === 0
+							? normalizedReturnVariable
+							: `${normalizedReturnVariable} (${__("Legacy Path")})`,
+					value: root,
+					type: mapReturnTypeToFieldType(data.return_type),
+				});
+			});
+
+			if (data.resolved_output_schema && data.return_type !== "Yes / No") {
 				let schema = data.resolved_output_schema;
 				if (typeof schema === "string") {
 					try {
@@ -176,13 +257,18 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 					}
 				}
 				if (Array.isArray(schema)) {
+					const seenSchemaPaths = new Set();
 					schema.forEach((field) => {
-						if (field.fieldname) {
+						if (field.fieldname && !seenSchemaPaths.has(field.fieldname)) {
+							seenSchemaPaths.add(field.fieldname);
+							const schemaValue = `vars.${normalizedReturnVariable}.${field.fieldname}`;
+							if (seenContextValues.has(schemaValue)) return;
+							seenContextValues.add(schemaValue);
 							context_vars.push({
-								label: `vars.${data.return_variable}.${field.fieldname} (${
+								label: `vars.${normalizedReturnVariable}.${field.fieldname} (${
 									field.label || field.fieldname
 								})`,
-								value: `vars.${data.return_variable}.${field.fieldname}`,
+								value: schemaValue,
 								type: field.fieldtype || "Data",
 							});
 						}
@@ -1253,6 +1339,31 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		const idMap = {};
 		const newNodes = [];
 		const newEdges = [];
+		const existingActionIds = new Set(
+			(nodes.value || [])
+				.map((node) => String(node?.data?.action_id || "").trim())
+				.filter(Boolean)
+		);
+		const sanitizeId = (value) =>
+			String(value || "")
+				.trim()
+				.replace(/\s+/g, "_")
+				.replace(/[^\w-]/g, "_");
+		const getUniqueActionId = (seed) => {
+			const base = sanitizeId(seed) || generateShortId();
+			if (!existingActionIds.has(base)) {
+				existingActionIds.add(base);
+				return base;
+			}
+			let index = 2;
+			let candidate = `${base}_${index}`;
+			while (existingActionIds.has(candidate)) {
+				index += 1;
+				candidate = `${base}_${index}`;
+			}
+			existingActionIds.add(candidate);
+			return candidate;
+		};
 
 		// 1. Calculate bounding box of pasted nodes to find offset
 		const minX = Math.min(...pastedNodes.map((n) => n.position?.x || 0));
@@ -1268,7 +1379,8 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			const newNode = JSON.parse(JSON.stringify(node));
 			newNode.id = newId;
 			if (newNode.data) {
-				newNode.data.action_id = newId;
+				const sourceActionId = newNode.data.action_id || oldId || newId;
+				newNode.data.action_id = getUniqueActionId(sourceActionId);
 				newNode.data.name = null; // Clear backend name to force new record
 				// Ensure mandatory fields are at least present
 				if (

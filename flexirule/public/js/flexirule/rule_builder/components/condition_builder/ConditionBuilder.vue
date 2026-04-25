@@ -78,7 +78,7 @@
  * Owns the root condition group state and provides methods via inject
  */
 import { ref, reactive, watch, nextTick, provide, computed, onMounted } from "vue";
-import { useRuleStore } from "../../stores/useRuleStore";
+import { useStore } from "../../stores";
 
 import ConditionNode from "./ConditionNode.vue";
 
@@ -90,7 +90,7 @@ const props = defineProps({
 
 const emit = defineEmits(["update:modelValue"]);
 
-const ruleStore = useRuleStore();
+const store = useStore();
 
 // Create a reactive copy of the model
 const rootGroup = reactive(JSON.parse(JSON.stringify(props.modelValue)));
@@ -200,7 +200,7 @@ provide(
 	computed(() => props.docFields)
 );
 provide("operatorConfig", operatorConfig);
-provide("store", ruleStore);
+provide("store", store);
 provide(
 	"readOnly",
 	computed(() => props.readOnly)

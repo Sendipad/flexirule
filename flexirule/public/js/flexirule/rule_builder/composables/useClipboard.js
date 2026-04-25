@@ -9,6 +9,26 @@ export function useClipboard() {
 	const ruleStore = useRuleStore();
 	const { getSelectedNodes, getSelectedEdges, project } = useVueFlow();
 
+	function stripNullValues(value) {
+		if (Array.isArray(value)) {
+			return value
+				.map((item) => stripNullValues(item))
+				.filter((item) => item !== null && item !== undefined);
+		}
+		if (value && typeof value === "object") {
+			const cleaned = {};
+			Object.entries(value).forEach(([key, val]) => {
+				const nextVal = stripNullValues(val);
+				if (nextVal !== null && nextVal !== undefined) {
+					cleaned[key] = nextVal;
+				}
+			});
+			return cleaned;
+		}
+		if (value === null || value === undefined) return null;
+		return value;
+	}
+
 	async function copySelectedToClipboard() {
 		const selectedNodes = getSelectedNodes.value;
 		if (!selectedNodes.length) return;
@@ -39,12 +59,13 @@ export function useClipboard() {
 				) {
 					nodeData.condition_json = JSON.stringify(nodeData.config);
 				}
+				const cleanedData = stripNullValues(nodeData);
 				return {
 					id: n.id,
 					type: n.type,
 					position: { ...n.position },
 					label: n.label,
-					data: nodeData,
+					data: cleanedData,
 				};
 			}),
 			edges: selectedEdges.map((e) => ({
@@ -60,16 +81,15 @@ export function useClipboard() {
 		localStorage.setItem("flexirule-clipboard", payloadStr); // Cross-tab fallback
 
 		try {
-			// Try modern clipboard API first
-			if (navigator?.clipboard && window.isSecureContext) {
+			// Prefer Frappe's clipboard helper when available.
+			if (frappe?.utils?.copy_to_clipboard) {
+				frappe.utils.copy_to_clipboard(payloadStr);
+			} else if (navigator?.clipboard && window.isSecureContext) {
 				await navigator.clipboard.writeText(payloadStr);
-				frappe.show_alert(
-					{ message: __("Nodes copied to clipboard"), indicator: "blue" },
-					2
-				);
 			} else {
 				throw new Error("Clipboard API unavailable");
 			}
+			frappe.show_alert({ message: __("Nodes copied to clipboard"), indicator: "blue" }, 2);
 		} catch (e) {
 			// Fallback for insecure contexts or API failure
 			const textArea = document.createElement("textarea");

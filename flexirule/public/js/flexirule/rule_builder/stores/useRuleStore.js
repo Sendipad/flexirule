@@ -657,12 +657,14 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 	function next_config_node() {
 		const uiStore = useUIStore();
 		const graphStore = useGraphStore();
+		uiStore.config_modal_mode = "setup";
 		uiStore.navigate_node(graphStore.nodes, 1);
 	}
 
 	function prev_config_node() {
 		const uiStore = useUIStore();
 		const graphStore = useGraphStore();
+		uiStore.config_modal_mode = "setup";
 		uiStore.navigate_node(graphStore.nodes, -1);
 	}
 

@@ -50,6 +50,29 @@ const displayValue = computed(() => {
 	return field ? `${field.label}` : content.value;
 });
 
+function getPrimaryLabel(field) {
+	if (!field) return "";
+	const rawLabel = String(field.label || "").trim();
+	const rawValue = String(field.value || "").trim();
+	if (!rawLabel) return rawValue;
+
+	// Convert "row.account (Account)" to a cleaner "Account"
+	const match = rawLabel.match(/\(([^)]+)\)\s*$/);
+	if (match && match[1]) return match[1].trim();
+	return rawLabel;
+}
+
+function getSecondaryMeta(field) {
+	if (!field) return "";
+	const rawValue = String(field.value || "").trim();
+	const rawLabel = String(field.label || "").trim();
+	if (!rawValue) return rawLabel;
+	if (!rawLabel) return rawValue;
+	// If label already equals value, avoid duplicate line.
+	if (rawLabel === rawValue) return "";
+	return rawValue;
+}
+
 async function loadFields() {
 	// Skip API call if fields prop is provided
 	if (props.fields && props.fields.length > 0) return;
@@ -204,9 +227,15 @@ watch(
 					}"
 					@mousedown.prevent="selectField(field)"
 				>
-					<span class="field-name">{{ field.value }}</span>
-					<span class="field-label">{{ __(field.label) }}</span>
-					<span class="field-type badge badge-secondary">{{ field.fieldtype }}</span>
+					<div class="field-text">
+						<div class="field-primary">{{ __(getPrimaryLabel(field)) }}</div>
+						<div v-if="getSecondaryMeta(field)" class="field-meta">
+							{{ getSecondaryMeta(field) }}
+						</div>
+					</div>
+					<span class="field-type badge badge-secondary">{{
+						field.fieldtype || "Data"
+					}}</span>
 				</div>
 			</div>
 			<div v-if="showDropdown && !filteredFields.length && !loading" class="field-dropdown">
@@ -241,52 +270,73 @@ watch(
 	position: absolute;
 	top: 100%;
 	left: 0;
-	right: 0;
+	width: max(100%, 360px);
+	max-width: min(560px, calc(100vw - 32px));
 	background: white;
 	border: 1px solid var(--border-color);
-	border-radius: 4px;
-	max-height: 250px;
+	border-radius: 8px;
+	max-height: 300px;
 	overflow-y: auto;
-	z-index: 100;
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+	z-index: 1200;
+	box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12), 0 2px 6px rgba(15, 23, 42, 0.08);
+	margin-top: 4px;
 }
 .field-option {
-	padding: 8px 12px;
+	padding: 8px 10px;
 	cursor: pointer;
 	display: flex;
 	align-items: center;
-	gap: 8px;
+	justify-content: space-between;
+	gap: 10px;
 	border-bottom: 1px solid var(--border-color);
+	background: #fff;
 }
 .field-option:last-child {
 	border-bottom: none;
 }
 .field-option:hover {
-	background: var(--bg-light-gray, #f5f5f5);
+	background: #f8fafc;
 }
 .field-option.selected {
-	background: var(--bg-light-blue, #e3f2fd);
+	background: #eff6ff;
 }
 .field-option.active-item {
-	background: var(--bg-light-blue, #e3f2fd);
-	outline: 1px solid var(--primary, #2490ef);
+	background: #eff6ff;
 }
 .field-option.disabled {
 	color: var(--text-muted);
 	cursor: default;
 }
-.field-name {
-	font-family: monospace;
-	font-size: 12px;
-	color: var(--primary);
-}
-.field-label {
+.field-text {
 	flex: 1;
-	font-size: 12px;
-	color: var(--text-muted);
+	min-width: 0;
+}
+.field-primary {
+	font-size: 13px;
+	font-weight: 500;
+	color: #1f2937;
+	line-height: 1.2;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.field-meta {
+	font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+		"Courier New", monospace;
+	font-size: 11px;
+	color: #64748b;
+	line-height: 1.2;
+	margin-top: 2px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 .field-type {
 	font-size: 10px;
 	padding: 2px 6px;
+	flex-shrink: 0;
+	background: #f1f5f9;
+	color: #475569;
+	border-radius: 999px;
 }
 </style>

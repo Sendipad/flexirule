@@ -169,8 +169,34 @@
 											</div>
 
 											<!-- Split View: Setup (Left) & Config (Right/Center) -->
-											<div class="action-core-layout">
+											<div
+												class="action-core-layout"
+												:class="{
+													'input-panel-collapsed': collapseInputPanel,
+												}"
+											>
 												<div class="core-setup-panel">
+													<button
+														class="panel-collapse-btn left"
+														type="button"
+														@click="
+															collapseInputPanel = !collapseInputPanel
+														"
+														:title="
+															collapseInputPanel
+																? __('Expand Input Panel')
+																: __('Collapse Input Panel')
+														"
+													>
+														<i
+															class="fa"
+															:class="
+																collapseInputPanel
+																	? 'fa-chevron-right'
+																	: 'fa-chevron-left'
+															"
+														></i>
+													</button>
 													<InputPanel
 														:node="draftNode"
 														:readOnly="ruleStore.is_read_only"
@@ -190,8 +216,31 @@
 									</div>
 
 									<!-- Right Side Utility Panel (Mutation & Results) -->
-									<aside class="sidebar-mutation">
+									<aside
+										class="sidebar-mutation"
+										:class="{ collapsed: collapseOutputPanel }"
+									>
+										<button
+											class="panel-collapse-btn right"
+											type="button"
+											@click="collapseOutputPanel = !collapseOutputPanel"
+											:title="
+												collapseOutputPanel
+													? __('Expand Output Panel')
+													: __('Collapse Output Panel')
+											"
+										>
+											<i
+												class="fa"
+												:class="
+													collapseOutputPanel
+														? 'fa-chevron-left'
+														: 'fa-chevron-right'
+												"
+											></i>
+										</button>
 										<OutputPanel
+											v-show="!collapseOutputPanel"
 											:node="draftNode"
 											:readOnly="ruleStore.is_read_only"
 											:ref="panelRefs.output"
@@ -272,6 +321,8 @@ const { draftNode, panelRefs, save, cancel } = useRuleConfig(props, emit);
 const showContextSidebar = ref(false);
 const showGuideSidebar = ref(false);
 const showSettingsBar = ref(false);
+const collapseInputPanel = ref(false);
+const collapseOutputPanel = ref(false);
 
 const contract = computed(() => {
 	const type = draftNode.value?.data?.action_type || draftNode.value?.type;
@@ -565,7 +616,7 @@ function getIcon(type) {
 	flex: 1;
 	overflow-y: auto;
 	background: #f8fafc;
-	padding: 16px;
+	padding: 10px;
 }
 
 .config-content-wrapper {
@@ -573,7 +624,7 @@ function getIcon(type) {
 	margin: 0 auto;
 	display: flex;
 	flex-direction: column;
-	gap: 20px;
+	gap: 10px;
 }
 
 .integrated-settings-bar {
@@ -585,8 +636,8 @@ function getIcon(type) {
 
 .action-core-layout {
 	display: grid;
-	grid-template-columns: 320px 1fr;
-	gap: 16px;
+	grid-template-columns: minmax(220px, 25%) minmax(0, 75%);
+	gap: 8px;
 	align-items: start;
 }
 
@@ -596,14 +647,92 @@ function getIcon(type) {
 	border-radius: 16px;
 	border: 1px solid #e2e8f0;
 	overflow: hidden;
+	position: relative;
 }
 
 .sidebar-mutation {
-	width: 300px;
+	width: 20%;
+	min-width: 220px;
+	max-width: 380px;
 	border-left: 1px solid #e2e8f0;
 	background: #fff;
 	display: flex;
 	flex-direction: column;
+	position: relative;
+	transition: width 0.2s ease;
+	margin-left: 8px;
+}
+
+.action-core-layout.input-panel-collapsed {
+	grid-template-columns: 44px minmax(0, 1fr);
+}
+
+.action-core-layout.input-panel-collapsed .core-setup-panel {
+	min-width: 44px;
+}
+
+.action-core-layout.input-panel-collapsed .core-setup-panel :deep(.input-panel) {
+	display: none;
+}
+
+.sidebar-mutation.collapsed {
+	width: 44px;
+	min-width: 44px;
+	max-width: 44px;
+}
+
+.panel-collapse-btn {
+	position: absolute;
+	top: 10px;
+	z-index: 5;
+	width: 26px;
+	height: 26px;
+	border-radius: 50%;
+	border: 1px solid #dbe2ea;
+	background: #fff;
+	color: #64748b;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	transition: all 0.2s ease;
+}
+
+.panel-collapse-btn:hover {
+	color: #1e293b;
+	border-color: #94a3b8;
+}
+
+.panel-collapse-btn.left {
+	right: 8px;
+}
+
+.panel-collapse-btn.right {
+	left: 8px;
+}
+
+.action-core-layout.input-panel-collapsed .panel-collapse-btn.left {
+	left: 50%;
+	right: auto;
+	transform: translateX(-50%);
+	background: #f8fafc;
+	border-color: #cbd5e1;
+	z-index: 8;
+}
+
+.sidebar-mutation.collapsed .panel-collapse-btn.right {
+	left: 50%;
+	transform: translateX(-50%);
+	background: #f8fafc;
+	border-color: #cbd5e1;
+}
+
+@media (min-width: 1400px) {
+	.config-main-area {
+		display: grid;
+		grid-template-columns: minmax(0, 80%) minmax(220px, 20%);
+		column-gap: 8px;
+	}
 }
 
 .guide-sidebar {
@@ -659,5 +788,22 @@ function getIcon(type) {
 .modal-fade-leave-to {
 	opacity: 0;
 	transform: scale(0.95);
+}
+
+@media (max-width: 1199px) {
+	.config-main-area {
+		display: flex;
+	}
+
+	.action-core-layout {
+		grid-template-columns: minmax(220px, 34%) minmax(0, 66%);
+		gap: 8px;
+	}
+
+	.sidebar-mutation {
+		width: 280px;
+		min-width: 240px;
+		margin-left: 8px;
+	}
 }
 </style>

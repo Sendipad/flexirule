@@ -767,6 +767,8 @@ class RuleEngine:
 			"check_link_match": check_link_match,
 			"length_of": _length_of,
 			"is_empty_value": _is_empty_value,
+			"any": any,
+			"all": all,
 			"True": True,
 			"False": False,
 			"None": None,
