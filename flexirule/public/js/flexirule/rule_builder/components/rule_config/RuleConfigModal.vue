@@ -291,7 +291,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
+import { ref, computed, watch } from "vue";
 import ResizablePanel from "./ResizablePanel.vue";
 import InputPanel from "./InputPanel.vue";
 import ConfigurationPanel from "./ConfigurationPanel.vue";
@@ -323,6 +323,22 @@ const showGuideSidebar = ref(false);
 const showSettingsBar = ref(false);
 const collapseInputPanel = ref(false);
 const collapseOutputPanel = ref(false);
+
+watch(
+	() => props.modelValue,
+	(isOpen) => {
+		if (isOpen) {
+			collapseInputPanel.value = false;
+		}
+	}
+);
+
+watch(
+	() => uiStore.selected_id,
+	() => {
+		collapseInputPanel.value = false;
+	}
+);
 
 const contract = computed(() => {
 	const type = draftNode.value?.data?.action_type || draftNode.value?.type;
