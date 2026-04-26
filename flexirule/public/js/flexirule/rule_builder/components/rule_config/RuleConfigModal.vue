@@ -654,7 +654,7 @@ function getIcon(type) {
 	display: grid;
 	grid-template-columns: minmax(220px, 25%) minmax(0, 75%);
 	gap: 8px;
-	align-items: start;
+	align-items: stretch;
 }
 
 .core-setup-panel,

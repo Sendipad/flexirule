@@ -458,7 +458,9 @@ function normalizeModel(val) {
 			source_path: val.source_path || "doc",
 			copy_same_fields: !!val.copy_same_fields,
 			field_no_map: Array.isArray(val.field_no_map) ? val.field_no_map.filter(Boolean) : [],
-			scalars: Array.isArray(val.scalars) ? val.scalars : [],
+			scalars: Array.isArray(val.scalars)
+				? val.scalars.filter((s) => s && s.target && !String(s.target).includes("."))
+				: [],
 			tables: Array.isArray(val.tables)
 				? val.tables.map((table) => ({
 						target_table: table?.target_table || "",
@@ -695,13 +697,14 @@ function collectTableAutoMapRows(table) {
 		if (!target || existing.has(target)) return;
 		// Skip system / internal fields
 		if (AUTOMAP_EXCLUDE_FIELDS.has(target)) return;
-		// Only suggest a mapping when a real source match exists
+		// Try to find a match in context variables, fallback to speculative mapping based on rowAlias
 		const source = preferredSource(target, rowSourceOptions, `${rowAlias}.`);
-		if (!source) return;
+		const sourcePath = source ? source.value : `${rowAlias}.${target}`;
+
 		suggestions.push({
 			target,
 			source_type: "path",
-			path: source.value,
+			path: sourcePath,
 			expr: "",
 			literal: "",
 		});

@@ -265,7 +265,15 @@ watch(
 	reference_doctype,
 	async (val) => {
 		if (val) {
-			targetSchema.value = await transformUtils.getDocTypeSchema(val);
+			const fullSchema = await transformUtils.getDocTypeSchema(val);
+			// Only show scalar fields in Visual Mapper
+			targetSchema.value = fullSchema.filter((f) => {
+				return (
+					!String(f.value).includes(".") &&
+					f.fieldtype !== "Table" &&
+					f.fieldtype !== "Table MultiSelect"
+				);
+			});
 		} else {
 			targetSchema.value = [];
 		}
@@ -341,7 +349,7 @@ function buildMapperUiFromLegacy(cfg) {
 
 	const fieldMappings = Array.isArray(cfg?.field_mappings) ? cfg.field_mappings : [];
 	fieldMappings.forEach((mapping) => {
-		if (!mapping?.target) return;
+		if (!mapping?.target || String(mapping.target).includes(".")) return;
 		ui.scalars.push(mapSourceToUiRow(mapping.target, mapping.source));
 	});
 
