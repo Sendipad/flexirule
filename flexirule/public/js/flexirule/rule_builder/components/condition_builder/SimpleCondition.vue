@@ -120,7 +120,10 @@ const valueFieldSchema = computed(() => {
 	}
 
 	// 2. Multi-Select Handling for IN/NOT IN
-	if (["in", "not in"].includes(props.node.op) && !isDoctypeContextField.value) {
+	if (
+		["in", "not in", "in list", "not in list"].includes(props.node.op) &&
+		!isDoctypeContextField.value
+	) {
 		const originalFieldtype = schema.fieldtype;
 		const originalOptions = schema.options;
 		schema.fieldtype = "MultiSelect";
@@ -133,6 +136,15 @@ const valueFieldSchema = computed(() => {
 				.split("\n")
 				.map((opt) => opt.trim())
 				.filter(Boolean);
+		} else if (originalFieldtype === "Link") {
+			schema.fieldtype = "MultiSelectList";
+			schema.get_data = async (txt) => {
+				const rows = await frappe.db.get_link_options(originalOptions, txt || "");
+				return (rows || []).map((row) => ({
+					value: row.value || row,
+					description: row.description || "",
+				}));
+			};
 		}
 	}
 

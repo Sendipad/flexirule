@@ -5,9 +5,29 @@
 			<p class="text-muted small">{{ __("Define reference and operation") }}</p>
 		</div>
 
-		<div class="panel-sections">
-			<!-- Configuration Section (Only for 'config' mode) -->
-			<div v-if="mode === 'config'" class="panel-section setup-section">
+		<div class="panel-tabs" v-if="mode === 'config'">
+			<button
+				class="tab-btn"
+				:class="{ active: activeTab === 'data' }"
+				@click="activeTab = 'data'"
+			>
+				<i class="fa fa-database"></i> {{ __("Data") }}
+			</button>
+			<button
+				class="tab-btn"
+				:class="{ active: activeTab === 'settings' }"
+				@click="activeTab = 'settings'"
+			>
+				<i class="fa fa-cog"></i> {{ __("Settings") }}
+			</button>
+		</div>
+
+		<div class="panel-sections v2-scrollbar">
+			<!-- SETTINGS TAB -->
+			<div
+				v-show="activeTab === 'settings' || mode !== 'config'"
+				class="panel-section setup-section"
+			>
 				<div class="setup-controls">
 					<ControlFactory
 						v-if="showProcessName"
@@ -61,117 +81,195 @@
 				</div>
 			</div>
 
-			<!-- Available Variables (Always shown in 'variables' mode, optional in 'config') -->
-			<div class="panel-section variables-section">
-				<div class="section-header">
-					<h5 class="section-title">
-						{{
-							mode === "variables"
-								? __("Available Variables")
-								: __("Context Variables")
-						}}
-					</h5>
-					<div class="section-actions">
-						<button
-							class="btn btn-xs btn-link"
-							@click="variablesCollapsed = !variablesCollapsed"
-							:title="
-								variablesCollapsed
-									? __('Expand Context Variables')
-									: __('Collapse Context Variables')
-							"
-						>
-							<i
-								class="fa"
-								:class="variablesCollapsed ? 'fa-chevron-down' : 'fa-chevron-up'"
-							></i>
-						</button>
-						<button
-							v-if="!variablesCollapsed"
-							class="btn btn-xs btn-link"
-							@click="refreshVariables"
-						>
-							<i class="fa fa-refresh"></i>
-						</button>
-					</div>
-				</div>
-				<div v-if="!variablesCollapsed" class="variable-search mb-2">
-					<div class="input-group input-group-sm">
-						<div class="input-group-prepend">
-							<span class="input-group-text"><i class="fa fa-search"></i></span>
-						</div>
-						<input
-							type="text"
-							class="form-control"
-							v-model="searchQuery"
-							:placeholder="__('Search variables...')"
-						/>
-					</div>
-				</div>
-
-				<div v-if="!variablesCollapsed" class="variable-list v2-scrollbar">
-					<div v-if="loading" class="text-center p-3">
-						<div class="spinner-border spinner-border-sm text-muted"></div>
-					</div>
-					<template v-else>
-						<div
-							v-for="v in filteredVariables"
-							:key="v.value"
-							class="variable-item"
-							:title="v.label"
-							draggable="true"
-							@dragstart="onDragStart($event, v)"
-						>
-							<div class="variable-info">
-								<span class="variable-label">{{ v.label }}</span>
-								<span class="variable-type">{{ v.type || "Data" }}</span>
-							</div>
+			<!-- DATA TAB -->
+			<div v-show="activeTab === 'data'" class="data-tab-content">
+				<!-- Context Variables -->
+				<div class="panel-section variables-section">
+					<div class="section-header">
+						<h5 class="section-title">
+							{{
+								mode === "variables"
+									? __("Available Variables")
+									: __("Context Variables")
+							}}
+						</h5>
+						<div class="section-actions">
 							<button
-								class="btn btn-xs btn-link text-muted opacity-20 hover-opacity-100"
-								@click="copyToClipboard(`{{ ${v.value} }}`)"
+								class="btn btn-xs btn-link"
+								@click="variablesCollapsed = !variablesCollapsed"
+								:title="
+									variablesCollapsed
+										? __('Expand Context Variables')
+										: __('Collapse Context Variables')
+								"
 							>
-								<i class="fa fa-copy"></i>
+								<i
+									class="fa"
+									:class="
+										variablesCollapsed ? 'fa-chevron-down' : 'fa-chevron-up'
+									"
+								></i>
+							</button>
+							<button
+								v-if="!variablesCollapsed"
+								class="btn btn-xs btn-link"
+								@click="refreshVariables"
+							>
+								<i class="fa fa-refresh"></i>
 							</button>
 						</div>
-						<div v-if="filteredVariables.length === 0" class="empty-state">
-							{{
-								searchQuery
-									? __("No matching variables")
-									: __("No scope variables available")
-							}}
-						</div>
-					</template>
-				</div>
-				<div v-else class="section-collapsed-note">
-					{{ __("Context variables are collapsed.") }}
-				</div>
-			</div>
-
-			<!-- DocType Fields (Only in 'config' mode when a DocType is selected) -->
-			<div
-				v-if="mode === 'config' && doctypeContext"
-				class="panel-section doctype-fields-section"
-			>
-				<h5 class="section-title">
-					{{ __("{0} Fields").replace("{0}", doctypeContext) }}
-				</h5>
-				<div class="variable-list v2-scrollbar mt-2">
-					<div v-if="loadingFields" class="text-center p-2">
-						<div class="spinner-border spinner-border-sm text-muted"></div>
 					</div>
-					<template v-else>
-						<div
-							v-for="f in doctypeFields"
-							:key="f.fieldname"
-							class="variable-item field-item"
-							:title="f.label"
-							draggable="true"
-							@dragstart="onDragStart($event, f, true)"
-						>
-							<span class="variable-label">{{ f.label }}</span>
-							<span class="variable-type">{{ f.fieldtype }}</span>
+					<div v-if="!variablesCollapsed" class="variable-search mb-2">
+						<div class="input-group input-group-sm">
+							<div class="input-group-prepend">
+								<span class="input-group-text"><i class="fa fa-search"></i></span>
+							</div>
+							<input
+								type="text"
+								class="form-control"
+								v-model="searchQuery"
+								:placeholder="__('Search variables...')"
+							/>
 						</div>
-					</template>
+					</div>
+
+					<div v-if="!variablesCollapsed" class="variable-list v2-scrollbar">
+						<div v-if="loading" class="text-center p-3">
+							<div class="spinner-border spinner-border-sm text-muted"></div>
+						</div>
+						<template v-else>
+							<div
+								v-for="v in filteredVariables"
+								:key="v.value"
+								class="variable-item"
+								:title="v.label"
+								draggable="true"
+								@dragstart="onDragStart($event, v)"
+								@click="insertOrCopy(v.value)"
+							>
+								<div class="variable-info">
+									<span class="variable-label">{{ v.label }}</span>
+									<span class="variable-type">{{ v.type || "Data" }}</span>
+								</div>
+								<button
+									class="btn btn-xs btn-link text-muted opacity-20 hover-opacity-100"
+									@click.stop="copyToClipboard(`{{ ${v.value} }}`)"
+									:title="__('Copy to clipboard')"
+								>
+									<i class="fa fa-copy"></i>
+								</button>
+							</div>
+							<div v-if="filteredVariables.length === 0" class="empty-state">
+								{{
+									searchQuery
+										? __("No matching variables")
+										: __("No scope variables available")
+								}}
+							</div>
+						</template>
+					</div>
+					<div v-else class="section-collapsed-note">
+						{{ __("Context variables are collapsed.") }}
+					</div>
+				</div>
+
+				<!-- Document Data Tree -->
+				<div
+					v-show="activeTab === 'data' && doctypeContext"
+					class="panel-section doctype-fields-section mt-4"
+				>
+					<h5 class="section-title mb-2">
+						{{ __("Document Data") }}
+					</h5>
+
+					<div class="variable-search mb-2">
+						<div class="input-group input-group-sm">
+							<div class="input-group-prepend">
+								<span class="input-group-text"><i class="fa fa-search"></i></span>
+							</div>
+							<input
+								type="text"
+								class="form-control"
+								v-model="fieldSearchQuery"
+								:placeholder="__('Search fields...')"
+							/>
+						</div>
+					</div>
+
+					<div class="variable-list v2-scrollbar mt-2">
+						<div v-if="loadingFields" class="text-center p-2">
+							<div class="spinner-border spinner-border-sm text-muted"></div>
+						</div>
+						<template v-else>
+							<div class="tree-container">
+								<div
+									v-for="(group, groupName) in groupedFields"
+									:key="groupName"
+									class="tree-group"
+								>
+									<!-- Group Header (Table Name or 'doc') -->
+									<div class="tree-group-header" @click="toggleGroup(groupName)">
+										<i
+											class="fa fa-fw"
+											:class="
+												expandedGroups[groupName]
+													? 'fa-chevron-down'
+													: 'fa-chevron-right'
+											"
+										></i>
+										<span class="tree-group-title">
+											{{ groupName === doctypeContext ? "doc" : groupName }}
+										</span>
+									</div>
+
+									<!-- Group Items -->
+									<div
+										v-show="expandedGroups[groupName]"
+										class="tree-group-items"
+									>
+										<!-- Show Loop Iterator if active -->
+										<div
+											v-if="
+												groupName !== doctypeContext &&
+												getLoopIterator(groupName)
+											"
+											class="tree-iterator-hint"
+										>
+											<i
+												class="fa fa-level-down fa-rotate-270 mr-1 text-muted"
+											></i>
+											<span class="text-primary font-weight-bold">{{
+												getLoopIterator(groupName)
+											}}</span>
+											<span class="text-muted ml-1 small">{{
+												__("(Current Item)")
+											}}</span>
+										</div>
+
+										<div
+											v-for="f in group.fields"
+											:key="f.fieldname"
+											class="tree-item"
+											:title="f.label"
+											draggable="true"
+											@dragstart="onDragStart($event, f, true, groupName)"
+											@click="insertOrCopy(buildFieldPath(f, groupName))"
+										>
+											<span class="tree-item-label">{{ f.fieldname }}</span>
+											<span class="tree-item-type">({{ f.fieldtype }})</span>
+										</div>
+									</div>
+								</div>
+							</div>
+						</template>
+					</div>
+
+					<div class="tips-box mt-4">
+						<h6><i class="fa fa-info-circle text-primary"></i> {{ __("Tips") }}</h6>
+						<ul>
+							<li>{{ __("Drag & drop to insert") }}</li>
+						</ul>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -181,6 +279,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from "vue";
 import { useStore } from "../../stores";
+import { insertIntoActiveTGC } from "../../utils/tgc_focus";
 import {
 	getContract,
 	getFieldLabel,
@@ -202,7 +301,10 @@ const doctypeFields = ref([]);
 const loading = ref(false);
 const loadingFields = ref(false);
 const searchQuery = ref("");
-const variablesCollapsed = ref(false);
+const fieldSearchQuery = ref("");
+const variablesCollapsed = ref(true);
+const activeTab = ref("data");
+const expandedGroups = ref({});
 
 const contract = computed(() => {
 	const type = props.node?.data?.action_type || props.node?.type;
@@ -421,14 +523,52 @@ const filteredVariables = computed(() => {
 	);
 });
 
-function onDragStart(event, item, isField = false) {
+const groupedFields = computed(() => {
+	const groups = {};
+	const q = fieldSearchQuery.value.toLowerCase();
+
+	doctypeFields.value.forEach((f) => {
+		if (q && !f.fieldname.toLowerCase().includes(q) && !f.label.toLowerCase().includes(q)) {
+			return;
+		}
+
+		const groupName = f.doctype || doctypeContext.value;
+		if (!groups[groupName]) {
+			groups[groupName] = { fields: [] };
+		}
+		groups[groupName].fields.push(f);
+	});
+	return groups;
+});
+
+function toggleGroup(groupName) {
+	expandedGroups.value[groupName] = !expandedGroups.value[groupName];
+}
+
+// Optional logic to track loop iterator by groupName (requires injecting knownVarRoots from parent, ignoring for now or mock)
+function getLoopIterator(groupName) {
+	// If the user is inside a loop, we would ideally know. For now we can return 'i' if it's the 'items' table just to mimic mockup, or we leave it empty until we hook it to store state.
+	return "";
+}
+
+function onDragStart(event, item, isField = false, groupName = "") {
 	if (event.dataTransfer) {
-		const text = isField ? `{{ doc.${item.fieldname} }}` : `{{ ${item.value} }}`;
+		let path = "";
+		if (isField) {
+			if (groupName === doctypeContext.value || !groupName) {
+				path = `doc.${item.fieldname}`;
+			} else {
+				// Child table field. If there's a loop iterator, use that?
+				// Without active context, we just drag the raw fieldname or table.fieldname
+				path = `${item.fieldname}`;
+			}
+		} else {
+			path = item.value;
+		}
+
+		const text = `{{ ${path} }}`;
 		event.dataTransfer.setData("text/plain", text);
-		event.dataTransfer.setData(
-			"application/x-flexirule-variable",
-			isField ? `doc.${item.fieldname}` : item.value
-		);
+		event.dataTransfer.setData("application/x-flexirule-variable", path);
 		event.dataTransfer.effectAllowed = "copy";
 	}
 }
@@ -454,6 +594,8 @@ async function loadDoctypeFields() {
 	loadingFields.value = true;
 	try {
 		doctypeFields.value = await flexirule.utils.get_doctype_fields(dt);
+		// Expand root group by default
+		expandedGroups.value[dt] = true;
 	} catch (e) {
 		doctypeFields.value = [];
 	} finally {
@@ -670,6 +812,26 @@ function copyToClipboard(text) {
 	}
 }
 
+/**
+ * Smart insert: if a TextGeneratorControl is focused, insert directly.
+ * Otherwise fall back to clipboard so InputPanel stays useful standalone.
+ */
+function insertOrCopy(path) {
+	const expr = `{{ ${path} }}`;
+	const inserted = insertIntoActiveTGC(path);
+	if (!inserted) {
+		copyToClipboard(expr);
+	} else {
+		frappe?.show_alert?.({ message: `${__("Inserted")}: ${expr}`, indicator: "blue" }, 1);
+	}
+}
+
+/** Build the Jinja path for a doc field based on its group context. */
+function buildFieldPath(field, groupName) {
+	if (!groupName || groupName === doctypeContext.value) return `doc.${field.fieldname}`;
+	return field.fieldname;
+}
+
 defineExpose({
 	validate: () => {
 		const errors = [];
@@ -710,6 +872,31 @@ defineExpose({
 	margin: 0 0 4px 0;
 	font-size: 15px;
 	font-weight: 600;
+}
+
+.panel-tabs {
+	display: flex;
+	border-bottom: 1px solid #e2e8f0;
+	background: #fff;
+	padding: 0 16px;
+}
+.tab-btn {
+	background: none;
+	border: none;
+	padding: 12px 16px;
+	font-size: 13px;
+	font-weight: 600;
+	color: #64748b;
+	cursor: pointer;
+	border-bottom: 2px solid transparent;
+	transition: all 0.2s;
+}
+.tab-btn:hover {
+	color: #1e293b;
+}
+.tab-btn.active {
+	color: var(--primary, #6366f1);
+	border-bottom-color: var(--primary, #6366f1);
 }
 
 .panel-sections {
@@ -793,6 +980,90 @@ defineExpose({
 	background: #f1f5f9;
 	border-radius: 4px;
 	color: #64748b;
+}
+
+/* Tree Styles */
+.tree-container {
+	display: flex;
+	flex-direction: column;
+	font-size: 12px;
+}
+.tree-group {
+	margin-bottom: 4px;
+}
+.tree-group-header {
+	padding: 6px 8px;
+	cursor: pointer;
+	border-radius: 6px;
+	color: #334155;
+	font-weight: 600;
+	display: flex;
+	align-items: center;
+	transition: background 0.15s;
+}
+.tree-group-header:hover {
+	background: #f1f5f9;
+}
+.tree-group-header .fa {
+	font-size: 10px;
+	width: 16px;
+	color: #94a3b8;
+}
+.tree-group-items {
+	padding-left: 20px;
+	border-left: 1px solid #e2e8f0;
+	margin-left: 12px;
+	margin-top: 4px;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+.tree-iterator-hint {
+	padding: 4px 8px;
+	margin-bottom: 4px;
+	background: #f8fafc;
+	border-radius: 4px;
+	font-size: 11px;
+}
+.tree-item {
+	padding: 4px 8px;
+	border-radius: 4px;
+	display: flex;
+	justify-content: space-between;
+	cursor: grab;
+	color: #475569;
+}
+.tree-item:hover {
+	background: #f1f5f9;
+}
+.tree-item-label {
+	font-weight: 500;
+}
+.tree-item-type {
+	font-size: 10px;
+	color: #94a3b8;
+}
+
+.tips-box {
+	background: #f8fafc;
+	border: 1px solid #e2e8f0;
+	border-radius: 8px;
+	padding: 12px;
+	font-size: 12px;
+	color: #475569;
+}
+.tips-box h6 {
+	margin: 0 0 8px 0;
+	font-size: 12px;
+	font-weight: 600;
+	color: #334155;
+}
+.tips-box ul {
+	margin: 0;
+	padding-left: 20px;
+}
+.tips-box li {
+	margin-bottom: 4px;
 }
 
 .guide-content {

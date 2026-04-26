@@ -24,7 +24,7 @@ export function normalizeTemplatePath(path, knownVarRoots = []) {
 	const roots = new Set(knownVarRoots || []);
 	const root = raw.split(".", 1)[0];
 	if (ALLOWED_ROOTS.has(root)) return raw;
-	if (roots.has(root)) return `vars.${raw}`;
+	if (roots.has(root)) return raw;
 	return `doc.${raw}`;
 }
 
@@ -39,6 +39,8 @@ function normalizeInlineJinja(content, knownVarRoots = []) {
 
 export function compileConditionTree(node, knownVarRoots = []) {
 	if (!node) return "";
+	// Raw expression stored during Jinja import – pass through as-is
+	if (node._raw_expr !== undefined) return node._raw_expr || "True";
 
 	// Group node (and/or)
 	if (Array.isArray(node.conditions)) {
@@ -177,7 +179,154 @@ export function compileSegmentsToJinja(segments, options = {}) {
 				return out;
 			}
 
+			if (t === "loop") {
+				const iterable = normalizeTemplatePath(seg.iterable || "", knownVarRoots) || "[]";
+				const iterator = seg.iterator || "item";
+				const nestedRoots = [...knownVarRoots, iterator];
+
+				let out = `{% for ${iterator} in ${iterable} %}`;
+				out += compileSegmentsToJinja(seg.segments || [], { knownVarRoots: nestedRoots });
+				out += `{% endfor %}`;
+
+				return out;
+			}
+
 			return "";
 		})
 		.join("");
+}
+
+// ─── Jinja → Segments round-trip parser ────────────────────────────────────────
+
+function _genKey() {
+	return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+function _tokenize(template) {
+	const tokens = [];
+	const re = /(\{\{-?\s*[\s\S]*?-?\}\}|\{%-?\s*[\s\S]*?-?%\})/g;
+	let lastIdx = 0;
+	let m;
+	while ((m = re.exec(template)) !== null) {
+		if (m.index > lastIdx)
+			tokens.push({ kind: "text", value: template.slice(lastIdx, m.index) });
+		const raw = m[1];
+		if (raw.startsWith("{{")) {
+			const expr = raw
+				.replace(/^\{\{-?\s*/, "")
+				.replace(/\s*-?\}\}$/, "")
+				.trim();
+			tokens.push({ kind: "var", expr });
+		} else {
+			const inner = raw
+				.replace(/^\{%-?\s*/, "")
+				.replace(/\s*-?%\}$/, "")
+				.trim();
+			const si = inner.search(/\s/);
+			const tag = si === -1 ? inner : inner.slice(0, si);
+			const args = si === -1 ? "" : inner.slice(si + 1).trim();
+			tokens.push({ kind: "tag", tag, args });
+		}
+		lastIdx = m.index + m[0].length;
+	}
+	if (lastIdx < template.length) tokens.push({ kind: "text", value: template.slice(lastIdx) });
+	return tokens;
+}
+
+function _mergeText(segments, value) {
+	if (!value) return;
+	const last = segments[segments.length - 1];
+	if (last && last.type === "text") {
+		last.content += value;
+	} else {
+		segments.push({ type: "text", content: value, _key: _genKey() });
+	}
+}
+
+function _parseLevel(tokens, startIdx, stopTags) {
+	const segments = [];
+	let i = startIdx;
+	const isStop = (tok) => tok && tok.kind === "tag" && stopTags && stopTags.includes(tok.tag);
+
+	while (i < tokens.length) {
+		const tok = tokens[i];
+		if (isStop(tok)) return { segments, nextIdx: i };
+
+		if (tok.kind === "text") {
+			_mergeText(segments, tok.value);
+			i++;
+		} else if (tok.kind === "var") {
+			segments.push({ type: "variable", path: tok.expr, _key: _genKey() });
+			i++;
+		} else if (tok.kind === "tag") {
+			if (tok.tag === "if") {
+				i++;
+				const thenR = _parseLevel(tokens, i, ["elif", "else", "endif"]);
+				i = thenR.nextIdx;
+				const condSeg = {
+					type: "conditional",
+					condition: { op: "and", conditions: [], _raw_expr: tok.args },
+					then_segments: thenR.segments,
+					elif_branches: [],
+					else_segments: [],
+					_key: _genKey(),
+				};
+				while (i < tokens.length) {
+					const t = tokens[i];
+					if (!t || t.kind !== "tag") break;
+					if (t.tag === "endif") {
+						i++;
+						break;
+					}
+					if (t.tag === "elif") {
+						i++;
+						const eR = _parseLevel(tokens, i, ["elif", "else", "endif"]);
+						i = eR.nextIdx;
+						condSeg.elif_branches.push({
+							condition: { op: "and", conditions: [], _raw_expr: t.args },
+							segments: eR.segments,
+						});
+					} else if (t.tag === "else") {
+						i++;
+						const elR = _parseLevel(tokens, i, ["endif"]);
+						i = elR.nextIdx;
+						condSeg.else_segments = elR.segments;
+					} else break;
+				}
+				segments.push(condSeg);
+			} else if (tok.tag === "for") {
+				const fm = tok.args.match(/^(\w+)\s+in\s+(.+)$/);
+				i++;
+				if (fm) {
+					const bodyR = _parseLevel(tokens, i, ["endfor"]);
+					i = bodyR.nextIdx;
+					if (i < tokens.length && tokens[i]?.tag === "endfor") i++;
+					segments.push({
+						type: "loop",
+						iterator: fm[1],
+						iterable: fm[2].trim(),
+						segments: bodyR.segments,
+						_key: _genKey(),
+					});
+				}
+			} else {
+				_mergeText(segments, `{% ${tok.tag}${tok.args ? " " + tok.args : ""} %}`);
+				i++;
+			}
+		} else {
+			i++;
+		}
+	}
+	return { segments, nextIdx: i };
+}
+
+/**
+ * Parse a raw Jinja template string into the FlexiRule segment array.
+ * Handles: {{ var }}, {% if/elif/else/endif %}, {% for x in y/endfor %}
+ */
+export function parseJinjaToSegments(template) {
+	if (!template || !template.trim()) return [];
+	const tokens = _tokenize(template);
+	const { segments } = _parseLevel(tokens, 0, []);
+	return segments;
 }

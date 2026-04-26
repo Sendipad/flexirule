@@ -75,6 +75,7 @@ flexirule.utils.get_doctype_fields = async function (doctype, prefix = "") {
 					fieldname: df.fieldname,
 					doctype: parent_table,
 					fieldtype: df.fieldtype,
+					options: df.options,
 					// Fallback Description: Type -> Options
 					description:
 						df.description ||

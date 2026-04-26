@@ -100,13 +100,20 @@ function selectField(field) {
 
 function handleInput(e) {
 	searchQuery.value = e.target.value;
-	content.value = e.target.value;
 	showDropdown.value = true;
 }
 
 function handleFocus() {
 	showDropdown.value = true;
+	searchQuery.value = displayValue.value;
 	if (!effectiveFields.value.length && props.documentType) loadFields();
+}
+
+function clearField() {
+	content.value = "";
+	searchQuery.value = "";
+	showDropdown.value = false;
+	emit("update:modelValue", "");
 }
 
 function handleBlur() {
@@ -213,6 +220,9 @@ watch(
 				:placeholder="__('Search fields...')"
 				:disabled="read_only"
 			/>
+			<div v-if="content && !read_only" class="field-clear" @click.stop="clearField">
+				<i class="fa fa-times"></i>
+			</div>
 			<div v-if="loading" class="field-loading">
 				<span class="spinner-border spinner-border-sm"></span>
 			</div>
@@ -259,6 +269,25 @@ watch(
 }
 .field-input-wrapper {
 	position: relative;
+	display: flex;
+	align-items: center;
+}
+.field-input-wrapper input {
+	padding-right: 24px;
+}
+.field-clear {
+	position: absolute;
+	right: 8px;
+	top: 50%;
+	transform: translateY(-50%);
+	cursor: pointer;
+	color: #94a3b8;
+	font-size: 12px;
+	padding: 4px;
+	z-index: 2;
+}
+.field-clear:hover {
+	color: #ef4444;
 }
 .field-loading {
 	position: absolute;
