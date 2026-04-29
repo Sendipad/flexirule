@@ -242,7 +242,12 @@ export function convertSegmentsToHtml(segments, variableOptions = []) {
 				process(seg.then_segments || []);
 
 				if (seg.else_segments && seg.else_segments.length > 0) {
-					const elseAttrs = { type: "conditional", isStart: false, isElse: true, _key: seg._key };
+					const elseAttrs = {
+						type: "conditional",
+						isStart: false,
+						isElse: true,
+						_key: seg._key,
+					};
 					htmlParts.push(
 						`<span data-type="logic" class="tg-badge tg-badge-else" data-logic-type='${encodeData(
 							elseAttrs
@@ -251,7 +256,12 @@ export function convertSegmentsToHtml(segments, variableOptions = []) {
 					process(seg.else_segments);
 				}
 
-				const endAttrs = { type: "conditional", isStart: false, isElse: false, _key: seg._key };
+				const endAttrs = {
+					type: "conditional",
+					isStart: false,
+					isElse: false,
+					_key: seg._key,
+				};
 				htmlParts.push(
 					`<span data-type="logic" class="tg-badge tg-badge-end" data-logic-type='${encodeData(
 						endAttrs

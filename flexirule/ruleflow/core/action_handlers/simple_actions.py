@@ -338,7 +338,9 @@ class NotifyHandler(ActionHandler):
 	def _render_template(self, template, context, engine=None):
 		template = template or ""
 		# nosemgrep: frappe-semgrep-rules.rules.security.frappe-ssti
-		return frappe.render_template(template, self._template_context(context, engine))  # nosemgrep: frappe-ssti
+		return frappe.render_template(
+			template, self._template_context(context, engine)
+		)  # nosemgrep: frappe-ssti
 
 	def _render_scalar(self, value, context):
 		if value is None:

@@ -441,10 +441,16 @@ const editor = new Editor({
 						{ type: "text", text: " " },
 					];
 					if (type === "conditional") {
-						content.push({ type: "logic", attrs: { type, isStart: false, isElse: true, _key: key } });
+						content.push({
+							type: "logic",
+							attrs: { type, isStart: false, isElse: true, _key: key },
+						});
 						content.push({ type: "text", text: " " });
 					}
-					content.push({ type: "logic", attrs: { type, isStart: false, isElse: false, _key: key } });
+					content.push({
+						type: "logic",
+						attrs: { type, isStart: false, isElse: false, _key: key },
+					});
 					editor.chain().focus().insertContentAt(range, content).run();
 				},
 				render: () => createSuggestionRenderer(),

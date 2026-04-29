@@ -56,7 +56,8 @@ export const LogicNode = Node.create({
 		return {
 			type: {
 				default: "conditional",
-				parseHTML: (el) => decodeData(el.getAttribute("data-logic-type")).type || "conditional",
+				parseHTML: (el) =>
+					decodeData(el.getAttribute("data-logic-type")).type || "conditional",
 			},
 			_key: {
 				default: null,

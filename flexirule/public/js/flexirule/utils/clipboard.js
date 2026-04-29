@@ -1,15 +1,18 @@
 export function copyText(text) {
 	if (!text) return;
-	
+
 	// Try native API first
 	if (navigator?.clipboard && window.isSecureContext) {
-		navigator.clipboard.writeText(text).then(() => {
-			if (window.frappe) {
-				frappe.show_alert({ message: __("Copied to clipboard"), indicator: "blue" }, 2);
-			}
-		}).catch(() => {
-			fallbackCopy(text);
-		});
+		navigator.clipboard
+			.writeText(text)
+			.then(() => {
+				if (window.frappe) {
+					frappe.show_alert({ message: __("Copied to clipboard"), indicator: "blue" }, 2);
+				}
+			})
+			.catch(() => {
+				fallbackCopy(text);
+			});
 	} else {
 		fallbackCopy(text);
 	}
