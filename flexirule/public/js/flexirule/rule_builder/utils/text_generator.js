@@ -131,7 +131,7 @@ export function convertHtmlToSegments(html) {
 							) {
 								const nAttrs = decodeData(nextNode.getAttribute("data-logic-type"));
 								if (nAttrs.isStart) depth++;
-								else if (nAttrs.isEnd) depth--;
+								else if (!nAttrs.isStart && !nAttrs.isElse) depth--;
 								else if (nAttrs.isElse && depth === 1) elseIdx = skip;
 
 								if (depth === 0) {
@@ -242,7 +242,7 @@ export function convertSegmentsToHtml(segments, variableOptions = []) {
 				process(seg.then_segments || []);
 
 				if (seg.else_segments && seg.else_segments.length > 0) {
-					const elseAttrs = { type: "conditional", isElse: true };
+					const elseAttrs = { type: "conditional", isStart: false, isElse: true, _key: seg._key };
 					htmlParts.push(
 						`<span data-type="logic" class="tg-badge tg-badge-else" data-logic-type='${encodeData(
 							elseAttrs
@@ -251,7 +251,7 @@ export function convertSegmentsToHtml(segments, variableOptions = []) {
 					process(seg.else_segments);
 				}
 
-				const endAttrs = { type: "conditional", isEnd: true };
+				const endAttrs = { type: "conditional", isStart: false, isElse: false, _key: seg._key };
 				htmlParts.push(
 					`<span data-type="logic" class="tg-badge tg-badge-end" data-logic-type='${encodeData(
 						endAttrs
@@ -275,7 +275,7 @@ export function convertSegmentsToHtml(segments, variableOptions = []) {
 
 				process(seg.segments || []);
 
-				const endAttrs = { type: "loop", isEnd: true };
+				const endAttrs = { type: "loop", isStart: false, isElse: false, _key: seg._key };
 				htmlParts.push(
 					`<span data-type="logic" class="tg-badge tg-badge-end" data-logic-type='${encodeData(
 						endAttrs

@@ -1,5 +1,5 @@
 <script setup>
-import { computed, inject, onMounted, ref, watch } from "vue";
+import { computed, inject, onMounted, provide, reactive, ref, watch } from "vue";
 /**
  * CollectionUI - Child table iterator editor
  */
@@ -17,6 +17,20 @@ const emit = defineEmits(["remove"]);
 const { addCondition, addGroup } = inject("conditionActions");
 const store = useStore();
 
+const aliasValue = computed(() => {
+	const rawAlias = String(props.node.alias || "").trim();
+	if (!rawAlias) return "row";
+	return rawAlias.replace(/[^\w]/g, "_");
+});
+
+// Provide overridden alias to children
+provide(
+	"conditionContext",
+	reactive({
+		alias: computed(() => aliasValue.value),
+	})
+);
+
 // Filter to show only Table fields
 const tableFields = computed(() => {
 	return props.docFields.filter((f) => f.fieldtype === "Table" && f.options);
@@ -24,12 +38,6 @@ const tableFields = computed(() => {
 
 // Child fields for the selected table
 const childDocFields = ref([]);
-
-const aliasValue = computed(() => {
-	const rawAlias = String(props.node.alias || "").trim();
-	if (!rawAlias) return "row";
-	return rawAlias.replace(/[^\w]/g, "_");
-});
 
 function addConditionForCollection() {
 	const alias = aliasValue.value;

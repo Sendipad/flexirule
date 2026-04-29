@@ -94,8 +94,8 @@
 							<div class="panel-title-group">
 								<span class="panel-title">{{
 									activeLogicNode.attrs.type === "conditional"
-										? __("Condition Editor")
-										: __("Loop Editor")
+										? __("CONDITION EDITOR")
+										: __("LOOP EDITOR")
 								}}</span>
 								<span class="panel-subtitle">{{
 									activeLogicNode.attrs._raw_expr ||
@@ -126,7 +126,7 @@
 									</div>
 									<div class="grid-item full-width mt-2">
 										<label class="compact-label">{{
-											__("If True (Then Content)")
+											__("IF TRUE (THEN CONTENT)")
 										}}</label>
 										<TextGeneratorControl
 											:modelValue="activeLogicNodeThen"
@@ -137,7 +137,7 @@
 									</div>
 									<div class="grid-item full-width mt-2">
 										<label class="compact-label">{{
-											__("If False (Else Content)")
+											__("IF FALSE (ELSE CONTENT)")
 										}}</label>
 										<TextGeneratorControl
 											:modelValue="activeLogicNodeElse"
@@ -153,7 +153,7 @@
 										<div class="loop-meta-row">
 											<div class="meta-field">
 												<label class="compact-label">{{
-													__("Iterator")
+													__("ITERATOR")
 												}}</label>
 												<input
 													class="form-control input-sm"
@@ -168,7 +168,7 @@
 											</div>
 											<div class="meta-field flex-1">
 												<label class="compact-label">{{
-													__("Collection")
+													__("COLLECTION")
 												}}</label>
 												<AutocompleteControl
 													:df="{ fieldtype: 'Autocomplete' }"
@@ -184,7 +184,7 @@
 										</div>
 									</div>
 									<div class="grid-item full-width mt-3">
-										<label class="compact-label">{{ __("Loop Body") }}</label>
+										<label class="compact-label">{{ __("LOOP BODY") }}</label>
 										<TextGeneratorControl
 											:modelValue="activeLogicNodeLoop"
 											:isNested="true"
@@ -335,10 +335,10 @@ const getActiveIterators = () => {
 	editor.state.doc.descendants((node, pos) => {
 		if (pos >= from) return false;
 		if (node.type.name === "logic") {
-			const { isStart, isEnd, type, iterator, iterable } = node.attrs;
+			const { isStart, isElse, type, iterator, iterable } = node.attrs;
 			if (type === "loop") {
 				if (isStart) iters.push({ iterator, iterable });
-				else if (isEnd) iters.pop();
+				else if (!isStart && !isElse) iters.pop();
 			}
 		}
 	});
@@ -441,10 +441,10 @@ const editor = new Editor({
 						{ type: "text", text: " " },
 					];
 					if (type === "conditional") {
-						content.push({ type: "logic", attrs: { type, isElse: true, _key: key } });
+						content.push({ type: "logic", attrs: { type, isStart: false, isElse: true, _key: key } });
 						content.push({ type: "text", text: " " });
 					}
-					content.push({ type: "logic", attrs: { type, isEnd: true, _key: key } });
+					content.push({ type: "logic", attrs: { type, isStart: false, isElse: false, _key: key } });
 					editor.chain().focus().insertContentAt(range, content).run();
 				},
 				render: () => createSuggestionRenderer(),
@@ -511,7 +511,7 @@ const editor = new Editor({
 				node = state.doc.nodeAt(resolvedPos - 1);
 				if (node?.type.name === "logic") resolvedPos--;
 			}
-			if (node?.type.name === "logic" && !node.attrs.isEnd) {
+			if (node?.type.name === "logic" && (node.attrs.isStart || node.attrs.isElse)) {
 				activeLogicNode.value = null;
 				nextTick(() => {
 					activeLogicNode.value = { node, pos: resolvedPos, attrs: { ...node.attrs } };

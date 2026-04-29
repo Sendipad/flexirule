@@ -67,6 +67,9 @@
 					<template #node-documentaction="nodeProps">
 						<ProcessNode v-bind="nodeProps" />
 					</template>
+					<template #node-raise-error="nodeProps">
+						<ProcessNode v-bind="nodeProps" />
+					</template>
 
 					<template #edge-add="edgeProps">
 						<AddNodeEdge v-bind="edgeProps" @insert-node="insertNodeOnEdge" />

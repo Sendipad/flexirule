@@ -271,6 +271,10 @@ watch(
 	position: relative;
 	display: flex;
 	align-items: center;
+	z-index: 1;
+}
+.field-input-wrapper:focus-within {
+	z-index: 1201; /* Higher than other rows */
 }
 .field-input-wrapper input {
 	padding-right: 24px;
@@ -286,6 +290,10 @@ watch(
 	padding: 4px;
 	z-index: 2;
 }
+[dir="rtl"] .field-clear {
+	right: auto;
+	left: 8px;
+}
 .field-clear:hover {
 	color: #ef4444;
 }
@@ -295,10 +303,14 @@ watch(
 	top: 50%;
 	transform: translateY(-50%);
 }
+[dir="rtl"] .field-loading {
+	right: auto;
+	left: 10px;
+}
 .field-dropdown {
 	position: absolute;
 	top: 100%;
-	left: 0;
+	inset-inline-start: 0;
 	width: max(100%, 360px);
 	max-width: min(560px, calc(100vw - 32px));
 	background: white;

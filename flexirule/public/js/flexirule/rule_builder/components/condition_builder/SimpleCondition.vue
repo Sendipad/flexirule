@@ -23,6 +23,8 @@ const operatorConfig = inject(
 	ref({ fieldtype_operators: {}, operator_labels: {} })
 );
 
+const context = inject("conditionContext", { alias: "doc" });
+
 // Dynamic Link State
 const dynamicLinkDocType = ref("");
 
@@ -233,7 +235,7 @@ const isMapped = computed({
 	set: (mapped) => {
 		if (mapped) {
 			props.node.right.value = "";
-			if (!props.node.right.ref) props.node.right.ref = "doc."; // default
+			if (!props.node.right.ref) props.node.right.ref = context.alias + "."; // default
 		} else {
 			props.node.right.ref = "";
 		}
@@ -395,9 +397,13 @@ const valueTypeOptions = [
 	font-size: 10px;
 	text-transform: uppercase;
 	height: 24px;
-	border-right: 1px solid #e2e8f0;
+	border-inline-end: 1px solid #e2e8f0;
 	border-radius: 4px 0 0 4px;
 	cursor: pointer;
+}
+
+[dir="rtl"] .value-type-select {
+	border-radius: 0 4px 4px 0;
 }
 
 .value-input-wrapper {

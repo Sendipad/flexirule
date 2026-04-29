@@ -757,9 +757,9 @@ class Rule(Document):
 			op = node.get("op") or "=="
 
 			if op == "is_set":
-				return left
+				return f"({left} is not None and {left} != '')"
 			if op == "is_not_set":
-				return f"not {left}"
+				return f"({left} is None or {left} == '')"
 
 			right_obj = node.get("right") or {}
 			if right_obj.get("ref"):

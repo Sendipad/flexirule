@@ -677,7 +677,10 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		}
 
 		// ── Simple single-output node (default behaviour) ──
-		nodeData.next_step_if_true = targetId;
+		const isTerminal = isTerminalAction(nodeData.action_type);
+		if (!isTerminal) {
+			nodeData.next_step_if_true = targetId;
+		}
 
 		const newNode = {
 			id: newNodeId,
@@ -731,6 +734,15 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		}
 
 		edges.value = [...edges.value, ...newEdges];
+
+		// 6. If terminal, remove orphaned target node (as requested)
+		if (isTerminal) {
+			const otherParents = edges.value.filter((e) => e.target === targetId);
+			if (otherParents.length === 0) {
+				// No other parents remaining, delete the target subtree
+				delete_node(targetId);
+			}
+		}
 
 		return newNodeId;
 	}

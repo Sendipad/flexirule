@@ -41,9 +41,16 @@ class StopHandler(ActionHandler):
 				"vars": context.get("vars", {}),
 				"frappe": SafeFrappeAPI(),
 				"utils": frappe.utils,
+				"rule": engine.rule,
+				"rule_url": frappe.utils.get_url_to_form("Rule", engine.rule.name),
 			}
 			# nosemgrep: frappe-semgrep-rules.rules.security.frappe-ssti
 			message = frappe.render_template(value_template, template_context)  # nosemgrep: frappe-ssti
+
+			# Append source link for traceability
+			source_link = f'<div style="margin-top: 12px; font-size: 0.85em; color: var(--text-muted); border-top: 1px solid var(--border-color); padding-top: 8px;">{_("Source Rule")}: <a href="/app/rule/{engine.rule.name}" style="font-weight: bold;">{engine.rule.name}</a></div>'
+			message += source_link
+
 			engine._log("ERROR", _("Stop action raised error: {0}").format(message))
 			frappe.throw(message)
 
@@ -101,6 +108,8 @@ class SetValueHandler(ActionHandler):
 			"vars": context.get("vars", {}),
 			"frappe": SafeFrappeAPI(),
 			"utils": frappe.utils,
+			"rule": engine.rule,
+			"rule_url": frappe.utils.get_url_to_form("Rule", engine.rule.name),
 		}
 		# nosemgrep: frappe-semgrep-rules.rules.security.frappe-ssti
 		rendered_value = frappe.render_template(value_template, template_context)  # nosemgrep: frappe-ssti
@@ -181,9 +190,16 @@ class RaiseErrorHandler(ActionHandler):
 			"vars": context.get("vars", {}),
 			"frappe": SafeFrappeAPI(),
 			"utils": frappe.utils,
+			"rule": engine.rule,
+			"rule_url": frappe.utils.get_url_to_form("Rule", engine.rule.name),
 		}
 		# nosemgrep: frappe-semgrep-rules.rules.security.frappe-ssti
 		message = frappe.render_template(value_template, template_context)  # nosemgrep: frappe-ssti
+
+		# Append source link for traceability
+		source_link = f'<div style="margin-top: 12px; font-size: 0.85em; color: var(--text-muted); border-top: 1px solid var(--border-color); padding-top: 8px;">{_("Source Rule")}: <a href="/app/rule/{engine.rule.name}" style="font-weight: bold;">{engine.rule.name}</a></div>'
+		message += source_link
+
 		if error_code:
 			message = f"[{error_code}] {message}"
 
@@ -223,7 +239,7 @@ class NotifyHandler(ActionHandler):
 		)
 		config = engine._get_action_config(action)
 
-		message = self._render_template(value_template, context)
+		message = self._render_template(value_template, context, engine)
 		doc = context.get("doc")
 
 		if notification_type == self.MODE_TOAST:
@@ -237,7 +253,7 @@ class NotifyHandler(ActionHandler):
 		elif notification_type == self.MODE_TO_EMAIL:
 			recipients = self._get_recipients(config.get("recipients"), context)
 			subject_template = config.get("subject") or _("Rule Notification: {0}").format(engine.rule.name)
-			subject = self._render_template(subject_template, context)
+			subject = self._render_template(subject_template, context, engine)
 			attachments = self._build_email_attachments(config, doc)
 
 			frappe.sendmail(
@@ -250,7 +266,7 @@ class NotifyHandler(ActionHandler):
 			)
 		elif notification_type == self.MODE_SYSTEM_NOTIFICATION:
 			subject_template = config.get("subject") or _("Rule Notification")
-			subject = self._render_template(subject_template, context)
+			subject = self._render_template(subject_template, context, engine)
 			for_user_template = config.get("for_user") or getattr(doc, "owner", None) or frappe.session.user
 			for_user = self._render_scalar(for_user_template, context)
 
@@ -308,19 +324,21 @@ class NotifyHandler(ActionHandler):
 		}
 		return mode_map.get(value, mode)
 
-	def _template_context(self, context):
+	def _template_context(self, context, engine=None):
 		return {
 			"doc": context.get("doc"),
 			"vars": context.get("vars", {}),
 			"context": context,
 			"frappe": SafeFrappeAPI(),
 			"utils": frappe.utils,
+			"rule": engine.rule if engine else None,
+			"rule_url": frappe.utils.get_url_to_form("Rule", engine.rule.name) if engine else None,
 		}
 
-	def _render_template(self, template, context):
+	def _render_template(self, template, context, engine=None):
 		template = template or ""
 		# nosemgrep: frappe-semgrep-rules.rules.security.frappe-ssti
-		return frappe.render_template(template, self._template_context(context))  # nosemgrep: frappe-ssti
+		return frappe.render_template(template, self._template_context(context, engine))  # nosemgrep: frappe-ssti
 
 	def _render_scalar(self, value, context):
 		if value is None:

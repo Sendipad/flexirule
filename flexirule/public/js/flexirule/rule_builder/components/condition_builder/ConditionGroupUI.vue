@@ -154,8 +154,8 @@ const { addCondition, addGroup, addCollection, removeNode } = inject("conditionA
 }
 
 .group-content {
-	padding-left: 16px;
-	border-left: 2px solid #e2e8f0;
+	padding-inline-start: 16px;
+	border-inline-start: 2px solid #e2e8f0;
 	display: flex;
 	flex-direction: column;
 	gap: 8px;

@@ -80,6 +80,10 @@ const hasDetails = computed(() => {
 	const d = props.data || {};
 	return d.reference_doctype || d.target_field || d.mutation_mode || d.variable_name;
 });
+const isTerminal = computed(() => {
+	const actionType = props.data?.action_type || "Process";
+	return getContract(actionType).terminal || false;
+});
 </script>
 
 <template>
@@ -159,7 +163,13 @@ const hasDetails = computed(() => {
 			</div>
 		</div>
 
-		<Handle type="source" :position="sourcePos" id="default" class="handle-source" />
+		<Handle
+			v-if="!isTerminal"
+			type="source"
+			:position="sourcePos"
+			id="default"
+			class="handle-source"
+		/>
 	</div>
 </template>
 

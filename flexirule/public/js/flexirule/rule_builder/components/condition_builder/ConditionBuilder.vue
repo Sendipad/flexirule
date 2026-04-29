@@ -199,6 +199,7 @@ provide(
 	"docFields",
 	computed(() => props.docFields)
 );
+provide("conditionContext", reactive({ alias: "doc" }));
 provide("operatorConfig", operatorConfig);
 provide("store", store);
 provide(
