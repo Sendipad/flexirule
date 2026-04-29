@@ -201,7 +201,7 @@ import { useClipboard } from "./composables/useClipboard";
 import { isTerminalAction } from "../core/contracts";
 import { mapActionTypeToNodeType } from "./composables/useActionTypeMapper";
 
-import { generateShortId } from "../utils/index.js";
+import { generateShortId } from "./utils/schema_utils.js";
 import "../utils/utils.js";
 
 import StartNode from "./components/nodes/StartNode.vue";
@@ -318,7 +318,8 @@ async function pasteFromClipboardWrapper() {
 
 function handleKeydown(e) {
 	// Don't trigger if typing in an input
-	if (["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName)) return;
+	if (["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName) || e.target.isContentEditable)
+		return;
 
 	// Save: Ctrl+S
 	if ((e.ctrlKey || e.metaKey) && e.key === "s") {

@@ -227,25 +227,6 @@
 										v-show="expandedGroups[groupName]"
 										class="tree-group-items"
 									>
-										<!-- Show Loop Iterator if active -->
-										<div
-											v-if="
-												groupName !== doctypeContext &&
-												getLoopIterator(groupName)
-											"
-											class="tree-iterator-hint"
-										>
-											<i
-												class="fa fa-level-down fa-rotate-270 mr-1 text-muted"
-											></i>
-											<span class="text-primary font-weight-bold">{{
-												getLoopIterator(groupName)
-											}}</span>
-											<span class="text-muted ml-1 small">{{
-												__("(Current Item)")
-											}}</span>
-										</div>
-
 										<div
 											v-for="f in group.fields"
 											:key="f.fieldname"
@@ -280,6 +261,7 @@
 import { ref, computed, watch, onMounted } from "vue";
 import { useStore } from "../../stores";
 import { insertIntoActiveTGC } from "../../utils/tgc_focus";
+import { copyText } from "../../../utils/clipboard";
 import {
 	getContract,
 	getFieldLabel,
@@ -545,12 +527,6 @@ function toggleGroup(groupName) {
 	expandedGroups.value[groupName] = !expandedGroups.value[groupName];
 }
 
-// Optional logic to track loop iterator by groupName (requires injecting knownVarRoots from parent, ignoring for now or mock)
-function getLoopIterator(groupName) {
-	// If the user is inside a loop, we would ideally know. For now we can return 'i' if it's the 'items' table just to mimic mockup, or we leave it empty until we hook it to store state.
-	return "";
-}
-
 function onDragStart(event, item, isField = false, groupName = "") {
 	if (event.dataTransfer) {
 		let path = "";
@@ -795,32 +771,15 @@ onMounted(() => {
 	refreshVariables();
 });
 
-function copyToClipboard(text) {
-	if (frappe.utils.copy_to_clipboard) {
-		frappe.utils.copy_to_clipboard(text);
-	} else {
-		const el = document.createElement("textarea");
-		el.value = text;
-		document.body.appendChild(el);
-		el.select();
-		document.execCommand("copy");
-		document.body.removeChild(el);
-		frappe.show_alert({
-			message: __("Copied to clipboard: {0}").replace("{0}", text),
-			indicator: "blue",
-		});
-	}
-}
-
 /**
  * Smart insert: if a TextGeneratorControl is focused, insert directly.
- * Otherwise fall back to clipboard so InputPanel stays useful standalone.
+ * Otherwise fall back to clipboard.
  */
 function insertOrCopy(path) {
 	const expr = `{{ ${path} }}`;
 	const inserted = insertIntoActiveTGC(path);
 	if (!inserted) {
-		copyToClipboard(expr);
+		copyText(expr);
 	} else {
 		frappe?.show_alert?.({ message: `${__("Inserted")}: ${expr}`, indicator: "blue" }, 1);
 	}

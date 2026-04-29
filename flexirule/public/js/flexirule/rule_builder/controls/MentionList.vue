@@ -1,20 +1,34 @@
 <template>
 	<div class="tg-mention-list" v-if="items.length">
-		<button
-			v-for="(item, index) in items"
-			:key="item.value || item"
-			class="tg-mention-item"
-			:class="{ 'is-selected': index === selectedIndex }"
-			@click="selectItem(index)"
-		>
-			<code>{{ item.value || item }}</code>
-			<span v-if="item.label && item.label !== item.value" class="tg-ml-label">{{
-				item.label
-			}}</span>
-		</button>
+		<div class="tg-mention-header" v-if="triggerChar === '@'">
+			<i class="fa fa-at"></i> {{ __("Variables") }}
+		</div>
+		<div class="tg-mention-header" v-else>
+			<i class="fa fa-terminal"></i> {{ __("Logic Commands") }}
+		</div>
+
+		<div class="tg-mention-scroller v2-scrollbar">
+			<button
+				v-for="(item, index) in items"
+				:key="item.id || item"
+				class="tg-mention-item"
+				:class="{ 'is-selected': index === selectedIndex }"
+				@mousedown.prevent="selectItem(index)"
+			>
+				<div class="item-icon" :class="item.type">
+					<i :class="getIcon(item)"></i>
+				</div>
+				<div class="item-info">
+					<span class="item-id">{{ item.id || item }}</span>
+					<span v-if="item.label && item.label !== (item.id || item)" class="item-label">
+						{{ item.label }}
+					</span>
+				</div>
+			</button>
+		</div>
 	</div>
 	<div v-else class="tg-mention-list tg-mention-empty">
-		{{ __("No variables found") }}
+		{{ __("No results found") }}
 	</div>
 </template>
 
@@ -25,14 +39,30 @@ export default {
 		command: { type: Function, required: true },
 	},
 	data() {
-		return { selectedIndex: 0 };
+		return {
+			selectedIndex: 0,
+			triggerChar: "@",
+		};
 	},
 	watch: {
-		items() {
-			this.selectedIndex = 0;
+		items: {
+			immediate: true,
+			handler(newItems) {
+				this.selectedIndex = 0;
+				// Detect trigger from first item if possible
+				if (newItems.length > 0) {
+					this.triggerChar = newItems[0].type === "logic" ? "/" : "@";
+				}
+			},
 		},
 	},
 	methods: {
+		getIcon(item) {
+			if (item.type === "logic") {
+				return item.id === "if" ? "fa fa-code-fork" : "fa fa-refresh";
+			}
+			return "fa fa-cube";
+		},
 		onKeyDown({ event }) {
 			if (event.key === "ArrowUp") {
 				this.upHandler();
@@ -60,7 +90,7 @@ export default {
 		selectItem(index) {
 			const item = this.items[index];
 			if (item) {
-				this.command({ id: item.value || item, label: item.label || item.value || item });
+				this.command(item);
 			}
 		},
 	},
@@ -69,53 +99,94 @@ export default {
 
 <style scoped>
 .tg-mention-list {
-	background: var(--bg-light, #fff);
-	border: 1px solid var(--border-color);
-	border-radius: 8px;
-	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+	background: #fff;
+	border: 1px solid #e2e8f0;
+	border-radius: 12px;
+	box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 	padding: 4px;
-	max-height: 200px;
+	min-width: 220px;
+	overflow: hidden;
+	z-index: 1000;
+}
+
+.tg-mention-header {
+	padding: 8px 12px;
+	font-size: 10px;
+	font-weight: 700;
+	color: #94a3b8;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	border-bottom: 1px solid #f1f5f9;
+	margin-bottom: 4px;
+}
+
+.tg-mention-scroller {
+	max-height: 240px;
 	overflow-y: auto;
-	min-width: 180px;
 }
 
 .tg-mention-item {
 	display: flex;
 	align-items: center;
-	gap: 8px;
-	padding: 5px 10px;
+	gap: 10px;
+	padding: 8px 12px;
 	width: 100%;
 	border: none;
 	background: transparent;
-	border-radius: 4px;
+	border-radius: 8px;
 	cursor: pointer;
-	font-size: 12px;
 	text-align: left;
-	transition: background 0.1s;
+	transition: all 0.2s;
 }
 
 .tg-mention-item:hover,
 .tg-mention-item.is-selected {
-	background: var(--bg-blue, #e8f0fe);
+	background: #f1f5f9;
 }
 
-.tg-mention-item code {
+.item-icon {
+	width: 24px;
+	height: 24px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 6px;
 	font-size: 11px;
-	color: var(--primary, #2490ef);
-	background: var(--control-bg, #f4f5f6);
-	padding: 1px 5px;
-	border-radius: 3px;
 }
 
-.tg-ml-label {
-	color: var(--text-muted);
+.item-icon.variable {
+	background: #ecfdf5;
+	color: #059669;
+}
+.item-icon.logic {
+	background: #f5f3ff;
+	color: #7c3aed;
+}
+
+.item-info {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.item-id {
+	font-size: 13px;
+	font-weight: 600;
+	color: #1e293b;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.item-label {
 	font-size: 11px;
+	color: #64748b;
 }
 
 .tg-mention-empty {
-	padding: 10px;
+	padding: 16px;
 	text-align: center;
-	color: var(--text-muted);
-	font-size: 11px;
+	color: #94a3b8;
+	font-size: 12px;
 }
 </style>

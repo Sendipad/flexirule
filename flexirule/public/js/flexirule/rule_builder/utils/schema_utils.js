@@ -41,3 +41,30 @@ export async function get_action_config_schema(action_type, operation = null, pr
 		return [];
 	}
 }
+
+/**
+ * Build the Jinja path string for a document field.
+ * Centralises the `doc.fieldname` vs `fieldname` decision that was
+ * duplicated in InputPanel, ConditionStep, useMetaStore, ContextPicker.
+ *
+ * @param {{ fieldname: string }} field
+ * @param {string|null} groupName  — the doctype grouping key
+ * @param {string|null} primaryDoctype — the root doctype (maps to "doc")
+ * @returns {string} e.g. "doc.customer_name" or "item_code"
+ */
+export function buildFieldJinjaPath(field, groupName, primaryDoctype) {
+	if (!groupName || groupName === primaryDoctype) return `doc.${field.fieldname}`;
+	return field.fieldname;
+}
+
+/**
+ * Generate a short, readable node ID like "ACT-X9Y2".
+ */
+export function generateShortId() {
+	const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+	let result = "";
+	for (let i = 0; i < 4; i++) {
+		result += chars.charAt(Math.floor(Math.random() * chars.length));
+	}
+	return "ACT-" + result;
+}

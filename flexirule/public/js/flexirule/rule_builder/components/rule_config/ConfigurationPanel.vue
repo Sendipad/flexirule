@@ -36,7 +36,7 @@ import { computed, ref } from "vue";
 import { useStore } from "../../stores";
 import { mapActionTypeToNodeType } from "../../composables/useActionTypeMapper";
 import ProcessConfig from "./types/ProcessConfig.vue";
-import ConditionConfig from "./types/ConditionConfig.vue";
+import ConditionStep from "./types/ConditionStep.vue";
 import LoopConfig from "./types/LoopConfig.vue";
 import SwitchConfig from "./types/SwitchConfig.vue";
 import SubRuleConfig from "./types/SubRuleConfig.vue";
@@ -56,7 +56,7 @@ const store = useStore();
 
 const configComponents = {
 	process: ProcessConfig,
-	condition: ConditionConfig,
+	condition: ConditionStep,
 	loop: LoopConfig,
 	switch: SwitchConfig,
 	"sub-rule": SubRuleConfig,
@@ -175,7 +175,7 @@ defineExpose({
 .panel-sections {
 	flex: 1;
 	overflow-y: auto;
-	padding: var(--panel-padding, 16px);
+	padding: var(--panel-padding, 8px);
 	display: flex;
 	flex-direction: column;
 	gap: 16px;

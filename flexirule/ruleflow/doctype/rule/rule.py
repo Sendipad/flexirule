@@ -463,7 +463,9 @@ class Rule(Document):
 				known.add(name)
 		return known
 
-	def _normalize_context_ref(self, ref: str, known_var_roots: set[str] | None = None) -> str:
+	def _normalize_context_ref(
+		self, ref: str, known_var_roots: set[str] | None = None, extra_allowed_roots: set[str] | None = None
+	) -> str:
 		"""Normalize shorthand refs to canonical roots used by runtime.
 
 		Examples:
@@ -482,7 +484,10 @@ class Rule(Document):
 			return value
 
 		known_var_roots = known_var_roots or set()
-		allowed_roots = {"doc", "old_doc", "vars", "item", "loop", "caller", "rule", "doctype"}
+		extra_allowed_roots = extra_allowed_roots or set()
+		allowed_roots = {"doc", "old_doc", "vars", "item", "loop", "caller", "rule", "doctype"}.union(
+			extra_allowed_roots
+		)
 		root = value.split(".", 1)[0]
 
 		if root in allowed_roots:
@@ -494,13 +499,18 @@ class Rule(Document):
 		return f"doc.{value}"
 
 	@staticmethod
-	def _normalize_inline_jinja_refs(content: str, known_var_roots: set[str] | None = None) -> str:
+	def _normalize_inline_jinja_refs(
+		content: str, known_var_roots: set[str] | None = None, extra_allowed_roots: set[str] | None = None
+	) -> str:
 		"""Normalize inline {{ field }} / {{ result.x }} refs inside free text segments."""
 		if not content or not isinstance(content, str):
 			return content
 
 		known_var_roots = known_var_roots or set()
-		allowed_roots = {"doc", "old_doc", "vars", "item", "loop", "caller", "rule", "doctype"}
+		extra_allowed_roots = extra_allowed_roots or set()
+		allowed_roots = {"doc", "old_doc", "vars", "item", "loop", "caller", "rule", "doctype"}.union(
+			extra_allowed_roots
+		)
 		path_pattern = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$")
 
 		def _repl(match):
@@ -576,7 +586,7 @@ class Rule(Document):
 			action.value_template = compiled
 			action.config = json.dumps(config)
 
-	def _compile_segments_v2(self, segments, action_label, known_var_roots=None):
+	def _compile_segments_v2(self, segments, action_label, known_var_roots=None, extra_allowed_roots=None):
 		"""Compile v2 segment list to Jinja template string."""
 		if not isinstance(segments, list):
 			return ""
@@ -592,14 +602,25 @@ class Rule(Document):
 			if seg_type == "text":
 				# Content may contain inline {{ var }} markers from TipTap
 				content = segment.get("content") or segment.get("text") or ""
-				out.append(self._normalize_inline_jinja_refs(content, known_var_roots))
+				out.append(self._normalize_inline_jinja_refs(content, known_var_roots, extra_allowed_roots))
+				continue
+
+			if seg_type == "translation":
+				content = segment.get("content", "")
+				out.append(f'{{{{ _("{content}") }}}}')
 				continue
 
 			if seg_type == "variable":
-				path = self._normalize_context_ref(segment.get("path") or "", known_var_roots)
+				path = self._normalize_context_ref(
+					segment.get("path") or "", known_var_roots, extra_allowed_roots
+				)
 				if not path:
 					continue
-				self._validate_allowed_roots(path, _("Action '{0}' variable path").format(action_label))
+				self._validate_allowed_roots(
+					path,
+					_("Action '{0}' variable path").format(action_label),
+					extra_roots=extra_allowed_roots,
+				)
 				out.append("{{ " + path + " }}")
 				continue
 
@@ -607,8 +628,10 @@ class Rule(Document):
 				condition = segment.get("condition")
 				if isinstance(condition, dict):
 					# ConditionBuilder tree — compile to expression
-					cond_expr = self._compile_condition_tree(condition, known_var_roots)
+					cond_expr = self._compile_condition_tree(condition, known_var_roots, extra_allowed_roots)
 					extra_roots = self._collect_condition_aliases(condition)
+					if extra_allowed_roots:
+						extra_roots.update(extra_allowed_roots)
 				elif isinstance(condition, str):
 					cond_expr = condition.strip()
 					extra_roots = None
@@ -624,16 +647,19 @@ class Rule(Document):
 					)
 
 				then_block = self._compile_segments_v2(
-					segment.get("then_segments") or [], action_label, known_var_roots
+					segment.get("then_segments") or [], action_label, known_var_roots, extra_allowed_roots
 				)
 				block = "{% if " + (cond_expr or "True") + " %}" + then_block
 
-				# elif branches
 				for elif_b in segment.get("elif_branches") or []:
 					elif_cond = elif_b.get("condition")
 					if isinstance(elif_cond, dict):
-						elif_expr = self._compile_condition_tree(elif_cond, known_var_roots)
+						elif_expr = self._compile_condition_tree(
+							elif_cond, known_var_roots, extra_allowed_roots
+						)
 						elif_extra_roots = self._collect_condition_aliases(elif_cond)
+						if extra_allowed_roots:
+							elif_extra_roots.update(extra_allowed_roots)
 					elif isinstance(elif_cond, str):
 						elif_expr = elif_cond.strip()
 						elif_extra_roots = None
@@ -648,13 +674,13 @@ class Rule(Document):
 							extra_roots=elif_extra_roots,
 						)
 					elif_content = self._compile_segments_v2(
-						elif_b.get("segments") or [], action_label, known_var_roots
+						elif_b.get("segments") or [], action_label, known_var_roots, extra_allowed_roots
 					)
 					block += "{% elif " + (elif_expr or "True") + " %}" + elif_content
 
 				# else
 				else_block = self._compile_segments_v2(
-					segment.get("else_segments") or [], action_label, known_var_roots
+					segment.get("else_segments") or [], action_label, known_var_roots, extra_allowed_roots
 				)
 				if else_block:
 					block += "{% else %}" + else_block
@@ -663,15 +689,30 @@ class Rule(Document):
 				out.append(block)
 				continue
 
+			if seg_type == "loop":
+				iterator = (segment.get("iterator") or "item").strip()
+				iterable = self._normalize_context_ref(
+					segment.get("iterable") or "[]", known_var_roots, extra_allowed_roots
+				)
+
+				loop_allowed = set(extra_allowed_roots) if extra_allowed_roots else set()
+				loop_allowed.add(iterator)
+
+				loop_block = self._compile_segments_v2(
+					segment.get("segments") or [], action_label, known_var_roots, loop_allowed
+				)
+
+				out.append(f"{{% for {iterator} in {iterable} %}}{loop_block}{{% endfor %}}")
+				continue
+
 		return "".join(out)
 
-	def _compile_condition_tree(self, node, known_var_roots=None):
+	def _compile_condition_tree(self, node, known_var_roots=None, extra_allowed_roots=None):
 		"""Compile a ConditionBuilder JSON tree to a Python boolean expression."""
 		if not node or not isinstance(node, dict):
 			return "True"
 		known_var_roots = known_var_roots or set()
 
-		# Group node (and/or)
 		if "conditions" in node:
 			conditions = node.get("conditions") or []
 			if not conditions:
@@ -679,7 +720,7 @@ class Rule(Document):
 
 			parts = []
 			for child in conditions:
-				compiled = self._compile_condition_tree(child, known_var_roots)
+				compiled = self._compile_condition_tree(child, known_var_roots, extra_allowed_roots)
 				if compiled:
 					parts.append(compiled)
 
@@ -694,14 +735,22 @@ class Rule(Document):
 		# Collection node (any/all)
 		if "collection" in node:
 			alias = node.get("alias") or "item"
-			collection = self._normalize_context_ref(node.get("collection") or "[]", known_var_roots)
-			where_expr = self._compile_condition_tree(node.get("where") or {}, known_var_roots)
+			collection = self._normalize_context_ref(
+				node.get("collection") or "[]", known_var_roots, extra_allowed_roots
+			)
+
+			child_allowed = set(extra_allowed_roots) if extra_allowed_roots else set()
+			child_allowed.add(alias)
+
+			where_expr = self._compile_condition_tree(node.get("where") or {}, known_var_roots, child_allowed)
 			quantifier = "all" if node.get("op") == "all" else "any"
 			return f"{quantifier}({where_expr} for {alias} in {collection})"
 
 		# Simple condition (left op right)
 		if "left" in node:
-			left = self._normalize_context_ref((node.get("left") or {}).get("ref", ""), known_var_roots)
+			left = self._normalize_context_ref(
+				(node.get("left") or {}).get("ref", ""), known_var_roots, extra_allowed_roots
+			)
 			if not left:
 				return ""
 
@@ -714,7 +763,7 @@ class Rule(Document):
 
 			right_obj = node.get("right") or {}
 			if right_obj.get("ref"):
-				right = self._normalize_context_ref(right_obj["ref"], known_var_roots)
+				right = self._normalize_context_ref(right_obj["ref"], known_var_roots, extra_allowed_roots)
 			else:
 				right = self._format_condition_value(right_obj.get("value"))
 

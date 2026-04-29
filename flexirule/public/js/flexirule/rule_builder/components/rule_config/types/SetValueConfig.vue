@@ -163,13 +163,13 @@ defineExpose({ validate });
 .set-value-config {
 	display: flex;
 	flex-direction: column;
-	gap: 16px;
+	gap: 12px;
 }
 
 .section-card {
 	border: 1px solid var(--border-color);
 	border-radius: 8px;
-	padding: 16px;
+	padding: 12px;
 	background: var(--bg-light, #fff);
 }
 

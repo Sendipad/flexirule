@@ -22,7 +22,7 @@ import {
 } from "../../core/contracts";
 import { mapActionTypeToNodeType } from "../composables/useActionTypeMapper";
 import { getConditionPayload } from "../utils/condition_payload";
-import { generateShortId } from "../../utils/index.js";
+import { generateShortId } from "../utils/schema_utils.js";
 
 export const useGraphStore = defineStore("rule-builder-graph", () => {
 	// ── Core graph state ──

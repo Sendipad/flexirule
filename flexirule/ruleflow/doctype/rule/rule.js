@@ -494,7 +494,7 @@ function toggle_action_fields(frm, cdt, cdn) {
 	}
 
 	// Update Operation Label if contract provides it
-	const op_field = grid_row.fields_dict["operation"];
+	const op_field = grid_row.get_field("operation");
 	if (op_field) {
 		const dynamicOperationLabel = flexirule.contracts?.getFieldLabel?.(type, "operation", {
 			operation: row.operation,
@@ -518,7 +518,7 @@ function update_operation_options(frm, cdt, cdn) {
 	if (!grid_row) return;
 
 	const apply_ops = (ops) => {
-		const field = grid_row.fields_dict["operation"];
+		const field = grid_row.get_field("operation");
 		if (!field) return;
 		const normalized = (ops || []).map((op) => {
 			if (typeof op === "string") return op;

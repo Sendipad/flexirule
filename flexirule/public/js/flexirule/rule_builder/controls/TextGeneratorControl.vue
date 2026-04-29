@@ -1,118 +1,302 @@
 <template>
-	<div class="tgc-wrap" @focusin="onFocusIn">
-		<!-- Label -->
-		<div v-if="df?.label && !hideLabel" class="control-label label" :class="{ reqd: df?.reqd }">
-			{{ __(df.label) }}
-		</div>
-
-		<!-- Toolbar: mode toggle + live Jinja preview pill -->
-		<div class="tgc-toolbar">
-			<div class="tgc-mode-tabs" v-if="!readOnly">
-				<button
-					class="tgc-mode-tab"
-					:class="{ active: mode === 'visual' }"
-					@click="switchMode('visual')"
-					:title="__('Visual segment builder')"
-				>
-					<i class="fa fa-th-large"></i> {{ __("Visual") }}
-				</button>
-				<button
-					class="tgc-mode-tab"
-					:class="{ active: mode === 'raw' }"
-					@click="switchMode('raw')"
-					:title="__('Edit raw Jinja template')"
-				>
-					<i class="fa fa-code"></i> {{ __("Jinja") }}
-				</button>
-			</div>
-			<div v-else class="tgc-mode-ro-label">
-				<i class="fa fa-lock text-muted"></i>
-				<span class="text-muted small">{{ __("Read-only") }}</span>
-			</div>
-
-			<!-- Jinja preview pill — always visible when non-empty, click to copy -->
-			<div class="tgc-pill-wrap" v-if="compiledJinja">
-				<span
-					class="tgc-preview-pill"
-					@click="copyJinja"
-					:title="__('Click to copy Jinja')"
-				>
-					<i class="fa fa-code tgc-pill-icon"></i>
-					<code class="tgc-pill-code">{{
-						compiledJinja.length > 68 ? compiledJinja.slice(0, 65) + "…" : compiledJinja
-					}}</code>
-					<i class="fa fa-clone tgc-pill-copy"></i>
-				</span>
-			</div>
-		</div>
-
-		<!-- Editor area -->
-		<div class="tgc-body">
-			<!-- ── Visual Mode ── -->
-			<div v-if="mode === 'visual'" class="tgc-canvas">
-				<TextSegmentList
-					v-model="ui.segments"
-					:readOnly="readOnly"
-					:variableOptions="variableOptions"
-					:docFieldOptions="docFieldOptions"
-					:knownVarRoots="knownVarRoots"
-				/>
-				<div v-if="!readOnly && ui.segments.length === 0" class="tgc-empty-hint">
-					<i class="fa fa-magic"></i>
-					{{
-						__(
-							"Add segments below, or switch to Jinja mode to write a template directly."
-						)
-					}}
-					<br />
-					<span class="tgc-empty-tip">{{
-						__("Click a variable or field in the sidebar to insert it here.")
-					}}</span>
+	<div class="tgc-wrap" :class="{ 'is-nested': isNested }" @focusin="onFocusIn">
+		<!-- Main Editor Container -->
+		<div
+			class="tgc-editor-container"
+			:class="{ 'nested-container': isNested, 'has-panel': !!activeLogicNode }"
+		>
+			<!-- Production-Ready Floating Menu (Complete Formatting) -->
+			<div v-if="showBubbleMenu" class="tgc-bubble-menu-fixed" :style="bubbleMenuStyle">
+				<div class="menu-group">
+					<button
+						@click="editor.chain().focus().toggleBold().run()"
+						:class="{ 'is-active': editor?.isActive('bold') }"
+						v-tooltip="__('Bold')"
+					>
+						<i class="fa fa-bold"></i>
+					</button>
+					<button
+						@click="editor.chain().focus().toggleItalic().run()"
+						:class="{ 'is-active': editor?.isActive('italic') }"
+						v-tooltip="__('Italic')"
+					>
+						<i class="fa fa-italic"></i>
+					</button>
+					<button
+						@click="editor.chain().focus().toggleUnderline().run()"
+						:class="{ 'is-active': editor?.isActive('underline') }"
+						v-tooltip="__('Underline')"
+					>
+						<i class="fa fa-underline"></i>
+					</button>
+					<button
+						@click="editor.chain().focus().toggleStrike().run()"
+						:class="{ 'is-active': editor?.isActive('strike') }"
+						v-tooltip="__('Strikethrough')"
+					>
+						<i class="fa fa-strikethrough"></i>
+					</button>
+					<button
+						@click="editor.chain().focus().toggleCode().run()"
+						:class="{ 'is-active': editor?.isActive('code') }"
+						v-tooltip="__('Code')"
+					>
+						<i class="fa fa-code"></i>
+					</button>
 				</div>
+				<div class="menu-group">
+					<button
+						@click="editor.chain().focus().toggleTranslation().run()"
+						:class="{ 'is-active': editor?.isActive('translation') }"
+						v-tooltip="__('Translate')"
+					>
+						<i class="fa fa-language"></i>
+					</button>
+					<button @click="insertTrigger('@')" v-tooltip="__('Insert Variable')">
+						<i class="fa fa-at"></i>
+					</button>
+					<button @click="insertTrigger('/')" v-tooltip="__('Insert Logic')">
+						<i class="fa fa-terminal"></i>
+					</button>
+				</div>
+				<div class="divider"></div>
+				<button
+					@click="editor.chain().focus().unsetAllMarks().run()"
+					class="btn-clear"
+					v-tooltip="__('Clear Formatting')"
+				>
+					<i class="fa fa-eraser"></i>
+				</button>
 			</div>
 
-			<!-- ── Raw Jinja Mode ── -->
-			<div v-else class="tgc-raw-wrap">
+			<!-- ── Visual Editor ── -->
+			<div v-show="mode === 'visual'" class="tgc-body visual-body">
+				<div class="tgc-editor-wrapper v2-scrollbar">
+					<editor-content :editor="editor" class="tgc-tiptap-editor" />
+					<div v-if="!readOnly && isEditorEmpty" class="tgc-empty-hint">
+						{{ __("Type '@' or '/' to begin...") }}
+					</div>
+				</div>
+
+				<!-- Logic Settings Panel -->
+				<transition name="panel-slide">
+					<div v-if="activeLogicNode && !isNested" class="tgc-bottom-panel">
+						<div class="panel-header">
+							<div class="panel-icon" :class="activeLogicNode.attrs.type">
+								<i
+									:class="
+										activeLogicNode.attrs.type === 'conditional'
+											? 'fa fa-code-fork'
+											: 'fa fa-refresh'
+									"
+								></i>
+							</div>
+							<div class="panel-title-group">
+								<span class="panel-title">{{
+									activeLogicNode.attrs.type === "conditional"
+										? __("Condition Editor")
+										: __("Loop Editor")
+								}}</span>
+								<span class="panel-subtitle">{{
+									activeLogicNode.attrs._raw_expr ||
+									activeLogicNode.attrs.iterable
+								}}</span>
+							</div>
+							<div class="panel-actions ml-auto">
+								<button class="btn-modern-danger" @click="deleteActiveNode">
+									<i class="fa fa-trash"></i>
+								</button>
+								<button class="btn-modern-close" @click="closeDrawer">
+									<i class="fa fa-times"></i>
+								</button>
+							</div>
+						</div>
+
+						<div class="panel-body v2-scrollbar" :key="activeLogicNode.pos">
+							<div class="panel-grid">
+								<template v-if="activeLogicNode.attrs.type === 'conditional'">
+									<div class="grid-item full-width">
+										<ConditionBuilder
+											:modelValue="activeLogicNode.attrs.condition"
+											:docFields="docFieldOptions"
+											:variableOptions="dynamicRoots"
+											:readOnly="readOnly"
+											@update:modelValue="onConditionUpdate"
+										/>
+									</div>
+									<div class="grid-item full-width mt-2">
+										<label class="compact-label">{{
+											__("If True (Then Content)")
+										}}</label>
+										<TextGeneratorControl
+											:modelValue="activeLogicNodeThen"
+											:isNested="true"
+											:variableOptions="dynamicRoots"
+											@update:modelValue="updateActiveNodeThen"
+										/>
+									</div>
+									<div class="grid-item full-width mt-2">
+										<label class="compact-label">{{
+											__("If False (Else Content)")
+										}}</label>
+										<TextGeneratorControl
+											:modelValue="activeLogicNodeElse"
+											:isNested="true"
+											:variableOptions="dynamicRoots"
+											@update:modelValue="updateActiveNodeElse"
+										/>
+									</div>
+								</template>
+
+								<template v-else-if="activeLogicNode.attrs.type === 'loop'">
+									<div class="grid-item full-width">
+										<div class="loop-meta-row">
+											<div class="meta-field">
+												<label class="compact-label">{{
+													__("Iterator")
+												}}</label>
+												<input
+													class="form-control input-sm"
+													:value="activeLogicNode.attrs.iterator"
+													@input="
+														updateActiveNode({
+															iterator: $event.target.value,
+														})
+													"
+													placeholder="item"
+												/>
+											</div>
+											<div class="meta-field flex-1">
+												<label class="compact-label">{{
+													__("Collection")
+												}}</label>
+												<AutocompleteControl
+													:df="{ fieldtype: 'Autocomplete' }"
+													:options="collectionOptions"
+													:modelValue="activeLogicNode.attrs.iterable"
+													:read_only="readOnly"
+													:hideLabel="true"
+													@update:modelValue="
+														updateActiveNode({ iterable: $event })
+													"
+												/>
+											</div>
+										</div>
+									</div>
+									<div class="grid-item full-width mt-3">
+										<label class="compact-label">{{ __("Loop Body") }}</label>
+										<TextGeneratorControl
+											:modelValue="activeLogicNodeLoop"
+											:isNested="true"
+											:variableOptions="dynamicRoots"
+											@update:modelValue="updateActiveNodeLoop"
+										/>
+									</div>
+								</template>
+							</div>
+						</div>
+					</div>
+				</transition>
+			</div>
+
+			<!-- ── Raw Mode ── -->
+			<div v-show="mode === 'raw'" class="tgc-body raw-body">
 				<textarea
 					ref="rawTextareaRef"
 					class="tgc-raw-textarea"
 					v-model="rawJinja"
 					:readonly="readOnly"
 					spellcheck="false"
-					:placeholder="rawPlaceholder"
 					@keydown.tab.prevent="insertTabInRaw"
-					@click="onRawClick"
-					@keyup="onRawClick"
-					@select="onRawClick"
 				></textarea>
-				<div class="tgc-raw-hint">
-					<i class="fa fa-info-circle"></i>
-					{{ __("Type") }} <code>{{ jinjaExprExample }}</code
-					>, <code>{% if … %}</code>, <code>{% for … in … %}</code>.
-					{{ __("Click a variable in the sidebar to insert at cursor.") }}
-				</div>
 			</div>
 		</div>
 
-		<div
-			v-if="df?.description && !hideDescription"
-			class="description text-muted mt-1"
-			style="font-size: 11px"
-		>
-			{{ __(df.description) }}
+		<!-- Unified Footer Toolbar -->
+		<div class="tgc-footer-toolbar" v-if="!isNested">
+			<div class="footer-left">
+				<div class="tgc-mode-tabs" v-if="!readOnly">
+					<button
+						class="tgc-mode-tab"
+						:class="{ active: mode === 'visual' }"
+						@click="switchMode('visual')"
+					>
+						<i class="fa fa-th-large"></i> {{ __("Visual") }}
+					</button>
+					<button
+						class="tgc-mode-tab"
+						:class="{ active: mode === 'raw' }"
+						@click="switchMode('raw')"
+					>
+						<i class="fa fa-code"></i> {{ __("Jinja") }}
+					</button>
+				</div>
+				<div class="tgc-rich-actions" v-if="mode === 'visual' && !readOnly">
+					<button
+						class="action-btn-mini"
+						@click="insertTrigger('@')"
+						v-tooltip="__('Variable')"
+					>
+						<i class="fa fa-at"></i>
+					</button>
+					<button
+						class="action-btn-mini"
+						@click="insertTrigger('/')"
+						v-tooltip="__('Logic')"
+					>
+						<i class="fa fa-terminal"></i>
+					</button>
+				</div>
+				<div class="divider-v"></div>
+				<div class="legend-pills">
+					<span class="pill-mini if">IF</span> <span class="pill-mini loop">FOR</span>
+					<span class="pill-mini var">@</span>
+				</div>
+			</div>
+
+			<div class="footer-right">
+				<div class="tgc-preview-toggle mr-3" v-if="mode === 'visual'">
+					<span class="tgc-switch-label mr-1">{{ __("Preview") }}</span>
+					<label class="tgc-switch mini">
+						<input type="checkbox" v-model="previewMode" />
+						<span class="tgc-slider"></span>
+					</label>
+				</div>
+				<div class="stats-mini">
+					{{ charCount }} {{ __("chars") }} • {{ nodeCount }} {{ __("nodes") }}
+				</div>
+			</div>
 		</div>
 	</div>
 </template>
 
 <script setup>
-import { computed, ref, watch, nextTick, onBeforeUnmount } from "vue";
-import TextSegmentList from "./TextSegmentList.vue";
+import { computed, ref, watch, onBeforeUnmount, nextTick, shallowRef } from "vue";
+import { Editor, EditorContent, VueRenderer } from "@tiptap/vue-3";
+import { StarterKit } from "@tiptap/starter-kit";
+import tippy from "tippy.js";
+
+import {
+	LogicNode,
+	VariableNode,
+	VariableTrigger,
+	LogicTrigger,
+	VarPluginKey,
+	LogicPluginKey,
+	TranslationMark,
+} from "../utils/tiptap_extensions";
+import MentionList from "./MentionList.vue";
+import ConditionBuilder from "../components/condition_builder/ConditionBuilder.vue";
+import AutocompleteControl from "./AutocompleteControl.vue";
+
 import {
 	compileSegmentsToJinja,
-	normalizeTemplatePath,
 	parseJinjaToSegments,
+	convertSegmentsToHtml,
+	convertHtmlToSegments,
+	serializeCondition,
 } from "../utils/text_generator";
-import { setActiveTGC, clearActiveTGC } from "../utils/tgc_focus";
+import { setActiveTGC } from "../utils/tgc_focus";
 
 const props = defineProps({
 	df: { type: Object, default: null },
@@ -121,441 +305,794 @@ const props = defineProps({
 	read_only: { type: Boolean, default: false },
 	variableOptions: { type: Array, default: () => [] },
 	docFieldOptions: { type: Array, default: () => [] },
-	hideLabel: { type: Boolean, default: false },
-	hideDescription: { type: Boolean, default: false },
+	isNested: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["update:modelValue"]);
 
 const readOnly = computed(() => !!props.read_only || !!props.df?.read_only);
-
-// Literal shown in the hint — defined here to keep it out of template expressions
-// where esbuild's Vue parser misreads {{ inside a string as a template token.
-const jinjaExprExample = "{{ doc.field }}";
-
-// ─── Placeholder extracted to avoid esbuild escaping issues ───
-const rawPlaceholder = computed(() =>
-	[
-		__("Write Jinja template here…"),
-		__("Examples:"),
-		"  Hello {{ doc.customer_name }}",
-		"  {% if doc.status == 'Open' %}Pending{% endif %}",
-		"  {% for item in doc.items %}{{ item.item_code }}{% endfor %}",
-	].join("\n")
-);
-
-// ─── Mode ───
 const mode = ref("visual");
 const rawJinja = ref("");
-const rawTextareaRef = ref(null);
-
-// ─── Internal UI state ───
 const ui = ref({ version: 2, segments: [] });
+const previewMode = ref(false);
+const activeLogicNode = ref(null);
+const activeSegKey = ref(null);
+const activeLogicNodeThen = ref({ version: 2, segments: [] });
+const activeLogicNodeElse = ref({ version: 2, segments: [] });
+const activeLogicNodeLoop = ref({ version: 2, segments: [] });
+const showElse = ref(false);
 let emitting = false;
 
-function genKey() {
-	return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-}
+// ─── Production-Ready Floating Menu Logic ───
+const showBubbleMenu = ref(false);
+const bubbleMenuStyle = ref({ top: "0px", left: "0px", position: "fixed" });
+const selectionTrigger = ref(0);
+const getActiveIterators = () => {
+	if (!editor || selectionTrigger.value < 0) return [];
+	const { from } = editor.state.selection;
+	const iters = [];
 
-// ─── knownVarRoots (for normalising paths) ───
-const normalizedVariables = computed(() =>
-	(props.variableOptions || []).map((opt) => {
-		if (typeof opt === "string") return { label: opt, value: opt };
-		return { label: opt?.label || opt?.value || "", value: opt?.value || "" };
-	})
-);
-
-const knownVarRoots = computed(() => {
-	const roots = new Set();
-	normalizedVariables.value.forEach((v) => {
-		const val = String(v?.value || "").trim();
-		const match = val.match(/^vars\.([A-Za-z_][A-Za-z0-9_]*)/);
-		if (match?.[1]) roots.add(match[1]);
-	});
-	return [...roots];
-});
-
-// ─── Jinja preview ───
-const compiledJinja = computed(() =>
-	compileSegmentsToJinja(ui.value.segments, { knownVarRoots: knownVarRoots.value })
-);
-
-function copyJinja() {
-	navigator.clipboard?.writeText(compiledJinja.value).catch(() => {});
-	frappe?.show_alert?.({ message: __("Jinja copied!"), indicator: "blue" }, 1);
-}
-
-// ─── Mode switching ───
-function switchMode(newMode) {
-	if (newMode === mode.value) return;
-	if (newMode === "raw") {
-		rawJinja.value = compiledJinja.value;
-	} else {
-		const raw = rawJinja.value.trim();
-		if (raw) {
-			try {
-				const parsed = parseJinjaToSegments(raw);
-				ui.value = {
-					version: 2,
-					segments: parsed.length
-						? parsed.map((s) => ({ ...s, _key: s._key || genKey() }))
-						: [{ type: "text", content: raw, _key: genKey() }],
-				};
-			} catch {
-				ui.value = {
-					version: 2,
-					segments: [{ type: "text", content: raw, _key: genKey() }],
-				};
+	editor.state.doc.descendants((node, pos) => {
+		if (pos >= from) return false;
+		if (node.type.name === "logic") {
+			const { isStart, isEnd, type, iterator, iterable } = node.attrs;
+			if (type === "loop") {
+				if (isStart) iters.push({ iterator, iterable });
+				else if (isEnd) iters.pop();
 			}
-		} else {
-			ui.value = { version: 2, segments: [] };
 		}
-	}
-	mode.value = newMode;
-}
-
-// ─── Focus tracking (registers this TGC as the insert target) ───
-function onFocusIn() {
-	setActiveTGC(insertExpression);
-}
-
-function onRawClick() {
-	// Raw textarea clicks also count as focus
-	setActiveTGC(insertExpression);
-}
-
-onBeforeUnmount(() => {
-	clearActiveTGC(insertExpression);
-});
-
-// ─── insertExpression — the public API, also exposed via defineExpose ───
-function insertExpression(path) {
-	if (!path) return;
-	if (mode.value === "raw") {
-		_insertIntoRaw(`{{ ${path} }}`);
-	} else {
-		// Visual mode: append a variable segment
-		ui.value = {
-			...ui.value,
-			segments: [...ui.value.segments, { type: "variable", path, _key: genKey() }],
-		};
-	}
-}
-
-function _insertIntoRaw(text) {
-	const el = rawTextareaRef.value;
-	if (!el) {
-		rawJinja.value += text;
-		return;
-	}
-	const start = el.selectionStart ?? rawJinja.value.length;
-	const end = el.selectionEnd ?? rawJinja.value.length;
-	rawJinja.value = rawJinja.value.slice(0, start) + text + rawJinja.value.slice(end);
-	nextTick(() => {
-		el.selectionStart = el.selectionEnd = start + text.length;
-		el.focus();
 	});
-}
+	return iters;
+};
 
-function insertTabInRaw() {
-	_insertIntoRaw("  ");
-}
+const dynamicRoots = computed(() => {
+	// Dependency on selectionTrigger to force re-calc
+	selectionTrigger.value;
+	const active = getActiveIterators();
+	const roots = [...(props.variableOptions || [])];
 
-// ─── Raw textarea → ui (live sync for preview pill) ───
-watch(rawJinja, (val) => {
-	if (mode.value !== "raw") return;
-	try {
-		const segs = parseJinjaToSegments(val || "");
-		emitting = true;
-		ui.value = { version: 2, segments: segs.map((s) => ({ ...s, _key: s._key || genKey() })) };
-		setTimeout(() => {
-			emitting = false;
-		}, 0);
-	} catch {}
-});
+	active.forEach(({ iterator, iterable }) => {
+		if (!iterator) return;
 
-// ─── Model normalisation ───
-function normalizeModel(val) {
-	if (val && typeof val === "object" && val.segments) {
-		return {
-			version: val.version || 2,
-			segments: (val.segments || []).map((s) => ({ ...s, _key: s._key || genKey() })),
-		};
-	}
-	if (typeof val === "string" && val.trim()) {
-		try {
-			const parsed = JSON.parse(val);
-			if (parsed?.segments) return normalizeModel(parsed);
-		} catch {}
-		try {
-			const segs = parseJinjaToSegments(val);
-			if (segs.length) {
-				return {
-					version: 2,
-					segments: segs.map((s) => ({ ...s, _key: s._key || genKey() })),
-				};
-			}
-		} catch {}
-		return { version: 2, segments: [{ type: "text", content: val, _key: genKey() }] };
-	}
-	return { version: 2, segments: [] };
-}
+		// 1. Resolve children properties of the collection and map them to the iterator
+		if (iterable) {
+			const iterableSuffix = String(iterable).split(".").pop(); // e.g. "items" from "doc.items"
+			const prefix1 = iterable + "."; // e.g. "doc.items."
+			const prefix2 = iterableSuffix + "."; // e.g. "items."
 
-// Incoming model → ui
-watch(
-	() => [props.modelValue, props.templateValue],
-	([val, tmpl]) => {
-		if (emitting) return;
-		const normalized = normalizeModel(val || tmpl);
-		ui.value = normalized;
-		if (mode.value === "raw") {
-			rawJinja.value = compileSegmentsToJinja(normalized.segments, {
-				knownVarRoots: knownVarRoots.value,
+			const childFields = roots.filter((r) => {
+				const val = r.value || r;
+				return (
+					typeof val === "string" && (val.startsWith(prefix1) || val.startsWith(prefix2))
+				);
+			});
+
+			// Add iterator child fields
+			childFields.forEach((child) => {
+				const val = child.value || child;
+				let suffix = val;
+				if (val.startsWith(prefix1)) suffix = val.slice(prefix1.length);
+				else if (val.startsWith(prefix2)) suffix = val.slice(prefix2.length);
+
+				const iterValue = `${iterator}.${suffix}`;
+				if (!roots.find((r) => (r.value || r) === iterValue)) {
+					roots.unshift({
+						...child,
+						label: `${iterator}.${suffix} (${child.label || suffix})`,
+						value: iterValue,
+						is_iterator_child: true,
+						is_iterator: false,
+					});
+				}
 			});
 		}
+
+		// 2. Always add the root iterator variable itself
+		if (!roots.find((r) => (r.value || r) === iterator)) {
+			roots.unshift({ label: iterator, value: iterator, is_iterator: true });
+		}
+	});
+
+	return roots;
+});
+
+const editor = new Editor({
+	extensions: [
+		StarterKit.configure({
+			heading: { levels: [1, 2, 3] },
+			codeBlock: false,
+			blockquote: false,
+		}),
+		VariableNode,
+		LogicNode,
+		TranslationMark,
+		VariableTrigger.configure({
+			suggestion: {
+				char: "@",
+				pluginKey: VarPluginKey,
+				command: ({ editor, range, props }) => {
+					editor
+						.chain()
+						.focus()
+						.insertContentAt(range, [
+							{ type: "variable", attrs: { path: props.id, label: props.label } },
+						])
+						.run();
+				},
+				render: () => createSuggestionRenderer(),
+				items: ({ query }) => {
+					const q = query.toLowerCase();
+					return dynamicRoots.value
+						.map((v) => ({ id: v.value || v, label: v.label || v, type: "variable" }))
+						.filter((v) => v.id.toLowerCase().includes(q))
+						.slice(0, 15);
+				},
+			},
+		}),
+		LogicTrigger.configure({
+			suggestion: {
+				char: "/",
+				pluginKey: LogicPluginKey,
+				command: ({ editor, range, props }) => {
+					const type = props.id === "if" ? "conditional" : "loop";
+					const key = Math.random().toString(36).slice(2, 9);
+					const content = [
+						{ type: "logic", attrs: { type, isStart: true, _key: key } },
+						{ type: "text", text: " " },
+					];
+					if (type === "conditional") {
+						content.push({ type: "logic", attrs: { type, isElse: true, _key: key } });
+						content.push({ type: "text", text: " " });
+					}
+					content.push({ type: "logic", attrs: { type, isEnd: true, _key: key } });
+					editor.chain().focus().insertContentAt(range, content).run();
+				},
+				render: () => createSuggestionRenderer(),
+				items: ({ query }) => {
+					const q = query.toLowerCase();
+					return [
+						{ id: "if", label: "IF Condition", type: "logic" },
+						{ id: "loop", label: "LOOP Block", type: "logic" },
+					].filter((l) => l.label.toLowerCase().includes(q));
+				},
+			},
+		}),
+	],
+	editable: !readOnly.value,
+	onUpdate: ({ editor: ed }) => {
+		selectionTrigger.value++;
+		if (emitting) return;
+		ui.value.segments = convertHtmlToSegments(ed.getHTML());
+
+		if (activeSegKey.value && !props.isNested) {
+			const seg = findSegmentByKey(ui.value.segments, activeSegKey.value);
+			if (seg) {
+				if (seg.type === "conditional") {
+					activeLogicNodeThen.value = { version: 2, segments: seg.then_segments || [] };
+					activeLogicNodeElse.value = { version: 2, segments: seg.else_segments || [] };
+				} else if (seg.type === "loop") {
+					activeLogicNodeLoop.value = { version: 2, segments: seg.segments || [] };
+				}
+			}
+		}
+
+		emitChanges();
+	},
+	onSelectionUpdate: ({ editor: ed }) => {
+		selectionTrigger.value++;
+		const { from, to } = ed.state.selection;
+		if (from === to || readOnly.value || mode.value !== "visual") {
+			showBubbleMenu.value = false;
+			return;
+		}
+
+		const { view } = ed;
+		try {
+			const start = view.coordsAtPos(from);
+			const end = view.coordsAtPos(to);
+
+			showBubbleMenu.value = true;
+			bubbleMenuStyle.value = {
+				top: `${Math.min(start.top, end.top) - 48}px`,
+				left: `${(start.left + end.left) / 2}px`,
+				position: "fixed",
+				transform: "translateX(-50%)",
+			};
+		} catch (e) {
+			showBubbleMenu.value = false;
+		}
+	},
+	editorProps: {
+		handleClick(view, pos, event) {
+			const { state } = view;
+			let resolvedPos = pos;
+			let node = state.doc.nodeAt(resolvedPos);
+			if (!node || node.type.name !== "logic") {
+				node = state.doc.nodeAt(resolvedPos - 1);
+				if (node?.type.name === "logic") resolvedPos--;
+			}
+			if (node?.type.name === "logic" && !node.attrs.isEnd) {
+				activeLogicNode.value = null;
+				nextTick(() => {
+					activeLogicNode.value = { node, pos: resolvedPos, attrs: { ...node.attrs } };
+					activeSegKey.value = node.attrs._key;
+
+					const seg = findSegmentByKey(ui.value.segments, node.attrs._key);
+					if (seg) {
+						if (node.attrs.type === "conditional") {
+							activeLogicNodeThen.value = {
+								version: 2,
+								segments: seg.then_segments || [],
+							};
+							activeLogicNodeElse.value = {
+								version: 2,
+								segments: seg.else_segments || [],
+							};
+						} else {
+							activeLogicNodeLoop.value = {
+								version: 2,
+								segments: seg.segments || [],
+							};
+						}
+					}
+
+					showElse.value = true;
+				});
+				return true;
+			}
+			return false;
+		},
+	},
+});
+
+function createSuggestionRenderer() {
+	let component;
+	let popup;
+	return {
+		onStart: (props) => {
+			component = new VueRenderer(MentionList, { props, editor: props.editor });
+			if (!props.clientRect) return;
+			popup = tippy("body", {
+				getReferenceClientRect: props.clientRect,
+				appendTo: () => document.body,
+				content: component.element,
+				showOnCreate: true,
+				interactive: true,
+				trigger: "manual",
+				placement: "bottom-start",
+			});
+		},
+		onUpdate(props) {
+			component?.updateProps(props);
+			popup?.[0]?.setProps({ getReferenceClientRect: props.clientRect });
+		},
+		onKeyDown(props) {
+			if (props.event.key === "Escape") {
+				popup?.[0]?.hide();
+				return true;
+			}
+			return component?.ref?.onKeyDown(props);
+		},
+		onExit() {
+			popup?.[0]?.destroy();
+			component?.destroy();
+		},
+	};
+}
+
+const charCount = computed(() => editor.getText().length);
+const nodeCount = computed(() => ui.value.segments.length);
+const isEditorEmpty = computed(() => editor.isEmpty);
+function closeDrawer() {
+	activeLogicNode.value = null;
+}
+function getFieldLabel(path) {
+	const opt = dynamicRoots.value.find((o) => (o.value || o) === path);
+	return opt ? opt.label || path : path;
+}
+
+function updateActiveNode(attrs) {
+	if (!activeLogicNode.value) return;
+	const { pos } = activeLogicNode.value;
+
+	if (attrs.condition) {
+		let fieldLabel = "";
+		if (attrs.condition?.left?.ref) fieldLabel = getFieldLabel(attrs.condition.left.ref);
+		else if (attrs.condition?.conditions?.[0]?.left?.ref)
+			fieldLabel = getFieldLabel(attrs.condition.conditions[0].left.ref);
+		attrs.label = fieldLabel;
+	} else if (attrs.iterable) {
+		attrs.label = getFieldLabel(attrs.iterable);
+	}
+
+	activeLogicNode.value.attrs = { ...activeLogicNode.value.attrs, ...attrs };
+	editor.chain().focus().setNodeSelection(pos).updateAttributes("logic", attrs).run();
+}
+function onConditionUpdate(condition) {
+	updateActiveNode({ condition, _raw_expr: serializeCondition(condition) });
+}
+function deleteActiveNode() {
+	if (!activeLogicNode.value) return;
+	editor.chain().focus().setNodeSelection(activeLogicNode.value.pos).deleteSelection().run();
+	closeDrawer();
+}
+
+function findSegmentByKey(segs, key) {
+	if (!segs || !key) return null;
+	for (const seg of segs) {
+		if (seg._key === key) return seg;
+		if (seg.then_segments) {
+			const f = findSegmentByKey(seg.then_segments, key);
+			if (f) return f;
+		}
+		if (seg.else_segments) {
+			const f = findSegmentByKey(seg.else_segments, key);
+			if (f) return f;
+		}
+		if (seg.segments) {
+			const f = findSegmentByKey(seg.segments, key);
+			if (f) return f;
+		}
+	}
+	return null;
+}
+
+function _syncNestedToMain() {
+	emitting = true;
+	editor.commands.setContent(convertSegmentsToHtml(ui.value.segments, dynamicRoots.value));
+
+	if (activeSegKey.value && activeLogicNode.value) {
+		editor.state.doc.descendants((n, p) => {
+			if (n.type.name === "logic" && n.attrs._key === activeSegKey.value && n.attrs.isStart) {
+				activeLogicNode.value.pos = p;
+				return false;
+			}
+		});
+	}
+
+	emitting = false;
+	emitChanges();
+}
+
+function updateActiveNodeThen(val) {
+	const seg = findSegmentByKey(ui.value.segments, activeSegKey.value);
+	if (seg) {
+		seg.then_segments = val.segments;
+		activeLogicNodeThen.value = val;
+		_syncNestedToMain();
+	}
+}
+
+function updateActiveNodeElse(val) {
+	const seg = findSegmentByKey(ui.value.segments, activeSegKey.value);
+	if (seg) {
+		seg.else_segments = val.segments;
+		activeLogicNodeElse.value = val;
+		_syncNestedToMain();
+	}
+}
+
+function updateActiveNodeLoop(val) {
+	const seg = findSegmentByKey(ui.value.segments, activeSegKey.value);
+	if (seg) {
+		seg.segments = val.segments;
+		activeLogicNodeLoop.value = val;
+		_syncNestedToMain();
+	}
+}
+function insertTrigger(char) {
+	editor.chain().focus().insertContent(char).run();
+}
+const collectionOptions = computed(() =>
+	props.variableOptions.filter((o) => o.fieldtype === "Table" || o.is_list)
+);
+function emitChanges() {
+	emitting = true;
+	emit("update:modelValue", JSON.parse(JSON.stringify(ui.value)));
+	nextTick(() => (emitting = false));
+}
+function switchMode(m) {
+	if (m === mode.value) return;
+	if (m === "raw") rawJinja.value = compileSegmentsToJinja(ui.value.segments);
+	else {
+		const segs = parseJinjaToSegments(rawJinja.value);
+		ui.value.segments = segs;
+		editor.commands.setContent(convertSegmentsToHtml(segs));
+	}
+	mode.value = m;
+}
+watch(
+	() => props.modelValue,
+	(val) => {
+		if (emitting) return;
+		const norm = normalizeModel(val || props.templateValue);
+		ui.value = norm;
+		editor.commands.setContent(convertSegmentsToHtml(norm.segments));
 	},
 	{ immediate: true, deep: true }
 );
-
-// ui → emit
-watch(
-	ui,
-	() => {
-		if (emitting) return;
-		emitting = true;
-		const payload = JSON.parse(JSON.stringify(ui.value));
-		const clean = (segs) =>
-			(segs || [])
-				.map((s) => {
-					const c = { ...s };
-					delete c._key;
-					if (c.type === "variable") {
-						c.path = normalizeTemplatePath(c.path || "", knownVarRoots.value);
-					}
-					if (c.type === "loop") {
-						c.iterable = normalizeTemplatePath(c.iterable || "", knownVarRoots.value);
-						if (c.segments) c.segments = clean(c.segments);
-					}
-					if (c.then_segments) c.then_segments = clean(c.then_segments);
-					if (c.else_segments) c.else_segments = clean(c.else_segments);
-					if (c.elif_branches)
-						c.elif_branches = c.elif_branches.map((b) => ({
-							...b,
-							segments: clean(b.segments || []),
-						}));
-					return c;
-				})
-				.filter((c) => !(c.type === "variable" && !(c.path || "").trim()));
-		payload.segments = clean(payload.segments);
-		emit("update:modelValue", payload);
-		setTimeout(() => {
-			emitting = false;
-		}, 0);
-	},
-	{ deep: true }
-);
-
-// Expose for parent components to call directly (e.g. InputPanel)
-defineExpose({ insertExpression });
+function normalizeModel(val) {
+	if (val?.segments) return val;
+	if (typeof val === "string") return { version: 2, segments: parseJinjaToSegments(val) };
+	return { version: 2, segments: [] };
+}
+function onFocusIn() {
+	if (props.isNested) return;
+	setActiveTGC((p) =>
+		editor
+			.chain()
+			.focus()
+			.insertContent([{ type: "variable", attrs: { path: p } }])
+			.run()
+	);
+}
+onBeforeUnmount(() => {
+	editor.destroy();
+});
 </script>
 
 <style scoped>
-/* ── Wrapper ── */
 .tgc-wrap {
 	display: flex;
 	flex-direction: column;
 	gap: 4px;
+	background: #f8fafc;
+	padding: 4px;
+	border-radius: 8px;
+	border: 1px solid #e2e8f0;
+}
+.tgc-wrap.is-nested {
+	padding: 0;
+	background: transparent;
+	border: none;
 }
 
-/* ── Toolbar ── */
-.tgc-toolbar {
+.tgc-editor-container {
+	border: 1px solid #e2e8f0;
+	border-radius: 8px;
+	background: #fff;
+	overflow: hidden;
+	min-height: 120px;
+	position: relative;
+}
+.tgc-editor-wrapper {
+	padding: 8px;
+	min-height: 100px;
+	position: relative;
+}
+.tgc-empty-hint {
+	position: absolute;
+	top: 8px;
+	left: 8px;
+	color: #cbd5e1;
+	font-size: 13px;
+	pointer-events: none;
+}
+
+.tgc-tiptap-editor :deep(.ProseMirror) {
+	outline: none;
+	line-height: 1.6;
+	font-size: 14px;
+	color: #1e293b;
+	min-height: 80px;
+	unicode-bidi: plaintext;
+	text-align: start;
+}
+
+/* ── Badges (Ultra-Compact) ── */
+:deep(.tg-badge) {
+	display: inline-flex;
+	align-items: center;
+	padding: 1px 8px;
+	border-radius: 6px;
+	font-size: 11px;
+	font-weight: 700;
+	margin: 1px 3px;
+	cursor: pointer;
+	border: 1px solid transparent;
+	transition: all 0.2s;
+	white-space: nowrap;
+	max-width: 250px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	vertical-align: middle;
+}
+:deep(.tg-badge-var) {
+	background: #ecfdf5;
+	color: #059669;
+	border-color: #10b98133;
+}
+:deep(.tg-badge-if) {
+	background: #f5f3ff;
+	color: #7c3aed;
+	border-color: #8b5cf633;
+}
+:deep(.tg-badge-loop) {
+	background: #eff6ff;
+	color: #2563eb;
+	border-color: #3b82f633;
+}
+:deep(.tg-badge-else) {
+	background: #fffbeb;
+	color: #f59e0b;
+	border-color: #f59e0b33;
+}
+:deep(.tg-badge-trans) {
+	background: #e0f2fe;
+	color: #0284c7;
+	border-color: #0ea5e933;
+}
+:deep(.tg-badge-end) {
+	background: #f1f5f9;
+	color: #94a3b8;
+	padding: 0 4px;
+	font-family: monospace;
+	border: none;
+	min-width: 12px;
+	justify-content: center;
+	font-weight: 800;
+	opacity: 0.6;
+}
+
+/* ── Bubble Menu (Fixed Position) ── */
+.tgc-bubble-menu-fixed {
+	display: flex;
+	background: #1e293b;
+	padding: 4px;
+	border-radius: 8px;
+	box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+	gap: 2px;
+	z-index: 10001;
+	align-items: center;
+}
+.menu-group {
+	display: flex;
+	gap: 1px;
+}
+.tgc-bubble-menu-fixed button {
+	background: transparent;
+	border: none;
+	color: #94a3b8;
+	width: 28px;
+	height: 28px;
+	border-radius: 4px;
+	cursor: pointer;
+	transition: all 0.2s;
+	font-size: 11px;
 	display: flex;
 	align-items: center;
-	gap: 8px;
-	flex-wrap: wrap;
+	justify-content: center;
+}
+.tgc-bubble-menu-fixed button:hover,
+.tgc-bubble-menu-fixed button.is-active {
+	color: #fff;
+	background: #334155;
+}
+.tgc-bubble-menu-fixed .divider {
+	width: 1px;
+	height: 16px;
+	background: #334155;
+	margin: 0 4px;
+}
+.btn-clear {
+	color: #f87171 !important;
+}
+
+/* ── Footer Toolbar (Unified) ── */
+.tgc-footer-toolbar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 4px 6px;
+	margin-top: 4px;
+	background: #f8fafc;
+	border-radius: 6px;
+	min-height: 32px;
+}
+.footer-left,
+.footer-right {
+	display: flex;
+	align-items: center;
 }
 
 .tgc-mode-tabs {
 	display: flex;
-	border: 1px solid #e2e8f0;
-	border-radius: 6px;
-	overflow: hidden;
-	flex-shrink: 0;
-}
-
-.tgc-mode-tab {
-	background: #f8fafc;
-	border: none;
-	border-right: 1px solid #e2e8f0;
-	color: #64748b;
-	font-size: 11px;
-	font-weight: 600;
-	padding: 4px 10px;
-	cursor: pointer;
-	display: flex;
-	align-items: center;
-	gap: 4px;
-	transition: background 0.15s, color 0.15s;
-}
-
-.tgc-mode-tab:last-child {
-	border-right: none;
-}
-
-.tgc-mode-tab.active {
-	background: #2490ef;
-	color: #fff;
-}
-
-.tgc-mode-tab:not(.active):hover {
-	background: #e8f0fe;
-	color: #1d4ed8;
-}
-
-.tgc-mode-ro-label {
-	display: flex;
-	align-items: center;
-	gap: 4px;
-}
-
-/* ── Preview pill ── */
-.tgc-pill-wrap {
-	flex: 1;
-	min-width: 0;
-	overflow: hidden;
-}
-
-.tgc-preview-pill {
-	display: inline-flex;
-	align-items: center;
-	gap: 5px;
 	background: #f1f5f9;
-	border: 1px solid #e2e8f0;
-	border-radius: 20px;
-	padding: 3px 10px 3px 8px;
-	cursor: pointer;
-	max-width: 100%;
-	transition: background 0.15s, border-color 0.15s;
+	padding: 2px;
+	border-radius: 6px;
 }
-
-.tgc-preview-pill:hover {
-	background: #e0f2fe;
-	border-color: #93c5fd;
-}
-
-.tgc-pill-icon {
+.tgc-mode-tab {
+	padding: 3px 8px;
 	font-size: 10px;
-	color: #64748b;
-	flex-shrink: 0;
-}
-
-.tgc-pill-code {
-	font-size: 11px;
-	font-family: monospace;
-	color: #1e40af;
+	font-weight: 700;
+	border: none;
 	background: transparent;
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	flex: 1;
-	min-width: 0;
+	color: #64748b;
+	cursor: pointer;
+	border-radius: 4px;
+	transition: all 0.2s;
 }
-
-.tgc-pill-copy {
-	font-size: 10px;
-	color: #94a3b8;
-	flex-shrink: 0;
-	opacity: 0;
-	transition: opacity 0.15s;
-}
-
-.tgc-preview-pill:hover .tgc-pill-copy {
-	opacity: 1;
-}
-
-/* ── Editor body ── */
-.tgc-body {
-	border: 1px solid #e2e8f0;
-	border-radius: 8px;
-	overflow: hidden;
+.tgc-mode-tab.active {
 	background: #fff;
-	min-height: 100px;
+	color: #1e293b;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
-/* ── Visual canvas ── */
-.tgc-canvas {
-	padding: 10px;
+.tgc-rich-actions {
+	display: flex;
+	gap: 2px;
+	padding: 0 8px;
+	margin-left: 8px;
+	border-left: 1px solid #e2e8f0;
+}
+.action-btn-mini {
+	width: 24px;
+	height: 24px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border: none;
+	background: transparent;
+	color: #64748b;
+	border-radius: 6px;
+	cursor: pointer;
+	font-size: 11px;
+}
+.action-btn-mini:hover {
+	background: #f1f5f9;
+	color: #1e293b;
+}
+
+.divider-v {
+	width: 1px;
+	height: 16px;
+	background: #e2e8f0;
+	margin: 0 12px;
+}
+
+.legend-pills {
+	display: flex;
+	gap: 4px;
+}
+.pill-mini {
+	font-size: 8px;
+	font-weight: 900;
+	padding: 0px 4px;
+	border-radius: 3px;
+}
+.pill-mini.if {
+	background: #f5f3ff;
+	color: #7c3aed;
+}
+.pill-mini.loop {
+	background: #eff6ff;
+	color: #2563eb;
+}
+.pill-mini.var {
+	background: #ecfdf5;
+	color: #059669;
+}
+
+.tgc-switch-label {
+	font-size: 10px;
+	font-weight: 700;
+	color: #94a3b8;
+}
+.stats-mini {
+	font-size: 9px;
+	font-weight: 700;
+	color: #94a3b8;
+}
+
+/* ── Bottom Panel ── */
+.tgc-bottom-panel {
+	border-top: 1px solid #e2e8f0;
+	background: #fcfcfd;
 	display: flex;
 	flex-direction: column;
+}
+.panel-header {
+	padding: 6px 12px;
+	border-bottom: 1px solid #f1f5f9;
+	display: flex;
+	align-items: center;
 	gap: 8px;
 }
-
-.tgc-empty-hint {
-	padding: 16px 12px;
-	color: #94a3b8;
-	font-size: 12px;
-	text-align: center;
-	line-height: 1.7;
-	border: 1.5px dashed #e2e8f0;
+.panel-icon {
+	width: 24px;
+	height: 24px;
 	border-radius: 6px;
-}
-
-.tgc-empty-hint .fa {
-	display: block;
-	font-size: 18px;
-	margin-bottom: 6px;
-	color: #cbd5e1;
-}
-
-.tgc-empty-tip {
-	font-size: 11px;
-	color: #b0bec5;
-}
-
-/* ── Raw Jinja editor ── */
-.tgc-raw-wrap {
 	display: flex;
-	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	font-size: 10px;
+}
+.panel-icon.conditional {
+	background: #f5f3ff;
+	color: #7c3aed;
+}
+.panel-icon.loop {
+	background: #eff6ff;
+	color: #2563eb;
+}
+.panel-title {
+	font-weight: 800;
+	font-size: 11px;
+	color: #1e293b;
+}
+.panel-subtitle {
+	font-size: 9px;
+	color: #94a3b8;
+	font-family: monospace;
+	margin-left: 4px;
+}
+.btn-modern-danger {
+	width: 28px;
+	height: 28px;
+	border-radius: 50%;
+	border: none;
+	background: transparent;
+	color: #ef4444;
+	cursor: pointer;
+	font-size: 11px;
+}
+.btn-modern-danger:hover {
+	background: #fef2f2;
+}
+.btn-modern-close {
+	width: 28px;
+	height: 28px;
+	border-radius: 50%;
+	border: none;
+	background: #f1f5f9;
+	color: #64748b;
+	cursor: pointer;
+	font-size: 11px;
+}
+.btn-modern-close:hover {
+	background: #e2e8f0;
+	color: #1e293b;
+}
+.panel-body {
+	padding: 8px 12px;
+	max-height: 300px;
+	overflow-y: auto;
+}
+.panel-grid {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 8px;
+}
+.grid-item.full-width {
+	grid-column: span 2;
+}
+.compact-label {
+	font-size: 9px;
+	font-weight: 800;
+	color: #94a3b8;
+	text-transform: uppercase;
+	margin-bottom: 2px;
+	display: block;
 }
 
+.panel-slide-enter-active,
+.panel-slide-leave-active {
+	transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.panel-slide-enter-from,
+.panel-slide-leave-to {
+	transform: translateY(100%);
+	opacity: 0;
+}
 .tgc-raw-textarea {
 	width: 100%;
-	min-height: 130px;
-	resize: vertical;
+	min-height: 200px;
 	border: none;
-	outline: none;
-	padding: 10px 12px;
-	font-family: "JetBrains Mono", "Fira Code", Consolas, monospace;
-	font-size: 12.5px;
-	line-height: 1.65;
-	color: #1e293b;
-	background: #fafbfe;
-	tab-size: 2;
-}
-
-.tgc-raw-textarea::placeholder {
-	color: #94a3b8;
-	font-style: italic;
-}
-
-.tgc-raw-textarea:focus {
-	background: #fff;
-}
-
-.tgc-raw-hint {
-	padding: 5px 10px;
-	font-size: 10.5px;
-	color: #94a3b8;
-	border-top: 1px solid #e2e8f0;
-	background: #f8fafc;
+	padding: 12px;
+	font-size: 13px;
+	font-family: monospace;
 	line-height: 1.5;
-}
-
-.tgc-raw-hint code {
-	font-size: 10.5px;
-	background: #e2e8f0;
-	padding: 0 3px;
-	border-radius: 3px;
-	color: #1e40af;
+	outline: none;
+	resize: none;
 }
 </style>

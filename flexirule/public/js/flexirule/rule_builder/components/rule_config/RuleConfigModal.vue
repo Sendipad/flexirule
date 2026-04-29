@@ -19,7 +19,16 @@
 								></i>
 							</div>
 							<div class="header-titles">
-								<h3>{{ title }}</h3>
+								<div class="title-wrapper">
+									<h3>{{ title }}</h3>
+									<div
+										v-if="ruleStore.is_dirty && !ruleStore.is_read_only"
+										class="dirty-badge"
+									>
+										<i class="fa fa-circle"></i>
+										<span>{{ __("Unsaved") }}</span>
+									</div>
+								</div>
 								<div class="modal-breadcrumb">
 									<span
 										class="type-badge"
@@ -88,6 +97,20 @@
 								</div>
 
 								<div class="toolbar-divider"></div>
+
+								<!-- Save Action -->
+								<div class="toolbar-group actions" v-if="!ruleStore.is_read_only">
+									<button
+										class="toolbar-btn save-action"
+										@click="save"
+										:title="__('Save Action')"
+									>
+										<i class="fa fa-save"></i>
+										<span>{{ __("Save") }}</span>
+									</button>
+								</div>
+
+								<div class="toolbar-divider" v-if="!ruleStore.is_read_only"></div>
 
 								<!-- Close -->
 								<button
@@ -260,30 +283,6 @@
 							</aside>
 						</div>
 					</div>
-
-					<footer class="config-modal-footer">
-						<div class="footer-left">
-							<div
-								v-if="ruleStore.is_dirty && !ruleStore.is_read_only"
-								class="dirty-indicator"
-							>
-								<i class="fa fa-circle mr-1"></i>
-								{{ __("Unsaved Changes") }}
-							</div>
-						</div>
-						<div class="footer-right">
-							<button class="btn btn-default btn-sm" @click="cancel">
-								{{ ruleStore.is_read_only ? __("Close") : __("Cancel") }}
-							</button>
-							<button
-								v-if="!ruleStore.is_read_only"
-								class="btn btn-primary btn-sm ml-2"
-								@click="save"
-							>
-								{{ __("Save Action") }}
-							</button>
-						</div>
-					</footer>
 				</div>
 			</div>
 		</transition>
@@ -426,7 +425,7 @@ function getIcon(type) {
 	display: flex;
 	justify-content: center;
 	align-items: center;
-	padding: 24px;
+	padding: 12px;
 }
 
 .config-modal-container {
@@ -444,11 +443,11 @@ function getIcon(type) {
 }
 
 .config-modal-header {
-	height: 80px;
+	height: 60px;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 0 32px;
+	padding: 0 24px;
 	border-bottom: 1px solid #e2e8f0;
 	background: #fff;
 }
@@ -461,16 +460,27 @@ function getIcon(type) {
 }
 
 .header-icon {
-	width: 48px;
-	height: 48px;
-	border-radius: 12px;
+	width: 36px;
+	height: 36px;
+	border-radius: 10px;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 }
 
 .header-icon i {
-	font-size: 20px;
+	font-size: 16px;
+}
+
+.header-titles {
+	display: flex;
+	flex-direction: column;
+}
+
+.title-wrapper {
+	display: flex;
+	align-items: center;
+	gap: 12px;
 }
 
 .header-titles h3 {
@@ -478,6 +488,25 @@ function getIcon(type) {
 	font-size: 18px;
 	font-weight: 700;
 	color: #1e293b;
+}
+
+.dirty-badge {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	background: #fffbeb;
+	color: #f59e0b;
+	padding: 4px 10px;
+	border-radius: 20px;
+	font-size: 11px;
+	font-weight: 700;
+	border: 1px solid #fef3c7;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+}
+
+.dirty-badge i {
+	font-size: 6px;
 }
 
 .modal-breadcrumb {
@@ -496,9 +525,9 @@ function getIcon(type) {
 	display: flex;
 	align-items: center;
 	background: #f1f5f9;
-	padding: 4px;
-	border-radius: 12px;
-	gap: 4px;
+	padding: 2px;
+	border-radius: 10px;
+	gap: 2px;
 }
 
 .toolbar-group {
@@ -548,6 +577,18 @@ function getIcon(type) {
 .toolbar-btn.close:hover {
 	background: #fee2e2;
 	color: #ef4444;
+}
+
+.toolbar-btn.save-action {
+	background: #1e293b;
+	color: #fff;
+	padding: 0 16px;
+}
+
+.toolbar-btn.save-action:hover {
+	background: #0f172a;
+	color: #fff;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .toolbar-status {
@@ -632,7 +673,7 @@ function getIcon(type) {
 	flex: 1;
 	overflow-y: auto;
 	background: #f8fafc;
-	padding: 10px;
+	padding: 4px;
 }
 
 .config-content-wrapper {
@@ -640,20 +681,20 @@ function getIcon(type) {
 	margin: 0 auto;
 	display: flex;
 	flex-direction: column;
-	gap: 10px;
+	gap: 4px;
 }
 
 .integrated-settings-bar {
 	background: #fff;
 	border-radius: 12px;
-	padding: 16px;
+	padding: 12px;
 	border: 1px solid #e2e8f0;
 }
 
 .action-core-layout {
 	display: grid;
 	grid-template-columns: minmax(220px, 25%) minmax(0, 75%);
-	gap: 8px;
+	gap: 4px;
 	align-items: stretch;
 }
 
@@ -761,38 +802,6 @@ function getIcon(type) {
 	height: 100%;
 	z-index: 10;
 	box-shadow: -10px 0 30px rgba(0, 0, 0, 0.05);
-}
-
-.config-modal-footer {
-	height: 72px;
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	padding: 0 32px;
-	border-top: 1px solid #e2e8f0;
-	background: #fff;
-}
-
-.footer-left {
-	display: flex;
-	align-items: center;
-}
-
-.dirty-indicator {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	font-size: 12px;
-	font-weight: 600;
-	color: #f59e0b;
-	padding: 6px 12px;
-	background: #fffbeb;
-	border-radius: 20px;
-	border: 1px solid #fef3c7;
-}
-
-.dirty-indicator i {
-	font-size: 8px;
 }
 
 .modal-fade-enter-active,
