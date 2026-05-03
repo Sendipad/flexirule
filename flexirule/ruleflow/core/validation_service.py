@@ -302,7 +302,7 @@ def _validate_action_contracts(
 
 	show_return_type = effective_policy.get("show_return_type", contract.get("show_return_type", True))
 	return_type = _safe_get(action, "return_type")
-	if (show_return_type and return_type or _safe_get(action, "resolved_output_schema")) and _is_empty(
+	if ((show_return_type and return_type) or _safe_get(action, "resolved_output_schema")) and _is_empty(
 		_safe_get(action, "return_variable")
 	):
 		errors.append(

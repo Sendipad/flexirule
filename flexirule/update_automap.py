@@ -2,8 +2,8 @@ import re
 
 file_path = "/home/erpnext/frappe-bench/apps/flexirule/flexirule/public/js/flexirule/rule_builder/controls/ResourceMapperControl.vue"
 
-with open(file_path, "r") as f:
-    content = f.read()
+with open(file_path) as f:
+	content = f.read()
 
 # 1. Update scalarAutoMapPreview block
 scalar_preview_old = """		<div v-if="scalarAutoMapPreview.length" class="rm-preview-box">
@@ -197,5 +197,4 @@ collect_table_new = """	childFields.forEach((cf) => {
 content = content.replace(collect_table_old, collect_table_new)
 
 with open(file_path, "w") as f:
-    f.write(content)
-
+	f.write(content)

@@ -65,8 +65,6 @@ function updateDropdownPosition() {
 	};
 }
 
-
-
 function getPrimaryLabel(field) {
 	if (!field) return "";
 	const rawLabel = String(field.label || "").trim();
@@ -272,7 +270,9 @@ watch(
 								@mousedown.prevent="selectField(field)"
 							>
 								<div class="field-text">
-									<div class="field-primary">{{ __(getPrimaryLabel(field)) }}</div>
+									<div class="field-primary">
+										{{ __(getPrimaryLabel(field)) }}
+									</div>
 									<div v-if="getSecondaryMeta(field)" class="field-meta">
 										{{ getSecondaryMeta(field) }}
 									</div>

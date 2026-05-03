@@ -274,9 +274,15 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 						}
 					});
 				}
-			} else if (ACTION_TYPES_WITH_RETURN_SCHEMA.has(data.action_type) && data.reference_doctype && data.return_type !== "Yes / No") {
+			} else if (
+				ACTION_TYPES_WITH_RETURN_SCHEMA.has(data.action_type) &&
+				data.reference_doctype &&
+				data.return_type !== "Yes / No"
+			) {
 				try {
-					const dtFields = await flexirule.utils.get_doctype_fields(data.reference_doctype);
+					const dtFields = await flexirule.utils.get_doctype_fields(
+						data.reference_doctype
+					);
 					const seenSchemaPaths = new Set();
 					dtFields.forEach((field) => {
 						// field object has: fieldname, label, fieldtype, doctype
@@ -296,7 +302,10 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 						}
 					});
 				} catch (e) {
-					console.error("Failed to load reference doctype fields for Document Action context variables", e);
+					console.error(
+						"Failed to load reference doctype fields for Document Action context variables",
+						e
+					);
 				}
 			}
 		}
