@@ -1,6 +1,6 @@
 <template>
 	<div class="loop-config">
-		<LoopNodeConfig :nodeData="node.data" @update-json-config="updateJsonConfig" />
+		<LoopNodeConfig :node="node" @update-json-config="updateJsonConfig" />
 		<hr />
 		<ConditionStep :node="node" />
 	</div>

@@ -145,12 +145,17 @@ flexirule.utils.get_combined_fields = async function (doctype, context_vars = []
 			if (seen_values.has(v.value)) return false;
 			return true;
 		})
-		.map((v) => ({
-			label: `${__(v.label)} (${__("Variable")})`,
-			value: v.value,
-			fieldtype: v.type || "Data",
-			is_variable: true,
-		}));
+		.map((v) => {
+			const ft = v.fieldtype || v.type || "Data";
+			return {
+				...v,
+				label: `${__(v.label)} (${__("Variable")})`,
+				value: v.value,
+				fieldtype: ft,
+				type: ft, // Backward compatibility
+				is_variable: true,
+			};
+		});
 
 	// Reverse variables so lastly added appear first
 	vars.reverse();
@@ -393,10 +398,17 @@ flexirule.utils.get_doctype_meta = function (doctype) {
  */
 flexirule.utils.safe_json_parse = function (json_str, default_val = null) {
 	if (!json_str) return default_val;
+	if (typeof json_str === "object") return json_str;
 	try {
 		return JSON.parse(json_str);
 	} catch (e) {
-		console.warn("JSON Parse Error:", e, "Input:", json_str);
+		if (String(json_str) === "[object Object]") {
+			console.warn(
+				"JSON Parse Error: Input is '[object Object]' string. Falling back to default."
+			);
+		} else {
+			console.warn("JSON Parse Error:", e, "Input:", json_str);
+		}
 		return default_val;
 	}
 };

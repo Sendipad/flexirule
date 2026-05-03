@@ -240,24 +240,45 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 				context_vars.push({
 					label:
 						idx === 0
-							? normalizedReturnVariable
-							: `${normalizedReturnVariable} (${__("Legacy Path")})`,
+							? `vars.${normalizedReturnVariable}`
+							: `vars.${normalizedReturnVariable} (${__("Legacy Path")})`,
 					value: root,
-					type: mapReturnTypeToFieldType(data.return_type),
+					fieldtype: mapReturnTypeToFieldType(data.return_type),
+					is_variable: true,
 				});
 			});
 
 			if (data.resolved_output_schema && data.return_type !== "Yes / No") {
-				let schema = data.resolved_output_schema;
-				if (typeof schema === "string") {
-					try {
-						schema = JSON.parse(schema);
-					} catch (e) {
-						schema = [];
-					}
-				}
+				const schema = flexirule.utils.safe_json_parse(data.resolved_output_schema, []);
 				if (Array.isArray(schema)) {
 					const seenSchemaPaths = new Set();
+					// 1. Add intermediate paths as selectable variable roots
+					const intermediatePaths = new Set();
+					schema.forEach((field) => {
+						const parts = (field.fieldname || "").split(".");
+						if (parts.length > 1) {
+							let current = "";
+							for (let i = 0; i < parts.length - 1; i++) {
+								current = current ? `${current}.${parts[i]}` : parts[i];
+								intermediatePaths.add(current);
+							}
+						}
+					});
+
+					intermediatePaths.forEach((path) => {
+						const value = `vars.${normalizedReturnVariable}.${path}`;
+						if (!seenContextValues.has(value)) {
+							seenContextValues.add(value);
+							context_vars.push({
+								label: `vars.${normalizedReturnVariable}.${path}`,
+								value: value,
+								fieldtype: "Table", // Mark as table to allow collection iteration
+								is_variable: true,
+							});
+						}
+					});
+
+					// 2. Add leaf fields
 					schema.forEach((field) => {
 						if (field.fieldname && !seenSchemaPaths.has(field.fieldname)) {
 							seenSchemaPaths.add(field.fieldname);
@@ -265,11 +286,13 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 							if (seenContextValues.has(schemaValue)) return;
 							seenContextValues.add(schemaValue);
 							context_vars.push({
+								...field,
 								label: `vars.${normalizedReturnVariable}.${field.fieldname} (${
 									field.label || field.fieldname
 								})`,
 								value: schemaValue,
-								type: field.fieldtype || "Data",
+								fieldtype: field.fieldtype || "Data",
+								is_variable: true,
 							});
 						}
 					});
@@ -293,11 +316,13 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 							if (seenContextValues.has(schemaValue)) return;
 							seenContextValues.add(schemaValue);
 							context_vars.push({
+								...field,
 								label: `vars.${normalizedReturnVariable}.${field.value} (${
 									field.label || field.fieldname
 								})`,
 								value: schemaValue,
-								type: field.fieldtype || "Data",
+								fieldtype: field.fieldtype || "Data",
+								is_variable: true,
 							});
 						}
 					});

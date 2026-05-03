@@ -31,9 +31,23 @@ provide(
 	})
 );
 
-// Filter to show only Table fields
 const tableFields = computed(() => {
-	return props.docFields.filter((f) => f.fieldtype === "Table" && f.options);
+	const fields = props.docFields || [];
+	return fields.filter((f) => {
+		// 1. Static Table fields
+		if (f.fieldtype === "Table") return true;
+
+		// 2. Variables marked as Table
+		if (f.is_variable && f.fieldtype === "Table") return true;
+
+		// 3. Variables that have sub-fields (schema-driven)
+		if (f.is_variable) {
+			const prefix = f.value + ".";
+			return fields.some((sub) => sub.value.startsWith(prefix));
+		}
+
+		return false;
+	});
 });
 
 // Child fields for the selected table
@@ -50,7 +64,6 @@ function addConditionForCollection() {
 		last.left.ref = firstAliasField.value;
 	}
 }
-
 // Resolve child table metadata
 function fetchChildMeta() {
 	const collectionPath = props.node.collection;
@@ -61,14 +74,79 @@ function fetchChildMeta() {
 		return;
 	}
 
-	// Auto-set alias from table name
-	if (!props.node.alias || props.node.alias !== alias) {
+	// Auto-set alias from table name if not set
+	if (!props.node.alias) {
 		const parts = collectionPath.split(".");
-		props.node.alias = alias || parts[parts.length - 1].replace(/[^a-zA-Z0-9_]/g, "_");
+		props.node.alias = parts[parts.length - 1].replace(/[^a-zA-Z0-9_]/g, "_");
+	}
+
+	// Resolve table field metadata
+	const fieldMeta = props.docFields.find((f) => f.value === collectionPath);
+	const isVariable = collectionPath.startsWith("vars.") || fieldMeta?.is_variable;
+
+	if (isVariable) {
+		// Try multiple possible roots for the variable (with and without vars. prefix)
+		const cleanPath = collectionPath.replace(/^vars\./, "");
+		const possibleRoots = [collectionPath, `vars.${cleanPath}`, cleanPath];
+
+		let subFields = [];
+		let matchedRoot = "";
+
+		for (const root of possibleRoots) {
+			const prefix = root + ".";
+			const found = props.docFields.filter((f) => f.value.startsWith(prefix));
+			if (found.length > 0) {
+				subFields = found;
+				matchedRoot = root;
+				break;
+			}
+		}
+
+		if (matchedRoot) {
+			const prefix = matchedRoot + ".";
+			const aliasFields = subFields.map((f) => {
+				const subPath = f.value.slice(prefix.length);
+				// Clean label: remove the variable prefix and (Variable) suffix if present
+				let cleanLabel = f.label
+					.replace(prefix, "")
+					.replace(/\s*\([\w\u0600-\u06FF\s]+\)$/, "");
+
+				// If cleanLabel contains a parenthesized human label, extract it
+				const humanLabelMatch = cleanLabel.match(/\((.*)\)/);
+				if (humanLabelMatch) {
+					cleanLabel = humanLabelMatch[1];
+				}
+
+				return {
+					...f,
+					label: `${alias}.${subPath} (${cleanLabel})`,
+					value: `${alias}.${subPath}`,
+				};
+			});
+
+			// Include non-table parent fields (global context) - KEEP other variables!
+			const parentFields = props.docFields.filter(
+				(f) =>
+					f.fieldtype !== "Table" &&
+					!possibleRoots.includes(f.value) &&
+					!f.value.startsWith(prefix)
+			);
+
+			const merged = [];
+			const seen = new Set();
+			[...aliasFields, ...parentFields].forEach((field) => {
+				const key = String(field?.value || "");
+				if (!key || seen.has(key)) return;
+				seen.add(key);
+				merged.push(field);
+			});
+			childDocFields.value = merged;
+			return;
+		}
 	}
 
 	// Find table field metadata
-	const fieldMeta = props.docFields.find((f) => f.value === collectionPath);
+	// (fieldMeta is already declared above)
 
 	if (fieldMeta && fieldMeta.options) {
 		const childDoctype = fieldMeta.options;

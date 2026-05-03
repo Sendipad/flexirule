@@ -122,32 +122,46 @@ const valueFieldSchema = computed(() => {
 	}
 
 	// 2. Multi-Select Handling for IN/NOT IN
-	if (
-		["in", "not in", "in list", "not in list"].includes(props.node.op) &&
-		!isDoctypeContextField.value
-	) {
+	const isMultiSelectOp = ["in", "not in", "in list", "not in list"].includes(props.node.op);
+	const isEqualsOp = ["==", "!=", "equal", "equals", "not equal", "not equals"].includes(
+		props.node.op
+	);
+
+	if (isMultiSelectOp && !isDoctypeContextField.value) {
 		const originalFieldtype = schema.fieldtype;
 		const originalOptions = schema.options;
-		schema.fieldtype = "MultiSelect";
-		// Check if we need to adjust options for MultiSelect docstatus
-		if (schema.fieldname === "docstatus") {
-			// For MultiSelect, provide simple options because standard control handles strings best
-			schema.options = ["0", "1", "2"];
-		} else if (originalFieldtype === "Select" && typeof originalOptions === "string") {
-			schema.options = originalOptions
-				.split("\n")
-				.map((opt) => opt.trim())
-				.filter(Boolean);
-		} else if (originalFieldtype === "Link") {
+
+		if (originalFieldtype === "Link" && originalOptions) {
 			schema.fieldtype = "MultiSelectList";
 			schema.get_data = async (txt) => {
-				const rows = await frappe.db.get_link_options(originalOptions, txt || "");
-				return (rows || []).map((row) => ({
-					value: row.value || row,
-					description: row.description || "",
-				}));
+				if (!originalOptions) return [];
+				try {
+					const rows = await frappe.db.get_link_options(originalOptions, txt || "");
+					return (rows || []).map((row) => ({
+						value: row.value || row,
+						description: row.description || "",
+					}));
+				} catch (e) {
+					console.error("MultiSelectList fetch error:", e);
+					return [];
+				}
 			};
+		} else {
+			schema.fieldtype = "MultiSelect";
+			if (schema.fieldname === "docstatus") {
+				schema.options = ["0", "1", "2"];
+			} else if (originalFieldtype === "Select" && typeof originalOptions === "string") {
+				schema.options = originalOptions
+					.split("\n")
+					.map((opt) => opt.trim())
+					.filter(Boolean);
+			} else {
+				schema.options = [];
+			}
 		}
+	} else if (isEqualsOp && schema.fieldtype === "Link") {
+		// Ensure Link dropdown is shown for equality operators
+		schema.fieldtype = "Link";
 	}
 
 	// 3. Dynamic Link Handling (Step 2: The actual link picker)
@@ -169,7 +183,7 @@ const valueFieldSchema = computed(() => {
 // Wrapped Value for Link/Dynamic Link Tuple handling
 const wrappedValue = computed({
 	get() {
-		const val = props.node.right.value;
+		const val = props.node.right?.value;
 		const ft = selectedField.value?.fieldtype;
 		const op = props.node.op;
 
@@ -230,22 +244,17 @@ watch(
 );
 
 // Value Type State (Static vs Field)
-const isMapped = computed({
-	get: () => !!props.node.right.ref,
-	set: (mapped) => {
-		if (mapped) {
+const valueType = computed({
+	get: () => (props.node.right?.ref ? "field" : "static"),
+	set: (type) => {
+		if (type === "field") {
 			props.node.right.value = "";
-			if (!props.node.right.ref) props.node.right.ref = context.alias + "."; // default
+			if (!props.node.right.ref) props.node.right.ref = context.alias + ".";
 		} else {
 			props.node.right.ref = "";
 		}
 	},
 });
-
-const valueTypeOptions = [
-	{ label: __("Static"), value: false },
-	{ label: __("Field"), value: true },
-];
 </script>
 
 <template>
@@ -289,17 +298,17 @@ const valueTypeOptions = [
 				"
 			>
 				<select
-					v-model="isMapped"
+					v-model="valueType"
 					class="form-control input-xs value-type-select"
 					:disabled="readOnly"
 				>
-					<option :value="false">{{ __("Static") }}</option>
-					<option :value="true">{{ __("Field") }}</option>
+					<option value="static">{{ __("Static") }}</option>
+					<option value="field">{{ __("Field") }}</option>
 				</select>
 
 				<div class="value-input-wrapper">
 					<div
-						v-if="selectedField?.fieldtype === 'Dynamic Link' && !isMapped"
+						v-if="selectedField?.fieldtype === 'Dynamic Link' && valueType === 'static'"
 						class="dynamic-dt-picker"
 					>
 						<ControlFactory
@@ -314,7 +323,7 @@ const valueTypeOptions = [
 						/>
 					</div>
 
-					<template v-if="isMapped">
+					<template v-if="valueType === 'field'">
 						<ContextPicker
 							v-model="node.right.ref"
 							:docFields="docFields"

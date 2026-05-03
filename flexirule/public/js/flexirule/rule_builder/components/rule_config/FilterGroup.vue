@@ -492,7 +492,7 @@
 								<div v-else style="width: 100%; min-width: 150px">
 									<ControlFactory
 										:df="getControlFactorySchema(row)"
-										:modelValue="row.value"
+										:modelValue="getDisplayValue(row)"
 										:read_only="readOnly"
 										:hideLabel="true"
 										@update:modelValue="(val) => updateRow(idx, { value: val })"
@@ -793,6 +793,18 @@ const normalizeFilterValueForOperator = (row, value) => {
 	return value === "%" ? "" : value;
 };
 
+const getDisplayValue = (row) => {
+	if (
+		["=", "!="].includes(row.operator) &&
+		Array.isArray(row.value) &&
+		row.value.length === 2 &&
+		typeof row.value[0] === "string"
+	) {
+		return row.value[1];
+	}
+	return row.value;
+};
+
 const normalizeRowForEmit = (row) => {
 	const normalized = { ...row };
 	const field = getFieldDef(normalized.field, normalized.doctype || props.doctype);
@@ -1005,8 +1017,28 @@ const getControlFactorySchema = (row) => {
 
 	// FlexiRule Specific overrides for multi-value operators
 	if (["in", "not in"].includes(row.operator)) {
-		schema.fieldtype = "Data";
-		schema.placeholder = __("Comma-separated values");
+		if (field && field.fieldtype === "Link") {
+			schema.fieldtype = "MultiSelectList";
+			schema.get_data = async (txt) => {
+				if (!field.options) return [];
+				try {
+					const rows = await frappe.db.get_link_options(field.options, txt || "");
+					return (rows || []).map((row) => ({
+						value: row.value || row,
+						description: row.description || "",
+					}));
+				} catch (e) {
+					return [];
+				}
+			};
+		} else {
+			schema.fieldtype = "Data";
+			schema.placeholder = __("Comma-separated values");
+		}
+	} else if (["=", "!="].includes(row.operator) && field?.fieldtype === "Link") {
+		// Ensure Link dropdown is preserved for equality operators
+		schema.fieldtype = "Link";
+		schema.options = field.options;
 	} else if (row.operator === "Between") {
 		schema.placeholder = __("Value1, Value2");
 	}
@@ -1172,10 +1204,10 @@ const clearFilters = () => {
 const updateRow = (idx, data) => {
 	const row = filters.value[idx];
 	const merged = { ...row, ...data };
+	const field = getFieldDef(merged.field, merged.doctype || props.doctype);
 
 	// If field changed, update operator and reset value if needed
 	if (data.field && data.field !== row.field) {
-		const field = getFieldDef(data.field, merged.doctype);
 		const operators = getOperatorsForField(field);
 		if (!operators.includes(merged.operator)) {
 			const defaultCondition = getDefaultCondition(field, merged.doctype || props.doctype);
@@ -1197,7 +1229,19 @@ const updateRow = (idx, data) => {
 	if (merged.value_type === "Builder") {
 		normalizeBuilderState(merged);
 	}
-	const field = getFieldDef(merged.field, merged.doctype || props.doctype);
+
+	// FlexiRule: Wrap Link fields in [DocType, Value] tuple for equality operators
+	if (
+		["=", "!="].includes(merged.operator) &&
+		field?.fieldtype === "Link" &&
+		merged.value_type === "Value"
+	) {
+		const val = data.value !== undefined ? data.value : merged.value;
+		if (val && !Array.isArray(val)) {
+			merged.value = [field.options, val];
+		}
+	}
+
 	if (isCheckField(field)) {
 		merged.operator = "=";
 		if (!CHECK_VALUE_TYPES.includes(merged.value_type)) {
