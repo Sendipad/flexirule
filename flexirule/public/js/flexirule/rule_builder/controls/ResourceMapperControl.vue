@@ -23,6 +23,12 @@
 					@update:modelValue="(val) => (ui.source_path = val || 'doc')"
 				/>
 			</div>
+			<div class="rm-option-group">
+				<label class="rm-check">
+					<input type="checkbox" v-model="ui.save_document" :disabled="readOnly" />
+					<span>{{ __("Save Document") }}</span>
+				</label>
+			</div>
 			<button v-if="!readOnly" class="rm-btn rm-btn-magic" @click="previewScalarAutoMap">
 				<i class="fa fa-magic"></i> {{ __("Auto-map") }}
 			</button>
@@ -62,26 +68,53 @@
 
 		<!-- Auto-map Preview -->
 		<div v-if="scalarAutoMapPreview.length" class="rm-preview-box">
-			<div class="rm-preview-title">
-				{{ __("Auto-map Preview") }}
-				<span class="rm-badge">{{ scalarAutoMapPreview.length }}</span>
+			<div class="rm-preview-title" style="justify-content: space-between;">
+				<div style="display: flex; align-items: center; gap: 6px;">
+					<input type="checkbox" :checked="selectedPreviews.size === scalarAutoMapPreview.length" @change="toggleAllPreviews" />
+					{{ __("Auto-map Preview") }}
+					<span class="rm-badge">{{ scalarAutoMapPreview.length }}</span>
+				</div>
+				<button v-if="selectedPreviews.size > 0" class="rm-btn rm-btn-danger rm-btn-sm" @click="deleteSelectedPreviews">
+					<i class="fa fa-trash"></i> {{ __("Delete ({0})").replace("{0}", selectedPreviews.size) }}
+				</button>
 			</div>
 			<div class="rm-preview-list">
 				<div
 					v-for="(row, idx) in scalarAutoMapPreview"
 					:key="`preview-${idx}`"
-					class="rm-preview-row"
+					class="rm-preview-row rm-mapping-row"
+					style="grid-template-columns: auto 1fr auto 1.6fr auto; padding: 4px 6px;"
 				>
-					<code class="rm-target">{{ row.target }}</code>
-					<i class="fa fa-long-arrow-left rm-arrow"></i>
-					<code class="rm-source">{{ row.path }}</code>
+					<div class="rm-cell rm-cell-check">
+						<input type="checkbox" :checked="selectedPreviews.has(idx)" @change="toggleSelectPreview(idx)" />
+					</div>
+					<div class="rm-cell rm-cell-target" style="display: flex; align-items: center; gap: 4px;">
+						<code class="rm-target">{{ row.target }}</code>
+						<span v-if="row.is_readonly" class="indicator-pill orange" style="font-size: 10px; padding: 2px 6px;">{{ __("Read Only") }}</span>
+						<span v-if="row.no_copy" class="indicator-pill blue" style="font-size: 10px; padding: 2px 6px;">{{ __("No Copy") }}</span>
+					</div>
+					<div class="rm-cell rm-cell-arrow">
+						<i class="fa fa-long-arrow-left rm-arrow"></i>
+					</div>
+					<div class="rm-cell rm-cell-source">
+						<FieldPickerControl
+							:df="{ label: '' }"
+							:fields="scalarSourceOptions"
+							v-model="row.path"
+						/>
+					</div>
+					<div class="rm-cell rm-cell-action">
+						<button class="rm-btn rm-btn-danger rm-btn-ghost" @click="scalarAutoMapPreview.splice(idx, 1)">
+							<i class="fa fa-trash"></i>
+						</button>
+					</div>
 				</div>
 			</div>
-			<div class="rm-preview-actions">
+			<div class="rm-preview-footer">
 				<button class="rm-btn rm-btn-primary" @click="applyScalarAutoMap">
-					{{ __("Apply") }}
+					{{ __("Apply Mappings") }}
 				</button>
-				<button class="rm-btn rm-btn-default" @click="cancelScalarAutoMap">
+				<button class="rm-btn rm-btn-ghost" @click="cancelScalarAutoMap">
 					{{ __("Cancel") }}
 				</button>
 			</div>
@@ -90,17 +123,31 @@
 		<!-- ═══ Scalar Field Mappings ═══ -->
 		<div class="rm-section">
 			<div class="rm-section-header">
-				<h6><i class="fa fa-columns"></i> {{ __("Field Mappings") }}</h6>
-				<button v-if="!readOnly" class="rm-btn rm-btn-sm" @click="addScalarRow">
-					<i class="fa fa-plus"></i> {{ __("Add") }}
-				</button>
+				<div style="display: flex; align-items: center; gap: 8px;">
+					<input v-if="filteredScalars.length > 0" type="checkbox" :checked="selectedScalars.size >= pagedScalars.length && pagedScalars.length > 0" @change="toggleAllScalars" />
+					<h6><i class="fa fa-columns"></i> {{ __("Field Mappings") }}</h6>
+					<button v-if="selectedScalars.size > 0" class="rm-btn rm-btn-danger rm-btn-sm" @click="deleteSelectedScalars">
+						<i class="fa fa-trash"></i> {{ __("Delete ({0})").replace("{0}", selectedScalars.size) }}
+					</button>
+				</div>
+				<div class="rm-header-actions" style="display: flex; gap: 8px; align-items: center;">
+					<input
+						type="text"
+						class="form-control input-xs"
+						v-model="scalarSearch"
+						:placeholder="__('Search fields...')"
+					/>
+				</div>
 			</div>
 
-			<div v-if="!ui.scalars.length" class="rm-empty">
-				{{ __("No field mappings. Click + Add or use Auto-map.") }}
+			<div v-if="!filteredScalars.length" class="rm-empty">
+				{{ __("No field mappings found. Click + Add Field or use Auto-map.") }}
 			</div>
 
-			<div v-for="(row, idx) in ui.scalars" :key="`scalar-${idx}`" class="rm-mapping-row">
+			<div v-for="(row, idx) in pagedScalars" :key="`scalar-${row._id || idx}`" class="rm-mapping-row" style="grid-template-columns: auto 1.4fr auto 0.7fr 1.6fr auto;">
+				<div class="rm-cell rm-cell-check">
+					<input type="checkbox" :checked="selectedScalars.has(row._id)" @change="toggleSelectScalar(row._id)" />
+				</div>
 				<!-- Target -->
 				<div class="rm-cell rm-cell-target">
 					<FieldPickerControl
@@ -163,10 +210,22 @@
 					<button
 						v-if="!readOnly"
 						class="rm-btn rm-btn-danger"
-						@click="removeScalarRow(idx)"
+						@click="removeScalarRow(row)"
 					>
 						<i class="fa fa-trash"></i>
 					</button>
+				</div>
+			</div>
+
+			<div class="rm-section-footer">
+				<button v-if="!readOnly" class="rm-btn rm-btn-sm" @click="addScalarRow">
+					<i class="fa fa-plus"></i> {{ __("Add Field") }}
+				</button>
+				<div class="rm-pagination" v-if="filteredScalars.length > 10">
+					<button class="rm-btn rm-btn-sm" :class="{active: scalarLimit === 10}" @click="scalarLimit = 10">10</button>
+					<button class="rm-btn rm-btn-sm" :class="{active: scalarLimit === 20}" @click="scalarLimit = 20">20</button>
+					<button class="rm-btn rm-btn-sm" :class="{active: scalarLimit === Infinity}" @click="scalarLimit = Infinity">{{ __("All") }}</button>
+					<span class="rm-label-sm" style="margin-left: 8px;">Showing {{ pagedScalars.length }} of {{ filteredScalars.length }}</span>
 				</div>
 			</div>
 		</div>
@@ -174,7 +233,13 @@
 		<!-- ═══ Child Table Mappings ═══ -->
 		<div class="rm-section">
 			<div class="rm-section-header">
-				<h6><i class="fa fa-table"></i> {{ __("Child Table Mappings") }}</h6>
+				<div style="display: flex; align-items: center; gap: 8px;">
+					<input v-if="ui.tables.length > 0" type="checkbox" :checked="selectedTables.size === ui.tables.length && ui.tables.length > 0" @change="toggleAllTables" />
+					<h6><i class="fa fa-table"></i> {{ __("Child Table Mappings") }}</h6>
+					<button v-if="selectedTables.size > 0" class="rm-btn rm-btn-danger rm-btn-sm" @click="deleteSelectedTables">
+						<i class="fa fa-trash"></i> {{ __("Delete ({0})").replace("{0}", selectedTables.size) }}
+					</button>
+				</div>
 				<button v-if="!readOnly" class="rm-btn rm-btn-sm" @click="addTableMap">
 					<i class="fa fa-plus"></i> {{ __("Add Table") }}
 				</button>
@@ -187,6 +252,7 @@
 			<div v-for="(table, tIdx) in ui.tables" :key="`tbl-${tIdx}`" class="rm-table-card">
 				<div class="rm-table-header">
 					<div class="rm-table-header-fields">
+						<input type="checkbox" :checked="selectedTables.has(tIdx)" @change="toggleSelectTable(tIdx)" style="margin-top: 5px;" />
 						<select
 							class="form-control input-xs"
 							v-model="table.target_table"
@@ -245,21 +311,39 @@
 						<div
 							v-for="(row, pIdx) in tableAutoMapPreview[tIdx]"
 							:key="`table-preview-${tIdx}-${pIdx}`"
-							class="rm-preview-row"
+							class="rm-preview-row rm-mapping-row"
+							style="grid-template-columns: 1fr auto 1.6fr auto; padding: 4px 0;"
 						>
-							<code class="rm-target">{{ row.target }}</code>
-							<i class="fa fa-long-arrow-left rm-arrow"></i>
-							<code class="rm-source">{{ row.path }}</code>
+							<div class="rm-cell rm-cell-target" style="display: flex; align-items: center; gap: 4px;">
+								<code class="rm-target">{{ row.target }}</code>
+								<span v-if="row.is_readonly" class="indicator-pill orange" style="font-size: 10px; padding: 2px 6px;">{{ __("Read Only") }}</span>
+								<span v-if="row.no_copy" class="indicator-pill blue" style="font-size: 10px; padding: 2px 6px;">{{ __("No Copy") }}</span>
+							</div>
+							<div class="rm-cell rm-cell-arrow">
+								<i class="fa fa-long-arrow-left rm-arrow"></i>
+							</div>
+							<div class="rm-cell rm-cell-source">
+								<FieldPickerControl
+									:df="{ label: '' }"
+									:fields="getTableRowSourceOptions(table)"
+									v-model="row.path"
+								/>
+							</div>
+							<div class="rm-cell rm-cell-action">
+								<button class="rm-btn rm-btn-danger rm-btn-ghost" @click="tableAutoMapPreview[tIdx].splice(pIdx, 1)">
+									<i class="fa fa-trash"></i>
+								</button>
+							</div>
 						</div>
 					</div>
-					<div class="rm-preview-actions">
+					<div class="rm-preview-footer">
 						<button
 							class="rm-btn rm-btn-primary"
 							@click="applyTableAutoMap(table, tIdx)"
 						>
-							{{ __("Apply") }}
+							{{ __("Apply Mappings") }}
 						</button>
-						<button class="rm-btn rm-btn-default" @click="cancelTableAutoMap(tIdx)">
+						<button class="rm-btn rm-btn-ghost" @click="cancelTableAutoMap(tIdx)">
 							{{ __("Cancel") }}
 						</button>
 					</div>
@@ -292,25 +376,36 @@
 				<!-- Row Mappings -->
 				<div class="rm-table-rows">
 					<div class="rm-section-header rm-section-header-sm">
-						<span class="rm-label-sm">{{ __("Row Field Mapping") }}</span>
-						<button
-							v-if="!readOnly"
-							class="rm-btn rm-btn-sm"
-							@click="addTableRow(table)"
-						>
-							<i class="fa fa-plus"></i>
-						</button>
+						<div style="display: flex; align-items: center; gap: 6px;">
+							<input v-if="getFilteredTableRows(table, tIdx).length > 0" type="checkbox" :checked="selectedTableRows[tIdx]?.size >= getPagedTableRows(table, tIdx).length && getPagedTableRows(table, tIdx).length > 0" @change="toggleAllTableRows(tIdx, table)" />
+							<span class="rm-label-sm">{{ __("Row Field Mapping") }}</span>
+							<button v-if="selectedTableRows[tIdx]?.size > 0" class="rm-btn rm-btn-danger rm-btn-sm" @click="deleteSelectedTableRows(tIdx, table)">
+								<i class="fa fa-trash"></i> {{ __("Delete ({0})").replace("{0}", selectedTableRows[tIdx].size) }}
+							</button>
+						</div>
+						<div class="rm-header-actions" style="display: flex; gap: 8px; align-items: center;">
+							<input
+								type="text"
+								class="form-control input-xs"
+								v-model="getTableState(tIdx).search"
+								:placeholder="__('Search...')"
+							/>
+						</div>
 					</div>
 
-					<div v-if="!table.mappings?.length" class="rm-empty rm-empty-sm">
-						{{ __("No row mappings.") }}
+					<div v-if="!getFilteredTableRows(table, tIdx).length" class="rm-empty rm-empty-sm">
+						{{ __("No row mappings found.") }}
 					</div>
 
 					<div
-						v-for="(row, rIdx) in table.mappings"
-						:key="`tbl-row-${tIdx}-${rIdx}`"
+						v-for="(row, rIdx) in getPagedTableRows(table, tIdx)"
+						:key="`tbl-row-${tIdx}-${row._id || rIdx}`"
 						class="rm-mapping-row"
+						style="grid-template-columns: auto 1.4fr auto 0.7fr 1.6fr auto;"
 					>
+						<div class="rm-cell rm-cell-check">
+							<input type="checkbox" :checked="selectedTableRows[tIdx]?.has(row._id)" @change="toggleSelectTableRow(tIdx, row._id)" />
+						</div>
 						<div class="rm-cell rm-cell-target">
 							<select
 								class="form-control input-xs"
@@ -374,10 +469,26 @@
 							<button
 								v-if="!readOnly"
 								class="rm-btn rm-btn-danger"
-								@click="removeTableRow(table, rIdx)"
+								@click="removeTableRowByRow(table, row)"
 							>
 								<i class="fa fa-trash"></i>
 							</button>
+						</div>
+					</div>
+					
+					<div class="rm-section-footer">
+						<button
+							v-if="!readOnly"
+							class="rm-btn rm-btn-sm"
+							@click="addTableRow(table)"
+						>
+							<i class="fa fa-plus"></i> {{ __("Add Field") }}
+						</button>
+						<div class="rm-pagination" v-if="getFilteredTableRows(table, tIdx).length > 10">
+							<button class="rm-btn rm-btn-sm" :class="{active: getTableState(tIdx).limit === 10}" @click="getTableState(tIdx).limit = 10">10</button>
+							<button class="rm-btn rm-btn-sm" :class="{active: getTableState(tIdx).limit === 20}" @click="getTableState(tIdx).limit = 20">20</button>
+							<button class="rm-btn rm-btn-sm" :class="{active: getTableState(tIdx).limit === Infinity}" @click="getTableState(tIdx).limit = Infinity">{{ __("All") }}</button>
+							<span class="rm-label-sm" style="margin-left: 8px;">Showing {{ getPagedTableRows(table, tIdx).length }} of {{ getFilteredTableRows(table, tIdx).length }}</span>
 						</div>
 					</div>
 				</div>
@@ -416,6 +527,7 @@ const ui = ref({
 	mode: "field_mappings",
 	source_path: "doc",
 	copy_same_fields: false,
+	save_document: true,
 	field_no_map: [],
 	scalars: [],
 	tables: [],
@@ -427,8 +539,12 @@ const scalarAutoMapPreview = ref([]);
 const tableAutoMapPreview = ref({});
 let emitting = false;
 
+let idCounter = 0;
+function generateId() { return `rm_${Date.now()}_${idCounter++}`; }
+
 function makeScalar() {
 	return {
+		_id: generateId(),
 		target: "",
 		source_type: "path",
 		path: "",
@@ -457,9 +573,12 @@ function normalizeModel(val) {
 			mode: val.mode || "field_mappings",
 			source_path: val.source_path || "doc",
 			copy_same_fields: !!val.copy_same_fields,
+			save_document: val.save_document !== false,
 			field_no_map: Array.isArray(val.field_no_map) ? val.field_no_map.filter(Boolean) : [],
 			scalars: Array.isArray(val.scalars)
-				? val.scalars.filter((s) => s && s.target && !String(s.target).includes("."))
+				? val.scalars
+						.filter((s) => s && s.target && !String(s.target).includes("."))
+						.map((s) => ({ ...s, _id: s._id || generateId() }))
 				: [],
 			tables: Array.isArray(val.tables)
 				? val.tables.map((table) => ({
@@ -470,7 +589,9 @@ function normalizeModel(val) {
 						add_if_empty: !!table?.add_if_empty,
 						condition: table?.condition || "",
 						filter: table?.filter || "",
-						mappings: Array.isArray(table?.mappings) ? table.mappings : [],
+						mappings: Array.isArray(table?.mappings)
+							? table.mappings.map((m) => ({ ...m, _id: m._id || generateId() }))
+							: [],
 				  }))
 				: [],
 		};
@@ -498,6 +619,7 @@ function normalizeModel(val) {
 		mode: "field_mappings",
 		source_path: "doc",
 		copy_same_fields: false,
+		save_document: true,
 		field_no_map: [],
 		scalars: [],
 		tables: [],
@@ -552,12 +674,60 @@ const scalarSourceOptions = computed(() => {
 	return uniqueOptions([...sourceOptionsNormalized.value]);
 });
 
+const scalarSearch = ref("");
+const scalarLimit = ref(10);
+
+const filteredScalars = computed(() => {
+	if (!scalarSearch.value) return ui.value.scalars;
+	const q = scalarSearch.value.toLowerCase();
+	return ui.value.scalars.filter(row =>
+		(row.target || "").toLowerCase().includes(q) ||
+		(row.path || "").toLowerCase().includes(q)
+	);
+});
+
+const pagedScalars = computed(() => {
+	return filteredScalars.value.slice(0, scalarLimit.value);
+});
+
+const tableViewState = ref({});
+function getTableState(tIdx) {
+	if (!tableViewState.value[tIdx]) {
+		tableViewState.value[tIdx] = { search: "", limit: 10 };
+	}
+	return tableViewState.value[tIdx];
+}
+
+function getFilteredTableRows(table, tIdx) {
+	if (!table.mappings) return [];
+	const state = getTableState(tIdx);
+	if (!state.search) return table.mappings;
+	const q = state.search.toLowerCase();
+	return table.mappings.filter(row =>
+		(row.target || "").toLowerCase().includes(q) ||
+		(row.path || "").toLowerCase().includes(q)
+	);
+}
+
+function getPagedTableRows(table, tIdx) {
+	const filtered = getFilteredTableRows(table, tIdx);
+	const state = getTableState(tIdx);
+	return filtered.slice(0, state.limit);
+}
+
+function removeTableRowByRow(table, row) {
+	if (!table.mappings) return;
+	const idx = table.mappings.findIndex(r => r === row || r._id === row._id);
+	if (idx >= 0) table.mappings.splice(idx, 1);
+}
+
 function addScalarRow() {
 	ui.value.scalars.push(makeScalar());
 }
 
-function removeScalarRow(idx) {
-	ui.value.scalars.splice(idx, 1);
+function removeScalarRow(row) {
+	const idx = ui.value.scalars.findIndex(r => r === row || r._id === row._id);
+	if (idx >= 0) ui.value.scalars.splice(idx, 1);
 }
 
 function addTableMap() {
@@ -609,14 +779,30 @@ function buildPath(base, fieldname) {
 }
 
 function preferredSource(targetField, options, prefix = "") {
-	const candidates = (options || []).filter((opt) => {
+	const exactCandidates = (options || []).filter((opt) => {
 		if (!opt?.value) return false;
 		const value = String(opt.value);
 		if (prefix && !value.startsWith(prefix)) return false;
 		return getLeaf(value) === targetField;
 	});
-	if (!candidates.length) return null;
-	return candidates.find((c) => String(c.value).startsWith("doc.")) || candidates[0];
+	if (exactCandidates.length) {
+		return exactCandidates.find((c) => String(c.value).startsWith("doc.")) || exactCandidates[0];
+	}
+
+	// Fuzzy search for better automap matching
+	const fuzzyCandidates = (options || []).filter((opt) => {
+		if (!opt?.value) return false;
+		const value = String(opt.value);
+		if (prefix && !value.startsWith(prefix)) return false;
+		const leaf = getLeaf(value);
+		// match if one is contained in the other
+		return targetField.includes(leaf) || leaf.includes(targetField);
+	});
+	if (fuzzyCandidates.length) {
+		return fuzzyCandidates.find((c) => String(c.value).startsWith("doc.")) || fuzzyCandidates[0];
+	}
+
+	return null;
 }
 
 // System / internal fields that should never be auto-mapped
@@ -662,6 +848,8 @@ function collectScalarAutoMapRows() {
 			path: source.value,
 			expr: "",
 			literal: "",
+			is_readonly: field.read_only === 1 || field.fieldtype === "Read Only",
+			no_copy: field.no_copy === 1,
 		});
 		existing.add(target);
 	});
@@ -697,9 +885,19 @@ function collectTableAutoMapRows(table) {
 		if (!target || existing.has(target)) return;
 		// Skip system / internal fields
 		if (AUTOMAP_EXCLUDE_FIELDS.has(target)) return;
-		// Try to find a match in context variables, fallback to speculative mapping based on rowAlias
-		const source = preferredSource(target, rowSourceOptions, `${rowAlias}.`);
-		const sourcePath = source ? source.value : `${rowAlias}.${target}`;
+		// Find a valid match in source schema
+		const source = preferredSource(target, rowSourceOptions);
+		if (!source) return; // Do not map if source field does not exist
+
+		let sourcePath = source.value;
+		// If the source comes from a child table (e.g. items.item_code), use rowAlias
+		if (source.value.includes(".") && !source.value.startsWith("doc.") && !source.value.startsWith("vars.")) {
+			sourcePath = `${rowAlias}.${target}`;
+		} else if (source.value.startsWith("doc.") || source.value.startsWith("vars.")) {
+			sourcePath = source.value;
+		} else {
+			sourcePath = `${rowAlias}.${target}`;
+		}
 
 		suggestions.push({
 			target,
@@ -707,6 +905,8 @@ function collectTableAutoMapRows(table) {
 			path: sourcePath,
 			expr: "",
 			literal: "",
+			is_readonly: cf.read_only === 1 || cf.fieldtype === "Read Only",
+			no_copy: cf.no_copy === 1,
 		});
 		existing.add(target);
 	});
@@ -741,9 +941,32 @@ function getChildFieldOptions(tableField) {
 }
 
 function getTableRowSourceOptions(table) {
-	// Derive from upstream context variables only, as requested.
-	// Removed rowFieldHints which were speculative guesses based on target fields.
-	return uniqueOptions([...sourceOptionsNormalized.value]);
+	const rowAlias = (table.item_alias || "item").trim() || "item";
+	const parentOptions = [];
+	const childOptions = [];
+	
+	sourceOptionsNormalized.value.forEach(opt => {
+		const val = String(opt.value || "");
+		if (val.includes(".") && !val.startsWith("doc.") && !val.startsWith("vars.")) {
+			const leaf = getLeaf(val);
+			childOptions.push({
+				label: `${rowAlias}.${leaf} (${opt.label})`,
+				value: `${rowAlias}.${leaf}`
+			});
+		} else {
+			parentOptions.push(opt);
+		}
+	});
+	
+	if (childOptions.length > 0) {
+		childOptions.unshift({
+			label: `--- ${rowAlias} (Row Scope) ---`,
+			value: "",
+			fieldtype: "Section Break"
+		});
+	}
+
+	return uniqueOptions([...childOptions, ...parentOptions]);
 }
 
 async function loadTargetMeta(doctype) {
@@ -780,6 +1003,10 @@ async function loadTargetMeta(doctype) {
 			value: df.fieldname,
 			label: df.label || df.fieldname,
 			fieldtype: df.fieldtype,
+			options: df.options,
+			reqd: df.reqd,
+			read_only: df.read_only,
+			no_copy: df.no_copy,
 		});
 	}
 
@@ -802,6 +1029,10 @@ async function loadTargetMeta(doctype) {
 				value: cf.fieldname,
 				label: cf.label || cf.fieldname,
 				fieldtype: cf.fieldtype,
+				options: cf.options,
+				reqd: cf.reqd,
+				read_only: cf.read_only,
+				no_copy: cf.no_copy,
 			});
 		}
 		childFieldMap.value[table.value] = childOptions;
@@ -838,6 +1069,91 @@ watch(
 	},
 	{ immediate: true }
 );
+
+// --- Multiselect logic ---
+const selectedScalars = ref(new Set());
+const selectedTables = ref(new Set());
+const selectedPreviews = ref(new Set());
+const selectedTableRows = ref({}); // { tableIndex: Set(rowId) }
+
+function toggleSelectScalar(rowId) {
+	if (selectedScalars.value.has(rowId)) selectedScalars.value.delete(rowId);
+	else selectedScalars.value.add(rowId);
+}
+
+function toggleAllScalars() {
+	if (selectedScalars.value.size >= pagedScalars.value.length && pagedScalars.value.length > 0) {
+		selectedScalars.value.clear();
+	} else {
+		pagedScalars.value.forEach((r) => selectedScalars.value.add(r._id));
+	}
+}
+
+function deleteSelectedScalars() {
+	if (!confirm(__("Delete {0} selected fields?").replace("{0}", selectedScalars.value.size)))
+		return;
+	ui.value.scalars = ui.value.scalars.filter((s) => !selectedScalars.value.has(s._id));
+	selectedScalars.value.clear();
+}
+
+function toggleSelectPreview(idx) {
+	if (selectedPreviews.value.has(idx)) selectedPreviews.value.delete(idx);
+	else selectedPreviews.value.add(idx);
+}
+
+function toggleAllPreviews() {
+	if (
+		selectedPreviews.value.size >= scalarAutoMapPreview.value.length &&
+		scalarAutoMapPreview.value.length > 0
+	) {
+		selectedPreviews.value.clear();
+	} else {
+		scalarAutoMapPreview.value.forEach((_, idx) => selectedPreviews.value.add(idx));
+	}
+}
+
+function deleteSelectedPreviews() {
+	scalarAutoMapPreview.value = scalarAutoMapPreview.value.filter(
+		(_, idx) => !selectedPreviews.value.has(idx)
+	);
+	selectedPreviews.value.clear();
+}
+
+function toggleSelectTable(idx) {
+	if (selectedTables.value.has(idx)) selectedTables.value.delete(idx);
+	else selectedTables.value.add(idx);
+}
+
+function deleteSelectedTables() {
+	if (!confirm(__("Delete {0} selected tables?").replace("{0}", selectedTables.value.size)))
+		return;
+	ui.value.tables = ui.value.tables.filter((_, idx) => !selectedTables.value.has(idx));
+	selectedTables.value.clear();
+}
+
+function toggleSelectTableRow(tIdx, rId) {
+	if (!selectedTableRows.value[tIdx]) selectedTableRows.value[tIdx] = new Set();
+	if (selectedTableRows.value[tIdx].has(rId)) selectedTableRows.value[tIdx].delete(rId);
+	else selectedTableRows.value[tIdx].add(rId);
+}
+
+function toggleAllTableRows(tIdx, table) {
+	const rows = getPagedTableRows(table, tIdx);
+	if (!selectedTableRows.value[tIdx]) selectedTableRows.value[tIdx] = new Set();
+	if (selectedTableRows.value[tIdx].size >= rows.length && rows.length > 0) {
+		selectedTableRows.value[tIdx].clear();
+	} else {
+		rows.forEach((r) => selectedTableRows.value[tIdx].add(r._id));
+	}
+}
+
+function deleteSelectedTableRows(tIdx, table) {
+	const selected = selectedTableRows.value[tIdx];
+	if (!selected || !selected.size) return;
+	if (!confirm(__("Delete {0} selected child fields?").replace("{0}", selected.size))) return;
+	table.mappings = table.mappings.filter((m) => !selected.has(m._id));
+	selected.clear();
+}
 </script>
 
 <style scoped>
@@ -962,9 +1278,23 @@ watch(
 /* ─── Mapping Row ─── */
 .rm-mapping-row {
 	display: grid;
-	grid-template-columns: 1.4fr auto 0.7fr 1.6fr auto;
+	grid-template-columns: auto 1.4fr auto 0.7fr 1.6fr auto;
 	gap: 6px;
 	align-items: center;
+}
+
+.rm-cell-check {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+}
+
+.rm-cell-check input[type="checkbox"] {
+	cursor: pointer;
+	width: 14px;
+	height: 14px;
+	margin: 0;
 }
 
 .rm-cell-arrow {
@@ -1055,18 +1385,23 @@ watch(
 }
 
 .rm-preview-list {
-	max-height: 120px;
-	overflow: auto;
+	max-height: 240px;
+	overflow-y: auto;
 	display: flex;
 	flex-direction: column;
-	gap: 2px;
+	gap: 4px;
+	padding-right: 4px;
 }
 
 .rm-preview-row {
-	display: flex;
+	display: grid;
+	grid-template-columns: 1fr auto 1.6fr auto;
+	gap: 10px;
 	align-items: center;
-	gap: 6px;
-	font-size: 12px;
+	padding: 4px 6px;
+	background: #fff;
+	border: 1px solid #e2e8f0;
+	border-radius: 6px;
 }
 
 .rm-preview-row .rm-target {
@@ -1083,9 +1418,14 @@ watch(
 	font-size: 11px;
 }
 
-.rm-preview-actions {
+.rm-preview-footer {
 	display: flex;
-	gap: 6px;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 8px;
+	padding-top: 8px;
+	border-top: 1px solid #d1e9ff;
+	margin-top: 4px;
 }
 
 /* ─── Buttons ─── */
@@ -1135,6 +1475,17 @@ watch(
 	background: var(--bg-light, #fff);
 }
 
+.rm-btn-ghost {
+	background: transparent;
+	border-color: transparent;
+	color: var(--text-muted);
+}
+
+.rm-btn-ghost:hover {
+	background: rgba(0, 0, 0, 0.05);
+	color: var(--text-color);
+}
+
 .rm-btn-danger {
 	color: var(--red-500, #e53e3e);
 	border-color: transparent;
@@ -1157,5 +1508,26 @@ watch(
 .rm-empty-sm {
 	padding: 6px;
 	font-size: 11px;
+}
+
+/* ─── Footer and Pagination ─── */
+.rm-section-footer {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding-top: 10px;
+	border-top: 1px dashed var(--border-color);
+}
+
+.rm-pagination {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.rm-btn.active {
+	background: var(--primary, #2490ef);
+	color: #fff;
+	border-color: var(--primary, #2490ef);
 }
 </style>

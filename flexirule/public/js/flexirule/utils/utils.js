@@ -152,11 +152,11 @@ flexirule.utils.get_combined_fields = async function (doctype, context_vars = []
 			is_variable: true,
 		}));
 
-	// Clone base to avoid mutating cache
-	const combined = [...base_fields];
+	// Reverse variables so lastly added appear first
+	vars.reverse();
 
-	// Append variables directly without separator
-	vars.forEach((v) => combined.push(v));
+	// Put variables first, then base document fields
+	const combined = [...vars, ...base_fields];
 
 	return combined;
 };

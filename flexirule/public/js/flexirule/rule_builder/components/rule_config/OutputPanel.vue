@@ -456,6 +456,12 @@ defineExpose({ validate });
 	font-weight: 600;
 }
 
+.output-panel {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+}
+
 .panel-sections {
 	flex: 1;
 	overflow-y: auto;

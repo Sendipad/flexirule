@@ -661,6 +661,7 @@ function getIcon(type) {
 	background: #fff;
 	display: flex;
 	flex-direction: column;
+	overflow-y: auto;
 }
 
 .config-main-area {
@@ -671,9 +672,10 @@ function getIcon(type) {
 
 .config-scroll-container {
 	flex: 1;
-	overflow-y: auto;
+	overflow: hidden;
 	background: #f8fafc;
 	padding: 4px;
+	height: 100%;
 }
 
 .config-content-wrapper {
@@ -682,6 +684,7 @@ function getIcon(type) {
 	display: flex;
 	flex-direction: column;
 	gap: 4px;
+	height: 100%;
 }
 
 .integrated-settings-bar {
@@ -696,6 +699,9 @@ function getIcon(type) {
 	grid-template-columns: minmax(220px, 25%) minmax(0, 75%);
 	gap: 4px;
 	align-items: stretch;
+	height: 100%;
+	flex: 1;
+	min-height: 0;
 }
 
 .core-setup-panel,
@@ -705,6 +711,7 @@ function getIcon(type) {
 	border: 1px solid #e2e8f0;
 	overflow: hidden;
 	position: relative;
+	height: 100%;
 }
 
 .sidebar-mutation {

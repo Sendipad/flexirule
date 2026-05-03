@@ -284,7 +284,7 @@ const loading = ref(false);
 const loadingFields = ref(false);
 const searchQuery = ref("");
 const fieldSearchQuery = ref("");
-const variablesCollapsed = ref(true);
+const variablesCollapsed = ref(false);
 const activeTab = ref("data");
 const expandedGroups = ref({});
 

@@ -50,6 +50,23 @@ const displayValue = computed(() => {
 	return field ? `${field.label}` : content.value;
 });
 
+const inputRef = ref(null);
+const dropdownStyle = ref({});
+
+function updateDropdownPosition() {
+	if (!inputRef.value) return;
+	const rect = inputRef.value.getBoundingClientRect();
+	dropdownStyle.value = {
+		position: "fixed",
+		top: `${rect.bottom + 4}px`,
+		left: `${rect.left}px`,
+		width: `${rect.width}px`,
+		zIndex: 100010,
+	};
+}
+
+
+
 function getPrimaryLabel(field) {
 	if (!field) return "";
 	const rawLabel = String(field.label || "").trim();
@@ -168,7 +185,15 @@ watch(searchQuery, () => {
 });
 
 watch(showDropdown, (val) => {
-	if (val) activeIndex.value = -1;
+	if (val) {
+		activeIndex.value = -1;
+		nextTick(updateDropdownPosition);
+		window.addEventListener("scroll", updateDropdownPosition, true);
+		window.addEventListener("resize", updateDropdownPosition);
+	} else {
+		window.removeEventListener("scroll", updateDropdownPosition, true);
+		window.removeEventListener("resize", updateDropdownPosition);
+	}
 });
 
 function onDrop(event) {
@@ -208,6 +233,7 @@ watch(
 
 		<div class="field-input-wrapper">
 			<input
+				ref="inputRef"
 				type="text"
 				class="form-control form-control-sm"
 				:value="showDropdown ? searchQuery : displayValue"
@@ -226,31 +252,42 @@ watch(
 			<div v-if="loading" class="field-loading">
 				<span class="spinner-border spinner-border-sm"></span>
 			</div>
-			<div v-if="showDropdown && filteredFields.length" class="field-dropdown">
-				<div
-					v-for="(field, idx) in filteredFields"
-					:key="field.value"
-					class="field-option"
-					:class="{
-						selected: field.value === content,
-						'active-item': idx === activeIndex,
-					}"
-					@mousedown.prevent="selectField(field)"
-				>
-					<div class="field-text">
-						<div class="field-primary">{{ __(getPrimaryLabel(field)) }}</div>
-						<div v-if="getSecondaryMeta(field)" class="field-meta">
-							{{ getSecondaryMeta(field) }}
-						</div>
+			<Teleport to="body">
+				<div v-if="showDropdown" class="field-dropdown" :style="dropdownStyle">
+					<template v-if="filteredFields.length">
+						<template v-for="(field, idx) in filteredFields" :key="field.value || idx">
+							<div
+								v-if="field.fieldtype === 'Section Break'"
+								class="field-section-break"
+							>
+								{{ __(field.label) }}
+							</div>
+							<div
+								v-else
+								class="field-option"
+								:class="{
+									selected: field.value === content,
+									'active-item': idx === activeIndex,
+								}"
+								@mousedown.prevent="selectField(field)"
+							>
+								<div class="field-text">
+									<div class="field-primary">{{ __(getPrimaryLabel(field)) }}</div>
+									<div v-if="getSecondaryMeta(field)" class="field-meta">
+										{{ getSecondaryMeta(field) }}
+									</div>
+								</div>
+								<span class="field-type badge badge-secondary">{{
+									field.fieldtype || "Data"
+								}}</span>
+							</div>
+						</template>
+					</template>
+					<div v-else-if="!loading" class="field-option disabled">
+						{{ __("No fields found") }}
 					</div>
-					<span class="field-type badge badge-secondary">{{
-						field.fieldtype || "Data"
-					}}</span>
 				</div>
-			</div>
-			<div v-if="showDropdown && !filteredFields.length && !loading" class="field-dropdown">
-				<div class="field-option disabled">{{ __("No fields found") }}</div>
-			</div>
+			</Teleport>
 		</div>
 
 		<small v-if="df.description" class="form-text text-muted">{{ df.description }}</small>
@@ -308,19 +345,23 @@ watch(
 	left: 10px;
 }
 .field-dropdown {
-	position: absolute;
-	top: 100%;
-	inset-inline-start: 0;
-	width: max(100%, 360px);
-	max-width: min(560px, calc(100vw - 32px));
 	background: white;
 	border: 1px solid var(--border-color);
 	border-radius: 8px;
 	max-height: 300px;
 	overflow-y: auto;
-	z-index: 1200;
 	box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12), 0 2px 6px rgba(15, 23, 42, 0.08);
-	margin-top: 4px;
+}
+.field-section-break {
+	padding: 8px 10px;
+	font-size: 11px;
+	font-weight: 700;
+	color: var(--text-muted);
+	background-color: var(--bg-light);
+	text-transform: uppercase;
+	letter-spacing: 0.4px;
+	border-bottom: 1px solid var(--border-color);
+	pointer-events: none;
 }
 .field-option {
 	padding: 8px 10px;
