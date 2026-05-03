@@ -1,6 +1,16 @@
+import os
 import re
 
+# Hardcoded path for maintenance script - validate it's within project
 file_path = "/home/erpnext/frappe-bench/apps/flexirule/flexirule/public/js/flexirule/rule_builder/controls/ResourceMapperControl.vue"
+
+# Security: Validate file path is within expected directory structure
+expected_base = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+resolved_path = os.path.abspath(file_path)
+
+# Ensure the resolved path is within the flexirule app directory
+if not resolved_path.startswith(expected_base) or not resolved_path.endswith("ResourceMapperControl.vue"):
+	raise ValueError("Invalid file path: file must be within flexirule directory")
 
 with open(file_path) as f:
 	content = f.read()
@@ -195,6 +205,11 @@ collect_table_new = """	childFields.forEach((cf) => {
 	});"""
 
 content = content.replace(collect_table_old, collect_table_new)
+
+# Security: Re-validate before writing (path traversal protection)
+resolved_path = os.path.abspath(file_path)
+if not resolved_path.startswith(expected_base) or not resolved_path.endswith("ResourceMapperControl.vue"):
+	raise ValueError("Invalid file path: file must be within flexirule directory")
 
 with open(file_path, "w") as f:
 	f.write(content)
