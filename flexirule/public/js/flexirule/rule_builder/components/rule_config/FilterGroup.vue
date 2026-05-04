@@ -986,7 +986,10 @@ const getVariableOptions = async () => {
 const getControlFactorySchema = (row) => {
 	const field = getFieldDef(row.field, row.doctype || props.doctype);
 	let schema = field ? frappe.utils.deep_clone(field) : { fieldtype: "Data", fieldname: "value" };
-	const raw_fieldname = field?.fieldname || (row.field?.startsWith("doc.") ? row.field.substring(4) : row.field) || "value";
+	const raw_fieldname =
+		field?.fieldname ||
+		(row.field?.startsWith("doc.") ? row.field.substring(4) : row.field) ||
+		"value";
 	schema.label = "";
 	schema.read_only = props.readOnly;
 	schema.fieldname = raw_fieldname; // Ensure valid fieldname for frappe controls (no doc. prefix)

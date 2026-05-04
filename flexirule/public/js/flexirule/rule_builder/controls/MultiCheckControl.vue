@@ -85,7 +85,7 @@ function make_control() {
 			return {
 				label: label,
 				value: val,
-				checked: current_selection.some(s => String(s) === String(val)),
+				checked: current_selection.some((s) => String(s) === String(val)),
 			};
 		});
 	}
@@ -185,7 +185,7 @@ onBeforeUnmount(() => {
 				@click.stop="togglePopover"
 			>
 				<span class="text-truncate">{{ summaryLabel }}</span>
-				<i class="fa fa-chevron-down ml-2 text-muted" style="font-size: 10px;"></i>
+				<i class="fa fa-chevron-down ml-2 text-muted" style="font-size: 10px"></i>
 			</div>
 
 			<div v-show="show_popover" class="multi-check-popover dropdown-menu show">
@@ -255,7 +255,7 @@ export default {
 	background: var(--card-bg, #fff);
 	border: 1px solid var(--border-color, #d1d8dd);
 	border-radius: var(--border-radius-md, 4px);
-	box-shadow: var(--shadow-sm, 0 2px 6px rgba(0,0,0,0.15));
+	box-shadow: var(--shadow-sm, 0 2px 6px rgba(0, 0, 0, 0.15));
 	min-width: 200px;
 	max-width: 320px;
 	max-height: 280px;

@@ -186,9 +186,7 @@ class ConditionEvaluator:
 		except Exception as e:
 			condition_repr = json.dumps(condition, default=str)[:500]
 			message = (
-				f"Single condition evaluation failed.\n"
-				f"Condition: {condition_repr}\n"
-				f"Error: {e!s}"
+				f"Single condition evaluation failed.\n" f"Condition: {condition_repr}\n" f"Error: {e!s}"
 			)
 			frappe.logger("flexirule.eval").warning(message)
 			frappe.log_error(

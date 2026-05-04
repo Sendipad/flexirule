@@ -63,11 +63,7 @@ def _log_eval_failure(func_name: str, expression: str, exc: Exception) -> None:
 	extremely large compiled expressions.
 	"""
 	truncated_expr = expression[:500] + ("…" if len(expression) > 500 else "")
-	message = (
-		f"FlexiRule {func_name} failed.\n"
-		f"Expression: {truncated_expr}\n"
-		f"Error: {exc!s}"
-	)
+	message = f"FlexiRule {func_name} failed.\n" f"Expression: {truncated_expr}\n" f"Error: {exc!s}"
 
 	frappe.logger("flexirule.eval").warning(message)
 	frappe.log_error(
