@@ -15,43 +15,71 @@ const props = defineProps({
 	readOnly: { type: Boolean, default: false },
 });
 
-const { removeNode } = inject("conditionActions");
+const { removeNode, onDragStart } = inject("conditionActions");
 
 function handleRemove() {
 	removeNode(props.parentGroup, props.index);
 }
+
+function handleDragStart(e) {
+	// CRITICAL: Stop propagation so parent ConditionNode wrappers
+	// don't overwrite dragInfo with their own (parent group) data.
+	// Without this, dragging a child condition inside a group causes
+	// the group itself to be registered as the drag source.
+	e.stopPropagation();
+	onDragStart(props.node, props.parentGroup, props.index);
+	e.dataTransfer.effectAllowed = "move";
+	e.dataTransfer.setData("text/plain", props.node.id || "");
+}
 </script>
 
 <template>
-	<!-- Leaf Condition: has left operand -->
-	<SimpleCondition
-		v-if="node.left"
-		:node="node"
-		:docFields="docFields"
-		:readOnly="readOnly"
-		@remove="handleRemove"
-	/>
+	<div class="condition-node-draggable" draggable="true" @dragstart="handleDragStart">
+		<!-- Leaf Condition: has left operand -->
+		<SimpleCondition
+			v-if="node.left"
+			:node="node"
+			:docFields="docFields"
+			:readOnly="readOnly"
+			@remove="handleRemove"
+		/>
 
-	<!-- Nested Group: has conditions array, no where -->
-	<ConditionGroupUI
-		v-else-if="node.conditions && !node.where"
-		:group="node"
-		:docFields="docFields"
-		:readOnly="readOnly"
-		@remove="handleRemove"
-	/>
+		<!-- Nested Group: has conditions array, no where -->
+		<ConditionGroupUI
+			v-else-if="node.conditions && !node.where"
+			:group="node"
+			:docFields="docFields"
+			:readOnly="readOnly"
+			@remove="handleRemove"
+		/>
 
-	<!-- Collection: has where clause -->
-	<CollectionUI
-		v-else-if="node.where"
-		:node="node"
-		:docFields="docFields"
-		:readOnly="readOnly"
-		@remove="handleRemove"
-	/>
+		<!-- Collection: has where clause -->
+		<CollectionUI
+			v-else-if="node.where"
+			:node="node"
+			:docFields="docFields"
+			:readOnly="readOnly"
+			@remove="handleRemove"
+		/>
 
-	<!-- Fallback for unknown node types -->
-	<div v-else class="text-danger p-2 border rounded">
-		{{ __("Unknown condition type") }}
+		<!-- Fallback for unknown node types -->
+		<div v-else class="text-danger p-2 border rounded">
+			{{ __("Unknown condition type") }}
+		</div>
 	</div>
 </template>
+
+<style scoped>
+.condition-node-draggable {
+	cursor: grab;
+	transition: opacity 0.2s;
+}
+
+.condition-node-draggable:active {
+	cursor: grabbing;
+}
+
+.condition-node-draggable[draggable="true"]:hover {
+	opacity: 0.9;
+}
+</style>

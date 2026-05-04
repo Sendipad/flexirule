@@ -40,21 +40,21 @@
 		</div>
 
 		<!-- Conditions List -->
-		<div class="conditions-container">
+		<div
+			class="conditions-container"
+			:class="{ 'drag-over': isDragOver }"
+			@dragover.prevent.stop="isDragOver = true"
+			@dragleave="isDragOver = false"
+			@drop.stop="handleRootDrop"
+		>
 			<div v-if="!rootGroup.conditions?.length" class="empty-state">
 				<div class="empty-icon">
 					<i class="fa fa-filter"></i>
 				</div>
-				<p class="empty-text">{{ __("No conditions defined yet") }}</p>
-				<button
-					v-if="!readOnly"
-					class="btn btn-sm btn-primary mt-2"
-					@click="addCondition(rootGroup)"
-				>
-					{{ __("Add First Condition") }}
-				</button>
+				<p class="empty-text">
+					{{ __("No conditions defined yet. Click 'Condition' or 'Group' to start.") }}
+				</p>
 			</div>
-
 			<div
 				v-for="(node, idx) in rootGroup.conditions"
 				:key="node.id || idx"
@@ -67,6 +67,14 @@
 					:docFields="docFields"
 					:readOnly="readOnly"
 				/>
+			</div>
+			<!-- Spacer to make dropping at the end easier -->
+			<div
+				class="drop-spacer"
+				v-if="rootGroup.conditions?.length > 0 && !readOnly"
+				:class="{ active: isDragOver }"
+			>
+				<span v-if="isDragOver">{{ __("Drop here to move to top level") }}</span>
 			</div>
 		</div>
 	</div>
@@ -172,6 +180,61 @@ function removeNode(targetGroup, index) {
 	}
 }
 
+function isDescendantOf(parent, targetId) {
+	if (parent.id === targetId) return true;
+	if (parent.conditions) {
+		for (const cond of parent.conditions) {
+			if (cond.id === targetId) return true;
+			if (cond.conditions && isDescendantOf(cond, targetId)) return true;
+			if (cond.where && isDescendantOf(cond.where, targetId)) return true;
+		}
+	}
+	return false;
+}
+
+function moveNode(fromGroup, fromIndex, toGroup, toIndex) {
+	if (!fromGroup.conditions || fromGroup.conditions[fromIndex] === undefined) return;
+	if (!toGroup.conditions) toGroup.conditions = [];
+
+	const node = fromGroup.conditions[fromIndex];
+
+	// Guard: Cannot drop a group into itself or its descendants
+	if (node.conditions || node.where) {
+		if (isDescendantOf(node, toGroup.id)) {
+			console.warn(
+				"FlexiRule: Illegal move - cannot drop a group into itself or its descendants."
+			);
+			return;
+		}
+	}
+
+	fromGroup.conditions.splice(fromIndex, 1);
+
+	if (toIndex === -1) {
+		toGroup.conditions.push(node);
+	} else {
+		toGroup.conditions.splice(toIndex, 0, node);
+	}
+}
+
+// Drag and Drop state
+const dragInfo = reactive({
+	fromGroup: null,
+	fromIndex: -1,
+});
+
+function onDragStart(node, group, index) {
+	dragInfo.fromGroup = group;
+	dragInfo.fromIndex = index;
+}
+
+function onDrop(toGroup, toIndex = -1) {
+	if (!dragInfo.fromGroup) return;
+	moveNode(dragInfo.fromGroup, dragInfo.fromIndex, toGroup, toIndex);
+	dragInfo.fromGroup = null;
+	dragInfo.fromIndex = -1;
+}
+
 // Operator config from backend
 const operatorConfig = ref({
 	fieldtype_operators: {},
@@ -193,8 +256,23 @@ async function loadOperatorConfig() {
 
 onMounted(loadOperatorConfig);
 
+const isDragOver = ref(false);
+
+function handleRootDrop() {
+	isDragOver.value = false;
+	onDrop(rootGroup);
+}
+
 // Provide actions and config to all descendant components
-provide("conditionActions", { addCondition, addGroup, addCollection, removeNode });
+provide("conditionActions", {
+	addCondition,
+	addGroup,
+	addCollection,
+	removeNode,
+	moveNode,
+	onDragStart,
+	onDrop,
+});
 provide(
 	"docFields",
 	computed(() => props.docFields)
@@ -287,6 +365,35 @@ provide(
 	display: flex;
 	flex-direction: column;
 	gap: 12px;
+	min-height: 100px;
+	padding: 10px;
+	border-radius: 12px;
+	transition: all 0.2s;
+}
+
+.conditions-container.drag-over {
+	background: rgba(var(--primary-rgb, 36, 144, 239), 0.08);
+	box-shadow: inset 0 0 0 2px var(--primary);
+	border-radius: 12px;
+}
+
+.drop-spacer {
+	height: 40px;
+	margin-top: 8px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 8px;
+	border: 1px dashed transparent;
+	color: var(--primary);
+	font-size: 11px;
+	font-weight: 600;
+	transition: all 0.2s;
+}
+
+.drop-spacer.active {
+	border-color: var(--primary);
+	background: rgba(var(--primary-rgb, 36, 144, 239), 0.05);
 }
 
 .empty-state {

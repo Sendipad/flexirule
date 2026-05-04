@@ -1,5 +1,5 @@
 <script setup>
-import { inject } from "vue";
+import { inject, ref } from "vue";
 /**
  * ConditionGroupUI - Nested group editor with AND/OR toggle
  */
@@ -13,11 +13,24 @@ const props = defineProps({
 
 const emit = defineEmits(["remove"]);
 
-const { addCondition, addGroup, addCollection, removeNode } = inject("conditionActions");
+const { addCondition, addGroup, addCollection, removeNode, onDrop } = inject("conditionActions");
+
+const isDragOver = ref(false);
+
+function handleDrop(e) {
+	isDragOver.value = false;
+	onDrop(props.group);
+}
 </script>
 
 <template>
-	<div class="condition-group-ui">
+	<div
+		class="condition-group-ui"
+		:class="{ 'drag-over': isDragOver }"
+		@dragover.prevent.stop="isDragOver = true"
+		@dragleave.stop="isDragOver = false"
+		@drop.prevent.stop="handleDrop"
+	>
 		<!-- Header -->
 		<div class="group-header">
 			<div class="logic-toggle small">
@@ -84,6 +97,8 @@ const { addCondition, addGroup, addCollection, removeNode } = inject("conditionA
 					:readOnly="readOnly"
 				/>
 			</div>
+			<!-- Spacer for easier dropping -->
+			<div class="group-drop-spacer" v-if="!readOnly"></div>
 		</div>
 	</div>
 </template>
@@ -104,13 +119,34 @@ const { addCondition, addGroup, addCollection, removeNode } = inject("conditionA
 }
 
 .logic-toggle.small {
-	background: #f1f5f9;
+	background: #e2e8f0;
 	padding: 2px;
+	border-radius: 6px;
+	display: flex;
 }
 
-.logic-toggle.small .logic-btn {
-	padding: 3px 10px;
+.logic-btn {
+	border: none;
+	background: transparent;
+	padding: 4px 12px;
+	border-radius: 4px;
 	font-size: 10px;
+	font-weight: 700;
+	color: #64748b;
+	transition: all 0.2s;
+	cursor: pointer;
+}
+
+.logic-btn.active {
+	background: white;
+	color: var(--primary);
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.condition-group-ui.drag-over {
+	border-color: var(--primary);
+	background: rgba(var(--primary-rgb), 0.05);
+	box-shadow: inset 0 0 0 2px var(--primary);
 }
 
 .group-actions {
@@ -170,5 +206,10 @@ const { addCondition, addGroup, addCollection, removeNode } = inject("conditionA
 
 .node-wrapper {
 	margin-bottom: 4px;
+}
+
+.group-drop-spacer {
+	height: 20px;
+	margin-top: 4px;
 }
 </style>

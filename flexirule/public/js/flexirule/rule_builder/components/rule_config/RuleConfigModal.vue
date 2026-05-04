@@ -290,7 +290,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import ResizablePanel from "./ResizablePanel.vue";
 import InputPanel from "./InputPanel.vue";
 import ConfigurationPanel from "./ConfigurationPanel.vue";
@@ -410,6 +410,53 @@ function getIcon(type) {
 	};
 	return icons[type.toLowerCase()] || "fa fa-circle";
 }
+
+// -- Keyboard Shortcuts --
+function handleKeydown(e) {
+	if (!props.modelValue) return;
+
+	// Esc to close
+	if (e.key === "Escape") {
+		cancel();
+		e.preventDefault();
+		e.stopPropagation();
+	}
+
+	// Ctrl+S to save
+	if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+		if (!ruleStore.is_read_only) {
+			save();
+			e.preventDefault();
+			e.stopPropagation();
+		}
+	}
+
+	// Ctrl+Up to previous node
+	if ((e.ctrlKey || e.metaKey) && e.key === "ArrowUp") {
+		if (currentNodeIndex.value > 0) {
+			ruleStore.prev_config_node();
+			e.preventDefault();
+			e.stopPropagation();
+		}
+	}
+
+	// Ctrl+Down to next node
+	if ((e.ctrlKey || e.metaKey) && e.key === "ArrowDown") {
+		if (currentNodeIndex.value < totalNodes.value - 1) {
+			ruleStore.next_config_node();
+			e.preventDefault();
+			e.stopPropagation();
+		}
+	}
+}
+
+onMounted(() => {
+	window.addEventListener("keydown", handleKeydown);
+});
+
+onUnmounted(() => {
+	window.removeEventListener("keydown", handleKeydown);
+});
 </script>
 
 <style scoped>

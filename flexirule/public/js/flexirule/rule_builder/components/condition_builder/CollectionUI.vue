@@ -14,8 +14,15 @@ const props = defineProps({
 
 const emit = defineEmits(["remove"]);
 
-const { addCondition, addGroup } = inject("conditionActions");
+const { addCondition, addGroup, onDrop } = inject("conditionActions");
 const store = useStore();
+
+const isDragOver = ref(false);
+
+function handleDrop() {
+	isDragOver.value = false;
+	onDrop(props.node.where);
+}
 
 const aliasValue = computed(() => {
 	const rawAlias = String(props.node.alias || "").trim();
@@ -263,7 +270,13 @@ onMounted(fetchChildMeta);
 		</div>
 
 		<!-- Nested conditions -->
-		<div class="pl-3 border-left">
+		<div
+			class="pl-3 border-left nested-conditions"
+			:class="{ 'drag-over': isDragOver }"
+			@dragover.prevent.stop="isDragOver = true"
+			@dragleave.stop="isDragOver = false"
+			@drop.prevent.stop="handleDrop"
+		>
 			<div v-if="!node.where?.conditions?.length" class="text-muted py-2 text-sm text-center">
 				{{ __("No conditions in collection. Click + to add.") }}
 			</div>
@@ -283,5 +296,11 @@ onMounted(fetchChildMeta);
 <style scoped>
 .collection-ui {
 	border-left: 4px solid var(--blue-500) !important;
+}
+
+.nested-conditions.drag-over {
+	background: rgba(var(--primary-rgb), 0.05);
+	box-shadow: inset 0 0 0 2px var(--primary);
+	border-radius: 4px;
 }
 </style>

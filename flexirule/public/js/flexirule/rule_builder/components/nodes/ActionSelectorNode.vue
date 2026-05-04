@@ -264,11 +264,12 @@ function onCreate() {
 		selectedPreset.value.selected_label ||
 		action_type;
 	// Map Action Type to VueFlow node type using the same logic as App.vue
-	const nodeType = mapActionTypeToNodeType(action_type);
+	const node = store.nodes[nodeIndex];
+	if (!node) return;
 
 	const nodeData = store.get_default_node_data(action_type.toLowerCase(), label);
-	const suggestedParentId = store.nodes[nodeIndex].data?.suggested_parent_id;
-	const suggestedSourceHandle = store.nodes[nodeIndex].data?.suggested_source_handle || "default";
+	const suggestedParentId = node.data?.suggested_parent_id;
+	const suggestedSourceHandle = node.data?.suggested_source_handle || "default";
 
 	// Pre-fill process/operation data from selected preset
 	if (selectedPreset.value.operation) {

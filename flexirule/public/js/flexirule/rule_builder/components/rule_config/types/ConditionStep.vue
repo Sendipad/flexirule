@@ -130,12 +130,12 @@ function updateConditions(val) {
 }
 
 function save() {
-	if (!props.node.data) return;
+	if (!props.node?.data) return;
 
 	// Strip IDs
 	const clean = dehydrate(localConditions.value);
 
-	if (props.node?.type === "start") {
+	if (props.node.type === "start") {
 		props.node.data.trigger_condition = clean;
 	} else {
 		props.node.data.config = clean;
@@ -267,13 +267,14 @@ const docFields = computed(() => {
 });
 
 async function refreshVariableFields() {
-	if (!props.node?.id || props.node?.type === "start") {
+	const nodeId = props.node?.id;
+	if (!nodeId || props.node?.type === "start") {
 		variableFields.value = [];
 		return;
 	}
 
 	try {
-		const available = await store.getAvailableVariables(props.node.id);
+		const available = await store.getAvailableVariables(nodeId);
 		variableFields.value = (available || []).filter((field) =>
 			field?.value?.startsWith("vars.")
 		);
@@ -284,7 +285,10 @@ async function refreshVariableFields() {
 
 // Load metadata on mount if needed
 onMounted(async () => {
-	const doctype = props.node.data?.document_type || store.rule_doc?.document_type;
+	const node = props.node;
+	if (!node) return;
+
+	const doctype = node.data?.document_type || store.rule_doc?.document_type;
 	if (doctype && !store.doc_fields.length) {
 		await store.fetch_metadata(doctype);
 	}
@@ -294,12 +298,14 @@ onMounted(async () => {
 watch(
 	() => [
 		props.node?.id,
-		store.nodes.map((node) => [
-			node.id,
-			node.data?.return_variable,
-			node.data?.return_type,
-			node.data?.resolved_output_schema,
-		]),
+		(store.nodes || [])
+			.filter(Boolean)
+			.map((node) => [
+				node.id,
+				node.data?.return_variable,
+				node.data?.return_type,
+				node.data?.resolved_output_schema,
+			]),
 	],
 	() => {
 		refreshVariableFields();
@@ -342,6 +348,11 @@ defineExpose({
 .condition-step-header h5 {
 	font-size: 13px;
 	font-weight: 600;
+}
+
+.condition-builder-container {
+	position: relative;
+	z-index: 10;
 }
 
 .condition-builder-container :deep(.condition-builder) {

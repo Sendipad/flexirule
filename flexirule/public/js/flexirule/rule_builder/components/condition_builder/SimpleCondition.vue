@@ -29,10 +29,20 @@ const context = inject("conditionContext", { alias: "doc" });
 const dynamicLinkDocType = ref("");
 
 // Find the selected field metadata
+const lastValidField = ref(null);
 const selectedField = computed(() => {
 	const ref = props.node.left?.ref;
 	if (!ref) return null;
-	return props.docFields.find((f) => f.value === ref);
+	const found = props.docFields.find((f) => f.value === ref);
+	if (found) {
+		lastValidField.value = found;
+		return found;
+	}
+	// Fallback to last known good metadata during transitions (e.g. drag-and-drop)
+	if (lastValidField.value?.value === ref) {
+		return lastValidField.value;
+	}
+	return null;
 });
 
 const doctypeContextRefs = ["doctype", "rule.document_type", "caller.document_type"];
@@ -194,7 +204,8 @@ const wrappedValue = computed({
 		if ((ft !== "Link" && ft !== "Dynamic Link") || isDoctypeContextField.value) return val;
 
 		// If value is empty, return empty
-		if (!val) return op === "in" || op === "not in" ? [] : "";
+		if (val === undefined || val === null || val === "")
+			return op === "in" || op === "not in" ? [] : "";
 
 		// If it's a tuple [DocType, Value], return Value
 		if (Array.isArray(val) && val.length === 2 && typeof val[0] === "string") {
@@ -365,7 +376,7 @@ const valueType = computed({
 	border: 1px solid #e9ecef;
 	border-radius: 4px;
 	padding: 6px;
-	transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+	transition: border-color 0.2s, background-color 0.2s;
 }
 
 .simple-condition:hover {
@@ -377,6 +388,7 @@ const valueType = computed({
 	grid-template-columns: 1.5fr 0.8fr 2.5fr auto;
 	gap: 8px;
 	align-items: center;
+	overflow: visible !important;
 }
 
 .condition-col {
@@ -423,6 +435,7 @@ const valueType = computed({
 	min-width: 0;
 	display: flex;
 	flex-direction: column;
+	overflow: visible !important;
 }
 
 .dynamic-dt-picker {

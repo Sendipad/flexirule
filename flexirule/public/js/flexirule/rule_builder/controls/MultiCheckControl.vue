@@ -1,10 +1,9 @@
 <script setup>
 /**
- * MultiCheckControl - Wrapper for Frappe's MultiCheck control
- * Provides a list of checkboxes for multiple selection.
- * Options should be an array of {label, value} or {label, value, checked}.
+ * MultiCheckControl - Pure Vue implementation for multiple selection.
+ * Replaces legacy Frappe MultiCheck to ensure stability and avoid flickering.
  */
-import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
+import { ref, computed, watch } from "vue";
 
 const props = defineProps({
 	df: Object,
@@ -15,20 +14,20 @@ const props = defineProps({
 
 const emit = defineEmits(["update:modelValue"]);
 
-const wrapper = ref(null);
-const control = ref(null);
-let processing_update = false;
 const show_popover = ref(false);
 
+// Internal state for selected values
 const selectedValues = computed(() => {
-	if (Array.isArray(props.modelValue)) return props.modelValue;
-	if (typeof props.modelValue === "string" && props.modelValue) {
-		return props.modelValue
+	const val = props.modelValue;
+	if (Array.isArray(val)) return val.map((v) => String(v));
+	if (val === undefined || val === null || val === "") return [];
+	if (typeof val === "string") {
+		return val
 			.split(",")
 			.map((s) => s.trim())
 			.filter(Boolean);
 	}
-	return [];
+	return [String(val)];
 });
 
 const selectedCount = computed(() => selectedValues.value.length);
@@ -40,11 +39,30 @@ const summaryLabel = computed(() => {
 	return __("{0} Selected", [count]);
 });
 
+// Normalize options into {label, value} objects
+const normalizedOptions = computed(() => {
+	let options = props.df.options || [];
+	if (typeof options === "string") {
+		return options
+			.split("\n")
+			.map((o) => o.trim())
+			.filter(Boolean)
+			.map((o) => ({ label: __(o), value: o }));
+	}
+	if (Array.isArray(options)) {
+		return options.map((o) => {
+			const val = typeof o === "object" ? o.value : o;
+			const label = typeof o === "object" ? o.label : o;
+			return { label: __(label), value: String(val) };
+		});
+	}
+	return [];
+});
+
 function togglePopover() {
 	if (props.read_only) return;
 	show_popover.value = !show_popover.value;
 	if (show_popover.value) {
-		// Close when clicking outside
 		setTimeout(() => {
 			const handleOutsideClick = (e) => {
 				if (
@@ -60,115 +78,30 @@ function togglePopover() {
 	}
 }
 
-function make_control() {
-	if (!wrapper.value) return;
-	wrapper.value.innerHTML = "";
+function toggleOption(value) {
+	if (props.read_only) return;
+	const current = [...selectedValues.value];
+	const index = current.indexOf(String(value));
 
-	const current_selection = selectedValues.value;
-
-	// Robust Options Parsing with Selection State
-	let options = props.df.options || [];
-	if (typeof options === "string") {
-		options = options
-			.split("\n")
-			.map((o) => o.trim())
-			.filter(Boolean)
-			.map((o) => ({
-				label: o,
-				value: o,
-				checked: current_selection.includes(o),
-			}));
-	} else if (Array.isArray(options)) {
-		options = options.map((o) => {
-			const val = typeof o === "object" ? o.value : o;
-			const label = typeof o === "object" ? o.label : o;
-			return {
-				label: label,
-				value: val,
-				checked: current_selection.some((s) => String(s) === String(val)),
-			};
-		});
+	if (index > -1) {
+		current.splice(index, 1);
+	} else {
+		current.push(String(value));
 	}
 
-	try {
-		control.value = frappe.ui.form.make_control({
-			parent: wrapper.value,
-			df: {
-				...props.df,
-				fieldtype: "MultiCheck",
-				label: props.df.label,
-				options: options,
-				read_only: props.read_only,
-				on_change: () => {
-					if (processing_update) return;
-					const val = control.value.get_value();
-
-					processing_update = true;
-					emit("update:modelValue", val);
-					// Allow vue to process update before resetting flag
-					setTimeout(() => {
-						processing_update = false;
-					}, 50);
-				},
-			},
-			render_input: true,
-		});
-
-		if (current_selection.length > 0) {
-			processing_update = true;
-			control.value.set_value(current_selection);
-			setTimeout(() => {
-				processing_update = false;
-			}, 50);
-		}
-	} catch (e) {
-		console.error("Failed to create MultiCheck control", e);
-		wrapper.value.innerHTML = `<div class="text-danger">Error loading control: ${e.message}</div>`;
-	}
+	emit("update:modelValue", current);
 }
 
-onMounted(() => {
-	make_control();
-});
+function checkAll() {
+	if (props.read_only) return;
+	const all = normalizedOptions.value.map((o) => o.value);
+	emit("update:modelValue", all);
+}
 
-watch(
-	() => props.modelValue,
-	(val) => {
-		if (!control.value || processing_update) return;
-
-		const currentVal = control.value.get_value() || [];
-		const newVal = Array.isArray(val)
-			? val
-			: typeof val === "string"
-			? val.split(",").map((s) => s.trim())
-			: [val];
-
-		// Sort and stringify for deep comparison
-		const currentSorted = [...currentVal].sort();
-		const newSorted = [...newVal].sort();
-
-		if (JSON.stringify(currentSorted) !== JSON.stringify(newSorted)) {
-			processing_update = true;
-			control.value.set_value(newVal);
-			setTimeout(() => {
-				processing_update = false;
-			}, 50);
-		}
-	},
-	{ deep: true }
-);
-
-// Watch df changes but only recreate if critical properties change
-watch(
-	() => [props.df.options, props.df.read_only],
-	() => {
-		make_control();
-	}
-);
-
-onBeforeUnmount(() => {
-	// Cleanup if necessary
-});
+function uncheckAll() {
+	if (props.read_only) return;
+	emit("update:modelValue", []);
+}
 </script>
 
 <template>
@@ -177,7 +110,7 @@ onBeforeUnmount(() => {
 			{{ __(df.label) }}
 		</div>
 
-		<!-- Dropdown Mode (for Grid) -->
+		<!-- Dropdown Mode -->
 		<template v-if="hideLabel">
 			<div
 				class="dropdown-trigger form-control input-xs"
@@ -188,14 +121,64 @@ onBeforeUnmount(() => {
 				<i class="fa fa-chevron-down ml-2 text-muted" style="font-size: 10px"></i>
 			</div>
 
-			<div v-show="show_popover" class="multi-check-popover dropdown-menu show">
-				<div class="popover-inner" ref="wrapper"></div>
+			<div v-show="show_popover" class="multi-check-popover">
+				<div
+					class="popover-actions border-bottom p-2 d-flex align-items-center justify-content-start"
+				>
+					<button class="btn btn-xs btn-link p-0 mr-3" @click.stop="checkAll">
+						<i class="fa fa-check-square-o mr-1"></i> {{ __("Check All") }}
+					</button>
+					<button class="btn btn-xs btn-link p-0 text-muted" @click.stop="uncheckAll">
+						<i class="fa fa-square-o mr-1"></i> {{ __("Uncheck All") }}
+					</button>
+				</div>
+				<div class="popover-inner">
+					<div
+						v-for="opt in normalizedOptions"
+						:key="opt.value"
+						class="checkbox-item"
+						@click.stop="toggleOption(opt.value)"
+					>
+						<input
+							type="checkbox"
+							:checked="selectedValues.includes(opt.value)"
+							:disabled="read_only"
+							@click.stop="toggleOption(opt.value)"
+						/>
+						<span class="option-label">{{ opt.label }}</span>
+					</div>
+				</div>
 			</div>
 		</template>
 
-		<!-- Normal Mode -->
+		<!-- Normal Mode (Inline) -->
 		<template v-else>
-			<div class="control-wrapper" ref="wrapper"></div>
+			<div class="control-wrapper inline-wrapper">
+				<div class="inline-actions mb-2 d-flex gap-2" v-if="!read_only">
+					<button class="btn btn-xs btn-link p-0" @click.stop="checkAll">
+						{{ __("All") }}
+					</button>
+					<button class="btn btn-xs btn-link p-0 text-muted" @click.stop="uncheckAll">
+						{{ __("None") }}
+					</button>
+				</div>
+				<div class="options-grid">
+					<div
+						v-for="opt in normalizedOptions"
+						:key="opt.value"
+						class="checkbox-item"
+						@click.stop="toggleOption(opt.value)"
+					>
+						<input
+							type="checkbox"
+							:checked="selectedValues.includes(opt.value)"
+							:disabled="read_only"
+							@click.stop="toggleOption(opt.value)"
+						/>
+						<span class="option-label">{{ opt.label }}</span>
+					</div>
+				</div>
+			</div>
 		</template>
 
 		<div v-if="df.description && !hideLabel" class="description text-muted mt-1">
@@ -204,20 +187,10 @@ onBeforeUnmount(() => {
 	</div>
 </template>
 
-<script>
-export default {
-	name: "MultiCheckControl",
-};
-</script>
-
 <style scoped>
 .multi-check-control {
-	margin-bottom: var(--margin-md);
-	position: relative;
-}
-.multi-check-control.in-grid {
 	margin-bottom: 0;
-	width: 100%;
+	position: relative;
 }
 
 .dropdown-trigger {
@@ -228,67 +201,84 @@ export default {
 	user-select: none;
 	background-color: var(--control-bg, #f1f5f9);
 	border: 1px solid transparent;
-	transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-.dropdown-trigger:hover:not(.disabled) {
-	border-color: var(--border-color, #cbd5e1);
+	transition: border-color 0.2s;
+	height: 28px;
+	padding: 4px 8px;
+	border-radius: 6px;
 }
 
 .dropdown-trigger.has-value {
-	border-color: var(--primary-color, var(--primary, #2490ef));
-	color: var(--primary-color, var(--primary, #2490ef));
-	font-weight: 500;
+	border-color: var(--primary);
+	color: var(--primary);
+	font-weight: 600;
 	background-color: #fff;
-}
-
-.dropdown-trigger.disabled {
-	cursor: not-allowed;
-	opacity: 0.6;
 }
 
 .multi-check-popover {
 	position: absolute;
-	top: calc(100% + 4px);
+	top: 100%;
 	left: 0;
-	z-index: 1050;
-	background: var(--card-bg, #fff);
-	border: 1px solid var(--border-color, #d1d8dd);
-	border-radius: var(--border-radius-md, 4px);
-	box-shadow: var(--shadow-sm, 0 2px 6px rgba(0, 0, 0, 0.15));
-	min-width: 200px;
-	max-width: 320px;
-	max-height: 280px;
-	overflow-y: auto;
-	margin: 0;
-	padding: 0;
+	z-index: 2000;
+	background: #ffffff !important;
+	border: 1px solid #d1d8dd;
+	border-radius: 8px;
+	box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+	min-width: 220px;
+	max-height: 350px;
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+	margin-top: 4px;
 }
 
 .popover-inner {
-	padding: 8px 12px;
+	padding: 8px;
+	overflow-y: auto;
 }
 
-.control-wrapper {
-	min-height: 35px;
-	padding: 8px;
-	border: 1px solid var(--border-color, #d1d8dd);
-	border-radius: var(--border-radius-sm, 4px);
-	background-color: var(--control-bg, #f1f5f9);
+.control-wrapper.inline-wrapper {
+	padding: 12px;
+	background: #fff;
+	border: 1px solid #e2e8f0;
+	border-radius: 8px;
 }
-:deep(.form-group) {
-	margin-bottom: 0 !important;
+
+.options-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+	gap: 8px;
 }
-:deep(.unit-checkbox) {
-	margin-bottom: 4px;
-	display: block;
-}
-:deep(.checkbox) {
-	margin: 0;
+
+.checkbox-item {
 	display: flex;
 	align-items: center;
+	gap: 8px;
+	padding: 6px 8px;
+	border-radius: 4px;
+	cursor: pointer;
+	transition: background 0.15s;
+	user-select: none;
 }
-:deep(.checkbox label) {
-	margin: 0 0 0 8px;
-	font-weight: normal;
+
+.checkbox-item:hover {
+	background: #f1f5f9;
+}
+
+.checkbox-item input {
+	cursor: pointer;
+	margin: 0;
+}
+
+.option-label {
+	font-size: 12px;
+	color: #1e293b;
+	white-space: nowrap;
+	overflow: hidden;
+	text-truncate: ellipsis;
+}
+
+.popover-actions .btn-link {
+	font-size: 11px;
+	text-decoration: none;
 }
 </style>
