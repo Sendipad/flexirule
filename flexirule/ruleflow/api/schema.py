@@ -1,6 +1,8 @@
 import frappe
 from frappe import _
 
+from flexirule.ruleflow.core.permissions import require_builder_access
+
 
 @frappe.whitelist()
 def get_node_schema_meta(doctype: str):
@@ -8,6 +10,8 @@ def get_node_schema_meta(doctype: str):
 	Returns the relevant metadata for a specific DocType, specifically
 	to be used by the Vue GUI for dynamic node configuration.
 	"""
+	require_builder_access()
+
 	if not doctype:
 		frappe.throw(_("DocType is required"))
 

@@ -254,6 +254,9 @@ def get_doctype_fields(doctype: str, include_child_tables: bool = False):
 	Returns:
 	        List of field dictionaries
 	"""
+	from flexirule.ruleflow.core.permissions import require_builder_access
+
+	require_builder_access()
 	return FieldResolver.get_all_fields(doctype, include_child_tables)
 
 

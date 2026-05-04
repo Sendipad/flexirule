@@ -144,6 +144,10 @@ def test_normalization(text: str, transformations: str | list):
 	Returns:
 	        Normalized text
 	"""
+	from flexirule.ruleflow.core.permissions import require_builder_access
+
+	require_builder_access()
+
 	pipeline = NormalizationPipeline()
 	# Ensure transformations is a list[str] for mypy
 	if isinstance(transformations, str):

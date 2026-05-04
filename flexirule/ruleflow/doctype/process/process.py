@@ -13,14 +13,9 @@ from frappe.utils import now_datetime
 
 def _require_process_api_access():
 	"""Restrict process metadata and script APIs to builder/admin roles."""
-	if frappe.session.user == "Administrator":
-		return
+	from flexirule.ruleflow.core.permissions import require_builder_access
 
-	roles = frappe.get_roles(frappe.session.user)
-	if "System Manager" not in roles and "Rule Builder" not in roles:
-		frappe.throw(
-			_("Not permitted. Requires 'System Manager' or 'Rule Builder' role."), frappe.PermissionError
-		)
+	require_builder_access()
 
 	if not frappe.has_permission("Process", "read"):
 		frappe.throw(_("You do not have permission to read Process records."), frappe.PermissionError)

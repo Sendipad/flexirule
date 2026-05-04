@@ -184,9 +184,16 @@ class ConditionEvaluator:
 			return op_func(left, right)
 
 		except Exception as e:
+			condition_repr = json.dumps(condition, default=str)[:500]
+			message = (
+				f"Single condition evaluation failed.\n"
+				f"Condition: {condition_repr}\n"
+				f"Error: {e!s}"
+			)
+			frappe.logger("flexirule.eval").warning(message)
 			frappe.log_error(
-				title="Condition Evaluation Error",
-				message=f"Condition: {json.dumps(condition)}\\nError: {e!s}",
+				title="FlexiRule Condition Evaluation Error",
+				message=message,
 			)
 			return False
 

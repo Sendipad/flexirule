@@ -21,18 +21,47 @@ from flexirule.ruleflow.core.contracts import (
 from flexirule.ruleflow.core.contracts import (
 	get_contract_dto as _get_contract_dto,
 )
+from flexirule.ruleflow.core.permissions import require_builder_access
 
 
 def _require_api_access():
-	"""Check if user has permission to use sensitive API endpoints"""
-	if frappe.session.user == "Administrator":
-		return
+	"""Check if user has permission to use sensitive API endpoints.
 
-	roles = frappe.get_roles(frappe.session.user)
-	if "System Manager" not in roles and "Rule Builder" not in roles:
-		frappe.throw(
-			_("Not permitted. Requires 'System Manager' or 'Rule Builder' role."), frappe.PermissionError
-		)
+	Delegates to the centralised ``require_builder_access`` so all
+	FlexiRule modules share a single permission gate.
+	"""
+	require_builder_access()
+
+
+def _build_error_response(
+	exc: Exception,
+	*,
+	context: str = "FlexiRule API",
+	extra: dict | None = None,
+) -> dict[str, Any]:
+	"""Build a structured error payload and log the traceback.
+
+	Every API error response includes:
+	- ``success``: always False
+	- ``error_type``: the exception class name for programmatic handling
+	- ``error``: the human-readable message
+	- any additional keys from *extra*
+
+	The full traceback is persisted via ``frappe.log_error`` so operators
+	can perform forensic analysis from the Error Log DocType.
+	"""
+	frappe.log_error(
+		title=f"{context}: {type(exc).__name__}",
+		message=frappe.get_traceback(with_context=True),
+	)
+	response: dict[str, Any] = {
+		"success": False,
+		"error_type": type(exc).__name__,
+		"error": str(exc),
+	}
+	if extra:
+		response.update(extra)
+	return response
 
 
 # Layout fieldtypes to exclude by default
@@ -292,14 +321,16 @@ def test_rule(
 
 	except Exception as e:
 		fallback_execution = getattr(locals().get("engine"), "last_execution_payload", None) or {}
-		return {
-			"success": False,
-			"status": _("Failed"),
-			"error": str(e),
-			"execution": fallback_execution,
-			"path_trace": fallback_execution.get("path_trace", []),
-			"vars": fallback_execution.get("vars", {}),
-		}
+		return _build_error_response(
+			e,
+			context="test_rule",
+			extra={
+				"status": _("Failed"),
+				"execution": fallback_execution,
+				"path_trace": fallback_execution.get("path_trace", []),
+				"vars": fallback_execution.get("vars", {}),
+			},
+		)
 
 	return {
 		"success": True,
@@ -359,14 +390,16 @@ def execute_rule(
 		}
 	except Exception as e:
 		execution = getattr(frappe.local, "execution_payload", None) or {}
-		return {
-			"success": False,
-			"status": execution.get("status", "Failed"),
-			"error": str(e),
-			"execution": execution,
-			"path_trace": execution.get("path_trace", []),
-			"vars": execution.get("vars", {}),
-		}
+		return _build_error_response(
+			e,
+			context="execute_rule",
+			extra={
+				"status": execution.get("status", "Failed"),
+				"execution": execution,
+				"path_trace": execution.get("path_trace", []),
+				"vars": execution.get("vars", {}),
+			},
+		)
 
 
 @frappe.whitelist()
@@ -379,7 +412,7 @@ def clear_cache(doctype: str | None = None):
 		RuleCoordinator.clear_cache(doctype)
 		return {"success": True, "message": _("Cache cleared")}
 	except Exception as e:
-		return {"success": False, "error": str(e)}
+		return _build_error_response(e, context="clear_cache")
 
 
 @frappe.whitelist()
@@ -388,6 +421,7 @@ def get_operator_config():
 	Get fieldtype-to-operators mapping and operator labels for Condition Builder.
 	Returns centralized config from ConditionCompiler.
 	"""
+	_require_api_access()
 	return {
 		"fieldtype_operators": ConditionCompiler.FIELDTYPE_OPERATORS,
 		"operator_labels": ConditionCompiler.OPERATOR_LABELS,
@@ -566,6 +600,7 @@ def get_schema_field_options(
 	Get options for a schema field dynamically
 	Used for dependent DocField sources
 	"""
+	_require_api_access()
 	if not schema_field or not parent_doctype:
 		return []
 
@@ -1050,8 +1085,7 @@ def test_action_query(
 			"duration": round(duration, 4),
 		}
 	except Exception as e:
-		frappe.log_error(frappe.get_traceback(), _("Test Query Failed"))
-		return {"success": False, "error": str(e)}
+		return _build_error_response(e, context="test_action_query")
 
 
 @frappe.whitelist()
@@ -1247,15 +1281,17 @@ def simulate_rule(
 		}
 	except Exception as e:
 		fallback = getattr(locals().get("engine"), "last_execution_payload", None) or {}
-		return {
-			"success": False,
-			"status": "Failed",
-			"error": str(e),
-			"path_trace": fallback.get("path_trace", []),
-			"vars": fallback.get("vars", {}),
-			"step_details": [],
-			"message": _("Simulation failed: {0}").format(str(e)),
-		}
+		return _build_error_response(
+			e,
+			context="simulate_rule",
+			extra={
+				"status": "Failed",
+				"path_trace": fallback.get("path_trace", []),
+				"vars": fallback.get("vars", {}),
+				"step_details": [],
+				"message": _("Simulation failed: {0}").format(str(e)),
+			},
+		)
 
 
 @frappe.whitelist()

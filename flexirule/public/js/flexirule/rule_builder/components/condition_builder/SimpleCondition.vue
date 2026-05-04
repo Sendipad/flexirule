@@ -146,18 +146,21 @@ const valueFieldSchema = computed(() => {
 					return [];
 				}
 			};
-		} else {
-			schema.fieldtype = "MultiSelect";
-			if (schema.fieldname === "docstatus") {
-				schema.options = ["0", "1", "2"];
-			} else if (originalFieldtype === "Select" && typeof originalOptions === "string") {
+		} else if (originalFieldtype === "Select") {
+			schema.fieldtype = "MultiCheck";
+			if (typeof originalOptions === "string") {
 				schema.options = originalOptions
 					.split("\n")
 					.map((opt) => opt.trim())
 					.filter(Boolean);
+			} else if (Array.isArray(originalOptions)) {
+				schema.options = originalOptions;
 			} else {
 				schema.options = [];
 			}
+		} else {
+			schema.fieldtype = "MultiSelect";
+			schema.options = [];
 		}
 	} else if (isEqualsOp && schema.fieldtype === "Link") {
 		// Ensure Link dropdown is shown for equality operators

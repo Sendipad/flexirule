@@ -160,6 +160,10 @@ def preview_normalization(text: str, transformations: str | list):
 	"""
 	Preview normalization result without saving
 	"""
+	from flexirule.ruleflow.core.permissions import require_builder_access
+
+	require_builder_access()
+
 	import json
 
 	if isinstance(transformations, str):

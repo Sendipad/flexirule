@@ -14,6 +14,22 @@ DEFAULT_SKIP_PERMISSIONS_ROLES = {"System Manager"}
 DEFAULT_ALLOWED_METHOD_PREFIXES = ("flexirule.",)
 
 
+def require_builder_access() -> None:
+	"""Ensure the current user has the 'System Manager' or 'Rule Builder' role.
+
+	Centralised gate used by all FlexiRule whitelisted API endpoints.
+	Raises ``frappe.PermissionError`` when the caller lacks sufficient roles.
+	"""
+	if frappe.session.user == "Administrator":
+		return
+
+	roles = frappe.get_roles(frappe.session.user)
+	if "System Manager" not in roles and "Rule Builder" not in roles:
+		frappe.throw(
+			_("Not permitted. Requires 'System Manager' or 'Rule Builder' role."), frappe.PermissionError
+		)
+
+
 def check_rule_permission(rule_doc, throw=True):
 	"""
 	Check if current user can execute a rule

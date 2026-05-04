@@ -309,8 +309,11 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 			doc.compiled_expression = null;
 
 			if (startNode?.data) {
+				doc.trigger_type = startNode.data.trigger_type ?? doc.trigger_type;
+				doc.document_type = startNode.data.document_type ?? doc.document_type;
+				doc.trigger_event = startNode.data.trigger_event ?? doc.trigger_event;
 				doc.priority = startNode.data.priority ?? doc.priority;
-				doc.execution_mode = startNode.data.execution_mode || doc.execution_mode;
+				doc.execution_mode = startNode.data.execution_mode ?? doc.execution_mode;
 				doc.max_execution_time =
 					startNode.data.max_execution_time !== undefined
 						? startNode.data.max_execution_time

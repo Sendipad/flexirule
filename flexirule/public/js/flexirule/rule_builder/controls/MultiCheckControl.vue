@@ -85,7 +85,7 @@ function make_control() {
 			return {
 				label: label,
 				value: val,
-				checked: current_selection.includes(val),
+				checked: current_selection.some(s => String(s) === String(val)),
 			};
 		});
 	}
@@ -180,15 +180,15 @@ onBeforeUnmount(() => {
 		<!-- Dropdown Mode (for Grid) -->
 		<template v-if="hideLabel">
 			<div
-				class="dropdown-trigger"
+				class="dropdown-trigger form-control input-xs"
 				:class="{ 'has-value': selectedCount > 0, disabled: read_only }"
 				@click.stop="togglePopover"
 			>
-				<span>{{ summaryLabel }}</span>
-				<i class="fa fa-chevron-down"></i>
+				<span class="text-truncate">{{ summaryLabel }}</span>
+				<i class="fa fa-chevron-down ml-2 text-muted" style="font-size: 10px;"></i>
 			</div>
 
-			<div v-show="show_popover" class="multi-check-popover">
+			<div v-show="show_popover" class="multi-check-popover dropdown-menu show">
 				<div class="popover-inner" ref="wrapper"></div>
 			</div>
 		</template>
@@ -224,58 +224,56 @@ export default {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 4px 8px;
-	border: 1px solid var(--border-color);
-	border-radius: var(--border-radius);
-	background: var(--fg-color);
 	cursor: pointer;
-	font-size: 11px;
-	min-height: 28px;
-	transition: all 0.2s ease;
+	user-select: none;
+	background-color: var(--control-bg, #f1f5f9);
+	border: 1px solid transparent;
+	transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .dropdown-trigger:hover:not(.disabled) {
-	border-color: var(--gray-400);
+	border-color: var(--border-color, #cbd5e1);
 }
 
 .dropdown-trigger.has-value {
-	border-color: var(--primary);
-	color: var(--primary);
+	border-color: var(--primary-color, var(--primary, #2490ef));
+	color: var(--primary-color, var(--primary, #2490ef));
 	font-weight: 500;
+	background-color: #fff;
 }
 
 .dropdown-trigger.disabled {
-	cursor: default;
-	background: var(--bg-color);
-	opacity: 0.7;
+	cursor: not-allowed;
+	opacity: 0.6;
 }
 
 .multi-check-popover {
 	position: absolute;
-	top: 100%;
+	top: calc(100% + 4px);
 	left: 0;
-	z-index: 1000;
-	background: #fff;
-	border: 1px solid var(--border-color);
-	border-radius: var(--border-radius);
-	box-shadow: var(--shadow-md);
-	margin-top: 4px;
-	min-width: 180px;
-	max-width: 300px;
-	max-height: 250px;
+	z-index: 1050;
+	background: var(--card-bg, #fff);
+	border: 1px solid var(--border-color, #d1d8dd);
+	border-radius: var(--border-radius-md, 4px);
+	box-shadow: var(--shadow-sm, 0 2px 6px rgba(0,0,0,0.15));
+	min-width: 200px;
+	max-width: 320px;
+	max-height: 280px;
 	overflow-y: auto;
+	margin: 0;
+	padding: 0;
 }
 
 .popover-inner {
-	padding: 12px;
+	padding: 8px 12px;
 }
 
 .control-wrapper {
 	min-height: 35px;
 	padding: 8px;
-	border: 1px solid var(--border-color);
-	border-radius: var(--border-radius);
-	background-color: var(--fg-color);
+	border: 1px solid var(--border-color, #d1d8dd);
+	border-radius: var(--border-radius-sm, 4px);
+	background-color: var(--control-bg, #f1f5f9);
 }
 :deep(.form-group) {
 	margin-bottom: 0 !important;

@@ -875,7 +875,7 @@ const getFieldsForDoctype = (dt) => {
 		return {
 			...f,
 			label: `${realLabel} (${f.fieldname})`,
-			value: f.fieldname,
+			value: f.value,
 		};
 	});
 };
@@ -910,10 +910,11 @@ const getFieldDef = (fieldname, doctype) => {
 	}
 
 	// Try Frappe's native meta cache first
-	if (dt && window.frappe && frappe.meta && frappe.meta.has_field(dt, fieldname)) {
-		const df = frappe.meta.get_docfield(dt, fieldname);
+	const raw_fieldname = fieldname.startsWith("doc.") ? fieldname.substring(4) : fieldname;
+	if (dt && window.frappe && frappe.meta && frappe.meta.has_field(dt, raw_fieldname)) {
+		const df = frappe.meta.get_docfield(dt, raw_fieldname);
 		if (df) {
-			return { ...df, value: df.fieldname }; // ensure value alias is there
+			return { ...df, value: fieldname }; // ensure value alias is there
 		}
 	}
 
@@ -985,9 +986,10 @@ const getVariableOptions = async () => {
 const getControlFactorySchema = (row) => {
 	const field = getFieldDef(row.field, row.doctype || props.doctype);
 	let schema = field ? frappe.utils.deep_clone(field) : { fieldtype: "Data", fieldname: "value" };
+	const raw_fieldname = field?.fieldname || (row.field?.startsWith("doc.") ? row.field.substring(4) : row.field) || "value";
 	schema.label = "";
 	schema.read_only = props.readOnly;
-	schema.fieldname = field ? field.value : "value"; // Ensure valid fieldname for frappe controls
+	schema.fieldname = raw_fieldname; // Ensure valid fieldname for frappe controls (no doc. prefix)
 
 	// Native Frappe Filter Manipulation (perfect parity)
 	if (window.frappe && frappe.ui && frappe.ui.filter_utils) {
@@ -1031,6 +1033,18 @@ const getControlFactorySchema = (row) => {
 					return [];
 				}
 			};
+		} else if (field && field.fieldtype === "Select") {
+			schema.fieldtype = "MultiCheck";
+			if (typeof field.options === "string") {
+				schema.options = field.options
+					.split("\n")
+					.map((opt) => opt.trim())
+					.filter(Boolean);
+			} else if (Array.isArray(field.options)) {
+				schema.options = field.options;
+			} else {
+				schema.options = [];
+			}
 		} else {
 			schema.fieldtype = "Data";
 			schema.placeholder = __("Comma-separated values");
