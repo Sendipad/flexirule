@@ -63,7 +63,7 @@ function handleDragStart(e) {
 		/>
 
 		<!-- Fallback for unknown node types -->
-		<div v-else class="text-danger p-2 border rounded">
+		<div v-else class="unknown-node">
 			{{ __("Unknown condition type") }}
 		</div>
 	</div>
@@ -72,7 +72,7 @@ function handleDragStart(e) {
 <style scoped>
 .condition-node-draggable {
 	cursor: grab;
-	transition: opacity 0.2s;
+	transition: opacity var(--fr-transition-fast);
 }
 
 .condition-node-draggable:active {
@@ -81,5 +81,14 @@ function handleDragStart(e) {
 
 .condition-node-draggable[draggable="true"]:hover {
 	opacity: 0.9;
+}
+
+.unknown-node {
+	padding: var(--fr-space-2);
+	border: 1px solid var(--fr-border-danger);
+	border-radius: var(--fr-radius-md);
+	background: var(--fr-bg-danger);
+	color: var(--fr-text-danger);
+	font-size: var(--fr-text-sm);
 }
 </style>

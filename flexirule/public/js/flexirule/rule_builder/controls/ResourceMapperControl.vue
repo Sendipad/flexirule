@@ -1,6 +1,6 @@
 <template>
-	<div class="resource-mapper-control">
-		<div v-if="df?.label && !hideLabel" class="control-label label" :class="{ reqd: df?.reqd }">
+	<div class="resource-mapper-control fr-control">
+		<div v-if="df?.label && !hideLabel" class="fr-label" :class="{ reqd: df?.reqd }">
 			{{ __(df.label) }}
 		</div>
 
@@ -9,7 +9,7 @@
 			<div class="rm-option-group">
 				<label class="rm-check">
 					<input type="checkbox" v-model="ui.copy_same_fields" :disabled="readOnly" />
-					<span>{{ __("Auto-copy matching fields") }}</span>
+					<span class="rm-label-sm">{{ __("Auto-copy matching fields") }}</span>
 				</label>
 			</div>
 			<div class="rm-option-group">
@@ -26,10 +26,14 @@
 			<div class="rm-option-group">
 				<label class="rm-check">
 					<input type="checkbox" v-model="ui.save_document" :disabled="readOnly" />
-					<span>{{ __("Save Document") }}</span>
+					<span class="rm-label-sm">{{ __("Save Document") }}</span>
 				</label>
 			</div>
-			<button v-if="!readOnly" class="rm-btn rm-btn-magic" @click="previewScalarAutoMap">
+			<button
+				v-if="!readOnly"
+				class="fr-btn fr-btn--primary fr-btn--magic"
+				@click="previewScalarAutoMap"
+			>
 				<i class="fa fa-magic"></i> {{ __("Auto-map") }}
 			</button>
 		</div>
@@ -38,11 +42,7 @@
 		<div v-if="ui.copy_same_fields" class="rm-exclude-section">
 			<label class="rm-label-sm">{{ __("Exclude Fields") }}</label>
 			<div class="rm-exclude-row">
-				<select
-					class="form-control input-xs"
-					v-model="pendingExcludeField"
-					:disabled="readOnly"
-				>
+				<select class="fr-select" v-model="pendingExcludeField" :disabled="readOnly">
 					<option value="">{{ __("Select field…") }}</option>
 					<option
 						v-for="f in scalarTargetOptions"
@@ -52,7 +52,7 @@
 						{{ f.label || f.value }}
 					</option>
 				</select>
-				<button v-if="!readOnly" class="rm-btn rm-btn-sm" @click="addExcludedField">
+				<button v-if="!readOnly" class="fr-btn fr-btn--sm" @click="addExcludedField">
 					{{ __("Add") }}
 				</button>
 			</div>
@@ -80,7 +80,7 @@
 				</div>
 				<button
 					v-if="selectedPreviews.size > 0"
-					class="rm-btn rm-btn-danger rm-btn-sm"
+					class="fr-btn fr-btn--danger fr-btn--sm"
 					@click="deleteSelectedPreviews"
 				>
 					<i class="fa fa-trash"></i>
@@ -131,7 +131,7 @@
 					</div>
 					<div class="rm-cell rm-cell-action">
 						<button
-							class="rm-btn rm-btn-danger rm-btn-ghost"
+							class="fr-btn fr-btn--icon fr-btn--danger"
 							@click="scalarAutoMapPreview.splice(idx, 1)"
 						>
 							<i class="fa fa-trash"></i>
@@ -140,10 +140,10 @@
 				</div>
 			</div>
 			<div class="rm-preview-footer">
-				<button class="rm-btn rm-btn-primary" @click="applyScalarAutoMap">
+				<button class="fr-btn fr-btn--primary" @click="applyScalarAutoMap">
 					{{ __("Apply Mappings") }}
 				</button>
-				<button class="rm-btn rm-btn-ghost" @click="cancelScalarAutoMap">
+				<button class="fr-btn" @click="cancelScalarAutoMap">
 					{{ __("Cancel") }}
 				</button>
 			</div>
@@ -164,7 +164,7 @@
 					<h6><i class="fa fa-columns"></i> {{ __("Field Mappings") }}</h6>
 					<button
 						v-if="selectedScalars.size > 0"
-						class="rm-btn rm-btn-danger rm-btn-sm"
+						class="fr-btn fr-btn--danger fr-btn--sm"
 						@click="deleteSelectedScalars"
 					>
 						<i class="fa fa-trash"></i>
@@ -174,7 +174,7 @@
 				<div class="rm-header-actions" style="display: flex; gap: 8px; align-items: center">
 					<input
 						type="text"
-						class="form-control input-xs"
+						class="fr-input"
 						v-model="scalarSearch"
 						:placeholder="__('Search fields...')"
 					/>
@@ -217,11 +217,7 @@
 
 				<!-- Source Type -->
 				<div class="rm-cell rm-cell-type">
-					<select
-						class="form-control input-xs"
-						v-model="row.source_type"
-						:disabled="readOnly"
-					>
+					<select class="fr-select" v-model="row.source_type" :disabled="readOnly">
 						<option value="path">{{ __("Path") }}</option>
 						<option value="expr">{{ __("Expr") }}</option>
 						<option value="literal">{{ __("Static") }}</option>
@@ -241,14 +237,14 @@
 					/>
 					<input
 						v-else-if="row.source_type === 'expr'"
-						class="form-control input-xs"
+						class="fr-input"
 						v-model="row.expr"
 						:placeholder="__('Expression')"
 						:disabled="readOnly"
 					/>
 					<input
 						v-else
-						class="form-control input-xs"
+						class="fr-input"
 						v-model="row.literal"
 						:placeholder="__('Static value')"
 						:disabled="readOnly"
@@ -259,7 +255,7 @@
 				<div class="rm-cell rm-cell-action">
 					<button
 						v-if="!readOnly"
-						class="rm-btn rm-btn-danger"
+						class="fr-btn fr-btn--icon fr-btn--danger"
 						@click="removeScalarRow(row)"
 					>
 						<i class="fa fa-trash"></i>
@@ -268,26 +264,26 @@
 			</div>
 
 			<div class="rm-section-footer">
-				<button v-if="!readOnly" class="rm-btn rm-btn-sm" @click="addScalarRow">
+				<button v-if="!readOnly" class="fr-btn fr-btn--sm" @click="addScalarRow">
 					<i class="fa fa-plus"></i> {{ __("Add Field") }}
 				</button>
 				<div class="rm-pagination" v-if="filteredScalars.length > 10">
 					<button
-						class="rm-btn rm-btn-sm"
+						class="fr-btn fr-btn--sm"
 						:class="{ active: scalarLimit === 10 }"
 						@click="scalarLimit = 10"
 					>
 						10
 					</button>
 					<button
-						class="rm-btn rm-btn-sm"
+						class="fr-btn fr-btn--sm"
 						:class="{ active: scalarLimit === 20 }"
 						@click="scalarLimit = 20"
 					>
 						20
 					</button>
 					<button
-						class="rm-btn rm-btn-sm"
+						class="fr-btn fr-btn--sm"
 						:class="{ active: scalarLimit === Infinity }"
 						@click="scalarLimit = Infinity"
 					>
@@ -313,14 +309,14 @@
 					<h6><i class="fa fa-table"></i> {{ __("Child Table Mappings") }}</h6>
 					<button
 						v-if="selectedTables.size > 0"
-						class="rm-btn rm-btn-danger rm-btn-sm"
+						class="fr-btn fr-btn--danger fr-btn--sm"
 						@click="deleteSelectedTables"
 					>
 						<i class="fa fa-trash"></i>
 						{{ __("Delete ({0})").replace("{0}", selectedTables.size) }}
 					</button>
 				</div>
-				<button v-if="!readOnly" class="rm-btn rm-btn-sm" @click="addTableMap">
+				<button v-if="!readOnly" class="fr-btn fr-btn--sm" @click="addTableMap">
 					<i class="fa fa-plus"></i> {{ __("Add Table") }}
 				</button>
 			</div>
@@ -338,11 +334,7 @@
 							@change="toggleSelectTable(tIdx)"
 							style="margin-top: 5px"
 						/>
-						<select
-							class="form-control input-xs"
-							v-model="table.target_table"
-							:disabled="readOnly"
-						>
+						<select class="fr-select" v-model="table.target_table" :disabled="readOnly">
 							<option value="">{{ __("Target Table") }}</option>
 							<option
 								v-for="tbl in tableTargetOptions"
@@ -354,14 +346,14 @@
 						</select>
 
 						<input
-							class="form-control input-xs"
+							class="fr-input"
 							v-model="table.source_path"
 							:placeholder="__('Source path (e.g. doc.items)')"
 							:disabled="readOnly"
 						/>
 
 						<input
-							class="form-control input-xs rm-alias-input"
+							class="fr-input rm-alias-input"
 							v-model="table.item_alias"
 							:placeholder="__('Alias')"
 							:disabled="readOnly"
@@ -371,14 +363,14 @@
 					<div class="rm-table-header-actions">
 						<button
 							v-if="!readOnly"
-							class="rm-btn rm-btn-sm"
+							class="fr-btn fr-btn--sm"
 							@click="previewTableAutoMap(table, tIdx)"
 						>
 							{{ __("Auto-map") }}
 						</button>
 						<button
 							v-if="!readOnly"
-							class="rm-btn rm-btn-danger"
+							class="fr-btn fr-btn--icon fr-btn--danger"
 							@click="removeTableMap(tIdx)"
 						>
 							<i class="fa fa-trash"></i>
@@ -429,7 +421,7 @@
 							</div>
 							<div class="rm-cell rm-cell-action">
 								<button
-									class="rm-btn rm-btn-danger rm-btn-ghost"
+									class="fr-btn fr-btn--icon fr-btn--danger"
 									@click="tableAutoMapPreview[tIdx].splice(pIdx, 1)"
 								>
 									<i class="fa fa-trash"></i>
@@ -439,12 +431,12 @@
 					</div>
 					<div class="rm-preview-footer">
 						<button
-							class="rm-btn rm-btn-primary"
+							class="fr-btn fr-btn--primary"
 							@click="applyTableAutoMap(table, tIdx)"
 						>
 							{{ __("Apply Mappings") }}
 						</button>
-						<button class="rm-btn rm-btn-ghost" @click="cancelTableAutoMap(tIdx)">
+						<button class="fr-btn" @click="cancelTableAutoMap(tIdx)">
 							{{ __("Cancel") }}
 						</button>
 					</div>
@@ -454,20 +446,20 @@
 				<div class="rm-table-options">
 					<label class="rm-check">
 						<input type="checkbox" v-model="table.reset_value" :disabled="readOnly" />
-						<span>{{ __("Replace existing rows") }}</span>
+						<span class="rm-label-sm">{{ __("Replace existing rows") }}</span>
 					</label>
 					<label class="rm-check">
 						<input type="checkbox" v-model="table.add_if_empty" :disabled="readOnly" />
-						<span>{{ __("Only if empty") }}</span>
+						<span class="rm-label-sm">{{ __("Only if empty") }}</span>
 					</label>
 					<input
-						class="form-control input-xs"
+						class="fr-input"
 						v-model="table.condition"
 						:placeholder="__('Include condition (e.g. item.qty > 0)')"
 						:disabled="readOnly"
 					/>
 					<input
-						class="form-control input-xs"
+						class="fr-input"
 						v-model="table.filter"
 						:placeholder="__('Skip filter (e.g. item.disabled == 1)')"
 						:disabled="readOnly"
@@ -491,7 +483,7 @@
 							<span class="rm-label-sm">{{ __("Row Field Mapping") }}</span>
 							<button
 								v-if="selectedTableRows[tIdx]?.size > 0"
-								class="rm-btn rm-btn-danger rm-btn-sm"
+								class="fr-btn fr-btn--danger fr-btn--sm"
 								@click="deleteSelectedTableRows(tIdx, table)"
 							>
 								<i class="fa fa-trash"></i>
@@ -506,7 +498,7 @@
 						>
 							<input
 								type="text"
-								class="form-control input-xs"
+								class="fr-input"
 								v-model="getTableState(tIdx).search"
 								:placeholder="__('Search...')"
 							/>
@@ -534,11 +526,7 @@
 							/>
 						</div>
 						<div class="rm-cell rm-cell-target">
-							<select
-								class="form-control input-xs"
-								v-model="row.target"
-								:disabled="readOnly"
-							>
+							<select class="fr-select" v-model="row.target" :disabled="readOnly">
 								<option value="">{{ __("Target Field") }}</option>
 								<option
 									v-for="cf in getChildFieldOptions(table.target_table)"
@@ -556,7 +544,7 @@
 
 						<div class="rm-cell rm-cell-type">
 							<select
-								class="form-control input-xs"
+								class="fr-select"
 								v-model="row.source_type"
 								:disabled="readOnly"
 							>
@@ -578,14 +566,14 @@
 							/>
 							<input
 								v-else-if="row.source_type === 'expr'"
-								class="form-control input-xs"
+								class="fr-input"
 								v-model="row.expr"
 								:placeholder="__('Expression')"
 								:disabled="readOnly"
 							/>
 							<input
 								v-else
-								class="form-control input-xs"
+								class="fr-input"
 								v-model="row.literal"
 								:placeholder="__('Static value')"
 								:disabled="readOnly"
@@ -595,7 +583,7 @@
 						<div class="rm-cell rm-cell-action">
 							<button
 								v-if="!readOnly"
-								class="rm-btn rm-btn-danger"
+								class="fr-btn fr-btn--icon fr-btn--danger"
 								@click="removeTableRowByRow(table, row)"
 							>
 								<i class="fa fa-trash"></i>
@@ -606,7 +594,7 @@
 					<div class="rm-section-footer">
 						<button
 							v-if="!readOnly"
-							class="rm-btn rm-btn-sm"
+							class="fr-btn fr-btn--sm"
 							@click="addTableRow(table)"
 						>
 							<i class="fa fa-plus"></i> {{ __("Add Field") }}
@@ -616,21 +604,21 @@
 							v-if="getFilteredTableRows(table, tIdx).length > 10"
 						>
 							<button
-								class="rm-btn rm-btn-sm"
+								class="fr-btn fr-btn--sm"
 								:class="{ active: getTableState(tIdx).limit === 10 }"
 								@click="getTableState(tIdx).limit = 10"
 							>
 								10
 							</button>
 							<button
-								class="rm-btn rm-btn-sm"
+								class="fr-btn fr-btn--sm"
 								:class="{ active: getTableState(tIdx).limit === 20 }"
 								@click="getTableState(tIdx).limit = 20"
 							>
 								20
 							</button>
 							<button
-								class="rm-btn rm-btn-sm"
+								class="fr-btn fr-btn--sm"
 								:class="{ active: getTableState(tIdx).limit === Infinity }"
 								@click="getTableState(tIdx).limit = Infinity"
 							>
@@ -646,7 +634,7 @@
 			</div>
 		</div>
 
-		<div v-if="df?.description && !hideDescription" class="description text-muted mt-2">
+		<div v-if="df?.description && !hideDescription" class="fr-description">
 			{{ __(df.description) }}
 		</div>
 	</div>
@@ -1386,14 +1374,13 @@ function deleteSelectedTableRows(tIdx, table) {
 .rm-chip {
 	display: inline-flex;
 	align-items: center;
-	gap: 4px;
-	padding: 2px 8px;
-	border-radius: 999px;
-	background: linear-gradient(135deg, #e8f0fe, #d4e4fd);
-	border: 1px solid rgba(36, 144, 239, 0.2);
-	font-size: 11px;
-	color: var(--primary, #2490ef);
-	font-weight: 500;
+	gap: var(--fr-space-2);
+	padding: var(--fr-space-1) var(--fr-space-3);
+	background: var(--fr-bg-card);
+	border: 1px solid var(--fr-border);
+	border-radius: var(--fr-radius-pill);
+	font-size: var(--fr-text-sm);
+	color: var(--fr-text-secondary);
 }
 
 .rm-chip-x {
@@ -1401,48 +1388,57 @@ function deleteSelectedTableRows(tIdx, table) {
 	border: 0;
 	padding: 0;
 	line-height: 1;
-	font-size: 13px;
-	color: var(--text-muted);
+	font-size: 14px;
+	color: var(--fr-text-muted);
 	cursor: pointer;
+	transition: color var(--fr-transition-fast);
+}
+
+.rm-chip-x:hover {
+	color: var(--fr-text-danger);
 }
 
 /* ─── Section ─── */
 .rm-section {
-	border: 1px solid var(--border-color);
-	border-radius: 8px;
-	padding: 10px 12px;
-	background: var(--bg-light, #fff);
+	border: 1px solid var(--fr-border);
+	border-radius: var(--fr-radius-lg);
+	padding: var(--fr-space-6);
+	background: var(--fr-bg-card);
 	display: flex;
 	flex-direction: column;
-	gap: 8px;
+	gap: var(--fr-space-4);
 }
 
 .rm-section-header {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	gap: 8px;
+	gap: var(--fr-space-4);
 }
 
 .rm-section-header h6 {
 	margin: 0;
-	font-size: 12px;
-	font-weight: 600;
+	font-size: var(--fr-text-md);
+	font-weight: var(--fr-weight-semibold);
+	color: var(--fr-text);
 	display: flex;
 	align-items: center;
-	gap: 6px;
+	gap: var(--fr-space-3);
+}
+
+.rm-section-header h6 i {
+	color: var(--fr-accent);
 }
 
 .rm-section-header-sm {
-	padding-top: 4px;
-	border-top: 1px dashed var(--border-color);
+	padding-top: var(--fr-space-3);
+	border-top: 1px dashed var(--fr-border);
 }
 
 /* ─── Mapping Row ─── */
 .rm-mapping-row {
 	display: grid;
-	grid-template-columns: auto 1.4fr auto 0.7fr 1.6fr auto;
-	gap: 6px;
+	gap: var(--fr-space-3);
 	align-items: center;
 }
 
@@ -1455,44 +1451,42 @@ function deleteSelectedTableRows(tIdx, table) {
 
 .rm-cell-check input[type="checkbox"] {
 	cursor: pointer;
-	width: 14px;
-	height: 14px;
 	margin: 0;
 }
 
 .rm-cell-arrow {
-	color: var(--text-muted);
-	font-size: 12px;
+	color: var(--fr-text-muted);
+	font-size: var(--fr-text-md);
 	text-align: center;
 }
 
 /* ─── Table Card ─── */
 .rm-table-card {
-	border: 1px dashed var(--border-color);
-	border-radius: 8px;
-	padding: 10px;
+	border: 1px dashed var(--fr-border);
+	border-radius: var(--fr-radius-lg);
+	padding: var(--fr-space-5);
 	display: flex;
 	flex-direction: column;
-	gap: 8px;
-	background: #fafbfc;
+	gap: var(--fr-space-4);
+	background: var(--fr-bg-hover);
 }
 
 .rm-table-header {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	gap: 8px;
+	gap: var(--fr-space-4);
 }
 
 .rm-table-header-fields {
 	display: flex;
-	gap: 6px;
+	gap: var(--fr-space-3);
 	flex: 1;
 }
 
 .rm-table-header-actions {
 	display: flex;
-	gap: 4px;
+	gap: var(--fr-space-2);
 	flex-shrink: 0;
 }
 
@@ -1503,174 +1497,101 @@ function deleteSelectedTableRows(tIdx, table) {
 .rm-table-options {
 	display: grid;
 	grid-template-columns: 1fr 1fr;
-	gap: 6px;
+	gap: var(--fr-space-3);
 	align-items: center;
 }
 
 .rm-table-rows {
 	display: flex;
 	flex-direction: column;
-	gap: 6px;
+	gap: var(--fr-space-3);
 }
 
 /* ─── Preview Box ─── */
 .rm-preview-box {
-	border: 1px solid var(--primary, #2490ef);
-	border-radius: 8px;
-	padding: 10px;
-	background: #f0f7ff;
+	border: 1px solid var(--fr-accent);
+	border-radius: var(--fr-radius-lg);
+	padding: var(--fr-space-5);
+	background: var(--fr-accent-light);
 	display: flex;
 	flex-direction: column;
-	gap: 6px;
+	gap: var(--fr-space-3);
 }
 
 .rm-preview-title {
-	font-size: 12px;
-	font-weight: 600;
-	color: var(--primary, #2490ef);
+	font-size: var(--fr-text-md);
+	font-weight: var(--fr-weight-semibold);
+	color: var(--fr-accent);
 	display: flex;
 	align-items: center;
-	gap: 6px;
+	gap: var(--fr-space-3);
 }
 
 .rm-badge {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	min-width: 18px;
-	height: 18px;
-	padding: 0 5px;
-	border-radius: 999px;
-	background: var(--primary, #2490ef);
+	min-width: 20px;
+	height: 20px;
+	padding: 0 var(--fr-space-2);
+	border-radius: var(--fr-radius-pill);
+	background: var(--fr-accent);
 	color: #fff;
 	font-size: 10px;
-	font-weight: 700;
+	font-weight: var(--fr-weight-bold);
 }
 
 .rm-preview-list {
-	max-height: 240px;
+	max-height: 300px;
 	overflow-y: auto;
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
-	padding-right: 4px;
+	gap: var(--fr-space-2);
+	padding-right: var(--fr-space-2);
 }
 
 .rm-preview-row {
 	display: grid;
-	grid-template-columns: 1fr auto 1.6fr auto;
-	gap: 10px;
+	gap: var(--fr-space-5);
 	align-items: center;
-	padding: 4px 6px;
-	background: #fff;
-	border: 1px solid #e2e8f0;
-	border-radius: 6px;
+	padding: var(--fr-space-2) var(--fr-space-4);
+	background: var(--fr-bg-card);
+	border: 1px solid var(--fr-border);
+	border-radius: var(--fr-radius-md);
 }
 
 .rm-preview-row .rm-target {
-	color: var(--text-color);
-	font-weight: 500;
-}
-
-.rm-preview-row .rm-source {
-	color: var(--primary, #2490ef);
+	color: var(--fr-text);
+	font-weight: var(--fr-weight-medium);
+	font-family: var(--fr-font-mono);
 }
 
 .rm-preview-row .rm-arrow {
-	color: var(--text-muted);
-	font-size: 11px;
+	color: var(--fr-text-muted);
 }
 
 .rm-preview-footer {
 	display: flex;
 	align-items: center;
 	justify-content: flex-end;
-	gap: 8px;
-	padding-top: 8px;
-	border-top: 1px solid #d1e9ff;
-	margin-top: 4px;
-}
-
-/* ─── Buttons ─── */
-.rm-btn {
-	display: inline-flex;
-	align-items: center;
-	gap: 4px;
-	padding: 4px 10px;
-	font-size: 11px;
-	font-weight: 500;
-	border: 1px solid var(--border-color);
-	border-radius: 6px;
-	background: var(--bg-light, #fff);
-	color: var(--text-color);
-	cursor: pointer;
-	transition: all 0.15s;
-	white-space: nowrap;
-}
-
-.rm-btn:hover {
-	background: var(--bg-blue, #e8f0fe);
-	border-color: var(--primary, #2490ef);
-}
-
-.rm-btn-sm {
-	padding: 3px 8px;
-	font-size: 11px;
-}
-
-.rm-btn-magic {
-	color: var(--primary, #2490ef);
-	border-color: var(--primary, #2490ef);
-}
-
-.rm-btn-primary {
-	background: var(--primary, #2490ef);
-	color: #fff;
-	border-color: var(--primary, #2490ef);
-}
-
-.rm-btn-primary:hover {
-	opacity: 0.9;
-	color: #fff;
-}
-
-.rm-btn-default {
-	background: var(--bg-light, #fff);
-}
-
-.rm-btn-ghost {
-	background: transparent;
-	border-color: transparent;
-	color: var(--text-muted);
-}
-
-.rm-btn-ghost:hover {
-	background: rgba(0, 0, 0, 0.05);
-	color: var(--text-color);
-}
-
-.rm-btn-danger {
-	color: var(--red-500, #e53e3e);
-	border-color: transparent;
-	background: transparent;
-	padding: 3px 6px;
-}
-
-.rm-btn-danger:hover {
-	background: var(--red-50, #fff5f5);
+	gap: var(--fr-space-4);
+	padding-top: var(--fr-space-4);
+	border-top: 1px solid var(--fr-accent-border);
+	margin-top: var(--fr-space-2);
 }
 
 /* ─── Empty ─── */
 .rm-empty {
-	font-size: 12px;
-	color: var(--text-muted);
+	font-size: var(--fr-text-md);
+	color: var(--fr-text-muted);
 	text-align: center;
-	padding: 12px;
+	padding: var(--fr-space-6);
+	font-style: italic;
 }
 
 .rm-empty-sm {
-	padding: 6px;
-	font-size: 11px;
+	padding: var(--fr-space-3);
+	font-size: var(--fr-text-sm);
 }
 
 /* ─── Footer and Pagination ─── */
@@ -1678,19 +1599,13 @@ function deleteSelectedTableRows(tIdx, table) {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding-top: 10px;
-	border-top: 1px dashed var(--border-color);
+	padding-top: var(--fr-space-4);
+	border-top: 1px dashed var(--fr-border);
 }
 
 .rm-pagination {
 	display: flex;
 	align-items: center;
-	gap: 4px;
-}
-
-.rm-btn.active {
-	background: var(--primary, #2490ef);
-	color: #fff;
 	border-color: var(--primary, #2490ef);
 }
 </style>

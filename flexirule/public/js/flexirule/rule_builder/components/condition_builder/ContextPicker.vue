@@ -2,13 +2,14 @@
 	<div class="context-picker">
 		<input
 			type="text"
-			class="form-control form-control-sm"
+			class="fr-input context-input"
 			:value="modelValue"
 			@input="$emit('update:modelValue', $event.target.value)"
 			@dragover.prevent
 			@drop="onDrop"
 			list="context-vars-list"
 			:placeholder="`${context.alias}.field`"
+			:disabled="disabled"
 		/>
 		<datalist id="context-vars-list">
 			<option v-for="opt in suggestions" :key="opt.value" :value="opt.value">
@@ -20,11 +21,12 @@
 
 <script setup>
 import { computed, inject, onMounted, ref } from "vue";
-import { useStore } from "../stores";
+import { useStore } from "../../stores";
 
 const props = defineProps({
 	modelValue: String,
 	docFields: Array,
+	disabled: { type: Boolean, default: false },
 });
 const emit = defineEmits(["update:modelValue"]);
 const store = useStore();
@@ -79,9 +81,9 @@ function fetchMeta() {
 </script>
 
 <style scoped>
-.context-picker input {
-	font-family: monospace;
-	color: var(--primary);
-	background-color: var(--bg-light-gray);
+.context-input {
+	font-family: var(--fr-font-mono);
+	color: var(--fr-accent);
+	background-color: var(--fr-bg-muted);
 }
 </style>

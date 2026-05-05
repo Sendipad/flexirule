@@ -69,24 +69,20 @@ onMounted(() => {
 </script>
 
 <template>
-	<div class="control fr-control" :class="{ editable: slots.label }">
+	<div class="fr-control" :class="{ editable: slots.label }">
 		<!-- label -->
 		<div v-if="slots.label && !hideLabel" class="field-controls">
 			<slot name="label" />
 			<slot name="actions" />
 		</div>
-		<div
-			v-else-if="df?.label && !hideLabel"
-			class="control-label label"
-			:class="{ reqd: df.reqd }"
-		>
+		<div v-else-if="df?.label && !hideLabel" class="fr-label" :class="{ reqd: df.reqd }">
 			{{ __(df.label) }}
 		</div>
 
 		<!-- data input -->
 		<input
 			v-if="slots.label"
-			class="form-control fr-input"
+			class="fr-input"
 			type="text"
 			:style="{ height: df.fieldtype == 'Table MultiSelect' ? '42px' : '' }"
 			:placeholder="__(placeholder)"
@@ -94,7 +90,7 @@ onMounted(() => {
 		/>
 		<input
 			v-else
-			class="form-control fr-input"
+			class="fr-input"
 			type="text"
 			:value="modelValue"
 			:disabled="read_only || df.read_only"
@@ -104,14 +100,14 @@ onMounted(() => {
 		/>
 		<input
 			v-if="slots.label && df.fieldtype === 'Barcode'"
-			class="mt-2 form-control fr-input"
+			class="fr-input mt-2"
 			type="text"
 			:style="{ height: '110px' }"
 			readonly
 		/>
 
 		<!-- description -->
-		<div v-if="df.description && !hideDescription" class="mt-2 description">
+		<div v-if="df.description && !hideDescription" class="fr-description">
 			{{ __(df.description) }}
 		</div>
 
@@ -131,28 +127,11 @@ onMounted(() => {
 </template>
 
 <style scoped>
-/* ─── DataControl – Unified Design ─── */
-.fr-control {
-	display: flex;
-	flex-direction: column;
-}
-
-.control-label {
-	font-size: var(--fr-text-sm);
-	font-weight: var(--fr-weight-medium);
-	margin-bottom: var(--fr-space-2);
-	color: var(--fr-text-secondary);
-}
-
-.control-label.reqd::after {
-	content: " *";
-	color: var(--fr-text-danger);
-}
-
-.description {
+.time-zone {
 	font-size: var(--fr-text-xs);
 	color: var(--fr-text-muted);
-	margin-top: var(--fr-space-2);
+	font-style: italic;
+	margin-top: var(--fr-space-1);
 }
 
 .selected-color {
@@ -162,11 +141,5 @@ onMounted(() => {
 
 .selected-phone {
 	top: 32px !important;
-}
-
-.time-zone {
-	font-size: var(--fr-text-xs);
-	color: var(--fr-text-muted);
-	font-style: italic;
 }
 </style>

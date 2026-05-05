@@ -56,17 +56,21 @@ function handleDrop(e) {
 
 			<div class="group-actions" v-if="!readOnly">
 				<button
-					class="icon-action"
+					class="fr-btn fr-btn--icon"
 					@click="addCondition(group)"
 					:title="__('Add Condition')"
 				>
 					<i class="fa fa-plus"></i>
 				</button>
-				<button class="icon-action" @click="addGroup(group)" :title="__('Add Group')">
+				<button
+					class="fr-btn fr-btn--icon"
+					@click="addGroup(group)"
+					:title="__('Add Group')"
+				>
 					<i class="fa fa-folder-open-o"></i>
 				</button>
 				<button
-					class="icon-action"
+					class="fr-btn fr-btn--icon"
 					@click="addCollection(group)"
 					:title="__('Add Collection')"
 				>
@@ -74,7 +78,7 @@ function handleDrop(e) {
 				</button>
 				<div class="action-divider"></div>
 				<button
-					class="icon-action danger"
+					class="fr-btn fr-btn--icon fr-btn--danger"
 					@click="emit('remove')"
 					:title="__('Remove Group')"
 				>
@@ -105,111 +109,101 @@ function handleDrop(e) {
 
 <style scoped>
 .condition-group-ui {
-	background: rgba(248, 250, 252, 0.5);
-	border: 1px solid #e2e8f0;
-	border-radius: 12px;
-	padding: 12px;
+	background: var(--fr-bg-hover);
+	border: 1px solid var(--fr-border);
+	border-radius: var(--fr-radius-lg);
+	padding: var(--fr-space-6);
 }
 
 .group-header {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
-	margin-bottom: 12px;
+	margin-bottom: var(--fr-space-6);
 }
 
 .logic-toggle.small {
-	background: #e2e8f0;
-	padding: 2px;
-	border-radius: 6px;
+	background: var(--fr-border);
+	padding: var(--fr-space-1);
+	border-radius: var(--fr-radius-md);
 	display: flex;
 }
 
 .logic-btn {
 	border: none;
 	background: transparent;
-	padding: 4px 12px;
-	border-radius: 4px;
-	font-size: 10px;
-	font-weight: 700;
-	color: #64748b;
-	transition: all 0.2s;
+	padding: var(--fr-space-2) var(--fr-space-4);
+	border-radius: var(--fr-radius-sm);
+	font-size: var(--fr-text-xs);
+	font-weight: var(--fr-weight-bold);
+	color: var(--fr-text-muted);
+	transition: all var(--fr-transition-fast);
 	cursor: pointer;
 }
 
 .logic-btn.active {
-	background: white;
-	color: var(--primary);
-	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+	background: var(--fr-bg-card);
+	color: var(--fr-accent);
+	box-shadow: var(--fr-shadow-sm);
 }
 
 .condition-group-ui.drag-over {
-	border-color: var(--primary);
-	background: rgba(var(--primary-rgb), 0.05);
-	box-shadow: inset 0 0 0 2px var(--primary);
+	border-color: var(--fr-accent);
+	background: var(--fr-accent-light);
+	box-shadow: inset 0 0 0 2px var(--fr-accent);
 }
 
 .group-actions {
 	display: flex;
-	gap: 4px;
+	gap: var(--fr-space-2);
 	align-items: center;
 }
 
-.icon-action {
-	width: 26px;
-	height: 26px;
-	border-radius: 6px;
-	border: 1px solid #e2e8f0;
-	background: white;
-	color: #64748b;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	cursor: pointer;
-	font-size: 11px;
-	transition: all 0.2s;
+.group-actions .fr-btn--icon {
+	border: 1px solid var(--fr-border);
+	background: var(--fr-bg-card);
 }
 
-.icon-action:hover {
-	background: #f1f5f9;
-	color: var(--primary);
-	border-color: #cbd5e1;
+.group-actions .fr-btn--icon:hover {
+	background: var(--fr-bg-muted);
+	color: var(--fr-accent);
+	border-color: var(--fr-border-strong);
 }
 
-.icon-action.danger:hover {
-	background: #fee2e2;
-	color: #ef4444;
-	border-color: #fecaca;
+.group-actions .fr-btn--icon.fr-btn--danger:hover {
+	background: var(--fr-bg-danger);
+	color: var(--fr-text-danger);
+	border-color: var(--fr-border-danger);
 }
 
 .action-divider {
 	width: 1px;
 	height: 16px;
-	background: #e2e8f0;
-	margin: 0 4px;
+	background: var(--fr-border);
+	margin: 0 var(--fr-space-2);
 }
 
 .group-content {
-	padding-inline-start: 16px;
-	border-inline-start: 2px solid #e2e8f0;
+	padding-inline-start: var(--fr-space-6);
+	border-inline-start: 2px solid var(--fr-border);
 	display: flex;
 	flex-direction: column;
-	gap: 8px;
+	gap: var(--fr-space-4);
 }
 
 .empty-group-text {
-	font-size: 11px;
-	color: #94a3b8;
+	font-size: var(--fr-text-sm);
+	color: var(--fr-text-muted);
 	font-style: italic;
-	padding: 8px 0;
+	padding: var(--fr-space-4) 0;
 }
 
 .node-wrapper {
-	margin-bottom: 4px;
+	margin-bottom: var(--fr-space-2);
 }
 
 .group-drop-spacer {
 	height: 20px;
-	margin-top: 4px;
+	margin-top: var(--fr-space-2);
 }
 </style>

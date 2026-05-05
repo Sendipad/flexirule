@@ -5,29 +5,12 @@
 			<p class="text-muted small">{{ __("Define reference and operation") }}</p>
 		</div>
 
-		<div class="panel-tabs" v-if="mode === 'config'">
-			<button
-				class="tab-btn"
-				:class="{ active: activeTab === 'data' }"
-				@click="activeTab = 'data'"
-			>
-				<i class="fa fa-database"></i> {{ __("Data") }}
-			</button>
-			<button
-				class="tab-btn"
-				:class="{ active: activeTab === 'settings' }"
-				@click="activeTab = 'settings'"
-			>
-				<i class="fa fa-cog"></i> {{ __("Settings") }}
-			</button>
-		</div>
-
 		<div class="panel-sections v2-scrollbar">
-			<!-- SETTINGS TAB -->
-			<div
-				v-show="activeTab === 'settings' || mode !== 'config'"
-				class="panel-section setup-section"
-			>
+			<!-- SETTINGS SECTION -->
+			<div v-if="mode === 'config'" class="panel-section setup-section">
+				<div class="section-header">
+					<h5 class="section-title">{{ __("Setup & Input") }}</h5>
+				</div>
 				<div class="setup-controls">
 					<ControlFactory
 						v-if="showProcessName"
@@ -81,8 +64,8 @@
 				</div>
 			</div>
 
-			<!-- DATA TAB -->
-			<div v-show="activeTab === 'data'" class="data-tab-content">
+			<!-- DATA SECTION (Context Variables) -->
+			<div class="data-tab-content">
 				<!-- Context Variables -->
 				<div class="panel-section variables-section">
 					<div class="section-header">
@@ -285,7 +268,6 @@ const loadingFields = ref(false);
 const searchQuery = ref("");
 const fieldSearchQuery = ref("");
 const variablesCollapsed = ref(false);
-const activeTab = ref("data");
 const expandedGroups = ref({});
 
 const contract = computed(() => {

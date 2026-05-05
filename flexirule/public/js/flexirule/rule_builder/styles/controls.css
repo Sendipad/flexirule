@@ -25,6 +25,17 @@
 	color: var(--fr-text-danger);
 }
 
+.fr-label-sm {
+	display: block;
+	font-size: var(--fr-text-xs);
+	font-weight: var(--fr-weight-semibold);
+	color: var(--fr-text-muted);
+	margin-bottom: var(--fr-space-1);
+	line-height: 1.2;
+	text-transform: uppercase;
+	letter-spacing: 0.02em;
+}
+
 .fr-control .fr-description {
 	font-size: var(--fr-text-xs);
 	color: var(--fr-text-muted);
@@ -360,3 +371,13 @@
 .fr-compact :deep(.field-picker-control) {
 	margin-bottom: 0 !important;
 }
+
+/* ─── Layout Utilities ─── */
+.fr-gap-1 { gap: var(--fr-space-1); }
+.fr-gap-2 { gap: var(--fr-space-2); }
+.fr-gap-3 { gap: var(--fr-space-3); }
+.fr-gap-4 { gap: var(--fr-space-4); }
+.fr-gap-5 { gap: var(--fr-space-5); }
+.fr-gap-6 { gap: var(--fr-space-6); }
+.fr-gap-7 { gap: var(--fr-space-7); }
+.fr-gap-8 { gap: var(--fr-space-8); }

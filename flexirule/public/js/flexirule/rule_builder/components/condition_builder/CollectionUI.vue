@@ -201,13 +201,13 @@ onMounted(fetchChildMeta);
 </script>
 
 <template>
-	<div class="collection-ui p-3 border-2 border-left-primary rounded bg-white">
+	<div class="collection-ui">
 		<!-- Header -->
-		<div class="d-flex gap-3 mb-3 pb-2 border-bottom">
+		<div class="collection-header">
 			<!-- Logic -->
-			<div style="width: 100px">
-				<label class="small text-muted mb-1 d-block">{{ __("Match") }}</label>
-				<select v-model="node.op" class="form-control form-control-sm" :disabled="readOnly">
+			<div class="header-col" style="width: 100px">
+				<label class="fr-label">{{ __("Match") }}</label>
+				<select v-model="node.op" class="fr-select" :disabled="readOnly">
 					<option value="any">{{ __("Any") }}</option>
 					<option value="all">{{ __("All") }}</option>
 					<option value="none">{{ __("None") }}</option>
@@ -215,11 +215,11 @@ onMounted(fetchChildMeta);
 			</div>
 
 			<!-- Table -->
-			<div class="flex-grow-1">
-				<label class="small text-muted mb-1 d-block">{{ __("Table") }}</label>
+			<div class="header-col flex-grow-1">
+				<label class="fr-label">{{ __("Table") }}</label>
 				<select
 					v-model="node.collection"
-					class="form-control form-control-sm"
+					class="fr-select"
 					@change="fetchChildMeta"
 					:disabled="readOnly"
 				>
@@ -231,12 +231,12 @@ onMounted(fetchChildMeta);
 			</div>
 
 			<!-- Alias -->
-			<div style="width: 120px">
-				<label class="small text-muted mb-1 d-block">{{ __("Alias") }}</label>
+			<div class="header-col" style="width: 120px">
+				<label class="fr-label">{{ __("Alias") }}</label>
 				<input
 					type="text"
 					v-model="node.alias"
-					class="form-control form-control-sm"
+					class="fr-input"
 					placeholder="row"
 					@input="fetchChildMeta"
 					:disabled="readOnly"
@@ -244,23 +244,23 @@ onMounted(fetchChildMeta);
 			</div>
 
 			<!-- Actions -->
-			<div class="d-flex gap-1 align-items-end" v-if="!readOnly">
+			<div class="header-col actions-col" v-if="!readOnly">
 				<button
-					class="btn btn-xs btn-default"
+					class="fr-btn fr-btn--icon"
 					@click="addConditionForCollection"
 					:title="__('Add Condition')"
 				>
 					<i class="fa fa-plus"></i>
 				</button>
 				<button
-					class="btn btn-xs btn-default"
+					class="fr-btn fr-btn--icon"
 					@click="addGroup(node.where)"
 					:title="__('Add Group')"
 				>
 					<i class="fa fa-folder-open-o"></i>
 				</button>
 				<button
-					class="btn btn-xs btn-link text-danger"
+					class="fr-btn fr-btn--icon fr-btn--danger"
 					@click="emit('remove')"
 					:title="__('Remove')"
 				>
@@ -271,16 +271,20 @@ onMounted(fetchChildMeta);
 
 		<!-- Nested conditions -->
 		<div
-			class="pl-3 border-left nested-conditions"
+			class="nested-conditions"
 			:class="{ 'drag-over': isDragOver }"
 			@dragover.prevent.stop="isDragOver = true"
 			@dragleave.stop="isDragOver = false"
 			@drop.prevent.stop="handleDrop"
 		>
-			<div v-if="!node.where?.conditions?.length" class="text-muted py-2 text-sm text-center">
+			<div v-if="!node.where?.conditions?.length" class="empty-text">
 				{{ __("No conditions in collection. Click + to add.") }}
 			</div>
-			<div v-for="(child, idx) in node.where?.conditions" :key="child.id || idx" class="mb-2">
+			<div
+				v-for="(child, idx) in node.where?.conditions"
+				:key="child.id || idx"
+				class="node-wrapper"
+			>
 				<ConditionNode
 					:node="child"
 					:index="idx"
@@ -295,12 +299,54 @@ onMounted(fetchChildMeta);
 
 <style scoped>
 .collection-ui {
-	border-left: 4px solid var(--blue-500) !important;
+	background: var(--fr-bg-card);
+	border: 1px solid var(--fr-border);
+	border-left: 4px solid var(--fr-accent);
+	border-radius: var(--fr-radius-lg);
+	padding: var(--fr-space-6);
+}
+
+.collection-header {
+	display: flex;
+	gap: var(--fr-space-6);
+	margin-bottom: var(--fr-space-6);
+	padding-bottom: var(--fr-space-4);
+	border-bottom: 1px solid var(--fr-bg-muted);
+}
+
+.header-col {
+	display: flex;
+	flex-direction: column;
+}
+
+.actions-col {
+	flex-direction: row;
+	align-items: flex-end;
+	gap: var(--fr-space-1);
+}
+
+.nested-conditions {
+	padding-inline-start: var(--fr-space-6);
+	border-inline-start: 2px solid var(--fr-border);
+	min-height: 20px;
+	transition: all var(--fr-transition-fast);
 }
 
 .nested-conditions.drag-over {
-	background: rgba(var(--primary-rgb), 0.05);
-	box-shadow: inset 0 0 0 2px var(--primary);
-	border-radius: 4px;
+	background: var(--fr-accent-light);
+	box-shadow: inset 0 0 0 2px var(--fr-accent);
+	border-radius: var(--fr-radius-md);
+}
+
+.empty-text {
+	font-size: var(--fr-text-sm);
+	color: var(--fr-text-muted);
+	font-style: italic;
+	padding: var(--fr-space-4) 0;
+	text-align: center;
+}
+
+.node-wrapper {
+	margin-bottom: var(--fr-space-2);
 }
 </style>

@@ -223,8 +223,8 @@ watch(
 </script>
 
 <template>
-	<div class="field-picker-control">
-		<label v-if="df.label" class="control-label">
+	<div class="field-picker-control fr-control">
+		<label v-if="df.label" class="fr-label">
 			{{ __(df.label) }}
 			<span v-if="df.reqd" class="text-danger">*</span>
 		</label>
@@ -233,7 +233,7 @@ watch(
 			<input
 				ref="inputRef"
 				type="text"
-				class="form-control form-control-sm"
+				class="fr-input"
 				:value="showDropdown ? searchQuery : displayValue"
 				@input="handleInput"
 				@focus="handleFocus"
@@ -277,9 +277,7 @@ watch(
 										{{ getSecondaryMeta(field) }}
 									</div>
 								</div>
-								<span class="field-type badge badge-secondary">{{
-									field.fieldtype || "Data"
-								}}</span>
+								<span class="field-type">{{ field.fieldtype || "Data" }}</span>
 							</div>
 						</template>
 					</template>
@@ -290,77 +288,57 @@ watch(
 			</Teleport>
 		</div>
 
-		<small v-if="df.description" class="form-text text-muted">{{ df.description }}</small>
+		<div v-if="df.description" class="fr-description">{{ df.description }}</div>
 	</div>
 </template>
 
 <style scoped>
-/* ─── FieldPickerControl – Unified Design ─── */
-.field-picker-control {
-	margin-bottom: 15px;
-}
-.control-label {
-	font-size: var(--fr-text-base);
-	font-weight: var(--fr-weight-medium);
-	margin-bottom: var(--fr-space-3);
-	display: block;
-	color: var(--fr-text-secondary);
-}
 .field-input-wrapper {
 	position: relative;
 	display: flex;
 	align-items: center;
-	z-index: 1;
 }
-.field-input-wrapper:focus-within {
-	z-index: 1201;
-}
+
 .field-input-wrapper input {
-	padding-right: 24px;
-	height: var(--fr-input-height);
-	font-size: var(--fr-input-font-size);
-	border: 1px solid var(--fr-border);
-	border-radius: var(--fr-radius-md);
-	transition: border-color var(--fr-transition-fast), box-shadow var(--fr-transition-fast);
+	padding-right: var(--fr-space-8);
 }
-.field-input-wrapper input:hover:not(:disabled) {
-	border-color: var(--fr-border-strong);
-}
-.field-input-wrapper input:focus:not(:disabled) {
-	border-color: var(--fr-border-focus);
-	box-shadow: var(--fr-shadow-focus);
-}
+
 .field-clear {
 	position: absolute;
-	right: 8px;
+	right: var(--fr-space-2);
 	top: 50%;
 	transform: translateY(-50%);
 	cursor: pointer;
 	color: var(--fr-text-muted);
-	font-size: var(--fr-text-base);
+	font-size: var(--fr-text-sm);
 	padding: var(--fr-space-2);
 	z-index: 2;
 	border-radius: var(--fr-radius-sm);
 	transition: all var(--fr-transition-fast);
 }
+
 [dir="rtl"] .field-clear {
 	right: auto;
-	left: 8px;
+	left: var(--fr-space-2);
 }
+
 .field-clear:hover {
 	color: var(--fr-text-danger);
 	background: var(--fr-bg-danger);
 }
+
 .field-loading {
 	position: absolute;
-	right: 10px;
+	right: var(--fr-space-3);
 	top: 50%;
 	transform: translateY(-50%);
 }
+
 [dir="rtl"] .field-loading {
 	right: auto;
-	left: 10px;
+	left: var(--fr-space-3);
 }
+
 .field-dropdown {
 	background: var(--fr-bg-card);
 	border: 1px solid var(--fr-border);
@@ -369,58 +347,72 @@ watch(
 	overflow-y: auto;
 	box-shadow: var(--fr-shadow-lg);
 }
+
 .field-section-break {
-	padding: var(--fr-space-4) var(--fr-space-5);
-	font-size: var(--fr-text-sm);
+	padding: var(--fr-space-3) var(--fr-space-5);
+	font-size: var(--fr-text-xs);
 	font-weight: var(--fr-weight-bold);
 	color: var(--fr-text-muted);
 	background-color: var(--fr-bg-muted);
 	text-transform: uppercase;
-	letter-spacing: 0.4px;
+	letter-spacing: 0.05em;
 	border-bottom: 1px solid var(--fr-border);
 	pointer-events: none;
 }
+
 .field-option {
-	padding: var(--fr-space-4) var(--fr-space-5);
+	padding: var(--fr-space-3) var(--fr-space-5);
 	cursor: pointer;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	gap: var(--fr-space-5);
-	border-bottom: 1px solid #f8fafc;
+	gap: var(--fr-space-4);
+	border-bottom: 1px solid var(--fr-bg-hover);
 	background: var(--fr-bg-card);
 	transition: background var(--fr-transition-fast);
 }
+
 .field-option:last-child {
 	border-bottom: none;
 }
+
 .field-option:hover {
 	background: var(--fr-bg-hover);
 }
+
 .field-option.selected,
 .field-option.active-item {
 	background: var(--fr-bg-active);
 }
+
+.field-option.selected .field-primary,
+.field-option.active-item .field-primary {
+	color: var(--fr-accent);
+}
+
 .field-option.disabled {
 	color: var(--fr-text-muted);
 	cursor: default;
 }
+
 .field-text {
 	flex: 1;
 	min-width: 0;
 }
+
 .field-primary {
-	font-size: var(--fr-text-md);
+	font-size: var(--fr-text-sm);
 	font-weight: var(--fr-weight-medium);
 	color: var(--fr-text);
-	line-height: 1.2;
+	line-height: 1.25;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
 }
+
 .field-meta {
 	font-family: var(--fr-font-mono);
-	font-size: var(--fr-text-sm);
+	font-size: 11px;
 	color: var(--fr-text-muted);
 	line-height: 1.2;
 	margin-top: 2px;
@@ -428,13 +420,16 @@ watch(
 	overflow: hidden;
 	text-overflow: ellipsis;
 }
+
 .field-type {
-	font-size: var(--fr-text-xs);
-	padding: 2px 6px;
+	font-size: 10px;
+	padding: 2px 8px;
 	flex-shrink: 0;
 	background: var(--fr-bg-muted);
 	color: var(--fr-text-secondary);
 	border-radius: var(--fr-radius-pill);
-	font-weight: var(--fr-weight-medium);
+	font-weight: var(--fr-weight-semibold);
+	text-transform: uppercase;
+	letter-spacing: 0.02em;
 }
 </style>

@@ -287,11 +287,7 @@ const valueType = computed({
 
 			<!-- Operator -->
 			<div class="condition-col operator-col">
-				<select
-					v-model="node.op"
-					class="form-control input-xs operator-select"
-					:disabled="readOnly"
-				>
+				<select v-model="node.op" class="fr-select operator-select" :disabled="readOnly">
 					<option v-for="op in operators" :key="op.value" :value="op.value">
 						{{ op.label }}
 					</option>
@@ -313,7 +309,7 @@ const valueType = computed({
 			>
 				<select
 					v-model="valueType"
-					class="form-control input-xs value-type-select"
+					class="fr-select value-type-select"
 					:disabled="readOnly"
 				>
 					<option value="static">{{ __("Static") }}</option>
@@ -359,7 +355,7 @@ const valueType = computed({
 			<!-- Remove -->
 			<div class="condition-col action-col" v-if="!readOnly">
 				<button
-					class="btn btn-xs btn-link text-danger"
+					class="fr-btn fr-btn--icon fr-btn--danger"
 					@click="emit('remove')"
 					:title="__('Remove')"
 				>
@@ -372,21 +368,21 @@ const valueType = computed({
 
 <style scoped>
 .simple-condition {
-	background: #f8f9fa;
-	border: 1px solid #e9ecef;
-	border-radius: 4px;
-	padding: 6px;
-	transition: border-color 0.2s, background-color 0.2s;
+	background: var(--fr-bg-card);
+	border: 1px solid var(--fr-border);
+	border-radius: var(--fr-radius-md);
+	padding: var(--fr-space-2);
+	transition: border-color var(--fr-transition-fast), background-color var(--fr-transition-fast);
 }
 
 .simple-condition:hover {
-	border-color: #cbd5e1;
+	border-color: var(--fr-border-strong);
 }
 
 .condition-main-row {
 	display: grid;
 	grid-template-columns: 1.5fr 0.8fr 2.5fr auto;
-	gap: 8px;
+	gap: var(--fr-space-4);
 	align-items: center;
 	overflow: visible !important;
 }
@@ -396,38 +392,39 @@ const valueType = computed({
 }
 
 .operator-select {
-	font-weight: 600;
-	color: #1e293b;
-	background-color: #f1f5f9;
+	font-weight: var(--fr-weight-semibold);
+	color: var(--fr-text);
+	background-color: var(--fr-bg-muted);
 }
 
 .value-group-col {
 	display: flex;
 	align-items: center;
-	gap: 4px;
-	background: #fff;
-	border: 1px solid #e2e8f0;
-	border-radius: 6px;
-	padding: 2px;
+	gap: var(--fr-space-1);
+	background: var(--fr-bg-card);
+	border: 1px solid var(--fr-border);
+	border-radius: var(--fr-radius-md);
+	padding: var(--fr-space-1);
 }
 
 .value-type-select {
 	width: auto;
 	min-width: 70px;
 	border: none;
-	background-color: #f8fafc;
-	color: #64748b;
-	font-weight: 600;
-	font-size: 10px;
+	background-color: var(--fr-bg-hover);
+	color: var(--fr-text-muted);
+	font-weight: var(--fr-weight-bold);
+	font-size: var(--fr-text-xs);
 	text-transform: uppercase;
-	height: 24px;
-	border-inline-end: 1px solid #e2e8f0;
-	border-radius: 4px 0 0 4px;
+	height: var(--fr-input-height-sm);
+	border-inline-end: 1px solid var(--fr-border);
+	border-radius: var(--fr-radius-sm) 0 0 var(--fr-radius-sm);
 	cursor: pointer;
+	padding-inline-end: 20px;
 }
 
 [dir="rtl"] .value-type-select {
-	border-radius: 0 4px 4px 0;
+	border-radius: 0 var(--fr-radius-sm) var(--fr-radius-sm) 0;
 }
 
 .value-input-wrapper {
@@ -439,18 +436,18 @@ const valueType = computed({
 }
 
 .dynamic-dt-picker {
-	margin-bottom: 4px;
+	margin-bottom: var(--fr-space-1);
 }
 
 .condition-main-row :deep(.form-control) {
-	height: 28px;
-	font-size: 12px;
-	padding: 4px 8px;
+	height: var(--fr-input-height);
+	font-size: var(--fr-input-font-size);
+	padding: var(--fr-input-padding-y) var(--fr-input-padding-x);
 	border: 1px solid transparent;
 }
 
 .condition-main-row :deep(.form-control:focus) {
-	border-color: var(--primary);
+	border-color: var(--fr-accent);
 	box-shadow: none;
 }
 
@@ -463,7 +460,7 @@ const valueType = computed({
 	.condition-main-row {
 		display: flex;
 		flex-direction: column;
-		gap: 8px;
+		gap: var(--fr-space-2);
 		align-items: stretch;
 	}
 	.condition-col {

@@ -20,7 +20,24 @@
 							</div>
 							<div class="header-titles">
 								<div class="title-wrapper">
-									<h3>{{ title }}</h3>
+									<template v-if="isEditingLabel">
+										<input
+											ref="labelInputRef"
+											v-model="labelInput"
+											class="title-input"
+											@blur="saveLabel"
+											@keyup.enter="saveLabel"
+											@keyup.esc="isEditingLabel = false"
+										/>
+									</template>
+									<h3
+										v-else
+										@click="startEditingLabel"
+										:class="{ editable: canEditLabel }"
+										:title="canEditLabel ? __('Click to edit label') : ''"
+									>
+										{{ title }}
+									</h3>
 									<div
 										v-if="ruleStore.is_dirty && !ruleStore.is_read_only"
 										class="dirty-badge"
@@ -323,6 +340,40 @@ const showSettingsBar = ref(false);
 const collapseInputPanel = ref(false);
 const collapseOutputPanel = ref(false);
 
+// -- Inline Label Editing --
+const isEditingLabel = ref(false);
+const labelInput = ref("");
+const labelInputRef = ref(null);
+
+const canEditLabel = computed(() => {
+	// Allow editing if not read-only and rule is not active
+	return !ruleStore.is_read_only && !ruleStore.rule_doc?.is_active;
+});
+
+function startEditingLabel() {
+	if (!canEditLabel.value) return;
+	labelInput.value =
+		draftNode.value.data?.action_label || draftNode.value.label || __("New Action");
+	isEditingLabel.value = true;
+	// Auto-focus after render
+	setTimeout(() => {
+		labelInputRef.value?.focus();
+		labelInputRef.value?.select();
+	}, 50);
+}
+
+function saveLabel() {
+	if (!isEditingLabel.value) return;
+	if (draftNode.value?.data) {
+		const oldLabel = draftNode.value.data.action_label;
+		if (oldLabel !== labelInput.value) {
+			draftNode.value.data.action_label = labelInput.value;
+			ruleStore.mark_dirty();
+		}
+	}
+	isEditingLabel.value = false;
+}
+
 watch(
 	() => props.modelValue,
 	(isOpen) => {
@@ -528,6 +579,30 @@ onUnmounted(() => {
 	display: flex;
 	align-items: center;
 	gap: 12px;
+}
+
+.title-input {
+	border: 1px solid var(--primary);
+	border-radius: 4px;
+	padding: 4px 8px;
+	font-size: 18px;
+	font-weight: 700;
+	color: #1e293b;
+	width: 100%;
+	min-width: 200px;
+	outline: none;
+	background: #fff;
+}
+
+.header-titles h3.editable {
+	cursor: pointer;
+	padding: 2px 4px;
+	border-radius: 4px;
+	transition: background 0.2s;
+}
+
+.header-titles h3.editable:hover {
+	background: #f1f5f9;
 }
 
 .header-titles h3 {

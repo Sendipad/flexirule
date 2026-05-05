@@ -10,22 +10,20 @@
 		</div>
 
 		<!-- Popover -->
-		<div v-if="showPopover" class="formula-popover shadow-sm">
+		<div v-if="showPopover" class="formula-popover">
 			<div class="popover-header">
-				<span class="font-weight-bold extra-small text-uppercase text-muted">{{
-					__("Configure Date Formula")
-				}}</span>
-				<button class="btn btn-xs btn-link p-0 text-muted" @click="closePopover">
+				<span class="popover-title">{{ __("Configure Date Formula") }}</span>
+				<button class="fr-btn fr-btn--icon fr-btn--sm" @click="closePopover">
 					<i class="fa fa-times"></i>
 				</button>
 			</div>
 			<div class="popover-body">
 				<!-- Base Date Row -->
 				<div class="config-row">
-					<label class="control-label small">{{ __("Base Date") }}</label>
-					<div class="d-flex gap-2">
+					<label class="fr-label-sm">{{ __("Base Date") }}</label>
+					<div class="d-flex fr-gap-2">
 						<select
-							class="form-control input-xs flex-1"
+							class="fr-select flex-1"
 							v-model="localState.base_type"
 							:disabled="readOnly"
 						>
@@ -34,7 +32,7 @@
 						</select>
 						<select
 							v-if="localState.base_type === 'doc_field'"
-							class="form-control input-xs flex-1"
+							class="fr-select flex-1"
 							v-model="localState.base_field"
 							:disabled="readOnly"
 						>
@@ -50,13 +48,13 @@
 				</div>
 
 				<!-- Modifier Row -->
-				<div class="config-row mt-2">
-					<label class="control-label small">{{ __("Offset") }}</label>
-					<div class="d-flex align-items-center gap-2">
+				<div class="config-row mt-4">
+					<label class="fr-label-sm">{{ __("Offset") }}</label>
+					<div class="d-flex align-items-center fr-gap-2">
 						<select
-							class="form-control input-xs"
+							class="fr-select"
 							v-model="localState.offset_sign"
-							style="width: 60px"
+							style="width: 70px"
 							:disabled="readOnly"
 						>
 							<option value="+">+</option>
@@ -64,14 +62,14 @@
 						</select>
 						<input
 							type="number"
-							class="form-control input-xs"
-							style="width: 60px"
+							class="fr-input"
+							style="width: 80px"
 							v-model.number="localState.offset_value"
 							min="0"
 							:disabled="readOnly"
 						/>
 						<select
-							class="form-control input-xs flex-1"
+							class="fr-select flex-1"
 							v-model="localState.offset_unit"
 							:disabled="readOnly"
 						>
@@ -85,7 +83,7 @@
 				</div>
 			</div>
 			<div class="popover-footer">
-				<div class="preview-snippet text-muted extra-small">
+				<div class="preview-snippet">
 					<code>{{ expressionSnippet }}</code>
 				</div>
 			</div>
@@ -272,11 +270,10 @@ const expressionSnippet = computed(() => {
 </script>
 
 <style scoped>
-/* ─── FormulaControl – Unified Design ─── */
 .formula-control {
 	position: relative;
-	display: inline-block;
-	min-width: 140px;
+	display: block;
+	width: 100%;
 }
 
 .formula-token {
@@ -319,21 +316,18 @@ const expressionSnippet = computed(() => {
 .token-caret {
 	font-size: 10px;
 	color: var(--fr-text-muted);
-	flex-shrink: 0;
 }
 
 .formula-popover {
 	position: absolute;
-	top: calc(100% + 4px);
+	top: calc(100% + var(--fr-space-2));
 	left: 0;
-	z-index: var(--fr-z-popover, 100020);
-	width: 280px;
+	z-index: var(--fr-z-popover);
+	width: 320px;
 	background: var(--fr-bg-card);
 	border: 1px solid var(--fr-border);
 	border-radius: var(--fr-radius-lg);
 	box-shadow: var(--fr-shadow-lg);
-	display: flex;
-	flex-direction: column;
 }
 
 .popover-header {
@@ -341,68 +335,43 @@ const expressionSnippet = computed(() => {
 	justify-content: space-between;
 	align-items: center;
 	padding: var(--fr-space-4) var(--fr-space-6);
-	border-bottom: 1px solid var(--fr-bg-muted);
 	background: var(--fr-bg-muted);
 	border-radius: var(--fr-radius-lg) var(--fr-radius-lg) 0 0;
+	border-bottom: 1px solid var(--fr-border);
+}
+
+.popover-title {
+	font-size: var(--fr-text-sm);
+	font-weight: var(--fr-weight-semibold);
+	color: var(--fr-text-secondary);
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
 }
 
 .popover-body {
 	padding: var(--fr-space-6);
-}
-
-.popover-body .form-control {
-	height: var(--fr-input-height) !important;
-	font-size: var(--fr-input-font-size) !important;
-	border: 1px solid var(--fr-border) !important;
-	border-radius: var(--fr-radius-md) !important;
-	padding: var(--fr-input-padding-y) var(--fr-input-padding-x) !important;
-	transition: border-color var(--fr-transition-fast), box-shadow var(--fr-transition-fast) !important;
-}
-
-.popover-body .form-control:focus {
-	border-color: var(--fr-border-focus) !important;
-	box-shadow: var(--fr-shadow-focus) !important;
-}
-
-.popover-body select.form-control {
-	appearance: none !important;
-	-webkit-appearance: none !important;
-	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") !important;
-	background-repeat: no-repeat !important;
-	background-position: right 6px center !important;
-	background-size: 12px !important;
-	padding-right: 24px !important;
-	cursor: pointer;
-}
-
-.popover-body input[type="number"] {
-	-moz-appearance: textfield;
-}
-
-.popover-body input[type="number"]::-webkit-inner-spin-button,
-.popover-body input[type="number"]::-webkit-outer-spin-button {
-	-webkit-appearance: none;
-	margin: 0;
+	display: flex;
+	flex-direction: column;
+	gap: var(--fr-space-5);
 }
 
 .popover-footer {
 	padding: var(--fr-space-4) var(--fr-space-6);
-	border-top: 1px solid var(--fr-bg-muted);
 	background: var(--fr-bg-muted);
 	border-radius: 0 0 var(--fr-radius-lg) var(--fr-radius-lg);
+	border-top: 1px solid var(--fr-border);
 }
 
 .preview-snippet {
 	font-family: var(--fr-font-mono);
-	word-break: break-all;
-	text-align: center;
 	font-size: var(--fr-text-xs);
+	color: var(--fr-text-muted);
+	text-align: center;
 }
 
 .preview-snippet code {
 	background: transparent;
-	color: var(--fr-text-secondary);
-	font-size: inherit;
+	color: var(--fr-accent);
 }
 
 .config-row {
@@ -411,13 +380,7 @@ const expressionSnippet = computed(() => {
 	gap: var(--fr-space-2);
 }
 
-.config-row label {
-	font-size: var(--fr-text-sm);
-	font-weight: var(--fr-weight-medium);
-	color: var(--fr-text-secondary);
-}
-
-.gap-2 {
-	gap: var(--fr-space-4);
+.fr-gap-2 {
+	gap: var(--fr-space-3);
 }
 </style>

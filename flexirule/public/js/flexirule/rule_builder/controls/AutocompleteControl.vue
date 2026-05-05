@@ -234,8 +234,8 @@ function onDrop(event) {
 </script>
 
 <template>
-	<div class="control frappe-control" :class="{ 'no-label': hideLabel }">
-		<div v-if="df?.label && !hideLabel" class="control-label label" :class="{ reqd: df.reqd }">
+	<div class="fr-control" :class="{ 'no-label': hideLabel }">
+		<div v-if="df?.label && !hideLabel" class="fr-label" :class="{ reqd: df.reqd }">
 			{{ __(df.label) }}
 		</div>
 		<div
@@ -244,86 +244,82 @@ function onDrop(event) {
 			@dragover.prevent
 			@drop="onDrop"
 		></div>
-		<div v-if="df?.description && !hideDescription" class="description text-muted">
+		<div v-if="df?.description && !hideDescription" class="fr-description">
 			{{ __(df.description) }}
 		</div>
 	</div>
 </template>
 
 <style scoped>
-/* ─── AutocompleteControl – Unified Design ─── */
-.control-label {
-	font-size: var(--fr-text-sm);
-	font-weight: var(--fr-weight-medium);
-	margin-bottom: var(--fr-space-2);
-	color: var(--fr-text-secondary);
-}
 .autocomplete-input-wrapper {
 	position: relative;
 }
+
 .autocomplete-input-wrapper :deep(.form-control) {
-	font-size: var(--fr-input-font-size);
+	font-size: var(--fr-text-base);
 	padding: var(--fr-input-padding-y) var(--fr-input-padding-x);
 	height: var(--fr-input-height);
 	width: 100%;
+	color: var(--fr-text);
+	background-color: var(--fr-bg-card);
 	border: 1px solid var(--fr-border);
 	border-radius: var(--fr-radius-md);
-	transition: border-color var(--fr-transition-fast), box-shadow var(--fr-transition-fast);
+	transition: all var(--fr-transition-fast);
 }
+
 .autocomplete-input-wrapper :deep(.form-control:focus) {
-	border-color: var(--fr-border-focus);
+	border-color: var(--fr-accent);
 	box-shadow: var(--fr-shadow-focus);
+	outline: none;
 }
+
 .autocomplete-input-wrapper :deep(.form-control:hover:not(:disabled):not(:focus)) {
 	border-color: var(--fr-border-strong);
 }
+
 .autocomplete-input-wrapper :deep(.awesomplete) {
 	width: 100%;
 	display: block;
 }
+
 .autocomplete-input-wrapper :deep(.awesomplete > ul) {
-	z-index: 1050;
+	z-index: var(--fr-z-dropdown);
 	max-height: 200px;
 	overflow-y: auto;
-}
-.description {
-	font-size: var(--fr-text-xs);
-	margin-top: var(--fr-space-2);
-	color: var(--fr-text-muted);
 }
 
 /* Global style for teleported dropdown */
 :global(.flexirule-autocomplete-dropdown) {
-	z-index: var(--fr-z-dropdown, 100010) !important;
+	z-index: var(--fr-z-dropdown) !important;
 	box-shadow: var(--fr-shadow-lg);
-	border: 1px solid var(--fr-border, #d1d5db);
+	border: 1px solid var(--fr-border);
 	border-radius: var(--fr-radius-md);
-	background: var(--fr-bg-card, #fff);
+	background: var(--fr-bg-card);
 	max-height: 200px;
 	overflow-y: auto;
-	padding: 0;
+	padding: var(--fr-space-2) 0;
 	margin: 0;
 	list-style: none;
 	position: fixed;
 }
 
 :global(.flexirule-autocomplete-dropdown li) {
-	padding: var(--fr-space-4) var(--fr-space-6);
+	padding: var(--fr-space-3) var(--fr-space-5);
 	cursor: pointer;
-	border-bottom: 1px solid #f9fafb;
-	font-size: var(--fr-text-md);
-	color: var(--fr-text, #1f2937);
+	font-size: var(--fr-text-sm);
+	color: var(--fr-text);
+	transition: background var(--fr-transition-fast);
 }
 
 :global(.flexirule-autocomplete-dropdown li:hover),
 :global(.flexirule-autocomplete-dropdown li[aria-selected="true"]) {
-	background-color: var(--fr-bg-active, #f3f4f6);
-	color: var(--fr-text, #1f2937);
+	background-color: var(--fr-bg-hover);
+	color: var(--fr-accent);
 }
 
 :global(.flexirule-autocomplete-dropdown mark) {
 	background: transparent;
-	font-weight: bold;
+	font-weight: var(--fr-weight-bold);
 	color: inherit;
 	padding: 0;
 }

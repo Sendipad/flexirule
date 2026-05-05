@@ -55,17 +55,17 @@ function on_change(event) {
 </script>
 
 <template>
-	<div class="control frappe-control">
+	<div class="fr-control">
 		<div
 			v-if="df?.label && !no_label && !hideLabel"
-			class="control-label label"
+			class="fr-label"
 			:class="{ reqd: df.reqd }"
 		>
 			{{ __(df.label) }}
 		</div>
 		<div class="select-wrapper">
 			<select
-				class="form-control input-sm"
+				class="fr-select"
 				:value="modelValue"
 				:disabled="read_only || df?.read_only"
 				@change="on_change"
@@ -75,74 +75,20 @@ function on_change(event) {
 					{{ opt.label }}
 				</option>
 			</select>
-			<div class="select-icon">
-				<svg class="icon icon-sm"><use href="#icon-select"></use></svg>
-			</div>
 		</div>
-		<div v-if="df?.description && !hideDescription" class="description text-muted">
+		<div v-if="df?.description && !hideDescription" class="fr-description">
 			{{ __(df.description) }}
 		</div>
 	</div>
 </template>
 
 <style scoped>
-/* ─── SelectControl – Unified Design ─── */
-.control-label {
-	font-size: var(--fr-text-sm);
-	font-weight: var(--fr-weight-medium);
-	margin-bottom: var(--fr-space-2);
-	color: var(--fr-text-secondary);
-}
-
-.control-label.reqd::after {
-	content: " *";
-	color: var(--fr-text-danger);
-}
-
 .select-wrapper {
 	position: relative;
+	width: 100%;
 }
 
 .select-wrapper select {
 	width: 100%;
-	appearance: none;
-	-webkit-appearance: none;
-	-moz-appearance: none;
-	padding-right: 28px;
-	font-size: var(--fr-input-font-size);
-	background: transparent;
-	border: 1px solid var(--fr-border);
-	height: var(--fr-input-height);
-	border-radius: var(--fr-radius-md);
-	transition: border-color var(--fr-transition-fast), box-shadow var(--fr-transition-fast);
-}
-
-.select-wrapper select:hover:not(:disabled) {
-	border-color: var(--fr-border-strong);
-}
-
-.select-wrapper select:focus:not(:disabled) {
-	border-color: var(--fr-border-focus);
-	box-shadow: var(--fr-shadow-focus);
-}
-
-.select-icon {
-	position: absolute;
-	top: 50%;
-	right: 4px;
-	transform: translateY(-50%);
-	pointer-events: none;
-	color: var(--fr-text-muted);
-}
-
-.select-icon .icon {
-	width: 12px;
-	height: 12px;
-}
-
-.description {
-	font-size: var(--fr-text-xs);
-	margin-top: var(--fr-space-2);
-	color: var(--fr-text-muted);
 }
 </style>

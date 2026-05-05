@@ -171,10 +171,11 @@
 									<template v-if="row.operator === 'Between'">
 										<div class="dual-value-wrapper align-items-center">
 											<div class="value-input-item">
-												<FormulaControl
+												<ValueResolverControl
 													:modelValue="getBuilderValue(row, 0)"
 													:doctype="row.doctype || doctype"
 													:readOnly="readOnly"
+													:allowedKinds="getAllowedBuilderKinds(row)"
 													@update:modelValue="
 														(val) => updateBuilderValue(idx, 0, val)
 													"
@@ -182,10 +183,11 @@
 											</div>
 											<span class="between-sep">{{ __("and") }}</span>
 											<div class="value-input-item">
-												<FormulaControl
+												<ValueResolverControl
 													:modelValue="getBuilderValue(row, 1)"
 													:doctype="row.doctype || doctype"
 													:readOnly="readOnly"
+													:allowedKinds="getAllowedBuilderKinds(row)"
 													@update:modelValue="
 														(val) => updateBuilderValue(idx, 1, val)
 													"
@@ -194,10 +196,11 @@
 										</div>
 									</template>
 									<template v-else>
-										<FormulaControl
+										<ValueResolverControl
 											:modelValue="getBuilderValue(row)"
 											:doctype="row.doctype || doctype"
 											:readOnly="readOnly"
+											:allowedKinds="getAllowedBuilderKinds(row)"
 											@update:modelValue="
 												(val) => updateBuilderValue(idx, null, val)
 											"
@@ -318,7 +321,7 @@ import FieldPickerControl from "../../controls/FieldPickerControl.vue";
 import AutocompleteControl from "../../controls/AutocompleteControl.vue";
 import LinkControl from "../../controls/LinkControl.vue";
 import ControlFactory from "../../controls/ControlFactory.vue";
-import FormulaControl from "../../controls/FormulaControl.vue";
+import ValueResolverControl from "../../controls/ValueResolverControl.vue";
 import { useStore } from "../../stores";
 
 const props = defineProps({
@@ -356,7 +359,7 @@ const VALUE_TYPE_LABELS = {
 	Boolean: __("Yes / No"),
 	Variable: __("Variable"),
 	Expression: __("Formula (Advanced)"),
-	Builder: __("Date Formula Builder"),
+	Builder: __("Formula Builder"),
 };
 
 const timespanOptions = [
@@ -431,7 +434,14 @@ const INVALID_CONDITION_MAP = {
 	Int: ["like", "not like", "Between", "in", "not in", "Timespan", "starts with", "ends with"],
 };
 const DATE_FIELDTYPES = new Set(["Date", "Datetime"]);
-const BUILDER_SUPPORTED_FIELDTYPES = new Set(["Date", "Datetime"]);
+const BUILDER_SUPPORTED_FIELDTYPES = new Set([
+	"Date",
+	"Datetime",
+	"Int",
+	"Float",
+	"Currency",
+	"Percent",
+]);
 const builderFunctionOptions = [
 	{ value: "add_days_doc", label: __("Document Date +/- Days") },
 	{ value: "doc_field", label: __("Document Date (No Offset)") },
@@ -886,7 +896,48 @@ const toInt = (value, fallback = 0) => {
 	return Number.isFinite(parsed) ? parsed : fallback;
 };
 
+const NUMERIC_FIELDTYPES = new Set(["Int", "Float", "Currency", "Percent"]);
+
+const getAllowedBuilderKinds = (row) => {
+	const field = getFieldDef(row.field, row.doctype || props.doctype);
+	if (!field || !field.fieldtype) return null; // all kinds
+	if (DATE_FIELDTYPES.has(field.fieldtype)) {
+		return ["date_formula", "date_diff"];
+	}
+	if (NUMERIC_FIELDTYPES.has(field.fieldtype)) {
+		return ["math_formula"];
+	}
+	return null; // all kinds
+};
+
 const normalizeBuilderItem = (item, fallbackField = "") => {
+	const kind = item?.kind || "date_formula";
+
+	// For non-date kinds, pass through the item structure
+	if (kind === "math_formula") {
+		return {
+			kind: "math_formula",
+			field_a: item?.field_a || "",
+			math_op: item?.math_op || "+",
+			field_b_type: item?.field_b_type || "field",
+			field_b: item?.field_b || "",
+			constant_b: item?.constant_b ?? 0,
+			precision: item?.precision ?? 2,
+		};
+	}
+
+	if (kind === "date_diff") {
+		return {
+			kind: "date_diff",
+			diff_start_type: item?.diff_start_type || "today",
+			diff_start_field: item?.diff_start_field || "",
+			diff_end_type: item?.diff_end_type || "doc_field",
+			diff_end_field: item?.diff_end_field || fallbackField || "",
+			diff_unit: item?.diff_unit || "days",
+		};
+	}
+
+	// Default: date_formula (backward compatible)
 	const base_type =
 		item?.base_type || (item?.function_name?.includes("today") ? "today" : "doc_field");
 	return {
@@ -899,6 +950,10 @@ const normalizeBuilderItem = (item, fallbackField = "") => {
 };
 
 const getDefaultBuilderItem = (row) => {
+	const field = getFieldDef(row.field, row.doctype || props.doctype);
+	if (field && NUMERIC_FIELDTYPES.has(field.fieldtype)) {
+		return normalizeBuilderItem({ kind: "math_formula", field_a: row.field || "" });
+	}
 	const dateField =
 		getDateFieldOptions(row.doctype || props.doctype)[0]?.value || row.field || "posting_date";
 	return normalizeBuilderItem({}, dateField);
@@ -906,6 +961,35 @@ const getDefaultBuilderItem = (row) => {
 
 const compileBuilderExpression = (builder) => {
 	const item = normalizeBuilderItem(builder);
+
+	if (item.kind === "math_formula") {
+		const a = item.field_a ? `frappe.utils.flt(doc.${item.field_a})` : "0";
+		const b =
+			item.field_b_type === "field"
+				? item.field_b
+					? `frappe.utils.flt(doc.${item.field_b})`
+					: "0"
+				: String(item.constant_b ?? 0);
+		const prec = item.precision ?? 2;
+		return `{frappe.utils.flt(${a} ${item.math_op} ${b}, ${prec})}`;
+	}
+
+	if (item.kind === "date_diff") {
+		const start =
+			item.diff_start_type === "today"
+				? "frappe.utils.nowdate()"
+				: `doc.${item.diff_start_field}`;
+		const end =
+			item.diff_end_type === "today"
+				? "frappe.utils.nowdate()"
+				: `doc.${item.diff_end_field}`;
+
+		if (item.diff_unit === "days") return `{frappe.utils.date_diff(${end}, ${start})}`;
+		if (item.diff_unit === "months") return `{frappe.utils.month_diff(${end}, ${start})}`;
+		return `{int(frappe.utils.month_diff(${end}, ${start}) / 12)}`;
+	}
+
+	// Default: date_formula
 	const baseExpr =
 		item.base_type === "today" ? "frappe.utils.nowdate()" : `doc.${item.base_field}`;
 
