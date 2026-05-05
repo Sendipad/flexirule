@@ -131,13 +131,25 @@ export default {
 </script>
 
 <style scoped>
+/* ─── MultiSelectControl – Unified Design ─── */
 .control-wrapper {
-	min-height: 35px;
+	min-height: var(--fr-input-height);
 }
 :deep(.form-group) {
 	margin-bottom: 0 !important;
 }
 :deep(.awesomplete > ul) {
-	z-index: 1050;
+	z-index: var(--fr-z-dropdown, 1050);
+}
+:deep(.form-control) {
+	height: var(--fr-input-height) !important;
+	font-size: var(--fr-input-font-size) !important;
+	border: 1px solid var(--fr-border) !important;
+	border-radius: var(--fr-radius-md) !important;
+	transition: border-color var(--fr-transition-fast), box-shadow var(--fr-transition-fast) !important;
+}
+:deep(.form-control:focus) {
+	border-color: var(--fr-border-focus) !important;
+	box-shadow: var(--fr-shadow-focus) !important;
 }
 </style>

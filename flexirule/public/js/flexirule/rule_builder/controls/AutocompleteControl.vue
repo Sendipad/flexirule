@@ -251,19 +251,31 @@ function onDrop(event) {
 </template>
 
 <style scoped>
+/* ─── AutocompleteControl – Unified Design ─── */
 .control-label {
-	font-size: 11px;
-	font-weight: 500;
-	margin-bottom: 4px;
-	color: var(--text-muted);
+	font-size: var(--fr-text-sm);
+	font-weight: var(--fr-weight-medium);
+	margin-bottom: var(--fr-space-2);
+	color: var(--fr-text-secondary);
 }
 .autocomplete-input-wrapper {
 	position: relative;
 }
 .autocomplete-input-wrapper :deep(.form-control) {
-	font-size: 13px;
-	padding: 6px 10px;
+	font-size: var(--fr-input-font-size);
+	padding: var(--fr-input-padding-y) var(--fr-input-padding-x);
+	height: var(--fr-input-height);
 	width: 100%;
+	border: 1px solid var(--fr-border);
+	border-radius: var(--fr-radius-md);
+	transition: border-color var(--fr-transition-fast), box-shadow var(--fr-transition-fast);
+}
+.autocomplete-input-wrapper :deep(.form-control:focus) {
+	border-color: var(--fr-border-focus);
+	box-shadow: var(--fr-shadow-focus);
+}
+.autocomplete-input-wrapper :deep(.form-control:hover:not(:disabled):not(:focus)) {
+	border-color: var(--fr-border-strong);
 }
 .autocomplete-input-wrapper :deep(.awesomplete) {
 	width: 100%;
@@ -275,38 +287,38 @@ function onDrop(event) {
 	overflow-y: auto;
 }
 .description {
-	font-size: 10px;
-	margin-top: 4px;
+	font-size: var(--fr-text-xs);
+	margin-top: var(--fr-space-2);
+	color: var(--fr-text-muted);
 }
 
-/* Global style for teleporter dropdown */
-/* Global style for teleporter dropdown */
+/* Global style for teleported dropdown */
 :global(.flexirule-autocomplete-dropdown) {
-	z-index: 100010 !important;
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-	border: 1px solid var(--border-color, #d1d5db);
-	border-radius: 4px;
-	background: #fff; /* Fix transparent background */
-	max-height: 200px; /* Fix scrolling */
+	z-index: var(--fr-z-dropdown, 100010) !important;
+	box-shadow: var(--fr-shadow-lg);
+	border: 1px solid var(--fr-border, #d1d5db);
+	border-radius: var(--fr-radius-md);
+	background: var(--fr-bg-card, #fff);
+	max-height: 200px;
 	overflow-y: auto;
 	padding: 0;
 	margin: 0;
-	list-style: none; /* Fix bullets */
-	position: fixed; /* Enforce fixed */
+	list-style: none;
+	position: fixed;
 }
 
 :global(.flexirule-autocomplete-dropdown li) {
-	padding: 8px 12px;
+	padding: var(--fr-space-4) var(--fr-space-6);
 	cursor: pointer;
 	border-bottom: 1px solid #f9fafb;
-	font-size: 13px;
-	color: var(--text-color, #1f2937);
+	font-size: var(--fr-text-md);
+	color: var(--fr-text, #1f2937);
 }
 
 :global(.flexirule-autocomplete-dropdown li:hover),
 :global(.flexirule-autocomplete-dropdown li[aria-selected="true"]) {
-	background-color: var(--gray-100, #f3f4f6);
-	color: var(--text-color, #1f2937);
+	background-color: var(--fr-bg-active, #f3f4f6);
+	color: var(--fr-text, #1f2937);
 }
 
 :global(.flexirule-autocomplete-dropdown mark) {

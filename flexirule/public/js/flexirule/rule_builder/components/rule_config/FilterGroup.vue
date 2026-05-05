@@ -169,254 +169,39 @@
 							<template v-else-if="row.value_type === 'Builder'">
 								<div class="builder-wrapper">
 									<template v-if="row.operator === 'Between'">
-										<div class="dual-value-wrapper">
+										<div class="dual-value-wrapper align-items-center">
 											<div class="value-input-item">
-												<div class="builder-card">
-													<div class="builder-label small text-muted">
-														{{ __("From") }}
-													</div>
-													<select
-														class="form-control input-xs"
-														:value="
-															getBuilderValue(row, 0).function_name
-														"
-														:disabled="readOnly"
-														@change="
-															(e) =>
-																updateBuilderValue(idx, 0, {
-																	function_name: e.target.value,
-																})
-														"
-													>
-														<option
-															v-for="opt in builderFunctionOptions"
-															:key="opt.value"
-															:value="opt.value"
-														>
-															{{ opt.label }}
-														</option>
-													</select>
-													<select
-														v-if="
-															builderNeedsBaseField(
-																getBuilderValue(row, 0)
-															)
-														"
-														class="form-control input-xs"
-														:value="getBuilderValue(row, 0).base_field"
-														:disabled="readOnly"
-														@change="
-															(e) =>
-																updateBuilderValue(idx, 0, {
-																	base_field: e.target.value,
-																})
-														"
-													>
-														<option
-															v-for="opt in getDateFieldOptions(
-																row.doctype || doctype
-															)"
-															:key="opt.value"
-															:value="opt.value"
-														>
-															{{ opt.label }}
-														</option>
-													</select>
-													<div
-														v-if="
-															builderNeedsOffset(
-																getBuilderValue(row, 0)
-															)
-														"
-														class="builder-offset-row"
-													>
-														<span class="small text-muted">{{
-															__("Offset (days)")
-														}}</span>
-														<input
-															type="number"
-															class="form-control input-xs"
-															:value="
-																getBuilderValue(row, 0).offset_days
-															"
-															:disabled="readOnly"
-															@input="
-																(e) =>
-																	updateBuilderValue(idx, 0, {
-																		offset_days: toInt(
-																			e.target.value
-																		),
-																	})
-															"
-														/>
-													</div>
-													<div class="builder-preview text-muted">
-														{{
-															builderPreview(getBuilderValue(row, 0))
-														}}
-													</div>
-												</div>
+												<FormulaControl
+													:modelValue="getBuilderValue(row, 0)"
+													:doctype="row.doctype || doctype"
+													:readOnly="readOnly"
+													@update:modelValue="
+														(val) => updateBuilderValue(idx, 0, val)
+													"
+												/>
 											</div>
 											<span class="between-sep">{{ __("and") }}</span>
 											<div class="value-input-item">
-												<div class="builder-card">
-													<div class="builder-label small text-muted">
-														{{ __("To") }}
-													</div>
-													<select
-														class="form-control input-xs"
-														:value="
-															getBuilderValue(row, 1).function_name
-														"
-														:disabled="readOnly"
-														@change="
-															(e) =>
-																updateBuilderValue(idx, 1, {
-																	function_name: e.target.value,
-																})
-														"
-													>
-														<option
-															v-for="opt in builderFunctionOptions"
-															:key="opt.value"
-															:value="opt.value"
-														>
-															{{ opt.label }}
-														</option>
-													</select>
-													<select
-														v-if="
-															builderNeedsBaseField(
-																getBuilderValue(row, 1)
-															)
-														"
-														class="form-control input-xs"
-														:value="getBuilderValue(row, 1).base_field"
-														:disabled="readOnly"
-														@change="
-															(e) =>
-																updateBuilderValue(idx, 1, {
-																	base_field: e.target.value,
-																})
-														"
-													>
-														<option
-															v-for="opt in getDateFieldOptions(
-																row.doctype || doctype
-															)"
-															:key="opt.value"
-															:value="opt.value"
-														>
-															{{ opt.label }}
-														</option>
-													</select>
-													<div
-														v-if="
-															builderNeedsOffset(
-																getBuilderValue(row, 1)
-															)
-														"
-														class="builder-offset-row"
-													>
-														<span class="small text-muted">{{
-															__("Offset (days)")
-														}}</span>
-														<input
-															type="number"
-															class="form-control input-xs"
-															:value="
-																getBuilderValue(row, 1).offset_days
-															"
-															:disabled="readOnly"
-															@input="
-																(e) =>
-																	updateBuilderValue(idx, 1, {
-																		offset_days: toInt(
-																			e.target.value
-																		),
-																	})
-															"
-														/>
-													</div>
-													<div class="builder-preview text-muted">
-														{{
-															builderPreview(getBuilderValue(row, 1))
-														}}
-													</div>
-												</div>
+												<FormulaControl
+													:modelValue="getBuilderValue(row, 1)"
+													:doctype="row.doctype || doctype"
+													:readOnly="readOnly"
+													@update:modelValue="
+														(val) => updateBuilderValue(idx, 1, val)
+													"
+												/>
 											</div>
 										</div>
 									</template>
 									<template v-else>
-										<div class="builder-card">
-											<div class="builder-label small text-muted">
-												{{ __("Date Formula Builder") }}
-											</div>
-											<select
-												class="form-control input-xs"
-												:value="getBuilderValue(row).function_name"
-												:disabled="readOnly"
-												@change="
-													(e) =>
-														updateBuilderValue(idx, null, {
-															function_name: e.target.value,
-														})
-												"
-											>
-												<option
-													v-for="opt in builderFunctionOptions"
-													:key="opt.value"
-													:value="opt.value"
-												>
-													{{ opt.label }}
-												</option>
-											</select>
-											<select
-												v-if="builderNeedsBaseField(getBuilderValue(row))"
-												class="form-control input-xs"
-												:value="getBuilderValue(row).base_field"
-												:disabled="readOnly"
-												@change="
-													(e) =>
-														updateBuilderValue(idx, null, {
-															base_field: e.target.value,
-														})
-												"
-											>
-												<option
-													v-for="opt in getDateFieldOptions(
-														row.doctype || doctype
-													)"
-													:key="opt.value"
-													:value="opt.value"
-												>
-													{{ opt.label }}
-												</option>
-											</select>
-											<div
-												v-if="builderNeedsOffset(getBuilderValue(row))"
-												class="builder-offset-row"
-											>
-												<span class="small text-muted">{{
-													__("Offset (days)")
-												}}</span>
-												<input
-													type="number"
-													class="form-control input-xs"
-													:value="getBuilderValue(row).offset_days"
-													:disabled="readOnly"
-													@input="
-														(e) =>
-															updateBuilderValue(idx, null, {
-																offset_days: toInt(e.target.value),
-															})
-													"
-												/>
-											</div>
-											<div class="builder-preview text-muted">
-												{{ builderPreview(getBuilderValue(row)) }}
-											</div>
-										</div>
+										<FormulaControl
+											:modelValue="getBuilderValue(row)"
+											:doctype="row.doctype || doctype"
+											:readOnly="readOnly"
+											@update:modelValue="
+												(val) => updateBuilderValue(idx, null, val)
+											"
+										/>
 									</template>
 								</div>
 							</template>
@@ -533,6 +318,7 @@ import FieldPickerControl from "../../controls/FieldPickerControl.vue";
 import AutocompleteControl from "../../controls/AutocompleteControl.vue";
 import LinkControl from "../../controls/LinkControl.vue";
 import ControlFactory from "../../controls/ControlFactory.vue";
+import FormulaControl from "../../controls/FormulaControl.vue";
 import { useStore } from "../../stores";
 
 const props = defineProps({
@@ -669,20 +455,25 @@ const syncFromProps = () => {
 		return;
 	}
 
-	// Stability check: If our cleaned local state is already same as incoming prop,
-	// do nothing. This preserves local empty rows being edited.
-	const clean_local = filters.value
-		.filter((f) => f.field || f.fieldname)
-		.map((f) => ({
+	// Consistency mapping for comparison
+	const format = (list) =>
+		(list || []).map((f) => ({
 			doctype: f.doctype || props.doctype,
 			field: f.field || f.fieldname,
 			operator: f.operator || f.op || "=",
 			value: f.value,
 			value_type: f.value_type || "Value",
+			builder: f.builder || null,
 		}));
 
-	// deep compare strings
-	if (JSON.stringify(clean_local) === JSON.stringify(props.modelValue)) {
+	const current_cleaned = format(filters.value.filter((f) => f.field || f.fieldname));
+	const incoming_cleaned = format(
+		(props.modelValue || []).filter((f) => f.field || f.fieldname || (Array.isArray(f) && f[1]))
+	);
+
+	// Stability check: If our cleaned local state is already same as incoming prop,
+	// do nothing. This preserves local state while ensuring we stay synced.
+	if (JSON.stringify(current_cleaned) === JSON.stringify(incoming_cleaned)) {
 		return;
 	}
 
@@ -859,12 +650,16 @@ const stripBracket = (val) => {
 	return val;
 };
 
+const doctypeFieldsCache = new Map();
 const getFieldsForDoctype = (dt) => {
+	if (!dt) return [];
+	if (doctypeFieldsCache.has(dt)) return doctypeFieldsCache.get(dt);
+
 	const fields = store.doc_meta[dt];
 	if (!fields || !Array.isArray(fields)) {
 		return [];
 	}
-	return fields.map((f) => {
+	const mapped = fields.map((f) => {
 		// Extract raw label from format "doc.fieldname (Real Label)"
 		let realLabel = f.label;
 		const match = f.label.match(/\((.*?)\)/);
@@ -875,10 +670,19 @@ const getFieldsForDoctype = (dt) => {
 		return {
 			...f,
 			label: `${realLabel} (${f.fieldname})`,
-			value: f.value,
+			value: f.value || f.fieldname,
 		};
 	});
+	doctypeFieldsCache.set(dt, mapped);
+	return mapped;
 };
+
+// Clear cache if metadata changes
+watch(
+	() => store.doc_meta,
+	() => doctypeFieldsCache.clear(),
+	{ deep: true }
+);
 
 const getFieldDef = (fieldname, doctype) => {
 	if (!fieldname) return null;
@@ -1082,12 +886,17 @@ const toInt = (value, fallback = 0) => {
 	return Number.isFinite(parsed) ? parsed : fallback;
 };
 
-const normalizeBuilderItem = (item, fallbackField = "") => ({
-	kind: "date_formula",
-	function_name: item?.function_name || "add_days_doc",
-	base_field: item?.base_field || fallbackField || "posting_date",
-	offset_days: toInt(item?.offset_days ?? 0, 0),
-});
+const normalizeBuilderItem = (item, fallbackField = "") => {
+	const base_type =
+		item?.base_type || (item?.function_name?.includes("today") ? "today" : "doc_field");
+	return {
+		kind: "date_formula",
+		base_type: base_type,
+		base_field: item?.base_field || fallbackField || "posting_date",
+		offset_value: toInt(item?.offset_value ?? item?.offset_days ?? 0, 0),
+		offset_unit: item?.offset_unit || "days",
+	};
+};
 
 const getDefaultBuilderItem = (row) => {
 	const dateField =
@@ -1097,43 +906,19 @@ const getDefaultBuilderItem = (row) => {
 
 const compileBuilderExpression = (builder) => {
 	const item = normalizeBuilderItem(builder);
-	const offset = toInt(item.offset_days, 0);
-	if (item.function_name === "doc_field") {
-		return `{doc.${item.base_field}}`;
-	}
-	if (item.function_name === "today") {
-		return "{frappe.utils.nowdate()}";
-	}
-	if (item.function_name === "add_days_today") {
-		return `{frappe.utils.add_days(frappe.utils.nowdate(), ${offset})}`;
-	}
-	return `{frappe.utils.add_days(doc.${item.base_field}, ${offset})}`;
-};
+	const baseExpr =
+		item.base_type === "today" ? "frappe.utils.nowdate()" : `doc.${item.base_field}`;
 
-const builderNeedsOffset = (builder) => {
-	const fn = normalizeBuilderItem(builder).function_name;
-	return fn === "add_days_doc" || fn === "add_days_today";
-};
+	if (item.offset_value === 0) {
+		return `{${baseExpr}}`;
+	}
 
-const builderNeedsBaseField = (builder) => {
-	const fn = normalizeBuilderItem(builder).function_name;
-	return fn === "add_days_doc" || fn === "doc_field";
-};
+	// Use add_days for days for backward compatibility or add_to_date for others
+	if (item.offset_unit === "days") {
+		return `{frappe.utils.add_days(${baseExpr}, ${item.offset_value})}`;
+	}
 
-const builderPreview = (builder) => {
-	const item = normalizeBuilderItem(builder);
-	if (item.function_name === "doc_field") {
-		return __("Uses current document field: doc.{0}").replace("{0}", item.base_field);
-	}
-	if (item.function_name === "today") {
-		return __("Uses current date");
-	}
-	if (item.function_name === "add_days_today") {
-		return __("Uses today with offset {0} day(s)").replace("{0}", item.offset_days);
-	}
-	return __("Uses doc.{0} with offset {1} day(s)")
-		.replace("{0}", item.base_field)
-		.replace("{1}", item.offset_days);
+	return `{frappe.utils.add_to_date(${baseExpr}, ${item.offset_unit}='${item.offset_value}')}`;
 };
 
 const syncBuilderToValue = (row) => {
@@ -1182,11 +967,16 @@ const getDateFieldOptions = (dt) => {
 };
 
 const getBuilderValue = (row, idx = null) => {
-	const normalized = normalizeBuilderState({ ...row });
-	if (idx === null || idx === undefined) {
-		return Array.isArray(normalized.builder) ? normalized.builder[0] : normalized.builder;
+	// Read existing builder without re-normalizing to avoid creating new objects on every render.
+	// Builder is already normalized during mutations (syncFromProps, updateRow, toggleValueType).
+	const builder = row.builder;
+	if (!builder) {
+		return getDefaultBuilderItem(row);
 	}
-	return Array.isArray(normalized.builder) ? normalized.builder[idx] : normalized.builder;
+	if (idx === null || idx === undefined) {
+		return Array.isArray(builder) ? builder[0] : builder;
+	}
+	return Array.isArray(builder) ? builder[idx] || getDefaultBuilderItem(row) : builder;
 };
 
 const updateBuilderValue = (idx, builderIndex, partial) => {
@@ -1359,49 +1149,69 @@ onMounted(syncFromProps);
 </script>
 
 <style scoped>
+/* ─── FilterGroup – Unified Design ─── */
 .filter-group-wrapper {
 	width: 100%;
+	font-family: var(--fr-font-family);
 }
 
 .filter-list {
 	display: flex;
 	flex-direction: column;
-	gap: 8px;
+	gap: var(--fr-space-3);
 }
 
+/* ─── Filter Row ─── */
 .filter-row {
 	display: flex;
 	flex-direction: column;
-	background: #f8f9fa;
-	border: 1px solid #e9ecef;
-	border-radius: 4px;
-	padding: 6px;
+	background: var(--fr-bg-card);
+	border: 1px solid var(--fr-border);
+	border-radius: var(--fr-radius-lg);
+	padding: var(--fr-space-4) var(--fr-space-5);
+	transition: border-color var(--fr-transition-fast), box-shadow var(--fr-transition-fast);
+}
+
+.filter-row:hover {
+	border-color: var(--fr-border-strong);
+	box-shadow: var(--fr-shadow-sm);
 }
 
 .filter-row-main {
 	display: grid;
-	grid-template-columns: 1.5fr 0.8fr 1fr 2fr auto;
-	gap: 8px;
+	grid-template-columns: 1.6fr 0.9fr 0.85fr 2.2fr auto;
+	gap: var(--fr-space-4);
 	align-items: center;
 }
 
-/* Specific columns */
+/* ─── Column Sizing ─── */
 .doctype-col {
 	grid-column: span 1;
 }
+
 .field-col {
-	min-width: 120px;
+	min-width: 110px;
 }
+
 .operator-col {
 	min-width: 80px;
 }
+
 .value-col {
-	min-width: 220px;
-}
-.type-col {
-	min-width: 140px;
+	min-width: 180px;
 }
 
+.type-col {
+	min-width: 120px;
+}
+
+.action-col {
+	width: 28px;
+	display: flex;
+	justify-content: center;
+}
+
+/* ─── Field Picker ─── */
 .field-picker-container {
 	position: relative;
 	display: flex;
@@ -1415,45 +1225,96 @@ onMounted(syncFromProps);
 	z-index: 5;
 	pointer-events: all;
 	cursor: help;
+	font-size: 11px;
 }
 
 :deep(.border-warning .form-control) {
-	border-color: var(--orange-500, #ff9800) !important;
-	background-color: #fff8f1 !important;
+	border-color: #f59e0b !important;
+	background-color: #fffbeb !important;
 }
 
+/* ─── Value Area ─── */
 .value-input-group {
 	display: flex;
 	width: 100%;
 }
 
+/* ─── Expression Wrapper ─── */
 .expression-wrapper {
 	display: flex;
 	align-items: center;
-	background: #fff8e1;
-	border: 1px solid #ffe082;
-	border-radius: 4px;
-	padding: 0 4px;
+	background: var(--fr-badge-expr);
+	border: 1px solid #fed7aa;
+	border-radius: var(--fr-radius-md);
+	padding: 0 var(--fr-space-2);
 	width: 100%;
+	transition: border-color var(--fr-transition-fast);
+}
+
+.expression-wrapper:focus-within {
+	border-color: #fb923c;
+	box-shadow: 0 0 0 2px rgba(251, 146, 60, 0.1);
 }
 
 .expr-bracket {
-	color: #ffa000;
-	font-weight: bold;
-	padding: 0 4px;
+	color: #ea580c;
+	font-weight: var(--fr-weight-bold);
+	padding: 0 var(--fr-space-2);
+	font-size: var(--fr-text-md);
+	user-select: none;
 }
 
+.expression-wrapper.variable-mode {
+	background: var(--fr-badge-var);
+	border-color: #c4b5fd;
+}
+
+.expression-wrapper.variable-mode:focus-within {
+	border-color: #a78bfa;
+	box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.1);
+}
+
+.expression-wrapper.variable-mode .expr-bracket {
+	color: var(--fr-badge-var-text);
+}
+
+/* ─── Value Type Select ─── */
 .type-select {
-	font-size: 10px;
-	height: 24px;
-	padding: 2px 4px;
-	background: #f1f3f5;
+	font-size: var(--fr-text-xs) !important;
+	height: var(--fr-input-height-sm) !important;
+	padding: 1px 20px 1px 6px !important;
+	background-color: var(--fr-bg-muted) !important;
+	border: 1px solid transparent !important;
+	border-radius: var(--fr-radius-pill) !important;
+	color: var(--fr-text-secondary);
+	font-weight: var(--fr-weight-semibold);
+	appearance: none;
+	-webkit-appearance: none;
+	cursor: pointer;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+	background-repeat: no-repeat;
+	background-position: right 5px center;
+	background-size: 10px;
+	transition: all var(--fr-transition-fast);
+	letter-spacing: 0.01em;
 }
 
+.type-select:hover:not(:disabled) {
+	background-color: #e2e8f0 !important;
+	border-color: var(--fr-border-strong) !important;
+}
+
+.type-select:focus {
+	border-color: var(--fr-border-focus) !important;
+	box-shadow: var(--fr-shadow-focus) !important;
+	background-color: var(--fr-bg-card) !important;
+}
+
+/* ─── Between / Dual Value ─── */
 .dual-value-wrapper {
 	display: flex;
 	align-items: center;
-	gap: 6px;
+	gap: var(--fr-space-3);
 	width: 100%;
 }
 
@@ -1466,51 +1327,63 @@ onMounted(syncFromProps);
 	width: 100%;
 }
 
-.builder-card {
-	display: flex;
-	flex-direction: column;
-	gap: 6px;
-	border: 1px solid #e5e7eb;
-	border-radius: 6px;
-	padding: 6px;
-	background: #f8fafc;
-}
-
-.builder-offset-row {
-	display: grid;
-	grid-template-columns: 1fr 110px;
-	gap: 8px;
-	align-items: center;
-}
-
-.builder-preview {
-	font-size: 11px;
-	line-height: 1.3;
-	background: #ffffff;
-	border: 1px dashed #d1d5db;
-	border-radius: 4px;
-	padding: 4px 6px;
-}
-
 .between-sep {
-	font-size: 11px;
-	color: #6c757d;
-	font-weight: 500;
+	font-size: var(--fr-text-sm);
+	color: var(--fr-text-muted);
+	font-weight: var(--fr-weight-semibold);
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	flex-shrink: 0;
+	padding: 0 2px;
 }
 
-.expression-wrapper.variable-mode {
-	background: #f3f0ff;
-	border-color: #d1c4e9;
+/* ─── Actions Bar ─── */
+.filter-actions {
+	display: flex;
+	align-items: center;
+	padding-top: var(--fr-space-4);
 }
 
-.expression-wrapper.variable-mode .expr-bracket {
-	color: #673ab7;
+.filter-actions .btn {
+	font-size: var(--fr-text-sm);
+	font-weight: var(--fr-weight-medium);
+	border-radius: var(--fr-radius-md);
+	transition: all var(--fr-transition-fast);
 }
 
+.filter-actions .btn:hover {
+	text-decoration: none;
+}
+
+/* ─── Delete Button ─── */
+.filter-col.action-col .btn {
+	width: 26px;
+	height: 26px;
+	padding: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: var(--fr-radius-sm);
+	opacity: 0.4;
+	transition: all var(--fr-transition-fast);
+}
+
+.filter-row:hover .filter-col.action-col .btn {
+	opacity: 0.7;
+}
+
+.filter-col.action-col .btn:hover {
+	opacity: 1;
+	background: var(--fr-bg-danger);
+}
+
+/* ─── Empty State ─── */
 .border-dashed {
-	border: 1px dashed #dee2e6;
+	border: 1px dashed var(--fr-border);
+	border-radius: var(--fr-radius-lg);
 }
 
+/* ─── Deep Overrides for Nested Controls ─── */
 :deep(.field-picker-control) {
 	margin-bottom: 0 !important;
 }
@@ -1519,9 +1392,43 @@ onMounted(syncFromProps);
 	margin-bottom: 0 !important;
 }
 
-.filter-row-main :deep(.form-control) {
-	height: 28px;
-	padding: 2px 8px;
-	font-size: 12px;
+/* Unified input sizing inside filter rows */
+.filter-row-main :deep(.form-control),
+.filter-row-main :deep(input.form-control),
+.filter-row-main :deep(select.form-control) {
+	height: var(--fr-input-height) !important;
+	padding: var(--fr-input-padding-y) var(--fr-input-padding-x) !important;
+	font-size: var(--fr-input-font-size) !important;
+	border: 1px solid var(--fr-border) !important;
+	border-radius: var(--fr-radius-md) !important;
+	transition: border-color var(--fr-transition-fast), box-shadow var(--fr-transition-fast) !important;
+}
+
+.filter-row-main :deep(.form-control:focus) {
+	border-color: var(--fr-border-focus) !important;
+	box-shadow: var(--fr-shadow-focus) !important;
+}
+
+.filter-row-main :deep(.form-control:hover:not(:disabled):not(:focus)) {
+	border-color: var(--fr-border-strong) !important;
+}
+
+/* Select dropdown arrow consistency */
+.filter-row-main :deep(select.form-control) {
+	appearance: none !important;
+	-webkit-appearance: none !important;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") !important;
+	background-repeat: no-repeat !important;
+	background-position: right 6px center !important;
+	background-size: 12px !important;
+	padding-right: 24px !important;
+	cursor: pointer;
+}
+
+/* Link control consistency */
+.filter-row-main :deep(.link-field .form-control),
+.filter-row-main :deep(.awesomplete input) {
+	height: var(--fr-input-height) !important;
+	font-size: var(--fr-input-font-size) !important;
 }
 </style>

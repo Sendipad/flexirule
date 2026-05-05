@@ -8,7 +8,7 @@ const showTooltip = ref(false);
 
 <template>
 	<div
-		class="control frappe-control checkbox"
+		class="control fr-control checkbox"
 		:class="{ editable: slots.label, 'no-label': hideLabel }"
 		@mouseenter="showTooltip = true"
 		@mouseleave="showTooltip = false"
@@ -17,13 +17,13 @@ const showTooltip = ref(false);
 	>
 		<!-- checkbox -->
 		<label v-if="slots.label" class="field-controls">
-			<div class="checkbox">
+			<div class="checkbox fr-checkbox">
 				<input type="checkbox" disabled />
 				<slot name="label" />
 			</div>
 			<slot name="actions" />
 		</label>
-		<label v-else class="checkbox-label-container">
+		<label v-else class="checkbox-label-container fr-checkbox">
 			<input
 				type="checkbox"
 				:checked="modelValue"
@@ -48,54 +48,73 @@ const showTooltip = ref(false);
 	</div>
 </template>
 
-<style lang="scss" scoped>
-label,
-input {
-	margin-bottom: 0 !important;
-	cursor: pointer;
-}
-
-.checkbox-label-container {
-	display: flex;
-	align-items: center;
-	width: 100%;
-	height: 100%;
-	justify-content: flex-start; /* Align left usually, or center for grid? */
-}
-
-.control.no-label {
-	display: flex;
-	justify-content: center; /* Center checkbox in grid cell */
-	align-items: center;
-	height: 100%;
+<style scoped>
+/* ─── CheckControl – Unified Design ─── */
+.fr-control {
 	position: relative;
-	margin: 0;
-	min-height: 24px;
-}
-
-.control.no-label label {
-	width: auto;
-	padding: 4px;
+	min-height: var(--fr-input-height);
 	display: flex;
-	justify-content: center;
+	align-items: center;
 }
 
+.fr-checkbox {
+	display: flex;
+	align-items: center;
+	gap: var(--fr-space-3);
+	cursor: pointer;
+	margin: 0 !important;
+	user-select: none;
+}
+
+.fr-checkbox input {
+	width: 16px;
+	height: 16px;
+	cursor: pointer;
+	margin: 0 !important;
+	border: 1px solid var(--fr-border);
+	border-radius: var(--fr-radius-sm);
+	transition: all var(--fr-transition-fast);
+}
+
+.fr-checkbox input:checked {
+	background-color: var(--fr-accent);
+	border-color: var(--fr-accent);
+}
+
+.label-area {
+	font-size: var(--fr-text-base);
+	color: var(--fr-text);
+	font-weight: var(--fr-weight-medium);
+}
+
+.label-area.reqd::after {
+	content: " *";
+	color: var(--fr-text-danger);
+}
+
+.description {
+	font-size: var(--fr-text-xs);
+	color: var(--fr-text-muted);
+	margin-top: var(--fr-space-2);
+}
+
+/* Tooltip */
 .check-tooltip {
 	position: absolute;
 	bottom: 100%;
 	left: 50%;
 	transform: translateX(-50%);
-	background: #333;
+	background: var(--fr-bg-dark, #1e293b);
 	color: #fff;
-	padding: 8px 12px;
-	border-radius: 4px;
-	font-size: 12px;
-	z-index: 1000;
+	padding: var(--fr-space-3) var(--fr-space-4);
+	border-radius: var(--fr-radius-md);
+	font-size: var(--fr-text-xs);
+	z-index: var(--fr-z-popover);
 	min-width: 150px;
 	max-width: 250px;
-	box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+	box-shadow: var(--fr-shadow-lg);
 	pointer-events: none;
-	margin-bottom: 6px;
+	margin-bottom: var(--fr-space-2);
 }
 
 .check-tooltip::after {
@@ -106,25 +125,13 @@ input {
 	margin-left: -5px;
 	border-width: 5px;
 	border-style: solid;
-	border-color: #333 transparent transparent transparent;
+	border-color: var(--fr-bg-dark, #1e293b) transparent transparent transparent;
 }
 
 .tooltip-header {
-	font-weight: 600;
-	margin-bottom: 4px;
-	border-bottom: 1px solid #555;
-	padding-bottom: 4px;
-}
-
-label .checkbox {
-	display: flex;
-	align-items: center;
-
-	input {
-		background-color: var(--fg-color);
-		box-shadow: none;
-		border: 1px solid var(--gray-400);
-		pointer-events: none;
-	}
+	font-weight: var(--fr-weight-bold);
+	margin-bottom: var(--fr-space-1);
+	border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+	padding-bottom: var(--fr-space-1);
 }
 </style>

@@ -86,16 +86,17 @@ function on_change(event) {
 </template>
 
 <style scoped>
+/* ─── SelectControl – Unified Design ─── */
 .control-label {
-	font-size: 11px;
-	font-weight: 500;
-	margin-bottom: 4px;
-	color: var(--text-muted);
+	font-size: var(--fr-text-sm);
+	font-weight: var(--fr-weight-medium);
+	margin-bottom: var(--fr-space-2);
+	color: var(--fr-text-secondary);
 }
 
 .control-label.reqd::after {
 	content: " *";
-	color: var(--red-500);
+	color: var(--fr-text-danger);
 }
 
 .select-wrapper {
@@ -108,9 +109,21 @@ function on_change(event) {
 	-webkit-appearance: none;
 	-moz-appearance: none;
 	padding-right: 28px;
-	font-size: 13px;
+	font-size: var(--fr-input-font-size);
 	background: transparent;
-	border: 1px solid transparent;
+	border: 1px solid var(--fr-border);
+	height: var(--fr-input-height);
+	border-radius: var(--fr-radius-md);
+	transition: border-color var(--fr-transition-fast), box-shadow var(--fr-transition-fast);
+}
+
+.select-wrapper select:hover:not(:disabled) {
+	border-color: var(--fr-border-strong);
+}
+
+.select-wrapper select:focus:not(:disabled) {
+	border-color: var(--fr-border-focus);
+	box-shadow: var(--fr-shadow-focus);
 }
 
 .select-icon {
@@ -119,7 +132,7 @@ function on_change(event) {
 	right: 4px;
 	transform: translateY(-50%);
 	pointer-events: none;
-	color: var(--text-muted);
+	color: var(--fr-text-muted);
 }
 
 .select-icon .icon {
@@ -128,7 +141,8 @@ function on_change(event) {
 }
 
 .description {
-	font-size: 10px;
-	margin-top: 4px;
+	font-size: var(--fr-text-xs);
+	margin-top: var(--fr-space-2);
+	color: var(--fr-text-muted);
 }
 </style>

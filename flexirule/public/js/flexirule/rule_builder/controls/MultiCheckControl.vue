@@ -188,6 +188,7 @@ function uncheckAll() {
 </template>
 
 <style scoped>
+/* ─── MultiCheckControl – Unified Design ─── */
 .multi-check-control {
 	margin-bottom: 0;
 	position: relative;
@@ -199,69 +200,74 @@ function uncheckAll() {
 	justify-content: space-between;
 	cursor: pointer;
 	user-select: none;
-	background-color: var(--control-bg, #f1f5f9);
+	background-color: var(--fr-bg-muted);
 	border: 1px solid transparent;
-	transition: border-color 0.2s;
-	height: 28px;
-	padding: 4px 8px;
-	border-radius: 6px;
+	transition: border-color var(--fr-transition-fast);
+	height: var(--fr-input-height);
+	padding: var(--fr-input-padding-y) var(--fr-input-padding-x);
+	border-radius: var(--fr-radius-md);
+	font-size: var(--fr-input-font-size);
+}
+
+.dropdown-trigger:hover {
+	border-color: var(--fr-border-strong);
 }
 
 .dropdown-trigger.has-value {
-	border-color: var(--primary);
-	color: var(--primary);
-	font-weight: 600;
-	background-color: #fff;
+	border-color: var(--fr-accent);
+	color: var(--fr-accent);
+	font-weight: var(--fr-weight-semibold);
+	background-color: var(--fr-bg-card);
 }
 
 .multi-check-popover {
 	position: absolute;
 	top: 100%;
 	left: 0;
-	z-index: 2000;
-	background: #ffffff !important;
-	border: 1px solid #d1d8dd;
-	border-radius: 8px;
-	box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+	z-index: var(--fr-z-popover, 2000);
+	background: var(--fr-bg-card) !important;
+	border: 1px solid var(--fr-border);
+	border-radius: var(--fr-radius-lg);
+	box-shadow: var(--fr-shadow-lg);
 	min-width: 220px;
 	max-height: 350px;
 	overflow: hidden;
 	display: flex;
 	flex-direction: column;
-	margin-top: 4px;
+	margin-top: var(--fr-space-2);
 }
 
 .popover-inner {
-	padding: 8px;
+	padding: var(--fr-space-4);
 	overflow-y: auto;
 }
 
 .control-wrapper.inline-wrapper {
-	padding: 12px;
-	background: #fff;
-	border: 1px solid #e2e8f0;
-	border-radius: 8px;
+	padding: var(--fr-space-6);
+	background: var(--fr-bg-card);
+	border: 1px solid var(--fr-border);
+	border-radius: var(--fr-radius-lg);
 }
 
 .options-grid {
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-	gap: 8px;
+	gap: var(--fr-space-4);
 }
 
 .checkbox-item {
 	display: flex;
 	align-items: center;
-	gap: 8px;
-	padding: 6px 8px;
-	border-radius: 4px;
+	gap: var(--fr-space-4);
+	padding: var(--fr-space-3) var(--fr-space-4);
+	border-radius: var(--fr-radius-sm);
 	cursor: pointer;
-	transition: background 0.15s;
+	transition: background var(--fr-transition-fast);
 	user-select: none;
 }
 
 .checkbox-item:hover {
-	background: #f1f5f9;
+	background: var(--fr-bg-muted);
 }
 
 .checkbox-item input {
@@ -270,15 +276,15 @@ function uncheckAll() {
 }
 
 .option-label {
-	font-size: 12px;
-	color: #1e293b;
+	font-size: var(--fr-text-base);
+	color: var(--fr-text);
 	white-space: nowrap;
 	overflow: hidden;
-	text-truncate: ellipsis;
+	text-overflow: ellipsis;
 }
 
 .popover-actions .btn-link {
-	font-size: 11px;
+	font-size: var(--fr-text-sm);
 	text-decoration: none;
 }
 </style>

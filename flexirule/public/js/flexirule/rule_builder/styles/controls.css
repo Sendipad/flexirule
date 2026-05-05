@@ -1,0 +1,362 @@
+/*
+ * FlexiRule Unified Control Styles
+ * Shared CSS classes for all controls in the rule builder.
+ * Imported alongside design-tokens.css to provide a cohesive UI.
+ */
+
+/* ─── Base Control Container ─── */
+.fr-control {
+	position: relative;
+	font-family: var(--fr-font-family);
+}
+
+.fr-control .fr-label {
+	display: block;
+	font-size: var(--fr-text-sm);
+	font-weight: var(--fr-weight-medium);
+	color: var(--fr-text-secondary);
+	margin-bottom: var(--fr-space-2);
+	line-height: 1.3;
+	letter-spacing: 0.01em;
+}
+
+.fr-control .fr-label.reqd::after {
+	content: " *";
+	color: var(--fr-text-danger);
+}
+
+.fr-control .fr-description {
+	font-size: var(--fr-text-xs);
+	color: var(--fr-text-muted);
+	margin-top: var(--fr-space-2);
+	line-height: 1.4;
+}
+
+/* ─── Unified Input Styles ─── */
+.fr-input {
+	height: var(--fr-input-height);
+	padding: var(--fr-input-padding-y) var(--fr-input-padding-x);
+	font-size: var(--fr-input-font-size);
+	font-family: var(--fr-font-family);
+	color: var(--fr-text);
+	background: var(--fr-bg-input);
+	border: 1px solid var(--fr-border);
+	border-radius: var(--fr-radius-md);
+	outline: none;
+	width: 100%;
+	transition: border-color var(--fr-transition-fast), box-shadow var(--fr-transition-fast);
+	line-height: 1;
+}
+
+.fr-input:hover:not(:disabled) {
+	border-color: var(--fr-border-strong);
+}
+
+.fr-input:focus:not(:disabled) {
+	border-color: var(--fr-border-focus);
+	box-shadow: var(--fr-shadow-focus);
+}
+
+.fr-input:disabled {
+	background: var(--fr-bg-muted);
+	color: var(--fr-text-muted);
+	cursor: not-allowed;
+}
+
+.fr-input::placeholder {
+	color: var(--fr-text-muted);
+	font-size: var(--fr-text-sm);
+}
+
+/* ─── Select ─── */
+.fr-select {
+	height: var(--fr-input-height);
+	padding: var(--fr-input-padding-y) 24px var(--fr-input-padding-y) var(--fr-input-padding-x);
+	font-size: var(--fr-input-font-size);
+	font-family: var(--fr-font-family);
+	color: var(--fr-text);
+	background: var(--fr-bg-input);
+	border: 1px solid var(--fr-border);
+	border-radius: var(--fr-radius-md);
+	appearance: none;
+	-webkit-appearance: none;
+	cursor: pointer;
+	width: 100%;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+	background-repeat: no-repeat;
+	background-position: right 6px center;
+	background-size: 12px;
+	transition: border-color var(--fr-transition-fast), box-shadow var(--fr-transition-fast);
+}
+
+.fr-select:hover:not(:disabled) {
+	border-color: var(--fr-border-strong);
+}
+
+.fr-select:focus:not(:disabled) {
+	border-color: var(--fr-border-focus);
+	box-shadow: var(--fr-shadow-focus);
+}
+
+.fr-select:disabled {
+	background-color: var(--fr-bg-muted);
+	color: var(--fr-text-muted);
+	cursor: not-allowed;
+}
+
+/* ─── Value Type Badge ─── */
+.fr-badge {
+	display: inline-flex;
+	align-items: center;
+	padding: 2px 8px;
+	font-size: var(--fr-text-xs);
+	font-weight: var(--fr-weight-semibold);
+	border-radius: var(--fr-radius-pill);
+	white-space: nowrap;
+	line-height: 1.4;
+	letter-spacing: 0.02em;
+}
+
+.fr-badge--literal {
+	background: var(--fr-badge-literal);
+	color: var(--fr-badge-literal-text);
+}
+.fr-badge--number {
+	background: var(--fr-badge-number);
+	color: var(--fr-badge-number-text);
+}
+.fr-badge--bool {
+	background: var(--fr-badge-bool);
+	color: var(--fr-badge-bool-text);
+}
+.fr-badge--variable {
+	background: var(--fr-badge-var);
+	color: var(--fr-badge-var-text);
+}
+.fr-badge--expression {
+	background: var(--fr-badge-expr);
+	color: var(--fr-badge-expr-text);
+}
+.fr-badge--builder {
+	background: var(--fr-badge-builder);
+	color: var(--fr-badge-builder-text);
+}
+
+/* ─── Button Styles ─── */
+.fr-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--fr-space-3);
+	padding: var(--fr-space-2) var(--fr-space-4);
+	font-size: var(--fr-text-sm);
+	font-weight: var(--fr-weight-medium);
+	border: none;
+	border-radius: var(--fr-radius-md);
+	cursor: pointer;
+	transition: all var(--fr-transition-fast);
+	line-height: 1;
+	white-space: nowrap;
+	background: transparent;
+	color: var(--fr-text-secondary);
+}
+
+.fr-btn:hover {
+	background: var(--fr-bg-muted);
+	color: var(--fr-text);
+}
+
+.fr-btn--primary {
+	color: var(--fr-accent);
+}
+
+.fr-btn--primary:hover {
+	background: var(--fr-accent-light);
+	color: var(--fr-accent);
+}
+
+.fr-btn--danger {
+	color: var(--fr-text-danger);
+}
+
+.fr-btn--danger:hover {
+	background: var(--fr-bg-danger);
+	color: var(--fr-text-danger);
+}
+
+.fr-btn--icon {
+	padding: var(--fr-space-2);
+	width: 24px;
+	height: 24px;
+	justify-content: center;
+	border-radius: var(--fr-radius-sm);
+}
+
+/* ─── Dropdown / Popover ─── */
+.fr-dropdown {
+	background: var(--fr-bg-card);
+	border: 1px solid var(--fr-border);
+	border-radius: var(--fr-radius-lg);
+	box-shadow: var(--fr-shadow-lg);
+	z-index: var(--fr-z-dropdown);
+	max-height: 300px;
+	overflow-y: auto;
+}
+
+.fr-dropdown-item {
+	padding: var(--fr-space-4) var(--fr-space-5);
+	cursor: pointer;
+	font-size: var(--fr-text-md);
+	color: var(--fr-text);
+	transition: background var(--fr-transition-fast);
+	border-bottom: 1px solid #f8fafc;
+}
+
+.fr-dropdown-item:last-child {
+	border-bottom: none;
+}
+
+.fr-dropdown-item:hover,
+.fr-dropdown-item.active {
+	background: var(--fr-bg-active);
+}
+
+.fr-dropdown-item.selected {
+	background: var(--fr-bg-active);
+	font-weight: var(--fr-weight-medium);
+}
+
+/* ─── Expression Wrapper ─── */
+.fr-expression-wrap {
+	display: flex;
+	align-items: center;
+	background: var(--fr-badge-expr);
+	border: 1px solid #ffe082;
+	border-radius: var(--fr-radius-sm);
+	padding: 0 var(--fr-space-2);
+	width: 100%;
+}
+
+.fr-expression-wrap .fr-bracket {
+	color: #ffa000;
+	font-weight: var(--fr-weight-bold);
+	padding: 0 var(--fr-space-2);
+	font-size: var(--fr-text-md);
+}
+
+.fr-expression-wrap.variable-mode {
+	background: var(--fr-badge-var);
+	border-color: #d1c4e9;
+}
+
+.fr-expression-wrap.variable-mode .fr-bracket {
+	color: var(--fr-badge-var-text);
+}
+
+/* ─── Token Control (FormulaControl) ─── */
+.fr-token {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: var(--fr-space-2) var(--fr-space-4);
+	background: var(--fr-bg-muted);
+	border: 1px solid var(--fr-border);
+	border-radius: var(--fr-radius-md);
+	cursor: pointer;
+	transition: all var(--fr-transition-fast);
+	height: var(--fr-input-height);
+	user-select: none;
+	min-width: 140px;
+}
+
+.fr-token:hover,
+.fr-token.is-active {
+	border-color: var(--fr-accent);
+	background: var(--fr-bg-input);
+	box-shadow: var(--fr-shadow-focus);
+}
+
+.fr-token__content {
+	display: flex;
+	align-items: center;
+	gap: var(--fr-space-3);
+	overflow: hidden;
+}
+
+.fr-token__text {
+	font-size: var(--fr-text-base);
+	color: var(--fr-text);
+	font-weight: var(--fr-weight-medium);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.fr-token__caret {
+	font-size: 10px;
+	color: var(--fr-text-muted);
+	flex-shrink: 0;
+}
+
+/* ─── Popover Panel ─── */
+.fr-popover {
+	position: absolute;
+	top: calc(100% + 4px);
+	left: 0;
+	z-index: var(--fr-z-popover);
+	width: 280px;
+	background: var(--fr-bg-card);
+	border: 1px solid var(--fr-border);
+	border-radius: var(--fr-radius-lg);
+	box-shadow: var(--fr-shadow-lg);
+	display: flex;
+	flex-direction: column;
+}
+
+.fr-popover__header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: var(--fr-space-4) var(--fr-space-6);
+	border-bottom: 1px solid var(--fr-bg-muted);
+	background: var(--fr-bg-muted);
+	border-radius: var(--fr-radius-lg) var(--fr-radius-lg) 0 0;
+}
+
+.fr-popover__body {
+	padding: var(--fr-space-6);
+}
+
+.fr-popover__footer {
+	padding: var(--fr-space-4) var(--fr-space-6);
+	border-top: 1px solid var(--fr-bg-muted);
+	background: var(--fr-bg-muted);
+	border-radius: 0 0 var(--fr-radius-lg) var(--fr-radius-lg);
+}
+
+/* ─── Deep overrides for Frappe-rendered controls ─── */
+.fr-control :deep(.form-control),
+.fr-control :deep(input.form-control),
+.fr-control :deep(select.form-control) {
+	height: var(--fr-input-height) !important;
+	padding: var(--fr-input-padding-y) var(--fr-input-padding-x) !important;
+	font-size: var(--fr-input-font-size) !important;
+	border-radius: var(--fr-radius-md) !important;
+	border: 1px solid var(--fr-border) !important;
+	transition: border-color var(--fr-transition-fast), box-shadow var(--fr-transition-fast) !important;
+}
+
+.fr-control :deep(.form-control:focus) {
+	border-color: var(--fr-border-focus) !important;
+	box-shadow: var(--fr-shadow-focus) !important;
+}
+
+.fr-control :deep(.form-control:hover:not(:disabled)) {
+	border-color: var(--fr-border-strong) !important;
+}
+
+/* Ensure all nested frappe controls have zero bottom margin in grid contexts */
+.fr-compact :deep(.frappe-control),
+.fr-compact :deep(.control.frappe-control),
+.fr-compact :deep(.field-picker-control) {
+	margin-bottom: 0 !important;
+}

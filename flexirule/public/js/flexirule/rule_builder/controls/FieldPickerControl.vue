@@ -295,14 +295,16 @@ watch(
 </template>
 
 <style scoped>
+/* ─── FieldPickerControl – Unified Design ─── */
 .field-picker-control {
 	margin-bottom: 15px;
 }
 .control-label {
-	font-size: 12px;
-	font-weight: 500;
-	margin-bottom: 5px;
+	font-size: var(--fr-text-base);
+	font-weight: var(--fr-weight-medium);
+	margin-bottom: var(--fr-space-3);
 	display: block;
+	color: var(--fr-text-secondary);
 }
 .field-input-wrapper {
 	position: relative;
@@ -311,10 +313,22 @@ watch(
 	z-index: 1;
 }
 .field-input-wrapper:focus-within {
-	z-index: 1201; /* Higher than other rows */
+	z-index: 1201;
 }
 .field-input-wrapper input {
 	padding-right: 24px;
+	height: var(--fr-input-height);
+	font-size: var(--fr-input-font-size);
+	border: 1px solid var(--fr-border);
+	border-radius: var(--fr-radius-md);
+	transition: border-color var(--fr-transition-fast), box-shadow var(--fr-transition-fast);
+}
+.field-input-wrapper input:hover:not(:disabled) {
+	border-color: var(--fr-border-strong);
+}
+.field-input-wrapper input:focus:not(:disabled) {
+	border-color: var(--fr-border-focus);
+	box-shadow: var(--fr-shadow-focus);
 }
 .field-clear {
 	position: absolute;
@@ -322,17 +336,20 @@ watch(
 	top: 50%;
 	transform: translateY(-50%);
 	cursor: pointer;
-	color: #94a3b8;
-	font-size: 12px;
-	padding: 4px;
+	color: var(--fr-text-muted);
+	font-size: var(--fr-text-base);
+	padding: var(--fr-space-2);
 	z-index: 2;
+	border-radius: var(--fr-radius-sm);
+	transition: all var(--fr-transition-fast);
 }
 [dir="rtl"] .field-clear {
 	right: auto;
 	left: 8px;
 }
 .field-clear:hover {
-	color: #ef4444;
+	color: var(--fr-text-danger);
+	background: var(--fr-bg-danger);
 }
 .field-loading {
 	position: absolute;
@@ -345,48 +362,47 @@ watch(
 	left: 10px;
 }
 .field-dropdown {
-	background: white;
-	border: 1px solid var(--border-color);
-	border-radius: 8px;
+	background: var(--fr-bg-card);
+	border: 1px solid var(--fr-border);
+	border-radius: var(--fr-radius-lg);
 	max-height: 300px;
 	overflow-y: auto;
-	box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12), 0 2px 6px rgba(15, 23, 42, 0.08);
+	box-shadow: var(--fr-shadow-lg);
 }
 .field-section-break {
-	padding: 8px 10px;
-	font-size: 11px;
-	font-weight: 700;
-	color: var(--text-muted);
-	background-color: var(--bg-light);
+	padding: var(--fr-space-4) var(--fr-space-5);
+	font-size: var(--fr-text-sm);
+	font-weight: var(--fr-weight-bold);
+	color: var(--fr-text-muted);
+	background-color: var(--fr-bg-muted);
 	text-transform: uppercase;
 	letter-spacing: 0.4px;
-	border-bottom: 1px solid var(--border-color);
+	border-bottom: 1px solid var(--fr-border);
 	pointer-events: none;
 }
 .field-option {
-	padding: 8px 10px;
+	padding: var(--fr-space-4) var(--fr-space-5);
 	cursor: pointer;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	gap: 10px;
-	border-bottom: 1px solid var(--border-color);
-	background: #fff;
+	gap: var(--fr-space-5);
+	border-bottom: 1px solid #f8fafc;
+	background: var(--fr-bg-card);
+	transition: background var(--fr-transition-fast);
 }
 .field-option:last-child {
 	border-bottom: none;
 }
 .field-option:hover {
-	background: #f8fafc;
+	background: var(--fr-bg-hover);
 }
-.field-option.selected {
-	background: #eff6ff;
-}
+.field-option.selected,
 .field-option.active-item {
-	background: #eff6ff;
+	background: var(--fr-bg-active);
 }
 .field-option.disabled {
-	color: var(--text-muted);
+	color: var(--fr-text-muted);
 	cursor: default;
 }
 .field-text {
@@ -394,19 +410,18 @@ watch(
 	min-width: 0;
 }
 .field-primary {
-	font-size: 13px;
-	font-weight: 500;
-	color: #1f2937;
+	font-size: var(--fr-text-md);
+	font-weight: var(--fr-weight-medium);
+	color: var(--fr-text);
 	line-height: 1.2;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
 }
 .field-meta {
-	font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
-		"Courier New", monospace;
-	font-size: 11px;
-	color: #64748b;
+	font-family: var(--fr-font-mono);
+	font-size: var(--fr-text-sm);
+	color: var(--fr-text-muted);
 	line-height: 1.2;
 	margin-top: 2px;
 	white-space: nowrap;
@@ -414,11 +429,12 @@ watch(
 	text-overflow: ellipsis;
 }
 .field-type {
-	font-size: 10px;
+	font-size: var(--fr-text-xs);
 	padding: 2px 6px;
 	flex-shrink: 0;
-	background: #f1f5f9;
-	color: #475569;
-	border-radius: 999px;
+	background: var(--fr-bg-muted);
+	color: var(--fr-text-secondary);
+	border-radius: var(--fr-radius-pill);
+	font-weight: var(--fr-weight-medium);
 }
 </style>

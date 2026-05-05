@@ -167,8 +167,7 @@ export function useActionConfig(props) {
 		// Allow expressions and variables
 		if (typeof fieldname === "string" && fieldname.startsWith("{")) return true;
 
-		const field_set = new Set(dt_fields.map((f) => f.value));
-		return field_set.has(fieldname);
+		return dt_fields.some((f) => f.value === fieldname);
 	}
 
 	return {

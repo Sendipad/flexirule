@@ -24,7 +24,17 @@
 				<div class="sub-section section-subcard">
 					<h6>{{ __("Fields") }}</h6>
 					<div class="table-rows">
-						<div v-for="(row, idx) in field_rows" :key="idx" class="row-item field-row">
+						<div
+							v-for="(row, idx) in visible_field_rows"
+							:key="idx"
+							class="row-item field-row"
+						>
+							<input
+								type="checkbox"
+								v-model="row._selected"
+								class="mr-2"
+								style="margin-top: 0"
+							/>
 							<div class="field-picker-container">
 								<FieldPickerControl
 									:df="{ label: '' }"
@@ -54,21 +64,58 @@
 								<i class="fa fa-trash"></i>
 							</button>
 						</div>
-						<button v-if="!readOnly" class="btn btn-xs btn-link" @click="add_field">
-							<i class="fa fa-plus"></i> {{ __("Add Field") }}
-						</button>
-						<button
-							v-if="!readOnly"
-							class="btn btn-xs btn-link text-primary"
-							@click="show_field_selector = !show_field_selector"
-						>
-							<i class="fa fa-list"></i>
-							{{
-								show_field_selector
-									? __("Hide Field Selector")
-									: __("Select Fields")
-							}}
-						</button>
+						<div class="d-flex flex-wrap align-items-center gap-2 mt-2">
+							<button
+								v-if="!readOnly"
+								class="btn btn-xs btn-link p-0"
+								@click="add_field"
+							>
+								<i class="fa fa-plus mr-1"></i> {{ __("Add Field") }}
+							</button>
+							<button
+								v-if="!readOnly"
+								class="btn btn-xs btn-link p-0 text-primary ml-2"
+								@click="show_field_selector = !show_field_selector"
+							>
+								<i class="fa fa-list mr-1"></i>
+								{{
+									show_field_selector
+										? __("Hide Field Selector")
+										: __("Select Fields")
+								}}
+							</button>
+							<button
+								v-if="!readOnly && has_selected_fields"
+								class="btn btn-xs btn-danger ml-2"
+								@click="delete_selected_fields"
+							>
+								<i class="fa fa-trash mr-1"></i> {{ __("Delete Selected") }}
+							</button>
+
+							<div v-if="field_rows.length > 10" class="ml-auto d-flex gap-2">
+								<button
+									v-if="display_limit === 10 && field_rows.length > 10"
+									class="btn btn-xs btn-default"
+									@click="show_50_fields"
+								>
+									{{ __("Show 50") }}
+								</button>
+								<button
+									v-if="display_limit !== 'all' && field_rows.length > 50"
+									class="btn btn-xs btn-default"
+									@click="show_all_fields"
+								>
+									{{ __("Show All") }}
+								</button>
+								<button
+									v-if="display_limit !== 10"
+									class="btn btn-xs btn-default"
+									@click="display_limit = 10"
+								>
+									{{ __("Show Less") }}
+								</button>
+							</div>
+						</div>
 					</div>
 
 					<!-- Inline Field Selector -->
@@ -432,6 +479,7 @@ const {
 	sync_config,
 	is_field_valid,
 	refresh_variables,
+	update_action_field,
 } = useActionConfig(props);
 const { getPolicyField } = useNodeConfigPolicy({
 	actionType: () => props.node?.data?.action_type || "Query Records",
@@ -439,48 +487,84 @@ const { getPolicyField } = useNodeConfigPolicy({
 	processName: () => props.node?.data?.process_name || "",
 });
 
+// Local state for UI controls
+const field_rows = ref([]);
+const order_by_rows = ref([]);
+const report_filters = ref([]);
+const report_filter_values = reactive({});
+const report_filter_types = reactive({});
 const test_status = ref("");
+const display_limit = ref(10);
+const show_field_selector = ref(false);
+const field_search_query = ref("");
+
+// Internal flag to prevent recursive sync loops
+let is_internal_update = false;
 
 // Initialize local config
 onMounted(async () => {
-	load_local_config(props.node?.data?.config);
-	if (reference_doctype.value) {
-		await loadDocMeta(reference_doctype.value);
+	is_internal_update = true;
+	try {
+		load_local_config(props.node?.data?.config);
+		if (reference_doctype.value) {
+			await loadDocMeta(reference_doctype.value);
+			await load_doctype_fields(reference_doctype.value);
+		}
+		await refresh_variables();
+		await debounced_schema_update();
+	} finally {
+		is_internal_update = false;
 	}
-	await refresh_variables();
-	update_resolved_schema();
 });
 
 // Watch for external config changes
 watch(
 	() => props.node?.data?.config,
-	(val) => load_local_config(val)
+	(val) => {
+		if (!is_internal_update) {
+			load_local_config(val);
+		}
+	}
 );
 
 // Watch for doctype changes to reload meta
 watch(
 	() => reference_doctype.value,
-	async (val) => {
-		if (val) {
+	async (val, oldVal) => {
+		if (val && val !== oldVal) {
 			await loadDocMeta(val);
 			await load_doctype_fields(val);
-			sync_local_config();
+			// Only sync if this was a user change (not during initial mount)
+			if (!is_internal_update) {
+				sync_local_config();
+			}
 		}
 	}
 );
 
-// Sync local config changes back to node
-watch(
-	() => config,
-	(val) => sync_config({ ...val }),
-	{ deep: true }
-);
+// Sync local config changes back to node (handled by debounced_sync)
 
-const field_rows = ref([]);
-const order_by_rows = ref([]);
+const visible_field_rows = computed(() => {
+	if (display_limit.value === "all") return field_rows.value;
+	return field_rows.value.slice(0, display_limit.value);
+});
 
-const show_field_selector = ref(false);
-const field_search_query = ref("");
+const has_selected_fields = computed(() => {
+	return field_rows.value.some((r) => r._selected);
+});
+
+function delete_selected_fields() {
+	field_rows.value = field_rows.value.filter((r) => !r._selected);
+	sync_local_config();
+}
+
+function show_50_fields() {
+	display_limit.value = 50;
+}
+
+function show_all_fields() {
+	display_limit.value = "all";
+}
 
 const filtered_selector_fields = computed(() => {
 	const query = field_search_query.value.toLowerCase();
@@ -532,10 +616,6 @@ if (!window.frappe.query_report) {
 		},
 	};
 }
-
-const report_filters = ref([]);
-const report_filter_values = reactive({});
-const report_filter_types = reactive({});
 
 function evaluate_depends_on(expression, values) {
 	if (!expression) return true;
@@ -782,8 +862,10 @@ function update_config_key(key, value) {
 watch(
 	() => mode.value,
 	(newMode) => {
-		if (newMode === "Query Report") {
-			props.node.data.reference_doctype = "Report";
+		if (newMode === "Query Report" && props.node?.data) {
+			if (props.node.data.reference_doctype !== "Report") {
+				update_action_field("reference_doctype", "Report");
+			}
 		}
 	}
 );
@@ -791,11 +873,12 @@ watch(
 // Watch for report docname changes to load filters
 watch(
 	() => props.node?.data?.reference_docname,
-	(newVal) => {
-		if (mode.value === "Query Report" && newVal) {
+	(newVal, oldVal) => {
+		if (mode.value === "Query Report" && newVal && newVal !== oldVal) {
 			load_report_filters(newVal);
 		}
-	}
+	},
+	{ immediate: true }
 );
 
 function add_field() {
@@ -836,11 +919,14 @@ function get_group_by_options() {
 	}));
 }
 
+async function get_variable_options() {
+	if (!props.node?.id) return [];
+	return await store.getAvailableVariables(props.node.id);
+}
+
 function build_order_by() {
 	return order_by_rows.value.map((r) => `${r.field} ${r.direction || "asc"}`).join(", ");
 }
-
-let is_syncing_out = false;
 
 function sync_local_config() {
 	const new_config = {};
@@ -869,11 +955,12 @@ function sync_local_config() {
 	const next_str = JSON.stringify(new_config || {});
 
 	if (current_str !== next_str) {
-		is_syncing_out = true;
+		is_internal_update = true;
 		sync_config(new_config);
+		// Reset flag after a short delay to allow the prop update to flow back
 		setTimeout(() => {
-			is_syncing_out = false;
-		}, 100);
+			is_internal_update = false;
+		}, 150);
 	}
 }
 
@@ -1024,13 +1111,18 @@ function load_local_config(val) {
 		parsed = val;
 	}
 
-	Object.keys(config).forEach((k) => delete config[k]);
-	Object.assign(config, parsed);
+	const current_config_str = JSON.stringify(config);
+	const next_config_str = JSON.stringify(parsed);
 
-	if (!config.filters) {
-		config.filters = mode.value === "Query Report" ? {} : [];
+	if (current_config_str !== next_config_str) {
+		Object.keys(config).forEach((k) => delete config[k]);
+		Object.assign(config, parsed);
+
+		if (!config.filters) {
+			config.filters = mode.value === "Query Report" ? {} : [];
+		}
+		if (!config.limit && mode.value === "Query List") config.limit = 20;
 	}
-	if (!config.limit && mode.value === "Query List") config.limit = 20;
 
 	if (mode.value === "Query Report") {
 		const r_filters = parsed.filters || {};
@@ -1041,56 +1133,39 @@ function load_local_config(val) {
 	}
 
 	const fields = parsed.fields || [];
-	field_rows.value = Array.isArray(fields) ? fields.map((f) => ({ field: f })) : [];
+	const next_fields = Array.isArray(fields) ? fields.map((f) => ({ field: f })) : [];
+	const current_fields = field_rows.value.map((r) => ({ field: r.field }));
+	if (JSON.stringify(next_fields) !== JSON.stringify(current_fields)) {
+		field_rows.value = next_fields;
+	}
 
 	const order_by = parsed.order_by || "";
-	if (order_by) {
-		order_by_rows.value = order_by.split(",").map((s) => {
-			const parts = s.trim().split(/\s+/);
-			return {
-				field: parts[0],
-				direction: (parts[1] || "asc").toLowerCase(),
-			};
-		});
-	} else {
-		order_by_rows.value = [];
+	const next_order_by_rows = order_by
+		? order_by.split(",").map((s) => {
+				const parts = s.trim().split(/\s+/);
+				return {
+					field: parts[0],
+					direction: (parts[1] || "asc").toLowerCase(),
+				};
+		  })
+		: [];
+	const current_order_by_rows = order_by_rows.value.map((r) => ({
+		field: r.field,
+		direction: r.direction,
+	}));
+	if (JSON.stringify(next_order_by_rows) !== JSON.stringify(current_order_by_rows)) {
+		order_by_rows.value = next_order_by_rows;
 	}
 }
 
+// Unified watch for all local state changes
 watch(
-	() => props.node?.data?.reference_docname,
-	(val) => {
-		if (mode.value === "Query Report" && val) {
-			load_report_filters(val);
-		}
-	},
-	{ immediate: true }
-);
-
-watch(
-	() => [props.node?.data?.config, mode.value],
-	([val]) => {
-		if (!is_syncing_out) {
-			load_local_config(val);
-		}
-	},
-	{ immediate: true }
-);
-
-watch(
-	() => [field_rows.value, order_by_rows.value, config],
+	() => [field_rows.value, order_by_rows.value, config, report_filter_values],
 	() => {
-		debounced_sync();
-		debounced_schema_update();
-	},
-	{ deep: true }
-);
-
-watch(
-	() => report_filter_values,
-	() => {
-		debounced_sync();
-		debounced_schema_update();
+		if (!is_internal_update) {
+			debounced_sync();
+			debounced_schema_update();
+		}
 	},
 	{ deep: true }
 );
@@ -1101,83 +1176,93 @@ defineExpose({
 </script>
 
 <style scoped>
+/* ─── QueryRecordsConfig – Unified Design ─── */
 .query-config {
 	display: flex;
 	flex-direction: column;
-	gap: 16px;
+	gap: var(--fr-space-8);
+	font-family: var(--fr-font-family);
 }
 
 .config-section {
 	display: flex;
 	flex-direction: column;
-	gap: 12px;
+	gap: var(--fr-space-6);
 }
 
 .section-card {
-	border: 1px solid var(--border-color);
-	border-radius: 8px;
-	padding: 12px;
-	background: var(--bg-light, #fff);
+	border: 1px solid var(--fr-border);
+	border-radius: var(--fr-radius-xl);
+	padding: var(--fr-space-6);
+	background: var(--fr-bg-card);
 }
 
 .section-subcard {
-	border: 1px dashed var(--border-color);
-	border-radius: 6px;
-	padding: 10px;
+	border: 1px dashed var(--fr-border);
+	border-radius: var(--fr-radius-lg);
+	padding: var(--fr-space-5);
 }
 
 .sub-section {
 	display: flex;
 	flex-direction: column;
-	gap: 8px;
+	gap: var(--fr-space-4);
 }
 
 .table-rows {
 	display: flex;
 	flex-direction: column;
-	gap: 6px;
+	gap: var(--fr-space-3);
 }
 
 .row-item {
 	display: grid;
 	grid-template-columns: 1.4fr 0.8fr 1.6fr 0.8fr auto;
-	gap: 6px;
+	gap: var(--fr-space-3);
 	align-items: center;
 }
 
 .row-item.report-filter-row {
 	grid-template-columns: 1fr 2fr;
-	padding: 4px 0;
-	border-bottom: 1px solid var(--border-color-beautified, #f4f5f6);
+	padding: var(--fr-space-2) 0;
+	border-bottom: 1px solid var(--fr-bg-muted);
 }
 
 .filter-label-group {
 	display: flex;
 	align-items: center;
-	gap: 8px;
+	gap: var(--fr-space-4);
 }
 
 .filter-label {
 	margin: 0;
-	font-size: 12px;
-	color: var(--text-muted);
-	font-weight: 500;
+	font-size: var(--fr-text-base);
+	color: var(--fr-text-secondary);
+	font-weight: var(--fr-weight-medium);
 }
 
 .expression-input-group {
 	display: flex;
 	align-items: center;
-	background: #fff8e1;
-	border-radius: 4px;
-	padding: 0 8px;
-	border: 1px solid #ffe082;
+	background: var(--fr-badge-expr);
+	border-radius: var(--fr-radius-md);
+	padding: 0 var(--fr-space-4);
+	border: 1px solid #fed7aa;
+	transition: border-color var(--fr-transition-fast);
+}
+
+.expression-input-group:focus-within {
+	border-color: #fb923c;
+	box-shadow: 0 0 0 2px rgba(251, 146, 60, 0.1);
 }
 
 .expr-prefix,
 .expr-suffix {
-	font-weight: bold;
-	color: #ffa000;
+	font-weight: var(--fr-weight-bold);
+	color: #ea580c;
+	user-select: none;
 }
+
 .field-picker-container {
 	position: relative;
 	flex: 1;
@@ -1191,16 +1276,57 @@ defineExpose({
 	z-index: 5;
 	pointer-events: all;
 	cursor: help;
+	font-size: var(--fr-text-sm);
 }
 
 :deep(.border-warning .form-control) {
-	border-color: var(--orange-500, #ff9800) !important;
-	background-color: #fff8f1 !important;
+	border-color: #f59e0b !important;
+	background-color: #fffbeb !important;
 }
 
 .field-row {
 	display: flex;
 	align-items: center;
-	gap: 8px;
+	gap: var(--fr-space-4);
+}
+
+:deep(.field-picker-control) {
+	margin-bottom: 0 !important;
+}
+
+:deep(.control.frappe-control) {
+	margin-bottom: 0 !important;
+}
+
+/* ─── Unified input sizing inside QRC ─── */
+:deep(.form-control),
+:deep(input.form-control),
+:deep(select.form-control) {
+	height: var(--fr-input-height) !important;
+	padding: var(--fr-input-padding-y) var(--fr-input-padding-x) !important;
+	font-size: var(--fr-input-font-size) !important;
+	border: 1px solid var(--fr-border) !important;
+	border-radius: var(--fr-radius-md) !important;
+	transition: border-color var(--fr-transition-fast), box-shadow var(--fr-transition-fast) !important;
+}
+
+:deep(.form-control:focus) {
+	border-color: var(--fr-border-focus) !important;
+	box-shadow: var(--fr-shadow-focus) !important;
+}
+
+:deep(.form-control:hover:not(:disabled):not(:focus)) {
+	border-color: var(--fr-border-strong) !important;
+}
+
+:deep(select.form-control) {
+	appearance: none !important;
+	-webkit-appearance: none !important;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") !important;
+	background-repeat: no-repeat !important;
+	background-position: right 6px center !important;
+	background-size: 12px !important;
+	padding-right: 24px !important;
+	cursor: pointer;
 }
 </style>

@@ -69,7 +69,7 @@ onMounted(() => {
 </script>
 
 <template>
-	<div class="control frappe-control" :class="{ editable: slots.label }">
+	<div class="control fr-control" :class="{ editable: slots.label }">
 		<!-- label -->
 		<div v-if="slots.label && !hideLabel" class="field-controls">
 			<slot name="label" />
@@ -86,7 +86,7 @@ onMounted(() => {
 		<!-- data input -->
 		<input
 			v-if="slots.label"
-			class="form-control"
+			class="form-control fr-input"
 			type="text"
 			:style="{ height: df.fieldtype == 'Table MultiSelect' ? '42px' : '' }"
 			:placeholder="__(placeholder)"
@@ -94,7 +94,7 @@ onMounted(() => {
 		/>
 		<input
 			v-else
-			class="form-control"
+			class="form-control fr-input"
 			type="text"
 			:value="modelValue"
 			:disabled="read_only || df.read_only"
@@ -104,7 +104,7 @@ onMounted(() => {
 		/>
 		<input
 			v-if="slots.label && df.fieldtype === 'Barcode'"
-			class="mt-2 form-control"
+			class="mt-2 form-control fr-input"
 			type="text"
 			:style="{ height: '110px' }"
 			readonly
@@ -130,7 +130,31 @@ onMounted(() => {
 	</div>
 </template>
 
-<style lang="scss" scoped>
+<style scoped>
+/* ─── DataControl – Unified Design ─── */
+.fr-control {
+	display: flex;
+	flex-direction: column;
+}
+
+.control-label {
+	font-size: var(--fr-text-sm);
+	font-weight: var(--fr-weight-medium);
+	margin-bottom: var(--fr-space-2);
+	color: var(--fr-text-secondary);
+}
+
+.control-label.reqd::after {
+	content: " *";
+	color: var(--fr-text-danger);
+}
+
+.description {
+	font-size: var(--fr-text-xs);
+	color: var(--fr-text-muted);
+	margin-top: var(--fr-space-2);
+}
+
 .selected-color {
 	background-color: transparent;
 	top: 30px !important;
@@ -138,5 +162,11 @@ onMounted(() => {
 
 .selected-phone {
 	top: 32px !important;
+}
+
+.time-zone {
+	font-size: var(--fr-text-xs);
+	color: var(--fr-text-muted);
+	font-style: italic;
 }
 </style>

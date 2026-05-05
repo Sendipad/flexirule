@@ -197,15 +197,46 @@ function onDrop(event) {
 </template>
 
 <style scoped>
+/* ─── LinkControl – Unified Design ─── */
 .field-controls {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
-	margin-bottom: 4px;
+	margin-bottom: var(--fr-space-2);
+}
+
+.control-label {
+	font-size: var(--fr-text-sm);
+	font-weight: var(--fr-weight-medium);
+	color: var(--fr-text-secondary);
+}
+
+.control-label.reqd::after {
+	content: " *";
+	color: var(--fr-text-danger);
 }
 
 .description {
-	font-size: 11px;
-	color: var(--text-muted);
+	font-size: var(--fr-text-xs);
+	color: var(--fr-text-muted);
+}
+
+/* Deep overrides for Frappe-injected input */
+:deep(.form-control) {
+	height: var(--fr-input-height) !important;
+	font-size: var(--fr-input-font-size) !important;
+	padding: var(--fr-input-padding-y) var(--fr-input-padding-x) !important;
+	border: 1px solid var(--fr-border) !important;
+	border-radius: var(--fr-radius-md) !important;
+	transition: border-color var(--fr-transition-fast), box-shadow var(--fr-transition-fast) !important;
+}
+
+:deep(.form-control:focus) {
+	border-color: var(--fr-border-focus) !important;
+	box-shadow: var(--fr-shadow-focus) !important;
+}
+
+:deep(.form-control:hover:not(:disabled):not(:focus)) {
+	border-color: var(--fr-border-strong) !important;
 }
 </style>
