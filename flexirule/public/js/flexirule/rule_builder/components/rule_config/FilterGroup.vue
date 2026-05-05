@@ -73,7 +73,7 @@
 							@change="(e) => toggleValueType(idx, e.target.value)"
 						>
 							<option v-for="vt in getValueTypeOptions(row)" :key="vt" :value="vt">
-								{{ getValueTypeLabel(vt) }}
+								{{ getValueTypeLabel(vt, row) }}
 							</option>
 						</select>
 					</div>
@@ -723,8 +723,11 @@ const getFieldDef = (fieldname, doctype) => {
 		return { fieldname, value: fieldname, fieldtype: "Int", label: "Docstatus" };
 	}
 
-	// Try Frappe's native meta cache first
-	const raw_fieldname = fieldname.startsWith("doc.") ? fieldname.substring(4) : fieldname;
+	// Try Frappe's native meta cache
+	const raw_fieldname =
+		typeof fieldname === "string" && fieldname.startsWith("doc.")
+			? fieldname.substring(4)
+			: fieldname;
 	if (dt && window.frappe && frappe.meta && frappe.meta.has_field(dt, raw_fieldname)) {
 		const df = frappe.meta.get_docfield(dt, raw_fieldname);
 		if (df) {
@@ -769,7 +772,20 @@ const getOperatorLabel = (operator, row) => {
 	return operatorLabelMap[operator] || operator;
 };
 
-const getValueTypeLabel = (valueType) => VALUE_TYPE_LABELS[valueType] || __(valueType);
+const getValueTypeLabel = (valueType, row) => {
+	if (valueType === BUILDER_VALUE_TYPE) {
+		const field = getFieldDef(row?.field, row?.doctype || props.doctype);
+		if (field && DATE_FIELDTYPES.has(field.fieldtype)) return __("Date Formula");
+		if (
+			field &&
+			BUILDER_SUPPORTED_FIELDTYPES.has(field.fieldtype) &&
+			!DATE_FIELDTYPES.has(field.fieldtype)
+		)
+			return __("Math Formula");
+		return __("Formula Builder");
+	}
+	return VALUE_TYPE_LABELS[valueType] || __(valueType);
+};
 
 const getValueTypeOptions = (row) => {
 	const field = getFieldDef(row.field, row.doctype || props.doctype);
@@ -800,13 +816,13 @@ const getVariableOptions = async () => {
 const getControlFactorySchema = (row) => {
 	const field = getFieldDef(row.field, row.doctype || props.doctype);
 	let schema = field ? frappe.utils.deep_clone(field) : { fieldtype: "Data", fieldname: "value" };
-	const raw_fieldname =
-		field?.fieldname ||
-		(row.field?.startsWith("doc.") ? row.field.substring(4) : row.field) ||
-		"value";
+	const rawField =
+		typeof row.field === "string" && row.field.startsWith("doc.")
+			? row.field.substring(4)
+			: row.field;
 	schema.label = "";
 	schema.read_only = props.readOnly;
-	schema.fieldname = raw_fieldname; // Ensure valid fieldname for frappe controls (no doc. prefix)
+	schema.fieldname = rawField; // Ensure valid fieldname for frappe controls (no doc. prefix)
 
 	// Native Frappe Filter Manipulation (perfect parity)
 	if (window.frappe && frappe.ui && frappe.ui.filter_utils) {
@@ -989,11 +1005,42 @@ const compileBuilderExpression = (builder) => {
 		return `{int(frappe.utils.month_diff(${end}, ${start}) / 12)}`;
 	}
 
+	if (item.kind === "child_aggregation") {
+		const tbl = item.agg_table || '""';
+		const fld = item.agg_field || '""';
+		if (item.agg_op === "count") return `{len(doc.get("${tbl}"))}`;
+		if (item.agg_op === "avg") {
+			return `{sum([frappe.utils.flt(row.get("${fld}")) for row in doc.get("${tbl}")]) / (len(doc.get("${tbl}")) or 1)}`;
+		}
+		return `{sum([frappe.utils.flt(row.get("${fld}")) for row in doc.get("${tbl}")])}`;
+	}
+
+	if (item.kind === "string_formula") {
+		const valA =
+			item.str_a_type === "field" ? `doc.${item.str_a || '""'}` : `"${item.str_a || ""}"`;
+		const valB =
+			item.str_b_type === "field" ? `doc.${item.str_b || '""'}` : `"${item.str_b || ""}"`;
+
+		if (item.str_op === "concat") return `{str(${valA}) + str(${valB})}`;
+		if (item.str_op === "uppercase") return `{str(${valA}).upper()}`;
+		if (item.str_op === "lowercase") return `{str(${valA}).lower()}`;
+		if (item.str_op === "fmt_money")
+			return `{frappe.utils.fmt_money(${valA}, currency=${valB})}`;
+		return `{${valA}}`;
+	}
+
+	if (item.kind === "system_context") {
+		if (item.sys_token === "role_check") {
+			return `{"${item.sys_role}" in frappe.get_roles(frappe.session.user)}`;
+		}
+		return `{frappe.session.user}`;
+	}
+
 	// Default: date_formula
 	const baseExpr =
 		item.base_type === "today" ? "frappe.utils.nowdate()" : `doc.${item.base_field}`;
 
-	if (item.offset_value === 0) {
+	if (item.offset_value === 0 || !item.offset_unit) {
 		return `{${baseExpr}}`;
 	}
 
@@ -1196,10 +1243,10 @@ const toggleValueType = (idx, type) => {
 		}
 	} else if (type === "Expression" || type === "Variable") {
 		row.builder = null;
-		if (!row.value || !row.value.startsWith("{")) {
+		if (!row.value || typeof row.value !== "string" || !row.value.startsWith("{")) {
 			row.value = `{${row.value || ""}}`;
 		}
-	} else if (row.value && row.value.startsWith("{")) {
+	} else if (row.value && typeof row.value === "string" && row.value.startsWith("{")) {
 		row.builder = null;
 		row.value = stripBracket(row.value);
 	} else {

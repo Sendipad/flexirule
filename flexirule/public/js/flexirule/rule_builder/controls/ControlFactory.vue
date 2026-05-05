@@ -54,8 +54,7 @@
 				{{ __(df.label) }}
 			</div>
 			<input
-				type="number"
-				step="any"
+				type="text"
 				class="form-control input-sm"
 				:value="modelValue"
 				:disabled="df.read_only"

@@ -1,158 +1,111 @@
 <template>
-	<div class="value-resolver-control" ref="controlRef">
+	<div class="value-resolver-control fr-control" ref="controlRef">
 		<!-- Token UI -->
-		<div class="resolver-token" :class="{ 'is-active': showPopover }" @click="togglePopover">
-			<div class="token-content">
+		<div class="fr-token" :class="{ 'is-active': showPopover }" @click="togglePopover">
+			<div class="fr-token__content">
 				<i :class="categoryIcon" class="text-muted mr-1"></i>
-				<span class="token-text">{{ previewText }}</span>
+				<span class="fr-token__text">{{ previewText }}</span>
 			</div>
-			<i class="fa fa-chevron-down token-caret"></i>
+			<i class="fa fa-chevron-down fr-token__caret"></i>
 		</div>
 
 		<!-- Popover -->
-		<div v-if="showPopover" class="resolver-popover shadow-sm">
-			<div class="popover-header">
-				<span class="font-weight-bold extra-small text-uppercase text-muted">{{
-					__(popoverTitle)
-				}}</span>
-				<button class="btn btn-xs btn-link p-0 text-muted" @click="closePopover">
-					<i class="fa fa-times"></i>
-				</button>
-			</div>
-			<div class="popover-body">
-				<!-- Category Selector -->
-				<div class="config-row mb-3">
-					<label class="control-label small">{{ __("Formula Type") }}</label>
-					<select
-						class="form-control input-xs"
-						v-model="localState.kind"
-						:disabled="readOnly"
-					>
-						<option
-							v-for="cat in availableCategories"
-							:key="cat.value"
-							:value="cat.value"
-						>
-							{{ cat.label }}
-						</option>
-					</select>
+		<Teleport to="body">
+			<div v-if="showPopover" class="fr-popover" :style="popoverStyle">
+				<div class="fr-popover__header">
+					<span class="fr-label-sm mb-0">{{ __(popoverTitle) }}</span>
+					<button class="fr-btn fr-btn--icon fr-btn--sm" @click="closePopover">
+						<i class="fa fa-times"></i>
+					</button>
 				</div>
-
-				<hr class="my-2 border-top" />
-
-				<!-- ═══════════ Date Formula ═══════════ -->
-				<template v-if="localState.kind === 'date_formula'">
-					<div class="config-row">
-						<label class="control-label small">{{ __("Base Date") }}</label>
-						<div class="d-flex gap-2">
-							<select
-								class="form-control input-xs flex-1"
-								v-model="localState.base_type"
-								:disabled="readOnly"
-							>
-								<option value="today">{{ __("Today") }}</option>
-								<option value="doc_field">{{ __("Document Field") }}</option>
-							</select>
-							<select
-								v-if="localState.base_type === 'doc_field'"
-								class="form-control input-xs flex-1"
-								v-model="localState.base_field"
-								:disabled="readOnly"
-							>
-								<option
-									v-for="opt in dateFieldOptions"
-									:key="opt.value"
-									:value="opt.value"
-								>
-									{{ opt.label }}
-								</option>
-							</select>
-						</div>
-					</div>
-					<div class="config-row mt-2">
-						<label class="control-label small">{{ __("Offset") }}</label>
-						<div class="d-flex align-items-center gap-2">
-							<select
-								class="form-control input-xs"
-								v-model="localState.offset_sign"
-								style="width: 60px"
-								:disabled="readOnly"
-							>
-								<option value="+">+</option>
-								<option value="-">-</option>
-							</select>
-							<input
-								type="number"
-								class="form-control input-xs"
-								style="width: 60px"
-								v-model.number="localState.offset_value"
-								min="0"
-								:disabled="readOnly"
-							/>
-							<select
-								class="form-control input-xs flex-1"
-								v-model="localState.offset_unit"
-								:disabled="readOnly"
-							>
-								<option value="days">{{ __("Days") }}</option>
-								<option value="weeks">{{ __("Weeks") }}</option>
-								<option value="months">{{ __("Months") }}</option>
-								<option value="years">{{ __("Years") }}</option>
-								<option value="hours">{{ __("Hours") }}</option>
-							</select>
-						</div>
-					</div>
-				</template>
-
-				<!-- ═══════════ Math Formula ═══════════ -->
-				<template v-else-if="localState.kind === 'math_formula'">
-					<div class="config-row">
-						<label class="control-label small">{{ __("Field A") }}</label>
-						<select
-							class="form-control input-xs"
-							v-model="localState.field_a"
-							:disabled="readOnly"
-						>
-							<option value="">{{ __("Select field...") }}</option>
+				<div class="fr-popover__body">
+					<!-- Category Selector -->
+					<div class="d-flex flex-column fr-gap-1">
+						<label class="fr-label-sm">{{ __("Formula Type") }}</label>
+						<select class="fr-select" v-model="localState.kind" :disabled="readOnly">
 							<option
-								v-for="opt in numericFieldOptions"
-								:key="opt.value"
-								:value="opt.value"
+								v-for="cat in availableCategories"
+								:key="cat.value"
+								:value="cat.value"
 							>
-								{{ opt.label }}
+								{{ cat.label }}
 							</option>
 						</select>
 					</div>
-					<div class="config-row mt-2">
-						<label class="control-label small">{{ __("Operator") }}</label>
-						<div class="d-flex gap-2">
-							<select
-								class="form-control input-xs"
-								v-model="localState.math_op"
-								:disabled="readOnly"
-							>
-								<option value="+">{{ __("Add (+)") }}</option>
-								<option value="-">{{ __("Subtract (-)") }}</option>
-								<option value="*">{{ __("Multiply (×)") }}</option>
-								<option value="/">{{ __("Divide (÷)") }}</option>
-							</select>
+
+					<hr class="my-4 border-top" />
+
+					<!-- ═══════════ Date Formula ═══════════ -->
+					<template v-if="localState.kind === 'date_formula'">
+						<div class="d-flex flex-column fr-gap-1">
+							<label class="fr-label-sm">{{ __("Base Date") }}</label>
+							<div class="d-flex fr-gap-2">
+								<select
+									class="fr-select flex-1"
+									v-model="localState.base_type"
+									:disabled="readOnly"
+								>
+									<option value="today">{{ __("Today") }}</option>
+									<option value="doc_field">{{ __("Document Field") }}</option>
+								</select>
+								<select
+									v-if="localState.base_type === 'doc_field'"
+									class="fr-select flex-1"
+									v-model="localState.base_field"
+									:disabled="readOnly"
+								>
+									<option
+										v-for="opt in dateFieldOptions"
+										:key="opt.value"
+										:value="opt.value"
+									>
+										{{ opt.label }}
+									</option>
+								</select>
+							</div>
 						</div>
-					</div>
-					<div class="config-row mt-2">
-						<label class="control-label small">{{ __("Field B / Value") }}</label>
-						<div class="d-flex gap-2">
+						<div class="d-flex flex-column fr-gap-1 mt-2">
+							<label class="fr-label-sm">{{ __("Offset") }}</label>
+							<div class="d-flex align-items-center fr-gap-2">
+								<select
+									class="fr-select"
+									v-model="localState.offset_sign"
+									style="width: 70px"
+									:disabled="readOnly"
+								>
+									<option value="+">+</option>
+									<option value="-">-</option>
+								</select>
+								<input
+									type="number"
+									class="fr-input"
+									style="width: 80px"
+									v-model.number="localState.offset_value"
+									min="0"
+									:disabled="readOnly"
+								/>
+								<select
+									class="fr-select flex-1"
+									v-model="localState.offset_unit"
+									:disabled="readOnly"
+								>
+									<option value="days">{{ __("Days") }}</option>
+									<option value="weeks">{{ __("Weeks") }}</option>
+									<option value="months">{{ __("Months") }}</option>
+									<option value="years">{{ __("Years") }}</option>
+									<option value="hours">{{ __("Hours") }}</option>
+								</select>
+							</div>
+						</div>
+					</template>
+
+					<!-- ═══════════ Math Formula ═══════════ -->
+					<template v-else-if="localState.kind === 'math_formula'">
+						<div class="d-flex flex-column fr-gap-1">
+							<label class="fr-label-sm">{{ __("Field A") }}</label>
 							<select
-								class="form-control input-xs flex-1"
-								v-model="localState.field_b_type"
-								:disabled="readOnly"
-							>
-								<option value="field">{{ __("Document Field") }}</option>
-								<option value="constant">{{ __("Fixed Value") }}</option>
-							</select>
-							<select
-								v-if="localState.field_b_type === 'field'"
-								class="form-control input-xs flex-1"
-								v-model="localState.field_b"
+								class="fr-select"
+								v-model="localState.field_a"
 								:disabled="readOnly"
 							>
 								<option value="">{{ __("Select field...") }}</option>
@@ -164,55 +117,158 @@
 									{{ opt.label }}
 								</option>
 							</select>
-							<input
-								v-else
-								type="number"
-								step="any"
-								class="form-control input-xs flex-1"
-								v-model.number="localState.constant_b"
-								:disabled="readOnly"
-								:placeholder="__('Enter value')"
-							/>
 						</div>
-					</div>
-					<div class="config-row mt-2">
-						<label class="control-label small">{{ __("Round To") }}</label>
-						<div class="d-flex align-items-center gap-2">
-							<input
-								type="number"
-								class="form-control input-xs"
-								style="width: 60px"
-								v-model.number="localState.precision"
-								min="0"
-								max="9"
+						<div class="d-flex flex-column fr-gap-1 mt-2">
+							<label class="fr-label-sm">{{ __("Operator") }}</label>
+							<select
+								class="fr-select"
+								v-model="localState.math_op"
 								:disabled="readOnly"
-							/>
-							<span class="text-muted small">{{ __("decimal places") }}</span>
+							>
+								<option value="+">{{ __("Add (+)") }}</option>
+								<option value="-">{{ __("Subtract (-)") }}</option>
+								<option value="*">{{ __("Multiply (×)") }}</option>
+								<option value="/">{{ __("Divide (÷)") }}</option>
+							</select>
 						</div>
-					</div>
-				</template>
+						<div class="d-flex flex-column fr-gap-1 mt-2">
+							<label class="fr-label-sm">{{ __("Field B / Value") }}</label>
+							<div class="d-flex fr-gap-2">
+								<select
+									class="fr-select flex-1"
+									v-model="localState.field_b_type"
+									:disabled="readOnly"
+								>
+									<option value="field">{{ __("Document Field") }}</option>
+									<option value="constant">{{ __("Fixed Value") }}</option>
+								</select>
+								<select
+									v-if="localState.field_b_type === 'field'"
+									class="fr-select flex-1"
+									v-model="localState.field_b"
+									:disabled="readOnly"
+								>
+									<option value="">{{ __("Select field...") }}</option>
+									<option
+										v-for="opt in numericFieldOptions"
+										:key="opt.value"
+										:value="opt.value"
+									>
+										{{ opt.label }}
+									</option>
+								</select>
+								<input
+									v-else
+									type="number"
+									step="any"
+									class="fr-input flex-1"
+									v-model.number="localState.constant_b"
+									:disabled="readOnly"
+									:placeholder="__('Enter value')"
+								/>
+							</div>
+						</div>
+						<div class="d-flex flex-column fr-gap-1 mt-2">
+							<label class="fr-label-sm">{{ __("Round To") }}</label>
+							<div class="d-flex align-items-center fr-gap-2">
+								<input
+									type="number"
+									class="fr-input"
+									style="width: 80px"
+									v-model.number="localState.precision"
+									min="0"
+									max="9"
+									:disabled="readOnly"
+								/>
+								<span class="text-muted fr-text-xs">{{
+									__("decimal places")
+								}}</span>
+							</div>
+						</div>
+					</template>
 
-				<!-- ═══════════ Date Difference ═══════════ -->
-				<template v-else-if="localState.kind === 'date_diff'">
-					<div class="config-row">
-						<label class="control-label small">{{ __("Start Date") }}</label>
-						<div class="d-flex gap-2">
+					<!-- ═══════════ Date Difference ═══════════ -->
+					<template v-else-if="localState.kind === 'date_diff'">
+						<div class="d-flex flex-column fr-gap-1">
+							<label class="fr-label-sm">{{ __("Start Date") }}</label>
+							<div class="d-flex fr-gap-2">
+								<select
+									class="fr-select flex-1"
+									v-model="localState.diff_start_type"
+									:disabled="readOnly"
+								>
+									<option value="today">{{ __("Today") }}</option>
+									<option value="doc_field">{{ __("Document Field") }}</option>
+								</select>
+								<select
+									v-if="localState.diff_start_type === 'doc_field'"
+									class="fr-select flex-1"
+									v-model="localState.diff_start_field"
+									:disabled="readOnly"
+								>
+									<option
+										v-for="opt in dateFieldOptions"
+										:key="opt.value"
+										:value="opt.value"
+									>
+										{{ opt.label }}
+									</option>
+								</select>
+							</div>
+						</div>
+						<div class="d-flex flex-column fr-gap-1 mt-2">
+							<label class="fr-label-sm">{{ __("End Date") }}</label>
+							<div class="d-flex fr-gap-2">
+								<select
+									class="fr-select flex-1"
+									v-model="localState.diff_end_type"
+									:disabled="readOnly"
+								>
+									<option value="today">{{ __("Today") }}</option>
+									<option value="doc_field">{{ __("Document Field") }}</option>
+								</select>
+								<select
+									v-if="localState.diff_end_type === 'doc_field'"
+									class="fr-select flex-1"
+									v-model="localState.diff_end_field"
+									:disabled="readOnly"
+								>
+									<option
+										v-for="opt in dateFieldOptions"
+										:key="opt.value"
+										:value="opt.value"
+									>
+										{{ opt.label }}
+									</option>
+								</select>
+							</div>
+						</div>
+						<div class="d-flex flex-column fr-gap-1 mt-2">
+							<label class="fr-label-sm">{{ __("Result Unit") }}</label>
 							<select
-								class="form-control input-xs flex-1"
-								v-model="localState.diff_start_type"
+								class="fr-select"
+								v-model="localState.diff_unit"
 								:disabled="readOnly"
 							>
-								<option value="today">{{ __("Today") }}</option>
-								<option value="doc_field">{{ __("Document Field") }}</option>
+								<option value="days">{{ __("Days") }}</option>
+								<option value="months">{{ __("Months") }}</option>
+								<option value="years">{{ __("Years") }}</option>
 							</select>
+						</div>
+					</template>
+
+					<!-- ═══════════ Aggregation Formula ═══════════ -->
+					<template v-else-if="localState.kind === 'child_aggregation'">
+						<div class="d-flex flex-column fr-gap-1">
+							<label class="fr-label-sm">{{ __("Child Table") }}</label>
 							<select
-								v-if="localState.diff_start_type === 'doc_field'"
-								class="form-control input-xs flex-1"
-								v-model="localState.diff_start_field"
+								class="fr-select"
+								v-model="localState.agg_table"
 								:disabled="readOnly"
 							>
+								<option value="">{{ __("Select child table...") }}</option>
 								<option
-									v-for="opt in dateFieldOptions"
+									v-for="opt in tableFieldOptions"
 									:key="opt.value"
 									:value="opt.value"
 								>
@@ -220,54 +276,185 @@
 								</option>
 							</select>
 						</div>
-					</div>
-					<div class="config-row mt-2">
-						<label class="control-label small">{{ __("End Date") }}</label>
-						<div class="d-flex gap-2">
-							<select
-								class="form-control input-xs flex-1"
-								v-model="localState.diff_end_type"
-								:disabled="readOnly"
-							>
-								<option value="today">{{ __("Today") }}</option>
-								<option value="doc_field">{{ __("Document Field") }}</option>
-							</select>
-							<select
-								v-if="localState.diff_end_type === 'doc_field'"
-								class="form-control input-xs flex-1"
-								v-model="localState.diff_end_field"
-								:disabled="readOnly"
-							>
-								<option
-									v-for="opt in dateFieldOptions"
-									:key="opt.value"
-									:value="opt.value"
-								>
-									{{ opt.label }}
-								</option>
-							</select>
-						</div>
-					</div>
-					<div class="config-row mt-2">
-						<label class="control-label small">{{ __("Result Unit") }}</label>
-						<select
-							class="form-control input-xs"
-							v-model="localState.diff_unit"
-							:disabled="readOnly"
+						<div
+							class="d-flex flex-column fr-gap-1 mt-2"
+							v-if="localState.agg_op !== 'count'"
 						>
-							<option value="days">{{ __("Days") }}</option>
-							<option value="months">{{ __("Months") }}</option>
-							<option value="years">{{ __("Years") }}</option>
-						</select>
+							<label class="fr-label-sm">{{ __("Numeric Field") }}</label>
+							<select
+								class="fr-select"
+								v-model="localState.agg_field"
+								:disabled="readOnly"
+							>
+								<option value="">{{ __("Select field...") }}</option>
+								<option
+									v-for="opt in aggFieldOptions"
+									:key="opt.value"
+									:value="opt.value"
+								>
+									{{ opt.label }}
+								</option>
+							</select>
+						</div>
+						<div class="d-flex flex-column fr-gap-1 mt-2">
+							<label class="fr-label-sm">{{ __("Operation") }}</label>
+							<select
+								class="fr-select"
+								v-model="localState.agg_op"
+								:disabled="readOnly"
+							>
+								<option value="sum">{{ __("Sum") }}</option>
+								<option value="avg">{{ __("Average") }}</option>
+								<option value="count">{{ __("Count Rows") }}</option>
+							</select>
+						</div>
+					</template>
+
+					<!-- ═══════════ String Formula ═══════════ -->
+					<template v-else-if="localState.kind === 'string_formula'">
+						<div class="d-flex flex-column fr-gap-1">
+							<label class="fr-label-sm">{{ __("Operation") }}</label>
+							<select
+								class="fr-select"
+								v-model="localState.str_op"
+								:disabled="readOnly"
+							>
+								<option value="concat">{{ __("Concatenate") }}</option>
+								<option value="fmt_money">{{ __("Format Currency") }}</option>
+								<option value="uppercase">{{ __("Uppercase") }}</option>
+								<option value="lowercase">{{ __("Lowercase") }}</option>
+							</select>
+						</div>
+						<div class="d-flex flex-column fr-gap-1 mt-2">
+							<label class="fr-label-sm">{{
+								localState.str_op === "fmt_money"
+									? __("Numeric Field")
+									: __("Value A")
+							}}</label>
+							<div class="d-flex gap-2">
+								<select
+									class="fr-select flex-1"
+									v-model="localState.str_a_type"
+									:disabled="readOnly"
+								>
+									<option value="field">{{ __("Document Field") }}</option>
+									<option value="constant">{{ __("Fixed Text") }}</option>
+								</select>
+								<select
+									v-if="localState.str_a_type === 'field'"
+									class="fr-select flex-1"
+									v-model="localState.str_a"
+									:disabled="readOnly"
+								>
+									<option value="">{{ __("Select field...") }}</option>
+									<option
+										v-for="opt in localState.str_op === 'fmt_money'
+											? numericFieldOptions
+											: stringFieldOptions"
+										:key="opt.value"
+										:value="opt.value"
+									>
+										{{ opt.label }}
+									</option>
+								</select>
+								<input
+									v-else
+									type="text"
+									class="fr-input flex-1"
+									v-model="localState.str_a"
+									:disabled="readOnly"
+									:placeholder="__('Enter text')"
+								/>
+							</div>
+						</div>
+						<div
+							class="d-flex flex-column fr-gap-1 mt-2"
+							v-if="['concat', 'fmt_money'].includes(localState.str_op)"
+						>
+							<label class="fr-label-sm">{{
+								localState.str_op === "fmt_money" ? __("Currency") : __("Value B")
+							}}</label>
+							<div class="d-flex gap-2">
+								<select
+									class="fr-select flex-1"
+									v-model="localState.str_b_type"
+									:disabled="readOnly"
+								>
+									<option value="field">{{ __("Document Field") }}</option>
+									<option value="constant">
+										{{
+											localState.str_op === "fmt_money"
+												? __("Fixed Currency")
+												: __("Fixed Text")
+										}}
+									</option>
+								</select>
+								<select
+									v-if="localState.str_b_type === 'field'"
+									class="fr-select flex-1"
+									v-model="localState.str_b"
+									:disabled="readOnly"
+								>
+									<option value="">{{ __("Select field...") }}</option>
+									<option
+										v-for="opt in stringFieldOptions"
+										:key="opt.value"
+										:value="opt.value"
+									>
+										{{ opt.label }}
+									</option>
+								</select>
+								<input
+									v-else
+									type="text"
+									class="fr-input flex-1"
+									v-model="localState.str_b"
+									:disabled="readOnly"
+									:placeholder="
+										localState.str_op === 'fmt_money'
+											? __('e.g. USD')
+											: __('Enter text')
+									"
+								/>
+							</div>
+						</div>
+					</template>
+
+					<!-- ═══════════ System Context ═══════════ -->
+					<template v-else-if="localState.kind === 'system_context'">
+						<div class="d-flex flex-column fr-gap-1">
+							<label class="fr-label-sm">{{ __("System Token") }}</label>
+							<select
+								class="fr-select"
+								v-model="localState.sys_token"
+								:disabled="readOnly"
+							>
+								<option value="user">{{ __("Current User") }}</option>
+								<option value="role_check">{{ __("Has Role?") }}</option>
+							</select>
+						</div>
+						<div
+							class="d-flex flex-column fr-gap-1 mt-2"
+							v-if="localState.sys_token === 'role_check'"
+						>
+							<label class="fr-label-sm">{{ __("Role Name") }}</label>
+							<input
+								type="text"
+								class="fr-input"
+								v-model="localState.sys_role"
+								:disabled="readOnly"
+								:placeholder="__('e.g. System Manager')"
+							/>
+						</div>
+					</template>
+				</div>
+				<div class="fr-popover__footer">
+					<div class="fr-preview-snippet">
+						<code>{{ expressionSnippet }}</code>
 					</div>
-				</template>
-			</div>
-			<div class="popover-footer">
-				<div class="preview-snippet text-muted extra-small">
-					<code>{{ expressionSnippet }}</code>
 				</div>
 			</div>
-		</div>
+		</Teleport>
 	</div>
 </template>
 
@@ -299,6 +486,7 @@ const emit = defineEmits(["update:modelValue"]);
 const store = useStore();
 const controlRef = ref(null);
 const showPopover = ref(false);
+const popoverStyle = ref({});
 let _syncing = false;
 
 // ─── Category Definitions ───
@@ -306,6 +494,9 @@ const ALL_CATEGORIES = [
 	{ value: "date_formula", label: __("Date Formula"), icon: "fa fa-calendar" },
 	{ value: "math_formula", label: __("Math Formula"), icon: "fa fa-calculator" },
 	{ value: "date_diff", label: __("Date Difference"), icon: "fa fa-calendar-minus-o" },
+	{ value: "child_aggregation", label: __("Child Table Aggregation"), icon: "fa fa-table" },
+	{ value: "string_formula", label: __("String Manipulation"), icon: "fa fa-font" },
+	{ value: "system_context", label: __("System Context"), icon: "fa fa-globe" },
 ];
 
 const availableCategories = computed(() => {
@@ -338,6 +529,19 @@ function getDefaultState(kind = "date_formula") {
 		diff_end_type: "doc_field",
 		diff_end_field: "",
 		diff_unit: "days",
+		// Aggregation fields
+		agg_table: "",
+		agg_field: "",
+		agg_op: "sum",
+		// String fields
+		str_op: "concat",
+		str_a_type: "field",
+		str_a: "",
+		str_b_type: "constant",
+		str_b: "",
+		// System context fields
+		sys_token: "user",
+		sys_role: "",
 	};
 }
 
@@ -378,6 +582,58 @@ const numericFieldOptions = computed(() => {
 				value: f.value || f.fieldname,
 			};
 		});
+});
+
+const stringFieldOptions = computed(() => {
+	const dt = props.doctype;
+	if (!dt) return [];
+	const fields = store.doc_meta[dt];
+	if (!fields || !Array.isArray(fields)) return [];
+	return fields
+		.filter((f) => ["Data", "Text", "Small Text", "Select"].includes(f.fieldtype))
+		.map((f) => {
+			let realLabel = f.label;
+			const match = f.label?.match(/\((.*?)\)/);
+			if (match && match[1]) realLabel = match[1];
+			return {
+				label: `${realLabel} (${f.fieldname})`,
+				value: f.value || f.fieldname,
+			};
+		});
+});
+
+const tableFieldOptions = computed(() => {
+	const dt = props.doctype;
+	if (!dt) return [];
+	const fields = store.doc_meta[dt];
+	if (!fields || !Array.isArray(fields)) return [];
+	return fields
+		.filter((f) => f.fieldtype === "Table")
+		.map((f) => {
+			let realLabel = f.label;
+			const match = f.label?.match(/\((.*?)\)/);
+			if (match && match[1]) realLabel = match[1];
+			return {
+				label: `${realLabel} (${f.fieldname})`,
+				value: f.fieldname,
+				options: f.options,
+			};
+		});
+});
+
+const aggFieldOptions = computed(() => {
+	const tableField = localState.value.agg_table;
+	if (!tableField) return [];
+	const tableMeta = tableFieldOptions.value.find((f) => f.value === tableField);
+	if (!tableMeta || !tableMeta.options) return [];
+	const childFields = store.doc_meta[tableMeta.options];
+	if (!childFields || !Array.isArray(childFields)) return [];
+	return childFields
+		.filter((f) => ["Int", "Float", "Currency", "Percent"].includes(f.fieldtype))
+		.map((f) => ({
+			label: `${f.label || f.fieldname} (${f.fieldname})`,
+			value: f.fieldname,
+		}));
 });
 
 // ─── Sync from Props (Hydration) ───
@@ -424,6 +680,19 @@ const syncFromProps = () => {
 		next.diff_end_type = val.diff_end_type || "doc_field";
 		next.diff_end_field = val.diff_end_field || "";
 		next.diff_unit = val.diff_unit || "days";
+	} else if (kind === "child_aggregation") {
+		next.agg_table = val.agg_table || "";
+		next.agg_field = val.agg_field || "";
+		next.agg_op = val.agg_op || "sum";
+	} else if (kind === "string_formula") {
+		next.str_op = val.str_op || "concat";
+		next.str_a_type = val.str_a_type || "field";
+		next.str_a = val.str_a || "";
+		next.str_b_type = val.str_b_type || "constant";
+		next.str_b = val.str_b || "";
+	} else if (kind === "system_context") {
+		next.sys_token = val.sys_token || "user";
+		next.sys_role = val.sys_role || "";
 	}
 
 	// Shallow equality guard to prevent loops
@@ -482,12 +751,54 @@ watch(
 				diff_end_field: newVal.diff_end_field,
 				diff_unit: newVal.diff_unit,
 			});
+		} else if (newVal.kind === "child_aggregation") {
+			Object.assign(emitted, {
+				agg_table: newVal.agg_table,
+				agg_field: newVal.agg_field,
+				agg_op: newVal.agg_op,
+			});
+		} else if (newVal.kind === "string_formula") {
+			Object.assign(emitted, {
+				str_op: newVal.str_op,
+				str_a_type: newVal.str_a_type,
+				str_a: newVal.str_a,
+				str_b_type: newVal.str_b_type,
+				str_b: newVal.str_b,
+			});
+		} else if (newVal.kind === "system_context") {
+			Object.assign(emitted, {
+				sys_token: newVal.sys_token,
+				sys_role: newVal.sys_role,
+			});
 		}
 
 		emit("update:modelValue", emitted);
 	},
 	{ deep: true }
 );
+
+function updatePopoverPosition() {
+	if (!controlRef.value) return;
+	const rect = controlRef.value.getBoundingClientRect();
+	const spaceBelow = window.innerHeight - rect.bottom;
+	const popoverHeight = 400; // Estimated max height for multi-mode resolver
+
+	if (spaceBelow < popoverHeight && rect.top > popoverHeight) {
+		// Position above
+		popoverStyle.value = {
+			position: "fixed",
+			bottom: `${window.innerHeight - rect.top + 4}px`,
+			left: `${rect.left}px`,
+		};
+	} else {
+		// Position below
+		popoverStyle.value = {
+			position: "fixed",
+			top: `${rect.bottom + 4}px`,
+			left: `${rect.left}px`,
+		};
+	}
+}
 
 onMounted(() => {
 	syncFromProps();
@@ -496,17 +807,33 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
 	document.removeEventListener("click", handleClickOutside);
+	window.removeEventListener("scroll", updatePopoverPosition, true);
+	window.removeEventListener("resize", updatePopoverPosition);
 });
 
 const handleClickOutside = (e) => {
 	if (controlRef.value && !controlRef.value.contains(e.target)) {
+		// Also check if click was inside the teleported popover
+		const popover = document.querySelector(".fr-popover");
+		if (popover && popover.contains(e.target)) return;
+
 		showPopover.value = false;
 	}
 };
 
-const togglePopover = () => {
+const togglePopover = async () => {
 	if (props.readOnly) return;
 	showPopover.value = !showPopover.value;
+
+	if (showPopover.value) {
+		await nextTick();
+		updatePopoverPosition();
+		window.addEventListener("scroll", updatePopoverPosition, true);
+		window.addEventListener("resize", updatePopoverPosition);
+	} else {
+		window.removeEventListener("scroll", updatePopoverPosition, true);
+		window.removeEventListener("resize", updatePopoverPosition);
+	}
 };
 
 const closePopover = () => {
@@ -543,6 +870,22 @@ const previewText = computed(() => {
 		const start = s.diff_start_type === "today" ? __("Today") : s.diff_start_field || "?";
 		const end = s.diff_end_type === "today" ? __("Today") : s.diff_end_field || "?";
 		return `${end} − ${start} (${s.diff_unit})`;
+	}
+
+	if (s.kind === "child_aggregation") {
+		return `${s.agg_op.toUpperCase()}(${s.agg_table || "?"}.${s.agg_field || "?"})`;
+	}
+
+	if (s.kind === "string_formula") {
+		if (s.str_op === "concat") return __("Concatenate");
+		if (s.str_op === "fmt_money") return __("Format Money");
+		if (s.str_op === "uppercase") return __("Uppercase");
+		if (s.str_op === "lowercase") return __("Lowercase");
+	}
+
+	if (s.kind === "system_context") {
+		if (s.sys_token === "user") return __("Current User");
+		if (s.sys_token === "role_check") return __("Has Role");
 	}
 
 	return __("Configure");
@@ -589,166 +932,78 @@ const expressionSnippet = computed(() => {
 		return `{int(frappe.utils.month_diff(${end}, ${start}) / 12)}`;
 	}
 
+	if (s.kind === "child_aggregation") {
+		const tbl = s.agg_table || "items";
+		const fld = s.agg_field || "amount";
+		if (s.agg_op === "sum") {
+			return `{sum([frappe.utils.flt(row.${fld}) for row in doc.get("${tbl}")])}`;
+		}
+		if (s.agg_op === "avg") {
+			return `{sum([frappe.utils.flt(row.${fld}) for row in doc.get("${tbl}")]) / max(len(doc.get("${tbl}")), 1)}`;
+		}
+		if (s.agg_op === "count") {
+			return `{len(doc.get("${tbl}"))}`;
+		}
+	}
+
+	if (s.kind === "string_formula") {
+		const a = s.str_a_type === "field" ? `doc.${s.str_a || '""'}` : `"${s.str_a}"`;
+		if (s.str_op === "concat") {
+			const b = s.str_b_type === "field" ? `doc.${s.str_b || '""'}` : `"${s.str_b}"`;
+			return `{str(${a} or "") + str(${b} or "")}`;
+		}
+		if (s.str_op === "fmt_money") {
+			const curr = s.str_b_type === "field" ? `doc.${s.str_b || '""'}` : `"${s.str_b}"`;
+			return `{frappe.utils.fmt_money(${a}, currency=${curr})}`;
+		}
+		if (s.str_op === "uppercase") {
+			return `{str(${a} or "").upper()}`;
+		}
+		if (s.str_op === "lowercase") {
+			return `{str(${a} or "").lower()}`;
+		}
+	}
+
+	if (s.kind === "system_context") {
+		if (s.sys_token === "user") {
+			return `{frappe.session.user}`;
+		}
+		if (s.sys_token === "role_check") {
+			return `{"${s.sys_role}" in frappe.get_roles(frappe.session.user)}`;
+		}
+	}
+
 	return "";
 });
 </script>
 
 <style scoped>
-/* ─── ValueResolverControl – Unified Design ─── */
-.value-resolver-control {
-	position: relative;
-	display: block;
-	width: 100%;
-	min-width: 0;
-}
-
-.resolver-token {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	padding: var(--fr-space-2, 4px) var(--fr-space-4, 8px);
-	background: var(--fr-bg-muted, #f8fafc);
-	border: 1px solid var(--fr-border, #e2e8f0);
-	border-radius: var(--fr-radius-md, 6px);
-	cursor: pointer;
-	transition: all var(--fr-transition-fast, 0.15s);
-	height: var(--fr-input-height, 30px);
-	user-select: none;
-}
-
-.resolver-token:hover,
-.resolver-token.is-active {
-	border-color: var(--fr-accent, var(--primary));
-	background: var(--fr-bg-card, #fff);
-	box-shadow: var(--fr-shadow-focus, 0 0 0 2px rgba(59, 130, 246, 0.08));
-}
-
-.token-content {
-	display: flex;
-	align-items: center;
-	gap: var(--fr-space-3, 6px);
-	overflow: hidden;
-	min-width: 0;
-}
-
-.token-text {
-	font-size: var(--fr-text-base, 12px);
-	color: var(--fr-text, #1e293b);
-	font-weight: var(--fr-weight-medium, 500);
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-}
-
-.token-caret {
-	font-size: 10px;
-	color: var(--fr-text-muted, #94a3b8);
-	flex-shrink: 0;
-	margin-left: var(--fr-space-2, 4px);
-}
-
-.resolver-popover {
-	position: absolute;
-	top: calc(100% + 4px);
-	left: 0;
-	z-index: var(--fr-z-popover, 100020);
-	width: 320px;
-	background: var(--fr-bg-card, #fff);
-	border: 1px solid var(--fr-border, #e2e8f0);
-	border-radius: var(--fr-radius-lg, 8px);
-	box-shadow: var(--fr-shadow-lg, 0 10px 40px rgba(0, 0, 0, 0.12));
-	display: flex;
-	flex-direction: column;
-}
-
-.popover-header {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	padding: var(--fr-space-4, 8px) var(--fr-space-6, 12px);
-	border-bottom: 1px solid var(--fr-bg-muted, #f1f5f9);
-	background: var(--fr-bg-muted, #f1f5f9);
-	border-radius: var(--fr-radius-lg, 8px) var(--fr-radius-lg, 8px) 0 0;
-}
-
-.popover-body {
-	padding: var(--fr-space-6, 12px);
-}
-
-.popover-body .form-control {
-	height: var(--fr-input-height, 30px) !important;
-	font-size: var(--fr-input-font-size, 12px) !important;
-	border: 1px solid var(--fr-border, #e2e8f0) !important;
-	border-radius: var(--fr-radius-md, 6px) !important;
-	padding: var(--fr-input-padding-y, 4px) var(--fr-input-padding-x, 8px) !important;
-	transition: border-color var(--fr-transition-fast, 0.15s),
-		box-shadow var(--fr-transition-fast, 0.15s) !important;
-}
-
-.popover-body .form-control:focus {
-	border-color: var(--fr-border-focus, var(--primary)) !important;
-	box-shadow: var(--fr-shadow-focus, 0 0 0 2px rgba(59, 130, 246, 0.08)) !important;
-}
-
-.popover-body select.form-control {
-	appearance: none !important;
-	-webkit-appearance: none !important;
-	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") !important;
-	background-repeat: no-repeat !important;
-	background-position: right 6px center !important;
-	background-size: 12px !important;
-	padding-right: 24px !important;
-	cursor: pointer;
-}
-
-.popover-body input[type="number"] {
-	-moz-appearance: textfield;
-}
-
-.popover-body input[type="number"]::-webkit-inner-spin-button,
-.popover-body input[type="number"]::-webkit-outer-spin-button {
-	-webkit-appearance: none;
-	margin: 0;
-}
-
-.popover-footer {
-	padding: var(--fr-space-4, 8px) var(--fr-space-6, 12px);
-	border-top: 1px solid var(--fr-bg-muted, #f1f5f9);
-	background: var(--fr-bg-muted, #f1f5f9);
-	border-radius: 0 0 var(--fr-radius-lg, 8px) var(--fr-radius-lg, 8px);
-}
-
-.preview-snippet {
-	font-family: var(--fr-font-mono, monospace);
-	word-break: break-all;
+.fr-preview-snippet {
+	font-family: var(--fr-font-mono);
+	font-size: var(--fr-text-xs);
+	color: var(--fr-text-muted);
 	text-align: center;
-	font-size: var(--fr-text-xs, 10px);
+	word-break: break-all;
 }
 
 .preview-snippet code {
 	background: transparent;
-	color: var(--fr-text-secondary, #64748b);
-	font-size: inherit;
+	color: var(--fr-accent);
 }
 
 .config-row {
 	display: flex;
 	flex-direction: column;
-	gap: var(--fr-space-2, 4px);
+	gap: var(--fr-space-1);
 }
 
-.config-row label {
-	font-size: var(--fr-text-sm, 11px);
-	font-weight: var(--fr-weight-medium, 500);
-	color: var(--fr-text-secondary, #64748b);
-}
-
-.gap-2 {
-	gap: var(--fr-space-4, 8px);
+.fr-gap-2 {
+	gap: var(--fr-space-2);
 }
 
 hr.border-top {
-	border-color: var(--fr-border, #e2e8f0);
+	border-color: var(--fr-border);
 	opacity: 0.5;
+	margin: var(--fr-space-2) 0;
 }
 </style>
