@@ -135,6 +135,7 @@ import ControlFactory from "../../../controls/ControlFactory.vue";
 import ResourceMapperControl from "../../../controls/ResourceMapperControl.vue";
 import TransformControl from "../../../controls/TransformControl.vue";
 import transformUtils from "../../../utils/transform.js";
+import { getEffectiveActionPolicy } from "../../../../core/contracts.js";
 
 const props = defineProps({
 	node: Object,
@@ -160,29 +161,29 @@ const docnameExprField = {
 	options: "PythonExpression",
 };
 
-const assignedToLinkField = {
+const assignedToLinkField = computed(() => ({
 	fieldname: "assigned_to",
 	fieldtype: "Link",
 	label: "",
 	options: "User",
-	reqd: 1,
-};
+	reqd: requiredConfigKeys.value.includes("assigned_to") ? 1 : 0,
+}));
 
-const assignedToExprField = {
+const assignedToExprField = computed(() => ({
 	fieldname: "assigned_to",
 	fieldtype: "Code",
 	label: "",
 	options: "Jinja",
-	reqd: 1,
-};
+	reqd: requiredConfigKeys.value.includes("assigned_to") ? 1 : 0,
+}));
 
-const todoDescriptionField = {
+const todoDescriptionField = computed(() => ({
 	fieldname: "description",
 	fieldtype: "Code",
 	label: __("Description"),
 	options: "Jinja",
-	reqd: 1,
-};
+	reqd: requiredConfigKeys.value.includes("description") ? 1 : 0,
+}));
 
 const todoPriorityField = {
 	fieldname: "priority",
@@ -198,13 +199,13 @@ const commentTypeField = {
 	options: "Comment\nInfo\nEdit\nWorkflow",
 };
 
-const commentTextField = {
+const commentTextField = computed(() => ({
 	fieldname: "comment_text",
 	fieldtype: "Code",
 	label: __("Comment Text"),
 	options: "Jinja",
-	reqd: 1,
-};
+	reqd: requiredConfigKeys.value.includes("comment_text") ? 1 : 0,
+}));
 
 const assignToType = ref("Value");
 const mapperView = ref("classic");
@@ -213,6 +214,13 @@ const targetSchema = ref([]);
 const showMapper = computed(
 	() => !["Create ToDo", "Add Comment", "Delete Record"].includes(mode.value)
 );
+const operationPolicy = computed(() =>
+	getEffectiveActionPolicy(props.node?.data?.action_type || "Document Action", {
+		operation: mode.value,
+		processName: props.node?.data?.process_name,
+	})
+);
+const requiredConfigKeys = computed(() => operationPolicy.value?.required_config_keys || []);
 
 const sourceSchema = computed(() => {
 	return (variable_options.value || []).map((opt) => ({
@@ -461,12 +469,15 @@ watch(
 defineExpose({
 	validate: () => {
 		const errors = [];
-		if (mode.value === "Create ToDo") {
-			if (!config.assigned_to) errors.push(__("Assigned To is required"));
-			if (!config.description) errors.push(__("Description is required"));
-		}
-		if (mode.value === "Add Comment" && !config.comment_text) {
-			errors.push(__("Comment Text is required"));
+		const requiredKeyLabels = {
+			assigned_to: __("Assigned To"),
+			description: __("Description"),
+			comment_text: __("Comment Text"),
+		};
+		for (const key of requiredConfigKeys.value) {
+			if (!config[key]) {
+				errors.push(__("{0} is required").replace("{0}", requiredKeyLabels[key] || key));
+			}
 		}
 		if (showMapper.value && !config.resource_mapper_ui && !hasLegacyMapperConfig(config)) {
 			errors.push(__("Resource Mapper configuration is required for {0}", [mode.value]));

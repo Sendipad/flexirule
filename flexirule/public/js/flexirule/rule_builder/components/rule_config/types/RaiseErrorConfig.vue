@@ -39,18 +39,19 @@
 </template>
 
 <script setup>
-import { watch } from "vue";
+import { computed, watch } from "vue";
 import { useActionConfig } from "../../../composables/useActionConfig";
 import ControlFactory from "../../../controls/ControlFactory.vue";
 import TextGeneratorControl from "../../../controls/TextGeneratorControl.vue";
 import { compileSegmentsToJinja } from "../../../utils/text_generator";
+import { getDerivedFieldState, getFieldLabel } from "../../../../core/contracts.js";
 
 const props = defineProps({
 	node: Object,
 	readOnly: Boolean,
 });
 
-const { config, variable_options, with_read_only, sync_config, update_action_field } =
+const { config, variable_options, with_read_only, sync_config, update_action_field, store } =
 	useActionConfig(props);
 
 const errorTypeField = {
@@ -76,12 +77,29 @@ const errorCodeField = {
 	description: __("Optional stable code prefix for troubleshooting."),
 };
 
-const textGeneratorField = {
+const fieldContext = computed(() => ({
+	operation: props.node?.data?.operation,
+	processName: props.node?.data?.process_name,
+}));
+
+const valueTemplateState = computed(() =>
+	getDerivedFieldState(
+		props.node?.data?.action_type || "Raise Error",
+		"value_template",
+		props.node?.data || {},
+		store.rule_doc || {},
+		fieldContext.value
+	)
+);
+
+const textGeneratorField = computed(() => ({
 	fieldname: "text_generator_ui",
 	fieldtype: "Text Generator",
-	label: __("Error Message Builder"),
-	reqd: 1,
-};
+	label:
+		getFieldLabel(props.node?.data?.action_type || "Raise Error", "value_template", fieldContext.value) ||
+		__("Error Message Builder"),
+	reqd: valueTemplateState.value.reqd ? 1 : 0,
+}));
 
 function update_template_ui(value) {
 	config.text_generator_ui = value;
@@ -150,10 +168,10 @@ watch(
 function validate() {
 	const errors = [];
 	const ui = config.text_generator_ui;
-	if (!ui || !Array.isArray(ui.segments) || !ui.segments.length) {
+	if (valueTemplateState.value.reqd && (!ui || !Array.isArray(ui.segments) || !ui.segments.length)) {
 		errors.push(__("Error message is required"));
 	}
-	if (!props.node?.data?.value_template) {
+	if (valueTemplateState.value.reqd && !props.node?.data?.value_template) {
 		errors.push(__("Error message template is required"));
 	}
 	return { valid: errors.length === 0, errors };

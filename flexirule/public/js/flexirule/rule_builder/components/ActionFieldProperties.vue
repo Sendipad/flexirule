@@ -116,14 +116,17 @@ const doc_fields = computed(() => {
 					label: policyLabel ? __(policyLabel) : resolved.label,
 					get_query: () => {
 						const parentDocType = store.rule_doc?.document_type;
+						const filters = {
+							trigger_type: "Callable Event",
+							exposed_as_subrule: 1,
+							is_active: 1,
+							name: ["!=", store.rule_name || ""],
+						};
+						if (parentDocType) {
+							filters.document_type = ["in", [parentDocType, ""]];
+						}
 						return {
-							filters: {
-								trigger_type: "Callable Event",
-								exposed_as_subrule: 1,
-								is_active: 1,
-								document_type: ["in", parentDocType ? [parentDocType, ""] : [""]],
-								name: ["!=", store.rule_name || ""],
-							},
+							filters,
 						};
 					},
 				};

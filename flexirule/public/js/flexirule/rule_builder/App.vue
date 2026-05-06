@@ -469,8 +469,6 @@ function onEdgeClick({ edge, event }) {
 <style>
 @import "@vue-flow/core/dist/style.css";
 @import "@vue-flow/core/dist/theme-default.css";
-@import "./styles/design-tokens.css";
-@import "./styles/controls.css";
 
 .rule-builder-container {
 	display: flex;

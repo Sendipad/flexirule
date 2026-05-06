@@ -15,6 +15,7 @@ from frappe import _
 
 from flexirule.ruleflow.core.action_handlers import ActionHandler, HandlerRegistry
 from flexirule.ruleflow.core.exceptions import CycleDetectedError, MethodExecutionError
+from flexirule.ruleflow.core.permissions import can_skip_permissions
 from flexirule.ruleflow.utils.mapping import apply_input_mapping, apply_output_mapping
 
 # Maximum nesting depth for sub-rule calls
@@ -136,7 +137,7 @@ class SubRuleHandler(ActionHandler):
 
 			# Determine bypass flags
 			skip_conditions = self._get_skip_conditions(action)
-			skip_permissions = int(getattr(action, "skip_permissions", 0))
+			skip_permissions = int(can_skip_permissions(action, context, throw=True))
 
 			engine._log(
 				"INFO",
@@ -316,6 +317,16 @@ class SubRuleHandler(ActionHandler):
 			return value
 		if isinstance(value, dict):
 			return json.dumps(value)
+		if isinstance(value, list):
+			normalized = {}
+			for row in value:
+				if not isinstance(row, dict):
+					continue
+				source = row.get("source") or row.get("source_expression")
+				target = row.get("target")
+				if source and target:
+					normalized[target] = source
+			return json.dumps(normalized) if normalized else None
 		return None
 
 

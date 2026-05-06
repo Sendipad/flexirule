@@ -19,10 +19,17 @@
 					/>
 
 					<AutocompleteControl
-						v-if="showReturnVariable"
+						v-if="showReturnVariable && useAutocompleteForReturnVariable"
 						:df="returnVariableField"
 						:modelValue="node.data?.return_variable"
 						:get_options="getVariableOptions"
+						:read_only="readOnly"
+						@update:modelValue="updateField('return_variable', $event)"
+					/>
+					<ControlFactory
+						v-else-if="showReturnVariable"
+						:df="returnVariableField"
+						:modelValue="node.data?.return_variable"
 						:read_only="readOnly"
 						@update:modelValue="updateField('return_variable', $event)"
 					/>
@@ -137,6 +144,8 @@ import { useStore } from "../../stores";
 import ControlFactory from "../../controls/ControlFactory.vue";
 import AutocompleteControl from "../../controls/AutocompleteControl.vue";
 import {
+	applyOutputPolicyDefaults,
+	getDerivedFieldState,
 	getAllowedMutationModeOptions,
 	getAllowedReturnTypeOptions,
 	getEffectiveActionPolicy,
@@ -162,6 +171,14 @@ const policyContext = computed(() => ({
 
 const showMutationMode = computed(() => {
 	const actionType = props.node?.data?.action_type;
+	const state = getDerivedFieldState(
+		actionType,
+		"mutation_mode",
+		props.node?.data || {},
+		store.rule_doc || {},
+		policyContext.value
+	);
+	if (state.hidden) return false;
 	return getAllowedMutationModeOptions(actionType, policyContext.value).length > 0;
 });
 
@@ -170,11 +187,26 @@ const allowedReturnTypeOptions = computed(() =>
 );
 
 const showReturnType = computed(() =>
-	shouldShowReturnType(props.node?.data?.action_type, policyContext.value)
+	shouldShowReturnType(props.node?.data?.action_type, policyContext.value) &&
+	!getDerivedFieldState(
+		props.node?.data?.action_type,
+		"return_type",
+		props.node?.data || {},
+		store.rule_doc || {},
+		policyContext.value
+	).hidden
 );
 
 const showReturnVariable = computed(() => {
 	const policy = getEffectiveActionPolicy(props.node?.data?.action_type, policyContext.value);
+	const state = getDerivedFieldState(
+		props.node?.data?.action_type,
+		"return_variable",
+		props.node?.data || {},
+		store.rule_doc || {},
+		policyContext.value
+	);
+	if (state.hidden) return false;
 	if (policy.show_return_variable === false) return false;
 	return showMutationMode.value || allowedReturnTypeOptions.value.length > 0;
 });
@@ -194,7 +226,7 @@ const returnTypeField = computed(() => ({
 
 const returnVariableField = computed(() => ({
 	fieldname: "return_variable",
-	fieldtype: "Autocomplete",
+	fieldtype: useAutocompleteForReturnVariable.value ? "Autocomplete" : "Data",
 	label:
 		getFieldLabel(props.node?.data?.action_type, "return_variable", policyContext.value) ||
 		__("Result Variable Name"),
@@ -202,8 +234,22 @@ const returnVariableField = computed(() => ({
 		props.node.data?.return_type === "Yes / No"
 			? __("Value assigned directly.")
 			: __("Stored as this variable."),
-	reqd: isReturnVariableMandatory.value ? 1 : 0,
+	reqd:
+		getDerivedFieldState(
+			props.node?.data?.action_type,
+			"return_variable",
+			props.node?.data || {},
+			store.rule_doc || {},
+			policyContext.value
+		).reqd || isReturnVariableMandatory.value
+			? 1
+			: 0,
 }));
+
+const useAutocompleteForReturnVariable = computed(() => {
+	const mode = (props.node?.data?.mutation_mode || "").toString();
+	return mode.includes("Context Variable");
+});
 
 const isReturnVariableMandatory = computed(() => {
 	const data = props.node.data || {};
@@ -225,6 +271,15 @@ const mutationModeField = computed(() => ({
 	options: getAllowedMutationModeOptions(props.node?.data?.action_type, policyContext.value).join(
 		"\n"
 	),
+	reqd: getDerivedFieldState(
+		props.node?.data?.action_type,
+		"mutation_mode",
+		props.node?.data || {},
+		store.rule_doc || {},
+		policyContext.value
+	).reqd
+		? 1
+		: 0,
 }));
 
 const resolvedSchemaField = {
@@ -287,43 +342,10 @@ watch(
 	],
 	() => {
 		if (!props.node?.data) return;
-		let changed = false;
-		const policy = getEffectiveActionPolicy(props.node.data.action_type, policyContext.value);
-		const allowedMutations = policy.allowed_mutations || [];
-		const allowedReturnTypes = policy.allowed_return_types || [];
-		if (
-			props.node.data.mutation_mode &&
-			allowedMutations.length &&
-			!allowedMutations.includes(props.node.data.mutation_mode)
-		) {
-			props.node.data.mutation_mode = null;
-			changed = true;
-		}
-		if (
-			props.node.data.return_type &&
-			allowedReturnTypes.length &&
-			!allowedReturnTypes.includes(props.node.data.return_type)
-		) {
-			props.node.data.return_type = null;
-			changed = true;
-		}
-		if (!props.node.data.return_type && policy.default_return_type) {
-			props.node.data.return_type = policy.default_return_type;
-			changed = true;
-		}
-		if (
-			policy.show_return_type === false &&
-			props.node.data.return_type &&
-			policy.default_return_type &&
-			props.node.data.return_type !== policy.default_return_type
-		) {
-			props.node.data.return_type = policy.default_return_type;
-			changed = true;
-		}
-		if (!showReturnVariable.value && props.node.data.return_variable) {
-			props.node.data.return_variable = null;
-			changed = true;
-		}
+		let changed = applyOutputPolicyDefaults(props.node.data, {
+			parent: store.rule_doc || {},
+			preserveUserChoices: true,
+		});
 		if (changed) {
 			store.mark_dirty();
 		}
@@ -411,10 +433,11 @@ watch(
 			!props.node.data?.return_variable &&
 			!props.readOnly
 		) {
-			const suggested = (props.node.data?.operation || "result")
-				.toLowerCase()
-				.replace(/\s+/g, "_");
-			updateField("return_variable", suggested);
+			applyOutputPolicyDefaults(props.node.data, {
+				parent: store.rule_doc || {},
+				preserveUserChoices: false,
+			});
+			store.mark_dirty();
 		}
 	}
 );

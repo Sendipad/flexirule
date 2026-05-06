@@ -11,7 +11,8 @@
 			<div class="config-section section-card">
 				<div v-if="is_email" class="form-group mb-3">
 					<label class="form-label"
-						>{{ __("Subject") }} <span class="text-danger">*</span></label
+						>{{ __("Subject") }}
+						<span v-if="isConfigKeyRequired('subject')" class="text-danger">*</span></label
 					>
 					<ControlFactory
 						:df="with_read_only(subjectField)"
@@ -22,7 +23,8 @@
 
 				<div v-if="is_email" class="form-group mb-3">
 					<label class="form-label"
-						>{{ __("Recipients") }} <span class="text-danger">*</span></label
+						>{{ __("Recipients") }}
+						<span v-if="isConfigKeyRequired('recipients')" class="text-danger">*</span></label
 					>
 					<ControlFactory
 						:df="with_read_only(recipientsField)"
@@ -33,7 +35,8 @@
 
 				<div v-if="is_system_notification" class="form-group mb-3">
 					<label class="form-label"
-						>{{ __("Subject") }} <span class="text-danger">*</span></label
+						>{{ __("Subject") }}
+						<span v-if="isConfigKeyRequired('subject')" class="text-danger">*</span></label
 					>
 					<ControlFactory
 						:df="with_read_only(subjectField)"
@@ -53,7 +56,8 @@
 
 				<div v-if="is_provider" class="form-group mb-3">
 					<label class="form-label"
-						>{{ __("Provider") }} <span class="text-danger">*</span></label
+						>{{ __("Provider") }}
+						<span v-if="isConfigKeyRequired('provider')" class="text-danger">*</span></label
 					>
 					<ControlFactory
 						:df="with_read_only(providerField)"
@@ -64,7 +68,8 @@
 
 				<div v-if="is_provider" class="form-group mb-3">
 					<label class="form-label"
-						>{{ __("Recipient") }} <span class="text-danger">*</span></label
+						>{{ __("Recipient") }}
+						<span v-if="isConfigKeyRequired('recipient')" class="text-danger">*</span></label
 					>
 					<ControlFactory
 						:df="with_read_only(recipientField)"
@@ -102,6 +107,7 @@ import { useActionConfig } from "../../../composables/useActionConfig";
 import ControlFactory from "../../../controls/ControlFactory.vue";
 import TextGeneratorControl from "../../../controls/TextGeneratorControl.vue";
 import { compileSegmentsToJinja } from "../../../utils/text_generator";
+import { getContract, getEffectiveActionPolicy } from "../../../../core/contracts.js";
 
 const props = defineProps({
 	node: Object,
@@ -115,20 +121,20 @@ const EMAIL_MODE = "Email";
 const SYSTEM_NOTIFICATION_MODE = "System Notification";
 const PROVIDER_MODE = "Provider";
 
-const subjectField = {
+const subjectField = computed(() => ({
 	fieldname: "subject",
 	fieldtype: "Data",
 	label: __("Subject"),
-	reqd: 1,
-};
+	reqd: isConfigKeyRequired("subject") ? 1 : 0,
+}));
 
-const recipientsField = {
+const recipientsField = computed(() => ({
 	fieldname: "recipients",
 	fieldtype: "Small Text",
 	label: __("Recipients"),
-	reqd: 1,
+	reqd: isConfigKeyRequired("recipients") ? 1 : 0,
 	description: __("One email per line, comma-separated values, or a Jinja template."),
-};
+}));
 
 const forUserField = {
 	fieldname: "for_user",
@@ -143,31 +149,44 @@ const attachDocField = {
 	label: __("Attach Document PDF"),
 };
 
-const providerField = {
+const providerField = computed(() => ({
 	fieldname: "provider",
 	fieldtype: "Data",
 	label: __("Provider"),
-	reqd: 1,
-};
+	reqd: isConfigKeyRequired("provider") ? 1 : 0,
+}));
 
-const recipientField = {
+const recipientField = computed(() => ({
 	fieldname: "recipient",
 	fieldtype: "Data",
 	label: __("Recipient"),
-	reqd: 1,
-};
+	reqd: isConfigKeyRequired("recipient") ? 1 : 0,
+}));
 
-const textGeneratorField = {
+const textGeneratorField = computed(() => ({
 	fieldname: "text_generator_ui",
 	fieldtype: "Text Generator",
 	label: __("Message Builder"),
-	reqd: 1,
-};
+	reqd: (getContract(props.node?.data?.action_type || "Notify").required_fields || []).includes(
+		"value_template"
+	)
+		? 1
+		: 0,
+}));
 
 const notify_mode = computed(() => props.node?.data?.operation || "");
+const context = computed(() => ({ operation: notify_mode.value }));
+const operationPolicy = computed(() =>
+	getEffectiveActionPolicy(props.node?.data?.action_type || "Notify", context.value)
+);
+const requiredConfigKeys = computed(() => operationPolicy.value?.required_config_keys || []);
 const is_email = computed(() => notify_mode.value === EMAIL_MODE);
 const is_system_notification = computed(() => notify_mode.value === SYSTEM_NOTIFICATION_MODE);
 const is_provider = computed(() => notify_mode.value === PROVIDER_MODE);
+
+function isConfigKeyRequired(key) {
+	return requiredConfigKeys.value.includes(key);
+}
 
 function update_template_ui(value) {
 	config.text_generator_ui = value;
@@ -240,16 +259,16 @@ function validate() {
 	if (!ui || !Array.isArray(ui.segments) || !ui.segments.length) {
 		errors.push(__("Message Builder content is required"));
 	}
-	if (is_email.value) {
-		if (!config.subject) errors.push(__("Subject is required for email notifications"));
-		if (!config.recipients) errors.push(__("Recipients are required for email notifications"));
-	}
-	if (is_system_notification.value && !config.subject) {
-		errors.push(__("Subject is required for system notifications"));
-	}
-	if (is_provider.value) {
-		if (!config.provider) errors.push(__("Provider is required for provider notifications"));
-		if (!config.recipient) errors.push(__("Recipient is required for provider notifications"));
+	const labels = {
+		subject: __("Subject"),
+		recipients: __("Recipients"),
+		provider: __("Provider"),
+		recipient: __("Recipient"),
+	};
+	for (const key of requiredConfigKeys.value) {
+		if (!config[key]) {
+			errors.push(__("{0} is required").replace("{0}", labels[key] || key));
+		}
 	}
 	return { valid: errors.length === 0, errors };
 }

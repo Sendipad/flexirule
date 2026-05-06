@@ -246,10 +246,13 @@ import { useStore } from "../../stores";
 import { insertIntoActiveTGC } from "../../utils/tgc_focus";
 import { copyText } from "../../../utils/clipboard";
 import {
+	applyOutputPolicyDefaults,
 	getContract,
+	getDerivedFieldState,
 	getFieldLabel,
 	getOperationOptions,
 	getEffectiveActionPolicy,
+	normalizeActionType,
 } from "../../../core/contracts.js";
 import ControlFactory from "../../controls/ControlFactory.vue";
 import SubRuleNodeConfig from "../node_configs/SubRuleNodeConfig.vue";
@@ -271,30 +274,36 @@ const variablesCollapsed = ref(false);
 const expandedGroups = ref({});
 
 const contract = computed(() => {
-	const type = props.node?.data?.action_type || props.node?.type;
+	const type = normalizeActionType(props.node?.data?.action_type || props.node?.type);
 	return type ? getContract(type) : null;
 });
 
+const currentActionType = computed(() =>
+	normalizeActionType(props.node?.data?.action_type || props.node?.type)
+);
+
 const showReferenceDoctype = computed(() => {
 	if (!contract.value) return false;
-	const fields = contract.value.required_fields || [];
-	const isQueryReport =
-		props.node.data?.action_type === "Query Records" &&
-		props.node.data?.operation === "Query Report";
-
-	return (
-		!isQueryReport &&
-		(fields.includes("reference_doctype") ||
-			["Process", "Set Value"].includes(props.node.data?.action_type))
+	const actionType = props.node.data?.action_type;
+	const fallback =
+		(contract.value.required_fields || []).includes("reference_doctype") ||
+		["Process", "Set Value"].includes(actionType);
+	const state = getDerivedFieldState(
+		actionType,
+		"reference_doctype",
+		props.node?.data || {},
+		store.rule_doc || {},
+		{ operation: props.node?.data?.operation, processName: props.node?.data?.process_name }
 	);
+	return fallback && !state.hidden;
 });
 
 const showProcessName = computed(() => {
-	return props.node.data?.action_type === "Process";
+	return currentActionType.value === "Process";
 });
 
 const showRuleField = computed(() => {
-	return props.node.data?.action_type === "Sub-Rule";
+	return currentActionType.value === "Sub-Rule";
 });
 
 const showOperation = computed(() => {
@@ -309,15 +318,25 @@ const showOperation = computed(() => {
 
 const showReferenceDocname = computed(() => {
 	const type = props.node.data?.action_type;
+	const normalizedType = normalizeActionType(type);
 	const op = props.node.data?.operation;
+	if (normalizedType === "Sub-Rule") return false;
+	const derived = getDerivedFieldState(
+		normalizedType,
+		"reference_docname",
+		props.node?.data || {},
+		store.rule_doc || {},
+		{ operation: op, processName: props.node?.data?.process_name }
+	);
+	if (!derived.hidden) return true;
 
-	if (type === "Query Records") {
+	if (normalizedType === "Query Records") {
 		return ["Query Doc", "Query Report"].includes(op);
 	}
-	if (type === "Document Action") {
+	if (normalizedType === "Document Action") {
 		return ["Update Existing", "Delete Record"].includes(op);
 	}
-	if (type === "Process" && op?.includes("Doc")) return true;
+	if (normalizedType === "Process" && op?.includes("Doc")) return true;
 
 	return false;
 });
@@ -345,6 +364,16 @@ const forcedReferenceDoctype = computed(() => {
 
 // -- Field Definitions --
 const referenceDoctypeField = computed(() => {
+	const state = getDerivedFieldState(
+		props.node.data?.action_type,
+		"reference_doctype",
+		props.node?.data || {},
+		store.rule_doc || {},
+		{
+			operation: props.node?.data?.operation,
+			processName: props.node?.data?.process_name,
+		}
+	);
 	let description = __("Target DocType for this action.");
 	if (props.node.data?.action_type === "Document Action" && forcedReferenceDoctype.value) {
 		description = __("{0} mode always targets the {1} DocType.")
@@ -359,44 +388,54 @@ const referenceDoctypeField = computed(() => {
 			getFieldLabel(props.node.data?.action_type, "reference_doctype") ||
 			__("Reference DocType"),
 		options: "DocType",
-		reqd: 1,
+		reqd: state.reqd ? 1 : 0,
 		read_only: Boolean(forcedReferenceDoctype.value),
 		description,
 	};
 });
 
-const processNameField = {
+const processNameField = computed(() => ({
 	fieldname: "process_name",
 	fieldtype: "Link",
 	label: __("Process"),
 	options: "Process",
-	reqd: 1,
-};
+	reqd: (contract.value?.required_fields || []).includes("process_name") ? 1 : 0,
+}));
 
-const ruleField = {
+const ruleField = computed(() => ({
 	fieldname: "rule",
 	fieldtype: "Link",
 	label: __("Sub-Rule"),
 	options: "Rule",
-	reqd: 1,
+	reqd: (contract.value?.required_fields || []).includes("rule") ? 1 : 0,
 	get_query: () => {
 		const parentDocType = store.rule_doc?.document_type;
+		const filters = {
+			trigger_type: "Callable Event",
+			exposed_as_subrule: 1,
+			is_active: 1,
+			name: ["!=", store.rule_name || ""],
+		};
+		if (parentDocType) {
+			filters.document_type = ["in", [parentDocType, ""]];
+		}
 		return {
-			filters: {
-				trigger_type: "Callable Event",
-				exposed_as_subrule: 1,
-				is_active: 1,
-				document_type: ["in", parentDocType ? [parentDocType, ""] : [""]],
-				name: ["!=", store.rule_name || ""],
-			},
+			filters,
 		};
 	},
-};
+}));
 
 const referenceDocnameField = computed(() => {
 	const actionType = props.node?.data?.action_type;
 	const operation = props.node?.data?.operation;
 	const refDocType = props.node?.data?.reference_doctype;
+	const state = getDerivedFieldState(
+		actionType,
+		"reference_docname",
+		props.node?.data || {},
+		store.rule_doc || {},
+		{ operation, processName: props.node?.data?.process_name }
+	);
 
 	// Special case: Query Report
 	if (actionType === "Query Records" && operation === "Query Report") {
@@ -405,7 +444,7 @@ const referenceDocnameField = computed(() => {
 			fieldtype: "Link",
 			label: __("Report Name"),
 			options: "Report",
-			reqd: 1,
+			reqd: state.reqd ? 1 : 0,
 			description: __("Select the report to run."),
 		};
 	}
@@ -422,7 +461,7 @@ const referenceDocnameField = computed(() => {
 			fieldtype: "Link",
 			label: __("Reference Name"),
 			options: refDocType,
-			reqd: 1,
+			reqd: state.reqd ? 1 : 0,
 			description: __("Select the {0} record.").replace("{0}", refDocType),
 		};
 	}
@@ -460,7 +499,7 @@ const dynamicOperationField = computed(() => {
 		fieldtype: options.length ? "Select" : "Autocomplete",
 		label: label,
 		options: options.map((opt) => opt.value).join("\n"),
-		reqd: 1,
+		reqd: (contract.value?.required_fields || []).includes("operation") ? 1 : 0,
 		get_options: async () => {
 			if (actionType === "Process" && !options.length && props.node.data?.process_name) {
 				const ops = await store.get_process_operations(props.node.data.process_name);
@@ -638,6 +677,10 @@ function updateField(fieldname, value) {
 			if (!props.node.data.return_type && policy.default_return_type) {
 				props.node.data.return_type = policy.default_return_type;
 			}
+			applyOutputPolicyDefaults(props.node.data, {
+				parent: store.rule_doc || {},
+				preserveUserChoices: false,
+			});
 		}
 
 		if (

@@ -195,8 +195,9 @@ def get_script(process_name: str):
 			script = f.read()
 			script += f"\n\n//# sourceURL={scrub(process.name)}.js"
 
-	if not script and process.javascript:
-		script = process.javascript or ""
+	custom_script = (process.get("javascript") if hasattr(process, "get") else None) or None
+	if not script and custom_script:
+		script = custom_script
 		script += f"\n\n//# sourceURL={scrub(process.name)}__custom"
 
 	if not script:

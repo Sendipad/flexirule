@@ -1208,8 +1208,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 					can_execute: row.can_execute || 0,
 				}));
 				nodeData.description = ruleDoc.description;
-				nodeData.exposed_as_subrule =
-					ruleDoc.exposed_as_subrule ?? ruleDoc.is_sub_rule ?? 0;
+				nodeData.exposed_as_subrule = ruleDoc.exposed_as_subrule ?? 0;
 				nodeData.version = ruleDoc.version;
 				nodeData.status = ruleDoc.status;
 				nodeData.is_active = ruleDoc.is_active;

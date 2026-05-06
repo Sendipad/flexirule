@@ -1,5 +1,6 @@
 import unittest
 
+from flexirule.ruleflow.core.action_handlers.sub_rule import SubRuleHandler
 from flexirule.ruleflow.utils.mapping import (
 	apply_input_mapping,
 	apply_output_mapping,
@@ -54,3 +55,20 @@ class TestMapping(unittest.TestCase):
 		data = {"a": {"b": 10}, "c": [1, 2]}
 		self.assertEqual(resolve_path(data, "a.b"), 10)
 		self.assertIsNone(resolve_path(data, "a.x"))
+
+	def test_sub_rule_mapping_rows_are_normalized(self):
+		handler = SubRuleHandler()
+		mapping_rows = [
+			{"source": "vars.parent_value", "target": "child_input"},
+			{"source_expression": "doc.customer", "target": "customer_name"},
+			{"source": "vars.incomplete_only_source"},
+			{"target": "incomplete_only_target"},
+		]
+
+		mapping_json = handler._mapping_to_json(mapping_rows)
+		self.assertIsNotNone(mapping_json)
+
+		context = {"doc": {"customer": "ACME"}, "vars": {"parent_value": 42}}
+		mapped = apply_input_mapping(context, mapping_json, {})
+		self.assertEqual(mapped["child_input"], 42)
+		self.assertEqual(mapped["customer_name"], "ACME")

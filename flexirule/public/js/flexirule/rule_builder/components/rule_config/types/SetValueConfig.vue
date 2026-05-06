@@ -9,6 +9,7 @@
 
 		<div class="config-section section-card">
 			<div class="form-group mb-3">
+				<template v-if="!targetFieldState.hidden">
 				<label class="form-label"
 					>{{
 						getFieldLabel(
@@ -16,7 +17,7 @@
 							"target_field"
 						) || __("Target Field")
 					}}
-					<span class="text-danger">*</span></label
+					<span v-if="targetFieldState.reqd" class="text-danger">*</span></label
 				>
 				<FieldPickerControl
 					:df="with_read_only({ label: '' })"
@@ -29,6 +30,7 @@
 				<small class="text-muted">{{
 					__("The document field that will be updated")
 				}}</small>
+				</template>
 			</div>
 
 			<div class="form-group mb-3">
@@ -51,7 +53,7 @@ import { useActionConfig } from "../../../composables/useActionConfig";
 import FieldPickerControl from "../../../controls/FieldPickerControl.vue";
 import TextGeneratorControl from "../../../controls/TextGeneratorControl.vue";
 import { compileSegmentsToJinja } from "../../../utils/text_generator";
-import { getFieldLabel } from "../../../../core/contracts.js";
+import { getDerivedFieldState, getFieldLabel } from "../../../../core/contracts.js";
 
 const props = defineProps({
 	node: Object,
@@ -69,14 +71,40 @@ const {
 	store,
 } = useActionConfig(props);
 
+const valueTemplateState = computed(() =>
+	getDerivedFieldState(
+		props.node?.data?.action_type || "Set Value",
+		"value_template",
+		props.node?.data || {},
+		store.rule_doc || {},
+		{
+			operation: props.node?.data?.operation,
+			processName: props.node?.data?.process_name,
+		}
+	)
+);
+
 const textGeneratorField = computed(() => ({
 	fieldname: "text_generator_ui",
 	fieldtype: "Text Generator",
 	label:
 		getFieldLabel(props.node?.data?.action_type || "Set Value", "value_template") ||
 		__("Value Builder"),
-	reqd: 1,
+	reqd: valueTemplateState.value.reqd ? 1 : 0,
 }));
+
+const targetFieldState = computed(() =>
+	getDerivedFieldState(
+		props.node?.data?.action_type || "Set Value",
+		"target_field",
+		props.node?.data || {},
+		store.rule_doc || {},
+		{
+			operation: props.node?.data?.operation,
+			processName: props.node?.data?.process_name,
+		}
+	)
+);
 
 function update_template_ui(value) {
 	config.text_generator_ui = value;
@@ -146,7 +174,7 @@ watch(
 
 function validate() {
 	const errors = [];
-	if (!props.node?.data?.target_field) {
+	if (targetFieldState.value.reqd && !props.node?.data?.target_field) {
 		errors.push(__("Target Field is required"));
 	}
 	const ui = config.text_generator_ui;

@@ -210,6 +210,17 @@ function load_local_config() {
 		: [];
 }
 
+function validate() {
+	const incomplete = mapping_rows.value.find(
+		(row) => (row.source && !row.target) || (!row.source && row.target)
+	);
+	if (incomplete) {
+		frappe.msgprint(__("Each input mapping row must include both Parent Variable and Sub-Rule Param."));
+		return false;
+	}
+	return true;
+}
+
 watch(
 	() => props.node.data.rule,
 	(newRule) => {
@@ -225,6 +236,8 @@ onMounted(() => {
 	}
 	load_local_config();
 });
+
+defineExpose({ validate });
 </script>
 
 <style scoped>

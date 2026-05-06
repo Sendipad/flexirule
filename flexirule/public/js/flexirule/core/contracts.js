@@ -90,25 +90,76 @@ const DEFAULT_ACTION_TYPE_CONTRACT = {
 		css: { icon: "fa fa-cube", color: "#ec4899" },
 	},
 	"Set Value": {
-		required_fields: ["target_field", "value_template"],
+		required_fields: ["operation", "value_template"],
 		has_next_true: true,
 		has_next_false: false,
 		terminal: false,
-		allowed_mutations: [
-			"Set Doc Field",
-			"Update Doc Field",
-			"Set Context Variable",
-			"Update Context Variable",
-		],
+		operation_label: "Target Type",
+		operation_options: ["Current Document", "Context Variable", "Reference Document"],
+		allowed_mutations: [],
 		allowed_return_types: ["Yes / No", "Single Record", "List of Values"],
 		css: { icon: "fa fa-edit", color: "#14b8a6" },
-		default_return_type: "Single Record",
+		default_return_type: "Yes / No",
+		show_return_type: false,
+		require_return_type: false,
+		operation_policies: {
+			"Current Document": {
+				allowed_mutations: [
+					"Set Doc Field",
+					"Update Doc Field",
+					"Set Context Variable",
+					"Update Context Variable",
+				],
+				allowed_return_types: ["Yes / No"],
+				default_return_type: "Yes / No",
+				show_return_type: false,
+				require_return_type: false,
+				field_labels: {
+					target_field: "Current Document Field",
+					value_template: "New Field Value Template",
+					mutation_mode: "Result Handling (Optional)",
+					return_variable: "Result Variable Name (Optional)",
+				},
+			},
+			"Context Variable": {
+				allowed_mutations: ["Set Context Variable", "Update Context Variable"],
+				allowed_return_types: ["Yes / No"],
+				default_return_type: "Yes / No",
+				show_return_type: false,
+				require_return_type: false,
+				field_labels: {
+					variable_name: "Context Variable Name",
+					value_template: "Variable Value Template",
+					mutation_mode: "Result Handling (Optional)",
+					return_variable: "Result Variable Name (Optional)",
+				},
+			},
+			"Reference Document": {
+				allowed_mutations: ["Set Doc Field", "Update Doc Field"],
+				allowed_return_types: ["Yes / No"],
+				default_return_type: "Yes / No",
+				show_return_type: false,
+				require_return_type: false,
+				field_labels: {
+					reference_doctype: "Reference DocType",
+					reference_docname: "Reference Document Name",
+					target_field: "Reference Document Field",
+					value_template: "New Field Value Template",
+					mutation_mode: "Result Handling (Optional)",
+					return_variable: "Result Variable Name (Optional)",
+				},
+			},
+		},
 		validation: {
 			check_target_field_editable: true,
 		},
 		field_labels: {
+			operation: "Target Type",
 			target_field: "Field to Update",
 			value_template: "Value Template",
+			reference_doctype: "Target DocType",
+			reference_docname: "Target Record",
+			variable_name: "Variable Name",
 		},
 	},
 	Notify: {
@@ -119,6 +170,17 @@ const DEFAULT_ACTION_TYPE_CONTRACT = {
 		css: { icon: "fa fa-bell", color: "#0ea5e9" },
 		operation_label: "Notification Type",
 		operation_options: ["Toast", "System", "Email", "System Notification", "Provider"],
+		operation_policies: {
+			Email: {
+				required_config_keys: ["subject", "recipients"],
+			},
+			"System Notification": {
+				required_config_keys: ["subject"],
+			},
+			Provider: {
+				required_config_keys: ["provider", "recipient"],
+			},
+		},
 	},
 	"Raise Error": {
 		required_fields: ["value_template"],
@@ -173,6 +235,50 @@ const DEFAULT_ACTION_TYPE_CONTRACT = {
 			"Add Comment",
 		],
 		allowed_mutations: ["Set Doc Field", "Set Context Variable"],
+		operation_policies: {
+			"Create New": {
+				allowed_return_types: ["Single Record", "Full Document"],
+				default_return_type: "Single Record",
+				allowed_mutations: ["Set Context Variable", "Update Context Variable"],
+				show_return_type: true,
+				require_return_type: true,
+				field_labels: { return_type: "Created Document Output" },
+			},
+			"Update Existing": {
+				allowed_return_types: ["Single Record", "Full Document"],
+				default_return_type: "Single Record",
+				allowed_mutations: ["Set Context Variable", "Update Context Variable", "Set Doc Field"],
+				show_return_type: true,
+				require_return_type: true,
+				field_labels: { return_type: "Updated Document Output" },
+			},
+			"Delete Record": {
+				allowed_return_types: ["Yes / No"],
+				default_return_type: "Yes / No",
+				allowed_mutations: ["Set Context Variable"],
+				show_return_type: false,
+				require_return_type: false,
+				field_labels: { return_type: "Deletion Result Type" },
+			},
+			"Create ToDo": {
+				allowed_return_types: ["Single Record"],
+				default_return_type: "Single Record",
+				allowed_mutations: ["Set Context Variable", "Update Context Variable"],
+				show_return_type: false,
+				require_return_type: false,
+				required_config_keys: ["assigned_to", "description"],
+				field_labels: { return_type: "ToDo Output Type" },
+			},
+			"Add Comment": {
+				allowed_return_types: ["Single Record"],
+				default_return_type: "Single Record",
+				allowed_mutations: ["Set Context Variable", "Update Context Variable"],
+				show_return_type: false,
+				require_return_type: false,
+				required_config_keys: ["comment_text"],
+				field_labels: { return_type: "Comment Output Type" },
+			},
+		},
 		css: { icon: "fa fa-file-text", color: "#059669" },
 	},
 };
@@ -244,6 +350,7 @@ export let ACTION_TYPES_WITH_RETURN_SCHEMA = new Set(DEFAULT_ACTION_TYPES_WITH_R
 export let CONFIG_MODAL_TYPES = new Set(DEFAULT_CONFIG_MODAL_TYPES);
 export let PROCESS_REGISTRY = [];
 export let OPERATION_REGISTRY = [];
+export let OPERATION_CONTRACT = {};
 export let PROCESS_OPERATION_POLICIES = {};
 export let RUNTIME_FIELD_ALIASES = {};
 
@@ -304,6 +411,10 @@ function applyContractDto(dto = {}) {
 
 	if (Array.isArray(dto.operation_registry)) {
 		OPERATION_REGISTRY = [...dto.operation_registry];
+	}
+
+	if (dto.operation_contract && typeof dto.operation_contract === "object") {
+		OPERATION_CONTRACT = { ...dto.operation_contract };
 	}
 
 	if (dto.process_operation_policies && typeof dto.process_operation_policies === "object") {
@@ -400,9 +511,12 @@ export function normalizeActionType(actionType) {
 	const match = canonicalKeys.find((k) => k.toLowerCase() === normalized);
 	if (match) return match;
 
-	// 3. Compact match for common UI variants: "setvalue" -> "Set Value"
-	const compact = normalized.replace(/\s+/g, "");
-	const compactMatch = canonicalKeys.find((k) => k.toLowerCase().replace(/\s+/g, "") === compact);
+	// 3. Compact match for common UI variants:
+	//    "setvalue" -> "Set Value", "subrule" / "sub-rule" -> "Sub-Rule"
+	const compact = normalized.replace(/[^a-z0-9]/g, "");
+	const compactMatch = canonicalKeys.find(
+		(k) => k.toLowerCase().replace(/[^a-z0-9]/g, "") === compact
+	);
 	if (compactMatch) return compactMatch;
 
 	return actionType;
@@ -457,6 +571,60 @@ function mergePolicy(basePolicy = {}, overridePolicy = {}) {
 export function getProcessOperationPolicy(processName, operation) {
 	if (!processName || !operation) return {};
 	return PROCESS_OPERATION_POLICIES?.[processName]?.[operation] || {};
+}
+
+function evaluateFieldExpression(expression, doc = {}, parent = {}) {
+	if (!expression) return true;
+	if (typeof expression === "boolean") return expression;
+	if (typeof expression !== "string") return Boolean(expression);
+	if (!expression.startsWith("eval:")) return Boolean(doc?.[expression]);
+	try {
+		return frappe.utils.eval(expression.slice(5), { doc, parent });
+	} catch (_error) {
+		return true;
+	}
+}
+
+function getOperationRuleActionFields(operationName) {
+	return OPERATION_CONTRACT?.[operationName]?.["Rule Action"] || [];
+}
+
+export function getOperationFieldOverride(actionType, fieldname, ctx = {}) {
+	const operation = ctx?.operation || null;
+	const merged = {};
+	for (const row of getOperationRuleActionFields(actionType)) {
+		if (row?.fieldname === fieldname) Object.assign(merged, row);
+	}
+	if (operation) {
+		for (const row of getOperationRuleActionFields(operation)) {
+			if (row?.fieldname === fieldname) Object.assign(merged, row);
+		}
+	}
+	return merged;
+}
+
+export function getDerivedFieldState(actionType, fieldname, doc = {}, parent = {}, ctx = {}) {
+	const override = getOperationFieldOverride(actionType, fieldname, ctx);
+	const hiddenByOverride = Boolean(
+		override.hidden ? evaluateFieldExpression(override.hidden, doc, parent) : false
+	);
+	const visibleByDepends =
+		override.depends_on !== undefined
+			? evaluateFieldExpression(override.depends_on, doc, parent)
+			: true;
+	let required = Boolean(override.reqd);
+	if (override.mandatory_depends_on !== undefined) {
+		required = evaluateFieldExpression(override.mandatory_depends_on, doc, parent);
+	}
+	const readOnly = override.read_only_depends_on
+		? evaluateFieldExpression(override.read_only_depends_on, doc, parent)
+		: Boolean(override.read_only);
+	return {
+		hidden: hiddenByOverride || !visibleByDepends,
+		reqd: required,
+		read_only: readOnly,
+		override,
+	};
 }
 
 export function getOperationOptions(actionType, ctx = {}) {
@@ -543,6 +711,91 @@ export function shouldShowReturnType(actionType, ctx = {}) {
 export function isReturnTypeMandatory(actionType, ctx = {}) {
 	const policy = getEffectiveActionPolicy(actionType, ctx);
 	return Boolean(policy.require_return_type);
+}
+
+function suggestReturnVariableName(nodeData = {}) {
+	const base = String(nodeData?.operation || nodeData?.action_type || "result")
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, "_")
+		.replace(/^_+|_+$/g, "");
+	return base || "result";
+}
+
+export function applyOutputPolicyDefaults(nodeData, opts = {}) {
+	if (!nodeData || !nodeData.action_type) return false;
+	const preserveUserChoices = opts.preserveUserChoices !== false;
+	const ctx = {
+		operation: nodeData.operation,
+		processName: nodeData.process_name,
+	};
+	const policy = getEffectiveActionPolicy(nodeData.action_type, ctx);
+	const allowedMutations = policy.allowed_mutations || [];
+	const allowedReturnTypes = policy.allowed_return_types || [];
+	const returnVarState = getDerivedFieldState(
+		nodeData.action_type,
+		"return_variable",
+		nodeData,
+		opts.parent || {},
+		ctx
+	);
+	const mutationState = getDerivedFieldState(
+		nodeData.action_type,
+		"mutation_mode",
+		nodeData,
+		opts.parent || {},
+		ctx
+	);
+	let changed = false;
+
+	if (
+		nodeData.mutation_mode &&
+		(!!mutationState.hidden ||
+			(allowedMutations.length && !allowedMutations.includes(nodeData.mutation_mode)))
+	) {
+		nodeData.mutation_mode = null;
+		changed = true;
+	}
+
+	if (
+		nodeData.return_type &&
+		(allowedReturnTypes.length && !allowedReturnTypes.includes(nodeData.return_type))
+	) {
+		nodeData.return_type = null;
+		changed = true;
+	}
+
+	if (!nodeData.return_type && policy.default_return_type) {
+		nodeData.return_type = policy.default_return_type;
+		changed = true;
+	}
+
+	if (
+		policy.show_return_type === false &&
+		nodeData.return_type &&
+		policy.default_return_type &&
+		nodeData.return_type !== policy.default_return_type
+	) {
+		nodeData.return_type = policy.default_return_type;
+		changed = true;
+	}
+
+	const needsReturnVariable =
+		!!nodeData.mutation_mode ||
+		(nodeData.return_type && nodeData.return_type !== "Yes / No") ||
+		!!nodeData.resolved_output_schema ||
+		!!policy.require_return_variable;
+
+	if (returnVarState.hidden && nodeData.return_variable) {
+		nodeData.return_variable = null;
+		changed = true;
+	}
+
+	if (!returnVarState.hidden && needsReturnVariable && !nodeData.return_variable && !preserveUserChoices) {
+		nodeData.return_variable = suggestReturnVariableName(nodeData);
+		changed = true;
+	}
+
+	return changed;
 }
 
 /**
@@ -639,7 +892,12 @@ export function validateAgainstContract(nodeData) {
 		errors.push(__("Return type is required for this operation"));
 	}
 
-	if ((nodeData.return_type || nodeData.resolved_output_schema) && !nodeData.return_variable) {
+	const showReturnType = policy.show_return_type !== false;
+	if (
+		((showReturnType && nodeData.return_type && nodeData.return_type !== "Yes / No") ||
+			nodeData.resolved_output_schema) &&
+		!nodeData.return_variable
+	) {
 		errors.push(__("Return Schema requires a Return Variable Name"));
 	}
 

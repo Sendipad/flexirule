@@ -179,7 +179,7 @@ import { computed } from "vue";
 import { useStore } from "../../stores";
 import ControlFactory from "../../controls/ControlFactory.vue";
 import AutocompleteControl from "../../controls/AutocompleteControl.vue";
-import { getContract } from "../../../core/contracts.js";
+import { getContract, getDerivedFieldState } from "../../../core/contracts.js";
 
 const props = defineProps({ node: Object, readOnly: Boolean });
 const emit = defineEmits(["update:field"]);
@@ -194,8 +194,20 @@ const actionType = computed(() => props.node?.data?.action_type);
 const contract = computed(() => getContract(actionType.value));
 const isTerminal = computed(() => contract.value.terminal);
 
-const HIDE_RETURN_VARIABLE = new Set(["Condition", "Loop", "Switch", "Stop", "Entry Action"]);
-const showReturnVariable = computed(() => !HIDE_RETURN_VARIABLE.has(actionType.value));
+const showReturnVariable = computed(() => {
+	const state = getDerivedFieldState(
+		actionType.value,
+		"return_variable",
+		props.node?.data || {},
+		store.rule_doc || {},
+		{
+			operation: props.node?.data?.operation,
+			processName: props.node?.data?.process_name,
+		}
+	);
+	if (state.hidden) return false;
+	return !["Condition", "Loop", "Switch", "Stop", "Entry Action"].includes(actionType.value);
+});
 
 // ── Flow control metadata per action type ─────────────────────────────────
 const FLOW_META = {
