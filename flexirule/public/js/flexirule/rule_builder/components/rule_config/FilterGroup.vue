@@ -362,32 +362,41 @@ const VALUE_TYPE_LABELS = {
 	Builder: __("Formula Builder"),
 };
 
-const timespanOptions = [
-	{ label: __("Last 7 Days"), value: "last 7 days" },
-	{ label: __("Last 14 Days"), value: "last 14 days" },
-	{ label: __("Last 30 Days"), value: "last 30 days" },
-	{ label: __("Last 90 Days"), value: "last 90 days" },
-	{ label: __("Last Week"), value: "last week" },
-	{ label: __("Last Month"), value: "last month" },
-	{ label: __("Last Quarter"), value: "last quarter" },
-	{ label: __("Last 6 Months"), value: "last 6 months" },
-	{ label: __("Last Year"), value: "last year" },
-	{ label: __("Yesterday"), value: "yesterday" },
-	{ label: __("Today"), value: "today" },
-	{ label: __("Tomorrow"), value: "tomorrow" },
-	{ label: __("This Week"), value: "this week" },
-	{ label: __("This Month"), value: "this month" },
-	{ label: __("This Quarter"), value: "this quarter" },
-	{ label: __("This Year"), value: "this year" },
-	{ label: __("Next 7 Days"), value: "next 7 days" },
-	{ label: __("Next 14 Days"), value: "next 14 days" },
-	{ label: __("Next 30 Days"), value: "next 30 days" },
-	{ label: __("Next Week"), value: "next week" },
-	{ label: __("Next Month"), value: "next month" },
-	{ label: __("Next Quarter"), value: "next quarter" },
-	{ label: __("Next 6 Months"), value: "next 6 months" },
-	{ label: __("Next Year"), value: "next year" },
-];
+const timespanOptions = frappe.ui?.filter_utils?.get_timespan_options
+	? frappe.ui.filter_utils.get_timespan_options([
+			"Last",
+			"Yesterday",
+			"Today",
+			"Tomorrow",
+			"This",
+			"Next",
+	  ])
+	: [
+			{ label: __("Last 7 Days"), value: "last 7 days" },
+			{ label: __("Last 14 Days"), value: "last 14 days" },
+			{ label: __("Last 30 Days"), value: "last 30 days" },
+			{ label: __("Last 90 Days"), value: "last 90 days" },
+			{ label: __("Last Week"), value: "last week" },
+			{ label: __("Last Month"), value: "last month" },
+			{ label: __("Last Quarter"), value: "last quarter" },
+			{ label: __("Last 6 Months"), value: "last 6 months" },
+			{ label: __("Last Year"), value: "last year" },
+			{ label: __("Yesterday"), value: "yesterday" },
+			{ label: __("Today"), value: "today" },
+			{ label: __("Tomorrow"), value: "tomorrow" },
+			{ label: __("This Week"), value: "this week" },
+			{ label: __("This Month"), value: "this month" },
+			{ label: __("This Quarter"), value: "this quarter" },
+			{ label: __("This Year"), value: "this year" },
+			{ label: __("Next 7 Days"), value: "next 7 days" },
+			{ label: __("Next 14 Days"), value: "next 14 days" },
+			{ label: __("Next 30 Days"), value: "next 30 days" },
+			{ label: __("Next Week"), value: "next week" },
+			{ label: __("Next Month"), value: "next month" },
+			{ label: __("Next Quarter"), value: "next quarter" },
+			{ label: __("Next 6 Months"), value: "next 6 months" },
+			{ label: __("Next Year"), value: "next year" },
+	  ];
 
 const BASE_QUERY_OPERATORS = [
 	"=",
@@ -403,6 +412,13 @@ const BASE_QUERY_OPERATORS = [
 	"is",
 ];
 const QUERY_EXTENSION_OPERATORS = ["Between", "Timespan", "starts with", "ends with"];
+const NESTED_SET_OPERATORS = [
+	"descendants of",
+	"descendants of (inclusive)",
+	"not descendants of",
+	"ancestors of",
+	"not ancestors of",
+];
 const operatorLabelMap = {
 	"=": __("Equals"),
 	"!=": __("Not Equals"),
@@ -419,6 +435,11 @@ const operatorLabelMap = {
 	Timespan: __("Timespan"),
 	"starts with": __("Starts With"),
 	"ends with": __("Ends With"),
+	"descendants of": __("Descendants Of"),
+	"descendants of (inclusive)": __("Descendants Of (inclusive)"),
+	"not descendants of": __("Not Descendants Of"),
+	"ancestors of": __("Ancestors Of"),
+	"not ancestors of": __("Not Ancestors Of"),
 };
 const DATE_OPERATOR_LABELS = {
 	"<": __("Before"),
@@ -427,40 +448,28 @@ const DATE_OPERATOR_LABELS = {
 	">=": __("On or After"),
 };
 
-const operatorConfig = ref({
-	fieldtype_operators: {},
-	operator_labels: {},
-});
-const FILTER_OPERATOR_ALIASES = {
-	"==": "=",
-	"is not": "!=",
-	"in list": "in",
-	"not in list": "not in",
-	contains: "like",
-	not_contains: "not like",
-};
-const DISALLOWED_FILTER_OPERATORS = new Set([
-	"is_set",
-	"is_not_set",
-	"is_empty",
-	"is_not_empty",
-	"is_submittable",
-	"has_field",
-	"has_changed",
-	"length_eq",
-	"length_gt",
-	"length_gte",
-	"length_lt",
-	"length_lte",
-]);
 const EXTRA_FILTER_OPERATORS_BY_FIELDTYPE = {
-	Date: ["Between", "Timespan"],
-	Datetime: ["Between", "Timespan"],
-	Data: ["starts with", "ends with"],
-	Text: ["starts with", "ends with"],
-	"Small Text": ["starts with", "ends with"],
-	"Long Text": ["starts with", "ends with"],
-	"Text Editor": ["starts with", "ends with"],
+	Data: ["starts with", "ends with"], // FlexiRule enhancement (not in core Frappe)
+	Text: ["starts with", "ends with"], // FlexiRule enhancement
+	"Small Text": ["starts with", "ends with"], // FlexiRule enhancement
+	"Long Text": ["starts with", "ends with"], // FlexiRule enhancement
+	"Text Editor": ["starts with", "ends with"], // FlexiRule enhancement
+};
+const FRAPPE_INVALID_CONDITION_MAP = {
+	Date: ["like", "not like"],
+	Datetime: ["like", "not like", "in", "not in", "=", "!="],
+	Data: ["Between", "Timespan"],
+	Time: ["Between", "Timespan"],
+	Select: ["like", "not like", "Between", "Timespan"],
+	Link: ["Between", "Timespan", ">", "<", ">=", "<="],
+	Currency: ["Between", "Timespan"],
+	Color: ["Between", "Timespan"],
+	Code: ["Between", "Timespan", ">", "<", ">=", "<=", "in", "not in"],
+	"HTML Editor": ["Between", "Timespan", ">", "<", ">=", "<=", "in", "not in"],
+	"Markdown Editor": ["Between", "Timespan", ">", "<", ">=", "<=", "in", "not in"],
+	Password: ["Between", "Timespan", ">", "<", ">=", "<=", "in", "not in"],
+	Rating: ["like", "not like", "Between", "in", "not in", "Timespan"],
+	Float: ["like", "not like", "Between", "in", "not in", "Timespan"],
 };
 const DATE_FIELDTYPES = new Set(["Date", "Datetime"]);
 const BUILDER_SUPPORTED_FIELDTYPES = new Set([
@@ -487,34 +496,15 @@ const formatBooleanValueForDisplay = (value) => {
 	return value;
 };
 
-const toFilterOperator = (op) => FILTER_OPERATOR_ALIASES[op] || op;
-
-const getConfiguredBaseOperators = (field) => {
-	const fieldtype = field?.fieldtype || "Data";
-	const fromField = Array.isArray(field?.operators) ? field.operators : null;
-	const fromConfig = operatorConfig.value.fieldtype_operators?.[fieldtype];
-	const fallback = operatorConfig.value.fieldtype_operators?._default || ["==", "!="];
-	const source = fromField?.length ? fromField : fromConfig?.length ? fromConfig : fallback;
-	return source.map(toFilterOperator).filter((op) => !DISALLOWED_FILTER_OPERATORS.has(op));
-};
-
 const getExtraOperatorsForField = (field) => {
 	if (!field?.fieldtype) return [];
 	return EXTRA_FILTER_OPERATORS_BY_FIELDTYPE[field.fieldtype] || [];
 };
 
-const loadOperatorConfig = async () => {
-	try {
-		const result = await frappe.call({
-			method: "flexirule.ruleflow.api.get_operator_config",
-		});
-		if (result.message) operatorConfig.value = result.message;
-	} catch (e) {
-		console.warn(
-			"FilterGroup: failed to load backend operator config, using fallback operators",
-			e
-		);
-	}
+const getNestedSetOperatorsForField = (field) => {
+	if (!field || field.fieldtype !== "Link") return [];
+	const nestedSetDoctypes = frappe.boot?.nested_set_doctypes || [];
+	return nestedSetDoctypes.includes(field.options) ? NESTED_SET_OPERATORS : [];
 };
 
 // Initialize local state from modelValue
@@ -801,13 +791,20 @@ const getFieldDef = (fieldname, doctype) => {
 
 const getOperatorsForField = (field) => {
 	if (!field) return [...BASE_QUERY_OPERATORS, ...QUERY_EXTENSION_OPERATORS];
-	const dedup = new Set([
-		...getConfiguredBaseOperators(field),
-		...getExtraOperatorsForField(field),
-	]);
-	const allowed = [...dedup].filter((op) =>
-		[...BASE_QUERY_OPERATORS, ...QUERY_EXTENSION_OPERATORS].includes(op)
-	);
+	const all = [...BASE_QUERY_OPERATORS, ...QUERY_EXTENSION_OPERATORS];
+	const invalid =
+		FRAPPE_INVALID_CONDITION_MAP[field.original_type] ||
+		FRAPPE_INVALID_CONDITION_MAP[field.fieldtype] ||
+		[];
+	const allowed = all.filter((op) => !invalid.includes(op));
+	const extra = getExtraOperatorsForField(field);
+	for (const op of extra) {
+		if (!allowed.includes(op)) allowed.push(op);
+	}
+	const nestedSetOps = getNestedSetOperatorsForField(field);
+	for (const op of nestedSetOps) {
+		if (!allowed.includes(op)) allowed.push(op);
+	}
 	if (isCheckField(field)) return allowed.filter((op) => op === "=" || op === "!=");
 	return allowed.length ? allowed : ["="];
 };
@@ -1342,7 +1339,6 @@ watch(
 );
 
 onMounted(async () => {
-	await loadOperatorConfig();
 	syncFromProps();
 });
 </script>

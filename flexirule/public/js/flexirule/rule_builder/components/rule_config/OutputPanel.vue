@@ -22,7 +22,7 @@
 						v-if="showReturnVariable && useAutocompleteForReturnVariable"
 						:df="returnVariableField"
 						:modelValue="node.data?.return_variable"
-						:get_options="getVariableOptions"
+						:get_options="getReturnVariableOptions"
 						:read_only="readOnly"
 						@update:modelValue="updateField('return_variable', $event)"
 					/>
@@ -420,6 +420,26 @@ async function refreshVariables() {
 
 function getVariableOptions() {
 	return availableVariables.value.map((v) => ({ label: v.label, value: v.value }));
+}
+
+function getReturnVariableOptions() {
+	const seen = new Set();
+	const out = [];
+	for (const v of availableVariables.value || []) {
+		const raw = String(v?.value || "").trim();
+		if (!raw.startsWith("vars.")) continue;
+		const name = raw
+			.replace(/^vars\./, "")
+			.split(".")[0]
+			.trim();
+		if (!name || seen.has(name)) continue;
+		seen.add(name);
+		out.push({
+			label: `${name} (${__("existing")})`,
+			value: name,
+		});
+	}
+	return out;
 }
 
 onMounted(() => {

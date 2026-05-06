@@ -510,6 +510,9 @@ onMounted(async () => {
 			await loadDocMeta(reference_doctype.value);
 			await load_doctype_fields(reference_doctype.value);
 		}
+		// Ensure schema is initialized on first load even before any user edits.
+		// This avoids empty OutputPanel schema when config already has selected fields.
+		await update_resolved_schema_local();
 		await refresh_variables();
 		await debounced_schema_update();
 	} finally {
@@ -671,7 +674,11 @@ const SYSTEM_FIELDS = [
 	{ fieldname: "docstatus", label: __("Document Status (docstatus)"), fieldtype: "Int" },
 ];
 
-async function update_resolved_schema() {
+/**
+ * Local metadata-based schema detection.
+ * Provides instant feedback for Query List and Query Doc modes.
+ */
+async function update_resolved_schema_local() {
 	if (!props.node?.data) return;
 
 	if (mode.value === "Query List" || mode.value === "Query Doc") {
@@ -1160,10 +1167,18 @@ function load_local_config(val) {
 
 // Unified watch for all local state changes
 watch(
-	() => [field_rows.value, order_by_rows.value, config, report_filter_values],
+	() => [
+		field_rows.value,
+		order_by_rows.value,
+		config,
+		report_filter_values,
+		mode.value,
+		reference_doctype.value,
+	],
 	() => {
 		if (!is_internal_update) {
 			debounced_sync();
+			update_resolved_schema_local();
 			debounced_schema_update();
 		}
 	},

@@ -938,33 +938,53 @@ def test_action_query(
 	import time
 
 	start = time.time()
-	try:
-		result, _next_id = handler.execute(action, context, engine)
-		# Apply post-processing (output mapping, return validation, mutation)
-		engine._post_process_action_result(action, result, context)
-		duration = time.time() - start
+	schema = []
+	result = None
+	duration = 0.0
 
-		# Detect return fields
-		schema = []
+	# 1. Pre-detection from Action Config (most reliable for Query List/Doc/Count)
+	# This ensures we get a schema even if the execution fails due to missing data/context
+	if action and action.action_type == "Query Records":
+		try:
+			config_data: dict = (
+				json.loads(action.config) if isinstance(action.config, str) else (action.config or {})
+			)
+			if config_data is None:
+				config_data = {}
 
-		# 1. Try to detect from Action Config first (most reliable for Query List)
-		if action and action.action_type == "Query Records":
-			try:
-				config_data: dict = (
-					json.loads(action.config) if isinstance(action.config, str) else (action.config or {})
-				)
-				if config_data is None:
-					config_data = {}
+			mode = (action.operation or config_data.get("operation")) if action else None
+			reference_doctype = action.reference_doctype if action else None
 
-				mode = (action.operation or config_data.get("operation")) if action else None
+			if (mode == "Query List" or mode == "Query Doc") and reference_doctype:
+				fields = config_data.get("fields") or (["name"] if mode == "Query List" else [])
+				meta = frappe.get_meta(reference_doctype)
+				system_fields = {f["value"]: f for f in SYSTEM_FIELDS}
 
-				reference_doctype = action.reference_doctype if action else None
-
-				if mode == "Query List" and reference_doctype:
-					fields = config_data.get("fields") or ["name"]
-					meta = frappe.get_meta(reference_doctype)
-					system_fields = {f["value"]: f for f in SYSTEM_FIELDS}
-
+				if mode == "Query Doc" and not fields:
+					# For Query Doc, if no fields specified, we return all non-no_value fields
+					for df in meta.fields:
+						if df.fieldtype not in frappe.model.no_value_fields:
+							schema.append(
+								{
+									"fieldname": df.fieldname,
+									"label": df.label,
+									"fieldtype": df.fieldtype,
+									"options": df.options,
+									"mandatory": df.reqd,
+								}
+							)
+					# Add system fields
+					for sf in SYSTEM_FIELDS:
+						schema.append(
+							{
+								"fieldname": sf["value"],
+								"label": sf["label"],
+								"fieldtype": sf.get("fieldtype", "Data"),
+								"options": sf.get("options"),
+								"mandatory": 0,
+							}
+						)
+				else:
 					for f in fields:
 						df = None
 						label = f
@@ -996,11 +1016,47 @@ def test_action_query(
 								"mandatory": df.reqd if df and hasattr(df, "reqd") else 0,
 							}
 						)
-				elif mode == "Query Report" and isinstance(result, dict) and "columns" in result:
+			elif mode in ["Count", "Sum", "Average", "Min", "Max"]:
+				label_map = {
+					"Count": _("Count Result"),
+					"Sum": _("Sum Result"),
+					"Average": _("Average Result"),
+					"Min": _("Min Result"),
+					"Max": _("Max Result"),
+				}
+				schema.append(
+					{
+						"fieldname": "result",
+						"label": label_map.get(mode, _("Query Result")),
+						"fieldtype": "Float" if mode == "Average" else "Int",
+						"options": None,
+						"mandatory": 0,
+					}
+				)
+		except Exception:
+			pass
+
+	try:
+		result, _next_id = handler.execute(action, context, engine)
+		# Apply post-processing (output mapping, return validation, mutation)
+		engine._post_process_action_result(action, result, context)
+		duration = time.time() - start
+
+		# 2. Refine detection from result if execution succeeded
+		if action and action.action_type == "Query Records":
+			try:
+				config_data2: dict = (
+					json.loads(action.config) if isinstance(action.config, str) else (action.config or {})
+				)
+				mode = (action.operation or config_data2.get("operation")) if action else None
+
+				if mode == "Query Report" and isinstance(result, dict) and "columns" in result:
+					# Reports MUST be detected from result since columns are dynamic
+					report_schema = []
 					columns = result.get("columns") or []
 					for c in columns:
 						if isinstance(c, dict):
-							schema.append(
+							report_schema.append(
 								{
 									"fieldname": c.get("fieldname") or c.get("label"),
 									"label": c.get("label") or c.get("fieldname"),
@@ -1010,7 +1066,7 @@ def test_action_query(
 								}
 							)
 						elif isinstance(c, str):
-							schema.append(
+							report_schema.append(
 								{
 									"fieldname": c,
 									"label": c,
@@ -1019,53 +1075,12 @@ def test_action_query(
 									"mandatory": 0,
 								}
 							)
-				elif mode == "Query Doc" and reference_doctype:
-					meta = frappe.get_meta(reference_doctype)
-					for df in meta.fields:
-						if df.fieldtype not in frappe.model.no_value_fields:
-							schema.append(
-								{
-									"fieldname": df.fieldname,
-									"label": df.label,
-									"fieldtype": df.fieldtype,
-									"options": df.options,
-									"mandatory": df.reqd,
-								}
-							)
-					# Add system fields
-					for sf in SYSTEM_FIELDS:
-						schema.append(
-							{
-								"fieldname": sf["value"],
-								"label": sf["label"],
-								"fieldtype": sf.get("fieldtype", "Data"),
-								"options": sf.get("options"),
-								"mandatory": 0,
-							}
-						)
-				elif mode in ["Count", "Sum", "Average", "Min", "Max"] and (
-					isinstance(result, int | float) or result is None
-				):
-					label_map = {
-						"Count": _("Count Result"),
-						"Sum": _("Sum Result"),
-						"Average": _("Average Result"),
-						"Min": _("Min Result"),
-						"Max": _("Max Result"),
-					}
-					schema.append(
-						{
-							"fieldname": "result",
-							"label": label_map.get(mode, _("Query Result")),
-							"fieldtype": "Float" if mode == "Average" else "Int",
-							"options": None,
-							"mandatory": 0,
-						}
-					)
+					if report_schema:
+						schema = report_schema
 			except Exception:
 				pass
 
-		# 2. Fallback to result inspection if still empty
+		# 3. Fallback to result inspection if still empty
 		if not schema:
 			if isinstance(result, dict):
 				for k in result.keys():
@@ -1085,6 +1100,15 @@ def test_action_query(
 			"duration": round(duration, 4),
 		}
 	except Exception as e:
+		# Even if execution failed, we return the metadata-based schema if we found one
+		if schema:
+			return {
+				"success": False,
+				"error": str(e),
+				"result": None,
+				"schema": schema,
+				"duration": round(time.time() - start, 4),
+			}
 		return _build_error_response(e, context="test_action_query")
 
 

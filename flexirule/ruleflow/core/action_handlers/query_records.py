@@ -103,89 +103,241 @@ class QueryRecordsHandler(ActionHandler):
 			config = self._parse_config(action.config)
 			if not config.get("field"):
 				errors.append(_("{0} operation requires 'field' in config").format(mode))
+		else:
+			config = self._parse_config(action.config)
+
+		if mode != "Query Report" and action.reference_doctype:
+			errors.extend(self._validate_doctype_field_references(action.reference_doctype, config))
 
 		return errors
 
+	def _doctype_has_field(self, doctype: str, fieldname: str) -> bool:
+		if not doctype or not fieldname:
+			return False
+		fieldname = str(fieldname).strip()
+		if not fieldname:
+			return False
+		if fieldname in {"name", "owner", "creation", "modified", "modified_by", "docstatus"}:
+			return True
+		meta = frappe.get_meta(doctype)
+		return bool(meta and meta.has_field(fieldname))
+
+	def _is_plain_field_reference(self, token) -> bool:
+		if not isinstance(token, str):
+			return False
+		t = token.strip()
+		if not t:
+			return False
+		if any(x in t.lower() for x in ("(", ")", " as ", "case ", "*", "`")):
+			return False
+		return True
+
+	def _validate_filter_fields(self, reference_doctype: str, filter_payload) -> list[str]:
+		errors: list[str] = []
+		if not filter_payload:
+			return errors
+		rows = filter_payload if isinstance(filter_payload, list) else [filter_payload]
+		for row in rows:
+			if isinstance(row, dict):
+				fieldname = row.get("field") or row.get("fieldname")
+				row_dt = row.get("doctype") or reference_doctype
+				if (
+					fieldname
+					and self._is_plain_field_reference(fieldname)
+					and not self._doctype_has_field(row_dt, fieldname)
+				):
+					errors.append(_("Filter field '{0}' does not exist in {1}").format(fieldname, row_dt))
+			elif isinstance(row, list):
+				if len(row) == 4:
+					row_dt, fieldname = row[0], row[1]
+				elif len(row) == 3:
+					row_dt, fieldname = reference_doctype, row[0]
+				else:
+					continue
+				if self._is_plain_field_reference(fieldname) and not self._doctype_has_field(
+					row_dt, fieldname
+				):
+					errors.append(_("Filter field '{0}' does not exist in {1}").format(fieldname, row_dt))
+		return errors
+
+	def _validate_doctype_field_references(self, reference_doctype: str, config: dict) -> list[str]:
+		errors: list[str] = []
+		if not reference_doctype:
+			return errors
+		try:
+			frappe.get_meta(reference_doctype)
+		except Exception:
+			return [_("Reference DocType '{0}' does not exist").format(reference_doctype)]
+
+		for f in config.get("fields", []) or []:
+			if self._is_plain_field_reference(f) and not self._doctype_has_field(reference_doctype, f):
+				errors.append(_("Selected field '{0}' does not exist in {1}").format(f, reference_doctype))
+
+		for key in ("field", "group_by_field", "agg_field"):
+			val = config.get(key)
+			if (
+				val
+				and self._is_plain_field_reference(val)
+				and not self._doctype_has_field(reference_doctype, val)
+			):
+				errors.append(
+					_("Config field '{0}' references missing field '{1}' in {2}").format(
+						key, val, reference_doctype
+					)
+				)
+
+		order_by = (config.get("order_by") or "").strip()
+		if order_by:
+			for part in [x.strip() for x in order_by.split(",") if x.strip()]:
+				field = part.split(" ")[0].strip()
+				if self._is_plain_field_reference(field) and not self._doctype_has_field(
+					reference_doctype, field
+				):
+					errors.append(
+						_("Order-by field '{0}' does not exist in {1}").format(field, reference_doctype)
+					)
+
+		errors.extend(self._validate_filter_fields(reference_doctype, config.get("filters")))
+		errors.extend(self._validate_filter_fields(reference_doctype, config.get("or_filters")))
+		return errors
+
 	def _count_records(self, reference_doctype, config, context, action, ignore_permissions):
-		"""Count records matching filters."""
-		filters = self._resolve_filters(config.get("filters", {}), context)
-		filters = self._normalize_filters_for_backend(filters)
-		# Skip permission check is already handled by frappe.db functions if we don't pass ignore_permissions arg to them,
-		# actually frappe.db.count doesn't take ignore_permissions. We check read permission manually if needed.
+		"""Count records matching filters using get_list-compatible filters."""
+		filters, or_filters = self._resolve_query_filters(config, context, action)
 		if not ignore_permissions and not frappe.has_permission(reference_doctype, "read"):
 			frappe.throw(
 				_("You don't have read permission for {0}").format(reference_doctype), frappe.PermissionError
 			)
 
-		return frappe.db.count(reference_doctype, filters=filters)
+		# Use get_list/get_all style query so child-table and nested-set operators work consistently.
+		rows = frappe.get_all(
+			reference_doctype,
+			filters=filters,
+			or_filters=or_filters,
+			fields=["count(name) as _count"],
+			ignore_permissions=ignore_permissions,
+		)
+		return (rows and rows[0].get("_count")) or 0
 
 	def _aggregate(self, reference_doctype, config, context, action, ignore_permissions):
-		"""Perform sum/avg/min/max aggregation using frappe.qb."""
-		from frappe.query_builder import DocType
-		from frappe.query_builder.functions import Avg, Max, Min, Sum
-
+		"""Perform sum/avg/min/max via frappe.get_all for consistent filter semantics."""
 		if not ignore_permissions and not frappe.has_permission(reference_doctype, "read"):
 			frappe.throw(
 				_("You don't have read permission for {0}").format(reference_doctype), frappe.PermissionError
 			)
 
-		filters = self._resolve_filters(config.get("filters", {}), context)
-		filters = self._normalize_filters_for_backend(filters)
+		filters, or_filters = self._resolve_query_filters(config, context, action)
 		field = config.get("field", "name")
 		mode = action.operation
-
-		table = DocType(reference_doctype)
-
-		agg_functions = {
-			"Sum": Sum,
-			"Average": Avg,
-			"Min": Min,
-			"Max": Max,
+		agg_map = {
+			"Sum": "sum",
+			"Average": "avg",
+			"Min": "min",
+			"Max": "max",
 		}
+		agg_fn = agg_map.get(mode)
+		if not agg_fn:
+			frappe.throw(_("Unsupported aggregation mode: {0}").format(mode))
 
-		agg_fn = agg_functions[mode]
-		query = frappe.qb.from_(table).select(agg_fn(table[field]).as_("result"))
-		query = self._apply_qb_filters(query, table, filters)
-
-		result = query.run(as_dict=True)
-		return result[0]["result"] if result else 0
+		rows = frappe.get_all(
+			reference_doctype,
+			filters=filters,
+			or_filters=or_filters,
+			fields=[f"{agg_fn}({field}) as result"],
+			ignore_permissions=ignore_permissions,
+		)
+		return (rows and rows[0].get("result")) or 0
 
 	def _group_by(self, reference_doctype, config, context, action, ignore_permissions):
-		"""Perform group_by aggregation."""
-		from frappe.query_builder import DocType
-		from frappe.query_builder.functions import Avg, Count, Max, Min, Sum
-
+		"""Perform group_by aggregation via frappe.get_all for consistent filter semantics."""
 		if not ignore_permissions and not frappe.has_permission(reference_doctype, "read"):
 			frappe.throw(
 				_("You don't have read permission for {0}").format(reference_doctype), frappe.PermissionError
 			)
 
-		filters = self._resolve_filters(config.get("filters", {}), context)
-		filters = self._normalize_filters_for_backend(filters)
+		filters, or_filters = self._resolve_query_filters(config, context, action)
 		aggregate_field = config.get("field", "name")
 		group_field = config.get("group_by_field", aggregate_field)
 		agg_function = config.get("agg_function", "count").lower()
 		agg_field = config.get("agg_field", "name")
-
-		table = DocType(reference_doctype)
-
-		agg_functions = {
-			"sum": Sum,
-			"avg": Avg,
-			"min": Min,
-			"max": Max,
-			"count": Count,
-		}
-
-		agg_fn = agg_functions.get(agg_function, Count)
-		query = (
-			frappe.qb.from_(table)
-			.select(table[group_field], agg_fn(table[agg_field]).as_("value"))
-			.groupby(table[group_field])
+		safe_agg_fn = agg_function if agg_function in {"sum", "avg", "min", "max", "count"} else "count"
+		return frappe.get_all(
+			reference_doctype,
+			filters=filters,
+			or_filters=or_filters,
+			fields=[group_field, f"{safe_agg_fn}({agg_field}) as value"],
+			group_by=group_field,
+			ignore_permissions=ignore_permissions,
 		)
 
-		query = self._apply_qb_filters(query, table, filters)
-		return query.run(as_dict=True)
+	def _safe_eval_with_context(self, expression, context, ref_label: str):
+		try:
+			return self._safe_eval(expression, context)
+		except Exception as e:
+			frappe.throw(
+				_("Query Records expression failed at {0}: {1}").format(ref_label, str(e)),
+				exc=type(e),
+			)
+
+	def _resolve_value_expression_with_context(self, value, context, ref_label: str):
+		if isinstance(value, list):
+			return [self._resolve_value_expression_with_context(v, context, ref_label) for v in value]
+		if isinstance(value, str) and "{" in value:
+			if value.startswith("{") and value.endswith("}") and value.count("{") == 1:
+				inner_expr = value[1 : len(value) - 1]
+				return self._safe_eval_with_context(inner_expr, context, ref_label)
+			import re
+
+			def replace(match):
+				expr = match.group(1)
+				result = self._safe_eval_with_context(expr, context, ref_label)
+				return str(result)
+
+			return re.sub(r"{(.*?)}", replace, value)
+		return value
+
+	def _resolve_filters_with_context(self, filters, context, ref_label: str):
+		if not filters:
+			return filters
+		if isinstance(filters, list):
+			resolved_list = []
+			for idx, item in enumerate(filters):
+				child_ref = f"{ref_label}[{idx}]"
+				if isinstance(item, dict) and ("field" in item or "fieldname" in item):
+					resolved_list.append(
+						{
+							k: self._resolve_value_expression_with_context(v, context, f"{child_ref}.{k}")
+							for k, v in item.items()
+						}
+					)
+				elif isinstance(item, list | dict):
+					resolved_list.append(self._resolve_filters_with_context(item, context, child_ref))
+				else:
+					resolved_list.append(
+						self._resolve_value_expression_with_context(item, context, child_ref)
+					)
+			return resolved_list
+		if isinstance(filters, dict):
+			return {
+				key: self._resolve_value_expression_with_context(value, context, f"{ref_label}.{key}")
+				for key, value in filters.items()
+			}
+		return self._resolve_value_expression_with_context(filters, context, ref_label)
+
+	def _resolve_query_filters(self, config, context, action=None):
+		"""Resolve and normalize both filters and or_filters with one shared path."""
+		action_label = getattr(action, "label", None) or getattr(action, "action_id", None) or "Query Records"
+		filters = self._resolve_filters_with_context(
+			config.get("filters", {}), context, f"{action_label}.filters"
+		)
+		filters = self._normalize_filters_for_backend(filters)
+		or_filters = config.get("or_filters", {})
+		if or_filters:
+			or_filters = self._resolve_filters_with_context(or_filters, context, f"{action_label}.or_filters")
+			or_filters = self._normalize_filters_for_backend(or_filters)
+		else:
+			or_filters = None
+		return filters, or_filters
 
 	def _apply_qb_filters(self, query, table, filters):
 		"""Helper to apply filters (dict or list) to a query builder object."""
@@ -377,6 +529,17 @@ class QueryRecordsHandler(ActionHandler):
 		if isinstance(filters, list):
 			normalized_list = []
 			for item in filters:
+				if isinstance(item, dict) and ("field" in item or "fieldname" in item):
+					field = item.get("field") or item.get("fieldname")
+					op = item.get("operator", "=")
+					val = item.get("value")
+					doctype = item.get("doctype")
+					op, val = self._normalize_single_filter_operator(op, val)
+					if doctype:
+						normalized_list.append([doctype, field, op, val])
+					else:
+						normalized_list.append([field, op, val])
+					continue
 				if isinstance(item, list):
 					if len(item) == 4:
 						dt, field, op, val = item
@@ -395,19 +558,11 @@ class QueryRecordsHandler(ActionHandler):
 
 	def _query_list(self, reference_doctype, config, context, action, ignore_permissions):
 		"""Execute frappe.get_list with configured filters, fields, etc."""
-		filters = config.get("filters", {})
-		or_filters = config.get("or_filters", {})
+		filters, or_filters = self._resolve_query_filters(config, context, action)
 		fields = config.get("fields", ["name"])
 		limit = config.get("limit", 20)
 		order_by = config.get("order_by", "modified desc")
 		group_by = config.get("group_by")
-
-		# Resolve template expressions in filters
-		filters = self._resolve_filters(filters, context)
-		filters = self._normalize_filters_for_backend(filters)
-		if or_filters:
-			or_filters = self._resolve_filters(or_filters, context)
-			or_filters = self._normalize_filters_for_backend(or_filters)
 
 		kwargs = {
 			"doctype": reference_doctype,
@@ -430,7 +585,9 @@ class QueryRecordsHandler(ActionHandler):
 
 		# Support dynamic docname from expression
 		if not docname and config.get("docname_expression"):
-			docname = self._safe_eval(config["docname_expression"], context)
+			docname = self._safe_eval_with_context(
+				config["docname_expression"], context, "Query Records.docname_expression"
+			)
 
 		if not docname:
 			frappe.throw(_("No document name specified for Query Doc"))
@@ -443,12 +600,17 @@ class QueryRecordsHandler(ActionHandler):
 
 	def _exist_record(self, reference_doctype, config, context, action, ignore_permissions):
 		"""Check if records exist matching filters. Returns boolean."""
-		filters = config.get("filters", {})
-		filters = self._resolve_filters(filters, context)
-		filters = self._normalize_filters_for_backend(filters)
+		filters, or_filters = self._resolve_query_filters(config, context, action)
 
-		exists = frappe.db.exists(reference_doctype, filters)
-		return bool(exists)
+		rows = frappe.get_all(
+			reference_doctype,
+			filters=filters,
+			or_filters=or_filters,
+			fields=["name"],
+			limit_page_length=1,
+			ignore_permissions=ignore_permissions,
+		)
+		return bool(rows)
 
 	def _query_report(self, reference_doctype, config, context, action, ignore_permissions):
 		"""Run a report and return results as a list of dicts."""
@@ -456,9 +618,7 @@ class QueryRecordsHandler(ActionHandler):
 		if not report_name:
 			frappe.throw(_("report_name is required in config for Query Report mode"))
 
-		report_filters = config.get("filters", {})
-		report_filters = self._resolve_filters(report_filters, context)
-		report_filters = self._normalize_filters_for_backend(report_filters)
+		report_filters, unused = self._resolve_query_filters(config, context, action)
 
 		from frappe.desk.query_report import run as run_report
 
