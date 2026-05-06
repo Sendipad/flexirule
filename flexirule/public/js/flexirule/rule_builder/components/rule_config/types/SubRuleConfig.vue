@@ -8,6 +8,34 @@
 		</div>
 
 		<div v-else class="config-container">
+			<div class="sub-section section-subcard">
+				<h6>{{ __("Execution Permission") }}</h6>
+				<ControlFactory
+					:df="{
+						fieldname: 'skip_permissions',
+						fieldtype: 'Check',
+						label: __('Skip Permissions'),
+						description: __(
+							'Bypass callee permission checks for this sub-rule call. Requires audit reason.'
+						),
+						read_only: read_only,
+					}"
+					:modelValue="node?.data?.skip_permissions"
+					@update:modelValue="(val) => update_action_key('skip_permissions', val)"
+				/>
+				<ControlFactory
+					v-if="!!node?.data?.skip_permissions"
+					:df="{
+						fieldname: 'permission_audit_reason',
+						fieldtype: 'Small Text',
+						label: __('Permission Audit Reason'),
+						read_only: read_only,
+					}"
+					:modelValue="node?.data?.permission_audit_reason"
+					@update:modelValue="(val) => update_action_key('permission_audit_reason', val)"
+				/>
+			</div>
+
 			<div class="alert alert-info py-2 px-3 small mb-3">
 				<i class="fa fa-info-circle"></i>
 				{{ __("Configuring Sub-Rule: {0}").replace("{0}", node.data.rule) }}
@@ -108,6 +136,7 @@ import { ref, watch, onMounted, computed } from "vue";
 import { useStore } from "../../../stores";
 import AutocompleteControl from "../../../controls/AutocompleteControl.vue";
 import TransformControl from "../../../controls/TransformControl.vue";
+import ControlFactory from "../../../controls/ControlFactory.vue";
 
 const props = defineProps({
 	node: Object,
@@ -190,6 +219,10 @@ function sync_local_config() {
 	};
 
 	emit("update:field", "config", newConfig);
+}
+
+function update_action_key(key, value) {
+	emit("update:field", key, value);
 }
 
 function load_local_config() {

@@ -8,6 +8,34 @@
 		</div>
 
 		<div v-else class="config-container">
+			<div class="sub-section section-subcard">
+				<h6>{{ __("Execution Permission") }}</h6>
+				<ControlFactory
+					:df="{
+						fieldname: 'skip_permissions',
+						fieldtype: 'Check',
+						label: __('Skip Permissions'),
+						description: __(
+							'Bypass read permissions for this action. Requires audit reason.'
+						),
+						read_only: readOnly,
+					}"
+					:modelValue="node?.data?.skip_permissions"
+					@update:modelValue="(val) => update_action_key('skip_permissions', val)"
+				/>
+				<ControlFactory
+					v-if="!!node?.data?.skip_permissions"
+					:df="{
+						fieldname: 'permission_audit_reason',
+						fieldtype: 'Small Text',
+						label: __('Permission Audit Reason'),
+						read_only: readOnly,
+					}"
+					:modelValue="node?.data?.permission_audit_reason"
+					@update:modelValue="(val) => update_action_key('permission_audit_reason', val)"
+				/>
+			</div>
+
 			<!-- Configuration based on selected Mode -->
 			<template v-if="mode === 'Query List'">
 				<div class="sub-section section-subcard">
@@ -863,6 +891,11 @@ const docnameExprField = computed(() =>
 function update_config_key(key, value) {
 	config[key] = value;
 	sync_local_config();
+}
+
+function update_action_key(key, value) {
+	if (!props.node?.data) return;
+	props.node.data[key] = value;
 }
 
 // Watch for operation changes directly to handle Report special case

@@ -8,6 +8,34 @@
 		</div>
 
 		<div v-else class="config-container">
+			<div class="sub-section section-subcard">
+				<h6>{{ __("Execution Permission") }}</h6>
+				<ControlFactory
+					:df="{
+						fieldname: 'skip_permissions',
+						fieldtype: 'Check',
+						label: __('Skip Permissions'),
+						description: __(
+							'Bypass write/delete permissions for this action. Requires audit reason.'
+						),
+						read_only: readOnly,
+					}"
+					:modelValue="node?.data?.skip_permissions"
+					@update:modelValue="(val) => update_action_key('skip_permissions', val)"
+				/>
+				<ControlFactory
+					v-if="!!node?.data?.skip_permissions"
+					:df="{
+						fieldname: 'permission_audit_reason',
+						fieldtype: 'Small Text',
+						label: __('Permission Audit Reason'),
+						read_only: readOnly,
+					}"
+					:modelValue="node?.data?.permission_audit_reason"
+					@update:modelValue="(val) => update_action_key('permission_audit_reason', val)"
+				/>
+			</div>
+
 			<template v-if="mode === 'Create ToDo'">
 				<div class="assign-to-group">
 					<div class="d-flex align-items-center gap-2 mb-1">
@@ -411,6 +439,11 @@ function onAssignToTypeChange() {
 function update_config_key(key, value) {
 	config[key] = value;
 	sync_local_config();
+}
+
+function update_action_key(key, value) {
+	if (!props.node?.data) return;
+	props.node.data[key] = value;
 }
 
 function update_mapper_ui(value) {

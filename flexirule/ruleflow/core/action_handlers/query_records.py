@@ -117,6 +117,18 @@ class QueryRecordsHandler(ActionHandler):
 		fieldname = str(fieldname).strip()
 		if not fieldname:
 			return False
+		if "." in fieldname:
+			parent_field, child_field = fieldname.split(".", 1)
+			meta = frappe.get_meta(doctype)
+			table_df = meta.get_field(parent_field) if meta else None
+			if (
+				not table_df
+				or table_df.fieldtype not in {"Table", "Table MultiSelect"}
+				or not table_df.options
+			):
+				return False
+			child_meta = frappe.get_meta(table_df.options)
+			return bool(child_meta and child_meta.has_field(child_field))
 		if fieldname in {"name", "owner", "creation", "modified", "modified_by", "docstatus"}:
 			return True
 		meta = frappe.get_meta(doctype)
@@ -514,16 +526,34 @@ class QueryRecordsHandler(ActionHandler):
 			return "between", [start, end]
 		return op, val
 
+	def _extract_filter_value_payload(self, value):
+		"""
+		Support enhanced payload in tuple filters:
+		[doctype, field, op, {"value": ..., "value_type": "...", "builder": ...}]
+		"""
+		if not isinstance(value, dict):
+			return value
+		if "value" in value:
+			raw = value.get("value")
+			vtype = (value.get("value_type") or "Value").lower()
+			if vtype == "boolean":
+				if raw in (True, 1, "1", "Yes", "yes", "true", "True"):
+					return 1
+				if raw in (False, 0, "0", "No", "no", "false", "False"):
+					return 0
+			return raw
+		return value
+
 	def _normalize_filters_for_backend(self, filters):
-		"""Recursively normalize filter operators for get_list/count/exists/qb compatibility."""
+		"""Recursively normalize filter operators and emit frappe-style filter tuples."""
 		if isinstance(filters, dict):
-			normalized = {}
+			normalized = []
 			for key, value in filters.items():
 				if isinstance(value, list) and len(value) == 2 and isinstance(value[0], str):
 					op, val = self._normalize_single_filter_operator(value[0], value[1])
-					normalized[key] = [op, val]
+					normalized.append([key, op, val])
 				else:
-					normalized[key] = self._normalize_filters_for_backend(value)
+					normalized.append([key, "=", self._normalize_filters_for_backend(value)])
 			return normalized
 
 		if isinstance(filters, list):
@@ -532,7 +562,7 @@ class QueryRecordsHandler(ActionHandler):
 				if isinstance(item, dict) and ("field" in item or "fieldname" in item):
 					field = item.get("field") or item.get("fieldname")
 					op = item.get("operator", "=")
-					val = item.get("value")
+					val = self._extract_filter_value_payload(item.get("value"))
 					doctype = item.get("doctype")
 					op, val = self._normalize_single_filter_operator(op, val)
 					if doctype:
@@ -543,11 +573,13 @@ class QueryRecordsHandler(ActionHandler):
 				if isinstance(item, list):
 					if len(item) == 4:
 						dt, field, op, val = item
+						val = self._extract_filter_value_payload(val)
 						op, val = self._normalize_single_filter_operator(op, val)
 						normalized_list.append([dt, field, op, val])
 						continue
 					if len(item) == 3:
 						field, op, val = item
+						val = self._extract_filter_value_payload(val)
 						op, val = self._normalize_single_filter_operator(op, val)
 						normalized_list.append([field, op, val])
 						continue

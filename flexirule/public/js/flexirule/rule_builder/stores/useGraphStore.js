@@ -901,7 +901,14 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 
 		// Clean filters
 		if (Array.isArray(clean.filters)) {
-			clean.filters = clean.filters.filter((f) => f.field || f.fieldname);
+			clean.filters = clean.filters.filter((f) => {
+				// New tuple format: [doctype, field, op, payload]
+				if (Array.isArray(f)) {
+					return typeof f[1] === "string" && f[1].trim() !== "";
+				}
+				// Legacy object format: { doctype, field, operator, value, ... }
+				return !!(f?.field || f?.fieldname);
+			});
 		}
 
 		// Clean field lists

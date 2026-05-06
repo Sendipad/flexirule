@@ -540,13 +540,24 @@ const syncFromProps = () => {
 	filters.value = props.modelValue.map((f) => {
 		let row = {};
 		if (Array.isArray(f)) {
+			const payload = f[3];
+			const payloadValue =
+				payload && typeof payload === "object" && !Array.isArray(payload)
+					? payload.value
+					: payload;
 			row = {
 				doctype: f[0],
 				field: f[1],
 				operator: f[2],
-				value: f[3],
-				value_type: guessValueType(f[3]),
-				builder: null,
+				value: payloadValue,
+				value_type:
+					payload && typeof payload === "object" && !Array.isArray(payload)
+						? payload.value_type || guessValueType(payloadValue)
+						: guessValueType(payloadValue),
+				builder:
+					payload && typeof payload === "object" && !Array.isArray(payload)
+						? payload.builder || null
+						: null,
 			};
 		} else {
 			row = {
@@ -678,17 +689,14 @@ const emitUpdate = () => {
 		.filter((r) => r.field)
 		.map((r) => {
 			const n = normalizeRowForEmit(r);
-			const out = {
-				doctype: n.doctype || props.doctype,
-				field: n.field,
-				operator: n.operator || "=",
+			const payload = {
 				value: n.value,
 				value_type: n.value_type || "Value",
 			};
 			if (n.value_type === BUILDER_VALUE_TYPE && n.builder) {
-				out.builder = n.builder;
+				payload.builder = n.builder;
 			}
-			return out;
+			return [n.doctype || props.doctype, n.field, n.operator || "=", payload];
 		});
 	emit("update:modelValue", serialized);
 };
@@ -710,28 +718,79 @@ const stripBracket = (val) => {
 };
 
 const doctypeFieldsCache = new Map();
+
+const isLayoutFieldtype = (fieldtype) =>
+	[
+		"Section Break",
+		"Column Break",
+		"Tab Break",
+		"HTML",
+		"Button",
+		"Image",
+		"Fold",
+		"Heading",
+		"Spacer",
+	].includes(fieldtype);
+
+const shouldIncludeFilterField = (df, baseDoctype) => {
+	if (!df || !df.fieldname || isLayoutFieldtype(df.fieldtype)) return false;
+	if (frappe.model.no_value_type.includes(df.fieldtype)) return false;
+	if (df.fieldname === "docstatus" && !frappe.model.is_submittable(baseDoctype)) return false;
+	return true;
+};
+
 const getFieldsForDoctype = (dt) => {
 	if (!dt) return [];
 	if (doctypeFieldsCache.has(dt)) return doctypeFieldsCache.get(dt);
 
-	const fields = store.doc_meta[dt];
-	if (!fields || !Array.isArray(fields)) {
+	const meta = frappe.get_meta(dt);
+	if (!meta) {
 		return [];
 	}
-	const mapped = fields.map((f) => {
-		// Extract raw label from format "doc.fieldname (Real Label)"
-		let realLabel = f.label;
-		const match = f.label.match(/\((.*?)\)/);
-		if (match && match[1]) {
-			realLabel = match[1];
+
+	const mapped = [];
+	const stdFields = frappe.model.std_fields || [];
+
+	// Build actual entries from parent/doc fields
+	for (const df of [...stdFields, ...(meta.fields || [])]) {
+		if (!shouldIncludeFilterField(df, dt)) continue;
+		if (frappe.model.table_fields.includes(df.fieldtype)) continue;
+		mapped.push({
+			...df,
+			parent: dt,
+			label: `${df.label || df.fieldname} (${df.fieldname})`,
+			value: df.fieldname,
+		});
+	}
+
+	// Child table fields in parent context (Frappe-style)
+	for (const tableDf of meta.fields || []) {
+		if (!frappe.model.table_fields.includes(tableDf.fieldtype) || !tableDf.options) continue;
+		const childMeta = frappe.get_meta(tableDf.options);
+		if (!childMeta) continue;
+
+		let childFields = [...(childMeta.fields || [])];
+		if (tableDf.fieldtype === "Table MultiSelect") {
+			const linkField = childFields.find((f) => f.fieldtype === "Link");
+			childFields = linkField ? [linkField] : [];
 		}
 
-		return {
-			...f,
-			label: `${realLabel} (${f.fieldname})`,
-			value: f.value || f.fieldname,
-		};
-	});
+		for (const childDf of childFields) {
+			if (!shouldIncludeFilterField(childDf, dt)) continue;
+			const value = `${tableDf.fieldname}.${childDf.fieldname}`;
+			mapped.push({
+				...childDf,
+				parent: tableDf.options,
+				parentfield: tableDf.fieldname,
+				parenttype: dt,
+				label: `${tableDf.label || tableDf.fieldname}: ${
+					childDf.label || childDf.fieldname
+				} (${value})`,
+				value,
+			});
+		}
+	}
+
 	doctypeFieldsCache.set(dt, mapped);
 	return mapped;
 };
@@ -746,12 +805,13 @@ watch(
 const getFieldDef = (fieldname, doctype) => {
 	if (!fieldname) return null;
 	const dt = doctype || props.doctype;
+	const isDotted = typeof fieldname === "string" && fieldname.includes(".");
 
 	// Standard field fallbacks
-	if (["name"].includes(fieldname)) {
+	if (!isDotted && ["name"].includes(fieldname)) {
 		return { fieldname, value: fieldname, fieldtype: "Data", label: "Name" };
 	}
-	if (["owner", "modified_by"].includes(fieldname)) {
+	if (!isDotted && ["owner", "modified_by"].includes(fieldname)) {
 		return {
 			fieldname,
 			value: fieldname,
@@ -760,7 +820,7 @@ const getFieldDef = (fieldname, doctype) => {
 			label: fieldname === "owner" ? "Owner" : "Modified By",
 		};
 	}
-	if (["creation", "modified"].includes(fieldname)) {
+	if (!isDotted && ["creation", "modified"].includes(fieldname)) {
 		return {
 			fieldname,
 			value: fieldname,
@@ -768,8 +828,27 @@ const getFieldDef = (fieldname, doctype) => {
 			label: fieldname === "creation" ? "Creation" : "Modified",
 		};
 	}
-	if (fieldname === "docstatus") {
+	if (!isDotted && fieldname === "docstatus") {
 		return { fieldname, value: fieldname, fieldtype: "Int", label: "Docstatus" };
+	}
+
+	// Child table field: table_field.child_field
+	if (isDotted && dt) {
+		const [tableFieldname, childFieldname] = fieldname.split(".", 2);
+		const tableDf = frappe.meta.get_docfield(dt, tableFieldname);
+		if (tableDf && tableDf.options) {
+			const childDf = frappe.meta.get_docfield(tableDf.options, childFieldname);
+			if (childDf) {
+				return {
+					...childDf,
+					value: fieldname,
+					fieldname,
+					parentfield: tableFieldname,
+					parenttype: dt,
+					parent: tableDf.options,
+				};
+			}
+		}
 	}
 
 	// Try Frappe's native meta cache
@@ -1228,18 +1307,6 @@ const updateRow = (idx, data) => {
 
 	if (merged.value_type === "Builder") {
 		normalizeBuilderState(merged);
-	}
-
-	// FlexiRule: Wrap Link fields in [DocType, Value] tuple for equality operators
-	if (
-		["=", "!="].includes(merged.operator) &&
-		field?.fieldtype === "Link" &&
-		merged.value_type === "Value"
-	) {
-		const val = data.value !== undefined ? data.value : merged.value;
-		if (val && !Array.isArray(val)) {
-			merged.value = [field.options, val];
-		}
 	}
 
 	if (isCheckField(field)) {

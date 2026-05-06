@@ -34,33 +34,6 @@
 					<ControlFactory
 						:df="
 							ro({
-								fieldname: 'skip_permissions',
-								fieldtype: 'Check',
-								label: __('Skip Permissions'),
-							})
-						"
-						:modelValue="node.data?.skip_permissions"
-						@update:modelValue="(v) => emit_field('skip_permissions', v)"
-					/>
-				</div>
-				<div class="grid-item span-2" v-if="!!node.data?.skip_permissions">
-					<ControlFactory
-						:df="
-							ro({
-								fieldname: 'permission_audit_reason',
-								fieldtype: 'Small Text',
-								label: __('Permission Audit Reason'),
-								description: __('Required when bypassing permissions.'),
-							})
-						"
-						:modelValue="node.data?.permission_audit_reason"
-						@update:modelValue="(v) => emit_field('permission_audit_reason', v)"
-					/>
-				</div>
-				<div class="grid-item">
-					<ControlFactory
-						:df="
-							ro({
 								fieldname: 'on_error',
 								fieldtype: 'Select',
 								label: __('On Error'),

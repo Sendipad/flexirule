@@ -381,7 +381,8 @@ function test_rule(frm) {
 	d.show();
 }
 function toggle_action_fields(frm, cdt, cdn) {
-	const row = locals[cdt][cdn];
+	const row = locals?.[cdt]?.[cdn];
+	if (!row) return;
 	const grid_field = frm.get_field("actions");
 	if (!grid_field || !grid_field.grid) return;
 	const grid_row = grid_field.grid.get_row(cdn);
@@ -511,10 +512,12 @@ function toggle_action_fields(frm, cdt, cdn) {
 }
 
 function update_operation_options(frm, cdt, cdn) {
-	const row = locals[cdt][cdn];
+	const row = locals?.[cdt]?.[cdn];
 	if (!row || !row.action_type) return;
 
-	const grid_row = frm.get_field("actions").grid.get_row(row.name || cdn);
+	const actions_field = frm.get_field("actions");
+	if (!actions_field?.grid) return;
+	const grid_row = actions_field.grid.get_row(row.name || cdn);
 	if (!grid_row) return;
 
 	const apply_ops = (ops) => {
