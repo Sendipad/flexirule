@@ -389,25 +389,37 @@ const timespanOptions = [
 	{ label: __("Next Year"), value: "next year" },
 ];
 
-const ALL_CONDITIONS = [
-	["=", __("Equals")],
-	["!=", __("Not Equals")],
-	["like", __("Like")],
-	["not like", __("Not Like")],
-	["in", __("In")],
-	["not in", __("Not In")],
-	["is", __("Is")],
-	[">", __("Greater Than")],
-	["<", __("Less Than")],
-	[">=", __("Greater Than Or Equal To")],
-	["<=", __("Less Than Or Equal To")],
-	["Between", __("Between")],
-	["Timespan", __("Timespan")],
-	["starts with", __("Starts With")],
-	["ends with", __("Ends With")],
+const BASE_QUERY_OPERATORS = [
+	"=",
+	"!=",
+	"like",
+	"not like",
+	"in",
+	"not in",
+	">",
+	"<",
+	">=",
+	"<=",
+	"is",
 ];
-
-const operatorLabelMap = Object.fromEntries(ALL_CONDITIONS.map(([op, label]) => [op, label]));
+const QUERY_EXTENSION_OPERATORS = ["Between", "Timespan", "starts with", "ends with"];
+const operatorLabelMap = {
+	"=": __("Equals"),
+	"!=": __("Not Equals"),
+	like: __("Like"),
+	"not like": __("Not Like"),
+	in: __("In"),
+	"not in": __("Not In"),
+	is: __("Is"),
+	">": __("Greater Than"),
+	"<": __("Less Than"),
+	">=": __("Greater Than Or Equal To"),
+	"<=": __("Less Than Or Equal To"),
+	Between: __("Between"),
+	Timespan: __("Timespan"),
+	"starts with": __("Starts With"),
+	"ends with": __("Ends With"),
+};
 const DATE_OPERATOR_LABELS = {
 	"<": __("Before"),
 	">": __("After"),
@@ -415,23 +427,40 @@ const DATE_OPERATOR_LABELS = {
 	">=": __("On or After"),
 };
 
-const INVALID_CONDITION_MAP = {
-	Date: ["like", "not like", "starts with", "ends with"],
-	Datetime: ["like", "not like", "in", "not in", "=", "!=", "starts with", "ends with"],
-	Data: ["Between", "Timespan"],
-	Time: ["Between", "Timespan", "starts with", "ends with"],
-	Select: ["like", "not like", "Between", "Timespan", "starts with", "ends with"],
-	Link: ["Between", "Timespan", ">", "<", ">=", "<=", "starts with", "ends with"],
-	Currency: ["Between", "Timespan", "starts with", "ends with"],
-	Color: ["Between", "Timespan", "starts with", "ends with"],
-	Check: ALL_CONDITIONS.map((c) => c[0]).filter((c) => c !== "="),
-	Code: ["Between", "Timespan", ">", "<", ">=", "<=", "in", "not in"],
-	"HTML Editor": ["Between", "Timespan", ">", "<", ">=", "<=", "in", "not in"],
-	"Markdown Editor": ["Between", "Timespan", ">", "<", ">=", "<=", "in", "not in"],
-	Password: ["Between", "Timespan", ">", "<", ">=", "<=", "in", "not in"],
-	Rating: ["like", "not like", "Between", "in", "not in", "Timespan", "starts with", "ends with"],
-	Float: ["like", "not like", "Between", "in", "not in", "Timespan", "starts with", "ends with"],
-	Int: ["like", "not like", "Between", "in", "not in", "Timespan", "starts with", "ends with"],
+const operatorConfig = ref({
+	fieldtype_operators: {},
+	operator_labels: {},
+});
+const FILTER_OPERATOR_ALIASES = {
+	"==": "=",
+	"is not": "!=",
+	"in list": "in",
+	"not in list": "not in",
+	contains: "like",
+	not_contains: "not like",
+};
+const DISALLOWED_FILTER_OPERATORS = new Set([
+	"is_set",
+	"is_not_set",
+	"is_empty",
+	"is_not_empty",
+	"is_submittable",
+	"has_field",
+	"has_changed",
+	"length_eq",
+	"length_gt",
+	"length_gte",
+	"length_lt",
+	"length_lte",
+]);
+const EXTRA_FILTER_OPERATORS_BY_FIELDTYPE = {
+	Date: ["Between", "Timespan"],
+	Datetime: ["Between", "Timespan"],
+	Data: ["starts with", "ends with"],
+	Text: ["starts with", "ends with"],
+	"Small Text": ["starts with", "ends with"],
+	"Long Text": ["starts with", "ends with"],
+	"Text Editor": ["starts with", "ends with"],
 };
 const DATE_FIELDTYPES = new Set(["Date", "Datetime"]);
 const BUILDER_SUPPORTED_FIELDTYPES = new Set([
@@ -456,6 +485,36 @@ const formatBooleanValueForDisplay = (value) => {
 	if (value === true || value === 1 || value === "1" || value === "Yes") return "Yes";
 	if (value === false || value === 0 || value === "0" || value === "No") return "No";
 	return value;
+};
+
+const toFilterOperator = (op) => FILTER_OPERATOR_ALIASES[op] || op;
+
+const getConfiguredBaseOperators = (field) => {
+	const fieldtype = field?.fieldtype || "Data";
+	const fromField = Array.isArray(field?.operators) ? field.operators : null;
+	const fromConfig = operatorConfig.value.fieldtype_operators?.[fieldtype];
+	const fallback = operatorConfig.value.fieldtype_operators?._default || ["==", "!="];
+	const source = fromField?.length ? fromField : fromConfig?.length ? fromConfig : fallback;
+	return source.map(toFilterOperator).filter((op) => !DISALLOWED_FILTER_OPERATORS.has(op));
+};
+
+const getExtraOperatorsForField = (field) => {
+	if (!field?.fieldtype) return [];
+	return EXTRA_FILTER_OPERATORS_BY_FIELDTYPE[field.fieldtype] || [];
+};
+
+const loadOperatorConfig = async () => {
+	try {
+		const result = await frappe.call({
+			method: "flexirule.ruleflow.api.get_operator_config",
+		});
+		if (result.message) operatorConfig.value = result.message;
+	} catch (e) {
+		console.warn(
+			"FilterGroup: failed to load backend operator config, using fallback operators",
+			e
+		);
+	}
 };
 
 // Initialize local state from modelValue
@@ -741,10 +800,16 @@ const getFieldDef = (fieldname, doctype) => {
 };
 
 const getOperatorsForField = (field) => {
-	if (!field) return ALL_CONDITIONS.map((c) => c[0]);
-	const fieldtype = field.fieldtype || "Data";
-	const invalid = INVALID_CONDITION_MAP[fieldtype] || [];
-	return ALL_CONDITIONS.filter((c) => !invalid.includes(c[0])).map((c) => c[0]);
+	if (!field) return [...BASE_QUERY_OPERATORS, ...QUERY_EXTENSION_OPERATORS];
+	const dedup = new Set([
+		...getConfiguredBaseOperators(field),
+		...getExtraOperatorsForField(field),
+	]);
+	const allowed = [...dedup].filter((op) =>
+		[...BASE_QUERY_OPERATORS, ...QUERY_EXTENSION_OPERATORS].includes(op)
+	);
+	if (isCheckField(field)) return allowed.filter((op) => op === "=" || op === "!=");
+	return allowed.length ? allowed : ["="];
 };
 
 const getDefaultCondition = (field, doctype) => {
@@ -1276,7 +1341,10 @@ watch(
 	}
 );
 
-onMounted(syncFromProps);
+onMounted(async () => {
+	await loadOperatorConfig();
+	syncFromProps();
+});
 </script>
 
 <style scoped>

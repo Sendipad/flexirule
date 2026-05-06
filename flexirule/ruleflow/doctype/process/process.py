@@ -189,16 +189,14 @@ def get_script(process_name: str):
 	script_path = process_folder and os.path.join(process_folder, scrub(process.name) + ".js")
 	process_folder and os.path.join(process_folder, scrub(process.name) + ".html")
 
-	script = None
+	script = ""
 	if os.path.exists(script_path):
 		with open(script_path) as f:
-			script = f.read()
-			script += f"\n\n//# sourceURL={scrub(process.name)}.js"
+			script = f.read() + f"\n\n//# sourceURL={scrub(process.name)}.js"
 
 	custom_script = (process.get("javascript") if hasattr(process, "get") else None) or None
 	if not script and custom_script:
-		script = custom_script
-		script += f"\n\n//# sourceURL={scrub(process.name)}__custom"
+		script = custom_script + f"\n\n//# sourceURL={scrub(process.name)}__custom"
 
 	if not script:
 		script = f"flexirule.processes['{process_name}']={{}}"

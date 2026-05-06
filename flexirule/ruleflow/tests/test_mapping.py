@@ -1,4 +1,5 @@
 import unittest
+from typing import cast
 
 from flexirule.ruleflow.core.action_handlers.sub_rule import SubRuleHandler
 from flexirule.ruleflow.utils.mapping import (
@@ -69,6 +70,6 @@ class TestMapping(unittest.TestCase):
 		self.assertIsNotNone(mapping_json)
 
 		context = {"doc": {"customer": "ACME"}, "vars": {"parent_value": 42}}
-		mapped = apply_input_mapping(context, mapping_json, {})
+		mapped = apply_input_mapping(context, cast(str, mapping_json), {})
 		self.assertEqual(mapped["child_input"], 42)
 		self.assertEqual(mapped["customer_name"], "ACME")

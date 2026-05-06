@@ -218,25 +218,21 @@ class QueryRecordsHandler(ActionHandler):
 				return query.where(table[field] < val)
 			if op == "<=":
 				return query.where(table[field] <= val)
-				if op == "like":
-					return query.where(table[field].like(val))
-				if op == "not like":
-					return query.where(table[field].not_like(val))
-				if op == "starts with":
-					return query.where(table[field].like(f"{val}%"))
-				if op == "ends with":
-					return query.where(table[field].like(f"%{val}"))
-				if op == "in":
-					return query.where(table[field].isin(val))
+			if op == "like":
+				return query.where(table[field].like(val))
+			if op == "not like":
+				return query.where(table[field].not_like(val))
+			if op == "in":
+				return query.where(table[field].isin(val))
 			if op == "not in":
 				return query.where(table[field].notin(val))
-			if op in ("Between", "between"):
+			if op == "is":
+				if str(val).strip().lower() == "not set":
+					return query.where((table[field].isnull()) | (table[field] == ""))
+				return query.where((table[field].isnotnull()) & (table[field] != ""))
+			if op == "between":
 				start, end = self._coerce_between_value(val)
 				return query.where(table[field].between(start, end))
-			if op == "Timespan":
-				start, end = self._resolve_timespan_range(val)
-				return query.where(table[field].between(start, end))
-
 		# Default equality
 		return query.where(table[field] == value)
 
@@ -352,10 +348,18 @@ class QueryRecordsHandler(ActionHandler):
 
 	def _normalize_single_filter_operator(self, op, val):
 		"""Normalize UI operators to backend-safe operators/values."""
+		if not isinstance(op, str):
+			return op, val
+		op = op.strip()
 		if op == "starts with":
 			return "like", f"{val}%"
 		if op == "ends with":
 			return "like", f"%{val}"
+		if op == "Between":
+			return "between", val
+		if op == "Timespan":
+			start, end = self._resolve_timespan_range(val)
+			return "between", [start, end]
 		return op, val
 
 	def _normalize_filters_for_backend(self, filters):
