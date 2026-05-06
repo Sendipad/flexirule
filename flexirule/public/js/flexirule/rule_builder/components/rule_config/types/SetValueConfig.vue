@@ -10,26 +10,26 @@
 		<div class="config-section section-card">
 			<div class="form-group mb-3">
 				<template v-if="!targetFieldState.hidden">
-				<label class="form-label"
-					>{{
-						getFieldLabel(
-							props.node?.data?.action_type || "Set Value",
-							"target_field"
-						) || __("Target Field")
-					}}
-					<span v-if="targetFieldState.reqd" class="text-danger">*</span></label
-				>
-				<FieldPickerControl
-					:df="with_read_only({ label: '' })"
-					:fields="doctype_fields"
-					:documentType="reference_doctype"
-					:modelValue="props.node?.data?.target_field"
-					:read_only="readOnly"
-					@update:modelValue="(val) => update_action_field('target_field', val)"
-				/>
-				<small class="text-muted">{{
-					__("The document field that will be updated")
-				}}</small>
+					<label class="form-label"
+						>{{
+							getFieldLabel(
+								props.node?.data?.action_type || "Set Value",
+								"target_field"
+							) || __("Target Field")
+						}}
+						<span v-if="targetFieldState.reqd" class="text-danger">*</span></label
+					>
+					<FieldPickerControl
+						:df="with_read_only({ label: '' })"
+						:fields="doctype_fields"
+						:documentType="reference_doctype"
+						:modelValue="props.node?.data?.target_field"
+						:read_only="readOnly"
+						@update:modelValue="(val) => update_action_field('target_field', val)"
+					/>
+					<small class="text-muted">{{
+						__("The document field that will be updated")
+					}}</small>
 				</template>
 			</div>
 

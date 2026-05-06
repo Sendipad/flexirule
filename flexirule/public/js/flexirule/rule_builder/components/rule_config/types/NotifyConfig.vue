@@ -12,7 +12,9 @@
 				<div v-if="is_email" class="form-group mb-3">
 					<label class="form-label"
 						>{{ __("Subject") }}
-						<span v-if="isConfigKeyRequired('subject')" class="text-danger">*</span></label
+						<span v-if="isConfigKeyRequired('subject')" class="text-danger"
+							>*</span
+						></label
 					>
 					<ControlFactory
 						:df="with_read_only(subjectField)"
@@ -24,7 +26,9 @@
 				<div v-if="is_email" class="form-group mb-3">
 					<label class="form-label"
 						>{{ __("Recipients") }}
-						<span v-if="isConfigKeyRequired('recipients')" class="text-danger">*</span></label
+						<span v-if="isConfigKeyRequired('recipients')" class="text-danger"
+							>*</span
+						></label
 					>
 					<ControlFactory
 						:df="with_read_only(recipientsField)"
@@ -36,7 +40,9 @@
 				<div v-if="is_system_notification" class="form-group mb-3">
 					<label class="form-label"
 						>{{ __("Subject") }}
-						<span v-if="isConfigKeyRequired('subject')" class="text-danger">*</span></label
+						<span v-if="isConfigKeyRequired('subject')" class="text-danger"
+							>*</span
+						></label
 					>
 					<ControlFactory
 						:df="with_read_only(subjectField)"
@@ -57,7 +63,9 @@
 				<div v-if="is_provider" class="form-group mb-3">
 					<label class="form-label"
 						>{{ __("Provider") }}
-						<span v-if="isConfigKeyRequired('provider')" class="text-danger">*</span></label
+						<span v-if="isConfigKeyRequired('provider')" class="text-danger"
+							>*</span
+						></label
 					>
 					<ControlFactory
 						:df="with_read_only(providerField)"
@@ -69,7 +77,9 @@
 				<div v-if="is_provider" class="form-group mb-3">
 					<label class="form-label"
 						>{{ __("Recipient") }}
-						<span v-if="isConfigKeyRequired('recipient')" class="text-danger">*</span></label
+						<span v-if="isConfigKeyRequired('recipient')" class="text-danger"
+							>*</span
+						></label
 					>
 					<ControlFactory
 						:df="with_read_only(recipientField)"

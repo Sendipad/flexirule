@@ -186,15 +186,16 @@ const allowedReturnTypeOptions = computed(() =>
 	getAllowedReturnTypeOptions(props.node?.data?.action_type, policyContext.value)
 );
 
-const showReturnType = computed(() =>
-	shouldShowReturnType(props.node?.data?.action_type, policyContext.value) &&
-	!getDerivedFieldState(
-		props.node?.data?.action_type,
-		"return_type",
-		props.node?.data || {},
-		store.rule_doc || {},
-		policyContext.value
-	).hidden
+const showReturnType = computed(
+	() =>
+		shouldShowReturnType(props.node?.data?.action_type, policyContext.value) &&
+		!getDerivedFieldState(
+			props.node?.data?.action_type,
+			"return_type",
+			props.node?.data || {},
+			store.rule_doc || {},
+			policyContext.value
+		).hidden
 );
 
 const showReturnVariable = computed(() => {

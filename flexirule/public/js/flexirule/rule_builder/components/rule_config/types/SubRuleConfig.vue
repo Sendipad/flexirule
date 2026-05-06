@@ -215,7 +215,9 @@ function validate() {
 		(row) => (row.source && !row.target) || (!row.source && row.target)
 	);
 	if (incomplete) {
-		frappe.msgprint(__("Each input mapping row must include both Parent Variable and Sub-Rule Param."));
+		frappe.msgprint(
+			__("Each input mapping row must include both Parent Variable and Sub-Rule Param.")
+		);
 		return false;
 	}
 	return true;

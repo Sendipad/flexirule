@@ -82,7 +82,7 @@ export_python_type_annotations = True
 app_include_css = [
 	"/assets/flexirule/css/design-tokens.css",
 	"/assets/flexirule/css/controls.css",
-	"/assets/flexirule/css/rule_builder.css"
+	"/assets/flexirule/css/rule_builder.css",
 ]
 # app_include_js = "/assets/flexirule/js/flexirule.js"
 

@@ -96,8 +96,11 @@ const textGeneratorField = computed(() => ({
 	fieldname: "text_generator_ui",
 	fieldtype: "Text Generator",
 	label:
-		getFieldLabel(props.node?.data?.action_type || "Raise Error", "value_template", fieldContext.value) ||
-		__("Error Message Builder"),
+		getFieldLabel(
+			props.node?.data?.action_type || "Raise Error",
+			"value_template",
+			fieldContext.value
+		) || __("Error Message Builder"),
 	reqd: valueTemplateState.value.reqd ? 1 : 0,
 }));
 
@@ -168,7 +171,10 @@ watch(
 function validate() {
 	const errors = [];
 	const ui = config.text_generator_ui;
-	if (valueTemplateState.value.reqd && (!ui || !Array.isArray(ui.segments) || !ui.segments.length)) {
+	if (
+		valueTemplateState.value.reqd &&
+		(!ui || !Array.isArray(ui.segments) || !ui.segments.length)
+	) {
 		errors.push(__("Error message is required"));
 	}
 	if (valueTemplateState.value.reqd && !props.node?.data?.value_template) {

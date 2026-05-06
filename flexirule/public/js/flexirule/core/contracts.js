@@ -247,7 +247,11 @@ const DEFAULT_ACTION_TYPE_CONTRACT = {
 			"Update Existing": {
 				allowed_return_types: ["Single Record", "Full Document"],
 				default_return_type: "Single Record",
-				allowed_mutations: ["Set Context Variable", "Update Context Variable", "Set Doc Field"],
+				allowed_mutations: [
+					"Set Context Variable",
+					"Update Context Variable",
+					"Set Doc Field",
+				],
 				show_return_type: true,
 				require_return_type: true,
 				field_labels: { return_type: "Updated Document Output" },
@@ -758,7 +762,8 @@ export function applyOutputPolicyDefaults(nodeData, opts = {}) {
 
 	if (
 		nodeData.return_type &&
-		(allowedReturnTypes.length && !allowedReturnTypes.includes(nodeData.return_type))
+		allowedReturnTypes.length &&
+		!allowedReturnTypes.includes(nodeData.return_type)
 	) {
 		nodeData.return_type = null;
 		changed = true;
@@ -790,7 +795,12 @@ export function applyOutputPolicyDefaults(nodeData, opts = {}) {
 		changed = true;
 	}
 
-	if (!returnVarState.hidden && needsReturnVariable && !nodeData.return_variable && !preserveUserChoices) {
+	if (
+		!returnVarState.hidden &&
+		needsReturnVariable &&
+		!nodeData.return_variable &&
+		!preserveUserChoices
+	) {
 		nodeData.return_variable = suggestReturnVariableName(nodeData);
 		changed = true;
 	}
