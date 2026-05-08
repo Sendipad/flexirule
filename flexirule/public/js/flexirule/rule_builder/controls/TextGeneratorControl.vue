@@ -423,9 +423,19 @@ const editor = new Editor({
 				items: ({ query }) => {
 					const q = query.toLowerCase();
 					return dynamicRoots.value
-						.map((v) => ({ id: v.value || v, label: v.label || v, type: "variable" }))
+						.map((v) => ({
+							id: v.value || v,
+							label: v.label || v,
+							type: "variable",
+							is_loop_scoped: !!v.is_loop_scoped,
+						}))
 						.filter((v) => v.id.toLowerCase().includes(q))
-						.slice(0, 15);
+						.sort((a, b) => {
+							if (a.is_loop_scoped && !b.is_loop_scoped) return -1;
+							if (!a.is_loop_scoped && b.is_loop_scoped) return 1;
+							return a.label.localeCompare(b.label);
+						})
+						.slice(0, 50);
 				},
 			},
 		}),

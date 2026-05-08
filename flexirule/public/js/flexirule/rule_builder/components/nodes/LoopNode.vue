@@ -14,8 +14,8 @@ const targetPos = computed(
 // TB layout: For Each → Bottom (straight down), After Last → Left (bypass)
 // LR layout: For Each → Right (straight right), After Last → Bottom (bypass)
 const doPos = computed(() => (isHorizontal.value ? Position.Right : Position.Bottom));
-const donePos = computed(() => (isHorizontal.value ? Position.Top : Position.Left));
-const returnPos = computed(() => (isHorizontal.value ? Position.Bottom : Position.Right));
+const donePos = computed(() => (isHorizontal.value ? Position.Bottom : Position.Right));
+const returnPos = computed(() => (isHorizontal.value ? Position.Left : Position.Top));
 
 const isEffectiveDisabled = computed(() => {
 	return store.effectiveDisabledIds?.has(props.id);
@@ -106,8 +106,8 @@ function openConfig() {
 		</div>
 
 		<!-- Done Handle: After Last → bypass branch -->
-		<!-- TB: exits Left | LR: exits Top -->
-		<div :class="['out-port', isHorizontal ? 'out-top' : 'out-left']" class="out-done">
+		<!-- TB: exits Right | LR: exits Bottom -->
+		<div :class="['out-port', isHorizontal ? 'out-bottom' : 'out-right']" class="out-done">
 			<div class="bubble-label bubble-afterlast">{{ __("After Last") }}</div>
 			<Handle type="source" :position="donePos" id="false" class="handle-out handle-done" />
 		</div>
@@ -257,8 +257,8 @@ function openConfig() {
 }
 
 .loop-node-card:not(.is-vertical) .handle-return {
-	bottom: -5px !important;
-	left: 50% !important;
+	left: -5px !important;
+	top: 70% !important;
 }
 
 .loop-node-card:not(.is-vertical) .handle-target {
@@ -311,10 +311,23 @@ function openConfig() {
 	border: 2px solid #fab005 !important;
 	width: 10px !important;
 	height: 10px !important;
+	transition: all 0.2s ease !important;
+}
+
+.handle-target:hover,
+.handle-return:hover {
+	transform: scale(1.4) !important;
+	border-color: var(--primary) !important;
+	box-shadow: 0 0 0 4px rgba(var(--primary-rgb), 0.2);
 }
 
 .is-vertical .handle-target {
 	top: -5px !important;
+}
+
+.is-vertical .handle-return {
+	top: 50% !important;
+	left: -5px !important;
 }
 
 .handle-return {

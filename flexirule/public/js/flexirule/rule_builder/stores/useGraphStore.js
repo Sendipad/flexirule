@@ -142,18 +142,36 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 
 	// ── Available variables (upstream context) ──
 	async function getAvailableVariables(upToNodeId = null, ruleDoc = null) {
+		// Some callers pass action_id instead of node.id; normalize so upstream traversal works.
+		let scopedNodeId = upToNodeId;
+		if (
+			scopedNodeId &&
+			!nodes.value.some((n) => n.id === scopedNodeId) &&
+			nodes.value.some((n) => n.data?.action_id === scopedNodeId)
+		) {
+			scopedNodeId = nodes.value.find((n) => n.data?.action_id === scopedNodeId)?.id || null;
+		}
+
 		const buildExecutionLinks = () => {
 			const links = [];
 			const seen = new Set();
-			const addLink = (source, target, sourceHandle = "default") => {
+			const addLink = (source, target, handle) => {
 				if (!source || !target) return;
-				const key = `${source}->${target}:${sourceHandle || "default"}`;
+				const key = `${source}->${target}:${handle || "default"}`;
 				if (seen.has(key)) return;
 				seen.add(key);
+
+				let h = handle || "default";
+				const sourceNode = nodes.value.find((n) => n.id === source);
+				// Treat legacy 'true' handle as 'default' for Loop nodes for scope propagation
+				if (sourceNode?.data?.action_type === "Loop" && h === "true") {
+					h = "default";
+				}
+
 				links.push({
 					source,
 					target,
-					sourceHandle: sourceHandle || "default",
+					sourceHandle: h,
 				});
 			};
 
@@ -163,7 +181,8 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 
 			(nodes.value || []).forEach((node) => {
 				const data = node?.data || {};
-				addLink(node.id, data.next_step_if_true, "true");
+				const trueHandle = data.action_type === "Condition" ? "true" : "default";
+				addLink(node.id, data.next_step_if_true, trueHandle);
 				addLink(node.id, data.next_step_if_false, "false");
 			});
 
@@ -217,9 +236,9 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		const seenContextValues = new Set(context_vars.map((v) => v.value));
 		const executionLinks = buildExecutionLinks();
 		const sortedNodes = getTopologicalSort(nodes.value, executionLinks);
-		const upstreamNodeIds = findUpstreamNodeIds(upToNodeId, executionLinks);
+		const upstreamNodeIds = findUpstreamNodeIds(scopedNodeId, executionLinks);
 		const scopedNodes =
-			upToNodeId && upstreamNodeIds
+			scopedNodeId && upstreamNodeIds
 				? sortedNodes.filter((n) => upstreamNodeIds.has(n.id))
 				: sortedNodes;
 
@@ -241,18 +260,16 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			return false;
 		};
 
+		// 1. Phase 1: Collect all base variables from upstream nodes
 		for (const node of scopedNodes) {
 			const data = node.data || {};
 
-			// Add Loop item variable if it's a Loop node and we're inside its "For Each" body
-			if (
-				data.action_type === "Loop" &&
-				upToNodeId &&
-				isDownstreamOfHandle(node.id, upToNodeId, "default", executionLinks)
-			) {
-				// Use return_variable as alias, fallback to config.alias, then 'item'
+			// Add Loop root alias (base entry)
+			if (data.action_type === "Loop") {
 				const config = flexirule.utils.safe_json_parse(data.config, {});
-				const itemVar = data.return_variable || config.alias || "item";
+				const itemVar = normalizeReturnVariable(
+					data.return_variable || config.alias || "item"
+				);
 				const root = `vars.${itemVar}`;
 
 				if (!seenContextValues.has(root)) {
@@ -262,54 +279,128 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 						value: root,
 						fieldtype: "Data",
 						is_variable: true,
+						is_loop_scoped: true,
+					});
+				}
+			}
+
+			// Handle Return Variables and Schema
+			const rawReturnVariable = String(data.return_variable || "").trim();
+			const normalizedReturnVariable = normalizeReturnVariable(rawReturnVariable);
+
+			if (normalizedReturnVariable) {
+				const root = `vars.${normalizedReturnVariable}`;
+				if (!seenContextValues.has(root)) {
+					seenContextValues.add(root);
+					context_vars.push({
+						label: root,
+						value: root,
+						fieldtype: mapReturnTypeToFieldType(data.return_type),
+						is_variable: true,
 					});
 				}
 
-				// Propagate schema from iterator if possible
+				// Propagate resolved output schema
+				if (data.resolved_output_schema && data.return_type !== "Yes / No") {
+					const schema = flexirule.utils.safe_json_parse(data.resolved_output_schema, []);
+					if (Array.isArray(schema)) {
+						schema.forEach((field) => {
+							if (!field.fieldname) return;
+							const schemaValue = `vars.${normalizedReturnVariable}.${field.fieldname}`;
+							if (!seenContextValues.has(schemaValue)) {
+								seenContextValues.add(schemaValue);
+								context_vars.push({
+									...field,
+									label: `vars.${normalizedReturnVariable}.${field.fieldname} (${
+										field.label || field.fieldname
+									})`,
+									value: schemaValue,
+									is_variable: true,
+								});
+							}
+						});
+					}
+				} else if (
+					ACTION_TYPES_WITH_RETURN_SCHEMA.has(data.action_type) &&
+					data.reference_doctype &&
+					data.return_type !== "Yes / No"
+				) {
+					// Fallback to doctype fields if no explicit schema
+					try {
+						const dtFields = await flexirule.utils.get_doctype_fields(
+							data.reference_doctype
+						);
+						dtFields.forEach((field) => {
+							const schemaValue = `vars.${normalizedReturnVariable}.${field.value}`;
+							if (!seenContextValues.has(schemaValue)) {
+								seenContextValues.add(schemaValue);
+								context_vars.push({
+									...field,
+									label: `vars.${normalizedReturnVariable}.${field.value} (${
+										field.label || field.fieldname
+									})`,
+									value: schemaValue,
+									is_variable: true,
+								});
+							}
+						});
+					} catch (e) {
+						/* ignore */
+					}
+				}
+			}
+		}
+
+		// 2. Phase 2: Perform Loop Schema Propagation
+		// Iterate again to propagate fields into loop aliases, now that all base variables are collected.
+		for (const node of scopedNodes) {
+			const data = node.data || {};
+			if (
+				data.action_type === "Loop" &&
+				scopedNodeId &&
+				isDownstreamOfHandle(node.id, scopedNodeId, "default", executionLinks)
+			) {
+				const config = flexirule.utils.safe_json_parse(data.config, {});
+				const itemVar = normalizeReturnVariable(
+					data.return_variable || config.alias || "item"
+				);
+				const root = `vars.${itemVar}`;
 				const iterator = config.iterator;
+
 				if (iterator) {
-					// Normalize iterator prefix (handle brackets and missing vars. prefix)
-					let prefix = iterator.replace(/^\{\{\s*|\s*\}\}$/g, "").trim();
-					if (prefix && !prefix.startsWith("vars.") && !prefix.startsWith("doc.")) {
-						prefix = "vars." + prefix;
-					}
+					const rawPrefix = iterator.replace(/^\{\{\s*|\s*\}\}$/g, "").trim();
+					const normalizedPrefix = normalizeReturnVariable(rawPrefix);
 
-					if (prefix) {
-						const prefixes = [prefix];
-						if (prefix.startsWith("vars.")) {
-							prefixes.push(prefix.slice(5));
-						} else if (!prefix.startsWith("doc.")) {
-							prefixes.push("vars." + prefix);
+					const possiblePrefixes = [
+						`vars.${normalizedPrefix}.`,
+						`doc.${normalizedPrefix}.`,
+						`${normalizedPrefix}.`,
+					];
+
+					// We only iterate over variables collected in Phase 1 (current state of context_vars)
+					const baseVars = [...context_vars];
+					baseVars.forEach((v) => {
+						if (!v.value || v.is_loop_scoped) return; // Skip already scoped or invalid
+						const valStr = String(v.value);
+						const matchedPrefix = possiblePrefixes.find((p) => valStr.startsWith(p));
+
+						if (matchedPrefix) {
+							const suffix = valStr.slice(matchedPrefix.length);
+							const subValue = `${root}.${suffix}`;
+							if (!seenContextValues.has(subValue)) {
+								seenContextValues.add(subValue);
+								context_vars.push({
+									...v,
+									label: `${root}.${suffix} (${
+										v.label_short || v.label || suffix
+									})`,
+									value: subValue,
+									is_variable: true,
+									is_loop_scoped: true,
+								});
+							}
 						}
-
-						// Filter already collected variables that are children of this iterator
-						context_vars
-							.filter((v) => {
-								if (!v.value) return false;
-								const valStr = String(v.value);
-								return prefixes.some((p) => valStr.startsWith(p + "."));
-							})
-							.forEach((v) => {
-								const valStr = String(v.value);
-								const matchedPrefix = prefixes.find((p) =>
-									valStr.startsWith(p + ".")
-								);
-								const suffix = valStr.slice(matchedPrefix.length + 1);
-								const subValue = `${root}.${suffix}`;
-								if (!seenContextValues.has(subValue)) {
-									seenContextValues.add(subValue);
-									context_vars.push({
-										...v,
-										label: `${root}.${suffix} (${
-											v.label_short || v.label || suffix
-										})`,
-										value: subValue,
-										is_variable: true,
-										is_loop_scoped: true,
-									});
-								}
-							});
-					}
+					});
 				}
 
 				// Add standard vars.loop metadata
@@ -325,119 +416,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 						});
 					}
 				});
-			}
-
-			if (!data.return_variable) continue;
-			const rawReturnVariable = String(data.return_variable || "").trim();
-			const normalizedReturnVariable = normalizeReturnVariable(rawReturnVariable);
-			if (!normalizedReturnVariable) continue;
-			const candidateRoots = [`vars.${normalizedReturnVariable}`];
-			const legacyRoot =
-				rawReturnVariable.startsWith("vars.") || !rawReturnVariable
-					? rawReturnVariable
-					: `vars.${rawReturnVariable}`;
-			if (legacyRoot && legacyRoot !== candidateRoots[0]) {
-				candidateRoots.push(legacyRoot);
-			}
-
-			candidateRoots.forEach((root, idx) => {
-				if (!root || seenContextValues.has(root)) return;
-				seenContextValues.add(root);
-				context_vars.push({
-					label:
-						idx === 0
-							? `vars.${normalizedReturnVariable}`
-							: `vars.${normalizedReturnVariable} (${__("Legacy Path")})`,
-					value: root,
-					fieldtype: mapReturnTypeToFieldType(data.return_type),
-					is_variable: true,
-				});
-			});
-
-			if (data.resolved_output_schema && data.return_type !== "Yes / No") {
-				const schema = flexirule.utils.safe_json_parse(data.resolved_output_schema, []);
-				if (Array.isArray(schema)) {
-					const seenSchemaPaths = new Set();
-					// 1. Add intermediate paths as selectable variable roots
-					const intermediatePaths = new Set();
-					schema.forEach((field) => {
-						const parts = (field.fieldname || "").split(".");
-						if (parts.length > 1) {
-							let current = "";
-							for (let i = 0; i < parts.length - 1; i++) {
-								current = current ? `${current}.${parts[i]}` : parts[i];
-								intermediatePaths.add(current);
-							}
-						}
-					});
-
-					intermediatePaths.forEach((path) => {
-						const value = `vars.${normalizedReturnVariable}.${path}`;
-						if (!seenContextValues.has(value)) {
-							seenContextValues.add(value);
-							context_vars.push({
-								label: `vars.${normalizedReturnVariable}.${path}`,
-								value: value,
-								fieldtype: "Table", // Mark as table to allow collection iteration
-								is_variable: true,
-							});
-						}
-					});
-
-					// 2. Add leaf fields
-					schema.forEach((field) => {
-						if (field.fieldname && !seenSchemaPaths.has(field.fieldname)) {
-							seenSchemaPaths.add(field.fieldname);
-							const schemaValue = `vars.${normalizedReturnVariable}.${field.fieldname}`;
-							if (seenContextValues.has(schemaValue)) return;
-							seenContextValues.add(schemaValue);
-							context_vars.push({
-								...field,
-								label: `vars.${normalizedReturnVariable}.${field.fieldname} (${
-									field.label || field.fieldname
-								})`,
-								value: schemaValue,
-								fieldtype: field.fieldtype || "Data",
-								is_variable: true,
-							});
-						}
-					});
-				}
-			} else if (
-				ACTION_TYPES_WITH_RETURN_SCHEMA.has(data.action_type) &&
-				data.reference_doctype &&
-				data.return_type !== "Yes / No"
-			) {
-				try {
-					const dtFields = await flexirule.utils.get_doctype_fields(
-						data.reference_doctype
-					);
-					const seenSchemaPaths = new Set();
-					dtFields.forEach((field) => {
-						// field object has: fieldname, label, fieldtype, doctype
-						if (field.value && !seenSchemaPaths.has(field.value)) {
-							seenSchemaPaths.add(field.value);
-							// `field.value` already contains the child table prefix if applicable.
-							const schemaValue = `vars.${normalizedReturnVariable}.${field.value}`;
-							if (seenContextValues.has(schemaValue)) return;
-							seenContextValues.add(schemaValue);
-							context_vars.push({
-								...field,
-								label: `vars.${normalizedReturnVariable}.${field.value} (${
-									field.label || field.fieldname
-								})`,
-								value: schemaValue,
-								fieldtype: field.fieldtype || "Data",
-								is_variable: true,
-							});
-						}
-					});
-				} catch (e) {
-					console.error(
-						"Failed to load reference doctype fields for Document Action context variables",
-						e
-					);
-				}
 			}
 		}
 
@@ -1345,7 +1323,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 				type: type,
 				position: {
 					x: isRoot ? 50 : 300,
-					y: isRoot ? 250 : 150 + index * 120,
+					y: isRoot ? 250 : 150 + index * 200,
 				},
 				label: nodeLabel,
 				data: nodeData,
@@ -1363,10 +1341,12 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 					id: `e-${nodeId}-${action.next_step_if_true}-true`,
 					source: nodeId,
 					target: action.next_step_if_true,
-					sourceHandle:
-						action.action_type === "Condition" || action.action_type === "Loop"
-							? "true"
-							: "default",
+					sourceHandle: action.action_type === "Condition" ? "true" : "default",
+					targetHandle:
+						actionsList.find((a) => a.action_id === action.next_step_if_true)
+							?.action_type === "Loop" && action.action_type !== "Entry Action"
+							? "return"
+							: null,
 					type: "add",
 					animated: action.action_type === "Entry Action",
 				});

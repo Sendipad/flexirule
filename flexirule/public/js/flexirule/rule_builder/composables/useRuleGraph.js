@@ -3,8 +3,8 @@ import { useVueFlow } from "@vue-flow/core";
 
 const NODE_WIDTH = 260;
 const NODE_HEIGHT = 160;
-const H_GAP = 100; // horizontal gap between ranks (LR) or between main and body column (TB)
-const V_GAP = 120; // vertical gap between nodes
+const H_GAP = 140; // horizontal gap between ranks (LR) or between main and body column (TB)
+const V_GAP = 180; // vertical gap between nodes
 
 export function useRuleGraph() {
 	const { nodes, edges, setNodes, setEdges, fitView } = useVueFlow();
@@ -207,7 +207,7 @@ export function useRuleGraph() {
 				sourcePosition: isReturnNode
 					? isHorizontal
 						? "bottom"
-						: "right" // Side exit for return path
+						: "left" // Side exit for return path (on the left to avoid After Last branch)
 					: isHorizontal
 					? "right"
 					: "bottom", // Standard flow exit

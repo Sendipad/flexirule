@@ -453,6 +453,9 @@ function onConnect(params) {
 		targetHandle: params.targetHandle,
 		type: "add",
 		animated: graphStore.nodes.find((el) => el.id === params.source)?.type === "start",
+		data: {
+			isReturn: params.targetHandle === "return",
+		},
 	};
 	graphStore.edges = [...graphStore.edges, newEdge];
 	ruleStore.mark_dirty();

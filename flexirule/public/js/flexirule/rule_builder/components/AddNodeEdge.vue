@@ -99,7 +99,12 @@ function onPaste() {
 <template>
 	<BaseEdge
 		:id="id"
-		:style="{ ...style, strokeWidth: 2, stroke: 'var(--border-color, #cbd5e1)' }"
+		:style="{
+			...style,
+			strokeWidth: isReturnEdge ? 1.5 : 2,
+			stroke: isReturnEdge ? '#94a3b8' : 'var(--border-color, #cbd5e1)',
+			strokeDasharray: isReturnEdge ? '5,5' : 'none',
+		}"
 		:path="path[0]"
 		:marker-end="markerEnd"
 		data-edge-type="add"
