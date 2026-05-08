@@ -184,12 +184,33 @@ export function useRuleGraph() {
 		});
 
 		// ── 4. Apply positions back to nodes ─────────────────────────────────
+		// Identify the "last" node in each loop body (the one that should return)
+		const loopReturnSourceIds = new Set();
+		loopBodyMap.forEach(({ bodyIds, bodyEntryId }, loopId) => {
+			bodyIds.forEach((id) => {
+				const hasChildrenInBody = currentEdges.some(
+					(e) => e.source === id && bodyIds.has(e.target)
+				);
+				if (!hasChildrenInBody) {
+					loopReturnSourceIds.add(id);
+				}
+			});
+		});
+
 		const layoutedNodes = currentNodes.map((node) => {
 			const pos = positions.get(node.id) || node.position;
+			const isReturnNode = loopReturnSourceIds.has(node.id);
+
 			return {
 				...node,
 				position: pos,
-				sourcePosition: isHorizontal ? "right" : "bottom",
+				sourcePosition: isReturnNode
+					? isHorizontal
+						? "bottom"
+						: "right" // Side exit for return path
+					: isHorizontal
+					? "right"
+					: "bottom", // Standard flow exit
 				targetPosition: isHorizontal ? "left" : "top",
 			};
 		});

@@ -105,9 +105,9 @@ function openConfig() {
 			<Handle type="source" :position="doPos" id="default" class="handle-out handle-do" />
 		</div>
 
-		<!-- Done Handle: After Last → main flow continues -->
-		<!-- TB: exits Left | LR: exits Bottom -->
-		<div :class="['out-port', isHorizontal ? 'out-bottom' : 'out-left']" class="out-done">
+		<!-- Done Handle: After Last → bypass branch -->
+		<!-- TB: exits Left | LR: exits Top -->
+		<div :class="['out-port', isHorizontal ? 'out-top' : 'out-left']" class="out-done">
 			<div class="bubble-label bubble-afterlast">{{ __("After Last") }}</div>
 			<Handle type="source" :position="donePos" id="false" class="handle-out handle-done" />
 		</div>
@@ -234,7 +234,7 @@ function openConfig() {
 /* Position for LR */
 .out-right {
 	right: -40px;
-	top: 30%;
+	top: 50%;
 	transform: translateY(-50%);
 }
 
@@ -242,6 +242,33 @@ function openConfig() {
 	bottom: -20px;
 	left: 50%;
 	transform: translateX(-50%);
+}
+
+.out-top {
+	top: -20px;
+	left: 50%;
+	transform: translateX(-50%);
+}
+
+/* Handles */
+.loop-node-card:not(.is-vertical) .handle-done {
+	top: -5px !important;
+	left: 50% !important;
+}
+
+.loop-node-card:not(.is-vertical) .handle-return {
+	bottom: -5px !important;
+	left: 50% !important;
+}
+
+.loop-node-card:not(.is-vertical) .handle-target {
+	left: -5px !important;
+	top: 50% !important;
+}
+
+.loop-node-card:not(.is-vertical) .handle-do {
+	right: -5px !important;
+	top: 50% !important;
 }
 
 /* Position for TB */

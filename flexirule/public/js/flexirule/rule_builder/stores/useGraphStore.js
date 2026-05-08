@@ -268,29 +268,48 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 				// Propagate schema from iterator if possible
 				const iterator = config.iterator;
 				if (iterator) {
-					// Find fields that belong to this iterator in already collected context_vars
-					const prefix = iterator.startsWith("{{")
-						? iterator.replace(/^\{\{\s*|\s*\}\}$/g, "")
-						: iterator;
+					// Normalize iterator prefix (handle brackets and missing vars. prefix)
+					let prefix = iterator.replace(/^\{\{\s*|\s*\}\}$/g, "").trim();
+					if (prefix && !prefix.startsWith("vars.") && !prefix.startsWith("doc.")) {
+						prefix = "vars." + prefix;
+					}
 
-					// If iterator is 'vars.my_list', we look for fields like 'vars.my_list.field_name'
-					// and map them to 'vars.item.field_name'
-					const searchPrefix = prefix + ".";
-					context_vars
-						.filter((v) => v.value && v.value.startsWith(searchPrefix))
-						.forEach((v) => {
-							const suffix = v.value.slice(searchPrefix.length);
-							const subValue = `${root}.${suffix}`;
-							if (!seenContextValues.has(subValue)) {
-								seenContextValues.add(subValue);
-								context_vars.push({
-									...v,
-									label: `${root}.${suffix} (${v.label || suffix})`,
-									value: subValue,
-									is_variable: true,
-								});
-							}
-						});
+					if (prefix) {
+						const prefixes = [prefix];
+						if (prefix.startsWith("vars.")) {
+							prefixes.push(prefix.slice(5));
+						} else if (!prefix.startsWith("doc.")) {
+							prefixes.push("vars." + prefix);
+						}
+
+						// Filter already collected variables that are children of this iterator
+						context_vars
+							.filter((v) => {
+								if (!v.value) return false;
+								const valStr = String(v.value);
+								return prefixes.some((p) => valStr.startsWith(p + "."));
+							})
+							.forEach((v) => {
+								const valStr = String(v.value);
+								const matchedPrefix = prefixes.find((p) =>
+									valStr.startsWith(p + ".")
+								);
+								const suffix = valStr.slice(matchedPrefix.length + 1);
+								const subValue = `${root}.${suffix}`;
+								if (!seenContextValues.has(subValue)) {
+									seenContextValues.add(subValue);
+									context_vars.push({
+										...v,
+										label: `${root}.${suffix} (${
+											v.label_short || v.label || suffix
+										})`,
+										value: subValue,
+										is_variable: true,
+										is_loop_scoped: true,
+									});
+								}
+							});
+					}
 				}
 
 				// Add standard vars.loop metadata
