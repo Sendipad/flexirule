@@ -43,12 +43,33 @@ export function useClipboard() {
 			return;
 		}
 
-		const selectedEdges = getSelectedEdges.value;
+		const selectedEdges = getSelectedEdges.value || [];
+		const selectedNodeIds = new Set(filterNodes.map((n) => n.id));
+
+		// Include all internal edges between selected nodes, even when edges are not
+		// manually selected in VueFlow (multi-node copy UX parity with Frappe copy intent).
+		const inferredInternalEdges = (graphStore.edges || []).filter(
+			(e) => selectedNodeIds.has(e.source) && selectedNodeIds.has(e.target)
+		);
+		const allSelectedEdges = [...selectedEdges, ...inferredInternalEdges].filter(
+			(edge, index, arr) =>
+				arr.findIndex(
+					(e) =>
+						e.source === edge.source &&
+						e.target === edge.target &&
+						(e.sourceHandle || "default") === (edge.sourceHandle || "default")
+				) === index
+		);
 
 		// Map to clean objects to avoid circular references and VueFlow internal state
 		const payload = {
 			type: "flexirule-clipboard",
-			version: 1,
+			version: 2,
+			copied_at: frappe.datetime.now_datetime(),
+			source: {
+				doctype: "Rule",
+				name: ruleStore.rule_name || null,
+			},
 			nodes: filterNodes.map((n) => {
 				const nodeData = JSON.parse(JSON.stringify(n.data || {}));
 				// Sync condition_json for Condition nodes if missing
@@ -62,17 +83,20 @@ export function useClipboard() {
 				const cleanedData = stripNullValues(nodeData);
 				return {
 					id: n.id,
+					action_id: cleanedData?.action_id || n.id,
 					type: n.type,
 					position: { ...n.position },
 					label: n.label,
 					data: cleanedData,
 				};
 			}),
-			edges: selectedEdges.map((e) => ({
+			edges: allSelectedEdges.map((e) => ({
 				id: e.id,
 				source: e.source,
 				target: e.target,
 				sourceHandle: e.sourceHandle,
+				targetHandle: e.targetHandle,
+				data: stripNullValues(JSON.parse(JSON.stringify(e.data || {}))),
 			})),
 		};
 
@@ -89,7 +113,13 @@ export function useClipboard() {
 			} else {
 				throw new Error("Clipboard API unavailable");
 			}
-			frappe.show_alert({ message: __("Nodes copied to clipboard"), indicator: "blue" }, 2);
+			frappe.show_alert(
+				{
+					message: __("{0} node(s) copied", [String(filterNodes.length)]),
+					indicator: "blue",
+				},
+				2
+			);
 		} catch (e) {
 			// Fallback for insecure contexts or API failure
 			const textArea = document.createElement("textarea");
