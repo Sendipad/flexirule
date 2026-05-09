@@ -1337,18 +1337,22 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		sourceActions.forEach((action, index) => {
 			const nodeId = action.action_id || `act_${index}`;
 			if (action.next_step_if_true) {
+				const isLoopBody = action.action_type === "Loop";
+				const isReturnToLoop =
+					actionsList.find((a) => a.action_id === action.next_step_if_true)?.action_type ===
+						"Loop" && action.action_type !== "Entry Action";
 				actionEdges.push({
 					id: `e-${nodeId}-${action.next_step_if_true}-true`,
 					source: nodeId,
 					target: action.next_step_if_true,
 					sourceHandle: action.action_type === "Condition" ? "true" : "default",
-					targetHandle:
-						actionsList.find((a) => a.action_id === action.next_step_if_true)
-							?.action_type === "Loop" && action.action_type !== "Entry Action"
-							? "return"
-							: null,
+					targetHandle: isReturnToLoop ? "return" : null,
 					type: "add",
 					animated: action.action_type === "Entry Action",
+					data: {
+						loopBody: isLoopBody,
+						isReturn: isReturnToLoop,
+					},
 				});
 			}
 			if (action.next_step_if_false) {
@@ -1358,6 +1362,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 					target: action.next_step_if_false,
 					sourceHandle: "false",
 					type: "add",
+					data: { afterLast: action.action_type === "Loop" },
 				});
 			}
 		});

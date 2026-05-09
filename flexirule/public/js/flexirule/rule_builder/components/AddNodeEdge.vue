@@ -41,6 +41,12 @@ const isAfterLastEdge = computed(() => {
 	return props.data?.afterLast || props.sourceHandleId === "false" || props.id.includes("-false");
 });
 
+const isLoopBodyEdge = computed(() => {
+	return props.data?.loopBody === true;
+});
+
+const isHorizontal = computed(() => store.settings?.layout_direction !== "Top to Bottom");
+
 const isEnabled = computed(() => {
 	if (!store.settings) return true;
 	if (store.settings.enable_edge_insertion === 0) return false;
@@ -61,11 +67,17 @@ const path = computed(() => {
 	};
 
 	if (isReturnEdge.value) {
-		// Return edges go further out to avoid the node body
-		config.offset = 60;
+		// Return edges are pulled away from loop bypass edges.
+		config.offset = isHorizontal.value ? 70 : 62;
+		config.borderRadius = 18;
 	} else if (isAfterLastEdge.value) {
-		// After Last (bypass) edges also benefit from a bit more breathing room
-		config.offset = 50;
+		// Bypass branch should stay clearly separated from loop return/body edges.
+		config.offset = isHorizontal.value ? 52 : 70;
+		config.borderRadius = 30;
+	} else if (isLoopBodyEdge.value) {
+		// Keep "For Each" branch tighter to the main direction so it doesn't cross bypass.
+		config.offset = isHorizontal.value ? 34 : 34;
+		config.borderRadius = 20;
 	}
 
 	return getSmoothStepPath(config);
