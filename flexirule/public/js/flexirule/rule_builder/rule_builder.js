@@ -77,6 +77,60 @@ class RuleBuilder {
 		this.page.add_menu_item(__("Go to Rule"), () => {
 			frappe.set_route("Form", "Rule", this.rule);
 		});
+
+		this.page.add_menu_item(__("Keyboard Shortcuts"), () => {
+			this.show_keyboard_shortcuts();
+		});
+	}
+
+	show_keyboard_shortcuts() {
+		const shortcuts = [
+			{ keys: ["Ctrl", "S"], label: __("Save Changes") },
+			{ keys: ["Ctrl", "Z"], label: __("Undo Last Action") },
+			{ keys: ["Ctrl", "Shift", "Z"], label: __("Redo Last Action") },
+			{ keys: ["Ctrl", "Y"], label: __("Redo Last Action") },
+			{ keys: ["Ctrl", "C"], label: __("Copy Selected Nodes") },
+			{ keys: ["Ctrl", "V"], label: __("Paste Nodes at Mouse Position") },
+			{ keys: ["Delete"], label: __("Delete Selected Nodes") },
+			{ keys: ["Shift", "Click"], label: __("Multi-select Nodes (Bypasses Config)") },
+			{ keys: ["Left Click + Drag"], label: __("Box Selection") },
+			{ keys: ["Right Click + Drag"], label: __("Pan Canvas") },
+			{ keys: ["Mouse Wheel"], label: __("Zoom In/Out") },
+		];
+
+		let html = `
+			<div class="keyboard-shortcuts-list">
+				<table class="table table-bordered table-condensed">
+					<thead>
+						<tr>
+							<th style="width: 40%">${__("Shortcut")}</th>
+							<th>${__("Action")}</th>
+						</tr>
+					</thead>
+					<tbody>
+						${shortcuts
+							.map(
+								(s) => `
+							<tr>
+								<td>${s.keys.map((k) => `<kbd>${k}</kbd>`).join(" + ")}</td>
+								<td>${s.label}</td>
+							</tr>
+						`
+							)
+							.join("")}
+					</tbody>
+				</table>
+				<div class="text-muted small mt-2">
+					${__("Note: Shortcuts work when the canvas is focused and no input is active.")}
+				</div>
+			</div>
+		`;
+
+		frappe.msgprint({
+			title: __("Keyboard Shortcuts"),
+			message: html,
+			wide: true,
+		});
 	}
 
 	setup_custom_header() {

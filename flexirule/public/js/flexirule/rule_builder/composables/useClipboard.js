@@ -94,6 +94,7 @@ export function useClipboard() {
 				id: e.id,
 				source: e.source,
 				target: e.target,
+				type: e.type || "add",
 				sourceHandle: e.sourceHandle,
 				targetHandle: e.targetHandle,
 				data: stripNullValues(JSON.parse(JSON.stringify(e.data || {}))),

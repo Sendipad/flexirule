@@ -917,17 +917,24 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		const newNodeIds = new Set(newNodes.map((n) => n.id));
 
 		// 2. Identify entry and exit points in the pasted block
-		// Entry: first node that doesn't have an incoming edge from another pasted node
-		const entryNode = newNodes.find(
-			(n) => !edges.value.some((e) => e.target === n.id && newNodeIds.has(e.source))
-		);
+		// Entry: first node that doesn't have an incoming FORWARD edge from another pasted node
+		const entryNode = newNodes.find((n) => {
+			return !edges.value.some(
+				(e) => e.target === n.id && newNodeIds.has(e.source) && !e.data?.isReturn
+			);
+		});
 
-		// Exit: first node that doesn't have an outgoing edge to another pasted node
-		const exitNode = newNodes.find(
-			(n) => !edges.value.some((e) => e.source === n.id && newNodeIds.has(e.target))
-		);
+		// Exit: first node that has a "null" next step (meaning it originally pointed outside the selection)
+		const exitNode = newNodes.find((n) => {
+			if (isTerminalAction(n.data?.action_type)) return false;
+			// For multi-output nodes like Loop/Condition, we check if ANY output is now null
+			return n.data?.next_step_if_true === null || n.data?.next_step_if_false === null;
+		});
 
-		if (!entryNode || !exitNode) return newNodes[0].id;
+		if (!entryNode) {
+			// Fallback: if we can't find clear entry, return the first node but connectivity will be partial
+			return newNodes[0].id;
+		}
 
 		// 3. Remove old edge
 		delete_edge(edgeId);
@@ -942,28 +949,41 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			}
 		}
 
-		edges.value.push({
+		const entryEdge = {
 			id: `e-${sourceId}-${entryNode.id}-${sourceHandle}`,
 			source: sourceId,
 			target: entryNode.id,
 			sourceHandle: sourceHandle,
 			type: "add",
-		});
+		};
 
 		// 5. Connect exit node to target if NOT terminal
-		if (!isTerminalAction(exitNode.data?.action_type)) {
+		const newEdgesToAdd = [entryEdge];
+		if (exitNode && !isTerminalAction(exitNode.data?.action_type)) {
+			// Determine which handle to use on the exit node.
+			// Prefer the 'false' handle if it's the one that was nulled (e.g. Loop After Last)
+			const useFalseHandle = exitNode.data.next_step_if_false === null;
+			const exitHandle = useFalseHandle ? "false" : "default";
+
 			if (exitNode.data) {
-				exitNode.data.next_step_if_true = targetId;
+				if (useFalseHandle) {
+					exitNode.data.next_step_if_false = targetId;
+				} else {
+					exitNode.data.next_step_if_true = targetId;
+				}
 			}
 
-			edges.value.push({
-				id: `e-${exitNode.id}-${targetId}-default`,
+			newEdgesToAdd.push({
+				id: `e-${exitNode.id}-${targetId}-${exitHandle}`,
 				source: exitNode.id,
 				target: targetId,
-				sourceHandle: "default",
+				sourceHandle: exitHandle,
 				type: "add",
+				data: useFalseHandle ? { afterLast: exitNode.data?.action_type === "Loop" } : {},
 			});
 		}
+
+		edges.value = [...edges.value, ...newEdgesToAdd];
 
 		return entryNode.id;
 	}
@@ -1339,8 +1359,8 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			if (action.next_step_if_true) {
 				const isLoopBody = action.action_type === "Loop";
 				const isReturnToLoop =
-					actionsList.find((a) => a.action_id === action.next_step_if_true)?.action_type ===
-						"Loop" && action.action_type !== "Entry Action";
+					actionsList.find((a) => a.action_id === action.next_step_if_true)
+						?.action_type === "Loop" && action.action_type !== "Entry Action";
 				actionEdges.push({
 					id: `e-${nodeId}-${action.next_step_if_true}-true`,
 					source: nodeId,

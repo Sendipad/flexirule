@@ -404,6 +404,11 @@ function onNodeClick(event) {
 		return;
 	}
 
+	// Bypass config opening if we are likely performing multi-selection
+	if (event.event.shiftKey || event.event.ctrlKey || event.event.metaKey) {
+		return;
+	}
+
 	const trigger = ruleStore.settings?.open_config_on || "Click";
 	if (trigger === "Click" && event.node.type !== "start") {
 		ruleStore.open_config(event.node.id);
