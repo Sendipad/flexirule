@@ -24,12 +24,14 @@ class TestRuleCoordinator(FrappeTestCase):
 		# Clean up any existing test rules
 		frappe.db.delete("Rule", {"rule_name": ["like", "Test%"]})
 		frappe.db.delete("Rule Execution Log", {"rule": ["like", "Test%"]})
+		RuleCoordinator.clear_cache()
 
 	def tearDown(self):
 		super().tearDown()
 		# Clean up test rules after each test
 		frappe.db.delete("Rule", {"rule_name": ["like", "Test%"]})
 		frappe.db.delete("Rule Execution Log", {"rule": ["like", "Test%"]})
+		RuleCoordinator.clear_cache()
 
 	def create_test_rule(
 		self,
