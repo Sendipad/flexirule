@@ -2,6 +2,16 @@
 
 This document defines the standard structure and requirements for FlexiRule Process Adapters. Following these standards ensures compatibility with the Rule Builder's `ConfigurableAction` runtime.
 
+## Recent Enhancements
+- **`writes_to`** field now supports values: `"None"`, `"Context"`, `"Document"`, `"Database"`
+- **`has_side_effect`** flag indicates operations that modify external systems
+- **`config_schema`** now supports full JSON Schema with nested objects/arrays
+- **`output_schema`** usage in return type inference for context variables
+- **`action_overrides`** JSON can specify `policy` and `fields` for customizing behavior
+- **`visible_in_builder`** flag controls operation discoverability in the Rule Builder UI
+- **`for_doctype`** + **`doctype_filters`** restrict operation to specific DocTypes
+- **Note**: `get_schema()` and `get_output_schema()` methods are **Priority 1** if defined; backend contract is fallback
+
 ## File Location
 
 Process adapters should be placed in `apps/[app_name]/[app_name]/[Module def]/process/[process_name]/[process_name].js`.
