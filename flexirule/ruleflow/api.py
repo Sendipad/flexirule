@@ -14,14 +14,17 @@ from frappe import _
 
 from flexirule.ruleflow.core.compiler import ConditionCompiler
 from flexirule.ruleflow.core.contracts import (
-	ACTION_TYPE_CONTRACT,
-	infer_process_operation_policy,
-	normalize_action_type,
-)
-from flexirule.ruleflow.core.contracts import (
 	get_contract_dto as _get_contract_dto,
 )
+from flexirule.ruleflow.core.contracts import (
+	normalize_action_type,
+)
 from flexirule.ruleflow.core.permissions import require_builder_access
+from flexirule.ruleflow.core.process_registry import (
+	build_operation_registry,
+	get_process_operation_policies,
+	get_process_registry,
+)
 
 
 def _require_api_access():
@@ -436,123 +439,18 @@ def get_contract_dto():
 	"""Return canonical action/trigger contracts for frontend consumers."""
 	_require_api_access()
 	contracts = _get_contract_dto()
-
-	def _existing_fields(doctype: str, candidates: list[str]) -> list[str]:
-		meta = frappe.get_meta(doctype)
-		return [
-			fieldname
-			for fieldname in candidates
-			if fieldname == "name"
-			or (
-				(meta.has_field(fieldname) or fieldname in {"parent", "parenttype", "parentfield", "idx"})
-				and frappe.db.has_column(doctype, fieldname)
-			)
-		]
-
 	try:
-		process_fields = _existing_fields("Process", ["name", "module", "is_standard", "status"])
-		process_operation_fields = _existing_fields(
-			"Process Operation",
-			[
-				"parent",
-				"func_name",
-				"label",
-				"enabled",
-				"visible_in_builder",
-				"writes_to",
-				"is_terminal",
-				"requires_doc",
-				"reads_vars",
-				"writes_vars",
-				"config_schema",
-				"output_schema",
-			],
-		)
-
-		if "parent" not in process_operation_fields:
-			process_operation_fields = ["parent", *process_operation_fields]
-
-		process_rows = frappe.get_all(
-			"Process",
-			fields=process_fields,
-			order_by="modified desc",
-			ignore_permissions=True,
-		)
-		process_operations = frappe.get_all(
-			"Process Operation",
-			fields=process_operation_fields,
-			order_by="parent asc, idx asc",
-			ignore_permissions=True,
-		)
+		process_registry = get_process_registry(include_disabled=True, include_hidden=True)
+		process_operation_policies = get_process_operation_policies(process_registry)
+		operation_registry = build_operation_registry(process_registry, process_operation_policies)
 	except Exception:
-		process_rows = []
-		process_operations = []
-
-	process_map: dict[str, dict[str, Any]] = {row["name"]: {**row, "operations": []} for row in process_rows}
-	process_operation_policies: dict[str, dict[str, dict[str, Any]]] = {}
-	for row in process_operations:
-		parent = row.get("parent")
-		if parent in process_map:
-			process_map[parent]["operations"].append(row)
-		func_name = row.get("func_name")
-		if parent and func_name:
-			process_operation_policies.setdefault(parent, {})[func_name] = infer_process_operation_policy(row)
-
-	operation_registry: list[dict[str, Any]] = []
-	seen_ops: set[tuple[str, str, str]] = set()
-
-	def _append_operation(
-		action_type: str,
-		value: str,
-		label: str | None = None,
-		process_name: str | None = None,
-		policy: dict[str, Any] | None = None,
-	):
-		if not value:
-			return
-		key = (action_type, process_name or "", value)
-		if key in seen_ops:
-			return
-		seen_ops.add(key)
-		operation_registry.append(
-			{
-				"action_type": action_type,
-				"value": value,
-				"label": label or value,
-				"process_name": process_name,
-				"policy": policy or {},
-			}
-		)
-
-	for action_type, action_contract in ACTION_TYPE_CONTRACT.items():
-		for operation_name in action_contract.get("operation_options", []) or []:
-			op_policy = (action_contract.get("operation_policies", {}) or {}).get(operation_name, {})
-			_append_operation(
-				action_type=action_type,
-				value=operation_name,
-				label=operation_name,
-				process_name=None,
-				policy=op_policy,
-			)
-
-	for process_name, process_info in process_map.items():
-		for operation in process_info.get("operations", []) or []:
-			if operation.get("enabled", 1) == 0 or operation.get("visible_in_builder", 1) == 0:
-				continue
-			func_name = operation.get("func_name")
-			if not func_name:
-				continue
-			_append_operation(
-				action_type="Process",
-				value=func_name,
-				label=operation.get("label") or func_name,
-				process_name=process_name,
-				policy=process_operation_policies.get(process_name, {}).get(func_name, {}),
-			)
+		process_registry = []
+		process_operation_policies = {}
+		operation_registry = []
 
 	payload = {
 		**contracts,
-		"process_registry": list(process_map.values()),
+		"process_registry": process_registry,
 		"operation_registry": operation_registry,
 		"process_operation_policies": process_operation_policies,
 	}
@@ -761,10 +659,24 @@ def get_process_operations(process_name: str):
 		fields=[
 			"func_name",
 			"label",
+			"description",
 			"enabled",
 			"visible_in_builder",
+			"icon",
+			"color",
 			"writes_to",
 			"is_terminal",
+			"requires_doc",
+			"can_stop_save",
+			"allows_async",
+			"transactional",
+			"for_doctype",
+			"doctype_filters",
+			"reads_vars",
+			"writes_vars",
+			"config_schema",
+			"output_schema",
+			"action_overrides",
 		],
 		order_by="idx asc",
 	)
@@ -775,10 +687,24 @@ def get_process_operations(process_name: str):
 			"value": r.get("func_name"),
 			"func_name": r.get("func_name"),
 			"label": r.get("label") or r.get("func_name"),
+			"description": r.get("description") or "",
 			"enabled": r.get("enabled", 1),
 			"visible_in_builder": r.get("visible_in_builder", 1),
+			"icon": r.get("icon"),
+			"color": r.get("color"),
 			"writes_to": r.get("writes_to"),
 			"is_terminal": r.get("is_terminal", 0),
+			"requires_doc": r.get("requires_doc", 0),
+			"can_stop_save": r.get("can_stop_save", 0),
+			"allows_async": r.get("allows_async", 0),
+			"transactional": r.get("transactional", 0),
+			"for_doctype": r.get("for_doctype"),
+			"doctype_filters": r.get("doctype_filters"),
+			"reads_vars": r.get("reads_vars"),
+			"writes_vars": r.get("writes_vars"),
+			"config_schema": r.get("config_schema"),
+			"output_schema": r.get("output_schema"),
+			"action_overrides": r.get("action_overrides"),
 		}
 		for r in rows
 		if r.get("func_name")

@@ -32,6 +32,7 @@
 		"section_break_schema",
 		"config_schema",
 		"output_schema",
+		"action_overrides",
 		"section_break_ui",
 		"icon",
 		"color"
@@ -195,6 +196,13 @@
 			"fieldname": "output_schema",
 			"fieldtype": "Code",
 			"label": "Output Schema",
+			"options": "JSON"
+		},
+		{
+			"description": "Optional action override contract JSON. Shape: {\"policy\": {...}, \"fields\": {\"fieldname\": {...}}}",
+			"fieldname": "action_overrides",
+			"fieldtype": "Code",
+			"label": "Action Overrides",
 			"options": "JSON"
 		},
 		{

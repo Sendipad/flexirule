@@ -233,57 +233,6 @@ def get_process_list():
 	Return all processes with their enabled operations.
 	"""
 	_require_process_api_access()
+	from flexirule.ruleflow.core.process_registry import get_process_registry
 
-	processes = frappe.get_all(
-		"Process",
-		fields=["name", "process_name", "module"],
-		order_by="process_name asc",
-	)
-
-	if not processes:
-		return []
-
-	process_names = [p["name"] for p in processes]
-
-	operations = frappe.get_all(
-		"Process Operation",
-		filters={
-			"parenttype": "Process",
-			"parent": ["in", process_names],
-			"enabled": 1,
-		},
-		fields=[
-			"parent",
-			"func_name",
-			"label",
-			"visible_in_builder",
-			"icon",
-			"color",
-			"config_json",
-			"idx",
-			# Contract fields for validation
-			"writes_to",
-			"writes_vars",
-			"reads_vars",
-			"output_schema",
-			"config_schema",
-			"is_terminal",
-			"can_stop_save",
-			"requires_doc",
-			"transactional",
-			"for_doctype",
-			"doctype_filters",
-		],
-		order_by="parent asc, idx asc",
-	)
-
-	# group operations by process
-	ops_by_process: dict[str, list] = {}
-	for op in operations:
-		ops_by_process.setdefault(op["parent"], []).append(op)
-
-	# attach operations
-	for p in processes:
-		p["operations"] = ops_by_process.get(p["name"], [])
-
-	return processes
+	return get_process_registry(include_disabled=False, include_hidden=True)

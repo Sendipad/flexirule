@@ -1,5 +1,10 @@
 import BaseEngine from "./BaseEngine.js";
 import SchemaUtils from "./schema.js";
+import {
+	getProcessOperationConfigFields,
+	getProcessOperationDefinition,
+	loadContractsFromBackend,
+} from "./contracts.js";
 
 /**
  * ProcessRuntime (ProcessEngine Logic)
@@ -58,15 +63,21 @@ export default class ProcessRuntime extends BaseEngine {
 	}
 
 	async _load_adapter() {
+		await loadContractsFromBackend();
+		this.operation_def = getProcessOperationDefinition(this.process_name, this.operation_name);
+
+		// Optional composition hook for advanced/custom client behavior.
 		if (!flexirule.utils.load_process_adapter) {
-			console.error("flexirule.utils.load_process_adapter is missing");
 			return;
 		}
 		await flexirule.utils.load_process_adapter(this.process_name);
 		this.adapter = flexirule.utils.get_process_adapter(this.process_name);
 
-		if (this.adapter && this.adapter.get_operation) {
-			this.operation_def = this.adapter.get_operation(this.operation_name);
+		const adapter_operation = this.adapter?.get_operation?.(this.operation_name) || null;
+		if (this.operation_def && adapter_operation) {
+			this.operation_def = { ...this.operation_def, ...adapter_operation };
+		} else if (!this.operation_def) {
+			this.operation_def = adapter_operation;
 		}
 
 		const ctx = this._get_context();
@@ -79,6 +90,14 @@ export default class ProcessRuntime extends BaseEngine {
 	}
 
 	_resolve_schema() {
+		const contractFields = getProcessOperationConfigFields(
+			this.process_name,
+			this.operation_name
+		);
+		if (contractFields.length) {
+			return contractFields;
+		}
+
 		if (!this.adapter) return [];
 		const ctx = this._get_context();
 
@@ -122,18 +141,18 @@ export default class ProcessRuntime extends BaseEngine {
 	}
 
 	_resolve_output_schema(config) {
-		if (this.adapter && typeof this.adapter.get_output_schema === "function") {
-			const schema = this.adapter.get_output_schema(config, this._get_context());
-			if (schema) return schema;
-		}
 		if (this.operation_def?.output_schema) {
 			try {
 				return typeof this.operation_def.output_schema === "string"
 					? JSON.parse(this.operation_def.output_schema)
 					: this.operation_def.output_schema;
-			} catch (e) {
-				// ignore
+			} catch (_error) {
+				// fall through
 			}
+		}
+		if (this.adapter && typeof this.adapter.get_output_schema === "function") {
+			const schema = this.adapter.get_output_schema(config, this._get_context());
+			if (schema) return schema;
 		}
 		return null;
 	}

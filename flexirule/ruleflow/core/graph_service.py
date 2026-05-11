@@ -124,8 +124,10 @@ def get_node_config_schema(
 	    }
 	"""
 	from flexirule.ruleflow.core.contracts import (
+		apply_field_overrides,
 		get_contract,
 		get_effective_action_policy,
+		get_operation_field_overrides,
 		normalize_action_type,
 	)
 
@@ -182,6 +184,26 @@ def get_node_config_schema(
 			"description": df.description,
 		}
 		base_fields.append(field_dict)
+
+	# Apply action/operation-specific field override contracts.
+	overrides = []
+	if action_type in {
+		"Entry Action",
+		"Condition",
+		"Stop",
+		"Raise Error",
+		"Wait",
+		"Sub-Rule",
+		"Set Value",
+		"Notify",
+		"Query Records",
+		"Document Action",
+	}:
+		overrides.extend(get_operation_field_overrides(action_type, "Rule Action", process_operation))
+	if operation:
+		overrides.extend(get_operation_field_overrides(operation, "Rule Action", process_operation))
+	if overrides:
+		base_fields = apply_field_overrides(base_fields, overrides)
 
 	# Apply contract-level visibility
 	hidden_fields = set(contract.get("hidden_fields", []))

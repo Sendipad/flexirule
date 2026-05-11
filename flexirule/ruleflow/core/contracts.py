@@ -1019,118 +1019,38 @@ OPERATION_CONTRACTS: dict[str, dict[str, Any]] = {
 }
 
 
-# Dynamic Process Operation Contracts
-# Generated from Process Operation DocType metadata
-def get_process_operation_contract(operation_name: str, process_operation: dict | None = None) -> dict:
-	"""Generate contract for a Process operation dynamically."""
-	if not process_operation:
-		# Fallback for unknown operations
-		return {
-			"Rule": [],
-			"Rule Action": [
-				{"fieldname": "description", "description": f"Unknown operation: {operation_name}"}
-			],
-			"Validation": {},
-		}
-
-	contract = {
-		"Rule": list[dict[str, Any]](),
-		"Rule Action": [
-			{"fieldname": "action_type", "default": "Process"},
-			{"fieldname": "process_name", "reqd": 1},
-			{"fieldname": "operation", "default": operation_name},
-		],
-		"Validation": {"backend": "validate_process_operation"},
-	}
-
-	# Add warning for database-modifying operations
-	writes_to = (process_operation.get("writes_to") or "").strip()
-	if writes_to in ("Document", "Database"):
-		contract["Rule Action"].append(  # type: ignore
-			{
-				"fieldname": "description",
-				"description": f"⚠️ This operation modifies {writes_to.lower()} records",
-			}
-		)
-
-	# Infer return type and mutation modes from output_schema and writes_to
-	if process_operation.get("output_schema"):
+def _parse_json_object(value: Any) -> dict[str, Any]:
+	if isinstance(value, dict):
+		return value
+	if isinstance(value, str):
 		try:
-			schema = (
-				json.loads(process_operation["output_schema"])
-				if isinstance(process_operation["output_schema"], str)
-				else process_operation["output_schema"]
-			)
-			if isinstance(schema, dict):
-				schema_type = schema.get("type")
-				if schema_type == "boolean":
-					contract["Rule Action"].extend(  # type: ignore
-						[
-							{"fieldname": "return_type", "default": "Yes / No", "read_only": 1},
-							{
-								"fieldname": "mutation_mode",
-								"options": ["Set Context Variable", "Update Context Variable"],
-							},
-						]
-					)
-				elif schema_type == "object":
-					contract["Rule Action"].extend(  # type: ignore
-						[
-							{"fieldname": "return_type", "options": ["Single Record", "Full Document"]},
-							{
-								"fieldname": "mutation_mode",
-								"options": ["Set Context Variable", "Update Context Variable"],
-							},
-						]
-					)
-				elif schema_type in ("array", "string", "number"):
-					contract["Rule Action"].extend(  # type: ignore
-						[
-							{"fieldname": "return_type", "default": "List of Values", "read_only": 1},
-							{
-								"fieldname": "mutation_mode",
-								"options": [
-									"Set Context Variable",
-									"Update Context Variable",
-									"Append to Context Variable",
-								],
-							},
-						]
-					)
+			parsed = json.loads(value)
+			return parsed if isinstance(parsed, dict) else {}
 		except Exception:
-			pass
+			return {}
+	return {}
 
-	if writes_to == "Document":
-		contract["Rule Action"].append(  # type: ignore
-			{
-				"fieldname": "mutation_mode",
-				"options": [
-					"Set Doc Field",
-					"Update Doc Field",
-					"Set Context Variable",
-					"Update Context Variable",
-				],
-			}
-		)
-	elif writes_to == "Database":
-		contract["Rule Action"].append(  # type: ignore
-			{
-				"fieldname": "mutation_mode",
-				"options": ["Set Context Variable", "Update Context Variable", "Batch Database Set"],
-			}
-		)
 
-	return contract
+def get_process_operation_overrides(process_operation: dict | None = None) -> dict[str, Any]:
+	"""Parse optional operation-level action overrides from Process metadata."""
+	if not isinstance(process_operation, dict):
+		return {}
+	overrides = _parse_json_object(process_operation.get("action_overrides"))
+	if not overrides:
+		return {}
+
+	policy = overrides.get("policy")
+	fields = overrides.get("fields")
+	return {
+		"policy": policy if isinstance(policy, dict) else {},
+		"fields": fields if isinstance(fields, dict) else {},
+	}
 
 
 def get_operation_contract(operation: str, process_operation: dict | None = None) -> dict:
-	"""Get contract for an operation, with fallbacks for dynamic Process operations."""
+	"""Get contract for a known operation."""
 	if operation in OPERATION_CONTRACTS:
 		return OPERATION_CONTRACTS[operation].copy()
-
-	# Check if it's a Process operation
-	if process_operation:
-		return get_process_operation_contract(operation, process_operation)
 
 	# Fallback to action type based contract
 	action_type = None
@@ -1170,7 +1090,17 @@ def get_operation_field_overrides(
 ) -> list:
 	"""Get field overrides for a specific operation and doctype."""
 	contract = get_operation_contract(operation, process_operation)
-	return contract.get(doctype, [])
+	overrides = list(contract.get(doctype, []))
+
+	# Process operations can contribute generic field-level overrides through metadata.
+	if doctype == "Rule Action" and isinstance(process_operation, dict):
+		process_overrides = get_process_operation_overrides(process_operation)
+		for fieldname, field_config in (process_overrides.get("fields") or {}).items():
+			if not fieldname or not isinstance(field_config, dict):
+				continue
+			overrides.append({"fieldname": fieldname, **field_config})
+
+	return overrides
 
 
 def apply_field_overrides(base_fields: list, overrides: list) -> list:
@@ -1346,6 +1276,8 @@ def infer_process_operation_policy(process_operation: dict | None) -> dict:
 	if not isinstance(process_operation, dict):
 		return policy
 
+	process_overrides = get_process_operation_overrides(process_operation)
+
 	writes_to = (process_operation.get("writes_to") or "None").strip()
 	if writes_to == "Document":
 		policy["allowed_mutations"] = [
@@ -1378,6 +1310,7 @@ def infer_process_operation_policy(process_operation: dict | None) -> dict:
 	field_labels = {}
 	show_return_type = True
 	require_return_type = False
+	require_return_variable = False
 
 	if output_schema:
 		try:
@@ -1411,6 +1344,20 @@ def infer_process_operation_policy(process_operation: dict | None) -> dict:
 		except Exception:
 			pass
 
+	if writes_to == "Context":
+		require_return_variable = True
+
+	writes_vars = process_operation.get("writes_vars")
+	try:
+		parsed_writes_vars = json.loads(writes_vars) if isinstance(writes_vars, str) else writes_vars
+		if isinstance(parsed_writes_vars, list) and parsed_writes_vars:
+			require_return_variable = True
+	except Exception:
+		pass
+
+	if output_schema:
+		require_return_variable = True
+
 	if not allowed_return_types:
 		allowed_return_types = [
 			"Yes / No",
@@ -1428,8 +1375,22 @@ def infer_process_operation_policy(process_operation: dict | None) -> dict:
 	policy["default_return_type"] = default_return_type
 	policy["show_return_type"] = show_return_type
 	policy["require_return_type"] = require_return_type
+	policy["require_return_variable"] = require_return_variable
 	if field_labels:
 		policy["field_labels"] = field_labels
+
+	override_policy = process_overrides.get("policy") or {}
+	if isinstance(override_policy, dict):
+		if isinstance(override_policy.get("field_labels"), dict):
+			policy["field_labels"] = {
+				**policy.get("field_labels", {}),
+				**override_policy.get("field_labels", {}),
+			}
+		for key, value in override_policy.items():
+			if key == "field_labels":
+				continue
+			policy[key] = value
+
 	return policy
 
 
@@ -1453,6 +1414,8 @@ def get_effective_action_policy(
 		"field_labels": dict(contract.get("field_labels", {}) or {}),
 		"show_return_type": contract.get("show_return_type"),
 		"require_return_type": contract.get("require_return_type", False),
+		"show_return_variable": contract.get("show_return_variable"),
+		"require_return_variable": contract.get("require_return_variable", False),
 	}
 
 	# Override with operation-specific policies
@@ -1476,7 +1439,7 @@ def get_effective_action_policy(
 					if "read_only" in field_def:
 						op_policy["show_return_type"] = not field_def.get("read_only", False)
 						op_policy["require_return_type"] = field_def.get("reqd", False)
-	if action_type == "Process" and process_operation:
+	if process_operation:
 		dynamic_policy = infer_process_operation_policy(process_operation)
 		for key, value in dynamic_policy.items():
 			if value is not None:
@@ -1491,6 +1454,10 @@ def get_effective_action_policy(
 		policy["show_return_type"] = op_policy.get("show_return_type")
 	if op_policy.get("require_return_type") is not None:
 		policy["require_return_type"] = op_policy.get("require_return_type")
+	if op_policy.get("show_return_variable") is not None:
+		policy["show_return_variable"] = op_policy.get("show_return_variable")
+	if op_policy.get("require_return_variable") is not None:
+		policy["require_return_variable"] = op_policy.get("require_return_variable")
 	if op_policy.get("field_labels"):
 		policy["field_labels"].update(op_policy.get("field_labels", {}))
 

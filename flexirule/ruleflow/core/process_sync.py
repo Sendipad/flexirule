@@ -19,7 +19,7 @@ from pathlib import Path
 
 import frappe
 from frappe import _
-from frappe.utils import update_progress_bar
+from frappe.utils import get_datetime, update_progress_bar
 
 
 def sync_all_processes():
@@ -128,6 +128,8 @@ def import_process_from_file(json_path, module_name):
 	if not process_name:
 		return
 
+	source_modified = _resolve_source_modified(data, json_path)
+
 	# Check if module exists
 	if not frappe.db.exists("Module Def", module_name):
 		# Try to find module by scrubbed name
@@ -140,28 +142,32 @@ def import_process_from_file(json_path, module_name):
 			return
 
 	# Build operations from JSON metadata
+	supported_operation_fields = _get_supported_process_operation_fields()
 	operations = []
 	for op in data.get("operations", []):
-		operations.append(
-			{
-				"func_name": op.get("func_name"),
-				"label": op.get("label") or frappe.unscrub(op.get("func_name", "")),
-				"enabled": op.get("enabled", 1),
-				"visible_in_builder": op.get("visible_in_builder", 1),
-				"icon": op.get("icon"),
-				"color": op.get("color"),
-				"requires_doc": op.get("requires_doc", 0),
-				"can_stop_save": op.get("can_stop_save", 0),
-				"is_terminal": op.get("is_terminal", 0),
-				"writes_to": op.get("writes_to", "None"),
-				"allows_async": op.get("allows_async", 0),
-				"transactional": op.get("transactional", 0),
-				"reads_vars": op.get("reads_vars"),
-				"writes_vars": op.get("writes_vars"),
-				"config_schema": op.get("config_schema"),
-				"output_schema": op.get("output_schema"),
-			}
-		)
+		op_row = {
+			"func_name": op.get("func_name"),
+			"label": op.get("label") or frappe.unscrub(op.get("func_name", "")),
+			"enabled": op.get("enabled", 1),
+			"visible_in_builder": op.get("visible_in_builder", 1),
+			"icon": op.get("icon"),
+			"color": op.get("color"),
+			"requires_doc": op.get("requires_doc", 0),
+			"can_stop_save": op.get("can_stop_save", 0),
+			"is_terminal": op.get("is_terminal", 0),
+			"writes_to": op.get("writes_to", "None"),
+			"allows_async": op.get("allows_async", 0),
+			"transactional": op.get("transactional", 0),
+			"reads_vars": op.get("reads_vars"),
+			"writes_vars": op.get("writes_vars"),
+			"config_schema": op.get("config_schema"),
+			"output_schema": op.get("output_schema"),
+		}
+		for optional_field in ("description", "for_doctype", "doctype_filters", "action_overrides"):
+			if optional_field in supported_operation_fields:
+				op_row[optional_field] = op.get(optional_field)
+
+		operations.append(op_row)
 
 	# Check if Process already exists
 	# Check if Process already exists
@@ -169,6 +175,8 @@ def import_process_from_file(json_path, module_name):
 	if frappe.db.exists("Process", process_name):
 		# Update existing
 		doc = frappe.get_doc("Process", process_name)
+		if not _should_sync_existing_process(doc, source_modified):
+			return
 		modified = False
 
 		# Compare module names case-insensitively
@@ -200,11 +208,16 @@ def import_process_from_file(json_path, module_name):
 					"writes_to",
 					"allows_async",
 					"transactional",
+					"for_doctype",
+					"doctype_filters",
 					"reads_vars",
 					"writes_vars",
 					"config_schema",
 					"output_schema",
 				]
+				for optional_field in ("description", "for_doctype", "doctype_filters", "action_overrides"):
+					if optional_field in supported_operation_fields:
+						fields_to_update.append(optional_field)
 
 				op_modified = False
 				for field in fields_to_update:
@@ -242,6 +255,40 @@ def import_process_from_file(json_path, module_name):
 
 		doc.flags.ignore_permissions = True
 		doc.insert()
+
+
+def _resolve_source_modified(data: dict, json_path: str | os.PathLike) -> object | None:
+	"""Resolve source modification datetime from JSON metadata."""
+	modified_value = data.get("modified")
+	if modified_value:
+		try:
+			return get_datetime(modified_value)
+		except Exception:
+			pass
+	return None
+
+
+def _should_sync_existing_process(doc, source_modified) -> bool:
+	"""Sync only when source is newer than DB record."""
+	if not source_modified:
+		return True
+
+	try:
+		target_modified = get_datetime(doc.modified)
+	except Exception:
+		return True
+
+	return source_modified >= target_modified
+
+
+def _get_supported_process_operation_fields() -> set[str]:
+	"""Return Process Operation fields that exist in both meta and DB columns."""
+	meta = frappe.get_meta("Process Operation")
+	supported = set()
+	for fieldname in ("description", "for_doctype", "doctype_filters", "action_overrides"):
+		if meta.has_field(fieldname) and frappe.db.has_column("Process Operation", fieldname):
+			supported.add(fieldname)
+	return supported
 
 
 def get_process_json_path(process_name, module=None):

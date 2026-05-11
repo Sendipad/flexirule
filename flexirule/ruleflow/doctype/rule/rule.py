@@ -1122,28 +1122,15 @@ class Rule(Document):
 		if not operation:
 			return
 
-		writes_to = operation.writes_to
-		writes_vars = operation.writes_vars
-		output_schema = operation.output_schema
+		from flexirule.ruleflow.core.contracts import get_effective_action_policy
 
-		requires_return_var = False
-
-		# Check if operation writes to context
-		if writes_to == "Context":
-			requires_return_var = True
-
-		# Check if operation declares writes_vars
-		if writes_vars:
-			try:
-				parsed_vars = json.loads(writes_vars) if isinstance(writes_vars, str) else writes_vars
-				if parsed_vars and len(parsed_vars) > 0:
-					requires_return_var = True
-			except Exception:
-				pass
-
-		# Check if operation has output_schema
-		if output_schema:
-			requires_return_var = True
+		op_dict = operation.as_dict() if hasattr(operation, "as_dict") else operation
+		policy = get_effective_action_policy(
+			"Process",
+			operation=getattr(action, "operation", None),
+			process_operation=op_dict,
+		)
+		requires_return_var = bool(policy.get("require_return_variable"))
 
 		if requires_return_var and not action.return_variable:
 			frappe.throw(

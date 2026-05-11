@@ -18,6 +18,7 @@ class ProcessOperation(Document):
 		can_stop_save: DF.Check
 		color: DF.Data | None
 		config_schema: DF.Code | None
+		action_overrides: DF.Code | None
 		description: DF.SmallText | None
 		doctype_filters: DF.Code | None
 		enabled: DF.Check

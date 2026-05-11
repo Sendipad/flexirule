@@ -332,6 +332,17 @@ def _validate_action_contracts(
 			)
 		)
 
+	if bool(effective_policy.get("require_return_variable")) and _is_empty(
+		_safe_get(action, "return_variable")
+	):
+		errors.append(
+			_("Action '{0}' ({1}/{2}) requires Return Variable Name").format(
+				action_label,
+				action_type,
+				operation or _("default"),
+			)
+		)
+
 	config_data = _parse_json_value(_safe_get(action, "config"), {})
 	if not isinstance(config_data, Mapping):
 		config_data = {}
@@ -421,6 +432,7 @@ def _build_operation_metadata(actions) -> dict:
 				"writes_to": _safe_get(operation, "writes_to"),
 				"can_stop_save": _safe_get(operation, "can_stop_save"),
 				"output_schema": _safe_get(operation, "output_schema"),
+				"action_overrides": _safe_get(operation, "action_overrides"),
 			}
 
 	return metadata

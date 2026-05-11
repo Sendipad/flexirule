@@ -577,9 +577,48 @@ function mergePolicy(basePolicy = {}, overridePolicy = {}) {
 	return merged;
 }
 
+function parseJsonSafe(value, fallback = null) {
+	if (value == null || value === "") return fallback;
+	if (typeof value === "object") return value;
+	try {
+		return JSON.parse(value);
+	} catch (_error) {
+		return fallback;
+	}
+}
+
+export function getProcessDefinition(processName) {
+	if (!processName) return null;
+	return (PROCESS_REGISTRY || []).find((proc) => proc?.name === processName) || null;
+}
+
+export function getProcessOperationDefinition(processName, operation) {
+	const process = getProcessDefinition(processName);
+	if (!process || !operation) return null;
+	return (
+		(process.operations || []).find(
+			(op) => (op?.func_name || op?.value) === operation || op?.label === operation
+		) || null
+	);
+}
+
+export function getProcessOperationConfigFields(processName, operation) {
+	const op = getProcessOperationDefinition(processName, operation);
+	if (!op) return [];
+	const parsed = parseJsonSafe(op.config_schema, op.config_schema);
+	if (Array.isArray(parsed)) return parsed;
+	if (parsed && Array.isArray(parsed.fields)) return parsed.fields;
+	return [];
+}
+
 export function getProcessOperationPolicy(processName, operation) {
 	if (!processName || !operation) return {};
-	return PROCESS_OPERATION_POLICIES?.[processName]?.[operation] || {};
+	const basePolicy = PROCESS_OPERATION_POLICIES?.[processName]?.[operation] || {};
+	const op = getProcessOperationDefinition(processName, operation);
+	const actionOverrides = parseJsonSafe(op?.action_overrides, {});
+	const overridePolicy =
+		actionOverrides && typeof actionOverrides.policy === "object" ? actionOverrides.policy : {};
+	return mergePolicy(basePolicy, overridePolicy);
 }
 
 function evaluateFieldExpression(expression, doc = {}, parent = {}) {
@@ -600,6 +639,7 @@ function getOperationRuleActionFields(operationName) {
 
 export function getOperationFieldOverride(actionType, fieldname, ctx = {}) {
 	const operation = ctx?.operation || null;
+	const processName = ctx?.processName || null;
 	const merged = {};
 	for (const row of getOperationRuleActionFields(actionType)) {
 		if (row?.fieldname === fieldname) Object.assign(merged, row);
@@ -607,6 +647,16 @@ export function getOperationFieldOverride(actionType, fieldname, ctx = {}) {
 	if (operation) {
 		for (const row of getOperationRuleActionFields(operation)) {
 			if (row?.fieldname === fieldname) Object.assign(merged, row);
+		}
+	}
+
+	const normalizedType = normalizeActionType(actionType);
+	if (normalizedType === "Process" && processName && operation) {
+		const op = getProcessOperationDefinition(processName, operation);
+		const actionOverrides = parseJsonSafe(op?.action_overrides, {});
+		const fieldOverrides = actionOverrides?.fields || {};
+		if (fieldOverrides && typeof fieldOverrides[fieldname] === "object") {
+			Object.assign(merged, fieldOverrides[fieldname]);
 		}
 	}
 	return merged;
