@@ -4,14 +4,14 @@
  "doctype": "Process",
  "idx": 0,
  "is_standard": "Yes",
- "modified": "2026-04-05 00:01:39.192123",
+ "modified": "2026-05-11 19:46:24.977133",
  "modified_by": "Administrator",
  "module": "Ruleflow",
  "name": "Normalization",
  "operations": [
   {
-   "allows_async": 0,
    "action_overrides": "{\"policy\":{\"allowed_mutations\":[\"Set Doc Field\",\"Update Doc Field\",\"Set Context Variable\",\"Update Context Variable\"],\"allowed_return_types\":[\"List of Values\"],\"default_return_type\":\"List of Values\",\"show_return_type\":false,\"require_return_type\":false},\"fields\":{\"target_field\":{\"reqd\":1,\"hidden\":0,\"description\":\"Document field path to receive the normalized value.\"},\"reference_doctype\":{\"hidden\":1},\"reference_docname\":{\"hidden\":1}}}",
+   "allows_async": 0,
    "can_stop_save": 0,
    "config_schema": "[{\"fieldname\":\"source_value\",\"fieldtype\":\"Data\",\"label\":\"Source Value Expression\",\"description\":\"Optional expression/value source. If set, Source Field is optional.\"},{\"fieldname\":\"source_field\",\"fieldtype\":\"DocField\",\"options\":\"vars.document_type\",\"label\":\"Source Field\",\"depends_on\":\"eval:!doc.source_value\",\"reqd\":1},{\"fieldname\":\"transformations\",\"fieldtype\":\"MultiCheck\",\"label\":\"Transformations\",\"reqd\":1,\"options\":[{\"label\":\"Trim\",\"value\":\"trim\"},{\"label\":\"Lowercase\",\"value\":\"lowercase\"},{\"label\":\"Uppercase\",\"value\":\"uppercase\"},{\"label\":\"Casefold\",\"value\":\"casefold\"},{\"label\":\"Unicode Normalize\",\"value\":\"unicode_normalize\"},{\"label\":\"Base Character Form\",\"value\":\"translate_chars\"},{\"label\":\"Remove Spaces\",\"value\":\"remove_spaces\"},{\"label\":\"Remove Extra Spaces\",\"value\":\"remove_extra_spaces\"},{\"label\":\"Digits Only\",\"value\":\"numeric_only\"},{\"label\":\"Remove Punctuation\",\"value\":\"remove_punctuation\"},{\"label\":\"Remove Numbers\",\"value\":\"remove_numbers\"},{\"label\":\"Alphanumeric Only\",\"value\":\"alphanumeric_only\"},{\"label\":\"Slug\",\"value\":\"slug\"},{\"label\":\"Title Case\",\"value\":\"title_case\"},{\"label\":\"Normalize Name\",\"value\":\"name_normalize\"},{\"label\":\"Email Normalize\",\"value\":\"email_normalize\"},{\"label\":\"Currency to Number\",\"value\":\"currency_to_number\"},{\"label\":\"Tax ID / VAT Cleaner\",\"value\":\"tax_id_clean\"},{\"label\":\"Standardize Date\",\"value\":\"standard_date\"}]}]",
    "enabled": 1,
