@@ -3,6 +3,7 @@ import { Handle, Position } from "@vue-flow/core";
 import { useStore } from "../../stores";
 import { getContract } from "../../../core/contracts";
 import { computed } from "vue";
+import { useNodeExecutionState } from "../../composables/useNodeExecutionState";
 
 const props = defineProps(["data", "label", "id", "sourcePosition"]);
 const store = useStore();
@@ -50,15 +51,8 @@ const nodeMeta = computed(() => {
 	};
 });
 
-const testResult = computed(() => {
-	const path = store.test_execution_path || [];
-	return path.find(
-		(entry) =>
-			entry.action_id === props.id ||
-			entry.action_id === "root" ||
-			entry.action_id === "start"
-	);
-});
+const nodeIdRef = computed(() => props.id || "root");
+const { isExecuted, isRunning, isErrored, executionOrder } = useNodeExecutionState(nodeIdRef);
 
 function openConfig() {
 	store.open_config(props.id || "start");
@@ -69,14 +63,16 @@ function openConfig() {
 	<div
 		class="start-node-d"
 		:class="{
-			'test-executed': !!testResult,
+			'test-executed': isExecuted,
+			'test-running': isRunning,
+			'test-error': isErrored,
 			'is-vertical': !isHorizontal,
 			'is-read-only': isReadOnly,
 		}"
 	>
 		<!-- Execution Badge -->
-		<div v-if="testResult" class="execution-badge" :title="__('Visit Order')">
-			{{ store.test_execution_path.indexOf(testResult) + 1 }}
+		<div v-if="isExecuted" class="execution-badge" :title="__('Visit Order')">
+			{{ executionOrder }}
 		</div>
 		<div class="node-body" :style="{ '--accent-color': nodeMeta.color }">
 			<div class="icon-section">

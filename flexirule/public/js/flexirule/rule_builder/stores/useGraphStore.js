@@ -1339,8 +1339,8 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			if (action.next_step_if_true) {
 				const isLoopBody = action.action_type === "Loop";
 				const isReturnToLoop =
-					actionsList.find((a) => a.action_id === action.next_step_if_true)?.action_type ===
-						"Loop" && action.action_type !== "Entry Action";
+					actionsList.find((a) => a.action_id === action.next_step_if_true)
+						?.action_type === "Loop" && action.action_type !== "Entry Action";
 				actionEdges.push({
 					id: `e-${nodeId}-${action.next_step_if_true}-true`,
 					source: nodeId,

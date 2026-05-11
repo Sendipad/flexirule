@@ -171,6 +171,29 @@
 							{{ __("Unlock for Editing") }}
 						</button>
 					</Panel>
+					<Panel
+						v-if="uiStore.test_execution_steps?.length"
+						:position="PanelPosition.TopRight"
+						class="execution-panel"
+					>
+						<div class="execution-panel-header">
+							<strong>{{ __("Test Execution") }}</strong>
+							<span class="execution-final-status">{{
+								uiStore.test_final_status || __("Unknown")
+							}}</span>
+						</div>
+						<div class="execution-panel-steps">
+							<div
+								v-for="step in uiStore.test_execution_steps"
+								:key="`${step.node_id}-${step.order}`"
+								class="execution-step"
+								:class="`status-${step.status}`"
+							>
+								<span>#{{ step.order }}</span>
+								<span class="step-label">{{ step.action }}</span>
+							</div>
+						</div>
+					</Panel>
 				</VueFlow>
 			</div>
 			<div
@@ -545,6 +568,77 @@ function onEdgeClick({ edge, event }) {
 	background-color: var(--fg-color);
 	position: relative;
 	order: 1;
+}
+
+.execution-panel {
+	min-width: 260px;
+	max-width: 360px;
+	background: #fff;
+	border: 1px solid #d1d8dd;
+	border-radius: 8px;
+	padding: 10px;
+	box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+}
+
+.execution-panel-header {
+	display: flex;
+	justify-content: space-between;
+	margin-bottom: 8px;
+}
+
+.execution-final-status {
+	font-size: 12px;
+	font-weight: 600;
+	color: #1f2937;
+}
+
+.execution-panel-steps {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	max-height: 240px;
+	overflow: auto;
+}
+
+.execution-step {
+	display: flex;
+	gap: 8px;
+	font-size: 12px;
+	padding: 4px 6px;
+	border-radius: 4px;
+}
+
+.execution-step.status-success {
+	background: #ecfdf3;
+	color: #166534;
+}
+
+.execution-step.status-error {
+	background: #fef2f2;
+	color: #b91c1c;
+}
+
+.execution-step.status-running {
+	background: #eff6ff;
+	color: #1d4ed8;
+}
+
+.step-label {
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+:deep(.test-error) {
+	box-shadow: 0 0 0 3px #dc2626 !important;
+}
+
+:deep(.test-error .execution-badge) {
+	background: #dc2626 !important;
+}
+
+:deep(.test-running .execution-badge) {
+	background: #2563eb !important;
 }
 .toolbar-center {
 	display: flex;

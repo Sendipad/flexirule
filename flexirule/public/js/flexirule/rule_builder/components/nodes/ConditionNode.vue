@@ -3,6 +3,7 @@ import { Handle, Position } from "@vue-flow/core";
 import { useStore } from "../../stores";
 import { getContract } from "../../../core/contracts";
 import { computed } from "vue";
+import { useNodeExecutionState } from "../../composables/useNodeExecutionState";
 
 const props = defineProps(["data", "label", "id", "selected", "sourcePosition", "targetPosition"]);
 const store = useStore();
@@ -49,10 +50,8 @@ const conditionSummary = computed(() => {
 	return `${count} ${__("conditions")}`;
 });
 
-const testResult = computed(() => {
-	const path = store.test_execution_path || [];
-	return path.find((entry) => entry.action_id === props.id);
-});
+const nodeIdRef = computed(() => props.id);
+const { isExecuted, isRunning, isErrored, executionOrder } = useNodeExecutionState(nodeIdRef);
 
 function deleteNode() {
 	frappe.confirm(__("Delete this node?"), () => store.delete_node(props.id));
@@ -70,15 +69,15 @@ function openConfig() {
 			selected: selected,
 			disabled: isEffectiveDisabled,
 			'is-read-only': isReadOnly,
-			'test-executed': !!testResult,
-			'outcome-true': testResult && testResult.result === true,
-			'outcome-false': testResult && testResult.result === false,
+			'test-executed': isExecuted,
+			'test-running': isRunning,
+			'test-error': isErrored,
 		}"
 		:style="{ '--accent-color': nodeMeta.color }"
 	>
 		<!-- Execution Badge -->
-		<div v-if="testResult" class="execution-badge" :title="__('Visit Order')">
-			{{ store.test_execution_path.indexOf(testResult) + 1 }}
+		<div v-if="isExecuted" class="execution-badge" :title="__('Visit Order')">
+			{{ executionOrder }}
 		</div>
 		<!-- Input Handle -->
 		<Handle type="target" :position="targetPos" class="handle-target" />

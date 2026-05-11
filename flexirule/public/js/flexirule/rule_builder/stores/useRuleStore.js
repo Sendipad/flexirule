@@ -584,9 +584,8 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 
 			const data = result.message;
 			if (data) {
-				// Update UI store with simulation results
 				const uiStore = useUIStore();
-				uiStore.set_test_result(data.path_trace || [], data.vars || {});
+				uiStore.set_test_execution_visuals(data);
 			}
 			return data;
 		} catch (e) {

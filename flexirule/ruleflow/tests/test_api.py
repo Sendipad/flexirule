@@ -91,6 +91,20 @@ class TestBoltonAPI(unittest.TestCase):
 
 		self.assertIn("success", result)
 
+	def test_test_rule_allows_inactive_draft_pre_activation(self):
+		"""Rule testing should work before activation."""
+		from flexirule.ruleflow.api import test_rule
+
+		self.rule.is_active = 0
+		self.rule.save(ignore_permissions=True)
+		RuleCoordinator.clear_cache("ToDo")
+
+		todo = frappe.get_doc({"doctype": "ToDo", "description": "Inactive test"})
+		todo.insert(ignore_permissions=True)
+
+		result = test_rule(self.rule.name, "ToDo", todo.name, dry_run=True, skip_log_enqueue=True)
+		self.assertTrue(result.get("success"))
+
 	def test_clear_cache(self):
 		"""Test cache clearing API"""
 		from flexirule.ruleflow.api import clear_cache

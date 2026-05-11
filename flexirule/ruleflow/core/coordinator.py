@@ -26,7 +26,7 @@ class RuleCoordinator:
 
 	# Request-local memoization keys
 	LOCAL_REGISTRY_KEY = "flexirule_runtime_registry"
-	LOCAL_RUNTIME_KEY = "flexirule_runtime_event_runtime"
+	LOCAL_RUNTIME_KEY = "flexirule_runtime_doctype_runtime"
 	LOCAL_REENTRY_STACK_KEY = "flexirule_runtime_reentry_stack"
 	LOCAL_CHANGED_FIELDS_KEY = "flexirule_runtime_changed_fields"
 
@@ -299,20 +299,22 @@ class RuleCoordinator:
 	@staticmethod
 	def _get_event_runtime(doctype: str, event_name: str) -> list[dict]:
 		"""
-		Resolve compiled rule specs for doctype/event with request-level memoization.
-		Supports negative caching by memoizing empty lists.
+		Resolve compiled rule specs for doctype/event with doctype-level request memoization.
+		First load for a doctype hydrates all events; subsequent event lookups are local dict reads.
 		"""
 		cache = RuleCoordinator._get_local_dict(RuleCoordinator.LOCAL_RUNTIME_KEY)
-		cache_key = f"{doctype}::{event_name}"
-		if cache_key in cache:
-			return cache[cache_key]
+		doctype_cache = cache.get(doctype)
+		if not isinstance(doctype_cache, dict):
+			registry = RuleCoordinator.get_runtime_registry()
+			event_map = registry.get("doctype_event_map", {}).get(doctype, {}) or {}
+			rules_index = registry.get("rules", {})
+			doctype_cache = {}
+			for event, rule_names in event_map.items():
+				rule_specs = [rules_index.get(name) for name in (rule_names or [])]
+				doctype_cache[event] = [spec for spec in rule_specs if spec]
+			cache[doctype] = doctype_cache
 
-		registry = RuleCoordinator.get_runtime_registry()
-		rule_names = registry.get("doctype_event_map", {}).get(doctype, {}).get(event_name) or []
-		rule_specs = [registry.get("rules", {}).get(name) for name in rule_names]
-		resolved = [spec for spec in rule_specs if spec]
-		cache[cache_key] = resolved
-		return resolved
+		return doctype_cache.get(event_name, [])
 
 	@staticmethod
 	def has_active_rules(doctype: str, event_name: str) -> bool:
@@ -494,6 +496,7 @@ class RuleCoordinator:
 		event_name,
 		execution_mode="Synchronous",
 		skip_event_check=False,
+		allow_inactive=False,
 		old_doc=None,
 	) -> tuple[bool, str]:
 		"""
@@ -501,7 +504,7 @@ class RuleCoordinator:
 		Returns: (is_eligible: bool, reason: str)
 		"""
 		# 1. Active Check
-		if not RuleCoordinator._is_active_value(rule_doc.get("is_active")):
+		if not allow_inactive and not RuleCoordinator._is_active_value(rule_doc.get("is_active")):
 			return False, _("Rule is not active")
 
 		# 2. Event Check

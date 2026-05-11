@@ -3,6 +3,7 @@ import { computed } from "vue";
 import { Handle, Position } from "@vue-flow/core";
 import { useRuleStore, useGraphStore, useUIStore } from "../../stores";
 import { getContract } from "../../../core/contracts";
+import { useNodeExecutionState } from "../../composables/useNodeExecutionState";
 
 const props = defineProps(["data", "label", "id", "selected", "sourcePosition", "targetPosition"]);
 const ruleStore = useRuleStore();
@@ -38,10 +39,8 @@ const nodeMeta = computed(() => {
 	};
 });
 
-const testResult = computed(() => {
-	const path = ruleStore.test_execution_path || [];
-	return path.find((entry) => entry.action_id === props.id);
-});
+const nodeIdRef = computed(() => props.id);
+const { isExecuted, isRunning, isErrored, executionOrder } = useNodeExecutionState(nodeIdRef);
 
 const isConfigured = computed(() => {
 	const actionType = props.data?.action_type;
@@ -95,15 +94,17 @@ const isTerminal = computed(() => {
 				selected: selected,
 				disabled: isEffectiveDisabled,
 				'is-read-only': isReadOnly,
-				'test-executed': !!testResult,
+				'test-executed': isExecuted,
+				'test-running': isRunning,
+				'test-error': isErrored,
 				'is-vertical': !isHorizontal,
 			},
 		]"
 		:style="{ '--accent-color': nodeMeta.color }"
 	>
 		<!-- Execution Badge -->
-		<div v-if="testResult" class="execution-badge" :title="__('Visit Order')">
-			{{ ruleStore.test_execution_path.indexOf(testResult) + 1 }}
+		<div v-if="isExecuted" class="execution-badge" :title="__('Visit Order')">
+			{{ executionOrder }}
 		</div>
 		<Handle type="target" :position="targetPos" class="handle-target" />
 

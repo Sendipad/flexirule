@@ -23,6 +23,10 @@ export const useUIStore = defineStore("rule-builder-ui", () => {
 	// ── Test Execution Visualization ──
 	const test_execution_path = ref([]);
 	const test_context = ref({});
+	const node_execution_state = ref({});
+	const current_running_node_id = ref(null);
+	const test_final_status = ref(null);
+	const test_execution_steps = ref([]);
 
 	// ── Derived ──
 	const has_selection = computed(() => selected_id.value !== null);
@@ -53,9 +57,40 @@ export const useUIStore = defineStore("rule-builder-ui", () => {
 		test_context.value = context || {};
 	}
 
+	function set_test_execution_visuals(payload = {}) {
+		const path = payload.path_trace || payload.execution_path || [];
+		test_execution_path.value = Array.isArray(path) ? path : [];
+		test_context.value = payload.vars || payload.context_snapshot || {};
+		test_final_status.value = payload.status || null;
+
+		const nodeState = {};
+		const steps = [];
+		for (let i = 0; i < test_execution_path.value.length; i++) {
+			const entry = test_execution_path.value[i] || {};
+			const nodeId = entry.action_id || entry.node_id || entry.id;
+			if (!nodeId) continue;
+			const status = entry.status || "success";
+			nodeState[nodeId] = { order: i + 1, status, error: entry.error || null };
+			steps.push({
+				order: i + 1,
+				node_id: nodeId,
+				action: entry.action || nodeId,
+				status,
+				error: entry.error || null,
+			});
+		}
+		node_execution_state.value = nodeState;
+		test_execution_steps.value = steps;
+		current_running_node_id.value = null;
+	}
+
 	function clear_test_result() {
 		test_execution_path.value = [];
 		test_context.value = {};
+		node_execution_state.value = {};
+		current_running_node_id.value = null;
+		test_final_status.value = null;
+		test_execution_steps.value = [];
 	}
 
 	/**
@@ -81,6 +116,10 @@ export const useUIStore = defineStore("rule-builder-ui", () => {
 		use_modern_layout,
 		test_execution_path,
 		test_context,
+		node_execution_state,
+		current_running_node_id,
+		test_final_status,
+		test_execution_steps,
 		local_clipboard,
 
 		// Computed
@@ -93,6 +132,7 @@ export const useUIStore = defineStore("rule-builder-ui", () => {
 		open_config_modal,
 		close_config_modal,
 		set_test_result,
+		set_test_execution_visuals,
 		clear_test_result,
 		navigate_node,
 	};

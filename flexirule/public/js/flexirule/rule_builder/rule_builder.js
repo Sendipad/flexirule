@@ -262,17 +262,12 @@ class RuleBuilder {
 						skip_log_enqueue: !values.save_log,
 					},
 					callback: (r) => {
+						this.uiStore.set_test_execution_visuals(r.message || {});
 						if (r.message?.success) {
 							// Highlight path in builder
 							const pathTrace =
 								r.message.path_trace || r.message.execution_path || [];
-							if (pathTrace.length) {
-								this.uiStore.set_test_result(
-									pathTrace,
-									r.message.vars || r.message.context_snapshot
-								);
-								this.update_test_ui(pathTrace);
-							}
+							this.update_test_ui(pathTrace);
 
 							frappe.msgprint({
 								title: __("Success"),
@@ -281,9 +276,14 @@ class RuleBuilder {
 								indicator: "green",
 							});
 						} else {
+							this.update_test_ui(r.message?.path_trace || []);
 							frappe.msgprint({
 								title: __("Error"),
-								message: r.message?.error || __("Test failed"),
+								message:
+									r.message?.message ||
+									r.message?.error ||
+									(r.message?.execution?.errors || []).join("\n") ||
+									__("Test failed"),
 								indicator: "red",
 							});
 						}

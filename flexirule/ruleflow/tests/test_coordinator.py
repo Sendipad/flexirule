@@ -111,6 +111,19 @@ class TestRuleCoordinator(FrappeTestCase):
 		has_rules = RuleCoordinator.has_active_rules("ToDo", "Validate")
 		self.assertFalse(has_rules)
 
+	def test_doctype_runtime_cache_hydrates_all_events_on_first_lookup(self):
+		"""Runtime memoization should cache all events per doctype in one load."""
+		self.create_test_rule("Test Cache Validate", event="Validate")
+		self.create_test_rule("Test Cache Before Save", event="Before Save")
+
+		validate_rules = RuleCoordinator._get_event_runtime("ToDo", "Validate")
+		self.assertTrue(validate_rules)
+
+		local_cache = getattr(frappe.local, RuleCoordinator.LOCAL_RUNTIME_KEY, {})
+		self.assertIn("ToDo", local_cache)
+		self.assertIn("Validate", local_cache["ToDo"])
+		self.assertIn("Before Save", local_cache["ToDo"])
+
 	def test_get_applicable_rules(self):
 		"""Test getting applicable rules"""
 		rule = self.create_test_rule("Test Get Rules", event="Validate")

@@ -2,6 +2,7 @@
 import { computed } from "vue";
 import { Handle, Position } from "@vue-flow/core";
 import { useStore } from "../../stores";
+import { useNodeExecutionState } from "../../composables/useNodeExecutionState";
 
 const props = defineProps(["data", "label", "id", "selected", "targetPosition"]);
 const store = useStore();
@@ -17,10 +18,8 @@ const isEffectiveDisabled = computed(() => {
 
 const isReadOnly = computed(() => store.is_read_only);
 
-const testResult = computed(() => {
-	const path = store.test_execution_path || [];
-	return path.find((entry) => entry.action_id === props.id);
-});
+const nodeIdRef = computed(() => props.id);
+const { isExecuted, isRunning, isErrored, executionOrder } = useNodeExecutionState(nodeIdRef);
 
 function deleteNode() {
 	frappe.confirm(__("Delete this node?"), () => store.delete_node(props.id));
@@ -37,13 +36,15 @@ function openConfig() {
 		:class="{
 			selected: selected,
 			disabled: isEffectiveDisabled,
-			'test-executed': !!testResult,
+			'test-executed': isExecuted,
+			'test-running': isRunning,
+			'test-error': isErrored,
 			'is-vertical': !isHorizontal,
 		}"
 	>
 		<!-- Execution Badge -->
-		<div v-if="testResult" class="execution-badge" :title="__('Visit Order')">
-			{{ store.test_execution_path.indexOf(testResult) + 1 }}
+		<div v-if="isExecuted" class="execution-badge" :title="__('Visit Order')">
+			{{ executionOrder }}
 		</div>
 		<Handle type="target" :position="targetPos" class="handle-target" />
 

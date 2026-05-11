@@ -387,7 +387,7 @@ class RuleEngine:
 
 	def _validate_execution(self):
 		"""Validate rule is executable"""
-		if not self.rule.is_active:
+		if not self.rule.is_active and not self.context.get("allow_inactive_rule_test"):
 			raise RuleDisabledError(_("Rule {0} is disabled").format(self.rule.name))
 
 		if not self.actions:
@@ -497,6 +497,7 @@ class RuleEngine:
 					"action_id": current.action_id or current.name,
 					"type": current.action_type,
 					"timestamp": time.time(),
+					"status": "running",
 				}
 			)
 
@@ -525,6 +526,7 @@ class RuleEngine:
 				# Store result in path trace
 				try:
 					self.path_trace[-1]["result"] = result
+					self.path_trace[-1]["status"] = "success"
 				except Exception:
 					pass
 
@@ -547,6 +549,11 @@ class RuleEngine:
 				current = self._get_action_by_id(next_id) if next_id else None
 
 			except Exception as e:
+				try:
+					self.path_trace[-1]["status"] = "error"
+					self.path_trace[-1]["error"] = str(e)
+				except Exception:
+					pass
 				# Handle error based on on_error setting
 				if hasattr(current, "on_error"):
 					if current.on_error == "Continue":

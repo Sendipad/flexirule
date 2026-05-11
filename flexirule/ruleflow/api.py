@@ -261,9 +261,9 @@ def test_rule(
 
 	from flexirule.ruleflow.core.coordinator import RuleCoordinator
 
-	# Check if rule is actually applicable (User Request: filters must apply)
+	# Manual tests are a pre-activation validation stage and must also work for drafts/inactive rules.
 	is_eligible, reason = RuleCoordinator.check_eligibility(
-		rule, doc, event_name="Manual Test", skip_event_check=True
+		rule, doc, event_name="Manual Test", skip_event_check=True, allow_inactive=True
 	)
 
 	if not is_eligible:
@@ -294,25 +294,28 @@ def test_rule(
 			dry = False
 			skip_enqueue = False
 
-		engine = RuleEngine(
-			rule,
-			{
-				"test_mode": True,
-				"dry_run": dry,
-				"skip_log_enqueue": skip_enqueue,
-			},
-		)
-		engine.execute(doc, event_name="Manual Test")
-		execution = engine.last_execution_payload or {
-			"execution_id": engine.execution_id,
-			"status": "Success",
-			"duration": 0,
-			"path_trace": getattr(engine, "path_trace", []),
-			"vars": {},
-			"messages": [],
-			"errors": [],
-			"log_enqueued": False,
+		execution_context = {
+			"doc": doc,
+			"test_mode": True,
+			"allow_inactive_rule_test": True,
+			"dry_run": dry,
+			"skip_log_enqueue": skip_enqueue,
 		}
+		RuleCoordinator.execute_rule(rule, context=execution_context, dry_run=dry)
+		execution = getattr(frappe.local, "execution_payload", None) or {}
+		if not execution:
+			engine = RuleEngine(rule, execution_context=execution_context)
+			engine.execute(doc, event_name="Manual Test")
+			execution = engine.last_execution_payload or {
+				"execution_id": engine.execution_id,
+				"status": "Success",
+				"duration": 0,
+				"path_trace": getattr(engine, "path_trace", []),
+				"vars": {},
+				"messages": [],
+				"errors": [],
+				"log_enqueued": False,
+			}
 
 		# Include info about skipped trigger filters for transparency
 		info_msg = _("Rule '{0}' executed successfully").format(rule.rule_name)
