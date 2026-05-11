@@ -60,3 +60,4 @@
 - Transaction boundaries — savepoints per-action when `transactional` flag set
 - Permission checks — skip_for_roles (rule-level), skip_permissions (action-level with audit)
 - Input validation — JSON schema for Process `config`, return type coercion
+

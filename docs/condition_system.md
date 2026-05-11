@@ -40,3 +40,4 @@
 - AST root validation — only allowed context roots (`doc`, `old_doc`, `vars`, `frappe`, `item`, `loop`, `caller`, `rule`, `doctype`, `resolve`, `check_link_match`, utility functions)
 - Undefined name detection at compile time
 - SafeFrappeAPI prevents writes in conditions
+

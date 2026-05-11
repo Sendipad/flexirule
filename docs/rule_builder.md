@@ -56,3 +56,4 @@ All backend calls via `frappe.call()`:
 - Overlays node badges (✅/❌/⏳) and step highlight on canvas
 - Sidebar panel shows step-by-step log + duration
 - Payload parsed from engine's `last_execution_payload`
+

@@ -68,3 +68,4 @@
 - Extracted from `compiled_expression` automatically via regex patterns (fallback)
 - Filter applied at dispatch time: `_passes_watched_field_filter()`
 - Computes `changed_fields` once per doctype/name via `doc.get_doc_before_save()` comparison
+

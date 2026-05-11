@@ -49,3 +49,4 @@ FlexiRule = Visual rule builder + Graph orchestration engine + Process adapter s
 - Scheduler (via `frappe.enqueue` for async rules)
 - Background workers (async execution + log persistence)
 - Real-time cache clear events (`flexirule_cache_clear`)
+
