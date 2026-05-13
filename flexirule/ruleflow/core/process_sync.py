@@ -16,6 +16,7 @@ During migrate:
 import json
 import os
 from pathlib import Path
+from typing import Any, cast
 
 import frappe
 from frappe import _
@@ -145,6 +146,7 @@ def import_process_from_file(json_path, module_name):
 	supported_operation_fields = _get_supported_process_operation_fields()
 	operations = []
 	for op in data.get("operations", []):
+		action_overrides = _normalize_operation_contract_v2(process_name, op)
 		op_row = {
 			"func_name": op.get("func_name"),
 			"label": op.get("label") or frappe.unscrub(op.get("func_name", "")),
@@ -158,6 +160,7 @@ def import_process_from_file(json_path, module_name):
 			"writes_to": op.get("writes_to", "None"),
 			"allows_async": op.get("allows_async", 0),
 			"transactional": op.get("transactional", 0),
+			"has_side_effect": op.get("has_side_effect", 0),
 			"reads_vars": op.get("reads_vars"),
 			"writes_vars": op.get("writes_vars"),
 			"config_schema": op.get("config_schema"),
@@ -165,7 +168,10 @@ def import_process_from_file(json_path, module_name):
 		}
 		for optional_field in ("description", "for_doctype", "doctype_filters", "action_overrides"):
 			if optional_field in supported_operation_fields:
-				op_row[optional_field] = op.get(optional_field)
+				if optional_field == "action_overrides":
+					op_row[optional_field] = action_overrides
+				else:
+					op_row[optional_field] = op.get(optional_field)
 
 		operations.append(op_row)
 
@@ -208,6 +214,7 @@ def import_process_from_file(json_path, module_name):
 					"writes_to",
 					"allows_async",
 					"transactional",
+					"has_side_effect",
 					"for_doctype",
 					"doctype_filters",
 					"reads_vars",
@@ -289,6 +296,58 @@ def _get_supported_process_operation_fields() -> set[str]:
 		if meta.has_field(fieldname) and frappe.db.has_column("Process Operation", fieldname):
 			supported.add(fieldname)
 	return supported
+
+
+def _normalize_operation_contract_v2(process_name: str, operation_data: dict) -> str | None:
+	"""Build/validate declarative contract_v2 payload inside action_overrides JSON."""
+	from flexirule.ruleflow.core.process_contract_v2 import ALLOWED_ADAPTER_KEYS
+
+	func_name = operation_data.get("func_name")
+	if not func_name:
+		frappe.throw(_("Process '{0}' contains an operation without func_name").format(process_name))
+
+	raw_overrides = operation_data.get("action_overrides")
+	overrides = {}
+	if isinstance(raw_overrides, dict):
+		overrides = dict(raw_overrides)
+	elif isinstance(raw_overrides, str) and raw_overrides.strip():
+		try:
+			parsed = json.loads(raw_overrides)
+			if isinstance(parsed, dict):
+				overrides = parsed
+		except Exception:
+			frappe.throw(
+				_("Process operation '{0}.{1}' has invalid action_overrides JSON").format(
+					process_name, func_name
+				)
+			)
+
+	contract_v2 = overrides.get("contract_v2")
+	if not isinstance(contract_v2, dict):
+		frappe.throw(
+			_("Process operation '{0}.{1}' must define action_overrides.contract_v2").format(
+				process_name, func_name
+			)
+		)
+	contract_v2_dict = cast(dict[str, Any], contract_v2)
+
+	adapter_key = contract_v2_dict.get("adapter_key")
+	if adapter_key not in ALLOWED_ADAPTER_KEYS:
+		frappe.throw(
+			_("Process operation '{0}.{1}' has unsupported adapter_key '{2}'").format(
+				process_name, func_name, adapter_key or ""
+			)
+		)
+
+	for required_key in ("capabilities", "policy", "config_schema", "result_schema"):
+		if required_key not in contract_v2_dict:
+			frappe.throw(
+				_("Process operation '{0}.{1}' contract_v2 is missing key '{2}'").format(
+					process_name, func_name, required_key
+				)
+			)
+
+	return json.dumps(overrides, separators=(",", ":"), sort_keys=True)
 
 
 def get_process_json_path(process_name, module=None):

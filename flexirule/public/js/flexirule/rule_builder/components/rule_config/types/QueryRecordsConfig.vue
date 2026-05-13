@@ -660,10 +660,12 @@ function evaluate_depends_on(expression, values) {
 
 	if (typeof expression === "string" && expression.startsWith("eval:")) {
 		try {
-			const fn = new Function("doc", "values", `return ${expression.substring(5)}`);
-			return fn(values, values);
+			return frappe.utils.eval(expression.substring(5), {
+				doc: values,
+				values,
+			});
 		} catch (e) {
-			return true;
+			return false;
 		}
 	} else if (typeof expression === "string") {
 		return !!values[expression];

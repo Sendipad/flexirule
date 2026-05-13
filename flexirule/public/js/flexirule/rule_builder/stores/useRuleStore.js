@@ -99,19 +99,6 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 			await metaStore.fetch_metadata(rule_doc.value.document_type);
 		}
 
-		// Load relevant process adapters in parallel
-		const relevantProcesses = new Set();
-		if (rule_doc.value?.actions) {
-			rule_doc.value.actions.forEach((a) => {
-				if (a.process_name) relevantProcesses.add(a.process_name);
-			});
-		}
-		if (relevantProcesses.size > 0) {
-			await Promise.all(
-				[...relevantProcesses].map((p) => flexirule.utils.load_process_adapter(p))
-			);
-		}
-
 		// Load trigger event options from Rule meta (Frappe pattern)
 		if (!trigger_event_options.value.length) {
 			await frappe.model.with_doctype("Rule");
@@ -199,7 +186,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 							parent: rule_doc.value,
 						});
 					} catch (e) {
-						return true;
+						return false;
 					}
 				}
 				return !!doc[expr];
@@ -728,9 +715,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 	}
 
 	async function get_process_operations(process_name) {
-		const process = processes.value.find((p) => p.name === process_name);
-		const db_ops = process?.operations || [];
-		const raw_ops = await flexirule.utils.get_process_operations(process_name, db_ops);
+		const raw_ops = await flexirule.utils.get_process_operations(process_name);
 
 		const document_type = rule_doc.value?.document_type;
 		const doctype_meta = document_type ? frappe.get_meta(document_type) : null;

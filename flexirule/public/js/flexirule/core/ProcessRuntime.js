@@ -14,7 +14,6 @@ import {
 export default class ProcessRuntime extends BaseEngine {
 	constructor(opts = {}) {
 		super(opts);
-		this.adapter = null;
 		this.operation_def = null;
 		this.schema = null;
 		this.normalized_fields = [];
@@ -24,7 +23,7 @@ export default class ProcessRuntime extends BaseEngine {
 	async init() {
 		if (this.initialized) return;
 
-		// 1. Load Adapter
+		// 1. Load backend-provided operation contract
 		await this._load_adapter();
 
 		// 2. Resolve Schema
@@ -65,28 +64,6 @@ export default class ProcessRuntime extends BaseEngine {
 	async _load_adapter() {
 		await loadContractsFromBackend();
 		this.operation_def = getProcessOperationDefinition(this.process_name, this.operation_name);
-
-		// Optional composition hook for advanced/custom client behavior.
-		if (!flexirule.utils.load_process_adapter) {
-			return;
-		}
-		await flexirule.utils.load_process_adapter(this.process_name);
-		this.adapter = flexirule.utils.get_process_adapter(this.process_name);
-
-		const adapter_operation = this.adapter?.get_operation?.(this.operation_name) || null;
-		if (this.operation_def && adapter_operation) {
-			this.operation_def = { ...this.operation_def, ...adapter_operation };
-		} else if (!this.operation_def) {
-			this.operation_def = adapter_operation;
-		}
-
-		const ctx = this._get_context();
-		if (this.adapter && typeof this.adapter.setup === "function") {
-			await this.adapter.setup(ctx);
-		}
-		if (this.operation_def && typeof this.operation_def.setup === "function") {
-			await this.operation_def.setup(this.config, ctx);
-		}
 	}
 
 	_resolve_schema() {
@@ -98,46 +75,11 @@ export default class ProcessRuntime extends BaseEngine {
 			return contractFields;
 		}
 
-		if (!this.adapter) return [];
-		const ctx = this._get_context();
-
-		if (typeof this.adapter.get_schema === "function") {
-			const schema = this.adapter.get_schema(this.operation_name, ctx);
-			if (schema && schema.fields) return schema.fields;
-			if (Array.isArray(schema)) return schema;
-		}
-
-		if (this.operation_def && typeof this.operation_def.get_config_fields === "function") {
-			return this.operation_def.get_config_fields(ctx);
-		}
-
-		if (this.operation_def && this.operation_def.fields) {
-			return this.operation_def.fields;
-		}
-
-		if (this.adapter.fields && !this.operation_name) {
-			return this.adapter.fields;
-		}
-
 		return [];
 	}
 
 	_resolve_actions() {
-		if (!this.adapter) return [];
-		let actions = [];
-		const ctx = this._get_context();
-
-		if (typeof this.adapter.get_actions === "function") {
-			const res = this.adapter.get_actions(this.operation_name, ctx);
-			if (Array.isArray(res)) actions = actions.concat(res);
-		}
-
-		if (this.operation_def && typeof this.operation_def.get_actions === "function") {
-			const res = this.operation_def.get_actions(ctx);
-			if (Array.isArray(res)) actions = actions.concat(res);
-		}
-
-		return actions;
+		return [];
 	}
 
 	_resolve_output_schema(config) {
@@ -149,10 +91,6 @@ export default class ProcessRuntime extends BaseEngine {
 			} catch (_error) {
 				// fall through
 			}
-		}
-		if (this.adapter && typeof this.adapter.get_output_schema === "function") {
-			const schema = this.adapter.get_output_schema(config, this._get_context());
-			if (schema) return schema;
 		}
 		return null;
 	}
@@ -206,31 +144,6 @@ export default class ProcessRuntime extends BaseEngine {
 	}
 
 	async validate() {
-		const result = await super.validate();
-		const errors = result.errors;
-
-		if (this.operation_def && typeof this.operation_def.validate === "function") {
-			try {
-				const customErr = await this.operation_def.validate(
-					this.config,
-					this._get_context()
-				);
-				if (customErr) {
-					if (Array.isArray(customErr)) errors.push(...customErr);
-					else
-						errors.push(
-							typeof customErr === "string" ? customErr : "Validation failed"
-						);
-				}
-			} catch (e) {
-				console.error("Validation error", e);
-				errors.push(e.message);
-			}
-		}
-
-		return {
-			valid: errors.length === 0,
-			errors: errors,
-		};
+		return await super.validate();
 	}
 }

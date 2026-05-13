@@ -462,7 +462,7 @@ class RuleEngine:
 
 		for _iteration in range(max_iterations):
 			# Internal timeout check
-			if "_timeout" in context and "_start_time" in context:
+			if "_timeout" in context and "_start_time" in context and not context.get("test_mode"):
 				if time.time() - context["_start_time"] > context["_timeout"]:
 					raise BoltonTimeoutError(
 						_("Rule execution exceeded timeout of {0}s").format(context["_timeout"])
@@ -815,10 +815,30 @@ class RuleEngine:
 		- Mutation mode application
 		"""
 		cm = ContextManager(context)
+		operation_result = None
 
 		# Special Case: If result is a dict with 'columns' and 'result',
 		# extract the actual data list for mapping, validation and storage.
 		validation_result = result
+		if (
+			getattr(action, "action_type", None) == "Process"
+			and isinstance(result, dict)
+			and "status" in result
+			and "data" in result
+		):
+			operation_result = result
+			status = (operation_result.get("status") or "success").lower()
+			if status == "failed":
+				errors = operation_result.get("errors") or []
+				raise MethodExecutionError(
+					errors[0]
+					if errors
+					else _("Process operation failed for action {0}").format(action.action_label)
+				)
+			if status == "skipped":
+				validation_result = None
+			else:
+				validation_result = operation_result.get("data")
 		if isinstance(result, dict) and "columns" in result and "result" in result:
 			validation_result = result["result"]
 
@@ -907,7 +927,38 @@ class RuleEngine:
 				raise MethodExecutionError(
 					_("Mutation Mode '{0}' requires a Return Variable Name").format(mutation_mode)
 				)
-			cm.apply_mutation(mutation_mode, return_variable, result, context)
+			cm.apply_mutation(mutation_mode, return_variable, validation_result, context)
+
+		# 4. Declarative Runtime v2 mutation intents
+		if operation_result:
+			self._apply_operation_result_mutations(action, operation_result, context)
+
+	def _apply_operation_result_mutations(self, action, operation_result: dict, context: dict):
+		"""Apply mutation intents returned by declarative process adapters."""
+		mutations = operation_result.get("mutations") or []
+		if not isinstance(mutations, list):
+			return
+
+		allowed = set(
+			get_effective_action_policy("Process", operation=getattr(action, "operation", None)).get(
+				"allowed_mutations"
+			)
+			or []
+		)
+		cm = ContextManager(context)
+		for mutation in mutations:
+			if not isinstance(mutation, dict):
+				continue
+			mode = mutation.get("mutation_mode")
+			target = mutation.get("target")
+			value = mutation.get("value")
+			if not mode or not target:
+				continue
+			if allowed and mode not in allowed:
+				raise MethodExecutionError(
+					_("Mutation mode '{0}' is not allowed for action '{1}'").format(mode, action.action_label)
+				)
+			cm.apply_mutation(mode, target, value, context)
 
 	# Legacy _execute_* methods have been removed.
 	# All action execution now uses the Handler Strategy Pattern.

@@ -125,6 +125,9 @@ class TestBoltonAPI(unittest.TestCase):
 			self.assertIn("value", row)
 			self.assertIn("func_name", row)
 			self.assertIn("label", row)
+			self.assertIn("adapter_key", row)
+			self.assertIn("capabilities", row)
+			self.assertIn("policy", row)
 
 	def test_transition_rule_uses_v15_cache_clear_signature(self):
 		"""Lifecycle transition should not call frappe.clear_cache with unsupported kwargs."""

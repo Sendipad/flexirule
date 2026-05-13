@@ -360,11 +360,11 @@ export let CONFIG_MODAL_TYPES = new Set(DEFAULT_CONFIG_MODAL_TYPES);
 export let PROCESS_REGISTRY = [];
 export let OPERATION_REGISTRY = [];
 export let OPERATION_CONTRACT = {};
-export let PROCESS_OPERATION_POLICIES = {};
+export let PROCESS_OPERATION_REGISTRY_V2 = {};
 export let RUNTIME_FIELD_ALIASES = {};
 
 let _contractsLoaded = false;
-const CONTRACT_CACHE_KEY = "flexirule:contract_dto:v1";
+const CONTRACT_CACHE_KEY = "flexirule:contract_dto:v2";
 
 function withDescriptions(contractMap) {
 	const merged = {};
@@ -426,8 +426,11 @@ function applyContractDto(dto = {}) {
 		OPERATION_CONTRACT = { ...dto.operation_contract };
 	}
 
-	if (dto.process_operation_policies && typeof dto.process_operation_policies === "object") {
-		PROCESS_OPERATION_POLICIES = { ...dto.process_operation_policies };
+	if (
+		dto.process_operation_registry_v2 &&
+		typeof dto.process_operation_registry_v2 === "object"
+	) {
+		PROCESS_OPERATION_REGISTRY_V2 = { ...dto.process_operation_registry_v2 };
 	}
 }
 
@@ -435,7 +438,12 @@ function getCachedContractDto() {
 	try {
 		const raw = window.sessionStorage?.getItem(CONTRACT_CACHE_KEY);
 		if (!raw) return null;
-		return JSON.parse(raw);
+		const parsed = JSON.parse(raw);
+		if (!parsed || typeof parsed !== "object") return null;
+		if (typeof parsed.contract_version_hash !== "string" || !parsed.contract_version_hash) {
+			return null;
+		}
+		return parsed;
 	} catch (_error) {
 		return null;
 	}
@@ -595,16 +603,24 @@ export function getProcessDefinition(processName) {
 export function getProcessOperationDefinition(processName, operation) {
 	const process = getProcessDefinition(processName);
 	if (!process || !operation) return null;
-	return (
+	const base =
 		(process.operations || []).find(
 			(op) => (op?.func_name || op?.value) === operation || op?.label === operation
-		) || null
-	);
+		) || null;
+	const v2 = PROCESS_OPERATION_REGISTRY_V2?.[processName]?.[operation] || null;
+	if (!base) {
+		return v2 ? { ...v2, value: operation, func_name: operation, label: operation } : null;
+	}
+	return v2 ? { ...base, contract_v2: v2 } : base;
 }
 
 export function getProcessOperationConfigFields(processName, operation) {
 	const op = getProcessOperationDefinition(processName, operation);
 	if (!op) return [];
+	const v2 = PROCESS_OPERATION_REGISTRY_V2?.[processName]?.[operation] || op?.contract_v2;
+	if (v2 && Array.isArray(v2.config_schema?.ui_schema)) {
+		return v2.config_schema.ui_schema;
+	}
 	const parsed = parseJsonSafe(op.config_schema, op.config_schema);
 	if (Array.isArray(parsed)) return parsed;
 	if (parsed && Array.isArray(parsed.fields)) return parsed.fields;
@@ -613,12 +629,10 @@ export function getProcessOperationConfigFields(processName, operation) {
 
 export function getProcessOperationPolicy(processName, operation) {
 	if (!processName || !operation) return {};
-	const basePolicy = PROCESS_OPERATION_POLICIES?.[processName]?.[operation] || {};
+	const v2Policy = PROCESS_OPERATION_REGISTRY_V2?.[processName]?.[operation]?.policy || {};
 	const op = getProcessOperationDefinition(processName, operation);
-	const actionOverrides = parseJsonSafe(op?.action_overrides, {});
-	const overridePolicy =
-		actionOverrides && typeof actionOverrides.policy === "object" ? actionOverrides.policy : {};
-	return mergePolicy(basePolicy, overridePolicy);
+	const contractPolicy = op?.contract_v2?.policy || {};
+	return mergePolicy(v2Policy, contractPolicy);
 }
 
 function evaluateFieldExpression(expression, doc = {}, parent = {}) {
@@ -629,7 +643,7 @@ function evaluateFieldExpression(expression, doc = {}, parent = {}) {
 	try {
 		return frappe.utils.eval(expression.slice(5), { doc, parent });
 	} catch (_error) {
-		return true;
+		return false;
 	}
 }
 

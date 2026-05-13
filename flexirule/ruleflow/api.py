@@ -23,6 +23,7 @@ from flexirule.ruleflow.core.permissions import require_builder_access
 from flexirule.ruleflow.core.process_registry import (
 	build_operation_registry,
 	get_process_operation_policies,
+	get_process_operation_registry_v2,
 	get_process_registry,
 )
 
@@ -439,20 +440,16 @@ def get_contract_dto():
 	"""Return canonical action/trigger contracts for frontend consumers."""
 	_require_api_access()
 	contracts = _get_contract_dto()
-	try:
-		process_registry = get_process_registry(include_disabled=True, include_hidden=True)
-		process_operation_policies = get_process_operation_policies(process_registry)
-		operation_registry = build_operation_registry(process_registry, process_operation_policies)
-	except Exception:
-		process_registry = []
-		process_operation_policies = {}
-		operation_registry = []
+	process_registry = get_process_registry(include_disabled=True, include_hidden=True)
+	process_operation_policies = get_process_operation_policies(process_registry)
+	process_operation_registry_v2 = get_process_operation_registry_v2(process_registry)
+	operation_registry = build_operation_registry(process_registry, process_operation_policies)
 
 	payload = {
 		**contracts,
 		"process_registry": process_registry,
 		"operation_registry": operation_registry,
-		"process_operation_policies": process_operation_policies,
+		"process_operation_registry_v2": process_operation_registry_v2,
 	}
 	payload["contract_version_hash"] = hashlib.sha256(
 		json.dumps(payload, sort_keys=True, default=str).encode("utf-8")
@@ -682,33 +679,52 @@ def get_process_operations(process_name: str):
 	)
 
 	# Stable DTO with compatibility fields
-	return [
-		{
-			"value": r.get("func_name"),
-			"func_name": r.get("func_name"),
-			"label": r.get("label") or r.get("func_name"),
-			"description": r.get("description") or "",
-			"enabled": r.get("enabled", 1),
-			"visible_in_builder": r.get("visible_in_builder", 1),
-			"icon": r.get("icon"),
-			"color": r.get("color"),
-			"writes_to": r.get("writes_to"),
-			"is_terminal": r.get("is_terminal", 0),
-			"requires_doc": r.get("requires_doc", 0),
-			"can_stop_save": r.get("can_stop_save", 0),
-			"allows_async": r.get("allows_async", 0),
-			"transactional": r.get("transactional", 0),
-			"for_doctype": r.get("for_doctype"),
-			"doctype_filters": r.get("doctype_filters"),
-			"reads_vars": r.get("reads_vars"),
-			"writes_vars": r.get("writes_vars"),
-			"config_schema": r.get("config_schema"),
-			"output_schema": r.get("output_schema"),
-			"action_overrides": r.get("action_overrides"),
-		}
-		for r in rows
-		if r.get("func_name")
-	]
+	result = []
+	for r in rows:
+		if not r.get("func_name"):
+			continue
+		from flexirule.ruleflow.core.process_contract_v2 import resolve_process_operation_contract_v2
+
+		contract_v2 = resolve_process_operation_contract_v2(
+			process_name,
+			r.get("func_name"),
+			r,
+			strict=True,
+		)
+
+		result.append(
+			{
+				"value": r.get("func_name"),
+				"func_name": r.get("func_name"),
+				"label": r.get("label") or r.get("func_name"),
+				"description": r.get("description") or "",
+				"enabled": r.get("enabled", 1),
+				"visible_in_builder": r.get("visible_in_builder", 1),
+				"icon": r.get("icon"),
+				"color": r.get("color"),
+				"writes_to": r.get("writes_to"),
+				"is_terminal": r.get("is_terminal", 0),
+				"requires_doc": r.get("requires_doc", 0),
+				"can_stop_save": r.get("can_stop_save", 0),
+				"allows_async": r.get("allows_async", 0),
+				"transactional": r.get("transactional", 0),
+				"for_doctype": r.get("for_doctype"),
+				"doctype_filters": r.get("doctype_filters"),
+				"reads_vars": r.get("reads_vars"),
+				"writes_vars": r.get("writes_vars"),
+				"config_schema": contract_v2.get("config_schema"),
+				"output_schema": contract_v2.get("result_schema"),
+				"action_overrides": r.get("action_overrides"),
+				"operation_key": contract_v2.get("operation_key"),
+				"adapter_key": contract_v2.get("adapter_key"),
+				"capabilities": contract_v2.get("capabilities"),
+				"policy": contract_v2.get("policy"),
+				"result_schema": contract_v2.get("result_schema"),
+				"ui_schema": (contract_v2.get("config_schema") or {}).get("ui_schema"),
+			}
+		)
+
+	return result
 
 
 @frappe.whitelist()

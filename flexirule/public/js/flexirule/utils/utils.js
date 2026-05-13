@@ -4,7 +4,6 @@
 
 frappe.provide("flexirule.utils");
 frappe.provide("flexirule.meta_cache");
-frappe.provide("flexirule.processes");
 
 /**
  * Get all fields for a DocType, including standard/system fields and child table fields.
@@ -167,56 +166,6 @@ flexirule.utils.get_combined_fields = async function (doctype, context_vars = []
 };
 
 /**
- * Lazy load a process adapter JS file.
- *
- * @param {string} process_name - Name of the process
- * @returns {Promise<void>}
- */
-flexirule.utils.load_process_adapter = async function (process_name) {
-	if (!process_name) return;
-
-	// Already loaded?
-	if (flexirule.processes[process_name]) {
-		return;
-	}
-
-	try {
-		const response = await frappe.call({
-			method: "flexirule.ruleflow.doctype.process.process.get_script",
-			args: { process_name },
-		});
-
-		if (response.message && response.message.script) {
-			// Evaluate in Desk global scope without Function constructor.
-			try {
-				const before = new Set(Object.keys(flexirule.processes || {}));
-				frappe.dom.eval(response.message.script);
-				const after = Object.keys(flexirule.processes || {});
-				if (!flexirule.processes[process_name] && after.length === before.size) {
-					console.warn(
-						`Adapter script loaded but did not register process: ${process_name}`
-					);
-				}
-			} catch (e) {
-				console.error(`Failed to evaluate adapter for ${process_name}:`, e);
-			}
-		}
-	} catch (e) {
-		console.warn(`Adapter not found or failed to load for ${process_name}`);
-	}
-};
-
-/**
- * Get a loaded process adapter.
- *
- * @param {string} process_name
- * @returns {Object|null}
- */
-flexirule.utils.get_process_adapter = function (process_name) {
-	return flexirule.processes[process_name] || null;
-};
-
-/**
  * Normalize operation records from API/DB/adapter into a stable object shape.
  *
  * @param {Array} operations
@@ -232,39 +181,54 @@ flexirule.utils.normalize_process_operations = function (operations = []) {
 			const value = op?.value || op?.func_name;
 			if (!value) return null;
 
+			const config_schema = flexirule.utils.safe_json_parse(
+				op?.config_schema,
+				op?.config_schema
+			);
+			const result_schema = flexirule.utils.safe_json_parse(
+				op?.result_schema || op?.output_schema,
+				op?.result_schema || op?.output_schema
+			);
 			return {
 				...op,
 				value,
 				func_name: op?.func_name || value,
 				label: op?.label || value,
+				config_schema,
+				result_schema,
+				output_schema: result_schema,
+				ui_schema:
+					op?.ui_schema ||
+					(config_schema && typeof config_schema === "object"
+						? config_schema.ui_schema
+						: null),
 			};
 		})
 		.filter(Boolean);
 };
 
 /**
- * Get operations for a process, ensuring the adapter is loaded first.
+ * Get operations for a process from backend contract DTO data.
  *
  * @param {string} process_name - Name of the process
  * @param {Array} db_operations - Optional pre-loaded operations from DB
  * @returns {Promise<Array>}
  */
-flexirule.utils.get_process_operations = async function (process_name, db_operations = []) {
+flexirule.utils.get_process_operations = async function (process_name) {
 	if (!process_name) return [];
 
-	// 1. If we have DB operations, use them (they are authoritative for visible operations)
-	if (db_operations && db_operations.length > 0) {
-		return flexirule.utils.normalize_process_operations(db_operations);
+	// Backend contract v2 API is authoritative.
+	flexirule.meta_cache.process_operations = flexirule.meta_cache.process_operations || {};
+	if (flexirule.meta_cache.process_operations[process_name]) {
+		return flexirule.meta_cache.process_operations[process_name];
 	}
-
-	// 2. Otherwise load adapter and get from JS
-	await flexirule.utils.load_process_adapter(process_name);
-	const adapter = flexirule.utils.get_process_adapter(process_name);
-	if (!adapter) return [];
-
-	return flexirule.utils.normalize_process_operations(
-		adapter.get_visible_operations?.() || adapter.operations || []
-	);
+	const response = await frappe.call({
+		method: "flexirule.ruleflow.api.get_process_operations",
+		args: { process_name },
+	});
+	const operations = flexirule.utils.normalize_process_operations(response?.message || []);
+	flexirule.meta_cache.process_operations[process_name] = operations;
+	return operations;
 };
 
 /**
@@ -350,18 +314,14 @@ flexirule.utils.filter_eligible_operations = function (operations, context = {})
  */
 flexirule.utils.get_operation_config_fields = async function (process_name, operation_name, frm) {
 	if (!process_name || !operation_name) return [];
-
-	await flexirule.utils.load_process_adapter(process_name);
-	const adapter = flexirule.utils.get_process_adapter(process_name);
-	if (!adapter) return [];
-
-	const operation = adapter.get_operation?.(operation_name);
-	if (!operation) return [];
-
-	if (typeof operation.get_config_fields === "function") {
-		return operation.get_config_fields(frm);
-	}
-
+	const ops = await flexirule.utils.get_process_operations(process_name);
+	const op = ops.find((row) => (row.func_name || row.value) === operation_name);
+	if (!op) return [];
+	if (Array.isArray(op.ui_schema)) return op.ui_schema;
+	const parsed = flexirule.utils.safe_json_parse(op.config_schema, op.config_schema);
+	if (Array.isArray(parsed)) return parsed;
+	if (parsed && Array.isArray(parsed.ui_schema)) return parsed.ui_schema;
+	if (parsed && Array.isArray(parsed.fields)) return parsed.fields;
 	return [];
 };
 

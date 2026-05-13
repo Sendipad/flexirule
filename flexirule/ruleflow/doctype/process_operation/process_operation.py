@@ -1,7 +1,8 @@
 # Copyright (c) 2025, Abdo Ruzaqi and contributors
 # For license information, please see license.txt
 
-# import frappe
+import frappe
+from frappe import _
 from frappe.model.document import Document
 
 
@@ -24,6 +25,7 @@ class ProcessOperation(Document):
 		enabled: DF.Check
 		for_doctype: DF.Link | None
 		func_name: DF.Data
+		has_side_effect: DF.Check
 		icon: DF.Data | None
 		is_terminal: DF.Check
 		label: DF.Data | None
@@ -38,4 +40,25 @@ class ProcessOperation(Document):
 		writes_to: DF.Literal["None", "Context", "Document", "Database"]
 		writes_vars: DF.Code | None
 	# end: auto-generated types
-	pass
+
+	def validate(self):
+		"""Hard-cut validation for declarative Process contract v2."""
+		if not self.func_name:
+			return
+		if not getattr(self, "parent", None):
+			return
+		try:
+			from flexirule.ruleflow.core.process_contract_v2 import resolve_process_operation_contract_v2
+
+			resolve_process_operation_contract_v2(
+				self.parent,
+				self.func_name,
+				self.as_dict(),
+				strict=True,
+			)
+		except Exception as exc:
+			frappe.throw(
+				_("Invalid Process Operation contract v2 for '{0}.{1}': {2}").format(
+					self.parent, self.func_name, str(exc)
+				)
+			)

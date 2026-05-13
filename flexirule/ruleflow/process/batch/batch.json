@@ -1,29 +1,31 @@
 {
-	"creation": "2026-01-27 17:45:00",
-	"docstatus": 0,
-	"doctype": "Process",
-	"idx": 0,
-	"is_standard": "Yes",
-	"modified": "2026-01-27 17:45:00",
-	"modified_by": "Administrator",
-	"module": "Ruleflow",
-	"name": "Batch",
-	"process_name": "Batch",
-	"operations": [
-		{
-			"allows_async": 1,
-			"can_stop_save": 0,
-			"color": "#10b981",
-			"enabled": 1,
-			"func_name": "execute_for_documents",
-			"icon": "layer-group",
-			"is_terminal": 0,
-			"label": "Execute For Documents",
-			"requires_doc": 0,
-			"transactional": 0,
-			"visible_in_builder": 1,
-			"writes_to": "Context",
-			"config_schema": "[\n\t{\n\t\t\"fieldname\": \"rule\",\n\t\t\"fieldtype\": \"Link\",\n\t\t\"options\": \"Rule\",\n\t\t\"label\": \"Rule\",\n\t\t\"reqd\": 1\n\t},\n\t{\n\t\t\"fieldname\": \"doctype\",\n\t\t\"fieldtype\": \"Link\",\n\t\t\"options\": \"DocType\",\n\t\t\"label\": \"DocType\",\n\t\t\"reqd\": 1\n\t},\n\t{\n\t\t\"fieldname\": \"documents\",\n\t\t\"fieldtype\": \"Code\",\n\t\t\"label\": \"Document Names (List/JSON)\",\n\t\t\"options\": \"JSON\"\n\t}\n]"
-		}
-	]
+ "creation": "2026-01-27 17:45:00",
+ "docstatus": 0,
+ "doctype": "Process",
+ "idx": 0,
+ "is_standard": "Yes",
+ "modified": "2026-01-27 17:45:00",
+ "modified_by": "Administrator",
+ "module": "Ruleflow",
+ "name": "Batch",
+ "process_name": "Batch",
+ "operations": [
+  {
+   "action_overrides": "{\"contract_v2\":{\"adapter_key\":\"batch\",\"capabilities\":{\"allows_async\":true,\"can_stop_save\":false,\"has_side_effect\":true,\"requires_doc\":false,\"transactional\":false,\"writes_to\":\"Database\"},\"config_schema\":{\"additionalProperties\":false,\"properties\":{\"batch_size\":{\"default\":100,\"minimum\":1,\"type\":\"integer\"},\"doctype\":{\"minLength\":1,\"type\":\"string\"},\"documents\":{\"oneOf\":[{\"items\":{\"type\":\"string\"},\"minItems\":1,\"type\":\"array\"},{\"minLength\":2,\"type\":\"string\"}]},\"on_error\":{\"default\":\"skip\",\"enum\":[\"skip\",\"stop\"],\"type\":\"string\"},\"rule\":{\"minLength\":1,\"type\":\"string\"}},\"required\":[\"rule\",\"doctype\",\"documents\"],\"type\":\"object\",\"ui_schema\":[{\"fieldname\":\"rule\",\"fieldtype\":\"Link\",\"label\":\"Rule\",\"options\":\"Rule\",\"reqd\":1},{\"fieldname\":\"doctype\",\"fieldtype\":\"Link\",\"label\":\"DocType\",\"options\":\"DocType\",\"reqd\":1},{\"fieldname\":\"documents\",\"fieldtype\":\"Code\",\"label\":\"Document Names (List/JSON)\",\"options\":\"JSON\",\"reqd\":1},{\"default\":100,\"fieldname\":\"batch_size\",\"fieldtype\":\"Int\",\"label\":\"Batch Size\"},{\"default\":\"skip\",\"fieldname\":\"on_error\",\"fieldtype\":\"Select\",\"label\":\"On Error\",\"options\":\"skip\\nstop\"}]},\"policy\":{\"allowed_mutations\":[\"Set Context Variable\",\"Update Context Variable\",\"Batch Database Set\"],\"allowed_return_types\":[\"Single Record\"],\"default_return_type\":\"Single Record\",\"require_return_type\":false,\"require_return_variable\":false},\"result_schema\":{\"additionalProperties\":false,\"properties\":{\"batch_id\":{\"type\":\"string\"},\"errors\":{\"items\":{\"type\":\"string\"},\"type\":\"array\"},\"failed\":{\"type\":\"integer\"},\"message\":{\"type\":\"string\"},\"success\":{\"type\":\"integer\"}},\"required\":[\"success\",\"failed\"],\"type\":\"object\"}}}",
+   "allows_async": 1,
+   "can_stop_save": 0,
+   "color": "#10b981",
+   "enabled": 1,
+   "func_name": "execute_for_documents",
+   "icon": "layer-group",
+   "is_terminal": 0,
+   "label": "Execute For Documents",
+   "requires_doc": 0,
+   "transactional": 0,
+   "visible_in_builder": 1,
+   "writes_to": "Database",
+   "config_schema": "[\n\t{\n\t\t\"fieldname\": \"rule\",\n\t\t\"fieldtype\": \"Link\",\n\t\t\"options\": \"Rule\",\n\t\t\"label\": \"Rule\",\n\t\t\"reqd\": 1\n\t},\n\t{\n\t\t\"fieldname\": \"doctype\",\n\t\t\"fieldtype\": \"Link\",\n\t\t\"options\": \"DocType\",\n\t\t\"label\": \"DocType\",\n\t\t\"reqd\": 1\n\t},\n\t{\n\t\t\"fieldname\": \"documents\",\n\t\t\"fieldtype\": \"Code\",\n\t\t\"label\": \"Document Names (List/JSON)\",\n\t\t\"options\": \"JSON\"\n\t}\n]",
+   "has_side_effect": 1
+  }
+ ]
 }

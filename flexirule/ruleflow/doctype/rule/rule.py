@@ -1108,6 +1108,17 @@ class Rule(Document):
 		if action.operation:
 			try:
 				op = process.get_operation(action.operation)
+				from flexirule.ruleflow.core.process_contract_v2 import (
+					resolve_process_operation_contract_v2,
+				)
+
+				op_dict = op.as_dict() if hasattr(op, "as_dict") else dict(op)
+				resolve_process_operation_contract_v2(
+					action.process_name,
+					action.operation,
+					op_dict,
+					strict=True,
+				)
 
 				# Validate return_variable mandatory for context-writing operations
 				self._validate_return_variable_requirement(action, op)
@@ -1122,14 +1133,20 @@ class Rule(Document):
 		if not operation:
 			return
 
-		from flexirule.ruleflow.core.contracts import get_effective_action_policy
+		from flexirule.ruleflow.core.process_contract_v2 import resolve_process_operation_contract_v2
 
 		op_dict = operation.as_dict() if hasattr(operation, "as_dict") else operation
-		policy = get_effective_action_policy(
-			"Process",
-			operation=getattr(action, "operation", None),
-			process_operation=op_dict,
+		process_name = getattr(action, "process_name", None)
+		operation_name = getattr(action, "operation", None)
+		if not process_name or not operation_name:
+			return
+		contract_v2 = resolve_process_operation_contract_v2(
+			process_name,
+			operation_name,
+			op_dict,
+			strict=True,
 		)
+		policy = contract_v2.get("policy") or {}
 		requires_return_var = bool(policy.get("require_return_variable"))
 
 		if requires_return_var and not action.return_variable:

@@ -14,7 +14,8 @@ from typing import Any
 
 import frappe
 
-from flexirule.ruleflow.core.contracts import ACTION_TYPE_CONTRACT, infer_process_operation_policy
+from flexirule.ruleflow.core.contracts import ACTION_TYPE_CONTRACT
+from flexirule.ruleflow.core.process_contract_v2 import resolve_process_operation_contract_v2
 
 
 def _existing_fields(doctype: str, candidates: list[str]) -> list[str]:
@@ -53,6 +54,7 @@ def _get_process_operation_fields() -> list[str]:
 			"can_stop_save",
 			"allows_async",
 			"transactional",
+			"has_side_effect",
 			"for_doctype",
 			"doctype_filters",
 			"reads_vars",
@@ -101,7 +103,7 @@ def get_process_registry(
 		if parent in process_map:
 			process_map[parent]["operations"].append(row)
 
-	return list(process_map.values())
+	return [p for p in process_map.values() if p["operations"]]
 
 
 def get_process_operation_policies(
@@ -116,8 +118,42 @@ def get_process_operation_policies(
 			func_name = operation.get("func_name")
 			if not process_name or not func_name:
 				continue
-			policies.setdefault(process_name, {})[func_name] = infer_process_operation_policy(operation)
+			try:
+				contract_v2 = resolve_process_operation_contract_v2(
+					process_name,
+					func_name,
+					operation,
+					strict=True,
+				)
+				policies.setdefault(process_name, {})[func_name] = contract_v2.get("policy") or {}
+			except Exception as e:
+				frappe.logger().warning(f"Failed to load policy for {process_name}.{func_name}: {e}")
 	return policies
+
+
+def get_process_operation_registry_v2(
+	process_registry: list[dict[str, Any]] | None = None,
+) -> dict[str, dict[str, dict[str, Any]]]:
+	"""Return strict contract_v2 registry grouped by process/operation."""
+	process_registry = process_registry or get_process_registry(include_disabled=True, include_hidden=True)
+	registry: dict[str, dict[str, dict[str, Any]]] = {}
+	for process in process_registry:
+		process_name = process.get("name")
+		for operation in process.get("operations") or []:
+			func_name = operation.get("func_name")
+			if not process_name or not func_name:
+				continue
+			try:
+				contract_v2 = resolve_process_operation_contract_v2(
+					process_name,
+					func_name,
+					operation,
+					strict=True,
+				)
+				registry.setdefault(process_name, {})[func_name] = contract_v2
+			except Exception as e:
+				frappe.logger().warning(f"Failed to load contract for {process_name}.{func_name}: {e}")
+	return registry
 
 
 def build_operation_registry(

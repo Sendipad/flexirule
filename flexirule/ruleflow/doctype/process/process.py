@@ -4,7 +4,7 @@ import json
 import os
 
 import frappe
-from frappe import _, cstr, scrub
+from frappe import _, scrub
 from frappe.model.document import Document
 from frappe.modules import get_app_publisher, get_module_path
 from frappe.modules.export_file import export_to_files
@@ -82,10 +82,9 @@ class Process(Document):
 
 	def create_process_files(self):
 		"""
-		Create controller.py and controller.js using Process-specific templates.
+		Create controller.py using Process-specific templates.
 		"""
 		make_process_boilerplate("controller.py", self)
-		make_process_boilerplate("controller.js", self)
 
 	def execute(self, context, func=None, config=None):
 		"""
@@ -167,64 +166,6 @@ def get_process_module_dotted_path(module, process_name):
 		+ "."
 		+ processname
 	)
-
-
-@frappe.whitelist()
-def get_script(process_name: str):
-	_require_process_api_access()
-	from frappe.model.utils import render_include
-
-	process = frappe.get_cached_doc("Process", process_name)
-	if not frappe.has_permission("Process", "read", doc=process):
-		frappe.throw(
-			_("You do not have permission to read Process {0}").format(process_name), frappe.PermissionError
-		)
-	module = process.module or frappe.db.get_value("DocType", process.default_doctype, "module")
-
-	is_custom_module = frappe.get_cached_value("Module Def", module, "custom")
-
-	# custom modules are virtual modules those exists in DB but not in disk.
-	module_path = "" if is_custom_module else get_module_path(module)
-	process_folder = module_path and os.path.join(module_path, "process", scrub(process.name))
-	script_path = process_folder and os.path.join(process_folder, scrub(process.name) + ".js")
-	process_folder and os.path.join(process_folder, scrub(process.name) + ".html")
-
-	script = ""
-	if os.path.exists(script_path):
-		with open(script_path) as f:
-			script = f.read() + f"\n\n//# sourceURL={scrub(process.name)}.js"
-
-	custom_script = (process.get("javascript") if hasattr(process, "get") else None) or None
-	if not script and custom_script:
-		script = custom_script + f"\n\n//# sourceURL={scrub(process.name)}__custom"
-
-	if not script:
-		script = f"flexirule.processes['{process_name}']={{}}"
-
-	return {
-		"script": render_include(script),
-	}
-
-
-@frappe.whitelist()
-def get_process_js_paths():
-	"""
-	Return JS adapter paths for all processes.
-	Same idea as Report JS loading.
-	"""
-	_require_process_api_access()
-	processes = frappe.get_all("Process", fields=["name", "module"])
-	result = {}
-
-	for proc in processes:
-		scrubbed = frappe.scrub(proc.name)
-		app = frappe.local.module_app.get(frappe.scrub(proc.module))
-		if not app:
-			continue
-
-		result[proc.name] = f"/assets/{app}/{frappe.scrub(proc.module)}/process/{scrubbed}/{scrubbed}.js"
-
-	return result
 
 
 @frappe.whitelist()

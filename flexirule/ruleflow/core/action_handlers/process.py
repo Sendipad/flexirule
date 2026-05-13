@@ -13,6 +13,7 @@ from frappe import _
 
 from flexirule.ruleflow.core.action_handlers import ActionHandler, HandlerRegistry
 from flexirule.ruleflow.core.exceptions import MethodExecutionError
+from flexirule.ruleflow.core.process_runtime_v2 import ProcessOperationExecutor
 from flexirule.ruleflow.utils.mapping import apply_input_mapping
 
 
@@ -20,6 +21,7 @@ class ProcessHandler(ActionHandler):
 	"""Handler for Process action type."""
 
 	action_type = "Process"
+	executor = ProcessOperationExecutor()
 
 	def execute(self, action, context, engine):
 		"""
@@ -37,7 +39,6 @@ class ProcessHandler(ActionHandler):
 		    Tuple of (operation_result, next_action_id)
 		"""
 		process_name = getattr(action, "process_name", None)
-		operation = getattr(action, "operation", None)
 
 		if not process_name:
 			engine._log(
@@ -54,23 +55,9 @@ class ProcessHandler(ActionHandler):
 		if action_config.get("input_mapping"):
 			config = apply_input_mapping(context, action_config.get("input_mapping"), config)
 
-		result = None
-
-		# Execute via Process DocType
-		if not frappe.db.exists("Process", process_name):
-			raise MethodExecutionError(_("Process {0} not found").format(process_name))
-
-		process_doc = frappe.get_cached_doc("Process", process_name)
-
-		# Execute with retry logic
-		result = engine._call_process_with_retry(
-			process_doc=process_doc,
-			operation=operation,
-			config=config,
-			context=context,
-			retry_count=action.retry_count or 0,
-			timeout=action.timeout or 30,
-		)
+		# Execute through centralized declarative runtime v2 path
+		# (adapter registry + strict config/result schemas + policy gate).
+		result = self.executor.execute(action, context, config)
 
 		return result, getattr(action, "next_step_if_true", None)
 

@@ -56,6 +56,7 @@ class TestProcessSync(FrappeTestCase):
 					"transactional": 0,
 				}
 			]
+		operations = [self._with_default_contract_v2(dict(op)) for op in operations]
 
 		process_data = {
 			"process_name": process_name,
@@ -72,6 +73,73 @@ class TestProcessSync(FrappeTestCase):
 			json.dump(process_data, f, indent=2)
 
 		return Path(json_file_path)
+
+	def _with_default_contract_v2(self, operation: dict) -> dict:
+		"""Attach minimal declarative contract_v2 when omitted in test payloads."""
+		overrides = {}
+		raw_overrides = operation.get("action_overrides")
+		if isinstance(raw_overrides, str) and raw_overrides.strip():
+			try:
+				parsed = json.loads(raw_overrides)
+				if isinstance(parsed, dict):
+					overrides = parsed
+			except Exception:
+				overrides = {}
+		elif isinstance(raw_overrides, dict):
+			overrides = dict(raw_overrides)
+
+		writes_to = operation.get("writes_to", "None")
+		allowed_mutations = {
+			"None": ["Set Context Variable", "Update Context Variable"],
+			"Context": ["Set Context Variable", "Update Context Variable", "Append to Context Variable"],
+			"Document": [
+				"Set Doc Field",
+				"Update Doc Field",
+				"Set Context Variable",
+				"Update Context Variable",
+			],
+			"Database": ["Set Context Variable", "Update Context Variable", "Batch Database Set"],
+		}.get(writes_to, ["Set Context Variable", "Update Context Variable"])
+
+		contract_v2 = overrides.get("contract_v2") or {}
+		contract_v2.setdefault("adapter_key", "lookup")
+		contract_v2.setdefault(
+			"capabilities",
+			{
+				"requires_doc": bool(operation.get("requires_doc", 0)),
+				"writes_to": writes_to,
+				"allows_async": bool(operation.get("allows_async", 0)),
+				"transactional": bool(operation.get("transactional", 0)),
+				"can_stop_save": bool(operation.get("can_stop_save", 0)),
+				"has_side_effect": bool(operation.get("has_side_effect", 0)),
+			},
+		)
+		contract_v2.setdefault(
+			"policy",
+			{
+				"allowed_mutations": allowed_mutations,
+				"allowed_return_types": ["Single Record"],
+				"default_return_type": "Single Record",
+				"require_return_variable": False,
+				"require_return_type": False,
+			},
+		)
+		contract_v2.setdefault("config_schema", {"type": "object"})
+		output_schema = operation.get("output_schema")
+		if output_schema:
+			try:
+				contract_v2.setdefault(
+					"result_schema",
+					json.loads(output_schema if isinstance(output_schema, str) else "{}"),
+				)
+			except Exception:
+				contract_v2.setdefault("result_schema", {"type": "object"})
+		else:
+			contract_v2.setdefault("result_schema", {"type": "object"})
+
+		overrides["contract_v2"] = contract_v2
+		operation["action_overrides"] = json.dumps(overrides, separators=(",", ":"), sort_keys=True)
+		return operation
 
 	def test_import_process_from_file_new(self):
 		"""Test importing a new process from a JSON file"""
@@ -298,6 +366,31 @@ class TestProcessSync(FrappeTestCase):
 		# Process should not be created
 		self.assertFalse(frappe.db.exists("Process", "TestMissingModuleProcess"))
 
+	def test_import_process_from_file_rejects_legacy_operation_shape(self):
+		"""Hard cutover: process operations without contract_v2 should fail."""
+		process_data = {
+			"process_name": "TestLegacyOperationShape",
+			"module": "Ruleflow",
+			"is_standard": "Yes",
+			"operations": [
+				{
+					"func_name": "legacy_operation",
+					"label": "Legacy Operation",
+					"enabled": 1,
+					"visible_in_builder": 1,
+					"writes_to": "Context",
+				}
+			],
+		}
+
+		temp_dir = tempfile.mkdtemp()
+		json_file_path = os.path.join(temp_dir, "testlegacyoperationshape.json")
+		with open(json_file_path, "w") as f:
+			json.dump(process_data, f, indent=2)
+
+		with self.assertRaises(Exception):
+			import_process_from_file(Path(json_file_path), "Ruleflow")
+
 	def test_get_process_json_path_existing(self):
 		"""Test getting JSON path for an existing process"""
 		# Create a process first
@@ -342,18 +435,20 @@ class TestProcessSync(FrappeTestCase):
 			"module": "ruleflow",  # lowercase
 			"is_standard": "Yes",
 			"operations": [
-				{
-					"func_name": "test_operation",
-					"label": "Test Operation",
-					"enabled": 1,
-					"visible_in_builder": 1,
-					"requires_doc": 0,
-					"can_stop_save": 0,
-					"is_terminal": 0,
-					"writes_to": "None",
-					"allows_async": 0,
-					"transactional": 0,
-				}
+				self._with_default_contract_v2(
+					{
+						"func_name": "test_operation",
+						"label": "Test Operation",
+						"enabled": 1,
+						"visible_in_builder": 1,
+						"requires_doc": 0,
+						"can_stop_save": 0,
+						"is_terminal": 0,
+						"writes_to": "None",
+						"allows_async": 0,
+						"transactional": 0,
+					}
+				)
 			],
 		}
 
@@ -432,7 +527,9 @@ class TestProcessSync(FrappeTestCase):
 		if frappe.get_meta("Process Operation").has_field("action_overrides") and frappe.db.has_column(
 			"Process Operation", "action_overrides"
 		):
-			self.assertEqual(operation.action_overrides, '{"policy":{"require_return_variable":true}}')
+			overrides = json.loads(operation.action_overrides)
+			self.assertEqual((overrides.get("policy") or {}).get("require_return_variable"), True)
+			self.assertIn("contract_v2", overrides)
 
 	def test_import_process_from_file_disabled_operation(self):
 		"""Test importing process with disabled operation"""

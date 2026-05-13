@@ -23,6 +23,8 @@ from collections.abc import Mapping
 
 import frappe
 from frappe import _
+from jsonschema import ValidationError as JsonSchemaValidationError
+from jsonschema import validate as jsonschema_validate
 
 from flexirule.ruleflow.core.action_handlers import HandlerRegistry
 from flexirule.ruleflow.core.condition_payload import get_condition_payload
@@ -34,6 +36,7 @@ from flexirule.ruleflow.core.contracts import (
 	is_release_disabled_action,
 	normalize_action_type,
 )
+from flexirule.ruleflow.core.process_contract_v2 import resolve_process_operation_contract_v2
 from flexirule.ruleflow.utils.graph_validator import validate_graph_integrity
 
 # Valid validation modes
@@ -263,6 +266,33 @@ def _validate_action_contracts(
 		operation=operation,
 		process_operation=process_operation,
 	)
+	if action_type == "Process" and process_operation and operation and _safe_get(action, "process_name"):
+		try:
+			contract_v2 = resolve_process_operation_contract_v2(
+				_safe_get(action, "process_name"),
+				operation,
+				process_operation,
+				strict=True,
+			)
+			effective_policy = {
+				**effective_policy,
+				**(contract_v2.get("policy") or {}),
+			}
+			config_data = _parse_json_value(_safe_get(action, "config"), {})
+			if isinstance(config_data, Mapping):
+				jsonschema_validate(config_data, contract_v2.get("config_schema") or {})
+		except JsonSchemaValidationError as exc:
+			errors.append(
+				_("Action '{0}' (Process/{1}) config schema validation failed: {2}").format(
+					action_label, operation, exc.message
+				)
+			)
+		except Exception as exc:
+			errors.append(
+				_("Action '{0}' (Process/{1}) contract v2 error: {2}").format(
+					action_label, operation, str(exc)
+				)
+			)
 
 	if mode == "full":
 		for fieldname in get_required_fields(action_type):

@@ -123,7 +123,7 @@ function evaluate_depends_on(expression) {
 			return frappe.utils.eval(expression.substr(5), { doc, parent });
 		} catch (e) {
 			console.warn("Failed to evaluate depends_on:", expression, e);
-			return true;
+			return false;
 		}
 	}
 

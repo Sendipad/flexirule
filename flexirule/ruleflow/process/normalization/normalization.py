@@ -184,6 +184,73 @@ def preview_normalization(text: str, transformations: str | list):
 # DISPATCHER
 # ============================================================
 
+
+def mask_value(context, config):
+	"""
+	Masks sensitive data (emails, phone numbers, credit cards).
+	Returns a Single Value (string).
+	"""
+	source_value_expr = config.get("source_value")
+	source_field = config.get("source_field")
+	mask_type = config.get("mask_type")
+
+	value = None
+	if source_value_expr:
+		value = frappe.safe_eval(source_value_expr, None, context)
+	elif source_field:
+		value = FieldResolver.resolve(context.get("doc"), source_field)
+
+	if not value:
+		return None
+
+	value = str(value)
+	if mask_type == "email":
+		parts = value.split("@")
+		if len(parts) == 2:
+			return f"{parts[0][0]}***@{parts[1]}"
+		return "***"
+	elif mask_type == "phone":
+		if len(value) > 4:
+			return f"***-***-{value[-4:]}"
+		return "***"
+	elif mask_type == "credit_card":
+		if len(value) > 4:
+			return f"****-****-****-{value[-4:]}"
+		return "****"
+	elif mask_type == "partial":
+		return f"{value[:2]}***{value[-2:]}" if len(value) > 4 else "***"
+
+	return "***"
+
+
+def transform_multi_fields(context, config):
+	"""
+	Applies the same transformations to multiple fields at once.
+	Returns a Dictionary mapping field names to their transformed values.
+	"""
+	source_fields = config.get("source_fields")
+	transformations = config.get("transformations")
+
+	if isinstance(source_fields, str):
+		source_fields = [f.strip() for f in source_fields.split(",")]
+
+	if isinstance(transformations, str):
+		transformations = [t.strip() for t in transformations.split("\n") if t.strip()]
+
+	if not source_fields or not transformations:
+		return {}
+
+	results = {}
+	for field in source_fields:
+		value = FieldResolver.resolve(context.get("doc"), field)
+		if value is not None:
+			results[field] = apply_transformations(value, transformations)
+
+	return results
+
+
 _OPERATIONS = {
 	"transform_value": transform_value,
+	"mask_value": mask_value,
+	"transform_multi_fields": transform_multi_fields,
 }
