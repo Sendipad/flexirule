@@ -15,6 +15,7 @@ import {
 	getContract,
 	getEffectiveActionPolicy,
 	getOperationOptions,
+	getProcessOperationDefinition,
 	normalizeActionType,
 	isTerminalAction,
 	ACTION_TYPES_WITH_REFERENCE_CONTEXT,
@@ -1012,9 +1013,133 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		});
 	}
 
-	function clean_action_config(config) {
+	function toDocExpression(path) {
+		if (!path || typeof path !== "string") return "";
+		if (path.startsWith("doc.") || path.startsWith("vars.") || path.startsWith("frappe.")) {
+			return path;
+		}
+		return `doc.${path}`;
+	}
+
+	function legacySourceToExpression(source) {
+		if (!source || typeof source !== "object") return null;
+		const kind = source.kind || "date_formula";
+
+		if (kind === "date_formula") {
+			const baseType = source.base_type || "today";
+			const baseExpr =
+				baseType === "doc_field"
+					? toDocExpression(source.base_field || "")
+					: "frappe.utils.nowdate()";
+			const offset = Number(source.offset_value || 0);
+			const unit = source.offset_unit || "days";
+			if (!offset) return baseExpr;
+			if (unit === "days") {
+				return `frappe.utils.add_days(${baseExpr}, ${offset})`;
+			}
+			return `frappe.utils.add_to_date(${baseExpr}, ${unit}=${offset})`;
+		}
+
+		if (kind === "math_formula") {
+			const a = source.field_a ? `frappe.utils.flt(${toDocExpression(source.field_a)})` : "0";
+			const b =
+				source.field_b_type === "constant"
+					? String(source.constant_b ?? 0)
+					: source.field_b
+					? `frappe.utils.flt(${toDocExpression(source.field_b)})`
+					: "0";
+			const op = source.math_op || "+";
+			const precision = Number.isFinite(Number(source.precision))
+				? Number(source.precision)
+				: 2;
+			return `frappe.utils.flt(${a} ${op} ${b}, ${precision})`;
+		}
+
+		if (kind === "date_diff") {
+			const start =
+				source.diff_start_type === "doc_field"
+					? toDocExpression(source.diff_start_field || "")
+					: "frappe.utils.nowdate()";
+			const end =
+				source.diff_end_type === "doc_field"
+					? toDocExpression(source.diff_end_field || "")
+					: "frappe.utils.nowdate()";
+			const unit = source.diff_unit || "days";
+			if (unit === "months") return `frappe.utils.month_diff(${end}, ${start})`;
+			if (unit === "years") return `int(frappe.utils.month_diff(${end}, ${start}) / 12)`;
+			return `frappe.utils.date_diff(${end}, ${start})`;
+		}
+
+		return null;
+	}
+
+	function getProcessSchemaPropertyNames(processName, operation) {
+		if (!processName || !operation) return [];
+		const opDef = getProcessOperationDefinition(processName, operation);
+		const schema = opDef?.contract_v2?.config_schema;
+		const properties = schema?.properties;
+		if (!properties || typeof properties !== "object") return [];
+		return Object.keys(properties);
+	}
+
+	function normalizeProcessConfigLegacyShape(config, processName, operation) {
+		if (!config || typeof config !== "object" || Array.isArray(config)) return config;
+		const normalized = { ...config };
+
+		if (!normalized.source_value && normalized.source) {
+			if (typeof normalized.source === "string") {
+				normalized.source_value = normalized.source;
+			} else {
+				const expression = legacySourceToExpression(normalized.source);
+				if (expression) normalized.source_value = expression;
+			}
+		}
+
+		if (
+			normalized.source_field &&
+			typeof normalized.source_field === "object" &&
+			normalized.source_field.value
+		) {
+			normalized.source_field = normalized.source_field.value;
+		}
+
+		if (
+			normalized.target_field &&
+			typeof normalized.target_field === "object" &&
+			normalized.target_field.value
+		) {
+			normalized.target_field = normalized.target_field.value;
+		}
+
+		const allowedKeys = getProcessSchemaPropertyNames(processName, operation);
+		if (allowedKeys.length > 0) {
+			const pruned = {};
+			allowedKeys.forEach((key) => {
+				if (normalized[key] !== undefined) {
+					pruned[key] = normalized[key];
+				}
+			});
+			return pruned;
+		}
+
+		return normalized;
+	}
+
+	function clean_action_config(config, opts = {}) {
 		if (!config || typeof config !== "object") return config;
 		const clean = Array.isArray(config) ? [...config] : { ...config };
+		const actionType = normalizeActionType(opts?.actionType || "");
+		const processName = opts?.processName || null;
+		const operation = opts?.operation || null;
+
+		if (actionType === "Process") {
+			const normalizedProcessConfig = normalizeProcessConfigLegacyShape(
+				clean,
+				processName,
+				operation
+			);
+			return normalizedProcessConfig;
+		}
 
 		// Clean filters
 		if (Array.isArray(clean.filters)) {
@@ -1265,7 +1390,15 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 				return flexirule.utils.safe_json_parse(val, defaultVal);
 			};
 
-			const configData = safeParse(action.config, {}) || {};
+			const rawConfigData = safeParse(action.config, {}) || {};
+			const configData =
+				actionTypeRaw === "Process"
+					? clean_action_config(rawConfigData, {
+							actionType: "Process",
+							processName: action.process_name,
+							operation: action.operation,
+					  }) || {}
+					: rawConfigData;
 			const conditionPayload =
 				actionTypeRaw === "Condition"
 					? getConditionPayload({

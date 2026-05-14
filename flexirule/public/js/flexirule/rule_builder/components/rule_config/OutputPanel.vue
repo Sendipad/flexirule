@@ -18,11 +18,11 @@
 						@update:modelValue="updateField('return_type', $event)"
 					/>
 
-					<AutocompleteControl
+					<ComboBoxControl
 						v-if="showReturnVariable && useAutocompleteForReturnVariable"
 						:df="returnVariableField"
 						:modelValue="node.data?.return_variable"
-						:get_options="getReturnVariableOptions"
+						:get_query="getReturnVariableOptions"
 						:read_only="readOnly"
 						@update:modelValue="updateField('return_variable', $event)"
 					/>
@@ -73,10 +73,10 @@
 								@change="saveOutputMappings"
 							/>
 							<i class="fa fa-arrow-right text-muted mx-1"></i>
-							<AutocompleteControl
+							<ComboBoxControl
 								:df="{ fieldtype: 'Autocomplete', label: '', read_only: readOnly }"
 								:modelValue="m.target"
-								:get_options="getVariableOptions"
+								:get_query="getVariableOptions"
 								:placeholder="__('Var')"
 								:read_only="readOnly"
 								@update:modelValue="
@@ -142,7 +142,7 @@
 import { ref, watch, onMounted, computed } from "vue";
 import { useStore } from "../../stores";
 import ControlFactory from "../../controls/ControlFactory.vue";
-import AutocompleteControl from "../../controls/AutocompleteControl.vue";
+import ComboBoxControl from "../../controls/ComboBoxControl.vue";
 import {
 	applyOutputPolicyDefaults,
 	getContract,

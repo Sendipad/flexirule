@@ -76,10 +76,10 @@
 					<div v-for="(row, idx) in mapping_rows" :key="idx" class="row-item mapping-row">
 						<div class="mapping-cell">
 							<label class="small text-muted mb-1">{{ __("Parent Variable") }}</label>
-							<AutocompleteControl
+							<ComboBoxControl
 								:df="{ label: '', fieldtype: 'Autocomplete' }"
 								v-model="row.source"
-								:get_options="get_variable_options"
+								:get_query="get_variable_options"
 								:read_only="read_only"
 								:hideLabel="true"
 								@update:modelValue="sync_local_config"
@@ -134,7 +134,7 @@
 <script setup>
 import { ref, watch, onMounted, computed } from "vue";
 import { useStore } from "../../../stores";
-import AutocompleteControl from "../../../controls/AutocompleteControl.vue";
+import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
 import TransformControl from "../../../controls/TransformControl.vue";
 import ControlFactory from "../../../controls/ControlFactory.vue";
 

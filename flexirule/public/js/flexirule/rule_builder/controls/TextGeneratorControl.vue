@@ -170,7 +170,7 @@
 												<label class="compact-label">{{
 													__("COLLECTION")
 												}}</label>
-												<AutocompleteControl
+												<ComboBoxControl
 													:df="{ fieldtype: 'Autocomplete' }"
 													:options="collectionOptions"
 													:modelValue="activeLogicNode.attrs.iterable"
@@ -287,7 +287,7 @@ import {
 } from "../utils/tiptap_extensions";
 import MentionList from "./MentionList.vue";
 import ConditionBuilder from "../components/condition_builder/ConditionBuilder.vue";
-import AutocompleteControl from "./AutocompleteControl.vue";
+import ComboBoxControl from "./ComboBoxControl.vue";
 
 import {
 	compileSegmentsToJinja,

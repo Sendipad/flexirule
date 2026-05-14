@@ -1,10 +1,11 @@
 <template>
 	<div class="loop-node-config">
 		<div class="form-group">
-			<FieldPickerControl
-				:df="{ label: __('Iterator (List)'), fieldtype: 'Link' }"
-				:fields="listFields"
+			<ComboBoxControl
+				:df="{ label: __('Iterator (List)'), fieldtype: 'FieldPicker' }"
+				:options="listFields"
 				:modelValue="getJsonConfig('iterator')"
+				:trigger="'button'"
 				@update:modelValue="$emit('update-json-config', 'iterator', $event)"
 			/>
 			<div class="help-text text-muted" style="font-size: 11px">
@@ -28,6 +29,7 @@
 import { ref, computed, onMounted, watch } from "vue";
 import { useStore } from "../../stores";
 import ControlFactory from "../../controls/ControlFactory.vue";
+import ComboBoxControl from "../../controls/ComboBoxControl.vue";
 
 const props = defineProps({
 	node: Object,

@@ -7,7 +7,7 @@
 <script setup>
 import { computed, ref, watch } from "vue";
 import { useStore } from "../stores";
-import LinkControl from "../controls/LinkControl.vue";
+import ComboBoxControl from "../controls/ComboBoxControl.vue";
 
 const props = defineProps({
 	nodeData: Object,
@@ -175,7 +175,7 @@ watch(
 		<!-- Document Type -->
 		<div class="form-group">
 			<label class="control-label">{{ __("Document Type") }}</label>
-			<LinkControl
+			<ComboBoxControl
 				:df="{ fieldtype: 'Link', options: 'DocType', label: '' }"
 				:modelValue="nodeData?.document_type"
 				:read_only="readOnly"
@@ -313,7 +313,7 @@ watch(
 		<div class="form-group">
 			<label class="control-label">{{ __("Skip for Roles") }}</label>
 			<div class="role-picker">
-				<LinkControl
+				<ComboBoxControl
 					:df="{ fieldtype: 'Link', options: 'Role', label: '' }"
 					:modelValue="pending_skip_role"
 					:read_only="readOnly"
@@ -353,7 +353,7 @@ watch(
 					<span></span>
 				</div>
 				<div v-for="(row, idx) in permissions" :key="idx" class="perm-row">
-					<LinkControl
+					<ComboBoxControl
 						:df="{ fieldtype: 'Link', options: 'Role', label: '' }"
 						:modelValue="row.role"
 						:read_only="readOnly"

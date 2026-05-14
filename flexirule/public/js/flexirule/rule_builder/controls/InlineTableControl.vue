@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref, watch } from "vue";
+import ComboBoxControl from "./ComboBoxControl.vue";
 /**
  * InlineTableControl - Repeatable rows with columns
  * Supports per-field hooks: get_options, onchange
@@ -213,10 +214,12 @@ function getSelectValue(options) {
 								v-else-if="col.fieldtype === 'DocField'"
 								class="table-cell-control"
 							>
-								<FieldPickerControl
-									:df="{ ...col, label: '' }"
-									:documentType="documentType"
+								<ComboBoxControl
+									:df="{ ...col, label: '', fieldtype: 'FieldPicker' }"
+									:doctype="documentType"
 									:modelValue="row[col.fieldname]"
+									:trigger="'button'"
+									:hideLabel="true"
 									@update:modelValue="updateCell(idx, col.fieldname, $event)"
 									:read_only="read_only"
 								/>

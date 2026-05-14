@@ -57,10 +57,10 @@
 						:modelValue="stripBrackets(config.assigned_to)"
 						@update:modelValue="(val) => update_config_key('assigned_to', val)"
 					/>
-					<AutocompleteControl
+					<ComboBoxControl
 						v-else-if="assignToType === 'Variable'"
 						:df="{ fieldtype: 'Autocomplete', label: '' }"
-						:options="variable_options"
+						:get_query="async () => variable_options"
 						:modelValue="stripBrackets(config.assigned_to)"
 						:read_only="readOnly"
 						:hideLabel="true"
@@ -158,7 +158,7 @@
 <script setup>
 import { computed, ref, watch, onMounted } from "vue";
 import { useActionConfig } from "../../../composables/useActionConfig";
-import AutocompleteControl from "../../../controls/AutocompleteControl.vue";
+import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
 import ControlFactory from "../../../controls/ControlFactory.vue";
 import ResourceMapperControl from "../../../controls/ResourceMapperControl.vue";
 import TransformControl from "../../../controls/TransformControl.vue";

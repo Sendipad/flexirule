@@ -64,12 +64,14 @@
 								style="margin-top: 0"
 							/>
 							<div class="field-picker-container">
-								<FieldPickerControl
-									:df="{ label: '' }"
-									:fields="doctype_fields"
-									:documentType="reference_doctype"
+								<ComboBoxControl
+									:df="{ label: '', fieldtype: 'FieldPicker' }"
+									:options="doctype_fields"
+									:doctype="reference_doctype"
 									:modelValue="row.field"
 									:read_only="readOnly"
+									:trigger="'button'"
+									:hideLabel="true"
 									:class="{
 										'border-warning': !is_field_valid(
 											row.field,
@@ -203,12 +205,14 @@
 							:key="idx"
 							class="row-item field-row"
 						>
-							<FieldPickerControl
-								:df="{ label: '' }"
-								:fields="doctype_fields"
-								:documentType="reference_doctype"
+							<ComboBoxControl
+								:df="{ label: '', fieldtype: 'FieldPicker' }"
+								:options="doctype_fields"
+								:doctype="reference_doctype"
 								:modelValue="row.field"
 								:read_only="readOnly"
+								:trigger="'button'"
+								:hideLabel="true"
 								class="flex-1"
 								:class="{
 									'border-warning':
@@ -253,11 +257,12 @@
 					/>
 					<div class="sub-section">
 						<label class="control-label small">{{ __("Group By") }}</label>
-						<AutocompleteControl
+						<ComboBoxControl
 							:df="{ label: '', fieldtype: 'Autocomplete' }"
 							:modelValue="config.group_by"
-							:get_options="get_group_by_options"
+							:get_query="get_group_by_options"
 							:read_only="readOnly"
+							:hideLabel="true"
 							:showOnFocus="true"
 							@update:modelValue="update_config_key('group_by', $event)"
 						/>
@@ -332,7 +337,7 @@
 								<template v-if="report_filter_types[df.fieldname] === 'Expression'">
 									<div class="expression-input-group">
 										<span class="expr-prefix">{</span>
-										<AutocompleteControl
+										<ComboBoxControl
 											:df="{
 												fieldtype: 'Autocomplete',
 												label: '',
@@ -341,9 +346,10 @@
 											:modelValue="
 												strip_expression(report_filter_values[df.fieldname])
 											"
-											:get_options="get_variable_options"
+											:get_query="get_variable_options"
 											:placeholder="__('variable')"
 											:read_only="readOnly"
+											:hideLabel="true"
 											@update:modelValue="
 												report_filter_values[df.fieldname] = `{${$event}}`;
 												sync_local_config();
@@ -388,12 +394,14 @@
 				<div class="sub-section section-subcard mt-3">
 					<template v-if="['Sum', 'Average', 'Min', 'Max'].includes(mode)">
 						<div class="field-picker-container">
-							<FieldPickerControl
-								:df="fieldField"
-								:fields="doctype_fields"
-								:documentType="reference_doctype"
+							<ComboBoxControl
+								:df="{ ...fieldField, fieldtype: 'FieldPicker' }"
+								:options="doctype_fields"
+								:doctype="reference_doctype"
 								:modelValue="config.field"
 								:read_only="readOnly"
+								:trigger="'button'"
+								:hideLabel="true"
 								:class="{
 									'border-warning':
 										config.field &&
@@ -410,12 +418,14 @@
 					</template>
 					<template v-else-if="mode === 'Group By'">
 						<div class="field-picker-container">
-							<FieldPickerControl
-								:df="aggGroupByField"
-								:fields="doctype_fields"
-								:documentType="reference_doctype"
+							<ComboBoxControl
+								:df="{ ...aggGroupByField, fieldtype: 'FieldPicker' }"
+								:options="doctype_fields"
+								:doctype="reference_doctype"
 								:modelValue="config.group_by_field"
 								:read_only="readOnly"
+								:trigger="'button'"
+								:hideLabel="true"
 								:class="{
 									'border-warning':
 										config.group_by_field &&
@@ -440,12 +450,14 @@
 							@update:modelValue="(val) => update_config_key('agg_function', val)"
 						/>
 						<div class="field-picker-container mt-2">
-							<FieldPickerControl
-								:df="aggFieldField"
-								:fields="doctype_fields"
-								:documentType="reference_doctype"
+							<ComboBoxControl
+								:df="{ ...aggFieldField, fieldtype: 'FieldPicker' }"
+								:options="doctype_fields"
+								:doctype="reference_doctype"
 								:modelValue="config.agg_field"
 								:read_only="readOnly"
+								:trigger="'button'"
+								:hideLabel="true"
 								:class="{
 									'border-warning':
 										config.agg_field &&
@@ -486,8 +498,7 @@
 import { reactive, ref, computed, watch, onMounted } from "vue";
 import { useActionConfig } from "../../../composables/useActionConfig";
 import ControlFactory from "../../../controls/ControlFactory.vue";
-import AutocompleteControl from "../../../controls/AutocompleteControl.vue";
-import FieldPickerControl from "../../../controls/FieldPickerControl.vue";
+import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
 import FilterGroup from "../FilterGroup.vue";
 import { useNodeConfigPolicy } from "../../../composables/useNodeConfigPolicy";
 

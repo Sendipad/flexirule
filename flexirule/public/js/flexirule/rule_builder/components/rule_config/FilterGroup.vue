@@ -11,9 +11,10 @@
 				<div class="filter-row-main">
 					<!-- Doctype Picker (if allowAnyDoctype) -->
 					<div v-if="allowAnyDoctype" class="filter-col doctype-col">
-						<LinkControl
+						<ComboBoxControl
 							:df="{ label: '', fieldtype: 'Link', options: 'DocType' }"
 							:modelValue="row.doctype || doctype"
+							:doctype="'DocType'"
 							:hideLabel="true"
 							:read_only="readOnly"
 							@update:modelValue="(val) => updateRow(idx, { doctype: val })"
@@ -23,12 +24,14 @@
 					<!-- Field Picker -->
 					<div class="filter-col field-col">
 						<div class="field-picker-container">
-							<FieldPickerControl
-								:df="{ label: '' }"
-								:fields="getFieldsForDoctype(row.doctype || doctype)"
-								:documentType="row.doctype || doctype"
+							<ComboBoxControl
+								:df="{ label: '', fieldtype: 'FieldPicker' }"
+								:options="getFieldsForDoctype(row.doctype || doctype)"
+								:doctype="row.doctype || doctype"
 								:modelValue="row.field"
 								:read_only="readOnly"
+								:trigger="'button'"
+								:hideLabel="true"
 								:class="{
 									'border-warning':
 										row.field &&
@@ -92,12 +95,12 @@
 												row.value_type === 'Expression'
 											"
 										>
-											<AutocompleteControl
+											<ComboBoxControl
 												:df="{ fieldtype: 'Autocomplete', label: '' }"
 												:modelValue="
 													stripBracket(getBetweenValue(row.value, 0))
 												"
-												:get_options="getVariableOptions"
+												:get_query="getVariableOptions"
 												:hideLabel="true"
 												:read_only="readOnly"
 												@update:modelValue="
@@ -132,12 +135,12 @@
 												row.value_type === 'Expression'
 											"
 										>
-											<AutocompleteControl
+											<ComboBoxControl
 												:df="{ fieldtype: 'Autocomplete', label: '' }"
 												:modelValue="
 													stripBracket(getBetweenValue(row.value, 1))
 												"
-												:get_options="getVariableOptions"
+												:get_query="getVariableOptions"
 												:hideLabel="true"
 												:read_only="readOnly"
 												@update:modelValue="
@@ -222,10 +225,10 @@
 										v-if="row.value_type === 'Expression'"
 										>{</span
 									>
-									<AutocompleteControl
+									<ComboBoxControl
 										:df="{ fieldtype: 'Autocomplete', label: '' }"
 										:modelValue="stripBracket(row.value)"
-										:get_options="getVariableOptions"
+										:get_query="getVariableOptions"
 										:hideLabel="true"
 										:read_only="readOnly"
 										@update:modelValue="
@@ -317,9 +320,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted } from "vue";
-import FieldPickerControl from "../../controls/FieldPickerControl.vue";
-import AutocompleteControl from "../../controls/AutocompleteControl.vue";
-import LinkControl from "../../controls/LinkControl.vue";
+import ComboBoxControl from "../../controls/ComboBoxControl.vue";
 import ControlFactory from "../../controls/ControlFactory.vue";
 import ValueResolverControl from "../../controls/ValueResolverControl.vue";
 import { useStore } from "../../stores";

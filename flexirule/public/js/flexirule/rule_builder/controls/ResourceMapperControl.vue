@@ -14,7 +14,7 @@
 			</div>
 			<div class="rm-option-group">
 				<label class="rm-label-sm">{{ __("Source") }}</label>
-				<AutocompleteControl
+				<ComboBoxControl
 					:df="{ fieldtype: 'Autocomplete', label: '' }"
 					:options="sourceOptionsNormalized"
 					:modelValue="ui.source_path"
@@ -123,10 +123,14 @@
 						<i class="fa fa-long-arrow-left rm-arrow"></i>
 					</div>
 					<div class="rm-cell rm-cell-source">
-						<FieldPickerControl
-							:df="{ label: '' }"
-							:fields="scalarSourceOptions"
-							v-model="row.path"
+						<ComboBoxControl
+							:df="{ label: '', fieldtype: 'FieldPicker' }"
+							:options="scalarSourceOptions"
+							:modelValue="row.path"
+							:read_only="readOnly"
+							:trigger="'button'"
+							:hideLabel="true"
+							@update:modelValue="(val) => (row.path = val || '')"
 						/>
 					</div>
 					<div class="rm-cell rm-cell-action">
@@ -200,12 +204,14 @@
 				</div>
 				<!-- Target -->
 				<div class="rm-cell rm-cell-target">
-					<FieldPickerControl
-						:df="{ label: '' }"
-						:fields="scalarTargetOptions"
-						:documentType="targetDoctype"
+					<ComboBoxControl
+						:df="{ label: '', fieldtype: 'FieldPicker' }"
+						:options="scalarTargetOptions"
+						:doctype="targetDoctype"
 						:modelValue="row.target"
 						:read_only="readOnly"
+						:trigger="'button'"
+						:hideLabel="true"
 						@update:modelValue="(val) => (row.target = val || '')"
 					/>
 				</div>
@@ -226,7 +232,7 @@
 
 				<!-- Source Value -->
 				<div class="rm-cell rm-cell-source">
-					<AutocompleteControl
+					<ComboBoxControl
 						v-if="row.source_type === 'path'"
 						:df="{ fieldtype: 'Autocomplete', label: '' }"
 						:options="scalarSourceOptions"
@@ -413,10 +419,14 @@
 								<i class="fa fa-long-arrow-left rm-arrow"></i>
 							</div>
 							<div class="rm-cell rm-cell-source">
-								<FieldPickerControl
-									:df="{ label: '' }"
-									:fields="getTableRowSourceOptions(table)"
-									v-model="row.path"
+								<ComboBoxControl
+									:df="{ label: '', fieldtype: 'FieldPicker' }"
+									:options="getTableRowSourceOptions(table)"
+									:modelValue="row.path"
+									:read_only="readOnly"
+									:trigger="'button'"
+									:hideLabel="true"
+									@update:modelValue="(val) => (row.path = val || '')"
 								/>
 							</div>
 							<div class="rm-cell rm-cell-action">
@@ -555,7 +565,7 @@
 						</div>
 
 						<div class="rm-cell rm-cell-source">
-							<AutocompleteControl
+							<ComboBoxControl
 								v-if="row.source_type === 'path'"
 								:df="{ fieldtype: 'Autocomplete', label: '' }"
 								:options="getTableRowSourceOptions(table)"
@@ -642,8 +652,7 @@
 
 <script setup>
 import { computed, ref, watch } from "vue";
-import AutocompleteControl from "./AutocompleteControl.vue";
-import FieldPickerControl from "./FieldPickerControl.vue";
+import ComboBoxControl from "./ComboBoxControl.vue";
 
 const props = defineProps({
 	df: { type: Object, default: null },

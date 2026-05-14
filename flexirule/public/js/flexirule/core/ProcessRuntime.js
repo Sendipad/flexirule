@@ -99,6 +99,12 @@ export default class ProcessRuntime extends BaseEngine {
 	 * Custom Options Resolver for DocFields/Variables.
 	 */
 	async optionsResolver(field) {
+		const sourceFieldtype = field?._source_fieldtype;
+		const isDocFieldLike =
+			sourceFieldtype === "DocField" ||
+			sourceFieldtype === "FieldPicker" ||
+			field.options === "DocField";
+
 		if (
 			field.fieldtype === "Autocomplete" ||
 			field.fieldtype === "DocField" ||
@@ -106,10 +112,11 @@ export default class ProcessRuntime extends BaseEngine {
 			field.fieldtype === "MultiDocField"
 		) {
 			const ref = field.options;
-			if (!ref) return [];
+			if (!ref && !isDocFieldLike) return [];
 
 			let target = this.document_type;
-			let is_meta_only = ref === "Variables" || ref === "Field Picker";
+			let is_meta_only =
+				ref === "Variables" || ref === "Field Picker" || sourceFieldtype === "FieldPicker";
 
 			if (
 				!is_meta_only &&
@@ -129,6 +136,11 @@ export default class ProcessRuntime extends BaseEngine {
 			if (is_meta_only) {
 				fields = context_vars;
 			} else {
+				// DocField-like process schemas often omit options intentionally;
+				// fall back to the current rule document type in that case.
+				if (!target && isDocFieldLike) {
+					target = this.document_type;
+				}
 				fields = await flexirule.utils.get_combined_fields(target, context_vars);
 			}
 

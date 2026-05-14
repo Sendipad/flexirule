@@ -5,7 +5,7 @@
  */
 import ControlFactory from "../../controls/ControlFactory.vue";
 import SelectControl from "../../controls/SelectControl.vue";
-import FieldPickerControl from "../../controls/FieldPickerControl.vue";
+import ComboBoxControl from "../../controls/ComboBoxControl.vue";
 import ContextPicker from "../ContextPicker.vue";
 import { inject, ref, computed, watch, nextTick } from "vue";
 
@@ -276,11 +276,13 @@ const valueType = computed({
 		<div class="condition-main-row">
 			<!-- Field -->
 			<div class="condition-col field-col">
-				<FieldPickerControl
-					:df="{ label: '', read_only: readOnly }"
+				<ComboBoxControl
+					:df="{ label: '', fieldtype: 'FieldPicker', read_only: readOnly }"
 					v-model="node.left.ref"
-					:fields="docFields"
-					:disabled="readOnly"
+					:options="docFields"
+					:read_only="readOnly"
+					:trigger="'button'"
+					:hideLabel="true"
 					class="w-100 m-0"
 				/>
 			</div>

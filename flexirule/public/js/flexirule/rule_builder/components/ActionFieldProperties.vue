@@ -13,7 +13,7 @@
 import { computed, onMounted } from "vue";
 import { useStore } from "../stores";
 import ControlFactory from "../controls/ControlFactory.vue";
-import AutocompleteControl from "../controls/AutocompleteControl.vue";
+import ComboBoxControl from "../controls/ComboBoxControl.vue";
 import { getActionTypeOptions, getFieldLabel, getOperationOptions } from "../../core/contracts";
 import { useNodeConfigPolicy } from "../composables/useNodeConfigPolicy";
 
@@ -296,6 +296,8 @@ function is_button_field(df) {
 function needs_autocomplete(df) {
 	return (
 		df.fieldtype === "Autocomplete" ||
+		df.fieldtype === "Link" ||
+		df.fieldtype === "Dynamic Link" ||
 		df.fieldname === "operation" ||
 		df.fieldname === "target_field" ||
 		df.fieldname === "variable_name" ||
@@ -338,16 +340,21 @@ onMounted(async () => {
 				</button>
 			</template>
 
-			<!-- Autocomplete fields (operation, next_step_*) -->
+			<!-- Autocomplete / Link / Dynamic Link fields -->
 			<template v-else-if="needs_autocomplete(df)">
-				<AutocompleteControl
+				<ComboBoxControl
 					:df="{
 						...df,
 						reqd: is_mandatory(df),
 						read_only: is_read_only(df),
 					}"
 					:modelValue="get_value(df.fieldname)"
-					:get_options="() => get_autocomplete_options(df)"
+					:doctype="
+						df.fieldtype === 'Dynamic Link'
+							? nodeData?.[df.options] || ''
+							: df.options || df.target_doctype
+					"
+					:get_query="(txt) => get_autocomplete_options(df)"
 					:doc="nodeData"
 					:read_only="is_read_only(df)"
 					@update:modelValue="update_value(df.fieldname, $event)"

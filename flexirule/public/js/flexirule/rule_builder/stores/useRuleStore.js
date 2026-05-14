@@ -357,7 +357,12 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 						rawConfig = {};
 					}
 				}
-				const normalizedConfig = graphStore.clean_action_config(rawConfig) || {};
+				const normalizedConfig =
+					graphStore.clean_action_config(rawConfig, {
+						actionType: action_type,
+						processName: node.data?.process_name,
+						operation: node.data?.operation,
+					}) || {};
 				const conditionPayload =
 					action_type === "Condition"
 						? getConditionPayload({

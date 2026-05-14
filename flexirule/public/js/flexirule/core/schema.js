@@ -11,6 +11,7 @@ const SchemaUtils = {
 	 */
 	async normalizeField(field, config, context, optionsResolver) {
 		const f = { ...field };
+		const sourceFieldtype = f.fieldtype;
 
 		// 1. Standardize Flags
 		f.reqd = f.reqd || 0;
@@ -22,6 +23,7 @@ const SchemaUtils = {
 
 		// 2. Map Fieldtypes
 		f.fieldtype = CoreUtils.map_fieldtype(f.fieldtype);
+		f._source_fieldtype = sourceFieldtype;
 
 		// 3. Resolve Options (Initial)
 		f.options = await this.resolveOptions(f, config, context, optionsResolver);

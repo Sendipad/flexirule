@@ -430,8 +430,30 @@ function getEffectiveDf(row, col) {
 /* Focus behavior */
 .flexi-grid .grid-cell .form-control:focus {
 	background: #fff !important;
-	border-color: var(--primary-color, #1071e5) !important;
+	border-color: var(--fr-accent) !important;
 	box-shadow: none !important;
+}
+
+/* ComboBox in Grid */
+.flexi-grid .grid-cell .combobox-wrapper {
+	border-color: transparent !important;
+	background: transparent !important;
+	box-shadow: none !important;
+	height: 32px !important;
+}
+
+.flexi-grid .grid-cell .combobox-wrapper:hover,
+.flexi-grid .grid-cell .combobox-wrapper.is-focused {
+	border-color: var(--fr-accent) !important;
+	background: #fff !important;
+}
+
+.flexi-grid .grid-cell .combobox-input-group {
+	height: 100% !important;
+}
+
+.flexi-grid .grid-cell .combobox-input {
+	height: 100% !important;
 }
 
 /* Selects */

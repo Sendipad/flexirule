@@ -116,12 +116,13 @@
 							></span>
 							{{ __(flowMeta.primary) }}
 						</label>
-						<AutocompleteControl
+						<ComboBoxControl
 							:df="{ fieldtype: 'Autocomplete', label: '', read_only: readOnly }"
 							:modelValue="primaryNodeLabel"
-							:get_options="getNodeOptions"
+							:get_query="getNodeOptions"
 							:placeholder="__('Select next node…')"
 							:read_only="readOnly"
+							:hideLabel="true"
 							@update:modelValue="onSelectPrimary"
 						/>
 					</div>
@@ -132,12 +133,13 @@
 							<span class="flow-dot" style="background: #ef4444"></span>
 							{{ __(flowMeta.secondary) }}
 						</label>
-						<AutocompleteControl
+						<ComboBoxControl
 							:df="{ fieldtype: 'Autocomplete', label: '', read_only: readOnly }"
 							:modelValue="secondaryNodeLabel"
-							:get_options="getNodeOptions"
+							:get_query="getNodeOptions"
 							:placeholder="__('Select next node…')"
 							:read_only="readOnly"
+							:hideLabel="true"
 							@update:modelValue="onSelectSecondary"
 						/>
 					</div>
@@ -151,7 +153,7 @@
 import { computed } from "vue";
 import { useStore } from "../../stores";
 import ControlFactory from "../../controls/ControlFactory.vue";
-import AutocompleteControl from "../../controls/AutocompleteControl.vue";
+import ComboBoxControl from "../../controls/ComboBoxControl.vue";
 import { getContract, getDerivedFieldState } from "../../../core/contracts.js";
 
 const props = defineProps({ node: Object, readOnly: Boolean });

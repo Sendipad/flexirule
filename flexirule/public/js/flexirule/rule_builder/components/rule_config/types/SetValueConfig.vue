@@ -20,11 +20,12 @@
 						<span v-if="targetFieldState.reqd" class="text-danger">*</span></label
 					>
 					<template v-if="props.node?.data?.operation === 'Context Variable'">
-						<AutocompleteControl
-							:df="with_read_only({ label: '' })"
+						<ComboBoxControl
+							:df="with_read_only({ label: '', fieldtype: 'Autocomplete' })"
 							:modelValue="props.node?.data?.target_field"
-							:get_options="async () => variable_options"
+							:get_query="async () => variable_options"
 							:read_only="readOnly"
+							:hideLabel="true"
 							@update:modelValue="(val) => update_action_field('target_field', val)"
 						/>
 						<small class="text-muted">{{
@@ -32,12 +33,14 @@
 						}}</small>
 					</template>
 					<template v-else>
-						<FieldPickerControl
-							:df="with_read_only({ label: '' })"
-							:fields="doctype_fields"
-							:documentType="reference_doctype"
+						<ComboBoxControl
+							:df="with_read_only({ label: '', fieldtype: 'FieldPicker' })"
+							:options="doctype_fields"
+							:doctype="reference_doctype"
 							:modelValue="props.node?.data?.target_field"
 							:read_only="readOnly"
+							:trigger="'button'"
+							:hideLabel="true"
 							@update:modelValue="(val) => update_action_field('target_field', val)"
 						/>
 						<small class="text-muted">{{
@@ -64,9 +67,8 @@
 <script setup>
 import { computed, watch } from "vue";
 import { useActionConfig } from "../../../composables/useActionConfig";
-import FieldPickerControl from "../../../controls/FieldPickerControl.vue";
+import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
 import ControlFactory from "../../../controls/ControlFactory.vue";
-import AutocompleteControl from "../../../controls/AutocompleteControl.vue";
 import TextGeneratorControl from "../../../controls/TextGeneratorControl.vue";
 import { compileSegmentsToJinja } from "../../../utils/text_generator";
 import { getDerivedFieldState, getFieldLabel } from "../../../../core/contracts.js";
