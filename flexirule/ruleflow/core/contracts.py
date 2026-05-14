@@ -1148,7 +1148,7 @@ CONFIG_MODAL_TYPES = {
 	"Loop",
 }
 
-RELEASE_DISABLED_ACTION_TYPES = set()
+RELEASE_DISABLED_ACTION_TYPES: set[str] = set()
 RETURN_TYPE_OPTIONS = [
 	"Yes / No",
 	"Single Record",
