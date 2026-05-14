@@ -41,7 +41,7 @@ The engine uses a pluggable handler system. Built-in handlers include:
 | Handler | Responsibility |
 | :--- | :--- |
 | **Condition** | Evaluates a Python expression and branches (True/False). |
-| **Process** | Executes a Python function defined in a `Process` DocType. |
+| **Process** | Executes a Python function defined in a `Process` DocType. Returns data or mutation intents. |
 | **Set Value** | Updates a field or variable using a Jinja template. |
 | **Query Records** | Performs database lookups (List, Doc, Count, Sum, etc.). |
 | **Document Action** | Creates, Updates, or Deletes records; Adds ToDos/Comments. |

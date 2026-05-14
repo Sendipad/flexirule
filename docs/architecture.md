@@ -53,12 +53,13 @@ The executor that traverses the graph. It features:
 -   **Strategy Pattern**: Uses a `HandlerRegistry` to dispatch execution to specific `ActionHandlers` (Condition, Process, Set Value, etc.).
 -   **Cycle Detection**: Prevents infinite loops via visit counting and iteration limits.
 -   **Error Policy**: Implements configurable error handling (Continue, Retry with backoff, Rollback, Escalate).
+-   **Mutation Application**: Applies execution results to the document or context variables based on the designer's configuration.
 
 ### **ConditionCompiler**
 Compiles visual JSON condition trees into optimized Python strings for ultra-fast evaluation via `frappe.safe_eval`.
 
 ### **ContextManager**
-Manages the variable scope (`vars`) during execution, ensuring type safety and providing structured mutation modes for updating the document or context.
+Manages the variable scope (`vars`) during execution, ensuring type safety and providing an interface for the engine to update the document or context.
 
 ---
 

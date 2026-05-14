@@ -18,7 +18,7 @@ FlexiRule provides a variety of action types, each represented as a node in the 
 Executes reusable business logic defined in a `Process` DocType. This is the primary way to extend FlexiRule with custom Python code.
 - **Inputs**: Defined by the Operation's `config_schema`.
 - **Outputs**: Defined by the Operation's `output_schema`.
-- **Mutation**: Can update the document, context variables, or the database.
+- **Mutation Logic**: Processes are designed to be side-effect free. They return results (data) or explicit **Mutation Intents**. The Rule Engine is responsible for applying these changes (e.g., updating a document field or context variable) based on the **Mutation Mode** selected by the rule designer.
 
 ### **Set Value**
 Updates a field or variable using a Jinja template.
