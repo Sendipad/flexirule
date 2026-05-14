@@ -6,59 +6,51 @@ The Rule Builder is a Vue 3-based visual workspace for designing business logic 
 
 ### Nodes (Actions)
 Each node in the graph represents a **Rule Action**.
-- **Entry Action**: The starting point of every rule. It defines the trigger criteria (DocType, Event, Priority).
-- **Functional Nodes**: Perform work (e.g., Process, Set Value, Query Records).
-- **Control Nodes**: Manage flow (e.g., Condition, Loop, Switch).
-- **Terminal Nodes**: End the execution (e.g., Stop, Raise Error).
+- **Entry Action**: The starting point. Defines trigger criteria.
+- **Functional Nodes**: Perform work (Process, Set Value, Query Records).
+- **Control Nodes**: Manage flow (Condition, Loop, Switch).
 
 ### Edges (Connections)
-Connections between nodes define the execution order.
-- **Default Path**: Followed after a node completes successfully.
-- **Conditional Paths**: Labeled `True` (Success) and `False` (Failure/Else) for branching logic.
-- **Loop Paths**: `For Each` (body of the loop) and `After Last` (continuation after completion).
+Connections define execution order, including branching (`True`/`False`) and iteration (`For Each`).
+
+---
+
+## No-Code & Error Prevention
+
+A primary goal of the Rule Builder is to eliminate error-prone manual input by providing a strictly guided configuration experience.
+
+### Context-Aware Field Pickers
+Instead of typing field names, users select them from intelligent pickers. These pickers are **Context-Aware**, meaning they only show fields relevant to the current state:
+- **Primary DocFields**: Fields from the Rule's target DocType.
+- **Upstream Variables**: Results and outputs from previous nodes in the current path.
+- **Reference DocTypes**: When a node points to a different record (e.g., in a `Query Records` action), the picker automatically switches to the schema of that reference DocType.
+
+### Reactive & Type-Aware Controls
+The builder's input controls are highly reactive. They understand the **FieldType** of the selected data and adapt accordingly:
+- **Automatic Validation**: If a user selects a Date field (`posting_date`), the system automatically ensures the comparison value is a date, preventing invalid configurations like `posting_date == "Yes"`.
+- **Dynamic Operator Filtering**: The list of available operators (e.g., `Greater Than`, `Contains`) changes based on whether the selected field is numeric, a string, or a collection.
+- **Inter-Field Reactivity**: Changing one field (like selecting a different DocType) instantly updates the configuration options for all dependent fields in that node's setup.
 
 ---
 
 ## Builder UI Features
 
 ### 1. The Canvas (VueFlow)
-- **Drag-and-Drop**: Easily move nodes to organize your flow.
-- **Auto-Layout**: Use the "Auto Layout" button to automatically organize nodes using a Sugiyama-style algorithm (Dagre).
-- **Mini-map & Controls**: Zoom, pan, and fit-view for navigating large graphs.
+- **Auto-Layout**: Automatically organize nodes using the "Auto Layout" button.
+- **Mini-map & Controls**: Navigate large graphs with ease.
 
 ### 2. Configuration Modes
-Depending on your settings, nodes can be configured in two ways:
-- **Sidebar Mode**: A panel opens on the right side for quick edits.
-- **Modal Mode**: A centered dialog for a focused configuration experience.
-
-### 3. Dynamic Form Rendering
-FlexiRule uses **JSON Schemas** to generate configuration forms. This means that if you create a custom `Process`, the builder will automatically render the correct inputs (Link pickers, Checkboxes, etc.) based on your Python code.
-
----
-
-## Designer Tools
-
-### Context-Aware Variable Picker
-When configuring an action (like `Set Value`), the builder provides an autocomplete list of all variables available at that point in the graph. This includes:
-- All fields from the primary DocType.
-- Output variables from all upstream nodes.
-- Special variables like `vars.loop` (inside loops) or `vars.index`.
-
-### Copy & Paste
-You can select one or more nodes and copy them (`Ctrl+C`) to the clipboard. These can be pasted (`Ctrl+V`) into the same rule or a different one. FlexiRule remaps the internal connections and ensures action IDs are unique.
-
-### Undo / Redo
-The builder maintains a history of your changes. You can safely experiment and revert changes using standard shortcuts (`Ctrl+Z`, `Ctrl+Y`).
+- **Sidebar Mode**: Quick edits on the right panel.
+- **Modal Mode**: Focused full-screen dialog.
 
 ---
 
 ## Testing & Debugging
 
 ### Live Test
-From the builder, you can click **Test Rule** to execute the current logic against a real document.
-- **Dry Run**: Execute the rule without committing database changes.
-- **Visual Feedback**: The builder highlights the path taken during the test directly on the canvas.
-- **Execution Log Overlay**: View real-time status badges (✅/❌) on each node and inspect the final variable state.
+Click **Test Rule** to execute the current logic against a real document.
+- **Dry Run**: No database commits.
+- **Visual Feedback**: Highlights the execution path and provides real-time status badges (✅/❌) on each node.
 
 ### Simulation
-Simulation allows you to step through the rule logic to see exactly how conditions would evaluate and how variables would change, without executing side-effect-heavy processes.
+Step through rule logic without executing side-effects to verify condition paths and variable changes.
