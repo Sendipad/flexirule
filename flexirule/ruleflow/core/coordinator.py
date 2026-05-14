@@ -641,6 +641,9 @@ class RuleCoordinator:
 		        old_doc: Document state before save (optional)
 		        event_name: Trigger event name (optional)
 		"""
+		# Mark as sync hook execution to prevent unsafe operations (like retries with sleep)
+		in_sync_hook = event_name in RuleCoordinator.BLOCKING_EVENTS
+
 		# Check if rule should run asynchronously
 		if rule_doc.execution_mode == "Asynchronous":
 			# Async only works for saved documents
@@ -659,7 +662,7 @@ class RuleCoordinator:
 
 		# Execute using new Engine
 		# Pass old_doc in context
-		execution_context = {"old_doc": old_doc}
+		execution_context = {"old_doc": old_doc, "_in_sync_hook": in_sync_hook}
 		if frappe.flags.in_test:
 			execution_context["test_mode"] = True
 
