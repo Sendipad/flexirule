@@ -13,43 +13,41 @@ The FlexiRule frontend is a sophisticated **Vue 3** application integrated into 
 ## State Management (Pinia Stores)
 
 ### `useRuleStore` & `useGraphStore`
-These stores manage the Rule lifecycle and visual graph elements. They coordinate the mapping of Rule Action child tables to visual nodes and maintain the topological order required for saving.
+These stores manage the Rule lifecycle and visual graph elements.
+
+#### **Variable Resolution Algorithm**
+The `useGraphStore` implements the `getAvailableVariables` method, which is the heart of the builder's temporal isolation:
+1.  **Graph Traversal**: It performs a backward traversal of the graph starting from the currently selected node.
+2.  **Upstream Collection**: It identifies all reachable **upstream nodes** (ancestors in the execution path).
+3.  **Variable Extraction**: It collects all output variables, return values, and document mutations defined in those upstream nodes.
+4.  **Schema Projection**: If an upstream node is a Process or Query, it projects the expected output schema into the variable list.
+5.  **Scope Filtering**: It ensures that variables from parallel branches or downstream nodes are strictly excluded.
 
 ### `useUIStore`
-Handles selection, modal states, and stores execution traces for visualization.
+Handles selection, modal states, and stores execution traces.
 
 ---
 
 ## Intelligent & Reactive Controls
 
-The Rule Builder ensures data integrity through a combination of the `SchemaRenderer` and `ControlFactory` components.
+The Rule Builder ensures data integrity through the `SchemaRenderer` and `ControlFactory` components.
 
 ### Dynamic Control Factory
-The `ControlFactory` dynamically mounts Vue components based on the metadata provided by the backend. It ensures that every input is "aware" of its context:
-- **Type-Matching**: Controls like `DataControl` or `LinkControl` are instantiated with knowledge of the expected Frappe FieldType.
-- **Value Constraints**: If a backend schema specifies a field as `Date`, the `ControlFactory` ensures only date-compatible inputs are available, preventing type-mismatch errors in rule logic.
+The `ControlFactory` dynamically mounts Vue components based on metadata. It ensures type-matched inputs, preventing errors like comparing a date to a boolean.
 
 ### Reactivity & Awareness
-Controls are designed to be cross-reactive. When a field like `reference_doctype` is updated in a node:
-1.  A reactive event is triggered.
-2.  The `SchemaRenderer` re-evaluates the configuration schema.
-3.  Dependent field pickers (like `target_field`) instantly refresh their options based on the new DocType's metadata.
-
-This "awareness" is what prevents invalid logic, such as comparing a date field to a boolean value, by strictly limiting available options and operators at the UI level.
+Controls are cross-reactive. Updating a `reference_doctype` instantly refreshes dependent field pickers (`target_field`) by re-evaluating the configuration schema.
 
 ---
 
 ## Graph Normalization & Sync
 
-1.  **Loading**: `sync_actions_to_graph` reads the `actions` child table and builds the VueFlow representation.
-2.  **Visual Layout**: `merge_visual_layout` applies stored coordinates.
+1.  **Loading**: `sync_actions_to_graph` builds the VueFlow representation from the child table.
+2.  **Visual Layout**: `merge_visual_layout` applies coordinates.
 3.  **Saving**: `RuleStore` performs a **Topological Sort** to ensure actions are persisted in execution order.
 
 ---
 
 ## Testing Visualization
 
-When a test run is performed, the `UIStore` processes the `path_trace`:
-- **Path Highlighting**: Styles edges involved in the execution.
-- **Node Badges**: Decorates nodes with status icons based on the execution result.
-- **Execution Panel**: Provides a chronological list of steps and durations.
+When a test run is performed, the `UIStore` processes the `path_trace` to highlight edges, decorate nodes with badges, and display a step-by-step execution log.

@@ -17,23 +17,24 @@ When a Rule is saved, the `ConditionCompiler` translates the JSON AST into an op
 
 ---
 
-## Logical Grouping & Visual Management
+## Hierarchical Logical Grouping (AND/OR)
 
-The FlexiRule condition builder is designed for unlimited complexity through hierarchical nesting and intuitive UI interactions.
+The condition system supports unlimited logical complexity through **Nested Hierarchical Grouping**.
 
-### Hierarchical Logical Groups
-Users can create deeply nested logic by combining `AND` and `OR` groups.
-- **AND Groups**: All child conditions/groups must evaluate to `True`.
-- **OR Groups**: At least one child condition/group must evaluate to `True`.
-- **Nesting**: Groups can contain other groups, allowing for complex expressions like `(A AND B) OR (C AND (D OR E))`.
+- **Infinite Nesting**: You can create groups within groups (e.g., `(Group A AND Group B) OR (Group C AND Group D)`).
+- **Logical Precision**: This allows for precise control over Boolean precedence, ensuring that complex business rules—such as those found in large-scale ERP systems—can be modeled accurately without code.
 
-### Drag-and-Group UI
-The builder provides a fluid, drag-and-drop interface for managing these logic trees:
-- **Dynamic Reordering**: Move conditions between groups to change their logical precedence instantly.
-- **Visual Grouping**: Drag one condition onto another to automatically create a new logical group.
-- **Context-Switching**: Easily toggle a group's operator between `AND` and `OR` with a single click.
+---
 
-This system adapts to any business need, whether it's a simple ERP validation or a complex multi-layered orchestration flow, by making the underlying Boolean algebra visible and manipulatable without writing code.
+## Visual Drag-and-Group UI
+
+Managing complex logic trees is made intuitive through the builder's specialized drag-and-drop interface:
+
+- **Dynamic Regrouping**: Users can drag an existing condition or an entire group into another group to instantly change the logical structure.
+- **Auto-Nesting**: Dragging one condition directly onto another automatically scaffolds a new `AND` group, facilitating rapid logic building.
+- **Visual Clarity**: The UI uses indented, color-coded blocks to represent hierarchical levels, making it easy to audit even the most complex logic at a glance.
+
+This fluid interface ensures that as your business requirements change, your logic can be rearranged and expanded with zero technical overhead.
 
 ---
 

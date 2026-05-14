@@ -10,26 +10,23 @@ Each node in the graph represents a **Rule Action**.
 - **Functional Nodes**: Perform work (Process, Set Value, Query Records).
 - **Control Nodes**: Manage flow (Condition, Loop, Switch).
 
-### Edges (Connections)
-Connections define execution order, including branching (`True`/`False`) and iteration (`For Each`).
-
 ---
 
 ## No-Code & Error Prevention
 
 A primary goal of the Rule Builder is to eliminate error-prone manual input by providing a strictly guided configuration experience.
 
-### Context-Aware Field Pickers
-Instead of typing field names, users select them from intelligent pickers. These pickers are **Context-Aware**, meaning they only show fields relevant to the current state:
-- **Primary DocFields**: Fields from the Rule's target DocType.
-- **Upstream Variables**: Results and outputs from previous nodes in the current path.
-- **Reference DocTypes**: When a node points to a different record (e.g., in a `Query Records` action), the picker automatically switches to the schema of that reference DocType.
+### Temporal Context Visibility (Context-Awareness)
+One of the core safety features of the builder is **Temporal Context Isolation**. At design-time, the builder ensures that an action can only access variables that are logically available at its point in the execution flow.
+
+- **Upstream-Only Visibility**: The field picker *only* displays variables created or updated by **upstream nodes** (nodes that execute before the current one).
+- **Isolation from the Future**: A node cannot "see" or reference variables that are created or updated by actions that come after it in the graph.
+- **Dynamic Schema Switching**: When a node points to a different record (e.g., in a `Query Records` action), the picker automatically switches to the schema of that reference DocType, while maintaining access to all valid upstream context.
 
 ### Reactive & Type-Aware Controls
-The builder's input controls are highly reactive. They understand the **FieldType** of the selected data and adapt accordingly:
-- **Automatic Validation**: If a user selects a Date field (`posting_date`), the system automatically ensures the comparison value is a date, preventing invalid configurations like `posting_date == "Yes"`.
-- **Dynamic Operator Filtering**: The list of available operators (e.g., `Greater Than`, `Contains`) changes based on whether the selected field is numeric, a string, or a collection.
-- **Inter-Field Reactivity**: Changing one field (like selecting a different DocType) instantly updates the configuration options for all dependent fields in that node's setup.
+The builder's input controls are highly reactive and understand the **FieldType** of the selected data:
+- **Automatic Validation**: If a user selects a Date field (`posting_date`), the system ensures the comparison value is a date, preventing invalid configurations like `posting_date == "Yes"`.
+- **Dynamic Operator Filtering**: Available operators (e.g., `Greater Than`, `Contains`) change based on the data type (numeric, string, or collection).
 
 ---
 
