@@ -1,4 +1,4 @@
-# Copyright (c) 2025, Bolton and contributors
+# Copyright (c) 2025, FlexiRule and contributors
 # For license information, please see license.txt
 # TODO : if frappe respect creating table on installing new app based on fields order in json files then reorder fields in json files based on their important
 # import frappe

@@ -1,4 +1,4 @@
-# Copyright (c) 2025, Bolton and Contributors
+# Copyright (c) 2025, FlexiRule and Contributors
 # See license.txt
 
 from unittest.mock import patch

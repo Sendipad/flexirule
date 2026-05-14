@@ -1,8 +1,8 @@
-# Copyright (c) 2025, Bolton and contributors
+# Copyright (c) 2025, FlexiRule and contributors
 # For license information, please see license.txt
 
 """
-Custom exceptions for the Bolton Rule Engine
+Custom exceptions for the FlexiRule Rule Engine
 """
 
 import frappe

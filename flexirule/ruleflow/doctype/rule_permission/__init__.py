@@ -1,2 +1,2 @@
-# Copyright (c) 2026, Bolton and contributors
+# Copyright (c) 2026, FlexiRule and contributors
 # For license information, please see license.txt

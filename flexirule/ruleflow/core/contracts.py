@@ -1,4 +1,4 @@
-# Copyright (c) 2025, Bolton and contributors
+# Copyright (c) 2025, FlexiRule and contributors
 # For license information, please see license.txt
 
 """
@@ -1148,7 +1148,7 @@ CONFIG_MODAL_TYPES = {
 	"Loop",
 }
 
-RELEASE_DISABLED_ACTION_TYPES = {"Switch"}
+RELEASE_DISABLED_ACTION_TYPES = set()
 RETURN_TYPE_OPTIONS = [
 	"Yes / No",
 	"Single Record",

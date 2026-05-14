@@ -14,7 +14,7 @@ from frappe.exceptions import PermissionError
 from flexirule.ruleflow.core.coordinator import RuleCoordinator
 
 
-class TestBoltonAPI(unittest.TestCase):
+class TestFlexiRuleAPI(unittest.TestCase):
 	"""Test API endpoints"""
 
 	def setUp(self):
@@ -166,7 +166,7 @@ class TestAPIPermissions(unittest.TestCase):
 def run_tests():
 	"""Helper function to run all API tests"""
 	suite = unittest.TestSuite()
-	suite.addTest(unittest.makeSuite(TestBoltonAPI))
+	suite.addTest(unittest.makeSuite(TestFlexiRuleAPI))
 	suite.addTest(unittest.makeSuite(TestAPIPermissions))
 	runner = unittest.TextTestRunner()
 	runner.run(suite)

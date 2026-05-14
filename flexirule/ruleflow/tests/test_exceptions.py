@@ -17,7 +17,7 @@ from flexirule.ruleflow.core.exceptions import (
 	RuleDisabledError,
 	RuleEngineError,
 )
-from flexirule.ruleflow.core.exceptions import TimeoutError as BoltonTimeoutError
+from flexirule.ruleflow.core.exceptions import TimeoutError as FlexiRuleTimeoutError
 
 
 class TestRuleEngineExceptions(FrappeTestCase):
@@ -50,8 +50,8 @@ class TestRuleEngineExceptions(FrappeTestCase):
 
 	def test_timeout_error(self):
 		"""Test TimeoutError"""
-		with self.assertRaises(BoltonTimeoutError):
-			raise BoltonTimeoutError("Test TimeoutError")
+		with self.assertRaises(FlexiRuleTimeoutError):
+			raise FlexiRuleTimeoutError("Test TimeoutError")
 
 	def test_exception_inheritance(self):
 		"""Test exception inheritance hierarchy"""
@@ -60,7 +60,7 @@ class TestRuleEngineExceptions(FrappeTestCase):
 		self.assertTrue(issubclass(EmptyRuleError, RuleEngineError))
 		self.assertTrue(issubclass(MethodExecutionError, RuleEngineError))
 		self.assertTrue(issubclass(CycleDetectedError, RuleEngineError))
-		self.assertTrue(issubclass(BoltonTimeoutError, RuleEngineError))
+		self.assertTrue(issubclass(FlexiRuleTimeoutError, RuleEngineError))
 
 	def test_exception_messages(self):
 		"""Test exception message preservation"""
@@ -87,8 +87,8 @@ class TestRuleEngineExceptions(FrappeTestCase):
 			self.assertEqual(str(e), msg)
 
 		try:
-			raise BoltonTimeoutError(msg)
-		except BoltonTimeoutError as e:
+			raise FlexiRuleTimeoutError(msg)
+		except FlexiRuleTimeoutError as e:
 			self.assertEqual(str(e), msg)
 
 	def test_exception_with_frappe_validation_error(self):
@@ -136,8 +136,8 @@ class TestRuleEngineExceptions(FrappeTestCase):
 		"""Test TimeoutError in a realistic scenario"""
 		timeout = 30
 		try:
-			raise BoltonTimeoutError(f"Rule execution exceeded timeout ({timeout}s)")
-		except BoltonTimeoutError as e:
+			raise FlexiRuleTimeoutError(f"Rule execution exceeded timeout ({timeout}s)")
+		except FlexiRuleTimeoutError as e:
 			self.assertIn(str(timeout), str(e))
 
 	def test_exception_attributes(self):
@@ -161,5 +161,5 @@ class TestRuleEngineExceptions(FrappeTestCase):
 		self.assertEqual(str(exc), msg)
 
 		# Test TimeoutError
-		exc = BoltonTimeoutError(msg)
+		exc = FlexiRuleTimeoutError(msg)
 		self.assertEqual(str(exc), msg)

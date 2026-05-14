@@ -1,4 +1,4 @@
-# Copyright (c) 2025, Bolton and contributors
+# Copyright (c) 2025, FlexiRule and contributors
 # For license information, please see license.txt
 
 """
@@ -38,7 +38,7 @@ from flexirule.ruleflow.core.exceptions import (
 	MethodExecutionError,
 	RuleDisabledError,
 )
-from flexirule.ruleflow.core.exceptions import TimeoutError as BoltonTimeoutError
+from flexirule.ruleflow.core.exceptions import TimeoutError as FlexiRuleTimeoutError
 from flexirule.ruleflow.core.runtime_eval import eval_condition_bool, eval_value
 from flexirule.ruleflow.utils.field_resolver import FieldResolver
 from flexirule.ruleflow.utils.mapping import apply_output_mapping
@@ -346,14 +346,14 @@ class RuleEngine:
 			self._log("INFO", f"Skipping rule execution: {e}")
 			return self.context
 
-		except (TimeoutException, FuturesTimeoutError, BoltonTimeoutError):
+		except (TimeoutException, FuturesTimeoutError, FlexiRuleTimeoutError):
 			status = "Failed"
 			error_msg = _("Rule execution exceeded timeout ({0}s)").format(
 				timeout if "timeout" in locals() else "unknown"
 			)
 			error_detail = traceback.format_exc()
 			self._log("ERROR", error_msg)
-			raise BoltonTimeoutError(error_msg)
+			raise FlexiRuleTimeoutError(error_msg)
 
 		except Exception as e:
 			status = "Failed"
@@ -464,7 +464,7 @@ class RuleEngine:
 			# Internal timeout check
 			if "_timeout" in context and "_start_time" in context and not context.get("test_mode"):
 				if time.time() - context["_start_time"] > context["_timeout"]:
-					raise BoltonTimeoutError(
+					raise FlexiRuleTimeoutError(
 						_("Rule execution exceeded timeout of {0}s").format(context["_timeout"])
 					)
 

@@ -1,8 +1,8 @@
-# Copyright (c) 2025, Bolton and contributors
+# Copyright (c) 2025, FlexiRule and contributors
 # For license information, please see license.txt
 
 """
-Whitelisted API functions for Bolton Rule Engine
+Whitelisted API functions for FlexiRule Rule Engine
 """
 
 import hashlib

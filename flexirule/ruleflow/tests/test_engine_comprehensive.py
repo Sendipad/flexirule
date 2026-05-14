@@ -21,7 +21,7 @@ from flexirule.ruleflow.core.exceptions import (
 	RuleDisabledError,
 )
 from flexirule.ruleflow.core.exceptions import (
-	TimeoutError as BoltonTimeoutError,
+	TimeoutError as FlexiRuleTimeoutError,
 )
 
 
@@ -801,7 +801,7 @@ class TestRuleEngineComprehensive(FrappeTestCase):
 				return self.start_t + (100 if self.count > 1 else 0)
 
 		with patch("time.time", side_effect=TimeMock()):
-			with self.assertRaises(BoltonTimeoutError):
+			with self.assertRaises(FlexiRuleTimeoutError):
 				engine.execute(doc, test_mode=False)  # Don't use test mode to enforce timeout
 
 	def test_engine_execute_with_test_mode_no_timeout(self):

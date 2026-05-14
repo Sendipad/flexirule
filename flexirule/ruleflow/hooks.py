@@ -1,5 +1,5 @@
 """
-Hook wrapper functions for Bolton rule engine.
+Hook wrapper functions for FlexiRule rule engine.
 These are called from hooks.py doc_events.
 """
 
