@@ -28,10 +28,10 @@ export function registerGlobalComponents(app) {
 		.component("TextControl", TextControl)
 		.component("CodeControl", CodeControl)
 		.component("MultiCheckControl", MultiCheckControl)
-		.component("MultiSelectList", MultiSelectList)
 		.component("InlineTableControl", InlineTableControl)
 		.component("MultiFieldPickerControl", MultiFieldPickerControl)
 		.component("MultiSelectControl", MultiSelectControl)
+		.component("MultiSelectList", MultiSelectList)
 		.component("PercentSliderControl", PercentSliderControl);
 
 	app.config.globalProperties.__ = window.__ || ((s) => s);
