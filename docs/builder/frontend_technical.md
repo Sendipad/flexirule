@@ -1,53 +1,38 @@
-# Frontend Technical Documentation
+# Frontend Technical Deep Dive
 
-The FlexiRule frontend is a sophisticated **Vue 3** application integrated into the Frappe Desk environment. It leverages **VueFlow** for graph orchestration and **Pinia** for modular state management.
+The FlexiRule frontend is a Vue 3 application that synchronizes complex graph logic with Frappe's relational data model.
 
-## Tech Stack
-- **Vue 3**: Composition API.
-- **Pinia**: State management with 5 modular stores.
-- **VueFlow**: Library for building node-based editors.
-- **Dagre**: Automated graph layout algorithm.
+## State Synchronization
 
----
+The builder manages three distinct layers of state:
+1.  **Frappe Model**: The `Rule` and `Rule Action` documents in `frappe.model`.
+2.  **Pinia Stores**: The reactive application state (`nodes`, `edges`, `is_dirty`).
+3.  **VueFlow State**: The internal DOM representation of the canvas.
 
-## State Management (Pinia Stores)
-
-### `useRuleStore` & `useGraphStore`
-These stores manage the Rule lifecycle and visual graph elements.
-
-#### **Variable Resolution Algorithm**
-The `useGraphStore` implements the `getAvailableVariables` method, which is the heart of the builder's temporal isolation:
-1.  **Graph Traversal**: It performs a backward traversal of the graph starting from the currently selected node.
-2.  **Upstream Collection**: It identifies all reachable **upstream nodes** (ancestors in the execution path).
-3.  **Variable Extraction**: It collects all output variables, return values, and document mutations defined in those upstream nodes.
-4.  **Schema Projection**: If an upstream node is a Process or Query, it projects the expected output schema into the variable list.
-5.  **Scope Filtering**: It ensures that variables from parallel branches or downstream nodes are strictly excluded.
-
-### `useUIStore`
-Handles selection, modal states, and stores execution traces.
+### The topological Sort for Persistence
+Because Frappe child tables are linear (indexed), but Rule logic is a graph, we must ensure that actions are stored in a logical sequence. Before saving, `useRuleStore` calls a topological sort algorithm:
+- **Algorithm**: Breadth-First Search (BFS) starting from the `Entry Action`.
+- **Purpose**: Ensures that when the Rule Engine loads the rule sequentially from the database, nodes that depend on upstream results are generally loaded after their dependencies, facilitating faster registry hydration.
 
 ---
 
 ## Intelligent & Reactive Controls
 
-The Rule Builder ensures data integrity through the `SchemaRenderer` and `ControlFactory` components.
+### Schema Renderer & Control Factory
+The `SchemaRenderer` component takes a backend JSON schema and iterates through its properties. For each property, it uses the `ControlFactory` to mount a Vue component:
+- **Reactivity**: Every control emits a `change` event that triggers a re-validation of the entire node's schema.
+- **Awareness**: Controls like `FieldPicker` use the `getAvailableVariables` algorithm to traverse the graph and provide real-time suggestions.
 
-### Dynamic Control Factory
-The `ControlFactory` dynamically mounts Vue components based on metadata. It ensures type-matched inputs, preventing errors like comparing a date to a boolean.
-
-### Reactivity & Awareness
-Controls are cross-reactive. Updating a `reference_doctype` instantly refreshes dependent field pickers (`target_field`) by re-evaluating the configuration schema.
-
----
-
-## Graph Normalization & Sync
-
-1.  **Loading**: `sync_actions_to_graph` builds the VueFlow representation from the child table.
-2.  **Visual Layout**: `merge_visual_layout` applies coordinates.
-3.  **Saving**: `RuleStore` performs a **Topological Sort** to ensure actions are persisted in execution order.
+### Variable Resolution Algorithm
+Implemented in `useGraphStore.getAvailableVariables`, this is the heart of the builder's context-awareness:
+1.  **Backwards Traversal**: Starting from node $N$, find all nodes reachable by following incoming edges.
+2.  **Ancestry Collection**: Identify the set of all ancestor nodes.
+3.  **Variable Aggregation**: For each ancestor, inspect its `return_variable` and `return_type`.
+4.  **Schema Projection**: If an ancestor is a `Process` with a known `output_schema`, project those fields as selectable child properties (e.g., `vars.my_result.status`).
 
 ---
 
-## Testing Visualization
+## Performance & Optimization
 
-When a test run is performed, the `UIStore` processes the `path_trace` to highlight edges, decorate nodes with badges, and display a step-by-step execution log.
+- **Snapshot-based History**: Undo/Redo is implemented by taking full snapshots of the `nodes` and `edges` arrays. To optimize memory, consecutive identical states are deduplicated.
+- **Metadata Caching**: `useMetaStore` maintains a request-level cache of DocType schemas to prevent redundant `get_doctype_fields` API calls while the user is designing.

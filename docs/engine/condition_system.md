@@ -1,73 +1,54 @@
-# Condition System
+# Condition System Technical Details
 
-FlexiRule features a robust condition system that allows for visual construction of complex logic while maintaining high execution performance.
+FlexiRule's condition system balances visual simplicity with Python's expressive power.
 
-## Architecture
+## Compiled Expression Logic
 
-The system operates in two phases:
+When a Rule is saved, the `ConditionCompiler` translates the visual JSON structure into a string.
 
-### 1. Design-time (Visual AST)
-In the Rule Builder, conditions are constructed visually. This structure is saved as a JSON Abstract Syntax Tree (AST) in the `condition_json` field.
-- **Groups**: Support `AND` / `OR` logic.
-- **Conditions**: Compare fields (`left`) against values or other fields (`right`) using operators.
-- **Collections**: Support `ANY` / `ALL` logic over child tables or lists.
+### Regex-Based Field Extraction
+To optimize performance, the `RuleCoordinator` must know which fields a condition depends on *without* actually evaluating the Python string. This is done using regex patterns during compilation to extract **Watched Fields**:
 
-### 2. Runtime (Compiled Python)
-When a Rule is saved, the `ConditionCompiler` translates the JSON AST into an optimized Python expression string.
-
----
-
-## Hierarchical Logical Grouping (AND/OR)
-
-The condition system supports unlimited logical complexity through **Nested Hierarchical Grouping**.
-
-- **Infinite Nesting**: You can create groups within groups (e.g., `(Group A AND Group B) OR (Group C AND Group D)`).
-- **Logical Precision**: This allows for precise control over Boolean precedence, ensuring that complex business rules—such as those found in large-scale ERP systems—can be modeled accurately without code.
+```python
+COMPILED_FIELD_PATTERNS = (
+    re.compile(r"\b(?:doc|old_doc)\.([A-Za-z_][A-Za-z0-9_]*)"),
+    re.compile(r"\b(?:doc|old_doc)\.get\(\s*['\"]([^'\"]+)['\"]"),
+    re.compile(r"\bresolve\(\s*(?:doc|old_doc)\s*,\s*['\"]([^'\"]+)['\"]"),
+)
+```
+- **Pruning**: If `doc.status` is extracted, the coordinator will only run the rule if `status` is in the document's changed fields.
 
 ---
 
-## Visual Drag-and-Group UI
+## Evaluation Environment: SafeFrappeAPI
 
-Managing complex logic trees is made intuitive through the builder's specialized drag-and-drop interface:
+To ensure that conditions cannot cause unintended side effects, they are executed via `frappe.safe_eval` with a restricted `frappe` global object called `SafeFrappeAPI`.
 
-- **Dynamic Regrouping**: Users can drag an existing condition or an entire group into another group to instantly change the logical structure.
-- **Auto-Nesting**: Dragging one condition directly onto another automatically scaffolds a new `AND` group, facilitating rapid logic building.
-- **Visual Clarity**: The UI uses indented, color-coded blocks to represent hierarchical levels, making it easy to audit even the most complex logic at a glance.
+### Whitelisted (Read-Only) Methods
+- `get_value`, `get_all`, `db_exists`, `get_meta`, `format_value`.
+- `utils`: Access to `frappe.utils` (date math, etc.).
 
-This fluid interface ensures that as your business requirements change, your logic can be rearranged and expanded with zero technical overhead.
-
----
-
-## Condition Compiler (`flexirule.ruleflow.core.compiler`)
-
-The compiler ensures that conditions are valid Python and optimized for the `frappe.safe_eval` environment.
-
-### Supported Operators
-- **Comparison**: `==`, `!=`, `>`, `<`, `>=`, `<=`
-- **Membership**: `in`, `not in`
-- **Identity**: `is`, `is not`
-- **String**: `contains`, `not_contains`
-- **Existence**: `is_set`, `is_not_set`
-- **Collection**: `is_empty`, `is_not_empty`, `length_eq`, `length_gt`, etc.
-
-### Scope Resolution
-The compiler automatically prefixes field names with the correct scope:
-- `doc.fieldname`: Current document state.
-- `old_doc.fieldname`: State before save.
-- `vars.varname`: Execution variables.
-- `row.fieldname`: Items in a collection (child tables).
+### Prohibited (Write) Methods
+Any attempt to call the following will raise a `PermissionError`:
+- `get_doc`, `new_doc`, `delete_doc`.
+- `db_set_value`, `db.sql`, `db.commit`, `db.rollback`.
 
 ---
 
-## Evaluation Environment
+## Logical Grouping & Visual UI
 
-Conditions are evaluated in a sandboxed environment using `frappe.safe_eval`.
+### Hierarchical Logical Grouping (AND/OR)
+- **Infinite Nesting**: Supports arbitrary depth of `AND` and `OR` groups.
+- **Short-Circuiting**: Compiled Python strings leverage native `and`/`or` short-circuiting for performance.
 
-### Available Globals
-- `doc`, `old_doc`, `vars`, `frappe` (SafeFrappeAPI), `rule`, `caller`.
-- **Utilities**: `resolve`, `check_link_match`, `length_of`, `is_empty_value`.
+### Visual Drag-and-Group UI
+- **Active Reactivity**: Moving a condition in the UI immediately re-calculates the logic tree's structure.
+- **Auto-Nesting**: Logic is scaffolded automatically when elements are dropped onto each other, ensuring a valid JSON AST is always maintained.
 
-### Performance & Security
-- **Watched Fields**: The coordinator skips rules if none of the fields referenced in the condition have changed.
-- **SafeFrappeAPI**: Blocks all database writes during condition evaluation.
-- **Pre-compilation**: Eliminates the overhead of JSON parsing during the execution phase.
+---
+
+## Scope Resolution
+- `doc.fieldname`: `doc.get('fieldname')`
+- `old_doc.fieldname`: `old_doc.get('fieldname')`
+- `vars.varname`: `vars.get('varname')`
+- Deep Paths: `resolve(doc, 'items.0.qty')`

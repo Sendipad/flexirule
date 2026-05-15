@@ -1,4 +1,4 @@
-# Execution Engine
+# Execution Engine Deep Dive
 
 The FlexiRule Execution Engine is a deterministic graph executor designed for reliability, observability, and safety.
 
@@ -10,38 +10,57 @@ Execution starts when the `RuleCoordinator` receives an event.
 ### 2. Eligibility & Pruning
 Before running the graph, the coordinator performs several checks: Active Status, Event Match, Watched Fields, and Trigger Conditions.
 
-### 3. Graph Traversal (`RuleEngine`)
-The `RuleEngine` traverses the graph node by node.
+---
+
+## Transaction & Error Management
+
+The engine provides enterprise-grade reliability features for handling failures and maintaining data integrity.
+
+### Exponential Backoff Math
+When an action is configured with `on_error: "Retry"`, the engine uses an exponential backoff strategy:
+- **Delay Formula**: `wait_time = 2 ^ current_attempt` seconds.
+- **Example**: Attempt 1 (2s), Attempt 2 (4s), Attempt 3 (8s).
+- **Safety**: Retries are automatically disabled inside synchronous hooks to prevent blocking the web worker.
+
+### Savepoint / Rollback Management
+For actions with the `transactional` flag or `on_error: "Rollback"`, the engine uses database savepoints:
+1.  **Creation**: `frappe.db.savepoint(savepoint_name)` is called before the action handler.
+2.  **Execution**: The handler runs.
+3.  **Rollback**: If an error occurs and rollback is required, `frappe.db.rollback(save_point=...)` is called, reverting only the changes made by that specific action, not the entire transaction.
+4.  **Release**: On success, the savepoint is released.
+
+### Reentrancy Guards
+To prevent infinite recursive loops (e.g., a rule on `Sales Invoice` updating itself and triggering the same rule), the `RuleCoordinator` implements an **Event Reentry Guard**:
+- **Mechanism**: A request-local stack tracks `(doctype, name, event)`.
+- **Action**: If a triple is already in the stack, the execution is silently skipped.
 
 ---
 
 ## Incremental Context & Isolation
 
-The engine maintains a strict **Temporal Context Isolation** policy during execution. This mirrors the design-time safeguards in the Rule Builder.
+The engine maintains a strict **Temporal Context Isolation** policy.
 
 ### Incremental Context Building
 At runtime, the execution context (`vars`, `doc` state) is built **incrementally**.
 - **Step-by-Step Availability**: An action can only read variables or document states that have been set by preceding actions in the current execution path.
-- **Future Isolation**: An action has no visibility into variables, document updates, or mutations that occur in steps following it. This prevents "future-leaking" where a node might incorrectly rely on data that hasn't been generated yet.
-- **State Consistency**: By ensuring that an action only sees the "world" as it exists at its specific timestamp in the flow, FlexiRule guarantees predictable and repeatable logic.
+- **Future Isolation**: An action has no visibility into variables, document updates, or mutations that occur in steps following it.
 
 ---
 
 ## Handler Strategy Pattern
 
-The engine uses a pluggable handler system. Built-in handlers include:
+The engine uses a pluggable handler system.
 
-| Handler | Responsibility |
-| :--- | :--- |
-| **Condition** | Evaluates a Python expression and branches (True/False). |
-| **Process** | Executes a Python function. Returns data or mutation intents. |
-| **Set Value** | Updates a field or variable using a Jinja template. |
-| **Query Records** | Performs database lookups (List, Doc, Count, etc.). |
-| **Document Action** | CRUD operations on DocTypes. |
-| **Notify** | Sends notifications (Toasts, Emails, etc.). |
-| **Sub-Rule** | Executes another rule as a subroutine. |
-| **Loop** | Iterates over a collection. |
-| **Stop** | Terminates execution successfully or with an error. |
+| Handler | Responsibility | Implementation File |
+| :--- | :--- | :--- |
+| **Condition** | Python expression branching. | `condition.py` |
+| **Process** | External logic execution. | `process.py` |
+| **Set Value** | Jinja-based assignment. | `simple_actions.py` |
+| **Query Records** | Database lookups. | `query_records.py` |
+| **Document Action** | CRUD operations. | `create_doc.py` |
+| **Notify** | User communications. | `simple_actions.py` |
+| **Sub-Rule** | Nested rule execution. | `sub_rule.py` |
+| **Loop** | Collection iteration. | `loop.py` |
 
 ---
 
@@ -51,18 +70,5 @@ The engine uses a pluggable handler system. Built-in handlers include:
 - **Visit Count**: Each node can be visited a maximum of 100 times.
 - **Total Iterations**: A single rule execution is limited to 1000 steps.
 
-### Error Handling (`on_error`)
-Each action can define how to handle failures: Stop, Continue, Retry (with backoff), Rollback (savepoint), or Escalate.
-
 ### Sandboxing
 Rule conditions and templates are evaluated using `SafeFrappeAPI`, preventing write operations during evaluation.
-
----
-
-## Observability
-
-### Execution Tracing
-Every step taken by the engine is recorded in a `path_trace`, including status, inputs, and outputs.
-
-### Rule Execution Log
-After execution, the trace and a snapshot of the `vars` are persisted in the **Rule Execution Log** DocType.
