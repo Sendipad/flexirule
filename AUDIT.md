@@ -46,8 +46,17 @@ The FlexiRule application is a robust visual rule engine with a well-structured 
     - The dropdown popover width is capped at 360px in JS, which breaks alignment when parent containers are wider.
     - _Action_: Refactor controls to use `width: 100%` and `flex: 1 1 auto` by default. Remove hardcoded pixel caps from `ComboBoxControl` positioning logic and use `ResizeObserver` to sync dropdown width to the trigger width dynamically.
 3. **Enhanced Field Selection**: The `Query Records` and `Normalization` actions use simple lists for field selection.
-    - _Action_: Implement a multi-column check-control that preserves the order of selection (critical for pipeline processing).
-    - _Status_: **Implemented** via `MultiSelectList.vue`. This consolidated component replaces `MultiCheckControl` and the legacy `MultiSelectListControl` wrapper, offering search, keyboard navigation, and multiple display modes (Badges, Numbered Lists, Multi-column).
+    - _Action_: Implement a consolidated `MultiSelectList` component to replace `MultiCheckControl` and the legacy `MultiSelectListControl` wrapper.
+    - _Requirements_:
+        - Support static options (objects, strings, tuples) and dynamic sources (Link fields with filters).
+        - Dropdown features: search, keyboard navigation, checkboxes, and "Select/Unselect Visible" buttons.
+        - Support multi-column layout configuration for the list.
+        - **Selection Ordering**: Explicitly preserve the order of selection (critical for pipeline processing).
+        - Multiple display modes for selected values:
+            - **Badges**: Compact view with removal buttons (ideal for grids).
+            - **List**: Plain vertical list.
+            - **Numbered List**: Ordered view.
+            - **Multi-column Add**: List view with an "Add" button header.
 4. **Dynamic Icon Mapping**: The icon mapping is currently hardcoded in `RuleConfigModal.vue`.
     - _Action_: Move the icon and color definitions into the `ActionContract` in `contracts.js` for easier extension.
 
