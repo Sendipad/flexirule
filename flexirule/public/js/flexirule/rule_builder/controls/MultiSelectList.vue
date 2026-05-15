@@ -11,6 +11,8 @@ const props = defineProps({
 	read_only: { type: Boolean, default: false },
 	hideLabel: { type: Boolean, default: false },
 	placeholder: { type: String, default: "" },
+	documentType: { type: String, default: "" }, // For DocField/FieldPicker logic
+	expanded: { type: Boolean, default: false }, // Inline mode
 });
 
 const emit = defineEmits(["update:modelValue", "change"]);
@@ -86,13 +88,19 @@ const filteredOptions = computed(() => {
 
 // --- Data Fetching ---
 async function fetchOptions() {
-	if (!props.get_data && props.df.fieldtype !== "Link") return;
+	if (!props.get_data && props.df.fieldtype !== "Link" && !props.documentType) return;
 
 	loading.value = true;
 	try {
 		let results = [];
 		if (props.get_data) {
 			results = await props.get_data(query.value);
+		} else if (props.documentType) {
+			const result = await frappe.call({
+				method: "flexirule.ruleflow.api.get_doctype_fields",
+				args: { doctype: props.documentType },
+			});
+			results = result.message?.parent_fields || [];
 		} else if (props.df.fieldtype === "Link" && props.df.options) {
 			const resp = await frappe.call({
 				method: "frappe.desk.search.search_link",
@@ -114,14 +122,14 @@ async function fetchOptions() {
 
 // --- Interaction Logic ---
 function toggleDropdown() {
-	if (props.read_only) return;
+	if (props.read_only || props.expanded) return;
 	isDropdownOpen.value = !isDropdownOpen.value;
 	if (isDropdownOpen.value) {
 		query.value = "";
 		activeIndex.value = -1;
 		updateDropdownPosition();
 		nextTick(() => searchInputRef.value?.focus());
-		if (props.df.fieldtype === "Link" || props.get_data) {
+		if (props.df.fieldtype === "Link" || props.get_data || props.documentType) {
 			fetchOptions();
 		}
 	}
@@ -226,6 +234,9 @@ function handleClickOutside(e) {
 
 onMounted(() => {
 	document.addEventListener("mousedown", handleClickOutside);
+	if (props.expanded) {
+		fetchOptions();
+	}
 });
 
 onBeforeUnmount(() => {
@@ -234,10 +245,19 @@ onBeforeUnmount(() => {
 
 const debouncedFetch = flexirule.utils.debounce(fetchOptions, 300);
 watch(query, () => {
-	if (props.df.fieldtype === "Link" || props.get_data) {
+	if (props.df.fieldtype === "Link" || props.get_data || props.documentType) {
 		debouncedFetch();
 	}
 });
+
+watch(
+	() => props.documentType,
+	() => {
+		if (props.expanded || isDropdownOpen.value) {
+			fetchOptions();
+		}
+	}
+);
 
 const selectedOptionsObjects = computed(() => {
 	const allOpts = normalizedOptions.value;
@@ -316,11 +336,44 @@ const selectedOptionsObjects = computed(() => {
 			</div>
 		</div>
 
-		<!-- Dropdown Popover -->
+		<!-- Expanded Mode or Dropdown Popover -->
+		<div v-if="expanded" class="expanded-options-container mt-2">
+			<div class="dropdown-search mb-2" v-if="!read_only">
+				<i class="fa fa-search text-muted mr-2"></i>
+				<input
+					v-model="query"
+					class="search-input"
+					:placeholder="__('Search options...')"
+				/>
+			</div>
+			<div class="options-grid" :style="`grid-template-columns: repeat(${columns}, 1fr)`">
+				<div
+					v-for="opt in filteredOptions"
+					:key="opt.value"
+					class="option-item"
+					:class="{ 'is-selected': selectedValues.includes(opt.value) }"
+					@click="selectOption(opt.value)"
+				>
+					<input
+						type="checkbox"
+						:checked="selectedValues.includes(opt.value)"
+						class="mr-2"
+						@click.stop="selectOption(opt.value)"
+					/>
+					<div class="option-info">
+						<div class="option-label">{{ opt.label }}</div>
+						<div v-if="opt.description" class="option-desc">
+							{{ opt.description }}
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
 		<Teleport to="body">
 			<transition name="dropdown-fade">
 				<div
-					v-if="isDropdownOpen"
+					v-if="isDropdownOpen && !expanded"
 					class="fr-dropdown multi-select-dropdown"
 					:style="dropdownStyle"
 					ref="dropdownRef"
@@ -550,6 +603,19 @@ const selectedOptionsObjects = computed(() => {
 .option-desc {
 	font-size: var(--fr-text-xs);
 	color: var(--fr-text-muted);
+}
+
+/* --- Expanded Mode --- */
+.expanded-options-container {
+	padding: var(--fr-space-4);
+	background: var(--fr-bg-card);
+	border: 1px solid var(--fr-border);
+	border-radius: var(--fr-radius-lg);
+}
+
+.options-grid {
+	display: grid;
+	gap: 8px;
 }
 
 .dropdown-fade-enter-active,
