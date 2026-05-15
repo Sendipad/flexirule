@@ -1,46 +1,61 @@
 # DocType Reference
 
-FlexiRule uses several DocTypes to manage rule definitions, reusable logic, and execution history.
+FlexiRule uses a structured set of DocTypes to manage rule definitions, visual metadata, reusable logic, and execution audit trails.
 
-## Rule
-The central DocType that defines "When" and "What" happens.
-- **Trigger Settings**: `document_type`, `trigger_event`, `trigger_type`, `priority`.
-- **Condition**: `trigger_condition` (Visual) and `compiled_expression` (Python).
-- **Execution Settings**: `execution_mode` (Sync/Async), `max_execution_time`.
-- **Visual Data**: A JSON blob containing the coordinates and layout of the graph.
-- **Actions**: A child table containing the configuration for each node in the graph.
+## 1. Rule
+The primary DocType that defines a visual automation flow. It serves as the container for both the business intent (Triggers) and the execution logic (Actions).
 
-## Rule Action (Child Table)
-Represents a single node in the Rule's graph.
-- **Identity**: `action_id`, `action_label`, `action_type`.
-- **Operation**: `process_name`, `operation` (for Process actions).
-- **Configuration**: `config` (JSON), `target_field`, `value_template`.
-- **Flow**: `next_step_if_true`, `next_step_if_false`.
-- **Policy**: `on_error`, `retry_count`, `mutation_mode`.
+### Key Fields
+- **Rule Name (`rule_name`)**: Unique identifier.
+- **Trigger Type (`trigger_type`)**: `DocType Event`, `Scheduler Event`, or `Callable Event`.
+- **Document Type (`document_type`)**: The target Frappe DocType this rule monitors.
+- **Trigger Event (`trigger_event`)**: The specific hook (e.g., `Before Save`).
+- **Priority (`priority`)**: Execution order (0-20).
+- **Execution Mode (`execution_mode`)**: `Synchronous` or `Asynchronous`.
+- **Exposed As Sub-Rule (`exposed_as_subrule`)**: Makes the rule visible to other rules.
+- **Visual Data (`visual_data`)**: Stores canvas layout and node coordinates.
 
-## Process
-A container for reusable business logic. Processes are typically "File-Backed," meaning their logic is stored in `.py` and `.js` files in your app.
-- **Module**: The Frappe module/app where the code resides.
-- **Is Standard**: If enabled, Frappe generates boilerplate code for you.
-- **Operations**: A child table defining the individual functions available in this Process.
+---
 
-## Process Operation (Child Table)
-Defines a single executable function within a Process.
-- **Metadata**: `func_name`, `label`, `description`, `icon`, `color`.
-- **Contracts**: `writes_to`, `requires_doc`, `transactional`, `is_terminal`.
-- **Schemas**: `config_schema` (inputs) and `output_schema` (results).
+## 2. Rule Action (Child Table)
+Represents a single node in the visual graph.
 
-## Rule Execution Log
-A persistent audit trail of rule executions.
-- **Reference**: Links to the `Rule` and the document processed.
-- **Metrics**: `status` (Success/Failed), `duration`, `executed_by`.
-- **Trace**: `execution_path` (the exact sequence of nodes) and `error_trace`.
-- **Snapshot**: `context_snapshot` stores the final state of all variables.
+### Key Fields
+- **Action ID (`action_id`)**: Unique ID within the graph.
+- **Step Type (`action_type`)**: Category (e.g., `Condition`, `Process`, `Loop`).
+- **Label (`action_label`)**: Display name on the canvas.
+- **On Error (`on_error`)**: Failure policy (`Stop`, `Continue`, `Retry`, `Rollback`).
+- **Mutation Mode (`mutation_mode`)**: How to apply results (e.g., `Set Doc Field`).
+- **Next Step (`next_step_if_true`)**: Primary continuation path.
+- **Else Step (`next_step_if_false`)**: Path for False/Error branches.
 
-## RuleFlow Settings
-Global configuration for the FlexiRule engine.
-- **Designer Prefs**: `action_config_mode` (Sidebar vs Modal), `layout_direction`.
-- **Engine Prefs**: `default_timeout`, `log_retention_days`.
+---
 
-## Rule Permission
-A child table within `Rule` that allows for fine-grained execution control based on Frappe Roles.
+## 3. Process & Process Operation
+A framework for extending FlexiRule with custom Python logic.
+- **Process**: Groups functions into a named, file-backed module.
+- **Process Operation**: Defines the metadata for each function, including **Config Schemas** for UI generation and **Side-Effect Intents** (`Writes To`).
+
+---
+
+## 4. Rule Execution Log
+A persistent audit trail for every execution. It stores the `status`, `duration`, a detailed `execution_path` trace, and a `context_snapshot` of all variables at the end of the run.
+
+---
+
+## 5. Supporting DocTypes
+
+### Rule Scheduler
+Manages the execution of rules with the `Scheduler Event` trigger type. It allows for CRON-based automation.
+
+### Rule Permission
+A child table within the `Rule` DocType that enables role-based execution control.
+
+### RuleFlow Settings
+Global system configuration, including designer preferences (Sidebar vs Modal) and log retention policies.
+
+### Data Review Task & Related Document
+Part of the advanced data management suite, used for human-in-the-loop validation tasks triggered by rules.
+
+### RuleFlow Excluded DocType
+A blacklist of DocTypes that should never trigger rules (e.g., Log files, temporary tables) to prevent performance issues.

@@ -15,11 +15,7 @@ FlexiRule follows a layered architecture that integrates deeply with the Frappe 
 
 ## 1. Presentation Layer (Frontend)
 
-The frontend is built using **Vue 3** and **VueFlow**, integrated into the Frappe Desk.
-
--   **State Management**: Uses **Pinia** with specialized stores. Details in [Frontend Technical Documentation](builder/frontend_technical.md).
--   **Visual Builder**: Renders a graph where each node is a **Rule Action**.
--   **Dynamic UI**: Configuration forms for nodes are generated at runtime using **JSON Schemas**.
+The frontend is built using **Vue 3** and **VueFlow**, integrated into the Frappe Desk. It manages complex graph states and ensures design-time safety through context-aware validation.
 
 ---
 
@@ -37,7 +33,7 @@ The core engine is responsible for the deterministic execution of rules.
 The entry point for all rule executions. It handles event dispatching, layered caching, and pruning via `watched_fields`. See [Trigger System](engine/trigger_system.md).
 
 ### **RuleEngine**
-The executor that traverses the graph using a Strategy Pattern. See [Execution Engine Deep Dive](engine/execution_engine.md).
+The executor that traverses the graph using a Strategy Pattern. It manages the orchestration flow and error recovery. See [Orchestration Capabilities](engine/orchestration.md).
 
 ### **ConditionCompiler**
 Compiles visual JSON condition trees into optimized Python strings for ultra-fast evaluation. See [Condition System Technical Details](engine/condition_system.md).
@@ -49,7 +45,7 @@ Manages variable scope (`vars`) and provides structured mutation modes.
 
 ## 4. Persistence Layer (Data Model)
 
-FlexiRule uses several Frappe DocTypes, including `Rule`, `Rule Action`, `Process`, and `Rule Execution Log`. Details in [DocType Reference](reference/doctypes.md).
+FlexiRule uses several Frappe DocTypes to maintain rules, processes, and audit trails. See [DocType Reference](reference/doctypes.md) for a full breakdown of fields and usages.
 
 ---
 
