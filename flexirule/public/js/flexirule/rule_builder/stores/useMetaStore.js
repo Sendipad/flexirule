@@ -151,7 +151,7 @@ export const useMetaStore = defineStore("rule-builder-meta", () => {
 				description = row[2] || "";
 			} else if (row && typeof row === "object") {
 				value = row.value ?? row.name ?? row.id ?? row.fieldname ?? null;
-				label = row.label ?? row.title ?? row.description ?? value;
+				label = row.label ?? row.title ?? value;
 				description = row.description ?? "";
 			}
 

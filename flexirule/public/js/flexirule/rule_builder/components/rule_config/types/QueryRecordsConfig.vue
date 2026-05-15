@@ -50,151 +50,17 @@
 				</div>
 
 				<div class="sub-section section-subcard">
-					<h6>{{ __("Fields") }}</h6>
-					<div class="table-rows">
-						<div
-							v-for="(row, idx) in visible_field_rows"
-							:key="idx"
-							class="row-item field-row"
-						>
-							<input
-								type="checkbox"
-								v-model="row._selected"
-								class="mr-2"
-								style="margin-top: 0"
-							/>
-							<div class="field-picker-container">
-								<ComboBoxControl
-									:df="{ label: '', fieldtype: 'FieldPicker' }"
-									:options="doctype_fields"
-									:doctype="reference_doctype"
-									:modelValue="row.field"
-									:read_only="readOnly"
-									:trigger="'button'"
-									:hideLabel="true"
-									:class="{
-										'border-warning': !is_field_valid(
-											row.field,
-											doctype_fields
-										),
-									}"
-									@update:modelValue="(val) => (row.field = val)"
-								/>
-								<i
-									v-if="row.field && !is_field_valid(row.field, doctype_fields)"
-									class="fa fa-warning text-warning field-warning-icon"
-									:title="__('Field not found in DocType')"
-								></i>
-							</div>
-							<button
-								v-if="!readOnly"
-								class="btn btn-xs btn-link text-danger"
-								@click="remove_field(idx)"
-							>
-								<i class="fa fa-trash"></i>
-							</button>
-						</div>
-						<div class="d-flex flex-wrap align-items-center gap-2 mt-2">
-							<button
-								v-if="!readOnly"
-								class="btn btn-xs btn-link p-0"
-								@click="add_field"
-							>
-								<i class="fa fa-plus mr-1"></i> {{ __("Add Field") }}
-							</button>
-							<button
-								v-if="!readOnly"
-								class="btn btn-xs btn-link p-0 text-primary ml-2"
-								@click="show_field_selector = !show_field_selector"
-							>
-								<i class="fa fa-list mr-1"></i>
-								{{
-									show_field_selector
-										? __("Hide Field Selector")
-										: __("Select Fields")
-								}}
-							</button>
-							<button
-								v-if="!readOnly && has_selected_fields"
-								class="btn btn-xs btn-danger ml-2"
-								@click="delete_selected_fields"
-							>
-								<i class="fa fa-trash mr-1"></i> {{ __("Delete Selected") }}
-							</button>
-
-							<div v-if="field_rows.length > 10" class="ml-auto d-flex gap-2">
-								<button
-									v-if="display_limit === 10 && field_rows.length > 10"
-									class="btn btn-xs btn-default"
-									@click="show_50_fields"
-								>
-									{{ __("Show 50") }}
-								</button>
-								<button
-									v-if="display_limit !== 'all' && field_rows.length > 50"
-									class="btn btn-xs btn-default"
-									@click="show_all_fields"
-								>
-									{{ __("Show All") }}
-								</button>
-								<button
-									v-if="display_limit !== 10"
-									class="btn btn-xs btn-default"
-									@click="display_limit = 10"
-								>
-									{{ __("Show Less") }}
-								</button>
-							</div>
-						</div>
-					</div>
-
-					<!-- Inline Field Selector -->
-					<div
-						v-if="show_field_selector"
-						class="field-selector-inline mt-2 p-2 border rounded bg-white"
-					>
-						<div class="d-flex align-items-center mb-2 gap-2">
-							<input
-								type="text"
-								class="form-control input-xs"
-								:placeholder="__('Search fields...')"
-								v-model="field_search_query"
-							/>
-							<button
-								class="btn btn-xs btn-default"
-								@click="toggle_all_visible_fields"
-							>
-								{{
-									is_all_visible_selected ? __("Unselect All") : __("Select All")
-								}}
-							</button>
-						</div>
-						<div
-							class="fields-list-scrollable"
-							style="max-height: 250px; overflow-y: auto"
-						>
-							<div
-								v-for="f in filtered_selector_fields"
-								:key="f.value"
-								class="field-option-item d-flex align-items-center p-1"
-							>
-								<input
-									type="checkbox"
-									:checked="is_field_selected(f.value)"
-									@change="toggle_field_selection(f.value)"
-									class="mr-2"
-								/>
-								<span class="small">{{ f.label }}</span>
-								<span class="extra-small text-muted ml-1">({{ f.value }})</span>
-							</div>
-							<div
-								v-if="!filtered_selector_fields.length"
-								class="text-center p-2 text-muted small"
-							>
-								{{ __("No fields found") }}
-							</div>
-						</div>
-					</div>
+					<MultiSelectList
+						:df="{
+							label: __('Fields'),
+							fieldname: 'fields',
+							placeholder: __('Select fields to fetch...'),
+						}"
+						:options="doctype_fields"
+						:modelValue="config.fields || []"
+						:read_only="readOnly"
+						@update:modelValue="(val) => update_config_key('fields', val)"
+					/>
 				</div>
 
 				<div class="sub-section section-subcard">
@@ -500,6 +366,7 @@ import { useActionConfig } from "../../../composables/useActionConfig";
 import ControlFactory from "../../../controls/ControlFactory.vue";
 import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
 import FilterGroup from "../FilterGroup.vue";
+import MultiSelectList from "../../../controls/MultiSelectList.vue";
 import { useNodeConfigPolicy } from "../../../composables/useNodeConfigPolicy";
 
 const props = defineProps({
@@ -533,15 +400,11 @@ const { getPolicyField } = useNodeConfigPolicy({
 });
 
 // Local state for UI controls
-const field_rows = ref([]);
 const order_by_rows = ref([]);
 const report_filters = ref([]);
 const report_filter_values = reactive({});
 const report_filter_types = reactive({});
 const test_status = ref("");
-const display_limit = ref(10);
-const show_field_selector = ref(false);
-const field_search_query = ref("");
 
 // Internal flag to prevent recursive sync loops
 let is_internal_update = false;
@@ -591,68 +454,6 @@ watch(
 );
 
 // Sync local config changes back to node (handled by debounced_sync)
-
-const visible_field_rows = computed(() => {
-	if (display_limit.value === "all") return field_rows.value;
-	return field_rows.value.slice(0, display_limit.value);
-});
-
-const has_selected_fields = computed(() => {
-	return field_rows.value.some((r) => r._selected);
-});
-
-function delete_selected_fields() {
-	field_rows.value = field_rows.value.filter((r) => !r._selected);
-	sync_local_config();
-}
-
-function show_50_fields() {
-	display_limit.value = 50;
-}
-
-function show_all_fields() {
-	display_limit.value = "all";
-}
-
-const filtered_selector_fields = computed(() => {
-	const query = field_search_query.value.toLowerCase();
-	return doctype_fields.value.filter(
-		(f) => f.label.toLowerCase().includes(query) || f.value.toLowerCase().includes(query)
-	);
-});
-
-const is_all_visible_selected = computed(() => {
-	if (!filtered_selector_fields.value.length) return false;
-	return filtered_selector_fields.value.every((f) => is_field_selected(f.value));
-});
-
-function is_field_selected(f) {
-	return field_rows.value.some((r) => r.field === f);
-}
-
-function toggle_field_selection(f) {
-	const idx = field_rows.value.findIndex((r) => r.field === f);
-	if (idx > -1) {
-		field_rows.value.splice(idx, 1);
-	} else {
-		field_rows.value.push({ field: f });
-	}
-	sync_local_config();
-}
-
-function toggle_all_visible_fields() {
-	const select = !is_all_visible_selected.value;
-	filtered_selector_fields.value.forEach((f) => {
-		const selected = is_field_selected(f.value);
-		if (select && !selected) {
-			field_rows.value.push({ field: f.value });
-		} else if (!select && selected) {
-			const idx = field_rows.value.findIndex((r) => r.field === f.value);
-			if (idx > -1) field_rows.value.splice(idx, 1);
-		}
-	});
-	sync_local_config();
-}
 
 // Shim for frappe.query_report to support report JS scripts that use it
 if (!window.frappe.query_report) {
@@ -729,7 +530,7 @@ async function update_resolved_schema_local() {
 	if (!props.node?.data) return;
 
 	if (mode.value === "Query List" || mode.value === "Query Doc") {
-		const fields = field_rows.value.map((r) => r.field).filter((f) => f);
+		const fields = (config.fields || []).filter((f) => f);
 		if (!fields.length) {
 			props.node.data.resolved_output_schema = [];
 			return;
@@ -949,10 +750,6 @@ watch(
 	{ immediate: true }
 );
 
-function add_field() {
-	field_rows.value.push({ field: "" });
-}
-
 function add_order_by() {
 	order_by_rows.value.push({ field: "", direction: "asc" });
 }
@@ -962,13 +759,8 @@ function remove_order_by(idx) {
 	sync_local_config();
 }
 
-function remove_field(idx) {
-	field_rows.value.splice(idx, 1);
-	sync_local_config();
-}
-
 function build_fields() {
-	return field_rows.value.map((r) => r.field);
+	return config.fields || [];
 }
 
 function get_order_by_options() {
@@ -1200,13 +992,6 @@ function load_local_config(val) {
 		});
 	}
 
-	const fields = parsed.fields || [];
-	const next_fields = Array.isArray(fields) ? fields.map((f) => ({ field: f })) : [];
-	const current_fields = field_rows.value.map((r) => ({ field: r.field }));
-	if (JSON.stringify(next_fields) !== JSON.stringify(current_fields)) {
-		field_rows.value = next_fields;
-	}
-
 	const order_by = parsed.order_by || "";
 	const next_order_by_rows = order_by
 		? order_by.split(",").map((s) => {
@@ -1228,14 +1013,7 @@ function load_local_config(val) {
 
 // Unified watch for all local state changes
 watch(
-	() => [
-		field_rows.value,
-		order_by_rows.value,
-		config,
-		report_filter_values,
-		mode.value,
-		reference_doctype.value,
-	],
+	() => [order_by_rows.value, config, report_filter_values, mode.value, reference_doctype.value],
 	() => {
 		if (!is_internal_update) {
 			debounced_sync();

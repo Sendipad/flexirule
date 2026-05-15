@@ -335,7 +335,7 @@ const normalizedOptions = computed(() => {
 					opt.id ??
 					`opt_${idx}`
 			);
-			const label = String(opt[props.map.label] ?? opt.label ?? opt.description ?? value);
+			const label = String(opt[props.map.label] ?? opt.label ?? value);
 
 			return {
 				value,
