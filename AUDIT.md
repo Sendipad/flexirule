@@ -24,6 +24,11 @@ The FlexiRule application is a robust visual rule engine with a well-structured 
    - *Recommendation*: Create a unified `validateNode(node)` utility in `contracts.js`.
 3. **Type Conversions**: Mapping return types to field types and generating unique action IDs are performed in multiple places.
    - *Recommendation*: Move these to `utils/schema_utils.js` or `core/contracts.js`.
+4. **Component Fragmentation**:
+   - The distinction between `node_configs/` and `rule_config/types/` is thin. For example, `LoopConfig` simply wraps `LoopNodeConfig`.
+   - *Recommendation*: Consolidate these into a unified action-configuration directory.
+5. **Schema-Driven UI**: Many action-specific config components (Notify, Wait, Set Value) follow identical form patterns.
+   - *Recommendation*: Implement a generic `SchemaForm` component that renders these based on a JSON contract, significantly reducing the number of `.vue` files.
 
 ## UI/UX Recommendations
 1. **Responsive Tabbed Interface**: On screens smaller than 1200px, the three-panel configuration modal (Input, Config, Output) is unusable.
