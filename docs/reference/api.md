@@ -5,13 +5,15 @@ FlexiRule provides a comprehensive set of whitelisted backend methods for progra
 ## Rule Execution APIs
 
 ### `test_rule`
-Executes a rule against a document for testing purposes.
+Executes a rule against a document for testing purposes. Works for draft and inactive rules.
 - **Parameters**:
     - `rule_name`: Name of the Rule.
     - `doctype` / `docname`: Target document.
+    - `document_json`: Transient document data (alternative to docname).
     - `dry_run` (bool): If true, rolls back changes after execution.
-    - `save_log` (bool): If true, persists the execution trace to the database.
-- **Returns**: Execution payload including `status`, `path_trace`, and `vars`.
+    - `skip_log_enqueue` (bool): If true, does not persist logs.
+    - `save_log` (bool): Forces log persistence regardless of dry_run.
+- **Returns**: Execution payload including `status`, `path_trace`, `vars`, and legacy `context_snapshot`.
 
 ### `execute_rule`
 The primary API for manual or programmatic rule execution.
@@ -62,6 +64,18 @@ Computes performance metrics (success rate, average duration, execution count) f
 
 ### `get_execution_preview`
 Predicts the execution path for a document by evaluating conditions without running the actual action handlers.
+
+### `simulate_rule`
+Runs the rule engine in dry-run mode and returns the execution path and variable state at each step.
+
+### `test_action_query`
+Executes a single action in isolation. Useful for auto-detecting return field schemas.
+
+### `get_operator_config`
+Returns centralized configuration for fieldtype-to-operator mappings and labels for the Condition Builder.
+
+### `get_doctype_fields`
+Returns grouped parent and child fields for a specific DocType. Supports filtering by fieldtype.
 
 ### `clear_cache`
 Clears the `Runtime Registry` and request-local caches for FlexiRule.

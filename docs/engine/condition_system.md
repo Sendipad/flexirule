@@ -47,8 +47,23 @@ Any attempt to call the following will raise a `PermissionError`:
 
 ---
 
-## Scope Resolution
+## Scope Resolution & Aliases
 - `doc.fieldname`: `doc.get('fieldname')`
 - `old_doc.fieldname`: `old_doc.get('fieldname')`
 - `vars.varname`: `vars.get('varname')`
+- `item` / `row`: Accesses the current row within a collection query or loop.
+- **Custom Aliases**: Users can define custom aliases for collection iterators to prevent naming collisions in nested loops.
 - Deep Paths: `resolve(doc, 'items.0.qty')`
+
+---
+
+## Collection Logic (V2)
+The condition system supports specialized "Collection" nodes that can evaluate logic across child tables:
+- **Any**: True if at least one row in the collection matches the sub-conditions.
+- **All**: True if every row in the collection matches the sub-conditions (vacuously True if the collection is empty).
+- **None**: True if no rows match the sub-conditions.
+
+## Security Constraints
+All condition evaluation (both Python-based and JSON-based) is strictly read-only:
+- **SafeFrappeAPI**: As detailed above, write operations are strictly prohibited.
+- **Pure Logic**: The `method` value type (calling arbitrary Python functions) has been deprecated and removed for security reasons.

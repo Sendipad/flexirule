@@ -8,6 +8,7 @@ FlexiRule provides a variety of action types, each represented as a node in the 
 | :--- | :--- | :--- |
 | **Entry Action** | The starting point of every rule. Holds trigger configuration. | `Next` |
 | **Condition** | Evaluates a Python expression to branch logic. | `True`, `False` |
+| **Switch** | Evaluates an expression and branches to multiple cases. | `Cases`, `Default` |
 | **Loop** | Iterates over a collection (e.g., child table). | `For Each`, `After Last` |
 | **Wait** | Pauses execution for a specified duration. | `Next` |
 | **Sub-Rule** | Calls another rule as a subroutine. | `Next` |
