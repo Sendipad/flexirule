@@ -1,101 +1,197 @@
 # DocType Reference
 
-FlexiRule uses a structured set of DocTypes to manage rule definitions, visual metadata, reusable logic, and execution audit trails. This document provides a detailed breakdown of the fields and their roles within the system.
+FlexiRule uses a structured set of DocTypes to manage rule definitions, visual metadata, reusable logic, and execution audit trails. This document provides a exhaustive breakdown of all fields for every DocType in the system.
 
 ---
 
 ## 1. Rule
 The primary container for an automation flow. It defines *when* a logic starts and *what* it aims to achieve.
 
-| Field | Type | Description |
-| :--- | :--- | :--- |
-| `rule_name` | Data | Unique identifier and primary name of the rule. |
-| `is_active` | Check | If disabled, the `RuleCoordinator` will skip this rule entirely. |
-| `status` | Select | Lifecycle state: `Draft`, `Active`, `Disabled`, `Invalid`, `Error`, `Archived`. |
-| `trigger_type` | Select | `DocType Event` (hooks), `Scheduler Event` (CRON), or `Callable Event` (Sub-Rule). |
-| `document_type` | Link | The target DocType this rule monitors (required for DocType Events). |
-| `trigger_event` | Select | The specific Frappe hook (e.g., `Before Save`, `Validate`, `On Change`). |
-| `priority` | Select | Execution order (0-20). Rules with higher priority run first for the same event. |
-| `version` | Int | Auto-incremented version number for historical tracking. |
-| `execution_mode` | Select | `Synchronous` (runs in current thread) or `Asynchronous` (offloaded to background). |
-| `max_execution_time`| Int | Timeout in seconds to prevent runaway logic or infinite loops. |
-| `debug_mode` | Check | Enables verbose logging in the console and execution logs. |
-| `trigger_condition` | Code (JSON)| Visual AST representation of the entry filters. |
-| `compiled_expression`| Code (Python)| Optimized Python string compiled from the trigger condition. |
-| `exposed_as_subrule`| Check | If enabled, this rule appears in the `Sub-Rule` action picker for other rules. |
-| `skip_for_roles` | Table | List of roles that, if held by the current user, will cause the rule to be skipped. |
-| `actions` | Table | Child table containing the sequence of steps (`Rule Action`). |
-| `visual_data` | Code (JSON)| Stores the X/Y coordinates and UI metadata for the visual graph. |
-| `last_error` | Text | Stores the last error traceback if the rule failed during its most recent run. |
+| Field | Type | Label | Description |
+| :--- | :--- | :--- | :--- |
+| `rule_name` | Data | Rule Name | Unique identifier and primary name of the rule. |
+| `is_active` | Check | Is Active | If disabled, the `RuleCoordinator` will skip this rule entirely. |
+| `exposed_as_subrule`| Check | Exposed As Sub-Rule | If enabled, this rule appears in the `Sub-Rule` action picker for other rules. |
+| `priority` | Select | Priority | Execution order (0-20). Higher values run first. |
+| `version` | Int | Version | Auto-incremented version number for historical tracking. |
+| `status` | Select | Status | Lifecycle state: `Draft`, `Active`, `Disabled`, `Invalid`, `Error`, `Archived`. |
+| `trigger_type` | Select | Trigger Type | `DocType Event`, `Scheduler Event`, or `Callable Event`. |
+| `document_type` | Link | Document Type | The target DocType this rule monitors. |
+| `trigger_event` | Select | Trigger Event | The specific Frappe hook (e.g., `Before Save`, `Validate`). |
+| `trigger_condition` | Code | Trigger Condition (JSON) | Visual AST representation of the entry filters. |
+| `compiled_expression`| Code | Trigger Filters (Python)| Optimized Python string compiled from the trigger condition. |
+| `execution_mode` | Select | Execution Mode | `Synchronous` or `Asynchronous`. |
+| `max_execution_time`| Int | Max Execution Time | Timeout in seconds to prevent runaway logic. |
+| `debug_mode` | Check | Debug Mode | Enables verbose logging. |
+| `module` | Link | Module | The Frappe module this rule belongs to (for export). |
+| `skip_for_roles` | Table | Skip for Roles | Rule will NOT execute for users with these roles. |
+| `description` | Text | Description | Brief explanation of what this rule does. |
+| `permissions` | Table | Permissions | Define role-based permissions for this rule. |
+| `actions` | Table | Actions | Child table containing the sequence of steps (`Rule Action`). |
+| `visual_data` | Code | Visual Data | Stores the X/Y coordinates and UI metadata for the visual graph. |
+| `last_error` | Text | Last Error | Stores the last error traceback if the rule failed. |
 
 ---
 
 ## 2. Rule Action (Child Table)
 Represents a single executable node within a Rule's graph.
 
-| Field | Type | Description |
-| :--- | :--- | :--- |
-| `action_id` | Data | Unique ID for the node (e.g., `root`, `act_1`). Used for graph edges. |
-| `action_label` | Data | User-defined label displayed on the node in the builder. |
-| `action_type` | Select | Category: `Condition`, `Process`, `Loop`, `Set Value`, `Notify`, `Query Records`, etc. |
-| `operation` | Autocomplete | The specific mode for the action (e.g., `Query List`, `Create ToDo`). |
-| `config` | Code (JSON)| Parameters for the action (filters, inputs, template segments). |
-| `value_template` | Code (Jinja)| Used by `Set Value` and `Notify` to generate dynamic content. |
-| `target_field` | Data | Dot-path (e.g., `doc.status`) for the field being updated by the action. |
-| `process_name` | Link | Link to a `Process` DocType (used only when `action_type` is `Process`). |
-| `mutation_mode` | Select | Logic for applying results: `Set Doc Field`, `Set Context Variable`, etc. |
-| `return_variable` | Data | Name for the variable in the context (`vars`) where the result will be saved. |
-| `return_type` | Select | Expected data structure: `Single Record`, `List of Records`, `Yes / No`, etc. |
-| `on_error` | Select | Error policy: `Stop`, `Continue`, `Retry` (Backoff), `Rollback` (Savepoint). |
-| `retry_count` | Int | Number of times to re-attempt the action on failure. |
-| `timeout` | Int | Per-node timeout for long-running processes. |
-| `next_step_if_true` | Data | The `action_id` of the node to execute on success or "True" result. |
-| `next_step_if_false`| Data | The `action_id` of the node to execute on "False" result (Conditions only). |
-| `is_async` | Check | If enabled, this specific node is executed in a background queue. |
+| Field | Type | Label | Description |
+| :--- | :--- | :--- | :--- |
+| `action_id` | Data | Action ID | Unique ID for the node. Used for graph edges. |
+| `action_label` | Data | Label | User-defined label displayed on the node. |
+| `action_type` | Select | Step Type | Category: `Condition`, `Process`, `Loop`, `Set Value`, etc. |
+| `process_name` | Link | Process | Link to a `Process` DocType. |
+| `rule` | Link | Rule | Link to a sub-rule (for `Sub-Rule` type). |
+| `operation` | Autocomplete | Mode | Operation mode for this action. |
+| `is_enabled` | Check | Enabled | Whether this specific step is active. |
+| `on_error` | Select | On Error | Policy: `Stop`, `Continue`, `Retry`, `Rollback`, `Escalate`. |
+| `is_async` | Check | Async | Execute in background queue. |
+| `retry_count` | Int | Retry Count | Number of retries on failure (exponential backoff). |
+| `timeout` | Int | Timeout (seconds) | Maximum execution time for this specific node. |
+| `skip_permissions` | Check | Ignore Permissions | Skip permission checks (requires audit reason). |
+| `permission_audit_reason`| Small Text| Permission Audit Reason| Why permission checks are bypassed. |
+| `skip_conditions` | Check | Skip Trigger Check | For sub-rules, skip their entry conditions. |
+| `input_source` | Select | Input Source | `Context Doc`, `Context Variable`, or `Both`. |
+| `reference_doctype` | Link | Reference DocType | Target DocType for query or document creation. |
+| `reference_docname` | Dynamic Link| Reference Document | Specific document reference. |
+| `condition_json` | Code | Condition (JSON) | Condition expression for `Condition` type. |
+| `compiled_expression`| Code | Compiled Expression (Python)| Python version of the condition. |
+| `target_field` | Data | Target Field | Field to update (e.g., `doc.status`). |
+| `value_template` | Code | Action Template | Jinja template for values or notifications. |
+| `config` | Code | Configuration (JSON) | Parameters for the action. |
+| `mutation_mode` | Select | Result Handling | How to apply results (e.g., `Set Doc Field`). |
+| `return_variable` | Data | Save Result As | Name to save this step's result under. |
+| `return_type` | Select | Result Type | Expected data structure. |
+| `resolved_output_schema`| Code | Result Fields | JSON schema for return keys. |
+| `next_step_if_true` | Autocomplete | Next Step | Node ID to execute on success. |
+| `next_step_if_false`| Data | Else Step | Node ID to execute on failure (Conditions). |
+| `description` | Text | Description | Documentation for this action. |
 
 ---
 
 ## 3. Process
 Defines a file-backed logic module that can be extended via custom Python code.
 
-| Field | Type | Description |
-| :--- | :--- | :--- |
-| `process_name` | Data | Unique name of the logic group (e.g., `Standard Validation`). |
-| `is_standard` | Select | If `Yes`, Frappe syncs the `.py` and `.js` controllers to the app's folder. |
-| `module` | Link | The Frappe module/app where the code controllers reside. |
-| `default_ref_doctype`| Link | Suggested DocType for this process (used to filter operations in the UI). |
-| `operations` | Table | Child table defining functions within the process (`Process Operation`). |
+| Field | Type | Label | Description |
+| :--- | :--- | :--- | :--- |
+| `process_name` | Data | Process Name | Unique identifier. |
+| `is_standard` | Select | Is Standard | If `Yes`, code is synced to the app's directory. |
+| `module` | Link | Module | The Frappe module/app for controllers. |
+| `default_ref_doctype`| Link | Default Reference DocType| Used to filter operations in the UI. |
+| `description` | Data | Description | Summary of the process purpose. |
+| `operations` | Table | Operations | Functions within the process (`Process Operation`). |
 
 ---
 
 ## 4. Process Operation (Child Table)
-Metadata for an individual Python function within a Process adapter.
+Metadata for an individual function within a Process.
 
-| Field | Type | Description |
-| :--- | :--- | :--- |
-| `func_name` | Data | The actual Python method name in the controller class. |
-| `label` | Data | Friendly name shown in the action picker. |
-| `writes_to` | Select | Side-effect intent: `None` (Pure), `Context`, `Document`, `Database`. |
-| `requires_doc` | Check | If enabled, the function will fail if no document is in context. |
-| `transactional` | Check | Wraps the function call in a database savepoint for atomic rollback. |
-| `is_terminal` | Check | If enabled, no further actions can be connected after this node. |
-| `allows_async` | Check | Flag indicating the logic is safe for background execution. |
-| `config_schema` | Code (JSON)| JSON Schema used to auto-generate the builder's configuration form. |
-| `output_schema` | Code (JSON)| JSON Schema describing the returned data for autocomplete support. |
-| `icon` / `color` | Data | Visual styling for the node on the builder canvas. |
+| Field | Type | Label | Description |
+| :--- | :--- | :--- | :--- |
+| `func_name` | Data | Function Name | The actual Python method name. |
+| `label` | Data | Display Label | Friendly name for the builder. |
+| `enabled` | Check | Enabled | Whether the function can be used. |
+| `visible_in_builder` | Check | Visible in Builder | Visibility in the action selector. |
+| `description` | Small Text | Description | Tooltip shown in the builder. |
+| `writes_to` | Select | Writes To | Side-effect intent: `None`, `Context`, `Document`, `Database`. |
+| `requires_doc` | Check | Requires Document | Needs `context['doc']` to be present. |
+| `can_stop_save` | Check | Can Stop Save | May throw ValidationError to abort database save. |
+| `is_terminal` | Check | Terminal | No next action allowed after this node. |
+| `allows_async` | Check | Allows Async | Safe for background execution. |
+| `transactional` | Check | Transactional | Wrap execution in database savepoint. |
+| `has_side_effect` | Check | Has Side Effects | Mark if destructive or external effects exist. |
+| `for_doctype` | Link | For DocType | Restrict to specific DocType. |
+| `doctype_filters` | Code | DocType Filters | Frappe-style filters for availability. |
+| `reads_vars` | Code | Reads Variables | Expected input variables (DocField style). |
+| `writes_vars` | Code | Writes Variables | Output variables produced (DocField style). |
+| `config_schema` | Code | Config Schema | JSON Schema for node inputs. |
+| `output_schema` | Code | Output Schema | JSON Schema for return value. |
+| `action_overrides` | Code | Action Overrides | Optional override contract JSON. |
+| `icon` | Data | Icon | CSS class for node icon. |
+| `color` | Data | Color | Hex code for node color. |
 
 ---
 
-## 5. Supporting Data DocTypes
+## 5. Rule Execution Log
+Audit trail for every rule execution.
 
-### Rule Execution Log
-Captures the full lifecycle of a rule run, including the `execution_id`, `status`, `duration`, `trigger_source`, and a full `execution_path` trace. It also stores a `context_snapshot` for debugging.
+| Field | Type | Label | Description |
+| :--- | :--- | :--- | :--- |
+| `rule` | Link | Rule | Reference to the Rule DocType. |
+| `execution_id` | Data | Execution ID | Unique ID for the specific run. |
+| `rule_version` | Int | Rule Version | Version of the rule at execution time. |
+| `status` | Select | Status | `Success`, `Failed`, or `Stopped`. |
+| `duration` | Float | Duration (s) | Execution time in seconds. |
+| `trigger_source` | Data | Trigger Source | Context (e.g., `Doc: INV-001`). |
+| `reference_doctype` | Link | Reference DocType | The DocType being processed. |
+| `reference_docname` | Dynamic Link| Reference Document | The specific record name. |
+| `executed_by` | Link | Executed By | The user who triggered the rule. |
+| `scheduler` | Link | Scheduler | Link to `Rule Scheduler` if applicable. |
+| `batch_id` | Data | Batch ID | ID for batch process grouping. |
+| `batch_index` | Int | Batch Index | Position within the batch. |
+| `batch_total` | Int | Batch Total | Total items in the batch. |
+| `message` | Small Text | Message | Summary result or error message. |
+| `execution_path` | Code | Execution Path | JSON trace of nodes and results. |
+| `context_snapshot` | Code | Context Snapshot | JSON dump of variables (`vars`). |
+| `error_trace` | Code | Error Trace | Python traceback on failure. |
 
-### Rule Scheduler
-Handles rules with the `Scheduler Event` trigger. It contains settings for frequency (CRON) and the specific Rule to invoke.
+---
 
-### RuleFlow Settings
-Global configuration for the entire app. It includes preferences for the designer UI (Sidebar vs Modal config mode) and log retention settings.
+## 6. Rule Scheduler
+Manages time-based execution of rules.
 
-### RuleFlow Excluded DocType
-A performance optimization list. DocTypes added here (like `Error Log` or `Version`) will never trigger rules, preventing recursive overhead on high-frequency system tables.
+| Field | Type | Label | Description |
+| :--- | :--- | :--- | :--- |
+| `rule` | Link | Rule | The Rule to execute. |
+| `stopped` | Check | Stopped | Disable the schedule. |
+| `frequency` | Select | Frequency | `Hourly`, `Daily`, `Weekly`, `Monthly`, `Cron`. |
+| `cron_format` | Data | Cron Format | Standard Crontab syntax. |
+| `filter_doctype` | Link | Filter DocType | DocType to query for batch processing. |
+| `filter_json` | Code | Filter (JSON) | Frappe filter for finding records. |
+| `batch_size` | Int | Batch Size | Documents per execution batch. |
+| `on_error` | Select | On Error | `Skip` (continue batch) or `Stop`. |
+| `last_execution` | Datetime | Last Execution | Timestamp of previous run. |
+| `next_execution` | Datetime | Next Execution | Calculated upcoming run time. |
+| `last_error` | Text | Last Error | Error from the most recent run. |
+
+---
+
+## 7. RuleFlow Settings
+Global application configuration.
+
+| Field | Type | Label | Description |
+| :--- | :--- | :--- | :--- |
+| `enable_debug_logging`| Check | Enable Debug Logging| System-wide verbose logs. |
+| `log_retention_days` | Int | Log Retention (Days)| Retention period for execution logs. |
+| `max_execution_time_default`| Int | Default Max Execution Time| System-wide rule timeout. |
+| `allow_async_actions` | Check | Allow Async Actions | Globally enable background steps. |
+| `excluded_doctypes` | Table | Excluded DocTypes | Blacklist of high-frequency DocTypes. |
+| `action_config_mode` | Select | Action Configuration Mode| `Sidebar` or `Dialog`. |
+| `open_config_on` | Select | Open Configuration On| `Click` or `Double Click`. |
+| `theme` | Select | Canvas Theme | `System`, `Light`, `Dark`. |
+| `layout_direction` | Select | Auto-Layout Direction| `Left to Right` or `Top to Bottom`. |
+| `sidebar_position` | Select | Sidebar Position | `Left` or `Right`. |
+| `enable_edge_insertion`| Check | Enable Edge Insertion| Show "+" button on connections. |
+| `require_approval_for_active`| Check | Require Approval to Activate| Enable activation workflow. |
+| `allow_editing_active`| Check | Allow Editing Active Rules| Toggle warning for active rules. |
+
+---
+
+## 8. Other Supporting DocTypes
+
+### Rule Permission (Child Table)
+- `role` (Link): Frappe Role allowed to execute the rule.
+- `can_execute` (Check): Permission flag.
+
+### Data Review Task
+- `task_type` (Select): `Duplicate Review`, `Data Quality`, etc.
+- `status` (Select): `Open`, `In Progress`, `Resolved`, `Rejected`.
+- `priority` (Select): `Low` to `Critical`.
+- `source_doctype` / `source_document`: The record being reviewed.
+- `similarity_score` (Percent): Match score for duplicate detection.
+- `context_json` (Code): Snapshot of context when task was created.
+- `related_documents` (Table): List of `Data Review Related Document`.
+
+### RuleFlow Excluded DocType (Child Table)
+- `document_type` (Link): The DocType to blacklist from rule evaluation.
