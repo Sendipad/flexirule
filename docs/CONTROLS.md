@@ -11,15 +11,19 @@ The `ValueResolverControl` is a "magic" input widget that allows users to define
 
 ### ✨ Key Features & Innovation
 - **Multi-Modal Formula Support:** A single token-based UI that can switch between:
-  - **Date Formula:** Add/subtract days, weeks, months, or years from "Today" or a Document Field.
-  - **Math Formula:** Perform arithmetic operations between fields or constants with precision control.
-  - **Date Difference:** Calculate the span between two dates in days, months, or years.
-  - **Child Table Aggregation:** Perform `SUM`, `AVG`, or `COUNT` operations on child table rows.
-  - **String Manipulation:** Concatenation, Currency Formatting, and Case transformation.
-  - **System Context:** Access session user data or check user roles.
+  - **Date Formula:** Add/subtract days, weeks, months, or years from "Today" or a Document Field with sign-aware offsets.
+  - **Math Formula:** Perform arithmetic operations between fields or constants with configurable decimal precision.
+  - **Date Difference:** Calculate the span between two dates in days, months, or years (with intelligent month-to-year conversion).
+  - **Child Table Aggregation:** Perform `SUM`, `AVG`, or `COUNT` operations on child table rows with zero-length safety (e.g., using `max(len(rows), 1)` for averages).
+  - **String Manipulation:** Advanced concatenation, currency formatting, and case transformations (Upper/Lower).
+  - **System Context:** Access session user data or perform role-based authorization checks directly within a value.
 - **Dynamic Expression Preview:** As the user configures the formula via the popover UI, a live Jinja-compatible expression snippet is generated and displayed at the bottom of the popover.
 - **Context-Aware Field Pickers:** Automatically filters and displays relevant document fields based on the selected formula type (e.g., only showing numeric fields for Math Formulas).
 - **Tokenized UI:** Displays a compact, icon-rich "token" in the form that summarizes the configured logic (e.g., "Today + 5 Days").
+- **Intelligent Viewport Positioning:** The control automatically calculates available screen space. If there isn't enough room below the input, the configuration popover intelligently "flips" to appear above the token, ensuring the UI is never cut off by the browser window.
+- **Granular Category Filtering:** Developers can use the `allowedKinds` prop to restrict which formula categories are available. This is useful for specific fields where only "Date" or "Math" logic might be appropriate.
+- **Seamless Backwards Compatibility:** Includes a robust hydration layer that automatically migrates older rule schemas (like legacy `function_name` or `offset_days` fields) into the modern multi-mode format without user intervention.
+- **Deep Frappe Utility Integration:** The generated snippets leverage high-level Frappe Python utilities (e.g., `frappe.utils.add_to_date`, `frappe.utils.fmt_money`), ensuring the resulting logic is both powerful and standard-compliant.
 
 ---
 
