@@ -42,6 +42,7 @@ The FlexiRule application is a robust visual rule engine with a well-structured 
    - *Action*: Refactor controls to use `width: 100%` and `flex: 1 1 auto` by default. Remove hardcoded pixel caps from `ComboBoxControl` positioning logic and use `ResizeObserver` to sync dropdown width to the trigger width dynamically.
 3. **Enhanced Field Selection**: The `Query Records` and `Normalization` actions use simple lists for field selection.
    - *Action*: Implement a multi-column check-control that preserves the order of selection (critical for pipeline processing).
+    - *Status*: **Implemented** via `MultiSelectList.vue`. This consolidated component replaces `MultiCheckControl` and the legacy `MultiSelectListControl` wrapper, offering search, keyboard navigation, and multiple display modes (Badges, Numbered Lists, Multi-column).
 4. **Dynamic Icon Mapping**: The icon mapping is currently hardcoded in `RuleConfigModal.vue`.
    - *Action*: Move the icon and color definitions into the `ActionContract` in `contracts.js` for easier extension.
 
