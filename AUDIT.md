@@ -29,6 +29,8 @@ The FlexiRule application is a robust visual rule engine with a well-structured 
    - *Recommendation*: Consolidate these into a unified action-configuration directory.
 5. **Schema-Driven UI**: Many action-specific config components (Notify, Wait, Set Value) follow identical form patterns.
    - *Recommendation*: Implement a generic `SchemaForm` component that renders these based on a JSON contract, significantly reducing the number of `.vue` files.
+6. **Hidden Feature Flags**: Certain actions like "Switch" are hard-disabled in `contracts.js` via `RELEASE_DISABLED_ACTION_TYPES`.
+   - *Recommendation*: Move these flags to a database-driven "RuleFlow Settings" or environment variables to avoid "hidden" code-level locks that confuse developers.
 
 ## UI/UX Recommendations
 1. **Responsive Tabbed Interface**: On screens smaller than 1200px, the three-panel configuration modal (Input, Config, Output) is unusable.
