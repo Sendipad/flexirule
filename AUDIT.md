@@ -35,8 +35,10 @@ The FlexiRule application is a robust visual rule engine with a well-structured 
 ## UI/UX Recommendations
 1. **Responsive Tabbed Interface**: On screens smaller than 1200px, the three-panel configuration modal (Input, Config, Output) is unusable.
    - *Action*: Transition to a Tabbed interface on smaller viewports.
-2. **Flexible Control Sizing**: Many controls have fixed widths/heights that don't respect the parent container.
-   - *Action*: Refactor CSS to use flex-based layouts (`flex-grow`) and ensure LinkControls and Inputs align to the panel width.
+2. **Flexible Control Sizing & ComboBox Inconsistency**:
+   - Controls like `ComboBoxControl` are wrapped differently in `ConditionBuilder` vs `FilterGroup` (direct vs flex-wrapper), leading to mismatched widths.
+   - The dropdown popover width is capped at 360px in JS, which breaks alignment when parent containers are wider.
+   - *Action*: Refactor controls to use `width: 100%` and `flex: 1 1 auto` by default. Remove hardcoded pixel caps from `ComboBoxControl` positioning logic and use `ResizeObserver` to sync dropdown width to the trigger width dynamically.
 3. **Enhanced Field Selection**: The `Query Records` and `Normalization` actions use simple lists for field selection.
    - *Action*: Implement a multi-column check-control that preserves the order of selection (critical for pipeline processing).
 4. **Dynamic Icon Mapping**: The icon mapping is currently hardcoded in `RuleConfigModal.vue`.
