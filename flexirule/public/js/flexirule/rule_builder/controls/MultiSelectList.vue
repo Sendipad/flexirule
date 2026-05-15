@@ -1,269 +1,434 @@
 <script setup>
-import { ref, computed, watch, onMounted, nextTick, onBeforeUnmount } from "vue";
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from "vue";
+import { useMetaStore } from "../stores/useMetaStore";
+import { useFloatingDropdown } from "../composables/useFloatingDropdown";
+import { useAsyncOptionsSource } from "../composables/useAsyncOptionsSource";
 
 const props = defineProps({
 	modelValue: { type: [Array, String], default: () => [] },
 	df: { type: Object, default: () => ({}) },
-	options: { type: Array, default: null }, // Static override
-	get_data: { type: Function, default: null }, // Custom data fetcher
-	columns: { type: Number, default: 1 }, // Dropdown columns
-	displayMode: { type: String, default: "badges" }, // 'badges', 'list', 'columns', 'numbered'
+	options: { type: Array, default: null },
+	get_data: { type: Function, default: null },
+	columns: { type: Number, default: 1 },
+	displayMode: { type: String, default: "badges" }, // compact|badges|list|numbered|columns
 	read_only: { type: Boolean, default: false },
 	hideLabel: { type: Boolean, default: false },
 	placeholder: { type: String, default: "" },
-	documentType: { type: String, default: "" }, // For DocField/FieldPicker logic
-	expanded: { type: Boolean, default: false }, // Inline mode
+	documentType: { type: String, default: "" },
+	expanded: { type: Boolean, default: false },
+	disabled: { type: Boolean, default: false },
+	loadingState: { type: Boolean, default: false },
+	invalid: { type: Boolean, default: false },
+	errorMessage: { type: String, default: "" },
+	compactMaxVisible: { type: Number, default: 2 },
+	badgeCollapseAfter: { type: Number, default: 4 },
+	allowInvertSelection: { type: Boolean, default: true },
+	dropdownMinWidth: { type: Number, default: 260 },
+	dropdownMaxWidth: { type: Number, default: 760 },
+	dropdownMaxHeight: { type: Number, default: 380 },
+	virtualThreshold: { type: Number, default: 120 },
+	itemHeight: { type: Number, default: 36 },
+	map: {
+		type: Object,
+		default: () => ({
+			value: "value",
+			label: "label",
+			description: "description",
+			icon: "icon",
+		}),
+	},
 });
 
 const emit = defineEmits(["update:modelValue", "change"]);
+const metaStore = useMetaStore();
 
 const query = ref("");
-const loading = ref(false);
-const isDropdownOpen = ref(false);
 const activeIndex = ref(-1);
-const fetchedOptions = ref([]);
-
-const wrapperRef = ref(null);
+const viewportRef = ref(null);
 const searchInputRef = ref(null);
-const dropdownRef = ref(null);
-const dropdownStyle = ref({});
+const scrollTop = ref(0);
+let typeaheadTimeout = null;
+const typeaheadBuffer = ref("");
 
-// --- Value Normalization ---
+const {
+	triggerRef: wrapperRef,
+	dropdownRef,
+	isOpen: isDropdownOpen,
+	dropdownStyle,
+	openDropdown: openFloatingDropdown,
+	closeDropdown: closeFloatingDropdown,
+	toggleDropdown: toggleFloatingDropdown,
+	updatePosition,
+	cleanup,
+} = useFloatingDropdown({
+	minWidth: props.dropdownMinWidth,
+	maxWidth: props.dropdownMaxWidth,
+	maxHeight: props.dropdownMaxHeight,
+	matchTriggerWidth: true,
+});
+
 const selectedValues = computed(() => {
-	const val = props.modelValue;
-	if (Array.isArray(val)) return val.map((v) => String(v));
-	if (!val) return [];
-	if (typeof val === "string") {
-		return val
+	if (Array.isArray(props.modelValue)) return props.modelValue.map((v) => String(v));
+	if (!props.modelValue) return [];
+	if (typeof props.modelValue === "string") {
+		return props.modelValue
 			.split(",")
 			.map((s) => s.trim())
 			.filter(Boolean);
 	}
-	return [String(val)];
+	return [String(props.modelValue)];
 });
 
-// --- Option Normalization ---
-const normalizedOptions = computed(() => {
-	let source = props.options || props.df.options || fetchedOptions.value || [];
+const isRemote = computed(() =>
+	Boolean(props.get_data || props.documentType || props.df?.fieldtype === "Link")
+);
 
+const {
+	options: fetchedOptions,
+	loading,
+	error,
+	run: runFetch,
+	loadMore,
+	hasMore,
+	reset,
+} = useAsyncOptionsSource(async ({ query: search, start, pageSize }) => {
+	if (props.get_data) {
+		const rows = await props.get_data(search || "");
+		return metaStore.uniqueOptions(metaStore.normalizeLinkRows(rows || []));
+	}
+
+	if (props.documentType) {
+		const fields = await metaStore.get_doctype_field_options(props.documentType);
+		if (!search) return fields || [];
+		const q = String(search || "").toLowerCase();
+		return (fields || []).filter((row) =>
+			String(`${row.label} ${row.description || ""} ${row.value}`)
+				.toLowerCase()
+				.includes(q)
+		);
+	}
+
+	if (props.df?.fieldtype === "Link" && props.df?.options) {
+		return await metaStore.search_link_options({
+			doctype: props.df.options,
+			txt: search || "",
+			filters: props.df.filters || {},
+			start,
+			page_length: pageSize,
+		});
+	}
+
+	return [];
+});
+
+const normalizedOptions = computed(() => {
+	let source = props.options;
+
+	if (!source) {
+		// For remote/link fields, NEVER fallback to df.options string as it represents the target DocType name
+		source = isRemote.value ? fetchedOptions.value : props.df.options;
+	}
+
+	source = source || [];
 	if (typeof source === "string") {
 		source = source
 			.split("\n")
 			.map((o) => o.trim())
 			.filter(Boolean);
 	}
-
 	if (!Array.isArray(source)) return [];
 
-	return source.map((opt, idx) => {
-		if (typeof opt === "string") {
-			return { value: opt, label: __(opt) };
-		}
+	const mapped = source.map((opt, idx) => {
+		if (!opt) return null;
+		if (typeof opt === "string") return { value: opt, label: __(opt), raw: opt };
 		if (Array.isArray(opt)) {
-			return { value: opt[0], label: __(opt[1] || opt[0]), description: opt[2] };
-		}
-		if (typeof opt === "object") {
-			const val = opt.value ?? opt.fieldname ?? opt.name ?? `opt_${idx}`;
 			return {
-				value: String(val),
-				label: __(opt.label ?? val),
-				description: opt.description,
-				icon: opt.icon,
+				value: String(opt[0]),
+				label: __(opt[1] || opt[0]),
+				description: opt[2] || "",
+				raw: opt,
 			};
 		}
-		return opt;
+		if (typeof opt === "object") {
+			// If it's already a normalized object from our store, use its properties
+			const value = String(
+				opt[props.map.value] ?? opt.value ?? opt.fieldname ?? opt.name ?? `opt_${idx}`
+			);
+			const label = String(opt[props.map.label] ?? opt.label ?? opt.value ?? "");
+
+			return {
+				value,
+				label,
+				description: String((opt[props.map.description] ?? opt.description) || ""),
+				icon: (opt[props.map.icon] ?? opt.icon) || "",
+				group: opt.group || "",
+				raw: opt,
+			};
+		}
+		return null;
 	});
+
+	return metaStore.uniqueOptions((mapped || []).filter(Boolean));
 });
 
 const filteredOptions = computed(() => {
-	if (!query.value) return normalizedOptions.value;
+	const options = normalizedOptions.value || [];
+	if (!query.value || typeof query.value !== "string") return options;
 	const q = query.value.toLowerCase();
-	return normalizedOptions.value.filter(
-		(opt) =>
-			opt.label.toLowerCase().includes(q) ||
-			(opt.description || "").toLowerCase().includes(q) ||
-			opt.value.toLowerCase().includes(q)
+	return options.filter((opt) =>
+		String(`${opt.label} ${opt.description || ""} ${opt.value}`)
+			.toLowerCase()
+			.includes(q)
 	);
 });
 
-// --- Data Fetching ---
-async function fetchOptions() {
-	if (!props.get_data && props.df.fieldtype !== "Link" && !props.documentType) return;
+const selectedOptionObjects = computed(() => {
+	const map = new Map(normalizedOptions.value.map((opt) => [String(opt.value), opt]));
+	return selectedValues.value.map((value) => {
+		const opt = map.get(String(value));
+		return opt || { value: String(value), label: String(value) };
+	});
+});
 
-	loading.value = true;
-	try {
-		let results = [];
-		if (props.get_data) {
-			results = await props.get_data(query.value);
-		} else if (props.documentType) {
-			const result = await frappe.call({
-				method: "flexirule.ruleflow.api.get_doctype_fields",
-				args: { doctype: props.documentType },
-			});
-			results = result.message?.parent_fields || [];
-		} else if (props.df.fieldtype === "Link" && props.df.options) {
-			const resp = await frappe.call({
-				method: "frappe.desk.search.search_link",
-				args: {
-					txt: query.value,
-					doctype: props.df.options,
-					filters: props.df.filters || {},
-				},
-			});
-			results = resp.message || [];
-		}
-		fetchedOptions.value = results;
-	} catch (e) {
-		console.error("MultiSelectList fetch failed", e);
-	} finally {
-		loading.value = false;
-	}
-}
+const compactVisible = computed(() =>
+	selectedOptionObjects.value.slice(0, props.compactMaxVisible)
+);
+const compactHiddenCount = computed(() =>
+	Math.max(0, selectedOptionObjects.value.length - compactVisible.value.length)
+);
 
-// --- Interaction Logic ---
-function toggleDropdown() {
-	if (props.read_only || props.expanded) return;
-	isDropdownOpen.value = !isDropdownOpen.value;
-	if (isDropdownOpen.value) {
-		query.value = "";
-		activeIndex.value = -1;
-		updateDropdownPosition();
-		nextTick(() => searchInputRef.value?.focus());
-		if (props.df.fieldtype === "Link" || props.get_data || props.documentType) {
-			fetchOptions();
-		}
-	}
-}
+const collapsedBadges = computed(() => {
+	if (props.badgeCollapseAfter <= 0) return selectedOptionObjects.value;
+	return selectedOptionObjects.value.slice(0, props.badgeCollapseAfter);
+});
+const collapsedBadgeHiddenCount = computed(() =>
+	Math.max(0, selectedOptionObjects.value.length - collapsedBadges.value.length)
+);
 
-function updateDropdownPosition() {
-	if (!wrapperRef.value) return;
-	const rect = wrapperRef.value.getBoundingClientRect();
-	const windowHeight = window.innerHeight;
-	const spaceBelow = windowHeight - rect.bottom;
-	const dropdownHeight = 350;
+const isVirtualized = computed(
+	() => (filteredOptions.value || []).length >= props.virtualThreshold
+);
+const viewportHeight = computed(() => Math.min(props.dropdownMaxHeight - 110, 260));
+const overscan = 6;
+const startIndex = computed(() =>
+	isVirtualized.value ? Math.max(0, Math.floor(scrollTop.value / props.itemHeight) - overscan) : 0
+);
+const endIndex = computed(() => {
+	const options = filteredOptions.value || [];
+	if (!isVirtualized.value) return options.length;
+	const visibleCount = Math.ceil(viewportHeight.value / props.itemHeight) + overscan * 2;
+	return Math.min(options.length, startIndex.value + visibleCount);
+});
+const visibleOptions = computed(() => {
+	const options = filteredOptions.value || [];
+	return isVirtualized.value ? options.slice(startIndex.value, endIndex.value) : options;
+});
+const topSpacer = computed(() => (isVirtualized.value ? startIndex.value * props.itemHeight : 0));
+const bottomSpacer = computed(() => {
+	const options = filteredOptions.value || [];
+	return isVirtualized.value ? (options.length - endIndex.value) * props.itemHeight : 0;
+});
 
-	let top = rect.bottom + 4;
-	if (spaceBelow < dropdownHeight && rect.top > dropdownHeight) {
-		top = rect.top - dropdownHeight - 4;
-	}
+const canInteract = computed(() => !props.read_only && !props.disabled);
+const showExpanded = computed(() => props.expanded);
+const isCompactMode = computed(() => props.displayMode === "compact");
+const isBadgeMode = computed(() => props.displayMode === "badges");
 
-	dropdownStyle.value = {
-		position: "fixed",
-		top: `${top}px`,
-		left: `${rect.left}px`,
-		width: `${Math.max(rect.width, 300)}px`,
-		zIndex: 2100,
-	};
+function emitValue(nextValues) {
+	emit("update:modelValue", nextValues);
+	emit("change", nextValues);
 }
 
 function selectOption(value) {
-	if (props.read_only) return;
-	const current = [...selectedValues.value];
-	const idx = current.indexOf(String(value));
-
-	if (idx > -1) {
-		current.splice(idx, 1);
-	} else {
-		// Preserving order of selection as requested
-		current.push(String(value));
-	}
-
-	emit("update:modelValue", current);
-	emit("change", current);
+	if (!canInteract.value) return;
+	const key = String(value);
+	const next = [...selectedValues.value];
+	const idx = next.indexOf(key);
+	if (idx > -1) next.splice(idx, 1);
+	else next.push(key);
+	emitValue(next);
 }
 
 function removeValue(value) {
-	if (props.read_only) return;
-	const current = selectedValues.value.filter((v) => v !== String(value));
-	emit("update:modelValue", current);
+	if (!canInteract.value) return;
+	emitValue(selectedValues.value.filter((v) => v !== String(value)));
 }
 
-function selectAll() {
-	if (props.read_only) return;
-	const all = filteredOptions.value.map((o) => o.value);
-	// Merge with existing to preserve order of old ones, but add new visible ones
-	const next = [...new Set([...selectedValues.value, ...all])];
-	emit("update:modelValue", next);
+function selectAllVisible() {
+	if (!canInteract.value) return;
+	const visible = filteredOptions.value.map((opt) => String(opt.value));
+	emitValue([...new Set([...selectedValues.value, ...visible])]);
 }
 
-function unselectAll() {
-	if (props.read_only) return;
-	// Only unselect visible filtered options
-	const visibleValues = new Set(filteredOptions.value.map((o) => o.value));
-	const next = selectedValues.value.filter((v) => !visibleValues.has(v));
-	emit("update:modelValue", next);
+function unselectAllVisible() {
+	if (!canInteract.value) return;
+	const visible = new Set(filteredOptions.value.map((opt) => String(opt.value)));
+	emitValue(selectedValues.value.filter((val) => !visible.has(String(val))));
 }
 
-function onKeydown(e) {
-	if (e.key === "ArrowDown") {
-		e.preventDefault();
-		activeIndex.value = Math.min(activeIndex.value + 1, filteredOptions.value.length - 1);
-		scrollToActive();
-	} else if (e.key === "ArrowUp") {
-		e.preventDefault();
-		activeIndex.value = Math.max(activeIndex.value - 1, 0);
-		scrollToActive();
-	} else if (e.key === "Enter") {
-		e.preventDefault();
-		if (activeIndex.value > -1) {
-			selectOption(filteredOptions.value[activeIndex.value].value);
-		}
-	} else if (e.key === "Escape") {
-		isDropdownOpen.value = false;
+function invertSelectionVisible() {
+	if (!canInteract.value) return;
+	const current = new Set(selectedValues.value.map(String));
+	const visible = filteredOptions.value.map((opt) => String(opt.value));
+	const next = selectedValues.value.filter((v) => !visible.includes(String(v)));
+	for (const value of visible) {
+		if (!current.has(value)) next.push(value);
 	}
+	emitValue([...new Set(next)]);
+}
+
+function onViewportScroll(event) {
+	scrollTop.value = event?.target?.scrollTop || 0;
+	if (!hasMore.value || loading.value || !viewportRef.value) return;
+	const el = viewportRef.value;
+	const nearBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 24;
+	if (nearBottom) loadMore();
 }
 
 function scrollToActive() {
 	nextTick(() => {
-		const activeEl = dropdownRef.value?.querySelector(".is-active");
-		if (activeEl) {
-			activeEl.scrollIntoView({ block: "nearest" });
+		if (!viewportRef.value || activeIndex.value < 0) return;
+		if (isVirtualized.value) {
+			const targetTop = activeIndex.value * props.itemHeight;
+			const targetBottom = targetTop + props.itemHeight;
+			if (targetTop < viewportRef.value.scrollTop) {
+				viewportRef.value.scrollTop = targetTop;
+			}
+			if (targetBottom > viewportRef.value.scrollTop + viewportRef.value.clientHeight) {
+				viewportRef.value.scrollTop = targetBottom - viewportRef.value.clientHeight;
+			}
+			return;
 		}
+		const activeEl = dropdownRef.value?.querySelector(".option-item.is-active");
+		activeEl?.scrollIntoView({ block: "nearest" });
 	});
 }
 
-function handleClickOutside(e) {
-	if (
-		isDropdownOpen.value &&
-		!wrapperRef.value?.contains(e.target) &&
-		!e.target.closest(".fr-dropdown")
-	) {
-		isDropdownOpen.value = false;
+function runTypeahead(key) {
+	typeaheadBuffer.value += String(key || "").toLowerCase();
+	if (typeaheadTimeout) clearTimeout(typeaheadTimeout);
+	typeaheadTimeout = setTimeout(() => {
+		typeaheadBuffer.value = "";
+	}, 420);
+	const options = filteredOptions.value || [];
+	const idx = options.findIndex((opt) =>
+		String(opt.label || "")
+			.toLowerCase()
+			.startsWith(typeaheadBuffer.value)
+	);
+	if (idx > -1) {
+		activeIndex.value = idx;
+		scrollToActive();
 	}
 }
 
-onMounted(() => {
-	document.addEventListener("mousedown", handleClickOutside);
-	if (props.expanded) {
-		fetchOptions();
+function onKeydown(event) {
+	if (event.key === "ArrowDown") {
+		event.preventDefault();
+		const options = filteredOptions.value || [];
+		activeIndex.value = Math.min(activeIndex.value + 1, options.length - 1);
+		scrollToActive();
+		return;
 	}
-});
-
-onBeforeUnmount(() => {
-	document.removeEventListener("mousedown", handleClickOutside);
-});
-
-const debouncedFetch = flexirule.utils.debounce(fetchOptions, 300);
-watch(query, () => {
-	if (props.df.fieldtype === "Link" || props.get_data || props.documentType) {
-		debouncedFetch();
+	if (event.key === "ArrowUp") {
+		event.preventDefault();
+		activeIndex.value = Math.max(activeIndex.value - 1, 0);
+		scrollToActive();
+		return;
 	}
+	if (event.key === "Enter") {
+		event.preventDefault();
+		const options = filteredOptions.value || [];
+		if (activeIndex.value > -1) {
+			const selected = options[activeIndex.value];
+			if (selected) selectOption(selected.value);
+		}
+		return;
+	}
+	if (event.key === "Escape") {
+		event.preventDefault();
+		closeDropdown();
+		return;
+	}
+	if (/^[\w\s-]$/.test(event.key) && !event.ctrlKey && !event.metaKey) {
+		runTypeahead(event.key);
+	}
+}
+
+async function fetchOptions(value = "") {
+	if (!isRemote.value) return;
+	await runFetch(value || "");
+	nextTick(() => updatePosition());
+}
+
+function openDropdown() {
+	if (!canInteract.value || showExpanded.value) return;
+	openFloatingDropdown();
+	query.value = "";
+	activeIndex.value = -1;
+	nextTick(() => {
+		searchInputRef.value?.focus();
+		updatePosition();
+	});
+	fetchOptions("");
+}
+
+function closeDropdown() {
+	closeFloatingDropdown();
+}
+
+function toggleDropdown() {
+	if (!canInteract.value || showExpanded.value) return;
+	toggleFloatingDropdown();
+	if (isDropdownOpen.value) {
+		openDropdown();
+	}
+}
+
+function displaySummaryText() {
+	if (!selectedOptionObjects.value.length) {
+		return props.placeholder || props.df.placeholder || __("Select options...");
+	}
+	return selectedOptionObjects.value.map((opt) => opt.label).join(", ");
+}
+
+function handleClickOutside(event) {
+	if (!isDropdownOpen.value) return;
+	if (wrapperRef.value?.contains(event.target)) return;
+	if (dropdownRef.value?.contains(event.target)) return;
+	closeDropdown();
+}
+
+const debouncedFetch = flexirule.utils.debounce(fetchOptions, 220);
+watch(query, (value) => {
+	activeIndex.value = -1;
+	if (isRemote.value) debouncedFetch(value || "");
 });
 
 watch(
 	() => props.documentType,
 	() => {
-		if (props.expanded || isDropdownOpen.value) {
-			fetchOptions();
-		}
+		reset();
+		if (showExpanded.value || isDropdownOpen.value) fetchOptions(query.value || "");
 	}
 );
 
-const selectedOptionsObjects = computed(() => {
-	const allOpts = normalizedOptions.value;
-	return selectedValues.value.map((v) => {
-		return allOpts.find((o) => o.value === v) || { value: v, label: v };
-	});
+watch(
+	() => props.df?.options,
+	() => {
+		reset();
+	}
+);
+
+onMounted(() => {
+	document.addEventListener("mousedown", handleClickOutside);
+	if (showExpanded.value) fetchOptions("");
+});
+
+onBeforeUnmount(() => {
+	document.removeEventListener("mousedown", handleClickOutside);
+	cleanup();
+	if (typeaheadTimeout) clearTimeout(typeaheadTimeout);
 });
 </script>
 
@@ -273,112 +438,172 @@ const selectedOptionsObjects = computed(() => {
 			{{ __(df.label) }}
 		</div>
 
-		<!-- Display Mode: Badges (Input Trigger) -->
 		<div
-			v-if="displayMode === 'badges'"
 			class="multi-select-trigger"
-			:class="{ 'is-active': isDropdownOpen, disabled: read_only }"
+			:class="{
+				'is-active': isDropdownOpen,
+				disabled: !canInteract,
+				invalid,
+				compact: isCompactMode,
+			}"
 			@click="toggleDropdown"
 		>
-			<div class="selected-badges">
-				<div v-for="opt in selectedOptionsObjects" :key="opt.value" class="selected-badge">
-					<span>{{ opt.label }}</span>
-					<i
-						v-if="!read_only"
-						class="fa fa-times remove-icon"
-						@click.stop="removeValue(opt.value)"
-					></i>
+			<template v-if="isCompactMode">
+				<div class="compact-content" :title="displaySummaryText()">
+					<span v-for="opt in compactVisible" :key="opt.value" class="compact-pill">
+						{{ opt.label }}
+					</span>
+					<span v-if="compactHiddenCount" class="compact-pill muted"
+						>+{{ compactHiddenCount }} {{ __("more") }}</span
+					>
+					<span v-if="!selectedOptionObjects.length" class="placeholder-text">
+						{{ props.placeholder || props.df.placeholder || __("Select options...") }}
+					</span>
 				</div>
-				<span v-if="!selectedValues.length" class="placeholder-text">
-					{{ placeholder || df.placeholder || __("Select options...") }}
-				</span>
-			</div>
+			</template>
+
+			<template v-else-if="isBadgeMode">
+				<div class="selected-badges">
+					<div v-for="opt in collapsedBadges" :key="opt.value" class="selected-badge">
+						<span>{{ opt.label }}</span>
+						<i
+							v-if="canInteract"
+							class="fa fa-times remove-icon"
+							@click.stop="removeValue(opt.value)"
+						></i>
+					</div>
+					<span v-if="collapsedBadgeHiddenCount" class="selected-badge collapsed"
+						>+{{ collapsedBadgeHiddenCount }}</span
+					>
+					<span v-if="!selectedValues.length" class="placeholder-text">
+						{{ placeholder || df.placeholder || __("Select options...") }}
+					</span>
+				</div>
+			</template>
+
+			<template v-else>
+				<div class="mode-summary" :title="displaySummaryText()">
+					{{ displaySummaryText() }}
+				</div>
+			</template>
 			<i class="fa fa-chevron-down trigger-icon"></i>
 		</div>
 
-		<!-- Display Mode: List / Numbered / Columns -->
-		<div v-else class="display-mode-container">
-			<div class="display-header mb-2" v-if="!read_only">
-				<button class="btn btn-xs btn-primary-light" @click="toggleDropdown">
-					<i class="fa fa-plus mr-1"></i> {{ __("Add Selection") }}
-				</button>
-			</div>
-
-			<div
-				class="selected-list"
-				:class="[`mode-${displayMode}`, { 'columns-layout': displayMode === 'columns' }]"
-			>
-				<component :is="displayMode === 'numbered' ? 'ol' : 'div'" class="list-inner">
-					<component
-						:is="displayMode === 'numbered' ? 'li' : 'div'"
-						v-for="(opt, idx) in selectedOptionsObjects"
-						:key="opt.value"
-						class="list-item"
+		<div
+			v-if="!showExpanded && !isCompactMode && !isBadgeMode"
+			class="selected-list"
+			:class="`mode-${displayMode}`"
+		>
+			<component :is="displayMode === 'numbered' ? 'ol' : 'div'" class="list-inner">
+				<component
+					:is="displayMode === 'numbered' ? 'li' : 'div'"
+					v-for="(opt, idx) in selectedOptionObjects"
+					:key="opt.value"
+					class="list-item"
+				>
+					<span class="item-label">
+						<span v-if="displayMode === 'numbered'" class="mr-1">{{ idx + 1 }}.</span>
+						{{ opt.label }}
+					</span>
+					<button
+						v-if="canInteract"
+						class="btn btn-xs btn-link text-danger p-0"
+						@click="removeValue(opt.value)"
 					>
-						<span class="item-label"
-							><span v-if="displayMode === 'numbered'" class="mr-1"
-								>{{ idx + 1 }}.</span
-							>
-							{{ opt.label }}</span
-						>
-						<button
-							v-if="!read_only"
-							class="btn btn-xs btn-link text-danger p-0"
-							@click="removeValue(opt.value)"
-						>
-							<i class="fa fa-trash-o"></i>
-						</button>
-					</component>
+						<i class="fa fa-trash-o"></i>
+					</button>
 				</component>
-				<div v-if="!selectedValues.length" class="text-muted small italic p-2">
-					{{ __("No selections made") }}
-				</div>
+			</component>
+			<div v-if="!selectedOptionObjects.length" class="empty-selection-text">
+				{{ __("No selections made") }}
 			</div>
 		</div>
 
-		<!-- Expanded Mode or Dropdown Popover -->
-		<div v-if="expanded" class="expanded-options-container mt-2">
-			<div class="dropdown-search mb-2" v-if="!read_only">
+		<div v-if="showExpanded" class="expanded-options-container">
+			<div class="dropdown-search sticky-row">
 				<i class="fa fa-search text-muted mr-2"></i>
 				<input
+					ref="searchInputRef"
 					v-model="query"
 					class="search-input"
 					:placeholder="__('Search options...')"
+					@keydown="onKeydown"
 				/>
 			</div>
-			<div class="options-grid" :style="`grid-template-columns: repeat(${columns}, 1fr)`">
+			<div class="dropdown-actions sticky-row">
+				<button class="action-btn select-all" @click="selectAllVisible">
+					{{ __("Select Visible") }}
+				</button>
+				<button class="action-btn unselect-all" @click="unselectAllVisible">
+					{{ __("Unselect Visible") }}
+				</button>
+				<button
+					v-if="allowInvertSelection"
+					class="action-btn invert"
+					@click="invertSelectionVisible"
+				>
+					{{ __("Invert") }}
+				</button>
+			</div>
+			<div
+				ref="viewportRef"
+				class="dropdown-options-container"
+				@scroll="onViewportScroll"
+				:style="{ '--columns': columns, '--viewport-height': `${viewportHeight}px` }"
+			>
+				<div v-if="topSpacer" :style="{ height: `${topSpacer}px` }"></div>
 				<div
-					v-for="opt in filteredOptions"
-					:key="opt.value"
+					v-for="(opt, idx) in visibleOptions"
+					:key="`${opt.value}-${startIndex + idx}`"
 					class="option-item"
-					:class="{ 'is-selected': selectedValues.includes(opt.value) }"
+					:class="{
+						'is-active': startIndex + idx === activeIndex,
+						'is-selected': selectedValues.includes(String(opt.value)),
+					}"
+					:data-value="opt.value"
+					:data-label="opt.label"
 					@click="selectOption(opt.value)"
 				>
 					<input
 						type="checkbox"
-						:checked="selectedValues.includes(opt.value)"
-						class="mr-2"
+						:checked="selectedValues.includes(String(opt.value))"
 						@click.stop="selectOption(opt.value)"
 					/>
+					<div v-if="opt.icon" class="option-icon">
+						<i :class="opt.icon"></i>
+					</div>
 					<div class="option-info">
-						<div class="option-label">{{ opt.label }}</div>
-						<div v-if="opt.description" class="option-desc">
-							{{ opt.description }}
+						<div class="option-label-row">
+							<div class="option-label">{{ opt.label || opt.value }}</div>
+							<span
+								v-if="opt.raw?.fieldtype || opt.raw?.type"
+								class="option-badge"
+								:class="
+									'type-' +
+									String(opt.raw?.fieldtype || opt.raw?.type || '')
+										.toLowerCase()
+										.replace(' ', '-')
+								"
+							>
+								{{ opt.raw?.fieldtype || opt.raw?.type }}
+							</span>
 						</div>
+						<div v-if="opt.description" class="option-desc">{{ opt.description }}</div>
 					</div>
 				</div>
+				<div v-if="bottomSpacer" :style="{ height: `${bottomSpacer}px` }"></div>
 			</div>
 		</div>
 
 		<Teleport to="body">
 			<transition name="dropdown-fade">
 				<div
-					v-if="isDropdownOpen && !expanded"
+					v-if="isDropdownOpen && !showExpanded"
 					class="fr-dropdown multi-select-dropdown"
 					:style="dropdownStyle"
 					ref="dropdownRef"
 				>
-					<div class="dropdown-search">
+					<div class="dropdown-search sticky-row">
 						<i class="fa fa-search text-muted mr-2"></i>
 						<input
 							ref="searchInputRef"
@@ -389,53 +614,95 @@ const selectedOptionsObjects = computed(() => {
 						/>
 					</div>
 
-					<div class="dropdown-actions border-bottom p-2 d-flex gap-3">
-						<button class="btn btn-xs btn-link p-0" @click="selectAll">
+					<div class="dropdown-actions sticky-row">
+						<button class="action-btn select-all" @click="selectAllVisible">
 							{{ __("Select Visible") }}
 						</button>
-						<button class="btn btn-xs btn-link p-0 text-muted" @click="unselectAll">
+						<button class="action-btn unselect-all" @click="unselectAllVisible">
 							{{ __("Unselect Visible") }}
+						</button>
+						<button
+							v-if="allowInvertSelection"
+							class="action-btn invert"
+							@click="invertSelectionVisible"
+						>
+							{{ __("Invert") }}
 						</button>
 					</div>
 
+					<div class="dropdown-state" v-if="loading || loadingState">
+						<i class="fa fa-spinner fa-spin mr-2"></i>{{ __("Loading...") }}
+					</div>
+					<div class="dropdown-state" v-else-if="error || errorMessage">
+						{{ error || errorMessage }}
+					</div>
+					<div class="dropdown-state" v-else-if="!filteredOptions.length">
+						{{ __("No options found") }}
+					</div>
+
 					<div
+						v-else
+						ref="viewportRef"
 						class="dropdown-options-container"
-						:style="`grid-template-columns: repeat(${columns}, 1fr)`"
+						@scroll="onViewportScroll"
+						:style="{
+							'--columns': columns,
+							'--viewport-height': `${viewportHeight}px`,
+						}"
 					>
-						<div v-if="loading" class="p-3 text-center text-muted">
-							<i class="fa fa-spinner fa-spin mr-2"></i> {{ __("Loading...") }}
-						</div>
-						<div v-else-if="!filteredOptions.length" class="p-3 text-center text-muted">
-							{{ __("No options found") }}
-						</div>
+						<div v-if="topSpacer" :style="{ height: `${topSpacer}px` }"></div>
 						<div
-							v-for="(opt, idx) in filteredOptions"
-							:key="opt.value"
+							v-for="(opt, idx) in visibleOptions"
+							:key="`${opt.value}-${startIndex + idx}`"
 							class="option-item"
 							:class="{
-								'is-active': idx === activeIndex,
-								'is-selected': selectedValues.includes(opt.value),
+								'is-active': startIndex + idx === activeIndex,
+								'is-selected': selectedValues.includes(String(opt.value)),
 							}"
+							:data-value="opt.value"
+							:data-label="opt.label"
 							@click="selectOption(opt.value)"
 						>
 							<input
 								type="checkbox"
-								:checked="selectedValues.includes(opt.value)"
-								class="mr-2"
+								:checked="selectedValues.includes(String(opt.value))"
 								@click.stop="selectOption(opt.value)"
 							/>
+							<div v-if="opt.icon" class="option-icon">
+								<i :class="opt.icon"></i>
+							</div>
 							<div class="option-info">
-								<div class="option-label">{{ opt.label }}</div>
+								<div class="option-label-row">
+									<div class="option-label">
+										{{ opt.label || opt.value }}
+									</div>
+									<span
+										v-if="opt.raw?.fieldtype || opt.raw?.type"
+										class="option-badge"
+										:class="
+											'type-' +
+											String(opt.raw?.fieldtype || opt.raw?.type || '')
+												.toLowerCase()
+												.replace(' ', '-')
+										"
+									>
+										{{ opt.raw?.fieldtype || opt.raw?.type }}
+									</span>
+								</div>
 								<div v-if="opt.description" class="option-desc">
 									{{ opt.description }}
 								</div>
 							</div>
 						</div>
+						<div v-if="bottomSpacer" :style="{ height: `${bottomSpacer}px` }"></div>
 					</div>
 				</div>
 			</transition>
 		</Teleport>
 
+		<div v-if="(error || errorMessage) && !isDropdownOpen" class="fr-description text-danger">
+			{{ error || errorMessage }}
+		</div>
 		<div v-if="df.description && !hideLabel" class="fr-description">
 			{{ __(df.description) }}
 		</div>
@@ -448,7 +715,6 @@ const selectedOptionsObjects = computed(() => {
 	width: 100%;
 }
 
-/* --- Trigger Styles --- */
 .multi-select-trigger {
 	min-height: var(--fr-input-height);
 	background: var(--fr-bg-input);
@@ -457,17 +723,51 @@ const selectedOptionsObjects = computed(() => {
 	padding: 4px 8px;
 	display: flex;
 	align-items: center;
+	gap: 8px;
 	cursor: pointer;
-	transition: all var(--fr-transition-fast);
+	transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.multi-select-trigger:hover {
-	border-color: var(--fr-border-strong);
+.multi-select-trigger.invalid {
+	border-color: #dc2626;
 }
 
 .multi-select-trigger.is-active {
 	border-color: var(--fr-accent);
 	box-shadow: 0 0 0 3px var(--fr-accent-light);
+}
+
+.multi-select-trigger.disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
+}
+
+.compact-content,
+.mode-summary {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.compact-pill {
+	max-width: 180px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	padding: 2px 8px;
+	border-radius: 999px;
+	background: var(--fr-bg-muted);
+	font-size: 11px;
+	font-weight: 600;
+}
+
+.compact-pill.muted {
+	color: var(--fr-text-muted);
 }
 
 .selected-badges {
@@ -482,16 +782,21 @@ const selectedOptionsObjects = computed(() => {
 	color: var(--fr-accent);
 	padding: 2px 8px;
 	border-radius: var(--fr-radius-sm);
-	font-size: var(--fr-text-xs);
-	font-weight: var(--fr-weight-semibold);
-	display: flex;
+	font-size: 11px;
+	font-weight: 600;
+	display: inline-flex;
 	align-items: center;
 	gap: 6px;
 }
 
+.selected-badge.collapsed {
+	background: var(--fr-bg-muted);
+	color: var(--fr-text-muted);
+}
+
 .remove-icon {
 	cursor: pointer;
-	opacity: 0.7;
+	opacity: 0.75;
 }
 
 .remove-icon:hover {
@@ -506,83 +811,157 @@ const selectedOptionsObjects = computed(() => {
 .trigger-icon {
 	color: var(--fr-text-muted);
 	font-size: 10px;
-	margin-left: 8px;
+	margin-left: auto;
+	flex-shrink: 0;
 }
 
-/* --- Display Modes --- */
+.multi-select-dropdown,
+.expanded-options-container {
+	background: var(--fr-bg-card, #fff);
+	border: 1px solid var(--fr-border, #dbe2ea);
+	border-radius: 12px;
+	box-shadow: 0 16px 34px rgba(15, 23, 42, 0.18);
+	overflow: hidden;
+}
+
+.expanded-options-container {
+	margin-top: 8px;
+}
+
 .selected-list {
+	margin-top: 8px;
 	background: var(--fr-bg-card);
 	border: 1px solid var(--fr-border);
-	border-radius: var(--fr-radius-lg);
-	max-height: 300px;
-	overflow-y: auto;
+	border-radius: 10px;
+	max-height: 240px;
+	overflow: auto;
 }
 
 .list-inner {
 	margin: 0;
-	padding: var(--fr-space-2);
+	padding: 6px;
 }
 
 .list-item {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: var(--fr-space-2) var(--fr-space-4);
-	border-radius: var(--fr-radius-md);
+	gap: 8px;
+	padding: 6px 8px;
+	border-radius: 8px;
 }
 
 .list-item:hover {
 	background: var(--fr-bg-muted);
 }
 
-.columns-layout .list-inner {
-	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-	gap: 8px;
+.item-label {
+	font-size: 13px;
+	line-height: 1.3;
+	color: var(--fr-text);
+	min-width: 0;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
-/* --- Dropdown Styles --- */
-.multi-select-dropdown {
-	display: flex;
-	flex-direction: column;
-	max-height: 400px;
-	background: var(--fr-bg-card) !important;
-	border: 1px solid var(--fr-border);
-	border-radius: var(--fr-radius-lg);
-	box-shadow: var(--fr-shadow-lg);
-	overflow: hidden;
+.mode-columns .list-inner {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+	gap: 6px;
+}
+
+.empty-selection-text {
+	padding: 10px 12px;
+	font-size: 12px;
+	color: var(--fr-text-muted);
+}
+
+.sticky-row {
+	position: sticky;
+	z-index: 2;
+	background: var(--fr-bg-card, #fff);
 }
 
 .dropdown-search {
-	padding: 12px;
+	top: 0;
+	padding: 10px 12px;
 	display: flex;
 	align-items: center;
 	border-bottom: 1px solid var(--fr-border);
 }
 
+.dropdown-actions {
+	top: 44px;
+	padding: 8px 12px;
+	display: flex;
+	gap: 6px;
+	border-bottom: 1px solid var(--fr-border);
+}
+
+.action-btn {
+	padding: 4px 8px;
+	border: 1px solid var(--fr-border);
+	border-radius: var(--fr-radius-sm, 4px);
+	background: var(--fr-bg-card, #fff);
+	color: var(--fr-text-muted);
+	font-size: 11px;
+	font-weight: 600;
+	cursor: pointer;
+	transition: all 0.15s ease;
+	white-space: nowrap;
+}
+
+.action-btn:hover {
+	background: var(--fr-bg-muted, #f8fafc);
+	border-color: var(--fr-border-strong, #cbd5e1);
+	color: var(--fr-text);
+}
+
+.action-btn.select-all {
+	color: var(--fr-accent, #2563eb);
+	border-color: var(--fr-accent-light, #dbeafe);
+	background: var(--fr-accent-light, #f0f7ff);
+}
+
+.action-btn.select-all:hover {
+	background: var(--fr-accent);
+	color: #fff;
+	border-color: var(--fr-accent);
+}
+
 .search-input {
 	flex: 1;
-	border: none !important;
-	background: transparent !important;
+	border: none;
+	background: transparent;
+	outline: none;
 	font-size: var(--fr-text-sm);
-	outline: none !important;
-	box-shadow: none !important;
+}
+
+.dropdown-state {
+	padding: 18px 12px;
+	text-align: center;
+	color: var(--fr-text-muted);
+	font-size: 12px;
 }
 
 .dropdown-options-container {
-	flex: 1;
-	overflow-y: auto;
+	max-height: var(--viewport-height);
+	overflow: auto;
 	display: grid;
+	grid-template-columns: repeat(var(--columns), minmax(0, 1fr));
+	gap: 4px;
 	padding: 4px;
 }
 
 .option-item {
 	display: flex;
 	align-items: flex-start;
-	padding: 8px 12px;
+	gap: 8px;
+	padding: 8px 10px;
+	border-radius: 8px;
 	cursor: pointer;
-	border-radius: var(--fr-radius-md);
-	transition: background 0.1s;
+	transition: background 0.12s ease;
 }
 
 .option-item:hover,
@@ -594,38 +973,115 @@ const selectedOptionsObjects = computed(() => {
 	background: var(--fr-accent-light);
 }
 
+.option-icon {
+	flex-shrink: 0;
+	margin-top: 2px;
+	width: 16px;
+	height: 16px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--fr-accent);
+	font-size: 12px;
+}
+
+.option-info {
+	flex: 1;
+	min-width: 0;
+}
+
+.option-label-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+}
+
 .option-label {
-	font-size: var(--fr-text-sm);
-	font-weight: var(--fr-weight-medium);
+	font-size: 13px;
+	font-weight: 600;
 	color: var(--fr-text);
+	line-height: 1.25;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.option-badge {
+	font-size: 9px;
+	font-weight: 700;
+	text-transform: uppercase;
+	padding: 1px 6px;
+	border-radius: 4px;
+	letter-spacing: 0.05em;
+	background: var(--fr-bg-muted);
+	color: var(--fr-text-muted);
+	flex-shrink: 0;
 }
 
 .option-desc {
-	font-size: var(--fr-text-xs);
+	font-size: 11px;
 	color: var(--fr-text-muted);
-}
-
-/* --- Expanded Mode --- */
-.expanded-options-container {
-	padding: var(--fr-space-4);
-	background: var(--fr-bg-card);
-	border: 1px solid var(--fr-border);
-	border-radius: var(--fr-radius-lg);
-}
-
-.options-grid {
-	display: grid;
-	gap: 8px;
+	margin-top: 2px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 .dropdown-fade-enter-active,
 .dropdown-fade-leave-active {
-	transition: opacity 0.2s, transform 0.2s;
+	transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
 .dropdown-fade-enter-from,
 .dropdown-fade-leave-to {
 	opacity: 0;
-	transform: translateY(-8px);
+	transform: translateY(-6px) scale(0.99);
+}
+</style>
+
+<style>
+/* Global styles for teleported dropdown content */
+.multi-select-dropdown .option-info {
+	flex: 1;
+	min-width: 0;
+}
+
+.multi-select-dropdown .option-label-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+}
+
+.multi-select-dropdown .option-label {
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--fr-text, #1e293b);
+	line-height: 1.25;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.multi-select-dropdown .option-badge {
+	font-size: 9px;
+	font-weight: 700;
+	text-transform: uppercase;
+	padding: 1px 6px;
+	border-radius: 4px;
+	letter-spacing: 0.05em;
+	background: var(--fr-bg-muted, #f1f5f9);
+	color: var(--fr-text-muted, #64748b);
+	flex-shrink: 0;
+}
+
+.multi-select-dropdown .option-desc {
+	font-size: 11px;
+	color: var(--fr-text-muted, #64748b);
+	margin-top: 2px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 </style>

@@ -119,7 +119,9 @@
 
 						<div
 							v-else-if="
-								filteredOptions.length === 0 && query !== '' && !allowCustomValue
+								(filteredOptions || []).length === 0 &&
+								query !== '' &&
+								!allowCustomValue
 							"
 							class="fr-dropdown-item text-center text-muted"
 						>
@@ -162,13 +164,17 @@
 								</div>
 								<div class="option-text">
 									<div class="option-label-row">
-										<span class="option-label">{{ option.label }}</span>
+										<span class="option-label">
+											{{ option.label || option.value }}
+										</span>
 										<span
 											v-if="option.raw?.fieldtype || option.raw?.type"
 											class="option-badge"
 											:class="
 												'type-' +
-												(option.raw?.fieldtype || option.raw?.type)
+												String(
+													option.raw?.fieldtype || option.raw?.type || ''
+												)
 													.toLowerCase()
 													.replace(' ', '-')
 											"
@@ -204,6 +210,9 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, nextTick, onBeforeUnmount } from "vue";
+import { useMetaStore } from "../stores/useMetaStore";
+import { useFloatingDropdown } from "../composables/useFloatingDropdown";
+import { useAsyncOptionsSource } from "../composables/useAsyncOptionsSource";
 
 const props = defineProps({
 	modelValue: [String, Number, Object],
@@ -216,10 +225,9 @@ const props = defineProps({
 	hideLabel: Boolean,
 	hideDescription: Boolean,
 	placeholder: String,
-	trigger: { type: String, default: "input" }, // 'input' or 'button'
+	trigger: { type: String, default: "input" },
 	allowCustomValue: Boolean,
-	sortBy: [String, Function], // 'label', 'value', or (a, b) => ...
-	// Metadata mapping
+	sortBy: [String, Function],
 	map: {
 		type: Object,
 		default: () => ({
@@ -229,143 +237,38 @@ const props = defineProps({
 			icon: "icon",
 		}),
 	},
-	// Context-aware metadata (for fieldpicker)
 	context: Object,
 	rule: Object,
 });
 
 const emit = defineEmits(["update:modelValue", "change"]);
+const metaStore = useMetaStore();
 
 const query = ref("");
-const loading = ref(false);
-const fetchedOptions = ref([]);
-
-const wrapperRef = ref(null);
 const mainInputRef = ref(null);
 const popoverSearchInput = ref(null);
-const optionsRef = ref(null);
-const dropdownStyle = ref({});
-const isDropdownOpen = ref(false);
 const activeIndex = ref(-1);
+const typeaheadBuffer = ref("");
+let typeaheadTimeout = null;
 
-function updateDropdownPosition() {
-	if (!wrapperRef.value || !isDropdownOpen.value) return;
-	const rect = wrapperRef.value.getBoundingClientRect();
-	const windowHeight = window.innerHeight;
-	const windowWidth = window.innerWidth;
-
-	// Default dropdown height is ~300px (from CSS max-height)
-	const estimatedHeight = 300;
-	let top = rect.bottom + 4;
-	let placement = "bottom";
-
-	if (top + estimatedHeight > windowHeight && rect.top > estimatedHeight) {
-		top = rect.top - estimatedHeight - 4;
-		placement = "top";
-	}
-
-	// Width: always at least as wide as the trigger, capped at viewport edge.
-	// Never use 'max-content' — that collapses to the narrowest content width.
-	const minW = rect.width;
-	const maxW = Math.max(minW, Math.min(360, windowWidth - rect.left - 20));
-	dropdownStyle.value = {
-		position: "fixed",
-		top: `${top}px`,
-		left: `${rect.left}px`,
-		width: `${maxW}px`,
-		minWidth: `${minW}px`,
-		zIndex: 1050,
-	};
-}
-
-// Normalization Logic
-const normalizedOptions = computed(() => {
-	let source = props.options;
-
-	if (typeof source === "string") {
-		source = source
-			.split("\n")
-			.filter(Boolean)
-			.map((opt) => opt.trim());
-	}
-
-	if (!source || (Array.isArray(source) && source.length === 0)) {
-		source = fetchedOptions.value || [];
-	}
-
-	if (!Array.isArray(source)) return [];
-
-	return source.map((opt, idx) => {
-		if (typeof opt === "string") {
-			return { value: opt, label: opt, raw: opt };
-		}
-		if (Array.isArray(opt)) {
-			return {
-				value: opt[0],
-				label: opt[1] || opt[0],
-				description: opt[2] || null,
-				raw: opt,
-			};
-		}
-		if (typeof opt === "object") {
-			const val =
-				opt[props.map.value] ?? opt.value ?? opt.fieldname ?? opt.name ?? `opt_${idx}`;
-			return {
-				value: val,
-				label: opt[props.map.label] ?? opt.label ?? val,
-				description: opt[props.map.description] ?? opt.description,
-				icon: opt[props.map.icon] ?? opt.icon,
-				raw: opt,
-			};
-		}
-		return opt;
-	});
-});
-
-const sortedOptions = computed(() => {
-	let opts = [...normalizedOptions.value];
-	if (props.sortBy) {
-		if (typeof props.sortBy === "function") {
-			opts.sort(props.sortBy);
-		} else {
-			const key = props.sortBy;
-			opts.sort((a, b) => {
-				const valA = (a[key] || "").toString().toLowerCase();
-				const valB = (b[key] || "").toString().toLowerCase();
-				return valA.localeCompare(valB);
-			});
-		}
-	}
-	return opts;
-});
-
-const filteredOptions = computed(() => {
-	if (query.value === "") return sortedOptions.value;
-	return sortedOptions.value.filter((option) => {
-		const searchStr = `${option.label} ${option.description || ""} ${
-			option.value
-		}`.toLowerCase();
-		return searchStr.includes(query.value.toLowerCase());
-	});
-});
-
-const exactMatch = computed(() => {
-	return normalizedOptions.value.some(
-		(opt) => opt.label.toLowerCase() === query.value.toLowerCase()
-	);
-});
-
-const selectedOption = computed(() => {
-	return normalizedOptions.value.find((opt) => opt.value === props.modelValue) || null;
-});
-
-const displayValue = computed(() => {
-	return selectedOption.value?.label || props.modelValue || "";
+const {
+	triggerRef: wrapperRef,
+	dropdownRef: optionsRef,
+	isOpen: isDropdownOpen,
+	dropdownStyle,
+	openDropdown: openFloatingDropdown,
+	closeDropdown: closeFloatingDropdown,
+	toggleDropdown: toggleFloatingDropdown,
+	updatePosition: updateDropdownPosition,
+	cleanup: cleanupFloatingDropdown,
+} = useFloatingDropdown({
+	minWidth: 220,
+	maxWidth: 680,
+	maxHeight: 360,
+	matchTriggerWidth: true,
 });
 
 const effectiveDoctype = computed(() => {
-	// DocField/FieldPicker must NEVER use search_link — their get_query handles field fetching.
-	// Only apply the rule.document_type fallback for Link/DynamicLink types.
 	if (
 		props.df?.fieldtype === "DocField" ||
 		props.df?.fieldtype === "FieldPicker" ||
@@ -376,83 +279,142 @@ const effectiveDoctype = computed(() => {
 	return props.doctype || props.rule?.document_type || props.context?.document_type;
 });
 
-function openLink() {
-	if (effectiveDoctype.value && props.modelValue) {
-		const url = `/app/${frappe.router.slug(effectiveDoctype.value)}/${encodeURIComponent(
-			props.modelValue
-		)}`;
-		window.open(url, "_blank");
-	}
-}
+const isRemote = computed(() => Boolean(props.get_query || effectiveDoctype.value));
 
-async function fetchOptions(search_term = "") {
-	if (!props.get_query && !effectiveDoctype.value) {
-		fetchedOptions.value = [];
-		return;
+const {
+	options: fetchedOptions,
+	loading,
+	run: runOptionFetch,
+	reset: resetOptionSource,
+} = useAsyncOptionsSource(async ({ query: search, start, pageSize }) => {
+	if (props.get_query) {
+		const rows = await props.get_query(search, props.filters || {});
+		return metaStore.uniqueOptions(metaStore.normalizeLinkRows(rows || []));
 	}
-
-	// Double check doctype is a valid string for search_link
-	if (
-		!props.get_query &&
-		(typeof effectiveDoctype.value !== "string" ||
-			!effectiveDoctype.value ||
-			effectiveDoctype.value === "undefined" ||
-			effectiveDoctype.value === "null")
-	) {
-		fetchedOptions.value = [];
-		return;
+	if (effectiveDoctype.value) {
+		return await metaStore.search_link_options({
+			doctype: effectiveDoctype.value,
+			txt: search || "",
+			filters: props.filters || {},
+			start,
+			page_length: pageSize,
+		});
 	}
+	return [];
+});
 
-	loading.value = true;
-	try {
-		let results = [];
-		if (props.get_query) {
-			results = await props.get_query(search_term, props.filters);
-		} else if (effectiveDoctype.value) {
-			const callArgs = {
-				txt: search_term || "",
-				doctype: effectiveDoctype.value,
-				filters: props.filters || {},
+const normalizedOptions = computed(() => {
+	let source = props.options;
+	if (typeof source === "string") {
+		source = source
+			.split("\n")
+			.filter(Boolean)
+			.map((opt) => opt.trim());
+	}
+	if (!source || (Array.isArray(source) && source.length === 0)) {
+		source = fetchedOptions.value || [];
+	}
+	if (!Array.isArray(source)) return [];
+
+	return source.map((opt, idx) => {
+		if (typeof opt === "string") return { value: opt, label: opt, raw: opt };
+		if (Array.isArray(opt)) {
+			return {
+				value: opt[0],
+				label: opt[1] || opt[0],
+				description: opt[2] || null,
+				raw: opt,
 			};
-
-			const resp = await frappe.call({
-				method: "frappe.desk.search.search_link",
-				args: callArgs,
-			});
-			results = resp.message || [];
 		}
-		fetchedOptions.value = results;
-	} catch (e) {
-		console.error(
-			"FlexiRule: ComboBoxControl fetch failed for doctype:",
-			effectiveDoctype.value
-		);
-		console.error("Arguments:", { search_term, filters: props.filters });
-		console.error("Error Response:", e);
-
-		// If 404, it might be a routing issue or broken method mapping
-		if (e.http_status_code === 404) {
-			console.warn(
-				"FlexiRule: The method 'frappe.desk.search.search_link' returned 404. Ensure your site is healthy."
+		if (typeof opt === "object" && opt !== null) {
+			const value = String(
+				opt[props.map.value] ??
+					opt.value ??
+					opt.fieldname ??
+					opt.name ??
+					opt.id ??
+					`opt_${idx}`
 			);
+			const label = String(opt[props.map.label] ?? opt.label ?? opt.description ?? value);
+
+			return {
+				value,
+				label,
+				description: String((opt[props.map.description] ?? opt.description) || ""),
+				icon: opt[props.map.icon] ?? opt.icon,
+				raw: opt,
+			};
 		}
-	} finally {
-		loading.value = false;
+		return opt;
+	});
+});
+
+const sortedOptions = computed(() => {
+	const options = [...normalizedOptions.value];
+	if (!props.sortBy) return options;
+	if (typeof props.sortBy === "function") {
+		options.sort(props.sortBy);
+		return options;
 	}
+	const key = props.sortBy;
+	options.sort((a, b) => {
+		const valA = (a[key] || "").toString().toLowerCase();
+		const valB = (b[key] || "").toString().toLowerCase();
+		return valA.localeCompare(valB);
+	});
+	return options;
+});
+
+const filteredOptions = computed(() => {
+	const options = sortedOptions.value || [];
+	if (!query.value || typeof query.value !== "string") return options;
+	const q = query.value.toLowerCase();
+	return options.filter((option) =>
+		String(`${option.label} ${option.description || ""} ${option.value}`)
+			.toLowerCase()
+			.includes(q)
+	);
+});
+
+const exactMatch = computed(() => {
+	const options = normalizedOptions.value || [];
+	const q = String(query.value || "").toLowerCase();
+	if (!q) return false;
+	return options.some((opt) => String(opt.label || "").toLowerCase() === q);
+});
+
+const selectedOption = computed(
+	() =>
+		normalizedOptions.value.find((opt) => String(opt.value) === String(props.modelValue)) ||
+		null
+);
+
+const displayValue = computed(() => selectedOption.value?.label || props.modelValue || "");
+
+function openLink() {
+	if (!effectiveDoctype.value || !props.modelValue) return;
+	const url = `/app/${frappe.router.slug(effectiveDoctype.value)}/${encodeURIComponent(
+		props.modelValue
+	)}`;
+	window.open(url, "_blank");
 }
+
+const debouncedRemoteSearch = flexirule.utils.debounce(async (value) => {
+	if (!isRemote.value) return;
+	await runOptionFetch(value || "");
+	nextTick(() => updateDropdownPosition());
+}, 220);
 
 function toggleDropdown() {
 	if (props.read_only) return;
-	isDropdownOpen.value = !isDropdownOpen.value;
-	if (isDropdownOpen.value) {
-		openDropdown();
-	}
+	toggleFloatingDropdown();
+	if (isDropdownOpen.value) openDropdown();
 }
 
 function openDropdown() {
-	isDropdownOpen.value = true;
 	query.value = props.trigger === "input" ? displayValue.value : "";
 	activeIndex.value = -1;
+	openFloatingDropdown();
 	nextTick(() => {
 		updateDropdownPosition();
 		if (props.trigger === "button" && popoverSearchInput.value) {
@@ -462,13 +424,11 @@ function openDropdown() {
 			mainInputRef.value.select();
 		}
 	});
-	if (normalizedOptions.value.length === 0 || effectiveDoctype.value) {
-		fetchOptions(query.value);
-	}
+	if (isRemote.value) runOptionFetch(query.value || "");
 }
 
 function closeDropdown() {
-	isDropdownOpen.value = false;
+	closeFloatingDropdown();
 }
 
 function onFocus() {
@@ -479,14 +439,39 @@ function onFocus() {
 function onInput(e) {
 	query.value = e.target.value;
 	if (!isDropdownOpen.value) openDropdown();
+	if (isRemote.value) debouncedRemoteSearch(query.value || "");
 }
 
 function onSelect(val) {
 	emit("update:modelValue", val);
-	const option = normalizedOptions.value.find((o) => o.value === val);
+	const option = normalizedOptions.value.find((o) => String(o.value) === String(val));
 	emit("change", option?.raw || val);
 	query.value = "";
 	closeDropdown();
+}
+
+function scrollToActive() {
+	nextTick(() => {
+		const activeItem = optionsRef.value?.querySelector(".active");
+		if (activeItem) activeItem.scrollIntoView({ block: "nearest" });
+	});
+}
+
+function runTypeahead(key) {
+	typeaheadBuffer.value += String(key || "").toLowerCase();
+	if (typeaheadTimeout) clearTimeout(typeaheadTimeout);
+	typeaheadTimeout = setTimeout(() => {
+		typeaheadBuffer.value = "";
+	}, 450);
+	const idx = filteredOptions.value.findIndex((opt) =>
+		String(opt.label || "")
+			.toLowerCase()
+			.startsWith(typeaheadBuffer.value)
+	);
+	if (idx > -1) {
+		activeIndex.value = idx;
+		scrollToActive();
+	}
 }
 
 function onKeydown(e) {
@@ -500,117 +485,107 @@ function onKeydown(e) {
 
 	if (e.key === "ArrowDown") {
 		e.preventDefault();
-		if (activeIndex.value < filteredOptions.value.length - 1) {
-			activeIndex.value++;
-			scrollToActive();
-		}
-	} else if (e.key === "ArrowUp") {
+		activeIndex.value = Math.min(activeIndex.value + 1, filteredOptions.value.length - 1);
+		scrollToActive();
+		return;
+	}
+
+	if (e.key === "ArrowUp") {
 		e.preventDefault();
 		if (activeIndex.value > 0) {
-			activeIndex.value--;
-			scrollToActive();
-		} else if (allowCustomValue && query.value !== "" && !exactMatch) {
-			activeIndex.value = -2; // -2 means "Create" option
-			scrollToActive();
+			activeIndex.value -= 1;
+		} else if (props.allowCustomValue && query.value !== "" && !exactMatch.value) {
+			activeIndex.value = -2;
 		}
-	} else if (e.key === "Enter") {
+		scrollToActive();
+		return;
+	}
+
+	if (e.key === "Enter") {
 		e.preventDefault();
-		if (activeIndex.value === -2 && allowCustomValue) {
+		if (activeIndex.value === -2 && props.allowCustomValue) {
 			onSelect(query.value);
 		} else if (activeIndex.value >= 0 && activeIndex.value < filteredOptions.value.length) {
 			onSelect(filteredOptions.value[activeIndex.value].value);
 		} else if (filteredOptions.value.length === 1) {
 			onSelect(filteredOptions.value[0].value);
 		}
-	} else if (e.key === "Escape") {
+		return;
+	}
+
+	if (e.key === "Escape") {
 		e.preventDefault();
 		closeDropdown();
+		return;
 	}
-}
 
-function scrollToActive() {
-	nextTick(() => {
-		if (optionsRef.value) {
-			const activeItem = optionsRef.value.querySelector(".active");
-			if (activeItem) {
-				activeItem.scrollIntoView({ block: "nearest" });
-			}
-		}
-	});
+	if (/^[\\w\\s-]$/.test(e.key) && props.trigger === "button") {
+		runTypeahead(e.key);
+	}
 }
 
 function handleClickOutside(e) {
-	if (isDropdownOpen.value && wrapperRef.value && !wrapperRef.value.contains(e.target)) {
-		if (optionsRef.value && optionsRef.value.contains(e.target)) return;
-
-		// If input is empty and we click outside, clear the value
-		if (props.trigger === "input" && query.value === "") {
-			onSelect("");
-		}
-
-		closeDropdown();
+	if (!isDropdownOpen.value || !wrapperRef.value) return;
+	if (wrapperRef.value.contains(e.target)) return;
+	if (optionsRef.value && optionsRef.value.contains(e.target)) return;
+	if (props.trigger === "input" && query.value === "") {
+		onSelect("");
 	}
+	closeDropdown();
 }
 
-let debounceTimer = null;
+let queryWatchTimer = null;
 watch(query, (newQuery) => {
 	activeIndex.value = -1;
-	if (effectiveDoctype.value || props.get_query) {
-		clearTimeout(debounceTimer);
-		debounceTimer = setTimeout(() => {
-			fetchOptions(newQuery);
-		}, 300);
-	}
+	if (!isRemote.value) return;
+	clearTimeout(queryWatchTimer);
+	queryWatchTimer = setTimeout(() => {
+		runOptionFetch(newQuery || "");
+	}, 180);
 });
 
-// Reactively fetch if fieldtype changes to Autocomplete or Link dynamically
 watch(
 	() => props.df?.fieldtype,
 	(newVal, oldVal) => {
 		if (newVal !== oldVal && ["Link", "Dynamic Link", "Autocomplete"].includes(newVal)) {
-			fetchOptions();
+			resetOptionSource();
 		}
 	}
 );
 
-// Watch for doctype changes (critical for Dynamic Link)
 watch(
 	() => effectiveDoctype.value,
 	() => {
-		fetchOptions();
+		resetOptionSource();
+		if (isDropdownOpen.value && isRemote.value) {
+			runOptionFetch(query.value || "");
+		}
 	}
 );
 
-// Watch for filters changes
 watch(
 	() => props.filters,
 	() => {
-		fetchOptions();
+		resetOptionSource();
+		if (isDropdownOpen.value && isRemote.value) {
+			runOptionFetch(query.value || "");
+		}
 	},
 	{ deep: true }
 );
 
-watch(isDropdownOpen, (val) => {
-	if (val) {
-		window.addEventListener("scroll", updateDropdownPosition, true);
-		window.addEventListener("resize", updateDropdownPosition);
-	} else {
-		window.removeEventListener("scroll", updateDropdownPosition, true);
-		window.removeEventListener("resize", updateDropdownPosition);
-	}
-});
-
 onMounted(() => {
 	document.addEventListener("mousedown", handleClickOutside);
-	if (props.modelValue && (effectiveDoctype.value || props.get_query)) {
-		fetchOptions();
+	if (props.modelValue && isRemote.value) {
+		runOptionFetch(query.value || "");
 	}
 });
 
 onBeforeUnmount(() => {
 	document.removeEventListener("mousedown", handleClickOutside);
-	window.removeEventListener("scroll", updateDropdownPosition, true);
-	window.removeEventListener("resize", updateDropdownPosition);
+	cleanupFloatingDropdown();
+	if (queryWatchTimer) clearTimeout(queryWatchTimer);
+	if (typeaheadTimeout) clearTimeout(typeaheadTimeout);
 });
 </script>
 
@@ -636,18 +611,19 @@ onBeforeUnmount(() => {
 }
 
 .fr-control.no-label .combobox-wrapper {
-	border-color: transparent;
-	background: transparent;
-	box-shadow: none;
+	border-color: var(--fr-border);
+	background: var(--fr-bg-input);
+	box-shadow: var(--fr-shadow-sm);
 }
 
 .fr-control.no-label .combobox-wrapper:hover {
-	background: var(--fr-bg-muted);
+	border-color: var(--fr-border-strong);
 }
 
 .fr-control.no-label .combobox-wrapper.is-focused {
 	border-color: var(--fr-accent);
 	background: var(--fr-bg-input);
+	box-shadow: 0 0 0 3px var(--fr-accent-light);
 }
 
 .combobox-input-group {
@@ -853,5 +829,106 @@ onBeforeUnmount(() => {
 .popover-search-input::placeholder {
 	color: var(--fr-text-muted);
 	opacity: 0.7;
+}
+
+.fr-dropdown {
+	background: var(--fr-bg-card, #fff);
+	border: 1px solid var(--fr-border, #dbe2ea);
+	border-radius: var(--fr-radius-lg, 12px);
+	box-shadow: var(--fr-shadow-lg, 0 18px 36px rgba(15, 23, 42, 0.16));
+	overflow: auto;
+}
+
+.fr-dropdown-item {
+	padding: 8px 12px;
+	cursor: pointer;
+	border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+	background: transparent;
+	transition: background 0.12s ease;
+}
+
+.fr-dropdown-item:last-child {
+	border-bottom: none;
+}
+
+.fr-dropdown-item:hover,
+.fr-dropdown-item.active {
+	background: var(--fr-bg-muted, #f8fafc);
+}
+
+.fr-dropdown-item.selected {
+	background: var(--fr-accent-light, #e8f0ff);
+}
+</style>
+
+<style>
+/* Global styles for teleported ComboBox dropdown content */
+.fr-dropdown .option-content {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--fr-space-3, 12px);
+	width: 100%;
+}
+
+.fr-dropdown .option-icon {
+	flex-shrink: 0;
+	margin-top: 2px;
+	width: 16px;
+	height: 16px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--fr-accent, #2563eb);
+	font-size: 12px;
+}
+
+.fr-dropdown .option-text {
+	flex: 1;
+	min-width: 0;
+}
+
+.fr-dropdown .option-label-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--fr-space-3, 12px);
+}
+
+.fr-dropdown .option-label {
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--fr-text, #1e293b);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.fr-dropdown .option-badge {
+	font-size: 9px;
+	font-weight: 700;
+	text-transform: uppercase;
+	padding: 1px 6px;
+	border-radius: 4px;
+	letter-spacing: 0.05em;
+	background: var(--fr-bg-muted, #f1f5f9);
+	color: var(--fr-text-muted, #64748b);
+	flex-shrink: 0;
+}
+
+.fr-dropdown .option-description {
+	font-size: 10px;
+	line-height: 1.4;
+	margin-top: 2px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	color: var(--fr-text-muted, #64748b);
+}
+
+.fr-dropdown .selected-check {
+	flex-shrink: 0;
+	color: var(--fr-accent, #2563eb);
+	font-size: 10px;
+	margin-top: 4px;
 }
 </style>

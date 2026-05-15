@@ -13,6 +13,8 @@ export const useMetaStore = defineStore("rule-builder-meta", () => {
 	// ── State ──
 	const doc_meta = reactive({}); // { [doctype]: field[] }
 	const fetch_counter = ref(0); // in-flight metadata requests
+	const link_options_cache = reactive({});
+	const doctype_fields_cache = reactive({});
 
 	// ── Derived ──
 	const meta_loading = computed(() => fetch_counter.value > 0);
@@ -134,6 +136,116 @@ export const useMetaStore = defineStore("rule-builder-meta", () => {
 		return frappe.get_meta(doctype);
 	}
 
+	function normalizeLinkRows(rows = []) {
+		return (rows || []).reduce((acc, row, idx) => {
+			let value = null;
+			let label = null;
+			let description = "";
+
+			if (typeof row === "string") {
+				value = row;
+				label = row;
+			} else if (Array.isArray(row)) {
+				value = row[0];
+				label = row[1] || row[0];
+				description = row[2] || "";
+			} else if (row && typeof row === "object") {
+				value = row.value ?? row.name ?? row.id ?? row.fieldname ?? null;
+				label = row.label ?? row.title ?? row.description ?? value;
+				description = row.description ?? "";
+			}
+
+			const finalValue = String(value ?? "");
+			const finalLabel = String(label ?? value ?? (finalValue || JSON.stringify(row)));
+
+			if (!finalValue && finalValue !== "0") return acc;
+
+			acc.push({
+				value: finalValue,
+				label: finalLabel,
+				description: String(description || ""),
+				_raw: row,
+				_idx: idx,
+			});
+			return acc;
+		}, []);
+	}
+
+	function uniqueOptions(rows = []) {
+		const seen = new Set();
+		const out = [];
+		for (const row of rows || []) {
+			const key = String(row?.value ?? "");
+			if (!key || seen.has(key)) continue;
+			seen.add(key);
+			out.push(row);
+		}
+		return out;
+	}
+
+	function cacheKeyForLink(doctype, txt = "", filters = {}, start = 0, page_length = 40) {
+		const serializedFilters = JSON.stringify(filters || {});
+		return `${doctype}::${txt}::${serializedFilters}::${start}::${page_length}`;
+	}
+
+	async function search_link_options({
+		doctype,
+		txt = "",
+		filters = {},
+		start = 0,
+		page_length = 40,
+		force = false,
+	} = {}) {
+		if (!doctype || typeof doctype !== "string") return [];
+		const key = cacheKeyForLink(doctype, txt, filters, start, page_length);
+		if (!force && Array.isArray(link_options_cache[key])) {
+			return link_options_cache[key];
+		}
+
+		const response = await frappe.call({
+			method: "frappe.desk.search.search_link",
+			args: {
+				doctype,
+				txt,
+				filters: filters || {},
+				start,
+				page_length,
+			},
+		});
+		const normalized = uniqueOptions(normalizeLinkRows(response?.message || []));
+		link_options_cache[key] = normalized;
+		return normalized;
+	}
+
+	async function get_doctype_field_options(doctype, force = false) {
+		if (!doctype || typeof doctype !== "string") return [];
+		if (!force && Array.isArray(doctype_fields_cache[doctype])) {
+			return doctype_fields_cache[doctype];
+		}
+		try {
+			const fields = await flexirule.utils.get_doctype_fields(doctype);
+			const normalized = (fields || []).map((field, idx) => {
+				const value = field?.value ?? field?.fieldname ?? `field_${idx}`;
+				return {
+					...field,
+					value: String(value),
+					label: String(field?.label || value),
+					description: field?.description || "",
+				};
+			});
+			doctype_fields_cache[doctype] = uniqueOptions(normalized);
+			return doctype_fields_cache[doctype];
+		} catch (_error) {
+			doctype_fields_cache[doctype] = [];
+			return [];
+		}
+	}
+
+	function clear_option_caches() {
+		Object.keys(link_options_cache).forEach((key) => delete link_options_cache[key]);
+		Object.keys(doctype_fields_cache).forEach((key) => delete doctype_fields_cache[key]);
+	}
+
 	return {
 		// State
 		doc_meta,
@@ -146,5 +258,10 @@ export const useMetaStore = defineStore("rule-builder-meta", () => {
 		fetch_metadata,
 		get_fields_for_doctype,
 		get_raw_meta,
+		search_link_options,
+		get_doctype_field_options,
+		clear_option_caches,
+		normalizeLinkRows,
+		uniqueOptions,
 	};
 });

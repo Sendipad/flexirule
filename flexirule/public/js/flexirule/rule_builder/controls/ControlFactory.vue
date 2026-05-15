@@ -160,7 +160,7 @@
 		<!-- MultiSelect (Replacement using MultiSelectList) -->
 		<MultiSelectList
 			v-else-if="df?.fieldtype === 'MultiSelect'"
-			displayMode="badges"
+			:displayMode="df?.displayMode || 'badges'"
 			:df="df"
 			:modelValue="modelValue"
 			:get_data="get_data || df?.get_data"
@@ -171,7 +171,7 @@
 		<!-- MultiFieldPicker (Replacement using MultiSelectList) -->
 		<MultiSelectList
 			v-else-if="df?.fieldtype === 'MultiFieldPicker'"
-			displayMode="badges"
+			:displayMode="df?.displayMode || 'badges'"
 			:df="df"
 			:modelValue="modelValue"
 			:documentType="df?.target_doctype || engine?.rule_doc?.document_type"
@@ -182,7 +182,7 @@
 		<!-- MultiSelectList (Replacement using MultiSelectList) -->
 		<MultiSelectList
 			v-else-if="df?.fieldtype === 'MultiSelectList'"
-			displayMode="list"
+			:displayMode="df?.displayMode || 'list'"
 			:df="df"
 			:modelValue="modelValue"
 			:get_data="get_data || df?.get_data"
@@ -193,7 +193,7 @@
 		<!-- MultiCheck (Replacement using MultiSelectList) -->
 		<MultiSelectList
 			v-else-if="df?.fieldtype === 'MultiCheck'"
-			displayMode="columns"
+			:displayMode="df?.displayMode || 'columns'"
 			:columns="2"
 			:df="df"
 			:modelValue="modelValue"

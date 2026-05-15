@@ -7,6 +7,7 @@ import ControlFactory from "../../controls/ControlFactory.vue";
 import SelectControl from "../../controls/SelectControl.vue";
 import ComboBoxControl from "../../controls/ComboBoxControl.vue";
 import ContextPicker from "../ContextPicker.vue";
+import { useMetaStore } from "../../stores/useMetaStore";
 import { inject, ref, computed, watch, nextTick } from "vue";
 
 const props = defineProps({
@@ -16,6 +17,7 @@ const props = defineProps({
 });
 
 const emit = defineEmits(["remove"]);
+const metaStore = useMetaStore();
 
 // Injected operator config from ConditionBuilder
 const operatorConfig = inject(
@@ -101,13 +103,14 @@ const valueFieldSchema = computed(() => {
 			schema = {
 				...schema,
 				fieldtype: "MultiSelectList",
+				displayMode: "compact",
 				options: [],
 				get_data: async (txt) => {
-					const rows = await frappe.db.get_link_options("DocType", txt || "");
-					return (rows || []).map((row) => ({
-						value: row.value || row,
-						description: row.description || "",
-					}));
+					return await metaStore.search_link_options({
+						doctype: "DocType",
+						txt: txt || "",
+						page_length: 40,
+					});
 				},
 				placeholder: __("Select DocTypes"),
 			};
@@ -143,18 +146,14 @@ const valueFieldSchema = computed(() => {
 
 		if (originalFieldtype === "Link" && originalOptions) {
 			schema.fieldtype = "MultiSelectList";
+			schema.displayMode = "compact";
 			schema.get_data = async (txt) => {
 				if (!originalOptions) return [];
-				try {
-					const rows = await frappe.db.get_link_options(originalOptions, txt || "");
-					return (rows || []).map((row) => ({
-						value: row.value || row,
-						description: row.description || "",
-					}));
-				} catch (e) {
-					console.error("MultiSelectList fetch error:", e);
-					return [];
-				}
+				return await metaStore.search_link_options({
+					doctype: originalOptions,
+					txt: txt || "",
+					page_length: 40,
+				});
 			};
 		} else if (originalFieldtype === "Select") {
 			schema.fieldtype = "MultiCheck";
@@ -446,6 +445,13 @@ const valueType = computed({
 	font-size: var(--fr-input-font-size);
 	padding: var(--fr-input-padding-y) var(--fr-input-padding-x);
 	border: 1px solid transparent;
+}
+
+.condition-main-row :deep(.fr-control),
+.condition-main-row :deep(.combobox-container),
+.condition-main-row :deep(.multi-select-list) {
+	width: 100%;
+	min-width: 0;
 }
 
 .condition-main-row :deep(.form-control:focus) {

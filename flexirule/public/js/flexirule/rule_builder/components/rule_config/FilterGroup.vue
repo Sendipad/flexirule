@@ -280,7 +280,7 @@
 										{{ opt.label }}
 									</option>
 								</select>
-								<div v-else style="width: 100%; min-width: 150px">
+								<div v-else class="control-slot">
 									<ControlFactory
 										:df="getControlFactorySchema(row)"
 										:modelValue="getDisplayValue(row)"
@@ -1007,20 +1007,18 @@ const getControlFactorySchema = (row) => {
 	if (["in", "not in"].includes(row.operator)) {
 		if (field && field.fieldtype === "Link") {
 			schema.fieldtype = "MultiSelectList";
+			schema.displayMode = "compact";
 			schema.get_data = async (txt) => {
 				if (!field.options) return [];
-				try {
-					const rows = await frappe.db.get_link_options(field.options, txt || "");
-					return (rows || []).map((row) => ({
-						value: row.value || row,
-						description: row.description || "",
-					}));
-				} catch (e) {
-					return [];
-				}
+				return await store.search_link_options({
+					doctype: field.options,
+					txt: txt || "",
+					page_length: 40,
+				});
 			};
 		} else if (field && field.fieldtype === "Select") {
-			schema.fieldtype = "MultiCheck";
+			schema.fieldtype = "MultiSelectList";
+			schema.displayMode = "compact";
 			if (typeof field.options === "string") {
 				schema.options = field.options
 					.split("\n")
@@ -1513,6 +1511,11 @@ onMounted(async () => {
 	width: 100%;
 }
 
+.control-slot {
+	width: 100%;
+	min-width: 0;
+}
+
 /* ─── Expression Wrapper ─── */
 .expression-wrapper {
 	display: flex;
@@ -1676,6 +1679,13 @@ onMounted(async () => {
 	border: 1px solid var(--fr-border) !important;
 	border-radius: var(--fr-radius-md) !important;
 	transition: border-color var(--fr-transition-fast), box-shadow var(--fr-transition-fast) !important;
+}
+
+.filter-row-main :deep(.fr-control),
+.filter-row-main :deep(.combobox-container),
+.filter-row-main :deep(.multi-select-list) {
+	width: 100%;
+	min-width: 0;
 }
 
 .filter-row-main :deep(.form-control:focus) {

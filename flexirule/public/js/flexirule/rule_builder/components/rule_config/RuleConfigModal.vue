@@ -8,15 +8,11 @@
 							<div
 								class="header-icon"
 								:style="{
-									background: contract?.css?.bg || '#f1f5f9',
-									color: contract?.css?.color || '#64748b',
+									background: actionPresentation.background,
+									color: actionPresentation.color,
 								}"
 							>
-								<i
-									:class="
-										getIcon(draftNode?.data?.action_type || draftNode?.type)
-									"
-								></i>
+								<i :class="actionPresentation.icon"></i>
 							</div>
 							<div class="header-titles">
 								<div class="title-wrapper">
@@ -183,113 +179,188 @@
 
 							<!-- Unified Action Setup -->
 							<div v-else-if="draftNode" class="panels-container-modern">
-								<!-- Context Variable Sidebar (Left) -->
-								<aside class="sidebar-variables" v-if="showContextSidebar">
-									<InputPanel
-										:node="draftNode"
-										:readOnly="ruleStore.is_read_only"
-										mode="variables"
-									/>
-								</aside>
+								<template v-if="!isCompactLayout">
+									<aside class="sidebar-variables" v-if="showContextSidebar">
+										<InputPanel
+											:node="draftNode"
+											:readOnly="ruleStore.is_read_only"
+											mode="variables"
+										/>
+									</aside>
 
-								<!-- Main Config Area -->
-								<div class="config-main-area">
-									<div class="config-scroll-container">
-										<div class="config-content-wrapper">
-											<!-- Top Settings Bar (Integrated) -->
-											<div
-												class="integrated-settings-bar"
-												v-if="showSettingsBar"
-											>
-												<ActionFieldProperties
-													:nodeData="draftNode.data"
-													:readOnly="ruleStore.is_read_only"
-													@update:field="on_update_action_field"
-													@open:conditions="
-														uiStore.config_modal_mode = 'logic'
-													"
-												/>
-											</div>
-
-											<!-- Split View: Setup (Left) & Config (Right/Center) -->
-											<div
-												class="action-core-layout"
-												:class="{
-													'input-panel-collapsed': collapseInputPanel,
-												}"
-											>
-												<div class="core-setup-panel">
-													<button
-														class="panel-collapse-btn left"
-														type="button"
-														@click="
-															collapseInputPanel = !collapseInputPanel
-														"
-														:title="
-															collapseInputPanel
-																? __('Expand Input Panel')
-																: __('Collapse Input Panel')
-														"
-													>
-														<i
-															class="fa"
-															:class="
-																collapseInputPanel
-																	? 'fa-chevron-right'
-																	: 'fa-chevron-left'
-															"
-														></i>
-													</button>
-													<InputPanel
-														:node="draftNode"
+									<div class="config-main-area">
+										<div class="config-scroll-container">
+											<div class="config-content-wrapper">
+												<div
+													class="integrated-settings-bar"
+													v-if="showSettingsBar"
+												>
+													<ActionFieldProperties
+														:nodeData="draftNode.data"
 														:readOnly="ruleStore.is_read_only"
-														:ref="panelRefs.input"
-														mode="config"
+														@update:field="on_update_action_field"
+														@open:conditions="
+															uiStore.config_modal_mode = 'logic'
+														"
 													/>
 												</div>
-												<div class="core-config-panel">
-													<ConfigurationPanel
-														:node="draftNode"
-														:readOnly="ruleStore.is_read_only"
-														:ref="panelRefs.config"
-													/>
+
+												<div
+													class="action-core-layout"
+													:class="{
+														'input-panel-collapsed': collapseInputPanel,
+													}"
+												>
+													<div class="core-setup-panel">
+														<button
+															class="panel-collapse-btn left"
+															type="button"
+															@click="
+																collapseInputPanel =
+																	!collapseInputPanel
+															"
+															:title="
+																collapseInputPanel
+																	? __('Expand Input Panel')
+																	: __('Collapse Input Panel')
+															"
+														>
+															<i
+																class="fa"
+																:class="
+																	collapseInputPanel
+																		? 'fa-chevron-right'
+																		: 'fa-chevron-left'
+																"
+															></i>
+														</button>
+														<InputPanel
+															:node="draftNode"
+															:readOnly="ruleStore.is_read_only"
+															:ref="panelRefs.input"
+															mode="config"
+														/>
+													</div>
+													<div class="core-config-panel">
+														<ConfigurationPanel
+															:node="draftNode"
+															:readOnly="ruleStore.is_read_only"
+															:ref="panelRefs.config"
+														/>
+													</div>
 												</div>
 											</div>
 										</div>
-									</div>
 
-									<!-- Right Side Utility Panel (Mutation & Results) -->
-									<aside
-										class="sidebar-mutation"
-										:class="{ collapsed: collapseOutputPanel }"
-									>
-										<button
-											class="panel-collapse-btn right"
-											type="button"
-											@click="collapseOutputPanel = !collapseOutputPanel"
-											:title="
-												collapseOutputPanel
-													? __('Expand Output Panel')
-													: __('Collapse Output Panel')
-											"
+										<aside
+											class="sidebar-mutation"
+											:class="{ collapsed: collapseOutputPanel }"
 										>
-											<i
-												class="fa"
-												:class="
+											<button
+												class="panel-collapse-btn right"
+												type="button"
+												@click="collapseOutputPanel = !collapseOutputPanel"
+												:title="
 													collapseOutputPanel
-														? 'fa-chevron-left'
-														: 'fa-chevron-right'
+														? __('Expand Output Panel')
+														: __('Collapse Output Panel')
 												"
-											></i>
-										</button>
-										<OutputPanel
-											v-show="!collapseOutputPanel"
-											:node="draftNode"
-											:readOnly="ruleStore.is_read_only"
-											:ref="panelRefs.output"
-										/>
-									</aside>
-								</div>
+											>
+												<i
+													class="fa"
+													:class="
+														collapseOutputPanel
+															? 'fa-chevron-left'
+															: 'fa-chevron-right'
+													"
+												></i>
+											</button>
+											<OutputPanel
+												v-show="!collapseOutputPanel"
+												:node="draftNode"
+												:readOnly="ruleStore.is_read_only"
+												:ref="panelRefs.output"
+											/>
+										</aside>
+									</div>
+								</template>
+
+								<template v-else>
+									<div class="compact-config-layout">
+										<div
+											class="compact-tabs"
+											role="tablist"
+											@keydown="onCompactTabKeydown"
+										>
+											<button
+												v-for="tab in compactTabs"
+												:key="tab.key"
+												class="compact-tab-btn"
+												role="tab"
+												:aria-selected="activeCompactTab === tab.key"
+												:class="{ active: activeCompactTab === tab.key }"
+												@click="activateCompactTab(tab.key)"
+											>
+												{{ tab.label }}
+											</button>
+										</div>
+
+										<div class="compact-tab-content">
+											<section
+												v-show="activeCompactTab === 'input'"
+												v-if="isCompactTabRendered('input')"
+												ref="compactInputRef"
+												class="compact-panel-shell"
+												@scroll="rememberCompactScroll('input', $event)"
+											>
+												<InputPanel
+													:node="draftNode"
+													:readOnly="ruleStore.is_read_only"
+													mode="config"
+												/>
+											</section>
+
+											<section
+												v-show="activeCompactTab === 'config'"
+												v-if="isCompactTabRendered('config')"
+												ref="compactConfigRef"
+												class="compact-panel-shell"
+												@scroll="rememberCompactScroll('config', $event)"
+											>
+												<div
+													class="integrated-settings-bar"
+													v-if="showSettingsBar"
+												>
+													<ActionFieldProperties
+														:nodeData="draftNode.data"
+														:readOnly="ruleStore.is_read_only"
+														@update:field="on_update_action_field"
+														@open:conditions="
+															uiStore.config_modal_mode = 'logic'
+														"
+													/>
+												</div>
+												<ConfigurationPanel
+													:node="draftNode"
+													:readOnly="ruleStore.is_read_only"
+												/>
+											</section>
+
+											<section
+												v-show="activeCompactTab === 'output'"
+												v-if="isCompactTabRendered('output')"
+												ref="compactOutputRef"
+												class="compact-panel-shell"
+												@scroll="rememberCompactScroll('output', $event)"
+											>
+												<OutputPanel
+													:node="draftNode"
+													:readOnly="ruleStore.is_read_only"
+												/>
+											</section>
+										</div>
+									</div>
+								</template>
 							</div>
 
 							<!-- Guide Sidebar (Right Sliding) -->
@@ -310,8 +381,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted } from "vue";
-import ResizablePanel from "./ResizablePanel.vue";
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from "vue";
 import InputPanel from "./InputPanel.vue";
 import ConfigurationPanel from "./ConfigurationPanel.vue";
 import OutputPanel from "./OutputPanel.vue";
@@ -320,7 +390,8 @@ import ConditionStep from "./types/ConditionStep.vue";
 import StartNodeProperties from "../StartNodeProperties.vue";
 import { useRuleStore, useGraphStore, useUIStore } from "../../stores";
 import { useRuleConfig } from "../../composables/useRuleConfig";
-import { getContract } from "../../../core/contracts.js";
+import { useResponsiveConfigLayout } from "../../composables/useResponsiveConfigLayout";
+import { getContract, getActionPresentation } from "../../../core/contracts.js";
 
 const props = defineProps({
 	modelValue: Boolean,
@@ -335,6 +406,20 @@ const uiStore = useUIStore();
 const store = uiStore;
 
 const { draftNode, panelRefs, save, cancel } = useRuleConfig(props, emit);
+const {
+	activeTab: activeCompactTab,
+	tabs: compactTabs,
+	isCompact: isCompactLayout,
+	updateViewportWidth,
+	setActiveTab,
+	rememberScroll,
+	getRememberedScroll,
+} = useResponsiveConfigLayout(1200);
+
+const renderedCompactTabs = ref(new Set(["config"]));
+const compactInputRef = ref(null);
+const compactConfigRef = ref(null);
+const compactOutputRef = ref(null);
 
 // -- Sidebar / Slide States --
 const showContextSidebar = ref(false);
@@ -382,6 +467,8 @@ watch(
 	(isOpen) => {
 		if (isOpen) {
 			collapseInputPanel.value = false;
+			collapseOutputPanel.value = false;
+			activateCompactTab("config");
 		}
 	}
 );
@@ -390,12 +477,18 @@ watch(
 	() => uiStore.selected_id,
 	() => {
 		collapseInputPanel.value = false;
+		collapseOutputPanel.value = false;
+		activateCompactTab("config");
 	}
 );
 
 const contract = computed(() => {
 	const type = draftNode.value?.data?.action_type || draftNode.value?.type;
 	return type ? getContract(type) : null;
+});
+const actionPresentation = computed(() => {
+	const type = draftNode.value?.data?.action_type || draftNode.value?.type;
+	return getActionPresentation(type);
 });
 
 const totalNodes = computed(() => graphStore.nodes.length);
@@ -457,23 +550,64 @@ function on_update_action_field(payload, maybeValue) {
 	ruleStore.mark_dirty();
 }
 
-function getIcon(type) {
-	if (!type) return "fa fa-circle";
-	const icons = {
-		process: "fa fa-cog",
-		condition: "fa fa-code-fork",
-		loop: "fa fa-refresh",
-		switch: "fa fa-random",
-		"sub-rule": "fa fa-cube",
-		wait: "fa fa-clock-o",
-		start: "fa fa-play",
-		stop: "fa fa-stop",
-		"query records": "fa fa-search",
-		"document action": "fa fa-plus-circle",
-		"set value": "fa fa-edit",
-		notify: "fa fa-bell",
-	};
-	return icons[type.toLowerCase()] || "fa fa-circle";
+function markCompactTabRendered(tabKey) {
+	if (!tabKey) return;
+	if (!renderedCompactTabs.value.has(tabKey)) {
+		renderedCompactTabs.value.add(tabKey);
+	}
+}
+
+function isCompactTabRendered(tabKey) {
+	return renderedCompactTabs.value.has(tabKey);
+}
+
+function panelRefByKey(tabKey) {
+	if (tabKey === "input") return compactInputRef.value;
+	if (tabKey === "config") return compactConfigRef.value;
+	if (tabKey === "output") return compactOutputRef.value;
+	return null;
+}
+
+function rememberCompactScroll(tabKey, event) {
+	rememberScroll(tabKey, event?.target?.scrollTop || 0);
+}
+
+function activateCompactTab(tabKey) {
+	const prevTab = activeCompactTab.value;
+	const prevPanel = panelRefByKey(prevTab);
+	if (prevPanel) {
+		rememberScroll(prevTab, prevPanel.scrollTop || 0);
+	}
+
+	markCompactTabRendered(tabKey);
+	setActiveTab(tabKey);
+
+	nextTick(() => {
+		const panel = panelRefByKey(tabKey);
+		if (panel) {
+			panel.scrollTop = getRememberedScroll(tabKey);
+		}
+	});
+}
+
+function onCompactTabKeydown(event) {
+	if (!isCompactLayout.value) return;
+	const currentIndex = compactTabs.findIndex((t) => t.key === activeCompactTab.value);
+	if (currentIndex < 0) return;
+	if (!["ArrowRight", "ArrowLeft", "Home", "End"].includes(event.key)) return;
+	event.preventDefault();
+
+	if (event.key === "Home") {
+		activateCompactTab(compactTabs[0].key);
+		return;
+	}
+	if (event.key === "End") {
+		activateCompactTab(compactTabs[compactTabs.length - 1].key);
+		return;
+	}
+	const dir = event.key === "ArrowRight" ? 1 : -1;
+	const nextIndex = (currentIndex + dir + compactTabs.length) % compactTabs.length;
+	activateCompactTab(compactTabs[nextIndex].key);
 }
 
 // -- Keyboard Shortcuts --
@@ -517,10 +651,13 @@ function handleKeydown(e) {
 
 onMounted(() => {
 	window.addEventListener("keydown", handleKeydown);
+	window.addEventListener("resize", updateViewportWidth);
+	updateViewportWidth();
 });
 
 onUnmounted(() => {
 	window.removeEventListener("keydown", handleKeydown);
+	window.removeEventListener("resize", updateViewportWidth);
 });
 </script>
 
@@ -929,6 +1066,62 @@ onUnmounted(() => {
 	border-color: #cbd5e1;
 }
 
+.compact-config-layout {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	width: 100%;
+	padding: 8px;
+	gap: 8px;
+}
+
+.compact-tabs {
+	display: flex;
+	gap: 6px;
+	background: #eef2f7;
+	padding: 4px;
+	border-radius: 10px;
+}
+
+.compact-tab-btn {
+	flex: 1;
+	height: 34px;
+	border: none;
+	border-radius: 8px;
+	background: transparent;
+	color: #64748b;
+	font-size: 12px;
+	font-weight: 700;
+	cursor: pointer;
+	transition: all 0.2s ease;
+}
+
+.compact-tab-btn:hover {
+	background: #ffffff;
+	color: #334155;
+}
+
+.compact-tab-btn.active {
+	background: #ffffff;
+	color: #1e293b;
+	box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+}
+
+.compact-tab-content {
+	flex: 1;
+	min-height: 0;
+	position: relative;
+}
+
+.compact-panel-shell {
+	height: 100%;
+	overflow: auto;
+	background: #ffffff;
+	border: 1px solid #e2e8f0;
+	border-radius: 14px;
+	padding: 8px;
+}
+
 @media (min-width: 1400px) {
 	.config-main-area {
 		display: grid;
@@ -961,19 +1154,20 @@ onUnmounted(() => {
 }
 
 @media (max-width: 1199px) {
-	.config-main-area {
-		display: flex;
+	.header-left {
+		min-width: 0;
 	}
 
-	.action-core-layout {
-		grid-template-columns: minmax(220px, 34%) minmax(0, 66%);
-		gap: 8px;
+	.header-toolbar {
+		flex-wrap: wrap;
 	}
 
-	.sidebar-mutation {
-		width: 280px;
-		min-width: 240px;
-		margin-left: 8px;
+	.toolbar-btn span {
+		display: none;
+	}
+
+	.conditions-view {
+		padding: 16px;
 	}
 }
 </style>

@@ -346,6 +346,11 @@ const DEFAULT_CONFIG_MODAL_TYPES = [
 	"Document Action",
 	"Loop",
 ];
+const DEFAULT_FEATURE_FLAGS = {
+	supports_logic_builder: false,
+	supports_reference_context: false,
+	supports_return_schema: false,
+};
 
 export let ACTION_TYPE_CONTRACT = withDescriptions(DEFAULT_ACTION_TYPE_CONTRACT);
 export let TRIGGER_TYPE_CONTRACT = { ...DEFAULT_TRIGGER_TYPE_CONTRACT };
@@ -509,6 +514,30 @@ export function getContract(actionType) {
 			color: "#6b7280",
 		}
 	);
+}
+
+export function getActionPresentation(actionType) {
+	const contract = getContract(actionType);
+	const css = contract?.css || {};
+	return {
+		icon: css.icon || contract.icon || "fa fa-circle",
+		color: css.color || contract.color || "#6b7280",
+		background: css.bg || `color-mix(in srgb, ${css.color || "#6b7280"} 14%, white)`,
+		label: normalizeActionType(actionType) || __("Action"),
+		description: contract?.description || "",
+	};
+}
+
+export function getActionFeatureFlags(actionType) {
+	const normalized = normalizeActionType(actionType);
+	const contract = getContract(normalized);
+	return {
+		...DEFAULT_FEATURE_FLAGS,
+		supports_logic_builder: CONFIG_MODAL_TYPES.has(normalized),
+		supports_reference_context: ACTION_TYPES_WITH_REFERENCE_CONTEXT.has(normalized),
+		supports_return_schema: ACTION_TYPES_WITH_RETURN_SCHEMA.has(normalized),
+		...(contract?.feature_flags || {}),
+	};
 }
 
 export function normalizeActionType(actionType) {
