@@ -11,7 +11,6 @@ The primary container for an automation flow. It defines *when* a logic starts a
 | :--- | :--- | :--- | :--- |
 | `rule_name` | Data | Rule Name | Unique identifier and primary name of the rule. |
 | `is_active` | Check | Is Active | If disabled, the `RuleCoordinator` will skip this rule entirely. |
-| `is_standard` | Select | Is Standard | If `Yes`, rule is synced to the app's directory for version control. |
 | `exposed_as_subrule`| Check | Exposed As Sub-Rule | If enabled, this rule appears in the `Sub-Rule` action picker for other rules. |
 | `priority` | Select | Priority | Execution order (0-20). Higher values run first. |
 | `version` | Int | Version | Auto-incremented version number for historical tracking. |
@@ -45,7 +44,6 @@ Represents a single executable node within a Rule's graph.
 | `process_name` | Link | Process | Link to a `Process` DocType. |
 | `rule` | Link | Rule | Link to a sub-rule (for `Sub-Rule` type). |
 | `operation` | Autocomplete | Mode | Operation mode for this action. |
-| `is_pure` | Check | Pure Method | If enabled, prevents document mutation. |
 | `is_enabled` | Check | Enabled | Whether this specific step is active. |
 | `on_error` | Select | On Error | Policy: `Stop`, `Continue`, `Retry`, `Rollback`, `Escalate`. |
 | `is_async` | Check | Async | Execute in background queue. |

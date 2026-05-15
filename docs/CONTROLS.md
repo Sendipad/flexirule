@@ -100,3 +100,18 @@ A highly optimized replacement for the standard HTML select/autocomplete, tailor
 - **Rich Option Rendering:** Supports icons, descriptions, and "Type Badges" for each option, making it easier to distinguish between different types of variables or fields.
 - **Button vs. Input Modes:** Can function as a standard autocomplete input or a compact "Button" trigger that opens a searchable popover.
 - **Keyboard Navigation:** Full support for arrow keys, Enter to select, and Escape to close, including type-ahead matching in button mode.
+
+---
+
+## 7. FilterGroup
+**File:** `flexirule/public/js/flexirule/rule_builder/components/rule_config/FilterGroup.vue`
+
+A high-performance filter builder used in `Query Records` and `Trigger Conditions` to define data selection criteria.
+
+### ✨ Key Features & Innovation
+- **Multi-Modal Value Input:** Allows switching between Literal values, Numbers, Boolean, Variables, Advanced Expressions, and an integrated **Formula Builder** (via `ValueResolverControl`).
+- **Context-Aware Operators:** Dynamically adjusts available operators based on the field type (e.g., `Before`/`After` for dates, `Starts With`/`Ends With` for text, and Tree-based operators like `Descendants Of`).
+- **Intelligent Field Picker:** Supports both parent fields and child table fields (e.g., `items.item_code`), providing a unified interface for deep data filtering.
+- **Enhanced Timespan Filtering:** Includes a "Timespan" operator with human-readable tokens (e.g., "Last 30 Days", "Next Quarter") that the engine automatically resolves to date ranges.
+- **Dynamic Field Validation:** Visually flags fields with a warning icon if they are no longer present in the DocType metadata (useful when DocTypes are modified after a rule is created).
+- **Themed UI Integration:** Automatically adopts the accent color of its parent action node (e.g., cyan for Query actions) using dynamic CSS variables.

@@ -7,8 +7,8 @@ The Rule Builder is a Vue 3-based visual workspace for designing business logic 
 ### Nodes (Actions)
 Each node in the graph represents a **Rule Action**.
 - **Entry Action**: The starting point. Defines trigger criteria.
-- **Functional Nodes**: Perform work (Process, Set Value, Query Records).
-- **Control Nodes**: Manage flow (Condition, Loop, Switch).
+- **Functional Nodes**: Perform work (Process, Set Value, Query Records, Document Action, Notify).
+- **Control Nodes**: Manage flow (Condition, Loop, Switch, Wait, Stop, Raise Error).
 
 ---
 
@@ -24,7 +24,10 @@ One of the core safety features of the builder is **Temporal Context Isolation**
 - **Dynamic Schema Switching**: When a node points to a different record (e.g., in a `Query Records` action), the picker automatically switches to the schema of that reference DocType, while maintaining access to all valid upstream context.
 
 ### Reactive & Type-Aware Controls
-The builder's input controls are highly reactive and understand the **FieldType** of the selected data:
+The builder's input controls are highly reactive and understand the **FieldType** of the selected data.
+
+- **Intelligent Filter Builder (`FilterGroup`)**: Used in Query and Condition nodes, it dynamically adapts operators based on field types and supports advanced **Timespan** tokens (e.g., "Last Week").
+- **Magic Formula Builder (`ValueResolver`)**: Allows defining complex logic (Date math, Aggregations, String manipulation) via a guided UI that generates safe Jinja snippets.
 - **Automatic Validation**: If a user selects a Date field (`posting_date`), the system ensures the comparison value is a date, preventing invalid configurations like `posting_date == "Yes"`.
 - **Dynamic Operator Filtering**: Available operators (e.g., `Greater Than`, `Contains`) change based on the data type (numeric, string, or collection).
 
