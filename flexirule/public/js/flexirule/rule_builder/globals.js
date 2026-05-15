@@ -13,6 +13,7 @@ import CheckControl from "./controls/CheckControl.vue";
 import TextControl from "./controls/TextControl.vue";
 import CodeControl from "./controls/CodeControl.vue";
 import MultiCheckControl from "./controls/MultiCheckControl.vue";
+import MultiSelectList from "./controls/MultiSelectList.vue";
 import ComboBoxControl from "./controls/ComboBoxControl.vue";
 import InlineTableControl from "./controls/InlineTableControl.vue";
 import MultiFieldPickerControl from "./controls/MultiFieldPickerControl.vue";
@@ -27,6 +28,7 @@ export function registerGlobalComponents(app) {
 		.component("TextControl", TextControl)
 		.component("CodeControl", CodeControl)
 		.component("MultiCheckControl", MultiCheckControl)
+		.component("MultiSelectList", MultiSelectList)
 		.component("InlineTableControl", InlineTableControl)
 		.component("MultiFieldPickerControl", MultiFieldPickerControl)
 		.component("MultiSelectControl", MultiSelectControl)

@@ -157,9 +157,10 @@
 			@update:modelValue="$emit('update:modelValue', $event)"
 		/>
 
-		<!-- MultiSelect -->
-		<MultiSelectControl
+		<!-- MultiSelect (Replacement using MultiSelectList) -->
+		<MultiSelectList
 			v-else-if="df?.fieldtype === 'MultiSelect'"
+			displayMode="badges"
 			:df="df"
 			:modelValue="modelValue"
 			:get_data="get_data || df?.get_data"
@@ -167,9 +168,21 @@
 			@update:modelValue="$emit('update:modelValue', $event)"
 		/>
 
-		<!-- MultiSelectList -->
-		<MultiSelectListControl
+		<!-- MultiFieldPicker (Replacement using MultiSelectList) -->
+		<MultiSelectList
+			v-else-if="df?.fieldtype === 'MultiFieldPicker'"
+			displayMode="badges"
+			:df="df"
+			:modelValue="modelValue"
+			:documentType="df?.target_doctype || engine?.rule_doc?.document_type"
+			:read_only="df.read_only"
+			@update:modelValue="$emit('update:modelValue', $event)"
+		/>
+
+		<!-- MultiSelectList (Replacement using MultiSelectList) -->
+		<MultiSelectList
 			v-else-if="df?.fieldtype === 'MultiSelectList'"
+			displayMode="list"
 			:df="df"
 			:modelValue="modelValue"
 			:get_data="get_data || df?.get_data"
@@ -177,13 +190,16 @@
 			@update:modelValue="$emit('update:modelValue', $event)"
 		/>
 
-		<!-- MultiCheck -->
-		<MultiCheckControl
+		<!-- MultiCheck (Replacement using MultiSelectList) -->
+		<MultiSelectList
 			v-else-if="df?.fieldtype === 'MultiCheck'"
+			displayMode="columns"
+			:columns="2"
 			:df="df"
 			:modelValue="modelValue"
 			:read_only="df.read_only"
 			:hideLabel="hideLabel"
+			:expanded="!hideLabel"
 			@update:modelValue="$emit('update:modelValue', $event)"
 		/>
 
@@ -231,7 +247,7 @@
 <script setup>
 import { nextTick, onMounted, watch, computed, defineAsyncComponent } from "vue";
 import ComboBoxControl from "./ComboBoxControl.vue";
-import MultiSelectListControl from "./MultiSelectListControl.vue";
+import MultiSelectList from "./MultiSelectList.vue";
 import ResourceMapperControl from "./ResourceMapperControl.vue";
 import TextGeneratorControl from "./TextGeneratorControl.vue";
 import TimePickerControl from "./TimePickerControl.vue";
