@@ -423,17 +423,18 @@ const editor = new Editor({
 				items: ({ query }) => {
 					const q = query.toLowerCase();
 					return dynamicRoots.value
-						.map((v) => ({
+						.map((v, idx) => ({
 							id: v.value || v,
 							label: v.label || v,
 							type: "variable",
 							is_loop_scoped: !!v.is_loop_scoped,
+							_origIdx: idx,
 						}))
 						.filter((v) => v.id.toLowerCase().includes(q))
 						.sort((a, b) => {
 							if (a.is_loop_scoped && !b.is_loop_scoped) return -1;
 							if (!a.is_loop_scoped && b.is_loop_scoped) return 1;
-							return a.label.localeCompare(b.label);
+							return a._origIdx - b._origIdx;
 						})
 						.slice(0, 50);
 				},

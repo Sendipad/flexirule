@@ -420,7 +420,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			}
 		}
 
-		return context_vars;
+		return context_vars.reverse();
 	}
 
 	function mapReturnTypeToFieldType(returnType) {
