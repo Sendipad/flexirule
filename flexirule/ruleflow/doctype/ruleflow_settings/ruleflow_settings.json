@@ -1,177 +1,177 @@
 {
- "actions": [],
- "creation": "2026-03-18 00:00:00",
- "doctype": "DocType",
- "engine": "InnoDB",
- "field_order": [
-  "general_section",
-  "enable_debug_logging",
-  "log_retention_days",
-  "column_break_1",
-  "max_execution_time_default",
-  "allow_async_actions",
-  "exclusions_section",
-  "excluded_doctypes",
-  "lifecycle_config",
-  "require_approval_for_active",
-  "allow_editing_active",
-  "builder_configurations_tab",
-  "builder_settings_section",
-  "theme",
-  "layout_direction",
-  "open_config_on",
-  "column_break_mqxa",
-  "action_config_mode",
-  "sidebar_position",
-  "enable_edge_insertion"
- ],
- "fields": [
-  {
-   "fieldname": "general_section",
-   "fieldtype": "Section Break",
-   "label": "General"
-  },
-  {
-   "default": "0",
-   "fieldname": "enable_debug_logging",
-   "fieldtype": "Check",
-   "label": "Enable Debug Logging"
-  },
-  {
-   "default": "30",
-   "description": "Number of days to keep rule execution logs.",
-   "fieldname": "log_retention_days",
-   "fieldtype": "Int",
-   "label": "Log Retention (Days)"
-  },
-  {
-   "fieldname": "column_break_1",
-   "fieldtype": "Column Break"
-  },
-  {
-   "default": "30",
-   "description": "Default max execution time for rules in seconds.",
-   "fieldname": "max_execution_time_default",
-   "fieldtype": "Int",
-   "label": "Default Max Execution Time"
-  },
-  {
-   "default": "1",
-   "description": "Allow rules to execute actions asynchronously.",
-   "fieldname": "allow_async_actions",
-   "fieldtype": "Check",
-   "label": "Allow Async Actions"
-  },
-  {
-   "fieldname": "exclusions_section",
-   "fieldtype": "Section Break",
-   "label": "Exclusions"
-  },
-  {
-   "description": "Select doctypes to exclude from rule evaluation.",
-   "fieldname": "excluded_doctypes",
-   "fieldtype": "Table",
-   "label": "Excluded DocTypes",
-   "options": "RuleFlow Excluded DocType"
-  },
-  {
-   "default": "Sidebar",
-   "description": "Choose how node configuration forms are displayed",
-   "fieldname": "action_config_mode",
-   "fieldtype": "Select",
-   "label": "Action Configuration Mode",
-   "options": "Sidebar\nDialog"
-  },
-  {
-   "default": "Click",
-   "description": "Choose the interaction that opens the node configuration",
-   "fieldname": "open_config_on",
-   "fieldtype": "Select",
-   "label": "Open Configuration On",
-   "options": "Click\nDouble Click\nIcon Only"
-  },
-  {
-   "default": "System",
-   "fieldname": "theme",
-   "fieldtype": "Select",
-   "label": "Canvas Theme",
-   "options": "System\nLight\nDark"
-  },
-  {
-   "fieldname": "builder_settings_section",
-   "fieldtype": "Section Break",
-   "label": "UI Configuration"
-  },
-  {
-   "default": "Left to Right",
-   "fieldname": "layout_direction",
-   "fieldtype": "Select",
-   "label": "Auto-Layout Direction",
-   "options": "Left to Right\nTop to Bottom"
-  },
-  {
-   "default": "Left",
-   "depends_on": "eval:doc.action_config_mode==\"Sidebar\"",
-   "fieldname": "sidebar_position",
-   "fieldtype": "Select",
-   "label": "Sidebar Position",
-   "options": "Left\nRight"
-  },
-  {
-   "default": "1",
-   "fieldname": "enable_edge_insertion",
-   "fieldtype": "Check",
-   "label": "Enable Edge Insertion (+ Button)"
-  },
-  {
-   "fieldname": "lifecycle_config",
-   "fieldtype": "Section Break",
-   "label": "Lifecycle Configuration"
-  },
-  {
-   "default": "0",
-   "fieldname": "require_approval_for_active",
-   "fieldtype": "Check",
-   "label": "Require Approval to Activate"
-  },
-  {
-   "default": "0",
-   "description": "If disabled, active rules must be cloned to create a new Draft version.",
-   "fieldname": "allow_editing_active",
-   "fieldtype": "Check",
-   "label": "Allow Editing Active Rules (Warning)"
-  },
-  {
-   "fieldname": "builder_configurations_tab",
-   "fieldtype": "Tab Break",
-   "label": "Builder Configurations"
-  },
-  {
-   "fieldname": "column_break_mqxa",
-   "fieldtype": "Column Break"
-  }
- ],
- "issingle": 1,
- "links": [],
- "modified": "2026-04-22 15:31:08.379899",
- "modified_by": "Administrator",
- "module": "Ruleflow",
- "name": "RuleFlow Settings",
- "owner": "Administrator",
- "permissions": [
-  {
-   "create": 1,
-   "delete": 1,
-   "email": 1,
-   "print": 1,
-   "read": 1,
-   "role": "System Manager",
-   "share": 1,
-   "write": 1
-  }
- ],
- "row_format": "Dynamic",
- "sort_field": "modified",
- "sort_order": "DESC",
- "states": []
+	"actions": [],
+	"creation": "2026-03-18 00:00:00",
+	"doctype": "DocType",
+	"engine": "InnoDB",
+	"field_order": [
+		"general_section",
+		"enable_debug_logging",
+		"log_retention_days",
+		"column_break_1",
+		"max_execution_time_default",
+		"allow_async_actions",
+		"exclusions_section",
+		"excluded_doctypes",
+		"lifecycle_config",
+		"require_approval_for_active",
+		"allow_editing_active",
+		"builder_configurations_tab",
+		"builder_settings_section",
+		"theme",
+		"layout_direction",
+		"open_config_on",
+		"column_break_mqxa",
+		"action_config_mode",
+		"sidebar_position",
+		"enable_edge_insertion"
+	],
+	"fields": [
+		{
+			"fieldname": "general_section",
+			"fieldtype": "Section Break",
+			"label": "General"
+		},
+		{
+			"default": "0",
+			"fieldname": "enable_debug_logging",
+			"fieldtype": "Check",
+			"label": "Enable Debug Logging"
+		},
+		{
+			"default": "30",
+			"description": "Number of days to keep rule execution logs.",
+			"fieldname": "log_retention_days",
+			"fieldtype": "Int",
+			"label": "Log Retention (Days)"
+		},
+		{
+			"fieldname": "column_break_1",
+			"fieldtype": "Column Break"
+		},
+		{
+			"default": "30",
+			"description": "Default max execution time for rules in seconds.",
+			"fieldname": "max_execution_time_default",
+			"fieldtype": "Int",
+			"label": "Default Max Execution Time"
+		},
+		{
+			"default": "1",
+			"description": "Allow rules to execute actions asynchronously.",
+			"fieldname": "allow_async_actions",
+			"fieldtype": "Check",
+			"label": "Allow Async Actions"
+		},
+		{
+			"fieldname": "exclusions_section",
+			"fieldtype": "Section Break",
+			"label": "Exclusions"
+		},
+		{
+			"description": "Select doctypes to exclude from rule evaluation.",
+			"fieldname": "excluded_doctypes",
+			"fieldtype": "Table",
+			"label": "Excluded DocTypes",
+			"options": "RuleFlow Excluded DocType"
+		},
+		{
+			"default": "Sidebar",
+			"description": "Choose how node configuration forms are displayed",
+			"fieldname": "action_config_mode",
+			"fieldtype": "Select",
+			"label": "Action Configuration Mode",
+			"options": "Sidebar\nDialog"
+		},
+		{
+			"default": "Click",
+			"description": "Choose the interaction that opens the node configuration",
+			"fieldname": "open_config_on",
+			"fieldtype": "Select",
+			"label": "Open Configuration On",
+			"options": "Click\nDouble Click\nIcon Only"
+		},
+		{
+			"default": "System",
+			"fieldname": "theme",
+			"fieldtype": "Select",
+			"label": "Canvas Theme",
+			"options": "System\nLight\nDark"
+		},
+		{
+			"fieldname": "builder_settings_section",
+			"fieldtype": "Section Break",
+			"label": "UI Configuration"
+		},
+		{
+			"default": "Left to Right",
+			"fieldname": "layout_direction",
+			"fieldtype": "Select",
+			"label": "Auto-Layout Direction",
+			"options": "Left to Right\nTop to Bottom"
+		},
+		{
+			"default": "Left",
+			"depends_on": "eval:doc.action_config_mode==\"Sidebar\"",
+			"fieldname": "sidebar_position",
+			"fieldtype": "Select",
+			"label": "Sidebar Position",
+			"options": "Left\nRight"
+		},
+		{
+			"default": "1",
+			"fieldname": "enable_edge_insertion",
+			"fieldtype": "Check",
+			"label": "Enable Edge Insertion (+ Button)"
+		},
+		{
+			"fieldname": "lifecycle_config",
+			"fieldtype": "Section Break",
+			"label": "Lifecycle Configuration"
+		},
+		{
+			"default": "0",
+			"fieldname": "require_approval_for_active",
+			"fieldtype": "Check",
+			"label": "Require Approval to Activate"
+		},
+		{
+			"default": "0",
+			"description": "If disabled, active rules must be cloned to create a new Draft version.",
+			"fieldname": "allow_editing_active",
+			"fieldtype": "Check",
+			"label": "Allow Editing Active Rules (Warning)"
+		},
+		{
+			"fieldname": "builder_configurations_tab",
+			"fieldtype": "Tab Break",
+			"label": "Builder Configurations"
+		},
+		{
+			"fieldname": "column_break_mqxa",
+			"fieldtype": "Column Break"
+		}
+	],
+	"issingle": 1,
+	"links": [],
+	"modified": "2026-04-22 15:31:08.379899",
+	"modified_by": "Administrator",
+	"module": "Ruleflow",
+	"name": "RuleFlow Settings",
+	"owner": "Administrator",
+	"permissions": [
+		{
+			"create": 1,
+			"delete": 1,
+			"email": 1,
+			"print": 1,
+			"read": 1,
+			"role": "System Manager",
+			"share": 1,
+			"write": 1
+		}
+	],
+	"row_format": "Dynamic",
+	"sort_field": "modified",
+	"sort_order": "DESC",
+	"states": []
 }

@@ -742,7 +742,7 @@ function normalizeModel(val) {
 						mappings: Array.isArray(table?.mappings)
 							? table.mappings.map((m) => ({ ...m, _id: m._id || generateId() }))
 							: [],
-				  }))
+					}))
 				: [],
 		};
 	}

@@ -102,7 +102,9 @@ export default {
 	background: #fff;
 	border: 1px solid #e2e8f0;
 	border-radius: 12px;
-	box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+	box-shadow:
+		0 10px 15px -3px rgba(0, 0, 0, 0.1),
+		0 4px 6px -2px rgba(0, 0, 0, 0.05);
 	padding: 4px;
 	min-width: 220px;
 	overflow: hidden;

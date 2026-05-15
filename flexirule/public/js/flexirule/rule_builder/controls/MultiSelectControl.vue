@@ -146,7 +146,9 @@ export default {
 	font-size: var(--fr-input-font-size) !important;
 	border: 1px solid var(--fr-border) !important;
 	border-radius: var(--fr-radius-md) !important;
-	transition: border-color var(--fr-transition-fast), box-shadow var(--fr-transition-fast) !important;
+	transition:
+		border-color var(--fr-transition-fast),
+		box-shadow var(--fr-transition-fast) !important;
 }
 :deep(.form-control:focus) {
 	border-color: var(--fr-border-focus) !important;

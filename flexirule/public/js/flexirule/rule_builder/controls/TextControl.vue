@@ -64,7 +64,9 @@ textarea.form-control {
 	padding: var(--fr-input-padding-y) var(--fr-input-padding-x);
 	border: 1px solid var(--fr-border);
 	border-radius: var(--fr-radius-md);
-	transition: border-color var(--fr-transition-fast), box-shadow var(--fr-transition-fast);
+	transition:
+		border-color var(--fr-transition-fast),
+		box-shadow var(--fr-transition-fast);
 }
 
 textarea.form-control:focus {

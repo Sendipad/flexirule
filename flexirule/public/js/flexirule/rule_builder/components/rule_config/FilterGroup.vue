@@ -382,7 +382,7 @@ const timespanOptions = frappe.ui?.filter_utils?.get_timespan_options
 			"Tomorrow",
 			"This",
 			"Next",
-	  ])
+		])
 	: [
 			{ label: __("Last 7 Days"), value: "last 7 days" },
 			{ label: __("Last 14 Days"), value: "last 14 days" },
@@ -408,7 +408,7 @@ const timespanOptions = frappe.ui?.filter_utils?.get_timespan_options
 			{ label: __("Next Quarter"), value: "next quarter" },
 			{ label: __("Next 6 Months"), value: "next 6 months" },
 			{ label: __("Next Year"), value: "next year" },
-	  ];
+		];
 
 const BASE_QUERY_OPERATORS = [
 	"=",
@@ -1443,7 +1443,9 @@ onMounted(async () => {
 	border: 1px solid var(--fr-border);
 	border-radius: var(--fr-radius-lg);
 	padding: var(--fr-space-4) var(--fr-space-5);
-	transition: border-color var(--fr-transition-fast), box-shadow var(--fr-transition-fast);
+	transition:
+		border-color var(--fr-transition-fast),
+		box-shadow var(--fr-transition-fast);
 }
 
 .filter-row:hover {
@@ -1675,7 +1677,9 @@ onMounted(async () => {
 	font-size: var(--fr-input-font-size) !important;
 	border: 1px solid var(--fr-border) !important;
 	border-radius: var(--fr-radius-md) !important;
-	transition: border-color var(--fr-transition-fast), box-shadow var(--fr-transition-fast) !important;
+	transition:
+		border-color var(--fr-transition-fast),
+		box-shadow var(--fr-transition-fast) !important;
 }
 
 .filter-row-main :deep(.form-control:focus) {
