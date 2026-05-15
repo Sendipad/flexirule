@@ -6,7 +6,8 @@ The FlexiRule application is a robust visual rule engine with a well-structured 
 ## Critical Bugs & Edge Cases
 1. **Reactivity Sync Gaps**: The bridging between `useRuleStore` and `useGraphStore` often relies on manual array spreading (e.g., `nodes.value = [...graphStore.nodes]`) or `store.touch_node()`. This is prone to sync errors where the UI doesn't reflect the internal store state after complex operations like `pasteNodes` or `insert_node_on_edge`.
 2. **Cascade Deletion Logic**: The `delete_node` logic in `useGraphStore.js` is highly complex. While it attempts to handle orphaned subtrees, it may fail in unconventional topologies (e.g., multi-entry loops or sub-rules with multiple return paths), potentially leaving unreachable "ghost" nodes in the data.
-3. **Condition Tree ID Collisions**: The custom `uuid()` generator in `ConditionBuilder.vue` and the hydration logic in `ConditionStep.vue` are disconnected. If a user pastes a condition group, there's a risk of ID collisions if the `hydrate` function isn't called immediately on the pasted data, breaking drag-and-drop.
+3. **Condition Tree Key Safety**: While condition movement is reference-based and scoped, the use of `:key="node.id || idx"` in `ConditionBuilder` creates a risk of visual "ghosting" or flickering if IDs aren't regenerated immediately during paste/import operations.
+   - *Recommendation*: Ensure the `hydrate` function (which generates UUIDs) is strictly enforced during any data import or paste operation before the data reaches the reactive store.
 4. **Loop Variable Scope**: The `getAvailableVariables` logic in `useGraphStore.js` is quite heavy (Phase 1 & 2). It assumes a linear execution path, which may produce incorrect variable availability suggestions in complex branching logic where a variable is defined in one branch but not another.
 
 ## Frappe/Vue Anti-Patterns
