@@ -56,7 +56,8 @@ class AssignmentHandler(ActionHandler):
 		for idx, assignment in enumerate(assignments):
 			target_path = assignment.get("target")
 			operator_key = assignment.get("operator", "set")
-			value_template = assignment.get("value")
+			# Backward compatibility: Fallback to "value" if "value_template" is missing
+			value_template = assignment.get("value_template") or assignment.get("value")
 
 			if not target_path:
 				engine._log("WARNING", _("Assignment index {0} missing target path, skipping").format(idx))

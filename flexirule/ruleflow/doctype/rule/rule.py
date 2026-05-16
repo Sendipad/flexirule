@@ -596,7 +596,9 @@ class Rule(Document):
 						compiled = self._compile_segments_v2(
 							segments, action.action_label or action.action_id, known_var_roots
 						)
-						assignment["value"] = compiled
+						# Clean up legacy key if it exists
+						assignment.pop("value", None)
+						assignment["value_template"] = compiled
 						changed = True
 
 				if changed:
