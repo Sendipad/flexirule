@@ -72,7 +72,7 @@ class TestRuleCoordinator(FrappeTestCase):
 								{
 									"target": f"doc.{target_field}",
 									"operator": "set",
-									"value": "Set by Coordinator",
+									"value_template": "Set by Coordinator",
 								}
 							]
 						),

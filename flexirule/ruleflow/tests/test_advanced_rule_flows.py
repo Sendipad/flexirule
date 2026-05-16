@@ -258,7 +258,7 @@ class TestAdvancedRuleFlows(FrappeTestCase):
 				{
 					"action_id": "set_status",
 					"action_type": "Assignment",
-					"config": json.dumps([{"target": "doc.status", "operator": "set", "value": "Open"}]),
+					"config": json.dumps([{"target": "doc.status", "operator": "set", "value_template": "Open"}]),
 					"action_label": "Set Status Open",
 					"next_step_if_true": "before_save_stop",
 				},
@@ -449,7 +449,7 @@ class TestAdvancedRuleFlows(FrappeTestCase):
 							{
 								"target": "vars.last_phone",
 								"operator": "set",
-								"value": "{{ vars.phone_row.phone }}",
+								"value_template": "{{ vars.phone_row.phone }}",
 							}
 						]
 					),

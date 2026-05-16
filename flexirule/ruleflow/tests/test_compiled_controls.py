@@ -112,7 +112,7 @@ class TestCompiledControls(FrappeTestCase):
 			"{% else %} (low)"
 			"{% endif %}"
 		)
-		self.assertEqual(json.loads(action.config)[0]["value"], expected)
+		self.assertEqual(json.loads(action.config)[0]["value_template"], expected)
 
 	def test_compile_text_generator_normalizes_shorthand_roots(self):
 		"""Shorthand refs (is_pos / result.total) should normalize to doc./vars. roots."""
@@ -176,9 +176,9 @@ class TestCompiledControls(FrappeTestCase):
 
 		action = next(a for a in rule.actions if a.action_id == "set_1")
 		config = json.loads(action.config)
-		self.assertIn("{{ doc.is_pos }}", config[0]["value"])
-		self.assertIn("{% if doc.is_pos != 1 %}", config[0]["value"])
-		self.assertIn("{{ vars.result.total }}", config[0]["value"])
+		self.assertIn("{{ doc.is_pos }}", config[0]["value_template"])
+		self.assertIn("{% if doc.is_pos != 1 %}", config[0]["value_template"])
+		self.assertIn("{{ vars.result.total }}", config[0]["value_template"])
 
 	def test_compile_action_mappings_from_resource_mapper_ui(self):
 		rule = self._base_rule(
