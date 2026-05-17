@@ -34,18 +34,21 @@ For detailed architecture and deep dives, see the main documentation:
 All API methods are whitelisted and accessible via `frappe.call()`:
 
 ### Rule Execution & Testing
+
 - `test_rule` - Test execution with dry_run and save_log options
 - `simulate_rule` - Dry-run simulation without side effects
 - `execute_rule` - Direct rule execution
 - `get_execution_preview` - Predict execution path without running actions
 
 ### Rule Lifecycle
+
 - `transition_rule` - Change rule status (Draft/Active/Disabled/etc)
 - `clone_rule` - Create a copy of a rule
 - `amend_rule` - Create a versioned amendment
 - `get_rule_versions` / `restore_rule_version` - Version history management
 
 ### Cache & Metadata
+
 - `clear_cache` - Invalidate rule runtime registry
 - `get_contract_dto` - Get action/trigger contracts for frontend
 - `get_node_config_schema` - Get dynamic configuration schema
@@ -54,6 +57,7 @@ All API methods are whitelisted and accessible via `frappe.call()`:
 - `get_process_operations` - Get available process operations
 
 ### Validation & Utilities
+
 - `validate_rule_document` - Validate rule definition
 - `validate_node` - Validate single action/node
 - `get_operator_config` - Get condition builder operator mappings
@@ -66,41 +70,41 @@ All API methods are whitelisted and accessible via `frappe.call()`:
 ```javascript
 // Test a rule against a document
 frappe.call({
-    method: "flexirule.ruleflow.api.test_rule",
-    args: {
-        rule_name: "Validate Customer Email",
-        doctype: "Customer", 
-        docname: "CUST-001",
-        dry_run: 0,
-        save_log: 1
-    }
+	method: "flexirule.ruleflow.api.test_rule",
+	args: {
+		rule_name: "Validate Customer Email",
+		doctype: "Customer",
+		docname: "CUST-001",
+		dry_run: 0,
+		save_log: 1,
+	},
 });
 
 // Execute a rule asynchronously
 frappe.call({
-    method: "flexirule.ruleflow.api.execute_rule",
-    args: {
-        rule_name: "Send Welcome Email",
-        context: {}, // Optional context variables
-        dry_run: 0
-    }
+	method: "flexirule.ruleflow.api.execute_rule",
+	args: {
+		rule_name: "Send Welcome Email",
+		context: {}, // Optional context variables
+		dry_run: 0,
+	},
 });
 
 // Preview execution path
 frappe.call({
-    method: "flexirule.ruleflow.api.get_execution_preview",
-    args: {
-        rule_name: "Approval Workflow",
-        docname: "DOC-001"
-    }
+	method: "flexirule.ruleflow.api.get_execution_preview",
+	args: {
+		rule_name: "Approval Workflow",
+		docname: "DOC-001",
+	},
 });
 
 // Clear rule cache for a doctype
 frappe.call({
-    method: "flexirule.ruleflow.api.clear_cache",
-    args: {
-        doctype: "Sales Order"
-    }
+	method: "flexirule.ruleflow.api.clear_cache",
+	args: {
+		doctype: "Sales Order",
+	},
 });
 ```
 
@@ -109,6 +113,7 @@ frappe.call({
 FlexiRule uses file-backed **Processes** which contain multiple **Operations**:
 
 ### Standard Processes
+
 - **Normalization** - Clean and standardize field data
 - **Validation** - Complex multi-field validation
 - **Enrichment** - Auto-populate fields from multiple sources
@@ -155,5 +160,3 @@ The engine is designed for extension through:
 ## 📝 License
 
 MIT
-
-

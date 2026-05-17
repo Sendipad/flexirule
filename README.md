@@ -29,10 +29,10 @@ In modern enterprise systems like **Frappe / ERPNext**, business logic often evo
 
 ### 💎 Why FlexiRule?
 
--   **Centralized Logic**: Move rules out of scattered `.py` files into a single, auditable dashboard.
--   **No-Code Configuration**: Custom UI controls (pickers, autocomplete) allow complex logic setup without a single line of code.
--   **Explicit Execution**: Connections define deterministic paths. No more guessing which hook runs first.
--   **Schema-Driven UI**: Configuration forms for custom logic are auto-generated from JSON schemas.
+- **Centralized Logic**: Move rules out of scattered `.py` files into a single, auditable dashboard.
+- **No-Code Configuration**: Custom UI controls (pickers, autocomplete) allow complex logic setup without a single line of code.
+- **Explicit Execution**: Connections define deterministic paths. No more guessing which hook runs first.
+- **Schema-Driven UI**: Configuration forms for custom logic are auto-generated from JSON schemas.
 
 ---
 
@@ -78,6 +78,7 @@ FlexiRule is built around three core pillars that bridge the gap between design 
 ### 1. The Rule (The Entry Point)
 
 A **Rule** defines _when_ logic should trigger. It serves as the gateway to the graph and binds to one of three context sources:
+
 - **DocType Event**: Tied to database hooks (e.g., `Before Save`, `On Submit`).
 - **Scheduler Event**: Scheduled CRON-based executions via background jobs.
 - **Callable Event**: A sub-rule meant strictly to be executed by other parent rules via `Priority: 0`.
@@ -90,14 +91,15 @@ Each node in the graph is a **Rule Action**. It represents a specific step in yo
 
 A **Process** is a file-backed module (similar to Frappe Reports/Dashboards) that acts as a container for reusable logic.
 
--   **File-Backed**: Logic is stored in code (`.py`) for performance and version control.
--   **Operations**: Individual functions within a process that declare their own **JSON Schema** for configuration parameters.
+- **File-Backed**: Logic is stored in code (`.py`) for performance and version control.
+- **Operations**: Individual functions within a process that declare their own **JSON Schema** for configuration parameters.
 
 ---
 
 ## ⚡ Execution Flow Example
 
 FlexiRule uses a deterministic graph-based execution engine with built-in cycle detection (preventing infinite loops over 100 iterations natively). The following example shows a more detailed flow with error handling and branching paths.
+
 ```mermaid
 graph LR
     Trigger[Rule Trigger]
@@ -123,24 +125,24 @@ graph LR
 
 ## 🛠️ Key Features
 
--   **Vue 3 Visual Builder**: Smooth graph-editing via a VueFlow canvas rendered dynamically from Frappe backend schemas.
--   **Condition Compilation**: Visual engine builds JSON `trigger_conditions` that are transparently pre-compiled into ultra-fast, single-pass pure Python strings `compiled_expression` on Save to avoid runtime overhead.
--   **Node Execution State Management**: Real-time tracking of execution state across components for visualization and debugging.
--   **Compiled Runtime Registry**: Layered caching system (request-local → Redis → DB) for compiled rules and dependencies.
--   **Role-Based Execution Control**: `skip_for_roles` field to prevent rule execution for specific roles.
--   **Permission Audit Logging**: `skip_permissions` with audit reason for tracking bypassed permission checks.
--   **Watched Fields Optimization**: Automatic extraction and change-based filtering for event-driven rules.
--   **Comprehensive Error Handling**: 
+- **Vue 3 Visual Builder**: Smooth graph-editing via a VueFlow canvas rendered dynamically from Frappe backend schemas.
+- **Condition Compilation**: Visual engine builds JSON `trigger_conditions` that are transparently pre-compiled into ultra-fast, single-pass pure Python strings `compiled_expression` on Save to avoid runtime overhead.
+- **Node Execution State Management**: Real-time tracking of execution state across components for visualization and debugging.
+- **Compiled Runtime Registry**: Layered caching system (request-local → Redis → DB) for compiled rules and dependencies.
+- **Role-Based Execution Control**: `skip_for_roles` field to prevent rule execution for specific roles.
+- **Permission Audit Logging**: `skip_permissions` with audit reason for tracking bypassed permission checks.
+- **Watched Fields Optimization**: Automatic extraction and change-based filtering for event-driven rules.
+- **Comprehensive Error Handling**:
     - Retry with exponential backoff
-    - Rollback with savepoints  
+    - Rollback with savepoints
     - Escalate to caller
     - Continue or Stop (default)
--   **Async Execution via Background Queues**: Offload long-running rules to background jobs.
--   **Timeout Protection**: Per-rule and per-action timeout limits.
--   **Asynchronous Execution Log Enqueuing**: Non-blocking persistence of execution traces.
--   **Graph Validation with Cycle Detection**: Prevents infinite loops with visit counting and iteration limits.
--   **Deterministic Graph Execution**: Zero ambiguity in execution order via Registry strategy pattern.
--   **Safety First**: Sandboxed execution via `SafeFrappeAPI`, savepoint rollbacks, and input validation.
+- **Async Execution via Background Queues**: Offload long-running rules to background jobs.
+- **Timeout Protection**: Per-rule and per-action timeout limits.
+- **Asynchronous Execution Log Enqueuing**: Non-blocking persistence of execution traces.
+- **Graph Validation with Cycle Detection**: Prevents infinite loops with visit counting and iteration limits.
+- **Deterministic Graph Execution**: Zero ambiguity in execution order via Registry strategy pattern.
+- **Safety First**: Sandboxed execution via `SafeFrappeAPI`, savepoint rollbacks, and input validation.
 
 ---
 
@@ -174,16 +176,16 @@ Developers can extend FlexiRule by creating **Standard Processes**:
 
 FlexiRule provides a comprehensive set of whitelisted backend methods for programmatic interaction:
 
--   **`test_rule`** - Test rule execution with `dry_run` and `save_log` options
--   **`simulate_rule`** - Dry-run simulation without persisting logs
--   **`execute_rule`** - Manual/API execution of a rule
--   **`transition_rule`** - Lifecycle management (enable/disable rules)
--   **`get_execution_preview`** - Path prediction for rule execution
--   **`get_contract_dto`** - Frontend introspection of rule contracts
--   **`get_node_config_schema`** - Dynamic configuration schema generation
--   **`get_action_context_schema`** - Variable resolution context inspection
--   **`clone_rule`** / **`amend_rule`** - Rule versioning operations
--   **`get_rule_stats`** - Monitoring and performance metrics
+- **`test_rule`** - Test rule execution with `dry_run` and `save_log` options
+- **`simulate_rule`** - Dry-run simulation without persisting logs
+- **`execute_rule`** - Manual/API execution of a rule
+- **`transition_rule`** - Lifecycle management (enable/disable rules)
+- **`get_execution_preview`** - Path prediction for rule execution
+- **`get_contract_dto`** - Frontend introspection of rule contracts
+- **`get_node_config_schema`** - Dynamic configuration schema generation
+- **`get_action_context_schema`** - Variable resolution context inspection
+- **`clone_rule`** / **`amend_rule`** - Rule versioning operations
+- **`get_rule_stats`** - Monitoring and performance metrics
 
 All APIs are accessible via `frappe.call()` and follow standard Frappe whitelisted method conventions.
 
@@ -194,6 +196,7 @@ All APIs are accessible via `frappe.call()` and follow standard Frappe whitelist
 The FlexiRule codebase has undergone significant architectural improvements:
 
 ### Core Engine Enhancements
+
 - **Assignment Action (V2)**: Replaced legacy "Set Value" with a powerful batch assignment system supporting multiple operators (Set, Clear, Increment, Decrement, Append, Merge, Toggle).
 - **Condition System (V2)**: Introduced recursive collection logic (Any, All, None) and iterator aliases for complex child-table evaluations.
 - **Node Execution State Management**: Real-time tracking of execution state across components for visualization and debugging.
@@ -202,18 +205,21 @@ The FlexiRule codebase has undergone significant architectural improvements:
 - **Async Execution Refinements**: Better background job handling and timeout protection.
 
 ### Security & Reliability
+
 - **Permission Audit Logging**: `skip_permissions` with audit reason for tracking bypassed permission checks
 - **Role-Based Execution Control**: `skip_for_roles` field to prevent rule execution for specific roles
 - **Watched Fields Optimization**: Automatic extraction and change-based filtering for event-driven rules
 - **Comprehensive Error Handling**: Retry with exponential backoff, rollback with savepoints, escalate to caller
 
 ### Developer Experience
+
 - **Dynamic Configuration Schemas**: Improved `get_node_config_schema` and `get_action_context_schema` APIs
 - **Extended Process Operation Metadata**: New fields like `writes_to`, `requires_doc`, `transactional`, `has_side_effect`, `config_schema`, `output_schema`, `action_overrides`
 - **Enhanced Rule Lifecycle APIs**: Better `clone_rule`, `amend_rule`, `transition_rule` functionality
 - **Improved Monitoring**: Enhanced `get_rule_stats` and execution tracing capabilities
 
 ### Frontend Improvements
+
 - **Vue 3 + Pinia Architecture**: Modular state management with 5 dedicated stores
 - **Real-time Execution Visualization**: `useNodeExecutionState` composable for test runs
 - **Enhanced Condition Builder**: Improved visual multi-condition builder with nested AND/OR groups
@@ -234,10 +240,10 @@ FlexiRule is evolving fast. Whether you are a developer, designer, or documenter
 
 ### How You Can Help
 
--   🐛 **Bug Reports**: Open an issue for any glitches.
--   💡 **Feature Requests**: Suggest new Nodes or Process Operations.
--   📖 **Documentation**: Help us clarify concepts or add examples.
--   🔧 **Pull Requests**: We welcome fixes, optimizations, and new features.
+- 🐛 **Bug Reports**: Open an issue for any glitches.
+- 💡 **Feature Requests**: Suggest new Nodes or Process Operations.
+- 📖 **Documentation**: Help us clarify concepts or add examples.
+- 🔧 **Pull Requests**: We welcome fixes, optimizations, and new features.
 
 Follow [Frappe Coding Standards](https://frappeframework.com/docs/v14/user/en/guidelines/coding-standards) and ensure all tests pass.
 

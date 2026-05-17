@@ -30,15 +30,19 @@ The API layer provides a secure bridge between the frontend and backend. Key fun
 The core engine is responsible for the deterministic execution of rules.
 
 ### **RuleCoordinator**
+
 The entry point for all rule executions. It handles event dispatching, layered caching, and pruning via `watched_fields`. See [Trigger System](engine/trigger_system.md).
 
 ### **RuleEngine**
+
 The executor that traverses the graph using a Strategy Pattern. It manages the orchestration flow and error recovery. See [Orchestration Capabilities](engine/orchestration.md).
 
 ### **ConditionCompiler**
+
 Compiles visual JSON condition trees into optimized Python strings for ultra-fast evaluation. See [Condition System Technical Details](engine/condition_system.md).
 
 ### **ContextManager**
+
 Manages variable scope (`vars`) and provides structured mutation modes.
 
 ---
@@ -52,6 +56,7 @@ FlexiRule uses several Frappe DocTypes to maintain rules, processes, and audit t
 ## Technical Audit & Integrity
 
 The system includes a built-in technical audit mechanism to ensure rule integrity:
+
 - **Graph Validation**: Prevents disconnected nodes, cycles, and invalid exit paths.
 - **Contract Enforcement**: Ensures action configurations match the backend expectations defined in `contracts.py`.
 - **Pre-Activation Check**: A full validation suite runs automatically before a rule can be transitioned to "Active" status.
@@ -60,7 +65,7 @@ The system includes a built-in technical audit mechanism to ensure rule integrit
 
 ## Integration with Frappe
 
--   **Doc Events**: Rules are hooked into the standard Frappe lifecycle via `hooks.py`.
--   **Background Jobs**: Asynchronous rules are offloaded using `frappe.enqueue`.
--   **Distributed Caching**: Uses Frappe's Redis cache and Realtime events to synchronize rule states across multiple web workers.
--   **Security**: Execution is sandboxed using `SafeFrappeAPI` and `frappe.safe_eval`.
+- **Doc Events**: Rules are hooked into the standard Frappe lifecycle via `hooks.py`.
+- **Background Jobs**: Asynchronous rules are offloaded using `frappe.enqueue`.
+- **Distributed Caching**: Uses Frappe's Redis cache and Realtime events to synchronize rule states across multiple web workers.
+- **Security**: Execution is sandboxed using `SafeFrappeAPI` and `frappe.safe_eval`.

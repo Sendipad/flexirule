@@ -5,21 +5,27 @@ Processes are the primary extensibility point for FlexiRule. A **Process** is a 
 ## Designing a Standard Process
 
 ### 1. Creation
+
 Create a `Process` document in Frappe.
+
 - Set a **Unique Name** (e.g., `Financial Utils`).
 - Check **Is Standard** if you want Frappe to generate boilerplate code in your app.
 
 ### 2. Operations Child Table
+
 Define each function in the Operations table:
+
 - **Function Name**: The exact name of the Python function.
 - **Icon/Color**: Visual cues for the builder.
 - **Contract Settings**:
-    - **Writes To**: `Document`, `Database`, `Context`, or `None`. This defines the *intent* of the operation.
+    - **Writes To**: `Document`, `Database`, `Context`, or `None`. This defines the _intent_ of the operation.
     - **Requires Doc**: Does the function need a Frappe document to work?
     - **Transactional**: Should this operation be wrapped in a database savepoint?
 
 ### 3. Schemas (JSON)
+
 Schemas define the UI for your operation.
+
 - **Config Schema**: Defines the inputs (e.g., `limit`, `status`). Use standard JSON Schema with custom `ui_schema` extensions.
 - **Output Schema**: Defines what the function returns. This allows the builder to provide autocomplete for the result.
 
@@ -28,6 +34,7 @@ Schemas define the UI for your operation.
 ## Coding Standards
 
 ### Controller Structure (`.py`)
+
 Standard processes use a class-based structure:
 
 ```python
@@ -51,6 +58,7 @@ class MyProcess:
 ```
 
 ### Best Practices
+
 - **Mutation Intent Architecture**: Processes should not perform direct mutations on the database or the document. Instead, they should return data. The Rule Engine applies these changes based on the **Mutation Mode** configured by the rule designer in the builder.
 - **Idempotency**: Operations should be designed so that re-executing them (on retry) is safe.
 - **Context Awareness**: Use `context.get('vars')` to access intermediate data from previous steps.
@@ -60,6 +68,8 @@ class MyProcess:
 ---
 
 ## Frontend Controllers (`.js`)
+
 If your process requires custom UI components (e.g., a special map picker), you can define a `.js` file for your process.
+
 - FlexiRule automatically loads these scripts when the process is selected in the builder.
 - You can register custom control components to be used in the node configuration sidebar.

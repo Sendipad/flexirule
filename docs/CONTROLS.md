@@ -5,18 +5,20 @@ This document details the smart and innovative Vue components used throughout th
 ---
 
 ## 1. ValueResolverControl
+
 **File:** `flexirule/public/js/flexirule/rule_builder/controls/ValueResolverControl.vue`
 
 The `ValueResolverControl` is a "magic" input widget that allows users to define dynamic values using a variety of formula types without writing raw code.
 
 ### ✨ Key Features & Innovation
+
 - **Multi-Modal Formula Support:** A single token-based UI that can switch between:
-  - **Date Formula:** Add/subtract days, weeks, months, or years from "Today" or a Document Field with sign-aware offsets.
-  - **Math Formula:** Perform arithmetic operations between fields or constants with configurable decimal precision.
-  - **Date Difference:** Calculate the span between two dates in days, months, or years (with intelligent month-to-year conversion).
-  - **Child Table Aggregation:** Perform `SUM`, `AVG`, or `COUNT` operations on child table rows with zero-length safety (e.g., using `max(len(rows), 1)` for averages).
-  - **String Manipulation:** Advanced concatenation, currency formatting, and case transformations (Upper/Lower).
-  - **System Context:** Access session user data or perform role-based authorization checks directly within a value.
+    - **Date Formula:** Add/subtract days, weeks, months, or years from "Today" or a Document Field with sign-aware offsets.
+    - **Math Formula:** Perform arithmetic operations between fields or constants with configurable decimal precision.
+    - **Date Difference:** Calculate the span between two dates in days, months, or years (with intelligent month-to-year conversion).
+    - **Child Table Aggregation:** Perform `SUM`, `AVG`, or `COUNT` operations on child table rows with zero-length safety (e.g., using `max(len(rows), 1)` for averages).
+    - **String Manipulation:** Advanced concatenation, currency formatting, and case transformations (Upper/Lower).
+    - **System Context:** Access session user data or perform role-based authorization checks directly within a value.
 - **Dynamic Expression Preview:** As the user configures the formula via the popover UI, a live Jinja-compatible expression snippet is generated and displayed at the bottom of the popover.
 - **Context-Aware Field Pickers:** Automatically filters and displays relevant document fields based on the selected formula type (e.g., only showing numeric fields for Math Formulas).
 - **Tokenized UI:** Displays a compact, icon-rich "token" in the form that summarizes the configured logic (e.g., "Today + 5 Days").
@@ -29,18 +31,20 @@ The `ValueResolverControl` is a "magic" input widget that allows users to define
 ---
 
 ## 2. ResourceMapperControl
+
 **File:** `flexirule/public/js/flexirule/rule_builder/controls/ResourceMapperControl.vue`
 
 The `ResourceMapperControl` is a high-density mapping interface used to define how data flows between different objects or DocTypes.
 
 ### ✨ Key Features & Innovation
+
 - **Intelligent Auto-Mapping:** A "Magic" button that performs fuzzy matching between source and target field names, suggesting mappings and allowing users to review/delete them before applying.
 - **Recursive Mapping Support:** Handles both scalar (top-level) fields and complex child table mappings within a single unified interface.
 - **Source Context Versatility:** Allows mapping from various sources including `doc`, `old_doc`, `vars` (upstream node outputs), and loop iterators.
 - **Mixed-Mode Source Types:** Each field mapping can be defined as:
-  - **Path:** A direct reference to a field in the source object.
-  - **Expr:** A dynamic Jinja expression.
-  - **Static:** A hardcoded literal value.
+    - **Path:** A direct reference to a field in the source object.
+    - **Expr:** A dynamic Jinja expression.
+    - **Static:** A hardcoded literal value.
 - **Batch Operations:** Supports multi-select and bulk deletion of mappings to speed up configuration.
 - **Read-Only / No-Copy Detection:** Visually highlights fields that are read-only or marked as "No Copy" in the DocType metadata.
 - **Type Validation:** Highlights potential type mismatches (e.g., trying to map a text field to a numeric field).
@@ -48,16 +52,18 @@ The `ResourceMapperControl` is a high-density mapping interface used to define h
 ---
 
 ## 3. TextGeneratorControl
+
 **File:** `flexirule/public/js/flexirule/rule_builder/controls/TextGeneratorControl.vue`
 
 A sophisticated rich-text editor based on Tiptap that seamlessly blends static text with dynamic logic and variables.
 
 ### ✨ Key Features & Innovation
+
 - **Visual Logic Blocks:** Instead of writing complex Jinja tags (`{% if ... %}`), users insert visual "Badges" for conditions and loops.
 - **Nested Recursive Editing:** Double-clicking a logic badge opens a "Bottom Panel" containing another instance of `TextGeneratorControl`, allowing users to define content for "IF TRUE", "ELSE", or "LOOP BODY" in a structured, hierarchical way.
 - **Slash Commands & Mentions:**
-  - Typing `@` or `{{` triggers a field picker for inserting dynamic variables.
-  - Typing `/` opens a logic block picker.
+    - Typing `@` or `{{` triggers a field picker for inserting dynamic variables.
+    - Typing `/` opens a logic block picker.
 - **Live Jinja Synchronization:** Seamlessly toggles between a "Visual" mode and a "Raw Jinja" mode, ensuring compatibility for power users while maintaining simplicity for others.
 - **Context-Aware Iterators:** Inside a loop block, the variable picker automatically includes properties of the current loop item (e.g., `item.qty`).
 - **Live Preview:** Renders a sample of the generated Jinja template in real-time.
@@ -65,11 +71,13 @@ A sophisticated rich-text editor based on Tiptap that seamlessly blends static t
 ---
 
 ## 4. TransformControl
+
 **File:** `flexirule/public/js/flexirule/rule_builder/controls/TransformControl.vue`
 
 A visual "Spider-Web" style mapper for connecting two data schemas.
 
 ### ✨ Key Features & Innovation
+
 - **Visual Connectivity:** Uses SVG-based cubic bezier curves to draw connections between source (left) and target (right) tree nodes.
 - **Tree-Based Schema Explorer:** Handles deeply nested JSON schemas or DocType hierarchies with expandable/collapsible nodes.
 - **Drag-to-Connect:** Users can initiate a connection by clicking an anchor on a source field and "dropping" it onto a target field.
@@ -80,11 +88,13 @@ A visual "Spider-Web" style mapper for connecting two data schemas.
 ---
 
 ## 5. ConditionBuilder
+
 **File:** `flexirule/public/js/flexirule/rule_builder/components/condition_builder/ConditionBuilder.vue`
 
 A powerful, recursive interface for building complex boolean logic.
 
 ### ✨ Key Features & Innovation
+
 - **Nested Logic Groups:** Supports infinite nesting of AND/OR groups to create sophisticated logical branches.
 - **Drag-and-Drop Reordering:** Allows users to move conditions or entire groups between different levels of the hierarchy using a smooth drag-and-drop UX.
 - **Collection Queries:** Specialized "Collection" nodes allow checking conditions against child tables (e.g., "Check if ANY item in the table has a price > 100").
@@ -94,11 +104,13 @@ A powerful, recursive interface for building complex boolean logic.
 ---
 
 ## 6. ComboBoxControl
+
 **File:** `flexirule/public/js/flexirule/rule_builder/controls/ComboBoxControl.vue`
 
 A highly optimized replacement for the standard HTML select/autocomplete, tailored for the Frappe ecosystem.
 
 ### ✨ Key Features & Innovation
+
 - **Floating UI Portal:** Uses `Teleport` and `useFloatingDropdown` to ensure the dropdown menu is never clipped by parent containers or scroll areas.
 - **Multi-Source Loading:** Seamlessly handles local arrays, remote Frappe Link queries, and custom async data providers.
 - **Rich Option Rendering:** Supports icons, descriptions, and "Type Badges" for each option, making it easier to distinguish between different types of variables or fields.
@@ -109,11 +121,13 @@ A highly optimized replacement for the standard HTML select/autocomplete, tailor
 ---
 
 ## 7. FilterGroup
+
 **File:** `flexirule/public/js/flexirule/rule_builder/components/rule_config/FilterGroup.vue`
 
 A high-performance filter builder used in `Query Records` and `Trigger Conditions` to define data selection criteria.
 
 ### ✨ Key Features & Innovation
+
 - **Multi-Modal Value Input:** Allows switching between Literal values, Numbers, Boolean, Variables, Advanced Expressions, and an integrated **Formula Builder** (via `ValueResolverControl`).
 - **Context-Aware Operators:** Dynamically adjusts available operators based on the field type (e.g., `Before`/`After` for dates, `Starts With`/`Ends With` for text, and Tree-based operators like `Descendants Of`).
 - **Intelligent Field Picker:** Supports both parent fields and child table fields (e.g., `items.item_code`), providing a unified interface for deep data filtering.
@@ -126,22 +140,26 @@ A high-performance filter builder used in `Query Records` and `Trigger Condition
 ## Technical Patterns
 
 ### Teleport & Z-Index Management
+
 To ensure overlays (dropdowns, pickers) always appear above other UI elements, FlexiRule uses a standard "Teleport to Body" pattern:
+
 ```vue
 <template>
-  <div class="control-container">
-    <button @click="isOpen = !isOpen">Open</button>
-    <Teleport to="body">
-      <div v-if="isOpen" class="floating-overlay" :style="positionStyle">
-        <!-- Overlay Content -->
-      </div>
-    </Teleport>
-  </div>
+	<div class="control-container">
+		<button @click="isOpen = !isOpen">Open</button>
+		<Teleport to="body">
+			<div v-if="isOpen" class="floating-overlay" :style="positionStyle">
+				<!-- Overlay Content -->
+			</div>
+		</Teleport>
+	</div>
 </template>
 ```
 
 ### Viewport-Aware Positioning
+
 Controls use a custom `useFloating` composable that monitors the element's `getBoundingClientRect()` to decide the optimal rendering direction (Top vs Bottom).
 
 ### Frappe Utility Integration
+
 Controls are deeply integrated with Frappe's utility functions. For example, `ValueResolverControl` can automatically generate Jinja snippets that use `frappe.utils.format_value` or `frappe.db.get_value` based on the user's visual selection.
