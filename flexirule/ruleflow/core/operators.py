@@ -148,6 +148,12 @@ class MergeOperator(AssignmentOperator):
 	}
 
 	def apply(self, current_value: Any, operand_value: Any, context: dict) -> Any:
+		if isinstance(operand_value, str):
+			try:
+				operand_value = frappe.parse_json(operand_value)
+			except Exception:
+				pass
+
 		if not isinstance(operand_value, dict):
 			frappe.throw(_("Merge operator requires a dictionary as the value"))
 

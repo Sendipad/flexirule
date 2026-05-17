@@ -5,7 +5,7 @@
 Simple Action Handlers.
 
 Contains handlers for simpler action types that don't require
-complex logic: Stop, Wait, Set Value, Raise Error, Notify.
+complex logic: Stop, Wait, Assignment, Raise Error, Notify.
 """
 
 import time

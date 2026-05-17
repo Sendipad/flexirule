@@ -71,7 +71,7 @@ class AssignmentHandler(ActionHandler):
 			# 4. Evaluate value if required
 			operand_value = None
 			if operator.metadata.get("requires_value"):
-				if isinstance(value_template, str):
+				if isinstance(value_template, str) and ("{{" in value_template or "{%" in value_template):
 					# Render Jinja template
 					# nosemgrep: frappe-semgrep-rules.rules.security.frappe-ssti
 					operand_value = frappe.render_template(

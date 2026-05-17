@@ -2,10 +2,19 @@
 	<div class="assignment-config">
 		<div class="config-section section-card header-compact mb-3">
 			<div class="d-flex align-items-center justify-content-between">
-				<h5 class="mb-0">{{ __("Batch Assignments") }}</h5>
-				<span class="text-muted small">{{
-					__("Sequential state mutations applied in order")
-				}}</span>
+				<div class="d-flex flex-column">
+					<h5 class="mb-0">{{ __("Batch Assignments") }}</h5>
+					<span class="text-muted small">{{
+						__("Sequential state mutations applied in order")
+					}}</span>
+				</div>
+				<button
+					v-if="assignments.length > 1 && !readOnly"
+					class="btn btn-xs btn-outline-danger"
+					@click="clearAll"
+				>
+					<i class="fa fa-trash me-1"></i> {{ __("Clear All") }}
+				</button>
 			</div>
 		</div>
 
@@ -17,7 +26,7 @@
 			<div class="grid-col-target">{{ __("Target Field") }}</div>
 			<div class="grid-col-operator">{{ __("Operator") }}</div>
 			<div class="grid-col-value">{{ __("Value Expression") }}</div>
-			<div class="grid-col-actions"></div>
+			<div class="grid-col-actions text-end">{{ __("Actions") }}</div>
 		</div>
 
 		<div class="assignments-list">
@@ -74,9 +83,27 @@
 				</div>
 
 				<!-- Row Actions -->
-				<div class="grid-col-actions text-end">
+				<div class="grid-col-actions text-end d-flex align-items-center justify-content-end">
+					<div class="d-flex flex-column me-1" v-if="assignments.length > 1">
+						<button
+							class="btn btn-xs btn-link p-0 text-muted shadow-none"
+							@click="moveAssignment(index, -1)"
+							:disabled="readOnly || index === 0"
+							:title="__('Move Up')"
+						>
+							<i class="fa fa-chevron-up" style="font-size: 8px"></i>
+						</button>
+						<button
+							class="btn btn-xs btn-link p-0 text-muted shadow-none"
+							@click="moveAssignment(index, 1)"
+							:disabled="readOnly || index === assignments.length - 1"
+							:title="__('Move Down')"
+						>
+							<i class="fa fa-chevron-down" style="font-size: 8px"></i>
+						</button>
+					</div>
 					<button
-						class="btn btn-sm btn-link text-danger p-1"
+						class="btn btn-sm btn-link text-danger p-1 shadow-none"
 						@click="removeAssignment(index)"
 						:disabled="readOnly"
 						:title="__('Remove')"
@@ -324,6 +351,21 @@ function removeAssignment(index) {
 	syncToNode();
 }
 
+function moveAssignment(index, direction) {
+	const newIndex = index + direction;
+	if (newIndex < 0 || newIndex >= assignments.value.length) return;
+	const item = assignments.value.splice(index, 1)[0];
+	assignments.value.splice(newIndex, 0, item);
+	syncToNode();
+}
+
+function clearAll() {
+	frappe.confirm(__("Are you sure you want to remove all assignments?"), () => {
+		assignments.value = [];
+		syncToNode();
+	});
+}
+
 function onTargetChange(index, value) {
 	assignments.value[index].target = value;
 	// Reset operator if it's no longer compatible with new target type
@@ -447,7 +489,7 @@ defineExpose({ validate });
 .assignment-grid-header,
 .assignment-grid-row {
 	display: grid;
-	grid-template-columns: 32% 18% 44% 6%;
+	grid-template-columns: 30% 18% 44% 8%;
 	gap: 8px;
 }
 

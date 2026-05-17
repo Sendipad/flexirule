@@ -1229,7 +1229,6 @@ class Rule(Document):
 				)
 
 			if target.startswith("doc.") and self.document_type:
-				# Validate doc fields similar to Set Value
 				field_path = target[4:]  # remove "doc."
 				base_field = field_path.split(".")[0]
 
@@ -1250,46 +1249,6 @@ class Rule(Document):
 								"Action '{0}': Cannot set field '{1}' after submit. Field does not have 'Allow on Submit' enabled."
 							).format(action.action_label, target)
 						)
-
-	def _validate_set_value_editable(self, action):
-		"""Check if Set Value target field is valid and editable for current trigger event"""
-		target_field = (
-			action.get("target_field") if hasattr(action, "get") else getattr(action, "target_field", None)
-		)
-		if not target_field:
-			return
-
-		if not self.document_type:
-			return
-
-		# Skip DocType field validation if we are setting a context variable or using a variable path
-		mutation_mode = (
-			action.get("mutation_mode") if hasattr(action, "get") else getattr(action, "mutation_mode", None)
-		)
-		if mutation_mode in ["Set Context Variable", "Update Context Variable"] or (
-			target_field and str(target_field).startswith("vars.")
-		):
-			return
-
-		meta = frappe.get_meta(self.document_type)
-		df = meta.get_field(target_field)
-
-		if not df:
-			frappe.throw(
-				_("Action '{0}': Field '{1}' does not exist on DocType '{2}'").format(
-					action.action_label, target_field, self.document_type
-				)
-			)
-
-		# Only check for after-submit events
-		after_submit_events = ["On Submit", "On Update After Submit"]
-		if self.trigger_event in after_submit_events:
-			if not df.allow_on_submit:
-				frappe.throw(
-					_(
-						"Action '{0}': Cannot set field '{1}' after submit. Field does not have 'Allow on Submit' enabled."
-					).format(action.action_label, target_field)
-				)
 
 	def validate_sub_rule_target(self, action):
 		"""Validate that a Sub-Rule action targets a compatible callable rule."""

@@ -52,9 +52,6 @@
 					<template #node-selector="nodeProps">
 						<ActionSelectorNode v-bind="nodeProps" />
 					</template>
-					<template #node-set-value="nodeProps">
-						<ProcessNode v-bind="nodeProps" />
-					</template>
 					<template #node-notify="nodeProps">
 						<ProcessNode v-bind="nodeProps" />
 					</template>
