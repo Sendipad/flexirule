@@ -40,7 +40,7 @@ Represents a single executable node within a Rule's graph.
 | :--- | :--- | :--- | :--- |
 | `action_id` | Data | Action ID | Unique ID for the node. Used for graph edges. |
 | `action_label` | Data | Label | User-defined label displayed on the node. |
-| `action_type` | Select | Step Type | Category: `Condition`, `Process`, `Loop`, `Assignment`, etc. |
+| `action_type` | Select | Step Type | Category: `Condition`, `Process`, `Loop`, `Assignment`, etc. Replaces legacy `Set Value`. |
 | `process_name` | Link | Process | Link to a `Process` DocType. |
 | `rule` | Link | Rule | Link to a sub-rule (for `Sub-Rule` type). |
 | `operation` | Autocomplete | Mode | Operation mode for this action. |
@@ -57,9 +57,9 @@ Represents a single executable node within a Rule's graph.
 | `reference_docname` | Dynamic Link| Reference Document | Specific document reference. |
 | `condition_json` | Code | Condition (JSON) | Condition expression for `Condition` type. |
 | `compiled_expression`| Code | Compiled Expression (Python)| Python version of the condition. |
-| `target_field` | Data | Target Field | Field to update (e.g., `doc.status`). |
+| `target_field` | Data | Target Field | Field to update (e.g., `doc.status`). **Legacy**: Used by the old 'Set Value' action. |
 | `value_template` | Code | Action Template | Jinja template for values or notifications. |
-| `config` | Code | Configuration (JSON) | Parameters for the action. |
+| `config` | Code | Configuration (JSON) | Parameters for the action (e.g., Assignment batch data). |
 | `mutation_mode` | Select | Result Handling | How to apply results (e.g., `Set Doc Field`). |
 | `return_variable` | Data | Save Result As | Name to save this step's result under. |
 | `return_type` | Select | Result Type | Expected data structure. |

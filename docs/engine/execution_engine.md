@@ -18,18 +18,6 @@ The engine provides enterprise-grade reliability features for handling failures 
 
 ### Exponential Backoff Math
 When an action is configured with `on_error: "Retry"`, the engine uses an exponential backoff strategy:
-<<<<<<< HEAD
-- **Delay Formula**: `wait_time = 2 ** attempt` seconds.
-- **Example**: Attempt 1 (2s), Attempt 2 (4s), Attempt 3 (8s).
-- **Safety**: Retries are automatically disabled if the context flag `_in_sync_hook` is set, preventing unsafe sleeps in synchronous DocType events.
-
-### Savepoint / Rollback Management
-For actions with the `transactional` flag or `on_error: "Rollback"`, the engine uses atomic database savepoints:
-1.  **Creation**: A savepoint is created with the naming convention `flexirule_action_{action_id}`.
-2.  **Execution**: The action handler is executed within a try-except block.
-3.  **Rollback**: If an error occurs, the engine rolls back specifically to the action's savepoint, ensuring partial failures don't corrupt the entire transaction state.
-4.  **Cleanup**: Savepoints are released upon successful completion of the action.
-=======
 - **Delay Formula**: `wait_time = 2 ** current_attempt` seconds.
 - **Example**: Attempt 1 (1s), Attempt 2 (2s), Attempt 3 (4s).
 - **Safety**: Retries are automatically disabled inside synchronous hooks (e.g., `Before Save`) to prevent blocking the web worker. If a retry is attempted in a sync hook, a `ValidationError` is raised.
@@ -42,7 +30,6 @@ For actions with the `transactional` flag or `on_error: "Rollback"`, the engine 
 2.  **Execution**: The handler runs.
 3.  **Rollback**: If an error occurs and rollback is required, `frappe.db.rollback(save_point=...)` is called, reverting only the changes made by that specific action, not the entire transaction.
 4.  **Release**: On success, the savepoint is released (only for Process actions).
->>>>>>> origin/develop
 
 ### Reentrancy Guards
 To prevent infinite recursive loops, the `RuleCoordinator` implements a global reentrancy guard:
