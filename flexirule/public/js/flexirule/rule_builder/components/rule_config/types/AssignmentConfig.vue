@@ -507,9 +507,7 @@ defineExpose({ validate });
 	border: 1px solid var(--border-color, #e2e8f0);
 	border-radius: 6px;
 	padding: 4px;
-	transition:
-		border-color 0.15s ease,
-		box-shadow 0.15s ease;
+	transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .assignment-grid-row:hover {

@@ -1886,9 +1886,7 @@ onBeforeUnmount(() => {
 	background: var(--control-bg, #ffffff);
 	padding: 2px 6px;
 	box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02);
-	transition:
-		border-color 0.2s ease,
-		box-shadow 0.2s ease;
+	transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 .fsvc-editor-container:focus-within {
 	border-color: var(--primary, #3b82f6);
