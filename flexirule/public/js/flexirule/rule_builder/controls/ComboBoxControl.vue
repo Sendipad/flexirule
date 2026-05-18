@@ -655,7 +655,7 @@ onBeforeUnmount(() => {
 .fxr-control.no-label .combobox-wrapper {
 	border-color: var(--fxr-border);
 	background: var(--fxr-bg-input);
-	box-shadow: var(--fxr-shadow-sm);
+	box-shadow: none;
 }
 
 .fxr-control.no-label .combobox-wrapper:hover {
@@ -665,7 +665,7 @@ onBeforeUnmount(() => {
 .fxr-control.no-label .combobox-wrapper.is-focused {
 	border-color: var(--fxr-accent);
 	background: var(--fxr-bg-input);
-	box-shadow: 0 0 0 3px var(--fxr-accent-light);
+	box-shadow: var(--fxr-shadow-focus);
 }
 
 .combobox-input-group {
@@ -833,7 +833,8 @@ onBeforeUnmount(() => {
 /* Dropdown Animation */
 .dropdown-fade-enter-active,
 .dropdown-fade-leave-active {
-	transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+	transition:
+		opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1),
 		transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 

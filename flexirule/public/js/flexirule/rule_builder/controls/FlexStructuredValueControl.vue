@@ -5,7 +5,7 @@
 		:class="{ 'is-compact': compact, 'is-disabled': disabled || readOnly }"
 	>
 		<!-- ── Component Body (Single Line Height 32px–38px) ── -->
-		<div class="fsvc-main-field">
+		<div class="fsvc-main-field" :class="{ 'is-dynamic': isDynamicMode || !isStaticSupported }">
 			<!-- Static View using ControlFactory -->
 			<div
 				v-if="!isDynamicMode && isStaticSupported"
@@ -1539,7 +1539,12 @@ watch(
 	(val) => {
 		if (emitting) return;
 		if (val && typeof val === "object") {
-			if (val.mode && val.mode !== "static") {
+			const isStaticallyHandledLink =
+				isStaticSupported.value &&
+				((props.fieldType === "Link" && val.mode === "link") ||
+					(props.fieldType === "Dynamic Link" && val.mode === "dynamic_link"));
+
+			if (val.mode && val.mode !== "static" && !isStaticallyHandledLink) {
 				isDynamicMode.value = true;
 				emitting = true;
 				editor.commands.setContent(deserializeStructuredValue(val));
@@ -1547,9 +1552,8 @@ watch(
 			} else {
 				isDynamicMode.value = false;
 				staticValue.value = val.value ?? "";
-				if (props.fieldType === "Dynamic Link" && val.mode === "dynamic_link") {
+				if (props.fieldType === "Dynamic Link") {
 					staticDynamicLinkDoctype.value = val.doctype || "";
-					staticValue.value = val.value || "";
 				}
 			}
 		} else {
@@ -1865,32 +1869,46 @@ onBeforeUnmount(() => {
 	display: flex;
 	align-items: center;
 	width: 100%;
-	gap: 6px;
+	min-height: 32px;
+	border: 1px solid var(--fxr-border, #e2e8f0);
+	border-radius: var(--fxr-radius-md, 6px);
+	background: var(--fxr-bg-input, #fff);
+	transition: all var(--fxr-transition-fast, 0.2s);
+}
+
+.fsvc-main-field:focus-within {
+	border-color: var(--fxr-accent, #2490ef);
+	box-shadow: var(--fxr-shadow-focus);
 }
 
 .fsvc-static-container {
 	display: flex;
 	align-items: center;
-	min-width: 0; /* allows flex items to shrink below their minimum intrinsic width */
+	flex: 1;
+	min-width: 0;
+	height: 100%;
+}
+
+/* Deep override to remove internal borders from nested controls when wrapped by fsvc-main-field */
+.fsvc-static-container :deep(.combobox-wrapper),
+.fsvc-static-container :deep(.form-control),
+.fsvc-static-container :deep(.fxr-input),
+.fsvc-static-container :deep(.combobox-container .combobox-wrapper) {
+	border: none !important;
+	box-shadow: none !important;
+	background: transparent !important;
+	height: 30px !important;
 }
 
 .fsvc-editor-container {
 	display: flex;
 	align-items: center;
+	flex: 1;
 	height: 100%;
 	min-height: 30px;
 	position: relative;
 	overflow: hidden;
-	border: 1px solid var(--border-color, #d1d5db);
-	border-radius: var(--border-radius, 4px);
-	background: var(--control-bg, #ffffff);
-	padding: 2px 6px;
-	box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02);
-	transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-.fsvc-editor-container:focus-within {
-	border-color: var(--primary, #3b82f6);
-	box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+	padding: 2px 8px;
 }
 
 .fsvc-editor-wrapper {

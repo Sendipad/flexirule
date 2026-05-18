@@ -1,12 +1,19 @@
 <template>
 	<div class="assignment-config">
-		<div class="config-section section-card header-compact mb-3">
+		<div class="assignment-header-card mb-4">
 			<div class="d-flex align-items-center justify-content-between">
-				<div class="d-flex flex-column">
-					<h5 class="mb-0">{{ __("Batch Assignments") }}</h5>
-					<span class="text-muted fxr-text-xs">
-						{{ __("Sequential state mutations applied in order") }}
-					</span>
+				<div class="d-flex align-items-center fxr-gap-3">
+					<div class="header-icon-box">
+						<i class="fa fa-list-ol"></i>
+					</div>
+					<div class="d-flex flex-column">
+						<h5 class="mb-0 fw-bold">{{ __("Batch Assignments") }}</h5>
+						<span class="text-muted fxr-text-xs">
+							{{
+								__("Define sequential mutations for document fields and variables")
+							}}
+						</span>
+					</div>
 				</div>
 				<button
 					v-if="assignments.length > 1"
@@ -21,10 +28,7 @@
 		</div>
 
 		<!-- Horizontal Table Grid Header -->
-		<div
-			v-if="assignments.length"
-			class="assignment-grid-header mb-1 text-muted small fw-semibold"
-		>
+		<div v-if="assignments.length" class="assignment-grid-header">
 			<div class="grid-col-target">{{ __("Target Field") }}</div>
 			<div class="grid-col-operator">{{ __("Operator") }}</div>
 			<div class="grid-col-value">{{ __("Value Expression") }}</div>
@@ -127,23 +131,27 @@
 				<div class="grid-col-when">
 					<div class="when-editor-cell">
 						<button
-							class="fxr-btn fxr-btn--ghost fxr-btn--sm w-100 text-start"
+							class="fxr-btn fxr-btn--sm w-100 when-toggle-btn"
+							:class="hasWhenCondition(assignment) ? 'is-active' : 'is-default'"
 							:disabled="readOnly"
 							@click="openWhenConditionEditor(index)"
 						>
-							<i class="fa fa-code-fork me-1"></i>
-							{{
-								hasWhenCondition(assignment)
-									? __("Condition Set")
-									: __("Always Run")
-							}}
+							<i
+								:class="
+									hasWhenCondition(assignment)
+										? 'fa fa-filter'
+										: 'fa fa-play-circle-o'
+								"
+								class="me-2"
+							></i>
+							<span class="truncate">
+								{{
+									hasWhenCondition(assignment)
+										? __("Condition Set")
+										: __("Always Run")
+								}}
+							</span>
 						</button>
-						<div
-							v-if="assignment.when_expression && !assignment.when_condition"
-							class="text-muted fxr-text-xs mt-1"
-						>
-							{{ __("Legacy expression detected") }}
-						</div>
 					</div>
 				</div>
 
@@ -773,17 +781,26 @@ defineExpose({ validate });
 .assignment-config {
 	display: flex;
 	flex-direction: column;
+	gap: 4px;
 }
 
-.section-card {
-	border: 1px solid var(--border-color, #e2e8f0);
-	border-radius: 8px;
-	padding: 12px;
-	background: var(--bg-light, #fff);
+.assignment-header-card {
+	background: var(--fxr-bg-page, #f8fafc);
+	border: 1px solid var(--fxr-border, #e2e8f0);
+	border-radius: var(--fxr-radius-lg, 8px);
+	padding: 16px;
 }
 
-.header-compact {
-	background: var(--gray-50, #f8fafc);
+.header-icon-box {
+	width: 40px;
+	height: 40px;
+	background: var(--fxr-accent-light, #e0f2fe);
+	color: var(--fxr-accent, #2490ef);
+	border-radius: var(--fxr-radius-md, 6px);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 18px;
 }
 
 /* Horizontal Table Grid Styling */
@@ -791,15 +808,57 @@ defineExpose({ validate });
 .assignment-grid-row {
 	display: grid;
 	grid-template-columns:
-		minmax(180px, 1.2fr) minmax(110px, 0.8fr) minmax(220px, 2fr) minmax(120px, 1fr)
-		100px;
+		minmax(160px, 1.2fr) minmax(100px, 0.7fr) minmax(240px, 2fr) minmax(120px, 0.8fr)
+		80px;
 	gap: 12px;
 	align-items: center;
+}
+
+.assignment-grid-header {
+	padding: 10px 16px;
+	font-size: 10px;
+	font-weight: 700;
+	color: var(--fxr-text-muted, #64748b);
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	border-bottom: 1px solid var(--fxr-border, #e2e8f0);
+	margin-bottom: 8px;
 }
 
 .when-editor-cell {
 	display: flex;
 	flex-direction: column;
+}
+
+.when-toggle-btn {
+	justify-content: flex-start;
+	padding: 6px 10px;
+	font-weight: 600;
+	font-size: 11px;
+	border-radius: var(--fxr-radius-md, 6px);
+	border: 1px solid transparent;
+	transition: all 0.2s ease;
+}
+
+.when-toggle-btn.is-default {
+	background: var(--fxr-bg-muted, #f1f5f9);
+	color: var(--fxr-text-secondary, #475569);
+}
+
+.when-toggle-btn.is-default:hover {
+	background: var(--fxr-bg-hover, #f8fafc);
+	border-color: var(--fxr-border-strong, #cbd5e1);
+}
+
+.when-toggle-btn.is-active {
+	background: var(--fxr-badge-var, #f3e8ff);
+	color: var(--fxr-badge-var-text, #7c3aed);
+	border-color: rgba(124, 58, 237, 0.2);
+}
+
+.when-toggle-btn.is-active:hover {
+	background: #ede9fe;
+	border-color: rgba(124, 58, 237, 0.3);
 }
 
 .fxr-modal-overlay {
@@ -841,47 +900,37 @@ defineExpose({ validate });
 
 .value-mode-toggle {
 	flex-shrink: 0;
-	width: 32px;
-	height: 32px;
+	width: 30px;
+	height: 30px;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	border-radius: 6px;
-	color: #64748b;
-	border: 1px solid #e2e8f0;
-	background: #ffffff;
+	border-radius: var(--fxr-radius-md, 6px);
+	color: var(--fxr-text-muted, #64748b);
+	border: 1px solid var(--fxr-border, #e2e8f0);
+	background: var(--fxr-bg-input, #ffffff);
 	transition: all 0.2s ease;
 	cursor: pointer;
 }
 
 .value-mode-toggle:hover:not(:disabled) {
-	color: var(--primary, #1e293b);
-	border-color: #cbd5e1;
-	background: #f8fafc;
-}
-
-.assignment-grid-header {
-	padding: 8px 12px;
-	font-size: 11px;
-	font-weight: 600;
-	color: #64748b;
-	letter-spacing: 0.02em;
-	border-bottom: 1px solid #e2e8f0;
-	margin-bottom: 8px !important;
+	color: var(--fxr-accent, #2490ef);
+	border-color: var(--fxr-accent, #2490ef);
+	background: var(--fxr-bg-hover, #f8fafc);
 }
 
 .assignment-grid-row {
-	background: #ffffff;
-	border: 1px solid #e2e8f0;
-	border-radius: 8px;
-	padding: 8px 12px;
+	background: var(--fxr-bg-card, #ffffff);
+	border: 1px solid var(--fxr-border, #e2e8f0);
+	border-radius: var(--fxr-radius-lg, 8px);
+	padding: 10px 16px;
 	transition: all 0.2s ease;
-	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+	box-shadow: var(--fxr-shadow-sm);
 }
 
 .assignment-grid-row:hover {
-	border-color: var(--primary, #1e293b);
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+	border-color: var(--fxr-accent, #2490ef);
+	box-shadow: var(--fxr-shadow-md);
 	transform: translateY(-1px);
 }
 
@@ -915,21 +964,23 @@ defineExpose({ validate });
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	gap: 6px;
-	background: #f8fafc;
-	border: 1px dashed #cbd5e1;
-	border-radius: 8px;
-	padding: 10px;
+	gap: 8px;
+	background: var(--fxr-bg-page, #f8fafc);
+	border: 1px dashed var(--fxr-border-strong, #cbd5e1);
+	border-radius: var(--fxr-radius-lg, 8px);
+	padding: 12px;
 	width: 100%;
-	color: #475569;
-	font-weight: 500;
+	color: var(--fxr-text-secondary, #475569);
+	font-weight: 600;
+	font-size: 13px;
 	transition: all 0.2s ease;
 	cursor: pointer;
+	margin-top: 12px;
 }
 
 .add-assignment-btn:hover:not(:disabled) {
-	background: #f1f5f9;
-	border-color: var(--primary, #1e293b);
-	color: var(--primary, #1e293b);
+	background: var(--fxr-accent-light, #e0f2fe);
+	border-color: var(--fxr-accent, #2490ef);
+	color: var(--fxr-accent, #2490ef);
 }
 </style>
