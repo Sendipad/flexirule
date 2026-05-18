@@ -7,8 +7,8 @@
 			<div class="spinner-border text-primary"></div>
 		</div>
 		<template v-else-if="engine">
-			<div class="d-flex justify-content-between align-items-center mb-3 px-3">
-				<h6 class="mb-0">{{ __("Process Configuration") }}</h6>
+			<div class="d-flex justify-content-between align-items-center mb-2 px-3">
+				<h6 class="mb-0 fw-bold">{{ __("Process Configuration") }}</h6>
 				<div class="btn-group">
 					<button
 						class="btn btn-xs"

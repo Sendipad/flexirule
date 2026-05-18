@@ -68,12 +68,13 @@ function updateValue(field, value) {
 .schema-renderer {
 	display: flex;
 	flex-direction: column;
-	gap: 16px;
+	gap: var(--fxr-space-3, 8px);
+	padding: 0 4px;
 }
 
 .section-break {
-	margin-top: 24px;
-	margin-bottom: 8px;
+	margin-top: 16px;
+	margin-bottom: 4px;
 }
 
 .section-break h5 {
