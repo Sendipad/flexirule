@@ -19,7 +19,7 @@
 					v-if="assignments.length > 1"
 					class="fxr-btn fxr-btn--ghost fxr-btn--sm text-danger"
 					@click="clearAssignments"
-					:disabled="readOnly"
+					:disabled="isReadOnly"
 				>
 					<i class="fa fa-eraser me-1"></i>
 					{{ __("Clear All") }}
@@ -48,7 +48,7 @@
 						:df="{ fieldtype: 'FieldPicker', label: '' }"
 						:modelValue="assignment.target"
 						:options="targetOptions"
-						:read_only="readOnly"
+						:read_only="isReadOnly"
 						:hideLabel="true"
 						:trigger="'button'"
 						:placeholder="__('Target field/variable...')"
@@ -63,7 +63,7 @@
 						:df="{ fieldtype: 'Select', label: '' }"
 						:options="getAvailableOperators(assignment.target)"
 						:modelValue="assignment.operator"
-						:read_only="readOnly"
+						:read_only="isReadOnly"
 						:hideLabel="true"
 						:trigger="'button'"
 						@update:modelValue="(val) => onOperatorChange(index, val)"
@@ -82,7 +82,7 @@
 										? __('Switch to Template Editor')
 										: __('Switch to Formula Resolver')
 								"
-								:disabled="readOnly"
+								:disabled="isReadOnly"
 								@click="toggleValueMode(index)"
 							>
 								<i
@@ -103,7 +103,7 @@
 									store.rule_doc?.document_type ||
 									''
 								"
-								:readOnly="readOnly"
+								:readOnly="isReadOnly"
 								@update:modelValue="(val) => updateResolverTemplate(index, val)"
 							/>
 							<!-- Template (TipTap) mode -->
@@ -112,7 +112,9 @@
 								class="flex-1 min-w-0"
 								:fieldType="getTargetFieldtype(assignment.target) || 'Data'"
 								:modelValue="assignment.value_template_ui"
-								:read_only="readOnly"
+								:read_only="isReadOnly"
+								:engine="store"
+								:doc="store.rule_doc"
 								:variableOptions="variable_options"
 								:allowedModes="supportedTemplateModes"
 								:referenceDoctype="getTargetDoctype(assignment.target)"
@@ -133,7 +135,7 @@
 						<button
 							class="fxr-btn fxr-btn--sm w-100 when-toggle-btn"
 							:class="hasWhenCondition(assignment) ? 'is-active' : 'is-default'"
-							:disabled="readOnly"
+							:disabled="isReadOnly"
 							@click="openWhenConditionEditor(index)"
 						>
 							<i
@@ -162,7 +164,7 @@
 					<button
 						class="fxr-btn fxr-btn--icon fxr-btn--sm fxr-btn--ghost"
 						@click="moveAssignment(index, -1)"
-						:disabled="readOnly || index === 0"
+						:disabled="isReadOnly || index === 0"
 						:title="__('Move Up')"
 						aria-label="Move Up"
 					>
@@ -171,7 +173,7 @@
 					<button
 						class="fxr-btn fxr-btn--icon fxr-btn--sm fxr-btn--ghost"
 						@click="moveAssignment(index, 1)"
-						:disabled="readOnly || index === assignments.length - 1"
+						:disabled="isReadOnly || index === assignments.length - 1"
 						:title="__('Move Down')"
 						aria-label="Move Down"
 					>
@@ -180,7 +182,7 @@
 					<button
 						class="fxr-btn fxr-btn--icon fxr-btn--sm fxr-btn--ghost text-danger"
 						@click="removeAssignment(index)"
-						:disabled="readOnly"
+						:disabled="isReadOnly"
 						:title="__('Remove')"
 						aria-label="Remove Assignment"
 					>
@@ -205,7 +207,7 @@
 			</div>
 		</div>
 
-		<button class="add-assignment-btn mt-2" @click="addAssignment" :disabled="readOnly">
+		<button class="add-assignment-btn mt-2" @click="addAssignment" :disabled="isReadOnly">
 			<i class="fa fa-plus"></i>
 			<span>{{ __("Add Assignment") }}</span>
 		</button>
@@ -275,8 +277,11 @@ import { ASSIGNMENT_OPERATOR_METADATA } from "../../../../core/contracts.js";
 
 const props = defineProps({
 	node: Object,
-	readOnly: Boolean,
+	readOnly: { type: Boolean, default: false },
+	read_only: { type: Boolean, default: false },
 });
+
+const isReadOnly = computed(() => !!props.readOnly || !!props.read_only);
 
 const { doctype_fields, variable_options, update_action_field, store } = useActionConfig(props);
 const supportedTemplateModes = ["formula", "resolver", "link", "dynamic-link"];
@@ -312,27 +317,14 @@ function getOperatorHint(operator) {
  */
 function getTargetFieldtype(target) {
 	if (!target) return null;
-	if (target.startsWith("doc.")) {
-		const fieldname = target.slice(4).split(".")[0];
-		if (fieldname === "docstatus") return "Select";
-		const field = (doctype_fields.value || []).find((f) => f.fieldname === fieldname);
-		return field?.fieldtype || null;
-	}
-	if (target.startsWith("vars.")) {
-		const varname = target.slice(5).split(".")[0];
-		const variable = (variable_options.value || []).find(
-			(v) => v.value === varname || v.fieldname === varname
-		);
-		return variable?.fieldtype || variable?.type || null;
-	}
-	return null;
+	const opt = targetOptions.value.find((o) => o.value === target);
+	return opt?.fieldtype || opt?.type || null;
 }
 
 function getTargetDoctype(target) {
-	if (!target || !target.startsWith("doc.")) return null;
-	const fieldname = target.slice(4).split(".")[0];
-	const field = (doctype_fields.value || []).find((f) => f.fieldname === fieldname);
-	return field?.options || null;
+	if (!target) return null;
+	const opt = targetOptions.value.find((o) => o.value === target);
+	return opt?.options || null;
 }
 
 /**
@@ -340,21 +332,15 @@ function getTargetDoctype(target) {
  */
 function getTargetOptions(target) {
 	if (!target) return [];
-	if (target.startsWith("doc.")) {
-		const fieldname = target.slice(4).split(".")[0];
-		if (fieldname === "docstatus") {
-			return [
-				{ label: __("0 (Draft)"), value: "0" },
-				{ label: __("1 (Submitted)"), value: "1" },
-				{ label: __("2 (Cancelled)"), value: "2" },
-			];
-		}
-		const field = (doctype_fields.value || []).find((f) => f.fieldname === fieldname);
-		if (field && field.fieldtype === "Select" && field.options) {
-			return field.options;
-		}
+	const opt = targetOptions.value.find((o) => o.value === target);
+	if (opt?.value === "doc.docstatus" && !opt.options) {
+		return [
+			{ label: __("0 (Draft)"), value: "0" },
+			{ label: __("1 (Submitted)"), value: "1" },
+			{ label: __("2 (Cancelled)"), value: "2" },
+		];
 	}
-	return [];
+	return opt?.options || [];
 }
 
 /**
@@ -449,6 +435,7 @@ const targetOptions = computed(() => {
 				type: v.fieldtype || "Variable",
 				is_variable: true,
 				fieldname: v.value,
+				options: v.options,
 			});
 		});
 

@@ -2,7 +2,7 @@
 	<div
 		ref="controlRef"
 		class="fsvc-wrap"
-		:class="{ 'is-compact': compact, 'is-disabled': disabled || readOnly }"
+		:class="{ 'is-compact': compact, 'is-disabled': disabled || controlReadOnly }"
 	>
 		<!-- ── Component Body (Single Line Height 32px–38px) ── -->
 		<div class="fsvc-main-field" :class="{ 'is-dynamic': isDynamicMode || !isStaticSupported }">
@@ -20,7 +20,7 @@
 							class="fxr-select select-sm flex-0"
 							style="width: 130px"
 							v-model="staticDynamicLinkDoctype"
-							:disabled="disabled || readOnly"
+							:disabled="disabled || controlReadOnly"
 						>
 							<option value="">{{ __("Doctype...") }}</option>
 							<option
@@ -38,9 +38,11 @@
 							:df="{
 								fieldtype: 'Link',
 								options: staticDynamicLinkDoctype,
-								read_only: disabled || readOnly,
+								read_only: disabled || controlReadOnly,
 							}"
 							:modelValue="staticValue"
+							:doc="doc"
+							:engine="engine"
 							:hideLabel="true"
 							class="flex-1 min-w-0"
 							@update:modelValue="updateStaticValue"
@@ -56,6 +58,8 @@
 					<ControlFactory
 						:df="staticDf"
 						:modelValue="staticValue"
+						:doc="doc"
+						:engine="engine"
 						:options="parsedSelectOptions"
 						:hideLabel="true"
 						class="flex-1 min-w-0 w-100"
@@ -70,7 +74,7 @@
 					<editor-content :editor="editor" class="fsvc-tiptap-editor" />
 					<!-- Contextual placeholder shown only when editor is empty and not focused -->
 					<div
-						v-if="!readOnly && isEditorEmpty && !isEditorFocused"
+						v-if="!controlReadOnly && isEditorEmpty && !isEditorFocused"
 						class="fsvc-empty-hint"
 					>
 						<span class="hint-part">|</span> {{ __("static") }}
@@ -81,7 +85,7 @@
 					</div>
 					<!-- While focused, show a subtle cursor caret hint -->
 					<div
-						v-else-if="!readOnly && isEditorEmpty && isEditorFocused"
+						v-else-if="!controlReadOnly && isEditorEmpty && isEditorFocused"
 						class="fsvc-focus-hint"
 					>
 						{{ placeholder || __("Type value, @variable or /command...") }}
@@ -624,6 +628,7 @@ function getCommandGroupForFieldtype(ft) {
 const props = defineProps({
 	modelValue: { type: [Object, String], default: null },
 	variableOptions: { type: Array, default: () => [] },
+	readOnly: { type: Boolean, default: false },
 	read_only: { type: Boolean, default: false },
 	placeholder: { type: String, default: "" },
 	/** Explicit allowlist of command ids to show (empty = all context-allowed commands shown). */
@@ -639,11 +644,15 @@ const props = defineProps({
 	doctypeOptions: { type: Array, default: () => [] }, // list of doctypes
 	linkOptions: { type: Object, default: () => ({}) },
 	meta: { type: Object, default: () => ({}) },
+	engine: { type: Object, default: null },
+	doc: { type: Object, default: null },
 });
 
 const emit = defineEmits(["update", "update:modelValue"]);
 
-const readOnly = computed(() => !!props.read_only || !!props.meta?.read_only);
+const controlReadOnly = computed(
+	() => !!props.readOnly || !!props.read_only || !!props.meta?.read_only
+);
 
 // Dynamic toggle indicator
 const isDynamicMode = ref(false);
@@ -697,7 +706,7 @@ const staticDf = computed(() => {
 		fieldtype: ft,
 		label: "",
 		options: options,
-		read_only: props.disabled || readOnly.value,
+		read_only: props.disabled || controlReadOnly.value,
 		placeholder: props.placeholder,
 		description: "",
 	};
@@ -1230,7 +1239,7 @@ const editor = new Editor({
 			},
 		}),
 	],
-	editable: !readOnly.value,
+	editable: !controlReadOnly.value,
 	editorProps: {
 		handleKeyDown(view, event) {
 			// Compact single line editor, block Enter key from creating newlines
@@ -1293,6 +1302,7 @@ const isEditorFocused = ref(false);
 // ─── Input Adapters and Parsing Helper Functions ───
 
 const parsedSelectOptions = computed(() => {
+	if (props.fieldType === "Link" || props.fieldType === "Dynamic Link") return [];
 	if (typeof props.options === "string") {
 		return props.options.split("\n").map((o) => ({ label: o, value: o }));
 	}
@@ -1460,7 +1470,7 @@ function deserializeStructuredValue(val) {
 // ─── Component Dynamic Mode Switching and Syncing ───
 
 function toggleDynamicMode() {
-	if (readOnly.value || props.disabled) return;
+	if (controlReadOnly.value || props.disabled) return;
 	isDynamicMode.value = !isDynamicMode.value;
 
 	if (isDynamicMode.value) {
@@ -1477,7 +1487,7 @@ function toggleDynamicMode() {
 }
 
 function onStaticKeydown(e) {
-	if (readOnly.value || props.disabled) return;
+	if (controlReadOnly.value || props.disabled) return;
 
 	if (e.key === "@" || e.key === "/") {
 		e.preventDefault();
@@ -1608,7 +1618,7 @@ function updatePopoverPosition() {
 }
 
 function openTokenEditor(node, pos) {
-	if (readOnly.value || props.disabled) return;
+	if (controlReadOnly.value || props.disabled) return;
 	activeTokenNode.value = node;
 	activeTokenPos.value = pos;
 
@@ -1893,11 +1903,37 @@ onBeforeUnmount(() => {
 .fsvc-static-container :deep(.combobox-wrapper),
 .fsvc-static-container :deep(.form-control),
 .fsvc-static-container :deep(.fxr-input),
-.fsvc-static-container :deep(.combobox-container .combobox-wrapper) {
+.fsvc-static-container :deep(.combobox-container .combobox-wrapper),
+.fsvc-static-container :deep(.fxr-input-group) {
 	border: none !important;
 	box-shadow: none !important;
 	background: transparent !important;
-	height: 30px !important;
+	height: var(--fxr-input-height, 28px) !important;
+	margin-bottom: 0 !important;
+	padding-bottom: 0 !important;
+}
+
+.fsvc-static-container :deep(.fxr-input-group.has-floating-label) {
+	padding-top: 0 !important;
+}
+
+/* Ensure dropdown buttons and clear triggers are properly aligned and visible */
+.fsvc-static-container :deep(.combobox-trigger) {
+	height: 24px !important;
+	width: 24px !important;
+	margin-top: 0 !important;
+	opacity: 1 !important;
+	display: flex !important;
+	align-items: center !important;
+	justify-content: center !important;
+}
+
+.fsvc-static-container :deep(.combobox-button-trigger) {
+	padding-left: 8px !important;
+}
+
+.fsvc-static-container :deep(.combobox-input-group) {
+	padding-right: 4px !important;
 }
 
 .fsvc-editor-container {
