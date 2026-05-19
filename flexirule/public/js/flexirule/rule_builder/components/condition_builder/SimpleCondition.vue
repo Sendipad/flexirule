@@ -26,6 +26,7 @@ const operatorConfig = inject(
 );
 
 const context = inject("conditionContext", { alias: "doc" });
+const store = inject("store");
 
 // Dynamic Link State
 const dynamicLinkDocType = ref("");
@@ -282,6 +283,8 @@ const valueType = computed({
 					:read_only="readOnly"
 					:trigger="'button'"
 					:hideLabel="true"
+					:rule="store?.rule_doc"
+					:context="store?.rule_doc"
 					class="w-100 m-0"
 				/>
 			</div>
@@ -347,6 +350,8 @@ const valueType = computed({
 							v-model="wrappedValue"
 							:read_only="readOnly"
 							:hideLabel="true"
+							:engine="store"
+							:doc="store?.rule_doc"
 						/>
 					</template>
 				</div>
@@ -372,7 +377,7 @@ const valueType = computed({
 	background: var(--fxr-bg-card);
 	border: 1px solid var(--fxr-border);
 	border-radius: var(--fxr-radius-md);
-	padding: var(--fxr-space-2);
+	padding: var(--fxr-space-1) var(--fxr-space-2);
 	transition: border-color var(--fxr-transition-fast), background-color var(--fxr-transition-fast);
 }
 
@@ -382,8 +387,8 @@ const valueType = computed({
 
 .condition-main-row {
 	display: grid;
-	grid-template-columns: 1.5fr 0.8fr 2.5fr auto;
-	gap: var(--fxr-space-4);
+	grid-template-columns: 1.5fr 0.7fr 2.6fr auto;
+	gap: var(--fxr-space-2);
 	align-items: center;
 	overflow: visible !important;
 	position: relative;

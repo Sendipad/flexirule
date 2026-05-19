@@ -112,14 +112,14 @@ function handleDrop(e) {
 	background: var(--fxr-bg-hover);
 	border: 1px solid var(--fxr-border);
 	border-radius: var(--fxr-radius-lg);
-	padding: var(--fxr-space-6);
+	padding: var(--fxr-space-3);
 }
 
 .group-header {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
-	margin-bottom: var(--fxr-space-6);
+	margin-bottom: var(--fxr-space-3);
 }
 
 .logic-toggle.small {
@@ -184,27 +184,27 @@ function handleDrop(e) {
 }
 
 .group-content {
-	padding-inline-start: var(--fxr-space-6);
+	padding-inline-start: var(--fxr-space-4);
 	border-inline-start: 2px solid var(--fxr-border);
 	display: flex;
 	flex-direction: column;
-	gap: var(--fxr-space-4);
+	gap: var(--fxr-space-2);
 }
 
 .empty-group-text {
-	font-size: var(--fxr-text-sm);
+	font-size: var(--fxr-text-xs);
 	color: var(--fxr-text-muted);
 	font-style: italic;
-	padding: var(--fxr-space-4) 0;
+	padding: var(--fxr-space-2) 0;
 }
 
 .node-wrapper {
-	margin-bottom: var(--fxr-space-2);
+	margin-bottom: 0;
 }
 
 .group-drop-spacer {
-	height: 20px;
-	margin-top: var(--fxr-space-2);
+	height: 12px;
+	margin-top: var(--fxr-space-1);
 }
 
 @media (max-width: 768px) {

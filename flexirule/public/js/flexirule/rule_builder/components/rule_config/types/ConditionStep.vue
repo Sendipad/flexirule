@@ -330,15 +330,15 @@ defineExpose({
 .condition-step {
 	display: flex;
 	flex-direction: column;
-	gap: 16px;
+	gap: var(--fxr-space-4);
 }
 
 .condition-step-header {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding-bottom: 12px;
-	border-bottom: 1px solid var(--border-color);
+	padding-bottom: var(--fxr-space-3);
+	border-bottom: 1px solid var(--fxr-border);
 }
 
 .condition-step-header h5 {
