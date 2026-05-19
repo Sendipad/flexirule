@@ -86,7 +86,7 @@ def execute_rules(doc, method=None, *args, **kwargs):
 
 def execute_rules_from_event(doc, event):
 	"""Pure hook logic decoupled from Frappe method names."""
-	if frappe.flags.in_import or frappe.flags.in_migrate:
+	if frappe.flags.in_import or frappe.flags.in_migrate or frappe.flags.in_install:
 		return
 
 	if doc.doctype in get_excluded_doctypes():
@@ -95,6 +95,7 @@ def execute_rules_from_event(doc, event):
 	from flexirule.ruleflow.core.coordinator import RuleCoordinator
 
 	# Compiled runtime registry provides negative caching and fast no-rule exits.
+	# This check is extremely fast as it hits a Redis-backed registry.
 	if not RuleCoordinator.has_active_rules(doc.doctype, event):
 		return
 

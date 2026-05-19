@@ -121,7 +121,7 @@ def get_doctype_fields(doctype: str, filters: str | dict | None = None):
 
 	Args:
 	    doctype: DocType name
-	    filters: JSON string with options:
+	    filters: JSON string or dict with options:
 	        - include_child_fields: bool (default: true)
 	        - include_system_fields: bool (default: false)
 	        - fieldtypes: list (whitelist specific types)
@@ -140,16 +140,10 @@ def get_doctype_fields(doctype: str, filters: str | dict | None = None):
 	if not doctype:
 		return {"parent_fields": [], "child_tables": [], "system_fields": []}
 
-	if not frappe.has_permission(doctype, "read"):
-		frappe.throw(
-			_("You do not have read permission for DocType {0}").format(doctype), frappe.PermissionError
-		)
+	frappe.has_permission(doctype, "read", throw=True)
 
 	# Parse filters
-	if isinstance(filters, str):
-		filters = json.loads(filters) if filters else {}
-	elif filters is None:
-		filters = {}
+	filters = frappe.parse_json(filters) or {}
 
 	include_child = filters.get("include_child_fields", True)
 	include_system = filters.get("include_system_fields", False)
@@ -235,7 +229,7 @@ def should_include_field(df, allowed_types=None, excluded_types=None):
 	return True
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def test_rule(
 	rule_name: str,
 	doctype: str | None = None,
@@ -250,6 +244,7 @@ def test_rule(
 	Supports either an existing document (by docname) or a transient document (by document_json).
 	"""
 	_require_api_access()
+	frappe.has_permission("Rule", "read", rule_name, throw=True)
 
 	rule = frappe.get_doc("Rule", rule_name)
 
@@ -353,7 +348,7 @@ def test_rule(
 	}
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def execute_rule(
 	rule_name: str,
 	context: str | dict | None = None,
@@ -364,10 +359,11 @@ def execute_rule(
 	Pure execution API for a rule.
 	"""
 	_require_api_access()
+	frappe.has_permission("Rule", "read", rule_name, throw=True)
 
 	from flexirule.ruleflow.core.coordinator import RuleCoordinator
 
-	ctx: dict | None = json.loads(context) if isinstance(context, str) else context
+	ctx = frappe.parse_json(context) if isinstance(context, str) else context
 
 	dry: bool = bool(frappe.parse_json(dry_run))
 	skip_enqueue: bool = bool(frappe.parse_json(skip_log_enqueue))
@@ -409,7 +405,7 @@ def execute_rule(
 		)
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def clear_cache(doctype: str | None = None):
 	"""Clear rule cache"""
 	_require_api_access()
@@ -502,8 +498,8 @@ def get_schema_field_options(
 	if not schema_field or not parent_doctype:
 		return []
 
-	field = json.loads(schema_field) if isinstance(schema_field, str) else schema_field
-	current = json.loads(current_values) if isinstance(current_values, str) else (current_values or {})
+	field = frappe.parse_json(schema_field) or {}
+	current = frappe.parse_json(current_values) or {}
 
 	# Resolve options source
 	options = field.get("options", "")
@@ -525,6 +521,8 @@ def get_schema_field_options(
 def get_rule_versions(rule_name: str, limit: int | str = 20):
 	"""Get version history for a rule"""
 	_require_api_access()
+	frappe.has_permission("Rule", "read", rule_name, throw=True)
+
 	from flexirule.ruleflow.doctype.rule.rule_version_hooks import (
 		get_rule_versions as _get_versions,
 	)
@@ -532,10 +530,12 @@ def get_rule_versions(rule_name: str, limit: int | str = 20):
 	return _get_versions(rule_name, int(limit))
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def restore_rule_version(rule_name: str, version_name: str):
 	"""Restore a rule to a previous version"""
 	_require_api_access()
+	frappe.has_permission("Rule", "write", rule_name, throw=True)
+
 	from flexirule.ruleflow.doctype.rule.rule_version_hooks import (
 		restore_rule_version as _restore,
 	)
@@ -547,12 +547,14 @@ def restore_rule_version(rule_name: str, version_name: str):
 def export_rule(rule_name: str):
 	"""Export a rule to JSON"""
 	_require_api_access()
+	frappe.has_permission("Rule", "read", rule_name, throw=True)
+
 	from flexirule.ruleflow.utils.import_export import export_rule as _export
 
 	return _export(rule_name)
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def import_rule(import_data: str | dict, overwrite: bool | str = False):
 	"""Import a rule from JSON"""
 	_require_api_access()
@@ -753,13 +755,16 @@ def get_all_process_operations():
 	return results
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def clone_rule(rule_name: str, new_name: str | None = None):
 	"""
 	Clone a rule to create a new version or copy.
 	Resets status to Draft (inactive) and clears execution stats.
 	"""
 	_require_api_access()
+	frappe.has_permission("Rule", "read", rule_name, throw=True)
+	frappe.has_permission("Rule", "create", throw=True)
+
 	try:
 		doc = frappe.get_doc("Rule", rule_name)
 
@@ -787,7 +792,7 @@ def clone_rule(rule_name: str, new_name: str | None = None):
 		frappe.throw(_("Failed to clone rule: {0}").format(str(e)))
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def amend_rule(rule_name: str) -> str:
 	"""
 	Create a new version (amendment) of a rule.
@@ -799,6 +804,9 @@ def amend_rule(rule_name: str) -> str:
 	    Name of the new amended rule.
 	"""
 	_require_api_access()
+	frappe.has_permission("Rule", "read", rule_name, throw=True)
+	frappe.has_permission("Rule", "create", throw=True)
+
 	from flexirule.ruleflow.core.rule_service import amend_rule as _amend_rule
 
 	return _amend_rule(rule_name)
@@ -816,6 +824,8 @@ def test_action_query(
 	Returns detected return fields for auto-populating returns_keys.
 	"""
 	_require_api_access()
+	frappe.has_permission("Rule", "read", rule_name, throw=True)
+
 	rule = frappe.get_doc("Rule", rule_name)
 
 	# Find the action
@@ -1061,6 +1071,7 @@ def test_action_query(
 def get_rule_stats(rule_name: str):
 	"""Compute rule execution stats dynamically from Rule Execution Log"""
 	_require_api_access()
+	frappe.has_permission("Rule", "read", rule_name, throw=True)
 
 	stats = frappe.db.sql(
 		"""
@@ -1098,10 +1109,11 @@ def get_rule_stats(rule_name: str):
 # ═══════════════════════════════════════════════════════════════
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def transition_rule(rule_name: str, target_status: str):
 	"""Transition a rule to a new status."""
 	_require_api_access()
+	frappe.has_permission("Rule", "write", rule_name, throw=True)
 
 	rule = frappe.get_doc("Rule", rule_name)
 	if target_status not in ["Draft", "Active", "Disabled", "Invalid", "Error", "Archived"]:
@@ -1121,6 +1133,7 @@ def transition_rule(rule_name: str, target_status: str):
 
 	rule.status = target_status
 	rule.is_active = 1 if target_status == "Active" else 0
+	# Manual transition: permission already checked via frappe.has_permission above
 	rule.save(ignore_permissions=True)
 
 	frappe.clear_document_cache("Rule", rule.name)
@@ -1137,6 +1150,7 @@ def transition_rule(rule_name: str, target_status: str):
 def get_allowed_transitions(rule_name: str):
 	"""Get allowed lifecycle transitions for a rule's current status."""
 	_require_api_access()
+	frappe.has_permission("Rule", "read", rule_name, throw=True)
 
 	rule = frappe.get_doc("Rule", rule_name)
 	current_status = rule.status or "Draft"
@@ -1173,6 +1187,7 @@ def validate_node(rule_name: str, action_id: str):
 	    dict: {"valid": bool, "errors": [], "warnings": [], "mode": "node"}
 	"""
 	_require_api_access()
+	frappe.has_permission("Rule", "read", rule_name, throw=True)
 
 	from flexirule.ruleflow.core.validation_service import validate_single_action
 
@@ -1207,6 +1222,7 @@ def simulate_rule(
 	    }
 	"""
 	_require_api_access()
+	frappe.has_permission("Rule", "read", rule_name, throw=True)
 
 	rule = frappe.get_doc("Rule", rule_name)
 	doctype = doctype or rule.document_type
@@ -1283,6 +1299,7 @@ def get_execution_preview(rule_name: str, docname: str):
 	    }
 	"""
 	_require_api_access()
+	frappe.has_permission("Rule", "read", rule_name, throw=True)
 
 	rule = frappe.get_doc("Rule", rule_name)
 	doc = frappe.get_doc(rule.document_type, docname)
@@ -1370,7 +1387,7 @@ def get_execution_preview(rule_name: str, docname: str):
 # ═══════════════════════════════════════════════════════════════
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def initialize_rule_graph(rule_name: str):
 	"""Ensure a rule has a valid Trigger → End graph structure.
 
@@ -1384,6 +1401,7 @@ def initialize_rule_graph(rule_name: str):
 	    dict: {"initialized": bool, "rule": {...}}
 	"""
 	_require_api_access()
+	frappe.has_permission("Rule", "write", rule_name, throw=True)
 
 	from flexirule.ruleflow.core.graph_service import ensure_default_graph
 
@@ -1391,6 +1409,7 @@ def initialize_rule_graph(rule_name: str):
 	initialized = ensure_default_graph(rule)
 
 	if initialized:
+		# Builder action: permission already checked via frappe.has_permission above
 		rule.save(ignore_permissions=True)
 
 	return {

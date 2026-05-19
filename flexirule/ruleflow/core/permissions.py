@@ -109,6 +109,25 @@ def check_rule_permission(rule_doc, throw=True):
 	return True
 
 
+def check_builder_permission(doc=None, ptype=None, user=None):
+	"""Hook-level permission check for Rule and Process doctypes.
+
+	Ensures that only users with 'System Manager' or 'Rule Builder' roles
+	can perform write/create/delete operations on FlexiRule core DocTypes.
+	"""
+	if user == "Administrator":
+		return True
+
+	roles = frappe.get_roles(user)
+	if "System Manager" in roles or "Rule Builder" in roles:
+		return True
+
+	if ptype in ("read", "select"):
+		return True
+
+	return False
+
+
 def check_method_permission(method_path, throw=True):
 	"""
 	Check if method is allowed to be executed

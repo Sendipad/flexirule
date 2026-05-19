@@ -182,9 +182,11 @@ after_migrate = [
 # 	"Event": "frappe.desk.doctype.event.event.get_permission_query_conditions",
 # }
 #
-# has_permission = {
-# 	"Event": "frappe.desk.doctype.event.event.has_permission",
-# }
+has_permission = {
+	"Rule": "flexirule.ruleflow.core.permissions.check_builder_permission",
+	"Process": "flexirule.ruleflow.core.permissions.check_builder_permission",
+	"Process Operation": "flexirule.ruleflow.core.permissions.check_builder_permission",
+}
 
 # DocType Class
 # ---------------
