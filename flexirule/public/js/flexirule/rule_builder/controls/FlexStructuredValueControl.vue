@@ -834,7 +834,7 @@ const staticDf = computed(() => {
 	let options = ft === "Link" ? props.referenceDoctype : props.options || [];
 
 	if (ft === "Select") {
-		ft = "Select";
+		ft = "Autocomplete";
 		options = parsedSelectOptions.value;
 	}
 
