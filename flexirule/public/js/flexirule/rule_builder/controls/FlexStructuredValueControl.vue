@@ -5,7 +5,15 @@
 		:class="{ 'is-compact': compact, 'is-disabled': disabled || controlReadOnly }"
 	>
 		<!-- ── Component Body (Single Line Height 32px–38px) ── -->
-		<div class="fsvc-main-field" :class="{ 'is-dynamic': isDynamicMode || !isStaticSupported }">
+		<div
+			class="fsvc-main-field"
+			:class="{
+				'is-dynamic': isDynamicMode || !isStaticSupported,
+				'is-static-select':
+					!isDynamicMode && (fieldType === 'Select' || fieldType === 'Check'),
+			}"
+			@click="onWrapClick"
+		>
 			<!-- Static View using ControlFactory -->
 			<div
 				v-if="!isDynamicMode && isStaticSupported"
@@ -55,7 +63,30 @@
 
 				<!-- All other standard types -->
 				<template v-else>
+					<div
+						v-if="fieldType === 'Check'"
+						class="d-flex align-items-center flex-1 px-2"
+						style="height: 100%"
+					>
+						<div class="tg-switch">
+							<input
+								type="checkbox"
+								id="static-bool-toggle"
+								:checked="!!staticValue"
+								:disabled="disabled || controlReadOnly"
+								@change="updateStaticValue($event.target.checked ? 1 : 0)"
+							/>
+							<label class="tg-slider" for="static-bool-toggle"></label>
+						</div>
+						<label
+							for="static-bool-toggle"
+							class="tg-switch-label mb-0 ms-2 cursor-pointer"
+						>
+							{{ !!staticValue ? __("Yes") : __("No") }}
+						</label>
+					</div>
 					<ControlFactory
+						v-else
 						:df="staticDf"
 						:modelValue="staticValue"
 						:doc="doc"
@@ -753,6 +784,7 @@ const props = defineProps({
 	meta: { type: Object, default: () => ({}) },
 	engine: { type: Object, default: null },
 	doc: { type: Object, default: null },
+	operator: { type: String, default: "" },
 });
 
 const emit = defineEmits(["update", "update:modelValue"]);
@@ -763,6 +795,7 @@ const controlReadOnly = computed(
 
 // Dynamic toggle indicator
 const isDynamicMode = ref(false);
+const isSuggestionOpen = ref(false);
 
 // Teleported Modal/Dialog Controllers
 const activeTokenType = ref(null); // 'formula', 'resolver', 'formatter', 'normalize', 'condition', 'localization', 'link', 'dynamicLink'
@@ -792,23 +825,21 @@ const PURE_TEXT_FIELDTYPES = new Set([
 	"Code",
 	"Text Editor",
 ]);
-const isStaticSupported = computed(() => !PURE_TEXT_FIELDTYPES.has(props.fieldType));
+const isStaticSupported = computed(() => {
+	return !PURE_TEXT_FIELDTYPES.has(props.fieldType);
+});
 
 const staticDf = computed(() => {
 	let ft = props.fieldType;
 	let options = ft === "Link" ? props.referenceDoctype : props.options || [];
 
-	// Map Check and Select to Autocomplete to allow text input (for typing @ /)
-	if (ft === "Check") {
-		ft = "Autocomplete";
-		options = [
-			{ label: __("Yes"), value: 1 },
-			{ label: __("No"), value: 0 },
-		];
-	} else if (ft === "Select") {
-		ft = "Autocomplete";
+	if (ft === "Select") {
+		ft = "Select";
 		options = parsedSelectOptions.value;
 	}
+
+	// For Link types, we keep them as Link to use ComboBoxControl via ControlFactory
+	// and ensure they trigger dynamic mode on @ or /
 
 	return {
 		fieldtype: ft,
@@ -1260,6 +1291,7 @@ function createSuggestionRenderer() {
 	let popup;
 	return {
 		onStart: (props) => {
+			isSuggestionOpen.value = true;
 			component = new VueRenderer(MentionList, { props, editor: props.editor });
 			if (!props.clientRect) return;
 			popup = tippy("body", {
@@ -1284,6 +1316,7 @@ function createSuggestionRenderer() {
 			return component?.ref?.onKeyDown(props);
 		},
 		onExit() {
+			isSuggestionOpen.value = false;
 			popup?.[0]?.destroy();
 			component?.destroy();
 		},
@@ -1463,16 +1496,14 @@ const editor = new Editor({
 					filtered = filtered.filter((c) => {
 						if (c.groups.includes("*")) return true;
 						if (c.groups.includes(group)) return true;
-						// link-static only gets the plain link picker
-						if (group === "link-static" && c.id === "link") return true;
 						return false;
 					});
 
 					// ── 3. Additional per-fieldtype exclusions ───────────────────
-					// Boolean fields: only formula/resolver/condition make sense
+					// Boolean fields: formula/resolver/condition/boolean make sense
 					if (BOOLEAN_FIELDTYPES.has(fType)) {
 						filtered = filtered.filter((c) =>
-							["formula", "resolver", "condition"].includes(c.id)
+							["formula", "resolver", "condition", "boolean"].includes(c.id)
 						);
 					}
 					// Date fields: normalize/localization/link/dynamic-link don't apply
@@ -1482,6 +1513,29 @@ const editor = new Editor({
 								!["localization", "normalize", "link", "dynamic-link"].includes(
 									c.id
 								)
+						);
+					}
+					// Numeric fields: formula/resolver/formatter/condition make sense
+					if (NUMERIC_FIELDTYPES.has(fType)) {
+						filtered = filtered.filter((c) =>
+							["formula", "resolver", "formatter", "condition"].includes(c.id)
+						);
+					}
+
+					// ── 4. Operator-based filtering ──────────────────────────────
+					if (props.operator === "toggle") {
+						// Toggle doesn't need a value usually, but if they enter one...
+						filtered = filtered.filter((c) => ["formula", "resolver"].includes(c.id));
+					} else if (props.operator === "increment" || props.operator === "decrement") {
+						// Only formula/resolver make sense for numeric adjustments
+						filtered = filtered.filter((c) => ["formula", "resolver"].includes(c.id));
+					} else if (props.operator === "append") {
+						// For list append, only formula/resolver make sense
+						filtered = filtered.filter((c) => ["formula", "resolver"].includes(c.id));
+					} else if (props.operator === "merge") {
+						// For object merge, formula/resolver/json make sense
+						filtered = filtered.filter((c) =>
+							["formula", "resolver", "json"].includes(c.id)
 						);
 					}
 
@@ -1511,6 +1565,7 @@ const editor = new Editor({
 		handleKeyDown(view, event) {
 			// Compact single line editor, block Enter key from creating newlines
 			if (event.key === "Enter") {
+				if (isSuggestionOpen.value) return false;
 				event.preventDefault();
 				emit("submit");
 				return true;
@@ -1748,6 +1803,12 @@ function deserializeStructuredValue(val) {
 
 // ─── Component Dynamic Mode Switching and Syncing ───
 
+function onWrapClick(e) {
+	if (isDynamicMode.value || !isStaticSupported.value) {
+		editor.commands.focus();
+	}
+}
+
 function toggleDynamicMode() {
 	if (controlReadOnly.value || props.disabled) return;
 	isDynamicMode.value = !isDynamicMode.value;
@@ -1768,6 +1829,8 @@ function toggleDynamicMode() {
 function onStaticKeydown(e) {
 	if (controlReadOnly.value || props.disabled) return;
 
+	// In Select mode, capture alphanumeric keys to trigger dynamic editor?
+	// Or only @ and /
 	if (e.key === "@" || e.key === "/") {
 		e.preventDefault();
 		e.stopPropagation();
@@ -2246,12 +2309,18 @@ onBeforeUnmount(() => {
 	height: 100%;
 }
 
+/* Support full width for select controls in static mode */
+.fsvc-main-field.is-static-select .fsvc-static-container {
+	padding: 0;
+}
+
 /* Deep override to remove internal borders from nested controls when wrapped by fsvc-main-field */
 .fsvc-static-container :deep(.combobox-wrapper),
 .fsvc-static-container :deep(.form-control),
 .fsvc-static-container :deep(.fxr-input),
 .fsvc-static-container :deep(.combobox-container .combobox-wrapper),
-.fsvc-static-container :deep(.fxr-input-group) {
+.fsvc-static-container :deep(.fxr-input-group),
+.fsvc-static-container :deep(.fxr-select) {
 	border: none !important;
 	box-shadow: none !important;
 	background: transparent !important;
@@ -2533,6 +2602,10 @@ input:checked + .tg-slider:before {
 	font-size: 12px;
 	font-weight: 600;
 	color: #64748b;
+}
+
+.cursor-pointer {
+	cursor: pointer;
 }
 
 /* ── Teleported Popover Modals ── */

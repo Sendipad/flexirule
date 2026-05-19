@@ -99,9 +99,27 @@ export default {
 		},
 		upHandler() {
 			this.selectedIndex = (this.selectedIndex + this.items.length - 1) % this.items.length;
+			this.scrollToActive();
 		},
 		downHandler() {
 			this.selectedIndex = (this.selectedIndex + 1) % this.items.length;
+			this.scrollToActive();
+		},
+		scrollToActive() {
+			this.$nextTick(() => {
+				const container = this.$el.querySelector(".tg-mention-scroller");
+				const item = container?.querySelector(".is-selected");
+				if (container && item) {
+					const containerRect = container.getBoundingClientRect();
+					const itemRect = item.getBoundingClientRect();
+
+					if (itemRect.top < containerRect.top) {
+						container.scrollTop -= containerRect.top - itemRect.top;
+					} else if (itemRect.bottom > containerRect.bottom) {
+						container.scrollTop += itemRect.bottom - containerRect.bottom;
+					}
+				}
+			});
 		},
 		enterHandler() {
 			this.selectItem(this.selectedIndex);
@@ -121,7 +139,9 @@ export default {
 	background: #fff;
 	border: 1px solid #e2e8f0;
 	border-radius: 12px;
-	box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+	box-shadow:
+		0 10px 15px -3px rgba(0, 0, 0, 0.1),
+		0 4px 6px -2px rgba(0, 0, 0, 0.05);
 	padding: 4px;
 	min-width: 220px;
 	overflow: hidden;

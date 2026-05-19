@@ -77,6 +77,7 @@
 							<FlexStructuredValueControl
 								class="flex-1 min-w-0"
 								:fieldType="getTargetFieldtype(assignment.target) || 'Data'"
+								:operator="assignment.operator"
 								:modelValue="assignment.value_template_ui"
 								:read_only="isReadOnly"
 								:engine="store"
@@ -479,7 +480,12 @@ function onTargetChange(index, value) {
 	// Reset operator if it's no longer compatible with new target type
 	const available = getAvailableOperators(value).map((o) => o.value);
 	if (!available.includes(assignments.value[index].operator)) {
-		assignments.value[index].operator = "set";
+		const fieldtype = getTargetFieldtype(value);
+		if (fieldtype === "Check") {
+			assignments.value[index].operator = "toggle";
+		} else {
+			assignments.value[index].operator = "set";
+		}
 	}
 	syncToNode();
 }
@@ -541,7 +547,6 @@ function getDefaultResolverKind(target) {
 	}
 	return "string_formula";
 }
-
 
 function onOperatorChange(index, value) {
 	assignments.value[index].operator = value;
