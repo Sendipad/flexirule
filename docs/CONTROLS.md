@@ -59,10 +59,10 @@ A sophisticated rich-text editor based on Tiptap that seamlessly blends static t
 
 ### ✨ Key Features & Innovation
 
-- **Visual Logic Blocks:** Instead of writing complex Jinja tags (`{% if ... %}`), users insert visual "Badges" for conditions and loops.
+- **Visual Logic Blocks:** Instead of writing complex Jinja tags ({% raw %}`{% if ... %}`{% endraw %}), users insert visual "Badges" for conditions and loops.
 - **Nested Recursive Editing:** Double-clicking a logic badge opens a "Bottom Panel" containing another instance of `TextGeneratorControl`, allowing users to define content for "IF TRUE", "ELSE", or "LOOP BODY" in a structured, hierarchical way.
 - **Slash Commands & Mentions:**
-    - Typing `@` or `{{` triggers a field picker for inserting dynamic variables.
+    - Typing `@` or {% raw %}`{{`{% endraw %} triggers a field picker for inserting dynamic variables.
     - Typing `/` opens a logic block picker.
 - **Live Jinja Synchronization:** Seamlessly toggles between a "Visual" mode and a "Raw Jinja" mode, ensuring compatibility for power users while maintaining simplicity for others.
 - **Context-Aware Iterators:** Inside a loop block, the variable picker automatically includes properties of the current loop item (e.g., `item.qty`).
@@ -80,12 +80,12 @@ The `FlexStructuredValueControl` is a hybrid, single-line input field that seaml
 
 - **Context-Aware Static Mode:** Automatically renders the appropriate Frappe control (Link, Select, Check, etc.) based on the target field's type.
 - **Tiptap-Powered Expression Mode:** A single-line rich-text editor that supports:
-    - **@ Mentions**: For inserting document fields or context variables.
-    - **Slash Commands (/)**: A command palette for inserting advanced logic tokens like formulas, formatters, and localizations.
+    - **@ Mentions:** For inserting document fields or context variables.
+    - **Slash Commands (/):** A command palette for inserting advanced logic tokens like formulas, formatters, and localizations.
 - **Unified UI:** Users can switch between static input and dynamic expressions without leaving the field. Typing `@` or `/` in a static field automatically upgrades it to expression mode.
 - **Tokenized Logic Chips:** Advanced logic is represented as compact, color-coded "chips" (e.g., 🧮 Formula, 🎨 Format) that open a specialized configuration popover when clicked.
-- **Field-Type Intelligent Filtering**: The command palette (/) intelligently filters available logic tokens based on the field's data type (e.g., only showing currency formatting for numeric fields).
-- **Single-Line Constraint**: Custom Tiptap extensions ensure the editor remains a single line, ideal for grid-based configurations like the Assignment action.
+- **Field-Type Intelligent Filtering:** The command palette (/) intelligently filters available logic tokens based on the field's data type (e.g., only showing currency formatting for numeric fields).
+- **Single-Line Constraint:** Custom Tiptap extensions ensure the editor remains a single line, ideal for grid-based configurations like the Assignment action.
 
 ---
 

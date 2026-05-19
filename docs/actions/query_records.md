@@ -12,7 +12,7 @@ The **Query Records** action retrieves data from any DocType in the system.
 
 ## Filters
 
-The visual filter builder allows you to define complex query criteria. You can use literal values or dynamic references from the context (e.g., `{{ doc.customer }}`).
+The visual filter builder allows you to define complex query criteria. You can use literal values or dynamic references from the context (e.g., {% raw %}`{{ doc.customer }}`{% endraw %}).
 
 ## Results
 

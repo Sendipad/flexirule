@@ -80,7 +80,7 @@ The configuration is stored as a JSON array of assignment objects. The engine ha
 		"target": "vars.counter",
 		"operator": "increment",
 		"value_mode": "resolver",
-		"value_template": "{{ 1 }}",
+		"value_template": "{% raw %}{{ 1 }}{% endraw %}",
 		"value_template_ui": {
 			"kind": "math_formula",
 			"constant_b": 1
