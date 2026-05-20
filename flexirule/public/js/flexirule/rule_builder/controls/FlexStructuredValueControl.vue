@@ -65,7 +65,7 @@
 				<template v-else>
 					<div
 						v-if="fieldType === 'Check'"
-						class="d-flex align-items-center flex-1 px-2"
+						class="d-flex align-items-center flex-1 px-2 static-check-wrap"
 						style="height: 100%"
 					>
 						<div class="tg-switch">
@@ -93,7 +93,7 @@
 						:engine="engine"
 						:options="parsedSelectOptions"
 						:hideLabel="true"
-						class="flex-1 min-w-0 w-100"
+						class="flex-1 min-w-0 w-100 static-control-factory"
 						@update:modelValue="updateStaticValue"
 					/>
 				</template>
@@ -155,20 +155,31 @@
 
 		<!-- ── Teleported Custom Token Popover (ValueResolverControl Style) ── -->
 		<Teleport to="body">
-			<div v-if="activeTokenType" class="fxr-popover" :style="popoverStyle">
-				<div class="fxr-popover__header">
-					<span class="fxr-label-sm mb-0">
-						<i
-							:class="activeTokenPresentation.icon"
-							class="me-2 text-primary fw-medium"
-						></i>
-						<strong>{{ activeTokenPresentation.title }}</strong>
-					</span>
-					<button class="fxr-btn fxr-btn--icon fxr-btn--sm" @click="closeTokenEditor">
-						<i class="fa fa-times"></i>
-					</button>
-				</div>
-				<div class="fxr-popover__body">
+			<div
+				v-if="activeTokenType"
+				class="fxr-token-modal-overlay"
+				@click.self="closeTokenEditor"
+			>
+				<div
+					class="fxr-token-modal-container"
+					:class="{
+						'full-expanded':
+							activeTokenType === 'condition' || activeTokenType === 'normalize',
+					}"
+				>
+					<div class="fxr-token-modal-header">
+						<span class="header-title">
+							<i
+								:class="activeTokenPresentation.icon"
+								class="me-2 text-primary fw-medium"
+							></i>
+							{{ activeTokenPresentation.title }}
+						</span>
+						<button class="btn-close" @click="closeTokenEditor">
+							<i class="fa fa-times"></i>
+						</button>
+					</div>
+					<div class="fxr-token-modal-body">
 					<!-- 🧮 Formula Modal UI -->
 					<template v-if="activeTokenType === 'formula'">
 						<div class="d-flex flex-column fxr-gap-2">
@@ -690,17 +701,21 @@
 					</template>
 				</div>
 
-				<footer class="fxr-popover__footer d-flex justify-content-end fxr-gap-1 p-3">
-					<button
-						class="fxr-btn fxr-btn--sm fxr-btn--secondary"
-						@click="closeTokenEditor"
-					>
-						{{ __("Cancel") }}
-					</button>
-					<button class="fxr-btn fxr-btn--sm fxr-btn--primary" @click="saveTokenEditor">
-						{{ __("Save") }}
-					</button>
-				</footer>
+					<footer class="fxr-token-modal-footer">
+						<button
+							class="fxr-btn fxr-btn--sm fxr-btn--secondary"
+							@click="closeTokenEditor"
+						>
+							{{ __("Cancel") }}
+						</button>
+						<button
+							class="fxr-btn fxr-btn--sm fxr-btn--primary"
+							@click="saveTokenEditor"
+						>
+							{{ __("Save") }}
+						</button>
+					</footer>
+				</div>
 			</div>
 		</Teleport>
 	</div>
@@ -821,7 +836,6 @@ const tokenDraftAttrs = ref({});
 const jsonParseError = ref("");
 const formulaTextareaRef = ref(null);
 const controlRef = ref(null);
-const popoverStyle = ref({});
 
 // Dynamic Link Sub-Modes
 const dynamicLinkMode = ref("static"); // 'static', 'reference', 'variable'
@@ -1858,13 +1872,12 @@ function onStaticKeydown(e) {
 
 		isDynamicMode.value = true;
 
-		// Clear editor — don't carry over static value like "1" from Check toggles
-		emitting = true;
-		editor.commands.setContent("");
-		emitting = false;
-
 		nextTick(() => {
 			if (editor) {
+				// Clear editor — don't carry over static value like "1" from Check toggles
+				emitting = true;
+				editor.commands.setContent("");
+				emitting = false;
 				editor.commands.focus();
 				editor.commands.insertContent(e.key);
 			}
@@ -1987,33 +2000,6 @@ const activeTokenPresentation = computed(() => {
 	return map[activeTokenType.value] || { title: __("Token Configuration"), icon: "fa fa-cog" };
 });
 
-function updatePopoverPosition() {
-	if (!controlRef.value) return;
-	const rect = controlRef.value.getBoundingClientRect();
-	const spaceBelow = window.innerHeight - rect.bottom;
-	const popoverHeight = 360; // Estimated height for token popovers
-
-	if (spaceBelow < popoverHeight && rect.top > popoverHeight) {
-		// Position above the control
-		popoverStyle.value = {
-			position: "fixed",
-			bottom: `${window.innerHeight - rect.top + 4}px`,
-			left: `${rect.left}px`,
-			width: `${Math.max(rect.width, 360)}px`,
-			"z-index": 12000,
-		};
-	} else {
-		// Position below the control
-		popoverStyle.value = {
-			position: "absolute",
-			top: `${rect.bottom + 4}px`,
-			left: `${rect.left}px`,
-			width: `${Math.max(rect.width, 360)}px`,
-			"z-index": 12000,
-		};
-	}
-}
-
 function openTokenEditor(node, pos, typeOverride = null) {
 	if (controlReadOnly.value || props.disabled) return;
 	activeTokenNode.value = node;
@@ -2027,9 +2013,6 @@ function openTokenEditor(node, pos, typeOverride = null) {
 			tokenDraftAttrs.value = { key: "", value: "" };
 		}
 		jsonParseError.value = "";
-		nextTick(() => {
-			updatePopoverPosition();
-		});
 		return;
 	}
 
@@ -2099,11 +2082,6 @@ function openTokenEditor(node, pos, typeOverride = null) {
 		tokenDraftAttrs.value = { values: attrs.values || [] };
 	}
 
-	nextTick(() => {
-		updatePopoverPosition();
-		window.addEventListener("scroll", updatePopoverPosition, true);
-		window.addEventListener("resize", updatePopoverPosition);
-	});
 }
 
 function closeTokenEditor() {
@@ -2111,8 +2089,6 @@ function closeTokenEditor() {
 	activeTokenNode.value = null;
 	activeTokenPos.value = null;
 	tokenDraftAttrs.value = {};
-	window.removeEventListener("scroll", updatePopoverPosition, true);
-	window.removeEventListener("resize", updatePopoverPosition);
 }
 
 function saveTokenEditor() {
@@ -2280,8 +2256,8 @@ const handleClickOutside = (e) => {
 	// If click is inside the root control, do not close
 	if (controlRef.value && controlRef.value.contains(e.target)) return;
 
-	// If target is inside any .fxr-popover, do not close
-	if (e.target.closest(".fxr-popover")) return;
+	// If target is inside any .fxr-token-modal-container, do not close
+	if (e.target.closest(".fxr-token-modal-container")) return;
 
 	// Ignore clicks on teleported dropdowns and overlays
 	if (
@@ -2307,8 +2283,6 @@ onBeforeUnmount(() => {
 		editor.destroy();
 	}
 	document.removeEventListener("click", handleClickOutside);
-	window.removeEventListener("scroll", updatePopoverPosition, true);
-	window.removeEventListener("resize", updatePopoverPosition);
 });
 </script>
 
@@ -2321,8 +2295,7 @@ onBeforeUnmount(() => {
 }
 
 .fsvc-wrap.is-disabled {
-	opacity: 0.7;
-	pointer-events: none;
+	opacity: 0.6;
 }
 
 /* ── Flex Utilities ── */
@@ -2357,6 +2330,7 @@ onBeforeUnmount(() => {
 	flex: 1;
 	min-width: 0;
 	height: 100%;
+	position: relative;
 }
 
 .fsvc-mode-toggle-wrap {
@@ -2402,9 +2376,25 @@ onBeforeUnmount(() => {
 	border: none !important;
 	box-shadow: none !important;
 	background: transparent !important;
-	height: var(--fxr-input-height, 28px) !important;
+	height: var(--fxr-input-height, 30px) !important;
 	margin-bottom: 0 !important;
 	padding-bottom: 0 !important;
+}
+
+.fsvc-static-container :deep(.fxr-input),
+.fsvc-static-container :deep(.fxr-select) {
+	padding: 0 8px !important;
+}
+
+/* Visual affordance for static controls */
+.fsvc-static-container:hover .static-control-factory :deep(.fxr-input),
+.fsvc-static-container:hover .static-control-factory :deep(.fxr-select),
+.fsvc-static-container:hover .static-control-factory :deep(.combobox-wrapper) {
+	background: var(--fxr-bg-hover, #f8fafc) !important;
+}
+
+.static-check-wrap:hover {
+	background: var(--fxr-bg-hover, #f8fafc);
 }
 
 .fsvc-static-container :deep(.fxr-input-group.has-floating-label) {
@@ -2695,7 +2685,7 @@ input:checked + .tg-slider:before {
 	height: 100vh;
 	background: rgba(15, 23, 42, 0.4);
 	backdrop-filter: blur(8px);
-	z-index: 11000;
+	z-index: 13000;
 	display: flex;
 	justify-content: center;
 	align-items: center;
