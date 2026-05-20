@@ -774,21 +774,23 @@ function deserialize(val) {
 			val.label || ""
 		}"></span>`;
 	if (val.mode === "formula")
-		return `<span data-token-type="formula" data-expression="${
-			val.value || ""
-		}" data-label="${val.label || ""}" data-config='${JSON.stringify(val.config || null)}'></span>`;
+		return `<span data-token-type="formula" data-expression="${val.value || ""}" data-label="${
+			val.label || ""
+		}" data-config='${JSON.stringify(val.config || null)}'></span>`;
 	if (val.mode === "resolver")
-		return `<span data-token-type="resolver" data-resolver="${
-			val.value || ""
-		}" data-label="${val.label || ""}" data-config='${JSON.stringify(val.config || null)}'></span>`;
+		return `<span data-token-type="resolver" data-resolver="${val.value || ""}" data-label="${
+			val.label || ""
+		}" data-config='${JSON.stringify(val.config || null)}'></span>`;
 	if (val.mode === "normalize")
 		return `<span data-token-type="normalize" data-expression="${
 			val.value || ""
-		}" data-label="${val.label || ""}" data-config='${JSON.stringify(val.config || null)}'></span>`;
+		}" data-label="${val.label || ""}" data-config='${JSON.stringify(
+			val.config || null
+		)}'></span>`;
 	if (val.mode === "format")
-		return `<span data-token-type="format" data-expression="${
-			val.value || ""
-		}" data-label="${val.label || ""}" data-config='${JSON.stringify(val.config || null)}'></span>`;
+		return `<span data-token-type="format" data-expression="${val.value || ""}" data-label="${
+			val.label || ""
+		}" data-config='${JSON.stringify(val.config || null)}'></span>`;
 
 	if (val.mode === "expression" && Array.isArray(val.value)) {
 		return val.value

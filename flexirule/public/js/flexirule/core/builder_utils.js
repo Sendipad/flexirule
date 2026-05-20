@@ -146,7 +146,9 @@ export function compileToLabel(item) {
 	}
 
 	if (item.kind === "child_aggregation") {
-		return `${(item.agg_op || "").toUpperCase()}(${item.agg_table || "?"}.${item.agg_field || "?"})`;
+		return `${(item.agg_op || "").toUpperCase()}(${item.agg_table || "?"}.${
+			item.agg_field || "?"
+		})`;
 	}
 
 	if (item.kind === "string_formula") {
