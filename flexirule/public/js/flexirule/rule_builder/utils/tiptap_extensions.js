@@ -121,12 +121,10 @@ export const LogicNode = Node.create({
 			label = "}";
 			badgeClass += " tg-badge-end";
 		} else if (type === "conditional") {
-			const sub = node.attrs.label ? ` ${node.attrs.label}` : "";
-			label = __("IF") + sub;
+			label = node.attrs.label ? __("IF {0}", [node.attrs.label]) : __("IF");
 			badgeClass += " tg-badge-if";
 		} else {
-			const sub = node.attrs.label ? ` ${node.attrs.label}` : "";
-			label = __("LOOP") + sub;
+			label = node.attrs.label ? __("LOOP {0}", [node.attrs.label]) : __("LOOP");
 			badgeClass += " tg-badge-loop";
 		}
 

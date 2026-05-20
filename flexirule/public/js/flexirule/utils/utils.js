@@ -54,17 +54,17 @@ flexirule.utils.get_doctype_fields = async function (doctype, prefix = "") {
 				if (parent_table === doctype) {
 					label = __(df.label, null, parent_table);
 					if (prefix && !table_prefix) {
-						label = `${prefix}.${df.fieldname} (${label})`;
+						label = __("{0}.{1} ({2})", [prefix, df.fieldname, label]);
 					}
 				} else {
 					// Match FieldSelect format: Label (Table)
-					label = __(df.label, null, parent_table) + " (" + __(parent_table) + ")";
+					label = __("{0} ({1})", [__(df.label, null, parent_table), __(parent_table)]);
 					if (table_prefix) {
-						label = `${table_prefix}.${df.fieldname} (${__(
-							df.label,
-							null,
-							parent_table
-						)})`;
+						label = __("{0}.{1} ({2})", [
+							table_prefix,
+							df.fieldname,
+							__(df.label, null, parent_table),
+						]);
 					}
 				}
 
@@ -148,7 +148,7 @@ flexirule.utils.get_combined_fields = async function (doctype, context_vars = []
 			const ft = v.fieldtype || v.type || "Data";
 			return {
 				...v,
-				label: `${__(v.label)} (${__("Variable")})`,
+				label: __("{0} ({1})", [__(v.label), __("Variable")]),
 				value: v.value,
 				fieldtype: ft,
 				type: ft, // Backward compatibility
