@@ -17,7 +17,8 @@
 				:get_query="comboGetQuery"
 				:filters="df?.get_query ? null : df?.filters"
 				:context="
-					['FieldPicker', 'DocField'].includes(df?.fieldtype) || df?.options === 'DocField'
+					['FieldPicker', 'DocField'].includes(df?.fieldtype) ||
+					df?.options === 'DocField'
 						? df?.context || doc
 						: null
 				"
