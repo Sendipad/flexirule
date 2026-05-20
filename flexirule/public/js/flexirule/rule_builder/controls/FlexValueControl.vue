@@ -40,8 +40,9 @@
 					<div class="fvc-inline-actions" v-if="!isReadOnly && !isEditorEmpty">
 						<button
 							class="fvc-action-btn"
+							type="button"
 							:title="__('JSON Preview')"
-							@click="openTokenEditor(null, null, 'json')"
+							@click.stop="openTokenEditor(null, null, 'json')"
 						>
 							<i class="fa fa-code"></i>
 						</button>
@@ -261,9 +262,6 @@ const staticDf = computed(() => {
 
 	if (ft === "Link") {
 		opts = props.referenceDoctype;
-	} else if (ft === "Dynamic Link") {
-		// For dynamic link, options is typically the fieldname containing the doctype
-		// We'll rely on the parent-provided props.options if available
 	}
 
 	return {
@@ -411,6 +409,20 @@ const editor = new Editor({
 		}),
 	],
 	editable: !isReadOnly.value,
+	editorProps: {
+		handleKeyDown(view, event) {
+			if (event.key === "Enter") {
+				if (isSuggestionOpen.value) return false;
+				event.preventDefault();
+				emit("submit");
+				return true;
+			}
+			return false;
+		},
+		transformPastedText(text) {
+			return text.replace(/[\r\n]+/g, " ");
+		},
+	},
 	onUpdate: () => { if (!emitting) emitChanges(); },
 	onFocus: () => { isEditorFocused.value = true; },
 	onBlur: () => { isEditorFocused.value = false; },
@@ -653,12 +665,45 @@ onBeforeUnmount(() => { editor.destroy(); });
 .fvc-mode-toggle-wrap { padding-right: 6px; border-left: 1px solid var(--fxr-border, #e2e8f0); margin-left: 4px; height: 24px; display: flex; align-items: center; }
 .fvc-toggle-btn { background: transparent; border: none; cursor: pointer; color: #64748b; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px; transition: all 0.2s; }
 .fvc-toggle-btn:hover { background: #f1f5f9; color: #2490ef; }
+
 .fvc-empty-hint { position: absolute; top: 3px; left: 0; color: #94a3b8; font-size: 11px; pointer-events: none; white-space: nowrap; font-family: var(--font-stack-mono, monospace); }
 .fvc-empty-hint .hint-part { color: #64748b; font-weight: 700; }
 .fvc-empty-hint .hint-at { color: #059669; font-weight: 700; }
 .fvc-empty-hint .hint-slash { color: #7c3aed; font-weight: 700; }
 .fvc-focus-hint { position: absolute; top: 3px; left: 0; color: #cbd5e1; font-size: 12px; font-style: italic; pointer-events: none; }
 .fvc-tiptap-editor :deep(.ProseMirror) { outline: none; font-size: 13px; min-height: 22px; white-space: nowrap; }
+
+.fvc-inline-actions {
+	position: absolute;
+	right: 0;
+	top: 50%;
+	transform: translateY(-50%);
+	display: flex;
+	padding-right: 4px;
+	background: linear-gradient(to left, var(--fxr-bg-input, #fff) 80%, transparent);
+	z-index: 5;
+}
+
+.fvc-action-btn {
+	background: transparent;
+	border: none !important;
+	outline: none !important;
+	box-shadow: none !important;
+	color: var(--fxr-text-muted, #94a3b8);
+	cursor: pointer;
+	padding: 2px 4px;
+	border-radius: 4px;
+	font-size: 12px;
+	transition: all 0.2s;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.fvc-action-btn:hover {
+	color: var(--fxr-accent, #2490ef);
+	background: var(--fxr-bg-hover, #f1f5f9);
+}
 
 :deep(.token-chip) {
 	padding: 1px 6px; border-radius: 4px; font-size: 11px; font-weight: 600;
