@@ -468,7 +468,7 @@ onBeforeUnmount(() => {
 						{{ opt.label }}
 					</span>
 					<span v-if="compactHiddenCount" class="compact-pill muted"
-						>+{{ compactHiddenCount }} {{ __("more") }}</span
+						>{{ __("+{0} more", [compactHiddenCount]) }}</span
 					>
 					<span v-if="!selectedOptionObjects.length" class="placeholder-text">
 						{{ props.placeholder || props.df.placeholder || __("Select options...") }}

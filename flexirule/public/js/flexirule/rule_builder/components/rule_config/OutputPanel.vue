@@ -451,7 +451,7 @@ function getReturnVariableOptions() {
 		if (!name || seen.has(name)) continue;
 		seen.add(name);
 		out.push({
-			label: `${name} (${__("existing")})`,
+			label: __("{0} ({1})", [name, __("existing")]),
 			value: name,
 		});
 	}

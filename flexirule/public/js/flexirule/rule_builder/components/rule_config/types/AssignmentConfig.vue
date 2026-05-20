@@ -590,17 +590,19 @@ function validate() {
 	const errors = [];
 	assignments.value.forEach((a, idx) => {
 		const n = idx + 1;
-		if (!a.target) errors.push(__(`Assignment #${n}: Target is required`));
-		if (!a.operator) errors.push(__(`Assignment #${n}: Operator is required`));
+		if (!a.target) errors.push(__("Assignment #{0}: Target is required", [n]));
+		if (!a.operator) errors.push(__("Assignment #{0}: Operator is required", [n]));
 		if (needsValue(a.operator)) {
 			const ui = a.value;
 			if (!ui || (!Array.isArray(ui.segments) && !ui.mode)) {
-				errors.push(__(`Assignment #${n}: Value is required for operator '${a.operator}'`));
+				errors.push(
+					__("Assignment #{0}: Value is required for operator '{1}'", [n, a.operator])
+				);
 			}
 		}
 		// Target path validation
 		if (a.target && !a.target.startsWith("doc.") && !a.target.startsWith("vars.")) {
-			errors.push(__(`Assignment #${n}: Target must start with 'doc.' or 'vars.'`));
+			errors.push(__("Assignment #{0}: Target must start with 'doc.' or 'vars.'", [n]));
 		}
 	});
 	return { valid: errors.length === 0, errors };
