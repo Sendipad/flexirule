@@ -63,14 +63,14 @@ export const SLASH_COMMANDS = [
 		label: __("Formatter"),
 		type: "logic",
 		icon: "🎨",
-		groups: [FORMULA_GROUPS.TEXT, FORMULA_GROUPS.NUMERIC],
+		groups: [FORMULA_GROUPS.TEXT, FORMULA_GROUPS.NUMERIC, FORMULA_GROUPS.DATE, FORMULA_GROUPS.GENERAL],
 	},
 	{
 		id: "normalize",
 		label: __("Normalize"),
 		type: "logic",
 		icon: "🔄",
-		groups: [FORMULA_GROUPS.TEXT],
+		groups: [FORMULA_GROUPS.TEXT, FORMULA_GROUPS.GENERAL],
 	},
 	{
 		id: "localization",

@@ -109,31 +109,60 @@
 						</button>
 					</div>
 					<div class="fxr-token-modal-body">
-						<template v-if="activeTokenType === 'formula'">
-							<div class="d-flex flex-column fxr-gap-2">
-								<label class="fxr-label-sm">{{ __("Formula Expression") }}</label>
-								<textarea
-									ref="formulaTextareaRef"
-									class="fxr-textarea formula-textarea"
-									v-model="tokenDraftAttrs.expression"
-								></textarea>
-								<div class="variables-selector-pane mt-3">
-									<label class="fxr-label-sm">{{ __("Insert Variable") }}</label>
-									<div class="variables-pill-grid v2-scrollbar">
-										<button
-											v-for="v in variableOptions"
-											:key="v.value || v"
-											class="var-pill-btn"
-											@click="insertVarInFormula(v)"
-										>
-											{{ v.label || v.value || v }}
-										</button>
-									</div>
-								</div>
+						<!-- Builder Toggle -->
+						<div
+							v-if="activeTokenType && activeTokenType !== 'json'"
+							class="builder-mode-toggle mb-3 d-flex justify-content-end"
+						>
+							<div class="fxr-btn-group">
+								<button
+									class="fxr-btn fxr-btn--xs"
+									:class="!isManualMode ? 'fxr-btn--primary' : 'fxr-btn--ghost'"
+									@click="isManualMode = false"
+								>
+									{{ __("Builder") }}
+								</button>
+								<button
+									class="fxr-btn fxr-btn--xs"
+									:class="isManualMode ? 'fxr-btn--primary' : 'fxr-btn--ghost'"
+									@click="isManualMode = true"
+								>
+									{{ __("Manual") }}
+								</button>
 							</div>
+						</div>
+
+						<template v-if="!isManualMode && activeTokenType === 'formula'">
+							<ValueResolverControl
+								viewMode="inline"
+								:modelValue="tokenDraftAttrs.config"
+								:doctype="referenceDoctype"
+								:allowedKinds="['date_formula', 'math_formula', 'date_diff']"
+								@update:modelValue="handleBuilderUpdate"
+							/>
 						</template>
 
-						<template v-if="activeTokenType === 'resolver'">
+						<template v-else-if="!isManualMode && activeTokenType === 'normalize'">
+							<ValueResolverControl
+								viewMode="inline"
+								:modelValue="tokenDraftAttrs.config"
+								:doctype="referenceDoctype"
+								:allowedKinds="['normalization']"
+								@update:modelValue="handleBuilderUpdate"
+							/>
+						</template>
+
+						<template v-else-if="!isManualMode && activeTokenType === 'format'">
+							<ValueResolverControl
+								viewMode="inline"
+								:modelValue="tokenDraftAttrs.config"
+								:doctype="referenceDoctype"
+								:allowedKinds="['format']"
+								@update:modelValue="handleBuilderUpdate"
+							/>
+						</template>
+
+						<template v-else-if="!isManualMode && activeTokenType === 'resolver'">
 							<div class="d-flex flex-column fxr-gap-3">
 								<div class="d-flex flex-column fxr-gap-1">
 									<label class="fxr-label-sm">{{
@@ -193,6 +222,30 @@
 							</div>
 						</template>
 
+						<template v-if="isManualMode && activeTokenType !== 'resolver'">
+							<div class="d-flex flex-column fxr-gap-2">
+								<label class="fxr-label-sm">{{ __("Manual Expression") }}</label>
+								<textarea
+									ref="formulaTextareaRef"
+									class="fxr-textarea formula-textarea"
+									v-model="tokenDraftAttrs.expression"
+								></textarea>
+								<div class="variables-selector-pane mt-3">
+									<label class="fxr-label-sm">{{ __("Insert Variable") }}</label>
+									<div class="variables-pill-grid v2-scrollbar">
+										<button
+											v-for="v in variableOptions"
+											:key="v.value || v"
+											class="var-pill-btn"
+											@click="insertVarInFormula(v)"
+										>
+											{{ v.label || v.value || v }}
+										</button>
+									</div>
+								</div>
+							</div>
+						</template>
+
 						<template v-if="activeTokenType === 'json'">
 							<div class="d-flex flex-column fxr-gap-3">
 								<label class="fxr-label-sm">{{ __("JSON Data Editor") }}</label>
@@ -237,8 +290,10 @@ import { PluginKey } from "@tiptap/pm/state";
 import tippy from "tippy.js";
 
 import { getCommandsForFieldtype, getFormulasForFieldtype } from "../../core/formula_registry";
+import { compileToCode, compileToLabel } from "../../core/builder_utils.js";
 import MentionList from "./MentionList.vue";
 import ControlFactory from "./ControlFactory.vue";
+import ValueResolverControl from "./ValueResolverControl.vue";
 
 const props = defineProps({
 	modelValue: { type: [Object, String, Number, Boolean], default: null },
@@ -342,19 +397,24 @@ const FormulaToken = Node.create({
 	selectable: true,
 	atom: true,
 	addAttributes() {
-		return { expression: { default: "" } };
+		return {
+			expression: { default: "" },
+			label: { default: "" },
+			config: { default: null },
+		};
 	},
 	parseHTML() {
 		return [{ tag: 'span[data-token-type="formula"]' }];
 	},
 	renderHTML({ node, HTMLAttributes }) {
+		const label = node.attrs.label || node.attrs.expression || "Formula";
 		return [
 			"span",
 			mergeAttributes(HTMLAttributes, {
 				"data-token-type": "formula",
 				class: "token-chip token-formula",
 			}),
-			`🧮 Formula${node.attrs.expression ? ` (${node.attrs.expression})` : ""}`,
+			`🧮 ${label}`,
 		];
 	},
 });
@@ -366,19 +426,82 @@ const ResolverToken = Node.create({
 	selectable: true,
 	atom: true,
 	addAttributes() {
-		return { resolver: { default: "" }, config: { default: () => ({}) } };
+		return {
+			resolver: { default: "" },
+			label: { default: "" },
+			config: { default: null },
+		};
 	},
 	parseHTML() {
 		return [{ tag: 'span[data-token-type="resolver"]' }];
 	},
 	renderHTML({ node, HTMLAttributes }) {
+		const label = node.attrs.label || node.attrs.resolver || "Resolve";
 		return [
 			"span",
 			mergeAttributes(HTMLAttributes, {
 				"data-token-type": "resolver",
 				class: "token-chip token-resolver",
 			}),
-			`⚡ Resolve${node.attrs.resolver ? ` (${node.attrs.resolver})` : ""}`,
+			`⚡ ${label}`,
+		];
+	},
+});
+
+const NormalizeToken = Node.create({
+	name: "normalizeToken",
+	group: "inline",
+	inline: true,
+	selectable: true,
+	atom: true,
+	addAttributes() {
+		return {
+			expression: { default: "" },
+			label: { default: "" },
+			config: { default: null },
+		};
+	},
+	parseHTML() {
+		return [{ tag: 'span[data-token-type="normalize"]' }];
+	},
+	renderHTML({ node, HTMLAttributes }) {
+		const label = node.attrs.label || node.attrs.expression || "Normalize";
+		return [
+			"span",
+			mergeAttributes(HTMLAttributes, {
+				"data-token-type": "normalize",
+				class: "token-chip token-normalize",
+			}),
+			`🔄 ${label}`,
+		];
+	},
+});
+
+const FormatToken = Node.create({
+	name: "formatToken",
+	group: "inline",
+	inline: true,
+	selectable: true,
+	atom: true,
+	addAttributes() {
+		return {
+			expression: { default: "" },
+			label: { default: "" },
+			config: { default: null },
+		};
+	},
+	parseHTML() {
+		return [{ tag: 'span[data-token-type="format"]' }];
+	},
+	renderHTML({ node, HTMLAttributes }) {
+		const label = node.attrs.label || node.attrs.expression || "Format";
+		return [
+			"span",
+			mergeAttributes(HTMLAttributes, {
+				"data-token-type": "format",
+				class: "token-chip token-format",
+			}),
+			`🎨 ${label}`,
 		];
 	},
 });
@@ -438,6 +561,8 @@ const editor = new Editor({
 		VariableToken,
 		FormulaToken,
 		ResolverToken,
+		NormalizeToken,
+		FormatToken,
 		VariableTrigger.configure({
 			suggestion: {
 				char: "@",
@@ -511,7 +636,12 @@ const editor = new Editor({
 					const isCommand = commands.find((c) => c.id === props.id);
 
 					if (isCommand) {
-						const typeMap = { formula: "formulaToken", resolver: "resolverToken" };
+						const typeMap = {
+							formula: "formulaToken",
+							resolver: "resolverToken",
+							normalize: "normalizeToken",
+							formatter: "formatToken",
+						};
 						const nodeType = typeMap[props.id] || "formulaToken";
 						editor
 							.chain()
@@ -582,12 +712,37 @@ function serialize() {
 			};
 		}
 		if (node.type === "formulaToken") {
-			return { mode: "formula", value: node.attrs.expression, fieldtype: props.fieldType };
+			return {
+				mode: "formula",
+				value: node.attrs.expression,
+				label: node.attrs.label,
+				config: node.attrs.config,
+				fieldtype: props.fieldType,
+			};
 		}
 		if (node.type === "resolverToken") {
 			return {
 				mode: "resolver",
 				value: node.attrs.resolver,
+				label: node.attrs.label,
+				config: node.attrs.config,
+				fieldtype: props.fieldType,
+			};
+		}
+		if (node.type === "normalizeToken") {
+			return {
+				mode: "normalize",
+				value: node.attrs.expression,
+				label: node.attrs.label,
+				config: node.attrs.config,
+				fieldtype: props.fieldType,
+			};
+		}
+		if (node.type === "formatToken") {
+			return {
+				mode: "format",
+				value: node.attrs.expression,
+				label: node.attrs.label,
 				config: node.attrs.config,
 				fieldtype: props.fieldType,
 			};
@@ -597,7 +752,14 @@ function serialize() {
 	// Mixed content or multiple tokens -> expression mode
 	const tokens = content.map((item) => {
 		if (item.type === "text") return { type: "text", value: item.text };
-		return { type: item.type, attrs: item.attrs };
+
+		// For mixed mode, the expression MUST be wrapped in {} if it was a builder code
+		let expr = item.attrs.expression || item.attrs.path || "";
+		if (item.type === "variableToken") expr = `{${expr}}`;
+		// if expression already has {}, it's likely correct.
+		// Builder output from compileToCode already includes {}.
+
+		return { type: item.type, attrs: { ...item.attrs, expression: expr } };
 	});
 
 	return { mode: "expression", value: tokens, fieldtype: props.fieldType };
@@ -612,9 +774,21 @@ function deserialize(val) {
 			val.label || ""
 		}"></span>`;
 	if (val.mode === "formula")
-		return `<span data-token-type="formula" data-expression="${val.value}"></span>`;
+		return `<span data-token-type="formula" data-expression="${
+			val.value || ""
+		}" data-label="${val.label || ""}" data-config='${JSON.stringify(val.config || null)}'></span>`;
 	if (val.mode === "resolver")
-		return `<span data-token-type="resolver" data-resolver="${val.value}"></span>`;
+		return `<span data-token-type="resolver" data-resolver="${
+			val.value || ""
+		}" data-label="${val.label || ""}" data-config='${JSON.stringify(val.config || null)}'></span>`;
+	if (val.mode === "normalize")
+		return `<span data-token-type="normalize" data-expression="${
+			val.value || ""
+		}" data-label="${val.label || ""}" data-config='${JSON.stringify(val.config || null)}'></span>`;
+	if (val.mode === "format")
+		return `<span data-token-type="format" data-expression="${
+			val.value || ""
+		}" data-label="${val.label || ""}" data-config='${JSON.stringify(val.config || null)}'></span>`;
 
 	if (val.mode === "expression" && Array.isArray(val.value)) {
 		return val.value
@@ -623,9 +797,29 @@ function deserialize(val) {
 				if (item.type === "variableToken")
 					return `<span data-token-type="variable" data-path="${item.attrs.path}" data-label="${item.attrs.label}"></span>`;
 				if (item.type === "formulaToken")
-					return `<span data-token-type="formula" data-expression="${item.attrs.expression}"></span>`;
+					return `<span data-token-type="formula" data-expression="${
+						item.attrs.expression || ""
+					}" data-label="${item.attrs.label || ""}" data-config='${JSON.stringify(
+						item.attrs.config || null
+					)}'></span>`;
 				if (item.type === "resolverToken")
-					return `<span data-token-type="resolver" data-resolver="${item.attrs.resolver}"></span>`;
+					return `<span data-token-type="resolver" data-resolver="${
+						item.attrs.resolver || ""
+					}" data-label="${item.attrs.label || ""}" data-config='${JSON.stringify(
+						item.attrs.config || null
+					)}'></span>`;
+				if (item.type === "normalizeToken")
+					return `<span data-token-type="normalize" data-expression="${
+						item.attrs.expression || ""
+					}" data-label="${item.attrs.label || ""}" data-config='${JSON.stringify(
+						item.attrs.config || null
+					)}'></span>`;
+				if (item.type === "formatToken")
+					return `<span data-token-type="format" data-expression="${
+						item.attrs.expression || ""
+					}" data-label="${item.attrs.label || ""}" data-config='${JSON.stringify(
+						item.attrs.config || null
+					)}'></span>`;
 				return "";
 			})
 			.join("");
@@ -689,10 +883,14 @@ function updateStaticValue(val) {
 
 // ── Token Editor ──
 
+const isManualMode = ref(false);
+
 const activeTokenPresentation = computed(() => {
 	const map = {
 		formula: { title: __("Configure Formula"), icon: "fa fa-calculator" },
 		resolver: { title: __("Configure Resolver"), icon: "fa fa-bolt" },
+		normalize: { title: __("Configure Normalization"), icon: "fa fa-refresh" },
+		format: { title: __("Configure Format"), icon: "fa fa-paint-brush" },
 		json: { title: __("JSON Editor"), icon: "fa fa-code" },
 	};
 	return map[activeTokenType.value] || { title: __("Token Configuration"), icon: "fa fa-cog" };
@@ -702,23 +900,58 @@ function openTokenEditor(node, pos, typeOverride = null) {
 	if (isReadOnly.value) return;
 	activeTokenNode.value = node;
 	activeTokenPos.value = pos;
+	isManualMode.value = false;
+
 	if (typeOverride) {
 		activeTokenType.value = typeOverride;
 		tokenDraftAttrs.value = { value: editor.getText() };
 		return;
 	}
+
 	if (node.type.name === "formulaToken") {
 		activeTokenType.value = "formula";
-		tokenDraftAttrs.value = { expression: node.attrs.expression };
+		tokenDraftAttrs.value = {
+			expression: node.attrs.expression,
+			label: node.attrs.label,
+			config: node.attrs.config || null,
+		};
 	} else if (node.type.name === "resolverToken") {
 		activeTokenType.value = "resolver";
-		tokenDraftAttrs.value = { resolver: node.attrs.resolver, config: node.attrs.config || {} };
+		tokenDraftAttrs.value = {
+			resolver: node.attrs.resolver,
+			label: node.attrs.label,
+			config: node.attrs.config || null,
+		};
+	} else if (node.type.name === "normalizeToken") {
+		activeTokenType.value = "normalize";
+		tokenDraftAttrs.value = {
+			expression: node.attrs.expression,
+			label: node.attrs.label,
+			config: node.attrs.config || null,
+		};
+	} else if (node.type.name === "formatToken") {
+		activeTokenType.value = "format";
+		tokenDraftAttrs.value = {
+			expression: node.attrs.expression,
+			label: node.attrs.label,
+			config: node.attrs.config || null,
+		};
+	}
+
+	if (activeTokenType.value && !tokenDraftAttrs.value.config) {
+		isManualMode.value = true;
 	}
 }
 
 function closeTokenEditor() {
 	activeTokenType.value = null;
 	tokenDraftAttrs.value = {};
+}
+
+function handleBuilderUpdate(config) {
+	tokenDraftAttrs.value.config = config;
+	tokenDraftAttrs.value.expression = compileToCode(config);
+	tokenDraftAttrs.value.label = compileToLabel(config);
 }
 
 function saveTokenEditor() {
@@ -728,6 +961,10 @@ function saveTokenEditor() {
 		emitting = false;
 		emitChanges();
 	} else {
+		if (isManualMode.value) {
+			tokenDraftAttrs.value.config = null;
+		}
+
 		emitting = true;
 		editor
 			.chain()
@@ -967,6 +1204,16 @@ onBeforeUnmount(() => {
 	background: #f5f3ff;
 	color: #7c3aed;
 	border: 1px solid #8b5cf633;
+}
+:deep(.token-normalize) {
+	background: #ecfeff;
+	color: #0891b2;
+	border: 1px solid #06b6d433;
+}
+:deep(.token-format) {
+	background: #fff1f2;
+	color: #e11d48;
+	border: 1px solid #f43f5e33;
 }
 :deep(.token-resolver) {
 	background: #fffbeb;

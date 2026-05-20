@@ -324,6 +324,7 @@ import ComboBoxControl from "../../controls/ComboBoxControl.vue";
 import ControlFactory from "../../controls/ControlFactory.vue";
 import ValueResolverControl from "../../controls/ValueResolverControl.vue";
 import { useStore } from "../../stores";
+import { compileToCode } from "../../../core/builder_utils.js";
 import { getContract } from "../../../core/contracts.js";
 
 const props = defineProps({
@@ -491,6 +492,11 @@ const BUILDER_SUPPORTED_FIELDTYPES = new Set([
 	"Float",
 	"Currency",
 	"Percent",
+	"Data",
+	"Small Text",
+	"Text",
+	"Long Text",
+	"Select",
 ]);
 const builderFunctionOptions = [
 	{ value: "add_days_doc", label: __("Document Date +/- Days") },
@@ -1063,14 +1069,19 @@ const toInt = (value, fallback = 0) => {
 
 const NUMERIC_FIELDTYPES = new Set(["Int", "Float", "Currency", "Percent"]);
 
+const STRING_FIELDTYPES = new Set(["Data", "Small Text", "Text", "Long Text", "Select"]);
+
 const getAllowedBuilderKinds = (row) => {
 	const field = getFieldDef(row.field, row.doctype || props.doctype);
 	if (!field || !field.fieldtype) return null; // all kinds
 	if (DATE_FIELDTYPES.has(field.fieldtype)) {
-		return ["date_formula", "date_diff"];
+		return ["date_formula", "date_diff", "format"];
 	}
 	if (NUMERIC_FIELDTYPES.has(field.fieldtype)) {
-		return ["math_formula"];
+		return ["math_formula", "format"];
+	}
+	if (STRING_FIELDTYPES.has(field.fieldtype)) {
+		return ["normalization", "format", "string_formula"];
 	}
 	return null; // all kinds
 };
@@ -1126,79 +1137,7 @@ const getDefaultBuilderItem = (row) => {
 
 const compileBuilderExpression = (builder) => {
 	const item = normalizeBuilderItem(builder);
-
-	if (item.kind === "math_formula") {
-		const a = item.field_a ? `frappe.utils.flt(doc.${item.field_a})` : "0";
-		const b =
-			item.field_b_type === "field"
-				? item.field_b
-					? `frappe.utils.flt(doc.${item.field_b})`
-					: "0"
-				: String(item.constant_b ?? 0);
-		const prec = item.precision ?? 2;
-		return `{frappe.utils.flt(${a} ${item.math_op} ${b}, ${prec})}`;
-	}
-
-	if (item.kind === "date_diff") {
-		const start =
-			item.diff_start_type === "today"
-				? "frappe.utils.nowdate()"
-				: `doc.${item.diff_start_field}`;
-		const end =
-			item.diff_end_type === "today"
-				? "frappe.utils.nowdate()"
-				: `doc.${item.diff_end_field}`;
-
-		if (item.diff_unit === "days") return `{frappe.utils.date_diff(${end}, ${start})}`;
-		if (item.diff_unit === "months") return `{frappe.utils.month_diff(${end}, ${start})}`;
-		return `{int(frappe.utils.month_diff(${end}, ${start}) / 12)}`;
-	}
-
-	if (item.kind === "child_aggregation") {
-		const tbl = item.agg_table || '""';
-		const fld = item.agg_field || '""';
-		if (item.agg_op === "count") return `{len(doc.get("${tbl}"))}`;
-		if (item.agg_op === "avg") {
-			return `{sum([frappe.utils.flt(row.get("${fld}")) for row in doc.get("${tbl}")]) / (len(doc.get("${tbl}")) or 1)}`;
-		}
-		return `{sum([frappe.utils.flt(row.get("${fld}")) for row in doc.get("${tbl}")])}`;
-	}
-
-	if (item.kind === "string_formula") {
-		const valA =
-			item.str_a_type === "field" ? `doc.${item.str_a || '""'}` : `"${item.str_a || ""}"`;
-		const valB =
-			item.str_b_type === "field" ? `doc.${item.str_b || '""'}` : `"${item.str_b || ""}"`;
-
-		if (item.str_op === "concat") return `{str(${valA}) + str(${valB})}`;
-		if (item.str_op === "uppercase") return `{str(${valA}).upper()}`;
-		if (item.str_op === "lowercase") return `{str(${valA}).lower()}`;
-		if (item.str_op === "fmt_money")
-			return `{frappe.utils.fmt_money(${valA}, currency=${valB})}`;
-		return `{${valA}}`;
-	}
-
-	if (item.kind === "system_context") {
-		if (item.sys_token === "role_check") {
-			return `{"${item.sys_role}" in frappe.get_roles(frappe.session.user)}`;
-		}
-		return `{frappe.session.user}`;
-	}
-
-	// Default: date_formula
-	const baseExpr =
-		item.base_type === "today" ? "frappe.utils.nowdate()" : `doc.${item.base_field}`;
-
-	if (item.offset_value === 0 || !item.offset_unit) {
-		return `{${baseExpr}}`;
-	}
-
-	// Use add_days for days for backward compatibility or add_to_date for others
-	if (item.offset_unit === "days") {
-		return `{frappe.utils.add_days(${baseExpr}, ${item.offset_value})}`;
-	}
-
-	return `{frappe.utils.add_to_date(${baseExpr}, ${item.offset_unit}='${item.offset_value}')}`;
+	return compileToCode(item);
 };
 
 const syncBuilderToValue = (row) => {

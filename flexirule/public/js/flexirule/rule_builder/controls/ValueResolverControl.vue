@@ -1,7 +1,12 @@
 <template>
 	<div class="value-resolver-control fxr-control" ref="controlRef">
 		<!-- Token UI -->
-		<div class="fxr-token" :class="{ 'is-active': showPopover }" @click="togglePopover">
+		<div
+			v-if="viewMode === 'popover'"
+			class="fxr-token"
+			:class="{ 'is-active': showPopover }"
+			@click="togglePopover"
+		>
 			<div class="fxr-token__content">
 				<i :class="categoryIcon" class="text-muted mr-1"></i>
 				<span class="fxr-token__text">{{ previewText }}</span>
@@ -9,16 +14,19 @@
 			<i class="fa fa-chevron-down fxr-token__caret"></i>
 		</div>
 
-		<!-- Popover -->
-		<Teleport to="body">
-			<div v-if="showPopover" class="fxr-popover" :style="popoverStyle">
-				<div class="fxr-popover__header">
-					<span class="fxr-label-sm mb-0">{{ __(popoverTitle) }}</span>
-					<button class="fxr-btn fxr-btn--icon fxr-btn--sm" @click="closePopover">
-						<i class="fa fa-times"></i>
-					</button>
-				</div>
-				<div class="fxr-popover__body">
+		<!-- Main Content Wrapper -->
+		<div
+			v-if="viewMode === 'inline' || showPopover"
+			:class="viewMode === 'inline' ? 'fxr-inline-builder' : 'fxr-popover'"
+			:style="viewMode === 'inline' ? {} : popoverStyle"
+		>
+			<div v-if="viewMode !== 'inline'" class="fxr-popover__header">
+				<span class="fxr-label-sm mb-0">{{ __(popoverTitle) }}</span>
+				<button class="fxr-btn fxr-btn--icon fxr-btn--sm" @click="closePopover">
+					<i class="fa fa-times"></i>
+				</button>
+			</div>
+			<div :class="viewMode === 'inline' ? 'fxr-inline-body' : 'fxr-popover__body'">
 					<!-- Category Selector -->
 					<div class="d-flex flex-column fxr-gap-1">
 						<label class="fxr-label-sm">{{ __("Formula Type") }}</label>
@@ -420,6 +428,97 @@
 						</div>
 					</template>
 
+					<!-- ═══════════ Normalization ═══════════ -->
+					<template v-else-if="localState.kind === 'normalization'">
+						<div class="d-flex flex-column fxr-gap-1">
+							<label class="fxr-label-sm">{{ __("Operation") }}</label>
+							<select
+								class="fxr-select"
+								v-model="localState.norm_op"
+								:disabled="readOnly"
+							>
+								<option value="trim">{{ __("Trim Whitespace") }}</option>
+								<option value="slug">{{ __("Slugify") }}</option>
+								<option value="title">{{ __("Title Case") }}</option>
+								<option value="upper">{{ __("Uppercase") }}</option>
+								<option value="lower">{{ __("Lowercase") }}</option>
+								<option value="snake">{{ __("Snake Case") }}</option>
+							</select>
+						</div>
+						<div class="d-flex flex-column fxr-gap-1 mt-2">
+							<label class="fxr-label-sm">{{ __("Field") }}</label>
+							<select
+								class="fxr-select"
+								v-model="localState.norm_field"
+								:disabled="readOnly"
+							>
+								<option value="">{{ __("Select field...") }}</option>
+								<option
+									v-for="opt in stringFieldOptions"
+									:key="opt.value"
+									:value="opt.value"
+								>
+									{{ opt.label }}
+								</option>
+							</select>
+						</div>
+					</template>
+
+					<!-- ═══════════ Format ═══════════ -->
+					<template v-else-if="localState.kind === 'format'">
+						<div class="d-flex flex-column fxr-gap-1">
+							<label class="fxr-label-sm">{{ __("Format Type") }}</label>
+							<select
+								class="fxr-select"
+								v-model="localState.fmt_op"
+								:disabled="readOnly"
+							>
+								<option value="format_date">{{ __("Date/Time Format") }}</option>
+								<option value="fmt_money">{{ __("Currency Format") }}</option>
+								<option value="format">{{ __("String Template") }}</option>
+							</select>
+						</div>
+						<div class="d-flex flex-column fxr-gap-1 mt-2">
+							<label class="fxr-label-sm">{{ __("Field") }}</label>
+							<select
+								class="fxr-select"
+								v-model="localState.fmt_field"
+								:disabled="readOnly"
+							>
+								<option value="">{{ __("Select field...") }}</option>
+								<option
+									v-for="opt in localState.fmt_op === 'fmt_money'
+										? numericFieldOptions
+										: localState.fmt_op === 'format_date'
+										? dateFieldOptions
+										: stringFieldOptions"
+									:key="opt.value"
+									:value="opt.value"
+								>
+									{{ opt.label }}
+								</option>
+							</select>
+						</div>
+						<div class="d-flex flex-column fxr-gap-1 mt-2">
+							<label class="fxr-label-sm">{{
+								localState.fmt_op === "fmt_money"
+									? __("Currency (Field or Code)")
+									: localState.fmt_op === "format_date"
+									? __("Date Format (e.g. YYYY-MM-DD)")
+									: __("Template")
+							}}</label>
+							<input
+								type="text"
+								class="fxr-input"
+								v-model="localState.fmt_config"
+								:disabled="readOnly"
+								:placeholder="
+									localState.fmt_op === 'format_date' ? 'YYYY-MM-DD' : ''
+								"
+							/>
+						</div>
+					</template>
+
 					<!-- ═══════════ System Context ═══════════ -->
 					<template v-else-if="localState.kind === 'system_context'">
 						<div class="d-flex flex-column fxr-gap-1">
@@ -448,19 +547,19 @@
 						</div>
 					</template>
 				</div>
-				<div class="fxr-popover__footer">
+				<div :class="viewMode === 'inline' ? 'fxr-inline-footer' : 'fxr-popover__footer'">
 					<div class="fxr-preview-snippet">
 						<code>{{ expressionSnippet }}</code>
 					</div>
 				</div>
 			</div>
-		</Teleport>
 	</div>
 </template>
 
 <script setup>
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from "vue";
 import { useStore } from "../stores";
+import { compileToCode, compileToLabel } from "../../core/builder_utils.js";
 
 const props = defineProps({
 	modelValue: {
@@ -480,6 +579,11 @@ const props = defineProps({
 		type: Array,
 		default: null, // null = all categories
 	},
+	/** 'popover' (default) or 'inline' */
+	viewMode: {
+		type: String,
+		default: "popover",
+	},
 });
 
 const emit = defineEmits(["update:modelValue"]);
@@ -496,6 +600,8 @@ const ALL_CATEGORIES = [
 	{ value: "date_diff", label: __("Date Difference"), icon: "fa fa-calendar-minus-o" },
 	{ value: "child_aggregation", label: __("Child Table Aggregation"), icon: "fa fa-table" },
 	{ value: "string_formula", label: __("String Manipulation"), icon: "fa fa-font" },
+	{ value: "normalization", label: __("Normalization"), icon: "fa fa-refresh" },
+	{ value: "format", label: __("Format"), icon: "fa fa-paint-brush" },
 	{ value: "system_context", label: __("System Context"), icon: "fa fa-globe" },
 ];
 
@@ -539,6 +645,13 @@ function getDefaultState(kind = "date_formula") {
 		str_a: "",
 		str_b_type: "constant",
 		str_b: "",
+		// Normalization fields
+		norm_op: "trim",
+		norm_field: "",
+		// Format fields
+		fmt_op: "format_date",
+		fmt_field: "",
+		fmt_config: "", // e.g. "YYYY-MM-DD" or currency field
 		// System context fields
 		sys_token: "user",
 		sys_role: "",
@@ -690,6 +803,13 @@ const syncFromProps = () => {
 		next.str_a = val.str_a || "";
 		next.str_b_type = val.str_b_type || "constant";
 		next.str_b = val.str_b || "";
+	} else if (kind === "normalization") {
+		next.norm_op = val.norm_op || "trim";
+		next.norm_field = val.norm_field || "";
+	} else if (kind === "format") {
+		next.fmt_op = val.fmt_op || "format_date";
+		next.fmt_field = val.fmt_field || "";
+		next.fmt_config = val.fmt_config || "";
 	} else if (kind === "system_context") {
 		next.sys_token = val.sys_token || "user";
 		next.sys_role = val.sys_role || "";
@@ -764,6 +884,17 @@ watch(
 				str_a: newVal.str_a,
 				str_b_type: newVal.str_b_type,
 				str_b: newVal.str_b,
+			});
+		} else if (newVal.kind === "normalization") {
+			Object.assign(emitted, {
+				norm_op: newVal.norm_op,
+				norm_field: newVal.norm_field,
+			});
+		} else if (newVal.kind === "format") {
+			Object.assign(emitted, {
+				fmt_op: newVal.fmt_op,
+				fmt_field: newVal.fmt_field,
+				fmt_config: newVal.fmt_config,
 			});
 		} else if (newVal.kind === "system_context") {
 			Object.assign(emitted, {
@@ -852,128 +983,16 @@ const popoverTitle = computed(() => {
 });
 
 const previewText = computed(() => {
-	const s = localState.value;
-
-	if (s.kind === "date_formula") {
-		const base = s.base_type === "today" ? __("Today") : s.base_field || __("Doc Field");
-		if (s.offset_value === 0) return base;
-		return `${base} ${s.offset_sign} ${s.offset_value} ${s.offset_unit}`;
-	}
-
-	if (s.kind === "math_formula") {
-		const a = s.field_a || "?";
-		const b = s.field_b_type === "field" ? s.field_b || "?" : s.constant_b;
-		return `${a} ${s.math_op} ${b}`;
-	}
-
-	if (s.kind === "date_diff") {
-		const start = s.diff_start_type === "today" ? __("Today") : s.diff_start_field || "?";
-		const end = s.diff_end_type === "today" ? __("Today") : s.diff_end_field || "?";
-		return `${end} − ${start} (${s.diff_unit})`;
-	}
-
-	if (s.kind === "child_aggregation") {
-		return `${s.agg_op.toUpperCase()}(${s.agg_table || "?"}.${s.agg_field || "?"})`;
-	}
-
-	if (s.kind === "string_formula") {
-		if (s.str_op === "concat") return __("Concatenate");
-		if (s.str_op === "fmt_money") return __("Format Money");
-		if (s.str_op === "uppercase") return __("Uppercase");
-		if (s.str_op === "lowercase") return __("Lowercase");
-	}
-
-	if (s.kind === "system_context") {
-		if (s.sys_token === "user") return __("Current User");
-		if (s.sys_token === "role_check") return __("Has Role");
-	}
-
-	return __("Configure");
+	return compileToLabel(localState.value);
 });
 
 const expressionSnippet = computed(() => {
-	const s = localState.value;
-
+	const s = { ...localState.value };
 	if (s.kind === "date_formula") {
-		const baseExpr = s.base_type === "today" ? "frappe.utils.nowdate()" : `doc.${s.base_field}`;
 		const offset = s.offset_sign === "-" ? -Math.abs(s.offset_value) : Math.abs(s.offset_value);
-		if (offset === 0) return `{${baseExpr}}`;
-		if (s.offset_unit === "days") {
-			return `{frappe.utils.add_days(${baseExpr}, ${offset})}`;
-		}
-		return `{frappe.utils.add_to_date(${baseExpr}, ${s.offset_unit}=${offset})}`;
+		s.offset_value = offset;
 	}
-
-	if (s.kind === "math_formula") {
-		const a = s.field_a ? `frappe.utils.flt(doc.${s.field_a})` : "0";
-		const b =
-			s.field_b_type === "field"
-				? s.field_b
-					? `frappe.utils.flt(doc.${s.field_b})`
-					: "0"
-				: String(s.constant_b ?? 0);
-		const prec = s.precision ?? 2;
-		return `{frappe.utils.flt(${a} ${s.math_op} ${b}, ${prec})}`;
-	}
-
-	if (s.kind === "date_diff") {
-		const start =
-			s.diff_start_type === "today" ? "frappe.utils.nowdate()" : `doc.${s.diff_start_field}`;
-		const end =
-			s.diff_end_type === "today" ? "frappe.utils.nowdate()" : `doc.${s.diff_end_field}`;
-
-		if (s.diff_unit === "days") {
-			return `{frappe.utils.date_diff(${end}, ${start})}`;
-		}
-		if (s.diff_unit === "months") {
-			return `{frappe.utils.month_diff(${end}, ${start})}`;
-		}
-		// Years — month_diff / 12 rounded
-		return `{int(frappe.utils.month_diff(${end}, ${start}) / 12)}`;
-	}
-
-	if (s.kind === "child_aggregation") {
-		const tbl = s.agg_table || "items";
-		const fld = s.agg_field || "amount";
-		if (s.agg_op === "sum") {
-			return `{sum([frappe.utils.flt(row.${fld}) for row in doc.get("${tbl}")])}`;
-		}
-		if (s.agg_op === "avg") {
-			return `{sum([frappe.utils.flt(row.${fld}) for row in doc.get("${tbl}")]) / max(len(doc.get("${tbl}")), 1)}`;
-		}
-		if (s.agg_op === "count") {
-			return `{len(doc.get("${tbl}"))}`;
-		}
-	}
-
-	if (s.kind === "string_formula") {
-		const a = s.str_a_type === "field" ? `doc.${s.str_a || '""'}` : `"${s.str_a}"`;
-		if (s.str_op === "concat") {
-			const b = s.str_b_type === "field" ? `doc.${s.str_b || '""'}` : `"${s.str_b}"`;
-			return `{str(${a} or "") + str(${b} or "")}`;
-		}
-		if (s.str_op === "fmt_money") {
-			const curr = s.str_b_type === "field" ? `doc.${s.str_b || '""'}` : `"${s.str_b}"`;
-			return `{frappe.utils.fmt_money(${a}, currency=${curr})}`;
-		}
-		if (s.str_op === "uppercase") {
-			return `{str(${a} or "").upper()}`;
-		}
-		if (s.str_op === "lowercase") {
-			return `{str(${a} or "").lower()}`;
-		}
-	}
-
-	if (s.kind === "system_context") {
-		if (s.sys_token === "user") {
-			return `{frappe.session.user}`;
-		}
-		if (s.sys_token === "role_check") {
-			return `{"${s.sys_role}" in frappe.get_roles(frappe.session.user)}`;
-		}
-	}
-
-	return "";
+	return compileToCode(s);
 });
 </script>
 
@@ -999,6 +1018,22 @@ const expressionSnippet = computed(() => {
 
 .fxr-gap-2 {
 	gap: var(--fxr-space-2);
+}
+
+.fxr-inline-builder {
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+}
+
+.fxr-inline-body {
+	padding: var(--fxr-space-1) 0;
+}
+
+.fxr-inline-footer {
+	margin-top: var(--fxr-space-4);
+	padding-top: var(--fxr-space-2);
+	border-top: 1px solid var(--fxr-border);
 }
 
 hr.border-top {
