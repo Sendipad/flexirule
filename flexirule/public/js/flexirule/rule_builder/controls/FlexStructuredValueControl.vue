@@ -3,6 +3,7 @@
 		ref="controlRef"
 		class="fsvc-wrap"
 		:class="{ 'is-compact': compact, 'is-disabled': disabled || controlReadOnly }"
+		@keydown.capture="onStaticKeydown"
 	>
 		<!-- ── Component Body (Single Line Height 32px–38px) ── -->
 		<div
@@ -10,7 +11,11 @@
 			:class="{
 				'is-dynamic': isDynamicMode || !isStaticSupported,
 				'is-static-select':
-					!isDynamicMode && (fieldType === 'Select' || fieldType === 'Check'),
+					!isDynamicMode &&
+					(normalizedFieldType.value === 'Select' ||
+						normalizedFieldType.value === 'Check' ||
+						normalizedFieldType.value === 'Link' ||
+						normalizedFieldType.value === 'Dynamic Link'),
 			}"
 			@click="onWrapClick"
 		>
@@ -18,10 +23,9 @@
 			<div
 				v-if="!isDynamicMode && isStaticSupported"
 				class="fsvc-static-container flex-1"
-				@keydown.capture="onStaticKeydown"
 			>
 				<!-- Dynamic Link Lookup -->
-				<template v-if="fieldType === 'Dynamic Link'">
+				<template v-if="normalizedFieldType.value === 'Dynamic Link'">
 					<div class="d-flex fxr-gap-1 flex-1 align-items-center w-100">
 						<!-- Target Doctype Selector -->
 						<select
@@ -64,7 +68,7 @@
 				<!-- All other standard types -->
 				<template v-else>
 					<div
-						v-if="fieldType === 'Check'"
+						v-if="normalizedFieldType.value === 'Check'"
 						class="d-flex align-items-center flex-1 px-2 static-check-wrap"
 						style="height: 100%"
 					>
@@ -844,6 +848,35 @@ const dynamicLinkMode = ref("static"); // 'static', 'reference', 'variable'
 const staticValue = ref("");
 const staticDynamicLinkDoctype = ref("");
 
+const normalizedFieldType = computed(() => {
+	let ft = props.fieldType;
+	if (ft && typeof ft === "string") {
+		ft = ft.trim();
+		const mapping = {
+			link: "Link",
+			select: "Select",
+			check: "Check",
+			data: "Data",
+			"dynamic link": "Dynamic Link",
+			int: "Int",
+			float: "Float",
+			currency: "Currency",
+			percent: "Percent",
+			date: "Date",
+			datetime: "Datetime",
+			time: "Time",
+			"small text": "Small Text",
+			text: "Text",
+			"long text": "Long Text",
+			code: "Code",
+			"text editor": "Text Editor",
+			multiselect: "MultiSelect",
+		};
+		return mapping[ft.toLowerCase()] || ft;
+	}
+	return ft || "Data";
+});
+
 // Generic static input supporting types
 // Text-based fields go straight to Tiptap (no static toggle).
 // Autocomplete gets a ComboBox in static mode, so it IS static-supported.
@@ -856,11 +889,11 @@ const PURE_TEXT_FIELDTYPES = new Set([
 	"Text Editor",
 ]);
 const isStaticSupported = computed(() => {
-	return !PURE_TEXT_FIELDTYPES.has(props.fieldType);
+	return !PURE_TEXT_FIELDTYPES.has(normalizedFieldType.value);
 });
 
 const staticDf = computed(() => {
-	let ft = props.fieldType;
+	let ft = normalizedFieldType.value;
 	let options = ft === "Link" ? props.referenceDoctype : props.options || [];
 
 	if (ft === "Select") {
@@ -1514,7 +1547,7 @@ const editor = new Editor({
 				render: () => createSuggestionRenderer(),
 				items: ({ query }) => {
 					const q = query.toLowerCase();
-					const fType = props.fieldType;
+						const fType = normalizedFieldType.value;
 					const group = getCommandGroupForFieldtype(fType);
 
 					// ── 1. Start with all commands ───────────────────────────────
@@ -1657,7 +1690,8 @@ const isEditorFocused = ref(false);
 // ─── Input Adapters and Parsing Helper Functions ───
 
 const parsedSelectOptions = computed(() => {
-	if (props.fieldType === "Link" || props.fieldType === "Dynamic Link") return [];
+	if (normalizedFieldType.value === "Link" || normalizedFieldType.value === "Dynamic Link")
+		return [];
 	if (typeof props.options === "string") {
 		return props.options.split("\n").map((o) => ({ label: o, value: o }));
 	}
@@ -1864,6 +1898,9 @@ function toggleDynamicMode() {
 function onStaticKeydown(e) {
 	if (controlReadOnly.value || props.disabled) return;
 
+	// Only handle trigger keys if we are currently in static mode
+	if (isDynamicMode.value || !isStaticSupported.value) return;
+
 	// Typing @ or / on a static control (Check, Select, Link) switches to dynamic mode.
 	// We clear the existing static value so the trigger char starts fresh.
 	if (e.key === "@" || e.key === "/") {
@@ -1894,14 +1931,14 @@ function emitChanges() {
 	emitting = true;
 	let output;
 	if (!isDynamicMode.value && isStaticSupported.value) {
-		if (props.fieldType === "Dynamic Link") {
+		if (normalizedFieldType.value === "Dynamic Link") {
 			output = {
 				mode: "dynamic_link",
 				reference_field: props.referenceField || "",
 				doctype: staticDynamicLinkDoctype.value || "",
 				value: staticValue.value || "",
 			};
-		} else if (props.fieldType === "Link") {
+		} else if (normalizedFieldType.value === "Link") {
 			output = {
 				mode: "link",
 				doctype: props.referenceDoctype || "",
@@ -1928,8 +1965,8 @@ watch(
 		if (val && typeof val === "object") {
 			const isStaticallyHandledLink =
 				isStaticSupported.value &&
-				((props.fieldType === "Link" && val.mode === "link") ||
-					(props.fieldType === "Dynamic Link" && val.mode === "dynamic_link"));
+				((normalizedFieldType.value === "Link" && val.mode === "link") ||
+					(normalizedFieldType.value === "Dynamic Link" && val.mode === "dynamic_link"));
 
 			if (val.mode && val.mode !== "static" && !isStaticallyHandledLink) {
 				isDynamicMode.value = true;
@@ -1939,7 +1976,7 @@ watch(
 			} else {
 				isDynamicMode.value = false;
 				staticValue.value = val.value ?? "";
-				if (props.fieldType === "Dynamic Link") {
+					if (normalizedFieldType.value === "Dynamic Link") {
 					staticDynamicLinkDoctype.value = val.doctype || "";
 				}
 			}
@@ -1951,33 +1988,30 @@ watch(
 	{ immediate: true, deep: true }
 );
 
-// Watch fieldType changes to correctly re-evaluate static/dynamic modes
-watch(
-	() => props.fieldType,
-	(newType) => {
-		const val = props.modelValue;
-		const isStaticSupp = !PURE_TEXT_FIELDTYPES.has(newType);
-		if (val && typeof val === "object") {
-			const isStaticallyHandledLink =
-				isStaticSupp &&
-				((newType === "Link" && val.mode === "link") ||
-					(newType === "Dynamic Link" && val.mode === "dynamic_link"));
+// Watch normalizedFieldType changes to correctly re-evaluate static/dynamic modes
+watch(normalizedFieldType, (newType) => {
+	const val = props.modelValue;
+	const isStaticSupp = !PURE_TEXT_FIELDTYPES.has(newType);
+	if (val && typeof val === "object") {
+		const isStaticallyHandledLink =
+			isStaticSupp &&
+			((normalizedFieldType.value === "Link" && val.mode === "link") ||
+				(normalizedFieldType.value === "Dynamic Link" && val.mode === "dynamic_link"));
 
-			if (val.mode && val.mode !== "static" && !isStaticallyHandledLink) {
-				isDynamicMode.value = true;
-			} else {
-				isDynamicMode.value = false;
-				staticValue.value = val.value ?? "";
-				if (newType === "Dynamic Link") {
-					staticDynamicLinkDoctype.value = val.doctype || "";
-				}
-			}
+		if (val.mode && val.mode !== "static" && !isStaticallyHandledLink) {
+			isDynamicMode.value = true;
 		} else {
 			isDynamicMode.value = false;
-			staticValue.value = val || "";
+			staticValue.value = val.value ?? "";
+			if (normalizedFieldType.value === "Dynamic Link") {
+				staticDynamicLinkDoctype.value = val.doctype || "";
+			}
 		}
+	} else {
+		isDynamicMode.value = false;
+		staticValue.value = val || "";
 	}
-);
+});
 
 // ─── Built-in Token Popover Editors (Configuration Panels) ───
 
@@ -2383,7 +2417,15 @@ onBeforeUnmount(() => {
 
 .fsvc-static-container :deep(.fxr-input),
 .fsvc-static-container :deep(.fxr-select) {
-	padding: 0 8px !important;
+	padding: 0 10px !important;
+}
+
+.fsvc-static-container :deep(.combobox-input) {
+	padding: 0 !important;
+}
+
+.fsvc-static-container :deep(.combobox-input-group) {
+	padding: 0 10px !important;
 }
 
 /* Visual affordance for static controls */
