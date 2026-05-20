@@ -83,6 +83,7 @@
 								:engine="store"
 								:doc="store.rule_doc"
 								:variableOptions="variable_options"
+								:referenceDoctype="getTargetDoctype(assignment.target)"
 								:placeholder="__('Type value...')"
 								:options="getTargetOptions(assignment.target)"
 								@update:modelValue="(val) => updateTemplate(index, val)"
