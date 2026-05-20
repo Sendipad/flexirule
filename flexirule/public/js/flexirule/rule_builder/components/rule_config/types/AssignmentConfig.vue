@@ -74,7 +74,7 @@
 				<div class="grid-col-value">
 					<template v-if="needsValue(assignment.operator)">
 						<div class="value-mode-wrap">
-							<FlexStructuredValueControl
+							<FlexValueControl
 								class="flex-1 min-w-0"
 								:fieldType="getTargetFieldtype(assignment.target) || 'Data'"
 								:operator="assignment.operator"
@@ -83,11 +83,8 @@
 								:engine="store"
 								:doc="store.rule_doc"
 								:variableOptions="variable_options"
-								:allowedModes="supportedTemplateModes"
-								:referenceDoctype="getTargetDoctype(assignment.target)"
 								:placeholder="__('Type value...')"
 								:options="getTargetOptions(assignment.target)"
-								:doctypeOptions="targetOptions"
 								@update:modelValue="(val) => updateTemplate(index, val)"
 							/>
 						</div>
@@ -237,7 +234,7 @@
 import { computed, watch, ref } from "vue";
 import { useActionConfig } from "../../../composables/useActionConfig";
 import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
-import FlexStructuredValueControl from "../../../controls/FlexStructuredValueControl.vue";
+import FlexValueControl from "../../../controls/FlexValueControl.vue";
 import ConditionBuilder from "../../condition_builder/ConditionBuilder.vue";
 import { compileSegmentsToJinja } from "../../../utils/text_generator";
 import { ASSIGNMENT_OPERATOR_METADATA } from "../../../../core/contracts.js";

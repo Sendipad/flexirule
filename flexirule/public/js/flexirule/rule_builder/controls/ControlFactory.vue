@@ -1,30 +1,33 @@
 <template>
 	<div class="control-factory">
 		<!-- Unified ComboBox for Link, Autocomplete, and FieldPicker -->
-		<ComboBoxControl
+		<template
 			v-if="
 				['Link', 'Dynamic Link', 'Autocomplete', 'FieldPicker', 'DocField'].includes(
 					df?.fieldtype
 				) || df?.options === 'DocField'
 			"
-			:df="df"
-			:modelValue="modelValue"
-			:rule="engine?.rule_doc"
-			:doctype="comboDoctype"
-			:options="comboOptions"
-			:get_query="comboGetQuery"
-			:filters="df?.get_query ? null : df?.filters"
-			:context="
-				['FieldPicker', 'DocField'].includes(df?.fieldtype) || df?.options === 'DocField'
-					? df?.context || doc
-					: null
-			"
-			:trigger="df?.fieldtype === 'FieldPicker' ? 'button' : 'input'"
-			:hideLabel="hideLabel"
-			:hideDescription="hideDescription"
-			:read_only="df?.read_only"
-			@update:modelValue="$emit('update:modelValue', $event)"
-		/>
+		>
+			<ComboBoxControl
+				:df="df"
+				:modelValue="modelValue"
+				:rule="engine?.rule_doc"
+				:doctype="comboDoctype"
+				:options="comboOptions"
+				:get_query="comboGetQuery"
+				:filters="df?.get_query ? null : df?.filters"
+				:context="
+					['FieldPicker', 'DocField'].includes(df?.fieldtype) || df?.options === 'DocField'
+						? df?.context || doc
+						: null
+				"
+				:trigger="df?.fieldtype === 'FieldPicker' ? 'button' : 'input'"
+				:hideLabel="hideLabel"
+				:hideDescription="hideDescription"
+				:read_only="df?.read_only"
+				@update:modelValue="$emit('update:modelValue', $event)"
+			/>
+		</template>
 
 		<!-- Select -->
 		<SelectControl
@@ -110,7 +113,7 @@
 			</div>
 		</div>
 
-		<!-- Text / Code / multiline -->
+		<!-- Text / Code / JSON / multiline -->
 		<div
 			v-else-if="
 				[
@@ -121,6 +124,7 @@
 					'JSON',
 					'HTML Editor',
 					'Markdown Editor',
+					'Long Text',
 				].includes(df?.fieldtype)
 			"
 			class="control frappe-control"
@@ -157,66 +161,38 @@
 			@update:modelValue="$emit('update:modelValue', $event)"
 		/>
 
-		<!-- MultiSelect (Replacement using MultiSelectList) -->
+		<!-- MultiSelect / MultiCheck / MultiFieldPicker -->
 		<MultiSelectList
-			v-else-if="df?.fieldtype === 'MultiSelect'"
-			:displayMode="df?.displayMode || 'badges'"
+			v-else-if="
+				['MultiSelect', 'MultiFieldPicker', 'MultiSelectList', 'MultiCheck'].includes(
+					df?.fieldtype
+				)
+			"
+			:displayMode="getMultiListDisplayMode(df)"
+			:columns="df?.fieldtype === 'MultiCheck' ? 2 : undefined"
 			:df="df"
 			:modelValue="modelValue"
 			:get_data="get_data || df?.get_data"
-			:read_only="df.read_only"
-			@update:modelValue="$emit('update:modelValue', $event)"
-		/>
-
-		<!-- MultiFieldPicker (Replacement using MultiSelectList) -->
-		<MultiSelectList
-			v-else-if="df?.fieldtype === 'MultiFieldPicker'"
-			:displayMode="df?.displayMode || 'badges'"
-			:df="df"
-			:modelValue="modelValue"
-			:documentType="df?.target_doctype || engine?.rule_doc?.document_type"
-			:read_only="df.read_only"
-			@update:modelValue="$emit('update:modelValue', $event)"
-		/>
-
-		<!-- MultiSelectList (Replacement using MultiSelectList) -->
-		<MultiSelectList
-			v-else-if="df?.fieldtype === 'MultiSelectList'"
-			:displayMode="df?.displayMode || 'list'"
-			:df="df"
-			:modelValue="modelValue"
-			:get_data="get_data || df?.get_data"
-			:read_only="df.read_only"
-			@update:modelValue="$emit('update:modelValue', $event)"
-		/>
-
-		<!-- MultiCheck (Replacement using MultiSelectList) -->
-		<MultiSelectList
-			v-else-if="df?.fieldtype === 'MultiCheck'"
-			:displayMode="df?.displayMode || 'columns'"
-			:columns="2"
-			:df="df"
-			:modelValue="modelValue"
+			:documentType="
+				df?.fieldtype === 'MultiFieldPicker'
+					? df?.target_doctype || engine?.rule_doc?.document_type
+					: undefined
+			"
 			:read_only="df.read_only"
 			:hideLabel="hideLabel"
-			:expanded="!hideLabel"
+			:expanded="df?.fieldtype === 'MultiCheck' ? !hideLabel : undefined"
 			@update:modelValue="$emit('update:modelValue', $event)"
 		/>
 
-		<FlexStructuredValueControl
-			v-else-if="df?.fieldtype === 'Structured Value'"
+		<!-- Specialized / High-level controls -->
+		<ResourceMapperControl
+			v-else-if="df?.fieldtype === 'Resource Mapper'"
 			:df="df"
 			:modelValue="modelValue"
+			:targetDoctype="df?.target_doctype || ''"
+			:targetFields="df?.target_fields || []"
+			:sourceOptions="df?.source_options || []"
 			:read_only="df?.read_only"
-			:variableOptions="df?.variable_options || []"
-			:fieldType="df?.target_fieldtype || 'Data'"
-			:compact="df?.compact || false"
-			:placeholder="df?.placeholder || ''"
-			:allowedModes="df?.allowed_modes || []"
-			:options="df?.options"
-			:referenceDoctype="df?.reference_doctype"
-			:referenceField="df?.reference_field"
-			:doctypeOptions="df?.doctype_options"
 			:hideLabel="hideLabel"
 			:hideDescription="hideDescription"
 			@update:modelValue="$emit('update:modelValue', $event)"
@@ -233,14 +209,26 @@
 			@update:modelValue="$emit('update:modelValue', $event)"
 		/>
 
-		<ResourceMapperControl
-			v-else-if="df?.fieldtype === 'Resource Mapper'"
+		<FlexValueControl
+			v-else-if="df?.fieldtype === 'Structured Value'"
 			:df="df"
 			:modelValue="modelValue"
-			:targetDoctype="df?.target_doctype || ''"
-			:targetFields="df?.target_fields || []"
-			:sourceOptions="df?.source_options || []"
 			:read_only="df?.read_only"
+			:variableOptions="df?.variable_options || []"
+			:fieldType="df?.target_fieldtype || 'Data'"
+			:compact="df?.compact || false"
+			:placeholder="df?.placeholder || ''"
+			:options="df?.options"
+			:hideLabel="hideLabel"
+			:hideDescription="hideDescription"
+			@update:modelValue="$emit('update:modelValue', $event)"
+		/>
+
+		<!-- Attach / Attach Image fallback (using DataControl for now) -->
+		<DataControl
+			v-else-if="['Attach', 'Attach Image'].includes(df?.fieldtype)"
+			:df="df"
+			:modelValue="modelValue"
 			:hideLabel="hideLabel"
 			:hideDescription="hideDescription"
 			@update:modelValue="$emit('update:modelValue', $event)"
@@ -266,17 +254,17 @@
 <script setup>
 import { nextTick, onMounted, watch, computed, defineAsyncComponent } from "vue";
 import ComboBoxControl from "./ComboBoxControl.vue";
-import FlexStructuredValueControl from "./FlexStructuredValueControl.vue";
 import MultiSelectList from "./MultiSelectList.vue";
-import ResourceMapperControl from "./ResourceMapperControl.vue";
-import TextGeneratorControl from "./TextGeneratorControl.vue";
 import TimePickerControl from "./TimePickerControl.vue";
 import SelectControl from "./SelectControl.vue";
 import CheckControl from "./CheckControl.vue";
 import DataControl from "./DataControl.vue";
+import ResourceMapperControl from "./ResourceMapperControl.vue";
+import TextGeneratorControl from "./TextGeneratorControl.vue";
 
-// Use async component for FlexiGrid to handle circular dependency with ControlFactory
+// Use async components for potential circular dependencies
 const FlexiGrid = defineAsyncComponent(() => import("./FlexiGrid.vue"));
+const FlexValueControl = defineAsyncComponent(() => import("./FlexValueControl.vue"));
 
 const props = defineProps({
 	df: Object,
@@ -293,8 +281,6 @@ const props = defineProps({
 const emit = defineEmits(["update:modelValue"]);
 
 // ── DocField / FieldPicker helpers ────────────────────────────────────────────
-// DocField means: pick a FIELD of a doctype, NOT a document link.
-// We must NEVER call search_link for DocField; instead we fetch meta fields.
 
 const isDocFieldType = computed(
 	() =>
@@ -302,15 +288,10 @@ const isDocFieldType = computed(
 		props.df?.options === "DocField"
 );
 
-/**
- * Resolve the target doctype for a DocField picker.
- * Priority: df.target_doctype → df.options (if plain doctype name) → engine.rule_doc.document_type
- */
 const docFieldTargetDoctype = computed(() => {
 	if (!isDocFieldType.value) return null;
 	if (props.df?.target_doctype) return props.df.target_doctype;
 	const opt = props.df?.options;
-	// If options is a plain doctype-name string (already resolved from vars.xxx by engine)
 	if (
 		typeof opt === "string" &&
 		opt &&
@@ -325,34 +306,20 @@ const docFieldTargetDoctype = computed(() => {
 	return props.engine?.rule_doc?.document_type || null;
 });
 
-/**
- * :doctype prop for ComboBoxControl.
- * - Link / Dynamic Link: use the options/linked-doctype.
- * - DocField / FieldPicker: NEVER pass a doctype (avoids search_link).
- * - Autocomplete etc: null.
- */
 const comboDoctype = computed(() => {
 	const ft = props.df?.fieldtype;
 	if (ft === "Link") return props.df?.options || props.df?.target_doctype || null;
 	if (ft === "Dynamic Link") return props.doc?.[props.df?.options] || "";
-	// DocField / FieldPicker must NOT use doctype (would trigger search_link)
 	return null;
 });
 
-/**
- * Pre-fetched options to pass to ComboBoxControl.
- * For DocField: if the engine already resolved an array (when options was literal 'DocField'),
- * pass it directly; otherwise leave empty so get_query fetches on open.
- */
 const comboOptions = computed(() => {
 	if (isDocFieldType.value) {
-		// If the engine resolved options to an array, use it directly
 		if (Array.isArray(props.df?.options) && props.df.options.length > 0) {
 			return props.df.options;
 		}
 		return [];
 	}
-	// Standard: autocomplete_options > df.options for Autocomplete/Select > external override
 	return (
 		props.df?.autocomplete_options ||
 		(["Autocomplete", "Select"].includes(props.df?.fieldtype) ? props.df?.options : null) ||
@@ -361,22 +328,15 @@ const comboOptions = computed(() => {
 	);
 });
 
-/**
- * get_query function for ComboBoxControl.
- * For DocField / FieldPicker: returns a function that fetches doctype meta fields.
- * For all others: uses the externally supplied get_options / df.get_options.
- */
 const comboGetQuery = computed(() => {
 	if (!isDocFieldType.value) {
 		return props.get_options || props.df?.get_options || null;
 	}
-	// If options are pre-fetched as an array, no need for a get_query
 	if (Array.isArray(props.df?.options) && props.df.options.length > 0) {
 		return null;
 	}
 	const targetDoctype = docFieldTargetDoctype.value;
 	if (!targetDoctype) return null;
-	// Return a function that fetches doctype fields filtered by search term
 	return async (search_term) => {
 		try {
 			const fields = await flexirule.utils.get_doctype_fields(targetDoctype);
@@ -394,6 +354,14 @@ const comboGetQuery = computed(() => {
 		}
 	};
 });
+
+function getMultiListDisplayMode(df) {
+	if (df?.displayMode) return df.displayMode;
+	if (df?.fieldtype === "MultiSelect" || df?.fieldtype === "MultiFieldPicker") return "badges";
+	if (df?.fieldtype === "MultiSelectList") return "list";
+	if (df?.fieldtype === "MultiCheck") return "columns";
+	return "badges";
+}
 
 onMounted(() => {
 	check_default();
@@ -418,14 +386,10 @@ function onDrop(event) {
 	let variable = event.dataTransfer.getData("application/x-flexirule-variable");
 	if (variable) {
 		event.preventDefault();
-
-		// Sanitize variable name to prevent injection/breaking templates
-		// Reject common injection characters
 		if (/[{}"']/.test(variable)) {
 			console.warn("FlexiRule: Rejected unsafe variable name drop:", variable);
 			return;
 		}
-
 		const text = `{{ ${variable} }}`;
 		const input = event.target;
 		const start = input.selectionStart;
@@ -433,8 +397,6 @@ function onDrop(event) {
 		const val = props.modelValue || "";
 		const newVal = val.substring(0, start) + text + val.substring(end);
 		emit("update:modelValue", newVal);
-
-		// Set cursor after the inserted variable
 		nextTick(() => {
 			input.focus();
 			input.setSelectionRange(start + text.length, start + text.length);
