@@ -2,6 +2,7 @@
 title: "Switch"
 weight: 90
 ---
+
 # Switch Action
 
 The **Switch** action enables multi-path branching based on the value of an expression. It functions similarly to a `switch` statement in programming or a router in logic flows.

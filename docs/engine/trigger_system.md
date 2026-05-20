@@ -2,6 +2,7 @@
 title: "Trigger System"
 weight: 30
 ---
+
 # Trigger System
 
 The FlexiRule Trigger System determines when a rule should begin its execution. It is managed by the `RuleCoordinator`, which acts as a high-performance dispatcher integrated into the Frappe lifecycle.

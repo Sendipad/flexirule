@@ -2,6 +2,7 @@
 title: "Standards"
 weight: 100
 ---
+
 # Process Adapter Standards
 
 Processes are the primary extensibility point for FlexiRule. A **Process** is a grouping of **Operations** (Python functions) that can be called from the visual builder.

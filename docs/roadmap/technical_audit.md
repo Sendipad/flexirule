@@ -2,6 +2,7 @@
 title: "Technical Audit"
 weight: 10
 ---
+
 # Technical Audit & Roadmap
 
 This document outlines the current technical state of FlexiRule and provides a roadmap for future improvements.

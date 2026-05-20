@@ -2,6 +2,7 @@
 title: "Doctypes"
 weight: 30
 ---
+
 # DocType Reference
 
 FlexiRule uses a structured set of DocTypes to manage rule definitions, visual metadata, reusable logic, and execution audit trails. This document provides a exhaustive breakdown of all fields for every DocType in the system.

@@ -2,6 +2,7 @@
 title: "Orchestration"
 weight: 40
 ---
+
 # Orchestration Capabilities
 
 FlexiRule is more than a simple automation engine; it is a **Visual Orchestration Layer** that allows for the coordination of complex business processes across multiple DocTypes and systems.

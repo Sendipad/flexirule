@@ -2,6 +2,7 @@
 title: "Assignment"
 weight: 20
 ---
+
 # Assignment Action
 
 The **Assignment** action is a powerful tool for performing batch state mutations on the current document or context variables. It replaces the legacy **Set Value** action with a more robust system that supports multiple operators and sequential execution.

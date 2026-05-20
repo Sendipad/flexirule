@@ -2,6 +2,7 @@
 title: "Frontend Technical"
 weight: 40
 ---
+
 # Frontend Technical Deep Dive
 
 The FlexiRule frontend is a Vue 3 application that synchronizes complex graph logic with Frappe's relational data model.

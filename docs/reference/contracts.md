@@ -2,6 +2,7 @@
 title: "Contracts"
 weight: 40
 ---
+
 # Action & Operation Contracts
 
 FlexiRule uses a "Contract-First" approach to ensure consistency between the Python backend and the Vue 3 frontend. Contracts define the rules, constraints, and UI behavior for every action in the system.

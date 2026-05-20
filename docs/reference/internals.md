@@ -2,6 +2,7 @@
 title: "Internals"
 weight: 20
 ---
+
 # Core Engine Internals
 
 This document covers the low-level management of the FlexiRule engine.

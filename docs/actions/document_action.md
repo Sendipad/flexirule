@@ -2,6 +2,7 @@
 title: "Document Action"
 weight: 40
 ---
+
 # Document Action
 
 The **Document Action** node allows rules to interact with the lifecycle of any DocType in the system.

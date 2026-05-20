@@ -2,6 +2,7 @@
 title: "Query Records"
 weight: 80
 ---
+
 # Query Records Action
 
 The **Query Records** action retrieves data from any DocType in the system.

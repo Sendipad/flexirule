@@ -2,6 +2,7 @@
 title: "Architecture"
 weight: 20
 ---
+
 # FlexiRule Architecture
 
 FlexiRule is a visual rule orchestration engine built for Frappe v15+. It bridges the gap between no-code configuration and standard Python business logic by providing a graph-based execution layer.

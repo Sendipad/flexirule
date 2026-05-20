@@ -2,6 +2,7 @@
 title: "Loop"
 weight: 50
 ---
+
 # Loop Action
 
 The **Loop** action enables iterative processing of collections, such as child tables or query results.

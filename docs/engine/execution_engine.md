@@ -2,6 +2,7 @@
 title: "Execution Engine"
 weight: 10
 ---
+
 # Execution Engine Deep Dive
 
 The FlexiRule Execution Engine is a deterministic graph executor designed for reliability, observability, and safety.

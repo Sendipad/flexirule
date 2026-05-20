@@ -2,6 +2,7 @@
 title: "Rule Builder"
 weight: 10
 ---
+
 # Visual Rule Builder
 
 The Rule Builder is a Vue 3-based visual workspace for designing business logic graphs. It provides a drag-and-drop canvas where you can orchestrate complex workflows.

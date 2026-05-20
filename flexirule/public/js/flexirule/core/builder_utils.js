@@ -100,7 +100,9 @@ export function compileToCode(item, fallbackField = "") {
 
 	// Default: date_formula
 	const baseExpr =
-		item.base_type === "today" ? "frappe.utils.nowdate()" : `doc.${item.base_field || fallbackField}`;
+		item.base_type === "today"
+			? "frappe.utils.nowdate()"
+			: `doc.${item.base_field || fallbackField}`;
 	const offset = parseInt(item.offset_value || 0, 10);
 
 	if (offset === 0 || !item.offset_unit) {

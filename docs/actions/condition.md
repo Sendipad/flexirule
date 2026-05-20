@@ -2,6 +2,7 @@
 title: "Condition"
 weight: 30
 ---
+
 # Condition Action
 
 The **Condition** action allows for branching execution logic based on the evaluation of a Python expression.

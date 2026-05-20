@@ -2,6 +2,7 @@
 title: "Controls"
 weight: 40
 ---
+
 # Reusable Vue Controls & Widgets
 
 This document details the smart and innovative Vue components used throughout the FlexiRule UI. These controls are designed for high reusability, particularly within action node configuration panels, and provide sophisticated data manipulation and visual orchestration capabilities.

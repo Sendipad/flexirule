@@ -2,6 +2,7 @@
 title: "Process"
 weight: 70
 ---
+
 # Process Action
 
 The **Process** action is the primary way to extend FlexiRule with custom Python code. It executes reusable business logic defined in a `Process` DocType.
