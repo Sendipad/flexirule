@@ -15,10 +15,7 @@
 			@click="onWrapClick"
 		>
 			<!-- Static Mode (via ControlFactory) -->
-			<div
-				v-if="!isDynamicMode && isStaticSupported"
-				class="fvc-static-container flex-1"
-			>
+			<div v-if="!isDynamicMode && isStaticSupported" class="fvc-static-container flex-1">
 				<ControlFactory
 					:df="staticDf"
 					:modelValue="staticValue"
@@ -139,26 +136,55 @@
 						<template v-if="activeTokenType === 'resolver'">
 							<div class="d-flex flex-column fxr-gap-3">
 								<div class="d-flex flex-column fxr-gap-1">
-									<label class="fxr-label-sm">{{ __("Value Resolver Type") }}</label>
+									<label class="fxr-label-sm">{{
+										__("Value Resolver Type")
+									}}</label>
 									<select class="fxr-select" v-model="tokenDraftAttrs.resolver">
-										<option value="query_record">{{ __("Query Record") }}</option>
-										<option value="resolve_user">{{ __("Resolve Current User") }}</option>
-										<option value="fetch_global_setting">{{ __("Fetch Global Setting") }}</option>
-										<option value="custom">{{ __("Custom API/Method") }}</option>
+										<option value="query_record">
+											{{ __("Query Record") }}
+										</option>
+										<option value="resolve_user">
+											{{ __("Resolve Current User") }}
+										</option>
+										<option value="fetch_global_setting">
+											{{ __("Fetch Global Setting") }}
+										</option>
+										<option value="custom">
+											{{ __("Custom API/Method") }}
+										</option>
 									</select>
 								</div>
 								<div class="d-flex flex-column fxr-gap-1 mt-2">
 									<label class="fxr-label-sm d-flex justify-content-between">
 										<span>{{ __("Parameters Config") }}</span>
-										<button class="fxr-btn fxr-btn--sm fxr-btn--secondary py-0" @click="addConfigParam">
+										<button
+											class="fxr-btn fxr-btn--sm fxr-btn--secondary py-0"
+											@click="addConfigParam"
+										>
 											<i class="fa fa-plus me-1"></i> {{ __("Add Param") }}
 										</button>
 									</label>
 									<div class="params-editor-list">
-										<div v-for="(v, k) in tokenDraftAttrs.config" :key="k" class="param-row d-flex fxr-gap-2 align-items-center mb-2">
-											<input class="fxr-input flex-1" :value="k" @change="renameConfigKey(k, $event.target.value)" placeholder="Key" />
-											<input class="fxr-input flex-2" v-model="tokenDraftAttrs.config[k]" placeholder="Value" />
-											<button class="fxr-btn fxr-btn--icon fxr-btn--sm fxr-btn--ghost text-danger px-0" @click="removeConfigKey(k)">
+										<div
+											v-for="(v, k) in tokenDraftAttrs.config"
+											:key="k"
+											class="param-row d-flex fxr-gap-2 align-items-center mb-2"
+										>
+											<input
+												class="fxr-input flex-1"
+												:value="k"
+												@change="renameConfigKey(k, $event.target.value)"
+												placeholder="Key"
+											/>
+											<input
+												class="fxr-input flex-2"
+												v-model="tokenDraftAttrs.config[k]"
+												placeholder="Value"
+											/>
+											<button
+												class="fxr-btn fxr-btn--icon fxr-btn--sm fxr-btn--ghost text-danger px-0"
+												@click="removeConfigKey(k)"
+											>
 												<i class="fa fa-trash"></i>
 											</button>
 										</div>
@@ -170,14 +196,30 @@
 						<template v-if="activeTokenType === 'json'">
 							<div class="d-flex flex-column fxr-gap-3">
 								<label class="fxr-label-sm">{{ __("JSON Data Editor") }}</label>
-								<textarea class="fxr-textarea json-textarea" v-model="tokenDraftAttrs.value" placeholder='{ "key": "value" }'></textarea>
-								<div v-if="jsonParseError" class="text-danger fxr-text-xs">{{ jsonParseError }}</div>
+								<textarea
+									class="fxr-textarea json-textarea"
+									v-model="tokenDraftAttrs.value"
+									placeholder='{ "key": "value" }'
+								></textarea>
+								<div v-if="jsonParseError" class="text-danger fxr-text-xs">
+									{{ jsonParseError }}
+								</div>
 							</div>
 						</template>
 					</div>
 					<footer class="fxr-token-modal-footer">
-						<button class="fxr-btn fxr-btn--sm fxr-btn--secondary" @click="closeTokenEditor">{{ __("Cancel") }}</button>
-						<button class="fxr-btn fxr-btn--sm fxr-btn--primary" @click="saveTokenEditor">{{ __("Save") }}</button>
+						<button
+							class="fxr-btn fxr-btn--sm fxr-btn--secondary"
+							@click="closeTokenEditor"
+						>
+							{{ __("Cancel") }}
+						</button>
+						<button
+							class="fxr-btn fxr-btn--sm fxr-btn--primary"
+							@click="saveTokenEditor"
+						>
+							{{ __("Save") }}
+						</button>
 					</footer>
 				</div>
 			</div>
@@ -186,13 +228,7 @@
 </template>
 
 <script setup>
-import {
-	computed,
-	ref,
-	watch,
-	onBeforeUnmount,
-	nextTick,
-} from "vue";
+import { computed, ref, watch, onBeforeUnmount, nextTick } from "vue";
 import { Editor, EditorContent, VueRenderer } from "@tiptap/vue-3";
 import { StarterKit } from "@tiptap/starter-kit";
 import { Node, mergeAttributes } from "@tiptap/core";
@@ -276,29 +312,74 @@ const staticDf = computed(() => {
 // ── Tiptap Extensions ──
 
 const VariableToken = Node.create({
-	name: "variableToken", group: "inline", inline: true, selectable: true, atom: true,
-	addAttributes() { return { path: { default: "" }, label: { default: "" } }; },
-	parseHTML() { return [{ tag: 'span[data-token-type="variable"]' }]; },
+	name: "variableToken",
+	group: "inline",
+	inline: true,
+	selectable: true,
+	atom: true,
+	addAttributes() {
+		return { path: { default: "" }, label: { default: "" } };
+	},
+	parseHTML() {
+		return [{ tag: 'span[data-token-type="variable"]' }];
+	},
 	renderHTML({ node, HTMLAttributes }) {
-		return ["span", mergeAttributes(HTMLAttributes, { "data-token-type": "variable", class: "token-chip token-variable" }), `👤 ${node.attrs.label || node.attrs.path}`];
+		return [
+			"span",
+			mergeAttributes(HTMLAttributes, {
+				"data-token-type": "variable",
+				class: "token-chip token-variable",
+			}),
+			`👤 ${node.attrs.label || node.attrs.path}`,
+		];
 	},
 });
 
 const FormulaToken = Node.create({
-	name: "formulaToken", group: "inline", inline: true, selectable: true, atom: true,
-	addAttributes() { return { expression: { default: "" } }; },
-	parseHTML() { return [{ tag: 'span[data-token-type="formula"]' }]; },
+	name: "formulaToken",
+	group: "inline",
+	inline: true,
+	selectable: true,
+	atom: true,
+	addAttributes() {
+		return { expression: { default: "" } };
+	},
+	parseHTML() {
+		return [{ tag: 'span[data-token-type="formula"]' }];
+	},
 	renderHTML({ node, HTMLAttributes }) {
-		return ["span", mergeAttributes(HTMLAttributes, { "data-token-type": "formula", class: "token-chip token-formula" }), `🧮 Formula${node.attrs.expression ? ` (${node.attrs.expression})` : ""}`];
+		return [
+			"span",
+			mergeAttributes(HTMLAttributes, {
+				"data-token-type": "formula",
+				class: "token-chip token-formula",
+			}),
+			`🧮 Formula${node.attrs.expression ? ` (${node.attrs.expression})` : ""}`,
+		];
 	},
 });
 
 const ResolverToken = Node.create({
-	name: "resolverToken", group: "inline", inline: true, selectable: true, atom: true,
-	addAttributes() { return { resolver: { default: "" }, config: { default: () => ({}) } }; },
-	parseHTML() { return [{ tag: 'span[data-token-type="resolver"]' }]; },
+	name: "resolverToken",
+	group: "inline",
+	inline: true,
+	selectable: true,
+	atom: true,
+	addAttributes() {
+		return { resolver: { default: "" }, config: { default: () => ({}) } };
+	},
+	parseHTML() {
+		return [{ tag: 'span[data-token-type="resolver"]' }];
+	},
 	renderHTML({ node, HTMLAttributes }) {
-		return ["span", mergeAttributes(HTMLAttributes, { "data-token-type": "resolver", class: "token-chip token-resolver" }), `⚡ Resolve${node.attrs.resolver ? ` (${node.attrs.resolver})` : ""}`];
+		return [
+			"span",
+			mergeAttributes(HTMLAttributes, {
+				"data-token-type": "resolver",
+				class: "token-chip token-resolver",
+			}),
+			`⚡ Resolve${node.attrs.resolver ? ` (${node.attrs.resolver})` : ""}`,
+		];
 	},
 });
 
@@ -316,7 +397,10 @@ function createSuggestionRenderer() {
 				getReferenceClientRect: props.clientRect,
 				appendTo: () => document.body,
 				content: component.element,
-				showOnCreate: true, interactive: true, trigger: "manual", placement: "bottom-start",
+				showOnCreate: true,
+				interactive: true,
+				trigger: "manual",
+				placement: "bottom-start",
 			});
 		},
 		onUpdate(props) {
@@ -324,7 +408,10 @@ function createSuggestionRenderer() {
 			popup?.[0]?.setProps({ getReferenceClientRect: props.clientRect });
 		},
 		onKeyDown(props) {
-			if (props.event.key === "Escape") { popup?.[0]?.hide(); return true; }
+			if (props.event.key === "Escape") {
+				popup?.[0]?.hide();
+				return true;
+			}
 			return component?.ref?.onKeyDown(props);
 		},
 		onExit() {
@@ -340,10 +427,17 @@ let emitting = false;
 const editor = new Editor({
 	extensions: [
 		StarterKit.configure({
-			heading: false, codeBlock: false, blockquote: false, bulletList: false,
-			orderedList: false, listItem: false, horizontalRule: false,
+			heading: false,
+			codeBlock: false,
+			blockquote: false,
+			bulletList: false,
+			orderedList: false,
+			listItem: false,
+			horizontalRule: false,
 		}),
-		VariableToken, FormulaToken, ResolverToken,
+		VariableToken,
+		FormulaToken,
+		ResolverToken,
 		VariableTrigger.configure({
 			suggestion: {
 				char: "@",
@@ -357,18 +451,33 @@ const editor = new Editor({
 					];
 					const options = [
 						...base,
-						...(props.variableOptions || []).map(v => ({
-							id: v.value || v, label: v.label || v, type: "variable", icon: "fa fa-cube"
+						...(props.variableOptions || []).map((v) => ({
+							id: v.value || v,
+							label: v.label || v,
+							type: "variable",
+							icon: "fa fa-cube",
 						})),
 					];
-					return options.filter(v => v.id.toLowerCase().includes(q) || v.label.toLowerCase().includes(q)).slice(0, 20);
+					return options
+						.filter(
+							(v) =>
+								v.id.toLowerCase().includes(q) || v.label.toLowerCase().includes(q)
+						)
+						.slice(0, 20);
 				},
 				command: ({ editor, range, props }) => {
-					editor.chain().focus().insertContentAt(range, [
-						{ type: "variableToken", attrs: { path: props.id, label: props.label } }
-					]).run();
+					editor
+						.chain()
+						.focus()
+						.insertContentAt(range, [
+							{
+								type: "variableToken",
+								attrs: { path: props.id, label: props.label },
+							},
+						])
+						.run();
 				},
-			}
+			},
 		}),
 		CommandTrigger.configure({
 			suggestion: {
@@ -380,22 +489,35 @@ const editor = new Editor({
 					const commands = getCommandsForFieldtype(props.fieldType);
 					const formulas = getFormulasForFieldtype(props.fieldType);
 
-					const mappedFormulas = formulas.map(f => ({
-						id: f.id, label: f.label, type: "logic", icon: "fa fa-calculator", description: f.description
+					const mappedFormulas = formulas.map((f) => ({
+						id: f.id,
+						label: f.label,
+						type: "logic",
+						icon: "fa fa-calculator",
+						description: f.description,
 					}));
 
-					return [...commands, ...mappedFormulas].filter(c => c.label.toLowerCase().includes(q));
+					return [...commands, ...mappedFormulas].filter((c) =>
+						c.label.toLowerCase().includes(q)
+					);
 				},
 				command: ({ editor, range, props }) => {
-					if (props.id === "clear") { editor.chain().focus().setContent("").run(); return; }
+					if (props.id === "clear") {
+						editor.chain().focus().setContent("").run();
+						return;
+					}
 
 					const commands = getCommandsForFieldtype(props.fieldType);
-					const isCommand = commands.find(c => c.id === props.id);
+					const isCommand = commands.find((c) => c.id === props.id);
 
 					if (isCommand) {
 						const typeMap = { formula: "formulaToken", resolver: "resolverToken" };
 						const nodeType = typeMap[props.id] || "formulaToken";
-						editor.chain().focus().insertContentAt(range, [{ type: nodeType, attrs: {} }]).run();
+						editor
+							.chain()
+							.focus()
+							.insertContentAt(range, [{ type: nodeType, attrs: {} }])
+							.run();
 						nextTick(() => {
 							const { selection } = editor.state;
 							const node = editor.state.doc.nodeAt(selection.$from.pos - 1);
@@ -405,7 +527,7 @@ const editor = new Editor({
 						editor.chain().focus().insertContentAt(range, `${props.label}()`).run();
 					}
 				},
-			}
+			},
 		}),
 	],
 	editable: !isReadOnly.value,
@@ -423,9 +545,15 @@ const editor = new Editor({
 			return text.replace(/[\r\n]+/g, " ");
 		},
 	},
-	onUpdate: () => { if (!emitting) emitChanges(); },
-	onFocus: () => { isEditorFocused.value = true; },
-	onBlur: () => { isEditorFocused.value = false; },
+	onUpdate: () => {
+		if (!emitting) emitChanges();
+	},
+	onFocus: () => {
+		isEditorFocused.value = true;
+	},
+	onBlur: () => {
+		isEditorFocused.value = false;
+	},
 });
 
 const isEditorEmpty = computed(() => editor.isEmpty);
@@ -446,18 +574,28 @@ function serialize() {
 	if (content.length === 1 && content[0].type !== "text") {
 		const node = content[0];
 		if (node.type === "variableToken") {
-			return { mode: "variable", value: node.attrs.path, label: node.attrs.label, fieldtype: props.fieldType };
+			return {
+				mode: "variable",
+				value: node.attrs.path,
+				label: node.attrs.label,
+				fieldtype: props.fieldType,
+			};
 		}
 		if (node.type === "formulaToken") {
 			return { mode: "formula", value: node.attrs.expression, fieldtype: props.fieldType };
 		}
 		if (node.type === "resolverToken") {
-			return { mode: "resolver", value: node.attrs.resolver, config: node.attrs.config, fieldtype: props.fieldType };
+			return {
+				mode: "resolver",
+				value: node.attrs.resolver,
+				config: node.attrs.config,
+				fieldtype: props.fieldType,
+			};
 		}
 	}
 
 	// Mixed content or multiple tokens -> expression mode
-	const tokens = content.map(item => {
+	const tokens = content.map((item) => {
 		if (item.type === "text") return { type: "text", value: item.text };
 		return { type: item.type, attrs: item.attrs };
 	});
@@ -469,18 +607,28 @@ function deserialize(val) {
 	if (!val) return "";
 	if (typeof val !== "object") return String(val);
 
-	if (val.mode === "variable") return `<span data-token-type="variable" data-path="${val.value}" data-label="${val.label || ""}"></span>`;
-	if (val.mode === "formula") return `<span data-token-type="formula" data-expression="${val.value}"></span>`;
-	if (val.mode === "resolver") return `<span data-token-type="resolver" data-resolver="${val.value}"></span>`;
+	if (val.mode === "variable")
+		return `<span data-token-type="variable" data-path="${val.value}" data-label="${
+			val.label || ""
+		}"></span>`;
+	if (val.mode === "formula")
+		return `<span data-token-type="formula" data-expression="${val.value}"></span>`;
+	if (val.mode === "resolver")
+		return `<span data-token-type="resolver" data-resolver="${val.value}"></span>`;
 
 	if (val.mode === "expression" && Array.isArray(val.value)) {
-		return val.value.map(item => {
-			if (item.type === "text") return item.value;
-			if (item.type === "variableToken") return `<span data-token-type="variable" data-path="${item.attrs.path}" data-label="${item.attrs.label}"></span>`;
-			if (item.type === "formulaToken") return `<span data-token-type="formula" data-expression="${item.attrs.expression}"></span>`;
-			if (item.type === "resolverToken") return `<span data-token-type="resolver" data-resolver="${item.attrs.resolver}"></span>`;
-			return "";
-		}).join("");
+		return val.value
+			.map((item) => {
+				if (item.type === "text") return item.value;
+				if (item.type === "variableToken")
+					return `<span data-token-type="variable" data-path="${item.attrs.path}" data-label="${item.attrs.label}"></span>`;
+				if (item.type === "formulaToken")
+					return `<span data-token-type="formula" data-expression="${item.attrs.expression}"></span>`;
+				if (item.type === "resolverToken")
+					return `<span data-token-type="resolver" data-resolver="${item.attrs.resolver}"></span>`;
+				return "";
+			})
+			.join("");
 	}
 
 	return val.value || "";
@@ -491,7 +639,9 @@ function emitChanges() {
 	const output = serialize();
 	emit("update:modelValue", output);
 	emit("update", output);
-	nextTick(() => { emitting = false; });
+	nextTick(() => {
+		emitting = false;
+	});
 }
 
 // ── Orchestration ──
@@ -516,9 +666,11 @@ function toggleDynamicMode() {
 }
 
 function onStaticKeydown(e) {
-	if (isReadOnly.value || props.disabled || isDynamicMode.value || !isStaticSupported.value) return;
+	if (isReadOnly.value || props.disabled || isDynamicMode.value || !isStaticSupported.value)
+		return;
 	if (e.key === "@" || e.key === "/") {
-		e.preventDefault(); e.stopPropagation();
+		e.preventDefault();
+		e.stopPropagation();
 		isDynamicMode.value = true;
 		nextTick(() => {
 			emitting = true;
@@ -577,7 +729,12 @@ function saveTokenEditor() {
 		emitChanges();
 	} else {
 		emitting = true;
-		editor.chain().focus().setNodeSelection(activeTokenPos.value).updateAttributes(activeTokenNode.value.type.name, tokenDraftAttrs.value).run();
+		editor
+			.chain()
+			.focus()
+			.setNodeSelection(activeTokenPos.value)
+			.updateAttributes(activeTokenNode.value.type.name, tokenDraftAttrs.value)
+			.run();
 		emitting = false;
 		emitChanges();
 	}
@@ -588,7 +745,8 @@ function insertVarInFormula(v) {
 	const textarea = formulaTextareaRef.value;
 	const start = textarea.selectionStart;
 	const insert = v.value || v;
-	tokenDraftAttrs.value.expression = textarea.value.slice(0, start) + insert + textarea.value.slice(textarea.selectionEnd);
+	tokenDraftAttrs.value.expression =
+		textarea.value.slice(0, start) + insert + textarea.value.slice(textarea.selectionEnd);
 }
 
 function addConfigParam() {
@@ -608,28 +766,41 @@ function renameConfigKey(oldKey, newKey) {
 	tokenDraftAttrs.value.config[newKey] = val;
 }
 
-watch(() => props.modelValue, (val) => {
-	if (emitting) return;
-	if (val && typeof val === "object" && val.mode && val.mode !== "static") {
-		isDynamicMode.value = true;
-		emitting = true;
-		editor.commands.setContent(deserialize(val));
-		emitting = false;
-	} else {
-		isDynamicMode.value = false;
-		staticValue.value = val?.value ?? val ?? "";
-	}
-}, { immediate: true });
+watch(
+	() => props.modelValue,
+	(val) => {
+		if (emitting) return;
+		if (val && typeof val === "object" && val.mode && val.mode !== "static") {
+			isDynamicMode.value = true;
+			emitting = true;
+			editor.commands.setContent(deserialize(val));
+			emitting = false;
+		} else {
+			isDynamicMode.value = false;
+			staticValue.value = val?.value ?? val ?? "";
+		}
+	},
+	{ immediate: true }
+);
 
-onBeforeUnmount(() => { editor.destroy(); });
-
+onBeforeUnmount(() => {
+	editor.destroy();
+});
 </script>
 
 <style scoped>
-.fvc-wrap { display: flex; flex-direction: column; width: 100%; }
+.fvc-wrap {
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+}
 .fvc-main-field {
-	display: flex; align-items: center; width: 100%; min-height: 32px;
-	border: 1px solid var(--fxr-border, #e2e8f0); border-radius: var(--fxr-radius-md, 6px);
+	display: flex;
+	align-items: center;
+	width: 100%;
+	min-height: 32px;
+	border: 1px solid var(--fxr-border, #e2e8f0);
+	border-radius: var(--fxr-radius-md, 6px);
 	background: var(--fxr-bg-input, #fff);
 	transition: all 0.2s ease;
 }
@@ -659,19 +830,86 @@ onBeforeUnmount(() => { editor.destroy(); });
 	padding: 0 10px !important;
 }
 
-.fvc-static-container { display: flex; align-items: center; flex: 1; height: 100%; min-width: 0; }
-.fvc-editor-container { padding: 2px 8px; flex: 1; position: relative; overflow: hidden; }
-.fvc-editor-wrapper { width: 100%; position: relative; }
-.fvc-mode-toggle-wrap { padding-right: 6px; border-left: 1px solid var(--fxr-border, #e2e8f0); margin-left: 4px; height: 24px; display: flex; align-items: center; }
-.fvc-toggle-btn { background: transparent; border: none; cursor: pointer; color: #64748b; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px; transition: all 0.2s; }
-.fvc-toggle-btn:hover { background: #f1f5f9; color: #2490ef; }
+.fvc-static-container {
+	display: flex;
+	align-items: center;
+	flex: 1;
+	height: 100%;
+	min-width: 0;
+}
+.fvc-editor-container {
+	padding: 2px 8px;
+	flex: 1;
+	position: relative;
+	overflow: hidden;
+}
+.fvc-editor-wrapper {
+	width: 100%;
+	position: relative;
+}
+.fvc-mode-toggle-wrap {
+	padding-right: 6px;
+	border-left: 1px solid var(--fxr-border, #e2e8f0);
+	margin-left: 4px;
+	height: 24px;
+	display: flex;
+	align-items: center;
+}
+.fvc-toggle-btn {
+	background: transparent;
+	border: none;
+	cursor: pointer;
+	color: #64748b;
+	width: 24px;
+	height: 24px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 4px;
+	transition: all 0.2s;
+}
+.fvc-toggle-btn:hover {
+	background: #f1f5f9;
+	color: #2490ef;
+}
 
-.fvc-empty-hint { position: absolute; top: 3px; left: 0; color: #94a3b8; font-size: 11px; pointer-events: none; white-space: nowrap; font-family: var(--font-stack-mono, monospace); }
-.fvc-empty-hint .hint-part { color: #64748b; font-weight: 700; }
-.fvc-empty-hint .hint-at { color: #059669; font-weight: 700; }
-.fvc-empty-hint .hint-slash { color: #7c3aed; font-weight: 700; }
-.fvc-focus-hint { position: absolute; top: 3px; left: 0; color: #cbd5e1; font-size: 12px; font-style: italic; pointer-events: none; }
-.fvc-tiptap-editor :deep(.ProseMirror) { outline: none; font-size: 13px; min-height: 22px; white-space: nowrap; }
+.fvc-empty-hint {
+	position: absolute;
+	top: 3px;
+	left: 0;
+	color: #94a3b8;
+	font-size: 11px;
+	pointer-events: none;
+	white-space: nowrap;
+	font-family: var(--font-stack-mono, monospace);
+}
+.fvc-empty-hint .hint-part {
+	color: #64748b;
+	font-weight: 700;
+}
+.fvc-empty-hint .hint-at {
+	color: #059669;
+	font-weight: 700;
+}
+.fvc-empty-hint .hint-slash {
+	color: #7c3aed;
+	font-weight: 700;
+}
+.fvc-focus-hint {
+	position: absolute;
+	top: 3px;
+	left: 0;
+	color: #cbd5e1;
+	font-size: 12px;
+	font-style: italic;
+	pointer-events: none;
+}
+.fvc-tiptap-editor :deep(.ProseMirror) {
+	outline: none;
+	font-size: 13px;
+	min-height: 22px;
+	white-space: nowrap;
+}
 
 .fvc-inline-actions {
 	position: absolute;
@@ -706,26 +944,120 @@ onBeforeUnmount(() => { editor.destroy(); });
 }
 
 :deep(.token-chip) {
-	padding: 1px 6px; border-radius: 4px; font-size: 11px; font-weight: 600;
-	margin: 0 2px; cursor: pointer; display: inline-flex; align-items: center; transition: all 0.2s;
+	padding: 1px 6px;
+	border-radius: 4px;
+	font-size: 11px;
+	font-weight: 600;
+	margin: 0 2px;
+	cursor: pointer;
+	display: inline-flex;
+	align-items: center;
+	transition: all 0.2s;
 }
-:deep(.token-chip:hover) { filter: brightness(0.95); transform: scale(1.02); }
-:deep(.token-variable) { background: #ecfdf5; color: #059669; border: 1px solid #10b98133; }
-:deep(.token-formula) { background: #f5f3ff; color: #7c3aed; border: 1px solid #8b5cf633; }
-:deep(.token-resolver) { background: #fffbeb; color: #d97706; border: 1px solid #f59e0b33; }
+:deep(.token-chip:hover) {
+	filter: brightness(0.95);
+	transform: scale(1.02);
+}
+:deep(.token-variable) {
+	background: #ecfdf5;
+	color: #059669;
+	border: 1px solid #10b98133;
+}
+:deep(.token-formula) {
+	background: #f5f3ff;
+	color: #7c3aed;
+	border: 1px solid #8b5cf633;
+}
+:deep(.token-resolver) {
+	background: #fffbeb;
+	color: #d97706;
+	border: 1px solid #f59e0b33;
+}
 
 .fxr-token-modal-overlay {
-	position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(8px);
-	z-index: 13000; display: flex; justify-content: center; align-items: center; padding: 16px;
+	position: fixed;
+	inset: 0;
+	background: rgba(15, 23, 42, 0.4);
+	backdrop-filter: blur(8px);
+	z-index: 13000;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	padding: 16px;
 }
-.fxr-token-modal-container { background: #fff; border-radius: 12px; width: 100%; max-width: 580px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); border: 1px solid #e2e8f0; }
-.fxr-token-modal-header { height: 52px; padding: 0 16px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
-.fxr-token-modal-body { padding: 16px; max-height: 70vh; overflow-y: auto; }
-.fxr-token-modal-footer { height: 56px; padding: 0 16px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 8px; background: #f8fafc; align-items: center; }
+.fxr-token-modal-container {
+	background: #fff;
+	border-radius: 12px;
+	width: 100%;
+	max-width: 580px;
+	overflow: hidden;
+	box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+	border: 1px solid #e2e8f0;
+}
+.fxr-token-modal-header {
+	height: 52px;
+	padding: 0 16px;
+	border-bottom: 1px solid #e2e8f0;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+.fxr-token-modal-body {
+	padding: 16px;
+	max-height: 70vh;
+	overflow-y: auto;
+}
+.fxr-token-modal-footer {
+	height: 56px;
+	padding: 0 16px;
+	border-top: 1px solid #e2e8f0;
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+	background: #f8fafc;
+	align-items: center;
+}
 
-.formula-textarea { width: 100%; min-height: 120px; font-family: monospace; padding: 8px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 13px; line-height: 1.5; }
-.variables-pill-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; max-height: 140px; overflow-y: auto; padding: 4px; border: 1px solid #e2e8f0; border-radius: 6px; background: #f8fafc; }
-.var-pill-btn { background: #fff; border: 1px solid #cbd5e1; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
-.var-pill-btn:hover { background: #f1f5f9; border-color: #94a3b8; }
-.json-textarea { width: 100%; min-height: 200px; font-family: monospace; font-size: 12px; }
+.formula-textarea {
+	width: 100%;
+	min-height: 120px;
+	font-family: monospace;
+	padding: 8px;
+	border: 1px solid #e2e8f0;
+	border-radius: 6px;
+	font-size: 13px;
+	line-height: 1.5;
+}
+.variables-pill-grid {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin-top: 8px;
+	max-height: 140px;
+	overflow-y: auto;
+	padding: 4px;
+	border: 1px solid #e2e8f0;
+	border-radius: 6px;
+	background: #f8fafc;
+}
+.var-pill-btn {
+	background: #fff;
+	border: 1px solid #cbd5e1;
+	padding: 3px 8px;
+	border-radius: 4px;
+	font-size: 11px;
+	font-weight: 600;
+	cursor: pointer;
+	transition: all 0.2s;
+}
+.var-pill-btn:hover {
+	background: #f1f5f9;
+	border-color: #94a3b8;
+}
+.json-textarea {
+	width: 100%;
+	min-height: 200px;
+	font-family: monospace;
+	font-size: 12px;
+}
 </style>
