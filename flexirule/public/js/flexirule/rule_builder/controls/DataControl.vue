@@ -100,6 +100,7 @@ onMounted(() => {
 				class="fxr-input"
 				type="text"
 				:value="modelValue"
+				:placeholder="__(df.placeholder || placeholder)"
 				:disabled="read_only || df.read_only"
 				@input="(event) => $emit('update:modelValue', event.target.value)"
 				@dragover.prevent
