@@ -10,6 +10,7 @@
 			class="fvc-main-field"
 			:class="{
 				'is-dynamic': isDynamicMode || !isStaticSupported,
+				'is-static-link': !isDynamicMode && isLinkType,
 			}"
 			@click="onWrapClick"
 		>
@@ -23,7 +24,7 @@
 					:modelValue="staticValue"
 					:doc="doc"
 					:engine="engine"
-					:options="options"
+					:options="isLinkType ? undefined : options"
 					:hideLabel="true"
 					class="flex-1 min-w-0 w-100 static-control-factory"
 					@update:modelValue="updateStaticValue"
@@ -110,7 +111,6 @@
 						</button>
 					</div>
 					<div class="fxr-token-modal-body">
-						<!-- Shared token configuration UIs -->
 						<template v-if="activeTokenType === 'formula'">
 							<div class="d-flex flex-column fxr-gap-2">
 								<label class="fxr-label-sm">{{ __("Formula Expression") }}</label>
@@ -191,7 +191,6 @@ import {
 	watch,
 	onBeforeUnmount,
 	nextTick,
-	shallowRef,
 } from "vue";
 import { Editor, EditorContent, VueRenderer } from "@tiptap/vue-3";
 import { StarterKit } from "@tiptap/starter-kit";
@@ -217,6 +216,7 @@ const props = defineProps({
 	engine: { type: Object, default: null },
 	doc: { type: Object, default: null },
 	operator: { type: String, default: "" },
+	referenceDoctype: { type: String, default: "" },
 });
 
 const emit = defineEmits(["update:modelValue", "update"]);
@@ -239,6 +239,8 @@ const jsonParseError = ref("");
 // Static Mode Helpers
 const staticValue = ref("");
 
+const isLinkType = computed(() => props.fieldType === "Link" || props.fieldType === "Dynamic Link");
+
 const PURE_TEXT_FIELDTYPES = new Set([
 	"Data",
 	"Small Text",
@@ -253,13 +255,25 @@ const isStaticSupported = computed(() => {
 	return !PURE_TEXT_FIELDTYPES.has(props.fieldType);
 });
 
-const staticDf = computed(() => ({
-	fieldtype: props.fieldType,
-	label: "",
-	options: props.options,
-	read_only: props.disabled || isReadOnly.value,
-	placeholder: props.placeholder,
-}));
+const staticDf = computed(() => {
+	let ft = props.fieldType;
+	let opts = props.options;
+
+	if (ft === "Link") {
+		opts = props.referenceDoctype;
+	} else if (ft === "Dynamic Link") {
+		// For dynamic link, options is typically the fieldname containing the doctype
+		// We'll rely on the parent-provided props.options if available
+	}
+
+	return {
+		fieldtype: ft,
+		label: "",
+		options: opts,
+		read_only: props.disabled || isReadOnly.value,
+		placeholder: props.placeholder,
+	};
+});
 
 // ── Tiptap Extensions ──
 
@@ -605,37 +619,68 @@ onBeforeUnmount(() => { editor.destroy(); });
 	display: flex; align-items: center; width: 100%; min-height: 32px;
 	border: 1px solid var(--fxr-border, #e2e8f0); border-radius: var(--fxr-radius-md, 6px);
 	background: var(--fxr-bg-input, #fff);
+	transition: all 0.2s ease;
 }
-.fvc-main-field:focus-within { border-color: var(--fxr-accent, #2490ef); box-shadow: var(--fxr-shadow-focus); }
-.fvc-static-container { display: flex; align-items: center; flex: 1; height: 100%; }
+
+.fvc-main-field:focus-within {
+	border-color: var(--fxr-accent, #2490ef);
+	box-shadow: var(--fxr-shadow-focus);
+}
+
+/* Deep override to remove internal borders from nested controls in static mode */
+.fvc-static-container :deep(.combobox-wrapper),
+.fvc-static-container :deep(.form-control),
+.fvc-static-container :deep(.fxr-input),
+.fvc-static-container :deep(.fxr-input-group),
+.fvc-static-container :deep(.fxr-select) {
+	border: none !important;
+	box-shadow: none !important;
+	background: transparent !important;
+	height: var(--fxr-input-height, 30px) !important;
+	margin-bottom: 0 !important;
+	padding-bottom: 0 !important;
+}
+
+.fvc-static-container :deep(.fxr-input),
+.fvc-static-container :deep(.fxr-select),
+.fvc-static-container :deep(.combobox-input) {
+	padding: 0 10px !important;
+}
+
+.fvc-static-container { display: flex; align-items: center; flex: 1; height: 100%; min-width: 0; }
 .fvc-editor-container { padding: 2px 8px; flex: 1; position: relative; overflow: hidden; }
 .fvc-editor-wrapper { width: 100%; position: relative; }
 .fvc-mode-toggle-wrap { padding-right: 6px; border-left: 1px solid var(--fxr-border, #e2e8f0); margin-left: 4px; height: 24px; display: flex; align-items: center; }
-.fvc-toggle-btn { background: transparent; border: none; cursor: pointer; color: #64748b; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px; }
+.fvc-toggle-btn { background: transparent; border: none; cursor: pointer; color: #64748b; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px; transition: all 0.2s; }
 .fvc-toggle-btn:hover { background: #f1f5f9; color: #2490ef; }
-.fvc-empty-hint { position: absolute; top: 3px; left: 0; color: #94a3b8; font-size: 11px; pointer-events: none; white-space: nowrap; }
+.fvc-empty-hint { position: absolute; top: 3px; left: 0; color: #94a3b8; font-size: 11px; pointer-events: none; white-space: nowrap; font-family: var(--font-stack-mono, monospace); }
+.fvc-empty-hint .hint-part { color: #64748b; font-weight: 700; }
+.fvc-empty-hint .hint-at { color: #059669; font-weight: 700; }
+.fvc-empty-hint .hint-slash { color: #7c3aed; font-weight: 700; }
 .fvc-focus-hint { position: absolute; top: 3px; left: 0; color: #cbd5e1; font-size: 12px; font-style: italic; pointer-events: none; }
 .fvc-tiptap-editor :deep(.ProseMirror) { outline: none; font-size: 13px; min-height: 22px; white-space: nowrap; }
 
 :deep(.token-chip) {
 	padding: 1px 6px; border-radius: 4px; font-size: 11px; font-weight: 600;
-	margin: 0 2px; cursor: pointer; display: inline-flex; align-items: center;
+	margin: 0 2px; cursor: pointer; display: inline-flex; align-items: center; transition: all 0.2s;
 }
+:deep(.token-chip:hover) { filter: brightness(0.95); transform: scale(1.02); }
 :deep(.token-variable) { background: #ecfdf5; color: #059669; border: 1px solid #10b98133; }
 :deep(.token-formula) { background: #f5f3ff; color: #7c3aed; border: 1px solid #8b5cf633; }
 :deep(.token-resolver) { background: #fffbeb; color: #d97706; border: 1px solid #f59e0b33; }
 
 .fxr-token-modal-overlay {
-	position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(4px);
-	z-index: 13000; display: flex; justify-content: center; align-items: center;
+	position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(8px);
+	z-index: 13000; display: flex; justify-content: center; align-items: center; padding: 16px;
 }
-.fxr-token-modal-container { background: #fff; border-radius: 12px; width: 500px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); }
-.fxr-token-modal-header { padding: 12px 16px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
+.fxr-token-modal-container { background: #fff; border-radius: 12px; width: 100%; max-width: 580px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); border: 1px solid #e2e8f0; }
+.fxr-token-modal-header { height: 52px; padding: 0 16px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
 .fxr-token-modal-body { padding: 16px; max-height: 70vh; overflow-y: auto; }
-.fxr-token-modal-footer { padding: 12px 16px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 8px; background: #f8fafc; }
+.fxr-token-modal-footer { height: 56px; padding: 0 16px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 8px; background: #f8fafc; align-items: center; }
 
-.formula-textarea { width: 100%; min-height: 100px; font-family: monospace; padding: 8px; border: 1px solid #e2e8f0; border-radius: 6px; }
-.variables-pill-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-.var-pill-btn { background: #f1f5f9; border: 1px solid #e2e8f0; padding: 2px 8px; border-radius: 4px; font-size: 11px; cursor: pointer; }
-.json-textarea { width: 100%; min-height: 200px; font-family: monospace; }
+.formula-textarea { width: 100%; min-height: 120px; font-family: monospace; padding: 8px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 13px; line-height: 1.5; }
+.variables-pill-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; max-height: 140px; overflow-y: auto; padding: 4px; border: 1px solid #e2e8f0; border-radius: 6px; background: #f8fafc; }
+.var-pill-btn { background: #fff; border: 1px solid #cbd5e1; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+.var-pill-btn:hover { background: #f1f5f9; border-color: #94a3b8; }
+.json-textarea { width: 100%; min-height: 200px; font-family: monospace; font-size: 12px; }
 </style>
