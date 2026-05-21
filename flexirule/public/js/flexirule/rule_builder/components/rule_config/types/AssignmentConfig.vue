@@ -383,15 +383,27 @@ watch(
 				structuredVal = a.value;
 			} else {
 				const legacyVal = a.value || a.value_template || "";
-				if (
-					a.value_template_ui &&
-					typeof a.value_template_ui === "object" &&
-					a.value_template_ui.mode
-				) {
-					structuredVal = a.value_template_ui;
+				const legacyUI = a.value_template_ui;
+				if (legacyUI && typeof legacyUI === "object" && legacyUI.mode) {
+					structuredVal = legacyUI;
 				} else {
 					structuredVal = { mode: "static", value: legacyVal };
 				}
+			}
+
+			// Unified mode migration: migrate specialized modes to 'resolver'
+			if (["formula", "format", "normalize"].includes(structuredVal.mode)) {
+				const config = structuredVal.config || {};
+				if (!config.kind) {
+					const kindMap = {
+						formula: "math_formula",
+						format: "format",
+						normalize: "normalization",
+					};
+					config.kind = kindMap[structuredVal.mode];
+				}
+				structuredVal.mode = "resolver";
+				structuredVal.config = config;
 			}
 
 			return {
@@ -500,6 +512,16 @@ function clearAssignments() {
 
 function onTargetChange(index, value) {
 	assignments.value[index].target = value;
+
+	// Intelligent defaulting for resolver kind based on target
+	if (assignments.value[index].value?.mode === "resolver") {
+		const config = assignments.value[index].value.config || {};
+		if (!config.kind || config.kind === "resolver") {
+			config.kind = getDefaultResolverKind(value);
+			assignments.value[index].value.config = config;
+		}
+	}
+
 	// Reset operator if it's no longer compatible with new target type
 	const available = getAvailableOperators(value).map((o) => o.value);
 	if (!available.includes(assignments.value[index].operator)) {

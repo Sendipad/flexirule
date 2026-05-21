@@ -188,18 +188,30 @@ class AssignmentHandler(ActionHandler):
 		if mode == "formula":
 			expr = val.get("expression") or ""
 			return f"{{{{ {expr} }}}}"
-		if mode == "resolver":
-			resolver = val.get("resolver") or ""
+		if mode == "formatter" or (mode == "resolver" and val.get("config", {}).get("kind") == "format"):
 			config = val.get("config") or {}
+			formatter = val.get("formatter") or config.get("fmt_op") or ""
+			options = val.get("options") or config or {}
+			return f'{{{{ format("{formatter}", {json.dumps(options)}) }}}}'
+
+		if mode == "normalize" or (mode == "resolver" and val.get("config", {}).get("kind") == "normalization"):
+			config = val.get("config") or {}
+			steps = val.get("steps") or ([config.get("norm_op")] if config.get("norm_op") else [])
+			return f"{{{{ normalize(value, {json.dumps(steps)}) }}}}"
+
+		if mode == "resolver":
+			config = val.get("config") or {}
+			kind = config.get("kind")
+			if kind:
+				expr = val.get("expression") or val.get("value")
+				if expr:
+					if expr.startswith("{") and expr.endswith("}"):
+						return f"{{{{ {expr[1:-1]} }}}}"
+					return f"{{{{ {expr} }}}}"
+
+			resolver = val.get("resolver") or val.get("value") or ""
 			args = ", ".join(f"{k}={json.dumps(v)}" for k, v in config.items())
 			return f'{{{{ resolve("{resolver}", {args}) }}}}'
-		if mode == "formatter":
-			formatter = val.get("formatter") or ""
-			options = val.get("options") or {}
-			return f'{{{{ format("{formatter}", {json.dumps(options)}) }}}}'
-		if mode == "normalize":
-			steps = val.get("steps") or []
-			return f"{{{{ normalize(value, {json.dumps(steps)}) }}}}"
 		if mode == "condition":
 			condition = val.get("condition") or {}
 			return f"{{{{ condition({json.dumps(condition)}) }}}}"
