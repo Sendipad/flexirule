@@ -54,13 +54,16 @@
 						<span class="hint-sep">·</span>
 						<span class="hint-at">@</span>{{ __("variable") }}
 						<span class="hint-sep">·</span>
-						<span class="hint-slash">/</span>{{ __("command") }}
+						<span class="hint-slash">/</span>{{ __("resolver") }}
 					</div>
 					<div
 						v-else-if="!isReadOnly && isEditorEmpty && isEditorFocused"
 						class="fvc-focus-hint"
 					>
-						{{ placeholder || __("Type value, @variable or /command...") }}
+						{{
+							placeholder ||
+							__("Type value, @ for Variable or / for advanced Resolver")
+						}}
 					</div>
 				</div>
 			</div>
@@ -106,15 +109,20 @@ const props = defineProps({
 	readOnly: { type: Boolean, default: false },
 	read_only: { type: Boolean, default: false },
 	placeholder: { type: String, default: "" },
-	fieldType: { type: String, default: "Data" },
 	compact: { type: Boolean, default: false },
 	disabled: { type: Boolean, default: false },
-	options: { type: [Array, String], default: () => [] },
 	engine: { type: Object, default: null },
 	doc: { type: Object, default: null },
-	operator: { type: String, default: "" },
-	referenceDoctype: { type: String, default: "" },
-	targetContext: { type: String, default: "" },
+	/**
+	 * Structured context:
+	 * {
+	 *   df: { fieldtype, options, fieldname, ... },
+	 *   operator: 'set',
+	 *   referenceDoctype: 'Customer', // fallback if not in df
+	 *   onUpdate: Function // optional callback
+	 * }
+	 */
+	context: { type: Object, default: () => ({}) },
 });
 
 const emit = defineEmits(["update:modelValue", "update"]);
@@ -137,7 +145,13 @@ const jsonParseError = ref("");
 // Static Mode Helpers
 const staticValue = ref("");
 
-const isLinkType = computed(() => props.fieldType === "Link" || props.fieldType === "Dynamic Link");
+const fieldType = computed(() => props.context?.df?.fieldtype || "Data");
+const fieldOptions = computed(() => props.context?.df?.options || []);
+const referenceDoctype = computed(
+	() => props.context?.referenceDoctype || props.context?.df?.options || ""
+);
+
+const isLinkType = computed(() => fieldType.value === "Link" || fieldType.value === "Dynamic Link");
 
 const PURE_TEXT_FIELDTYPES = new Set([
 	"Data",
@@ -150,18 +164,19 @@ const PURE_TEXT_FIELDTYPES = new Set([
 ]);
 
 const isStaticSupported = computed(() => {
-	return !PURE_TEXT_FIELDTYPES.has(props.fieldType);
+	return !PURE_TEXT_FIELDTYPES.has(fieldType.value);
 });
 
 const staticDf = computed(() => {
-	let ft = props.fieldType;
-	let opts = props.options;
+	let ft = fieldType.value;
+	let opts = fieldOptions.value;
 
 	if (ft === "Link") {
-		opts = props.referenceDoctype;
+		opts = referenceDoctype.value;
 	}
 
 	return {
+		...props.context?.df,
 		fieldtype: ft,
 		label: "",
 		options: opts,
@@ -319,13 +334,9 @@ const editor = new Editor({
 		}),
 		VariableToken,
 		ResolverToken.configure({
-			doctype: props.referenceDoctype,
+			doctype: referenceDoctype.value,
 			readOnly: isReadOnly.value,
-			context: {
-				fieldname: props.targetContext,
-				fieldtype: props.fieldType,
-				operator: props.operator,
-			},
+			context: props.context,
 		}),
 		VariableTrigger.configure({
 			suggestion: {
@@ -375,8 +386,8 @@ const editor = new Editor({
 				render: () => createSuggestionRenderer(),
 				items: ({ query }) => {
 					const q = query.toLowerCase();
-					const commands = getCommandsForFieldtype(props.fieldType);
-					const formulas = getFormulasForFieldtype(props.fieldType);
+					const commands = getCommandsForFieldtype(fieldType.value);
+					const formulas = getFormulasForFieldtype(fieldType.value);
 
 					const mappedFormulas = formulas.map((f) => ({
 						id: f.id,
@@ -396,7 +407,7 @@ const editor = new Editor({
 						return;
 					}
 
-					const commands = getCommandsForFieldtype(props.fieldType);
+					const commands = getCommandsForFieldtype(fieldType.value);
 					const isCommand = commands.find((c) => c.id === props.id);
 
 					if (isCommand) {
@@ -456,13 +467,13 @@ const isEditorEmpty = computed(() => editor.isEmpty);
 
 function serialize() {
 	if (editor.isEmpty && !isDynamicMode.value) {
-		return { mode: "static", value: staticValue.value, fieldtype: props.fieldType };
+		return { mode: "static", value: staticValue.value, fieldtype: fieldType.value };
 	}
 
 	const doc = editor.getJSON();
 	const content = doc.content?.[0]?.content || [];
 
-	if (content.length === 0) return { mode: "static", value: "", fieldtype: props.fieldType };
+	if (content.length === 0) return { mode: "static", value: "", fieldtype: fieldType.value };
 
 	// If there's exactly one token and nothing else, use its mode
 	if (content.length === 1 && content[0].type !== "text") {
@@ -473,7 +484,7 @@ function serialize() {
 				mode: "variable",
 				value: node.attrs.path,
 				label: node.attrs.label,
-				fieldtype: props.fieldType,
+				fieldtype: fieldType.value,
 			};
 		}
 		if (typeName === "resolverToken") {
@@ -482,7 +493,7 @@ function serialize() {
 				value: node.attrs.expression || node.attrs.resolver,
 				label: node.attrs.label,
 				config: node.attrs.config,
-				fieldtype: props.fieldType,
+				fieldtype: fieldType.value,
 			};
 		}
 	}
@@ -500,7 +511,7 @@ function serialize() {
 		return { type: item.type, attrs: { ...item.attrs, expression: expr } };
 	});
 
-	return { mode: "expression", value: tokens, fieldtype: props.fieldType };
+	return { mode: "expression", value: tokens, fieldtype: fieldType.value };
 }
 
 function deserialize(val) {
@@ -764,12 +775,18 @@ onBeforeUnmount(() => {
 	height: var(--fxr-input-height, 30px) !important;
 	margin-bottom: 0 !important;
 	padding-bottom: 0 !important;
+	border-radius: inherit !important;
 }
 
 .fvc-static-container :deep(.fxr-input),
 .fvc-static-container :deep(.fxr-select),
 .fvc-static-container :deep(.combobox-input) {
 	padding: 0 10px !important;
+}
+
+.fvc-main-field:focus-within {
+	border-color: var(--fxr-accent, #2490ef);
+	box-shadow: 0 0 0 2px color-mix(in srgb, var(--fxr-accent, #2490ef) 20%, transparent);
 }
 
 .fvc-static-container {
