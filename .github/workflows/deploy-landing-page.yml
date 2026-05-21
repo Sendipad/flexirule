@@ -10,6 +10,14 @@ on:
       - 'docs/**'
       - 'docs-config/**'
       - '.github/workflows/deploy-landing-page.yml'
+  pull_request:
+    branches:
+      - develop
+    paths:
+      - 'landing-page/**'
+      - 'docs/**'
+      - 'docs-config/**'
+      - '.github/workflows/deploy-landing-page.yml'
   workflow_dispatch:
 
 permissions:
@@ -43,16 +51,22 @@ jobs:
 
       - name: Set deployment variables
         run: |
-          BRANCH_NAME="${GITHUB_REF#refs/heads/}"
-          # Replace slashes with dashes for the directory name
-          SAFE_BRANCH_NAME=$(echo "$BRANCH_NAME" | sed 's/\//-/g')
-
-          if [ "$BRANCH_NAME" = "develop" ]; then
-            echo "DESTINATION_DIR=." >> $GITHUB_ENV
-            echo "BASE_URL=https://sendipad.github.io/flexirule/" >> $GITHUB_ENV
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            PR_NUMBER="${{ github.event.number }}"
+            echo "DESTINATION_DIR=preview/pr-$PR_NUMBER" >> $GITHUB_ENV
+            echo "BASE_URL=https://sendipad.github.io/flexirule/preview/pr-$PR_NUMBER/" >> $GITHUB_ENV
           else
-            echo "DESTINATION_DIR=preview/$SAFE_BRANCH_NAME" >> $GITHUB_ENV
-            echo "BASE_URL=https://sendipad.github.io/flexirule/preview/$SAFE_BRANCH_NAME/" >> $GITHUB_ENV
+            BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+            # Replace slashes with dashes for the directory name
+            SAFE_BRANCH_NAME=$(echo "$BRANCH_NAME" | sed 's/\//-/g')
+
+            if [ "$BRANCH_NAME" = "develop" ]; then
+              echo "DESTINATION_DIR=." >> $GITHUB_ENV
+              echo "BASE_URL=https://sendipad.github.io/flexirule/" >> $GITHUB_ENV
+            else
+              echo "DESTINATION_DIR=preview/$SAFE_BRANCH_NAME" >> $GITHUB_ENV
+              echo "BASE_URL=https://sendipad.github.io/flexirule/preview/$SAFE_BRANCH_NAME/" >> $GITHUB_ENV
+            fi
           fi
 
       - name: Build Doks documentation

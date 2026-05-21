@@ -1,18 +1,19 @@
 ---
 title: "Overview"
 weight: 10
+type: "docs"
 ---
 
 <div align="center">
   <img width="180" alt="flexiRule" src="https://github.com/user-attachments/assets/e3724231-fccc-4f92-89af-6dd7b93c640f" />
 
-  <h1>FlexiRule</h1>
+  <h1>FlexiRule Documentation</h1>
 
 [![CI](https://github.com/Sendipad/flexirule/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/Sendipad/flexirule/actions/workflows/ci.yml?query=branch%3Adevelop)
 ![Beta Release](https://img.shields.io/badge/release-beta-orange)
 ![Frappe](https://img.shields.io/badge/built%20for-Frappe%20v15%2B-blue)
 
-  <p><strong>Visual Rule Engineer & Orchestration Engine for Frappe apps and ERPNext</strong></p>
+  <p><strong>The Visual Logic Layer for Frappe & ERPNext</strong></p>
 
 </div>
 
