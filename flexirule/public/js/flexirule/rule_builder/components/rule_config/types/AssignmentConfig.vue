@@ -76,17 +76,21 @@
 						<div class="value-mode-wrap">
 							<FlexValueControl
 								class="flex-1 min-w-0"
-								:fieldType="getTargetFieldtype(assignment.target) || 'Data'"
-								:operator="assignment.operator"
+								:context="{
+									df: {
+										fieldtype: getTargetFieldtype(assignment.target) || 'Data',
+										options: getTargetOptions(assignment.target),
+										fieldname: assignment.target,
+									},
+									operator: assignment.operator,
+									referenceDoctype: getTargetDoctype(assignment.target),
+								}"
 								:modelValue="assignment.value"
 								:read_only="isReadOnly"
 								:engine="store"
 								:doc="store.rule_doc"
 								:variableOptions="variable_options"
-								:referenceDoctype="getTargetDoctype(assignment.target)"
-								:targetContext="assignment.target"
 								:placeholder="__('Type value...')"
-								:options="getTargetOptions(assignment.target)"
 								@update:modelValue="(val) => updateTemplate(index, val)"
 							/>
 						</div>
