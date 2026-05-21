@@ -239,7 +239,7 @@ function load_local_config() {
 		? mappings.map((m) => ({
 				source: m.source || m.source_expression || "",
 				target: m.target || "",
-			}))
+		  }))
 		: [];
 }
 

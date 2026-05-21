@@ -209,8 +209,8 @@ export function useRuleGraph() {
 						? "bottom"
 						: "left" // Side exit for return path (on the left to avoid After Last branch)
 					: isHorizontal
-						? "right"
-						: "bottom", // Standard flow exit
+					? "right"
+					: "bottom", // Standard flow exit
 				targetPosition: isHorizontal ? "left" : "top",
 			};
 		});
