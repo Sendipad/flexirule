@@ -194,7 +194,9 @@ class AssignmentHandler(ActionHandler):
 			options = val.get("options") or config or {}
 			return f'{{{{ format("{formatter}", {json.dumps(options)}) }}}}'
 
-		if mode == "normalize" or (mode == "resolver" and val.get("config", {}).get("kind") == "normalization"):
+		if mode == "normalize" or (
+			mode == "resolver" and val.get("config", {}).get("kind") == "normalization"
+		):
 			config = val.get("config") or {}
 			steps = val.get("steps") or ([config.get("norm_op")] if config.get("norm_op") else [])
 			return f"{{{{ normalize(value, {json.dumps(steps)}) }}}}"
