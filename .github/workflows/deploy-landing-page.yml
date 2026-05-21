@@ -13,16 +13,16 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
 concurrency:
-  group: "pages"
+  group: "pages-${{ github.ref }}"
   cancel-in-progress: true
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -33,7 +33,7 @@ jobs:
       - name: Setup Hugo
         uses: peaceiris/actions-hugo@v3
         with:
-          hugo-version: 'latest'
+          hugo-version: '0.143.1'
           extended: true
 
       - name: Setup Node
@@ -41,37 +41,59 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Build Doks documentation on the fly
+      - name: Set deployment variables
         run: |
-          # 1. Scaffold a temporary Doks project non-interactively
+          BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+          # Replace slashes with dashes for the directory name
+          SAFE_BRANCH_NAME=$(echo "$BRANCH_NAME" | sed 's/\//-/g')
+
+          if [ "$BRANCH_NAME" = "develop" ]; then
+            echo "DESTINATION_DIR=." >> $GITHUB_ENV
+            echo "BASE_URL=https://sendipad.github.io/flexirule/" >> $GITHUB_ENV
+          else
+            echo "DESTINATION_DIR=preview/$SAFE_BRANCH_NAME" >> $GITHUB_ENV
+            echo "BASE_URL=https://sendipad.github.io/flexirule/preview/$SAFE_BRANCH_NAME/" >> $GITHUB_ENV
+          fi
+
+      - name: Build Doks documentation
+        run: |
           mkdir temp-docs
           cd temp-docs
-          # Pin to a specific stable-ish state
-          git clone --depth 1 https://github.com/gethyas/doks .
+          # Pin to a stable version
+          git clone --depth 1 --branch v1.9.0 https://github.com/gethyas/doks .
           rm -rf .git
 
-          # 2. Patch package.json to allow Node 22 (avoid EBADENGINE annotations)
-          sed -i 's/"node": ">=24.13.0"/"node": ">=22.0.0"/' package.json
-
-          # 3. Install dependencies
+          # Install dependencies
           npm install
 
-          # 4. Apply custom configurations
-          # Update baseURL in both default and production configs
-          sed -i 's|base[uU][rR][lL] = ".*"|baseURL = "https://sendipad.github.io/flexirule/docs/"|' config/_default/hugo.toml
-          [ -f config/production/hugo.toml ] && sed -i 's|base[uU][rR][lL] = ".*"|baseURL = "https://sendipad.github.io/flexirule/docs/"|' config/production/hugo.toml
+          # Apply custom configurations
+          # Update baseURL for docs subfolder
+          DOCS_BASE_URL="${{ env.BASE_URL }}docs/"
+          sed -i "s|base[uU][rR][lL] = \".*\"|baseURL = \"$DOCS_BASE_URL\"|" config/_default/hugo.toml
+
+          # Fix deprecations in the cloned Doks config if necessary
+          # (We will also fix our overrides in the next steps)
 
           sed -i 's|title = ".*"|title = "FlexiRule Documentation"|' config/_default/hugo.toml
 
-          # Adjust permalinks to serve docs at the root of the /docs/ subfolder
-          # This makes content/docs/_index.md available at the Hugo site root
+          # Adjust permalinks
           sed -i 's|docs = "/docs/:sections\[1:\]/:slug/"|docs = "/:sections[1:]/:slug/"|' config/_default/hugo.toml
 
-          # Use our custom menu - ensure directory exists
+          # Configure esbuild loader for JSX in .js files
+          # Since Doks/Thulite uses js.Build, we can pass loaders via the config
+          # Thulite often uses a central layout that calls js.Build
+          # We'll try to find where it's called or just disable FlexSearch if it fails
+          # But let's try the config approach first as it's cleaner.
+          # For Hugo 0.140+, we can use the [params.jsbuild] or similar if the theme supports it,
+          # but usually it's passed as a dict to js.Build in the template.
+          # Since we can't easily edit the theme's templates in node_modules,
+          # we'll try to use a Hugo feature if available or just disable the feature.
+
+          # Use our custom menu
           mkdir -p config/_default/menus
           cp ../docs-config/menus.en.toml config/_default/menus/menus.en.toml
 
-          # Use our custom parameters and languages (for footer and search)
+          # Use our custom parameters and languages
           cp ../docs-config/params.toml config/_default/params.toml
           cp ../docs-config/languages.en.toml config/_default/languages.toml
 
@@ -79,36 +101,25 @@ jobs:
           mkdir -p assets/scss/common
           cp ../docs-config/assets/scss/common/_variables-custom.scss assets/scss/common/_variables-custom.scss
 
-          # 5. Copy content
-          # Remove all default content to ensure our content is used
+          # Copy content
           rm -rf content/*
-          # Doks expects documentation in content/docs/
           mkdir -p content/docs
           cp -r ../docs/* content/docs/
 
-          # 6. Build
+          # Build
           npm run build
 
-          # 7. Move output to landing page
+          # Move output to landing page
           cd ..
           mkdir -p landing-page/docs
-          # Copy the entire public folder to landing-page/docs/
-          # This ensures that assets are served from /flexirule/docs/
           cp -r temp-docs/public/* landing-page/docs/
 
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: './landing-page'
-
-  deploy:
-    if: github.ref == 'refs/heads/develop'
-    needs: build
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    steps:
       - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./landing-page
+          destination_dir: ${{ env.DESTINATION_DIR }}
+          keep_files: true
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'

@@ -1,5 +1,6 @@
 [en]
-  languageName = "English"
+  label = "English"
+  locale = "en-US"
   contentDir = "content"
   weight = 10
   [en.params]

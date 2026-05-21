@@ -1,5 +1,5 @@
 [doks]
-  flexSearch = true
+  flexSearch = false
   searchExclKinds = []
   searchExclTypes = []
   showSearch = []
