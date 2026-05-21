@@ -82,12 +82,12 @@ jobs:
           # Fix JSX issue by configuring esbuild loader for .js files globally
           cat >> config/_default/hugo.toml <<EOF
 
-[module]
-  [module.hugo-build]
-    [[module.hugo-build.getjs-loader]]
-      extension = ".js"
-      loader = "jsx"
-EOF
+          [module]
+            [module.hugo-build]
+              [[module.hugo-build.getjs-loader]]
+                extension = ".js"
+                loader = "jsx"
+          EOF
 
           # Use our custom menu
           mkdir -p config/_default/menus
