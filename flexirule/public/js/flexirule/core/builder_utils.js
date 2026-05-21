@@ -10,6 +10,20 @@ const __ =
 	});
 
 /**
+ * Resolves a field reference to a Python-safe expression, ensuring proper scoping.
+ * @param {string} field - The field name or path
+ * @returns {string} - Scoped field reference (e.g., 'doc.status', 'vars.my_var')
+ */
+function toDocExpression(field) {
+	if (!field) return '""';
+	const knownScopes = ["doc.", "vars.", "ctx.", "loop.", "row.", "item.", "caller.", "rule."];
+	if (knownScopes.some((s) => String(field).startsWith(s))) {
+		return field;
+	}
+	return `doc.${field}`;
+}
+
+/**
  * Compiles a builder configuration object into a Python expression.
  *
  * @param {Object} item - The builder configuration item
@@ -20,11 +34,11 @@ export function compileToCode(item, fallbackField = "") {
 	if (!item || !item.kind) return "";
 
 	if (item.kind === "math_formula") {
-		const a = item.field_a ? `frappe.utils.flt(doc.${item.field_a})` : "0";
+		const a = item.field_a ? `frappe.utils.flt(${toDocExpression(item.field_a)})` : "0";
 		const b =
 			item.field_b_type === "field"
 				? item.field_b
-					? `frappe.utils.flt(doc.${item.field_b})`
+					? `frappe.utils.flt(${toDocExpression(item.field_b)})`
 					: "0"
 				: String(item.constant_b ?? 0);
 		const prec = item.precision ?? 2;
@@ -35,11 +49,11 @@ export function compileToCode(item, fallbackField = "") {
 		const start =
 			item.diff_start_type === "today"
 				? "frappe.utils.nowdate()"
-				: `doc.${item.diff_start_field}`;
+				: toDocExpression(item.diff_start_field);
 		const end =
 			item.diff_end_type === "today"
 				? "frappe.utils.nowdate()"
-				: `doc.${item.diff_end_field}`;
+				: toDocExpression(item.diff_end_field || fallbackField);
 
 		if (item.diff_unit === "days") return `{frappe.utils.date_diff(${end}, ${start})}`;
 		if (item.diff_unit === "months") return `{frappe.utils.month_diff(${end}, ${start})}`;
@@ -49,18 +63,23 @@ export function compileToCode(item, fallbackField = "") {
 	if (item.kind === "child_aggregation") {
 		const tbl = item.agg_table || '""';
 		const fld = item.agg_field || '""';
-		if (item.agg_op === "count") return `{len(doc.get("${tbl}"))}`;
+		const tblExpr = toDocExpression(tbl);
+		if (item.agg_op === "count") return `{len(${tblExpr})}`;
 		if (item.agg_op === "avg") {
-			return `{sum([frappe.utils.flt(row.get("${fld}")) for row in doc.get("${tbl}")]) / (len(doc.get("${tbl}")) or 1)}`;
+			return `{sum([frappe.utils.flt(row.get("${fld}")) for row in ${tblExpr}]) / (len(${tblExpr}) or 1)}`;
 		}
-		return `{sum([frappe.utils.flt(row.get("${fld}")) for row in doc.get("${tbl}")])}`;
+		return `{sum([frappe.utils.flt(row.get("${fld}")) for row in ${tblExpr}])}`;
 	}
 
 	if (item.kind === "string_formula") {
 		const valA =
-			item.str_a_type === "field" ? `doc.${item.str_a || '""'}` : `"${item.str_a || ""}"`;
+			item.str_a_type === "field"
+				? toDocExpression(item.str_a || '""')
+				: `"${item.str_a || ""}"`;
 		const valB =
-			item.str_b_type === "field" ? `doc.${item.str_b || '""'}` : `"${item.str_b || ""}"`;
+			item.str_b_type === "field"
+				? toDocExpression(item.str_b || '""')
+				: `"${item.str_b || ""}"`;
 
 		if (item.str_op === "concat") return `{str(${valA} or "") + str(${valB} or "")}`;
 		if (item.str_op === "uppercase") return `{str(${valA} or "").upper()}`;
@@ -71,7 +90,7 @@ export function compileToCode(item, fallbackField = "") {
 	}
 
 	if (item.kind === "normalization") {
-		const f = item.norm_field ? `doc.${item.norm_field}` : '""';
+		const f = item.norm_field ? toDocExpression(item.norm_field) : '""';
 		if (item.norm_op === "trim") return `{str(${f} or "").strip()}`;
 		if (item.norm_op === "slug") return `{frappe.scrub(str(${f} or ""))}`;
 		if (item.norm_op === "title") return `{str(${f} or "").title()}`;
@@ -81,11 +100,11 @@ export function compileToCode(item, fallbackField = "") {
 	}
 
 	if (item.kind === "format") {
-		const f = item.fmt_field ? `doc.${item.fmt_field}` : '""';
+		const f = item.fmt_field ? toDocExpression(item.fmt_field) : '""';
 		const cfg = item.fmt_config || "";
 		if (item.fmt_op === "format_date") return `{frappe.utils.format_date(${f}, "${cfg}")}`;
 		if (item.fmt_op === "fmt_money") {
-			const curr = cfg.includes("doc.") ? cfg : `"${cfg}"`;
+			const curr = cfg.includes(".") || cfg.includes("doc") ? cfg : `"${cfg}"`;
 			return `{frappe.utils.fmt_money(${f}, currency=${curr})}`;
 		}
 		if (item.fmt_op === "format") return `{("${cfg}").format(${f})}`;
@@ -102,7 +121,7 @@ export function compileToCode(item, fallbackField = "") {
 	const baseExpr =
 		item.base_type === "today"
 			? "frappe.utils.nowdate()"
-			: `doc.${item.base_field || fallbackField}`;
+			: toDocExpression(item.base_field || fallbackField);
 	const offset = parseInt(item.offset_value || 0, 10);
 
 	if (offset === 0 || !item.offset_unit) {
@@ -113,7 +132,7 @@ export function compileToCode(item, fallbackField = "") {
 		return `{frappe.utils.add_days(${baseExpr}, ${offset})}`;
 	}
 
-	return `{frappe.utils.add_to_date(${baseExpr}, ${item.offset_unit}='${offset}')}`;
+	return `{frappe.utils.add_to_date(${baseExpr}, ${item.offset_unit}=${offset})}`;
 }
 
 /**
