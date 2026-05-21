@@ -33,7 +33,7 @@ jobs:
       - name: Setup Hugo
         uses: peaceiris/actions-hugo@v3
         with:
-          hugo-version: '0.143.1'
+          hugo-version: 'latest'
           extended: true
 
       - name: Setup Node
@@ -59,11 +59,11 @@ jobs:
         run: |
           mkdir temp-docs
           cd temp-docs
-          # Pin to a stable version (v1.8.2 is known to work with our setup)
-          git clone --depth 1 --branch v1.8.2 https://github.com/gethyas/doks .
+          # Clone latest stable Doks
+          git clone --depth 1 --branch v1.9.1 https://github.com/gethyas/doks .
           rm -rf .git
 
-          # Patch package.json to allow Node 22 (pinned Doks expects >=24.13.0)
+          # Patch package.json to allow Node 22 (Doks expects >=24.13.0)
           sed -i 's/"node": ">=24.13.0"/"node": ">=22.0.0"/' package.json
 
           # Install dependencies
@@ -79,20 +79,39 @@ jobs:
           # Adjust permalinks
           sed -i 's|docs = "/docs/:sections\[1:\]/:slug/"|docs = "/:sections[1:]/:slug/"|' config/_default/hugo.toml
 
+          # Fix JSX issue by configuring esbuild loader for .js files globally
+          cat >> config/_default/hugo.toml <<EOF
+
+[module]
+  [module.hugo-build]
+    [[module.hugo-build.getjs-loader]]
+      extension = ".js"
+      loader = "jsx"
+EOF
+
           # Use our custom menu
           mkdir -p config/_default/menus
           cp ../docs-config/menus.en.toml config/_default/menus/menus.en.toml
 
-          # Use our custom parameters and languages
+          # Use our custom parameters
           cp ../docs-config/params.toml config/_default/params.toml
-          cp ../docs-config/languages.en.toml config/_default/languages.toml
+
+          # Patch existing languages.toml to preserve structure but update our values
+          # We use a more specific regex to avoid matching other languages if they were enabled
+          sed -i 's|footer = .*|footer = "FlexiRule Documentation"|' config/_default/languages.toml
+          # Check if titleHome exists, if not add it under [en.params]
+          if ! grep -q "titleHome =" config/_default/languages.toml; then
+            sed -i '/\[en.params\]/a \    titleHome = "FlexiRule Documentation"' config/_default/languages.toml
+          else
+            sed -i 's|titleHome = .*|titleHome = "FlexiRule Documentation"|' config/_default/languages.toml
+          fi
 
           # Apply custom font
           mkdir -p assets/scss/common
           cp ../docs-config/assets/scss/common/_variables-custom.scss assets/scss/common/_variables-custom.scss
 
           # Copy content
-          # Doks 1.9.0 expects content in content/en/
+          # Doks expects content in content/en/
           rm -rf content/*
           mkdir -p content/en/docs
           cp -r ../docs/* content/en/docs/
