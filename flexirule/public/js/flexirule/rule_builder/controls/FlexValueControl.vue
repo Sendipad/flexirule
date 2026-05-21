@@ -62,7 +62,7 @@
 					>
 						{{
 							placeholder ||
-							__("Type value, @ for Variable or / for advanced Resolver")
+							__("Type Value or @ for Variable or / for advanced Resolver")
 						}}
 					</div>
 				</div>
@@ -787,6 +787,8 @@ onBeforeUnmount(() => {
 .fvc-main-field:focus-within {
 	border-color: var(--fxr-accent, #2490ef);
 	box-shadow: 0 0 0 2px color-mix(in srgb, var(--fxr-accent, #2490ef) 20%, transparent);
+	position: relative;
+	z-index: 10;
 }
 
 .fvc-static-container {
