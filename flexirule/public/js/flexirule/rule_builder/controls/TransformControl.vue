@@ -209,9 +209,7 @@ watch(
 	border-radius: 12px;
 	position: relative;
 	overflow: hidden;
-	box-shadow:
-		0 4px 6px -1px rgba(0, 0, 0, 0.1),
-		0 2px 4px -1px rgba(0, 0, 0, 0.06);
+	box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
 
 .transform-header {
@@ -283,9 +281,7 @@ watch(
 	stroke-width: 2.5;
 	pointer-events: stroke;
 	cursor: pointer;
-	transition:
-		stroke 0.2s,
-		stroke-width 0.2s;
+	transition: stroke 0.2s, stroke-width 0.2s;
 }
 
 .mapping-line:hover,
