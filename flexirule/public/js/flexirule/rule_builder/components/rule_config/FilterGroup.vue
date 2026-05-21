@@ -177,6 +177,10 @@
 												<ValueResolverControl
 													:modelValue="getBuilderValue(row, 0)"
 													:doctype="row.doctype || doctype"
+													:context="{
+														fieldname: row.field,
+														operator: row.operator,
+													}"
 													:readOnly="readOnly"
 													:allowedKinds="getAllowedBuilderKinds(row)"
 													@update:modelValue="
@@ -189,6 +193,10 @@
 												<ValueResolverControl
 													:modelValue="getBuilderValue(row, 1)"
 													:doctype="row.doctype || doctype"
+													:context="{
+														fieldname: row.field,
+														operator: row.operator,
+													}"
 													:readOnly="readOnly"
 													:allowedKinds="getAllowedBuilderKinds(row)"
 													@update:modelValue="
@@ -202,6 +210,10 @@
 										<ValueResolverControl
 											:modelValue="getBuilderValue(row)"
 											:doctype="row.doctype || doctype"
+											:context="{
+												fieldname: row.field,
+												operator: row.operator,
+											}"
 											:readOnly="readOnly"
 											:allowedKinds="getAllowedBuilderKinds(row)"
 											@update:modelValue="

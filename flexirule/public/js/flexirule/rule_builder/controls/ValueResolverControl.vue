@@ -552,6 +552,10 @@ const props = defineProps({
 		type: String,
 		default: "",
 	},
+	context: {
+		type: Object,
+		default: () => ({}),
+	},
 	readOnly: {
 		type: Boolean,
 		default: false,
@@ -596,11 +600,29 @@ const availableCategories = computed(() => {
 
 // ─── Default State Factory ───
 function getDefaultState(kind = "date_formula") {
+	let baseField = "";
+	let baseType = "today";
+	let normField = "";
+	let fmtField = "";
+
+	const fieldname = props.context?.fieldname || props.context?.target;
+	if (fieldname) {
+		const raw = fieldname.startsWith("doc.") ? fieldname.slice(4) : fieldname;
+		if (kind === "date_formula") {
+			baseType = "doc_field";
+			baseField = raw;
+		} else if (kind === "normalization") {
+			normField = raw;
+		} else if (kind === "format") {
+			fmtField = raw;
+		}
+	}
+
 	return {
 		kind,
 		// Date Formula fields
-		base_type: "today",
-		base_field: "",
+		base_type: baseType,
+		base_field: baseField,
 		offset_sign: "+",
 		offset_value: 0,
 		offset_unit: "days",
@@ -629,10 +651,10 @@ function getDefaultState(kind = "date_formula") {
 		str_b: "",
 		// Normalization fields
 		norm_op: "trim",
-		norm_field: "",
+		norm_field: normField,
 		// Format fields
 		fmt_op: "format_date",
-		fmt_field: "",
+		fmt_field: fmtField,
 		fmt_config: "", // e.g. "YYYY-MM-DD" or currency field
 		// System context fields
 		sys_token: "user",
@@ -823,21 +845,21 @@ watch(
 	(newVal) => {
 		if (_syncing) return;
 
-		const emitted = { kind: newVal.kind };
+		const config = { kind: newVal.kind };
 
 		if (newVal.kind === "date_formula") {
 			const offset =
 				newVal.offset_sign === "-"
 					? -Math.abs(newVal.offset_value)
 					: Math.abs(newVal.offset_value);
-			Object.assign(emitted, {
+			Object.assign(config, {
 				base_type: newVal.base_type,
 				base_field: newVal.base_field,
 				offset_value: offset,
 				offset_unit: newVal.offset_unit,
 			});
 		} else if (newVal.kind === "math_formula") {
-			Object.assign(emitted, {
+			Object.assign(config, {
 				field_a: newVal.field_a,
 				math_op: newVal.math_op,
 				field_b_type: newVal.field_b_type,
@@ -846,7 +868,7 @@ watch(
 				precision: newVal.precision,
 			});
 		} else if (newVal.kind === "date_diff") {
-			Object.assign(emitted, {
+			Object.assign(config, {
 				diff_start_type: newVal.diff_start_type,
 				diff_start_field: newVal.diff_start_field,
 				diff_end_type: newVal.diff_end_type,
@@ -854,13 +876,13 @@ watch(
 				diff_unit: newVal.diff_unit,
 			});
 		} else if (newVal.kind === "child_aggregation") {
-			Object.assign(emitted, {
+			Object.assign(config, {
 				agg_table: newVal.agg_table,
 				agg_field: newVal.agg_field,
 				agg_op: newVal.agg_op,
 			});
 		} else if (newVal.kind === "string_formula") {
-			Object.assign(emitted, {
+			Object.assign(config, {
 				str_op: newVal.str_op,
 				str_a_type: newVal.str_a_type,
 				str_a: newVal.str_a,
@@ -868,24 +890,27 @@ watch(
 				str_b: newVal.str_b,
 			});
 		} else if (newVal.kind === "normalization") {
-			Object.assign(emitted, {
+			Object.assign(config, {
 				norm_op: newVal.norm_op,
 				norm_field: newVal.norm_field,
 			});
 		} else if (newVal.kind === "format") {
-			Object.assign(emitted, {
+			Object.assign(config, {
 				fmt_op: newVal.fmt_op,
 				fmt_field: newVal.fmt_field,
 				fmt_config: newVal.fmt_config,
 			});
 		} else if (newVal.kind === "system_context") {
-			Object.assign(emitted, {
+			Object.assign(config, {
 				sys_token: newVal.sys_token,
 				sys_role: newVal.sys_role,
 			});
 		}
 
-		emit("update:modelValue", emitted);
+		emit("update:modelValue", config, {
+			label: compileToLabel(config),
+			expression: compileToCode(config),
+		});
 	},
 	{ deep: true }
 );

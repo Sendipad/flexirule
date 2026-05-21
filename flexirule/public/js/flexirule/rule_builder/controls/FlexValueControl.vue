@@ -81,192 +81,12 @@
 				</button>
 			</div>
 		</div>
-
-		<!-- ── Token Editor Modals (Teleported) ── -->
-		<Teleport to="body">
-			<div
-				v-if="activeTokenType"
-				class="fxr-token-modal-overlay"
-				@click.self="closeTokenEditor"
-			>
-				<div
-					class="fxr-token-modal-container"
-					:class="{
-						'full-expanded':
-							activeTokenType === 'condition' || activeTokenType === 'normalize',
-					}"
-				>
-					<div class="fxr-token-modal-header">
-						<span class="header-title">
-							<i
-								:class="activeTokenPresentation.icon"
-								class="me-2 text-primary fw-medium"
-							></i>
-							{{ activeTokenPresentation.title }}
-						</span>
-						<button class="btn-close" @click="closeTokenEditor">
-							<i class="fa fa-times"></i>
-						</button>
-					</div>
-					<div class="fxr-token-modal-body">
-						<!-- Builder Toggle -->
-						<div
-							v-if="activeTokenType && activeTokenType !== 'json'"
-							class="builder-mode-toggle mb-3 d-flex justify-content-end"
-						>
-							<div class="fxr-btn-group">
-								<button
-									class="fxr-btn fxr-btn--xs"
-									:class="!isManualMode ? 'fxr-btn--primary' : 'fxr-btn--ghost'"
-									@click="isManualMode = false"
-								>
-									{{ __("Builder") }}
-								</button>
-								<button
-									class="fxr-btn fxr-btn--xs"
-									:class="isManualMode ? 'fxr-btn--primary' : 'fxr-btn--ghost'"
-									@click="isManualMode = true"
-								>
-									{{ __("Manual") }}
-								</button>
-							</div>
-						</div>
-
-						<template
-							v-if="
-								!isManualMode &&
-								['formula', 'normalize', 'format'].includes(activeTokenType)
-							"
-						>
-							<ValueResolverControl
-								viewMode="inline"
-								:modelValue="tokenDraftAttrs.config"
-								:doctype="referenceDoctype"
-								@update:modelValue="handleBuilderUpdate"
-							/>
-						</template>
-
-						<template v-else-if="!isManualMode && activeTokenType === 'resolver'">
-							<div class="d-flex flex-column fxr-gap-3">
-								<div class="d-flex flex-column fxr-gap-1">
-									<label class="fxr-label-sm">{{
-										__("Value Resolver Type")
-									}}</label>
-									<select class="fxr-select" v-model="tokenDraftAttrs.resolver">
-										<option value="query_record">
-											{{ __("Query Record") }}
-										</option>
-										<option value="resolve_user">
-											{{ __("Resolve Current User") }}
-										</option>
-										<option value="fetch_global_setting">
-											{{ __("Fetch Global Setting") }}
-										</option>
-										<option value="custom">
-											{{ __("Custom API/Method") }}
-										</option>
-									</select>
-								</div>
-								<div class="d-flex flex-column fxr-gap-1 mt-2">
-									<label class="fxr-label-sm d-flex justify-content-between">
-										<span>{{ __("Parameters Config") }}</span>
-										<button
-											class="fxr-btn fxr-btn--sm fxr-btn--secondary py-0"
-											@click="addConfigParam"
-										>
-											<i class="fa fa-plus me-1"></i> {{ __("Add Param") }}
-										</button>
-									</label>
-									<div class="params-editor-list">
-										<div
-											v-for="(v, k) in tokenDraftAttrs.config"
-											:key="k"
-											class="param-row d-flex fxr-gap-2 align-items-center mb-2"
-										>
-											<input
-												class="fxr-input flex-1"
-												:value="k"
-												@change="renameConfigKey(k, $event.target.value)"
-												placeholder="Key"
-											/>
-											<input
-												class="fxr-input flex-2"
-												v-model="tokenDraftAttrs.config[k]"
-												placeholder="Value"
-											/>
-											<button
-												class="fxr-btn fxr-btn--icon fxr-btn--sm fxr-btn--ghost text-danger px-0"
-												@click="removeConfigKey(k)"
-											>
-												<i class="fa fa-trash"></i>
-											</button>
-										</div>
-									</div>
-								</div>
-							</div>
-						</template>
-
-						<template v-if="isManualMode && activeTokenType !== 'resolver'">
-							<div class="d-flex flex-column fxr-gap-2">
-								<label class="fxr-label-sm">{{ __("Manual Expression") }}</label>
-								<textarea
-									ref="formulaTextareaRef"
-									class="fxr-textarea formula-textarea"
-									v-model="tokenDraftAttrs.expression"
-								></textarea>
-								<div class="variables-selector-pane mt-3">
-									<label class="fxr-label-sm">{{ __("Insert Variable") }}</label>
-									<div class="variables-pill-grid v2-scrollbar">
-										<button
-											v-for="v in variableOptions"
-											:key="v.value || v"
-											class="var-pill-btn"
-											@click="insertVarInFormula(v)"
-										>
-											{{ v.label || v.value || v }}
-										</button>
-									</div>
-								</div>
-							</div>
-						</template>
-
-						<template v-if="activeTokenType === 'json'">
-							<div class="d-flex flex-column fxr-gap-3">
-								<label class="fxr-label-sm">{{ __("JSON Data Editor") }}</label>
-								<textarea
-									class="fxr-textarea json-textarea"
-									v-model="tokenDraftAttrs.value"
-									placeholder='{ "key": "value" }'
-								></textarea>
-								<div v-if="jsonParseError" class="text-danger fxr-text-xs">
-									{{ jsonParseError }}
-								</div>
-							</div>
-						</template>
-					</div>
-					<footer class="fxr-token-modal-footer">
-						<button
-							class="fxr-btn fxr-btn--sm fxr-btn--secondary"
-							@click="closeTokenEditor"
-						>
-							{{ __("Cancel") }}
-						</button>
-						<button
-							class="fxr-btn fxr-btn--sm fxr-btn--primary"
-							@click="saveTokenEditor"
-						>
-							{{ __("Save") }}
-						</button>
-					</footer>
-				</div>
-			</div>
-		</Teleport>
 	</div>
 </template>
 
 <script setup>
 import { computed, ref, watch, onBeforeUnmount, nextTick } from "vue";
-import { Editor, EditorContent, VueRenderer } from "@tiptap/vue-3";
+import { Editor, EditorContent, VueRenderer, VueNodeViewRenderer } from "@tiptap/vue-3";
 import { StarterKit } from "@tiptap/starter-kit";
 import { Node, mergeAttributes } from "@tiptap/core";
 import Mention from "@tiptap/extension-mention";
@@ -278,6 +98,7 @@ import { compileToCode, compileToLabel } from "../../core/builder_utils.js";
 import MentionList from "./MentionList.vue";
 import ControlFactory from "./ControlFactory.vue";
 import ValueResolverControl from "./ValueResolverControl.vue";
+import ResolverTokenView from "./ResolverTokenView.vue";
 
 const props = defineProps({
 	modelValue: { type: [Object, String, Number, Boolean], default: null },
@@ -293,6 +114,7 @@ const props = defineProps({
 	doc: { type: Object, default: null },
 	operator: { type: String, default: "" },
 	referenceDoctype: { type: String, default: "" },
+	targetContext: { type: String, default: "" },
 });
 
 const emit = defineEmits(["update:modelValue", "update"]);
@@ -380,6 +202,15 @@ const ResolverToken = Node.create({
 	inline: true,
 	selectable: true,
 	atom: true,
+
+	addOptions() {
+		return {
+			doctype: "",
+			readOnly: false,
+			context: {},
+		};
+	},
+
 	addAttributes() {
 		return {
 			expression: { default: "" },
@@ -388,6 +219,7 @@ const ResolverToken = Node.create({
 			resolver: { default: "" }, // legacy compat
 		};
 	},
+
 	parseHTML() {
 		const getAttrs = (dom) => {
 			const configRaw = dom.getAttribute("data-config");
@@ -413,31 +245,23 @@ const ResolverToken = Node.create({
 			{ tag: 'span[data-token-type="format"]', getAttrs },
 		];
 	},
+
 	renderHTML({ node, HTMLAttributes }) {
 		const kind = node.attrs.config?.kind || "resolver";
-		const icons = {
-			date_formula: "fa fa-calendar",
-			math_formula: "fa fa-calculator",
-			date_diff: "fa fa-calendar-minus-o",
-			child_aggregation: "fa fa-table",
-			string_formula: "fa fa-font",
-			normalization: "fa fa-refresh",
-			format: "fa fa-paint-brush",
-			system_context: "fa fa-globe",
-			resolver: "fa fa-bolt",
-		};
-		const iconClass = icons[kind] || icons.resolver;
-		const label = node.attrs.label || node.attrs.expression || node.attrs.resolver || "Resolve";
-
 		return [
 			"span",
 			mergeAttributes(HTMLAttributes, {
 				"data-token-type": "resolver",
-				class: `token-chip token-${kind.split("_")[0]}`,
+				"data-config": JSON.stringify(node.attrs.config),
+				"data-expression": node.attrs.expression,
+				"data-label": node.attrs.label,
 			}),
-			["i", { class: `${iconClass} me-1` }],
-			label,
+			0,
 		];
+	},
+
+	addNodeView() {
+		return VueNodeViewRenderer(ResolverTokenView);
 	},
 });
 
@@ -494,7 +318,15 @@ const editor = new Editor({
 			horizontalRule: false,
 		}),
 		VariableToken,
-		ResolverToken,
+		ResolverToken.configure({
+			doctype: props.referenceDoctype,
+			readOnly: isReadOnly.value,
+			context: {
+				fieldname: props.targetContext,
+				fieldtype: props.fieldType,
+				operator: props.operator,
+			},
+		}),
 		VariableTrigger.configure({
 			suggestion: {
 				char: "@",
@@ -585,12 +417,6 @@ const editor = new Editor({
 								},
 							])
 							.run();
-
-						nextTick(() => {
-							const { selection } = editor.state;
-							const node = editor.state.doc.nodeAt(selection.$from.pos - 1);
-							if (node) openTokenEditor(node, selection.$from.pos - 1);
-						});
 					} else {
 						editor.chain().focus().insertContentAt(range, `${props.label}()`).run();
 					}
