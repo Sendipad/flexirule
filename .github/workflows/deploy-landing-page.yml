@@ -59,9 +59,12 @@ jobs:
         run: |
           mkdir temp-docs
           cd temp-docs
-          # Pin to a stable version
-          git clone --depth 1 --branch v1.9.0 https://github.com/gethyas/doks .
+          # Pin to a stable version (v1.8.2 is known to work with our setup)
+          git clone --depth 1 --branch v1.8.2 https://github.com/gethyas/doks .
           rm -rf .git
+
+          # Patch package.json to allow Node 22 (pinned Doks expects >=24.13.0)
+          sed -i 's/"node": ">=24.13.0"/"node": ">=22.0.0"/' package.json
 
           # Install dependencies
           npm install
