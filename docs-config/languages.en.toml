@@ -1,7 +1,8 @@
 [en]
-  label = "English"
-  locale = "en-US"
-  contentDir = "content"
+  languageName = "English"
+  contentDir = "content/en"
   weight = 10
   [en.params]
+    languageISO = "EN"
+    languageTag = "en-US"
     footer = "FlexiRule Documentation"

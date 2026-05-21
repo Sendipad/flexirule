@@ -71,23 +71,10 @@ jobs:
           DOCS_BASE_URL="${{ env.BASE_URL }}docs/"
           sed -i "s|base[uU][rR][lL] = \".*\"|baseURL = \"$DOCS_BASE_URL\"|" config/_default/hugo.toml
 
-          # Fix deprecations in the cloned Doks config if necessary
-          # (We will also fix our overrides in the next steps)
-
           sed -i 's|title = ".*"|title = "FlexiRule Documentation"|' config/_default/hugo.toml
 
           # Adjust permalinks
           sed -i 's|docs = "/docs/:sections\[1:\]/:slug/"|docs = "/:sections[1:]/:slug/"|' config/_default/hugo.toml
-
-          # Configure esbuild loader for JSX in .js files
-          # Since Doks/Thulite uses js.Build, we can pass loaders via the config
-          # Thulite often uses a central layout that calls js.Build
-          # We'll try to find where it's called or just disable FlexSearch if it fails
-          # But let's try the config approach first as it's cleaner.
-          # For Hugo 0.140+, we can use the [params.jsbuild] or similar if the theme supports it,
-          # but usually it's passed as a dict to js.Build in the template.
-          # Since we can't easily edit the theme's templates in node_modules,
-          # we'll try to use a Hugo feature if available or just disable the feature.
 
           # Use our custom menu
           mkdir -p config/_default/menus
@@ -102,9 +89,10 @@ jobs:
           cp ../docs-config/assets/scss/common/_variables-custom.scss assets/scss/common/_variables-custom.scss
 
           # Copy content
+          # Doks 1.9.0 expects content in content/en/
           rm -rf content/*
-          mkdir -p content/docs
-          cp -r ../docs/* content/docs/
+          mkdir -p content/en/docs
+          cp -r ../docs/* content/en/docs/
 
           # Build
           npm run build
