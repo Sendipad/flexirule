@@ -132,32 +132,16 @@
 							</div>
 						</div>
 
-						<template v-if="!isManualMode && activeTokenType === 'formula'">
+						<template
+							v-if="
+								!isManualMode &&
+								['formula', 'normalize', 'format'].includes(activeTokenType)
+							"
+						>
 							<ValueResolverControl
 								viewMode="inline"
 								:modelValue="tokenDraftAttrs.config"
 								:doctype="referenceDoctype"
-								:allowedKinds="['date_formula', 'math_formula', 'date_diff']"
-								@update:modelValue="handleBuilderUpdate"
-							/>
-						</template>
-
-						<template v-else-if="!isManualMode && activeTokenType === 'normalize'">
-							<ValueResolverControl
-								viewMode="inline"
-								:modelValue="tokenDraftAttrs.config"
-								:doctype="referenceDoctype"
-								:allowedKinds="['normalization']"
-								@update:modelValue="handleBuilderUpdate"
-							/>
-						</template>
-
-						<template v-else-if="!isManualMode && activeTokenType === 'format'">
-							<ValueResolverControl
-								viewMode="inline"
-								:modelValue="tokenDraftAttrs.config"
-								:doctype="referenceDoctype"
-								:allowedKinds="['format']"
 								@update:modelValue="handleBuilderUpdate"
 							/>
 						</template>
@@ -390,35 +374,6 @@ const VariableToken = Node.create({
 	},
 });
 
-const FormulaToken = Node.create({
-	name: "formulaToken",
-	group: "inline",
-	inline: true,
-	selectable: true,
-	atom: true,
-	addAttributes() {
-		return {
-			expression: { default: "" },
-			label: { default: "" },
-			config: { default: null },
-		};
-	},
-	parseHTML() {
-		return [{ tag: 'span[data-token-type="formula"]' }];
-	},
-	renderHTML({ node, HTMLAttributes }) {
-		const label = node.attrs.label || node.attrs.expression || "Formula";
-		return [
-			"span",
-			mergeAttributes(HTMLAttributes, {
-				"data-token-type": "formula",
-				class: "token-chip token-formula",
-			}),
-			`🧮 ${label}`,
-		];
-	},
-});
-
 const ResolverToken = Node.create({
 	name: "resolverToken",
 	group: "inline",
@@ -427,81 +382,61 @@ const ResolverToken = Node.create({
 	atom: true,
 	addAttributes() {
 		return {
-			resolver: { default: "" },
+			expression: { default: "" },
 			label: { default: "" },
 			config: { default: null },
+			resolver: { default: "" }, // legacy compat
 		};
 	},
 	parseHTML() {
-		return [{ tag: 'span[data-token-type="resolver"]' }];
+		const getAttrs = (dom) => {
+			const configRaw = dom.getAttribute("data-config");
+			let config = null;
+			if (configRaw) {
+				try {
+					config = JSON.parse(configRaw);
+				} catch (e) {
+					config = null;
+				}
+			}
+			return {
+				expression: dom.getAttribute("data-expression") || "",
+				resolver: dom.getAttribute("data-resolver") || "",
+				label: dom.getAttribute("data-label") || "",
+				config: config,
+			};
+		};
+		return [
+			{ tag: 'span[data-token-type="resolver"]', getAttrs },
+			{ tag: 'span[data-token-type="formula"]', getAttrs },
+			{ tag: 'span[data-token-type="normalize"]', getAttrs },
+			{ tag: 'span[data-token-type="format"]', getAttrs },
+		];
 	},
 	renderHTML({ node, HTMLAttributes }) {
-		const label = node.attrs.label || node.attrs.resolver || "Resolve";
+		const kind = node.attrs.config?.kind || "resolver";
+		const icons = {
+			date_formula: "fa fa-calendar",
+			math_formula: "fa fa-calculator",
+			date_diff: "fa fa-calendar-minus-o",
+			child_aggregation: "fa fa-table",
+			string_formula: "fa fa-font",
+			normalization: "fa fa-refresh",
+			format: "fa fa-paint-brush",
+			system_context: "fa fa-globe",
+			resolver: "fa fa-bolt",
+		};
+		const iconClass = icons[kind] || icons.resolver;
+		const label = node.attrs.label || node.attrs.expression || node.attrs.resolver || "Resolve";
+
 		return [
 			"span",
 			mergeAttributes(HTMLAttributes, {
 				"data-token-type": "resolver",
-				class: "token-chip token-resolver",
+				class: `token-chip token-${kind.split("_")[0]}`,
 			}),
-			`⚡ ${label}`,
-		];
-	},
-});
-
-const NormalizeToken = Node.create({
-	name: "normalizeToken",
-	group: "inline",
-	inline: true,
-	selectable: true,
-	atom: true,
-	addAttributes() {
-		return {
-			expression: { default: "" },
-			label: { default: "" },
-			config: { default: null },
-		};
-	},
-	parseHTML() {
-		return [{ tag: 'span[data-token-type="normalize"]' }];
-	},
-	renderHTML({ node, HTMLAttributes }) {
-		const label = node.attrs.label || node.attrs.expression || "Normalize";
-		return [
-			"span",
-			mergeAttributes(HTMLAttributes, {
-				"data-token-type": "normalize",
-				class: "token-chip token-normalize",
-			}),
-			`🔄 ${label}`,
-		];
-	},
-});
-
-const FormatToken = Node.create({
-	name: "formatToken",
-	group: "inline",
-	inline: true,
-	selectable: true,
-	atom: true,
-	addAttributes() {
-		return {
-			expression: { default: "" },
-			label: { default: "" },
-			config: { default: null },
-		};
-	},
-	parseHTML() {
-		return [{ tag: 'span[data-token-type="format"]' }];
-	},
-	renderHTML({ node, HTMLAttributes }) {
-		const label = node.attrs.label || node.attrs.expression || "Format";
-		return [
-			"span",
-			mergeAttributes(HTMLAttributes, {
-				"data-token-type": "format",
-				class: "token-chip token-format",
-			}),
-			`🎨 ${label}`,
+			["i", { class: `${iconClass} me-1` }],
+			label,
 		];
 	},
 });
@@ -559,10 +494,7 @@ const editor = new Editor({
 			horizontalRule: false,
 		}),
 		VariableToken,
-		FormulaToken,
 		ResolverToken,
-		NormalizeToken,
-		FormatToken,
 		VariableTrigger.configure({
 			suggestion: {
 				char: "@",
@@ -636,18 +568,24 @@ const editor = new Editor({
 					const isCommand = commands.find((c) => c.id === props.id);
 
 					if (isCommand) {
-						const typeMap = {
-							formula: "formulaToken",
-							resolver: "resolverToken",
-							normalize: "normalizeToken",
-							formatter: "formatToken",
+						const kindMap = {
+							formula: "math_formula",
+							normalize: "normalization",
+							formatter: "format",
 						};
-						const nodeType = typeMap[props.id] || "formulaToken";
+						const initialKind = kindMap[props.id] || "resolver";
+
 						editor
 							.chain()
 							.focus()
-							.insertContentAt(range, [{ type: nodeType, attrs: {} }])
+							.insertContentAt(range, [
+								{
+									type: "resolverToken",
+									attrs: { config: { kind: initialKind } },
+								},
+							])
 							.run();
+
 						nextTick(() => {
 							const { selection } = editor.state;
 							const node = editor.state.doc.nodeAt(selection.$from.pos - 1);
@@ -703,7 +641,8 @@ function serialize() {
 	// If there's exactly one token and nothing else, use its mode
 	if (content.length === 1 && content[0].type !== "text") {
 		const node = content[0];
-		if (node.type === "variableToken") {
+		const typeName = node.type.name || node.type;
+		if (typeName === "variableToken") {
 			return {
 				mode: "variable",
 				value: node.attrs.path,
@@ -711,37 +650,10 @@ function serialize() {
 				fieldtype: props.fieldType,
 			};
 		}
-		if (node.type === "formulaToken") {
-			return {
-				mode: "formula",
-				value: node.attrs.expression,
-				label: node.attrs.label,
-				config: node.attrs.config,
-				fieldtype: props.fieldType,
-			};
-		}
-		if (node.type === "resolverToken") {
+		if (typeName === "resolverToken") {
 			return {
 				mode: "resolver",
-				value: node.attrs.resolver,
-				label: node.attrs.label,
-				config: node.attrs.config,
-				fieldtype: props.fieldType,
-			};
-		}
-		if (node.type === "normalizeToken") {
-			return {
-				mode: "normalize",
-				value: node.attrs.expression,
-				label: node.attrs.label,
-				config: node.attrs.config,
-				fieldtype: props.fieldType,
-			};
-		}
-		if (node.type === "formatToken") {
-			return {
-				mode: "format",
-				value: node.attrs.expression,
+				value: node.attrs.expression || node.attrs.resolver,
 				label: node.attrs.label,
 				config: node.attrs.config,
 				fieldtype: props.fieldType,
@@ -773,55 +685,35 @@ function deserialize(val) {
 		return `<span data-token-type="variable" data-path="${val.value}" data-label="${
 			val.label || ""
 		}"></span>`;
-	if (val.mode === "formula")
-		return `<span data-token-type="formula" data-expression="${val.value || ""}" data-label="${
+
+	if (["resolver", "formula", "normalize", "format"].includes(val.mode)) {
+		const attr = val.mode === "resolver" ? "data-resolver" : "data-expression";
+		return `<span data-token-type="resolver" ${attr}="${val.value || ""}" data-label="${
 			val.label || ""
 		}" data-config='${JSON.stringify(val.config || null)}'></span>`;
-	if (val.mode === "resolver")
-		return `<span data-token-type="resolver" data-resolver="${val.value || ""}" data-label="${
-			val.label || ""
-		}" data-config='${JSON.stringify(val.config || null)}'></span>`;
-	if (val.mode === "normalize")
-		return `<span data-token-type="normalize" data-expression="${
-			val.value || ""
-		}" data-label="${val.label || ""}" data-config='${JSON.stringify(
-			val.config || null
-		)}'></span>`;
-	if (val.mode === "format")
-		return `<span data-token-type="format" data-expression="${val.value || ""}" data-label="${
-			val.label || ""
-		}" data-config='${JSON.stringify(val.config || null)}'></span>`;
+	}
 
 	if (val.mode === "expression" && Array.isArray(val.value)) {
 		return val.value
 			.map((item) => {
-				if (item.type === "text") return item.value;
-				if (item.type === "variableToken")
+				const typeName = item.type?.name || item.type;
+				if (typeName === "text") return item.value;
+				if (typeName === "variableToken")
 					return `<span data-token-type="variable" data-path="${item.attrs.path}" data-label="${item.attrs.label}"></span>`;
-				if (item.type === "formulaToken")
-					return `<span data-token-type="formula" data-expression="${
-						item.attrs.expression || ""
+				if (
+					[
+						"resolverToken",
+						"formulaToken",
+						"normalizeToken",
+						"formatToken",
+					].includes(typeName)
+				) {
+					return `<span data-token-type="resolver" data-expression="${
+						item.attrs.expression || item.attrs.resolver || ""
 					}" data-label="${item.attrs.label || ""}" data-config='${JSON.stringify(
 						item.attrs.config || null
 					)}'></span>`;
-				if (item.type === "resolverToken")
-					return `<span data-token-type="resolver" data-resolver="${
-						item.attrs.resolver || ""
-					}" data-label="${item.attrs.label || ""}" data-config='${JSON.stringify(
-						item.attrs.config || null
-					)}'></span>`;
-				if (item.type === "normalizeToken")
-					return `<span data-token-type="normalize" data-expression="${
-						item.attrs.expression || ""
-					}" data-label="${item.attrs.label || ""}" data-config='${JSON.stringify(
-						item.attrs.config || null
-					)}'></span>`;
-				if (item.type === "formatToken")
-					return `<span data-token-type="format" data-expression="${
-						item.attrs.expression || ""
-					}" data-label="${item.attrs.label || ""}" data-config='${JSON.stringify(
-						item.attrs.config || null
-					)}'></span>`;
+				}
 				return "";
 			})
 			.join("");
@@ -910,31 +802,19 @@ function openTokenEditor(node, pos, typeOverride = null) {
 		return;
 	}
 
-	if (node.type.name === "formulaToken") {
-		activeTokenType.value = "formula";
+	if (node.type.name === "resolverToken") {
+		const kind = node.attrs.config?.kind;
+		if (["normalization", "format"].includes(kind)) {
+			activeTokenType.value = kind === "normalization" ? "normalize" : "format";
+		} else if (kind?.includes("formula") || kind?.includes("aggregation")) {
+			activeTokenType.value = "formula";
+		} else {
+			activeTokenType.value = "resolver";
+		}
+
 		tokenDraftAttrs.value = {
 			expression: node.attrs.expression,
-			label: node.attrs.label,
-			config: node.attrs.config || null,
-		};
-	} else if (node.type.name === "resolverToken") {
-		activeTokenType.value = "resolver";
-		tokenDraftAttrs.value = {
 			resolver: node.attrs.resolver,
-			label: node.attrs.label,
-			config: node.attrs.config || null,
-		};
-	} else if (node.type.name === "normalizeToken") {
-		activeTokenType.value = "normalize";
-		tokenDraftAttrs.value = {
-			expression: node.attrs.expression,
-			label: node.attrs.label,
-			config: node.attrs.config || null,
-		};
-	} else if (node.type.name === "formatToken") {
-		activeTokenType.value = "format";
-		tokenDraftAttrs.value = {
-			expression: node.attrs.expression,
 			label: node.attrs.label,
 			config: node.attrs.config || null,
 		};
