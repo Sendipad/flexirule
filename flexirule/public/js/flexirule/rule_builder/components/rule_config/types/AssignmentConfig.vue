@@ -77,11 +77,9 @@
 							<FlexValueControl
 								class="flex-1 min-w-0"
 								:context="{
-									df: {
-										fieldtype: getTargetFieldtype(assignment.target) || 'Data',
-										options: getTargetOptions(assignment.target),
-										fieldname: assignment.target,
-									},
+									df:
+										targetOptions.find((o) => o.value === assignment.target) ||
+										{},
 									operator: assignment.operator,
 									referenceDoctype: getTargetDoctype(assignment.target),
 								}"
