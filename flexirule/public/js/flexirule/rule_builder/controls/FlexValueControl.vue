@@ -701,12 +701,9 @@ function deserialize(val) {
 				if (typeName === "variableToken")
 					return `<span data-token-type="variable" data-path="${item.attrs.path}" data-label="${item.attrs.label}"></span>`;
 				if (
-					[
-						"resolverToken",
-						"formulaToken",
-						"normalizeToken",
-						"formatToken",
-					].includes(typeName)
+					["resolverToken", "formulaToken", "normalizeToken", "formatToken"].includes(
+						typeName
+					)
 				) {
 					return `<span data-token-type="resolver" data-expression="${
 						item.attrs.expression || item.attrs.resolver || ""
