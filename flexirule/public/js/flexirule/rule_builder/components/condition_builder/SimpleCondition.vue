@@ -64,7 +64,7 @@ const operators = computed(() => {
 		Array.isArray(fieldOps) && fieldOps.length
 			? fieldOps
 			: config.fieldtype_operators?.[ft] ||
-				config.fieldtype_operators?.["_default"] || ["==", "!=", "is_set", "is_not_set"];
+			  config.fieldtype_operators?.["_default"] || ["==", "!=", "is_set", "is_not_set"];
 	const labels = config.operator_labels || {};
 
 	return validOps.map((op) => ({
@@ -378,9 +378,7 @@ const valueType = computed({
 	border: 1px solid var(--fxr-border);
 	border-radius: var(--fxr-radius-md);
 	padding: var(--fxr-space-1) var(--fxr-space-2);
-	transition:
-		border-color var(--fxr-transition-fast),
-		background-color var(--fxr-transition-fast);
+	transition: border-color var(--fxr-transition-fast), background-color var(--fxr-transition-fast);
 }
 
 .simple-condition:hover {
