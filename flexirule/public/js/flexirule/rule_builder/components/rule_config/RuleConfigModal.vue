@@ -3,7 +3,12 @@
 		<transition name="modal-fade">
 			<div v-if="modelValue" class="config-modal-overlay" @click.self="cancel">
 				<div class="config-modal-container">
-					<header class="config-modal-header">
+					<header
+						class="config-modal-header"
+						@touchstart="handleTouchStart"
+						@touchmove="handleTouchMove"
+						@touchend="handleTouchEnd"
+					>
 						<div class="header-left">
 							<div
 								class="header-icon"
@@ -61,57 +66,69 @@
 
 						<div class="header-right">
 							<div class="header-toolbar">
-								<!-- Navigation Group -->
-								<div class="toolbar-group navigation">
-									<button
-										class="toolbar-btn"
-										@click="ruleStore.prev_config_node()"
-										:disabled="currentNodeIndex <= 0"
-										:title="__('Previous')"
-									>
-										<i class="fa fa-chevron-left"></i>
-									</button>
-									<div class="toolbar-status">
+								<!-- Standard Desktop Layout -->
+								<template v-if="!isMobile">
+									<!-- Navigation Group -->
+									<div class="toolbar-group navigation">
+										<button
+											class="toolbar-btn"
+											@click="ruleStore.prev_config_node()"
+											:disabled="currentNodeIndex <= 0"
+											:title="__('Previous')"
+										>
+											<i class="fa fa-chevron-left"></i>
+										</button>
+										<div class="toolbar-status">
+											<span class="current">{{ currentNodeIndex + 1 }}</span>
+											<span class="total">/ {{ totalNodes }}</span>
+										</div>
+										<button
+											class="toolbar-btn"
+											@click="ruleStore.next_config_node()"
+											:disabled="currentNodeIndex >= totalNodes - 1"
+											:title="__('Next')"
+										>
+											<i class="fa fa-chevron-right"></i>
+										</button>
+									</div>
+
+									<div class="toolbar-divider"></div>
+
+									<!-- Toggles Group -->
+									<div class="toolbar-group toggles">
+										<button
+											class="toolbar-btn"
+											:class="{ active: showContextSidebar }"
+											@click="showContextSidebar = !showContextSidebar"
+											:title="__('Context Variables')"
+										>
+											<i class="fa fa-database"></i>
+											<span>{{ __("Variables") }}</span>
+										</button>
+										<button
+											class="toolbar-btn"
+											:class="{ active: showSettingsBar }"
+											@click="showSettingsBar = !showSettingsBar"
+											:title="__('Action Settings')"
+										>
+											<i class="fa fa-cog"></i>
+											<span>{{ __("Settings") }}</span>
+										</button>
+									</div>
+
+									<div class="toolbar-divider"></div>
+								</template>
+
+								<!-- Mobile/Compact Minimal Info -->
+								<template v-else>
+									<div class="toolbar-status mobile">
 										<span class="current">{{ currentNodeIndex + 1 }}</span>
 										<span class="total">/ {{ totalNodes }}</span>
 									</div>
-									<button
-										class="toolbar-btn"
-										@click="ruleStore.next_config_node()"
-										:disabled="currentNodeIndex >= totalNodes - 1"
-										:title="__('Next')"
-									>
-										<i class="fa fa-chevron-right"></i>
-									</button>
-								</div>
+									<div class="toolbar-divider"></div>
+								</template>
 
-								<div class="toolbar-divider"></div>
-
-								<!-- Toggles Group -->
-								<div class="toolbar-group toggles">
-									<button
-										class="toolbar-btn"
-										:class="{ active: showContextSidebar }"
-										@click="showContextSidebar = !showContextSidebar"
-										:title="__('Context Variables')"
-									>
-										<i class="fa fa-database"></i>
-										<span>{{ __("Variables") }}</span>
-									</button>
-									<button
-										class="toolbar-btn"
-										:class="{ active: showSettingsBar }"
-										@click="showSettingsBar = !showSettingsBar"
-										:title="__('Action Settings')"
-									>
-										<i class="fa fa-cog"></i>
-										<span>{{ __("Settings") }}</span>
-									</button>
-								</div>
-
-								<div class="toolbar-divider"></div>
-
-								<!-- Save Action -->
+								<!-- Primary Actions (Always Visible) -->
 								<div class="toolbar-group actions" v-if="!ruleStore.is_read_only">
 									<button
 										class="toolbar-btn save-action"
@@ -119,13 +136,126 @@
 										:title="__('Save Action')"
 									>
 										<i class="fa fa-save"></i>
-										<span>{{ __("Save") }}</span>
+										<span v-if="!isMobile">{{ __("Save") }}</span>
 									</button>
 								</div>
 
 								<div class="toolbar-divider" v-if="!ruleStore.is_read_only"></div>
 
-								<!-- Close -->
+								<!-- Overflow Menu for Mobile -->
+								<template v-if="isMobile">
+									<div class="overflow-menu-wrapper">
+										<button
+											ref="overflowTriggerRef"
+											class="toolbar-btn overflow-trigger"
+											:class="{ active: isOverflowOpen }"
+											@click="toggleOverflow"
+											@keydown="handleOverflowTriggerKeydown"
+											:title="__('More Actions')"
+											aria-haspopup="true"
+											:aria-expanded="isOverflowOpen"
+											aria-controls="config-overflow-menu"
+											id="config-overflow-trigger"
+										>
+											<i class="fa fa-ellipsis-v"></i>
+										</button>
+
+										<Teleport to="body">
+											<div
+												v-if="isOverflowOpen"
+												class="fxr-overflow-dropdown"
+												:style="overflowMenuStyle"
+												ref="overflowMenuRef"
+												id="config-overflow-menu"
+												role="menu"
+												aria-labelledby="config-overflow-trigger"
+												@keydown="handleOverflowMenuKeydown"
+											>
+												<div class="overflow-menu-items">
+													<div class="menu-section" role="none">
+														<div
+															class="section-label"
+															role="presentation"
+														>
+															{{ __("Navigation") }}
+														</div>
+														<button
+															class="menu-item"
+															role="menuitem"
+															@click="
+																ruleStore.prev_config_node();
+																closeOverflow();
+															"
+															:disabled="currentNodeIndex <= 0"
+														>
+															<i class="fa fa-chevron-left"></i>
+															<span>{{ __("Previous Action") }}</span>
+														</button>
+														<button
+															class="menu-item"
+															role="menuitem"
+															@click="
+																ruleStore.next_config_node();
+																closeOverflow();
+															"
+															:disabled="
+																currentNodeIndex >= totalNodes - 1
+															"
+														>
+															<i class="fa fa-chevron-right"></i>
+															<span>{{ __("Next Action") }}</span>
+														</button>
+													</div>
+
+													<div class="menu-divider" role="separator"></div>
+
+													<div class="menu-section" role="none">
+														<div
+															class="section-label"
+															role="presentation"
+														>
+															{{ __("Views & Settings") }}
+														</div>
+														<button
+															class="menu-item"
+															role="menuitem"
+															:class="{
+																active: showContextSidebar,
+															}"
+															@click="
+																showContextSidebar =
+																	!showContextSidebar;
+																closeOverflow();
+															"
+														>
+															<i class="fa fa-database"></i>
+															<span>{{
+																__("Context Variables")
+															}}</span>
+														</button>
+														<button
+															class="menu-item"
+															role="menuitem"
+															:class="{ active: showSettingsBar }"
+															@click="
+																showSettingsBar = !showSettingsBar;
+																closeOverflow();
+															"
+														>
+															<i class="fa fa-cog"></i>
+															<span>{{
+																__("Action Settings")
+															}}</span>
+														</button>
+													</div>
+												</div>
+											</div>
+										</Teleport>
+									</div>
+									<div class="toolbar-divider"></div>
+								</template>
+
+								<!-- Close (Always Visible) -->
 								<button
 									class="toolbar-btn close"
 									@click="cancel"
@@ -138,48 +268,57 @@
 					</header>
 
 					<div class="config-modal-body">
-						<!-- Logic Mode (Conditions) -->
-						<div
-							v-show="uiStore.config_modal_mode === 'logic'"
-							class="conditions-container"
-						>
-							<div class="conditions-view">
-								<ConditionStep
-									:node="draftNode"
-									:read-only="ruleStore.is_read_only"
-									:ref="panelRefs.logic"
-								/>
-							</div>
-						</div>
-
-						<!-- Standard Action Setup -->
-						<div
-							v-show="uiStore.config_modal_mode !== 'logic'"
-							class="standard-config-container"
-						>
-							<!-- Start Node Setup (Full width) -->
-							<div v-if="draftNode?.type === 'start'" class="start-node-setup">
-								<div class="setup-container">
-									<header class="section-header mb-4">
-										<h4>{{ __("Trigger Configuration") }}</h4>
-										<p class="text-muted">
-											{{
-												__("Configure how and when this rule is triggered.")
-											}}
-										</p>
-									</header>
-									<StartNodeProperties
-										:nodeData="draftNode.data"
-										:readOnly="ruleStore.is_read_only"
-										@update:field="(f, v) => (draftNode.data[f] = v)"
-										@open:conditions="uiStore.config_modal_mode = 'logic'"
-									/>
+						<transition :name="transitionName">
+							<div
+								:key="draftNode?.id || 'empty'"
+								class="config-transition-wrapper"
+							>
+								<!-- Logic Mode (Conditions) -->
+								<div
+									v-show="uiStore.config_modal_mode === 'logic'"
+									class="conditions-container"
+								>
+									<div class="conditions-view">
+										<ConditionStep
+											:node="draftNode"
+											:read-only="ruleStore.is_read_only"
+											:ref="panelRefs.logic"
+										/>
+									</div>
 								</div>
-							</div>
 
-							<!-- Unified Action Setup -->
-							<div v-else-if="draftNode" class="panels-container-modern">
-								<template v-if="!isCompactLayout">
+								<!-- Standard Action Setup -->
+								<div
+									v-show="uiStore.config_modal_mode !== 'logic'"
+									class="standard-config-container"
+								>
+									<!-- Start Node Setup (Full width) -->
+									<div v-if="draftNode?.type === 'start'" class="start-node-setup">
+										<div class="setup-container">
+											<header class="section-header mb-4">
+												<h4>{{ __("Trigger Configuration") }}</h4>
+												<p class="text-muted">
+													{{
+														__(
+															"Configure how and when this rule is triggered."
+														)
+													}}
+												</p>
+											</header>
+											<StartNodeProperties
+												:nodeData="draftNode.data"
+												:readOnly="ruleStore.is_read_only"
+												@update:field="(f, v) => (draftNode.data[f] = v)"
+												@open:conditions="
+													uiStore.config_modal_mode = 'logic'
+												"
+											/>
+										</div>
+									</div>
+
+									<!-- Unified Action Setup -->
+									<div v-else-if="draftNode" class="panels-container-modern">
+										<template v-if="!isCompactLayout">
 									<aside class="sidebar-variables" v-if="showContextSidebar">
 										<InputPanel
 											:node="draftNode"
@@ -285,94 +424,109 @@
 									</div>
 								</template>
 
-								<template v-else>
-									<div class="compact-config-layout">
-										<div
-											class="compact-tabs"
-											role="tablist"
-											@keydown="onCompactTabKeydown"
-										>
-											<button
-												v-for="tab in compactTabs"
-												:key="tab.key"
-												class="compact-tab-btn"
-												role="tab"
-												:aria-selected="activeCompactTab === tab.key"
-												:class="{ active: activeCompactTab === tab.key }"
-												@click="activateCompactTab(tab.key)"
-											>
-												{{ tab.label }}
-											</button>
-										</div>
-
-										<div class="compact-tab-content">
-											<section
-												v-show="activeCompactTab === 'input'"
-												v-if="isCompactTabRendered('input')"
-												ref="compactInputRef"
-												class="compact-panel-shell"
-												@scroll="rememberCompactScroll('input', $event)"
-											>
-												<InputPanel
-													:node="draftNode"
-													:readOnly="ruleStore.is_read_only"
-													mode="config"
-												/>
-											</section>
-
-											<section
-												v-show="activeCompactTab === 'config'"
-												v-if="isCompactTabRendered('config')"
-												ref="compactConfigRef"
-												class="compact-panel-shell"
-												@scroll="rememberCompactScroll('config', $event)"
-											>
+										<template v-else>
+											<div class="compact-config-layout">
 												<div
-													class="integrated-settings-bar"
-													v-if="showSettingsBar"
+													class="compact-tabs"
+													role="tablist"
+													@keydown="onCompactTabKeydown"
 												>
-													<ActionFieldProperties
-														:nodeData="draftNode.data"
-														:readOnly="ruleStore.is_read_only"
-														@update:field="on_update_action_field"
-														@open:conditions="
-															uiStore.config_modal_mode = 'logic'
+													<button
+														v-for="tab in compactTabs"
+														:key="tab.key"
+														class="compact-tab-btn"
+														role="tab"
+														:aria-selected="
+															activeCompactTab === tab.key
 														"
-													/>
+														:class="{
+															active: activeCompactTab === tab.key,
+														}"
+														@click="activateCompactTab(tab.key)"
+													>
+														{{ tab.label }}
+													</button>
 												</div>
-												<ConfigurationPanel
-													:node="draftNode"
-													:readOnly="ruleStore.is_read_only"
-												/>
-											</section>
 
-											<section
-												v-show="activeCompactTab === 'output'"
-												v-if="isCompactTabRendered('output')"
-												ref="compactOutputRef"
-												class="compact-panel-shell"
-												@scroll="rememberCompactScroll('output', $event)"
-											>
-												<OutputPanel
-													:node="draftNode"
-													:readOnly="ruleStore.is_read_only"
-												/>
-											</section>
+												<div class="compact-tab-content">
+													<section
+														v-show="activeCompactTab === 'input'"
+														v-if="isCompactTabRendered('input')"
+														ref="compactInputRef"
+														class="compact-panel-shell"
+														@scroll="
+															rememberCompactScroll('input', $event)
+														"
+													>
+														<InputPanel
+															:node="draftNode"
+															:readOnly="ruleStore.is_read_only"
+															mode="config"
+														/>
+													</section>
+
+													<section
+														v-show="activeCompactTab === 'config'"
+														v-if="isCompactTabRendered('config')"
+														ref="compactConfigRef"
+														class="compact-panel-shell"
+														@scroll="
+															rememberCompactScroll('config', $event)
+														"
+													>
+														<div
+															class="integrated-settings-bar"
+															v-if="showSettingsBar"
+														>
+															<ActionFieldProperties
+																:nodeData="draftNode.data"
+																:readOnly="ruleStore.is_read_only"
+																@update:field="
+																	on_update_action_field
+																"
+																@open:conditions="
+																	uiStore.config_modal_mode =
+																		'logic'
+																"
+															/>
+														</div>
+														<ConfigurationPanel
+															:node="draftNode"
+															:readOnly="ruleStore.is_read_only"
+														/>
+													</section>
+
+													<section
+														v-show="activeCompactTab === 'output'"
+														v-if="isCompactTabRendered('output')"
+														ref="compactOutputRef"
+														class="compact-panel-shell"
+														@scroll="
+															rememberCompactScroll('output', $event)
+														"
+													>
+														<OutputPanel
+															:node="draftNode"
+															:readOnly="ruleStore.is_read_only"
+														/>
+													</section>
+												</div>
+											</div>
+										</template>
+									</div>
+
+									<!-- Guide Sidebar (Right Sliding) -->
+									<aside class="sidebar guide-sidebar" v-if="showGuideSidebar">
+										<div class="guide-panel p-4">
+											<h5>{{ __("Action Guide") }}</h5>
+											<div class="guide-content mt-3" v-if="contract">
+												<p>{{ contract.description }}</p>
+											</div>
 										</div>
-									</div>
-								</template>
-							</div>
-
-							<!-- Guide Sidebar (Right Sliding) -->
-							<aside class="sidebar guide-sidebar" v-if="showGuideSidebar">
-								<div class="guide-panel p-4">
-									<h5>{{ __("Action Guide") }}</h5>
-									<div class="guide-content mt-3" v-if="contract">
-										<p>{{ contract.description }}</p>
-									</div>
+									</aside>
 								</div>
-							</aside>
-						</div>
+							</div>
+						</transition>
 					</div>
 				</div>
 			</div>
@@ -391,6 +545,7 @@ import StartNodeProperties from "../StartNodeProperties.vue";
 import { useRuleStore, useGraphStore, useUIStore } from "../../stores";
 import { useRuleConfig } from "../../composables/useRuleConfig";
 import { useResponsiveConfigLayout } from "../../composables/useResponsiveConfigLayout";
+import { useFloatingDropdown } from "../../composables/useFloatingDropdown";
 import { getContract, getActionPresentation } from "../../../core/contracts.js";
 
 const props = defineProps({
@@ -410,11 +565,70 @@ const {
 	activeTab: activeCompactTab,
 	tabs: compactTabs,
 	isCompact: isCompactLayout,
+	isMobile,
 	updateViewportWidth,
 	setActiveTab,
 	rememberScroll,
 	getRememberedScroll,
-} = useResponsiveConfigLayout(1200);
+} = useResponsiveConfigLayout(1200, 768);
+
+const {
+	triggerRef: overflowTriggerRef,
+	dropdownRef: overflowMenuRef,
+	isOpen: isOverflowOpen,
+	dropdownStyle: overflowMenuStyle,
+	toggleDropdown: toggleOverflow,
+	closeDropdown: closeOverflow,
+} = useFloatingDropdown({
+	matchTriggerWidth: false,
+	minWidth: 200,
+	offset: 8,
+});
+
+function handleOverflowTriggerKeydown(e) {
+	if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") {
+		e.preventDefault();
+		if (!isOverflowOpen.value) {
+			toggleOverflow();
+		}
+		nextTick(() => {
+			const firstItem = overflowMenuRef.value?.querySelector(".menu-item:not(:disabled)");
+			firstItem?.focus();
+		});
+	}
+}
+
+function handleOverflowMenuKeydown(e) {
+	if (e.key === "Escape") {
+		closeOverflow();
+		overflowTriggerRef.value?.focus();
+		return;
+	}
+
+	const items = Array.from(
+		overflowMenuRef.value?.querySelectorAll(".menu-item:not(:disabled)") || []
+	);
+	const currentIndex = items.indexOf(document.activeElement);
+
+	if (e.key === "ArrowDown") {
+		e.preventDefault();
+		const nextIdx = (currentIndex + 1) % items.length;
+		items[nextIdx]?.focus();
+	} else if (e.key === "ArrowUp") {
+		e.preventDefault();
+		const prevIdx = (currentIndex - 1 + items.length) % items.length;
+		items[prevIdx]?.focus();
+	}
+}
+
+watch(isOverflowOpen, (val) => {
+	if (!val) {
+		// Restore focus to trigger when menu closes, if it was inside the menu
+		if (overflowMenuRef.value?.contains(document.activeElement)) {
+			overflowTriggerRef.value?.focus();
+		}
+	}
+});
 
 const renderedCompactTabs = ref(new Set(["config"]));
 const compactInputRef = ref(null);
@@ -427,6 +641,57 @@ const showGuideSidebar = ref(false);
 const showSettingsBar = ref(false);
 const collapseInputPanel = ref(false);
 const collapseOutputPanel = ref(false);
+
+// -- Swipe Navigation --
+const touchStartX = ref(0);
+const touchStartY = ref(0);
+const touchCurrentX = ref(0);
+const isSwiping = ref(false);
+const SWIPE_THRESHOLD = 50;
+
+function handleTouchStart(e) {
+	if (!isMobile.value) return;
+	touchStartX.value = e.touches[0].clientX;
+	touchStartY.value = e.touches[0].clientY;
+	isSwiping.value = false;
+}
+
+function handleTouchMove(e) {
+	if (!isMobile.value) return;
+	const currentX = e.touches[0].clientX;
+	const currentY = e.touches[0].clientY;
+	const diffX = currentX - touchStartX.value;
+	const diffY = currentY - touchStartY.value;
+
+	// If horizontal movement is more than vertical, it's a swipe
+	if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 10) {
+		isSwiping.value = true;
+		touchCurrentX.value = currentX;
+		// Prevent scrolling when swiping header
+		if (e.cancelable) e.preventDefault();
+	}
+}
+
+function handleTouchEnd() {
+	if (!isMobile.value || !isSwiping.value) return;
+
+	const diffX = touchCurrentX.value - touchStartX.value;
+
+	if (Math.abs(diffX) > SWIPE_THRESHOLD) {
+		if (diffX > 0) {
+			// Swipe Right -> Previous
+			if (currentNodeIndex.value > 0) {
+				ruleStore.prev_config_node();
+			}
+		} else {
+			// Swipe Left -> Next
+			if (currentNodeIndex.value < totalNodes.value - 1) {
+				ruleStore.next_config_node();
+			}
+		}
+	}
+	isSwiping.value = false;
+}
 
 // -- Inline Label Editing --
 const isEditingLabel = ref(false);
@@ -495,6 +760,13 @@ const totalNodes = computed(() => graphStore.nodes.length);
 const currentNodeIndex = computed(() => {
 	if (!uiStore.selected_id) return -1;
 	return graphStore.nodes.findIndex((n) => n.id === uiStore.selected_id);
+});
+
+const transitionName = ref("slide-right");
+
+watch(currentNodeIndex, (newIdx, oldIdx) => {
+	if (oldIdx === -1) return;
+	transitionName.value = newIdx > oldIdx ? "slide-left" : "slide-right";
 });
 
 const title = computed(() => {
@@ -907,6 +1179,14 @@ onUnmounted(() => {
 	margin-left: 4px;
 }
 
+.toolbar-status.mobile {
+	padding: 0 12px;
+	background: #fff;
+	border-radius: 6px;
+	height: 28px;
+	box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
 .toolbar-divider {
 	width: 1px;
 	height: 16px;
@@ -1179,6 +1459,204 @@ onUnmounted(() => {
 .modal-fade-leave-to {
 	opacity: 0;
 	transform: scale(0.95);
+}
+
+.config-transition-wrapper {
+	width: 100%;
+	height: 100%;
+	display: flex;
+}
+
+/* Slide Transitions */
+.slide-left-enter-active,
+.slide-left-leave-active,
+.slide-right-enter-active,
+.slide-right-leave-active {
+	transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+}
+
+.slide-left-enter-from {
+	opacity: 0;
+	transform: translateX(100%);
+}
+.slide-left-leave-to {
+	opacity: 0;
+	transform: translateX(-100%);
+}
+
+.slide-right-enter-from {
+	opacity: 0;
+	transform: translateX(-100%);
+}
+.slide-right-leave-to {
+	opacity: 0;
+	transform: translateX(100%);
+}
+
+.fxr-overflow-dropdown {
+	background: #fff;
+	border-radius: 12px;
+	box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+	border: 1px solid #e2e8f0;
+	overflow: hidden;
+	animation: dropdown-slide 0.2s cubic-bezier(0, 0, 0.2, 1);
+}
+
+.overflow-menu-items {
+	padding: 8px;
+}
+
+.menu-section {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.section-label {
+	font-size: 10px;
+	font-weight: 700;
+	color: #94a3b8;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	padding: 8px 12px 4px;
+}
+
+.menu-item {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 10px 12px;
+	border-radius: 8px;
+	border: none;
+	background: transparent;
+	color: #475569;
+	font-size: 13px;
+	font-weight: 500;
+	width: 100%;
+	text-align: left;
+	cursor: pointer;
+	transition: all 0.2s;
+}
+
+.menu-item i {
+	width: 16px;
+	text-align: center;
+	color: #64748b;
+}
+
+.menu-item:hover:not(:disabled) {
+	background: #f1f5f9;
+	color: #1e293b;
+}
+
+.menu-item.active {
+	background: #eff6ff;
+	color: var(--primary);
+}
+
+.menu-item.active i {
+	color: var(--primary);
+}
+
+.menu-item:disabled {
+	opacity: 0.4;
+	cursor: not-allowed;
+}
+
+.menu-divider {
+	height: 1px;
+	background: #f1f5f9;
+	margin: 8px 4px;
+}
+
+@keyframes dropdown-slide {
+	from {
+		opacity: 0;
+		transform: translateY(-8px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@media (max-width: 767px) {
+	.config-modal-overlay {
+		padding: 0;
+	}
+
+	.config-modal-container {
+		border-radius: 0;
+		height: 100vh;
+	}
+
+	.config-modal-header {
+		padding: 0 12px;
+		height: 54px;
+	}
+
+	.header-left {
+		gap: 8px;
+	}
+
+	.header-icon {
+		width: 30px;
+		height: 30px;
+		border-radius: 8px;
+	}
+
+	.header-titles h3 {
+		font-size: 15px;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		max-width: 150px;
+	}
+
+	.modal-breadcrumb {
+		display: none;
+	}
+
+	.header-toolbar {
+		padding: 0;
+		background: transparent;
+	}
+
+	.toolbar-btn {
+		padding: 0 8px;
+		height: 36px;
+		border-radius: 6px;
+	}
+
+	.toolbar-divider {
+		margin: 0 2px;
+		height: 12px;
+	}
+
+	.compact-config-layout {
+		padding: 4px;
+		gap: 4px;
+	}
+
+	.compact-tabs {
+		padding: 3px;
+		border-radius: 8px;
+	}
+
+	.compact-tab-btn {
+		height: 30px;
+		font-size: 11px;
+	}
+
+	.compact-panel-shell {
+		border-radius: 10px;
+		padding: 12px 8px;
+	}
 }
 
 @media (max-width: 1199px) {

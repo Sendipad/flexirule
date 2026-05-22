@@ -1,11 +1,12 @@
 import { computed, ref } from "vue";
 
-export function useResponsiveConfigLayout(breakpoint = 1200) {
+export function useResponsiveConfigLayout(breakpoint = 1200, mobileBreakpoint = 768) {
 	const activeTab = ref("config");
 	const panelScrollState = ref({ input: 0, config: 0, output: 0 });
 	const viewportWidth = ref(typeof window !== "undefined" ? window.innerWidth : 1440);
 
 	const isCompact = computed(() => viewportWidth.value < breakpoint);
+	const isMobile = computed(() => viewportWidth.value < mobileBreakpoint);
 	const tabs = [
 		{ key: "input", label: __("Input") },
 		{ key: "config", label: __("Config") },
@@ -37,6 +38,7 @@ export function useResponsiveConfigLayout(breakpoint = 1200) {
 		activeTab,
 		tabs,
 		isCompact,
+		isMobile,
 		updateViewportWidth,
 		setActiveTab,
 		rememberScroll,
