@@ -126,7 +126,18 @@ def _compile_assignment_action(action) -> dict[str, Any]:
 	from flexirule.ruleflow.core.action_handlers.assignment import AssignmentHandler
 
 	config_key = getattr(action, "config", "[]") or "[]"
-	compiled_rows = AssignmentHandler._get_compiled_plan(str(config_key))
+	compiled_plan_getter = getattr(AssignmentHandler, "_get_compiled_plan", None)
+	if callable(compiled_plan_getter):
+		compiled_rows = compiled_plan_getter(str(config_key))
+	else:
+		# Safe fallback for mixed-version/runtime import edge-cases.
+		try:
+			rows = json.loads(str(config_key) or "[]")
+		except Exception:
+			rows = []
+		if not isinstance(rows, list):
+			rows = []
+		compiled_rows = tuple(row for row in rows if isinstance(row, dict))
 	return {"action_type": "Assignment", "rows": list(compiled_rows)}
 
 
