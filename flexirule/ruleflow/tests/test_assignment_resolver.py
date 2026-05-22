@@ -67,3 +67,21 @@ class TestAssignmentResolver(unittest.TestCase):
 		resolver = ValueResolver.compile(val)
 		result = resolver.resolve(self.context)
 		self.assertEqual(result, "JOHN")
+
+	def test_compile_variable_mode(self):
+		val = {"mode": "variable", "path": "doc.last_name"}
+		resolver = ValueResolver.compile(val)
+		self.assertEqual(resolver.resolve(self.context), "Doe")
+
+	def test_compile_expression_mode(self):
+		val = {
+			"mode": "expression",
+			"value": [
+				{"type": "text", "value": "Customer: "},
+				{"type": "variableToken", "attrs": {"path": "doc.first_name"}},
+				{"type": "text", "value": " "},
+				{"type": "variableToken", "attrs": {"path": "doc.last_name"}},
+			],
+		}
+		resolver = ValueResolver.compile(val)
+		self.assertEqual(resolver.resolve(self.context), "Customer: John Doe")

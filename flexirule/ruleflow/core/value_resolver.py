@@ -37,10 +37,10 @@ def get_context_value(context: dict, path: str | None) -> Any:
 		# Fallback context lookup if no explicit scope is declared
 		if context.get("vars") and base in context["vars"]:
 			current = context["vars"]
-			parts = [base] + parts[1:]
+			parts = [base, *parts[1:]]
 		elif context.get("doc") and hasattr(context["doc"], "get") and context["doc"].get(base) is not None:
 			current = context["doc"]
-			parts = [base] + parts[1:]
+			parts = [base, *parts[1:]]
 		else:
 			return None
 
@@ -384,28 +384,30 @@ class ValueResolver:
 			if mode in ("static", "link", "dynamic_link"):
 				return StaticResolver(val.get("value"))
 
-		if mode == "variable":
-			path = val.get("path") or val.get("value") or ""
-			return VariableResolver(path)
+			if mode == "variable":
+				path = val.get("path") or val.get("value") or ""
+				return VariableResolver(path)
 
-		if mode == "expression":
-			segments: list[CompiledResolver] = []
-			for item in val.get("value") or []:
-				seg_type = item.get("type")
-				if seg_type == "text":
-					segments.append(StaticResolver(item.get("value")))  # type: ignore[list-item]
-				elif seg_type == "variableToken":
-					segments.append(VariableResolver(item.get("attrs", {}).get("path") or ""))  # type: ignore[list-item]
-				elif seg_type == "resolverToken":
-					attrs = item.get("attrs", {})
-					config = attrs.get("config")
-					if config and isinstance(config, dict):
-						segments.append(ValueResolver.compile_resolver_config(config))  # type: ignore[list-item]
-					else:
-						segments.append(SafeEvalResolver(attrs.get("expression") or attrs.get("resolver")))  # type: ignore[list-item]
-				elif seg_type == "jsonToken":
-					segments.append(JinjaResolver(item.get("attrs", {}).get("value") or ""))  # type: ignore[list-item]
-			return ExpressionResolver(segments)
+			if mode == "expression":
+				segments: list[CompiledResolver] = []
+				for item in val.get("value") or []:
+					seg_type = item.get("type")
+					if seg_type == "text":
+						segments.append(StaticResolver(item.get("value")))  # type: ignore[list-item]
+					elif seg_type == "variableToken":
+						segments.append(VariableResolver(item.get("attrs", {}).get("path") or ""))  # type: ignore[list-item]
+					elif seg_type == "resolverToken":
+						attrs = item.get("attrs", {})
+						config = attrs.get("config")
+						if config and isinstance(config, dict):
+							segments.append(ValueResolver.compile_resolver_config(config))  # type: ignore[list-item]
+						else:
+							segments.append(
+								SafeEvalResolver(attrs.get("expression") or attrs.get("resolver"))
+							)  # type: ignore[list-item]
+					elif seg_type == "jsonToken":
+						segments.append(JinjaResolver(item.get("attrs", {}).get("value") or ""))  # type: ignore[list-item]
+				return ExpressionResolver(segments)
 
 			if mode in ("resolver", "formatter", "normalize", "format", "normalization") or "kind" in val:
 				config = val.get("config") or val
