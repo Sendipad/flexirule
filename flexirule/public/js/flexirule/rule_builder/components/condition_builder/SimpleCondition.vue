@@ -7,8 +7,10 @@ import ControlFactory from "../../controls/ControlFactory.vue";
 import SelectControl from "../../controls/SelectControl.vue";
 import ComboBoxControl from "../../controls/ComboBoxControl.vue";
 import ContextPicker from "../ContextPicker.vue";
+import ValueResolverControl from "../../controls/ValueResolverControl.vue";
 import { useMetaStore } from "../../stores/useMetaStore";
 import { inject, ref, computed, watch, nextTick } from "vue";
+import { getAllowedBuilderKinds } from "../../../core/formula_registry";
 
 const props = defineProps({
 	node: { type: Object, required: true },
@@ -259,16 +261,25 @@ watch(
 
 // Value Type State (Static vs Field)
 const valueType = computed({
-	get: () => (props.node.right?.ref ? "field" : "static"),
+	get: () => {
+		if (props.node.right?.value?.mode === "resolver") return "builder";
+		return props.node.right?.ref ? "field" : "static";
+	},
 	set: (type) => {
 		if (type === "field") {
 			props.node.right.value = "";
 			if (!props.node.right.ref) props.node.right.ref = context.alias + ".";
+		} else if (type === "builder") {
+			props.node.right.ref = "";
+			props.node.right.value = { mode: "resolver", config: { kind: "system_context" } };
 		} else {
 			props.node.right.ref = "";
+			if (props.node.right?.value?.mode === "resolver") props.node.right.value = "";
 		}
 	},
 });
+
+const allowedBuilderKinds = computed(() => getAllowedBuilderKinds(selectedField.value?.fieldtype));
 </script>
 
 <template>
@@ -318,6 +329,7 @@ const valueType = computed({
 				>
 					<option value="static">{{ __("Static") }}</option>
 					<option value="field">{{ __("Field") }}</option>
+					<option value="builder">{{ __("Builder") }}</option>
 				</select>
 
 				<div class="value-input-wrapper">
@@ -342,6 +354,16 @@ const valueType = computed({
 							v-model="node.right.ref"
 							:docFields="docFields"
 							:disabled="readOnly"
+						/>
+					</template>
+					<template v-else-if="valueType === 'builder'">
+						<ValueResolverControl
+							:modelValue="node.right.value"
+							:doctype="store?.rule_doc?.document_type"
+							:context="{ fieldname: selectedField?.value, operator: node.op }"
+							:readOnly="readOnly"
+							:allowedKinds="allowedBuilderKinds"
+							@update:modelValue="(val) => (node.right.value = val)"
 						/>
 					</template>
 					<template v-else>

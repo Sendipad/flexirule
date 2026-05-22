@@ -104,6 +104,35 @@ class AssignmentHandler(ActionHandler):
 		except Exception:
 			return "[]"
 
+	@staticmethod
+	@lru_cache(maxsize=1024)
+	def _get_compiled_plan(config_key: str) -> tuple[dict[str, Any], ...]:
+		try:
+			rows = json.loads(config_key or "[]")
+		except Exception:
+			rows = []
+		if not isinstance(rows, list):
+			rows = []
+
+		compiled_rows: list[dict[str, Any]] = []
+		for row in rows:
+			if not isinstance(row, dict):
+				continue
+			compiled = dict(row)
+			# Canonicalize operand payload for unified runtime evaluation
+			# (legacy rows may store structured payload under value_template_ui/value_template_json).
+			if compiled.get("value") is None:
+				if compiled.get("value_template_ui") is not None:
+					compiled["value"] = compiled.get("value_template_ui")
+				elif compiled.get("value_template_json") is not None:
+					compiled["value"] = compiled.get("value_template_json")
+				elif compiled.get("value_template") is not None:
+					compiled["value"] = compiled.get("value_template")
+			compiled["when_expression"] = AssignmentHandler._compile_when_expression(compiled)
+			compiled_rows.append(compiled)
+
+		return tuple(compiled_rows)
+
 	@classmethod
 	def _compile_when_expression(cls, row: dict) -> str:
 		python_expr = row.get("pythonExpression")

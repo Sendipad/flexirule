@@ -11,7 +11,7 @@ import frappe
 
 from flexirule.ruleflow.core.contracts import normalize_action_type
 
-CACHE_VERSION = 1
+CACHE_VERSION = 3
 CACHE_KEY_PREFIX = "flexirule_action_plan_v1"
 LOCAL_CACHE_KEY = "flexirule_action_plan_cache"
 
@@ -126,7 +126,35 @@ def _compile_assignment_action(action) -> dict[str, Any]:
 	from flexirule.ruleflow.core.action_handlers.assignment import AssignmentHandler
 
 	config_key = getattr(action, "config", "[]") or "[]"
-	compiled_rows = AssignmentHandler._get_compiled_plan(str(config_key))
+	compiled_plan_getter = getattr(AssignmentHandler, "_get_compiled_plan", None)
+	if callable(compiled_plan_getter):
+		compiled_rows = compiled_plan_getter(str(config_key))
+	else:
+		# Safe fallback for mixed-version/runtime import edge-cases.
+		try:
+			rows = json.loads(str(config_key) or "[]")
+		except Exception:
+			rows = []
+		if not isinstance(rows, list):
+			rows = []
+		compiled_rows = []
+		for row in rows:
+			if not isinstance(row, dict):
+				continue
+			compiled = dict(row)
+			if compiled.get("value") is None:
+				if compiled.get("value_template_ui") is not None:
+					compiled["value"] = compiled.get("value_template_ui")
+				elif compiled.get("value_template_json") is not None:
+					compiled["value"] = compiled.get("value_template_json")
+				elif compiled.get("value_template") is not None:
+					compiled["value"] = compiled.get("value_template")
+			compiled["when_expression"] = (
+				compiled.get("pythonExpression")
+				or (compiled.get("when_expression") or compiled.get("when") or "").strip()
+			)
+			compiled_rows.append(compiled)
+		compiled_rows = tuple(compiled_rows)
 	return {"action_type": "Assignment", "rows": list(compiled_rows)}
 
 
