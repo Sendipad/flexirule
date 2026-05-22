@@ -104,6 +104,26 @@ class AssignmentHandler(ActionHandler):
 		except Exception:
 			return "[]"
 
+	@staticmethod
+	@lru_cache(maxsize=1024)
+	def _get_compiled_plan(config_key: str) -> tuple[dict[str, Any], ...]:
+		try:
+			rows = json.loads(config_key or "[]")
+		except Exception:
+			rows = []
+		if not isinstance(rows, list):
+			rows = []
+
+		compiled_rows: list[dict[str, Any]] = []
+		for row in rows:
+			if not isinstance(row, dict):
+				continue
+			compiled = dict(row)
+			compiled["when_expression"] = AssignmentHandler._compile_when_expression(compiled)
+			compiled_rows.append(compiled)
+
+		return tuple(compiled_rows)
+
 	@classmethod
 	def _compile_when_expression(cls, row: dict) -> str:
 		python_expr = row.get("pythonExpression")

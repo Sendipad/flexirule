@@ -393,20 +393,20 @@ class ValueResolver:
 				for item in val.get("value") or []:
 					seg_type = item.get("type")
 					if seg_type == "text":
-						segments.append(StaticResolver(item.get("value")))  # type: ignore[list-item]
+						segments.append(StaticResolver(item.get("value")))
 					elif seg_type == "variableToken":
-						segments.append(VariableResolver(item.get("attrs", {}).get("path") or ""))  # type: ignore[list-item]
+						segments.append(VariableResolver(item.get("attrs", {}).get("path") or ""))
 					elif seg_type == "resolverToken":
 						attrs = item.get("attrs", {})
 						config = attrs.get("config")
 						if config and isinstance(config, dict):
-							segments.append(ValueResolver.compile_resolver_config(config))  # type: ignore[list-item]
+							segments.append(ValueResolver.compile_resolver_config(config))
 						else:
 							segments.append(
 								SafeEvalResolver(attrs.get("expression") or attrs.get("resolver"))
-							)  # type: ignore[list-item]
+							)
 					elif seg_type == "jsonToken":
-						segments.append(JinjaResolver(item.get("attrs", {}).get("value") or ""))  # type: ignore[list-item]
+						segments.append(JinjaResolver(item.get("attrs", {}).get("value") or ""))
 				return ExpressionResolver(segments)
 
 			if mode in ("resolver", "formatter", "normalize", "format", "normalization") or "kind" in val:
