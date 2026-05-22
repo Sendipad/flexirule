@@ -207,7 +207,10 @@
 														</button>
 													</div>
 
-													<div class="menu-divider" role="separator"></div>
+													<div
+														class="menu-divider"
+														role="separator"
+													></div>
 
 													<div class="menu-section" role="none">
 														<div
@@ -243,9 +246,7 @@
 															"
 														>
 															<i class="fa fa-cog"></i>
-															<span>{{
-																__("Action Settings")
-															}}</span>
+															<span>{{ __("Action Settings") }}</span>
 														</button>
 													</div>
 												</div>
@@ -269,10 +270,7 @@
 
 					<div class="config-modal-body">
 						<transition :name="transitionName">
-							<div
-								:key="draftNode?.id || 'empty'"
-								class="config-transition-wrapper"
-							>
+							<div :key="draftNode?.id || 'empty'" class="config-transition-wrapper">
 								<!-- Logic Mode (Conditions) -->
 								<div
 									v-show="uiStore.config_modal_mode === 'logic'"
@@ -293,7 +291,10 @@
 									class="standard-config-container"
 								>
 									<!-- Start Node Setup (Full width) -->
-									<div v-if="draftNode?.type === 'start'" class="start-node-setup">
+									<div
+										v-if="draftNode?.type === 'start'"
+										class="start-node-setup"
+									>
 										<div class="setup-container">
 											<header class="section-header mb-4">
 												<h4>{{ __("Trigger Configuration") }}</h4>
@@ -319,110 +320,128 @@
 									<!-- Unified Action Setup -->
 									<div v-else-if="draftNode" class="panels-container-modern">
 										<template v-if="!isCompactLayout">
-									<aside class="sidebar-variables" v-if="showContextSidebar">
-										<InputPanel
-											:node="draftNode"
-											:readOnly="ruleStore.is_read_only"
-											mode="variables"
-										/>
-									</aside>
-
-									<div class="config-main-area">
-										<div class="config-scroll-container">
-											<div class="config-content-wrapper">
-												<div
-													class="integrated-settings-bar"
-													v-if="showSettingsBar"
-												>
-													<ActionFieldProperties
-														:nodeData="draftNode.data"
-														:readOnly="ruleStore.is_read_only"
-														@update:field="on_update_action_field"
-														@open:conditions="
-															uiStore.config_modal_mode = 'logic'
-														"
-													/>
-												</div>
-
-												<div
-													class="action-core-layout"
-													:class="{
-														'input-panel-collapsed': collapseInputPanel,
-													}"
-												>
-													<div class="core-setup-panel">
-														<button
-															class="panel-collapse-btn left"
-															type="button"
-															@click="
-																collapseInputPanel =
-																	!collapseInputPanel
-															"
-															:title="
-																collapseInputPanel
-																	? __('Expand Input Panel')
-																	: __('Collapse Input Panel')
-															"
-														>
-															<i
-																class="fa"
-																:class="
-																	collapseInputPanel
-																		? 'fa-chevron-right'
-																		: 'fa-chevron-left'
-																"
-															></i>
-														</button>
-														<InputPanel
-															:node="draftNode"
-															:readOnly="ruleStore.is_read_only"
-															:ref="panelRefs.input"
-															mode="config"
-														/>
-													</div>
-													<div class="core-config-panel">
-														<ConfigurationPanel
-															:node="draftNode"
-															:readOnly="ruleStore.is_read_only"
-															:ref="panelRefs.config"
-														/>
-													</div>
-												</div>
-											</div>
-										</div>
-
-										<aside
-											class="sidebar-mutation"
-											:class="{ collapsed: collapseOutputPanel }"
-										>
-											<button
-												class="panel-collapse-btn right"
-												type="button"
-												@click="collapseOutputPanel = !collapseOutputPanel"
-												:title="
-													collapseOutputPanel
-														? __('Expand Output Panel')
-														: __('Collapse Output Panel')
-												"
+											<aside
+												class="sidebar-variables"
+												v-if="showContextSidebar"
 											>
-												<i
-													class="fa"
-													:class="
-														collapseOutputPanel
-															? 'fa-chevron-left'
-															: 'fa-chevron-right'
-													"
-												></i>
-											</button>
-											<OutputPanel
-												v-show="!collapseOutputPanel"
-												:node="draftNode"
-												:readOnly="ruleStore.is_read_only"
-												:ref="panelRefs.output"
-											/>
-										</aside>
-									</div>
-								</template>
+												<InputPanel
+													:node="draftNode"
+													:readOnly="ruleStore.is_read_only"
+													mode="variables"
+												/>
+											</aside>
+
+											<div class="config-main-area">
+												<div class="config-scroll-container">
+													<div class="config-content-wrapper">
+														<div
+															class="integrated-settings-bar"
+															v-if="showSettingsBar"
+														>
+															<ActionFieldProperties
+																:nodeData="draftNode.data"
+																:readOnly="ruleStore.is_read_only"
+																@update:field="
+																	on_update_action_field
+																"
+																@open:conditions="
+																	uiStore.config_modal_mode =
+																		'logic'
+																"
+															/>
+														</div>
+
+														<div
+															class="action-core-layout"
+															:class="{
+																'input-panel-collapsed':
+																	collapseInputPanel,
+															}"
+														>
+															<div class="core-setup-panel">
+																<button
+																	class="panel-collapse-btn left"
+																	type="button"
+																	@click="
+																		collapseInputPanel =
+																			!collapseInputPanel
+																	"
+																	:title="
+																		collapseInputPanel
+																			? __(
+																					'Expand Input Panel'
+																				)
+																			: __(
+																					'Collapse Input Panel'
+																				)
+																	"
+																>
+																	<i
+																		class="fa"
+																		:class="
+																			collapseInputPanel
+																				? 'fa-chevron-right'
+																				: 'fa-chevron-left'
+																		"
+																	></i>
+																</button>
+																<InputPanel
+																	:node="draftNode"
+																	:readOnly="
+																		ruleStore.is_read_only
+																	"
+																	:ref="panelRefs.input"
+																	mode="config"
+																/>
+															</div>
+															<div class="core-config-panel">
+																<ConfigurationPanel
+																	:node="draftNode"
+																	:readOnly="
+																		ruleStore.is_read_only
+																	"
+																	:ref="panelRefs.config"
+																/>
+															</div>
+														</div>
+													</div>
+												</div>
+
+												<aside
+													class="sidebar-mutation"
+													:class="{ collapsed: collapseOutputPanel }"
+												>
+													<button
+														class="panel-collapse-btn right"
+														type="button"
+														@click="
+															collapseOutputPanel =
+																!collapseOutputPanel
+														"
+														:title="
+															collapseOutputPanel
+																? __('Expand Output Panel')
+																: __('Collapse Output Panel')
+														"
+													>
+														<i
+															class="fa"
+															:class="
+																collapseOutputPanel
+																	? 'fa-chevron-left'
+																	: 'fa-chevron-right'
+															"
+														></i>
+													</button>
+													<OutputPanel
+														v-show="!collapseOutputPanel"
+														:node="draftNode"
+														:readOnly="ruleStore.is_read_only"
+														:ref="panelRefs.output"
+													/>
+												</aside>
+											</div>
+										</template>
 
 										<template v-else>
 											<div class="compact-config-layout">
@@ -1501,7 +1520,9 @@ onUnmounted(() => {
 .fxr-overflow-dropdown {
 	background: #fff;
 	border-radius: 12px;
-	box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+	box-shadow:
+		0 10px 25px -5px rgba(0, 0, 0, 0.1),
+		0 8px 10px -6px rgba(0, 0, 0, 0.1);
 	border: 1px solid #e2e8f0;
 	overflow: hidden;
 	animation: dropdown-slide 0.2s cubic-bezier(0, 0, 0.2, 1);
