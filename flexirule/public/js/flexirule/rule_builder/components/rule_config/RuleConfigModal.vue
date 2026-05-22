@@ -619,6 +619,8 @@ function handleOverflowTriggerKeydown(e) {
 
 function handleOverflowMenuKeydown(e) {
 	if (e.key === "Escape") {
+		e.preventDefault();
+		e.stopPropagation();
 		closeOverflow();
 		overflowTriggerRef.value?.focus();
 		return;
@@ -977,6 +979,7 @@ onMounted(() => {
 onUnmounted(() => {
 	window.removeEventListener("keydown", handleKeydown);
 	window.removeEventListener("resize", updateViewportWidth);
+	closeOverflow();
 });
 </script>
 
