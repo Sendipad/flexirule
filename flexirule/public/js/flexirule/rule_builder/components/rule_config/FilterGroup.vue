@@ -174,15 +174,12 @@
 									<template v-if="row.operator === 'Between'">
 										<div class="dual-value-wrapper align-items-center">
 											<div class="value-input-item">
-												<ValueResolverControl
+												<FlexValueControl
 													:modelValue="getBuilderValue(row, 0)"
-													:doctype="row.doctype || doctype"
 													:context="{
-														fieldname: row.field,
-														operator: row.operator,
+														df: getControlFactorySchema(row),
 													}"
-													:readOnly="readOnly"
-													:allowedKinds="getAllowedBuilderKinds(row)"
+													:disabled="readOnly"
 													@update:modelValue="
 														(val) => updateBuilderValue(idx, 0, val)
 													"
@@ -190,15 +187,12 @@
 											</div>
 											<span class="between-sep">{{ __("and") }}</span>
 											<div class="value-input-item">
-												<ValueResolverControl
+												<FlexValueControl
 													:modelValue="getBuilderValue(row, 1)"
-													:doctype="row.doctype || doctype"
 													:context="{
-														fieldname: row.field,
-														operator: row.operator,
+														df: getControlFactorySchema(row),
 													}"
-													:readOnly="readOnly"
-													:allowedKinds="getAllowedBuilderKinds(row)"
+													:disabled="readOnly"
 													@update:modelValue="
 														(val) => updateBuilderValue(idx, 1, val)
 													"
@@ -207,15 +201,12 @@
 										</div>
 									</template>
 									<template v-else>
-										<ValueResolverControl
+										<FlexValueControl
 											:modelValue="getBuilderValue(row)"
-											:doctype="row.doctype || doctype"
 											:context="{
-												fieldname: row.field,
-												operator: row.operator,
+												df: getControlFactorySchema(row),
 											}"
-											:readOnly="readOnly"
-											:allowedKinds="getAllowedBuilderKinds(row)"
+											:disabled="readOnly"
 											@update:modelValue="
 												(val) => updateBuilderValue(idx, null, val)
 											"
@@ -334,11 +325,9 @@
 import { ref, computed, watch, onMounted } from "vue";
 import ComboBoxControl from "../../controls/ComboBoxControl.vue";
 import ControlFactory from "../../controls/ControlFactory.vue";
-import ValueResolverControl from "../../controls/ValueResolverControl.vue";
+import FlexValueControl from "../../controls/FlexValueControl.vue";
 import { useStore } from "../../stores";
-import { compileToCode } from "../../../core/builder_utils.js";
 import { getContract } from "../../../core/contracts.js";
-import { getAllowedBuilderKinds as getAllowedBuilderKindsRegistry } from "../../../core/formula_registry.js";
 
 const props = defineProps({
 	modelValue: {
@@ -511,13 +500,6 @@ const BUILDER_SUPPORTED_FIELDTYPES = new Set([
 	"Long Text",
 	"Select",
 ]);
-const builderFunctionOptions = [
-	{ value: "add_days_doc", label: __("Document Date +/- Days") },
-	{ value: "doc_field", label: __("Document Date (No Offset)") },
-	{ value: "today", label: __("Today") },
-	{ value: "add_days_today", label: __("Today +/- Days") },
-];
-
 const CHECK_VALUE_TYPES = ["Boolean", "Variable", "Expression"];
 const isCheckField = (field) => field?.original_type === "Check" || field?.fieldtype === "Check";
 const getDefaultValueTypeForField = (field) => (isCheckField(field) ? "Boolean" : "Value");
@@ -1088,113 +1070,23 @@ const addFilter = () => {
 	emitUpdate();
 };
 
-const toInt = (value, fallback = 0) => {
-	const parsed = Number.parseInt(value, 10);
-	return Number.isFinite(parsed) ? parsed : fallback;
-};
-
-const NUMERIC_FIELDTYPES = new Set(["Int", "Float", "Currency", "Percent"]);
-
 const STRING_FIELDTYPES = new Set(["Data", "Small Text", "Text", "Long Text", "Select"]);
 
-const getAllowedBuilderKinds = (row) => {
-	const field = getFieldDef(row.field, row.doctype || props.doctype);
-	return getAllowedBuilderKindsRegistry(field?.fieldtype);
-};
-
-const normalizeBuilderItem = (item, fallbackField = "") => {
-	const kind = item?.kind || "date_formula";
-
-	// For non-date kinds, pass through the item structure
-	if (kind === "math_formula") {
-		return {
-			kind: "math_formula",
-			field_a: item?.field_a || "",
-			math_op: item?.math_op || "+",
-			field_b_type: item?.field_b_type || "field",
-			field_b: item?.field_b || "",
-			constant_b: item?.constant_b ?? 0,
-			precision: item?.precision ?? 2,
-		};
-	}
-
-	if (kind === "date_diff") {
-		return {
-			kind: "date_diff",
-			diff_start_type: item?.diff_start_type || "today",
-			diff_start_field: item?.diff_start_field || "",
-			diff_end_type: item?.diff_end_type || "doc_field",
-			diff_end_field: item?.diff_end_field || fallbackField || "",
-			diff_unit: item?.diff_unit || "days",
-		};
-	}
-
-	// Default: date_formula (backward compatible)
-	const base_type =
-		item?.base_type || (item?.function_name?.includes("today") ? "today" : "doc_field");
-	return {
-		kind: "date_formula",
-		base_type: base_type,
-		base_field: item?.base_field || fallbackField || "posting_date",
-		offset_value: toInt(item?.offset_value ?? item?.offset_days ?? 0, 0),
-		offset_unit: item?.offset_unit || "days",
-	};
-};
-
-const getDefaultBuilderItem = (row) => {
-	const field = getFieldDef(row.field, row.doctype || props.doctype);
-	if (field && NUMERIC_FIELDTYPES.has(field.fieldtype)) {
-		return normalizeBuilderItem({ kind: "math_formula", field_a: row.field || "" });
-	}
-	const dateField =
-		getDateFieldOptions(row.doctype || props.doctype)[0]?.value || row.field || "posting_date";
-	return normalizeBuilderItem({}, dateField);
-};
-
-const compileBuilderExpression = (builder) => {
-	const item = normalizeBuilderItem(builder);
-	return compileToCode(item);
-};
-
-const syncBuilderToValue = (row) => {
-	if (row.value_type !== "Builder") return row;
-	if (row.operator === "Between") {
-		const list = Array.isArray(row.builder)
-			? row.builder
-			: [getDefaultBuilderItem(row), getDefaultBuilderItem(row)];
-		const normalized = [
-			normalizeBuilderItem(list[0], row.field || props.doctype),
-			normalizeBuilderItem(list[1], row.field || props.doctype),
-		];
-		row.builder = normalized;
-		row.value = normalized.map((item) => compileBuilderExpression(item));
-		return row;
-	}
-
-	const single = Array.isArray(row.builder) ? row.builder[0] : row.builder;
-	const normalized = normalizeBuilderItem(single, row.field || props.doctype);
-	row.builder = normalized;
-	row.value = compileBuilderExpression(normalized);
-	return row;
-};
+const getDefaultBuilderValue = () => ({ mode: "resolver", config: { kind: "system_context" } });
 
 const normalizeBuilderState = (row) => {
 	if (row.value_type !== "Builder") return row;
 
 	if (row.operator === "Between") {
-		let builder = row.builder;
-		if (!Array.isArray(builder)) {
-			builder = [{}, {}];
-		}
-		row.builder = [
-			normalizeBuilderItem(builder[0], row.field),
-			normalizeBuilderItem(builder[1], row.field),
+		const current = Array.isArray(row.value) ? row.value : [null, null];
+		row.value = [
+			current[0] || getDefaultBuilderValue(),
+			current[1] || getDefaultBuilderValue(),
 		];
 	} else {
-		const builder = Array.isArray(row.builder) ? row.builder[0] : row.builder;
-		row.builder = normalizeBuilderItem(builder, row.field);
+		row.value = row.value || getDefaultBuilderValue();
 	}
-	return syncBuilderToValue(row);
+	return row;
 };
 
 const getDateFieldOptions = (dt) => {
@@ -1202,33 +1094,26 @@ const getDateFieldOptions = (dt) => {
 };
 
 const getBuilderValue = (row, idx = null) => {
-	// Read existing builder without re-normalizing to avoid creating new objects on every render.
-	// Builder is already normalized during mutations (syncFromProps, updateRow, toggleValueType).
-	const builder = row.builder;
-	if (!builder) {
-		return getDefaultBuilderItem(row);
-	}
+	const value = row.value;
+	if (!value) return getDefaultBuilderValue();
 	if (idx === null || idx === undefined) {
-		return Array.isArray(builder) ? builder[0] : builder;
+		return Array.isArray(value) ? value[0] || getDefaultBuilderValue() : value;
 	}
-	return Array.isArray(builder) ? builder[idx] || getDefaultBuilderItem(row) : builder;
+	return Array.isArray(value) ? value[idx] || getDefaultBuilderValue() : value;
 };
 
-const updateBuilderValue = (idx, builderIndex, partial) => {
+const updateBuilderValue = (idx, builderIndex, value) => {
 	const row = filters.value[idx];
-	const merged = normalizeBuilderState({ ...row });
-	if (merged.operator === "Between") {
-		const list = Array.isArray(merged.builder)
-			? [...merged.builder]
-			: [getDefaultBuilderItem(merged), getDefaultBuilderItem(merged)];
-		const i = builderIndex ?? 0;
-		list[i] = normalizeBuilderItem({ ...(list[i] || {}), ...partial }, merged.field);
-		merged.builder = list;
+	const merged = { ...row };
+	if (merged.operator === "Between" && builderIndex !== null && builderIndex !== undefined) {
+		const list = Array.isArray(merged.value)
+			? [...merged.value]
+			: [getDefaultBuilderValue(), getDefaultBuilderValue()];
+		list[builderIndex] = value || getDefaultBuilderValue();
+		merged.value = list;
 	} else {
-		const single = Array.isArray(merged.builder) ? merged.builder[0] : merged.builder;
-		merged.builder = normalizeBuilderItem({ ...(single || {}), ...partial }, merged.field);
+		merged.value = value || getDefaultBuilderValue();
 	}
-	syncBuilderToValue(merged);
 	filters.value[idx] = merged;
 	emitUpdate();
 };
