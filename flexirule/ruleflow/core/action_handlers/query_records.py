@@ -20,6 +20,7 @@ from frappe.utils import add_days, get_first_day, get_last_day, getdate, nowdate
 from flexirule.ruleflow.core.action_handlers import ActionHandler, HandlerRegistry
 from flexirule.ruleflow.core.permissions import can_skip_permissions
 from flexirule.ruleflow.utils.mapping import apply_input_mapping
+from flexirule.ruleflow.core.flex_value import FlexValueRuntime
 
 
 class QueryRecordsHandler(ActionHandler):
@@ -292,48 +293,12 @@ class QueryRecordsHandler(ActionHandler):
 			)
 
 	def _resolve_value_expression_with_context(self, value, context, ref_label: str):
-		if isinstance(value, list):
-			return [self._resolve_value_expression_with_context(v, context, ref_label) for v in value]
-		if isinstance(value, str) and "{" in value:
-			if value.startswith("{") and value.endswith("}") and value.count("{") == 1:
-				inner_expr = value[1 : len(value) - 1]
-				return self._safe_eval_with_context(inner_expr, context, ref_label)
-			import re
+		def _evaluate(expr, expr_context, expr_ref):
+			return self._safe_eval_with_context(expr, expr_context, expr_ref)
 
-			def replace(match):
-				expr = match.group(1)
-				result = self._safe_eval_with_context(expr, context, ref_label)
-				return str(result)
-
-			return re.sub(r"{(.*?)}", replace, value)
-		return value
+		return FlexValueRuntime.resolve_expressions(value, context, _evaluate, ref_label)
 
 	def _resolve_filters_with_context(self, filters, context, ref_label: str):
-		if not filters:
-			return filters
-		if isinstance(filters, list):
-			resolved_list = []
-			for idx, item in enumerate(filters):
-				child_ref = f"{ref_label}[{idx}]"
-				if isinstance(item, dict) and ("field" in item or "fieldname" in item):
-					resolved_list.append(
-						{
-							k: self._resolve_value_expression_with_context(v, context, f"{child_ref}.{k}")
-							for k, v in item.items()
-						}
-					)
-				elif isinstance(item, list | dict):
-					resolved_list.append(self._resolve_filters_with_context(item, context, child_ref))
-				else:
-					resolved_list.append(
-						self._resolve_value_expression_with_context(item, context, child_ref)
-					)
-			return resolved_list
-		if isinstance(filters, dict):
-			return {
-				key: self._resolve_value_expression_with_context(value, context, f"{ref_label}.{key}")
-				for key, value in filters.items()
-			}
 		return self._resolve_value_expression_with_context(filters, context, ref_label)
 
 	def _resolve_query_filters(self, config, context, action=None):

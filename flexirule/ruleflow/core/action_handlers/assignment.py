@@ -14,6 +14,7 @@ from flexirule.ruleflow.core.context_manager import ContextManager
 from flexirule.ruleflow.core.exceptions import MethodExecutionError
 from flexirule.ruleflow.core.operators import AssignmentOperatorRegistry
 from flexirule.ruleflow.core.process_runtime_v2 import AFTER_EVENT_MUTATION_BLOCKLIST
+from flexirule.ruleflow.core.flex_value import FlexValueCompiler, FlexValueRuntime
 
 
 class AssignmentHandler(ActionHandler):
@@ -110,29 +111,7 @@ class AssignmentHandler(ActionHandler):
 		return value_template
 
 	def _resolve_context_path(self, context: dict, path: str | None):
-		if not path:
-			return None
-
-		parts = str(path).split(".")
-		base = parts[0]
-		if base == "doc":
-			current = context.get("doc")
-		elif base == "vars":
-			current = context.get("vars", {})
-		else:
-			return None
-
-		for part in parts[1:]:
-			if current is None:
-				return None
-			if isinstance(current, dict):
-				current = current.get(part)
-			elif hasattr(current, "get"):
-				current = current.get(part)
-			else:
-				return None
-
-		return current
+		return FlexValueRuntime.resolve_context_path(context, path)
 
 	def _to_config_cache_key(self, config) -> str:
 		if isinstance(config, str):
@@ -221,96 +200,7 @@ class AssignmentHandler(ActionHandler):
 
 	@classmethod
 	def _compile_operand_spec(cls, row: dict, requires_value: bool) -> dict:
-		if not requires_value:
-			return {
-				"value_source": "none",
-				"value_literal": None,
-				"value_template": None,
-				"value_path": None,
-			}
-
-		# Check if the new unified 'value' key holds a structured object
-		val_obj = row.get("value")
-		if isinstance(val_obj, dict) and "mode" in val_obj:
-			mode = val_obj.get("mode")
-			if mode in {"static", "link", "dynamic_link"}:
-				return {
-					"value_source": "literal",
-					"value_literal": val_obj.get("value"),
-					"value_template": None,
-					"value_path": None,
-				}
-			if mode == "variable":
-				return {
-					"value_source": "context_path",
-					"value_literal": None,
-					"value_template": None,
-					"value_path": cls._normalize_context_path(val_obj.get("path")),
-				}
-			# Formula/Resolver/Formatter etc compile to Jinja
-			compiled_jinja = cls._compile_structured_value_to_jinja(val_obj)
-			return {
-				"value_source": "jinja",
-				"value_literal": None,
-				"value_template": compiled_jinja,
-				"value_path": None,
-			}
-
-		explicit_source = row.get("value_source")
-		if explicit_source in {"literal", "context_path", "jinja"}:
-			return {
-				"value_source": explicit_source,
-				"value_literal": row.get("value_literal"),
-				"value_template": row.get("value_template") or row.get("value"),
-				"value_path": cls._normalize_context_path(row.get("value_path")),
-			}
-
-		value_template = row.get("value_template")
-		if value_template is None:
-			value_template = row.get("value")
-
-		ui_val = row.get("value_template_ui")
-		value_ui = ui_val if isinstance(ui_val, dict) else {}
-		mode = value_ui.get("mode")
-
-		if mode in {"static", "link", "dynamic_link"}:
-			return {
-				"value_source": "literal",
-				"value_literal": value_ui.get("value"),
-				"value_template": None,
-				"value_path": None,
-			}
-
-		if mode == "variable":
-			return {
-				"value_source": "context_path",
-				"value_literal": None,
-				"value_template": None,
-				"value_path": cls._normalize_context_path(value_ui.get("path")),
-			}
-
-		if isinstance(value_template, str):
-			contains_jinja = "{{" in value_template or "{%" in value_template
-			if mode in {"formula", "resolver"} or contains_jinja:
-				return {
-					"value_source": "jinja",
-					"value_literal": None,
-					"value_template": value_template,
-					"value_path": None,
-				}
-			return {
-				"value_source": "literal",
-				"value_literal": value_template,
-				"value_template": None,
-				"value_path": None,
-			}
-
-		return {
-			"value_source": "literal",
-			"value_literal": value_template,
-			"value_template": None,
-			"value_path": None,
-		}
+		return FlexValueCompiler.compile_operand(row, requires_value=requires_value)
 
 	@staticmethod
 	def _compile_when_expression(row: dict) -> str:
