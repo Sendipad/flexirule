@@ -22,7 +22,21 @@ The `get_compiled_resolver` and `RuleCoordinator` registries use `frappe.local` 
 ## 📈 Future Optimization Opportunities
 
 ### 1. Compiled Action Plans
-Moving beyond node-by-node interpretation. The engine could pre-compile an entire Rule into a **Static Execution Plan** (similar to a SQL Query Plan), further reducing the overhead of graph traversal.
+The current engine uses an **Interpreter Pattern**, traversing the action graph node-by-node at runtime. While flexible, this involves repeated metadata lookups, registry checks, and graph-walking overhead.
+
+#### The "SQL Query Plan" Analogy
+Just as a database compiles a SQL string into an optimized physical execution plan before running it, FlexiRule can compile a Rule (DAG) into a **Static Action Plan**.
+
+#### Key Compilation Strategies:
+- **Linearization**: Identifying the "Hot Path" (the most frequent execution sequence) and flattening it into a list of pre-bound function calls.
+- **Pre-Binding**: Instead of looking up `HandlerRegistry.get(action_type)` for every node, the plan would store direct references to the handler instances.
+- **Path Pruning**: Static analysis of conditions can identify branches that are unreachable under certain context states (e.g., specific event names), removing them from the plan entirely.
+- **Inlining**: For very simple graphs, sub-rules or common processes could be "inlined" into the parent plan, eliminating the overhead of nested engine invocations.
+
+#### Performance Impact:
+- **Reduced Dispatch Latency**: Eliminating the "graph walk" overhead for every step.
+- **Lower Memory Pressure**: A pre-compiled plan is a lean execution object compared to a collection of Frappe Documents and JSON configs.
+- **Optimized Cold Starts**: Once a plan is compiled and stored in Redis, the engine can go from "Trigger" to "Action 1" in microseconds.
 
 ### 2. Resolver Caching
 Adding a result-cache to resolvers for idempotent operations.
