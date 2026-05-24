@@ -17,6 +17,10 @@ import ComboBoxControl from "./controls/ComboBoxControl.vue";
 import InlineTableControl from "./controls/InlineTableControl.vue";
 import FlexiGrid from "./controls/FlexiGrid.vue";
 import PercentSliderControl from "./controls/PercentSliderControl.vue";
+import FlexValueControl from "./controls/FlexValueControl.vue";
+import TextGeneratorControl from "./controls/TextGeneratorControl.vue";
+import TimePickerControl from "./controls/TimePickerControl.vue";
+import ResourceMapperControl from "./controls/ResourceMapperControl.vue";
 
 export function registerGlobalComponents(app) {
 	app.component("ComboBoxControl", ComboBoxControl)
@@ -28,7 +32,11 @@ export function registerGlobalComponents(app) {
 		.component("CodeControl", CodeControl)
 		.component("InlineTableControl", InlineTableControl)
 		.component("MultiSelectList", MultiSelectList)
-		.component("PercentSliderControl", PercentSliderControl);
+		.component("PercentSliderControl", PercentSliderControl)
+		.component("FlexValueControl", FlexValueControl)
+		.component("TextGeneratorControl", TextGeneratorControl)
+		.component("TimePickerControl", TimePickerControl)
+		.component("ResourceMapperControl", ResourceMapperControl);
 
 	app.config.globalProperties.__ = window.__ || ((s) => s);
 }

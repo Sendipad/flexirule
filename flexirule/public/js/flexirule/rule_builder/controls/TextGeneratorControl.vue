@@ -580,7 +580,7 @@ function createSuggestionRenderer() {
 		onStart: (props) => {
 			component = new VueRenderer(MentionList, { props, editor: props.editor });
 			if (!props.clientRect) return;
-			popup = tippy("body", {
+			popup = tippy(document.createElement("div"), {
 				getReferenceClientRect: props.clientRect,
 				appendTo: () => document.body,
 				content: component.element,
@@ -593,17 +593,18 @@ function createSuggestionRenderer() {
 		},
 		onUpdate(props) {
 			component?.updateProps(props);
-			popup?.[0]?.setProps({ getReferenceClientRect: props.clientRect });
+			if (!props.clientRect) return;
+			popup?.setProps({ getReferenceClientRect: props.clientRect });
 		},
 		onKeyDown(props) {
 			if (props.event.key === "Escape") {
-				popup?.[0]?.hide();
+				popup?.hide();
 				return true;
 			}
 			return component?.ref?.onKeyDown(props);
 		},
 		onExit() {
-			popup?.[0]?.destroy();
+			popup?.destroy();
 			component?.destroy();
 		},
 	};

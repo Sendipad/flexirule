@@ -294,7 +294,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch, onBeforeUnmount, nextTick } from "vue";
+import { computed, ref, watch, onBeforeUnmount, nextTick, getCurrentInstance } from "vue";
 import { Editor, EditorContent, VueRenderer, VueNodeViewRenderer } from "@tiptap/vue-3";
 import { StarterKit } from "@tiptap/starter-kit";
 import { Node, mergeAttributes } from "@tiptap/core";
@@ -341,6 +341,9 @@ const isReadOnly = computed(() => !!props.readOnly || !!props.read_only);
 const isDynamicMode = ref(false);
 const isEditorFocused = ref(false);
 const isSuggestionOpen = ref(false);
+const activeTippyPopups = [];
+const uid =
+	Math.random().toString(36).substring(2, 15) + "_" + Math.random().toString(36).substring(2, 15);
 
 const controlRef = ref(null);
 const formulaTextareaRef = ref(null);
@@ -596,17 +599,27 @@ const ResolverToken = Node.create({
 	},
 });
 
-const VariableTrigger = Mention.extend({ name: "variableTrigger" });
-const CommandTrigger = Mention.extend({ name: "commandTrigger" });
-
 function createSuggestionRenderer() {
 	let component;
 	let popup;
 	return {
 		onStart: (props) => {
 			isSuggestionOpen.value = true;
+			// Destroy any existing popups to prevent duplicates
+			activeTippyPopups.forEach((p) => {
+				if (p) {
+					if (Array.isArray(p)) {
+						p.forEach((pi) => pi?.destroy?.());
+					} else if (typeof p.destroy === "function") {
+						p.destroy();
+					}
+				}
+			});
+			activeTippyPopups.length = 0;
+
 			component = new VueRenderer(MentionList, { props, editor: props.editor });
-			popup = tippy("body", {
+			if (!props.clientRect) return;
+			popup = tippy(document.createElement("div"), {
 				getReferenceClientRect: props.clientRect,
 				appendTo: () => document.body,
 				content: component.element,
@@ -616,27 +629,44 @@ function createSuggestionRenderer() {
 				placement: "bottom-start",
 				zIndex: 14000,
 			});
+			activeTippyPopups.push(popup);
 		},
 		onUpdate(props) {
 			component?.updateProps(props);
-			popup?.[0]?.setProps({ getReferenceClientRect: props.clientRect });
+			if (!props.clientRect) return;
+			popup?.setProps({ getReferenceClientRect: props.clientRect });
 		},
 		onKeyDown(props) {
 			if (props.event.key === "Escape") {
-				popup?.[0]?.hide();
+				popup?.hide();
 				return true;
 			}
 			return component?.ref?.onKeyDown(props);
 		},
 		onExit() {
 			isSuggestionOpen.value = false;
-			popup?.[0]?.destroy();
-			component?.destroy();
+			if (popup) {
+				try {
+					popup.destroy();
+				} catch (e) {}
+				const idx = activeTippyPopups.indexOf(popup);
+				if (idx > -1) activeTippyPopups.splice(idx, 1);
+				popup = null;
+			}
+			if (component) {
+				try {
+					component.destroy();
+				} catch (e) {}
+				component = null;
+			}
 		},
 	};
 }
 
 let emitting = false;
+
+const VariableTrigger = Mention.extend({ name: `variableTrigger_${uid}` });
+const CommandTrigger = Mention.extend({ name: `commandTrigger_${uid}` });
 
 const editor = new Editor({
 	extensions: [
@@ -658,7 +688,7 @@ const editor = new Editor({
 		VariableTrigger.configure({
 			suggestion: {
 				char: "@",
-				pluginKey: new PluginKey("variableTrigger"),
+				pluginKey: new PluginKey(`variableTrigger_${uid}`),
 				render: () => createSuggestionRenderer(),
 				items: ({ query }) => {
 					const q = query.toLowerCase();
@@ -699,7 +729,7 @@ const editor = new Editor({
 		CommandTrigger.configure({
 			suggestion: {
 				char: "/",
-				pluginKey: new PluginKey("commandTrigger"),
+				pluginKey: new PluginKey(`commandTrigger_${uid}`),
 				render: () => createSuggestionRenderer(),
 				items: ({ query }) => {
 					const q = query.toLowerCase();
@@ -1137,6 +1167,16 @@ watch(
 );
 
 onBeforeUnmount(() => {
+	activeTippyPopups.forEach((popup) => {
+		if (popup) {
+			if (Array.isArray(popup)) {
+				popup.forEach((p) => p?.destroy?.());
+			} else if (typeof popup.destroy === "function") {
+				popup.destroy();
+			}
+		}
+	});
+	activeTippyPopups.length = 0;
 	editor.destroy();
 });
 </script>

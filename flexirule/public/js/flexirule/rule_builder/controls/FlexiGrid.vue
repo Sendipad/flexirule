@@ -165,6 +165,7 @@ const emit = defineEmits(["update:modelValue"]);
 const localRows = ref([]);
 const selectedRows = ref(new Set());
 const columnWidths = reactive({});
+const dynamicOptions = ref({});
 
 /* ---------------- Columns ---------------- */
 
@@ -232,6 +233,62 @@ function stopResize() {
 	document.removeEventListener("mouseup", stopResize);
 }
 
+/* ---------------- Row Context & Dynamic Options ---------------- */
+
+/**
+ * Creates a context object for per-row callbacks (onchange, get_options).
+ * Mirrors the API used by InlineTableControl and process schemas.
+ */
+function createRowContext(rowIndex, rowData) {
+	return {
+		update_field: (fieldname, value) => {
+			updateCell(rowIndex, fieldname, value);
+		},
+		refresh_field: (fieldname) => {
+			resolveFieldOptions(rowIndex, rowData, fieldname);
+		},
+		set_options: (fieldname, opts) => {
+			const key = `${rowData.name}-${fieldname}`;
+			dynamicOptions.value = { ...dynamicOptions.value, [key]: opts };
+		},
+		get_value: (fieldname) => rowData[fieldname],
+		get_row_values: () => rowData,
+		row_idx: rowIndex,
+	};
+}
+
+/**
+ * Resolve dynamic options for a single field in a specific row.
+ * Calls the field's get_options(rowData, ctx, meta) and caches the result.
+ */
+async function resolveFieldOptions(rowIndex, rowData, fieldname) {
+	const col = columns.value.find((c) => c.fieldname === fieldname);
+	if (!col?.get_options || typeof col.get_options !== "function") return;
+
+	const key = `${rowData.name}-${fieldname}`;
+	try {
+		const meta = props.engine?.doc_meta || {
+			name: props.engine?.document_type || props.engine?.rule_doc?.document_type,
+		};
+		const ctx = createRowContext(rowIndex, rowData);
+		const result = await col.get_options(rowData, ctx, meta);
+		dynamicOptions.value = { ...dynamicOptions.value, [key]: result };
+	} catch (e) {
+		console.error("FlexiGrid: get_options failed for", fieldname, e);
+	}
+}
+
+/**
+ * Initialize dynamic options for all columns with get_options in a given row.
+ */
+async function initializeRowOptions(rowIndex, rowData) {
+	for (const col of columns.value) {
+		if (col.get_options && typeof col.get_options === "function") {
+			await resolveFieldOptions(rowIndex, rowData, col.fieldname);
+		}
+	}
+}
+
 /* ---------------- Data Sync ---------------- */
 
 watch(
@@ -241,6 +298,10 @@ watch(
 			...r,
 			name: r.name || frappe.utils.get_random(10),
 		}));
+		// Initialize dynamic options for all synced rows
+		localRows.value.forEach((row, idx) => {
+			initializeRowOptions(idx, row);
+		});
 	},
 	{ immediate: true }
 );
@@ -255,6 +316,25 @@ function updateCell(idx, field, value) {
 		row.__table_fieldname = props.df.fieldname;
 		props.engine.handleFieldChange(field, value, row);
 	}
+
+	// Per-field onchange callback from the column definition
+	const col = columns.value.find((c) => c.fieldname === field);
+	if (col?.onchange && typeof col.onchange === "function") {
+		const ctx = createRowContext(idx, row);
+		col.onchange(value, row, ctx);
+	}
+
+	// Refresh dynamic options for columns that have get_options,
+	// since the changed field might affect their available options
+	columns.value.forEach((depCol) => {
+		if (
+			depCol.fieldname !== field &&
+			depCol.get_options &&
+			typeof depCol.get_options === "function"
+		) {
+			resolveFieldOptions(idx, row, depCol.fieldname);
+		}
+	});
 }
 
 /* ---------------- Helpers ---------------- */
@@ -274,6 +354,9 @@ async function addRow() {
 
 	localRows.value.push(newRow);
 	emit("update:modelValue", [...localRows.value]);
+
+	// Initialize dynamic options for the new row
+	await initializeRowOptions(localRows.value.length - 1, newRow);
 
 	// Trigger initial evaluation for this row
 	if (props.engine && props.engine.evaluate_dependencies) {
@@ -331,7 +414,13 @@ function isCellHidden(row, field) {
 }
 
 function getEffectiveDf(row, col) {
-	return getNormalizedDf(col, row.name, props.read_only);
+	const normalized = getNormalizedDf(col, row.name, props.read_only);
+	const key = `${row.name}-${col.fieldname}`;
+	const dynOpts = dynamicOptions.value[key];
+	if (dynOpts !== undefined) {
+		return { ...normalized, options: dynOpts };
+	}
+	return normalized;
 }
 
 function isRowInvalid(row) {

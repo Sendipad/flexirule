@@ -58,6 +58,36 @@ function onDrop(event) {
 	}
 }
 
+function evaluateMath(event) {
+	const fieldtype = props.df?.fieldtype;
+	if (!["Int", "Float", "Currency", "Percent"].includes(fieldtype)) return;
+
+	let val = event.target.value;
+	if (!val) return;
+
+	try {
+		if (/^[0-9+\-*/().\s]+$/.test(val)) {
+			// eslint-disable-next-line no-new-func
+			const evaluated = new Function(`return ${val}`)();
+			if (!isNaN(evaluated)) {
+				const finalVal = fieldtype === "Int" ? parseInt(evaluated) : parseFloat(evaluated);
+				emit("update:modelValue", finalVal);
+				event.target.value = finalVal;
+			}
+		} else {
+			const finalVal = fieldtype === "Int" ? parseInt(val) : parseFloat(val);
+			if (!isNaN(finalVal)) {
+				emit("update:modelValue", finalVal);
+			}
+		}
+	} catch (e) {
+		const finalVal = fieldtype === "Int" ? parseInt(val) : parseFloat(val);
+		if (!isNaN(finalVal)) {
+			emit("update:modelValue", finalVal);
+		}
+	}
+}
+
 onMounted(() => {
 	if (icon_ref.value) {
 		icon_ref.value.innerHTML = frappe.utils.icon("folder-normal", "md");
@@ -98,11 +128,14 @@ onMounted(() => {
 			<input
 				v-else
 				class="fxr-input"
-				type="text"
+				:type="df?.fieldtype === 'Time' ? 'time' : 'text'"
+				:step="df?.fieldtype === 'Time' ? '1' : undefined"
 				:value="modelValue"
 				:placeholder="__(df.placeholder || placeholder)"
 				:disabled="read_only || df.read_only"
 				@input="(event) => $emit('update:modelValue', event.target.value)"
+				@blur="evaluateMath($event)"
+				@keydown.enter="evaluateMath($event)"
 				@dragover.prevent
 				@drop="onDrop"
 			/>
