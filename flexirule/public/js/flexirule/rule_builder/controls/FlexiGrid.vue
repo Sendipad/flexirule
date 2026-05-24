@@ -7,7 +7,7 @@
 		</div>
 
 		<div v-if="df.reqd && !localRows.length" class="text-danger small mb-2">
-			<i class="fa fa-exclamation-circle"></i> {{ __("{0} is mandatory", [df.label]) }}
+			<i class="fa fa-exclamation-circle" /> {{ __("{0} is mandatory", [df.label]) }}
 		</div>
 
 		<div class="grid-container">
@@ -21,7 +21,7 @@
 								:checked="isAllSelected"
 								:indeterminate="isAnySelected && !isAllSelected"
 								@change="toggleAll"
-							/>
+							>
 						</div>
 
 						<div class="header-cell static-col">
@@ -39,11 +39,11 @@
 							<div
 								class="resize-handle"
 								@mousedown="startResize($event, col.fieldname)"
-							></div>
+							/>
 						</div>
 
 						<div v-if="!read_only" class="header-cell static-col">
-							<i class="fa fa-cog text-muted"></i>
+							<i class="fa fa-cog text-muted" />
 						</div>
 					</div>
 				</div>
@@ -56,7 +56,7 @@
 								type="checkbox"
 								:checked="selectedRows.has(row.name)"
 								@change="toggleRow(row.name)"
-							/>
+							>
 						</div>
 
 						<div
@@ -66,7 +66,7 @@
 							<i
 								v-if="isRowInvalid(row)"
 								class="fa fa-exclamation-circle text-danger mr-1"
-							></i>
+							/>
 							{{ rowIndex + 1 }}
 						</div>
 
@@ -86,12 +86,13 @@
 							<ControlFactory
 								v-if="!isCellHidden(row, col.fieldname)"
 								:df="getEffectiveDf(row, col)"
-								:modelValue="row[col.fieldname]"
+								:model-value="row[col.fieldname]"
 								:doc="row"
 								:engine="engine"
-								hideLabel
-								hideDescription
-								@update:modelValue="updateCell(rowIndex, col.fieldname, $event)"
+								hide-label
+								hide-description
+								@update:model-value="updateCell(rowIndex, col.fieldname, $event)"
+								@click="$emit('cell-click', { row, rowIndex, col, fieldname: col.fieldname, event: $event })"
 							/>
 						</div>
 
@@ -102,7 +103,7 @@
 								:disabled="rowIndex === 0"
 								@click="moveRow(rowIndex, -1)"
 							>
-								<i class="fa fa-chevron-up"></i>
+								<i class="fa fa-chevron-up" />
 							</button>
 							<button
 								class="btn btn-xs btn-link text-muted p-0 ml-1"
@@ -110,14 +111,14 @@
 								:disabled="rowIndex === localRows.length - 1"
 								@click="moveRow(rowIndex, 1)"
 							>
-								<i class="fa fa-chevron-down"></i>
+								<i class="fa fa-chevron-down" />
 							</button>
 							<button
 								class="btn btn-xs btn-link text-danger p-0 ml-2"
 								:title="__('Remove Row')"
 								@click="removeRow(rowIndex)"
 							>
-								<i class="fa fa-trash"></i>
+								<i class="fa fa-trash" />
 							</button>
 						</div>
 					</div>
@@ -133,14 +134,14 @@
 		<div v-if="!read_only" class="grid-footer">
 			<div class="footer-actions">
 				<button class="btn btn-xs btn-default" @click="addRow">
-					<i class="fa fa-plus"></i> {{ __("Add Row") }}
+					<i class="fa fa-plus" /> {{ __("Add Row") }}
 				</button>
 				<button
 					v-if="isAnySelected"
 					class="btn btn-xs btn-danger-light ml-2"
 					@click="removeSelectedRows"
 				>
-					<i class="fa fa-trash"></i> {{ __("Delete Selected") }} ({{
+					<i class="fa fa-trash" /> {{ __("Delete Selected") }} ({{
 						selectedRows.size
 					}})
 				</button>
@@ -160,7 +161,7 @@ const props = defineProps({
 	read_only: Boolean,
 });
 
-const emit = defineEmits(["update:modelValue"]);
+const emit = defineEmits(["update:modelValue", "cell-click"]);
 
 const localRows = ref([]);
 const selectedRows = ref(new Set());

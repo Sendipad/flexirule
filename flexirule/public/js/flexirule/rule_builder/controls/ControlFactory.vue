@@ -10,7 +10,7 @@
 		>
 			<ComboBoxControl
 				:df="df"
-				:modelValue="modelValue"
+				:model-value="modelValue"
 				:rule="engine?.rule_doc"
 				:doctype="comboDoctype"
 				:options="comboOptions"
@@ -23,10 +23,10 @@
 						: null
 				"
 				:trigger="df?.fieldtype === 'FieldPicker' ? 'button' : 'input'"
-				:hideLabel="hideLabel"
-				:hideDescription="hideDescription"
+				:hide-label="hideLabel"
+				:hide-description="hideDescription"
 				:read_only="df?.read_only"
-				@update:modelValue="$emit('update:modelValue', $event)"
+				@update:model-value="$emit('update:modelValue', $event)"
 			/>
 		</template>
 
@@ -34,19 +34,19 @@
 		<SelectControl
 			v-else-if="df?.fieldtype === 'Select'"
 			:df="df"
-			:modelValue="modelValue"
-			:hideLabel="hideLabel"
-			:hideDescription="hideDescription"
-			@update:modelValue="$emit('update:modelValue', $event)"
+			:model-value="modelValue"
+			:hide-label="hideLabel"
+			:hide-description="hideDescription"
+			@update:model-value="$emit('update:modelValue', $event)"
 		/>
 
 		<!-- Check -->
 		<CheckControl
 			v-else-if="df?.fieldtype === 'Check'"
 			:df="df"
-			:modelValue="Boolean(modelValue)"
-			:hideLabel="hideLabel"
-			@update:modelValue="$emit('update:modelValue', $event ? 1 : 0)"
+			:model-value="Boolean(modelValue)"
+			:hide-label="hideLabel"
+			@update:model-value="$emit('update:modelValue', $event ? 1 : 0)"
 		/>
 
 		<!-- Number (Int, Float, Currency, Percent) -->
@@ -70,7 +70,7 @@
 				@input="$emit('update:modelValue', $event.target.value)"
 				@blur="evaluateMath($event, df.fieldtype)"
 				@keydown.enter="evaluateMath($event, df.fieldtype)"
-			/>
+			>
 			<div v-if="df.description" class="description text-muted mt-1">
 				{{ __(df.description) }}
 			</div>
@@ -80,10 +80,10 @@
 		<TimePickerControl
 			v-else-if="['Date', 'Datetime'].includes(df?.fieldtype)"
 			:df="df"
-			:modelValue="modelValue"
-			:hideLabel="hideLabel"
-			:hideDescription="hideDescription"
-			@update:modelValue="$emit('update:modelValue', $event)"
+			:model-value="modelValue"
+			:hide-label="hideLabel"
+			:hide-description="hideDescription"
+			@update:model-value="$emit('update:modelValue', $event)"
 		/>
 
 		<!-- Time -->
@@ -103,7 +103,7 @@
 				:disabled="df.read_only"
 				:aria-label="__(df.label)"
 				@input="$emit('update:modelValue', $event.target.value)"
-			/>
+			>
 			<div v-if="df.description" class="description text-muted mt-1">
 				{{ __(df.description) }}
 			</div>
@@ -141,7 +141,7 @@
 				@input="$emit('update:modelValue', $event.target.value)"
 				@dragover.prevent
 				@drop="onDrop"
-			></textarea>
+			/>
 			<div v-if="df.description" class="description text-muted mt-1">
 				{{ __(df.description) }}
 			</div>
@@ -151,10 +151,10 @@
 		<FlexiGrid
 			v-else-if="['Table', 'FlexiGrid', 'flexigrid'].includes(df?.fieldtype)"
 			:df="df"
-			:modelValue="modelValue"
+			:model-value="modelValue"
 			:engine="engine"
 			:read_only="df.read_only"
-			@update:modelValue="$emit('update:modelValue', $event)"
+			@update:model-value="$emit('update:modelValue', $event)"
 		/>
 
 		<!-- MultiSelect / MultiCheck / MultiFieldPicker -->
@@ -164,53 +164,66 @@
 					df?.fieldtype
 				)
 			"
-			:displayMode="getMultiListDisplayMode(df)"
+			:display-mode="getMultiListDisplayMode(df)"
 			:columns="df?.fieldtype === 'MultiCheck' ? 2 : undefined"
 			:df="df"
-			:modelValue="modelValue"
+			:model-value="modelValue"
 			:get_data="get_data || df?.get_data"
-			:documentType="
+			:document-type="
 				df?.fieldtype === 'MultiFieldPicker'
 					? df?.target_doctype || engine?.rule_doc?.document_type
 					: undefined
 			"
 			:read_only="df.read_only"
-			:hideLabel="hideLabel"
+			:hide-label="hideLabel"
 			:expanded="df?.fieldtype === 'MultiCheck' ? !hideLabel : undefined"
-			@update:modelValue="$emit('update:modelValue', $event)"
+			@update:model-value="$emit('update:modelValue', $event)"
 		/>
+
+		<!-- Button -->
+		<div v-else-if="df?.fieldtype === 'Button'" class="control fxr-control">
+			<button
+				class="fxr-btn fxr-btn--sm w-100"
+				:class="df.btn_class || 'fxr-btn--secondary'"
+				:disabled="df.read_only"
+				@click="$emit('click', $event)"
+			>
+				<i v-if="df.icon" :class="df.icon" class="me-1" />
+				{{ __(df.label) }}
+			</button>
+		</div>
 
 		<!-- Specialized / High-level controls -->
 		<ResourceMapperControl
 			v-else-if="df?.fieldtype === 'Resource Mapper'"
 			:df="df"
-			:modelValue="modelValue"
-			:targetDoctype="df?.target_doctype || ''"
-			:targetFields="df?.target_fields || []"
-			:sourceOptions="df?.source_options || []"
+			:model-value="modelValue"
+			:target-doctype="df?.target_doctype || ''"
+			:target-fields="df?.target_fields || []"
+			:source-options="df?.source_options || []"
 			:read_only="df?.read_only"
-			:hideLabel="hideLabel"
-			:hideDescription="hideDescription"
-			@update:modelValue="$emit('update:modelValue', $event)"
+			:hide-label="hideLabel"
+			:hide-description="hideDescription"
+			@update:model-value="$emit('update:modelValue', $event)"
 		/>
 
 		<TextGeneratorControl
 			v-else-if="df?.fieldtype === 'Text Generator'"
 			:df="df"
-			:modelValue="modelValue"
+			:model-value="modelValue"
 			:read_only="df?.read_only"
-			:variableOptions="df?.variable_options || injectedVariableOptions"
-			:docFieldOptions="df?.doc_field_options || injectedDocFields"
-			:hideLabel="hideLabel"
-			:hideDescription="hideDescription"
-			@update:modelValue="$emit('update:modelValue', $event)"
+			:variable-options="df?.variable_options || injectedVariableOptions"
+			:doc-field-options="df?.doc_field_options || injectedDocFields"
+			:hide-label="hideLabel"
+			:hide-description="hideDescription"
+			@update:model-value="$emit('update:modelValue', $event)"
 		/>
 
 		<FlexValueControl
 			v-else-if="df?.fieldtype === 'Structured Value'"
-			:modelValue="modelValue"
+			:model-value="modelValue"
 			:read_only="df?.read_only"
-			:variableOptions="df?.variable_options || injectedVariableOptions"
+			:variable-options="df?.variable_options || injectedVariableOptions"
 			:compact="df?.compact || false"
 			:placeholder="df?.placeholder || ''"
 			:disabled="df?.read_only"
@@ -228,27 +241,27 @@
 					df?.target_doctype ||
 					engine?.rule_doc?.document_type,
 			}"
-			@update:modelValue="$emit('update:modelValue', $event)"
+			@update:model-value="$emit('update:modelValue', $event)"
 		/>
 
 		<!-- Attach / Attach Image fallback (using DataControl for now) -->
 		<DataControl
 			v-else-if="['Attach', 'Attach Image'].includes(df?.fieldtype)"
 			:df="df"
-			:modelValue="modelValue"
-			:hideLabel="hideLabel"
-			:hideDescription="hideDescription"
-			@update:modelValue="$emit('update:modelValue', $event)"
+			:model-value="modelValue"
+			:hide-label="hideLabel"
+			:hide-description="hideDescription"
+			@update:model-value="$emit('update:modelValue', $event)"
 		/>
 
 		<!-- Default (Data, Duration, Valid types defaulting to text) -->
 		<DataControl
 			v-else-if="!['Table', 'Signature', 'Button', 'Heading'].includes(df?.fieldtype)"
 			:df="df || { fieldtype: 'Data' }"
-			:modelValue="modelValue"
-			:hideLabel="hideLabel"
-			:hideDescription="hideDescription"
-			@update:modelValue="$emit('update:modelValue', $event)"
+			:model-value="modelValue"
+			:hide-label="hideLabel"
+			:hide-description="hideDescription"
+			@update:model-value="$emit('update:modelValue', $event)"
 		/>
 
 		<!-- Fallback for unsupported/unsafe types -->
@@ -288,7 +301,7 @@ const props = defineProps({
 	get_data: { type: Function, default: null },
 });
 
-const emit = defineEmits(["update:modelValue"]);
+const emit = defineEmits(["update:modelValue", "click"]);
 
 // ── DocField / FieldPicker helpers ────────────────────────────────────────────
 
