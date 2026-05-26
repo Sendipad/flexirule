@@ -21,7 +21,7 @@
 								:checked="isAllSelected"
 								:indeterminate="isAnySelected && !isAllSelected"
 								@change="toggleAll"
-							>
+							/>
 						</div>
 
 						<div class="header-cell static-col">
@@ -56,7 +56,7 @@
 								type="checkbox"
 								:checked="selectedRows.has(row.name)"
 								@change="toggleRow(row.name)"
-							>
+							/>
 						</div>
 
 						<div
@@ -92,7 +92,15 @@
 								hide-label
 								hide-description
 								@update:model-value="updateCell(rowIndex, col.fieldname, $event)"
-								@click="$emit('cell-click', { row, rowIndex, col, fieldname: col.fieldname, event: $event })"
+								@click="
+									$emit('cell-click', {
+										row,
+										rowIndex,
+										col,
+										fieldname: col.fieldname,
+										event: $event,
+									})
+								"
 							/>
 						</div>
 
@@ -141,9 +149,7 @@
 					class="btn btn-xs btn-danger-light ml-2"
 					@click="removeSelectedRows"
 				>
-					<i class="fa fa-trash" /> {{ __("Delete Selected") }} ({{
-						selectedRows.size
-					}})
+					<i class="fa fa-trash" /> {{ __("Delete Selected") }} ({{ selectedRows.size }})
 				</button>
 			</div>
 		</div>
@@ -193,7 +199,9 @@ const gridTemplateColumns = computed(() => {
 });
 
 function getColumnWidth(fieldname) {
-	return columnWidths[fieldname] || "180px";
+	if (columnWidths[fieldname]) return columnWidths[fieldname];
+	const col = columns.value.find((c) => c.fieldname === fieldname);
+	return col?.width || "180px";
 }
 
 /* ---------------- Sticky ---------------- */
@@ -390,11 +398,12 @@ function isValueEmpty(val) {
 /* ---------- Container ---------- */
 
 .flexi-grid .grid-container {
-	border: 1px solid var(--border-color, #d1d8dd);
+	border: 1px solid var(--border-color, #e2e8f0);
 	border-radius: 8px;
 	background: #fff;
 	overflow-x: auto;
 	position: relative;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 }
 
 /* ---------- Table ---------- */
@@ -411,26 +420,29 @@ function isValueEmpty(val) {
 	position: sticky;
 	top: 0;
 	z-index: 100;
-	background: #f8f9fa;
-	border-bottom: 1px solid var(--border-color, #e5e7eb);
+	background: var(--fxr-bg-page, #f8fafc);
+	border-bottom: 1px solid var(--border-color, #e2e8f0);
 }
 
 .flexi-grid .header-row {
-	display: flex;
+	display: grid;
+	grid-template-columns: var(--grid-cols);
 	height: 40px;
 }
 
 /* ---------- Rows ---------- */
 
 .flexi-grid .grid-row {
-	display: flex;
+	display: grid;
+	grid-template-columns: var(--grid-cols);
 	height: 40px;
-	border-bottom: 1px solid var(--border-color, #f0f0f0);
+	border-bottom: 1px solid var(--border-color, #f1f5f9);
 	background: #fff;
+	transition: background 0.15s ease;
 }
 
 .flexi-grid .grid-row:hover {
-	background: #fafafb;
+	background: #f8fafc;
 }
 
 .flexi-grid .grid-row:last-child {
@@ -443,13 +455,18 @@ function isValueEmpty(val) {
 .flexi-grid .grid-cell {
 	flex: 0 0 auto !important; /* NEVER grow or shrink */
 	box-sizing: border-box;
-	border-right: 1px solid var(--border-color, #f0f0f0);
+	border-right: 1px solid var(--border-color, #f1f5f9);
 	display: flex;
 	align-items: center;
 	height: 100%;
-	padding: 0 8px; /* Frappe-style padding */
+	padding: 0 12px; /* Enhanced padding */
 	position: relative;
-	overflow: hidden;
+	min-width: 0; /* Prevent grid blowout */
+	overflow: visible;
+}
+
+.flexi-grid .header-cell {
+	overflow: hidden; /* Keep text truncation for headers */
 }
 
 .flexi-grid .header-cell:last-child,
@@ -461,8 +478,11 @@ function isValueEmpty(val) {
 
 .flexi-grid .header-cell {
 	font-weight: 600;
-	color: var(--text-color);
-	background: #f8f9fa;
+	color: var(--text-muted, #64748b);
+	background: var(--fxr-bg-page, #f8fafc);
+	font-size: 11.5px;
+	text-transform: uppercase;
+	letter-spacing: 0.4px;
 	z-index: 50;
 }
 
@@ -478,7 +498,7 @@ function isValueEmpty(val) {
 .flexi-grid .static-col {
 	justify-content: center;
 	padding: 0;
-	background: #fafafa;
+	background: var(--fxr-bg-muted, #f8fafc);
 }
 
 /* ---------- Sticky Columns ---------- */
@@ -516,6 +536,7 @@ function isValueEmpty(val) {
 
 .flexi-grid .grid-cell .control-factory,
 .flexi-grid .grid-cell .frappe-control,
+.flexi-grid .grid-cell .fxr-control,
 .flexi-grid .grid-cell .form-group {
 	margin: 0 !important;
 	padding: 0 !important;
@@ -523,7 +544,9 @@ function isValueEmpty(val) {
 }
 
 /* Inputs must NOT fill height */
-.flexi-grid .grid-cell .form-control {
+.flexi-grid .grid-cell .form-control,
+.flexi-grid .grid-cell .fxr-select,
+.flexi-grid .grid-cell .fxr-input {
 	height: 28px !important; /* Frappe default */
 	min-height: 28px !important;
 	padding: 4px 8px !important;
@@ -536,9 +559,11 @@ function isValueEmpty(val) {
 }
 
 /* Focus behavior */
-.flexi-grid .grid-cell .form-control:focus {
+.flexi-grid .grid-cell .form-control:focus,
+.flexi-grid .grid-cell .fxr-select:focus,
+.flexi-grid .grid-cell .fxr-input:focus {
 	background: #fff !important;
-	border-color: var(--fxr-accent) !important;
+	border-color: var(--fxr-accent, #2490ef) !important;
 	box-shadow: none !important;
 }
 
@@ -552,25 +577,29 @@ function isValueEmpty(val) {
 
 .flexi-grid .grid-cell .combobox-wrapper:hover,
 .flexi-grid .grid-cell .combobox-wrapper.is-focused {
-	border-color: var(--fxr-accent) !important;
+	border-color: var(--fxr-accent, #2490ef) !important;
 	background: #fff !important;
 }
 
 .flexi-grid .grid-cell .combobox-input-group {
 	height: 100% !important;
+	padding: 0 4px !important;
 }
 
 .flexi-grid .grid-cell .combobox-input {
 	height: 100% !important;
+	padding: 0 4px !important;
 }
 
 /* Selects */
-.flexi-grid .grid-cell select.form-control {
+.flexi-grid .grid-cell select.form-control,
+.flexi-grid .grid-cell select.fxr-select {
 	padding-right: 24px !important;
 }
 
 /* Textarea stays controlled */
-.flexi-grid .grid-cell textarea.form-control {
+.flexi-grid .grid-cell textarea.form-control,
+.flexi-grid .grid-cell textarea.fxr-input {
 	height: 28px !important;
 	resize: none;
 }
@@ -691,48 +720,5 @@ function isValueEmpty(val) {
 
 .flexi-grid .grid-container::-webkit-scrollbar-thumb:hover {
 	background: #d1d5db;
-}
-.flexi-grid .header-row,
-.flexi-grid .grid-row {
-	display: grid;
-	grid-template-columns: var(--grid-cols);
-}
-
-.header-cell,
-.grid-cell {
-	height: 40px;
-	display: flex;
-	align-items: center;
-	padding: 0 8px;
-	border-right: 1px solid #e5e7eb;
-	box-sizing: border-box;
-}
-
-.header-cell {
-	font-weight: 600;
-	background: #f8f9fa;
-}
-
-.grid-row:hover {
-	background: #fafafb;
-}
-
-.static-col {
-	justify-content: center;
-}
-
-.sticky-col {
-	position: sticky;
-	z-index: 20;
-	background: inherit;
-}
-
-.resize-handle {
-	position: absolute;
-	right: -3px;
-	top: 0;
-	bottom: 0;
-	width: 6px;
-	cursor: col-resize;
 }
 </style>

@@ -70,7 +70,7 @@
 				@input="$emit('update:modelValue', $event.target.value)"
 				@blur="evaluateMath($event, df.fieldtype)"
 				@keydown.enter="evaluateMath($event, df.fieldtype)"
-			>
+			/>
 			<div v-if="df.description" class="description text-muted mt-1">
 				{{ __(df.description) }}
 			</div>
@@ -103,7 +103,7 @@
 				:disabled="df.read_only"
 				:aria-label="__(df.label)"
 				@input="$emit('update:modelValue', $event.target.value)"
-			>
+			/>
 			<div v-if="df.description" class="description text-muted mt-1">
 				{{ __(df.description) }}
 			</div>
@@ -212,8 +212,8 @@
 			:df="df"
 			:model-value="modelValue"
 			:read_only="df?.read_only"
-			:variable-options="df?.variable_options || injectedVariableOptions"
-			:doc-field-options="df?.doc_field_options || injectedDocFields"
+			:variable-options="variableOptions"
+			:doc-field-options="docFields"
 			:hide-label="hideLabel"
 			:hide-description="hideDescription"
 			@update:model-value="$emit('update:modelValue', $event)"
@@ -223,7 +223,7 @@
 			v-else-if="df?.fieldtype === 'Structured Value'"
 			:model-value="modelValue"
 			:read_only="df?.read_only"
-			:variable-options="df?.variable_options || injectedVariableOptions"
+			:variable-options="variableOptions"
 			:compact="df?.compact || false"
 			:placeholder="df?.placeholder || ''"
 			:disabled="df?.read_only"
@@ -299,6 +299,18 @@ const props = defineProps({
 	hideDescription: { type: Boolean, default: false },
 	get_options: { type: Function, default: null },
 	get_data: { type: Function, default: null },
+});
+
+const variableOptions = computed(() => {
+	const opt = props.df?.variable_options;
+	if (opt !== undefined && opt !== null) return opt;
+	return injectedVariableOptions?.value || [];
+});
+
+const docFields = computed(() => {
+	const opt = props.df?.doc_field_options;
+	if (opt !== undefined && opt !== null) return opt;
+	return injectedDocFields?.value || [];
 });
 
 const emit = defineEmits(["update:modelValue", "click"]);
