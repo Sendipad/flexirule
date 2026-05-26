@@ -177,7 +177,9 @@ const assignmentEngine = reactive({
 			const hasCond = hasWhenCondition(row);
 			normalized.label = hasCond ? __("Condition Set") : __("Always Run");
 			normalized.icon = hasCond ? "fa fa-filter" : "fa fa-play-circle-o";
-			normalized.btn_class = hasCond ? "when-toggle-btn is-active" : "when-toggle-btn is-default";
+			normalized.btn_class = hasCond
+				? "when-toggle-btn is-active"
+				: "when-toggle-btn is-default";
 		}
 
 		if (df.fieldname === "operator") {
@@ -440,7 +442,6 @@ function syncToNode() {
 	update_action_field("config", JSON.stringify(clean));
 	store.mark_dirty();
 }
-
 
 function onTargetChange(index, value) {
 	const assignment = assignments.value[index];

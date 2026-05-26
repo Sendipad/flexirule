@@ -573,6 +573,16 @@ const editor = new Editor({
 	},
 });
 
+watch(
+	() => readOnly.value,
+	(readOnlyVal) => {
+		if (editor) {
+			editor.setEditable(!readOnlyVal);
+		}
+	},
+	{ immediate: true }
+);
+
 function createSuggestionRenderer() {
 	let component;
 	let popup;
