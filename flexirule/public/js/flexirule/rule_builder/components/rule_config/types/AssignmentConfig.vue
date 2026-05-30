@@ -128,30 +128,42 @@
 
 				<!-- Row Actions -->
 				<div
-					class="grid-col-actions d-flex align-items-center justify-content-end fxr-gap-1"
+					class="grid-col-actions d-flex align-items-center justify-content-end fxr-gap-2"
 				>
+					<div class="d-flex flex-column justify-content-center" style="gap: 2px">
+						<button
+							class="fxr-btn fxr-btn--icon fxr-btn--ghost p-0"
+							:style="{
+								height: '16px',
+								minHeight: '16px',
+								width: '24px',
+								visibility: index === 0 ? 'hidden' : 'visible',
+							}"
+							@click="moveAssignment(index, -1)"
+							:disabled="isReadOnly"
+							:title="__('Move Up')"
+							aria-label="Move Up"
+						>
+							<i class="fa fa-chevron-up" style="font-size: 10px"></i>
+						</button>
+						<button
+							class="fxr-btn fxr-btn--icon fxr-btn--ghost p-0"
+							:style="{
+								height: '16px',
+								minHeight: '16px',
+								width: '24px',
+								visibility: index === assignments.length - 1 ? 'hidden' : 'visible',
+							}"
+							@click="moveAssignment(index, 1)"
+							:disabled="isReadOnly"
+							:title="__('Move Down')"
+							aria-label="Move Down"
+						>
+							<i class="fa fa-chevron-down" style="font-size: 10px"></i>
+						</button>
+					</div>
 					<button
-						class="fxr-btn fxr-btn--icon fxr-btn--sm fxr-btn--ghost"
-						@click="moveAssignment(index, -1)"
-						:disabled="isReadOnly"
-						v-show="index !== 0"
-						:title="__('Move Up')"
-						aria-label="Move Up"
-					>
-						<i class="fa fa-chevron-up"></i>
-					</button>
-					<button
-						class="fxr-btn fxr-btn--icon fxr-btn--sm fxr-btn--ghost"
-						@click="moveAssignment(index, 1)"
-						:disabled="isReadOnly"
-						v-show="index !== assignments.length - 1"
-						:title="__('Move Down')"
-						aria-label="Move Down"
-					>
-						<i class="fa fa-chevron-down"></i>
-					</button>
-					<button
-						class="fxr-btn fxr-btn--icon fxr-btn--sm fxr-btn--ghost text-danger"
+						class="fxr-btn fxr-btn--icon fxr-btn--sm fxr-btn--ghost text-danger ms-1"
 						@click="removeAssignment(index)"
 						:disabled="isReadOnly"
 						:title="__('Remove')"
@@ -570,11 +582,11 @@ function handleKeydown(e) {
 }
 
 onMounted(() => {
-	window.addEventListener("keydown", handleKeydown);
+	window.addEventListener("keydown", handleKeydown, { capture: true });
 });
 
 onBeforeUnmount(() => {
-	window.removeEventListener("keydown", handleKeydown);
+	window.removeEventListener("keydown", handleKeydown, { capture: true });
 });
 
 function updateDraft(val) {
@@ -658,19 +670,19 @@ defineExpose({ validate });
 	background: var(--fxr-bg-page, #f8fafc);
 	border: 1px solid var(--fxr-border, #e2e8f0);
 	border-radius: var(--fxr-radius-lg, 8px);
-	padding: 16px;
+	padding: 8px 12px;
 }
 
 .header-icon-box {
-	width: 40px;
-	height: 40px;
+	width: 32px;
+	height: 32px;
 	background: var(--fxr-accent-light, #e0f2fe);
 	color: var(--fxr-accent, #2490ef);
 	border-radius: var(--fxr-radius-md, 6px);
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	font-size: 18px;
+	font-size: 14px;
 }
 
 /* Horizontal Table Grid Styling */
@@ -680,8 +692,30 @@ defineExpose({ validate });
 	grid-template-columns:
 		minmax(120px, 0.8fr) minmax(160px, 1.2fr) minmax(100px, 0.7fr) minmax(240px, 2fr)
 		80px;
-	gap: 12px;
+	gap: 8px;
 	align-items: center;
+}
+
+@media (max-width: 900px) {
+	.assignment-grid-header {
+		display: none;
+	}
+	.assignment-grid-row {
+		display: flex;
+		flex-direction: column;
+		align-items: stretch;
+		gap: 8px;
+	}
+	.grid-col-when,
+	.grid-col-target,
+	.grid-col-operator,
+	.grid-col-value {
+		width: 100%;
+	}
+	.grid-col-actions {
+		justify-content: flex-end;
+		margin-top: 4px;
+	}
 }
 
 .assignment-grid-header {
@@ -793,7 +827,7 @@ defineExpose({ validate });
 	background: var(--fxr-bg-card, #ffffff);
 	border: 1px solid var(--fxr-border, #e2e8f0);
 	border-radius: var(--fxr-radius-lg, 8px);
-	padding: 10px 16px;
+	padding: 6px 12px;
 	transition: all 0.2s ease;
 	box-shadow: var(--fxr-shadow-sm);
 }

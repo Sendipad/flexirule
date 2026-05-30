@@ -557,6 +557,8 @@ function onKeydown(e) {
 
 	if (e.key === "Escape") {
 		e.preventDefault();
+		e.stopPropagation();
+		e.stopImmediatePropagation();
 		closeDropdown(true);
 		return;
 	}

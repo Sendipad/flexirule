@@ -5,7 +5,10 @@
 			v-if="viewMode === 'popover'"
 			class="fxr-token"
 			:class="{ 'is-active': showPopover }"
+			tabindex="0"
 			@click="togglePopover"
+			@keydown.enter.prevent="togglePopover"
+			@keydown.space.prevent="togglePopover"
 		>
 			<div class="fxr-token__content">
 				<i :class="categoryIcon" class="text-muted mr-1"></i>
@@ -18,7 +21,11 @@
 		<Teleport to="body" :disabled="viewMode === 'inline'">
 			<div
 				v-if="viewMode === 'inline' || showPopover"
-				:class="viewMode === 'inline' ? 'fxr-inline-builder' : 'fxr-popover'"
+				:class="
+					viewMode === 'inline'
+						? 'fxr-inline-builder'
+						: 'fxr-popover value-resolver-popover'
+				"
 				:style="viewMode === 'inline' ? {} : popoverStyle"
 			>
 				<div v-if="viewMode !== 'inline'" class="fxr-popover__header">
@@ -42,7 +49,7 @@
 						</select>
 					</div>
 
-					<hr class="my-4 border-top" />
+					<hr class="my-2 border-top" />
 
 					<!-- ═══════════ Date Formula ═══════════ -->
 					<template v-if="localState.kind === 'date_formula'">
@@ -982,6 +989,15 @@ const handleClickOutside = (e) => {
 	}
 };
 
+const handleGlobalKeydown = (e) => {
+	if (e.key === "Escape" && showPopover.value) {
+		e.preventDefault();
+		e.stopPropagation();
+		e.stopImmediatePropagation();
+		closePopover();
+	}
+};
+
 const togglePopover = async () => {
 	if (props.readOnly) return;
 	showPopover.value = !showPopover.value;
@@ -991,14 +1007,19 @@ const togglePopover = async () => {
 		updatePopoverPosition();
 		window.addEventListener("scroll", updatePopoverPosition, true);
 		window.addEventListener("resize", updatePopoverPosition);
+		window.addEventListener("keydown", handleGlobalKeydown, { capture: true });
 	} else {
 		window.removeEventListener("scroll", updatePopoverPosition, true);
 		window.removeEventListener("resize", updatePopoverPosition);
+		window.removeEventListener("keydown", handleGlobalKeydown, { capture: true });
 	}
 };
 
 const closePopover = () => {
 	showPopover.value = false;
+	window.removeEventListener("scroll", updatePopoverPosition, true);
+	window.removeEventListener("resize", updatePopoverPosition);
+	window.removeEventListener("keydown", handleGlobalKeydown, { capture: true });
 };
 
 // ─── Computed UI Properties ───
@@ -1070,5 +1091,33 @@ hr.border-top {
 	border-color: var(--fxr-border);
 	opacity: 0.5;
 	margin: var(--fxr-space-2) 0;
+}
+</style>
+
+<style>
+.value-resolver-popover {
+	padding: 10px;
+	width: 280px;
+}
+.value-resolver-popover .fxr-popover__header {
+	padding-bottom: 8px;
+	margin-bottom: 8px;
+	border-bottom: 1px solid var(--fxr-border, #e2e8f0);
+}
+.value-resolver-popover .fxr-popover__body {
+	padding: 0;
+}
+.value-resolver-popover .fxr-select,
+.value-resolver-popover .fxr-input {
+	padding: 2px 6px;
+	min-height: 28px;
+	font-size: 11px;
+}
+.value-resolver-popover label.fxr-label-sm {
+	margin-bottom: 2px;
+	font-size: 10px;
+}
+.value-resolver-popover hr.border-top {
+	margin: 8px 0 !important;
 }
 </style>

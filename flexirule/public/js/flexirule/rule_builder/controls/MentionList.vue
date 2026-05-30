@@ -93,6 +93,9 @@ export default {
 			}
 			if (event.key === "Escape") {
 				// Let Tiptap handle Escape to close the suggestion popup
+				event.preventDefault();
+				event.stopPropagation();
+				event.stopImmediatePropagation();
 				return false;
 			}
 			return false;

@@ -598,6 +598,9 @@ function createSuggestionRenderer() {
 		},
 		onKeyDown(props) {
 			if (props.event.key === "Escape") {
+				props.event.preventDefault();
+				props.event.stopPropagation();
+				props.event.stopImmediatePropagation();
 				popup?.hide();
 				return true;
 			}
