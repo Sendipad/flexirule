@@ -29,10 +29,10 @@
 
 		<!-- Horizontal Table Grid Header -->
 		<div v-if="assignments.length" class="assignment-grid-header">
+			<div class="grid-col-when">{{ __("Run If") }}</div>
 			<div class="grid-col-target">{{ __("Target Field") }}</div>
 			<div class="grid-col-operator">{{ __("Operator") }}</div>
 			<div class="grid-col-value">{{ __("Value Expression") }}</div>
-			<div class="grid-col-when">{{ __("Run If") }}</div>
 			<div class="grid-col-actions"></div>
 		</div>
 
@@ -42,6 +42,33 @@
 				:key="assignment.name"
 				class="assignment-grid-row align-items-center mb-2"
 			>
+				<div class="grid-col-when">
+					<div class="when-editor-cell">
+						<button
+							class="fxr-btn fxr-btn--sm w-100 when-toggle-btn"
+							:class="hasWhenCondition(assignment) ? 'is-active' : 'is-default'"
+							:disabled="isReadOnly"
+							@click="openWhenConditionEditor(index)"
+						>
+							<i
+								:class="
+									hasWhenCondition(assignment)
+										? 'fa fa-filter'
+										: 'fa fa-play-circle-o'
+								"
+								class="me-2"
+							></i>
+							<span class="truncate">
+								{{
+									hasWhenCondition(assignment)
+										? __("Condition Set")
+										: __("Always Run")
+								}}
+							</span>
+						</button>
+					</div>
+				</div>
+
 				<!-- Target ComboBox with Type Badge support -->
 				<div class="grid-col-target">
 					<ComboBoxControl
@@ -99,33 +126,6 @@
 					</div>
 				</div>
 
-				<div class="grid-col-when">
-					<div class="when-editor-cell">
-						<button
-							class="fxr-btn fxr-btn--sm w-100 when-toggle-btn"
-							:class="hasWhenCondition(assignment) ? 'is-active' : 'is-default'"
-							:disabled="isReadOnly"
-							@click="openWhenConditionEditor(index)"
-						>
-							<i
-								:class="
-									hasWhenCondition(assignment)
-										? 'fa fa-filter'
-										: 'fa fa-play-circle-o'
-								"
-								class="me-2"
-							></i>
-							<span class="truncate">
-								{{
-									hasWhenCondition(assignment)
-										? __("Condition Set")
-										: __("Always Run")
-								}}
-							</span>
-						</button>
-					</div>
-				</div>
-
 				<!-- Row Actions -->
 				<div
 					class="grid-col-actions d-flex align-items-center justify-content-end fxr-gap-1"
@@ -133,7 +133,8 @@
 					<button
 						class="fxr-btn fxr-btn--icon fxr-btn--sm fxr-btn--ghost"
 						@click="moveAssignment(index, -1)"
-						:disabled="isReadOnly || index === 0"
+						:disabled="isReadOnly"
+						v-show="index !== 0"
 						:title="__('Move Up')"
 						aria-label="Move Up"
 					>
@@ -142,7 +143,8 @@
 					<button
 						class="fxr-btn fxr-btn--icon fxr-btn--sm fxr-btn--ghost"
 						@click="moveAssignment(index, 1)"
-						:disabled="isReadOnly || index === assignments.length - 1"
+						:disabled="isReadOnly"
+						v-show="index !== assignments.length - 1"
 						:title="__('Move Down')"
 						aria-label="Move Down"
 					>
@@ -203,7 +205,7 @@
 							:docFields="whenConditionDocFields"
 							:variableOptions="variable_options"
 							:readOnly="false"
-							@update:modelValue="(val) => (whenEditor.draft = val)"
+							@update:modelValue="updateDraft"
 						/>
 					</div>
 					<div class="d-flex justify-content-between mt-3">
@@ -213,20 +215,12 @@
 						>
 							{{ __("Clear Condition") }}
 						</button>
-						<div class="d-flex fxr-gap-1">
-							<button
-								class="fxr-btn fxr-btn--sm fxr-btn--secondary"
-								@click="closeWhenConditionEditor"
-							>
-								{{ __("Cancel") }}
-							</button>
-							<button
-								class="fxr-btn fxr-btn--sm fxr-btn--primary"
-								@click="saveWhenCondition"
-							>
-								{{ __("Save Condition") }}
-							</button>
-						</div>
+						<button
+							class="fxr-btn fxr-btn--sm fxr-btn--secondary"
+							@click="closeWhenConditionEditor"
+						>
+							{{ __("Close") }}
+						</button>
 					</div>
 				</div>
 			</div>
@@ -235,7 +229,7 @@
 </template>
 
 <script setup>
-import { computed, watch, ref } from "vue";
+import { computed, watch, ref, onMounted, onBeforeUnmount } from "vue";
 import { useActionConfig } from "../../../composables/useActionConfig";
 import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
 import FlexValueControl from "../../../controls/FlexValueControl.vue";
@@ -566,22 +560,39 @@ function closeWhenConditionEditor() {
 	whenEditor.value = { open: false, index: -1, draft: null };
 }
 
-function saveWhenCondition() {
+function handleKeydown(e) {
+	if (e.key === "Escape" && whenEditor.value.open) {
+		e.preventDefault();
+		e.stopPropagation();
+		e.stopImmediatePropagation();
+		closeWhenConditionEditor();
+	}
+}
+
+onMounted(() => {
+	window.addEventListener("keydown", handleKeydown);
+});
+
+onBeforeUnmount(() => {
+	window.removeEventListener("keydown", handleKeydown);
+});
+
+function updateDraft(val) {
 	if (whenEditor.value.index < 0) return;
-	const tree = whenEditor.value.draft;
+	whenEditor.value.draft = val;
+	const tree = val;
 	const hasConditions = !!(tree && Array.isArray(tree.conditions) && tree.conditions.length);
 	assignments.value[whenEditor.value.index].when_condition = hasConditions ? tree : null;
 	assignments.value[whenEditor.value.index].when_expression = "";
 	syncToNode();
-	closeWhenConditionEditor();
 }
 
 function clearWhenCondition() {
 	if (whenEditor.value.index < 0) return;
 	assignments.value[whenEditor.value.index].when_condition = null;
 	assignments.value[whenEditor.value.index].when_expression = "";
+	whenEditor.value.draft = { op: "and", conditions: [] };
 	syncToNode();
-	closeWhenConditionEditor();
 }
 function getDefaultResolverKind(target) {
 	const fieldtype = getTargetFieldtype(target);
@@ -667,7 +678,7 @@ defineExpose({ validate });
 .assignment-grid-row {
 	display: grid;
 	grid-template-columns:
-		minmax(160px, 1.2fr) minmax(100px, 0.7fr) minmax(240px, 2fr) minmax(120px, 0.8fr)
+		minmax(120px, 0.8fr) minmax(160px, 1.2fr) minmax(100px, 0.7fr) minmax(240px, 2fr)
 		80px;
 	gap: 12px;
 	align-items: center;
