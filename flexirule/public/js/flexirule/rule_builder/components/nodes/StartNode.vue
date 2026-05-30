@@ -39,6 +39,12 @@ const summaryData = computed(() => {
 	return parts;
 });
 
+const permissionFlags = computed(() => {
+	const perms = props.data?.permissions;
+	if (!Array.isArray(perms) || !perms.length) return ["All"];
+	return perms.filter((p) => p.role).map((p) => p.role);
+});
+
 const nodeMeta = computed(() => {
 	const actionType = props.data?.action_type || "Entry Action";
 	const contract = getContract(actionType);
@@ -95,6 +101,17 @@ function openConfig() {
 			>
 				<i :class="['fa', isReadOnly ? 'fa-eye' : 'fa-pencil']"></i>
 			</button>
+		</div>
+		<div v-if="permissionFlags.length" class="permission-flags">
+			<span
+				v-for="role in permissionFlags"
+				:key="role"
+				class="permission-flag"
+				:title="__('Edit Permissions')"
+				@click.stop="openConfig"
+			>
+				<i class="fa fa-users"></i> {{ role }}
+			</span>
 		</div>
 		<Handle
 			type="source"
@@ -270,6 +287,57 @@ function openConfig() {
 .action-btn:hover {
 	color: white;
 }
+
+.permission-flags {
+	position: absolute;
+	display: flex;
+	gap: 4px;
+	pointer-events: all;
+	z-index: 5;
+}
+
+.start-node-d:not(.is-vertical) .permission-flags {
+	left: calc(100% + 15px);
+	top: 50%;
+	transform: translateY(-50%);
+	flex-direction: column;
+	align-items: flex-start;
+}
+
+.is-vertical .permission-flags {
+	top: calc(100% + 15px);
+	left: 50%;
+	transform: translateX(-50%);
+	flex-direction: row;
+	flex-wrap: wrap;
+	justify-content: center;
+}
+
+.permission-flag {
+	font-size: 9px;
+	background: #f8fafc;
+	color: #334155;
+	border: 1px solid #cbd5e1;
+	padding: 3px 8px;
+	border-radius: 12px;
+	white-space: nowrap;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+	display: flex;
+	align-items: center;
+	cursor: pointer;
+	transition: all 0.2s;
+}
+
+.permission-flag:hover {
+	background: #e2e8f0;
+	border-color: #94a3b8;
+}
+
+.permission-flag i {
+	margin-right: 4px;
+	color: #64748b;
+}
+
 /* RTL Support */
 [dir="rtl"] .start-node-d:not(.is-vertical) .node-body {
 	border-radius: 40px 4px 4px 40px;

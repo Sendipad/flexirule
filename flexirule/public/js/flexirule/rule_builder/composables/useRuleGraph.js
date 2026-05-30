@@ -3,8 +3,8 @@ import { useVueFlow } from "@vue-flow/core";
 
 const NODE_WIDTH = 260;
 const NODE_HEIGHT = 160;
-const H_GAP = 140; // horizontal gap between ranks (LR) or between main and body column (TB)
-const V_GAP = 180; // vertical gap between nodes
+const H_GAP = 70; // horizontal gap between ranks (LR) or between main and body column (TB)
+const V_GAP = 80; // vertical gap between nodes
 
 export function useRuleGraph() {
 	const { nodes, edges, setNodes, setEdges, fitView } = useVueFlow();
@@ -128,8 +128,10 @@ export function useRuleGraph() {
 			// Shift AfterLast subtree out of the way to make room for body
 			if (afterLastId) {
 				const afterLastSubtreeIds = bfsReachable(afterLastId, currentEdges);
-				const shiftX = isHorizontal ? 0 : -(NODE_WIDTH + H_GAP);
-				const shiftY = isHorizontal ? -(NODE_HEIGHT + V_GAP) : 0;
+				// In LR layout, After Last exits Bottom -> shift Down (+Y)
+				// In TB layout, After Last exits Right -> shift Right (+X)
+				const shiftX = isHorizontal ? 0 : NODE_WIDTH + H_GAP;
+				const shiftY = isHorizontal ? NODE_HEIGHT + V_GAP : 0;
 
 				afterLastSubtreeIds.forEach((id) => {
 					const p = positions.get(id);
@@ -206,7 +208,7 @@ export function useRuleGraph() {
 				position: pos,
 				sourcePosition: isReturnNode
 					? isHorizontal
-						? "bottom"
+						? "top" // Route above the graph to avoid After Last branch
 						: "left" // Side exit for return path (on the left to avoid After Last branch)
 					: isHorizontal
 					? "right"
@@ -218,7 +220,7 @@ export function useRuleGraph() {
 		setNodes(layoutedNodes);
 
 		setTimeout(() => {
-			fitView({ padding: 0.2, duration: 500 });
+			fitView({ padding: 0.05, duration: 500 });
 		}, 100);
 	};
 
