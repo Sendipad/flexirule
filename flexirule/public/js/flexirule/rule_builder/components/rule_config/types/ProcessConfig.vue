@@ -3,7 +3,25 @@
 		<div v-if="error" class="alert alert-danger m-3">
 			<i class="fa fa-exclamation-triangle"></i> {{ error }}
 		</div>
-		<div v-if="!engine && !error" class="d-flex justify-content-center p-5">
+		<div v-else-if="!engine && needsSetup" class="p-4 text-center text-muted">
+			<i class="fa fa-info-circle fa-2x mb-3 d-block"></i>
+			<p class="mb-1 fw-bold">{{ __("Process Configuration") }}</p>
+			<p class="small">
+				{{
+					__(
+						"Select a Process and Operation in the Setup panel to configure this action."
+					)
+				}}
+			</p>
+			<div class="small mt-2 p-2 border rounded bg-light">
+				<span v-if="!node.data?.process_name">{{ __("Process: Not selected") }}</span>
+				<span v-else>{{ __("Process:") }} {{ node.data.process_name }}</span>
+				<br />
+				<span v-if="!node.data?.operation">{{ __("Operation: Not selected") }}</span>
+				<span v-else>{{ __("Operation:") }} {{ node.data.operation }}</span>
+			</div>
+		</div>
+		<div v-else-if="!engine && !error" class="d-flex justify-content-center p-5">
 			<div class="spinner-border text-primary"></div>
 		</div>
 		<template v-else-if="engine">
@@ -68,6 +86,10 @@ const engine = ref(null);
 const error = ref(null);
 const view = ref("form");
 
+const needsSetup = computed(() => {
+	return !props.node?.data?.process_name || !props.node?.data?.operation;
+});
+
 const sourceSchema = computed(() => {
 	const vars = engine.value?.available_variables || [];
 	return vars.map((v) => ({
@@ -127,7 +149,12 @@ let initCounter = 0;
 
 async function initEngine() {
 	if (!props.node?.data?.process_name || !props.node?.data?.operation) {
-		console.warn("ProcessConfig: Process name or operation missing", props.node?.data);
+		// Clear any previous engine so we show guidance instead of stale config
+		if (engine.value && typeof engine.value.dispose === "function") {
+			engine.value.dispose();
+		}
+		engine.value = null;
+		error.value = null;
 		return;
 	}
 

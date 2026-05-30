@@ -77,7 +77,46 @@ export default class ProcessRuntime extends BaseEngine {
 			this.operation_name
 		);
 		if (contractFields.length) {
+			// Merge child fields from the JS process registry for any Table
+			// field that is missing its child column definitions in the backend
+			// ui_schema. This happens when the JSON fixture was generated without
+			// the full child field list.
+			const jsProcess = window.flexirule?.processes?.[this.process_name];
+			const jsOperation = jsProcess?.get_operation?.(this.operation_name);
+			const jsFields =
+				typeof jsOperation?.get_config_fields === "function"
+					? jsOperation.get_config_fields(this._get_context())
+					: [];
+
+			if (jsFields.length) {
+				const jsFieldMap = {};
+				jsFields.forEach((f) => {
+					if (f.fieldname) jsFieldMap[f.fieldname] = f;
+				});
+				return contractFields.map((f) => {
+					if (
+						(f.fieldtype === "Table" ||
+							f.fieldtype === "FlexiGrid" ||
+							f.fieldtype === "flexigrid") &&
+						(!f.fields || f.fields.length === 0)
+					) {
+						const jsF = jsFieldMap[f.fieldname];
+						if (jsF && Array.isArray(jsF.fields) && jsF.fields.length) {
+							return { ...f, fields: jsF.fields };
+						}
+					}
+					return f;
+				});
+			}
+
 			return contractFields;
+		}
+
+		// Fall back to JS-side schema definition
+		const jsProcess = window.flexirule?.processes?.[this.process_name];
+		const jsOperation = jsProcess?.get_operation?.(this.operation_name);
+		if (typeof jsOperation?.get_config_fields === "function") {
+			return jsOperation.get_config_fields(this._get_context());
 		}
 
 		return [];
