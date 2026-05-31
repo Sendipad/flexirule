@@ -231,3 +231,38 @@ class TestRule(FrappeTestCase):
 
 		api_result = validate_rule_document(payload, mode="draft")
 		self.assertTrue(api_result["valid"])
+
+	def test_assignment_structured_literal_value_does_not_crash_variable_validation(self):
+		"""Assignment value objects are config metadata, not Jinja template strings."""
+		rule = frappe.get_doc(
+			{
+				"doctype": "Rule",
+				"rule_name": "Rule Structured Assignment Value",
+				"document_type": "User",
+				"trigger_type": "DocType Event",
+				"trigger_event": "Before Save",
+				"actions": [
+					{
+						"action_id": "root",
+						"action_type": "Entry Action",
+						"next_step_if_true": "assignment_1",
+					},
+					{
+						"action_id": "assignment_1",
+						"action_label": "Set Literal",
+						"action_type": "Assignment",
+						"config": [
+							{
+								"target": "doc.first_name",
+								"operator": "set",
+								"value": {"mode": "static", "value": ""},
+								"value_source": "literal",
+								"value_literal": "",
+							}
+						],
+					},
+				],
+			}
+		)
+
+		rule.validate()

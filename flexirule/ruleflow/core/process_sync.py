@@ -22,6 +22,8 @@ import frappe
 from frappe import _
 from frappe.utils import get_datetime, update_progress_bar
 
+from flexirule.ruleflow.core.process_contract_v2 import SUPPORTED_PROCESS_ADAPTER_KEYS
+
 
 def sync_all_processes():
 	"""
@@ -334,6 +336,12 @@ def _normalize_operation_contract_v2(process_name: str, operation_data: dict) ->
 		frappe.throw(
 			_("Process operation '{0}.{1}' must provide a valid string adapter_key").format(
 				process_name, func_name
+			)
+		)
+	if adapter_key not in SUPPORTED_PROCESS_ADAPTER_KEYS:
+		frappe.throw(
+			_("Process operation '{0}.{1}' uses unsupported adapter_key '{2}'").format(
+				process_name, func_name, adapter_key
 			)
 		)
 

@@ -233,7 +233,6 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 			frappe.model.sync(fresh.message);
 			let doc = frappe.get_doc("Rule", rule_name.value);
 			doc.is_active = currentIsActive;
-			doc.visual_data = JSON.stringify(graphStore.clean_graph_data());
 
 			const startNode = graphStore.nodes.find((el) => el.type === "start");
 			doc.trigger_condition = serializeField(startNode?.data?.trigger_condition);
@@ -271,6 +270,16 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 			// Topological sort for action ordering
 			const edgesList = graphStore.edges;
 			const orderedNodes = graphStore.getTopologicalSort(graphStore.nodes, edgesList);
+			const nodeIdToActionId = new Map(
+				graphStore.nodes
+					.map((node) => [node.id, getActionIdForNode(node)])
+					.filter(([nodeId, actionId]) => nodeId && actionId)
+			);
+			const resolveActionId = (nodeId) => nodeIdToActionId.get(nodeId) || nodeId || null;
+
+			doc.visual_data = JSON.stringify(
+				canonicalizeGraphData(graphStore.clean_graph_data(), nodeIdToActionId)
+			);
 
 			doc.actions = orderedNodes.map((node, idx) => {
 				const outgoing = edgesList.filter((e) => e.source === node.id);
@@ -343,7 +352,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 				return {
 					name: node.data?.name,
 					idx: idx + 1,
-					action_id: node.data?.action_id || node.id,
+					action_id: resolveActionId(node.id),
 					action_label: node.data?.action_label || node.label,
 					action_type: action_type,
 					is_enabled: node.data?.is_enabled !== undefined ? node.data.is_enabled : 1,
@@ -365,8 +374,8 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 					skip_conditions:
 						node.data?.skip_conditions !== undefined ? node.data.skip_conditions : 1,
 					skip_permissions: node.data?.skip_permissions || 0,
-					next_step_if_true: true_edge?.target || null,
-					next_step_if_false: false_edge?.target || null,
+					next_step_if_true: resolveActionId(true_edge?.target),
+					next_step_if_false: resolveActionId(false_edge?.target),
 					input_source: node.data?.input_source,
 					reference_doctype: node.data?.reference_doctype,
 					reference_docname: node.data?.reference_docname,
@@ -644,6 +653,43 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 			console.warn("FlexiRule: Field serialization failed", e, val);
 			return null;
 		}
+	}
+
+	function getActionIdForNode(node) {
+		return node?.data?.action_id || node?.id || null;
+	}
+
+	function canonicalizeGraphData(graphData, nodeIdToActionId) {
+		return (graphData || []).map((element) => {
+			const canonical = { ...element };
+
+			if (canonical.id && nodeIdToActionId.has(canonical.id)) {
+				canonical.id = nodeIdToActionId.get(canonical.id);
+			}
+			if (canonical.source && nodeIdToActionId.has(canonical.source)) {
+				canonical.source = nodeIdToActionId.get(canonical.source);
+			}
+			if (canonical.target && nodeIdToActionId.has(canonical.target)) {
+				canonical.target = nodeIdToActionId.get(canonical.target);
+			}
+			if (canonical.data) {
+				const data = { ...canonical.data };
+				if (data.action_id && nodeIdToActionId.has(data.action_id)) {
+					data.action_id = nodeIdToActionId.get(data.action_id);
+				} else if (element.id && nodeIdToActionId.has(element.id)) {
+					data.action_id = nodeIdToActionId.get(element.id);
+				}
+				if (data.next_step_if_true && nodeIdToActionId.has(data.next_step_if_true)) {
+					data.next_step_if_true = nodeIdToActionId.get(data.next_step_if_true);
+				}
+				if (data.next_step_if_false && nodeIdToActionId.has(data.next_step_if_false)) {
+					data.next_step_if_false = nodeIdToActionId.get(data.next_step_if_false);
+				}
+				canonical.data = data;
+			}
+
+			return canonical;
+		});
 	}
 
 	// ── Process/SubRule fetching ──

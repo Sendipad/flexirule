@@ -12,6 +12,7 @@ from jsonschema import validate as jsonschema_validate
 
 from flexirule.ruleflow.core.exceptions import MethodExecutionError
 from flexirule.ruleflow.core.process_contract_v2 import (
+	SUPPORTED_PROCESS_ADAPTER_KEYS,
 	ExecutionContext,
 	MutationIntent,
 	OperationInvocation,
@@ -45,7 +46,7 @@ class OperationAdapterRegistry:
 	def _ensure_initialized(cls) -> None:
 		if cls._initialized:
 			return
-		for adapter_key in ("validate", "transform", "lookup", "dedupe", "batch"):
+		for adapter_key in SUPPORTED_PROCESS_ADAPTER_KEYS:
 			cls.register(adapter_key, _execute_python_process_operation)
 		cls._initialized = True
 

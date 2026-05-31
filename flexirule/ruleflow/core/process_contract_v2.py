@@ -11,6 +11,7 @@ import frappe
 from frappe import _
 
 PROCESS_CONTRACT_V2_VERSION = 2
+SUPPORTED_PROCESS_ADAPTER_KEYS = ("validate", "transform", "lookup", "dedupe", "batch")
 
 DEFAULT_ALLOWED_RETURN_TYPES = [
 	"Yes / No",
@@ -220,6 +221,12 @@ def resolve_process_operation_contract_v2(
 		raise frappe.ValidationError(
 			_("Process operation '{0}.{1}' must provide a valid string adapter_key").format(
 				process_name, operation_name
+			)
+		)
+	if adapter_key not in SUPPORTED_PROCESS_ADAPTER_KEYS:
+		raise frappe.ValidationError(
+			_("Process operation '{0}.{1}' uses unsupported adapter_key '{2}'").format(
+				process_name, operation_name, adapter_key
 			)
 		)
 
