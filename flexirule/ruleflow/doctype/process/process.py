@@ -180,7 +180,7 @@ def get_process_list():
 
 
 @frappe.whitelist()
-def get_process_script(process_name):
+def get_process_script(process_name: str) -> dict:
 	"""
 	Dynamically fetch the JavaScript implementation for a Process,
 	mirroring Frappe's report script loading.
