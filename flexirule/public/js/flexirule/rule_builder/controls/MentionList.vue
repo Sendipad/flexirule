@@ -1,10 +1,10 @@
 <template>
 	<div class="tg-mention-list" v-if="items.length">
 		<div class="tg-mention-header" v-if="triggerChar === '@'">
-			<i class="fa fa-at"></i> {{ __("Variables") }}
+			<i class="fa fa-at"></i> {{ t("Variables") }}
 		</div>
 		<div class="tg-mention-header" v-else>
-			<i class="fa fa-terminal"></i> {{ __("Logic Commands") }}
+			<i class="fa fa-terminal"></i> {{ t("Logic Commands") }}
 		</div>
 
 		<div class="tg-mention-scroller v2-scrollbar">
@@ -32,7 +32,7 @@
 		</div>
 	</div>
 	<div v-else class="tg-mention-list tg-mention-empty">
-		{{ __("No results found") }}
+		{{ t("No results found") }}
 	</div>
 </template>
 
@@ -61,6 +61,10 @@ export default {
 		},
 	},
 	methods: {
+		t(message) {
+			const translate = globalThis.__;
+			return typeof translate === "function" ? translate(message) : message;
+		},
 		getIcon(item) {
 			if (item.type === "variable") return "fa fa-cube";
 			if (item.type === "logic") {

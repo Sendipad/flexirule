@@ -294,7 +294,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch, onBeforeUnmount, nextTick, getCurrentInstance } from "vue";
+import { computed, ref, watch, onBeforeUnmount, nextTick } from "vue";
 import { Editor, EditorContent, VueRenderer, VueNodeViewRenderer } from "@tiptap/vue-3";
 import { StarterKit } from "@tiptap/starter-kit";
 import { Node, mergeAttributes } from "@tiptap/core";
@@ -312,58 +312,6 @@ import MentionList from "./MentionList.vue";
 import ControlFactory from "./ControlFactory.vue";
 import ValueResolverControl from "./ValueResolverControl.vue";
 import ResolverTokenView from "./ResolverTokenView.vue";
-
-const globalSuggestionPopups = [];
-
-function destroySuggestionPopup(popup) {
-	if (!popup) return;
-	if (Array.isArray(popup)) {
-		popup.forEach((p) => destroySuggestionPopup(p));
-		return;
-	}
-	if (typeof popup.destroy === "function") {
-		try {
-			popup.destroy();
-		} catch (e) {
-			// A sibling FlexValueControl may have already destroyed it.
-		}
-	}
-}
-
-function closeAllSuggestionPopups() {
-	[...activeTippyPopups, ...globalSuggestionPopups].forEach(destroySuggestionPopup);
-	activeTippyPopups.length = 0;
-	globalSuggestionPopups.length = 0;
-
-	document.querySelectorAll(".fvc-suggestion-popover").forEach((el) => {
-		if (el._tippy) {
-			destroySuggestionPopup(el._tippy);
-		} else {
-			el.remove();
-		}
-	});
-}
-
-function getSuggestionClientRect(suggestionProps) {
-	const rect = suggestionProps.clientRect?.();
-	if (rect) return rect;
-
-	const from = suggestionProps.range?.from;
-	const view = suggestionProps.editor?.view;
-	if (typeof from === "number" && view?.coordsAtPos) {
-		const coords = view.coordsAtPos(from);
-		return {
-			width: 0,
-			height: coords.bottom - coords.top,
-			top: coords.top,
-			right: coords.right,
-			bottom: coords.bottom,
-			left: coords.left,
-		};
-	}
-
-	return controlRef.value?.getBoundingClientRect?.() || null;
-}
 
 const props = defineProps({
 	modelValue: { type: [Object, String, Number, Boolean], default: null },
@@ -660,13 +608,22 @@ function createSuggestionRenderer() {
 	return {
 		onStart: (props) => {
 			isSuggestionOpen.value = true;
-			closeAllSuggestionPopups();
+			// Destroy any existing popups to prevent duplicates
+			activeTippyPopups.forEach((p) => {
+				if (p) {
+					if (Array.isArray(p)) {
+						p.forEach((pi) => pi?.destroy?.());
+					} else if (typeof p.destroy === "function") {
+						p.destroy();
+					}
+				}
+			});
+			activeTippyPopups.length = 0;
 
 			component = new VueRenderer(MentionList, { props, editor: props.editor });
-			const initialRect = getSuggestionClientRect(props);
-			if (!initialRect) return;
+			if (!props.clientRect) return;
 			popup = tippy(document.createElement("div"), {
-				getReferenceClientRect: () => getSuggestionClientRect(props) || initialRect,
+				getReferenceClientRect: props.clientRect,
 				appendTo: () => document.body,
 				content: component.element,
 				showOnCreate: true,
@@ -674,20 +631,13 @@ function createSuggestionRenderer() {
 				trigger: "manual",
 				placement: "bottom-start",
 				zIndex: 14000,
-				onCreate(instance) {
-					instance.popper.classList.add("fvc-suggestion-popover");
-				},
 			});
 			activeTippyPopups.push(popup);
-			globalSuggestionPopups.push(popup);
 		},
 		onUpdate(props) {
 			component?.updateProps(props);
-			const rect = getSuggestionClientRect(props);
-			if (!rect) return;
-			popup?.setProps({
-				getReferenceClientRect: () => getSuggestionClientRect(props) || rect,
-			});
+			if (!props.clientRect) return;
+			popup?.setProps({ getReferenceClientRect: props.clientRect });
 		},
 		onKeyDown(props) {
 			if (props.event.key === "Escape") {
@@ -702,19 +652,17 @@ function createSuggestionRenderer() {
 		onExit() {
 			isSuggestionOpen.value = false;
 			if (popup) {
-				destroySuggestionPopup(popup);
+				try {
+					popup.destroy();
+				} catch (e) {}
 				const idx = activeTippyPopups.indexOf(popup);
 				if (idx > -1) activeTippyPopups.splice(idx, 1);
-				const globalIdx = globalSuggestionPopups.indexOf(popup);
-				if (globalIdx > -1) globalSuggestionPopups.splice(globalIdx, 1);
 				popup = null;
 			}
 			if (component) {
 				try {
 					component.destroy();
-				} catch (e) {
-					// VueRenderer may already be destroyed with the popup.
-				}
+				} catch (e) {}
 				component = null;
 			}
 		},
@@ -1225,7 +1173,16 @@ watch(
 );
 
 onBeforeUnmount(() => {
-	closeAllSuggestionPopups();
+	activeTippyPopups.forEach((popup) => {
+		if (popup) {
+			if (Array.isArray(popup)) {
+				popup.forEach((p) => p?.destroy?.());
+			} else if (typeof popup.destroy === "function") {
+				popup.destroy();
+			}
+		}
+	});
+	activeTippyPopups.length = 0;
 	editor.destroy();
 });
 </script>
@@ -1358,7 +1315,7 @@ onBeforeUnmount(() => {
 	outline: none;
 	font-size: 13px;
 	min-height: 22px;
-	white-space: nowrap;
+	white-space: pre-wrap;
 }
 
 .fvc-inline-actions {
