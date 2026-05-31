@@ -38,7 +38,7 @@ const isReturnEdge = computed(() => {
 });
 
 const isAfterLastEdge = computed(() => {
-	return props.data?.afterLast || props.sourceHandleId === "false" || props.id.includes("-false");
+	return props.data?.afterLast === true;
 });
 
 const isLoopBodyEdge = computed(() => {

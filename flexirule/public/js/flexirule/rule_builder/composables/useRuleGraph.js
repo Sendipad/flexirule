@@ -1,10 +1,10 @@
 import dagre from "dagre";
 import { useVueFlow } from "@vue-flow/core";
 
-const NODE_WIDTH = 260;
-const NODE_HEIGHT = 160;
-const H_GAP = 70; // horizontal gap between ranks (LR) or between main and body column (TB)
-const V_GAP = 80; // vertical gap between nodes
+const NODE_WIDTH = 220;
+const NODE_HEIGHT = 140;
+const H_GAP = 46; // horizontal gap between ranks (LR) or between main and body column (TB)
+const V_GAP = 72; // vertical gap between nodes
 
 export function useRuleGraph() {
 	const { nodes, edges, setNodes, setEdges, fitView } = useVueFlow();
@@ -85,7 +85,7 @@ export function useRuleGraph() {
 		dagreGraph.setGraph({
 			rankdir: direction,
 			nodesep: isHorizontal ? V_GAP : H_GAP,
-			ranksep: isHorizontal ? H_GAP : V_GAP,
+			ranksep: isHorizontal ? H_GAP + 12 : V_GAP,
 			marginx: 40,
 			marginy: 40,
 		});
@@ -130,8 +130,8 @@ export function useRuleGraph() {
 				const afterLastSubtreeIds = bfsReachable(afterLastId, currentEdges);
 				// In LR layout, After Last exits Bottom -> shift Down (+Y)
 				// In TB layout, After Last exits Right -> shift Right (+X)
-				const shiftX = isHorizontal ? 0 : NODE_WIDTH + H_GAP;
-				const shiftY = isHorizontal ? NODE_HEIGHT + V_GAP : 0;
+				const shiftX = isHorizontal ? 0 : NODE_WIDTH + H_GAP + 80;
+				const shiftY = isHorizontal ? NODE_HEIGHT + V_GAP + 80 : 0;
 
 				afterLastSubtreeIds.forEach((id) => {
 					const p = positions.get(id);
@@ -148,9 +148,9 @@ export function useRuleGraph() {
 			let bodyY = loopPos.y;
 
 			if (isHorizontal) {
-				bodyX += NODE_WIDTH + H_GAP;
+				bodyX += NODE_WIDTH + H_GAP + 60;
 			} else {
-				bodyY += NODE_HEIGHT + V_GAP;
+				bodyY += NODE_HEIGHT + V_GAP + 40;
 			}
 
 			// BFS-order the body nodes so they stack nicely
@@ -173,13 +173,13 @@ export function useRuleGraph() {
 			ordered.forEach((id, i) => {
 				if (isHorizontal) {
 					positions.set(id, {
-						x: bodyX + (NODE_WIDTH + H_GAP) * i,
+						x: bodyX + (NODE_WIDTH + H_GAP + 40) * i,
 						y: bodyY,
 					});
 				} else {
 					positions.set(id, {
 						x: bodyX,
-						y: bodyY + (NODE_HEIGHT + V_GAP) * i,
+						y: bodyY + (NODE_HEIGHT + V_GAP + 16) * i,
 					});
 				}
 			});
@@ -220,7 +220,12 @@ export function useRuleGraph() {
 		setNodes(layoutedNodes);
 
 		setTimeout(() => {
-			fitView({ padding: 0.05, duration: 500 });
+			fitView({
+				padding: 0.12,
+				duration: 500,
+				minZoom: isHorizontal ? 0.68 : 0.72,
+				maxZoom: 1,
+			});
 		}, 100);
 	};
 

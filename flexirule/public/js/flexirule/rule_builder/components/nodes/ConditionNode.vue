@@ -280,16 +280,21 @@ function openConfig() {
 	font-size: 8px;
 	font-weight: 800;
 	position: absolute;
+	background: #fff;
+	border-radius: 999px;
+	padding: 1px 4px;
+	box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+	line-height: 1.2;
 }
 
 .out-right .port-label {
-	top: -12px;
-	left: 50%;
-	transform: translateX(-50%);
+	top: -16px;
+	left: 12px;
+	transform: none;
 }
 
 .out-bottom .port-label {
-	bottom: -12px;
+	bottom: -16px;
 	left: 50%;
 	transform: translateX(-50%);
 }

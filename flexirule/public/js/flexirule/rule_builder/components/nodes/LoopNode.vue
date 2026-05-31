@@ -16,7 +16,7 @@ const targetPos = computed(
 // LR layout: For Each → Right (straight right), After Last → Bottom (bypass)
 const doPos = computed(() => (isHorizontal.value ? Position.Right : Position.Bottom));
 const donePos = computed(() => (isHorizontal.value ? Position.Bottom : Position.Right));
-const returnPos = computed(() => (isHorizontal.value ? Position.Left : Position.Top));
+const returnPos = computed(() => (isHorizontal.value ? Position.Top : Position.Left));
 
 const isEffectiveDisabled = computed(() => {
 	return store.effectiveDisabledIds?.has(props.id);
@@ -246,13 +246,14 @@ function openConfig() {
 
 /* Handles */
 .loop-node-card:not(.is-vertical) .handle-done {
-	top: -5px !important;
+	top: auto !important;
+	bottom: -5px !important;
 	left: 50% !important;
 }
 
 .loop-node-card:not(.is-vertical) .handle-return {
-	left: -5px !important;
-	top: 70% !important;
+	left: 50% !important;
+	top: -5px !important;
 }
 
 .loop-node-card:not(.is-vertical) .handle-target {

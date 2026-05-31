@@ -192,6 +192,17 @@ const valueFieldSchema = computed(() => {
 	return schema;
 });
 
+const valueControlKey = computed(() => {
+	const schema = valueFieldSchema.value || {};
+	return [
+		selectedField.value?.value || "",
+		props.node.op || "",
+		schema.fieldtype || "",
+		schema.options || "",
+		dynamicLinkDocType.value || "",
+	].join("|");
+});
+
 function isStructuredValue(val) {
 	return Boolean(val && typeof val === "object" && !Array.isArray(val) && val.mode);
 }
@@ -343,11 +354,13 @@ watch(
 					</div>
 
 					<FlexValueControl
+						:key="valueControlKey"
 						v-model="wrappedValue"
 						:context="{
 							df: valueFieldSchema,
 							operator: node.op,
-							referenceDoctype: store?.rule_doc?.document_type,
+							referenceDoctype:
+								valueFieldSchema.options || store?.rule_doc?.document_type,
 						}"
 						:engine="store"
 						:doc="store?.rule_doc"

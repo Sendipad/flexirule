@@ -13,18 +13,19 @@
 					:max-zoom="4"
 					:zoom-on-scroll="false"
 					:pan-on-scroll="true"
+					:pan-on-scroll-mode="'free'"
 					:zoom-on-pinch="true"
 					:snap-to-grid="true"
 					:snap-grid="[15, 15]"
-					:nodes-draggable="!isReadOnly"
+					:nodes-draggable="!isReadOnly && !panMode"
 					:nodes-connectable="!isReadOnly"
 					:elements-selectable="true"
-					:selection-on-drag="true"
-					:pan-on-drag="[2]"
+					:selection-on-drag="!panMode"
+					:pan-on-drag="panMode ? true : [2]"
 					:delete-key-active="!isReadOnly"
 					fit-view-on-init
 					:edge-types="edgeTypes"
-					:class="{ 'is-read-only-flow': isReadOnly }"
+					:class="{ 'is-read-only-flow': isReadOnly, 'is-pan-mode': panMode }"
 					@node-click="onNodeClick"
 					@node-dblclick="onNodeDblClick"
 					@pane-click="onPaneClick"
@@ -107,6 +108,14 @@
 								:title="__('Fit View')"
 							>
 								{{ __("Fit") }}
+							</button>
+							<button
+								class="btn btn-sm btn-default"
+								:class="{ active: panMode }"
+								@click="panMode = !panMode"
+								:title="__('Pan Canvas')"
+							>
+								<i class="fa fa-hand-paper-o"></i>
 							</button>
 							<button
 								class="btn btn-sm btn-default"
@@ -279,6 +288,7 @@ const { copySelectedToClipboard, pasteFromClipboard } = useClipboard();
 const flowWrapper = ref(null);
 const mousePos = ref({ x: 0, y: 0 });
 const showDisabledNodes = ref(true);
+const panMode = ref(false);
 
 function updateMousePos(e) {
 	mousePos.value = { x: e.clientX, y: e.clientY };
@@ -611,6 +621,16 @@ function onEdgeClick({ edge, event }) {
 	background-color: var(--fg-color);
 	position: relative;
 	order: 1;
+}
+
+.canvas-container :deep(.vue-flow.is-pan-mode),
+.canvas-container :deep(.vue-flow.is-pan-mode .vue-flow__pane) {
+	cursor: grab;
+}
+
+.canvas-container :deep(.vue-flow.is-pan-mode:active),
+.canvas-container :deep(.vue-flow.is-pan-mode:active .vue-flow__pane) {
+	cursor: grabbing;
 }
 
 .execution-panel {

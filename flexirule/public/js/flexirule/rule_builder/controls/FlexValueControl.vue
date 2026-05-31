@@ -313,6 +313,58 @@ import ControlFactory from "./ControlFactory.vue";
 import ValueResolverControl from "./ValueResolverControl.vue";
 import ResolverTokenView from "./ResolverTokenView.vue";
 
+const globalSuggestionPopups = [];
+
+function destroySuggestionPopup(popup) {
+	if (!popup) return;
+	if (Array.isArray(popup)) {
+		popup.forEach((p) => destroySuggestionPopup(p));
+		return;
+	}
+	if (typeof popup.destroy === "function") {
+		try {
+			popup.destroy();
+		} catch (e) {
+			// A sibling FlexValueControl may have already destroyed it.
+		}
+	}
+}
+
+function closeAllSuggestionPopups() {
+	[...activeTippyPopups, ...globalSuggestionPopups].forEach(destroySuggestionPopup);
+	activeTippyPopups.length = 0;
+	globalSuggestionPopups.length = 0;
+
+	document.querySelectorAll(".fvc-suggestion-popover").forEach((el) => {
+		if (el._tippy) {
+			destroySuggestionPopup(el._tippy);
+		} else {
+			el.remove();
+		}
+	});
+}
+
+function getSuggestionClientRect(suggestionProps) {
+	const rect = suggestionProps.clientRect?.();
+	if (rect) return rect;
+
+	const from = suggestionProps.range?.from;
+	const view = suggestionProps.editor?.view;
+	if (typeof from === "number" && view?.coordsAtPos) {
+		const coords = view.coordsAtPos(from);
+		return {
+			width: 0,
+			height: coords.bottom - coords.top,
+			top: coords.top,
+			right: coords.right,
+			bottom: coords.bottom,
+			left: coords.left,
+		};
+	}
+
+	return controlRef.value?.getBoundingClientRect?.() || null;
+}
+
 const props = defineProps({
 	modelValue: { type: [Object, String, Number, Boolean], default: null },
 	variableOptions: { type: Array, default: () => [] },
@@ -360,9 +412,12 @@ const staticValue = ref("");
 
 const fieldType = computed(() => props.context?.df?.fieldtype || "Data");
 const fieldOptions = computed(() => props.context?.df?.options || []);
-const referenceDoctype = computed(
-	() => props.context?.referenceDoctype || props.context?.df?.options || ""
-);
+const referenceDoctype = computed(() => {
+	if (fieldType.value === "Link" && fieldOptions.value) {
+		return fieldOptions.value;
+	}
+	return props.context?.referenceDoctype || fieldOptions.value || "";
+});
 const resolverContext = computed(() => {
 	const df = props.context?.df || {};
 	const fieldname = props.context?.fieldname || df.fieldname || df.value || "";
@@ -605,22 +660,13 @@ function createSuggestionRenderer() {
 	return {
 		onStart: (props) => {
 			isSuggestionOpen.value = true;
-			// Destroy any existing popups to prevent duplicates
-			activeTippyPopups.forEach((p) => {
-				if (p) {
-					if (Array.isArray(p)) {
-						p.forEach((pi) => pi?.destroy?.());
-					} else if (typeof p.destroy === "function") {
-						p.destroy();
-					}
-				}
-			});
-			activeTippyPopups.length = 0;
+			closeAllSuggestionPopups();
 
 			component = new VueRenderer(MentionList, { props, editor: props.editor });
-			if (!props.clientRect) return;
+			const initialRect = getSuggestionClientRect(props);
+			if (!initialRect) return;
 			popup = tippy(document.createElement("div"), {
-				getReferenceClientRect: props.clientRect,
+				getReferenceClientRect: () => getSuggestionClientRect(props) || initialRect,
 				appendTo: () => document.body,
 				content: component.element,
 				showOnCreate: true,
@@ -628,13 +674,20 @@ function createSuggestionRenderer() {
 				trigger: "manual",
 				placement: "bottom-start",
 				zIndex: 14000,
+				onCreate(instance) {
+					instance.popper.classList.add("fvc-suggestion-popover");
+				},
 			});
 			activeTippyPopups.push(popup);
+			globalSuggestionPopups.push(popup);
 		},
 		onUpdate(props) {
 			component?.updateProps(props);
-			if (!props.clientRect) return;
-			popup?.setProps({ getReferenceClientRect: props.clientRect });
+			const rect = getSuggestionClientRect(props);
+			if (!rect) return;
+			popup?.setProps({
+				getReferenceClientRect: () => getSuggestionClientRect(props) || rect,
+			});
 		},
 		onKeyDown(props) {
 			if (props.event.key === "Escape") {
@@ -649,17 +702,19 @@ function createSuggestionRenderer() {
 		onExit() {
 			isSuggestionOpen.value = false;
 			if (popup) {
-				try {
-					popup.destroy();
-				} catch (e) {}
+				destroySuggestionPopup(popup);
 				const idx = activeTippyPopups.indexOf(popup);
 				if (idx > -1) activeTippyPopups.splice(idx, 1);
+				const globalIdx = globalSuggestionPopups.indexOf(popup);
+				if (globalIdx > -1) globalSuggestionPopups.splice(globalIdx, 1);
 				popup = null;
 			}
 			if (component) {
 				try {
 					component.destroy();
-				} catch (e) {}
+				} catch (e) {
+					// VueRenderer may already be destroyed with the popup.
+				}
 				component = null;
 			}
 		},
@@ -1170,16 +1225,7 @@ watch(
 );
 
 onBeforeUnmount(() => {
-	activeTippyPopups.forEach((popup) => {
-		if (popup) {
-			if (Array.isArray(popup)) {
-				popup.forEach((p) => p?.destroy?.());
-			} else if (typeof popup.destroy === "function") {
-				popup.destroy();
-			}
-		}
-	});
-	activeTippyPopups.length = 0;
+	closeAllSuggestionPopups();
 	editor.destroy();
 });
 </script>
