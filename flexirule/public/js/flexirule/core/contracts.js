@@ -532,6 +532,23 @@ export async function loadContractsFromBackend(force = false) {
 	}
 }
 
+export async function loadProcessScript(processName) {
+	if (!processName) return;
+	if (window.flexirule?.processes?.[processName]) return;
+
+	try {
+		const r = await frappe.call({
+			method: "flexirule.ruleflow.doctype.process.process.get_process_script",
+			args: { process_name: processName },
+		});
+		if (r.message && r.message.script) {
+			frappe.dom.eval(r.message.script);
+		}
+	} catch (e) {
+		console.warn(`Failed to load script for process ${processName}`, e);
+	}
+}
+
 // Fire-and-forget canonical sync.
 loadContractsFromBackend();
 

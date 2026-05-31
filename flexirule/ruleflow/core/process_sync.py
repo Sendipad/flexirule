@@ -300,8 +300,6 @@ def _get_supported_process_operation_fields() -> set[str]:
 
 def _normalize_operation_contract_v2(process_name: str, operation_data: dict) -> str | None:
 	"""Build/validate declarative contract_v2 payload inside action_overrides JSON."""
-	from flexirule.ruleflow.core.process_contract_v2 import ALLOWED_ADAPTER_KEYS
-
 	func_name = operation_data.get("func_name")
 	if not func_name:
 		frappe.throw(_("Process '{0}' contains an operation without func_name").format(process_name))
@@ -332,10 +330,10 @@ def _normalize_operation_contract_v2(process_name: str, operation_data: dict) ->
 	contract_v2_dict = cast(dict[str, Any], contract_v2)
 
 	adapter_key = contract_v2_dict.get("adapter_key")
-	if adapter_key not in ALLOWED_ADAPTER_KEYS:
+	if not adapter_key or not isinstance(adapter_key, str):
 		frappe.throw(
-			_("Process operation '{0}.{1}' has unsupported adapter_key '{2}'").format(
-				process_name, func_name, adapter_key or ""
+			_("Process operation '{0}.{1}' must provide a valid string adapter_key").format(
+				process_name, func_name
 			)
 		)
 

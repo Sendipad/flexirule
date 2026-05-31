@@ -12,8 +12,6 @@ from frappe import _
 
 PROCESS_CONTRACT_V2_VERSION = 2
 
-ALLOWED_ADAPTER_KEYS = {"validate", "transform", "lookup", "dedupe", "batch"}
-
 DEFAULT_ALLOWED_RETURN_TYPES = [
 	"Yes / No",
 	"Single Record",
@@ -218,10 +216,10 @@ def resolve_process_operation_contract_v2(
 		contract_v2 = {}
 
 	adapter_key = contract_v2.get("adapter_key")
-	if adapter_key not in ALLOWED_ADAPTER_KEYS:
+	if not adapter_key or not isinstance(adapter_key, str):
 		raise frappe.ValidationError(
-			_("Process operation '{0}.{1}' uses unsupported adapter_key '{2}'").format(
-				process_name, operation_name, adapter_key or ""
+			_("Process operation '{0}.{1}' must provide a valid string adapter_key").format(
+				process_name, operation_name
 			)
 		)
 

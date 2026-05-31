@@ -4,6 +4,7 @@ import {
 	getProcessOperationConfigFields,
 	getProcessOperationDefinition,
 	loadContractsFromBackend,
+	loadProcessScript,
 } from "./contracts.js";
 
 /**
@@ -68,6 +69,7 @@ export default class ProcessRuntime extends BaseEngine {
 
 	async _load_adapter() {
 		await loadContractsFromBackend();
+		await loadProcessScript(this.process_name);
 		this.operation_def = getProcessOperationDefinition(this.process_name, this.operation_name);
 	}
 

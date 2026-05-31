@@ -177,3 +177,30 @@ def get_process_list():
 	from flexirule.ruleflow.core.process_registry import get_process_registry
 
 	return get_process_registry(include_disabled=False, include_hidden=True)
+
+
+@frappe.whitelist()
+def get_process_script(process_name):
+	"""
+	Dynamically fetch the JavaScript implementation for a Process,
+	mirroring Frappe's report script loading.
+	"""
+	_require_process_api_access()
+
+	process = frappe.get_doc("Process", process_name)
+	module = process.module
+
+	is_custom_module = frappe.get_cached_value("Module Def", module, "custom")
+
+	# custom modules are virtual modules those exists in DB but not in disk.
+	module_path = "" if is_custom_module else get_module_path(module)
+	process_folder = module_path and os.path.join(module_path, "process", scrub(process.name))
+	script_path = process_folder and os.path.join(process_folder, scrub(process.name) + ".js")
+
+	script = None
+	if script_path and os.path.exists(script_path):
+		with open(script_path) as f:
+			script = f.read()
+			script += f"\n\n//# sourceURL={scrub(process.name)}.js"
+
+	return {"script": script}

@@ -279,8 +279,10 @@ def _validate_action_contracts(
 				**(contract_v2.get("policy") or {}),
 			}
 			config_data = _parse_json_value(_safe_get(action, "config"), {})
+			config_schema = contract_v2.get("config_schema") or {}
 			if isinstance(config_data, Mapping):
-				jsonschema_validate(config_data, contract_v2.get("config_schema") or {})
+				cleaned_config = _clean_config_for_validation(config_data, config_schema)
+				jsonschema_validate(cleaned_config, config_schema)
 		except JsonSchemaValidationError as exc:
 			errors.append(
 				_("Action '{0}' (Process/{1}) config schema validation failed: {2}").format(
@@ -747,6 +749,46 @@ def _safe_set(obj, key, value) -> None:
 		obj.set(key, value)
 		return
 	setattr(obj, key, value)
+
+
+def _clean_config_for_validation(data, schema=None):
+	"""Remove Frappe/Vue internal UI fields and coerce types before JSON schema validation.
+
+	Frappe Check fields store booleans as integers (0/1), which strict
+	JSON Schema validation rejects. When a schema is provided, integer
+	values of 0 or 1 are coerced to Python booleans for fields declared
+	as type "boolean".
+	"""
+	INTERNAL_KEYS = frozenset(
+		(
+			"name",
+			"__table_fieldname",
+			"__islocal",
+			"__checked",
+			"idx",
+			"parent",
+			"parentfield",
+			"parenttype",
+		)
+	)
+	if isinstance(data, dict):
+		cleaned = {}
+		properties = (schema or {}).get("properties", {})
+		for k, v in data.items():
+			if k in INTERNAL_KEYS:
+				continue
+			field_schema = properties.get(k)
+			cleaned[k] = _clean_config_for_validation(v, field_schema)
+		return cleaned
+	elif isinstance(data, list):
+		items_schema = (schema or {}).get("items")
+		return [_clean_config_for_validation(item, items_schema) for item in data]
+	# Coerce Frappe Check field integers (0/1) to booleans when schema expects boolean
+	if isinstance(data, int) and not isinstance(data, bool) and schema:
+		schema_type = schema.get("type")
+		if schema_type == "boolean" and data in (0, 1):
+			return bool(data)
+	return data
 
 
 def _is_empty(value) -> bool:
