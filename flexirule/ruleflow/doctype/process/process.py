@@ -2,6 +2,7 @@
 # For license information, please see license.txt
 import json
 import os
+from pathlib import Path
 
 import frappe
 from frappe import _, scrub
@@ -116,14 +117,15 @@ class Process(Document):
 
 def make_process_boilerplate(template, doc):
 	# Target path: {app}/{module}/process/{name}/
-	module_path = get_module_path(doc.module)
-	target_path = os.path.join(module_path, "process", scrub(doc.name))
+	target_path = _get_standard_process_folder(doc.module, doc.name)
 
 	if not os.path.exists(target_path):
-		os.makedirs(target_path)
+		frappe.create_folder(target_path)
 
 	template_name = template.replace("controller", scrub(doc.name))
-	target_file_path = os.path.join(target_path, template_name)
+	target_file_path = os.path.abspath(os.path.join(target_path, template_name))
+	if os.path.commonpath((target_path, target_file_path)) != target_path:
+		frappe.throw(_("Invalid Process boilerplate path."), frappe.PermissionError)
 
 	# Template path: flexirule/ruleflow/doctype/process/boilerplate/
 	template_file_path = frappe.get_app_path(
@@ -135,18 +137,17 @@ def make_process_boilerplate(template, doc):
 
 	app_publisher = get_app_publisher(doc.module)
 
-	with open(target_file_path, "w") as target, open(template_file_path) as source:
-		content = source.read()
-		rendered_content = frappe.render_template(  # nosemgrep: frappe-ssti
-			content,
-			{
-				"app_publisher": app_publisher,
-				"year": now_datetime().year,
-				"classname": doc.name.replace(" ", "").replace("-", ""),
-				"name": doc.name,
-			},
-		)
-		target.write(frappe.as_unicode(rendered_content))
+	content = frappe.read_file(template_file_path)
+	rendered_content = frappe.render_template(  # nosemgrep: frappe-ssti
+		content,
+		{
+			"app_publisher": app_publisher,
+			"year": now_datetime().year,
+			"classname": doc.name.replace(" ", "").replace("-", ""),
+			"name": doc.name,
+		},
+	)
+	Path(target_file_path).write_text(frappe.as_unicode(rendered_content), encoding="utf-8")
 
 
 def get_process_module_dotted_path(module, process_name):
@@ -193,14 +194,30 @@ def get_process_script(process_name: str) -> dict:
 	is_custom_module = frappe.get_cached_value("Module Def", module, "custom")
 
 	# custom modules are virtual modules those exists in DB but not in disk.
-	module_path = "" if is_custom_module else get_module_path(module)
-	process_folder = module_path and os.path.join(module_path, "process", scrub(process.name))
-	script_path = process_folder and os.path.join(process_folder, scrub(process.name) + ".js")
-
 	script = None
-	if script_path and os.path.exists(script_path):
-		with open(script_path) as f:
-			script = f.read()
+	if not is_custom_module:
+		script_path = _get_standard_process_script_path(module, process.name)
+		if script_path and os.path.exists(script_path):
+			script = frappe.read_file(script_path)
 			script += f"\n\n//# sourceURL={scrub(process.name)}.js"
 
 	return {"script": script}
+
+
+def _get_standard_process_script_path(module: str, process_name: str) -> str:
+	process_folder = _get_standard_process_folder(module, process_name)
+
+	script_path = os.path.abspath(os.path.join(process_folder, scrub(process_name) + ".js"))
+	if os.path.commonpath((process_folder, script_path)) != process_folder:
+		frappe.throw(_("Invalid Process script path."), frappe.PermissionError)
+
+	return script_path
+
+
+def _get_standard_process_folder(module: str, process_name: str) -> str:
+	module_path = get_module_path(module)
+	if not module_path:
+		frappe.throw(_("Module path not found for Process '{0}'.").format(process_name))
+
+	process_folder = os.path.abspath(os.path.join(module_path, "process", scrub(process_name)))
+	return process_folder
