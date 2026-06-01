@@ -27,6 +27,7 @@ const emit = defineEmits(["insert-node"]);
 const store = useStore();
 
 const showPopover = ref(false);
+const popoverPosition = ref({ x: 0, y: 0 });
 
 const isReturnEdge = computed(() => {
 	return (
@@ -85,6 +86,11 @@ const path = computed(() => {
 
 function onAddClick(event) {
 	event.stopPropagation();
+	const rect = event.currentTarget.getBoundingClientRect();
+	popoverPosition.value = {
+		x: Math.min(rect.left + rect.width / 2 + 12, window.innerWidth - 320),
+		y: Math.max(rect.top - 16, 12),
+	};
 	showPopover.value = !showPopover.value;
 }
 
@@ -141,15 +147,16 @@ function onPaste() {
 				<i class="fa fa-plus"></i>
 			</button>
 
-			<ActionPopover
-				v-if="showPopover"
-				:active="showPopover"
-				:position="{ x: 20, y: -20 }"
-				class="inline-popover"
-				@select="onActionSelect"
-				@paste="onPaste"
-				@close="showPopover = false"
-			/>
+			<Teleport to="body">
+				<ActionPopover
+					v-if="showPopover"
+					:active="showPopover"
+					:position="popoverPosition"
+					@select="onActionSelect"
+					@paste="onPaste"
+					@close="showPopover = false"
+				/>
+			</Teleport>
 		</div>
 	</EdgeLabelRenderer>
 </template>
@@ -187,11 +194,5 @@ function onPaste() {
 
 .edge-add-button.active i {
 	transform: rotate(45deg);
-}
-
-.inline-popover {
-	position: absolute !important;
-	left: 30px !important;
-	top: -20px !important;
 }
 </style>

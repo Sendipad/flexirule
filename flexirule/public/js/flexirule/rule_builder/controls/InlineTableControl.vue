@@ -195,6 +195,7 @@ function getSelectValue(options) {
 							<select
 								v-if="col.fieldtype === 'Select'"
 								class="form-control form-control-sm"
+								:data-fxr-fieldname="col.fieldname"
 								:value="row[col.fieldname]"
 								@change="updateCell(idx, col.fieldname, $event.target.value)"
 								:disabled="read_only"
@@ -213,6 +214,7 @@ function getSelectValue(options) {
 							<div
 								v-else-if="col.fieldtype === 'DocField'"
 								class="table-cell-control"
+								:data-fxr-fieldname="col.fieldname"
 							>
 								<ComboBoxControl
 									:df="{ ...col, label: '', fieldtype: 'FieldPicker' }"
@@ -229,6 +231,7 @@ function getSelectValue(options) {
 							<div v-else-if="col.fieldtype === 'Check'" class="text-center">
 								<input
 									type="checkbox"
+									:data-fxr-fieldname="col.fieldname"
 									:checked="row[col.fieldname]"
 									@change="
 										updateCell(
@@ -246,6 +249,7 @@ function getSelectValue(options) {
 								v-else-if="['Int', 'Float', 'Percent'].includes(col.fieldtype)"
 								type="number"
 								class="form-control form-control-sm"
+								:data-fxr-fieldname="col.fieldname"
 								:value="row[col.fieldname]"
 								@input="
 									updateCell(idx, col.fieldname, parseFloat($event.target.value))
@@ -259,6 +263,7 @@ function getSelectValue(options) {
 								v-else
 								type="text"
 								class="form-control form-control-sm"
+								:data-fxr-fieldname="col.fieldname"
 								:value="row[col.fieldname]"
 								@input="updateCell(idx, col.fieldname, $event.target.value)"
 								:disabled="read_only"

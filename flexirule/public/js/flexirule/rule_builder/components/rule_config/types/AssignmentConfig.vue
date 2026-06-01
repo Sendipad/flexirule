@@ -43,7 +43,7 @@
 				class="assignment-grid-row align-items-center mb-2"
 			>
 				<div class="grid-col-when">
-					<div class="when-editor-cell">
+					<div class="when-editor-cell" data-fxr-fieldname="assignments.run_if">
 						<button
 							class="fxr-btn fxr-btn--sm w-100 when-toggle-btn"
 							:class="hasWhenCondition(assignment) ? 'is-active' : 'is-default'"
@@ -72,6 +72,7 @@
 				<!-- Target ComboBox with Type Badge support -->
 				<div class="grid-col-target">
 					<ComboBoxControl
+						data-fxr-fieldname="assignments.target"
 						:df="{ fieldtype: 'FieldPicker', label: '' }"
 						:modelValue="assignment.target"
 						:options="targetOptions"
@@ -87,6 +88,7 @@
 				<!-- Operator Selector -->
 				<div class="grid-col-operator">
 					<ComboBoxControl
+						data-fxr-fieldname="assignments.operator"
 						:df="{ fieldtype: 'Select', label: '' }"
 						:options="getAvailableOperators(assignment.target)"
 						:modelValue="assignment.operator"
@@ -103,6 +105,7 @@
 						<div class="value-mode-wrap">
 							<FlexValueControl
 								class="flex-1 min-w-0"
+								data-fxr-fieldname="assignments.value"
 								:context="{
 									df:
 										targetOptions.find((o) => o.value === assignment.target) ||

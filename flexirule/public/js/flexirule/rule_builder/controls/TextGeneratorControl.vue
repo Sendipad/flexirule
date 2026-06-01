@@ -303,7 +303,7 @@ const props = defineProps({
 	modelValue: { type: [Object, String], default: null },
 	templateValue: { type: String, default: "" },
 	read_only: { type: Boolean, default: false },
-	variableOptions: { type: Array, default: () => [] },
+	variableOptions: { type: [Array, Object], default: () => [] },
 	docFieldOptions: { type: Array, default: () => [] },
 	isNested: { type: Boolean, default: false },
 });
@@ -322,6 +322,14 @@ const activeLogicNodeElse = ref({ version: 2, segments: [] });
 const activeLogicNodeLoop = ref({ version: 2, segments: [] });
 const showElse = ref(false);
 let emitting = false;
+
+const normalizedVariableOptions = computed(() => {
+	const source = props.variableOptions;
+	if (Array.isArray(source)) return source;
+	if (Array.isArray(source?.value)) return source.value;
+	if (Array.isArray(source?.options)) return source.options;
+	return [];
+});
 
 // ─── Production-Ready Floating Menu Logic ───
 const showBubbleMenu = ref(false);
@@ -349,7 +357,7 @@ const dynamicRoots = computed(() => {
 	// Dependency on selectionTrigger to force re-calc
 	selectionTrigger.value;
 	const active = getActiveIterators();
-	const roots = [...(props.variableOptions || [])];
+	const roots = [...normalizedVariableOptions.value];
 
 	active.forEach(({ iterator, iterable }) => {
 		if (!iterator) return;
@@ -717,7 +725,7 @@ function insertTrigger(char) {
 	editor.chain().focus().insertContent(char).run();
 }
 const collectionOptions = computed(() =>
-	props.variableOptions.filter((o) => o.fieldtype === "Table" || o.is_list)
+	dynamicRoots.value.filter((o) => o.fieldtype === "Table" || o.is_list)
 );
 function emitChanges() {
 	emitting = true;
@@ -730,7 +738,7 @@ function switchMode(m) {
 	else {
 		const segs = parseJinjaToSegments(rawJinja.value);
 		ui.value.segments = segs;
-		editor.commands.setContent(convertSegmentsToHtml(segs));
+		editor.commands.setContent(convertSegmentsToHtml(segs, dynamicRoots.value));
 	}
 	mode.value = m;
 }
@@ -740,7 +748,7 @@ watch(
 		if (emitting) return;
 		const norm = normalizeModel(val || props.templateValue);
 		ui.value = norm;
-		editor.commands.setContent(convertSegmentsToHtml(norm.segments));
+		editor.commands.setContent(convertSegmentsToHtml(norm.segments, dynamicRoots.value));
 	},
 	{ immediate: true, deep: true }
 );

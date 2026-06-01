@@ -5,9 +5,10 @@
   not Rule Action fields.
 -->
 <script setup>
-import { computed, ref, watch } from "vue";
+import { computed, ref, watch, onMounted } from "vue";
 import { useStore } from "../stores";
 import ComboBoxControl from "../controls/ComboBoxControl.vue";
+import ControlFactory from "../controls/ControlFactory.vue";
 
 const props = defineProps({
 	nodeData: Object,
@@ -25,6 +26,7 @@ const priority_options = Array.from({ length: 21 }, (_, i) => String(i));
 
 const skip_roles = ref([]);
 const permissions = ref([]);
+const permission_meta = ref(null);
 const pending_skip_role = ref("");
 const is_manual_trigger = computed(() => props.nodeData?.trigger_event === "Manual");
 
@@ -96,7 +98,7 @@ function remove_permission_row(idx) {
 
 function update_permission(idx, key, value) {
 	if (!permissions.value[idx]) return;
-	permissions.value[idx][key] = value ? 1 : 0;
+	permissions.value[idx][key] = value;
 	update_field("permissions", permissions.value);
 }
 
@@ -120,6 +122,16 @@ function remove_skip_role(role) {
 	skip_roles.value = skip_roles.value.filter((r) => r !== role);
 	update_field("skip_for_roles", skip_roles.value);
 }
+
+const permission_fields = computed(() => {
+	const fields = permission_meta.value?.fields || [];
+	return fields.filter((df) => {
+		if (!df?.fieldname) return false;
+		if (["name", "owner", "parent", "parenttype", "parentfield", "idx"].includes(df.fieldname))
+			return false;
+		return !["Section Break", "Column Break", "Tab Break"].includes(df.fieldtype);
+	});
+});
 
 watch(
 	() => props.nodeData?.skip_for_roles,
@@ -147,6 +159,13 @@ watch(
 	},
 	{ immediate: true }
 );
+
+onMounted(async () => {
+	if (!frappe.get_meta("Rule Permission")) {
+		await frappe.model.with_doctype("Rule Permission");
+	}
+	permission_meta.value = frappe.get_meta("Rule Permission");
+});
 </script>
 
 <template>
@@ -346,26 +365,23 @@ watch(
 					<i class="fa fa-plus"></i> {{ __("Add") }}
 				</button>
 			</div>
-			<div class="perm-table">
+			<div class="perm-table" v-if="permission_fields.length">
 				<div class="perm-row perm-header">
-					<span>{{ __("Role") }}</span>
-					<span>{{ __("Execute") }}</span>
+					<span v-for="df in permission_fields" :key="df.fieldname">
+						{{ __(df.label || df.fieldname) }}
+					</span>
 					<span></span>
 				</div>
 				<div v-for="(row, idx) in permissions" :key="idx" class="perm-row">
-					<ComboBoxControl
-						:df="{ fieldtype: 'Link', options: 'Role', label: '' }"
-						:modelValue="row.role"
-						:read_only="readOnly"
-						:hideLabel="true"
-						@update:modelValue="(val) => update_permission_role(idx, val)"
-					/>
-					<input
-						type="checkbox"
-						:checked="!!row.can_execute"
-						:disabled="readOnly"
-						@change="update_permission(idx, 'can_execute', $event.target.checked)"
-					/>
+					<div v-for="df in permission_fields" :key="df.fieldname">
+						<ControlFactory
+							:df="{ ...df, read_only: readOnly }"
+							:modelValue="row[df.fieldname]"
+							:hideLabel="true"
+							:hideDescription="true"
+							@update:modelValue="(val) => update_permission(idx, df.fieldname, val)"
+						/>
+					</div>
 					<button
 						v-if="!readOnly"
 						class="btn btn-xs btn-link text-danger"

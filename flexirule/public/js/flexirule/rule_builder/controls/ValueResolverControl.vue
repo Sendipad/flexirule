@@ -1,5 +1,9 @@
 <template>
-	<div class="value-resolver-control fxr-control" ref="controlRef">
+	<div
+		class="value-resolver-control fxr-control"
+		ref="controlRef"
+		:data-fxr-fieldname="resolverFieldname"
+	>
 		<!-- Token UI -->
 		<div
 			v-if="viewMode === 'popover'"
@@ -27,6 +31,7 @@
 						: 'fxr-popover value-resolver-popover'
 				"
 				:style="viewMode === 'inline' ? {} : popoverStyle"
+				:data-fxr-fieldname="resolverFieldname"
 			>
 				<div v-if="viewMode !== 'inline'" class="fxr-popover__header">
 					<span class="fxr-label-sm mb-0">{{ __(popoverTitle) }}</span>
@@ -38,7 +43,12 @@
 					<!-- Category Selector -->
 					<div class="d-flex flex-column fxr-gap-1">
 						<label class="fxr-label-sm">{{ __("Formula Type") }}</label>
-						<select class="fxr-select" v-model="localState.kind" :disabled="readOnly">
+						<select
+							class="fxr-select"
+							v-model="localState.kind"
+							:disabled="readOnly"
+							data-fxr-fieldname="value_resolver.kind"
+						>
 							<option
 								v-for="cat in availableCategories"
 								:key="cat.value"
@@ -605,6 +615,16 @@ const controlRef = ref(null);
 const showPopover = ref(false);
 const popoverStyle = ref({});
 let _syncing = false;
+
+const resolverFieldname = computed(() => {
+	const fieldname =
+		props.context?.fieldname ||
+		props.context?.target ||
+		props.context?.df?.fieldname ||
+		props.context?.df?.value ||
+		"value_resolver";
+	return String(fieldname).replace(/^doc\./, "");
+});
 
 // ─── Category Definitions ───
 const ALL_CATEGORIES = [

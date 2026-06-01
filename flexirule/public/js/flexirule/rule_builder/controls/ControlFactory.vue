@@ -1,14 +1,16 @@
 <template>
-	<component
-		:is="resolved.component"
-		v-bind="resolved.props"
-		:df="df"
-		:modelValue="modelValue"
-		:read_only="df?.read_only"
-		:hideLabel="hideLabel"
-		:hideDescription="hideDescription"
-		@update:modelValue="$emit('update:modelValue', $event)"
-	/>
+	<div class="fxr-control-wrapper" :data-fxr-fieldname="df?.fieldname || null">
+		<component
+			:is="resolved.component"
+			v-bind="resolved.props"
+			:df="df"
+			:modelValue="modelValue"
+			:read_only="df?.read_only"
+			:hideLabel="hideLabel"
+			:hideDescription="hideDescription"
+			@update:modelValue="$emit('update:modelValue', $event)"
+		/>
+	</div>
 </template>
 
 <script setup>
@@ -60,3 +62,9 @@ function check_default() {
 	}
 }
 </script>
+
+<style scoped>
+.fxr-control-wrapper {
+	display: contents;
+}
+</style>

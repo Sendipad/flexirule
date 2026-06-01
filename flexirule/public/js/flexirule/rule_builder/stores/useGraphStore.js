@@ -99,6 +99,16 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		if (snapshot.edges) edges.value = snapshot.edges;
 	}
 
+	function update_node_position(nodeId, position) {
+		if (!nodeId || !position) return;
+		const node = nodes.value.find((n) => n.id === nodeId);
+		if (!node) return;
+		node.position = {
+			x: Math.round(position.x ?? node.position?.x ?? 0),
+			y: Math.round(position.y ?? node.position?.y ?? 0),
+		};
+	}
+
 	// ── Topological sort ──
 	function getTopologicalSort(nodeList, edgeList) {
 		nodeList = nodeList || nodes.value;
@@ -1542,10 +1552,12 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 				...visualNodeMeta
 			} = visualNode;
 
+			const direction = visualNode.direction || visualNode.layout_direction || null;
 			return {
 				...node,
 				...visualNodeMeta,
 				position: position || node.position,
+				direction: direction || node.direction,
 				data: { ...(node.data || {}) },
 				type: node.type,
 				label: node.label,
@@ -1596,6 +1608,27 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		});
 
 		edges.value = [...mergedEdges];
+	}
+
+	function get_visual_data_payload(layoutDirection = null) {
+		const nodePayload = nodes.value.map((node) => ({
+			id: node.id,
+			position: {
+				x: Math.round(node.position?.x || 0),
+				y: Math.round(node.position?.y || 0),
+			},
+			direction: layoutDirection || node.direction || null,
+		}));
+
+		const edgePayload = edges.value.map((edge) => ({
+			id: edge.id,
+			source: edge.source,
+			target: edge.target,
+			sourceHandle: edge.sourceHandle || "default",
+			targetHandle: edge.targetHandle || null,
+		}));
+
+		return [...nodePayload, ...edgePayload];
 	}
 
 	/**
@@ -1920,6 +1953,8 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		// Sync
 		sync_actions_to_graph,
 		merge_visual_layout,
+		update_node_position,
+		get_visual_data_payload,
 		initialize_default_graph,
 
 		// Normalization + cleaning

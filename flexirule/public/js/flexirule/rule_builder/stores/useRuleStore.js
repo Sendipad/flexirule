@@ -278,7 +278,12 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 			const resolveActionId = (nodeId) => nodeIdToActionId.get(nodeId) || nodeId || null;
 
 			doc.visual_data = JSON.stringify(
-				canonicalizeGraphData(graphStore.clean_graph_data(), nodeIdToActionId)
+				canonicalizeGraphData(
+					graphStore.get_visual_data_payload(
+						settings.value?.layout_direction === "Top to Bottom" ? "TB" : "LR"
+					),
+					nodeIdToActionId
+				)
 			);
 
 			doc.actions = orderedNodes.map((node, idx) => {

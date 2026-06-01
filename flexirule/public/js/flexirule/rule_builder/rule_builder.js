@@ -15,6 +15,7 @@ class RuleBuilder {
 		this.$wrapper = $(wrapper);
 		this.page = page;
 		this.rule = rule;
+		window.fxrRuleBuilder = this;
 
 		this.init();
 	}

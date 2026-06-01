@@ -86,8 +86,8 @@
 					</template>
 
 					<Background :gap="15" />
-					<Panel :position="PanelPosition.BottomLeft" class="controls-panel">
-						<div class="btn-group">
+					<Panel :position="PanelPosition.TopLeft" class="controls-panel">
+						<div class="btn-group controls-row">
 							<button
 								class="btn btn-sm btn-default"
 								@click="zoomIn"
@@ -117,20 +117,6 @@
 							>
 								<i class="fa fa-hand-paper-o"></i>
 							</button>
-							<button
-								class="btn btn-sm btn-default"
-								@click="
-									() =>
-										layoutGraph(
-											ruleStore.settings?.layout_direction === 'Top to Bottom'
-												? 'TB'
-												: 'LR'
-										)
-								"
-								:title="__('Auto Layout')"
-							>
-								<i class="fa fa-sitemap"></i> {{ __("Auto Layout") }}
-							</button>
 						</div>
 
 						<div class="divider-vertical"></div>
@@ -143,57 +129,22 @@
 							<span class="small text-muted">{{ __("Disabled") }}</span>
 						</div>
 
-						<button
-							class="btn btn-sm btn-default"
-							@click="copySelectedToClipboard"
-							:title="__('Copy Selected Nodes (Ctrl+C)')"
-						>
-							<i class="fa fa-copy"></i> {{ __("Copy") }}
-						</button>
-
-						<div class="divider-vertical"></div>
-						<button
-							class="btn btn-sm btn-default"
-							@click="uiStore.show_shortcuts_help = true"
-							:title="__('Keyboard Shortcuts (Shift+?)')"
-						>
-							<i class="fa fa-keyboard-o"></i>
-						</button>
-
-						<div class="divider-vertical"></div>
-
 						<div v-if="isReadOnly" class="read-only-badge mr-2">
 							<i class="fa fa-lock"></i> {{ __("Read Only") }}
 						</div>
 
-						<button
-							v-if="!isReadOnly"
-							class="btn btn-sm btn-primary btn-activate"
-							@click="ruleStore.activate_rule"
-							:disabled="ruleStore.is_loading"
-						>
-							<i
-								:class="[
-									'fa',
-									ruleStore.is_loading ? 'fa-spinner fa-spin' : 'fa-rocket',
-								]"
-							></i>
-							{{ __("Set to Active") }}
-						</button>
-						<button
-							v-else
-							class="btn btn-sm btn-outline-warning btn-unlock"
-							@click="ruleStore.deactivate_rule"
-							:disabled="ruleStore.is_loading"
-						>
-							<i
-								:class="[
-									'fa',
-									ruleStore.is_loading ? 'fa-spinner fa-spin' : 'fa-unlock',
-								]"
-							></i>
-							{{ __("Unlock for Editing") }}
-						</button>
+						<div class="quick-actions-wrap">
+							<button
+								ref="quickActionsButtonRef"
+								class="btn btn-sm btn-default quick-actions-btn"
+								@click="toggleQuickActions"
+								:title="__('Quick Actions')"
+								aria-haspopup="menu"
+								:aria-expanded="showQuickActions ? 'true' : 'false'"
+							>
+								<i class="fa fa-gear"></i>
+							</button>
+						</div>
 					</Panel>
 					<Panel
 						v-if="uiStore.test_execution_steps?.length"
@@ -237,6 +188,41 @@
 			@save="ruleStore.mark_dirty()"
 		/>
 		<ShortcutsHelp v-model="uiStore.show_shortcuts_help" />
+		<Teleport to="body">
+			<div
+				v-if="showQuickActions"
+				ref="quickActionsMenuRef"
+				class="quick-actions-menu fxr-headless-menu"
+				:style="quickActionsMenuStyle"
+				role="menu"
+				@keydown="handleQuickActionsKeydown"
+			>
+				<div class="quick-actions-section">
+					<button
+						v-for="item in quickActionItems"
+						:key="item.key"
+						class="quick-action-item"
+						role="menuitem"
+						:disabled="item.disabled"
+						@click="runQuickAction(item)"
+					>
+						<i :class="['fa', item.icon]"></i>
+						<span>{{ item.label }}</span>
+						<small v-if="item.shortcut">{{ item.shortcut }}</small>
+					</button>
+				</div>
+			</div>
+			<div
+				v-if="fieldInspector.visible"
+				class="fxr-field-inspector"
+				:style="fieldInspectorStyle"
+				@mousedown.prevent="copyInspectedFieldname"
+			>
+				<i class="fa fa-code"></i>
+				<span>{{ fieldInspector.fieldname }}</span>
+				<small>{{ __("Click to copy") }}</small>
+			</div>
+		</Teleport>
 	</div>
 </template>
 
@@ -284,11 +270,43 @@ const metaStore = useMetaStore();
 const { zoomIn, zoomOut, removeEdges, fitView } = useVueFlow();
 const { layoutGraph } = useRuleGraph();
 const { copySelectedToClipboard, pasteFromClipboard } = useClipboard();
+const showQuickActions = ref(false);
+const quickActionsButtonRef = ref(null);
+const quickActionsMenuRef = ref(null);
+const quickActionsMenuStyle = ref({});
 
 const flowWrapper = ref(null);
 const mousePos = ref({ x: 0, y: 0 });
 const showDisabledNodes = ref(true);
 const panMode = ref(false);
+const lastAltFieldname = ref("");
+const fieldInspector = ref({
+	visible: false,
+	fieldname: "",
+	x: 0,
+	y: 0,
+	copied: false,
+});
+
+const quickActionItems = computed(() => [
+	{ key: "save", label: __("Save"), icon: "fa-floppy-o", shortcut: "Ctrl S" },
+	{ key: "test", label: __("Test"), icon: "fa-play" },
+	{
+		key: "status",
+		label: isReadOnly.value ? __("Unlock for editing") : __("Set to active"),
+		icon: isReadOnly.value ? "fa-unlock" : "fa-rocket",
+	},
+	{ key: "shortcuts", label: __("Keyboard shortcuts"), icon: "fa-keyboard-o" },
+	{ key: "layout", label: __("Auto Layout"), icon: "fa-sitemap" },
+	{ key: "permissions", label: __("Set Permission"), icon: "fa-shield" },
+	{ key: "copy", label: __("Copy"), icon: "fa-copy", shortcut: "Ctrl C" },
+	{ key: "preferences", label: __("Preference"), icon: "fa-sliders" },
+]);
+
+const fieldInspectorStyle = computed(() => ({
+	left: `${Math.min(fieldInspector.value.x + 14, window.innerWidth - 220)}px`,
+	top: `${Math.min(fieldInspector.value.y + 16, window.innerHeight - 48)}px`,
+}));
 
 function updateMousePos(e) {
 	mousePos.value = { x: e.clientX, y: e.clientY };
@@ -344,6 +362,98 @@ function closeSidebar() {
 	uiStore.show_sidebar = false;
 }
 
+function toggleQuickActions() {
+	if (showQuickActions.value) {
+		closeQuickActions();
+		return;
+	}
+	openQuickActions();
+}
+
+function openQuickActions() {
+	updateQuickActionsPosition();
+	showQuickActions.value = true;
+	nextTick(() => {
+		quickActionsMenuRef.value?.querySelector(".quick-action-item:not(:disabled)")?.focus();
+	});
+}
+
+function closeQuickActions() {
+	showQuickActions.value = false;
+}
+
+function updateQuickActionsPosition() {
+	const rect = quickActionsButtonRef.value?.getBoundingClientRect();
+	if (!rect) return;
+	const width = 236;
+	quickActionsMenuStyle.value = {
+		position: "fixed",
+		top: `${rect.bottom + 8}px`,
+		left: `${Math.max(12, Math.min(rect.right - width, window.innerWidth - width - 12))}px`,
+		width: `${width}px`,
+		zIndex: 12000,
+	};
+}
+
+function runQuickAction(item) {
+	const actions = {
+		save: () => ruleStore.save_changes(),
+		test: () => window.fxrRuleBuilder?.show_test_dialog?.(),
+		status: () => toggleRuleAccess(),
+		shortcuts: () => (uiStore.show_shortcuts_help = true),
+		layout: () => runAutoLayout(),
+		permissions: () => openPermissionsSettings(),
+		copy: () => copySelectedToClipboard(),
+		preferences: () => openRuleSettingsTab(),
+	};
+	actions[item.key]?.();
+	closeQuickActions();
+}
+
+function handleQuickActionsKeydown(e) {
+	if (e.key === "Escape") {
+		closeQuickActions();
+		quickActionsButtonRef.value?.focus();
+		return;
+	}
+	const items = Array.from(
+		quickActionsMenuRef.value?.querySelectorAll(".quick-action-item:not(:disabled)") || []
+	);
+	const current = items.indexOf(document.activeElement);
+	if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+		e.preventDefault();
+		const delta = e.key === "ArrowDown" ? 1 : -1;
+		const next = (current + delta + items.length) % items.length;
+		items[next]?.focus();
+	}
+}
+
+function runAutoLayout() {
+	const dir = ruleStore.settings?.layout_direction === "Top to Bottom" ? "TB" : "LR";
+	layoutGraph(dir);
+	showQuickActions.value = false;
+}
+
+function openPermissionsSettings() {
+	uiStore.show_sidebar = true;
+	uiStore.selected_id = "start";
+	showQuickActions.value = false;
+}
+
+function openRuleSettingsTab() {
+	frappe.set_route("Form", "RuleFlow Settings", "RuleFlow Settings");
+	showQuickActions.value = false;
+}
+
+function toggleRuleAccess() {
+	if (isReadOnly.value) {
+		ruleStore.deactivate_rule();
+	} else {
+		ruleStore.activate_rule();
+	}
+	showQuickActions.value = false;
+}
+
 function onPaneReady(instance) {
 	instance.fitView();
 }
@@ -353,7 +463,11 @@ onMounted(async () => {
 	await ruleStore.fetch();
 	graphStore.autoConnectStartNode();
 	window.addEventListener("keydown", handleKeydown);
+	window.addEventListener("keyup", handleKeyup);
 	window.addEventListener("mousemove", updateMousePos);
+	window.addEventListener("mousemove", handleAltFieldInspect, true);
+	window.addEventListener("mousedown", handleGlobalMouseDown, true);
+	window.addEventListener("resize", updateQuickActionsPosition);
 
 	setTimeout(() => {
 		if (graphStore.nodes.length > 0) {
@@ -365,7 +479,11 @@ onMounted(async () => {
 
 onUnmounted(() => {
 	window.removeEventListener("keydown", handleKeydown);
+	window.removeEventListener("keyup", handleKeyup);
 	window.removeEventListener("mousemove", updateMousePos);
+	window.removeEventListener("mousemove", handleAltFieldInspect, true);
+	window.removeEventListener("mousedown", handleGlobalMouseDown, true);
+	window.removeEventListener("resize", updateQuickActionsPosition);
 });
 
 async function pasteFromClipboardWrapper() {
@@ -405,6 +523,15 @@ function handleKeydown(e) {
 		pasteFromClipboardWrapper();
 	}
 
+	if (e.code === "Space" && !e.repeat && !e.target?.isContentEditable) {
+		panMode.value = true;
+		e.preventDefault();
+	}
+	if (e.key?.toLowerCase?.() === "p" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+		panMode.value = !panMode.value;
+		e.preventDefault();
+	}
+
 	// Shortcuts Help: Shift+?
 	if (e.shiftKey && e.key === "?") {
 		uiStore.show_shortcuts_help = !uiStore.show_shortcuts_help;
@@ -421,6 +548,62 @@ function handleKeydown(e) {
 	// Alt+2: Variable Search (Global Sidebar)
 	if (e.altKey && e.key === "2") {
 		// Not implemented in sidebar yet, but could be added if Sidebar had a search
+	}
+}
+
+function handleKeyup(e) {
+	if (e.code === "Space") {
+		panMode.value = false;
+	}
+	if (!e.altKey) {
+		lastAltFieldname.value = "";
+		fieldInspector.value.visible = false;
+	}
+}
+
+function handleAltFieldInspect(event) {
+	if (!event.altKey) {
+		fieldInspector.value.visible = false;
+		lastAltFieldname.value = "";
+		return;
+	}
+	const fieldEl = event.target?.closest?.("[data-fxr-fieldname]");
+	const fieldname = fieldEl?.dataset?.fxrFieldname;
+	if (!fieldname) {
+		fieldInspector.value.visible = false;
+		return;
+	}
+	fieldInspector.value = {
+		visible: true,
+		fieldname,
+		x: event.clientX,
+		y: event.clientY,
+		copied: fieldInspector.value.copied,
+	};
+	if (fieldname === lastAltFieldname.value) return;
+	lastAltFieldname.value = fieldname;
+}
+
+function copyInspectedFieldname() {
+	const fieldname = fieldInspector.value.fieldname;
+	if (!fieldname) return;
+	navigator.clipboard?.writeText(fieldname).catch(() => {});
+	frappe.show_alert(
+		{ message: __("Copied fieldname: {0}").replace("{0}", fieldname), indicator: "green" },
+		2
+	);
+}
+
+function handleGlobalMouseDown(event) {
+	if (
+		showQuickActions.value &&
+		!quickActionsMenuRef.value?.contains(event.target) &&
+		!quickActionsButtonRef.value?.contains(event.target)
+	) {
+		closeQuickActions();
+	}
+	if (event.altKey && event.target?.closest?.("[data-fxr-fieldname]")) {
+		copyInspectedFieldname();
 	}
 }
 
@@ -583,11 +766,136 @@ function onEdgeClick({ edge, event }) {
 	display: flex;
 	align-items: center;
 	gap: 10px;
-	background: rgba(255, 255, 255, 0.8);
-	padding: 5px 10px;
-	border-radius: 4px;
+	background: rgba(255, 255, 255, 0.92);
+	padding: 6px;
+	border-radius: 8px;
 	border: 1px solid var(--border-color);
-	backdrop-filter: blur(2px);
+	box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+	backdrop-filter: blur(8px);
+	flex-wrap: wrap;
+	max-width: calc(100vw - 28px);
+}
+
+.controls-panel .btn {
+	border-radius: 7px;
+}
+
+.quick-actions-wrap {
+	position: relative;
+	display: inline-flex;
+}
+
+.quick-actions-btn {
+	width: 32px;
+	height: 32px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+}
+
+.fxr-headless-menu {
+	background: var(--fg-color, #fff);
+	border: 1px solid var(--border-color, #e2e8f0);
+	border-radius: 10px;
+	box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16), 0 4px 12px rgba(15, 23, 42, 0.08);
+	overflow: hidden;
+	animation: fxr-menu-in 120ms ease-out;
+}
+
+.quick-actions-section {
+	padding: 6px;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.quick-action-item {
+	display: grid;
+	grid-template-columns: 18px 1fr auto;
+	align-items: center;
+	gap: 10px;
+	width: 100%;
+	min-height: 34px;
+	padding: 8px 10px;
+	border: 0;
+	border-radius: 7px;
+	background: transparent;
+	color: var(--text-color, #1f2937);
+	font-size: 13px;
+	font-weight: 500;
+	text-align: left;
+	cursor: pointer;
+}
+
+.quick-action-item i {
+	color: var(--text-muted, #64748b);
+	text-align: center;
+}
+
+.quick-action-item small {
+	color: var(--text-muted, #94a3b8);
+	font-size: 10px;
+	font-weight: 600;
+}
+
+.quick-action-item:hover,
+.quick-action-item:focus {
+	background: var(--control-bg, #f3f5f7);
+	outline: none;
+}
+
+.quick-action-item:disabled {
+	opacity: 0.55;
+	cursor: not-allowed;
+}
+
+.fxr-field-inspector {
+	position: fixed;
+	z-index: 13000;
+	display: inline-grid;
+	grid-template-columns: 14px auto auto;
+	align-items: center;
+	gap: 7px;
+	max-width: 280px;
+	padding: 7px 9px;
+	border-radius: 8px;
+	border: 1px solid #d8e2ef;
+	background: #fff;
+	color: #1f2937;
+	font-size: 12px;
+	font-weight: 600;
+	box-shadow: 0 12px 28px rgba(15, 23, 42, 0.16);
+	pointer-events: auto;
+	cursor: copy;
+}
+
+.fxr-field-inspector i {
+	color: var(--primary, #2490ef);
+}
+
+.fxr-field-inspector span {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.fxr-field-inspector small {
+	color: var(--text-muted, #64748b);
+	font-size: 10px;
+	font-weight: 500;
+	white-space: nowrap;
+}
+
+@keyframes fxr-menu-in {
+	from {
+		opacity: 0;
+		transform: translateY(-4px) scale(0.98);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+	}
 }
 .divider-vertical {
 	width: 1px;
