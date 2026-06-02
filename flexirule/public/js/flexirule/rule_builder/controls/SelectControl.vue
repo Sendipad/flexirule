@@ -56,33 +56,25 @@ function on_change(event) {
 
 <template>
 	<div class="fxr-control">
-		<div
-			class="fxr-input-group"
-			:class="{
-				'has-floating-label': df?.label && !no_label && !hideLabel,
-				'has-value': modelValue !== undefined && modelValue !== null && modelValue !== '',
-			}"
+		<label
+			v-if="df?.label && !no_label && !hideLabel"
+			class="fxr-label"
+			:class="{ reqd: df.reqd }"
 		>
-			<label
-				v-if="df?.label && !no_label && !hideLabel"
-				class="fxr-label"
-				:class="{ reqd: df.reqd }"
+			{{ __(df.label) }}
+		</label>
+		<div class="select-wrapper">
+			<select
+				class="fxr-select"
+				:value="modelValue"
+				:disabled="read_only || df?.read_only"
+				@change="on_change"
 			>
-				{{ __(df.label) }}
-			</label>
-			<div class="select-wrapper">
-				<select
-					class="fxr-select"
-					:value="modelValue"
-					:disabled="read_only || df?.read_only"
-					@change="on_change"
-				>
-					<option v-if="!df?.reqd" value="">{{ __("Select...") }}</option>
-					<option v-for="opt in options" :key="opt.value" :value="opt.value">
-						{{ opt.label }}
-					</option>
-				</select>
-			</div>
+				<option v-if="!df?.reqd" value="">{{ __("Select...") }}</option>
+				<option v-for="opt in options" :key="opt.value" :value="opt.value">
+					{{ opt.label }}
+				</option>
+			</select>
 		</div>
 		<div v-if="df?.description && !hideDescription" class="fxr-description">
 			{{ __(df.description) }}
@@ -93,10 +85,6 @@ function on_change(event) {
 <style scoped>
 .select-wrapper {
 	position: relative;
-	width: 100%;
-}
-
-.select-wrapper select {
 	width: 100%;
 }
 </style>

@@ -2,39 +2,82 @@
  * FlexiRule Design Tokens
  * Unified CSS custom properties for the entire rule builder UI.
  * All controls & components reference these variables for consistent look & feel.
+ * Refined for an enterprise-grade Linear/Vercel-inspired aesthetic.
  */
 
 :root {
-	/* ─── Color Palette ─── */
-	--fxr-bg-page: #f8fafc;
-	--fxr-bg-card: #ffffff;
-	--fxr-bg-input: #ffffff;
-	--fxr-bg-muted: #f1f5f9;
-	--fxr-bg-hover: #f8fafc;
-	--fxr-bg-active: #eff6ff;
-	--fxr-bg-danger: #fef2f2;
-	--fxr-bg-dark: #1e293b;
-	--fxr-bg-input-disabled: #f8fafc;
+	/* ─── Neutral Foundation (Gray/Slate) ─── */
+	--fr-gray-0: #ffffff;
+	--fr-gray-50: #f9fafb;
+	--fr-gray-100: #f3f4f6;
+	--fr-gray-200: #e5e7eb;
+	--fr-gray-300: #d1d5db;
+	--fr-gray-400: #9ca3af;
+	--fr-gray-500: #6b7280;
+	--fr-gray-600: #4b5563;
+	--fr-gray-700: #374151;
+	--fr-gray-800: #1f2937;
+	--fr-gray-900: #111827;
+	--fr-gray-950: #030712;
 
-	--fxr-border: #e2e8f0;
-	--fxr-border-subtle: #f1f5f9;
-	--fxr-border-focus: var(--fxr-accent);
-	--fxr-border-strong: #cbd5e1;
+	/* ─── Semantic Brand & Accents ─── */
+	--fr-primary: #2490ef;
+	--fr-primary-hover: #1d7bd1;
+	--fr-primary-subtle: rgba(36, 144, 239, 0.08);
+
+	--fr-success: #10b981;
+	--fr-warning: #f59e0b;
+	--fr-danger: #ef4444;
+	--fr-info: #3b82f6;
+
+	/* ─── Surface & Backgrounds ─── */
+	--fr-bg-page: var(--fr-gray-50);
+	--fr-bg-surface: var(--fr-gray-0);
+	--fr-bg-surface-hover: var(--fr-gray-50);
+	--fr-bg-surface-active: var(--fr-gray-100);
+	--fr-bg-muted: var(--fr-gray-100);
+
+	/* ─── Borders ─── */
+	--fr-border: var(--fr-gray-200);
+	--fr-border-subtle: var(--fr-gray-100);
+	--fr-border-strong: var(--fr-gray-300);
+	--fr-border-focus: var(--fr-primary);
+
+	/* ─── Text ─── */
+	--fr-text: var(--fr-gray-900);
+	--fr-text-secondary: var(--fr-gray-600);
+	--fr-text-muted: var(--fr-gray-500);
+	--fr-text-on-primary: var(--fr-gray-0);
+
+	/* ─── Legacy fxr Variables (Mapping to new fr system) ─── */
+	--fxr-bg-page: var(--fr-bg-page);
+	--fxr-bg-card: var(--fr-bg-surface);
+	--fxr-bg-input: var(--fr-bg-surface);
+	--fxr-bg-muted: var(--fr-bg-muted);
+	--fxr-bg-hover: var(--fr-bg-surface-hover);
+	--fxr-bg-active: #eff6ff; /* Keep subtle blue for active states */
+	--fxr-bg-danger: #fef2f2;
+	--fxr-bg-dark: var(--fr-gray-900);
+
+	--fxr-border: var(--fr-border);
+	--fxr-border-subtle: var(--fr-border-subtle);
+	--fxr-border-focus: var(--fr-border-focus);
+	--fxr-border-strong: var(--fr-border-strong);
 	--fxr-border-danger: #fca5a5;
 
-	--fxr-text: #1e293b;
-	--fxr-text-secondary: #475569;
-	--fxr-text-muted: #94a3b8;
-	--fxr-text-danger: #ef4444;
-	--fxr-text-link: #2563eb;
+	--fxr-text: var(--fr-text);
+	--fxr-text-secondary: var(--fr-text-secondary);
+	--fxr-text-muted: var(--fr-text-muted);
+	--fxr-text-danger: var(--fr-danger);
+	--fxr-text-link: var(--fr-primary);
 
-	--fxr-accent: #2490ef;
-	--fxr-accent-light: rgba(36, 144, 239, 0.08);
+	--fxr-accent: var(--fr-primary);
+	--fxr-accent-light: var(--fr-primary-subtle);
 	--fxr-accent-border: rgba(36, 144, 239, 0.3);
 
-	/* Semantic colors for value-type badges & tokens */
-	--fxr-badge-literal: #e2e8f0;
-	--fxr-badge-literal-text: #475569;
+	/* ─── Badge Styles (Retained but cleaned) ─── */
+	--fxr-badge-literal: var(--fr-gray-100);
+	--fxr-badge-literal-text: var(--fr-gray-600);
 	--fxr-badge-number: #dbeafe;
 	--fxr-badge-number-text: #1d4ed8;
 	--fxr-badge-bool: #ecfdf5;
@@ -43,32 +86,38 @@
 	--fxr-badge-var-text: #7c3aed;
 	--fxr-badge-expr: #fff7ed;
 	--fxr-badge-expr-text: #c2410c;
-	--fxr-badge-builder: #e0f2fe;
-	--fxr-badge-builder-text: #0369a1;
-	--fxr-badge-resolver: #fffbeb;
-	--fxr-badge-resolver-text: #d97706;
-	--fxr-badge-formatter: #fdf2f8;
-	--fxr-badge-formatter-text: #db2777;
-	--fxr-badge-normalize: #eff6ff;
-	--fxr-badge-normalize-text: #2563eb;
 
 	/* ─── Typography ─── */
-	--fxr-font-family: "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-	--fxr-font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono",
-		monospace;
+	--fxr-font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+	--fxr-font-mono: "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
 
-	--fxr-text-xs: 11px;
-	--fxr-text-sm: 12px;
-	--fxr-text-base: 13px;
-	--fxr-text-md: 14px;
-	--fxr-text-lg: 16px;
+	--fr-text-xs: 0.75rem; /* 12px */
+	--fr-text-sm: 0.8125rem; /* 13px */
+	--fr-text-base: 0.875rem; /* 14px */
+	--fr-text-md: 0.9375rem; /* 15px */
+	--fr-text-lg: 1rem; /* 16px */
+
+	--fxr-text-xs: var(--fr-text-xs);
+	--fxr-text-sm: var(--fr-text-sm);
+	--fxr-text-base: var(--fr-text-base);
+	--fxr-text-md: var(--fr-text-md);
+	--fxr-text-lg: var(--fr-text-lg);
 
 	--fxr-weight-normal: 400;
 	--fxr-weight-medium: 500;
 	--fxr-weight-semibold: 600;
 	--fxr-weight-bold: 700;
 
-	/* ─── Spacing ─── */
+	/* ─── Spacing Scale ─── */
+	--fr-space-0: 0;
+	--fr-space-1: 0.25rem; /* 4px */
+	--fr-space-2: 0.5rem; /* 8px */
+	--fr-space-3: 0.75rem; /* 12px */
+	--fr-space-4: 1rem; /* 16px */
+	--fr-space-5: 1.25rem; /* 20px */
+	--fr-space-6: 1.5rem; /* 24px */
+	--fr-space-8: 2rem; /* 32px */
+
 	--fxr-space-1: 2px;
 	--fxr-space-2: 4px;
 	--fxr-space-3: 6px;
@@ -78,33 +127,63 @@
 	--fxr-space-8: 16px;
 	--fxr-space-10: 20px;
 
-	/* ─── Control Sizing ─── */
-	--fxr-input-height: 28px;
-	--fxr-input-height-sm: 24px;
-	--fxr-input-padding-x: 8px;
-	--fxr-input-padding-y: 4px;
-	--fxr-input-font-size: var(--fxr-text-base);
-
 	/* ─── Radii ─── */
-	--fxr-radius-sm: 4px;
-	--fxr-radius-md: 6px;
-	--fxr-radius-lg: 8px;
-	--fxr-radius-xl: 12px;
-	--fxr-radius-pill: 999px;
+	--fr-radius-sm: 4px;
+	--fr-radius-md: 6px;
+	--fr-radius-lg: 8px;
+	--fr-radius-xl: 12px;
+
+	--fxr-radius-sm: var(--fr-radius-sm);
+	--fxr-radius-md: var(--fr-radius-md);
+	--fxr-radius-lg: var(--fr-radius-lg);
+	--fxr-radius-xl: var(--fr-radius-xl);
+	--fxr-radius-pill: 9999px;
 
 	/* ─── Shadows ─── */
-	--fxr-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-	--fxr-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-	--fxr-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-	--fxr-shadow-focus: 0 0 0 2px rgba(36, 144, 239, 0.1);
+	--fr-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+	--fr-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+	--fr-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+	--fr-shadow-focus: 0 0 0 2px rgba(36, 144, 239, 0.15);
 
-	/* ─── Transitions ─── */
-	--fxr-transition-fast: 0.15s ease;
-	--fxr-transition-normal: 0.2s ease;
-	--fxr-transition-slow: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+	--fxr-shadow-sm: var(--fr-shadow-sm);
+	--fxr-shadow-md: var(--fr-shadow-md);
+	--fxr-shadow-lg: var(--fr-shadow-lg);
+	--fxr-shadow-focus: var(--fr-shadow-focus);
 
-	/* ─── Z-index layers ─── */
-	--fxr-z-dropdown: 100010;
-	--fxr-z-popover: 100020;
-	--fxr-z-modal: 100030;
+	/* ─── Z-index ─── */
+	--fr-z-dropdown: 1000;
+	--fr-z-modal: 2000;
+	--fr-z-popover: 1500;
+
+	--fxr-z-dropdown: var(--fr-z-dropdown);
+	--fxr-z-popover: var(--fr-z-popover);
+	--fxr-z-modal: var(--fr-z-modal);
+}
+
+/* ─── Dark Mode Foundations (Optional/Prepared) ─── */
+[data-theme="dark"] {
+	--fr-gray-0: #030712;
+	--fr-gray-50: #111827;
+	--fr-gray-100: #1f2937;
+	--fr-gray-200: #374151;
+	--fr-gray-300: #4b5563;
+	--fr-gray-400: #6b7280;
+	--fr-gray-500: #9ca3af;
+	--fr-gray-600: #d1d5db;
+	--fr-gray-700: #e5e7eb;
+	--fr-gray-800: #f3f4f6;
+	--fr-gray-900: #f9fafb;
+	--fr-gray-950: #ffffff;
+
+	--fr-border: var(--fr-gray-200);
+	--fr-border-subtle: var(--fr-gray-100);
+	--fr-bg-page: #000000;
+	--fr-bg-surface: var(--fr-gray-50);
+
+	--fr-text: var(--fr-gray-900);
+	--fr-text-secondary: var(--fr-gray-600);
+	--fr-text-muted: var(--fr-gray-500);
+
+	--fr-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+	--fr-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
 }

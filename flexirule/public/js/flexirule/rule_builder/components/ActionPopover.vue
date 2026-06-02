@@ -518,7 +518,9 @@ onUnmounted(() => {
 	background: #fff;
 	border: 1px solid var(--border-color, #dfe3e8);
 	border-radius: 8px;
-	box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+	box-shadow:
+		0 10px 15px -3px rgba(0, 0, 0, 0.1),
+		0 4px 6px -2px rgba(0, 0, 0, 0.05);
 	z-index: 2147483647; /* Maximum possible z-index */
 	display: flex;
 	flex-direction: column;

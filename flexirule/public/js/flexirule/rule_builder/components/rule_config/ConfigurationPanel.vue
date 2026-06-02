@@ -164,7 +164,7 @@ defineExpose({
 	display: flex;
 	flex-direction: column;
 	height: 100%;
-	background: var(--fxr-bg-page);
+	background: var(--fr-bg-page);
 }
 
 .panel-content {
@@ -176,26 +176,28 @@ defineExpose({
 }
 
 .panel-header {
-	padding: 20px;
-	border-bottom: 1px solid var(--border-color);
+	padding: 16px 20px;
+	border-bottom: 1px solid var(--fr-border);
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
+	background: var(--fr-bg-surface);
 }
 
 .panel-header h4 {
 	margin: 0 0 4px 0;
-	font-size: 15px;
-	font-weight: 600;
+	font-size: 14px;
+	font-weight: 700;
+	color: var(--fr-text);
 }
 
 .panel-sections {
-	flex: 0 1 auto;
+	flex: 1;
 	overflow-y: auto;
-	padding: var(--panel-padding, 8px);
+	padding: 20px;
 	display: flex;
 	flex-direction: column;
-	gap: 16px;
+	gap: 20px;
 }
 
 .empty-config {

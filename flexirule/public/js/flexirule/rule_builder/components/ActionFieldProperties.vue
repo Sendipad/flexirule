@@ -1,14 +1,67 @@
-<!--
-  ActionFieldProperties - DocField-driven property panel for Rule Action nodes
+<template>
+	<div class="action-field-properties fxr-stack fxr-stack--gap-4">
+		<!-- Side-effect Warning Badge -->
+		<div
+			v-if="side_effect_warning"
+			:class="['side-effect-warning', 'alert-' + side_effect_warning.type]"
+		>
+			<i :class="['fa', side_effect_warning.icon]"></i>
+			<span>{{ side_effect_warning.message }}</span>
+		</div>
 
-  Renders fields dynamically from Rule Action DocType metadata, respecting:
-   - depends_on
-   - mandatory_depends_on
-   - read_only_depends_on
-   - hidden
+		<div v-for="df in visible_fields" :key="df.fieldname" class="field-wrapper">
+			<!-- Button fields (configures, set_conditions) -->
+			<template v-if="is_button_field(df)">
+				<button class="fxr-btn fxr-btn--primary w-100" @click="handle_button_click(df)">
+					<i
+						v-if="
+							df.fieldname === 'configure_operation' || df.fieldname === 'configures'
+						"
+						class="fa fa-cog"
+					></i>
+					<i v-else-if="df.fieldname === 'set_conditions'" class="fa fa-code-fork"></i>
+					{{ __(df.label) }}
+				</button>
+			</template>
 
-  Follows Frappe Form Builder patterns.
--->
+			<!-- Autocomplete / Link / Dynamic Link fields -->
+			<template v-else-if="needs_autocomplete(df)">
+				<ComboBoxControl
+					:df="{
+						...df,
+						reqd: is_mandatory(df),
+						read_only: is_read_only(df),
+					}"
+					:modelValue="get_value(df.fieldname)"
+					:doctype="
+						df.fieldtype === 'Dynamic Link'
+							? nodeData?.[df.options] || ''
+							: df.options || df.target_doctype
+					"
+					:get_query="(txt) => get_autocomplete_options(df)"
+					:doc="nodeData"
+					:read_only="is_read_only(df)"
+					@update:modelValue="update_value(df.fieldname, $event)"
+				/>
+			</template>
+
+			<template v-else>
+				<ControlFactory
+					:df="{
+						...df,
+						reqd: is_mandatory(df),
+						read_only: is_read_only(df),
+					}"
+					:modelValue="get_value(df.fieldname)"
+					:read_only="is_read_only(df)"
+					:doc="nodeData"
+					@update:modelValue="update_value(df.fieldname, $event)"
+				/>
+			</template>
+		</div>
+	</div>
+</template>
+
 <script setup>
 import { computed, onMounted } from "vue";
 import { useStore } from "../stores";
@@ -61,7 +114,7 @@ const doc_fields = computed(() => {
 				? getFieldLabel(actionType, df.fieldname, {
 						operation: props.nodeData?.operation,
 						processName: props.nodeData?.process_name,
-				  })
+					})
 				: null;
 			if (resolved.fieldname === "action_type") {
 				resolved = {
@@ -202,9 +255,6 @@ async function get_autocomplete_options(df) {
 		return get_action_node_options();
 	}
 
-	// target_field / variable_name autocomplete (legacy Set Value support removed)
-	// Assignment uses doc.* / vars.* target path directly via AssignmentConfig.vue
-
 	return [];
 }
 
@@ -290,129 +340,42 @@ onMounted(async () => {
 });
 </script>
 
-<template>
-	<div class="action-field-properties">
-		<!-- Side-effect Warning Badge -->
-		<div
-			v-if="side_effect_warning"
-			:class="['side-effect-warning', 'alert-' + side_effect_warning.type]"
-		>
-			<i :class="['fa', side_effect_warning.icon]"></i>
-			<span>{{ side_effect_warning.message }}</span>
-		</div>
-
-		<div v-for="df in visible_fields" :key="df.fieldname" class="field-wrapper">
-			<!-- Button fields (configures, set_conditions) -->
-			<template v-if="is_button_field(df)">
-				<button class="btn btn-default btn-sm w-100" @click="handle_button_click(df)">
-					<i
-						v-if="
-							df.fieldname === 'configure_operation' || df.fieldname === 'configures'
-						"
-						class="fa fa-cog"
-					></i>
-					<i v-else-if="df.fieldname === 'set_conditions'" class="fa fa-code-fork"></i>
-					{{ __(df.label) }}
-				</button>
-			</template>
-
-			<!-- Autocomplete / Link / Dynamic Link fields -->
-			<template v-else-if="needs_autocomplete(df)">
-				<ComboBoxControl
-					:df="{
-						...df,
-						reqd: is_mandatory(df),
-						read_only: is_read_only(df),
-					}"
-					:modelValue="get_value(df.fieldname)"
-					:doctype="
-						df.fieldtype === 'Dynamic Link'
-							? nodeData?.[df.options] || ''
-							: df.options || df.target_doctype
-					"
-					:get_query="(txt) => get_autocomplete_options(df)"
-					:doc="nodeData"
-					:read_only="is_read_only(df)"
-					@update:modelValue="update_value(df.fieldname, $event)"
-				/>
-			</template>
-
-			<template v-else>
-				<ControlFactory
-					:df="{
-						...df,
-						reqd: is_mandatory(df),
-						read_only: is_read_only(df),
-					}"
-					:modelValue="get_value(df.fieldname)"
-					:read_only="is_read_only(df)"
-					:doc="nodeData"
-					@update:modelValue="update_value(df.fieldname, $event)"
-				/>
-			</template>
-		</div>
-	</div>
-</template>
-
 <style scoped>
 .action-field-properties {
 	display: flex;
 	flex-direction: column;
-	/* Removed gap: 12px as controls have their own margins */
 }
 
 .side-effect-warning {
 	display: flex;
 	align-items: flex-start;
-	gap: 8px;
-	padding: 8px 10px;
-	border-radius: 4px;
-	font-size: 11px;
-	margin-bottom: 12px;
+	gap: 10px;
+	padding: 10px 14px;
+	border-radius: var(--fr-radius-md);
+	font-size: 12px;
+	line-height: 1.4;
+	margin-bottom: 8px;
 }
 
 .side-effect-warning.alert-danger {
-	background-color: var(--red-50, #fef2f2);
-	border: 1px solid var(--red-200, #fecaca);
-	color: var(--red-700, #b91c1c);
+	background-color: #fef2f2;
+	border: 1px solid #fecaca;
+	color: #b91c1c;
 }
 
 .side-effect-warning.alert-warning {
-	background-color: var(--yellow-50, #fffbeb);
-	border: 1px solid var(--yellow-200, #fde68a);
-	color: var(--yellow-700, #a16207);
+	background-color: #fffbeb;
+	border: 1px solid #fde68a;
+	color: #a16207;
 }
 
 .side-effect-warning i {
 	margin-top: 2px;
+	font-size: 14px;
 }
 
 .field-wrapper {
-	margin-bottom: 12px;
-}
-
-.control-label {
-	font-size: 11px;
-	font-weight: 500;
 	margin-bottom: 4px;
-	color: var(--text-muted);
-	display: block;
-}
-
-.control-label.reqd::after {
-	content: " *";
-	color: var(--red-500);
-}
-
-.description {
-	font-size: 10px;
-}
-
-.btn {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	gap: 6px;
 }
 
 .w-100 {

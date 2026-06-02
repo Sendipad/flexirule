@@ -1,89 +1,92 @@
 <template>
-	<div class="rule-sidebar">
-		<div class="sidebar-header">
-			<h4>{{ sidebar_title }}</h4>
-			<button class="btn-close" @click="$emit('close')">×</button>
-		</div>
-
-		<div class="sidebar-content" v-if="selectedNode">
-			<!-- Validation Errors -->
-			<div v-if="store.validation_errors?.length" class="sidebar-errors mb-3">
+	<div class="rule-sidebar fxr-accent-scope">
+		<header class="sidebar-header">
+			<div class="header-main">
 				<div
-					v-for="(err, idx) in store.validation_errors"
-					:key="idx"
-					class="d-flex align-items-start gap-2 text-danger small mb-1"
+					class="header-icon"
+					v-if="actionPresentation"
+					:style="{
+						background: actionPresentation.background,
+						color: actionPresentation.color,
+					}"
 				>
-					<i class="fa fa-exclamation-circle mt-1"></i>
+					<i :class="actionPresentation.icon"></i>
+				</div>
+				<h4 class="truncate">{{ sidebar_title }}</h4>
+			</div>
+			<button class="btn-close-subtle" @click="$emit('close')" :title="__('Close Sidebar')">
+				<i class="fa fa-times"></i>
+			</button>
+		</header>
+
+		<div class="sidebar-content v2-scrollbar" v-if="selectedNode">
+			<!-- Validation Errors -->
+			<div v-if="store.validation_errors?.length" class="sidebar-errors-container">
+				<div v-for="(err, idx) in store.validation_errors" :key="idx" class="error-item">
+					<i class="fa fa-exclamation-triangle"></i>
 					<span>{{ err }}</span>
 				</div>
 			</div>
 
 			<!-- Start Node: Keep existing behavior -->
 			<template v-if="selectedNode.type === 'start'">
-				<StartNodeProperties
-					:nodeData="selectedNode.data"
-					:readOnly="store.is_read_only"
-					@update:field="update_start_field"
-					@open:conditions="open_condition_dialog"
-				/>
+				<div class="config-section-card">
+					<StartNodeProperties
+						:nodeData="selectedNode.data"
+						:readOnly="store.is_read_only"
+						@update:field="update_start_field"
+						@open:conditions="open_condition_dialog"
+					/>
+				</div>
 			</template>
 
 			<!-- Action Nodes: DocField-driven rendering -->
 			<template v-else>
-				<div v-if="selectedNode.type === 'selector'" class="selector-placeholder mb-3">
-					<p class="text-muted small mb-2">
-						{{
-							__(
-								"Choose an action type on the node card, then click Create to continue."
-							)
-						}}
-					</p>
-					<p class="text-muted small mb-0">
-						{{
-							__(
-								"Full action settings only appear after this placeholder becomes a real Rule Action."
-							)
-						}}
+				<div v-if="selectedNode.type === 'selector'" class="selector-empty-state">
+					<i class="fa fa-mouse-pointer opacity-20 mb-3" style="font-size: 32px"></i>
+					<p class="text-muted small">
+						{{ __("Choose an action type on the node card to continue.") }}
 					</p>
 				</div>
 
 				<!-- Quick Action Button (Shows if Dialog mode) -->
 				<div
-					class="sidebar-v2-preview mb-3"
+					class="sidebar-dialog-trigger"
 					v-if="
 						isConfigurable &&
 						selectedNode.type !== 'selector' &&
 						store.settings?.action_config_mode === 'Dialog'
 					"
 				>
-					<button class="btn btn-sm btn-primary-light w-100" @click="open_config_dialog">
-						<i class="fa fa-cog"></i> {{ __("Configure Action via Dialog") }}
+					<button class="fxr-btn fxr-btn--primary w-100" @click="open_config_dialog">
+						<i class="fa fa-cog"></i> {{ __("Open Full Editor") }}
 					</button>
 				</div>
 
 				<!-- Inline Properties (Shows if Sidebar mode) -->
-				<ActionFieldProperties
+				<div
+					class="inline-properties-wrapper"
 					v-if="
 						selectedNode.type !== 'selector' &&
 						(store.settings?.action_config_mode === 'Sidebar' ||
 							!store.settings?.action_config_mode)
 					"
-					:nodeData="selectedNode.data"
-					:readOnly="store.is_read_only"
-					@update:field="update_action_field"
-					@open:conditions="open_condition_dialog"
-					@open:config="open_config_dialog"
-				/>
+				>
+					<ActionFieldProperties
+						:nodeData="selectedNode.data"
+						:readOnly="store.is_read_only"
+						@update:field="update_action_field"
+						@open:conditions="open_condition_dialog"
+						@open:config="open_config_dialog"
+					/>
+				</div>
 
 				<!-- Delete Button -->
-				<hr />
-				<button
-					class="btn btn-sm btn-danger w-100"
-					@click="delete_node"
-					:disabled="store.is_read_only"
-				>
-					<i class="fa fa-trash"></i> {{ __("Delete") }}
-				</button>
+				<div class="sidebar-footer" v-if="!store.is_read_only">
+					<button class="fxr-btn text-danger w-100" @click="delete_node">
+						<i class="fa fa-trash-o"></i> {{ __("Delete Node") }}
+					</button>
+				</div>
 			</template>
 		</div>
 	</div>
@@ -94,7 +97,7 @@ import { computed, onMounted } from "vue";
 import { useRuleStore, useGraphStore, useUIStore } from "../stores";
 import ActionFieldProperties from "./ActionFieldProperties.vue";
 import StartNodeProperties from "./StartNodeProperties.vue";
-import { getContract } from "../../core/contracts";
+import { getContract, getActionPresentation } from "../../core/contracts";
 import { mapActionTypeToNodeType } from "../composables/useActionTypeMapper";
 
 // Ensure ProcessConfigurator is loaded
@@ -124,6 +127,11 @@ const sidebar_title = computed(() => {
 	if (data?.action_label) return data.action_label;
 	if (data?.action_type) return __(data.action_type);
 	return selectedNode.value.label || __("Properties");
+});
+
+const actionPresentation = computed(() => {
+	const type = selectedNode.value?.data?.action_type || selectedNode.value?.type;
+	return getActionPresentation(type);
 });
 
 // Check if node is configurable via modal
@@ -172,15 +180,6 @@ function update_action_field(fieldname, value) {
 
 	const oldValue = selectedNode.value.data[fieldname];
 	selectedNode.value.data[fieldname] = value;
-
-	// Support nested nodes natively when mapped
-	if (
-		fieldname === "rule" &&
-		selectedNode.value.data.action_type === "Sub-Rule" &&
-		oldValue !== value
-	) {
-		// store.expand_sub_rule_in_graph removed per user request
-	}
 
 	store.touch_node(selectedNode.value.id);
 	store.mark_dirty();
@@ -244,72 +243,135 @@ onMounted(async () => {
 	height: 100%;
 	display: flex;
 	flex-direction: column;
-	background: #fff;
-}
-
-.sidebar-v2-preview {
-	padding: 10px 15px 5px;
-	border-bottom: 1px solid var(--border-color);
-	background: #f8f9ff;
-}
-
-.selector-placeholder {
-	padding: 12px;
-	border: 1px dashed var(--border-color);
-	border-radius: 8px;
-	background: var(--bg-light, #f8fafc);
-}
-
-.btn-primary-light {
-	background: #eef2ff;
-	color: #4f46e5;
-	border: 1px solid #e0e7ff;
-	font-weight: 600;
-	font-size: 11px;
-}
-
-.btn-primary-light:hover {
-	background: #e0e7ff;
-	border-color: #c7d2fe;
+	background: var(--fr-bg-surface);
 }
 
 .sidebar-header {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 12px 15px;
-	border-bottom: 1px solid var(--border-color);
+	padding: 16px 20px;
+	border-bottom: 1px solid var(--fr-border);
+}
+
+.header-main {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	min-width: 0;
+}
+
+.header-icon {
+	width: 28px;
+	height: 28px;
+	border-radius: 6px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 14px;
+	flex-shrink: 0;
 }
 
 .sidebar-header h4 {
 	margin: 0;
 	font-size: 14px;
-	font-weight: 600;
+	font-weight: 700;
+	color: var(--fr-text);
 }
 
-.btn-close {
-	background: none;
+.btn-close-subtle {
+	width: 24px;
+	height: 24px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: transparent;
 	border: none;
-	font-size: 18px;
+	color: var(--fr-text-muted);
+	border-radius: 4px;
 	cursor: pointer;
-	color: var(--text-muted);
-	padding: 0;
+	transition: all 0.15s;
+}
+
+.btn-close-subtle:hover {
+	background: var(--fr-bg-muted);
+	color: var(--fr-text);
 }
 
 .sidebar-content {
 	flex: 1;
-	padding: 15px;
+	padding: 20px;
 	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+	gap: 20px;
 }
 
-hr {
-	margin: 15px 0;
-	border: none;
-	border-top: 1px solid var(--border-color);
+.sidebar-errors-container {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	background: #fef2f2;
+	border: 1px solid #fecaca;
+	border-radius: var(--fr-radius-lg);
+	padding: 12px;
+}
+
+.error-item {
+	display: flex;
+	gap: 10px;
+	font-size: 12px;
+	color: var(--fr-danger);
+	line-height: 1.4;
+}
+
+.error-item i {
+	margin-top: 2px;
+}
+
+.selector-empty-state {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	text-align: center;
+	padding: 40px 20px;
+}
+
+.sidebar-dialog-trigger {
+	padding: 16px;
+	background: var(--fr-primary-subtle);
+	border: 1px solid rgba(36, 144, 239, 0.2);
+	border-radius: var(--fr-radius-lg);
+}
+
+.inline-properties-wrapper {
+	display: flex;
+	flex-direction: column;
+}
+
+.sidebar-footer {
+	margin-top: auto;
+	padding-top: 20px;
+	border-top: 1px solid var(--fr-border-subtle);
 }
 
 .w-100 {
 	width: 100%;
 }
+
+.truncate {
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.v2-scrollbar::-webkit-scrollbar {
+	width: 4px;
+}
+.v2-scrollbar::-webkit-scrollbar-thumb {
+	background: var(--fr-gray-300);
+	border-radius: 10px;
+}
 </style>
-```

@@ -187,7 +187,7 @@
 			:node="graphStore.nodes.find((n) => n.id === uiStore.selected_id)"
 			@save="ruleStore.mark_dirty()"
 		/>
-		<ShortcutsHelp v-model="uiStore.show_shortcuts_help" />
+		<ShortcutsHelp v-model="uiStore.show_shortcuts_help" :triggerEl="quickActionsButtonRef" />
 		<Teleport to="body">
 			<div
 				v-if="showQuickActions"
@@ -765,19 +765,19 @@ function onEdgeClick({ edge, event }) {
 .controls-panel {
 	display: flex;
 	align-items: center;
-	gap: 10px;
-	background: rgba(255, 255, 255, 0.92);
+	gap: 8px;
+	background: var(--fr-bg-surface);
 	padding: 6px;
-	border-radius: 8px;
-	border: 1px solid var(--border-color);
-	box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+	border-radius: var(--fr-radius-lg);
+	border: 1px solid var(--fr-border);
+	box-shadow: var(--fr-shadow-lg);
 	backdrop-filter: blur(8px);
 	flex-wrap: wrap;
 	max-width: calc(100vw - 28px);
 }
 
 .controls-panel .btn {
-	border-radius: 7px;
+	border-radius: var(--fr-radius-md);
 }
 
 .quick-actions-wrap {
@@ -795,10 +795,10 @@ function onEdgeClick({ edge, event }) {
 }
 
 .fxr-headless-menu {
-	background: var(--fg-color, #fff);
-	border: 1px solid var(--border-color, #e2e8f0);
-	border-radius: 10px;
-	box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16), 0 4px 12px rgba(15, 23, 42, 0.08);
+	background: var(--fr-bg-surface);
+	border: 1px solid var(--fr-border);
+	border-radius: var(--fr-radius-lg);
+	box-shadow: var(--fr-shadow-lg);
 	overflow: hidden;
 	animation: fxr-menu-in 120ms ease-out;
 }
@@ -814,34 +814,37 @@ function onEdgeClick({ edge, event }) {
 	display: grid;
 	grid-template-columns: 18px 1fr auto;
 	align-items: center;
-	gap: 10px;
+	gap: 12px;
 	width: 100%;
-	min-height: 34px;
-	padding: 8px 10px;
+	min-height: 36px;
+	padding: 8px 12px;
 	border: 0;
-	border-radius: 7px;
+	border-radius: var(--fr-radius-md);
 	background: transparent;
-	color: var(--text-color, #1f2937);
+	color: var(--fr-text);
 	font-size: 13px;
 	font-weight: 500;
 	text-align: left;
 	cursor: pointer;
+	transition: all 0.1s;
 }
 
 .quick-action-item i {
-	color: var(--text-muted, #64748b);
+	color: var(--fr-text-muted);
 	text-align: center;
+	font-size: 14px;
 }
 
 .quick-action-item small {
-	color: var(--text-muted, #94a3b8);
+	color: var(--fr-text-muted);
 	font-size: 10px;
 	font-weight: 600;
+	opacity: 0.7;
 }
 
 .quick-action-item:hover,
 .quick-action-item:focus {
-	background: var(--control-bg, #f3f5f7);
+	background: var(--fr-bg-muted);
 	outline: none;
 }
 
@@ -856,22 +859,22 @@ function onEdgeClick({ edge, event }) {
 	display: inline-grid;
 	grid-template-columns: 14px auto auto;
 	align-items: center;
-	gap: 7px;
+	gap: 8px;
 	max-width: 280px;
-	padding: 7px 9px;
-	border-radius: 8px;
-	border: 1px solid #d8e2ef;
-	background: #fff;
-	color: #1f2937;
+	padding: 8px 12px;
+	border-radius: var(--fr-radius-md);
+	border: 1px solid var(--fr-border);
+	background: var(--fr-bg-surface);
+	color: var(--fr-text);
 	font-size: 12px;
 	font-weight: 600;
-	box-shadow: 0 12px 28px rgba(15, 23, 42, 0.16);
+	box-shadow: var(--fr-shadow-lg);
 	pointer-events: auto;
 	cursor: copy;
 }
 
 .fxr-field-inspector i {
-	color: var(--primary, #2490ef);
+	color: var(--fr-primary);
 }
 
 .fxr-field-inspector span {
@@ -913,22 +916,24 @@ function onEdgeClick({ edge, event }) {
 	min-width: 320px;
 	max-width: 440px;
 	height: 100%;
-	border-radius: var(--border-radius-lg);
-	border: 1px solid var(--border-color);
-	background-color: var(--fg-color);
+	border-radius: var(--fr-radius-xl);
+	border: 1px solid var(--fr-border);
+	background-color: var(--fr-bg-surface);
 	order: 2;
 	overflow: hidden;
 	z-index: 5;
+	box-shadow: var(--fr-shadow-sm);
 }
 .canvas-container {
 	flex: 1;
 	min-width: 0;
 	height: 100%;
-	border-radius: var(--border-radius-lg);
-	border: 1px solid var(--border-color);
-	background-color: var(--fg-color);
+	border-radius: var(--fr-radius-xl);
+	border: 1px solid var(--fr-border);
+	background-color: var(--fr-bg-surface);
 	position: relative;
 	order: 1;
+	box-shadow: var(--fr-shadow-sm);
 }
 
 .canvas-container :deep(.vue-flow.is-pan-mode),
@@ -944,11 +949,11 @@ function onEdgeClick({ edge, event }) {
 .execution-panel {
 	min-width: 260px;
 	max-width: 360px;
-	background: #fff;
-	border: 1px solid #d1d8dd;
-	border-radius: 8px;
-	padding: 10px;
-	box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+	background: var(--fr-bg-surface);
+	border: 1px solid var(--fr-border);
+	border-radius: var(--fr-radius-lg);
+	padding: 12px;
+	box-shadow: var(--fr-shadow-lg);
 }
 
 .execution-panel-header {
@@ -980,18 +985,18 @@ function onEdgeClick({ edge, event }) {
 }
 
 .execution-step.status-success {
-	background: #ecfdf3;
+	background: #dcfce7;
 	color: #166534;
 }
 
 .execution-step.status-error {
-	background: #fef2f2;
+	background: #fee2e2;
 	color: #b91c1c;
 }
 
 .execution-step.status-running {
-	background: #eff6ff;
-	color: #1d4ed8;
+	background: #dbeafe;
+	color: #1e40af;
 }
 
 .step-label {
@@ -1088,7 +1093,7 @@ function onEdgeClick({ edge, event }) {
 	background: #fff7ed;
 	color: #9a3412;
 	padding: 4px 10px;
-	border-radius: 6px;
+	border-radius: var(--fr-radius-md);
 	border: 1px solid #ffedd5;
 	font-size: 11px;
 	font-weight: 700;
@@ -1193,7 +1198,7 @@ function onEdgeClick({ edge, event }) {
 /* Sidebar RTL Adjustment */
 .is-rtl .sidebar-rtl {
 	border-left: none;
-	border-right: 1px solid var(--border-color);
+	border-right: 1px solid var(--fr-border);
 }
 
 /* Action Selector RTL */

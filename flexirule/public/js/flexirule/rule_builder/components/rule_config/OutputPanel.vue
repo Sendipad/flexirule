@@ -5,11 +5,11 @@
 			<p class="text-muted small">{{ __("Manage results and data storage") }}</p>
 		</div>
 
-		<div class="panel-sections">
+		<div class="panel-sections v2-scrollbar">
 			<!-- Result Storage Configuration -->
 			<div class="panel-section storage-section">
 				<h5 class="section-title">{{ __("Result Storage") }}</h5>
-				<div class="storage-controls mt-2">
+				<div class="storage-controls mt-3">
 					<ControlFactory
 						v-if="showReturnType"
 						:df="returnTypeField"
@@ -50,47 +50,65 @@
 			<div class="panel-section mapping-section">
 				<div class="section-header">
 					<h5 class="section-title">{{ __("Key Assignments") }}</h5>
-					<button v-if="!readOnly" class="btn btn-xs btn-link" @click="addOutputMapping">
+					<button v-if="!readOnly" class="btn-add" @click="addOutputMapping">
 						<i class="fa fa-plus"></i> {{ __("Add") }}
 					</button>
 				</div>
-				<p class="text-muted extra-small mb-2">
+				<p class="text-muted extra-small mb-3">
 					{{ __("Map specific result keys to context variables.") }}
 				</p>
 
 				<div class="mapping-list">
-					<div v-if="!outputMappings.length" class="empty-state">
-						{{ __("No specific assignments.") }}
+					<div v-if="!outputMappings.length" class="empty-state compact">
+						<p>{{ __("No specific assignments.") }}</p>
 					</div>
-					<div v-for="(m, idx) in outputMappings" :key="'out-' + idx" class="mapping-row">
+					<div
+						v-for="(m, idx) in outputMappings"
+						:key="'out-' + idx"
+						class="mapping-card"
+					>
 						<div class="mapping-inputs">
-							<input
-								type="text"
-								class="form-control input-xs"
-								v-model="m.source"
-								:placeholder="__('Result Key')"
-								:disabled="readOnly"
-								@change="saveOutputMappings"
-							/>
-							<i class="fa fa-arrow-right text-muted mx-1"></i>
-							<ComboBoxControl
-								:df="{ fieldtype: 'Autocomplete', label: '', read_only: readOnly }"
-								:modelValue="m.target"
-								:get_query="getVariableOptions"
-								:placeholder="__('Var')"
-								:read_only="readOnly"
-								@update:modelValue="
-									m.target = $event;
-									saveOutputMappings();
-								"
-							/>
+							<div class="input-wrapper">
+								<span class="input-label">{{ __("Key") }}</span>
+								<input
+									type="text"
+									class="mapping-input-field"
+									v-model="m.source"
+									:placeholder="__('source_key')"
+									:disabled="read_only"
+									@change="saveOutputMappings"
+								/>
+							</div>
+							<div class="mapping-arrow">
+								<i class="fa fa-arrow-right"></i>
+							</div>
+							<div class="input-wrapper">
+								<span class="input-label">{{ __("Target") }}</span>
+								<ComboBoxControl
+									:df="{
+										fieldtype: 'Autocomplete',
+										label: '',
+										read_only: readOnly,
+									}"
+									:modelValue="m.target"
+									:get_query="getVariableOptions"
+									:placeholder="__('variable')"
+									:read_only="readOnly"
+									hideLabel
+									@update:modelValue="
+										m.target = $event;
+										saveOutputMappings();
+									"
+								/>
+							</div>
 						</div>
 						<button
 							v-if="!readOnly"
-							class="btn btn-xs btn-link text-danger"
+							class="btn-remove"
 							@click="removeOutputMapping(idx)"
+							:title="__('Remove Mapping')"
 						>
-							<i class="fa fa-trash"></i>
+							<i class="fa fa-times"></i>
 						</button>
 					</div>
 				</div>
@@ -101,37 +119,39 @@
 			<!-- Return Schema / Discovery -->
 			<div class="panel-section schema-section">
 				<h5 class="section-title">{{ __("Return Schema") }}</h5>
-				<div class="detected-keys-list mt-2">
-					<div v-if="!detectedKeys.length" class="empty-state">
-						{{ __("No schema detected.") }}
+				<div class="detected-keys-list mt-3">
+					<div v-if="!detectedKeys.length" class="empty-state compact">
+						<p>{{ __("No schema detected.") }}</p>
 					</div>
 					<div v-else class="keys-grid">
 						<div
 							v-for="k in detectedKeys"
 							:key="k.fieldname || k.key"
-							class="key-tag"
+							class="schema-tag"
 							:title="`${k.fieldname || k.key} (${k.fieldtype || 'Data'})`"
 						>
-							<i class="fa fa-info-circle mr-1 opacity-70"></i>
-							{{ k.label || k.fieldname || k.key }}
+							<span class="tag-label">{{ k.label || k.fieldname || k.key }}</span>
+							<span class="tag-type">{{ k.fieldtype || "Data" }}</span>
 						</div>
 					</div>
 				</div>
 
 				<div
-					class="form-group mt-3"
+					class="manual-schema-box mt-4"
 					v-if="
 						showResolvedSchema &&
 						node.data?.return_type &&
 						node.data?.return_type !== 'Yes / No'
 					"
 				>
-					<label class="section-title mini">{{ __("Manual Schema (JSON)") }}</label>
-					<ControlFactory
-						:df="resolvedSchemaField"
-						:modelValue="serializeSchema(node.data?.resolved_output_schema)"
-						@update:modelValue="updateField('resolved_output_schema', $event)"
-					/>
+					<label class="section-title mini mb-2">{{ __("Manual Schema (JSON)") }}</label>
+					<div class="schema-editor-wrapper">
+						<ControlFactory
+							:df="resolvedSchemaField"
+							:modelValue="serializeSchema(node.data?.resolved_output_schema)"
+							@update:modelValue="updateField('resolved_output_schema', $event)"
+						/>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -172,7 +192,7 @@ const policyContext = computed(() => ({
 
 const panelStyleVars = computed(() => {
 	const actionType = props.node?.data?.action_type || props.node?.type;
-	const accent = getContract(actionType)?.css?.color || "var(--fxr-accent)";
+	const accent = getContract(actionType)?.css?.color || "var(--fr-primary)";
 	return {
 		"--fxr-node-accent": accent,
 		"--fxr-node-accent-light": `color-mix(in srgb, ${accent} 12%, white)`,
@@ -502,33 +522,29 @@ defineExpose({ validate });
 	display: flex;
 	flex-direction: column;
 	height: 100%;
-	background: var(--fxr-bg-page);
+	background: var(--fr-bg-page);
 }
 
 .panel-header {
-	padding: 20px;
-	border-bottom: 1px solid var(--border-color);
+	padding: 16px 20px;
+	border-bottom: 1px solid var(--fr-border);
+	background: var(--fr-bg-surface);
 }
 
 .panel-header h4 {
 	margin: 0 0 4px 0;
-	font-size: 15px;
-	font-weight: 600;
-}
-
-.output-panel {
-	display: flex;
-	flex-direction: column;
-	height: 100%;
+	font-size: 14px;
+	font-weight: 700;
+	color: var(--fr-text);
 }
 
 .panel-sections {
 	flex: 1;
 	overflow-y: auto;
-	padding: var(--fxr-space-8);
+	padding: 16px;
 	display: flex;
 	flex-direction: column;
-	gap: 24px;
+	gap: 32px;
 }
 
 .panel-section {
@@ -540,7 +556,6 @@ defineExpose({ validate });
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	margin-bottom: 8px;
 }
 
 .section-title {
@@ -548,118 +563,195 @@ defineExpose({ validate });
 	font-size: 11px;
 	font-weight: 700;
 	text-transform: uppercase;
-	letter-spacing: 0.5px;
-	color: #64748b;
+	letter-spacing: 0.05em;
+	color: var(--fr-text-muted);
 }
 
 .section-divider {
 	height: 1px;
-	background: #f1f5f9;
+	background: var(--fr-border-subtle);
 	margin: 0;
+}
+
+.btn-add {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 10px;
+	background: var(--fr-gray-900);
+	color: var(--fr-gray-0);
+	border: none;
+	border-radius: 6px;
+	font-size: 11px;
+	font-weight: 600;
+	cursor: pointer;
+	transition: all 0.15s;
+}
+
+.btn-add:hover {
+	background: var(--fr-gray-800);
+	transform: translateY(-1px);
 }
 
 .mapping-list {
 	display: flex;
 	flex-direction: column;
-	gap: 8px;
+	gap: 12px;
 }
 
-.mapping-row {
+.mapping-card {
 	display: flex;
-	align-items: center;
-	gap: 8px;
+	align-items: flex-start;
+	gap: 10px;
+	background: var(--fr-bg-surface);
+	border: 1px solid var(--fr-border);
+	border-radius: var(--fr-radius-lg);
+	padding: 12px;
+	box-shadow: var(--fr-shadow-sm);
+	position: relative;
 }
 
 .mapping-inputs {
 	flex: 1;
 	display: flex;
 	align-items: center;
-	padding: 4px 8px;
-	border: 1px solid #e2e8f0;
-	border-radius: 8px;
-	background: #f8fafc;
-	transition: border-color 0.2s;
+	gap: 12px;
 }
 
-.mapping-inputs:focus-within {
-	border-color: var(--fxr-node-accent, var(--fxr-accent));
-	background: #fff;
-	box-shadow: 0 0 0 2px var(--fxr-node-accent-light, var(--fxr-accent-light));
-}
-
-.mapping-inputs :deep(.autocomplete-control),
-.mapping-inputs input {
-	border: none;
-	background: transparent;
-	font-size: 12px;
-	padding: 0;
-	height: 24px;
-}
-
-.mapping-inputs :deep(.autocomplete-control) {
+.input-wrapper {
 	flex: 1;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
 }
 
-.empty-state {
-	padding: 16px;
+.input-label {
+	font-size: 9px;
+	font-weight: 700;
+	text-transform: uppercase;
+	color: var(--fr-text-muted);
+	letter-spacing: 0.02em;
+}
+
+.mapping-input-field {
+	height: 32px;
+	width: 100%;
+	padding: 0 8px;
+	border: 1px solid var(--fr-border);
+	border-radius: var(--fr-radius-md);
+	background: var(--fr-bg-muted);
+	font-size: 12px;
+	font-family: var(--fxr-font-mono);
+	outline: none;
+	transition: all 0.15s;
+}
+
+.mapping-input-field:focus {
+	background: var(--fr-bg-surface);
+	border-color: var(--fr-primary);
+	box-shadow: 0 0 0 2px var(--fr-primary-subtle);
+}
+
+.mapping-arrow {
+	color: var(--fr-text-muted);
+	opacity: 0.5;
+	margin-top: 18px;
+}
+
+.btn-remove {
+	width: 20px;
+	height: 20px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	background: var(--fr-gray-100);
+	border: none;
+	border-radius: 50%;
+	color: var(--fr-text-muted);
+	cursor: pointer;
+	transition: all 0.15s;
+	flex-shrink: 0;
+	margin-top: -6px;
+	margin-right: -6px;
+}
+
+.btn-remove:hover {
+	background: #fee2e2;
+	color: var(--fr-danger);
+}
+
+.empty-state.compact {
+	padding: 20px;
 	text-align: center;
-	color: #94a3b8;
-	font-size: 11px;
-	background: #f8fafc;
-	border: 1px dashed #e2e8f0;
-	border-radius: 8px;
-}
-
-.extra-small {
-	font-size: 10px;
-}
-
-.input-xs {
-	height: 24px !important;
-	padding: 0 4px !important;
-	font-size: 11px !important;
+	background: var(--fr-bg-muted);
+	border: 1px dashed var(--fr-border);
+	border-radius: var(--fr-radius-lg);
+	color: var(--fr-text-muted);
+	font-size: 12px;
 }
 
 .keys-grid {
 	display: flex;
 	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.schema-tag {
+	display: inline-flex;
+	align-items: center;
 	gap: 6px;
+	padding: 4px 10px;
+	background: var(--fr-bg-surface);
+	border: 1px solid var(--fr-border);
+	border-radius: 20px;
+	box-shadow: var(--fr-shadow-sm);
 }
 
-.key-tag {
-	font-size: 10px;
+.tag-label {
+	font-size: 12px;
 	font-weight: 600;
-	padding: 2px 8px;
-	background: #f1f5f9;
-	color: #475569;
-	border-radius: 4px;
-	border: 1px solid #e2e8f0;
+	color: var(--fr-text);
 }
 
-:deep(.form-control:focus),
-:deep(.awesomplete input:focus),
-:deep(.multiselect__input:focus) {
-	border-color: var(--fxr-node-accent, var(--fxr-border-focus)) !important;
-	box-shadow: 0 0 0 2px var(--fxr-node-accent-light, var(--fxr-accent-light)) !important;
+.tag-type {
+	font-size: 10px;
+	font-weight: 700;
+	color: var(--fr-text-muted);
+	text-transform: uppercase;
+	background: var(--fr-gray-100);
+	padding: 1px 6px;
+	border-radius: 4px;
+}
+
+.schema-editor-wrapper {
+	border: 1px solid var(--fr-border);
+	border-radius: var(--fr-radius-lg);
+	overflow: hidden;
+	box-shadow: var(--fr-shadow-sm);
+}
+
+.v2-scrollbar::-webkit-scrollbar {
+	width: 4px;
+}
+.v2-scrollbar::-webkit-scrollbar-thumb {
+	background: var(--fr-gray-300);
+	border-radius: 10px;
+}
+
+.extra-small {
+	font-size: 11px;
 }
 
 @media (max-width: 768px) {
-	.panel-sections {
-		padding: var(--fxr-space-4);
-		gap: var(--fxr-space-5);
-	}
-
-	.mapping-row {
-		align-items: stretch;
-		flex-direction: column;
-	}
-
 	.mapping-inputs {
-		width: 100%;
+		flex-direction: column;
+		align-items: stretch;
+		gap: 8px;
 	}
-}
-
-:deep(.control-factory) {
-	margin-bottom: 0;
+	.mapping-arrow {
+		margin: 0;
+		text-align: center;
+		transform: rotate(90deg);
+	}
 }
 </style>

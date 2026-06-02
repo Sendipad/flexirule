@@ -1,130 +1,59 @@
 <template>
 	<div class="sub-rule-config">
-		<div v-if="!node.data?.rule" class="empty-mode-state text-center p-5">
-			<i class="fa fa-cube fa-3x text-muted mb-3 opacity-20"></i>
-			<p class="text-muted">
-				{{ __("Please select a Sub-Rule in the Setup panel to proceed.") }}
-			</p>
-		</div>
-
-		<div v-else class="config-container">
-			<div class="sub-section section-subcard">
-				<h6>{{ __("Execution Permission") }}</h6>
-				<ControlFactory
-					:df="{
-						fieldname: 'skip_permissions',
-						fieldtype: 'Check',
-						label: __('Skip Permissions'),
-						description: __(
-							'Bypass callee permission checks for this sub-rule call. Requires audit reason.'
-						),
-						read_only: read_only,
-					}"
-					:modelValue="node?.data?.skip_permissions"
-					@update:modelValue="(val) => update_action_key('skip_permissions', val)"
-				/>
-				<ControlFactory
-					v-if="!!node?.data?.skip_permissions"
-					:df="{
-						fieldname: 'permission_audit_reason',
-						fieldtype: 'Small Text',
-						label: __('Permission Audit Reason'),
-						read_only: read_only,
-					}"
-					:modelValue="node?.data?.permission_audit_reason"
-					@update:modelValue="(val) => update_action_key('permission_audit_reason', val)"
-				/>
+		<div class="fxr-stack fxr-stack--gap-4">
+			<div class="fxr-card">
+				<div class="fxr-card-header">
+					<span class="fxr-label-sm">{{ __("Target Rule") }}</span>
+				</div>
+				<div class="fxr-card-body">
+					<ControlFactory
+						:df="ruleField"
+						:modelValue="node.data.rule"
+						@update:modelValue="onRuleChange"
+					/>
+				</div>
 			</div>
 
-			<div class="alert alert-info py-2 px-3 small mb-3">
-				<i class="fa fa-info-circle"></i>
-				{{ __("Configuring Sub-Rule: {0}").replace("{0}", node.data.rule) }}
-			</div>
-
-			<div class="sub-section section-subcard">
-				<div class="d-flex justify-content-between align-items-center mb-2">
-					<h6 class="mb-0">{{ __("Input Mappings") }}</h6>
-					<div class="btn-group">
-						<button
-							class="btn btn-xs"
-							:class="view === 'list' ? 'btn-primary' : 'btn-default'"
-							@click="view = 'list'"
-						>
-							<i class="fa fa-list"></i>
-						</button>
-						<button
-							class="btn btn-xs"
-							:class="view === 'visual' ? 'btn-primary' : 'btn-default'"
-							@click="view = 'visual'"
-						>
-							<i class="fa fa-exchange"></i>
-						</button>
-					</div>
+			<div class="fxr-card" v-if="node.data.rule">
+				<div class="fxr-card-header d-flex align-items-center justify-content-between">
+					<span class="fxr-label-sm">{{ __("Input Arguments") }}</span>
 					<button
-						v-if="!read_only && view === 'list'"
-						class="btn btn-xs btn-outline-primary"
-						@click="add_mapping"
+						v-if="!readOnly"
+						class="fxr-btn btn-xs"
+						@click="autoMap"
+						:title="__('Map from current context')"
 					>
-						<i class="fa fa-plus"></i> {{ __("Add Mapping") }}
+						<i class="fa fa-magic"></i> {{ __("Auto Map") }}
 					</button>
 				</div>
-				<p class="text-muted small mb-2">
-					{{ __("Map variables from the parent context to sub-rule parameters.") }}
-				</p>
-
-				<div v-if="view === 'list'" class="table-rows">
-					<div v-for="(row, idx) in mapping_rows" :key="idx" class="row-item mapping-row">
-						<div class="mapping-cell">
-							<label class="small text-muted mb-1">{{ __("Parent Variable") }}</label>
-							<ComboBoxControl
-								:df="{ label: '', fieldtype: 'Autocomplete' }"
-								v-model="row.source"
-								:get_query="get_variable_options"
-								:read_only="read_only"
-								:hideLabel="true"
-								@update:modelValue="sync_local_config"
-							/>
-						</div>
-						<div class="mapping-arrow text-center">
-							<i class="fa fa-arrow-right text-muted"></i>
-						</div>
-						<div class="mapping-cell">
-							<label class="small text-muted mb-1">{{ __("Sub-Rule Param") }}</label>
-							<input
-								type="text"
-								class="form-control form-control-sm"
-								v-model="row.target"
-								:placeholder="__('Sub-Rule Parameter')"
-								:disabled="read_only"
-								@input="sync_local_config"
-							/>
-						</div>
-						<div class="mapping-actions">
-							<button
-								v-if="!read_only"
-								class="btn btn-xs btn-link text-danger mt-4"
-								@click="remove_mapping(idx)"
-							>
-								<i class="fa fa-trash"></i>
-							</button>
+				<div class="fxr-card-body">
+					<div v-if="loading" class="text-center py-4">
+						<div class="spinner-border spinner-border-sm text-primary opacity-50"></div>
+					</div>
+					<div v-else-if="!ruleArguments.length" class="empty-state compact">
+						<p>{{ __("This rule has no input arguments defined.") }}</p>
+					</div>
+					<div v-else class="fxr-stack fxr-stack--gap-3">
+						<div
+							v-for="arg in ruleArguments"
+							:key="arg.fieldname"
+							class="argument-row fxr-row fxr-row--gap-4"
+						>
+							<div class="arg-info flex-1">
+								<span class="arg-label">{{ arg.label || arg.fieldname }}</span>
+								<span class="arg-type">{{ arg.fieldtype }}</span>
+							</div>
+							<div class="arg-input flex-2">
+								<FlexValueControl
+									:modelValue="config.arguments?.[arg.fieldname]"
+									:context="{ df: arg }"
+									:read_only="readOnly"
+									:engine="store"
+									@update:modelValue="updateArg(arg.fieldname, $event)"
+								/>
+							</div>
 						</div>
 					</div>
-					<div
-						v-if="!mapping_rows.length"
-						class="text-center p-3 border rounded dashed bg-light"
-					>
-						<span class="text-muted small">{{ __("No mappings defined") }}</span>
-					</div>
-				</div>
-
-				<div v-else class="visual-mapper">
-					<TransformControl
-						:modelValue="visual_mappings"
-						:sourceSchema="source_schema"
-						:targetSchema="target_schema"
-						:readOnly="read_only"
-						@update:modelValue="update_visual_mappings"
-					/>
 				</div>
 			</div>
 		</div>
@@ -132,199 +61,141 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted, computed } from "vue";
-import { useStore } from "../../../stores";
-import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
-import TransformControl from "../../../controls/TransformControl.vue";
+import { ref, onMounted, watch } from "vue";
+import { useActionConfig } from "../../../composables/useActionConfig";
 import ControlFactory from "../../../controls/ControlFactory.vue";
+import FlexValueControl from "../../../controls/FlexValueControl.vue";
 
 const props = defineProps({
 	node: Object,
-	read_only: Boolean,
+	readOnly: Boolean,
 });
 
-const store = useStore();
-const emit = defineEmits(["update:field"]);
+const { config, update_action_field, store } = useActionConfig(props);
+const ruleArguments = ref([]);
+const loading = ref(false);
 
-const mapping_rows = ref([]);
-const view = ref("list");
-
-const source_schema = computed(() => {
-	const vars = store.variables || [];
-	return vars.map((v) => ({
-		label: v.label || v.name,
-		value: v.name || v.value,
-		fieldtype: v.type || "Data",
-	}));
-});
-
-const target_schema = computed(() => {
-	// For now, we use existing targets as the schema.
-	// In the future, we should fetch actual sub-rule params.
-	const targets = mapping_rows.value.map((r) => r.target).filter(Boolean);
-	return [...new Set(targets)].map((t) => ({
-		label: t,
-		value: t,
-		fieldtype: "Data",
-	}));
-});
-
-const visual_mappings = computed(() => {
-	return mapping_rows.value.map((r) => ({
-		source: r.source,
-		target: r.target,
-		source_label: r.source,
-		target_label: r.target,
-	}));
-});
-
-function update_visual_mappings(mappings) {
-	mapping_rows.value = mappings.map((m) => ({
-		source: m.source,
-		target: m.target,
-	}));
-	sync_local_config();
-}
-
-// Method for Parent Variable autocomplete options
-const get_variable_options = async () => {
-	const vars = store.variables || [];
-	return vars.map((v) => ({
-		value: v.name || v.value,
-		label: v.label || v.name,
-		description: v.description || v.type || "",
-	}));
+const ruleField = {
+	fieldname: "rule",
+	fieldtype: "Link",
+	label: __("Sub-Rule"),
+	options: "Rule",
+	get_query: () => {
+		const parentDocType = store.rule_doc?.document_type;
+		const filters = {
+			trigger_type: "Callable Event",
+			exposed_as_subrule: 1,
+			is_active: 1,
+			name: ["!=", store.rule_name || ""],
+		};
+		if (parentDocType) {
+			filters.document_type = ["in", [parentDocType, ""]];
+		}
+		return { filters };
+	},
 };
 
-function add_mapping() {
-	mapping_rows.value.push({ source: "", target: "" });
-	// Don't sync yet, wait for user input
+async function fetchRuleArgs(ruleName) {
+	if (!ruleName) {
+		ruleArguments.value = [];
+		return;
+	}
+	loading.value = true;
+	try {
+		const args = await frappe.xcall("flexirule.ruleflow.doctype.rule.rule.get_rule_arguments", {
+			rule_name: ruleName,
+		});
+		ruleArguments.value = args || [];
+	} catch (e) {
+		ruleArguments.value = [];
+	} finally {
+		loading.value = false;
+	}
 }
 
-function remove_mapping(idx) {
-	mapping_rows.value.splice(idx, 1);
-	sync_local_config();
+function onRuleChange(val) {
+	update_action_field("rule", val);
+	fetchRuleArgs(val);
 }
 
-function sync_local_config() {
-	const mappings = mapping_rows.value
-		.filter((r) => r.source || r.target) // Allow partial rows during edit
-		.map((r) => ({ source: r.source, target: r.target }));
-
-	// Update the 'config' object in node data
-	const currentConfig = props.node.data.config || {};
-	const newConfig = {
-		...(typeof currentConfig === "string" ? JSON.parse(currentConfig) : currentConfig),
-		input_mapping: mappings.length ? mappings : null,
-	};
-
-	emit("update:field", "config", newConfig);
+function updateArg(fieldname, value) {
+	if (!config.arguments) config.arguments = {};
+	config.arguments[fieldname] = value;
+	update_action_field("config", JSON.stringify(config));
 }
 
-function update_action_key(key, value) {
-	emit("update:field", key, value);
-}
-
-function load_local_config() {
-	let config = props.node.data.config || {};
-	if (typeof config === "string") {
-		try {
-			config = JSON.parse(config);
-		} catch (e) {
-			config = {};
+function autoMap() {
+	if (!config.arguments) config.arguments = {};
+	ruleArguments.value.forEach((arg) => {
+		if (!config.arguments[arg.fieldname]) {
+			config.arguments[arg.fieldname] = `{{ doc.${arg.fieldname} }}`;
 		}
-	}
-	const mappings = config.input_mapping || [];
-	mapping_rows.value = Array.isArray(mappings)
-		? mappings.map((m) => ({
-				source: m.source || m.source_expression || "",
-				target: m.target || "",
-		  }))
-		: [];
+	});
+	update_action_field("config", JSON.stringify(config));
 }
-
-function validate() {
-	const incomplete = mapping_rows.value.find(
-		(row) => (row.source && !row.target) || (!row.source && row.target)
-	);
-	if (incomplete) {
-		frappe.msgprint(
-			__("Each input mapping row must include both Parent Variable and Sub-Rule Param.")
-		);
-		return false;
-	}
-	return true;
-}
-
-watch(
-	() => props.node.data.rule,
-	(newRule) => {
-		if (newRule) {
-			store.fetch_available_rules();
-		}
-	}
-);
 
 onMounted(() => {
-	if (!store.available_rules.length) {
-		store.fetch_available_rules();
+	if (props.node.data?.rule) {
+		fetchRuleArgs(props.node.data.rule);
 	}
-	load_local_config();
 });
 
-defineExpose({ validate });
+watch(
+	() => props.node.data?.rule,
+	(newVal) => {
+		fetchRuleArgs(newVal);
+	}
+);
 </script>
 
 <style scoped>
-.config-container {
+.sub-rule-config {
 	display: flex;
 	flex-direction: column;
-	gap: 16px;
 }
 
-.section-subcard {
-	border: 1px solid var(--border-color, #d1d8dd);
-	border-radius: 8px;
-	padding: 16px;
-	background: #fff;
-	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+.argument-row {
+	padding: 10px 0;
+	border-bottom: 1px solid var(--fr-border-subtle);
 }
 
-.table-rows {
-	display: flex;
-	flex-direction: column;
-	gap: 12px;
-}
-
-.mapping-row {
-	display: grid;
-	grid-template-columns: 1fr 24px 1fr auto;
-	gap: 8px;
-	align-items: flex-start;
-	padding-bottom: 12px;
-	border-bottom: 1px solid #f2f2f2;
-}
-
-.mapping-row:last-child {
+.argument-row:last-child {
 	border-bottom: none;
-	padding-bottom: 0;
 }
 
-.mapping-cell {
+.arg-info {
 	display: flex;
 	flex-direction: column;
+	gap: 2px;
 }
 
-.mapping-arrow {
-	padding-top: 28px;
+.arg-label {
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--fr-text);
 }
 
-.dashed {
-	border-style: dashed !important;
+.arg-type {
+	font-size: 10px;
+	font-weight: 700;
+	text-transform: uppercase;
+	color: var(--fr-text-muted);
 }
 
-.fa-arrow-right {
-	font-size: 14px;
-	opacity: 0.5;
+.flex-1 {
+	flex: 1;
+}
+.flex-2 {
+	flex: 2;
+}
+
+.empty-state.compact {
+	padding: 24px;
+	text-align: center;
+	background: var(--fr-bg-muted);
+	border: 1px dashed var(--fr-border);
+	border-radius: var(--fr-radius-lg);
+	color: var(--fr-text-muted);
+	font-size: 13px;
 }
 </style>

@@ -1,5 +1,5 @@
 <template>
-	<div class="tg-mention-list" v-if="items.length">
+	<div class="tg-mention-list fxr-popover" v-if="items.length">
 		<div class="tg-mention-header" v-if="triggerChar === '@'">
 			<i class="fa fa-at"></i> {{ t("Variables") }}
 		</div>
@@ -143,49 +143,44 @@ export default {
 
 <style scoped>
 .tg-mention-list {
-	background: #fff;
-	border: 1px solid #e2e8f0;
-	border-radius: 12px;
-	box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 	padding: 4px;
-	min-width: 220px;
+	min-width: 240px;
 	overflow: hidden;
-	z-index: 1000;
 }
 
 .tg-mention-header {
-	padding: 8px 12px;
+	padding: 10px 14px;
 	font-size: 10px;
 	font-weight: 700;
-	color: #94a3b8;
+	color: var(--fr-text-muted);
 	text-transform: uppercase;
 	letter-spacing: 0.05em;
-	border-bottom: 1px solid #f1f5f9;
+	border-bottom: 1px solid var(--fr-border-subtle);
 	margin-bottom: 4px;
 }
 
 .tg-mention-scroller {
-	max-height: 240px;
+	max-height: 300px;
 	overflow-y: auto;
 }
 
 .tg-mention-item {
 	display: flex;
 	align-items: center;
-	gap: 10px;
+	gap: 12px;
 	padding: 8px 12px;
 	width: 100%;
 	border: none;
 	background: transparent;
-	border-radius: 8px;
+	border-radius: var(--fr-radius-md);
 	cursor: pointer;
 	text-align: left;
-	transition: all 0.2s;
+	transition: all 0.15s;
 }
 
 .tg-mention-item:hover,
 .tg-mention-item.is-selected {
-	background: #f1f5f9;
+	background: var(--fr-bg-muted);
 }
 
 .item-icon {
@@ -216,7 +211,7 @@ export default {
 .item-label {
 	font-size: 13px;
 	font-weight: 600;
-	color: #1e293b;
+	color: var(--fr-text);
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -224,7 +219,7 @@ export default {
 
 .item-description {
 	font-size: 11px;
-	color: #64748b;
+	color: var(--fr-text-muted);
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -238,7 +233,7 @@ export default {
 .tg-mention-empty {
 	padding: 16px;
 	text-align: center;
-	color: #94a3b8;
+	color: var(--fr-text-muted);
 	font-size: 12px;
 }
 </style>

@@ -78,7 +78,7 @@
 						</h5>
 						<div class="section-actions">
 							<button
-								class="btn btn-xs btn-link"
+								class="btn-icon-subtle"
 								@click="variablesCollapsed = !variablesCollapsed"
 								:title="
 									variablesCollapsed
@@ -95,29 +95,25 @@
 							</button>
 							<button
 								v-if="!variablesCollapsed"
-								class="btn btn-xs btn-link"
+								class="btn-icon-subtle"
 								@click="refreshVariables"
 							>
 								<i class="fa fa-refresh"></i>
 							</button>
 						</div>
 					</div>
-					<div v-if="!variablesCollapsed" class="variable-search mb-2">
-						<div class="input-group input-group-sm">
-							<div class="input-group-prepend">
-								<span class="input-group-text"><i class="fa fa-search"></i></span>
-							</div>
-							<input
-								ref="variableSearchRef"
-								type="text"
-								class="form-control"
-								v-model="searchQuery"
-								:placeholder="__('Search variables...')"
-							/>
-						</div>
+					<div v-if="!variablesCollapsed" class="variable-search-wrapper mb-3">
+						<i class="fa fa-search search-icon"></i>
+						<input
+							ref="variableSearchRef"
+							type="text"
+							class="search-input"
+							v-model="searchQuery"
+							:placeholder="__('Search variables...')"
+						/>
 					</div>
 
-					<div v-if="!variablesCollapsed" class="variable-list v2-scrollbar">
+					<div v-if="!variablesCollapsed" class="variable-list">
 						<div v-if="loading" class="text-center p-3">
 							<div class="spinner-border spinner-border-sm text-muted"></div>
 						</div>
@@ -125,7 +121,7 @@
 							<div
 								v-for="v in filteredVariables"
 								:key="v.value"
-								class="variable-item"
+								class="variable-card"
 								:title="v.label"
 								draggable="true"
 								tabindex="0"
@@ -138,23 +134,34 @@
 							>
 								<div class="variable-info">
 									<span class="variable-label">{{ v.label }}</span>
-									<span class="variable-type">{{ v.type || "Data" }}</span>
+									<span class="variable-path">{{ v.value }}</span>
 								</div>
-								<button
-									class="btn btn-xs btn-link text-muted opacity-20 hover-opacity-100"
-									tabindex="-1"
-									@click.stop="copyToClipboard(`{{ ${v.value} }}`)"
-									:title="__('Copy to clipboard')"
-								>
-									<i class="fa fa-copy"></i>
-								</button>
+								<div class="variable-actions">
+									<span v-if="v.type" class="variable-type-tag">{{
+										v.type
+									}}</span>
+									<button
+										class="copy-btn"
+										@click.stop="copyToClipboard(v.value)"
+										:title="__('Copy to clipboard')"
+									>
+										<i
+											v-if="copiedId === v.value"
+											class="fa fa-check text-success"
+										></i>
+										<i v-else class="fa fa-copy"></i>
+									</button>
+								</div>
 							</div>
 							<div v-if="filteredVariables.length === 0" class="empty-state">
-								{{
-									searchQuery
-										? __("No matching variables")
-										: __("No scope variables available")
-								}}
+								<i class="fa fa-search opacity-20 mb-2"></i>
+								<p>
+									{{
+										searchQuery
+											? __("No matching variables")
+											: __("No scope variables available")
+									}}
+								</p>
 							</div>
 						</template>
 					</div>
@@ -172,21 +179,17 @@
 						{{ __("Document Data") }}
 					</h5>
 
-					<div class="variable-search mb-2">
-						<div class="input-group input-group-sm">
-							<div class="input-group-prepend">
-								<span class="input-group-text"><i class="fa fa-search"></i></span>
-							</div>
-							<input
-								type="text"
-								class="form-control"
-								v-model="fieldSearchQuery"
-								:placeholder="__('Search fields...')"
-							/>
-						</div>
+					<div class="variable-search-wrapper mb-3">
+						<i class="fa fa-search search-icon"></i>
+						<input
+							type="text"
+							class="search-input"
+							v-model="fieldSearchQuery"
+							:placeholder="__('Search fields...')"
+						/>
 					</div>
 
-					<div class="variable-list v2-scrollbar mt-2">
+					<div class="variable-list mt-2">
 						<div v-if="loadingFields" class="text-center p-2">
 							<div class="spinner-border spinner-border-sm text-muted"></div>
 						</div>
@@ -220,7 +223,7 @@
 										<div
 											v-for="f in group.fields"
 											:key="f.fieldname"
-											class="tree-item"
+											class="variable-card compact"
 											:title="f.label"
 											draggable="true"
 											tabindex="0"
@@ -232,8 +235,34 @@
 											@keydown.down.prevent="focusSibling($event, 1)"
 											@keydown.up.prevent="focusSibling($event, -1)"
 										>
-											<span class="tree-item-label">{{ f.fieldname }}</span>
-											<span class="tree-item-type">({{ f.fieldtype }})</span>
+											<div class="variable-info">
+												<span class="variable-label">{{
+													f.fieldname
+												}}</span>
+											</div>
+											<div class="variable-actions">
+												<span class="variable-type-tag">{{
+													f.fieldtype
+												}}</span>
+												<button
+													class="copy-btn"
+													@click.stop="
+														copyToClipboard(
+															buildFieldPath(f, groupName)
+														)
+													"
+													:title="__('Copy to clipboard')"
+												>
+													<i
+														v-if="
+															copiedId ===
+															buildFieldPath(f, groupName)
+														"
+														class="fa fa-check text-success"
+													></i>
+													<i v-else class="fa fa-copy"></i>
+												</button>
+											</div>
 										</div>
 									</div>
 								</div>
@@ -242,10 +271,14 @@
 					</div>
 
 					<div class="tips-box mt-4">
-						<h6><i class="fa fa-info-circle text-primary"></i> {{ __("Tips") }}</h6>
-						<ul>
-							<li>{{ __("Drag & drop to insert") }}</li>
-						</ul>
+						<h6><i class="fa fa-lightbulb-o text-warning"></i> {{ __("Tips") }}</h6>
+						<p class="text-muted extra-small mb-0">
+							{{
+								__(
+									"Drag variables to the canvas or click to insert into active editor."
+								)
+							}}
+						</p>
 					</div>
 				</div>
 			</div>
@@ -260,13 +293,14 @@ import { insertIntoActiveTGC } from "../../utils/tgc_focus";
 import { copyText } from "../../../utils/clipboard";
 
 const variableSearchRef = ref(null);
+const copiedId = ref(null);
 
 function focusSibling(e, direction) {
 	const el = e.target;
 	const sibling = direction > 0 ? el.nextElementSibling : el.previousElementSibling;
 	if (
 		sibling &&
-		(sibling.classList.contains("variable-item") || sibling.classList.contains("tree-item"))
+		(sibling.classList.contains("variable-card") || sibling.classList.contains("tree-item"))
 	) {
 		sibling.focus();
 	}
@@ -279,6 +313,14 @@ function focusSearch() {
 	nextTick(() => {
 		variableSearchRef.value?.focus();
 	});
+}
+
+function copyToClipboard(text) {
+	copyText(text);
+	copiedId.value = text;
+	setTimeout(() => {
+		if (copiedId.value === text) copiedId.value = null;
+	}, 2000);
 }
 
 defineExpose({
@@ -336,7 +378,7 @@ const contract = computed(() => {
 });
 
 const panelStyleVars = computed(() => {
-	const accent = contract.value?.css?.color || "var(--fxr-accent)";
+	const accent = contract.value?.css?.color || "var(--fr-primary)";
 	return {
 		"--fxr-node-accent": accent,
 		"--fxr-node-accent-light": `color-mix(in srgb, ${accent} 12%, white)`,
@@ -618,8 +660,6 @@ function onDragStart(event, item, isField = false, groupName = "") {
 			if (groupName === doctypeContext.value || !groupName) {
 				path = `doc.${item.fieldname}`;
 			} else {
-				// Child table field. If there's a loop iterator, use that?
-				// Without active context, we just drag the raw fieldname or table.fieldname
 				path = `${item.fieldname}`;
 			}
 		} else {
@@ -654,7 +694,6 @@ async function loadDoctypeFields() {
 	loadingFields.value = true;
 	try {
 		doctypeFields.value = await flexirule.utils.get_doctype_fields(dt);
-		// Expand root group by default
 		expandedGroups.value[dt] = true;
 	} catch (e) {
 		doctypeFields.value = [];
@@ -668,7 +707,6 @@ function updateField(fieldname, value) {
 		if (fieldname === "operation") {
 			const actionType = props.node.data?.action_type;
 
-			// Handle Document Action special modes
 			if (actionType === "Document Action") {
 				const isSpecialCreateDocsMode = ["Add Comment", "Create ToDo"].includes(value);
 				if (value === "Add Comment") {
@@ -686,7 +724,6 @@ function updateField(fieldname, value) {
 				}
 
 				if (isSpecialCreateDocsMode) {
-					// These modes act on the current context document
 					props.node.data.mutation_mode = null;
 					props.node.data.return_variable = null;
 					props.node.data.return_type = null;
@@ -695,7 +732,6 @@ function updateField(fieldname, value) {
 				}
 			}
 
-			// Handle Query Records -> Query Report special mode
 			if (actionType === "Query Records" && value === "Query Report") {
 				props.node.data.reference_doctype = "Report";
 				props.node.data.reference_docname = null;
@@ -703,7 +739,6 @@ function updateField(fieldname, value) {
 				actionType === "Query Records" &&
 				props.node.data.reference_doctype === "Report"
 			) {
-				// Switching away from report mode should restore an editable doctype context.
 				props.node.data.reference_doctype = store.rule_doc?.document_type || null;
 			}
 
@@ -859,21 +894,16 @@ onMounted(() => {
 	refreshVariables();
 });
 
-/**
- * Smart insert: if a TextGeneratorControl is focused, insert directly.
- * Otherwise fall back to clipboard.
- */
 function insertOrCopy(path) {
 	const expr = `{{ ${path} }}`;
 	const inserted = insertIntoActiveTGC(path);
 	if (!inserted) {
-		copyText(expr);
+		copyToClipboard(expr);
 	} else {
 		frappe?.show_alert?.({ message: `${__("Inserted")}: ${expr}`, indicator: "blue" }, 1);
 	}
 }
 
-/** Build the Jinja path for a doc field based on its group context. */
 function buildFieldPath(field, groupName) {
 	if (!groupName || groupName === doctypeContext.value) return `doc.${field.fieldname}`;
 	return field.fieldname;
@@ -885,50 +915,26 @@ function buildFieldPath(field, groupName) {
 	display: flex;
 	flex-direction: column;
 	height: 100%;
-	background: var(--fxr-bg-page);
+	background: var(--fr-bg-page);
 }
 
 .panel-header {
-	padding: 20px;
-	border-bottom: 1px solid var(--border-color);
-	background: #fff;
+	padding: 16px 20px;
+	border-bottom: 1px solid var(--fr-border);
+	background: var(--fr-bg-surface);
 }
 
 .panel-header h4 {
 	margin: 0 0 4px 0;
-	font-size: 15px;
-	font-weight: 600;
-}
-
-.panel-tabs {
-	display: flex;
-	border-bottom: 1px solid #e2e8f0;
-	background: #fff;
-	padding: 0 16px;
-}
-.tab-btn {
-	background: none;
-	border: none;
-	padding: 12px 16px;
-	font-size: 13px;
-	font-weight: 600;
-	color: #64748b;
-	cursor: pointer;
-	border-bottom: 2px solid transparent;
-	transition: all 0.2s;
-}
-.tab-btn:hover {
-	color: #1e293b;
-}
-.tab-btn.active {
-	color: var(--fxr-node-accent, var(--fxr-accent));
-	border-bottom-color: var(--fxr-node-accent, var(--fxr-accent));
+	font-size: 14px;
+	font-weight: 700;
+	color: var(--fr-text);
 }
 
 .panel-sections {
 	flex: 1;
 	overflow-y: auto;
-	padding: var(--fxr-space-8);
+	padding: 16px;
 	display: flex;
 	flex-direction: column;
 	gap: 24px;
@@ -944,12 +950,6 @@ function buildFieldPath(field, groupName) {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	gap: 8px;
-}
-
-.section-actions {
-	display: inline-flex;
-	align-items: center;
 }
 
 .section-title {
@@ -957,234 +957,246 @@ function buildFieldPath(field, groupName) {
 	font-size: 11px;
 	font-weight: 700;
 	text-transform: uppercase;
-	letter-spacing: 0.5px;
-	color: #64748b;
+	letter-spacing: 0.05em;
+	color: var(--fr-text-muted);
 }
 
-.section-divider {
-	height: 1px;
-	background: #e2e8f0;
-	margin: 4px 0;
+.btn-icon-subtle {
+	width: 24px;
+	height: 24px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 4px;
+	border: none;
+	background: transparent;
+	color: var(--fr-text-muted);
+	cursor: pointer;
+	transition: all 0.15s;
+}
+
+.btn-icon-subtle:hover {
+	background: var(--fr-bg-muted);
+	color: var(--fr-text);
+}
+
+.variable-search-wrapper {
+	position: relative;
+	display: flex;
+	align-items: center;
+}
+
+.search-icon {
+	position: absolute;
+	left: 10px;
+	color: var(--fr-text-muted);
+	font-size: 12px;
+	pointer-events: none;
+}
+
+.search-input {
+	width: 100%;
+	height: 32px;
+	padding-left: 32px;
+	padding-right: 12px;
+	border-radius: var(--fr-radius-md);
+	border: 1px solid var(--fr-border);
+	background: var(--fr-bg-surface);
+	font-size: 13px;
+	outline: none;
+	transition: all 0.15s;
+}
+
+.search-input:focus {
+	border-color: var(--fr-primary);
+	box-shadow: 0 0 0 3px var(--fr-primary-subtle);
 }
 
 .variable-list {
 	display: flex;
 	flex-direction: column;
 	gap: 6px;
-	max-height: 350px;
-	overflow-y: auto;
-	padding-right: 4px;
 }
 
-.variable-item {
+.variable-card {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 8px 12px;
-	background: #fff;
-	border: 1px solid #e2e8f0;
-	border-radius: 8px;
-	font-size: 11px;
+	padding: 10px 12px;
+	background: var(--fr-bg-surface);
+	border: 1px solid var(--fr-border);
+	border-radius: var(--fr-radius-md);
 	cursor: grab;
-	transition: all 0.2s;
+	transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+	position: relative;
+	box-shadow: var(--fr-shadow-sm);
 }
 
-.variable-item:hover {
-	border-color: var(--fxr-node-accent, var(--fxr-accent));
-	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-	transform: translateX(2px);
+.variable-card:hover {
+	border-color: var(--fr-primary);
+	background: var(--fr-bg-surface-hover);
+	transform: translateY(-1px);
+	box-shadow: var(--fr-shadow-md);
+}
+
+.variable-card.compact {
+	padding: 6px 10px;
+}
+
+.variable-info {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	flex: 1;
 }
 
 .variable-label {
+	font-size: 13px;
 	font-weight: 600;
-	color: #1e293b;
+	color: var(--fr-text);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
-.variable-type {
+.variable-path {
+	font-size: 11px;
+	color: var(--fr-text-muted);
+	font-family: var(--fxr-font-mono);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	margin-top: 2px;
+}
+
+.variable-actions {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	opacity: 0;
+	transition: opacity 0.15s;
+}
+
+.variable-card:hover .variable-actions {
+	opacity: 1;
+}
+
+.variable-type-tag {
 	font-size: 9px;
+	font-weight: 700;
+	text-transform: uppercase;
 	padding: 2px 6px;
-	background: #f1f5f9;
+	background: var(--fr-bg-muted);
+	color: var(--fr-text-muted);
 	border-radius: 4px;
-	color: #64748b;
+}
+
+.copy-btn {
+	width: 24px;
+	height: 24px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	background: var(--fr-bg-muted);
+	border: 1px solid var(--fr-border);
+	border-radius: 4px;
+	color: var(--fr-text-secondary);
+	cursor: pointer;
+	transition: all 0.15s;
+}
+
+.copy-btn:hover {
+	background: var(--fr-bg-surface);
+	color: var(--fr-primary);
+	border-color: var(--fr-primary);
 }
 
 /* Tree Styles */
 .tree-container {
 	display: flex;
 	flex-direction: column;
-	font-size: 12px;
 }
 .tree-group {
-	margin-bottom: 4px;
+	margin-bottom: 8px;
 }
 .tree-group-header {
-	padding: 6px 8px;
+	padding: 8px 10px;
 	cursor: pointer;
-	border-radius: 6px;
-	color: #334155;
-	font-weight: 600;
+	border-radius: var(--fr-radius-md);
+	color: var(--fr-text);
+	font-weight: 700;
 	display: flex;
 	align-items: center;
 	transition: background 0.15s;
+	background: var(--fr-bg-muted);
+	font-size: 12px;
 }
 .tree-group-header:hover {
-	background: #f1f5f9;
+	background: var(--fr-gray-200);
 }
 .tree-group-header .fa {
 	font-size: 10px;
 	width: 16px;
-	color: #94a3b8;
+	color: var(--fr-text-muted);
 }
 .tree-group-items {
-	padding-left: 20px;
-	border-left: 1px solid #e2e8f0;
-	margin-left: 12px;
-	margin-top: 4px;
+	padding-left: 12px;
+	border-left: 1px solid var(--fr-border);
+	margin-left: 18px;
+	margin-top: 8px;
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
-}
-.tree-iterator-hint {
-	padding: 4px 8px;
-	margin-bottom: 4px;
-	background: #f8fafc;
-	border-radius: 4px;
-	font-size: 11px;
-}
-.tree-item {
-	padding: 4px 8px;
-	border-radius: 4px;
-	display: flex;
-	justify-content: space-between;
-	cursor: grab;
-	color: #475569;
-}
-.tree-item:hover {
-	background: #f1f5f9;
-}
-.tree-item-label {
-	font-weight: 500;
-}
-.tree-item-type {
-	font-size: 10px;
-	color: #94a3b8;
+	gap: 6px;
 }
 
 .tips-box {
-	background: #f8fafc;
-	border: 1px solid #e2e8f0;
-	border-radius: 8px;
+	background: var(--fr-primary-subtle);
+	border: 1px solid rgba(36, 144, 239, 0.2);
+	border-radius: var(--fr-radius-lg);
 	padding: 12px;
-	font-size: 12px;
-	color: #475569;
 }
 .tips-box h6 {
-	margin: 0 0 8px 0;
+	margin: 0 0 4px 0;
 	font-size: 12px;
-	font-weight: 600;
-	color: #334155;
-}
-.tips-box ul {
-	margin: 0;
-	padding-left: 20px;
-}
-.tips-box li {
-	margin-bottom: 4px;
-}
-
-.guide-content {
-	background: #fff;
-	border: 1px solid #e2e8f0;
-	border-radius: 12px;
-}
-
-.guide-icon-small {
-	width: 24px;
-	height: 24px;
-	border-radius: 6px;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	color: #fff;
-	font-size: 12px;
-}
-
-.guide-text-small {
-	font-size: 12px;
-	line-height: 1.5;
-	color: #475569;
-	margin: 0;
-}
-
-.insight-label {
-	font-size: 10px;
 	font-weight: 700;
-	color: var(--fxr-node-accent, var(--fxr-accent));
-	text-transform: uppercase;
-	display: block;
-	margin-bottom: 4px;
-}
-
-.insight-text {
-	font-size: 11px;
-	color: #64748b;
-	background: #f0f9ff;
-	padding: 8px;
-	border-radius: 8px;
-	border-left: 3px solid var(--fxr-node-accent, var(--fxr-accent));
-	margin: 0;
+	color: var(--fr-primary);
 }
 
 .v2-scrollbar::-webkit-scrollbar {
 	width: 4px;
 }
 .v2-scrollbar::-webkit-scrollbar-thumb {
-	background: #cbd5e1;
+	background: var(--fr-gray-300);
 	border-radius: 10px;
 }
 
 .empty-state {
-	padding: 20px;
+	padding: 32px 16px;
 	text-align: center;
-	color: #94a3b8;
-	font-size: 11px;
-	background: #f8fafc;
-	border: 1px dashed #e2e8f0;
-	border-radius: 8px;
+	color: var(--fr-text-muted);
+	font-size: 12px;
+	background: var(--fr-bg-muted);
+	border: 1px dashed var(--fr-border);
+	border-radius: var(--fr-radius-lg);
 }
 
 .section-collapsed-note {
-	font-size: 11px;
-	color: #94a3b8;
-	background: #fff;
-	border: 1px dashed #e2e8f0;
-	border-radius: 8px;
-	padding: 10px 12px;
+	font-size: 12px;
+	color: var(--fr-text-muted);
+	background: var(--fr-bg-muted);
+	border: 1px solid var(--fr-border);
+	border-radius: var(--fr-radius-md);
+	padding: 12px;
+	text-align: center;
 }
 
-:deep(.form-control:focus),
-:deep(.awesomplete input:focus),
-:deep(.multiselect__input:focus) {
-	border-color: var(--fxr-node-accent, var(--fxr-border-focus)) !important;
-	box-shadow: 0 0 0 2px var(--fxr-node-accent-light, var(--fxr-accent-light)) !important;
+.extra-small {
+	font-size: 11px;
 }
 
 @media (max-width: 768px) {
 	.panel-sections {
-		padding: var(--fxr-space-4);
-		gap: var(--fxr-space-5);
-	}
-
-	.section-header {
-		flex-wrap: wrap;
-	}
-
-	.variable-list {
-		max-height: 260px;
-	}
-
-	.variable-item {
-		padding: var(--fxr-space-3) var(--fxr-space-4);
+		padding: 12px;
 	}
 }
 </style>

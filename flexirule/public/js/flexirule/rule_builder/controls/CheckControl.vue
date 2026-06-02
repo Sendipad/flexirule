@@ -8,7 +8,7 @@ const showTooltip = ref(false);
 
 <template>
 	<div
-		class="control fxr-control checkbox"
+		class="fxr-control checkbox"
 		:class="{ editable: slots.label, 'no-label': hideLabel }"
 		@mouseenter="showTooltip = true"
 		@mouseleave="showTooltip = false"
@@ -42,25 +42,25 @@ const showTooltip = ref(false);
 		</div>
 
 		<!-- standard description -->
-		<div v-if="df.description && !hideLabel" class="mt-2 description">
+		<div v-if="df.description && !hideLabel" class="fxr-description">
 			{{ __(df.description) }}
 		</div>
 	</div>
 </template>
 
 <style scoped>
-/* ─── CheckControl – Unified Design ─── */
 .fxr-control {
 	position: relative;
-	min-height: var(--fxr-input-height);
+	min-height: 32px;
 	display: flex;
 	align-items: center;
+	margin-bottom: 8px;
 }
 
 .fxr-checkbox {
 	display: flex;
 	align-items: center;
-	gap: var(--fxr-space-3);
+	gap: 8px;
 	cursor: pointer;
 	margin: 0 !important;
 	user-select: none;
@@ -71,31 +71,18 @@ const showTooltip = ref(false);
 	height: 16px;
 	cursor: pointer;
 	margin: 0 !important;
-	border: 1px solid var(--fxr-border);
-	border-radius: var(--fxr-radius-sm);
-	transition: all var(--fxr-transition-fast);
-}
-
-.fxr-checkbox input:checked {
-	background-color: var(--fxr-accent);
-	border-color: var(--fxr-accent);
+	accent-color: var(--fr-primary);
 }
 
 .label-area {
-	font-size: var(--fxr-text-base);
-	color: var(--fxr-text);
-	font-weight: var(--fxr-weight-medium);
+	font-size: var(--fr-text-sm);
+	color: var(--fr-text);
+	font-weight: 500;
 }
 
 .label-area.reqd::after {
 	content: " *";
-	color: var(--fxr-text-danger);
-}
-
-.description {
-	font-size: var(--fxr-text-xs);
-	color: var(--fxr-text-muted);
-	margin-top: var(--fxr-space-2);
+	color: var(--fr-danger);
 }
 
 /* Tooltip */
@@ -104,17 +91,17 @@ const showTooltip = ref(false);
 	bottom: 100%;
 	left: 50%;
 	transform: translateX(-50%);
-	background: var(--fxr-bg-dark, #1e293b);
+	background: var(--fr-gray-900);
 	color: #fff;
-	padding: var(--fxr-space-3) var(--fxr-space-4);
-	border-radius: var(--fxr-radius-md);
-	font-size: var(--fxr-text-xs);
-	z-index: var(--fxr-z-popover);
+	padding: 8px 12px;
+	border-radius: var(--fr-radius-md);
+	font-size: 11px;
+	z-index: 1000;
 	min-width: 150px;
 	max-width: 250px;
-	box-shadow: var(--fxr-shadow-lg);
+	box-shadow: var(--fr-shadow-lg);
 	pointer-events: none;
-	margin-bottom: var(--fxr-space-2);
+	margin-bottom: 8px;
 }
 
 .check-tooltip::after {
@@ -125,13 +112,13 @@ const showTooltip = ref(false);
 	margin-left: -5px;
 	border-width: 5px;
 	border-style: solid;
-	border-color: var(--fxr-bg-dark, #1e293b) transparent transparent transparent;
+	border-color: var(--fr-gray-900) transparent transparent transparent;
 }
 
 .tooltip-header {
-	font-weight: var(--fxr-weight-bold);
-	margin-bottom: var(--fxr-space-1);
+	font-weight: 700;
+	margin-bottom: 4px;
 	border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-	padding-bottom: var(--fxr-space-1);
+	padding-bottom: 4px;
 }
 </style>

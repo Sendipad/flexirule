@@ -1,108 +1,82 @@
 <template>
 	<div class="notify-config">
-		<div v-if="!props.node?.data?.operation" class="empty-mode-state text-center p-5">
-			<i class="fa fa-bell fa-3x text-muted mb-3 opacity-20"></i>
+		<div v-if="!props.node?.data?.operation" class="empty-mode-state">
+			<i class="fa fa-bell opacity-20 mb-3" style="font-size: 32px"></i>
 			<p class="text-muted">
 				{{ __("Please select a Notification Type in the Setup panel to proceed.") }}
 			</p>
 		</div>
 
 		<div v-else class="config-container">
-			<div class="config-section section-card">
-				<div v-if="is_email" class="form-group mb-3">
-					<label class="form-label"
-						>{{ __("Subject") }}
-						<span v-if="isConfigKeyRequired('subject')" class="text-danger"
-							>*</span
-						></label
-					>
-					<ControlFactory
-						:df="with_read_only(subjectField)"
-						:modelValue="config.subject"
-						@update:modelValue="(val) => update_config_key('subject', val)"
-					/>
+			<div class="fxr-stack fxr-stack--gap-4">
+				<div class="fxr-card">
+					<div class="fxr-card-header">
+						<span class="fxr-label-sm">{{ __("Notification Details") }}</span>
+					</div>
+					<div class="fxr-card-body fxr-stack fxr-stack--gap-4">
+						<div v-if="is_email || is_system_notification">
+							<ControlFactory
+								:df="with_read_only(subjectField)"
+								:modelValue="config.subject"
+								@update:modelValue="(val) => update_config_key('subject', val)"
+							/>
+						</div>
+
+						<div v-if="is_email">
+							<ControlFactory
+								:df="with_read_only(recipientsField)"
+								:modelValue="config.recipients"
+								@update:modelValue="(val) => update_config_key('recipients', val)"
+							/>
+						</div>
+
+						<div v-if="is_system_notification">
+							<ControlFactory
+								:df="with_read_only(forUserField)"
+								:modelValue="config.for_user"
+								@update:modelValue="(val) => update_config_key('for_user', val)"
+							/>
+						</div>
+
+						<div v-if="is_provider">
+							<ControlFactory
+								:df="with_read_only(providerField)"
+								:modelValue="config.provider"
+								@update:modelValue="(val) => update_config_key('provider', val)"
+							/>
+						</div>
+
+						<div v-if="is_provider">
+							<ControlFactory
+								:df="with_read_only(recipientField)"
+								:modelValue="config.recipient"
+								@update:modelValue="(val) => update_config_key('recipient', val)"
+							/>
+						</div>
+					</div>
 				</div>
 
-				<div v-if="is_email" class="form-group mb-3">
-					<label class="form-label"
-						>{{ __("Recipients") }}
-						<span v-if="isConfigKeyRequired('recipients')" class="text-danger"
-							>*</span
-						></label
-					>
-					<ControlFactory
-						:df="with_read_only(recipientsField)"
-						:modelValue="config.recipients"
-						@update:modelValue="(val) => update_config_key('recipients', val)"
-					/>
+				<div class="fxr-card">
+					<div class="fxr-card-header">
+						<span class="fxr-label-sm">{{ __("Message Content") }}</span>
+					</div>
+					<div class="fxr-card-body">
+						<ControlFactory
+							:df="with_read_only(textGeneratorField)"
+							:modelValue="config.text_generator_ui"
+							@update:modelValue="update_template_ui"
+						/>
+					</div>
 				</div>
 
-				<div v-if="is_system_notification" class="form-group mb-3">
-					<label class="form-label"
-						>{{ __("Subject") }}
-						<span v-if="isConfigKeyRequired('subject')" class="text-danger"
-							>*</span
-						></label
-					>
-					<ControlFactory
-						:df="with_read_only(subjectField)"
-						:modelValue="config.subject"
-						@update:modelValue="(val) => update_config_key('subject', val)"
-					/>
-				</div>
-
-				<div v-if="is_system_notification" class="form-group mb-3">
-					<label class="form-label">{{ __("For User") }}</label>
-					<ControlFactory
-						:df="with_read_only(forUserField)"
-						:modelValue="config.for_user"
-						@update:modelValue="(val) => update_config_key('for_user', val)"
-					/>
-				</div>
-
-				<div v-if="is_provider" class="form-group mb-3">
-					<label class="form-label"
-						>{{ __("Provider") }}
-						<span v-if="isConfigKeyRequired('provider')" class="text-danger"
-							>*</span
-						></label
-					>
-					<ControlFactory
-						:df="with_read_only(providerField)"
-						:modelValue="config.provider"
-						@update:modelValue="(val) => update_config_key('provider', val)"
-					/>
-				</div>
-
-				<div v-if="is_provider" class="form-group mb-3">
-					<label class="form-label"
-						>{{ __("Recipient") }}
-						<span v-if="isConfigKeyRequired('recipient')" class="text-danger"
-							>*</span
-						></label
-					>
-					<ControlFactory
-						:df="with_read_only(recipientField)"
-						:modelValue="config.recipient"
-						@update:modelValue="(val) => update_config_key('recipient', val)"
-					/>
-				</div>
-
-				<div class="form-group mb-3">
-					<ControlFactory
-						:df="with_read_only(textGeneratorField)"
-						:modelValue="config.text_generator_ui"
-						@update:modelValue="update_template_ui"
-					/>
-				</div>
-
-				<div v-if="is_email" class="form-group mb-3">
-					<label class="form-label">{{ __("Attach Document PDF") }}</label>
-					<ControlFactory
-						:df="with_read_only(attachDocField)"
-						:modelValue="config.attach_doc"
-						@update:modelValue="(val) => update_config_key('attach_doc', val)"
-					/>
+				<div v-if="is_email" class="fxr-card">
+					<div class="fxr-card-body">
+						<ControlFactory
+							:df="with_read_only(attachDocField)"
+							:modelValue="config.attach_doc"
+							@update:modelValue="(val) => update_config_key('attach_doc', val)"
+						/>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -113,7 +87,6 @@
 import { computed, watch } from "vue";
 import { useActionConfig } from "../../../composables/useActionConfig";
 import ControlFactory from "../../../controls/ControlFactory.vue";
-import TextGeneratorControl from "../../../controls/TextGeneratorControl.vue";
 import { compileSegmentsToJinja } from "../../../utils/text_generator";
 import { getContract, getEffectiveActionPolicy } from "../../../../core/contracts.js";
 
@@ -249,7 +222,6 @@ function sync_local_config() {
 		}
 	});
 
-	// sync_config in useActionConfig already performs a string compare against props.node.data.config
 	sync_config(new_config);
 }
 
@@ -288,20 +260,15 @@ defineExpose({ validate });
 .notify-config {
 	display: flex;
 	flex-direction: column;
-	gap: 16px;
 }
 
-.section-card {
-	border: 1px solid var(--border-color);
-	border-radius: 8px;
-	padding: 16px;
-	background: var(--bg-light, #fff);
-}
-
-.form-label {
-	font-weight: 500;
-	margin-bottom: 6px;
-	display: block;
-	font-size: 13px;
+.empty-mode-state {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	text-align: center;
+	padding: 60px 20px;
 }
 </style>

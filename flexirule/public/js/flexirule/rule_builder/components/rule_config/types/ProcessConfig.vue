@@ -1,55 +1,77 @@
 <template>
 	<div class="process-config-wrapper">
-		<div v-if="error" class="alert alert-danger m-3">
-			<i class="fa fa-exclamation-triangle"></i> {{ error }}
+		<div v-if="error" class="error-alert m-4">
+			<i class="fa fa-exclamation-triangle"></i>
+			<div class="error-content">
+				<span class="error-title">{{ __("Configuration Error") }}</span>
+				<span class="error-msg">{{ error }}</span>
+			</div>
 		</div>
-		<div v-else-if="!engine && needsSetup" class="p-4 text-center text-muted">
-			<i class="fa fa-info-circle fa-2x mb-3 d-block"></i>
-			<p class="mb-1 fw-bold">{{ __("Process Configuration") }}</p>
-			<p class="small">
+
+		<div v-else-if="!engine && needsSetup" class="empty-mode-state">
+			<i class="fa fa-cogs opacity-20 mb-3" style="font-size: 32px"></i>
+			<h6 class="fw-bold">{{ __("Process Configuration") }}</h6>
+			<p class="text-muted small">
 				{{
 					__(
 						"Select a Process and Operation in the Setup panel to configure this action."
 					)
 				}}
 			</p>
-			<div class="small mt-2 p-2 border rounded bg-light">
-				<span v-if="!node.data?.process_name">{{ __("Process: Not selected") }}</span>
-				<span v-else>{{ __("Process:") }} {{ node.data.process_name }}</span>
-				<br />
-				<span v-if="!node.data?.operation">{{ __("Operation: Not selected") }}</span>
-				<span v-else>{{ __("Operation:") }} {{ node.data.operation }}</span>
+			<div class="setup-summary mt-4">
+				<div class="summary-item">
+					<span class="label">{{ __("Process") }}</span>
+					<span class="value">{{ node.data?.process_name || __("Not selected") }}</span>
+				</div>
+				<div class="summary-item">
+					<span class="label">{{ __("Operation") }}</span>
+					<span class="value">{{ node.data?.operation || __("Not selected") }}</span>
+				</div>
 			</div>
 		</div>
+
 		<div v-else-if="!engine && !error" class="d-flex justify-content-center p-5">
-			<div class="spinner-border text-primary"></div>
+			<div class="spinner-border text-primary opacity-50"></div>
 		</div>
+
 		<template v-else-if="engine">
-			<div class="d-flex justify-content-between align-items-center mb-2 px-3">
-				<h6 class="mb-0 fw-bold">{{ __("Process Configuration") }}</h6>
-				<div class="btn-group">
+			<div class="config-header px-4 py-3">
+				<div class="d-flex align-items-center gap-3">
+					<div class="header-icon-box">
+						<i class="fa fa-terminal"></i>
+					</div>
+					<div>
+						<h6 class="mb-0 fw-bold">{{ __("Operation Settings") }}</h6>
+						<p class="text-muted extra-small mb-0">
+							{{ engine.process_name }} › {{ engine.operation_name }}
+						</p>
+					</div>
+				</div>
+				<div class="view-toggle">
 					<button
-						class="btn btn-xs"
-						:class="view === 'form' ? 'btn-primary' : 'btn-default'"
+						class="toggle-btn"
+						:class="{ active: view === 'form' }"
 						@click="view = 'form'"
+						:title="__('Form View')"
 					>
-						<i class="fa fa-list"></i> {{ __("Form") }}
+						<i class="fa fa-list"></i>
 					</button>
 					<button
-						class="btn btn-xs"
-						:class="view === 'visual' ? 'btn-primary' : 'btn-default'"
+						class="toggle-btn"
+						:class="{ active: view === 'visual' }"
 						@click="view = 'visual'"
+						:title="__('Visual Mapper')"
 					>
-						<i class="fa fa-exchange"></i> {{ __("Visual") }}
+						<i class="fa fa-exchange"></i>
 					</button>
 				</div>
 			</div>
 
-			<div v-show="view === 'form'">
+			<div v-show="view === 'form'" class="form-container">
 				<SchemaRenderer :fields="engine.normalized_fields" :engine="engine" />
 			</div>
 
-			<div v-if="view === 'visual'" class="px-3">
+			<div v-if="view === 'visual'" class="visual-container px-4">
 				<TransformControl
 					:modelValue="visualMappings"
 					:sourceSchema="sourceSchema"
@@ -58,13 +80,11 @@
 				/>
 			</div>
 
-			<div v-if="engine.normalized_fields.length === 0" class="p-5 text-center text-muted">
-				<p>{{ __("No configuration fields found for this operation.") }}</p>
-				<div class="small mt-2 p-2 border rounded bg-light text-left">
-					<code>Process: {{ node.data?.process_name }}</code
-					><br />
-					<code>Operation: {{ node.data?.operation }}</code>
-				</div>
+			<div v-if="engine.normalized_fields.length === 0" class="empty-state py-5">
+				<i class="fa fa-info-circle opacity-20 mb-3" style="font-size: 32px"></i>
+				<p class="text-muted">
+					{{ __("No configuration fields found for this operation.") }}
+				</p>
 			</div>
 		</template>
 	</div>
@@ -130,16 +150,13 @@ const visualMappings = computed(() => {
 function update_visual_mappings(mappings) {
 	const config = engine.value.config;
 
-	// Identify fields that were previously mapped to variables
 	const previouslyMapped = Object.keys(config).filter((key) => {
 		const val = config[key];
 		return typeof val === "string" && val.startsWith("{") && val.endsWith("}");
 	});
 
-	// Clear them
 	previouslyMapped.forEach((key) => delete config[key]);
 
-	// Apply new ones
 	mappings.forEach((m) => {
 		config[m.target] = `{${m.source}}`;
 	});
@@ -149,7 +166,6 @@ let initCounter = 0;
 
 async function initEngine() {
 	if (!props.node?.data?.process_name || !props.node?.data?.operation) {
-		// Clear any previous engine so we show guidance instead of stale config
 		if (engine.value && typeof engine.value.dispose === "function") {
 			engine.value.dispose();
 		}
@@ -225,5 +241,132 @@ defineExpose({
 <style scoped>
 .process-config-wrapper {
 	min-height: 200px;
+}
+
+.empty-mode-state {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	text-align: center;
+	padding: 40px 20px;
+}
+
+.setup-summary {
+	background: var(--fr-bg-muted);
+	border: 1px solid var(--fr-border);
+	border-radius: var(--fr-radius-lg);
+	padding: 16px;
+	width: 100%;
+	max-width: 400px;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.summary-item {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	font-size: 13px;
+}
+
+.summary-item .label {
+	color: var(--fr-text-muted);
+	font-weight: 500;
+}
+
+.summary-item .value {
+	color: var(--fr-text);
+	font-weight: 600;
+}
+
+.config-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	border-bottom: 1px solid var(--fr-border-subtle);
+}
+
+.header-icon-box {
+	width: 36px;
+	height: 36px;
+	background: var(--fr-primary-subtle);
+	color: var(--fr-primary);
+	border-radius: var(--fr-radius-md);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 16px;
+}
+
+.view-toggle {
+	display: flex;
+	background: var(--fr-bg-muted);
+	padding: 3px;
+	border-radius: 8px;
+}
+
+.toggle-btn {
+	width: 32px;
+	height: 32px;
+	border: none;
+	background: transparent;
+	color: var(--fr-text-muted);
+	border-radius: 6px;
+	cursor: pointer;
+	transition: all 0.2s;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.toggle-btn.active {
+	background: var(--fr-bg-surface);
+	color: var(--fr-primary);
+	box-shadow: var(--fr-shadow-sm);
+}
+
+.form-container {
+	padding: 20px;
+}
+
+.extra-small {
+	font-size: 11px;
+}
+
+.error-alert {
+	display: flex;
+	align-items: flex-start;
+	gap: 12px;
+	padding: 16px;
+	background: #fef2f2;
+	border: 1px solid #fecaca;
+	border-radius: var(--fr-radius-lg);
+	color: #b91c1c;
+}
+
+.error-content {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.error-title {
+	font-weight: 700;
+	font-size: 14px;
+}
+
+.error-msg {
+	font-size: 13px;
+	line-height: 1.4;
+}
+
+.empty-state {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	text-align: center;
 }
 </style>

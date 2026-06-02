@@ -14,13 +14,15 @@ let height = computed(() => {
 </script>
 
 <template>
-	<div class="control" :class="{ editable: slots.label }">
+	<div class="fxr-control" :class="{ editable: slots.label }">
 		<!-- label -->
 		<div v-if="slots.label" class="field-controls">
 			<slot name="label" />
 			<slot name="actions" />
 		</div>
-		<div v-else-if="df?.label" class="control-label label">{{ __(df.label) }}</div>
+		<div v-else-if="df?.label" class="fxr-label" :class="{ reqd: df.reqd }">
+			{{ __(df.label) }}
+		</div>
 
 		<!-- textarea input -->
 		<textarea
@@ -41,38 +43,13 @@ let height = computed(() => {
 		/>
 
 		<!-- description -->
-		<div v-if="df.description" class="mt-2 description">{{ __(df.description) }}</div>
+		<div v-if="df.description" class="fxr-description">{{ __(df.description) }}</div>
 	</div>
 </template>
 
 <style scoped>
-/* ─── TextControl – Unified Design ─── */
-.control-label {
-	font-size: var(--fxr-text-sm);
-	font-weight: var(--fxr-weight-medium);
-	margin-bottom: var(--fxr-space-2);
-	color: var(--fxr-text-secondary);
-}
-
-.description {
-	font-size: var(--fxr-text-xs);
-	color: var(--fxr-text-muted);
-}
-
 textarea.form-control {
-	font-size: var(--fxr-input-font-size);
-	padding: var(--fxr-input-padding-y) var(--fxr-input-padding-x);
-	border: 1px solid var(--fxr-border);
-	border-radius: var(--fxr-radius-md);
-	transition: border-color var(--fxr-transition-fast), box-shadow var(--fxr-transition-fast);
-}
-
-textarea.form-control:focus {
-	border-color: var(--fxr-border-focus);
-	box-shadow: var(--fxr-shadow-focus);
-}
-
-textarea.form-control:hover:not(:disabled):not(:focus) {
-	border-color: var(--fxr-border-strong);
+	height: auto !important;
+	padding: 8px 10px !important;
 }
 </style>

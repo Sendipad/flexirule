@@ -1,12 +1,12 @@
 <template>
-	<div class="flexi-grid" :class="{ 'is-readonly': read_only }">
+	<div class="flexi-grid fxr-card" :class="{ 'is-readonly': read_only }">
 		<!-- Label -->
-		<div v-if="df.label" class="grid-label">
+		<div v-if="df.label" class="grid-label px-4 pt-3 pb-1">
 			{{ __(df.label) }}
 			<span v-if="df.reqd" class="text-danger">*</span>
 		</div>
 
-		<div v-if="df.reqd && !localRows.length" class="text-danger small mb-2">
+		<div v-if="df.reqd && !localRows.length" class="text-danger small px-4 mb-2">
 			<i class="fa fa-exclamation-circle"></i> {{ __("{0} is mandatory", [df.label]) }}
 		</div>
 
@@ -25,7 +25,7 @@
 						</div>
 
 						<div class="header-cell static-col">
-							{{ __("No") }}
+							{{ __("#") }}
 						</div>
 
 						<div
@@ -43,7 +43,7 @@
 						</div>
 
 						<div v-if="!read_only" class="header-cell static-col">
-							<i class="fa fa-cog text-muted"></i>
+							<i class="fa fa-cog opacity-50"></i>
 						</div>
 					</div>
 				</div>
@@ -91,13 +91,14 @@
 								:engine="engine"
 								hideLabel
 								hideDescription
+								class="grid-control-factory"
 								@update:modelValue="updateCell(rowIndex, col.fieldname, $event)"
 							/>
 						</div>
 
 						<div v-if="!read_only" class="grid-cell static-col actions-col">
 							<button
-								class="btn btn-xs btn-link text-muted p-0"
+								class="btn-icon-grid"
 								:title="__('Move Up')"
 								:disabled="rowIndex === 0"
 								@click="moveRow(rowIndex, -1)"
@@ -105,7 +106,7 @@
 								<i class="fa fa-chevron-up"></i>
 							</button>
 							<button
-								class="btn btn-xs btn-link text-muted p-0 ml-1"
+								class="btn-icon-grid"
 								:title="__('Move Down')"
 								:disabled="rowIndex === localRows.length - 1"
 								@click="moveRow(rowIndex, 1)"
@@ -113,7 +114,7 @@
 								<i class="fa fa-chevron-down"></i>
 							</button>
 							<button
-								class="btn btn-xs btn-link text-danger p-0 ml-2"
+								class="btn-icon-grid text-danger"
 								:title="__('Remove Row')"
 								@click="removeRow(rowIndex)"
 							>
@@ -123,21 +124,27 @@
 					</div>
 
 					<div v-if="!localRows.length" class="empty-state">
-						{{ __("No rows added.") }}
+						<div class="empty-state-content">
+							<i class="fa fa-table opacity-20 mb-2" style="font-size: 24px"></i>
+							<p>{{ __("No rows added.") }}</p>
+							<button v-if="!read_only" class="fxr-btn btn-xs mt-2" @click="addRow">
+								<i class="fa fa-plus"></i> {{ __("Add first row") }}
+							</button>
+						</div>
 					</div>
 				</div>
 			</div>
 		</div>
 
 		<!-- Footer -->
-		<div v-if="!read_only" class="grid-footer">
+		<div v-if="!read_only" class="grid-footer px-4 py-2 border-t">
 			<div class="footer-actions">
-				<button class="btn btn-xs btn-default" @click="addRow">
+				<button class="fxr-btn" @click="addRow">
 					<i class="fa fa-plus"></i> {{ __("Add Row") }}
 				</button>
 				<button
 					v-if="isAnySelected"
-					class="btn btn-xs btn-danger-light ml-2"
+					class="fxr-btn text-danger ml-2"
 					@click="removeSelectedRows"
 				>
 					<i class="fa fa-trash"></i> {{ __("Delete Selected") }} ({{
@@ -148,6 +155,7 @@
 		</div>
 	</div>
 </template>
+
 <script setup>
 import { computed, reactive, ref, watch } from "vue";
 import ControlFactory from "./ControlFactory.vue";
@@ -187,7 +195,7 @@ const gridTemplateColumns = computed(() => {
 		cols.push(getColumnWidth(c.fieldname));
 	});
 	if (!props.read_only) {
-		cols.push("80px"); // Wider for action buttons
+		cols.push("100px"); // Action buttons
 	}
 	return cols.join(" ");
 });
@@ -235,10 +243,6 @@ function stopResize() {
 
 /* ---------------- Row Context & Dynamic Options ---------------- */
 
-/**
- * Creates a context object for per-row callbacks (onchange, get_options).
- * Mirrors the API used by InlineTableControl and process schemas.
- */
 function createRowContext(rowIndex, rowData) {
 	return {
 		update_field: (fieldname, value) => {
@@ -257,10 +261,6 @@ function createRowContext(rowIndex, rowData) {
 	};
 }
 
-/**
- * Resolve dynamic options for a single field in a specific row.
- * Calls the field's get_options(rowData, ctx, meta) and caches the result.
- */
 async function resolveFieldOptions(rowIndex, rowData, fieldname) {
 	const col = columns.value.find((c) => c.fieldname === fieldname);
 	if (!col?.get_options || typeof col.get_options !== "function") return;
@@ -278,9 +278,6 @@ async function resolveFieldOptions(rowIndex, rowData, fieldname) {
 	}
 }
 
-/**
- * Initialize dynamic options for all columns with get_options in a given row.
- */
 async function initializeRowOptions(rowIndex, rowData) {
 	for (const col of columns.value) {
 		if (col.get_options && typeof col.get_options === "function") {
@@ -298,7 +295,6 @@ watch(
 			...r,
 			name: r.name || frappe.utils.get_random(10),
 		}));
-		// Initialize dynamic options for all synced rows
 		localRows.value.forEach((row, idx) => {
 			initializeRowOptions(idx, row);
 		});
@@ -311,21 +307,17 @@ function updateCell(idx, field, value) {
 	row[field] = value;
 	emit("update:modelValue", [...localRows.value]);
 
-	// If engine is available, trigger logical change handling
 	if (props.engine && props.engine.handleFieldChange) {
 		row.__table_fieldname = props.df.fieldname;
 		props.engine.handleFieldChange(field, value, row);
 	}
 
-	// Per-field onchange callback from the column definition
 	const col = columns.value.find((c) => c.fieldname === field);
 	if (col?.onchange && typeof col.onchange === "function") {
 		const ctx = createRowContext(idx, row);
 		col.onchange(value, row, ctx);
 	}
 
-	// Refresh dynamic options for columns that have get_options,
-	// since the changed field might affect their available options
 	columns.value.forEach((depCol) => {
 		if (
 			depCol.fieldname !== field &&
@@ -345,7 +337,6 @@ async function addRow() {
 		__table_fieldname: props.df.fieldname,
 	};
 
-	// Apply Defaults
 	columns.value.forEach((col) => {
 		if (col.default !== undefined) {
 			newRow[col.fieldname] = col.default;
@@ -355,10 +346,8 @@ async function addRow() {
 	localRows.value.push(newRow);
 	emit("update:modelValue", [...localRows.value]);
 
-	// Initialize dynamic options for the new row
 	await initializeRowOptions(localRows.value.length - 1, newRow);
 
-	// Trigger initial evaluation for this row
 	if (props.engine && props.engine.evaluate_dependencies) {
 		await props.engine.evaluate_dependencies(
 			props.engine.config,
@@ -435,333 +424,37 @@ function isValueEmpty(val) {
 }
 </script>
 
-<style>
-/* ============================================================
-   FlexiGrid – Frappe-aligned Grid Styling
-   ============================================================ */
-
+<style scoped>
 .flexi-grid {
 	width: 100%;
 	margin-bottom: 24px;
-	font-size: 13px;
-	color: var(--text-color);
+	border: 1px solid var(--fr-border);
+	border-radius: var(--fr-radius-lg);
+	background: var(--fr-bg-surface);
+	overflow: hidden;
 }
 
-/* ---------- Label ---------- */
-
-.flexi-grid .grid-label {
-	font-size: 13px;
-	font-weight: 600;
-	margin-bottom: 8px;
+.grid-label {
+	font-size: 11px;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	color: var(--fr-text-muted);
 }
 
-/* ---------- Container ---------- */
-
-.flexi-grid .grid-container {
-	border: 1px solid var(--border-color, #d1d8dd);
-	border-radius: 8px;
-	background: #fff;
+.grid-container {
 	overflow-x: auto;
 	position: relative;
 }
 
-/* ---------- Table ---------- */
-
-.flexi-grid .grid-table {
+.grid-table {
 	display: block;
 	width: max-content;
 	min-width: 100%;
 }
 
-/* ---------- Header ---------- */
-
-.flexi-grid .grid-header {
-	position: sticky;
-	top: 0;
-	z-index: 100;
-	background: #f8f9fa;
-	border-bottom: 1px solid var(--border-color, #e5e7eb);
-}
-
-.flexi-grid .header-row {
-	display: flex;
-	height: 40px;
-}
-
-/* ---------- Rows ---------- */
-
-.flexi-grid .grid-row {
-	display: flex;
-	height: 40px;
-	border-bottom: 1px solid var(--border-color, #f0f0f0);
-	background: #fff;
-}
-
-.flexi-grid .grid-row:hover {
-	background: #fafafb;
-}
-
-.flexi-grid .grid-row:last-child {
-	border-bottom: none;
-}
-
-/* ---------- Cells (CRITICAL) ---------- */
-
-.flexi-grid .header-cell,
-.flexi-grid .grid-cell {
-	flex: 0 0 auto !important; /* NEVER grow or shrink */
-	box-sizing: border-box;
-	border-right: 1px solid var(--border-color, #f0f0f0);
-	display: flex;
-	align-items: center;
-	height: 100%;
-	padding: 0 8px; /* Frappe-style padding */
-	position: relative;
-	overflow: hidden;
-}
-
-.flexi-grid .header-cell:last-child,
-.flexi-grid .grid-cell:last-child {
-	border-right: none;
-}
-
-/* ---------- Header Cell ---------- */
-
-.flexi-grid .header-cell {
-	font-weight: 600;
-	color: var(--text-color);
-	background: #f8f9fa;
-	z-index: 50;
-}
-
-.flexi-grid .header-text {
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	width: 100%;
-}
-
-/* ---------- Static Columns ---------- */
-
-.flexi-grid .static-col {
-	justify-content: center;
-	padding: 0;
-	background: #fafafa;
-}
-
-/* ---------- Sticky Columns ---------- */
-
-.flexi-grid .sticky-col {
-	position: sticky;
-	background: inherit;
-	z-index: 40;
-}
-
-.flexi-grid .header-cell.sticky-col {
-	z-index: 60;
-	box-shadow: 2px 0 5px rgba(0, 0, 0, 0.04);
-}
-
-/* ---------- Resize Handle ---------- */
-
-.flexi-grid .resize-handle {
-	position: absolute;
-	right: -3px;
-	top: 0;
-	bottom: 0;
-	width: 6px;
-	cursor: col-resize;
-}
-
-.flexi-grid .resize-handle:hover {
-	background: var(--primary-color, #1071e5);
-	opacity: 0.3;
-}
-
-/* ============================================================
-   Frappe Control Normalization (IMPORTANT)
-   ============================================================ */
-
-.flexi-grid .grid-cell .control-factory,
-.flexi-grid .grid-cell .frappe-control,
-.flexi-grid .grid-cell .form-group {
-	margin: 0 !important;
-	padding: 0 !important;
-	width: 100% !important;
-}
-
-/* Inputs must NOT fill height */
-.flexi-grid .grid-cell .form-control {
-	height: 28px !important; /* Frappe default */
-	min-height: 28px !important;
-	padding: 4px 8px !important;
-	border-radius: 4px !important;
-	border: 1px solid transparent !important;
-	background: transparent !important;
-	box-shadow: none !important;
-	width: 100% !important;
-	font-size: 13px;
-}
-
-/* Focus behavior */
-.flexi-grid .grid-cell .form-control:focus {
-	background: #fff !important;
-	border-color: var(--fxr-accent) !important;
-	box-shadow: none !important;
-}
-
-/* ComboBox in Grid */
-.flexi-grid .grid-cell .combobox-wrapper {
-	border-color: transparent !important;
-	background: transparent !important;
-	box-shadow: none !important;
-	height: 32px !important;
-}
-
-.flexi-grid .grid-cell .combobox-wrapper:hover,
-.flexi-grid .grid-cell .combobox-wrapper.is-focused {
-	border-color: var(--fxr-accent) !important;
-	background: #fff !important;
-}
-
-.flexi-grid .grid-cell .combobox-input-group {
-	height: 100% !important;
-}
-
-.flexi-grid .grid-cell .combobox-input {
-	height: 100% !important;
-}
-
-/* Selects */
-.flexi-grid .grid-cell select.form-control {
-	padding-right: 24px !important;
-}
-
-/* Textarea stays controlled */
-.flexi-grid .grid-cell textarea.form-control {
-	height: 28px !important;
-	resize: none;
-}
-
-/* Checkbox alignment */
-.flexi-grid .grid-cell .checkbox,
-.flexi-grid .grid-cell input[type="checkbox"] {
-	margin: 0;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-}
-
-/* Required indicator (Frappe-style left bar) */
-.flexi-grid .grid-cell.is-required::before {
-	content: "";
-	position: absolute;
-	left: 0;
-	top: 0;
-	bottom: 0;
-	width: 3px;
-	background: var(--red-500, #ef4444);
-}
-
-/* ---------- Z-index safety ---------- */
-
-.flexi-grid .grid-row:focus-within {
-	z-index: 90;
-}
-
-.flexi-grid .grid-cell.has-error {
-	background-color: #fff8f8;
-}
-
-.flexi-grid .grid-cell.has-error .form-control {
-	border-color: var(--red-500, #ef4444) !important;
-}
-
-.flexi-grid .actions-col {
-	justify-content: flex-end;
-	padding-right: 12px;
-	gap: 4px;
-}
-
-.flexi-grid .actions-col .btn-link {
-	text-decoration: none;
-	opacity: 0.6;
-	transition: opacity 0.2s;
-}
-
-.flexi-grid .actions-col .btn-link:hover:not(:disabled) {
-	opacity: 1;
-}
-
-.flexi-grid .actions-col .btn-link:disabled {
-	opacity: 0.2;
-	cursor: not-allowed;
-}
-
-.flexi-grid .row-has-error {
-	color: var(--red-500, #ef4444) !important;
-	font-weight: bold;
-}
-
-/* ---------- Footer ---------- */
-
-.flexi-grid .grid-footer {
-	padding: 12px 0;
-	display: flex;
-	align-items: center;
-}
-
-.flexi-grid .footer-actions {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-}
-
-.flexi-grid .btn-danger-light {
-	background: #fff5f5;
-	color: #e53e3e;
-	border: 1px solid #feb2b2;
-}
-
-.flexi-grid .btn-danger-light:hover {
-	background: #fed7d7;
-	border-color: #fc8181;
-}
-
-/* ---------- Empty State ---------- */
-
-.flexi-grid .empty-state {
-	padding: 48px;
-	text-align: center;
-	color: var(--text-muted);
-	background: #fcfcfc;
-}
-
-/* ---------- Readonly ---------- */
-
-.flexi-grid.is-readonly {
-	pointer-events: none;
-	opacity: 0.75;
-}
-
-/* ============================================================
-   Scrollbar
-   ============================================================ */
-
-.flexi-grid .grid-container::-webkit-scrollbar {
-	height: 10px;
-}
-
-.flexi-grid .grid-container::-webkit-scrollbar-thumb {
-	background: #e5e7eb;
-	border-radius: 5px;
-}
-
-.flexi-grid .grid-container::-webkit-scrollbar-thumb:hover {
-	background: #d1d5db;
-}
-.flexi-grid .header-row,
-.flexi-grid .grid-row {
+.header-row,
+.grid-row {
 	display: grid;
 	grid-template-columns: var(--grid-cols);
 }
@@ -771,22 +464,43 @@ function isValueEmpty(val) {
 	height: 40px;
 	display: flex;
 	align-items: center;
-	padding: 0 8px;
-	border-right: 1px solid #e5e7eb;
+	padding: 0 10px;
+	border-right: 1px solid var(--fr-border-subtle);
 	box-sizing: border-box;
+	min-width: 0;
+}
+
+.grid-cell {
+	border-bottom: 1px solid var(--fr-border-subtle);
+}
+
+.grid-row:last-child .grid-cell {
+	border-bottom: none;
 }
 
 .header-cell {
+	font-size: 11px;
 	font-weight: 600;
-	background: #f8f9fa;
+	color: var(--fr-text-secondary);
+	background: var(--fr-bg-muted);
+	border-bottom: 1px solid var(--fr-border);
+	white-space: nowrap;
+}
+
+.header-text {
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 .grid-row:hover {
-	background: #fafafb;
+	background: var(--fr-bg-surface-hover);
 }
 
 .static-col {
 	justify-content: center;
+	background: var(--fr-bg-muted);
+	font-size: 11px;
+	color: var(--fr-text-muted);
 }
 
 .sticky-col {
@@ -802,5 +516,108 @@ function isValueEmpty(val) {
 	bottom: 0;
 	width: 6px;
 	cursor: col-resize;
+	z-index: 10;
+}
+
+.resize-handle:hover {
+	background: var(--fr-primary);
+	opacity: 0.3;
+}
+
+/* Control Normalization */
+.grid-control-factory {
+	width: 100%;
+}
+
+:deep(.fxr-control) {
+	margin-bottom: 0 !important;
+	width: 100%;
+}
+
+:deep(.form-control),
+:deep(.fxr-input),
+:deep(.fxr-select),
+:deep(.combobox-wrapper) {
+	border-color: transparent !important;
+	background: transparent !important;
+	box-shadow: none !important;
+	height: 32px !important;
+	padding: 0 8px !important;
+}
+
+:deep(.form-control:focus),
+:deep(.fxr-input:focus),
+:deep(.fxr-select:focus),
+:deep(.combobox-wrapper.is-focused) {
+	background: var(--fr-bg-surface) !important;
+	border-color: var(--fr-primary) !important;
+	box-shadow: 0 0 0 2px var(--fr-primary-subtle) !important;
+}
+
+.actions-col {
+	justify-content: center;
+	gap: 4px;
+}
+
+.btn-icon-grid {
+	width: 24px;
+	height: 24px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 4px;
+	border: none;
+	background: transparent;
+	color: var(--fr-text-muted);
+	cursor: pointer;
+	transition: all 0.15s;
+}
+
+.btn-icon-grid:hover:not(:disabled) {
+	background: var(--fr-gray-200);
+	color: var(--fr-text);
+}
+
+.btn-icon-grid:disabled {
+	opacity: 0.2;
+	cursor: not-allowed;
+}
+
+.is-required::before {
+	content: "";
+	position: absolute;
+	left: 0;
+	top: 0;
+	bottom: 0;
+	width: 2px;
+	background: var(--fr-danger);
+}
+
+.has-error {
+	background: rgba(239, 68, 68, 0.05);
+}
+
+.empty-state {
+	padding: 40px;
+	text-align: center;
+	background: var(--fr-bg-surface);
+	color: var(--fr-text-muted);
+	font-size: 13px;
+}
+
+.grid-footer {
+	background: var(--fr-bg-muted);
+}
+
+.border-t {
+	border-top: 1px solid var(--fr-border);
+}
+
+.grid-container::-webkit-scrollbar {
+	height: 8px;
+}
+.grid-container::-webkit-scrollbar-thumb {
+	background: var(--fr-gray-300);
+	border-radius: 4px;
 }
 </style>

@@ -1,8 +1,8 @@
 <template>
 	<div class="assignment-config">
-		<div class="assignment-header-card mb-4">
-			<div class="d-flex align-items-center justify-content-between">
-				<div class="d-flex align-items-center fxr-gap-3">
+		<div class="fxr-card mb-4">
+			<div class="fxr-card-body d-flex align-items-center justify-content-between">
+				<div class="d-flex align-items-center fxr-row--gap-4">
 					<div class="header-icon-box">
 						<i class="fa fa-list-ol"></i>
 					</div>
@@ -17,7 +17,7 @@
 				</div>
 				<button
 					v-if="assignments.length > 1"
-					class="fxr-btn fxr-btn--ghost fxr-btn--sm text-danger"
+					class="fxr-btn text-danger"
 					@click="clearAssignments"
 					:disabled="isReadOnly"
 				>
@@ -40,12 +40,12 @@
 			<div
 				v-for="(assignment, index) in assignments"
 				:key="assignment.name"
-				class="assignment-grid-row align-items-center mb-2"
+				class="assignment-row-card mb-2"
 			>
 				<div class="grid-col-when">
 					<div class="when-editor-cell" data-fxr-fieldname="assignments.run_if">
 						<button
-							class="fxr-btn fxr-btn--sm w-100 when-toggle-btn"
+							class="fxr-btn w-100 when-toggle-btn"
 							:class="hasWhenCondition(assignment) ? 'is-active' : 'is-default'"
 							:disabled="isReadOnly"
 							@click="openWhenConditionEditor(index)"
@@ -123,68 +123,52 @@
 							/>
 						</div>
 					</template>
-					<div v-else class="operator-hint-text text-muted small">
-						<i class="fa fa-info-circle me-1"></i>
+					<div v-else class="operator-hint-text">
+						<i class="fa fa-info-circle me-1 opacity-50"></i>
 						{{ operatorNoValueHint(assignment.operator) }}
 					</div>
 				</div>
 
 				<!-- Row Actions -->
-				<div
-					class="grid-col-actions d-flex align-items-center justify-content-end fxr-gap-2"
-				>
+				<div class="grid-col-actions d-flex align-items-center justify-content-end gap-2">
 					<div class="d-flex flex-column justify-content-center" style="gap: 2px">
 						<button
-							class="fxr-btn fxr-btn--icon fxr-btn--ghost p-0"
+							class="btn-icon-grid"
 							:style="{
-								height: '16px',
-								minHeight: '16px',
-								width: '24px',
 								visibility: index === 0 ? 'hidden' : 'visible',
 							}"
 							@click="moveAssignment(index, -1)"
 							:disabled="isReadOnly"
 							:title="__('Move Up')"
-							aria-label="Move Up"
 						>
 							<i class="fa fa-chevron-up" style="font-size: 10px"></i>
 						</button>
 						<button
-							class="fxr-btn fxr-btn--icon fxr-btn--ghost p-0"
+							class="btn-icon-grid"
 							:style="{
-								height: '16px',
-								minHeight: '16px',
-								width: '24px',
 								visibility: index === assignments.length - 1 ? 'hidden' : 'visible',
 							}"
 							@click="moveAssignment(index, 1)"
 							:disabled="isReadOnly"
 							:title="__('Move Down')"
-							aria-label="Move Down"
 						>
 							<i class="fa fa-chevron-down" style="font-size: 10px"></i>
 						</button>
 					</div>
 					<button
-						class="fxr-btn fxr-btn--icon fxr-btn--sm fxr-btn--ghost text-danger ms-1"
+						class="btn-icon-grid text-danger"
 						@click="removeAssignment(index)"
 						:disabled="isReadOnly"
 						:title="__('Remove')"
-						aria-label="Remove Assignment"
 					>
-						<i class="fa fa-trash"></i>
+						<i class="fa fa-trash-o"></i>
 					</button>
 				</div>
 			</div>
 		</div>
 
-		<div
-			v-if="!assignments.length"
-			class="empty-state d-flex flex-column align-items-center justify-content-center py-5"
-		>
-			<div class="empty-state-icon mb-3">
-				<i class="fa fa-list-ol fa-3x text-muted opacity-25"></i>
-			</div>
+		<div v-if="!assignments.length" class="empty-state py-5">
+			<i class="fa fa-list-ol opacity-20 mb-3" style="font-size: 32px"></i>
 			<div class="text-center px-4">
 				<h6 class="mb-1 fw-bold text-muted">{{ __("No Assignments Yet") }}</h6>
 				<p class="small text-muted mb-0">
@@ -193,8 +177,12 @@
 			</div>
 		</div>
 
-		<button class="add-assignment-btn mt-2" @click="addAssignment" :disabled="isReadOnly">
-			<i class="fa fa-plus"></i>
+		<button
+			class="fxr-btn py-3 mt-2 border-dashed w-100"
+			@click="addAssignment"
+			:disabled="isReadOnly"
+		>
+			<i class="fa fa-plus me-2"></i>
 			<span>{{ __("Add Assignment") }}</span>
 		</button>
 
@@ -205,12 +193,9 @@
 				@click.self="closeWhenConditionEditor"
 			>
 				<div class="fxr-modal-card">
-					<div class="d-flex align-items-center justify-content-between mb-2">
-						<h5 class="mb-0">{{ __("Assignment Run Condition") }}</h5>
-						<button
-							class="fxr-btn fxr-btn--icon fxr-btn--sm fxr-btn--ghost"
-							@click="closeWhenConditionEditor"
-						>
+					<div class="d-flex align-items-center justify-content-between mb-4">
+						<h5 class="mb-0 fw-bold">{{ __("Assignment Run Condition") }}</h5>
+						<button class="btn-close-subtle" @click="closeWhenConditionEditor">
 							<i class="fa fa-times"></i>
 						</button>
 					</div>
@@ -223,18 +208,12 @@
 							@update:modelValue="updateDraft"
 						/>
 					</div>
-					<div class="d-flex justify-content-between mt-3">
-						<button
-							class="fxr-btn fxr-btn--sm fxr-btn--ghost text-danger"
-							@click="clearWhenCondition"
-						>
+					<div class="d-flex justify-content-between mt-4">
+						<button class="fxr-btn text-danger" @click="clearWhenCondition">
 							{{ __("Clear Condition") }}
 						</button>
-						<button
-							class="fxr-btn fxr-btn--sm fxr-btn--secondary"
-							@click="closeWhenConditionEditor"
-						>
-							{{ __("Close") }}
+						<button class="fxr-btn fxr-btn--primary" @click="closeWhenConditionEditor">
+							{{ __("Done") }}
 						</button>
 					</div>
 				</div>
@@ -298,10 +277,6 @@ function getOperatorHint(operator) {
 	return OPERATOR_HINTS[operator] || null;
 }
 
-/**
- * Resolve a Frappe fieldtype for a target path.
- * Reuses existing doctype_fields and variable_options arrays.
- */
 function getTargetFieldtype(target) {
 	if (!target) return null;
 	const opt = targetOptions.value.find((o) => o.value === target);
@@ -314,9 +289,6 @@ function getTargetDoctype(target) {
 	return opt?.options || null;
 }
 
-/**
- * Custom metadata target options list.
- */
 function getTargetOptions(target) {
 	if (!target) return [];
 	const opt = targetOptions.value.find((o) => o.value === target);
@@ -330,9 +302,6 @@ function getTargetOptions(target) {
 	return opt?.options || [];
 }
 
-/**
- * Target-aware operator filtering: the key architectural enhancement.
- */
 function getAvailableOperators(target) {
 	const fieldtype = getTargetFieldtype(target);
 
@@ -403,7 +372,6 @@ watch(
 				}
 			}
 
-			// Unified mode migration: migrate specialized modes to 'resolver'
 			if (["formula", "format", "normalize"].includes(structuredVal.mode)) {
 				const config = structuredVal.config || {};
 				if (!config.kind) {
@@ -441,7 +409,6 @@ watch(
 const targetOptions = computed(() => {
 	const opts = [];
 
-	// ── Context variables (vars.*) ────────────────────────────────────────────
 	(variable_options.value || [])
 		.filter((v) => v.is_variable)
 		.forEach((v) => {
@@ -457,7 +424,6 @@ const targetOptions = computed(() => {
 			});
 		});
 
-	// ── Doc fields (doc.*) ────────────────────────────────────────────────────
 	(doctype_fields.value || []).forEach((f) => {
 		opts.push({
 			value: f.value,
@@ -525,7 +491,6 @@ function clearAssignments() {
 function onTargetChange(index, value) {
 	assignments.value[index].target = value;
 
-	// Intelligent defaulting for resolver kind based on target
 	if (assignments.value[index].value?.mode === "resolver") {
 		const config = assignments.value[index].value.config || {};
 		if (!config.kind || config.kind === "resolver") {
@@ -534,7 +499,6 @@ function onTargetChange(index, value) {
 		}
 	}
 
-	// Reset operator if it's no longer compatible with new target type
 	const available = getAvailableOperators(value).map((o) => o.value);
 	if (!available.includes(assignments.value[index].operator)) {
 		const fieldtype = getTargetFieldtype(value);
@@ -635,8 +599,6 @@ function updateTemplate(index, value) {
 	syncToNode();
 }
 
-// ─── Validation ──────────────────────────────────────────────────────────────
-
 function validate() {
 	const errors = [];
 	assignments.value.forEach((a, idx) => {
@@ -651,7 +613,6 @@ function validate() {
 				);
 			}
 		}
-		// Target path validation
 		if (a.target && !a.target.startsWith("doc.") && !a.target.startsWith("vars.")) {
 			errors.push(__("Assignment #{0}: Target must start with 'doc.' or 'vars.'", [n]));
 		}
@@ -666,228 +627,177 @@ defineExpose({ validate });
 .assignment-config {
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
-}
-
-.assignment-header-card {
-	background: var(--fxr-bg-page, #f8fafc);
-	border: 1px solid var(--fxr-border, #e2e8f0);
-	border-radius: var(--fxr-radius-lg, 8px);
-	padding: 8px 12px;
 }
 
 .header-icon-box {
-	width: 32px;
-	height: 32px;
-	background: var(--fxr-accent-light, #e0f2fe);
-	color: var(--fxr-accent, #2490ef);
-	border-radius: var(--fxr-radius-md, 6px);
+	width: 36px;
+	height: 36px;
+	background: var(--fr-primary-subtle);
+	color: var(--fr-primary);
+	border-radius: var(--fr-radius-md);
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	font-size: 14px;
-}
-
-/* Horizontal Table Grid Styling */
-.assignment-grid-header,
-.assignment-grid-row {
-	display: grid;
-	grid-template-columns:
-		minmax(120px, 0.8fr) minmax(160px, 1.2fr) minmax(100px, 0.7fr) minmax(240px, 2fr)
-		80px;
-	gap: 8px;
-	align-items: center;
-}
-
-@media (max-width: 900px) {
-	.assignment-grid-header {
-		display: none;
-	}
-	.assignment-grid-row {
-		display: flex;
-		flex-direction: column;
-		align-items: stretch;
-		gap: 8px;
-	}
-	.grid-col-when,
-	.grid-col-target,
-	.grid-col-operator,
-	.grid-col-value {
-		width: 100%;
-	}
-	.grid-col-actions {
-		justify-content: flex-end;
-		margin-top: 4px;
-	}
+	font-size: 16px;
 }
 
 .assignment-grid-header {
+	display: grid;
+	grid-template-columns: 140px 180px 120px 1fr 100px;
+	gap: 12px;
 	padding: 10px 16px;
 	font-size: 10px;
 	font-weight: 700;
-	color: var(--fxr-text-muted, #64748b);
+	color: var(--fr-text-muted);
 	text-transform: uppercase;
 	letter-spacing: 0.05em;
-	border-bottom: 1px solid var(--fxr-border, #e2e8f0);
+	border-bottom: 1px solid var(--fr-border-subtle);
 	margin-bottom: 8px;
 }
 
-.when-editor-cell {
-	display: flex;
-	flex-direction: column;
+.assignment-row-card {
+	display: grid;
+	grid-template-columns: 140px 180px 120px 1fr 100px;
+	gap: 12px;
+	align-items: center;
+	background: var(--fr-bg-surface);
+	border: 1px solid var(--fr-border);
+	border-radius: var(--fr-radius-lg);
+	padding: 10px 16px;
+	transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+	box-shadow: var(--fr-shadow-sm);
+}
+
+.assignment-row-card:hover {
+	border-color: var(--fr-primary);
+	box-shadow: var(--fr-shadow-md);
+	transform: translateY(-1px);
 }
 
 .when-toggle-btn {
 	justify-content: flex-start;
-	padding: 6px 10px;
+	padding: 0 10px;
+	height: 32px;
 	font-weight: 600;
 	font-size: 11px;
-	border-radius: var(--fxr-radius-md, 6px);
-	border: 1px solid transparent;
-	transition: all 0.2s ease;
 }
 
 .when-toggle-btn.is-default {
-	background: var(--fxr-bg-muted, #f1f5f9);
-	color: var(--fxr-text-secondary, #475569);
-}
-
-.when-toggle-btn.is-default:hover {
-	background: var(--fxr-bg-hover, #f8fafc);
-	border-color: var(--fxr-border-strong, #cbd5e1);
+	background: var(--fr-bg-muted);
+	color: var(--fr-text-secondary);
 }
 
 .when-toggle-btn.is-active {
-	background: var(--fxr-badge-var, #f3e8ff);
-	color: var(--fxr-badge-var-text, #7c3aed);
+	background: #f5f3ff;
+	color: #7c3aed;
 	border-color: rgba(124, 58, 237, 0.2);
 }
 
-.when-toggle-btn.is-active:hover {
-	background: #ede9fe;
-	border-color: rgba(124, 58, 237, 0.3);
+.operator-hint-text {
+	display: flex;
+	align-items: center;
+	padding: 0 12px;
+	background: var(--fr-bg-muted);
+	border: 1px solid var(--fr-border);
+	border-radius: var(--fr-radius-md);
+	height: 32px;
+	font-size: 11px;
+	color: var(--fr-text-muted);
+}
+
+.empty-state {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	text-align: center;
+	background: var(--fr-bg-surface);
+	border: 1px dashed var(--fr-border);
+	border-radius: var(--fr-radius-xl);
+}
+
+.border-dashed {
+	border-style: dashed !important;
 }
 
 .fxr-modal-overlay {
 	position: fixed;
 	inset: 0;
-	background: rgba(15, 23, 42, 0.35);
+	background: rgba(15, 23, 42, 0.4);
+	backdrop-filter: blur(8px);
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	z-index: 13000;
+	z-index: 2000;
 }
 
 .fxr-modal-card {
-	width: min(980px, 92vw);
-	max-height: 86vh;
-	background: #fff;
-	border-radius: 10px;
-	border: 1px solid #e2e8f0;
-	padding: 14px;
-	overflow: hidden;
+	width: min(1000px, 94vw);
+	max-height: 90vh;
+	background: var(--fr-bg-surface);
+	border-radius: var(--fr-radius-xl);
+	border: 1px solid var(--fr-border);
+	padding: 24px;
+	box-shadow: var(--fr-shadow-lg);
 	display: flex;
 	flex-direction: column;
 }
 
 .condition-builder-wrap {
 	overflow: auto;
-	border: 1px solid #e2e8f0;
-	border-radius: 8px;
-	padding: 8px;
+	border: 1px solid var(--fr-border);
+	border-radius: var(--fr-radius-lg);
+	padding: 16px;
+	background: var(--fr-bg-muted);
 }
 
-/* Value mode toggle + control wrapper */
-.value-mode-wrap {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	width: 100%;
-}
-
-.value-mode-toggle {
-	flex-shrink: 0;
-	width: 30px;
-	height: 30px;
-	display: flex;
+.btn-icon-grid {
+	width: 24px;
+	height: 24px;
+	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	border-radius: var(--fxr-radius-md, 6px);
-	color: var(--fxr-text-muted, #64748b);
-	border: 1px solid var(--fxr-border, #e2e8f0);
-	background: var(--fxr-bg-input, #ffffff);
-	transition: all 0.2s ease;
+	border-radius: 4px;
+	border: none;
+	background: transparent;
+	color: var(--fr-text-muted);
 	cursor: pointer;
+	transition: all 0.15s;
 }
 
-.value-mode-toggle:hover:not(:disabled) {
-	color: var(--fxr-accent, #2490ef);
-	border-color: var(--fxr-accent, #2490ef);
-	background: var(--fxr-bg-hover, #f8fafc);
+.btn-icon-grid:hover:not(:disabled) {
+	background: var(--fr-gray-200);
+	color: var(--fr-text);
 }
 
-.assignment-grid-row {
-	background: var(--fxr-bg-card, #ffffff);
-	border: 1px solid var(--fxr-border, #e2e8f0);
-	border-radius: var(--fxr-radius-lg, 8px);
-	padding: 6px 12px;
-	transition: all 0.2s ease;
-	box-shadow: var(--fxr-shadow-sm);
-}
-
-.assignment-grid-row:hover {
-	border-color: var(--fxr-accent, #2490ef);
-	box-shadow: var(--fxr-shadow-md);
-	transform: translateY(-1px);
-}
-
-.operator-hint-text {
-	display: flex;
-	align-items: center;
-	padding: 6px 12px;
-	background: #f8fafc;
-	border: 1px solid #e2e8f0;
-	border-radius: 6px;
+.btn-close-subtle {
+	width: 32px;
 	height: 32px;
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-}
-
-.empty-state {
-	border: 2px dashed var(--fxr-border, #e2e8f0);
-	border-radius: var(--fxr-radius-lg, 12px);
-	background-color: var(--fxr-bg-muted, #f8fafc);
-	transition: all 0.2s ease;
-	flex: 0 0 auto;
-}
-
-.empty-state:hover {
-	border-color: var(--fxr-border-strong);
-	background-color: var(--fxr-bg-hover);
-}
-
-.add-assignment-btn {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	gap: 8px;
-	background: var(--fxr-bg-page, #f8fafc);
-	border: 1px dashed var(--fxr-border-strong, #cbd5e1);
-	border-radius: var(--fxr-radius-lg, 8px);
-	padding: 12px;
-	width: 100%;
-	color: var(--fxr-text-secondary, #475569);
-	font-weight: 600;
-	font-size: 13px;
-	transition: all 0.2s ease;
+	background: transparent;
+	border: none;
+	color: var(--fr-text-muted);
+	border-radius: var(--fr-radius-md);
 	cursor: pointer;
-	margin-top: 12px;
+	transition: all 0.15s;
 }
 
-.add-assignment-btn:hover:not(:disabled) {
-	background: var(--fxr-accent-light, #e0f2fe);
-	border-color: var(--fxr-accent, #2490ef);
-	color: var(--fxr-accent, #2490ef);
+.btn-close-subtle:hover {
+	background: var(--fr-bg-muted);
+	color: var(--fr-text);
+}
+
+@media (max-width: 1100px) {
+	.assignment-grid-header {
+		display: none;
+	}
+	.assignment-row-card {
+		display: flex;
+		flex-direction: column;
+		align-items: stretch;
+		gap: 12px;
+	}
 }
 </style>
