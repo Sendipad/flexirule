@@ -532,7 +532,6 @@ function handleKeydown(e) {
 		pasteFromClipboardWrapper();
 	}
 
-
 	// Shortcuts Help: Shift+?
 	if (e.shiftKey && e.key === "?") {
 		uiStore.show_shortcuts_help = !uiStore.show_shortcuts_help;
