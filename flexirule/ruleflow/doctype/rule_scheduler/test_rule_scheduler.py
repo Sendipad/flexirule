@@ -6,7 +6,7 @@ import time
 
 import frappe
 from frappe.tests.utils import FrappeTestCase
-from frappe.utils import add_days, now_datetime
+from frappe.utils import add_days, get_datetime, now_datetime
 
 # Import the class under test
 from flexirule.ruleflow.doctype.rule_scheduler.rule_scheduler import RuleScheduler
