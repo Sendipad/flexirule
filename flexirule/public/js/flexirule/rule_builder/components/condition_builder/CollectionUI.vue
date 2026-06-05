@@ -422,17 +422,42 @@ onMounted(fetchChildMeta);
 
 @media (max-width: 768px) {
 	.collection-ui {
-		padding: var(--fxr-space-4);
+		padding: var(--fxr-space-2);
 	}
 
 	.collection-header {
 		flex-direction: column;
 		gap: var(--fxr-space-3);
+		padding-bottom: var(--fxr-space-3);
+	}
+
+	.header-col {
+		width: 100% !important;
+	}
+
+	.fxr-select,
+	.fxr-input {
+		height: 44px;
 	}
 
 	.actions-col {
 		flex-wrap: wrap;
-		align-items: center;
+		align-items: stretch;
+		gap: var(--fxr-space-2);
+	}
+
+	.actions-col .fxr-btn {
+		flex: 1;
+		height: 44px;
+		justify-content: center;
+	}
+
+	.actions-col .fxr-btn i {
+		font-size: 16px;
+	}
+
+	.nested-conditions {
+		padding-inline-start: var(--fxr-space-3);
 	}
 }
 </style>

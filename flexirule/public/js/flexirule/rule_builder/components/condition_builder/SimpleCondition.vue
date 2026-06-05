@@ -467,6 +467,10 @@ watch(
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
+	.simple-condition {
+		padding: var(--fxr-space-2);
+	}
+
 	.condition-main-row {
 		display: flex;
 		flex-direction: column;
@@ -476,8 +480,57 @@ watch(
 	.condition-col {
 		width: 100%;
 	}
-	.action-col {
-		align-self: flex-end;
+
+	.field-col :deep(.combobox-button) {
+		height: 44px;
+		justify-content: space-between;
 	}
+
+	.field-col :deep(.combobox-button .truncate) {
+		max-width: 100%;
+	}
+
+	.operator-select {
+		height: 44px;
+	}
+
+	.value-group-col {
+		padding: 0;
+		border: none;
+	}
+
+	.value-input-wrapper :deep(.flex-value-control-button),
+	.value-input-wrapper :deep(.form-control) {
+		height: 44px !important;
+	}
+
+	.value-input-wrapper :deep(.flex-value-control-button .truncate) {
+		max-width: 100%;
+	}
+
+	.action-col {
+		margin-top: var(--fxr-space-1);
+	}
+
+	.action-col .fxr-btn {
+		width: 100%;
+		height: 44px;
+		justify-content: center;
+	}
+}
+
+/* Text Truncation for ComboBox and FlexValue */
+:deep(.combobox-button),
+:deep(.flex-value-control-button) {
+	overflow: hidden;
+}
+
+:deep(.combobox-button .truncate),
+:deep(.flex-value-control-button .truncate) {
+	display: block;
+	width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 </style>

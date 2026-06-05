@@ -702,6 +702,7 @@ onBeforeUnmount(() => {
 	text-overflow: ellipsis;
 	flex: 1;
 	min-width: 0;
+	display: block; /* Ensure truncate works */
 }
 
 .combobox-input {

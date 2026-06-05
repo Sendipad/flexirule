@@ -358,6 +358,14 @@ defineExpose({
 	justify-content: space-between;
 	padding-bottom: var(--fxr-space-3);
 	border-bottom: 1px solid var(--fxr-border);
+	flex-wrap: wrap;
+	gap: var(--fxr-space-3);
+}
+
+@media (max-width: 768px) {
+	.condition-step-header {
+		padding: 0 var(--fxr-space-1) var(--fxr-space-3);
+	}
 }
 
 .condition-step-header h5 {

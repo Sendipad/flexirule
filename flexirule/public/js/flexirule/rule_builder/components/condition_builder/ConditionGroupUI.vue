@@ -209,17 +209,50 @@ function handleDrop(e) {
 
 @media (max-width: 768px) {
 	.condition-group-ui {
-		padding: var(--fxr-space-4);
+		padding: var(--fxr-space-2);
 	}
 
 	.group-header {
 		flex-direction: column;
 		align-items: stretch;
-		gap: var(--fxr-space-3);
+		gap: var(--fxr-space-4);
+	}
+
+	.logic-toggle.small {
+		width: 100%;
+	}
+
+	.logic-btn {
+		flex: 1;
+		height: 44px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
 	}
 
 	.group-actions {
 		flex-wrap: wrap;
+		gap: var(--fxr-space-2);
+		justify-content: flex-start;
+	}
+
+	.group-actions .fxr-btn--icon {
+		flex: 1;
+		min-width: 44px;
+		height: 44px;
+		justify-content: center;
+	}
+
+	.group-actions .fxr-btn--icon i {
+		font-size: 16px;
+	}
+
+	.action-divider {
+		display: none;
+	}
+
+	.group-content {
+		padding-inline-start: var(--fxr-space-3);
 	}
 }
 </style>

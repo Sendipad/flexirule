@@ -443,18 +443,45 @@ provide(
 
 @media (max-width: 768px) {
 	.condition-builder {
-		padding: var(--fxr-space-4);
-		gap: var(--fxr-space-5);
+		padding: var(--fxr-space-2);
+		gap: var(--fxr-space-4);
 	}
 
 	.builder-header {
 		flex-direction: column;
 		align-items: stretch;
-		gap: var(--fxr-space-3);
+		gap: var(--fxr-space-4);
+		padding-bottom: var(--fxr-space-4);
+	}
+
+	.logic-toggle {
+		width: 100%;
+	}
+
+	.logic-btn {
+		flex: 1;
+		height: 44px;
+		padding: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
 	}
 
 	.builder-actions {
 		flex-wrap: wrap;
+		gap: var(--fxr-space-2);
+	}
+
+	.builder-actions .fxr-btn {
+		flex: 1;
+		min-width: calc(50% - var(--fxr-space-2));
+		height: 44px;
+		justify-content: center;
+		padding: 0 var(--fxr-space-2);
+	}
+
+	.builder-actions .fxr-btn i {
+		font-size: 14px;
 	}
 }
 </style>

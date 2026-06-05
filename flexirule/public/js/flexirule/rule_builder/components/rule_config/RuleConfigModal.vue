@@ -133,10 +133,10 @@
 									<button
 										class="toolbar-btn save-action"
 										@click="save"
-										:title="__('Save Action')"
+										:title="__('Save')"
 									>
 										<i class="fa fa-save"></i>
-										<span v-if="!isMobile">{{ __("Save") }}</span>
+										<span class="btn-label" v-if="!isMobile">{{ __("Save") }}</span>
 									</button>
 								</div>
 
@@ -1051,7 +1051,8 @@ onUnmounted(() => {
 .title-wrapper {
 	display: flex;
 	align-items: center;
-	gap: 12px;
+	flex-wrap: wrap;
+	gap: 8px;
 }
 
 .title-input {
@@ -1118,6 +1119,7 @@ onUnmounted(() => {
 
 .header-toolbar {
 	display: flex;
+	flex-wrap: wrap;
 	align-items: center;
 	background: var(--fxr-surface-2, var(--control-bg));
 	padding: 2px;
@@ -1619,17 +1621,29 @@ onUnmounted(() => {
 
 	.config-modal-header {
 		padding: 0 12px;
-		height: 54px;
+		height: auto;
+		min-height: 54px;
+		padding-top: 8px;
+		padding-bottom: 8px;
+		flex-wrap: wrap;
+		gap: 8px;
 	}
 
 	.header-left {
 		gap: 8px;
+		min-width: 0;
+		flex: 1;
 	}
 
 	.header-icon {
 		width: 30px;
 		height: 30px;
 		border-radius: 8px;
+		flex-shrink: 0;
+	}
+
+	.header-titles {
+		min-width: 0;
 	}
 
 	.header-titles h3 {
@@ -1637,7 +1651,7 @@ onUnmounted(() => {
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
-		max-width: 150px;
+		max-width: 180px;
 	}
 
 	.modal-breadcrumb {
@@ -1647,12 +1661,35 @@ onUnmounted(() => {
 	.header-toolbar {
 		padding: 0;
 		background: transparent;
+		gap: 4px;
+		flex-wrap: wrap;
+		justify-content: flex-end;
 	}
 
 	.toolbar-btn {
-		padding: 0 8px;
-		height: 36px;
-		border-radius: 6px;
+		padding: 0 10px;
+		height: 44px; /* Increased for touch target */
+		min-width: 44px;
+		justify-content: center;
+		border-radius: 8px;
+	}
+
+	.toolbar-btn.save-action {
+		padding: 0;
+		width: 44px;
+	}
+
+	.toolbar-btn.close {
+		width: 44px;
+	}
+
+	.dirty-badge {
+		padding: 4px 8px;
+		gap: 4px;
+	}
+
+	.dirty-badge span {
+		font-size: 9px;
 	}
 
 	.toolbar-divider {
@@ -1671,8 +1708,9 @@ onUnmounted(() => {
 	}
 
 	.compact-tab-btn {
-		height: 30px;
-		font-size: 11px;
+		height: 44px; /* Increased for touch target */
+		font-size: 12px;
+		flex: 1;
 	}
 
 	.compact-panel-shell {
