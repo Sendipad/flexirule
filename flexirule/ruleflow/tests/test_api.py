@@ -33,11 +33,10 @@ class TestFlexiRuleAPI(unittest.TestCase):
 					"is_active": 1,
 					"actions": [
 						{
-							"action_type": "Assignment",
+							"action_type": "Entry Action",
 							"config": '[{"target": "doc.priority", "operator": "set", "value": "Medium"}]',
 							"action_label": "Set Priority",
-							"action_id": "action_1",
-							"is_entry_action": 1,
+							"action_id": "root",
 							"next_step_if_true": "action_stop",
 						},
 						{

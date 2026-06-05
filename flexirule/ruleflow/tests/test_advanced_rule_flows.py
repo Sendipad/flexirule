@@ -585,7 +585,11 @@ class TestAdvancedRuleFlows(FrappeTestCase):
 		self.assertEqual(contact.status, "Open")
 
 		contact.status = "Passive"
-		contact.load_doc_before_save()
+		if hasattr(contact, "set_doc_before_save"):
+			contact.set_doc_before_save()
+		elif hasattr(contact, "load_doc_before_save"):
+			# Fallback for older Frappe versions if applicable
+			contact.load_doc_before_save()
 		contact.set("phone_nos", [{"phone": existing_phone, "is_primary_phone": 1}])
 		contact.set("email_ids", [{"email_id": existing_email, "is_primary": 1}])
 		contact.validate()
