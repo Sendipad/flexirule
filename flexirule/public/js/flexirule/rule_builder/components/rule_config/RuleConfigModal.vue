@@ -11,6 +11,7 @@
 					>
 						<div class="header-left">
 							<div
+								v-if="!isMobile || !isEditingLabel"
 								class="header-icon"
 								:style="{
 									background: actionPresentation.background,
@@ -20,7 +21,10 @@
 								<i :class="actionPresentation.icon"></i>
 							</div>
 							<div class="header-titles">
-								<div class="title-wrapper">
+								<div
+									class="title-wrapper"
+									:class="{ 'is-editing': isEditingLabel }"
+								>
 									<template v-if="isEditingLabel">
 										<input
 											ref="labelInputRef"
@@ -40,7 +44,11 @@
 										{{ title }}
 									</h3>
 									<div
-										v-if="ruleStore.is_dirty && !ruleStore.is_read_only"
+										v-if="
+											ruleStore.is_dirty &&
+											!ruleStore.is_read_only &&
+											(!isMobile || !isEditingLabel)
+										"
 										class="dirty-badge"
 									>
 										<i class="fa fa-circle"></i>
@@ -64,7 +72,7 @@
 							</div>
 						</div>
 
-						<div class="header-right">
+						<div class="header-right" v-if="!isMobile || !isEditingLabel">
 							<div class="header-toolbar">
 								<!-- Standard Desktop Layout -->
 								<template v-if="!isMobile">
@@ -1065,7 +1073,7 @@ onUnmounted(() => {
 	font-weight: 700;
 	color: var(--fxr-text-strong, var(--text-color));
 	width: 100%;
-	min-width: 200px;
+	min-width: 120px;
 	outline: none;
 	background: var(--fxr-surface, #fff);
 }
@@ -1685,9 +1693,15 @@ onUnmounted(() => {
 		width: 44px;
 	}
 
-	.dirty-badge {
-		padding: 4px 8px;
-		gap: 4px;
+	.title-wrapper.is-editing {
+		width: 100%;
+		flex: 1;
+	}
+
+	.title-input {
+		font-size: 15px;
+		height: 36px;
+		border-radius: 8px;
 	}
 
 	.dirty-badge span {
