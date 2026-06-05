@@ -72,11 +72,10 @@
 							</div>
 						</div>
 
-						<div class="header-right" v-if="!isMobile || !isEditingLabel">
+						<div class="header-right">
 							<div class="header-toolbar">
-								<!-- Standard Desktop Layout -->
+								<!-- Desktop Controls -->
 								<template v-if="!isMobile">
-									<!-- Navigation Group -->
 									<div class="toolbar-group navigation">
 										<button
 											class="toolbar-btn"
@@ -102,7 +101,6 @@
 
 									<div class="toolbar-divider"></div>
 
-									<!-- Toggles Group -->
 									<div class="toolbar-group toggles">
 										<button
 											class="toolbar-btn"
@@ -127,8 +125,8 @@
 									<div class="toolbar-divider"></div>
 								</template>
 
-								<!-- Mobile/Compact Minimal Info -->
-								<template v-else>
+								<!-- Mobile Minimal Info -->
+								<template v-else-if="!isEditingLabel">
 									<div class="toolbar-status mobile">
 										<span class="current">{{ currentNodeIndex + 1 }}</span>
 										<span class="total">/ {{ totalNodes }}</span>
@@ -136,8 +134,11 @@
 									<div class="toolbar-divider"></div>
 								</template>
 
-								<!-- Primary Actions (Always Visible) -->
-								<div class="toolbar-group actions" v-if="!ruleStore.is_read_only">
+								<!-- Primary Actions (Always Visible, hidden on mobile label edit) -->
+								<div
+									class="toolbar-group actions"
+									v-if="!ruleStore.is_read_only && (!isMobile || !isEditingLabel)"
+								>
 									<button
 										class="toolbar-btn save-action"
 										@click="save"
@@ -150,10 +151,13 @@
 									</button>
 								</div>
 
-								<div class="toolbar-divider" v-if="!ruleStore.is_read_only"></div>
+								<div
+									class="toolbar-divider"
+									v-if="!ruleStore.is_read_only && (!isMobile || !isEditingLabel)"
+								></div>
 
-								<!-- Overflow Menu for Mobile -->
-								<template v-if="isMobile">
+								<!-- Overflow Menu (Mobile Only, hidden on label edit) -->
+								<template v-if="isMobile && !isEditingLabel">
 									<div class="overflow-menu-wrapper">
 										<button
 											ref="overflowTriggerRef"
@@ -263,7 +267,7 @@
 											</div>
 										</Teleport>
 									</div>
-									<div class="toolbar-divider"></div>
+									<div class="toolbar-divider" v-if="!isEditingLabel"></div>
 								</template>
 
 								<!-- Close (Always Visible) -->
@@ -1028,7 +1032,7 @@ onUnmounted(() => {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 0 24px;
+	padding: 0 16px;
 	border-bottom: 1px solid var(--fxr-border-subtle, var(--border-color));
 	background: var(--fxr-surface, #fff);
 }
@@ -1036,8 +1040,9 @@ onUnmounted(() => {
 .header-left {
 	display: flex;
 	align-items: center;
-	gap: 16px;
-	min-width: 300px;
+	gap: 12px;
+	min-width: 0;
+	flex: 1;
 }
 
 .header-icon {
@@ -1061,7 +1066,6 @@ onUnmounted(() => {
 .title-wrapper {
 	display: flex;
 	align-items: center;
-	flex-wrap: wrap;
 	gap: 8px;
 }
 
@@ -1072,7 +1076,7 @@ onUnmounted(() => {
 	font-size: 18px;
 	font-weight: 700;
 	color: var(--fxr-text-strong, var(--text-color));
-	width: 100%;
+	flex: 1;
 	min-width: 120px;
 	outline: none;
 	background: var(--fxr-surface, #fff);
@@ -1129,12 +1133,15 @@ onUnmounted(() => {
 
 .header-toolbar {
 	display: flex;
-	flex-wrap: wrap;
 	align-items: center;
 	background: var(--fxr-surface-2, var(--control-bg));
 	padding: 2px;
 	border-radius: 10px;
-	gap: 2px;
+	gap: 0px;
+}
+
+.header-toolbar:empty {
+	display: none;
 }
 
 .toolbar-group {
@@ -1146,8 +1153,8 @@ onUnmounted(() => {
 .toolbar-btn {
 	display: flex;
 	align-items: center;
-	gap: 8px;
-	padding: 6px 12px;
+	gap: 6px;
+	padding: 6px 10px;
 	border-radius: 8px;
 	border: none;
 	background: transparent;
@@ -1189,7 +1196,7 @@ onUnmounted(() => {
 .toolbar-btn.save-action {
 	background: var(--fxr-text-strong, #1e293b);
 	color: #fff;
-	padding: 0 16px;
+	padding: 0 12px;
 }
 
 .toolbar-btn.save-action:hover {
@@ -1225,7 +1232,7 @@ onUnmounted(() => {
 	width: 1px;
 	height: 16px;
 	background: var(--fxr-border-subtle, var(--border-color));
-	margin: 0 4px;
+	margin: 0 2px;
 }
 
 .config-modal-body {
@@ -1635,7 +1642,7 @@ onUnmounted(() => {
 		min-height: 54px;
 		padding-top: 8px;
 		padding-bottom: 8px;
-		flex-wrap: wrap;
+		flex-wrap: nowrap;
 		gap: 8px;
 	}
 
@@ -1662,6 +1669,12 @@ onUnmounted(() => {
 		overflow: hidden;
 		text-overflow: ellipsis;
 		max-width: 180px;
+	}
+
+	.header-toolbar {
+		background: var(--fxr-surface-2, var(--control-bg));
+		border-radius: 10px;
+		padding: 2px;
 	}
 
 	.modal-breadcrumb {
