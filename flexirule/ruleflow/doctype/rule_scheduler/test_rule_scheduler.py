@@ -39,11 +39,10 @@ class TestRuleScheduler(FrappeTestCase):
 					"is_active": 1,
 					"actions": [
 						{
-							"action_type": "Assignment",
+							"action_type": "Entry Action",
 							"config": '[{"target": "doc.priority", "operator": "set", "value": "High"}]',
 							"action_label": "Make High Priority",
-							"action_id": "act_high_prio",
-							"is_entry_action": 1,
+							"action_id": "root",
 							"next_step_if_true": None,
 						}
 					],
@@ -225,18 +224,22 @@ class TestRuleScheduler(FrappeTestCase):
 
 	def test_next_execution_at_on_save(self):
 		"""Verify that next_execution_at is calculated and saved on insert."""
+		# Set creation to a fixed time to make test deterministic
+		creation = get_datetime("2026-06-01 12:00:00")
 		scheduler = frappe.get_doc(
 			{
 				"doctype": "Rule Scheduler",
 				"rule": self.rule.name,
 				"frequency": "Hourly",
+				"creation": creation,
 			}
 		)
 		scheduler.insert(ignore_permissions=True)
 		self.assertIsNotNone(scheduler.next_execution_at)
 
 		# Change frequency and verify it updates
-		scheduler.frequency = "Daily"
+		# Hourly (every hour) -> All (every 5 mins) should always be different
+		scheduler.frequency = "All"
 		scheduler.save(ignore_permissions=True)
 
 		old_next = scheduler.next_execution_at

@@ -74,8 +74,8 @@ class TestV1Compliance(FrappeTestCase):
 		rule.append(
 			"actions",
 			{
-				"action_id": "A",
-				"action_type": "Process",
+				"action_id": "root",
+				"action_type": "Entry Action",
 				"action_label": "Step A",
 				"next_step_if_true": "B",
 			},
@@ -86,7 +86,7 @@ class TestV1Compliance(FrappeTestCase):
 				"action_id": "B",
 				"action_type": "Process",
 				"action_label": "Step B",
-				"next_step_if_true": "A",  # Cycle
+				"next_step_if_true": "root",  # Cycle
 			},
 		)
 
@@ -103,10 +103,9 @@ class TestV1Compliance(FrappeTestCase):
 		rule.append(
 			"actions",
 			{
-				"action_id": "A",
-				"action_type": "Process",
+				"action_id": "root",
+				"action_type": "Entry Action",
 				"action_label": "Step A",
-				"is_entry_action": 1,
 			},
 		)
 		# Valid so far. Now let's add C which is disconnected.
