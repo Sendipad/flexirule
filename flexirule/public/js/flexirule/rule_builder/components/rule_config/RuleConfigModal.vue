@@ -136,7 +136,9 @@
 										:title="__('Save')"
 									>
 										<i class="fa fa-save"></i>
-										<span class="btn-label" v-if="!isMobile">{{ __("Save") }}</span>
+										<span class="btn-label" v-if="!isMobile">{{
+											__("Save")
+										}}</span>
 									</button>
 								</div>
 
