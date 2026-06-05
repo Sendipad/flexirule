@@ -17,15 +17,15 @@
 					:zoom-on-pinch="true"
 					:snap-to-grid="true"
 					:snap-grid="[15, 15]"
-					:nodes-draggable="!isReadOnly && !panMode"
+					:nodes-draggable="!isReadOnly"
 					:nodes-connectable="!isReadOnly"
 					:elements-selectable="true"
-					:selection-on-drag="!panMode"
-					:pan-on-drag="panMode ? true : [2]"
+					:selection-on-drag="false"
+					:pan-on-drag="true"
 					:delete-key-active="!isReadOnly"
 					fit-view-on-init
 					:edge-types="edgeTypes"
-					:class="{ 'is-read-only-flow': isReadOnly, 'is-pan-mode': panMode }"
+					:class="{ 'is-read-only-flow': isReadOnly }"
 					@node-click="onNodeClick"
 					@node-dblclick="onNodeDblClick"
 					@pane-click="onPaneClick"
@@ -109,40 +109,15 @@
 							>
 								{{ __("Fit") }}
 							</button>
-							<button
-								class="btn btn-sm btn-default"
-								:class="{ active: panMode }"
-								@click="panMode = !panMode"
-								:title="__('Pan Canvas')"
-							>
-								<i class="fa fa-hand-paper-o"></i>
-							</button>
 						</div>
 
 						<div class="divider-vertical"></div>
-
-						<div class="show-disabled-control" :title="__('Show Disabled Nodes')">
-							<label class="switch small-switch">
-								<input type="checkbox" v-model="showDisabledNodes" />
-								<span class="slider round"></span>
-							</label>
-							<span class="small text-muted">{{ __("Disabled") }}</span>
-						</div>
 
 						<div v-if="isReadOnly" class="read-only-badge mr-2">
 							<i class="fa fa-lock"></i> {{ __("Read Only") }}
 						</div>
 
 						<div class="quick-actions-wrap">
-							<button
-								class="btn btn-sm btn-default icon-action-btn"
-								@click="uiStore.show_shortcuts_help = !uiStore.show_shortcuts_help"
-								:title="__('Keyboard Shortcuts')"
-								aria-haspopup="dialog"
-								:aria-expanded="uiStore.show_shortcuts_help ? 'true' : 'false'"
-							>
-								<i class="fa fa-keyboard-o"></i>
-							</button>
 							<button
 								ref="quickActionsButtonRef"
 								class="btn btn-sm btn-default quick-actions-btn"
@@ -287,7 +262,6 @@ const quickActionsMenuStyle = ref({});
 const flowWrapper = ref(null);
 const mousePos = ref({ x: 0, y: 0 });
 const showDisabledNodes = ref(true);
-const panMode = ref(false);
 const lastAltFieldname = ref("");
 const fieldInspector = ref({
 	visible: false,
@@ -309,6 +283,11 @@ const quickActionItems = computed(() => [
 	{ key: "layout", label: __("Auto Layout"), icon: "fa-sitemap" },
 	{ key: "permissions", label: __("Set Permission"), icon: "fa-shield" },
 	{ key: "copy", label: __("Copy"), icon: "fa-copy", shortcut: "Ctrl C" },
+	{
+		key: "disabled_nodes",
+		label: showDisabledNodes.value ? __("Hide Disabled Nodes") : __("Show Disabled Nodes"),
+		icon: showDisabledNodes.value ? "fa-eye-slash" : "fa-eye",
+	},
 	{ key: "preferences", label: __("Preference"), icon: "fa-sliders" },
 ]);
 
@@ -417,6 +396,7 @@ function runQuickAction(item) {
 		layout: () => runAutoLayout(),
 		permissions: () => openPermissionsSettings(),
 		copy: () => copySelectedToClipboard(),
+		disabled_nodes: () => (showDisabledNodes.value = !showDisabledNodes.value),
 		preferences: () => openRuleSettingsTab(),
 	};
 	actions[item.key]?.();
@@ -507,6 +487,18 @@ async function pasteFromClipboardWrapper() {
 	await pasteFromClipboard(mousePos.value, flowWrapper.value);
 }
 
+function onDragOver(event) {
+	event.preventDefault();
+	if (event.dataTransfer) {
+		event.dataTransfer.dropEffect = "move";
+	}
+}
+
+function onDrop(event) {
+	event.preventDefault();
+	// Handle drop if any drag-and-drop node creation is implemented
+}
+
 function handleKeydown(e) {
 	// If the config modal is open, let it handle keypress events
 	if (uiStore.show_config_modal) return;
@@ -540,14 +532,6 @@ function handleKeydown(e) {
 		pasteFromClipboardWrapper();
 	}
 
-	if (e.code === "Space" && !e.repeat && !e.target?.isContentEditable) {
-		panMode.value = true;
-		e.preventDefault();
-	}
-	if (e.key?.toLowerCase?.() === "p" && !e.ctrlKey && !e.metaKey && !e.altKey) {
-		panMode.value = !panMode.value;
-		e.preventDefault();
-	}
 
 	// Shortcuts Help: Shift+?
 	if (e.shiftKey && e.key === "?") {
@@ -569,9 +553,6 @@ function handleKeydown(e) {
 }
 
 function handleKeyup(e) {
-	if (e.code === "Space") {
-		panMode.value = false;
-	}
 	if (!e.altKey) {
 		lastAltFieldname.value = "";
 		fieldInspector.value.visible = false;
@@ -844,7 +825,6 @@ function onEdgeClick({ edge, event }) {
 	align-items: center;
 }
 
-.icon-action-btn,
 .quick-actions-btn {
 	width: 32px;
 	height: 32px;
@@ -964,11 +944,6 @@ function onEdgeClick({ edge, event }) {
 	height: 20px;
 	background-color: var(--fxr-border-subtle);
 }
-.show-disabled-control {
-	display: flex;
-	align-items: center;
-	gap: 5px;
-}
 .sidebar-container {
 	position: relative;
 	width: 360px;
@@ -993,13 +968,11 @@ function onEdgeClick({ edge, event }) {
 	order: 1;
 }
 
-.canvas-container :deep(.vue-flow.is-pan-mode),
-.canvas-container :deep(.vue-flow.is-pan-mode .vue-flow__pane) {
+.canvas-container :deep(.vue-flow__pane) {
 	cursor: grab;
 }
 
-.canvas-container :deep(.vue-flow.is-pan-mode:active),
-.canvas-container :deep(.vue-flow.is-pan-mode:active .vue-flow__pane) {
+.canvas-container :deep(.vue-flow__pane:active) {
 	cursor: grabbing;
 }
 
