@@ -134,31 +134,29 @@
 									<div class="toolbar-divider"></div>
 								</template>
 
-								<!-- Primary Actions (Always Visible, hidden on mobile label edit) -->
-								<div
-									class="toolbar-group actions"
-									v-if="!ruleStore.is_read_only && (!isMobile || !isEditingLabel)"
-								>
+								<!-- Action Group: Save, More, Close -->
+								<div class="toolbar-group actions">
+									<!-- Save (Primary) -->
 									<button
+										v-if="
+											!ruleStore.is_read_only &&
+											(!isMobile || !isEditingLabel)
+										"
 										class="toolbar-btn save-action"
 										@click="save"
-										:title="__('Save')"
+										:title="__('Save Changes')"
 									>
 										<i class="fa fa-save"></i>
 										<span class="btn-label" v-if="!isMobile">{{
 											__("Save")
 										}}</span>
 									</button>
-								</div>
 
-								<div
-									class="toolbar-divider"
-									v-if="!ruleStore.is_read_only && (!isMobile || !isEditingLabel)"
-								></div>
-
-								<!-- Overflow Menu (Mobile Only, hidden on label edit) -->
-								<template v-if="isMobile && !isEditingLabel">
-									<div class="overflow-menu-wrapper">
+									<!-- Overflow Menu (Mobile Only) -->
+									<div
+										v-if="isMobile && !isEditingLabel"
+										class="overflow-menu-wrapper"
+									>
 										<button
 											ref="overflowTriggerRef"
 											class="toolbar-btn overflow-trigger"
@@ -267,17 +265,16 @@
 											</div>
 										</Teleport>
 									</div>
-									<div class="toolbar-divider" v-if="!isEditingLabel"></div>
-								</template>
 
-								<!-- Close (Always Visible) -->
-								<button
-									class="toolbar-btn close"
-									@click="cancel"
-									:title="__('Close')"
-								>
-									<i class="fa fa-times"></i>
-								</button>
+									<!-- Close -->
+									<button
+										class="toolbar-btn close"
+										@click="cancel"
+										:title="__('Close')"
+									>
+										<i class="fa fa-times"></i>
+									</button>
+								</div>
 							</div>
 						</div>
 					</header>
@@ -1136,8 +1133,8 @@ onUnmounted(() => {
 	align-items: center;
 	background: var(--fxr-surface-2, var(--control-bg));
 	padding: 2px;
-	border-radius: 10px;
-	gap: 0px;
+	border-radius: 11px;
+	gap: 2px;
 }
 
 .header-toolbar:empty {
@@ -1147,62 +1144,61 @@ onUnmounted(() => {
 .toolbar-group {
 	display: flex;
 	align-items: center;
-	gap: 2px;
+	gap: 4px;
 }
 
 .toolbar-btn {
 	display: flex;
 	align-items: center;
+	justify-content: center;
 	gap: 6px;
-	padding: 6px 10px;
-	border-radius: 8px;
-	border: none;
+	padding: 0 10px;
+	border-radius: 10px;
+	border: 1px solid transparent;
 	background: transparent;
 	color: var(--fxr-text-soft, var(--text-muted));
 	font-size: 12px;
 	font-weight: 600;
 	cursor: pointer;
-	transition: all 0.2s;
+	transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 	height: 32px;
+	min-width: 32px;
 }
 
 .toolbar-btn:hover:not(:disabled) {
 	background: var(--fxr-surface, #fff);
 	color: var(--fxr-text-strong, var(--text-color));
+	border-color: var(--fxr-border-subtle, var(--border-color));
 	box-shadow: var(--fxr-shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.04));
 }
 
 .toolbar-btn.active {
 	background: var(--fxr-accent, var(--primary));
 	color: #fff;
+	border-color: var(--fxr-accent, var(--primary));
 }
 
 .toolbar-btn:disabled {
-	opacity: 0.3;
-	cursor: default;
-}
-
-.toolbar-btn.close {
-	padding: 0;
-	width: 32px;
-	justify-content: center;
+	opacity: 0.35;
+	cursor: not-allowed;
 }
 
 .toolbar-btn.close:hover {
 	background: var(--fxr-danger-soft, #fee2e2);
 	color: var(--red-600, #ef4444);
+	border-color: color-mix(in srgb, var(--red-200, #fecaca) 50%, transparent);
 }
 
 .toolbar-btn.save-action {
-	background: var(--fxr-text-strong, #1e293b);
-	color: #fff;
-	padding: 0 12px;
+	background: var(--fxr-accent-soft, #eff6ff);
+	color: var(--fxr-accent, var(--primary));
+	border-color: color-mix(in srgb, var(--fxr-accent, var(--primary)) 20%, transparent);
 }
 
 .toolbar-btn.save-action:hover {
-	background: color-mix(in srgb, var(--fxr-text-strong, #1e293b) 84%, black);
+	background: var(--fxr-accent, var(--primary));
 	color: #fff;
-	box-shadow: var(--fxr-shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.04));
+	border-color: var(--fxr-accent, var(--primary));
 }
 
 .toolbar-status {
@@ -1230,9 +1226,11 @@ onUnmounted(() => {
 
 .toolbar-divider {
 	width: 1px;
-	height: 16px;
+	height: 14px;
 	background: var(--fxr-border-subtle, var(--border-color));
+	opacity: 0.6;
 	margin: 0 2px;
+	flex-shrink: 0;
 }
 
 .config-modal-body {
@@ -1690,20 +1688,15 @@ onUnmounted(() => {
 	}
 
 	.toolbar-btn {
-		padding: 0 10px;
-		height: 44px; /* Increased for touch target */
-		min-width: 44px;
-		justify-content: center;
-		border-radius: 8px;
-	}
-
-	.toolbar-btn.save-action {
 		padding: 0;
+		height: 44px;
 		width: 44px;
+		min-width: 44px;
+		border-radius: 12px;
 	}
 
-	.toolbar-btn.close {
-		width: 44px;
+	.toolbar-btn .btn-label {
+		display: none;
 	}
 
 	.title-wrapper.is-editing {

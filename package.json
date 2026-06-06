@@ -23,7 +23,7 @@
 		"@tiptap/vue-3": "^3.22.5",
 		"tippy.js": "^6.3.7",
 		"@floating-ui/dom": "^1.0.0",
-	"@headlessui/vue": "^1.7.16",
+		"@headlessui/vue": "^1.7.16",
 		"@vue-flow/background": "^1.3.0",
 		"@vue-flow/controls": "^1.1.1",
 		"@vue-flow/core": "^1.33.0",
