@@ -792,8 +792,9 @@ onBeforeUnmount(() => {
 .selected-badges {
 	display: flex;
 	flex-wrap: wrap;
-	gap: 4px;
+	gap: 6px;
 	flex: 1;
+	min-width: 0;
 }
 
 .selected-badge {
@@ -836,8 +837,8 @@ onBeforeUnmount(() => {
 
 .multi-select-dropdown,
 .expanded-options-container {
-	background: var(--fxr-bg-card, #fff);
-	border: 1px solid var(--fxr-border, #dbe2ea);
+	background: var(--fxr-surface-elevated);
+	border: 1px solid var(--fxr-border-strong);
 	border-radius: 12px;
 	box-shadow: 0 16px 34px rgba(15, 23, 42, 0.18);
 	overflow: hidden;
@@ -849,7 +850,7 @@ onBeforeUnmount(() => {
 
 .selected-list {
 	margin-top: 8px;
-	background: var(--fxr-bg-card);
+	background: var(--fxr-surface);
 	border: 1px solid var(--fxr-border);
 	border-radius: 10px;
 	max-height: 240px;
@@ -899,7 +900,7 @@ onBeforeUnmount(() => {
 .sticky-row {
 	position: sticky;
 	z-index: 2;
-	background: var(--fxr-bg-card, #fff);
+	background: var(--fxr-surface-elevated);
 }
 
 .dropdown-search {
@@ -922,7 +923,7 @@ onBeforeUnmount(() => {
 	padding: 4px 8px;
 	border: 1px solid var(--fxr-border);
 	border-radius: var(--fxr-radius-sm, 4px);
-	background: var(--fxr-bg-card, #fff);
+	background: var(--fxr-surface);
 	color: var(--fxr-text-muted);
 	font-size: 11px;
 	font-weight: 600;
@@ -938,9 +939,9 @@ onBeforeUnmount(() => {
 }
 
 .action-btn.select-all {
-	color: var(--fxr-accent, #2563eb);
-	border-color: var(--fxr-accent-light, #dbeafe);
-	background: var(--fxr-accent-light, #f0f7ff);
+	color: var(--fxr-accent);
+	border-color: var(--fxr-accent-border);
+	background: var(--fxr-accent-soft);
 }
 
 .action-btn.select-all:hover {
@@ -975,12 +976,13 @@ onBeforeUnmount(() => {
 
 .option-item {
 	display: flex;
-	align-items: flex-start;
-	gap: 8px;
-	padding: 8px 10px;
+	align-items: center;
+	gap: 12px;
+	padding: 8px 12px;
 	border-radius: 8px;
 	cursor: pointer;
 	transition: background 0.12s ease;
+	min-height: 40px;
 }
 
 .option-item:hover,
@@ -994,7 +996,6 @@ onBeforeUnmount(() => {
 
 .option-icon {
 	flex-shrink: 0;
-	margin-top: 2px;
 	width: 16px;
 	height: 16px;
 	display: flex;

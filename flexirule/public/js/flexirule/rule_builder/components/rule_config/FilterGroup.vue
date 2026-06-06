@@ -211,7 +211,7 @@ const panelStyleVars = computed(() => {
 	const accent = getContract(actionType)?.css?.color || "var(--fxr-accent)";
 	return {
 		"--fxr-node-accent": accent,
-		"--fxr-node-accent-light": `color-mix(in srgb, ${accent} 12%, white)`,
+		"--fxr-node-accent-light": `color-mix(in srgb, ${accent} 12%, var(--fxr-surface))`,
 	};
 });
 

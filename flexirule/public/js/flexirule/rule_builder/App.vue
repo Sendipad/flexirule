@@ -764,9 +764,9 @@ function onEdgeClick({ edge, event }) {
 	--fxr-accent: var(--primary, #2490ef);
 	--fxr-accent-soft: rgba(36, 144, 239, 0.1);
 	--fxr-accent-strong: var(--primary);
-	--fxr-success-soft: color-mix(in srgb, var(--green-500, #22c55e) 14%, white);
-	--fxr-warning-soft: color-mix(in srgb, var(--orange-500, #f59e0b) 14%, white);
-	--fxr-danger-soft: color-mix(in srgb, var(--red-500, #ef4444) 14%, white);
+	--fxr-success-soft: color-mix(in srgb, var(--green-500, #22c55e) 14%, var(--fxr-surface));
+	--fxr-warning-soft: color-mix(in srgb, var(--orange-500, #f59e0b) 14%, var(--fxr-surface));
+	--fxr-danger-soft: color-mix(in srgb, var(--red-500, #ef4444) 14%, var(--fxr-surface));
 	--fxr-space-1: 4px;
 	--fxr-space-2: 6px;
 	--fxr-space-3: 8px;
@@ -962,7 +962,7 @@ function onEdgeClick({ edge, event }) {
 	height: 100%;
 	border-radius: var(--fxr-radius-lg);
 	border: 1px solid var(--fxr-border-subtle);
-	background-color: color-mix(in srgb, var(--fxr-bg-page) 88%, white);
+	background-color: color-mix(in srgb, var(--fxr-bg-page) 88%, var(--fxr-surface));
 	position: relative;
 	order: 1;
 }
@@ -1123,7 +1123,7 @@ function onEdgeClick({ edge, event }) {
 	color: var(--orange-800, #9a3412);
 	padding: 4px 10px;
 	border-radius: 6px;
-	border: 1px solid color-mix(in srgb, var(--orange-300, #ffedd5) 70%, white);
+	border: 1px solid color-mix(in srgb, var(--orange-300, #ffedd5) 70%, var(--fxr-surface));
 	font-size: 11px;
 	font-weight: 700;
 }

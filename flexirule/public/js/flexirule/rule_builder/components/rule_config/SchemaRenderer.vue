@@ -93,6 +93,6 @@ function updateValue(field, value) {
 
 .has-error :deep(.form-control) {
 	border-color: var(--red-500, #ef4444);
-	box-shadow: 0 0 0 2px color-mix(in srgb, var(--red-500, #ef4444) 14%, white);
+	box-shadow: 0 0 0 2px color-mix(in srgb, var(--red-500, #ef4444) 14%, var(--fxr-surface));
 }
 </style>

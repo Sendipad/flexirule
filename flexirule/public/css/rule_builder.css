@@ -49,7 +49,7 @@
 .condition-group-box {
 	margin-bottom: 16px;
 	border-left: 3px solid var(--primary-color);
-	background: var(--fxr-bg-card);
+	background: var(--fxr-surface);
 	border-radius: var(--fxr-radius-lg);
 	padding: var(--fxr-space-4);
 	border: 1px solid var(--fxr-border);
