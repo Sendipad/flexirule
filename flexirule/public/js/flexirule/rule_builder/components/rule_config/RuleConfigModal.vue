@@ -381,10 +381,10 @@
 																		collapseInputPanel
 																			? __(
 																					'Expand Input Panel'
-																			  )
+																				)
 																			: __(
 																					'Collapse Input Panel'
-																			  )
+																				)
 																	"
 																>
 																	<i
@@ -1215,8 +1215,6 @@ html[data-theme="dark"] .toolbar-btn.save-action:hover {
 	border-color: var(--fxr-accent);
 }
 
-
-
 .toolbar-status {
 	display: flex;
 	align-items: center;
@@ -1686,7 +1684,7 @@ html[data-theme="dark"] .toolbar-btn.save-action:hover {
 	}
 
 	.header-toolbar {
-	background: var(--fxr-surface-2);
+		background: var(--fxr-surface-2);
 		border-radius: 10px;
 		padding: 2px;
 	}

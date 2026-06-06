@@ -416,8 +416,12 @@ watch(
 
 .operator-select {
 	font-weight: var(--fxr-weight-semibold);
-	color: var(--fxr-text);
-	background-color: var(--fxr-bg-muted);
+	color: var(--fxr-text-strong);
+	background-color: var(--fxr-surface-2);
+}
+
+html[data-theme="dark"] .operator-select {
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23e5e7eb' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
 }
 
 .value-group-col {
@@ -517,6 +521,17 @@ watch(
 		height: 44px;
 		justify-content: center;
 	}
+
+}
+
+.action-col .fxr-btn--danger {
+	color: var(--fxr-text-danger);
+	opacity: 0.8;
+	transition: opacity var(--fxr-transition-fast);
+}
+
+.action-col .fxr-btn--danger:hover {
+	opacity: 1;
 }
 
 /* Text Truncation for ComboBox and FlexValue */
