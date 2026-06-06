@@ -1190,15 +1190,27 @@ onUnmounted(() => {
 }
 
 .toolbar-btn.save-action {
-	background: var(--fxr-accent-soft, #eff6ff);
-	color: var(--fxr-accent, var(--primary));
-	border-color: color-mix(in srgb, var(--fxr-accent, var(--primary)) 20%, transparent);
+	background: var(--fxr-accent-soft);
+	color: var(--fxr-accent);
+	border-color: var(--fxr-accent-border);
 }
 
 .toolbar-btn.save-action:hover {
-	background: var(--fxr-accent, var(--primary));
-	color: #fff;
-	border-color: var(--fxr-accent, var(--primary));
+	background: var(--fxr-accent);
+	color: #ffffff !important;
+	border-color: var(--fxr-accent);
+}
+
+/* Ensure Save button is visible in Dark Mode (Avoid white-out) */
+html[data-theme="dark"] .toolbar-btn.save-action {
+	background: var(--fxr-accent-soft) !important;
+	color: #ffffff !important;
+	border-color: var(--fxr-accent-border) !important;
+}
+
+html[data-theme="dark"] .toolbar-btn.save-action:hover {
+	background: var(--fxr-accent) !important;
+	color: #ffffff !important;
 }
 
 .toolbar-status {

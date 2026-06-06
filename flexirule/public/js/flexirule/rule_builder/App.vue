@@ -746,24 +746,24 @@ function onEdgeClick({ edge, event }) {
 
 .rule-builder-container,
 .fxr-builder-active {
-	--fxr-bg-page: var(--fg-color, #ffffff);
-	--fxr-bg-card: var(--fg-color, #ffffff);
-	--fxr-bg-input: var(--fg-color, #ffffff);
-	--fxr-surface: var(--fg-color, #ffffff);
-	--fxr-surface-2: var(--control-bg, #f3f5f7);
-	--fxr-surface-soft: color-mix(in srgb, var(--control-bg, #f3f5f7) 68%, white);
-	--fxr-surface-elevated: color-mix(in srgb, var(--fg-color, #ffffff) 94%, transparent);
+	--fxr-bg-page: var(--bg-color, #f8fafc);
+	--fxr-bg-card: var(--modal-bg, var(--panel-bg, #ffffff));
+	--fxr-bg-input: var(--control-bg, #ffffff);
+	--fxr-surface: var(--modal-bg, var(--panel-bg, #ffffff));
+	--fxr-surface-2: var(--bg-light-gray, #f3f5f7);
+	--fxr-surface-soft: var(--cb-bg-gray, #f8fafc);
+	--fxr-surface-elevated: var(--modal-bg, var(--panel-bg, #ffffff));
 	--fxr-border: var(--border-color, #d1d8dd);
-	--fxr-border-subtle: color-mix(in srgb, var(--border-color, #d1d8dd) 72%, white);
-	--fxr-border-strong: color-mix(in srgb, var(--border-color, #d1d8dd) 88%, #334155);
+	--fxr-border-subtle: var(--border-subtle, #e2e8f0);
+	--fxr-border-strong: var(--dark-border-color, #cbd5e1);
 	--fxr-text: var(--text-color, #1f2937);
 	--fxr-text-strong: var(--text-color, #1f2937);
 	--fxr-text-soft: var(--text-muted, #64748b);
 	--fxr-text-muted: var(--text-muted, #64748b);
-	--fxr-text-faint: color-mix(in srgb, var(--text-muted, #64748b) 70%, white);
+	--fxr-text-faint: var(--text-light, #94a3b8);
 	--fxr-accent: var(--primary, #2490ef);
-	--fxr-accent-soft: color-mix(in srgb, var(--primary, #2490ef) 12%, white);
-	--fxr-accent-strong: color-mix(in srgb, var(--primary, #2490ef) 84%, black);
+	--fxr-accent-soft: rgba(36, 144, 239, 0.1);
+	--fxr-accent-strong: var(--primary);
 	--fxr-success-soft: color-mix(in srgb, var(--green-500, #22c55e) 14%, white);
 	--fxr-warning-soft: color-mix(in srgb, var(--orange-500, #f59e0b) 14%, white);
 	--fxr-danger-soft: color-mix(in srgb, var(--red-500, #ef4444) 14%, white);

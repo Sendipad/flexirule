@@ -30,6 +30,7 @@
 
 	--fxr-accent: #2490ef;
 	--fxr-accent-light: rgba(36, 144, 239, 0.08);
+	--fxr-accent-soft: rgba(36, 144, 239, 0.08);
 	--fxr-accent-border: rgba(36, 144, 239, 0.3);
 
 	/* Semantic colors for value-type badges & tokens */
@@ -107,4 +108,59 @@
 	--fxr-z-dropdown: 100010;
 	--fxr-z-popover: 100020;
 	--fxr-z-modal: 100030;
+}
+
+/* ─── Dark Theme Overrides ─── */
+html[data-theme="dark"] {
+	--fxr-bg-page: var(--bg-color);
+	--fxr-bg-card: var(--modal-bg, var(--panel-bg, #242424));
+	--fxr-bg-input: var(--control-bg);
+	--fxr-bg-muted: var(--bg-light-gray);
+	--fxr-bg-hover: var(--cb-bg-gray);
+	--fxr-bg-active: var(--bg-blue);
+	--fxr-bg-danger: rgba(220, 38, 38, 0.1);
+	--fxr-bg-dark: var(--gray-900);
+	--fxr-bg-input-disabled: var(--bg-light-gray);
+
+	--fxr-border: var(--border-color);
+	--fxr-border-subtle: var(--border-subtle, rgba(255, 255, 255, 0.05));
+	--fxr-border-focus: var(--primary);
+	--fxr-border-strong: var(--dark-border-color, #444);
+	--fxr-border-danger: var(--red-400);
+
+	--fxr-text: var(--text-color);
+	--fxr-text-secondary: var(--text-muted);
+	--fxr-text-muted: var(--text-light, #94a3b8);
+	--fxr-text-danger: var(--red-500);
+	--fxr-text-link: var(--blue-400);
+	--fxr-text-heading: #ffffff;
+
+	--fxr-accent: var(--primary);
+	--fxr-accent-light: rgba(36, 144, 239, 0.15);
+	--fxr-accent-soft: rgba(36, 144, 239, 0.2);
+	--fxr-accent-border: rgba(36, 144, 239, 0.4);
+
+	/* Badges in Dark Mode */
+	--fxr-badge-literal: var(--gray-700);
+	--fxr-badge-literal-text: var(--gray-200);
+	--fxr-badge-number: rgba(29, 78, 216, 0.2);
+	--fxr-badge-number-text: var(--blue-300);
+	--fxr-badge-bool: rgba(5, 150, 105, 0.2);
+	--fxr-badge-bool-text: var(--green-300);
+	--fxr-badge-var: rgba(139, 92, 246, 0.2);
+	--fxr-badge-var-text: #c084fc;
+	--fxr-badge-expr: rgba(194, 65, 12, 0.2);
+	--fxr-badge-expr-text: var(--orange-300);
+	--fxr-badge-resolver: rgba(217, 119, 6, 0.2);
+	--fxr-badge-resolver-text: var(--orange-200);
+	--fxr-badge-formatter: rgba(219, 39, 119, 0.2);
+	--fxr-badge-formatter-text: var(--pink-300);
+	--fxr-badge-normalize: rgba(37, 99, 235, 0.2);
+	--fxr-badge-normalize-text: var(--blue-200);
+	--fxr-badge-builder: rgba(3, 105, 161, 0.2);
+	--fxr-badge-builder-text: var(--sky-300);
+
+	--fxr-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+	--fxr-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+	--fxr-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
 }
