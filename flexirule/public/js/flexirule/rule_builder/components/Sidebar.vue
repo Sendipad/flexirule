@@ -263,14 +263,14 @@ onMounted(async () => {
 .btn-primary-light {
 	background: var(--fxr-accent-soft, #eef2ff);
 	color: var(--fxr-accent, #4f46e5);
-	border: 1px solid color-mix(in srgb, var(--fxr-accent, #4f46e5) 22%, white);
+	border: 1px solid color-mix(in srgb, var(--fxr-accent, #4f46e5) 22%, var(--fxr-surface));
 	font-weight: 600;
 	font-size: 11px;
 }
 
 .btn-primary-light:hover {
-	background: color-mix(in srgb, var(--fxr-accent-soft, #eef2ff) 84%, white);
-	border-color: color-mix(in srgb, var(--fxr-accent, #4f46e5) 32%, white);
+	background: color-mix(in srgb, var(--fxr-accent-soft, #eef2ff) 84%, var(--fxr-surface));
+	border-color: color-mix(in srgb, var(--fxr-accent, #4f46e5) 32%, var(--fxr-surface));
 }
 
 .sidebar-header {

@@ -764,7 +764,7 @@ defineExpose({ validate });
 }
 
 .when-toggle-btn.is-active:hover {
-	background: color-mix(in srgb, var(--fxr-accent-soft, #f3e8ff) 84%, white);
+	background: color-mix(in srgb, var(--fxr-accent-soft, #f3e8ff) 84%, var(--fxr-surface));
 	border-color: rgba(124, 58, 237, 0.3);
 }
 

@@ -994,6 +994,20 @@ onUnmounted(() => {
 });
 </script>
 
+<style>
+/* Ensure Save button is visible in Dark Mode (Avoid white-out) */
+html[data-theme="dark"] .toolbar-btn.save-action {
+	background: var(--fxr-accent-soft) !important;
+	color: var(--fxr-accent) !important;
+	border-color: var(--fxr-accent-border) !important;
+}
+
+html[data-theme="dark"] .toolbar-btn.save-action:hover {
+	background: var(--fxr-accent) !important;
+	color: #ffffff !important;
+}
+</style>
+
 <style scoped>
 .config-modal-overlay {
 	position: fixed;
@@ -1001,7 +1015,7 @@ onUnmounted(() => {
 	left: 0;
 	width: 100vw;
 	height: 100vh;
-	background: color-mix(in srgb, var(--fxr-bg-page, #ffffff) 34%, rgba(15, 23, 42, 0.6));
+	background: color-mix(in srgb, var(--fxr-bg-page) 34%, rgba(15, 23, 42, 0.6));
 	backdrop-filter: blur(10px);
 	z-index: 1040;
 	display: flex;
@@ -1011,7 +1025,7 @@ onUnmounted(() => {
 }
 
 .config-modal-container {
-	background: var(--fxr-surface, #fff);
+	background: var(--fxr-surface);
 	width: 100%;
 	height: 100%;
 	max-width: 1800px;
@@ -1020,7 +1034,7 @@ onUnmounted(() => {
 	display: flex;
 	flex-direction: column;
 	overflow: hidden;
-	border: 1px solid var(--fxr-border-subtle, var(--border-color));
+	border: 1px solid var(--fxr-border-subtle);
 	transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -1030,8 +1044,8 @@ onUnmounted(() => {
 	align-items: center;
 	justify-content: space-between;
 	padding: 0 16px;
-	border-bottom: 1px solid var(--fxr-border-subtle, var(--border-color));
-	background: var(--fxr-surface, #fff);
+	border-bottom: 1px solid var(--fxr-border-subtle);
+	background: var(--fxr-surface);
 }
 
 .header-left {
@@ -1067,16 +1081,16 @@ onUnmounted(() => {
 }
 
 .title-input {
-	border: 1px solid var(--fxr-accent, var(--primary));
+	border: 1px solid var(--fxr-accent);
 	border-radius: 10px;
 	padding: 4px 8px;
 	font-size: 18px;
 	font-weight: 700;
-	color: var(--fxr-text-strong, var(--text-color));
+	color: var(--fxr-text-strong);
 	flex: 1;
 	min-width: 120px;
 	outline: none;
-	background: var(--fxr-surface, #fff);
+	background: var(--fxr-surface);
 }
 
 .header-titles h3.editable {
@@ -1087,27 +1101,27 @@ onUnmounted(() => {
 }
 
 .header-titles h3.editable:hover {
-	background: var(--fxr-surface-2, var(--control-bg));
+	background: var(--fxr-surface-2);
 }
 
 .header-titles h3 {
 	margin: 0;
 	font-size: 18px;
 	font-weight: 700;
-	color: var(--fxr-text-strong, var(--text-color));
+	color: var(--fxr-text-strong);
 }
 
 .dirty-badge {
 	display: flex;
 	align-items: center;
 	gap: 6px;
-	background: var(--fxr-warning-soft, #fffbeb);
-	color: var(--orange-700, #d97706);
+	background: var(--fxr-warning-soft);
+	color: var(--orange-700);
 	padding: 4px 10px;
 	border-radius: 20px;
 	font-size: 11px;
 	font-weight: 700;
-	border: 1px solid color-mix(in srgb, var(--orange-400, #f59e0b) 28%, white);
+	border: 1px solid color-mix(in srgb, var(--orange-400, #f59e0b) 28%, var(--fxr-surface));
 	text-transform: uppercase;
 	letter-spacing: 0.5px;
 }
@@ -1131,7 +1145,7 @@ onUnmounted(() => {
 .header-toolbar {
 	display: flex;
 	align-items: center;
-	background: var(--fxr-surface-2, var(--control-bg));
+	background: var(--fxr-surface-2);
 	padding: 2px;
 	border-radius: 11px;
 	gap: 2px;
@@ -1156,7 +1170,7 @@ onUnmounted(() => {
 	border-radius: 10px;
 	border: 1px solid transparent;
 	background: transparent;
-	color: var(--fxr-text-soft, var(--text-muted));
+	color: var(--fxr-text-soft);
 	font-size: 12px;
 	font-weight: 600;
 	cursor: pointer;
@@ -1166,9 +1180,9 @@ onUnmounted(() => {
 }
 
 .toolbar-btn:hover:not(:disabled) {
-	background: var(--fxr-surface, #fff);
-	color: var(--fxr-text-strong, var(--text-color));
-	border-color: var(--fxr-border-subtle, var(--border-color));
+	background: var(--fxr-surface);
+	color: var(--fxr-text-strong);
+	border-color: var(--fxr-border-subtle);
 	box-shadow: var(--fxr-shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.04));
 }
 
@@ -1201,17 +1215,7 @@ onUnmounted(() => {
 	border-color: var(--fxr-accent);
 }
 
-/* Ensure Save button is visible in Dark Mode (Avoid white-out) */
-html[data-theme="dark"] .toolbar-btn.save-action {
-	background: var(--fxr-accent-soft) !important;
-	color: #ffffff !important;
-	border-color: var(--fxr-accent-border) !important;
-}
 
-html[data-theme="dark"] .toolbar-btn.save-action:hover {
-	background: var(--fxr-accent) !important;
-	color: #ffffff !important;
-}
 
 .toolbar-status {
 	display: flex;
@@ -1250,7 +1254,7 @@ html[data-theme="dark"] .toolbar-btn.save-action:hover {
 	overflow: hidden;
 	display: flex;
 	position: relative;
-	background: color-mix(in srgb, var(--fxr-bg-page, #fff) 92%, var(--fxr-surface-2, #f3f5f7));
+	background: color-mix(in srgb, var(--fxr-bg-page) 92%, var(--fxr-surface-2));
 }
 
 .conditions-container,
@@ -1289,8 +1293,8 @@ html[data-theme="dark"] .toolbar-btn.save-action:hover {
 
 .sidebar-variables {
 	width: 260px;
-	border-right: 1px solid var(--fxr-border-subtle, var(--border-color));
-	background: var(--fxr-surface, #fff);
+	border-right: 1px solid var(--fxr-border-subtle);
+	background: var(--fxr-surface);
 	display: flex;
 	flex-direction: column;
 	overflow-y: auto;
@@ -1305,7 +1309,7 @@ html[data-theme="dark"] .toolbar-btn.save-action:hover {
 .config-scroll-container {
 	flex: 1;
 	overflow: hidden;
-	background: color-mix(in srgb, var(--fxr-bg-page, #fff) 92%, var(--fxr-surface-2, #f3f5f7));
+	background: color-mix(in srgb, var(--fxr-bg-page) 92%, var(--fxr-surface-2));
 	padding: 4px;
 	height: 100%;
 }
@@ -1340,9 +1344,9 @@ html[data-theme="dark"] .toolbar-btn.save-action:hover {
 
 .core-setup-panel,
 .core-config-panel {
-	background: var(--fxr-surface, #fff);
+	background: var(--fxr-surface);
 	border-radius: 16px;
-	border: 1px solid var(--fxr-border-subtle, var(--border-color));
+	border: 1px solid var(--fxr-border-subtle);
 	overflow: hidden;
 	position: relative;
 	height: 100%;
@@ -1352,8 +1356,8 @@ html[data-theme="dark"] .toolbar-btn.save-action:hover {
 	width: 20%;
 	min-width: 220px;
 	max-width: 380px;
-	border-left: 1px solid var(--fxr-border-subtle, var(--border-color));
-	background: var(--fxr-surface, #fff);
+	border-left: 1px solid var(--fxr-border-subtle);
+	background: var(--fxr-surface);
 	display: flex;
 	flex-direction: column;
 	position: relative;
@@ -1437,7 +1441,7 @@ html[data-theme="dark"] .toolbar-btn.save-action:hover {
 .compact-tabs {
 	display: flex;
 	gap: 6px;
-	background: var(--fxr-surface-2, #eef2f7);
+	background: var(--fxr-surface-2);
 	padding: 4px;
 	border-radius: 10px;
 }
@@ -1448,7 +1452,7 @@ html[data-theme="dark"] .toolbar-btn.save-action:hover {
 	border: none;
 	border-radius: 8px;
 	background: transparent;
-	color: var(--fxr-text-soft, #64748b);
+	color: var(--fxr-text-soft);
 	font-size: 12px;
 	font-weight: 700;
 	cursor: pointer;
@@ -1456,13 +1460,13 @@ html[data-theme="dark"] .toolbar-btn.save-action:hover {
 }
 
 .compact-tab-btn:hover {
-	background: var(--fxr-surface, #ffffff);
-	color: var(--fxr-text-strong, #334155);
+	background: var(--fxr-surface);
+	color: var(--fxr-text-strong);
 }
 
 .compact-tab-btn.active {
-	background: var(--fxr-surface, #ffffff);
-	color: var(--fxr-text-strong, #1e293b);
+	background: var(--fxr-surface);
+	color: var(--fxr-text-strong);
 	box-shadow: var(--fxr-shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.12));
 }
 
@@ -1475,8 +1479,8 @@ html[data-theme="dark"] .toolbar-btn.save-action:hover {
 .compact-panel-shell {
 	height: 100%;
 	overflow: auto;
-	background: var(--fxr-surface, #ffffff);
-	border: 1px solid var(--fxr-border-subtle, #e2e8f0);
+	background: var(--fxr-surface);
+	border: 1px solid var(--fxr-border-subtle);
 	border-radius: 14px;
 	padding: 8px;
 }
@@ -1491,8 +1495,8 @@ html[data-theme="dark"] .toolbar-btn.save-action:hover {
 
 .guide-sidebar {
 	width: 350px;
-	border-left: 1px solid var(--fxr-border-subtle, #e2e8f0);
-	background: var(--fxr-surface, #fff);
+	border-left: 1px solid var(--fxr-border-subtle);
+	background: var(--fxr-surface);
 	position: absolute;
 	right: 0;
 	top: 0;
@@ -1550,10 +1554,10 @@ html[data-theme="dark"] .toolbar-btn.save-action:hover {
 }
 
 .fxr-overflow-dropdown {
-	background: var(--fxr-surface, #fff);
+	background: var(--fxr-surface);
 	border-radius: 12px;
 	box-shadow: var(--fxr-shadow-lg, 0 22px 48px rgba(15, 23, 42, 0.12));
-	border: 1px solid var(--fxr-border-subtle, var(--border-color));
+	border: 1px solid var(--fxr-border-subtle);
 	overflow: hidden;
 	animation: dropdown-slide 0.2s cubic-bezier(0, 0, 0.2, 1);
 }
@@ -1601,8 +1605,8 @@ html[data-theme="dark"] .toolbar-btn.save-action:hover {
 }
 
 .menu-item:hover:not(:disabled) {
-	background: var(--fxr-surface-2, var(--control-bg));
-	color: var(--fxr-text-strong, var(--text-color));
+	background: var(--fxr-surface-2);
+	color: var(--fxr-text-strong);
 }
 
 .menu-item.active {
@@ -1682,7 +1686,7 @@ html[data-theme="dark"] .toolbar-btn.save-action:hover {
 	}
 
 	.header-toolbar {
-		background: var(--fxr-surface-2, var(--control-bg));
+	background: var(--fxr-surface-2);
 		border-radius: 10px;
 		padding: 2px;
 	}

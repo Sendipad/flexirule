@@ -145,7 +145,7 @@ html[data-theme="dark"] .fxr-control .fxr-label {
 .fxr-input-group.has-floating-label:focus-within .fxr-label {
 	top: 0;
 	transform: translateY(-50%) scale(0.85);
-	background: var(--fxr-bg-card);
+	background: var(--fxr-surface);
 	color: var(--fxr-node-accent, var(--fxr-accent));
 	font-weight: var(--fxr-weight-semibold);
 	letter-spacing: 0.01em;
@@ -437,9 +437,9 @@ html[data-theme="dark"] .fxr-input::placeholder {
 
 /* ─── Dropdown / Popover ─── */
 .fxr-dropdown {
-	background: var(--fxr-bg-card);
+	background: var(--fxr-surface-elevated);
 	backdrop-filter: blur(8px);
-	border: 1px solid var(--fxr-border);
+	border: 1px solid var(--fxr-border-strong);
 	border-radius: var(--fxr-radius-lg);
 	box-shadow: var(--fxr-shadow-lg);
 	z-index: var(--fxr-z-dropdown);
@@ -455,7 +455,7 @@ html[data-theme="dark"] .fxr-input::placeholder {
 	font-size: var(--fxr-text-base);
 	color: var(--fxr-text);
 	transition: background var(--fxr-transition-fast);
-	border-bottom: 1px solid var(--fxr-bg-muted);
+	border-bottom: 1px solid var(--fxr-surface-2);
 	display: flex;
 	align-items: center;
 	gap: var(--fxr-space-3);
@@ -557,8 +557,8 @@ html[data-theme="dark"] .fxr-input::placeholder {
 	left: 0;
 	z-index: var(--fxr-z-popover);
 	width: 280px;
-	background: var(--fxr-bg-card);
-	border: 1px solid var(--fxr-border);
+	background: var(--fxr-surface-elevated);
+	border: 1px solid var(--fxr-border-strong);
 	border-radius: var(--fxr-radius-lg);
 	box-shadow: var(--fxr-shadow-lg);
 	display: flex;
@@ -570,8 +570,8 @@ html[data-theme="dark"] .fxr-input::placeholder {
 	justify-content: space-between;
 	align-items: center;
 	padding: var(--fxr-space-4) var(--fxr-space-6);
-	border-bottom: 1px solid var(--fxr-bg-muted);
-	background: var(--fxr-bg-muted);
+	border-bottom: 1px solid var(--fxr-surface-2);
+	background: var(--fxr-surface-2);
 	border-radius: var(--fxr-radius-lg) var(--fxr-radius-lg) 0 0;
 }
 
@@ -581,8 +581,8 @@ html[data-theme="dark"] .fxr-input::placeholder {
 
 .fxr-popover__footer {
 	padding: var(--fxr-space-4) var(--fxr-space-6);
-	border-top: 1px solid var(--fxr-bg-muted);
-	background: var(--fxr-bg-muted);
+	border-top: 1px solid var(--fxr-surface-2);
+	background: var(--fxr-surface-2);
 	border-radius: 0 0 var(--fxr-radius-lg) var(--fxr-radius-lg);
 }
 

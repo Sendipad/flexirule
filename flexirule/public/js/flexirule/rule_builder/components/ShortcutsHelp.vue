@@ -278,7 +278,7 @@ kbd {
 }
 
 .v2-scrollbar::-webkit-scrollbar-thumb {
-	background: color-mix(in srgb, var(--fxr-text-soft, #64748b) 28%, white);
+	background: color-mix(in srgb, var(--fxr-text-soft, #64748b) 28%, var(--fxr-surface));
 	border-radius: 999px;
 }
 

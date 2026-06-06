@@ -6,7 +6,7 @@
 	border: 1px solid var(--fxr-border);
 	border-radius: var(--fxr-radius-md);
 	overflow: hidden;
-	background: var(--fxr-bg-card);
+	background: var(--fxr-surface);
 }
 
 .flexi-table-scroll-wrapper {
@@ -28,10 +28,10 @@
 
 .flexi-table-head-cell {
 	padding: 10px;
-	background: var(--fxr-bg-muted);
+	background: var(--fxr-surface-2);
 	border-bottom: 2px solid var(--fxr-border);
 	font-weight: bold;
-	color: var(--fxr-text-muted);
+	color: var(--fxr-text);
 	position: sticky;
 	top: 0;
 	z-index: 10;
@@ -48,7 +48,7 @@
 .flexi-table-cell {
 	padding: 8px;
 	border-bottom: 1px solid var(--fxr-border);
-	background: var(--fxr-bg-card);
+	background: var(--fxr-surface);
 	display: flex;
 	align-items: center;
 	min-height: 36px;
@@ -98,7 +98,7 @@
 .flexi-table-footer {
 	padding: 10px;
 	border-top: 1px solid var(--fxr-border);
-	background: var(--fxr-bg-muted);
+	background: var(--fxr-surface-2);
 }
 
 /* Empty State */

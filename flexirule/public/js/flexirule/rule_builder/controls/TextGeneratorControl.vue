@@ -842,27 +842,27 @@ onBeforeUnmount(() => {
 :deep(.tg-badge-var) {
 	background: var(--fxr-success-soft, #ecfdf5);
 	color: var(--green-700, #059669);
-	border-color: color-mix(in srgb, var(--green-500, #10b981) 24%, white);
+	border-color: color-mix(in srgb, var(--green-500, #10b981) 24%, var(--fxr-surface));
 }
 :deep(.tg-badge-if) {
-	background: color-mix(in srgb, var(--fxr-accent-soft, #f5f3ff) 92%, white);
+	background: color-mix(in srgb, var(--fxr-accent-soft, #f5f3ff) 92%, var(--fxr-surface));
 	color: var(--purple-700, #7c3aed);
-	border-color: color-mix(in srgb, var(--purple-500, #8b5cf6) 24%, white);
+	border-color: color-mix(in srgb, var(--purple-500, #8b5cf6) 24%, var(--fxr-surface));
 }
 :deep(.tg-badge-loop) {
 	background: var(--fxr-accent-soft, #eff6ff);
 	color: var(--blue-700, #2563eb);
-	border-color: color-mix(in srgb, var(--blue-500, #3b82f6) 24%, white);
+	border-color: color-mix(in srgb, var(--blue-500, #3b82f6) 24%, var(--fxr-surface));
 }
 :deep(.tg-badge-else) {
 	background: var(--fxr-warning-soft, #fffbeb);
 	color: var(--orange-700, #f59e0b);
-	border-color: color-mix(in srgb, var(--orange-500, #f59e0b) 24%, white);
+	border-color: color-mix(in srgb, var(--orange-500, #f59e0b) 24%, var(--fxr-surface));
 }
 :deep(.tg-badge-trans) {
-	background: color-mix(in srgb, var(--fxr-accent-soft, #e0f2fe) 88%, white);
+	background: color-mix(in srgb, var(--fxr-accent-soft, #e0f2fe) 88%, var(--fxr-surface));
 	color: var(--cyan-700, #0284c7);
-	border-color: color-mix(in srgb, var(--cyan-500, #0ea5e9) 24%, white);
+	border-color: color-mix(in srgb, var(--cyan-500, #0ea5e9) 24%, var(--fxr-surface));
 }
 :deep(.tg-badge-end) {
 	background: var(--fxr-surface-2, #f1f5f9);
@@ -879,7 +879,7 @@ onBeforeUnmount(() => {
 /* ── Bubble Menu (Fixed Position) ── */
 .tgc-bubble-menu-fixed {
 	display: flex;
-	background: color-mix(in srgb, var(--fxr-text-strong, #1e293b) 92%, black);
+	background: color-mix(in srgb, var(--fxr-text-strong, #1e293b) 92%, var(--fxr-text));
 	padding: 4px;
 	border-radius: 8px;
 	box-shadow: var(--fxr-shadow-lg, 0 22px 48px rgba(15, 23, 42, 0.12));
@@ -908,12 +908,12 @@ onBeforeUnmount(() => {
 .tgc-bubble-menu-fixed button:hover,
 .tgc-bubble-menu-fixed button.is-active {
 	color: #fff;
-	background: color-mix(in srgb, var(--fxr-text-strong, #334155) 78%, black);
+	background: color-mix(in srgb, var(--fxr-text-strong, #334155) 78%, var(--fxr-text));
 }
 .tgc-bubble-menu-fixed .divider {
 	width: 1px;
 	height: 16px;
-	background: color-mix(in srgb, var(--fxr-text-soft, #334155) 70%, black);
+	background: color-mix(in srgb, var(--fxr-text-soft, #334155) 70%, var(--fxr-text));
 	margin: 0 4px;
 }
 .btn-clear {
@@ -1003,7 +1003,7 @@ onBeforeUnmount(() => {
 	border-radius: 3px;
 }
 .pill-mini.if {
-	background: color-mix(in srgb, var(--fxr-accent-soft, #f5f3ff) 92%, white);
+	background: color-mix(in srgb, var(--fxr-accent-soft, #f5f3ff) 92%, var(--fxr-surface));
 	color: var(--purple-700, #7c3aed);
 }
 .pill-mini.loop {
@@ -1050,7 +1050,7 @@ onBeforeUnmount(() => {
 	font-size: 10px;
 }
 .panel-icon.conditional {
-	background: color-mix(in srgb, var(--fxr-accent-soft, #f5f3ff) 92%, white);
+	background: color-mix(in srgb, var(--fxr-accent-soft, #f5f3ff) 92%, var(--fxr-surface));
 	color: var(--purple-700, #7c3aed);
 }
 .panel-icon.loop {
@@ -1092,7 +1092,7 @@ onBeforeUnmount(() => {
 	font-size: 11px;
 }
 .btn-modern-close:hover {
-	background: color-mix(in srgb, var(--fxr-surface-2, #e2e8f0) 80%, white);
+	background: color-mix(in srgb, var(--fxr-surface-2, #e2e8f0) 80%, var(--fxr-surface));
 	color: var(--fxr-text-strong, #1e293b);
 }
 .panel-body {

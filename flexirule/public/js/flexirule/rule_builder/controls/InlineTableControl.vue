@@ -360,7 +360,7 @@ function getSelectValue(options) {
 	border-top: none;
 }
 .table tbody tr:hover td {
-	background: color-mix(in srgb, var(--fxr-surface-2, var(--control-bg)) 65%, white);
+	background: color-mix(in srgb, var(--fxr-surface-2, var(--control-bg)) 65%, var(--fxr-surface));
 }
 .inline-table-control .btn {
 	border-radius: 8px;

@@ -16,6 +16,12 @@
 	--fxr-bg-dark: #1e293b;
 	--fxr-bg-input-disabled: #f8fafc;
 
+	/* Surface layers (used for modals, panels, etc.) */
+	--fxr-surface: #ffffff;
+	--fxr-surface-2: #f1f5f9;
+	--fxr-surface-soft: #f8fafc;
+	--fxr-surface-elevated: #ffffff;
+
 	--fxr-border: #e2e8f0;
 	--fxr-border-subtle: #f1f5f9;
 	--fxr-border-focus: var(--fxr-accent);
@@ -121,6 +127,12 @@ html[data-theme="dark"] {
 	--fxr-bg-danger: rgba(220, 38, 38, 0.1);
 	--fxr-bg-dark: var(--gray-900);
 	--fxr-bg-input-disabled: var(--bg-light-gray);
+
+	/* Surface layers in Dark Mode */
+	--fxr-surface: var(--modal-bg, var(--panel-bg, #1f2937));
+	--fxr-surface-2: var(--bg-light-gray, #111827);
+	--fxr-surface-soft: var(--cb-bg-gray, #374151);
+	--fxr-surface-elevated: var(--modal-bg, var(--panel-bg, #1f2937));
 
 	--fxr-border: var(--border-color);
 	--fxr-border-subtle: var(--border-subtle, rgba(255, 255, 255, 0.05));
