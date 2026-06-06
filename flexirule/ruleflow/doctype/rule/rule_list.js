@@ -25,11 +25,10 @@ frappe.listview_settings["Rule"] = {
                        href="/app/rule-builder/${doc.name}"
                        title="${__("Open in Rule Builder")}"
                        onclick="event.stopPropagation();">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M12 3L3 9l9 6 9-6-9-6z"/>
-                            <path d="M3 15l9 6 9-6"/>
-                            <path d="M3 9v6"/>
-                            <path d="M21 9v6"/>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="5" cy="20" r="1.5" fill="currentColor" stroke="none"/>
+                            <path d="M5 18 V 9 A 3.5 3.5 0 0 1 12 9 V 15 A 3.5 3.5 0 0 0 19 15 V 4" />
+                            <path d="M16 7 L 19 4 L 22 7" />
                         </svg>
                     </a>
                     ${value}
