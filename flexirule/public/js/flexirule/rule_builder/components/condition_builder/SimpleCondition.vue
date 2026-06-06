@@ -521,7 +521,6 @@ html[data-theme="dark"] .operator-select {
 		height: 44px;
 		justify-content: center;
 	}
-
 }
 
 .action-col .fxr-btn--danger {
