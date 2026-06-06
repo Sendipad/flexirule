@@ -120,13 +120,17 @@
 						<div class="quick-actions-wrap">
 							<button
 								ref="quickActionsButtonRef"
-								class="btn btn-sm btn-default quick-actions-btn"
+								class="btn btn-sm btn-default quick-actions-btn d-inline-flex align-items-center gap-2"
 								@click="toggleQuickActions"
-								:title="__('Quick Actions')"
+								:title="__('Settings')"
 								aria-haspopup="menu"
 								:aria-expanded="showQuickActions ? 'true' : 'false'"
 							>
-								<i class="fa fa-gear"></i>
+								<img
+									src="/assets/flexirule/icons/flexirule.svg"
+									class="flexirule-icon"
+								/>
+								<span>{{ __("Settings") }}</span>
 							</button>
 						</div>
 					</Panel>
@@ -825,12 +829,17 @@ function onEdgeClick({ edge, event }) {
 }
 
 .quick-actions-btn {
-	width: 32px;
+	min-width: 32px;
 	height: 32px;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	padding: 0;
+	padding: 0 12px;
+}
+
+.flexirule-icon {
+	width: 14px;
+	height: 14px;
 }
 
 .fxr-headless-menu {
