@@ -26,9 +26,9 @@
 
 /* 3. Contrast & Visibility */
 .read-only-badge {
-	background-color: #fff7ed !important;
-	color: #c2410c !important;
-	border: 1px solid #fed7aa !important;
+	background-color: var(--fxr-badge-expr) !important;
+	color: var(--fxr-badge-expr-text) !important;
+	border: 1px solid var(--fxr-border-danger) !important;
 	box-shadow: 0 1px 2px rgba(194, 65, 12, 0.1);
 }
 
@@ -49,6 +49,10 @@
 .condition-group-box {
 	margin-bottom: 16px;
 	border-left: 3px solid var(--primary-color);
+	background: var(--fxr-bg-card);
+	border-radius: var(--fxr-radius-lg);
+	padding: var(--fxr-space-4);
+	border: 1px solid var(--fxr-border);
 }
 
 .simple-condition {

@@ -25,6 +25,10 @@
 	letter-spacing: 0.01em;
 }
 
+html[data-theme="dark"] .fxr-control .fxr-label {
+	color: var(--fxr-text);
+}
+
 .fxr-control .fxr-label.reqd::after {
 	content: " *";
 	color: var(--fxr-text-danger);
@@ -141,7 +145,7 @@
 .fxr-input-group.has-floating-label:focus-within .fxr-label {
 	top: 0;
 	transform: translateY(-50%) scale(0.85);
-	background: var(--fxr-bg-card, #ffffff);
+	background: var(--fxr-bg-card);
 	color: var(--fxr-node-accent, var(--fxr-accent));
 	font-weight: var(--fxr-weight-semibold);
 	letter-spacing: 0.01em;
@@ -183,6 +187,10 @@
 .fxr-input::placeholder {
 	color: var(--fxr-text-muted);
 	font-size: var(--fxr-text-sm);
+}
+
+html[data-theme="dark"] .fxr-input::placeholder {
+	color: var(--text-light, #94a3b8);
 }
 
 /* ─── Select ─── */
@@ -429,11 +437,11 @@
 
 /* ─── Dropdown / Popover ─── */
 .fxr-dropdown {
-	background: rgba(255, 255, 255, 0.95);
+	background: var(--fxr-bg-card);
 	backdrop-filter: blur(8px);
 	border: 1px solid var(--fxr-border);
 	border-radius: var(--fxr-radius-lg);
-	box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+	box-shadow: var(--fxr-shadow-lg);
 	z-index: var(--fxr-z-dropdown);
 	max-height: 320px;
 	overflow-y: auto;

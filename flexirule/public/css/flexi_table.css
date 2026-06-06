@@ -3,10 +3,10 @@
 .flexi-table-container {
 	display: flex;
 	flex-direction: column;
-	border: 1px solid var(--border-color);
-	border-radius: var(--border-radius-md);
+	border: 1px solid var(--fxr-border);
+	border-radius: var(--fxr-radius-md);
 	overflow: hidden;
-	background: var(--bg-color);
+	background: var(--fxr-bg-card);
 }
 
 .flexi-table-scroll-wrapper {
@@ -28,15 +28,15 @@
 
 .flexi-table-head-cell {
 	padding: 10px;
-	background: var(--table-bg);
-	border-bottom: 2px solid var(--border-color);
+	background: var(--fxr-bg-muted);
+	border-bottom: 2px solid var(--fxr-border);
 	font-weight: bold;
-	color: var(--text-muted);
+	color: var(--fxr-text-muted);
 	position: sticky;
 	top: 0;
 	z-index: 10;
 	text-transform: uppercase;
-	font-size: var(--text-xs);
+	font-size: var(--fxr-text-xs);
 	letter-spacing: 0.05em;
 }
 
@@ -47,11 +47,12 @@
 
 .flexi-table-cell {
 	padding: 8px;
-	border-bottom: 1px solid var(--border-color);
-	background: var(--bg-color);
+	border-bottom: 1px solid var(--fxr-border);
+	background: var(--fxr-bg-card);
 	display: flex;
 	align-items: center;
 	min-height: 36px;
+	color: var(--fxr-text);
 }
 
 .flexi-table-cell > .frappe-control {
@@ -59,7 +60,7 @@
 }
 
 .flexi-table-row:hover .flexi-table-cell {
-	background: var(--control-bg);
+	background: var(--fxr-bg-hover);
 }
 
 /* Action Cell Styles */
@@ -96,8 +97,8 @@
 /* Footer (Add Row) */
 .flexi-table-footer {
 	padding: 10px;
-	border-top: 1px solid var(--border-color);
-	background: var(--table-bg);
+	border-top: 1px solid var(--fxr-border);
+	background: var(--fxr-bg-muted);
 }
 
 /* Empty State */
