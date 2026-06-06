@@ -6,9 +6,9 @@
 				<h5 class="mb-0">{{ __("Conditions") }}</h5>
 			</div>
 			<div class="header-actions">
-				<label class="d-flex align-items-center gap-2 mb-0" style="cursor: pointer">
-					<input type="checkbox" v-model="showOldDoc" />
-					<span class="small text-muted">{{ __("Show Old Doc Fields") }}</span>
+				<label class="old-doc-toggle">
+					<input type="checkbox" v-model="showOldDoc" class="fxr-checkbox" />
+					<span class="toggle-label">{{ __("Show Old Doc Fields") }}</span>
 				</label>
 			</div>
 		</div>
@@ -371,6 +371,29 @@ defineExpose({
 .condition-step-header h5 {
 	font-size: 13px;
 	font-weight: 600;
+	color: var(--fxr-text-strong);
+}
+
+.old-doc-toggle {
+	display: flex;
+	align-items: center;
+	gap: var(--fxr-space-2);
+	margin-bottom: 0;
+	cursor: pointer;
+	user-select: none;
+}
+
+.old-doc-toggle .toggle-label {
+	font-size: var(--fxr-text-xs);
+	color: var(--fxr-text-soft);
+	font-weight: var(--fxr-weight-medium);
+}
+
+.fxr-checkbox {
+	width: 14px;
+	height: 14px;
+	margin: 0;
+	cursor: pointer;
 }
 
 .condition-builder-container {

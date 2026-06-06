@@ -161,16 +161,20 @@ function handleDrop(e) {
 
 .group-actions .fxr-btn--icon {
 	border: 1px solid var(--fxr-border);
-	background: var(--fxr-bg-card);
+	background: var(--fxr-surface);
+	color: var(--fxr-text-secondary);
+	transition: all var(--fxr-transition-fast);
 }
 
-.group-actions .fxr-btn--icon:hover {
-	background: var(--fxr-bg-muted);
-	color: var(--fxr-node-accent, var(--fxr-accent));
+.group-actions .fxr-btn--icon:hover,
+.group-actions .fxr-btn--icon:focus-visible {
+	background: var(--fxr-surface-2);
+	color: var(--fxr-text-strong);
 	border-color: var(--fxr-border-strong);
 }
 
-.group-actions .fxr-btn--icon.fxr-btn--danger:hover {
+.group-actions .fxr-btn--icon.fxr-btn--danger:hover,
+.group-actions .fxr-btn--icon.fxr-btn--danger:focus-visible {
 	background: var(--fxr-bg-danger);
 	color: var(--fxr-text-danger);
 	border-color: var(--fxr-border-danger);
