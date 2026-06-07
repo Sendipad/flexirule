@@ -1045,7 +1045,9 @@ function toggleDynamicMode() {
 		} else {
 			if (typeof frappe !== "undefined") {
 				frappe.show_alert({
-					message: __("Cannot switch to static mode while variables or tokens are present."),
+					message: __(
+						"Cannot switch to static mode while variables or tokens are present."
+					),
 					indicator: "orange",
 				});
 			}
@@ -1177,7 +1179,7 @@ function handleBuilderUpdate(config) {
 					fieldType: fieldType.value,
 					referenceDoctype: referenceDoctype.value,
 					context: props.context,
-			  })
+				})
 			: props.context?.resolverDefaults;
 	const mergedConfig =
 		defaults && typeof defaults === "object" ? { ...defaults, ...config } : config;

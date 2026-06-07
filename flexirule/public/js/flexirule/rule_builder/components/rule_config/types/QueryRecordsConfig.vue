@@ -1006,7 +1006,7 @@ function load_local_config(val) {
 					field: parts[0],
 					direction: (parts[1] || "asc").toLowerCase(),
 				};
-		  })
+			})
 		: [];
 	const current_order_by_rows = order_by_rows.value.map((r) => ({
 		field: r.field,
@@ -1167,7 +1167,9 @@ defineExpose({
 	font-size: var(--fxr-input-font-size) !important;
 	border: 1px solid var(--fxr-border) !important;
 	border-radius: var(--fxr-radius-md) !important;
-	transition: border-color var(--fxr-transition-fast), box-shadow var(--fxr-transition-fast) !important;
+	transition:
+		border-color var(--fxr-transition-fast),
+		box-shadow var(--fxr-transition-fast) !important;
 }
 
 :deep(.form-control:focus) {
