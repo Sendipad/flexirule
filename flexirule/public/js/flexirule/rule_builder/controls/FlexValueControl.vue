@@ -14,9 +14,23 @@
 			}"
 			@click="onWrapClick"
 		>
-			<!-- Static Mode (via ControlFactory) -->
+			<!-- Static Mode (via ControlFactory or MultiSelectList) -->
 			<div v-if="!isDynamicMode && isStaticSupported" class="fvc-static-container flex-1">
+				<MultiSelectList
+					v-if="isMultiSelect"
+					:df="staticDf"
+					:modelValue="staticValue"
+					:documentType="isLinkType ? referenceDoctype : undefined"
+					:options="isLinkType ? undefined : fieldOptions"
+					displayMode="badges"
+					:badgeCollapseAfter="2"
+					:allowWrap="false"
+					:hideLabel="true"
+					class="flex-1 min-w-0 w-100"
+					@update:modelValue="updateStaticValue"
+				/>
 				<ControlFactory
+					v-else
 					:df="staticDf"
 					:modelValue="staticValue"
 					:doc="doc"
@@ -310,6 +324,7 @@ import {
 import { compileToCode, compileToLabel } from "../../core/builder_utils.js";
 import MentionList from "./MentionList.vue";
 import ControlFactory from "./ControlFactory.vue";
+import MultiSelectList from "./MultiSelectList.vue";
 import ValueResolverControl from "./ValueResolverControl.vue";
 import ResolverTokenView from "./ResolverTokenView.vue";
 
@@ -338,6 +353,14 @@ const props = defineProps({
 const emit = defineEmits(["update:modelValue", "update"]);
 
 const isReadOnly = computed(() => !!props.readOnly || !!props.read_only);
+const isMultiSelect = computed(() => {
+	const op = props.context?.operator;
+	const isListOp = op === "in list" || op === "not in list";
+	if (!isListOp) return false;
+
+	const ft = fieldType.value;
+	return ft === "Select" || PURE_TEXT_FIELDTYPES.has(ft) || ft === "Link" || ft === "Dynamic Link";
+});
 const isDynamicMode = ref(false);
 const isEditorFocused = ref(false);
 const isSuggestionOpen = ref(false);
@@ -391,6 +414,7 @@ const PURE_TEXT_FIELDTYPES = new Set([
 ]);
 
 const isStaticSupported = computed(() => {
+	if (isMultiSelect.value) return true;
 	return !PURE_TEXT_FIELDTYPES.has(fieldType.value);
 });
 
@@ -1197,7 +1221,10 @@ onBeforeUnmount(() => {
 	display: flex;
 	align-items: center;
 	width: 100%;
+	height: 32px;
 	min-height: 32px;
+	max-height: 32px;
+	overflow: hidden;
 	border: 1px solid var(--fxr-border, #e2e8f0);
 	border-radius: var(--fxr-radius-md, 6px);
 	background: var(--fxr-bg-input, #fff);
@@ -1214,7 +1241,8 @@ onBeforeUnmount(() => {
 .fvc-static-container :deep(.form-control),
 .fvc-static-container :deep(.fxr-input),
 .fvc-static-container :deep(.fxr-input-group),
-.fvc-static-container :deep(.fxr-select) {
+.fvc-static-container :deep(.fxr-select),
+.fvc-static-container :deep(.multi-select-trigger) {
 	border: none !important;
 	box-shadow: none !important;
 	background: transparent !important;
@@ -1243,6 +1271,7 @@ onBeforeUnmount(() => {
 	flex: 1;
 	height: 100%;
 	min-width: 0;
+	overflow: hidden;
 }
 .fvc-editor-container {
 	padding: 2px 8px;
@@ -1261,6 +1290,7 @@ onBeforeUnmount(() => {
 	height: 24px;
 	display: flex;
 	align-items: center;
+	flex-shrink: 0;
 }
 .fvc-toggle-btn {
 	background: transparent;
@@ -1315,7 +1345,13 @@ onBeforeUnmount(() => {
 	outline: none;
 	font-size: 13px;
 	min-height: 22px;
-	white-space: pre-wrap;
+	white-space: nowrap;
+	overflow-x: auto;
+	scrollbar-width: none; /* Firefox */
+}
+
+.fvc-tiptap-editor :deep(.ProseMirror)::-webkit-scrollbar {
+	display: none; /* Safari and Chrome */
 }
 
 .fvc-inline-actions {

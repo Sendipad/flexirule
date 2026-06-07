@@ -22,6 +22,7 @@ const props = defineProps({
 	errorMessage: { type: String, default: "" },
 	compactMaxVisible: { type: Number, default: 2 },
 	badgeCollapseAfter: { type: Number, default: 4 },
+	allowWrap: { type: Boolean, default: true },
 	allowInvertSelection: { type: Boolean, default: true },
 	dropdownMinWidth: { type: Number, default: 260 },
 	dropdownMaxWidth: { type: Number, default: 760 },
@@ -479,7 +480,7 @@ onBeforeUnmount(() => {
 			</template>
 
 			<template v-else-if="isBadgeMode">
-				<div class="selected-badges">
+				<div class="selected-badges" :class="{ 'no-wrap': !allowWrap }">
 					<div v-for="opt in collapsedBadges" :key="opt.value" class="selected-badge">
 						<span>{{ opt.label }}</span>
 						<i
@@ -797,6 +798,13 @@ onBeforeUnmount(() => {
 	min-width: 0;
 }
 
+.selected-badges.no-wrap {
+	flex-wrap: nowrap;
+	overflow: hidden;
+	align-items: center;
+	height: 100%;
+}
+
 .selected-badge {
 	background: var(--fxr-accent-light);
 	color: var(--fxr-accent);
@@ -807,11 +815,14 @@ onBeforeUnmount(() => {
 	display: inline-flex;
 	align-items: center;
 	gap: 6px;
+	white-space: nowrap;
+	flex-shrink: 0;
 }
 
 .selected-badge.collapsed {
 	background: var(--fxr-bg-muted);
 	color: var(--fxr-text-muted);
+	flex-shrink: 0;
 }
 
 .remove-icon {
