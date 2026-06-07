@@ -74,7 +74,7 @@ function on_change(event) {
 				class="fxr-label"
 				:class="{ reqd: df.reqd }"
 			>
-				{{ df.label }}
+				{{ __(df.label) }}
 			</label>
 			<div class="select-wrapper">
 				<select

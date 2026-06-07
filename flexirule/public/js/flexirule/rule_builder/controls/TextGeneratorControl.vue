@@ -776,11 +776,11 @@ onBeforeUnmount(() => {
 .tgc-wrap {
 	display: flex;
 	flex-direction: column;
-	gap: 8px;
-	background: color-mix(in srgb, var(--fxr-surface, #fff) 92%, var(--fxr-surface-2, #f3f5f7));
-	padding: 10px;
-	border-radius: 14px;
-	border: 1px solid var(--fxr-border-subtle, var(--border-color));
+	gap: 6px;
+	background: color-mix(in srgb, var(--fxr-surface, #fff) 94%, var(--fxr-surface-2, #f3f5f7));
+	padding: 8px;
+	border-radius: 12px;
+	border: 1px solid var(--fxr-border-subtle);
 }
 .tgc-wrap.is-nested {
 	padding: 0;
@@ -789,13 +789,19 @@ onBeforeUnmount(() => {
 }
 
 .tgc-editor-container {
-	border: 1px solid var(--fxr-border-subtle, var(--border-color));
-	border-radius: 14px;
+	border: 1px solid var(--fxr-border-subtle);
+	border-radius: 10px;
 	background: var(--fxr-surface, #fff);
 	overflow: hidden;
-	min-height: 150px;
+	min-height: 120px;
 	position: relative;
-	box-shadow: var(--fxr-shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.04));
+	box-shadow: var(--fxr-shadow-sm);
+	transition: border-color var(--fxr-transition-fast), box-shadow var(--fxr-transition-fast);
+}
+
+.tgc-editor-container:focus-within {
+	border-color: var(--fxr-accent);
+	box-shadow: var(--fxr-shadow-focus);
 }
 .tgc-editor-wrapper {
 	padding: 12px 12px 10px;
@@ -825,39 +831,40 @@ onBeforeUnmount(() => {
 :deep(.tg-badge) {
 	display: inline-flex;
 	align-items: center;
-	padding: 1px 8px;
-	border-radius: 6px;
-	font-size: 11px;
-	font-weight: 700;
-	margin: 1px 3px;
+	padding: 0px 6px;
+	border-radius: 4px;
+	font-size: 10px;
+	font-weight: 800;
+	margin: 1px 2px;
 	cursor: pointer;
 	border: 1px solid transparent;
 	transition: all 0.2s;
 	white-space: nowrap;
-	max-width: 250px;
+	max-width: 200px;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	vertical-align: middle;
+	line-height: 1.6;
 }
 :deep(.tg-badge-var) {
-	background: var(--fxr-success-soft, #ecfdf5);
-	color: var(--green-700, #059669);
-	border-color: color-mix(in srgb, var(--green-500, #10b981) 24%, var(--fxr-surface));
+	background: var(--fxr-badge-bool);
+	color: var(--fxr-badge-bool-text);
+	border-color: rgba(16, 185, 129, 0.2);
 }
 :deep(.tg-badge-if) {
-	background: color-mix(in srgb, var(--fxr-accent-soft, #f5f3ff) 92%, var(--fxr-surface));
-	color: var(--purple-700, #7c3aed);
-	border-color: color-mix(in srgb, var(--purple-500, #8b5cf6) 24%, var(--fxr-surface));
+	background: var(--fxr-badge-var);
+	color: var(--fxr-badge-var-text);
+	border-color: rgba(124, 58, 237, 0.2);
 }
 :deep(.tg-badge-loop) {
-	background: var(--fxr-accent-soft, #eff6ff);
-	color: var(--blue-700, #2563eb);
-	border-color: color-mix(in srgb, var(--blue-500, #3b82f6) 24%, var(--fxr-surface));
+	background: var(--fxr-badge-normalize);
+	color: var(--fxr-badge-normalize-text);
+	border-color: rgba(37, 99, 235, 0.2);
 }
 :deep(.tg-badge-else) {
-	background: var(--fxr-warning-soft, #fffbeb);
-	color: var(--orange-700, #f59e0b);
-	border-color: color-mix(in srgb, var(--orange-500, #f59e0b) 24%, var(--fxr-surface));
+	background: var(--fxr-badge-resolver);
+	color: var(--fxr-badge-resolver-text);
+	border-color: rgba(217, 119, 6, 0.2);
 }
 :deep(.tg-badge-trans) {
 	background: color-mix(in srgb, var(--fxr-accent-soft, #e0f2fe) 88%, var(--fxr-surface));
@@ -925,11 +932,12 @@ onBeforeUnmount(() => {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 4px 6px;
-	margin-top: 4px;
-	background: var(--fxr-surface-2, #f8fafc);
-	border-radius: 10px;
-	min-height: 32px;
+	padding: 2px 6px;
+	margin-top: 2px;
+	background: var(--fxr-surface-2);
+	border-radius: 8px;
+	min-height: 28px;
+	border: 1px solid var(--fxr-border-subtle);
 }
 .footer-left,
 .footer-right {

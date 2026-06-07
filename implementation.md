@@ -42,6 +42,15 @@ This document summarizes the architectural diagnosis, the changes made to the Fl
   - Inactive state sits flat with a subtle border.
 - **Effect:** Eliminated ambiguity regarding which logical operator is active, especially in dark mode.
 
+### 🎨 TextGeneratorControl Enhancements
+- **The Fix:** Updated the theme and layout of the `TextGeneratorControl.vue` to match the new enterprise-grade aesthetic.
+- **Changes:**
+  - Tightened the wrapper padding and border radii for a sleeker look.
+  - Added a prominent focus-within glow to the editor container using `--fxr-accent`.
+  - Realigned TipTap badges (Variables, If, Loop, Else) to use the centralized semantic design tokens (e.g., `--fxr-badge-bool`, `--fxr-badge-var`).
+  - Compacted the footer toolbar and simplified the tab styling.
+- **Effect:** The complex template builder now looks like a native, integrated part of the unified UI.
+
 ---
 
 ## 3. Proposed Style Centralization Strategy
