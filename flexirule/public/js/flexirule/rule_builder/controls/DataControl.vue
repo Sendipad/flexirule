@@ -103,7 +103,6 @@ onMounted(() => {
 		<div
 			class="fxr-input-group"
 			:class="{
-				'has-floating-label': df?.label && !hideLabel,
 				'has-value': modelValue !== undefined && modelValue !== null && modelValue !== '',
 			}"
 		>

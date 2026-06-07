@@ -928,19 +928,19 @@ function buildFieldPath(field, groupName) {
 .panel-sections {
 	flex: 1;
 	overflow-y: auto;
-	padding: var(--fxr-space-6, 20px);
+	padding: var(--fxr-space-4, 12px);
 	display: flex;
 	flex-direction: column;
-	gap: 18px;
+	gap: 12px;
 }
 
 .panel-section {
 	display: flex;
 	flex-direction: column;
-	gap: 10px;
-	padding: 14px;
+	gap: 6px;
+	padding: 10px;
 	border: 1px solid var(--fxr-border-subtle, var(--border-color));
-	border-radius: 14px;
+	border-radius: 10px;
 	background: color-mix(in srgb, var(--fxr-surface, #fff) 92%, var(--fxr-surface-2, #f3f5f7));
 }
 
@@ -984,10 +984,10 @@ function buildFieldPath(field, groupName) {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 10px 12px;
+	padding: 4px 10px;
 	background: var(--fxr-surface, #fff);
 	border: 1px solid var(--fxr-border-subtle, var(--border-color));
-	border-radius: 12px;
+	border-radius: 8px;
 	font-size: 11px;
 	cursor: grab;
 	transition: all 0.2s;

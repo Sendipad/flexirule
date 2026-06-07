@@ -995,16 +995,29 @@ onUnmounted(() => {
 </script>
 
 <style>
-/* Ensure Save button is visible in Dark Mode (Avoid white-out) */
-html[data-theme="dark"] .toolbar-btn.save-action {
-	background: var(--fxr-accent-soft) !important;
-	color: var(--fxr-accent) !important;
-	border-color: var(--fxr-accent-border) !important;
-}
-
-html[data-theme="dark"] .toolbar-btn.save-action:hover {
+/* Ensure Save button is prominent and visible in all themes */
+.toolbar-btn.save-action {
 	background: var(--fxr-accent) !important;
 	color: #ffffff !important;
+	border-color: var(--fxr-accent) !important;
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.toolbar-btn.save-action:hover {
+	background: var(--fxr-accent) !important;
+	filter: brightness(1.1);
+	box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.toolbar-btn.save-action:active {
+	transform: translateY(1px);
+	filter: brightness(0.95);
+}
+
+html[data-theme="dark"] .toolbar-btn.save-action {
+	background: var(--fxr-accent) !important;
+	color: #ffffff !important;
+	border-color: var(--fxr-accent) !important;
 }
 </style>
 

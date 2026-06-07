@@ -20,18 +20,6 @@ const hasValue = computed(() => {
 	return props.modelValue !== undefined && props.modelValue !== null && props.modelValue !== "";
 });
 
-const isFloating = computed(() => {
-	return isFocused.value || hasValue.value;
-});
-
-const labelText = computed(() => {
-	const baseLabel = props.df?.label ? __(props.df.label) : "";
-	if (isFloating.value || !baseLabel) {
-		return baseLabel;
-	}
-	return __("Select {0}", [baseLabel]);
-});
-
 const options = computed(() => {
 	let opts = props.df?.options;
 
@@ -77,7 +65,6 @@ function on_change(event) {
 		<div
 			class="fxr-input-group"
 			:class="{
-				'has-floating-label': df?.label && !no_label && !hideLabel,
 				'has-value': hasValue,
 				'is-focused': isFocused,
 			}"
@@ -87,7 +74,7 @@ function on_change(event) {
 				class="fxr-label"
 				:class="{ reqd: df.reqd }"
 			>
-				{{ labelText }}
+				{{ df.label }}
 			</label>
 			<div class="select-wrapper">
 				<select
@@ -99,7 +86,7 @@ function on_change(event) {
 					@blur="isFocused = false"
 				>
 					<option v-if="!df?.reqd" value="">
-						{{ isFloating ? __("Select...") : "" }}
+						{{ __("Select...") }}
 					</option>
 					<option v-for="opt in options" :key="opt.value" :value="opt.value">
 						{{ opt.label }}
@@ -123,19 +110,10 @@ function on_change(event) {
 	width: 100%;
 }
 
-/* Ensure the floating label transitions smoothly when text changes */
 .fxr-label {
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
-	max-width: calc(100% - 40px);
-	transition: all var(--fxr-transition-slow, 0.3s) ease;
-}
-
-/* When floating, we want to ensure the background covers any potential text behind it */
-.has-floating-label.has-value .fxr-label,
-.has-floating-label.is-focused .fxr-label {
-	background: var(--fxr-bg-card, #ffffff);
-	padding: 0 4px;
+	max-width: 100%;
 }
 </style>

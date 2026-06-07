@@ -48,10 +48,10 @@ let height = computed(() => {
 <style scoped>
 /* ─── TextControl – Unified Design ─── */
 .control-label {
-	font-size: var(--fxr-text-sm);
-	font-weight: var(--fxr-weight-medium);
-	margin-bottom: var(--fxr-space-2);
-	color: var(--fxr-text-secondary);
+	font-size: var(--fxr-text-xs);
+	font-weight: var(--fxr-weight-normal);
+	margin-bottom: var(--fxr-space-1);
+	color: var(--fxr-text-muted);
 }
 
 .description {

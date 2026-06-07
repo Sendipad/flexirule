@@ -188,13 +188,13 @@ defineExpose({ validate });
 .raise-error-config {
 	display: flex;
 	flex-direction: column;
-	gap: 16px;
+	gap: 8px;
 }
 
 .section-card {
-	border: 1px solid var(--border-color);
-	border-radius: 8px;
-	padding: 16px;
-	background: var(--bg-light, #fff);
+	border: 1px solid var(--fxr-border-subtle);
+	border-radius: 10px;
+	padding: 12px;
+	background: var(--fxr-surface);
 }
 </style>

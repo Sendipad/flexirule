@@ -123,28 +123,35 @@ function handleDrop(e) {
 }
 
 .logic-toggle.small {
-	background: var(--fxr-border);
-	padding: var(--fxr-space-1);
+	background: var(--fxr-surface-2);
+	padding: 2px;
 	border-radius: var(--fxr-radius-md);
 	display: flex;
+	border: 1px solid var(--fxr-border);
 }
 
 .logic-btn {
 	border: none;
 	background: transparent;
-	padding: var(--fxr-space-2) var(--fxr-space-4);
+	padding: 2px 8px;
 	border-radius: var(--fxr-radius-sm);
-	font-size: var(--fxr-text-xs);
-	font-weight: var(--fxr-weight-bold);
+	font-size: 10px;
+	font-weight: 800;
 	color: var(--fxr-text-muted);
 	transition: all var(--fxr-transition-fast);
 	cursor: pointer;
+	min-width: 36px;
 }
 
 .logic-btn.active {
-	background: var(--fxr-bg-card);
-	color: var(--fxr-node-accent, var(--fxr-accent));
+	background: var(--fxr-node-accent, var(--fxr-accent));
+	color: #ffffff;
 	box-shadow: var(--fxr-shadow-sm);
+}
+
+.logic-btn:hover:not(.active):not(:disabled) {
+	background: var(--fxr-bg-muted);
+	color: var(--fxr-text-strong);
 }
 
 .condition-group-ui.drag-over {
