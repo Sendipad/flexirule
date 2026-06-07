@@ -120,17 +120,29 @@
 						<div class="quick-actions-wrap">
 							<button
 								ref="quickActionsButtonRef"
-								class="btn btn-sm btn-default quick-actions-btn d-inline-flex align-items-center gap-2"
+								class="btn btn-sm btn-default quick-actions-btn d-inline-flex align-items-center"
 								@click="toggleQuickActions"
 								:title="__('Settings')"
 								aria-haspopup="menu"
 								:aria-expanded="showQuickActions ? 'true' : 'false'"
 							>
-								<img
-									src="/assets/flexirule/icons/flexirule.svg"
+								<svg
 									class="flexirule-icon"
-								/>
-								<span>{{ __("Settings") }}</span>
+									xmlns="http://www.w3.org/2000/svg"
+									viewBox="0 0 804 804"
+								>
+									<g stroke="none" fill="currentColor">
+										<g transform="matrix(.96409 0 0 .98565 -125.5 -146.24)">
+											<path
+												d="m705.63 245.23v118.94c.00063 24.266-20.136 43.924-44.944 43.878l-49.363-.0951c-24.822-.047-65.066-.12134-89.888-.21996-50.6-.20106-61.754-.36246-100.28.90558-56.763.37714-83.543 57.19-85.606 80.327-2.0629 23.136-3.3285 111.05-3.3285 111.05v113.63c-7.1191 5.6674-11.252 14.168-11.252 23.147.00031 16.482 13.661 29.842 30.512 29.842 16.852.00077 30.513-13.359 30.514-29.842-.00026-9.0611-4.2091-17.631-11.44-23.295l2.3581-111.33c.55829-44.584-8.4702-133.06 55.566-153.26 45.662-1.3891 147.5-.89275 201.43-2.8019l-97.502 109.65h-110.99v286.22c-6e-4 13.945-11.559 25.25-25.816 25.249h-114.21l.0223-290.41c.0104-104 .43581-192.84.94406-197.59 6.2131-57.668 47.784-107.74 104.83-126.24 22.996-7.458 12.25-6.9996 173.48-7.3932zm-26.802 200.29c7.8366.43409 14.932 1.6116 24.728 3.9592 39.654 9.5054 71.883 33.601 90.605 67.72 11.607 21.161 16.48 40.47 16.408 64.95-.16596 57.15-35.276 105.76-91.298 126.39-13.152 4.8445-28.587 7.4679-44.063 7.4923-6.5036.0101-11.099.41716-10.891.96502 38.356 47.659 91.974 89.215 133.56 135.25l7.6376 7.6112c2.7446 2.7354.7641 7.3526-3.1543 7.3536h-216.81l-25.153-47.431c-33.352-62.837-67.301-125.44-99.556-188.8 0-.80962 21.969-1.2031 78.572-1.4029 0 0 78.59-.16015 78.572-.27742-.0184-.11728 28.006-12.313 28.006-36.502s-27.871-35.848-31.002-36.473c-3.1311-.62449-62.35-1.2662-62.35-1.2662l97.015-109.05c12.763-.62606 21.34-.93543 29.177-.50133z"
+											/>
+										</g>
+										<path
+											transform="matrix(.81811 0 0 .81811 -80.123 -11.959)"
+											d="m383.94 723.53c0 13.919-11.284 25.203-25.203 25.203-13.919 0-25.203-11.284-25.203-25.203 0-13.919 11.284-25.203 25.203-25.203 13.919 0 25.203 11.284 25.203 25.203z"
+										/>
+									</g>
+								</svg>
 							</button>
 						</div>
 					</Panel>
@@ -382,10 +394,13 @@ function updateQuickActionsPosition() {
 	const rect = quickActionsButtonRef.value?.getBoundingClientRect();
 	if (!rect) return;
 	const width = 236;
+	const isRTLValue = isRTL.value;
+	const leftPos = isRTLValue ? rect.right - width : rect.left;
+
 	quickActionsMenuStyle.value = {
 		position: "fixed",
 		top: `${rect.bottom + 8}px`,
-		left: `${Math.max(12, Math.min(rect.right - width, window.innerWidth - width - 12))}px`,
+		left: `${Math.max(12, Math.min(leftPos, window.innerWidth - width - 12))}px`,
 		width: `${width}px`,
 		zIndex: 12000,
 	};
@@ -829,17 +844,24 @@ function onEdgeClick({ edge, event }) {
 }
 
 .quick-actions-btn {
-	min-width: 32px;
-	height: 32px;
+	min-width: 30px;
+	height: 30px;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	padding: 0 12px;
+	padding: 0;
 }
 
 .flexirule-icon {
-	width: 14px;
-	height: 14px;
+	width: 16px;
+	height: 16px;
+	color: var(--fxr-text-strong);
+	transition: color 0.2s ease;
+}
+
+.quick-actions-btn:hover .flexirule-icon,
+.quick-actions-btn[aria-expanded="true"] .flexirule-icon {
+	color: var(--fxr-accent);
 }
 
 .fxr-headless-menu {
