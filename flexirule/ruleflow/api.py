@@ -327,7 +327,16 @@ def test_rule(
 			info_msg += _(" (trigger filters were bypassed for manual test)")
 
 	except Exception as e:
-		fallback_execution = getattr(locals().get("engine"), "last_execution_payload", None) or {}
+		# The engine's ``finally`` block always writes the full execution
+		# payload (including path_trace) to ``frappe.local.execution_payload``
+		# even when the rule raises.  Prefer that over the local ``engine``
+		# variable which only exists if we fell through to the manual
+		# engine.execute() path.
+		fallback_execution = (
+			getattr(locals().get("engine"), "last_execution_payload", None)
+			or getattr(frappe.local, "execution_payload", None)
+			or {}
+		)
 		return _build_error_response(
 			e,
 			context="test_rule",
@@ -336,6 +345,9 @@ def test_rule(
 				"execution": fallback_execution,
 				"path_trace": fallback_execution.get("path_trace", []),
 				"vars": fallback_execution.get("vars", {}),
+				# Legacy compatibility for existing UI consumers
+				"execution_path": fallback_execution.get("path_trace", []),
+				"context_snapshot": fallback_execution.get("vars", {}),
 			},
 		)
 

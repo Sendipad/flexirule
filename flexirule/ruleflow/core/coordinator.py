@@ -558,7 +558,7 @@ class RuleCoordinator:
 					meta = _get_meta(doctype)
 					return bool(meta and fieldname and meta.has_field(fieldname))
 
-				eval_globals = {
+				eval_locals = {
 					"doc": doc,
 					"old_doc": old_doc,
 					"vars": {},
@@ -571,12 +571,21 @@ class RuleCoordinator:
 					"get_meta": _get_meta,
 					"resolve": FieldResolver.resolve,
 					"check_link_match": check_link_match,
+					"any": any,
+					"all": all,
 					"True": True,
 					"False": False,
 					"None": None,
 				}
+				# Python 3 generator/comprehension expressions create their own
+				# scope and resolve free variables through the *globals* dict,
+				# not the locals dict passed to eval().  Promote eval_locals
+				# into eval_globals so helpers like check_link_match are visible
+				# inside any(…)/all(…) patterns.
+				eval_globals: dict = {"__builtins__": {}}
+				eval_globals.update(eval_locals)
 
-				if not frappe.safe_eval(rule_doc.get("compiled_expression"), None, eval_globals):
+				if not frappe.safe_eval(rule_doc.get("compiled_expression"), eval_globals, eval_locals):
 					return False, _("Trigger Conditions failed")
 
 			except Exception as e:

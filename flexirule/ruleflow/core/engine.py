@@ -800,7 +800,12 @@ class RuleEngine:
 		}
 
 	def _evaluate_python_condition(self, expression, context):
-		"""Evaluate Python expression safely and coerce to bool."""
+		"""Evaluate Python expression safely and coerce to bool.
+
+		``NameError`` is always re-raised so that missing helper functions
+		or undefined variables surface as visible failures rather than
+		silently returning False.
+		"""
 		if not expression:
 			return True
 
@@ -808,12 +813,21 @@ class RuleEngine:
 
 		try:
 			return eval_condition_bool(expression, safe_locals, default=False)
+		except NameError:
+			self._log(
+				"ERROR", f"Condition evaluation failed — undefined name in expression: {expression[:200]}"
+			)
+			raise
 		except Exception as e:
 			self._log("ERROR", f"Condition evaluation failed: {e}")
 			return False
 
 	def _evaluate_python_value(self, expression, context, default=None):
-		"""Evaluate Python expression safely and return raw value."""
+		"""Evaluate Python expression safely and return raw value.
+
+		``NameError`` is always re-raised so that missing helper functions
+		or undefined variables surface as visible failures.
+		"""
 		if not expression:
 			return default
 
@@ -821,6 +835,9 @@ class RuleEngine:
 
 		try:
 			return eval_value(expression, safe_locals, default=default)
+		except NameError:
+			self._log("ERROR", f"Value evaluation failed — undefined name in expression: {expression[:200]}")
+			raise
 		except Exception as e:
 			self._log("ERROR", f"Value evaluation failed: {e}")
 			return default
