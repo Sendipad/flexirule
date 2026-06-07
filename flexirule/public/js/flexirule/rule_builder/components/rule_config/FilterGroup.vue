@@ -757,15 +757,22 @@ const getControlFactorySchema = (row) => {
 	schema.read_only = props.readOnly;
 	schema.fieldname = rawField; // Ensure valid fieldname for frappe controls (no doc. prefix)
 
+	// Deep clone the schema to isolate destructive side-effects of Frappe's utility
+	const schemaClone = JSON.parse(JSON.stringify(schema));
+
 	// Native Frappe Filter Manipulation (perfect parity)
 	if (window.frappe && frappe.ui && frappe.ui.filter_utils) {
-		frappe.ui.filter_utils.set_fieldtype(schema, null, row.operator);
+		frappe.ui.filter_utils.set_fieldtype(schemaClone, null, row.operator);
 		// Force restore fieldtype for Between if it's a date/time field,
 		// as set_fieldtype might sometimes generalize it to Data for multiple values
-		if (row.operator === "Between" && ["Date", "Datetime", "Time"].includes(field?.fieldtype)) {
-			schema.fieldtype = field.fieldtype;
+		if (
+			row.operator === "Between" &&
+			["Date", "Datetime", "Time"].includes(field?.fieldtype)
+		) {
+			schemaClone.fieldtype = field.fieldtype;
 		}
 	} else {
+		schema = schemaClone; // sync back if bypass
 		// Fallback if filter_utils is somehow missing
 		if (schema.fieldname === "docstatus") {
 			schema.fieldtype = "Select";
@@ -786,9 +793,9 @@ const getControlFactorySchema = (row) => {
 	// FlexiRule Specific overrides for multi-value operators
 	if (["in", "not in"].includes(row.operator)) {
 		if (field && field.fieldtype === "Link") {
-			schema.fieldtype = "MultiSelectList";
-			schema.displayMode = "compact";
-			schema.get_data = async (txt) => {
+			schemaClone.fieldtype = "MultiSelectList";
+			schemaClone.displayMode = "compact";
+			schemaClone.get_data = async (txt) => {
 				if (!field.options) return [];
 				return await store.search_link_options({
 					doctype: field.options,
@@ -797,31 +804,31 @@ const getControlFactorySchema = (row) => {
 				});
 			};
 		} else if (field && field.fieldtype === "Select") {
-			schema.fieldtype = "MultiSelectList";
-			schema.displayMode = "compact";
+			schemaClone.fieldtype = "MultiSelectList";
+			schemaClone.displayMode = "compact";
 			if (typeof field.options === "string") {
-				schema.options = field.options
+				schemaClone.options = field.options
 					.split("\n")
 					.map((opt) => opt.trim())
 					.filter(Boolean);
 			} else if (Array.isArray(field.options)) {
-				schema.options = field.options;
+				schemaClone.options = field.options;
 			} else {
-				schema.options = [];
+				schemaClone.options = [];
 			}
 		} else {
-			schema.fieldtype = "Data";
-			schema.placeholder = __("Comma-separated values");
+			schemaClone.fieldtype = "Data";
+			schemaClone.placeholder = __("Comma-separated values");
 		}
 	} else if (["=", "!="].includes(row.operator) && field?.fieldtype === "Link") {
 		// Ensure Link dropdown is preserved for equality operators
-		schema.fieldtype = "Link";
-		schema.options = field.options;
+		schemaClone.fieldtype = "Link";
+		schemaClone.options = field.options;
 	} else if (row.operator === "Between") {
-		schema.placeholder = __("Value1, Value2");
+		schemaClone.placeholder = __("Value1, Value2");
 	}
 
-	return schema;
+	return schemaClone;
 };
 
 const addFilter = () => {
@@ -871,6 +878,9 @@ const updateRow = (idx, data) => {
 			];
 		} else if (row.operator === "Between" && Array.isArray(merged.value)) {
 			merged.value = merged.value[0] || { mode: "static", value: "" };
+		} else {
+			// Preserve non-static values (variables/resolvers) across other operator transitions
+			// if merged.value is already a structured object with mode !== 'static', we keep it.
 		}
 	}
 

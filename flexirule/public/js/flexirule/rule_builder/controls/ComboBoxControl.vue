@@ -471,11 +471,33 @@ function onInput(e) {
 	if (isRemote.value) debouncedRemoteSearch(query.value || "");
 }
 
+function shouldBypassValidation(val) {
+	if (!val || typeof val !== "string") return false;
+	const trimmed = val.trim();
+	return (
+		trimmed.startsWith("@") ||
+		trimmed.startsWith("doc.") ||
+		trimmed.startsWith("vars.") ||
+		trimmed.startsWith("{{") ||
+		trimmed.startsWith("{") ||
+		trimmed.startsWith("eval:") ||
+		trimmed.includes("@") ||
+		trimmed.includes("{{") ||
+		trimmed.includes("doc.") ||
+		trimmed.includes("vars.")
+	);
+}
+
 function onFocusOut(e) {
 	if (!isDropdownOpen.value) return;
 	const related = e.relatedTarget;
 	if (wrapperRef.value && wrapperRef.value.contains(related)) return;
 	if (optionsRef.value && optionsRef.value.contains(related)) return;
+
+	if (props.trigger === "input" && shouldBypassValidation(query.value)) {
+		onSelect(query.value);
+		return;
+	}
 
 	if (props.trigger === "input" && query.value === "") {
 		onSelect("");
@@ -551,6 +573,8 @@ function onKeydown(e) {
 			onSelect(filteredOptions.value[activeIndex.value].value);
 		} else if (filteredOptions.value.length === 1) {
 			onSelect(filteredOptions.value[0].value);
+		} else if (props.trigger === "input" && shouldBypassValidation(query.value)) {
+			onSelect(query.value);
 		}
 		return;
 	}
@@ -572,6 +596,12 @@ function handleClickOutside(e) {
 	if (!isDropdownOpen.value || !wrapperRef.value) return;
 	if (wrapperRef.value.contains(e.target)) return;
 	if (optionsRef.value && optionsRef.value.contains(e.target)) return;
+
+	if (props.trigger === "input" && shouldBypassValidation(query.value)) {
+		onSelect(query.value);
+		return;
+	}
+
 	if (props.trigger === "input" && query.value === "") {
 		onSelect("");
 	}

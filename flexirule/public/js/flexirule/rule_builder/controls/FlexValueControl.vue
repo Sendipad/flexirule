@@ -628,6 +628,13 @@ const ResolverToken = Node.create({
 	},
 });
 
+function escapeAttr(str) {
+	return String(str || "")
+		.replace(/&/g, "&amp;")
+		.replace(/"/g, "&quot;")
+		.replace(/'/g, "&#39;");
+}
+
 function createSuggestionRenderer() {
 	let component;
 	let popup;
@@ -695,7 +702,7 @@ function createSuggestionRenderer() {
 	};
 }
 
-let emitting = false;
+let lastEmittedJSON = "";
 
 const VariableTrigger = Mention.extend({ name: `variableTrigger_${uid}` });
 const CommandTrigger = Mention.extend({ name: `commandTrigger_${uid}` });
@@ -854,7 +861,7 @@ const editor = new Editor({
 		},
 	},
 	onUpdate: () => {
-		if (!emitting) emitChanges();
+		emitChanges();
 	},
 	onFocus: () => {
 		isEditorFocused.value = true;
@@ -961,14 +968,16 @@ function deserialize(val) {
 	const structured = coerceStructuredValue(val);
 
 	if (structured.mode === "variable")
-		return `<span data-token-type="variable" data-path="${
+		return `<span data-token-type="variable" data-path="${escapeAttr(
 			structured.value || ""
-		}" data-label=""></span>`;
+		)}" data-label=""></span>`;
 
 	if (structured.mode === "resolver") {
-		return `<span data-token-type="resolver" data-expression="${
+		return `<span data-token-type="resolver" data-expression="${escapeAttr(
 			structured.value || ""
-		}" data-label="" data-config='${JSON.stringify(structured.config || null)}'></span>`;
+		)}" data-label="" data-config='${escapeAttr(
+			JSON.stringify(structured.config || null)
+		)}'></span>`;
 	}
 
 	if (structured.mode === "expression" && Array.isArray(structured.value)) {
@@ -977,16 +986,18 @@ function deserialize(val) {
 				const typeName = item.type?.name || item.type;
 				if (typeName === "text") return item.value;
 				if (typeName === "variableToken")
-					return `<span data-token-type="variable" data-path="${item.attrs.path}" data-label="${item.attrs.label}"></span>`;
+					return `<span data-token-type="variable" data-path="${escapeAttr(
+						item.attrs.path
+					)}" data-label="${escapeAttr(item.attrs.label)}"></span>`;
 				if (
 					["resolverToken", "formulaToken", "normalizeToken", "formatToken"].includes(
 						typeName
 					)
 				) {
-					return `<span data-token-type="resolver" data-expression="${
+					return `<span data-token-type="resolver" data-expression="${escapeAttr(
 						item.attrs.expression || item.attrs.resolver || ""
-					}" data-label="${item.attrs.label || ""}" data-config='${JSON.stringify(
-						item.attrs.config || null
+					)}" data-label="${escapeAttr(item.attrs.label || "")}" data-config='${escapeAttr(
+						JSON.stringify(item.attrs.config || null)
 					)}'></span>`;
 				}
 				return "";
@@ -998,8 +1009,11 @@ function deserialize(val) {
 }
 
 function emitChanges() {
-	emitting = true;
 	const output = coerceStructuredValue(serialize());
+	const json = JSON.stringify(output);
+	if (json === lastEmittedJSON) return;
+	lastEmittedJSON = json;
+
 	emit("update:modelValue", output);
 	emit("update", output);
 	try {
@@ -1012,9 +1026,6 @@ function emitChanges() {
 	} catch (error) {
 		console.warn("FlexValueControl context callback failed:", error);
 	}
-	nextTick(() => {
-		emitting = false;
-	});
 }
 
 // ── Orchestration ──
@@ -1025,16 +1036,26 @@ function onWrapClick() {
 
 function toggleDynamicMode() {
 	if (isReadOnly.value || props.disabled) return;
-	isDynamicMode.value = !isDynamicMode.value;
 	if (isDynamicMode.value) {
-		emitting = true;
-		editor.commands.setContent(String(staticValue.value || ""));
-		emitting = false;
-		nextTick(() => editor.commands.focus());
-	} else {
 		const struct = serialize();
-		staticValue.value = struct.mode === "static" ? struct.value : "";
-		emitChanges();
+		if (struct.mode === "static" || struct.mode === "expression") {
+			isDynamicMode.value = false;
+			staticValue.value = struct.mode === "static" ? (struct.value ?? "") : "";
+			emitChanges();
+		} else {
+			if (typeof frappe !== "undefined") {
+				frappe.show_alert({
+					message: __("Cannot switch to static mode while variables or tokens are present."),
+					indicator: "orange",
+				});
+			}
+			emitChanges();
+		}
+	} else {
+		isDynamicMode.value = true;
+		const currentStatic = staticValue.value;
+		editor.commands.setContent(currentStatic != null ? String(currentStatic) : "");
+		nextTick(() => editor.commands.focus());
 	}
 }
 
@@ -1046,16 +1067,50 @@ function onStaticKeydown(e) {
 		e.stopPropagation();
 		isDynamicMode.value = true;
 		nextTick(() => {
-			emitting = true;
 			editor.commands.setContent("");
-			emitting = false;
 			editor.commands.focus();
 			editor.commands.insertContent(e.key);
 		});
 	}
 }
 
+function isVariableSyntax(val) {
+	if (typeof val !== "string") return false;
+	const trimmed = val.trim();
+	return (
+		trimmed.startsWith("@") ||
+		trimmed.startsWith("doc.") ||
+		trimmed.startsWith("vars.") ||
+		trimmed.startsWith("{{") ||
+		trimmed.startsWith("{") ||
+		trimmed.startsWith("eval:")
+	);
+}
+
+function hasInlineVariable(val) {
+	if (typeof val !== "string") return false;
+	return val.includes("@") || val.includes("{{") || val.includes("doc.") || val.includes("vars.");
+}
+
 function updateStaticValue(val) {
+	if (isVariableSyntax(val)) {
+		const path = val.startsWith("@") ? val.substring(1) : val;
+		isDynamicMode.value = true;
+		nextTick(() => {
+			editor.commands.setContent("");
+			editor.commands.insertContent({
+				type: "variableToken",
+				attrs: { path, label: path },
+			});
+		});
+		return;
+	} else if (hasInlineVariable(val)) {
+		isDynamicMode.value = true;
+		nextTick(() => {
+			editor.commands.setContent(val);
+		});
+		return;
+	}
 	staticValue.value = val;
 	emitChanges();
 }
@@ -1133,23 +1188,19 @@ function handleBuilderUpdate(config) {
 
 function saveTokenEditor() {
 	if (activeTokenType.value === "json") {
-		emitting = true;
 		editor.commands.setContent(tokenDraftAttrs.value.value);
-		emitting = false;
 		emitChanges();
 	} else {
 		if (isManualMode.value) {
 			tokenDraftAttrs.value.config = null;
 		}
 
-		emitting = true;
 		editor
 			.chain()
 			.focus()
 			.setNodeSelection(activeTokenPos.value)
 			.updateAttributes(activeTokenNode.value.type.name, tokenDraftAttrs.value)
 			.run();
-		emitting = false;
 		emitChanges();
 	}
 	closeTokenEditor();
@@ -1183,13 +1234,14 @@ function renameConfigKey(oldKey, newKey) {
 watch(
 	() => props.modelValue,
 	(val) => {
-		if (emitting) return;
 		const normalized = coerceStructuredValue(val);
+		const json = JSON.stringify(normalized);
+		if (json === lastEmittedJSON) return;
+		lastEmittedJSON = json;
+
 		if (normalized.mode !== "static") {
 			isDynamicMode.value = true;
-			emitting = true;
 			editor.commands.setContent(deserialize(normalized));
-			emitting = false;
 		} else {
 			isDynamicMode.value = false;
 			staticValue.value = normalized.value ?? "";
