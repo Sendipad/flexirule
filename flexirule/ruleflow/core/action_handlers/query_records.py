@@ -336,6 +336,10 @@ class QueryRecordsHandler(ActionHandler):
 							for k, v in item.items()
 						}
 					)
+				elif isinstance(item, dict) and "mode" in item:
+					resolved_list.append(
+						self._resolve_value_expression_with_context(item, context, child_ref, action)
+					)
 				elif isinstance(item, list | dict):
 					resolved_list.append(self._resolve_filters_with_context(item, context, child_ref, action))
 				else:
@@ -344,6 +348,8 @@ class QueryRecordsHandler(ActionHandler):
 					)
 			return resolved_list
 		if isinstance(filters, dict):
+			if "mode" in filters:
+				return self._resolve_value_expression_with_context(filters, context, ref_label, action)
 			return {
 				key: self._resolve_value_expression_with_context(value, context, f"{ref_label}.{key}", action)
 				for key, value in filters.items()
