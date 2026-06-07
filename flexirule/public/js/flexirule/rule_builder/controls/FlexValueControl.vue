@@ -996,7 +996,9 @@ function deserialize(val) {
 				) {
 					return `<span data-token-type="resolver" data-expression="${escapeAttr(
 						item.attrs.expression || item.attrs.resolver || ""
-					)}" data-label="${escapeAttr(item.attrs.label || "")}" data-config='${escapeAttr(
+					)}" data-label="${escapeAttr(
+						item.attrs.label || ""
+					)}" data-config='${escapeAttr(
 						JSON.stringify(item.attrs.config || null)
 					)}'></span>`;
 				}
@@ -1040,7 +1042,7 @@ function toggleDynamicMode() {
 		const struct = serialize();
 		if (struct.mode === "static" || struct.mode === "expression") {
 			isDynamicMode.value = false;
-			staticValue.value = struct.mode === "static" ? (struct.value ?? "") : "";
+			staticValue.value = struct.mode === "static" ? struct.value ?? "" : "";
 			emitChanges();
 		} else {
 			if (typeof frappe !== "undefined") {
@@ -1179,7 +1181,7 @@ function handleBuilderUpdate(config) {
 					fieldType: fieldType.value,
 					referenceDoctype: referenceDoctype.value,
 					context: props.context,
-				})
+			  })
 			: props.context?.resolverDefaults;
 	const mergedConfig =
 		defaults && typeof defaults === "object" ? { ...defaults, ...config } : config;
