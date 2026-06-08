@@ -36,16 +36,26 @@ export function useFloatingDropdown(config = {}) {
 
 		const availableBottom = viewportHeight - rect.bottom - offset - viewportPadding;
 		const availableTop = rect.top - offset - viewportPadding;
-		const openUp = availableBottom < 220 && availableTop > availableBottom;
+
+		// Use actual height if known, otherwise fallback to a sensible default for flipping decision
+		const dropdownHeight = dropdownRef.value?.offsetHeight || 0;
+		const heightToFit = dropdownHeight || 220;
+
+		// We flip if there's not enough room below AND there's more room above than below
+		const openUp = availableBottom < heightToFit && availableTop > availableBottom;
 
 		const effectiveMaxHeight = Math.max(
 			180,
 			Math.min(maxHeight, openUp ? availableTop : availableBottom)
 		);
 
-		const top = openUp
-			? Math.max(viewportPadding, rect.top - effectiveMaxHeight - offset)
-			: Math.min(viewportHeight - viewportPadding, rect.bottom + offset);
+		let top;
+		if (openUp) {
+			const h = dropdownHeight ? Math.min(dropdownHeight, effectiveMaxHeight) : effectiveMaxHeight;
+			top = rect.top - h - offset;
+		} else {
+			top = rect.bottom + offset;
+		}
 
 		dropdownStyle.value = {
 			position: "fixed",
