@@ -25,26 +25,36 @@ def get_context_value(context: dict, path: str | None) -> Any:
 	base = parts[0]
 	if base == "doc":
 		current = context.get("doc")
+		parts = parts[1:]
 	elif base == "vars":
 		current = context.get("vars", {})
+		parts = parts[1:]
 	elif base == "item":
 		current = context.get("item")
+		parts = parts[1:]
 	elif base == "loop":
 		current = context.get("loop")
+		parts = parts[1:]
 	elif base == "row":
 		current = context.get("row")
+		parts = parts[1:]
 	else:
 		# Fallback context lookup if no explicit scope is declared
-		if context.get("vars") and base in context["vars"]:
-			current = context["vars"]
-			parts = [base, *parts[1:]]
-		elif context.get("doc") and hasattr(context["doc"], "get") and context["doc"].get(base) is not None:
-			current = context["doc"]
-			parts = [base, *parts[1:]]
+		# Prioritize 'doc' then 'vars'
+		doc = context.get("doc")
+		vars_dict = context.get("vars", {})
+
+		if doc is not None and (
+			(isinstance(doc, dict) and base in doc)
+			or (hasattr(doc, "get") and doc.get(base) is not None)
+		):
+			current = doc
+		elif isinstance(vars_dict, dict) and base in vars_dict:
+			current = vars_dict
 		else:
 			return None
 
-	for part in parts[1:]:
+	for part in parts:
 		if current is None:
 			return None
 		if isinstance(current, dict):
