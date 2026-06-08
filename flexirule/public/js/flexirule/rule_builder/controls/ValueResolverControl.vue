@@ -25,6 +25,7 @@
 		<Teleport to="body" :disabled="viewMode === 'inline'">
 			<div
 				v-if="viewMode === 'inline' || showPopover"
+				ref="popoverRef"
 				:class="
 					viewMode === 'inline'
 						? 'fxr-inline-builder'
@@ -579,6 +580,7 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from "vue";
 import { useStore } from "../stores";
 import { compileToCode, compileToLabel } from "../../core/builder_utils.js";
+import { useFloatingDropdown } from "../composables/useFloatingDropdown";
 
 const props = defineProps({
 	modelValue: {
@@ -611,10 +613,24 @@ const props = defineProps({
 
 const emit = defineEmits(["update:modelValue"]);
 const store = useStore();
-const controlRef = ref(null);
-const showPopover = ref(false);
-const popoverStyle = ref({});
 let _syncing = false;
+
+const {
+	triggerRef: controlRef,
+	dropdownRef: popoverRef,
+	isOpen: showPopover,
+	dropdownStyle: popoverStyle,
+	openDropdown,
+	closeDropdown,
+	toggleDropdown: baseTogglePopover,
+	updatePosition,
+	cleanup: cleanupFloatingDropdown,
+} = useFloatingDropdown({
+	minWidth: 280,
+	maxWidth: 400,
+	maxHeight: 500,
+	matchTriggerWidth: false,
+});
 
 const resolverFieldname = computed(() => {
 	const fieldname =
@@ -895,6 +911,10 @@ watch(
 	(newVal) => {
 		if (_syncing) return;
 
+		if (showPopover.value) {
+			nextTick(() => updatePosition());
+		}
+
 		const config = { kind: newVal.kind };
 
 		if (newVal.kind === "date_formula") {
@@ -965,53 +985,22 @@ watch(
 	{ deep: true }
 );
 
-function updatePopoverPosition() {
-	if (!controlRef.value) return;
-	const rect = controlRef.value.getBoundingClientRect();
-	const spaceBelow = window.innerHeight - rect.bottom;
-	const spaceAbove = rect.top;
-	const popoverHeight = 400; // Estimated max height
-
-	if (spaceBelow < popoverHeight && spaceAbove > spaceBelow) {
-		// Position above
-		popoverStyle.value = {
-			position: "fixed",
-			bottom: `${window.innerHeight - rect.top + 4}px`,
-			left: `${rect.left}px`,
-			maxHeight: `${spaceAbove - 10}px`,
-			overflowY: "auto",
-		};
-	} else {
-		// Position below
-		popoverStyle.value = {
-			position: "fixed",
-			top: `${rect.bottom + 4}px`,
-			left: `${rect.left}px`,
-			maxHeight: `${spaceBelow - 10}px`,
-			overflowY: "auto",
-		};
-	}
-}
-
 onMounted(() => {
 	syncFromProps();
-	document.addEventListener("click", handleClickOutside);
+	document.addEventListener("mousedown", handleClickOutside);
 });
 
 onBeforeUnmount(() => {
-	document.removeEventListener("click", handleClickOutside);
-	window.removeEventListener("scroll", updatePopoverPosition, true);
-	window.removeEventListener("resize", updatePopoverPosition);
+	document.removeEventListener("mousedown", handleClickOutside);
+	cleanupFloatingDropdown();
 });
 
 const handleClickOutside = (e) => {
-	if (controlRef.value && !controlRef.value.contains(e.target)) {
-		// Also check if click was inside the teleported popover
-		const popover = document.querySelector(".fxr-popover");
-		if (popover && popover.contains(e.target)) return;
+	if (!showPopover.value) return;
+	if (controlRef.value && controlRef.value.contains(e.target)) return;
+	if (popoverRef.value && popoverRef.value.contains(e.target)) return;
 
-		showPopover.value = false;
-	}
+	closePopover();
 };
 
 const handleGlobalKeydown = (e) => {
@@ -1025,25 +1014,17 @@ const handleGlobalKeydown = (e) => {
 
 const togglePopover = async () => {
 	if (props.readOnly) return;
-	showPopover.value = !showPopover.value;
+	baseTogglePopover();
 
 	if (showPopover.value) {
-		await nextTick();
-		updatePopoverPosition();
-		window.addEventListener("scroll", updatePopoverPosition, true);
-		window.addEventListener("resize", updatePopoverPosition);
 		window.addEventListener("keydown", handleGlobalKeydown, { capture: true });
 	} else {
-		window.removeEventListener("scroll", updatePopoverPosition, true);
-		window.removeEventListener("resize", updatePopoverPosition);
 		window.removeEventListener("keydown", handleGlobalKeydown, { capture: true });
 	}
 };
 
 const closePopover = () => {
-	showPopover.value = false;
-	window.removeEventListener("scroll", updatePopoverPosition, true);
-	window.removeEventListener("resize", updatePopoverPosition);
+	closeDropdown();
 	window.removeEventListener("keydown", handleGlobalKeydown, { capture: true });
 };
 
@@ -1123,6 +1104,7 @@ hr.border-top {
 .value-resolver-popover {
 	padding: 10px;
 	width: 280px;
+	overflow-y: auto;
 }
 .value-resolver-popover .fxr-popover__header {
 	padding-bottom: 8px;
