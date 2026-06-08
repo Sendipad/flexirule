@@ -7,12 +7,12 @@
 		<!-- Token UI -->
 		<div
 			v-if="viewMode === 'popover'"
+			ref="tokenRef"
 			class="fxr-token"
 			:class="{ 'is-active': showPopover }"
 			tabindex="0"
 			@click="togglePopover"
-			@keydown.enter.prevent="togglePopover"
-			@keydown.space.prevent="togglePopover"
+			@keydown="handleParentKeydown"
 		>
 			<div class="fxr-token__content">
 				<i :class="categoryIcon" class="text-muted mr-1"></i>
@@ -45,6 +45,7 @@
 					<div class="d-flex flex-column fxr-gap-1">
 						<label class="fxr-label-sm">{{ __("Formula Type") }}</label>
 						<select
+							ref="kindSelectRef"
 							class="fxr-select"
 							v-model="localState.kind"
 							:disabled="readOnly"
@@ -613,6 +614,8 @@ const props = defineProps({
 
 const emit = defineEmits(["update:modelValue"]);
 const store = useStore();
+const tokenRef = ref(null);
+const kindSelectRef = ref(null);
 let _syncing = false;
 
 const {
@@ -1003,30 +1006,83 @@ const handleClickOutside = (e) => {
 	closePopover();
 };
 
+const handleParentKeydown = (e) => {
+	if (props.readOnly) return;
+	if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") {
+		e.preventDefault();
+		if (!showPopover.value) open();
+	}
+};
+
 const handleGlobalKeydown = (e) => {
-	if (e.key === "Escape" && showPopover.value) {
+	if (!showPopover.value) return;
+
+	if (e.key === "Escape") {
 		e.preventDefault();
 		e.stopPropagation();
 		e.stopImmediatePropagation();
 		closePopover();
+		return;
+	}
+
+	if (e.key === "Tab") {
+		const popover = popoverRef.value;
+		if (!popover) return;
+
+		const focusableElements = popover.querySelectorAll(
+			'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+		);
+		const first = focusableElements[0];
+		const last = focusableElements[focusableElements.length - 1];
+
+		if (e.shiftKey) {
+			if (document.activeElement === first) {
+				last.focus();
+				e.preventDefault();
+			}
+		} else {
+			if (document.activeElement === last) {
+				first.focus();
+				e.preventDefault();
+			}
+		}
 	}
 };
 
-const togglePopover = async () => {
+const togglePopover = () => {
 	if (props.readOnly) return;
-	baseTogglePopover();
+	if (showPopover.value) closePopover();
+	else open();
+};
 
-	if (showPopover.value) {
-		window.addEventListener("keydown", handleGlobalKeydown, { capture: true });
-	} else {
-		window.removeEventListener("keydown", handleGlobalKeydown, { capture: true });
+const open = async () => {
+	if (props.readOnly || showPopover.value) return;
+	openDropdown();
+
+	await nextTick();
+	if (kindSelectRef.value) {
+		kindSelectRef.value.focus();
 	}
+
+	window.addEventListener("keydown", handleGlobalKeydown, { capture: true });
 };
 
 const closePopover = () => {
+	if (!showPopover.value) return;
 	closeDropdown();
 	window.removeEventListener("keydown", handleGlobalKeydown, { capture: true });
+
+	// Return focus to trigger
+	nextTick(() => {
+		tokenRef.value?.focus();
+	});
 };
+
+defineExpose({
+	open,
+	close: closePopover,
+	focus: () => tokenRef.value?.focus(),
+});
 
 // ─── Computed UI Properties ───
 const categoryIcon = computed(() => {
