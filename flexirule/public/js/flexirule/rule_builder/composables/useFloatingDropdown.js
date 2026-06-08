@@ -51,7 +51,9 @@ export function useFloatingDropdown(config = {}) {
 
 		let top;
 		if (openUp) {
-			const h = dropdownHeight ? Math.min(dropdownHeight, effectiveMaxHeight) : effectiveMaxHeight;
+			const h = dropdownHeight
+				? Math.min(dropdownHeight, effectiveMaxHeight)
+				: effectiveMaxHeight;
 			top = rect.top - h - offset;
 		} else {
 			top = rect.bottom + offset;
