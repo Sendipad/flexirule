@@ -969,14 +969,17 @@ function updatePopoverPosition() {
 	if (!controlRef.value) return;
 	const rect = controlRef.value.getBoundingClientRect();
 	const spaceBelow = window.innerHeight - rect.bottom;
-	const popoverHeight = 400; // Estimated max height for multi-mode resolver
+	const spaceAbove = rect.top;
+	const popoverHeight = 400; // Estimated max height
 
-	if (spaceBelow < popoverHeight && rect.top > popoverHeight) {
+	if (spaceBelow < popoverHeight && spaceAbove > spaceBelow) {
 		// Position above
 		popoverStyle.value = {
 			position: "fixed",
 			bottom: `${window.innerHeight - rect.top + 4}px`,
 			left: `${rect.left}px`,
+			maxHeight: `${spaceAbove - 10}px`,
+			overflowY: "auto",
 		};
 	} else {
 		// Position below
@@ -984,6 +987,8 @@ function updatePopoverPosition() {
 			position: "fixed",
 			top: `${rect.bottom + 4}px`,
 			left: `${rect.left}px`,
+			maxHeight: `${spaceBelow - 10}px`,
+			overflowY: "auto",
 		};
 	}
 }

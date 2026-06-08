@@ -479,6 +479,26 @@ function onFocusOut(e) {
 
 	if (props.trigger === "input" && query.value === "") {
 		onSelect("");
+	} else if (props.trigger === "input" && query.value !== "") {
+		if (exactMatch.value) {
+			const match = normalizedOptions.value.find(
+				(opt) => String(opt.label || "").toLowerCase() === String(query.value).toLowerCase()
+			);
+			if (match) {
+				onSelect(match.value);
+			} else {
+				closeDropdown();
+			}
+		} else if (
+			props.allowCustomValue ||
+			query.value.startsWith("@") ||
+			query.value.startsWith("doc.") ||
+			query.value.startsWith("vars.")
+		) {
+			onSelect(query.value);
+		} else {
+			closeDropdown();
+		}
 	} else {
 		closeDropdown();
 	}
@@ -551,6 +571,15 @@ function onKeydown(e) {
 			onSelect(filteredOptions.value[activeIndex.value].value);
 		} else if (filteredOptions.value.length === 1) {
 			onSelect(filteredOptions.value[0].value);
+		} else if (
+			query.value !== "" &&
+			!exactMatch.value &&
+			(props.allowCustomValue ||
+				query.value.startsWith("@") ||
+				query.value.startsWith("doc.") ||
+				query.value.startsWith("vars."))
+		) {
+			onSelect(query.value);
 		}
 		return;
 	}
@@ -572,8 +601,27 @@ function handleClickOutside(e) {
 	if (!isDropdownOpen.value || !wrapperRef.value) return;
 	if (wrapperRef.value.contains(e.target)) return;
 	if (optionsRef.value && optionsRef.value.contains(e.target)) return;
+
 	if (props.trigger === "input" && query.value === "") {
 		onSelect("");
+	} else if (props.trigger === "input" && query.value !== "") {
+		if (exactMatch.value) {
+			const match = normalizedOptions.value.find(
+				(opt) => String(opt.label || "").toLowerCase() === String(query.value).toLowerCase()
+			);
+			if (match) {
+				onSelect(match.value);
+				return;
+			}
+		} else if (
+			props.allowCustomValue ||
+			query.value.startsWith("@") ||
+			query.value.startsWith("doc.") ||
+			query.value.startsWith("vars.")
+		) {
+			onSelect(query.value);
+			return;
+		}
 	}
 	closeDropdown();
 }

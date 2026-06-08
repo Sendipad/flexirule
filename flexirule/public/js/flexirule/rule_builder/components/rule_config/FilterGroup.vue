@@ -131,6 +131,7 @@
 										:variableOptions="effectiveVariableOptions"
 										:disabled="readOnly"
 										:readOnly="readOnly"
+										@update:modelValue="() => emitUpdate()"
 									/>
 								</div>
 							</template>
@@ -340,7 +341,11 @@ const getNestedSetOperatorsForField = (field) => {
 };
 
 const coerceStructuredFilterValue = (rawValue) => {
-	if (rawValue && typeof rawValue === "object" && !Array.isArray(rawValue) && rawValue.mode) {
+	if (Array.isArray(rawValue)) {
+		return rawValue.map((item) => coerceStructuredFilterValue(item));
+	}
+
+	if (rawValue && typeof rawValue === "object" && rawValue.mode) {
 		if (["formula", "format", "normalize", "normalization"].includes(rawValue.mode)) {
 			const config = { ...(rawValue.config || {}) };
 			if (!config.kind) {
