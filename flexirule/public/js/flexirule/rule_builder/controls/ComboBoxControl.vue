@@ -666,6 +666,17 @@ watch(
 	{ deep: true }
 );
 
+defineExpose({
+	focus: () => {
+		if (props.trigger === "button" && wrapperRef.value) {
+			const btn = wrapperRef.value.querySelector(".combobox-button-trigger");
+			if (btn) btn.focus();
+		} else if (mainInputRef.value) {
+			mainInputRef.value.focus();
+		}
+	},
+});
+
 onMounted(() => {
 	document.addEventListener("mousedown", handleClickOutside);
 	if (props.modelValue && isRemote.value) {

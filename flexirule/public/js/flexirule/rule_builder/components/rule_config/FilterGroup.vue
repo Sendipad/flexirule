@@ -25,6 +25,7 @@
 					<div class="filter-col field-col">
 						<div class="field-picker-container">
 							<ComboBoxControl
+								ref="fieldPickerRefs"
 								:df="{ label: '', fieldtype: 'FieldPicker' }"
 								:options="getFieldsForDoctype(row.doctype || doctype)"
 								:doctype="row.doctype || doctype"
@@ -164,7 +165,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, inject } from "vue";
+import { ref, computed, watch, onMounted, inject, nextTick } from "vue";
 import ComboBoxControl from "../../controls/ComboBoxControl.vue";
 import FlexValueControl from "../../controls/FlexValueControl.vue";
 import { useStore } from "../../stores";
@@ -199,6 +200,7 @@ const props = defineProps({
 
 const emit = defineEmits(["update:modelValue"]);
 const store = useStore();
+const fieldPickerRefs = ref([]);
 
 // Align with the new architecture: prefer injected variableOptions if prop is not explicitly provided.
 const injectedVariableOptions = inject("variableOptions", ref([]));
@@ -840,6 +842,13 @@ const addFilter = () => {
 		value: { mode: "static", value: "" },
 	});
 	emitUpdate();
+
+	nextTick(() => {
+		const lastIndex = filters.value.length - 1;
+		if (lastIndex >= 0 && fieldPickerRefs.value[lastIndex]) {
+			fieldPickerRefs.value[lastIndex].focus?.();
+		}
+	});
 };
 const removeFilter = (idx) => {
 	filters.value.splice(idx, 1);

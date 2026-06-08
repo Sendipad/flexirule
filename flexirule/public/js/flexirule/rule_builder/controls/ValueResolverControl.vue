@@ -995,6 +995,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
 	document.removeEventListener("mousedown", handleClickOutside);
+	window.removeEventListener("keydown", handleGlobalKeydown, { capture: true });
 	cleanupFloatingDropdown();
 });
 
