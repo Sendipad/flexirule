@@ -45,8 +45,7 @@ def get_context_value(context: dict, path: str | None) -> Any:
 		vars_dict = context.get("vars", {})
 
 		if doc is not None and (
-			(isinstance(doc, dict) and base in doc)
-			or (hasattr(doc, "get") and doc.get(base) is not None)
+			(isinstance(doc, dict) and base in doc) or (hasattr(doc, "get") and doc.get(base) is not None)
 		):
 			current = doc
 		elif isinstance(vars_dict, dict) and base in vars_dict:
