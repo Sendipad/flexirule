@@ -24,9 +24,9 @@ If applicable, add screenshots to help explain your problem.
 
 **Environment**
 
--   FlexiRule version:
--   Frappe/ERPNext version:
--   Browser (if UI related):
+- FlexiRule version:
+- Frappe/ERPNext version:
+- Browser (if UI related):
 
 **Additional context**
 Add any other context about the problem here.

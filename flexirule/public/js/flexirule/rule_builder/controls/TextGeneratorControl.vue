@@ -184,12 +184,25 @@
 										</div>
 									</div>
 
-									<div class="grid-item full-width mt-2" v-if="activeScopeTree.length">
-										<label class="compact-label">{{ __("Available Scope") }}</label>
+									<div
+										class="grid-item full-width mt-2"
+										v-if="activeScopeTree.length"
+									>
+										<label class="compact-label">{{
+											__("Available Scope")
+										}}</label>
 										<div class="scope-viz v2-scrollbar">
-											<div v-for="scope in activeScopeTree" :key="scope.value" class="scope-node">
-												<div class="scope-root" @click="insertVariable(scope.value)">
-													<i class="fa fa-cube mr-1"></i> {{ scope.label }}
+											<div
+												v-for="scope in activeScopeTree"
+												:key="scope.value"
+												class="scope-node"
+											>
+												<div
+													class="scope-root"
+													@click="insertVariable(scope.value)"
+												>
+													<i class="fa fa-cube mr-1"></i>
+													{{ scope.label }}
 												</div>
 												<div class="scope-children">
 													<div
@@ -199,7 +212,8 @@
 														@click="insertVariable(child.value)"
 													>
 														<span class="tree-line">├─</span>
-														<i class="fa fa-tag mr-1"></i> {{ child.displayLabel }}
+														<i class="fa fa-tag mr-1"></i>
+														{{ child.displayLabel }}
 													</div>
 												</div>
 											</div>
@@ -824,7 +838,9 @@ onBeforeUnmount(() => {
 	min-height: 120px;
 	position: relative;
 	box-shadow: var(--fxr-shadow-sm);
-	transition: border-color var(--fxr-transition-fast), box-shadow var(--fxr-transition-fast);
+	transition:
+		border-color var(--fxr-transition-fast),
+		box-shadow var(--fxr-transition-fast);
 }
 
 .tgc-editor-container:focus-within {
