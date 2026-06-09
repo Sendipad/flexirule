@@ -29,6 +29,7 @@ const { onPaneScroll, onPaneContextMenu, onMove } = useVueFlow();
 
 const showPopover = ref(false);
 const popoverPosition = ref({ x: 0, y: 0 });
+const addButtonRef = ref(null);
 
 const isReturnEdge = computed(() => {
 	return (
@@ -89,8 +90,8 @@ function onAddClick(event) {
 	event.stopPropagation();
 	const rect = event.currentTarget.getBoundingClientRect();
 	popoverPosition.value = {
-		x: Math.min(rect.left + rect.width / 2 + 12, window.innerWidth - 320),
-		y: Math.max(rect.top - 16, 12),
+		x: rect.left + rect.width / 2,
+		y: rect.top + rect.height / 2,
 	};
 	showPopover.value = !showPopover.value;
 }
@@ -146,6 +147,7 @@ function onPaste() {
 			class="nodrag nopan edge-label-container"
 		>
 			<button
+				ref="addButtonRef"
 				class="edge-add-button"
 				:class="{ active: showPopover }"
 				@click="onAddClick"
@@ -160,6 +162,7 @@ function onPaste() {
 					<ActionZone
 						v-if="showPopover"
 						mode="popover"
+						:trigger="addButtonRef"
 						:position="popoverPosition"
 						@select="onActionSelect"
 						@paste="onPaste"

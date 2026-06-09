@@ -1,10 +1,11 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted, nextTick } from "vue";
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from "vue";
 import { Handle, Position } from "@vue-flow/core";
 import { getOperationOptions, isTerminalAction } from "../../core/contracts";
 import { useStore } from "../stores";
 import { mapActionTypeToNodeType } from "../composables/useActionTypeMapper";
 import { useActionSearch } from "../composables/useActionSearch";
+import { useFloatingDropdown } from "../composables/useFloatingDropdown";
 
 const props = defineProps({
 	// discovery props
@@ -14,6 +15,14 @@ const props = defineProps({
 			window.__
 				? __("Search actions or type Action: operation")
 				: "Search actions or type Action: operation",
+	},
+	maxWidth: {
+		type: Number,
+		default: 320,
+	},
+	maxHeight: {
+		type: Number,
+		default: 450,
 	},
 	showPaste: {
 		type: Boolean,
@@ -36,6 +45,7 @@ const props = defineProps({
 	targetPosition: String,
 	// popover-mode specific props
 	position: Object, // { x, y }
+	trigger: Object, // HTMLElement
 });
 
 const emit = defineEmits(["select", "paste", "close"]);
@@ -54,7 +64,22 @@ const selectedIndex = ref(-1);
 const searchInputRef = ref(null);
 const labelInputRef = ref(null);
 const zoneRef = ref(null);
-const popoverRef = ref(null);
+
+const {
+	triggerRef: popoverTriggerRef,
+	dropdownRef: popoverDropdownRef,
+	isOpen: isPopoverOpen,
+	dropdownStyle: popoverStyle,
+	openDropdown: openPopover,
+	closeDropdown: closePopover,
+	updatePosition: updatePopoverPosition,
+} = useFloatingDropdown({
+	minWidth: 320,
+	maxWidth: 400,
+	maxHeight: 500,
+	matchTriggerWidth: false,
+	offset: 0,
+});
 
 const step = ref("discovery"); // 'discovery' | 'labeling'
 const customLabel = ref("");
@@ -77,23 +102,28 @@ const sourcePos = computed(
 );
 
 function selectItem(item) {
-	if (item.type === "header") return;
+	if (!item || item.type === "header") return;
+
 	if (item.type === "scope_action") {
 		searchQuery.value = `${item.value}: `;
 		selectedIndex.value = -1;
 		nextTick(() => searchInputRef.value?.focus());
 		return;
 	}
+
 	if (item.type === "paste_discovery") {
 		onPasteClick();
 		return;
 	}
 
+	const action_type = item.action_type || item.value || "Process";
 	const selection = {
-		action_type: item.value || item.action_type || "Process",
+		action_type,
 		operation: item.operation || null,
 		process_name: item.process_name || null,
-		label: item.label || item.value || "Process",
+		label: (item.label || item.value || action_type)
+			.replace(`${action_type}: `, "")
+			.replace("Process: ", ""),
 		icon: item.icon || "fa-cog",
 		color: item.color || "#6b7280",
 	};
@@ -112,8 +142,13 @@ function selectItem(item) {
 	}
 
 	nextTick(() => {
-		labelInputRef.value?.focus();
-		labelInputRef.value?.select();
+		updatePopoverPosition();
+		setTimeout(() => {
+			if (labelInputRef.value) {
+				labelInputRef.value.focus();
+				labelInputRef.value.select();
+			}
+		}, 50);
 	});
 }
 
@@ -288,16 +323,11 @@ function deleteNode() {
 }
 
 function onClickOutside(e) {
-	if (props.mode !== "popover" || !popoverRef.value) return;
-
-	// If step is labeling, we might be clicking on things that get detached.
-	// But more importantly, we want to ensure we don't close if we click inside.
+	if (props.mode !== "popover" || !popoverDropdownRef.value) return;
 	const target = e.target;
-
-	// Ignore detached elements (often caused by Vue's VDOM updates during step transition)
 	if (!document.body.contains(target)) return;
 
-	const isInside = popoverRef.value.contains(target) || target.closest(".action-popover");
+	const isInside = popoverDropdownRef.value.contains(target) || target.closest(".action-popover");
 
 	if (!isInside) {
 		emit("close");
@@ -312,10 +342,51 @@ function handleGlobalKeydown(e) {
 	}
 }
 
+function updateTriggerMock() {
+	if (!props.position) return;
+	popoverTriggerRef.value = {
+		getBoundingClientRect: () => ({
+			top: props.position.y,
+			bottom: props.position.y,
+			left: props.position.x,
+			right: props.position.x,
+			width: 0,
+			height: 0,
+		}),
+	};
+}
+
+watch(
+	() => props.position,
+	() => {
+		if (props.mode === "popover") {
+			updateTriggerMock();
+			updatePopoverPosition();
+		}
+	},
+	{ deep: true }
+);
+
+watch(searchQuery, () => {
+	selectedIndex.value = -1;
+});
+
+watch(filteredResults, () => {
+	if (selectedIndex.value >= filteredResults.value.length) {
+		selectedIndex.value = -1;
+	}
+});
+
 onMounted(() => {
 	loadProcessOperations();
 	checkClipboard();
 	if (props.mode === "popover") {
+		if (props.trigger) {
+			popoverTriggerRef.value = props.trigger;
+		} else {
+			updateTriggerMock();
+		}
+		openPopover();
 		document.addEventListener("mousedown", onClickOutside, true);
 		window.addEventListener("keydown", handleGlobalKeydown, true);
 	}
@@ -326,6 +397,7 @@ onMounted(() => {
 
 onUnmounted(() => {
 	if (props.mode === "popover") {
+		closePopover();
 		document.removeEventListener("mousedown", onClickOutside, true);
 		window.removeEventListener("keydown", handleGlobalKeydown, true);
 	}
@@ -341,12 +413,9 @@ defineExpose({
 	<!-- Popover Mode Wrapper -->
 	<div
 		v-if="mode === 'popover'"
-		ref="popoverRef"
+		ref="popoverDropdownRef"
 		class="action-popover"
-		:style="{
-			left: position.x + 'px',
-			top: position.y + 'px',
-		}"
+		:style="popoverStyle"
 	>
 		<div class="popover-header">
 			<i class="fa fa-plus-circle"></i>
@@ -386,7 +455,7 @@ defineExpose({
 
 					<div
 						v-for="(item, idx) in filteredResults"
-						:key="idx"
+						:key="item.key || idx"
 						:class="[
 							'result-item',
 							item.type === 'header' ? 'is-header' : 'is-option',
@@ -491,7 +560,7 @@ defineExpose({
 							<div class="popover-body" @wheel.stop>
 								<div
 									v-for="(item, idx) in filteredResults"
-									:key="idx"
+									:key="item.key || idx"
 									:class="[
 										'result-item',
 										item.type === 'header' ? 'is-header' : 'is-option',
@@ -582,8 +651,6 @@ defineExpose({
 
 .action-popover {
 	position: fixed;
-	width: 320px;
-	max-height: 550px;
 	background: #fff;
 	background-color: var(--fxr-surface, #ffffff);
 	border: 1px solid var(--border-color, #dfe3e8);

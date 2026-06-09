@@ -89,7 +89,7 @@ export function useActionSearch() {
 		}
 	}
 
-	const debouncedRemoteSearch = flexirule.utils.debounce(async (query) => {
+	const debouncedRemoteSearch = frappe.utils.debounce(async (query) => {
 		if (!query || query.length < 2) {
 			remoteResults.value = [];
 			return;
@@ -369,8 +369,8 @@ export function useActionSearch() {
 
 		remoteResults.value.forEach((item) => {
 			const key = item.operation
-				? `${item.action_type}:${item.process_name || ""}:${item.operation}`
-				: item.action_type;
+				? `op:${item.action_type}:${item.process_name || ""}:${item.operation}`
+				: `action:${item.action_type}`;
 			if (seenKeys.has(key)) return;
 			seenKeys.add(key);
 
@@ -385,15 +385,19 @@ export function useActionSearch() {
 				};
 				finalOpMatches.push({
 					...item,
+					key,
 					label: `${action.label}: ${window.__ ? __(item.label) : item.label}`,
 					icon: action.icon,
 					color: action.color,
+					action_type: item.action_type,
 				});
 			} else {
 				finalActionMatches.push({
 					...item,
+					key,
 					label: window.__ ? __(item.label) : item.label,
 					value: item.action_type,
+					action_type: item.action_type,
 				});
 			}
 		});
