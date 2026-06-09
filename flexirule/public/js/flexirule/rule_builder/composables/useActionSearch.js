@@ -214,7 +214,10 @@ export function useActionSearch() {
 				.sort((a, b) => b.score - a.score || a.action.label.localeCompare(b.action.label));
 
 			if (!scopeMatches.length) return [];
-			results.push({ type: "header", label: window.__ ? __("Action Scope") : "Action Scope" });
+			results.push({
+				type: "header",
+				label: window.__ ? __("Action Scope") : "Action Scope",
+			});
 			scopeMatches.slice(0, 25).forEach(({ action }) => {
 				results.push({
 					type: "scope_action",
@@ -224,7 +227,10 @@ export function useActionSearch() {
 					actionType: action.value,
 					icon: action.icon,
 					color: action.color,
-					description: (window.__ ? __("Filter operations in {0}") : "Filter operations in {0}").replace("{0}", action.label),
+					description: (window.__
+						? __("Filter operations in {0}")
+						: "Filter operations in {0}"
+					).replace("{0}", action.label),
 				});
 			});
 			return results;
@@ -232,7 +238,9 @@ export function useActionSearch() {
 
 		// 2. Handle Scoped Search (e.g. "Assignment: clear")
 		if (isScoped) {
-			const scopedAction = actionTypesMetadata.value.find(a => scoreText(a.label, scopeTerm) > 0 || scoreText(a.value, scopeTerm) > 0);
+			const scopedAction = actionTypesMetadata.value.find(
+				(a) => scoreText(a.label, scopeTerm) > 0 || scoreText(a.value, scopeTerm) > 0
+			);
 			if (!scopedAction) return [];
 			results.push({ type: "header", label: scopedAction.label });
 			const ops = getActionOperations(scopedAction.value)
@@ -241,7 +249,7 @@ export function useActionSearch() {
 					score: Math.max(
 						scoreText(op.label || op.operation, query),
 						scoreText(op.operation, query),
-						...(op.keywords || []).map(k => scoreText(k, query) * 0.8)
+						...(op.keywords || []).map((k) => scoreText(k, query) * 0.8)
 					),
 				}))
 				.filter(({ score }) => !query || score > 0)
@@ -261,7 +269,7 @@ export function useActionSearch() {
 					scoreText(action.description, query) * 0.9,
 				];
 				if (action.keywords) {
-					action.keywords.forEach(k => scores.push(scoreText(k, query) * 0.95));
+					action.keywords.forEach((k) => scores.push(scoreText(k, query) * 0.95));
 				}
 				return { action, score: Math.max(...scores) };
 			})
@@ -279,7 +287,7 @@ export function useActionSearch() {
 						scoreText(op.description, query) * 0.8,
 					];
 					if (op.keywords) {
-						op.keywords.forEach(k => scores.push(scoreText(k, query) * 0.95));
+						op.keywords.forEach((k) => scores.push(scoreText(k, query) * 0.95));
 					}
 					const score = Math.max(...scores);
 					if (score > 0) {
@@ -297,7 +305,7 @@ export function useActionSearch() {
 				label: window.__ ? __("Paste Action") : "Paste Action",
 				description: window.__ ? __("Insert from clipboard") : "Insert from clipboard",
 				icon: "fa-paste",
-				color: "var(--blue-500, #3b82f6)"
+				color: "var(--blue-500, #3b82f6)",
 			});
 		}
 

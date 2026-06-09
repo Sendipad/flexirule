@@ -5,7 +5,10 @@ import { useActionSearch } from "../composables/useActionSearch";
 const props = defineProps({
 	placeholder: {
 		type: String,
-		default: () => (window.__ ? __("Search actions or type Action: operation") : "Search actions or type Action: operation"),
+		default: () =>
+			window.__
+				? __("Search actions or type Action: operation")
+				: "Search actions or type Action: operation",
 	},
 	showPaste: {
 		type: Boolean,
@@ -14,18 +17,13 @@ const props = defineProps({
 	autoFocus: {
 		type: Boolean,
 		default: true,
-	}
+	},
 });
 
 const emit = defineEmits(["select", "paste", "close"]);
 
-const {
-	searchQuery,
-	filteredResults,
-	canPaste,
-	loadProcessOperations,
-	checkClipboard,
-} = useActionSearch();
+const { searchQuery, filteredResults, canPaste, loadProcessOperations, checkClipboard } =
+	useActionSearch();
 
 const selectedIndex = ref(-1);
 const searchInputRef = ref(null);

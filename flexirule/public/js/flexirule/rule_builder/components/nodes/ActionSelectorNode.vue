@@ -1,10 +1,7 @@
 <script setup>
 import { ref, computed } from "vue";
 import { Handle, Position } from "@vue-flow/core";
-import {
-	getOperationOptions,
-	isTerminalAction,
-} from "../../../core/contracts";
+import { getOperationOptions, isTerminalAction } from "../../../core/contracts";
 import { useStore } from "../../stores";
 import { mapActionTypeToNodeType } from "../../composables/useActionTypeMapper";
 import ActionZone from "../ActionZone.vue";
