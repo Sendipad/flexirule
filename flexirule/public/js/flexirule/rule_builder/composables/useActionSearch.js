@@ -5,7 +5,7 @@ import {
 	getActionTypeOptions,
 	getOperationOptions,
 	loadContractsFromBackend,
-} from "../core/contracts";
+} from "../../core/contracts";
 
 const KEYWORDS_REGISTRY = {
 	Notify: ["email", "mail", "notification", "alert", "message", "send"],
