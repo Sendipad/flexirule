@@ -592,6 +592,19 @@ function onKeydown(e) {
 		return;
 	}
 
+	if (e.key === "Tab" && isDropdownOpen.value) {
+		// If we are at -2 (Create New) or have a selection, commit it
+		if (activeIndex.value === -2 && props.allowCustomValue) {
+			onSelect(query.value);
+		} else if (activeIndex.value >= 0 && activeIndex.value < filteredOptions.value.length) {
+			onSelect(filteredOptions.value[activeIndex.value].value);
+		} else {
+			closeDropdown();
+		}
+		// Allow default Tab behavior to move focus to next element
+		return;
+	}
+
 	if (/^[\\w\\s-]$/.test(e.key) && props.trigger === "button") {
 		runTypeahead(e.key);
 	}

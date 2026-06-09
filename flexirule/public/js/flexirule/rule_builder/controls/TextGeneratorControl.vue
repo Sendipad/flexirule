@@ -80,7 +80,7 @@
 
 				<!-- Logic Settings Panel -->
 				<transition name="panel-slide">
-					<div v-if="activeLogicNode && !isNested" class="tgc-bottom-panel">
+					<div v-if="activeLogicNode" class="tgc-bottom-panel">
 						<div class="panel-header">
 							<div class="panel-icon" :class="activeLogicNode.attrs.type">
 								<i
@@ -118,8 +118,8 @@
 									<div class="grid-item full-width">
 										<ConditionBuilder
 											:modelValue="activeLogicNode.attrs.condition"
-											:docFields="docFieldOptions"
-											:variableOptions="dynamicRoots"
+											:docFields="activeNodeRoots"
+											:variableOptions="activeNodeRoots"
 											:readOnly="readOnly"
 											@update:modelValue="onConditionUpdate"
 										/>
@@ -131,7 +131,12 @@
 										<TextGeneratorControl
 											:modelValue="activeLogicNodeThen"
 											:isNested="true"
-											:variableOptions="dynamicRoots"
+											:variableOptions="variableOptions"
+											:docFieldOptions="docFieldOptions"
+											:scopeStack="[
+												...scopeStack,
+												...getActiveIterators(activeLogicNode.pos),
+											]"
 											@update:modelValue="updateActiveNodeThen"
 										/>
 									</div>
@@ -142,7 +147,12 @@
 										<TextGeneratorControl
 											:modelValue="activeLogicNodeElse"
 											:isNested="true"
-											:variableOptions="dynamicRoots"
+											:variableOptions="variableOptions"
+											:docFieldOptions="docFieldOptions"
+											:scopeStack="[
+												...scopeStack,
+												...getActiveIterators(activeLogicNode.pos),
+											]"
 											@update:modelValue="updateActiveNodeElse"
 										/>
 									</div>
@@ -226,8 +236,10 @@
 											:modelValue="activeLogicNodeLoop"
 											:isNested="true"
 											:variableOptions="variableOptions"
+											:docFieldOptions="docFieldOptions"
 											:scopeStack="[
 												...scopeStack,
+												...getActiveIterators(activeLogicNode.pos),
 												{
 													iterator: activeLogicNode.attrs.iterator,
 													iterable: activeLogicNode.attrs.iterable,
@@ -381,9 +393,9 @@ const normalizedVariableOptions = computed(() => {
 const showBubbleMenu = ref(false);
 const bubbleMenuStyle = ref({ top: "0px", left: "0px", position: "fixed" });
 const selectionTrigger = ref(0);
-const getActiveIterators = () => {
+const getActiveIterators = (targetPos = null) => {
 	if (!editor || selectionTrigger.value < 0) return [];
-	const { from } = editor.state.selection;
+	const from = targetPos !== null ? targetPos : editor.state.selection.from;
 	const iters = [];
 
 	editor.state.doc.descendants((node, pos) => {
@@ -403,6 +415,17 @@ const dynamicRoots = computed(() => {
 	// Dependency on selectionTrigger to force re-calc
 	selectionTrigger.value;
 	const active = getActiveIterators();
+	const combinedStack = [...props.scopeStack, ...active];
+
+	return resolveAvailableVariables({
+		globalVariables: normalizedVariableOptions.value,
+		scopeStack: combinedStack,
+	});
+});
+
+const activeNodeRoots = computed(() => {
+	if (!activeLogicNode.value) return dynamicRoots.value;
+	const active = getActiveIterators(activeLogicNode.value.pos);
 	const combinedStack = [...props.scopeStack, ...active];
 
 	return resolveAvailableVariables({
@@ -670,7 +693,8 @@ function closeDrawer() {
 	activeLogicNode.value = null;
 }
 function getFieldLabel(path) {
-	const opt = dynamicRoots.value.find((o) => (o.value || o) === path);
+	const roots = activeLogicNode.value ? activeNodeRoots.value : dynamicRoots.value;
+	const opt = roots.find((o) => (o.value || o) === path);
 	return opt ? opt.label || path : path;
 }
 
