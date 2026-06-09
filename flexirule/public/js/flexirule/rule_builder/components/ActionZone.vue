@@ -52,11 +52,15 @@ const {
 
 const selectedIndex = ref(-1);
 const searchInputRef = ref(null);
+const labelInputRef = ref(null);
 const zoneRef = ref(null);
 const popoverRef = ref(null);
 
-// Node mode state
+const step = ref("discovery"); // 'discovery' | 'labeling'
 const customLabel = ref("");
+const selectedItemData = ref(null);
+
+// Node mode state
 const selectedPreset = ref({
 	action_type: "Process",
 	operation: null,
@@ -90,7 +94,13 @@ function selectItem(item) {
 		operation: item.operation || null,
 		process_name: item.process_name || null,
 		label: item.label || item.value || "Process",
+		icon: item.icon || "fa-cog",
+		color: item.color || "#6b7280",
 	};
+
+	selectedItemData.value = selection;
+	customLabel.value = selection.label;
+	step.value = "labeling";
 
 	if (props.mode === "node") {
 		selectedPreset.value = {
@@ -99,17 +109,19 @@ function selectItem(item) {
 			process_name: selection.process_name,
 			selected_label: selection.label,
 		};
-		// in node mode, we often don't want to auto-create, but we can if ENTER is pressed
-	} else {
-		emit("select", selection);
 	}
+
+	nextTick(() => {
+		labelInputRef.value?.focus();
+		labelInputRef.value?.select();
+	});
 }
 
 function nextSelectableIndex(startIndex, direction) {
 	const total = filteredResults.value.length;
 	if (!total) return -1;
 	let index = startIndex;
-	for (let step = 0; step < total; step++) {
+	for (let stepCount = 0; stepCount < total; stepCount++) {
 		index = (index + direction + total) % total;
 		if (filteredResults.value[index]?.type !== "header") return index;
 	}
@@ -117,29 +129,57 @@ function nextSelectableIndex(startIndex, direction) {
 }
 
 function onKeydown(e) {
-	if (e.key === "Escape") emit("close");
+	if (e.key === "Escape") {
+		if (step.value === "labeling") {
+			goBack();
+			e.stopPropagation();
+		} else {
+			emit("close");
+		}
+		return;
+	}
 
-	if (e.key === "ArrowDown") {
-		if (!filteredResults.value.length) return;
-		e.preventDefault();
-		selectedIndex.value = nextSelectableIndex(selectedIndex.value, 1);
-		scrollToActive();
-	} else if (e.key === "ArrowUp") {
-		if (!filteredResults.value.length) return;
-		e.preventDefault();
-		selectedIndex.value = nextSelectableIndex(selectedIndex.value, -1);
-		scrollToActive();
-	} else if (e.key === "Enter") {
-		if (selectedIndex.value !== -1) {
+	if (step.value === "discovery") {
+		if (e.key === "ArrowDown") {
+			if (!filteredResults.value.length) return;
+			e.preventDefault();
+			selectedIndex.value = nextSelectableIndex(selectedIndex.value, 1);
+			scrollToActive();
+		} else if (e.key === "ArrowUp") {
+			if (!filteredResults.value.length) return;
+			e.preventDefault();
+			selectedIndex.value = nextSelectableIndex(selectedIndex.value, -1);
+			scrollToActive();
+		} else if (e.key === "Enter" && selectedIndex.value !== -1) {
 			e.preventDefault();
 			selectItem(filteredResults.value[selectedIndex.value]);
-			if (props.mode === "node") {
-				// in node mode, Enter on a result selects it.
-				// Enter on the "Create" button (below) triggers creation.
-			}
-		} else if (props.mode === "node" && customLabel.value) {
-			onCreate();
 		}
+	} else if (step.value === "labeling") {
+		if (e.key === "Enter") {
+			e.preventDefault();
+			confirmSelection();
+		}
+	}
+}
+
+function goBack() {
+	step.value = "discovery";
+	selectedItemData.value = null;
+	nextTick(() => searchInputRef.value?.focus());
+}
+
+function confirmSelection() {
+	if (!selectedItemData.value) return;
+
+	const payload = {
+		...selectedItemData.value,
+		label: customLabel.value || selectedItemData.value.label,
+	};
+
+	if (props.mode === "node") {
+		onCreate(payload);
+	} else {
+		emit("select", payload);
 	}
 }
 
@@ -156,17 +196,24 @@ function onPasteClick() {
 	emit("paste");
 }
 
-function onCreate() {
+function onCreate(finalPayload = null) {
 	if (props.mode !== "node") return;
 	const nodeIndex = store.nodes.findIndex((n) => n.id === props.id);
 	if (nodeIndex === -1) return;
 
-	const action_type = selectedPreset.value.action_type || "Process";
-	const label =
-		customLabel.value ||
-		selectedPreset.value.operation ||
-		selectedPreset.value.selected_label ||
-		action_type;
+	const selection = finalPayload || {
+		action_type: selectedPreset.value.action_type || "Process",
+		label:
+			customLabel.value ||
+			selectedPreset.value.operation ||
+			selectedPreset.value.selected_label ||
+			"Process",
+		operation: selectedPreset.value.operation,
+		process_name: selectedPreset.value.process_name,
+	};
+
+	const action_type = selection.action_type;
+	const label = selection.label;
 	const nodeType = mapActionTypeToNodeType(action_type);
 	const node = store.nodes[nodeIndex];
 	if (!node) return;
@@ -175,9 +222,8 @@ function onCreate() {
 	const suggestedParentId = node.data?.suggested_parent_id;
 	const suggestedSourceHandle = node.data?.suggested_source_handle || "default";
 
-	if (selectedPreset.value.operation) nodeData.operation = selectedPreset.value.operation;
-	if (selectedPreset.value.process_name)
-		nodeData.process_name = selectedPreset.value.process_name;
+	if (selection.operation) nodeData.operation = selection.operation;
+	if (selection.process_name) nodeData.process_name = selection.process_name;
 
 	if (action_type === "Process" && nodeData.operation && !nodeData.process_name) {
 		const matches = getOperationOptions("Process", {})
@@ -274,63 +320,102 @@ defineExpose({
 			<span>{{ __("Add Action") }}</span>
 		</div>
 		<div ref="zoneRef" class="action-zone" @keydown="onKeydown">
-			<div class="popover-search">
-				<i :class="['fa', isSearchingRemote ? 'fa-spinner fa-spin' : 'fa-search']"></i>
-				<input
-					ref="searchInputRef"
-					type="text"
-					v-model="searchQuery"
-					:placeholder="placeholder"
-					class="form-control"
-					autocomplete="off"
-				/>
-			</div>
-			<div class="popover-body" @wheel.stop>
-				<div
-					v-if="showPaste && canPaste"
-					class="result-item is-option paste-option"
-					@mousedown.prevent="onPasteClick"
-				>
-					<div class="item-icon" style="color: var(--blue-500, #3b82f6)">
-						<i class="fa fa-paste"></i>
-					</div>
-					<div class="item-content">
-						<div class="item-label">{{ __("Paste Action") }}</div>
-						<div class="item-desc">{{ __("Insert from clipboard") }}</div>
-					</div>
+			<template v-if="step === 'discovery'">
+				<div class="popover-search">
+					<i :class="['fa', isSearchingRemote ? 'fa-spinner fa-spin' : 'fa-search']"></i>
+					<input
+						ref="searchInputRef"
+						type="text"
+						v-model="searchQuery"
+						:placeholder="placeholder"
+						class="form-control"
+						autocomplete="off"
+					/>
 				</div>
-
-				<div v-if="!filteredResults.length && !canPaste" class="no-results">
-					{{ __("No matching actions found") }}
-				</div>
-
-				<div
-					v-for="(item, idx) in filteredResults"
-					:key="idx"
-					:class="[
-						'result-item',
-						item.type === 'header' ? 'is-header' : 'is-option',
-						{ active: idx === selectedIndex },
-					]"
-					@mousedown.prevent="selectItem(item)"
-					@mouseover="selectedIndex = idx"
-				>
-					<template v-if="item.type === 'header'">
-						{{ item.label }}
-					</template>
-					<template v-else>
-						<div class="item-icon" :style="{ color: item.color }">
-							<i :class="['fa', item.icon?.replace('fa ', '') || 'fa-cog']"></i>
+				<div class="popover-body" @wheel.stop>
+					<div
+						v-if="showPaste && canPaste"
+						class="result-item is-option paste-option"
+						@mousedown.prevent="onPasteClick"
+					>
+						<div class="item-icon" style="color: var(--blue-500, #3b82f6)">
+							<i class="fa fa-paste"></i>
 						</div>
 						<div class="item-content">
-							<div class="item-label">{{ item.label }}</div>
-							<div v-if="item.description" class="item-desc">
-								{{ item.description }}
-							</div>
+							<div class="item-label">{{ __("Paste Action") }}</div>
+							<div class="item-desc">{{ __("Insert from clipboard") }}</div>
 						</div>
-					</template>
+					</div>
+
+					<div v-if="!filteredResults.length && !canPaste" class="no-results">
+						{{ __("No matching actions found") }}
+					</div>
+
+					<div
+						v-for="(item, idx) in filteredResults"
+						:key="idx"
+						:class="[
+							'result-item',
+							item.type === 'header' ? 'is-header' : 'is-option',
+							{ active: idx === selectedIndex },
+						]"
+						@mousedown.prevent="selectItem(item)"
+						@mouseover="selectedIndex = idx"
+					>
+						<template v-if="item.type === 'header'">
+							{{ item.label }}
+						</template>
+						<template v-else>
+							<div class="item-icon" :style="{ color: item.color }">
+								<i :class="['fa', item.icon?.replace('fa ', '') || 'fa-cog']"></i>
+							</div>
+							<div class="item-content">
+								<div class="item-label">{{ item.label }}</div>
+								<div v-if="item.description" class="item-desc">
+									{{ item.description }}
+								</div>
+							</div>
+						</template>
+					</div>
 				</div>
-			</div>
+			</template>
+
+			<template v-else-if="step === 'labeling'">
+				<div class="labeling-container">
+					<div class="selected-item-preview">
+						<div class="item-icon" :style="{ color: selectedItemData.color }">
+							<i
+								:class="[
+									'fa',
+									selectedItemData.icon?.replace('fa ', '') || 'fa-cog',
+								]"
+							></i>
+						</div>
+						<div class="item-content">
+							<div class="item-label">{{ selectedItemData.label }}</div>
+							<div class="item-type-badge">{{ selectedItemData.action_type }}</div>
+						</div>
+					</div>
+					<div class="form-group labeling-form">
+						<label class="fxr-label-sm">{{ __("Label") }}</label>
+						<input
+							ref="labelInputRef"
+							type="text"
+							v-model="customLabel"
+							class="form-control"
+							:placeholder="__('Name this action...')"
+						/>
+					</div>
+					<div class="labeling-footer">
+						<button class="btn btn-default btn-sm" @click="goBack">
+							<i class="fa fa-chevron-left mr-1"></i> {{ __("Back") }}
+						</button>
+						<button class="btn btn-primary btn-sm" @click="confirmSelection">
+							{{ __("Create Action") }}
+						</button>
+					</div>
+				</div>
+			</template>
 		</div>
 	</div>
 
@@ -349,50 +434,60 @@ defineExpose({
 			</button>
 		</div>
 		<div class="node-body">
-			<div class="form-group search-group">
-				<label class="small text-muted">{{ __("Action Type") }}</label>
-				<div ref="zoneRef" class="search-wrapper action-zone" @keydown="onKeydown">
-					<div class="popover-search">
-						<i
-							:class="['fa', isSearchingRemote ? 'fa-spinner fa-spin' : 'fa-search']"
-						></i>
-						<input
-							ref="searchInputRef"
-							type="text"
-							v-model="searchQuery"
-							class="form-control input-xs"
-							:placeholder="placeholder"
-							autocomplete="off"
-						/>
-					</div>
-					<div class="popover-body" @wheel.stop>
-						<div
-							v-for="(item, idx) in filteredResults"
-							:key="idx"
-							:class="[
-								'result-item',
-								item.type === 'header' ? 'is-header' : 'is-option',
-								{ active: idx === selectedIndex },
-							]"
-							@mousedown.prevent="selectItem(item)"
-							@mouseover="selectedIndex = idx"
-						>
-							<template v-if="item.type === 'header'">
-								{{ item.label }}
-							</template>
-							<template v-else>
-								<div class="item-icon" :style="{ color: item.color }">
-									<i
-										:class="['fa', item.icon?.replace('fa ', '') || 'fa-cog']"
-									></i>
+			<div ref="zoneRef" class="action-zone" @keydown="onKeydown">
+				<template v-if="step === 'discovery'">
+					<div class="form-group search-group">
+						<label class="small text-muted">{{ __("Action Type") }}</label>
+						<div class="search-wrapper">
+							<div class="popover-search">
+								<i
+									:class="[
+										'fa',
+										isSearchingRemote ? 'fa-spinner fa-spin' : 'fa-search',
+									]"
+								></i>
+								<input
+									ref="searchInputRef"
+									type="text"
+									v-model="searchQuery"
+									class="form-control input-xs"
+									:placeholder="placeholder"
+									autocomplete="off"
+								/>
+							</div>
+							<div class="popover-body" @wheel.stop>
+								<div
+									v-for="(item, idx) in filteredResults"
+									:key="idx"
+									:class="[
+										'result-item',
+										item.type === 'header' ? 'is-header' : 'is-option',
+										{ active: idx === selectedIndex },
+									]"
+									@mousedown.prevent="selectItem(item)"
+									@mouseover="selectedIndex = idx"
+								>
+									<template v-if="item.type === 'header'">
+										{{ item.label }}
+									</template>
+									<template v-else>
+										<div class="item-icon" :style="{ color: item.color }">
+											<i
+												:class="[
+													'fa',
+													item.icon?.replace('fa ', '') || 'fa-cog',
+												]"
+											></i>
+										</div>
+										<div class="item-content">
+											<div class="item-label">{{ item.label }}</div>
+											<div v-if="item.description" class="item-desc">
+												{{ item.description }}
+											</div>
+										</div>
+									</template>
 								</div>
-								<div class="item-content">
-									<div class="item-label">{{ item.label }}</div>
-									<div v-if="item.description" class="item-desc">
-										{{ item.description }}
-									</div>
-								</div>
-							</template>
+							</div>
 						</div>
 					</div>
 					<div v-if="selectedPreset.operation" class="selected-operation-preview">
@@ -402,21 +497,31 @@ defineExpose({
 							({{ selectedPreset.process_name }})
 						</span>
 					</div>
-				</div>
+				</template>
+
+				<template v-else-if="step === 'labeling'">
+					<div class="labeling-container in-node">
+						<div class="form-group labeling-form">
+							<label class="small text-muted">{{ __("Label") }}</label>
+							<input
+								ref="labelInputRef"
+								type="text"
+								v-model="customLabel"
+								class="form-control input-xs"
+								:placeholder="__('Enter label...')"
+							/>
+						</div>
+						<div class="labeling-footer mt-2">
+							<button class="btn btn-default btn-xs" @click="goBack">
+								{{ __("Back") }}
+							</button>
+							<button class="btn btn-primary btn-xs flex-1" @click="confirmSelection">
+								{{ __("Create") }}
+							</button>
+						</div>
+					</div>
+				</template>
 			</div>
-			<div class="form-group">
-				<label class="small text-muted">{{ __("Label") }}</label>
-				<input
-					type="text"
-					v-model="customLabel"
-					class="form-control input-xs"
-					:placeholder="__('Enter label...')"
-					@keyup.enter="onCreate"
-				/>
-			</div>
-			<button class="btn btn-primary btn-xs btn-block mt-2" @click="onCreate">
-				{{ __("Create") }}
-			</button>
 		</div>
 		<div class="node-footer">
 			<span class="text-muted small">{{ __("Configure to proceed") }}</span>
@@ -706,6 +811,45 @@ defineExpose({
 	background-color: #fff !important;
 	border: 2px solid #d1d8dd !important;
 	z-index: 10 !important;
+}
+
+/* Labeling step styles */
+
+.labeling-container {
+	padding: 16px;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.labeling-container.in-node {
+	padding: 4px;
+	gap: 8px;
+}
+
+.selected-item-preview {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 8px;
+	background: #f8fafc;
+	border-radius: 6px;
+}
+
+.item-type-badge {
+	font-size: 9px;
+	font-weight: 700;
+	text-transform: uppercase;
+	color: #64748b;
+	margin-top: 2px;
+}
+
+.labeling-footer {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 8px;
+	margin-top: 4px;
 }
 
 /* Custom Scrollbar */
