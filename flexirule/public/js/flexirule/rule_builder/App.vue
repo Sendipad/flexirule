@@ -51,7 +51,7 @@
 						<StopNode v-bind="nodeProps" />
 					</template>
 					<template #node-selector="nodeProps">
-						<ActionSelectorNode v-bind="nodeProps" />
+						<ActionZone mode="node" v-bind="nodeProps" />
 					</template>
 					<template #node-set-value="nodeProps">
 						<ProcessNode v-bind="nodeProps" />
@@ -249,7 +249,7 @@ import ProcessNode from "./components/nodes/ProcessNode.vue";
 import ConditionNode from "./components/nodes/ConditionNode.vue";
 import LoopNode from "./components/nodes/LoopNode.vue";
 import StopNode from "./components/nodes/StopNode.vue";
-import ActionSelectorNode from "./components/nodes/ActionSelectorNode.vue";
+import ActionZone from "./components/ActionZone.vue";
 
 import Sidebar from "./components/Sidebar.vue";
 import RuleConfigModal from "./components/rule_config/RuleConfigModal.vue";

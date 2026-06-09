@@ -1,4 +1,4 @@
-import { ref, computed, nextTick } from "vue";
+import { ref, computed, watch } from "vue";
 import {
 	ACTION_TYPE_CONTRACT,
 	PROCESS_REGISTRY,
@@ -59,6 +59,8 @@ function scoreText(text, query) {
 export function useActionSearch() {
 	const searchQuery = ref("");
 	const processOperations = ref([]);
+	const remoteResults = ref([]);
+	const isSearchingRemote = ref(false);
 	const canPaste = ref(false);
 
 	async function loadProcessOperations() {
@@ -86,6 +88,34 @@ export function useActionSearch() {
 			processOperations.value = [];
 		}
 	}
+
+	const debouncedRemoteSearch = flexirule.utils.debounce(async (query) => {
+		if (!query || query.length < 2) {
+			remoteResults.value = [];
+			return;
+		}
+		isSearchingRemote.value = true;
+		try {
+			const res = await frappe.call({
+				method: "flexirule.ruleflow.api.search_actions",
+				args: { query, limit: 20 },
+			});
+			remoteResults.value = (res.message || []).map((item) => ({
+				...item,
+				type: item.operation ? "op" : "action",
+				score: (item.score || 0) * 0.8, // Slightly de-prioritize remote fuzzy matches
+				isRemote: true,
+			}));
+		} catch (e) {
+			remoteResults.value = [];
+		} finally {
+			isSearchingRemote.value = false;
+		}
+	}, 300);
+
+	watch(searchQuery, (newVal) => {
+		debouncedRemoteSearch(newVal);
+	});
 
 	function parseScopedQuery(rawQuery) {
 		const query = String(rawQuery || "");
@@ -309,30 +339,69 @@ export function useActionSearch() {
 			});
 		}
 
-		if (actionMatches.length) {
-			results.push({ type: "header", label: window.__ ? __("Actions") : "Actions" });
-			actionMatches.slice(0, 25).forEach(({ action, score }) => {
-				results.push({
-					type: "action",
-					score,
-					label: action.label,
-					value: action.value,
-					actionType: action.value,
+		// Merge remote results if they aren't already represented in local matches
+		const seenKeys = new Set();
+		const finalActionMatches = [];
+		const finalOpMatches = [];
+
+		actionMatches.forEach(({ action, score }) => {
+			finalActionMatches.push({
+				type: "action",
+				score,
+				label: action.label,
+				value: action.value,
+				actionType: action.value,
+				icon: action.icon,
+				color: action.color,
+				description: action.description,
+			});
+			seenKeys.add(action.value);
+		});
+
+		opMatches.forEach(({ action, op, score }) => {
+			finalOpMatches.push(toOperationItem(action, op, score));
+			seenKeys.add(`${action.value}:${op.process_name || ""}:${op.operation}`);
+		});
+
+		remoteResults.value.forEach((item) => {
+			const key = item.operation
+				? `${item.action_type}:${item.process_name || ""}:${item.operation}`
+				: item.action_type;
+			if (seenKeys.has(key)) return;
+			seenKeys.add(key);
+
+			if (item.type === "op") {
+				const action = actionTypesMetadata.value.find(
+					(a) => a.value === item.action_type
+				) || {
+					label: item.action_type,
+					value: item.action_type,
+					icon: "fa-cog",
+					color: "#6b7280",
+				};
+				finalOpMatches.push({
+					...item,
+					label: `${action.label}: ${window.__ ? __(item.label) : item.label}`,
 					icon: action.icon,
 					color: action.color,
-					description: action.description,
 				});
-			});
+			} else {
+				finalActionMatches.push({
+					...item,
+					label: window.__ ? __(item.label) : item.label,
+					value: item.action_type,
+				});
+			}
+		});
+
+		if (finalActionMatches.length) {
+			results.push({ type: "header", label: window.__ ? __("Actions") : "Actions" });
+			results.push(...finalActionMatches.sort((a, b) => b.score - a.score).slice(0, 25));
 		}
 
-		if (opMatches.length) {
+		if (finalOpMatches.length) {
 			results.push({ type: "header", label: window.__ ? __("Operations") : "Operations" });
-			opMatches
-				.sort((a, b) => b.score - a.score || a.op.label.localeCompare(b.op.label))
-				.slice(0, 30)
-				.forEach(({ action, op, score }) =>
-					results.push(toOperationItem(action, op, score))
-				);
+			results.push(...finalOpMatches.sort((a, b) => b.score - a.score).slice(0, 40));
 		}
 
 		return results;
@@ -356,6 +425,7 @@ export function useActionSearch() {
 		searchQuery,
 		filteredResults,
 		processOperations,
+		isSearchingRemote,
 		canPaste,
 		loadProcessOperations,
 		checkClipboard,

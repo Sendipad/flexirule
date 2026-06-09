@@ -2,7 +2,7 @@
 import { ref, computed } from "vue";
 import { BaseEdge, getSmoothStepPath, EdgeLabelRenderer } from "@vue-flow/core";
 import { useStore } from "../stores";
-import ActionPopover from "./ActionPopover.vue";
+import ActionZone from "./ActionZone.vue";
 
 defineOptions({ inheritAttrs: false });
 
@@ -149,9 +149,9 @@ function onPaste() {
 
 			<Teleport to="body">
 				<div class="fxr-builder-active">
-					<ActionPopover
+					<ActionZone
 						v-if="showPopover"
-						:active="showPopover"
+						mode="popover"
 						:position="popoverPosition"
 						@select="onActionSelect"
 						@paste="onPaste"
