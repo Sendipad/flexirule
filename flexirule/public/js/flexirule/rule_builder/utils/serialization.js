@@ -43,7 +43,5 @@ export function fromCodeString(value, fallback = {}) {
  */
 export function isJsonField(df) {
 	if (!df) return false;
-	return (
-		df.fieldtype === "JSON" || (df.fieldtype === "Code" && df.options === "JSON")
-	);
+	return df.fieldtype === "JSON" || (df.fieldtype === "Code" && df.options === "JSON");
 }
