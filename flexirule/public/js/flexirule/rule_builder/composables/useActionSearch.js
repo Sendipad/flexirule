@@ -209,6 +209,7 @@ export function useActionSearch() {
 
 	function toOperationItem(action, op, score = 0) {
 		return {
+			key: `op:${action.value}:${op.process_name || ""}:${op.operation}`,
 			type: "op",
 			score,
 			label: `${action.label}: ${
@@ -250,6 +251,7 @@ export function useActionSearch() {
 			});
 			scopeMatches.slice(0, 25).forEach(({ action }) => {
 				results.push({
+					key: `scope:${action.value}`,
 					type: "scope_action",
 					score: 999,
 					label: `${action.label}:`,
@@ -330,6 +332,7 @@ export function useActionSearch() {
 		// special case for Paste/Clipboard if query matches
 		if (query && (scoreText("paste", query) > 50 || scoreText("clipboard", query) > 50)) {
 			results.push({
+				key: "paste-discovery",
 				type: "paste_discovery",
 				score: 100,
 				label: window.__ ? __("Paste Action") : "Paste Action",
@@ -346,6 +349,7 @@ export function useActionSearch() {
 
 		actionMatches.forEach(({ action, score }) => {
 			finalActionMatches.push({
+				key: `action:${action.value}`,
 				type: "action",
 				score,
 				label: action.label,

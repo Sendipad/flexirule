@@ -173,7 +173,7 @@ function confirmSelection() {
 
 	const payload = {
 		...selectedItemData.value,
-		label: customLabel.value || selectedItemData.value.label,
+		label: (customLabel.value || selectedItemData.value.label).trim(),
 	};
 
 	if (props.mode === "node") {
@@ -199,7 +199,10 @@ function onPasteClick() {
 function onCreate(finalPayload = null) {
 	if (props.mode !== "node") return;
 	const nodeIndex = store.nodes.findIndex((n) => n.id === props.id);
-	if (nodeIndex === -1) return;
+	if (nodeIndex === -1) {
+		console.warn("[ActionZone] Node not found for upgrade:", props.id);
+		return;
+	}
 
 	const selection = finalPayload || {
 		action_type: selectedPreset.value.action_type || "Process",
@@ -216,7 +219,8 @@ function onCreate(finalPayload = null) {
 	const label = selection.label;
 	const nodeType = mapActionTypeToNodeType(action_type);
 	const node = store.nodes[nodeIndex];
-	if (!node) return;
+
+	console.log("[ActionZone] Upgrading node:", props.id, "to type:", action_type);
 
 	const nodeData = store.get_default_node_data(action_type.toLowerCase(), label);
 	const suggestedParentId = node.data?.suggested_parent_id;
@@ -233,15 +237,23 @@ function onCreate(finalPayload = null) {
 		if (unique.length === 1) nodeData.process_name = unique[0];
 	}
 
-	store.nodes[nodeIndex].type = nodeType;
-	store.nodes[nodeIndex].label = label;
-	store.nodes[nodeIndex].data = {
-		...nodeData,
-		action_id: props.id,
-		action_label: label,
-		next_step_if_true: node.data?.next_step_if_true || nodeData.next_step_if_true,
-		next_step_if_false: node.data?.next_step_if_false || nodeData.next_step_if_false,
+	// Trigger full reactivity by replacing the node object
+	const updatedNode = {
+		...node,
+		type: nodeType,
+		label: label,
+		data: {
+			...nodeData,
+			action_id: props.id,
+			action_label: label,
+			next_step_if_true: node.data?.next_step_if_true || nodeData.next_step_if_true,
+			next_step_if_false: node.data?.next_step_if_false || nodeData.next_step_if_false,
+			suggested_parent_id: null,
+			suggested_source_handle: null,
+		},
 	};
+
+	store.nodes.splice(nodeIndex, 1, updatedNode);
 
 	if (suggestedParentId) {
 		const edgeId = `e-${suggestedParentId}-${props.id}-${suggestedSourceHandle}`;
@@ -543,13 +555,14 @@ defineExpose({
 	display: flex;
 	flex-direction: column;
 	background: inherit;
-	max-height: inherit;
+	flex: 1;
+	min-height: 0; /* Important for flex child scrolling */
 }
 
 .action-popover {
 	position: fixed;
-	width: 280px;
-	max-height: 400px;
+	width: 320px;
+	max-height: 550px;
 	background: #fff;
 	background-color: var(--fxr-surface, #ffffff);
 	border: 1px solid var(--border-color, #dfe3e8);
@@ -599,6 +612,7 @@ defineExpose({
 .popover-body {
 	flex: 1;
 	overflow-y: auto;
+	min-height: 0;
 	padding: 4px 0;
 }
 
@@ -740,13 +754,13 @@ defineExpose({
 }
 
 .search-wrapper {
-	max-height: 280px;
+	max-height: 400px;
 	display: flex;
 	flex-direction: column;
 	border: 1px solid #e2e8f0;
 	border-radius: 6px;
-	padding-bottom: 4px;
 	overflow: hidden;
+	min-height: 0;
 }
 
 .search-wrapper :deep(.popover-search) {
@@ -754,7 +768,8 @@ defineExpose({
 }
 
 .search-wrapper :deep(.popover-body) {
-	max-height: 180px;
+	/* Let flex handle it */
+	flex: 1;
 }
 
 .form-group {
