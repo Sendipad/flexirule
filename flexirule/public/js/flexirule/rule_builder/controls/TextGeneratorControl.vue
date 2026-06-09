@@ -183,12 +183,42 @@
 											</div>
 										</div>
 									</div>
+
+									<div class="grid-item full-width mt-2" v-if="activeScopeTree.length">
+										<label class="compact-label">{{ __("Available Scope") }}</label>
+										<div class="scope-viz v2-scrollbar">
+											<div v-for="scope in activeScopeTree" :key="scope.value" class="scope-node">
+												<div class="scope-root" @click="insertVariable(scope.value)">
+													<i class="fa fa-cube mr-1"></i> {{ scope.label }}
+												</div>
+												<div class="scope-children">
+													<div
+														v-for="child in scope.children"
+														:key="child.value"
+														class="scope-child"
+														@click="insertVariable(child.value)"
+													>
+														<span class="tree-line">├─</span>
+														<i class="fa fa-tag mr-1"></i> {{ child.displayLabel }}
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+
 									<div class="grid-item full-width mt-3">
 										<label class="compact-label">{{ __("LOOP BODY") }}</label>
 										<TextGeneratorControl
 											:modelValue="activeLogicNodeLoop"
 											:isNested="true"
-											:variableOptions="dynamicRoots"
+											:variableOptions="variableOptions"
+											:scopeStack="[
+												...scopeStack,
+												{
+													iterator: activeLogicNode.attrs.iterator,
+													iterable: activeLogicNode.attrs.iterable,
+												},
+											]"
 											@update:modelValue="updateActiveNodeLoop"
 										/>
 									</div>
@@ -297,6 +327,7 @@ import {
 	serializeCondition,
 } from "../utils/text_generator";
 import { setActiveTGC } from "../utils/tgc_focus";
+import { resolveAvailableVariables } from "../utils/variable_resolver";
 
 const props = defineProps({
 	df: { type: Object, default: null },
@@ -306,6 +337,7 @@ const props = defineProps({
 	variableOptions: { type: [Array, Object], default: () => [] },
 	docFieldOptions: { type: Array, default: () => [] },
 	isNested: { type: Boolean, default: false },
+	scopeStack: { type: Array, default: () => [] },
 });
 
 const emit = defineEmits(["update:modelValue"]);
@@ -357,52 +389,43 @@ const dynamicRoots = computed(() => {
 	// Dependency on selectionTrigger to force re-calc
 	selectionTrigger.value;
 	const active = getActiveIterators();
-	const roots = [...normalizedVariableOptions.value];
+	const combinedStack = [...props.scopeStack, ...active];
 
-	active.forEach(({ iterator, iterable }) => {
-		if (!iterator) return;
-
-		// 1. Resolve children properties of the collection and map them to the iterator
-		if (iterable) {
-			const iterableSuffix = String(iterable).split(".").pop(); // e.g. "items" from "doc.items"
-			const prefix1 = iterable + "."; // e.g. "doc.items."
-			const prefix2 = iterableSuffix + "."; // e.g. "items."
-
-			const childFields = roots.filter((r) => {
-				const val = r.value || r;
-				return (
-					typeof val === "string" && (val.startsWith(prefix1) || val.startsWith(prefix2))
-				);
-			});
-
-			// Add iterator child fields
-			childFields.forEach((child) => {
-				const val = child.value || child;
-				let suffix = val;
-				if (val.startsWith(prefix1)) suffix = val.slice(prefix1.length);
-				else if (val.startsWith(prefix2)) suffix = val.slice(prefix2.length);
-
-				const iterValue = `${iterator}.${suffix}`;
-				if (!roots.find((r) => (r.value || r) === iterValue)) {
-					roots.unshift({
-						...child,
-						label: `${iterator}.${suffix} (${child.label || suffix})`,
-						value: iterValue,
-						is_iterator_child: true,
-						is_iterator: false,
-					});
-				}
-			});
-		}
-
-		// 2. Always add the root iterator variable itself
-		if (!roots.find((r) => (r.value || r) === iterator)) {
-			roots.unshift({ label: iterator, value: iterator, is_iterator: true });
-		}
+	return resolveAvailableVariables({
+		globalVariables: normalizedVariableOptions.value,
+		scopeStack: combinedStack,
 	});
-
-	return roots;
 });
+
+const activeScopeTree = computed(() => {
+	if (!activeLogicNode.value || activeLogicNode.value.attrs.type !== "loop") return [];
+	const { iterator, iterable } = activeLogicNode.value.attrs;
+	if (!iterator) return [];
+
+	const allVars = dynamicRoots.value;
+	const children = allVars
+		.filter((v) => v.value.startsWith(iterator + ".") && v.is_iterator_child)
+		.map((v) => ({
+			...v,
+			displayLabel: v.value.split(".").pop(),
+		}));
+
+	return [
+		{
+			label: iterator,
+			value: iterator,
+			children,
+		},
+	];
+});
+
+function insertVariable(path) {
+	editor
+		.chain()
+		.focus()
+		.insertContent([{ type: "variable", attrs: { path } }])
+		.run();
+}
 
 const editor = new Editor({
 	extensions: [
@@ -612,6 +635,11 @@ function createSuggestionRenderer() {
 				popup?.hide();
 				return true;
 			}
+
+			if (props.event.key === "Home" || props.event.key === "End") {
+				return false;
+			}
+
 			return component?.ref?.onKeyDown(props);
 		},
 		onExit() {
@@ -1123,6 +1151,51 @@ onBeforeUnmount(() => {
 	text-transform: uppercase;
 	margin-bottom: 2px;
 	display: block;
+}
+
+.scope-viz {
+	background: var(--fxr-surface-2, #f8fafc);
+	border: 1px solid var(--fxr-border-subtle);
+	border-radius: 8px;
+	padding: 8px;
+	max-height: 150px;
+	overflow-y: auto;
+}
+.scope-node {
+	margin-bottom: 4px;
+}
+.scope-root {
+	font-size: 11px;
+	font-weight: 700;
+	color: var(--fxr-text-strong);
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	padding: 2px 4px;
+	border-radius: 4px;
+}
+.scope-root:hover {
+	background: var(--fxr-surface-soft);
+}
+.scope-children {
+	margin-left: 8px;
+}
+.scope-child {
+	font-size: 10px;
+	color: var(--fxr-text-soft);
+	display: flex;
+	align-items: center;
+	cursor: pointer;
+	padding: 1px 4px;
+	border-radius: 4px;
+}
+.scope-child:hover {
+	background: var(--fxr-surface-soft);
+}
+.tree-line {
+	color: var(--fxr-text-faint);
+	margin-right: 4px;
+	font-family: monospace;
 }
 
 .panel-slide-enter-active,
