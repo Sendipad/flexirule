@@ -288,8 +288,27 @@ function deleteNode() {
 }
 
 function onClickOutside(e) {
-	if (props.mode === "popover" && popoverRef.value && !popoverRef.value.contains(e.target)) {
+	if (props.mode !== "popover" || !popoverRef.value) return;
+
+	// If step is labeling, we might be clicking on things that get detached.
+	// But more importantly, we want to ensure we don't close if we click inside.
+	const target = e.target;
+
+	// Ignore detached elements (often caused by Vue's VDOM updates during step transition)
+	if (!document.body.contains(target)) return;
+
+	const isInside = popoverRef.value.contains(target) || target.closest(".action-popover");
+
+	if (!isInside) {
 		emit("close");
+	}
+}
+
+function handleGlobalKeydown(e) {
+	if (e.key === "Escape") {
+		if (props.mode === "popover") {
+			emit("close");
+		}
 	}
 }
 
@@ -297,7 +316,8 @@ onMounted(() => {
 	loadProcessOperations();
 	checkClipboard();
 	if (props.mode === "popover") {
-		document.addEventListener("mousedown", onClickOutside);
+		document.addEventListener("mousedown", onClickOutside, true);
+		window.addEventListener("keydown", handleGlobalKeydown, true);
 	}
 	if (props.autoFocus) {
 		setTimeout(() => searchInputRef.value?.focus(), 100);
@@ -306,7 +326,8 @@ onMounted(() => {
 
 onUnmounted(() => {
 	if (props.mode === "popover") {
-		document.removeEventListener("mousedown", onClickOutside);
+		document.removeEventListener("mousedown", onClickOutside, true);
+		window.removeEventListener("keydown", handleGlobalKeydown, true);
 	}
 });
 
@@ -612,8 +633,8 @@ defineExpose({
 .popover-body {
 	flex: 1;
 	overflow-y: auto;
-	min-height: 0;
 	padding: 4px 0;
+	min-height: 0; /* Important for flex */
 }
 
 .result-item {
@@ -760,7 +781,6 @@ defineExpose({
 	border: 1px solid #e2e8f0;
 	border-radius: 6px;
 	overflow: hidden;
-	min-height: 0;
 }
 
 .search-wrapper :deep(.popover-search) {

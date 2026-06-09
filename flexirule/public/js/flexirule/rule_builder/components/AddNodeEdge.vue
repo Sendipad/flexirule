@@ -1,6 +1,6 @@
 <script setup>
-import { ref, computed } from "vue";
-import { BaseEdge, getSmoothStepPath, EdgeLabelRenderer } from "@vue-flow/core";
+import { ref, computed, watch } from "vue";
+import { BaseEdge, getSmoothStepPath, EdgeLabelRenderer, useVueFlow } from "@vue-flow/core";
 import { useStore } from "../stores";
 import ActionZone from "./ActionZone.vue";
 
@@ -25,6 +25,7 @@ const props = defineProps({
 
 const emit = defineEmits(["insert-node"]);
 const store = useStore();
+const { onPaneScroll, onPaneContextMenu, onMove } = useVueFlow();
 
 const showPopover = ref(false);
 const popoverPosition = ref({ x: 0, y: 0 });
@@ -93,6 +94,13 @@ function onAddClick(event) {
 	};
 	showPopover.value = !showPopover.value;
 }
+
+// Close popover if canvas moves or scrolls
+onPaneScroll(() => (showPopover.value = false));
+onPaneContextMenu(() => (showPopover.value = false));
+onMove(() => {
+	if (showPopover.value) showPopover.value = false;
+});
 
 function onActionSelect(selection) {
 	showPopover.value = false;
