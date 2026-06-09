@@ -76,6 +76,7 @@
 
 <script setup>
 import { onMounted, ref, reactive, watch, computed } from "vue";
+import { fromCodeString } from "../../../utils/serialization";
 import ProcessEngine from "../engines/ProcessEngine.js";
 import SchemaRenderer from "../SchemaRenderer.vue";
 import { useStore } from "../../../stores";
@@ -171,14 +172,10 @@ async function initEngine() {
 	engine.value = null;
 
 	try {
-		let configValue = props.node.data.config || {};
-		if (typeof configValue === "string") {
-			try {
-				configValue = JSON.parse(configValue);
-			} catch (e) {
-				configValue = {};
-			}
-		}
+		let configValue =
+			typeof props.node.data.config === "string"
+				? fromCodeString(props.node.data.config)
+				: props.node.data.config || {};
 
 		const config = reactive(configValue);
 

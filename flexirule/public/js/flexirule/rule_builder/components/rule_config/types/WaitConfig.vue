@@ -1,4 +1,5 @@
 <script setup>
+import { fromCodeString } from "../../../utils/serialization";
 import WaitNodeConfig from "../../node_configs/WaitNodeConfig.vue";
 
 const props = defineProps({
@@ -9,9 +10,13 @@ const emit = defineEmits(["update:field"]);
 
 function updateJsonConfig(key, val) {
 	// This component handles the 'config' field specifically
-	const config = flexirule.utils.safe_json_parse(props.node?.data?.config, {});
+	const config =
+		typeof props.node.data.config === "string"
+			? fromCodeString(props.node.data.config)
+			: props.node.data.config || {};
 	config[key] = val;
-	emit("update:field", "config", JSON.stringify(config));
+	// Internal state: config is Object
+	emit("update:field", "config", config);
 }
 </script>
 

@@ -366,6 +366,7 @@
 
 <script setup>
 import { reactive, ref, computed, watch, onMounted } from "vue";
+import { fromCodeString } from "../../../utils/serialization";
 import { useActionConfig } from "../../../composables/useActionConfig";
 import ControlFactory from "../../../controls/ControlFactory.vue";
 import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
@@ -966,16 +967,7 @@ function get_field_options() {
 }
 
 function load_local_config(val) {
-	let parsed = {};
-	if (typeof val === "string") {
-		try {
-			parsed = JSON.parse(val);
-		} catch (e) {
-			parsed = {};
-		}
-	} else if (val && typeof val === "object") {
-		parsed = val;
-	}
+	const parsed = typeof val === "string" ? fromCodeString(val) : val || {};
 
 	const current_config_str = JSON.stringify(config);
 	const next_config_str = JSON.stringify(parsed);

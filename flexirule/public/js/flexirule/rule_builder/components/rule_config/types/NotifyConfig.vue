@@ -111,6 +111,7 @@
 
 <script setup>
 import { computed, watch } from "vue";
+import { fromCodeString } from "../../../utils/serialization";
 import { useActionConfig } from "../../../composables/useActionConfig";
 import ControlFactory from "../../../controls/ControlFactory.vue";
 import TextGeneratorControl from "../../../controls/TextGeneratorControl.vue";
@@ -213,16 +214,7 @@ function update_config_key(key, value) {
 }
 
 function load_local_config(val) {
-	let parsed = {};
-	if (typeof val === "string") {
-		try {
-			parsed = JSON.parse(val);
-		} catch (e) {
-			parsed = {};
-		}
-	} else if (val && typeof val === "object") {
-		parsed = val;
-	}
+	const parsed = typeof val === "string" ? fromCodeString(val) : val || {};
 
 	// Backwards compat: value_template
 	if (!parsed.text_generator_ui && props.node?.data?.value_template) {

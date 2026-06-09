@@ -134,6 +134,7 @@
 <script setup>
 import { ref, watch, onMounted, computed } from "vue";
 import { useStore } from "../../../stores";
+import { fromCodeString } from "../../../utils/serialization";
 import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
 import TransformControl from "../../../controls/TransformControl.vue";
 import ControlFactory from "../../../controls/ControlFactory.vue";
@@ -212,9 +213,13 @@ function sync_local_config() {
 		.map((r) => ({ source: r.source, target: r.target }));
 
 	// Update the 'config' object in node data
-	const currentConfig = props.node.data.config || {};
+	const currentConfig =
+		typeof props.node.data.config === "string"
+			? fromCodeString(props.node.data.config)
+			: props.node.data.config || {};
+
 	const newConfig = {
-		...(typeof currentConfig === "string" ? JSON.parse(currentConfig) : currentConfig),
+		...currentConfig,
 		input_mapping: mappings.length ? mappings : null,
 	};
 
@@ -226,14 +231,10 @@ function update_action_key(key, value) {
 }
 
 function load_local_config() {
-	let config = props.node.data.config || {};
-	if (typeof config === "string") {
-		try {
-			config = JSON.parse(config);
-		} catch (e) {
-			config = {};
-		}
-	}
+	const config =
+		typeof props.node.data.config === "string"
+			? fromCodeString(props.node.data.config)
+			: props.node.data.config || {};
 	const mappings = config.input_mapping || [];
 	mapping_rows.value = Array.isArray(mappings)
 		? mappings.map((m) => ({

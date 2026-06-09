@@ -16,6 +16,7 @@ import ControlFactory from "../controls/ControlFactory.vue";
 import ComboBoxControl from "../controls/ComboBoxControl.vue";
 import { getActionTypeOptions, getFieldLabel, getOperationOptions } from "../../core/contracts";
 import { useNodeConfigPolicy } from "../composables/useNodeConfigPolicy";
+import { toCodeString, fromCodeString, isJsonField } from "../utils/serialization";
 
 const props = defineProps({
 	nodeData: Object,
@@ -163,14 +164,22 @@ function is_read_only(df) {
 	return evaluate_depends_on(df.read_only_depends_on);
 }
 
-// Get field value from node data
-function get_value(fieldname) {
-	return props.nodeData?.[fieldname];
+// Get field value from node data, normalized for the UI control
+function get_normalized_value(df) {
+	const val = props.nodeData?.[df.fieldname];
+	if (isJsonField(df)) {
+		return toCodeString(val);
+	}
+	return val;
 }
 
-// Update field value
-function update_value(fieldname, value) {
-	emit("update:field", fieldname, value);
+// Update field value, normalized for the internal store
+function update_normalized_value(df, value) {
+	let nextValue = value;
+	if (isJsonField(df)) {
+		nextValue = fromCodeString(value);
+	}
+	emit("update:field", df.fieldname, nextValue);
 }
 
 // Get options for Autocomplete fields
@@ -324,7 +333,7 @@ onMounted(async () => {
 						reqd: is_mandatory(df),
 						read_only: is_read_only(df),
 					}"
-					:modelValue="get_value(df.fieldname)"
+					:modelValue="get_normalized_value(df)"
 					:doctype="
 						df.fieldtype === 'Dynamic Link'
 							? nodeData?.[df.options] || ''
@@ -333,7 +342,7 @@ onMounted(async () => {
 					:get_query="(txt) => get_autocomplete_options(df)"
 					:doc="nodeData"
 					:read_only="is_read_only(df)"
-					@update:modelValue="update_value(df.fieldname, $event)"
+					@update:modelValue="update_normalized_value(df, $event)"
 				/>
 			</template>
 
@@ -344,10 +353,10 @@ onMounted(async () => {
 						reqd: is_mandatory(df),
 						read_only: is_read_only(df),
 					}"
-					:modelValue="get_value(df.fieldname)"
+					:modelValue="get_normalized_value(df)"
 					:read_only="is_read_only(df)"
 					:doc="nodeData"
-					@update:modelValue="update_value(df.fieldname, $event)"
+					@update:modelValue="update_normalized_value(df, $event)"
 				/>
 			</template>
 		</div>

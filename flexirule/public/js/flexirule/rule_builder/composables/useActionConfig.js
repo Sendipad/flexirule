@@ -1,5 +1,6 @@
 import { reactive, ref, computed, watch, onMounted, provide } from "vue";
 import { useStore } from "../stores";
+import { fromCodeString } from "../utils/serialization";
 
 export function useActionConfig(props, options = {}) {
 	const store = useStore();
@@ -131,23 +132,26 @@ export function useActionConfig(props, options = {}) {
 		return val;
 	}
 
+	/**
+	 * Sync local config object back to the node state.
+	 * Internal state (node.data.config) MUST always be a plain Object.
+	 */
 	function sync_config(new_config) {
 		if (!props.node?.data) return;
 
-		let current = props.node.data.config || {};
-		if (typeof current === "string") {
-			try {
-				current = JSON.parse(current);
-			} catch (e) {
-				current = {};
-			}
-		}
+		// Ensure we are working with an object internally
+		const current =
+			typeof props.node.data.config === "string"
+				? fromCodeString(props.node.data.config)
+				: props.node.data.config || {};
 
 		const current_str = JSON.stringify(current || {});
 		const next_str = JSON.stringify(new_config || {});
 
 		if (current_str !== next_str) {
-			props.node.data.config = new_config;
+			// Explicitly store as Object
+			props.node.data.config =
+				typeof new_config === "string" ? fromCodeString(new_config) : new_config;
 			store.mark_dirty();
 		}
 	}

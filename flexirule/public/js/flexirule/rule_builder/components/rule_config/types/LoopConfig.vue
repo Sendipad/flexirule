@@ -8,6 +8,7 @@
 
 <script setup>
 import { useStore } from "../../../stores";
+import { fromCodeString } from "../../../utils/serialization";
 import LoopNodeConfig from "../../node_configs/LoopNodeConfig.vue";
 import ConditionStep from "./ConditionStep.vue";
 
@@ -20,14 +21,10 @@ const store = useStore();
 function updateJsonConfig(key, val) {
 	if (!props.node.data) return;
 
-	let config = props.node.data.config || {};
-	if (typeof config === "string") {
-		try {
-			config = JSON.parse(config || "{}");
-		} catch (e) {
-			config = {};
-		}
-	}
+	let config =
+		typeof props.node.data.config === "string"
+			? fromCodeString(props.node.data.config)
+			: props.node.data.config || {};
 
 	config[key] = val;
 	props.node.data.config = config;

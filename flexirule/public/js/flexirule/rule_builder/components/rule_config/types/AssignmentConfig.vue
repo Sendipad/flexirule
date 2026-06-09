@@ -245,6 +245,7 @@
 
 <script setup>
 import { computed, watch, ref, onMounted, onBeforeUnmount } from "vue";
+import { fromCodeString } from "../../../utils/serialization";
 import { useActionConfig } from "../../../composables/useActionConfig";
 import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
 import FlexValueControl from "../../../controls/FlexValueControl.vue";
@@ -377,16 +378,7 @@ const assignments = ref([]);
 watch(
 	() => props.node?.data?.config,
 	(val) => {
-		let parsed = [];
-		if (typeof val === "string") {
-			try {
-				parsed = JSON.parse(val);
-			} catch (e) {
-				parsed = [];
-			}
-		} else if (Array.isArray(val)) {
-			parsed = val;
-		}
+		let parsed = typeof val === "string" ? fromCodeString(val, []) : val || [];
 
 		parsed = parsed.map((a) => {
 			const name = a.name || makeRandomString(9);
@@ -485,7 +477,8 @@ function syncToNode() {
 		pythonExpression: a.pythonExpression || "",
 		value: a.value,
 	}));
-	update_action_field("config", JSON.stringify(clean));
+	// Standard: update_action_field handles 'config' as Object
+	update_action_field("config", clean);
 	store.mark_dirty();
 }
 

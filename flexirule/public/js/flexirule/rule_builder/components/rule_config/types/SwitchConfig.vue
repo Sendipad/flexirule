@@ -12,6 +12,7 @@
 <script setup>
 import { computed } from "vue";
 import { useStore } from "../../../stores";
+import { fromCodeString } from "../../../utils/serialization";
 import SwitchNodeConfig from "../../node_configs/SwitchNodeConfig.vue";
 
 const props = defineProps({
@@ -37,14 +38,10 @@ function getNodeLabel(id) {
 function updateJsonConfig(key, val) {
 	if (!props.node.data) return;
 
-	let config = props.node.data.config || {};
-	if (typeof config === "string") {
-		try {
-			config = JSON.parse(config || "{}");
-		} catch (e) {
-			config = {};
-		}
-	}
+	let config =
+		typeof props.node.data.config === "string"
+			? fromCodeString(props.node.data.config)
+			: props.node.data.config || {};
 
 	config[key] = val;
 	props.node.data.config = config;

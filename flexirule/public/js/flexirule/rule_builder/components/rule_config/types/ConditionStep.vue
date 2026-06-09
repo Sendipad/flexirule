@@ -34,6 +34,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from "vue";
 import { useStore } from "../../../stores";
+import { fromCodeString } from "../../../utils/serialization";
 import ConditionBuilder from "../../condition_builder/ConditionBuilder.vue";
 import { validateConditions } from "../../condition_builder/condition_validator.js";
 import { getConditionPayload } from "../../../utils/condition_payload";
@@ -102,22 +103,14 @@ watch(
 	},
 	(val) => {
 		if (val) {
-			try {
-				const parsed = typeof val === "string" ? JSON.parse(val) : val;
+			const parsed = typeof val === "string" ? fromCodeString(val) : val;
 
-				const currentClean = dehydrate(localConditions.value);
-				if (JSON.stringify(parsed) === JSON.stringify(currentClean)) {
-					return;
-				}
-
-				localConditions.value = hydrate(parsed);
-			} catch (e) {
-				localConditions.value = {
-					id: frappe.utils.get_random(12),
-					op: "and",
-					conditions: [],
-				};
+			const currentClean = dehydrate(localConditions.value);
+			if (JSON.stringify(parsed) === JSON.stringify(currentClean)) {
+				return;
 			}
+
+			localConditions.value = hydrate(parsed);
 		} else {
 			localConditions.value = { id: frappe.utils.get_random(12), op: "and", conditions: [] };
 		}
