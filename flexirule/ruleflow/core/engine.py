@@ -267,6 +267,7 @@ class RuleEngine:
 		self.execution_id = self.context.get("execution_id")
 		self.last_execution_payload = None
 		self.last_log_enqueued = False
+		self.debug_trace = {"version": 1, "steps": [], "timeline": [], "summary": {}}
 
 		# Build action maps for fast lookup
 		self.action_map_by_id = {a.action_id: a for a in self.actions if a.action_id}
@@ -305,6 +306,9 @@ class RuleEngine:
 		self.context["execution_id"] = self.execution_id
 		self.context["event_name"] = event_name or self.rule.trigger_event
 		context = None
+
+		# Use debug_mode from context or rule
+		self.debug_mode = self.context.get("debug_mode") or self.rule.debug_mode
 
 		try:
 			# Pre-execution validation
@@ -496,6 +500,17 @@ class RuleEngine:
 			visits = node_visits.get(node_id, 0) + 1
 			node_visits[node_id] = visits
 
+			step_start_time = time.time()
+			# Capture snapshot before execution
+			input_snapshot = {}
+			vars_before = {}
+			doc_before = {}
+
+			if self.debug_mode:
+				input_snapshot = self._get_action_config(current)
+				vars_before = self._get_context_snapshot_lite(context)
+				doc_before = self._get_doc_snapshot_lite(context.get("doc"))
+
 			if visits > max_visits_per_node:
 				raise CycleDetectedError(
 					_("Infinite loop detected: Action {0} visited {1} times").format(
@@ -504,15 +519,14 @@ class RuleEngine:
 				)
 
 			execution_path.append(current.action_label)
-			self.path_trace.append(
-				{
-					"action": current.action_label,
-					"action_id": current.action_id or current.name,
-					"type": current.action_type,
-					"timestamp": time.time(),
-					"status": "running",
-				}
-			)
+			path_entry = {
+				"action": current.action_label,
+				"action_id": current.action_id or current.name,
+				"type": current.action_type,
+				"timestamp": step_start_time,
+				"status": "running",
+			}
+			self.path_trace.append(path_entry)
 
 			# Log execution
 			self._log(
@@ -536,22 +550,62 @@ class RuleEngine:
 					# Execute handler - returns (result, next_id)
 					result, next_id = handler.execute(current, context, self)
 
+				step_end_time = time.time()
+				duration_ms = round((step_end_time - step_start_time) * 1000, 2)
+
 				# Store result in path trace
 				try:
-					self.path_trace[-1]["result"] = result
-					self.path_trace[-1]["status"] = "success"
+					path_entry["result"] = result
+					path_entry["status"] = "success"
+					path_entry["duration_ms"] = duration_ms
 				except Exception:
 					pass
+
+				if self.debug_mode:
+					vars_after = self._get_context_snapshot_lite(context)
+					doc_after = self._get_doc_snapshot_lite(context.get("doc"))
+
+					step_trace = {
+						"action_id": node_id,
+						"action_name": current.action_label,
+						"action_type": current.action_type,
+						"started_at": step_start_time,
+						"finished_at": step_end_time,
+						"duration_ms": duration_ms,
+						"status": "success",
+						"input_snapshot": input_snapshot,
+						"output_snapshot": result,
+						"vars_before": vars_before,
+						"vars_after": vars_after,
+						"doc_before": doc_before,
+						"doc_after": doc_after,
+					}
+
+					# Capture condition specific details
+					if current.action_type == "Condition":
+						step_trace["condition_result"] = bool(result)
+						step_trace["next_step"] = next_id
+						step_trace["condition_expression"] = getattr(current, "compiled_expression", None)
+
+					self.debug_trace["steps"].append(step_trace)
+					self.debug_trace["timeline"].append(
+						{
+							"timestamp": step_start_time,
+							"offset_ms": round((step_start_time - start_time) * 1000, 2),
+							"action_id": node_id,
+							"label": current.action_label,
+						}
+					)
 
 				# Enhance path trace with result/inputs for Process
 				if current.action_type == "Process":
 					# Use JSON serialization for output if possible (better for JS UI)
 					try:
-						self.path_trace[-1]["output"] = json.dumps(result, default=str)
+						path_entry["output"] = json.dumps(result, default=str)
 					except Exception:
-						self.path_trace[-1]["output"] = str(result)
+						path_entry["output"] = str(result)
 					try:
-						self.path_trace[-1]["input"] = self._get_action_config(current)
+						path_entry["input"] = input_snapshot or self._get_action_config(current)
 					except Exception:
 						pass
 
@@ -562,11 +616,35 @@ class RuleEngine:
 				current = self._get_action_by_id(next_id) if next_id else None
 
 			except Exception as e:
+				step_end_time = time.time()
+				duration_ms = round((step_end_time - step_start_time) * 1000, 2)
 				try:
-					self.path_trace[-1]["status"] = "error"
-					self.path_trace[-1]["error"] = str(e)
+					path_entry["status"] = "error"
+					path_entry["error"] = str(e)
+					path_entry["duration_ms"] = duration_ms
 				except Exception:
 					pass
+
+				if self.debug_mode:
+					vars_after = self._get_context_snapshot_lite(context)
+					doc_after = self._get_doc_snapshot_lite(context.get("doc"))
+
+					step_trace = {
+						"action_id": node_id,
+						"action_name": current.action_label,
+						"action_type": current.action_type,
+						"started_at": step_start_time,
+						"finished_at": step_end_time,
+						"duration_ms": duration_ms,
+						"status": "error",
+						"error": str(e),
+						"input_snapshot": input_snapshot,
+						"vars_before": vars_before,
+						"vars_after": vars_after,
+						"doc_before": doc_before,
+						"doc_after": doc_after,
+					}
+					self.debug_trace["steps"].append(step_trace)
 				# Handle error based on on_error setting
 				if hasattr(current, "on_error"):
 					if current.on_error == "Continue":
@@ -1155,6 +1233,27 @@ class RuleEngine:
 				_("Failed to validate output_schema for {0}: {1}").format(operation_name, str(e)),
 			)
 
+	def _get_context_snapshot_lite(self, context):
+		"""Capture a serializable snapshot of variables."""
+		if not context or "vars" not in context:
+			return {}
+		snapshot = {}
+		for k, v in context["vars"].items():
+			if isinstance(v, str | int | float | bool | list | dict | type(None)):
+				snapshot[k] = v
+			else:
+				snapshot[k] = str(v)
+		return snapshot
+
+	def _get_doc_snapshot_lite(self, doc):
+		"""Capture a serializable snapshot of the document."""
+		if not doc:
+			return {}
+		try:
+			return doc.as_dict()
+		except Exception:
+			return str(doc)
+
 	def _log(self, level, message):
 		"""Add entry to execution log"""
 		entry = {"timestamp": frappe.utils.now(), "level": level, "message": message}
@@ -1275,6 +1374,9 @@ class RuleEngine:
 					"message": message_text,
 					"execution_path": json.dumps(self.path_trace, default=str),
 					"context_snapshot": json.dumps(context_snapshot, default=str),
+					"execution_trace": json.dumps(self.debug_trace, default=str)
+					if self.debug_mode
+					else None,
 					"error_trace": error_trace,
 					# Batch / Scheduler fields from context
 					"scheduler": active_context.get("scheduler"),
@@ -1329,6 +1431,7 @@ class RuleEngine:
 			"status": status,
 			"duration": duration,
 			"path_trace": list(self.path_trace or []),
+			"execution_trace": self.debug_trace if self.debug_mode else None,
 			"vars": vars_snapshot,
 			"messages": messages,
 			"errors": errors,

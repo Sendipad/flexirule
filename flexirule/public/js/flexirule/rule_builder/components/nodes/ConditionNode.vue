@@ -44,7 +44,7 @@ const conditionSummary = computed(() => {
 		const op = first.op;
 		const right = first.right?.ref
 			? first.right.ref.replace("doc.", "")
-			: first.right?.value ?? "?";
+			: (first.right?.value ?? "?");
 		return `${left} ${op} ${right}${count > 1 ? ` (+${count - 1})` : ""}`;
 	}
 	return `${count} ${__("conditions")}`;
@@ -69,9 +69,9 @@ function openConfig() {
 			selected: selected,
 			disabled: isEffectiveDisabled,
 			'is-read-only': isReadOnly,
-			'test-executed': isExecuted,
-			'test-running': isRunning,
-			'test-error': isErrored,
+			'debug-executed': isExecuted,
+			'debug-running': isRunning,
+			'debug-error': isErrored,
 		}"
 		:style="{ '--accent-color': nodeMeta.color }"
 	>
@@ -154,7 +154,7 @@ function openConfig() {
 	background-color: #f1f5f9;
 }
 
-.condition-node-card.test-executed {
+.condition-node-card.debug-executed {
 	box-shadow: 0 0 0 3px #198754;
 	border-color: #198754;
 }

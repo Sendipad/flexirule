@@ -21,18 +21,21 @@ export const useUIStore = defineStore("rule-builder-ui", () => {
 	const use_modern_layout = ref(true); // Enable unified layout by default
 	const show_shortcuts_help = ref(false);
 
-	// ── Test Execution Visualization ──
-	const test_execution_path = ref([]);
-	const test_context = ref({});
+	// ── Debug Session Visualization ──
+	const debug_execution_path = ref([]);
+	const debug_context = ref({});
+	const debug_trace = ref(null);
 	const node_execution_state = ref({});
 	const current_running_node_id = ref(null);
-	const test_final_status = ref(null);
-	const test_execution_steps = ref([]);
+	const debug_final_status = ref(null);
+	const debug_execution_steps = ref([]);
+	const last_execution_id = ref(null);
+	const show_debug_sidebar = ref(false);
 
 	// ── Derived ──
 	const has_selection = computed(() => selected_id.value !== null);
-	const has_test_path = computed(
-		() => Array.isArray(test_execution_path.value) && test_execution_path.value.length > 0
+	const has_debug_path = computed(
+		() => Array.isArray(debug_execution_path.value) && debug_execution_path.value.length > 0
 	);
 
 	// ── Actions ──
@@ -53,21 +56,23 @@ export const useUIStore = defineStore("rule-builder-ui", () => {
 		show_config_modal.value = false;
 	}
 
-	function set_test_result(path, context) {
-		test_execution_path.value = path || [];
-		test_context.value = context || {};
+	function set_debug_result(path, context) {
+		debug_execution_path.value = path || [];
+		debug_context.value = context || {};
 	}
 
-	function set_test_execution_visuals(payload = {}) {
+	function set_debug_execution_visuals(payload = {}) {
 		const path = payload.path_trace || payload.execution_path || [];
-		test_execution_path.value = Array.isArray(path) ? path : [];
-		test_context.value = payload.vars || payload.context_snapshot || {};
-		test_final_status.value = payload.status || null;
+		debug_execution_path.value = Array.isArray(path) ? path : [];
+		debug_context.value = payload.vars || payload.context_snapshot || {};
+		debug_final_status.value = payload.status || null;
+		debug_trace.value = payload.execution_trace || null;
+		last_execution_id.value = payload.execution_id || payload.execution?.execution_id || null;
 
 		const nodeState = {};
 		const steps = [];
-		for (let i = 0; i < test_execution_path.value.length; i++) {
-			const entry = test_execution_path.value[i] || {};
+		for (let i = 0; i < debug_execution_path.value.length; i++) {
+			const entry = debug_execution_path.value[i] || {};
 			const nodeId = entry.action_id || entry.node_id || entry.id;
 			if (!nodeId) continue;
 			const status = entry.status || "success";
@@ -78,20 +83,24 @@ export const useUIStore = defineStore("rule-builder-ui", () => {
 				action: entry.action || nodeId,
 				status,
 				error: entry.error || null,
+				duration_ms: entry.duration_ms || null,
 			});
 		}
 		node_execution_state.value = nodeState;
-		test_execution_steps.value = steps;
+		debug_execution_steps.value = steps;
 		current_running_node_id.value = null;
+		show_debug_sidebar.value = true;
 	}
 
-	function clear_test_result() {
-		test_execution_path.value = [];
-		test_context.value = {};
+	function clear_debug_result() {
+		debug_execution_path.value = [];
+		debug_context.value = {};
+		debug_trace.value = null;
 		node_execution_state.value = {};
 		current_running_node_id.value = null;
-		test_final_status.value = null;
-		test_execution_steps.value = [];
+		debug_final_status.value = null;
+		debug_execution_steps.value = [];
+		show_debug_sidebar.value = false;
 	}
 
 	/**
@@ -116,26 +125,29 @@ export const useUIStore = defineStore("rule-builder-ui", () => {
 		config_modal_mode,
 		use_modern_layout,
 		show_shortcuts_help,
-		test_execution_path,
-		test_context,
+		debug_execution_path,
+		debug_context,
+		debug_trace,
 		node_execution_state,
 		current_running_node_id,
-		test_final_status,
-		test_execution_steps,
+		debug_final_status,
+		debug_execution_steps,
+		last_execution_id,
+		show_debug_sidebar,
 		local_clipboard,
 
 		// Computed
 		has_selection,
-		has_test_path,
+		has_debug_path,
 
 		// Actions
 		select,
 		deselect,
 		open_config_modal,
 		close_config_modal,
-		set_test_result,
-		set_test_execution_visuals,
-		clear_test_result,
+		set_debug_result,
+		set_debug_execution_visuals,
+		clear_debug_result,
 		navigate_node,
 	};
 });

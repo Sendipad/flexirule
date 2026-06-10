@@ -146,29 +146,6 @@
 							</button>
 						</div>
 					</Panel>
-					<Panel
-						v-if="uiStore.test_execution_steps?.length"
-						:position="PanelPosition.TopRight"
-						class="execution-panel"
-					>
-						<div class="execution-panel-header">
-							<strong>{{ __("Test Execution") }}</strong>
-							<span class="execution-final-status">{{
-								uiStore.test_final_status || __("Unknown")
-							}}</span>
-						</div>
-						<div class="execution-panel-steps">
-							<div
-								v-for="step in uiStore.test_execution_steps"
-								:key="`${step.node_id}-${step.order}`"
-								class="execution-step"
-								:class="`status-${step.status}`"
-							>
-								<span>#{{ step.order }}</span>
-								<span class="step-label">{{ step.action }}</span>
-							</div>
-						</div>
-					</Panel>
 				</VueFlow>
 			</div>
 			<div
@@ -179,6 +156,15 @@
 				@click.stop
 			>
 				<Sidebar @close="closeSidebar" />
+			</div>
+
+			<div
+				class="sidebar-container debug-sidebar"
+				:class="{ 'sidebar-rtl': isRTL }"
+				v-if="uiStore.show_debug_sidebar"
+				@click.stop
+			>
+				<DebugWorkspace />
 			</div>
 		</div>
 		<RuleConfigModal
@@ -252,6 +238,7 @@ import StopNode from "./components/nodes/StopNode.vue";
 import ActionZone from "./components/ActionZone.vue";
 
 import Sidebar from "./components/Sidebar.vue";
+import DebugWorkspace from "./components/DebugWorkspace.vue";
 import RuleConfigModal from "./components/rule_config/RuleConfigModal.vue";
 import ShortcutsHelp from "./components/ShortcutsHelp.vue";
 import AddNodeEdge from "./components/AddNodeEdge.vue";
@@ -289,7 +276,7 @@ const fieldInspector = ref({
 
 const quickActionItems = computed(() => [
 	{ key: "save", label: __("Save"), icon: "fa-floppy-o", shortcut: "Ctrl S" },
-	{ key: "test", label: __("Test"), icon: "fa-play" },
+	{ key: "debug", label: __("Debug"), icon: "fa-play" },
 	{
 		key: "status",
 		label: isReadOnly.value ? __("Unlock for editing") : __("Set to active"),
@@ -409,7 +396,7 @@ function updateQuickActionsPosition() {
 function runQuickAction(item) {
 	const actions = {
 		save: () => ruleStore.save_changes(),
-		test: () => window.fxrRuleBuilder?.show_test_dialog?.(),
+		debug: () => window.fxrRuleBuilder?.show_debug_dialog?.(),
 		status: () => toggleRuleAccess(),
 		shortcuts: () => (uiStore.show_shortcuts_help = true),
 		layout: () => runAutoLayout(),
@@ -1006,74 +993,15 @@ function onEdgeClick({ edge, event }) {
 	cursor: grabbing;
 }
 
-.execution-panel {
-	min-width: 260px;
-	max-width: 360px;
-	background: var(--fxr-surface);
-	border: 1px solid var(--fxr-border-subtle);
-	border-radius: var(--fxr-radius-md);
-	padding: 10px;
-	box-shadow: var(--fxr-shadow-sm);
-}
-
-.execution-panel-header {
-	display: flex;
-	justify-content: space-between;
-	margin-bottom: 8px;
-}
-
-.execution-final-status {
-	font-size: 12px;
-	font-weight: 600;
-	color: var(--fxr-text-strong);
-}
-
-.execution-panel-steps {
-	display: flex;
-	flex-direction: column;
-	gap: 6px;
-	max-height: 240px;
-	overflow: auto;
-}
-
-.execution-step {
-	display: flex;
-	gap: 8px;
-	font-size: 12px;
-	padding: 4px 6px;
-	border-radius: 4px;
-}
-
-.execution-step.status-success {
-	background: var(--fxr-success-soft);
-	color: var(--green-700, #166534);
-}
-
-.execution-step.status-error {
-	background: var(--fxr-danger-soft);
-	color: var(--red-700, #b91c1c);
-}
-
-.execution-step.status-running {
-	background: var(--fxr-accent-soft);
-	color: var(--fxr-accent-strong);
-}
-
-.step-label {
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-}
-
-:deep(.test-error) {
+:deep(.debug-error) {
 	box-shadow: 0 0 0 3px var(--red-500, #dc2626) !important;
 }
 
-:deep(.test-error .execution-badge) {
+:deep(.debug-error .execution-badge) {
 	background: var(--red-500, #dc2626) !important;
 }
 
-:deep(.test-running .execution-badge) {
+:deep(.debug-running .execution-badge) {
 	background: var(--blue-600, #2563eb) !important;
 }
 .toolbar-center {
@@ -1144,9 +1072,22 @@ function onEdgeClick({ edge, event }) {
 	stroke-opacity: 0.6;
 }
 
-.is-read-only-flow :deep(.vue-flow__node.test-executed) {
+.is-read-only-flow :deep(.vue-flow__node.debug-executed) {
 	filter: none !important;
 	opacity: 1 !important;
+}
+
+.debug-sidebar {
+	width: 400px;
+	min-width: 320px;
+	max-width: 700px;
+	resize: horizontal;
+	direction: ltr;
+	overflow: hidden;
+}
+
+.is-rtl .debug-sidebar {
+	direction: rtl;
 }
 
 .read-only-badge {
