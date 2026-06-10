@@ -130,17 +130,17 @@
 
 /* ─── Dark Theme Overrides ─── */
 html[data-theme="dark"] {
-	--tg-bg: #0f172a;
-	--tg-surface: #111827;
-	--tg-border: #1f2937;
-	--tg-text: #f9fafb;
-	--tg-text-muted: #94a3b8;
-	--tg-accent: #60a5fa;
+	--tg-bg: #111111;
+	--tg-surface: #1a1a1a;
+	--tg-border: #2a2a2a;
+	--tg-text: #f3f4f6;
+	--tg-text-muted: #9ca3af;
+	--tg-accent: #3b82f6;
 
-	--tg-if-tint: rgba(96, 165, 250, 0.15);
-	--tg-if-border: #60a5fa;
-	--tg-for-tint: rgba(192, 132, 252, 0.15);
-	--tg-for-border: #c084fc;
+	--tg-if-tint: rgba(59, 130, 246, 0.12);
+	--tg-if-border: #3b82f6;
+	--tg-for-tint: rgba(168, 85, 247, 0.12);
+	--tg-for-border: #a855f7;
 
 	--fxr-bg-page: var(--bg-color);
 	--fxr-bg-card: var(--modal-bg, var(--panel-bg, #242424));

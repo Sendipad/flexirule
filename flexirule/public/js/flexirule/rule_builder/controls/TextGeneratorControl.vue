@@ -843,7 +843,7 @@ onBeforeUnmount(() => {
 	display: flex;
 	flex-direction: column;
 	gap: 8px;
-	background: var(--tg-surface);
+	background: var(--tg-bg);
 	padding: 10px;
 	border-radius: 14px;
 	border: 1px solid var(--tg-border);
