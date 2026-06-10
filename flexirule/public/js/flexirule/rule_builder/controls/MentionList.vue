@@ -139,70 +139,78 @@ export default {
 
 <style scoped>
 .tg-mention-list {
-	background: #fff;
-	border: 1px solid #e2e8f0;
+	background: var(--tg-bg);
+	border: 1px solid var(--tg-border);
 	border-radius: 12px;
-	box-shadow:
-		0 10px 15px -3px rgba(0, 0, 0, 0.1),
-		0 4px 6px -2px rgba(0, 0, 0, 0.05);
-	padding: 4px;
-	min-width: 220px;
+	box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+	padding: 6px;
+	min-width: 240px;
 	overflow: hidden;
 	z-index: 1000;
+	color: var(--tg-text);
 }
 
 .tg-mention-header {
-	padding: 8px 12px;
+	padding: 10px 12px;
 	font-size: 10px;
-	font-weight: 700;
-	color: #94a3b8;
+	font-weight: 800;
+	color: var(--tg-text-muted);
 	text-transform: uppercase;
-	letter-spacing: 0.05em;
-	border-bottom: 1px solid #f1f5f9;
-	margin-bottom: 4px;
+	letter-spacing: 0.08em;
+	border-bottom: 1px solid var(--tg-border);
+	margin-bottom: 6px;
 }
 
 .tg-mention-scroller {
-	max-height: 240px;
+	max-height: 280px;
 	overflow-y: auto;
 }
 
 .tg-mention-item {
 	display: flex;
 	align-items: center;
-	gap: 10px;
+	gap: 12px;
 	padding: 8px 12px;
 	width: 100%;
 	border: none;
 	background: transparent;
-	border-radius: 8px;
+	border-radius: 10px;
 	cursor: pointer;
 	text-align: left;
-	transition: all 0.2s;
+	transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+	color: var(--tg-text);
 }
 
 .tg-mention-item:hover,
 .tg-mention-item.is-selected {
-	background: #f1f5f9;
+	background: color-mix(in srgb, var(--tg-accent) 10%, var(--tg-surface));
+	color: var(--tg-text);
+}
+
+.tg-mention-item.is-selected {
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tg-accent) 20%, transparent);
 }
 
 .item-icon {
-	width: 24px;
-	height: 24px;
+	width: 28px;
+	height: 28px;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	border-radius: 6px;
-	font-size: 11px;
+	border-radius: 8px;
+	font-size: 12px;
+	flex-shrink: 0;
 }
 
 .item-icon.variable {
-	background: #ecfdf5;
-	color: #059669;
+	background: var(--fxr-badge-bool);
+	color: var(--fxr-badge-bool-text);
+	border: 1px solid color-mix(in srgb, var(--fxr-badge-bool-text) 15%, transparent);
 }
 .item-icon.logic {
-	background: #f5f3ff;
-	color: #7c3aed;
+	background: var(--fxr-badge-var);
+	color: var(--fxr-badge-var-text);
+	border: 1px solid color-mix(in srgb, var(--fxr-badge-var-text) 15%, transparent);
 }
 
 .item-info {
@@ -214,7 +222,7 @@ export default {
 .item-label {
 	font-size: 13px;
 	font-weight: 600;
-	color: #1e293b;
+	color: var(--tg-text);
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -222,7 +230,7 @@ export default {
 
 .item-description {
 	font-size: 11px;
-	color: #64748b;
+	color: var(--tg-text-muted);
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;

@@ -6,6 +6,18 @@
 
 :root {
 	/* ─── Color Palette ─── */
+	--tg-bg: #ffffff;
+	--tg-surface: #f8fafc;
+	--tg-border: #e5e7eb;
+	--tg-text: #111827;
+	--tg-text-muted: #6b7280;
+	--tg-accent: #3b82f6;
+
+	--tg-if-tint: rgba(59, 130, 246, 0.08);
+	--tg-if-border: #3b82f6;
+	--tg-for-tint: rgba(168, 85, 247, 0.08);
+	--tg-for-border: #a855f7;
+
 	--fxr-bg-page: #f8fafc;
 	--fxr-bg-card: #ffffff;
 	--fxr-bg-input: #ffffff;
@@ -118,6 +130,18 @@
 
 /* ─── Dark Theme Overrides ─── */
 html[data-theme="dark"] {
+	--tg-bg: #111111;
+	--tg-surface: #1a1a1a;
+	--tg-border: #2a2a2a;
+	--tg-text: #f3f4f6;
+	--tg-text-muted: #9ca3af;
+	--tg-accent: #3b82f6;
+
+	--tg-if-tint: rgba(59, 130, 246, 0.12);
+	--tg-if-border: #3b82f6;
+	--tg-for-tint: rgba(168, 85, 247, 0.12);
+	--tg-for-border: #a855f7;
+
 	--fxr-bg-page: var(--bg-color);
 	--fxr-bg-card: var(--modal-bg, var(--panel-bg, #242424));
 	--fxr-bg-input: var(--control-bg);
