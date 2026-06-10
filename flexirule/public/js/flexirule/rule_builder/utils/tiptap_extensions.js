@@ -38,7 +38,8 @@ export const VariableNode = Node.create({
 				"data-type": "variable",
 				class: "tg-badge tg-badge-var",
 			}),
-			`@${displayText}`,
+			["i", { class: "fa fa-at mr-1" }],
+			["span", displayText],
 		];
 	},
 });
@@ -113,19 +114,23 @@ export const LogicNode = Node.create({
 		const { type, isStart, isElse, _key } = node.attrs;
 		let label = "";
 		let badgeClass = "tg-badge";
+		let iconClass = "";
 
 		if (isElse) {
 			label = __("ELSE");
 			badgeClass += " tg-badge-else";
+			iconClass = "fa fa-code-fork";
 		} else if (!isStart) {
 			label = "}";
 			badgeClass += " tg-badge-end";
 		} else if (type === "conditional") {
 			label = node.attrs.label ? __("IF {0}", [node.attrs.label]) : __("IF");
 			badgeClass += " tg-badge-if";
+			iconClass = "fa fa-code-fork";
 		} else {
 			label = node.attrs.label ? __("LOOP {0}", [node.attrs.label]) : __("LOOP");
 			badgeClass += " tg-badge-loop";
+			iconClass = "fa fa-refresh";
 		}
 
 		const data = encodeData({
@@ -147,7 +152,8 @@ export const LogicNode = Node.create({
 				"data-logic-type": data,
 				class: badgeClass,
 			}),
-			label,
+			iconClass ? ["i", { class: `${iconClass} mr-1` }] : "",
+			["span", label],
 		];
 	},
 });
