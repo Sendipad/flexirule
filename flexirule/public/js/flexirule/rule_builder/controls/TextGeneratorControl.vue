@@ -863,9 +863,7 @@ onBeforeUnmount(() => {
 	min-height: 140px;
 	position: relative;
 	box-shadow: var(--fxr-shadow-sm);
-	transition:
-		border-color var(--fxr-transition-fast),
-		box-shadow var(--fxr-transition-fast);
+	transition: all var(--fxr-transition-normal);
 }
 
 .tgc-editor-container:focus-within {

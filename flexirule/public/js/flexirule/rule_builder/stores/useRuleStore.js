@@ -517,7 +517,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 	}
 
 	/**
-	 * Simulate rule execution (Phase 2 Debugging API).
+	 * Simulate rule execution (Phase 2 Testing API).
 	 * Runs dry-run mode without side effects.
 	 */
 	async function simulate_rule(docname) {
@@ -535,7 +535,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 			const data = result.message;
 			if (data) {
 				const uiStore = useUIStore();
-				uiStore.set_debug_execution_visuals(data);
+				uiStore.set_test_execution_visuals(data);
 			}
 			return data;
 		} catch (e) {
@@ -545,7 +545,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 	}
 
 	/**
-	 * Get predicted execution path (Phase 2 Debugging API).
+	 * Get predicted execution path (Phase 2 Testing API).
 	 * Evaluates conditions without running handlers.
 	 */
 	async function preview_execution(docname) {
@@ -808,7 +808,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		activate_rule,
 		deactivate_rule,
 
-		// Debugging (Phase 2)
+		// Testing (Phase 2)
 		simulate_rule,
 		preview_execution,
 

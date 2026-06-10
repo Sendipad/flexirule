@@ -10,7 +10,7 @@
  * Extracted from store.js lines: 15-16, 261-394, 427-736, 1223-1434
  */
 import { defineStore } from "pinia";
-import { ref, computed, watch } from "vue";
+import { ref, computed } from "vue";
 import {
 	getContract,
 	getEffectiveActionPolicy,
@@ -30,35 +30,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 	// ── Core graph state ──
 	const nodes = ref([]);
 	const edges = ref([]);
-
-	// ── Watch UI Store for Debug Path Changes ──
-	watch(
-		() => useUIStore().debug_execution_path,
-		(path) => {
-			const uiStore = useUIStore();
-			const nodeState = uiStore.node_execution_state;
-
-			nodes.value.forEach((node) => {
-				const state = nodeState[node.id];
-				if (state) {
-					let className = `debug-executed status-${state.status}`;
-					// Add outcome class for conditions
-					if (node.data?.action_type === "Condition" && state.status === "success") {
-						const stepTrace = uiStore.debug_trace?.steps?.find(
-							(s) => s.action_id === node.id
-						);
-						if (stepTrace && stepTrace.condition_result !== undefined) {
-							className += ` outcome-${stepTrace.condition_result ? "true" : "false"}`;
-						}
-					}
-					node.class = className;
-				} else {
-					node.class = "";
-				}
-			});
-		},
-		{ deep: true }
-	);
 
 	// ── Cascade disable computed ──
 	// BFS from start node: any node not reachable via enabled path is "effectively disabled"

@@ -36,9 +36,9 @@ function openConfig() {
 		:class="{
 			selected: selected,
 			disabled: isEffectiveDisabled,
-			'debug-executed': isExecuted,
-			'debug-running': isRunning,
-			'debug-error': isErrored,
+			executed: isExecuted,
+			'status-running': isRunning,
+			'status-error': isErrored,
 			'is-vertical': !isHorizontal,
 		}"
 	>
@@ -109,7 +109,7 @@ function openConfig() {
 		0 0 0 4px #dc3545;
 }
 
-.stop-node-card.debug-executed {
+.stop-node-card.executed {
 	box-shadow: 0 0 0 3px #198754;
 	border-color: #198754;
 	background-color: #198754;

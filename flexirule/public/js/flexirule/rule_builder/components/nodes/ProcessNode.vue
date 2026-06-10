@@ -94,9 +94,9 @@ const isTerminal = computed(() => {
 				selected: selected,
 				disabled: isEffectiveDisabled,
 				'is-read-only': isReadOnly,
-				'debug-executed': isExecuted,
-				'debug-running': isRunning,
-				'debug-error': isErrored,
+				executed: isExecuted,
+				'status-running': isRunning,
+				'status-error': isErrored,
 				'is-vertical': !isHorizontal,
 			},
 		]"
@@ -218,7 +218,7 @@ const isTerminal = computed(() => {
 	border-color: var(--accent-color);
 }
 
-.process-node-card.debug-executed {
+.process-node-card.executed {
 	box-shadow: 0 0 0 3px #198754;
 	border-color: #198754;
 }

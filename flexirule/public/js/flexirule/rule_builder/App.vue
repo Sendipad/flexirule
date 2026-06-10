@@ -157,15 +157,6 @@
 			>
 				<Sidebar @close="closeSidebar" />
 			</div>
-
-			<div
-				class="sidebar-container debug-sidebar"
-				:class="{ 'sidebar-rtl': isRTL }"
-				v-if="uiStore.show_debug_sidebar"
-				@click.stop
-			>
-				<DebugWorkspace />
-			</div>
 		</div>
 		<RuleConfigModal
 			v-if="uiStore.show_config_modal"
@@ -238,7 +229,6 @@ import StopNode from "./components/nodes/StopNode.vue";
 import ActionZone from "./components/ActionZone.vue";
 
 import Sidebar from "./components/Sidebar.vue";
-import DebugWorkspace from "./components/DebugWorkspace.vue";
 import RuleConfigModal from "./components/rule_config/RuleConfigModal.vue";
 import ShortcutsHelp from "./components/ShortcutsHelp.vue";
 import AddNodeEdge from "./components/AddNodeEdge.vue";
@@ -276,7 +266,7 @@ const fieldInspector = ref({
 
 const quickActionItems = computed(() => [
 	{ key: "save", label: __("Save"), icon: "fa-floppy-o", shortcut: "Ctrl S" },
-	{ key: "debug", label: __("Debug"), icon: "fa-play" },
+	{ key: "test", label: __("Test"), icon: "fa-play" },
 	{
 		key: "status",
 		label: isReadOnly.value ? __("Unlock for editing") : __("Set to active"),
@@ -341,6 +331,7 @@ watch(
 );
 
 const showSidebar = computed(() => {
+	if (uiStore.show_test_sidebar && uiStore.test_execution_steps?.length) return true;
 	if (ruleStore.settings?.action_config_mode === "Dialog") return false;
 	return uiStore.show_sidebar && uiStore.selected_id !== null;
 });
@@ -355,6 +346,7 @@ const isReadOnly = computed(() => ruleStore.is_read_only);
 function closeSidebar() {
 	uiStore.selected_id = null;
 	uiStore.show_sidebar = false;
+	uiStore.show_test_sidebar = false;
 }
 
 function toggleQuickActions() {
@@ -396,7 +388,7 @@ function updateQuickActionsPosition() {
 function runQuickAction(item) {
 	const actions = {
 		save: () => ruleStore.save_changes(),
-		debug: () => window.fxrRuleBuilder?.show_debug_dialog?.(),
+		test: () => window.fxrRuleBuilder?.show_test_dialog?.(),
 		status: () => toggleRuleAccess(),
 		shortcuts: () => (uiStore.show_shortcuts_help = true),
 		layout: () => runAutoLayout(),
@@ -997,16 +989,20 @@ function onEdgeClick({ edge, event }) {
 	cursor: grabbing;
 }
 
-:deep(.debug-error) {
+:deep(.status-error) {
 	box-shadow: 0 0 0 3px var(--red-500, #dc2626) !important;
 }
 
-:deep(.debug-error .execution-badge) {
+:deep(.status-error .execution-badge) {
 	background: var(--red-500, #dc2626) !important;
 }
 
-:deep(.debug-running .execution-badge) {
+:deep(.status-running .execution-badge) {
 	background: var(--blue-600, #2563eb) !important;
+}
+
+:deep(.executed .execution-badge) {
+	background: var(--green-600, #16a34a) !important;
 }
 .toolbar-center {
 	display: flex;
@@ -1076,22 +1072,9 @@ function onEdgeClick({ edge, event }) {
 	stroke-opacity: 0.6;
 }
 
-.is-read-only-flow :deep(.vue-flow__node.debug-executed) {
+.is-read-only-flow :deep(.vue-flow__node.executed) {
 	filter: none !important;
 	opacity: 1 !important;
-}
-
-.debug-sidebar {
-	width: 400px;
-	min-width: 320px;
-	max-width: 700px;
-	resize: horizontal;
-	direction: ltr;
-	overflow: hidden;
-}
-
-.is-rtl .debug-sidebar {
-	direction: rtl;
 }
 
 .read-only-badge {
