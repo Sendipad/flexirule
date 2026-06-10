@@ -504,15 +504,15 @@ class RuleEngine:
 				)
 
 			execution_path.append(current.action_label)
-			self.path_trace.append(
-				{
-					"action": current.action_label,
-					"action_id": current.action_id or current.name,
-					"type": current.action_type,
-					"timestamp": time.time(),
-					"status": "running",
-				}
-			)
+			step_start_time = time.time()
+			path_entry = {
+				"action": current.action_label,
+				"action_id": current.action_id or current.name,
+				"type": current.action_type,
+				"timestamp": step_start_time,
+				"status": "running",
+			}
+			self.path_trace.append(path_entry)
 
 			# Log execution
 			self._log(
@@ -551,7 +551,7 @@ class RuleEngine:
 					except Exception:
 						self.path_trace[-1]["output"] = str(result)
 					try:
-						self.path_trace[-1]["input"] = self._get_action_config(current)
+						path_entry["input"] = self._get_action_config(current)
 					except Exception:
 						pass
 

@@ -43,9 +43,9 @@ function openConfig() {
 			selected: selected,
 			disabled: isEffectiveDisabled,
 			'is-read-only': isReadOnly,
-			'test-executed': isExecuted,
-			'test-running': isRunning,
-			'test-error': isErrored,
+			'executed': isExecuted,
+			'status-running': isRunning,
+			'status-error': isErrored,
 			'is-vertical': !isHorizontal,
 		}"
 	>
@@ -348,7 +348,7 @@ function openConfig() {
 }
 
 /* Execution */
-.test-executed {
+.executed {
 	border-left: 4px solid var(--green-500);
 }
 

@@ -28,6 +28,8 @@ export const useUIStore = defineStore("rule-builder-ui", () => {
 	const current_running_node_id = ref(null);
 	const test_final_status = ref(null);
 	const test_execution_steps = ref([]);
+	const test_selected_step_index = ref(null);
+	const show_test_sidebar = ref(false);
 
 	// ── Derived ──
 	const has_selection = computed(() => selected_id.value !== null);
@@ -71,18 +73,30 @@ export const useUIStore = defineStore("rule-builder-ui", () => {
 			const nodeId = entry.action_id || entry.node_id || entry.id;
 			if (!nodeId) continue;
 			const status = entry.status || "success";
-			nodeState[nodeId] = { order: i + 1, status, error: entry.error || null };
+			nodeState[nodeId] = {
+				order: i + 1,
+				status,
+				error: entry.error || null,
+				executed: true,
+			};
 			steps.push({
 				order: i + 1,
 				node_id: nodeId,
 				action: entry.action || nodeId,
+				type: entry.type,
 				status,
 				error: entry.error || null,
+				duration_ms: entry.duration_ms || null,
+				input: entry.input || null,
+				output: entry.output || null,
+				result: entry.result || null,
 			});
 		}
 		node_execution_state.value = nodeState;
 		test_execution_steps.value = steps;
 		current_running_node_id.value = null;
+		test_selected_step_index.value = steps.length > 0 ? 0 : null;
+		show_test_sidebar.value = true;
 	}
 
 	function clear_test_result() {
@@ -92,6 +106,8 @@ export const useUIStore = defineStore("rule-builder-ui", () => {
 		current_running_node_id.value = null;
 		test_final_status.value = null;
 		test_execution_steps.value = [];
+		test_selected_step_index.value = null;
+		show_test_sidebar.value = false;
 	}
 
 	/**
@@ -122,6 +138,8 @@ export const useUIStore = defineStore("rule-builder-ui", () => {
 		current_running_node_id,
 		test_final_status,
 		test_execution_steps,
+		test_selected_step_index,
+		show_test_sidebar,
 		local_clipboard,
 
 		// Computed

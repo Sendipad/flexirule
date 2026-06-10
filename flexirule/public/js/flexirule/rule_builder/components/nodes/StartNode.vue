@@ -69,9 +69,9 @@ function openConfig() {
 	<div
 		class="start-node-d"
 		:class="{
-			'test-executed': isExecuted,
-			'test-running': isRunning,
-			'test-error': isErrored,
+			'executed': isExecuted,
+			'status-running': isRunning,
+			'status-error': isErrored,
 			'is-vertical': !isHorizontal,
 			'is-read-only': isReadOnly,
 		}"
@@ -250,7 +250,7 @@ function openConfig() {
 	transform: translateX(-50%) !important;
 }
 
-.start-node-d.test-executed .node-body {
+.start-node-d.executed .node-body {
 	box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.4);
 	background: #10b981;
 }

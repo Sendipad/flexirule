@@ -69,9 +69,9 @@ function openConfig() {
 			selected: selected,
 			disabled: isEffectiveDisabled,
 			'is-read-only': isReadOnly,
-			'test-executed': isExecuted,
-			'test-running': isRunning,
-			'test-error': isErrored,
+			'executed': isExecuted,
+			'status-running': isRunning,
+			'status-error': isErrored,
 		}"
 		:style="{ '--accent-color': nodeMeta.color }"
 	>
@@ -154,7 +154,7 @@ function openConfig() {
 	background-color: #f1f5f9;
 }
 
-.condition-node-card.test-executed {
+.condition-node-card.executed {
 	box-shadow: 0 0 0 3px #198754;
 	border-color: #198754;
 }
