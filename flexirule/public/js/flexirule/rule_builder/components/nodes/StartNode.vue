@@ -69,7 +69,7 @@ function openConfig() {
 	<div
 		class="start-node-d"
 		:class="{
-			'executed': isExecuted,
+			executed: isExecuted,
 			'status-running': isRunning,
 			'status-error': isErrored,
 			'is-vertical': !isHorizontal,

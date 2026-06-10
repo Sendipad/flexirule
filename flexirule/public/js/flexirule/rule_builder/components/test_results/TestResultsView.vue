@@ -13,7 +13,9 @@
 					<div class="step-action">{{ step.action }}</div>
 					<div class="step-meta">
 						<span class="step-type">{{ step.type }}</span>
-						<span v-if="step.duration_ms" class="step-duration">{{ step.duration_ms }}ms</span>
+						<span v-if="step.duration_ms" class="step-duration"
+							>{{ step.duration_ms }}ms</span
+						>
 					</div>
 				</div>
 				<i class="fa fa-chevron-right step-chevron"></i>
@@ -21,7 +23,10 @@
 		</div>
 
 		<div v-else class="step-details">
-			<button class="btn btn-xs btn-default mb-3" @click="uiStore.test_selected_step_index = null">
+			<button
+				class="btn btn-xs btn-default mb-3"
+				@click="uiStore.test_selected_step_index = null"
+			>
 				<i class="fa fa-arrow-left"></i> {{ __("Back to Steps") }}
 			</button>
 

@@ -36,7 +36,7 @@ function openConfig() {
 		:class="{
 			selected: selected,
 			disabled: isEffectiveDisabled,
-			'executed': isExecuted,
+			executed: isExecuted,
 			'status-running': isRunning,
 			'status-error': isErrored,
 			'is-vertical': !isHorizontal,
