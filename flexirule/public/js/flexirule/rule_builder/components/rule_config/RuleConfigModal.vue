@@ -381,10 +381,10 @@
 																		collapseInputPanel
 																			? __(
 																					'Expand Input Panel'
-																				)
+																			  )
 																			: __(
 																					'Collapse Input Panel'
-																				)
+																			  )
 																	"
 																>
 																	<i
