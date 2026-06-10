@@ -25,7 +25,6 @@
 		"message",
 		"execution_path",
 		"context_snapshot",
-		"execution_trace",
 		"error_trace"
 	],
 	"fields": [
@@ -149,13 +148,6 @@
 			"fieldname": "context_snapshot",
 			"fieldtype": "Code",
 			"label": "Context Snapshot",
-			"options": "JSON",
-			"read_only": 1
-		},
-		{
-			"fieldname": "execution_trace",
-			"fieldtype": "Code",
-			"label": "Execution Trace",
 			"options": "JSON",
 			"read_only": 1
 		},

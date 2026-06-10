@@ -21,21 +21,20 @@ export const useUIStore = defineStore("rule-builder-ui", () => {
 	const use_modern_layout = ref(true); // Enable unified layout by default
 	const show_shortcuts_help = ref(false);
 
-	// ── Debug Session Visualization ──
-	const debug_execution_path = ref([]);
-	const debug_context = ref({});
-	const debug_trace = ref(null);
+	// ── Test Execution Visualization ──
+	const test_execution_path = ref([]);
+	const test_context = ref({});
 	const node_execution_state = ref({});
 	const current_running_node_id = ref(null);
-	const debug_final_status = ref(null);
-	const debug_execution_steps = ref([]);
-	const last_execution_id = ref(null);
-	const show_debug_sidebar = ref(false);
+	const test_final_status = ref(null);
+	const test_execution_steps = ref([]);
+	const test_selected_step_index = ref(null);
+	const show_test_sidebar = ref(false);
 
 	// ── Derived ──
 	const has_selection = computed(() => selected_id.value !== null);
-	const has_debug_path = computed(
-		() => Array.isArray(debug_execution_path.value) && debug_execution_path.value.length > 0
+	const has_test_path = computed(
+		() => Array.isArray(test_execution_path.value) && test_execution_path.value.length > 0
 	);
 
 	// ── Actions ──
@@ -56,51 +55,59 @@ export const useUIStore = defineStore("rule-builder-ui", () => {
 		show_config_modal.value = false;
 	}
 
-	function set_debug_result(path, context) {
-		debug_execution_path.value = path || [];
-		debug_context.value = context || {};
+	function set_test_result(path, context) {
+		test_execution_path.value = path || [];
+		test_context.value = context || {};
 	}
 
-	function set_debug_execution_visuals(payload = {}) {
+	function set_test_execution_visuals(payload = {}) {
 		const path = payload.path_trace || payload.execution_path || [];
-		debug_execution_path.value = Array.isArray(path) ? path : [];
-		debug_context.value = payload.vars || payload.context_snapshot || {};
-		debug_final_status.value = payload.status || null;
-		debug_trace.value = payload.execution_trace || null;
-		last_execution_id.value = payload.execution_id || payload.execution?.execution_id || null;
+		test_execution_path.value = Array.isArray(path) ? path : [];
+		test_context.value = payload.vars || payload.context_snapshot || {};
+		test_final_status.value = payload.status || null;
 
 		const nodeState = {};
 		const steps = [];
-		for (let i = 0; i < debug_execution_path.value.length; i++) {
-			const entry = debug_execution_path.value[i] || {};
+		for (let i = 0; i < test_execution_path.value.length; i++) {
+			const entry = test_execution_path.value[i] || {};
 			const nodeId = entry.action_id || entry.node_id || entry.id;
 			if (!nodeId) continue;
 			const status = entry.status || "success";
-			nodeState[nodeId] = { order: i + 1, status, error: entry.error || null };
+			nodeState[nodeId] = {
+				order: i + 1,
+				status,
+				error: entry.error || null,
+				executed: true,
+			};
 			steps.push({
 				order: i + 1,
 				node_id: nodeId,
 				action: entry.action || nodeId,
+				type: entry.type,
 				status,
 				error: entry.error || null,
 				duration_ms: entry.duration_ms || null,
+				input: entry.input || null,
+				output: entry.output || null,
+				result: entry.result || null,
 			});
 		}
 		node_execution_state.value = nodeState;
-		debug_execution_steps.value = steps;
+		test_execution_steps.value = steps;
 		current_running_node_id.value = null;
-		show_debug_sidebar.value = true;
+		test_selected_step_index.value = steps.length > 0 ? 0 : null;
+		show_test_sidebar.value = true;
 	}
 
-	function clear_debug_result() {
-		debug_execution_path.value = [];
-		debug_context.value = {};
-		debug_trace.value = null;
+	function clear_test_result() {
+		test_execution_path.value = [];
+		test_context.value = {};
 		node_execution_state.value = {};
 		current_running_node_id.value = null;
-		debug_final_status.value = null;
-		debug_execution_steps.value = [];
-		show_debug_sidebar.value = false;
+		test_final_status.value = null;
+		test_execution_steps.value = [];
+		test_selected_step_index.value = null;
+		show_test_sidebar.value = false;
 	}
 
 	/**
@@ -125,29 +132,28 @@ export const useUIStore = defineStore("rule-builder-ui", () => {
 		config_modal_mode,
 		use_modern_layout,
 		show_shortcuts_help,
-		debug_execution_path,
-		debug_context,
-		debug_trace,
+		test_execution_path,
+		test_context,
 		node_execution_state,
 		current_running_node_id,
-		debug_final_status,
-		debug_execution_steps,
-		last_execution_id,
-		show_debug_sidebar,
+		test_final_status,
+		test_execution_steps,
+		test_selected_step_index,
+		show_test_sidebar,
 		local_clipboard,
 
 		// Computed
 		has_selection,
-		has_debug_path,
+		has_test_path,
 
 		// Actions
 		select,
 		deselect,
 		open_config_modal,
 		close_config_modal,
-		set_debug_result,
-		set_debug_execution_visuals,
-		clear_debug_result,
+		set_test_result,
+		set_test_execution_visuals,
+		clear_test_result,
 		navigate_node,
 	};
 });
