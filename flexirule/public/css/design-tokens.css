@@ -41,8 +41,11 @@
 	--fxr-border-danger: #fca5a5;
 
 	--fxr-text: #1e293b;
+	--fxr-text-strong: #111827;
 	--fxr-text-secondary: #475569;
+	--fxr-text-soft: #64748b;
 	--fxr-text-muted: #94a3b8;
+	--fxr-text-faint: #cbd5e1;
 	--fxr-text-danger: #ef4444;
 	--fxr-text-link: #2563eb;
 
@@ -142,31 +145,34 @@ html[data-theme="dark"] {
 	--tg-for-tint: rgba(168, 85, 247, 0.12);
 	--tg-for-border: #a855f7;
 
-	--fxr-bg-page: var(--bg-color);
-	--fxr-bg-card: var(--modal-bg, var(--panel-bg, #242424));
-	--fxr-bg-input: var(--control-bg);
-	--fxr-bg-muted: var(--bg-light-gray);
-	--fxr-bg-hover: var(--cb-bg-gray);
-	--fxr-bg-active: var(--bg-blue);
+	--fxr-bg-page: var(--bg-color, #111111);
+	--fxr-bg-card: var(--modal-bg, var(--panel-bg, #1a1a1a));
+	--fxr-bg-input: var(--control-bg, #242424);
+	--fxr-bg-muted: var(--bg-light-gray, #1f2937);
+	--fxr-bg-hover: var(--cb-bg-gray, #374151);
+	--fxr-bg-active: var(--bg-blue, #1d4ed8);
 	--fxr-bg-danger: rgba(220, 38, 38, 0.1);
-	--fxr-bg-dark: var(--gray-900);
-	--fxr-bg-input-disabled: var(--bg-light-gray);
+	--fxr-bg-dark: var(--gray-900, #111111);
+	--fxr-bg-input-disabled: var(--bg-light-gray, #1f2937);
 
 	/* Surface layers in Dark Mode */
-	--fxr-surface: var(--modal-bg, var(--panel-bg, #1f2937));
-	--fxr-surface-2: var(--bg-light-gray, #111827);
+	--fxr-surface: var(--modal-bg, var(--panel-bg, #1a1a1a));
+	--fxr-surface-2: var(--bg-light-gray, #1f2937);
 	--fxr-surface-soft: var(--cb-bg-gray, #374151);
-	--fxr-surface-elevated: var(--modal-bg, var(--panel-bg, #1f2937));
+	--fxr-surface-elevated: var(--modal-bg, var(--panel-bg, #242424));
 
-	--fxr-border: var(--border-color);
-	--fxr-border-subtle: var(--border-subtle, rgba(255, 255, 255, 0.05));
-	--fxr-border-focus: var(--primary);
-	--fxr-border-strong: var(--dark-border-color, #444);
-	--fxr-border-danger: var(--red-400);
+	--fxr-border: var(--border-color, #2a2a2a);
+	--fxr-border-subtle: var(--border-subtle, #333333);
+	--fxr-border-focus: var(--primary, #3b82f6);
+	--fxr-border-strong: var(--dark-border-color, #444444);
+	--fxr-border-danger: var(--red-400, #f87171);
 
-	--fxr-text: var(--text-color);
-	--fxr-text-secondary: var(--text-muted);
+	--fxr-text: var(--text-color, #f3f4f6);
+	--fxr-text-strong: #ffffff;
+	--fxr-text-secondary: var(--text-muted, #9ca3af);
+	--fxr-text-soft: var(--text-muted, #9ca3af);
 	--fxr-text-muted: var(--text-light, #94a3b8);
+	--fxr-text-faint: #4b5563;
 	--fxr-text-danger: var(--red-500);
 	--fxr-text-link: var(--blue-400);
 	--fxr-text-heading: #ffffff;

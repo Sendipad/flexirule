@@ -134,8 +134,8 @@ onBeforeUnmount(() => {
 	width: min(420px, calc(100vw - 24px));
 	max-height: min(70vh, 620px);
 	border-radius: var(--fxr-radius-lg, 16px);
-	border: 1px solid var(--fxr-border-subtle, var(--border-color));
-	background: var(--fxr-surface, var(--fg-color));
+	border: 1px solid var(--fxr-border);
+	background: var(--fxr-surface);
 	box-shadow: var(--fxr-shadow-lg, 0 22px 48px rgba(15, 23, 42, 0.12));
 	overflow: hidden;
 	display: flex;
@@ -148,8 +148,8 @@ onBeforeUnmount(() => {
 	justify-content: space-between;
 	gap: 12px;
 	padding: 14px 16px;
-	border-bottom: 1px solid var(--fxr-border-subtle, var(--border-color));
-	background: color-mix(in srgb, var(--fxr-surface, #fff) 96%, var(--fxr-surface-2, #f3f5f7));
+	border-bottom: 1px solid var(--fxr-border-subtle);
+	background: color-mix(in srgb, var(--fxr-surface) 96%, var(--fxr-surface-2));
 }
 
 .shortcuts-help-title {
@@ -166,8 +166,8 @@ onBeforeUnmount(() => {
 	align-items: center;
 	justify-content: center;
 	border-radius: 8px;
-	background: var(--fxr-accent-soft, #eef6ff);
-	color: var(--fxr-accent, var(--primary));
+	background: var(--fxr-accent-soft);
+	color: var(--fxr-accent);
 	flex: 0 0 auto;
 }
 
@@ -215,9 +215,9 @@ onBeforeUnmount(() => {
 	flex-direction: column;
 	gap: 6px;
 	padding: 10px 10px 8px;
-	border: 1px solid var(--fxr-border-subtle, var(--border-color));
+	border: 1px solid var(--fxr-border-subtle);
 	border-radius: 12px;
-	background: var(--fxr-surface-soft, var(--control-bg));
+	background: var(--fxr-surface-soft);
 }
 
 .shortcut-group-heading {
@@ -235,7 +235,7 @@ onBeforeUnmount(() => {
 	gap: 10px;
 	padding: 7px 8px;
 	border-radius: 10px;
-	background: color-mix(in srgb, var(--fxr-surface, #fff) 88%, var(--fxr-surface-2, #f3f5f7));
+	background: color-mix(in srgb, var(--fxr-surface) 88%, var(--fxr-surface-2));
 }
 
 .shortcut-keys {
@@ -245,15 +245,15 @@ onBeforeUnmount(() => {
 }
 
 kbd {
-	border: 1px solid var(--fxr-border-subtle, var(--border-color));
-	border-bottom-color: var(--fxr-border-strong, var(--border-color));
+	border: 1px solid var(--fxr-border-subtle);
+	border-bottom-color: var(--fxr-border-strong);
 	border-radius: 6px;
 	padding: 2px 6px;
 	font-size: 10px;
 	line-height: 1.3;
 	font-family: inherit;
-	background: var(--fxr-surface, #fff);
-	color: var(--fxr-text-strong, var(--text-color));
+	background: var(--fxr-surface-elevated);
+	color: var(--fxr-text-strong);
 	box-shadow: var(--fxr-shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.04));
 }
 
