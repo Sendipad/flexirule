@@ -205,10 +205,12 @@ export default {
 .item-icon.variable {
 	background: var(--fxr-badge-bool);
 	color: var(--fxr-badge-bool-text);
+	border: 1px solid color-mix(in srgb, var(--fxr-badge-bool-text) 15%, transparent);
 }
 .item-icon.logic {
 	background: var(--fxr-badge-var);
 	color: var(--fxr-badge-var-text);
+	border: 1px solid color-mix(in srgb, var(--fxr-badge-var-text) 15%, transparent);
 }
 
 .item-info {

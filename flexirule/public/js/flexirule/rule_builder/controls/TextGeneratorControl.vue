@@ -1032,25 +1032,28 @@ onBeforeUnmount(() => {
 
 .tgc-mode-tabs {
 	display: flex;
-	background: var(--fxr-surface-soft, #f1f5f9);
+	background: var(--tg-border);
 	padding: 2px;
-	border-radius: 6px;
+	border-radius: 8px;
 }
 .tgc-mode-tab {
-	padding: 3px 8px;
+	padding: 4px 12px;
 	font-size: 10px;
 	font-weight: 700;
 	border: none;
 	background: transparent;
-	color: var(--fxr-text-soft, #64748b);
+	color: var(--tg-text-muted);
 	cursor: pointer;
-	border-radius: 4px;
+	border-radius: 6px;
 	transition: all 0.2s;
 }
+.tgc-mode-tab:hover:not(.active) {
+	color: var(--tg-text);
+}
 .tgc-mode-tab.active {
-	background: var(--fxr-surface, #fff);
-	color: var(--fxr-text-strong, #1e293b);
-	box-shadow: var(--fxr-shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.05));
+	background: var(--tg-bg);
+	color: var(--tg-accent);
+	box-shadow: var(--fxr-shadow-sm);
 }
 
 .tgc-rich-actions {
@@ -1205,11 +1208,19 @@ onBeforeUnmount(() => {
 
 /* Visual Block Nesting Indicators */
 .grid-item.full-width:has(.tgc-wrap.is-nested) {
-	padding-left: 12px;
-	border-left: 3px solid var(--block-accent, var(--tg-border));
+	padding: 10px 12px;
+	border-left: 4px solid var(--block-accent, var(--tg-border));
 	background: var(--block-tint, transparent);
-	border-radius: 4px;
-	margin-top: 8px;
+	border-radius: 8px;
+	margin-top: 10px;
+	border-top: 1px solid color-mix(in srgb, var(--block-accent) 10%, transparent);
+	border-right: 1px solid color-mix(in srgb, var(--block-accent) 10%, transparent);
+	border-bottom: 1px solid color-mix(in srgb, var(--block-accent) 10%, transparent);
+	transition: all 0.2s ease;
+}
+
+.grid-item.full-width:has(.tgc-wrap.is-nested):hover {
+	background: color-mix(in srgb, var(--block-tint) 120%, transparent);
 }
 
 .grid-item.full-width:has(.conditional) {
@@ -1232,10 +1243,10 @@ onBeforeUnmount(() => {
 }
 
 .scope-viz {
-	background: var(--fxr-surface-2, #f8fafc);
-	border: 1px solid var(--fxr-border-subtle);
+	background: var(--tg-surface);
+	border: 1px solid var(--tg-border);
 	border-radius: 8px;
-	padding: 8px;
+	padding: 10px;
 	max-height: 150px;
 	overflow-y: auto;
 }
@@ -1245,30 +1256,35 @@ onBeforeUnmount(() => {
 .scope-root {
 	font-size: 11px;
 	font-weight: 700;
-	color: var(--fxr-text-strong);
+	color: var(--tg-text);
 	cursor: pointer;
 	display: flex;
 	align-items: center;
-	padding: 2px 4px;
-	border-radius: 4px;
+	padding: 4px 8px;
+	border-radius: 6px;
+	transition: background 0.2s;
 }
 .scope-root:hover {
-	background: var(--fxr-surface-soft);
+	background: color-mix(in srgb, var(--tg-text) 5%, transparent);
 }
 .scope-children {
-	margin-left: 8px;
+	margin-left: 12px;
+	border-left: 1px solid var(--tg-border);
+	margin-top: 2px;
 }
 .scope-child {
 	font-size: 10px;
-	color: var(--fxr-text-soft);
+	color: var(--tg-text-muted);
 	display: flex;
 	align-items: center;
 	cursor: pointer;
-	padding: 1px 4px;
-	border-radius: 4px;
+	padding: 2px 8px;
+	border-radius: 6px;
+	transition: all 0.2s;
 }
 .scope-child:hover {
-	background: var(--fxr-surface-soft);
+	background: color-mix(in srgb, var(--tg-text) 5%, transparent);
+	color: var(--tg-text);
 }
 .tree-line {
 	color: var(--fxr-text-faint);
@@ -1288,14 +1304,29 @@ onBeforeUnmount(() => {
 .tgc-raw-textarea {
 	width: 100%;
 	min-height: 200px;
-	border: 1px solid var(--fxr-border-subtle, #e2e8f0);
+	border: 1px solid var(--tg-border);
 	border-radius: 12px;
-	background: var(--fxr-surface, #fff);
+	background: var(--tg-bg);
+	color: var(--tg-text);
 	padding: 12px;
 	font-size: 13px;
-	font-family: monospace;
-	line-height: 1.5;
+	font-family: var(--fxr-font-mono);
+	line-height: 1.6;
 	outline: none;
-	resize: none;
+	resize: vertical;
+}
+
+/* Form Controls Consistency */
+.tgc-wrap :deep(.form-control),
+.tgc-wrap :deep(.input-sm) {
+	background-color: var(--tg-bg) !important;
+	color: var(--tg-text) !important;
+	border: 1px solid var(--tg-border) !important;
+	border-radius: 8px !important;
+}
+
+.tgc-wrap :deep(.form-control:focus) {
+	border-color: var(--tg-accent) !important;
+	box-shadow: 0 0 0 2px color-mix(in srgb, var(--tg-accent) 15%, transparent) !important;
 }
 </style>
