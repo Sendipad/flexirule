@@ -801,18 +801,11 @@ difficulty:
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Deployment Guide# FlexiRule documentation is built using Hugo and deployed via GitHub Actions. The deployment process is configurable, allowing you to publish the site to the current repository or an external repository (like the main FlexiRule repository).
-Configuration Variables# The deployment workflow uses GitHub Actions Variables and Secrets to determine the deployment target.
-Variables# Go to Settings &amp;gt; Secrets and variables &amp;gt; Actions &amp;gt; Variables in your GitHub repository to configure these:
-Variable Description Default Value DEPLOY_REPOSITORY The target repository in owner/repo format. Current repository DEPLOY_BRANCH The target branch for deployment. gh-pages HUGO_BASEURL The base URL for the generated site. https://sendipad.github.io/flexirule-docs/ Secrets# Go to Settings &amp;gt; Secrets and variables &amp;gt; Actions &amp;gt; Secrets to configure these:
-Secret Description Required For DEPLOY_TOKEN A Fine-Grained Personal Access Token (PAT). External repository deployment DEPLOY_TOKEN Permissions# The PAT requires the following permissions on the target repository:
-Contents: Read and Write Metadata: Read Deployment Scenarios# 1. Deploying to the Current Repository (flexirule-docs)# This is the default behavior if no variables are configured.
-Ensure GitHub Pages is enabled for your repository. Go to Settings &amp;gt; Pages. Under Build and deployment &amp;gt; Source, select GitHub Actions. Pushing to the develop branch will automatically build and deploy the site. 2. Deploying to an External Repository (e.g., Sendipad/flexirule)# To deploy the documentation from flexirule-docs to the gh-pages branch of the flexirule repository:
-Configure Variables in flexirule-docs:
-DEPLOY_REPOSITORY: Sendipad/flexirule DEPLOY_BRANCH: gh-pages HUGO_BASEURL: https://sendipad.github.io/flexirule/ Configure Secret in flexirule-docs:
-DEPLOY_TOKEN: [Your Fine-Grained PAT] Trigger Deployment:
-Push a change to the develop branch. Or, manually trigger the workflow from the Actions tab by selecting Deploy Hugo site to Pages and clicking Run workflow. Technical Details# The deployment is handled by the .github/workflows/hugo.yml workflow.
-Local Deployment: Uses actions/deploy-pages@v5. …
+Deployment Guide# FlexiRule documentation is built using Hugo and deployed via GitHub Actions. There are two main workflows for deployment: local and external.
+1. Local Deployment (Current Repository)# The Deploy Hugo site to Pages workflow handles deployment to the current repository&amp;rsquo;s GitHub Pages.
+Triggers: Automatically on push to the develop branch. Manually via workflow_dispatch. Requirements: GitHub Pages must be enabled for the repository. Settings &amp;gt; Pages &amp;gt; Build and deployment &amp;gt; Source must be set to GitHub Actions. 2. External Deployment (Manual)# The Deploy Hugo site to External Repository workflow allows you to publish the documentation to a different repository (e.g., the main FlexiRule repository).
+Trigger: Manually via workflow_dispatch. Inputs: repository: The target repository in owner/repo format (Default: Sendipad/flexirule). branch: The target branch for deployment (Default: gh-pages). base_url: The base URL for the generated site (Default: https://sendipad.github.io/flexirule/). Setup for External Deployment# To use the external deployment workflow, you must configure a secret in the documentation repository:
+Create a Fine-Grained PAT: Create a Personal Access Token with the following permissions on the target repository: Contents: Read and Write Metadata: Read Add Secret: Go to Settings &amp;gt; Secrets and variables &amp;gt; Actions &amp;gt; Secrets in the documentation repository. Add a new secret named DEPLOY_TOKEN with your PAT as the value. Running External Deployment# Go to the Actions tab in the documentation repository. Select the Deploy Hugo site to External Repository workflow. Click Run workflow. (Optional) Adjust the repository, branch, and base_url inputs if needed. Click Run workflow again to start the build and deployment process. 
 
 ---
 title: 
