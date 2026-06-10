@@ -21,7 +21,10 @@
 			<button class="btn-close" @click="$emit('close')">×</button>
 		</div>
 
-		<div class="sidebar-content" v-if="uiStore.show_test_sidebar && uiStore.test_execution_steps?.length">
+		<div
+			class="sidebar-content"
+			v-if="uiStore.show_test_sidebar && uiStore.test_execution_steps?.length"
+		>
 			<TestResultsView />
 		</div>
 

@@ -103,9 +103,8 @@ ControlRegistry.registerDefault({
 				get_query = async (search_term) => {
 					try {
 						// Fallback to global window object if needed
-						const fields = await window.flexirule.utils.get_doctype_fields(
-							targetDoctype
-						);
+						const fields =
+							await window.flexirule.utils.get_doctype_fields(targetDoctype);
 						if (!search_term) return fields;
 						const q = search_term.toLowerCase();
 						return fields.filter(

@@ -44,7 +44,7 @@ const conditionSummary = computed(() => {
 		const op = first.op;
 		const right = first.right?.ref
 			? first.right.ref.replace("doc.", "")
-			: first.right?.value ?? "?";
+			: (first.right?.value ?? "?");
 		return `${left} ${op} ${right}${count > 1 ? ` (+${count - 1})` : ""}`;
 	}
 	return `${count} ${__("conditions")}`;
@@ -69,7 +69,7 @@ function openConfig() {
 			selected: selected,
 			disabled: isEffectiveDisabled,
 			'is-read-only': isReadOnly,
-			'executed': isExecuted,
+			executed: isExecuted,
 			'status-running': isRunning,
 			'status-error': isErrored,
 		}"

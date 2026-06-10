@@ -43,7 +43,7 @@ function openConfig() {
 			selected: selected,
 			disabled: isEffectiveDisabled,
 			'is-read-only': isReadOnly,
-			'executed': isExecuted,
+			executed: isExecuted,
 			'status-running': isRunning,
 			'status-error': isErrored,
 			'is-vertical': !isHorizontal,

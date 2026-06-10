@@ -69,7 +69,7 @@ function openConfig() {
 	<div
 		class="start-node-d"
 		:class="{
-			'executed': isExecuted,
+			executed: isExecuted,
 			'status-running': isRunning,
 			'status-error': isErrored,
 			'is-vertical': !isHorizontal,
@@ -136,7 +136,9 @@ function openConfig() {
 	align-items: center;
 	padding: 8px 16px 8px 10px;
 	border-radius: 4px 40px 40px 4px; /* Reflected D-Shape */
-	box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.06);
+	box-shadow:
+		0 2px 4px -1px rgba(0, 0, 0, 0.1),
+		0 1px 2px -1px rgba(0, 0, 0, 0.06);
 	transition: all 0.2s ease;
 	border: 1px solid rgba(255, 255, 255, 0.2);
 }
