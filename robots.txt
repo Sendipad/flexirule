@@ -1,0 +1,20 @@
+User-agent: *
+Allow: /
+
+# LLM Crawler Directives
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+Sitemap: https://sendipad.github.io/flexirule/sitemap.xml
