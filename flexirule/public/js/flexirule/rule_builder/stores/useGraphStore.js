@@ -24,6 +24,7 @@ import {
 import { mapActionTypeToNodeType } from "../composables/useActionTypeMapper";
 import { getConditionPayload } from "../utils/condition_payload";
 import { generateShortId } from "../utils/schema_utils.js";
+import { useUIStore } from "./useUIStore";
 
 export const useGraphStore = defineStore("rule-builder-graph", () => {
 	// ── Core graph state ──

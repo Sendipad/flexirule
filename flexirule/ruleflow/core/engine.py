@@ -474,6 +474,7 @@ class RuleEngine:
 		max_visits_per_node = 100  # Safety for infinite loops
 
 		execution_path = []
+		start_time = context.get("_start_time", time.time())
 		current = self._get_start_node()
 		max_iterations = 1000  # Total step limit
 
@@ -591,7 +592,7 @@ class RuleEngine:
 					self.debug_trace["timeline"].append(
 						{
 							"timestamp": step_start_time,
-							"offset_ms": round((step_start_time - start_time) * 1000, 2),
+							"offset_ms": round((step_start_time - context["_start_time"]) * 1000, 2),
 							"action_id": node_id,
 							"label": current.action_label,
 						}
