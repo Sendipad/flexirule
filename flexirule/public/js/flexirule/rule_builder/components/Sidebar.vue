@@ -1,11 +1,31 @@
 <template>
 	<div class="rule-sidebar">
 		<div class="sidebar-header">
-			<h4>{{ sidebar_title }}</h4>
+			<div class="header-nav" v-if="uiStore.test_execution_steps?.length">
+				<button
+					class="nav-tab"
+					:class="{ active: !uiStore.show_test_sidebar }"
+					@click="uiStore.show_test_sidebar = false"
+				>
+					{{ __("Properties") }}
+				</button>
+				<button
+					class="nav-tab"
+					:class="{ active: uiStore.show_test_sidebar }"
+					@click="uiStore.show_test_sidebar = true"
+				>
+					{{ __("Test Results") }}
+				</button>
+			</div>
+			<h4 v-else>{{ sidebar_title }}</h4>
 			<button class="btn-close" @click="$emit('close')">×</button>
 		</div>
 
-		<div class="sidebar-content" v-if="selectedNode">
+		<div class="sidebar-content" v-if="uiStore.show_test_sidebar && uiStore.test_execution_steps?.length">
+			<TestResultsView />
+		</div>
+
+		<div class="sidebar-content" v-else-if="selectedNode">
 			<!-- Validation Errors -->
 			<div v-if="store.validation_errors?.length" class="sidebar-errors mb-3">
 				<div
@@ -94,6 +114,7 @@ import { computed, onMounted } from "vue";
 import { useRuleStore, useGraphStore, useUIStore } from "../stores";
 import ActionFieldProperties from "./ActionFieldProperties.vue";
 import StartNodeProperties from "./StartNodeProperties.vue";
+import TestResultsView from "./test_results/TestResultsView.vue";
 import { getContract } from "../../core/contracts";
 import { mapActionTypeToNodeType } from "../composables/useActionTypeMapper";
 
@@ -291,6 +312,28 @@ onMounted(async () => {
 	font-size: 14px;
 	font-weight: 600;
 	color: var(--fxr-text-strong, var(--text-color));
+}
+
+.header-nav {
+	display: flex;
+	gap: 15px;
+}
+
+.nav-tab {
+	background: none;
+	border: none;
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--fxr-text-soft);
+	padding: 0 0 4px 0;
+	cursor: pointer;
+	border-bottom: 2px solid transparent;
+	outline: none;
+}
+
+.nav-tab.active {
+	color: var(--fxr-accent);
+	border-bottom-color: var(--fxr-accent);
 }
 
 .btn-close {

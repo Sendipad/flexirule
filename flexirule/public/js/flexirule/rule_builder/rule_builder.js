@@ -58,17 +58,17 @@ class RuleBuilder {
 			await this.toggle_rule_active();
 		});
 
-		// Debug
-		this.debug_btn = this.page.add_inner_button(__("Debug Rule"), () => {
-			this.show_debug_dialog();
+		// Test
+		this.test_btn = this.page.add_inner_button(__("Test Rule"), () => {
+			this.show_test_dialog();
 		});
 
 		// Clear visualization if any
-		this.clear_debug_btn = this.page.add_inner_button(__("Clear Debug Session"), () => {
-			this.uiStore.clear_debug_result();
-			this.update_debug_ui([]);
+		this.clear_test_btn = this.page.add_inner_button(__("Clear Test Path"), () => {
+			this.uiStore.clear_test_result();
+			this.update_test_ui([]);
 		});
-		this.clear_debug_btn.hide();
+		this.clear_test_btn.hide();
 
 		// Custom status area beside title
 		this.setup_custom_header();
@@ -111,7 +111,7 @@ class RuleBuilder {
 		this.ruleStore.rule_name = this.rule;
 
 		// Initial sync
-		this.update_debug_ui(this.uiStore.debug_execution_path);
+		this.update_test_ui(this.uiStore.test_execution_path);
 
 		// Watch for state changes
 		this.ruleStore.$subscribe((mutation, state) => {
@@ -120,7 +120,7 @@ class RuleBuilder {
 		});
 
 		this.uiStore.$subscribe((mutation, state) => {
-			this.update_debug_ui(state.debug_execution_path);
+			this.update_test_ui(state.test_execution_path);
 		});
 
 		// Initial status update after fetch
@@ -225,36 +225,27 @@ class RuleBuilder {
 		}
 	}
 
-	update_debug_ui(debug_path) {
-		const show = !!(debug_path && debug_path.length > 0);
-		if (this.clear_debug_btn) {
+	update_test_ui(test_path) {
+		const show = !!(test_path && test_path.length > 0);
+		if (this.clear_test_btn) {
 			if (show) {
-				this.clear_debug_btn.show().removeClass("hide");
+				this.clear_test_btn.show().removeClass("hide");
 			} else {
-				this.clear_debug_btn.hide().addClass("hide");
+				this.clear_test_btn.hide().addClass("hide");
 			}
 		}
 	}
 
-	show_debug_dialog() {
-		// Try to restore last debug context
-		let last_context = {};
-		try {
-			const saved = localStorage.getItem(`fxr-debug-context-${this.rule}`);
-			if (saved) last_context = JSON.parse(saved);
-		} catch (e) {
-			console.error("Failed to restore debug context", e);
-		}
-
+	show_test_dialog() {
 		let d = new frappe.ui.Dialog({
-			title: __("Debug Rule"),
+			title: __("Test Rule"),
 			fields: [
 				{
 					fieldtype: "Link",
 					fieldname: "doctype",
 					label: __("Document Type"),
 					options: "DocType",
-					default: last_context.doctype || this.ruleStore.rule_doc?.document_type,
+					default: this.ruleStore.rule_doc?.document_type,
 					reqd: 1,
 				},
 				{
@@ -262,48 +253,50 @@ class RuleBuilder {
 					fieldname: "docname",
 					label: __("Document"),
 					options: "doctype",
-					default: last_context.docname,
 					reqd: 1,
 				},
 				{
 					fieldtype: "Check",
 					fieldname: "save_log",
 					label: __("Create Execution Log"),
-					description: __("Persist a log record even for this debug run"),
-					default: last_context.save_log !== undefined ? last_context.save_log : 1,
+					description: __("Persist a log record even for this test run"),
+					default: 1,
 				},
 			],
-			primary_action_label: __("Debug"),
+			primary_action_label: __("Test"),
 			primary_action: (values) => {
-				// Persist context
-				localStorage.setItem(`fxr-debug-context-${this.rule}`, JSON.stringify(values));
-
 				frappe.call({
-					method: "flexirule.ruleflow.api.debug_rule",
+					method: "flexirule.ruleflow.api.test_rule",
 					args: {
 						rule_name: this.rule,
 						doctype: values.doctype,
 						docname: values.docname,
 						dry_run: !values.save_log,
 						skip_log_enqueue: !values.save_log,
-						debug_mode: 1,
 					},
 					callback: (r) => {
-						this.uiStore.set_debug_execution_visuals(r.message || {});
+						this.uiStore.set_test_execution_visuals(r.message || {});
 						if (r.message?.success) {
 							// Highlight path in builder
 							const pathTrace =
 								r.message.path_trace || r.message.execution_path || [];
-							this.update_debug_ui(pathTrace);
+							this.update_test_ui(pathTrace);
+
+							frappe.msgprint({
+								title: __("Success"),
+								message:
+									r.message?.message || __("Rule test completed successfully"),
+								indicator: "green",
+							});
 						} else {
-							this.update_debug_ui(r.message?.path_trace || []);
+							this.update_test_ui(r.message?.path_trace || []);
 							frappe.msgprint({
 								title: __("Error"),
 								message:
 									r.message?.message ||
 									r.message?.error ||
 									(r.message?.execution?.errors || []).join("\n") ||
-									__("Debug failed"),
+									__("Test failed"),
 								indicator: "red",
 							});
 						}

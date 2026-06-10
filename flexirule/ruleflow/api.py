@@ -244,7 +244,6 @@ def test_rule(
 	dry_run: int | bool | str = True,
 	skip_log_enqueue: int | bool | str = True,
 	save_log: int | bool | str | None = None,
-	debug_mode: int | bool | str = True,
 ):
 	"""
 	Test a rule against a document.
@@ -299,12 +298,9 @@ def test_rule(
 			dry = False
 			skip_enqueue = False
 
-		debug = bool(frappe.parse_json(debug_mode))
-
 		execution_context = {
 			"doc": doc,
 			"test_mode": True,
-			"debug_mode": debug,
 			"allow_inactive_rule_test": True,
 			"dry_run": dry,
 			"skip_log_enqueue": skip_enqueue,
@@ -361,19 +357,12 @@ def test_rule(
 		"execution": execution,
 		"execution_id": execution.get("execution_id"),
 		"path_trace": execution.get("path_trace", []),
-		"execution_trace": execution.get("execution_trace"),
 		"vars": execution.get("vars", {}),
 		# Legacy compatibility for existing UI consumers
 		"execution_path": execution.get("path_trace", []),
 		"context_snapshot": execution.get("vars", {}),
 		"message": info_msg,
 	}
-
-
-@frappe.whitelist()
-def debug_rule(*args, **kwargs):
-	"""Alias for test_rule with debug terminology"""
-	return test_rule(*args, **kwargs)
 
 
 @frappe.whitelist()

@@ -326,7 +326,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 						? getConditionPayload({
 								config: node.data?.config,
 								condition_json: node.data?.condition_json,
-							})
+						  })
 						: null;
 
 				const finalInputMapping =
@@ -517,7 +517,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 	}
 
 	/**
-	 * Simulate rule execution (Phase 2 Debugging API).
+	 * Simulate rule execution (Phase 2 Testing API).
 	 * Runs dry-run mode without side effects.
 	 */
 	async function simulate_rule(docname) {
@@ -535,7 +535,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 			const data = result.message;
 			if (data) {
 				const uiStore = useUIStore();
-				uiStore.set_debug_execution_visuals(data);
+				uiStore.set_test_execution_visuals(data);
 			}
 			return data;
 		} catch (e) {
@@ -545,7 +545,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 	}
 
 	/**
-	 * Get predicted execution path (Phase 2 Debugging API).
+	 * Get predicted execution path (Phase 2 Testing API).
 	 * Evaluates conditions without running handlers.
 	 */
 	async function preview_execution(docname) {
@@ -729,7 +729,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 						istable: doctype_meta.istable,
 						is_submittable: doctype_meta.is_submittable,
 						track_changes: doctype_meta.track_changes,
-					}
+				  }
 				: null,
 		});
 	}
@@ -774,8 +774,8 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		let breadcrumbs = `
 			<li><a href="/app/rule">${__("Rule")}</a></li>
 			<li><a href="/app/rule/${rule_name.value}">${__(
-				rule_doc.value?.rule_name || rule_name.value
-			)}</a></li>
+			rule_doc.value?.rule_name || rule_name.value
+		)}</a></li>
 			<li class="disabled"><a href="#">${__("Builder")}</a></li>
 		`;
 		frappe.breadcrumbs.clear();
@@ -808,7 +808,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		activate_rule,
 		deactivate_rule,
 
-		// Debugging (Phase 2)
+		// Testing (Phase 2)
 		simulate_rule,
 		preview_execution,
 
