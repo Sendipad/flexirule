@@ -18,9 +18,9 @@
 	--tg-for-tint: rgba(168, 85, 247, 0.08);
 	--tg-for-border: #a855f7;
 
-	--fxr-bg-page: #f8fafc;
-	--fxr-bg-card: #ffffff;
-	--fxr-bg-input: #ffffff;
+	--fxr-bg-page: var(--bg-color, #f8fafc);
+	--fxr-bg-card: var(--modal-bg, var(--panel-bg, #ffffff));
+	--fxr-bg-input: var(--control-bg, #ffffff);
 	--fxr-bg-muted: #f1f5f9;
 	--fxr-bg-hover: #f8fafc;
 	--fxr-bg-active: #eff6ff;
@@ -29,30 +29,36 @@
 	--fxr-bg-input-disabled: #f8fafc;
 
 	/* Surface layers (used for modals, panels, etc.) */
-	--fxr-surface: #ffffff;
-	--fxr-surface-2: #f1f5f9;
-	--fxr-surface-soft: #f8fafc;
-	--fxr-surface-elevated: #ffffff;
+	--fxr-surface: var(--modal-bg, var(--panel-bg, #ffffff));
+	--fxr-surface-2: var(--bg-light-gray, #f3f5f7);
+	--fxr-surface-soft: var(--cb-bg-gray, #f8fafc);
+	--fxr-surface-elevated: var(--modal-bg, var(--panel-bg, #ffffff));
 
-	--fxr-border: #e2e8f0;
-	--fxr-border-subtle: #f1f5f9;
+	--fxr-border: var(--border-color, #d1d8dd);
+	--fxr-border-subtle: var(--border-subtle, #e2e8f0);
 	--fxr-border-focus: var(--fxr-accent);
-	--fxr-border-strong: #cbd5e1;
+	--fxr-border-strong: var(--dark-border-color, #cbd5e1);
 	--fxr-border-danger: #fca5a5;
 
-	--fxr-text: #1e293b;
-	--fxr-text-strong: #111827;
+	--fxr-text: var(--text-color, #1f2937);
+	--fxr-text-strong: var(--fxr-text-strong, var(--text-color, #1f2937));
 	--fxr-text-secondary: #475569;
-	--fxr-text-soft: #64748b;
-	--fxr-text-muted: #94a3b8;
-	--fxr-text-faint: #cbd5e1;
+	--fxr-text-soft: var(--text-muted, #64748b);
+	--fxr-text-muted: var(--text-muted, #64748b);
+	--fxr-text-faint: var(--text-light, #94a3b8);
 	--fxr-text-danger: #ef4444;
 	--fxr-text-link: #2563eb;
 
-	--fxr-accent: #2490ef;
+	--fxr-accent: var(--primary, #2490ef);
 	--fxr-accent-light: rgba(36, 144, 239, 0.08);
-	--fxr-accent-soft: rgba(36, 144, 239, 0.08);
+	--fxr-accent-soft: rgba(36, 144, 239, 0.1);
+	--fxr-accent-strong: var(--primary);
 	--fxr-accent-border: rgba(36, 144, 239, 0.3);
+
+	/* Semantic soft backgrounds */
+	--fxr-success-soft: color-mix(in srgb, var(--green-500, #22c55e) 14%, var(--fxr-surface));
+	--fxr-warning-soft: color-mix(in srgb, var(--orange-500, #f59e0b) 14%, var(--fxr-surface));
+	--fxr-danger-soft: color-mix(in srgb, var(--red-500, #ef4444) 14%, var(--fxr-surface));
 
 	/* Semantic colors for value-type badges & tokens */
 	--fxr-badge-literal: #e2e8f0;
@@ -91,14 +97,14 @@
 	--fxr-weight-bold: 700;
 
 	/* ─── Spacing ─── */
-	--fxr-space-1: 2px;
-	--fxr-space-2: 4px;
-	--fxr-space-3: 6px;
-	--fxr-space-4: 8px;
-	--fxr-space-5: 10px;
-	--fxr-space-6: 12px;
-	--fxr-space-8: 16px;
-	--fxr-space-10: 20px;
+	--fxr-space-1: 4px;
+	--fxr-space-2: 6px;
+	--fxr-space-3: 8px;
+	--fxr-space-4: 12px;
+	--fxr-space-5: 16px;
+	--fxr-space-6: 20px;
+	--fxr-space-8: 24px;
+	--fxr-space-10: 32px;
 
 	/* ─── Control Sizing ─── */
 	--fxr-input-height: 28px;
@@ -108,16 +114,16 @@
 	--fxr-input-font-size: var(--fxr-text-base);
 
 	/* ─── Radii ─── */
-	--fxr-radius-sm: 4px;
-	--fxr-radius-md: 6px;
-	--fxr-radius-lg: 8px;
-	--fxr-radius-xl: 12px;
+	--fxr-radius-sm: 8px;
+	--fxr-radius-md: 12px;
+	--fxr-radius-lg: 16px;
+	--fxr-radius-xl: 20px;
 	--fxr-radius-pill: 999px;
 
 	/* ─── Shadows ─── */
-	--fxr-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-	--fxr-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-	--fxr-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+	--fxr-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+	--fxr-shadow-md: 0 10px 24px rgba(15, 23, 42, 0.08);
+	--fxr-shadow-lg: 0 22px 48px rgba(15, 23, 42, 0.12);
 	--fxr-shadow-focus: 0 0 0 2px rgba(36, 144, 239, 0.1);
 
 	/* ─── Transitions ─── */
@@ -180,6 +186,7 @@ html[data-theme="dark"] {
 	--fxr-accent: var(--primary);
 	--fxr-accent-light: rgba(36, 144, 239, 0.15);
 	--fxr-accent-soft: rgba(36, 144, 239, 0.2);
+	--fxr-accent-strong: var(--primary);
 	--fxr-accent-border: rgba(36, 144, 239, 0.4);
 
 	/* Badges in Dark Mode */

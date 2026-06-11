@@ -1,0 +1,61 @@
+/*
+ * Third-party library overrides for FlexiRule
+ * Maps external component classes to internal design tokens.
+ */
+
+/* Vue Flow Overrides */
+.vue-flow__container {
+	background-color: var(--fxr-bg-page);
+	background-image: radial-gradient(var(--fxr-border-subtle) 1px, transparent 1px);
+	background-size: 15px 15px;
+}
+
+.vue-flow__node {
+	background: var(--fxr-bg-card);
+	border: 1px solid var(--fxr-border);
+	border-radius: var(--fxr-radius-md);
+	color: var(--fxr-text);
+}
+
+.vue-flow__node.selected {
+	border-color: var(--fxr-accent);
+	box-shadow: 0 0 0 2px var(--fxr-accent-soft);
+}
+
+.vue-flow__edge-path {
+	stroke: var(--fxr-border-strong);
+	stroke-width: 2px;
+}
+
+.vue-flow__edge.selected .vue-flow__edge-path {
+	stroke: var(--fxr-accent);
+}
+
+.vue-flow__handle {
+	width: 10px;
+	height: 10px;
+	background-color: var(--fxr-bg-card);
+	border: 2px solid var(--fxr-border-strong);
+}
+
+.vue-flow__handle:hover {
+	border-color: var(--fxr-accent);
+}
+
+/* Dark mode specific Vue Flow tweaks */
+[data-theme="dark"] .vue-flow__edge-path {
+	stroke-opacity: 0.6;
+}
+
+[data-theme="dark"] .vue-flow__background {
+	--vf-grid-color: var(--fxr-border-subtle);
+}
+
+/* Panels */
+.vue-flow__panel {
+	background: var(--fxr-surface-elevated);
+	border: 1px solid var(--fxr-border-subtle);
+	border-radius: var(--fxr-radius-md);
+	box-shadow: var(--fxr-shadow-md);
+	color: var(--fxr-text);
+}

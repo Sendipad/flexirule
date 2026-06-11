@@ -81,6 +81,7 @@ export_python_type_annotations = True
 # include js, css files in header of desk.html
 app_include_css = [
 	"/assets/flexirule/css/design-tokens.css",
+	"/assets/flexirule/css/theme-overrides.css",
 	"/assets/flexirule/css/controls.css",
 	"/assets/flexirule/css/rule_builder.css",
 ]

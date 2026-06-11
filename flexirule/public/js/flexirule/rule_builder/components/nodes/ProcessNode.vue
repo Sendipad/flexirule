@@ -177,10 +177,10 @@ const isTerminal = computed(() => {
 <style scoped>
 .process-node-card {
 	width: 220px;
-	background: #fff;
-	border: 1px solid #d1d8dd;
-	border-radius: 8px;
-	box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+	background-color: var(--fxr-bg-card);
+	border: 1px solid var(--fxr-border);
+	border-radius: var(--fxr-radius-md);
+	box-shadow: var(--fxr-shadow-md);
 	position: relative;
 	overflow: visible;
 	border-left: 4px solid var(--accent-color);
@@ -194,7 +194,7 @@ const isTerminal = computed(() => {
 }
 
 .process-node-card:hover {
-	box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+	box-shadow: var(--fxr-shadow-lg);
 	border-color: var(--accent-color);
 }
 
@@ -205,7 +205,7 @@ const isTerminal = computed(() => {
 }
 
 .process-node-card.is-read-only .node-header {
-	background-color: #f1f5f9;
+	background-color: var(--fxr-bg-muted);
 }
 
 .process-node-card.is-read-only .action-btn:not(.delete) {
@@ -219,16 +219,15 @@ const isTerminal = computed(() => {
 }
 
 .process-node-card.executed {
-	box-shadow: 0 0 0 3px #198754;
-	border-color: #198754;
+	box-shadow: 0 0 0 3px var(--fxr-success-soft);
 }
 
 .execution-badge {
 	position: absolute;
 	top: -8px;
 	left: -8px;
-	background: #198754;
-	color: #fff;
+	background-color: #198754;
+	color: #ffffff;
 	width: 20px;
 	height: 20px;
 	border-radius: 50%;
@@ -238,7 +237,7 @@ const isTerminal = computed(() => {
 	font-size: 10px;
 	font-weight: 700;
 	z-index: 10;
-	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+	box-shadow: var(--fxr-shadow-sm);
 }
 
 /* Header */
@@ -246,7 +245,7 @@ const isTerminal = computed(() => {
 	display: flex;
 	align-items: center;
 	padding: 8px 12px;
-	border-bottom: 1px solid #f0f4f7;
+	border-bottom: 1px solid var(--fxr-border-subtle);
 	gap: 8px;
 }
 
@@ -258,7 +257,7 @@ const isTerminal = computed(() => {
 .type-text {
 	font-size: 10px;
 	font-weight: 700;
-	color: #6c757d;
+	color: var(--fxr-text-soft);
 	letter-spacing: 0.5px;
 	flex: 1;
 }
@@ -273,12 +272,12 @@ const isTerminal = computed(() => {
 	border: none;
 	padding: 2px 4px;
 	cursor: pointer;
-	color: #adb5bd;
+	color: var(--fxr-text-faint);
 	font-size: 11px;
 }
 
 .action-btn.delete:hover {
-	color: #dc3545;
+	color: var(--fxr-text-danger);
 }
 
 /* Body */
@@ -290,7 +289,7 @@ const isTerminal = computed(() => {
 .node-title {
 	font-size: 13px;
 	font-weight: 600;
-	color: #1a1a1a;
+	color: var(--fxr-text-strong);
 	margin-bottom: 4px;
 	line-height: 1.2;
 }
@@ -302,7 +301,7 @@ const isTerminal = computed(() => {
 
 .node-subtitle {
 	font-size: 11px;
-	color: #6c757d;
+	color: var(--fxr-text-soft);
 	font-style: italic;
 	white-space: nowrap;
 	overflow: hidden;
@@ -317,7 +316,7 @@ const isTerminal = computed(() => {
 .node-details {
 	margin-top: 6px;
 	padding-top: 6px;
-	border-top: 1px dashed #e2e8f0;
+	border-top: 1px dashed var(--fxr-border-subtle);
 	display: flex;
 	flex-direction: column;
 	gap: 3px;
@@ -325,7 +324,7 @@ const isTerminal = computed(() => {
 
 .detail-row {
 	font-size: 9.5px;
-	color: #475569;
+	color: var(--fxr-text-secondary);
 	display: flex;
 	align-items: center;
 	gap: 4px;
@@ -340,22 +339,22 @@ const isTerminal = computed(() => {
 }
 
 .detail-row i {
-	color: #94a3b8;
+	color: var(--fxr-text-faint);
 	width: 12px;
 	text-align: center;
 }
 
 .detail-muted {
-	color: #94a3b8;
+	color: var(--fxr-text-faint);
 }
 
 /* Footer */
 .node-footer {
 	padding: 6px 12px;
-	background-color: #f8fcfd;
-	border-bottom-left-radius: 8px;
-	border-bottom-right-radius: 8px;
-	border-top: 1px solid #f0f4f7;
+	background-color: var(--fxr-surface-soft);
+	border-bottom-left-radius: var(--fxr-radius-md);
+	border-bottom-right-radius: var(--fxr-radius-md);
+	border-top: 1px solid var(--fxr-border-subtle);
 }
 
 .config-status {
@@ -364,11 +363,11 @@ const isTerminal = computed(() => {
 	gap: 6px;
 	font-size: 10px;
 	cursor: pointer;
-	color: #adb5bd;
+	color: var(--fxr-text-faint);
 }
 
 .config-status.configured {
-	color: #198754;
+	color: var(--fxr-text-success, #198754);
 }
 
 .config-status:hover {
@@ -380,13 +379,13 @@ const isTerminal = computed(() => {
 .handle-source {
 	width: 10px !important;
 	height: 10px !important;
-	background-color: #fff !important;
+	background-color: var(--fxr-bg-card) !important;
 	border: 2px solid var(--accent-color) !important;
 }
 
 /* RTL Support */
 [dir="rtl"] .process-node-card:not(.is-vertical) {
-	border-left: 1px solid #d1d8dd;
+	border-left: 1px solid var(--fxr-border);
 	border-right: 4px solid var(--accent-color);
 }
 

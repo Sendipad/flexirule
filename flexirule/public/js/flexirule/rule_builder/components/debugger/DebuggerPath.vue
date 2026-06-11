@@ -107,7 +107,7 @@ watch(
 .execution-path-container {
 	position: absolute;
 	display: flex;
-	background: var(--fxr-surface-elevated);
+	background-color: var(--fxr-surface-elevated);
 	padding: var(--fxr-space-2);
 	border-radius: var(--fxr-radius-md);
 	border: 1px solid var(--fxr-border-subtle);
@@ -204,8 +204,8 @@ watch(
 }
 
 .btn-clear:hover {
-	color: var(--red-500);
-	background: var(--fxr-danger-soft);
+	color: var(--fxr-text-danger);
+	background-color: var(--fxr-danger-soft);
 }
 
 .steps-wrapper {

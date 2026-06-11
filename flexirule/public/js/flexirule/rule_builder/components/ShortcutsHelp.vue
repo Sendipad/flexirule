@@ -133,10 +133,10 @@ onBeforeUnmount(() => {
 	z-index: 13000;
 	width: min(420px, calc(100vw - 24px));
 	max-height: min(70vh, 620px);
-	border-radius: var(--fxr-radius-lg, 16px);
-	border: 1px solid var(--fxr-border);
-	background: var(--fxr-surface);
-	box-shadow: var(--fxr-shadow-lg, 0 22px 48px rgba(15, 23, 42, 0.12));
+	border-radius: var(--fxr-radius-lg);
+	border: 1px solid var(--fxr-border-subtle);
+	background-color: var(--fxr-surface-elevated);
+	box-shadow: var(--fxr-shadow-lg);
 	overflow: hidden;
 	display: flex;
 	flex-direction: column;
@@ -149,7 +149,7 @@ onBeforeUnmount(() => {
 	gap: 12px;
 	padding: 14px 16px;
 	border-bottom: 1px solid var(--fxr-border-subtle);
-	background: color-mix(in srgb, var(--fxr-surface) 96%, var(--fxr-surface-2));
+	background: var(--fxr-surface-2);
 }
 
 .shortcuts-help-title {
@@ -175,13 +175,13 @@ onBeforeUnmount(() => {
 	margin: 0;
 	font-size: 14px;
 	font-weight: 700;
-	color: var(--fxr-text-strong, var(--text-color));
+	color: var(--fxr-text-strong);
 }
 
 .shortcuts-help-title p {
 	margin: 2px 0 0;
 	font-size: 11px;
-	color: var(--fxr-text-soft, var(--text-muted));
+	color: var(--fxr-text-soft);
 }
 
 .popover-close {
@@ -190,7 +190,7 @@ onBeforeUnmount(() => {
 	border: none;
 	border-radius: 8px;
 	background: transparent;
-	color: var(--fxr-text-soft, var(--text-muted));
+	color: var(--fxr-text-soft);
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
@@ -198,8 +198,8 @@ onBeforeUnmount(() => {
 }
 
 .popover-close:hover {
-	background: var(--fxr-surface-2, var(--control-bg));
-	color: var(--fxr-text-strong, var(--text-color));
+	background-color: var(--fxr-surface-2);
+	color: var(--fxr-text-strong);
 }
 
 .shortcuts-help-body {
@@ -225,7 +225,7 @@ onBeforeUnmount(() => {
 	font-weight: 800;
 	text-transform: uppercase;
 	letter-spacing: 0.04em;
-	color: var(--fxr-text-soft, var(--text-muted));
+	color: var(--fxr-text-soft);
 }
 
 .shortcut-item {
@@ -235,7 +235,7 @@ onBeforeUnmount(() => {
 	gap: 10px;
 	padding: 7px 8px;
 	border-radius: 10px;
-	background: color-mix(in srgb, var(--fxr-surface) 88%, var(--fxr-surface-2));
+	background-color: var(--fxr-surface-soft);
 }
 
 .shortcut-keys {
@@ -259,7 +259,7 @@ kbd {
 
 .shortcut-desc {
 	font-size: 12px;
-	color: var(--fxr-text-strong, var(--text-color));
+	color: var(--fxr-text-strong);
 }
 
 .shortcuts-popover-enter-active,

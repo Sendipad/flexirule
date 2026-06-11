@@ -124,17 +124,12 @@ function formatData(data) {
 .execution-step-details {
 	display: flex;
 	flex-direction: column;
-	background: var(--fxr-surface-elevated);
+	background-color: var(--fxr-surface-elevated);
 	border: 1px solid var(--fxr-border-strong);
 	box-shadow: var(--fxr-shadow-lg);
 	z-index: 1000;
 	overflow: hidden;
 	backdrop-filter: blur(12px);
-}
-
-[data-theme="dark"] .execution-step-details {
-	background: var(--fxr-bg-card);
-	border-color: rgba(255, 255, 255, 0.1);
 }
 
 .execution-step-details.bottom {
@@ -172,8 +167,8 @@ function formatData(data) {
 }
 
 .step-badge {
-	background: var(--fxr-accent);
-	color: #fff;
+	background-color: var(--fxr-accent);
+	color: #ffffff;
 	font-size: 9px;
 	font-weight: 800;
 	padding: 1px 6px;
@@ -233,20 +228,14 @@ function formatData(data) {
 }
 
 .error-pre {
-	background: var(--fxr-danger-soft);
-	color: var(--red-600);
+	background-color: var(--fxr-danger-soft);
+	color: var(--fxr-text-danger);
 	padding: 8px;
 	border-radius: var(--fxr-radius-sm);
 	font-size: 11px;
 	white-space: pre-wrap;
-	border: 1px solid var(--red-200);
+	border: 1px solid var(--fxr-border-danger);
 	margin: 0;
-}
-
-[data-theme="dark"] .error-pre {
-	background: rgba(220, 38, 38, 0.1);
-	border-color: rgba(220, 38, 38, 0.2);
-	color: #f87171;
 }
 
 .evaluation-box {
@@ -298,18 +287,14 @@ function formatData(data) {
 .payload-pre {
 	margin: 0;
 	font-size: 11px;
-	background: var(--fxr-surface-2);
+	background-color: var(--fxr-bg-muted);
 	padding: 8px;
 	border-radius: var(--fxr-radius-sm);
 	max-height: 200px;
 	overflow: auto;
 	border: 1px solid var(--fxr-border-subtle);
 	color: var(--fxr-text-strong);
-	font-family: var(--font-mono);
-}
-
-[data-theme="dark"] .payload-pre {
-	background: rgba(0, 0, 0, 0.25);
+	font-family: var(--fxr-font-mono);
 }
 
 .context-diff {
@@ -335,21 +320,13 @@ function formatData(data) {
 }
 
 .diff-old {
-	color: var(--red-600);
+	color: var(--fxr-text-danger);
 	text-decoration: line-through;
 	opacity: 0.7;
 }
 
 .diff-new {
-	color: var(--green-600);
+	color: var(--fxr-text-success, #22c55e);
 	font-weight: 600;
-}
-
-[data-theme="dark"] .diff-old {
-	color: #f87171;
-}
-
-[data-theme="dark"] .diff-new {
-	color: #4ade80;
 }
 </style>

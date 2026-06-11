@@ -651,11 +651,10 @@ defineExpose({
 
 .action-popover {
 	position: fixed;
-	background: #fff;
-	background-color: var(--fxr-surface, #ffffff);
-	border: 1px solid var(--border-color, #dfe3e8);
-	border-radius: 8px;
-	box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+	background-color: var(--fxr-surface-elevated);
+	border: 1px solid var(--fxr-border-subtle);
+	border-radius: var(--fxr-radius-md);
+	box-shadow: var(--fxr-shadow-lg);
 	z-index: 2147483647;
 	display: flex;
 	flex-direction: column;
@@ -664,20 +663,20 @@ defineExpose({
 
 .popover-header {
 	padding: 10px 12px;
-	background: #f8f9fa;
-	border-bottom: 1px solid #f0f4f7;
+	background: var(--fxr-surface-2);
+	border-bottom: 1px solid var(--fxr-border-subtle);
 	display: flex;
 	align-items: center;
 	gap: 8px;
 	font-weight: 700;
 	font-size: 11px;
-	color: var(--primary, #3b82f6);
+	color: var(--fxr-accent);
 }
 
 .popover-search {
 	padding: 8px;
 	position: relative;
-	border-bottom: 1px solid #f0f4f7;
+	border-bottom: 1px solid var(--fxr-border-subtle);
 }
 
 .popover-search i {
@@ -685,7 +684,7 @@ defineExpose({
 	left: 16px;
 	top: 50%;
 	transform: translateY(-50%);
-	color: #adb5bd;
+	color: var(--fxr-text-faint);
 	font-size: 10px;
 }
 
@@ -693,8 +692,10 @@ defineExpose({
 	padding-left: 28px !important;
 	height: 32px;
 	font-size: 12px;
-	border-radius: 4px;
-	border: 1px solid var(--border-color, #dfe3e8);
+	border-radius: var(--fxr-radius-sm);
+	border: 1px solid var(--fxr-border);
+	background-color: var(--fxr-bg-input);
+	color: var(--fxr-text);
 }
 
 .popover-body {
@@ -712,13 +713,12 @@ defineExpose({
 .is-header {
 	font-size: 10px;
 	font-weight: 700;
-	color: #94a3b8;
+	color: var(--fxr-text-muted);
 	text-transform: uppercase;
 	letter-spacing: 0.05em;
 	padding: 12px 12px 4px;
 	cursor: default;
-	background: #fff;
-	background-color: var(--fxr-surface, #ffffff);
+	background-color: var(--fxr-surface-elevated);
 	position: sticky;
 	top: 0;
 	z-index: 1;
@@ -733,7 +733,7 @@ defineExpose({
 
 .is-option:hover,
 .is-option.active {
-	background: #f1f5f9;
+	background-color: var(--fxr-bg-hover);
 }
 
 .item-icon {
@@ -753,7 +753,7 @@ defineExpose({
 .item-label {
 	font-size: 12px;
 	font-weight: 500;
-	color: #1e293b;
+	color: var(--fxr-text-strong);
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -761,7 +761,7 @@ defineExpose({
 
 .item-desc {
 	font-size: 10px;
-	color: #64748b;
+	color: var(--fxr-text-soft);
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -775,51 +775,51 @@ defineExpose({
 }
 
 .paste-option {
-	border-bottom: 1px solid #f1f5f9;
-	background: #f8fafc;
+	border-bottom: 1px solid var(--fxr-border-subtle);
+	background-color: var(--fxr-surface-soft);
 }
 
 .paste-option:hover {
-	background: #f1f5f9;
+	background-color: var(--fxr-bg-hover);
 }
 
 /* Node mode styles */
 
 .action-selector-card {
 	width: 260px;
-	background: #fff;
-	border: 2px dashed #d1d8dd;
-	border-radius: 8px;
-	box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+	background-color: var(--fxr-surface-elevated);
+	border: 2px dashed var(--fxr-border);
+	border-radius: var(--fxr-radius-md);
+	box-shadow: var(--fxr-shadow-md);
 	position: relative;
 	transition: all 0.2s ease;
 }
 
 .action-selector-card.selected {
-	border-color: var(--primary);
+	border-color: var(--fxr-accent);
 	border-style: solid;
-	box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.2);
+	box-shadow: 0 0 0 2px var(--fxr-accent-soft);
 }
 
 .node-header {
 	display: flex;
 	align-items: center;
 	padding: 8px 12px;
-	border-bottom: 1px solid #f0f4f7;
+	border-bottom: 1px solid var(--fxr-border-subtle);
 	gap: 8px;
-	background: #f8f9fa;
-	border-radius: 8px 8px 0 0;
+	background: var(--fxr-surface-2);
+	border-radius: var(--fxr-radius-md) var(--fxr-radius-md) 0 0;
 }
 
 .node-header i {
-	color: var(--primary);
+	color: var(--fxr-accent);
 	font-size: 14px;
 }
 
 .header-text {
 	font-size: 11px;
 	font-weight: 700;
-	color: #6c757d;
+	color: var(--fxr-text-soft);
 	flex: 1;
 }
 
@@ -828,11 +828,11 @@ defineExpose({
 	border: none;
 	padding: 2px;
 	cursor: pointer;
-	color: #adb5bd;
+	color: var(--fxr-text-faint);
 }
 
 .delete-btn:hover {
-	color: #dc3545;
+	color: var(--fxr-text-danger);
 }
 
 .node-body {
@@ -845,13 +845,13 @@ defineExpose({
 	max-height: 400px;
 	display: flex;
 	flex-direction: column;
-	border: 1px solid #e2e8f0;
-	border-radius: 6px;
+	border: 1px solid var(--fxr-border-subtle);
+	border-radius: var(--fxr-radius-sm);
 	overflow: hidden;
 }
 
 .search-wrapper :deep(.popover-search) {
-	border-bottom: 1px solid #f0f4f7;
+	border-bottom: 1px solid var(--fxr-border-subtle);
 }
 
 .search-wrapper :deep(.popover-body) {
@@ -877,9 +877,9 @@ defineExpose({
 }
 
 .badge-chip {
-	background: #eef2ff;
-	color: #4338ca;
-	border: 1px solid #c7d2fe;
+	background-color: var(--fxr-accent-soft);
+	color: var(--fxr-accent);
+	border: 1px solid var(--fxr-accent-border);
 	border-radius: 10px;
 	padding: 1px 6px;
 	font-size: 10px;
@@ -889,20 +889,20 @@ defineExpose({
 .selected-operation-text {
 	font-size: 10px;
 	font-weight: 600;
-	color: #1f2937;
+	color: var(--fxr-text-strong);
 }
 
 .selected-process-name {
 	font-size: 10px;
-	color: #6b7280;
+	color: var(--fxr-text-soft);
 }
 
 .node-footer {
 	padding: 6px 12px;
-	background-color: #f8fcfd;
-	border-bottom-left-radius: 8px;
-	border-bottom-right-radius: 8px;
-	border-top: 1px solid #f0f4f7;
+	background-color: var(--fxr-surface-soft);
+	border-bottom-left-radius: var(--fxr-radius-md);
+	border-bottom-right-radius: var(--fxr-radius-md);
+	border-top: 1px solid var(--fxr-border-subtle);
 	text-align: center;
 }
 
@@ -934,8 +934,8 @@ defineExpose({
 	align-items: center;
 	gap: 12px;
 	padding: 8px;
-	background: #f8fafc;
-	border-radius: 6px;
+	background-color: var(--fxr-surface-soft);
+	border-radius: var(--fxr-radius-sm);
 }
 
 .item-type-badge {

@@ -130,13 +130,13 @@ function openConfig() {
 }
 
 .node-body {
-	background: var(--accent-color);
-	color: white;
+	background-color: var(--accent-color);
+	color: #ffffff;
 	display: flex;
 	align-items: center;
 	padding: 8px 16px 8px 10px;
-	border-radius: 4px 40px 40px 4px; /* Reflected D-Shape */
-	box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.06);
+	border-radius: var(--fxr-radius-sm) 40px 40px var(--fxr-radius-sm); /* Reflected D-Shape */
+	box-shadow: var(--fxr-shadow-sm);
 	transition: all 0.2s ease;
 	border: 1px solid rgba(255, 255, 255, 0.2);
 }
@@ -259,7 +259,7 @@ function openConfig() {
 	position: absolute;
 	top: -6px;
 	left: -6px;
-	background: #fff;
+	background-color: var(--fxr-bg-card);
 	color: var(--accent-color);
 	width: 18px;
 	height: 18px;
@@ -270,7 +270,7 @@ function openConfig() {
 	font-size: 9px;
 	font-weight: 700;
 	z-index: 10;
-	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+	box-shadow: var(--fxr-shadow-sm);
 	border: 2px solid var(--accent-color);
 }
 
@@ -315,13 +315,13 @@ function openConfig() {
 
 .permission-flag {
 	font-size: 9px;
-	background: #f8fafc;
-	color: #334155;
-	border: 1px solid #cbd5e1;
+	background-color: var(--fxr-surface-soft);
+	color: var(--fxr-text-secondary);
+	border: 1px solid var(--fxr-border);
 	padding: 3px 8px;
 	border-radius: 12px;
 	white-space: nowrap;
-	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+	box-shadow: var(--fxr-shadow-sm);
 	display: flex;
 	align-items: center;
 	cursor: pointer;
@@ -329,13 +329,13 @@ function openConfig() {
 }
 
 .permission-flag:hover {
-	background: #e2e8f0;
-	border-color: #94a3b8;
+	background-color: var(--fxr-bg-hover);
+	border-color: var(--fxr-border-strong);
 }
 
 .permission-flag i {
 	margin-right: 4px;
-	color: #64748b;
+	color: var(--fxr-text-soft);
 }
 
 /* RTL Support */

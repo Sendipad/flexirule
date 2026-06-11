@@ -126,17 +126,17 @@ function openConfig() {
 <style scoped>
 .condition-node-card {
 	width: 160px;
-	background: #fff;
-	border: 1px solid #f0f4f7;
-	border-radius: 8px;
-	box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+	background-color: var(--fxr-bg-card);
+	border: 1px solid var(--fxr-border-subtle);
+	border-radius: var(--fxr-radius-md);
+	box-shadow: var(--fxr-shadow-md);
 	position: relative;
 	border-top: 4px solid var(--accent-color);
 	transition: all 0.2s ease;
 }
 
 .condition-node-card:hover {
-	box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+	box-shadow: var(--fxr-shadow-lg);
 	border-color: var(--accent-color);
 }
 
@@ -147,32 +147,31 @@ function openConfig() {
 
 .condition-node-card.is-read-only {
 	cursor: default;
-	background-color: #fafbfc;
+	background-color: var(--fxr-bg-input-disabled);
 }
 
 .condition-node-card.is-read-only .node-header {
-	background-color: #f1f5f9;
+	background-color: var(--fxr-bg-muted);
 }
 
 .condition-node-card.executed {
-	box-shadow: 0 0 0 3px #198754;
-	border-color: #198754;
+	box-shadow: 0 0 0 3px var(--fxr-success-soft);
 }
 
 .condition-node-card.outcome-true {
-	background-color: #f6ffed;
+	background-color: var(--fxr-success-soft);
 }
 
 .condition-node-card.outcome-false {
-	background-color: #fff1f0;
+	background-color: var(--fxr-danger-soft);
 }
 
 .execution-badge {
 	position: absolute;
 	top: -8px;
 	left: -8px;
-	background: #198754;
-	color: #fff;
+	background-color: #198754;
+	color: #ffffff;
 	width: 20px;
 	height: 20px;
 	border-radius: 50%;
@@ -182,7 +181,7 @@ function openConfig() {
 	font-size: 10px;
 	font-weight: 700;
 	z-index: 10;
-	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+	box-shadow: var(--fxr-shadow-sm);
 }
 
 /* Header */
@@ -190,7 +189,7 @@ function openConfig() {
 	display: flex;
 	align-items: center;
 	padding: 6px 10px;
-	border-bottom: 1px solid #f0f4f7;
+	border-bottom: 1px solid var(--fxr-border-subtle);
 	gap: 6px;
 }
 
@@ -202,7 +201,7 @@ function openConfig() {
 .type-text {
 	font-size: 9px;
 	font-weight: 800;
-	color: #6c757d;
+	color: var(--fxr-text-soft);
 	letter-spacing: 0.5px;
 	flex: 1;
 }
@@ -212,7 +211,7 @@ function openConfig() {
 	border: none;
 	padding: 0 2px;
 	cursor: pointer;
-	color: #adb5bd;
+	color: var(--fxr-text-faint);
 	font-size: 10px;
 }
 
@@ -233,15 +232,15 @@ function openConfig() {
 .condition-text {
 	font-size: 11px;
 	font-weight: 700;
-	color: #1a1a1a;
+	color: var(--fxr-text-strong);
 	line-height: 1.2;
 }
 
 .compact-summary {
 	font-size: 9px;
-	color: #64748b;
+	color: var(--fxr-text-soft);
 	margin-top: 4px;
-	font-family: monospace;
+	font-family: var(--fxr-font-mono);
 	word-break: break-all;
 	max-width: 100%;
 }
@@ -250,7 +249,7 @@ function openConfig() {
 .handle-target {
 	width: 10px !important;
 	height: 10px !important;
-	background-color: #fff !important;
+	background-color: var(--fxr-bg-card) !important;
 	border: 2px solid var(--accent-color) !important;
 }
 
@@ -280,11 +279,12 @@ function openConfig() {
 	font-size: 8px;
 	font-weight: 800;
 	position: absolute;
-	background: #fff;
+	background-color: var(--fxr-bg-card);
 	border-radius: 999px;
 	padding: 1px 4px;
-	box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+	box-shadow: var(--fxr-shadow-sm);
 	line-height: 1.2;
+	color: var(--fxr-text-strong);
 }
 
 .out-right .port-label {
@@ -320,7 +320,7 @@ function openConfig() {
 	top: auto !important;
 	width: 10px !important;
 	height: 10px !important;
-	background: #fff !important;
+	background-color: var(--fxr-bg-card) !important;
 	border-width: 2px !important;
 	border-style: solid !important;
 }
@@ -329,7 +329,7 @@ function openConfig() {
 	border-color: #198754 !important;
 }
 .handle-false {
-	border-color: #dc3545 !important;
+	border-color: var(--fxr-text-danger) !important;
 }
 /* RTL Support */
 [dir="rtl"] .condition-node-card .out-right .port-label {

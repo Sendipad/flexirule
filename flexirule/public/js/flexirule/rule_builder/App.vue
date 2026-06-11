@@ -759,45 +759,6 @@ function onEdgeClick({ edge, event }) {
 @import "@vue-flow/core/dist/style.css";
 @import "@vue-flow/core/dist/theme-default.css";
 
-.rule-builder-container,
-.fxr-builder-active {
-	--fxr-bg-page: var(--bg-color, #f8fafc);
-	--fxr-bg-card: var(--modal-bg, var(--panel-bg, #ffffff));
-	--fxr-bg-input: var(--control-bg, #ffffff);
-	--fxr-surface: var(--modal-bg, var(--panel-bg, #ffffff));
-	--fxr-surface-2: var(--bg-light-gray, #f3f5f7);
-	--fxr-surface-soft: var(--cb-bg-gray, #f8fafc);
-	--fxr-surface-elevated: var(--modal-bg, var(--panel-bg, #ffffff));
-	--fxr-border: var(--border-color, #d1d8dd);
-	--fxr-border-subtle: var(--border-subtle, #e2e8f0);
-	--fxr-border-strong: var(--dark-border-color, #cbd5e1);
-	--fxr-text: var(--text-color, #1f2937);
-	--fxr-text-strong: var(--fxr-text-strong, var(--text-color, #1f2937));
-	--fxr-text-soft: var(--text-muted, #64748b);
-	--fxr-text-muted: var(--text-muted, #64748b);
-	--fxr-text-faint: var(--text-light, #94a3b8);
-	--fxr-accent: var(--primary, #2490ef);
-	--fxr-accent-soft: rgba(36, 144, 239, 0.1);
-	--fxr-accent-strong: var(--primary);
-	--fxr-success-soft: color-mix(in srgb, var(--green-500, #22c55e) 14%, var(--fxr-surface));
-	--fxr-warning-soft: color-mix(in srgb, var(--orange-500, #f59e0b) 14%, var(--fxr-surface));
-	--fxr-danger-soft: color-mix(in srgb, var(--red-500, #ef4444) 14%, var(--fxr-surface));
-	--fxr-space-1: 4px;
-	--fxr-space-2: 6px;
-	--fxr-space-3: 8px;
-	--fxr-space-4: 12px;
-	--fxr-space-5: 16px;
-	--fxr-space-6: 20px;
-	--fxr-space-8: 24px;
-	--fxr-space-10: 32px;
-	--fxr-radius-sm: 8px;
-	--fxr-radius-md: 12px;
-	--fxr-radius-lg: 16px;
-	--fxr-radius-xl: 20px;
-	--fxr-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
-	--fxr-shadow-md: 0 10px 24px rgba(15, 23, 42, 0.08);
-	--fxr-shadow-lg: 0 22px 48px rgba(15, 23, 42, 0.12);
-}
 
 .rule-builder-container {
 	display: flex;
@@ -851,12 +812,8 @@ function onEdgeClick({ edge, event }) {
 .flexirule-icon {
 	width: 16px;
 	height: 16px;
-	color: var(--fxr-text-strong);
+	color: currentColor;
 	transition: color 0.2s ease;
-}
-
-[data-theme="dark"] .flexirule-icon {
-	color: #ffffff;
 }
 
 .quick-actions-btn:hover .flexirule-icon,
