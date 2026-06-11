@@ -5,13 +5,12 @@
 			<div class="title-wrap">
 				<i class="fa fa-terminal"></i>
 				<span class="title">{{ __("Execution Path") }}</span>
-				<span class="badge badge-secondary ml-2">{{ steps.length }} {{ __("steps") }}</span>
+				<span class="badge-steps">{{ steps.length }}</span>
 			</div>
-			<div class="actions">
-				<button class="btn-clear" @click="clearPath" :title="__('Clear and Close')">
-					<i class="fa fa-times"></i>
-				</button>
-			</div>
+			<div class="divider-vertical"></div>
+			<button class="btn-clear" @click="clearPath" :title="__('Clear and Close')">
+				<i class="fa fa-times"></i>
+			</button>
 		</div>
 
 		<!-- Steps Scroll Area -->
@@ -54,7 +53,7 @@ const props = defineProps({
 
 const uiStore = useUIStore();
 const graphStore = useGraphStore();
-const { setCenter, zoomTo } = useVueFlow();
+const { setCenter } = useVueFlow();
 const stepsWrapper = ref(null);
 
 const steps = computed(() => uiStore.test_execution_steps || []);
@@ -93,7 +92,6 @@ watch(
 	() => {
 		nextTick(() => {
 			if (stepsWrapper.value) {
-				const scrollOptions = { behavior: "smooth" };
 				if (layoutDirection.value === "horizontal") {
 					stepsWrapper.value.scrollLeft = stepsWrapper.value.scrollWidth;
 				} else {
@@ -109,52 +107,59 @@ watch(
 .execution-path-container {
 	position: absolute;
 	display: flex;
-	background: rgba(255, 255, 255, 0.8);
-	backdrop-filter: blur(12px);
+	background: var(--fxr-surface-elevated);
+	padding: var(--fxr-space-2);
+	border-radius: var(--fxr-radius-md);
 	border: 1px solid var(--fxr-border-subtle);
-	box-shadow: var(--fxr-shadow-lg);
+	box-shadow: var(--fxr-shadow-md);
+	backdrop-filter: blur(12px);
 	z-index: 100;
 	transition: all 0.3s ease;
 }
 
-[data-theme="dark"] .execution-path-container {
-	background: rgba(27, 31, 35, 0.8);
-}
-
 /* Horizontal Layout (Canvas Bottom) */
 .execution-path-container.horizontal {
-	left: 10px;
-	right: 10px;
-	bottom: 10px;
-	height: 80px;
-	border-radius: var(--fxr-radius-md);
-	flex-direction: column;
-	padding: 6px 10px;
+	left: 50%;
+	transform: translateX(-50%);
+	bottom: 12px;
+	height: 52px;
+	flex-direction: row;
+	align-items: center;
+	gap: var(--fxr-space-3);
+	max-width: calc(100% - 40px);
+	width: auto;
 }
 
 /* Vertical Layout (Canvas Right) */
 .execution-path-container.vertical {
 	top: 70px;
-	right: 10px;
-	bottom: 10px;
+	right: 12px;
+	bottom: 12px;
 	width: 200px;
-	border-radius: var(--fxr-radius-md);
 	flex-direction: column;
-	padding: 10px 6px;
+	gap: var(--fxr-space-2);
 }
 
 .execution-header {
 	display: flex;
 	align-items: center;
+	gap: var(--fxr-space-2);
+	flex-shrink: 0;
+}
+
+.vertical .execution-header {
 	justify-content: space-between;
+	padding: 2px 4px;
+	border-bottom: 1px solid var(--fxr-border-subtle);
 	margin-bottom: 4px;
-	padding: 0 4px;
+	padding-bottom: 6px;
 }
 
 .title-wrap {
 	display: flex;
 	align-items: center;
 	gap: 6px;
+	white-space: nowrap;
 }
 
 .title-wrap i {
@@ -163,11 +168,26 @@ watch(
 }
 
 .title {
-	font-size: 11px;
+	font-size: 10px;
 	font-weight: 800;
 	text-transform: uppercase;
 	letter-spacing: 0.5px;
 	color: var(--fxr-text-soft);
+}
+
+.badge-steps {
+	background: var(--fxr-surface-2);
+	color: var(--fxr-text-soft);
+	font-size: 9px;
+	font-weight: 700;
+	padding: 1px 5px;
+	border-radius: 4px;
+}
+
+.divider-vertical {
+	width: 1px;
+	height: 16px;
+	background-color: var(--fxr-border-subtle);
 }
 
 .btn-clear {
@@ -175,43 +195,41 @@ watch(
 	border: none;
 	cursor: pointer;
 	color: var(--fxr-text-faint);
-	padding: 2px 6px;
+	padding: 4px;
 	border-radius: 4px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
 	transition: all 0.2s;
 }
 
 .btn-clear:hover {
 	color: var(--red-500);
-	background: var(--red-50);
+	background: var(--fxr-danger-soft);
 }
 
 .steps-wrapper {
 	flex: 1;
 	display: flex;
-	gap: 10px;
-	overflow: auto;
+	gap: 8px;
+	overflow-x: auto;
+	overflow-y: hidden;
 }
 
 .horizontal .steps-wrapper {
 	flex-direction: row;
 	align-items: center;
-	padding-bottom: 4px;
+	scrollbar-width: none; /* Firefox */
+}
+
+.horizontal .steps-wrapper::-webkit-scrollbar {
+	display: none; /* Safari and Chrome */
 }
 
 .vertical .steps-wrapper {
 	flex-direction: column;
-	padding-right: 4px;
-}
-
-/* Scrollbar styling */
-.steps-wrapper::-webkit-scrollbar {
-	width: 4px;
-	height: 4px;
-}
-
-.steps-wrapper::-webkit-scrollbar-thumb {
-	background: var(--fxr-border-strong);
-	border-radius: 4px;
+	overflow-y: auto;
+	overflow-x: hidden;
 }
 
 /* Details Panel Overlay Positioning */
@@ -221,13 +239,15 @@ watch(
 }
 
 .horizontal .details-panel-overlay {
-	bottom: 110px;
-	left: 0;
-	right: 0;
+	bottom: 64px;
+	left: 50%;
+	transform: translateX(-50%);
+	width: 600px;
+	max-width: 90vw;
 }
 
 .vertical .details-panel-overlay {
-	right: 250px;
+	right: 212px;
 	top: 0;
 	bottom: 0;
 }
@@ -242,7 +262,7 @@ watch(
 
 .slide-up-enter-from,
 .slide-up-leave-to {
-	transform: translateY(20px);
+	transform: translate(-50%, 20px);
 	opacity: 0;
 }
 
