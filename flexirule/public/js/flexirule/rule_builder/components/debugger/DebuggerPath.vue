@@ -15,7 +15,7 @@
 
 		<!-- Steps Scroll Area -->
 		<div class="steps-wrapper" ref="stepsWrapper">
-			<ExecutionStepCard
+			<DebuggerStepCard
 				v-for="(step, index) in steps"
 				:key="`${step.node_id}-${index}`"
 				:step="step"
@@ -27,7 +27,7 @@
 		<!-- Details Panel (Slide up or Drawer) -->
 		<transition :name="transitionName">
 			<div v-if="uiStore.test_selected_step_index !== null" class="details-panel-overlay">
-				<ExecutionStepDetails
+				<DebuggerStepDetails
 					:step="selectedStep"
 					:layout="layoutDirection === 'horizontal' ? 'bottom' : 'right'"
 					@close="uiStore.test_selected_step_index = null"
@@ -41,8 +41,8 @@
 import { computed, ref, nextTick, watch } from "vue";
 import { useVueFlow } from "@vue-flow/core";
 import { useUIStore, useGraphStore } from "../../stores";
-import ExecutionStepCard from "./ExecutionStepCard.vue";
-import ExecutionStepDetails from "./ExecutionStepDetails.vue";
+import DebuggerStepCard from "./DebuggerStepCard.vue";
+import DebuggerStepDetails from "./DebuggerStepDetails.vue";
 
 const props = defineProps({
 	layout: {
@@ -219,17 +219,23 @@ watch(
 .horizontal .steps-wrapper {
 	flex-direction: row;
 	align-items: center;
-	scrollbar-width: none; /* Firefox */
-}
-
-.horizontal .steps-wrapper::-webkit-scrollbar {
-	display: none; /* Safari and Chrome */
 }
 
 .vertical .steps-wrapper {
 	flex-direction: column;
 	overflow-y: auto;
 	overflow-x: hidden;
+}
+
+/* Scrollbar styling */
+.steps-wrapper::-webkit-scrollbar {
+	width: 4px;
+	height: 4px;
+}
+
+.steps-wrapper::-webkit-scrollbar-thumb {
+	background: var(--fxr-border-strong);
+	border-radius: 4px;
 }
 
 /* Details Panel Overlay Positioning */
@@ -264,6 +270,18 @@ watch(
 .slide-up-leave-to {
 	transform: translate(-50%, 20px);
 	opacity: 0;
+}
+
+/* For horizontal layout, we need to preserve the -50% X translate during transition */
+.horizontal .slide-up-enter-from,
+.horizontal .slide-up-leave-to {
+	transform: translate(-50%, 20px);
+}
+
+/* For vertical layout, we don't have -50% X translate, so we just use translateY */
+.vertical .slide-up-enter-from,
+.vertical .slide-up-leave-to {
+	transform: translateY(20px);
 }
 
 .slide-left-enter-from,

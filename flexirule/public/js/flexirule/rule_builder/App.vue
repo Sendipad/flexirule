@@ -160,7 +160,7 @@
 						</div>
 					</Panel>
 				</VueFlow>
-				<ExecutionPath
+				<DebuggerPath
 					v-if="uiStore.test_execution_steps?.length"
 					:layout="ruleStore.settings?.layout_direction === 'Top to Bottom' ? 'TB' : 'LR'"
 				/>
@@ -249,7 +249,7 @@ import Sidebar from "./components/Sidebar.vue";
 import RuleConfigModal from "./components/rule_config/RuleConfigModal.vue";
 import ShortcutsHelp from "./components/ShortcutsHelp.vue";
 import AddNodeEdge from "./components/AddNodeEdge.vue";
-import ExecutionPath from "./components/debugger/ExecutionPath.vue";
+import DebuggerPath from "./components/debugger/DebuggerPath.vue";
 
 const edgeTypes = {
 	add: AddNodeEdge,

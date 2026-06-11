@@ -4,6 +4,9 @@
 			<div class="header-left">
 				<span class="step-badge">#{{ step.order }}</span>
 				<h5>{{ step.action }}</h5>
+				<span v-if="step.duration_ms !== null" class="duration-text">
+					({{ step.duration_ms }}ms)
+				</span>
 			</div>
 			<button class="btn-close" @click="$emit('close')">&times;</button>
 		</div>
@@ -129,6 +132,11 @@ function formatData(data) {
 	backdrop-filter: blur(12px);
 }
 
+[data-theme="dark"] .execution-step-details {
+	background: var(--fxr-bg-card);
+	border-color: rgba(255, 255, 255, 0.1);
+}
+
 .execution-step-details.bottom {
 	border-radius: var(--fxr-radius-md);
 	max-height: 400px;
@@ -170,6 +178,12 @@ function formatData(data) {
 	font-weight: 800;
 	padding: 1px 6px;
 	border-radius: 4px;
+}
+
+.duration-text {
+	font-size: 11px;
+	color: var(--fxr-text-soft);
+	font-weight: 500;
 }
 
 .btn-close {
@@ -295,7 +309,7 @@ function formatData(data) {
 }
 
 [data-theme="dark"] .payload-pre {
-	background: rgba(0, 0, 0, 0.2);
+	background: rgba(0, 0, 0, 0.25);
 }
 
 .context-diff {

@@ -7,6 +7,9 @@
 		<div class="step-order">{{ step.order }}</div>
 		<div class="step-content">
 			<div class="step-label" :title="step.action">{{ step.action }}</div>
+			<div v-if="step.duration_ms !== null" class="step-duration">
+				{{ step.duration_ms }}ms
+			</div>
 		</div>
 		<div class="status-indicator">
 			<i :class="statusIcon"></i>
@@ -61,15 +64,28 @@ const statusIcon = computed(() => {
 	height: 32px;
 }
 
+[data-theme="dark"] .execution-step-card {
+	background: rgba(255, 255, 255, 0.05);
+	border-color: rgba(255, 255, 255, 0.1);
+}
+
 .execution-step-card:hover {
 	border-color: var(--fxr-accent);
 	background: var(--fxr-surface-2);
+}
+
+[data-theme="dark"] .execution-step-card:hover {
+	background: rgba(255, 255, 255, 0.1);
 }
 
 .execution-step-card.active {
 	background: var(--fxr-surface-elevated);
 	border-color: var(--fxr-accent);
 	box-shadow: 0 0 0 1px var(--fxr-accent);
+}
+
+[data-theme="dark"] .execution-step-card.active {
+	background: rgba(255, 255, 255, 0.15);
 }
 
 .step-order {
@@ -85,9 +101,17 @@ const statusIcon = computed(() => {
 	border-radius: 4px;
 }
 
+[data-theme="dark"] .step-order {
+	background: rgba(255, 255, 255, 0.1);
+	color: var(--fxr-text-soft);
+}
+
 .step-content {
 	flex: 1;
 	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
 }
 
 .step-label {
@@ -97,6 +121,13 @@ const statusIcon = computed(() => {
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+	line-height: 1.2;
+}
+
+.step-duration {
+	font-size: 9px;
+	color: var(--fxr-text-faint);
+	line-height: 1;
 }
 
 .status-indicator {
@@ -121,7 +152,7 @@ const statusIcon = computed(() => {
 }
 
 [data-theme="dark"] .status-error {
-	background: rgba(220, 38, 38, 0.1);
+	background: rgba(220, 38, 38, 0.15);
 	border-color: rgba(220, 38, 38, 0.4);
 }
 </style>
