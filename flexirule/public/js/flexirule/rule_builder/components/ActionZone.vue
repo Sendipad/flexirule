@@ -233,8 +233,9 @@ function onPasteClick() {
 
 function onCreate(finalPayload = null) {
 	if (props.mode !== "node") return;
-	const nodeIndex = store.nodes.findIndex((n) => n.id === props.id);
-	if (nodeIndex === -1) {
+
+	const node = store.nodes.find((n) => n.id === props.id);
+	if (!node) {
 		console.warn("[ActionZone] Node not found for upgrade:", props.id);
 		return;
 	}
@@ -253,7 +254,6 @@ function onCreate(finalPayload = null) {
 	const action_type = selection.action_type;
 	const label = selection.label;
 	const nodeType = mapActionTypeToNodeType(action_type);
-	const node = store.nodes[nodeIndex];
 
 	console.log("[ActionZone] Upgrading node:", props.id, "to type:", action_type);
 
@@ -272,42 +272,54 @@ function onCreate(finalPayload = null) {
 		if (unique.length === 1) nodeData.process_name = unique[0];
 	}
 
-	// Trigger full reactivity by replacing the node object
-	const updatedNode = {
-		...node,
-		type: nodeType,
-		label: label,
-		data: {
-			...nodeData,
-			action_id: props.id,
-			action_label: label,
-			next_step_if_true: node.data?.next_step_if_true || nodeData.next_step_if_true,
-			next_step_if_false: node.data?.next_step_if_false || nodeData.next_step_if_false,
-			suggested_parent_id: null,
-			suggested_source_handle: null,
-		},
+	const isTerminal = isTerminalAction(action_type);
+
+	// Trigger full reactivity by replacing the node list via map
+	const updatedNodeData = {
+		...nodeData,
+		action_id: props.id,
+		action_label: label,
+		next_step_if_true: isTerminal
+			? null
+			: node.data?.next_step_if_true || nodeData.next_step_if_true,
+		next_step_if_false: isTerminal
+			? null
+			: node.data?.next_step_if_false || nodeData.next_step_if_false,
+		suggested_parent_id: null,
+		suggested_source_handle: null,
 	};
 
-	store.nodes.splice(nodeIndex, 1, updatedNode);
+	store.nodes = store.nodes.map((n) => {
+		if (n.id === props.id) {
+			return {
+				...n,
+				type: nodeType,
+				label: label,
+				data: updatedNodeData,
+			};
+		}
+		return n;
+	});
 
 	if (suggestedParentId) {
 		const edgeId = `e-${suggestedParentId}-${props.id}-${suggestedSourceHandle}`;
 		const hasIncoming = store.edges.some((edge) => edge.target === props.id);
 		if (!hasIncoming) {
-			store.edges.push({
-				id: edgeId,
-				source: suggestedParentId,
-				target: props.id,
-				sourceHandle: suggestedSourceHandle,
-				animated: suggestedParentId === "root",
-			});
+			store.edges = [
+				...store.edges,
+				{
+					id: edgeId,
+					source: suggestedParentId,
+					target: props.id,
+					sourceHandle: suggestedSourceHandle,
+					animated: suggestedParentId === "root",
+				},
+			];
 		}
 	}
 
-	if (isTerminalAction(action_type)) {
+	if (isTerminal) {
 		store.edges = store.edges.filter((edge) => edge.source !== props.id);
-		store.nodes[nodeIndex].data.next_step_if_true = null;
-		store.nodes[nodeIndex].data.next_step_if_false = null;
 	}
 
 	store.select(props.id);
