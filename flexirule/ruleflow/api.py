@@ -324,7 +324,7 @@ def test_rule(
 		# Include info about skipped trigger filters for transparency
 		info_msg = _("Rule '{0}' executed successfully").format(rule.rule_name)
 		if rule.compiled_expression:
-			info_msg += _(" (trigger filters were bypassed for manual test)")
+			info_msg += " " + _("(trigger filters were bypassed for manual test)")
 
 	except Exception as e:
 		# The engine's ``finally`` block always writes the full execution

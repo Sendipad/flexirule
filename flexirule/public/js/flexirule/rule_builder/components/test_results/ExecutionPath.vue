@@ -40,6 +40,7 @@
 
 <script setup>
 import { computed, ref, nextTick, watch } from "vue";
+import { useVueFlow } from "@vue-flow/core";
 import { useUIStore, useGraphStore } from "../../stores";
 import ExecutionStepCard from "./ExecutionStepCard.vue";
 import ExecutionStepDetails from "./ExecutionStepDetails.vue";
@@ -53,6 +54,7 @@ const props = defineProps({
 
 const uiStore = useUIStore();
 const graphStore = useGraphStore();
+const { setCenter, zoomTo } = useVueFlow();
 const stepsWrapper = ref(null);
 
 const steps = computed(() => uiStore.test_execution_steps || []);
@@ -70,11 +72,12 @@ function handleStepClick(index) {
 		const step = steps.value[index];
 		if (step && step.node_id) {
 			const node = graphStore.nodes.find((n) => n.id === step.node_id);
-			if (node) {
+			if (node && node.position) {
 				// Zoom and center on the node
-				const { zoomTo, setCenter } = useVueFlow();
-				// Note: useVueFlow composable needs to be called in setup or passed from parent.
-				// In this component, we can use events or a shared vueflow instance if available.
+				setCenter(node.position.x + 100, node.position.y + 50, {
+					zoom: 1.2,
+					duration: 800,
+				});
 			}
 		}
 	}
