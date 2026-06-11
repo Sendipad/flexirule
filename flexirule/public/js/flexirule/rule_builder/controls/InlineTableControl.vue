@@ -172,7 +172,7 @@ function getSelectValue(options) {
 		</label>
 
 		<div class="table-wrapper">
-			<table class="table table-sm table-bordered">
+			<table class="table-custom">
 				<thead>
 					<tr>
 						<th
@@ -194,7 +194,7 @@ function getSelectValue(options) {
 							<!-- Select with dynamic options -->
 							<select
 								v-if="col.fieldtype === 'Select'"
-								class="form-control form-control-sm"
+								class="input-custom"
 								:data-fxr-fieldname="col.fieldname"
 								:value="row[col.fieldname]"
 								@change="updateCell(idx, col.fieldname, $event.target.value)"
@@ -248,7 +248,7 @@ function getSelectValue(options) {
 							<input
 								v-else-if="['Int', 'Float', 'Percent'].includes(col.fieldtype)"
 								type="number"
-								class="form-control form-control-sm"
+								class="input-custom"
 								:data-fxr-fieldname="col.fieldname"
 								:value="row[col.fieldname]"
 								@input="
@@ -262,7 +262,7 @@ function getSelectValue(options) {
 							<input
 								v-else
 								type="text"
-								class="form-control form-control-sm"
+								class="input-custom"
 								:data-fxr-fieldname="col.fieldname"
 								:value="row[col.fieldname]"
 								@input="updateCell(idx, col.fieldname, $event.target.value)"
@@ -273,15 +273,19 @@ function getSelectValue(options) {
 						<td v-if="!read_only">
 							<button
 								type="button"
-								class="btn btn-xs btn-danger"
+								class="remove-row-btn"
 								@click="removeRow(idx)"
+								title="Remove Row"
 							>
 								×
 							</button>
 						</td>
 					</tr>
 					<tr v-if="!rows.length">
-						<td :colspan="tableFields.length + 1" class="text-muted text-center">
+						<td
+							:colspan="visibleTableFields.length + (read_only ? 0 : 1)"
+							class="empty-state"
+						>
 							{{ __("No rows. Click Add to create one.") }}
 						</td>
 					</tr>
@@ -289,66 +293,96 @@ function getSelectValue(options) {
 			</table>
 		</div>
 
-		<button v-if="!read_only" type="button" class="btn btn-xs btn-default" @click="addRow">
-			+ {{ __("Add Row") }}
+		<button v-if="!read_only" type="button" class="add-row-btn" @click="addRow">
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				width="14"
+				height="14"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2.5"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+			>
+				<line x1="12" y1="5" x2="12" y2="19"></line>
+				<line x1="5" y1="12" x2="19" y2="12"></line>
+			</svg>
+			{{ __("Add Row") }}
 		</button>
 
-		<small v-if="df.description" class="form-text text-muted">{{ df.description }}</small>
+		<p v-if="df.description" class="control-description">{{ df.description }}</p>
 	</div>
 </template>
 
 <style scoped>
 .inline-table-control {
-	margin-bottom: 15px;
+	margin-bottom: 20px;
 	width: 100%;
 }
 .control-label {
-	font-size: 12px;
-	font-weight: 500;
-	margin-bottom: 5px;
+	font-size: var(--fxr-text-sm);
+	font-weight: var(--fxr-weight-semibold);
+	margin-bottom: 8px;
 	display: block;
-	color: var(--fxr-text-strong, var(--text-color));
+	color: var(--fxr-text-strong);
 }
 .table-wrapper {
-	margin-bottom: 8px;
+	margin-bottom: 12px;
 	overflow-x: auto;
-	overflow-y: hidden;
 	width: 100%;
-	border: 1px solid var(--fxr-border-subtle, var(--border-color));
-	border-radius: 14px;
-	background: var(--fxr-surface, var(--fg-color));
-	box-shadow: var(--fxr-shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.04));
+	border: 1px solid var(--fxr-border-subtle);
+	border-radius: var(--fxr-radius-md);
+	background: var(--fxr-bg-card);
+	box-shadow: var(--fxr-shadow-sm);
 }
-.table {
-	margin-bottom: 0;
-	min-width: 100%;
-	table-layout: fixed;
+.table-custom {
+	width: 100%;
 	border-collapse: separate;
 	border-spacing: 0;
+	table-layout: fixed;
 }
-.table th {
+.table-custom th {
 	font-size: 11px;
-	font-weight: 700;
+	font-weight: var(--fxr-weight-bold);
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
 	white-space: nowrap;
-	background: var(--fxr-surface-2, var(--control-bg));
-	color: var(--fxr-text-soft, var(--text-muted));
-	border-bottom: 1px solid var(--fxr-border-subtle, var(--border-color));
-	padding: 10px 10px;
-	position: sticky;
-	top: 0;
-	z-index: 1;
+	background: var(--fxr-surface-2);
+	color: var(--fxr-text-soft);
+	border-bottom: 1px solid var(--fxr-border-subtle);
+	padding: 10px 12px;
+	text-align: left;
 }
-.table td {
-	padding: 8px 10px;
+.table-custom td {
+	padding: 8px 12px;
 	vertical-align: middle;
-	border-top: 1px solid var(--fxr-border-subtle, var(--border-color));
+	border-bottom: 1px solid var(--fxr-border-subtle);
+	background: var(--fxr-bg-card);
 }
-.table input,
-.table select {
-	font-size: 12px;
-	min-width: 0;
+.table-custom tr:last-child td {
+	border-bottom: none;
+}
+.input-custom {
+	font-size: var(--fxr-text-sm);
 	width: 100%;
-	border-radius: 8px;
+	height: var(--fxr-input-height);
+	padding: 0 8px;
+	border-radius: var(--fxr-radius-sm);
+	border: 1px solid var(--fxr-border);
+	background: var(--fxr-bg-input);
+	color: var(--fxr-text);
+	transition: var(--fxr-transition-fast);
+}
+.input-custom:focus {
+	outline: none;
+	border-color: var(--fxr-accent);
+	box-shadow: var(--fxr-shadow-focus);
+}
+.input-custom:disabled {
+	background: var(--fxr-bg-input-disabled);
+	cursor: not-allowed;
+	opacity: 0.7;
 }
 .table-cell-control :deep(.field-picker-control) {
 	margin-bottom: 0;
@@ -356,37 +390,64 @@ function getSelectValue(options) {
 .table-cell-control :deep(.control-label) {
 	display: none;
 }
-.table tr:first-child td {
-	border-top: none;
+.table-custom tbody tr:hover td {
+	background: var(--fxr-bg-hover);
 }
-.table tbody tr:hover td {
-	background: color-mix(in srgb, var(--fxr-surface-2, var(--control-bg)) 65%, var(--fxr-surface));
+.remove-row-btn {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	border-radius: 50%;
+	border: none;
+	background: transparent;
+	color: var(--fxr-text-soft);
+	transition: var(--fxr-transition-fast);
+	cursor: pointer;
 }
-.inline-table-control .btn {
-	border-radius: 8px;
+.remove-row-btn:hover {
+	background: var(--fxr-bg-danger);
+	color: var(--fxr-text-danger);
 }
-
-.table tbody tr td:first-child,
-.table thead tr th:first-child {
-	padding-left: 12px;
+.empty-state {
+	text-align: center;
+	padding: 32px !important;
+	color: var(--fxr-text-soft);
+	font-style: italic;
+	font-size: var(--fxr-text-sm);
 }
-
-.table tbody tr td:last-child,
-.table thead tr th:last-child {
-	padding-right: 12px;
+.add-row-btn {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 6px 12px;
+	font-size: var(--fxr-text-sm);
+	font-weight: var(--fxr-weight-medium);
+	color: var(--fxr-text-strong);
+	background: var(--fxr-bg-card);
+	border: 1px solid var(--fxr-border);
+	border-radius: var(--fxr-radius-md);
+	cursor: pointer;
+	transition: var(--fxr-transition-fast);
+	box-shadow: var(--fxr-shadow-sm);
+}
+.add-row-btn:hover {
+	background: var(--fxr-bg-hover);
+	border-color: var(--fxr-border-strong);
+}
+.control-description {
+	margin-top: 8px;
+	font-size: var(--fxr-text-xs);
+	color: var(--fxr-text-soft);
 }
 
 @media (max-width: 768px) {
-	.table-wrapper {
-		overflow-x: auto;
-	}
-
-	.table {
+	.table-custom {
 		min-width: 760px;
 	}
-
 	.inline-table-control {
-		margin-bottom: 12px;
+		margin-bottom: 16px;
 	}
 }
 </style>

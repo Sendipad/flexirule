@@ -37,9 +37,9 @@
 	--fxr-border: var(--border-color, #d1d8dd);
 	--fxr-border-subtle: var(--border-subtle, #e2e8f0);
 	--fxr-border-focus: var(--fxr-accent);
-	--fxr-border-strong: var(--dark-border-color, #cbd5e1);
+	--fxr-border-strong: var(--dark-border-color, #94a3b8);
 	--fxr-border-danger: #fca5a5;
-	--fxr-edge-stroke: #cbd5e1;
+	--fxr-edge-stroke: #94a3b8;
 
 	--fxr-text: var(--text-color, #1f2937);
 	--fxr-text-strong: var(--fxr-text-strong, var(--text-color, #1f2937));
@@ -171,9 +171,9 @@ html[data-theme="dark"] {
 	--fxr-border: var(--border-color, #2a2a2a);
 	--fxr-border-subtle: var(--border-subtle, #333333);
 	--fxr-border-focus: var(--primary, #3b82f6);
-	--fxr-border-strong: #64748b; /* Lighter for better visibility of edges/handles */
+	--fxr-border-strong: #94a3b8; /* Balanced for better visibility of edges/handles */
 	--fxr-border-danger: var(--red-400, #f87171);
-	--fxr-edge-stroke: #94a3b8; /* Brighter for visibility in dark mode */
+	--fxr-edge-stroke: #cbd5e1; /* Even brighter for visibility in dark mode */
 
 	--fxr-text: var(--text-color, #f3f4f6);
 	--fxr-text-strong: #ffffff;

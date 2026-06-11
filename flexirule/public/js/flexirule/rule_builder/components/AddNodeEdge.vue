@@ -131,7 +131,7 @@ function onPaste() {
 			strokeWidth: isReturnEdge ? 1.5 : 2,
 			stroke: 'var(--fxr-edge-stroke)',
 			strokeDasharray: isReturnEdge ? '5,5' : 'none',
-			opacity: isReturnEdge ? 0.7 : 1,
+			opacity: isReturnEdge ? 0.8 : 1,
 		}"
 		:path="path[0]"
 		:marker-end="markerEnd"
