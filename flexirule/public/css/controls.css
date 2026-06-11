@@ -73,7 +73,9 @@ html[data-theme="dark"] .fxr-control .fxr-label {
 	border: 1px solid var(--fxr-border);
 	border-radius: var(--fxr-radius-md);
 	outline: none;
-	transition: border-color var(--fxr-transition-fast), box-shadow var(--fxr-transition-fast);
+	transition:
+		border-color var(--fxr-transition-fast),
+		box-shadow var(--fxr-transition-fast);
 }
 
 /* Premium Focus Glow on whole Input Group */
@@ -130,7 +132,9 @@ html[data-theme="dark"] .fxr-control .fxr-label {
 	border-radius: var(--fxr-radius-md);
 	outline: none;
 	width: 100%;
-	transition: border-color var(--fxr-transition-fast), box-shadow var(--fxr-transition-fast);
+	transition:
+		border-color var(--fxr-transition-fast),
+		box-shadow var(--fxr-transition-fast);
 	line-height: 1;
 }
 
@@ -176,7 +180,9 @@ html[data-theme="dark"] .fxr-input::placeholder {
 	background-repeat: no-repeat;
 	background-position: right 6px center;
 	background-size: 12px;
-	transition: border-color var(--fxr-transition-fast), box-shadow var(--fxr-transition-fast);
+	transition:
+		border-color var(--fxr-transition-fast),
+		box-shadow var(--fxr-transition-fast);
 }
 
 .fxr-select:hover:not(:disabled) {
@@ -560,7 +566,9 @@ html[data-theme="dark"] .fxr-input::placeholder {
 	font-size: var(--fxr-input-font-size) !important;
 	border-radius: var(--fxr-radius-md) !important;
 	border: 1px solid var(--fxr-border) !important;
-	transition: border-color var(--fxr-transition-fast), box-shadow var(--fxr-transition-fast) !important;
+	transition:
+		border-color var(--fxr-transition-fast),
+		box-shadow var(--fxr-transition-fast) !important;
 }
 
 .fxr-control :deep(.form-control:focus) {

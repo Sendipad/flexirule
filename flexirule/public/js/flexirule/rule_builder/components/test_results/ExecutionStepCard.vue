@@ -58,17 +58,22 @@ const durationTooltip = computed(() => {
 .execution-step-card {
 	display: flex;
 	align-items: center;
-	padding: 8px 12px;
-	gap: 10px;
+	padding: 4px 8px;
+	gap: 6px;
 	background: var(--fxr-surface-soft);
 	border: 1px solid var(--fxr-border-subtle);
 	border-radius: var(--fxr-radius-md);
 	cursor: pointer;
 	transition: all 0.2s ease;
-	min-width: 160px;
-	max-width: 220px;
+	min-width: 140px;
+	max-width: 180px;
 	flex-shrink: 0;
 	backdrop-filter: blur(8px);
+}
+
+[data-theme="dark"] .execution-step-card {
+	background: rgba(45, 55, 72, 0.4);
+	border-color: rgba(255, 255, 255, 0.1);
 }
 
 .execution-step-card:hover {
@@ -84,12 +89,12 @@ const durationTooltip = computed(() => {
 }
 
 .step-order {
-	font-size: 10px;
+	font-size: 9px;
 	font-weight: 700;
 	color: var(--fxr-text-faint);
 	background: var(--fxr-surface-2);
-	width: 22px;
-	height: 22px;
+	width: 18px;
+	height: 18px;
 	display: flex;
 	align-items: center;
 	justify-content: center;

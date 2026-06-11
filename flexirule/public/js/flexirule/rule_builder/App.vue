@@ -2,7 +2,20 @@
 	<div class="rule-builder-container" :class="{ 'is-read-only': isReadOnly, 'is-rtl': isRTL }">
 		<!-- Main Canvas + Sidebar -->
 		<div class="builder-main">
-			<div class="canvas-container" ref="flowWrapper" @dragover="onDragOver" @drop="onDrop">
+			<div
+				class="canvas-container"
+				:class="{
+					'has-execution-bottom':
+						uiStore.test_execution_steps?.length &&
+						ruleStore.settings?.layout_direction !== 'Top to Bottom',
+					'has-execution-right':
+						uiStore.test_execution_steps?.length &&
+						ruleStore.settings?.layout_direction === 'Top to Bottom',
+				}"
+				ref="flowWrapper"
+				@dragover="onDragOver"
+				@drop="onDrop"
+			>
 				<VueFlow
 					:dir="isRTL ? 'rtl' : 'ltr'"
 					:edges-editable="false"
@@ -983,6 +996,15 @@ function onEdgeClick({ edge, event }) {
 	background-color: color-mix(in srgb, var(--fxr-bg-page) 88%, var(--fxr-surface));
 	position: relative;
 	order: 1;
+	transition: all 0.3s ease;
+}
+
+.canvas-container.has-execution-bottom {
+	padding-bottom: 90px;
+}
+
+.canvas-container.has-execution-right {
+	padding-right: 210px;
 }
 
 .canvas-container :deep(.vue-flow__pane) {

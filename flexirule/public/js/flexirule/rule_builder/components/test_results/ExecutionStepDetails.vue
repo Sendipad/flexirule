@@ -95,11 +95,10 @@ defineEmits(["close"]);
 const showPayload = ref(false);
 
 const hasEvaluation = computed(() => {
-	return (
-		props.step.type === "Condition" ||
-		props.step.type === "Switch" ||
-		props.step.result !== undefined
-	);
+	const isEvalType = props.step.type === "Condition" || props.step.type === "Switch";
+	const hasExpression = props.step.input?.expression || props.step.input?.condition_json;
+	const hasResult = props.step.result !== undefined;
+	return isEvalType && (hasExpression || hasResult);
 });
 
 const hasChanges = computed(() => {
@@ -129,23 +128,28 @@ function formatData(data) {
 	overflow: hidden;
 }
 
+[data-theme="dark"] .execution-step-details {
+	background: var(--fxr-bg-card);
+	border-color: rgba(255, 255, 255, 0.1);
+}
+
 .execution-step-details.bottom {
 	border-radius: var(--fxr-radius-lg) var(--fxr-radius-lg) 0 0;
-	max-height: 60vh;
+	max-height: 50vh;
 	width: 100%;
 }
 
 .execution-step-details.right {
 	border-radius: var(--fxr-radius-lg) 0 0 var(--fxr-radius-lg);
 	height: 100%;
-	width: 400px;
+	width: 320px;
 }
 
 .details-header {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 12px 16px;
+	padding: 8px 12px;
 	border-bottom: 1px solid var(--fxr-border-subtle);
 	background: var(--fxr-surface-2);
 }
@@ -183,16 +187,16 @@ function formatData(data) {
 .details-content {
 	flex: 1;
 	overflow-y: auto;
-	padding: 16px;
+	padding: 12px;
 	display: flex;
 	flex-direction: column;
-	gap: 20px;
+	gap: 12px;
 }
 
 .detail-section {
 	display: flex;
 	flex-direction: column;
-	gap: 8px;
+	gap: 6px;
 }
 
 .section-title {

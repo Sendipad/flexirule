@@ -558,10 +558,21 @@ class RuleEngine:
 				# Shared post-processing (output mapping, return validation, mutation)
 				self._post_process_action_result(current, result, context)
 
+				# Record duration
+				step_duration = (time.time() - step_start_time) * 1000
+				self.path_trace[-1]["duration_ms"] = round(step_duration, 2)
+
 				# Move to next node
 				current = self._get_action_by_id(next_id) if next_id else None
 
 			except Exception as e:
+				# Record duration even on error
+				step_duration = (time.time() - step_start_time) * 1000
+				try:
+					self.path_trace[-1]["duration_ms"] = round(step_duration, 2)
+				except Exception:
+					pass
+
 				try:
 					self.path_trace[-1]["status"] = "error"
 					self.path_trace[-1]["error"] = str(e)

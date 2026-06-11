@@ -40,7 +40,7 @@
 
 <script setup>
 import { computed, ref, nextTick, watch } from "vue";
-import { useUIStore } from "../../stores";
+import { useUIStore, useGraphStore } from "../../stores";
 import ExecutionStepCard from "./ExecutionStepCard.vue";
 import ExecutionStepDetails from "./ExecutionStepDetails.vue";
 
@@ -52,6 +52,7 @@ const props = defineProps({
 });
 
 const uiStore = useUIStore();
+const graphStore = useGraphStore();
 const stepsWrapper = ref(null);
 
 const steps = computed(() => uiStore.test_execution_steps || []);
@@ -66,6 +67,16 @@ function handleStepClick(index) {
 		uiStore.test_selected_step_index = null;
 	} else {
 		uiStore.test_selected_step_index = index;
+		const step = steps.value[index];
+		if (step && step.node_id) {
+			const node = graphStore.nodes.find((n) => n.id === step.node_id);
+			if (node) {
+				// Zoom and center on the node
+				const { zoomTo, setCenter } = useVueFlow();
+				// Note: useVueFlow composable needs to be called in setup or passed from parent.
+				// In this component, we can use events or a shared vueflow instance if available.
+			}
+		}
 	}
 }
 
@@ -109,31 +120,31 @@ watch(
 
 /* Horizontal Layout (Canvas Bottom) */
 .execution-path-container.horizontal {
-	left: 20px;
-	right: 20px;
-	bottom: 20px;
-	height: 100px;
-	border-radius: var(--fxr-radius-lg);
+	left: 10px;
+	right: 10px;
+	bottom: 10px;
+	height: 80px;
+	border-radius: var(--fxr-radius-md);
 	flex-direction: column;
-	padding: 8px 12px;
+	padding: 6px 10px;
 }
 
 /* Vertical Layout (Canvas Right) */
 .execution-path-container.vertical {
-	top: 80px;
-	right: 20px;
-	bottom: 20px;
-	width: 240px;
-	border-radius: var(--fxr-radius-lg);
+	top: 70px;
+	right: 10px;
+	bottom: 10px;
+	width: 200px;
+	border-radius: var(--fxr-radius-md);
 	flex-direction: column;
-	padding: 12px 8px;
+	padding: 10px 6px;
 }
 
 .execution-header {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	margin-bottom: 8px;
+	margin-bottom: 4px;
 	padding: 0 4px;
 }
 
