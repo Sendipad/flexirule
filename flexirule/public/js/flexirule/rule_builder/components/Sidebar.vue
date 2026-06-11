@@ -1,34 +1,11 @@
 <template>
 	<div class="rule-sidebar">
 		<div class="sidebar-header">
-			<div class="header-nav" v-if="uiStore.test_execution_steps?.length">
-				<button
-					class="nav-tab"
-					:class="{ active: !uiStore.show_test_sidebar }"
-					@click="uiStore.show_test_sidebar = false"
-				>
-					{{ __("Properties") }}
-				</button>
-				<button
-					class="nav-tab"
-					:class="{ active: uiStore.show_test_sidebar }"
-					@click="uiStore.show_test_sidebar = true"
-				>
-					{{ __("Test Results") }}
-				</button>
-			</div>
-			<h4 v-else>{{ sidebar_title }}</h4>
+			<h4>{{ sidebar_title }}</h4>
 			<button class="btn-close" @click="$emit('close')">×</button>
 		</div>
 
-		<div
-			class="sidebar-content"
-			v-if="uiStore.show_test_sidebar && uiStore.test_execution_steps?.length"
-		>
-			<TestResultsView />
-		</div>
-
-		<div class="sidebar-content" v-else-if="selectedNode">
+		<div class="sidebar-content" v-if="selectedNode">
 			<!-- Validation Errors -->
 			<div v-if="store.validation_errors?.length" class="sidebar-errors mb-3">
 				<div
@@ -117,7 +94,6 @@ import { computed, onMounted } from "vue";
 import { useRuleStore, useGraphStore, useUIStore } from "../stores";
 import ActionFieldProperties from "./ActionFieldProperties.vue";
 import StartNodeProperties from "./StartNodeProperties.vue";
-import TestResultsView from "./test_results/TestResultsView.vue";
 import { getContract } from "../../core/contracts";
 import { mapActionTypeToNodeType } from "../composables/useActionTypeMapper";
 

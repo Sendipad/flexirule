@@ -4,13 +4,9 @@
 		:class="[`status-${step.status}`, { active: isActive }]"
 		@click="$emit('click')"
 	>
-		<div class="step-order">#{{ step.order }}</div>
+		<div class="step-order">{{ step.order }}</div>
 		<div class="step-content">
 			<div class="step-label" :title="step.action">{{ step.action }}</div>
-			<div v-if="step.duration_ms !== null" class="step-duration" :title="durationTooltip">
-				{{ step.duration_ms }}ms
-				<i class="fa fa-info-circle duration-info-icon"></i>
-			</div>
 		</div>
 		<div class="status-indicator">
 			<i :class="statusIcon"></i>
@@ -46,12 +42,6 @@ const statusIcon = computed(() => {
 			return "fa fa-info-circle";
 	}
 });
-
-const durationTooltip = computed(() => {
-	return __(
-		"Execution durations are estimated for lab/UI profiling and may not be 100% accurate. Many micro-actions execute near 0ms natively."
-	);
-});
 </script>
 
 <style scoped>
@@ -62,30 +52,24 @@ const durationTooltip = computed(() => {
 	gap: 6px;
 	background: var(--fxr-surface-soft);
 	border: 1px solid var(--fxr-border-subtle);
-	border-radius: var(--fxr-radius-md);
+	border-radius: var(--fxr-radius-sm);
 	cursor: pointer;
 	transition: all 0.2s ease;
-	min-width: 140px;
-	max-width: 180px;
+	min-width: 110px;
+	max-width: 160px;
 	flex-shrink: 0;
-	backdrop-filter: blur(8px);
-}
-
-[data-theme="dark"] .execution-step-card {
-	background: rgba(45, 55, 72, 0.4);
-	border-color: rgba(255, 255, 255, 0.1);
+	height: 32px;
 }
 
 .execution-step-card:hover {
-	transform: translateY(-2px);
 	border-color: var(--fxr-accent);
-	box-shadow: var(--fxr-shadow-md);
+	background: var(--fxr-surface-2);
 }
 
 .execution-step-card.active {
 	background: var(--fxr-surface-elevated);
 	border-color: var(--fxr-accent);
-	box-shadow: 0 0 0 2px var(--fxr-accent-soft);
+	box-shadow: 0 0 0 1px var(--fxr-accent);
 }
 
 .step-order {
@@ -93,12 +77,12 @@ const durationTooltip = computed(() => {
 	font-weight: 700;
 	color: var(--fxr-text-faint);
 	background: var(--fxr-surface-2);
-	width: 18px;
-	height: 18px;
+	width: 16px;
+	height: 16px;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	border-radius: 50%;
+	border-radius: 4px;
 }
 
 .step-content {
@@ -107,7 +91,7 @@ const durationTooltip = computed(() => {
 }
 
 .step-label {
-	font-size: 12px;
+	font-size: 11px;
 	font-weight: 600;
 	color: var(--fxr-text-strong);
 	white-space: nowrap;
@@ -115,19 +99,10 @@ const durationTooltip = computed(() => {
 	text-overflow: ellipsis;
 }
 
-.step-duration {
-	font-size: 10px;
-	color: var(--fxr-text-soft);
-}
-
-.duration-info-icon {
-	font-size: 8px;
-	vertical-align: super;
-	opacity: 0.6;
-}
-
 .status-indicator {
-	font-size: 14px;
+	font-size: 12px;
+	display: flex;
+	align-items: center;
 }
 
 .status-success .status-indicator {

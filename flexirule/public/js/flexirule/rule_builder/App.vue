@@ -249,7 +249,7 @@ import Sidebar from "./components/Sidebar.vue";
 import RuleConfigModal from "./components/rule_config/RuleConfigModal.vue";
 import ShortcutsHelp from "./components/ShortcutsHelp.vue";
 import AddNodeEdge from "./components/AddNodeEdge.vue";
-import ExecutionPath from "./components/test_results/ExecutionPath.vue";
+import ExecutionPath from "./components/debugger/ExecutionPath.vue";
 
 const edgeTypes = {
 	add: AddNodeEdge,
