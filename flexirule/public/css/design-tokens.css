@@ -39,7 +39,7 @@
 	--fxr-border-focus: var(--fxr-accent);
 	--fxr-border-strong: var(--dark-border-color, #94a3b8);
 	--fxr-border-danger: #fca5a5;
-	--fxr-edge-stroke: #4b5563; /* High contrast for light mode */
+	--fxr-edge-stroke: #334155; /* Solid high-contrast neutral for light mode (Slate 700) */
 
 	--fxr-text: var(--text-color, #1f2937);
 	--fxr-text-strong: var(--fxr-text-strong, var(--text-color, #1f2937));
@@ -173,7 +173,7 @@ html[data-theme="dark"] {
 	--fxr-border-focus: var(--primary, #3b82f6);
 	--fxr-border-strong: #94a3b8; /* Balanced for better visibility of edges/handles */
 	--fxr-border-danger: var(--red-400, #f87171);
-	--fxr-edge-stroke: #9ca3af; /* Crisp neutral for dark mode grid */
+	--fxr-edge-stroke: #cbd5e1; /* Clear high-contrast neutral for dark mode (Slate 300) */
 
 	--fxr-text: var(--text-color, #f3f4f6);
 	--fxr-text-strong: #ffffff;

@@ -128,7 +128,8 @@ function onPaste() {
 		:id="id"
 		:style="{
 			...style,
-			strokeWidth: isReturnEdge ? 2 : undefined,
+			stroke: 'var(--fxr-edge-stroke)',
+			strokeWidth: isReturnEdge ? 2 : 2.5,
 			strokeDasharray: isReturnEdge ? '6,6' : 'none',
 			opacity: isReturnEdge ? 0.8 : 1,
 		}"
