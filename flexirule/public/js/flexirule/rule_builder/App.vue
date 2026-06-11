@@ -146,30 +146,11 @@
 							</button>
 						</div>
 					</Panel>
-					<Panel
-						v-if="uiStore.test_execution_steps?.length"
-						:position="PanelPosition.TopRight"
-						class="execution-panel"
-					>
-						<div class="execution-panel-header">
-							<strong>{{ __("Test Execution") }}</strong>
-							<span class="execution-final-status">{{
-								uiStore.test_final_status || __("Unknown")
-							}}</span>
-						</div>
-						<div class="execution-panel-steps">
-							<div
-								v-for="step in uiStore.test_execution_steps"
-								:key="`${step.node_id}-${step.order}`"
-								class="execution-step"
-								:class="`status-${step.status}`"
-							>
-								<span>#{{ step.order }}</span>
-								<span class="step-label">{{ step.action }}</span>
-							</div>
-						</div>
-					</Panel>
 				</VueFlow>
+				<ExecutionPath
+					v-if="uiStore.test_execution_steps?.length"
+					:layout="ruleStore.settings?.layout_direction === 'Top to Bottom' ? 'TB' : 'LR'"
+				/>
 			</div>
 			<div
 				class="sidebar-container"
@@ -255,6 +236,7 @@ import Sidebar from "./components/Sidebar.vue";
 import RuleConfigModal from "./components/rule_config/RuleConfigModal.vue";
 import ShortcutsHelp from "./components/ShortcutsHelp.vue";
 import AddNodeEdge from "./components/AddNodeEdge.vue";
+import ExecutionPath from "./components/test_results/ExecutionPath.vue";
 
 const edgeTypes = {
 	add: AddNodeEdge,
@@ -354,7 +336,6 @@ watch(
 );
 
 const showSidebar = computed(() => {
-	if (uiStore.show_test_sidebar && uiStore.test_execution_steps?.length) return true;
 	if (ruleStore.settings?.action_config_mode === "Dialog") return false;
 	return uiStore.show_sidebar && uiStore.selected_id !== null;
 });
@@ -1010,10 +991,6 @@ function onEdgeClick({ edge, event }) {
 
 .canvas-container :deep(.vue-flow__pane:active) {
 	cursor: grabbing;
-}
-
-:deep(.status-error) {
-	box-shadow: 0 0 0 3px var(--red-500, #dc2626) !important;
 }
 
 :deep(.status-error .execution-badge) {

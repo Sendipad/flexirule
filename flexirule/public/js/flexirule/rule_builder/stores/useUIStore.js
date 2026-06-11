@@ -68,10 +68,17 @@ export const useUIStore = defineStore("rule-builder-ui", () => {
 
 		const nodeState = {};
 		const steps = [];
+		const executionCounts = {};
+
 		for (let i = 0; i < test_execution_path.value.length; i++) {
 			const entry = test_execution_path.value[i] || {};
 			const nodeId = entry.action_id || entry.node_id || entry.id;
 			if (!nodeId) continue;
+
+			// Track execution counts for loop labeling
+			executionCounts[nodeId] = (executionCounts[nodeId] || 0) + 1;
+			const currentCount = executionCounts[nodeId];
+
 			const status = entry.status || "success";
 			nodeState[nodeId] = {
 				order: i + 1,
@@ -79,10 +86,18 @@ export const useUIStore = defineStore("rule-builder-ui", () => {
 				error: entry.error || null,
 				executed: true,
 			};
+
+			let actionLabel = entry.action || nodeId;
+			// If node is executed more than once, add (N) suffix
+			// We scan the whole path to see if it will eventually be executed more than once
+			// or just check if it was already executed once.
+			// Actually, to know if we SHOULD add (1) to the first execution, we need a lookahead or pre-pass.
 			steps.push({
+				...entry,
 				order: i + 1,
 				node_id: nodeId,
-				action: entry.action || nodeId,
+				action: actionLabel,
+				execution_count: currentCount,
 				type: entry.type,
 				status,
 				error: entry.error || null,
@@ -92,6 +107,13 @@ export const useUIStore = defineStore("rule-builder-ui", () => {
 				result: entry.result || null,
 			});
 		}
+
+		// Second pass to append (N) to labels if multiple executions exist
+		steps.forEach((step) => {
+			if (executionCounts[step.node_id] > 1) {
+				step.action = `${step.action} (${step.execution_count})`;
+			}
+		});
 		node_execution_state.value = nodeState;
 		test_execution_steps.value = steps;
 		current_running_node_id.value = null;
