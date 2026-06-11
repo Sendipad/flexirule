@@ -23,12 +23,17 @@
 }
 
 .vue-flow__edge-path {
-	stroke: var(--fxr-border-strong);
-	stroke-width: 2px;
+	stroke: var(--fxr-edge-stroke);
+	stroke-width: 2.5px;
+	transition:
+		stroke var(--fxr-transition-fast),
+		stroke-width var(--fxr-transition-fast);
 }
 
-.vue-flow__edge.selected .vue-flow__edge-path {
+.vue-flow__edge.selected .vue-flow__edge-path,
+.vue-flow__edge:hover .vue-flow__edge-path {
 	stroke: var(--fxr-accent);
+	stroke-width: 3px;
 }
 
 .vue-flow__handle {
@@ -44,7 +49,6 @@
 
 /* Dark mode specific Vue Flow tweaks */
 [data-theme="dark"] .vue-flow__edge-path {
-	stroke: var(--fxr-edge-stroke);
 	stroke-opacity: 1;
 }
 

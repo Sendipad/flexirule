@@ -359,6 +359,7 @@ function getSelectValue(options) {
 	vertical-align: middle;
 	border-bottom: 1px solid var(--fxr-border-subtle);
 	background: var(--fxr-bg-card);
+	color: var(--fxr-text);
 }
 .table-custom tr:last-child td {
 	border-bottom: none;
