@@ -57,7 +57,9 @@ const stepsWrapper = ref(null);
 const steps = computed(() => uiStore.test_execution_steps || []);
 const selectedStep = computed(() => steps.value[uiStore.test_selected_step_index]);
 const layoutDirection = computed(() => (props.layout === "TB" ? "vertical" : "horizontal"));
-const transitionName = computed(() => (layoutDirection.value === "horizontal" ? "slide-up" : "slide-left"));
+const transitionName = computed(() =>
+	layoutDirection.value === "horizontal" ? "slide-up" : "slide-left"
+);
 
 function handleStepClick(index) {
 	if (uiStore.test_selected_step_index === index) {
@@ -72,18 +74,21 @@ function clearPath() {
 }
 
 // Auto-scroll to the end when new steps arrive
-watch(() => steps.value.length, () => {
-	nextTick(() => {
-		if (stepsWrapper.value) {
-			const scrollOptions = { behavior: 'smooth' };
-			if (layoutDirection.value === 'horizontal') {
-				stepsWrapper.value.scrollLeft = stepsWrapper.value.scrollWidth;
-			} else {
-				stepsWrapper.value.scrollTop = stepsWrapper.value.scrollHeight;
+watch(
+	() => steps.value.length,
+	() => {
+		nextTick(() => {
+			if (stepsWrapper.value) {
+				const scrollOptions = { behavior: "smooth" };
+				if (layoutDirection.value === "horizontal") {
+					stepsWrapper.value.scrollLeft = stepsWrapper.value.scrollWidth;
+				} else {
+					stepsWrapper.value.scrollTop = stepsWrapper.value.scrollHeight;
+				}
 			}
-		}
-	});
-});
+		});
+	}
+);
 </script>
 
 <style scoped>
@@ -214,17 +219,21 @@ watch(() => steps.value.length, () => {
 }
 
 /* Animations */
-.slide-up-enter-active, .slide-up-leave-active,
-.slide-left-enter-active, .slide-left-leave-active {
+.slide-up-enter-active,
+.slide-up-leave-active,
+.slide-left-enter-active,
+.slide-left-leave-active {
 	transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.slide-up-enter-from, .slide-up-leave-to {
+.slide-up-enter-from,
+.slide-up-leave-to {
 	transform: translateY(20px);
 	opacity: 0;
 }
 
-.slide-left-enter-from, .slide-left-leave-to {
+.slide-left-enter-from,
+.slide-left-leave-to {
 	transform: translateX(20px);
 	opacity: 0;
 }

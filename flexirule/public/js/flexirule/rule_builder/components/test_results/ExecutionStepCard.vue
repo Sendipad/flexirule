@@ -48,7 +48,9 @@ const statusIcon = computed(() => {
 });
 
 const durationTooltip = computed(() => {
-	return __("Execution durations are estimated for lab/UI profiling and may not be 100% accurate. Many micro-actions execute near 0ms natively.");
+	return __(
+		"Execution durations are estimated for lab/UI profiling and may not be 100% accurate. Many micro-actions execute near 0ms natively."
+	);
 });
 </script>
 
@@ -123,9 +125,15 @@ const durationTooltip = computed(() => {
 	font-size: 14px;
 }
 
-.status-success .status-indicator { color: var(--green-500); }
-.status-error .status-indicator { color: var(--red-500); }
-.status-skipped .status-indicator { color: var(--orange-500); }
+.status-success .status-indicator {
+	color: var(--green-500);
+}
+.status-error .status-indicator {
+	color: var(--red-500);
+}
+.status-skipped .status-indicator {
+	color: var(--orange-500);
+}
 
 .status-error {
 	border-color: var(--red-200);

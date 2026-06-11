@@ -21,15 +21,23 @@
 			<div v-if="hasEvaluation" class="detail-section">
 				<div class="section-title">{{ __("Evaluation Details") }}</div>
 				<div class="evaluation-box">
-					<div v-if="step.type === 'Condition' || step.type === 'Switch'" class="eval-row">
+					<div
+						v-if="step.type === 'Condition' || step.type === 'Switch'"
+						class="eval-row"
+					>
 						<span class="eval-label">{{ __("Result") }}:</span>
 						<span :class="['eval-value', step.result ? 'text-success' : 'text-danger']">
 							{{ step.result ? __("True") : __("False") }}
 						</span>
 					</div>
-					<div v-if="step.input && (step.input.expression || step.input.condition_json)" class="eval-row">
+					<div
+						v-if="step.input && (step.input.expression || step.input.condition_json)"
+						class="eval-row"
+					>
 						<span class="eval-label">{{ __("Expression") }}:</span>
-						<code class="eval-code">{{ step.input.expression || step.input.condition_json }}</code>
+						<code class="eval-code">{{
+							step.input.expression || step.input.condition_json
+						}}</code>
 					</div>
 				</div>
 			</div>
@@ -87,7 +95,11 @@ defineEmits(["close"]);
 const showPayload = ref(false);
 
 const hasEvaluation = computed(() => {
-	return props.step.type === "Condition" || props.step.type === "Switch" || props.step.result !== undefined;
+	return (
+		props.step.type === "Condition" ||
+		props.step.type === "Switch" ||
+		props.step.result !== undefined
+	);
 });
 
 const hasChanges = computed(() => {
