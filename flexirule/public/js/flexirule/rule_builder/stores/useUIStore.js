@@ -101,10 +101,10 @@ export const useUIStore = defineStore("rule-builder-ui", () => {
 				type: entry.type,
 				status,
 				error: entry.error || null,
-				duration_ms: entry.duration_ms || null,
+				duration_ms: entry.duration_ms !== undefined ? entry.duration_ms : null,
 				input: entry.input || null,
 				output: entry.output || null,
-				result: entry.result || null,
+				result: entry.result !== undefined ? entry.result : null,
 			});
 		}
 
