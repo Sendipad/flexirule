@@ -164,7 +164,7 @@ defineExpose({
 	display: flex;
 	flex-direction: column;
 	height: 100%;
-	background: var(--fxr-bg-page);
+	background-color: var(--fxr-bg-page);
 }
 
 .panel-content {
@@ -177,7 +177,7 @@ defineExpose({
 
 .panel-header {
 	padding: 20px;
-	border-bottom: 1px solid var(--border-color);
+	border-bottom: 1px solid var(--fxr-border-subtle);
 	display: flex;
 	align-items: center;
 	justify-content: space-between;

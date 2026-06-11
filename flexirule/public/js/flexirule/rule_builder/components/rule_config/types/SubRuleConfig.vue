@@ -284,11 +284,11 @@ defineExpose({ validate });
 }
 
 .section-subcard {
-	border: 1px solid var(--border-color, #d1d8dd);
+	border: 1px solid var(--fxr-border-subtle);
 	border-radius: 8px;
 	padding: 16px;
-	background: #fff;
-	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+	background-color: var(--fxr-bg-card);
+	box-shadow: var(--fxr-shadow-sm);
 }
 
 .table-rows {
@@ -303,7 +303,7 @@ defineExpose({ validate });
 	gap: 8px;
 	align-items: flex-start;
 	padding-bottom: 12px;
-	border-bottom: 1px solid #f2f2f2;
+	border-bottom: 1px solid var(--fxr-border-subtle);
 }
 
 .mapping-row:last-child {

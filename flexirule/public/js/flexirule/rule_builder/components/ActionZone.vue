@@ -910,8 +910,8 @@ defineExpose({
 .handle-source {
 	width: 10px !important;
 	height: 10px !important;
-	background-color: #fff !important;
-	border: 2px solid #d1d8dd !important;
+	background-color: var(--fxr-bg-card) !important;
+	border: 2px solid var(--fxr-border) !important;
 	z-index: 10 !important;
 }
 
@@ -959,7 +959,7 @@ defineExpose({
 	width: 6px;
 }
 .popover-body::-webkit-scrollbar-thumb {
-	background: #cbd5e1;
+	background-color: var(--fxr-border-strong);
 	border-radius: 3px;
 }
 </style>

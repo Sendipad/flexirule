@@ -502,12 +502,12 @@ defineExpose({ validate });
 	display: flex;
 	flex-direction: column;
 	height: 100%;
-	background: var(--fxr-bg-page);
+	background-color: var(--fxr-bg-page);
 }
 
 .panel-header {
 	padding: 20px;
-	border-bottom: 1px solid var(--border-color);
+	border-bottom: 1px solid var(--fxr-border-subtle);
 }
 
 .panel-header h4 {
@@ -535,9 +535,9 @@ defineExpose({ validate });
 	display: flex;
 	flex-direction: column;
 	padding: 14px;
-	border: 1px solid var(--fxr-border-subtle, var(--border-color));
+	border: 1px solid var(--fxr-border-subtle);
 	border-radius: 14px;
-	background: color-mix(in srgb, var(--fxr-surface, #fff) 92%, var(--fxr-surface-2, #f3f5f7));
+	background-color: var(--fxr-surface-2);
 }
 
 .section-header {
@@ -553,12 +553,12 @@ defineExpose({ validate });
 	font-weight: 800;
 	text-transform: uppercase;
 	letter-spacing: 0.5px;
-	color: var(--fxr-text-soft, var(--text-muted));
+	color: var(--fxr-text-soft);
 }
 
 .section-divider {
 	height: 1px;
-	background: var(--fxr-border-subtle, var(--border-color));
+	background-color: var(--fxr-border-subtle);
 	margin: 0;
 }
 
@@ -579,16 +579,16 @@ defineExpose({ validate });
 	display: flex;
 	align-items: center;
 	padding: 4px 8px;
-	border: 1px solid var(--fxr-border-subtle, var(--border-color));
+	border: 1px solid var(--fxr-border-subtle);
 	border-radius: 12px;
-	background: var(--fxr-surface-2, var(--control-bg));
+	background-color: var(--fxr-bg-input);
 	transition: border-color 0.2s;
 }
 
 .mapping-inputs:focus-within {
 	border-color: var(--fxr-node-accent, var(--fxr-accent));
-	background: var(--fxr-surface, #fff);
-	box-shadow: 0 0 0 2px var(--fxr-node-accent-light, var(--fxr-accent-light));
+	background-color: var(--fxr-bg-input);
+	box-shadow: 0 0 0 2px var(--fxr-node-accent-light, var(--fxr-accent-soft));
 }
 
 .mapping-inputs :deep(.autocomplete-control),
@@ -607,10 +607,10 @@ defineExpose({ validate });
 .empty-state {
 	padding: 16px;
 	text-align: center;
-	color: var(--fxr-text-faint, var(--text-muted));
+	color: var(--fxr-text-faint);
 	font-size: 11px;
-	background: var(--fxr-surface-2, var(--control-bg));
-	border: 1px dashed var(--fxr-border-subtle, var(--border-color));
+	background-color: var(--fxr-surface-soft);
+	border: 1px dashed var(--fxr-border-subtle);
 	border-radius: 8px;
 }
 
@@ -634,10 +634,10 @@ defineExpose({ validate });
 	font-size: 10px;
 	font-weight: 600;
 	padding: 2px 8px;
-	background: var(--fxr-surface-2, var(--control-bg));
-	color: var(--fxr-text-soft, var(--text-muted));
+	background-color: var(--fxr-bg-muted);
+	color: var(--fxr-text-soft);
 	border-radius: 4px;
-	border: 1px solid var(--fxr-border-subtle, var(--border-color));
+	border: 1px solid var(--fxr-border-subtle);
 }
 
 :deep(.form-control:focus),

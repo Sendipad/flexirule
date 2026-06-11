@@ -728,7 +728,7 @@ onBeforeUnmount(() => {
 
 .fxr-control.no-label .combobox-wrapper {
 	border-color: var(--fxr-border);
-	background: var(--fxr-bg-input);
+	background-color: var(--fxr-bg-input);
 	box-shadow: none;
 }
 
@@ -738,7 +738,7 @@ onBeforeUnmount(() => {
 
 .fxr-control.no-label .combobox-wrapper.is-focused {
 	border-color: var(--fxr-accent);
-	background: var(--fxr-bg-input);
+	background-color: var(--fxr-bg-input);
 	box-shadow: var(--fxr-shadow-focus);
 }
 
@@ -832,8 +832,8 @@ onBeforeUnmount(() => {
 }
 .combobox-trigger.clear-btn:hover {
 	opacity: 1;
-	color: #ef4444;
-	background: #fee2e2;
+	color: var(--fxr-text-danger);
+	background-color: var(--fxr-danger-soft);
 }
 
 .option-content {
@@ -926,8 +926,8 @@ onBeforeUnmount(() => {
 	display: flex;
 	align-items: center;
 	padding: 10px 14px;
-	border-bottom: 1px solid var(--fxr-border);
-	background: rgba(255, 255, 255, 0.5);
+	border-bottom: 1px solid var(--fxr-border-subtle);
+	background-color: var(--fxr-surface-2);
 	backdrop-filter: blur(4px);
 }
 
@@ -956,19 +956,19 @@ onBeforeUnmount(() => {
 }
 
 .fxr-dropdown {
-	background: var(--fxr-bg-card, #fff);
-	border: 1px solid var(--fxr-border, #dbe2ea);
-	border-radius: var(--fxr-radius-lg, 12px);
-	box-shadow: var(--fxr-shadow-lg, 0 18px 36px rgba(15, 23, 42, 0.16));
+	background-color: var(--fxr-surface-elevated);
+	border: 1px solid var(--fxr-border-subtle);
+	border-radius: var(--fxr-radius-lg);
+	box-shadow: var(--fxr-shadow-lg);
 	overflow: auto;
 }
 
 .fxr-dropdown-item {
 	padding: 8px 12px;
 	cursor: pointer;
-	border-bottom: 1px solid rgba(148, 163, 184, 0.12);
-	background: transparent;
-	transition: background 0.12s ease;
+	border-bottom: 1px solid var(--fxr-border-subtle);
+	background-color: transparent;
+	transition: background-color 0.12s ease;
 }
 
 .fxr-dropdown-item:last-child {
@@ -977,11 +977,11 @@ onBeforeUnmount(() => {
 
 .fxr-dropdown-item:hover,
 .fxr-dropdown-item.active {
-	background: var(--fxr-bg-muted, #f8fafc);
+	background-color: var(--fxr-bg-hover);
 }
 
 .fxr-dropdown-item.selected {
-	background: var(--fxr-accent-light, #e8f0ff);
+	background-color: var(--fxr-accent-soft);
 }
 </style>
 
@@ -1021,7 +1021,7 @@ onBeforeUnmount(() => {
 .fxr-dropdown .option-label {
 	font-size: 13px;
 	font-weight: 600;
-	color: var(--fxr-text, #1e293b);
+	color: var(--fxr-text-strong);
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -1034,8 +1034,8 @@ onBeforeUnmount(() => {
 	padding: 1px 6px;
 	border-radius: 4px;
 	letter-spacing: 0.05em;
-	background: var(--fxr-bg-muted, #f1f5f9);
-	color: var(--fxr-text-muted, #64748b);
+	background-color: var(--fxr-bg-muted);
+	color: var(--fxr-text-soft);
 	flex-shrink: 0;
 }
 
@@ -1046,12 +1046,12 @@ onBeforeUnmount(() => {
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
-	color: var(--fxr-text-muted, #64748b);
+	color: var(--fxr-text-soft);
 }
 
 .fxr-dropdown .selected-check {
 	flex-shrink: 0;
-	color: var(--fxr-accent, #2563eb);
+	color: var(--fxr-accent);
 	font-size: 10px;
 	margin-top: 4px;
 }

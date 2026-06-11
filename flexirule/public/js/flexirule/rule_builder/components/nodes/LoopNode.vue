@@ -111,22 +111,22 @@ function openConfig() {
 <style scoped>
 .loop-node-card {
 	width: 180px;
-	background: #fff;
+	background-color: var(--fxr-bg-card);
 	border: 1px solid #fab005; /* Salesforce Yellow */
-	border-radius: 8px;
-	box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+	border-radius: var(--fxr-radius-md);
+	box-shadow: var(--fxr-shadow-md);
 	position: relative;
 	transition: all 0.2s ease;
 }
 
 .loop-node-card:hover {
-	box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+	box-shadow: var(--fxr-shadow-lg);
 	transform: translateY(-2px);
 }
 
 .loop-node-card.selected {
-	border-color: var(--primary);
-	box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.2);
+	border-color: var(--fxr-accent);
+	box-shadow: 0 0 0 2px var(--fxr-accent-soft);
 }
 
 .loop-node-card.is-vertical {
@@ -140,14 +140,14 @@ function openConfig() {
 }
 
 .loop-node-card.is-read-only .node-header {
-	background-color: #94a3b8;
+	background-color: var(--fxr-text-muted);
 }
 
 .node-header {
-	background: #fab005;
-	color: #fff;
+	background-color: #fab005;
+	color: #ffffff;
 	padding: 6px 12px;
-	border-radius: 7px 7px 0 0;
+	border-radius: var(--fxr-radius-sm) var(--fxr-radius-sm) 0 0;
 	display: flex;
 	align-items: center;
 	gap: 8px;
@@ -168,7 +168,7 @@ function openConfig() {
 .loop-title {
 	font-weight: 600;
 	font-size: 13px;
-	color: #2d3748;
+	color: var(--fxr-text-strong);
 	line-height: 1.2;
 }
 
@@ -179,7 +179,7 @@ function openConfig() {
 
 .loop-subtext {
 	font-size: 10px;
-	color: #718096;
+	color: var(--fxr-text-soft);
 	margin-top: 4px;
 	word-break: break-all;
 }
@@ -198,15 +198,15 @@ function openConfig() {
 }
 
 .bubble-label {
-	background: #fff;
-	border: 1px solid #cbd5e0;
+	background-color: var(--fxr-bg-card);
+	border: 1px solid var(--fxr-border);
 	border-radius: 20px;
 	padding: 4px 12px;
 	font-size: 11px;
 	font-weight: 600;
-	color: #4a5568;
+	color: var(--fxr-text-strong);
 	white-space: nowrap;
-	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+	box-shadow: var(--fxr-shadow-sm);
 	position: relative;
 	z-index: 2;
 }
@@ -215,14 +215,19 @@ function openConfig() {
 .bubble-foreach {
 	border-color: #fab005;
 	color: #92400e;
-	background: #fffbeb;
+	background-color: #fffbeb;
+}
+
+[data-theme="dark"] .bubble-foreach {
+	background-color: rgba(251, 176, 5, 0.1);
+	color: #fbbf24;
 }
 
 /* "After Last" bubble — slate neutral */
 .bubble-afterlast {
-	border-color: #94a3b8;
-	color: #334155;
-	background: #f8fafc;
+	border-color: var(--fxr-text-muted);
+	color: var(--fxr-text-soft);
+	background-color: var(--fxr-surface-soft);
 }
 
 /* Position for LR */
@@ -302,7 +307,7 @@ function openConfig() {
 
 .handle-target,
 .handle-return {
-	background: #fff !important;
+	background-color: var(--fxr-bg-card) !important;
 	border: 2px solid #fab005 !important;
 	width: 10px !important;
 	height: 10px !important;
@@ -312,8 +317,8 @@ function openConfig() {
 .handle-target:hover,
 .handle-return:hover {
 	transform: scale(1.4) !important;
-	border-color: var(--primary) !important;
-	box-shadow: 0 0 0 4px rgba(var(--primary-rgb), 0.2);
+	border-color: var(--fxr-accent) !important;
+	box-shadow: 0 0 0 4px var(--fxr-accent-soft);
 }
 
 .is-vertical .handle-target {
@@ -332,7 +337,7 @@ function openConfig() {
 .action-btn {
 	background: none;
 	border: none;
-	color: #fff;
+	color: #ffffff;
 	opacity: 0.8;
 	cursor: pointer;
 	padding: 2px;
@@ -349,21 +354,21 @@ function openConfig() {
 
 /* Execution */
 .executed {
-	border-left: 4px solid var(--green-500);
+	box-shadow: 0 0 0 3px var(--fxr-success-soft);
 }
 
 .execution-badge {
 	position: absolute;
 	top: -10px;
 	right: -10px;
-	background: var(--green-500);
-	color: white;
+	background-color: #198754;
+	color: #ffffff;
 	border-radius: 12px;
 	padding: 2px 8px;
 	font-size: 10px;
 	font-weight: bold;
 	z-index: 20;
-	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+	box-shadow: var(--fxr-shadow-sm);
 }
 
 .out-right .port-label {

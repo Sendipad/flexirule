@@ -238,9 +238,9 @@ defineExpose({
 	justify-content: space-between;
 	gap: 12px;
 	padding: 10px 12px;
-	border: 1px solid var(--fxr-border-subtle, var(--border-color));
+	border: 1px solid var(--fxr-border-subtle);
 	border-radius: 14px;
-	background: var(--fxr-surface, #fff);
+	background-color: var(--fxr-surface);
 }
 
 .process-config-toolbar h6 {
@@ -249,7 +249,7 @@ defineExpose({
 	font-weight: 800;
 	text-transform: uppercase;
 	letter-spacing: 0.04em;
-	color: var(--fxr-text-soft, var(--text-muted));
+	color: var(--fxr-text-soft);
 }
 
 .process-config-switcher :deep(.btn) {
@@ -262,18 +262,18 @@ defineExpose({
 	align-items: flex-start;
 	gap: 10px;
 	padding: 18px;
-	border: 1px solid var(--fxr-border-subtle, var(--border-color));
+	border: 1px solid var(--fxr-border-subtle);
 	border-radius: 14px;
-	background: color-mix(in srgb, var(--fxr-surface, #fff) 92%, var(--fxr-surface-2, #f3f5f7));
+	background-color: var(--fxr-surface-2);
 }
 
 .process-config-error {
-	color: var(--red-700, #b91c1c);
-	background: var(--fxr-danger-soft, #fef2f2);
+	color: var(--fxr-text-danger);
+	background-color: var(--fxr-danger-soft);
 }
 
 .process-config-empty {
-	color: var(--fxr-text-soft, var(--text-muted));
+	color: var(--fxr-text-soft);
 }
 
 .process-config-empty i,
@@ -284,22 +284,22 @@ defineExpose({
 .process-config-title {
 	margin: 0;
 	font-weight: 800;
-	color: var(--fxr-text-strong, var(--text-color));
+	color: var(--fxr-text-strong);
 }
 
 .process-config-copy {
 	margin: 0;
 	font-size: 12px;
 	line-height: 1.5;
-	color: var(--fxr-text-soft, var(--text-muted));
+	color: var(--fxr-text-soft);
 }
 
 .process-config-pill {
 	padding: 10px 12px;
 	border-radius: 10px;
-	background: var(--fxr-surface, #fff);
-	border: 1px solid var(--fxr-border-subtle, var(--border-color));
-	color: var(--fxr-text-soft, var(--text-muted));
+	background-color: var(--fxr-surface);
+	border: 1px solid var(--fxr-border-subtle);
+	color: var(--fxr-text-soft);
 	font-size: 12px;
 	line-height: 1.6;
 }

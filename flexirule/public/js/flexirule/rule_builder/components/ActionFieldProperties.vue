@@ -381,15 +381,15 @@ onMounted(async () => {
 }
 
 .side-effect-warning.alert-danger {
-	background-color: var(--red-50, #fef2f2);
-	border: 1px solid var(--red-200, #fecaca);
-	color: var(--red-700, #b91c1c);
+	background-color: var(--fxr-danger-soft);
+	border: 1px solid var(--fxr-border-danger);
+	color: var(--fxr-text-danger);
 }
 
 .side-effect-warning.alert-warning {
-	background-color: var(--yellow-50, #fffbeb);
-	border: 1px solid var(--yellow-200, #fde68a);
-	color: var(--yellow-700, #a16207);
+	background-color: var(--fxr-warning-soft);
+	border: 1px solid var(--fxr-border-focus);
+	color: var(--fxr-text-secondary);
 }
 
 .side-effect-warning i {

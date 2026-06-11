@@ -53,7 +53,7 @@ const statusIcon = computed(() => {
 	align-items: center;
 	padding: 4px 8px;
 	gap: 6px;
-	background: var(--fxr-surface-soft);
+	background-color: var(--fxr-surface-soft);
 	border: 1px solid var(--fxr-border-subtle);
 	border-radius: var(--fxr-radius-sm);
 	cursor: pointer;
@@ -64,46 +64,28 @@ const statusIcon = computed(() => {
 	height: 32px;
 }
 
-[data-theme="dark"] .execution-step-card {
-	background: rgba(255, 255, 255, 0.05);
-	border-color: rgba(255, 255, 255, 0.1);
-}
-
 .execution-step-card:hover {
 	border-color: var(--fxr-accent);
-	background: var(--fxr-surface-2);
-}
-
-[data-theme="dark"] .execution-step-card:hover {
-	background: rgba(255, 255, 255, 0.1);
+	background-color: var(--fxr-bg-hover);
 }
 
 .execution-step-card.active {
-	background: var(--fxr-surface-elevated);
+	background-color: var(--fxr-surface-elevated);
 	border-color: var(--fxr-accent);
 	box-shadow: 0 0 0 1px var(--fxr-accent);
-}
-
-[data-theme="dark"] .execution-step-card.active {
-	background: rgba(255, 255, 255, 0.15);
 }
 
 .step-order {
 	font-size: 9px;
 	font-weight: 700;
-	color: var(--fxr-text-faint);
-	background: var(--fxr-surface-2);
+	color: var(--fxr-text-soft);
+	background-color: var(--fxr-bg-muted);
 	width: 16px;
 	height: 16px;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	border-radius: 4px;
-}
-
-[data-theme="dark"] .step-order {
-	background: rgba(255, 255, 255, 0.1);
-	color: var(--fxr-text-soft);
 }
 
 .step-content {
@@ -147,12 +129,7 @@ const statusIcon = computed(() => {
 }
 
 .status-error {
-	border-color: var(--red-200);
-	background: var(--red-50);
-}
-
-[data-theme="dark"] .status-error {
-	background: rgba(220, 38, 38, 0.15);
-	border-color: rgba(220, 38, 38, 0.4);
+	border-color: var(--fxr-border-danger);
+	background-color: var(--fxr-danger-soft);
 }
 </style>

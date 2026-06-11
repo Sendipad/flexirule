@@ -104,11 +104,11 @@ function openConfig() {
 }
 
 .stop-node-card.selected {
-	box-shadow: 0 0 0 2px #fff, 0 0 0 4px #dc3545;
+	box-shadow: 0 0 0 2px var(--fxr-bg-card), 0 0 0 4px #dc3545;
 }
 
 .stop-node-card.executed {
-	box-shadow: 0 0 0 3px #198754;
+	box-shadow: 0 0 0 3px var(--fxr-success-soft);
 	border-color: #198754;
 	background-color: #198754;
 }
@@ -117,7 +117,7 @@ function openConfig() {
 	position: absolute;
 	top: -8px;
 	left: -8px;
-	background: #fff;
+	background-color: var(--fxr-bg-card);
 	color: #198754;
 	width: 20px;
 	height: 20px;
@@ -128,7 +128,7 @@ function openConfig() {
 	font-size: 10px;
 	font-weight: 700;
 	z-index: 10;
-	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+	box-shadow: var(--fxr-shadow-sm);
 	border: 2px solid #198754;
 }
 
@@ -183,7 +183,7 @@ function openConfig() {
 .handle-target {
 	width: 10px !important;
 	height: 10px !important;
-	background-color: #fff !important;
+	background-color: var(--fxr-bg-card) !important;
 	border: 2px solid #dc3545 !important;
 	z-index: 10 !important;
 }

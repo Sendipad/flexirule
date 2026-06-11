@@ -44,7 +44,8 @@
 
 /* Dark mode specific Vue Flow tweaks */
 [data-theme="dark"] .vue-flow__edge-path {
-	stroke-opacity: 0.6;
+	stroke: var(--fxr-edge-stroke);
+	stroke-opacity: 1;
 }
 
 [data-theme="dark"] .vue-flow__background {

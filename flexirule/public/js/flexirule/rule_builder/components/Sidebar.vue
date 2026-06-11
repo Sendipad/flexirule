@@ -244,33 +244,33 @@ onMounted(async () => {
 	height: 100%;
 	display: flex;
 	flex-direction: column;
-	background: var(--fxr-surface, #fff);
+	background-color: var(--fxr-surface);
 }
 
 .sidebar-v2-preview {
 	padding: 10px 15px 5px;
-	border-bottom: 1px solid var(--fxr-border-subtle, var(--border-color));
-	background: var(--fxr-surface-2, var(--control-bg));
+	border-bottom: 1px solid var(--fxr-border-subtle);
+	background-color: var(--fxr-surface-2);
 }
 
 .selector-placeholder {
 	padding: 12px;
-	border: 1px dashed var(--fxr-border-subtle, var(--border-color));
-	border-radius: 12px;
-	background: color-mix(in srgb, var(--fxr-surface, #fff) 92%, var(--fxr-surface-2, #f3f5f7));
+	border: 1px dashed var(--fxr-border-subtle);
+	border-radius: var(--fxr-radius-md);
+	background-color: var(--fxr-surface-soft);
 }
 
 .btn-primary-light {
-	background: var(--fxr-accent-soft, #eef2ff);
-	color: var(--fxr-accent, #4f46e5);
-	border: 1px solid color-mix(in srgb, var(--fxr-accent, #4f46e5) 22%, var(--fxr-surface));
+	background-color: var(--fxr-accent-soft);
+	color: var(--fxr-accent);
+	border: 1px solid var(--fxr-accent-border);
 	font-weight: 600;
 	font-size: 11px;
 }
 
 .btn-primary-light:hover {
-	background: color-mix(in srgb, var(--fxr-accent-soft, #eef2ff) 84%, var(--fxr-surface));
-	border-color: color-mix(in srgb, var(--fxr-accent, #4f46e5) 32%, var(--fxr-surface));
+	background-color: var(--fxr-bg-hover);
+	border-color: var(--fxr-accent);
 }
 
 .sidebar-header {
@@ -278,19 +278,15 @@ onMounted(async () => {
 	align-items: center;
 	justify-content: space-between;
 	padding: 12px 15px;
-	border-bottom: 1px solid var(--fxr-border-subtle, var(--border-color));
-	background: linear-gradient(
-		180deg,
-		color-mix(in srgb, var(--fxr-surface, #fff) 96%, var(--fxr-surface-2, #f3f5f7)),
-		var(--fxr-surface, #fff)
-	);
+	border-bottom: 1px solid var(--fxr-border-subtle);
+	background-color: var(--fxr-surface-2);
 }
 
 .sidebar-header h4 {
 	margin: 0;
 	font-size: 14px;
 	font-weight: 600;
-	color: var(--fxr-text-strong, var(--text-color));
+	color: var(--fxr-text-strong);
 }
 
 .header-nav {
@@ -320,7 +316,7 @@ onMounted(async () => {
 	border: none;
 	font-size: 18px;
 	cursor: pointer;
-	color: var(--fxr-text-soft, var(--text-muted));
+	color: var(--fxr-text-soft);
 	padding: 0;
 }
 
@@ -333,7 +329,7 @@ onMounted(async () => {
 hr {
 	margin: 15px 0;
 	border: none;
-	border-top: 1px solid var(--fxr-border-subtle, var(--border-color));
+	border-top: 1px solid var(--fxr-border-subtle);
 }
 
 .w-100 {

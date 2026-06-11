@@ -458,9 +458,9 @@ function isValueEmpty(val) {
 /* ---------- Container ---------- */
 
 .flexi-grid .grid-container {
-	border: 1px solid var(--border-color, #d1d8dd);
+	border: 1px solid var(--fxr-border-subtle);
 	border-radius: 8px;
-	background: #fff;
+	background-color: var(--fxr-bg-card);
 	overflow-x: auto;
 	position: relative;
 }
@@ -479,8 +479,8 @@ function isValueEmpty(val) {
 	position: sticky;
 	top: 0;
 	z-index: 100;
-	background: #f8f9fa;
-	border-bottom: 1px solid var(--border-color, #e5e7eb);
+	background-color: var(--fxr-surface-2);
+	border-bottom: 1px solid var(--fxr-border-subtle);
 }
 
 .flexi-grid .header-row {
@@ -493,12 +493,12 @@ function isValueEmpty(val) {
 .flexi-grid .grid-row {
 	display: flex;
 	height: 40px;
-	border-bottom: 1px solid var(--border-color, #f0f0f0);
-	background: #fff;
+	border-bottom: 1px solid var(--fxr-border-subtle);
+	background-color: var(--fxr-bg-card);
 }
 
 .flexi-grid .grid-row:hover {
-	background: #fafafb;
+	background-color: var(--fxr-bg-hover);
 }
 
 .flexi-grid .grid-row:last-child {
@@ -511,7 +511,7 @@ function isValueEmpty(val) {
 .flexi-grid .grid-cell {
 	flex: 0 0 auto !important; /* NEVER grow or shrink */
 	box-sizing: border-box;
-	border-right: 1px solid var(--border-color, #f0f0f0);
+	border-right: 1px solid var(--fxr-border-subtle);
 	display: flex;
 	align-items: center;
 	height: 100%;
@@ -529,8 +529,8 @@ function isValueEmpty(val) {
 
 .flexi-grid .header-cell {
 	font-weight: 600;
-	color: var(--text-color);
-	background: #f8f9fa;
+	color: var(--fxr-text-strong);
+	background-color: var(--fxr-surface-2);
 	z-index: 50;
 }
 
@@ -546,7 +546,7 @@ function isValueEmpty(val) {
 .flexi-grid .static-col {
 	justify-content: center;
 	padding: 0;
-	background: #fafafa;
+	background-color: var(--fxr-surface-soft);
 }
 
 /* ---------- Sticky Columns ---------- */
@@ -605,7 +605,7 @@ function isValueEmpty(val) {
 
 /* Focus behavior */
 .flexi-grid .grid-cell .form-control:focus {
-	background: #fff !important;
+	background-color: var(--fxr-bg-input) !important;
 	border-color: var(--fxr-accent) !important;
 	box-shadow: none !important;
 }
@@ -613,7 +613,7 @@ function isValueEmpty(val) {
 /* ComboBox in Grid */
 .flexi-grid .grid-cell .combobox-wrapper {
 	border-color: transparent !important;
-	background: transparent !important;
+	background-color: transparent !important;
 	box-shadow: none !important;
 	height: 32px !important;
 }
@@ -621,7 +621,7 @@ function isValueEmpty(val) {
 .flexi-grid .grid-cell .combobox-wrapper:hover,
 .flexi-grid .grid-cell .combobox-wrapper.is-focused {
 	border-color: var(--fxr-accent) !important;
-	background: #fff !important;
+	background-color: var(--fxr-bg-input) !important;
 }
 
 .flexi-grid .grid-cell .combobox-input-group {
@@ -670,7 +670,7 @@ function isValueEmpty(val) {
 }
 
 .flexi-grid .grid-cell.has-error {
-	background-color: #fff8f8;
+	background-color: var(--fxr-danger-soft);
 }
 
 .flexi-grid .grid-cell.has-error .form-control {
@@ -718,14 +718,14 @@ function isValueEmpty(val) {
 }
 
 .flexi-grid .btn-danger-light {
-	background: #fff5f5;
-	color: #e53e3e;
-	border: 1px solid #feb2b2;
+	background-color: var(--fxr-danger-soft);
+	color: var(--fxr-text-danger);
+	border: 1px solid var(--fxr-border-danger);
 }
 
 .flexi-grid .btn-danger-light:hover {
-	background: #fed7d7;
-	border-color: #fc8181;
+	background-color: var(--fxr-bg-hover);
+	border-color: var(--fxr-text-danger);
 }
 
 /* ---------- Empty State ---------- */
@@ -733,8 +733,8 @@ function isValueEmpty(val) {
 .flexi-grid .empty-state {
 	padding: 48px;
 	text-align: center;
-	color: var(--text-muted);
-	background: #fcfcfc;
+	color: var(--fxr-text-muted);
+	background-color: var(--fxr-surface-soft);
 }
 
 /* ---------- Readonly ---------- */
@@ -753,12 +753,12 @@ function isValueEmpty(val) {
 }
 
 .flexi-grid .grid-container::-webkit-scrollbar-thumb {
-	background: #e5e7eb;
+	background-color: var(--fxr-border-strong);
 	border-radius: 5px;
 }
 
 .flexi-grid .grid-container::-webkit-scrollbar-thumb:hover {
-	background: #d1d5db;
+	background-color: var(--fxr-text-muted);
 }
 .flexi-grid .header-row,
 .flexi-grid .grid-row {
@@ -772,17 +772,17 @@ function isValueEmpty(val) {
 	display: flex;
 	align-items: center;
 	padding: 0 8px;
-	border-right: 1px solid #e5e7eb;
+	border-right: 1px solid var(--fxr-border-subtle);
 	box-sizing: border-box;
 }
 
 .header-cell {
 	font-weight: 600;
-	background: #f8f9fa;
+	background-color: var(--fxr-surface-2);
 }
 
 .grid-row:hover {
-	background: #fafafb;
+	background-color: var(--fxr-bg-hover);
 }
 
 .static-col {

@@ -251,10 +251,10 @@ onUnmounted(() => {
 	top: 100%;
 	left: 0;
 	right: 0;
-	background: white;
-	border: 1px solid var(--border-color);
-	border-radius: 4px;
-	box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+	background-color: var(--fxr-surface-elevated);
+	border: 1px solid var(--fxr-border-subtle);
+	border-radius: var(--fxr-radius-sm);
+	box-shadow: var(--fxr-shadow-md);
 	max-height: 250px;
 	overflow-y: auto;
 	z-index: 100;
@@ -263,20 +263,20 @@ onUnmounted(() => {
 .suggestion-item {
 	padding: 8px 12px;
 	cursor: pointer;
-	border-bottom: 1px solid #f0f0f0;
+	border-bottom: 1px solid var(--fxr-border-subtle);
 }
 
 .suggestion-item:hover {
-	background: var(--gray-100);
+	background-color: var(--fxr-bg-hover);
 }
 
 .incompatible-item {
 	opacity: 0.7;
-	background: #fffcfb;
+	background-color: var(--fxr-warning-soft);
 }
 
 .incompatible-item:hover {
-	background: #fff5f0;
+	background-color: var(--fxr-bg-hover);
 	opacity: 1;
 }
 

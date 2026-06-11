@@ -821,8 +821,8 @@ function onEdgeClick({ edge, event }) {
 }
 
 .fxr-headless-menu {
-	background: var(--fxr-surface, #ffffff);
-	border: 1px solid var(--fxr-border-subtle, #d1d8dd);
+	background-color: var(--fxr-surface-elevated);
+	border: 1px solid var(--fxr-border-subtle);
 	border-radius: var(--fxr-radius-md);
 	box-shadow: var(--fxr-shadow-lg);
 	overflow: hidden;
@@ -888,9 +888,9 @@ function onEdgeClick({ edge, event }) {
 	max-width: 280px;
 	padding: 7px 9px;
 	border-radius: 8px;
-	border: 1px solid var(--fxr-border-subtle, #d1d8dd);
-	background: var(--fxr-surface, #ffffff);
-	color: var(--fxr-text-strong, #1f2937);
+	border: 1px solid var(--fxr-border-subtle);
+	background-color: var(--fxr-surface-elevated);
+	color: var(--fxr-text-strong);
 	font-size: 12px;
 	font-weight: 600;
 	box-shadow: var(--fxr-shadow-md);

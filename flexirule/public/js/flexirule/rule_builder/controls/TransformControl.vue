@@ -204,12 +204,12 @@ watch(
 	display: flex;
 	flex-direction: column;
 	height: 600px;
-	background: #ffffff;
-	border: 1px solid #e2e8f0;
+	background-color: var(--fxr-bg-card);
+	border: 1px solid var(--fxr-border-subtle);
 	border-radius: 12px;
 	position: relative;
 	overflow: hidden;
-	box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+	box-shadow: var(--fxr-shadow-md);
 }
 
 .transform-header {
@@ -217,9 +217,9 @@ watch(
 	justify-content: space-between;
 	align-items: center;
 	padding: 16px 20px;
-	background: rgba(248, 250, 252, 0.8);
+	background-color: var(--fxr-surface-2);
 	backdrop-filter: blur(8px);
-	border-bottom: 1px solid #e2e8f0;
+	border-bottom: 1px solid var(--fxr-border-subtle);
 	gap: 24px;
 }
 
@@ -247,14 +247,15 @@ watch(
 .search-box input {
 	padding-left: 28px;
 	border-radius: 6px;
-	background: #ffffff;
-	border: 1px solid #cbd5e1;
+	background-color: var(--fxr-bg-input);
+	border: 1px solid var(--fxr-border);
+	color: var(--fxr-text);
 	transition: all 0.2s;
 }
 
 .search-box input:focus {
-	border-color: #3b82f6;
-	box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+	border-color: var(--fxr-accent);
+	box-shadow: var(--fxr-shadow-focus);
 }
 
 .transform-body {
@@ -262,7 +263,7 @@ watch(
 	display: flex;
 	position: relative;
 	overflow: hidden;
-	background: #fcfcfd;
+	background-color: var(--fxr-surface-soft);
 }
 
 .mapping-lines-svg {
@@ -277,7 +278,7 @@ watch(
 
 .mapping-line {
 	fill: none;
-	stroke: #cbd5e1;
+	stroke: var(--fxr-border-strong);
 	stroke-width: 2.5;
 	pointer-events: stroke;
 	cursor: pointer;
@@ -286,9 +287,9 @@ watch(
 
 .mapping-line:hover,
 .mapping-line.active {
-	stroke: #6366f1;
+	stroke: var(--fxr-accent);
 	stroke-width: 4;
-	filter: drop-shadow(0 0 4px rgba(99, 102, 241, 0.3));
+	filter: drop-shadow(0 0 4px var(--fxr-accent-light));
 }
 
 .transform-col {
@@ -300,7 +301,7 @@ watch(
 }
 
 .source-col {
-	border-right: 1px solid #f1f5f9;
+	border-right: 1px solid var(--fxr-border-subtle);
 }
 
 .tree-node {
@@ -309,8 +310,8 @@ watch(
 
 .mapping-details {
 	padding: 16px 20px;
-	background: #f8fafc;
-	border-top: 1px solid #e2e8f0;
+	background-color: var(--fxr-surface-2);
+	border-top: 1px solid var(--fxr-border-subtle);
 	animation: slideUp 0.3s ease-out;
 }
 
@@ -334,39 +335,39 @@ watch(
 	margin: 0;
 	font-size: 13px;
 	font-weight: 700;
-	color: #1e293b;
+	color: var(--fxr-text-strong);
 }
 
 .mapping-path {
 	display: flex;
 	align-items: center;
 	font-size: 12px;
-	background: #fff;
+	background-color: var(--fxr-bg-card);
 	padding: 8px 12px;
 	border-radius: 6px;
-	border: 1px solid #e2e8f0;
+	border: 1px solid var(--fxr-border-subtle);
 }
 
 .rm-label-sm {
 	font-size: 11px;
 	font-weight: 700;
-	color: #475569;
+	color: var(--fxr-text-soft);
 	text-transform: uppercase;
 	letter-spacing: 0.05em;
 }
 
 .magic-btn {
-	color: #4f46e5;
-	border-color: #c7d2fe;
-	background: #fff;
+	color: var(--fxr-accent);
+	border-color: var(--fxr-accent-border);
+	background-color: var(--fxr-bg-card);
 	padding: 6px 12px;
 	font-weight: 600;
 	transition: all 0.2s;
 }
 
 .magic-btn:hover {
-	background: #eef2ff;
-	border-color: #818cf8;
+	background-color: var(--fxr-accent-soft);
+	border-color: var(--fxr-accent);
 	transform: translateY(-1px);
 }
 </style>

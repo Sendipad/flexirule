@@ -109,8 +109,8 @@ function handleDrop(e) {
 
 <style scoped>
 .condition-group-ui {
-	background: var(--fxr-bg-hover);
-	border: 1px solid var(--fxr-border);
+	background-color: var(--fxr-bg-hover);
+	border: 1px solid var(--fxr-border-subtle);
 	border-radius: var(--fxr-radius-lg);
 	padding: var(--fxr-space-3);
 }
@@ -123,11 +123,11 @@ function handleDrop(e) {
 }
 
 .logic-toggle.small {
-	background: var(--fxr-surface-2);
+	background-color: var(--fxr-surface-2);
 	padding: 2px;
 	border-radius: var(--fxr-radius-md);
 	display: flex;
-	border: 1px solid var(--fxr-border);
+	border: 1px solid var(--fxr-border-subtle);
 }
 
 .logic-btn {
@@ -137,26 +137,26 @@ function handleDrop(e) {
 	border-radius: var(--fxr-radius-sm);
 	font-size: 10px;
 	font-weight: 800;
-	color: var(--fxr-text-muted);
+	color: var(--fxr-text-soft);
 	transition: all var(--fxr-transition-fast);
 	cursor: pointer;
 	min-width: 36px;
 }
 
 .logic-btn.active {
-	background: var(--fxr-node-accent, var(--fxr-accent));
+	background-color: var(--fxr-node-accent, var(--fxr-accent));
 	color: #ffffff;
 	box-shadow: var(--fxr-shadow-sm);
 }
 
 .logic-btn:hover:not(.active):not(:disabled) {
-	background: var(--fxr-bg-muted);
+	background-color: var(--fxr-bg-muted);
 	color: var(--fxr-text-strong);
 }
 
 .condition-group-ui.drag-over {
 	border-color: var(--fxr-node-accent, var(--fxr-accent));
-	background: var(--fxr-node-accent-light, var(--fxr-accent-light));
+	background-color: var(--fxr-node-accent-light, var(--fxr-accent-soft));
 	box-shadow: inset 0 0 0 2px var(--fxr-node-accent, var(--fxr-accent));
 }
 
@@ -167,22 +167,22 @@ function handleDrop(e) {
 }
 
 .group-actions .fxr-btn--icon {
-	border: 1px solid var(--fxr-border);
-	background: var(--fxr-surface);
+	border: 1px solid var(--fxr-border-subtle);
+	background-color: var(--fxr-surface);
 	color: var(--fxr-text-secondary);
 	transition: all var(--fxr-transition-fast);
 }
 
 .group-actions .fxr-btn--icon:hover,
 .group-actions .fxr-btn--icon:focus-visible {
-	background: var(--fxr-surface-2);
+	background-color: var(--fxr-surface-2);
 	color: var(--fxr-text-strong);
 	border-color: var(--fxr-border-strong);
 }
 
 .group-actions .fxr-btn--icon.fxr-btn--danger:hover,
 .group-actions .fxr-btn--icon.fxr-btn--danger:focus-visible {
-	background: var(--fxr-bg-danger);
+	background-color: var(--fxr-bg-danger);
 	color: var(--fxr-text-danger);
 	border-color: var(--fxr-border-danger);
 }

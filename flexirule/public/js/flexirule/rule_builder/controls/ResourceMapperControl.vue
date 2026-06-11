@@ -1334,8 +1334,8 @@ function deleteSelectedTableRows(tIdx, table) {
 	gap: 12px;
 	flex-wrap: wrap;
 	padding: 8px 12px;
-	background: var(--bg-light, #fff);
-	border: 1px solid var(--border-color);
+	background-color: var(--fxr-bg-card);
+	border: 1px solid var(--fxr-border-subtle);
 	border-radius: 8px;
 }
 
@@ -1348,7 +1348,7 @@ function deleteSelectedTableRows(tIdx, table) {
 .rm-label-sm {
 	font-size: 11px;
 	font-weight: 600;
-	color: var(--text-muted);
+	color: var(--fxr-text-soft);
 	white-space: nowrap;
 }
 
@@ -1358,14 +1358,14 @@ function deleteSelectedTableRows(tIdx, table) {
 	gap: 5px;
 	font-size: 12px;
 	cursor: pointer;
-	color: var(--text-color);
+	color: var(--fxr-text);
 }
 
 /* ─── Exclude Section ─── */
 .rm-exclude-section {
 	padding: 8px 12px;
-	background: #f8fafc;
-	border: 1px solid var(--border-color);
+	background-color: var(--fxr-surface-soft);
+	border: 1px solid var(--fxr-border-subtle);
 	border-radius: 8px;
 	display: flex;
 	flex-direction: column;
@@ -1389,8 +1389,8 @@ function deleteSelectedTableRows(tIdx, table) {
 	align-items: center;
 	gap: var(--fxr-space-2);
 	padding: var(--fxr-space-1) var(--fxr-space-3);
-	background: var(--fxr-bg-card);
-	border: 1px solid var(--fxr-border);
+	background-color: var(--fxr-bg-card);
+	border: 1px solid var(--fxr-border-subtle);
 	border-radius: var(--fxr-radius-pill);
 	font-size: var(--fxr-text-sm);
 	color: var(--fxr-text-secondary);
@@ -1402,7 +1402,7 @@ function deleteSelectedTableRows(tIdx, table) {
 	padding: 0;
 	line-height: 1;
 	font-size: 14px;
-	color: var(--fxr-text-muted);
+	color: var(--fxr-text-soft);
 	cursor: pointer;
 	transition: color var(--fxr-transition-fast);
 }
@@ -1413,10 +1413,10 @@ function deleteSelectedTableRows(tIdx, table) {
 
 /* ─── Section ─── */
 .rm-section {
-	border: 1px solid var(--fxr-border);
+	border: 1px solid var(--fxr-border-subtle);
 	border-radius: var(--fxr-radius-lg);
 	padding: var(--fxr-space-6);
-	background: var(--fxr-bg-card);
+	background-color: var(--fxr-bg-card);
 	display: flex;
 	flex-direction: column;
 	gap: var(--fxr-space-4);
@@ -1522,10 +1522,10 @@ function deleteSelectedTableRows(tIdx, table) {
 
 /* ─── Preview Box ─── */
 .rm-preview-box {
-	border: 1px solid var(--fxr-node-accent, var(--fxr-accent));
+	border: 1px solid var(--fxr-accent);
 	border-radius: var(--fxr-radius-lg);
 	padding: var(--fxr-space-5);
-	background: var(--fxr-node-accent-light, var(--fxr-accent-light));
+	background-color: var(--fxr-accent-soft);
 	display: flex;
 	flex-direction: column;
 	gap: var(--fxr-space-3);
@@ -1534,7 +1534,7 @@ function deleteSelectedTableRows(tIdx, table) {
 .rm-preview-title {
 	font-size: var(--fxr-text-md);
 	font-weight: var(--fxr-weight-semibold);
-	color: var(--fxr-node-accent, var(--fxr-accent));
+	color: var(--fxr-accent);
 	display: flex;
 	align-items: center;
 	gap: var(--fxr-space-3);
@@ -1548,8 +1548,8 @@ function deleteSelectedTableRows(tIdx, table) {
 	height: 20px;
 	padding: 0 var(--fxr-space-2);
 	border-radius: var(--fxr-radius-pill);
-	background: var(--fxr-node-accent, var(--fxr-accent));
-	color: #fff;
+	background-color: var(--fxr-accent);
+	color: #ffffff;
 	font-size: 10px;
 	font-weight: var(--fxr-weight-bold);
 }
@@ -1568,8 +1568,8 @@ function deleteSelectedTableRows(tIdx, table) {
 	gap: var(--fxr-space-5);
 	align-items: center;
 	padding: var(--fxr-space-2) var(--fxr-space-4);
-	background: var(--fxr-bg-card);
-	border: 1px solid var(--fxr-border);
+	background-color: var(--fxr-bg-card);
+	border: 1px solid var(--fxr-border-subtle);
 	border-radius: var(--fxr-radius-md);
 }
 
@@ -1589,7 +1589,7 @@ function deleteSelectedTableRows(tIdx, table) {
 	justify-content: flex-end;
 	gap: var(--fxr-space-4);
 	padding-top: var(--fxr-space-4);
-	border-top: 1px solid var(--fxr-node-accent-light, var(--fxr-accent-border));
+	border-top: 1px solid var(--fxr-accent-border);
 	margin-top: var(--fxr-space-2);
 }
 
@@ -1626,8 +1626,8 @@ function deleteSelectedTableRows(tIdx, table) {
 :deep(.awesomplete input:focus),
 :deep(.fxr-input:focus),
 :deep(.fxr-select:focus) {
-	border-color: var(--fxr-node-accent, var(--fxr-border-focus)) !important;
-	box-shadow: 0 0 0 2px var(--fxr-node-accent-light, var(--fxr-accent-light)) !important;
+	border-color: var(--fxr-accent) !important;
+	box-shadow: var(--fxr-shadow-focus) !important;
 }
 
 @media (max-width: 920px) {

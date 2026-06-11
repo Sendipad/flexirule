@@ -526,14 +526,14 @@ defineExpose({
 }
 
 .section-card {
-	border: 1px solid var(--border-color);
+	border: 1px solid var(--fxr-border-subtle);
 	border-radius: 8px;
 	padding: 12px;
-	background: var(--bg-light, #fff);
+	background-color: var(--fxr-bg-card);
 }
 
 .section-subcard {
-	border: 1px dashed var(--border-color);
+	border: 1px dashed var(--fxr-border-subtle);
 	border-radius: 6px;
 	padding: 10px;
 }

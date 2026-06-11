@@ -284,10 +284,10 @@ defineExpose({ validate });
 }
 
 .section-card {
-	border: 1px solid var(--border-color);
+	border: 1px solid var(--fxr-border-subtle);
 	border-radius: 8px;
 	padding: 16px;
-	background: var(--bg-light, #fff);
+	background-color: var(--fxr-bg-card);
 }
 
 .form-label {

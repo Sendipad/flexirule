@@ -885,13 +885,13 @@ function buildFieldPath(field, groupName) {
 	display: flex;
 	flex-direction: column;
 	height: 100%;
-	background: var(--fxr-bg-page, var(--fg-color));
+	background-color: var(--fxr-bg-page);
 }
 
 .panel-header {
 	padding: 18px 18px 14px;
-	border-bottom: 1px solid var(--fxr-border-subtle, var(--border-color));
-	background: var(--fxr-surface, var(--fg-color));
+	border-bottom: 1px solid var(--fxr-border-subtle);
+	background-color: var(--fxr-surface);
 }
 
 .panel-header h4 {
@@ -902,8 +902,8 @@ function buildFieldPath(field, groupName) {
 
 .panel-tabs {
 	display: flex;
-	border-bottom: 1px solid var(--fxr-border-subtle, var(--border-color));
-	background: var(--fxr-surface, var(--fg-color));
+	border-bottom: 1px solid var(--fxr-border-subtle);
+	background-color: var(--fxr-surface);
 	padding: 0 16px;
 }
 .tab-btn {
@@ -912,13 +912,13 @@ function buildFieldPath(field, groupName) {
 	padding: 12px 16px;
 	font-size: 13px;
 	font-weight: 600;
-	color: var(--fxr-text-soft, var(--text-muted));
+	color: var(--fxr-text-soft);
 	cursor: pointer;
 	border-bottom: 2px solid transparent;
 	transition: all 0.2s;
 }
 .tab-btn:hover {
-	color: var(--fxr-text-strong, var(--text-color));
+	color: var(--fxr-text-strong);
 }
 .tab-btn.active {
 	color: var(--fxr-node-accent, var(--fxr-accent));
@@ -939,9 +939,9 @@ function buildFieldPath(field, groupName) {
 	flex-direction: column;
 	gap: 6px;
 	padding: 10px;
-	border: 1px solid var(--fxr-border-subtle, var(--border-color));
+	border: 1px solid var(--fxr-border-subtle);
 	border-radius: 10px;
-	background: color-mix(in srgb, var(--fxr-surface, #fff) 92%, var(--fxr-surface-2, #f3f5f7));
+	background-color: var(--fxr-surface-2);
 }
 
 .section-header {
@@ -962,12 +962,12 @@ function buildFieldPath(field, groupName) {
 	font-weight: 800;
 	text-transform: uppercase;
 	letter-spacing: 0.5px;
-	color: var(--fxr-text-soft, var(--text-muted));
+	color: var(--fxr-text-soft);
 }
 
 .section-divider {
 	height: 1px;
-	background: var(--fxr-border-subtle, var(--border-color));
+	background-color: var(--fxr-border-subtle);
 	margin: 4px 0;
 }
 
@@ -985,8 +985,8 @@ function buildFieldPath(field, groupName) {
 	align-items: center;
 	justify-content: space-between;
 	padding: 4px 10px;
-	background: var(--fxr-surface, #fff);
-	border: 1px solid var(--fxr-border-subtle, var(--border-color));
+	background-color: var(--fxr-bg-card);
+	border: 1px solid var(--fxr-border-subtle);
 	border-radius: 8px;
 	font-size: 11px;
 	cursor: grab;
@@ -995,21 +995,21 @@ function buildFieldPath(field, groupName) {
 
 .variable-item:hover {
 	border-color: var(--fxr-node-accent, var(--fxr-accent));
-	box-shadow: var(--fxr-shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.04));
+	box-shadow: var(--fxr-shadow-sm);
 	transform: translateX(1px);
 }
 
 .variable-label {
 	font-weight: 600;
-	color: var(--fxr-text-strong, var(--text-color));
+	color: var(--fxr-text-strong);
 }
 
 .variable-type {
 	font-size: 9px;
 	padding: 2px 6px;
-	background: var(--fxr-surface-2, var(--control-bg));
+	background-color: var(--fxr-surface-2);
 	border-radius: 4px;
-	color: var(--fxr-text-soft, var(--text-muted));
+	color: var(--fxr-text-soft);
 }
 
 /* Tree Styles */
@@ -1025,23 +1025,23 @@ function buildFieldPath(field, groupName) {
 	padding: 6px 8px;
 	cursor: pointer;
 	border-radius: 6px;
-	color: var(--fxr-text-strong, var(--text-color));
+	color: var(--fxr-text-strong);
 	font-weight: 600;
 	display: flex;
 	align-items: center;
 	transition: background 0.15s;
 }
 .tree-group-header:hover {
-	background: var(--fxr-surface-2, var(--control-bg));
+	background-color: var(--fxr-bg-hover);
 }
 .tree-group-header .fa {
 	font-size: 10px;
 	width: 16px;
-	color: var(--fxr-text-soft, var(--text-muted));
+	color: var(--fxr-text-soft);
 }
 .tree-group-items {
 	padding-left: 20px;
-	border-left: 1px solid var(--fxr-border-subtle, var(--border-color));
+	border-left: 1px solid var(--fxr-border-subtle);
 	margin-left: 12px;
 	margin-top: 4px;
 	display: flex;
@@ -1051,7 +1051,7 @@ function buildFieldPath(field, groupName) {
 .tree-iterator-hint {
 	padding: 4px 8px;
 	margin-bottom: 4px;
-	background: var(--fxr-surface-2, var(--control-bg));
+	background-color: var(--fxr-surface-2);
 	border-radius: 4px;
 	font-size: 11px;
 }
@@ -1061,10 +1061,10 @@ function buildFieldPath(field, groupName) {
 	display: flex;
 	justify-content: space-between;
 	cursor: grab;
-	color: var(--fxr-text-soft, var(--text-muted));
+	color: var(--fxr-text-soft);
 }
 .tree-item:hover {
-	background: var(--fxr-surface-2, var(--control-bg));
+	background-color: var(--fxr-bg-hover);
 }
 .tree-item-label {
 	font-weight: 500;
@@ -1075,18 +1075,18 @@ function buildFieldPath(field, groupName) {
 }
 
 .tips-box {
-	background: var(--fxr-surface, #fff);
-	border: 1px solid var(--fxr-border-subtle, var(--border-color));
+	background-color: var(--fxr-surface);
+	border: 1px solid var(--fxr-border-subtle);
 	border-radius: 12px;
 	padding: 12px;
 	font-size: 12px;
-	color: var(--fxr-text-soft, var(--text-muted));
+	color: var(--fxr-text-soft);
 }
 .tips-box h6 {
 	margin: 0 0 8px 0;
 	font-size: 12px;
 	font-weight: 600;
-	color: var(--fxr-text-strong, var(--text-color));
+	color: var(--fxr-text-strong);
 }
 .tips-box ul {
 	margin: 0;
@@ -1097,8 +1097,8 @@ function buildFieldPath(field, groupName) {
 }
 
 .guide-content {
-	background: var(--fxr-surface, #fff);
-	border: 1px solid var(--fxr-border-subtle, var(--border-color));
+	background-color: var(--fxr-surface);
+	border: 1px solid var(--fxr-border-subtle);
 	border-radius: 12px;
 }
 
@@ -1109,14 +1109,14 @@ function buildFieldPath(field, groupName) {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	color: #fff;
+	color: #ffffff;
 	font-size: 12px;
 }
 
 .guide-text-small {
 	font-size: 12px;
 	line-height: 1.5;
-	color: var(--fxr-text-soft, var(--text-muted));
+	color: var(--fxr-text-soft);
 	margin: 0;
 }
 
@@ -1131,8 +1131,8 @@ function buildFieldPath(field, groupName) {
 
 .insight-text {
 	font-size: 11px;
-	color: var(--fxr-text-soft, var(--text-muted));
-	background: var(--fxr-accent-soft, #f0f9ff);
+	color: var(--fxr-text-soft);
+	background-color: var(--fxr-accent-soft);
 	padding: 8px;
 	border-radius: 8px;
 	border-left: 3px solid var(--fxr-node-accent, var(--fxr-accent));
@@ -1143,25 +1143,25 @@ function buildFieldPath(field, groupName) {
 	width: 4px;
 }
 .v2-scrollbar::-webkit-scrollbar-thumb {
-	background: #cbd5e1;
+	background-color: var(--fxr-border-strong);
 	border-radius: 10px;
 }
 
 .empty-state {
 	padding: 20px;
 	text-align: center;
-	color: var(--fxr-text-faint, var(--text-muted));
+	color: var(--fxr-text-faint);
 	font-size: 11px;
-	background: var(--fxr-surface-2, var(--control-bg));
-	border: 1px dashed var(--fxr-border-subtle, var(--border-color));
+	background-color: var(--fxr-surface-2);
+	border: 1px dashed var(--fxr-border-subtle);
 	border-radius: 8px;
 }
 
 .section-collapsed-note {
 	font-size: 11px;
-	color: var(--fxr-text-faint, var(--text-muted));
-	background: var(--fxr-surface, #fff);
-	border: 1px dashed var(--fxr-border-subtle, var(--border-color));
+	color: var(--fxr-text-faint);
+	background-color: var(--fxr-surface);
+	border: 1px dashed var(--fxr-border-subtle);
 	border-radius: 8px;
 	padding: 10px 12px;
 }

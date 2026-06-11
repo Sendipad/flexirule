@@ -81,18 +81,18 @@ function updateValue(field, value) {
 	margin: 0 0 8px 0;
 	font-size: 13px;
 	font-weight: 800;
-	color: var(--fxr-text-strong, var(--text-color));
+	color: var(--fxr-text-strong);
 }
 
 .schema-field-wrapper {
 	padding: 10px 12px;
-	border: 1px solid var(--fxr-border-subtle, var(--border-color));
+	border: 1px solid var(--fxr-border-subtle);
 	border-radius: 12px;
-	background: color-mix(in srgb, var(--fxr-surface, #fff) 92%, var(--fxr-surface-2, #f3f5f7));
+	background-color: var(--fxr-surface-2);
 }
 
 .has-error :deep(.form-control) {
-	border-color: var(--red-500, #ef4444);
-	box-shadow: 0 0 0 2px color-mix(in srgb, var(--red-500, #ef4444) 14%, var(--fxr-surface));
+	border-color: var(--fxr-text-danger);
+	box-shadow: 0 0 0 2px var(--fxr-danger-soft);
 }
 </style>

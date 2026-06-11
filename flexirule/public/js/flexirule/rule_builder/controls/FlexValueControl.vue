@@ -1264,14 +1264,14 @@ onBeforeUnmount(() => {
 	min-height: 32px;
 	max-height: 32px;
 	overflow: hidden;
-	border: 1px solid var(--fxr-border, #e2e8f0);
-	border-radius: var(--fxr-radius-md, 6px);
-	background: var(--fxr-bg-input, #fff);
+	border: 1px solid var(--fxr-border);
+	border-radius: var(--fxr-radius-md);
+	background-color: var(--fxr-bg-input);
 	transition: all 0.2s ease;
 }
 
 .fvc-main-field:focus-within {
-	border-color: var(--fxr-accent, #2490ef);
+	border-color: var(--fxr-accent);
 	box-shadow: var(--fxr-shadow-focus);
 }
 
@@ -1324,7 +1324,7 @@ onBeforeUnmount(() => {
 }
 .fvc-mode-toggle-wrap {
 	padding-right: 6px;
-	border-left: 1px solid var(--fxr-border, #e2e8f0);
+	border-left: 1px solid var(--fxr-border-subtle);
 	margin-left: 4px;
 	height: 24px;
 	display: flex;
@@ -1335,7 +1335,7 @@ onBeforeUnmount(() => {
 	background: transparent;
 	border: none;
 	cursor: pointer;
-	color: #64748b;
+	color: var(--fxr-text-soft);
 	width: 24px;
 	height: 24px;
 	display: flex;
@@ -1345,22 +1345,22 @@ onBeforeUnmount(() => {
 	transition: all 0.2s;
 }
 .fvc-toggle-btn:hover {
-	background: #f1f5f9;
-	color: #2490ef;
+	background-color: var(--fxr-bg-hover);
+	color: var(--fxr-accent);
 }
 
 .fvc-empty-hint {
 	position: absolute;
 	top: 3px;
 	left: 0;
-	color: #94a3b8;
+	color: var(--fxr-text-faint);
 	font-size: 11px;
 	pointer-events: none;
 	white-space: nowrap;
-	font-family: var(--font-stack-mono, monospace);
+	font-family: var(--fxr-font-mono);
 }
 .fvc-empty-hint .hint-part {
-	color: #64748b;
+	color: var(--fxr-text-soft);
 	font-weight: 700;
 }
 .fvc-empty-hint .hint-at {
@@ -1375,7 +1375,7 @@ onBeforeUnmount(() => {
 	position: absolute;
 	top: 3px;
 	left: 0;
-	color: #cbd5e1;
+	color: var(--fxr-text-faint);
 	font-size: 12px;
 	font-style: italic;
 	pointer-events: none;
@@ -1400,7 +1400,7 @@ onBeforeUnmount(() => {
 	transform: translateY(-50%);
 	display: flex;
 	padding-right: 4px;
-	background: linear-gradient(to left, var(--fxr-bg-input, #fff) 80%, transparent);
+	background: linear-gradient(to left, var(--fxr-bg-input) 80%, transparent);
 	z-index: 5;
 }
 
@@ -1409,7 +1409,7 @@ onBeforeUnmount(() => {
 	border: none !important;
 	outline: none !important;
 	box-shadow: none !important;
-	color: var(--fxr-text-muted, #94a3b8);
+	color: var(--fxr-text-muted);
 	cursor: pointer;
 	padding: 2px 4px;
 	border-radius: 4px;
@@ -1421,8 +1421,8 @@ onBeforeUnmount(() => {
 }
 
 .fvc-action-btn:hover {
-	color: var(--fxr-accent, #2490ef);
-	background: var(--fxr-bg-hover, #f1f5f9);
+	color: var(--fxr-accent);
+	background-color: var(--fxr-bg-hover);
 }
 
 :deep(.token-chip) {
@@ -1441,35 +1441,35 @@ onBeforeUnmount(() => {
 	transform: scale(1.02);
 }
 :deep(.token-variable) {
-	background: #ecfdf5;
-	color: #059669;
-	border: 1px solid #10b98133;
+	background-color: var(--fxr-badge-bool);
+	color: var(--fxr-badge-bool-text);
+	border: 1px solid rgba(16, 185, 129, 0.2);
 }
 :deep(.token-formula) {
-	background: #f5f3ff;
-	color: #7c3aed;
-	border: 1px solid #8b5cf633;
+	background-color: var(--fxr-badge-var);
+	color: var(--fxr-badge-var-text);
+	border: 1px solid rgba(124, 58, 237, 0.2);
 }
 :deep(.token-normalize) {
-	background: #ecfeff;
-	color: #0891b2;
-	border: 1px solid #06b6d433;
+	background-color: var(--fxr-badge-normalize);
+	color: var(--fxr-badge-normalize-text);
+	border: 1px solid rgba(37, 99, 235, 0.2);
 }
 :deep(.token-format) {
-	background: #fff1f2;
-	color: #e11d48;
-	border: 1px solid #f43f5e33;
+	background-color: var(--fxr-badge-formatter);
+	color: var(--fxr-badge-formatter-text);
+	border: 1px solid rgba(219, 39, 119, 0.2);
 }
 :deep(.token-resolver) {
-	background: #fffbeb;
-	color: #d97706;
-	border: 1px solid #f59e0b33;
+	background-color: var(--fxr-badge-resolver);
+	color: var(--fxr-badge-resolver-text);
+	border: 1px solid rgba(217, 119, 6, 0.2);
 }
 
 .fxr-token-modal-overlay {
 	position: fixed;
 	inset: 0;
-	background: rgba(15, 23, 42, 0.4);
+	background-color: rgba(0, 0, 0, 0.5);
 	backdrop-filter: blur(8px);
 	z-index: 13000;
 	display: flex;
@@ -1478,19 +1478,18 @@ onBeforeUnmount(() => {
 	padding: 16px;
 }
 .fxr-token-modal-container {
-	background: #fff;
-	background-color: var(--fxr-surface, #ffffff);
+	background-color: var(--fxr-surface-elevated);
 	border-radius: 12px;
 	width: 100%;
 	max-width: 580px;
 	overflow: hidden;
-	box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-	border: 1px solid #e2e8f0;
+	box-shadow: var(--fxr-shadow-lg);
+	border: 1px solid var(--fxr-border-subtle);
 }
 .fxr-token-modal-header {
 	height: 52px;
 	padding: 0 16px;
-	border-bottom: 1px solid #e2e8f0;
+	border-bottom: 1px solid var(--fxr-border-subtle);
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
@@ -1503,23 +1502,25 @@ onBeforeUnmount(() => {
 .fxr-token-modal-footer {
 	height: 56px;
 	padding: 0 16px;
-	border-top: 1px solid #e2e8f0;
+	border-top: 1px solid var(--fxr-border-subtle);
 	display: flex;
 	justify-content: flex-end;
 	gap: 8px;
-	background: #f8fafc;
+	background-color: var(--fxr-surface-2);
 	align-items: center;
 }
 
 .formula-textarea {
 	width: 100%;
 	min-height: 120px;
-	font-family: monospace;
+	font-family: var(--fxr-font-mono);
 	padding: 8px;
-	border: 1px solid #e2e8f0;
+	border: 1px solid var(--fxr-border-subtle);
 	border-radius: 6px;
 	font-size: 13px;
 	line-height: 1.5;
+	background-color: var(--fxr-bg-input);
+	color: var(--fxr-text);
 }
 .variables-pill-grid {
 	display: flex;
@@ -1529,23 +1530,24 @@ onBeforeUnmount(() => {
 	max-height: 140px;
 	overflow-y: auto;
 	padding: 4px;
-	border: 1px solid #e2e8f0;
+	border: 1px solid var(--fxr-border-subtle);
 	border-radius: 6px;
-	background: #f8fafc;
+	background-color: var(--fxr-surface-soft);
 }
 .var-pill-btn {
-	background: #fff;
-	border: 1px solid #cbd5e1;
+	background-color: var(--fxr-bg-card);
+	border: 1px solid var(--fxr-border-subtle);
 	padding: 3px 8px;
 	border-radius: 4px;
 	font-size: 11px;
 	font-weight: 600;
+	color: var(--fxr-text);
 	cursor: pointer;
 	transition: all 0.2s;
 }
 .var-pill-btn:hover {
-	background: #f1f5f9;
-	border-color: #94a3b8;
+	background-color: var(--fxr-bg-hover);
+	border-color: var(--fxr-accent);
 }
 .json-textarea {
 	width: 100%;

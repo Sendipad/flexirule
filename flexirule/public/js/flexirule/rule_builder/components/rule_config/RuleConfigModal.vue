@@ -1028,7 +1028,7 @@ html[data-theme="dark"] .toolbar-btn.save-action {
 	left: 0;
 	width: 100vw;
 	height: 100vh;
-	background: color-mix(in srgb, var(--fxr-bg-page) 34%, rgba(15, 23, 42, 0.6));
+	background-color: rgba(0, 0, 0, 0.5);
 	backdrop-filter: blur(10px);
 	z-index: 1040;
 	display: flex;
@@ -1038,12 +1038,12 @@ html[data-theme="dark"] .toolbar-btn.save-action {
 }
 
 .config-modal-container {
-	background: var(--fxr-surface);
+	background-color: var(--fxr-surface);
 	width: 100%;
 	height: 100%;
 	max-width: 1800px;
 	border-radius: 20px;
-	box-shadow: var(--fxr-shadow-lg, 0 22px 48px rgba(15, 23, 42, 0.12));
+	box-shadow: var(--fxr-shadow-lg);
 	display: flex;
 	flex-direction: column;
 	overflow: hidden;
@@ -1058,7 +1058,7 @@ html[data-theme="dark"] .toolbar-btn.save-action {
 	justify-content: space-between;
 	padding: 0 16px;
 	border-bottom: 1px solid var(--fxr-border-subtle);
-	background: var(--fxr-surface);
+	background-color: var(--fxr-surface);
 }
 
 .header-left {
@@ -1128,13 +1128,13 @@ html[data-theme="dark"] .toolbar-btn.save-action {
 	display: flex;
 	align-items: center;
 	gap: 6px;
-	background: var(--fxr-warning-soft);
-	color: var(--orange-700);
+	background-color: var(--fxr-warning-soft);
+	color: var(--fxr-text-secondary);
 	padding: 4px 10px;
 	border-radius: 20px;
 	font-size: 11px;
 	font-weight: 700;
-	border: 1px solid color-mix(in srgb, var(--orange-400, #f59e0b) 28%, var(--fxr-surface));
+	border: 1px solid var(--fxr-border);
 	text-transform: uppercase;
 	letter-spacing: 0.5px;
 }
@@ -1245,16 +1245,16 @@ html[data-theme="dark"] .toolbar-btn.save-action {
 
 .toolbar-status.mobile {
 	padding: 0 12px;
-	background: var(--fxr-surface, #fff);
+	background-color: var(--fxr-bg-card);
 	border-radius: 6px;
 	height: 28px;
-	box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.05);
+	box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .toolbar-divider {
 	width: 1px;
 	height: 14px;
-	background: var(--fxr-border-subtle, var(--border-color));
+	background-color: var(--fxr-border-subtle);
 	opacity: 0.6;
 	margin: 0 2px;
 	flex-shrink: 0;
@@ -1265,7 +1265,7 @@ html[data-theme="dark"] .toolbar-btn.save-action {
 	overflow: hidden;
 	display: flex;
 	position: relative;
-	background: color-mix(in srgb, var(--fxr-bg-page) 92%, var(--fxr-surface-2));
+	background-color: var(--fxr-bg-page);
 }
 
 .conditions-container,
@@ -1320,7 +1320,7 @@ html[data-theme="dark"] .toolbar-btn.save-action {
 .config-scroll-container {
 	flex: 1;
 	overflow: hidden;
-	background: color-mix(in srgb, var(--fxr-bg-page) 92%, var(--fxr-surface-2));
+	background-color: var(--fxr-bg-page);
 	padding: 4px;
 	height: 100%;
 }
@@ -1335,10 +1335,10 @@ html[data-theme="dark"] .toolbar-btn.save-action {
 }
 
 .integrated-settings-bar {
-	background: var(--fxr-surface, #fff);
+	background-color: var(--fxr-surface);
 	border-radius: 12px;
 	padding: 12px;
-	border: 1px solid var(--fxr-border-subtle, var(--border-color));
+	border: 1px solid var(--fxr-border-subtle);
 	max-height: 250px;
 	overflow-y: auto;
 }
@@ -1401,9 +1401,9 @@ html[data-theme="dark"] .toolbar-btn.save-action {
 	width: 26px;
 	height: 26px;
 	border-radius: 50%;
-	border: 1px solid var(--fxr-border-subtle, var(--border-color));
-	background: var(--fxr-surface, #fff);
-	color: var(--fxr-text-soft, var(--text-muted));
+	border: 1px solid var(--fxr-border-subtle);
+	background-color: var(--fxr-bg-card);
+	color: var(--fxr-text-soft);
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
@@ -1412,8 +1412,8 @@ html[data-theme="dark"] .toolbar-btn.save-action {
 }
 
 .panel-collapse-btn:hover {
-	color: var(--fxr-text-strong, var(--text-color));
-	border-color: var(--fxr-border-strong, #94a3b8);
+	color: var(--fxr-text-strong);
+	border-color: var(--fxr-border-strong);
 }
 
 .panel-collapse-btn.left {
@@ -1428,16 +1428,16 @@ html[data-theme="dark"] .toolbar-btn.save-action {
 	left: 50%;
 	right: auto;
 	transform: translateX(-50%);
-	background: var(--fxr-surface-2, var(--control-bg));
-	border-color: var(--fxr-border-subtle, var(--border-color));
+	background-color: var(--fxr-surface-2);
+	border-color: var(--fxr-border-subtle);
 	z-index: 8;
 }
 
 .sidebar-mutation.collapsed .panel-collapse-btn.right {
 	left: 50%;
 	transform: translateX(-50%);
-	background: var(--fxr-surface-2, var(--control-bg));
-	border-color: var(--fxr-border-subtle, var(--border-color));
+	background-color: var(--fxr-surface-2);
+	border-color: var(--fxr-border-subtle);
 }
 
 .compact-config-layout {

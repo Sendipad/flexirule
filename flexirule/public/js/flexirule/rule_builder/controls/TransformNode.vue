@@ -130,16 +130,16 @@ function isChildMapped(path) {
 }
 
 .node-row:hover {
-	background: #f1f5f9;
+	background-color: var(--fxr-bg-hover);
 }
 
 .transform-node-wrapper.is-mapped .node-row {
-	background: rgba(99, 102, 241, 0.05);
+	background-color: var(--fxr-accent-soft);
 }
 
 .toggle-icon {
 	width: 14px;
-	color: #94a3b8;
+	color: var(--fxr-text-muted);
 	font-size: 11px;
 }
 
@@ -150,7 +150,7 @@ function isChildMapped(path) {
 .node-icon {
 	width: 18px;
 	text-align: center;
-	color: #64748b;
+	color: var(--fxr-text-soft);
 	font-size: 14px;
 }
 
@@ -165,7 +165,7 @@ function isChildMapped(path) {
 .label-text {
 	font-size: 12.5px;
 	font-weight: 500;
-	color: #334155;
+	color: var(--fxr-text-secondary);
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -173,30 +173,30 @@ function isChildMapped(path) {
 
 .fieldtype {
 	font-size: 9px;
-	color: #94a3b8;
+	color: var(--fxr-text-muted);
 	text-transform: uppercase;
 	font-weight: 700;
-	background: #f8fafc;
+	background-color: var(--fxr-surface-soft);
 	padding: 1px 4px;
 	border-radius: 3px;
-	border: 1px solid #e2e8f0;
+	border: 1px solid var(--fxr-border-subtle);
 }
 
 .node-children {
 	margin-left: 20px;
-	border-left: 1px dashed #cbd5e1;
+	border-left: 1px dashed var(--fxr-border-strong);
 }
 
 /* Anchors */
 .anchor {
 	width: 12px;
 	height: 12px;
-	border: 2px solid #cbd5e1;
-	background: #fff;
+	border: 2px solid var(--fxr-border-strong);
+	background-color: var(--fxr-bg-card);
 	border-radius: 50%;
 	transition: all 0.2s;
 	z-index: 20;
-	box-shadow: 0 0 0 2px #fff;
+	box-shadow: 0 0 0 2px var(--fxr-bg-card);
 }
 
 .transform-node-wrapper[data-type="source"] .anchor {
@@ -209,21 +209,21 @@ function isChildMapped(path) {
 }
 
 .is-leaf .anchor {
-	border-color: #94a3b8;
+	border-color: var(--fxr-text-muted);
 }
 
 .anchor:hover {
 	transform: scale(1.3);
-	border-color: #3b82f6;
+	border-color: var(--fxr-accent);
 }
 
 .anchor-mapped {
-	background: #3b82f6;
-	border-color: #3b82f6;
+	background-color: var(--fxr-accent);
+	border-color: var(--fxr-accent);
 }
 
 .is-mapped .label-text {
-	color: #3b82f6;
+	color: var(--fxr-accent);
 	font-weight: 700;
 }
 </style>

@@ -129,8 +129,9 @@ function onPaste() {
 		:style="{
 			...style,
 			strokeWidth: isReturnEdge ? 1.5 : 2,
-			stroke: isReturnEdge ? '#94a3b8' : 'var(--border-color, #cbd5e1)',
+			stroke: 'var(--fxr-edge-stroke)',
 			strokeDasharray: isReturnEdge ? '5,5' : 'none',
+			opacity: isReturnEdge ? 0.7 : 1,
 		}"
 		:path="path[0]"
 		:marker-end="markerEnd"
@@ -178,16 +179,16 @@ function onPaste() {
 .edge-add-button {
 	width: 22px;
 	height: 22px;
-	background: #fff;
-	border: 1px solid #cbd5e1;
+	background-color: var(--fxr-bg-card);
+	border: 1px solid var(--fxr-border-strong);
 	border-radius: 50%;
 	cursor: pointer;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	font-size: 8px;
-	color: #64748b;
-	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+	color: var(--fxr-text-soft);
+	box-shadow: var(--fxr-shadow-sm);
 	transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 	z-index: 10;
 }
@@ -195,9 +196,9 @@ function onPaste() {
 .edge-add-button:hover,
 .edge-add-button.active {
 	transform: scale(1.15);
-	border-color: #3b82f6;
-	color: #3b82f6;
-	box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+	border-color: var(--fxr-accent);
+	color: var(--fxr-accent);
+	box-shadow: var(--fxr-shadow-md);
 }
 
 .edge-add-button i {
