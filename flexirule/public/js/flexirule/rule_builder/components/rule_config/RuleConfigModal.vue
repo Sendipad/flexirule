@@ -47,7 +47,7 @@
 										v-if="
 											ruleStore.is_dirty &&
 											!ruleStore.is_read_only &&
-											(!isMobile || !isEditingLabel)
+											!isMobile
 										"
 										class="dirty-badge"
 									>
@@ -125,22 +125,13 @@
 									<div class="toolbar-divider"></div>
 								</template>
 
-								<!-- Mobile Minimal Info -->
-								<template v-else-if="!isEditingLabel">
-									<div class="toolbar-status mobile">
-										<span class="current">{{ currentNodeIndex + 1 }}</span>
-										<span class="total">/ {{ totalNodes }}</span>
-									</div>
-									<div class="toolbar-divider"></div>
-								</template>
-
 								<!-- Action Group: Save, More, Close -->
 								<div class="toolbar-group actions">
 									<!-- Save (Primary) -->
 									<button
 										v-if="
 											!ruleStore.is_read_only &&
-											(!isMobile || !isEditingLabel)
+											(!isMobile || (ruleStore.is_dirty && !isEditingLabel))
 										"
 										class="toolbar-btn save-action"
 										@click="save"
@@ -1662,38 +1653,46 @@ html[data-theme="dark"] .toolbar-btn.save-action {
 	}
 
 	.config-modal-header {
-		padding: 0 12px;
-		height: auto;
-		min-height: 54px;
-		padding-top: 8px;
-		padding-bottom: 8px;
+		padding: 8px 12px;
+		height: 48px;
+		min-height: 48px;
 		flex-wrap: nowrap;
 		gap: 8px;
 	}
 
 	.header-left {
-		gap: 8px;
+		gap: 6px;
 		min-width: 0;
 		flex: 1;
 	}
 
 	.header-icon {
-		width: 30px;
-		height: 30px;
-		border-radius: 8px;
+		width: 24px;
+		height: 24px;
+		border-radius: 6px;
 		flex-shrink: 0;
+	}
+
+	.header-icon i {
+		font-size: 12px;
 	}
 
 	.header-titles {
 		min-width: 0;
+		flex: 1;
 	}
 
 	.header-titles h3 {
-		font-size: 15px;
+		font-size: 14px;
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
-		max-width: 180px;
+		max-width: 100%;
+		margin: 0;
+	}
+
+	.title-wrapper {
+		gap: 4px;
 	}
 
 	.header-toolbar {
@@ -1710,16 +1709,16 @@ html[data-theme="dark"] .toolbar-btn.save-action {
 		padding: 0;
 		background: transparent;
 		gap: 4px;
-		flex-wrap: wrap;
+		flex-wrap: nowrap;
 		justify-content: flex-end;
 	}
 
 	.toolbar-btn {
 		padding: 0;
-		height: 44px;
-		width: 44px;
-		min-width: 44px;
-		border-radius: 12px;
+		height: 36px;
+		width: 36px;
+		min-width: 36px;
+		border-radius: 10px;
 	}
 
 	.toolbar-btn .btn-label {
