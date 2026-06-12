@@ -237,6 +237,8 @@ class RuleBuilder {
 	}
 
 	show_test_dialog() {
+		const last_docname = localStorage.getItem(`flexirule-debug-last-doc-${this.rule}`);
+
 		let d = new frappe.ui.Dialog({
 			title: __("Debug Rule"),
 			fields: [
@@ -263,6 +265,7 @@ class RuleBuilder {
 					fieldname: "docname",
 					label: __("Document"),
 					options: "doctype",
+					default: last_docname,
 					reqd: 1,
 				},
 				{
@@ -275,6 +278,10 @@ class RuleBuilder {
 			],
 			primary_action_label: __("Debug"),
 			primary_action: (values) => {
+				if (values.docname) {
+					localStorage.setItem(`flexirule-debug-last-doc-${this.rule}`, values.docname);
+				}
+
 				frappe.call({
 					method: "flexirule.ruleflow.api.test_rule",
 					args: {
@@ -292,23 +299,28 @@ class RuleBuilder {
 								r.message.path_trace || r.message.execution_path || [];
 							this.update_test_ui(pathTrace);
 
-							frappe.msgprint({
-								title: __("Success"),
-								message:
-									r.message?.message || __("Rule debug completed successfully"),
-								indicator: "green",
-							});
+							frappe.show_alert(
+								{
+									message:
+										r.message?.message ||
+										__("Rule debug completed successfully"),
+									indicator: "green",
+								},
+								5
+							);
 						} else {
 							this.update_test_ui(r.message?.path_trace || []);
-							frappe.msgprint({
-								title: __("Error"),
-								message:
-									r.message?.message ||
-									r.message?.error ||
-									(r.message?.execution?.errors || []).join("\n") ||
-									__("Debug failed"),
-								indicator: "red",
-							});
+							frappe.show_alert(
+								{
+									message:
+										r.message?.message ||
+										r.message?.error ||
+										(r.message?.execution?.errors || []).join("\n") ||
+										__("Debug failed"),
+									indicator: "red",
+								},
+								7
+							);
 						}
 						d.hide();
 					},
