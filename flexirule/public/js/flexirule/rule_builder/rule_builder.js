@@ -247,7 +247,7 @@ class RuleBuilder {
 					options: `
 						<div class="alert alert-info small" style="margin-bottom: 15px;">
 							${__(
-								"You can debug a Rule on any existing record without side effects; it is just a simulation run."
+								"Debug a rule against an existing record to inspect execution flow, conditions, variables, and action results. This is a simulation and does not modify data."
 							)}
 						</div>
 					`,
