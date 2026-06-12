@@ -4,11 +4,6 @@
  */
 
 /* Vue Flow Overrides */
-.vue-flow__container {
-	background-color: var(--fxr-bg-page);
-	background-image: radial-gradient(var(--fxr-border-subtle) 1px, transparent 1px);
-	background-size: 15px 15px;
-}
 
 .vue-flow__node {
 	background: var(--fxr-bg-card);
