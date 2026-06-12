@@ -58,13 +58,13 @@ class RuleBuilder {
 			await this.toggle_rule_active();
 		});
 
-		// Test
-		this.test_btn = this.page.add_inner_button(__("Test Rule"), () => {
+		// Debug
+		this.test_btn = this.page.add_inner_button(__("Debug Rule"), () => {
 			this.show_test_dialog();
 		});
 
 		// Clear visualization if any
-		this.clear_test_btn = this.page.add_inner_button(__("Clear Test Path"), () => {
+		this.clear_test_btn = this.page.add_inner_button(__("Clear Debug Path"), () => {
 			this.uiStore.clear_test_result();
 			this.update_test_ui([]);
 		});
@@ -238,8 +238,18 @@ class RuleBuilder {
 
 	show_test_dialog() {
 		let d = new frappe.ui.Dialog({
-			title: __("Test Rule"),
+			title: __("Debug Rule"),
 			fields: [
+				{
+					fieldtype: "HTML",
+					options: `
+						<div class="alert alert-info small" style="margin-bottom: 15px;">
+							${__(
+								"You can debug a Rule on any existing record without side effects; it is just a simulation run."
+							)}
+						</div>
+					`,
+				},
 				{
 					fieldtype: "Link",
 					fieldname: "doctype",
@@ -259,11 +269,11 @@ class RuleBuilder {
 					fieldtype: "Check",
 					fieldname: "save_log",
 					label: __("Create Execution Log"),
-					description: __("Persist a log record even for this test run"),
+					description: __("Persist a log record even for this debug run"),
 					default: 1,
 				},
 			],
-			primary_action_label: __("Test"),
+			primary_action_label: __("Debug"),
 			primary_action: (values) => {
 				frappe.call({
 					method: "flexirule.ruleflow.api.test_rule",
@@ -285,7 +295,7 @@ class RuleBuilder {
 							frappe.msgprint({
 								title: __("Success"),
 								message:
-									r.message?.message || __("Rule test completed successfully"),
+									r.message?.message || __("Rule debug completed successfully"),
 								indicator: "green",
 							});
 						} else {
@@ -296,7 +306,7 @@ class RuleBuilder {
 									r.message?.message ||
 									r.message?.error ||
 									(r.message?.execution?.errors || []).join("\n") ||
-									__("Test failed"),
+									__("Debug failed"),
 								indicator: "red",
 							});
 						}

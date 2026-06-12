@@ -284,7 +284,7 @@ const fieldInspector = ref({
 
 const quickActionItems = computed(() => [
 	{ key: "save", label: __("Save"), icon: "fa-floppy-o", shortcut: "Ctrl S" },
-	{ key: "test", label: __("Test"), icon: "fa-play" },
+	{ key: "test", label: __("Debug"), icon: "fa-bug" },
 	{
 		key: "status",
 		label: isReadOnly.value ? __("Unlock for editing") : __("Set to active"),

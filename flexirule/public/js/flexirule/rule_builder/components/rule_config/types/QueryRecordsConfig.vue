@@ -355,7 +355,7 @@
 				:disabled="readOnly"
 				tabindex="0"
 			>
-				<i class="fa fa-flask mr-1"></i> {{ __("Refresh Schema (Test Query)") }}
+				<i class="fa fa-flask mr-1"></i> {{ __("Refresh Schema (Debug Query)") }}
 			</button>
 			<span v-if="test_status" class="ml-2 text-muted font-weight-bold">{{
 				test_status
@@ -914,7 +914,7 @@ function update_report_filter(fieldname, value) {
 
 async function test_query() {
 	if (!props.node?.data) return;
-	test_status.value = __("Testing...");
+	test_status.value = __("Debugging...");
 	try {
 		const res = await frappe.call({
 			method: "flexirule.ruleflow.api.test_action_query",
