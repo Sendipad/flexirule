@@ -5,11 +5,11 @@
 Base URL: https://sendipad.github.io/flexirule/
 Application repository: https://github.com/Sendipad/flexirule
 Documentation repository: https://github.com/Sendipad/flexirule-docs
-Generated: 2026-06-10
+Generated: 2026-06-12
 
 ## Core documentation
 
-- [Entry Action](https://sendipad.github.io/flexirule/docs/actions/entry/) — The starting point of every rule flow that anchors the trigger context.
+- [Entry Action](https://sendipad.github.io/flexirule/docs/actions/entry/) — Serves as the mandatory starting point of every rule flow.
 
 - [How Rules Execute](https://sendipad.github.io/flexirule/docs/user-guide/how-rules-execute/) — How Rules Execute# A high-level overview of the rule execution lifecycle for users and designers.
 The 5-Step Lifecycle# Trigger Fires: An event (DocType save, Scheduler interval) …
@@ -40,7 +40,7 @@ Current Technical State# FlexiRule is …
 
 - [Architecture](https://sendipad.github.io/flexirule/docs/architecture/overview/) — Core architecture and design philosophy of FlexiRule.
 
-- [Assignment](https://sendipad.github.io/flexirule/docs/actions/assignment/) — Change values of document fields and variables.
+- [Assignment](https://sendipad.github.io/flexirule/docs/actions/assignment/) — Updates document fields or context variables with new values.
 
 - [Condition Builder](https://sendipad.github.io/flexirule/docs/user-guide/condition-builder/) — Condition Builder UI (Frontend)# The Condition Builder is a specialized Vue 3 workspace designed to let users author complex business logic through a structured, visual interface.
 
@@ -57,7 +57,7 @@ Current Technical State# FlexiRule is …
 - [Callable Triggers](https://sendipad.github.io/flexirule/docs/triggers/callable-triggers/) — Callable Triggers (Sub-Rules)# Callable triggers (also known as Sub-Rules) are designed to be invoked manually or as part of another rule&rsquo;s execution flow.
 
 
-- [Condition](https://sendipad.github.io/flexirule/docs/actions/condition/) — Branching logic based on evaluation of expressions.
+- [Condition](https://sendipad.github.io/flexirule/docs/actions/condition/) — Evaluates a boolean expression to branch execution paths.
 
 - [DocTypes](https://sendipad.github.io/flexirule/docs/reference/doctypes/) — Reference for all DocTypes used in FlexiRule.
 
@@ -85,17 +85,17 @@ DocType Events# doc: The current document object. old_doc: …
 
 - [Documentation Standardization Roadmap](https://sendipad.github.io/flexirule/docs/project/roadmap/documentation-standardization/) — Plan for migrating and standardizing FlexiRule action documentation to the 3-layer framework.
 
-- [Loop](https://sendipad.github.io/flexirule/docs/actions/loop/) — Iterate over collections and child tables to perform batch processing.
+- [Loop](https://sendipad.github.io/flexirule/docs/actions/loop/) — Iterates over a collection and executes child nodes for each item.
 
 - [Troubleshooting](https://sendipad.github.io/flexirule/docs/administration/troubleshooting/) — Identifying and resolving common issues in FlexiRule.
 
 - [FAQ](https://sendipad.github.io/flexirule/docs/administration/faq/) — Frequently asked questions about FlexiRule.
 
-- [Process](https://sendipad.github.io/flexirule/docs/actions/process/) — Executing reusable, code-backed business logic.
+- [Process](https://sendipad.github.io/flexirule/docs/actions/process/) — Executes custom Python logic and predefined business processes.
 
-- [Stop](https://sendipad.github.io/flexirule/docs/actions/stop/) — Terminate the rule execution flow.
+- [Stop](https://sendipad.github.io/flexirule/docs/actions/stop/) — Terminates rule execution with a success or error status.
 
-- [Switch](https://sendipad.github.io/flexirule/docs/actions/switch/) — Multi-path branching based on expression values.
+- [Switch](https://sendipad.github.io/flexirule/docs/actions/switch/) — Directs execution to one of multiple paths based on a value.
 
 - [Action Name](https://sendipad.github.io/flexirule/docs/contributing/templates/action-doc-template/) — A concise one-sentence description of the action.
 

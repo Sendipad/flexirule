@@ -6,8 +6,8 @@ Enterprise documentation for FlexiRule, a metadata-driven automation and rules o
 ---
 title: Entry Action
 url: https://sendipad.github.io/flexirule/docs/actions/entry/
-lastmod: 2026-06-09
-summary: The starting point of every rule flow that anchors the trigger context.
+lastmod: 2026-06-11
+summary: Serves as the mandatory starting point of every rule flow.
 concepts: 
 tags: 
 difficulty: 
@@ -77,7 +77,7 @@ Layer 1: Action Documentation# Location: /docs/actions/&amp;lt;action-slug&amp;g
 ---
 title: Action Metadata Schema
 url: https://sendipad.github.io/flexirule/docs/reference/ai/action-metadata-schema/
-lastmod: 2026-06-09
+lastmod: 2026-06-11
 summary: Reference specification for action metadata used by AI and programmatic tools.
 concepts: 
 tags: 
@@ -87,7 +87,7 @@ actions: read, implement, integrate, troubleshoot, improve
 
 Action Metadata Schema# This document defines the recommended metadata structure for FlexiRule actions. This metadata is intended to support AI rule generation, automated validation, search optimization, and Copilot features.
 Purpose# Standardized metadata allows AI models and system tools to understand the capabilities and requirements of an action without parsing natural language documentation. This enables:
-AI Rule Generation: Helping LLMs select the correct action for a business requirement. Validation: Catching configuration errors before execution. Discovery: Powering the &amp;ldquo;Action Catalog&amp;rdquo; search and filtering. Recommendations: Suggesting relevant next steps in a rule flow. Field Definitions# Field Type Description action string The unique identifier of the action (e.g., assignment, query-records). category string The high-level grouping (e.g., data, flow, integration). targets array List of data types this action can modify (doc, vars, db). operators array List of supported operations (if applicable). supports_conditions boolean Whether individual components support row-level guards. supports_batch_operations boolean Whether the action can perform multiple operations in one node. triggers_compatible array Lifecycle events where this action is safe to use. Constraints# Lower-case: All string identifiers should be lower-case and use hyphens for separation (kebab-case). Explicit Targets: If an action does not modify data, targets should be an empty list []. Strict Operators: Only list operators that are formally supported by the backend handler. Example Payloads# 1. Assignment Action# { &amp;#34;action&amp;#34;: &amp;#34;assignment&amp;#34;, &amp;#34;category&amp;#34;: &amp;#34;data&amp;#34;, &amp;#34;targets&amp;#34;: [&amp;#34;doc&amp;#34;, &amp;#34;vars&amp;#34;], &amp;#34;operators&amp;#34;: [&amp;#34;set&amp;#34;, &amp;#34;clear&amp;#34;, &amp;#34;increment&amp;#34;, &amp;#34;decrement&amp;#34;, &amp;#34;append&amp;#34;, &amp;#34;merge&amp;#34;, &amp;#34;toggle&amp;#34;], &amp;#34;supports_conditions&amp;#34;: true, &amp;#34;supports_batch_operations&amp;#34;: true, &amp;#34;triggers_compatible&amp;#34;: [&amp;#34;any&amp;#34;] } 2. Query Records Action# { &amp;#34;action&amp;#34;: &amp;#34;query-records&amp;#34;, &amp;#34;category&amp;#34;: &amp;#34;data&amp;#34;, &amp;#34;targets&amp;#34;: [&amp;#34;vars&amp;#34;], &amp;#34;operators&amp;#34;: …
+AI Rule Generation: Helping LLMs select the correct action for a business requirement. Validation: Catching configuration errors before execution. Discovery: Powering the &amp;ldquo;Action Zone&amp;rdquo; search and filtering. Recommendations: Suggesting relevant next steps in a rule flow. Field Definitions# Field Type Description action string The unique identifier of the action (e.g., assignment, query-records). category string The high-level grouping (e.g., data, flow, integration). targets array List of data types this action can modify (doc, vars, db). operators array List of supported operations (if applicable). supports_conditions boolean Whether individual components support row-level guards. supports_batch_operations boolean Whether the action can perform multiple operations in one node. triggers_compatible array Lifecycle events where this action is safe to use. Constraints# Lower-case: All string identifiers should be lower-case and use hyphens for separation (kebab-case). Explicit Targets: If an action does not modify data, targets should be an empty list []. Strict Operators: Only list operators that are formally supported by the backend handler. Example Payloads# 1. Assignment Action# { &amp;#34;action&amp;#34;: &amp;#34;assignment&amp;#34;, &amp;#34;category&amp;#34;: &amp;#34;data&amp;#34;, &amp;#34;targets&amp;#34;: [&amp;#34;doc&amp;#34;, &amp;#34;vars&amp;#34;], &amp;#34;operators&amp;#34;: [&amp;#34;set&amp;#34;, &amp;#34;clear&amp;#34;, &amp;#34;increment&amp;#34;, &amp;#34;decrement&amp;#34;, &amp;#34;append&amp;#34;, &amp;#34;merge&amp;#34;, &amp;#34;toggle&amp;#34;], &amp;#34;supports_conditions&amp;#34;: true, &amp;#34;supports_batch_operations&amp;#34;: true, &amp;#34;triggers_compatible&amp;#34;: [&amp;#34;any&amp;#34;] } 2. Query Records Action# { &amp;#34;action&amp;#34;: &amp;#34;query-records&amp;#34;, &amp;#34;category&amp;#34;: &amp;#34;data&amp;#34;, &amp;#34;targets&amp;#34;: [&amp;#34;vars&amp;#34;], &amp;#34;operators&amp;#34;: …
 
 ---
 title: Assignment Action Improvements
@@ -139,18 +139,18 @@ actions: read, implement, integrate, troubleshoot, improve
 Execution Engine Deep Dive# Keywords: execution engine, lifecycle, transaction, rollback, reentrancy, sandboxing
 Audience# Developers Administrators Overview# The FlexiRule Execution Engine is a deterministic graph executor designed for reliability, observability, and safety. It ensures that business logic is executed in a predictable manner, with built-in protections against common pitfalls like infinite loops and database inconsistency.
 Rule Execution Lifecycle# The following diagram illustrates the high-level lifecycle of a rule execution:
-sequenceDiagram participant T as Trigger (Event/Scheduler) participant C as Rule Coordinator participant E as Execution Engine participant A as Action Handlers T-&amp;gt;&amp;gt;C: Trigger Event C-&amp;gt;&amp;gt;C: Check Eligibility (Active, Conditions) C-&amp;gt;&amp;gt;E: Initialize Engine (Context) loop Graph Traversal E-&amp;gt;&amp;gt;A: Execute Node A--&amp;gt;&amp;gt;E: Result / Context Update E-&amp;gt;&amp;gt;E: Determine Next Node end E--&amp;gt;&amp;gt;C: Execution Complete C--&amp;gt;&amp;gt;T: Return Result Transaction &amp;amp; Error Management# The engine provides enterprise-grade reliability features for handling failures and maintaining data integrity.
+sequenceDiagram participant T as Trigger (Event/Scheduler) participant C as Rule Coordinator participant E as Execution Engine participant A as Action Handlers T-&gt;&gt;C: Trigger Event C-&gt;&gt;C: Check Eligibility (Active, Conditions) C-&gt;&gt;E: Initialize Engine (Context) loop Graph Traversal E-&gt;&gt;A: Execute Node A--&gt;&gt;E: Result / Context Update E-&gt;&gt;E: Determine Next Node end E--&gt;&gt;C: Execution Complete C--&gt;&gt;T: Return Result Transaction &amp;amp; Error Management# The engine provides enterprise-grade reliability features for handling failures and maintaining data integrity.
 Exponential Backoff Math# When an action is configured with on_error: &amp;quot;Retry&amp;quot;, the engine uses an exponential backoff strategy:
 Delay Formula: wait_time = 2 ** current_attempt seconds. Safety: Retries are automatically disabled if the context flag _in_sync_hook is set, preventing unsafe sleeps in synchronous DocType events. Savepoint / Rollback Management# For actions with the transactional flag or on_error: &amp;quot;Rollback&amp;quot;, the engine uses database savepoints to ensure atomic consistency at the node level.
 Reentrancy Guards# To prevent infinite recursive loops, the RuleCoordinator implements a global reentrancy guard.
 Need to prevent loops? ├── Same Record + Same Event? → Blocked ├── Different Record? → Allowed └── Different Event? → Allowed
 Key Format: {doctype}:{name}:{event_name}. Action: If a key is already present in the local stack, the execution request is denied. Incremental Context &amp;amp; Isolation# The engine maintains a strict Temporal Context Isolation policy.
-graph LR A[Action 1] --&amp;gt; B[Action …
+graph LR A[Action 1] --&gt; B[Action 2] B --&gt; C[Action 3] subgraph &#34;Context at Action 2&#34; …
 
 ---
 title: Rule Builder
 url: https://sendipad.github.io/flexirule/docs/user-guide/rule-builder/
-lastmod: 2026-06-08
+lastmod: 2026-06-11
 summary: Visual workspace for designing business logic graphs.
 concepts: 
 tags: 
@@ -162,9 +162,9 @@ Visual Rule Builder# Keywords: rule builder, visual editor, drag and drop, workf
 Audience# End Users Developers Overview# The Rule Builder is a Vue 3-based visual workspace for designing business logic graphs. It provides a drag-and-drop canvas where you can orchestrate complex workflows without writing code, while maintaining full visibility into the execution flow.
 When to Use# Use this to design new business rules and processes. Use this to visualize the logical flow of an existing rule. Use this to test and debug rules using real document data. Visual Example# Rule Builder Overview Key Concepts# Nodes (Actions)# Each node in the graph represents a Rule Action.
 Entry Action: The starting point of the graph. Functional Nodes: Perform work (e.g., Process, Assignment). Control Nodes: Manage flow (e.g., Condition, Loop). No-Code &amp;amp; Error Prevention# Temporal Context Visibility# The builder ensures that an action can only access variables that are logically available at its point in the execution flow.
-Upstream-Only Visibility: The field picker only displays variables created by upstream nodes. Dynamic Schema Switching: Automatically switches field pickers based on the DocType context. Reactive &amp;amp; Type-Aware Controls# Intelligent Filter Builder: Adapts operators based on field types. Magic Formula Builder: Guided UI for complex logic (Date math, Aggregations). Rule Lifecycle# stateDiagram-v2 [*] --&amp;gt; Draft: Create Rule Draft --&amp;gt; Active: Validate &amp;amp; Activate Active --&amp;gt; Draft: Edit/Amend Active --&amp;gt; Disabled: Disable Disabled --&amp;gt; Active: Re-activate Active --&amp;gt; Archived: Archive Examples# Basic Example# Problem: Create a simple rule that sets a field. Configuration:
+Upstream-Only Visibility: The field picker only displays variables created by upstream nodes. Dynamic Schema Switching: Automatically switches field pickers based on the DocType context. Reactive &amp;amp; Type-Aware Controls# Intelligent Filter Builder: Adapts operators based on field types. Magic Formula Builder: Guided UI for complex logic (Date math, Aggregations). Rule Lifecycle# stateDiagram-v2 [*] --&gt; Draft: Create Rule Draft --&gt; Active: Validate &amp; Activate Active --&gt; Draft: Edit/Amend Active --&gt; Disabled: Disable Disabled --&gt; Active: Re-activate Active --&gt; Archived: Archive Examples# Basic Example# Problem: Create a simple rule that sets a field. Configuration:
 Add an Entry Action. Connect it to an Assignment action. Configure the Assignment to set doc.status = &amp;quot;Open&amp;quot;. Result: When the rule triggers, the status is updated. Real-world Example# Problem: Complex approval workflow with notifications. Configuration:
-Entry: On Sales Order Submit. Condition: Is Total &amp;gt; 10,000? True Path: Send Email to Manager and set doc.workflow_state = &amp;quot;Pending Manager&amp;quot;. False Path: Set doc.workflow_state = …
+Entry: On Sales Order Submit. Condition: Is Total &amp;gt; 10,000? True Path: Send Email to Manager and set doc.workflow_state = &amp;quot;Pending Manager&amp;quot;. False Path: Set doc.workflow_state = &amp;quot;Approved&amp;quot;. Result: …
 
 ---
 title: Technical Audit
@@ -187,7 +187,7 @@ Contracts are Maintained: Changes to action behavior must be reflected in contra
 ---
 title: Toast Notification
 url: https://sendipad.github.io/flexirule/docs/actions/notify/toast/
-lastmod: 2026-06-09
+lastmod: 2026-06-11
 summary: Display immediate browser alerts to the active user.
 concepts: 
 tags: 
@@ -206,7 +206,7 @@ Best Practices# Keep messages short and actionable. Avoid using Toasts for criti
 ---
 title: Decision Trees
 url: https://sendipad.github.io/flexirule/docs/concepts/decision-trees/
-lastmod: 2026-06-04
+lastmod: 2026-06-11
 summary: Guidance on choosing the right FlexiRule features.
 concepts: 
 tags: 
@@ -224,7 +224,7 @@ Need to branch execution? ├── Simple Yes/No check → Condition Action ├
 Need data from the database? ├── Single record by Name/ID → Query Records (Query Doc) ├── Check if a record exists → Query Records (Exist Record) ├── Get a list of records → Query Records (Query List) └── Perform a calculation (Sum, Count, Avg)? ├── Across many records → Query Records (Aggregate) └── Across child table rows → Assignment (Formula Resolver)
 4. Iteration# Question: How should I process a list of items?
 Need to process a collection? ├── Validate or Update every row → Loop Action ├── Find a specific item → Loop Action + Condition + Stop └── Summarize data into a single value? ├── Simple Sum/Count → Assignment (Formula Resolver) └── Complex logic per row → Loop Action + Assignment
-Related Topics# Glossary Rule Builder Action Catalog 
+Related Topics# Glossary Rule Builder Action Zone 
 
 ---
 title: Architecture
@@ -239,18 +239,18 @@ actions: read, implement, integrate, troubleshoot, improve
 
 FlexiRule Architecture# Keywords: architecture, system overview, design, layers, frappe, vueflow
 Audience# Developers Administrators Contributors Overview# FlexiRule is a visual rule orchestration engine built for Frappe v15+. It bridges the gap between no-code configuration and standard Python business logic by providing a graph-based execution layer.
-Rule Execution Lifecycle# sequenceDiagram participant F as Frappe Hook participant RC as RuleCoordinator participant RE as RuleEngine participant AH as ActionHandlers F-&amp;gt;&amp;gt;RC: Trigger Event (e.g., on_update) RC-&amp;gt;&amp;gt;RC: Find &amp;amp; Filter Rules RC-&amp;gt;&amp;gt;RE: Execute Rule(s) loop For each Node RE-&amp;gt;&amp;gt;AH: Handle Action AH--&amp;gt;&amp;gt;RE: Return Result end RE--&amp;gt;&amp;gt;RC: Execution Finished RC--&amp;gt;&amp;gt;F: Done System Layers# 1. Presentation Layer (Frontend)# The frontend is built using Vue 3 and VueFlow, integrated into the Frappe Desk. It manages complex graph states and ensures design-time safety through context-aware validation.
+Rule Execution Lifecycle# sequenceDiagram participant F as Frappe Hook participant RC as RuleCoordinator participant RE as RuleEngine participant AH as ActionHandlers F-&gt;&gt;RC: Trigger Event (e.g., on_update) RC-&gt;&gt;RC: Find &amp; Filter Rules RC-&gt;&gt;RE: Execute Rule(s) loop For each Node RE-&gt;&gt;AH: Handle Action AH--&gt;&gt;RE: Return Result end RE--&gt;&gt;RC: Execution Finished RC--&gt;&gt;F: Done System Layers# 1. Presentation Layer (Frontend)# The frontend is built using Vue 3 and VueFlow, integrated into the Frappe Desk. It manages complex graph states and ensures design-time safety through context-aware validation.
 2. API Layer# The API layer provides a secure bridge between the frontend and backend. Key functionalities include introspection, validation, and execution testing.
 3. Domain Layer (Core Engine)# The core engine is responsible for the deterministic execution of rules.
 RuleCoordinator: Handles event dispatching and caching. RuleEngine: Traverses the graph using a Strategy Pattern. ContextManager: Manages variable scope (vars) and mutation modes. 4. Persistence Layer (Data Model)# FlexiRule uses several Frappe DocTypes to maintain rules, processes, and audit trails.
-Integration Flow# graph TD A[Frappe App] --&amp;gt;|Hooks| B[RuleCoordinator] B --&amp;gt;|Registry| C{Rules Active?} C -- Yes --&amp;gt; D[RuleEngine] C -- No --&amp;gt; E[Exit] D --&amp;gt; F[Action Handlers] F --&amp;gt;|Result| G[Update doc/vars] G --&amp;gt; D Technical Integrity# The system includes a built-in technical audit mechanism to ensure rule integrity:
-Graph Validation: Prevents disconnected nodes, cycles, and invalid exit paths. Contract Enforcement: Ensures action configurations match backend expectations. Pre-Activation Check: A full validation suite runs automatically before activation. Related Topics# Execution Engine API …
+Integration Flow# graph TD A[Frappe App] --&gt;|Hooks| B[RuleCoordinator] B --&gt;|Registry| C{Rules Active?} C -- Yes --&gt; D[RuleEngine] C -- No --&gt; E[Exit] D --&gt; F[Action Handlers] F --&gt;|Result| G[Update doc/vars] G --&gt; D Technical Integrity# The system includes a built-in technical audit mechanism to ensure rule integrity:
+Graph Validation: Prevents disconnected nodes, cycles, and invalid exit paths. Contract Enforcement: Ensures action configurations match backend expectations. Pre-Activation Check: A full validation suite runs automatically before activation. Related Topics# Execution Engine API Reference DocType Reference 
 
 ---
 title: Assignment
 url: https://sendipad.github.io/flexirule/docs/actions/assignment/
-lastmod: 2026-06-08
-summary: Change values of document fields and variables.
+lastmod: 2026-06-11
+summary: Updates document fields or context variables with new values.
 concepts: 
 tags: 
 difficulty: 
@@ -313,7 +313,7 @@ Input: JSON AST. Output: An optimized Python Expression String and a list of Wat
 ---
 title: Email Notification
 url: https://sendipad.github.io/flexirule/docs/actions/notify/email/
-lastmod: 2026-06-09
+lastmod: 2026-06-11
 summary: Send automated emails with dynamic content and attachments.
 concepts: 
 tags: 
@@ -358,10 +358,10 @@ actions: read, implement, integrate, troubleshoot, improve
 
 AI Features# Keywords: AI, machine learning, prompt engineering, automation, intelligent rules
 Audience# End Users Developers Overview# FlexiRule integrates AI capabilities directly into the visual orchestration layer, allowing for &amp;ldquo;intelligent&amp;rdquo; business processes that can analyze text, make predictions, or generate content as part of a rule execution.
-When to Use# Use AI Features when you need to handle unstructured data (e.g., sentiment analysis of comments). Use AI for complex decision-making that is difficult to express in traditional boolean logic. Use AI for automated content generation based on document state. Do Not Use# Do not use AI for deterministic logic where a simple condition or math formula suffices. Do not use AI for high-volume, low-latency requirements without considering cost and performance. Visual Example# graph TD A[Start] --&amp;gt; B{AI Classifier} B -- &amp;#34;High Priority&amp;#34; --&amp;gt; C[Alert Manager] B -- &amp;#34;Low Priority&amp;#34; --&amp;gt; D[Log Activity] C --&amp;gt; E[End] D --&amp;gt; E Capabilities# 1. Context-Aware Prompting# AI Actions can ingest the entire execution context (doc, vars) to generate responses tailored to the specific record state.
+When to Use# Use AI Features when you need to handle unstructured data (e.g., sentiment analysis of comments). Use AI for complex decision-making that is difficult to express in traditional boolean logic. Use AI for automated content generation based on document state. Do Not Use# Do not use AI for deterministic logic where a simple condition or math formula suffices. Do not use AI for high-volume, low-latency requirements without considering cost and performance. Visual Example# graph TD A[Start] --&gt; B{AI Classifier} B -- &#34;High Priority&#34; --&gt; C[Alert Manager] B -- &#34;Low Priority&#34; --&gt; D[Log Activity] C --&gt; E[End] D --&gt; E Capabilities# 1. Context-Aware Prompting# AI Actions can ingest the entire execution context (doc, vars) to generate responses tailored to the specific record state.
 2. Natural Language Classification# Classify documents or inputs into predefined categories without writing complex regex or lookup tables.
 3. Data Extraction# Extract structured information from unstructured text fields and map them to document fields or variables.
-AI Integration Flow# sequenceDiagram participant E as Engine participant A as AI Action participant P as AI Provider (LLM) E-&amp;gt;&amp;gt;A: Execute Node (Context) A-&amp;gt;&amp;gt;A: Build Prompt with doc/vars A-&amp;gt;&amp;gt;P: Request (Prompt) P--&amp;gt;&amp;gt;A: Response (JSON/Text) A--&amp;gt;&amp;gt;E: Update Context (vars.ai_result) Prompt Best Practices# Be Specific: Provide clear instructions and examples (few-shot prompting) within the action configuration. Limit Output: Request the AI to return data in a specific format (e.g., JSON) for easier parsing by subsequent nodes. Security: Be mindful of PII (Personally Identifiable Information) when sending data to external AI providers. Limitations &amp;amp; Considerations# Latency: AI requests are network-bound …
+AI Integration Flow# sequenceDiagram participant E as Engine participant A as AI Action participant P as AI Provider (LLM) E-&gt;&gt;A: Execute Node (Context) A-&gt;&gt;A: Build Prompt with doc/vars A-&gt;&gt;P: Request (Prompt) P--&gt;&gt;A: Response (JSON/Text) A--&gt;&gt;E: Update Context (vars.ai_result) Prompt Best Practices# Be Specific: Provide clear instructions and examples (few-shot prompting) within the action configuration. Limit Output: Request the AI to return data in a specific format (e.g., JSON) for easier parsing by subsequent nodes. Security: Be mindful of PII (Personally Identifiable Information) when sending data to external AI providers. Limitations &amp;amp; Considerations# Latency: AI requests are network-bound and can introduce delays in rule execution. Cost: Each AI …
 
 ---
 title: Callable Triggers
@@ -382,8 +382,8 @@ Invocation Methods# Programmatic: Using the flexirule.api.execute_rule method. S
 ---
 title: Condition
 url: https://sendipad.github.io/flexirule/docs/actions/condition/
-lastmod: 2026-06-09
-summary: Branching logic based on evaluation of expressions.
+lastmod: 2026-06-11
+summary: Evaluates a boolean expression to branch execution paths.
 concepts: 
 tags: 
 difficulty: 
@@ -418,7 +418,7 @@ When to Use# Use this to debug rule execution, view path traces, and inspect var
 ---
 title: System Notification
 url: https://sendipad.github.io/flexirule/docs/actions/notify/system-notification/
-lastmod: 2026-06-09
+lastmod: 2026-06-11
 summary: Create persistent in-app notifications for system users.
 concepts: 
 tags: 
@@ -570,7 +570,7 @@ Self-Healing Flows: Use the Retry policy with exponential backoff for transient 
 ---
 title: Provider Notification
 url: https://sendipad.github.io/flexirule/docs/actions/notify/provider/
-lastmod: 2026-06-09
+lastmod: 2026-06-11
 summary: Dispatch notifications through custom third-party services.
 concepts: 
 tags: 
@@ -608,7 +608,7 @@ action_type: &amp;#34;Assignment&amp;#34; config: rows: - target: string # Requi
 ---
 title: Documentation Standardization Roadmap
 url: https://sendipad.github.io/flexirule/docs/project/roadmap/documentation-standardization/
-lastmod: 2026-06-09
+lastmod: 2026-06-11
 summary: Plan for migrating and standardizing FlexiRule action documentation to the 3-layer framework.
 concepts: 
 tags: 
@@ -623,8 +623,8 @@ Layer 1 (Actions): Exists for primary actions (Assignment, Condition, Query Reco
 ---
 title: Loop
 url: https://sendipad.github.io/flexirule/docs/actions/loop/
-lastmod: 2026-06-09
-summary: Iterate over collections and child tables to perform batch processing.
+lastmod: 2026-06-11
+summary: Iterates over a collection and executes child nodes for each item.
 concepts: 
 tags: 
 difficulty: 
@@ -652,12 +652,12 @@ actions: read, implement, integrate, troubleshoot, improve
 
 Troubleshooting# Strategies for identifying and resolving common issues encountered when building or executing rules in FlexiRule.
 Debugging Workflow# Use this systematic approach to isolate and fix problems with your rules.
-flowchart TD A[Issue Detected] --&amp;gt; B[Check Rule Execution Logs] B --&amp;gt; C{Error Found?} C -- Yes --&amp;gt; D[Analyze Traceback] C -- No --&amp;gt; E[Enable Debug Mode] E --&amp;gt; F[Run Test Rule] F --&amp;gt; G[Inspect Path Trace] D --&amp;gt; H[Fix Logic/Config] G --&amp;gt; H H --&amp;gt; I[Verify Fix] Common Issues# 1. Rule Not TriggeringIf a rule fails to trigger when expected, verify the following configuration points:
+flowchart TD A[Issue Detected] --&gt; B[Check Rule Execution Logs] B --&gt; C{Error Found?} C -- Yes --&gt; D[Analyze Traceback] C -- No --&gt; E[Enable Debug Mode] E --&gt; F[Run Test Rule] F --&gt; G[Inspect Path Trace] D --&gt; H[Fix Logic/Config] G --&gt; H H --&gt; I[Verify Fix] Common Issues# 1. Rule Not TriggeringIf a rule fails to trigger when expected, verify the following configuration points:
 Status: Is the rule set to Active? Trigger Event: Does the event match the action (e.g., using Before Save when the logic depends on values only available After Save)? Watched Fields: If configured, did any of the specified fields actually change during the transaction? Role Permissions: Is the user triggering the event assigned a role that is listed in Skip for Roles? 2. Variable Resolution FailsErrors like KeyError: &#39;my_var&#39; typically indicate the execution engine cannot find a referenced variable.
 Flow Logic: Ensure the variable is defined by an upstream node in the current execution path. Naming: Verify the spelling and case-sensitivity of the variable name. Data Model: If referencing doc.*, ensure the field exists on the target DocType. 3. Infinite Loops (Reentrancy)Symptom: &amp;ldquo;Reentrancy guard blocked execution&amp;rdquo; error in logs.
 Cause: A rule performs a mutation (like doc.save()) that triggers the same rule again, creating a loop. Solution: Add a condition to the entry action to prevent execution if the document is already in the desired state (e.g., doc.status != &amp;quot;Processed&amp;quot;). 4. Permission DeniedError: frappe.exceptions.PermissionError
 Solution: Check if the action requires specific user permissions. You can enable Ignore Permissions on individual action nodes if necessary (this requires providing an audit reason). Debugging Tools# Rule Execution Log# The primary diagnostic tool for FlexiRule. It provides a detailed record of each execution:
-Status: Clear indication of Success or Failure. Path Trace: A visual or …
+Status: Clear indication of Success or Failure. Path Trace: A visual or list-based trace of exactly …
 
 ---
 title: FAQ
@@ -676,8 +676,8 @@ Is FlexiRule a replacement for Frappe Workflows?FlexiRule is more comprehensive 
 ---
 title: Process
 url: https://sendipad.github.io/flexirule/docs/actions/process/
-lastmod: 2026-06-08
-summary: Executing reusable, code-backed business logic.
+lastmod: 2026-06-11
+summary: Executes custom Python logic and predefined business processes.
 concepts: 
 tags: 
 difficulty: 
@@ -686,15 +686,15 @@ actions: read, implement, integrate, troubleshoot, improve
 
 Process Action# Keywords: process, python, custom logic, integration, extensibility
 Audience# Developers Administrators Overview# The Process action is the primary way to extend FlexiRule with custom Python code. It executes reusable business logic defined in a Process DocType, allowing you to bridge the gap between visual orchestration and complex backend code.
-When to Use# Use this when you need to perform complex calculations that exceed the capabilities of the Formula Resolver. Use this to integrate with external APIs or third-party services. Use this to encapsulate common business logic that needs to be reused across many different rules. Do Not Use# Do not use this for simple field updates that can be handled by an Assignment action. Do not use this for basic branching logic (use Condition or Switch instead). Visual Example# graph TD A[Start] --&amp;gt; B[Process: Payment Gateway] B -- Config: API Key, Amount --&amp;gt; C{Success?} C -- Yes --&amp;gt; D[Update Invoice Status] C -- No --&amp;gt; E[Retry/Log Error] Configuration# Process: Select the target Process DocType. Operation: Choose the specific function within that Process to execute. Config: Provide inputs as defined by the operation&amp;rsquo;s config_schema. Execution Flow Diagram# sequenceDiagram participant E as Rule Engine participant P as Process Handler participant C as Custom Code E-&amp;gt;&amp;gt;P: Call Process (Config + Context) P-&amp;gt;&amp;gt;C: Execute Operation C--&amp;gt;&amp;gt;P: Return Data (Result) P--&amp;gt;&amp;gt;E: Apply Mutation Mode E-&amp;gt;&amp;gt;E: Update doc/vars Mutation Mode# After the Process executes, the Rule Engine applies the result based on the selected Mutation Mode:
+When to Use# Use this when you need to perform complex calculations that exceed the capabilities of the Formula Resolver. Use this to integrate with external APIs or third-party services. Use this to encapsulate common business logic that needs to be reused across many different rules. Do Not Use# Do not use this for simple field updates that can be handled by an Assignment action. Do not use this for basic branching logic (use Condition or Switch instead). Visual Example# graph TD A[Start] --&gt; B[Process: Payment Gateway] B -- Config: API Key, Amount --&gt; C{Success?} C -- Yes --&gt; D[Update Invoice Status] C -- No --&gt; E[Retry/Log Error] Configuration# Process: Select the target Process DocType. Operation: Choose the specific function within that Process to execute. Config: Provide inputs as defined by the operation&amp;rsquo;s config_schema. Execution Flow Diagram# sequenceDiagram participant E as Rule Engine participant P as Process Handler participant C as Custom Code E-&gt;&gt;P: Call Process (Config + Context) P-&gt;&gt;C: Execute Operation C--&gt;&gt;P: Return Data (Result) P--&gt;&gt;E: Apply Mutation Mode E-&gt;&gt;E: Update doc/vars Mutation Mode# After the Process executes, the Rule Engine applies the result based on the selected Mutation Mode:
 Set Context Variable: Stores the result in the vars dictionary (e.g., vars.api_response). Set Doc Field: Updates a specific field on the primary document. Update Doc Field: Merges a dictionary result into the document&amp;rsquo;s fields. Batch Database Set: Directly updates the database for performance (bypasses ORM). Examples# Basic Example# Problem: Calculate the tax for an order using a custom tax engine. Configuration:
-Process: TaxCalculator Operation: calculate_vat Mutation Mode: Set Context Variable (target: vars.vat_amount) Execution: The …
+Process: TaxCalculator Operation: calculate_vat Mutation Mode: Set Context Variable (target: vars.vat_amount) Execution: The TaxCalculator process is invoked with the document …
 
 ---
 title: Stop
 url: https://sendipad.github.io/flexirule/docs/actions/stop/
-lastmod: 2026-06-09
-summary: Terminate the rule execution flow.
+lastmod: 2026-06-11
+summary: Terminates rule execution with a success or error status.
 concepts: 
 tags: 
 difficulty: 
@@ -704,15 +704,15 @@ actions: read, implement, integrate, troubleshoot, improve
 Stop# Keywords: [stop, terminate, end, exit, finish, error, validation]
 Overview# The Stop action is a terminal node used to end the execution of a rule flow. It allows you to specify whether the rule should finish successfully or stop with a validation error that alerts the user.
 When To Use# Successful Exit: End the rule early because no further action is required (e.g., if a document is already in the desired state). Validation Failure: Block a document from being saved or submitted by raising a user-facing error message. Guard Clauses: Stop execution at the beginning of a rule if certain preconditions are not met. Configuration# Field Description Termination Mode Choose between Success (silent exit) or Error (raises a validation error). Error Message (Error Mode only) The message displayed to the user. Supports Jinja templates. Supported Inputs# doc: Data from the current document can be used to build dynamic error messages. vars: Use calculated values to explain why the rule stopped. Supported Outputs# This action is terminal and does not produce outputs for subsequent nodes. Execution Behavior# When the engine reaches a Stop node, it immediately halts processing of the current rule.
-In Success mode, the engine stops gracefully. In Error mode, the engine throws a frappe.ValidationError, which rolls back any database changes made during the transaction and displays the rendered error message to the user. graph TD Start[Reach Stop Node] --&amp;gt; Mode{Mode?} Mode -- Success --&amp;gt; End[Exit Gracefully] Mode -- Error --&amp;gt; Render[Render Error Message] Render --&amp;gt; Throw[Raise ValidationError] Throw --&amp;gt; Rollback[Transaction Rollback] Operators / Features# Jinja Support: Error messages can be dynamically generated to include specific field values or helpful context. Traceability: Error messages automatically include a link to the source rule for easier debugging by administrators. Examples# Block Submission for Low Credit# Problem: Prevent a Sales Order from being submitted if the customer&amp;rsquo;s credit score is too low.
+In Success mode, the engine stops gracefully. In Error mode, the engine throws a frappe.ValidationError, which rolls back any database changes made during the transaction and displays the rendered error message to the user. graph TD Start[Reach Stop Node] --&gt; Mode{Mode?} Mode -- Success --&gt; End[Exit Gracefully] Mode -- Error --&gt; Render[Render Error Message] Render --&gt; Throw[Raise ValidationError] Throw --&gt; Rollback[Transaction Rollback] Operators / Features# Jinja Support: Error messages can be dynamically generated to include specific field values or helpful context. Traceability: Error messages automatically include a link to the source rule for easier debugging by administrators. Examples# Block Submission for Low Credit# Problem: Prevent a Sales Order from being submitted if the customer&amp;rsquo;s credit score is too low.
 Configuration:
-Termination Mode: Error Error Message: Cannot submit Order {{ doc.name }}. Customer {{ doc.customer }} has a credit score of …
+Termination Mode: Error Error Message: Cannot submit Order {{ doc.name }}. Customer {{ doc.customer }} has a credit score of {{ …
 
 ---
 title: Switch
 url: https://sendipad.github.io/flexirule/docs/actions/switch/
-lastmod: 2026-06-08
-summary: Multi-path branching based on expression values.
+lastmod: 2026-06-11
+summary: Directs execution to one of multiple paths based on a value.
 concepts: 
 tags: 
 difficulty: 
@@ -721,9 +721,9 @@ actions: read, implement, integrate, troubleshoot, improve
 
 Switch Action# Keywords: switch, case, branching, routing, multi-path
 Audience# End Users Developers Overview# The Switch action enables multi-path branching based on the value of an expression. It functions similarly to a switch statement in programming, allowing you to route execution to many different paths based on a single variable or field.
-When to Use# Use this when you have more than two possible paths based on a single field (e.g., &amp;ldquo;Status&amp;rdquo; can be New, Open, Closed, or Pending). Use this to simplify logic that would otherwise require multiple nested Condition nodes. Do Not Use# Do not use this if you need complex boolean logic (use Condition instead). Do not use this if you only have two paths (True/False). Visual Example# graph TD A[Start] --&amp;gt; B{Switch: doc.status} B -- &amp;#34;Draft&amp;#34; --&amp;gt; C[Assign User] B -- &amp;#34;Submitted&amp;#34; --&amp;gt; D[Notify Manager] B -- &amp;#34;Cancelled&amp;#34; --&amp;gt; E[Log Reason] B -- &amp;#34;Default&amp;#34; --&amp;gt; F[Standard Flow] Configuration# Expression: A Python expression that evaluates to a value (e.g., doc.status). Cases: A list of possible values. Each value creates a unique output port in the Rule Builder. Default Path: The path followed if the expression&amp;rsquo;s result doesn&amp;rsquo;t match any of the defined cases. Examples# Basic Example# Problem: Route a Support Ticket to different teams based on its priority. Configuration:
+When to Use# Use this when you have more than two possible paths based on a single field (e.g., &amp;ldquo;Status&amp;rdquo; can be New, Open, Closed, or Pending). Use this to simplify logic that would otherwise require multiple nested Condition nodes. Do Not Use# Do not use this if you need complex boolean logic (use Condition instead). Do not use this if you only have two paths (True/False). Visual Example# graph TD A[Start] --&gt; B{Switch: doc.status} B -- &#34;Draft&#34; --&gt; C[Assign User] B -- &#34;Submitted&#34; --&gt; D[Notify Manager] B -- &#34;Cancelled&#34; --&gt; E[Log Reason] B -- &#34;Default&#34; --&gt; F[Standard Flow] Configuration# Expression: A Python expression that evaluates to a value (e.g., doc.status). Cases: A list of possible values. Each value creates a unique output port in the Rule Builder. Default Path: The path followed if the expression&amp;rsquo;s result doesn&amp;rsquo;t match any of the defined cases. Examples# Basic Example# Problem: Route a Support Ticket to different teams based on its priority. Configuration:
 Expression: doc.priority Cases: Low, Medium, High, Urgent Execution: The engine evaluates the priority field and matches it to the corresponding port. Result: Tickets are routed to the appropriate team-specific actions. Real-world Example# Problem: Apply different discount logic based on a customer&amp;rsquo;s loyalty tier. Configuration:
-Expression: vars.customer_tier Cases: Bronze, Silver, Gold, Platinum Execution: The tier (retrieved earlier in the rule) determines which path is taken. Result: Each tier follows its own specific Assignment logic for discounts. Common Mistakes# Case Sensitivity: Forgetting that Gold and gold are different values. Missing Default Path: Not configuring logic for the Default path, which can lead to unexpected &amp;ldquo;ends&amp;rdquo; in the execution flow if an …
+Expression: vars.customer_tier Cases: Bronze, Silver, Gold, Platinum Execution: The tier (retrieved earlier in the rule) determines which path is taken. Result: Each tier follows its own specific Assignment logic for discounts. Common Mistakes# Case Sensitivity: Forgetting that Gold and gold are different values. Missing Default Path: Not configuring logic for the Default path, which can lead to unexpected &amp;ldquo;ends&amp;rdquo; in the execution flow if an unknown value is encountered. Overlapping Cases: …
 
 ---
 title: Action Name
