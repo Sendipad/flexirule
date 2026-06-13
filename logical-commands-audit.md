@@ -21,6 +21,7 @@ Overall, the core logical commands (ValueResolver kinds) are well-integrated wit
 | `system_context` | Resolver | `value_resolver.py` | `ValueResolverControl.vue` | Complete | None |
 | `fetch` | Resolver | `value_resolver.py` (Missing) | `ValueResolverControl.vue` | Missing UI | Entire config panel missing |
 | `lookup` | Resolver | N/A | `ValueResolverControl.vue` | Missing UI | Entire config panel missing |
+| `Assignment` | Engine | `assignment.py` | `AssignmentConfig.vue` | Complete | None (Uses FlexValueControl) |
 | `Jinja segments` | Text Gen | `text_generator.js` | `TextGeneratorControl.vue` | Incomplete | `elif` branches in visual mode |
 | `Translation` | Text Gen | `text_generator.js` | `TextGeneratorControl.vue` | Complete | None |
 | `Scalar Mapping` | Mapper | `mapping.py` | `ResourceMapperControl.vue` | Complete | None |
@@ -38,6 +39,7 @@ Overall, the core logical commands (ValueResolver kinds) are well-integrated wit
 | `SafeEval` | Resolver | `value_resolver.py` | `FlexValueControl.vue` | Complete | None |
 
 ## 3. Detailed Gap Breakdown
+*   **Assignment Config Integration:** The `AssignmentConfig.vue` acts as a heavy orchestration layer for the `ValueResolver` system. It utilizes `FlexValueControl.vue` for every assignment row, correctly passing context (target field type and operator) to filter available resolver kinds. It implements intelligent defaulting (e.g., defaulting to `math_formula` for numeric targets). The integration is programmatically complete, relying on the underlying controls for actual logic configuration.
 *   **fetch / lookup Resolvers:** These kinds are registered in `formula_registry.js` and appear in the `/` command list, but `ValueResolverControl.vue` has no template block to configure them, and the `ValueResolver` backend does not yet implement the `FetchResolver` (though it exists in historical PRs).
 *   **TextGeneratorControl (Conditional Block):** The visual editor supports `if` and `else` blocks, but the `elif_branches` support defined in `text_generator.js` is not exposed in the `TextGeneratorControl.vue` settings panel, making complex branching logic hard to build visually.
 *   **TransformControl:** The visual mapping interface is a "shell" that lacks the "Future: Add expression editor here" functionality. Users can draw lines but cannot apply logic to the transformation (e.g., mapping `first_name + last_name` to `full_name`).
