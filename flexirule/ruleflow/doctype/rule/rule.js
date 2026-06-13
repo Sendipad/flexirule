@@ -399,7 +399,8 @@ function test_rule(frm) {
 					if (r.message?.success) {
 						frappe.show_alert(
 							{
-								message: r.message?.message || __("Rule debug completed successfully"),
+								message:
+									r.message?.message || __("Rule debug completed successfully"),
 								indicator: "green",
 							},
 							5
