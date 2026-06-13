@@ -315,12 +315,15 @@ class RuleBuilder {
 						this.uiStore.set_test_execution_visuals(r.message || {});
 						if (r.message?.success) {
 							// Highlight path in builder
-							const pathTrace = r.message.path_trace || r.message.execution_path || [];
+							const pathTrace =
+								r.message.path_trace || r.message.execution_path || [];
 							this.update_test_ui(pathTrace);
 
 							frappe.show_alert(
 								{
-									message: r.message?.message || __("Rule debug completed successfully"),
+									message:
+										r.message?.message ||
+										__("Rule debug completed successfully"),
 									indicator: "green",
 								},
 								5
