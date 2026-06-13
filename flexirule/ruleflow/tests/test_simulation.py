@@ -13,7 +13,10 @@ class TestSimulation(FrappeTestCase):
 	def setUp(self):
 		super().setUp()
 
-		# Use unique names to avoid collisions and LinkExistsError across test runs
+		# Establish a known global state
+		frappe.set_user("Administrator")
+
+		# Use unique suffixes for every run to avoid LinkExistsError and collisions
 		self.suffix = frappe.generate_hash(length=8)
 		self.test_role = f"Role {self.suffix}"
 		self.test_user_email = f"user_{self.suffix}@example.com"
@@ -39,14 +42,14 @@ class TestSimulation(FrappeTestCase):
 			user.reload()
 
 		# 3. Create a mock rule that captures session context into variables
-		# Use Jinja format {{ ... }} to ensure evaluation by the engine
+		# Use { expression } to ensure raw object evaluation (e.g. Roles list)
 		self.rule = frappe.get_doc(
 			{
 				"doctype": "Rule",
 				"rule_name": self.rule_name,
 				"document_type": "ToDo",
 				"trigger_type": "DocType Event",
-				"trigger_event": "Before Save",
+				"trigger_event": "Manual Test",  # Avoid firing on standard inserts
 				"execution_mode": "Synchronous",
 				"is_active": 1,
 				"actions": [
@@ -65,12 +68,12 @@ class TestSimulation(FrappeTestCase):
 								{
 									"target": "vars.actual_user",
 									"operator": "set",
-									"value": "{{ frappe.session.user }}",
+									"value": "{frappe.session.user}",
 								},
 								{
 									"target": "vars.actual_roles",
 									"operator": "set",
-									"value": "{{ frappe.get_roles() }}",
+									"value": "{frappe.get_roles()}",
 								},
 							]
 						),
@@ -84,7 +87,7 @@ class TestSimulation(FrappeTestCase):
 			{"doctype": "ToDo", "description": f"Simulation Task {self.suffix}"}
 		).insert(ignore_permissions=True)
 
-		# Explicitly clear caches to ensure fresh state for this transaction
+		# Clear caches to ensure isolation
 		RuleCoordinator.clear_cache()
 
 	def test_valid_sim_user_override(self):
@@ -112,8 +115,8 @@ class TestSimulation(FrappeTestCase):
 		"""Verify behavior with non-existent user ID."""
 		invalid_user = "ghost_user_999@example.com"
 		context = {"sim_user": invalid_user, "doc": self.todo, "skip_log_enqueue": True}
-		# Engine should pass through the string to SafeFrappeAPI
 		result = RuleCoordinator.execute_rule(self.rule.name, context=context)
+		# Engine implementation returns string passthrough in SafeFrappeAPI
 		self.assertEqual(result["vars"]["actual_user"], invalid_user)
 
 	def test_non_existent_sim_role(self):
@@ -121,12 +124,10 @@ class TestSimulation(FrappeTestCase):
 		invalid_role = "Non Existent Super Role"
 		context = {"sim_role": invalid_role, "doc": self.todo, "skip_log_enqueue": True}
 		result = RuleCoordinator.execute_rule(self.rule.name, context=context)
-		# Should return a list containing only the invalid role string
 		self.assertEqual(result["vars"]["actual_roles"], [invalid_role])
 
 	def test_sim_role_restriction(self):
 		"""Verify the engine isolates execution *only* to that single role context."""
-		# Simulate as Administrator but restrict to Guest role
 		context = {
 			"sim_user": "Administrator",
 			"sim_role": "Guest",
@@ -149,7 +150,7 @@ class TestSimulation(FrappeTestCase):
 		}
 		RuleCoordinator.execute_rule(self.rule.name, context=context)
 
-		# Global state MUST remain unchanged after execution
+		# Verify global state is untouched after execution
 		self.assertEqual(frappe.session.user, original_user)
 		self.assertEqual(frappe.get_roles(), original_roles)
 
@@ -161,19 +162,19 @@ class TestSimulation(FrappeTestCase):
 		context = {"sim_user": self.test_user_email, "doc": self.todo, "skip_log_enqueue": True}
 		RuleCoordinator.execute_rule(self.rule.name, context=context)
 
-		# 2. Run a second time without simulation
+		# 2. Run without simulation
 		context_normal = {"doc": self.todo, "skip_log_enqueue": True}
 		result = RuleCoordinator.execute_rule(self.rule.name, context=context_normal)
 
-		# Should have reverted to the real session user
+		# Should revert to session user
 		self.assertEqual(result["vars"]["actual_user"], original_user)
 
 	def test_session_restoration_on_exception(self):
-		"""Verify session restoration (isolation) even when an engine exception occurs."""
+		"""Verify session restoration even when an engine exception occurs."""
 		original_user = frappe.session.user
 		original_roles = frappe.get_roles()
 
-		# Create a unique rule that explicitly throws an error
+		# Create a unique rule that explicitly throws an error using Raise Error action
 		crash_rule_name = f"Crash Rule {self.suffix}"
 		crash_rule = frappe.get_doc(
 			{
@@ -181,7 +182,7 @@ class TestSimulation(FrappeTestCase):
 				"rule_name": crash_rule_name,
 				"document_type": "ToDo",
 				"trigger_type": "DocType Event",
-				"trigger_event": "Before Save",
+				"trigger_event": "Manual Test",
 				"execution_mode": "Synchronous",
 				"is_active": 1,
 				"actions": [
@@ -194,8 +195,7 @@ class TestSimulation(FrappeTestCase):
 					{
 						"action_id": "fail",
 						"action_label": "Intentional Failure",
-						"action_type": "Stop",
-						"operation": "Error",
+						"action_type": "Raise Error",
 						"value_template": "Intentional Crash",
 					},
 				],
@@ -205,10 +205,9 @@ class TestSimulation(FrappeTestCase):
 		context = {"sim_user": self.test_user_email, "doc": self.todo, "skip_log_enqueue": True}
 
 		try:
-			# Execute the crashing rule
 			with self.assertRaises(Exception):
 				RuleCoordinator.execute_rule(crash_rule.name, context=context)
 		finally:
-			# Verify global state is still intact despite the crash
+			# Verify global state remains intact
 			self.assertEqual(frappe.session.user, original_user)
 			self.assertEqual(frappe.get_roles(), original_roles)
