@@ -5,7 +5,7 @@
 Base URL: https://sendipad.github.io/flexirule/
 Application repository: https://github.com/Sendipad/flexirule
 Documentation repository: https://github.com/Sendipad/flexirule-docs
-Generated: 2026-06-12
+Generated: 2026-06-13
 
 ## Core documentation
 
@@ -80,6 +80,8 @@ DocType Events# doc: The current document object. old_doc: …
 - [Orchestration](https://sendipad.github.io/flexirule/docs/architecture/engine/orchestration/) — Orchestration Capabilities# FlexiRule is more than a simple automation engine; it is a Visual Orchestration Layer that allows for the coordination of complex business processes …
 
 - [Provider Notification](https://sendipad.github.io/flexirule/docs/actions/notify/provider/) — Dispatch notifications through custom third-party services.
+
+- [Rule Entry Condition vs. Condition Action](https://sendipad.github.io/flexirule/docs/concepts/rule-entry-condition-vs-condition-action/) — Understand when to use a Rule Entry Condition and when to use a Condition Action in FlexiRule.
 
 - [Action Implementation](https://sendipad.github.io/flexirule/docs/architecture/engine/action-implementation/) — Technical reference for backend action handlers and execution mechanics.
 

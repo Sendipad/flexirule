@@ -150,7 +150,7 @@ graph LR A[Action 1] --&gt; B[Action 2] B --&gt; C[Action 3] subgraph &#34;Conte
 ---
 title: Rule Builder
 url: https://sendipad.github.io/flexirule/docs/user-guide/rule-builder/
-lastmod: 2026-06-11
+lastmod: 2026-06-13
 summary: Visual workspace for designing business logic graphs.
 concepts: 
 tags: 
@@ -160,11 +160,11 @@ actions: read, implement, integrate, troubleshoot, improve
 
 Visual Rule Builder# Keywords: rule builder, visual editor, drag and drop, workflow, no-code, vueflow
 Audience# End Users Developers Overview# The Rule Builder is a Vue 3-based visual workspace for designing business logic graphs. It provides a drag-and-drop canvas where you can orchestrate complex workflows without writing code, while maintaining full visibility into the execution flow.
-When to Use# Use this to design new business rules and processes. Use this to visualize the logical flow of an existing rule. Use this to test and debug rules using real document data. Visual Example# Rule Builder Overview Key Concepts# Nodes (Actions)# Each node in the graph represents a Rule Action.
+When to Use# Use this to design new business rules and processes. Use this to visualize the logical flow of an existing rule. Use this to test and debug rules using real document data. Visual Example# Rule Builder Overview Dark Theme Support# Rule Builder Canvas Dark Theme Key Concepts# Nodes (Actions)# Each node in the graph represents a Rule Action.
 Entry Action: The starting point of the graph. Functional Nodes: Perform work (e.g., Process, Assignment). Control Nodes: Manage flow (e.g., Condition, Loop). No-Code &amp;amp; Error Prevention# Temporal Context Visibility# The builder ensures that an action can only access variables that are logically available at its point in the execution flow.
-Upstream-Only Visibility: The field picker only displays variables created by upstream nodes. Dynamic Schema Switching: Automatically switches field pickers based on the DocType context. Reactive &amp;amp; Type-Aware Controls# Intelligent Filter Builder: Adapts operators based on field types. Magic Formula Builder: Guided UI for complex logic (Date math, Aggregations). Rule Lifecycle# stateDiagram-v2 [*] --&gt; Draft: Create Rule Draft --&gt; Active: Validate &amp; Activate Active --&gt; Draft: Edit/Amend Active --&gt; Disabled: Disable Disabled --&gt; Active: Re-activate Active --&gt; Archived: Archive Examples# Basic Example# Problem: Create a simple rule that sets a field. Configuration:
+Upstream-Only Visibility: The field picker only displays variables created by upstream nodes. Dynamic Schema Switching: Automatically switches field pickers based on the DocType context. Reactive &amp;amp; Type-Aware Controls# Intelligent Filter Builder: Adapts operators based on field types. Magic Formula Builder: Guided UI for complex logic (Date math, Aggregations). Canvas Features# Rule Lifecycle# stateDiagram-v2 [*] --&gt; Draft: Create Rule Draft --&gt; Active: Validate &amp; Activate Active --&gt; Draft: Edit/Amend Active --&gt; Disabled: Disable Disabled --&gt; Active: Re-activate Active --&gt; Archived: Archive Examples# Basic Example# Problem: Create a simple rule that sets a field. Configuration:
 Add an Entry Action. Connect it to an Assignment action. Configure the Assignment to set doc.status = &amp;quot;Open&amp;quot;. Result: When the rule triggers, the status is updated. Real-world Example# Problem: Complex approval workflow with notifications. Configuration:
-Entry: On Sales Order Submit. Condition: Is Total &amp;gt; 10,000? True Path: Send Email to Manager and set doc.workflow_state = &amp;quot;Pending Manager&amp;quot;. False Path: Set doc.workflow_state = &amp;quot;Approved&amp;quot;. Result: …
+Entry: On Sales Order Submit. Condition: Is Total &amp;gt; 10,000? True Path: Send Email to Manager and set doc.workflow_state = &amp;quot;Pending Manager&amp;quot;. …
 
 ---
 title: Technical Audit
@@ -272,7 +272,7 @@ vars.total_score: Calculate a cumulative score across several checks. vars.is_qu
 ---
 title: Condition Builder
 url: https://sendipad.github.io/flexirule/docs/user-guide/condition-builder/
-lastmod: 2026-06-04
+lastmod: 2026-06-13
 summary: Condition Builder UI (Frontend)# The Condition Builder is a specialized Vue 3 workspace designed to let users author complex business logic through a structured, visual interface.
 
 concepts: 
@@ -585,6 +585,32 @@ Examples# Slack Webhook# Problem: Post a message to a Slack channel when a criti
 Configuration:
 Provider: slack Recipient: https://hooks.slack.com/services/T000/B000/XXXX Message Builder: Critical Ticket Created: {{ doc.subject }} ({{ doc.name }}) Result: The custom Slack provider sends the message to the specified webhook.
 Best Practices# Error Handling: Ensure custom providers handle API timeouts and failures gracefully. Async Providers: For services with high latency, implement background queuing within the provider function using frappe.enqueue. Related Topics# Architecture Reference: Provider System - Learn how to register and implement custom notification providers. 
+
+---
+title: Rule Entry Condition vs. Condition Action
+url: https://sendipad.github.io/flexirule/docs/concepts/rule-entry-condition-vs-condition-action/
+lastmod: 2026-06-12
+summary: Understand when to use a Rule Entry Condition and when to use a Condition Action in FlexiRule.
+concepts: 
+tags: 
+difficulty: 
+related: 
+actions: read, implement, integrate, troubleshoot, improve
+
+Rule Entry Condition vs. Condition Action# When building a rule, you can add conditions in two different places:
+Rule Entry Condition (configured in the Rule&amp;rsquo;s parent DocType) Condition Action (added as a node in the rule flow) At first glance they may seem similar because both evaluate logic such as:
+Status = &amp;quot;Draft&amp;quot; Amount &amp;gt; 1000 Customer Group = &amp;quot;VIP&amp;quot; However, they serve very different purposes.
+Quick Summary# Use Case Rule Entry Condition Condition Action Decide whether the rule should run at all ✅ Yes ❌ No Create branching logic inside a rule ❌ No ✅ Yes Improve performance by skipping unnecessary executions ✅ Yes ❌ No Create &amp;ldquo;If / Else&amp;rdquo; paths ❌ No ✅ Yes Guard a sequence of actions after the rule starts ❌ No ✅ Yes Filter rule triggers ✅ Yes ❌ No What is a Rule Entry Condition?# A Rule Entry Condition acts as a gatekeeper for the entire rule. It is configured as part of the Rule Trigger Configuration.
+ℹ️InfoWhile the UI uses the term Rule Entry Condition, it is best understood as the Trigger Condition or Trigger Filter. Before FlexiRule starts executing any actions, it checks this condition. If the condition evaluates to False, the rule stops immediately and none of its actions are executed.
+Example# Trigger:
+Document Type: Sales Invoice Event: Before Save Entry Condition: doc.grand_total &amp;gt; 1000
+Behavior:
+Invoice Total = 500 → Rule does not run. Invoice Total = 2000 → Rule runs. Should this rule start at all?
+If the answer is no, FlexiRule skips the entire rule.
+Recommended Uses# Use an Entry Condition when you want to:
+Filter Triggers: Limit when a rule is triggered. Filter Documents: Filter documents before processing. Performance: Avoid unnecessary rule execution and improve system performance. Examples:
+Only run for submitted documents. Only run when amount exceeds a threshold. Only run for a specific company. Only run for VIP customers. What is a Condition Action?# A Condition Action is a step inside the rule flow.
+Unlike an Entry Condition, the rule has already started running. The Condition Action decides which path the execution should follow next or whether a specific sequence of actions should be …
 
 ---
 title: Action Implementation
@@ -1477,7 +1503,7 @@ Child Table Filtering# items.item_code == &amp;quot;CPU-01&amp;quot;: Filters fo
 ---
 title: Query List
 url: https://sendipad.github.io/flexirule/docs/actions/query-records/query-list/
-lastmod: 2026-06-09
+lastmod: 2026-06-13
 summary: Fetching multiple records matching specific criteria.
 concepts: 
 tags: 
