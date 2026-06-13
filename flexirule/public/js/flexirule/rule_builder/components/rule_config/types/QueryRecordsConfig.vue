@@ -139,15 +139,49 @@
 
 			<template v-else-if="mode === 'Query Doc'">
 				<div class="sub-section section-subcard">
-					<ControlFactory
-						:df="with_read_only(docnameExprField)"
-						:modelValue="config.docname_expression"
-						@update:modelValue="(val) => update_config_key('docname_expression', val)"
+					<h6>{{ __("Filters") }}</h6>
+					<FilterGroup
+						:doctype="reference_doctype"
+						:modelValue="config.filters"
+						:readOnly="readOnly"
+						:nodeId="node?.id"
+						:variableOptions="variable_options"
+						@update:modelValue="(val) => update_config_key('filters', val)"
 					/>
-					<div class="alert alert-info py-2 px-3 small mt-2">
-						<i class="fa fa-info-circle"></i>
-						{{ __("Reference DocName is managed in the Setup & Input panel.") }}
-					</div>
+				</div>
+
+				<div
+					v-if="node?.data?.return_type === 'Single Record'"
+					class="sub-section section-subcard"
+				>
+					<MultiSelectList
+						:df="{
+							label: __('Fields'),
+							fieldname: 'fields',
+							placeholder: __('Select fields to fetch...'),
+						}"
+						:options="doctype_fields"
+						:modelValue="config.fields || []"
+						:read_only="readOnly"
+						@update:modelValue="(val) => update_config_key('fields', val)"
+					/>
+				</div>
+
+				<div
+					v-if="node?.data?.return_type === 'Full Document'"
+					class="sub-section section-subcard"
+				>
+					<ControlFactory
+						:df="{
+							fieldname: 'use_cached_doc',
+							fieldtype: 'Check',
+							label: __('Use Cached Document'),
+							description: __('Use frappe.get_cached_doc for retrieval.'),
+							read_only: readOnly,
+						}"
+						:modelValue="config.use_cached_doc"
+						@update:modelValue="(val) => update_config_key('use_cached_doc', val)"
+					/>
 				</div>
 			</template>
 
@@ -454,6 +488,20 @@ watch(
 			await load_doctype_fields(val);
 			// Only sync if this was a user change (not during initial mount)
 			if (!is_internal_update) {
+				// Clear filters when DocType changes
+				if (Array.isArray(config.filters)) {
+					config.filters = [];
+
+					// Re-initialize for Query Doc if not single
+					if (mode.value === "Query Doc") {
+						const meta = await flexirule.utils.get_doctype_meta(val);
+						if (meta && !meta.issingle) {
+							config.filters = [[val, "name", "=", { mode: "static", value: "" }]];
+						}
+					}
+				} else if (typeof config.filters === "object") {
+					config.filters = {};
+				}
 				sync_local_config();
 			}
 		}
@@ -737,10 +785,24 @@ function update_action_key(key, value) {
 // Watch for operation changes directly to handle Report special case
 watch(
 	() => mode.value,
-	(newMode) => {
+	async (newMode) => {
 		if (newMode === "Query Report" && props.node?.data) {
 			if (props.node.data.reference_doctype !== "Report") {
 				update_action_field("reference_doctype", "Report");
+			}
+		}
+
+		if (newMode === "Query Doc" && !is_internal_update) {
+			// Initialize filters if empty
+			if (!config.filters || (Array.isArray(config.filters) && config.filters.length === 0)) {
+				const doctype = reference_doctype.value;
+				if (doctype) {
+					const meta = await flexirule.utils.get_doctype_meta(doctype);
+					if (meta && !meta.issingle) {
+						config.filters = [[doctype, "name", "=", { mode: "static", value: "" }]];
+						sync_local_config();
+					}
+				}
 			}
 		}
 	}

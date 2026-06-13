@@ -394,7 +394,7 @@ const showReferenceDocname = computed(() => {
 	if (!derived.hidden) return true;
 
 	if (normalizedType === "Query Records") {
-		return ["Query Doc", "Query Report"].includes(op);
+		return op === "Query Report";
 	}
 	if (normalizedType === "Document Action") {
 		return ["Update Existing", "Delete Record"].includes(op);

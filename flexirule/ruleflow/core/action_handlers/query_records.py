@@ -81,19 +81,8 @@ class QueryRecordsHandler(ActionHandler):
 		errors = []
 		if not action.operation:
 			errors.append(_("Operation/Mode is required"))
-		if not action.reference_doctype:
-			errors.append(_("Reference DocType is required"))
 
 		mode = action.operation
-		if mode == "Query Doc" and not action.reference_docname:
-			config = self._parse_config(action.config)
-			if not config.get("docname") and not config.get("docname_expression"):
-				errors.append(
-					_(
-						"Query Doc mode requires either a Reference Document or a docname/docname_expression in config"
-					)
-				)
-
 		if mode == "Query Report":
 			config = self._parse_config(action.config)
 			if not config.get("report_name"):
@@ -648,22 +637,60 @@ class QueryRecordsHandler(ActionHandler):
 
 	def _query_doc(self, reference_doctype, config, context, action, ignore_permissions):
 		"""Fetch a single document and return as dict."""
-		docname = action.reference_docname or config.get("docname")
+		# Resolve reference_doctype which can be an expression
+		resolved_doctype = reference_doctype
+		if reference_doctype and "{" in reference_doctype:
+			resolved_doctype = self._resolve_value_expression_with_context(
+				reference_doctype, context, "Query Records.reference_doctype", action
+			)
 
-		# Support dynamic docname from expression
-		if not docname and config.get("docname_expression"):
-			docname = self._safe_eval_with_context(
-				config["docname_expression"], context, "Query Records.docname_expression"
+		if not resolved_doctype:
+			frappe.throw(_("Reference DocType is required for Query Doc"))
+
+		if not frappe.db.exists("DocType", resolved_doctype):
+			frappe.throw(_("DocType {0} does not exist").format(resolved_doctype))
+
+		is_single = frappe.get_meta(resolved_doctype).issingle
+		filters, or_filters = self._resolve_query_filters(config, context, action)
+
+		if not filters and not or_filters and not is_single:
+			frappe.throw(
+				_("Filters are required for Query Doc on non-Single DocType {0}").format(resolved_doctype)
+			)
+
+		# Use filters to find the document name if not a Single DocType
+		docname = resolved_doctype if is_single else None
+		if not is_single:
+			docname = frappe.db.get_value(
+				resolved_doctype,
+				filters=filters,
+				fieldname="name",
+				or_filters=or_filters,
+				ignore_permissions=ignore_permissions,
 			)
 
 		if not docname:
-			frappe.throw(_("No document name specified for Query Doc"))
+			return None
 
-		doc = frappe.get_doc(reference_doctype, docname)
+		use_cached = config.get("use_cached_doc")
+		fetch_fn = frappe.get_cached_doc if use_cached else frappe.get_doc
+
+		try:
+			doc = fetch_fn(resolved_doctype, docname)
+		except frappe.DoesNotExistError:
+			return None
+
 		if not ignore_permissions:
 			doc.check_permission("read")
 
-		return doc.as_dict()
+		doc_dict = doc.as_dict()
+		return_type = action.return_type
+		if return_type == "Single Record":
+			fields = config.get("fields")
+			if fields:
+				return {f: doc_dict.get(f) for f in fields}
+
+		return doc_dict
 
 	def _exist_record(self, reference_doctype, config, context, action, ignore_permissions):
 		"""Check if records exist matching filters. Returns boolean."""
