@@ -271,11 +271,29 @@ class RuleBuilder {
 					reqd: 1,
 				},
 				{
+					fieldtype: "Section Break",
+					fieldname: "simulator",
+				},
+				{
 					fieldtype: "Link",
 					fieldname: "sim_user",
 					label: __("Simulate User"),
 					options: "User",
-					default: last_sim_user || frappe.session.user,
+					default: last_sim_user ?? frappe.session.user,
+					description: __("Execute the rule as if initiated by this user"),
+				},
+				{
+					fieldtype: "HTML",
+					fieldname: "current_context",
+					options: `
+					<div class="small text-muted">
+						<strong>${__("Current User")}:</strong> ${frappe.session.user}
+					</div>
+					`,
+				},
+				{
+					fieldtype: "Column Break",
+					fieldname: "column_role",
 				},
 				{
 					fieldtype: "Link",
@@ -283,6 +301,11 @@ class RuleBuilder {
 					label: __("Simulate Role"),
 					options: "Role",
 					default: last_sim_role,
+					description: __("Use only this role during execution"),
+				},
+				{
+					fieldtype: "Section Break",
+					fieldname: "debug_log",
 				},
 				{
 					fieldtype: "Check",
