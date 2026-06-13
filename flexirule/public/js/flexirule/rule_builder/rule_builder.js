@@ -60,7 +60,7 @@ class RuleBuilder {
 
 		// Debug
 		this.test_btn = this.page.add_inner_button(__("Debug Rule"), () => {
-			this.show_test_dialog();
+			this.show_debug_dialog();
 		});
 
 		// Clear visualization if any
@@ -236,8 +236,10 @@ class RuleBuilder {
 		}
 	}
 
-	show_test_dialog() {
+	show_debug_dialog() {
 		const last_docname = localStorage.getItem(`flexirule-debug-last-doc-${this.rule}`);
+		const last_sim_user = localStorage.getItem(`flexirule_debug_user_${this.rule}`);
+		const last_sim_role = localStorage.getItem(`flexirule_debug_role_${this.rule}`);
 
 		let d = new frappe.ui.Dialog({
 			title: __("Debug Rule"),
@@ -269,6 +271,20 @@ class RuleBuilder {
 					reqd: 1,
 				},
 				{
+					fieldtype: "Link",
+					fieldname: "sim_user",
+					label: __("Simulate User"),
+					options: "User",
+					default: last_sim_user || frappe.session.user,
+				},
+				{
+					fieldtype: "Link",
+					fieldname: "sim_role",
+					label: __("Simulate Role"),
+					options: "Role",
+					default: last_sim_role,
+				},
+				{
 					fieldtype: "Check",
 					fieldname: "save_log",
 					label: __("Create Execution Log"),
@@ -281,6 +297,8 @@ class RuleBuilder {
 				if (values.docname) {
 					localStorage.setItem(`flexirule-debug-last-doc-${this.rule}`, values.docname);
 				}
+				localStorage.setItem(`flexirule_debug_user_${this.rule}`, values.sim_user || "");
+				localStorage.setItem(`flexirule_debug_role_${this.rule}`, values.sim_role || "");
 
 				frappe.call({
 					method: "flexirule.ruleflow.api.test_rule",
@@ -288,6 +306,8 @@ class RuleBuilder {
 						rule_name: this.rule,
 						doctype: values.doctype,
 						docname: values.docname,
+						sim_user: values.sim_user,
+						sim_role: values.sim_role,
 						dry_run: !values.save_log,
 						skip_log_enqueue: !values.save_log,
 					},
@@ -295,15 +315,12 @@ class RuleBuilder {
 						this.uiStore.set_test_execution_visuals(r.message || {});
 						if (r.message?.success) {
 							// Highlight path in builder
-							const pathTrace =
-								r.message.path_trace || r.message.execution_path || [];
+							const pathTrace = r.message.path_trace || r.message.execution_path || [];
 							this.update_test_ui(pathTrace);
 
 							frappe.show_alert(
 								{
-									message:
-										r.message?.message ||
-										__("Rule debug completed successfully"),
+									message: r.message?.message || __("Rule debug completed successfully"),
 									indicator: "green",
 								},
 								5

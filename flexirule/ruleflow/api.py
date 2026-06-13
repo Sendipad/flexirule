@@ -244,6 +244,8 @@ def test_rule(
 	dry_run: int | bool | str = True,
 	skip_log_enqueue: int | bool | str = True,
 	save_log: int | bool | str | None = None,
+	sim_user: str | None = None,
+	sim_role: str | None = None,
 ):
 	"""
 	Test a rule against a document.
@@ -267,7 +269,12 @@ def test_rule(
 
 	# Manual tests are a pre-activation validation stage and must also work for drafts/inactive rules.
 	is_eligible, reason = RuleCoordinator.check_eligibility(
-		rule, doc, event_name="Manual Test", skip_event_check=True, allow_inactive=True
+		rule,
+		doc,
+		event_name="Manual Test",
+		skip_event_check=True,
+		allow_inactive=True,
+		context={"sim_user": sim_user, "sim_role": sim_role},
 	)
 
 	if not is_eligible:
@@ -304,6 +311,8 @@ def test_rule(
 			"allow_inactive_rule_test": True,
 			"dry_run": dry,
 			"skip_log_enqueue": skip_enqueue,
+			"sim_user": sim_user,
+			"sim_role": sim_role,
 		}
 		RuleCoordinator.execute_rule(rule, context=execution_context, dry_run=dry)
 		execution = getattr(frappe.local, "execution_payload", None) or {}

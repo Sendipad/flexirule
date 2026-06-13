@@ -89,7 +89,7 @@ frappe.ui.form.on("Rule", {
 
 		frm.page.clear_custom_actions();
 		frm.add_custom_button(__("Amend Rule"), () => amend_rule(frm), __("Actions"));
-		frm.add_custom_button(__("Test Rule"), () => test_rule(frm), __("Actions"));
+		frm.add_custom_button(__("Debug Rule"), () => test_rule(frm), __("Actions"));
 		frm.add_custom_button(__("Clear Cache"), () => clear_rule_cache(frm), __("Actions"));
 
 		apply_trigger_type_contract(frm);
@@ -321,9 +321,23 @@ function update_dashboard_indicators(frm) {
 	});
 }
 function test_rule(frm) {
+	const last_docname = localStorage.getItem(`flexirule-debug-last-doc-${frm.doc.name}`);
+	const last_sim_user = localStorage.getItem(`flexirule_debug_user_${frm.doc.name}`);
+	const last_sim_role = localStorage.getItem(`flexirule_debug_role_${frm.doc.name}`);
+
 	let d = new frappe.ui.Dialog({
-		title: __("Test Rule"),
+		title: __("Debug Rule"),
 		fields: [
+			{
+				fieldtype: "HTML",
+				options: `
+					<div class="alert alert-info small" style="margin-bottom: 15px;">
+						${__(
+							"Debug a rule against an existing record to inspect execution flow, conditions, variables, and action results. This is a simulation and does not modify data."
+						)}
+					</div>
+				`,
+			},
 			{
 				fieldtype: "Link",
 				fieldname: "doctype",
@@ -337,42 +351,67 @@ function test_rule(frm) {
 				fieldname: "docname",
 				label: __("Document"),
 				options: "doctype",
+				default: last_docname,
 				reqd: 1,
+			},
+			{
+				fieldtype: "Link",
+				fieldname: "sim_user",
+				label: __("Simulate User"),
+				options: "User",
+				default: last_sim_user || frappe.session.user,
+			},
+			{
+				fieldtype: "Link",
+				fieldname: "sim_role",
+				label: __("Simulate Role"),
+				options: "Role",
+				default: last_sim_role,
 			},
 			{
 				fieldtype: "Check",
 				fieldname: "save_log",
 				label: __("Create Execution Log"),
-				description: __("Persist a log record even for this test run"),
+				description: __("Persist a log record even for this debug run"),
 				default: 1,
 			},
 		],
-		primary_action_label: __("Test"),
+		primary_action_label: __("Debug"),
 		primary_action: (values) => {
+			if (values.docname) {
+				localStorage.setItem(`flexirule-debug-last-doc-${frm.doc.name}`, values.docname);
+			}
+			localStorage.setItem(`flexirule_debug_user_${frm.doc.name}`, values.sim_user || "");
+			localStorage.setItem(`flexirule_debug_role_${frm.doc.name}`, values.sim_role || "");
+
 			frappe.call({
 				method: "flexirule.ruleflow.api.test_rule",
 				args: {
 					rule_name: frm.doc.name,
 					doctype: values.doctype,
 					docname: values.docname,
+					sim_user: values.sim_user,
+					sim_role: values.sim_role,
 					dry_run: !values.save_log,
 					skip_log_enqueue: !values.save_log,
 				},
 				callback: (r) => {
 					if (r.message?.success) {
-						// Highlight path in builder
-
-						frappe.msgprint({
-							title: __("Success"),
-							message: r.message?.message || __("Rule test completed successfully"),
-							indicator: "green",
-						});
+						frappe.show_alert(
+							{
+								message: r.message?.message || __("Rule debug completed successfully"),
+								indicator: "green",
+							},
+							5
+						);
 					} else {
-						frappe.msgprint({
-							title: __("Error"),
-							message: r.message?.error || __("Test failed"),
-							indicator: "red",
-						});
+						frappe.show_alert(
+							{
+								message: r.message?.error || __("Debug failed"),
+								indicator: "red",
+							},
+							7
+						);
 					}
 					d.hide();
 				},
