@@ -220,23 +220,30 @@ export function getFormulasForFieldtype(ft) {
 export function getAllowedBuilderKinds(fieldtype) {
 	if (!fieldtype) return null;
 	if (["Date", "Datetime", "Time"].includes(fieldtype)) {
-		return ["date_formula", "date_diff", "format", "system_context"];
+		return ["date_formula", "date_diff", "fetch", "format", "system_context"];
 	}
 	if (["Int", "Float", "Currency", "Percent", "Duration"].includes(fieldtype)) {
-		return ["math_formula", "child_aggregation", "date_diff", "format", "system_context"];
+		return [
+			"math_formula",
+			"child_aggregation",
+			"date_diff",
+			"fetch",
+			"format",
+			"system_context",
+		];
 	}
 	if (
 		["Data", "Small Text", "Text", "Long Text", "Text Editor", "Code", "Select"].includes(
 			fieldtype
 		)
 	) {
-		return ["normalization", "format", "string_formula", "system_context"];
+		return ["normalization", "format", "fetch", "string_formula", "system_context"];
 	}
 	if (["Check"].includes(fieldtype)) {
-		return ["system_context"];
+		return ["fetch", "system_context"];
 	}
 	if (["Link", "Dynamic Link"].includes(fieldtype)) {
-		return ["string_formula", "format", "system_context"];
+		return ["fetch", "string_formula", "format", "system_context"];
 	}
 	return null;
 }

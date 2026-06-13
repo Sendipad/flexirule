@@ -539,6 +539,64 @@
 						</div>
 					</template>
 
+					<!-- ═══════════ Fetch Resolver ═══════════ -->
+					<template v-else-if="localState.kind === 'fetch'">
+						<div class="d-flex flex-column fxr-gap-1">
+							<label class="fxr-label-sm">{{ __("Source Link Field") }}</label>
+							<select
+								class="fxr-select"
+								v-model="localState.link_field"
+								:disabled="readOnly"
+							>
+								<option value="">{{ __("Select link field...") }}</option>
+								<option
+									v-for="opt in linkFieldOptions"
+									:key="opt.value"
+									:value="opt.value"
+								>
+									{{ opt.label }}
+								</option>
+							</select>
+						</div>
+						<div class="d-flex flex-column fxr-gap-1 mt-2">
+							<label class="fxr-label-sm">{{ __("Fetch Field") }}</label>
+							<div class="position-relative">
+								<select
+									class="fxr-select w-100"
+									v-model="localState.fetch_field"
+									:disabled="readOnly || !localState.link_field || fetchMetaLoading"
+								>
+									<option value="">
+										{{
+											fetchMetaLoading
+												? __("Loading...")
+												: __("Select field to fetch...")
+										}}
+									</option>
+									<option
+										v-for="opt in fetchFieldOptions"
+										:key="opt.value"
+										:value="opt.value"
+									>
+										{{ opt.label }}
+									</option>
+								</select>
+								<div
+									v-if="fetchMetaLoading"
+									class="position-absolute"
+									style="right: 25px; top: 50%; transform: translateY(-50%)"
+								>
+									<i class="fa fa-spinner fa-spin text-muted"></i>
+								</div>
+							</div>
+						</div>
+						<div class="mt-1" v-if="localState.linked_doctype">
+							<span class="fxr-text-xs text-muted">
+								{{ __("Fetching from {0}", [localState.linked_doctype]) }}
+							</span>
+						</div>
+					</template>
+
 					<!-- ═══════════ System Context ═══════════ -->
 					<template v-else-if="localState.kind === 'system_context'">
 						<div class="d-flex flex-column fxr-gap-1">
@@ -654,6 +712,7 @@ const ALL_CATEGORIES = [
 	{ value: "string_formula", label: __("String Manipulation"), icon: "fa fa-font" },
 	{ value: "normalization", label: __("Normalization"), icon: "fa fa-refresh" },
 	{ value: "format", label: __("Format"), icon: "fa fa-paint-brush" },
+	{ value: "fetch", label: __("Fetch From Link"), icon: "fa fa-link" },
 	{ value: "system_context", label: __("System Context"), icon: "fa fa-globe" },
 ];
 
@@ -686,6 +745,10 @@ function getDefaultState(kind = "date_formula") {
 
 	return {
 		kind,
+		// Fetch Resolver fields
+		link_field: "",
+		fetch_field: "",
+		linked_doctype: "",
 		// Date Formula fields
 		base_type: baseType,
 		base_field: baseField,
@@ -819,6 +882,56 @@ const aggFieldOptions = computed(() => {
 		}));
 });
 
+const linkFieldOptions = computed(() => {
+	const dt = props.doctype || store.rule_doc?.document_type;
+	if (!dt) return [];
+	const fields = store.doc_meta[dt];
+	if (!fields || !Array.isArray(fields)) return [];
+	return fields
+		.filter((f) => f.fieldtype === "Link")
+		.map((f) => ({
+			label: `${f.label || f.fieldname} (${f.fieldname})`,
+			value: f.fieldname,
+			options: f.options,
+		}));
+});
+
+const fetchFieldOptions = computed(() => {
+	const linkedDt = localState.value.linked_doctype;
+	if (!linkedDt) return [];
+	return store.get_fields_for_doctype(linkedDt, { valueMode: "fieldname" });
+});
+
+const fetchMetaLoading = ref(false);
+
+watch(
+	() => localState.value.link_field,
+	async (newVal, oldVal) => {
+		if (_syncing) return;
+		if (!newVal) {
+			localState.value.linked_doctype = "";
+			localState.value.fetch_field = "";
+			return;
+		}
+		const opt = linkFieldOptions.value.find((o) => o.value === newVal);
+		if (opt && opt.options) {
+			localState.value.linked_doctype = opt.options;
+			if (newVal !== oldVal) {
+				localState.value.fetch_field = "";
+			}
+			fetchMetaLoading.value = true;
+			try {
+				await store.fetch_metadata(opt.options);
+			} finally {
+				fetchMetaLoading.value = false;
+			}
+		} else {
+			localState.value.linked_doctype = "";
+			localState.value.fetch_field = "";
+		}
+	}
+);
+
 // ─── Sync from Props (Hydration) ───
 const syncFromProps = () => {
 	let val = props.modelValue || {};
@@ -883,6 +996,10 @@ const syncFromProps = () => {
 		next.fmt_op = val.fmt_op || "format_date";
 		next.fmt_field = val.fmt_field || "";
 		next.fmt_config = val.fmt_config || "";
+	} else if (kind === "fetch") {
+		next.link_field = val.link_field || "";
+		next.fetch_field = val.fetch_field || "";
+		next.linked_doctype = val.linked_doctype || "";
 	} else if (kind === "system_context") {
 		next.sys_token = val.sys_token || "user";
 		next.sys_role = val.sys_role || "";
@@ -972,6 +1089,12 @@ watch(
 				fmt_op: newVal.fmt_op,
 				fmt_field: newVal.fmt_field,
 				fmt_config: newVal.fmt_config,
+			});
+		} else if (newVal.kind === "fetch") {
+			Object.assign(config, {
+				link_field: newVal.link_field,
+				fetch_field: newVal.fetch_field,
+				linked_doctype: newVal.linked_doctype,
 			});
 		} else if (newVal.kind === "system_context") {
 			Object.assign(config, {

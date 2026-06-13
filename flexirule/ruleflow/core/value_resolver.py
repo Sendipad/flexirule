@@ -324,6 +324,29 @@ class SystemContextResolver(CompiledResolver):
 		return None
 
 
+class FetchResolver(CompiledResolver):
+	def __init__(self, link_field: str | None, fetch_field: str | None, linked_doctype: str | None):
+		self.link_field = link_field
+		self.fetch_field = fetch_field
+		self.linked_doctype = linked_doctype
+
+	def resolve(self, context: dict) -> Any:
+		if not self.link_field or not self.fetch_field or not self.linked_doctype:
+			return None
+
+		# Ensure link_field has a scope, default to doc.
+		path = self.link_field
+		known_scopes = ("doc.", "vars.", "ctx.", "loop.", "row.", "item.", "caller.", "rule.")
+		if not any(path.startswith(s) for s in known_scopes):
+			path = f"doc.{path}"
+
+		link_value = get_context_value(context, path)
+		if not link_value:
+			return None
+
+		return frappe.db.get_value(self.linked_doctype, link_value, self.fetch_field)
+
+
 class JinjaResolver(CompiledResolver):
 	"""Fallback resolver that compiles and renders standard Jinja templates."""
 
@@ -488,6 +511,12 @@ class ValueResolver:
 				fmt_op=config.get("fmt_op", "format_date"),
 				fmt_field=config.get("fmt_field"),
 				fmt_config=config.get("fmt_config", ""),
+			)
+		if kind == "fetch":
+			return FetchResolver(
+				link_field=config.get("link_field"),
+				fetch_field=config.get("fetch_field"),
+				linked_doctype=config.get("linked_doctype"),
 			)
 		if kind == "system_context":
 			return SystemContextResolver(

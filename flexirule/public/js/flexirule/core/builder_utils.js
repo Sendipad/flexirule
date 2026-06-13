@@ -110,6 +110,13 @@ export function compileToCode(item, fallbackField = "") {
 		if (item.fmt_op === "format") return `{("${cfg}").format(${f})}`;
 	}
 
+	if (item.kind === "fetch") {
+		const dt = item.linked_doctype || "";
+		const link = item.link_field ? toDocExpression(item.link_field) : "";
+		const field = item.fetch_field || "";
+		return `{frappe.db.get_value("${dt}", ${link}, "${field}")}`;
+	}
+
 	if (item.kind === "system_context") {
 		if (item.sys_token === "role_check") {
 			return `{"${item.sys_role}" in frappe.get_roles(frappe.session.user)}`;
@@ -190,6 +197,13 @@ export function compileToLabel(item) {
 
 	if (item.kind === "format") {
 		return `${__(item.fmt_op)}(${item.fmt_field || "?"})`;
+	}
+
+	if (item.kind === "fetch") {
+		const dt = item.linked_doctype || __("Linked Doc");
+		const field = item.fetch_field || "?";
+		const link = item.link_field || "?";
+		return `${dt}.${field}\n← ${link}`;
 	}
 
 	if (item.kind === "system_context") {
