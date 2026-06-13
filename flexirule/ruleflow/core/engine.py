@@ -135,20 +135,25 @@ class SafeFrappeAPI:
 	Exposes only safe, read-only operations to prevent security issues.
 	"""
 
-	def __init__(self):
+	def __init__(self, user=None, roles=None):
 		# Safe utilities
 		self.utils = frappe.utils
 		self._dict = frappe._dict
+		self._user = user
+		self._roles = roles
 
 	@property
 	def session(self):
 		"""Read-only access to frappe.session (current user, roles, etc.)"""
+		if self._user:
+			return frappe._dict({"user": self._user, "data": frappe._dict({"user": self._user})})
 		return frappe.session
 
-	@staticmethod
-	def get_roles(user=None):
+	def get_roles(self, user=None):
 		"""Read-only: return roles for the given user (or current session user)."""
-		return frappe.get_roles(user)
+		if not user and self._roles:
+			return self._roles
+		return frappe.get_roles(user or self._user)
 
 	# Safe read operations
 	@staticmethod
@@ -317,7 +322,14 @@ class RuleEngine:
 			# Check role-based skipping
 			skip_for_roles_docs = self.rule.get("skip_for_roles")
 			if skip_for_roles_docs:
-				user_roles = frappe.get_roles()
+				sim_user = self.context.get("sim_user")
+				sim_role = self.context.get("sim_role")
+
+				if sim_role:
+					user_roles = [sim_role]
+				else:
+					user_roles = frappe.get_roles(sim_user)
+
 				skip_roles = [row.get("role") for row in skip_for_roles_docs]
 				if any(role in user_roles for role in skip_roles):
 					self._log(
@@ -416,7 +428,14 @@ class RuleEngine:
 		# Check Rule Permission table if defined
 		rule_permissions = self.rule.get("permissions")
 		if rule_permissions:
-			user_roles = set(frappe.get_roles())
+			sim_user = self.context.get("sim_user")
+			sim_role = self.context.get("sim_role")
+
+			if sim_role:
+				user_roles = {sim_role}
+			else:
+				user_roles = set(frappe.get_roles(sim_user))
+
 			# System Manager always bypasses
 			if "System Manager" not in user_roles:
 				can_exec = any(p.can_execute and p.role in user_roles for p in rule_permissions)
@@ -437,7 +456,7 @@ class RuleEngine:
 			"rule": self.rule.name,
 			"rule_version": self.rule.version,
 			"engine_version": "1.0",
-			"user": frappe.session.user,
+			"user": self.context.get("sim_user") or frappe.session.user,
 			"timestamp": frappe.utils.now(),
 			"test_mode": self.context.get("test_mode", False),
 			"execution_id": self.execution_id,
@@ -460,6 +479,11 @@ class RuleEngine:
 
 	def _get_safe_frappe_api(self):
 		"""Return a restricted frappe API object for condition evaluation"""
+		sim_user = self.context.get("sim_user")
+		sim_role = self.context.get("sim_role")
+
+		if sim_user or sim_role:
+			return SafeFrappeAPI(user=sim_user, roles=[sim_role] if sim_role else None)
 		return _safe_frappe
 
 	def _execute_graph(self, context):

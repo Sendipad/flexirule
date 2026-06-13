@@ -498,6 +498,7 @@ class RuleCoordinator:
 		skip_event_check=False,
 		allow_inactive=False,
 		old_doc=None,
+		context=None,
 	) -> tuple[bool, str]:
 		"""
 		Strict V1 Contract Eligibility Check
@@ -534,6 +535,14 @@ class RuleCoordinator:
 				# Use SafeFrappeAPI to prevent write operations in trigger conditions
 				from flexirule.ruleflow.core.engine import SafeFrappeAPI
 
+				sim_user = (context or {}).get("sim_user")
+				sim_role = (context or {}).get("sim_role")
+
+				if sim_user or sim_role:
+					safe_frappe = SafeFrappeAPI(user=sim_user, roles=[sim_role] if sim_role else None)
+				else:
+					safe_frappe = SafeFrappeAPI()
+
 				rule_meta = {
 					"name": rule_doc.name,
 					"trigger_type": rule_doc.trigger_type,
@@ -562,7 +571,7 @@ class RuleCoordinator:
 					"doc": doc,
 					"old_doc": old_doc,
 					"vars": {},
-					"frappe": SafeFrappeAPI(),
+					"frappe": safe_frappe,
 					"caller": frappe._dict({}),
 					"rule": frappe._dict(rule_meta),
 					"doctype": doctype_name,
