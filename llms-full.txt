@@ -162,9 +162,8 @@ Visual Rule Builder# Keywords: rule builder, visual editor, drag and drop, workf
 Audience# End Users Developers Overview# The Rule Builder is a Vue 3-based visual workspace for designing business logic graphs. It provides a drag-and-drop canvas where you can orchestrate complex workflows without writing code, while maintaining full visibility into the execution flow.
 When to Use# Use this to design new business rules and processes. Use this to visualize the logical flow of an existing rule. Use this to test and debug rules using real document data. Visual Example# Rule Builder Overview Dark Theme Support# Rule Builder Canvas Dark Theme Key Concepts# Nodes (Actions)# Each node in the graph represents a Rule Action.
 Entry Action: The starting point of the graph. Functional Nodes: Perform work (e.g., Process, Assignment). Control Nodes: Manage flow (e.g., Condition, Loop). No-Code &amp;amp; Error Prevention# Temporal Context Visibility# The builder ensures that an action can only access variables that are logically available at its point in the execution flow.
-Upstream-Only Visibility: The field picker only displays variables created by upstream nodes. Dynamic Schema Switching: Automatically switches field pickers based on the DocType context. Reactive &amp;amp; Type-Aware Controls# Intelligent Filter Builder: Adapts operators based on field types. Magic Formula Builder: Guided UI for complex logic (Date math, Aggregations). Canvas Features# Rule Lifecycle# stateDiagram-v2 [*] --&gt; Draft: Create Rule Draft --&gt; Active: Validate &amp; Activate Active --&gt; Draft: Edit/Amend Active --&gt; Disabled: Disable Disabled --&gt; Active: Re-activate Active --&gt; Archived: Archive Examples# Basic Example# Problem: Create a simple rule that sets a field. Configuration:
-Add an Entry Action. Connect it to an Assignment action. Configure the Assignment to set doc.status = &amp;quot;Open&amp;quot;. Result: When the rule triggers, the status is updated. Real-world Example# Problem: Complex approval workflow with notifications. Configuration:
-Entry: On Sales Order Submit. Condition: Is Total &amp;gt; 10,000? True Path: Send Email to Manager and set doc.workflow_state = &amp;quot;Pending Manager&amp;quot;. …
+Upstream-Only Visibility: The field picker only displays variables created by upstream nodes. Dynamic Schema Switching: Automatically switches field pickers based on the DocType context. Reactive &amp;amp; Type-Aware Controls# Intelligent Filter Builder: Adapts operators based on field types. Magic Formula Builder: Guided UI for complex logic (Date math, Aggregations). Canvas Features# Node Interaction &amp;amp; Editing# Intelligent Reconnection# Bulk Actions# Layout Options# The canvas supports multiple layout orientations to suit different rule complexities. Top to Bottom Layout Rule Lifecycle# stateDiagram-v2 [*] --&gt; Draft: Create Rule Draft --&gt; Active: Validate &amp; Activate Active --&gt; Draft: Edit/Amend Active --&gt; Disabled: Disable Disabled --&gt; Active: Re-activate Active --&gt; Archived: Archive Examples# Basic Example# Problem: Create a simple rule that sets a field. Configuration:
+Add an Entry Action. Connect it to an Assignment action. Configure the Assignment to set doc.status = &amp;quot;Open&amp;quot;. Result: When the rule triggers, the status is updated. Real-world Example# Problem: Complex approval …
 
 ---
 title: Technical Audit
@@ -330,6 +329,23 @@ Recipients: {{ doc.contact_email }} Subject: Follow-up: Overdue Payment for Invo
 Best Practices# Verify Recipients: Use a Condition node to check if the recipient email field is not empty before sending. Use Async: Always prefer running email notifications in background/asynchronous rules to avoid UI lag. Limitations# Queue Latency: Emails may not be sent instantly depending on the system&amp;rsquo;s email worker …
 
 ---
+title: Query Doc
+url: https://sendipad.github.io/flexirule/docs/actions/query-records/query-doc/
+lastmod: 2026-06-13
+summary: Fetch a single, complete document from the database and make its fields available to the rule flow.
+concepts: 
+tags: 
+difficulty: 
+related: 
+actions: read, implement, integrate, troubleshoot, improve
+
+Query Doc Mode# The Query Doc mode retrieves a single record (DocType) from the database and makes all (or selected) fields available as an object in your rule context.
+Overview# While the triggering document (doc) provides the immediate context for a rule, you often need to access detailed information from related master data. Query Doc allows you to fetch a full Frappe document—including its child tables—by resolving its unique name (ID).
+Unlike Query List, which returns an array of results, Query Doc always returns a single, structured object, making it easier to reference specific fields in subsequent logic without looping.
+When To Use# Master Data Enrichment: You have a Link field (like customer or item_code) and need to fetch secondary attributes (like credit_limit or valuation_rate). Complex Validation: You need to check the state of a related document (e.g., &amp;ldquo;Is the linked Project currently &amp;lsquo;Open&amp;rsquo;?&amp;rdquo;). Child Table Access: You need to inspect the line items of another document that isn&amp;rsquo;t currently in scope. Alternative: If you only need one or two specific fields and want to avoid the performance overhead of loading a full document, use Query List with a limit of 1 instead.
+Configuration# Field Description Reference DocType The type of document to fetch (e.g., Customer, User). This can be a static selection or a dynamic expression (e.g., {{doc.customer}}). Filters The criteria used to identify the specific record. For non-Single DocTypes, these filters must resolve to exactly one record. Return Type Full Document: Returns the entire frappe.get_doc() object. Single Record: Allows you to pick specific fields to return, reducing the size of the result object. Use Cached Document If enabled, the engine uses frappe.get_cached_doc(), which can improve performance by using Frappe&amp;rsquo;s internal cache. Return Variable The context variable where the resulting object will be stored (e.g., vars.customer_data). Supported Inputs# Docname Resolution: Requires a valid document name (ID) or a set of filters that uniquely identifies one record. Context Variables: Can use doc fields or vars from previous steps in filters or expressions. …
+
+---
 title: Scheduler Triggers
 url: https://sendipad.github.io/flexirule/docs/triggers/scheduler-triggers/
 lastmod: 2026-06-04
@@ -480,7 +496,7 @@ Level 1 (Request): frappe.local storage for the duration of a single request. Le
 ---
 title: User Guide (Conditions)
 url: https://sendipad.github.io/flexirule/docs/user-guide/condition-builder-guide/
-lastmod: 2026-06-04
+lastmod: 2026-06-13
 summary: User Guide: Building Logic with the Condition Builder# The Condition Builder is your primary tool for defining &ldquo;When&rdquo; logic in FlexiRule. Whether you are deciding if a rule should run at all or branching a workflow based on a field value, the interface remains consistent and powerful.
 
 concepts: 
@@ -1466,22 +1482,6 @@ Jinja Support: Templates have access to the same context as the action itself. S
 Mode Transaction Impact Behavior Toast / System Non-transactional Dispatched immediately via …
 
 ---
-title: Query Doc
-url: https://sendipad.github.io/flexirule/docs/actions/query-records/query-doc/
-lastmod: 2026-06-09
-summary: Fetching a single, complete document by name or expression.
-concepts: 
-tags: 
-difficulty: 
-related: 
-actions: read, implement, integrate, troubleshoot, improve
-
-Query Doc Mode# The Query Doc mode retrieves a single, complete document from the database and makes all of its fields available to the rule flow.
-Purpose# Use Query Doc when you know the specific ID (name) of a document and need to access multiple fields from it that aren&amp;rsquo;t available on your current context.
-Configuration# Target Resolution# Fixed Docname: Manually enter the name of the document (e.g., CUST-0001). Docname Expression: Use a Python expression to resolve the name dynamically at runtime. doc.customer: Fetches the customer linked to the current document. vars.selected_id: Fetches a document whose name was stored in a previous step. Output Structure# Returns a single object containing all fields of the DocType.
-{ &amp;#34;name&amp;#34;: &amp;#34;CUST-001&amp;#34;, &amp;#34;customer_name&amp;#34;: &amp;#34;Acme Corp&amp;#34;, &amp;#34;credit_limit&amp;#34;: 50000.0, &amp;#34;territory&amp;#34;: &amp;#34;North America&amp;#34;, &amp;#34;customer_group&amp;#34;: &amp;#34;Commercial&amp;#34; } Performance Notes# Query Doc is a &amp;ldquo;heavy&amp;rdquo; operation as it performs a full frappe.get_doc, which includes loading child tables and running document controller logic. If you only need one or two fields, consider using Query List with a limit of 1 instead for better performance. 
-
----
 title: Query Filters
 url: https://sendipad.github.io/flexirule/docs/reference/query-filters/
 lastmod: 2026-06-09
@@ -1513,8 +1513,12 @@ actions: read, implement, integrate, troubleshoot, improve
 
 Query List Mode# The Query List mode is used to retrieve a collection of records from a DocType. It is the foundation for workflows that need to iterate over sets of data.
 Purpose# Use Query List when you need to find multiple documents to process, such as &amp;ldquo;all draft invoices&amp;rdquo; or &amp;ldquo;all items in a specific warehouse.&amp;rdquo;
-Configuration# Parameters# Fields: Select which fields to retrieve for each record. Selecting only necessary fields improves performance. Order By: Define the sorting of the results (e.g., creation desc). Limit: First Record: Returns only the most relevant record. Custom Limit: Defaults to 20. All: Fetches all matching records (use with caution). Group By: (Optional) Groups the underlying SQL query by a specific field. Output Structure# Returns a list of objects.
-[ { &amp;#34;name&amp;#34;: &amp;#34;SO-2024-001&amp;#34;, &amp;#34;status&amp;#34;: &amp;#34;Draft&amp;#34;, &amp;#34;grand_total&amp;#34;: 500.0 }, { &amp;#34;name&amp;#34;: &amp;#34;SO-2024-005&amp;#34;, &amp;#34;status&amp;#34;: &amp;#34;Draft&amp;#34;, &amp;#34;grand_total&amp;#34;: 1250.0 } ] Best Practices# Always use filters: Avoid fetching the entire table. Process with Loop: Use a Loop Action to perform operations on each item in the returned list. Index heavily filtered fields: Ensure that the fields you use in filters are indexed in the database for optimal speed. Common Mistakes# Expecting a single object: Even if only one record is found, Query List returns a list (e.g., [record]). Access the first item via vars.my_list[0]. 
+Configuration# Parameters# Fields: Select which fields to retrieve for each record. Selecting only necessary fields improves performance. Order By: Define the sorting of the results (e.g., creation desc). Limit: First Record: Returns only the most relevant record. Custom Limit: Defaults to 20. All: Fetches all matching records (use with caution). Group By: (Optional) Groups the underlying SQL query by a specific field. Filters# Filters are the most critical part of a Query List. They define which records are retrieved.
+Dynamic Date Formulas# FlexiRule allows you to filter datasets dynamically based on rolling time windows using the formula builder. This is especially useful for fetching records relative to the current date without hardcoding specific dates.
+For example, you might want to find &amp;ldquo;all Sales Invoices created in the last 7 days&amp;rdquo; or &amp;ldquo;all Tasks due by the end of next month.&amp;rdquo; Instead of writing complex SQL or code, you can use the guided UI to create these calculations.
+Date Formula Configuration Common calculations include:
+Rolling Windows: &amp;ldquo;10 days from now&amp;rdquo; or &amp;ldquo;30 days ago.&amp;rdquo; Calendar Bounds: &amp;ldquo;Last day of current month&amp;rdquo; or &amp;ldquo;Start of next quarter.&amp;rdquo; Reference Dates: Calculating dates relative to a field value (e.g., doc.posting_date + 15 days). Output Structure# Returns a list of objects.
+[ { &amp;#34;name&amp;#34;: &amp;#34;SO-2024-001&amp;#34;, &amp;#34;status&amp;#34;: &amp;#34;Draft&amp;#34;, &amp;#34;grand_total&amp;#34;: 500.0 }, { &amp;#34;name&amp;#34;: &amp;#34;SO-2024-005&amp;#34;, &amp;#34;status&amp;#34;: &amp;#34;Draft&amp;#34;, &amp;#34;grand_total&amp;#34;: 1250.0 } ] Best Practices# Always use filters: Avoid fetching the entire table. Process with Loop: Use a Loop Action to perform operations on each item in the returned list. Index heavily filtered fields: Ensure that the fields you use in filters are indexed …
 
 ---
 title: Query Records Architecture

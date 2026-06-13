@@ -49,6 +49,8 @@ Current Technical State# FlexiRule is …
 
 - [Email Notification](https://sendipad.github.io/flexirule/docs/actions/notify/email/) — Send automated emails with dynamic content and attachments.
 
+- [Query Doc](https://sendipad.github.io/flexirule/docs/actions/query-records/query-doc/) — Fetch a single, complete document from the database and make its fields available to the rule flow.
+
 - [Scheduler Triggers](https://sendipad.github.io/flexirule/docs/triggers/scheduler-triggers/) — Scheduler Triggers# Scheduler triggers are used for background automation and periodic tasks that are not tied to a specific user action or document event.
 
 
@@ -184,8 +186,6 @@ DocType Events# doc: The current document object. old_doc: …
 - [Notify: Architecture Reference](https://sendipad.github.io/flexirule/docs/architecture/actions/notify/) — Internal implementation details and developer reference for the Notify action.
 
 - [Notify: Execution Semantics](https://sendipad.github.io/flexirule/docs/reference/execution/notify/) — Technical runtime behavior and engine guarantees for the Notify action.
-
-- [Query Doc](https://sendipad.github.io/flexirule/docs/actions/query-records/query-doc/) — Fetching a single, complete document by name or expression.
 
 - [Query Filters](https://sendipad.github.io/flexirule/docs/reference/query-filters/) — Reference guide for filtering logic across FlexiRule actions.
 
