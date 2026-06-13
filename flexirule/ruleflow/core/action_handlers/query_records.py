@@ -661,13 +661,15 @@ class QueryRecordsHandler(ActionHandler):
 		# Use filters to find the document name if not a Single DocType
 		docname = resolved_doctype if is_single else None
 		if not is_single:
-			docname = frappe.db.get_value(
+			names = frappe.get_all(
 				resolved_doctype,
 				filters=filters,
-				fieldname="name",
 				or_filters=or_filters,
+				fields=["name"],
+				limit_page_length=1,
 				ignore_permissions=ignore_permissions,
 			)
+			docname = names[0].name if names else None
 
 		if not docname:
 			return None
