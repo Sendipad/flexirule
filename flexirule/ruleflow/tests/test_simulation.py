@@ -45,23 +45,30 @@ class TestSimulation(FrappeTestCase):
 				"execution_mode": "Synchronous",
 				"is_active": 1,
 				"actions": [
-					{"action_id": "root", "action_label": "Start", "action_type": "Entry Action", "next_step_if_true": "assign_1"},
+					{
+						"action_id": "root",
+						"action_label": "Start",
+						"action_type": "Entry Action",
+						"next_step_if_true": "assign_1",
+					},
 					{
 						"action_id": "assign_1",
 						"action_label": "Record Context",
 						"action_type": "Assignment",
-						"config": json.dumps([
-							{
-								"target": "vars.actual_user",
-								"operator": "set",
-								"value": {"mode": "formula", "expression": "frappe.session.user"},
-							},
-							{
-								"target": "vars.actual_roles",
-								"operator": "set",
-								"value": {"mode": "formula", "expression": "frappe.get_roles()"},
-							},
-						]),
+						"config": json.dumps(
+							[
+								{
+									"target": "vars.actual_user",
+									"operator": "set",
+									"value": {"mode": "formula", "expression": "frappe.session.user"},
+								},
+								{
+									"target": "vars.actual_roles",
+									"operator": "set",
+									"value": {"mode": "formula", "expression": "frappe.get_roles()"},
+								},
+							]
+						),
 					},
 				],
 			}
@@ -176,7 +183,12 @@ class TestSimulation(FrappeTestCase):
 				"execution_mode": "Synchronous",
 				"is_active": 1,
 				"actions": [
-					{"action_id": "root", "action_label": "Start", "action_type": "Entry Action", "next_step_if_true": "stop_err"},
+					{
+						"action_id": "root",
+						"action_label": "Start",
+						"action_type": "Entry Action",
+						"next_step_if_true": "stop_err",
+					},
 					{
 						"action_id": "stop_err",
 						"action_label": "Stop Error",
