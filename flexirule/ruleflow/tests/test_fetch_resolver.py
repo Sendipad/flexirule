@@ -1,7 +1,10 @@
 import unittest
 from unittest.mock import patch
+
 import frappe
+
 from flexirule.ruleflow.core.value_resolver import ValueResolver
+
 
 class TestFetchResolver(unittest.TestCase):
 	def setUp(self):
@@ -40,7 +43,7 @@ class TestFetchResolver(unittest.TestCase):
 			"mode": "resolver",
 			"config": {
 				"kind": "fetch",
-				"link_field": "customer", # No doc. prefix
+				"link_field": "customer",  # No doc. prefix
 				"fetch_field": "party_master",
 				"linked_doctype": "Customer",
 			},

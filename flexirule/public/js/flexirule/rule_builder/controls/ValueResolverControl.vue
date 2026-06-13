@@ -564,7 +564,9 @@
 								<select
 									class="fxr-select w-100"
 									v-model="localState.fetch_field"
-									:disabled="readOnly || !localState.link_field || fetchMetaLoading"
+									:disabled="
+										readOnly || !localState.link_field || fetchMetaLoading
+									"
 								>
 									<option value="">
 										{{
