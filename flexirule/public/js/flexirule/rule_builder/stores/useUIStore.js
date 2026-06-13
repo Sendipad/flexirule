@@ -31,6 +31,10 @@ export const useUIStore = defineStore("rule-builder-ui", () => {
 	const test_selected_step_index = ref(null);
 	const show_test_sidebar = ref(false);
 
+	// ── Multi-document Visualization ──
+	const test_multi_results = ref([]);
+	const test_current_multi_index = ref(0);
+
 	// ── Derived ──
 	const has_selection = computed(() => selected_id.value !== null);
 	const has_test_path = computed(
@@ -130,6 +134,22 @@ export const useUIStore = defineStore("rule-builder-ui", () => {
 		test_execution_steps.value = [];
 		test_selected_step_index.value = null;
 		show_test_sidebar.value = false;
+		test_multi_results.value = [];
+		test_current_multi_index.value = 0;
+	}
+
+	function add_test_progress_result(payload) {
+		test_multi_results.value.push(payload);
+		if (test_multi_results.value.length === 1) {
+			set_active_multi_result(0);
+		}
+	}
+
+	function set_active_multi_result(index) {
+		if (index >= 0 && index < test_multi_results.value.length) {
+			test_current_multi_index.value = index;
+			set_test_execution_visuals(test_multi_results.value[index]);
+		}
 	}
 
 	/**
@@ -163,6 +183,8 @@ export const useUIStore = defineStore("rule-builder-ui", () => {
 		test_selected_step_index,
 		show_test_sidebar,
 		local_clipboard,
+		test_multi_results,
+		test_current_multi_index,
 
 		// Computed
 		has_selection,
@@ -177,5 +199,7 @@ export const useUIStore = defineStore("rule-builder-ui", () => {
 		set_test_execution_visuals,
 		clear_test_result,
 		navigate_node,
+		add_test_progress_result,
+		set_active_multi_result,
 	};
 });

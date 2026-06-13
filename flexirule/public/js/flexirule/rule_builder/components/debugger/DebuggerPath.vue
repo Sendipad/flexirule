@@ -7,6 +7,40 @@
 				<span class="title">{{ __("Execution Path") }}</span>
 				<span class="badge-steps">{{ steps.length }}</span>
 			</div>
+
+			<div v-if="uiStore.test_multi_results?.length > 1" class="multi-doc-selector">
+				<button
+					class="btn-nav"
+					@click="uiStore.set_active_multi_result(uiStore.test_current_multi_index - 1)"
+					:disabled="uiStore.test_current_multi_index === 0"
+				>
+					<i class="fa fa-chevron-left"></i>
+				</button>
+				<span
+					class="doc-label"
+					:title="uiStore.test_multi_results[uiStore.test_current_multi_index]?.docname"
+				>
+					{{
+						uiStore.test_multi_results[uiStore.test_current_multi_index]?.docname ||
+						`Doc ${uiStore.test_current_multi_index + 1}`
+					}}
+					<span class="counter"
+						>({{ uiStore.test_current_multi_index + 1 }}/{{
+							uiStore.test_multi_results.length
+						}})</span
+					>
+				</span>
+				<button
+					class="btn-nav"
+					@click="uiStore.set_active_multi_result(uiStore.test_current_multi_index + 1)"
+					:disabled="
+						uiStore.test_current_multi_index === uiStore.test_multi_results.length - 1
+					"
+				>
+					<i class="fa fa-chevron-right"></i>
+				</button>
+			</div>
+
 			<div class="divider-vertical"></div>
 			<button class="btn-clear" @click="clearPath" :title="__('Clear and Close')">
 				<i class="fa fa-times"></i>
@@ -188,6 +222,58 @@ watch(
 	width: 1px;
 	height: 16px;
 	background-color: var(--fxr-border-subtle);
+}
+
+.multi-doc-selector {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	margin: 0 8px;
+	padding: 2px 6px;
+	background: var(--fxr-surface-2);
+	border-radius: 4px;
+}
+
+.multi-doc-selector .doc-label {
+	font-size: 11px;
+	font-weight: 600;
+	color: var(--fxr-text-main);
+	max-width: 150px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.multi-doc-selector .counter {
+	font-size: 10px;
+	color: var(--fxr-text-faint);
+	font-weight: normal;
+}
+
+.btn-nav {
+	background: none;
+	border: none;
+	cursor: pointer;
+	color: var(--fxr-text-soft);
+	padding: 2px 4px;
+	border-radius: 4px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: all 0.2s;
+}
+
+.btn-nav:hover:not(:disabled) {
+	color: var(--fxr-text-main);
+	background-color: var(--fxr-surface-3);
+}
+
+.btn-nav:disabled {
+	opacity: 0.3;
+	cursor: not-allowed;
 }
 
 .btn-clear {

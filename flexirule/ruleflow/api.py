@@ -240,6 +240,7 @@ def test_rule(
 	rule_name: str,
 	doctype: str | None = None,
 	docname: str | None = None,
+	docnames: list | str | None = None,
 	document_json: str | None = None,
 	dry_run: int | bool | str = True,
 	skip_log_enqueue: int | bool | str = True,
@@ -247,27 +248,84 @@ def test_rule(
 	sim_user: str | None = None,
 	sim_role: str | None = None,
 ):
-	"""
-	Test a rule against a document.
-	Supports either an existing document (by docname) or a transient document (by document_json).
-	"""
 	_require_api_access()
 
 	rule = frappe.get_doc("Rule", rule_name)
 
+	# Multi-document mode
+	if docnames:
+		parsed_docnames = frappe.parse_json(docnames)
+		if not isinstance(parsed_docnames, list):
+			parsed_docnames = [parsed_docnames]
+
+		results = []
+
+		for name in parsed_docnames:
+			doc = frappe.get_doc(doctype, name)
+
+			res = _test_rule_for_doc(
+				rule=rule,
+				doc=doc,
+				dry_run=dry_run,
+				skip_log_enqueue=skip_log_enqueue,
+				save_log=save_log,
+				sim_user=sim_user,
+				sim_role=sim_role,
+			)
+
+			frappe.publish_realtime(
+				event="flexirule_debug_progress",
+				message={"rule": rule_name, "docname": name, "result": res},
+				user=frappe.session.user,
+			)
+
+			results.append(res)
+
+		success_count = sum(1 for r in results if r.get("success"))
+
+		return {
+			"success": success_count > 0,
+			"multi": True,
+			"total": len(results),
+			"success_count": success_count,
+			"failure_count": len(results) - success_count,
+			"results": results,
+		}
+
+	# Existing single-document behavior
 	if docname:
 		doc = frappe.get_doc(doctype, docname)
+
 	elif document_json:
 		doc_data = json.loads(document_json)
 		doc = frappe.get_doc(doc_data)
-		# Transient docs might need to be 'local'
 		doc.flags.ignore_permissions = True
-	else:
-		frappe.throw(_("Either docname or document_json must be provided"))
 
+	else:
+		frappe.throw(_("Either docname, docnames or document_json must be provided"))
+
+	return _test_rule_for_doc(
+		rule=rule,
+		doc=doc,
+		dry_run=dry_run,
+		skip_log_enqueue=skip_log_enqueue,
+		save_log=save_log,
+		sim_user=sim_user,
+		sim_role=sim_role,
+	)
+
+
+def _test_rule_for_doc(
+	rule,
+	doc,
+	dry_run,
+	skip_log_enqueue,
+	save_log,
+	sim_user,
+	sim_role,
+):
 	from flexirule.ruleflow.core.coordinator import RuleCoordinator
 
-	# Manual tests are a pre-activation validation stage and must also work for drafts/inactive rules.
 	is_eligible, reason = RuleCoordinator.check_eligibility(
 		rule,
 		doc,
@@ -280,6 +338,7 @@ def test_rule(
 	if not is_eligible:
 		return {
 			"success": False,
+			"docname": doc.name,
 			"status": _("Skipped"),
 			"message": _("Rule Skipped: {0}").format(reason),
 			"execution": {
@@ -301,6 +360,7 @@ def test_rule(
 
 		dry = bool(frappe.parse_json(dry_run))
 		skip_enqueue = bool(frappe.parse_json(skip_log_enqueue))
+
 		if save_log is not None and bool(frappe.parse_json(save_log)):
 			dry = False
 			skip_enqueue = False
@@ -314,8 +374,15 @@ def test_rule(
 			"sim_user": sim_user,
 			"sim_role": sim_role,
 		}
-		RuleCoordinator.execute_rule(rule, context=execution_context, dry_run=dry)
+
+		RuleCoordinator.execute_rule(
+			rule,
+			context=execution_context,
+			dry_run=dry,
+		)
+
 		execution = getattr(frappe.local, "execution_payload", None) or {}
+
 		if not execution:
 			engine = RuleEngine(rule, execution_context=execution_context)
 			engine.execute(doc, event_name="Manual Test")
@@ -330,48 +397,44 @@ def test_rule(
 				"log_enqueued": False,
 			}
 
-		# Include info about skipped trigger filters for transparency
 		info_msg = _("Rule '{0}' executed successfully").format(rule.rule_name)
+
 		if rule.compiled_expression:
 			info_msg += " " + _("(trigger filters were bypassed for manual test)")
 
+		return {
+			"success": True,
+			"docname": doc.name,
+			"status": _(execution.get("status", "Success")),
+			"execution": execution,
+			"execution_id": execution.get("execution_id"),
+			"path_trace": execution.get("path_trace", []),
+			"vars": execution.get("vars", {}),
+			"execution_path": execution.get("path_trace", []),
+			"context_snapshot": execution.get("vars", {}),
+			"message": info_msg,
+		}
+
 	except Exception as e:
-		# The engine's ``finally`` block always writes the full execution
-		# payload (including path_trace) to ``frappe.local.execution_payload``
-		# even when the rule raises.  Prefer that over the local ``engine``
-		# variable which only exists if we fell through to the manual
-		# engine.execute() path.
 		fallback_execution = (
 			getattr(locals().get("engine"), "last_execution_payload", None)
 			or getattr(frappe.local, "execution_payload", None)
 			or {}
 		)
+
 		return _build_error_response(
 			e,
 			context="test_rule",
 			extra={
+				"docname": doc.name,
 				"status": _("Failed"),
 				"execution": fallback_execution,
 				"path_trace": fallback_execution.get("path_trace", []),
 				"vars": fallback_execution.get("vars", {}),
-				# Legacy compatibility for existing UI consumers
 				"execution_path": fallback_execution.get("path_trace", []),
 				"context_snapshot": fallback_execution.get("vars", {}),
 			},
 		)
-
-	return {
-		"success": True,
-		"status": _(execution.get("status", "Success")),
-		"execution": execution,
-		"execution_id": execution.get("execution_id"),
-		"path_trace": execution.get("path_trace", []),
-		"vars": execution.get("vars", {}),
-		# Legacy compatibility for existing UI consumers
-		"execution_path": execution.get("path_trace", []),
-		"context_snapshot": execution.get("vars", {}),
-		"message": info_msg,
-	}
 
 
 @frappe.whitelist()

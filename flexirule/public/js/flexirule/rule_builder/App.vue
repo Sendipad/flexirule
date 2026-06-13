@@ -466,6 +466,12 @@ function onPaneReady(instance) {
 	instance.fitView();
 }
 
+function onDebugProgress(data) {
+	if (data.rule === ruleStore.rule_name) {
+		uiStore.add_test_progress_result(data.result);
+	}
+}
+
 onMounted(async () => {
 	document.body.classList.add("fxr-builder-active");
 	if (props.rule) ruleStore.rule_name = props.rule;
@@ -478,6 +484,9 @@ onMounted(async () => {
 	window.addEventListener("mousedown", handleGlobalMouseDown, true);
 	window.addEventListener("resize", updateQuickActionsPosition);
 	window.addEventListener("flexirule:show-shortcuts-help", showShortcutsHelp);
+	if (window.frappe?.realtime) {
+		frappe.realtime.on("flexirule_debug_progress", onDebugProgress);
+	}
 
 	setTimeout(() => {
 		if (graphStore.nodes.length > 0) {
@@ -496,6 +505,9 @@ onUnmounted(() => {
 	window.removeEventListener("mousedown", handleGlobalMouseDown, true);
 	window.removeEventListener("resize", updateQuickActionsPosition);
 	window.removeEventListener("flexirule:show-shortcuts-help", showShortcutsHelp);
+	if (window.frappe?.realtime) {
+		frappe.realtime.off("flexirule_debug_progress", onDebugProgress);
+	}
 });
 
 async function pasteFromClipboardWrapper() {

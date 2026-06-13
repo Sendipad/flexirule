@@ -237,7 +237,16 @@ class RuleBuilder {
 	}
 
 	show_debug_dialog() {
-		const last_docname = localStorage.getItem(`flexirule-debug-last-doc-${this.rule}`);
+		let last_docname = localStorage.getItem(`flexirule-debug-last-doc-${this.rule}`);
+		try {
+			last_docname = last_docname ? JSON.parse(last_docname) : [];
+			if (!Array.isArray(last_docname)) {
+				last_docname = last_docname ? last_docname.split(",") : [];
+			}
+		} catch (e) {
+			last_docname = last_docname ? last_docname.split(",") : [];
+		}
+
 		const last_sim_user = localStorage.getItem(`flexirule_debug_user_${this.rule}`);
 		const last_sim_role = localStorage.getItem(`flexirule_debug_role_${this.rule}`);
 
@@ -263,12 +272,22 @@ class RuleBuilder {
 					reqd: 1,
 				},
 				{
-					fieldtype: "Dynamic Link",
-					fieldname: "docname",
-					label: __("Document"),
-					options: "doctype",
-					default: last_docname,
+					fieldtype: "MultiSelectList",
+					fieldname: "docnames",
+					label: __("Documents"),
 					reqd: 1,
+					default: last_docname,
+					get_data: async (txt) => {
+						const doctype = d.get_value("doctype");
+
+						if (!doctype) {
+							return [];
+						}
+
+						const r = await frappe.db.get_link_options(doctype, txt);
+
+						return r || [];
+					},
 				},
 				{
 					fieldtype: "Section Break",
@@ -317,53 +336,86 @@ class RuleBuilder {
 			],
 			primary_action_label: __("Debug"),
 			primary_action: (values) => {
-				if (values.docname) {
-					localStorage.setItem(`flexirule-debug-last-doc-${this.rule}`, values.docname);
+				if (values.docnames && values.docnames.length) {
+					localStorage.setItem(
+						`flexirule-debug-last-doc-${this.rule}`,
+						JSON.stringify(values.docnames)
+					);
 				}
 				localStorage.setItem(`flexirule_debug_user_${this.rule}`, values.sim_user || "");
 				localStorage.setItem(`flexirule_debug_role_${this.rule}`, values.sim_role || "");
+
+				this.uiStore.clear_test_result();
 
 				frappe.call({
 					method: "flexirule.ruleflow.api.test_rule",
 					args: {
 						rule_name: this.rule,
 						doctype: values.doctype,
-						docname: values.docname,
+						docnames: values.docnames,
 						sim_user: values.sim_user,
 						sim_role: values.sim_role,
 						dry_run: !values.save_log,
 						skip_log_enqueue: !values.save_log,
 					},
 					callback: (r) => {
-						this.uiStore.set_test_execution_visuals(r.message || {});
-						if (r.message?.success) {
-							// Highlight path in builder
-							const pathTrace =
-								r.message.path_trace || r.message.execution_path || [];
-							this.update_test_ui(pathTrace);
-
-							frappe.show_alert(
-								{
-									message:
-										r.message?.message ||
-										__("Rule debug completed successfully"),
-									indicator: "green",
-								},
-								5
-							);
+						if (r.message?.multi) {
+							if (r.message.success_count > 0) {
+								frappe.show_alert(
+									{
+										message: __(
+											"Debug completed: {0} succeeded, {1} failed out of {2}",
+											[
+												r.message.success_count,
+												r.message.failure_count,
+												r.message.total,
+											]
+										),
+										indicator: r.message.failure_count > 0 ? "orange" : "green",
+									},
+									5
+								);
+							} else {
+								frappe.show_alert(
+									{
+										message: __("Debug completed: All {0} failed", [
+											r.message.total,
+										]),
+										indicator: "red",
+									},
+									7
+								);
+							}
 						} else {
-							this.update_test_ui(r.message?.path_trace || []);
-							frappe.show_alert(
-								{
-									message:
-										r.message?.message ||
-										r.message?.error ||
-										(r.message?.execution?.errors || []).join("\n") ||
-										__("Debug failed"),
-									indicator: "red",
-								},
-								7
-							);
+							this.uiStore.set_test_execution_visuals(r.message || {});
+							if (r.message?.success) {
+								const pathTrace =
+									r.message.path_trace || r.message.execution_path || [];
+								this.update_test_ui(pathTrace);
+
+								frappe.show_alert(
+									{
+										message:
+											r.message?.message ||
+											__("Rule debug completed successfully"),
+										indicator: "green",
+									},
+									5
+								);
+							} else {
+								this.update_test_ui(r.message?.path_trace || []);
+								frappe.show_alert(
+									{
+										message:
+											r.message?.message ||
+											r.message?.error ||
+											(r.message?.execution?.errors || []).join("\n") ||
+											__("Debug failed"),
+										indicator: "red",
+									},
+									7
+								);
+							}
 						}
 						d.hide();
 					},

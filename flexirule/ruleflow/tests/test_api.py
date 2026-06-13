@@ -89,6 +89,45 @@ class TestFlexiRuleAPI(unittest.TestCase):
 
 		self.assertIn("success", result)
 
+	def test_test_rule_multi_doc(self):
+		"""Test rule testing API with multiple documents and realtime publishing"""
+		from flexirule.ruleflow.api import test_rule
+
+		todo1 = frappe.get_doc({"doctype": "ToDo", "description": "Multi Test 1"}).insert(
+			ignore_permissions=True
+		)
+		todo2 = frappe.get_doc({"doctype": "ToDo", "description": "Multi Test 2"}).insert(
+			ignore_permissions=True
+		)
+
+		docnames_json = json.dumps([todo1.name, todo2.name])
+
+		# Mock publish_realtime to verify it is called
+		original_publish = frappe.publish_realtime
+		published_events = []
+
+		def mock_publish_realtime(event, message, **kwargs):
+			published_events.append((event, message))
+
+		frappe.publish_realtime = mock_publish_realtime
+
+		try:
+			result = test_rule(self.rule.name, "ToDo", docnames=docnames_json)
+
+			self.assertTrue(result.get("multi"))
+			self.assertEqual(result.get("total"), 2)
+			self.assertEqual(result.get("success_count"), 2)
+			self.assertEqual(len(result.get("results", [])), 2)
+			self.assertTrue(result["results"][0].get("success"))
+
+			# Verify realtime events were published per document
+			self.assertEqual(len(published_events), 2)
+			self.assertEqual(published_events[0][0], "flexirule_debug_progress")
+			self.assertEqual(published_events[0][1].get("docname"), todo1.name)
+			self.assertEqual(published_events[1][1].get("docname"), todo2.name)
+		finally:
+			frappe.publish_realtime = original_publish
+
 	def test_test_rule_allows_inactive_draft_pre_activation(self):
 		"""Rule testing should work before activation."""
 		from flexirule.ruleflow.api import test_rule
