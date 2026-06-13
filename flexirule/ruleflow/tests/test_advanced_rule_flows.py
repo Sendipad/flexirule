@@ -355,7 +355,7 @@ class TestAdvancedRuleFlows(FrappeTestCase):
 					"action_label": "Fetch Contact Snapshot",
 					"reference_doctype": "Contact",
 					"operation": "Query Doc",
-					"config": _j({"docname_expression": "doc.name"}),
+					"config": _j({"filters": [["Contact", "name", "=", "{doc.name}"]]}),
 					"mutation_mode": "Set Context Variable",
 					"return_variable": "contact_snapshot",
 					"return_type": "Full Document",
