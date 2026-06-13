@@ -11,15 +11,19 @@ from flexirule.ruleflow.core.coordinator import RuleCoordinator
 
 class TestSimulation(FrappeTestCase):
 	def setUp(self):
-		self.cleanup_entities()
+		super().setUp()
 
-		# Create a test role
-		self.test_role = "FlexiRule Test Role"
+		# Use unique names to avoid collisions and LinkExistsError
+		self.suffix = frappe.generate_hash(length=8)
+		self.test_role = f"Simulation Role {self.suffix}"
+		self.test_user_email = f"sim_{self.suffix}@example.com"
+		self.rule_name = f"Simulation Rule {self.suffix}"
+
+		# 1. Create a test role
 		if not frappe.db.exists("Role", self.test_role):
 			frappe.get_doc({"doctype": "Role", "role_name": self.test_role}).insert(ignore_permissions=True)
 
-		# Create a test user
-		self.test_user_email = "test_sim_user@example.com"
+		# 2. Create a test user
 		if not frappe.db.exists("User", self.test_user_email):
 			user = frappe.get_doc(
 				{
@@ -33,8 +37,7 @@ class TestSimulation(FrappeTestCase):
 			user.add_roles(self.test_role)
 			user.reload()
 
-		# Create a mock rule
-		self.rule_name = "Test Simulation Rule"
+		# 3. Create a mock rule
 		self.rule = frappe.get_doc(
 			{
 				"doctype": "Rule",
@@ -60,12 +63,12 @@ class TestSimulation(FrappeTestCase):
 								{
 									"target": "vars.actual_user",
 									"operator": "set",
-									"value": {"mode": "formula", "expression": "frappe.session.user"},
+									"value": "{frappe.session.user}",
 								},
 								{
 									"target": "vars.actual_roles",
 									"operator": "set",
-									"value": {"mode": "formula", "expression": "frappe.get_roles()"},
+									"value": "{frappe.get_roles()}",
 								},
 							]
 						),
@@ -74,69 +77,54 @@ class TestSimulation(FrappeTestCase):
 			}
 		).insert(ignore_permissions=True)
 
-		# Create a ToDo for testing
-		self.todo = frappe.get_doc({"doctype": "ToDo", "description": "Simulation Test ToDo"}).insert(
-			ignore_permissions=True
-		)
-
-	def tearDown(self):
-		self.cleanup_entities()
-		frappe.db.rollback()
-
-	def cleanup_entities(self):
-		# Cleanup ToDos
-		frappe.db.delete("ToDo", {"description": "Simulation Test ToDo"})
-
-		# Cleanup Rules
-		for rname in ["Test Simulation Rule", "Crash Rule"]:
-			if frappe.db.exists("Rule", rname):
-				frappe.delete_doc("Rule", rname, ignore_permissions=True)
-
-		# Cleanup User and Role carefully
-		if frappe.db.exists("User", "test_sim_user@example.com"):
-			frappe.delete_doc("User", "test_sim_user@example.com", ignore_permissions=True)
-		if frappe.db.exists("Role", "FlexiRule Test Role"):
-			frappe.delete_doc("Role", "FlexiRule Test Role", ignore_permissions=True)
+		# 4. Create a ToDo for testing
+		self.todo = frappe.get_doc(
+			{"doctype": "ToDo", "description": f"Simulation ToDo {self.suffix}"}
+		).insert(ignore_permissions=True)
 
 	def test_valid_sim_user_override(self):
 		"""Verify the rule engine switches context to an active target user."""
-		context = {"sim_user": self.test_user_email, "doc": self.todo}
+		context = {"sim_user": self.test_user_email, "doc": self.todo, "skip_log_enqueue": True}
 		result = RuleCoordinator.execute_rule(self.rule.name, context=context)
 		self.assertEqual(result["vars"]["actual_user"], self.test_user_email)
 
 	def test_valid_sim_role_override(self):
 		"""Verify a specific role is successfully injected into the user context."""
-		context = {"sim_role": self.test_role, "doc": self.todo}
+		context = {"sim_role": self.test_role, "doc": self.todo, "skip_log_enqueue": True}
 		result = RuleCoordinator.execute_rule(self.rule.name, context=context)
 		# Verify role isolation: should contain only the simulated role
 		actual_roles = result["vars"]["actual_roles"]
-		self.assertIn(self.test_role, actual_roles)
-		self.assertEqual(len(actual_roles), 1)
+		self.assertEqual(actual_roles, [self.test_role])
 
 	def test_null_simulation_parameters(self):
 		"""Verify that passing None defaults safely back to frappe.session.user."""
 		original_user = frappe.session.user
-		context = {"sim_user": None, "sim_role": "", "doc": self.todo}
+		context = {"sim_user": None, "sim_role": "", "doc": self.todo, "skip_log_enqueue": True}
 		result = RuleCoordinator.execute_rule(self.rule.name, context=context)
 		self.assertEqual(result["vars"]["actual_user"], original_user)
 
 	def test_non_existent_sim_user(self):
 		"""Verify behavior with non-existent user (current implementation behavior)."""
 		invalid_user = "ghost_user_999@example.com"
-		context = {"sim_user": invalid_user, "doc": self.todo}
+		context = {"sim_user": invalid_user, "doc": self.todo, "skip_log_enqueue": True}
 		result = RuleCoordinator.execute_rule(self.rule.name, context=context)
 		self.assertEqual(result["vars"]["actual_user"], invalid_user)
 
 	def test_non_existent_sim_role(self):
 		"""Verify behavior when a fake role string is simulated."""
 		invalid_role = "Non Existent Super Role"
-		context = {"sim_role": invalid_role, "doc": self.todo}
+		context = {"sim_role": invalid_role, "doc": self.todo, "skip_log_enqueue": True}
 		result = RuleCoordinator.execute_rule(self.rule.name, context=context)
 		self.assertEqual(result["vars"]["actual_roles"], [invalid_role])
 
 	def test_sim_role_restriction(self):
 		"""Verify the engine isolates execution *only* to that single role context."""
-		context = {"sim_user": "Administrator", "sim_role": "Guest", "doc": self.todo}
+		context = {
+			"sim_user": "Administrator",
+			"sim_role": "Guest",
+			"doc": self.todo,
+			"skip_log_enqueue": True,
+		}
 		result = RuleCoordinator.execute_rule(self.rule.name, context=context)
 		self.assertEqual(result["vars"]["actual_roles"], ["Guest"])
 
@@ -145,7 +133,12 @@ class TestSimulation(FrappeTestCase):
 		original_user = frappe.session.user
 		original_roles = frappe.get_roles()
 
-		context = {"sim_user": self.test_user_email, "sim_role": self.test_role, "doc": self.todo}
+		context = {
+			"sim_user": self.test_user_email,
+			"sim_role": self.test_role,
+			"doc": self.todo,
+			"skip_log_enqueue": True,
+		}
 		RuleCoordinator.execute_rule(self.rule.name, context=context)
 
 		# Verify global state is untouched
@@ -157,11 +150,11 @@ class TestSimulation(FrappeTestCase):
 		original_user = frappe.session.user
 
 		# 1. Run with simulation
-		context = {"sim_user": self.test_user_email, "doc": self.todo}
+		context = {"sim_user": self.test_user_email, "doc": self.todo, "skip_log_enqueue": True}
 		RuleCoordinator.execute_rule(self.rule.name, context=context)
 
 		# 2. Run without simulation
-		context_normal = {"doc": self.todo}
+		context_normal = {"doc": self.todo, "skip_log_enqueue": True}
 		result = RuleCoordinator.execute_rule(self.rule.name, context=context_normal)
 
 		# Should revert to session user
@@ -172,11 +165,12 @@ class TestSimulation(FrappeTestCase):
 		original_user = frappe.session.user
 		original_roles = frappe.get_roles()
 
-		# Create a rule that crashes
+		# Create a unique rule that crashes
+		crash_rule_name = f"Crash Rule {self.suffix}"
 		crash_rule = frappe.get_doc(
 			{
 				"doctype": "Rule",
-				"rule_name": "Crash Rule",
+				"rule_name": crash_rule_name,
 				"document_type": "ToDo",
 				"trigger_type": "DocType Event",
 				"trigger_event": "Before Save",
@@ -200,7 +194,7 @@ class TestSimulation(FrappeTestCase):
 			}
 		).insert(ignore_permissions=True)
 
-		context = {"sim_user": self.test_user_email, "doc": self.todo}
+		context = {"sim_user": self.test_user_email, "doc": self.todo, "skip_log_enqueue": True}
 
 		try:
 			with self.assertRaises(Exception):
