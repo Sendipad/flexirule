@@ -548,23 +548,24 @@
 									class="fxr-select flex-1"
 									v-model="localState.link_source_type"
 									:disabled="readOnly"
+									@change="localState.link_field = ''"
 								>
 									<option value="doc_field">{{ __("Document Field") }}</option>
+									<option value="variable">{{ __("Workflow Variable") }}</option>
 								</select>
-								<select
-									class="fxr-select flex-1"
+								<ComboBoxControl
+									class="flex-1 min-w-0"
 									v-model="localState.link_field"
-									:disabled="readOnly"
-								>
-									<option value="">{{ __("Select link field...") }}</option>
-									<option
-										v-for="opt in linkFieldOptions"
-										:key="opt.value"
-										:value="opt.value"
-									>
-										{{ opt.label }}
-									</option>
-								</select>
+									:options="sourceLinkOptions"
+									:read_only="readOnly"
+									:placeholder="
+										localState.link_source_type === 'variable'
+											? __('Search variable...')
+											: __('Select link field...')
+									"
+									:allow-custom-value="localState.link_source_type === 'variable'"
+									hide-label
+								/>
 							</div>
 						</div>
 						<div class="d-flex flex-column fxr-gap-1 mt-2">
@@ -653,6 +654,10 @@ const props = defineProps({
 	context: {
 		type: Object,
 		default: () => ({}),
+	},
+	variableOptions: {
+		type: Array,
+		default: () => [],
 	},
 	readOnly: {
 		type: Boolean,
@@ -883,6 +888,20 @@ const aggFieldOptions = computed(() => {
 		}));
 });
 
+const sourceLinkOptions = computed(() => {
+	if (localState.value.link_source_type === "variable") {
+		return (props.variableOptions || [])
+			.filter((v) => v.fieldtype === "Link" || v.fieldtype === "Dynamic Link")
+			.map((v) => ({
+				label: `${v.label || v.value} (vars.${v.value})`,
+				value: `vars.${v.value}`,
+				options: v.options,
+				fieldtype: v.fieldtype,
+			}));
+	}
+	return linkFieldOptions.value;
+});
+
 const linkFieldOptions = computed(() => {
 	const dt = props.doctype || store.rule_doc?.document_type;
 	if (!dt) return [];
@@ -915,7 +934,7 @@ watch(
 			localState.value.fetch_field = "";
 			return;
 		}
-		const opt = linkFieldOptions.value.find((o) => o.value === newVal);
+		const opt = sourceLinkOptions.value.find((o) => o.value === newVal);
 		if (opt && (opt.options || opt.fieldtype === "Dynamic Link")) {
 			// For Dynamic Link, options is usually the fieldname that holds the doctype
 			let linkedDt = opt.options;
@@ -934,7 +953,7 @@ watch(
 				localState.value.fetch_field = resolverFieldname.value;
 			}
 
-			if (opt.fieldtype === "Link" && linkedDt) {
+			if (linkedDt && !linkedDt.startsWith("doc.")) {
 				fetchMetaLoading.value = true;
 				try {
 					await store.fetch_metadata(linkedDt);
