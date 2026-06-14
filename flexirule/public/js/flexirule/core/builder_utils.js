@@ -112,9 +112,10 @@ export function compileToCode(item, fallbackField = "") {
 
 	if (item.kind === "fetch") {
 		const dt = item.linked_doctype || "";
+		const dtExpr = dt.startsWith("doc.") ? dt : `"${dt}"`;
 		const link = item.link_field ? toDocExpression(item.link_field) : "";
 		const field = item.fetch_field || "";
-		return `{frappe.db.get_value("${dt}", ${link}, "${field}")}`;
+		return `{frappe.db.get_value(${dtExpr}, ${link}, "${field}")}`;
 	}
 
 	if (item.kind === "system_context") {
