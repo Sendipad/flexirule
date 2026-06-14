@@ -141,9 +141,7 @@ function saveTitle() {
 }
 
 .stop-node-card.selected {
-	box-shadow:
-		0 0 0 2px var(--fxr-bg-card),
-		0 0 0 4px #dc3545;
+	box-shadow: 0 0 0 2px var(--fxr-bg-card), 0 0 0 4px #dc3545;
 }
 
 .stop-node-card.executed {

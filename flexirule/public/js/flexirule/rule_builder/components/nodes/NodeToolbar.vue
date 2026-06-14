@@ -81,9 +81,7 @@ const emit = defineEmits(["configure", "delete"]);
 
 .fade-enter-active,
 .fade-leave-active {
-	transition:
-		opacity 0.2s,
-		transform 0.2s;
+	transition: opacity 0.2s, transform 0.2s;
 }
 
 .fade-enter-from,

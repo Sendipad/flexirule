@@ -84,8 +84,8 @@
 
 	/* ─── Typography ─── */
 	--fxr-font-family: "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-	--fxr-font-mono:
-		ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+	--fxr-font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono",
+		monospace;
 
 	--fxr-text-xs: 11px;
 	--fxr-text-sm: 12px;

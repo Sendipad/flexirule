@@ -20,9 +20,7 @@
 .vue-flow__edge-path {
 	stroke: var(--fxr-edge-stroke);
 	stroke-width: 2.5px;
-	transition:
-		stroke var(--fxr-transition-fast),
-		stroke-width var(--fxr-transition-fast);
+	transition: stroke var(--fxr-transition-fast), stroke-width var(--fxr-transition-fast);
 }
 
 .vue-flow__edge.selected .vue-flow__edge-path,
