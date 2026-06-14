@@ -3,9 +3,18 @@ import { computed } from "vue";
 import { Handle, Position } from "@vue-flow/core";
 import { useStore } from "../../stores";
 import { useNodeExecutionState } from "../../composables/useNodeExecutionState";
+import NodeToolbar from "./NodeToolbar.vue";
 
 const props = defineProps(["data", "label", "id", "selected", "sourcePosition", "targetPosition"]);
+
+const isHovered = ref(false);
 const store = useStore();
+
+import { ref, nextTick } from "vue";
+
+const isEditing = ref(false);
+const titleInput = ref(null);
+const editedTitle = ref("");
 
 const isHorizontal = computed(() => store.settings?.layout_direction !== "Top to Bottom");
 
@@ -27,12 +36,34 @@ const isReadOnly = computed(() => store.is_read_only);
 const nodeIdRef = computed(() => props.id);
 const { isExecuted, isRunning, isErrored, executionOrder } = useNodeExecutionState(nodeIdRef);
 
+const isConfigured = computed(() => {
+	const config = props.data?.config;
+	return !!(config && config.iterator);
+});
+
 function deleteNode() {
 	frappe.confirm(__("Delete this node?"), () => store.delete_node(props.id));
 }
 
 function openConfig() {
 	store.open_config(props.id);
+}
+
+function startEditing() {
+	if (isReadOnly.value) return;
+	editedTitle.value = props.data?.title || props.data?.action_label || props.label;
+	isEditing.value = true;
+	nextTick(() => {
+		titleInput.value?.focus();
+	});
+}
+
+function saveTitle() {
+	if (!isEditing.value) return;
+	isEditing.value = false;
+	if (editedTitle.value !== (props.data?.title || props.data?.action_label || props.label)) {
+		store.update_node_data(props.id, { title: editedTitle.value });
+	}
 }
 </script>
 
@@ -48,47 +79,73 @@ function openConfig() {
 			'status-error': isErrored,
 			'is-vertical': !isHorizontal,
 		}"
+		@mouseenter="isHovered = true"
+		@mouseleave="isHovered = false"
 	>
 		<!-- Execution Badge -->
 		<div v-if="isExecuted" class="execution-badge" :title="__('Visit Order')">
 			{{ executionOrder }}
 		</div>
+		<NodeToolbar
+			:show="selected || isHovered"
+			:is-read-only="isReadOnly"
+			@configure="openConfig"
+			@delete="deleteNode"
+		/>
+
 		<Handle type="target" :position="targetPos" class="handle-target" />
 		<!-- Return Handle for Loop Body -->
 		<Handle type="target" :position="returnPos" id="return" class="handle-return" />
 
 		<div class="node-header">
-			<i class="fa fa-refresh icon-spin"></i>
-			<span class="type-text">{{ __("LOOP") }}</span>
-			<button
-				v-if="!isReadOnly"
-				class="action-btn toggle-btn"
-				@click.stop="store.toggle_node_enabled(props.id)"
-				:title="data.is_enabled === 0 ? __('Enable') : __('Disable')"
-			>
-				<i :class="['fa', data.is_enabled === 0 ? 'fa-toggle-off' : 'fa-toggle-on']"></i>
-			</button>
-			<button
-				class="action-btn"
-				@click.stop="openConfig"
-				:title="isReadOnly ? __('View Configuration') : __('Configure')"
-			>
-				<i :class="['fa', isReadOnly ? 'fa-eye' : 'fa-pencil']"></i>
-			</button>
-			<button
-				class="action-btn delete"
-				@click.stop="deleteNode"
-				v-if="selected && !isReadOnly"
-			>
-				<i class="fa fa-trash"></i>
-			</button>
+			<div class="header-left">
+				<i class="fa fa-refresh icon-spin"></i>
+				<span class="type-text">{{ __("LOOP") }}</span>
+			</div>
+			<div class="header-actions">
+				<button
+					v-if="!isReadOnly"
+					class="action-btn toggle-btn"
+					@click.stop="store.toggle_node_enabled(props.id)"
+					:title="data.is_enabled === 0 ? __('Enable') : __('Disable')"
+				>
+					<i
+						:class="['fa', data.is_enabled === 0 ? 'fa-toggle-off' : 'fa-toggle-on']"
+					></i>
+				</button>
+			</div>
 		</div>
 
 		<div class="node-body">
-			<div class="loop-title">{{ data.action_label || label }}</div>
-			<div class="loop-subtext" v-if="data.config?.iterator">
-				{{ __("Iterator:") }} {{ data.config.iterator }} {{ __("as") }}
-				{{ data.return_variable || data.config?.alias || "item" }}
+			<div class="node-title-container" @dblclick.stop="startEditing">
+				<template v-if="isEditing">
+					<input
+						ref="titleInput"
+						v-model="editedTitle"
+						class="node-title-input"
+						@blur="saveTitle"
+						@keyup.enter="saveTitle"
+						@click.stop
+					/>
+				</template>
+				<div v-else class="loop-title">{{ data.title || data.action_label || label }}</div>
+			</div>
+			<div class="node-data-footprint" v-if="data.config?.iterator">
+				<span class="footprint-tag">
+					<i class="fa fa-code"></i> {{ data.config.iterator }}
+				</span>
+				<span class="footprint-tag">
+					<i class="fa fa-arrow-right"></i>
+					{{ data.return_variable || data.config?.alias || "item" }}
+				</span>
+			</div>
+		</div>
+
+		<!-- Footer/Status -->
+		<div class="node-footer">
+			<div class="config-status" :class="{ configured: isConfigured }">
+				<i class="fa" :class="isConfigured ? 'fa-check-circle' : 'fa-circle-o'"></i>
+				<span>{{ isConfigured ? __("Configured") : __("Not Configured") }}</span>
 			</div>
 		</div>
 
@@ -150,10 +207,24 @@ function openConfig() {
 	border-radius: var(--fxr-radius-sm) var(--fxr-radius-sm) 0 0;
 	display: flex;
 	align-items: center;
+	justify-content: space-between;
 	gap: 8px;
-	font-weight: 700;
+	font-weight: 800;
 	font-size: 10px;
-	letter-spacing: 0.5px;
+	letter-spacing: 0.8px;
+	text-transform: uppercase;
+}
+
+.header-left {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	overflow: hidden;
+}
+
+.header-actions {
+	display: flex;
+	gap: 4px;
 }
 
 .icon-spin {
@@ -166,10 +237,10 @@ function openConfig() {
 }
 
 .loop-title {
-	font-weight: 600;
+	font-weight: 700;
 	font-size: 13px;
 	color: var(--fxr-text-strong);
-	line-height: 1.2;
+	line-height: 1.3;
 }
 
 .is-vertical .loop-title {
@@ -177,15 +248,65 @@ function openConfig() {
 	word-break: break-word;
 }
 
-.loop-subtext {
-	font-size: 10px;
-	color: var(--fxr-text-soft);
-	margin-top: 4px;
-	word-break: break-all;
+.node-title-input {
+	width: 100%;
+	font-size: 13px;
+	font-weight: 700;
+	border: 1px solid var(--fxr-accent);
+	border-radius: 4px;
+	padding: 2px 4px;
+	outline: none;
+	background: var(--fxr-bg-card);
+	color: var(--fxr-text-strong);
 }
 
-.is-vertical .loop-subtext {
-	white-space: normal;
+.node-data-footprint {
+	margin-top: 8px;
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: 4px;
+}
+
+.footprint-tag {
+	font-size: 9px;
+	color: var(--fxr-text-secondary);
+	background: var(--fxr-surface-2);
+	padding: 2px 6px;
+	border-radius: 4px;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.footprint-tag i {
+	color: var(--fxr-text-faint);
+	font-size: 8px;
+}
+
+/* Footer */
+.node-footer {
+	padding: 4px 12px;
+	background-color: var(--fxr-surface-soft);
+	border-top: 1px solid var(--fxr-border-subtle);
+}
+
+.config-status {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	font-size: 9px;
+	cursor: pointer;
+	color: var(--fxr-text-faint);
+}
+
+.config-status.configured {
+	color: var(--fxr-text-success, #198754);
 }
 
 /* Ports & Bubbles */
@@ -341,7 +462,6 @@ function openConfig() {
 	opacity: 0.8;
 	cursor: pointer;
 	padding: 2px;
-	margin-left: auto;
 }
 
 .action-btn:hover {

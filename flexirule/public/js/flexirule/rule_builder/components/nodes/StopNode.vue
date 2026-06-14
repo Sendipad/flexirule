@@ -3,9 +3,18 @@ import { computed } from "vue";
 import { Handle, Position } from "@vue-flow/core";
 import { useStore } from "../../stores";
 import { useNodeExecutionState } from "../../composables/useNodeExecutionState";
+import NodeToolbar from "./NodeToolbar.vue";
 
 const props = defineProps(["data", "label", "id", "selected", "targetPosition"]);
+
+const isHovered = ref(false);
 const store = useStore();
+
+import { ref, nextTick } from "vue";
+
+const isEditing = ref(false);
+const titleInput = ref(null);
+const editedTitle = ref("");
 
 const isHorizontal = computed(() => store.settings?.layout_direction !== "Top to Bottom");
 const targetPos = computed(
@@ -28,6 +37,23 @@ function deleteNode() {
 function openConfig() {
 	store.open_config(props.id);
 }
+
+function startEditing() {
+	if (isReadOnly.value) return;
+	editedTitle.value = props.data?.title || props.label || "STOP";
+	isEditing.value = true;
+	nextTick(() => {
+		titleInput.value?.focus();
+	});
+}
+
+function saveTitle() {
+	if (!isEditing.value) return;
+	isEditing.value = false;
+	if (editedTitle.value !== (props.data?.title || props.label || "STOP")) {
+		store.update_node_data(props.id, { title: editedTitle.value });
+	}
+}
 </script>
 
 <template>
@@ -41,7 +67,16 @@ function openConfig() {
 			'status-error': isErrored,
 			'is-vertical': !isHorizontal,
 		}"
+		@mouseenter="isHovered = true"
+		@mouseleave="isHovered = false"
 	>
+		<NodeToolbar
+			:show="selected || isHovered"
+			:is-read-only="isReadOnly"
+			:allow-config="false"
+			@delete="deleteNode"
+		/>
+
 		<!-- Execution Badge -->
 		<div v-if="isExecuted" class="execution-badge" :title="__('Visit Order')">
 			{{ executionOrder }}
@@ -54,18 +89,20 @@ function openConfig() {
 			</div>
 			<div class="text-section">
 				<div class="type-label">{{ __("TERMINAL") }}</div>
-				<div class="main-label">STOP</div>
+				<div class="main-label-container" @dblclick.stop="startEditing">
+					<template v-if="isEditing">
+						<input
+							ref="titleInput"
+							v-model="editedTitle"
+							class="main-label-input"
+							@blur="saveTitle"
+							@keyup.enter="saveTitle"
+							@click.stop
+						/>
+					</template>
+					<div v-else class="main-label">{{ data.title || label || "STOP" }}</div>
+				</div>
 			</div>
-			<button
-				class="action-btn"
-				@click.stop="openConfig"
-				:title="isReadOnly ? __('View Configuration') : __('Configure')"
-			>
-				<i :class="['fa', isReadOnly ? 'fa-eye' : 'fa-pencil']"></i>
-			</button>
-			<button class="action-btn delete" @click.stop="deleteNode" v-if="selected">
-				<i class="fa fa-trash"></i>
-			</button>
 		</div>
 	</div>
 </template>
@@ -104,7 +141,9 @@ function openConfig() {
 }
 
 .stop-node-card.selected {
-	box-shadow: 0 0 0 2px var(--fxr-bg-card), 0 0 0 4px #dc3545;
+	box-shadow:
+		0 0 0 2px var(--fxr-bg-card),
+		0 0 0 4px #dc3545;
 }
 
 .stop-node-card.executed {
@@ -165,6 +204,18 @@ function openConfig() {
 .main-label {
 	font-size: 13px;
 	font-weight: 700;
+}
+
+.main-label-input {
+	width: 100%;
+	font-size: 13px;
+	font-weight: 700;
+	border: 1px solid rgba(255, 255, 255, 0.5);
+	border-radius: 4px;
+	padding: 1px 4px;
+	outline: none;
+	background: rgba(255, 255, 255, 0.2);
+	color: white;
 }
 
 .action-btn {

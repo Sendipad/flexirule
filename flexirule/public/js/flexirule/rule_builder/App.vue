@@ -249,10 +249,12 @@ import Sidebar from "./components/Sidebar.vue";
 import RuleConfigModal from "./components/rule_config/RuleConfigModal.vue";
 import ShortcutsHelp from "./components/ShortcutsHelp.vue";
 import AddNodeEdge from "./components/AddNodeEdge.vue";
+import TriggerOutputEdge from "./components/TriggerOutputEdge.vue";
 import DebuggerPath from "./components/debugger/DebuggerPath.vue";
 
 const edgeTypes = {
 	add: AddNodeEdge,
+	trigger: TriggerOutputEdge,
 };
 
 const props = defineProps({ rule: String });
@@ -728,16 +730,20 @@ function onConnect(params) {
 		graphStore.edges.splice(existingEdgeIndex, 1);
 	}
 
+	const sourceNode = graphStore.nodes.find((el) => el.id === params.source);
+	const isStartNode = sourceNode?.type === "start";
+
 	const newEdge = {
 		id,
 		source: params.source,
 		target: params.target,
 		sourceHandle,
 		targetHandle: params.targetHandle,
-		type: "add",
-		animated: graphStore.nodes.find((el) => el.id === params.source)?.type === "start",
+		type: isStartNode ? "trigger" : "add",
+		animated: isStartNode,
 		data: {
 			isReturn: params.targetHandle === "return",
+			permissions: isStartNode ? sourceNode.data?.permissions : null,
 		},
 	};
 	graphStore.edges = [...graphStore.edges, newEdge];

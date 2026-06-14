@@ -109,6 +109,25 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		};
 	}
 
+	function update_node_data(nodeId, data) {
+		const node = nodes.value.find((n) => n.id === nodeId);
+		if (!node) return;
+		node.data = { ...(node.data || {}), ...data };
+
+		// If start node permissions changed, update the trigger edge data
+		if (
+			(node.id === "start" || node.id === "root" || node.type === "start") &&
+			data.permissions
+		) {
+			const triggerEdge = edges.value.find(
+				(e) => e.source === node.id && e.type === "trigger"
+			);
+			if (triggerEdge) {
+				triggerEdge.data = { ...triggerEdge.data, permissions: data.permissions };
+			}
+		}
+	}
+
 	// ── Topological sort ──
 	function getTopologicalSort(nodeList, edgeList) {
 		nodeList = nodeList || nodes.value;
@@ -1056,8 +1075,8 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 				source.field_b_type === "constant"
 					? String(source.constant_b ?? 0)
 					: source.field_b
-					? `frappe.utils.flt(${toDocExpression(source.field_b)})`
-					: "0";
+						? `frappe.utils.flt(${toDocExpression(source.field_b)})`
+						: "0";
 			const op = source.math_op || "+";
 			const precision = Number.isFinite(Number(source.precision))
 				? Number(source.precision)
@@ -1390,14 +1409,14 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 							actionType: "Process",
 							processName: action.process_name,
 							operation: action.operation,
-					  }) || {}
+						}) || {}
 					: rawConfigData;
 			const conditionPayload =
 				actionTypeRaw === "Condition"
 					? getConditionPayload({
 							config: configData,
 							condition_json: action.condition_json,
-					  })
+						})
 					: null;
 			const effectiveConfig =
 				actionTypeRaw === "Condition"
@@ -1487,17 +1506,22 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 				const isReturnToLoop =
 					actionsList.find((a) => a.action_id === action.next_step_if_true)
 						?.action_type === "Loop" && action.action_type !== "Entry Action";
+				const isStartNode = action.action_type === "Entry Action";
+
 				actionEdges.push({
 					id: `e-${nodeId}-${action.next_step_if_true}-true`,
 					source: nodeId,
 					target: action.next_step_if_true,
 					sourceHandle: action.action_type === "Condition" ? "true" : "default",
 					targetHandle: isReturnToLoop ? "return" : null,
-					type: "add",
-					animated: action.action_type === "Entry Action",
+					type: isStartNode ? "trigger" : "add",
+					animated: isStartNode,
 					data: {
 						loopBody: isLoopBody,
 						isReturn: isReturnToLoop,
+						permissions: isStartNode
+							? actionNodes.find((n) => n.id === nodeId)?.data?.permissions
+							: null,
 					},
 				});
 			}
@@ -1916,8 +1940,11 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 				source: startNode.id,
 				target: firstNode.id,
 				sourceHandle: "default",
-				type: "add",
+				type: "trigger",
 				animated: true,
+				data: {
+					permissions: startNode.data?.permissions,
+				},
 			});
 		}
 	}
@@ -1954,6 +1981,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		sync_actions_to_graph,
 		merge_visual_layout,
 		update_node_position,
+		update_node_data,
 		get_visual_data_payload,
 		initialize_default_graph,
 

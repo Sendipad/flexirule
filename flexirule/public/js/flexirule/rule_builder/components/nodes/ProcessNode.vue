@@ -4,13 +4,22 @@ import { Handle, Position } from "@vue-flow/core";
 import { useRuleStore, useGraphStore, useUIStore } from "../../stores";
 import { getContract } from "../../../core/contracts";
 import { useNodeExecutionState } from "../../composables/useNodeExecutionState";
+import NodeToolbar from "./NodeToolbar.vue";
 
 const props = defineProps(["data", "label", "id", "selected", "sourcePosition", "targetPosition"]);
+
+const isHovered = ref(false);
 const ruleStore = useRuleStore();
 const graphStore = useGraphStore();
 const uiStore = useUIStore();
 // Legacy
 const store = uiStore;
+
+import { ref, nextTick } from "vue";
+
+const isEditing = ref(false);
+const titleInput = ref(null);
+const editedTitle = ref("");
 
 const isHorizontal = computed(() => ruleStore.settings?.layout_direction !== "Top to Bottom");
 
@@ -75,6 +84,24 @@ function openConfig() {
 	ruleStore.open_config(props.id);
 }
 
+function startEditing() {
+	if (isReadOnly.value) return;
+	editedTitle.value = props.data?.title || props.data?.action_label || props.label;
+	isEditing.value = true;
+	nextTick(() => {
+		titleInput.value?.focus();
+	});
+}
+
+function saveTitle() {
+	if (!isEditing.value) return;
+	isEditing.value = false;
+	if (editedTitle.value !== (props.data?.title || props.data?.action_label || props.label)) {
+		graphStore.update_node_data(props.id, { title: editedTitle.value });
+		ruleStore.mark_dirty();
+	}
+}
+
 const hasDetails = computed(() => {
 	const d = props.data || {};
 	return d.reference_doctype || d.target_field || d.mutation_mode || d.variable_name;
@@ -101,6 +128,8 @@ const isTerminal = computed(() => {
 			},
 		]"
 		:style="{ '--accent-color': nodeMeta.color }"
+		@mouseenter="isHovered = true"
+		@mouseleave="isHovered = false"
 	>
 		<!-- Execution Badge -->
 		<div v-if="isExecuted" class="execution-badge" :title="__('Visit Order')">
@@ -108,51 +137,54 @@ const isTerminal = computed(() => {
 		</div>
 		<Handle type="target" :position="targetPos" class="handle-target" />
 
+		<NodeToolbar
+			:show="selected || isHovered"
+			:is-read-only="isReadOnly"
+			@configure="openConfig"
+			@delete="deleteNode"
+		/>
+
 		<!-- Header with Type and Icon -->
 		<div class="node-header">
-			<i class="fa" :class="nodeMeta.icon"></i>
-			<span class="type-text">{{ nodeMeta.typeLabel }}</span>
-
-			<button
-				class="action-btn"
-				@click.stop="openConfig"
-				:title="isReadOnly ? __('View Configuration') : __('Configure')"
-			>
-				<i :class="['fa', isReadOnly ? 'fa-eye' : 'fa-pencil']"></i>
-			</button>
-			<button
-				class="action-btn delete"
-				@click.stop="deleteNode"
-				v-if="selected && !isReadOnly"
-			>
-				<i class="fa fa-trash"></i>
-			</button>
+			<div class="header-left">
+				<i class="fa" :class="nodeMeta.icon"></i>
+				<span class="type-text">{{ nodeMeta.typeLabel }}</span>
+			</div>
 		</div>
 
 		<!-- Main Content -->
 		<div class="node-body">
-			<div class="node-title">{{ data.action_label || label }}</div>
+			<div class="node-title-container" @dblclick.stop="startEditing">
+				<template v-if="isEditing">
+					<input
+						ref="titleInput"
+						v-model="editedTitle"
+						class="node-title-input"
+						@blur="saveTitle"
+						@keyup.enter="saveTitle"
+						@click.stop
+					/>
+				</template>
+				<div v-else class="node-title">{{ data.title || data.action_label || label }}</div>
+			</div>
+
 			<div class="node-subtitle" v-if="data.operation">
 				{{ data.operation }}
 			</div>
 
-			<div class="node-details" v-if="hasDetails">
-				<div class="detail-row" v-if="data.reference_doctype">
+			<div class="node-data-footprint" v-if="hasDetails">
+				<span class="footprint-tag" v-if="data.reference_doctype">
 					<i class="fa fa-database"></i> {{ data.reference_doctype }}
-					<span v-if="data.reference_docname" class="detail-muted"
-						>/ {{ data.reference_docname }}</span
-					>
-				</div>
-				<div class="detail-row" v-if="data.target_field">
+				</span>
+				<span class="footprint-tag" v-if="data.target_field">
 					<i class="fa fa-crosshairs"></i> {{ data.target_field }}
-				</div>
-				<div class="detail-row" v-if="data.variable_name">
+				</span>
+				<span class="footprint-tag" v-if="data.variable_name">
 					<i class="fa fa-code"></i> {{ data.variable_name }}
-				</div>
-				<div class="detail-row" v-if="data.mutation_mode">
-					<i class="fa fa-exchange"></i>
-					<span class="detail-muted">{{ data.mutation_mode }}</span>
-				</div>
+				</span>
+				<span class="footprint-tag" v-if="data.mutation_mode">
+					<i class="fa fa-exchange"></i> {{ data.mutation_mode }}
+				</span>
 			</div>
 		</div>
 
@@ -244,9 +276,17 @@ const isTerminal = computed(() => {
 .node-header {
 	display: flex;
 	align-items: center;
+	justify-content: space-between;
 	padding: 8px 12px;
 	border-bottom: 1px solid var(--fxr-border-subtle);
 	gap: 8px;
+}
+
+.header-left {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	overflow: hidden;
 }
 
 .node-header i {
@@ -256,10 +296,13 @@ const isTerminal = computed(() => {
 
 .type-text {
 	font-size: 10px;
-	font-weight: 700;
+	font-weight: 800;
 	color: var(--fxr-text-soft);
-	letter-spacing: 0.5px;
-	flex: 1;
+	letter-spacing: 0.8px;
+	text-transform: uppercase;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 .header-actions {
@@ -288,15 +331,28 @@ const isTerminal = computed(() => {
 
 .node-title {
 	font-size: 13px;
-	font-weight: 600;
+	font-weight: 700;
 	color: var(--fxr-text-strong);
 	margin-bottom: 4px;
-	line-height: 1.2;
+	line-height: 1.3;
 }
 
 .is-vertical .node-title {
 	white-space: normal;
 	word-break: break-word;
+}
+
+.node-title-input {
+	width: 100%;
+	font-size: 13px;
+	font-weight: 700;
+	border: 1px solid var(--fxr-accent);
+	border-radius: 4px;
+	padding: 2px 4px;
+	margin-bottom: 4px;
+	outline: none;
+	background: var(--fxr-bg-card);
+	color: var(--fxr-text-strong);
 }
 
 .node-subtitle {
@@ -306,46 +362,38 @@ const isTerminal = computed(() => {
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
-	margin-bottom: 4px;
+	margin-bottom: 6px;
 }
 
 .is-vertical .node-subtitle {
 	white-space: normal;
 }
 
-.node-details {
-	margin-top: 6px;
-	padding-top: 6px;
-	border-top: 1px dashed var(--fxr-border-subtle);
+.node-data-footprint {
+	margin-top: 8px;
 	display: flex;
-	flex-direction: column;
-	gap: 3px;
+	flex-wrap: wrap;
+	gap: 4px;
 }
 
-.detail-row {
-	font-size: 9.5px;
+.footprint-tag {
+	font-size: 9px;
 	color: var(--fxr-text-secondary);
+	background: var(--fxr-surface-2);
+	padding: 2px 6px;
+	border-radius: 4px;
 	display: flex;
 	align-items: center;
 	gap: 4px;
-	white-space: nowrap;
+	max-width: 100%;
 	overflow: hidden;
 	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
-.is-vertical .detail-row {
-	white-space: normal;
-	flex-wrap: wrap;
-}
-
-.detail-row i {
+.footprint-tag i {
 	color: var(--fxr-text-faint);
-	width: 12px;
-	text-align: center;
-}
-
-.detail-muted {
-	color: var(--fxr-text-faint);
+	font-size: 8px;
 }
 
 /* Footer */

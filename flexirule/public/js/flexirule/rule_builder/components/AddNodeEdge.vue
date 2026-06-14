@@ -1,6 +1,12 @@
 <script setup>
 import { ref, computed, watch } from "vue";
-import { BaseEdge, getSmoothStepPath, EdgeLabelRenderer, useVueFlow } from "@vue-flow/core";
+import {
+	BaseEdge,
+	getSmoothStepPath,
+	getBezierPath,
+	EdgeLabelRenderer,
+	useVueFlow,
+} from "@vue-flow/core";
 import { useStore } from "../stores";
 import ActionZone from "./ActionZone.vue";
 
@@ -57,7 +63,6 @@ const isEnabled = computed(() => {
 });
 
 const path = computed(() => {
-	// Salesforce aesthetic uses SmoothStep for everything to keep lines clean and 90-degree
 	const config = {
 		sourceX: props.sourceX,
 		sourceY: props.sourceY,
@@ -83,7 +88,11 @@ const path = computed(() => {
 		config.borderRadius = 20;
 	}
 
-	return getSmoothStepPath(config);
+	if (isHorizontal.value) {
+		return getBezierPath(config);
+	} else {
+		return getSmoothStepPath(config);
+	}
 });
 
 function onAddClick(event) {

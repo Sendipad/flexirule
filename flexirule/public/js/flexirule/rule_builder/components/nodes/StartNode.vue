@@ -4,10 +4,19 @@ import { useStore } from "../../stores";
 import { getContract } from "../../../core/contracts";
 import { computed } from "vue";
 import { useNodeExecutionState } from "../../composables/useNodeExecutionState";
+import NodeToolbar from "./NodeToolbar.vue";
 
-const props = defineProps(["data", "label", "id", "sourcePosition"]);
+const props = defineProps(["data", "label", "id", "selected", "sourcePosition"]);
+
+const isHovered = ref(false);
 const store = useStore();
 const isReadOnly = computed(() => store.is_read_only);
+
+import { ref, nextTick } from "vue";
+
+const isEditing = ref(false);
+const titleInput = ref(null);
+const editedTitle = ref("");
 
 const isHorizontal = computed(() => store.settings?.layout_direction !== "Top to Bottom");
 const sourcePos = computed(
@@ -16,6 +25,7 @@ const sourcePos = computed(
 
 const displayLabel = computed(() => {
 	const data = props.data || {};
+	if (data.title) return data.title;
 	if (data.document_type && data.trigger_event) {
 		return `${data.document_type} / ${data.trigger_event}`;
 	}
@@ -39,12 +49,6 @@ const summaryData = computed(() => {
 	return parts;
 });
 
-const permissionFlags = computed(() => {
-	const perms = props.data?.permissions;
-	if (!Array.isArray(perms) || !perms.length) return ["All"];
-	return perms.filter((p) => p.role).map((p) => p.role);
-});
-
 const nodeMeta = computed(() => {
 	const actionType = props.data?.action_type || "Entry Action";
 	const contract = getContract(actionType);
@@ -63,6 +67,23 @@ const { isExecuted, isRunning, isErrored, executionOrder } = useNodeExecutionSta
 function openConfig() {
 	store.open_config(props.id || "start");
 }
+
+function startEditing() {
+	if (isReadOnly.value) return;
+	editedTitle.value = props.data?.title || displayLabel.value;
+	isEditing.value = true;
+	nextTick(() => {
+		titleInput.value?.focus();
+	});
+}
+
+function saveTitle() {
+	if (!isEditing.value) return;
+	isEditing.value = false;
+	if (editedTitle.value !== (props.data?.title || displayLabel.value)) {
+		store.update_node_data(props.id || "start", { title: editedTitle.value });
+	}
+}
 </script>
 
 <template>
@@ -75,7 +96,16 @@ function openConfig() {
 			'is-vertical': !isHorizontal,
 			'is-read-only': isReadOnly,
 		}"
+		@mouseenter="isHovered = true"
+		@mouseleave="isHovered = false"
 	>
+		<NodeToolbar
+			:show="selected || isHovered"
+			:is-read-only="isReadOnly"
+			:allow-delete="false"
+			@configure="openConfig"
+		/>
+
 		<!-- Execution Badge -->
 		<div v-if="isExecuted" class="execution-badge" :title="__('Visit Order')">
 			{{ executionOrder }}
@@ -86,32 +116,25 @@ function openConfig() {
 			</div>
 			<div class="info-section">
 				<div class="type-label">{{ nodeMeta.typeLabel }}</div>
-				<div class="main-label">{{ displayLabel }}</div>
+				<div class="main-label-container" @dblclick.stop="startEditing">
+					<template v-if="isEditing">
+						<input
+							ref="titleInput"
+							v-model="editedTitle"
+							class="main-label-input"
+							@blur="saveTitle"
+							@keyup.enter="saveTitle"
+							@click.stop
+						/>
+					</template>
+					<div v-else class="main-label">{{ displayLabel }}</div>
+				</div>
 				<div class="summary-line" v-if="summaryData.length">
 					<span v-for="(p, i) in summaryData" :key="i" class="summary-part">
 						{{ p }}
 					</span>
 				</div>
 			</div>
-
-			<button
-				class="action-btn"
-				@click.stop="openConfig"
-				:title="isReadOnly ? __('View Configuration') : __('Configure')"
-			>
-				<i :class="['fa', isReadOnly ? 'fa-eye' : 'fa-pencil']"></i>
-			</button>
-		</div>
-		<div v-if="permissionFlags.length" class="permission-flags">
-			<span
-				v-for="role in permissionFlags"
-				:key="role"
-				class="permission-flag"
-				:title="__('Edit Permissions')"
-				@click.stop="openConfig"
-			>
-				<i class="fa fa-users"></i> {{ role }}
-			</span>
 		</div>
 		<Handle
 			type="source"
@@ -195,10 +218,22 @@ function openConfig() {
 
 .main-label {
 	font-size: 12px;
-	font-weight: 600;
+	font-weight: 700;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+}
+
+.main-label-input {
+	width: 100%;
+	font-size: 12px;
+	font-weight: 700;
+	border: 1px solid rgba(255, 255, 255, 0.5);
+	border-radius: 4px;
+	padding: 1px 4px;
+	outline: none;
+	background: rgba(255, 255, 255, 0.2);
+	color: white;
 }
 
 .is-vertical .main-label {
@@ -286,56 +321,6 @@ function openConfig() {
 
 .action-btn:hover {
 	color: white;
-}
-
-.permission-flags {
-	position: absolute;
-	display: flex;
-	gap: 4px;
-	pointer-events: all;
-	z-index: 5;
-}
-
-.start-node-d:not(.is-vertical) .permission-flags {
-	left: calc(100% + 15px);
-	top: 50%;
-	transform: translateY(-50%);
-	flex-direction: column;
-	align-items: flex-start;
-}
-
-.is-vertical .permission-flags {
-	top: calc(100% + 15px);
-	left: 50%;
-	transform: translateX(-50%);
-	flex-direction: row;
-	flex-wrap: wrap;
-	justify-content: center;
-}
-
-.permission-flag {
-	font-size: 9px;
-	background-color: var(--fxr-surface-soft);
-	color: var(--fxr-text-secondary);
-	border: 1px solid var(--fxr-border);
-	padding: 3px 8px;
-	border-radius: 12px;
-	white-space: nowrap;
-	box-shadow: var(--fxr-shadow-sm);
-	display: flex;
-	align-items: center;
-	cursor: pointer;
-	transition: all 0.2s;
-}
-
-.permission-flag:hover {
-	background-color: var(--fxr-bg-hover);
-	border-color: var(--fxr-border-strong);
-}
-
-.permission-flag i {
-	margin-right: 4px;
-	color: var(--fxr-text-soft);
 }
 
 /* RTL Support */

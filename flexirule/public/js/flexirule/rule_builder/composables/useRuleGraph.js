@@ -3,8 +3,11 @@ import { useVueFlow } from "@vue-flow/core";
 
 const NODE_WIDTH = 220;
 const NODE_HEIGHT = 140;
-const H_GAP = 46; // horizontal gap between ranks (LR) or between main and body column (TB)
-const V_GAP = 72; // vertical gap between nodes
+const H_GAP = 80; // Standard pitch
+const V_GAP = 80; // Standard pitch
+
+const TRIGGER_OFFSET_V = 120; // Extra space downstream of Trigger (Vertical)
+const TRIGGER_OFFSET_H = 160; // Extra space downstream of Trigger (Horizontal)
 
 export function useRuleGraph() {
 	const { nodes, edges, setNodes, setEdges, fitView } = useVueFlow();
@@ -120,6 +123,33 @@ export function useRuleGraph() {
 			}
 		});
 
+		// ── 2.5 Manual adjustment for TRIGGER extension ──────────────────
+		const startNode = currentNodes.find((n) => n.type === "start");
+		if (startNode && positions.has(startNode.id)) {
+			const triggerOutEdges = currentEdges.filter((e) => e.source === startNode.id);
+			const downstreamNodeIds = new Set();
+			triggerOutEdges.forEach((e) => {
+				if (positions.has(e.target)) {
+					// Collect all nodes reachable from this downstream node in the main flow
+					const reachable = bfsReachable(e.target, currentEdges, allBodyNodeIds);
+					reachable.forEach((id) => downstreamNodeIds.add(id));
+				}
+			});
+
+			if (downstreamNodeIds.size > 0) {
+				const shiftX = isHorizontal ? TRIGGER_OFFSET_H - H_GAP : 0;
+				const shiftY = isHorizontal ? 0 : TRIGGER_OFFSET_V - V_GAP;
+
+				downstreamNodeIds.forEach((id) => {
+					const p = positions.get(id);
+					if (p) {
+						p.x += shiftX;
+						p.y += shiftY;
+					}
+				});
+			}
+		}
+
 		// ── 3. Layout each loop body in a sub-column ─────────────────────────
 		loopBodyMap.forEach(({ bodyIds, bodyEntryId, afterLastId }, loopId) => {
 			const loopPos = positions.get(loopId);
@@ -211,8 +241,8 @@ export function useRuleGraph() {
 						? "top" // Route above the graph to avoid After Last branch
 						: "left" // Side exit for return path (on the left to avoid After Last branch)
 					: isHorizontal
-					? "right"
-					: "bottom", // Standard flow exit
+						? "right"
+						: "bottom", // Standard flow exit
 				targetPosition: isHorizontal ? "left" : "top",
 			};
 		});
