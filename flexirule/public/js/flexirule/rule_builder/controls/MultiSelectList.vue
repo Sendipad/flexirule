@@ -240,6 +240,24 @@ function emitValue(nextValues) {
 	emit("change", nextValues);
 }
 
+function validateSelection() {
+	if (!canInteract.value) return;
+
+	const options = normalizedOptions.value || [];
+	// For remote fields, we only purge when the source entity changes (handled in watchers)
+	if (isRemote.value) return;
+
+	// Do not purge if options are empty (could be loading/intermediate)
+	if (options.length === 0) return;
+
+	const validValues = new Set(options.map((opt) => String(opt.value)));
+	const next = selectedValues.value.filter((val) => validValues.has(val));
+
+	if (next.length !== selectedValues.value.length) {
+		emitValue(next);
+	}
+}
+
 function selectOption(value) {
 	if (!canInteract.value) return;
 	const key = String(value);
@@ -265,6 +283,11 @@ function unselectAllVisible() {
 	if (!canInteract.value) return;
 	const visible = new Set(filteredOptions.value.map((opt) => String(opt.value)));
 	emitValue(selectedValues.value.filter((val) => !visible.has(String(val))));
+}
+
+function clearAll() {
+	if (!canInteract.value) return;
+	emitValue([]);
 }
 
 function invertSelectionVisible() {
@@ -420,9 +443,26 @@ watch(query, (value) => {
 });
 
 watch(
+	() => props.options,
+	(newVal) => {
+		if (!canInteract.value) return;
+		if (Array.isArray(newVal) && newVal.length > 0) {
+			validateSelection();
+		} else if (
+			(newVal === null || (Array.isArray(newVal) && newVal.length === 0)) &&
+			!props.loadingState
+		) {
+			clearAll();
+		}
+	},
+	{ deep: true }
+);
+
+watch(
 	() => props.documentType,
 	() => {
 		reset();
+		if (canInteract.value) clearAll();
 		if (showExpanded.value || isDropdownOpen.value) fetchOptions(query.value || "");
 	}
 );
@@ -431,12 +471,21 @@ watch(
 	() => props.df?.options,
 	() => {
 		reset();
+		if (!canInteract.value) return;
+		if (isRemote.value) {
+			clearAll();
+		} else {
+			validateSelection();
+		}
 	}
 );
 
 onMounted(() => {
 	document.addEventListener("mousedown", handleClickOutside);
 	if (showExpanded.value) fetchOptions("");
+	if (canInteract.value && !isRemote.value) {
+		validateSelection();
+	}
 });
 
 onBeforeUnmount(() => {
@@ -557,6 +606,9 @@ onBeforeUnmount(() => {
 				<button class="action-btn unselect-all" @click="unselectAllVisible">
 					{{ __("Unselect Visible") }}
 				</button>
+				<button class="action-btn clear-all" @click="clearAll">
+					{{ __("Clear All") }}
+				</button>
 				<button
 					v-if="allowInvertSelection"
 					class="action-btn invert"
@@ -640,6 +692,9 @@ onBeforeUnmount(() => {
 						</button>
 						<button class="action-btn unselect-all" @click="unselectAllVisible">
 							{{ __("Unselect Visible") }}
+						</button>
+						<button class="action-btn clear-all" @click="clearAll">
+							{{ __("Clear All") }}
 						</button>
 						<button
 							v-if="allowInvertSelection"
@@ -960,6 +1015,15 @@ onBeforeUnmount(() => {
 	background-color: var(--fxr-accent);
 	color: #ffffff;
 	border-color: var(--fxr-accent);
+}
+
+.action-btn.clear-all {
+	color: var(--fxr-text-danger);
+}
+
+.action-btn.clear-all:hover {
+	background-color: var(--fxr-bg-danger-soft);
+	border-color: var(--fxr-border-danger-subtle);
 }
 
 .search-input {
