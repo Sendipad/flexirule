@@ -10,6 +10,7 @@ from flexirule.ruleflow.core.engine import RuleEngine
 class TestRulePermission(FrappeTestCase):
 	def setUp(self):
 		super().setUp()
+		frappe.set_user("Administrator")
 		self.rule_name = "Test Permission Rule"
 		if frappe.db.exists("Rule", self.rule_name):
 			frappe.delete_doc("Rule", self.rule_name)
@@ -43,7 +44,9 @@ class TestRulePermission(FrappeTestCase):
 					{"role": "Guest", "can_execute": 0},
 				],
 			}
-		).insert(ignore_permissions=True)
+		)
+		self.rule.flags.ignore_permissions = True
+		self.rule.insert()
 
 	def test_permission_bypass_for_system_manager(self):
 		"""Verify System Manager can execute rules even if not explicitly listed"""

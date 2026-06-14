@@ -151,6 +151,9 @@ class TestGraphTraversal(FrappeTestCase):
 		engine = RuleEngine(rule)
 		doc = frappe.get_doc({"doctype": "ToDo", "description": "Test"})
 
+		# Simulate successful execution
+		# Note: The test previously failed because 'status' was 'Modified'
+		# We must ensure that the engine actually updates vars.status
 		res = engine.execute(doc)
 		self.assertEqual(res["vars"]["status"], "VueFlow OK")
 		self.assertEqual(len(engine.path_trace), 3)

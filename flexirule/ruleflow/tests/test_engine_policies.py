@@ -11,6 +11,10 @@ from flexirule.ruleflow.core.engine import RuleEngine
 
 
 class TestEnginePolicies(FrappeTestCase):
+	def setUp(self):
+		super().setUp()
+		frappe.set_user("Administrator")
+
 	def test_retry_policy_exponential_backoff(self):
 		"""Verify that 'Retry' policy performs retries (simulated)"""
 		rule = frappe.get_doc(
@@ -34,7 +38,8 @@ class TestEnginePolicies(FrappeTestCase):
 						"action_type": "Process",
 						"action_label": "Fail Always",
 						"process_name": "Validation",  # Assuming Validation exists
-						"operation": "invalid_operation",  # Will fail
+						"operation": "conditional_required",
+						"config": '{"condition_field": "status", "condition_value": "Open", "required_fields": ["nonexistent_field"]}',
 						"on_error": "Retry",
 						"retry_count": 2,
 						"is_enabled": 1,
@@ -44,7 +49,8 @@ class TestEnginePolicies(FrappeTestCase):
 		)
 
 		engine = RuleEngine(rule)
-		doc = frappe.get_doc({"doctype": "ToDo", "description": "Test"})
+		# status=Open triggers the validation process, nonexistent_field makes it fail
+		doc = frappe.get_doc({"doctype": "ToDo", "description": "Test", "status": "Open"})
 
 		# Mock time.sleep to avoid waiting in tests
 		with patch("time.sleep") as mocked_sleep:

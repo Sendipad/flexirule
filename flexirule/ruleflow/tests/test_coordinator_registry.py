@@ -10,6 +10,7 @@ from flexirule.ruleflow.core.coordinator import RuleCoordinator
 class TestCoordinatorRegistry(FrappeTestCase):
 	def setUp(self):
 		super().setUp()
+		frappe.set_user("Administrator")
 		RuleCoordinator.clear_cache()
 
 	def test_registry_rebuild_on_rule_change(self):
@@ -25,21 +26,43 @@ class TestCoordinatorRegistry(FrappeTestCase):
 				"document_type": "ToDo",
 				"trigger_type": "DocType Event",
 				"trigger_event": "Validate",
-				"is_active": 1,
-				"priority": 10,
+				"is_active": 0,  # Insert as draft first to avoid lock
+				"priority": "10",
 				"actions": [
-					{"action_id": "root", "action_type": "Entry Action", "action_label": "Start", "is_enabled": 1}
+					{
+						"action_id": "root",
+						"action_type": "Entry Action",
+						"action_label": "Start",
+						"is_enabled": 1,
+						"next_step_if_true": "node_end",
+					},
+					{
+						"action_id": "node_end",
+						"action_type": "Stop",
+						"action_label": "End",
+						"operation": "Success",
+						"is_enabled": 1,
+					},
 				],
 			}
 		).insert(ignore_permissions=True)
+
+		# Activate
+		rule.is_active = 1
+		rule.save()
 
 		# Registry should now contain this rule
 		registry = RuleCoordinator.get_runtime_registry()
 		self.assertIn(rule_name, registry["rules"])
 		self.assertIn(rule_name, registry["doctype_event_map"]["ToDo"]["Validate"])
 
-		# Change priority and verify it's updated (rebuild triggered)
+		# Deactivate to allow edit
+		rule.is_active = 0
+		rule.save()
+
+		# Change priority and reactivate
 		rule.priority = "20"
+		rule.is_active = 1
 		rule.save()
 
 		registry = RuleCoordinator.get_runtime_registry()
@@ -51,7 +74,7 @@ class TestCoordinatorRegistry(FrappeTestCase):
 		if frappe.db.exists("Rule", rule_name):
 			frappe.delete_doc("Rule", rule_name)
 
-		rule = frappe.get_doc(
+		frappe.get_doc(
 			{
 				"doctype": "Rule",
 				"rule_name": rule_name,
@@ -61,7 +84,20 @@ class TestCoordinatorRegistry(FrappeTestCase):
 				"is_active": 1,
 				"watched_fields": "description,status",
 				"actions": [
-					{"action_id": "root", "action_type": "Entry Action", "action_label": "Start", "is_enabled": 1}
+					{
+						"action_id": "root",
+						"action_type": "Entry Action",
+						"action_label": "Start",
+						"is_enabled": 1,
+						"next_step_if_true": "node_end",
+					},
+					{
+						"action_id": "node_end",
+						"action_type": "Stop",
+						"action_label": "End",
+						"operation": "Success",
+						"is_enabled": 1,
+					},
 				],
 			}
 		).insert(ignore_permissions=True)

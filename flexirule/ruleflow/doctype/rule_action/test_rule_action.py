@@ -6,6 +6,10 @@ from frappe.tests.utils import FrappeTestCase
 
 
 class TestRuleAction(FrappeTestCase):
+	def setUp(self):
+		super().setUp()
+		frappe.set_user("Administrator")
+
 	def test_validate_action_id_required(self):
 		"""Verify that action_id is required for Rule Action"""
 		rule_action = frappe.get_doc(
@@ -43,7 +47,7 @@ class TestRuleAction(FrappeTestCase):
 				"document_type": "ToDo",
 				"trigger_type": "DocType Event",
 				"trigger_event": "Validate",
-				"is_active": 1,
+				"is_active": 0,
 				"actions": [
 					{
 						"action_id": "assign_1",
@@ -82,7 +86,7 @@ class TestRuleAction(FrappeTestCase):
 						"action_type": "Condition",
 						"action_label": "Condition Missing Compiled",
 						"is_enabled": 1,
-						"condition_json": '{"op": "and", "conditions": []}',
+						"config": '{"op": "and", "conditions": []}',
 						# compiled_expression is missing
 						"next_step_if_true": "node_end",
 						"next_step_if_false": "node_end",
