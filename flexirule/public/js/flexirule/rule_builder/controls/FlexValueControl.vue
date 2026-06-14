@@ -187,6 +187,7 @@
 									:modelValue="tokenDraftAttrs.config"
 									:doctype="referenceDoctype"
 									:context="resolverContext"
+									:variableOptions="availableVariableOptions"
 									:allowedKinds="allowedBuilderKinds"
 									@update:modelValue="handleBuilderUpdate"
 								/>
