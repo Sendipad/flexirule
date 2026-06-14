@@ -541,19 +541,36 @@
 
 					<!-- ═══════════ Fetch Resolver ═══════════ -->
 					<template v-else-if="localState.kind === 'fetch'">
+						<!-- Step 1: Source DocType -->
 						<div class="d-flex flex-column fxr-gap-1">
-							<label class="fxr-label-sm">{{ __("Source Link Field") }}</label>
+							<label class="fxr-label-sm">{{ __("1. Source DocType") }}</label>
+							<ComboBoxControl
+								v-model="localState.linked_doctype"
+								doctype="DocType"
+								:read_only="readOnly"
+								:placeholder="__('Select Source DocType...')"
+								hide-label
+								allow-custom-value
+							/>
+						</div>
+
+						<!-- Step 2: Source Document -->
+						<div class="d-flex flex-column fxr-gap-1 mt-2">
+							<label class="fxr-label-sm">{{ __("2. Source Document") }}</label>
 							<div class="d-flex fxr-gap-2">
 								<select
-									class="fxr-select flex-1"
+									class="fxr-select"
+									style="width: 100px"
 									v-model="localState.link_source_type"
 									:disabled="readOnly"
 									@change="localState.link_field = ''"
 								>
-									<option value="doc_field">{{ __("Document Field") }}</option>
-									<option value="variable">{{ __("Workflow Variable") }}</option>
+									<option value="doc_field">{{ __("Field") }}</option>
+									<option value="variable">{{ __("Var") }}</option>
+									<option value="expression">{{ __("Expr") }}</option>
 								</select>
 								<ComboBoxControl
+									v-if="localState.link_source_type !== 'expression'"
 									class="flex-1 min-w-0"
 									v-model="localState.link_field"
 									:options="sourceLinkOptions"
@@ -561,19 +578,29 @@
 									:placeholder="
 										localState.link_source_type === 'variable'
 											? __('Search variable...')
-											: __('Select link field...')
+											: __('Select field...')
 									"
 									:allow-custom-value="localState.link_source_type === 'variable'"
 									hide-label
 								/>
+								<input
+									v-else
+									type="text"
+									class="fxr-input flex-1"
+									v-model="localState.link_field"
+									:disabled="readOnly"
+									:placeholder="__('e.g. doc.party')"
+								/>
 							</div>
 						</div>
+
+						<!-- Step 3: Fetch Field -->
 						<div class="d-flex flex-column fxr-gap-1 mt-2">
-							<label class="fxr-label-sm">{{ __("Fetch Field") }}</label>
+							<label class="fxr-label-sm">{{ __("3. Fetch Field") }}</label>
 							<ComboBoxControl
 								v-model="localState.fetch_field"
 								:options="fetchFieldOptions"
-								:read_only="readOnly || !localState.link_field"
+								:read_only="readOnly || !localState.linked_doctype"
 								:loading="fetchMetaLoading"
 								:placeholder="
 									fetchMetaLoading
@@ -583,17 +610,6 @@
 								:allow-custom-value="true"
 								hide-label
 							/>
-						</div>
-						<div class="mt-1" v-if="localState.linked_doctype">
-							<span class="fxr-text-xs text-muted">
-								{{
-									localState.linked_doctype.startsWith("doc.")
-										? __("Fetching from {0} (Dynamic)", [
-												localState.linked_doctype,
-										  ])
-										: __("Fetching from {0}", [localState.linked_doctype])
-								}}
-							</span>
 						</div>
 					</template>
 
@@ -890,30 +906,41 @@ const aggFieldOptions = computed(() => {
 
 const sourceLinkOptions = computed(() => {
 	if (localState.value.link_source_type === "variable") {
-		return (props.variableOptions || [])
-			.filter((v) => v.fieldtype === "Link" || v.fieldtype === "Dynamic Link")
-			.map((v) => ({
-				label: `${v.label || v.value} (vars.${v.value})`,
-				value: `vars.${v.value}`,
-				options: v.options,
-				fieldtype: v.fieldtype,
-			}));
+		const vars = props.variableOptions || [];
+		return vars.map((v) => ({
+			label: `${v.label || v.value} (vars.${v.value})`,
+			value: `vars.${v.value}`,
+			options: v.options,
+			fieldtype: v.fieldtype,
+		}));
 	}
-	return linkFieldOptions.value;
+	return prioritizedFieldOptions.value;
 });
 
-const linkFieldOptions = computed(() => {
+const prioritizedFieldOptions = computed(() => {
 	const dt = props.doctype || store.rule_doc?.document_type;
 	if (!dt) return [];
 	const fields = store.doc_meta[dt];
 	if (!fields || !Array.isArray(fields)) return [];
-	return fields
-		.filter((f) => ["Link", "Dynamic Link"].includes(f.fieldtype))
+
+	const prioritizedTypes = ["Link", "Dynamic Link", "Data", "Select"];
+
+	return [...fields]
+		.sort((a, b) => {
+			const aPrio = prioritizedTypes.indexOf(a.fieldtype);
+			const bPrio = prioritizedTypes.indexOf(b.fieldtype);
+
+			if (aPrio !== -1 && bPrio !== -1) return aPrio - bPrio;
+			if (aPrio !== -1) return -1;
+			if (bPrio !== -1) return 1;
+			return 0;
+		})
 		.map((f) => ({
 			label: `${f.label || f.fieldname} (${f.fieldname})`,
 			value: f.fieldname,
 			options: f.options,
 			fieldtype: f.fieldtype,
+			icon: ["Link", "Dynamic Link"].includes(f.fieldtype) ? "fa fa-link" : "fa fa-columns",
 		}));
 });
 
@@ -928,56 +955,60 @@ const fetchMetaLoading = ref(false);
 watch(
 	() => localState.value.link_field,
 	async (newVal, oldVal) => {
-		if (_syncing) return;
-		if (!newVal) {
-			localState.value.linked_doctype = "";
-			localState.value.fetch_field = "";
-			return;
-		}
+		if (_syncing || !newVal) return;
+
 		const opt = sourceLinkOptions.value.find((o) => o.value === newVal);
 		if (opt && (opt.options || opt.fieldtype === "Dynamic Link")) {
-			// For Dynamic Link, options is usually the fieldname that holds the doctype
 			let linkedDt = opt.options;
 			if (opt.fieldtype === "Dynamic Link") {
 				linkedDt = `doc.${opt.options}`;
 			}
 
-			localState.value.linked_doctype = linkedDt;
-
-			if (newVal !== oldVal) {
-				localState.value.fetch_field = "";
+			// Auto-populate Source DocType if it's empty
+			if (linkedDt && !localState.value.linked_doctype) {
+				localState.value.linked_doctype = linkedDt;
 			}
+		}
+	}
+);
 
-			// Try to auto-default even for Dynamic Link or before metadata is loaded
+watch(
+	() => localState.value.linked_doctype,
+	async (newVal, oldVal) => {
+		if (_syncing) return;
+		if (!newVal) {
+			localState.value.fetch_field = "";
+			return;
+		}
+
+		if (newVal !== oldVal) {
+			// Auto-default fetch field to target field name if it's empty
 			if (!localState.value.fetch_field && resolverFieldname.value) {
 				localState.value.fetch_field = resolverFieldname.value;
 			}
+		}
 
-			if (linkedDt && !linkedDt.startsWith("doc.")) {
-				fetchMetaLoading.value = true;
-				try {
-					await store.fetch_metadata(linkedDt);
+		if (newVal && !newVal.startsWith("doc.") && !newVal.startsWith("vars.")) {
+			fetchMetaLoading.value = true;
+			try {
+				await store.fetch_metadata(newVal);
 
-					// If we auto-defaulted, but it turns out the field doesn't exist, clear it
-					// unless it was manually changed (though that's hard to track here)
-					if (
-						localState.value.fetch_field === resolverFieldname.value &&
-						fetchFieldOptions.value.length > 0
-					) {
-						const match = fetchFieldOptions.value.find(
-							(f) => f.value === resolverFieldname.value
-						);
-						if (!match) {
-							localState.value.fetch_field = "";
-						}
+				// Re-verify auto-defaulted field exists in metadata
+				if (
+					localState.value.fetch_field === resolverFieldname.value &&
+					fetchFieldOptions.value.length > 0
+				) {
+					const match = fetchFieldOptions.value.find(
+						(f) => f.value === resolverFieldname.value
+					);
+					if (!match) {
+						// Don't clear if it was manually typed, but here it's likely our auto-default
+						// We'll keep it for now as per user request "default fieldname could hold the same fieldname in target"
 					}
-				} finally {
-					fetchMetaLoading.value = false;
 				}
+			} finally {
+				fetchMetaLoading.value = false;
 			}
-		} else {
-			localState.value.linked_doctype = "";
-			localState.value.fetch_field = "";
 		}
 	}
 );
