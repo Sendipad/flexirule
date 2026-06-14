@@ -110,6 +110,7 @@
 									df:
 										targetOptions.find((o) => o.value === assignment.target) ||
 										{},
+									target: assignment.target,
 									operator: assignment.operator,
 									referenceDoctype: getTargetDoctype(assignment.target),
 								}"

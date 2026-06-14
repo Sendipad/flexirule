@@ -721,7 +721,10 @@ const resolverFieldname = computed(() => {
 		props.context?.df?.fieldname ||
 		props.context?.df?.value ||
 		"value_resolver";
-	return String(fieldname).replace(/^doc\./, "");
+	// Strip both doc. and vars. prefixes
+	return String(fieldname)
+		.replace(/^doc\./, "")
+		.replace(/^vars\./, "");
 });
 
 // ─── Category Definitions ───
@@ -753,7 +756,9 @@ function getDefaultState(kind = "date_formula") {
 
 	const fieldname = props.context?.fieldname || props.context?.target;
 	if (fieldname) {
-		const raw = fieldname.startsWith("doc.") ? fieldname.slice(4) : fieldname;
+		const raw = String(fieldname)
+			.replace(/^doc\./, "")
+			.replace(/^vars\./, "");
 		if (kind === "date_formula") {
 			baseType = "doc_field";
 			baseField = raw;
@@ -817,7 +822,7 @@ const localState = ref(getDefaultState());
 
 // ─── Field Options ───
 const dateFieldOptions = computed(() => {
-	const dt = props.doctype || store.rule_doc?.document_type;
+	const dt = store.rule_doc?.document_type || props.doctype;
 	if (!dt) return [];
 	const fields = store.doc_meta[dt];
 	if (!fields || !Array.isArray(fields)) return [];
@@ -835,7 +840,7 @@ const dateFieldOptions = computed(() => {
 });
 
 const numericFieldOptions = computed(() => {
-	const dt = props.doctype || store.rule_doc?.document_type;
+	const dt = store.rule_doc?.document_type || props.doctype;
 	if (!dt) return [];
 	const fields = store.doc_meta[dt];
 	if (!fields || !Array.isArray(fields)) return [];
@@ -853,7 +858,7 @@ const numericFieldOptions = computed(() => {
 });
 
 const stringFieldOptions = computed(() => {
-	const dt = props.doctype || store.rule_doc?.document_type;
+	const dt = store.rule_doc?.document_type || props.doctype;
 	if (!dt) return [];
 	const fields = store.doc_meta[dt];
 	if (!fields || !Array.isArray(fields)) return [];
@@ -871,7 +876,7 @@ const stringFieldOptions = computed(() => {
 });
 
 const tableFieldOptions = computed(() => {
-	const dt = props.doctype || store.rule_doc?.document_type;
+	const dt = store.rule_doc?.document_type || props.doctype;
 	if (!dt) return [];
 	const fields = store.doc_meta[dt];
 	if (!fields || !Array.isArray(fields)) return [];
@@ -918,7 +923,7 @@ const sourceLinkOptions = computed(() => {
 });
 
 const prioritizedFieldOptions = computed(() => {
-	const dt = props.doctype || store.rule_doc?.document_type;
+	const dt = store.rule_doc?.document_type || props.doctype;
 	if (!dt) return [];
 	const fields = store.doc_meta[dt];
 	if (!fields || !Array.isArray(fields)) return [];
