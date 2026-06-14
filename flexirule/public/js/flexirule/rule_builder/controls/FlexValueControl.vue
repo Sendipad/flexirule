@@ -812,6 +812,7 @@ const editor = new Editor({
 							normalize: "normalization",
 							formatter: "format",
 							resolver: "string_formula",
+							fetch: "fetch",
 						};
 						const allowedKinds = Array.isArray(allowedBuilderKinds.value)
 							? allowedBuilderKinds.value
@@ -1110,6 +1111,7 @@ const activeTokenPresentation = computed(() => {
 		resolver: { title: __("Configure Resolver"), icon: "fa fa-bolt" },
 		normalize: { title: __("Configure Normalization"), icon: "fa fa-refresh" },
 		format: { title: __("Configure Format"), icon: "fa fa-paint-brush" },
+		fetch: { title: __("Fetch From Link"), icon: "fa fa-link" },
 		json: { title: __("JSON Editor"), icon: "fa fa-code" },
 	};
 	return map[activeTokenType.value] || { title: __("Token Configuration"), icon: "fa fa-cog" };
@@ -1129,8 +1131,10 @@ function openTokenEditor(node, pos, typeOverride = null) {
 
 	if (node.type.name === "resolverToken") {
 		const kind = node.attrs.config?.kind;
-		if (["normalization", "format"].includes(kind)) {
-			activeTokenType.value = kind === "normalization" ? "normalize" : "format";
+		if (["normalization", "format", "fetch"].includes(kind)) {
+			if (kind === "normalization") activeTokenType.value = "normalize";
+			else if (kind === "format") activeTokenType.value = "format";
+			else activeTokenType.value = "fetch";
 		} else if (kind?.includes("formula") || kind?.includes("aggregation")) {
 			activeTokenType.value = "formula";
 		} else {

@@ -134,6 +134,13 @@ export const SLASH_COMMANDS = [
 		groups: [FORMULA_GROUPS.SELECT],
 	},
 	{
+		id: "fetch",
+		label: __("Fetch From Link"),
+		type: "logic",
+		icon: "🔗",
+		groups: [FORMULA_GROUPS.LINK, FORMULA_GROUPS.GENERAL],
+	},
+	{
 		id: "boolean",
 		label: __("Toggle"),
 		type: "logic",
@@ -185,7 +192,6 @@ export const FORMULA_REGISTRY = {
 		{ id: "not", label: "not", description: "Negate boolean" },
 	],
 	[FORMULA_GROUPS.LINK]: [
-		{ id: "fetch", label: "fetch", description: "Fetch field from linked document" },
 		{ id: "lookup", label: "lookup", description: "Look up record by filters" },
 	],
 	[FORMULA_GROUPS.TABLE]: [
