@@ -543,58 +543,55 @@
 					<template v-else-if="localState.kind === 'fetch'">
 						<div class="d-flex flex-column fxr-gap-1">
 							<label class="fxr-label-sm">{{ __("Source Link Field") }}</label>
-							<select
-								class="fxr-select"
-								v-model="localState.link_field"
-								:disabled="readOnly"
-							>
-								<option value="">{{ __("Select link field...") }}</option>
-								<option
-									v-for="opt in linkFieldOptions"
-									:key="opt.value"
-									:value="opt.value"
-								>
-									{{ opt.label }}
-								</option>
-							</select>
-						</div>
-						<div class="d-flex flex-column fxr-gap-1 mt-2">
-							<label class="fxr-label-sm">{{ __("Fetch Field") }}</label>
-							<div class="position-relative">
+							<div class="d-flex fxr-gap-2">
 								<select
-									class="fxr-select w-100"
-									v-model="localState.fetch_field"
-									:disabled="
-										readOnly || !localState.link_field || fetchMetaLoading
-									"
+									class="fxr-select flex-1"
+									v-model="localState.link_source_type"
+									:disabled="readOnly"
 								>
-									<option value="">
-										{{
-											fetchMetaLoading
-												? __("Loading...")
-												: __("Select field to fetch...")
-										}}
-									</option>
+									<option value="doc_field">{{ __("Document Field") }}</option>
+								</select>
+								<select
+									class="fxr-select flex-1"
+									v-model="localState.link_field"
+									:disabled="readOnly"
+								>
+									<option value="">{{ __("Select link field...") }}</option>
 									<option
-										v-for="opt in fetchFieldOptions"
+										v-for="opt in linkFieldOptions"
 										:key="opt.value"
 										:value="opt.value"
 									>
 										{{ opt.label }}
 									</option>
 								</select>
-								<div
-									v-if="fetchMetaLoading"
-									class="position-absolute"
-									style="right: 25px; top: 50%; transform: translateY(-50%)"
-								>
-									<i class="fa fa-spinner fa-spin text-muted"></i>
-								</div>
 							</div>
+						</div>
+						<div class="d-flex flex-column fxr-gap-1 mt-2">
+							<label class="fxr-label-sm">{{ __("Fetch Field") }}</label>
+							<ComboBoxControl
+								v-model="localState.fetch_field"
+								:options="fetchFieldOptions"
+								:read_only="readOnly || !localState.link_field"
+								:loading="fetchMetaLoading"
+								:placeholder="
+									fetchMetaLoading
+										? __('Loading...')
+										: __('Select field to fetch...')
+								"
+								:allow-custom-value="true"
+								hide-label
+							/>
 						</div>
 						<div class="mt-1" v-if="localState.linked_doctype">
 							<span class="fxr-text-xs text-muted">
-								{{ __("Fetching from {0}", [localState.linked_doctype]) }}
+								{{
+									localState.linked_doctype.startsWith("doc.")
+										? __("Fetching from {0} (Dynamic)", [
+												localState.linked_doctype,
+										  ])
+										: __("Fetching from {0}", [localState.linked_doctype])
+								}}
 							</span>
 						</div>
 					</template>
@@ -640,6 +637,7 @@
 <script setup>
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from "vue";
 import { useStore } from "../stores";
+import ComboBoxControl from "./ComboBoxControl.vue";
 import { compileToCode, compileToLabel } from "../../core/builder_utils.js";
 import { useFloatingDropdown } from "../composables/useFloatingDropdown";
 
@@ -748,6 +746,7 @@ function getDefaultState(kind = "date_formula") {
 	return {
 		kind,
 		// Fetch Resolver fields
+		link_source_type: "doc_field",
 		link_field: "",
 		fetch_field: "",
 		linked_doctype: "",
@@ -890,11 +889,12 @@ const linkFieldOptions = computed(() => {
 	const fields = store.doc_meta[dt];
 	if (!fields || !Array.isArray(fields)) return [];
 	return fields
-		.filter((f) => f.fieldtype === "Link")
+		.filter((f) => ["Link", "Dynamic Link"].includes(f.fieldtype))
 		.map((f) => ({
 			label: `${f.label || f.fieldname} (${f.fieldname})`,
 			value: f.fieldname,
 			options: f.options,
+			fieldtype: f.fieldtype,
 		}));
 });
 
@@ -916,16 +916,45 @@ watch(
 			return;
 		}
 		const opt = linkFieldOptions.value.find((o) => o.value === newVal);
-		if (opt && opt.options) {
-			localState.value.linked_doctype = opt.options;
+		if (opt && (opt.options || opt.fieldtype === "Dynamic Link")) {
+			// For Dynamic Link, options is usually the fieldname that holds the doctype
+			let linkedDt = opt.options;
+			if (opt.fieldtype === "Dynamic Link") {
+				linkedDt = `doc.${opt.options}`;
+			}
+
+			localState.value.linked_doctype = linkedDt;
+
 			if (newVal !== oldVal) {
 				localState.value.fetch_field = "";
 			}
-			fetchMetaLoading.value = true;
-			try {
-				await store.fetch_metadata(opt.options);
-			} finally {
-				fetchMetaLoading.value = false;
+
+			// Try to auto-default even for Dynamic Link or before metadata is loaded
+			if (!localState.value.fetch_field && resolverFieldname.value) {
+				localState.value.fetch_field = resolverFieldname.value;
+			}
+
+			if (opt.fieldtype === "Link" && linkedDt) {
+				fetchMetaLoading.value = true;
+				try {
+					await store.fetch_metadata(linkedDt);
+
+					// If we auto-defaulted, but it turns out the field doesn't exist, clear it
+					// unless it was manually changed (though that's hard to track here)
+					if (
+						localState.value.fetch_field === resolverFieldname.value &&
+						fetchFieldOptions.value.length > 0
+					) {
+						const match = fetchFieldOptions.value.find(
+							(f) => f.value === resolverFieldname.value
+						);
+						if (!match) {
+							localState.value.fetch_field = "";
+						}
+					}
+				} finally {
+					fetchMetaLoading.value = false;
+				}
 			}
 		} else {
 			localState.value.linked_doctype = "";
@@ -999,6 +1028,7 @@ const syncFromProps = () => {
 		next.fmt_field = val.fmt_field || "";
 		next.fmt_config = val.fmt_config || "";
 	} else if (kind === "fetch") {
+		next.link_source_type = val.link_source_type || "doc_field";
 		next.link_field = val.link_field || "";
 		next.fetch_field = val.fetch_field || "";
 		next.linked_doctype = val.linked_doctype || "";
@@ -1094,6 +1124,7 @@ watch(
 			});
 		} else if (newVal.kind === "fetch") {
 			Object.assign(config, {
+				link_source_type: newVal.link_source_type,
 				link_field: newVal.link_field,
 				fetch_field: newVal.fetch_field,
 				linked_doctype: newVal.linked_doctype,
