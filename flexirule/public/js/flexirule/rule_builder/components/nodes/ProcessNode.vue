@@ -138,7 +138,7 @@ const isTerminal = computed(() => {
 				{{ data.operation }}
 			</div>
 
-			<div class="node-details" v-if="hasDetails">
+			<div class="node-details" v-if="hasDetails || data.action_type === 'Assignment'">
 				<div class="detail-tag" v-if="data.reference_doctype">
 					<i class="fa fa-database"></i>
 					<span>{{ data.reference_doctype }}</span>
@@ -146,6 +146,10 @@ const isTerminal = computed(() => {
 				<div class="detail-tag mutation" v-if="data.mutation_mode">
 					<i class="fa fa-bolt"></i>
 					<span>{{ data.mutation_mode }}</span>
+				</div>
+				<div class="detail-tag mutation" v-else-if="data.action_type === 'Assignment'">
+					<i class="fa fa-bolt"></i>
+					<span>Set Context Variable</span>
 				</div>
 				<div class="detail-row" v-if="data.target_field">
 					<i class="fa fa-crosshairs"></i> {{ data.target_field }}
@@ -385,7 +389,7 @@ const isTerminal = computed(() => {
 /* Footer */
 .node-footer {
 	padding: 8px 12px;
-	background-color: color-mix(in srgb, var(--fxr-surface-soft) 80%, var(--fxr-bg-muted));
+	background-color: var(--fxr-bg-muted);
 	border-bottom-left-radius: var(--fxr-radius-md);
 	border-bottom-right-radius: var(--fxr-radius-md);
 	border-top: 1px solid var(--fxr-border-subtle);

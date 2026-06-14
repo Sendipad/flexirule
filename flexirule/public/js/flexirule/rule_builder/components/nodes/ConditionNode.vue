@@ -55,6 +55,11 @@ const conditionSummary = computed(() => {
 const nodeIdRef = computed(() => props.id);
 const { isExecuted, isRunning, isErrored, executionOrder } = useNodeExecutionState(nodeIdRef);
 
+const isConfigured = computed(() => {
+	const config = props.data?.config;
+	return config && Array.isArray(config.conditions) && config.conditions.length > 0;
+});
+
 function deleteNode() {
 	frappe.confirm(__("Delete this node?"), () => store.delete_node(props.id));
 }
@@ -111,6 +116,14 @@ function openConfig() {
 			</InlineEditor>
 			<div class="compact-summary" v-if="conditionSummary">
 				{{ conditionSummary }}
+			</div>
+		</div>
+
+		<!-- Footer/Status -->
+		<div class="node-footer">
+			<div class="config-status" :class="{ configured: isConfigured }">
+				<i class="fa" :class="isConfigured ? 'fa-check-circle' : 'fa-circle-o'"></i>
+				<span>{{ isConfigured ? __("Configured") : __("Not Configured") }}</span>
 			</div>
 		</div>
 
@@ -203,12 +216,6 @@ function openConfig() {
 	gap: 8px;
 }
 
-.header-right {
-	display: flex;
-	align-items: center;
-	gap: 4px;
-}
-
 .node-header i {
 	color: var(--accent-color);
 	font-size: 12px;
@@ -222,27 +229,16 @@ function openConfig() {
 	text-transform: uppercase;
 }
 
-.action-btn {
-	background: none;
-	border: none;
-	padding: 0 2px;
-	cursor: pointer;
-	color: var(--fxr-text-faint);
-	font-size: 10px;
-}
-
-.action-btn:hover {
-	color: #dc3545;
-}
-
 /* Body */
 .node-body {
-	padding: 10px;
+	padding: 12px;
 	text-align: center;
-	min-height: 40px;
+	min-height: 50px;
 	display: flex;
+	flex-direction: column;
 	align-items: center;
 	justify-content: center;
+	gap: 4px;
 }
 
 .condition-text {
@@ -250,15 +246,16 @@ function openConfig() {
 	font-weight: 700;
 	color: var(--fxr-text-strong);
 	line-height: 1.2;
+	width: 100%;
 }
 
 .compact-summary {
 	font-size: 9px;
 	color: var(--fxr-text-soft);
-	margin-top: 4px;
 	font-family: var(--fxr-font-mono);
 	word-break: break-all;
 	max-width: 100%;
+	display: block;
 }
 
 /* Ports/Handles */

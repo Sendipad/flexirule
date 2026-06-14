@@ -78,6 +78,14 @@ function openConfig() {
 				</InlineEditor>
 			</div>
 		</div>
+
+		<!-- Footer/Status -->
+		<div class="node-footer">
+			<div class="config-status configured">
+				<i class="fa fa-check-circle"></i>
+				<span>{{ __("Terminal") }}</span>
+			</div>
+		</div>
 	</div>
 </template>
 
@@ -182,6 +190,7 @@ function openConfig() {
 	flex: 1;
 	display: flex;
 	flex-direction: column;
+	margin-bottom: 4px;
 }
 
 .type-label {
@@ -195,6 +204,28 @@ function openConfig() {
 .main-label {
 	font-size: 13px;
 	font-weight: 700;
+}
+
+/* Footer */
+.node-footer {
+	padding: 8px 12px;
+	background-color: rgba(0, 0, 0, 0.1);
+	border-bottom-left-radius: 8px;
+	border-bottom-right-radius: 8px;
+	border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.config-status {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 10px;
+	cursor: pointer;
+	color: rgba(255, 255, 255, 0.8);
+}
+
+.config-status.configured {
+	color: #ffffff;
 }
 
 .action-btn {

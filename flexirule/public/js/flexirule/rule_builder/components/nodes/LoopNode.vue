@@ -29,6 +29,11 @@ const isReadOnly = computed(() => store.is_read_only);
 const nodeIdRef = computed(() => props.id);
 const { isExecuted, isRunning, isErrored, executionOrder } = useNodeExecutionState(nodeIdRef);
 
+const isConfigured = computed(() => {
+	const config = props.data?.config;
+	return config && config.iterator;
+});
+
 function deleteNode() {
 	frappe.confirm(__("Delete this node?"), () => store.delete_node(props.id));
 }
@@ -98,6 +103,14 @@ function openConfig() {
 			<div class="loop-subtext" v-if="data.config?.iterator">
 				{{ __("Iterator:") }} {{ data.config.iterator }} {{ __("as") }}
 				{{ data.return_variable || data.config?.alias || "item" }}
+			</div>
+		</div>
+
+		<!-- Footer/Status -->
+		<div class="node-footer">
+			<div class="config-status" :class="{ configured: isConfigured }">
+				<i class="fa" :class="isConfigured ? 'fa-check-circle' : 'fa-circle-o'"></i>
+				<span>{{ isConfigured ? __("Configured") : __("Not Configured") }}</span>
 			</div>
 		</div>
 
@@ -375,6 +388,32 @@ function openConfig() {
 
 .action-btn.delete {
 	margin-left: 4px;
+}
+
+/* Footer */
+.node-footer {
+	padding: 8px 12px;
+	background-color: var(--fxr-bg-muted);
+	border-bottom-left-radius: var(--fxr-radius-md);
+	border-bottom-right-radius: var(--fxr-radius-md);
+	border-top: 1px solid var(--fxr-border-subtle);
+}
+
+.config-status {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 10px;
+	cursor: pointer;
+	color: var(--fxr-text-faint);
+}
+
+.config-status.configured {
+	color: var(--fxr-text-success, #198754);
+}
+
+.config-status:hover {
+	opacity: 0.8;
 }
 
 /* Execution */
