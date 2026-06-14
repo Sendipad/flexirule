@@ -1,11 +1,18 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from "vue";
 import { Handle, Position } from "@vue-flow/core";
-import { getOperationOptions, isTerminalAction } from "../../core/contracts";
+import {
+	getOperationOptions,
+	isTerminalAction,
+	getContract,
+	getEffectiveActionPolicy,
+	getFieldLabel,
+} from "../../core/contracts";
 import { useStore } from "../stores";
 import { mapActionTypeToNodeType } from "../composables/useActionTypeMapper";
 import { useActionSearch } from "../composables/useActionSearch";
 import { useFloatingDropdown } from "../composables/useFloatingDropdown";
+import ComboBoxControl from "../controls/ComboBoxControl.vue";
 import NodeToolbar from "./nodes/NodeToolbar.vue";
 
 const props = defineProps({
@@ -86,15 +93,10 @@ const step = ref("discovery"); // 'discovery' | 'labeling'
 const customLabel = ref("");
 const selectedItemData = ref(null);
 
-// Node mode state
-const selectedPreset = ref({
-	action_type: "Process",
-	operation: null,
-	process_name: null,
-	selected_label: "Process",
+const isHorizontal = computed(() => {
+	const settings = store.settings?.value || store.settings;
+	return settings?.layout_direction !== "Top to Bottom";
 });
-
-const isHorizontal = computed(() => store.settings?.layout_direction !== "Top to Bottom");
 const targetPos = computed(
 	() => props.targetPosition || (isHorizontal.value ? Position.Left : Position.Top)
 );
@@ -132,15 +134,6 @@ function selectItem(item) {
 	selectedItemData.value = selection;
 	customLabel.value = selection.label;
 	step.value = "labeling";
-
-	if (props.mode === "node") {
-		selectedPreset.value = {
-			action_type: selection.action_type,
-			operation: selection.operation,
-			process_name: selection.process_name,
-			selected_label: selection.label,
-		};
-	}
 
 	nextTick(() => {
 		updatePopoverPosition();
@@ -234,27 +227,31 @@ function onPasteClick() {
 
 function onCreate(finalPayload = null) {
 	if (props.mode !== "node") return;
-	const nodeIndex = store.nodes.findIndex((n) => n.id === props.id);
+
+	const nodes = store.nodes.value || store.nodes;
+	const edges = store.edges.value || store.edges;
+
+	const nodeIndex = nodes.findIndex((n) => n.id === props.id);
 	if (nodeIndex === -1) {
 		console.warn("[ActionZone] Node not found for upgrade:", props.id);
 		return;
 	}
 
-	const selection = finalPayload || {
-		action_type: selectedPreset.value.action_type || "Process",
-		label:
-			customLabel.value ||
-			selectedPreset.value.operation ||
-			selectedPreset.value.selected_label ||
-			"Process",
-		operation: selectedPreset.value.operation,
-		process_name: selectedPreset.value.process_name,
-	};
+	const selection =
+		finalPayload ||
+		(selectedItemData.value
+			? {
+					...selectedItemData.value,
+					label: (customLabel.value || selectedItemData.value.label).trim(),
+			  }
+			: null);
+
+	if (!selection) return;
 
 	const action_type = selection.action_type;
 	const label = selection.label;
 	const nodeType = mapActionTypeToNodeType(action_type);
-	const node = store.nodes[nodeIndex];
+	const node = nodes[nodeIndex];
 
 	console.log("[ActionZone] Upgrading node:", props.id, "to type:", action_type);
 
@@ -289,13 +286,13 @@ function onCreate(finalPayload = null) {
 		},
 	};
 
-	store.nodes.splice(nodeIndex, 1, updatedNode);
+	nodes.splice(nodeIndex, 1, updatedNode);
 
 	if (suggestedParentId) {
 		const edgeId = `e-${suggestedParentId}-${props.id}-${suggestedSourceHandle}`;
-		const hasIncoming = store.edges.some((edge) => edge.target === props.id);
+		const hasIncoming = edges.some((edge) => edge.target === props.id);
 		if (!hasIncoming) {
-			store.edges.push({
+			edges.push({
 				id: edgeId,
 				source: suggestedParentId,
 				target: props.id,
@@ -306,9 +303,17 @@ function onCreate(finalPayload = null) {
 	}
 
 	if (isTerminalAction(action_type)) {
-		store.edges = store.edges.filter((edge) => edge.source !== props.id);
-		store.nodes[nodeIndex].data.next_step_if_true = null;
-		store.nodes[nodeIndex].data.next_step_if_false = null;
+		const filteredEdges = edges.filter((edge) => edge.source !== props.id);
+		if (store.edges.value) {
+			store.edges.value = filteredEdges;
+		} else {
+			store.edges = filteredEdges;
+		}
+		const nodeAfterUpdate = nodes[nodeIndex];
+		if (nodeAfterUpdate && nodeAfterUpdate.data) {
+			nodeAfterUpdate.data.next_step_if_true = null;
+			nodeAfterUpdate.data.next_step_if_false = null;
+		}
 	}
 
 	store.select(props.id);
@@ -316,6 +321,82 @@ function onCreate(finalPayload = null) {
 	store.touch_node(props.id);
 	store.mark_dirty();
 }
+
+const showProcessSelector = computed(() => {
+	return selectedItemData.value?.action_type === "Process";
+});
+
+const showOperationSelector = computed(() => {
+	if (!selectedItemData.value) return false;
+	const actionType = selectedItemData.value.action_type;
+	const contract = getContract(actionType);
+	return (
+		contract.operation_options ||
+		["Process", "Query Records", "Document Action", "Stop", "Notify"].includes(actionType)
+	);
+});
+
+const operationLabel = computed(() => {
+	if (!selectedItemData.value) return __("Operation");
+	const actionType = selectedItemData.value.action_type;
+	const contract = getContract(actionType);
+	return (
+		getFieldLabel(actionType, "operation", {
+			operation: selectedItemData.value.operation,
+			processName: selectedItemData.value.process_name,
+		}) ||
+		contract.operation_label ||
+		__("Operation")
+	);
+});
+
+const processOptions = computed(() => {
+	const processes = store.processes?.value || store.processes || [];
+	return processes.map((p) => ({
+		value: p.name,
+		label: p.process_name || p.name,
+		description: p.module,
+	}));
+});
+
+const operationOptions = computed(() => {
+	if (!selectedItemData.value) return [];
+	const actionType = selectedItemData.value.action_type;
+	const processName = selectedItemData.value.process_name;
+
+	return getOperationOptions(actionType, { processName }).map((op) => ({
+		value: op.value,
+		label: op.label || op.value,
+		description: op.description || "",
+	}));
+});
+
+function onProcessChange() {
+	if (selectedItemData.value) {
+		selectedItemData.value.operation = null;
+	}
+}
+
+function onOperationChange(val) {
+	if (!selectedItemData.value) return;
+
+	// Update label if it was matching the old operation or is empty
+	const actionType = selectedItemData.value.action_type;
+	if (!customLabel.value || customLabel.value === actionType) {
+		const option = operationOptions.value.find((o) => o.value === val);
+		if (option) {
+			customLabel.value = option.label;
+		}
+	}
+}
+
+const debouncedRemoteSearch = frappe.utils.debounce(async (query) => {
+	if (!query || query.length < 2) {
+		// remoteResults handled by hook
+		return;
+	}
+	// remoteResults handled by hook
+}, 300);
 
 function deleteNode() {
 	if (props.mode === "node") {
@@ -499,6 +580,24 @@ defineExpose({
 							<div class="item-type-badge">{{ selectedItemData.action_type }}</div>
 						</div>
 					</div>
+					<div v-if="showProcessSelector" class="form-group labeling-form">
+						<label class="fxr-label-sm">{{ __("Process") }}</label>
+						<ComboBoxControl
+							v-model="selectedItemData.process_name"
+							:options="processOptions"
+							:placeholder="__('Select Process...')"
+							@change="onProcessChange"
+						/>
+					</div>
+					<div v-if="showOperationSelector" class="form-group labeling-form">
+						<label class="fxr-label-sm">{{ operationLabel }}</label>
+						<ComboBoxControl
+							v-model="selectedItemData.operation"
+							:options="operationOptions"
+							:placeholder="__('Select Operation...')"
+							@change="onOperationChange"
+						/>
+					</div>
 					<div class="form-group labeling-form">
 						<label class="fxr-label-sm">{{ __("Label") }}</label>
 						<input
@@ -597,17 +696,28 @@ defineExpose({
 							</div>
 						</div>
 					</div>
-					<div v-if="selectedPreset.operation" class="selected-operation-preview">
-						<span class="badge-chip">{{ selectedPreset.action_type }}</span>
-						<span class="selected-operation-text">{{ selectedPreset.operation }}</span>
-						<span v-if="selectedPreset.process_name" class="selected-process-name">
-							({{ selectedPreset.process_name }})
-						</span>
-					</div>
 				</template>
 
 				<template v-else-if="step === 'labeling'">
 					<div class="labeling-container in-node">
+						<div v-if="showProcessSelector" class="form-group labeling-form">
+							<label class="small text-muted">{{ __("Process") }}</label>
+							<ComboBoxControl
+								v-model="selectedItemData.process_name"
+								:options="processOptions"
+								:placeholder="__('Select Process...')"
+								@change="onProcessChange"
+							/>
+						</div>
+						<div v-if="showOperationSelector" class="form-group labeling-form">
+							<label class="small text-muted">{{ operationLabel }}</label>
+							<ComboBoxControl
+								v-model="selectedItemData.operation"
+								:options="operationOptions"
+								:placeholder="__('Select Operation...')"
+								@change="onOperationChange"
+							/>
+						</div>
 						<div class="form-group labeling-form">
 							<label class="small text-muted">{{ __("Label") }}</label>
 							<input
