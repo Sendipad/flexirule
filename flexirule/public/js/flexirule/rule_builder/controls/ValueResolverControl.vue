@@ -1206,14 +1206,23 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
 	document.removeEventListener("mousedown", handleClickOutside);
-	window.removeEventListener("keydown", handleGlobalKeydown, { capture: true });
+	window.removeEventListener("keydown", handleGlobalKeydown);
 	cleanupFloatingDropdown();
 });
 
 const handleClickOutside = (e) => {
 	if (!showPopover.value) return;
-	if (controlRef.value && controlRef.value.contains(e.target)) return;
-	if (popoverRef.value && popoverRef.value.contains(e.target)) return;
+
+	// Ignore clicks inside the control or the popover itself
+	if (controlRef.value?.contains(e.target)) return;
+	if (popoverRef.value?.contains(e.target)) return;
+
+	// CRITICAL: Ignore clicks on teleported overlays (like ComboBox dropdowns)
+	// These are usually children of <body> and outside the popover DOM tree.
+	const target = e.target;
+	if (target.closest(".fxr-dropdown") || target.closest(".tippy-box")) {
+		return;
+	}
 
 	closePopover();
 };
@@ -1276,13 +1285,13 @@ const open = async () => {
 		kindSelectRef.value.focus();
 	}
 
-	window.addEventListener("keydown", handleGlobalKeydown, { capture: true });
+	window.addEventListener("keydown", handleGlobalKeydown);
 };
 
 const closePopover = () => {
 	if (!showPopover.value) return;
 	closeDropdown();
-	window.removeEventListener("keydown", handleGlobalKeydown, { capture: true });
+	window.removeEventListener("keydown", handleGlobalKeydown);
 
 	// Return focus to trigger
 	nextTick(() => {
