@@ -8,7 +8,7 @@ import {
 	getEffectiveActionPolicy,
 	getFieldLabel,
 } from "../../core/contracts";
-import { useStore } from "../stores";
+import { useRuleStore, useGraphStore, useUIStore } from "../stores";
 import { mapActionTypeToNodeType } from "../composables/useActionTypeMapper";
 import { useActionSearch } from "../composables/useActionSearch";
 import { useFloatingDropdown } from "../composables/useFloatingDropdown";
@@ -57,7 +57,10 @@ const props = defineProps({
 });
 
 const emit = defineEmits(["select", "paste", "close"]);
-const store = useStore();
+
+const ruleStore = useRuleStore();
+const graphStore = useGraphStore();
+const uiStore = useUIStore();
 
 const {
 	searchQuery,
@@ -72,6 +75,7 @@ const selectedIndex = ref(-1);
 const searchInputRef = ref(null);
 const labelInputRef = ref(null);
 const zoneRef = ref(null);
+const isCreating = ref(false);
 
 const {
 	triggerRef: popoverTriggerRef,
@@ -94,8 +98,7 @@ const customLabel = ref("");
 const selectedItemData = ref(null);
 
 const isHorizontal = computed(() => {
-	const settings = store.settings?.value || store.settings;
-	return settings?.layout_direction !== "Top to Bottom";
+	return ruleStore.settings?.layout_direction !== "Top to Bottom";
 });
 const targetPos = computed(
 	() => props.targetPosition || (isHorizontal.value ? Position.Left : Position.Top)
@@ -184,7 +187,7 @@ function onKeydown(e) {
 			selectItem(filteredResults.value[selectedIndex.value]);
 		}
 	} else if (step.value === "labeling") {
-		if (e.key === "Enter") {
+		if (e.key === "Enter" && !isCreating.value) {
 			e.preventDefault();
 			confirmSelection();
 		}
@@ -198,7 +201,7 @@ function goBack() {
 }
 
 function confirmSelection() {
-	if (!selectedItemData.value) return;
+	if (!selectedItemData.value || isCreating.value) return;
 
 	const payload = {
 		...selectedItemData.value,
@@ -225,17 +228,8 @@ function onPasteClick() {
 	emit("paste");
 }
 
-function onCreate(finalPayload = null) {
-	if (props.mode !== "node") return;
-
-	const nodes = store.nodes.value || store.nodes;
-	const edges = store.edges.value || store.edges;
-
-	const nodeIndex = nodes.findIndex((n) => n.id === props.id);
-	if (nodeIndex === -1) {
-		console.warn("[ActionZone] Node not found for upgrade:", props.id);
-		return;
-	}
+async function onCreate(finalPayload = null) {
+	if (props.mode !== "node" || isCreating.value) return;
 
 	const selection =
 		finalPayload ||
@@ -248,78 +242,25 @@ function onCreate(finalPayload = null) {
 
 	if (!selection) return;
 
-	const action_type = selection.action_type;
-	const label = selection.label;
-	const nodeType = mapActionTypeToNodeType(action_type);
-	const node = nodes[nodeIndex];
+	isCreating.value = true;
+	try {
+		console.log(`[ActionZone] Creating node ${props.id} with type ${selection.action_type}`);
 
-	console.log("[ActionZone] Upgrading node:", props.id, "to type:", action_type);
+		// Use graphStore.upgrade_node for centralized, immutable updates
+		const upgraded = graphStore.upgrade_node(props.id, selection);
 
-	const nodeData = store.get_default_node_data(action_type.toLowerCase(), label);
-	const suggestedParentId = node.data?.suggested_parent_id;
-	const suggestedSourceHandle = node.data?.suggested_source_handle || "default";
-
-	if (selection.operation) nodeData.operation = selection.operation;
-	if (selection.process_name) nodeData.process_name = selection.process_name;
-
-	if (action_type === "Process" && nodeData.operation && !nodeData.process_name) {
-		const matches = getOperationOptions("Process", {})
-			.filter((op) => op.value === nodeData.operation && op.process_name)
-			.map((op) => op.process_name);
-		const unique = [...new Set(matches)];
-		if (unique.length === 1) nodeData.process_name = unique[0];
-	}
-
-	// Trigger full reactivity by replacing the node object
-	const updatedNode = {
-		...node,
-		type: nodeType,
-		label: label,
-		data: {
-			...nodeData,
-			action_id: props.id,
-			action_label: label,
-			next_step_if_true: node.data?.next_step_if_true || nodeData.next_step_if_true,
-			next_step_if_false: node.data?.next_step_if_false || nodeData.next_step_if_false,
-			suggested_parent_id: null,
-			suggested_source_handle: null,
-		},
-	};
-
-	nodes.splice(nodeIndex, 1, updatedNode);
-
-	if (suggestedParentId) {
-		const edgeId = `e-${suggestedParentId}-${props.id}-${suggestedSourceHandle}`;
-		const hasIncoming = edges.some((edge) => edge.target === props.id);
-		if (!hasIncoming) {
-			edges.push({
-				id: edgeId,
-				source: suggestedParentId,
-				target: props.id,
-				sourceHandle: suggestedSourceHandle,
-				animated: suggestedParentId === "root",
-			});
-		}
-	}
-
-	if (isTerminalAction(action_type)) {
-		const filteredEdges = edges.filter((edge) => edge.source !== props.id);
-		if (store.edges.value) {
-			store.edges.value = filteredEdges;
+		if (upgraded) {
+			uiStore.select(props.id);
+			uiStore.show_sidebar = true;
+			ruleStore.mark_dirty();
 		} else {
-			store.edges = filteredEdges;
+			console.error(`[ActionZone] Failed to upgrade node ${props.id}`);
 		}
-		const nodeAfterUpdate = nodes[nodeIndex];
-		if (nodeAfterUpdate && nodeAfterUpdate.data) {
-			nodeAfterUpdate.data.next_step_if_true = null;
-			nodeAfterUpdate.data.next_step_if_false = null;
-		}
+	} catch (e) {
+		console.error("[ActionZone] Error during node creation:", e);
+	} finally {
+		isCreating.value = false;
 	}
-
-	store.select(props.id);
-	store.show_sidebar = true;
-	store.touch_node(props.id);
-	store.mark_dirty();
 }
 
 const showProcessSelector = computed(() => {
@@ -331,7 +272,7 @@ const showOperationSelector = computed(() => {
 	const actionType = selectedItemData.value.action_type;
 	const contract = getContract(actionType);
 	return (
-		contract.operation_options ||
+		(contract.operation_options && contract.operation_options.length > 0) ||
 		["Process", "Query Records", "Document Action", "Stop", "Notify"].includes(actionType)
 	);
 });
@@ -346,12 +287,12 @@ const operationLabel = computed(() => {
 			processName: selectedItemData.value.process_name,
 		}) ||
 		contract.operation_label ||
-		__("Operation")
+		__("Operation / Mode")
 	);
 });
 
 const processOptions = computed(() => {
-	const processes = store.processes?.value || store.processes || [];
+	const processes = ruleStore.processes || [];
 	return processes.map((p) => ({
 		value: p.name,
 		label: p.process_name || p.name,
@@ -390,17 +331,9 @@ function onOperationChange(val) {
 	}
 }
 
-const debouncedRemoteSearch = frappe.utils.debounce(async (query) => {
-	if (!query || query.length < 2) {
-		// remoteResults handled by hook
-		return;
-	}
-	// remoteResults handled by hook
-}, 300);
-
 function deleteNode() {
 	if (props.mode === "node") {
-		frappe.confirm(__("Delete this node?"), () => store.delete_node(props.id));
+		frappe.confirm(__("Delete this node?"), () => graphStore.delete_node(props.id));
 	}
 }
 
@@ -609,11 +542,12 @@ defineExpose({
 						/>
 					</div>
 					<div class="labeling-footer">
-						<button class="btn btn-default btn-sm" @click="goBack">
+						<button class="btn btn-default btn-sm" @click="goBack" :disabled="isCreating">
 							<i class="fa fa-chevron-left mr-1"></i> {{ __("Back") }}
 						</button>
-						<button class="btn btn-primary btn-sm" @click="confirmSelection">
-							{{ __("Create Action") }}
+						<button class="btn btn-primary btn-sm" @click="confirmSelection" :disabled="isCreating">
+							<i v-if="isCreating" class="fa fa-spinner fa-spin mr-1"></i>
+							{{ isCreating ? __("Creating...") : __("Create Action") }}
 						</button>
 					</div>
 				</div>
@@ -729,11 +663,12 @@ defineExpose({
 							/>
 						</div>
 						<div class="labeling-footer mt-2">
-							<button class="btn btn-default btn-xs" @click="goBack">
+							<button class="btn btn-default btn-xs" @click="goBack" :disabled="isCreating">
 								{{ __("Back") }}
 							</button>
-							<button class="btn btn-primary btn-xs flex-1" @click="confirmSelection">
-								{{ __("Create") }}
+							<button class="btn btn-primary btn-xs flex-1" @click="confirmSelection" :disabled="isCreating">
+								<i v-if="isCreating" class="fa fa-spinner fa-spin mr-1"></i>
+								{{ isCreating ? __("Creating...") : __("Create") }}
 							</button>
 						</div>
 					</div>
