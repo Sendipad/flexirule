@@ -47,7 +47,7 @@ class TestRuleAction(FrappeTestCase):
 				"document_type": "ToDo",
 				"trigger_type": "DocType Event",
 				"trigger_event": "Validate",
-				"is_active": 0,
+				"is_active": 1, # Must be active for strict validation in 'full' mode (validate_with_service)
 				"actions": [
 					{
 						"action_id": "assign_1",
@@ -59,7 +59,7 @@ class TestRuleAction(FrappeTestCase):
 				],
 			}
 		)
-		# Rule.validate() calls validate() on its child table rows
+		# Rule.validate() calls validate_with_service which uses mode='full' for active rules
 		with self.assertRaisesRegex(frappe.ValidationError, "requires field 'config'"):
 			rule.validate()
 

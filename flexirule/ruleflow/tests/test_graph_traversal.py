@@ -5,6 +5,7 @@ import json
 
 import frappe
 from frappe.tests.utils import FrappeTestCase
+from frappe.utils import random_string
 
 from flexirule.ruleflow.core.engine import RuleEngine
 from flexirule.ruleflow.core.exceptions import CycleDetectedError
@@ -13,10 +14,11 @@ from flexirule.ruleflow.core.exceptions import CycleDetectedError
 class TestGraphTraversal(FrappeTestCase):
 	def test_loop_detection(self):
 		"""Verify that infinite loops are detected and aborted"""
+		rule_name = f"Loop Rule {random_string(5)}"
 		rule = frappe.get_doc(
 			{
 				"doctype": "Rule",
-				"rule_name": "Infinite Loop Rule",
+				"rule_name": rule_name,
 				"document_type": "ToDo",
 				"trigger_type": "DocType Event",
 				"trigger_event": "Validate",
@@ -57,10 +59,11 @@ class TestGraphTraversal(FrappeTestCase):
 
 	def test_orphan_node_behavior(self):
 		"""Verify that nodes not reachable from root are ignored and flow terminates at leaf"""
+		rule_name = f"Orphan Rule {random_string(5)}"
 		rule = frappe.get_doc(
 			{
 				"doctype": "Rule",
-				"rule_name": "Orphan Node Rule",
+				"rule_name": rule_name,
 				"document_type": "ToDo",
 				"trigger_type": "DocType Event",
 				"trigger_event": "Validate",
@@ -112,10 +115,11 @@ class TestGraphTraversal(FrappeTestCase):
 			{"id": "edge_2", "source": "node_1", "target": "node_end"},
 		]
 
+		rule_name = f"VueFlow Simulated Rule {random_string(5)}"
 		rule = frappe.get_doc(
 			{
 				"doctype": "Rule",
-				"rule_name": "VueFlow Simulated Rule",
+				"rule_name": rule_name,
 				"document_type": "ToDo",
 				"trigger_type": "DocType Event",
 				"trigger_event": "Validate",
@@ -151,9 +155,7 @@ class TestGraphTraversal(FrappeTestCase):
 		engine = RuleEngine(rule)
 		doc = frappe.get_doc({"doctype": "ToDo", "description": "Test"})
 
-		# Simulate successful execution
-		# Note: The test previously failed because 'status' was 'Modified'
-		# We must ensure that the engine actually updates vars.status
+		# Ensure status is what we expect and not contaminated by previous runs
 		res = engine.execute(doc)
 		self.assertEqual(res["vars"]["status"], "VueFlow OK")
 		self.assertEqual(len(engine.path_trace), 3)

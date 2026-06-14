@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 import frappe
 from frappe.tests.utils import FrappeTestCase
+from frappe.utils import random_string
 
 from flexirule.ruleflow.core.engine import RuleEngine
 
@@ -17,10 +18,11 @@ class TestEnginePolicies(FrappeTestCase):
 
 	def test_retry_policy_exponential_backoff(self):
 		"""Verify that 'Retry' policy performs retries (simulated)"""
+		rule_name = f"Retry Policy {random_string(5)}"
 		rule = frappe.get_doc(
 			{
 				"doctype": "Rule",
-				"rule_name": "Retry Policy Rule",
+				"rule_name": rule_name,
 				"document_type": "ToDo",
 				"trigger_type": "DocType Event",
 				"trigger_event": "Validate",
@@ -39,6 +41,7 @@ class TestEnginePolicies(FrappeTestCase):
 						"action_label": "Fail Always",
 						"process_name": "Validation",  # Assuming Validation exists
 						"operation": "conditional_required",
+						# config with missing field in doc will trigger failure
 						"config": '{"condition_field": "status", "condition_value": "Open", "required_fields": ["nonexistent_field"]}',
 						"on_error": "Retry",
 						"retry_count": 2,
@@ -54,7 +57,9 @@ class TestEnginePolicies(FrappeTestCase):
 
 		# Mock time.sleep to avoid waiting in tests
 		with patch("time.sleep") as mocked_sleep:
-			with self.assertRaises(Exception):
+			# Ensure we catch the exception that stops execution after retries
+			from flexirule.ruleflow.core.exceptions import MethodExecutionError
+			with self.assertRaises(MethodExecutionError):
 				engine.execute(doc)
 
 			# With retry_count=2, it should attempt initial (0), then retry 1 and 2.
@@ -65,10 +70,11 @@ class TestEnginePolicies(FrappeTestCase):
 
 	def test_rollback_policy_savepoint(self):
 		"""Verify that 'Rollback' policy uses savepoints and reverts changes"""
+		rule_name = f"Rollback Policy {random_string(5)}"
 		rule = frappe.get_doc(
 			{
 				"doctype": "Rule",
-				"rule_name": "Rollback Policy Rule",
+				"rule_name": rule_name,
 				"document_type": "ToDo",
 				"trigger_type": "DocType Event",
 				"trigger_event": "Validate",

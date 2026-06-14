@@ -3,6 +3,7 @@
 
 import frappe
 from frappe.tests.utils import FrappeTestCase
+from frappe.utils import random_string
 
 from flexirule.ruleflow.core.engine import RuleEngine
 
@@ -11,9 +12,9 @@ class TestRulePermission(FrappeTestCase):
 	def setUp(self):
 		super().setUp()
 		frappe.set_user("Administrator")
-		self.rule_name = "Test Permission Rule"
+		self.rule_name = f"Test Perm {random_string(5)}"
 		if frappe.db.exists("Rule", self.rule_name):
-			frappe.delete_doc("Rule", self.rule_name)
+			frappe.delete_doc("Rule", self.rule_name, force=True)
 
 		self.rule = frappe.get_doc(
 			{
@@ -59,7 +60,7 @@ class TestRulePermission(FrappeTestCase):
 	def test_permission_enforcement_for_regular_user(self):
 		"""Verify that a user without listed role cannot execute the rule"""
 		# Create a temporary user with a specific role
-		user_email = "test_perm@example.com"
+		user_email = "test_perm_reg@example.com"
 		if not frappe.db.exists("User", user_email):
 			frappe.get_doc(
 				{
@@ -71,6 +72,9 @@ class TestRulePermission(FrappeTestCase):
 			).insert(ignore_permissions=True)
 
 		frappe.set_user(user_email)
+		# Force reload roles
+		frappe.local.role_permissions = {}
+
 		doc = frappe.get_doc({"doctype": "ToDo", "description": "Test"})
 		engine = RuleEngine(self.rule)
 
@@ -79,7 +83,21 @@ class TestRulePermission(FrappeTestCase):
 
 	def test_explicit_denial(self):
 		"""Verify that explicitly listed role with can_execute=0 is blocked"""
-		frappe.set_user("Guest")
+		user_email = "test_perm_guest@example.com"
+		if not frappe.db.exists("User", user_email):
+			frappe.get_doc(
+				{
+					"doctype": "User",
+					"email": user_email,
+					"first_name": "Test Guest",
+					"roles": [{"role": "Guest"}],
+				}
+			).insert(ignore_permissions=True)
+
+		frappe.set_user(user_email)
+		# Force reload roles
+		frappe.local.role_permissions = {}
+
 		doc = frappe.get_doc({"doctype": "ToDo", "description": "Test"})
 		engine = RuleEngine(self.rule)
 

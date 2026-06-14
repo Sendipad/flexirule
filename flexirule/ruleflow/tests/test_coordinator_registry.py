@@ -3,6 +3,7 @@
 
 import frappe
 from frappe.tests.utils import FrappeTestCase
+from frappe.utils import random_string
 
 from flexirule.ruleflow.core.coordinator import RuleCoordinator
 
@@ -15,9 +16,9 @@ class TestCoordinatorRegistry(FrappeTestCase):
 
 	def test_registry_rebuild_on_rule_change(self):
 		"""Verify that registry is rebuilt when an active DocType Event rule is changed"""
-		rule_name = "Registry Test Rule"
+		rule_name = f"Registry Test {random_string(5)}"
 		if frappe.db.exists("Rule", rule_name):
-			frappe.delete_doc("Rule", rule_name)
+			frappe.delete_doc("Rule", rule_name, force=True)
 
 		rule = frappe.get_doc(
 			{
@@ -70,9 +71,9 @@ class TestCoordinatorRegistry(FrappeTestCase):
 
 	def test_watched_fields_filtering(self):
 		"""Verify that rules are skipped if none of the watched fields changed"""
-		rule_name = "Watched Fields Rule"
+		rule_name = f"Watched Fields {random_string(5)}"
 		if frappe.db.exists("Rule", rule_name):
-			frappe.delete_doc("Rule", rule_name)
+			frappe.delete_doc("Rule", rule_name, force=True)
 
 		frappe.get_doc(
 			{
@@ -109,8 +110,13 @@ class TestCoordinatorRegistry(FrappeTestCase):
 
 		# 1. Change an unwatched field (priority)
 		doc.priority = "High"
-		# Mock old_doc since before_save normally handles this
+		# Manually set _doc_before_save to simulate Frappe behavior during save
 		doc._doc_before_save = frappe.get_doc("ToDo", doc.name)
+
+		# Also, ensure get_doc_before_save returns it if that's what coordinator uses
+		# RuleCoordinator uses doc.get_doc_before_save()
+		if not hasattr(doc, 'get_doc_before_save'):
+			doc.get_doc_before_save = lambda: doc._doc_before_save
 
 		rule_spec = RuleCoordinator.get_runtime_registry()["rules"][rule_name]
 		passes = RuleCoordinator._passes_watched_field_filter(rule_spec, doc, "Before Save")
@@ -118,12 +124,13 @@ class TestCoordinatorRegistry(FrappeTestCase):
 
 		# 2. Change a watched field (status)
 		doc.status = "Closed"
+		# Passes should be True now because intersection is not empty
 		passes = RuleCoordinator._passes_watched_field_filter(rule_spec, doc, "Before Save")
 		self.assertTrue(passes, "Should execute rule when watched field changes")
 
 	def test_reentry_guard(self):
 		"""Verify that the same doc/event does not trigger recursive rule execution"""
-		doc = frappe.get_doc({"doctype": "ToDo", "description": "Recursive", "name": "REC-001"})
+		doc = frappe.get_doc({"doctype": "ToDo", "description": "Recursive", "name": f"REC-{random_string(5)}"})
 
 		with RuleCoordinator._event_reentry_guard(doc, "Validate") as first_call:
 			self.assertTrue(first_call)
