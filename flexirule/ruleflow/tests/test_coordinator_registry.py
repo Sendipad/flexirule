@@ -146,9 +146,7 @@ class TestCoordinatorRegistry(FrappeTestCase):
 		with RuleCoordinator._event_reentry_guard(doc, "Validate") as first_call:
 			self.assertTrue(first_call)
 			with RuleCoordinator._event_reentry_guard(doc, "Validate") as second_call:
-				self.assertFalse(
-					second_call, "Re-entry guard should block recursive call for same doc/event"
-				)
+				self.assertFalse(second_call, "Re-entry guard should block recursive call for same doc/event")
 
 		# After exiting guard, it should be available again
 		with RuleCoordinator._event_reentry_guard(doc, "Validate") as third_call:
