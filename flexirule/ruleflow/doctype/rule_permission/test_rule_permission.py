@@ -60,7 +60,7 @@ class TestRulePermission(FrappeTestCase):
 	def test_permission_enforcement_for_regular_user(self):
 		"""Verify that a user without listed role cannot execute the rule"""
 		# Create a temporary user with a specific role
-		user_email = "test_perm_reg@example.com"
+		user_email = f"test_reg_{random_string(5)}@example.com"
 		if not frappe.db.exists("User", user_email):
 			frappe.get_doc(
 				{
@@ -83,7 +83,7 @@ class TestRulePermission(FrappeTestCase):
 
 	def test_explicit_denial(self):
 		"""Verify that explicitly listed role with can_execute=0 is blocked"""
-		user_email = "test_perm_guest@example.com"
+		user_email = f"test_guest_{random_string(5)}@example.com"
 		if not frappe.db.exists("User", user_email):
 			frappe.get_doc(
 				{

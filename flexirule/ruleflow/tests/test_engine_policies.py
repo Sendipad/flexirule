@@ -59,6 +59,7 @@ class TestEnginePolicies(FrappeTestCase):
 		with patch("time.sleep") as mocked_sleep:
 			# Ensure we catch the exception that stops execution after retries
 			from flexirule.ruleflow.core.exceptions import MethodExecutionError
+
 			with self.assertRaises(MethodExecutionError):
 				engine.execute(doc)
 

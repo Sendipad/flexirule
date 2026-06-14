@@ -106,16 +106,21 @@ class TestCoordinatorRegistry(FrappeTestCase):
 		RuleCoordinator.clear_cache()
 
 		# Create a doc
-		doc = frappe.get_doc({"doctype": "ToDo", "description": "Original", "status": "Open"}).insert()
+		doc_name = f"ToDo {random_string(5)}"
+		doc = frappe.get_doc(
+			{"doctype": "ToDo", "description": "Original", "status": "Open", "name": doc_name}
+		).insert()
 
 		# 1. Change an unwatched field (priority)
 		doc.priority = "High"
+
+		# Force clear changed fields cache for this doc
+		if hasattr(frappe.local, "flexirule_runtime_changed_fields"):
+			frappe.local.flexirule_runtime_changed_fields = {}
+
 		# Manually set _doc_before_save to simulate Frappe behavior during save
 		doc._doc_before_save = frappe.get_doc("ToDo", doc.name)
-
-		# Also, ensure get_doc_before_save returns it if that's what coordinator uses
-		# RuleCoordinator uses doc.get_doc_before_save()
-		if not hasattr(doc, 'get_doc_before_save'):
+		if not hasattr(doc, "get_doc_before_save"):
 			doc.get_doc_before_save = lambda: doc._doc_before_save
 
 		rule_spec = RuleCoordinator.get_runtime_registry()["rules"][rule_name]
@@ -124,18 +129,26 @@ class TestCoordinatorRegistry(FrappeTestCase):
 
 		# 2. Change a watched field (status)
 		doc.status = "Closed"
-		# Passes should be True now because intersection is not empty
+
+		# Force clear changed fields cache for this doc
+		if hasattr(frappe.local, "flexirule_runtime_changed_fields"):
+			frappe.local.flexirule_runtime_changed_fields = {}
+
 		passes = RuleCoordinator._passes_watched_field_filter(rule_spec, doc, "Before Save")
 		self.assertTrue(passes, "Should execute rule when watched field changes")
 
 	def test_reentry_guard(self):
 		"""Verify that the same doc/event does not trigger recursive rule execution"""
-		doc = frappe.get_doc({"doctype": "ToDo", "description": "Recursive", "name": f"REC-{random_string(5)}"})
+		doc = frappe.get_doc(
+			{"doctype": "ToDo", "description": "Recursive", "name": f"REC-{random_string(5)}"}
+		)
 
 		with RuleCoordinator._event_reentry_guard(doc, "Validate") as first_call:
 			self.assertTrue(first_call)
 			with RuleCoordinator._event_reentry_guard(doc, "Validate") as second_call:
-				self.assertFalse(second_call, "Re-entry guard should block recursive call for same doc/event")
+				self.assertFalse(
+					second_call, "Re-entry guard should block recursive call for same doc/event"
+				)
 
 		# After exiting guard, it should be available again
 		with RuleCoordinator._event_reentry_guard(doc, "Validate") as third_call:

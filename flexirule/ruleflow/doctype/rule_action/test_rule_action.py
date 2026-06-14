@@ -47,7 +47,7 @@ class TestRuleAction(FrappeTestCase):
 				"document_type": "ToDo",
 				"trigger_type": "DocType Event",
 				"trigger_event": "Validate",
-				"is_active": 1, # Must be active for strict validation in 'full' mode (validate_with_service)
+				"is_active": 1,  # Must be active for strict validation in 'full' mode
 				"actions": [
 					{
 						"action_id": "assign_1",
