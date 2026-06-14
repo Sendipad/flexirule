@@ -81,11 +81,24 @@ function openConfig() {
 			{{ executionOrder }}
 		</div>
 		<div class="node-body" :style="{ '--accent-color': nodeMeta.color }">
-			<div class="icon-section">
-				<i class="fa" :class="nodeMeta.icon"></i>
+			<div class="header-zone">
+				<div class="header-left">
+					<div class="icon-section">
+						<i class="fa" :class="nodeMeta.icon"></i>
+					</div>
+					<div class="type-label">{{ nodeMeta.typeLabel.toUpperCase() }}</div>
+				</div>
+				<div class="header-right">
+					<button
+						class="action-btn"
+						@click.stop="openConfig"
+						:title="isReadOnly ? __('View Configuration') : __('Configure')"
+					>
+						<i :class="['fa', isReadOnly ? 'fa-eye' : 'fa-pencil']"></i>
+					</button>
+				</div>
 			</div>
 			<div class="info-section">
-				<div class="type-label">{{ nodeMeta.typeLabel }}</div>
 				<div class="main-label">{{ displayLabel }}</div>
 				<div class="summary-line" v-if="summaryData.length">
 					<span v-for="(p, i) in summaryData" :key="i" class="summary-part">
@@ -93,14 +106,6 @@ function openConfig() {
 					</span>
 				</div>
 			</div>
-
-			<button
-				class="action-btn"
-				@click.stop="openConfig"
-				:title="isReadOnly ? __('View Configuration') : __('Configure')"
-			>
-				<i :class="['fa', isReadOnly ? 'fa-eye' : 'fa-pencil']"></i>
-			</button>
 		</div>
 		<div v-if="permissionFlags.length" class="permission-flags">
 			<span
@@ -133,25 +138,42 @@ function openConfig() {
 	background-color: var(--accent-color);
 	color: #ffffff;
 	display: flex;
-	align-items: center;
-	padding: 8px 16px 8px 10px;
+	flex-direction: column;
+	padding: 10px 16px 10px 12px;
 	border-radius: var(--fxr-radius-sm) 40px 40px var(--fxr-radius-sm); /* Reflected D-Shape */
 	box-shadow: var(--fxr-shadow-sm);
 	transition: all 0.2s ease;
 	border: 1px solid rgba(255, 255, 255, 0.2);
+	gap: var(--fxr-space-2);
 }
 
 .is-vertical .node-body {
 	border-radius: 4px 4px 40px 40px;
-	flex-direction: column;
 	text-align: center;
-	padding: 12px 10px;
-	width: 120px;
+	width: 130px;
 }
 
-.is-vertical .icon-section {
-	margin-right: 0;
-	margin-bottom: 6px;
+.header-zone {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	width: 100%;
+}
+
+.header-left {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.header-right {
+	display: flex;
+	align-items: center;
+}
+
+.is-vertical .header-zone {
+	flex-direction: column;
+	gap: 4px;
 }
 
 .node-body:hover {
@@ -161,15 +183,14 @@ function openConfig() {
 }
 
 .icon-section {
-	width: 28px;
-	height: 28px;
+	width: 24px;
+	height: 24px;
 	background: rgba(255, 255, 255, 0.2);
 	border-radius: 50%;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	font-size: 10px;
-	margin-right: 10px;
 	flex-shrink: 0;
 }
 
@@ -185,12 +206,11 @@ function openConfig() {
 }
 
 .type-label {
-	font-size: 8px;
+	font-size: 9px;
 	font-weight: 800;
 	text-transform: uppercase;
-	letter-spacing: 0.5px;
-	opacity: 0.9;
-	margin-bottom: 1px;
+	letter-spacing: 0.6px;
+	opacity: 0.95;
 }
 
 .main-label {

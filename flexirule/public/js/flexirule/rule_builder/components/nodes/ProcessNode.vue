@@ -110,23 +110,27 @@ const isTerminal = computed(() => {
 
 		<!-- Header with Type and Icon -->
 		<div class="node-header">
-			<i class="fa" :class="nodeMeta.icon"></i>
-			<span class="type-text">{{ nodeMeta.typeLabel }}</span>
+			<div class="header-left">
+				<i class="fa" :class="nodeMeta.icon"></i>
+				<span class="type-text">{{ nodeMeta.typeLabel.toUpperCase() }}</span>
+			</div>
 
-			<button
-				class="action-btn"
-				@click.stop="openConfig"
-				:title="isReadOnly ? __('View Configuration') : __('Configure')"
-			>
-				<i :class="['fa', isReadOnly ? 'fa-eye' : 'fa-pencil']"></i>
-			</button>
-			<button
-				class="action-btn delete"
-				@click.stop="deleteNode"
-				v-if="selected && !isReadOnly"
-			>
-				<i class="fa fa-trash"></i>
-			</button>
+			<div class="header-right">
+				<button
+					class="action-btn"
+					@click.stop="openConfig"
+					:title="isReadOnly ? __('View Configuration') : __('Configure')"
+				>
+					<i :class="['fa', isReadOnly ? 'fa-eye' : 'fa-pencil']"></i>
+				</button>
+				<button
+					class="action-btn delete"
+					@click.stop="deleteNode"
+					v-if="selected && !isReadOnly"
+				>
+					<i class="fa fa-trash"></i>
+				</button>
+			</div>
 		</div>
 
 		<!-- Main Content -->
@@ -137,21 +141,19 @@ const isTerminal = computed(() => {
 			</div>
 
 			<div class="node-details" v-if="hasDetails">
-				<div class="detail-row" v-if="data.reference_doctype">
-					<i class="fa fa-database"></i> {{ data.reference_doctype }}
-					<span v-if="data.reference_docname" class="detail-muted"
-						>/ {{ data.reference_docname }}</span
-					>
+				<div class="detail-tag" v-if="data.reference_doctype">
+					<i class="fa fa-database"></i>
+					<span>{{ data.reference_doctype }}</span>
+				</div>
+				<div class="detail-tag mutation" v-if="data.mutation_mode">
+					<i class="fa fa-bolt"></i>
+					<span>{{ data.mutation_mode }}</span>
 				</div>
 				<div class="detail-row" v-if="data.target_field">
 					<i class="fa fa-crosshairs"></i> {{ data.target_field }}
 				</div>
 				<div class="detail-row" v-if="data.variable_name">
 					<i class="fa fa-code"></i> {{ data.variable_name }}
-				</div>
-				<div class="detail-row" v-if="data.mutation_mode">
-					<i class="fa fa-exchange"></i>
-					<span class="detail-muted">{{ data.mutation_mode }}</span>
 				</div>
 			</div>
 		</div>
@@ -244,9 +246,21 @@ const isTerminal = computed(() => {
 .node-header {
 	display: flex;
 	align-items: center;
+	justify-content: space-between;
 	padding: 8px 12px;
 	border-bottom: 1px solid var(--fxr-border-subtle);
+}
+
+.header-left {
+	display: flex;
+	align-items: center;
 	gap: 8px;
+}
+
+.header-right {
+	display: flex;
+	align-items: center;
+	gap: 4px;
 }
 
 .node-header i {
@@ -255,16 +269,11 @@ const isTerminal = computed(() => {
 }
 
 .type-text {
-	font-size: 10px;
-	font-weight: 700;
+	font-size: 9px;
+	font-weight: 800;
 	color: var(--fxr-text-soft);
-	letter-spacing: 0.5px;
-	flex: 1;
-}
-
-.header-actions {
-	display: flex;
-	gap: 4px;
+	letter-spacing: 0.6px;
+	text-transform: uppercase;
 }
 
 .action-btn {
@@ -288,7 +297,7 @@ const isTerminal = computed(() => {
 
 .node-title {
 	font-size: 13px;
-	font-weight: 600;
+	font-weight: 700;
 	color: var(--fxr-text-strong);
 	margin-bottom: 4px;
 	line-height: 1.2;
@@ -314,12 +323,40 @@ const isTerminal = computed(() => {
 }
 
 .node-details {
-	margin-top: 6px;
-	padding-top: 6px;
+	margin-top: 8px;
+	padding-top: 8px;
 	border-top: 1px dashed var(--fxr-border-subtle);
 	display: flex;
 	flex-direction: column;
-	gap: 3px;
+	gap: 6px;
+}
+
+.detail-tag {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	background-color: var(--fxr-bg-muted);
+	color: var(--fxr-text-secondary);
+	padding: 2px 6px;
+	border-radius: 4px;
+	font-size: 9px;
+	font-weight: 600;
+	width: fit-content;
+	max-width: 100%;
+}
+
+.detail-tag i {
+	font-size: 8px;
+	color: var(--fxr-text-faint);
+}
+
+.detail-tag.mutation {
+	background-color: var(--fxr-accent-light);
+	color: var(--fxr-accent);
+}
+
+.detail-tag.mutation i {
+	color: var(--fxr-accent);
 }
 
 .detail-row {
@@ -350,8 +387,8 @@ const isTerminal = computed(() => {
 
 /* Footer */
 .node-footer {
-	padding: 6px 12px;
-	background-color: var(--fxr-surface-soft);
+	padding: 8px 12px;
+	background-color: color-mix(in srgb, var(--fxr-surface-soft) 80%, var(--fxr-bg-muted));
 	border-bottom-left-radius: var(--fxr-radius-md);
 	border-bottom-right-radius: var(--fxr-radius-md);
 	border-top: 1px solid var(--fxr-border-subtle);

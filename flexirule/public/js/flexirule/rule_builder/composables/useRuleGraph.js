@@ -120,6 +120,29 @@ export function useRuleGraph() {
 			}
 		});
 
+		// ── 2.5. Enforce Adaptive Edge Extension after Trigger ───────────────
+		// Vertical Layout: Trigger -> Next must be 120px gap
+		// Horizontal Layout: Trigger -> Next must be 160px gap
+		const triggerNode = currentNodes.find((n) => n.type === "start");
+		if (triggerNode) {
+			const successors = bfsReachable(triggerNode.id, currentEdges);
+			successors.delete(triggerNode.id);
+
+			const currentRankSep = isHorizontal ? H_GAP + 12 : V_GAP;
+			const targetRankSep = isHorizontal ? 160 : 120;
+			const extraShift = targetRankSep - currentRankSep;
+
+			if (extraShift > 0) {
+				successors.forEach((id) => {
+					const p = positions.get(id);
+					if (p) {
+						if (isHorizontal) p.x += extraShift;
+						else p.y += extraShift;
+					}
+				});
+			}
+		}
+
 		// ── 3. Layout each loop body in a sub-column ─────────────────────────
 		loopBodyMap.forEach(({ bodyIds, bodyEntryId, afterLastId }, loopId) => {
 			const loopPos = positions.get(loopId);

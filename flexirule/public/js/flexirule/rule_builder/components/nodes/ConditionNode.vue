@@ -84,22 +84,26 @@ function openConfig() {
 
 		<!-- Card Body -->
 		<div class="node-header">
-			<i class="fa" :class="nodeMeta.icon"></i>
-			<span class="type-text">{{ nodeMeta.typeLabel }}</span>
-			<button
-				class="action-btn"
-				@click.stop="openConfig"
-				:title="isReadOnly ? __('View Configuration') : __('Configure')"
-			>
-				<i :class="['fa', isReadOnly ? 'fa-eye' : 'fa-pencil']"></i>
-			</button>
-			<button
-				class="action-btn delete"
-				@click.stop="deleteNode"
-				v-if="selected && !isReadOnly"
-			>
-				<i class="fa fa-trash"></i>
-			</button>
+			<div class="header-left">
+				<i class="fa" :class="nodeMeta.icon"></i>
+				<span class="type-text">{{ nodeMeta.typeLabel.toUpperCase() }}</span>
+			</div>
+			<div class="header-right">
+				<button
+					class="action-btn"
+					@click.stop="openConfig"
+					:title="isReadOnly ? __('View Configuration') : __('Configure')"
+				>
+					<i :class="['fa', isReadOnly ? 'fa-eye' : 'fa-pencil']"></i>
+				</button>
+				<button
+					class="action-btn delete"
+					@click.stop="deleteNode"
+					v-if="selected && !isReadOnly"
+				>
+					<i class="fa fa-trash"></i>
+				</button>
+			</div>
 		</div>
 
 		<div class="node-body">
@@ -188,9 +192,21 @@ function openConfig() {
 .node-header {
 	display: flex;
 	align-items: center;
-	padding: 6px 10px;
+	justify-content: space-between;
+	padding: 8px 12px;
 	border-bottom: 1px solid var(--fxr-border-subtle);
-	gap: 6px;
+}
+
+.header-left {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.header-right {
+	display: flex;
+	align-items: center;
+	gap: 4px;
 }
 
 .node-header i {
@@ -202,8 +218,8 @@ function openConfig() {
 	font-size: 9px;
 	font-weight: 800;
 	color: var(--fxr-text-soft);
-	letter-spacing: 0.5px;
-	flex: 1;
+	letter-spacing: 0.6px;
+	text-transform: uppercase;
 }
 
 .action-btn {

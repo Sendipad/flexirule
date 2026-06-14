@@ -49,23 +49,29 @@ function openConfig() {
 		<Handle type="target" :position="targetPos" class="handle-target" />
 
 		<div class="node-content">
-			<div class="icon-section">
-				<i class="fa fa-stop-circle"></i>
+			<div class="header-zone">
+				<div class="header-left">
+					<div class="icon-section">
+						<i class="fa fa-stop-circle"></i>
+					</div>
+					<div class="type-label">{{ __("TERMINAL") }}</div>
+				</div>
+				<div class="header-right">
+					<button
+						class="action-btn"
+						@click.stop="openConfig"
+						:title="isReadOnly ? __('View Configuration') : __('Configure')"
+					>
+						<i :class="['fa', isReadOnly ? 'fa-eye' : 'fa-pencil']"></i>
+					</button>
+					<button class="action-btn delete" @click.stop="deleteNode" v-if="selected">
+						<i class="fa fa-trash"></i>
+					</button>
+				</div>
 			</div>
 			<div class="text-section">
-				<div class="type-label">{{ __("TERMINAL") }}</div>
 				<div class="main-label">STOP</div>
 			</div>
-			<button
-				class="action-btn"
-				@click.stop="openConfig"
-				:title="isReadOnly ? __('View Configuration') : __('Configure')"
-			>
-				<i :class="['fa', isReadOnly ? 'fa-eye' : 'fa-pencil']"></i>
-			</button>
-			<button class="action-btn delete" @click.stop="deleteNode" v-if="selected">
-				<i class="fa fa-trash"></i>
-			</button>
 		</div>
 	</div>
 </template>
@@ -134,19 +140,37 @@ function openConfig() {
 
 .node-content {
 	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.header-zone {
+	display: flex;
 	align-items: center;
-	gap: 12px;
+	justify-content: space-between;
+}
+
+.header-left {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.header-right {
+	display: flex;
+	align-items: center;
+	gap: 4px;
 }
 
 .icon-section {
-	width: 28px;
-	height: 28px;
+	width: 24px;
+	height: 24px;
 	background: rgba(255, 255, 255, 0.2);
-	border-radius: 6px;
+	border-radius: 50%;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	font-size: 16px;
+	font-size: 12px;
 }
 
 .text-section {
@@ -156,10 +180,11 @@ function openConfig() {
 }
 
 .type-label {
-	font-size: 8px;
+	font-size: 9px;
 	font-weight: 800;
-	opacity: 0.8;
-	letter-spacing: 0.5px;
+	opacity: 0.9;
+	letter-spacing: 0.6px;
+	text-transform: uppercase;
 }
 
 .main-label {

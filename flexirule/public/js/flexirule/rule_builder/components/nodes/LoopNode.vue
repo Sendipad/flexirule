@@ -58,30 +58,36 @@ function openConfig() {
 		<Handle type="target" :position="returnPos" id="return" class="handle-return" />
 
 		<div class="node-header">
-			<i class="fa fa-refresh icon-spin"></i>
-			<span class="type-text">{{ __("LOOP") }}</span>
-			<button
-				v-if="!isReadOnly"
-				class="action-btn toggle-btn"
-				@click.stop="store.toggle_node_enabled(props.id)"
-				:title="data.is_enabled === 0 ? __('Enable') : __('Disable')"
-			>
-				<i :class="['fa', data.is_enabled === 0 ? 'fa-toggle-off' : 'fa-toggle-on']"></i>
-			</button>
-			<button
-				class="action-btn"
-				@click.stop="openConfig"
-				:title="isReadOnly ? __('View Configuration') : __('Configure')"
-			>
-				<i :class="['fa', isReadOnly ? 'fa-eye' : 'fa-pencil']"></i>
-			</button>
-			<button
-				class="action-btn delete"
-				@click.stop="deleteNode"
-				v-if="selected && !isReadOnly"
-			>
-				<i class="fa fa-trash"></i>
-			</button>
+			<div class="header-left">
+				<i class="fa fa-refresh icon-spin"></i>
+				<span class="type-text">{{ __("LOOP") }}</span>
+			</div>
+			<div class="header-right">
+				<button
+					v-if="!isReadOnly"
+					class="action-btn toggle-btn"
+					@click.stop="store.toggle_node_enabled(props.id)"
+					:title="data.is_enabled === 0 ? __('Enable') : __('Disable')"
+				>
+					<i
+						:class="['fa', data.is_enabled === 0 ? 'fa-toggle-off' : 'fa-toggle-on']"
+					></i>
+				</button>
+				<button
+					class="action-btn"
+					@click.stop="openConfig"
+					:title="isReadOnly ? __('View Configuration') : __('Configure')"
+				>
+					<i :class="['fa', isReadOnly ? 'fa-eye' : 'fa-pencil']"></i>
+				</button>
+				<button
+					class="action-btn delete"
+					@click.stop="deleteNode"
+					v-if="selected && !isReadOnly"
+				>
+					<i class="fa fa-trash"></i>
+				</button>
+			</div>
 		</div>
 
 		<div class="node-body">
@@ -146,14 +152,30 @@ function openConfig() {
 .node-header {
 	background-color: #fab005;
 	color: #ffffff;
-	padding: 6px 12px;
+	padding: 8px 12px;
 	border-radius: var(--fxr-radius-sm) var(--fxr-radius-sm) 0 0;
 	display: flex;
 	align-items: center;
+	justify-content: space-between;
+}
+
+.header-left {
+	display: flex;
+	align-items: center;
 	gap: 8px;
-	font-weight: 700;
-	font-size: 10px;
-	letter-spacing: 0.5px;
+}
+
+.header-right {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.type-text {
+	font-size: 9px;
+	font-weight: 800;
+	letter-spacing: 0.6px;
+	text-transform: uppercase;
 }
 
 .icon-spin {
@@ -166,7 +188,7 @@ function openConfig() {
 }
 
 .loop-title {
-	font-weight: 600;
+	font-weight: 700;
 	font-size: 13px;
 	color: var(--fxr-text-strong);
 	line-height: 1.2;
