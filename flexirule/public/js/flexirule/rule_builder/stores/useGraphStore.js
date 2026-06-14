@@ -521,7 +521,10 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		const updateNodeData = (id, updates) => {
 			const idx = nodes.value.findIndex((n) => n.id === id);
 			if (idx !== -1) {
-				const updatedNode = { ...nodes.value[idx], data: { ...nodes.value[idx].data, ...updates } };
+				const updatedNode = {
+					...nodes.value[idx],
+					data: { ...nodes.value[idx].data, ...updates },
+				};
 				nodes.value.splice(idx, 1, updatedNode);
 				nodes.value = [...nodes.value];
 			}
@@ -553,12 +556,17 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 
 			inEdges.forEach((inEdge) => {
 				updateNodeData(inEdge.source, {
-					[inEdge.sourceHandle === "false" ? "next_step_if_false" : "next_step_if_true"]: primaryTargetId,
+					[inEdge.sourceHandle === "false" ? "next_step_if_false" : "next_step_if_true"]:
+						primaryTargetId,
 				});
 			});
 
-			const edgesWithoutRemoved = edges.value.filter((e) => e.source !== nodeId && e.target !== nodeId);
-			const rootNode = nodes.value.find((n) => n.type === "start" || n.data?.action_type === "Entry Action");
+			const edgesWithoutRemoved = edges.value.filter(
+				(e) => e.source !== nodeId && e.target !== nodeId
+			);
+			const rootNode = nodes.value.find(
+				(n) => n.type === "start" || n.data?.action_type === "Entry Action"
+			);
 			const rootId = rootNode?.id || "root";
 			const mainReachable = bfsFrom(rootId, [
 				...edgesWithoutRemoved,
@@ -568,7 +576,9 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			const toDelete = new Set([nodeId]);
 			secondaryEdges.forEach((e) => {
 				if (!e.target || mainReachable.has(e.target)) return;
-				bfsFrom(e.target, edgesWithoutRemoved, mainReachable).forEach((id) => toDelete.add(id));
+				bfsFrom(e.target, edgesWithoutRemoved, mainReachable).forEach((id) =>
+					toDelete.add(id)
+				);
 			});
 
 			nodes.value = nodes.value.filter((n) => !toDelete.has(n.id));
@@ -584,13 +594,15 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			const targetId = outEdges[0].target;
 			inEdges.forEach((inEdge) => {
 				updateNodeData(inEdge.source, {
-					[inEdge.sourceHandle === "false" ? "next_step_if_false" : "next_step_if_true"]: targetId,
+					[inEdge.sourceHandle === "false" ? "next_step_if_false" : "next_step_if_true"]:
+						targetId,
 				});
 			});
 		} else {
 			inEdges.forEach((inEdge) => {
 				updateNodeData(inEdge.source, {
-					[inEdge.sourceHandle === "false" ? "next_step_if_false" : "next_step_if_true"]: null,
+					[inEdge.sourceHandle === "false" ? "next_step_if_false" : "next_step_if_true"]:
+						null,
 				});
 			});
 		}
@@ -631,9 +643,11 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			const handle = edge.sourceHandle || "default";
 			const updatedData = { ...sourceNode.data };
 			if (handle === "false") {
-				if (updatedData.next_step_if_false === edge.target) updatedData.next_step_if_false = null;
+				if (updatedData.next_step_if_false === edge.target)
+					updatedData.next_step_if_false = null;
 			} else {
-				if (updatedData.next_step_if_true === edge.target) updatedData.next_step_if_true = null;
+				if (updatedData.next_step_if_true === edge.target)
+					updatedData.next_step_if_true = null;
 			}
 			const updatedNodes = [...nodes.value];
 			updatedNodes[sourceNodeIndex] = { ...sourceNode, data: updatedData };
@@ -686,7 +700,8 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 					...nextNodes[idx],
 					data: {
 						...nextNodes[idx].data,
-						[sourceHandle === "false" ? "next_step_if_false" : "next_step_if_true"]: newTarget,
+						[sourceHandle === "false" ? "next_step_if_false" : "next_step_if_true"]:
+							newTarget,
 					},
 				};
 			}
@@ -720,10 +735,37 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			updateSourcePointer(newNodeId);
 			nextNodes.push(newNode, bodyNode);
 			nextEdges.push(
-				{ id: `e-${sourceId}-${newNodeId}-${sourceHandle}`, source: sourceId, target: newNodeId, sourceHandle, type: "add" },
-				{ id: `e-${newNodeId}-${bodyNodeId}-default`, source: newNodeId, target: bodyNodeId, sourceHandle: "default", type: "add", data: { loopBody: true } },
-				{ id: `e-${bodyNodeId}-${newNodeId}-return`, source: bodyNodeId, target: newNodeId, targetHandle: "return", type: "add", data: { isReturn: true } },
-				{ id: `e-${newNodeId}-${targetId}-false`, source: newNodeId, target: targetId, sourceHandle: "false", type: "add", data: { afterLast: true } }
+				{
+					id: `e-${sourceId}-${newNodeId}-${sourceHandle}`,
+					source: sourceId,
+					target: newNodeId,
+					sourceHandle,
+					type: "add",
+				},
+				{
+					id: `e-${newNodeId}-${bodyNodeId}-default`,
+					source: newNodeId,
+					target: bodyNodeId,
+					sourceHandle: "default",
+					type: "add",
+					data: { loopBody: true },
+				},
+				{
+					id: `e-${bodyNodeId}-${newNodeId}-return`,
+					source: bodyNodeId,
+					target: newNodeId,
+					targetHandle: "return",
+					type: "add",
+					data: { isReturn: true },
+				},
+				{
+					id: `e-${newNodeId}-${targetId}-false`,
+					source: newNodeId,
+					target: targetId,
+					sourceHandle: "false",
+					type: "add",
+					data: { afterLast: true },
+				}
 			);
 
 			nodes.value = nextNodes;
@@ -759,9 +801,27 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			updateSourcePointer(newNodeId);
 			nextNodes.push(newNode, stopNode);
 			nextEdges.push(
-				{ id: `e-${sourceId}-${newNodeId}-${sourceHandle}`, source: sourceId, target: newNodeId, sourceHandle, type: "add" },
-				{ id: `e-${newNodeId}-${targetId}-true`, source: newNodeId, target: targetId, sourceHandle: "true", type: "add" },
-				{ id: `e-${newNodeId}-${stopNodeId}-false`, source: newNodeId, target: stopNodeId, sourceHandle: "false", type: "add" }
+				{
+					id: `e-${sourceId}-${newNodeId}-${sourceHandle}`,
+					source: sourceId,
+					target: newNodeId,
+					sourceHandle,
+					type: "add",
+				},
+				{
+					id: `e-${newNodeId}-${targetId}-true`,
+					source: newNodeId,
+					target: targetId,
+					sourceHandle: "true",
+					type: "add",
+				},
+				{
+					id: `e-${newNodeId}-${stopNodeId}-false`,
+					source: newNodeId,
+					target: stopNodeId,
+					sourceHandle: "false",
+					type: "add",
+				}
 			);
 
 			nodes.value = nextNodes;
@@ -980,7 +1040,10 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		// 2. Ensure parents point to the same nodeId (id didn't change, but we ensure reactive propagation)
 		let parentsUpdated = false;
 		nextNodes.forEach((n, idx) => {
-			if (n.data && (n.data.next_step_if_true === nodeId || n.data.next_step_if_false === nodeId)) {
+			if (
+				n.data &&
+				(n.data.next_step_if_true === nodeId || n.data.next_step_if_false === nodeId)
+			) {
 				nextNodes[idx] = { ...n, data: { ...n.data } };
 				parentsUpdated = true;
 			}
@@ -1054,8 +1117,8 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 				source.field_b_type === "constant"
 					? String(source.constant_b ?? 0)
 					: source.field_b
-					? `frappe.utils.flt(${toDocExpression(source.field_b)})`
-					: "0";
+						? `frappe.utils.flt(${toDocExpression(source.field_b)})`
+						: "0";
 			const op = source.math_op || "+";
 			const precision = Number.isFinite(Number(source.precision))
 				? Number(source.precision)
@@ -1388,14 +1451,14 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 							actionType: "Process",
 							processName: action.process_name,
 							operation: action.operation,
-					  }) || {}
+						}) || {}
 					: rawConfigData;
 			const conditionPayload =
 				actionTypeRaw === "Condition"
 					? getConditionPayload({
 							config: configData,
 							condition_json: action.condition_json,
-					  })
+						})
 					: null;
 			const effectiveConfig =
 				actionTypeRaw === "Condition"

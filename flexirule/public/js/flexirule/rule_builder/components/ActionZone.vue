@@ -237,7 +237,7 @@ async function onCreate(finalPayload = null) {
 			? {
 					...selectedItemData.value,
 					label: (customLabel.value || selectedItemData.value.label).trim(),
-			  }
+				}
 			: null);
 
 	if (!selection) return;
@@ -542,10 +542,18 @@ defineExpose({
 						/>
 					</div>
 					<div class="labeling-footer">
-						<button class="btn btn-default btn-sm" @click="goBack" :disabled="isCreating">
+						<button
+							class="btn btn-default btn-sm"
+							@click="goBack"
+							:disabled="isCreating"
+						>
 							<i class="fa fa-chevron-left mr-1"></i> {{ __("Back") }}
 						</button>
-						<button class="btn btn-primary btn-sm" @click="confirmSelection" :disabled="isCreating">
+						<button
+							class="btn btn-primary btn-sm"
+							@click="confirmSelection"
+							:disabled="isCreating"
+						>
 							<i v-if="isCreating" class="fa fa-spinner fa-spin mr-1"></i>
 							{{ isCreating ? __("Creating...") : __("Create Action") }}
 						</button>
@@ -663,10 +671,18 @@ defineExpose({
 							/>
 						</div>
 						<div class="labeling-footer mt-2">
-							<button class="btn btn-default btn-xs" @click="goBack" :disabled="isCreating">
+							<button
+								class="btn btn-default btn-xs"
+								@click="goBack"
+								:disabled="isCreating"
+							>
 								{{ __("Back") }}
 							</button>
-							<button class="btn btn-primary btn-xs flex-1" @click="confirmSelection" :disabled="isCreating">
+							<button
+								class="btn btn-primary btn-xs flex-1"
+								@click="confirmSelection"
+								:disabled="isCreating"
+							>
 								<i v-if="isCreating" class="fa fa-spinner fa-spin mr-1"></i>
 								{{ isCreating ? __("Creating...") : __("Create") }}
 							</button>
