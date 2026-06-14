@@ -185,7 +185,7 @@
 								<ValueResolverControl
 									viewMode="inline"
 									:modelValue="tokenDraftAttrs.config"
-									:doctype="referenceDoctype"
+									:doctype="triggerDoctype"
 									:context="resolverContext"
 									:variableOptions="availableVariableOptions"
 									:allowedKinds="allowedBuilderKinds"
@@ -392,6 +392,11 @@ const referenceDoctype = computed(() => {
 	}
 	return props.context?.referenceDoctype || fieldOptions.value || "";
 });
+
+const triggerDoctype = computed(() => {
+	return props.doctype || props.engine?.rule_doc?.document_type || "";
+});
+
 const resolverContext = computed(() => {
 	const df = props.context?.df || {};
 	const fieldname = props.context?.fieldname || df.fieldname || df.value || "";
@@ -401,6 +406,7 @@ const resolverContext = computed(() => {
 		fieldname,
 		target: props.context?.target || fieldname,
 		referenceDoctype: referenceDoctype.value,
+		triggerDoctype: triggerDoctype.value,
 	};
 });
 
