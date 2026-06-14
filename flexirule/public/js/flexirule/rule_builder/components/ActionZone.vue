@@ -270,7 +270,14 @@ function onCreate(finalPayload = null) {
 		if (unique.length === 1) nodeData.process_name = unique[0];
 	}
 
-	// Trigger full reactivity by replacing the node object
+	// Preservation logic: upgrading a node should keep its current outputs unless it's becoming terminal
+	const nextTrue = isTerminalAction(action_type)
+		? null
+		: node.data?.next_step_if_true || nodeData.next_step_if_true;
+	const nextFalse = isTerminalAction(action_type)
+		? null
+		: node.data?.next_step_if_false || nodeData.next_step_if_false;
+
 	const updatedNode = {
 		...node,
 		type: nodeType,
@@ -279,41 +286,130 @@ function onCreate(finalPayload = null) {
 			...nodeData,
 			action_id: props.id,
 			action_label: label,
-			next_step_if_true: node.data?.next_step_if_true || nodeData.next_step_if_true,
-			next_step_if_false: node.data?.next_step_if_false || nodeData.next_step_if_false,
+			next_step_if_true: nextTrue,
+			next_step_if_false: nextFalse,
 			suggested_parent_id: null,
 			suggested_source_handle: null,
 		},
 	};
 
-	nodes.splice(nodeIndex, 1, updatedNode);
+	let newNodes = [...nodes];
+	newNodes[nodeIndex] = updatedNode;
+
+	let newEdges = [...edges];
+
+	// Handle Scaffolding for complex types
+	if (action_type === "Loop") {
+		const bodyNodeId = frappe.utils.get_random(8);
+		const bodyData = store.get_default_node_data("selector", __("Loop Body"));
+		bodyData.action_id = bodyNodeId;
+
+		const bodyNode = {
+			id: bodyNodeId,
+			type: "selector",
+			position: { x: node.position.x + 100, y: node.position.y + 150 },
+			label: __("Loop Body"),
+			data: {
+				...bodyData,
+				next_step_if_true: props.id,
+				suggested_parent_id: props.id,
+				suggested_source_handle: "default",
+			},
+		};
+
+		updatedNode.data.next_step_if_true = bodyNodeId;
+		updatedNode.data.next_step_if_false = nextTrue; // After Last continues to original next step
+
+		newNodes.push(bodyNode);
+		newEdges.push(
+			{
+				id: `e-${props.id}-${bodyNodeId}-default`,
+				source: props.id,
+				target: bodyNodeId,
+				sourceHandle: "default",
+				type: "add",
+				data: { loopBody: true },
+			},
+			{
+				id: `e-${bodyNodeId}-${props.id}-return`,
+				source: bodyNodeId,
+				target: props.id,
+				targetHandle: "return",
+				type: "add",
+				data: { isReturn: true },
+			}
+		);
+
+		// If there was an existing output, reconnect it to the 'false' (After Last) handle
+		if (nextTrue) {
+			newEdges = newEdges.map((e) => {
+				if (e.source === props.id && e.sourceHandle === "default") {
+					return { ...e, sourceHandle: "false", data: { ...e.data, afterLast: true } };
+				}
+				return e;
+			});
+		}
+	} else if (action_type === "Condition" || action_type === "Switch") {
+		const stopNodeId = frappe.utils.get_random(8);
+		const stopData = store.get_default_node_data("stop");
+		stopData.operation = "Success";
+		stopData.action_id = stopNodeId;
+
+		const stopNode = {
+			id: stopNodeId,
+			type: "stop",
+			position: { x: node.position.x + 100, y: node.position.y + 150 },
+			label: __("End"),
+			data: stopData,
+		};
+
+		updatedNode.data.next_step_if_true = nextTrue;
+		updatedNode.data.next_step_if_false = stopNodeId;
+
+		newNodes.push(stopNode);
+		newEdges.push({
+			id: `e-${props.id}-${stopNodeId}-false`,
+			source: props.id,
+			target: stopNodeId,
+			sourceHandle: "false",
+			type: "add",
+		});
+
+		// Fix handle for existing true path
+		newEdges = newEdges.map((e) => {
+			if (e.source === props.id && e.sourceHandle === "default") {
+				return { ...e, sourceHandle: "true" };
+			}
+			return e;
+		});
+	}
 
 	if (suggestedParentId) {
 		const edgeId = `e-${suggestedParentId}-${props.id}-${suggestedSourceHandle}`;
-		const hasIncoming = edges.some((edge) => edge.target === props.id);
+		const hasIncoming = newEdges.some((edge) => edge.target === props.id);
 		if (!hasIncoming) {
-			edges.push({
+			newEdges.push({
 				id: edgeId,
 				source: suggestedParentId,
 				target: props.id,
 				sourceHandle: suggestedSourceHandle,
+				type: "add",
 				animated: suggestedParentId === "root",
 			});
 		}
 	}
 
 	if (isTerminalAction(action_type)) {
-		const filteredEdges = edges.filter((edge) => edge.source !== props.id);
-		if (store.edges.value) {
-			store.edges.value = filteredEdges;
-		} else {
-			store.edges = filteredEdges;
-		}
-		const nodeAfterUpdate = nodes[nodeIndex];
-		if (nodeAfterUpdate && nodeAfterUpdate.data) {
-			nodeAfterUpdate.data.next_step_if_true = null;
-			nodeAfterUpdate.data.next_step_if_false = null;
-		}
+		newEdges = newEdges.filter((edge) => edge.source !== props.id);
+	}
+
+	// Apply immutable updates to store
+	if (store.nodes.value) {
+		store.nodes.value = newNodes;
+		store.edges.value = newEdges;
+	} else {
+		store.nodes = newNodes;
+		store.edges = newEdges;
 	}
 
 	store.select(props.id);
