@@ -25,7 +25,7 @@ const props = defineProps({
 
 const emit = defineEmits(["insert-node"]);
 const store = useStore();
-const { onPaneScroll, onPaneContextMenu, onMove } = useVueFlow();
+const { onPaneScroll, onPaneContextMenu, onMove, isConnecting } = useVueFlow();
 
 const showPopover = ref(false);
 const popoverPosition = ref({ x: 0, y: 0 });
@@ -140,10 +140,11 @@ function onPaste() {
 	<EdgeLabelRenderer v-if="isEnabled && !store.is_read_only">
 		<div
 			:style="{
-				pointerEvents: 'all',
+				pointerEvents: isConnecting ? 'none' : 'all',
 				position: 'absolute',
 				transform: `translate(-50%, -50%) translate(${path[1]}px,${path[2]}px)`,
-				zIndex: 1000,
+				zIndex: isConnecting ? 1 : 1000,
+				opacity: isConnecting ? 0.3 : 1,
 			}"
 			class="nodrag nopan edge-label-container"
 		>

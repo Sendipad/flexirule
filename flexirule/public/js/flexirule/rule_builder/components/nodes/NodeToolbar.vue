@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from "vue";
 import { useUIStore } from "../../stores/useUIStore";
+import { useVueFlow } from "@vue-flow/core";
 
 const props = defineProps({
 	nodeId: {
@@ -24,6 +25,7 @@ const props = defineProps({
 const emit = defineEmits(["configure", "delete", "select"]);
 
 const uiStore = useUIStore();
+const { isConnecting } = useVueFlow();
 
 const isSelected = computed({
 	get: () => props.selected,
@@ -40,7 +42,10 @@ function onDelete() {
 </script>
 
 <template>
-	<div class="node-toolbar" :class="{ 'is-active': selected }">
+	<div
+		class="node-toolbar"
+		:class="{ 'is-active': selected && !isConnecting, 'is-connecting': isConnecting }"
+	>
 		<div class="toolbar-content">
 			<div class="toolbar-item checkbox-item">
 				<input type="checkbox" v-model="isSelected" @click.stop />
@@ -77,6 +82,10 @@ function onDelete() {
 	pointer-events: none;
 	transition: all 0.2s ease;
 	transform: translateY(10px);
+}
+
+.is-connecting {
+	display: none !important;
 }
 
 :hover > .node-toolbar,
