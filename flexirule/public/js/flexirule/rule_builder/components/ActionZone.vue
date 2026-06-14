@@ -6,6 +6,7 @@ import { useStore } from "../stores";
 import { mapActionTypeToNodeType } from "../composables/useActionTypeMapper";
 import { useActionSearch } from "../composables/useActionSearch";
 import { useFloatingDropdown } from "../composables/useFloatingDropdown";
+import NodeToolbar from "./nodes/NodeToolbar.vue";
 
 const props = defineProps({
 	// discovery props
@@ -528,12 +529,16 @@ defineExpose({
 		:class="{ selected: selected, 'is-vertical': !isHorizontal }"
 	>
 		<Handle type="target" :position="targetPos" class="handle-target" />
+		<NodeToolbar
+			:node-id="id"
+			:selected="selected"
+			:is-read-only="false"
+			@delete="deleteNode"
+			@configure="() => {}"
+		/>
 		<div class="node-header">
 			<i class="fa fa-plus-circle"></i>
 			<span class="header-text">{{ __("New Action") }}</span>
-			<button class="delete-btn" @click.stop="deleteNode" v-if="selected">
-				<i class="fa fa-trash"></i>
-			</button>
 		</div>
 		<div class="node-body">
 			<div ref="zoneRef" class="action-zone" @keydown="onKeydown">
@@ -821,18 +826,6 @@ defineExpose({
 	font-weight: 700;
 	color: var(--fxr-text-soft);
 	flex: 1;
-}
-
-.delete-btn {
-	background: none;
-	border: none;
-	padding: 2px;
-	cursor: pointer;
-	color: var(--fxr-text-faint);
-}
-
-.delete-btn:hover {
-	color: var(--fxr-text-danger);
 }
 
 .node-body {

@@ -4,6 +4,8 @@ import { useStore } from "../../stores";
 import { getContract } from "../../../core/contracts";
 import { computed } from "vue";
 import { useNodeExecutionState } from "../../composables/useNodeExecutionState";
+import NodeToolbar from "./NodeToolbar.vue";
+import InlineEditor from "./InlineEditor.vue";
 
 const props = defineProps(["data", "label", "id", "selected", "sourcePosition", "targetPosition"]);
 const store = useStore();
@@ -82,32 +84,31 @@ function openConfig() {
 		<!-- Input Handle -->
 		<Handle type="target" :position="targetPos" class="handle-target" />
 
+		<NodeToolbar
+			:node-id="id"
+			:selected="selected"
+			:is-read-only="isReadOnly"
+			@configure="openConfig"
+			@delete="deleteNode"
+		/>
+
 		<!-- Card Body -->
 		<div class="node-header">
 			<div class="header-left">
 				<i class="fa" :class="nodeMeta.icon"></i>
 				<span class="type-text">{{ nodeMeta.typeLabel.toUpperCase() }}</span>
 			</div>
-			<div class="header-right">
-				<button
-					class="action-btn"
-					@click.stop="openConfig"
-					:title="isReadOnly ? __('View Configuration') : __('Configure')"
-				>
-					<i :class="['fa', isReadOnly ? 'fa-eye' : 'fa-pencil']"></i>
-				</button>
-				<button
-					class="action-btn delete"
-					@click.stop="deleteNode"
-					v-if="selected && !isReadOnly"
-				>
-					<i class="fa fa-trash"></i>
-				</button>
-			</div>
 		</div>
 
 		<div class="node-body">
-			<div class="condition-text">{{ label }}</div>
+			<InlineEditor
+				v-model:value="data.action_label"
+				:is-read-only="isReadOnly"
+				tag="div"
+				class="condition-text"
+			>
+				{{ label }}
+			</InlineEditor>
 			<div class="compact-summary" v-if="conditionSummary">
 				{{ conditionSummary }}
 			</div>
@@ -192,7 +193,6 @@ function openConfig() {
 .node-header {
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
 	padding: 8px 12px;
 	border-bottom: 1px solid var(--fxr-border-subtle);
 }

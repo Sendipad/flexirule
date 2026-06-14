@@ -4,8 +4,10 @@ import { useStore } from "../../stores";
 import { getContract } from "../../../core/contracts";
 import { computed } from "vue";
 import { useNodeExecutionState } from "../../composables/useNodeExecutionState";
+import NodeToolbar from "./NodeToolbar.vue";
+import InlineEditor from "./InlineEditor.vue";
 
-const props = defineProps(["data", "label", "id", "sourcePosition"]);
+const props = defineProps(["data", "label", "id", "selected", "sourcePosition"]);
 const store = useStore();
 const isReadOnly = computed(() => store.is_read_only);
 
@@ -80,6 +82,13 @@ function openConfig() {
 		<div v-if="isExecuted" class="execution-badge" :title="__('Visit Order')">
 			{{ executionOrder }}
 		</div>
+		<NodeToolbar
+			:node-id="id || 'start'"
+			:selected="selected"
+			:is-read-only="isReadOnly"
+			:show-delete="false"
+			@configure="openConfig"
+		/>
 		<div class="node-body" :style="{ '--accent-color': nodeMeta.color }">
 			<div class="header-zone">
 				<div class="header-left">
@@ -88,18 +97,16 @@ function openConfig() {
 					</div>
 					<div class="type-label">{{ nodeMeta.typeLabel.toUpperCase() }}</div>
 				</div>
-				<div class="header-right">
-					<button
-						class="action-btn"
-						@click.stop="openConfig"
-						:title="isReadOnly ? __('View Configuration') : __('Configure')"
-					>
-						<i :class="['fa', isReadOnly ? 'fa-eye' : 'fa-pencil']"></i>
-					</button>
-				</div>
 			</div>
 			<div class="info-section">
-				<div class="main-label">{{ displayLabel }}</div>
+				<InlineEditor
+					v-model:value="data.action_label"
+					:is-read-only="isReadOnly"
+					tag="div"
+					class="main-label"
+				>
+					{{ displayLabel }}
+				</InlineEditor>
 				<div class="summary-line" v-if="summaryData.length">
 					<span v-for="(p, i) in summaryData" :key="i" class="summary-part">
 						{{ p }}

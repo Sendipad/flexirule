@@ -3,6 +3,8 @@ import { computed } from "vue";
 import { Handle, Position } from "@vue-flow/core";
 import { useStore } from "../../stores";
 import { useNodeExecutionState } from "../../composables/useNodeExecutionState";
+import NodeToolbar from "./NodeToolbar.vue";
+import InlineEditor from "./InlineEditor.vue";
 
 const props = defineProps(["data", "label", "id", "selected", "sourcePosition", "targetPosition"]);
 const store = useStore();
@@ -57,6 +59,14 @@ function openConfig() {
 		<!-- Return Handle for Loop Body -->
 		<Handle type="target" :position="returnPos" id="return" class="handle-return" />
 
+		<NodeToolbar
+			:node-id="id"
+			:selected="selected"
+			:is-read-only="isReadOnly"
+			@configure="openConfig"
+			@delete="deleteNode"
+		/>
+
 		<div class="node-header">
 			<div class="header-left">
 				<i class="fa fa-refresh icon-spin"></i>
@@ -73,25 +83,18 @@ function openConfig() {
 						:class="['fa', data.is_enabled === 0 ? 'fa-toggle-off' : 'fa-toggle-on']"
 					></i>
 				</button>
-				<button
-					class="action-btn"
-					@click.stop="openConfig"
-					:title="isReadOnly ? __('View Configuration') : __('Configure')"
-				>
-					<i :class="['fa', isReadOnly ? 'fa-eye' : 'fa-pencil']"></i>
-				</button>
-				<button
-					class="action-btn delete"
-					@click.stop="deleteNode"
-					v-if="selected && !isReadOnly"
-				>
-					<i class="fa fa-trash"></i>
-				</button>
 			</div>
 		</div>
 
 		<div class="node-body">
-			<div class="loop-title">{{ data.action_label || label }}</div>
+			<InlineEditor
+				v-model:value="data.action_label"
+				:is-read-only="isReadOnly"
+				tag="div"
+				class="loop-title"
+			>
+				{{ data.action_label || label }}
+			</InlineEditor>
 			<div class="loop-subtext" v-if="data.config?.iterator">
 				{{ __("Iterator:") }} {{ data.config.iterator }} {{ __("as") }}
 				{{ data.return_variable || data.config?.alias || "item" }}
