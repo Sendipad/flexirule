@@ -816,8 +816,7 @@ const editor = new Editor({
 					if (!q) return allItems;
 
 					return allItems.filter(
-						(c) =>
-							c.label.toLowerCase().includes(q) || c.id.toLowerCase().includes(q)
+						(c) => c.label.toLowerCase().includes(q) || c.id.toLowerCase().includes(q)
 					);
 				},
 				command: ({ editor, range, props }) => {
