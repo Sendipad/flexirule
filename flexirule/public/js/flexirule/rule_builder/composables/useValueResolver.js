@@ -38,8 +38,13 @@ export const RESOLVER_STRATEGIES = {
 			precision: 2,
 		}),
 		validate: (state, meta) => {
-			if (state.field_a && !meta.some((f) => f.value === state.field_a)) return { valid: false, message: "Field A reference is invalid." };
-			if (state.field_b_type === "field" && state.field_b && !meta.some((f) => f.value === state.field_b)) {
+			if (state.field_a && !meta.some((f) => f.value === state.field_a))
+				return { valid: false, message: "Field A reference is invalid." };
+			if (
+				state.field_b_type === "field" &&
+				state.field_b &&
+				!meta.some((f) => f.value === state.field_b)
+			) {
 				return { valid: false, message: "Field B reference is invalid." };
 			}
 			return { valid: true };
@@ -56,8 +61,18 @@ export const RESOLVER_STRATEGIES = {
 			diff_unit: "days",
 		}),
 		validate: (state, meta) => {
-			if (state.diff_start_type === "doc_field" && state.diff_start_field && !meta.some((f) => f.value === state.diff_start_field)) return { valid: false, message: "Start field reference is invalid." };
-			if (state.diff_end_type === "doc_field" && state.diff_end_field && !meta.some((f) => f.value === state.diff_end_field)) return { valid: false, message: "End field reference is invalid." };
+			if (
+				state.diff_start_type === "doc_field" &&
+				state.diff_start_field &&
+				!meta.some((f) => f.value === state.diff_start_field)
+			)
+				return { valid: false, message: "Start field reference is invalid." };
+			if (
+				state.diff_end_type === "doc_field" &&
+				state.diff_end_field &&
+				!meta.some((f) => f.value === state.diff_end_field)
+			)
+				return { valid: false, message: "End field reference is invalid." };
 			return { valid: true };
 		},
 	},
@@ -70,7 +85,8 @@ export const RESOLVER_STRATEGIES = {
 			agg_op: "sum",
 		}),
 		validate: (state, meta) => {
-			if (state.agg_table && !meta.some((f) => f.value === state.agg_table)) return { valid: false, message: "Child table reference is invalid." };
+			if (state.agg_table && !meta.some((f) => f.value === state.agg_table))
+				return { valid: false, message: "Child table reference is invalid." };
 			return { valid: true };
 		},
 	},
@@ -143,7 +159,9 @@ export function useValueResolver(props, emit) {
 	const activeStrategy = computed(() => RESOLVER_STRATEGIES[localState.value.kind] || null);
 
 	const categoryIcon = computed(() => activeStrategy.value?.icon || "fa fa-calculator");
-	const popoverTitle = computed(() => (activeStrategy.value ? __(activeStrategy.value.label) : __("Configure Formula")));
+	const popoverTitle = computed(() =>
+		activeStrategy.value ? __(activeStrategy.value.label) : __("Configure Formula")
+	);
 
 	const currentMeta = computed(() => {
 		const dt = store.rule_doc?.document_type || props.doctype;
@@ -168,7 +186,11 @@ export function useValueResolver(props, emit) {
 		if (val.mode && val.config) {
 			val = val.config;
 		}
-		const kind = val.kind || (availableCategories.value.length > 0 ? availableCategories.value[0].value : "date_formula");
+		const kind =
+			val.kind ||
+			(availableCategories.value.length > 0
+				? availableCategories.value[0].value
+				: "date_formula");
 		const strategy = RESOLVER_STRATEGIES[kind];
 
 		const baseDefaults = strategy?.defaults ? strategy.defaults(props.context) : {};
@@ -205,7 +227,10 @@ export function useValueResolver(props, emit) {
 
 			// Custom serialization for specific types
 			if (newVal.kind === "date_formula") {
-				config.offset_value = newVal.offset_sign === "-" ? -Math.abs(newVal.offset_value) : Math.abs(newVal.offset_value);
+				config.offset_value =
+					newVal.offset_sign === "-"
+						? -Math.abs(newVal.offset_value)
+						: Math.abs(newVal.offset_value);
 			}
 
 			emit("update:modelValue", config, {
@@ -234,7 +259,8 @@ export function useValueResolver(props, emit) {
 		expressionSnippet: computed(() => {
 			const s = { ...localState.value };
 			if (s.kind === "date_formula") {
-				s.offset_value = s.offset_sign === "-" ? -Math.abs(s.offset_value) : Math.abs(s.offset_value);
+				s.offset_value =
+					s.offset_sign === "-" ? -Math.abs(s.offset_value) : Math.abs(s.offset_value);
 			}
 			return compileToCode(s);
 		}),
