@@ -191,6 +191,15 @@
 									:allowedKinds="allowedBuilderKinds"
 									@update:modelValue="handleBuilderUpdate"
 								/>
+								<div v-if="builderErrors.length" class="mt-3">
+									<div
+										v-for="err in builderErrors"
+										:key="err"
+										class="text-danger fxr-text-xs"
+									>
+										<i class="fa fa-exclamation-triangle mr-1"></i> {{ err }}
+									</div>
+								</div>
 							</div>
 
 							<!-- Manual Formula Editor -->
@@ -298,6 +307,7 @@
 							type="button"
 							class="fxr-btn fxr-btn--primary"
 							@click="saveTokenEditor"
+							:disabled="!isManualMode && !isBuilderValid"
 						>
 							{{ __("Save") }}
 						</button>
@@ -380,6 +390,8 @@ const activeTokenNode = ref(null);
 const activeTokenPos = ref(null);
 const tokenDraftAttrs = ref({});
 const jsonParseError = ref("");
+const isBuilderValid = ref(true);
+const builderErrors = ref([]);
 
 // Static Mode Helpers
 const staticValue = ref("");
@@ -1164,9 +1176,11 @@ function openTokenEditor(node, pos, typeOverride = null) {
 function closeTokenEditor() {
 	activeTokenType.value = null;
 	tokenDraftAttrs.value = {};
+	builderErrors.value = [];
+	isBuilderValid.value = true;
 }
 
-function handleBuilderUpdate(config) {
+function handleBuilderUpdate(config, details) {
 	const defaults =
 		typeof props.context?.resolverDefaults === "function"
 			? props.context.resolverDefaults({
@@ -1178,8 +1192,10 @@ function handleBuilderUpdate(config) {
 	const mergedConfig =
 		defaults && typeof defaults === "object" ? { ...defaults, ...config } : config;
 	tokenDraftAttrs.value.config = mergedConfig;
-	tokenDraftAttrs.value.expression = compileToCode(mergedConfig);
-	tokenDraftAttrs.value.label = compileToLabel(mergedConfig);
+	tokenDraftAttrs.value.expression = details?.expression || compileToCode(mergedConfig);
+	tokenDraftAttrs.value.label = details?.label || compileToLabel(mergedConfig);
+	isBuilderValid.value = details?.isValid ?? true;
+	builderErrors.value = details?.errors || [];
 }
 
 function saveTokenEditor() {
