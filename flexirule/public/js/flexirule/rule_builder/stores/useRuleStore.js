@@ -31,7 +31,6 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 	});
 	const initial_state = ref(null);
 	const settings = ref(null);
-	const validation_errors = ref([]);
 	const is_loading = ref(false);
 	// ── Process / Sub-Rule state ──
 	const processes = ref([]);
