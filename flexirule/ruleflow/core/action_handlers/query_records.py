@@ -98,6 +98,20 @@ class QueryRecordsHandler(ActionHandler):
 		if mode != "Query Report" and action.reference_doctype:
 			errors.extend(self._validate_doctype_field_references(action.reference_doctype, config))
 
+		if mode == "Query Doc":
+			doctype_name = config.get("doctype_name")
+			if (
+				isinstance(doctype_name, str)
+				and not (doctype_name.startswith("{") and doctype_name.endswith("}"))
+				and not frappe.db.exists("DocType", doctype_name)
+			):
+				errors.append(_("DocType {0} does not exist").format(doctype_name))
+
+			if isinstance(doctype_name, dict) and doctype_name.get("mode") == "static":
+				dt = doctype_name.get("value")
+				if dt and not frappe.db.exists("DocType", dt):
+					errors.append(_("DocType {0} does not exist").format(dt))
+
 		return errors
 
 	def _doctype_has_field(self, doctype: str, fieldname: str) -> bool:
@@ -650,32 +664,42 @@ class QueryRecordsHandler(ActionHandler):
 		if not frappe.db.exists("DocType", resolved_doctype):
 			frappe.throw(_("DocType {0} does not exist").format(resolved_doctype))
 
-		is_single = frappe.get_meta(resolved_doctype).issingle
-		filters, or_filters = self._resolve_query_filters(config, context, action)
+		strategy = config.get("fetch_strategy", "Get doc")
+		meta = frappe.get_meta(resolved_doctype)
+		is_single = meta.issingle
 
-		if not filters and not or_filters and not is_single:
-			frappe.throw(
-				_("Filters are required for Query Doc on non-Single DocType {0}").format(resolved_doctype)
-			)
-
-		# Use filters to find the document name if not a Single DocType
-		docname = resolved_doctype if is_single else None
-		if not is_single:
+		docname = None
+		if strategy == "Get Single DocType":
+			if not is_single:
+				frappe.throw(_("DocType {0} is not a Single DocType").format(resolved_doctype))
+			docname = resolved_doctype
+		elif strategy == "Get latest Doc":
+			filters, or_filters = self._resolve_query_filters(config, context, action)
 			names = frappe.get_all(
 				resolved_doctype,
 				filters=filters,
 				or_filters=or_filters,
 				fields=["name"],
+				order_by="creation desc",
 				limit_page_length=1,
 				ignore_permissions=ignore_permissions,
 			)
 			docname = names[0].name if names else None
+		else:
+			# Get doc / Get Doc from Cache
+			docname = config.get("docname")
+			if isinstance(docname, dict):
+				docname = self._resolve_value_expression_with_context(
+					docname, context, "Query Records.docname", action
+				)
+
+			if not docname and is_single:
+				docname = resolved_doctype
 
 		if not docname:
 			return None
 
-		use_cached = config.get("use_cached_doc")
-		fetch_fn = frappe.get_cached_doc if use_cached else frappe.get_doc
+		fetch_fn = frappe.get_cached_doc if strategy == "Get Doc from Cache" else frappe.get_doc
 
 		try:
 			doc = fetch_fn(resolved_doctype, docname)
@@ -685,14 +709,7 @@ class QueryRecordsHandler(ActionHandler):
 		if not ignore_permissions:
 			doc.check_permission("read")
 
-		doc_dict = doc.as_dict()
-		return_type = action.return_type
-		if return_type == "Single Record":
-			fields = config.get("fields")
-			if fields:
-				return {f: doc_dict.get(f) for f in fields}
-
-		return doc_dict
+		return doc.as_dict()
 
 	def _exist_record(self, reference_doctype, config, context, action, ignore_permissions):
 		"""Check if records exist matching filters. Returns boolean."""

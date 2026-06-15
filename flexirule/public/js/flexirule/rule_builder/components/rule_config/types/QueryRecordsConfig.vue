@@ -139,6 +139,55 @@
 
 			<template v-else-if="mode === 'Query Doc'">
 				<div class="sub-section section-subcard">
+					<ControlFactory
+						:df="{
+							fieldname: 'fetch_strategy',
+							fieldtype: 'Select',
+							label: __('Fetch Strategy'),
+							options: [
+								'Get Doc from Cache',
+								'Get doc',
+								'Get Single DocType',
+								'Get latest Doc',
+							],
+							read_only: readOnly,
+						}"
+						:modelValue="config.fetch_strategy || 'Get doc'"
+						@update:modelValue="(val) => update_config_key('fetch_strategy', val)"
+					/>
+				</div>
+
+				<div class="sub-section section-subcard">
+					<label class="control-label small">{{ __("DocType Name") }}</label>
+					<FlexValueControl
+						:modelValue="config.doctype_name"
+						:variableOptions="variable_options"
+						:readOnly="readOnly"
+						:context="{
+							df: { fieldtype: 'Link', options: 'DocType' },
+						}"
+						@update:modelValue="update_doctype_name"
+					/>
+				</div>
+
+				<div
+					v-if="show_docname_field"
+					class="sub-section section-subcard"
+				>
+					<label class="control-label small">{{ __("Document Name (ID)") }}</label>
+					<FlexValueControl
+						:modelValue="config.docname"
+						:variableOptions="variable_options"
+						:readOnly="readOnly"
+						:context="{
+							df: { fieldtype: 'Link', options: reference_doctype },
+							referenceDoctype: reference_doctype,
+						}"
+						@update:modelValue="(val) => update_config_key('docname', val)"
+					/>
+				</div>
+
+				<div v-if="config.fetch_strategy === 'Get latest Doc'" class="sub-section section-subcard">
 					<h6>{{ __("Filters") }}</h6>
 					<FilterGroup
 						:doctype="reference_doctype"
@@ -147,40 +196,6 @@
 						:nodeId="node?.id"
 						:variableOptions="variable_options"
 						@update:modelValue="(val) => update_config_key('filters', val)"
-					/>
-				</div>
-
-				<div
-					v-if="node?.data?.return_type === 'Single Record'"
-					class="sub-section section-subcard"
-				>
-					<MultiSelectList
-						:df="{
-							label: __('Fields'),
-							fieldname: 'fields',
-							placeholder: __('Select fields to fetch...'),
-						}"
-						:options="doctype_fields"
-						:modelValue="config.fields || []"
-						:read_only="readOnly"
-						@update:modelValue="(val) => update_config_key('fields', val)"
-					/>
-				</div>
-
-				<div
-					v-if="node?.data?.return_type === 'Full Document'"
-					class="sub-section section-subcard"
-				>
-					<ControlFactory
-						:df="{
-							fieldname: 'use_cached_doc',
-							fieldtype: 'Check',
-							label: __('Use Cached Document'),
-							description: __('Use frappe.get_cached_doc for retrieval.'),
-							read_only: readOnly,
-						}"
-						:modelValue="config.use_cached_doc"
-						@update:modelValue="(val) => update_config_key('use_cached_doc', val)"
 					/>
 				</div>
 			</template>
@@ -394,6 +409,16 @@
 			<span v-if="test_status" class="ml-2 text-muted font-weight-bold">{{
 				test_status
 			}}</span>
+			<div
+				v-if="is_doctype_dynamic"
+				class="mt-2 text-warning small d-flex align-items-center"
+				style="gap: 8px"
+			>
+				<i class="fa fa-info-circle"></i>
+				{{
+					__("Schema mapping is deferred to runtime because the target DocType is dynamically evaluated.")
+				}}
+			</div>
 		</div>
 	</div>
 </template>
@@ -446,6 +471,7 @@ const report_filters = ref([]);
 const report_filter_values = reactive({});
 const report_filter_types = reactive({});
 const test_status = ref("");
+const is_single_doctype = ref(false);
 
 // Internal flag to prevent recursive sync loops
 let is_internal_update = false;
@@ -458,6 +484,9 @@ onMounted(async () => {
 		if (reference_doctype.value) {
 			await loadDocMeta(reference_doctype.value);
 			await load_doctype_fields(reference_doctype.value);
+
+			const meta = await flexirule.utils.get_doctype_meta(reference_doctype.value);
+			is_single_doctype.value = !!meta?.issingle;
 		}
 		// Ensure schema is initialized on first load even before any user edits.
 		// This avoids empty OutputPanel schema when config already has selected fields.
@@ -577,6 +606,13 @@ const SYSTEM_FIELDS = [
 	{ fieldname: "docstatus", label: __("Document Status (docstatus)"), fieldtype: "Int" },
 ];
 
+function isVariableSyntax(val) {
+	return (
+		typeof val === "string" &&
+		(val.startsWith("@") || val.startsWith("doc.") || val.startsWith("vars."))
+	);
+}
+
 /**
  * Local metadata-based schema detection.
  * Provides instant feedback for Query List and Query Doc modes.
@@ -585,17 +621,35 @@ async function update_resolved_schema_local() {
 	if (!props.node?.data) return;
 
 	if (mode.value === "Query List" || mode.value === "Query Doc") {
+		const is_query_doc = mode.value === "Query Doc";
 		const fields = (config.fields || []).filter((f) => f);
-		if (!fields.length) {
+
+		if (!is_query_doc && !fields.length) {
 			props.node.data.resolved_output_schema = [];
 			return;
 		}
 
 		const schema = [];
-		const meta = await flexirule.utils.get_doctype_meta(reference_doctype.value);
+		const target_doctype = reference_doctype.value;
+		if (!target_doctype || is_doctype_dynamic.value) {
+			if (is_doctype_dynamic.value) {
+				props.node.data.resolved_output_schema = [
+					{ label: __("Dynamic Object"), fieldname: "doc", fieldtype: "JSON" },
+				];
+			}
+			return;
+		}
+
+		const meta = await flexirule.utils.get_doctype_meta(target_doctype);
 		if (!meta) return;
 
-		for (const f of fields) {
+		// For Query Doc, we return the full schema if fields are not explicitly set
+		const fields_to_process =
+			is_query_doc && (!fields.length || config.fetch_strategy !== "Get latest Doc")
+				? meta.fields.map((f) => f.fieldname).concat(SYSTEM_FIELDS.map((f) => f.fieldname))
+				: fields;
+
+		for (const f of fields_to_process) {
 			if (f.includes(".")) {
 				const [table, field] = f.split(".");
 				const table_df = meta.fields.find((d) => d.fieldname === table);
@@ -771,6 +825,43 @@ const docnameExprField = computed(() =>
 		options: "PythonExpression",
 	})
 );
+
+const is_doctype_dynamic = computed(() => {
+	const val = config.doctype_name;
+	if (!val) return false;
+	if (typeof val === "object") return val.mode !== "static";
+	return false;
+});
+
+const show_docname_field = computed(() => {
+	if (config.fetch_strategy === "Get latest Doc") return false;
+	if (config.fetch_strategy === "Get Single DocType") return false;
+	if (is_single_doctype.value) return false;
+	return true;
+});
+
+async function update_doctype_name(val) {
+	config.doctype_name = val;
+
+	const is_dynamic =
+		val && typeof val === "object" ? val.mode !== "static" : isVariableSyntax(val);
+
+	if (is_dynamic) {
+		update_action_field("reference_doctype", "");
+		is_single_doctype.value = false;
+	} else {
+		const dt_name = typeof val === "object" ? val.value : val;
+		update_action_field("reference_doctype", dt_name);
+
+		if (dt_name) {
+			const meta = await flexirule.utils.get_doctype_meta(dt_name);
+			is_single_doctype.value = !!meta?.issingle;
+		} else {
+			is_single_doctype.value = false;
+		}
+	}
+	sync_local_config();
+}
 
 function update_config_key(key, value) {
 	config[key] = value;
@@ -975,7 +1066,7 @@ function update_report_filter(fieldname, value) {
 }
 
 async function test_query() {
-	if (!props.node?.data) return;
+	if (!props.node?.data || is_doctype_dynamic.value) return;
 	test_status.value = __("Debugging...");
 	try {
 		const res = await frappe.call({

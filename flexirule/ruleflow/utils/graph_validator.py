@@ -34,6 +34,25 @@ def validate_graph_integrity(rule_doc):
 				).format(action.action_type, action.action_label)
 			)
 
+		if action.action_type == "Query Records" and action.operation == "Query Doc":
+			config = frappe.parse_json(action.config or "{}")
+			doctype_name = config.get("doctype_name")
+			target_dt = None
+			if isinstance(doctype_name, str):
+				if not (doctype_name.startswith("{") and doctype_name.endswith("}")):
+					target_dt = doctype_name
+			elif isinstance(doctype_name, dict) and doctype_name.get("mode") == "static":
+				target_dt = doctype_name.get("value")
+
+			if target_dt and frappe.db.exists("DocType", target_dt):
+				meta = frappe.get_meta(target_dt)
+				if meta.issingle and meta.is_virtual:
+					frappe.throw(
+						_(
+							"Action '{0}': Cannot execute Query Doc on a single, virtual DocType ({1}) as it lacks database persistence."
+						).format(action.action_label or action.action_id, target_dt)
+					)
+
 		for next_step in [action.get("next_step_if_true"), action.get("next_step_if_false")]:
 			if next_step and next_step not in actions:
 				missing_references.append(
