@@ -19,7 +19,11 @@
 				<i :class="categoryIcon" class="text-muted mr-1"></i>
 				<span class="fxr-token__text">{{ previewText }}</span>
 			</div>
-			<i v-if="!validationResult.valid" class="fa fa-exclamation-triangle text-danger mr-1" style="font-size: 10px"></i>
+			<i
+				v-if="!validationResult.valid"
+				class="fa fa-exclamation-triangle text-danger mr-1"
+				style="font-size: 10px"
+			></i>
 			<i class="fa fa-chevron-down fxr-token__caret"></i>
 		</div>
 
@@ -512,8 +516,8 @@
 									v-for="opt in localState.fmt_op === 'fmt_money'
 										? numericFieldOptions
 										: localState.fmt_op === 'format_date'
-										? dateFieldOptions
-										: stringFieldOptions"
+											? dateFieldOptions
+											: stringFieldOptions"
 									:key="opt.value"
 									:value="opt.value"
 								>
@@ -526,8 +530,8 @@
 								localState.fmt_op === "fmt_money"
 									? __("Currency (Field or Code)")
 									: localState.fmt_op === "format_date"
-									? __("Date Format (e.g. YYYY-MM-DD)")
-									: __("Template")
+										? __("Date Format (e.g. YYYY-MM-DD)")
+										: __("Template")
 							}}</label>
 							<input
 								type="text"

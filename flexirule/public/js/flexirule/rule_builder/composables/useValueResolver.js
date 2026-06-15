@@ -20,7 +20,10 @@ export const RESOLVER_STRATEGIES = {
 			offset_unit: "days",
 		}),
 		validate: (state, meta) => {
-			if (state.base_type === "doc_field" && !meta.some((f) => f.value === state.base_field)) {
+			if (
+				state.base_type === "doc_field" &&
+				!meta.some((f) => f.value === state.base_field)
+			) {
 				return { valid: false, message: "Base field reference is invalid." };
 			}
 			return { valid: true };
