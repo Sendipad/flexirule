@@ -170,10 +170,7 @@
 					/>
 				</div>
 
-				<div
-					v-if="show_docname_field"
-					class="sub-section section-subcard"
-				>
+				<div v-if="show_docname_field" class="sub-section section-subcard">
 					<label class="control-label small">{{ __("Document Name (ID)") }}</label>
 					<FlexValueControl
 						:modelValue="config.docname"
@@ -187,7 +184,10 @@
 					/>
 				</div>
 
-				<div v-if="config.fetch_strategy === 'Get latest Doc'" class="sub-section section-subcard">
+				<div
+					v-if="config.fetch_strategy === 'Get latest Doc'"
+					class="sub-section section-subcard"
+				>
 					<h6>{{ __("Filters") }}</h6>
 					<FilterGroup
 						:doctype="reference_doctype"
@@ -416,7 +416,9 @@
 			>
 				<i class="fa fa-info-circle"></i>
 				{{
-					__("Schema mapping is deferred to runtime because the target DocType is dynamically evaluated.")
+					__(
+						"Schema mapping is deferred to runtime because the target DocType is dynamically evaluated."
+					)
 				}}
 			</div>
 		</div>

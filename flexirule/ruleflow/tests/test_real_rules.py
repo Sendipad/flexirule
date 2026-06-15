@@ -527,7 +527,11 @@ class TestRealRules(FrappeTestCase):
 					"Query Records",
 					reference_doctype="Contact",
 					operation="Query Doc",
-					config={"filters": [["Contact", "name", "=", contact.name]]},
+					config={
+						"fetch_strategy": "Get doc",
+						"doctype_name": "Contact",
+						"docname": contact.name,
+					},
 					return_variable="fetched_doc",
 					return_type="Full Document",
 					skip_permissions=1,
