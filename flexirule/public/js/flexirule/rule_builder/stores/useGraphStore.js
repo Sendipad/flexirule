@@ -101,16 +101,12 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 
 	function update_node_position(nodeId, position) {
 		if (!nodeId || !position) return;
-		nodes.value = nodes.value.map((node) => {
-			if (node.id !== nodeId) return node;
-			return {
-				...node,
-				position: {
-					x: Math.round(position.x ?? node.position?.x ?? 0),
-					y: Math.round(position.y ?? node.position?.y ?? 0),
-				},
-			};
-		});
+		const node = nodes.value.find((n) => n.id === nodeId);
+		if (!node) return;
+		node.position = {
+			x: Math.round(position.x ?? node.position?.x ?? 0),
+			y: Math.round(position.y ?? node.position?.y ?? 0),
+		};
 	}
 
 	// ── Topological sort ──
@@ -455,51 +451,45 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 	// ── Node operations ──
 	function get_default_node_data(type, label = "") {
 		const id = generateShortId();
-		const normalizedType = normalizeActionType(flexirule.utils.to_title_case(type));
+		const actionType = normalizeActionType(flexirule.utils.to_title_case(type));
 		const baseData = {
 			action_id: id,
-			action_type: normalizedType,
-			action_label: label || `New ${normalizedType}`,
+			action_type: actionType,
+			action_label: label || `New ${actionType}`,
 			is_enabled: 1,
 			is_async: 0,
 			skip_conditions: 1,
 			mutation_mode: null,
-			config: {},
 		};
 
-		// Type-specific defaults with proper schema scaffolding
-		if (normalizedType === "Condition") {
-			baseData.config = { op: "and", conditions: [] };
+		// Type-specific defaults
+		if (type === "condition") {
+			baseData.action_type = "Condition";
 			baseData.compiled_expression = "";
+			baseData.config = { op: "and", conditions: [] };
 			baseData.condition_json = null;
-		} else if (normalizedType === "Wait") {
+		} else if (type === "wait") {
+			baseData.action_type = "Wait";
 			baseData.config = { wait_type: "Duration", value: 1, unit: "Minutes" };
-		} else if (normalizedType === "Assignment") {
+		} else if (type === "assignment") {
+			baseData.action_type = "Assignment";
 			baseData.config = [];
-		} else if (normalizedType === "Stop") {
+		} else if (type === "stop") {
+			baseData.action_type = "Stop";
 			baseData.operation = "Success";
-			baseData.config = {};
-		} else if (normalizedType === "Raise Error") {
+		} else if (type === "raise-error" || type === "raise error") {
+			baseData.action_type = "Raise Error";
 			baseData.config = { error_type: "Validation Error" };
-		} else if (normalizedType === "Loop") {
-			baseData.config = { iterator: "", alias: "item" };
+		} else if (type === "loop") {
+			baseData.action_type = "Loop";
+			baseData.config = { iterator: "" };
 			baseData.return_variable = "item";
-		} else if (normalizedType === "Sub-Rule") {
-			baseData.config = { sub_rule_name: "" };
-		} else if (normalizedType === "Query Records") {
+		} else if (type === "sub-rule") {
+			baseData.action_type = "Sub-Rule";
+		} else if (type === "query" || type === "query records") {
+			baseData.action_type = "Query Records";
 			baseData.operation = "Query List";
 			baseData.return_variable = "query_result";
-			baseData.config = { filters: [], fields: [] };
-		} else if (normalizedType === "Notify") {
-			baseData.operation = "Toast";
-			baseData.config = { message: "", type: "info" };
-		} else if (normalizedType === "Document Action") {
-			baseData.operation = "Create New";
-			baseData.config = { field_mappings: [] };
-		} else if (normalizedType === "Process") {
-			baseData.operation = null;
-			baseData.process_name = null;
-			baseData.config = {};
 		}
 
 		return baseData;
@@ -522,8 +512,8 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			return false;
 		}
 
+		const inEdges = edges.value.filter((e) => e.target === nodeId);
 		const outEdges = edges.value.filter((e) => e.source === nodeId);
-		const inEdgeIds = new Set(edges.value.filter((e) => e.target === nodeId).map((e) => e.id));
 		const actionType = node?.data?.action_type;
 		const isMultiOutput = ["Condition", "Loop", "Switch"].includes(actionType);
 
@@ -543,94 +533,118 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			return visited;
 		}
 
-		let primaryTargetId = null;
-		let toDeleteIds = new Set([nodeId]);
-
 		if (isMultiOutput && outEdges.length > 1) {
+			// Determine which output is the "primary continuation" (kept) vs "secondary" (cascade-delete).
+			// Loop  → primary = "After Last" (sourceHandle === "false")
+			// Condition / Switch → primary = YES / True (sourceHandle !== "false")
 			const isPrimaryFalse = actionType === "Loop";
 			const primaryEdge = outEdges.find((e) =>
 				isPrimaryFalse ? e.sourceHandle === "false" : e.sourceHandle !== "false"
 			);
 			const secondaryEdges = outEdges.filter((e) => e !== primaryEdge);
-			primaryTargetId = primaryEdge?.target ?? null;
 
+			// Reconnect parents to the primary target
+			const primaryTargetId = primaryEdge?.target ?? null;
+			inEdges.forEach((inEdge) => {
+				inEdge.target = primaryTargetId;
+				const srcNode = nodes.value.find((n) => n.id === inEdge.source);
+				if (srcNode?.data) {
+					if (inEdge.sourceHandle === "false") {
+						srcNode.data.next_step_if_false = primaryTargetId;
+					} else {
+						srcNode.data.next_step_if_true = primaryTargetId;
+					}
+				}
+			});
+
+			// Cascade-delete nodes ONLY reachable from secondary outputs
+			// (i.e. nodes that would be orphaned and unreachable from the rest of the graph)
 			const edgesWithoutRemoved = edges.value.filter(
 				(e) => e.source !== nodeId && e.target !== nodeId
 			);
-			const rootNode = nodes.value.find(
-				(n) => n.type === "start" || n.data?.action_type === "Entry Action"
-			);
-			const rootId = rootNode?.id || "root";
-
-			const virtualEdges = [
+			// Build set of all IDs still reachable from the main graph root
+			const rootId =
+				nodes.value.find(
+					(n) => n.type === "start" || n.data?.action_type === "Entry Action"
+				)?.id || "root";
+			const mainReachable = bfsFrom(rootId, [
 				...edgesWithoutRemoved,
-				...edges.value
-					.filter((e) => inEdgeIds.has(e.id))
-					.map((e) => ({ ...e, target: primaryTargetId })),
-			];
+				// include the reconnected in-edges so the primary target is reachable
+				...inEdges.map((e) => ({ ...e, target: primaryTargetId })),
+			]);
 
-			const mainReachable = bfsFrom(rootId, virtualEdges);
-
+			const toDelete = new Set([nodeId]);
 			secondaryEdges.forEach((e) => {
 				if (!e.target || mainReachable.has(e.target)) return;
 				bfsFrom(e.target, edgesWithoutRemoved, mainReachable).forEach((id) =>
-					toDeleteIds.add(id)
+					toDelete.add(id)
 				);
 			});
-		} else if (outEdges.length === 1) {
-			primaryTargetId = outEdges[0].target;
+
+			nodes.value = nodes.value.filter((n) => !toDelete.has(n.id));
+			edges.value = edges.value.filter(
+				(e) => !toDelete.has(e.source) && !toDelete.has(e.target)
+			);
+
+			// Fix reconnected in-edge targets in the edge array
+			edges.value = edges.value.map((e) => {
+				if (e.target === nodeId) return { ...e, target: primaryTargetId };
+				return e;
+			});
+
+			return true;
 		}
 
-		// Update nodes immutably
-		nodes.value = nodes.value
-			.filter((n) => !toDeleteIds.has(n.id))
-			.map((n) => {
-				const hasIncomingFromDeleted = edges.value.some(
-					(e) => e.target === nodeId && e.source === n.id
-				);
-				if (!hasIncomingFromDeleted) return n;
-
-				const newData = { ...(n.data || {}) };
-				const affectedEdges = edges.value.filter(
-					(e) => e.source === n.id && e.target === nodeId
-				);
-
-				affectedEdges.forEach((e) => {
-					if (e.sourceHandle === "false") {
-						newData.next_step_if_false = primaryTargetId;
+		// ── Simple single-output reconnection ────────────────────────────────
+		if (outEdges.length === 1) {
+			const targetId = outEdges[0].target;
+			inEdges.forEach((inEdge) => {
+				inEdge.target = targetId;
+				const sourceNode = nodes.value.find((n) => n.id === inEdge.source);
+				if (sourceNode && sourceNode.data) {
+					if (inEdge.sourceHandle === "false") {
+						sourceNode.data.next_step_if_false = targetId;
 					} else {
-						newData.next_step_if_true = primaryTargetId;
+						sourceNode.data.next_step_if_true = targetId;
 					}
-				});
-
-				return { ...n, data: newData };
-			});
-
-		// Update edges immutably
-		edges.value = edges.value
-			.filter((e) => !toDeleteIds.has(e.source) && !toDeleteIds.has(e.target))
-			.map((e) => {
-				if (e.target === nodeId) {
-					return { ...e, target: primaryTargetId };
 				}
-				return e;
-			})
-			.filter((e) => e.target !== null);
+			});
+		} else {
+			// Zero or unresolvable outputs: just clear parent references
+			inEdges.forEach((inEdge) => {
+				const sourceNode = nodes.value.find((n) => n.id === inEdge.source);
+				if (sourceNode && sourceNode.data) {
+					if (inEdge.sourceHandle === "false") {
+						sourceNode.data.next_step_if_false = null;
+					} else {
+						sourceNode.data.next_step_if_true = null;
+					}
+				}
+			});
+		}
+
+		nodes.value = nodes.value.filter((el) => el.id !== nodeId);
+		const outEdgeIds = new Set(outEdges.map((e) => e.id));
+		edges.value = edges.value.filter(
+			(el) => !outEdgeIds.has(el.id) && el.source !== nodeId && el.target !== nodeId
+		);
 
 		return true;
 	}
 
 	function toggle_node_enabled(nodeId) {
-		nodes.value = nodes.value.map((node) => {
-			if (node.id !== nodeId || !node.data) return node;
-			return {
-				...node,
-				data: {
-					...node.data,
-					is_enabled: node.data.is_enabled === 0 ? 1 : 0,
-				},
-			};
-		});
+		const node = nodes.value.find((n) => n.id === nodeId);
+		if (!node || !node.data) return;
+
+		// Default to enabled (1) if undefined
+		if (node.data.is_enabled === 0) {
+			node.data.is_enabled = 1;
+		} else {
+			node.data.is_enabled = 0;
+		}
+
+		// Force reactivity update if needed
+		nodes.value = [...nodes.value];
 	}
 
 	function delete_edge(edgeId, isReadOnly = false) {
@@ -638,23 +652,20 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		const edge = edges.value.find((el) => el.id === edgeId);
 		if (!edge) return false;
 
-		nodes.value = nodes.value.map((node) => {
-			if (node.id !== edge.source || !node.data) return node;
-
-			const newData = { ...node.data };
+		// Clear the next_step reference in the source node's data
+		const sourceNode = nodes.value.find((el) => el.id === edge.source);
+		if (sourceNode && sourceNode.data) {
 			const handle = edge.sourceHandle || "default";
-
 			if (handle === "false") {
-				if (newData.next_step_if_false === edge.target) {
-					newData.next_step_if_false = null;
+				if (sourceNode.data.next_step_if_false === edge.target) {
+					sourceNode.data.next_step_if_false = null;
 				}
 			} else if (handle === "true" || handle === "default") {
-				if (newData.next_step_if_true === edge.target) {
-					newData.next_step_if_true = null;
+				if (sourceNode.data.next_step_if_true === edge.target) {
+					sourceNode.data.next_step_if_true = null;
 				}
 			}
-			return { ...node, data: newData };
-		});
+		}
 
 		edges.value = edges.value.filter((el) => el.id !== edgeId);
 		return true;
@@ -691,12 +702,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 				type: "selector",
 				position: { x: 0, y: 0 },
 				label: __("Loop Body"),
-				data: {
-					...bodyData,
-					next_step_if_true: newNodeId,
-					suggested_parent_id: newNodeId,
-					suggested_source_handle: "default",
-				},
+				data: { ...bodyData, next_step_if_true: newNodeId },
 			};
 
 			// Loop: For Each (default) → body entry; After Last (false) → existing target
@@ -723,20 +729,8 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 
 			nodes.value = [...nodes.value, newNode, bodyNode];
 
-			// Update parent and edges immutably
-			nodes.value = nodes.value.map((n) => {
-				if (n.id !== sourceId || !n.data) return n;
-				const newData = { ...n.data };
-				if (sourceHandle === "false") {
-					newData.next_step_if_false = newNodeId;
-				} else {
-					newData.next_step_if_true = newNodeId;
-				}
-				return { ...n, data: newData };
-			});
-
 			edges.value = [
-				...edges.value.filter((e) => e.id !== edgeId),
+				...edges.value,
 				// Source → Loop
 				{
 					id: `e-${sourceId}-${newNodeId}-${sourceHandle}`,
@@ -805,19 +799,19 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 				data: { ...nodeData, action_id: newNodeId },
 			};
 
-			nodes.value = [...nodes.value, newNode, stopNode].map((n) => {
-				if (n.id !== sourceId || !n.data) return n;
-				const newData = { ...n.data };
+			delete_edge(edgeId);
+			const sourceNode = nodes.value.find((n) => n.id === sourceId);
+			if (sourceNode?.data) {
 				if (sourceHandle === "false") {
-					newData.next_step_if_false = newNodeId;
+					sourceNode.data.next_step_if_false = newNodeId;
 				} else {
-					newData.next_step_if_true = newNodeId;
+					sourceNode.data.next_step_if_true = newNodeId;
 				}
-				return { ...n, data: newData };
-			});
+			}
 
+			nodes.value = [...nodes.value, newNode, stopNode];
 			edges.value = [
-				...edges.value.filter((e) => e.id !== edgeId),
+				...edges.value,
 				{
 					id: `e-${sourceId}-${newNodeId}-${sourceHandle}`,
 					source: sourceId,
@@ -863,21 +857,25 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			},
 		};
 
-		// Add new node and Update source node pointer immutably
-		nodes.value = [...nodes.value, newNode].map((n) => {
-			if (n.id !== sourceId || !n.data) return n;
-			const newData = { ...n.data };
-			if (sourceHandle === "false") {
-				newData.next_step_if_false = newNodeId;
-			} else {
-				newData.next_step_if_true = newNodeId;
-			}
-			return { ...n, data: newData };
-		});
+		// 2. Remove old edge
+		delete_edge(edgeId);
 
-		// Create new edges immutably
+		// 3. Update source node pointer to new node
+		const sourceNode = nodes.value.find((n) => n.id === sourceId);
+		if (sourceNode && sourceNode.data) {
+			if (sourceHandle === "false") {
+				sourceNode.data.next_step_if_false = newNodeId;
+			} else {
+				sourceNode.data.next_step_if_true = newNodeId;
+			}
+		}
+
+		// 4. Add new node
+		nodes.value = [...nodes.value, newNode];
+
+		// 5. Create new edges
 		const edge1Id = `e-${sourceId}-${newNodeId}-${sourceHandle}`;
-		const newEdgesToAdd = [
+		const newEdges = [
 			{
 				id: edge1Id,
 				source: sourceId,
@@ -890,7 +888,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		// ONLY create outgoing edge if NOT terminal
 		if (!isTerminalAction(nodeData.action_type)) {
 			const edge2Id = `e-${newNodeId}-${targetId}-default`;
-			newEdgesToAdd.push({
+			newEdges.push({
 				id: edge2Id,
 				source: newNodeId,
 				target: targetId,
@@ -901,7 +899,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			});
 		}
 
-		edges.value = [...edges.value.filter((e) => e.id !== edgeId), ...newEdgesToAdd];
+		edges.value = [...edges.value, ...newEdges];
 
 		// 6. If terminal, remove orphaned target node (as requested)
 		if (isTerminal) {
@@ -930,44 +928,38 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		const newNodeIds = new Set(newNodes.map((n) => n.id));
 
 		// 2. Identify entry and exit points in the pasted block
+		// Entry: first node that doesn't have an incoming FORWARD edge from another pasted node
 		const entryNode = newNodes.find((n) => {
 			return !edges.value.some(
 				(e) => e.target === n.id && newNodeIds.has(e.source) && !e.data?.isReturn
 			);
 		});
 
+		// Exit: first node that has a "null" next step (meaning it originally pointed outside the selection)
 		const exitNode = newNodes.find((n) => {
 			if (isTerminalAction(n.data?.action_type)) return false;
+			// For multi-output nodes like Loop/Condition, we check if ANY output is now null
 			return n.data?.next_step_if_true === null || n.data?.next_step_if_false === null;
 		});
 
-		if (!entryNode) return newNodes[0].id;
+		if (!entryNode) {
+			// Fallback: if we can't find clear entry, return the first node but connectivity will be partial
+			return newNodes[0].id;
+		}
 
-		// 3. Update source and exit nodes immutably
-		nodes.value = nodes.value.map((n) => {
-			if (n.id === sourceId && n.data) {
-				const newData = { ...n.data };
-				if (sourceHandle === "false") {
-					newData.next_step_if_false = entryNode.id;
-				} else {
-					newData.next_step_if_true = entryNode.id;
-				}
-				return { ...n, data: newData };
-			}
-			if (exitNode && n.id === exitNode.id && n.data) {
-				const newData = { ...n.data };
-				const useFalseHandle = newData.next_step_if_false === null;
-				if (useFalseHandle) {
-					newData.next_step_if_false = targetId;
-				} else {
-					newData.next_step_if_true = targetId;
-				}
-				return { ...n, data: newData };
-			}
-			return n;
-		});
+		// 3. Remove old edge
+		delete_edge(edgeId);
 
-		// 4. Update edges immutably
+		// 4. Connect source to entry node
+		const sourceNode = nodes.value.find((n) => n.id === sourceId);
+		if (sourceNode && sourceNode.data) {
+			if (sourceHandle === "false") {
+				sourceNode.data.next_step_if_false = entryNode.id;
+			} else {
+				sourceNode.data.next_step_if_true = entryNode.id;
+			}
+		}
+
 		const entryEdge = {
 			id: `e-${sourceId}-${entryNode.id}-${sourceHandle}`,
 			source: sourceId,
@@ -976,10 +968,21 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			type: "add",
 		};
 
+		// 5. Connect exit node to target if NOT terminal
 		const newEdgesToAdd = [entryEdge];
 		if (exitNode && !isTerminalAction(exitNode.data?.action_type)) {
+			// Determine which handle to use on the exit node.
+			// Prefer the 'false' handle if it's the one that was nulled (e.g. Loop After Last)
 			const useFalseHandle = exitNode.data.next_step_if_false === null;
 			const exitHandle = useFalseHandle ? "false" : "default";
+
+			if (exitNode.data) {
+				if (useFalseHandle) {
+					exitNode.data.next_step_if_false = targetId;
+				} else {
+					exitNode.data.next_step_if_true = targetId;
+				}
+			}
 
 			newEdgesToAdd.push({
 				id: `e-${exitNode.id}-${targetId}-${exitHandle}`,
@@ -991,20 +994,22 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			});
 		}
 
-		edges.value = [...edges.value.filter((e) => e.id !== edgeId), ...newEdgesToAdd];
+		edges.value = [...edges.value, ...newEdgesToAdd];
 
 		return entryNode.id;
 	}
 
 	function touch_node(nodeId) {
 		if (!nodeId) return;
-		nodes.value = nodes.value.map((n) => {
-			if (n.id !== nodeId) return n;
-			return {
-				...n,
-				data: { ...(n.data || {}) },
-			};
-		});
+		const idx = nodes.value.findIndex((n) => n.id === nodeId);
+		if (idx === -1) return;
+
+		const current = nodes.value[idx];
+		// Replace to trigger Vue reactivity
+		nodes.value[idx] = {
+			...current,
+			data: { ...(current.data || {}) },
+		};
 	}
 
 	// ── Data cleaning ──
@@ -1906,17 +1911,14 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			(el) => el.type !== "start" && el.data?.is_enabled !== 0
 		);
 		if (firstNode) {
-			edges.value = [
-				...edges.value,
-				{
-					id: `e-${startNode.id}-${firstNode.id}`,
-					source: startNode.id,
-					target: firstNode.id,
-					sourceHandle: "default",
-					type: "add",
-					animated: true,
-				},
-			];
+			edges.value.push({
+				id: `e-${startNode.id}-${firstNode.id}`,
+				source: startNode.id,
+				target: firstNode.id,
+				sourceHandle: "default",
+				type: "add",
+				animated: true,
+			});
 		}
 	}
 

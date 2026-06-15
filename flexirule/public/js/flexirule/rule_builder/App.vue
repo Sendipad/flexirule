@@ -724,8 +724,8 @@ function onConnect(params) {
 		// If connecting to the same target, ignore
 		if (existingEdge.target === params.target) return;
 
-		// Otherwise, remove the old one to replace it immutably
-		graphStore.edges = graphStore.edges.filter((_, idx) => idx !== existingEdgeIndex);
+		// Otherwise, remove the old one to replace it
+		graphStore.edges.splice(existingEdgeIndex, 1);
 	}
 
 	const newEdge = {
