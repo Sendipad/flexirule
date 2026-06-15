@@ -8,7 +8,7 @@ import {
 	getEffectiveActionPolicy,
 	getFieldLabel,
 } from "../../core/contracts";
-import { useRuleStore, useGraphStore, useUIStore } from "../stores";
+import { useStore } from "../stores";
 import { mapActionTypeToNodeType } from "../composables/useActionTypeMapper";
 import { useActionSearch } from "../composables/useActionSearch";
 import { useFloatingDropdown } from "../composables/useFloatingDropdown";
@@ -57,10 +57,7 @@ const props = defineProps({
 });
 
 const emit = defineEmits(["select", "paste", "close"]);
-
-const ruleStore = useRuleStore();
-const graphStore = useGraphStore();
-const uiStore = useUIStore();
+const store = useStore();
 
 const {
 	searchQuery,
@@ -75,7 +72,6 @@ const selectedIndex = ref(-1);
 const searchInputRef = ref(null);
 const labelInputRef = ref(null);
 const zoneRef = ref(null);
-const isCreating = ref(false);
 
 const {
 	triggerRef: popoverTriggerRef,
@@ -98,7 +94,8 @@ const customLabel = ref("");
 const selectedItemData = ref(null);
 
 const isHorizontal = computed(() => {
-	return ruleStore.settings?.layout_direction !== "Top to Bottom";
+	const settings = store.settings?.value || store.settings;
+	return settings?.layout_direction !== "Top to Bottom";
 });
 const targetPos = computed(
 	() => props.targetPosition || (isHorizontal.value ? Position.Left : Position.Top)
@@ -187,7 +184,7 @@ function onKeydown(e) {
 			selectItem(filteredResults.value[selectedIndex.value]);
 		}
 	} else if (step.value === "labeling") {
-		if (e.key === "Enter" && !isCreating.value) {
+		if (e.key === "Enter") {
 			e.preventDefault();
 			confirmSelection();
 		}
@@ -201,7 +198,7 @@ function goBack() {
 }
 
 function confirmSelection() {
-	if (!selectedItemData.value || isCreating.value) return;
+	if (!selectedItemData.value) return;
 
 	const payload = {
 		...selectedItemData.value,
@@ -228,8 +225,17 @@ function onPasteClick() {
 	emit("paste");
 }
 
-async function onCreate(finalPayload = null) {
-	if (props.mode !== "node" || isCreating.value) return;
+function onCreate(finalPayload = null) {
+	if (props.mode !== "node") return;
+
+	const nodes = store.nodes.value || store.nodes;
+	const edges = store.edges.value || store.edges;
+
+	const nodeIndex = nodes.findIndex((n) => n.id === props.id);
+	if (nodeIndex === -1) {
+		console.warn("[ActionZone] Node not found for upgrade:", props.id);
+		return;
+	}
 
 	const selection =
 		finalPayload ||
@@ -237,7 +243,7 @@ async function onCreate(finalPayload = null) {
 			? {
 					...selectedItemData.value,
 					label: (customLabel.value || selectedItemData.value.label).trim(),
-				}
+			  }
 			: null);
 
 	if (!selection) return;
@@ -405,6 +411,11 @@ async function onCreate(finalPayload = null) {
 		store.nodes = newNodes;
 		store.edges = newEdges;
 	}
+
+	store.select(props.id);
+	store.show_sidebar = true;
+	store.touch_node(props.id);
+	store.mark_dirty();
 }
 
 const showProcessSelector = computed(() => {
@@ -416,7 +427,7 @@ const showOperationSelector = computed(() => {
 	const actionType = selectedItemData.value.action_type;
 	const contract = getContract(actionType);
 	return (
-		(contract.operation_options && contract.operation_options.length > 0) ||
+		contract.operation_options ||
 		["Process", "Query Records", "Document Action", "Stop", "Notify"].includes(actionType)
 	);
 });
@@ -431,12 +442,12 @@ const operationLabel = computed(() => {
 			processName: selectedItemData.value.process_name,
 		}) ||
 		contract.operation_label ||
-		__("Operation / Mode")
+		__("Operation")
 	);
 });
 
 const processOptions = computed(() => {
-	const processes = ruleStore.processes || [];
+	const processes = store.processes?.value || store.processes || [];
 	return processes.map((p) => ({
 		value: p.name,
 		label: p.process_name || p.name,
@@ -475,9 +486,17 @@ function onOperationChange(val) {
 	}
 }
 
+const debouncedRemoteSearch = frappe.utils.debounce(async (query) => {
+	if (!query || query.length < 2) {
+		// remoteResults handled by hook
+		return;
+	}
+	// remoteResults handled by hook
+}, 300);
+
 function deleteNode() {
 	if (props.mode === "node") {
-		frappe.confirm(__("Delete this node?"), () => graphStore.delete_node(props.id));
+		frappe.confirm(__("Delete this node?"), () => store.delete_node(props.id));
 	}
 }
 
@@ -686,20 +705,11 @@ defineExpose({
 						/>
 					</div>
 					<div class="labeling-footer">
-						<button
-							class="btn btn-default btn-sm"
-							@click="goBack"
-							:disabled="isCreating"
-						>
+						<button class="btn btn-default btn-sm" @click="goBack">
 							<i class="fa fa-chevron-left mr-1"></i> {{ __("Back") }}
 						</button>
-						<button
-							class="btn btn-primary btn-sm"
-							@click="confirmSelection"
-							:disabled="isCreating"
-						>
-							<i v-if="isCreating" class="fa fa-spinner fa-spin mr-1"></i>
-							{{ isCreating ? __("Creating...") : __("Create Action") }}
+						<button class="btn btn-primary btn-sm" @click="confirmSelection">
+							{{ __("Create Action") }}
 						</button>
 					</div>
 				</div>
@@ -815,20 +825,11 @@ defineExpose({
 							/>
 						</div>
 						<div class="labeling-footer mt-2">
-							<button
-								class="btn btn-default btn-xs"
-								@click="goBack"
-								:disabled="isCreating"
-							>
+							<button class="btn btn-default btn-xs" @click="goBack">
 								{{ __("Back") }}
 							</button>
-							<button
-								class="btn btn-primary btn-xs flex-1"
-								@click="confirmSelection"
-								:disabled="isCreating"
-							>
-								<i v-if="isCreating" class="fa fa-spinner fa-spin mr-1"></i>
-								{{ isCreating ? __("Creating...") : __("Create") }}
+							<button class="btn btn-primary btn-xs flex-1" @click="confirmSelection">
+								{{ __("Create") }}
 							</button>
 						</div>
 					</div>
