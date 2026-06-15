@@ -9,15 +9,17 @@
 			v-if="viewMode === 'popover'"
 			ref="tokenRef"
 			class="fxr-token"
-			:class="{ 'is-active': showPopover }"
+			:class="{ 'is-active': showPopover, 'is-invalid': !validationResult.valid }"
 			tabindex="0"
 			@click="togglePopover"
 			@keydown="handleParentKeydown"
+			:title="validationResult.message"
 		>
 			<div class="fxr-token__content">
 				<i :class="categoryIcon" class="text-muted mr-1"></i>
 				<span class="fxr-token__text">{{ previewText }}</span>
 			</div>
+			<i v-if="!validationResult.valid" class="fa fa-exclamation-triangle text-danger mr-1" style="font-size: 10px"></i>
 			<i class="fa fa-chevron-down fxr-token__caret"></i>
 		</div>
 
@@ -655,9 +657,9 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from "vue";
 import { useStore } from "../stores";
 import ComboBoxControl from "./ComboBoxControl.vue";
-import { compileToCode, compileToLabel } from "../../core/builder_utils.js";
 import { useFloatingDropdown } from "../composables/useFloatingDropdown";
 import { useKeyboardRegistry } from "../composables/useKeyboardRegistry";
+import { useValueResolver, RESOLVER_STRATEGIES } from "../composables/useValueResolver";
 
 const props = defineProps({
 	modelValue: {
@@ -698,7 +700,23 @@ const tokenRef = ref(null);
 const kindSelectRef = ref(null);
 const { registerShortcut } = useKeyboardRegistry();
 const unregisterEsc = ref(null);
-let _syncing = false;
+
+const {
+	localState,
+	validationResult,
+	availableCategories,
+	categoryIcon,
+	popoverTitle,
+	previewText,
+	expressionSnippet,
+} = useValueResolver(props, emit);
+
+// ─── Legacy Category Icons (used by template kind selection) ───
+const ALL_CATEGORIES = Object.entries(RESOLVER_STRATEGIES).map(([value, config]) => ({
+	value,
+	label: __(config.label),
+	icon: config.icon,
+}));
 
 const {
 	triggerRef: controlRef,
@@ -729,99 +747,6 @@ const resolverFieldname = computed(() => {
 		.replace(/^doc\./, "")
 		.replace(/^vars\./, "");
 });
-
-// ─── Category Definitions ───
-const ALL_CATEGORIES = [
-	{ value: "date_formula", label: __("Date Formula"), icon: "fa fa-calendar" },
-	{ value: "math_formula", label: __("Math Formula"), icon: "fa fa-calculator" },
-	{ value: "date_diff", label: __("Date Difference"), icon: "fa fa-calendar-minus-o" },
-	{ value: "child_aggregation", label: __("Child Table Aggregation"), icon: "fa fa-table" },
-	{ value: "string_formula", label: __("String Manipulation"), icon: "fa fa-font" },
-	{ value: "normalization", label: __("Normalization"), icon: "fa fa-refresh" },
-	{ value: "format", label: __("Format"), icon: "fa fa-paint-brush" },
-	{ value: "fetch", label: __("Fetch From Link"), icon: "fa fa-link" },
-	{ value: "system_context", label: __("System Context"), icon: "fa fa-globe" },
-];
-
-const availableCategories = computed(() => {
-	if (props.allowedKinds && props.allowedKinds.length > 0) {
-		return ALL_CATEGORIES.filter((c) => props.allowedKinds.includes(c.value));
-	}
-	return ALL_CATEGORIES;
-});
-
-// ─── Default State Factory ───
-function getDefaultState(kind = "date_formula") {
-	let baseField = "";
-	let baseType = "today";
-	let normField = "";
-	let fmtField = "";
-
-	const fieldname = props.context?.fieldname || props.context?.target;
-	if (fieldname) {
-		const raw = String(fieldname)
-			.replace(/^doc\./, "")
-			.replace(/^vars\./, "");
-		if (kind === "date_formula") {
-			baseType = "doc_field";
-			baseField = raw;
-		} else if (kind === "normalization") {
-			normField = raw;
-		} else if (kind === "format") {
-			fmtField = raw;
-		}
-	}
-
-	return {
-		kind,
-		// Fetch Resolver fields
-		link_source_type: "doc_field",
-		link_field: "",
-		fetch_field: "",
-		linked_doctype: "",
-		// Date Formula fields
-		base_type: baseType,
-		base_field: baseField,
-		offset_sign: "+",
-		offset_value: 0,
-		offset_unit: "days",
-		// Math Formula fields
-		field_a: "",
-		math_op: "+",
-		field_b_type: "field",
-		field_b: "",
-		constant_b: 0,
-		precision: 2,
-		// Date Diff fields
-		diff_start_type: "today",
-		diff_start_field: "",
-		diff_end_type: "doc_field",
-		diff_end_field: "",
-		diff_unit: "days",
-		// Aggregation fields
-		agg_table: "",
-		agg_field: "",
-		agg_op: "sum",
-		// String fields
-		str_op: "concat",
-		str_a_type: "field",
-		str_a: "",
-		str_b_type: "constant",
-		str_b: "",
-		// Normalization fields
-		norm_op: "trim",
-		norm_field: normField,
-		// Format fields
-		fmt_op: "format_date",
-		fmt_field: fmtField,
-		fmt_config: "", // e.g. "YYYY-MM-DD" or currency field
-		// System context fields
-		sys_token: "user",
-		sys_role: "",
-	};
-}
-
-const localState = ref(getDefaultState());
 
 // ─── Field Options ───
 const dateFieldOptions = computed(() => {
@@ -963,7 +888,7 @@ const fetchMetaLoading = ref(false);
 watch(
 	() => localState.value.link_field,
 	async (newVal, oldVal) => {
-		if (_syncing || !newVal) return;
+		if (!newVal) return;
 
 		const opt = sourceLinkOptions.value.find((o) => o.value === newVal);
 		if (opt && (opt.options || opt.fieldtype === "Dynamic Link")) {
@@ -983,7 +908,6 @@ watch(
 watch(
 	() => localState.value.linked_doctype,
 	async (newVal, oldVal) => {
-		if (_syncing) return;
 		if (!newVal) {
 			localState.value.fetch_field = "";
 			return;
@@ -1021,189 +945,17 @@ watch(
 	}
 );
 
-// ─── Sync from Props (Hydration) ───
-const syncFromProps = () => {
-	let val = props.modelValue || {};
-	if (val.mode && val.config) {
-		val = val.config;
-	}
-	const kind = val.kind || "date_formula";
-	const next = { ...getDefaultState(kind) };
-
-	if (kind === "date_formula") {
-		// Backward compat: support old `function_name` schema
-		let baseType = val.base_type || "today";
-		let baseField = val.base_field || "";
-		let offsetValue = val.offset_value || 0;
-		let offsetUnit = val.offset_unit || "days";
-
-		if (val.function_name) {
-			if (val.function_name.includes("doc")) baseType = "doc_field";
-			else baseType = "today";
-			if (val.offset_days) {
-				offsetValue = val.offset_days;
-				offsetUnit = "days";
-			}
-		}
-
-		if (!baseField && dateFieldOptions.value.length > 0) {
-			baseField = dateFieldOptions.value[0].value;
-		}
-
-		next.base_type = baseType;
-		next.base_field = baseField;
-		next.offset_sign = offsetValue < 0 ? "-" : "+";
-		next.offset_value = Math.abs(offsetValue);
-		next.offset_unit = offsetUnit;
-	} else if (kind === "math_formula") {
-		next.field_a = val.field_a || "";
-		next.math_op = val.math_op || "+";
-		next.field_b_type = val.field_b_type || "field";
-		next.field_b = val.field_b || "";
-		next.constant_b = val.constant_b ?? 0;
-		next.precision = val.precision ?? 2;
-	} else if (kind === "date_diff") {
-		next.diff_start_type = val.diff_start_type || "today";
-		next.diff_start_field = val.diff_start_field || "";
-		next.diff_end_type = val.diff_end_type || "doc_field";
-		next.diff_end_field = val.diff_end_field || "";
-		next.diff_unit = val.diff_unit || "days";
-	} else if (kind === "child_aggregation") {
-		next.agg_table = val.agg_table || "";
-		next.agg_field = val.agg_field || "";
-		next.agg_op = val.agg_op || "sum";
-	} else if (kind === "string_formula") {
-		next.str_op = val.str_op || "concat";
-		next.str_a_type = val.str_a_type || "field";
-		next.str_a = val.str_a || "";
-		next.str_b_type = val.str_b_type || "constant";
-		next.str_b = val.str_b || "";
-	} else if (kind === "normalization") {
-		next.norm_op = val.norm_op || "trim";
-		next.norm_field = val.norm_field || "";
-	} else if (kind === "format") {
-		next.fmt_op = val.fmt_op || "format_date";
-		next.fmt_field = val.fmt_field || "";
-		next.fmt_config = val.fmt_config || "";
-	} else if (kind === "fetch") {
-		next.link_source_type = val.link_source_type || "doc_field";
-		next.link_field = val.link_field || "";
-		next.fetch_field = val.fetch_field || "";
-		next.linked_doctype = val.linked_doctype || "";
-	} else if (kind === "system_context") {
-		next.sys_token = val.sys_token || "user";
-		next.sys_role = val.sys_role || "";
-	}
-
-	// Shallow equality guard to prevent loops
-	const cur = localState.value;
-	const keys = Object.keys(next);
-	let changed = false;
-	for (const key of keys) {
-		if (cur[key] !== next[key]) {
-			changed = true;
-			break;
-		}
-	}
-	if (!changed) return;
-
-	_syncing = true;
-	localState.value = next;
-	_syncing = false;
-};
-
-watch(() => props.modelValue, syncFromProps, { deep: true });
-watch(() => props.doctype, syncFromProps);
-
-// ─── Sync to Parent ───
 watch(
 	() => localState.value,
-	(newVal) => {
-		if (_syncing) return;
-
+	() => {
 		if (showPopover.value) {
 			nextTick(() => updatePosition());
 		}
-
-		const config = { kind: newVal.kind };
-
-		if (newVal.kind === "date_formula") {
-			const offset =
-				newVal.offset_sign === "-"
-					? -Math.abs(newVal.offset_value)
-					: Math.abs(newVal.offset_value);
-			Object.assign(config, {
-				base_type: newVal.base_type,
-				base_field: newVal.base_field,
-				offset_value: offset,
-				offset_unit: newVal.offset_unit,
-			});
-		} else if (newVal.kind === "math_formula") {
-			Object.assign(config, {
-				field_a: newVal.field_a,
-				math_op: newVal.math_op,
-				field_b_type: newVal.field_b_type,
-				field_b: newVal.field_b,
-				constant_b: newVal.constant_b,
-				precision: newVal.precision,
-			});
-		} else if (newVal.kind === "date_diff") {
-			Object.assign(config, {
-				diff_start_type: newVal.diff_start_type,
-				diff_start_field: newVal.diff_start_field,
-				diff_end_type: newVal.diff_end_type,
-				diff_end_field: newVal.diff_end_field,
-				diff_unit: newVal.diff_unit,
-			});
-		} else if (newVal.kind === "child_aggregation") {
-			Object.assign(config, {
-				agg_table: newVal.agg_table,
-				agg_field: newVal.agg_field,
-				agg_op: newVal.agg_op,
-			});
-		} else if (newVal.kind === "string_formula") {
-			Object.assign(config, {
-				str_op: newVal.str_op,
-				str_a_type: newVal.str_a_type,
-				str_a: newVal.str_a,
-				str_b_type: newVal.str_b_type,
-				str_b: newVal.str_b,
-			});
-		} else if (newVal.kind === "normalization") {
-			Object.assign(config, {
-				norm_op: newVal.norm_op,
-				norm_field: newVal.norm_field,
-			});
-		} else if (newVal.kind === "format") {
-			Object.assign(config, {
-				fmt_op: newVal.fmt_op,
-				fmt_field: newVal.fmt_field,
-				fmt_config: newVal.fmt_config,
-			});
-		} else if (newVal.kind === "fetch") {
-			Object.assign(config, {
-				link_source_type: newVal.link_source_type,
-				link_field: newVal.link_field,
-				fetch_field: newVal.fetch_field,
-				linked_doctype: newVal.linked_doctype,
-			});
-		} else if (newVal.kind === "system_context") {
-			Object.assign(config, {
-				sys_token: newVal.sys_token,
-				sys_role: newVal.sys_role,
-			});
-		}
-
-		emit("update:modelValue", config, {
-			label: compileToLabel(config),
-			expression: compileToCode(config),
-		});
 	},
 	{ deep: true }
 );
 
 onMounted(() => {
-	syncFromProps();
 	document.addEventListener("mousedown", handleClickOutside);
 });
 
@@ -1305,30 +1057,6 @@ defineExpose({
 	open,
 	close: closePopover,
 	focus: () => tokenRef.value?.focus(),
-});
-
-// ─── Computed UI Properties ───
-const categoryIcon = computed(() => {
-	const cat = ALL_CATEGORIES.find((c) => c.value === localState.value.kind);
-	return cat?.icon || "fa fa-calculator";
-});
-
-const popoverTitle = computed(() => {
-	const cat = ALL_CATEGORIES.find((c) => c.value === localState.value.kind);
-	return cat?.label || __("Configure Formula");
-});
-
-const previewText = computed(() => {
-	return compileToLabel(localState.value);
-});
-
-const expressionSnippet = computed(() => {
-	const s = { ...localState.value };
-	if (s.kind === "date_formula") {
-		const offset = s.offset_sign === "-" ? -Math.abs(s.offset_value) : Math.abs(s.offset_value);
-		s.offset_value = offset;
-	}
-	return compileToCode(s);
 });
 </script>
 
