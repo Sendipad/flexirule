@@ -237,7 +237,7 @@ async function onCreate(finalPayload = null) {
 			? {
 					...selectedItemData.value,
 					label: (customLabel.value || selectedItemData.value.label).trim(),
-				}
+			  }
 			: null);
 
 	if (!selection) return;
