@@ -30,6 +30,17 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 	const nodes = ref([]);
 	const edges = ref([]);
 
+	// ── Variable cache for memoization ──
+	const variableCache = new Map();
+	let lastGraphHash = "";
+
+	function getGraphHash() {
+		// Simple hash of nodes and edges count/ids to detect structural changes
+		const nodeIds = nodes.value.map((n) => n.id + (n.data?.return_variable || "")).join(",");
+		const edgeIds = edges.value.map((e) => `${e.source}->${e.target}`).join(",");
+		return `${nodeIds}|${edgeIds}`;
+	}
+
 	// ── Cascade disable computed ──
 	// BFS from start node: any node not reachable via enabled path is "effectively disabled"
 	const effectiveDisabledIds = computed(() => {
@@ -153,6 +164,13 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 
 	// ── Available variables (upstream context) ──
 	async function getAvailableVariables(upToNodeId = null, ruleDoc = null) {
+		const currentHash = getGraphHash();
+		const cacheKey = `${upToNodeId}|${ruleDoc?.name || ""}`;
+
+		if (currentHash === lastGraphHash && variableCache.has(cacheKey)) {
+			return variableCache.get(cacheKey);
+		}
+
 		// Some callers pass action_id instead of node.id; normalize so upstream traversal works.
 		let scopedNodeId = upToNodeId;
 		if (
@@ -430,7 +448,10 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			}
 		}
 
-		return context_vars.reverse();
+		const result = context_vars.reverse();
+		lastGraphHash = currentHash;
+		variableCache.set(cacheKey, result);
+		return result;
 	}
 
 	function mapReturnTypeToFieldType(returnType) {

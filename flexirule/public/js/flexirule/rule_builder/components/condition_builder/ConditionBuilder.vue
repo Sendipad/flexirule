@@ -120,12 +120,20 @@ const rootGroup = reactive(normalizeModel(props.modelValue));
 
 let isUpdating = false;
 
+/**
+ * Debounced emission to prevent heavy serialization on every keystroke
+ */
+const emitUpdate = flexirule.utils.debounce((val) => {
+	if (isUpdating) return;
+	emit("update:modelValue", JSON.parse(JSON.stringify(val)));
+}, 300);
+
 // Sync with parent when rootGroup changes
 watch(
 	rootGroup,
 	(newVal) => {
 		if (isUpdating) return;
-		emit("update:modelValue", JSON.parse(JSON.stringify(newVal)));
+		emitUpdate(newVal);
 	},
 	{ deep: true }
 );

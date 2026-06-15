@@ -17,6 +17,7 @@ import { useGraphStore } from "./useGraphStore";
 import { useMetaStore } from "./useMetaStore";
 import { useUIStore } from "./useUIStore";
 import { useHistoryStore } from "./useHistoryStore";
+import { useRuleValidation } from "../composables/useRuleValidation";
 
 export const useRuleStore = defineStore("rule-builder-rule", () => {
 	// ── Core state ──
@@ -59,6 +60,8 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		get: () => useGraphStore().nodes,
 		set: (val) => (useGraphStore().nodes = val),
 	});
+
+	const { validation_errors, validateRule } = useRuleValidation(nodes);
 
 	const edges = computed({
 		get: () => useGraphStore().edges,
@@ -172,49 +175,10 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 			graphStore.normalize_graph_nodes();
 
 			// 1. Validate mandatory fields using contract
-			const { validateAgainstContract } = await import("../../core/contracts");
-			const errors = [];
+			const validation = await validateRule(rule_doc.value);
 
-			for (const node of graphStore.nodes) {
-				if (node.type === "start") continue;
-
-				const label = node.data?.action_label || node.label || node.id;
-
-				if (node.type === "selector") {
-					errors.push(
-						`${label}: ${__("Please configure this action type before saving")}`
-					);
-					continue;
-				}
-
-				const doc = node.data;
-
-				// Deep sync condition_json for validation if missing
-				if (doc.action_type === "Condition" && !doc.condition_json && doc.config) {
-					doc.condition_json = JSON.stringify(doc.config);
-				}
-
-				// Auto-populate hidden mandatory fields
-				if (["Document Action", "Assignment", "Notify"].includes(doc.action_type)) {
-					if (doc.action_type === "Document Action" && !doc.permission_audit_reason) {
-						doc.permission_audit_reason = "System Rule Execution";
-					}
-					if (!doc.reference_doctype) {
-						doc.reference_doctype = rule_doc.value?.document_type;
-					}
-				}
-
-				// Contract-based validation
-				const contractValidation = validateAgainstContract(doc);
-				if (!contractValidation.valid) {
-					contractValidation.errors.forEach((err) => {
-						errors.push(`${label}: ${err}`);
-					});
-				}
-			}
-
-			if (errors.length > 0) {
-				const message = errors.map((e) => `<li>${e}</li>`).join("");
+			if (!validation.valid) {
+				const message = validation.errors.map((e) => `<li>${e}</li>`).join("");
 				frappe.msgprint({
 					title: __("Validation Error"),
 					message: `<ul class="text-left">${message}</ul>`,

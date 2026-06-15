@@ -707,6 +707,12 @@ let lastEmittedJSON = "";
 const VariableTrigger = Mention.extend({ name: `variableTrigger_${uid}` });
 const CommandTrigger = Mention.extend({ name: `commandTrigger_${uid}` });
 
+/**
+ * Robust query normalization to handle Tiptap edge cases where
+ * trigger characters are leaked into the query string.
+ */
+const normalizeQuery = (q) => (q || "").replace(/^[/@]/, "").toLowerCase();
+
 const editor = new Editor({
 	extensions: [
 		StarterKit.configure({
@@ -730,12 +736,12 @@ const editor = new Editor({
 				pluginKey: new PluginKey(`variableTrigger_${uid}`),
 				render: () => createSuggestionRenderer(),
 				items: ({ query }) => {
-					const q = query.toLowerCase();
+					const q = normalizeQuery(query);
 					const base = [
 						{ id: "doc", label: "doc", type: "variable", icon: "📄" },
 						{ id: "vars", label: "vars", type: "variable", icon: "📦" },
 					];
-					const options = [
+					const optionsList = [
 						...base,
 						...availableVariableOptions.value.map((v) => ({
 							id: v.value || v,
@@ -744,7 +750,11 @@ const editor = new Editor({
 							icon: "fa fa-cube",
 						})),
 					];
-					return options
+
+					// If query is empty right after typing '@', show all options
+					if (!q) return optionsList.slice(0, 20);
+
+					return optionsList
 						.filter(
 							(v) =>
 								v.id.toLowerCase().includes(q) || v.label.toLowerCase().includes(q)
@@ -771,7 +781,7 @@ const editor = new Editor({
 				pluginKey: new PluginKey(`commandTrigger_${uid}`),
 				render: () => createSuggestionRenderer(),
 				items: ({ query }) => {
-					const q = query.toLowerCase();
+					const q = normalizeQuery(query);
 					let commands = getCommandsForFieldtype(fieldType.value);
 					let formulas = getFormulasForFieldtype(fieldType.value);
 
@@ -800,8 +810,14 @@ const editor = new Editor({
 						description: f.description,
 					}));
 
-					return [...commands, ...mappedFormulas].filter((c) =>
-						c.label.toLowerCase().includes(q)
+					const allItems = [...commands, ...mappedFormulas];
+
+					// Fix: Return all items if query is empty (initial trigger)
+					if (!q) return allItems;
+
+					return allItems.filter(
+						(c) =>
+							c.label.toLowerCase().includes(q) || c.id.toLowerCase().includes(q)
 					);
 				},
 				command: ({ editor, range, props }) => {
@@ -1082,7 +1098,9 @@ function onStaticKeydown(e) {
 		isDynamicMode.value = true;
 		lastEmittedJSON = ""; // allow next emitChanges to propagate
 		nextTick(() => {
-			editor.commands.setContent("");
+			// Fix: Ensure editor is empty and focused before inserting trigger
+			// to allow Tiptap's Suggestion extension to catch the start-of-line trigger.
+			editor.commands.clearContent();
 			editor.commands.focus();
 			editor.commands.insertContent(e.key);
 		});

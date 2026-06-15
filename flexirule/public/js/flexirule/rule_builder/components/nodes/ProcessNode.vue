@@ -4,6 +4,7 @@ import { Handle, Position } from "@vue-flow/core";
 import { useRuleStore, useGraphStore, useUIStore } from "../../stores";
 import { getContract } from "../../../core/contracts";
 import { useNodeExecutionState } from "../../composables/useNodeExecutionState";
+import { useNodeLayout } from "../../composables/useNodeLayout";
 import NodeToolbar from "./NodeToolbar.vue";
 import InlineEditor from "./InlineEditor.vue";
 
@@ -14,32 +15,13 @@ const uiStore = useUIStore();
 // Legacy
 const store = uiStore;
 
-const isHorizontal = computed(() => ruleStore.settings?.layout_direction !== "Top to Bottom");
-
-const targetPos = computed(
-	() => props.targetPosition || (isHorizontal.value ? Position.Left : Position.Top)
-);
-const sourcePos = computed(
-	() => props.sourcePosition || (isHorizontal.value ? Position.Right : Position.Bottom)
-);
+const { isHorizontal, targetPos, sourcePos, nodeMeta } = useNodeLayout(props, ruleStore);
 
 const isEffectiveDisabled = computed(() => {
 	return graphStore.effectiveDisabledIds?.has(props.id);
 });
 
 const isReadOnly = computed(() => ruleStore.is_read_only);
-
-const nodeMeta = computed(() => {
-	const actionType = props.data?.action_type || "Process";
-	const contract = getContract(actionType);
-	const css = contract.css || {};
-
-	return {
-		color: css.color || "#0d6efd",
-		icon: css.icon || "fa-cog",
-		typeLabel: (actionType || "PROCESS").toUpperCase(),
-	};
-});
 
 const nodeIdRef = computed(() => props.id);
 const { isExecuted, isRunning, isErrored, executionOrder } = useNodeExecutionState(nodeIdRef);
@@ -81,10 +63,7 @@ const hasDetails = computed(() => {
 	const d = props.data || {};
 	return d.reference_doctype || d.target_field || d.mutation_mode || d.variable_name;
 });
-const isTerminal = computed(() => {
-	const actionType = props.data?.action_type || "Process";
-	return getContract(actionType).terminal || false;
-});
+const isTerminal = computed(() => nodeMeta.value.isTerminal);
 </script>
 
 <template>
