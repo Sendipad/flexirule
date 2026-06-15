@@ -651,12 +651,13 @@ class QueryRecordsHandler(ActionHandler):
 
 	def _query_doc(self, reference_doctype, config, context, action, ignore_permissions):
 		"""Fetch a single document and return as dict."""
-		# Resolve reference_doctype which can be an expression
-		resolved_doctype = reference_doctype
-		if reference_doctype and "{" in reference_doctype:
-			resolved_doctype = self._resolve_value_expression_with_context(
-				reference_doctype, context, "Query Records.reference_doctype", action
-			)
+		# Prioritize config.doctype_name for newer version, fallback to action.reference_doctype
+		raw_doctype = config.get("doctype_name") or reference_doctype
+
+		# Resolve doctype which can be an expression
+		resolved_doctype = self._resolve_value_expression_with_context(
+			raw_doctype, context, "Query Records.doctype_name", action
+		)
 
 		if not resolved_doctype:
 			frappe.throw(_("Reference DocType is required for Query Doc"))
@@ -688,7 +689,7 @@ class QueryRecordsHandler(ActionHandler):
 		else:
 			# Get doc / Get Doc from Cache
 			docname = config.get("docname")
-			if isinstance(docname, dict):
+			if docname:
 				docname = self._resolve_value_expression_with_context(
 					docname, context, "Query Records.docname", action
 				)
