@@ -301,7 +301,8 @@ class ActionHandler(ABC):
 		eval_locals = {
 			"doc": doc,
 			"old_doc": old_doc,
-			"vars": context.get("vars", {}),
+			"vars": frappe._dict(context.get("vars", {})),
+			"context": frappe._dict(context),
 			"item": context.get("item"),
 			"loop": context.get("loop"),
 			"add_days": add_days,

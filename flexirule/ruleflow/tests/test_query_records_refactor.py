@@ -1,7 +1,8 @@
+from unittest.mock import patch
+
 import frappe
 from frappe.tests.utils import FrappeTestCase
 from frappe.utils import random_string
-from unittest.mock import patch
 
 from flexirule.ruleflow.core.action_handlers.query_records import QueryRecordsHandler
 from flexirule.ruleflow.utils.graph_validator import validate_graph_integrity
@@ -76,22 +77,24 @@ class TestQueryRecordsRefactor(FrappeTestCase):
 
 	def test_query_doc_strategies_mocked(self):
 		# Create a test doc
-		todo = frappe.get_doc({
-			"doctype": "ToDo",
-			"description": f"Test Doc {random_string(5)}",
-		}).insert(ignore_permissions=True)
+		todo = frappe.get_doc(
+			{
+				"doctype": "ToDo",
+				"description": f"Test Doc {random_string(5)}",
+			}
+		).insert(ignore_permissions=True)
 		doc_name = todo.name
 
 		# Strategy: Get doc
-		action_get_doc = frappe._dict({
-			"operation": "Query Doc",
-			"reference_doctype": "ToDo",
-			"config": frappe.as_json({
-				"fetch_strategy": "Get doc",
-				"doctype_name": "ToDo",
-				"docname": doc_name
-			})
-		})
+		action_get_doc = frappe._dict(
+			{
+				"operation": "Query Doc",
+				"reference_doctype": "ToDo",
+				"config": frappe.as_json(
+					{"fetch_strategy": "Get doc", "doctype_name": "ToDo", "docname": doc_name}
+				),
+			}
+		)
 
 		with patch("frappe.get_doc", wraps=frappe.get_doc) as mock_get_doc:
 			self.handler.execute(action_get_doc, {}, None)
@@ -99,36 +102,38 @@ class TestQueryRecordsRefactor(FrappeTestCase):
 			mock_get_doc.assert_any_call("ToDo", doc_name)
 
 		# Strategy: Get Doc from Cache
-		action_get_cached = frappe._dict({
-			"operation": "Query Doc",
-			"reference_doctype": "ToDo",
-			"config": frappe.as_json({
-				"fetch_strategy": "Get Doc from Cache",
-				"doctype_name": "ToDo",
-				"docname": doc_name
-			})
-		})
+		action_get_cached = frappe._dict(
+			{
+				"operation": "Query Doc",
+				"reference_doctype": "ToDo",
+				"config": frappe.as_json(
+					{"fetch_strategy": "Get Doc from Cache", "doctype_name": "ToDo", "docname": doc_name}
+				),
+			}
+		)
 
 		with patch("frappe.get_cached_doc", wraps=frappe.get_cached_doc) as mock_get_cached:
 			self.handler.execute(action_get_cached, {}, None)
 			mock_get_cached.assert_called_with("ToDo", doc_name)
 
 	def test_query_doc_dynamic_docname(self):
-		todo = frappe.get_doc({
-			"doctype": "ToDo",
-			"description": "Dynamic Docname Test",
-		}).insert(ignore_permissions=True)
+		todo = frappe.get_doc(
+			{
+				"doctype": "ToDo",
+				"description": "Dynamic Docname Test",
+			}
+		).insert(ignore_permissions=True)
 
 		context = {"vars": {"target_id": todo.name}}
-		action = frappe._dict({
-			"operation": "Query Doc",
-			"reference_doctype": "ToDo",
-			"config": frappe.as_json({
-				"fetch_strategy": "Get doc",
-				"doctype_name": "ToDo",
-				"docname": "{vars.target_id}"
-			})
-		})
+		action = frappe._dict(
+			{
+				"operation": "Query Doc",
+				"reference_doctype": "ToDo",
+				"config": frappe.as_json(
+					{"fetch_strategy": "Get doc", "doctype_name": "ToDo", "docname": "{vars.target_id}"}
+				),
+			}
+		)
 
 		result, _ = self.handler.execute(action, context, None)
 		self.assertIsNotNone(result)
@@ -136,43 +141,51 @@ class TestQueryRecordsRefactor(FrappeTestCase):
 
 	def test_query_doc_latest_with_context_filters(self):
 		user_email = f"test_{random_string(5)}@example.com"
-		frappe.get_doc({
-			"doctype": "User",
-			"email": user_email,
-			"first_name": "Context Filter Test"
-		}).insert(ignore_permissions=True)
+		frappe.get_doc({"doctype": "User", "email": user_email, "first_name": "Context Filter Test"}).insert(
+			ignore_permissions=True
+		)
 
 		context = {"vars": {"current_email": user_email}}
-		action = frappe._dict({
-			"operation": "Query Doc",
-			"reference_doctype": "User",
-			"config": frappe.as_json({
-				"fetch_strategy": "Get latest Doc",
-				"doctype_name": "User",
-				"filters": [["User", "email", "=", "{vars.current_email}"]]
-			})
-		})
+		action = frappe._dict(
+			{
+				"operation": "Query Doc",
+				"reference_doctype": "User",
+				"config": frappe.as_json(
+					{
+						"fetch_strategy": "Get latest Doc",
+						"doctype_name": "User",
+						"filters": [["User", "email", "=", "{vars.current_email}"]],
+					}
+				),
+			}
+		)
 
 		result, _ = self.handler.execute(action, context, None)
 		self.assertIsNotNone(result)
 		self.assertEqual(result.get("email"), user_email)
 
 	def test_query_doc_dynamic_doctype(self):
-		todo = frappe.get_doc({
-			"doctype": "ToDo",
-			"description": "Dynamic Doctype Test",
-		}).insert(ignore_permissions=True)
+		todo = frappe.get_doc(
+			{
+				"doctype": "ToDo",
+				"description": "Dynamic Doctype Test",
+			}
+		).insert(ignore_permissions=True)
 
 		context = {"vars": {"runtime_doctype": "ToDo", "todo_name": todo.name}}
-		action = frappe._dict({
-			"operation": "Query Doc",
-			"reference_doctype": "User", # reference_doctype should be ignored if doctype_name is provided
-			"config": frappe.as_json({
-				"fetch_strategy": "Get doc",
-				"doctype_name": "{vars.runtime_doctype}",
-				"docname": "{vars.todo_name}"
-			})
-		})
+		action = frappe._dict(
+			{
+				"operation": "Query Doc",
+				"reference_doctype": "User",  # reference_doctype should be ignored if doctype_name is provided
+				"config": frappe.as_json(
+					{
+						"fetch_strategy": "Get doc",
+						"doctype_name": "{vars.runtime_doctype}",
+						"docname": "{vars.todo_name}",
+					}
+				),
+			}
+		)
 
 		result, _ = self.handler.execute(action, context, None)
 		self.assertIsNotNone(result)
@@ -180,14 +193,13 @@ class TestQueryRecordsRefactor(FrappeTestCase):
 		self.assertEqual(result.get("name"), todo.name)
 
 	def test_query_doc_single_strategy_fail_on_non_single(self):
-		action = frappe._dict({
-			"operation": "Query Doc",
-			"reference_doctype": "User",
-			"config": frappe.as_json({
-				"fetch_strategy": "Get Single DocType",
-				"doctype_name": "User"
-			})
-		})
+		action = frappe._dict(
+			{
+				"operation": "Query Doc",
+				"reference_doctype": "User",
+				"config": frappe.as_json({"fetch_strategy": "Get Single DocType", "doctype_name": "User"}),
+			}
+		)
 
 		with self.assertRaisesRegex(frappe.ValidationError, "is not a Single DocType"):
 			self.handler.execute(action, {}, None)
