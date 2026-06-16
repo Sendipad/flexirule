@@ -1,7 +1,12 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from "vue";
 import { Handle, Position } from "@vue-flow/core";
-import { getOperationOptions, isTerminalAction } from "../../core/contracts";
+import {
+	getOperationOptions,
+	isTerminalAction,
+	PROCESS_REGISTRY,
+	getContract,
+} from "../../core/contracts";
 import { useStore } from "../stores";
 import { mapActionTypeToNodeType } from "../composables/useActionTypeMapper";
 import { useActionSearch } from "../composables/useActionSearch";
@@ -64,6 +69,7 @@ const {
 
 const selectedIndex = ref(-1);
 const searchInputRef = ref(null);
+const intermediateSearchRef = ref(null);
 const labelInputRef = ref(null);
 const zoneRef = ref(null);
 const { handleTab: trapTab, trapFocus, untrapFocus } = useFocusTrap();
@@ -84,9 +90,12 @@ const {
 	offset: 0,
 });
 
-const step = ref("discovery"); // 'discovery' | 'labeling'
+const step = ref("discovery"); // 'discovery' | 'select_mode' | 'select_process' | 'select_process_op' | 'labeling'
 const customLabel = ref("");
 const selectedItemData = ref(null);
+const skippedIntermediateSteps = ref(false);
+const intermediateSearchQuery = ref("");
+const selectedProcess = ref(null);
 
 // Node mode state
 const selectedPreset = ref({
@@ -104,6 +113,28 @@ const sourcePos = computed(
 	() => props.sourcePosition || (isHorizontal.value ? Position.Right : Position.Bottom)
 );
 
+function goToStep(newStep) {
+	step.value = newStep;
+	selectedIndex.value = -1;
+	intermediateSearchQuery.value = "";
+
+	nextTick(() => {
+		updatePopoverPosition();
+		if (newStep === "discovery") {
+			searchInputRef.value?.focus();
+		} else if (["select_mode", "select_process", "select_process_op"].includes(newStep)) {
+			intermediateSearchRef.value?.focus();
+		} else if (newStep === "labeling") {
+			setTimeout(() => {
+				if (labelInputRef.value) {
+					labelInputRef.value.focus();
+					labelInputRef.value.select();
+				}
+			}, 50);
+		}
+	});
+}
+
 function selectItem(item) {
 	if (!item || item.type === "header") return;
 
@@ -119,21 +150,71 @@ function selectItem(item) {
 		return;
 	}
 
-	const action_type = item.action_type || item.value || "Process";
-	const selection = {
+	const action_type = item.action_type || item.actionType || item.value || "Process";
+
+	// Direct selection of an operation
+	if (item.operation || item.type === "op") {
+		const selection = {
+			action_type,
+			operation: item.operation || null,
+			process_name: item.process_name || null,
+			label: (item.label || item.value || action_type)
+				.replace(`${action_type}: `, "")
+				.replace("Process: ", ""),
+			icon: item.icon || "fa-cog",
+			color: item.color || "#6b7280",
+		};
+
+		selectedItemData.value = selection;
+		customLabel.value = selection.label;
+		skippedIntermediateSteps.value = true;
+
+		if (props.mode === "node") {
+			selectedPreset.value = {
+				action_type: selection.action_type,
+				operation: selection.operation,
+				process_name: selection.process_name,
+				selected_label: selection.label,
+			};
+		}
+
+		goToStep("labeling");
+		return;
+	}
+
+	// Selection of an Action Type (needs modes or process selection)
+	const contract = getContract(action_type);
+	const options = getOperationOptions(action_type);
+	const baseData = {
 		action_type,
-		operation: item.operation || null,
-		process_name: item.process_name || null,
-		label: (item.label || item.value || action_type)
-			.replace(`${action_type}: `, "")
-			.replace("Process: ", ""),
-		icon: item.icon || "fa-cog",
-		color: item.color || "#6b7280",
+		icon: item.icon || contract?.css?.icon || "fa-cog",
+		color: item.color || contract?.css?.color || "#6b7280",
+		label: (item.label || item.value || action_type).replace(":", ""),
 	};
 
+	selectedItemData.value = { ...baseData };
+
+	if (action_type === "Process") {
+		skippedIntermediateSteps.value = false;
+		goToStep("select_process");
+		return;
+	}
+
+	if (options && options.length > 1) {
+		skippedIntermediateSteps.value = false;
+		goToStep("select_mode");
+		return;
+	}
+
+	// Single mode or no options
+	const selection = {
+		...baseData,
+		operation: options.length === 1 ? options[0].value : null,
+		process_name: null,
+	};
 	selectedItemData.value = selection;
 	customLabel.value = selection.label;
-	step.value = "labeling";
+	skippedIntermediateSteps.value = true;
 
 	if (props.mode === "node") {
 		selectedPreset.value = {
@@ -144,24 +225,136 @@ function selectItem(item) {
 		};
 	}
 
-	nextTick(() => {
-		updatePopoverPosition();
-		setTimeout(() => {
-			if (labelInputRef.value) {
-				labelInputRef.value.focus();
-				labelInputRef.value.select();
-			}
-		}, 50);
-	});
+	goToStep("labeling");
+}
+
+const filteredModes = computed(() => {
+	const actionType = selectedItemData.value?.action_type;
+	if (!actionType) return [];
+	const options = getOperationOptions(actionType);
+	if (!intermediateSearchQuery.value) return options;
+	const query = intermediateSearchQuery.value.toLowerCase();
+	return options.filter(
+		(op) => op.label.toLowerCase().includes(query) || op.value.toLowerCase().includes(query)
+	);
+});
+
+const filteredProcesses = computed(() => {
+	const list = (PROCESS_REGISTRY || []).map((p) => ({
+		...p,
+		label: p.process_name || p.name,
+		name: p.name,
+		icon: "fa-cogs",
+		color: "#8b5cf6",
+		description: p.module || "",
+	}));
+	if (!intermediateSearchQuery.value) return list;
+	const query = intermediateSearchQuery.value.toLowerCase();
+	return list.filter(
+		(p) => p.label.toLowerCase().includes(query) || p.name.toLowerCase().includes(query)
+	);
+});
+
+const filteredProcessOps = computed(() => {
+	if (!selectedProcess.value) return [];
+	const ops = (selectedProcess.value.operations || []).map((op) => ({
+		...op,
+		label: op.label || op.func_name,
+		name: op.func_name,
+		icon: op.icon || "fa-cog",
+		color: op.color || "#8b5cf6",
+		description: op.description || "",
+	}));
+	if (!intermediateSearchQuery.value) return ops;
+	const query = intermediateSearchQuery.value.toLowerCase();
+	return ops.filter(
+		(op) => op.label.toLowerCase().includes(query) || op.name.toLowerCase().includes(query)
+	);
+});
+
+function getIntermediateResults() {
+	if (step.value === "select_mode") return filteredModes.value;
+	if (step.value === "select_process") return filteredProcesses.value;
+	if (step.value === "select_process_op") return filteredProcessOps.value;
+	return [];
+}
+
+function selectIntermediateItem(item) {
+	if (step.value === "select_mode") selectMode(item);
+	else if (step.value === "select_process") selectProcess(item);
+	else if (step.value === "select_process_op") selectProcessOp(item);
+}
+
+function selectMode(op) {
+	selectedItemData.value.operation = op.value;
+	selectedItemData.value.label = op.label;
+	customLabel.value = op.label;
+
+	if (props.mode === "node") {
+		selectedPreset.value.operation = op.value;
+		selectedPreset.value.selected_label = op.label;
+	}
+
+	goToStep("labeling");
+}
+
+function selectProcess(proc) {
+	selectedProcess.value = proc;
+	selectedItemData.value.process_name = proc.name;
+
+	if (props.mode === "node") {
+		selectedPreset.value.process_name = proc.name;
+	}
+
+	goToStep("select_process_op");
+}
+
+function selectProcessOp(op) {
+	selectedItemData.value.operation = op.func_name || op.value;
+	selectedItemData.value.label = op.label;
+	customLabel.value = op.label;
+
+	if (props.mode === "node") {
+		selectedPreset.value.operation = op.func_name || op.value;
+		selectedPreset.value.selected_label = op.label;
+	}
+
+	goToStep("labeling");
+}
+
+function getStepTitle() {
+	if (step.value === "select_mode") return window.__ ? __("Select Mode") : "Select Mode";
+	if (step.value === "select_process") return window.__ ? __("Select Process") : "Select Process";
+	if (step.value === "select_process_op")
+		return window.__ ? __("Select Operation") : "Select Operation";
+	return "";
+}
+
+function getStepSubtitle() {
+	if (step.value === "select_mode") return selectedItemData.value?.label;
+	if (step.value === "select_process") return selectedItemData.value?.label;
+	if (step.value === "select_process_op")
+		return selectedProcess.value?.label || selectedProcess.value?.name;
+	return "";
+}
+
+function getStepPlaceholder() {
+	if (step.value === "select_mode") return window.__ ? __("Filter modes...") : "Filter modes...";
+	if (step.value === "select_process")
+		return window.__ ? __("Filter processes...") : "Filter processes...";
+	if (step.value === "select_process_op")
+		return window.__ ? __("Filter operations...") : "Filter operations...";
+	return "";
 }
 
 function nextSelectableIndex(startIndex, direction) {
-	const total = filteredResults.value.length;
+	const list = step.value === "discovery" ? filteredResults.value : getIntermediateResults();
+	const total = list.length;
 	if (!total) return -1;
 	let index = startIndex;
 	for (let stepCount = 0; stepCount < total; stepCount++) {
 		index = (index + direction + total) % total;
-		if (filteredResults.value[index]?.type !== "header") return index;
+		if (list[index]?.type !== "header") return index;
 	}
 	return -1;
 }
@@ -173,7 +366,7 @@ function handleTab(e) {
 
 function onKeydown(e) {
 	if (e.key === "Escape") {
-		if (step.value === "labeling") {
+		if (step.value !== "discovery") {
 			goBack();
 			e.stopPropagation();
 		} else {
@@ -197,6 +390,22 @@ function onKeydown(e) {
 			e.preventDefault();
 			selectItem(filteredResults.value[selectedIndex.value]);
 		}
+	} else if (["select_mode", "select_process", "select_process_op"].includes(step.value)) {
+		if (e.key === "ArrowDown") {
+			e.preventDefault();
+			selectedIndex.value = nextSelectableIndex(selectedIndex.value, 1);
+			scrollToActive();
+		} else if (e.key === "ArrowUp") {
+			e.preventDefault();
+			selectedIndex.value = nextSelectableIndex(selectedIndex.value, -1);
+			scrollToActive();
+		} else if (e.key === "Enter" && selectedIndex.value !== -1) {
+			e.preventDefault();
+			const list = getIntermediateResults();
+			if (list[selectedIndex.value]) {
+				selectIntermediateItem(list[selectedIndex.value]);
+			}
+		}
 	} else if (step.value === "labeling") {
 		if (e.key === "Enter") {
 			e.preventDefault();
@@ -206,9 +415,23 @@ function onKeydown(e) {
 }
 
 function goBack() {
-	step.value = "discovery";
-	selectedItemData.value = null;
-	nextTick(() => searchInputRef.value?.focus());
+	if (step.value === "labeling" && skippedIntermediateSteps.value) {
+		goToStep("discovery");
+	} else if (step.value === "labeling") {
+		if (selectedItemData.value.action_type === "Process") {
+			goToStep("select_process_op");
+		} else {
+			goToStep("select_mode");
+		}
+	} else if (step.value === "select_process_op") {
+		selectedProcess.value = null;
+		goToStep("select_process");
+	} else if (["select_mode", "select_process"].includes(step.value)) {
+		selectedItemData.value = null;
+		goToStep("discovery");
+	} else {
+		goToStep("discovery");
+	}
 }
 
 function confirmSelection() {
@@ -493,6 +716,60 @@ defineExpose({
 				</div>
 			</template>
 
+			<template
+				v-else-if="['select_mode', 'select_process', 'select_process_op'].includes(step)"
+			>
+				<div class="intermediate-container">
+					<div class="step-header">
+						<button class="btn-back" @click="goBack">
+							<i class="fa fa-chevron-left"></i>
+						</button>
+						<div class="header-text-group">
+							<div class="step-title">{{ getStepTitle() }}</div>
+							<div class="step-subtitle">{{ getStepSubtitle() }}</div>
+						</div>
+					</div>
+					<div class="popover-search">
+						<i class="fa fa-filter"></i>
+						<input
+							ref="intermediateSearchRef"
+							type="text"
+							v-model="intermediateSearchQuery"
+							:placeholder="getStepPlaceholder()"
+							class="form-control"
+							autocomplete="off"
+						/>
+					</div>
+					<div class="popover-body" @wheel.stop>
+						<div
+							v-for="(item, idx) in getIntermediateResults()"
+							:key="item.key || idx"
+							:class="['result-item is-option', { active: idx === selectedIndex }]"
+							@mousedown.prevent="selectIntermediateItem(item)"
+							@mouseover="selectedIndex = idx"
+						>
+							<div class="item-icon" :style="{ color: item.color }">
+								<i
+									:class="[
+										'fa',
+										item.icon?.replace('fa ', '') || 'fa-cog',
+									]"
+								></i>
+							</div>
+							<div class="item-content">
+								<div class="item-label">{{ item.label }}</div>
+								<div v-if="item.description || item.name" class="item-desc">
+									{{ item.description || item.name }}
+								</div>
+							</div>
+						</div>
+						<div v-if="!getIntermediateResults().length" class="no-results">
+							{{ __("No matches found") }}
+						</div>
+					</div>
+				</div>
+			</template>
+
 			<template v-else-if="step === 'labeling'">
 				<div class="labeling-container">
 					<div class="selected-item-preview">
@@ -613,6 +890,60 @@ defineExpose({
 						<span v-if="selectedPreset.process_name" class="selected-process-name">
 							({{ selectedPreset.process_name }})
 						</span>
+					</div>
+				</template>
+
+				<template
+					v-else-if="['select_mode', 'select_process', 'select_process_op'].includes(step)"
+				>
+					<div class="intermediate-container in-node">
+						<div class="step-header">
+							<button class="btn-back" @click="goBack">
+								<i class="fa fa-chevron-left"></i>
+							</button>
+							<div class="header-text-group">
+								<div class="step-title">{{ getStepTitle() }}</div>
+								<div class="step-subtitle">{{ getStepSubtitle() }}</div>
+							</div>
+						</div>
+						<div class="popover-search">
+							<i class="fa fa-filter"></i>
+							<input
+								ref="intermediateSearchRef"
+								type="text"
+								v-model="intermediateSearchQuery"
+								:placeholder="getStepPlaceholder()"
+								class="form-control input-xs"
+								autocomplete="off"
+							/>
+						</div>
+						<div class="popover-body" @wheel.stop>
+							<div
+								v-for="(item, idx) in getIntermediateResults()"
+								:key="item.key || idx"
+								:class="['result-item is-option', { active: idx === selectedIndex }]"
+								@mousedown.prevent="selectIntermediateItem(item)"
+								@mouseover="selectedIndex = idx"
+							>
+								<div class="item-icon" :style="{ color: item.color }">
+									<i
+										:class="[
+											'fa',
+											item.icon?.replace('fa ', '') || 'fa-cog',
+										]"
+									></i>
+								</div>
+								<div class="item-content">
+									<div class="item-label">{{ item.label }}</div>
+									<div v-if="item.description || item.name" class="item-desc">
+										{{ item.description || item.name }}
+									</div>
+								</div>
+							</div>
+							<div v-if="!getIntermediateResults().length" class="no-results">
+								{{ __("No matches found") }}
+							</div>
+						</div>
 					</div>
 				</template>
 
@@ -916,6 +1247,69 @@ defineExpose({
 	background-color: var(--fxr-bg-card) !important;
 	border: 2px solid var(--fxr-border) !important;
 	z-index: 10 !important;
+}
+
+/* Intermediate step styles */
+
+.intermediate-container {
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+	min-height: 0;
+}
+
+.intermediate-container.in-node {
+	max-height: 350px;
+}
+
+.step-header {
+	padding: 8px 12px;
+	background: var(--fxr-surface-2);
+	border-bottom: 1px solid var(--fxr-border-subtle);
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+.btn-back {
+	background: none;
+	border: none;
+	padding: 4px 8px;
+	cursor: pointer;
+	color: var(--fxr-text-soft);
+	border-radius: var(--fxr-radius-sm);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: all 0.2s;
+}
+
+.btn-back:hover {
+	background-color: var(--fxr-bg-hover);
+	color: var(--fxr-text-strong);
+}
+
+.header-text-group {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.step-title {
+	font-size: 10px;
+	font-weight: 700;
+	color: var(--fxr-accent);
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+}
+
+.step-subtitle {
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--fxr-text-strong);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 /* Labeling step styles */
