@@ -191,16 +191,14 @@ watch(
 		props.modelValue.norm_profile,
 		JSON.stringify(props.modelValue.norm_pipeline),
 	],
-	() => {
-		if (showDemo.value) debouncedRunDemo();
-	}
-);
+	([newInput, newProfile, newPipeline], [oldInput, oldProfile, oldPipeline]) => {
+		if (!showDemo.value) return;
 
-watch(
-	() => props.modelValue.norm_profile,
-	(newProfile) => {
-		if (newProfile !== "Custom") {
-			runDemo(); // Immediate run to update pipeline view
+		// If profile changed to a preset, run immediately for snappiness and sync
+		if (newProfile !== oldProfile && newProfile !== "Custom") {
+			runDemo();
+		} else {
+			debouncedRunDemo();
 		}
 	}
 );

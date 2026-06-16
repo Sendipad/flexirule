@@ -44,3 +44,19 @@ class TestNormalizationRefactor(FrappeTestCase):
 		self.assertTrue(len(res["breakdown"]) > 0)
 		self.assertIn("trim", res["available_operations"])
 		self.assertIn("URL Safe", res["available_profiles"])
+
+	def test_new_utilities(self):
+		# Arabic/Indic translation
+		res = execute_normalization_pipeline("أحمد ١٢٣", pipeline=["translate_chars"])
+		self.assertEqual(res["normalized_value"], "احمد 123")
+
+		# Diacritics
+		res = execute_normalization_pipeline("Café", pipeline=["remove_diacritics"])
+		self.assertEqual(res["normalized_value"], "Cafe")
+
+		# Phone normalization
+		res = execute_normalization_pipeline("+20 123-456-789", pipeline=["phone_normalize"])
+		self.assertEqual(res["normalized_value"], "+20123456789")
+
+		res = execute_normalization_pipeline("(01) ٢٣٤-٥٦٧", pipeline=["phone_normalize"])
+		self.assertEqual(res["normalized_value"], "01234567")

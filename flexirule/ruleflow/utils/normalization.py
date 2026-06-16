@@ -8,8 +8,11 @@ from typing import Any
 import frappe
 
 # =============================================================================
-# TRANSLATION TABLE
+# TRANSLATION TABLES
 # =============================================================================
+
+ARABIC_INDIC_DIGITS = {chr(0x660 + i): str(i) for i in range(10)}
+PERSIAN_DIGITS = {chr(0x6F0 + i): str(i) for i in range(10)}
 
 TRANSLATION_TABLE = str.maketrans(
 	{
@@ -21,9 +24,42 @@ TRANSLATION_TABLE = str.maketrans(
 		"ؤ": "و",
 		"ئ": "ي",
 		"ـ": "",
-		**{chr(0x660 + i): str(i) for i in range(10)},  # Arabic digits
+		**ARABIC_INDIC_DIGITS,
+		**PERSIAN_DIGITS,
 	}
 )
+
+# =============================================================================
+# HELPERS
+# =============================================================================
+
+
+def remove_diacritics(text: Any) -> Any:
+	"""Strip accents/diacritics from Latin characters."""
+	if not isinstance(text, str):
+		return text
+	# Decompose characters into base + combining marks
+	normalized = unicodedata.normalize("NFD", text)
+	# Filter out combining marks (category 'Mn')
+	return "".join(c for c in normalized if unicodedata.category(c) != "Mn")
+
+
+def phone_normalize(text: Any) -> Any:
+	"""Clean phone numbers: strip non-digits except leading +, handle Indic digits."""
+	if not isinstance(text, str):
+		return text
+
+	# Apply translation for non-Western digits
+	text = text.translate(TRANSLATION_TABLE)
+
+	# Preserve leading + for international format
+	prefix = "+" if text.strip().startswith("+") else ""
+
+	# Extract only digits
+	digits = "".join(re.findall(r"\d", text))
+
+	return f"{prefix}{digits}"
+
 
 # =============================================================================
 # OPERATIONS
@@ -47,7 +83,9 @@ NORMALIZATION_OPERATIONS = {
 	"numeric_only": lambda x: re.sub(r"\D", "", x) if isinstance(x, str) else x,
 	"alphanumeric_only": lambda x: re.sub(r"[^\w]", "", x) if isinstance(x, str) else x,
 	"unicode_normalize": lambda x: unicodedata.normalize("NFKD", x) if isinstance(x, str) else x,
+	"remove_diacritics": remove_diacritics,
 	"translate_chars": lambda x: x.translate(TRANSLATION_TABLE) if isinstance(x, str) else x,
+	"phone_normalize": phone_normalize,
 }
 
 # =============================================================================
