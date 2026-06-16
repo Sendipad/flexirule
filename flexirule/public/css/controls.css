@@ -20,8 +20,8 @@
 	font-size: var(--fxr-label-font-size);
 	font-weight: var(--fxr-weight-semibold);
 	color: var(--fxr-text);
-	margin-bottom: var(--fxr-space-1);
-	line-height: 1.4;
+	margin-bottom: 2px;
+	line-height: 1.2;
 	letter-spacing: 0.01em;
 	text-transform: none;
 }
@@ -482,15 +482,15 @@ html[data-theme="dark"] .fxr-input::placeholder {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 0 var(--fxr-space-3);
+	padding: 0 var(--spacing-md);
 	background: var(--fxr-surface-2);
-	border: 1.5px solid var(--fxr-border-strong);
+	border: 1px solid var(--fxr-border-strong);
 	border-radius: var(--fxr-radius-pill);
 	cursor: pointer;
 	transition: all var(--fxr-transition-fast);
-	height: 26px;
+	height: 24px;
 	user-select: none;
-	min-width: 120px;
+	min-width: 100px;
 	box-shadow: var(--fxr-shadow-sm);
 	box-sizing: border-box;
 }

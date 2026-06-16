@@ -94,7 +94,7 @@
 	--fxr-text-lg: 16px;
 
 	/* Unified Typography Mappings */
-	--fxr-label-font-size: var(--fxr-text-base); /* 13px */
+	--fxr-label-font-size: var(--fxr-text-sm); /* 12px */
 	--fxr-helper-font-size: var(--fxr-text-xs); /* 11px */
 
 	--fxr-weight-normal: 400;

@@ -660,14 +660,15 @@ defineExpose({ validate });
 .assignment-config {
 	display: flex;
 	flex-direction: column;
-	gap: 8px;
+	gap: var(--spacing-xs);
 }
 
 .assignment-header-card {
-	background-color: var(--fxr-surface-2);
+	background-color: var(--fxr-surface-soft);
 	border: 1px solid var(--fxr-border-subtle);
-	border-radius: 14px;
-	padding: 10px 12px;
+	border-radius: var(--fxr-radius-md);
+	padding: var(--spacing-md) var(--spacing-lg);
+	margin-bottom: var(--spacing-md) !important;
 }
 
 .header-icon-box {
@@ -687,9 +688,9 @@ defineExpose({ validate });
 .assignment-grid-row {
 	display: grid;
 	grid-template-columns:
-		minmax(120px, 0.8fr) minmax(160px, 1.2fr) minmax(100px, 0.7fr) minmax(240px, 2fr)
-		80px;
-	gap: 8px;
+		minmax(100px, 0.7fr) minmax(140px, 1.1fr) minmax(100px, 0.7fr) minmax(240px, 2.5fr)
+		60px;
+	gap: var(--spacing-md);
 	align-items: center;
 }
 
@@ -716,14 +717,14 @@ defineExpose({ validate });
 }
 
 .assignment-grid-header {
-	padding: 10px 16px;
-	font-size: 10px;
-	font-weight: 700;
-	color: var(--fxr-text-soft);
+	padding: var(--spacing-sm) var(--spacing-md);
+	font-size: var(--fxr-helper-font-size);
+	font-weight: 800;
+	color: var(--fxr-text-muted);
 	text-transform: uppercase;
 	letter-spacing: 0.05em;
 	border-bottom: 1px solid var(--fxr-border-subtle);
-	margin-bottom: 8px;
+	margin-bottom: var(--spacing-xs);
 }
 
 .when-editor-cell {
@@ -822,18 +823,18 @@ defineExpose({ validate });
 }
 
 .assignment-grid-row {
-	background-color: var(--fxr-bg-card);
+	background-color: var(--fxr-bg-input);
 	border: 1px solid var(--fxr-border-subtle);
-	border-radius: 14px;
-	padding: 8px 12px;
-	transition: all 0.2s ease;
-	box-shadow: var(--fxr-shadow-sm);
+	border-radius: var(--fxr-radius-sm);
+	padding: var(--spacing-xs) var(--spacing-md);
+	transition: all var(--fxr-transition-fast);
+	margin-bottom: 0 !important;
 }
 
 .assignment-grid-row:hover {
 	border-color: var(--fxr-accent);
-	box-shadow: var(--fxr-shadow-md);
-	transform: translateY(-1px);
+	background-color: var(--fxr-surface-soft);
+	z-index: 1;
 }
 
 .operator-hint-text {
@@ -867,18 +868,18 @@ defineExpose({ validate });
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	gap: 8px;
+	gap: 6px;
 	background-color: var(--fxr-surface-soft);
 	border: 1px dashed var(--fxr-border-strong);
-	border-radius: var(--fxr-radius-lg);
-	padding: 12px;
+	border-radius: var(--fxr-radius-md);
+	padding: var(--spacing-md);
 	width: 100%;
 	color: var(--fxr-text-soft);
-	font-weight: 600;
-	font-size: 13px;
-	transition: all 0.2s ease;
+	font-weight: 700;
+	font-size: var(--fxr-text-sm);
+	transition: all var(--fxr-transition-fast);
 	cursor: pointer;
-	margin-top: 12px;
+	margin-top: var(--spacing-md);
 }
 
 .add-assignment-btn:hover:not(:disabled) {

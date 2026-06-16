@@ -1287,12 +1287,12 @@ onBeforeUnmount(() => {
 	display: flex;
 	align-items: center;
 	width: 100%;
-	height: 32px;
-	min-height: 32px;
-	max-height: 32px;
+	height: 28px;
+	min-height: 28px;
+	max-height: 28px;
 	overflow: hidden;
 	border: 1px solid var(--fxr-border);
-	border-radius: var(--fxr-radius-md);
+	border-radius: var(--fxr-radius-sm);
 	background-color: var(--fxr-bg-input);
 	transition: all 0.2s ease;
 }
@@ -1378,7 +1378,8 @@ onBeforeUnmount(() => {
 
 .fvc-empty-hint {
 	position: absolute;
-	top: 3px;
+	top: 50%;
+	transform: translateY(-50%);
 	left: 0;
 	color: var(--fxr-text-faint);
 	font-size: 11px;
@@ -1400,7 +1401,8 @@ onBeforeUnmount(() => {
 }
 .fvc-focus-hint {
 	position: absolute;
-	top: 3px;
+	top: 50%;
+	transform: translateY(-50%);
 	left: 0;
 	color: var(--fxr-text-faint);
 	font-size: 12px;
@@ -1409,8 +1411,10 @@ onBeforeUnmount(() => {
 }
 .fvc-tiptap-editor :deep(.ProseMirror) {
 	outline: none;
-	font-size: 13px;
-	min-height: 22px;
+	font-size: var(--fxr-input-font-size);
+	min-height: 20px;
+	display: flex;
+	align-items: center;
 	white-space: nowrap;
 	overflow-x: auto;
 	scrollbar-width: none; /* Firefox */

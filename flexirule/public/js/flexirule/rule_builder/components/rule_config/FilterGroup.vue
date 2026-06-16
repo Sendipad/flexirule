@@ -939,44 +939,44 @@ onMounted(async () => {
 .filter-list {
 	display: flex;
 	flex-direction: column;
-	gap: var(--fxr-space-3);
+	gap: var(--spacing-xs);
 }
 
 /* ─── Filter Row ─── */
 .filter-row {
 	display: flex;
 	flex-direction: column;
-	background-color: var(--fxr-bg-card);
+	background-color: var(--fxr-bg-input);
 	border: 1px solid var(--fxr-border-subtle);
-	border-radius: var(--fxr-radius-lg);
-	padding: var(--fxr-space-4) var(--fxr-space-5);
-	transition: border-color var(--fxr-transition-fast), box-shadow var(--fxr-transition-fast);
+	border-radius: var(--fxr-radius-sm);
+	padding: var(--spacing-xs) var(--spacing-md);
+	transition: all var(--fxr-transition-fast);
 }
 
 .filter-row:hover {
-	border-color: var(--fxr-border-strong);
-	box-shadow: var(--fxr-shadow-sm);
+	border-color: var(--fxr-accent);
+	background-color: var(--fxr-surface-soft);
 }
 
 .filter-row-main {
 	display: flex;
-	gap: var(--fxr-space-4);
+	gap: var(--spacing-md);
 	align-items: center;
 	width: 100%;
 }
 
 /* ─── Column Sizing ─── */
 .doctype-col {
-	flex: 0 0 160px;
+	flex: 0 0 140px;
 }
 
 .field-col {
-	flex: 0 0 220px;
-	min-width: 110px;
+	flex: 0 0 180px;
+	min-width: 100px;
 }
 
 .operator-col {
-	flex: 0 0 110px;
+	flex: 0 0 100px;
 }
 
 .value-col {
