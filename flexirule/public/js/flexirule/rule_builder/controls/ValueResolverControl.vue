@@ -36,16 +36,20 @@
 				:data-fxr-fieldname="resolverFieldname"
 				@keydown="handlePopoverKeydown"
 			>
-				<div v-if="viewMode !== 'inline'" class="fxr-popover__header">
-					<span class="fxr-label-sm mb-0">{{ __(popoverTitle) }}</span>
-					<button class="fxr-btn fxr-btn--icon fxr-btn--sm" @click="closePopover">
-						<i class="fa fa-times"></i>
-					</button>
-				</div>
 				<div :class="viewMode === 'inline' ? 'fxr-inline-body' : 'fxr-popover__body'">
 					<!-- Category Selector -->
 					<div class="d-flex flex-column fxr-gap-1">
-						<label class="fxr-label-sm">{{ __("Formula Type") }}</label>
+						<div class="d-flex align-items-center justify-content-between">
+							<label class="fxr-label-sm mb-0">{{ __("Formula Type") }}</label>
+							<button
+								v-if="viewMode !== 'inline'"
+								class="fxr-btn fxr-btn--icon fxr-btn--sm"
+								@click="closePopover"
+								style="margin-top: -4px; margin-right: -4px"
+							>
+								<i class="fa fa-times"></i>
+							</button>
+						</div>
 						<ComboBoxControl
 							ref="kindSelectRef"
 							v-model="activeKind"
@@ -70,11 +74,18 @@
 						:variableOptions="variableOptions"
 					/>
 				</div>
-				<div :class="viewMode === 'inline' ? 'fxr-inline-footer' : 'fxr-popover__footer'">
-					<div class="fxr-preview-snippet">
+				<div
+					:class="viewMode === 'inline' ? 'fxr-inline-footer' : 'fxr-popover__footer'"
+					class="mt-3"
+				>
+					<div class="fxr-preview-snippet mb-2">
 						<code>{{ expressionSnippet }}</code>
 					</div>
-					<div v-if="errors.length" class="fxr-validation-errors mt-2">
+					<div v-if="activeStrategy?.description" class="fxr-strategy-help mb-2">
+						<i class="fa fa-info-circle mr-1 text-muted"></i>
+						<span>{{ __(activeStrategy.description) }}</span>
+					</div>
+					<div v-if="errors.length" class="fxr-validation-errors">
 						<div v-for="err in errors" :key="err" class="text-danger fxr-text-xs">
 							<i class="fa fa-exclamation-triangle mr-1"></i> {{ err }}
 						</div>

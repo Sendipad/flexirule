@@ -15,6 +15,9 @@ import { useStore } from "../../stores";
 // ─── Date Formula Strategy ───
 registerStrategy("date_formula", {
 	label: __("Date Formula"),
+	description: __(
+		"Calculate a date by adding or subtracting days, months, or years from a base field or today."
+	),
 	icon: "fa fa-calendar",
 	component: DateFormulaResolver,
 	defaultState: (props) => {
@@ -75,6 +78,7 @@ registerStrategy("date_formula", {
 // ─── Math Formula Strategy ───
 registerStrategy("math_formula", {
 	label: __("Math Formula"),
+	description: __("Perform basic arithmetic between two fields or a field and a constant value."),
 	icon: "fa fa-calculator",
 	component: MathFormulaResolver,
 	defaultState: () => ({
@@ -126,6 +130,7 @@ registerStrategy("math_formula", {
 // ─── Date Diff Strategy ───
 registerStrategy("date_diff", {
 	label: __("Date Difference"),
+	description: __("Calculate the time difference between two dates in days, months, or years."),
 	icon: "fa fa-calendar-minus-o",
 	component: DateDiffResolver,
 	defaultState: () => ({
@@ -180,6 +185,7 @@ registerStrategy("date_diff", {
 // ─── Aggregation Strategy ───
 registerStrategy("child_aggregation", {
 	label: __("Child Table Aggregation"),
+	description: __("Aggregate numeric values from a child table using Sum, Average, or Count."),
 	icon: "fa fa-table",
 	component: AggregationResolver,
 	defaultState: () => ({
@@ -239,6 +245,7 @@ registerStrategy("child_aggregation", {
 // ─── String Formula Strategy ───
 registerStrategy("string_formula", {
 	label: __("String Manipulation"),
+	description: __("Combine text fields, change casing, or format currency strings."),
 	icon: "fa fa-font",
 	component: StringFormulaResolver,
 	defaultState: () => ({
@@ -308,6 +315,9 @@ registerStrategy("string_formula", {
 // ─── Normalization Strategy ───
 registerStrategy("normalization", {
 	label: __("Normalization"),
+	description: __(
+		"Clean up text data by trimming whitespace, changing case, or converting to slug/snake case."
+	),
 	icon: "fa fa-refresh",
 	component: NormalizationResolver,
 	defaultState: (props) => {
