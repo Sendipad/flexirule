@@ -481,16 +481,17 @@ html[data-theme="dark"] .fxr-input::placeholder {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 2px var(--fxr-space-3);
+	padding: 0 var(--fxr-space-3);
 	background: var(--fxr-surface-2);
 	border: 1.5px solid var(--fxr-border-strong);
 	border-radius: var(--fxr-radius-pill);
 	cursor: pointer;
 	transition: all var(--fxr-transition-fast);
-	height: 30px;
+	height: 26px;
 	user-select: none;
 	min-width: 120px;
 	box-shadow: var(--fxr-shadow-sm);
+	box-sizing: border-box;
 }
 
 .fxr-token:hover,
