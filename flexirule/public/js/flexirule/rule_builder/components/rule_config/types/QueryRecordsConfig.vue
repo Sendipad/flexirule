@@ -165,12 +165,16 @@
 									read_only: readOnly,
 								}"
 								:modelValue="config.fetch_strategy || 'Get doc'"
-								@update:modelValue="(val) => update_config_key('fetch_strategy', val)"
+								@update:modelValue="
+									(val) => update_config_key('fetch_strategy', val)
+								"
 							/>
 						</div>
 
 						<div class="grid-item">
-							<label class="control-label small">{{ __("DocType Name") }}</label>
+							<label class="control-label small">{{
+								__("DocType Name")
+							}}</label>
 							<FlexValueControl
 								:modelValue="config.doctype_name"
 								:variableOptions="variable_options"
@@ -183,7 +187,9 @@
 						</div>
 
 						<div v-if="show_docname_field" class="grid-item">
-							<label class="control-label small">{{ __("Document Name (ID)") }}</label>
+							<label class="control-label small">{{
+								__("Document Name (ID)")
+							}}</label>
 							<FlexValueControl
 								:modelValue="config.docname"
 								:variableOptions="variable_options"
@@ -345,7 +351,9 @@
 												config.field &&
 												!is_field_valid(config.field, doctype_fields),
 										}"
-										@update:modelValue="(val) => update_config_key('field', val)"
+										@update:modelValue="
+											(val) => update_config_key('field', val)
+										"
 									/>
 									<i
 										v-if="
@@ -375,10 +383,7 @@
 										:class="{
 											'border-warning':
 												config.group_by_field &&
-												!is_field_valid(
-													config.group_by_field,
-													doctype_fields
-												),
+											!is_field_valid(config.group_by_field, doctype_fields),
 										}"
 										@update:modelValue="
 											(val) => update_config_key('group_by_field', val)
@@ -387,10 +392,7 @@
 									<i
 										v-if="
 											config.group_by_field &&
-											!is_field_valid(
-												config.group_by_field,
-												doctype_fields
-											)
+										!is_field_valid(config.group_by_field, doctype_fields)
 										"
 										class="fa fa-warning text-warning field-warning-icon"
 										:title="__('Field not found in DocType')"
@@ -401,7 +403,9 @@
 								<ControlFactory
 									:df="with_read_only(aggFunctionField)"
 									:modelValue="config.agg_function"
-									@update:modelValue="(val) => update_config_key('agg_function', val)"
+							@update:modelValue="
+								(val) => update_config_key('agg_function', val)
+							"
 								/>
 							</div>
 							<div class="grid-item">
