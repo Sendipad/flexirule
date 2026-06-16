@@ -11,11 +11,11 @@
 				<h5 class="section-title">{{ __("Result Storage") }}</h5>
 				<div class="storage-controls mt-2">
 					<ControlFactory
-						v-if="showReturnType"
-						:df="returnTypeField"
-						:modelValue="node.data?.return_type"
+						v-if="showMutationMode"
+						:df="mutationModeField"
+						:modelValue="node.data?.mutation_mode"
 						:read_only="readOnly"
-						@update:modelValue="updateField('return_type', $event)"
+						@update:modelValue="updateField('mutation_mode', $event)"
 					/>
 
 					<ComboBoxControl
@@ -35,11 +35,11 @@
 					/>
 
 					<ControlFactory
-						v-if="showMutationMode"
-						:df="mutationModeField"
-						:modelValue="node.data?.mutation_mode"
+						v-if="showReturnType"
+						:df="returnTypeField"
+						:modelValue="node.data?.return_type"
 						:read_only="readOnly"
-						@update:modelValue="updateField('mutation_mode', $event)"
+						@update:modelValue="updateField('return_type', $event)"
 					/>
 				</div>
 			</div>
@@ -525,19 +525,19 @@ defineExpose({ validate });
 .panel-sections {
 	flex: 1;
 	overflow-y: auto;
-	padding: var(--fxr-space-6, 20px);
+	padding: var(--spacing-lg);
 	display: flex;
 	flex-direction: column;
-	gap: 18px;
+	gap: var(--spacing-lg);
 }
 
 .panel-section {
 	display: flex;
 	flex-direction: column;
-	padding: 14px;
+	padding: var(--spacing-lg);
 	border: 1px solid var(--fxr-border-subtle);
-	border-radius: 14px;
-	background-color: var(--fxr-surface-2);
+	border-radius: var(--fxr-radius-md);
+	background-color: var(--fxr-surface-soft);
 }
 
 .section-header {

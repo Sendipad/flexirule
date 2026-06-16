@@ -190,7 +190,11 @@ function getSelectValue(options) {
 				</thead>
 				<tbody>
 					<tr v-for="(row, idx) in rows" :key="idx">
-						<td v-for="col in visibleTableFields" :key="col.fieldname">
+						<td
+							v-for="col in visibleTableFields"
+							:key="col.fieldname"
+							:data-label="__(col.label)"
+						>
 							<!-- Select with dynamic options -->
 							<select
 								v-if="col.fieldtype === 'Select'"
@@ -343,19 +347,19 @@ function getSelectValue(options) {
 	table-layout: fixed;
 }
 .table-custom th {
-	font-size: 11px;
+	font-size: var(--fxr-helper-font-size);
 	font-weight: var(--fxr-weight-bold);
 	text-transform: uppercase;
 	letter-spacing: 0.05em;
 	white-space: nowrap;
-	background: var(--fxr-surface-2);
+	background: var(--fxr-surface-soft);
 	color: var(--fxr-text-soft);
 	border-bottom: 1px solid var(--fxr-border-subtle);
-	padding: 10px 12px;
+	padding: var(--spacing-sm) var(--spacing-md);
 	text-align: left;
 }
 .table-custom td {
-	padding: 8px 12px;
+	padding: var(--spacing-xs) var(--spacing-md);
 	vertical-align: middle;
 	border-bottom: 1px solid var(--fxr-border-subtle);
 	background: var(--fxr-bg-card);
@@ -368,7 +372,7 @@ function getSelectValue(options) {
 	font-size: var(--fxr-text-sm);
 	width: 100%;
 	height: var(--fxr-input-height);
-	padding: 0 8px;
+	padding: 0 var(--spacing-md);
 	border-radius: var(--fxr-radius-sm);
 	border: 1px solid var(--fxr-border);
 	background: var(--fxr-bg-input);
@@ -444,11 +448,75 @@ function getSelectValue(options) {
 }
 
 @media (max-width: 768px) {
-	.table-custom {
-		min-width: 760px;
-	}
 	.inline-table-control {
 		margin-bottom: 16px;
+	}
+
+	.table-custom,
+	.table-custom thead,
+	.table-custom tbody,
+	.table-custom th,
+	.table-custom td,
+	.table-custom tr {
+		display: block;
+		width: 100%;
+	}
+
+	.table-custom thead tr {
+		position: absolute;
+		top: -9999px;
+		left: -9999px;
+	}
+
+	.table-custom tr {
+		border: 1px solid var(--fxr-border-subtle);
+		border-radius: var(--fxr-radius-md);
+		margin-bottom: var(--spacing-lg);
+		padding: var(--spacing-md);
+		background: var(--fxr-surface-soft);
+	}
+
+	.table-custom td {
+		border: none;
+		border-bottom: 1px solid var(--fxr-border-subtle);
+		position: relative;
+		padding-left: 50% !important;
+		padding-top: var(--spacing-sm) !important;
+		padding-bottom: var(--spacing-sm) !important;
+		min-height: 40px;
+		display: flex;
+		align-items: center;
+		justify-content: flex-end;
+		background: transparent;
+	}
+
+	.table-custom td:last-child {
+		border-bottom: none;
+		justify-content: center;
+		padding-left: var(--spacing-md) !important;
+	}
+
+	.table-custom td:before {
+		position: absolute;
+		top: 50%;
+		left: var(--spacing-md);
+		width: 45%;
+		padding-right: 10px;
+		white-space: nowrap;
+		transform: translateY(-50%);
+		content: attr(data-label);
+		font-size: var(--fxr-helper-font-size);
+		font-weight: var(--fxr-weight-bold);
+		color: var(--fxr-text-soft);
+		text-transform: uppercase;
+		text-align: left;
+	}
+
+	.table-custom td .input-custom,
+	.table-custom td select,
+	.table-custom td .table-cell-control {
+		width: 100%;
+		max-width: 200px;
 	}
 }
 </style>

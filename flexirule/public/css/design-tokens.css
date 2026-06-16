@@ -20,7 +20,7 @@
 
 	--fxr-bg-page: var(--bg-color, #f8fafc);
 	--fxr-bg-card: var(--modal-bg, var(--panel-bg, #ffffff));
-	--fxr-bg-input: var(--control-bg, #ffffff);
+	--fxr-bg-input: #ffffff;
 	--fxr-bg-muted: #f1f5f9;
 	--fxr-bg-hover: #f8fafc;
 	--fxr-bg-active: #eff6ff;
@@ -93,6 +93,10 @@
 	--fxr-text-md: 14px;
 	--fxr-text-lg: 16px;
 
+	/* Unified Typography Mappings */
+	--fxr-label-font-size: var(--fxr-text-base); /* 13px */
+	--fxr-helper-font-size: var(--fxr-text-xs); /* 11px */
+
 	--fxr-weight-normal: 400;
 	--fxr-weight-medium: 500;
 	--fxr-weight-semibold: 600;
@@ -107,6 +111,12 @@
 	--fxr-space-6: 20px;
 	--fxr-space-8: 24px;
 	--fxr-space-10: 32px;
+
+	/* Semantic Spacing Aliases */
+	--spacing-xs: var(--fxr-space-1); /* 4px */
+	--spacing-sm: var(--fxr-space-2); /* 6px */
+	--spacing-md: var(--fxr-space-3); /* 8px */
+	--spacing-lg: var(--fxr-space-4); /* 12px */
 
 	/* ─── Control Sizing ─── */
 	--fxr-input-height: 28px;
@@ -126,7 +136,7 @@
 	--fxr-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
 	--fxr-shadow-md: 0 10px 24px rgba(15, 23, 42, 0.08);
 	--fxr-shadow-lg: 0 22px 48px rgba(15, 23, 42, 0.12);
-	--fxr-shadow-focus: 0 0 0 2px rgba(36, 144, 239, 0.1);
+	--fxr-shadow-focus: 0 0 0 2px rgba(36, 144, 239, 0.15);
 
 	/* ─── Transitions ─── */
 	--fxr-transition-fast: 0.15s ease;
@@ -172,7 +182,7 @@ html[data-theme="dark"] {
 
 	--fxr-bg-page: var(--bg-color, #111111);
 	--fxr-bg-card: var(--modal-bg, var(--panel-bg, #1a1a1a));
-	--fxr-bg-input: var(--control-bg, #242424);
+	--fxr-bg-input: #242424;
 	--fxr-bg-muted: var(--bg-light-gray, #1f2937);
 	--fxr-bg-hover: var(--cb-bg-gray, #374151);
 	--fxr-bg-active: var(--bg-blue, #1d4ed8);

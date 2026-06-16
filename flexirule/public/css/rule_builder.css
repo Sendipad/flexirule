@@ -49,12 +49,12 @@
 
 /* 5. Condition Builder Spacing */
 .condition-group-box {
-	margin-bottom: 16px;
-	border-left: 3px solid var(--primary-color);
-	background: var(--fxr-surface);
-	border-radius: var(--fxr-radius-lg);
-	padding: var(--fxr-space-4);
-	border: 1px solid var(--fxr-border);
+	margin-bottom: var(--spacing-lg);
+	border-left: 3px solid var(--fxr-accent);
+	background: var(--fxr-surface-soft);
+	border-radius: var(--fxr-radius-md);
+	padding: var(--spacing-lg);
+	border: 1px solid var(--fxr-border-subtle);
 }
 
 .simple-condition {
@@ -63,6 +63,24 @@
 
 /* 6. Accessibility & Keyboard Navigation */
 :focus-visible {
-	outline: 2px solid var(--fxr-accent-border) !important;
+	outline: 2px solid var(--fxr-accent) !important;
 	outline-offset: 1px !important;
+	box-shadow: 0 0 0 2px var(--fxr-accent-soft) !important;
+}
+
+/* 7. App-Wide Layout Density & Surface Refinements */
+.fxr-card {
+	background: var(--fxr-surface-soft);
+	border: 1px solid var(--fxr-border-subtle);
+	border-radius: var(--fxr-radius-md);
+	padding: var(--spacing-lg);
+}
+
+.fxr-active-element {
+	background: #ffffff !important;
+	border: 1px solid var(--fxr-border-strong) !important;
+}
+
+html[data-theme="dark"] .fxr-active-element {
+	background: #242424 !important;
 }
