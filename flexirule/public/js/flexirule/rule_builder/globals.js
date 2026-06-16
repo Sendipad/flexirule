@@ -21,6 +21,7 @@ import FlexValueControl from "./controls/FlexValueControl.vue";
 import TextGeneratorControl from "./controls/TextGeneratorControl.vue";
 import TimePickerControl from "./controls/TimePickerControl.vue";
 import ResourceMapperControl from "./controls/ResourceMapperControl.vue";
+import CollapsibleSection from "./controls/CollapsibleSection.vue";
 
 export function registerGlobalComponents(app) {
 	app.component("ComboBoxControl", ComboBoxControl)
@@ -36,7 +37,8 @@ export function registerGlobalComponents(app) {
 		.component("FlexValueControl", FlexValueControl)
 		.component("TextGeneratorControl", TextGeneratorControl)
 		.component("TimePickerControl", TimePickerControl)
-		.component("ResourceMapperControl", ResourceMapperControl);
+		.component("ResourceMapperControl", ResourceMapperControl)
+		.component("CollapsibleSection", CollapsibleSection);
 
 	app.config.globalProperties.__ = window.__ || ((s) => s);
 }
