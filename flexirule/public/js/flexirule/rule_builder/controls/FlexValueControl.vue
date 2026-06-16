@@ -1322,6 +1322,8 @@ onBeforeUnmount(() => {
 .fvc-static-container :deep(.fxr-select),
 .fvc-static-container :deep(.combobox-input) {
 	padding: 0 10px !important;
+	font-weight: var(--fxr-weight-bold) !important;
+	color: var(--fxr-text-strong) !important;
 }
 
 .fvc-main-field:focus-within {
