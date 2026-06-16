@@ -111,77 +111,91 @@
 				</div>
 
 				<div class="sub-section section-subcard">
-					<ControlFactory
-						:df="with_read_only(limitTypeField)"
-						:modelValue="config.limit_type || 'Custom Limit'"
-						@update:modelValue="(val) => update_config_key('limit_type', val)"
-					/>
-					<ControlFactory
-						v-if="(config.limit_type || 'Custom Limit') === 'Custom Limit'"
-						:df="with_read_only(limitField)"
-						:modelValue="config.limit"
-						@update:modelValue="(val) => update_config_key('limit', val)"
-					/>
-					<div class="sub-section">
-						<label class="control-label small">{{ __("Group By") }}</label>
-						<ComboBoxControl
-							:df="{ label: '', fieldtype: 'Autocomplete' }"
-							:modelValue="config.group_by"
-							:get_query="get_group_by_options"
-							:read_only="readOnly"
-							:hideLabel="true"
-							:showOnFocus="true"
-							@update:modelValue="update_config_key('group_by', $event)"
-						/>
+					<h6>{{ __("Retrieval Settings") }}</h6>
+					<div class="query-doc-grid">
+						<div class="grid-item">
+							<ControlFactory
+								:df="with_read_only(limitTypeField)"
+								:modelValue="config.limit_type || 'Custom Limit'"
+								@update:modelValue="(val) => update_config_key('limit_type', val)"
+							/>
+						</div>
+						<div
+							v-if="(config.limit_type || 'Custom Limit') === 'Custom Limit'"
+							class="grid-item"
+						>
+							<ControlFactory
+								:df="with_read_only(limitField)"
+								:modelValue="config.limit"
+								@update:modelValue="(val) => update_config_key('limit', val)"
+							/>
+						</div>
+						<div class="grid-item">
+							<label class="control-label small">{{ __("Group By") }}</label>
+							<ComboBoxControl
+								:df="{ label: '', fieldtype: 'Autocomplete' }"
+								:modelValue="config.group_by"
+								:get_query="get_group_by_options"
+								:read_only="readOnly"
+								:hideLabel="true"
+								:showOnFocus="true"
+								@update:modelValue="update_config_key('group_by', $event)"
+							/>
+						</div>
 					</div>
 				</div>
 			</template>
 
 			<template v-else-if="mode === 'Query Doc'">
 				<div class="sub-section section-subcard">
-					<ControlFactory
-						:df="{
-							fieldname: 'fetch_strategy',
-							fieldtype: 'Select',
-							label: __('Fetch Strategy'),
-							options: [
-								'Get Doc from Cache',
-								'Get doc',
-								'Get Single DocType',
-								'Get latest Doc',
-							],
-							read_only: readOnly,
-						}"
-						:modelValue="config.fetch_strategy || 'Get doc'"
-						@update:modelValue="(val) => update_config_key('fetch_strategy', val)"
-					/>
-				</div>
+					<h6>{{ __("Target Document") }}</h6>
+					<div class="query-doc-grid">
+						<div class="grid-item">
+							<ControlFactory
+								:df="{
+									fieldname: 'fetch_strategy',
+									fieldtype: 'Select',
+									label: __('Fetch Strategy'),
+									options: [
+										'Get Doc from Cache',
+										'Get doc',
+										'Get Single DocType',
+										'Get latest Doc',
+									],
+									read_only: readOnly,
+								}"
+								:modelValue="config.fetch_strategy || 'Get doc'"
+								@update:modelValue="(val) => update_config_key('fetch_strategy', val)"
+							/>
+						</div>
 
-				<div class="sub-section section-subcard">
-					<label class="control-label small">{{ __("DocType Name") }}</label>
-					<FlexValueControl
-						:modelValue="config.doctype_name"
-						:variableOptions="variable_options"
-						:readOnly="readOnly"
-						:context="{
-							df: { fieldtype: 'Link', options: 'DocType' },
-						}"
-						@update:modelValue="update_doctype_name"
-					/>
-				</div>
+						<div class="grid-item">
+							<label class="control-label small">{{ __("DocType Name") }}</label>
+							<FlexValueControl
+								:modelValue="config.doctype_name"
+								:variableOptions="variable_options"
+								:readOnly="readOnly"
+								:context="{
+									df: { fieldtype: 'Link', options: 'DocType' },
+								}"
+								@update:modelValue="update_doctype_name"
+							/>
+						</div>
 
-				<div v-if="show_docname_field" class="sub-section section-subcard">
-					<label class="control-label small">{{ __("Document Name (ID)") }}</label>
-					<FlexValueControl
-						:modelValue="config.docname"
-						:variableOptions="variable_options"
-						:readOnly="readOnly"
-						:context="{
-							df: { fieldtype: 'Link', options: reference_doctype },
-							referenceDoctype: reference_doctype,
-						}"
-						@update:modelValue="(val) => update_config_key('docname', val)"
-					/>
+						<div v-if="show_docname_field" class="grid-item">
+							<label class="control-label small">{{ __("Document Name (ID)") }}</label>
+							<FlexValueControl
+								:modelValue="config.docname"
+								:variableOptions="variable_options"
+								:readOnly="readOnly"
+								:context="{
+									df: { fieldtype: 'Link', options: reference_doctype },
+									referenceDoctype: reference_doctype,
+								}"
+								@update:modelValue="(val) => update_config_key('docname', val)"
+							/>
+						</div>
+					</div>
 				</div>
 
 				<div
@@ -310,89 +324,120 @@
 				</div>
 
 				<div class="sub-section section-subcard mt-3">
-					<template v-if="['Sum', 'Average', 'Min', 'Max'].includes(mode)">
-						<div class="field-picker-container">
-							<ComboBoxControl
-								:df="{ ...fieldField, fieldtype: 'FieldPicker' }"
-								:options="doctype_fields"
-								:doctype="reference_doctype"
-								:modelValue="config.field"
-								:read_only="readOnly"
-								:trigger="'button'"
-								:hideLabel="true"
-								:class="{
-									'border-warning':
-										config.field &&
-										!is_field_valid(config.field, doctype_fields),
-								}"
-								@update:modelValue="(val) => update_config_key('field', val)"
-							/>
-							<i
-								v-if="config.field && !is_field_valid(config.field, doctype_fields)"
-								class="fa fa-warning text-warning field-warning-icon"
-								:title="__('Field not found in DocType')"
-							></i>
-						</div>
-					</template>
-					<template v-else-if="mode === 'Group By'">
-						<div class="field-picker-container">
-							<ComboBoxControl
-								:df="{ ...aggGroupByField, fieldtype: 'FieldPicker' }"
-								:options="doctype_fields"
-								:doctype="reference_doctype"
-								:modelValue="config.group_by_field"
-								:read_only="readOnly"
-								:trigger="'button'"
-								:hideLabel="true"
-								:class="{
-									'border-warning':
-										config.group_by_field &&
-										!is_field_valid(config.group_by_field, doctype_fields),
-								}"
-								@update:modelValue="
-									(val) => update_config_key('group_by_field', val)
-								"
-							/>
-							<i
-								v-if="
-									config.group_by_field &&
-									!is_field_valid(config.group_by_field, doctype_fields)
-								"
-								class="fa fa-warning text-warning field-warning-icon"
-								:title="__('Field not found in DocType')"
-							></i>
-						</div>
-						<ControlFactory
-							:df="with_read_only(aggFunctionField)"
-							:modelValue="config.agg_function"
-							@update:modelValue="(val) => update_config_key('agg_function', val)"
-						/>
-						<div class="field-picker-container mt-2">
-							<ComboBoxControl
-								:df="{ ...aggFieldField, fieldtype: 'FieldPicker' }"
-								:options="doctype_fields"
-								:doctype="reference_doctype"
-								:modelValue="config.agg_field"
-								:read_only="readOnly"
-								:trigger="'button'"
-								:hideLabel="true"
-								:class="{
-									'border-warning':
-										config.agg_field &&
-										!is_field_valid(config.agg_field, doctype_fields),
-								}"
-								@update:modelValue="(val) => update_config_key('agg_field', val)"
-							/>
-							<i
-								v-if="
-									config.agg_field &&
-									!is_field_valid(config.agg_field, doctype_fields)
-								"
-								class="fa fa-warning text-warning field-warning-icon"
-								:title="__('Field not found in DocType')"
-							></i>
-						</div>
-					</template>
+					<h6>{{ __("Aggregation Settings") }}</h6>
+					<div class="query-doc-grid">
+						<template v-if="['Sum', 'Average', 'Min', 'Max'].includes(mode)">
+							<div class="grid-item">
+								<label class="control-label small">{{
+									__("Field to Aggregate")
+								}}</label>
+								<div class="field-picker-container">
+									<ComboBoxControl
+										:df="{ ...fieldField, fieldtype: 'FieldPicker' }"
+										:options="doctype_fields"
+										:doctype="reference_doctype"
+										:modelValue="config.field"
+										:read_only="readOnly"
+										:trigger="'button'"
+										:hideLabel="true"
+										:class="{
+											'border-warning':
+												config.field &&
+												!is_field_valid(config.field, doctype_fields),
+										}"
+										@update:modelValue="(val) => update_config_key('field', val)"
+									/>
+									<i
+										v-if="
+											config.field &&
+											!is_field_valid(config.field, doctype_fields)
+										"
+										class="fa fa-warning text-warning field-warning-icon"
+										:title="__('Field not found in DocType')"
+									></i>
+								</div>
+							</div>
+						</template>
+						<template v-else-if="mode === 'Group By'">
+							<div class="grid-item">
+								<label class="control-label small">{{
+									__("Group By Field")
+								}}</label>
+								<div class="field-picker-container">
+									<ComboBoxControl
+										:df="{ ...aggGroupByField, fieldtype: 'FieldPicker' }"
+										:options="doctype_fields"
+										:doctype="reference_doctype"
+										:modelValue="config.group_by_field"
+										:read_only="readOnly"
+										:trigger="'button'"
+										:hideLabel="true"
+										:class="{
+											'border-warning':
+												config.group_by_field &&
+												!is_field_valid(
+													config.group_by_field,
+													doctype_fields
+												),
+										}"
+										@update:modelValue="
+											(val) => update_config_key('group_by_field', val)
+										"
+									/>
+									<i
+										v-if="
+											config.group_by_field &&
+											!is_field_valid(
+												config.group_by_field,
+												doctype_fields
+											)
+										"
+										class="fa fa-warning text-warning field-warning-icon"
+										:title="__('Field not found in DocType')"
+									></i>
+								</div>
+							</div>
+							<div class="grid-item">
+								<ControlFactory
+									:df="with_read_only(aggFunctionField)"
+									:modelValue="config.agg_function"
+									@update:modelValue="(val) => update_config_key('agg_function', val)"
+								/>
+							</div>
+							<div class="grid-item">
+								<label class="control-label small">{{
+									__("Aggregate Field")
+								}}</label>
+								<div class="field-picker-container">
+									<ComboBoxControl
+										:df="{ ...aggFieldField, fieldtype: 'FieldPicker' }"
+										:options="doctype_fields"
+										:doctype="reference_doctype"
+										:modelValue="config.agg_field"
+										:read_only="readOnly"
+										:trigger="'button'"
+										:hideLabel="true"
+										:class="{
+											'border-warning':
+												config.agg_field &&
+												!is_field_valid(config.agg_field, doctype_fields),
+										}"
+										@update:modelValue="
+											(val) => update_config_key('agg_field', val)
+										"
+									/>
+									<i
+										v-if="
+											config.agg_field &&
+											!is_field_valid(config.agg_field, doctype_fields)
+										"
+										class="fa fa-warning text-warning field-warning-icon"
+										:title="__('Field not found in DocType')"
+									></i>
+								</div>
+							</div>
+						</template>
+					</div>
 				</div>
 			</template>
 		</div>
@@ -1214,6 +1259,19 @@ defineExpose({
 	display: flex;
 	flex-direction: column;
 	gap: var(--fxr-space-4);
+}
+
+.query-doc-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+	gap: var(--fxr-space-4);
+	align-items: flex-end;
+}
+
+.grid-item {
+	display: flex;
+	flex-direction: column;
+	gap: var(--fxr-space-2);
 }
 
 .table-rows {
