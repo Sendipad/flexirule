@@ -57,6 +57,15 @@ def clear_rule_action_plan_cache(rule_name: str | None = None) -> None:
 	if hasattr(frappe.local, LOCAL_CACHE_KEY):
 		delattr(frappe.local, LOCAL_CACHE_KEY)
 
+	# Bolt: Also clear rule version hashes from request-local cache
+	if hasattr(frappe.local, "flexirule_rule_hashes"):
+		if rule_name:
+			hashes = getattr(frappe.local, "flexirule_rule_hashes", {})
+			if rule_name in hashes:
+				del hashes[rule_name]
+		else:
+			delattr(frappe.local, "flexirule_rule_hashes")
+
 	if not rule_name:
 		return
 

@@ -372,6 +372,7 @@ class TestCompiledControls(FrappeTestCase):
 			],
 		)
 		rule.insert(ignore_permissions=True)
+		clear_rule_action_plan_cache(rule.name)
 		hash_before = get_rule_version_hash(rule)
 
 		action = next(a for a in rule.actions if a.action_id == "set_1")
@@ -384,6 +385,7 @@ class TestCompiledControls(FrappeTestCase):
 				}
 			]
 		)
+		clear_rule_action_plan_cache(rule.name)
 		hash_after = get_rule_version_hash(rule)
 		self.assertNotEqual(hash_before, hash_after)
 
