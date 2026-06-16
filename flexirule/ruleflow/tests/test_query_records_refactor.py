@@ -140,7 +140,7 @@ class TestQueryRecordsRefactor(FrappeTestCase):
 		self.assertEqual(result.get("name"), todo.name)
 
 	def test_query_doc_latest_with_context_filters(self):
-		user_email = f"test_{random_string(5)}@example.com"
+		user_email = f"test_{random_string(5).lower()}@example.com"
 		frappe.get_doc({"doctype": "User", "email": user_email, "first_name": "Context Filter Test"}).insert(
 			ignore_permissions=True
 		)
