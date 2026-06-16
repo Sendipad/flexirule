@@ -52,6 +52,7 @@
 	--fxr-text-link: #2563eb;
 
 	--fxr-accent: var(--primary, #2490ef);
+	--fxr-accent-icon: var(--primary, #2490ef);
 	--fxr-accent-light: rgba(36, 144, 239, 0.08);
 	--fxr-accent-soft: rgba(36, 144, 239, 0.1);
 	--fxr-accent-strong: var(--primary);
@@ -214,7 +215,8 @@ html[data-theme="dark"] {
 	--fxr-text-link: var(--blue-400);
 	--fxr-text-heading: #ffffff;
 
-	--fxr-accent: var(--primary);
+	--fxr-accent: var(--primary, #3b82f6);
+	--fxr-accent-icon: #60a5fa; /* Brighter blue for icons in dark mode */
 	--fxr-accent-light: rgba(36, 144, 239, 0.15);
 	--fxr-accent-soft: rgba(36, 144, 239, 0.2);
 	--fxr-accent-strong: var(--primary);

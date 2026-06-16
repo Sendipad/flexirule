@@ -241,6 +241,8 @@ const props = defineProps({
 	trigger: { type: String, default: "input" },
 	allowCustomValue: Boolean,
 	sortBy: [String, Function],
+	dropdownMinWidth: { type: Number, default: 220 },
+	dropdownMaxWidth: { type: Number, default: 680 },
 	map: {
 		type: Object,
 		default: () => ({
@@ -275,8 +277,8 @@ const {
 	updatePosition: updateDropdownPosition,
 	cleanup: cleanupFloatingDropdown,
 } = useFloatingDropdown({
-	minWidth: 220,
-	maxWidth: 680,
+	minWidth: props.dropdownMinWidth,
+	maxWidth: props.dropdownMaxWidth,
 	maxHeight: 360,
 	matchTriggerWidth: true,
 });
@@ -756,6 +758,15 @@ onBeforeUnmount(() => {
 	padding: 0 var(--fxr-input-padding-x);
 	height: var(--fxr-input-height);
 	width: 100%;
+	min-width: 0;
+}
+
+.selection-icon {
+	flex-shrink: 0;
+	margin-right: 8px;
+	display: flex;
+	align-items: center;
+	color: var(--fxr-accent-icon, var(--fxr-accent));
 }
 
 .combobox-button-trigger {
@@ -859,7 +870,7 @@ onBeforeUnmount(() => {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	color: var(--fxr-accent);
+	color: var(--fxr-accent-icon, var(--fxr-accent));
 	font-size: 12px;
 }
 
@@ -969,6 +980,7 @@ onBeforeUnmount(() => {
 	border-radius: var(--fxr-radius-lg);
 	box-shadow: var(--fxr-shadow-lg);
 	overflow: auto;
+	box-sizing: border-box;
 }
 
 .fxr-dropdown-item {
@@ -1010,8 +1022,8 @@ onBeforeUnmount(() => {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	color: var(--fxr-accent, #2563eb);
-	font-size: 12px;
+	color: var(--fxr-accent-icon, var(--fxr-accent, #2563eb)) !important;
+	font-size: 14px;
 }
 
 .fxr-dropdown .option-text {

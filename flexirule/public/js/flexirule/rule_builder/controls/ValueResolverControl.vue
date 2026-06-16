@@ -16,7 +16,7 @@
 			v-tippy="validationTooltip"
 		>
 			<div class="fxr-token__content">
-				<i :class="activeStrategy?.icon" class="text-muted mr-1"></i>
+				<i :class="activeStrategy?.icon" class="token-prefix-icon mr-2"></i>
 				<span class="fxr-token__text">{{ previewText }}</span>
 			</div>
 			<i class="fa fa-chevron-down fxr-token__caret"></i>
@@ -43,9 +43,9 @@
 							<label class="fxr-label-sm mb-0">{{ __("Formula Type") }}</label>
 							<button
 								v-if="viewMode !== 'inline'"
-								class="fxr-btn fxr-btn--icon fxr-btn--sm"
+								class="resolver-close-btn"
 								@click="closePopover"
-								style="margin-top: -4px; margin-right: -4px"
+								:title="__('Close')"
 							>
 								<i class="fa fa-times"></i>
 							</button>
@@ -57,6 +57,9 @@
 							:read_only="readOnly"
 							:trigger="'button'"
 							:hideLabel="true"
+							class="kind-selector-dropdown"
+							:dropdownMinWidth="120"
+							:dropdownMaxWidth="280"
 							:map="{ value: 'kind', label: 'label', icon: 'icon' }"
 						/>
 					</div>
@@ -328,5 +331,43 @@ hr.border-top {
 	border-color: var(--fxr-border);
 	opacity: 0.5;
 	margin: var(--fxr-space-2) 0;
+}
+
+.token-prefix-icon {
+	color: var(--fxr-accent-icon, var(--fxr-accent));
+	font-size: 12px;
+	opacity: 0.85;
+}
+
+.kind-selector-dropdown :deep(.combobox-wrapper) {
+	width: 100%;
+}
+
+.resolver-close-btn {
+	background: var(--fxr-bg-muted);
+	color: var(--fxr-text-muted);
+	border: none;
+	width: 24px;
+	height: 24px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 6px;
+	cursor: pointer;
+	transition: all 0.2s ease;
+	margin-top: -4px;
+	margin-right: -4px;
+}
+
+.resolver-close-btn:hover {
+	background: var(--fxr-danger-soft);
+	color: var(--fxr-text-danger);
+	transform: rotate(90deg);
+}
+
+/* Ensure the category selector doesn't overflow its parent popover */
+.value-resolver-popover {
+	max-width: min(400px, 95vw);
+	padding: var(--spacing-md);
 }
 </style>
