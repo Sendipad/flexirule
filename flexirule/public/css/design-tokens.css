@@ -180,24 +180,24 @@ html[data-theme="dark"] {
 	--tg-for-tint: rgba(168, 85, 247, 0.12);
 	--tg-for-border: #a855f7;
 
-	--fxr-bg-page: var(--bg-color, #111111);
-	--fxr-bg-card: var(--modal-bg, var(--panel-bg, #1a1a1a));
-	--fxr-bg-input: #242424;
-	--fxr-bg-muted: var(--bg-light-gray, #1f2937);
-	--fxr-bg-hover: var(--cb-bg-gray, #374151);
-	--fxr-bg-active: var(--bg-blue, #1d4ed8);
-	--fxr-bg-danger: rgba(220, 38, 38, 0.1);
-	--fxr-bg-dark: var(--gray-900, #111111);
-	--fxr-bg-input-disabled: var(--bg-light-gray, #1f2937);
+	--fxr-bg-page: #020617; /* True black/deep slate */
+	--fxr-bg-card: #0f172a;
+	--fxr-bg-input: #1e293b; /* Inputs should be lighter than cards in dark mode to pop */
+	--fxr-bg-muted: #334155;
+	--fxr-bg-hover: #334155;
+	--fxr-bg-active: #1e40af;
+	--fxr-bg-danger: rgba(220, 38, 38, 0.2);
+	--fxr-bg-dark: #020617;
+	--fxr-bg-input-disabled: #1e293b;
 
 	/* Surface layers in Dark Mode */
-	--fxr-surface: var(--modal-bg, var(--panel-bg, #1a1a1a));
-	--fxr-surface-2: var(--bg-light-gray, #1f2937);
-	--fxr-surface-soft: var(--cb-bg-gray, #374151);
-	--fxr-surface-elevated: var(--modal-bg, var(--panel-bg, #242424));
+	--fxr-surface: #0f172a;
+	--fxr-surface-2: #1e293b; /* Sidebar panels background */
+	--fxr-surface-soft: #1e293b; /* Card background */
+	--fxr-surface-elevated: #1e293b;
 
-	--fxr-border: var(--border-color, #2a2a2a);
-	--fxr-border-subtle: var(--border-subtle, #333333);
+	--fxr-border: #334155;
+	--fxr-border-subtle: #1e293b;
 	--fxr-border-focus: var(--primary, #3b82f6);
 	--fxr-border-strong: #94a3b8; /* Balanced for better visibility of edges/handles */
 	--fxr-border-danger: var(--red-400, #f87171);

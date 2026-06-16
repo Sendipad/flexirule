@@ -502,7 +502,7 @@ defineExpose({ validate });
 	display: flex;
 	flex-direction: column;
 	height: 100%;
-	background-color: var(--fxr-bg-page);
+	background-color: var(--fxr-surface);
 }
 
 .panel-header {
@@ -537,7 +537,7 @@ defineExpose({ validate });
 	padding: var(--spacing-lg);
 	border: 1px solid var(--fxr-border-subtle);
 	border-radius: var(--fxr-radius-md);
-	background-color: var(--fxr-surface-soft);
+	background-color: var(--fxr-surface-2);
 }
 
 .section-header {
