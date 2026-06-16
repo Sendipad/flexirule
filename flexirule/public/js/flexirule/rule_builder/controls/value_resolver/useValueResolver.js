@@ -6,6 +6,7 @@ export function useValueResolver(props, emit) {
 	const activeKind = ref(null);
 	const isValid = ref(true);
 	const errors = ref([]);
+	const isInitializing = ref(false);
 
 	const availableStrategies = computed(() => {
 		const all = getAllStrategies();
@@ -19,21 +20,29 @@ export function useValueResolver(props, emit) {
 
 	// Initialize state from props.modelValue
 	const syncFromProps = () => {
-		let val = props.modelValue || {};
-		if (val.mode && val.config) {
-			val = val.config;
-		}
+		isInitializing.value = true;
+		try {
+			let val = props.modelValue || {};
+			if (val.mode && val.config) {
+				val = val.config;
+			}
 
-		const kind = val.kind || availableStrategies.value[0]?.kind || "date_formula";
-		activeKind.value = kind;
+			const kind = val.kind || availableStrategies.value[0]?.kind || "date_formula";
+			activeKind.value = kind;
 
-		const strategy = getStrategy(kind);
-		if (strategy) {
-			// Merge default state with provided config
-			localState.value = {
-				...strategy.defaultState(props),
-				...val,
-			};
+			const strategy = getStrategy(kind);
+			if (strategy) {
+				// Merge default state with provided config
+				localState.value = {
+					...strategy.defaultState(props),
+					...val,
+				};
+			}
+		} finally {
+			// We delay resetting the flag slightly to allow watchers to skip the first pulse
+			setTimeout(() => {
+				isInitializing.value = false;
+			}, 0);
 		}
 	};
 
@@ -50,6 +59,8 @@ export function useValueResolver(props, emit) {
 	watch(
 		[localState, activeKind],
 		([newState, newKind]) => {
+			if (isInitializing.value) return;
+
 			const strategy = getStrategy(newKind);
 			if (!strategy) return;
 

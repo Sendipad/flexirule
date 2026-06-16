@@ -34,6 +34,7 @@
 				"
 				:style="viewMode === 'inline' ? {} : popoverStyle"
 				:data-fxr-fieldname="resolverFieldname"
+				@keydown="handlePopoverKeydown"
 			>
 				<div v-if="viewMode !== 'inline'" class="fxr-popover__header">
 					<span class="fxr-label-sm mb-0">{{ __(popoverTitle) }}</span>
@@ -45,21 +46,15 @@
 					<!-- Category Selector -->
 					<div class="d-flex flex-column fxr-gap-1">
 						<label class="fxr-label-sm">{{ __("Formula Type") }}</label>
-						<select
+						<ComboBoxControl
 							ref="kindSelectRef"
-							class="fxr-select"
 							v-model="activeKind"
-							:disabled="readOnly"
-							data-fxr-fieldname="value_resolver.kind"
-						>
-							<option
-								v-for="cat in availableStrategies"
-								:key="cat.kind"
-								:value="cat.kind"
-							>
-								{{ cat.label }}
-							</option>
-						</select>
+							:options="availableStrategies"
+							:read_only="readOnly"
+							:trigger="'button'"
+							:hideLabel="true"
+							:map="{ value: 'kind', label: 'label', icon: 'icon' }"
+						/>
 					</div>
 
 					<hr class="my-2 border-top" />
@@ -94,6 +89,8 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from "vue";
 import { useFloatingDropdown } from "../composables/useFloatingDropdown";
 import { useKeyboardRegistry } from "../composables/useKeyboardRegistry";
+import { useFocusTrap } from "../composables/useFocusTrap";
+import ComboBoxControl from "./ComboBoxControl.vue";
 import { useValueResolver } from "./value_resolver/useValueResolver";
 import "./value_resolver/index"; // Initialize strategies
 import { __ } from "./value_resolver/utils";
@@ -136,7 +133,9 @@ const emit = defineEmits(["update:modelValue"]);
 const tokenRef = ref(null);
 const kindSelectRef = ref(null);
 const { registerShortcut } = useKeyboardRegistry();
+const { handleTab } = useFocusTrap();
 const unregisterEsc = ref(null);
+const backupState = ref(null);
 
 const {
 	localState,
@@ -212,6 +211,12 @@ const handleParentKeydown = (e) => {
 	}
 };
 
+const handlePopoverKeydown = (e) => {
+	if (e.key === "Tab") {
+		handleTab(e, popoverRef.value);
+	}
+};
+
 const togglePopover = () => {
 	if (props.readOnly) return;
 	if (showPopover.value) closePopover();
@@ -220,6 +225,13 @@ const togglePopover = () => {
 
 const open = async () => {
 	if (props.readOnly || showPopover.value) return;
+
+	// Backup state for cancel support
+	backupState.value = {
+		kind: activeKind.value,
+		config: JSON.parse(JSON.stringify(localState.value)),
+	};
+
 	openDropdown();
 
 	await nextTick();
@@ -230,13 +242,27 @@ const open = async () => {
 	unregisterEsc.value = registerShortcut({
 		key: "Escape",
 		priority: 20,
-		callback: () => closePopover(),
+		callback: () => cancelPopover(),
 	});
+};
+
+const cancelPopover = () => {
+	if (!showPopover.value) return;
+
+	// Restore backup state
+	if (backupState.value) {
+		activeKind.value = backupState.value.kind;
+		localState.value = backupState.value.config;
+	}
+
+	closePopover();
 };
 
 const closePopover = () => {
 	if (!showPopover.value) return;
 	closeDropdown();
+	backupState.value = null;
+
 	if (unregisterEsc.value) {
 		unregisterEsc.value();
 		unregisterEsc.value = null;
@@ -325,9 +351,49 @@ hr.border-top {
 
 <style>
 .value-resolver-popover {
-	padding: 10px;
-	width: 280px;
+	padding: 12px;
+	width: 300px;
 	overflow-y: auto;
+}
+
+@media (max-width: 768px) {
+	.value-resolver-popover {
+		width: calc(100vw - 24px) !important;
+		left: 12px !important;
+		max-height: 70vh !important;
+		bottom: 12px !important;
+		top: auto !important;
+		border-radius: var(--fxr-radius-xl, 12px);
+		box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
+	}
+
+	.fxr-popover__header {
+		padding: 12px 0;
+	}
+
+	.fxr-select,
+	.fxr-input,
+	.fxr-btn,
+	.fxr-collapsible__header,
+	.fxr-token {
+		min-height: 44px !important; /* Mobile touch target */
+		font-size: 14px !important;
+	}
+
+	.fxr-btn--icon.fxr-btn--sm {
+		width: 44px !important;
+		height: 44px !important;
+	}
+
+	:deep(.combobox-wrapper),
+	:deep(.combobox-input-group),
+	:deep(.combobox-button-trigger) {
+		min-height: 44px !important;
+	}
+
+	.fxr-label-sm {
+		font-size: 12px !important;
+	}
 }
 .value-resolver-popover .fxr-popover__header {
 	padding-bottom: 8px;
