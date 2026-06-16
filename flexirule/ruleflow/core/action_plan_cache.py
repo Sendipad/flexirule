@@ -71,6 +71,17 @@ def clear_rule_action_plan_cache(rule_name: str | None = None) -> None:
 
 def get_rule_version_hash(rule_doc) -> str:
 	"""Compute deterministic hash for the execution-relevant rule payload."""
+	# Bolt Optimization: Cache hash in request-local to avoid O(N^2) complexity
+	# during multiple action plan lookups in a single execution thread.
+	local_hashes = getattr(frappe.local, "flexirule_rule_hashes", None)
+	if local_hashes is None:
+		local_hashes = {}
+		frappe.local.flexirule_rule_hashes = local_hashes
+
+	rule_name = getattr(rule_doc, "name", None)
+	if rule_name and rule_name in local_hashes:
+		return local_hashes[rule_name]
+
 	actions = []
 	for row in getattr(rule_doc, "actions", []) or []:
 		actions.append(
@@ -94,7 +105,12 @@ def get_rule_version_hash(rule_doc) -> str:
 		"actions": actions,
 	}
 	raw = json.dumps(payload, sort_keys=True, default=str)
-	return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:24]
+	version_hash = hashlib.sha256(raw.encode("utf-8")).hexdigest()[:24]
+
+	if rule_name:
+		local_hashes[rule_name] = version_hash
+
+	return version_hash
 
 
 def _compile_rule_action_plan(rule_doc, rule_hash: str) -> dict[str, Any]:
