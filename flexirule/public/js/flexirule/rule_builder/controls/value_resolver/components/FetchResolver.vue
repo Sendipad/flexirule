@@ -1,69 +1,97 @@
 <template>
-	<!-- Step 1: Source DocType -->
-	<div class="d-flex flex-column fxr-gap-1">
-		<label class="fxr-label-sm">{{ __("1. Source DocType") }}</label>
-		<ComboBoxControl
-			v-model="modelValue.linked_doctype"
-			doctype="DocType"
-			:read_only="readOnly"
-			:placeholder="__('Select Source DocType...')"
-			hide-label
-			allow-custom-value
-		/>
-	</div>
-
-	<!-- Step 2: Source Document -->
-	<div class="d-flex flex-column fxr-gap-1 mt-2">
-		<label class="fxr-label-sm">{{ __("2. Source Document") }}</label>
-		<div class="d-flex fxr-gap-2">
-			<select
-				class="fxr-select"
-				style="width: 100px"
-				v-model="modelValue.link_source_type"
-				:disabled="readOnly"
-				@change="modelValue.link_field = ''"
-			>
-				<option value="doc_field">{{ __("Field") }}</option>
-				<option value="variable">{{ __("Var") }}</option>
-				<option value="expression">{{ __("Expr") }}</option>
-			</select>
+	<div class="fetch-resolver-wrap">
+		<!-- Step 1: Source DocType -->
+		<CollapsibleSection
+			:label="__('1. Source DocType')"
+			:initial-collapsed="!!modelValue.linked_doctype"
+			:read-only="readOnly"
+		>
+			<template #header-actions>
+				<span v-if="modelValue.linked_doctype" class="fxr-text-xs text-muted truncate ml-2">
+					{{ modelValue.linked_doctype }}
+				</span>
+			</template>
 			<ComboBoxControl
-				v-if="modelValue.link_source_type !== 'expression'"
-				class="flex-1 min-w-0"
-				v-model="modelValue.link_field"
-				:options="sourceLinkOptions"
+				v-model="modelValue.linked_doctype"
+				doctype="DocType"
 				:read_only="readOnly"
-				:placeholder="
-					modelValue.link_source_type === 'variable'
-						? __('Search variable...')
-						: __('Select field...')
-				"
-				:allow-custom-value="modelValue.link_source_type === 'variable'"
+				:placeholder="__('Select Source DocType...')"
+				hide-label
+				allow-custom-value
+			/>
+		</CollapsibleSection>
+
+		<!-- Step 2: Source Document -->
+		<CollapsibleSection
+			:label="__('2. Source Document')"
+			:initial-collapsed="!!modelValue.link_field"
+			:read-only="readOnly"
+			class="mt-1"
+		>
+			<template #header-actions>
+				<span v-if="modelValue.link_field" class="fxr-text-xs text-muted truncate ml-2">
+					{{ modelValue.link_field }}
+				</span>
+			</template>
+			<div class="d-flex fxr-gap-2">
+				<select
+					class="fxr-select"
+					style="width: 80px"
+					v-model="modelValue.link_source_type"
+					:disabled="readOnly"
+					@change="modelValue.link_field = ''"
+				>
+					<option value="doc_field">{{ __("Field") }}</option>
+					<option value="variable">{{ __("Var") }}</option>
+					<option value="expression">{{ __("Expr") }}</option>
+				</select>
+				<ComboBoxControl
+					v-if="modelValue.link_source_type !== 'expression'"
+					class="flex-1 min-w-0"
+					v-model="modelValue.link_field"
+					:options="sourceLinkOptions"
+					:read_only="readOnly"
+					:placeholder="
+						modelValue.link_source_type === 'variable'
+							? __('Search variable...')
+							: __('Select field...')
+					"
+					:allow-custom-value="modelValue.link_source_type === 'variable'"
+					hide-label
+				/>
+				<input
+					v-else
+					type="text"
+					class="fxr-input flex-1"
+					v-model="modelValue.link_field"
+					:disabled="readOnly"
+					:placeholder="__('e.g. doc.party')"
+				/>
+			</div>
+		</CollapsibleSection>
+
+		<!-- Step 3: Fetch Field -->
+		<CollapsibleSection
+			:label="__('3. Fetch Field')"
+			:initial-collapsed="false"
+			:read-only="readOnly"
+			class="mt-1 border-bottom-0"
+		>
+			<template #header-actions>
+				<span v-if="modelValue.fetch_field" class="fxr-text-xs text-muted truncate ml-2">
+					{{ modelValue.fetch_field }}
+				</span>
+			</template>
+			<ComboBoxControl
+				v-model="modelValue.fetch_field"
+				:options="fetchFieldOptions"
+				:read_only="readOnly || !modelValue.linked_doctype"
+				:loading="fetchMetaLoading"
+				:placeholder="fetchMetaLoading ? __('Loading...') : __('Select field to fetch...')"
+				:allow-custom-value="true"
 				hide-label
 			/>
-			<input
-				v-else
-				type="text"
-				class="fxr-input flex-1"
-				v-model="modelValue.link_field"
-				:disabled="readOnly"
-				:placeholder="__('e.g. doc.party')"
-			/>
-		</div>
-	</div>
-
-	<!-- Step 3: Fetch Field -->
-	<div class="d-flex flex-column fxr-gap-1 mt-2">
-		<label class="fxr-label-sm">{{ __("3. Fetch Field") }}</label>
-		<ComboBoxControl
-			v-model="modelValue.fetch_field"
-			:options="fetchFieldOptions"
-			:read_only="readOnly || !modelValue.linked_doctype"
-			:loading="fetchMetaLoading"
-			:placeholder="fetchMetaLoading ? __('Loading...') : __('Select field to fetch...')"
-			:allow-custom-value="true"
-			hide-label
-		/>
+		</CollapsibleSection>
 	</div>
 </template>
 
@@ -71,6 +99,7 @@
 import { ref, computed, watch } from "vue";
 import { useStore } from "../../../stores";
 import ComboBoxControl from "../../ComboBoxControl.vue";
+import CollapsibleSection from "../../CollapsibleSection.vue";
 import { __ } from "../utils";
 
 const props = defineProps({
