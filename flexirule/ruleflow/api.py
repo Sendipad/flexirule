@@ -115,6 +115,47 @@ SYSTEM_FIELDS = [
 
 
 @frappe.whitelist()
+def normalize_test_value(
+	input_value: str,
+	profile: str | None = None,
+	pipeline: str | list | None = None,
+):
+	"""
+	Execute normalization pipeline for real-time testing/demo.
+	"""
+	_require_api_access()
+
+	from flexirule.ruleflow.utils.normalization import (
+		NORMALIZATION_OPERATIONS,
+		NORMALIZATION_PROFILES,
+		execute_normalization_pipeline,
+	)
+
+	if isinstance(pipeline, str):
+		try:
+			pipeline = json.loads(pipeline)
+		except Exception:
+			pipeline = [p.strip() for p in pipeline.split(",") if p.strip()]
+
+	if not profile and not pipeline:
+		return {
+			"normalized_value": input_value,
+			"breakdown": [],
+			"available_operations": list(NORMALIZATION_OPERATIONS.keys()),
+			"available_profiles": list(NORMALIZATION_PROFILES.keys()),
+		}
+
+	result = execute_normalization_pipeline(
+		value=input_value, pipeline=pipeline, profile=profile, include_breakdown=True
+	)
+
+	result["available_operations"] = list(NORMALIZATION_OPERATIONS.keys())
+	result["available_profiles"] = list(NORMALIZATION_PROFILES.keys())
+
+	return result
+
+
+@frappe.whitelist()
 def get_doctype_fields(doctype: str, filters: str | dict | None = None):
 	"""
 	Get fields for DocField autocomplete - grouped by parent/child tables

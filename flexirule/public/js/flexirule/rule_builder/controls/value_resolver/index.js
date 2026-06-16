@@ -323,29 +323,26 @@ registerStrategy("normalization", {
 	defaultState: (props) => {
 		const fieldname = props.context?.fieldname || props.context?.target;
 		return {
-			norm_op: "trim",
 			norm_field: fieldname ? String(fieldname).replace(/^(doc|vars)\./, "") : "",
+			norm_profile: "Custom",
+			norm_pipeline: ["trim"],
 		};
 	},
 	compileToCode: (item) => {
 		const f = item.norm_field ? toDocExpression(item.norm_field) : '""';
-		if (item.norm_op === "trim") return `{str(${f} or "").strip()}`;
-		if (item.norm_op === "slug") return `{frappe.scrub(str(${f} or ""))}`;
-		if (item.norm_op === "title") return `{str(${f} or "").title()}`;
-		if (item.norm_op === "upper") return `{str(${f} or "").upper()}`;
-		if (item.norm_op === "lower") return `{str(${f} or "").lower()}`;
-		if (item.norm_op === "snake") return `{frappe.scrub(str(${f} or ""))}`;
+		if (item.norm_profile && item.norm_profile !== "Custom") {
+			return `{flexirule.ruleflow.utils.normalization.execute_normalization_pipeline(${f}, profile="${item.norm_profile}")["normalized_value"]}`;
+		}
+		const pipeline = JSON.stringify(item.norm_pipeline || []);
+		return `{flexirule.ruleflow.utils.normalization.execute_normalization_pipeline(${f}, pipeline=${pipeline})["normalized_value"]}`;
 	},
 	compileToLabel: (item) => {
-		const ops = {
-			trim: __("Trim"),
-			slug: __("Slug"),
-			title: __("Title"),
-			upper: __("Upper"),
-			lower: __("Lower"),
-			snake: __("Snake"),
-		};
-		return `${ops[item.norm_op] || __("Norm")}(${item.norm_field || "?"})`;
+		const source = item.norm_field || "?";
+		if (item.norm_profile && item.norm_profile !== "Custom") {
+			return `${__("Normalize")}: ${source} (${item.norm_profile})`;
+		}
+		const steps = (item.norm_pipeline || []).length;
+		return `${__("Normalize")}: ${source} (${steps} ${__("steps")})`;
 	},
 	validate: (item, props) => {
 		const errors = [];

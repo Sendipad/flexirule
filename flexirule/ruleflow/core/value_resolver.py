@@ -258,28 +258,42 @@ class StringFormulaResolver(CompiledResolver):
 
 
 class NormalizationResolver(CompiledResolver):
-	def __init__(self, norm_op: str, norm_field: str | None):
-		self.norm_op = norm_op
+	def __init__(
+		self,
+		norm_field: str | None,
+		norm_profile: str | None = None,
+		norm_pipeline: list[str] | None = None,
+		norm_op: str | None = None,
+	):
 		self.norm_field = norm_field
+		self.norm_profile = norm_profile
+		self.norm_pipeline = norm_pipeline
+		self.norm_op = norm_op
 
 	def resolve(self, context: dict) -> Any:
 		val = get_context_value(context, self.norm_field)
 		if val is None:
 			return None
 
-		val_str = str(val)
-		if self.norm_op == "trim":
-			return val_str.strip()
-		if self.norm_op in ("slug", "snake"):
-			return frappe.scrub(val_str)
-		if self.norm_op == "title":
-			return val_str.title()
-		if self.norm_op == "upper":
-			return val_str.upper()
-		if self.norm_op == "lower":
-			return val_str.lower()
+		from flexirule.ruleflow.utils.normalization import execute_normalization_pipeline
 
-		return val_str
+		# Legacy support
+		pipeline = self.norm_pipeline
+		if not self.norm_profile and not pipeline and self.norm_op:
+			legacy_map = {
+				"trim": ["trim"],
+				"slug": ["slug"],
+				"snake": ["snake_case"],
+				"title": ["title_case"],
+				"upper": ["uppercase"],
+				"lower": ["lowercase"],
+			}
+			pipeline = legacy_map.get(self.norm_op)
+
+		result = execute_normalization_pipeline(
+			value=val, pipeline=pipeline, profile=self.norm_profile
+		)
+		return result.get("normalized_value")
 
 
 class FormatResolver(CompiledResolver):
@@ -504,7 +518,10 @@ class ValueResolver:
 			)
 		if kind == "normalization":
 			return NormalizationResolver(
-				norm_op=config.get("norm_op", "trim"), norm_field=config.get("norm_field")
+				norm_field=config.get("norm_field"),
+				norm_profile=config.get("norm_profile"),
+				norm_pipeline=config.get("norm_pipeline"),
+				norm_op=config.get("norm_op"),
 			)
 		if kind == "format":
 			return FormatResolver(
