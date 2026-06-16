@@ -114,7 +114,7 @@ const props = defineProps({
 
 const store = useStore();
 const showDemo = ref(true);
-const demoInput = ref("FlexiRule Normalization Test 123!");
+const demoInput = ref(__("FlexiRule Normalization Test 123!"));
 const demoResult = ref(null);
 const demoLoading = ref(false);
 const availableOperations = ref([]);
