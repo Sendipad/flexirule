@@ -131,13 +131,17 @@ def normalize_test_value(
 		execute_normalization_pipeline,
 	)
 
+	final_pipeline: list[str] | None = None
 	if isinstance(pipeline, str):
 		try:
-			pipeline = json.loads(pipeline)
+			parsed = json.loads(pipeline)
+			final_pipeline = [str(p) for p in parsed] if isinstance(parsed, list) else [str(parsed)]
 		except Exception:
-			pipeline = [p.strip() for p in pipeline.split(",") if p.strip()]
+			final_pipeline = [p.strip() for p in pipeline.split(",") if p.strip()]
+	elif isinstance(pipeline, list):
+		final_pipeline = [str(p) for p in pipeline]
 
-	if not profile and not pipeline:
+	if not profile and not final_pipeline:
 		return {
 			"normalized_value": input_value,
 			"breakdown": [],
@@ -146,7 +150,7 @@ def normalize_test_value(
 		}
 
 	result = execute_normalization_pipeline(
-		value=input_value, pipeline=pipeline, profile=profile, include_breakdown=True
+		value=input_value, pipeline=final_pipeline, profile=profile, include_breakdown=True
 	)
 
 	result["available_operations"] = list(NORMALIZATION_OPERATIONS.keys())

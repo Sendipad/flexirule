@@ -163,7 +163,8 @@ const runDemo = async () => {
 	try {
 		const res = await frappe.call("flexirule.ruleflow.api.normalize_test_value", {
 			input_value: demoInput.value,
-			profile: props.modelValue.norm_profile === "Custom" ? "" : props.modelValue.norm_profile,
+			profile:
+				props.modelValue.norm_profile === "Custom" ? "" : props.modelValue.norm_profile,
 			pipeline:
 				props.modelValue.norm_profile === "Custom" ? props.modelValue.norm_pipeline : [],
 		});

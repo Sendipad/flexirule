@@ -41,13 +41,13 @@ NORMALIZATION_OPERATIONS = {
 		re.sub(r"[^\w\s]", "", x).strip().lower().replace(" ", "_") if isinstance(x, str) else x
 	),
 	"remove_spaces": lambda x: x.replace(" ", "") if isinstance(x, str) else x,
-	"remove_extra_spaces": lambda x: (re.sub(r"\s+", " ", x).strip() if isinstance(x, str) else x),
-	"remove_punctuation": lambda x: (re.sub(r"[^\w\s]", "", x) if isinstance(x, str) else x),
+	"remove_extra_spaces": lambda x: re.sub(r"\s+", " ", x).strip() if isinstance(x, str) else x,
+	"remove_punctuation": lambda x: re.sub(r"[^\w\s]", "", x) if isinstance(x, str) else x,
 	"remove_numbers": lambda x: re.sub(r"\d+", "", x) if isinstance(x, str) else x,
 	"numeric_only": lambda x: re.sub(r"\D", "", x) if isinstance(x, str) else x,
 	"alphanumeric_only": lambda x: re.sub(r"[^\w]", "", x) if isinstance(x, str) else x,
-	"unicode_normalize": lambda x: (unicodedata.normalize("NFKD", x) if isinstance(x, str) else x),
-	"translate_chars": lambda x: (x.translate(TRANSLATION_TABLE) if isinstance(x, str) else x),
+	"unicode_normalize": lambda x: unicodedata.normalize("NFKD", x) if isinstance(x, str) else x,
+	"translate_chars": lambda x: x.translate(TRANSLATION_TABLE) if isinstance(x, str) else x,
 }
 
 # =============================================================================

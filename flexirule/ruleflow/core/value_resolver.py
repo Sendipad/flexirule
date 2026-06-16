@@ -290,9 +290,7 @@ class NormalizationResolver(CompiledResolver):
 			}
 			pipeline = legacy_map.get(self.norm_op)
 
-		result = execute_normalization_pipeline(
-			value=val, pipeline=pipeline, profile=self.norm_profile
-		)
+		result = execute_normalization_pipeline(value=val, pipeline=pipeline, profile=self.norm_profile)
 		return result.get("normalized_value")
 
 
