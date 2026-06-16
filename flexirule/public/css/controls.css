@@ -17,11 +17,11 @@
 
 .fxr-control .fxr-label {
 	display: block;
-	font-size: var(--fxr-label-font-size);
+	font-size: 12px;
 	font-weight: var(--fxr-weight-semibold);
-	color: var(--fxr-text);
+	color: var(--fxr-text-soft);
 	margin-top: var(--spacing-xs);
-	margin-bottom: 0;
+	margin-bottom: 0; /* No bottom margin, control follows immediately */
 	line-height: 1.2;
 	letter-spacing: 0.01em;
 	text-transform: none;
@@ -50,9 +50,9 @@ html[data-theme="dark"] .fxr-control .fxr-label {
 }
 
 .fxr-control .fxr-description {
-	font-size: var(--fxr-helper-font-size);
-	color: var(--fxr-text-soft);
-	margin-top: var(--fxr-space-1);
+	font-size: 11px;
+	color: var(--fxr-text-muted);
+	margin-top: var(--spacing-xs);
 	line-height: 1.4;
 }
 
@@ -68,13 +68,15 @@ html[data-theme="dark"] .fxr-control .fxr-label {
 .fxr-input-group .fxr-input,
 .fxr-input-group .fxr-select,
 .fxr-input-group :deep(.form-control),
-.fxr-input-group :deep(.combobox-container input) {
+.fxr-input-group :deep(.combobox-container input),
+.fxr-input-group :deep(.awesomplete input) {
 	width: 100%;
-	height: var(--fxr-input-height);
-	padding: var(--fxr-input-padding-y) var(--fxr-input-padding-x);
-	background: var(--fxr-bg-input);
-	border: 1px solid var(--fxr-border);
-	border-radius: var(--fxr-radius-sm);
+	height: var(--fxr-input-height) !important;
+	padding: var(--fxr-input-padding-y) var(--fxr-input-padding-x) !important;
+	background: var(--fxr-bg-input) !important;
+	border: 1px solid var(--fxr-border) !important;
+	border-radius: var(--fxr-radius-sm) !important;
+	font-size: 14px !important;
 	outline: none;
 	transition:
 		border-color var(--fxr-transition-fast),
@@ -167,21 +169,21 @@ html[data-theme="dark"] .fxr-input::placeholder {
 
 /* ─── Select ─── */
 .fxr-select {
-	height: var(--fxr-input-height);
-	padding: var(--fxr-input-padding-y) 24px var(--fxr-input-padding-y) var(--fxr-input-padding-x);
-	font-size: var(--fxr-input-font-size);
+	height: var(--fxr-input-height) !important;
+	padding: var(--fxr-input-padding-y) 24px var(--fxr-input-padding-y) var(--fxr-input-padding-x) !important;
+	font-size: 14px !important;
 	font-family: var(--fxr-font-family);
 	color: var(--fxr-text);
-	background: var(--fxr-bg-input);
-	border: 1px solid var(--fxr-border);
-	border-radius: var(--fxr-radius-md);
+	background: var(--fxr-bg-input) !important;
+	border: 1px solid var(--fxr-border) !important;
+	border-radius: var(--fxr-radius-sm) !important;
 	appearance: none;
 	-webkit-appearance: none;
 	cursor: pointer;
 	width: 100%;
 	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
 	background-repeat: no-repeat;
-	background-position: right 6px center;
+	background-position: right 8px center;
 	background-size: 12px;
 	transition:
 		border-color var(--fxr-transition-fast),

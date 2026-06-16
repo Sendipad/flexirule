@@ -834,16 +834,18 @@ onBeforeUnmount(() => {
 }
 
 .compact-pill {
-	max-width: 180px;
+	max-width: 220px;
+	min-width: 60px;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
-	padding: 2px 8px;
-	border-radius: 999px;
-	background-color: var(--fxr-bg-muted);
+	padding: 2px 10px;
+	border-radius: var(--fxr-radius-pill);
+	background-color: var(--fxr-surface-2);
+	border: 1px solid var(--fxr-border-subtle);
 	font-size: 11px;
-	font-weight: 600;
-	color: var(--fxr-text);
+	font-weight: 700;
+	color: var(--fxr-text-strong);
 }
 
 .compact-pill.muted {

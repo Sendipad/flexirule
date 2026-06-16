@@ -717,14 +717,14 @@ defineExpose({ validate });
 }
 
 .assignment-grid-header {
-	padding: var(--spacing-sm) var(--spacing-md);
-	font-size: var(--fxr-helper-font-size);
+	padding: var(--spacing-xs) var(--spacing-md);
+	font-size: 10px;
 	font-weight: 800;
-	color: var(--fxr-text-muted);
+	color: var(--fxr-text-faint);
 	text-transform: uppercase;
 	letter-spacing: 0.05em;
 	border-bottom: 1px solid var(--fxr-border-subtle);
-	margin-bottom: var(--spacing-xs);
+	margin-bottom: 4px;
 }
 
 .when-editor-cell {
@@ -753,13 +753,14 @@ defineExpose({ validate });
 }
 
 .when-toggle-btn.is-active {
-	background-color: var(--fxr-accent-soft);
+	background-color: color-mix(in srgb, var(--fxr-accent) 15%, transparent);
 	color: var(--fxr-accent);
-	border-color: var(--fxr-accent-border);
+	border: 1px solid var(--fxr-accent-border);
+	box-shadow: 0 0 0 1px var(--fxr-accent-soft);
 }
 
 .when-toggle-btn.is-active:hover {
-	background-color: var(--fxr-bg-hover);
+	background-color: color-mix(in srgb, var(--fxr-accent) 25%, transparent);
 	border-color: var(--fxr-accent);
 }
 

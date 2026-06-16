@@ -10,37 +10,41 @@
 			<div class="panel-section storage-section">
 				<h5 class="section-title">{{ __("Result Storage") }}</h5>
 				<div class="storage-controls mt-2">
-					<ControlFactory
-						v-if="showMutationMode"
-						:df="mutationModeField"
-						:modelValue="node.data?.mutation_mode"
-						:read_only="readOnly"
-						@update:modelValue="updateField('mutation_mode', $event)"
-					/>
+					<div v-if="showMutationMode" class="storage-row">
+						<ControlFactory
+							:df="mutationModeField"
+							:modelValue="node.data?.mutation_mode"
+							:read_only="readOnly"
+							@update:modelValue="updateField('mutation_mode', $event)"
+						/>
+					</div>
 
-					<ComboBoxControl
-						v-if="showReturnVariable && useAutocompleteForReturnVariable"
-						:df="returnVariableField"
-						:modelValue="node.data?.return_variable"
-						:get_query="getReturnVariableOptions"
-						:read_only="readOnly"
-						@update:modelValue="updateField('return_variable', $event)"
-					/>
-					<ControlFactory
-						v-else-if="showReturnVariable"
-						:df="returnVariableField"
-						:modelValue="node.data?.return_variable"
-						:read_only="readOnly"
-						@update:modelValue="updateField('return_variable', $event)"
-					/>
+					<div v-if="showReturnVariable" class="storage-row">
+						<ComboBoxControl
+							v-if="useAutocompleteForReturnVariable"
+							:df="returnVariableField"
+							:modelValue="node.data?.return_variable"
+							:get_query="getReturnVariableOptions"
+							:read_only="readOnly"
+							@update:modelValue="updateField('return_variable', $event)"
+						/>
+						<ControlFactory
+							v-else
+							:df="returnVariableField"
+							:modelValue="node.data?.return_variable"
+							:read_only="readOnly"
+							@update:modelValue="updateField('return_variable', $event)"
+						/>
+					</div>
 
-					<ControlFactory
-						v-if="showReturnType"
-						:df="returnTypeField"
-						:modelValue="node.data?.return_type"
-						:read_only="readOnly"
-						@update:modelValue="updateField('return_type', $event)"
-					/>
+					<div v-if="showReturnType" class="storage-row">
+						<ControlFactory
+							:df="returnTypeField"
+							:modelValue="node.data?.return_type"
+							:read_only="readOnly"
+							@update:modelValue="updateField('return_type', $event)"
+						/>
+					</div>
 				</div>
 			</div>
 
@@ -525,19 +529,31 @@ defineExpose({ validate });
 .panel-sections {
 	flex: 1;
 	overflow-y: auto;
-	padding: var(--spacing-lg);
+	padding: var(--spacing-md);
 	display: flex;
 	flex-direction: column;
-	gap: var(--spacing-lg);
+	gap: var(--spacing-md);
 }
 
 .panel-section {
 	display: flex;
 	flex-direction: column;
-	padding: var(--spacing-lg);
+	padding: var(--spacing-md);
 	border: 1px solid var(--fxr-border-subtle);
 	border-radius: var(--fxr-radius-md);
-	background-color: var(--fxr-surface-2);
+	background-color: var(--fxr-surface-soft);
+}
+
+.storage-controls {
+	display: flex;
+	flex-direction: column;
+	gap: var(--spacing-sm);
+}
+
+.storage-row {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
 }
 
 .section-header {

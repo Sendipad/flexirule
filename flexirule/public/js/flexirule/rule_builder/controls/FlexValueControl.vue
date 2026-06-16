@@ -1287,9 +1287,9 @@ onBeforeUnmount(() => {
 	display: flex;
 	align-items: center;
 	width: 100%;
-	height: 28px;
-	min-height: 28px;
-	max-height: 28px;
+	height: var(--fxr-input-height, 32px);
+	min-height: var(--fxr-input-height, 32px);
+	max-height: var(--fxr-input-height, 32px);
 	overflow: hidden;
 	border: 1px solid var(--fxr-border);
 	border-radius: var(--fxr-radius-sm);
@@ -1320,10 +1320,12 @@ onBeforeUnmount(() => {
 
 .fvc-static-container :deep(.fxr-input),
 .fvc-static-container :deep(.fxr-select),
-.fvc-static-container :deep(.combobox-input) {
+.fvc-static-container :deep(.combobox-input),
+.fvc-static-container :deep(.awesomplete input) {
 	padding: 0 10px !important;
 	font-weight: var(--fxr-weight-bold) !important;
 	color: var(--fxr-text-strong) !important;
+	height: var(--fxr-input-height, 32px) !important;
 }
 
 .fvc-main-field:focus-within {

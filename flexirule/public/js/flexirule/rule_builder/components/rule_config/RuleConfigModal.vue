@@ -264,7 +264,7 @@
 
 									<!-- Close -->
 									<button
-										class="toolbar-btn close"
+										class="toolbar-btn close-action"
 										@click="cancel"
 										:title="__('Close')"
 									>
@@ -1234,10 +1234,17 @@ html[data-theme="dark"] .toolbar-btn.save-action {
 	cursor: not-allowed;
 }
 
-.toolbar-btn.close:hover {
-	background: var(--fxr-danger-soft, #fee2e2);
-	color: var(--red-600, #ef4444);
-	border-color: color-mix(in srgb, var(--red-200, #fecaca) 50%, transparent);
+.toolbar-btn.close-action {
+	background: var(--fxr-bg-muted) !important;
+	color: var(--fxr-text-muted) !important;
+	border: none !important;
+	transition: all 0.2s ease;
+}
+
+.toolbar-btn.close-action:hover {
+	background: var(--fxr-danger-soft, #fee2e2) !important;
+	color: var(--red-600, #ef4444) !important;
+	transform: rotate(90deg);
 }
 
 .toolbar-btn.save-action {

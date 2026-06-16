@@ -87,15 +87,15 @@
 	--fxr-font-mono:
 		ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
 
-	--fxr-text-xs: 11px;
+	--fxr-text-xs: 12px;
 	--fxr-text-sm: 12px;
-	--fxr-text-base: 13px;
+	--fxr-text-base: 14px;
 	--fxr-text-md: 14px;
 	--fxr-text-lg: 16px;
 
 	/* Unified Typography Mappings */
-	--fxr-label-font-size: var(--fxr-text-sm); /* 12px */
-	--fxr-helper-font-size: var(--fxr-text-xs); /* 11px */
+	--fxr-label-font-size: var(--fxr-text-xs); /* 12px */
+	--fxr-helper-font-size: var(--fxr-text-xs); /* 12px */
 
 	--fxr-weight-normal: 400;
 	--fxr-weight-medium: 500;
@@ -113,22 +113,22 @@
 	--fxr-space-10: 32px;
 
 	/* Semantic Spacing Aliases */
-	--spacing-xs: var(--fxr-space-1); /* 4px */
-	--spacing-sm: var(--fxr-space-2); /* 6px */
-	--spacing-md: var(--fxr-space-3); /* 8px */
-	--spacing-lg: var(--fxr-space-4); /* 12px */
+	--spacing-xs: 4px;
+	--spacing-sm: 8px;
+	--spacing-md: 12px;
+	--spacing-lg: 16px;
 
 	/* ─── Control Sizing ─── */
-	--fxr-input-height: 28px;
-	--fxr-input-height-sm: 24px;
+	--fxr-input-height: 32px;
+	--fxr-input-height-sm: 28px;
 	--fxr-input-padding-x: 8px;
 	--fxr-input-padding-y: 4px;
 	--fxr-input-font-size: var(--fxr-text-base);
 
 	/* ─── Radii ─── */
-	--fxr-radius-sm: 8px;
-	--fxr-radius-md: 12px;
-	--fxr-radius-lg: 16px;
+	--fxr-radius-sm: 6px;
+	--fxr-radius-md: 8px;
+	--fxr-radius-lg: 12px;
 	--fxr-radius-xl: 20px;
 	--fxr-radius-pill: 999px;
 
@@ -180,24 +180,24 @@ html[data-theme="dark"] {
 	--tg-for-tint: rgba(168, 85, 247, 0.12);
 	--tg-for-border: #a855f7;
 
-	--fxr-bg-page: #020617; /* True black/deep slate */
-	--fxr-bg-card: #0f172a;
-	--fxr-bg-input: #1e293b; /* Inputs should be lighter than cards in dark mode to pop */
-	--fxr-bg-muted: #334155;
-	--fxr-bg-hover: #334155;
-	--fxr-bg-active: #1e40af;
+	--fxr-bg-page: var(--bg-color, #111111);
+	--fxr-bg-card: var(--card-bg, #1a1a1a);
+	--fxr-bg-input: var(--control-bg, #262626);
+	--fxr-bg-muted: var(--bg-light-gray, #2a2a2a);
+	--fxr-bg-hover: var(--bg-hover-color, #333333);
+	--fxr-bg-active: var(--bg-selected-color, #3b3b3b);
 	--fxr-bg-danger: rgba(220, 38, 38, 0.2);
-	--fxr-bg-dark: #020617;
-	--fxr-bg-input-disabled: #1e293b;
+	--fxr-bg-dark: var(--bg-color, #111111);
+	--fxr-bg-input-disabled: var(--bg-light-gray, #2a2a2a);
 
 	/* Surface layers in Dark Mode */
-	--fxr-surface: #0f172a;
-	--fxr-surface-2: #1e293b; /* Sidebar panels background */
-	--fxr-surface-soft: #1e293b; /* Card background */
-	--fxr-surface-elevated: #1e293b;
+	--fxr-surface: var(--card-bg, #1a1a1a);
+	--fxr-surface-2: var(--bg-color, #111111);
+	--fxr-surface-soft: var(--bg-color, #111111); /* Darker surface for panels */
+	--fxr-surface-elevated: var(--modal-bg, #1a1a1a);
 
-	--fxr-border: #334155;
-	--fxr-border-subtle: #1e293b;
+	--fxr-border: var(--border-color, #333333);
+	--fxr-border-subtle: var(--border-subtle, #2a2a2a);
 	--fxr-border-focus: var(--primary, #3b82f6);
 	--fxr-border-strong: #94a3b8; /* Balanced for better visibility of edges/handles */
 	--fxr-border-danger: var(--red-400, #f87171);

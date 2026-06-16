@@ -939,7 +939,7 @@ onMounted(async () => {
 .filter-list {
 	display: flex;
 	flex-direction: column;
-	gap: var(--spacing-xs);
+	gap: 4px;
 }
 
 /* ─── Filter Row ─── */
@@ -949,8 +949,9 @@ onMounted(async () => {
 	background-color: var(--fxr-bg-input);
 	border: 1px solid var(--fxr-border-subtle);
 	border-radius: var(--fxr-radius-sm);
-	padding: var(--spacing-xs) var(--spacing-md);
+	padding: 4px var(--spacing-md);
 	transition: all var(--fxr-transition-fast);
+	margin-bottom: 0 !important;
 }
 
 .filter-row:hover {

@@ -1237,46 +1237,47 @@ defineExpose({
 .query-config {
 	display: flex;
 	flex-direction: column;
-	gap: var(--fxr-space-8);
+	gap: var(--spacing-sm);
 	font-family: var(--fxr-font-family);
 }
 
 .config-section {
 	display: flex;
 	flex-direction: column;
-	gap: var(--fxr-space-6);
+	gap: var(--spacing-sm);
 }
 
 .section-card {
 	border: 1px solid var(--fxr-border-subtle);
-	border-radius: var(--fxr-radius-xl);
-	padding: var(--fxr-space-6);
-	background-color: var(--fxr-bg-card);
+	border-radius: var(--fxr-radius-md);
+	padding: var(--spacing-md);
+	background-color: var(--fxr-surface);
 }
 
 .section-subcard {
-	border: 1px dashed var(--fxr-border-subtle);
-	border-radius: var(--fxr-radius-lg);
-	padding: var(--fxr-space-5);
+	border: 1px solid var(--fxr-border-subtle);
+	border-radius: var(--fxr-radius-md);
+	padding: var(--spacing-md);
+	background-color: var(--fxr-surface-soft);
 }
 
 .sub-section {
 	display: flex;
 	flex-direction: column;
-	gap: var(--fxr-space-4);
+	gap: var(--spacing-sm);
 }
 
 .query-doc-grid {
 	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-	gap: var(--fxr-space-4);
+	grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+	gap: var(--spacing-md);
 	align-items: flex-end;
 }
 
 .grid-item {
 	display: flex;
 	flex-direction: column;
-	gap: var(--fxr-space-2);
+	gap: 2px;
 }
 
 .table-rows {
@@ -1288,7 +1289,7 @@ defineExpose({
 .row-item {
 	display: grid;
 	grid-template-columns: 1.4fr 0.8fr 1.6fr 0.8fr auto;
-	gap: var(--fxr-space-3);
+	gap: var(--spacing-sm);
 	align-items: center;
 }
 
@@ -1357,7 +1358,7 @@ defineExpose({
 .field-row {
 	display: flex;
 	align-items: center;
-	gap: var(--fxr-space-4);
+	gap: var(--spacing-sm);
 }
 
 :deep(.field-picker-control) {
