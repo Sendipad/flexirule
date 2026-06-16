@@ -48,6 +48,7 @@ export function useValueResolver(props, emit) {
 
 	// Watch for kind changes to reset state to defaults
 	watch(activeKind, (newKind, oldKind) => {
+		if (isInitializing.value) return;
 		if (newKind === oldKind) return;
 		const strategy = getStrategy(newKind);
 		if (strategy) {
