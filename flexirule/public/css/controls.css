@@ -630,9 +630,19 @@ html[data-theme="dark"] .fxr-input::placeholder {
 .fxr-preview-snippet {
 	font-family: var(--fxr-font-mono);
 	font-size: var(--fxr-text-xs);
-	color: var(--fxr-text-muted);
+	color: var(--fxr-accent);
 	text-align: center;
 	word-break: break-all;
+	padding: var(--fxr-space-2);
+	background: var(--fxr-accent-light);
+	border-radius: var(--fxr-radius-sm);
+}
+
+.fxr-strategy-help {
+	font-size: 10px;
+	color: var(--fxr-text-soft);
+	line-height: 1.4;
+	font-style: italic;
 }
 
 .fxr-inline-builder {
