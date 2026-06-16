@@ -49,12 +49,12 @@ registerStrategy("date_formula", {
 		return `{frappe.utils.add_to_date(${baseExpr}, ${item.offset_unit}=${offset})}`;
 	},
 	compileToLabel: (item) => {
-		const base = item.base_type === "today" ? __("Today") : item.base_field || __("Doc Field");
+		const base = item.base_type === "today" ? __("Today") : item.base_field || __("Field");
 		let offset = parseInt(item.offset_value || 0, 10);
 		if (item.offset_sign === "-" && offset > 0) offset = -offset;
-		if (offset === 0) return base;
+		if (offset === 0) return `Date: ${base}`;
 		const sign = offset > 0 ? "+" : "";
-		return `${base} ${sign}${offset} ${item.offset_unit}`;
+		return `Date: ${base} ${sign}${offset} ${item.offset_unit}`;
 	},
 	validate: (item, props) => {
 		const errors = [];
@@ -99,7 +99,7 @@ registerStrategy("math_formula", {
 	compileToLabel: (item) => {
 		const a = item.field_a || "?";
 		const b = item.field_b_type === "field" ? item.field_b || "?" : item.constant_b;
-		return `${a} ${item.math_op} ${b}`;
+		return `Calc: ${a} ${item.math_op} ${b}`;
 	},
 	validate: (item, props) => {
 		const errors = [];
@@ -267,12 +267,19 @@ registerStrategy("string_formula", {
 	},
 	compileToLabel: (item) => {
 		const ops = {
-			concat: __("Concatenate"),
-			fmt_money: __("Format Money"),
-			uppercase: __("Uppercase"),
-			lowercase: __("Lowercase"),
+			concat: __("Concat"),
+			fmt_money: __("Fmt Money"),
+			uppercase: __("Upper"),
+			lowercase: __("Lower"),
 		};
-		return ops[item.str_op] || __("String manipulation");
+		const op = ops[item.str_op] || __("String");
+		const valA = item.str_a_type === "field" ? item.str_a : `"${item.str_a || ""}"`;
+		const valB = item.str_b_type === "field" ? item.str_b : `"${item.str_b || ""}"`;
+
+		if (["concat", "fmt_money"].includes(item.str_op)) {
+			return `${op}(${valA || "?"}, ${valB || "?"})`;
+		}
+		return `${op}(${valA || "?"})`;
 	},
 	validate: (item, props) => {
 		const errors = [];
@@ -319,7 +326,17 @@ registerStrategy("normalization", {
 		if (item.norm_op === "lower") return `{str(${f} or "").lower()}`;
 		if (item.norm_op === "snake") return `{frappe.scrub(str(${f} or ""))}`;
 	},
-	compileToLabel: (item) => `${__(item.norm_op)}(${item.norm_field || "?"})`,
+	compileToLabel: (item) => {
+		const ops = {
+			trim: __("Trim"),
+			slug: __("Slug"),
+			title: __("Title"),
+			upper: __("Upper"),
+			lower: __("Lower"),
+			snake: __("Snake"),
+		};
+		return `${ops[item.norm_op] || __("Norm")}(${item.norm_field || "?"})`;
+	},
 	validate: (item, props) => {
 		const errors = [];
 		const store = useStore();
