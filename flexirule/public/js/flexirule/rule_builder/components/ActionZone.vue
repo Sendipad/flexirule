@@ -749,12 +749,7 @@ defineExpose({
 							@mouseover="selectedIndex = idx"
 						>
 							<div class="item-icon" :style="{ color: item.color }">
-								<i
-									:class="[
-										'fa',
-										item.icon?.replace('fa ', '') || 'fa-cog',
-									]"
-								></i>
+								<i :class="['fa', item.icon?.replace('fa ', '') || 'fa-cog']"></i>
 							</div>
 							<div class="item-content">
 								<div class="item-label">{{ item.label }}</div>
@@ -894,7 +889,9 @@ defineExpose({
 				</template>
 
 				<template
-					v-else-if="['select_mode', 'select_process', 'select_process_op'].includes(step)"
+					v-else-if="
+						['select_mode', 'select_process', 'select_process_op'].includes(step)
+					"
 				>
 					<div class="intermediate-container in-node">
 						<div class="step-header">
@@ -921,16 +918,16 @@ defineExpose({
 							<div
 								v-for="(item, idx) in getIntermediateResults()"
 								:key="item.key || idx"
-								:class="['result-item is-option', { active: idx === selectedIndex }]"
+								:class="[
+									'result-item is-option',
+									{ active: idx === selectedIndex },
+								]"
 								@mousedown.prevent="selectIntermediateItem(item)"
 								@mouseover="selectedIndex = idx"
 							>
 								<div class="item-icon" :style="{ color: item.color }">
 									<i
-										:class="[
-											'fa',
-											item.icon?.replace('fa ', '') || 'fa-cog',
-										]"
+										:class="['fa', item.icon?.replace('fa ', '') || 'fa-cog']"
 									></i>
 								</div>
 								<div class="item-content">
