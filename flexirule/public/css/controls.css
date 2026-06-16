@@ -481,35 +481,36 @@ html[data-theme="dark"] .fxr-input::placeholder {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: var(--fxr-space-2) var(--fxr-space-4);
-	background: var(--fxr-bg-muted);
-	border: 1px solid var(--fxr-border);
-	border-radius: var(--fxr-radius-md);
+	padding: 2px var(--fxr-space-3);
+	background: var(--fxr-surface-2);
+	border: 1.5px solid var(--fxr-border-strong);
+	border-radius: var(--fxr-radius-pill);
 	cursor: pointer;
 	transition: all var(--fxr-transition-fast);
-	height: var(--fxr-input-height);
+	height: 30px;
 	user-select: none;
-	min-width: 140px;
+	min-width: 120px;
+	box-shadow: var(--fxr-shadow-sm);
 }
 
 .fxr-token:hover,
 .fxr-token.is-active {
 	border-color: var(--fxr-accent);
-	background: var(--fxr-bg-input);
-	box-shadow: var(--fxr-shadow-focus);
+	background: var(--fxr-surface);
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--fxr-accent) 20%, transparent);
 }
 
 .fxr-token__content {
 	display: flex;
 	align-items: center;
-	gap: var(--fxr-space-3);
+	gap: var(--fxr-space-2);
 	overflow: hidden;
 }
 
 .fxr-token__text {
-	font-size: var(--fxr-text-base);
+	font-size: var(--fxr-text-xs);
 	color: var(--fxr-text);
-	font-weight: var(--fxr-weight-medium);
+	font-weight: var(--fxr-weight-bold);
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
