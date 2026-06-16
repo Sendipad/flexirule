@@ -172,9 +172,7 @@
 						</div>
 
 						<div class="grid-item">
-							<label class="control-label small">{{
-								__("DocType Name")
-							}}</label>
+							<label class="control-label small">{{ __("DocType Name") }}</label>
 							<FlexValueControl
 								:modelValue="config.doctype_name"
 								:variableOptions="variable_options"
@@ -383,7 +381,10 @@
 										:class="{
 											'border-warning':
 												config.group_by_field &&
-											!is_field_valid(config.group_by_field, doctype_fields),
+												!is_field_valid(
+													config.group_by_field,
+													doctype_fields
+												),
 										}"
 										@update:modelValue="
 											(val) => update_config_key('group_by_field', val)
@@ -392,7 +393,7 @@
 									<i
 										v-if="
 											config.group_by_field &&
-										!is_field_valid(config.group_by_field, doctype_fields)
+											!is_field_valid(config.group_by_field, doctype_fields)
 										"
 										class="fa fa-warning text-warning field-warning-icon"
 										:title="__('Field not found in DocType')"
@@ -403,9 +404,9 @@
 								<ControlFactory
 									:df="with_read_only(aggFunctionField)"
 									:modelValue="config.agg_function"
-							@update:modelValue="
-								(val) => update_config_key('agg_function', val)
-							"
+									@update:modelValue="
+										(val) => update_config_key('agg_function', val)
+									"
 								/>
 							</div>
 							<div class="grid-item">
@@ -1202,7 +1203,7 @@ function load_local_config(val) {
 					field: parts[0],
 					direction: (parts[1] || "asc").toLowerCase(),
 				};
-		  })
+			})
 		: [];
 	const current_order_by_rows = order_by_rows.value.map((r) => ({
 		field: r.field,
@@ -1378,7 +1379,9 @@ defineExpose({
 	border-radius: var(--fxr-radius-md) !important;
 	background-color: var(--fxr-bg-input) !important;
 	color: var(--fxr-text) !important;
-	transition: border-color var(--fxr-transition-fast), box-shadow var(--fxr-transition-fast) !important;
+	transition:
+		border-color var(--fxr-transition-fast),
+		box-shadow var(--fxr-transition-fast) !important;
 }
 
 :deep(.form-control:focus) {
