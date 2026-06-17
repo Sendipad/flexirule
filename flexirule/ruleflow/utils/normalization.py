@@ -61,6 +61,41 @@ def phone_normalize(text: Any) -> Any:
 	return f"{prefix}{digits}"
 
 
+def email_normalize(x: Any) -> Any:
+	"""Normalize email addresses by cleaning common aliases and dots (provider specific)."""
+	if isinstance(x, str) and "@" in x:
+		parts = x.split("@")
+		user = parts[0].split("+")[0].replace(".", "").lower()
+		domain = parts[1].lower()
+		return f"{user}@{domain}"
+	return x
+
+
+def mask_email(x: Any) -> Any:
+	if not isinstance(x, str) or "@" not in x:
+		return "***"
+	parts = x.split("@")
+	return f"{parts[0][0]}***@{parts[1]}"
+
+
+def mask_phone(x: Any) -> Any:
+	if not isinstance(x, str) or len(x) <= 4:
+		return "***"
+	return f"***-***-{x[-4:]}"
+
+
+def mask_credit_card(x: Any) -> Any:
+	if not isinstance(x, str) or len(x) <= 4:
+		return "****"
+	return f"****-****-****-{x[-4:]}"
+
+
+def mask_partial(x: Any) -> Any:
+	if not isinstance(x, str) or len(x) <= 4:
+		return "***"
+	return f"{x[:2]}***{x[-2:]}"
+
+
 # =============================================================================
 # OPERATIONS
 # =============================================================================
@@ -69,6 +104,7 @@ NORMALIZATION_OPERATIONS = {
 	"trim": lambda x: x.strip() if isinstance(x, str) else x,
 	"lowercase": lambda x: x.lower() if isinstance(x, str) else x,
 	"uppercase": lambda x: x.upper() if isinstance(x, str) else x,
+	"casefold": lambda x: x.casefold() if isinstance(x, str) else x,
 	"title_case": lambda x: x.title() if isinstance(x, str) else x,
 	"slug": lambda x: (
 		re.sub(r"[^\w\s-]", "", x).strip().lower().replace(" ", "-") if isinstance(x, str) else x
@@ -86,6 +122,17 @@ NORMALIZATION_OPERATIONS = {
 	"remove_diacritics": remove_diacritics,
 	"translate_chars": lambda x: x.translate(TRANSLATION_TABLE) if isinstance(x, str) else x,
 	"phone_normalize": phone_normalize,
+	"email_normalize": email_normalize,
+	"name_normalize": lambda x: (
+		" ".join([w.capitalize() for w in x.split()]) if isinstance(x, str) else x
+	),
+	"currency_to_number": lambda x: (re.sub(r"[^\d.]", "", x) if isinstance(x, str) else x),
+	"tax_id_clean": lambda x: re.sub(r"[\s-]", "", x) if isinstance(x, str) else x,
+	"standard_date": lambda x: (str(frappe.utils.getdate(x)) if x else x),
+	"mask_email": mask_email,
+	"mask_phone": mask_phone,
+	"mask_credit_card": mask_credit_card,
+	"mask_partial": mask_partial,
 }
 
 # =============================================================================

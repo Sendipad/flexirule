@@ -134,15 +134,21 @@ class TestRealRules(FrappeTestCase):
 				_action(
 					"normalize",
 					"Normalize Name",
-					"Process",
-					process_name="Normalization",
-					operation="transform_value",
-					config={
-						"source_field": "first_name",
-						"transformations": ["trim", "remove_extra_spaces", "title_case"],
-					},
-					return_variable="first_name",
-					mutation_mode="Set Doc Field",
+					"Assignment",
+					config=[
+						{
+							"target": "doc.first_name",
+							"operator": "set",
+							"value": {
+								"mode": "resolver",
+								"config": {
+									"kind": "normalization",
+									"norm_field": "doc.first_name",
+									"norm_pipeline": ["trim", "remove_extra_spaces", "title_case"],
+								},
+							},
+						}
+					],
 					next_step_if_true="done",
 				),
 				_action("done", "Complete", "Stop", operation="Success"),
@@ -582,15 +588,21 @@ class TestRealRules(FrappeTestCase):
 				_action(
 					"normalize",
 					"Normalize Name",
-					"Process",
-					process_name="Normalization",
-					operation="transform_value",
-					config={
-						"source_field": "first_name",
-						"transformations": ["trim", "remove_extra_spaces", "title_case"],
-					},
-					return_variable="first_name",
-					mutation_mode="Set Doc Field",
+					"Assignment",
+					config=[
+						{
+							"target": "doc.first_name",
+							"operator": "set",
+							"value": {
+								"mode": "resolver",
+								"config": {
+									"kind": "normalization",
+									"norm_field": "doc.first_name",
+									"norm_pipeline": ["trim", "remove_extra_spaces", "title_case"],
+								},
+							},
+						}
+					],
 					next_step_if_true="done",
 				),
 				_action("done", "Complete", "Stop", operation="Success"),
