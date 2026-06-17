@@ -82,7 +82,7 @@
 							<div class="fxr-step-idx">{{ idx }}</div>
 							<div class="flex-1 min-width-0">
 								<div class="fxr-text-xs font-weight-bold">
-									{{ step.operation }}
+									{{ formatOpLabel(step.operation) }}
 								</div>
 								<div class="fxr-text-xs text-muted truncate">
 									{{ step.value }}
@@ -122,10 +122,19 @@ const availableProfiles = ref([]);
 
 const isCustomProfile = computed(() => props.modelValue.norm_profile === "Custom");
 
+const formatOpLabel = (op) => {
+	if (!op) return "";
+	return op
+		.replace(/_/g, " ")
+		.replace(/\b\w/g, (l) => l.toUpperCase())
+		.replace("Normalize", "Norm.")
+		.replace("Extra Spaces", "Spaces");
+};
+
 const operationOptions = computed(() => {
 	return availableOperations.value.map((op) => ({
 		value: op,
-		label: op.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
+		label: formatOpLabel(op),
 	}));
 });
 
@@ -135,7 +144,9 @@ const stringFieldOptions = computed(() => {
 	const fields = store.doc_meta[dt];
 	if (!fields || !Array.isArray(fields)) return [];
 	return fields
-		.filter((f) => ["Data", "Text", "Small Text", "Select"].includes(f.fieldtype))
+		.filter((f) =>
+			["Data", "Text", "Small Text", "Select", "Phone", "Autocomplete"].includes(f.fieldtype)
+		)
 		.map((f) => ({
 			label: `${f.label || f.fieldname} (${f.fieldname})`,
 			value: f.fieldname,

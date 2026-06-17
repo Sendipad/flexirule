@@ -141,6 +141,21 @@ NORMALIZATION_PROFILES = {
 	"URL Safe": ["trim", "lowercase", "slug"],
 	"Clean Text": ["trim", "remove_extra_spaces"],
 	"Upper Case Token": ["trim", "uppercase", "remove_spaces"],
+	"Arabic Normalization": ["trim", "unicode_normalize", "translate_chars", "remove_extra_spaces"],
+	"Arabic Strict": [
+		"trim",
+		"unicode_normalize",
+		"translate_chars",
+		"remove_punctuation",
+		"remove_extra_spaces",
+	],
+	"Phone Number": ["phone_normalize"],
+	"Email Address": ["trim", "lowercase", "email_normalize"],
+	"Person Name": ["trim", "name_normalize", "remove_extra_spaces"],
+	"Mask Email": ["mask_email"],
+	"Mask Phone": ["mask_phone"],
+	"Mask Credit Card": ["mask_credit_card"],
+	"Mask Partial": ["mask_partial"],
 }
 
 
