@@ -59,6 +59,11 @@ const isDoctypeContextField = computed(() =>
 	doctypeContextRefs.includes(selectedField.value?.value)
 );
 
+// Operators that don't need a value
+const valueNotRequired = ["is_set", "is_not_set", "is_submittable", "is_empty", "is_not_empty"];
+
+const isValueRequired = computed(() => !valueNotRequired.includes(props.node.op));
+
 // Available operators based on field type - backend-driven
 const operators = computed(() => {
 	const config = operatorConfig.value;
@@ -374,7 +379,7 @@ watch(
 						:key="valueControlKey"
 						v-model="wrappedValue"
 						:invalid="isInvalid('right')"
-						:df="{ ...valueFieldSchema, reqd: 1 }"
+						:df="{ ...valueFieldSchema, reqd: isValueRequired ? 1 : 0 }"
 						:context="{
 							df: valueFieldSchema,
 							operator: node.op,

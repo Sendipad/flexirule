@@ -116,7 +116,7 @@
 								:df="{
 									...(targetOptions.find((o) => o.value === assignment.target) ||
 										{}),
-									reqd: 1,
+									reqd: needsValue(assignment.operator) ? 1 : 0,
 								}"
 								:context="{
 									df:

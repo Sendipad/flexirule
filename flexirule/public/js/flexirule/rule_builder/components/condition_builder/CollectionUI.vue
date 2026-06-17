@@ -115,7 +115,7 @@ provide("variableOptions", scopedVariableOptions);
 
 const tableFields = computed(() => {
 	const fields = props.docFields || [];
-	return fields.filter((f) => {
+	const validTableFields = fields.filter((f) => {
 		// 1. Static Table fields
 		if (f.fieldtype === "Table") return true;
 
@@ -130,6 +130,7 @@ const tableFields = computed(() => {
 
 		return false;
 	});
+	return validTableFields.sort((a, b) => a.label.localeCompare(b.label));
 });
 
 // Child fields for the selected table
