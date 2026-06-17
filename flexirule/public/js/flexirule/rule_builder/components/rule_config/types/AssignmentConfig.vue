@@ -33,7 +33,7 @@
 				class="grid-col-when"
 				v-tippy="{
 					content: __(
-						'<b>Execution Condition</b><br/>This assignment will only run if the conditions are met. If left empty, it will always run.'
+						'<b>Execution Condition</b><br/>This assignment will only run if the conditions below are met. If left empty, it will always run.'
 					),
 					allowHTML: true,
 					placement: 'top-start',
@@ -60,13 +60,6 @@
 							class="fxr-btn fxr-btn--sm w-100 when-toggle-btn"
 							:class="hasWhenCondition(assignment) ? 'is-active' : 'is-default'"
 							:disabled="isReadOnly"
-							v-tippy="{
-								content: __(
-									'<b>Execution Condition</b><br/>This assignment will only run if the conditions are met. If left empty, it will always run.'
-								),
-								allowHTML: true,
-								placement: 'left',
-							}"
 							@click="openWhenConditionEditor(index, $event)"
 						>
 							<i
@@ -240,7 +233,7 @@
 
 					<div
 						v-if="hasWhenCondition(assignments[whenEditor.index])"
-						class="d-flex justify-content-start align-items-center mt-3"
+						class="d-flex justify-content-start align-items-center mt-2 px-3 pb-2"
 					>
 						<button
 							class="fxr-btn fxr-btn--sm fxr-btn--ghost text-danger p-0"
@@ -543,7 +536,6 @@ function addAssignment() {
 
 function removeAssignment(index) {
 	assignments.value.splice(index, 1);
-	// Cleanup ref if needed, though Vue usually handles it
 	if (targetComboBoxRefs.value[index]) {
 		targetComboBoxRefs.value.splice(index, 1);
 	}
@@ -849,7 +841,7 @@ defineExpose({ validate });
 	border: 1px solid var(--fxr-border-strong);
 	border-radius: var(--fxr-radius-md);
 	box-shadow: var(--fxr-shadow-xl);
-	padding: 8px;
+	padding: 0;
 	display: flex;
 	flex-direction: column;
 	z-index: 15000;
@@ -861,13 +853,14 @@ defineExpose({ validate });
 	overflow-x: hidden;
 	flex: 1;
 	min-height: 0;
+	padding: 12px;
 }
 
 @media (max-width: 768px) {
 	.when-condition-popover {
 		width: calc(100vw - 24px) !important;
 		left: 12px !important;
-		max-height: 70vh !important;
+		max-height: 80vh !important;
 		bottom: 12px !important;
 		top: auto !important;
 		border-radius: var(--fxr-radius-lg) !important;
