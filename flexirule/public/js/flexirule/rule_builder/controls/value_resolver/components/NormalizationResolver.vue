@@ -59,11 +59,11 @@
 				/>
 			</div>
 
-			<div v-if="demoLoading" class="mt-3 text-center py-2">
-				<i class="fa fa-spinner fa-spin text-muted"></i>
-			</div>
+			<div v-if="demoResult" class="mt-3 position-relative" :class="{ 'fxr-demo--loading': demoLoading }">
+				<div v-if="demoLoading" class="demo-loading-overlay">
+					<i class="fa fa-spinner fa-spin text-primary"></i>
+				</div>
 
-			<div v-else-if="demoResult" class="mt-3">
 				<div class="fxr-demo-result p-2 rounded bg-light border">
 					<div class="fxr-text-xs text-muted mb-1">{{ __("Result:") }}</div>
 					<div class="fxr-text-base font-weight-bold text-primary break-word">
@@ -113,7 +113,7 @@ const props = defineProps({
 });
 
 const store = useStore();
-const showDemo = ref(true);
+const showDemo = ref(false);
 const demoInput = ref(__("FlexiRule Normalization Test 123!"));
 const demoResult = ref(null);
 const demoLoading = ref(false);
@@ -227,6 +227,19 @@ onMounted(() => {
 
 .fxr-demo-result {
 	background-color: var(--fxr-bg-muted);
+}
+
+.fxr-demo--loading {
+	opacity: 0.7;
+	pointer-events: none;
+}
+
+.demo-loading-overlay {
+	position: absolute;
+	top: 0;
+	right: 0;
+	padding: 4px 8px;
+	z-index: 2;
 }
 
 .break-word {
