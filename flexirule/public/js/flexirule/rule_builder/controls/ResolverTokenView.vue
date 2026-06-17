@@ -30,12 +30,12 @@ const handleUpdate = (config, details) => {
 <style scoped>
 .resolver-token-wrapper {
 	display: inline-block;
-	vertical-align: top;
+	vertical-align: middle;
 	line-height: 1;
-	margin-top: 1px;
 }
 
 .resolver-token-wrapper.is-selected :deep(.fxr-token) {
 	outline: 2px solid var(--fxr-accent);
+	outline-offset: 1px;
 }
 </style>

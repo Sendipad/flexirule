@@ -1287,10 +1287,7 @@ onBeforeUnmount(() => {
 	display: flex;
 	align-items: center;
 	width: 100%;
-	height: var(--fxr-input-height, 32px);
 	min-height: var(--fxr-input-height, 32px);
-	max-height: var(--fxr-input-height, 32px);
-	overflow: hidden;
 	border: 1px solid var(--fxr-border);
 	border-radius: var(--fxr-radius-sm);
 	background-color: var(--fxr-bg-input);
@@ -1344,10 +1341,11 @@ onBeforeUnmount(() => {
 	overflow: hidden;
 }
 .fvc-editor-container {
-	padding: 2px 8px;
+	padding: 0 8px;
 	flex: 1;
 	position: relative;
-	overflow: hidden;
+	display: flex;
+	align-items: center;
 }
 .fvc-editor-wrapper {
 	width: 100%;
@@ -1416,7 +1414,7 @@ onBeforeUnmount(() => {
 .fvc-tiptap-editor :deep(.ProseMirror) {
 	outline: none;
 	font-size: var(--fxr-input-font-size);
-	min-height: 20px;
+	min-height: 24px;
 	display: flex;
 	align-items: center;
 	white-space: nowrap;

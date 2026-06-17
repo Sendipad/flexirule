@@ -29,7 +29,19 @@
 
 		<!-- Horizontal Table Grid Header -->
 		<div v-if="assignments.length" class="assignment-grid-header">
-			<div class="grid-col-when">{{ __("Run If") }}</div>
+			<div
+				class="grid-col-when"
+				v-tippy="{
+					content: __(
+						'<b>Execution Condition</b><br/>This assignment will only run if the conditions below are met. If left empty, it will always run.'
+					),
+					allowHTML: true,
+					placement: 'top-start',
+				}"
+			>
+				{{ __("Run If") }}
+				<i class="fa fa-question-circle ms-1 opacity-50"></i>
+			</div>
 			<div class="grid-col-target">{{ __("Target Field") }}</div>
 			<div class="grid-col-operator">{{ __("Operator") }}</div>
 			<div class="grid-col-value">{{ __("Value Expression") }}</div>
@@ -48,7 +60,7 @@
 							class="fxr-btn fxr-btn--sm w-100 when-toggle-btn"
 							:class="hasWhenCondition(assignment) ? 'is-active' : 'is-default'"
 							:disabled="isReadOnly"
-							@click="openWhenConditionEditor(index)"
+							@click="openWhenConditionEditor(index, $event)"
 						>
 							<i
 								:class="
@@ -72,6 +84,7 @@
 				<!-- Target ComboBox with Type Badge support -->
 				<div class="grid-col-target">
 					<ComboBoxControl
+						:ref="(el) => (targetComboBoxRefs[index] = el)"
 						data-fxr-fieldname="assignments.target"
 						:df="{ fieldtype: 'FieldPicker', label: '' }"
 						:modelValue="assignment.target"
@@ -200,21 +213,14 @@
 		</button>
 
 		<Teleport to="body">
-			<div
-				v-if="whenEditor.open"
-				class="fxr-modal-overlay"
-				@click.self="closeWhenConditionEditor"
-			>
-				<div class="fxr-modal-card">
-					<div class="d-flex align-items-center justify-content-between mb-2">
-						<h5 class="mb-0">{{ __("Assignment Run Condition") }}</h5>
-						<button
-							class="fxr-btn fxr-btn--icon fxr-btn--sm fxr-btn--ghost"
-							@click="closeWhenConditionEditor"
-						>
-							<i class="fa fa-times"></i>
-						</button>
-					</div>
+			<transition name="dropdown-fade">
+				<div
+					v-if="isWhenOpen"
+					ref="whenDropdownRef"
+					class="fxr-dropdown when-condition-popover"
+					:style="whenDropdownStyle"
+					@mousedown.stop
+				>
 					<div class="condition-builder-wrap">
 						<ConditionBuilder
 							:modelValue="whenEditor.draft"
@@ -224,30 +230,30 @@
 							@update:modelValue="updateDraft"
 						/>
 					</div>
-					<div class="d-flex justify-content-between mt-3">
+
+					<div
+						v-if="hasWhenCondition(assignments[whenEditor.index])"
+						class="d-flex justify-content-start align-items-center mt-2 px-3 pb-2"
+					>
 						<button
-							class="fxr-btn fxr-btn--sm fxr-btn--ghost text-danger"
+							class="fxr-btn fxr-btn--sm fxr-btn--ghost text-danger p-0"
 							@click="clearWhenCondition"
 						>
-							{{ __("Clear Condition") }}
-						</button>
-						<button
-							class="fxr-btn fxr-btn--sm fxr-btn--secondary"
-							@click="closeWhenConditionEditor"
-						>
-							{{ __("Close") }}
+							<i class="fa fa-eraser me-1"></i>
+							{{ __("Clear Conditions") }}
 						</button>
 					</div>
 				</div>
-			</div>
+			</transition>
 		</Teleport>
 	</div>
 </template>
 
 <script setup>
-import { computed, watch, ref, onMounted, onBeforeUnmount } from "vue";
+import { computed, watch, ref, onMounted, onBeforeUnmount, nextTick } from "vue";
 import { fromCodeString } from "../../../utils/serialization";
 import { useActionConfig } from "../../../composables/useActionConfig";
+import { useFloatingDropdown } from "../../../composables/useFloatingDropdown";
 import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
 import FlexValueControl from "../../../controls/FlexValueControl.vue";
 import ConditionBuilder from "../../condition_builder/ConditionBuilder.vue";
@@ -274,7 +280,23 @@ const supportedTemplateModes = [
 	"json",
 	"add-key",
 ];
-const whenEditor = ref({ open: false, index: -1, draft: null });
+const whenEditor = ref({ index: -1, draft: null });
+const targetComboBoxRefs = ref([]);
+
+const {
+	triggerRef,
+	dropdownRef: whenDropdownRef,
+	isOpen: isWhenOpen,
+	dropdownStyle: whenDropdownStyle,
+	openDropdown: openWhenDropdown,
+	closeDropdown: closeWhenDropdown,
+	cleanup: cleanupWhenDropdown,
+} = useFloatingDropdown({
+	minWidth: 320,
+	maxWidth: 800,
+	maxHeight: 600,
+	matchTriggerWidth: false,
+});
 
 // ─── Operator Helpers ────────────────────────────────────────────────────────
 
@@ -488,7 +510,7 @@ function syncToNode() {
 }
 
 function addAssignment() {
-	assignments.value.push({
+	const newAssignment = {
 		name: makeRandomString(9),
 		target: "",
 		operator: "set",
@@ -496,12 +518,27 @@ function addAssignment() {
 		when_expression: "",
 		pythonExpression: "",
 		value: { mode: "static", value: "" },
-	});
+	};
+	assignments.value.push(newAssignment);
 	syncToNode();
+
+	const newIndex = assignments.value.length - 1;
+	nextTick(() => {
+		// Wait an extra tick to ensure v-for has completed rendering the new element
+		nextTick(() => {
+			const comboBox = targetComboBoxRefs.value[newIndex];
+			if (comboBox) {
+				comboBox.focus();
+			}
+		});
+	});
 }
 
 function removeAssignment(index) {
 	assignments.value.splice(index, 1);
+	if (targetComboBoxRefs.value[index]) {
+		targetComboBoxRefs.value.splice(index, 1);
+	}
 	syncToNode();
 }
 
@@ -559,22 +596,29 @@ const whenConditionDocFields = computed(() =>
 	}))
 );
 
-function openWhenConditionEditor(index) {
+function openWhenConditionEditor(index, event) {
+	if (whenEditor.value.index === index && isWhenOpen.value) {
+		closeWhenConditionEditor();
+		return;
+	}
+
+	triggerRef.value = event.currentTarget;
 	const current = assignments.value[index];
 	const fallback = { op: "and", conditions: [] };
 	whenEditor.value = {
-		open: true,
 		index,
 		draft: JSON.parse(JSON.stringify(current?.when_condition || fallback)),
 	};
+	openWhenDropdown();
 }
 
 function closeWhenConditionEditor() {
-	whenEditor.value = { open: false, index: -1, draft: null };
+	closeWhenDropdown();
+	whenEditor.value = { index: -1, draft: null };
 }
 
 function handleKeydown(e) {
-	if (e.key === "Escape" && whenEditor.value.open) {
+	if (e.key === "Escape" && isWhenOpen.value) {
 		e.preventDefault();
 		e.stopPropagation();
 		e.stopImmediatePropagation();
@@ -582,12 +626,36 @@ function handleKeydown(e) {
 	}
 }
 
+function handleClickOutside(e) {
+	if (!isWhenOpen.value) return;
+	const target = e.target;
+
+	// Ignore clicks inside the popover or on the trigger button
+	if (whenDropdownRef.value?.contains(target)) return;
+	if (triggerRef.value?.contains(target)) return;
+
+	// Ignore clicks inside teleported elements (dropdowns, tooltips, modals)
+	if (
+		target.closest(".fxr-dropdown") ||
+		target.closest(".tippy-box") ||
+		target.closest(".fxr-token-modal-overlay") ||
+		target.closest(".awesomplete")
+	) {
+		return;
+	}
+
+	closeWhenConditionEditor();
+}
+
 onMounted(() => {
 	window.addEventListener("keydown", handleKeydown, { capture: true });
+	document.addEventListener("mousedown", handleClickOutside, { capture: true });
 });
 
 onBeforeUnmount(() => {
 	window.removeEventListener("keydown", handleKeydown, { capture: true });
+	document.removeEventListener("mousedown", handleClickOutside, { capture: true });
+	cleanupWhenDropdown();
 });
 
 function updateDraft(val) {
@@ -768,34 +836,35 @@ defineExpose({ validate });
 	border-color: var(--fxr-accent);
 }
 
-.fxr-modal-overlay {
-	position: fixed;
-	inset: 0;
-	background-color: rgba(0, 0, 0, 0.5);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	z-index: 13000;
-}
-
-.fxr-modal-card {
-	width: min(980px, 92vw);
-	max-height: 86vh;
+.when-condition-popover {
 	background-color: var(--fxr-surface-elevated);
-	border-radius: 14px;
-	border: 1px solid var(--fxr-border-subtle);
-	padding: 14px;
-	overflow: hidden;
+	border: 1px solid var(--fxr-border-strong);
+	border-radius: var(--fxr-radius-md);
+	box-shadow: var(--fxr-shadow-xl);
+	padding: 0;
 	display: flex;
 	flex-direction: column;
+	z-index: 15000;
+	overflow: hidden;
 }
 
 .condition-builder-wrap {
-	overflow: auto;
-	border: 1px solid var(--fxr-border-subtle);
-	border-radius: 12px;
-	padding: 8px;
-	background-color: var(--fxr-surface-soft);
+	overflow-y: auto;
+	overflow-x: hidden;
+	flex: 1;
+	min-height: 0;
+	padding: 12px;
+}
+
+@media (max-width: 768px) {
+	.when-condition-popover {
+		width: calc(100vw - 24px) !important;
+		left: 12px !important;
+		max-height: 80vh !important;
+		bottom: 12px !important;
+		top: auto !important;
+		border-radius: var(--fxr-radius-lg) !important;
+	}
 }
 
 /* Value mode toggle + control wrapper */
