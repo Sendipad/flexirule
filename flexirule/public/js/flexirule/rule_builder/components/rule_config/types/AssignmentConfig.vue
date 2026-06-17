@@ -211,8 +211,10 @@
 				>
 					<div class="popover-header d-flex align-items-center justify-content-between">
 						<div class="d-flex flex-column">
-							<h6 class="mb-0 fw-bold">{{ __("Execution Condition") }}</h6>
-							<span class="text-muted fxr-text-xs">
+							<h6 class="mb-0 fw-bold fxr-text-sm">
+								{{ __("Execution Condition") }}
+							</h6>
+							<span class="text-muted" style="font-size: 10px; line-height: 1.3">
 								{{
 									__(
 										"This assignment will only run if the conditions below are met. If left empty, it will always run."
@@ -232,21 +234,16 @@
 						/>
 					</div>
 
-					<div class="d-flex justify-content-between align-items-center mt-3">
+					<div
+						v-if="hasWhenCondition(assignments[whenEditor.index])"
+						class="d-flex justify-content-start align-items-center mt-3"
+					>
 						<button
-							v-if="hasWhenCondition(assignments[whenEditor.index])"
 							class="fxr-btn fxr-btn--sm fxr-btn--ghost text-danger p-0"
 							@click="clearWhenCondition"
 						>
 							<i class="fa fa-eraser me-1"></i>
 							{{ __("Clear Conditions") }}
-						</button>
-						<div v-else></div>
-						<button
-							class="fxr-btn fxr-btn--sm fxr-btn--primary"
-							@click="closeWhenConditionEditor"
-						>
-							{{ __("Done") }}
 						</button>
 					</div>
 				</div>
@@ -300,6 +297,7 @@ const {
 } = useFloatingDropdown({
 	minWidth: 480,
 	maxWidth: 800,
+	maxHeight: 600,
 	matchTriggerWidth: false,
 });
 
@@ -843,7 +841,8 @@ defineExpose({ validate });
 	border-radius: 12px;
 	padding: 8px;
 	background-color: var(--fxr-surface-soft);
-	max-height: 400px;
+	flex: 1;
+	min-height: 0;
 }
 
 /* Value mode toggle + control wrapper */
