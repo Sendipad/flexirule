@@ -34,17 +34,14 @@
 				</span>
 			</template>
 			<div class="d-flex fxr-gap-2">
-				<select
-					class="fxr-select"
+				<SelectControl
 					style="width: 80px"
 					v-model="modelValue.link_source_type"
-					:disabled="readOnly"
+					:options="sourceTypeOptions"
+					:read_only="readOnly"
+					no-label
 					@change="modelValue.link_field = ''"
-				>
-					<option value="doc_field">{{ __("Field") }}</option>
-					<option value="variable">{{ __("Var") }}</option>
-					<option value="expression">{{ __("Expr") }}</option>
-				</select>
+				/>
 				<ComboBoxControl
 					v-if="modelValue.link_source_type !== 'expression'"
 					class="flex-1 min-w-0"
@@ -59,13 +56,13 @@
 					:allow-custom-value="modelValue.link_source_type === 'variable'"
 					hide-label
 				/>
-				<input
+				<DataControl
 					v-else
-					type="text"
-					class="fxr-input flex-1"
+					class="flex-1"
 					v-model="modelValue.link_field"
-					:disabled="readOnly"
+					:read_only="readOnly"
 					:placeholder="__('e.g. doc.party')"
+					no-label
 				/>
 			</div>
 		</CollapsibleSection>
@@ -99,6 +96,8 @@
 import { ref, computed, watch } from "vue";
 import { useStore } from "../../../stores";
 import ComboBoxControl from "../../ComboBoxControl.vue";
+import SelectControl from "../../SelectControl.vue";
+import DataControl from "../../DataControl.vue";
 import CollapsibleSection from "../../CollapsibleSection.vue";
 import { __ } from "../utils";
 
@@ -115,6 +114,12 @@ const props = defineProps({
 
 const store = useStore();
 const fetchMetaLoading = ref(false);
+
+const sourceTypeOptions = [
+	{ value: "doc_field", label: __("Field") },
+	{ value: "variable", label: __("Var") },
+	{ value: "expression", label: __("Expr") },
+];
 
 const resolverFieldname = computed(() => {
 	const fieldname =

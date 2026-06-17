@@ -1,29 +1,27 @@
 <template>
 	<div class="d-flex flex-column fxr-gap-1">
-		<label class="fxr-label-sm">{{ __("Child Table") }}</label>
-		<select class="fxr-select" v-model="modelValue.agg_table" :disabled="readOnly">
-			<option value="">{{ __("Select child table...") }}</option>
-			<option v-for="opt in tableFieldOptions" :key="opt.value" :value="opt.value">
-				{{ opt.label }}
-			</option>
-		</select>
+		<ComboBoxControl
+			v-model="modelValue.agg_table"
+			:options="tableFieldOptions"
+			:read_only="readOnly"
+			:df="{ label: __('Child Table') }"
+		/>
 	</div>
 	<div class="d-flex flex-column fxr-gap-1 mt-2" v-if="modelValue.agg_op !== 'count'">
-		<label class="fxr-label-sm">{{ __("Numeric Field") }}</label>
-		<select class="fxr-select" v-model="modelValue.agg_field" :disabled="readOnly">
-			<option value="">{{ __("Select field...") }}</option>
-			<option v-for="opt in aggFieldOptions" :key="opt.value" :value="opt.value">
-				{{ opt.label }}
-			</option>
-		</select>
+		<ComboBoxControl
+			v-model="modelValue.agg_field"
+			:options="aggFieldOptions"
+			:read_only="readOnly"
+			:df="{ label: __('Numeric Field') }"
+		/>
 	</div>
 	<div class="d-flex flex-column fxr-gap-1 mt-2">
-		<label class="fxr-label-sm">{{ __("Operation") }}</label>
-		<select class="fxr-select" v-model="modelValue.agg_op" :disabled="readOnly">
-			<option value="sum">{{ __("Sum") }}</option>
-			<option value="avg">{{ __("Average") }}</option>
-			<option value="count">{{ __("Count Rows") }}</option>
-		</select>
+		<SelectControl
+			v-model="modelValue.agg_op"
+			:options="opOptions"
+			:read_only="readOnly"
+			:df="{ label: __('Operation') }"
+		/>
 	</div>
 </template>
 
@@ -31,6 +29,8 @@
 import { computed } from "vue";
 import { useStore } from "../../../stores";
 import { __ } from "../utils";
+import ComboBoxControl from "../../ComboBoxControl.vue";
+import SelectControl from "../../SelectControl.vue";
 
 const props = defineProps({
 	modelValue: Object,
@@ -39,6 +39,12 @@ const props = defineProps({
 });
 
 const store = useStore();
+
+const opOptions = [
+	{ value: "sum", label: __("Sum") },
+	{ value: "avg", label: __("Average") },
+	{ value: "count", label: __("Count Rows") },
+];
 
 const tableFieldOptions = computed(() => {
 	const dt = store.rule_doc?.document_type || props.doctype;

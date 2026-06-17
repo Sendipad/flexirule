@@ -1,57 +1,48 @@
 <template>
 	<div class="d-flex flex-column fxr-gap-1">
-		<label class="fxr-label-sm">{{ __("Field A") }}</label>
-		<select
-			class="fxr-select"
+		<ComboBoxControl
 			v-model="modelValue.field_a"
-			:disabled="readOnly"
+			:options="numericFieldOptions"
+			:read_only="readOnly"
+			:df="{ label: __('Field A') }"
 			:class="{ 'is-invalid': !isFieldAValid }"
-		>
-			<option value="">{{ __("Select field...") }}</option>
-			<option v-for="opt in numericFieldOptions" :key="opt.value" :value="opt.value">
-				{{ opt.label }}
-			</option>
-		</select>
+		/>
 	</div>
 	<div class="d-flex flex-column fxr-gap-1 mt-2">
-		<label class="fxr-label-sm">{{ __("Operator") }}</label>
-		<select class="fxr-select" v-model="modelValue.math_op" :disabled="readOnly">
-			<option value="+">{{ __("Add (+)") }}</option>
-			<option value="-">{{ __("Subtract (-)") }}</option>
-			<option value="*">{{ __("Multiply (×)") }}</option>
-			<option value="/">{{ __("Divide (÷)") }}</option>
-		</select>
+		<SelectControl
+			v-model="modelValue.math_op"
+			:options="mathOpOptions"
+			:read_only="readOnly"
+			:df="{ label: __('Operator') }"
+		/>
 	</div>
 	<div class="d-flex flex-column fxr-gap-1 mt-2">
 		<label class="fxr-label-sm">{{ __("Field B / Value") }}</label>
 		<div class="d-flex fxr-gap-2">
-			<select
-				class="fxr-select flex-1"
+			<SelectControl
+				class="flex-1"
 				v-model="modelValue.field_b_type"
-				:disabled="readOnly"
-			>
-				<option value="field">{{ __("Document Field") }}</option>
-				<option value="constant">{{ __("Fixed Value") }}</option>
-			</select>
-			<select
+				:options="fieldBTypeOptions"
+				:read_only="readOnly"
+				no-label
+			/>
+			<ComboBoxControl
 				v-if="modelValue.field_b_type === 'field'"
-				class="fxr-select flex-1"
+				class="flex-1"
 				v-model="modelValue.field_b"
-				:disabled="readOnly"
+				:options="numericFieldOptions"
+				:read_only="readOnly"
+				no-label
 				:class="{ 'is-invalid': !isFieldBValid }"
-			>
-				<option value="">{{ __("Select field...") }}</option>
-				<option v-for="opt in numericFieldOptions" :key="opt.value" :value="opt.value">
-					{{ opt.label }}
-				</option>
-			</select>
-			<input
+				:placeholder="__('Select field...')"
+			/>
+			<DataControl
 				v-else
-				type="number"
-				step="any"
-				class="fxr-input flex-1"
-				v-model.number="modelValue.constant_b"
-				:disabled="readOnly"
+				class="flex-1"
+				v-model="modelValue.constant_b"
+				:df="{ fieldtype: 'Float' }"
+				:read_only="readOnly"
+				no-label
 				:placeholder="__('Enter value')"
 			/>
 		</div>
@@ -59,14 +50,12 @@
 	<div class="d-flex flex-column fxr-gap-1 mt-2">
 		<label class="fxr-label-sm">{{ __("Round To") }}</label>
 		<div class="d-flex align-items-center fxr-gap-2">
-			<input
-				type="number"
-				class="fxr-input"
+			<DataControl
 				style="width: 80px"
-				v-model.number="modelValue.precision"
-				min="0"
-				max="9"
-				:disabled="readOnly"
+				v-model="modelValue.precision"
+				:df="{ fieldtype: 'Int' }"
+				:read_only="readOnly"
+				no-label
 			/>
 			<span class="text-muted fxr-text-xs">{{ __("decimal places") }}</span>
 		</div>
@@ -77,6 +66,9 @@
 import { computed } from "vue";
 import { useStore } from "../../../stores";
 import { __ } from "../utils";
+import SelectControl from "../../SelectControl.vue";
+import ComboBoxControl from "../../ComboBoxControl.vue";
+import DataControl from "../../DataControl.vue";
 
 const props = defineProps({
 	modelValue: Object,
@@ -85,6 +77,18 @@ const props = defineProps({
 });
 
 const store = useStore();
+
+const mathOpOptions = [
+	{ value: "+", label: __("Add (+)") },
+	{ value: "-", label: __("Subtract (-)") },
+	{ value: "*", label: __("Multiply (×)") },
+	{ value: "/", label: __("Divide (÷)") },
+];
+
+const fieldBTypeOptions = [
+	{ value: "field", label: __("Document Field") },
+	{ value: "constant", label: __("Fixed Value") },
+];
 
 const numericFieldOptions = computed(() => {
 	const dt = store.rule_doc?.document_type || props.doctype;

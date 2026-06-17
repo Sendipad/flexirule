@@ -1,22 +1,20 @@
 <template>
 	<div class="d-flex flex-column fxr-gap-1">
-		<label class="fxr-label-sm">{{ __("Target Field") }}</label>
-		<select class="fxr-select" v-model="modelValue.norm_field" :disabled="readOnly">
-			<option value="">{{ __("Select field...") }}</option>
-			<option v-for="opt in stringFieldOptions" :key="opt.value" :value="opt.value">
-				{{ opt.label }}
-			</option>
-		</select>
+		<ComboBoxControl
+			v-model="modelValue.norm_field"
+			:options="stringFieldOptions"
+			:read_only="readOnly"
+			:df="{ label: __('Target Field') }"
+		/>
 	</div>
 
 	<div class="d-flex flex-column fxr-gap-1 mt-3">
-		<label class="fxr-label-sm">{{ __("Normalization Profile") }}</label>
-		<select class="fxr-select" v-model="modelValue.norm_profile" :disabled="readOnly">
-			<option value="Custom">{{ __("Custom Pipeline") }}</option>
-			<option v-for="profile in availableProfiles" :key="profile" :value="profile">
-				{{ profile }}
-			</option>
-		</select>
+		<SelectControl
+			v-model="modelValue.norm_profile"
+			:options="profileOptions"
+			:read_only="readOnly"
+			:df="{ label: __('Normalization Profile') }"
+		/>
 	</div>
 
 	<div class="d-flex flex-column fxr-gap-1 mt-3">
@@ -50,11 +48,9 @@
 
 		<div v-if="showDemo" class="mt-2">
 			<div class="d-flex flex-column fxr-gap-1">
-				<label class="fxr-label-xs text-muted">{{ __("Example Text") }}</label>
-				<input
-					type="text"
+				<DataControl
 					v-model="demoInput"
-					class="fxr-input fxr-input--sm"
+					:df="{ label: __('Example Text') }"
 					:placeholder="__('Type something to test...')"
 				/>
 			</div>
@@ -109,6 +105,9 @@ import { ref, computed, watch, onMounted } from "vue";
 import { useStore } from "../../../stores";
 import { __ } from "../utils";
 import MultiSelectList from "../../MultiSelectList.vue";
+import ComboBoxControl from "../../ComboBoxControl.vue";
+import SelectControl from "../../SelectControl.vue";
+import DataControl from "../../DataControl.vue";
 
 const props = defineProps({
 	modelValue: Object,
@@ -125,6 +124,14 @@ const availableOperations = ref([]);
 const availableProfiles = ref([]);
 
 const isCustomProfile = computed(() => props.modelValue.norm_profile === "Custom");
+
+const profileOptions = computed(() => {
+	const opts = [{ value: "Custom", label: __("Custom Pipeline") }];
+	availableProfiles.value.forEach((p) => {
+		opts.push({ value: p, label: p });
+	});
+	return opts;
+});
 
 const formatOpLabel = (op) => {
 	if (!op) return "";

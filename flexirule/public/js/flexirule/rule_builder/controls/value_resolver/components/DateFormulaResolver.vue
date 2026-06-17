@@ -2,21 +2,22 @@
 	<div class="d-flex flex-column fxr-gap-1">
 		<label class="fxr-label-sm">{{ __("Base Date") }}</label>
 		<div class="d-flex fxr-gap-2">
-			<select class="fxr-select flex-1" v-model="modelValue.base_type" :disabled="readOnly">
-				<option value="today">{{ __("Today") }}</option>
-				<option value="doc_field">{{ __("Document Field") }}</option>
-			</select>
-			<select
+			<SelectControl
+				class="flex-1"
+				v-model="modelValue.base_type"
+				:options="baseTypeOptions"
+				:read_only="readOnly"
+				no-label
+			/>
+			<ComboBoxControl
 				v-if="modelValue.base_type === 'doc_field'"
-				class="fxr-select flex-1"
+				class="flex-1"
 				v-model="modelValue.base_field"
-				:disabled="readOnly"
-				:class="{ 'is-invalid': !isBaseFieldValid }"
-			>
-				<option v-for="opt in dateFieldOptions" :key="opt.value" :value="opt.value">
-					{{ opt.label }}
-				</option>
-			</select>
+				:options="dateFieldOptions"
+				:read_only="readOnly"
+				no-label
+				:placeholder="__('Select field...')"
+			/>
 		</div>
 		<div v-if="!isBaseFieldValid" class="fxr-text-xs text-danger mt-1">
 			<i class="fa fa-exclamation-circle mr-1"></i>
@@ -31,30 +32,27 @@
 	<div class="d-flex flex-column fxr-gap-1 mt-2">
 		<label class="fxr-label-sm">{{ __("Offset") }}</label>
 		<div class="d-flex align-items-center fxr-gap-2">
-			<select
-				class="fxr-select"
-				v-model="modelValue.offset_sign"
+			<SelectControl
 				style="width: 70px"
-				:disabled="readOnly"
-			>
-				<option value="+">+</option>
-				<option value="-">-</option>
-			</select>
-			<input
-				type="number"
-				class="fxr-input"
-				style="width: 80px"
-				v-model.number="modelValue.offset_value"
-				min="0"
-				:disabled="readOnly"
+				v-model="modelValue.offset_sign"
+				:options="signOptions"
+				:read_only="readOnly"
+				no-label
 			/>
-			<select class="fxr-select flex-1" v-model="modelValue.offset_unit" :disabled="readOnly">
-				<option value="days">{{ __("Days") }}</option>
-				<option value="weeks">{{ __("Weeks") }}</option>
-				<option value="months">{{ __("Months") }}</option>
-				<option value="years">{{ __("Years") }}</option>
-				<option value="hours">{{ __("Hours") }}</option>
-			</select>
+			<DataControl
+				style="width: 80px"
+				v-model="modelValue.offset_value"
+				:df="{ fieldtype: 'Int' }"
+				:read_only="readOnly"
+				no-label
+			/>
+			<SelectControl
+				class="flex-1"
+				v-model="modelValue.offset_unit"
+				:options="unitOptions"
+				:read_only="readOnly"
+				no-label
+			/>
 		</div>
 	</div>
 </template>
@@ -63,6 +61,9 @@
 import { computed } from "vue";
 import { useStore } from "../../../stores";
 import { __, validateField } from "../utils";
+import SelectControl from "../../SelectControl.vue";
+import ComboBoxControl from "../../ComboBoxControl.vue";
+import DataControl from "../../DataControl.vue";
 
 const props = defineProps({
 	modelValue: Object,
@@ -71,6 +72,24 @@ const props = defineProps({
 });
 
 const store = useStore();
+
+const baseTypeOptions = [
+	{ value: "today", label: __("Today") },
+	{ value: "doc_field", label: __("Document Field") },
+];
+
+const signOptions = [
+	{ value: "+", label: "+" },
+	{ value: "-", label: "-" },
+];
+
+const unitOptions = [
+	{ value: "days", label: __("Days") },
+	{ value: "weeks", label: __("Weeks") },
+	{ value: "months", label: __("Months") },
+	{ value: "years", label: __("Years") },
+	{ value: "hours", label: __("Hours") },
+];
 
 const dateFieldOptions = computed(() => {
 	const dt = store.rule_doc?.document_type || props.doctype;

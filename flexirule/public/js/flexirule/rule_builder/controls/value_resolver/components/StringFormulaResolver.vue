@@ -1,45 +1,37 @@
 <template>
 	<div class="d-flex flex-column fxr-gap-1">
-		<label class="fxr-label-sm">{{ __("Operation") }}</label>
-		<select class="fxr-select" v-model="modelValue.str_op" :disabled="readOnly">
-			<option value="concat">{{ __("Concatenate") }}</option>
-			<option value="fmt_money">{{ __("Format Currency") }}</option>
-			<option value="uppercase">{{ __("Uppercase") }}</option>
-			<option value="lowercase">{{ __("Lowercase") }}</option>
-		</select>
+		<SelectControl
+			v-model="modelValue.str_op"
+			:options="operationOptions"
+			:read_only="readOnly"
+			:df="{ label: __('Operation') }"
+		/>
 	</div>
 	<div class="d-flex flex-column fxr-gap-1 mt-2">
-		<label class="fxr-label-sm">{{
-			modelValue.str_op === "fmt_money" ? __("Numeric Field") : __("Value A")
-		}}</label>
+		<label class="fxr-label-sm">{{ labelA }}</label>
 		<div class="d-flex gap-2">
-			<select class="fxr-select flex-1" v-model="modelValue.str_a_type" :disabled="readOnly">
-				<option value="field">{{ __("Document Field") }}</option>
-				<option value="constant">{{ __("Fixed Text") }}</option>
-			</select>
-			<select
+			<SelectControl
+				class="flex-1"
+				v-model="modelValue.str_a_type"
+				:options="typeOptions"
+				:read_only="readOnly"
+				no-label
+			/>
+			<ComboBoxControl
 				v-if="modelValue.str_a_type === 'field'"
-				class="fxr-select flex-1"
+				class="flex-1"
 				v-model="modelValue.str_a"
-				:disabled="readOnly"
-			>
-				<option value="">{{ __("Select field...") }}</option>
-				<option
-					v-for="opt in modelValue.str_op === 'fmt_money'
-						? numericFieldOptions
-						: stringFieldOptions"
-					:key="opt.value"
-					:value="opt.value"
-				>
-					{{ opt.label }}
-				</option>
-			</select>
-			<input
+				:options="optionsA"
+				:read_only="readOnly"
+				no-label
+				:placeholder="__('Select field...')"
+			/>
+			<DataControl
 				v-else
-				type="text"
-				class="fxr-input flex-1"
+				class="flex-1"
 				v-model="modelValue.str_a"
-				:disabled="readOnly"
+				:read_only="readOnly"
+				no-label
 				:placeholder="__('Enter text')"
 			/>
 		</div>
@@ -48,35 +40,30 @@
 		class="d-flex flex-column fxr-gap-1 mt-2"
 		v-if="['concat', 'fmt_money'].includes(modelValue.str_op)"
 	>
-		<label class="fxr-label-sm">{{
-			modelValue.str_op === "fmt_money" ? __("Currency") : __("Value B")
-		}}</label>
+		<label class="fxr-label-sm">{{ labelB }}</label>
 		<div class="d-flex gap-2">
-			<select class="fxr-select flex-1" v-model="modelValue.str_b_type" :disabled="readOnly">
-				<option value="field">{{ __("Document Field") }}</option>
-				<option value="constant">
-					{{
-						modelValue.str_op === "fmt_money" ? __("Fixed Currency") : __("Fixed Text")
-					}}
-				</option>
-			</select>
-			<select
+			<SelectControl
+				class="flex-1"
+				v-model="modelValue.str_b_type"
+				:options="typeBOptions"
+				:read_only="readOnly"
+				no-label
+			/>
+			<ComboBoxControl
 				v-if="modelValue.str_b_type === 'field'"
-				class="fxr-select flex-1"
+				class="flex-1"
 				v-model="modelValue.str_b"
-				:disabled="readOnly"
-			>
-				<option value="">{{ __("Select field...") }}</option>
-				<option v-for="opt in stringFieldOptions" :key="opt.value" :value="opt.value">
-					{{ opt.label }}
-				</option>
-			</select>
-			<input
+				:options="stringFieldOptions"
+				:read_only="readOnly"
+				no-label
+				:placeholder="__('Select field...')"
+			/>
+			<DataControl
 				v-else
-				type="text"
-				class="fxr-input flex-1"
+				class="flex-1"
 				v-model="modelValue.str_b"
-				:disabled="readOnly"
+				:read_only="readOnly"
+				no-label
 				:placeholder="modelValue.str_op === 'fmt_money' ? __('e.g. USD') : __('Enter text')"
 			/>
 		</div>
@@ -87,6 +74,9 @@
 import { computed } from "vue";
 import { useStore } from "../../../stores";
 import { __ } from "../utils";
+import SelectControl from "../../SelectControl.vue";
+import ComboBoxControl from "../../ComboBoxControl.vue";
+import DataControl from "../../DataControl.vue";
 
 const props = defineProps({
 	modelValue: Object,
@@ -95,6 +85,41 @@ const props = defineProps({
 });
 
 const store = useStore();
+
+const operationOptions = [
+	{ value: "concat", label: __("Concatenate") },
+	{ value: "fmt_money", label: __("Format Currency") },
+	{ value: "uppercase", label: __("Uppercase") },
+	{ value: "lowercase", label: __("Lowercase") },
+];
+
+const typeOptions = [
+	{ value: "field", label: __("Document Field") },
+	{ value: "constant", label: __("Fixed Text") },
+];
+
+const typeBOptions = computed(() => {
+	const fixedLabel =
+		props.modelValue.str_op === "fmt_money" ? __("Fixed Currency") : __("Fixed Text");
+	return [
+		{ value: "field", label: __("Document Field") },
+		{ value: "constant", label: fixedLabel },
+	];
+});
+
+const labelA = computed(() => {
+	return props.modelValue.str_op === "fmt_money" ? __("Numeric Field") : __("Value A");
+});
+
+const labelB = computed(() => {
+	return props.modelValue.str_op === "fmt_money" ? __("Currency") : __("Value B");
+});
+
+const optionsA = computed(() => {
+	return props.modelValue.str_op === "fmt_money"
+		? numericFieldOptions.value
+		: stringFieldOptions.value;
+});
 
 const numericFieldOptions = computed(() => {
 	const dt = store.rule_doc?.document_type || props.doctype;

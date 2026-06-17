@@ -1,43 +1,28 @@
 <template>
 	<div class="d-flex flex-column fxr-gap-1">
-		<label class="fxr-label-sm">{{ __("Format Type") }}</label>
-		<select class="fxr-select" v-model="modelValue.fmt_op" :disabled="readOnly">
-			<option value="format_date">{{ __("Date/Time Format") }}</option>
-			<option value="fmt_money">{{ __("Currency Format") }}</option>
-			<option value="format">{{ __("String Template") }}</option>
-		</select>
+		<SelectControl
+			v-model="modelValue.fmt_op"
+			:options="formatOptions"
+			:read_only="readOnly"
+			:df="{ label: __('Format Type') }"
+		/>
 	</div>
 	<div class="d-flex flex-column fxr-gap-1 mt-2">
-		<label class="fxr-label-sm">{{ __("Field") }}</label>
-		<select class="fxr-select" v-model="modelValue.fmt_field" :disabled="readOnly">
-			<option value="">{{ __("Select field...") }}</option>
-			<option
-				v-for="opt in modelValue.fmt_op === 'fmt_money'
-					? numericFieldOptions
-					: modelValue.fmt_op === 'format_date'
-					? dateFieldOptions
-					: stringFieldOptions"
-				:key="opt.value"
-				:value="opt.value"
-			>
-				{{ opt.label }}
-			</option>
-		</select>
+		<ComboBoxControl
+			v-model="modelValue.fmt_field"
+			:options="activeFieldOptions"
+			:read_only="readOnly"
+			:df="{ label: __('Field') }"
+		/>
 	</div>
 	<div class="d-flex flex-column fxr-gap-1 mt-2">
-		<label class="fxr-label-sm">{{
-			modelValue.fmt_op === "fmt_money"
-				? __("Currency (Field or Code)")
-				: modelValue.fmt_op === "format_date"
-				? __("Date Format (e.g. YYYY-MM-DD)")
-				: __("Template")
-		}}</label>
-		<input
-			type="text"
-			class="fxr-input"
+		<DataControl
 			v-model="modelValue.fmt_config"
-			:disabled="readOnly"
-			:placeholder="modelValue.fmt_op === 'format_date' ? 'YYYY-MM-DD' : ''"
+			:read_only="readOnly"
+			:df="{
+				label: configLabel,
+				placeholder: modelValue.fmt_op === 'format_date' ? 'YYYY-MM-DD' : '',
+			}"
 		/>
 	</div>
 </template>
@@ -46,6 +31,9 @@
 import { computed } from "vue";
 import { useStore } from "../../../stores";
 import { __ } from "../utils";
+import SelectControl from "../../SelectControl.vue";
+import ComboBoxControl from "../../ComboBoxControl.vue";
+import DataControl from "../../DataControl.vue";
 
 const props = defineProps({
 	modelValue: Object,
@@ -54,6 +42,24 @@ const props = defineProps({
 });
 
 const store = useStore();
+
+const formatOptions = [
+	{ value: "format_date", label: __("Date/Time Format") },
+	{ value: "fmt_money", label: __("Currency Format") },
+	{ value: "format", label: __("String Template") },
+];
+
+const configLabel = computed(() => {
+	if (props.modelValue.fmt_op === "fmt_money") return __("Currency (Field or Code)");
+	if (props.modelValue.fmt_op === "format_date") return __("Date Format (e.g. YYYY-MM-DD)");
+	return __("Template");
+});
+
+const activeFieldOptions = computed(() => {
+	if (props.modelValue.fmt_op === "fmt_money") return numericFieldOptions.value;
+	if (props.modelValue.fmt_op === "format_date") return dateFieldOptions.value;
+	return stringFieldOptions.value;
+});
 
 const dateFieldOptions = computed(() => {
 	const dt = store.rule_doc?.document_type || props.doctype;
