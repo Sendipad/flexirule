@@ -685,9 +685,23 @@ function validate() {
 			rowErr.hasOperatorError = true;
 		}
 		if (needsValue(a.operator)) {
-			const ui = a.value;
-			const hasValue = ui && (Array.isArray(ui.segments) || ui.mode);
-			if (!hasValue) {
+			const val = a.value;
+			let isValValid = false;
+
+			if (val && typeof val === "object" && !Array.isArray(val) && val.mode) {
+				if (val.mode === "static") {
+					isValValid = val.value !== undefined && val.value !== null && val.value !== "";
+				} else if (val.mode === "variable") {
+					isValValid = !!val.path;
+				} else {
+					// For formula/resolver/segments
+					isValValid = !!(val.config || (val.segments && val.segments.length > 0));
+				}
+			} else {
+				isValValid = val !== undefined && val !== null && val !== "";
+			}
+
+			if (!isValValid) {
 				errors.push(
 					__("Assignment #{0}: Value is required for operator '{1}'", [n, a.operator])
 				);
