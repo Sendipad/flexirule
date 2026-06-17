@@ -77,7 +77,7 @@
 				<div class="grid-col-target">
 					<ComboBoxControl
 						data-fxr-fieldname="assignments.target"
-						:df="{ fieldtype: 'FieldPicker', label: '' }"
+						:df="{ fieldtype: 'FieldPicker', label: '', reqd: 1 }"
 						:modelValue="assignment.target"
 						:invalid="rowErrors[index]?.hasTargetError"
 						:options="targetOptions"
@@ -94,7 +94,7 @@
 				<div class="grid-col-operator">
 					<ComboBoxControl
 						data-fxr-fieldname="assignments.operator"
-						:df="{ fieldtype: 'Select', label: '' }"
+						:df="{ fieldtype: 'Select', label: '', reqd: 1 }"
 						:options="getAvailableOperators(assignment.target)"
 						:modelValue="assignment.operator"
 						:invalid="rowErrors[index]?.hasOperatorError"
@@ -113,6 +113,11 @@
 								class="flex-1 min-w-0"
 								data-fxr-fieldname="assignments.value"
 								:invalid="rowErrors[index]?.hasValueError"
+								:df="{
+									...(targetOptions.find((o) => o.value === assignment.target) ||
+										{}),
+									reqd: 1,
+								}"
 								:context="{
 									df:
 										targetOptions.find((o) => o.value === assignment.target) ||

@@ -1049,6 +1049,53 @@ function deserialize(val) {
 	return structured.value ?? "";
 }
 
+function validate() {
+	if (props.df?.reqd) {
+		const struct = coerceStructuredValue(props.modelValue);
+		const isEmptyValue = (v) => v === undefined || v === null || v === "";
+
+		if (struct.mode === "static" && isEmptyValue(struct.value)) {
+			return {
+				valid: false,
+				message: __("{0} is required").replace("{0}", props.df.label || __("Field")),
+			};
+		}
+		if (struct.mode === "variable" && !struct.value) {
+			return {
+				valid: false,
+				message: __("{0} (Variable) is required").replace(
+					"{0}",
+					props.df.label || __("Field")
+				),
+			};
+		}
+		if (struct.mode === "resolver" && !struct.value) {
+			return {
+				valid: false,
+				message: __("{0} (Resolver) is required").replace(
+					"{0}",
+					props.df.label || __("Field")
+				),
+			};
+		}
+		if (
+			struct.mode === "expression" &&
+			(!Array.isArray(struct.value) || struct.value.length === 0)
+		) {
+			return {
+				valid: false,
+				message: __("{0} (Expression) is required").replace(
+					"{0}",
+					props.df.label || __("Field")
+				),
+			};
+		}
+	}
+	return { valid: true };
+}
+
+defineExpose({ validate });
+
 function emitChanges() {
 	const output = coerceStructuredValue(serialize());
 	const json = JSON.stringify(output);

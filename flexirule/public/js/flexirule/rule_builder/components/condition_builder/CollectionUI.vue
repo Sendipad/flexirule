@@ -4,6 +4,8 @@ import { computed, inject, onMounted, provide, reactive, ref, watch } from "vue"
  * CollectionUI - Child table iterator editor
  */
 import ConditionNode from "./ConditionNode.vue";
+import SelectControl from "../../controls/SelectControl.vue";
+import DataControl from "../../controls/DataControl.vue";
 import { useStore } from "../../stores";
 
 const props = defineProps({
@@ -282,41 +284,49 @@ onMounted(fetchChildMeta);
 		<div class="collection-header">
 			<!-- Logic -->
 			<div class="header-col" style="width: 100px">
-				<label class="fxr-label">{{ __("Match") }}</label>
-				<select v-model="node.op" class="fxr-select" :disabled="readOnly">
-					<option value="any">{{ __("Any") }}</option>
-					<option value="all">{{ __("All") }}</option>
-					<option value="none">{{ __("None") }}</option>
-				</select>
+				<SelectControl
+					v-model="node.op"
+					:df="{
+						label: __('Match'),
+						fieldtype: 'Select',
+						options: 'any\nall\nnone',
+						reqd: 1,
+						read_only: readOnly,
+					}"
+					:read_only="readOnly"
+				/>
 			</div>
 
 			<!-- Table -->
 			<div class="header-col flex-grow-1">
-				<label class="fxr-label">{{ __("Table") }}</label>
-				<select
+				<SelectControl
 					v-model="node.collection"
-					class="fxr-select"
-					:class="{ 'is-invalid': isInvalid('collection') }"
+					:df="{
+						label: __('Table'),
+						fieldtype: 'Select',
+						options: tableFields,
+						reqd: 1,
+						read_only: readOnly,
+					}"
+					:invalid="isInvalid('collection')"
+					:read_only="readOnly"
 					@change="fetchChildMeta"
-					:disabled="readOnly"
-				>
-					<option value="">{{ __("Select table...") }}</option>
-					<option v-for="f in tableFields" :key="f.value" :value="f.value">
-						{{ f.label }}
-					</option>
-				</select>
+				/>
 			</div>
 
 			<!-- Alias -->
 			<div class="header-col" style="width: 120px">
-				<label class="fxr-label">{{ __("Alias") }}</label>
-				<input
-					type="text"
+				<DataControl
 					v-model="node.alias"
-					class="fxr-input"
-					placeholder="row"
-					@input="fetchChildMeta"
-					:disabled="readOnly"
+					:df="{
+						label: __('Alias'),
+						fieldtype: 'Data',
+						placeholder: 'row',
+						reqd: 1,
+						read_only: readOnly,
+					}"
+					:read_only="readOnly"
+					@update:modelValue="fetchChildMeta"
 				/>
 			</div>
 

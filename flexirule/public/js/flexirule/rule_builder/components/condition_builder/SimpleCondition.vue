@@ -6,6 +6,7 @@
 import ControlFactory from "../../controls/ControlFactory.vue";
 import FlexValueControl from "../../controls/FlexValueControl.vue";
 import ComboBoxControl from "../../controls/ComboBoxControl.vue";
+import SelectControl from "../../controls/SelectControl.vue";
 import { useMetaStore } from "../../stores/useMetaStore";
 import { inject, ref, computed, watch } from "vue";
 
@@ -308,7 +309,7 @@ watch(
 			<!-- Field -->
 			<div class="condition-col field-col">
 				<ComboBoxControl
-					:df="{ label: '', fieldtype: 'FieldPicker', read_only: readOnly }"
+					:df="{ label: '', fieldtype: 'FieldPicker', read_only: readOnly, reqd: 1 }"
 					v-model="node.left.ref"
 					:invalid="isInvalid('left')"
 					:options="docFields"
@@ -323,16 +324,20 @@ watch(
 
 			<!-- Operator -->
 			<div class="condition-col operator-col">
-				<select
+				<SelectControl
 					v-model="node.op"
-					class="fxr-select operator-select"
-					:class="{ 'is-invalid': isInvalid('op') }"
-					:disabled="readOnly"
-				>
-					<option v-for="op in operators" :key="op.value" :value="op.value">
-						{{ op.label }}
-					</option>
-				</select>
+					:df="{
+						label: '',
+						fieldtype: 'Select',
+						options: operators,
+						reqd: 1,
+						read_only: readOnly,
+					}"
+					:invalid="isInvalid('op')"
+					:read_only="readOnly"
+					:hideLabel="true"
+					class="m-0"
+				/>
 			</div>
 
 			<!-- Value Group -->
@@ -369,6 +374,7 @@ watch(
 						:key="valueControlKey"
 						v-model="wrappedValue"
 						:invalid="isInvalid('right')"
+						:df="{ ...valueFieldSchema, reqd: 1 }"
 						:context="{
 							df: valueFieldSchema,
 							operator: node.op,

@@ -1,7 +1,7 @@
 <!-- Used as Text, Small Text & Long Text Control -->
 <script setup>
 import { computed, useSlots } from "vue";
-const props = defineProps(["df", "modelValue", "read_only"]);
+const props = defineProps(["df", "modelValue", "read_only", "invalid"]);
 let emit = defineEmits(["update:modelValue"]);
 let slots = useSlots();
 
@@ -11,6 +11,21 @@ let height = computed(() => {
 	}
 	return "300px";
 });
+
+function validate() {
+	if (props.df?.reqd) {
+		const val = props.modelValue;
+		if (val === undefined || val === null || val === "") {
+			return {
+				valid: false,
+				message: __("{0} is required").replace("{0}", props.df.label || __("Field")),
+			};
+		}
+	}
+	return { valid: true };
+}
+
+defineExpose({ validate });
 </script>
 
 <template>
@@ -27,6 +42,7 @@ let height = computed(() => {
 			v-if="slots.label"
 			:style="{ height: height, maxHeight: df?.max_height ?? '' }"
 			class="form-control"
+			:class="{ 'is-invalid': invalid }"
 			type="text"
 			readonly
 		/>
@@ -34,6 +50,7 @@ let height = computed(() => {
 			v-else
 			:style="{ height: height, maxHeight: df?.max_height ?? '' }"
 			class="form-control"
+			:class="{ 'is-invalid': invalid }"
 			type="text"
 			:value="modelValue"
 			:disabled="read_only || df.read_only"

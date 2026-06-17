@@ -5,6 +5,7 @@
 			:class="{
 				'has-floating-label': df?.label && !hideLabel,
 				'has-value': modelValue !== undefined && modelValue !== null && modelValue !== '',
+				'is-invalid': invalid,
 			}"
 		>
 			<!-- label -->
@@ -83,6 +84,7 @@ const props = defineProps({
 	df: Object,
 	modelValue: [String, Array, Object],
 	read_only: Boolean,
+	invalid: { type: Boolean, default: false },
 	hideLabel: { type: Boolean, default: false },
 	hideDescription: { type: Boolean, default: false },
 });
@@ -253,6 +255,26 @@ function onDrop(event) {
 		});
 	}
 }
+
+function validate() {
+	if (props.df?.reqd) {
+		const val = props.modelValue;
+		if (
+			val === undefined ||
+			val === null ||
+			val === "" ||
+			(Array.isArray(val) && (val.length === 0 || val.every((v) => !v)))
+		) {
+			return {
+				valid: false,
+				message: __("{0} is required").replace("{0}", props.df.label || __("Field")),
+			};
+		}
+	}
+	return { valid: true };
+}
+
+defineExpose({ validate });
 </script>
 
 <style lang="scss" scoped>

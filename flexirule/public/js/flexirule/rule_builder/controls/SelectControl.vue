@@ -63,10 +63,18 @@ function on_change(value) {
 	emit("update:modelValue", value);
 	emit("change", value);
 }
+
+const comboRef = ref(null);
+function validate() {
+	return comboRef.value?.validate ? comboRef.value.validate() : { valid: true };
+}
+
+defineExpose({ validate });
 </script>
 
 <template>
 	<ComboBoxControl
+		ref="comboRef"
 		:df="df"
 		:model-value="modelValue"
 		:invalid="invalid"

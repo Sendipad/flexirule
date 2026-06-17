@@ -700,6 +700,24 @@ watch(
 	{ deep: true }
 );
 
+function validate() {
+	if (props.df?.reqd) {
+		const val = props.modelValue;
+		if (
+			val === undefined ||
+			val === null ||
+			val === "" ||
+			(Array.isArray(val) && val.length === 0)
+		) {
+			return {
+				valid: false,
+				message: __("{0} is required").replace("{0}", props.df.label || __("Field")),
+			};
+		}
+	}
+	return { valid: true };
+}
+
 defineExpose({
 	focus: () => {
 		if (props.trigger === "button" && wrapperRef.value) {
@@ -709,6 +727,7 @@ defineExpose({
 			mainInputRef.value.focus();
 		}
 	},
+	validate,
 });
 
 onMounted(() => {
