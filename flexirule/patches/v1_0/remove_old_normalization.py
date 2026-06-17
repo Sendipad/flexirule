@@ -1,5 +1,6 @@
 import frappe
 
+
 def execute():
 	"""
 	Remove the old 'Normalization' Process and clean up Rule Actions referencing it.
