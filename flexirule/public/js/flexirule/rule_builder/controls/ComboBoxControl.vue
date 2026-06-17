@@ -701,38 +701,36 @@ watch(
 );
 
 function validate() {
-	if (props.df?.reqd) {
-		const val = props.modelValue;
+	const val = props.modelValue;
+	const isEmpty =
+		val === undefined || val === null || val === "" || (Array.isArray(val) && val.length === 0);
 
-		// 1. Basic empty check
-		const isEmpty =
-			val === undefined ||
-			val === null ||
-			val === "" ||
-			(Array.isArray(val) && val.length === 0);
+	// 1. Required Check
+	if (props.df?.reqd && isEmpty) {
+		return {
+			valid: false,
+			message: __("{0} is required").replace("{0}", props.df.label || __("Field")),
+		};
+	}
 
-		if (isEmpty) {
-			return {
-				valid: false,
-				message: __("{0} is required").replace("{0}", props.df.label || __("Field")),
-			};
-		}
+	// 2. Option Awareness Check (only if not empty and custom values are not allowed)
+	if (!isEmpty && !props.allowCustomValue) {
+		const hasMatch = normalizedOptions.value.some((opt) => String(opt.value) === String(val));
 
-		// 2. Incomplete reference check (e.g., "doc." or "vars.")
-		if (
-			typeof val === "string" &&
-			(val === "doc." || val === "vars." || val.endsWith(".")) &&
-			(props.df?.fieldtype === "FieldPicker" || props.df?.fieldtype === "DocField")
-		) {
-			return {
-				valid: false,
-				message: __("Please select a valid field for {0}").replace(
-					"{0}",
-					props.df.label || __("the condition")
-				),
-			};
+		if (!hasMatch) {
+			// If it's remote, we might still be loading or it might be a valid value not in the current page
+			// But for rule builder metadata (FieldPicker, DocField), we usually have all options.
+			if (!isRemote.value || (isRemote.value && !loading.value)) {
+				return {
+					valid: false,
+					message: __("Invalid value for {0}: {1}")
+						.replace("{0}", props.df.label || __("field"))
+						.replace("{1}", val),
+				};
+			}
 		}
 	}
+
 	return { valid: true };
 }
 
