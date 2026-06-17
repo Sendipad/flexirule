@@ -59,7 +59,11 @@
 				/>
 			</div>
 
-			<div v-if="demoResult" class="mt-3 position-relative" :class="{ 'fxr-demo--loading': demoLoading }">
+			<div
+				v-if="demoResult"
+				class="mt-3 position-relative"
+				:class="{ 'fxr-demo--loading': demoLoading }"
+			>
 				<div v-if="demoLoading" class="demo-loading-overlay">
 					<i class="fa fa-spinner fa-spin text-primary"></i>
 				</div>
