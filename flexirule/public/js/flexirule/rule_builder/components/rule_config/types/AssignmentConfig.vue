@@ -72,6 +72,7 @@
 				<!-- Target ComboBox with Type Badge support -->
 				<div class="grid-col-target">
 					<ComboBoxControl
+						ref="targetComboBoxRefs"
 						data-fxr-fieldname="assignments.target"
 						:df="{ fieldtype: 'FieldPicker', label: '' }"
 						:modelValue="assignment.target"
@@ -255,7 +256,7 @@
 </template>
 
 <script setup>
-import { computed, watch, ref, onMounted, onBeforeUnmount } from "vue";
+import { computed, watch, ref, onMounted, onBeforeUnmount, nextTick } from "vue";
 import { fromCodeString } from "../../../utils/serialization";
 import { useActionConfig } from "../../../composables/useActionConfig";
 import { useFloatingDropdown } from "../../../composables/useFloatingDropdown";
@@ -286,6 +287,7 @@ const supportedTemplateModes = [
 	"add-key",
 ];
 const whenEditor = ref({ index: -1, draft: null });
+const targetComboBoxRefs = ref([]);
 
 const {
 	triggerRef,
@@ -523,6 +525,14 @@ function addAssignment() {
 		value: { mode: "static", value: "" },
 	});
 	syncToNode();
+
+	nextTick(() => {
+		const newIndex = assignments.value.length - 1;
+		const comboBox = targetComboBoxRefs.value[newIndex];
+		if (comboBox) {
+			comboBox.focus();
+		}
+	});
 }
 
 function removeAssignment(index) {

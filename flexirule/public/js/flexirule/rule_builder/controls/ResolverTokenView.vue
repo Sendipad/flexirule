@@ -29,10 +29,10 @@ const handleUpdate = (config, details) => {
 
 <style scoped>
 .resolver-token-wrapper {
-	display: inline-block;
-	vertical-align: top;
+	display: inline-flex;
+	align-items: center;
+	vertical-align: middle;
 	line-height: 1;
-	margin-top: 1px;
 }
 
 .resolver-token-wrapper.is-selected :deep(.fxr-token) {
