@@ -262,6 +262,7 @@
 <script setup>
 import { computed, watch, ref, onMounted, onBeforeUnmount } from "vue";
 import { fromCodeString } from "../../../utils/serialization";
+import { validateStructuredValue } from "../../../../core/builder_utils.js";
 import { useActionConfig } from "../../../composables/useActionConfig";
 import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
 import FlexValueControl from "../../../controls/FlexValueControl.vue";
@@ -685,9 +686,10 @@ function validate() {
 			rowErr.hasOperatorError = true;
 		}
 		if (needsValue(a.operator)) {
-			const ui = a.value;
-			const hasValue = ui && (Array.isArray(ui.segments) || ui.mode);
-			if (!hasValue) {
+			const val = a.value;
+			const structRes = validateStructuredValue(val);
+
+			if (!structRes.valid) {
 				errors.push(
 					__("Assignment #{0}: Value is required for operator '{1}'", [n, a.operator])
 				);

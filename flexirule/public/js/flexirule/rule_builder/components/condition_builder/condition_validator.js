@@ -1,3 +1,5 @@
+import { validateStructuredValue } from "../../../core/builder_utils.js";
+
 /**
  * Validates a condition tree recursively.
  * Returns an object with { valid: boolean, errors: Array<{ id, field, message }>, message?: string }
@@ -76,15 +78,17 @@ export function validateConditions(node, isRoot = false, isMandatory = true) {
 					"is_not_empty",
 				];
 				if (!valueNotRequired.includes(n.op)) {
-					const hasValue =
-						(n.right && n.right.value !== undefined && n.right.value !== "") ||
-						(n.right && n.right.ref);
+					const val = n.right?.value;
+					const structRes = validateStructuredValue(val);
 
-					if (!hasValue) {
+					if (!structRes.valid && !n.right?.ref) {
 						addError(
 							n.id,
 							"right",
-							__("Please provide a value for field '{0}'.").replace("{0}", fieldRef)
+							__("Please provide a valid value for field '{0}'.").replace(
+								"{0}",
+								fieldRef
+							)
 						);
 					}
 				}

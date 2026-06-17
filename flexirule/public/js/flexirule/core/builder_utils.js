@@ -61,3 +61,46 @@ export function compileToLabel(item) {
 
 	return __("Configure");
 }
+
+/**
+ * Validates a structured value object used by FlexValueControl and logic nodes.
+ *
+ * @param {Object} val - The structured value object { mode, value, path, config, segments }
+ * @returns {Object} - { valid: boolean, message?: string }
+ */
+export function validateStructuredValue(val) {
+	if (!val || typeof val !== "object" || Array.isArray(val) || !val.mode) {
+		const isEmpty = val === undefined || val === null || val === "";
+		return { valid: !isEmpty };
+	}
+
+	if (val.mode === "static") {
+		const isEmpty = val.value === undefined || val.value === null || val.value === "";
+		return { valid: !isEmpty, message: isEmpty ? __("Static value is required") : "" };
+	}
+
+	if (val.mode === "variable") {
+		const hasPath = !!val.path;
+		return { valid: hasPath, message: !hasPath ? __("Variable path is required") : "" };
+	}
+
+	if (val.mode === "resolver") {
+		const hasConfig = !!(val.config && Object.keys(val.config).length > 0);
+		const hasValue = !!val.value;
+		const isValid = hasConfig || hasValue;
+		return {
+			valid: isValid,
+			message: !isValid ? __("Resolver configuration is required") : "",
+		};
+	}
+
+	if (val.mode === "expression") {
+		const hasSegments = !!(val.value && Array.isArray(val.value) && val.value.length > 0);
+		return {
+			valid: hasSegments,
+			message: !hasSegments ? __("Expression content is required") : "",
+		};
+	}
+
+	return { valid: true };
+}
