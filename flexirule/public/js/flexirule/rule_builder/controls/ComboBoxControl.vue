@@ -703,15 +703,33 @@ watch(
 function validate() {
 	if (props.df?.reqd) {
 		const val = props.modelValue;
-		if (
+
+		// 1. Basic empty check
+		const isEmpty =
 			val === undefined ||
 			val === null ||
 			val === "" ||
-			(Array.isArray(val) && val.length === 0)
-		) {
+			(Array.isArray(val) && val.length === 0);
+
+		if (isEmpty) {
 			return {
 				valid: false,
 				message: __("{0} is required").replace("{0}", props.df.label || __("Field")),
+			};
+		}
+
+		// 2. Incomplete reference check (e.g., "doc." or "vars.")
+		if (
+			typeof val === "string" &&
+			(val === "doc." || val === "vars." || val.endsWith(".")) &&
+			(props.df?.fieldtype === "FieldPicker" || props.df?.fieldtype === "DocField")
+		) {
+			return {
+				valid: false,
+				message: __("Please select a valid field for {0}").replace(
+					"{0}",
+					props.df.label || __("the condition")
+				),
 			};
 		}
 	}
