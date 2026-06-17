@@ -29,7 +29,19 @@
 
 		<!-- Horizontal Table Grid Header -->
 		<div v-if="assignments.length" class="assignment-grid-header">
-			<div class="grid-col-when">{{ __("Run If") }}</div>
+			<div
+				class="grid-col-when"
+				v-tippy="{
+					content: __(
+						'<b>Execution Condition</b><br/>This assignment will only run if the conditions are met. If left empty, it will always run.'
+					),
+					allowHTML: true,
+					placement: 'top-start',
+				}"
+			>
+				{{ __("Run If") }}
+				<i class="fa fa-question-circle ms-1 opacity-50"></i>
+			</div>
 			<div class="grid-col-target">{{ __("Target Field") }}</div>
 			<div class="grid-col-operator">{{ __("Operator") }}</div>
 			<div class="grid-col-value">{{ __("Value Expression") }}</div>
@@ -48,6 +60,13 @@
 							class="fxr-btn fxr-btn--sm w-100 when-toggle-btn"
 							:class="hasWhenCondition(assignment) ? 'is-active' : 'is-default'"
 							:disabled="isReadOnly"
+							v-tippy="{
+								content: __(
+									'<b>Execution Condition</b><br/>This assignment will only run if the conditions are met. If left empty, it will always run.'
+								),
+								allowHTML: true,
+								placement: 'left',
+							}"
 							@click="openWhenConditionEditor(index, $event)"
 						>
 							<i
@@ -209,21 +228,6 @@
 					:style="whenDropdownStyle"
 					@mousedown.stop
 				>
-					<div class="popover-header">
-						<div class="d-flex flex-column">
-							<div class="fw-bold" style="font-size: 11px; line-height: 1.2">
-								{{ __("Execution Condition") }}
-							</div>
-							<div class="text-muted" style="font-size: 9px; line-height: 1.2">
-								{{
-									__(
-										"This assignment will only run if the conditions below are met. If left empty, it will always run."
-									)
-								}}
-							</div>
-						</div>
-					</div>
-
 					<div class="condition-builder-wrap">
 						<ConditionBuilder
 							:modelValue="whenEditor.draft"
@@ -845,16 +849,11 @@ defineExpose({ validate });
 	border: 1px solid var(--fxr-border-strong);
 	border-radius: var(--fxr-radius-md);
 	box-shadow: var(--fxr-shadow-xl);
-	padding: 10px;
+	padding: 8px;
 	display: flex;
 	flex-direction: column;
 	z-index: 15000;
 	overflow: hidden;
-}
-
-.popover-header {
-	padding-bottom: 8px;
-	border-bottom: 1px solid var(--fxr-border-subtle);
 }
 
 .condition-builder-wrap {
@@ -862,7 +861,17 @@ defineExpose({ validate });
 	overflow-x: hidden;
 	flex: 1;
 	min-height: 0;
-	padding: 8px 0;
+}
+
+@media (max-width: 768px) {
+	.when-condition-popover {
+		width: calc(100vw - 24px) !important;
+		left: 12px !important;
+		max-height: 70vh !important;
+		bottom: 12px !important;
+		top: auto !important;
+		border-radius: var(--fxr-radius-lg) !important;
+	}
 }
 
 /* Value mode toggle + control wrapper */

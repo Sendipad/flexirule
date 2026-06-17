@@ -1414,7 +1414,7 @@ onBeforeUnmount(() => {
 .fvc-tiptap-editor :deep(.ProseMirror) {
 	outline: none;
 	font-size: var(--fxr-input-font-size);
-	min-height: 30px;
+	min-height: 24px;
 	display: flex;
 	align-items: center;
 	white-space: nowrap;
