@@ -55,7 +55,12 @@ export function validateConditions(node, isRoot = false, isMandatory = true) {
 		// 3. Check for Simple Conditions
 		else if (n.left !== undefined) {
 			const fieldRef = n.left.ref || "";
-			if (!fieldRef || fieldRef.endsWith(".")) {
+			if (
+				!fieldRef ||
+				fieldRef === "doc." ||
+				fieldRef === "vars." ||
+				fieldRef.endsWith(".")
+			) {
 				addError(n.id, "left", __("Please select a valid field for the condition."));
 			}
 

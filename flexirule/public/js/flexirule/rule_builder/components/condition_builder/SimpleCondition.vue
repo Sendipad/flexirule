@@ -317,6 +317,7 @@ watch(
 					:df="{ label: '', fieldtype: 'FieldPicker', read_only: readOnly, reqd: 1 }"
 					v-model="node.left.ref"
 					:invalid="isInvalid('left')"
+					:allowCustomValue="false"
 					:options="docFields"
 					:read_only="readOnly"
 					:trigger="'button'"

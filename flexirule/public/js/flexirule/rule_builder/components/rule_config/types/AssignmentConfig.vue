@@ -80,6 +80,7 @@
 						:df="{ fieldtype: 'FieldPicker', label: '', reqd: 1 }"
 						:modelValue="assignment.target"
 						:invalid="rowErrors[index]?.hasTargetError"
+						:allowCustomValue="false"
 						:options="targetOptions"
 						:read_only="isReadOnly"
 						:hideLabel="true"
@@ -95,6 +96,7 @@
 					<ComboBoxControl
 						data-fxr-fieldname="assignments.operator"
 						:df="{ fieldtype: 'Select', label: '', reqd: 1 }"
+						:allowCustomValue="false"
 						:options="getAvailableOperators(assignment.target)"
 						:modelValue="assignment.operator"
 						:invalid="rowErrors[index]?.hasOperatorError"

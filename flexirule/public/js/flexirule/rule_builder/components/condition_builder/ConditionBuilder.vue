@@ -196,6 +196,14 @@ function addCondition(targetGroup, fieldPrefix = "doc") {
 		op: "==",
 		right: { value: "" },
 	});
+
+	// Automatically trigger validation for this node so the user sees the required state
+	if (validationState.showValidation) {
+		nextTick(() => {
+			const result = validateConditions(rootGroup, true, false);
+			validationState.errors = result.errors;
+		});
+	}
 }
 
 function addGroup(targetGroup) {
