@@ -145,6 +145,14 @@ export const LogicNode = Node.create({
 			iterable: node.attrs.iterable,
 		});
 
+		// Logic for checking validation errors
+		if (this.options.getValidationErrors) {
+			const errors = this.options.getValidationErrors(_key);
+			if (errors && errors.length > 0) {
+				badgeClass += " is-invalid";
+			}
+		}
+
 		return [
 			"span",
 			mergeAttributes(HTMLAttributes, {

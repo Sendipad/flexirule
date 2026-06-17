@@ -4,6 +4,9 @@
 			<div class="d-flex align-items-center gap-2">
 				<i class="fa fa-code-fork text-primary"></i>
 				<h5 class="mb-0">{{ __("Conditions") }}</h5>
+				<span v-if="hasErrors" class="badge badge-danger ml-1" title="Validation Errors">
+					<i class="fa fa-exclamation-circle"></i>
+				</span>
 			</div>
 			<div class="header-actions">
 				<label class="old-doc-toggle">
@@ -15,6 +18,7 @@
 
 		<div class="condition-builder-container">
 			<ConditionBuilder
+				ref="conditionBuilderRef"
 				:modelValue="localConditions"
 				:docFields="docFields"
 				:variableOptions="combinedVariableOptions"
@@ -45,6 +49,8 @@ const props = defineProps({
 
 const store = useStore();
 const localConditions = ref({ op: "and", conditions: [] });
+const conditionBuilderRef = ref(null);
+const hasErrors = ref(false);
 const showOldDoc = ref(false);
 const variableFields = ref([]);
 
@@ -322,13 +328,18 @@ watch(
 );
 
 function validate() {
+	if (!conditionBuilderRef.value) return { valid: true, errors: [] };
+
 	const type = props.node?.data?.action_type || props.node?.type;
 	// Only 'Condition' nodes MUST have a condition defined.
 	// For all other nodes, conditions are optional execution filters.
 	const isMandatory = type === "Condition";
-	const result = validateConditions(localConditions.value, true, isMandatory);
+	const result = conditionBuilderRef.value.validate(isMandatory);
+
+	hasErrors.value = !result.valid;
+
 	if (!result.valid) {
-		return { valid: false, errors: [result.message] };
+		return { valid: false, errors: result.errors.map((e) => e.message) };
 	}
 	return { valid: true, errors: [] };
 }

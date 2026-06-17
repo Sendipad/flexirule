@@ -24,6 +24,12 @@ const operatorConfig = inject(
 	ref({ fieldtype_operators: {}, operator_labels: {} })
 );
 
+const validationState = inject("conditionValidation", null);
+const isInvalid = (field) => {
+	if (!validationState || !validationState.showValidation) return false;
+	return validationState.errors.some((e) => e.id === props.node.id && e.field === field);
+};
+
 const store = inject("store");
 const variableOptions = inject("variableOptions", ref([]));
 
@@ -304,6 +310,7 @@ watch(
 				<ComboBoxControl
 					:df="{ label: '', fieldtype: 'FieldPicker', read_only: readOnly }"
 					v-model="node.left.ref"
+					:invalid="isInvalid('left')"
 					:options="docFields"
 					:read_only="readOnly"
 					:trigger="'button'"
@@ -316,7 +323,12 @@ watch(
 
 			<!-- Operator -->
 			<div class="condition-col operator-col">
-				<select v-model="node.op" class="fxr-select operator-select" :disabled="readOnly">
+				<select
+					v-model="node.op"
+					class="fxr-select operator-select"
+					:class="{ 'is-invalid': isInvalid('op') }"
+					:disabled="readOnly"
+				>
 					<option v-for="op in operators" :key="op.value" :value="op.value">
 						{{ op.label }}
 					</option>
@@ -356,6 +368,7 @@ watch(
 					<FlexValueControl
 						:key="valueControlKey"
 						v-model="wrappedValue"
+						:invalid="isInvalid('right')"
 						:context="{
 							df: valueFieldSchema,
 							operator: node.op,

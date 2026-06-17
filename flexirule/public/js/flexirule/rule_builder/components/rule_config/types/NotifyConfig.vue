@@ -90,6 +90,7 @@
 
 				<div class="form-group mb-3">
 					<ControlFactory
+						ref="textGeneratorRef"
 						:df="with_read_only(textGeneratorField)"
 						:modelValue="config.text_generator_ui"
 						@update:modelValue="update_template_ui"
@@ -110,7 +111,7 @@
 </template>
 
 <script setup>
-import { computed, watch } from "vue";
+import { computed, watch, ref } from "vue";
 import { fromCodeString } from "../../../utils/serialization";
 import { useActionConfig } from "../../../composables/useActionConfig";
 import ControlFactory from "../../../controls/ControlFactory.vue";
@@ -192,6 +193,7 @@ const requiredConfigKeys = computed(() => operationPolicy.value?.required_config
 const is_email = computed(() => notify_mode.value === EMAIL_MODE);
 const is_system_notification = computed(() => notify_mode.value === SYSTEM_NOTIFICATION_MODE);
 const is_provider = computed(() => notify_mode.value === PROVIDER_MODE);
+const textGeneratorRef = ref(null);
 
 function isConfigKeyRequired(key) {
 	return requiredConfigKeys.value.includes(key);
@@ -256,9 +258,16 @@ watch(
 function validate() {
 	const errors = [];
 	const ui = config.text_generator_ui;
-	if (!ui || !Array.isArray(ui.segments) || !ui.segments.length) {
+
+	if (textGeneratorRef.value?.validate) {
+		const res = textGeneratorRef.value.validate();
+		if (!res.valid) {
+			errors.push(...res.errors);
+		}
+	} else if (!ui || !Array.isArray(ui.segments) || !ui.segments.length) {
 		errors.push(__("Message Builder content is required"));
 	}
+
 	const labels = {
 		subject: __("Subject"),
 		recipients: __("Recipients"),

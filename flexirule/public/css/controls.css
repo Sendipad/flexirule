@@ -83,6 +83,17 @@ html[data-theme="dark"] .fxr-control .fxr-label {
 		box-shadow var(--fxr-transition-fast);
 }
 
+.fxr-input-group.is-invalid .fxr-input,
+.fxr-input-group.is-invalid .fxr-select,
+.fxr-input-group.is-invalid :deep(.form-control),
+.fxr-input-group.is-invalid :deep(.combobox-container input),
+.fxr-input-group.is-invalid :deep(.awesomplete input),
+.fxr-input-group.is-invalid :deep(.combobox-wrapper),
+.fxr-input-group.is-invalid :deep(.fvc-main-field) {
+	border-color: var(--fxr-text-danger) !important;
+	box-shadow: 0 0 0 2px var(--fxr-bg-danger) !important;
+}
+
 /* Premium Focus Glow on whole Input Group */
 .fxr-input-group:focus-within .fxr-input,
 .fxr-input-group:focus-within .fxr-select,

@@ -1,10 +1,11 @@
 <template>
-	<div class="fxr-control" :class="{ 'no-label': hideLabel }">
+	<div class="fxr-control" :class="{ 'no-label': hideLabel, 'is-invalid': invalid }">
 		<div
 			class="fxr-input-group"
 			:class="{
 				'has-floating-label': df?.label && !hideLabel,
 				'has-value': modelValue !== undefined && modelValue !== null && modelValue !== '',
+				'is-invalid': invalid,
 			}"
 		>
 			<label v-if="df?.label && !hideLabel" class="fxr-label" :class="{ reqd: df.reqd }">
@@ -234,6 +235,7 @@ import { useAsyncOptionsSource } from "../composables/useAsyncOptionsSource";
 const props = defineProps({
 	modelValue: [String, Number, Object],
 	df: Object,
+	invalid: { type: Boolean, default: false },
 	options: { type: Array, default: () => [] },
 	get_query: Function,
 	doctype: String,

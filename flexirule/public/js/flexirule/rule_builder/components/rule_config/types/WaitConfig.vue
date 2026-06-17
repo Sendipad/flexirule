@@ -18,6 +18,20 @@ function updateJsonConfig(key, val) {
 	// Internal state: config is Object
 	emit("update:field", "config", config);
 }
+
+function validate() {
+	const config =
+		typeof props.node.data.config === "string"
+			? flexirule.utils.safe_json_parse(props.node.data.config, {})
+			: props.node.data.config || {};
+	const errors = [];
+	if (!config.value || config.value <= 0) {
+		errors.push(__("Delay Value must be greater than 0"));
+	}
+	return { valid: errors.length === 0, errors };
+}
+
+defineExpose({ validate });
 </script>
 
 <template>

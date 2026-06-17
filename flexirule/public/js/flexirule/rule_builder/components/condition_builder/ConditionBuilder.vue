@@ -87,6 +87,7 @@
  */
 import { ref, reactive, watch, nextTick, provide, computed, onMounted } from "vue";
 import { useStore } from "../../stores";
+import { validateConditions } from "./condition_validator.js";
 
 import ConditionNode from "./ConditionNode.vue";
 
@@ -100,6 +101,33 @@ const props = defineProps({
 const emit = defineEmits(["update:modelValue"]);
 
 const store = useStore();
+
+const validationState = reactive({
+	errors: [],
+	showValidation: false,
+});
+
+function validate(isMandatory = true) {
+	const result = validateConditions(rootGroup, true, isMandatory);
+	validationState.errors = result.errors;
+	validationState.showValidation = true;
+	return result;
+}
+
+watch(
+	rootGroup,
+	() => {
+		if (validationState.showValidation) {
+			const result = validateConditions(rootGroup, true, false); // live validation doesn't care about isMandatory root
+			validationState.errors = result.errors;
+		}
+	},
+	{ deep: true }
+);
+
+defineExpose({
+	validate,
+});
 
 /**
  * Ensure we have a valid root group structure.
@@ -299,6 +327,7 @@ provide(
 );
 provide("conditionContext", reactive({ alias: "doc" }));
 provide("operatorConfig", operatorConfig);
+provide("conditionValidation", validationState);
 provide("store", store);
 provide(
 	"readOnly",

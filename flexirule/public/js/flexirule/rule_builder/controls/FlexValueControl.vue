@@ -2,7 +2,11 @@
 	<div
 		ref="controlRef"
 		class="fvc-wrap"
-		:class="{ 'is-compact': compact, 'is-disabled': disabled || isReadOnly }"
+		:class="{
+			'is-compact': compact,
+			'is-disabled': disabled || isReadOnly,
+			'is-invalid': invalid,
+		}"
 		@keydown.capture="onStaticKeydown"
 	>
 		<!-- ── Main Control Area ── -->
@@ -11,6 +15,7 @@
 			:class="{
 				'is-dynamic': isDynamicMode || !isStaticSupported,
 				'is-static-link': !isDynamicMode && isLinkType,
+				'is-invalid': invalid,
 			}"
 			@click="onWrapClick"
 		>
@@ -342,6 +347,7 @@ import ResolverTokenView from "./ResolverTokenView.vue";
 const props = defineProps({
 	modelValue: { type: [Object, String, Number, Boolean], default: null },
 	variableOptions: { type: Array, default: () => [] },
+	invalid: { type: Boolean, default: false },
 	readOnly: { type: Boolean, default: false },
 	read_only: { type: Boolean, default: false },
 	placeholder: { type: String, default: "" },
@@ -699,7 +705,9 @@ function createSuggestionRenderer() {
 			if (popup) {
 				try {
 					popup.destroy();
-				} catch (e) {}
+				} catch (e) {
+					// ignore
+				}
 				const idx = activeTippyPopups.indexOf(popup);
 				if (idx > -1) activeTippyPopups.splice(idx, 1);
 				popup = null;
@@ -707,7 +715,9 @@ function createSuggestionRenderer() {
 			if (component) {
 				try {
 					component.destroy();
-				} catch (e) {}
+				} catch (e) {
+					// ignore
+				}
 				component = null;
 			}
 		},

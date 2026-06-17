@@ -18,6 +18,12 @@ const { addCondition, addGroup, onDrop } = inject("conditionActions");
 const parentVariableOptions = inject("variableOptions", ref([]));
 const store = useStore();
 
+const validationState = inject("conditionValidation", null);
+const isInvalid = (field) => {
+	if (!validationState || !validationState.showValidation) return false;
+	return validationState.errors.some((e) => e.id === props.node.id && e.field === field);
+};
+
 const isDragOver = ref(false);
 
 function handleDrop() {
@@ -290,6 +296,7 @@ onMounted(fetchChildMeta);
 				<select
 					v-model="node.collection"
 					class="fxr-select"
+					:class="{ 'is-invalid': isInvalid('collection') }"
 					@change="fetchChildMeta"
 					:disabled="readOnly"
 				>
@@ -342,7 +349,7 @@ onMounted(fetchChildMeta);
 		<!-- Nested conditions -->
 		<div
 			class="nested-conditions"
-			:class="{ 'drag-over': isDragOver }"
+			:class="{ 'drag-over': isDragOver, 'is-invalid': isInvalid('where') }"
 			@dragover.prevent.stop="isDragOver = true"
 			@dragleave.stop="isDragOver = false"
 			@drop.prevent.stop="handleDrop"
@@ -406,6 +413,12 @@ onMounted(fetchChildMeta);
 	background: var(--fxr-node-accent-light, var(--fxr-accent-light));
 	box-shadow: inset 0 0 0 2px var(--fxr-node-accent, var(--fxr-accent));
 	border-radius: var(--fxr-radius-md);
+}
+
+.nested-conditions.is-invalid {
+	border-color: var(--fxr-text-danger);
+	background-color: var(--fxr-bg-danger);
+	box-shadow: 0 0 0 2px var(--fxr-bg-danger);
 }
 
 .empty-text {

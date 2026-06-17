@@ -117,6 +117,7 @@
 								<template v-if="activeLogicNode.attrs.type === 'conditional'">
 									<div class="grid-item full-width">
 										<ConditionBuilder
+											ref="conditionBuilderRef"
 											:modelValue="activeLogicNode.attrs.condition"
 											:docFields="activeNodeRoots"
 											:variableOptions="activeNodeRoots"
@@ -167,6 +168,17 @@
 												}}</label>
 												<input
 													class="form-control input-sm"
+													:class="{
+														'is-invalid':
+															logicValidationState.showValidation &&
+															logicValidationState.errors.some(
+																(e) =>
+																	e._key ===
+																		activeLogicNode.attrs
+																			._key &&
+																	e.field === 'iterator'
+															),
+													}"
 													:value="activeLogicNode.attrs.iterator"
 													@input="
 														updateActiveNode({
@@ -184,6 +196,15 @@
 													:df="{ fieldtype: 'Autocomplete' }"
 													:options="collectionOptions"
 													:modelValue="activeLogicNode.attrs.iterable"
+													:invalid="
+														logicValidationState.showValidation &&
+														logicValidationState.errors.some(
+															(e) =>
+																e._key ===
+																	activeLogicNode.attrs._key &&
+																e.field === 'iterable'
+														)
+													"
 													:read_only="readOnly"
 													:hideLabel="true"
 													@update:modelValue="
@@ -327,7 +348,16 @@
 </template>
 
 <script setup>
-import { computed, ref, watch, onBeforeUnmount, nextTick, shallowRef } from "vue";
+import {
+	computed,
+	ref,
+	watch,
+	onBeforeUnmount,
+	nextTick,
+	shallowRef,
+	reactive,
+	provide,
+} from "vue";
 import { Editor, EditorContent, VueRenderer } from "@tiptap/vue-3";
 import { StarterKit } from "@tiptap/starter-kit";
 import tippy from "tippy.js";
@@ -343,6 +373,7 @@ import {
 } from "../utils/tiptap_extensions";
 import MentionList from "./MentionList.vue";
 import ConditionBuilder from "../components/condition_builder/ConditionBuilder.vue";
+import { validateConditions } from "../components/condition_builder/condition_validator.js";
 import ComboBoxControl from "./ComboBoxControl.vue";
 
 import {
@@ -371,6 +402,10 @@ const emit = defineEmits(["update:modelValue"]);
 const readOnly = computed(() => !!props.read_only || !!props.df?.read_only);
 const mode = ref("visual");
 const rawJinja = ref("");
+const logicValidationState = reactive({
+	errors: [],
+	showValidation: false,
+});
 const ui = ref({ version: 2, segments: [] });
 const previewMode = ref(false);
 const activeLogicNode = ref(null);
@@ -378,6 +413,7 @@ const activeSegKey = ref(null);
 const activeLogicNodeThen = ref({ version: 2, segments: [] });
 const activeLogicNodeElse = ref({ version: 2, segments: [] });
 const activeLogicNodeLoop = ref({ version: 2, segments: [] });
+const conditionBuilderRef = ref(null);
 const showElse = ref(false);
 let emitting = false;
 
@@ -472,7 +508,12 @@ const editor = new Editor({
 			blockquote: false,
 		}),
 		VariableNode,
-		LogicNode,
+		LogicNode.configure({
+			getValidationErrors: (key) => {
+				if (!logicValidationState.showValidation) return [];
+				return logicValidationState.errors.filter((e) => e._key === key);
+			},
+		}),
 		TranslationMark,
 		VariableTrigger.configure({
 			suggestion: {
@@ -718,6 +759,58 @@ function updateActiveNode(attrs) {
 function onConditionUpdate(condition) {
 	updateActiveNode({ condition, _raw_expr: serializeCondition(condition) });
 }
+
+function validate() {
+	const errors = [];
+	logicValidationState.errors = [];
+	logicValidationState.showValidation = true;
+
+	const walk = (segs) => {
+		segs.forEach((seg) => {
+			if (seg.type === "conditional") {
+				const res = validateConditions(seg.condition, true, true);
+				if (!res.valid) {
+					res.errors.forEach((err) => {
+						logicValidationState.errors.push({
+							_key: seg._key,
+							...err,
+						});
+					});
+					errors.push(...res.errors.map((e) => e.message));
+				}
+				walk(seg.then_segments || []);
+				walk(seg.else_segments || []);
+			} else if (seg.type === "loop") {
+				if (!seg.iterator) {
+					logicValidationState.errors.push({
+						_key: seg._key,
+						field: "iterator",
+						message: __("Iterator is required"),
+					});
+					errors.push(__("Loop Iterator is required"));
+				}
+				if (!seg.iterable) {
+					logicValidationState.errors.push({
+						_key: seg._key,
+						field: "iterable",
+						message: __("Collection is required"),
+					});
+					errors.push(__("Loop Collection is required"));
+				}
+				walk(seg.segments || []);
+			}
+		});
+	};
+
+	walk(ui.value.segments);
+
+	// Also trigger Tiptap redraw to show error badges
+	selectionTrigger.value++;
+
+	return { valid: errors.length === 0, errors: [...new Set(errors)] };
+}
+
+defineExpose({ validate });
 function deleteActiveNode() {
 	if (!activeLogicNode.value) return;
 	editor.chain().focus().setNodeSelection(activeLogicNode.value.pos).deleteSelection().run();
@@ -833,6 +926,8 @@ function onFocusIn() {
 			.run()
 	);
 }
+
+provide("logicValidation", logicValidationState);
 onBeforeUnmount(() => {
 	editor.destroy();
 });
