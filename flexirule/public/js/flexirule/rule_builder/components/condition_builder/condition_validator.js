@@ -71,11 +71,25 @@ export function validateConditions(node, isRoot = false, isMandatory = true) {
 					"is_not_empty",
 				];
 				if (!valueNotRequired.includes(n.op)) {
+					const val = n.right?.value;
 					const hasValue =
-						(n.right && n.right.value !== undefined && n.right.value !== "") ||
-						(n.right && n.right.ref);
+						(val !== undefined && val !== null && val !== "" && (!Array.isArray(val) || val.length > 0)) ||
+						(n.right?.ref);
 
-					if (!hasValue) {
+					// Check structured value (mode + value/segments)
+					let isStructuredValid = true;
+					if (val && typeof val === "object" && !Array.isArray(val) && val.mode) {
+						if (val.mode === "static") {
+							isStructuredValid = val.value !== undefined && val.value !== null && val.value !== "";
+						} else if (val.mode === "variable") {
+							isStructuredValid = !!val.path;
+						} else {
+							// For formula/resolver, we expect either config or segments
+							isStructuredValid = !!(val.config || val.segments?.length);
+						}
+					}
+
+					if (!hasValue || !isStructuredValid) {
 						addError(
 							n.id,
 							"right",

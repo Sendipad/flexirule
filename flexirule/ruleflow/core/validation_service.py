@@ -849,16 +849,30 @@ def _get_required_variables_for_rule(rule_doc) -> list[str]:
 		if action.action_type == "Entry Action" or action.action_id == "root":
 			continue
 
-		# 1. Check Jinja templates
-		templates = [
-			getattr(action, "value_template", ""),
-		]
+		# 1. Check Jinja templates across all possible fields
+		templates = []
+		if action.action_type == "Assignment":
+			config_str = _safe_get(action, "config")
+			assignments = _parse_json_value(config_str, [])
+			if isinstance(assignments, list):
+				for a in assignments:
+					if isinstance(a, dict):
+						templates.append(a.get("value_template") or a.get("value"))
+						# Also check assignment conditions
+						when_cond = a.get("when_condition")
+						if when_cond:
+							templates.append(json.dumps(when_cond))
+						templates.append(a.get("when_expression") or a.get("when"))
+
+		templates.append(_safe_get(action, "value_template"))
+
 		condition_payload = get_condition_payload(action)
 		if condition_payload is not None:
 			templates.append(json.dumps(condition_payload, ensure_ascii=False))
 		else:
 			# Legacy fallback while condition_json is deprecated
-			templates.append(getattr(action, "condition_json", ""))
+			templates.append(_safe_get(action, "condition_json"))
+
 		for t in templates:
 			if not t or not isinstance(t, str):
 				continue
