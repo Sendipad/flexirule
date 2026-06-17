@@ -209,22 +209,22 @@
 					:style="whenDropdownStyle"
 					@mousedown.stop
 				>
-					<div class="popover-header d-flex align-items-center justify-content-between">
+					<div class="popover-header">
 						<div class="d-flex flex-column">
-							<h6 class="mb-0 fw-bold fxr-text-sm">
+							<div class="fw-bold" style="font-size: 11px; line-height: 1.2">
 								{{ __("Execution Condition") }}
-							</h6>
-							<span class="text-muted" style="font-size: 10px; line-height: 1.3">
+							</div>
+							<div class="text-muted" style="font-size: 9px; line-height: 1.2">
 								{{
 									__(
 										"This assignment will only run if the conditions below are met. If left empty, it will always run."
 									)
 								}}
-							</span>
+							</div>
 						</div>
 					</div>
 
-					<div class="condition-builder-wrap mt-3">
+					<div class="condition-builder-wrap">
 						<ConditionBuilder
 							:modelValue="whenEditor.draft"
 							:docFields="whenConditionDocFields"
@@ -632,8 +632,22 @@ function handleKeydown(e) {
 
 function handleClickOutside(e) {
 	if (!isWhenOpen.value) return;
-	if (whenDropdownRef.value?.contains(e.target)) return;
-	if (triggerRef.value?.contains(e.target)) return;
+	const target = e.target;
+
+	// Ignore clicks inside the popover or on the trigger button
+	if (whenDropdownRef.value?.contains(target)) return;
+	if (triggerRef.value?.contains(target)) return;
+
+	// Ignore clicks inside teleported elements (dropdowns, tooltips, modals)
+	if (
+		target.closest(".fxr-dropdown") ||
+		target.closest(".tippy-box") ||
+		target.closest(".fxr-token-modal-overlay") ||
+		target.closest(".awesomplete")
+	) {
+		return;
+	}
+
 	closeWhenConditionEditor();
 }
 
@@ -829,9 +843,9 @@ defineExpose({ validate });
 .when-condition-popover {
 	background-color: var(--fxr-surface-elevated);
 	border: 1px solid var(--fxr-border-strong);
-	border-radius: var(--fxr-radius-lg);
+	border-radius: var(--fxr-radius-md);
 	box-shadow: var(--fxr-shadow-xl);
-	padding: 16px;
+	padding: 10px;
 	display: flex;
 	flex-direction: column;
 	z-index: 15000;
@@ -839,18 +853,16 @@ defineExpose({ validate });
 }
 
 .popover-header {
-	padding-bottom: 0;
+	padding-bottom: 8px;
+	border-bottom: 1px solid var(--fxr-border-subtle);
 }
 
 .condition-builder-wrap {
 	overflow-y: auto;
 	overflow-x: hidden;
-	border: 1px solid var(--fxr-border-subtle);
-	border-radius: 12px;
-	padding: 8px;
-	background-color: var(--fxr-surface-soft);
 	flex: 1;
 	min-height: 0;
+	padding: 8px 0;
 }
 
 /* Value mode toggle + control wrapper */
