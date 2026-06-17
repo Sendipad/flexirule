@@ -72,7 +72,7 @@
 				<!-- Target ComboBox with Type Badge support -->
 				<div class="grid-col-target">
 					<ComboBoxControl
-						ref="targetComboBoxRefs"
+						:ref="(el) => (targetComboBoxRefs[index] = el)"
 						data-fxr-fieldname="assignments.target"
 						:df="{ fieldtype: 'FieldPicker', label: '' }"
 						:modelValue="assignment.target"
@@ -295,7 +295,7 @@ const {
 	closeDropdown: closeWhenDropdown,
 	cleanup: cleanupWhenDropdown,
 } = useFloatingDropdown({
-	minWidth: 480,
+	minWidth: 320,
 	maxWidth: 800,
 	maxHeight: 600,
 	matchTriggerWidth: false,
@@ -513,7 +513,7 @@ function syncToNode() {
 }
 
 function addAssignment() {
-	assignments.value.push({
+	const newAssignment = {
 		name: makeRandomString(9),
 		target: "",
 		operator: "set",
@@ -521,20 +521,28 @@ function addAssignment() {
 		when_expression: "",
 		pythonExpression: "",
 		value: { mode: "static", value: "" },
-	});
+	};
+	assignments.value.push(newAssignment);
 	syncToNode();
 
+	const newIndex = assignments.value.length - 1;
 	nextTick(() => {
-		const newIndex = assignments.value.length - 1;
-		const comboBox = targetComboBoxRefs.value[newIndex];
-		if (comboBox) {
-			comboBox.focus();
-		}
+		// Wait an extra tick to ensure v-for has completed rendering the new element
+		nextTick(() => {
+			const comboBox = targetComboBoxRefs.value[newIndex];
+			if (comboBox) {
+				comboBox.focus();
+			}
+		});
 	});
 }
 
 function removeAssignment(index) {
 	assignments.value.splice(index, 1);
+	// Cleanup ref if needed, though Vue usually handles it
+	if (targetComboBoxRefs.value[index]) {
+		targetComboBoxRefs.value.splice(index, 1);
+	}
 	syncToNode();
 }
 

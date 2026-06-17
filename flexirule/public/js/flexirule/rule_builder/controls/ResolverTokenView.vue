@@ -33,9 +33,11 @@ const handleUpdate = (config, details) => {
 	align-items: center;
 	vertical-align: middle;
 	line-height: 1;
+	padding: 2px 0;
 }
 
 .resolver-token-wrapper.is-selected :deep(.fxr-token) {
 	outline: 2px solid var(--fxr-accent);
+	outline-offset: 1px;
 }
 </style>
