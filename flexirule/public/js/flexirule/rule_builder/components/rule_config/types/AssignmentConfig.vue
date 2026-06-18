@@ -267,6 +267,7 @@ import { useActionConfig } from "../../../composables/useActionConfig";
 import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
 import FlexValueControl from "../../../controls/FlexValueControl.vue";
 import ConditionBuilder from "../../condition_builder/ConditionBuilder.vue";
+import { validateConditions } from "../../condition_builder/condition_validator.js";
 import { compileSegmentsToJinja } from "../../../utils/text_generator";
 import { ASSIGNMENT_OPERATOR_METADATA } from "../../../../core/contracts.js";
 
@@ -574,7 +575,6 @@ function hasWhenCondition(assignment) {
 function getWhenConditionStatus(assignment) {
 	if (!hasWhenCondition(assignment)) return { isInvalid: false };
 
-	const { validateConditions } = require("../../../condition_builder/condition_validator.js");
 	const res = validateConditions(assignment.when_condition, true, true);
 
 	return { isInvalid: !res.valid };
@@ -714,9 +714,6 @@ async function validate() {
 			}
 		} else if (a.when_condition) {
 			// Deep validation of existing conditions
-			const {
-				validateConditions,
-			} = require("../../../condition_builder/condition_validator.js");
 			const res = validateConditions(a.when_condition, true, true);
 			if (!res.valid) {
 				errors.push(...res.errors.map((e) => __("Assignment #{0} Condition: {1}", [n, e])));

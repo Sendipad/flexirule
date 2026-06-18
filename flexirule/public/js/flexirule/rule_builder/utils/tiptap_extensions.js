@@ -1,6 +1,7 @@
 import { Node, Mark, mergeAttributes } from "@tiptap/core";
 import Mention from "@tiptap/extension-mention";
 import { PluginKey } from "@tiptap/pm/state";
+import { validateConditions } from "../components/condition_builder/condition_validator";
 import { encodeData, decodeData } from "./text_generator";
 
 export const VarPluginKey = new PluginKey("variableTrigger");
@@ -131,9 +132,6 @@ export const LogicNode = Node.create({
 			iconClass = "fa fa-code-fork";
 
 			if (condition) {
-				const {
-					validateConditions,
-				} = require("../components/condition_builder/condition_validator.js");
 				const res = validateConditions(condition, true, true);
 				if (!res.valid) {
 					isInvalid = true;
