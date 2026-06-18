@@ -291,6 +291,7 @@ defineExpose({
 	open,
 	close: closePopover,
 	focus: () => tokenRef.value?.focus(),
+	validate: () => ({ valid: isValid.value, errors: errors.value }),
 });
 
 const popoverTitle = computed(() => {

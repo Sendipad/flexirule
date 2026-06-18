@@ -1,25 +1,29 @@
 <template>
 	<div class="switch-config">
 		<SwitchNodeConfig
+			ref="switchNodeRef"
 			:nodeData="node.data"
 			:availableNodes="availableNodes"
 			:getNodeLabel="getNodeLabel"
+			:showValidation="showValidation"
 			@update-json-config="updateJsonConfig"
 		/>
 	</div>
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { useStore } from "../../../stores";
 import { fromCodeString } from "../../../utils/serialization";
 import SwitchNodeConfig from "../../node_configs/SwitchNodeConfig.vue";
 
 const props = defineProps({
 	node: Object,
+	showValidation: { type: Boolean, default: false },
 });
 
 const store = useStore();
+const switchNodeRef = ref(null);
 
 const availableNodes = computed(() => {
 	return (store.nodes || [])
@@ -75,4 +79,13 @@ function syncEdges(cases) {
 		}
 	});
 }
+
+async function validate() {
+	if (switchNodeRef.value && typeof switchNodeRef.value.validate === "function") {
+		return await switchNodeRef.value.validate();
+	}
+	return { valid: true };
+}
+
+defineExpose({ validate });
 </script>

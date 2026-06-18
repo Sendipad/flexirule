@@ -41,9 +41,11 @@
 				<div class="sub-section section-subcard">
 					<h6>{{ __("Filters") }}</h6>
 					<FilterGroup
+						ref="filterGroupRef"
 						:doctype="reference_doctype"
 						:modelValue="config.filters"
 						:readOnly="readOnly"
+						:showValidation="showValidation"
 						:nodeId="node?.id"
 						:variableOptions="variable_options"
 						@update:modelValue="(val) => update_config_key('filters', val)"
@@ -212,9 +214,11 @@
 				>
 					<h6>{{ __("Filters") }}</h6>
 					<FilterGroup
+						ref="filterGroupRef"
 						:doctype="reference_doctype"
 						:modelValue="config.filters"
 						:readOnly="readOnly"
+						:showValidation="showValidation"
 						:nodeId="node?.id"
 						:variableOptions="variable_options"
 						@update:modelValue="(val) => update_config_key('filters', val)"
@@ -226,9 +230,11 @@
 				<div class="sub-section section-subcard">
 					<h6>{{ __("Filters") }}</h6>
 					<FilterGroup
+						ref="filterGroupRef"
 						:doctype="reference_doctype"
 						:modelValue="config.filters"
 						:readOnly="readOnly"
+						:showValidation="showValidation"
 						:nodeId="node?.id"
 						:variableOptions="variable_options"
 						@update:modelValue="(val) => update_config_key('filters', val)"
@@ -322,9 +328,11 @@
 				<div class="sub-section section-subcard">
 					<h6>{{ __("Filters") }}</h6>
 					<FilterGroup
+						ref="filterGroupRef"
 						:doctype="reference_doctype"
 						:modelValue="config.filters"
 						:readOnly="readOnly"
+						:showValidation="showValidation"
 						:nodeId="node?.id"
 						:variableOptions="variable_options"
 						@update:modelValue="(val) => update_config_key('filters', val)"
@@ -529,6 +537,7 @@ const report_filter_types = reactive({});
 const test_status = ref("");
 const is_single_doctype = ref(false);
 const showValidation = ref(false);
+const filterGroupRef = ref(null);
 
 // Internal flag to prevent recursive sync loops
 let is_internal_update = false;
@@ -1240,9 +1249,15 @@ watch(
 	{ deep: true }
 );
 
-function validate() {
+async function validate() {
 	showValidation.value = true;
 	const errors = [];
+
+	// Validate filters if applicable for the current mode
+	if (filterGroupRef.value && typeof filterGroupRef.value.validate === "function") {
+		const res = await filterGroupRef.value.validate();
+		if (!res.valid) errors.push(...res.errors);
+	}
 
 	if (mode.value === "Query Doc") {
 		const strategy = config.fetch_strategy || "Get doc";

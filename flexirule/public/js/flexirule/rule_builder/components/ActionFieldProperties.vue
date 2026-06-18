@@ -10,7 +10,7 @@
   Follows Frappe Form Builder patterns.
 -->
 <script setup>
-import { computed, onMounted } from "vue";
+import { computed, onMounted, onBeforeUpdate } from "vue";
 import { useStore } from "../stores";
 import ControlFactory from "../controls/ControlFactory.vue";
 import ComboBoxControl from "../controls/ComboBoxControl.vue";
@@ -293,6 +293,9 @@ function needs_autocomplete(df) {
 }
 
 const controlRefs = ref([]);
+onBeforeUpdate(() => {
+	controlRefs.value = [];
+});
 
 async function validate() {
 	const results = await Promise.all(

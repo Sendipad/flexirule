@@ -1,6 +1,9 @@
 <template>
 	<div class="switch-node-config">
-		<div class="form-group">
+		<div
+			class="form-group"
+			:class="{ 'has-error': showValidation && !getJsonConfig('expression') }"
+		>
 			<label>{{ __("Switch Expression (Python)") }}</label>
 			<textarea
 				class="form-control"
@@ -9,10 +12,22 @@
 				@input="$emit('update-json-config', 'expression', $event.target.value)"
 				placeholder="doc.category"
 			></textarea>
+			<div v-if="showValidation && !getJsonConfig('expression')" class="fxr-error-msg">
+				{{ __("Switch Expression is required") }}
+			</div>
 		</div>
 
-		<div class="form-group">
+		<div
+			class="form-group"
+			:class="{ 'has-error': showValidation && Object.keys(cases).length === 0 }"
+		>
 			<label>{{ __("Cases") }}</label>
+			<div
+				v-if="showValidation && Object.keys(cases).length === 0"
+				class="fxr-error-msg mb-2"
+			>
+				{{ __("At least one case is required") }}
+			</div>
 			<div class="case-list">
 				<div
 					v-for="(nodeId, val) in cases"
@@ -62,6 +77,7 @@ const props = defineProps({
 	nodeData: Object,
 	availableNodes: { type: Array, default: () => [] },
 	getNodeLabel: { type: Function, default: () => "" },
+	showValidation: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["update-json-config"]);
@@ -94,11 +110,19 @@ function removeSwitchCase(val) {
 }
 
 function validate() {
+	const errors = [];
 	const expression = getJsonConfig("expression");
+	const currentCases = getJsonConfig("cases", {});
+
 	if (!expression) {
-		return { valid: false, message: __("Switch Expression is required") };
+		errors.push(__("Switch Expression is required"));
 	}
-	return { valid: true };
+
+	if (Object.keys(currentCases).length === 0) {
+		errors.push(__("At least one case is required for Switch"));
+	}
+
+	return { valid: errors.length === 0, errors };
 }
 
 defineExpose({ validate });

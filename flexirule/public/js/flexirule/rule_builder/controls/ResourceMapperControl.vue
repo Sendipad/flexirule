@@ -1,5 +1,8 @@
 <template>
-	<div class="resource-mapper-control fxr-control fxr-accent-scope">
+	<div
+		class="resource-mapper-control fxr-control fxr-accent-scope"
+		:class="{ 'has-error': showValidation && !isValid }"
+	>
 		<div v-if="df?.label && !hideLabel" class="fxr-label" :class="{ reqd: df?.reqd }">
 			{{ __(df.label) }}
 		</div>
@@ -130,6 +133,7 @@
 							:read_only="readOnly"
 							:trigger="'button'"
 							:hideLabel="true"
+							:showValidation="showValidation"
 							@update:modelValue="(val) => (row.path = val || '')"
 						/>
 					</div>
@@ -212,6 +216,7 @@
 						:read_only="readOnly"
 						:trigger="'button'"
 						:hideLabel="true"
+						:showValidation="showValidation"
 						@update:modelValue="(val) => (row.target = val || '')"
 					/>
 				</div>
@@ -223,7 +228,12 @@
 
 				<!-- Source Type -->
 				<div class="rm-cell rm-cell-type">
-					<select class="fxr-select" v-model="row.source_type" :disabled="readOnly">
+					<select
+						class="fxr-select"
+						v-model="row.source_type"
+						:disabled="readOnly"
+						:class="{ 'has-error': showValidation && !row.source_type }"
+					>
 						<option value="path">{{ __("Path") }}</option>
 						<option value="expr">{{ __("Expr") }}</option>
 						<option value="literal">{{ __("Static") }}</option>
@@ -239,6 +249,7 @@
 						:modelValue="row.path"
 						:read_only="readOnly"
 						:hideLabel="true"
+						:showValidation="showValidation"
 						@update:modelValue="(val) => (row.path = val || '')"
 					/>
 					<input
@@ -430,6 +441,7 @@
 									:read_only="readOnly"
 									:trigger="'button'"
 									:hideLabel="true"
+									:showValidation="showValidation"
 									@update:modelValue="(val) => (row.path = val || '')"
 								/>
 							</div>
@@ -576,6 +588,7 @@
 								:modelValue="row.path"
 								:read_only="readOnly"
 								:hideLabel="true"
+								:showValidation="showValidation"
 								@update:modelValue="(val) => (row.path = val || '')"
 							/>
 							<input
@@ -648,6 +661,11 @@
 			</div>
 		</div>
 
+		<!-- validation error -->
+		<div v-if="showValidation && !isValid" class="fxr-error-msg">
+			{{ __("Resource Mapper configuration is incomplete") }}
+		</div>
+
 		<div v-if="df?.description && !hideDescription" class="fxr-description">
 			{{ __(df.description) }}
 		</div>
@@ -667,6 +685,7 @@ const props = defineProps({
 	read_only: { type: Boolean, default: false },
 	hideLabel: { type: Boolean, default: false },
 	hideDescription: { type: Boolean, default: false },
+	showValidation: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["update:modelValue"]);
@@ -1318,6 +1337,42 @@ function deleteSelectedTableRows(tIdx, table) {
 	table.mappings = table.mappings.filter((m) => !selected.has(m._id));
 	selected.clear();
 }
+
+const isValid = computed(() => {
+	// A ResourceMapper is considered valid if it has at least one scalar mapping
+	// or at least one child table mapping (assuming it's required by context).
+	// For now, let's just ensure if it's required, it's not completely empty.
+	if (!props.df?.reqd) return true;
+
+	const hasScalars = ui.value.scalars.some((s) => s.target && (s.path || s.expr || s.literal));
+	const hasTables = ui.value.tables.some((t) => t.target_table && t.source_path);
+
+	return hasScalars || hasTables || ui.value.copy_same_fields;
+});
+
+function validate() {
+	const errors = [];
+	if (!isValid.value) {
+		errors.push(__("Resource Mapper: At least one field mapping is required"));
+	}
+
+	// Validate incomplete rows
+	ui.value.scalars.forEach((s, idx) => {
+		if (s.target && !(s.path || s.expr || s.literal)) {
+			errors.push(__("Field Mapping #{0}: Source value is missing").replace("{0}", idx + 1));
+		}
+	});
+
+	ui.value.tables.forEach((t, idx) => {
+		if (t.target_table && !t.source_path) {
+			errors.push(__("Table Mapping #{0}: Source path is missing").replace("{0}", idx + 1));
+		}
+	});
+
+	return { valid: errors.length === 0, errors };
+}
+
+defineExpose({ validate });
 </script>
 
 <style scoped>

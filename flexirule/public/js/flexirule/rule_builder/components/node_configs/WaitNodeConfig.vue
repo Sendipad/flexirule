@@ -1,7 +1,10 @@
 <template>
 	<div class="wait-node-config">
 		<div class="form-row">
-			<div class="form-group col-md-6">
+			<div
+				class="form-group col-md-6"
+				:class="{ 'has-error': showValidation && getJsonConfig('value', 1) <= 0 }"
+			>
 				<label class="small text-muted">{{ __("Delay Value") }}</label>
 				<input
 					type="number"
@@ -9,6 +12,9 @@
 					:value="getJsonConfig('value', 1)"
 					@input="$emit('update-field', 'value', parseFloat($event.target.value))"
 				/>
+				<div v-if="showValidation && getJsonConfig('value', 1) <= 0" class="fxr-error-msg">
+					{{ __("Delay must be greater than 0") }}
+				</div>
 			</div>
 			<div class="form-group col-md-6">
 				<label class="small text-muted">{{ __("Unit") }}</label>
@@ -34,6 +40,7 @@
 <script setup>
 const props = defineProps({
 	nodeData: Object,
+	showValidation: { type: Boolean, default: false },
 });
 
 defineEmits(["update-field"]);
@@ -49,4 +56,15 @@ function getJsonConfig(key, defaultVal = "") {
 
 	return config[key] !== undefined ? config[key] : defaultVal;
 }
+
+function validate() {
+	const value = getJsonConfig("value", 1);
+	const errors = [];
+	if (value <= 0) {
+		errors.push(__("Delay value must be greater than 0"));
+	}
+	return { valid: errors.length === 0, errors };
+}
+
+defineExpose({ validate });
 </script>

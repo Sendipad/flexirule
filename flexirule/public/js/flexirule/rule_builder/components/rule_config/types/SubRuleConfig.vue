@@ -84,6 +84,7 @@
 								:get_query="get_variable_options"
 								:read_only="read_only"
 								:hideLabel="true"
+								:showValidation="showValidation"
 								@update:modelValue="sync_local_config"
 							/>
 						</div>
@@ -125,6 +126,7 @@
 						:sourceSchema="source_schema"
 						:targetSchema="target_schema"
 						:readOnly="read_only"
+						:showValidation="showValidation"
 						@update:modelValue="update_visual_mappings"
 					/>
 				</div>

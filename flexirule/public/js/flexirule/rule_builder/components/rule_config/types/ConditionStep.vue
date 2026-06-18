@@ -20,6 +20,7 @@
 				:docFields="docFields"
 				:variableOptions="combinedVariableOptions"
 				:readOnly="readOnly || read_only"
+				:showValidation="showValidation"
 				:isMandatory="
 					props.node?.data?.action_type === 'Condition' ||
 					props.node?.type === 'Condition'
@@ -49,6 +50,7 @@ const props = defineProps({
 	node: Object,
 	readOnly: Boolean,
 	read_only: Boolean,
+	showValidation: { type: Boolean, default: false },
 });
 
 const store = useStore();

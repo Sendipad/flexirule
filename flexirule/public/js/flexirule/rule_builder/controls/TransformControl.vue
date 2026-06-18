@@ -1,5 +1,13 @@
 <template>
-	<div class="transform-control" ref="containerRef">
+	<div
+		class="transform-control fxr-control"
+		ref="containerRef"
+		:class="{ 'has-error': showValidation && !isValid }"
+	>
+		<div v-if="df?.label" class="fxr-label" :class="{ reqd: df?.reqd }">
+			{{ __(df.label) }}
+		</div>
+
 		<div class="transform-header">
 			<div class="header-left">
 				<label class="rm-label-sm">{{ __("Source Data") }}</label>
@@ -94,19 +102,31 @@
 				<!-- Future: Add expression editor here -->
 			</div>
 		</div>
+
+		<div v-if="showValidation && !isValid" class="fxr-error-msg">
+			{{
+				__("{0} requires at least one mapping").replace("{0}", df?.label || __("Transform"))
+			}}
+		</div>
+
+		<div v-if="df?.description" class="fxr-description">
+			{{ __(df.description) }}
+		</div>
 	</div>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, watch, nextTick } from "vue";
+import { ref, onMounted, onUnmounted, watch, nextTick, computed } from "vue";
 import TransformNode from "./TransformNode.vue";
 import { useTransformMapper } from "../composables/useTransformMapper.js";
 
 const props = defineProps({
+	df: { type: Object, default: null },
 	modelValue: { type: Array, default: () => [] },
 	sourceSchema: { type: Array, default: () => [] }, // Flat list with dot notation
 	targetSchema: { type: Array, default: () => [] }, // Flat list with dot notation
 	readOnly: Boolean,
+	showValidation: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["update:modelValue"]);
@@ -165,6 +185,28 @@ function removeMapping(mapping) {
 function selectMapping(mapping) {
 	selectedMapping.value = mapping;
 }
+
+const isValid = computed(() => {
+	if (props.df?.reqd) {
+		return mappings.value.length > 0;
+	}
+	return true;
+});
+
+function validate() {
+	const errors = [];
+	if (!isValid.value) {
+		errors.push(
+			__("{0} requires at least one mapping").replace(
+				"{0}",
+				props.df?.label || __("Transform")
+			)
+		);
+	}
+	return { valid: errors.length === 0, errors };
+}
+
+defineExpose({ validate });
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────
 

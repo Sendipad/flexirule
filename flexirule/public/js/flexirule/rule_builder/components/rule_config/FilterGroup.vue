@@ -26,11 +26,12 @@
 						<div class="field-picker-container">
 							<ComboBoxControl
 								ref="fieldPickerRefs"
-								:df="{ label: '', fieldtype: 'FieldPicker' }"
+								:df="{ label: '', fieldtype: 'FieldPicker', reqd: 1 }"
 								:options="getFieldsForDoctype(row.doctype || doctype)"
 								:doctype="row.doctype || doctype"
 								:modelValue="row.field"
 								:read_only="readOnly"
+								:showValidation="showValidation"
 								:trigger="'button'"
 								:hideLabel="true"
 								:class="{
@@ -81,11 +82,12 @@
 													: { mode: 'static', value: '' }
 											"
 											:context="{
-												df: getControlFactorySchema(row),
+												df: { ...getControlFactorySchema(row), reqd: 1 },
 												operator: row.operator,
 												referenceDoctype: row.doctype || doctype,
 											}"
 											:disabled="readOnly"
+											:showValidation="showValidation"
 											:engine="store"
 											:doc="store?.rule_doc"
 											:variableOptions="effectiveVariableOptions"
@@ -103,11 +105,12 @@
 													: { mode: 'static', value: '' }
 											"
 											:context="{
-												df: getControlFactorySchema(row),
+												df: { ...getControlFactorySchema(row), reqd: 1 },
 												operator: row.operator,
 												referenceDoctype: row.doctype || doctype,
 											}"
 											:disabled="readOnly"
+											:showValidation="showValidation"
 											:engine="store"
 											:doc="store?.rule_doc"
 											:variableOptions="effectiveVariableOptions"
@@ -123,7 +126,7 @@
 									<FlexValueControl
 										v-model="row.value"
 										:context="{
-											df: getControlFactorySchema(row),
+											df: { ...getControlFactorySchema(row), reqd: 1 },
 											operator: row.operator,
 											referenceDoctype: row.doctype || doctype,
 										}"
@@ -132,6 +135,7 @@
 										:variableOptions="effectiveVariableOptions"
 										:disabled="readOnly"
 										:readOnly="readOnly"
+										:showValidation="showValidation"
 										@update:modelValue="() => emitUpdate()"
 									/>
 								</div>
@@ -195,6 +199,10 @@ const props = defineProps({
 	variableOptions: {
 		type: Array,
 		default: null,
+	},
+	showValidation: {
+		type: Boolean,
+		default: false,
 	},
 });
 
@@ -915,6 +923,43 @@ const isFieldValid = (fieldname, dt) => {
 	return fields.some((f) => f.value === fieldname);
 };
 
+function isValueEmpty(val) {
+	return val === undefined || val === null || val === "";
+}
+
+function validate() {
+	const errors = [];
+	filters.value.forEach((row, idx) => {
+		const n = idx + 1;
+		if (!row.field) {
+			errors.push(__("Filter #{0}: Field is required", [n]));
+		}
+		if (!row.operator) {
+			errors.push(__("Filter #{0}: Operator is required", [n]));
+		}
+		if (row.operator === "Between") {
+			if (
+				!Array.isArray(row.value) ||
+				row.value.length < 2 ||
+				isValueEmpty(row.value[0]?.value) ||
+				isValueEmpty(row.value[1]?.value)
+			) {
+				errors.push(__("Filter #{0}: Both values are required for Between", [n]));
+			}
+		} else if (row.operator !== "is") {
+			const structVal = row.value;
+			const isEmpty =
+				structVal?.mode === "static" ? isValueEmpty(structVal.value) : !structVal;
+			if (isEmpty) {
+				errors.push(__("Filter #{0}: Value is required", [n]));
+			}
+		}
+	});
+	return { valid: errors.length === 0, errors };
+}
+
+defineExpose({ validate });
+
 watch(() => props.modelValue, syncFromProps, { deep: true });
 watch(
 	() => props.doctype,
@@ -1211,7 +1256,7 @@ onMounted(async () => {
 .filter-row-main :deep(select.form-control) {
 	appearance: none !important;
 	-webkit-appearance: none !important;
-	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") !important;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") !important;
 	background-repeat: no-repeat !important;
 	background-position: right 6px center !important;
 	background-size: 12px !important;

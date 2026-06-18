@@ -38,7 +38,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from "vue";
+import { computed, ref, onBeforeUpdate } from "vue";
 import ControlFactory from "../../controls/ControlFactory.vue";
 import { useFieldNormalization } from "../../composables/useFieldNormalization";
 
@@ -51,6 +51,9 @@ const props = defineProps({
 });
 
 const controlRefs = ref([]);
+onBeforeUpdate(() => {
+	controlRefs.value = [];
+});
 
 const { getNormalizedDf, getFieldState } = useFieldNormalization(props.engine);
 

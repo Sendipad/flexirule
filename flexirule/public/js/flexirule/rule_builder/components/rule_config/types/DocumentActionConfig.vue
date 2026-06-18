@@ -150,6 +150,7 @@
 					:sourceOptions="variable_options"
 					:read_only="readOnly"
 					:hideLabel="true"
+					:showValidation="showValidation"
 					@update:modelValue="update_mapper_ui"
 				/>
 
@@ -159,6 +160,7 @@
 					:sourceSchema="sourceSchema"
 					:targetSchema="targetSchema"
 					:readOnly="readOnly"
+					:showValidation="showValidation"
 					@update:modelValue="update_visual_mappings"
 				/>
 			</div>
