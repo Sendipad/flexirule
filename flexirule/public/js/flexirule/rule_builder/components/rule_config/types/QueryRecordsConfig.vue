@@ -11,6 +11,7 @@
 			<div class="sub-section section-subcard">
 				<h6>{{ __("Execution Permission") }}</h6>
 				<ControlFactory
+					data-fxr-fieldname="skip_permissions"
 					:df="{
 						fieldname: 'skip_permissions',
 						fieldtype: 'Check',
@@ -25,6 +26,7 @@
 				/>
 				<ControlFactory
 					v-if="!!node?.data?.skip_permissions"
+					data-fxr-fieldname="permission_audit_reason"
 					:df="{
 						fieldname: 'permission_audit_reason',
 						fieldtype: 'Small Text',
@@ -38,7 +40,7 @@
 
 			<!-- Configuration based on selected Mode -->
 			<template v-if="mode === 'Query List'">
-				<div class="sub-section section-subcard">
+				<div class="sub-section section-subcard" data-fxr-fieldname="config.filters">
 					<h6>{{ __("Filters") }}</h6>
 					<FilterGroup
 						ref="filterGroupRef"
@@ -54,6 +56,7 @@
 
 				<div class="sub-section section-subcard">
 					<MultiSelectList
+						data-fxr-fieldname="config.fields"
 						:df="{
 							label: __('Fields'),
 							fieldname: 'fields',
@@ -117,6 +120,7 @@
 					<div class="query-doc-grid">
 						<div class="grid-item">
 							<ControlFactory
+								data-fxr-fieldname="config.limit_type"
 								:df="with_read_only(limitTypeField)"
 								:modelValue="config.limit_type || 'Custom Limit'"
 								:showValidation="showValidation"
@@ -128,6 +132,7 @@
 							class="grid-item"
 						>
 							<ControlFactory
+								data-fxr-fieldname="config.limit"
 								:df="with_read_only(limitField)"
 								:modelValue="config.limit"
 								:showValidation="showValidation"
@@ -137,6 +142,7 @@
 						<div class="grid-item">
 							<label class="control-label small">{{ __("Group By") }}</label>
 							<ComboBoxControl
+								data-fxr-fieldname="config.group_by"
 								:df="{ label: '', fieldtype: 'Autocomplete' }"
 								:modelValue="config.group_by"
 								:get_query="get_group_by_options"
@@ -156,6 +162,7 @@
 					<div class="query-doc-grid">
 						<div class="grid-item">
 							<ControlFactory
+								data-fxr-fieldname="config.fetch_strategy"
 								:df="{
 									fieldname: 'fetch_strategy',
 									fieldtype: 'Select',
@@ -178,6 +185,7 @@
 						<div class="grid-item">
 							<label class="control-label small">{{ __("DocType Name") }}</label>
 							<FlexValueControl
+								data-fxr-fieldname="config.doctype_name"
 								:modelValue="config.doctype_name"
 								:variableOptions="variable_options"
 								:readOnly="readOnly"
@@ -194,6 +202,7 @@
 								__("Document Name (ID)")
 							}}</label>
 							<FlexValueControl
+								data-fxr-fieldname="config.docname"
 								:modelValue="config.docname"
 								:variableOptions="variable_options"
 								:readOnly="readOnly"
@@ -211,6 +220,7 @@
 				<div
 					v-if="config.fetch_strategy === 'Get latest Doc'"
 					class="sub-section section-subcard"
+							data-fxr-fieldname="config.filters"
 				>
 					<h6>{{ __("Filters") }}</h6>
 					<FilterGroup
@@ -227,7 +237,7 @@
 			</template>
 
 			<template v-else-if="mode === 'Exist Record'">
-				<div class="sub-section section-subcard">
+				<div class="sub-section section-subcard" data-fxr-fieldname="config.filters">
 					<h6>{{ __("Filters") }}</h6>
 					<FilterGroup
 						ref="filterGroupRef"
@@ -325,7 +335,7 @@
 			<template
 				v-else-if="['Sum', 'Average', 'Min', 'Max', 'Count', 'Group By'].includes(mode)"
 			>
-				<div class="sub-section section-subcard">
+				<div class="sub-section section-subcard" data-fxr-fieldname="config.filters">
 					<h6>{{ __("Filters") }}</h6>
 					<FilterGroup
 						ref="filterGroupRef"
@@ -349,6 +359,7 @@
 								}}</label>
 								<div class="field-picker-container">
 									<ComboBoxControl
+										data-fxr-fieldname="config.field"
 										:df="{ ...fieldField, fieldtype: 'FieldPicker' }"
 										:options="doctype_fields"
 										:doctype="reference_doctype"
@@ -383,6 +394,7 @@
 								}}</label>
 								<div class="field-picker-container">
 									<ComboBoxControl
+										data-fxr-fieldname="config.group_by_field"
 										:df="{ ...aggGroupByField, fieldtype: 'FieldPicker' }"
 										:options="doctype_fields"
 										:doctype="reference_doctype"
@@ -414,6 +426,7 @@
 							</div>
 							<div class="grid-item">
 								<ControlFactory
+									data-fxr-fieldname="config.agg_function"
 									:df="with_read_only(aggFunctionField)"
 									:modelValue="config.agg_function"
 									@update:modelValue="
@@ -427,6 +440,7 @@
 								}}</label>
 								<div class="field-picker-container">
 									<ComboBoxControl
+										data-fxr-fieldname="config.agg_field"
 										:df="{ ...aggFieldField, fieldtype: 'FieldPicker' }"
 										:options="doctype_fields"
 										:doctype="reference_doctype"
@@ -571,11 +585,11 @@ const showValidation = ref(false);
 const filterGroupRef = ref(null);
 
 // Internal flag to prevent recursive sync loops
-let is_internal_update = false;
+const is_internal_update = ref(false);
 
 // Initialize local config
 onMounted(async () => {
-	is_internal_update = true;
+	is_internal_update.value = true;
 	try {
 		load_local_config(props.node?.data?.config);
 		if (reference_doctype.value) {
@@ -591,7 +605,7 @@ onMounted(async () => {
 		await refresh_variables();
 		await debounced_schema_update();
 	} finally {
-		is_internal_update = false;
+		is_internal_update.value = false;
 	}
 });
 
@@ -599,7 +613,7 @@ onMounted(async () => {
 watch(
 	() => props.node?.data?.config,
 	(val) => {
-		if (!is_internal_update) {
+		if (!is_internal_update.value) {
 			load_local_config(val);
 		}
 	}
@@ -613,7 +627,7 @@ watch(
 			await loadDocMeta(val);
 			await load_doctype_fields(val);
 			// Only sync if this was a user change (not during initial mount)
-			if (!is_internal_update) {
+			if (!is_internal_update.value) {
 				// Clear filters when DocType changes
 				if (Array.isArray(config.filters)) {
 					config.filters = [];
@@ -990,7 +1004,7 @@ function update_action_key(key, value) {
 watch(
 	() => mode.value,
 	async (newMode, oldMode) => {
-		if (!is_internal_update && newMode !== oldMode) {
+		if (!is_internal_update.value && newMode !== oldMode) {
 			// Clear irrelevant configuration fields when mode changes
 			const keysToKeep = ["doctype_name", "fetch_strategy"];
 
@@ -1027,7 +1041,7 @@ watch(
 			}
 		}
 
-		if (newMode === "Query Doc" && !is_internal_update) {
+		if (newMode === "Query Doc" && !is_internal_update.value) {
 			// Initialize filters if empty
 			if (!config.filters || (Array.isArray(config.filters) && config.filters.length === 0)) {
 				const doctype = reference_doctype.value;
@@ -1039,7 +1053,7 @@ watch(
 				}
 			}
 		}
-		if (!is_internal_update) {
+		if (!is_internal_update.value) {
 			sync_local_config();
 		}
 	}
@@ -1121,11 +1135,11 @@ function sync_local_config() {
 	const next_str = JSON.stringify(new_config || {});
 
 	if (current_str !== next_str) {
-		is_internal_update = true;
+		is_internal_update.value = true;
 		sync_config(new_config);
 		// Reset flag after a short delay to allow the prop update to flow back
 		setTimeout(() => {
-			is_internal_update = false;
+			is_internal_update.value = false;
 		}, 150);
 	}
 }
@@ -1320,7 +1334,7 @@ function load_local_config(val) {
 watch(
 	() => [order_by_rows.value, config, report_filter_values, mode.value, reference_doctype.value],
 	() => {
-		if (!is_internal_update) {
+		if (!is_internal_update.value) {
 			debounced_sync();
 			update_resolved_schema_local();
 			debounced_schema_update();
