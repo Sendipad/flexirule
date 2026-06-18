@@ -24,21 +24,59 @@ concurrency:
     cancel-in-progress: true
 
 jobs:
+    changes:
+        runs-on: ubuntu-latest
+        outputs:
+            frontend: ${{ steps.filter.outputs.frontend }}
+            backend: ${{ steps.filter.outputs.backend }}
+        steps:
+            - name: Clone
+              uses: actions/checkout@v4
+
+            - uses: dorny/paths-filter@v3
+              id: filter
+              with:
+                  filters: |
+                      frontend:
+                        - 'flexirule/public/**'
+                        - 'flexirule/templates/**'
+                        - '**/*.js'
+                        - '**/*.vue'
+                        - '**/*.css'
+                        - '**/*.scss'
+                        - 'package.json'
+                        - 'package-lock.json'
+                        - 'yarn.lock'
+                        - 'requirements.txt'
+                        - 'pyproject.toml'
+                        - '.github/workflows/**'
+                      backend:
+                        - '**/*.py'
+                        - 'flexirule/**/*.json'
+                        - 'requirements.txt'
+                        - 'pyproject.toml'
+                        - 'package.json'
+                        - 'package-lock.json'
+                        - 'yarn.lock'
+                        - '.github/workflows/**'
+
     build:
+        needs: changes
+        if: ${{ needs.changes.outputs.frontend == 'true' }}
         runs-on: ubuntu-latest
         name: Frontend
 
         steps:
             - name: Clone
-              uses: actions/checkout@v3
+              uses: actions/checkout@v4
 
             - name: Setup Python
-              uses: actions/setup-python@v4
+              uses: actions/setup-python@v5
               with:
                   python-version: "3.10"
 
             - name: Setup Node
-              uses: actions/setup-node@v3
+              uses: actions/setup-node@v4
               with:
                   node-version: 18
                   check-latest: true
@@ -80,11 +118,18 @@ jobs:
             - name: Build
               working-directory: /home/runner/frappe-bench
               run: |
-                  bench build --app flexirule --production
+                  set -o pipefail
+                  bench build --app flexirule --production 2>&1 | tee build_output.log
+                  if grep -qiE "ERROR|Build failed" build_output.log; then
+                    echo "::error::Build failed detected in logs!"
+                    exit 1
+                  fi
               env:
                   CI: "Yes"
 
     tests:
+        needs: changes
+        if: ${{ needs.changes.outputs.backend == 'true' }}
         runs-on: ubuntu-latest
         strategy:
             fail-fast: false
@@ -109,7 +154,7 @@ jobs:
 
         steps:
             - name: Clone
-              uses: actions/checkout@v3
+              uses: actions/checkout@v4
 
             - name: Find tests
               run: |
@@ -117,12 +162,12 @@ jobs:
                   grep -rn "def test" > /dev/null
 
             - name: Setup Python
-              uses: actions/setup-python@v4
+              uses: actions/setup-python@v5
               with:
                   python-version: "3.10"
 
             - name: Setup Node
-              uses: actions/setup-node@v3
+              uses: actions/setup-node@v4
               with:
                   node-version: 18
                   check-latest: true
