@@ -1,6 +1,6 @@
 <!-- Used as Autocomplete, Barcode, Color, Currency, Data, Date, Duration, Link, Dynamic Link, Float, Int, Password, Percent, Time, Read Only, HTML Control -->
 <script setup>
-import { ref, onMounted, nextTick, useSlots } from "vue";
+import { ref, computed, onMounted, nextTick, useSlots } from "vue";
 const emit = defineEmits(["update:modelValue"]);
 
 const props = defineProps({
@@ -133,7 +133,7 @@ defineExpose({ validate });
 				<slot name="label" />
 				<slot name="actions" />
 			</div>
-			<label v-else-if="df?.label && !hideLabel" class="fxr-label" :class="{ reqd: df.reqd }">
+			<label v-else-if="df?.label && !hideLabel" class="fxr-label" :class="{ reqd: df?.reqd }">
 				{{ __(df.label) }}
 			</label>
 
@@ -142,7 +142,7 @@ defineExpose({ validate });
 				v-if="slots.label"
 				class="fxr-input"
 				type="text"
-				:style="{ height: df.fieldtype == 'Table MultiSelect' ? '42px' : '' }"
+				:style="{ height: df?.fieldtype == 'Table MultiSelect' ? '42px' : '' }"
 				:placeholder="__(placeholder)"
 				readonly
 			/>
@@ -152,8 +152,8 @@ defineExpose({ validate });
 				:type="df?.fieldtype === 'Time' ? 'time' : 'text'"
 				:step="df?.fieldtype === 'Time' ? '1' : undefined"
 				:value="modelValue"
-				:placeholder="__(df.placeholder || placeholder)"
-				:disabled="read_only || df.read_only"
+				:placeholder="__(df?.placeholder || placeholder)"
+				:disabled="read_only || df?.read_only"
 				@input="(event) => $emit('update:modelValue', event.target.value)"
 				@blur="evaluateMath($event)"
 				@keydown.enter="evaluateMath($event)"
@@ -161,7 +161,7 @@ defineExpose({ validate });
 				@drop="onDrop"
 			/>
 			<input
-				v-if="slots.label && df.fieldtype === 'Barcode'"
+				v-if="slots.label && df?.fieldtype === 'Barcode'"
 				class="fxr-input mt-2"
 				type="text"
 				:style="{ height: '110px' }"
@@ -170,7 +170,7 @@ defineExpose({ validate });
 		</div>
 
 		<!-- description -->
-		<div v-if="df.description && !hideDescription" class="fxr-description">
+		<div v-if="df?.description && !hideDescription" class="fxr-description">
 			{{ __(df.description) }}
 		</div>
 
@@ -188,9 +188,9 @@ defineExpose({ validate });
 		<div class="selected-color no-value" />
 
 		<!-- icon selector icon -->
-		<div v-if="df.fieldtype == 'Icon'" class="selected-icon no-value" ref="icon_ref"></div>
+		<div v-if="df?.fieldtype == 'Icon'" class="selected-icon no-value" ref="icon_ref"></div>
 		<!-- phone selector icon -->
-		<div v-if="df.fieldtype == 'Phone'" class="selected-phone no-value" ref="phone_ref"></div>
+		<div v-if="df?.fieldtype == 'Phone'" class="selected-phone no-value" ref="phone_ref"></div>
 	</div>
 </template>
 
