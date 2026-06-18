@@ -850,7 +850,6 @@ async function update_report_columns() {
 	}
 }
 
-
 const limitTypeField = computed(() =>
 	resolveFieldPolicy("limit_type", {
 		fieldname: "limit_type",
