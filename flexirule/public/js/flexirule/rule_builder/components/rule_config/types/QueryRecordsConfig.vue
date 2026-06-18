@@ -183,7 +183,7 @@
 								:readOnly="readOnly"
 								:showValidation="showValidation"
 								:context="{
-									df: { fieldtype: 'Link', options: 'DocType', reqd: 1 },
+									df: doctypeNameField,
 								}"
 								@update:modelValue="update_doctype_name"
 							/>
@@ -199,7 +199,7 @@
 								:readOnly="readOnly"
 								:showValidation="showValidation"
 								:context="{
-									df: { fieldtype: 'Link', options: reference_doctype, reqd: 1 },
+									df: docnameField,
 									referenceDoctype: reference_doctype,
 								}"
 								@update:modelValue="(val) => update_config_key('docname', val)"
@@ -529,6 +529,37 @@ const { getPolicyField } = useNodeConfigPolicy({
 	processName: () => props.node?.data?.process_name || "",
 });
 
+function resolveFieldPolicy(fieldname, fallback) {
+	const field = getPolicyField(fieldname, fallback);
+	// Apply dynamic requirements based on mode/config
+	if (fieldname === "limit" && config.limit_type === "Custom Limit") {
+		field.reqd = 1;
+	}
+	if (fieldname === "field" && ["Sum", "Average", "Min", "Max"].includes(mode.value)) {
+		field.reqd = 1;
+	}
+	if (
+		["group_by_field", "agg_field", "agg_function"].includes(fieldname) &&
+		mode.value === "Group By"
+	) {
+		field.reqd = 1;
+	}
+	if (fieldname === "doctype_name") {
+		field.reqd = 1;
+	}
+	if (fieldname === "docname") {
+		const strategy = config.fetch_strategy || "Get doc";
+		const is_single = strategy === "Get Single DocType" || is_single_doctype.value;
+		const is_latest = strategy === "Get latest Doc";
+		if (!is_single && !is_latest) {
+			field.reqd = 1;
+		} else {
+			field.reqd = 0;
+		}
+	}
+	return with_read_only(field);
+}
+
 // Local state for UI controls
 const order_by_rows = ref([]);
 const report_filters = ref([]);
@@ -819,9 +850,6 @@ async function update_report_columns() {
 	}
 }
 
-function resolveFieldPolicy(fieldname, fallback) {
-	return with_read_only(getPolicyField(fieldname, fallback));
-}
 
 const limitTypeField = computed(() =>
 	resolveFieldPolicy("limit_type", {
@@ -892,6 +920,26 @@ const docnameExprField = computed(() =>
 	})
 );
 
+const doctypeNameField = computed(() =>
+	resolveFieldPolicy("doctype_name", {
+		fieldname: "doctype_name",
+		fieldtype: "Link",
+		options: "DocType",
+		label: __("DocType Name"),
+		reqd: 1,
+	})
+);
+
+const docnameField = computed(() =>
+	resolveFieldPolicy("docname", {
+		fieldname: "docname",
+		fieldtype: "Link",
+		options: reference_doctype.value,
+		label: __("Document Name (ID)"),
+		reqd: 1,
+	})
+);
+
 const is_doctype_dynamic = computed(() => {
 	const val = config.doctype_name;
 	if (!val) return false;
@@ -942,7 +990,38 @@ function update_action_key(key, value) {
 // Watch for operation changes directly to handle Report special case
 watch(
 	() => mode.value,
-	async (newMode) => {
+	async (newMode, oldMode) => {
+		if (!is_internal_update && newMode !== oldMode) {
+			// Clear irrelevant configuration fields when mode changes
+			const keysToKeep = ["doctype_name", "fetch_strategy"];
+
+			Object.keys(config).forEach((key) => {
+				if (!keysToKeep.includes(key)) {
+					// Specific mode cleanup
+					if (key === "filters") {
+						config.filters = newMode === "Query Report" ? {} : [];
+					} else if (key === "docname" && newMode !== "Query Doc") {
+						delete config[key];
+					} else if (
+						["limit", "limit_type", "order_by", "fields"].includes(key) &&
+						newMode !== "Query List"
+					) {
+						delete config[key];
+					} else if (
+						["field", "group_by_field", "agg_field", "agg_function"].includes(key) &&
+						!["Sum", "Average", "Min", "Max", "Count", "Group By"].includes(newMode)
+					) {
+						delete config[key];
+					}
+				}
+			});
+
+			if (newMode === "Query List") {
+				config.limit = config.limit || 20;
+				config.limit_type = config.limit_type || "Custom Limit";
+			}
+		}
+
 		if (newMode === "Query Report" && props.node?.data) {
 			if (props.node.data.reference_doctype !== "Report") {
 				update_action_field("reference_doctype", "Report");
@@ -957,10 +1036,12 @@ watch(
 					const meta = await flexirule.utils.get_doctype_meta(doctype);
 					if (meta && !meta.issingle) {
 						config.filters = [[doctype, "name", "=", { mode: "static", value: "" }]];
-						sync_local_config();
 					}
 				}
 			}
+		}
+		if (!is_internal_update) {
+			sync_local_config();
 		}
 	}
 );
@@ -1262,12 +1343,13 @@ async function validate() {
 	if (mode.value === "Query Doc") {
 		const strategy = config.fetch_strategy || "Get doc";
 		const is_single = strategy === "Get Single DocType" || is_single_doctype.value;
+		const is_latest = strategy === "Get latest Doc";
 
 		if (!config.doctype_name) {
 			errors.push(__("Target DocType is required for Query Doc"));
 		}
 
-		if (!is_single && !config.docname) {
+		if (!is_single && !is_latest && !config.docname) {
 			errors.push(__("Document Name (ID) is required for this strategy"));
 		}
 	}
