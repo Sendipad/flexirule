@@ -220,7 +220,7 @@
 				<div
 					v-if="config.fetch_strategy === 'Get latest Doc'"
 					class="sub-section section-subcard"
-							data-fxr-fieldname="config.filters"
+					data-fxr-fieldname="config.filters"
 				>
 					<h6>{{ __("Filters") }}</h6>
 					<FilterGroup
