@@ -374,6 +374,16 @@ class RuleBuilder {
 					},
 					callback: (r) => {
 						if (r.message?.multi) {
+							// For multi-run, we might already have results from realtime.
+							// But we should ensure the UI store is populated with what the API returned.
+							// We clear first to avoid duplicates if realtime did work.
+							this.uiStore.clear_test_result();
+							if (r.message.results && r.message.results.length > 0) {
+								r.message.results.forEach((res) => {
+									this.uiStore.add_test_progress_result(res);
+								});
+							}
+
 							if (r.message.success_count > 0) {
 								frappe.show_alert(
 									{

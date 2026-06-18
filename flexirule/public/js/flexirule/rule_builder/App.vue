@@ -406,7 +406,7 @@ function updateQuickActionsPosition() {
 function runQuickAction(item) {
 	const actions = {
 		save: () => ruleStore.save_changes(),
-		test: () => window.fxrRuleBuilder?.show_test_dialog?.(),
+		test: () => window.fxrRuleBuilder?.show_debug_dialog?.(),
 		status: () => toggleRuleAccess(),
 		shortcuts: () => (uiStore.show_shortcuts_help = true),
 		layout: () => runAutoLayout(),
