@@ -127,3 +127,67 @@ The `Fetch` resolver defaults to `doc.` scoping if no scope is provided, while t
 
 ### 6. Special Case Context
 The `Assignment` action handler injects a special `value` variable into the evaluation context specifically for Normalization and Formatting steps. This "current value" awareness is not consistently available across other action types or resolvers.
+
+---
+
+## F. Capability Coverage Matrix
+
+Mapping of unique value operations to their availability across different entry points.
+
+| Capability | Formula | String | Normalize | Format | Date | Math | Aggreg | Fetch | System |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **TEXT** | | | | | | | | | |
+| trim | ✓ | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| lowercase | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| uppercase | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| title_case | ✗ | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| concat | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| slug | ✓ | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| snake_case | ✗ | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| template format | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| remove_spaces | ✗ | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| remove_punctuation | ✗ | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| **NUMERIC** | | | | | | | | | |
+| sum | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ |
+| average | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ |
+| count | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ |
+| arithmetic (+,-,*,/) | ✓ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ | ✗ |
+| round | ✓ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ | ✗ |
+| currency format | ✗ | ✓ | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| **DATE/TIME** | | | | | | | | | |
+| today / now | ✓ | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ |
+| add_days/months | ✓ | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ |
+| date_diff | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| format_date | ✓ | ✗ | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| **SPECIALIZED** | | | | | | | | | |
+| phone_normalize | ✗ | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| email_normalize | ✗ | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| mask_email/phone | ✗ | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| Arabic unification | ✗ | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| lookup / fetch | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ |
+| current_user | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ |
+| role_check | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ |
+
+---
+
+## G. Matrix Analysis
+
+### 1. Multi-Source Capabilities
+Capabilities like **lowercase**, **uppercase**, **sum**, and **average** are heavily distributed, appearing in 3 or more places. This suggests high demand but inconsistent implementation across the UI.
+
+### 2. Single-Source Capabilities
+- **Masking** and **Arabic unification** are exclusive to the Normalization Resolver.
+- **Arithmetic operators** are exclusive to the Math Resolver (when using the builder) or raw Formulas.
+- **Role checks** are exclusive to the System Resolver.
+- **Fetch** logic is centralized in the Fetch Resolver.
+
+### 3. Resolvers with No Unique Capability
+The **String Formula Resolver** contributes no unique capabilities. Everything it does (concat, upper, lower, fmt_money) is available through either the Normalization Resolver, Format Resolver, or direct Formulas.
+
+### 4. UX Wrappers
+- The **Math Resolver** is essentially a UX wrapper for Python's `flt()` and arithmetic operators.
+- The **Date Resolver** is a UX wrapper for `frappe.utils.add_days` and `add_months`.
+- The **Child Aggregation Resolver** is a UX wrapper for list comprehensions.
+
+### 5. Hidden Capabilities
+The **Normalization Resolver** contains many specialized operations (Phone/Email normalization, Punctuation removal, Masking, Arabic unification) that are powerful but hidden from the general "Format" or "Formula" user journeys. These are currently "locked" behind a specific resolver kind, making them inaccessible for users who don't think to look under "Normalization."
