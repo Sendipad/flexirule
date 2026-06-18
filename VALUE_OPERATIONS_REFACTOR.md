@@ -1,6 +1,6 @@
-# FlexiRule Value Operations Architecture Refactor (v2)
+# FlexiRule Value Operations Architecture Refactor
 
-This document outlines the proposed architectural refactor for Value Operations in FlexiRule, moving from a fragmented "Resolver-Kind" system to a unified, capability-driven "Operation Registry."
+This document outlines the proposed target architecture for Value Operations in FlexiRule, moving from a fragmented "Resolver-Kind" system to a unified, capability-driven "Operation Registry."
 
 ---
 
@@ -57,19 +57,20 @@ Operations should be grouped by **author intent**, maintaining distinct domains 
 
 ## 4. Proposed Frontend Architecture
 
-**Core Principle:** Discoverability through unified browsing.
+**Core Principle:** Hybrid configuration for optimal UX.
 
 -   **`ValueRegistry`**: A shared registry between `formula_registry.js` and `ValueResolverControl`.
 -   **`OperationBrowser.vue`**: A "Command Palette" style component used in `FlexValueControl` that allows searching all categories at once.
--   **`GenericOperationConfigurator.vue`**: A metadata-driven UI component that renders inputs based on the operation's parameter definitions (Schema-driven UI).
-    -   *Example:* If "Add Days" is selected, it renders a "Base Date" picker and a "Number" input.
--   **Specific Configurators**: Only reserved for complex logic like `Aggregation` (Table selection) or `Fetch` (Link selection).
+-   **Hybrid Configuration System**:
+    -   **Metadata-Driven Renderer**: For simple operations (e.g., Round, Trim, Add Days), the UI is automatically generated from the operation's metadata/schema.
+    -   **Dedicated Vue Components**: For complex operations where a generic form is insufficient (e.g., `Aggregation`, `Fetch`, `System Context`, `Template Formatting`), the registry allows mapping an `operation_id` to a specialized Vue configuration component.
+-   **Orchestrator**: A unified modal that determines whether to show the generic renderer or the dedicated component based on the selected operation.
 
 ---
 
-## 5. Recommended End-State (v2)
+## 5. Recommended End-State
 
-In FlexiRule v2, the concept of selecting a "Resolver Type" first is eliminated.
+The new architecture eliminates the need for users to understand "Resolver Kinds" before they start searching for functionality.
 
 ### The Author Experience:
 1.  User clicks into a value field.
@@ -79,11 +80,13 @@ In FlexiRule v2, the concept of selecting a "Resolver Type" first is eliminated.
     -   **Add Days** (Date & Time)
     -   **Mask Email** (Masking & Privacy)
     -   **Normalize Phone** (Data Normalization)
-5.  Selection opens a consistent configuration flyout.
-6.  The token in the editor is simply an **Operation Token** (e.g., `[Add 5 Days]`).
+5.  Selection opens the configuration flyout:
+    -   *Simple ops:* Use the generic renderer.
+    -   *Complex ops:* Use the dedicated Vue component.
+6.  The token in the editor is an **Operation Token** (e.g., `[Add 5 Days]`).
 
 ### Why this is better:
--   **Conceptual Clarity:** Domains like "Normalization" and "Masking" are preserved as distinct concepts for the user.
--   **Flexible API:** Supporting `execute(context, config)` allows for N-ary operations (Concat), null-input operations (System Context), and complex retrieval (Fetch) without hacking a unary `value` parameter.
--   **Maintainability:** Adding a new capability involves adding one class on the backend and one entry in the registry. The UI handles the rest.
--   **Consistency:** All value manipulation follows the same "Search -> Configure -> Tokenize" lifecycle.
+-   **No "Type-First" Friction:** Users don't need to know if "Slug" is a "Normalization" or a "String Formula."
+-   **Flexible API:** Supporting `execute(context, config)` allows for N-ary operations (Concat), null-input operations (System Context), and complex retrieval (Fetch).
+-   **Maintainability:** Most new operations can be added via metadata alone. Dedicated components are only written when the UX requires a specialized interface.
+-   **Discoverability:** Surfaces powerful hidden capabilities (Arabic Unification, Masking) alongside standard ones.
