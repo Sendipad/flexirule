@@ -13,7 +13,7 @@ Challenge the status quo of existing resolver boundaries.
 | **String Formula** | Simple text/currency ops | None | Normalization, Format, Formulas | **Remove / Merge** | Redundant. Its logic exists in more specialized or functional entry points. |
 | **Math Formula** | Simple arithmetic | None | Formulas, Python `flt()` | **Remove / Merge** | Pure UX wrapper for basic Python operators. Should be atomic operations in a registry. |
 | **Date Formula** | Date arithmetic | None | Formulas, `frappe.utils` | **Remove / Merge** | UX wrapper. "Add Days" is an operation, not a standalone architecture category. |
-| **Normalization** | Data cleaning/standardization | Arabic unification, specialized cleaning | Casing, slugging | **Keep & Rename** | Purpose is valid, but should be renamed to **"Transformation"** and expanded. |
+| **Normalization** | Data cleaning/standardization | Arabic unification, specialized cleaning | Casing, slugging | **Keep** | Highly specialized domain with deep logic that shouldn't be diluted into general transformation. |
 | **Format** | Presentation logic | String Templates, Locale-aware formatting | Currency formatting | **Keep** | Solves the specific problem of *display* vs *value*, which is conceptually distinct. |
 | **Child Aggregation** | List math | Table-to-Scalar reduction | `sum`, `count` formulas | **Keep** | Essential for handling list context which requires specific configuration UI. |
 | **Fetch** | Remote data | Cross-DocType retrieval | Lookup formula | **Keep** | Distinct capability requiring unique UI for DocType/Field selection. |
@@ -23,14 +23,14 @@ Challenge the status quo of existing resolver boundaries.
 
 ## 2. Proposed Capability Taxonomy
 
-Operations should be grouped by **author intent**, not implementation logic.
+Operations should be grouped by **author intent**, maintaining distinct domains for specialized data handling.
 
-1.  **Text Transformation:** Trimming, casing, slugging, snake_case, find/replace.
+1.  **Text Operations:** Trimming, casing, slugging, snake_case, find/replace, concatenation.
 2.  **Numeric & Math:** Arithmetic, rounding, absolute value, percentages.
 3.  **Date & Time:** Adding/subtracting time units, date differences, relative dates (today, now).
 4.  **Data Normalization:** Cleaning phone numbers, emails, tax IDs, Arabic/Persian unification.
 5.  **Masking & Privacy:** Masking emails, credit cards, or partial strings (security-centric).
-6.  **Formatting & Display:** Currency formatting, date/time formatting, string templates.
+6.  **Formatting & Localization:** Currency formatting, date/time formatting, string templates, locale overrides.
 7.  **Collection & Aggregation:** Sum, average, count, min/max across child tables.
 8.  **Data Retrieval:** Fetching values from linked documents or remote DocTypes.
 9.  **Environment & Context:** Current user, role checks, rule metadata.
@@ -39,18 +39,19 @@ Operations should be grouped by **author intent**, not implementation logic.
 
 ## 3. Proposed Backend Architecture
 
-**Core Principle:** Atomic, registry-bound operations.
+**Core Principle:** Registry-bound operations with flexible input signatures.
 
 -   **`flexirule.ruleflow.operations.registry`**: A centralized singleton registry that maps `operation_id` to an implementation class.
 -   **`ValueOperation` (Base Class)**:
-    -   `execute(value, context, config)`: Standard interface.
+    -   `execute(context, config)`: Standard non-unary interface. Configuration handles all specific inputs (including target values if applicable).
     -   `get_meta()`: Returns required parameters, return type, and description.
 -   **Module Structure:**
     -   `operations/text.py`
     -   `operations/math.py`
     -   `operations/date.py`
-    -   `operations/normalization.py` (Centralizes all logic from `normalization.py` and `NormalizationResolver`).
--   **Compiler**: `ValueResolver.compile` no longer needs kind-specific logic. It simply looks up the `operation_id` in the registry and builds a standard execution chain.
+    -   `operations/normalization.py`
+    -   `operations/masking.py`
+-   **Compiler**: `ValueResolver.compile` simply looks up the `operation_id` in the registry and builds a standard execution call passing the context and pre-parsed config.
 
 ---
 
@@ -74,15 +75,15 @@ In FlexiRule v2, the concept of selecting a "Resolver Type" first is eliminated.
 1.  User clicks into a value field.
 2.  User types `/` to open the **Operation Palette**.
 3.  User searches for what they want to *do* (e.g., "mask", "sum", "days").
-4.  FlexiRule displays a unified list of matches:
+4.  FlexiRule displays a unified list of matches categorized by domain:
     -   **Add Days** (Date & Time)
     -   **Mask Email** (Masking & Privacy)
-    -   **Sum Child Table** (Aggregation)
+    -   **Normalize Phone** (Data Normalization)
 5.  Selection opens a consistent configuration flyout.
 6.  The token in the editor is simply an **Operation Token** (e.g., `[Add 5 Days]`).
 
 ### Why this is better:
--   **Zero dead ends:** Users don't need to know if "Slug" is a "Normalization" or a "String Formula."
--   **Higher discoverability:** Powerful features like "Arabic Unification" or "Partial Masking" are surfaced alongside basic tasks.
+-   **Conceptual Clarity:** Domains like "Normalization" and "Masking" are preserved as distinct concepts for the user.
+-   **Flexible API:** Supporting `execute(context, config)` allows for N-ary operations (Concat), null-input operations (System Context), and complex retrieval (Fetch) without hacking a unary `value` parameter.
 -   **Maintainability:** Adding a new capability involves adding one class on the backend and one entry in the registry. The UI handles the rest.
 -   **Consistency:** All value manipulation follows the same "Search -> Configure -> Tokenize" lifecycle.
