@@ -1,0 +1,60 @@
+[
+	{
+		"doctype": "Rule",
+		"rule_name": "Blueprint: Empty Start-End",
+		"document_type": "ToDo",
+		"trigger_type": "DocType Event",
+		"trigger_event": "Validate",
+		"is_active": 0,
+		"actions": [
+			{
+				"action_id": "root",
+				"action_type": "Entry Action",
+				"action_label": "Start",
+				"is_enabled": 1,
+				"next_step_if_true": "node_end"
+			},
+			{
+				"action_id": "node_end",
+				"action_type": "Stop",
+				"operation": "Success",
+				"action_label": "End",
+				"is_enabled": 1
+			}
+		]
+	},
+	{
+		"doctype": "Rule",
+		"rule_name": "Blueprint: Simple Condition",
+		"document_type": "ToDo",
+		"trigger_type": "DocType Event",
+		"trigger_event": "Validate",
+		"is_active": 0,
+		"actions": [
+			{
+				"action_id": "root",
+				"action_type": "Entry Action",
+				"next_step_if_true": "cond_1"
+			},
+			{
+				"action_id": "cond_1",
+				"action_type": "Condition",
+				"action_label": "Is High Priority",
+				"compiled_expression": "doc.priority == 'High'",
+				"next_step_if_true": "stop_success",
+				"next_step_if_false": "stop_fail"
+			},
+			{
+				"action_id": "stop_success",
+				"action_type": "Stop",
+				"operation": "Success"
+			},
+			{
+				"action_id": "stop_fail",
+				"action_type": "Stop",
+				"operation": "Error",
+				"value_template": "Priority must be High"
+			}
+		]
+	}
+]
