@@ -1,12 +1,18 @@
 <template>
-	<div class="flexi-grid" :class="{ 'is-readonly': read_only }">
+	<div
+		class="flexi-grid fxr-control"
+		:class="{
+			'is-readonly': read_only,
+			'has-error': showValidation && !isValid,
+		}"
+	>
 		<!-- Label -->
 		<div v-if="df.label" class="grid-label">
 			{{ __(df.label) }}
 			<span v-if="df.reqd" class="text-danger">*</span>
 		</div>
 
-		<div v-if="df.reqd && !localRows.length" class="text-danger small mb-2">
+		<div v-if="df.reqd && !localRows.length && showValidation" class="text-danger small mb-2">
 			<i class="fa fa-exclamation-circle"></i> {{ __("{0} is mandatory", [df.label]) }}
 		</div>
 
@@ -158,6 +164,7 @@ const props = defineProps({
 	modelValue: Array,
 	engine: Object,
 	read_only: Boolean,
+	showValidation: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["update:modelValue"]);
@@ -433,6 +440,26 @@ function isRowInvalid(row) {
 function isValueEmpty(val) {
 	return val === undefined || val === null || val === "";
 }
+
+const isValid = computed(() => {
+	if (!props.df?.reqd) return true;
+	if (!localRows.value.length) return false;
+	return !localRows.value.some((row) => isRowInvalid(row));
+});
+
+function validate() {
+	const errors = [];
+	if (props.df?.reqd && !localRows.value.length) {
+		errors.push(
+			__("{0} must have at least one row").replace("{0}", props.df?.label || __("Table"))
+		);
+	} else if (localRows.value.some((row) => isRowInvalid(row))) {
+		errors.push(__("{0} contains invalid rows").replace("{0}", props.df?.label || __("Table")));
+	}
+	return { valid: errors.length === 0, errors };
+}
+
+defineExpose({ validate });
 </script>
 
 <style>

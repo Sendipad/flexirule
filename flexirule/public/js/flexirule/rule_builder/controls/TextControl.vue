@@ -1,7 +1,12 @@
 <!-- Used as Text, Small Text & Long Text Control -->
 <script setup>
 import { computed, useSlots } from "vue";
-const props = defineProps(["df", "modelValue", "read_only"]);
+const props = defineProps({
+	df: Object,
+	modelValue: [String, Number],
+	read_only: Boolean,
+	showValidation: { type: Boolean, default: false },
+});
 let emit = defineEmits(["update:modelValue"]);
 let slots = useSlots();
 
@@ -11,10 +16,31 @@ let height = computed(() => {
 	}
 	return "300px";
 });
+
+const isValid = computed(() => {
+	if (!props.df?.reqd) return true;
+	return props.modelValue !== undefined && props.modelValue !== null && props.modelValue !== "";
+});
+
+function validate() {
+	const errors = [];
+	if (!isValid.value) {
+		errors.push(__("{0} is required").replace("{0}", props.df?.label || __("Field")));
+	}
+	return { valid: errors.length === 0, errors };
+}
+
+defineExpose({ validate });
 </script>
 
 <template>
-	<div class="control" :class="{ editable: slots.label }">
+	<div
+		class="control fxr-control"
+		:class="{
+			editable: slots.label,
+			'has-error': showValidation && !isValid,
+		}"
+	>
 		<!-- label -->
 		<div v-if="slots.label" class="field-controls">
 			<slot name="label" />
@@ -42,6 +68,11 @@ let height = computed(() => {
 
 		<!-- description -->
 		<div v-if="df.description" class="mt-2 description">{{ __(df.description) }}</div>
+
+		<!-- validation error -->
+		<div v-if="showValidation && !isValid" class="fxr-error-msg">
+			{{ __("{0} is required").replace("{0}", df?.label || __("Field")) }}
+		</div>
 	</div>
 </template>
 

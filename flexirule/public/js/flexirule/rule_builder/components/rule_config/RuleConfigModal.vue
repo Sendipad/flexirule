@@ -284,6 +284,7 @@
 										<ConditionStep
 											:node="draftNode"
 											:read-only="ruleStore.is_read_only"
+											:showValidation="showValidation"
 											:ref="panelRefs.logic"
 										/>
 									</div>
@@ -394,6 +395,7 @@
 																	:readOnly="
 																		ruleStore.is_read_only
 																	"
+																	:showValidation="showValidation"
 																	:ref="panelRefs.input"
 																	mode="config"
 																/>
@@ -404,6 +406,7 @@
 																	:readOnly="
 																		ruleStore.is_read_only
 																	"
+																	:showValidation="showValidation"
 																	:ref="panelRefs.config"
 																/>
 															</div>
@@ -441,6 +444,7 @@
 														v-show="!collapseOutputPanel"
 														:node="draftNode"
 														:readOnly="ruleStore.is_read_only"
+														:showValidation="showValidation"
 														:ref="panelRefs.output"
 													/>
 												</aside>
@@ -484,6 +488,7 @@
 														<InputPanel
 															:node="draftNode"
 															:readOnly="ruleStore.is_read_only"
+															:showValidation="showValidation"
 															mode="config"
 														/>
 													</section>
@@ -516,6 +521,7 @@
 														<ConfigurationPanel
 															:node="draftNode"
 															:readOnly="ruleStore.is_read_only"
+															:showValidation="showValidation"
 														/>
 													</section>
 
@@ -531,6 +537,7 @@
 														<OutputPanel
 															:node="draftNode"
 															:readOnly="ruleStore.is_read_only"
+															:showValidation="showValidation"
 														/>
 													</section>
 												</div>
@@ -586,7 +593,7 @@ const uiStore = useUIStore();
 // Legacy support
 const store = uiStore;
 
-const { draftNode, panelRefs, save, cancel, isDirty } = useRuleConfig(props, emit);
+const { draftNode, panelRefs, save, cancel, isDirty, showValidation } = useRuleConfig(props, emit);
 const {
 	activeTab: activeCompactTab,
 	tabs: compactTabs,

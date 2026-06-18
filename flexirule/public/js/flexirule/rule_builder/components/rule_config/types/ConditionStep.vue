@@ -15,9 +15,15 @@
 
 		<div class="condition-builder-container">
 			<ConditionBuilder
+				ref="conditionBuilderRef"
 				:modelValue="localConditions"
 				:docFields="docFields"
 				:variableOptions="combinedVariableOptions"
+				:readOnly="readOnly || read_only"
+				:isMandatory="
+					props.node?.data?.action_type === 'Condition' ||
+					props.node?.type === 'Condition'
+				"
 				@update:modelValue="updateConditions"
 			/>
 		</div>
@@ -41,12 +47,15 @@ import { getConditionPayload } from "../../../utils/condition_payload";
 
 const props = defineProps({
 	node: Object,
+	readOnly: Boolean,
+	read_only: Boolean,
 });
 
 const store = useStore();
 const localConditions = ref({ op: "and", conditions: [] });
 const showOldDoc = ref(false);
 const variableFields = ref([]);
+const conditionBuilderRef = ref(null);
 
 /**
  * Hydrates conditions with ephemeral IDs for Vue reactivity.
@@ -322,15 +331,15 @@ watch(
 );
 
 function validate() {
+	if (conditionBuilderRef.value) {
+		return conditionBuilderRef.value.validate();
+	}
 	const type = props.node?.data?.action_type || props.node?.type;
 	// Only 'Condition' nodes MUST have a condition defined.
 	// For all other nodes, conditions are optional execution filters.
 	const isMandatory = type === "Condition";
 	const result = validateConditions(localConditions.value, true, isMandatory);
-	if (!result.valid) {
-		return { valid: false, errors: [result.message] };
-	}
-	return { valid: true, errors: [] };
+	return result;
 }
 
 defineExpose({

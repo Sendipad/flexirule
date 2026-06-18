@@ -13,6 +13,7 @@ import { getContract, validateAgainstContract } from "../../core/contracts.js";
 export function useRuleConfig(props, emit) {
 	const store = useStore();
 	const draftNode = ref(null);
+	const showValidation = ref(false);
 	const config = computed(() => draftNode.value?.data || {});
 
 	// Capture initial draft state after a short delay to allow background sync to settle
@@ -63,6 +64,7 @@ export function useRuleConfig(props, emit) {
 	 * Checks all panels and returns { valid, errors }.
 	 */
 	async function validate() {
+		showValidation.value = true;
 		const errors = [];
 		const actionType = draftNode.value?.data?.action_type || draftNode.value?.type;
 		const contract = actionType ? getContract(actionType) : null;
@@ -136,6 +138,15 @@ export function useRuleConfig(props, emit) {
 				message: `<ul class="text-left" style="list-style-type: disc; padding-left: 20px;">${message}</ul>`,
 				indicator: "red",
 			});
+
+			// Scroll to first error
+			nextTick(() => {
+				const firstError = document.querySelector(".has-error, .is-invalid");
+				if (firstError) {
+					firstError.scrollIntoView({ behavior: "smooth", block: "center" });
+				}
+			});
+
 			return false;
 		}
 
@@ -172,6 +183,7 @@ export function useRuleConfig(props, emit) {
 			if (isOpen && newNode) {
 				createDraft();
 				initialDraftState.value = null;
+				showValidation.value = false;
 
 				// Capture baseline state after background discovery (schema, profiles, etc.) settles.
 				// We increase this to 1000ms to ensure all async normalization and schema
@@ -191,6 +203,7 @@ export function useRuleConfig(props, emit) {
 		config,
 		isDirty,
 		panelRefs,
+		showValidation,
 		updateField,
 		validate,
 		save,

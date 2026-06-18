@@ -13,6 +13,7 @@ import ControlFactory from "../controls/ControlFactory.vue";
 const props = defineProps({
 	nodeData: Object,
 	readOnly: Boolean,
+	showValidation: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["update:field", "open:conditions"]);
@@ -108,6 +109,36 @@ function update_permission_role(idx, value) {
 	update_field("permissions", permissions.value);
 }
 
+const controlRefs = ref([]);
+
+async function validate() {
+	const errors = [];
+
+	if (!props.nodeData?.trigger_type) {
+		errors.push(__("Trigger Type is required"));
+	}
+	if (!props.nodeData?.document_type) {
+		errors.push(__("Document Type is required"));
+	}
+
+	const results = await Promise.all(
+		(controlRefs.value || []).map((ref) => {
+			if (ref && typeof ref.validate === "function") {
+				return ref.validate();
+			}
+			return { valid: true };
+		})
+	);
+
+	results.forEach((res) => {
+		if (!res.valid) errors.push(...res.errors);
+	});
+
+	return { valid: errors.length === 0, errors };
+}
+
+defineExpose({ validate });
+
 function add_skip_role() {
 	const role = pending_skip_role.value;
 	if (!role) return;
@@ -177,7 +208,7 @@ onMounted(async () => {
 		</div>
 
 		<!-- Trigger Type -->
-		<div class="form-group">
+		<div class="form-group" :class="{ 'has-error': showValidation && !nodeData?.trigger_type }">
 			<label class="control-label">{{ __("Trigger Type") }}</label>
 			<select
 				class="form-control"
@@ -195,10 +226,12 @@ onMounted(async () => {
 		<div class="form-group">
 			<label class="control-label">{{ __("Document Type") }}</label>
 			<ComboBoxControl
-				:df="{ fieldtype: 'Link', options: 'DocType', label: '' }"
+				ref="controlRefs"
+				:df="{ fieldtype: 'Link', options: 'DocType', label: '', reqd: 1 }"
 				:modelValue="nodeData?.document_type"
 				:read_only="readOnly"
 				:hideLabel="true"
+				:showValidation="showValidation"
 				@update:modelValue="(val) => update_field('document_type', val)"
 			/>
 		</div>

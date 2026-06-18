@@ -1,5 +1,5 @@
 <script setup>
-import { inject, ref } from "vue";
+import { inject, ref, computed } from "vue";
 /**
  * ConditionGroupUI - Nested group editor with AND/OR toggle
  */
@@ -14,6 +14,18 @@ const props = defineProps({
 const emit = defineEmits(["remove"]);
 
 const { addCondition, addGroup, addCollection, removeNode, onDrop } = inject("conditionActions");
+const showValidation = inject(
+	"showValidation",
+	computed(() => false)
+);
+const invalidNodes = inject(
+	"invalidNodes",
+	computed(() => [])
+);
+
+const isInvalid = computed(() => {
+	return showValidation.value && invalidNodes.value.includes(props.group.id);
+});
 
 const isDragOver = ref(false);
 
@@ -26,7 +38,10 @@ function handleDrop(e) {
 <template>
 	<div
 		class="condition-group-ui"
-		:class="{ 'drag-over': isDragOver }"
+		:class="{
+			'drag-over': isDragOver,
+			'is-invalid': isInvalid,
+		}"
 		@dragover.prevent.stop="isDragOver = true"
 		@dragleave.stop="isDragOver = false"
 		@drop.prevent.stop="handleDrop"
@@ -113,6 +128,13 @@ function handleDrop(e) {
 	border: 1px solid var(--fxr-border-subtle);
 	border-radius: var(--fxr-radius-lg);
 	padding: var(--fxr-space-3);
+	transition: all var(--fxr-transition-fast);
+}
+
+.condition-group-ui.is-invalid {
+	border-color: var(--fxr-text-danger);
+	background-color: var(--fxr-danger-soft);
+	box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.1);
 }
 
 .group-header {

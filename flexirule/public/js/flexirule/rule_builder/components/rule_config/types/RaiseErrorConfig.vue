@@ -5,6 +5,7 @@
 				<ControlFactory
 					:df="with_read_only(errorTypeField)"
 					:modelValue="config.error_type || 'Validation Error'"
+					:showValidation="showValidation"
 					@update:modelValue="(val) => update_config_key('error_type', val)"
 				/>
 			</div>
@@ -13,6 +14,7 @@
 				<ControlFactory
 					:df="with_read_only(errorTitleField)"
 					:modelValue="config.error_title"
+					:showValidation="showValidation"
 					@update:modelValue="(val) => update_config_key('error_title', val)"
 				/>
 			</div>
@@ -21,6 +23,7 @@
 				<ControlFactory
 					:df="with_read_only(errorCodeField)"
 					:modelValue="config.error_code"
+					:showValidation="showValidation"
 					@update:modelValue="(val) => update_config_key('error_code', val)"
 				/>
 			</div>
@@ -29,6 +32,7 @@
 				<ControlFactory
 					:df="with_read_only(textGeneratorField)"
 					:modelValue="config.text_generator_ui"
+					:showValidation="showValidation"
 					@update:modelValue="update_template_ui"
 				/>
 			</div>
@@ -37,7 +41,7 @@
 </template>
 
 <script setup>
-import { computed, watch } from "vue";
+import { computed, watch, ref } from "vue";
 import { fromCodeString } from "../../../utils/serialization";
 import { useActionConfig } from "../../../composables/useActionConfig";
 import ControlFactory from "../../../controls/ControlFactory.vue";
@@ -49,6 +53,8 @@ const props = defineProps({
 	node: Object,
 	readOnly: Boolean,
 });
+
+const showValidation = ref(false);
 
 const { config, variable_options, with_read_only, sync_config, update_action_field, store } =
 	useActionConfig(props);
@@ -159,6 +165,7 @@ watch(
 );
 
 function validate() {
+	showValidation.value = true;
 	const errors = [];
 	const ui = config.text_generator_ui;
 	if (

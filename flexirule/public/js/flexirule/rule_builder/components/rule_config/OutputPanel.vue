@@ -12,9 +12,11 @@
 				<div class="storage-controls mt-2">
 					<div v-if="showMutationMode" class="storage-row">
 						<ControlFactory
+							ref="mutationModeRef"
 							:df="mutationModeField"
 							:modelValue="node.data?.mutation_mode"
 							:read_only="readOnly"
+							:showValidation="showValidation"
 							@update:modelValue="updateField('mutation_mode', $event)"
 						/>
 					</div>
@@ -22,26 +24,32 @@
 					<div v-if="showReturnVariable" class="storage-row">
 						<ComboBoxControl
 							v-if="useAutocompleteForReturnVariable"
+							ref="returnVariableRef"
 							:df="returnVariableField"
 							:modelValue="node.data?.return_variable"
 							:get_query="getReturnVariableOptions"
 							:read_only="readOnly"
+							:showValidation="showValidation"
 							@update:modelValue="updateField('return_variable', $event)"
 						/>
 						<ControlFactory
 							v-else
+							ref="returnVariableRef"
 							:df="returnVariableField"
 							:modelValue="node.data?.return_variable"
 							:read_only="readOnly"
+							:showValidation="showValidation"
 							@update:modelValue="updateField('return_variable', $event)"
 						/>
 					</div>
 
 					<div v-if="showReturnType" class="storage-row">
 						<ControlFactory
+							ref="returnTypeRef"
 							:df="returnTypeField"
 							:modelValue="node.data?.return_type"
 							:read_only="readOnly"
+							:showValidation="showValidation"
 							@update:modelValue="updateField('return_type', $event)"
 						/>
 					</div>
@@ -162,6 +170,7 @@ import {
 const props = defineProps({
 	node: Object,
 	readOnly: Boolean,
+	showValidation: { type: Boolean, default: false },
 });
 
 const store = useStore();
@@ -492,8 +501,23 @@ watch(
 	}
 );
 
-function validate() {
+const mutationModeRef = ref(null);
+const returnVariableRef = ref(null);
+const returnTypeRef = ref(null);
+
+async function validate() {
 	const errors = [];
+
+	const controlRefs = [
+		mutationModeRef.value,
+		returnVariableRef.value,
+		returnTypeRef.value,
+	].filter(Boolean);
+
+	const results = await Promise.all(controlRefs.map((c) => c.validate()));
+	results.forEach((res) => {
+		if (!res.valid) errors.push(...res.errors);
+	});
 
 	if (isReturnVariableMandatory.value && !props.node.data?.return_variable) {
 		errors.push(__("Result Variable Name is required when handling results"));
@@ -504,7 +528,7 @@ function validate() {
 			errors.push(__("Variable Assignment #{0} is incomplete", [idx + 1]));
 		}
 	});
-	return errors.length ? { valid: false, errors } : { valid: true };
+	return { valid: errors.length === 0, errors };
 }
 
 defineExpose({ validate });

@@ -2,7 +2,7 @@
   SelectControl - Styled dropdown using ComboBoxControl
 -->
 <script setup>
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import ComboBoxControl from "./ComboBoxControl.vue";
 
 const props = defineProps({
@@ -12,9 +12,12 @@ const props = defineProps({
 	no_label: Boolean,
 	hideLabel: { type: Boolean, default: false },
 	hideDescription: { type: Boolean, default: false },
+	showValidation: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["update:modelValue", "change"]);
+
+const comboRef = ref(null);
 
 const options = computed(() => {
 	let opts = props.df?.options;
@@ -62,16 +65,24 @@ function on_change(value) {
 	emit("update:modelValue", value);
 	emit("change", value);
 }
+
+function validate() {
+	return comboRef.value?.validate() || { valid: true, errors: [] };
+}
+
+defineExpose({ validate });
 </script>
 
 <template>
 	<ComboBoxControl
+		ref="comboRef"
 		:df="df"
 		:model-value="modelValue"
 		:options="options"
 		:read_only="read_only || df?.read_only"
 		:hide-label="hideLabel || no_label"
 		:hide-description="hideDescription"
+		:show-validation="showValidation"
 		trigger="button"
 		:hide-search="true"
 		@update:model-value="on_change"

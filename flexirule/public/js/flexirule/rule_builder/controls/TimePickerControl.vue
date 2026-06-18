@@ -1,5 +1,5 @@
 <template>
-	<div class="fxr-control">
+	<div class="fxr-control" :class="{ 'has-error': showValidation && !isValid }">
 		<div
 			class="fxr-input-group"
 			:class="{
@@ -64,6 +64,11 @@
 			{{ __(df.description) }}
 		</div>
 
+		<!-- validation error -->
+		<div v-if="showValidation && !isValid" class="fxr-error-msg">
+			{{ __("{0} is required").replace("{0}", df?.label || __("Field")) }}
+		</div>
+
 		<!-- timezone for datetime field -->
 		<div
 			v-if="time_zone && df.fieldtype === 'Datetime'"
@@ -85,6 +90,7 @@ const props = defineProps({
 	read_only: Boolean,
 	hideLabel: { type: Boolean, default: false },
 	hideDescription: { type: Boolean, default: false },
+	showValidation: { type: Boolean, default: false },
 });
 
 // Timezone for datetime fields
@@ -253,6 +259,29 @@ function onDrop(event) {
 		});
 	}
 }
+
+const isValid = computed(() => {
+	if (!props.df?.reqd) return true;
+	if (isRange.value) {
+		return (
+			Array.isArray(props.modelValue) &&
+			props.modelValue.length === 2 &&
+			!!props.modelValue[0] &&
+			!!props.modelValue[1]
+		);
+	}
+	return props.modelValue !== undefined && props.modelValue !== null && props.modelValue !== "";
+});
+
+function validate() {
+	const errors = [];
+	if (!isValid.value) {
+		errors.push(__("{0} is required").replace("{0}", props.df?.label || __("Field")));
+	}
+	return { valid: errors.length === 0, errors };
+}
+
+defineExpose({ validate });
 </script>
 
 <style lang="scss" scoped>

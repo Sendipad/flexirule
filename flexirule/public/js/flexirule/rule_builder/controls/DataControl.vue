@@ -9,6 +9,7 @@ const props = defineProps({
 	read_only: Boolean,
 	hideLabel: { type: Boolean, default: false },
 	hideDescription: { type: Boolean, default: false },
+	showValidation: { type: Boolean, default: false },
 });
 
 const icon_ref = ref(null);
@@ -96,10 +97,31 @@ onMounted(() => {
 		phone_ref.value.innerHTML = frappe.utils.icon("down", "sm");
 	}
 });
+
+const isValid = computed(() => {
+	if (!props.df?.reqd) return true;
+	return props.modelValue !== undefined && props.modelValue !== null && props.modelValue !== "";
+});
+
+function validate() {
+	const errors = [];
+	if (!isValid.value) {
+		errors.push(__("{0} is required").replace("{0}", props.df?.label || __("Field")));
+	}
+	return { valid: errors.length === 0, errors };
+}
+
+defineExpose({ validate });
 </script>
 
 <template>
-	<div class="fxr-control" :class="{ editable: slots.label }">
+	<div
+		class="fxr-control"
+		:class="{
+			editable: slots.label,
+			'has-error': showValidation && !isValid,
+		}"
+	>
 		<div
 			class="fxr-input-group"
 			:class="{
@@ -150,6 +172,11 @@ onMounted(() => {
 		<!-- description -->
 		<div v-if="df.description && !hideDescription" class="fxr-description">
 			{{ __(df.description) }}
+		</div>
+
+		<!-- validation error -->
+		<div v-if="showValidation && !isValid" class="fxr-error-msg">
+			{{ __("{0} is required").replace("{0}", df?.label || __("Field")) }}
 		</div>
 
 		<!-- timezone for datetime field -->

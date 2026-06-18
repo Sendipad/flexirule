@@ -46,13 +46,20 @@
 					<div class="when-editor-cell" data-fxr-fieldname="assignments.run_if">
 						<button
 							class="fxr-btn fxr-btn--sm w-100 when-toggle-btn"
-							:class="hasWhenCondition(assignment) ? 'is-active' : 'is-default'"
+							:class="{
+								'is-active': hasWhenCondition(assignment),
+								'is-default': !hasWhenCondition(assignment),
+								'is-invalid':
+									showValidation && getWhenConditionStatus(assignment).isInvalid,
+							}"
 							:disabled="isReadOnly"
 							@click="openWhenConditionEditor(index)"
 						>
 							<i
 								:class="
-									hasWhenCondition(assignment)
+									getWhenConditionStatus(assignment).isInvalid
+										? 'fa fa-exclamation-triangle'
+										: hasWhenCondition(assignment)
 										? 'fa fa-filter'
 										: 'fa fa-play-circle-o'
 								"
@@ -60,7 +67,9 @@
 							></i>
 							<span class="truncate">
 								{{
-									hasWhenCondition(assignment)
+									getWhenConditionStatus(assignment).isInvalid
+										? __("Invalid Condition")
+										: hasWhenCondition(assignment)
 										? __("Condition Set")
 										: __("Always Run")
 								}}
@@ -73,11 +82,12 @@
 				<div class="grid-col-target">
 					<ComboBoxControl
 						data-fxr-fieldname="assignments.target"
-						:df="{ fieldtype: 'FieldPicker', label: '' }"
+						:df="{ fieldtype: 'FieldPicker', label: '', reqd: 1 }"
 						:modelValue="assignment.target"
 						:options="targetOptions"
 						:read_only="isReadOnly"
 						:hideLabel="true"
+						:showValidation="showValidation"
 						:trigger="'button'"
 						:placeholder="__('Target field/variable...')"
 						:allowCustomValue="false"
@@ -89,11 +99,12 @@
 				<div class="grid-col-operator">
 					<ComboBoxControl
 						data-fxr-fieldname="assignments.operator"
-						:df="{ fieldtype: 'Select', label: '' }"
+						:df="{ fieldtype: 'Select', label: '', reqd: 1 }"
 						:options="getAvailableOperators(assignment.target)"
 						:modelValue="assignment.operator"
 						:read_only="isReadOnly"
 						:hideLabel="true"
+						:showValidation="showValidation"
 						:trigger="'button'"
 						@update:modelValue="(val) => onOperatorChange(index, val)"
 					/>
@@ -107,15 +118,19 @@
 								class="flex-1 min-w-0"
 								data-fxr-fieldname="assignments.value"
 								:context="{
-									df:
-										targetOptions.find((o) => o.value === assignment.target) ||
-										{},
+									df: {
+										...(targetOptions.find(
+											(o) => o.value === assignment.target
+										) || {}),
+										reqd: 1,
+									},
 									target: assignment.target,
 									operator: assignment.operator,
 									referenceDoctype: getTargetDoctype(assignment.target),
 								}"
 								:modelValue="assignment.value"
 								:read_only="isReadOnly"
+								:showValidation="showValidation"
 								:engine="store"
 								:doc="store.rule_doc"
 								:variableOptions="variable_options"
@@ -217,6 +232,7 @@
 					</div>
 					<div class="condition-builder-wrap">
 						<ConditionBuilder
+							ref="conditionBuilderRef"
 							:modelValue="whenEditor.draft"
 							:docFields="whenConditionDocFields"
 							:variableOptions="variable_options"
@@ -275,6 +291,8 @@ const supportedTemplateModes = [
 	"add-key",
 ];
 const whenEditor = ref({ open: false, index: -1, draft: null });
+const conditionBuilderRef = ref(null);
+const showValidation = ref(false);
 
 // ─── Operator Helpers ────────────────────────────────────────────────────────
 
@@ -546,7 +564,20 @@ function onTargetChange(index, value) {
 }
 
 function hasWhenCondition(assignment) {
-	return !!(assignment?.when_condition && Array.isArray(assignment.when_condition.conditions));
+	return !!(
+		assignment?.when_condition &&
+		Array.isArray(assignment.when_condition.conditions) &&
+		assignment.when_condition.conditions.length > 0
+	);
+}
+
+function getWhenConditionStatus(assignment) {
+	if (!hasWhenCondition(assignment)) return { isInvalid: false };
+
+	const { validateConditions } = require("../../../condition_builder/condition_validator.js");
+	const res = validateConditions(assignment.when_condition, true, true);
+
+	return { isInvalid: !res.valid };
 }
 
 const whenConditionDocFields = computed(() =>
@@ -567,6 +598,24 @@ function openWhenConditionEditor(index) {
 		index,
 		draft: JSON.parse(JSON.stringify(current?.when_condition || fallback)),
 	};
+
+	// If shortcut to invalid condition, trigger validation immediately in the builder
+	if (showValidation.value && getWhenConditionStatus(current).isInvalid) {
+		nextTick(() => {
+			if (conditionBuilderRef.value) {
+				conditionBuilderRef.value.validate();
+				// Scroll to first error in the condition builder
+				nextTick(() => {
+					const firstError = document.querySelector(
+						".condition-builder-wrap .is-invalid"
+					);
+					if (firstError) {
+						firstError.scrollIntoView({ behavior: "smooth", block: "center" });
+					}
+				});
+			}
+		});
+	}
 }
 
 function closeWhenConditionEditor() {
@@ -635,15 +684,18 @@ function updateTemplate(index, value) {
 
 // ─── Validation ──────────────────────────────────────────────────────────────
 
-function validate() {
+async function validate() {
+	showValidation.value = true;
 	const errors = [];
+
 	assignments.value.forEach((a, idx) => {
 		const n = idx + 1;
 		if (!a.target) errors.push(__("Assignment #{0}: Target is required", [n]));
 		if (!a.operator) errors.push(__("Assignment #{0}: Operator is required", [n]));
 		if (needsValue(a.operator)) {
 			const ui = a.value;
-			if (!ui || (!Array.isArray(ui.segments) && !ui.mode)) {
+			const hasValue = ui?.mode === "static" ? ui.value !== "" : !!ui;
+			if (!ui || !hasValue) {
 				errors.push(
 					__("Assignment #{0}: Value is required for operator '{1}'", [n, a.operator])
 				);
@@ -653,7 +705,29 @@ function validate() {
 		if (a.target && !a.target.startsWith("doc.") && !a.target.startsWith("vars.")) {
 			errors.push(__("Assignment #{0}: Target must start with 'doc.' or 'vars.'", [n]));
 		}
+
+		// Validate nested conditions if editor is open for THIS assignment
+		if (whenEditor.value.open && whenEditor.value.index === idx && conditionBuilderRef.value) {
+			const res = conditionBuilderRef.value.validate();
+			if (!res.valid) {
+				errors.push(...res.errors.map((e) => __("Assignment #{0} Condition: {1}", [n, e])));
+			}
+		} else if (a.when_condition) {
+			// Deep validation of existing conditions
+			const {
+				validateConditions,
+			} = require("../../../condition_builder/condition_validator.js");
+			const res = validateConditions(a.when_condition, true, true);
+			if (!res.valid) {
+				errors.push(...res.errors.map((e) => __("Assignment #{0} Condition: {1}", [n, e])));
+			}
+		}
 	});
+
+	if (assignments.value.length === 0) {
+		errors.push(__("Please add at least one assignment."));
+	}
+
 	return { valid: errors.length === 0, errors };
 }
 
@@ -761,6 +835,13 @@ defineExpose({ validate });
 	color: var(--fxr-accent);
 	border: 1px solid var(--fxr-accent-border);
 	box-shadow: 0 0 0 1px var(--fxr-accent-soft);
+}
+
+.when-toggle-btn.is-invalid {
+	background-color: var(--fxr-danger-soft) !important;
+	color: var(--fxr-text-danger) !important;
+	border: 1px solid var(--fxr-border-danger) !important;
+	box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.1) !important;
 }
 
 .when-toggle-btn.is-active:hover {

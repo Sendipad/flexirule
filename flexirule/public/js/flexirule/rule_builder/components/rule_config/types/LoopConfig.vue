@@ -1,12 +1,18 @@
 <template>
 	<div class="loop-config">
-		<LoopNodeConfig :node="node" @update-json-config="updateJsonConfig" />
+		<LoopNodeConfig
+			ref="loopNodeRef"
+			:node="node"
+			:showValidation="showValidation"
+			@update-json-config="updateJsonConfig"
+		/>
 		<hr />
-		<ConditionStep :node="node" />
+		<ConditionStep ref="conditionStepRef" :node="node" :showValidation="showValidation" />
 	</div>
 </template>
 
 <script setup>
+import { ref } from "vue";
 import { useStore } from "../../../stores";
 import { fromCodeString } from "../../../utils/serialization";
 import LoopNodeConfig from "../../node_configs/LoopNodeConfig.vue";
@@ -14,9 +20,12 @@ import ConditionStep from "./ConditionStep.vue";
 
 const props = defineProps({
 	node: Object,
+	showValidation: { type: Boolean, default: false },
 });
 
 const store = useStore();
+const loopNodeRef = ref(null);
+const conditionStepRef = ref(null);
 
 function updateJsonConfig(key, val) {
 	if (!props.node.data) return;
@@ -34,4 +43,19 @@ function updateJsonConfig(key, val) {
 		store.mark_dirty();
 	}
 }
+
+async function validate() {
+	const errors = [];
+	if (loopNodeRef.value && typeof loopNodeRef.value.validate === "function") {
+		const res = await loopNodeRef.value.validate();
+		if (!res.valid) errors.push(...res.errors);
+	}
+	if (conditionStepRef.value && typeof conditionStepRef.value.validate === "function") {
+		const res = await conditionStepRef.value.validate();
+		if (!res.valid) errors.push(...res.errors);
+	}
+	return { valid: errors.length === 0, errors };
+}
+
+defineExpose({ validate });
 </script>

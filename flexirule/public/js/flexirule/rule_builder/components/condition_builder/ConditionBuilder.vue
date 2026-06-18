@@ -89,12 +89,14 @@ import { ref, reactive, watch, nextTick, provide, computed, onMounted } from "vu
 import { useStore } from "../../stores";
 
 import ConditionNode from "./ConditionNode.vue";
+import { validateConditions } from "./condition_validator.js";
 
 const props = defineProps({
 	modelValue: { type: Object, default: () => ({ op: "and", conditions: [] }) },
 	docFields: { type: Array, default: () => [] },
 	variableOptions: { type: Array, default: () => [] },
 	readOnly: { type: Boolean, default: false },
+	isMandatory: { type: Boolean, default: true },
 });
 
 const emit = defineEmits(["update:modelValue"]);
@@ -273,11 +275,22 @@ async function loadOperatorConfig() {
 onMounted(loadOperatorConfig);
 
 const isDragOver = ref(false);
+const showValidation = ref(false);
+const invalidNodes = ref([]);
 
 function handleRootDrop() {
 	isDragOver.value = false;
 	onDrop(rootGroup);
 }
+
+function validate() {
+	showValidation.value = true;
+	const result = validateConditions(rootGroup, true, props.isMandatory);
+	invalidNodes.value = result.invalidNodes || [];
+	return result;
+}
+
+defineExpose({ validate });
 
 // Provide actions and config to all descendant components
 provide("conditionActions", {
@@ -303,6 +316,14 @@ provide("store", store);
 provide(
 	"readOnly",
 	computed(() => props.readOnly)
+);
+provide(
+	"showValidation",
+	computed(() => showValidation.value)
+);
+provide(
+	"invalidNodes",
+	computed(() => invalidNodes.value)
 );
 </script>
 

@@ -26,6 +26,18 @@ const operatorConfig = inject(
 
 const store = inject("store");
 const variableOptions = inject("variableOptions", ref([]));
+const showValidation = inject(
+	"showValidation",
+	computed(() => false)
+);
+const invalidNodes = inject(
+	"invalidNodes",
+	computed(() => [])
+);
+
+const isInvalid = computed(() => {
+	return showValidation.value && invalidNodes.value.includes(props.node.id);
+});
 
 // Dynamic Link State
 const dynamicLinkDocType = ref("");
@@ -297,7 +309,7 @@ watch(
 </script>
 
 <template>
-	<div class="simple-condition">
+	<div class="simple-condition" :class="{ 'is-invalid': isInvalid }">
 		<div class="condition-main-row">
 			<!-- Field -->
 			<div class="condition-col field-col">
@@ -398,6 +410,12 @@ watch(
 
 .simple-condition:hover {
 	border-color: var(--fxr-border-strong);
+}
+
+.simple-condition.is-invalid {
+	border-color: var(--fxr-text-danger) !important;
+	background-color: var(--fxr-danger-soft) !important;
+	box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.1);
 }
 
 .condition-main-row {

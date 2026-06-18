@@ -30,8 +30,10 @@
 						fieldtype: 'Small Text',
 						label: __('Permission Audit Reason'),
 						read_only: read_only,
+						reqd: 1,
 					}"
 					:modelValue="node?.data?.permission_audit_reason"
+					:showValidation="showValidation"
 					@update:modelValue="(val) => update_action_key('permission_audit_reason', val)"
 				/>
 			</div>
@@ -142,6 +144,7 @@ import ControlFactory from "../../../controls/ControlFactory.vue";
 const props = defineProps({
 	node: Object,
 	read_only: Boolean,
+	showValidation: { type: Boolean, default: false },
 });
 
 const store = useStore();
@@ -245,16 +248,21 @@ function load_local_config() {
 }
 
 function validate() {
+	const errors = [];
 	const incomplete = mapping_rows.value.find(
 		(row) => (row.source && !row.target) || (!row.source && row.target)
 	);
 	if (incomplete) {
-		frappe.msgprint(
+		errors.push(
 			__("Each input mapping row must include both Parent Variable and Sub-Rule Param.")
 		);
-		return false;
 	}
-	return true;
+
+	if (props.node?.data?.skip_permissions && !props.node?.data?.permission_audit_reason) {
+		errors.push(__("Permission Audit Reason is required when bypassing permissions."));
+	}
+
+	return { valid: errors.length === 0, errors };
 }
 
 watch(

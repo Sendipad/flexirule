@@ -2,9 +2,11 @@
 	<div class="loop-node-config">
 		<div class="form-group">
 			<ComboBoxControl
-				:df="{ label: __('Iterator (List)'), fieldtype: 'FieldPicker' }"
+				ref="iteratorRef"
+				:df="{ label: __('Iterator (List)'), fieldtype: 'FieldPicker', reqd: 1 }"
 				:options="listFields"
 				:modelValue="getJsonConfig('iterator')"
+				:showValidation="showValidation"
 				:trigger="'button'"
 				@update:modelValue="$emit('update-json-config', 'iterator', $event)"
 			/>
@@ -14,8 +16,10 @@
 		</div>
 		<div class="form-group">
 			<ControlFactory
+				ref="aliasRef"
 				:df="aliasFieldDf"
 				:modelValue="nodeData.return_variable"
+				:showValidation="showValidation"
 				@update:modelValue="updateReturnVariable"
 			/>
 			<div class="help-text text-muted" style="font-size: 11px">
@@ -33,6 +37,7 @@ import ComboBoxControl from "../../controls/ComboBoxControl.vue";
 
 const props = defineProps({
 	node: Object,
+	showValidation: { type: Boolean, default: false },
 });
 
 const store = useStore();
@@ -42,12 +47,15 @@ const loading = ref(false);
 const nodeData = computed(() => props.node?.data || {});
 
 const emit = defineEmits(["update-json-config"]);
+const iteratorRef = ref(null);
+const aliasRef = ref(null);
 
 const aliasFieldDf = computed(() => ({
 	fieldname: "return_variable",
 	fieldtype: "Data",
 	label: __("Item Alias"),
 	placeholder: "item",
+	reqd: 1,
 }));
 
 async function loadFields() {
@@ -112,12 +120,17 @@ function getJsonConfig(key, defaultVal = "") {
 	return config[key] !== undefined ? config[key] : defaultVal;
 }
 
-function validate() {
-	const iterator = getJsonConfig("iterator");
-	if (!iterator) {
-		return { valid: false, message: __("Iterator is required") };
+async function validate() {
+	const errors = [];
+	if (iteratorRef.value) {
+		const res = await iteratorRef.value.validate();
+		if (!res.valid) errors.push(...res.errors);
 	}
-	return { valid: true };
+	if (aliasRef.value) {
+		const res = await aliasRef.value.validate();
+		if (!res.valid) errors.push(...res.errors);
+	}
+	return { valid: errors.length === 0, errors };
 }
 
 defineExpose({ validate });

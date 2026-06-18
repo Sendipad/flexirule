@@ -10,80 +10,55 @@
 		<div v-else class="config-container">
 			<div class="config-section section-card">
 				<div v-if="is_email" class="form-group mb-3">
-					<label class="form-label"
-						>{{ __("Subject") }}
-						<span v-if="isConfigKeyRequired('subject')" class="text-danger"
-							>*</span
-						></label
-					>
 					<ControlFactory
 						:df="with_read_only(subjectField)"
 						:modelValue="config.subject"
+						:showValidation="showValidation"
 						@update:modelValue="(val) => update_config_key('subject', val)"
 					/>
 				</div>
 
 				<div v-if="is_email" class="form-group mb-3">
-					<label class="form-label"
-						>{{ __("Recipients") }}
-						<span v-if="isConfigKeyRequired('recipients')" class="text-danger"
-							>*</span
-						></label
-					>
 					<ControlFactory
 						:df="with_read_only(recipientsField)"
 						:modelValue="config.recipients"
+						:showValidation="showValidation"
 						@update:modelValue="(val) => update_config_key('recipients', val)"
 					/>
 				</div>
 
 				<div v-if="is_system_notification" class="form-group mb-3">
-					<label class="form-label"
-						>{{ __("Subject") }}
-						<span v-if="isConfigKeyRequired('subject')" class="text-danger"
-							>*</span
-						></label
-					>
 					<ControlFactory
 						:df="with_read_only(subjectField)"
 						:modelValue="config.subject"
+						:showValidation="showValidation"
 						@update:modelValue="(val) => update_config_key('subject', val)"
 					/>
 				</div>
 
 				<div v-if="is_system_notification" class="form-group mb-3">
-					<label class="form-label">{{ __("For User") }}</label>
 					<ControlFactory
 						:df="with_read_only(forUserField)"
 						:modelValue="config.for_user"
+						:showValidation="showValidation"
 						@update:modelValue="(val) => update_config_key('for_user', val)"
 					/>
 				</div>
 
 				<div v-if="is_provider" class="form-group mb-3">
-					<label class="form-label"
-						>{{ __("Provider") }}
-						<span v-if="isConfigKeyRequired('provider')" class="text-danger"
-							>*</span
-						></label
-					>
 					<ControlFactory
 						:df="with_read_only(providerField)"
 						:modelValue="config.provider"
+						:showValidation="showValidation"
 						@update:modelValue="(val) => update_config_key('provider', val)"
 					/>
 				</div>
 
 				<div v-if="is_provider" class="form-group mb-3">
-					<label class="form-label"
-						>{{ __("Recipient") }}
-						<span v-if="isConfigKeyRequired('recipient')" class="text-danger"
-							>*</span
-						></label
-					>
 					<ControlFactory
 						:df="with_read_only(recipientField)"
 						:modelValue="config.recipient"
+						:showValidation="showValidation"
 						@update:modelValue="(val) => update_config_key('recipient', val)"
 					/>
 				</div>
@@ -92,6 +67,7 @@
 					<ControlFactory
 						:df="with_read_only(textGeneratorField)"
 						:modelValue="config.text_generator_ui"
+						:showValidation="showValidation"
 						@update:modelValue="update_template_ui"
 					/>
 				</div>
@@ -110,7 +86,7 @@
 </template>
 
 <script setup>
-import { computed, watch } from "vue";
+import { computed, watch, ref } from "vue";
 import { fromCodeString } from "../../../utils/serialization";
 import { useActionConfig } from "../../../composables/useActionConfig";
 import ControlFactory from "../../../controls/ControlFactory.vue";
@@ -122,6 +98,8 @@ const props = defineProps({
 	node: Object,
 	readOnly: Boolean,
 });
+
+const showValidation = ref(false);
 
 const { config, variable_options, with_read_only, sync_config, update_action_field } =
 	useActionConfig(props);
@@ -254,6 +232,7 @@ watch(
 );
 
 function validate() {
+	showValidation.value = true;
 	const errors = [];
 	const ui = config.text_generator_ui;
 	if (!ui || !Array.isArray(ui.segments) || !ui.segments.length) {

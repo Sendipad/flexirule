@@ -1,5 +1,11 @@
 <template>
-	<div class="fxr-control" :class="{ 'no-label': hideLabel }">
+	<div
+		class="fxr-control"
+		:class="{
+			'no-label': hideLabel,
+			'has-error': showValidation && !isValid,
+		}"
+	>
 		<div
 			class="fxr-input-group"
 			:class="{
@@ -222,6 +228,11 @@
 		<div v-if="df?.description && !hideDescription" class="fxr-description">
 			{{ __(df.description) }}
 		</div>
+
+		<!-- validation error -->
+		<div v-if="showValidation && !isValid" class="fxr-error-msg">
+			{{ __("{0} is required").replace("{0}", df?.label || __("Field")) }}
+		</div>
 	</div>
 </template>
 
@@ -241,6 +252,7 @@ const props = defineProps({
 	read_only: Boolean,
 	hideLabel: Boolean,
 	hideDescription: Boolean,
+	showValidation: { type: Boolean, default: false },
 	placeholder: String,
 	trigger: { type: String, default: "input" },
 	allowCustomValue: Boolean,
@@ -698,6 +710,19 @@ watch(
 	{ deep: true }
 );
 
+const isValid = computed(() => {
+	if (!props.df?.reqd) return true;
+	return props.modelValue !== undefined && props.modelValue !== null && props.modelValue !== "";
+});
+
+function validate() {
+	const errors = [];
+	if (!isValid.value) {
+		errors.push(__("{0} is required").replace("{0}", props.df?.label || __("Field")));
+	}
+	return { valid: errors.length === 0, errors };
+}
+
 defineExpose({
 	focus: () => {
 		if (props.trigger === "button" && wrapperRef.value) {
@@ -707,6 +732,7 @@ defineExpose({
 			mainInputRef.value.focus();
 		}
 	},
+	validate,
 });
 
 onMounted(() => {

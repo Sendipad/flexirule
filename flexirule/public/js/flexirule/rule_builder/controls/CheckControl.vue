@@ -1,15 +1,40 @@
 <script setup>
-import { ref, useSlots } from "vue";
-const props = defineProps(["df", "modelValue", "read_only", "hideLabel"]);
-defineEmits(["update:modelValue"]);
+import { ref, useSlots, computed } from "vue";
+const props = defineProps({
+	df: Object,
+	modelValue: [Boolean, Number],
+	read_only: Boolean,
+	hideLabel: Boolean,
+	showValidation: { type: Boolean, default: false },
+});
+const emit = defineEmits(["update:modelValue"]);
 let slots = useSlots();
+
+const isValid = computed(() => {
+	if (!props.df?.reqd) return true;
+	return !!props.modelValue;
+});
+
+function validate() {
+	const errors = [];
+	if (!isValid.value) {
+		errors.push(__("{0} must be checked").replace("{0}", props.df?.label || __("Field")));
+	}
+	return { valid: errors.length === 0, errors };
+}
+
+defineExpose({ validate });
 const showTooltip = ref(false);
 </script>
 
 <template>
 	<div
 		class="control fxr-control checkbox"
-		:class="{ editable: slots.label, 'no-label': hideLabel }"
+		:class="{
+			editable: slots.label,
+			'no-label': hideLabel,
+			'has-error': showValidation && !isValid,
+		}"
 		@mouseenter="showTooltip = true"
 		@mouseleave="showTooltip = false"
 		@focusin="showTooltip = true"
@@ -44,6 +69,11 @@ const showTooltip = ref(false);
 		<!-- standard description -->
 		<div v-if="df.description && !hideLabel" class="mt-2 description">
 			{{ __(df.description) }}
+		</div>
+
+		<!-- validation error -->
+		<div v-if="showValidation && !isValid" class="fxr-error-msg">
+			{{ __("{0} must be checked").replace("{0}", df?.label || __("Field")) }}
 		</div>
 	</div>
 </template>

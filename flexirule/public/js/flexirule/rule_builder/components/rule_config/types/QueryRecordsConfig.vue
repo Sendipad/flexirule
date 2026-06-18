@@ -117,6 +117,7 @@
 							<ControlFactory
 								:df="with_read_only(limitTypeField)"
 								:modelValue="config.limit_type || 'Custom Limit'"
+								:showValidation="showValidation"
 								@update:modelValue="(val) => update_config_key('limit_type', val)"
 							/>
 						</div>
@@ -127,6 +128,7 @@
 							<ControlFactory
 								:df="with_read_only(limitField)"
 								:modelValue="config.limit"
+								:showValidation="showValidation"
 								@update:modelValue="(val) => update_config_key('limit', val)"
 							/>
 						</div>
@@ -177,8 +179,9 @@
 								:modelValue="config.doctype_name"
 								:variableOptions="variable_options"
 								:readOnly="readOnly"
+								:showValidation="showValidation"
 								:context="{
-									df: { fieldtype: 'Link', options: 'DocType' },
+									df: { fieldtype: 'Link', options: 'DocType', reqd: 1 },
 								}"
 								@update:modelValue="update_doctype_name"
 							/>
@@ -192,8 +195,9 @@
 								:modelValue="config.docname"
 								:variableOptions="variable_options"
 								:readOnly="readOnly"
+								:showValidation="showValidation"
 								:context="{
-									df: { fieldtype: 'Link', options: reference_doctype },
+									df: { fieldtype: 'Link', options: reference_doctype, reqd: 1 },
 									referenceDoctype: reference_doctype,
 								}"
 								@update:modelValue="(val) => update_config_key('docname', val)"
@@ -524,6 +528,7 @@ const report_filter_values = reactive({});
 const report_filter_types = reactive({});
 const test_status = ref("");
 const is_single_doctype = ref(false);
+const showValidation = ref(false);
 
 // Internal flag to prevent recursive sync loops
 let is_internal_update = false;
@@ -1235,8 +1240,60 @@ watch(
 	{ deep: true }
 );
 
+function validate() {
+	showValidation.value = true;
+	const errors = [];
+
+	if (mode.value === "Query Doc") {
+		const strategy = config.fetch_strategy || "Get doc";
+		const is_single = strategy === "Get Single DocType" || is_single_doctype.value;
+
+		if (!config.doctype_name) {
+			errors.push(__("Target DocType is required for Query Doc"));
+		}
+
+		if (!is_single && !config.docname) {
+			errors.push(__("Document Name (ID) is required for this strategy"));
+		}
+	}
+
+	if (mode.value === "Query List") {
+		if (!reference_doctype.value) {
+			errors.push(__("Reference DocType is required for Query List"));
+		}
+		if (config.limit_type === "Custom Limit" && !config.limit) {
+			errors.push(__("Custom Limit Number is required"));
+		}
+	}
+
+	if (mode.value === "Query Report") {
+		if (!props.node?.data?.reference_docname) {
+			errors.push(__("Report Name is required"));
+		}
+	}
+
+	if (["Sum", "Average", "Min", "Max"].includes(mode.value)) {
+		if (!config.field) {
+			errors.push(__("Field to Aggregate is required"));
+		}
+	}
+
+	if (mode.value === "Group By") {
+		if (!config.group_by_field) errors.push(__("Group By Field is required"));
+		if (!config.agg_field) errors.push(__("Aggregate Field is required"));
+		if (!config.agg_function) errors.push(__("Aggregate Function is required"));
+	}
+
+	// 4. Permission Audit Reason
+	if (props.node?.data?.skip_permissions && !props.node?.data?.permission_audit_reason) {
+		errors.push(__("Permission Audit Reason is required when bypassing permissions."));
+	}
+
+	return { valid: errors.length === 0, errors };
+}
+
 defineExpose({
-	validate: () => ({ valid: true }),
+	validate,
 });
 </script>
 

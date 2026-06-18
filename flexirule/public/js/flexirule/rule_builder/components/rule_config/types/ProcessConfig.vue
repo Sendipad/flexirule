@@ -47,7 +47,11 @@
 			</div>
 
 			<div v-show="view === 'form'">
-				<SchemaRenderer :fields="engine.normalized_fields" :engine="engine" />
+				<SchemaRenderer
+					:fields="engine.normalized_fields"
+					:engine="engine"
+					:showValidation="showValidation"
+				/>
 			</div>
 
 			<div v-if="view === 'visual'" class="process-config-visual">
@@ -84,6 +88,7 @@ import TransformControl from "../../../controls/TransformControl.vue";
 
 const props = defineProps({
 	node: Object,
+	showValidation: { type: Boolean, default: false },
 });
 
 const store = useStore();

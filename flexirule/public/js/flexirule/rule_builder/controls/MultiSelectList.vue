@@ -20,6 +20,7 @@ const props = defineProps({
 	loadingState: { type: Boolean, default: false },
 	invalid: { type: Boolean, default: false },
 	errorMessage: { type: String, default: "" },
+	showValidation: { type: Boolean, default: false },
 	compactMaxVisible: { type: Number, default: 2 },
 	badgeCollapseAfter: { type: Number, default: 4 },
 	allowWrap: { type: Boolean, default: true },
@@ -234,6 +235,21 @@ const canInteract = computed(() => !props.read_only && !props.disabled);
 const showExpanded = computed(() => props.expanded);
 const isCompactMode = computed(() => props.displayMode === "compact");
 const isBadgeMode = computed(() => props.displayMode === "badges");
+
+const isValid = computed(() => {
+	if (!props.df?.reqd) return true;
+	return selectedValues.value.length > 0;
+});
+
+function validate() {
+	const errors = [];
+	if (!isValid.value) {
+		errors.push(__("{0} is required").replace("{0}", props.df?.label || __("Field")));
+	}
+	return { valid: errors.length === 0, errors };
+}
+
+defineExpose({ validate });
 
 function emitValue(nextValues) {
 	emit("update:modelValue", nextValues);
@@ -510,7 +526,7 @@ onBeforeUnmount(() => {
 			:class="{
 				'is-active': isDropdownOpen,
 				disabled: !canInteract,
-				invalid,
+				invalid: invalid || (showValidation && !isValid),
 				compact: isCompactMode,
 			}"
 			tabindex="0"
@@ -784,6 +800,11 @@ onBeforeUnmount(() => {
 		</div>
 		<div v-if="df.description && !hideLabel" class="fxr-description">
 			{{ __(df.description) }}
+		</div>
+
+		<!-- validation error -->
+		<div v-if="showValidation && !isValid" class="fxr-error-msg">
+			{{ __("{0} is required").replace("{0}", df?.label || __("Field")) }}
 		</div>
 	</div>
 </template>

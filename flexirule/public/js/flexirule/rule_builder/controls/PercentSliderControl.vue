@@ -8,6 +8,7 @@ const props = defineProps({
 	df: Object,
 	modelValue: [Number, String],
 	read_only: Boolean,
+	showValidation: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["update:modelValue"]);
@@ -16,10 +17,28 @@ const value = computed({
 	get: () => parseInt(props.modelValue) || props.df?.default || 50,
 	set: (val) => emit("update:modelValue", parseInt(val)),
 });
+
+const isValid = computed(() => {
+	if (!props.df?.reqd) return true;
+	return props.modelValue !== undefined && props.modelValue !== null && props.modelValue !== "";
+});
+
+function validate() {
+	const errors = [];
+	if (!isValid.value) {
+		errors.push(__("{0} is required").replace("{0}", props.df?.label || __("Field")));
+	}
+	return { valid: errors.length === 0, errors };
+}
+
+defineExpose({ validate });
 </script>
 
 <template>
-	<div class="percent-slider-control">
+	<div
+		class="percent-slider-control fxr-control"
+		:class="{ 'has-error': showValidation && !isValid }"
+	>
 		<label v-if="df.label" class="control-label">
 			{{ __(df.label) }}
 			<span v-if="df.reqd" class="text-danger">*</span>
@@ -39,6 +58,11 @@ const value = computed({
 		</div>
 
 		<small v-if="df.description" class="form-text text-muted">{{ df.description }}</small>
+
+		<!-- validation error -->
+		<div v-if="showValidation && !isValid" class="fxr-error-msg">
+			{{ __("{0} is required").replace("{0}", df?.label || __("Field")) }}
+		</div>
 	</div>
 </template>
 

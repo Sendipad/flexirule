@@ -17,6 +17,7 @@
 					ref="configRef"
 					:node="node"
 					:read_only="readOnly"
+					:showValidation="showValidation"
 					@update:field="on_update_field"
 				/>
 				<div v-else class="empty-config text-center">
@@ -52,6 +53,7 @@ import WaitConfig from "./types/WaitConfig.vue";
 const props = defineProps({
 	node: Object,
 	readOnly: Boolean,
+	showValidation: { type: Boolean, default: false },
 });
 
 const store = useStore();

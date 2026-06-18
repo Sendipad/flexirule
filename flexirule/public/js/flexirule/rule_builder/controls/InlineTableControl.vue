@@ -11,6 +11,7 @@ const props = defineProps({
 	modelValue: [Array, String],
 	documentType: String,
 	read_only: Boolean,
+	showValidation: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["update:modelValue"]);
@@ -162,10 +163,42 @@ function getSelectValue(options) {
 	}
 	return [];
 }
+
+const isValid = computed(() => {
+	if (!props.df?.reqd) return true;
+	if (!rows.value.length) return false;
+	// Basic validation: check if all required fields in each row are filled
+	return !rows.value.some((row) => {
+		return tableFields.value.some((f) => f.reqd && !row[f.fieldname]);
+	});
+});
+
+function validate() {
+	const errors = [];
+	if (props.df?.reqd && !rows.value.length) {
+		errors.push(
+			__("{0} must have at least one row").replace("{0}", props.df?.label || __("Table"))
+		);
+	} else if (
+		rows.value.some((row) => {
+			return tableFields.value.some((f) => f.reqd && !row[f.fieldname]);
+		})
+	) {
+		errors.push(
+			__("{0} contains incomplete rows").replace("{0}", props.df?.label || __("Table"))
+		);
+	}
+	return { valid: errors.length === 0, errors };
+}
+
+defineExpose({ validate });
 </script>
 
 <template>
-	<div class="inline-table-control">
+	<div
+		class="inline-table-control fxr-control"
+		:class="{ 'has-error': showValidation && !isValid }"
+	>
 		<label v-if="df.label" class="control-label">
 			{{ __(df.label) }}
 			<span v-if="df.reqd" class="text-danger">*</span>
@@ -316,6 +349,13 @@ function getSelectValue(options) {
 		</button>
 
 		<p v-if="df.description" class="control-description">{{ df.description }}</p>
+
+		<!-- validation error -->
+		<div v-if="showValidation && !isValid" class="fxr-error-msg">
+			{{
+				__("{0} is required and must be complete").replace("{0}", df?.label || __("Field"))
+			}}
+		</div>
 	</div>
 </template>
 

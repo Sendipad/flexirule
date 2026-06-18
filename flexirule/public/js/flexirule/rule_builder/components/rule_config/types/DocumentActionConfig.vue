@@ -30,8 +30,10 @@
 						fieldtype: 'Small Text',
 						label: __('Permission Audit Reason'),
 						read_only: readOnly,
+						reqd: 1,
 					}"
 					:modelValue="node?.data?.permission_audit_reason"
+					:showValidation="showValidation"
 					@update:modelValue="(val) => update_action_key('permission_audit_reason', val)"
 				/>
 			</div>
@@ -55,27 +57,35 @@
 						v-if="assignToType === 'Value'"
 						:df="with_read_only(assignedToLinkField)"
 						:modelValue="stripBrackets(config.assigned_to)"
+						:showValidation="showValidation"
 						@update:modelValue="(val) => update_config_key('assigned_to', val)"
 					/>
 					<ComboBoxControl
 						v-else-if="assignToType === 'Variable'"
-						:df="{ fieldtype: 'Autocomplete', label: '' }"
+						:df="{
+							fieldtype: 'Autocomplete',
+							label: '',
+							reqd: requiredConfigKeys.includes('assigned_to') ? 1 : 0,
+						}"
 						:get_query="async () => variable_options"
 						:modelValue="stripBrackets(config.assigned_to)"
 						:read_only="readOnly"
 						:hideLabel="true"
+						:showValidation="showValidation"
 						@update:modelValue="(val) => update_config_key('assigned_to', `{${val}}`)"
 					/>
 					<ControlFactory
 						v-else
 						:df="with_read_only(assignedToExprField)"
 						:modelValue="config.assigned_to"
+						:showValidation="showValidation"
 						@update:modelValue="(val) => update_config_key('assigned_to', val)"
 					/>
 				</div>
 				<ControlFactory
 					:df="with_read_only(todoDescriptionField)"
 					:modelValue="config.description"
+					:showValidation="showValidation"
 					@update:modelValue="(val) => update_config_key('description', val)"
 				/>
 				<ControlFactory
@@ -94,6 +104,7 @@
 				<ControlFactory
 					:df="with_read_only(commentTextField)"
 					:modelValue="config.comment_text"
+					:showValidation="showValidation"
 					@update:modelValue="(val) => update_config_key('comment_text', val)"
 				/>
 			</template>
@@ -170,6 +181,8 @@ const props = defineProps({
 	node: Object,
 	readOnly: Boolean,
 });
+
+const showValidation = ref(false);
 
 const { config, variable_options, mode, reference_doctype, with_read_only, sync_config } =
 	useActionConfig(props);
@@ -491,24 +504,27 @@ watch(
 	{ immediate: true, deep: true }
 );
 
+function validate() {
+	showValidation.value = true;
+	const errors = [];
+	const requiredKeyLabels = {
+		assigned_to: __("Assigned To"),
+		description: __("Description"),
+		comment_text: __("Comment Text"),
+	};
+	for (const key of requiredConfigKeys.value) {
+		if (!config[key]) {
+			errors.push(__("{0} is required").replace("{0}", requiredKeyLabels[key] || key));
+		}
+	}
+	if (showMapper.value && !config.resource_mapper_ui && !hasLegacyMapperConfig(config)) {
+		errors.push(__("Resource Mapper configuration is required for {0}", [mode.value]));
+	}
+	return { valid: errors.length === 0, errors };
+}
+
 defineExpose({
-	validate: () => {
-		const errors = [];
-		const requiredKeyLabels = {
-			assigned_to: __("Assigned To"),
-			description: __("Description"),
-			comment_text: __("Comment Text"),
-		};
-		for (const key of requiredConfigKeys.value) {
-			if (!config[key]) {
-				errors.push(__("{0} is required").replace("{0}", requiredKeyLabels[key] || key));
-			}
-		}
-		if (showMapper.value && !config.resource_mapper_ui && !hasLegacyMapperConfig(config)) {
-			errors.push(__("Resource Mapper configuration is required for {0}", [mode.value]));
-		}
-		return { valid: errors.length === 0, errors };
-	},
+	validate,
 });
 </script>
 

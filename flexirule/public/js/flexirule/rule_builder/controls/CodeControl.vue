@@ -1,7 +1,12 @@
 <!-- Used as Code, HTML Editor, Markdown Editor & JSON Control -->
 <script setup>
 import { computed, onMounted, ref, useSlots, watch } from "vue";
-const props = defineProps(["df", "read_only", "modelValue"]);
+const props = defineProps({
+	df: Object,
+	read_only: Boolean,
+	modelValue: [String, Number],
+	showValidation: { type: Boolean, default: false },
+});
 let emit = defineEmits(["update:modelValue"]);
 let slots = useSlots();
 
@@ -59,10 +64,32 @@ function copyCode() {
 	if (!content.value) return;
 	frappe.utils.copy_to_clipboard(content.value);
 }
+
+const isValid = computed(() => {
+	if (!props.df?.reqd) return true;
+	return props.modelValue !== undefined && props.modelValue !== null && props.modelValue !== "";
+});
+
+function validate() {
+	const errors = [];
+	if (!isValid.value) {
+		errors.push(__("{0} is required").replace("{0}", props.df?.label || __("Field")));
+	}
+	return { valid: errors.length === 0, errors };
+}
+
+defineExpose({ validate });
 </script>
 
 <template>
-	<div v-if="slots.label" class="control" :class="{ editable: slots.label }">
+	<div
+		v-if="slots.label"
+		class="control fxr-control"
+		:class="{
+			editable: slots.label,
+			'has-error': showValidation && !isValid,
+		}"
+	>
 		<div class="field-controls">
 			<slot name="label" />
 			<div class="d-flex align-items-center gap-2">
@@ -79,6 +106,16 @@ function copyCode() {
 		</div>
 		<div ref="code"></div>
 		<div v-if="df.description" class="mt-2 description">{{ __(df.description) }}</div>
+
+		<!-- validation error -->
+		<div v-if="showValidation && !isValid" class="fxr-error-msg">
+			{{ __("{0} is required").replace("{0}", df?.label || __("Field")) }}
+		</div>
 	</div>
-	<div v-else class="control" ref="code"></div>
+	<div
+		v-else
+		class="control fxr-control"
+		:class="{ 'has-error': showValidation && !isValid }"
+		ref="code"
+	></div>
 </template>

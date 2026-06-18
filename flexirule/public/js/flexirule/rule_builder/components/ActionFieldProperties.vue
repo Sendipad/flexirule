@@ -21,6 +21,7 @@ import { toCodeString, fromCodeString, isJsonField } from "../utils/serializatio
 const props = defineProps({
 	nodeData: Object,
 	readOnly: Boolean,
+	showValidation: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["update:field", "open:conditions", "open:config"]);
@@ -291,6 +292,23 @@ function needs_autocomplete(df) {
 	);
 }
 
+const controlRefs = ref([]);
+
+async function validate() {
+	const results = await Promise.all(
+		(controlRefs.value || []).map((ref) => {
+			if (ref && typeof ref.validate === "function") {
+				return ref.validate();
+			}
+			return { valid: true };
+		})
+	);
+	const errors = results.flatMap((r) => r.errors || []);
+	return { valid: errors.length === 0, errors };
+}
+
+defineExpose({ validate });
+
 // Ensure Rule Action meta is loaded
 onMounted(async () => {
 	if (!frappe.get_meta("Rule Action")) {
@@ -328,6 +346,7 @@ onMounted(async () => {
 			<!-- Autocomplete / Link / Dynamic Link fields -->
 			<template v-else-if="needs_autocomplete(df)">
 				<ComboBoxControl
+					ref="controlRefs"
 					:df="{
 						...df,
 						reqd: is_mandatory(df),
@@ -342,12 +361,14 @@ onMounted(async () => {
 					:get_query="(txt) => get_autocomplete_options(df)"
 					:doc="nodeData"
 					:read_only="is_read_only(df)"
+					:showValidation="showValidation"
 					@update:modelValue="update_normalized_value(df, $event)"
 				/>
 			</template>
 
 			<template v-else>
 				<ControlFactory
+					ref="controlRefs"
 					:df="{
 						...df,
 						reqd: is_mandatory(df),
@@ -355,6 +376,7 @@ onMounted(async () => {
 					}"
 					:modelValue="get_normalized_value(df)"
 					:read_only="is_read_only(df)"
+					:showValidation="showValidation"
 					:doc="nodeData"
 					@update:modelValue="update_normalized_value(df, $event)"
 				/>

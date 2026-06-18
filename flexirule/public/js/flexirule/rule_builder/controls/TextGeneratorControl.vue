@@ -3,7 +3,11 @@
 		<!-- Main Editor Container -->
 		<div
 			class="tgc-editor-container"
-			:class="{ 'nested-container': isNested, 'has-panel': !!activeLogicNode }"
+			:class="{
+				'nested-container': isNested,
+				'has-panel': !!activeLogicNode,
+				'has-error': showValidation && !isValid,
+			}"
 		>
 			<!-- Production-Ready Floating Menu (Complete Formatting) -->
 			<div v-if="showBubbleMenu" class="tgc-bubble-menu-fixed" :style="bubbleMenuStyle">
@@ -344,6 +348,7 @@ import {
 import MentionList from "./MentionList.vue";
 import ConditionBuilder from "../components/condition_builder/ConditionBuilder.vue";
 import ComboBoxControl from "./ComboBoxControl.vue";
+import { validateConditions } from "../components/condition_builder/condition_validator.js";
 
 import {
 	compileSegmentsToJinja,
@@ -360,6 +365,7 @@ const props = defineProps({
 	modelValue: { type: [Object, String], default: null },
 	templateValue: { type: String, default: "" },
 	read_only: { type: Boolean, default: false },
+	showValidation: { type: Boolean, default: false },
 	variableOptions: { type: [Array, Object], default: () => [] },
 	docFieldOptions: { type: Array, default: () => [] },
 	isNested: { type: Boolean, default: false },
@@ -689,6 +695,48 @@ function createSuggestionRenderer() {
 const charCount = computed(() => editor.getText().length);
 const nodeCount = computed(() => ui.value.segments.length);
 const isEditorEmpty = computed(() => editor.isEmpty);
+
+const isValid = computed(() => {
+	if (!props.df?.reqd) return true;
+	return !editor.isEmpty;
+});
+
+function validate() {
+	const errors = [];
+	if (!isValid.value) {
+		errors.push(__("{0} is required").replace("{0}", props.df?.label || __("Field")));
+	}
+
+	// Deep validation of logic nodes
+	const segs = ui.value.segments || [];
+	const validateSegs = (nodes) => {
+		for (const node of nodes) {
+			if (node.type === "conditional") {
+				const res = validateConditions(
+					node.condition || { op: "and", conditions: [] },
+					true,
+					true
+				);
+				if (!res.valid) {
+					errors.push(__("Condition in Rich Text is invalid"));
+				}
+				if (node.then_segments) validateSegs(node.then_segments);
+				if (node.else_segments) validateSegs(node.else_segments);
+			} else if (node.type === "loop") {
+				if (!node.iterator || !node.iterable) {
+					errors.push(__("Loop in Rich Text is incomplete"));
+				}
+				if (node.segments) validateSegs(node.segments);
+			}
+		}
+	};
+	validateSegs(segs);
+
+	return { valid: errors.length === 0, errors };
+}
+
+defineExpose({ validate });
+
 function closeDrawer() {
 	activeLogicNode.value = null;
 }
@@ -870,6 +918,14 @@ onBeforeUnmount(() => {
 	border-color: var(--tg-accent);
 	box-shadow: 0 0 0 3px color-mix(in srgb, var(--tg-accent) 20%, transparent);
 }
+
+.tgc-editor-container.has-error {
+	border-color: var(--red-500) !important;
+}
+
+.tgc-editor-container.has-error:focus-within {
+	box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15) !important;
+}
 .tgc-editor-wrapper {
 	padding: 12px 12px 10px;
 	min-height: 120px;
@@ -945,6 +1001,12 @@ onBeforeUnmount(() => {
 	background: var(--fxr-badge-resolver);
 	color: var(--fxr-badge-resolver-text);
 	border-color: color-mix(in srgb, var(--fxr-badge-resolver-text) 20%, transparent);
+}
+:deep(.tg-badge.is-invalid) {
+	background: #fff1f2 !important; /* Lighter rose background */
+	color: #be123c !important; /* Deep rose text for contrast */
+	border-color: #fda4af !important; /* Rose border */
+	box-shadow: 0 0 0 1px rgba(225, 29, 72, 0.1) !important;
 }
 :deep(.tg-badge-trans) {
 	background: color-mix(in srgb, var(--fxr-accent-soft, #e0f2fe) 88%, var(--fxr-surface));

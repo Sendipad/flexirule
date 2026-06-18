@@ -14,51 +14,63 @@
 				<div class="setup-controls">
 					<ControlFactory
 						v-if="showProcessName"
+						ref="processNameRef"
 						:df="processNameField"
 						:modelValue="node.data?.process_name"
 						:read_only="readOnly"
+						:showValidation="showValidation"
 						@update:modelValue="updateField('process_name', $event)"
 					/>
 
 					<ControlFactory
 						v-if="showOperation"
+						ref="operationRef"
 						:df="dynamicOperationField"
 						:modelValue="node.data?.operation"
 						:read_only="readOnly"
+						:showValidation="showValidation"
 						@update:modelValue="updateField('operation', $event)"
 					/>
 
 					<!-- Core Identity Fields -->
 					<ControlFactory
 						v-if="showReferenceDoctype"
+						ref="referenceDoctypeRef"
 						:df="referenceDoctypeField"
 						:modelValue="node.data?.reference_doctype"
 						:read_only="readOnly"
+						:showValidation="showValidation"
 						@update:modelValue="updateField('reference_doctype', $event)"
 					/>
 
 					<ControlFactory
 						v-if="showRuleField"
+						ref="ruleRef"
 						:df="ruleField"
 						:modelValue="node.data?.rule"
 						:read_only="readOnly"
+						:showValidation="showValidation"
 						@update:modelValue="updateField('rule', $event)"
 					/>
 
 					<!-- Secondary Setup -->
 					<ControlFactory
 						v-if="showReferenceDocname"
+						ref="referenceDocnameRef"
 						:df="referenceDocnameField"
 						:modelValue="node.data?.reference_docname"
 						:read_only="readOnly"
+						:showValidation="showValidation"
 						@update:modelValue="updateField('reference_docname', $event)"
 					/>
 
 					<ControlFactory
 						v-if="showInputSource"
+						ref="inputSourceRef"
 						:df="inputSourceField"
 						:modelValue="node.data?.input_source"
 						:read_only="readOnly"
+						:showValidation="showValidation"
 						@update:modelValue="updateField('input_source', $event)"
 					/>
 				</div>
@@ -260,6 +272,12 @@ import { insertIntoActiveTGC } from "../../utils/tgc_focus";
 import { copyText } from "../../../utils/clipboard";
 
 const variableSearchRef = ref(null);
+const processNameRef = ref(null);
+const operationRef = ref(null);
+const referenceDoctypeRef = ref(null);
+const ruleRef = ref(null);
+const referenceDocnameRef = ref(null);
+const inputSourceRef = ref(null);
 
 function focusSibling(e, direction) {
 	const el = e.target;
@@ -281,10 +299,24 @@ function focusSearch() {
 	});
 }
 
-defineExpose({
-	focusSearch,
-	validate: () => {
-		const errors = [];
+async function validate() {
+	const errors = [];
+
+	if (props.mode === "config") {
+		const controlRefs = [
+			processNameRef.value,
+			operationRef.value,
+			referenceDoctypeRef.value,
+			ruleRef.value,
+			referenceDocnameRef.value,
+			inputSourceRef.value,
+		].filter(Boolean);
+
+		const results = await Promise.all(controlRefs.map((c) => c.validate()));
+		results.forEach((res) => {
+			if (!res.valid) errors.push(...res.errors);
+		});
+
 		if (props.node?.data?.action_type === "Document Action") {
 			if (
 				props.node.data.operation === "Add Comment" &&
@@ -299,8 +331,13 @@ defineExpose({
 				errors.push(__("Create ToDo mode requires Reference DocType = ToDo"));
 			}
 		}
-		return { valid: errors.length === 0, errors };
-	},
+	}
+	return { valid: errors.length === 0, errors };
+}
+
+defineExpose({
+	focusSearch,
+	validate,
 });
 import {
 	applyOutputPolicyDefaults,
@@ -317,6 +354,7 @@ import SubRuleNodeConfig from "../node_configs/SubRuleNodeConfig.vue";
 const props = defineProps({
 	node: Object,
 	readOnly: Boolean,
+	showValidation: { type: Boolean, default: false },
 	mode: { type: String, default: "config" }, // 'config' or 'variables'
 });
 

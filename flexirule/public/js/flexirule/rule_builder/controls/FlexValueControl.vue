@@ -2,7 +2,11 @@
 	<div
 		ref="controlRef"
 		class="fvc-wrap"
-		:class="{ 'is-compact': compact, 'is-disabled': disabled || isReadOnly }"
+		:class="{
+			'is-compact': compact,
+			'is-disabled': disabled || isReadOnly,
+			'has-error': showValidation && !isValid,
+		}"
 		@keydown.capture="onStaticKeydown"
 	>
 		<!-- ── Main Control Area ── -->
@@ -97,6 +101,11 @@
 					<i :class="isDynamicMode ? 'fa fa-keyboard-o' : 'fa fa-bolt'"></i>
 				</button>
 			</div>
+		</div>
+
+		<!-- validation error -->
+		<div v-if="showValidation && !isValid" class="fxr-error-msg">
+			{{ __("{0} is required").replace("{0}", context?.df?.label || __("Field")) }}
 		</div>
 
 		<!-- ── Token Editor Modal ── -->
@@ -349,6 +358,7 @@ const props = defineProps({
 	disabled: { type: Boolean, default: false },
 	engine: { type: Object, default: null },
 	doc: { type: Object, default: null },
+	showValidation: { type: Boolean, default: false },
 	/**
 	 * Structured context:
 	 * {
@@ -699,7 +709,9 @@ function createSuggestionRenderer() {
 			if (popup) {
 				try {
 					popup.destroy();
-				} catch (e) {}
+				} catch (e) {
+					// Ignore error during popup destruction
+				}
 				const idx = activeTippyPopups.indexOf(popup);
 				if (idx > -1) activeTippyPopups.splice(idx, 1);
 				popup = null;
@@ -707,7 +719,9 @@ function createSuggestionRenderer() {
 			if (component) {
 				try {
 					component.destroy();
-				} catch (e) {}
+				} catch (e) {
+					// Ignore error during component destruction
+				}
 				component = null;
 			}
 		},
@@ -885,6 +899,28 @@ const editor = new Editor({
 });
 
 const isEditorEmpty = computed(() => editor.isEmpty);
+
+const isValid = computed(() => {
+	if (!props.context?.df?.reqd) return true;
+	const struct = coerceStructuredValue(serialize());
+	if (struct.mode === "static") {
+		return struct.value !== undefined && struct.value !== null && struct.value !== "";
+	}
+	if (struct.mode === "variable") return !!struct.value;
+	if (struct.mode === "resolver") return !!struct.value;
+	if (struct.mode === "expression") return Array.isArray(struct.value) && struct.value.length > 0;
+	return true;
+});
+
+function validate() {
+	const errors = [];
+	if (!isValid.value) {
+		errors.push(__("{0} is required").replace("{0}", props.context?.df?.label || __("Field")));
+	}
+	return { valid: errors.length === 0, errors };
+}
+
+defineExpose({ validate });
 
 // ── Serialization ──
 

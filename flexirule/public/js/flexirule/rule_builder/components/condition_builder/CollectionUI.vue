@@ -16,7 +16,19 @@ const emit = defineEmits(["remove"]);
 
 const { addCondition, addGroup, onDrop } = inject("conditionActions");
 const parentVariableOptions = inject("variableOptions", ref([]));
+const showValidation = inject(
+	"showValidation",
+	computed(() => false)
+);
+const invalidNodes = inject(
+	"invalidNodes",
+	computed(() => [])
+);
 const store = useStore();
+
+const isInvalid = computed(() => {
+	return showValidation.value && invalidNodes.value.includes(props.node.id);
+});
 
 const isDragOver = ref(false);
 
@@ -271,7 +283,7 @@ onMounted(fetchChildMeta);
 </script>
 
 <template>
-	<div class="collection-ui">
+	<div class="collection-ui" :class="{ 'is-invalid': isInvalid }">
 		<!-- Header -->
 		<div class="collection-header">
 			<!-- Logic -->
@@ -374,6 +386,13 @@ onMounted(fetchChildMeta);
 	border-left: 4px solid var(--fxr-node-accent, var(--fxr-accent));
 	border-radius: var(--fxr-radius-lg);
 	padding: var(--fxr-space-3);
+	transition: all var(--fxr-transition-fast);
+}
+
+.collection-ui.is-invalid {
+	border-color: var(--fxr-text-danger) !important;
+	background-color: var(--fxr-danger-soft) !important;
+	box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.1);
 }
 
 .collection-header {

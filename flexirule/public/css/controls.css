@@ -56,6 +56,14 @@ html[data-theme="dark"] .fxr-control .fxr-label {
 	line-height: 1.4;
 }
 
+.fxr-error-msg {
+	font-size: 11px;
+	color: var(--fxr-text-danger);
+	margin-top: var(--spacing-xs);
+	line-height: 1.2;
+	font-weight: var(--fxr-weight-medium);
+}
+
 /* ─── Standard Input Group ─── */
 .fxr-input-group {
 	position: relative;
@@ -81,6 +89,23 @@ html[data-theme="dark"] .fxr-control .fxr-label {
 	transition:
 		border-color var(--fxr-transition-fast),
 		box-shadow var(--fxr-transition-fast);
+}
+
+/* Error State */
+.fxr-control.has-error .fxr-input,
+.fxr-control.has-error .fxr-select,
+.fxr-control.has-error :deep(.form-control),
+.fxr-control.has-error :deep(.combobox-wrapper),
+.fxr-control.has-error :deep(.fsvc-editor-container) {
+	border-color: var(--fxr-text-danger) !important;
+}
+
+.fxr-control.has-error .fxr-input:focus,
+.fxr-control.has-error .fxr-select:focus,
+.fxr-control.has-error :deep(.form-control:focus),
+.fxr-control.has-error :deep(.combobox-wrapper.is-focused),
+.fxr-control.has-error :deep(.fsvc-editor-container:focus-within) {
+	box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15) !important;
 }
 
 /* Premium Focus Glow on whole Input Group */

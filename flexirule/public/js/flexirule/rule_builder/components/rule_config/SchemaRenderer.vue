@@ -16,17 +16,20 @@
 				class="form-group"
 				:class="{
 					'has-error':
+						showValidation &&
 						getFieldState(field, props.row ? props.row.name : 'root').reqd &&
 						!getValue(field),
 				}"
 			>
 				<ControlFactory
+					ref="controlRefs"
 					:df="
 						getNormalizedDf(field, props.row ? props.row.name : 'root', props.readOnly)
 					"
 					:modelValue="getValue(field)"
 					:doc="engine._get_context(row).doc"
 					:engine="engine"
+					:showValidation="showValidation"
 					@update:modelValue="updateValue(field, $event)"
 				/>
 			</div>
@@ -35,7 +38,7 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import ControlFactory from "../../controls/ControlFactory.vue";
 import { useFieldNormalization } from "../../composables/useFieldNormalization";
 
@@ -43,8 +46,11 @@ const props = defineProps({
 	fields: { type: Array, default: () => [] },
 	engine: { type: Object, required: true },
 	readOnly: { type: Boolean, default: false },
+	showValidation: { type: Boolean, default: false },
 	row: { type: Object, default: null }, // If rendering for a child table row
 });
+
+const controlRefs = ref([]);
 
 const { getNormalizedDf, getFieldState } = useFieldNormalization(props.engine);
 
@@ -62,6 +68,21 @@ function getValue(field) {
 function updateValue(field, value) {
 	props.engine.handleFieldChange(field.fieldname, value, props.row);
 }
+
+async function validate() {
+	const results = await Promise.all(
+		(controlRefs.value || []).map((ref) => {
+			if (ref && typeof ref.validate === "function") {
+				return ref.validate();
+			}
+			return { valid: true };
+		})
+	);
+	const errors = results.flatMap((r) => r.errors || []);
+	return { valid: errors.length === 0, errors };
+}
+
+defineExpose({ validate });
 </script>
 
 <style scoped>

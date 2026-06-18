@@ -3,18 +3,20 @@
 		<component
 			:is="resolved.component"
 			v-bind="resolved.props"
+			ref="controlRef"
 			:df="df"
 			:modelValue="modelValue"
 			:read_only="df?.read_only"
 			:hideLabel="hideLabel"
 			:hideDescription="hideDescription"
+			:showValidation="showValidation"
 			@update:modelValue="$emit('update:modelValue', $event)"
 		/>
 	</div>
 </template>
 
 <script setup>
-import { computed, onMounted, watch, inject } from "vue";
+import { computed, onMounted, watch, inject, ref } from "vue";
 import { ControlRegistry } from "../../core/control_registry.js";
 
 const injectedVariableOptions = inject("variableOptions", null);
@@ -28,11 +30,13 @@ const props = defineProps({
 	engine: { type: Object, default: null },
 	hideLabel: { type: Boolean, default: false },
 	hideDescription: { type: Boolean, default: false },
+	showValidation: { type: Boolean, default: false },
 	get_options: { type: Function, default: null },
 	get_data: { type: Function, default: null },
 });
 
 const emit = defineEmits(["update:modelValue"]);
+const controlRef = ref(null);
 
 const resolved = computed(() => {
 	const registryContext = {
@@ -61,6 +65,15 @@ function check_default() {
 		}
 	}
 }
+
+function validate() {
+	if (controlRef.value && typeof controlRef.value.validate === "function") {
+		return controlRef.value.validate();
+	}
+	return { valid: true, errors: [] };
+}
+
+defineExpose({ validate });
 </script>
 
 <style scoped>

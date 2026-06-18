@@ -111,10 +111,12 @@ export const LogicNode = Node.create({
 		return [{ tag: 'span[data-type="logic"]' }];
 	},
 	renderHTML({ node, HTMLAttributes }) {
-		const { type, isStart, isElse, _key } = node.attrs;
+		const { type, isStart, isElse, _key, condition, iterator, iterable } = node.attrs;
 		let label = "";
 		let badgeClass = "tg-badge";
 		let iconClass = "";
+		let isInvalid = false;
+		let errorMsg = "";
 
 		if (isElse) {
 			label = __("ELSE");
@@ -127,10 +129,34 @@ export const LogicNode = Node.create({
 			label = node.attrs.label ? __("IF {0}", [node.attrs.label]) : __("IF");
 			badgeClass += " tg-badge-if";
 			iconClass = "fa fa-code-fork";
+
+			if (condition) {
+				const {
+					validateConditions,
+				} = require("../components/condition_builder/condition_validator.js");
+				const res = validateConditions(condition, true, true);
+				if (!res.valid) {
+					isInvalid = true;
+					errorMsg = res.errors?.[0] || __("Invalid condition");
+				}
+			} else {
+				isInvalid = true;
+				errorMsg = __("Missing condition");
+			}
 		} else {
 			label = node.attrs.label ? __("LOOP {0}", [node.attrs.label]) : __("LOOP");
 			badgeClass += " tg-badge-loop";
 			iconClass = "fa fa-refresh";
+
+			if (!iterator || !iterable) {
+				isInvalid = true;
+				errorMsg = __("Incomplete loop parameters");
+			}
+		}
+
+		if (isInvalid) {
+			badgeClass += " is-invalid";
+			label = "⚠ " + label;
 		}
 
 		const data = encodeData({
@@ -151,6 +177,7 @@ export const LogicNode = Node.create({
 				"data-type": "logic",
 				"data-logic-type": data,
 				class: badgeClass,
+				title: errorMsg,
 			}),
 			iconClass ? ["i", { class: `${iconClass} mr-1` }] : "",
 			["span", label],
