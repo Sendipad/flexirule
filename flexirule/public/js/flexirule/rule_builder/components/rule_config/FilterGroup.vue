@@ -12,8 +12,9 @@
 					<!-- Doctype Picker (if allowAnyDoctype) -->
 					<div v-if="allowAnyDoctype" class="filter-col doctype-col">
 						<ComboBoxControl
-							:df="{ label: '', fieldtype: 'Link', options: 'DocType' }"
+							:df="{ label: '', fieldtype: 'Link', options: 'DocType', reqd: 1 }"
 							:modelValue="row.doctype || doctype"
+							:invalid="rowErrors[idx]?.hasDoctypeError"
 							:doctype="'DocType'"
 							:hideLabel="true"
 							:read_only="readOnly"
@@ -26,13 +27,15 @@
 						<div class="field-picker-container">
 							<ComboBoxControl
 								ref="fieldPickerRefs"
-								:df="{ label: '', fieldtype: 'FieldPicker' }"
+								:df="{ label: '', fieldtype: 'FieldPicker', reqd: 1 }"
 								:options="getFieldsForDoctype(row.doctype || doctype)"
 								:doctype="row.doctype || doctype"
 								:modelValue="row.field"
+								:invalid="rowErrors[idx]?.hasFieldError"
 								:read_only="readOnly"
 								:trigger="'button'"
 								:hideLabel="true"
+								:allowCustomValue="false"
 								:class="{
 									'border-warning':
 										row.field &&
@@ -50,22 +53,19 @@
 
 					<!-- Operator -->
 					<div class="filter-col operator-col">
-						<select
-							class="form-control input-xs"
-							:value="row.operator"
-							:disabled="readOnly"
-							@change="(e) => updateRow(idx, { operator: e.target.value })"
-						>
-							<option
-								v-for="op in getOperatorsForField(
-									getFieldDef(row.field, row.doctype)
-								)"
-								:key="op"
-								:value="op"
-							>
-								{{ getOperatorLabel(op, row) }}
-							</option>
-						</select>
+						<SelectControl
+							:df="{
+								label: '',
+								fieldtype: 'Select',
+								options: getOperatorsForField(getFieldDef(row.field, row.doctype)),
+								reqd: 1,
+							}"
+							:modelValue="row.operator"
+							:invalid="rowErrors[idx]?.hasOperatorError"
+							:read_only="readOnly"
+							:hideLabel="true"
+							@update:modelValue="(val) => updateRow(idx, { operator: val })"
+						/>
 					</div>
 
 					<!-- Value / Expression -->
@@ -80,6 +80,8 @@
 													? row.value[0]
 													: { mode: 'static', value: '' }
 											"
+											:invalid="rowErrors[idx]?.hasValueError"
+											:df="{ ...getControlFactorySchema(row), reqd: 1 }"
 											:context="{
 												df: getControlFactorySchema(row),
 												operator: row.operator,
@@ -102,6 +104,8 @@
 													? row.value[1]
 													: { mode: 'static', value: '' }
 											"
+											:invalid="rowErrors[idx]?.hasValueError"
+											:df="{ ...getControlFactorySchema(row), reqd: 1 }"
 											:context="{
 												df: getControlFactorySchema(row),
 												operator: row.operator,
@@ -122,6 +126,8 @@
 								<div class="control-slot w-100 min-w-0">
 									<FlexValueControl
 										v-model="row.value"
+										:invalid="rowErrors[idx]?.hasValueError"
+										:df="{ ...getControlFactorySchema(row), reqd: 1 }"
 										:context="{
 											df: getControlFactorySchema(row),
 											operator: row.operator,
@@ -168,6 +174,8 @@
 import { ref, computed, watch, onMounted, inject, nextTick } from "vue";
 import ComboBoxControl from "../../controls/ComboBoxControl.vue";
 import FlexValueControl from "../../controls/FlexValueControl.vue";
+import SelectControl from "../../controls/SelectControl.vue";
+import { validateStructuredValue } from "../../../core/builder_utils.js";
 import { useStore } from "../../stores";
 import { getContract } from "../../../core/contracts.js";
 
@@ -219,6 +227,7 @@ const panelStyleVars = computed(() => {
 });
 
 const filters = ref([]);
+const rowErrors = ref({});
 
 const timespanOptions = frappe.ui?.filter_utils?.get_timespan_options
 	? frappe.ui.filter_utils.get_timespan_options([
@@ -914,6 +923,60 @@ const isFieldValid = (fieldname, dt) => {
 	if (typeof fieldname === "string" && fieldname.startsWith("{")) return true;
 	return fields.some((f) => f.value === fieldname);
 };
+
+function validate() {
+	const errors = [];
+	const newRowErrors = {};
+
+	filters.value.forEach((row, idx) => {
+		const rowErr = {
+			hasDoctypeError: false,
+			hasFieldError: false,
+			hasOperatorError: false,
+			hasValueError: false,
+		};
+
+		if (props.allowAnyDoctype && !row.doctype) {
+			rowErr.hasDoctypeError = true;
+		}
+
+		if (!row.field) {
+			rowErr.hasFieldError = true;
+		} else if (!isFieldValid(row.field, row.doctype)) {
+			rowErr.hasFieldError = true;
+		}
+
+		if (!row.operator) {
+			rowErr.hasOperatorError = true;
+		}
+
+		if (row.operator === "Between") {
+			const val = Array.isArray(row.value) ? row.value : [];
+			if (!validateStructuredValue(val[0]).valid || !validateStructuredValue(val[1]).valid) {
+				rowErr.hasValueError = true;
+			}
+		} else if (row.operator !== "is set" && row.operator !== "is not set") {
+			if (!validateStructuredValue(row.value).valid) {
+				rowErr.hasValueError = true;
+			}
+		}
+
+		if (
+			rowErr.hasDoctypeError ||
+			rowErr.hasFieldError ||
+			rowErr.hasOperatorError ||
+			rowErr.hasValueError
+		) {
+			newRowErrors[idx] = rowErr;
+			errors.push(__("Filter Row #{0} is invalid", [idx + 1]));
+		}
+	});
+
+	rowErrors.value = newRowErrors;
+	return { valid: errors.length === 0, errors };
+}
+
+defineExpose({ validate });
 
 watch(() => props.modelValue, syncFromProps, { deep: true });
 watch(

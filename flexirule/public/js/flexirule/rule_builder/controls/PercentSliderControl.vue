@@ -8,9 +8,25 @@ const props = defineProps({
 	df: Object,
 	modelValue: [Number, String],
 	read_only: Boolean,
+	invalid: Boolean,
 });
 
 const emit = defineEmits(["update:modelValue"]);
+
+function validate() {
+	if (props.df?.reqd) {
+		const val = parseInt(props.modelValue);
+		if (isNaN(val)) {
+			return {
+				valid: false,
+				message: __("{0} is required").replace("{0}", props.df.label || __("Field")),
+			};
+		}
+	}
+	return { valid: true };
+}
+
+defineExpose({ validate });
 
 const value = computed({
 	get: () => parseInt(props.modelValue) || props.df?.default || 50,
