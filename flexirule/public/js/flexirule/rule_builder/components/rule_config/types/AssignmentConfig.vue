@@ -86,7 +86,6 @@
 						:hideLabel="true"
 						:trigger="'button'"
 						:placeholder="__('Target field/variable...')"
-						:allowCustomValue="false"
 						@update:modelValue="(val) => onTargetChange(index, val)"
 					/>
 				</div>
