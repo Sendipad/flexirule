@@ -133,7 +133,11 @@ defineExpose({ validate });
 				<slot name="label" />
 				<slot name="actions" />
 			</div>
-			<label v-else-if="df?.label && !hideLabel" class="fxr-label" :class="{ reqd: df?.reqd }">
+			<label
+				v-else-if="df?.label && !hideLabel"
+				class="fxr-label"
+				:class="{ reqd: df?.reqd }"
+			>
 				{{ __(df.label) }}
 			</label>
 
