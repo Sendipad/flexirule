@@ -8,6 +8,7 @@ import ComboBoxControl from "./ComboBoxControl.vue";
 const props = defineProps({
 	df: Object,
 	modelValue: [String, Number],
+	invalid: { type: Boolean, default: false },
 	read_only: Boolean,
 	no_label: Boolean,
 	hideLabel: { type: Boolean, default: false },
@@ -62,12 +63,21 @@ function on_change(value) {
 	emit("update:modelValue", value);
 	emit("change", value);
 }
+
+const comboRef = ref(null);
+function validate() {
+	return comboRef.value?.validate ? comboRef.value.validate() : { valid: true };
+}
+
+defineExpose({ validate });
 </script>
 
 <template>
 	<ComboBoxControl
+		ref="comboRef"
 		:df="df"
 		:model-value="modelValue"
+		:invalid="invalid"
 		:options="options"
 		:read_only="read_only || df?.read_only"
 		:hide-label="hideLabel || no_label"

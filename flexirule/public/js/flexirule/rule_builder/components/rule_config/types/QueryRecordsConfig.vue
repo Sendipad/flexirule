@@ -41,6 +41,7 @@
 				<div class="sub-section section-subcard">
 					<h6>{{ __("Filters") }}</h6>
 					<FilterGroup
+						ref="filterGroupRef"
 						:doctype="reference_doctype"
 						:modelValue="config.filters"
 						:readOnly="readOnly"
@@ -208,6 +209,7 @@
 				>
 					<h6>{{ __("Filters") }}</h6>
 					<FilterGroup
+						ref="filterGroupRef"
 						:doctype="reference_doctype"
 						:modelValue="config.filters"
 						:readOnly="readOnly"
@@ -222,6 +224,7 @@
 				<div class="sub-section section-subcard">
 					<h6>{{ __("Filters") }}</h6>
 					<FilterGroup
+						ref="filterGroupRef"
 						:doctype="reference_doctype"
 						:modelValue="config.filters"
 						:readOnly="readOnly"
@@ -318,6 +321,7 @@
 				<div class="sub-section section-subcard">
 					<h6>{{ __("Filters") }}</h6>
 					<FilterGroup
+						ref="filterGroupRef"
 						:doctype="reference_doctype"
 						:modelValue="config.filters"
 						:readOnly="readOnly"
@@ -489,6 +493,8 @@ const props = defineProps({
 	node: Object,
 	readOnly: Boolean,
 });
+
+const filterGroupRef = ref(null);
 
 const {
 	store,
@@ -1236,7 +1242,12 @@ watch(
 );
 
 defineExpose({
-	validate: () => ({ valid: true }),
+	validate: async () => {
+		if (filterGroupRef.value?.validate) {
+			return await filterGroupRef.value.validate();
+		}
+		return { valid: true };
+	},
 });
 </script>
 

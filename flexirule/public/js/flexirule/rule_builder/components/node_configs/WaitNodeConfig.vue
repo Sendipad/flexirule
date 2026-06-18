@@ -2,26 +2,23 @@
 	<div class="wait-node-config">
 		<div class="form-row">
 			<div class="form-group col-md-6">
-				<label class="small text-muted">{{ __("Delay Value") }}</label>
-				<input
-					type="number"
-					class="form-control"
-					:value="getJsonConfig('value', 1)"
-					@input="$emit('update-field', 'value', parseFloat($event.target.value))"
+				<DataControl
+					:df="{ label: __('Delay Value'), fieldtype: 'Float', reqd: 1 }"
+					:modelValue="getJsonConfig('value', 1)"
+					@update:modelValue="$emit('update-field', 'value', parseFloat($event))"
 				/>
 			</div>
 			<div class="form-group col-md-6">
-				<label class="small text-muted">{{ __("Unit") }}</label>
-				<select
-					class="form-control"
-					:value="getJsonConfig('unit', 'Minutes')"
-					@change="$emit('update-field', 'unit', $event.target.value)"
-				>
-					<option value="Seconds">{{ __("Seconds") }}</option>
-					<option value="Minutes">{{ __("Minutes") }}</option>
-					<option value="Hours">{{ __("Hours") }}</option>
-					<option value="Days">{{ __("Days") }}</option>
-				</select>
+				<SelectControl
+					:df="{
+						label: __('Unit'),
+						fieldtype: 'Select',
+						options: 'Seconds\nMinutes\nHours\nDays',
+						reqd: 1,
+					}"
+					:modelValue="getJsonConfig('unit', 'Minutes')"
+					@update:modelValue="$emit('update-field', 'unit', $event)"
+				/>
 			</div>
 		</div>
 		<div class="alert alert-info py-2 px-3 small mt-2">
@@ -32,6 +29,9 @@
 </template>
 
 <script setup>
+import DataControl from "../../controls/DataControl.vue";
+import SelectControl from "../../controls/SelectControl.vue";
+
 const props = defineProps({
 	nodeData: Object,
 });

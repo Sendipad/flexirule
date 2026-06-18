@@ -1,12 +1,13 @@
 <template>
 	<div class="loop-config">
-		<LoopNodeConfig :node="node" @update-json-config="updateJsonConfig" />
+		<LoopNodeConfig ref="configRef" :node="node" @update-json-config="updateJsonConfig" />
 		<hr />
-		<ConditionStep :node="node" />
+		<ConditionStep ref="conditionRef" :node="node" />
 	</div>
 </template>
 
 <script setup>
+import { ref } from "vue";
 import { useStore } from "../../../stores";
 import { fromCodeString } from "../../../utils/serialization";
 import LoopNodeConfig from "../../node_configs/LoopNodeConfig.vue";
@@ -17,6 +18,8 @@ const props = defineProps({
 });
 
 const store = useStore();
+const configRef = ref(null);
+const conditionRef = ref(null);
 
 function updateJsonConfig(key, val) {
 	if (!props.node.data) return;
@@ -34,4 +37,19 @@ function updateJsonConfig(key, val) {
 		store.mark_dirty();
 	}
 }
+
+async function validate() {
+	const errors = [];
+	if (configRef.value?.validate) {
+		const res = configRef.value.validate();
+		if (!res.valid) errors.push(res.message);
+	}
+	if (conditionRef.value?.validate) {
+		const res = await conditionRef.value.validate();
+		if (!res.valid) errors.push(...res.errors);
+	}
+	return { valid: errors.length === 0, errors };
+}
+
+defineExpose({ validate });
 </script>

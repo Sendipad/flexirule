@@ -1,6 +1,7 @@
 <template>
 	<div class="switch-config">
 		<SwitchNodeConfig
+			ref="configRef"
 			:nodeData="node.data"
 			:availableNodes="availableNodes"
 			:getNodeLabel="getNodeLabel"
@@ -10,7 +11,7 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { useStore } from "../../../stores";
 import { fromCodeString } from "../../../utils/serialization";
 import SwitchNodeConfig from "../../node_configs/SwitchNodeConfig.vue";
@@ -20,6 +21,7 @@ const props = defineProps({
 });
 
 const store = useStore();
+const configRef = ref(null);
 
 const availableNodes = computed(() => {
 	return (store.nodes || [])
@@ -56,6 +58,18 @@ function updateJsonConfig(key, val) {
 		store.mark_dirty();
 	}
 }
+
+function validate() {
+	if (configRef.value?.validate) {
+		const res = configRef.value.validate();
+		if (!res.valid) {
+			return { valid: false, errors: [res.message] };
+		}
+	}
+	return { valid: true };
+}
+
+defineExpose({ validate });
 
 function syncEdges(cases) {
 	const nodeId = props.node.id;

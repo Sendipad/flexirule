@@ -2,6 +2,7 @@
 	<div class="fxr-control-wrapper" :data-fxr-fieldname="df?.fieldname || null">
 		<component
 			:is="resolved.component"
+			ref="componentRef"
 			v-bind="resolved.props"
 			:df="df"
 			:modelValue="modelValue"
@@ -14,7 +15,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, watch, inject } from "vue";
+import { computed, onMounted, watch, inject, ref } from "vue";
 import { ControlRegistry } from "../../core/control_registry.js";
 
 const injectedVariableOptions = inject("variableOptions", null);
@@ -33,6 +34,7 @@ const props = defineProps({
 });
 
 const emit = defineEmits(["update:modelValue"]);
+const componentRef = ref(null);
 
 const resolved = computed(() => {
 	const registryContext = {
@@ -61,6 +63,17 @@ function check_default() {
 		}
 	}
 }
+
+function validate() {
+	if (componentRef.value && typeof componentRef.value.validate === "function") {
+		return componentRef.value.validate();
+	}
+	return { valid: true };
+}
+
+defineExpose({
+	validate,
+});
 </script>
 
 <style scoped>

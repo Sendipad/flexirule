@@ -6,6 +6,7 @@ const emit = defineEmits(["update:modelValue"]);
 const props = defineProps({
 	df: Object,
 	modelValue: [String, Number],
+	invalid: { type: Boolean, default: false },
 	read_only: Boolean,
 	hideLabel: { type: Boolean, default: false },
 	hideDescription: { type: Boolean, default: false },
@@ -96,6 +97,21 @@ onMounted(() => {
 		phone_ref.value.innerHTML = frappe.utils.icon("down", "sm");
 	}
 });
+
+function validate() {
+	if (props.df?.reqd) {
+		const val = props.modelValue;
+		if (val === undefined || val === null || val === "") {
+			return {
+				valid: false,
+				message: __("{0} is required").replace("{0}", props.df.label || __("Field")),
+			};
+		}
+	}
+	return { valid: true };
+}
+
+defineExpose({ validate });
 </script>
 
 <template>
@@ -104,6 +120,7 @@ onMounted(() => {
 			class="fxr-input-group"
 			:class="{
 				'has-value': modelValue !== undefined && modelValue !== null && modelValue !== '',
+				'is-invalid': invalid,
 			}"
 		>
 			<!-- label -->

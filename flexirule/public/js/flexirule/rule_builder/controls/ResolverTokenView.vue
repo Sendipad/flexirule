@@ -1,5 +1,8 @@
 <template>
-	<node-view-wrapper class="resolver-token-wrapper" :class="{ 'is-selected': selected }">
+	<node-view-wrapper
+		class="resolver-token-wrapper"
+		:class="{ 'is-selected': selected, 'is-invalid': isInvalid }"
+	>
 		<ValueResolverControl
 			viewMode="popover"
 			:modelValue="node.attrs.config"
@@ -13,9 +16,18 @@
 
 <script setup>
 import { nodeViewProps, NodeViewWrapper } from "@tiptap/vue-3";
+import { computed, inject } from "vue";
 import ValueResolverControl from "./ValueResolverControl.vue";
 
 const props = defineProps(nodeViewProps);
+
+const logicValidation = inject("logicValidation", null);
+const isInvalid = computed(() => {
+	if (!logicValidation || !logicValidation.showValidation) return false;
+	const key = props.node.attrs._key;
+	if (!key) return false;
+	return logicValidation.errors.some((e) => e._key === key);
+});
 
 const handleUpdate = (config, details) => {
 	// Directly update attributes with both config and details (label, expression)
@@ -37,5 +49,11 @@ const handleUpdate = (config, details) => {
 
 .resolver-token-wrapper.is-selected :deep(.fxr-token) {
 	outline: 2px solid var(--fxr-accent);
+}
+
+.resolver-token-wrapper.is-invalid :deep(.fxr-token) {
+	border-color: var(--fxr-text-danger) !important;
+	background-color: var(--fxr-bg-danger) !important;
+	box-shadow: 0 0 0 2px var(--fxr-bg-danger) !important;
 }
 </style>

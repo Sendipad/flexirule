@@ -1,10 +1,11 @@
 <template>
-	<div class="fxr-control" :class="{ 'no-label': hideLabel }">
+	<div class="fxr-control" :class="{ 'no-label': hideLabel, 'is-invalid': invalid }">
 		<div
 			class="fxr-input-group"
 			:class="{
 				'has-floating-label': df?.label && !hideLabel,
 				'has-value': modelValue !== undefined && modelValue !== null && modelValue !== '',
+				'is-invalid': invalid,
 			}"
 		>
 			<label v-if="df?.label && !hideLabel" class="fxr-label" :class="{ reqd: df.reqd }">
@@ -234,6 +235,7 @@ import { useAsyncOptionsSource } from "../composables/useAsyncOptionsSource";
 const props = defineProps({
 	modelValue: [String, Number, Object],
 	df: Object,
+	invalid: { type: Boolean, default: false },
 	options: { type: Array, default: () => [] },
 	get_query: Function,
 	doctype: String,
@@ -698,6 +700,46 @@ watch(
 	{ deep: true }
 );
 
+function validate() {
+	const val = props.modelValue;
+	const isEmpty =
+		val === undefined || val === null || val === "" || (Array.isArray(val) && val.length === 0);
+
+	// 1. Required Check
+	if (props.df?.reqd && isEmpty) {
+		return {
+			valid: false,
+			message: __("{0} is required").replace("{0}", props.df.label || __("Field")),
+		};
+	}
+
+	// 2. Option Awareness Check (only if not empty and custom values are not allowed)
+	if (!isEmpty && !props.allowCustomValue) {
+		const hasMatch = normalizedOptions.value.some((opt) => String(opt.value) === String(val));
+
+		if (!hasMatch) {
+			// If it's remote, we might still be loading or it might be a valid value not in the current page
+			// But for rule builder metadata (FieldPicker, DocField), we usually have all options.
+			if (!isRemote.value || (isRemote.value && !loading.value)) {
+				const label = props.df?.label || __("field");
+				const isPicker =
+					props.df?.fieldtype === "FieldPicker" || props.df?.fieldtype === "DocField";
+
+				return {
+					valid: false,
+					message: isPicker
+						? __("Please select a valid field for {0}").replace("{0}", label)
+						: __("Invalid value for {0}: {1}")
+								.replace("{0}", label)
+								.replace("{1}", val),
+				};
+			}
+		}
+	}
+
+	return { valid: true };
+}
+
 defineExpose({
 	focus: () => {
 		if (props.trigger === "button" && wrapperRef.value) {
@@ -707,6 +749,7 @@ defineExpose({
 			mainInputRef.value.focus();
 		}
 	},
+	validate,
 });
 
 onMounted(() => {
@@ -715,6 +758,20 @@ onMounted(() => {
 		runOptionFetch(query.value || "");
 	}
 });
+
+// Re-validate when options change or loading finishes to clear stale invalid flags
+watch(
+	() => [loading.value, normalizedOptions.value],
+	([newLoading], [oldLoading]) => {
+		if (oldLoading === true && newLoading === false) {
+			// Finished loading, trigger validation if we were already in an invalid state
+			if (props.invalid) {
+				emit("update:modelValue", props.modelValue);
+			}
+		}
+	},
+	{ deep: true }
+);
 
 onBeforeUnmount(() => {
 	document.removeEventListener("mousedown", handleClickOutside);

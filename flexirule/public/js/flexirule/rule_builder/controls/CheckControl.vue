@@ -1,15 +1,29 @@
 <script setup>
 import { ref, useSlots } from "vue";
-const props = defineProps(["df", "modelValue", "read_only", "hideLabel"]);
+const props = defineProps(["df", "modelValue", "read_only", "hideLabel", "invalid"]);
 defineEmits(["update:modelValue"]);
 let slots = useSlots();
 const showTooltip = ref(false);
+
+function validate() {
+	if (props.df?.reqd) {
+		if (!props.modelValue) {
+			return {
+				valid: false,
+				message: __("{0} is required").replace("{0}", props.df.label || __("Field")),
+			};
+		}
+	}
+	return { valid: true };
+}
+
+defineExpose({ validate });
 </script>
 
 <template>
 	<div
 		class="control fxr-control checkbox"
-		:class="{ editable: slots.label, 'no-label': hideLabel }"
+		:class="{ editable: slots.label, 'no-label': hideLabel, 'is-invalid': invalid }"
 		@mouseenter="showTooltip = true"
 		@mouseleave="showTooltip = false"
 		@focusin="showTooltip = true"

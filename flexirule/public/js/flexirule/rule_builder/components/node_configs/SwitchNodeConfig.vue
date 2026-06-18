@@ -1,14 +1,16 @@
 <template>
 	<div class="switch-node-config">
 		<div class="form-group">
-			<label>{{ __("Switch Expression (Python)") }}</label>
-			<textarea
-				class="form-control"
-				rows="2"
-				:value="getJsonConfig('expression')"
-				@input="$emit('update-json-config', 'expression', $event.target.value)"
-				placeholder="doc.category"
-			></textarea>
+			<TextControl
+				:df="{
+					label: __('Switch Expression (Python)'),
+					fieldtype: 'Small Text',
+					reqd: 1,
+					placeholder: 'doc.category',
+				}"
+				:modelValue="getJsonConfig('expression')"
+				@update:modelValue="$emit('update-json-config', 'expression', $event)"
+			/>
 		</div>
 
 		<div class="form-group">
@@ -31,21 +33,28 @@
 				</div>
 			</div>
 
-			<div class="add-case mt-2 p-2 border rounded">
-				<input
-					type="text"
-					class="form-control input-sm mb-1"
+			<div class="add-case mt-2 p-3 border rounded bg-light">
+				<div class="fxr-label-sm mb-2">{{ __("Add New Case") }}</div>
+				<DataControl
 					v-model="newCaseValue"
-					:placeholder="__('Value (e.g. \'Active\')')"
+					:df="{
+						label: __('Value'),
+						fieldtype: 'Data',
+						placeholder: __('e.g. \'Active\''),
+					}"
+					class="mb-2"
 				/>
-				<select class="form-control input-sm mb-1" v-model="newCaseTarget">
-					<option value="" disabled>{{ __("Select Target Node") }}</option>
-					<option v-for="node in availableNodes" :key="node.id" :value="node.id">
-						{{ node.label }}
-					</option>
-				</select>
+				<SelectControl
+					v-model="newCaseTarget"
+					:df="{
+						label: __('Target Node'),
+						fieldtype: 'Select',
+						options: availableNodes,
+					}"
+					class="mb-3"
+				/>
 				<button
-					class="btn btn-xs btn-default w-100"
+					class="fxr-btn fxr-btn--primary w-100 justify-content-center"
 					@click="addSwitchCase"
 					:disabled="!newCaseValue || !newCaseTarget"
 				>
@@ -58,6 +67,10 @@
 
 <script setup>
 import { computed, ref } from "vue";
+import DataControl from "../../controls/DataControl.vue";
+import SelectControl from "../../controls/SelectControl.vue";
+import TextControl from "../../controls/TextControl.vue";
+
 const props = defineProps({
 	nodeData: Object,
 	availableNodes: { type: Array, default: () => [] },

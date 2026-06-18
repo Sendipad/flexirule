@@ -65,6 +65,10 @@
 										: __("Always Run")
 								}}
 							</span>
+							<i
+								v-if="rowErrors[index]?.hasWhenError"
+								class="fa fa-exclamation-circle text-danger ms-2"
+							></i>
 						</button>
 					</div>
 				</div>
@@ -73,14 +77,15 @@
 				<div class="grid-col-target">
 					<ComboBoxControl
 						data-fxr-fieldname="assignments.target"
-						:df="{ fieldtype: 'FieldPicker', label: '' }"
+						:df="{ fieldtype: 'FieldPicker', label: '', reqd: 1 }"
 						:modelValue="assignment.target"
+						:invalid="rowErrors[index]?.hasTargetError"
+						:allowCustomValue="false"
 						:options="targetOptions"
 						:read_only="isReadOnly"
 						:hideLabel="true"
 						:trigger="'button'"
 						:placeholder="__('Target field/variable...')"
-						:allowCustomValue="false"
 						@update:modelValue="(val) => onTargetChange(index, val)"
 					/>
 				</div>
@@ -89,9 +94,11 @@
 				<div class="grid-col-operator">
 					<ComboBoxControl
 						data-fxr-fieldname="assignments.operator"
-						:df="{ fieldtype: 'Select', label: '' }"
+						:df="{ fieldtype: 'Select', label: '', reqd: 1 }"
+						:allowCustomValue="false"
 						:options="getAvailableOperators(assignment.target)"
 						:modelValue="assignment.operator"
+						:invalid="rowErrors[index]?.hasOperatorError"
 						:read_only="isReadOnly"
 						:hideLabel="true"
 						:trigger="'button'"
@@ -106,6 +113,12 @@
 							<FlexValueControl
 								class="flex-1 min-w-0"
 								data-fxr-fieldname="assignments.value"
+								:invalid="rowErrors[index]?.hasValueError"
+								:df="{
+									...(targetOptions.find((o) => o.value === assignment.target) ||
+										{}),
+									reqd: needsValue(assignment.operator) ? 1 : 0,
+								}"
 								:context="{
 									df:
 										targetOptions.find((o) => o.value === assignment.target) ||
@@ -217,6 +230,7 @@
 					</div>
 					<div class="condition-builder-wrap">
 						<ConditionBuilder
+							ref="whenBuilderRef"
 							:modelValue="whenEditor.draft"
 							:docFields="whenConditionDocFields"
 							:variableOptions="variable_options"
@@ -233,9 +247,9 @@
 						</button>
 						<button
 							class="fxr-btn fxr-btn--sm fxr-btn--secondary"
-							@click="closeWhenConditionEditor"
+							@click="applyAndCloseWhenEditor"
 						>
-							{{ __("Close") }}
+							{{ __("Done") }}
 						</button>
 					</div>
 				</div>
@@ -247,10 +261,12 @@
 <script setup>
 import { computed, watch, ref, onMounted, onBeforeUnmount } from "vue";
 import { fromCodeString } from "../../../utils/serialization";
+import { validateStructuredValue } from "../../../../core/builder_utils.js";
 import { useActionConfig } from "../../../composables/useActionConfig";
 import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
 import FlexValueControl from "../../../controls/FlexValueControl.vue";
 import ConditionBuilder from "../../condition_builder/ConditionBuilder.vue";
+import { validateConditions } from "../../condition_builder/condition_validator.js";
 import { compileSegmentsToJinja } from "../../../utils/text_generator";
 import { ASSIGNMENT_OPERATOR_METADATA } from "../../../../core/contracts.js";
 
@@ -275,6 +291,8 @@ const supportedTemplateModes = [
 	"add-key",
 ];
 const whenEditor = ref({ open: false, index: -1, draft: null });
+const whenBuilderRef = ref(null);
+const rowErrors = ref({});
 
 // ─── Operator Helpers ────────────────────────────────────────────────────────
 
@@ -573,6 +591,16 @@ function closeWhenConditionEditor() {
 	whenEditor.value = { open: false, index: -1, draft: null };
 }
 
+function applyAndCloseWhenEditor() {
+	if (whenBuilderRef.value) {
+		const result = whenBuilderRef.value.validate(false);
+		if (!result.valid) {
+			return; // Keep modal open and show errors
+		}
+	}
+	closeWhenConditionEditor();
+}
+
 function handleKeydown(e) {
 	if (e.key === "Escape" && whenEditor.value.open) {
 		e.preventDefault();
@@ -637,23 +665,62 @@ function updateTemplate(index, value) {
 
 function validate() {
 	const errors = [];
+	const newRowErrors = {};
+
 	assignments.value.forEach((a, idx) => {
 		const n = idx + 1;
-		if (!a.target) errors.push(__("Assignment #{0}: Target is required", [n]));
-		if (!a.operator) errors.push(__("Assignment #{0}: Operator is required", [n]));
+		const rowErr = {
+			hasTargetError: false,
+			hasOperatorError: false,
+			hasValueError: false,
+			hasWhenError: false,
+		};
+
+		if (!a.target) {
+			errors.push(__("Assignment #{0}: Target is required", [n]));
+			rowErr.hasTargetError = true;
+		}
+		if (!a.operator) {
+			errors.push(__("Assignment #{0}: Operator is required", [n]));
+			rowErr.hasOperatorError = true;
+		}
 		if (needsValue(a.operator)) {
-			const ui = a.value;
-			if (!ui || (!Array.isArray(ui.segments) && !ui.mode)) {
+			const val = a.value;
+			const structRes = validateStructuredValue(val);
+
+			if (!structRes.valid) {
 				errors.push(
 					__("Assignment #{0}: Value is required for operator '{1}'", [n, a.operator])
 				);
+				rowErr.hasValueError = true;
 			}
 		}
 		// Target path validation
 		if (a.target && !a.target.startsWith("doc.") && !a.target.startsWith("vars.")) {
 			errors.push(__("Assignment #{0}: Target must start with 'doc.' or 'vars.'", [n]));
+			rowErr.hasTargetError = true;
+		}
+
+		// Validate Run If condition
+		if (a.when_condition) {
+			const res = validateConditions(a.when_condition, true, false);
+			if (!res.valid) {
+				errors.push(__("Assignment #{0}: Run If condition is invalid", [n]));
+				rowErr.hasWhenError = true;
+			}
+		}
+
+		if (
+			rowErr.hasTargetError ||
+			rowErr.hasOperatorError ||
+			rowErr.hasValueError ||
+			rowErr.hasWhenError
+		) {
+			newRowErrors[idx] = rowErr;
 		}
 	});
+
+	rowErrors.value = newRowErrors;
 	return { valid: errors.length === 0, errors };
 }
 

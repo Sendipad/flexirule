@@ -6,6 +6,7 @@
 import ControlFactory from "../../controls/ControlFactory.vue";
 import FlexValueControl from "../../controls/FlexValueControl.vue";
 import ComboBoxControl from "../../controls/ComboBoxControl.vue";
+import SelectControl from "../../controls/SelectControl.vue";
 import { useMetaStore } from "../../stores/useMetaStore";
 import { inject, ref, computed, watch } from "vue";
 
@@ -23,6 +24,12 @@ const operatorConfig = inject(
 	"operatorConfig",
 	ref({ fieldtype_operators: {}, operator_labels: {} })
 );
+
+const validationState = inject("conditionValidation", null);
+const isInvalid = (field) => {
+	if (!validationState || !validationState.showValidation) return false;
+	return validationState.errors.some((e) => e.id === props.node.id && e.field === field);
+};
 
 const store = inject("store");
 const variableOptions = inject("variableOptions", ref([]));
@@ -51,6 +58,11 @@ const doctypeContextRefs = ["doctype", "rule.document_type", "caller.document_ty
 const isDoctypeContextField = computed(() =>
 	doctypeContextRefs.includes(selectedField.value?.value)
 );
+
+// Operators that don't need a value
+const valueNotRequired = ["is_set", "is_not_set", "is_submittable", "is_empty", "is_not_empty"];
+
+const isValueRequired = computed(() => !valueNotRequired.includes(props.node.op));
 
 // Available operators based on field type - backend-driven
 const operators = computed(() => {
@@ -302,8 +314,10 @@ watch(
 			<!-- Field -->
 			<div class="condition-col field-col">
 				<ComboBoxControl
-					:df="{ label: '', fieldtype: 'FieldPicker', read_only: readOnly }"
+					:df="{ label: '', fieldtype: 'FieldPicker', read_only: readOnly, reqd: 1 }"
 					v-model="node.left.ref"
+					:invalid="isInvalid('left')"
+					:allowCustomValue="false"
 					:options="docFields"
 					:read_only="readOnly"
 					:trigger="'button'"
@@ -316,11 +330,20 @@ watch(
 
 			<!-- Operator -->
 			<div class="condition-col operator-col">
-				<select v-model="node.op" class="fxr-select operator-select" :disabled="readOnly">
-					<option v-for="op in operators" :key="op.value" :value="op.value">
-						{{ op.label }}
-					</option>
-				</select>
+				<SelectControl
+					v-model="node.op"
+					:df="{
+						label: '',
+						fieldtype: 'Select',
+						options: operators,
+						reqd: 1,
+						read_only: readOnly,
+					}"
+					:invalid="isInvalid('op')"
+					:read_only="readOnly"
+					:hideLabel="true"
+					class="m-0"
+				/>
 			</div>
 
 			<!-- Value Group -->
@@ -356,6 +379,8 @@ watch(
 					<FlexValueControl
 						:key="valueControlKey"
 						v-model="wrappedValue"
+						:invalid="isInvalid('right')"
+						:df="{ ...valueFieldSchema, reqd: isValueRequired ? 1 : 0 }"
 						:context="{
 							df: valueFieldSchema,
 							operator: node.op,
