@@ -19,7 +19,7 @@
 				<VueFlow
 					:dir="isRTL ? 'rtl' : 'ltr'"
 					:edges-editable="false"
-					v-model:nodes="graphStore.nodes"
+					:nodes="projectedNodes"
 					v-model:edges="graphStore.edges"
 					:default-viewport="{ zoom: 1 }"
 					:min-zoom="0.1"
@@ -232,6 +232,7 @@ import { useUIStore } from "./stores/useUIStore";
 import { useMetaStore } from "./stores/useMetaStore";
 
 import { useRuleGraph } from "./composables/useRuleGraph";
+import { projectGraph } from "./utils/layout_transformer";
 import { useClipboard } from "./composables/useClipboard";
 import { useKeyboardRegistry } from "./composables/useKeyboardRegistry";
 import { isTerminalAction } from "../core/contracts";
@@ -267,6 +268,14 @@ const metaStore = useMetaStore();
 
 const { zoomIn, zoomOut, removeEdges, fitView } = useVueFlow();
 const { layoutGraph } = useRuleGraph();
+
+const projectedNodes = computed(() => {
+	if (!uiStore.visual_layout_direction) return graphStore.nodes;
+	return projectGraph(graphStore.nodes, graphStore.edges, uiStore.visual_layout_direction);
+});
+
+const isCosmetic = computed(() => !!uiStore.visual_layout_direction);
+
 const { copySelectedToClipboard, pasteFromClipboard } = useClipboard();
 const { registerShortcut, pushContext, popContext } = useKeyboardRegistry();
 const showQuickActions = ref(false);
@@ -296,6 +305,11 @@ const quickActionItems = computed(() => [
 	},
 	{ key: "shortcuts", label: __("Keyboard shortcuts"), icon: "fa-keyboard-o" },
 	{ key: "layout", label: __("Auto Layout"), icon: "fa-sitemap" },
+	{
+		key: "toggle_direction",
+		label: uiStore.visual_layout_direction === "LR" ? __("View Vertical") : __("View Horizontal"),
+		icon: "fa-exchange",
+	},
 	{ key: "permissions", label: __("Set Permission"), icon: "fa-shield" },
 	{ key: "copy", label: __("Copy"), icon: "fa-copy", shortcut: "Ctrl C" },
 	{
@@ -410,6 +424,7 @@ function runQuickAction(item) {
 		status: () => toggleRuleAccess(),
 		shortcuts: () => (uiStore.show_shortcuts_help = true),
 		layout: () => runAutoLayout(),
+		toggle_direction: () => toggleLayoutDirection(),
 		permissions: () => openPermissionsSettings(),
 		copy: () => copySelectedToClipboard(),
 		disabled_nodes: () => (showDisabledNodes.value = !showDisabledNodes.value),
@@ -417,6 +432,17 @@ function runQuickAction(item) {
 	};
 	actions[item.key]?.();
 	closeQuickActions();
+}
+
+function toggleLayoutDirection() {
+	if (uiStore.visual_layout_direction === "LR") {
+		uiStore.visual_layout_direction = null;
+	} else {
+		uiStore.visual_layout_direction = "LR";
+	}
+	nextTick(() => {
+		setTimeout(() => fitView({ duration: 400 }), 50);
+	});
 }
 
 function handleQuickActionsKeydown(e) {
@@ -783,6 +809,21 @@ function onConnect(params) {
 }
 
 function onNodesChange(changes) {
+	if (isCosmetic.value) {
+		// Ignore position updates in cosmetic mode to prevent Pinia mutation
+		return;
+	}
+
+	// Internal VueFlow updates for manual v-model (since we removed v-model:nodes)
+	changes.forEach((change) => {
+		if (change.type === "position" && change.position) {
+			const node = graphStore.nodes.find((n) => n.id === change.id);
+			if (node) {
+				node.position = change.position;
+			}
+		}
+	});
+
 	const hasDrag = changes.some((c) => c.type === "position" && c.dragging === false);
 	if (hasDrag) ruleStore.mark_position_change();
 }
