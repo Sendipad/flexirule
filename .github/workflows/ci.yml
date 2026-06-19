@@ -119,9 +119,12 @@ jobs:
               working-directory: /home/runner/frappe-bench
               run: |
                   set -o pipefail
-                  bench build --app flexirule --production 2>&1 | tee build_output.log
-                  if grep -qiE "ERROR|Build failed" build_output.log; then
-                    echo "::error::Build failed detected in logs!"
+                  # Fail early if there are unimported components or syntax errors in Vue files
+                  CI=Yes bench build --app flexirule --production 2>&1 | tee build_output.log
+
+                  # Check for esbuild errors which bench might swallow
+                  if grep -qiE "error:|Build failed|Aborted" build_output.log; then
+                    echo "::error::Critical build error detected in logs!"
                     exit 1
                   fi
               env:
