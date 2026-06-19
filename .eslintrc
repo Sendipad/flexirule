@@ -10,8 +10,36 @@
 		"sourceType": "module",
 		"requireConfigFile": false
 	},
-	"extends": "eslint:recommended",
+	"extends": [
+		"eslint:recommended",
+		"plugin:vue/vue3-essential"
+	],
 	"rules": {
+		"vue/no-mutating-props": "off",
+		"vue/no-undef-components": [
+			"error",
+			{
+				"ignorePatterns": [
+					"ComboBoxControl",
+					"FlexiGrid",
+					"DataControl",
+					"SelectControl",
+					"CheckControl",
+					"TextControl",
+					"CodeControl",
+					"InlineTableControl",
+					"MultiSelectList",
+					"PercentSliderControl",
+					"FlexValueControl",
+					"TextGeneratorControl",
+					"TimePickerControl",
+					"ResourceMapperControl",
+					"CollapsibleSection"
+				]
+			}
+		],
+		"vue/multi-word-component-names": "off",
+		"vue/no-side-effects-in-computed-properties": "off",
 		"indent": "off",
 		"brace-style": "off",
 		"no-mixed-spaces-and-tabs": "off",

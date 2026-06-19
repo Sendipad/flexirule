@@ -2,13 +2,13 @@ import { createApp, watch } from "vue";
 import { createPinia } from "pinia";
 
 // Import FlexiRule Utilities
-import "../utils/utils.js";
-import "../utils/patches.js";
-import "../core/ProcessConfigurator.js";
-import { useRuleStore } from "./stores/useRuleStore";
-import { useUIStore } from "./stores/useUIStore";
-import RuleBuilderComponent from "./App.vue";
-import { registerGlobalComponents } from "./globals.js";
+import "./flexirule/utils/utils.js";
+import "./flexirule/utils/patches.js";
+import "./flexirule/core/ProcessConfigurator.js";
+import { useRuleStore } from "./flexirule/rule_builder/stores/useRuleStore";
+import { useUIStore } from "./flexirule/rule_builder/stores/useUIStore";
+import RuleBuilderComponent from "./flexirule/rule_builder/App.vue";
+import { registerGlobalComponents } from "./flexirule/rule_builder/globals.js";
 
 class RuleBuilder {
 	constructor({ wrapper, page, rule }) {
