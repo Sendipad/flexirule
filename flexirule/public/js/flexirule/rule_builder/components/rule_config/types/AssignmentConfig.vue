@@ -81,7 +81,7 @@
 				<!-- Target ComboBox with Type Badge support -->
 				<div class="grid-col-target">
 					<ComboBoxControl
-						data-fxr-fieldname="assignments.target"
+						fieldname="assignments.target"
 						:df="{ fieldtype: 'FieldPicker', label: '', reqd: 1 }"
 						:modelValue="assignment.target"
 						:options="targetOptions"
@@ -98,7 +98,7 @@
 				<!-- Operator Selector -->
 				<div class="grid-col-operator">
 					<ComboBoxControl
-						data-fxr-fieldname="assignments.operator"
+						fieldname="assignments.operator"
 						:df="{ fieldtype: 'Select', label: '', reqd: 1 }"
 						:options="getAvailableOperators(assignment.target)"
 						:modelValue="assignment.operator"
@@ -116,7 +116,7 @@
 						<div class="value-mode-wrap">
 							<FlexValueControl
 								class="flex-1 min-w-0"
-								data-fxr-fieldname="assignments.value"
+								fieldname="assignments.value"
 								:context="{
 									df: {
 										...(targetOptions.find(
