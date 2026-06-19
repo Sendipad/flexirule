@@ -6,7 +6,8 @@ cd ~ || exit
 
 # Install dependencies
 sudo apt-get update
-sudo apt-get install -y libcups2-dev redis-server mariadb-client libmariadb-dev
+# Remove redis-server from here as it's provided by CI services and might conflict
+sudo apt-get install -y libcups2-dev mariadb-client libmariadb-dev
 
 pip install frappe-bench
 
@@ -15,7 +16,22 @@ pip install frappe-bench
 frappebranch="version-15"
 frappeuser="frappe"
 
-git clone "https://github.com/${frappeuser}/frappe" --branch "${frappebranch}" --depth 1
+# Add retries for git clone to handle transient network issues
+MAX_RETRIES=5
+RETRY_COUNT=0
+until [ $RETRY_COUNT -ge $MAX_RETRIES ]
+do
+   git clone "https://github.com/${frappeuser}/frappe" --branch "${frappebranch}" --depth 1 && break
+   RETRY_COUNT=$((RETRY_COUNT+1))
+   echo "Clone failed, retrying in 5s... ($RETRY_COUNT/$MAX_RETRIES)"
+   sleep 5
+done
+
+if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
+  echo "Failed to clone frappe after $MAX_RETRIES attempts."
+  exit 1
+fi
+
 bench init --skip-assets --skip-redis-config-generation --frappe-path ~/frappe --python "$(which python)" frappe-bench
 
 # Manual Database Setup
