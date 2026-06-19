@@ -21,6 +21,10 @@ export const useUIStore = defineStore("rule-builder-ui", () => {
 	const use_modern_layout = ref(true); // Enable unified layout by default
 	const show_shortcuts_help = ref(false);
 
+	// ── Cosmetic View State ──
+	const visual_layout_direction = ref(null); // 'TB' or 'LR'
+	const is_layout_transitioning = ref(false);
+
 	// ── Test Execution Visualization ──
 	const test_execution_path = ref([]);
 	const test_context = ref({});
@@ -41,9 +45,17 @@ export const useUIStore = defineStore("rule-builder-ui", () => {
 		() => Array.isArray(test_execution_path.value) && test_execution_path.value.length > 0
 	);
 
+	const is_cosmetic_layout = computed(() => {
+		return visual_layout_direction.value !== null;
+	});
+
 	// ── Actions ──
 	function select(nodeId) {
 		selected_id.value = nodeId;
+	}
+
+	function set_visual_layout(direction) {
+		visual_layout_direction.value = direction;
 	}
 
 	function deselect() {
@@ -185,13 +197,17 @@ export const useUIStore = defineStore("rule-builder-ui", () => {
 		local_clipboard,
 		test_multi_results,
 		test_current_multi_index,
+		visual_layout_direction,
+		is_layout_transitioning,
 
 		// Computed
 		has_selection,
 		has_test_path,
+		is_cosmetic_layout,
 
 		// Actions
 		select,
+		set_visual_layout,
 		deselect,
 		open_config_modal,
 		close_config_modal,

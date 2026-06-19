@@ -7,14 +7,25 @@ import { useNodeExecutionState } from "../../composables/useNodeExecutionState";
 import NodeToolbar from "./NodeToolbar.vue";
 import InlineEditor from "./InlineEditor.vue";
 
-const props = defineProps(["data", "label", "id", "selected", "sourcePosition", "targetPosition"]);
+const props = defineProps([
+	"data",
+	"label",
+	"id",
+	"selected",
+	"sourcePosition",
+	"targetPosition",
+	"isHorizontal",
+]);
 const ruleStore = useRuleStore();
 const graphStore = useGraphStore();
 const uiStore = useUIStore();
 // Legacy
 const store = uiStore;
 
-const isHorizontal = computed(() => ruleStore.settings?.layout_direction !== "Top to Bottom");
+const isHorizontal = computed(() => {
+	if (props.isHorizontal !== undefined) return props.isHorizontal;
+	return ruleStore.settings?.layout_direction !== "Top to Bottom";
+});
 
 const targetPos = computed(
 	() => props.targetPosition || (isHorizontal.value ? Position.Left : Position.Top)

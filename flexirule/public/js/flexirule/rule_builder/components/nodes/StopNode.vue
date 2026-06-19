@@ -6,10 +6,13 @@ import { useNodeExecutionState } from "../../composables/useNodeExecutionState";
 import NodeToolbar from "./NodeToolbar.vue";
 import InlineEditor from "./InlineEditor.vue";
 
-const props = defineProps(["data", "label", "id", "selected", "targetPosition"]);
+const props = defineProps(["data", "label", "id", "selected", "targetPosition", "isHorizontal"]);
 const store = useStore();
 
-const isHorizontal = computed(() => store.settings?.layout_direction !== "Top to Bottom");
+const isHorizontal = computed(() => {
+	if (props.isHorizontal !== undefined) return props.isHorizontal;
+	return store.settings?.layout_direction !== "Top to Bottom";
+});
 const targetPos = computed(
 	() => props.targetPosition || (isHorizontal.value ? Position.Left : Position.Top)
 );
