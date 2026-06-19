@@ -372,13 +372,10 @@ watch(
 	],
 	() => {
 		if (!props.node?.data) return;
-		let changed = applyOutputPolicyDefaults(props.node.data, {
+		applyOutputPolicyDefaults(props.node.data, {
 			parent: store.rule_doc || {},
 			preserveUserChoices: true,
 		});
-		if (changed) {
-			store.mark_dirty();
-		}
 	},
 	{ immediate: true }
 );
@@ -404,11 +401,6 @@ function updateField(fieldname, value) {
 	if (props.node.data) {
 		if (props.node.data[fieldname] === value) return;
 		props.node.data[fieldname] = value;
-
-		const isDraft = !store.nodes.some((n) => n === props.node);
-		if (!isDraft) {
-			store.mark_dirty();
-		}
 	}
 }
 
@@ -440,11 +432,6 @@ function updateConfigKey(key, value) {
 	}
 
 	props.node.data.config = nextConfig;
-
-	const isDraft = !store.nodes.some((n) => n === props.node);
-	if (!isDraft) {
-		store.mark_dirty();
-	}
 }
 
 async function refreshVariables() {
@@ -496,7 +483,6 @@ watch(
 				parent: store.rule_doc || {},
 				preserveUserChoices: false,
 			});
-			store.mark_dirty();
 		}
 	}
 );

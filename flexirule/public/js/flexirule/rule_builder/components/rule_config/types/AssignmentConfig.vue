@@ -412,8 +412,10 @@ watch(
 	(val) => {
 		let parsed = typeof val === "string" ? fromCodeString(val, []) : val || [];
 
-		parsed = parsed.map((a) => {
-			const name = a.name || makeRandomString(9);
+		parsed = parsed.map((a, idx) => {
+			// Persistent name within the draft session: use index if name is missing
+			// to avoid random strings triggering dirty state on every re-render.
+			const name = a.name || assignments.value[idx]?.name || makeRandomString(9);
 			let structuredVal = null;
 			if (a.value && typeof a.value === "object" && a.value.mode) {
 				structuredVal = a.value;
@@ -511,11 +513,6 @@ function syncToNode() {
 	}));
 	// Standard: update_action_field handles 'config' as Object
 	update_action_field("config", clean);
-
-	const isDraft = !store.nodes.some((n) => n === props.node);
-	if (!isDraft) {
-		store.mark_dirty();
-	}
 }
 
 function addAssignment() {

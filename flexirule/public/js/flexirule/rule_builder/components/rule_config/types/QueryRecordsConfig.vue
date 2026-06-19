@@ -828,7 +828,6 @@ async function update_resolved_schema_local() {
 		}
 
 		props.node.data.resolved_output_schema = schema;
-		store.mark_dirty();
 	} else if (mode.value === "Query Report" && props.node?.data?.reference_docname) {
 		await update_report_columns();
 	}
@@ -874,7 +873,6 @@ async function update_report_columns() {
 				};
 			});
 			props.node.data.resolved_output_schema = schema;
-			store.mark_dirty();
 		}
 	} catch (e) {
 		console.warn("Failed to update report columns", e);
@@ -1258,11 +1256,6 @@ async function test_query() {
 		if (res.message) {
 			props.node.data.resolved_output_schema = res.message.schema || [];
 			test_status.value = __("Success");
-
-			const isDraft = !store.nodes.some((n) => n === props.node);
-			if (!isDraft) {
-				store.mark_dirty();
-			}
 		}
 	} catch (e) {
 		test_status.value = __("Failed");
@@ -1288,11 +1281,6 @@ const debounced_schema_update = flexirule.utils.debounce(async function update_r
 			const next = JSON.stringify(res.message.schema || []);
 			if (current !== next) {
 				props.node.data.resolved_output_schema = res.message.schema;
-
-				const isDraft = !store.nodes.some((n) => n === props.node);
-				if (!isDraft) {
-					store.mark_dirty();
-				}
 			}
 		}
 	} catch (e) {

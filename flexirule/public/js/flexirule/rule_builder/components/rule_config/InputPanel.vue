@@ -792,16 +792,10 @@ function updateField(fieldname, value) {
 			value !== forcedReferenceDoctype.value
 		) {
 			props.node.data.reference_doctype = forcedReferenceDoctype.value;
-
-			const isDraft = !store.nodes.some((n) => n === props.node);
-			if (!isDraft) store.mark_dirty();
 			return;
 		}
 
 		props.node.data[fieldname] = value;
-
-		const isDraft = !store.nodes.some((n) => n === props.node);
-		if (!isDraft) store.mark_dirty();
 	}
 }
 
@@ -810,21 +804,16 @@ function ensureActionDefaults() {
 	const actionType = props.node.data.action_type;
 	const currentRuleDoctype = store.rule_doc?.document_type || "";
 
-	const isDraft = !store.nodes.some((n) => n === props.node);
-
 	if (actionType === "Query Records") {
 		if (!props.node.data.operation) {
 			props.node.data.operation = "Query List";
-			if (!isDraft) store.mark_dirty();
 		}
 		if (props.node.data.operation === "Query Report") {
 			if (props.node.data.reference_doctype !== "Report") {
 				props.node.data.reference_doctype = "Report";
-				if (!isDraft) store.mark_dirty();
 			}
 		} else if (!props.node.data.reference_doctype && currentRuleDoctype) {
 			props.node.data.reference_doctype = currentRuleDoctype;
-			if (!isDraft) store.mark_dirty();
 		}
 	}
 
@@ -835,7 +824,6 @@ function ensureActionDefaults() {
 		currentRuleDoctype
 	) {
 		props.node.data.reference_doctype = currentRuleDoctype;
-		if (!isDraft) store.mark_dirty();
 	}
 }
 
@@ -847,7 +835,6 @@ watch(
 		const opOptions = getOperationOptions(actionType, { processName }).map((opt) => opt.value);
 		if (props.node.data.operation && !opOptions.includes(props.node.data.operation)) {
 			props.node.data.operation = null;
-			store.mark_dirty();
 		}
 	}
 );
@@ -874,7 +861,6 @@ watch(
 		if (!props.node?.data || !value) return;
 		if (props.node.data.reference_doctype !== value) {
 			props.node.data.reference_doctype = value;
-			store.mark_dirty();
 		}
 	}
 );

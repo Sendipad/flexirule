@@ -245,13 +245,11 @@ function resolveId(labelOrId) {
 function onSelectPrimary(val) {
 	const id = resolveId(val);
 	emit_field("next_step_if_true", id);
-	store.reconnect_node_edge?.(props.node?.id, "true", id);
 }
 
 function onSelectSecondary(val) {
 	const id = resolveId(val);
 	emit_field("next_step_if_false", id);
-	store.reconnect_node_edge?.(props.node?.id, "false", id);
 }
 </script>
 

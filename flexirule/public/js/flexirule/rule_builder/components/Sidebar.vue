@@ -136,6 +136,8 @@ const isConfigurable = computed(() => {
 
 function update_start_field(fieldname, value) {
 	if (!selectedNode.value?.data) return;
+	if (selectedNode.value.data[fieldname] === value) return;
+
 	selectedNode.value.data[fieldname] = value;
 	graphStore.touch_node(selectedNode.value.id);
 	ruleStore.mark_dirty();
@@ -143,6 +145,9 @@ function update_start_field(fieldname, value) {
 
 function update_action_field(fieldname, value) {
 	if (!selectedNode.value?.data) return;
+
+	const oldValue = selectedNode.value.data[fieldname];
+	if (oldValue === value) return;
 
 	// Special handling for certain fields
 	if (fieldname === "action_label") {
@@ -155,30 +160,25 @@ function update_action_field(fieldname, value) {
 	}
 
 	// Handle process_name change - reset operation
-	if (fieldname === "process_name" && selectedNode.value.data.process_name !== value) {
+	if (fieldname === "process_name" && oldValue !== value) {
 		selectedNode.value.data.operation = null;
 		selectedNode.value.data.config = null;
 	}
 
 	// Handle operation change - reset config
-	if (fieldname === "operation" && selectedNode.value.data.operation !== value) {
+	if (fieldname === "operation" && oldValue !== value) {
 		selectedNode.value.data.config = null;
 	}
 
 	// Handle action_type change - update node type
-	if (fieldname === "action_type" && selectedNode.value.data.action_type !== value) {
+	if (fieldname === "action_type" && oldValue !== value) {
 		selectedNode.value.type = map_action_type(value);
 	}
 
-	const oldValue = selectedNode.value.data[fieldname];
 	selectedNode.value.data[fieldname] = value;
 
 	// Support nested nodes natively when mapped
-	if (
-		fieldname === "rule" &&
-		selectedNode.value.data.action_type === "Sub-Rule" &&
-		oldValue !== value
-	) {
+	if (fieldname === "rule" && selectedNode.value.data.action_type === "Sub-Rule") {
 		// store.expand_sub_rule_in_graph removed per user request
 	}
 

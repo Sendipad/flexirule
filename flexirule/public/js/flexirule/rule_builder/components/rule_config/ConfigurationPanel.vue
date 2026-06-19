@@ -137,12 +137,6 @@ function on_update_field(fieldname, value) {
 	if (props.node.data[fieldname] === value) return;
 
 	props.node.data[fieldname] = value;
-
-	// Check if this node is part of the global graph or a local draft
-	const isDraft = !store.nodes.some((n) => n === props.node);
-	if (!isDraft) {
-		store.mark_dirty();
-	}
 }
 
 async function validate() {

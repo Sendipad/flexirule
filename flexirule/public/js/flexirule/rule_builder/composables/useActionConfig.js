@@ -152,7 +152,11 @@ export function useActionConfig(props, options = {}) {
 			// Explicitly store as Object
 			props.node.data.config =
 				typeof new_config === "string" ? fromCodeString(new_config) : new_config;
-			store.mark_dirty();
+
+			const isDraft = !store.nodes.some((n) => n === props.node);
+			if (!props.readOnly && !isDraft) {
+				store.mark_dirty();
+			}
 		}
 	}
 

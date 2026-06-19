@@ -100,7 +100,10 @@ watch(
 function updateReturnVariable(val) {
 	if (props.node?.data) {
 		props.node.data.return_variable = val;
-		store.mark_dirty();
+		const isDraft = !store.nodes.some((n) => n === props.node);
+		if (!isDraft) {
+			store.mark_dirty();
+		}
 	}
 }
 

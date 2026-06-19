@@ -343,15 +343,11 @@
 															class="integrated-settings-bar"
 															v-if="showSettingsBar"
 														>
-															<ActionFieldProperties
-																:nodeData="draftNode.data"
+															<ActionSettings
+																:node="draftNode"
 																:readOnly="ruleStore.is_read_only"
 																@update:field="
 																	on_update_action_field
-																"
-																@open:conditions="
-																	uiStore.config_modal_mode =
-																		'logic'
 																"
 															/>
 														</div>
@@ -506,15 +502,11 @@
 															class="integrated-settings-bar"
 															v-if="showSettingsBar"
 														>
-															<ActionFieldProperties
-																:nodeData="draftNode.data"
+															<ActionSettings
+																:node="draftNode"
 																:readOnly="ruleStore.is_read_only"
 																@update:field="
 																	on_update_action_field
-																"
-																@open:conditions="
-																	uiStore.config_modal_mode =
-																		'logic'
 																"
 															/>
 														</div>
@@ -569,7 +561,7 @@ import { ref, computed, watch, onMounted, onUnmounted, nextTick } from "vue";
 import InputPanel from "./InputPanel.vue";
 import ConfigurationPanel from "./ConfigurationPanel.vue";
 import OutputPanel from "./OutputPanel.vue";
-import ActionFieldProperties from "../ActionFieldProperties.vue";
+import ActionSettings from "./ActionSettings.vue";
 import ConditionStep from "./types/ConditionStep.vue";
 import StartNodeProperties from "../StartNodeProperties.vue";
 import { useRuleStore, useGraphStore, useUIStore } from "../../stores";
@@ -676,7 +668,7 @@ const compactOutputRef = ref(null);
 // -- Sidebar / Slide States --
 const showContextSidebar = ref(false);
 const showGuideSidebar = ref(false);
-const showSettingsBar = ref(false);
+const showSettingsBar = ref(true);
 const collapseInputPanel = ref(false);
 const collapseOutputPanel = ref(false);
 
@@ -856,11 +848,9 @@ function on_update_action_field(payload, maybeValue) {
 			nextConfig[fieldname] = value;
 		}
 		draftNode.value.data.config = nextConfig;
-		ruleStore.mark_dirty();
 		return;
 	}
 	draftNode.value.data[fieldname] = value;
-	ruleStore.mark_dirty();
 }
 
 function markCompactTabRendered(tabKey) {
