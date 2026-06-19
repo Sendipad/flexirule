@@ -3,6 +3,7 @@
 		<div class="config-section section-card">
 			<div class="form-group mb-3">
 				<ControlFactory
+					ref="controlRefs"
 					:df="with_read_only(errorTypeField)"
 					:modelValue="config.error_type || 'Validation Error'"
 					:showValidation="showValidation"
@@ -12,6 +13,7 @@
 
 			<div class="form-group mb-3">
 				<ControlFactory
+					ref="controlRefs"
 					:df="with_read_only(errorTitleField)"
 					:modelValue="config.error_title"
 					:showValidation="showValidation"
@@ -21,6 +23,7 @@
 
 			<div class="form-group mb-3">
 				<ControlFactory
+					ref="controlRefs"
 					:df="with_read_only(errorCodeField)"
 					:modelValue="config.error_code"
 					:showValidation="showValidation"
@@ -30,6 +33,7 @@
 
 			<div class="form-group mb-3">
 				<ControlFactory
+					ref="controlRefs"
 					:df="with_read_only(textGeneratorField)"
 					:modelValue="config.text_generator_ui"
 					:showValidation="showValidation"
@@ -41,7 +45,7 @@
 </template>
 
 <script setup>
-import { computed, watch, ref } from "vue";
+import { computed, watch, ref, onBeforeUpdate } from "vue";
 import { fromCodeString } from "../../../utils/serialization";
 import { useActionConfig } from "../../../composables/useActionConfig";
 import ControlFactory from "../../../controls/ControlFactory.vue";
@@ -55,6 +59,11 @@ const props = defineProps({
 });
 
 const showValidation = ref(false);
+const controlRefs = ref([]);
+
+onBeforeUpdate(() => {
+	controlRefs.value = [];
+});
 
 const { config, variable_options, with_read_only, sync_config, update_action_field, store } =
 	useActionConfig(props);
@@ -164,19 +173,28 @@ watch(
 	{ immediate: true, deep: true }
 );
 
-function validate() {
+async function validate() {
 	showValidation.value = true;
 	const errors = [];
-	const ui = config.text_generator_ui;
-	if (
-		valueTemplateState.value.reqd &&
-		(!ui || !Array.isArray(ui.segments) || !ui.segments.length)
-	) {
-		errors.push(__("Error message is required"));
-	}
+
+	// 1. Core Control Validation (Aggregated)
+	const results = await Promise.all(
+		(controlRefs.value || []).map((ref) => {
+			if (ref && typeof ref.validate === "function") {
+				return ref.validate();
+			}
+			return { valid: true };
+		})
+	);
+	results.forEach((res) => {
+		if (!res.valid && res.errors) errors.push(...res.errors);
+	});
+
+	// 2. Logic-based Validation
 	if (valueTemplateState.value.reqd && !props.node?.data?.value_template) {
 		errors.push(__("Error message template is required"));
 	}
+
 	return { valid: errors.length === 0, errors };
 }
 
