@@ -23,6 +23,8 @@ export MARIADB_ROOT_PASSWORD=${MARIADB_ROOT_PASSWORD:-"mariadb_root_password"}
 export CI=Yes
 # ==============================================================================
 
+echo "Starting environment setup for FlexiRule..."
+
 # 2. System Package Setup
 sudo apt update
 sudo apt remove -y mysql-server mysql-client || true
@@ -34,6 +36,7 @@ sudo service mariadb start
 
 # Ensure additional Redis instances for Frappe (Queue and Cache)
 # These are required by Frappe version 15+ in CI environments
+echo "Starting additional Redis instances..."
 /usr/bin/redis-server --port 11000 --daemonize yes
 /usr/bin/redis-server --port 13000 --daemonize yes
 
@@ -44,14 +47,17 @@ pip install frappe-bench
 
 # 5. Initialize Core Frappe Framework
 if [ ! -d "frappe" ]; then
+    echo "Cloning Frappe..."
     git clone "https://github.com/${FRAPPE_USER}/frappe" --branch "${FRAPPE_BRANCH}" --depth 1 ~/frappe
 fi
 
 if [ ! -d "frappe-bench" ]; then
+    echo "Initializing Bench..."
     bench init --skip-assets --frappe-path ~/frappe --python "$(which python3)" frappe-bench
 fi
 
 # 6. Configure MariaDB Database, Users, and Collations
+echo "Configuring MariaDB..."
 # First, ensure we can log in to reset the password if needed
 sudo mariadb -u root -e "ALTER USER 'root'@'localhost' IDENTIFIED VIA mysql_native_password USING PASSWORD('');" || true
 
@@ -79,6 +85,7 @@ bench set-config -g mariadb_root_password "${MARIADB_ROOT_PASSWORD}"
 # ==============================================================================
 # 8. Link and Configure FlexiRule from /app Context
 # ==============================================================================
+echo "Linking FlexiRule app..."
 # Symlink and register via pip directly to bypass the bench url-parsing bug
 if [ ! -d "apps/flexirule" ]; then
     ln -s "${GITHUB_WORKSPACE}" ~/frappe-bench/apps/flexirule
@@ -96,10 +103,17 @@ bench setup requirements --dev
 # ==============================================================================
 
 # 9. Create Site and Install App
-# Note: reinstall is used to ensure a fresh database state
+echo "Creating site and installing app..."
 bench new-site test_site --mariadb-root-password "${MARIADB_ROOT_PASSWORD}" --admin-password admin --force
 bench --site test_site install-app flexirule
 
-# 10. Run Tests
+# 10. Build Assets
+echo "Building assets..."
+bench build --app flexirule
+
+# 11. Run Tests
+echo "Running tests..."
 bench --site test_site set-config allow_tests true
 bench --site test_site run-tests --app flexirule
+
+echo "Setup and testing completed successfully!"

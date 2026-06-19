@@ -3,6 +3,7 @@ import "./flexirule/utils/variable_validator.js";
 import "./flexirule/utils/patches.js";
 import "./flexirule/core/ProcessConfigurator.js";
 import * as contracts from "./flexirule/core/contracts.js";
+import "./flexirule/rule_builder/rule_builder.js";
 
 frappe.provide("flexirule");
 flexirule.contracts = contracts;
