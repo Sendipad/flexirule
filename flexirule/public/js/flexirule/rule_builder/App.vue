@@ -307,7 +307,8 @@ const quickActionItems = computed(() => [
 	{ key: "layout", label: __("Auto Layout"), icon: "fa-sitemap" },
 	{
 		key: "toggle_direction",
-		label: uiStore.visual_layout_direction === "LR" ? __("View Vertical") : __("View Horizontal"),
+		label:
+			uiStore.visual_layout_direction === "LR" ? __("View Vertical") : __("View Horizontal"),
 		icon: "fa-exchange",
 	},
 	{ key: "permissions", label: __("Set Permission"), icon: "fa-shield" },

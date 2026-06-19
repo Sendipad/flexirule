@@ -6,14 +6,7 @@ import { useNodeExecutionState } from "../../composables/useNodeExecutionState";
 import NodeToolbar from "./NodeToolbar.vue";
 import InlineEditor from "./InlineEditor.vue";
 
-const props = defineProps([
-	"data",
-	"label",
-	"id",
-	"selected",
-	"targetPosition",
-	"isHorizontal",
-]);
+const props = defineProps(["data", "label", "id", "selected", "targetPosition", "isHorizontal"]);
 const store = useStore();
 
 const isHorizontal = computed(() => {
@@ -133,7 +126,9 @@ function openConfig() {
 }
 
 .stop-node-card.selected {
-	box-shadow: 0 0 0 2px var(--fxr-bg-card), 0 0 0 4px #dc3545;
+	box-shadow:
+		0 0 0 2px var(--fxr-bg-card),
+		0 0 0 4px #dc3545;
 }
 
 .stop-node-card.executed {

@@ -54,8 +54,8 @@ export function projectGraph(nodes, edges, direction = "TB") {
 					? "top"
 					: "left"
 				: isHorizontal
-				? "right"
-				: "bottom",
+					? "right"
+					: "bottom",
 			targetPosition: isHorizontal ? "left" : "top",
 		};
 	});
@@ -71,8 +71,12 @@ function identifyLoopReturnNodes(nodes, edges) {
 
 	const loopBodyMap = new Map();
 	loopNodes.forEach((loopNode) => {
-		const bodyEntryEdge = edges.find((e) => e.source === loopNode.id && e.sourceHandle === "default");
-		const afterLastEdge = edges.find((e) => e.source === loopNode.id && e.sourceHandle === "false");
+		const bodyEntryEdge = edges.find(
+			(e) => e.source === loopNode.id && e.sourceHandle === "default"
+		);
+		const afterLastEdge = edges.find(
+			(e) => e.source === loopNode.id && e.sourceHandle === "false"
+		);
 
 		if (!bodyEntryEdge) return;
 

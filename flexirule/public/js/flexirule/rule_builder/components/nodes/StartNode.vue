@@ -7,14 +7,7 @@ import { useNodeExecutionState } from "../../composables/useNodeExecutionState";
 import NodeToolbar from "./NodeToolbar.vue";
 import InlineEditor from "./InlineEditor.vue";
 
-const props = defineProps([
-	"data",
-	"label",
-	"id",
-	"selected",
-	"sourcePosition",
-	"isHorizontal",
-]);
+const props = defineProps(["data", "label", "id", "selected", "sourcePosition", "isHorizontal"]);
 const store = useStore();
 const isReadOnly = computed(() => store.is_read_only);
 
