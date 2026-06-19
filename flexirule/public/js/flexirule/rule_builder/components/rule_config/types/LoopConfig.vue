@@ -1,13 +1,13 @@
 <template>
 	<div class="loop-config">
 		<LoopNodeConfig
-			ref="controlRefs"
+			:ref="setControlRef"
 			:node="node"
 			:showValidation="showValidation"
 			@update-json-config="updateJsonConfig"
 		/>
 		<hr />
-		<ConditionStep ref="controlRefs" :node="node" :showValidation="showValidation" />
+		<ConditionStep :ref="setControlRef" :node="node" :showValidation="showValidation" />
 	</div>
 </template>
 
@@ -30,6 +30,10 @@ onBeforeUpdate(() => {
 	controlRefs.value = [];
 });
 
+function setControlRef(el) {
+	if (el) controlRefs.value.push(el);
+}
+
 function updateJsonConfig(key, val) {
 	if (!props.node.data) return;
 
@@ -49,9 +53,9 @@ function updateJsonConfig(key, val) {
 
 async function validate() {
 	const results = await Promise.all(
-		(controlRefs.value || []).map((ref) => {
-			if (ref && typeof ref.validate === "function") {
-				return ref.validate();
+		(controlRefs.value || []).map((ctrl) => {
+			if (ctrl && typeof ctrl.validate === "function") {
+				return ctrl.validate();
 			}
 			return { valid: true };
 		})

@@ -11,7 +11,7 @@
 			<div class="sub-section section-subcard">
 				<h6>{{ __("Execution Permission") }}</h6>
 				<ControlFactory
-					ref="controlRefs"
+					:ref="setControlRef"
 					:df="{
 						fieldname: 'skip_permissions',
 						fieldtype: 'Check',
@@ -26,7 +26,7 @@
 				/>
 				<ControlFactory
 					v-if="!!node?.data?.skip_permissions"
-					ref="controlRefs"
+					:ref="setControlRef"
 					:df="{
 						fieldname: 'permission_audit_reason',
 						fieldtype: 'Small Text',
@@ -44,6 +44,7 @@
 					<h6>{{ __("Filters") }}</h6>
 					<FilterGroup
 						ref="filterGroupRef"
+						:ref="setControlRef"
 						:doctype="reference_doctype"
 						:modelValue="config.filters"
 						:readOnly="readOnly"
@@ -56,7 +57,7 @@
 
 				<div class="sub-section section-subcard">
 					<MultiSelectList
-						ref="controlRefs"
+						:ref="setControlRef"
 						:df="{
 							label: __('Fields'),
 							fieldname: 'fields',
@@ -78,7 +79,7 @@
 							class="row-item field-row"
 						>
 							<ComboBoxControl
-								ref="controlRefs"
+								:ref="setControlRef"
 								:df="{ label: '', fieldtype: 'FieldPicker' }"
 								:options="doctype_fields"
 								:doctype="reference_doctype"
@@ -121,7 +122,7 @@
 					<div class="query-doc-grid">
 						<div class="grid-item">
 							<ControlFactory
-								ref="controlRefs"
+								:ref="setControlRef"
 								:df="with_read_only(limitTypeField)"
 								:modelValue="config.limit_type || 'Custom Limit'"
 								:showValidation="showValidation"
@@ -133,7 +134,7 @@
 							class="grid-item"
 						>
 							<ControlFactory
-								ref="controlRefs"
+								:ref="setControlRef"
 								:df="with_read_only(limitField)"
 								:modelValue="config.limit"
 								:showValidation="showValidation"
@@ -143,7 +144,7 @@
 						<div class="grid-item">
 							<label class="control-label small">{{ __("Group By") }}</label>
 							<ComboBoxControl
-								ref="controlRefs"
+								:ref="setControlRef"
 								fieldname="group_by"
 								:df="{ label: '', fieldtype: 'Autocomplete' }"
 								:modelValue="config.group_by"
@@ -164,7 +165,7 @@
 					<div class="query-doc-grid">
 						<div class="grid-item">
 							<ControlFactory
-								ref="controlRefs"
+								:ref="setControlRef"
 								:df="{
 									fieldname: 'fetch_strategy',
 									fieldtype: 'Select',
@@ -187,7 +188,7 @@
 						<div class="grid-item">
 							<label class="control-label small">{{ __("DocType Name") }}</label>
 							<FlexValueControl
-								ref="controlRefs"
+								:ref="setControlRef"
 								:modelValue="config.doctype_name"
 								:variableOptions="variable_options"
 								:readOnly="readOnly"
@@ -204,7 +205,7 @@
 								__("Document Name (ID)")
 							}}</label>
 							<FlexValueControl
-								ref="controlRefs"
+								:ref="setControlRef"
 								:modelValue="config.docname"
 								:variableOptions="variable_options"
 								:readOnly="readOnly"
@@ -227,6 +228,7 @@
 					<h6>{{ __("Filters") }}</h6>
 					<FilterGroup
 						ref="filterGroupRef"
+						:ref="setControlRef"
 						:doctype="reference_doctype"
 						:modelValue="config.filters"
 						:readOnly="readOnly"
@@ -243,6 +245,7 @@
 					<h6>{{ __("Filters") }}</h6>
 					<FilterGroup
 						ref="filterGroupRef"
+						:ref="setControlRef"
 						:doctype="reference_doctype"
 						:modelValue="config.filters"
 						:readOnly="readOnly"
@@ -295,7 +298,7 @@
 									<div class="expression-input-group">
 										<span class="expr-prefix">{</span>
 										<ComboBoxControl
-											ref="controlRefs"
+											:ref="setControlRef"
 											:df="{
 												fieldtype: 'Autocomplete',
 												label: '',
@@ -318,7 +321,7 @@
 								</template>
 								<template v-else>
 									<ControlFactory
-										ref="controlRefs"
+										:ref="setControlRef"
 										:df="{ ...with_read_only(df), label: '' }"
 										:modelValue="report_filter_values[df.fieldname]"
 										@update:modelValue="
@@ -343,6 +346,7 @@
 					<h6>{{ __("Filters") }}</h6>
 					<FilterGroup
 						ref="filterGroupRef"
+						:ref="setControlRef"
 						:doctype="reference_doctype"
 						:modelValue="config.filters"
 						:readOnly="readOnly"
@@ -363,7 +367,7 @@
 								}}</label>
 								<div class="field-picker-container">
 									<ComboBoxControl
-										ref="controlRefs"
+										:ref="setControlRef"
 										:df="{ ...fieldField, fieldtype: 'FieldPicker' }"
 										:options="doctype_fields"
 										:doctype="reference_doctype"
@@ -398,7 +402,7 @@
 								}}</label>
 								<div class="field-picker-container">
 									<ComboBoxControl
-										ref="controlRefs"
+										:ref="setControlRef"
 										:df="{ ...aggGroupByField, fieldtype: 'FieldPicker' }"
 										:options="doctype_fields"
 										:doctype="reference_doctype"
@@ -430,7 +434,7 @@
 							</div>
 							<div class="grid-item">
 								<ControlFactory
-									ref="controlRefs"
+									:ref="setControlRef"
 									:df="with_read_only(aggFunctionField)"
 									:modelValue="config.agg_function"
 									@update:modelValue="
@@ -444,7 +448,7 @@
 								}}</label>
 								<div class="field-picker-container">
 									<ComboBoxControl
-										ref="controlRefs"
+										:ref="setControlRef"
 										:df="{ ...aggFieldField, fieldtype: 'FieldPicker' }"
 										:options="doctype_fields"
 										:doctype="reference_doctype"
@@ -592,6 +596,10 @@ const controlRefs = ref([]);
 onBeforeUpdate(() => {
 	controlRefs.value = [];
 });
+
+function setControlRef(el) {
+	if (el) controlRefs.value.push(el);
+}
 
 // Internal flag to prevent recursive sync loops
 const is_internal_update = ref(false);
@@ -1358,9 +1366,9 @@ async function validate() {
 
 	// 1. Core Control Validation (Aggregated)
 	const results = await Promise.all(
-		(controlRefs.value || []).map((ref) => {
-			if (ref && typeof ref.validate === "function") {
-				return ref.validate();
+		(controlRefs.value || []).map((ctrl) => {
+			if (ctrl && typeof ctrl.validate === "function") {
+				return ctrl.validate();
 			}
 			return { valid: true };
 		})

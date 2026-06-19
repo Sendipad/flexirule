@@ -3,7 +3,7 @@
 		<div class="config-section section-card">
 			<div class="form-group mb-3">
 				<ControlFactory
-					ref="controlRefs"
+					:ref="setControlRef"
 					:df="with_read_only(errorTypeField)"
 					:modelValue="config.error_type || 'Validation Error'"
 					:showValidation="showValidation"
@@ -13,7 +13,7 @@
 
 			<div class="form-group mb-3">
 				<ControlFactory
-					ref="controlRefs"
+					:ref="setControlRef"
 					:df="with_read_only(errorTitleField)"
 					:modelValue="config.error_title"
 					:showValidation="showValidation"
@@ -23,7 +23,7 @@
 
 			<div class="form-group mb-3">
 				<ControlFactory
-					ref="controlRefs"
+					:ref="setControlRef"
 					:df="with_read_only(errorCodeField)"
 					:modelValue="config.error_code"
 					:showValidation="showValidation"
@@ -33,7 +33,7 @@
 
 			<div class="form-group mb-3">
 				<ControlFactory
-					ref="controlRefs"
+					:ref="setControlRef"
 					:df="with_read_only(textGeneratorField)"
 					:modelValue="config.text_generator_ui"
 					:showValidation="showValidation"
@@ -64,6 +64,10 @@ const controlRefs = ref([]);
 onBeforeUpdate(() => {
 	controlRefs.value = [];
 });
+
+function setControlRef(el) {
+	if (el) controlRefs.value.push(el);
+}
 
 const { config, variable_options, with_read_only, sync_config, update_action_field, store } =
 	useActionConfig(props);
@@ -179,9 +183,9 @@ async function validate() {
 
 	// 1. Core Control Validation (Aggregated)
 	const results = await Promise.all(
-		(controlRefs.value || []).map((ref) => {
-			if (ref && typeof ref.validate === "function") {
-				return ref.validate();
+		(controlRefs.value || []).map((ctrl) => {
+			if (ctrl && typeof ctrl.validate === "function") {
+				return ctrl.validate();
 			}
 			return { valid: true };
 		})

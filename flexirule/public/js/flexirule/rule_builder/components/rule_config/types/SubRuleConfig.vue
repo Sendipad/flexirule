@@ -11,7 +11,7 @@
 			<div class="sub-section section-subcard">
 				<h6>{{ __("Execution Permission") }}</h6>
 				<ControlFactory
-					ref="controlRefs"
+					:ref="setControlRef"
 					:df="{
 						fieldname: 'skip_permissions',
 						fieldtype: 'Check',
@@ -26,7 +26,7 @@
 				/>
 				<ControlFactory
 					v-if="!!node?.data?.skip_permissions"
-					ref="controlRefs"
+					:ref="setControlRef"
 					:df="{
 						fieldname: 'permission_audit_reason',
 						fieldtype: 'Small Text',
@@ -81,7 +81,7 @@
 						<div class="mapping-cell">
 							<label class="small text-muted mb-1">{{ __("Parent Variable") }}</label>
 							<ComboBoxControl
-								ref="controlRefs"
+								:ref="setControlRef"
 								fieldname="config.input_mapping.source"
 								:df="{ label: '', fieldtype: 'Autocomplete' }"
 								v-model="row.source"
@@ -126,7 +126,7 @@
 
 				<div v-else class="visual-mapper">
 					<TransformControl
-						ref="controlRefs"
+						:ref="setControlRef"
 						fieldname="config.input_mapping"
 						:modelValue="visual_mappings"
 						:sourceSchema="source_schema"
@@ -165,6 +165,10 @@ const controlRefs = ref([]);
 onBeforeUpdate(() => {
 	controlRefs.value = [];
 });
+
+function setControlRef(el) {
+	if (el) controlRefs.value.push(el);
+}
 
 const source_schema = computed(() => {
 	const vars = store.variables || [];
@@ -265,9 +269,9 @@ async function validate() {
 
 	// 1. Core Control Validation (Aggregated)
 	const results = await Promise.all(
-		(controlRefs.value || []).map((ref) => {
-			if (ref && typeof ref.validate === "function") {
-				return ref.validate();
+		(controlRefs.value || []).map((ctrl) => {
+			if (ctrl && typeof ctrl.validate === "function") {
+				return ctrl.validate();
 			}
 			return { valid: true };
 		})

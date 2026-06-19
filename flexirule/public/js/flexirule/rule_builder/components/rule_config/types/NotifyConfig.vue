@@ -11,7 +11,7 @@
 			<div class="config-section section-card">
 				<div v-if="is_email" class="form-group mb-3">
 					<ControlFactory
-						ref="controlRefs"
+						:ref="setControlRef"
 						:df="with_read_only(subjectField)"
 						:modelValue="config.subject"
 						:showValidation="showValidation"
@@ -21,7 +21,7 @@
 
 				<div v-if="is_email" class="form-group mb-3">
 					<ControlFactory
-						ref="controlRefs"
+						:ref="setControlRef"
 						:df="with_read_only(recipientsField)"
 						:modelValue="config.recipients"
 						:showValidation="showValidation"
@@ -31,7 +31,7 @@
 
 				<div v-if="is_system_notification" class="form-group mb-3">
 					<ControlFactory
-						ref="controlRefs"
+						:ref="setControlRef"
 						:df="with_read_only(subjectField)"
 						:modelValue="config.subject"
 						:showValidation="showValidation"
@@ -41,7 +41,7 @@
 
 				<div v-if="is_system_notification" class="form-group mb-3">
 					<ControlFactory
-						ref="controlRefs"
+						:ref="setControlRef"
 						:df="with_read_only(forUserField)"
 						:modelValue="config.for_user"
 						:showValidation="showValidation"
@@ -51,7 +51,7 @@
 
 				<div v-if="is_provider" class="form-group mb-3">
 					<ControlFactory
-						ref="controlRefs"
+						:ref="setControlRef"
 						:df="with_read_only(providerField)"
 						:modelValue="config.provider"
 						:showValidation="showValidation"
@@ -61,7 +61,7 @@
 
 				<div v-if="is_provider" class="form-group mb-3">
 					<ControlFactory
-						ref="controlRefs"
+						:ref="setControlRef"
 						:df="with_read_only(recipientField)"
 						:modelValue="config.recipient"
 						:showValidation="showValidation"
@@ -71,7 +71,7 @@
 
 				<div class="form-group mb-3">
 					<ControlFactory
-						ref="controlRefs"
+						:ref="setControlRef"
 						:df="with_read_only(textGeneratorField)"
 						:modelValue="config.text_generator_ui"
 						:showValidation="showValidation"
@@ -82,7 +82,7 @@
 				<div v-if="is_email" class="form-group mb-3">
 					<label class="form-label">{{ __("Attach Document PDF") }}</label>
 					<ControlFactory
-						ref="controlRefs"
+						:ref="setControlRef"
 						:df="with_read_only(attachDocField)"
 						:modelValue="config.attach_doc"
 						@update:modelValue="(val) => update_config_key('attach_doc', val)"
@@ -113,6 +113,10 @@ const controlRefs = ref([]);
 onBeforeUpdate(() => {
 	controlRefs.value = [];
 });
+
+function setControlRef(el) {
+	if (el) controlRefs.value.push(el);
+}
 
 const { config, variable_options, with_read_only, sync_config, update_action_field } =
 	useActionConfig(props);
@@ -250,9 +254,9 @@ async function validate() {
 
 	// 1. Core Control Validation (Aggregated)
 	const results = await Promise.all(
-		(controlRefs.value || []).map((ref) => {
-			if (ref && typeof ref.validate === "function") {
-				return ref.validate();
+		(controlRefs.value || []).map((ctrl) => {
+			if (ctrl && typeof ctrl.validate === "function") {
+				return ctrl.validate();
 			}
 			return { valid: true };
 		})

@@ -48,7 +48,7 @@
 
 			<div v-show="view === 'form'">
 				<SchemaRenderer
-					ref="controlRefs"
+					:ref="setControlRef"
 					:fields="engine.normalized_fields"
 					:engine="engine"
 					:showValidation="showValidation"
@@ -57,7 +57,7 @@
 
 			<div v-if="view === 'visual'" class="process-config-visual">
 				<TransformControl
-					ref="controlRefs"
+					:ref="setControlRef"
 					fieldname="resource_mapper_ui"
 					:modelValue="visualMappings"
 					:sourceSchema="sourceSchema"
@@ -103,6 +103,10 @@ const controlRefs = ref([]);
 onBeforeUpdate(() => {
 	controlRefs.value = [];
 });
+
+function setControlRef(el) {
+	if (el) controlRefs.value.push(el);
+}
 const view = ref("form");
 
 const needsSetup = computed(() => {
@@ -232,9 +236,9 @@ async function validate() {
 
 	// 1. Core Control Validation (Aggregated from SchemaRenderer or TransformControl)
 	const results = await Promise.all(
-		(controlRefs.value || []).map((ref) => {
-			if (ref && typeof ref.validate === "function") {
-				return ref.validate();
+		(controlRefs.value || []).map((ctrl) => {
+			if (ctrl && typeof ctrl.validate === "function") {
+				return ctrl.validate();
 			}
 			return { valid: true };
 		})

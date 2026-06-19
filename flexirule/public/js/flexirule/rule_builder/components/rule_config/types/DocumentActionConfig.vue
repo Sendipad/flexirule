@@ -11,7 +11,7 @@
 			<div class="sub-section section-subcard">
 				<h6>{{ __("Execution Permission") }}</h6>
 				<ControlFactory
-					ref="controlRefs"
+					:ref="setControlRef"
 					:df="{
 						fieldname: 'skip_permissions',
 						fieldtype: 'Check',
@@ -26,7 +26,7 @@
 				/>
 				<ControlFactory
 					v-if="!!node?.data?.skip_permissions"
-					ref="controlRefs"
+					:ref="setControlRef"
 					:df="{
 						fieldname: 'permission_audit_reason',
 						fieldtype: 'Small Text',
@@ -57,7 +57,7 @@
 					</div>
 					<ControlFactory
 						v-if="assignToType === 'Value'"
-						ref="controlRefs"
+						:ref="setControlRef"
 						:df="with_read_only(assignedToLinkField)"
 						:modelValue="stripBrackets(config.assigned_to)"
 						:showValidation="showValidation"
@@ -65,7 +65,7 @@
 					/>
 					<ComboBoxControl
 						v-else-if="assignToType === 'Variable'"
-						ref="controlRefs"
+						:ref="setControlRef"
 						fieldname="assigned_to"
 						:df="{
 							fieldtype: 'Autocomplete',
@@ -81,7 +81,7 @@
 					/>
 					<ControlFactory
 						v-else
-						ref="controlRefs"
+						:ref="setControlRef"
 						:df="with_read_only(assignedToExprField)"
 						:modelValue="config.assigned_to"
 						:showValidation="showValidation"
@@ -89,14 +89,14 @@
 					/>
 				</div>
 				<ControlFactory
-					ref="controlRefs"
+					:ref="setControlRef"
 					:df="with_read_only(todoDescriptionField)"
 					:modelValue="config.description"
 					:showValidation="showValidation"
 					@update:modelValue="(val) => update_config_key('description', val)"
 				/>
 				<ControlFactory
-					ref="controlRefs"
+					:ref="setControlRef"
 					:df="with_read_only(todoPriorityField)"
 					:modelValue="config.priority"
 					@update:modelValue="(val) => update_config_key('priority', val)"
@@ -105,13 +105,13 @@
 
 			<template v-else-if="mode === 'Add Comment'">
 				<ControlFactory
-					ref="controlRefs"
+					:ref="setControlRef"
 					:df="with_read_only(commentTypeField)"
 					:modelValue="config.comment_type"
 					@update:modelValue="(val) => update_config_key('comment_type', val)"
 				/>
 				<ControlFactory
-					ref="controlRefs"
+					:ref="setControlRef"
 					:df="with_read_only(commentTextField)"
 					:modelValue="config.comment_text"
 					:showValidation="showValidation"
@@ -121,7 +121,7 @@
 
 			<template v-else-if="['Update Existing', 'Delete Record'].includes(mode)">
 				<ControlFactory
-					ref="controlRefs"
+					:ref="setControlRef"
 					:df="with_read_only(docnameExprField)"
 					:modelValue="config.docname_expression"
 					@update:modelValue="(val) => update_config_key('docname_expression', val)"
@@ -155,7 +155,7 @@
 
 				<ResourceMapperControl
 					v-if="mapperView === 'classic'"
-					ref="controlRefs"
+					:ref="setControlRef"
 					:df="mapperField"
 					:modelValue="config.resource_mapper_ui"
 					:targetDoctype="reference_doctype"
@@ -168,7 +168,7 @@
 
 				<TransformControl
 					v-else
-					ref="controlRefs"
+					:ref="setControlRef"
 					fieldname="resource_mapper_ui"
 					:modelValue="visualMappings"
 					:sourceSchema="sourceSchema"
@@ -204,6 +204,10 @@ const controlRefs = ref([]);
 onBeforeUpdate(() => {
 	controlRefs.value = [];
 });
+
+function setControlRef(el) {
+	if (el) controlRefs.value.push(el);
+}
 
 const { config, variable_options, mode, reference_doctype, with_read_only, sync_config } =
 	useActionConfig(props);
@@ -531,9 +535,9 @@ async function validate() {
 
 	// 1. Core Control Validation (Aggregated)
 	const results = await Promise.all(
-		(controlRefs.value || []).map((ref) => {
-			if (ref && typeof ref.validate === "function") {
-				return ref.validate();
+		(controlRefs.value || []).map((ctrl) => {
+			if (ctrl && typeof ctrl.validate === "function") {
+				return ctrl.validate();
 			}
 			return { valid: true };
 		})

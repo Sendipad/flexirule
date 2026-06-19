@@ -29,6 +29,10 @@ onBeforeUpdate(() => {
 	controlRefs.value = [];
 });
 
+function setControlRef(el) {
+	if (el) controlRefs.value.push(el);
+}
+
 const availableNodes = computed(() => {
 	return (store.nodes || [])
 		.filter((n) => n.id !== props.node.id && n.id !== "start")
@@ -86,9 +90,9 @@ function syncEdges(cases) {
 
 async function validate() {
 	const results = await Promise.all(
-		(controlRefs.value || []).map((ref) => {
-			if (ref && typeof ref.validate === "function") {
-				return ref.validate();
+		(controlRefs.value || []).map((ctrl) => {
+			if (ctrl && typeof ctrl.validate === "function") {
+				return ctrl.validate();
 			}
 			return { valid: true };
 		})

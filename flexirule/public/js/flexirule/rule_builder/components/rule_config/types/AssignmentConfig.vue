@@ -81,7 +81,7 @@
 				<!-- Target ComboBox with Type Badge support -->
 				<div class="grid-col-target">
 					<ComboBoxControl
-						ref="controlRefs"
+						:ref="setControlRef"
 						fieldname="assignments.target"
 						:df="{ fieldtype: 'FieldPicker', label: '', reqd: 1 }"
 						:modelValue="assignment.target"
@@ -99,7 +99,7 @@
 				<!-- Operator Selector -->
 				<div class="grid-col-operator">
 					<ComboBoxControl
-						ref="controlRefs"
+						:ref="setControlRef"
 						fieldname="assignments.operator"
 						:df="{ fieldtype: 'Select', label: '', reqd: 1 }"
 						:options="getAvailableOperators(assignment.target)"
@@ -117,7 +117,7 @@
 					<template v-if="needsValue(assignment.operator)">
 						<div class="value-mode-wrap">
 							<FlexValueControl
-								ref="controlRefs"
+								:ref="setControlRef"
 								class="flex-1 min-w-0"
 								fieldname="assignments.value"
 								:context="{
@@ -302,6 +302,10 @@ const showValidation = ref(false);
 onBeforeUpdate(() => {
 	controlRefs.value = [];
 });
+
+function setControlRef(el) {
+	if (el) controlRefs.value.push(el);
+}
 
 // ─── Operator Helpers ────────────────────────────────────────────────────────
 
@@ -698,9 +702,9 @@ async function validate() {
 
 	// 1. Core Control Validation (Aggregated)
 	const results = await Promise.all(
-		(controlRefs.value || []).map((ref) => {
-			if (ref && typeof ref.validate === "function") {
-				return ref.validate();
+		(controlRefs.value || []).map((ctrl) => {
+			if (ctrl && typeof ctrl.validate === "function") {
+				return ctrl.validate();
 			}
 			return { valid: true };
 		})
