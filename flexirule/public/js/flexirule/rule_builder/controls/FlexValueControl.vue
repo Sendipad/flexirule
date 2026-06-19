@@ -7,6 +7,7 @@
 			'is-disabled': disabled || isReadOnly,
 			'has-error': showValidation && !isValid,
 		}"
+		:data-fxr-fieldname="context?.df?.fieldname || fieldname || null"
 		@keydown.capture="onStaticKeydown"
 	>
 		<!-- ── Main Control Area ── -->
@@ -350,6 +351,7 @@ import ResolverTokenView from "./ResolverTokenView.vue";
 
 const props = defineProps({
 	modelValue: { type: [Object, String, Number, Boolean], default: null },
+	fieldname: String,
 	variableOptions: { type: Array, default: () => [] },
 	readOnly: { type: Boolean, default: false },
 	read_only: { type: Boolean, default: false },

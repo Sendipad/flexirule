@@ -11,7 +11,6 @@
 			<div class="sub-section section-subcard">
 				<h6>{{ __("Execution Permission") }}</h6>
 				<ControlFactory
-					data-fxr-fieldname="skip_permissions"
 					:df="{
 						fieldname: 'skip_permissions',
 						fieldtype: 'Check',
@@ -26,7 +25,6 @@
 				/>
 				<ControlFactory
 					v-if="!!node?.data?.skip_permissions"
-					data-fxr-fieldname="permission_audit_reason"
 					:df="{
 						fieldname: 'permission_audit_reason',
 						fieldtype: 'Small Text',
@@ -56,7 +54,6 @@
 
 				<div class="sub-section section-subcard">
 					<MultiSelectList
-						data-fxr-fieldname="config.fields"
 						:df="{
 							label: __('Fields'),
 							fieldname: 'fields',
@@ -120,7 +117,6 @@
 					<div class="query-doc-grid">
 						<div class="grid-item">
 							<ControlFactory
-								data-fxr-fieldname="config.limit_type"
 								:df="with_read_only(limitTypeField)"
 								:modelValue="config.limit_type || 'Custom Limit'"
 								:showValidation="showValidation"
@@ -132,7 +128,6 @@
 							class="grid-item"
 						>
 							<ControlFactory
-								data-fxr-fieldname="config.limit"
 								:df="with_read_only(limitField)"
 								:modelValue="config.limit"
 								:showValidation="showValidation"
@@ -142,7 +137,7 @@
 						<div class="grid-item">
 							<label class="control-label small">{{ __("Group By") }}</label>
 							<ComboBoxControl
-								data-fxr-fieldname="config.group_by"
+								fieldname="group_by"
 								:df="{ label: '', fieldtype: 'Autocomplete' }"
 								:modelValue="config.group_by"
 								:get_query="get_group_by_options"
@@ -162,7 +157,6 @@
 					<div class="query-doc-grid">
 						<div class="grid-item">
 							<ControlFactory
-								data-fxr-fieldname="config.fetch_strategy"
 								:df="{
 									fieldname: 'fetch_strategy',
 									fieldtype: 'Select',
@@ -185,7 +179,6 @@
 						<div class="grid-item">
 							<label class="control-label small">{{ __("DocType Name") }}</label>
 							<FlexValueControl
-								data-fxr-fieldname="config.doctype_name"
 								:modelValue="config.doctype_name"
 								:variableOptions="variable_options"
 								:readOnly="readOnly"
@@ -202,7 +195,6 @@
 								__("Document Name (ID)")
 							}}</label>
 							<FlexValueControl
-								data-fxr-fieldname="config.docname"
 								:modelValue="config.docname"
 								:variableOptions="variable_options"
 								:readOnly="readOnly"
@@ -359,7 +351,6 @@
 								}}</label>
 								<div class="field-picker-container">
 									<ComboBoxControl
-										data-fxr-fieldname="config.field"
 										:df="{ ...fieldField, fieldtype: 'FieldPicker' }"
 										:options="doctype_fields"
 										:doctype="reference_doctype"
@@ -394,7 +385,6 @@
 								}}</label>
 								<div class="field-picker-container">
 									<ComboBoxControl
-										data-fxr-fieldname="config.group_by_field"
 										:df="{ ...aggGroupByField, fieldtype: 'FieldPicker' }"
 										:options="doctype_fields"
 										:doctype="reference_doctype"
@@ -426,7 +416,6 @@
 							</div>
 							<div class="grid-item">
 								<ControlFactory
-									data-fxr-fieldname="config.agg_function"
 									:df="with_read_only(aggFunctionField)"
 									:modelValue="config.agg_function"
 									@update:modelValue="
@@ -440,7 +429,6 @@
 								}}</label>
 								<div class="field-picker-container">
 									<ComboBoxControl
-										data-fxr-fieldname="config.agg_field"
 										:df="{ ...aggFieldField, fieldtype: 'FieldPicker' }"
 										:options="doctype_fields"
 										:doctype="reference_doctype"
