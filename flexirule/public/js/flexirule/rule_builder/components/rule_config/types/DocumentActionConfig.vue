@@ -11,6 +11,7 @@
 			<div class="sub-section section-subcard">
 				<h6>{{ __("Execution Permission") }}</h6>
 				<ControlFactory
+					ref="controlRefs"
 					:df="{
 						fieldname: 'skip_permissions',
 						fieldtype: 'Check',
@@ -25,6 +26,7 @@
 				/>
 				<ControlFactory
 					v-if="!!node?.data?.skip_permissions"
+					ref="controlRefs"
 					:df="{
 						fieldname: 'permission_audit_reason',
 						fieldtype: 'Small Text',
@@ -55,6 +57,7 @@
 					</div>
 					<ControlFactory
 						v-if="assignToType === 'Value'"
+						ref="controlRefs"
 						:df="with_read_only(assignedToLinkField)"
 						:modelValue="stripBrackets(config.assigned_to)"
 						:showValidation="showValidation"
@@ -62,6 +65,8 @@
 					/>
 					<ComboBoxControl
 						v-else-if="assignToType === 'Variable'"
+						ref="controlRefs"
+						fieldname="assigned_to"
 						:df="{
 							fieldtype: 'Autocomplete',
 							label: '',
@@ -76,6 +81,7 @@
 					/>
 					<ControlFactory
 						v-else
+						ref="controlRefs"
 						:df="with_read_only(assignedToExprField)"
 						:modelValue="config.assigned_to"
 						:showValidation="showValidation"
@@ -83,12 +89,14 @@
 					/>
 				</div>
 				<ControlFactory
+					ref="controlRefs"
 					:df="with_read_only(todoDescriptionField)"
 					:modelValue="config.description"
 					:showValidation="showValidation"
 					@update:modelValue="(val) => update_config_key('description', val)"
 				/>
 				<ControlFactory
+					ref="controlRefs"
 					:df="with_read_only(todoPriorityField)"
 					:modelValue="config.priority"
 					@update:modelValue="(val) => update_config_key('priority', val)"
@@ -97,11 +105,13 @@
 
 			<template v-else-if="mode === 'Add Comment'">
 				<ControlFactory
+					ref="controlRefs"
 					:df="with_read_only(commentTypeField)"
 					:modelValue="config.comment_type"
 					@update:modelValue="(val) => update_config_key('comment_type', val)"
 				/>
 				<ControlFactory
+					ref="controlRefs"
 					:df="with_read_only(commentTextField)"
 					:modelValue="config.comment_text"
 					:showValidation="showValidation"
@@ -111,6 +121,7 @@
 
 			<template v-else-if="['Update Existing', 'Delete Record'].includes(mode)">
 				<ControlFactory
+					ref="controlRefs"
 					:df="with_read_only(docnameExprField)"
 					:modelValue="config.docname_expression"
 					@update:modelValue="(val) => update_config_key('docname_expression', val)"
@@ -144,6 +155,7 @@
 
 				<ResourceMapperControl
 					v-if="mapperView === 'classic'"
+					ref="controlRefs"
 					:df="mapperField"
 					:modelValue="config.resource_mapper_ui"
 					:targetDoctype="reference_doctype"
@@ -156,6 +168,8 @@
 
 				<TransformControl
 					v-else
+					ref="controlRefs"
+					fieldname="resource_mapper_ui"
 					:modelValue="visualMappings"
 					:sourceSchema="sourceSchema"
 					:targetSchema="targetSchema"
@@ -169,7 +183,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch, onMounted } from "vue";
+import { computed, ref, watch, onMounted, onBeforeUpdate } from "vue";
 import { fromCodeString } from "../../../utils/serialization";
 import { useActionConfig } from "../../../composables/useActionConfig";
 import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
@@ -185,6 +199,11 @@ const props = defineProps({
 });
 
 const showValidation = ref(false);
+const controlRefs = ref([]);
+
+onBeforeUpdate(() => {
+	controlRefs.value = [];
+});
 
 const { config, variable_options, mode, reference_doctype, with_read_only, sync_config } =
 	useActionConfig(props);
@@ -506,22 +525,33 @@ watch(
 	{ immediate: true, deep: true }
 );
 
-function validate() {
+async function validate() {
 	showValidation.value = true;
 	const errors = [];
-	const requiredKeyLabels = {
-		assigned_to: __("Assigned To"),
-		description: __("Description"),
-		comment_text: __("Comment Text"),
-	};
-	for (const key of requiredConfigKeys.value) {
-		if (!config[key]) {
-			errors.push(__("{0} is required").replace("{0}", requiredKeyLabels[key] || key));
-		}
-	}
+
+	// 1. Core Control Validation (Aggregated)
+	const results = await Promise.all(
+		(controlRefs.value || []).map((ref) => {
+			if (ref && typeof ref.validate === "function") {
+				return ref.validate();
+			}
+			return { valid: true };
+		})
+	);
+	results.forEach((res) => {
+		if (!res.valid && res.errors) errors.push(...res.errors);
+	});
+
+	// 2. Logic-based Validation
 	if (showMapper.value && !config.resource_mapper_ui && !hasLegacyMapperConfig(config)) {
 		errors.push(__("Resource Mapper configuration is required for {0}", [mode.value]));
 	}
+
+	// 3. Permission Audit Reason (Global check)
+	if (props.node?.data?.skip_permissions && !props.node?.data?.permission_audit_reason) {
+		errors.push(__("Permission Audit Reason is required when bypassing permissions."));
+	}
+
 	return { valid: errors.length === 0, errors };
 }
 

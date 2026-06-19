@@ -1,18 +1,18 @@
 <template>
 	<div class="loop-config">
 		<LoopNodeConfig
-			ref="loopNodeRef"
+			ref="controlRefs"
 			:node="node"
 			:showValidation="showValidation"
 			@update-json-config="updateJsonConfig"
 		/>
 		<hr />
-		<ConditionStep ref="conditionStepRef" :node="node" :showValidation="showValidation" />
+		<ConditionStep ref="controlRefs" :node="node" :showValidation="showValidation" />
 	</div>
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { ref, onBeforeUpdate } from "vue";
 import { useStore } from "../../../stores";
 import { fromCodeString } from "../../../utils/serialization";
 import LoopNodeConfig from "../../node_configs/LoopNodeConfig.vue";
@@ -24,8 +24,11 @@ const props = defineProps({
 });
 
 const store = useStore();
-const loopNodeRef = ref(null);
-const conditionStepRef = ref(null);
+const controlRefs = ref([]);
+
+onBeforeUpdate(() => {
+	controlRefs.value = [];
+});
 
 function updateJsonConfig(key, val) {
 	if (!props.node.data) return;
@@ -45,15 +48,15 @@ function updateJsonConfig(key, val) {
 }
 
 async function validate() {
-	const errors = [];
-	if (loopNodeRef.value && typeof loopNodeRef.value.validate === "function") {
-		const res = await loopNodeRef.value.validate();
-		if (!res.valid) errors.push(...res.errors);
-	}
-	if (conditionStepRef.value && typeof conditionStepRef.value.validate === "function") {
-		const res = await conditionStepRef.value.validate();
-		if (!res.valid) errors.push(...res.errors);
-	}
+	const results = await Promise.all(
+		(controlRefs.value || []).map((ref) => {
+			if (ref && typeof ref.validate === "function") {
+				return ref.validate();
+			}
+			return { valid: true };
+		})
+	);
+	const errors = results.flatMap((r) => r.errors || []);
 	return { valid: errors.length === 0, errors };
 }
 

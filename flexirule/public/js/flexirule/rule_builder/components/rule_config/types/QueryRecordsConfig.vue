@@ -11,6 +11,7 @@
 			<div class="sub-section section-subcard">
 				<h6>{{ __("Execution Permission") }}</h6>
 				<ControlFactory
+					ref="controlRefs"
 					:df="{
 						fieldname: 'skip_permissions',
 						fieldtype: 'Check',
@@ -25,6 +26,7 @@
 				/>
 				<ControlFactory
 					v-if="!!node?.data?.skip_permissions"
+					ref="controlRefs"
 					:df="{
 						fieldname: 'permission_audit_reason',
 						fieldtype: 'Small Text',
@@ -54,6 +56,7 @@
 
 				<div class="sub-section section-subcard">
 					<MultiSelectList
+						ref="controlRefs"
 						:df="{
 							label: __('Fields'),
 							fieldname: 'fields',
@@ -75,6 +78,7 @@
 							class="row-item field-row"
 						>
 							<ComboBoxControl
+								ref="controlRefs"
 								:df="{ label: '', fieldtype: 'FieldPicker' }"
 								:options="doctype_fields"
 								:doctype="reference_doctype"
@@ -117,6 +121,7 @@
 					<div class="query-doc-grid">
 						<div class="grid-item">
 							<ControlFactory
+								ref="controlRefs"
 								:df="with_read_only(limitTypeField)"
 								:modelValue="config.limit_type || 'Custom Limit'"
 								:showValidation="showValidation"
@@ -128,6 +133,7 @@
 							class="grid-item"
 						>
 							<ControlFactory
+								ref="controlRefs"
 								:df="with_read_only(limitField)"
 								:modelValue="config.limit"
 								:showValidation="showValidation"
@@ -137,6 +143,7 @@
 						<div class="grid-item">
 							<label class="control-label small">{{ __("Group By") }}</label>
 							<ComboBoxControl
+								ref="controlRefs"
 								fieldname="group_by"
 								:df="{ label: '', fieldtype: 'Autocomplete' }"
 								:modelValue="config.group_by"
@@ -157,6 +164,7 @@
 					<div class="query-doc-grid">
 						<div class="grid-item">
 							<ControlFactory
+								ref="controlRefs"
 								:df="{
 									fieldname: 'fetch_strategy',
 									fieldtype: 'Select',
@@ -179,6 +187,7 @@
 						<div class="grid-item">
 							<label class="control-label small">{{ __("DocType Name") }}</label>
 							<FlexValueControl
+								ref="controlRefs"
 								:modelValue="config.doctype_name"
 								:variableOptions="variable_options"
 								:readOnly="readOnly"
@@ -195,6 +204,7 @@
 								__("Document Name (ID)")
 							}}</label>
 							<FlexValueControl
+								ref="controlRefs"
 								:modelValue="config.docname"
 								:variableOptions="variable_options"
 								:readOnly="readOnly"
@@ -285,6 +295,7 @@
 									<div class="expression-input-group">
 										<span class="expr-prefix">{</span>
 										<ComboBoxControl
+											ref="controlRefs"
 											:df="{
 												fieldtype: 'Autocomplete',
 												label: '',
@@ -307,6 +318,7 @@
 								</template>
 								<template v-else>
 									<ControlFactory
+										ref="controlRefs"
 										:df="{ ...with_read_only(df), label: '' }"
 										:modelValue="report_filter_values[df.fieldname]"
 										@update:modelValue="
@@ -351,6 +363,7 @@
 								}}</label>
 								<div class="field-picker-container">
 									<ComboBoxControl
+										ref="controlRefs"
 										:df="{ ...fieldField, fieldtype: 'FieldPicker' }"
 										:options="doctype_fields"
 										:doctype="reference_doctype"
@@ -385,6 +398,7 @@
 								}}</label>
 								<div class="field-picker-container">
 									<ComboBoxControl
+										ref="controlRefs"
 										:df="{ ...aggGroupByField, fieldtype: 'FieldPicker' }"
 										:options="doctype_fields"
 										:doctype="reference_doctype"
@@ -416,6 +430,7 @@
 							</div>
 							<div class="grid-item">
 								<ControlFactory
+									ref="controlRefs"
 									:df="with_read_only(aggFunctionField)"
 									:modelValue="config.agg_function"
 									@update:modelValue="
@@ -429,6 +444,7 @@
 								}}</label>
 								<div class="field-picker-container">
 									<ComboBoxControl
+										ref="controlRefs"
 										:df="{ ...aggFieldField, fieldtype: 'FieldPicker' }"
 										:options="doctype_fields"
 										:doctype="reference_doctype"
@@ -490,7 +506,7 @@
 </template>
 
 <script setup>
-import { reactive, ref, computed, watch, onMounted } from "vue";
+import { reactive, ref, computed, watch, onMounted, onBeforeUpdate } from "vue";
 import { fromCodeString } from "../../../utils/serialization";
 import { useActionConfig } from "../../../composables/useActionConfig";
 import ControlFactory from "../../../controls/ControlFactory.vue";
@@ -571,6 +587,11 @@ const test_status = ref("");
 const is_single_doctype = ref(false);
 const showValidation = ref(false);
 const filterGroupRef = ref(null);
+const controlRefs = ref([]);
+
+onBeforeUpdate(() => {
+	controlRefs.value = [];
+});
 
 // Internal flag to prevent recursive sync loops
 const is_internal_update = ref(false);
@@ -1335,32 +1356,29 @@ async function validate() {
 	showValidation.value = true;
 	const errors = [];
 
-	// Validate filters if applicable for the current mode
+	// 1. Core Control Validation (Aggregated)
+	const results = await Promise.all(
+		(controlRefs.value || []).map((ref) => {
+			if (ref && typeof ref.validate === "function") {
+				return ref.validate();
+			}
+			return { valid: true };
+		})
+	);
+	results.forEach((res) => {
+		if (!res.valid && res.errors) errors.push(...res.errors);
+	});
+
+	// 2. Validate filters if applicable for the current mode
 	if (filterGroupRef.value && typeof filterGroupRef.value.validate === "function") {
 		const res = await filterGroupRef.value.validate();
 		if (!res.valid) errors.push(...res.errors);
 	}
 
-	if (mode.value === "Query Doc") {
-		const strategy = config.fetch_strategy || "Get doc";
-		const is_single = strategy === "Get Single DocType" || is_single_doctype.value;
-		const is_latest = strategy === "Get latest Doc";
-
-		if (!config.doctype_name) {
-			errors.push(__("Target DocType is required for Query Doc"));
-		}
-
-		if (!is_single && !is_latest && !config.docname) {
-			errors.push(__("Document Name (ID) is required for this strategy"));
-		}
-	}
-
+	// 3. Logic-based Validation
 	if (mode.value === "Query List") {
 		if (!reference_doctype.value) {
 			errors.push(__("Reference DocType is required for Query List"));
-		}
-		if (config.limit_type === "Custom Limit" && !config.limit) {
-			errors.push(__("Custom Limit Number is required"));
 		}
 	}
 
@@ -1370,19 +1388,7 @@ async function validate() {
 		}
 	}
 
-	if (["Sum", "Average", "Min", "Max"].includes(mode.value)) {
-		if (!config.field) {
-			errors.push(__("Field to Aggregate is required"));
-		}
-	}
-
-	if (mode.value === "Group By") {
-		if (!config.group_by_field) errors.push(__("Group By Field is required"));
-		if (!config.agg_field) errors.push(__("Aggregate Field is required"));
-		if (!config.agg_function) errors.push(__("Aggregate Function is required"));
-	}
-
-	// 4. Permission Audit Reason
+	// 4. Permission Audit Reason (Global check, though child CheckControl should handle reqd)
 	if (props.node?.data?.skip_permissions && !props.node?.data?.permission_audit_reason) {
 		errors.push(__("Permission Audit Reason is required when bypassing permissions."));
 	}

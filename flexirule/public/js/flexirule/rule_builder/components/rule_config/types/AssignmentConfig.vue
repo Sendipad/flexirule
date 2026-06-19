@@ -81,6 +81,7 @@
 				<!-- Target ComboBox with Type Badge support -->
 				<div class="grid-col-target">
 					<ComboBoxControl
+						ref="controlRefs"
 						fieldname="assignments.target"
 						:df="{ fieldtype: 'FieldPicker', label: '', reqd: 1 }"
 						:modelValue="assignment.target"
@@ -98,6 +99,7 @@
 				<!-- Operator Selector -->
 				<div class="grid-col-operator">
 					<ComboBoxControl
+						ref="controlRefs"
 						fieldname="assignments.operator"
 						:df="{ fieldtype: 'Select', label: '', reqd: 1 }"
 						:options="getAvailableOperators(assignment.target)"
@@ -115,6 +117,7 @@
 					<template v-if="needsValue(assignment.operator)">
 						<div class="value-mode-wrap">
 							<FlexValueControl
+								ref="controlRefs"
 								class="flex-1 min-w-0"
 								fieldname="assignments.value"
 								:context="{
@@ -261,7 +264,7 @@
 </template>
 
 <script setup>
-import { computed, watch, ref, onMounted, onBeforeUnmount } from "vue";
+import { computed, watch, ref, onMounted, onBeforeUnmount, onBeforeUpdate, nextTick } from "vue";
 import { fromCodeString } from "../../../utils/serialization";
 import { useActionConfig } from "../../../composables/useActionConfig";
 import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
@@ -293,7 +296,12 @@ const supportedTemplateModes = [
 ];
 const whenEditor = ref({ open: false, index: -1, draft: null });
 const conditionBuilderRef = ref(null);
+const controlRefs = ref([]);
 const showValidation = ref(false);
+
+onBeforeUpdate(() => {
+	controlRefs.value = [];
+});
 
 // ─── Operator Helpers ────────────────────────────────────────────────────────
 
@@ -688,19 +696,23 @@ async function validate() {
 	showValidation.value = true;
 	const errors = [];
 
+	// 1. Core Control Validation (Aggregated)
+	const results = await Promise.all(
+		(controlRefs.value || []).map((ref) => {
+			if (ref && typeof ref.validate === "function") {
+				return ref.validate();
+			}
+			return { valid: true };
+		})
+	);
+	results.forEach((res) => {
+		if (!res.valid && res.errors) errors.push(...res.errors);
+	});
+
+	// 2. Logic-based Validation
 	assignments.value.forEach((a, idx) => {
 		const n = idx + 1;
-		if (!a.target) errors.push(__("Assignment #{0}: Target is required", [n]));
-		if (!a.operator) errors.push(__("Assignment #{0}: Operator is required", [n]));
-		if (needsValue(a.operator)) {
-			const ui = a.value;
-			const hasValue = ui?.mode === "static" ? ui.value !== "" : !!ui;
-			if (!ui || !hasValue) {
-				errors.push(
-					__("Assignment #{0}: Value is required for operator '{1}'", [n, a.operator])
-				);
-			}
-		}
+
 		// Target path validation
 		if (a.target && !a.target.startsWith("doc.") && !a.target.startsWith("vars.")) {
 			errors.push(__("Assignment #{0}: Target must start with 'doc.' or 'vars.'", [n]));
