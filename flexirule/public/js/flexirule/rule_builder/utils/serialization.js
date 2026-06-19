@@ -45,3 +45,38 @@ export function isJsonField(df) {
 	if (!df) return false;
 	return df.fieldtype === "JSON" || (df.fieldtype === "Code" && df.options === "JSON");
 }
+
+/**
+ * Deep clones an object or array.
+ * Uses structuredClone if available, with a fallback that handles most POJOs.
+ * Preserves undefined values which JSON.stringify would drop.
+ */
+export function deepClone(obj) {
+	if (obj === null || typeof obj !== "object") {
+		return obj;
+	}
+
+	if (typeof structuredClone === "function") {
+		try {
+			return structuredClone(obj);
+		} catch (e) {
+			// Fallback if structuredClone fails (e.g. on certain proxies)
+		}
+	}
+
+	if (Array.isArray(obj)) {
+		const copy = [];
+		for (let i = 0; i < obj.length; i++) {
+			copy[i] = deepClone(obj[i]);
+		}
+		return copy;
+	}
+
+	const copy = {};
+	for (const key in obj) {
+		if (Object.prototype.hasOwnProperty.call(obj, key)) {
+			copy[key] = deepClone(obj[key]);
+		}
+	}
+	return copy;
+}
