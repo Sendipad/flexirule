@@ -54,8 +54,8 @@ export function projectGraph(nodes, edges, direction = "TB") {
 					? "top"
 					: "left"
 				: isHorizontal
-					? "right"
-					: "bottom",
+				? "right"
+				: "bottom",
 			targetPosition: isHorizontal ? "left" : "top",
 		};
 	});
