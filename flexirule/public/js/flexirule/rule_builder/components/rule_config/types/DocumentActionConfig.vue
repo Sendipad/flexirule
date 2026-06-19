@@ -11,6 +11,7 @@
 			<div class="sub-section section-subcard">
 				<h6>{{ __("Execution Permission") }}</h6>
 				<ControlFactory
+					:ref="setControlRef"
 					:df="{
 						fieldname: 'skip_permissions',
 						fieldtype: 'Check',
@@ -25,6 +26,7 @@
 				/>
 				<ControlFactory
 					v-if="!!node?.data?.skip_permissions"
+					:ref="setControlRef"
 					:df="{
 						fieldname: 'permission_audit_reason',
 						fieldtype: 'Small Text',
@@ -42,19 +44,21 @@
 				<div class="assign-to-group">
 					<div class="d-flex align-items-center gap-2 mb-1">
 						<label class="control-label small mb-0">{{ __("Assigned To") }}</label>
-						<select
+						<SelectControl
 							v-if="!readOnly"
-							class="form-control input-xs assign-type-select"
+							class="assign-type-select"
+							:df="{
+								label: '',
+								options: 'Value\nVariable\nExpression',
+							}"
 							v-model="assignToType"
+							:hideLabel="true"
 							@change="onAssignToTypeChange"
-						>
-							<option value="Value">{{ __("Value") }}</option>
-							<option value="Variable">{{ __("Variable") }}</option>
-							<option value="Expression">{{ __("Expression") }}</option>
-						</select>
+						/>
 					</div>
 					<ControlFactory
 						v-if="assignToType === 'Value'"
+						:ref="setControlRef"
 						:df="with_read_only(assignedToLinkField)"
 						:modelValue="stripBrackets(config.assigned_to)"
 						:showValidation="showValidation"
@@ -62,6 +66,8 @@
 					/>
 					<ComboBoxControl
 						v-else-if="assignToType === 'Variable'"
+						:ref="setControlRef"
+						fieldname="assigned_to"
 						:df="{
 							fieldtype: 'Autocomplete',
 							label: '',
@@ -76,6 +82,7 @@
 					/>
 					<ControlFactory
 						v-else
+						:ref="setControlRef"
 						:df="with_read_only(assignedToExprField)"
 						:modelValue="config.assigned_to"
 						:showValidation="showValidation"
@@ -83,12 +90,14 @@
 					/>
 				</div>
 				<ControlFactory
+					:ref="setControlRef"
 					:df="with_read_only(todoDescriptionField)"
 					:modelValue="config.description"
 					:showValidation="showValidation"
 					@update:modelValue="(val) => update_config_key('description', val)"
 				/>
 				<ControlFactory
+					:ref="setControlRef"
 					:df="with_read_only(todoPriorityField)"
 					:modelValue="config.priority"
 					@update:modelValue="(val) => update_config_key('priority', val)"
@@ -97,11 +106,13 @@
 
 			<template v-else-if="mode === 'Add Comment'">
 				<ControlFactory
+					:ref="setControlRef"
 					:df="with_read_only(commentTypeField)"
 					:modelValue="config.comment_type"
 					@update:modelValue="(val) => update_config_key('comment_type', val)"
 				/>
 				<ControlFactory
+					:ref="setControlRef"
 					:df="with_read_only(commentTextField)"
 					:modelValue="config.comment_text"
 					:showValidation="showValidation"
@@ -111,6 +122,7 @@
 
 			<template v-else-if="['Update Existing', 'Delete Record'].includes(mode)">
 				<ControlFactory
+					:ref="setControlRef"
 					:df="with_read_only(docnameExprField)"
 					:modelValue="config.docname_expression"
 					@update:modelValue="(val) => update_config_key('docname_expression', val)"
@@ -144,6 +156,7 @@
 
 				<ResourceMapperControl
 					v-if="mapperView === 'classic'"
+					:ref="setControlRef"
 					:df="mapperField"
 					:modelValue="config.resource_mapper_ui"
 					:targetDoctype="reference_doctype"
@@ -156,6 +169,8 @@
 
 				<TransformControl
 					v-else
+					:ref="setControlRef"
+					fieldname="resource_mapper_ui"
 					:modelValue="visualMappings"
 					:sourceSchema="sourceSchema"
 					:targetSchema="targetSchema"
@@ -169,11 +184,12 @@
 </template>
 
 <script setup>
-import { computed, ref, watch, onMounted } from "vue";
+import { computed, ref, watch, onMounted, onBeforeUpdate } from "vue";
 import { fromCodeString } from "../../../utils/serialization";
 import { useActionConfig } from "../../../composables/useActionConfig";
 import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
 import ControlFactory from "../../../controls/ControlFactory.vue";
+import SelectControl from "../../../controls/SelectControl.vue";
 import ResourceMapperControl from "../../../controls/ResourceMapperControl.vue";
 import TransformControl from "../../../controls/TransformControl.vue";
 import transformUtils from "../../../utils/transform.js";
@@ -185,6 +201,15 @@ const props = defineProps({
 });
 
 const showValidation = ref(false);
+const controlRefs = ref([]);
+
+onBeforeUpdate(() => {
+	controlRefs.value = [];
+});
+
+function setControlRef(el) {
+	if (el) controlRefs.value.push(el);
+}
 
 const { config, variable_options, mode, reference_doctype, with_read_only, sync_config } =
 	useActionConfig(props);
@@ -506,22 +531,33 @@ watch(
 	{ immediate: true, deep: true }
 );
 
-function validate() {
+async function validate() {
 	showValidation.value = true;
 	const errors = [];
-	const requiredKeyLabels = {
-		assigned_to: __("Assigned To"),
-		description: __("Description"),
-		comment_text: __("Comment Text"),
-	};
-	for (const key of requiredConfigKeys.value) {
-		if (!config[key]) {
-			errors.push(__("{0} is required").replace("{0}", requiredKeyLabels[key] || key));
-		}
-	}
+
+	// 1. Core Control Validation (Aggregated)
+	const results = await Promise.all(
+		(controlRefs.value || []).map((ctrl) => {
+			if (ctrl && typeof ctrl.validate === "function") {
+				return ctrl.validate();
+			}
+			return { valid: true };
+		})
+	);
+	results.forEach((res) => {
+		if (!res.valid && res.errors) errors.push(...res.errors);
+	});
+
+	// 2. Logic-based Validation
 	if (showMapper.value && !config.resource_mapper_ui && !hasLegacyMapperConfig(config)) {
 		errors.push(__("Resource Mapper configuration is required for {0}", [mode.value]));
 	}
+
+	// 3. Permission Audit Reason (Global check)
+	if (props.node?.data?.skip_permissions && !props.node?.data?.permission_audit_reason) {
+		errors.push(__("Permission Audit Reason is required when bypassing permissions."));
+	}
+
 	return { valid: errors.length === 0, errors };
 }
 

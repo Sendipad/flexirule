@@ -2,6 +2,7 @@
 	<div
 		class="resource-mapper-control fxr-control fxr-accent-scope"
 		:class="{ 'has-error': showValidation && !isValid }"
+		:data-fxr-fieldname="df?.fieldname || fieldname || null"
 	>
 		<div v-if="df?.label && !hideLabel" class="fxr-label" :class="{ reqd: df?.reqd }">
 			{{ __(df.label) }}
@@ -678,6 +679,7 @@ import ComboBoxControl from "./ComboBoxControl.vue";
 
 const props = defineProps({
 	df: { type: Object, default: null },
+	fieldname: String,
 	modelValue: { type: [Object, String], default: null },
 	targetDoctype: { type: String, default: "" },
 	targetFields: { type: Array, default: () => [] },

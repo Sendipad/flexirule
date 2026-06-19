@@ -1,33 +1,34 @@
 <template>
 	<div class="wait-node-config">
 		<div class="form-row">
-			<div
-				class="form-group col-md-6"
-				:class="{ 'has-error': showValidation && getJsonConfig('value', 1) <= 0 }"
-			>
-				<label class="small text-muted">{{ __("Delay Value") }}</label>
-				<input
-					type="number"
-					class="form-control"
-					:value="getJsonConfig('value', 1)"
-					@input="$emit('update-field', 'value', parseFloat($event.target.value))"
+			<div class="form-group col-md-6">
+				<DataControl
+					:ref="setControlRef"
+					fieldname="config.value"
+					:df="{
+						fieldtype: 'Float',
+						label: __('Delay Value'),
+						reqd: 1,
+					}"
+					:modelValue="getJsonConfig('value', 1)"
+					:showValidation="showValidation"
+					@update:modelValue="$emit('update-field', 'value', parseFloat($event))"
 				/>
-				<div v-if="showValidation && getJsonConfig('value', 1) <= 0" class="fxr-error-msg">
-					{{ __("Delay must be greater than 0") }}
-				</div>
 			</div>
 			<div class="form-group col-md-6">
-				<label class="small text-muted">{{ __("Unit") }}</label>
-				<select
-					class="form-control"
-					:value="getJsonConfig('unit', 'Minutes')"
-					@change="$emit('update-field', 'unit', $event.target.value)"
-				>
-					<option value="Seconds">{{ __("Seconds") }}</option>
-					<option value="Minutes">{{ __("Minutes") }}</option>
-					<option value="Hours">{{ __("Hours") }}</option>
-					<option value="Days">{{ __("Days") }}</option>
-				</select>
+				<SelectControl
+					:ref="setControlRef"
+					fieldname="config.unit"
+					:df="{
+						fieldtype: 'Select',
+						label: __('Unit'),
+						options: 'Seconds\nMinutes\nHours\nDays',
+						reqd: 1,
+					}"
+					:modelValue="getJsonConfig('unit', 'Minutes')"
+					:showValidation="showValidation"
+					@update:modelValue="$emit('update-field', 'unit', $event)"
+				/>
 			</div>
 		</div>
 		<div class="alert alert-info py-2 px-3 small mt-2">
@@ -38,12 +39,25 @@
 </template>
 
 <script setup>
+import { ref, onBeforeUpdate } from "vue";
+import DataControl from "../../controls/DataControl.vue";
+import SelectControl from "../../controls/SelectControl.vue";
+
 const props = defineProps({
 	nodeData: Object,
 	showValidation: { type: Boolean, default: false },
 });
 
-defineEmits(["update-field"]);
+const emit = defineEmits(["update-field"]);
+const controlRefs = ref([]);
+
+onBeforeUpdate(() => {
+	controlRefs.value = [];
+});
+
+function setControlRef(el) {
+	if (el) controlRefs.value.push(el);
+}
 
 function getJsonConfig(key, defaultVal = "") {
 	const configStr = props.nodeData?.config;
@@ -57,9 +71,18 @@ function getJsonConfig(key, defaultVal = "") {
 	return config[key] !== undefined ? config[key] : defaultVal;
 }
 
-function validate() {
+async function validate() {
+	const results = await Promise.all(
+		(controlRefs.value || []).map((ctrl) => {
+			if (ctrl && typeof ctrl.validate === "function") {
+				return ctrl.validate();
+			}
+			return { valid: true };
+		})
+	);
+	const errors = results.flatMap((r) => r.errors || []);
+
 	const value = getJsonConfig("value", 1);
-	const errors = [];
 	if (value <= 0) {
 		errors.push(__("Delay value must be greater than 0"));
 	}

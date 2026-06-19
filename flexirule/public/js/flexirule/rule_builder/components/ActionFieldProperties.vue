@@ -297,11 +297,15 @@ onBeforeUpdate(() => {
 	controlRefs.value = [];
 });
 
+function setControlRef(el) {
+	if (el) controlRefs.value.push(el);
+}
+
 async function validate() {
 	const results = await Promise.all(
-		(controlRefs.value || []).map((ref) => {
-			if (ref && typeof ref.validate === "function") {
-				return ref.validate();
+		(controlRefs.value || []).map((ctrl) => {
+			if (ctrl && typeof ctrl.validate === "function") {
+				return ctrl.validate();
 			}
 			return { valid: true };
 		})
@@ -349,7 +353,7 @@ onMounted(async () => {
 			<!-- Autocomplete / Link / Dynamic Link fields -->
 			<template v-else-if="needs_autocomplete(df)">
 				<ComboBoxControl
-					ref="controlRefs"
+					:ref="setControlRef"
 					:df="{
 						...df,
 						reqd: is_mandatory(df),
@@ -371,7 +375,7 @@ onMounted(async () => {
 
 			<template v-else>
 				<ControlFactory
-					ref="controlRefs"
+					:ref="setControlRef"
 					:df="{
 						...df,
 						reqd: is_mandatory(df),

@@ -5,6 +5,7 @@
 			'no-label': hideLabel,
 			'has-error': showValidation && !isValid,
 		}"
+		:data-fxr-fieldname="df?.fieldname || fieldname || null"
 	>
 		<div
 			class="fxr-input-group"
@@ -245,6 +246,7 @@ import { useAsyncOptionsSource } from "../composables/useAsyncOptionsSource";
 const props = defineProps({
 	modelValue: [String, Number, Object],
 	df: Object,
+	fieldname: String,
 	options: { type: Array, default: () => [] },
 	get_query: Function,
 	doctype: String,

@@ -11,6 +11,7 @@
 			<div class="sub-section section-subcard">
 				<h6>{{ __("Execution Permission") }}</h6>
 				<ControlFactory
+					:ref="setControlRef"
 					:df="{
 						fieldname: 'skip_permissions',
 						fieldtype: 'Check',
@@ -25,6 +26,7 @@
 				/>
 				<ControlFactory
 					v-if="!!node?.data?.skip_permissions"
+					:ref="setControlRef"
 					:df="{
 						fieldname: 'permission_audit_reason',
 						fieldtype: 'Small Text',
@@ -38,10 +40,11 @@
 
 			<!-- Configuration based on selected Mode -->
 			<template v-if="mode === 'Query List'">
-				<div class="sub-section section-subcard">
+				<div class="sub-section section-subcard" data-fxr-fieldname="config.filters">
 					<h6>{{ __("Filters") }}</h6>
 					<FilterGroup
 						ref="filterGroupRef"
+						:ref="setControlRef"
 						:doctype="reference_doctype"
 						:modelValue="config.filters"
 						:readOnly="readOnly"
@@ -54,6 +57,7 @@
 
 				<div class="sub-section section-subcard">
 					<MultiSelectList
+						:ref="setControlRef"
 						:df="{
 							label: __('Fields'),
 							fieldname: 'fields',
@@ -75,6 +79,7 @@
 							class="row-item field-row"
 						>
 							<ComboBoxControl
+								:ref="setControlRef"
 								:df="{ label: '', fieldtype: 'FieldPicker' }"
 								:options="doctype_fields"
 								:doctype="reference_doctype"
@@ -89,15 +94,21 @@
 								}"
 								@update:modelValue="(val) => (row.field = val)"
 							/>
-							<select
-								class="form-control input-xs ml-2"
+							<SelectControl
+								class="ml-2"
 								style="width: 80px"
+								:df="{
+									label: '',
+									options: [
+										{ label: __('ASC'), value: 'asc' },
+										{ label: __('DESC'), value: 'desc' },
+									],
+									reqd: 1,
+								}"
 								v-model="row.direction"
-								:disabled="readOnly"
-							>
-								<option value="asc">{{ __("ASC") }}</option>
-								<option value="desc">{{ __("DESC") }}</option>
-							</select>
+								:read_only="readOnly"
+								:hideLabel="true"
+							/>
 							<button
 								v-if="!readOnly"
 								class="btn btn-xs btn-link text-danger"
@@ -117,6 +128,7 @@
 					<div class="query-doc-grid">
 						<div class="grid-item">
 							<ControlFactory
+								:ref="setControlRef"
 								:df="with_read_only(limitTypeField)"
 								:modelValue="config.limit_type || 'Custom Limit'"
 								:showValidation="showValidation"
@@ -128,6 +140,7 @@
 							class="grid-item"
 						>
 							<ControlFactory
+								:ref="setControlRef"
 								:df="with_read_only(limitField)"
 								:modelValue="config.limit"
 								:showValidation="showValidation"
@@ -137,6 +150,8 @@
 						<div class="grid-item">
 							<label class="control-label small">{{ __("Group By") }}</label>
 							<ComboBoxControl
+								:ref="setControlRef"
+								fieldname="group_by"
 								:df="{ label: '', fieldtype: 'Autocomplete' }"
 								:modelValue="config.group_by"
 								:get_query="get_group_by_options"
@@ -156,6 +171,7 @@
 					<div class="query-doc-grid">
 						<div class="grid-item">
 							<ControlFactory
+								:ref="setControlRef"
 								:df="{
 									fieldname: 'fetch_strategy',
 									fieldtype: 'Select',
@@ -178,12 +194,13 @@
 						<div class="grid-item">
 							<label class="control-label small">{{ __("DocType Name") }}</label>
 							<FlexValueControl
+								:ref="setControlRef"
 								:modelValue="config.doctype_name"
 								:variableOptions="variable_options"
 								:readOnly="readOnly"
 								:showValidation="showValidation"
 								:context="{
-									df: { fieldtype: 'Link', options: 'DocType', reqd: 1 },
+									df: doctypeNameField,
 								}"
 								@update:modelValue="update_doctype_name"
 							/>
@@ -194,12 +211,13 @@
 								__("Document Name (ID)")
 							}}</label>
 							<FlexValueControl
+								:ref="setControlRef"
 								:modelValue="config.docname"
 								:variableOptions="variable_options"
 								:readOnly="readOnly"
 								:showValidation="showValidation"
 								:context="{
-									df: { fieldtype: 'Link', options: reference_doctype, reqd: 1 },
+									df: docnameField,
 									referenceDoctype: reference_doctype,
 								}"
 								@update:modelValue="(val) => update_config_key('docname', val)"
@@ -211,10 +229,12 @@
 				<div
 					v-if="config.fetch_strategy === 'Get latest Doc'"
 					class="sub-section section-subcard"
+					data-fxr-fieldname="config.filters"
 				>
 					<h6>{{ __("Filters") }}</h6>
 					<FilterGroup
 						ref="filterGroupRef"
+						:ref="setControlRef"
 						:doctype="reference_doctype"
 						:modelValue="config.filters"
 						:readOnly="readOnly"
@@ -227,10 +247,11 @@
 			</template>
 
 			<template v-else-if="mode === 'Exist Record'">
-				<div class="sub-section section-subcard">
+				<div class="sub-section section-subcard" data-fxr-fieldname="config.filters">
 					<h6>{{ __("Filters") }}</h6>
 					<FilterGroup
 						ref="filterGroupRef"
+						:ref="setControlRef"
 						:doctype="reference_doctype"
 						:modelValue="config.filters"
 						:readOnly="readOnly"
@@ -283,6 +304,7 @@
 									<div class="expression-input-group">
 										<span class="expr-prefix">{</span>
 										<ComboBoxControl
+											:ref="setControlRef"
 											:df="{
 												fieldtype: 'Autocomplete',
 												label: '',
@@ -305,6 +327,7 @@
 								</template>
 								<template v-else>
 									<ControlFactory
+										:ref="setControlRef"
 										:df="{ ...with_read_only(df), label: '' }"
 										:modelValue="report_filter_values[df.fieldname]"
 										@update:modelValue="
@@ -325,10 +348,11 @@
 			<template
 				v-else-if="['Sum', 'Average', 'Min', 'Max', 'Count', 'Group By'].includes(mode)"
 			>
-				<div class="sub-section section-subcard">
+				<div class="sub-section section-subcard" data-fxr-fieldname="config.filters">
 					<h6>{{ __("Filters") }}</h6>
 					<FilterGroup
 						ref="filterGroupRef"
+						:ref="setControlRef"
 						:doctype="reference_doctype"
 						:modelValue="config.filters"
 						:readOnly="readOnly"
@@ -349,6 +373,7 @@
 								}}</label>
 								<div class="field-picker-container">
 									<ComboBoxControl
+										:ref="setControlRef"
 										:df="{ ...fieldField, fieldtype: 'FieldPicker' }"
 										:options="doctype_fields"
 										:doctype="reference_doctype"
@@ -383,6 +408,7 @@
 								}}</label>
 								<div class="field-picker-container">
 									<ComboBoxControl
+										:ref="setControlRef"
 										:df="{ ...aggGroupByField, fieldtype: 'FieldPicker' }"
 										:options="doctype_fields"
 										:doctype="reference_doctype"
@@ -414,6 +440,7 @@
 							</div>
 							<div class="grid-item">
 								<ControlFactory
+									:ref="setControlRef"
 									:df="with_read_only(aggFunctionField)"
 									:modelValue="config.agg_function"
 									@update:modelValue="
@@ -427,6 +454,7 @@
 								}}</label>
 								<div class="field-picker-container">
 									<ComboBoxControl
+										:ref="setControlRef"
 										:df="{ ...aggFieldField, fieldtype: 'FieldPicker' }"
 										:options="doctype_fields"
 										:doctype="reference_doctype"
@@ -488,10 +516,11 @@
 </template>
 
 <script setup>
-import { reactive, ref, computed, watch, onMounted } from "vue";
+import { reactive, ref, computed, watch, onMounted, onBeforeUpdate } from "vue";
 import { fromCodeString } from "../../../utils/serialization";
 import { useActionConfig } from "../../../composables/useActionConfig";
 import ControlFactory from "../../../controls/ControlFactory.vue";
+import SelectControl from "../../../controls/SelectControl.vue";
 import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
 import FilterGroup from "../FilterGroup.vue";
 import MultiSelectList from "../../../controls/MultiSelectList.vue";
@@ -529,6 +558,37 @@ const { getPolicyField } = useNodeConfigPolicy({
 	processName: () => props.node?.data?.process_name || "",
 });
 
+function resolveFieldPolicy(fieldname, fallback) {
+	const field = getPolicyField(fieldname, fallback);
+	// Apply dynamic requirements based on mode/config
+	if (fieldname === "limit" && config.limit_type === "Custom Limit") {
+		field.reqd = 1;
+	}
+	if (fieldname === "field" && ["Sum", "Average", "Min", "Max"].includes(mode.value)) {
+		field.reqd = 1;
+	}
+	if (
+		["group_by_field", "agg_field", "agg_function"].includes(fieldname) &&
+		mode.value === "Group By"
+	) {
+		field.reqd = 1;
+	}
+	if (fieldname === "doctype_name") {
+		field.reqd = 1;
+	}
+	if (fieldname === "docname") {
+		const strategy = config.fetch_strategy || "Get doc";
+		const is_single = strategy === "Get Single DocType" || is_single_doctype.value;
+		const is_latest = strategy === "Get latest Doc";
+		if (!is_single && !is_latest) {
+			field.reqd = 1;
+		} else {
+			field.reqd = 0;
+		}
+	}
+	return with_read_only(field);
+}
+
 // Local state for UI controls
 const order_by_rows = ref([]);
 const report_filters = ref([]);
@@ -538,13 +598,22 @@ const test_status = ref("");
 const is_single_doctype = ref(false);
 const showValidation = ref(false);
 const filterGroupRef = ref(null);
+const controlRefs = ref([]);
+
+onBeforeUpdate(() => {
+	controlRefs.value = [];
+});
+
+function setControlRef(el) {
+	if (el) controlRefs.value.push(el);
+}
 
 // Internal flag to prevent recursive sync loops
-let is_internal_update = false;
+const is_internal_update = ref(false);
 
 // Initialize local config
 onMounted(async () => {
-	is_internal_update = true;
+	is_internal_update.value = true;
 	try {
 		load_local_config(props.node?.data?.config);
 		if (reference_doctype.value) {
@@ -560,7 +629,7 @@ onMounted(async () => {
 		await refresh_variables();
 		await debounced_schema_update();
 	} finally {
-		is_internal_update = false;
+		is_internal_update.value = false;
 	}
 });
 
@@ -568,7 +637,7 @@ onMounted(async () => {
 watch(
 	() => props.node?.data?.config,
 	(val) => {
-		if (!is_internal_update) {
+		if (!is_internal_update.value) {
 			load_local_config(val);
 		}
 	}
@@ -582,7 +651,7 @@ watch(
 			await loadDocMeta(val);
 			await load_doctype_fields(val);
 			// Only sync if this was a user change (not during initial mount)
-			if (!is_internal_update) {
+			if (!is_internal_update.value) {
 				// Clear filters when DocType changes
 				if (Array.isArray(config.filters)) {
 					config.filters = [];
@@ -819,10 +888,6 @@ async function update_report_columns() {
 	}
 }
 
-function resolveFieldPolicy(fieldname, fallback) {
-	return with_read_only(getPolicyField(fieldname, fallback));
-}
-
 const limitTypeField = computed(() =>
 	resolveFieldPolicy("limit_type", {
 		fieldname: "limit_type",
@@ -892,6 +957,26 @@ const docnameExprField = computed(() =>
 	})
 );
 
+const doctypeNameField = computed(() =>
+	resolveFieldPolicy("doctype_name", {
+		fieldname: "doctype_name",
+		fieldtype: "Link",
+		options: "DocType",
+		label: __("DocType Name"),
+		reqd: 1,
+	})
+);
+
+const docnameField = computed(() =>
+	resolveFieldPolicy("docname", {
+		fieldname: "docname",
+		fieldtype: "Link",
+		options: reference_doctype.value,
+		label: __("Document Name (ID)"),
+		reqd: 1,
+	})
+);
+
 const is_doctype_dynamic = computed(() => {
 	const val = config.doctype_name;
 	if (!val) return false;
@@ -942,14 +1027,45 @@ function update_action_key(key, value) {
 // Watch for operation changes directly to handle Report special case
 watch(
 	() => mode.value,
-	async (newMode) => {
+	async (newMode, oldMode) => {
+		if (!is_internal_update.value && newMode !== oldMode) {
+			// Clear irrelevant configuration fields when mode changes
+			const keysToKeep = ["doctype_name", "fetch_strategy"];
+
+			Object.keys(config).forEach((key) => {
+				if (!keysToKeep.includes(key)) {
+					// Specific mode cleanup
+					if (key === "filters") {
+						config.filters = newMode === "Query Report" ? {} : [];
+					} else if (key === "docname" && newMode !== "Query Doc") {
+						delete config[key];
+					} else if (
+						["limit", "limit_type", "order_by", "fields"].includes(key) &&
+						newMode !== "Query List"
+					) {
+						delete config[key];
+					} else if (
+						["field", "group_by_field", "agg_field", "agg_function"].includes(key) &&
+						!["Sum", "Average", "Min", "Max", "Count", "Group By"].includes(newMode)
+					) {
+						delete config[key];
+					}
+				}
+			});
+
+			if (newMode === "Query List") {
+				config.limit = config.limit || 20;
+				config.limit_type = config.limit_type || "Custom Limit";
+			}
+		}
+
 		if (newMode === "Query Report" && props.node?.data) {
 			if (props.node.data.reference_doctype !== "Report") {
 				update_action_field("reference_doctype", "Report");
 			}
 		}
 
-		if (newMode === "Query Doc" && !is_internal_update) {
+		if (newMode === "Query Doc" && !is_internal_update.value) {
 			// Initialize filters if empty
 			if (!config.filters || (Array.isArray(config.filters) && config.filters.length === 0)) {
 				const doctype = reference_doctype.value;
@@ -957,10 +1073,12 @@ watch(
 					const meta = await flexirule.utils.get_doctype_meta(doctype);
 					if (meta && !meta.issingle) {
 						config.filters = [[doctype, "name", "=", { mode: "static", value: "" }]];
-						sync_local_config();
 					}
 				}
 			}
+		}
+		if (!is_internal_update.value) {
+			sync_local_config();
 		}
 	}
 );
@@ -1041,11 +1159,11 @@ function sync_local_config() {
 	const next_str = JSON.stringify(new_config || {});
 
 	if (current_str !== next_str) {
-		is_internal_update = true;
+		is_internal_update.value = true;
 		sync_config(new_config);
 		// Reset flag after a short delay to allow the prop update to flow back
 		setTimeout(() => {
-			is_internal_update = false;
+			is_internal_update.value = false;
 		}, 150);
 	}
 }
@@ -1240,7 +1358,7 @@ function load_local_config(val) {
 watch(
 	() => [order_by_rows.value, config, report_filter_values, mode.value, reference_doctype.value],
 	() => {
-		if (!is_internal_update) {
+		if (!is_internal_update.value) {
 			debounced_sync();
 			update_resolved_schema_local();
 			debounced_schema_update();
@@ -1253,31 +1371,29 @@ async function validate() {
 	showValidation.value = true;
 	const errors = [];
 
-	// Validate filters if applicable for the current mode
+	// 1. Core Control Validation (Aggregated)
+	const results = await Promise.all(
+		(controlRefs.value || []).map((ctrl) => {
+			if (ctrl && typeof ctrl.validate === "function") {
+				return ctrl.validate();
+			}
+			return { valid: true };
+		})
+	);
+	results.forEach((res) => {
+		if (!res.valid && res.errors) errors.push(...res.errors);
+	});
+
+	// 2. Validate filters if applicable for the current mode
 	if (filterGroupRef.value && typeof filterGroupRef.value.validate === "function") {
 		const res = await filterGroupRef.value.validate();
 		if (!res.valid) errors.push(...res.errors);
 	}
 
-	if (mode.value === "Query Doc") {
-		const strategy = config.fetch_strategy || "Get doc";
-		const is_single = strategy === "Get Single DocType" || is_single_doctype.value;
-
-		if (!config.doctype_name) {
-			errors.push(__("Target DocType is required for Query Doc"));
-		}
-
-		if (!is_single && !config.docname) {
-			errors.push(__("Document Name (ID) is required for this strategy"));
-		}
-	}
-
+	// 3. Logic-based Validation
 	if (mode.value === "Query List") {
 		if (!reference_doctype.value) {
 			errors.push(__("Reference DocType is required for Query List"));
-		}
-		if (config.limit_type === "Custom Limit" && !config.limit) {
-			errors.push(__("Custom Limit Number is required"));
 		}
 	}
 
@@ -1287,19 +1403,7 @@ async function validate() {
 		}
 	}
 
-	if (["Sum", "Average", "Min", "Max"].includes(mode.value)) {
-		if (!config.field) {
-			errors.push(__("Field to Aggregate is required"));
-		}
-	}
-
-	if (mode.value === "Group By") {
-		if (!config.group_by_field) errors.push(__("Group By Field is required"));
-		if (!config.agg_field) errors.push(__("Aggregate Field is required"));
-		if (!config.agg_function) errors.push(__("Aggregate Function is required"));
-	}
-
-	// 4. Permission Audit Reason
+	// 4. Permission Audit Reason (Global check, though child CheckControl should handle reqd)
 	if (props.node?.data?.skip_permissions && !props.node?.data?.permission_audit_reason) {
 		errors.push(__("Permission Audit Reason is required when bypassing permissions."));
 	}

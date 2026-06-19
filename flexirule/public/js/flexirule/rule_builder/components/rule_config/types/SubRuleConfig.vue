@@ -11,6 +11,7 @@
 			<div class="sub-section section-subcard">
 				<h6>{{ __("Execution Permission") }}</h6>
 				<ControlFactory
+					:ref="setControlRef"
 					:df="{
 						fieldname: 'skip_permissions',
 						fieldtype: 'Check',
@@ -25,6 +26,7 @@
 				/>
 				<ControlFactory
 					v-if="!!node?.data?.skip_permissions"
+					:ref="setControlRef"
 					:df="{
 						fieldname: 'permission_audit_reason',
 						fieldtype: 'Small Text',
@@ -79,6 +81,8 @@
 						<div class="mapping-cell">
 							<label class="small text-muted mb-1">{{ __("Parent Variable") }}</label>
 							<ComboBoxControl
+								:ref="setControlRef"
+								fieldname="config.input_mapping.source"
 								:df="{ label: '', fieldtype: 'Autocomplete' }"
 								v-model="row.source"
 								:get_query="get_variable_options"
@@ -92,14 +96,22 @@
 							<i class="fa fa-arrow-right text-muted"></i>
 						</div>
 						<div class="mapping-cell">
-							<label class="small text-muted mb-1">{{ __("Sub-Rule Param") }}</label>
-							<input
-								type="text"
-								class="form-control form-control-sm"
-								v-model="row.target"
-								:placeholder="__('Sub-Rule Parameter')"
-								:disabled="read_only"
-								@input="sync_local_config"
+							<DataControl
+								:ref="setControlRef"
+								fieldname="config.input_mapping.target"
+								:df="{
+									fieldtype: 'Data',
+									label: __('Sub-Rule Param'),
+									placeholder: __('Sub-Rule Parameter'),
+									reqd: 1,
+								}"
+								:modelValue="row.target"
+								:read_only="read_only"
+								:showValidation="showValidation"
+								@update:modelValue="
+									row.target = $event;
+									sync_local_config();
+								"
 							/>
 						</div>
 						<div class="mapping-actions">
@@ -122,6 +134,8 @@
 
 				<div v-else class="visual-mapper">
 					<TransformControl
+						:ref="setControlRef"
+						fieldname="config.input_mapping"
 						:modelValue="visual_mappings"
 						:sourceSchema="source_schema"
 						:targetSchema="target_schema"
@@ -136,7 +150,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted, computed } from "vue";
+import { ref, watch, onMounted, computed, onBeforeUpdate } from "vue";
 import { useStore } from "../../../stores";
 import { fromCodeString } from "../../../utils/serialization";
 import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
@@ -154,6 +168,15 @@ const emit = defineEmits(["update:field"]);
 
 const mapping_rows = ref([]);
 const view = ref("list");
+const controlRefs = ref([]);
+
+onBeforeUpdate(() => {
+	controlRefs.value = [];
+});
+
+function setControlRef(el) {
+	if (el) controlRefs.value.push(el);
+}
 
 const source_schema = computed(() => {
 	const vars = store.variables || [];
@@ -249,8 +272,23 @@ function load_local_config() {
 		: [];
 }
 
-function validate() {
+async function validate() {
 	const errors = [];
+
+	// 1. Core Control Validation (Aggregated)
+	const results = await Promise.all(
+		(controlRefs.value || []).map((ctrl) => {
+			if (ctrl && typeof ctrl.validate === "function") {
+				return ctrl.validate();
+			}
+			return { valid: true };
+		})
+	);
+	results.forEach((res) => {
+		if (!res.valid && res.errors) errors.push(...res.errors);
+	});
+
+	// 2. Logic-based Validation
 	const incomplete = mapping_rows.value.find(
 		(row) => (row.source && !row.target) || (!row.source && row.target)
 	);
@@ -260,6 +298,7 @@ function validate() {
 		);
 	}
 
+	// 3. Permission Audit Reason (Global check)
 	if (props.node?.data?.skip_permissions && !props.node?.data?.permission_audit_reason) {
 		errors.push(__("Permission Audit Reason is required when bypassing permissions."));
 	}

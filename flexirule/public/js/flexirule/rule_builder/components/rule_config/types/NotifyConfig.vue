@@ -11,6 +11,7 @@
 			<div class="config-section section-card">
 				<div v-if="is_email" class="form-group mb-3">
 					<ControlFactory
+						:ref="setControlRef"
 						:df="with_read_only(subjectField)"
 						:modelValue="config.subject"
 						:showValidation="showValidation"
@@ -20,6 +21,7 @@
 
 				<div v-if="is_email" class="form-group mb-3">
 					<ControlFactory
+						:ref="setControlRef"
 						:df="with_read_only(recipientsField)"
 						:modelValue="config.recipients"
 						:showValidation="showValidation"
@@ -29,6 +31,7 @@
 
 				<div v-if="is_system_notification" class="form-group mb-3">
 					<ControlFactory
+						:ref="setControlRef"
 						:df="with_read_only(subjectField)"
 						:modelValue="config.subject"
 						:showValidation="showValidation"
@@ -38,6 +41,7 @@
 
 				<div v-if="is_system_notification" class="form-group mb-3">
 					<ControlFactory
+						:ref="setControlRef"
 						:df="with_read_only(forUserField)"
 						:modelValue="config.for_user"
 						:showValidation="showValidation"
@@ -47,6 +51,7 @@
 
 				<div v-if="is_provider" class="form-group mb-3">
 					<ControlFactory
+						:ref="setControlRef"
 						:df="with_read_only(providerField)"
 						:modelValue="config.provider"
 						:showValidation="showValidation"
@@ -56,6 +61,7 @@
 
 				<div v-if="is_provider" class="form-group mb-3">
 					<ControlFactory
+						:ref="setControlRef"
 						:df="with_read_only(recipientField)"
 						:modelValue="config.recipient"
 						:showValidation="showValidation"
@@ -65,6 +71,7 @@
 
 				<div class="form-group mb-3">
 					<ControlFactory
+						:ref="setControlRef"
 						:df="with_read_only(textGeneratorField)"
 						:modelValue="config.text_generator_ui"
 						:showValidation="showValidation"
@@ -75,6 +82,7 @@
 				<div v-if="is_email" class="form-group mb-3">
 					<label class="form-label">{{ __("Attach Document PDF") }}</label>
 					<ControlFactory
+						:ref="setControlRef"
 						:df="with_read_only(attachDocField)"
 						:modelValue="config.attach_doc"
 						@update:modelValue="(val) => update_config_key('attach_doc', val)"
@@ -86,7 +94,7 @@
 </template>
 
 <script setup>
-import { computed, watch, ref } from "vue";
+import { computed, watch, ref, onBeforeUpdate } from "vue";
 import { fromCodeString } from "../../../utils/serialization";
 import { useActionConfig } from "../../../composables/useActionConfig";
 import ControlFactory from "../../../controls/ControlFactory.vue";
@@ -100,6 +108,15 @@ const props = defineProps({
 });
 
 const showValidation = ref(false);
+const controlRefs = ref([]);
+
+onBeforeUpdate(() => {
+	controlRefs.value = [];
+});
+
+function setControlRef(el) {
+	if (el) controlRefs.value.push(el);
+}
 
 const { config, variable_options, with_read_only, sync_config, update_action_field } =
 	useActionConfig(props);
@@ -231,24 +248,28 @@ watch(
 	{ immediate: true, deep: true }
 );
 
-function validate() {
+async function validate() {
 	showValidation.value = true;
 	const errors = [];
-	const ui = config.text_generator_ui;
-	if (!ui || !Array.isArray(ui.segments) || !ui.segments.length) {
-		errors.push(__("Message Builder content is required"));
+
+	// 1. Core Control Validation (Aggregated)
+	const results = await Promise.all(
+		(controlRefs.value || []).map((ctrl) => {
+			if (ctrl && typeof ctrl.validate === "function") {
+				return ctrl.validate();
+			}
+			return { valid: true };
+		})
+	);
+	results.forEach((res) => {
+		if (!res.valid && res.errors) errors.push(...res.errors);
+	});
+
+	// 2. Logic-based Validation
+	if (!props.node?.data?.value_template) {
+		errors.push(__("Message content is required"));
 	}
-	const labels = {
-		subject: __("Subject"),
-		recipients: __("Recipients"),
-		provider: __("Provider"),
-		recipient: __("Recipient"),
-	};
-	for (const key of requiredConfigKeys.value) {
-		if (!config[key]) {
-			errors.push(__("{0} is required").replace("{0}", labels[key] || key));
-		}
-	}
+
 	return { valid: errors.length === 0, errors };
 }
 

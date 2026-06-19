@@ -48,6 +48,7 @@
 
 			<div v-show="view === 'form'">
 				<SchemaRenderer
+					:ref="setControlRef"
 					:fields="engine.normalized_fields"
 					:engine="engine"
 					:showValidation="showValidation"
@@ -56,9 +57,12 @@
 
 			<div v-if="view === 'visual'" class="process-config-visual">
 				<TransformControl
+					:ref="setControlRef"
+					fieldname="resource_mapper_ui"
 					:modelValue="visualMappings"
 					:sourceSchema="sourceSchema"
 					:targetSchema="targetSchema"
+					:showValidation="showValidation"
 					@update:modelValue="update_visual_mappings"
 				/>
 			</div>
@@ -79,7 +83,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref, reactive, watch, computed } from "vue";
+import { onMounted, ref, reactive, watch, computed, onBeforeUpdate } from "vue";
 import { fromCodeString } from "../../../utils/serialization";
 import ProcessEngine from "../engines/ProcessEngine.js";
 import SchemaRenderer from "../SchemaRenderer.vue";
@@ -94,6 +98,15 @@ const props = defineProps({
 const store = useStore();
 const engine = ref(null);
 const error = ref(null);
+const controlRefs = ref([]);
+
+onBeforeUpdate(() => {
+	controlRefs.value = [];
+});
+
+function setControlRef(el) {
+	if (el) controlRefs.value.push(el);
+}
 const view = ref("form");
 
 const needsSetup = computed(() => {
@@ -220,7 +233,25 @@ watch(
 
 async function validate() {
 	if (!engine.value) return { valid: true };
-	return await engine.value.validate();
+
+	// 1. Core Control Validation (Aggregated from SchemaRenderer or TransformControl)
+	const results = await Promise.all(
+		(controlRefs.value || []).map((ctrl) => {
+			if (ctrl && typeof ctrl.validate === "function") {
+				return ctrl.validate();
+			}
+			return { valid: true };
+		})
+	);
+	const errors = results.flatMap((r) => r.errors || []);
+
+	// 2. Engine-level validation (if any)
+	const engineRes = await engine.value.validate();
+	if (!engineRes.valid && engineRes.errors) {
+		errors.push(...engineRes.errors);
+	}
+
+	return { valid: errors.length === 0, errors };
 }
 
 defineExpose({

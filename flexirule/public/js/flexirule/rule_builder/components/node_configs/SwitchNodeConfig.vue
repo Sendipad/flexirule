@@ -1,27 +1,27 @@
 <template>
 	<div class="switch-node-config">
-		<div
-			class="form-group"
-			:class="{ 'has-error': showValidation && !getJsonConfig('expression') }"
-		>
-			<label>{{ __("Switch Expression (Python)") }}</label>
-			<textarea
-				class="form-control"
-				rows="2"
-				:value="getJsonConfig('expression')"
-				@input="$emit('update-json-config', 'expression', $event.target.value)"
-				placeholder="doc.category"
-			></textarea>
-			<div v-if="showValidation && !getJsonConfig('expression')" class="fxr-error-msg">
-				{{ __("Switch Expression is required") }}
-			</div>
+		<div class="form-group">
+			<ControlFactory
+				:ref="setControlRef"
+				:df="{
+					fieldname: 'expression',
+					fieldtype: 'Small Text',
+					label: __('Switch Expression (Python)'),
+					placeholder: 'doc.category',
+					reqd: 1,
+				}"
+				:modelValue="getJsonConfig('expression')"
+				:showValidation="showValidation"
+				@update:modelValue="$emit('update-json-config', 'expression', $event)"
+			/>
 		</div>
 
 		<div
 			class="form-group"
 			:class="{ 'has-error': showValidation && Object.keys(cases).length === 0 }"
+			data-fxr-fieldname="config.cases"
 		>
-			<label>{{ __("Cases") }}</label>
+			<label class="fxr-label reqd">{{ __("Cases") }}</label>
 			<div
 				v-if="showValidation && Object.keys(cases).length === 0"
 				class="fxr-error-msg mb-2"
@@ -47,18 +47,18 @@
 			</div>
 
 			<div class="add-case mt-2 p-2 border rounded">
-				<input
-					type="text"
-					class="form-control input-sm mb-1"
+				<DataControl
+					class="mb-2"
+					:df="{ label: '', placeholder: __('Value (e.g. \'Active\')') }"
 					v-model="newCaseValue"
-					:placeholder="__('Value (e.g. \'Active\')')"
+					:hideLabel="true"
 				/>
-				<select class="form-control input-sm mb-1" v-model="newCaseTarget">
-					<option value="" disabled>{{ __("Select Target Node") }}</option>
-					<option v-for="node in availableNodes" :key="node.id" :value="node.id">
-						{{ node.label }}
-					</option>
-				</select>
+				<SelectControl
+					class="mb-2"
+					:df="{ label: '', options: availableNodeOptions }"
+					v-model="newCaseTarget"
+					:hideLabel="true"
+				/>
 				<button
 					class="btn btn-xs btn-default w-100"
 					@click="addSwitchCase"
@@ -72,7 +72,10 @@
 </template>
 
 <script setup>
-import { computed, ref } from "vue";
+import { computed, ref, onBeforeUpdate } from "vue";
+import ControlFactory from "../../controls/ControlFactory.vue";
+import DataControl from "../../controls/DataControl.vue";
+import SelectControl from "../../controls/SelectControl.vue";
 const props = defineProps({
 	nodeData: Object,
 	availableNodes: { type: Array, default: () => [] },
@@ -84,9 +87,25 @@ const emit = defineEmits(["update-json-config"]);
 
 const newCaseValue = ref("");
 const newCaseTarget = ref("");
+const controlRefs = ref([]);
+
+onBeforeUpdate(() => {
+	controlRefs.value = [];
+});
+
+function setControlRef(el) {
+	if (el) controlRefs.value.push(el);
+}
 
 const cases = computed(() => {
 	return getJsonConfig("cases", {});
+});
+
+const availableNodeOptions = computed(() => {
+	return [
+		{ label: __("Select Target Node"), value: "" },
+		...props.availableNodes.map((n) => ({ label: n.label, value: n.id })),
+	];
 });
 
 function getJsonConfig(key, defaultVal = "") {
@@ -109,15 +128,24 @@ function removeSwitchCase(val) {
 	emit("update-json-config", "cases", currentCases);
 }
 
-function validate() {
+async function validate() {
 	const errors = [];
-	const expression = getJsonConfig("expression");
+
+	// 1. Core Control Validation (Aggregated)
+	const results = await Promise.all(
+		(controlRefs.value || []).map((ctrl) => {
+			if (ctrl && typeof ctrl.validate === "function") {
+				return ctrl.validate();
+			}
+			return { valid: true };
+		})
+	);
+	results.forEach((res) => {
+		if (!res.valid && res.errors) errors.push(...res.errors);
+	});
+
+	// 2. Logic-based Validation
 	const currentCases = getJsonConfig("cases", {});
-
-	if (!expression) {
-		errors.push(__("Switch Expression is required"));
-	}
-
 	if (Object.keys(currentCases).length === 0) {
 		errors.push(__("At least one case is required for Switch"));
 	}

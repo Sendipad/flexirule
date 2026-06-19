@@ -5,7 +5,7 @@
   not Rule Action fields.
 -->
 <script setup>
-import { computed, ref, watch, onMounted } from "vue";
+import { computed, ref, watch, onMounted, onBeforeUpdate } from "vue";
 import { useStore } from "../stores";
 import ComboBoxControl from "../controls/ComboBoxControl.vue";
 import ControlFactory from "../controls/ControlFactory.vue";
@@ -110,6 +110,13 @@ function update_permission_role(idx, value) {
 }
 
 const controlRefs = ref([]);
+onBeforeUpdate(() => {
+	controlRefs.value = [];
+});
+
+function setControlRef(el) {
+	if (el) controlRefs.value.push(el);
+}
 
 async function validate() {
 	const errors = [];
@@ -122,9 +129,9 @@ async function validate() {
 	}
 
 	const results = await Promise.all(
-		(controlRefs.value || []).map((ref) => {
-			if (ref && typeof ref.validate === "function") {
-				return ref.validate();
+		(controlRefs.value || []).map((ctrl) => {
+			if (ctrl && typeof ctrl.validate === "function") {
+				return ctrl.validate();
 			}
 			return { valid: true };
 		})
@@ -226,7 +233,7 @@ onMounted(async () => {
 		<div class="form-group">
 			<label class="control-label">{{ __("Document Type") }}</label>
 			<ComboBoxControl
-				ref="controlRefs"
+				:ref="setControlRef"
 				:df="{ fieldtype: 'Link', options: 'DocType', label: '', reqd: 1 }"
 				:modelValue="nodeData?.document_type"
 				:read_only="readOnly"
@@ -408,6 +415,7 @@ onMounted(async () => {
 				<div v-for="(row, idx) in permissions" :key="idx" class="perm-row">
 					<div v-for="df in permission_fields" :key="df.fieldname">
 						<ControlFactory
+							:ref="setControlRef"
 							:df="{ ...df, read_only: readOnly }"
 							:modelValue="row[df.fieldname]"
 							:hideLabel="true"

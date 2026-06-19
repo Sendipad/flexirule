@@ -1,7 +1,7 @@
 <template>
 	<div class="switch-config">
 		<SwitchNodeConfig
-			ref="switchNodeRef"
+			:ref="setControlRef"
 			:nodeData="node.data"
 			:availableNodes="availableNodes"
 			:getNodeLabel="getNodeLabel"
@@ -12,7 +12,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from "vue";
+import { computed, ref, onBeforeUpdate } from "vue";
 import { useStore } from "../../../stores";
 import { fromCodeString } from "../../../utils/serialization";
 import SwitchNodeConfig from "../../node_configs/SwitchNodeConfig.vue";
@@ -23,7 +23,15 @@ const props = defineProps({
 });
 
 const store = useStore();
-const switchNodeRef = ref(null);
+const controlRefs = ref([]);
+
+onBeforeUpdate(() => {
+	controlRefs.value = [];
+});
+
+function setControlRef(el) {
+	if (el) controlRefs.value.push(el);
+}
 
 const availableNodes = computed(() => {
 	return (store.nodes || [])
@@ -81,10 +89,16 @@ function syncEdges(cases) {
 }
 
 async function validate() {
-	if (switchNodeRef.value && typeof switchNodeRef.value.validate === "function") {
-		return await switchNodeRef.value.validate();
-	}
-	return { valid: true };
+	const results = await Promise.all(
+		(controlRefs.value || []).map((ctrl) => {
+			if (ctrl && typeof ctrl.validate === "function") {
+				return ctrl.validate();
+			}
+			return { valid: true };
+		})
+	);
+	const errors = results.flatMap((r) => r.errors || []);
+	return { valid: errors.length === 0, errors };
 }
 
 defineExpose({ validate });

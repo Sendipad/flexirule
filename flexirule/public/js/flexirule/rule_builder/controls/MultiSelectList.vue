@@ -6,6 +6,7 @@ import { useAsyncOptionsSource } from "../composables/useAsyncOptionsSource";
 
 const props = defineProps({
 	modelValue: { type: [Array, String], default: () => [] },
+	fieldname: String,
 	df: { type: Object, default: () => ({}) },
 	options: { type: Array, default: null },
 	get_data: { type: Function, default: null },
@@ -516,7 +517,12 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-	<div class="fxr-control multi-select-list" :class="{ 'no-label': hideLabel }" ref="wrapperRef">
+	<div
+		class="fxr-control multi-select-list"
+		:class="{ 'no-label': hideLabel }"
+		ref="wrapperRef"
+		:data-fxr-fieldname="df?.fieldname || fieldname || null"
+	>
 		<div v-if="df.label && !hideLabel" class="fxr-label" :class="{ reqd: df.reqd }">
 			{{ __(df.label) }}
 		</div>

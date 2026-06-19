@@ -3,6 +3,7 @@
 import { computed, useSlots } from "vue";
 const props = defineProps({
 	df: Object,
+	fieldname: String,
 	modelValue: [String, Number],
 	read_only: Boolean,
 	showValidation: { type: Boolean, default: false },
@@ -40,6 +41,7 @@ defineExpose({ validate });
 			editable: slots.label,
 			'has-error': showValidation && !isValid,
 		}"
+		:data-fxr-fieldname="df?.fieldname || fieldname || null"
 	>
 		<!-- label -->
 		<div v-if="slots.label" class="field-controls">

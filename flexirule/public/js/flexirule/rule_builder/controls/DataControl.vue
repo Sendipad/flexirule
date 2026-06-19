@@ -5,6 +5,7 @@ const emit = defineEmits(["update:modelValue"]);
 
 const props = defineProps({
 	df: Object,
+	fieldname: String,
 	modelValue: [String, Number],
 	read_only: Boolean,
 	hideLabel: { type: Boolean, default: false },
@@ -121,6 +122,7 @@ defineExpose({ validate });
 			editable: slots.label,
 			'has-error': showValidation && !isValid,
 		}"
+		:data-fxr-fieldname="df?.fieldname || fieldname || null"
 	>
 		<div
 			class="fxr-input-group"

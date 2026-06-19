@@ -106,7 +106,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue";
+import { ref, computed, watch, nextTick, onMounted, onUnmounted, onBeforeUpdate } from "vue";
 import { useStore } from "../../stores";
 
 const props = defineProps({
@@ -116,6 +116,15 @@ const props = defineProps({
 
 const emit = defineEmits(["update-field"]);
 const store = useStore();
+const controlRefs = ref([]);
+
+onBeforeUpdate(() => {
+	controlRefs.value = [];
+});
+
+function setControlRef(el) {
+	if (el) controlRefs.value.push(el);
+}
 
 const subRuleSearch = ref("");
 const showSuggestions = ref(false);
@@ -181,6 +190,21 @@ watch(
 	},
 	{ immediate: true }
 );
+
+async function validate() {
+	const results = await Promise.all(
+		(controlRefs.value || []).map((ctrl) => {
+			if (ctrl && typeof ctrl.validate === "function") {
+				return ctrl.validate();
+			}
+			return { valid: true };
+		})
+	);
+	const errors = results.flatMap((r) => r.errors || []);
+	return { valid: errors.length === 0, errors };
+}
+
+defineExpose({ validate });
 
 async function validateCompatibility(rule) {
 	if (!rule) return;

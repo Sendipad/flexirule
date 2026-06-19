@@ -35,6 +35,12 @@ export function useRuleConfig(props, emit) {
 		logic: ref(null),
 	};
 
+	function setPanelRef(key, el) {
+		if (panelRefs[key]) {
+			panelRefs[key].value = el;
+		}
+	}
+
 	/**
 	 * Create a draft copy of the node for editing.
 	 */
@@ -203,6 +209,7 @@ export function useRuleConfig(props, emit) {
 		config,
 		isDirty,
 		panelRefs,
+		setPanelRef,
 		showValidation,
 		updateField,
 		validate,

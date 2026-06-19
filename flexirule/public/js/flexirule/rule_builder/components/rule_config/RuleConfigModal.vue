@@ -285,7 +285,7 @@
 											:node="draftNode"
 											:read-only="ruleStore.is_read_only"
 											:showValidation="showValidation"
-											:ref="panelRefs.logic"
+											:ref="(el) => setPanelRef('logic', el)"
 										/>
 									</div>
 								</div>
@@ -396,7 +396,10 @@
 																		ruleStore.is_read_only
 																	"
 																	:showValidation="showValidation"
-																	:ref="panelRefs.input"
+																	:ref="
+																		(el) =>
+																			setPanelRef('input', el)
+																	"
 																	mode="config"
 																/>
 															</div>
@@ -407,7 +410,13 @@
 																		ruleStore.is_read_only
 																	"
 																	:showValidation="showValidation"
-																	:ref="panelRefs.config"
+																	:ref="
+																		(el) =>
+																			setPanelRef(
+																				'config',
+																				el
+																			)
+																	"
 																/>
 															</div>
 														</div>
@@ -445,7 +454,7 @@
 														:node="draftNode"
 														:readOnly="ruleStore.is_read_only"
 														:showValidation="showValidation"
-														:ref="panelRefs.output"
+														:ref="(el) => setPanelRef('output', el)"
 													/>
 												</aside>
 											</div>
@@ -593,7 +602,10 @@ const uiStore = useUIStore();
 // Legacy support
 const store = uiStore;
 
-const { draftNode, panelRefs, save, cancel, isDirty, showValidation } = useRuleConfig(props, emit);
+const { draftNode, panelRefs, setPanelRef, save, cancel, isDirty, showValidation } = useRuleConfig(
+	props,
+	emit
+);
 const {
 	activeTab: activeCompactTab,
 	tabs: compactTabs,

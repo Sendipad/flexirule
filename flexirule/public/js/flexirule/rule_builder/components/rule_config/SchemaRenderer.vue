@@ -22,7 +22,7 @@
 				}"
 			>
 				<ControlFactory
-					ref="controlRefs"
+					:ref="setControlRef"
 					:df="
 						getNormalizedDf(field, props.row ? props.row.name : 'root', props.readOnly)
 					"
@@ -55,6 +55,10 @@ onBeforeUpdate(() => {
 	controlRefs.value = [];
 });
 
+function setControlRef(el) {
+	if (el) controlRefs.value.push(el);
+}
+
 const { getNormalizedDf, getFieldState } = useFieldNormalization(props.engine);
 
 const visibleFields = computed(() => {
@@ -74,9 +78,9 @@ function updateValue(field, value) {
 
 async function validate() {
 	const results = await Promise.all(
-		(controlRefs.value || []).map((ref) => {
-			if (ref && typeof ref.validate === "function") {
-				return ref.validate();
+		(controlRefs.value || []).map((ctrl) => {
+			if (ctrl && typeof ctrl.validate === "function") {
+				return ctrl.validate();
 			}
 			return { valid: true };
 		})

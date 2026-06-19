@@ -2,7 +2,8 @@
 	<div class="loop-node-config">
 		<div class="form-group">
 			<ComboBoxControl
-				ref="iteratorRef"
+				:ref="setControlRef"
+				fieldname="config.iterator"
 				:df="{ label: __('Iterator (List)'), fieldtype: 'FieldPicker', reqd: 1 }"
 				:options="listFields"
 				:modelValue="getJsonConfig('iterator')"
@@ -16,7 +17,7 @@
 		</div>
 		<div class="form-group">
 			<ControlFactory
-				ref="aliasRef"
+				:ref="setControlRef"
 				:df="aliasFieldDf"
 				:modelValue="nodeData.return_variable"
 				:showValidation="showValidation"
@@ -30,7 +31,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from "vue";
+import { ref, computed, onMounted, watch, onBeforeUpdate } from "vue";
 import { useStore } from "../../stores";
 import ControlFactory from "../../controls/ControlFactory.vue";
 import ComboBoxControl from "../../controls/ComboBoxControl.vue";
@@ -47,8 +48,11 @@ const loading = ref(false);
 const nodeData = computed(() => props.node?.data || {});
 
 const emit = defineEmits(["update-json-config"]);
-const iteratorRef = ref(null);
-const aliasRef = ref(null);
+const controlRefs = ref([]);
+
+onBeforeUpdate(() => {
+	controlRefs.value = [];
+});
 
 const aliasFieldDf = computed(() => ({
 	fieldname: "return_variable",
@@ -121,15 +125,15 @@ function getJsonConfig(key, defaultVal = "") {
 }
 
 async function validate() {
-	const errors = [];
-	if (iteratorRef.value) {
-		const res = await iteratorRef.value.validate();
-		if (!res.valid) errors.push(...res.errors);
-	}
-	if (aliasRef.value) {
-		const res = await aliasRef.value.validate();
-		if (!res.valid) errors.push(...res.errors);
-	}
+	const results = await Promise.all(
+		(controlRefs.value || []).map((ctrl) => {
+			if (ctrl && typeof ctrl.validate === "function") {
+				return ctrl.validate();
+			}
+			return { valid: true };
+		})
+	);
+	const errors = results.flatMap((r) => r.errors || []);
 	return { valid: errors.length === 0, errors };
 }
 

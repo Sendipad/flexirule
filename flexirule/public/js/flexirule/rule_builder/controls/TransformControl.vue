@@ -3,6 +3,7 @@
 		class="transform-control fxr-control"
 		ref="containerRef"
 		:class="{ 'has-error': showValidation && !isValid }"
+		:data-fxr-fieldname="df?.fieldname || fieldname || null"
 	>
 		<div v-if="df?.label" class="fxr-label" :class="{ reqd: df?.reqd }">
 			{{ __(df.label) }}
@@ -122,6 +123,7 @@ import { useTransformMapper } from "../composables/useTransformMapper.js";
 
 const props = defineProps({
 	df: { type: Object, default: null },
+	fieldname: String,
 	modelValue: { type: Array, default: () => [] },
 	sourceSchema: { type: Array, default: () => [] }, // Flat list with dot notation
 	targetSchema: { type: Array, default: () => [] }, // Flat list with dot notation
