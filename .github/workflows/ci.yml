@@ -50,6 +50,9 @@ jobs:
                         - 'requirements.txt'
                         - 'pyproject.toml'
                         - '.github/workflows/**'
+                        - '.eslintrc'
+                        - '.prettierrc'
+                        - '.pre-commit-config.yaml'
                       backend:
                         - '**/*.py'
                         - 'flexirule/**/*.json'
@@ -114,6 +117,12 @@ jobs:
                   bench setup requirements --dev
               env:
                   CI: "Yes"
+
+            - name: Lint
+              working-directory: ${{ github.workspace }}
+              run: |
+                  npm install
+                  npm run lint
 
             - name: Build
               working-directory: /home/runner/frappe-bench
