@@ -34,12 +34,10 @@
 			<i class="fa fa-info-circle mr-1"></i>
 			{{ __("Rule execution will pause for the specified duration.") }}
 		</div>
-		<MissingActionConfig />
 	</div>
 </template>
 
 <script setup>
-const customData = ;
 const props = defineProps({
 	nodeData: Object,
 	showValidation: { type: Boolean, default: false },

@@ -105,6 +105,12 @@ jobs:
                   restore-keys: |
                       ${{ runner.os }}-yarn-
 
+            - name: Lint
+              working-directory: ${{ github.workspace }}
+              run: |
+                  npm install
+                  npm run lint
+
             - name: Setup Bench
               run: |
                   pip install frappe-bench
@@ -117,12 +123,6 @@ jobs:
                   bench setup requirements --dev
               env:
                   CI: "Yes"
-
-            - name: Lint
-              working-directory: ${{ github.workspace }}
-              run: |
-                  npm install
-                  npm run lint
 
             - name: Build
               working-directory: /home/runner/frappe-bench
