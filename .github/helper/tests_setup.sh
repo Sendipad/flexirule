@@ -57,5 +57,5 @@ bench start &>> ~/frappe-bench/bench_start.log &
 CI=Yes bench build --app frappe
 
 # Reinstall and seed the app
-bench --site test_site reinstall --db-root-password root --yes
+bench --site test_site reinstall --db-root-password root --admin-password admin --yes
 bench --verbose --site test_site install-app flexirule
