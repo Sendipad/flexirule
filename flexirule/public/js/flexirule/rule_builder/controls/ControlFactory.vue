@@ -78,6 +78,7 @@ defineExpose({ validate });
 
 <style scoped>
 .fxr-control-wrapper {
-	display: contents;
+	display: block;
+	width: 100%;
 }
 </style>

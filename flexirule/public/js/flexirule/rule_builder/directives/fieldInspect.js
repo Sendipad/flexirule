@@ -8,7 +8,7 @@ const state = reactive({
 window.addEventListener(
 	"keydown",
 	(e) => {
-		if (e.key === INSPECT_MODIFIER) state.isModifierDown = true;
+		if (e.key === INSPECT_MODIFIER || e.shiftKey) state.isModifierDown = true;
 	},
 	true
 );
@@ -17,6 +17,7 @@ window.addEventListener(
 	"keyup",
 	(e) => {
 		if (e.key === INSPECT_MODIFIER) state.isModifierDown = false;
+		if (e.key === "Shift") state.isModifierDown = false;
 	},
 	true
 );
