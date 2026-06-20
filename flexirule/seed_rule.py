@@ -13,7 +13,7 @@ def seed():
 
 	doc = frappe.get_doc(data)
 	doc.insert(ignore_permissions=True)
-	frappe.db.commit()
+	frappe.db.commit()  # nosemgrep: Seeding script requires manual commit
 	print("Rule seeded successfully")
 
 
