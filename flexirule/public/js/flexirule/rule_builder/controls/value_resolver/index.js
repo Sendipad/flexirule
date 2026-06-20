@@ -168,14 +168,18 @@ registerStrategy("date_diff", {
 			if (!item.diff_start_field) {
 				errors.push(__("Start field is required"));
 			} else if (!validateField(item.diff_start_field, dt, store)) {
-				errors.push(frappe.utils.format(__("Start field '{0}' not found"), item.diff_start_field));
+				errors.push(
+					frappe.utils.format(__("Start field '{0}' not found"), item.diff_start_field)
+				);
 			}
 		}
 		if (item.diff_end_type === "doc_field") {
 			if (!item.diff_end_field) {
 				errors.push(__("End field is required"));
 			} else if (!validateField(item.diff_end_field, dt, store)) {
-				errors.push(frappe.utils.format(__("End field '{0}' not found"), item.diff_end_field));
+				errors.push(
+					frappe.utils.format(__("End field '{0}' not found"), item.diff_end_field)
+				);
 			}
 		}
 		return { isValid: errors.length === 0, errors };
@@ -229,7 +233,8 @@ registerStrategy("child_aggregation", {
 				if (tableField && tableField.options) {
 					if (!validateField(item.agg_field, tableField.options, store)) {
 						errors.push(
-							frappe.utils.format(__("Field '{0}' not found in child table '{1}'"),
+							frappe.utils.format(
+								__("Field '{0}' not found in child table '{1}'"),
 								item.agg_field,
 								tableField.options
 							)
@@ -447,7 +452,8 @@ registerStrategy("fetch", {
 		) {
 			if (!validateField(item.fetch_field, item.linked_doctype, store)) {
 				errors.push(
-					frappe.utils.format(__("Field '{0}' not found in Source DocType '{1}'"),
+					frappe.utils.format(
+						__("Field '{0}' not found in Source DocType '{1}'"),
 						item.fetch_field,
 						item.linked_doctype
 					)
