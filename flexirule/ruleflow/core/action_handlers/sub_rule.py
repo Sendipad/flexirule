@@ -19,7 +19,7 @@ from flexirule.ruleflow.core.permissions import can_skip_permissions
 from flexirule.ruleflow.utils.mapping import apply_input_mapping, apply_output_mapping
 
 # Maximum nesting depth for sub-rule calls
-MAX_SUB_RULE_DEPTH = 2
+MAX_SUB_RULE_DEPTH = 5
 
 
 class SubRuleVarsOverlay(dict):
