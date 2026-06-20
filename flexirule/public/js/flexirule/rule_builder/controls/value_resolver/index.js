@@ -68,7 +68,7 @@ registerStrategy("date_formula", {
 			if (!item.base_field) {
 				errors.push(__("Base field is required"));
 			} else if (!validateField(item.base_field, dt, store)) {
-				errors.push(__("Base field '{0}' not found").format(item.base_field));
+				errors.push(frappe.utils.format(__("Base field '{0}' not found"), item.base_field));
 			}
 		}
 		return { isValid: errors.length === 0, errors };
@@ -113,14 +113,14 @@ registerStrategy("math_formula", {
 		if (!item.field_a) {
 			errors.push(__("Field A is required"));
 		} else if (!validateField(item.field_a, dt, store)) {
-			errors.push(__("Field A '{0}' not found").format(item.field_a));
+			errors.push(frappe.utils.format(__("Field A '{0}' not found"), item.field_a));
 		}
 
 		if (item.field_b_type === "field") {
 			if (!item.field_b) {
 				errors.push(__("Field B is required"));
 			} else if (!validateField(item.field_b, dt, store)) {
-				errors.push(__("Field B '{0}' not found").format(item.field_b));
+				errors.push(frappe.utils.format(__("Field B '{0}' not found"), item.field_b));
 			}
 		}
 		return { isValid: errors.length === 0, errors };
@@ -168,14 +168,14 @@ registerStrategy("date_diff", {
 			if (!item.diff_start_field) {
 				errors.push(__("Start field is required"));
 			} else if (!validateField(item.diff_start_field, dt, store)) {
-				errors.push(__("Start field '{0}' not found").format(item.diff_start_field));
+				errors.push(frappe.utils.format(__("Start field '{0}' not found"), item.diff_start_field));
 			}
 		}
 		if (item.diff_end_type === "doc_field") {
 			if (!item.diff_end_field) {
 				errors.push(__("End field is required"));
 			} else if (!validateField(item.diff_end_field, dt, store)) {
-				errors.push(__("End field '{0}' not found").format(item.diff_end_field));
+				errors.push(frappe.utils.format(__("End field '{0}' not found"), item.diff_end_field));
 			}
 		}
 		return { isValid: errors.length === 0, errors };
@@ -216,7 +216,7 @@ registerStrategy("child_aggregation", {
 		if (!item.agg_table) {
 			errors.push(__("Child table is required"));
 		} else if (!validateField(item.agg_table, dt, store)) {
-			errors.push(__("Table field '{0}' not found").format(item.agg_table));
+			errors.push(frappe.utils.format(__("Table field '{0}' not found"), item.agg_table));
 		}
 
 		if (item.agg_op !== "count") {
@@ -229,7 +229,7 @@ registerStrategy("child_aggregation", {
 				if (tableField && tableField.options) {
 					if (!validateField(item.agg_field, tableField.options, store)) {
 						errors.push(
-							__("Field '{0}' not found in child table '{1}'").format(
+							frappe.utils.format(__("Field '{0}' not found in child table '{1}'"),
 								item.agg_field,
 								tableField.options
 							)
@@ -297,7 +297,7 @@ registerStrategy("string_formula", {
 			if (!item.str_a) {
 				errors.push(__("Value A field is required"));
 			} else if (!validateField(item.str_a, dt, store)) {
-				errors.push(__("Field '{0}' not found").format(item.str_a));
+				errors.push(frappe.utils.format(__("Field '{0}' not found"), item.str_a));
 			}
 		}
 
@@ -305,7 +305,7 @@ registerStrategy("string_formula", {
 			if (!item.str_b) {
 				errors.push(__("Value B field is required"));
 			} else if (!validateField(item.str_b, dt, store)) {
-				errors.push(__("Field '{0}' not found").format(item.str_b));
+				errors.push(frappe.utils.format(__("Field '{0}' not found"), item.str_b));
 			}
 		}
 		return { isValid: errors.length === 0, errors };
@@ -352,7 +352,7 @@ registerStrategy("normalization", {
 		if (!item.norm_field) {
 			errors.push(__("Field is required"));
 		} else if (!validateField(item.norm_field, dt, store)) {
-			errors.push(__("Field '{0}' not found").format(item.norm_field));
+			errors.push(frappe.utils.format(__("Field '{0}' not found"), item.norm_field));
 		}
 		return { isValid: errors.length === 0, errors };
 	},
@@ -390,7 +390,7 @@ registerStrategy("format", {
 		if (!item.fmt_field) {
 			errors.push(__("Field is required"));
 		} else if (!validateField(item.fmt_field, dt, store)) {
-			errors.push(__("Field '{0}' not found").format(item.fmt_field));
+			errors.push(frappe.utils.format(__("Field '{0}' not found"), item.fmt_field));
 		}
 		return { isValid: errors.length === 0, errors };
 	},
@@ -434,7 +434,7 @@ registerStrategy("fetch", {
 			if (!item.link_field) {
 				errors.push(__("Link field is required"));
 			} else if (!validateField(item.link_field, dt, store)) {
-				errors.push(__("Link field '{0}' not found").format(item.link_field));
+				errors.push(frappe.utils.format(__("Link field '{0}' not found"), item.link_field));
 			}
 		}
 
@@ -447,7 +447,7 @@ registerStrategy("fetch", {
 		) {
 			if (!validateField(item.fetch_field, item.linked_doctype, store)) {
 				errors.push(
-					__("Field '{0}' not found in Source DocType '{1}'").format(
+					frappe.utils.format(__("Field '{0}' not found in Source DocType '{1}'"),
 						item.fetch_field,
 						item.linked_doctype
 					)

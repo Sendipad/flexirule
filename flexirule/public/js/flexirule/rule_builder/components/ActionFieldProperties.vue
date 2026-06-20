@@ -10,7 +10,7 @@
   Follows Frappe Form Builder patterns.
 -->
 <script setup>
-import { computed, onMounted, onBeforeUpdate } from "vue";
+import { ref, computed, onMounted, onBeforeUpdate } from "vue";
 import { useStore } from "../stores";
 import ControlFactory from "../controls/ControlFactory.vue";
 import ComboBoxControl from "../controls/ComboBoxControl.vue";

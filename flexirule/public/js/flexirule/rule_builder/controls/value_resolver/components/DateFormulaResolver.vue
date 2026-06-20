@@ -22,7 +22,8 @@
 		<div v-if="!isBaseFieldValid" class="fxr-text-xs text-danger mt-1">
 			<i class="fa fa-exclamation-circle mr-1"></i>
 			{{
-				__("Field '{0}' not found in {1}").format(
+				frappe.utils.format(
+					__("Field '{0}' not found in {1}"),
 					modelValue.base_field,
 					doctype || store.rule_doc?.document_type
 				)

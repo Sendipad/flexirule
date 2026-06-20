@@ -343,15 +343,11 @@
 															class="integrated-settings-bar"
 															v-if="showSettingsBar"
 														>
-															<ActionFieldProperties
-																:nodeData="draftNode.data"
+															<ActionSettings
+																:node="draftNode"
 																:readOnly="ruleStore.is_read_only"
 																@update:field="
 																	on_update_action_field
-																"
-																@open:conditions="
-																	uiStore.config_modal_mode =
-																		'logic'
 																"
 															/>
 														</div>
@@ -506,15 +502,11 @@
 															class="integrated-settings-bar"
 															v-if="showSettingsBar"
 														>
-															<ActionFieldProperties
-																:nodeData="draftNode.data"
+															<ActionSettings
+																:node="draftNode"
 																:readOnly="ruleStore.is_read_only"
 																@update:field="
 																	on_update_action_field
-																"
-																@open:conditions="
-																	uiStore.config_modal_mode =
-																		'logic'
 																"
 															/>
 														</div>
@@ -569,6 +561,7 @@ import { ref, computed, watch, onMounted, onUnmounted, nextTick } from "vue";
 import InputPanel from "./InputPanel.vue";
 import ConfigurationPanel from "./ConfigurationPanel.vue";
 import OutputPanel from "./OutputPanel.vue";
+import ActionSettings from "./ActionSettings.vue";
 import ActionFieldProperties from "../ActionFieldProperties.vue";
 import ConditionStep from "./types/ConditionStep.vue";
 import StartNodeProperties from "../StartNodeProperties.vue";
