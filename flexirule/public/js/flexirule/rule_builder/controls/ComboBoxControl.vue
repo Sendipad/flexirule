@@ -5,6 +5,7 @@
 			'no-label': hideLabel,
 			'has-error': showValidation && !isValid,
 		}"
+		v-field-inspect="{ name: df?.fieldname || fieldname, label: df?.label }"
 	>
 		<div
 			class="fxr-input-group"

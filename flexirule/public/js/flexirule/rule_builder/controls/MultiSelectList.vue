@@ -517,7 +517,12 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-	<div class="fxr-control multi-select-list" :class="{ 'no-label': hideLabel }" ref="wrapperRef">
+	<div
+		class="fxr-control multi-select-list"
+		:class="{ 'no-label': hideLabel }"
+		ref="wrapperRef"
+		v-field-inspect="{ name: df?.fieldname || fieldname, label: df?.label }"
+	>
 		<div v-if="df.label && !hideLabel" class="fxr-label" :class="{ reqd: df.reqd }">
 			{{ __(df.label) }}
 		</div>

@@ -1,5 +1,5 @@
 <template>
-	<div class="fxr-control-wrapper" v-field-inspect="{ name: df?.fieldname, label: df?.label }">
+	<div class="fxr-control-wrapper">
 		<component
 			:is="resolved.component"
 			v-bind="resolved.props"

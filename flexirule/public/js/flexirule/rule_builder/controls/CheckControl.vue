@@ -36,6 +36,7 @@ const showTooltip = ref(false);
 			'no-label': hideLabel,
 			'has-error': showValidation && !isValid,
 		}"
+		v-field-inspect="{ name: df?.fieldname || fieldname, label: df?.label }"
 		@mouseenter="showTooltip = true"
 		@mouseleave="showTooltip = false"
 		@focusin="showTooltip = true"

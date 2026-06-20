@@ -43,7 +43,10 @@
 				class="assignment-grid-row align-items-center mb-2"
 			>
 				<div class="grid-col-when">
-					<div class="when-editor-cell" data-fxr-fieldname="assignments.run_if">
+					<div
+						class="when-editor-cell"
+						v-field-inspect="{ name: 'run_if', label: __('Run If') }"
+					>
 						<button
 							class="fxr-btn fxr-btn--sm w-100 when-toggle-btn"
 							:class="{

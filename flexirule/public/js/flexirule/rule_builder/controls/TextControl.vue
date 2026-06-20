@@ -41,6 +41,7 @@ defineExpose({ validate });
 			editable: slots.label,
 			'has-error': showValidation && !isValid,
 		}"
+		v-field-inspect="{ name: df?.fieldname || fieldname, label: df?.label }"
 	>
 		<!-- label -->
 		<div v-if="slots.label" class="field-controls">
