@@ -2,7 +2,6 @@
 	<div
 		class="resource-mapper-control fxr-control fxr-accent-scope"
 		:class="{ 'has-error': showValidation && !isValid }"
-		:data-fxr-fieldname="df?.fieldname || fieldname || null"
 	>
 		<div v-if="df?.label && !hideLabel" class="fxr-label" :class="{ reqd: df?.reqd }">
 			{{ __(df.label) }}

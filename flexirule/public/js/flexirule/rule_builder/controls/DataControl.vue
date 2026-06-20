@@ -122,7 +122,7 @@ defineExpose({ validate });
 			editable: slots.label,
 			'has-error': showValidation && !isValid,
 		}"
-		:data-fxr-fieldname="df?.fieldname || fieldname || null"
+		v-field-inspect="{ name: df?.fieldname || fieldname, label: df?.label }"
 	>
 		<div
 			class="fxr-input-group"

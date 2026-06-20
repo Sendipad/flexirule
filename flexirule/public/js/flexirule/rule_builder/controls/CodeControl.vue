@@ -89,6 +89,7 @@ defineExpose({ validate });
 			editable: slots.label,
 			'has-error': showValidation && !isValid,
 		}"
+		v-field-inspect="{ name: df?.fieldname || fieldname, label: df?.label }"
 	>
 		<div class="field-controls">
 			<slot name="label" />
@@ -117,5 +118,6 @@ defineExpose({ validate });
 		class="control fxr-control"
 		:class="{ 'has-error': showValidation && !isValid }"
 		ref="code"
+		v-field-inspect="{ name: df?.fieldname || fieldname, label: df?.label }"
 	></div>
 </template>

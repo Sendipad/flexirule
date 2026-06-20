@@ -7,7 +7,10 @@
 			'is-disabled': disabled || isReadOnly,
 			'has-error': showValidation && !isValid,
 		}"
-		:data-fxr-fieldname="context?.df?.fieldname || fieldname || null"
+		v-field-inspect="{
+			name: context?.df?.fieldname || df?.fieldname || fieldname,
+			label: context?.df?.label || df?.label,
+		}"
 		@keydown.capture="onStaticKeydown"
 	>
 		<!-- ── Main Control Area ── -->

@@ -1,5 +1,5 @@
 <template>
-	<div class="fxr-control-wrapper" :data-fxr-fieldname="df?.fieldname || null">
+	<div class="fxr-control-wrapper">
 		<component
 			:is="resolved.component"
 			v-bind="resolved.props"
@@ -78,6 +78,7 @@ defineExpose({ validate });
 
 <style scoped>
 .fxr-control-wrapper {
-	display: contents;
+	display: block;
+	width: 100%;
 }
 </style>
