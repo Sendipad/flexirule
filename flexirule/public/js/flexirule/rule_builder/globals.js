@@ -22,8 +22,11 @@ import TextGeneratorControl from "./controls/TextGeneratorControl.vue";
 import TimePickerControl from "./controls/TimePickerControl.vue";
 import ResourceMapperControl from "./controls/ResourceMapperControl.vue";
 import CollapsibleSection from "./controls/CollapsibleSection.vue";
+import fieldInspect from "./directives/fieldInspect";
 
 export function registerGlobalComponents(app) {
+	app.directive("field-inspect", fieldInspect);
+
 	app.component("ComboBoxControl", ComboBoxControl)
 		.component("FlexiGrid", FlexiGrid)
 		.component("DataControl", DataControl)

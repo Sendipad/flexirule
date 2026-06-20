@@ -211,16 +211,6 @@
 					</template>
 				</div>
 			</div>
-			<div
-				v-if="fieldInspector.visible"
-				class="fxr-field-inspector"
-				:style="fieldInspectorStyle"
-				@mousedown.prevent="copyInspectedFieldname"
-			>
-				<i class="fa fa-code"></i>
-				<span>{{ fieldInspector.fieldname }}</span>
-				<small>{{ __("Click to copy") }}</small>
-			</div>
 		</Teleport>
 	</div>
 </template>
@@ -281,14 +271,6 @@ const quickActionsMenuStyle = ref({});
 const flowWrapper = ref(null);
 const mousePos = ref({ x: 0, y: 0 });
 const showDisabledNodes = ref(true);
-const lastAltFieldname = ref("");
-const fieldInspector = ref({
-	visible: false,
-	fieldname: "",
-	x: 0,
-	y: 0,
-	copied: false,
-});
 
 const quickActionItems = computed(() => [
 	{
@@ -325,11 +307,6 @@ const quickActionItems = computed(() => [
 	},
 	{ key: "preferences", label: __("Preference"), icon: "fa-sliders" },
 ]);
-
-const fieldInspectorStyle = computed(() => ({
-	left: `${Math.min(fieldInspector.value.x + 14, window.innerWidth - 220)}px`,
-	top: `${Math.min(fieldInspector.value.y + 16, window.innerHeight - 48)}px`,
-}));
 
 function showShortcutsHelp() {
 	uiStore.show_shortcuts_help = true;
@@ -603,9 +580,7 @@ onMounted(async () => {
 		}),
 	];
 
-	window.addEventListener("keyup", handleKeyup);
 	window.addEventListener("mousemove", updateMousePos);
-	window.addEventListener("mousemove", handleAltFieldInspect, true);
 	window.addEventListener("mousedown", handleGlobalMouseDown, true);
 	window.addEventListener("resize", updateQuickActionsPosition);
 	window.addEventListener("flexirule:show-shortcuts-help", showShortcutsHelp);
@@ -625,9 +600,7 @@ onUnmounted(() => {
 	document.body.classList.remove("fxr-builder-active");
 	popContext("canvas");
 	unregisterShortcuts.value.forEach((unreg) => unreg());
-	window.removeEventListener("keyup", handleKeyup);
 	window.removeEventListener("mousemove", updateMousePos);
-	window.removeEventListener("mousemove", handleAltFieldInspect, true);
 	window.removeEventListener("mousedown", handleGlobalMouseDown, true);
 	window.removeEventListener("resize", updateQuickActionsPosition);
 	window.removeEventListener("flexirule:show-shortcuts-help", showShortcutsHelp);
@@ -652,46 +625,6 @@ function onDrop(event) {
 	// Handle drop if any drag-and-drop node creation is implemented
 }
 
-function handleKeyup(e) {
-	if (!e.altKey) {
-		lastAltFieldname.value = "";
-		fieldInspector.value.visible = false;
-	}
-}
-
-function handleAltFieldInspect(event) {
-	if (!event.altKey) {
-		fieldInspector.value.visible = false;
-		lastAltFieldname.value = "";
-		return;
-	}
-	const fieldEl = event.target?.closest?.("[data-fxr-fieldname]");
-	const fieldname = fieldEl?.dataset?.fxrFieldname;
-	if (!fieldname) {
-		fieldInspector.value.visible = false;
-		return;
-	}
-	fieldInspector.value = {
-		visible: true,
-		fieldname,
-		x: event.clientX,
-		y: event.clientY,
-		copied: fieldInspector.value.copied,
-	};
-	if (fieldname === lastAltFieldname.value) return;
-	lastAltFieldname.value = fieldname;
-}
-
-function copyInspectedFieldname() {
-	const fieldname = fieldInspector.value.fieldname;
-	if (!fieldname) return;
-	navigator.clipboard?.writeText(fieldname).catch(() => {});
-	frappe.show_alert(
-		{ message: __("Copied fieldname: {0}").replace("{0}", fieldname), indicator: "green" },
-		2
-	);
-}
-
 watch(
 	() => uiStore.show_config_modal,
 	(val) => {
@@ -707,9 +640,6 @@ function handleGlobalMouseDown(event) {
 		!quickActionsButtonRef.value?.contains(event.target)
 	) {
 		closeQuickActions();
-	}
-	if (event.altKey && event.target?.closest?.("[data-fxr-fieldname]")) {
-		copyInspectedFieldname();
 	}
 }
 

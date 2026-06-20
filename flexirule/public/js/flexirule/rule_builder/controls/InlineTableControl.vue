@@ -232,7 +232,6 @@ defineExpose({ validate });
 							<select
 								v-if="col.fieldtype === 'Select'"
 								class="input-custom"
-								:data-fxr-fieldname="col.fieldname"
 								:value="row[col.fieldname]"
 								@change="updateCell(idx, col.fieldname, $event.target.value)"
 								:disabled="read_only"
@@ -251,7 +250,6 @@ defineExpose({ validate });
 							<div
 								v-else-if="col.fieldtype === 'DocField'"
 								class="table-cell-control"
-								:data-fxr-fieldname="col.fieldname"
 							>
 								<ComboBoxControl
 									:df="{ ...col, label: '', fieldtype: 'FieldPicker' }"
@@ -268,7 +266,6 @@ defineExpose({ validate });
 							<div v-else-if="col.fieldtype === 'Check'" class="text-center">
 								<input
 									type="checkbox"
-									:data-fxr-fieldname="col.fieldname"
 									:checked="row[col.fieldname]"
 									@change="
 										updateCell(
@@ -286,7 +283,6 @@ defineExpose({ validate });
 								v-else-if="['Int', 'Float', 'Percent'].includes(col.fieldtype)"
 								type="number"
 								class="input-custom"
-								:data-fxr-fieldname="col.fieldname"
 								:value="row[col.fieldname]"
 								@input="
 									updateCell(idx, col.fieldname, parseFloat($event.target.value))
@@ -300,7 +296,6 @@ defineExpose({ validate });
 								v-else
 								type="text"
 								class="input-custom"
-								:data-fxr-fieldname="col.fieldname"
 								:value="row[col.fieldname]"
 								@input="updateCell(idx, col.fieldname, $event.target.value)"
 								:disabled="read_only"

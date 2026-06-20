@@ -41,7 +41,6 @@ defineExpose({ validate });
 			editable: slots.label,
 			'has-error': showValidation && !isValid,
 		}"
-		:data-fxr-fieldname="df?.fieldname || fieldname || null"
 	>
 		<!-- label -->
 		<div v-if="slots.label" class="field-controls">
