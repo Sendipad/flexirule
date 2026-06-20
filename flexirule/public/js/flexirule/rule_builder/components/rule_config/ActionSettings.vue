@@ -98,12 +98,10 @@ const docFields = computed(() => {
 	return ruleActionMeta.value.fields
 		.filter((df) => {
 			if (LAYOUT_FIELDS.includes(df.fieldtype)) return false;
-			if (df.hidden) return false;
-			if (getPolicyValue(df.fieldname, "hidden", false)) return false;
 			return true;
 		})
 		.map((df) => {
-			let resolved = { ...df };
+			let resolved = { ...df, hidden: false };
 			const actionType = props.node?.data?.action_type;
 			const policyLabel = actionType
 				? getFieldLabel(actionType, df.fieldname, {
@@ -140,11 +138,10 @@ const visibleSections = computed(() => {
 				id: df.fieldname || `section_${idx}`,
 				label: df.label || "",
 				fields: [],
-				depends_on: df.depends_on,
 			};
 		} else if (!LAYOUT_FIELDS.includes(df.fieldtype)) {
 			const processedField = docFields.value.find((f) => f.fieldname === df.fieldname);
-			if (processedField && evaluateDependsOn(processedField.depends_on)) {
+			if (processedField) {
 				currentSection.fields.push(processedField);
 			}
 		}
@@ -154,7 +151,7 @@ const visibleSections = computed(() => {
 		sections.push(currentSection);
 	}
 
-	return sections.filter((s) => !s.depends_on || evaluateDependsOn(s.depends_on));
+	return sections;
 });
 
 function evaluateDependsOn(expression) {
