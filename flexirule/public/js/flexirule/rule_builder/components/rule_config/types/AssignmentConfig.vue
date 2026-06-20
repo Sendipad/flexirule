@@ -265,7 +265,7 @@
 
 <script setup>
 import { computed, watch, ref, onMounted, onBeforeUnmount, onBeforeUpdate, nextTick } from "vue";
-import { fromCodeString } from "../../../utils/serialization";
+import { fromCodeString, deepClone } from "../../../utils/serialization";
 import { useActionConfig } from "../../../composables/useActionConfig";
 import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
 import FlexValueControl from "../../../controls/FlexValueControl.vue";
@@ -454,7 +454,7 @@ watch(
 		});
 
 		if (JSON.stringify(parsed) !== JSON.stringify(assignments.value)) {
-			assignments.value = JSON.parse(JSON.stringify(parsed));
+			assignments.value = deepClone(parsed);
 		}
 	},
 	{ immediate: true, deep: true }
@@ -608,7 +608,7 @@ function openWhenConditionEditor(index) {
 	whenEditor.value = {
 		open: true,
 		index,
-		draft: JSON.parse(JSON.stringify(current?.when_condition || fallback)),
+		draft: deepClone(current?.when_condition || fallback),
 	};
 
 	// If shortcut to invalid condition, trigger validation immediately in the builder

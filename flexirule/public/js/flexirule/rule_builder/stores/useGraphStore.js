@@ -11,6 +11,7 @@
  */
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
+import { deepClone } from "../utils/serialization";
 import {
 	getContract,
 	getEffectiveActionPolicy,
@@ -81,7 +82,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 	function getStateSnapshot() {
 		const nodesSnap = nodes.value.map((el) => {
 			// Deep clone data to avoid reference pollution
-			const data = JSON.parse(JSON.stringify(el.data || {}));
+			const data = deepClone(el.data || {});
 			return {
 				id: el.id,
 				type: el.type,
@@ -119,8 +120,8 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		const newNodes = snapshot.filter((el) => el.type && el.position);
 		const newEdges = snapshot.filter((el) => el.source && el.target);
 
-		nodes.value = JSON.parse(JSON.stringify(newNodes));
-		edges.value = JSON.parse(JSON.stringify(newEdges));
+		nodes.value = deepClone(newNodes);
+		edges.value = deepClone(newEdges);
 	}
 
 	function update_node_position(nodeId, position) {
@@ -1774,7 +1775,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			idMap[oldId] = newId;
 
 			// Deep clone
-			const newNode = JSON.parse(JSON.stringify(node));
+			const newNode = deepClone(node);
 			newNode.id = newId;
 			if (newNode.data) {
 				const sourceActionId = newNode.data.action_id || oldId || newId;

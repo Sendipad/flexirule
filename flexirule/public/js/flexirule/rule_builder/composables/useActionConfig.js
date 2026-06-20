@@ -164,6 +164,7 @@ export function useActionConfig(props, options = {}) {
 
 		// Avoid marking dirty if we are modifying a draft node (inside a modal)
 		// or if we are currently in a read-only state.
+		// Note: draftNode is created by useRuleConfig and is not present in store.nodes.
 		const isDraft = !store.nodes.some((n) => n === props.node);
 		if (!props.readOnly && !isDraft) {
 			store.mark_dirty();

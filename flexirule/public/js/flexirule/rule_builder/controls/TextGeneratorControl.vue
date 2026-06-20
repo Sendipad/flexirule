@@ -333,6 +333,7 @@
 <script setup>
 import { computed, ref, watch, onBeforeUnmount, nextTick, shallowRef } from "vue";
 import { Editor, EditorContent, VueRenderer } from "@tiptap/vue-3";
+import { deepClone } from "../utils/serialization";
 import { StarterKit } from "@tiptap/starter-kit";
 import tippy from "tippy.js";
 
@@ -843,7 +844,7 @@ const collectionOptions = computed(() =>
 );
 function emitChanges() {
 	emitting = true;
-	emit("update:modelValue", JSON.parse(JSON.stringify(ui.value)));
+	emit("update:modelValue", deepClone(ui.value));
 	nextTick(() => (emitting = false));
 }
 function switchMode(m) {

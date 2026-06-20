@@ -675,6 +675,7 @@
 
 <script setup>
 import { computed, ref, watch } from "vue";
+import { deepClone } from "../utils/serialization";
 import ComboBoxControl from "./ComboBoxControl.vue";
 
 const props = defineProps({
@@ -1239,7 +1240,7 @@ watch(
 	ui,
 	() => {
 		emitting = true;
-		emit("update:modelValue", JSON.parse(JSON.stringify(ui.value)));
+		emit("update:modelValue", deepClone(ui.value));
 		setTimeout(() => {
 			emitting = false;
 		}, 0);

@@ -87,6 +87,7 @@
  */
 import { ref, reactive, watch, nextTick, provide, computed, onMounted } from "vue";
 import { useStore } from "../../stores";
+import { deepClone } from "../../utils/serialization";
 
 import ConditionNode from "./ConditionNode.vue";
 import { validateConditions } from "./condition_validator.js";
@@ -127,7 +128,7 @@ watch(
 	rootGroup,
 	(newVal) => {
 		if (isUpdating) return;
-		emit("update:modelValue", JSON.parse(JSON.stringify(newVal)));
+		emit("update:modelValue", deepClone(newVal));
 	},
 	{ deep: true }
 );
