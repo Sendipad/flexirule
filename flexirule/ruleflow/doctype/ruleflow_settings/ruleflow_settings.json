@@ -75,7 +75,7 @@
 			"options": "RuleFlow Excluded DocType"
 		},
 		{
-			"default": "Sidebar",
+			"default": "Dialog",
 			"description": "Choose how node configuration forms are displayed",
 			"fieldname": "action_config_mode",
 			"fieldtype": "Select",

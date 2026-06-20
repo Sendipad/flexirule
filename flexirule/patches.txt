@@ -16,3 +16,4 @@ flexirule.patches.normalize_rule_action_payload_keys
 flexirule.patches.sync_action_type_enums_and_typings
 flexirule.patches.migrate_set_value_to_assignment
 flexirule.patches.v1_0.remove_old_normalization
+flexirule.patches.set_default_action_config_mode_to_dialog
