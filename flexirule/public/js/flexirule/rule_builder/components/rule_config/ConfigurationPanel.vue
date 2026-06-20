@@ -10,6 +10,18 @@
 				</div>
 			</div>
 			<div class="panel-sections">
+				<!-- Core Configuration Fields -->
+				<div class="core-config-fields mb-4">
+					<ActionFieldProperties
+						:nodeData="node.data"
+						:readOnly="readOnly"
+						:includeFields="CORE_FIELDS"
+						@update:field="on_update_field"
+					/>
+				</div>
+
+				<div class="section-divider mb-4"></div>
+
 				<!-- Core Action Specific UI -->
 				<component
 					:is="configComponent"
@@ -37,6 +49,7 @@ import { computed, ref, nextTick } from "vue";
 import { useStore } from "../../stores";
 import { mapActionTypeToNodeType } from "../../composables/useActionTypeMapper";
 import { getContract } from "../../../core/contracts.js";
+import ActionFieldProperties from "../ActionFieldProperties.vue";
 
 import AssignmentConfig from "./types/AssignmentConfig.vue";
 import ConditionStep from "./types/ConditionStep.vue";
@@ -57,6 +70,8 @@ const props = defineProps({
 });
 
 const store = useStore();
+
+const CORE_FIELDS = ["action_label", "action_type", "description", "is_enabled"];
 
 const componentRegistry = {
 	AssignmentConfig,
@@ -205,6 +220,12 @@ defineExpose({
 	display: flex;
 	flex-direction: column;
 	gap: 16px;
+}
+
+.section-divider {
+	height: 1px;
+	background: var(--fxr-border-subtle);
+	width: 100%;
 }
 
 .empty-config {

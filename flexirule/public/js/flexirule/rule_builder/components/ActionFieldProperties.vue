@@ -14,7 +14,12 @@ import { ref, computed, onMounted, onBeforeUpdate } from "vue";
 import { useStore } from "../stores";
 import ControlFactory from "../controls/ControlFactory.vue";
 import ComboBoxControl from "../controls/ComboBoxControl.vue";
-import { getActionTypeOptions, getFieldLabel, getOperationOptions } from "../../core/contracts";
+import {
+	getActionTypeOptions,
+	getFieldLabel,
+	getOperationOptions,
+	normalizeActionType,
+} from "../../core/contracts";
 import { useNodeConfigPolicy } from "../composables/useNodeConfigPolicy";
 import { toCodeString, fromCodeString, isJsonField } from "../utils/serialization";
 
@@ -22,6 +27,10 @@ const props = defineProps({
 	nodeData: Object,
 	readOnly: Boolean,
 	showValidation: { type: Boolean, default: false },
+	// New props for reusability
+	includeFields: { type: Array, default: null },
+	excludeFields: { type: Array, default: () => [] },
+	section: { type: String, default: null },
 });
 
 const emit = defineEmits(["update:field", "open:conditions", "open:config"]);
@@ -41,14 +50,42 @@ const rule_action_meta = computed(() => {
 	return frappe.get_meta("Rule Action");
 });
 
-// Get fields from meta, filtering hidden and layout fields
+// Get fields from meta, filtering based on props
 const doc_fields = computed(() => {
-	if (!rule_action_meta.value?.fields) return [];
+	const meta = rule_action_meta.value;
+	if (!meta || !meta.fields) return [];
 
-	return rule_action_meta.value.fields
+	let fields = [];
+	if (props.section) {
+		let in_section = false;
+		for (const fieldname of meta.field_order) {
+			const df = meta.fields.find((f) => f.fieldname === fieldname);
+			if (!df) continue;
+			if (df.fieldtype === "Section Break") {
+				if (df.fieldname === props.section) {
+					in_section = true;
+					continue;
+				} else if (in_section) {
+					break;
+				}
+			}
+			if (in_section) fields.push(df);
+		}
+	} else if (props.includeFields) {
+		fields = props.includeFields
+			.map((fn) => meta.fields.find((f) => f.fieldname === fn))
+			.filter(Boolean);
+	} else {
+		fields = meta.fields;
+	}
+
+	return fields
 		.filter((df) => {
 			// Skip layout fields
 			if (LAYOUT_FIELDS.includes(df.fieldtype)) return false;
+
+			// Skip excluded fields
+			if (props.excludeFields.includes(df.fieldname)) return false;
 
 			// Skip always hidden fields
 			if (df.hidden) return false;
@@ -58,7 +95,7 @@ const doc_fields = computed(() => {
 		})
 		.map((df) => {
 			let resolved = { ...df };
-			const actionType = props.nodeData?.action_type;
+			const actionType = normalizeActionType(props.nodeData?.action_type);
 			const policyLabel = actionType
 				? getFieldLabel(actionType, df.fieldname, {
 						operation: props.nodeData?.operation,
@@ -139,19 +176,6 @@ function evaluate_depends_on(expression) {
 
 // Evaluate mandatory_depends_on
 function is_mandatory(df) {
-	// Special enforcement for return_variable
-	if (df.fieldname === "return_variable" && operation_metadata.value) {
-		const op = operation_metadata.value;
-		// Mandatory if operation writes to Context or declares output variables
-		if (
-			op.writes_to === "Context" ||
-			(op.writes_vars && JSON.stringify(op.writes_vars) !== "[]") ||
-			op.output_schema
-		) {
-			return true;
-		}
-	}
-
 	if (df.reqd) return true;
 	if (!df.mandatory_depends_on) return false;
 	return evaluate_depends_on(df.mandatory_depends_on);
@@ -189,7 +213,7 @@ async function get_autocomplete_options(df) {
 
 	// operation field from canonical contract registry
 	if (df.fieldname === "operation") {
-		const actionType = props.nodeData?.action_type;
+		const actionType = normalizeActionType(props.nodeData?.action_type);
 		const processName = props.nodeData?.process_name;
 		let options = getOperationOptions(actionType, { processName });
 		if (actionType === "Process" && !options.length && processName) {
@@ -202,7 +226,7 @@ async function get_autocomplete_options(df) {
 		}
 		return options.map((op) => ({
 			value: op.value || op.func_name,
-			label: op.label || op.value || op.func_name,
+			label: __(op.label || op.value || op.func_name),
 			description: op.description || "",
 		}));
 	}
@@ -211,9 +235,6 @@ async function get_autocomplete_options(df) {
 	if (options_ref === "action_id") {
 		return get_action_node_options();
 	}
-
-	// target_field / variable_name autocomplete (legacy Set Value support removed)
-	// Assignment uses doc.* / vars.* target path directly via AssignmentConfig.vue
 
 	return [];
 }
@@ -229,40 +250,6 @@ function get_action_node_options() {
 			label: el.label || el.data?.action_label || el.id,
 		}));
 }
-
-// Get current operation's metadata for side-effect warnings
-const operation_metadata = computed(() => {
-	if (!props.nodeData?.process_name || !props.nodeData?.operation) {
-		return null;
-	}
-	const process = store.processes.find((p) => p.name === props.nodeData.process_name);
-	if (!process?.operations) return null;
-
-	return process.operations.find((op) => op.func_name === props.nodeData.operation);
-});
-
-// Compute side-effect warning message based on writes_to
-const side_effect_warning = computed(() => {
-	if (!operation_metadata.value) return null;
-
-	const writes_to = operation_metadata.value.writes_to;
-	if (writes_to === "Database") {
-		return {
-			type: "danger",
-			icon: "fa-database",
-			message: __(
-				"This operation writes directly to the database. Side-effects cannot be rolled back."
-			),
-		};
-	} else if (writes_to === "Document") {
-		return {
-			type: "warning",
-			icon: "fa-file-text",
-			message: __("This operation modifies the document. Ensure this is intentional."),
-		};
-	}
-	return null;
-});
 
 // Handle button field clicks
 function handle_button_click(df) {
@@ -285,10 +272,7 @@ function needs_autocomplete(df) {
 		df.fieldtype === "Link" ||
 		df.fieldtype === "Dynamic Link" ||
 		df.fieldname === "operation" ||
-		df.fieldname === "target_field" ||
-		df.fieldname === "variable_name" ||
-		df.options === "action_id" ||
-		(df.options === "process_name" && df.fieldname === "operation")
+		df.options === "action_id"
 	);
 }
 
@@ -322,15 +306,6 @@ onMounted(async () => {
 
 <template>
 	<div class="action-field-properties">
-		<!-- Side-effect Warning Badge -->
-		<div
-			v-if="side_effect_warning"
-			:class="['side-effect-warning', 'alert-' + side_effect_warning.type]"
-		>
-			<i :class="['fa', side_effect_warning.icon]"></i>
-			<span>{{ side_effect_warning.message }}</span>
-		</div>
-
 		<div v-for="df in visible_fields" :key="df.fieldname" class="field-wrapper">
 			<!-- Button fields (configures, set_conditions) -->
 			<template v-if="is_button_field(df)">
@@ -392,54 +367,10 @@ onMounted(async () => {
 .action-field-properties {
 	display: flex;
 	flex-direction: column;
-	/* Removed gap: 12px as controls have their own margins */
-}
-
-.side-effect-warning {
-	display: flex;
-	align-items: flex-start;
-	gap: 8px;
-	padding: 8px 10px;
-	border-radius: 4px;
-	font-size: 11px;
-	margin-bottom: 12px;
-}
-
-.side-effect-warning.alert-danger {
-	background-color: var(--fxr-danger-soft);
-	border: 1px solid var(--fxr-border-danger);
-	color: var(--fxr-text-danger);
-}
-
-.side-effect-warning.alert-warning {
-	background-color: var(--fxr-warning-soft);
-	border: 1px solid var(--fxr-border-focus);
-	color: var(--fxr-text-secondary);
-}
-
-.side-effect-warning i {
-	margin-top: 2px;
 }
 
 .field-wrapper {
 	margin-bottom: 12px;
-}
-
-.control-label {
-	font-size: 11px;
-	font-weight: 500;
-	margin-bottom: 4px;
-	color: var(--text-muted);
-	display: block;
-}
-
-.control-label.reqd::after {
-	content: " *";
-	color: var(--red-500);
-}
-
-.description {
-	font-size: 10px;
 }
 
 .btn {

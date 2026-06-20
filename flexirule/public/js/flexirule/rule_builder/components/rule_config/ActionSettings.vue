@@ -13,41 +13,14 @@
 				<span>{{ side_effect_warning.message }}</span>
 			</div>
 
-			<div class="settings-grid">
-				<div
-					v-for="df in settings_fields"
-					:key="df.fieldname"
-					class="grid-item"
-					:class="{ 'span-2': is_wide_field(df) }"
-				>
-					<template v-if="needs_autocomplete(df)">
-						<ComboBoxControl
-							:df="{
-								...df,
-								reqd: is_mandatory(df),
-								read_only: is_field_read_only(df),
-							}"
-							:modelValue="get_normalized_value(df)"
-							:get_query="(txt) => get_autocomplete_options(df)"
-							:doc="node.data"
-							:read_only="is_field_read_only(df)"
-							@update:modelValue="update_normalized_value(df, $event)"
-						/>
-					</template>
-					<template v-else>
-						<ControlFactory
-							:df="{
-								...df,
-								reqd: is_mandatory(df),
-								read_only: is_field_read_only(df),
-							}"
-							:modelValue="get_normalized_value(df)"
-							:read_only="is_field_read_only(df)"
-							:doc="node.data"
-							@update:modelValue="update_normalized_value(df, $event)"
-						/>
-					</template>
-				</div>
+			<div class="dynamic-settings-fields">
+				<ActionFieldProperties
+					:nodeData="node.data"
+					:readOnly="readOnly"
+					section="settings_section"
+					:excludeFields="EXCLUDE_FIELDS"
+					@update:field="(f, v) => emit('update:field', { fieldname: f, value: v })"
+				/>
 			</div>
 		</div>
 
@@ -104,167 +77,21 @@
 </template>
 
 <script setup>
-import { computed, onMounted } from "vue";
+import { computed } from "vue";
 import { useStore } from "../../stores";
-import ControlFactory from "../../controls/ControlFactory.vue";
+import ActionFieldProperties from "../ActionFieldProperties.vue";
 import ComboBoxControl from "../../controls/ComboBoxControl.vue";
-import {
-	getContract,
-	getFieldLabel,
-	getOperationOptions,
-	normalizeActionType,
-} from "../../../core/contracts.js";
-import { useNodeConfigPolicy } from "../../composables/useNodeConfigPolicy";
-import { toCodeString, fromCodeString, isJsonField } from "../../utils/serialization";
+import { getContract, normalizeActionType } from "../../../core/contracts.js";
 
 const props = defineProps({ node: Object, readOnly: Boolean });
 const emit = defineEmits(["update:field"]);
 const store = useStore();
 
-// ── Policy & Schema ───────────────────────────────────────────────────────
+const EXCLUDE_FIELDS = ["is_enabled"];
+
 const actionType = computed(() => normalizeActionType(props.node?.data?.action_type || ""));
 const operation = computed(() => props.node?.data?.operation || "");
 const processName = computed(() => props.node?.data?.process_name || "");
-
-const { getPolicyField, getPolicyValue } = useNodeConfigPolicy({
-	actionType,
-	operation,
-	processName,
-});
-
-// ── Metadata-driven fields ───────────────────────────────────────────────
-const LAYOUT_FIELDS = ["Section Break", "Column Break", "Tab Break"];
-
-const rule_action_meta = computed(() => frappe.get_meta("Rule Action"));
-
-const settings_fields = computed(() => {
-	const meta = rule_action_meta.value;
-	if (!meta || !meta.field_order) return [];
-
-	const fields = [];
-	let in_settings_section = false;
-
-	for (const fieldname of meta.field_order) {
-		const df = meta.fields.find((f) => f.fieldname === fieldname);
-		if (!df) continue;
-
-		if (df.fieldtype === "Section Break") {
-			if (df.fieldname === "settings_section") {
-				in_settings_section = true;
-				continue;
-			} else if (in_settings_section) {
-				// Stop when we hit the next section
-				break;
-			}
-		}
-
-		if (in_settings_section) {
-			// Skip layout fields
-			if (LAYOUT_FIELDS.includes(df.fieldtype)) continue;
-
-			// Policy Check: Hidden
-			if (df.hidden) continue;
-			if (getPolicyValue(df.fieldname, "hidden", false)) continue;
-
-			// Depends On Check
-			if (!evaluate_depends_on(df.depends_on)) continue;
-
-			// Resolve Dynamic Label
-			let resolved = { ...df };
-			const policyLabel = getFieldLabel(actionType.value, df.fieldname, {
-				operation: operation.value,
-				processName: processName.value,
-			});
-
-			// Get policy overrides
-			resolved = getPolicyField(resolved.fieldname, resolved);
-
-			if (policyLabel) {
-				resolved.label = __(policyLabel);
-			}
-
-			fields.push(resolved);
-		}
-	}
-	return fields;
-});
-
-// ── Evaluators & Helpers ──────────────────────────────────────────────────
-function evaluate_depends_on(expression) {
-	if (!expression) return true;
-	const doc = props.node?.data;
-	if (!doc) return true;
-
-	if (typeof expression === "boolean") return expression;
-
-	if (expression.startsWith("eval:")) {
-		try {
-			const parent = store.rule_doc;
-			return frappe.utils.eval(expression.substr(5), { doc, parent });
-		} catch (e) {
-			return false;
-		}
-	}
-	return !!doc[expression];
-}
-
-function is_mandatory(df) {
-	if (df.reqd) return true;
-	if (!df.mandatory_depends_on) return false;
-	return evaluate_depends_on(df.mandatory_depends_on);
-}
-
-function is_field_read_only(df) {
-	if (props.readOnly) return true;
-	if (df.read_only) return true;
-	if (!df.read_only_depends_on) return false;
-	return evaluate_depends_on(df.read_only_depends_on);
-}
-
-function is_wide_field(df) {
-	return ["Small Text", "Text", "Code", "Markdown Editor", "HTML Editor"].includes(df.fieldtype);
-}
-
-function get_normalized_value(df) {
-	const val = props.node?.data?.[df.fieldname];
-	if (isJsonField(df)) {
-		return toCodeString(val);
-	}
-	return val;
-}
-
-function update_normalized_value(df, value) {
-	let nextValue = value;
-	if (isJsonField(df)) {
-		nextValue = fromCodeString(value);
-	}
-	emit("update:field", { fieldname: df.fieldname, value: nextValue });
-}
-
-function needs_autocomplete(df) {
-	return (
-		df.fieldtype === "Autocomplete" ||
-		df.fieldtype === "Link" ||
-		df.fieldtype === "Dynamic Link" ||
-		df.fieldname === "operation" ||
-		df.options === "action_id"
-	);
-}
-
-async function get_autocomplete_options(df) {
-	if (df.fieldname === "operation") {
-		const options = getOperationOptions(actionType.value, { processName: processName.value });
-		return options.map((op) => ({
-			value: op.value || op.func_name,
-			label: __(op.label || op.value || op.func_name),
-			description: op.description || "",
-		}));
-	}
-	if (df.options === "action_id") {
-		return getNodeOptions();
-	}
-	return [];
-}
 
 // ── Side-effect Warning ───────────────────────────────────────────────────
 const side_effect_warning = computed(() => {
@@ -362,12 +189,6 @@ function onSelectSecondary(val) {
 	emit("update:field", { fieldname: "next_step_if_false", value: id });
 	store.reconnect_node_edge?.(props.node?.id, "false", id);
 }
-
-onMounted(async () => {
-	if (!frappe.get_meta("Rule Action")) {
-		await frappe.model.with_doctype("Rule Action");
-	}
-});
 </script>
 
 <style scoped>
@@ -375,15 +196,6 @@ onMounted(async () => {
 	display: flex;
 	flex-direction: column;
 	gap: 20px;
-}
-
-.settings-grid {
-	display: grid;
-	grid-template-columns: repeat(2, minmax(0, 1fr));
-	gap: 16px;
-}
-.grid-item.span-2 {
-	grid-column: 1 / -1;
 }
 
 .section-title-mini {
@@ -457,5 +269,21 @@ onMounted(async () => {
 :deep(.autocomplete-control) {
 	border-radius: 8px;
 	font-size: 13px;
+}
+
+/* Adjust ActionFieldProperties for settings bar layout */
+:deep(.action-field-properties) {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 16px;
+}
+
+:deep(.field-wrapper) {
+	margin-bottom: 0;
+}
+
+/* Some fields might need full width in settings too */
+:deep(.field-wrapper:has(.text-generator-control), .field-wrapper:has(textarea), .field-wrapper:has(.code-control)) {
+	grid-column: 1 / -1;
 }
 </style>
