@@ -1,101 +1,28 @@
 <template>
 	<div class="action-settings-container">
-		<!-- ═══════════════ EXECUTION SETTINGS ═══════════════ -->
+		<!-- ═══════════════ DYNAMIC EXECUTION SETTINGS ═══════════════ -->
 		<div class="settings-section">
 			<h6 class="section-title-mini">{{ __("Execution Settings") }}</h6>
-			<div class="settings-grid">
-				<div class="grid-item">
-					<ControlFactory
-						:df="
-							ro({
-								fieldname: 'is_enabled',
-								fieldtype: 'Check',
-								label: __('Enabled'),
-							})
-						"
-						:modelValue="node.data?.is_enabled"
-						@update:modelValue="(v) => emit_field('is_enabled', v)"
-					/>
-				</div>
-				<div class="grid-item">
-					<ControlFactory
-						:df="
-							ro({
-								fieldname: 'is_async',
-								fieldtype: 'Check',
-								label: __('Run Asynchronously'),
-							})
-						"
-						:modelValue="node.data?.is_async"
-						@update:modelValue="(v) => emit_field('is_async', v)"
-					/>
-				</div>
-				<div class="grid-item">
-					<ControlFactory
-						:df="
-							ro({
-								fieldname: 'on_error',
-								fieldtype: 'Select',
-								label: __('On Error'),
-								options: '\nStop\nContinue\nRetry\nRollback\nEscalate',
-							})
-						"
-						:modelValue="node.data?.on_error"
-						@update:modelValue="(v) => emit_field('on_error', v)"
-					/>
-				</div>
-				<div class="grid-item" v-if="node.data?.on_error === 'Retry'">
-					<ControlFactory
-						:df="
-							ro({
-								fieldname: 'retry_count',
-								fieldtype: 'Int',
-								label: __('Retry Count'),
-							})
-						"
-						:modelValue="node.data?.retry_count"
-						@update:modelValue="(v) => emit_field('retry_count', v)"
-					/>
-				</div>
-				<div class="grid-item">
-					<ControlFactory
-						:df="
-							ro({ fieldname: 'timeout', fieldtype: 'Int', label: __('Timeout (s)') })
-						"
-						:modelValue="node.data?.timeout"
-						@update:modelValue="(v) => emit_field('timeout', v)"
-					/>
-				</div>
+
+			<!-- Side-effect Warning Badge (if any) -->
+			<div
+				v-if="side_effect_warning"
+				:class="['side-effect-warning', 'alert-' + side_effect_warning.type]"
+			>
+				<i :class="['fa', side_effect_warning.icon]"></i>
+				<span>{{ side_effect_warning.message }}</span>
+			</div>
+
+			<div class="dynamic-settings-fields">
+				<ActionFieldProperties
+					:nodeData="node.data"
+					:readOnly="readOnly"
+					section="settings_section"
+					:excludeFields="EXCLUDE_FIELDS"
+					@update:field="(f, v) => emit('update:field', { fieldname: f, value: v })"
+				/>
 			</div>
 		</div>
-
-		<!-- ═══════════════ OUTPUT SETTINGS ═══════════════ -->
-		<!-- Hidden for Condition / Loop / Switch / Stop — they don't store a return variable -->
-		<template v-if="showReturnVariable">
-			<div class="section-divider my-4"></div>
-			<div class="settings-section">
-				<h6 class="section-title-mini">{{ __("Output Settings") }}</h6>
-				<div class="settings-grid">
-					<div class="grid-item span-2">
-						<ControlFactory
-							:df="
-								ro({
-									fieldname: 'return_variable',
-									fieldtype: 'Data',
-									label: __('Return Variable Name'),
-									placeholder: __('e.g. my_result'),
-									description: __(
-										'The variable where the action result will be stored.'
-									),
-								})
-							"
-							:modelValue="node.data?.return_variable"
-							@update:modelValue="(v) => emit_field('return_variable', v)"
-						/>
-					</div>
-				</div>
-			</div>
-		</template>
 
 		<!-- ═══════════════ FLOW CONTROL ═══════════════ -->
 		<!-- Hidden for terminal actions (Stop) -->
@@ -152,39 +79,49 @@
 <script setup>
 import { computed } from "vue";
 import { useStore } from "../../stores";
-import ControlFactory from "../../controls/ControlFactory.vue";
+import ActionFieldProperties from "../ActionFieldProperties.vue";
 import ComboBoxControl from "../../controls/ComboBoxControl.vue";
-import { getContract, getDerivedFieldState } from "../../../core/contracts.js";
+import { getContract, normalizeActionType } from "../../../core/contracts.js";
 
 const props = defineProps({ node: Object, readOnly: Boolean });
 const emit = defineEmits(["update:field"]);
 const store = useStore();
 
-// ── Helpers ───────────────────────────────────────────────────────────────
-const ro = (field) => ({ ...field, read_only: props.readOnly });
-const emit_field = (fieldname, value) => emit("update:field", { fieldname, value });
+const EXCLUDE_FIELDS = ["is_enabled"];
 
-// ── Contract state ────────────────────────────────────────────────────────
-const actionType = computed(() => props.node?.data?.action_type);
+const actionType = computed(() => normalizeActionType(props.node?.data?.action_type || ""));
+const operation = computed(() => props.node?.data?.operation || "");
+const processName = computed(() => props.node?.data?.process_name || "");
+
+// ── Side-effect Warning ───────────────────────────────────────────────────
+const side_effect_warning = computed(() => {
+	if (actionType.value !== "Process" || !processName.value || !operation.value) return null;
+	const process = store.processes?.find((p) => p.name === processName.value);
+	const op = process?.operations?.find((o) => o.func_name === operation.value);
+	if (!op) return null;
+
+	if (op.writes_to === "Database") {
+		return {
+			type: "danger",
+			icon: "fa-database",
+			message: __(
+				"This operation writes directly to the database. Side-effects cannot be rolled back."
+			),
+		};
+	} else if (op.writes_to === "Document") {
+		return {
+			type: "warning",
+			icon: "fa-file-text",
+			message: __("This operation modifies the document. Ensure this is intentional."),
+		};
+	}
+	return null;
+});
+
+// ── Flow Control Logic ───────────────────────────────────────────────────
 const contract = computed(() => getContract(actionType.value));
 const isTerminal = computed(() => contract.value.terminal);
 
-const showReturnVariable = computed(() => {
-	const state = getDerivedFieldState(
-		actionType.value,
-		"return_variable",
-		props.node?.data || {},
-		store.rule_doc || {},
-		{
-			operation: props.node?.data?.operation,
-			processName: props.node?.data?.process_name,
-		}
-	);
-	if (state.hidden) return false;
-	return !["Condition", "Loop", "Switch", "Stop", "Entry Action"].includes(actionType.value);
-});
-
-// ── Flow control metadata per action type ─────────────────────────────────
 const FLOW_META = {
 	Condition: {
 		primary: "YES (If True)",
@@ -215,7 +152,6 @@ const flowMeta = computed(
 		}
 );
 
-// ── Node autocomplete ─────────────────────────────────────────────────────
 function getNodeOptions() {
 	const cid = props.node?.id;
 	return (store.nodes || [])
@@ -244,13 +180,13 @@ function resolveId(labelOrId) {
 
 function onSelectPrimary(val) {
 	const id = resolveId(val);
-	emit_field("next_step_if_true", id);
+	emit("update:field", { fieldname: "next_step_if_true", value: id });
 	store.reconnect_node_edge?.(props.node?.id, "true", id);
 }
 
 function onSelectSecondary(val) {
 	const id = resolveId(val);
-	emit_field("next_step_if_false", id);
+	emit("update:field", { fieldname: "next_step_if_false", value: id });
 	store.reconnect_node_edge?.(props.node?.id, "false", id);
 }
 </script>
@@ -262,30 +198,43 @@ function onSelectSecondary(val) {
 	gap: 20px;
 }
 
-.settings-grid {
-	display: grid;
-	grid-template-columns: repeat(2, minmax(0, 1fr));
-	gap: 16px;
-}
-.grid-item.span-2 {
-	grid-column: 1 / -1;
-}
-
 .section-title-mini {
 	font-size: 11px;
 	font-weight: 800;
-	color: #64748b;
+	color: var(--fxr-text-soft, #64748b);
 	text-transform: uppercase;
 	letter-spacing: 0.05em;
 	margin-bottom: 12px;
 }
 .section-divider {
 	height: 1px;
-	background: #e2e8f0;
+	background: var(--fxr-border-subtle, #e2e8f0);
 	margin: 8px 0;
 }
 .extra-small {
 	font-size: 10px;
+}
+
+.side-effect-warning {
+	display: flex;
+	align-items: flex-start;
+	gap: 8px;
+	padding: 8px 10px;
+	border-radius: 4px;
+	font-size: 11px;
+	margin-bottom: 12px;
+}
+
+.side-effect-warning.alert-danger {
+	background-color: var(--fxr-danger-soft);
+	border: 1px solid var(--fxr-border-danger);
+	color: var(--fxr-text-danger);
+}
+
+.side-effect-warning.alert-warning {
+	background-color: var(--fxr-warning-soft);
+	border: 1px solid var(--fxr-border-focus);
+	color: var(--fxr-text-secondary);
 }
 
 /* ── Flow Control ── */
@@ -305,7 +254,7 @@ function onSelectSecondary(val) {
 	gap: 6px;
 	font-size: 11px;
 	font-weight: 700;
-	color: #374151;
+	color: var(--fxr-text-strong, #374151);
 	text-transform: uppercase;
 	letter-spacing: 0.04em;
 	margin: 0;
@@ -320,5 +269,21 @@ function onSelectSecondary(val) {
 :deep(.autocomplete-control) {
 	border-radius: 8px;
 	font-size: 13px;
+}
+
+/* Adjust ActionFieldProperties for settings bar layout */
+:deep(.action-field-properties) {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 16px;
+}
+
+:deep(.field-wrapper) {
+	margin-bottom: 0;
+}
+
+/* Some fields might need full width in settings too */
+:deep(.field-wrapper:has(.text-generator-control), .field-wrapper:has(textarea), .field-wrapper:has(.code-control)) {
+	grid-column: 1 / -1;
 }
 </style>
