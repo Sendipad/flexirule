@@ -109,7 +109,7 @@ const docFields = computed(() => {
 				? getFieldLabel(actionType, df.fieldname, {
 						operation: props.node?.data?.operation,
 						processName: props.node?.data?.process_name,
-				  })
+					})
 				: null;
 
 			if (resolved.fieldname === "action_type") {

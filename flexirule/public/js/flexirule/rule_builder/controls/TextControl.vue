@@ -98,7 +98,9 @@ textarea.form-control {
 	padding: var(--fxr-input-padding-y) var(--fxr-input-padding-x);
 	border: 1px solid var(--fxr-border);
 	border-radius: var(--fxr-radius-md);
-	transition: border-color var(--fxr-transition-fast), box-shadow var(--fxr-transition-fast);
+	transition:
+		border-color var(--fxr-transition-fast),
+		box-shadow var(--fxr-transition-fast);
 }
 
 textarea.form-control:focus {

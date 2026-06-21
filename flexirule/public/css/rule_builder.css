@@ -86,38 +86,30 @@ html[data-theme="dark"] .fxr-active-element {
 }
 
 /* 8. Field Reveal Directive (Frappe-style) */
-.fxr-field-revealed {
-	color: var(--fxr-accent, #2490ef) !important;
-	font-family: var(--font-mono, "SFMono-Regular", Menlo, Monaco, Consolas, monospace) !important;
-	font-weight: 600 !important;
-	font-size: 13px !important;
+[data-fxr-fieldname] {
+	position: relative;
+}
+
+body.is-field-reveal-active [data-fxr-fieldname]:hover {
+	outline: 2px dashed var(--fxr-accent, #2490ef);
+	outline-offset: 2px;
 	cursor: copy !important;
-	text-decoration: none !important;
-	background: var(--fxr-accent-soft, rgba(36, 144, 239, 0.1));
-	padding: 2px 6px;
+}
+
+body.is-field-reveal-active [data-fxr-fieldname]:hover::after {
+	content: attr(data-fxr-fieldname);
+	position: absolute;
+	top: -24px;
+	left: 50%;
+	transform: translateX(-50%);
+	background: var(--fxr-accent, #2490ef);
+	color: #fff;
+	padding: 2px 8px;
 	border-radius: 4px;
-	border: 1px dashed var(--fxr-accent);
-	transition: all 0.15s ease;
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	line-height: 1.2;
-}
-
-/* When reveal is on a control wrapper, ensure it occupies reasonable space */
-.fxr-control.fxr-field-revealed {
-	min-height: 32px;
-	width: 100%;
-	margin-bottom: 8px;
-}
-
-.fxr-copy-success {
-	color: var(--green-600, #16a34a) !important;
-	background-color: var(--green-50, #f0fdf4) !important;
-	border-style: solid !important;
-	transition: color 0.2s ease;
-}
-
-html[data-theme="dark"] .fxr-copy-success {
-	background-color: var(--green-900, #064e3b) !important;
+	font-size: 11px;
+	font-family: var(--font-mono, monospace);
+	white-space: nowrap;
+	z-index: 10000;
+	pointer-events: none;
+	box-shadow: var(--fxr-shadow-md);
 }

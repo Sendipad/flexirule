@@ -1081,8 +1081,8 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 				source.field_b_type === "constant"
 					? String(source.constant_b ?? 0)
 					: source.field_b
-					? `frappe.utils.flt(${toDocExpression(source.field_b)})`
-					: "0";
+						? `frappe.utils.flt(${toDocExpression(source.field_b)})`
+						: "0";
 			const op = source.math_op || "+";
 			const precision = Number.isFinite(Number(source.precision))
 				? Number(source.precision)
@@ -1440,14 +1440,14 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 							actionType: "Process",
 							processName: action.process_name,
 							operation: action.operation,
-					  }) || {}
+						}) || {}
 					: rawConfigData;
 			const conditionPayload =
 				actionTypeRaw === "Condition"
 					? getConditionPayload({
 							config: configData,
 							condition_json: action.condition_json,
-					  })
+						})
 					: null;
 			const effectiveConfig =
 				actionTypeRaw === "Condition"

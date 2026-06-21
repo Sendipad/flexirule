@@ -4,6 +4,7 @@
 			<div
 				class="form-group col-md-6"
 				:class="{ 'has-error': showValidation && getJsonConfig('value', 1) <= 0 }"
+				v-field-reveal="'config.value'"
 			>
 				<label class="small text-muted">{{ __("Delay Value") }}</label>
 				<input
@@ -16,7 +17,7 @@
 					{{ __("Delay must be greater than 0") }}
 				</div>
 			</div>
-			<div class="form-group col-md-6">
+			<div class="form-group col-md-6" v-field-reveal="'config.unit'">
 				<label class="small text-muted">{{ __("Unit") }}</label>
 				<select
 					class="form-control"

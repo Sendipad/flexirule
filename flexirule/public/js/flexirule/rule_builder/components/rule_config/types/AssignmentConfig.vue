@@ -43,7 +43,7 @@
 				class="assignment-grid-row align-items-center mb-2"
 			>
 				<div class="grid-col-when">
-					<div class="when-editor-cell">
+					<div class="when-editor-cell" v-field-reveal="'assignments.run_if'">
 						<button
 							class="fxr-btn fxr-btn--sm w-100 when-toggle-btn"
 							:class="{
@@ -60,8 +60,8 @@
 									getWhenConditionStatus(assignment).isInvalid
 										? 'fa fa-exclamation-triangle'
 										: hasWhenCondition(assignment)
-										? 'fa fa-filter'
-										: 'fa fa-play-circle-o'
+											? 'fa fa-filter'
+											: 'fa fa-play-circle-o'
 								"
 								class="me-2"
 							></i>
@@ -70,8 +70,8 @@
 									getWhenConditionStatus(assignment).isInvalid
 										? __("Invalid Condition")
 										: hasWhenCondition(assignment)
-										? __("Condition Set")
-										: __("Always Run")
+											? __("Condition Set")
+											: __("Always Run")
 								}}
 							</span>
 						</button>

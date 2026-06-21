@@ -3,6 +3,7 @@
 		<div
 			class="form-group"
 			:class="{ 'has-error': showValidation && !getJsonConfig('expression') }"
+			v-field-reveal="'config.expression'"
 		>
 			<label>{{ __("Switch Expression (Python)") }}</label>
 			<textarea
@@ -20,6 +21,7 @@
 		<div
 			class="form-group"
 			:class="{ 'has-error': showValidation && Object.keys(cases).length === 0 }"
+			v-field-reveal="'config.cases'"
 		>
 			<label>{{ __("Cases") }}</label>
 			<div
