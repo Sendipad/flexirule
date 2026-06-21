@@ -7,6 +7,10 @@ const props = defineProps({
 		required: true,
 		validator: (val) => ["not-configured", "configured", "invalid"].includes(val),
 	},
+	label: {
+		type: String,
+		default: null,
+	},
 	errors: {
 		type: Array,
 		default: () => [],
@@ -18,19 +22,19 @@ const statusMeta = computed(() => {
 		case "invalid":
 			return {
 				icon: "fa-exclamation-circle",
-				label: __("Invalid Configuration"),
+				label: props.label || __("Invalid Configuration"),
 				class: "is-invalid",
 			};
 		case "configured":
 			return {
 				icon: "fa-check-circle",
-				label: __("Configured"),
+				label: props.label || __("Configured"),
 				class: "is-configured",
 			};
 		default:
 			return {
 				icon: "fa-circle-o",
-				label: __("Not Configured"),
+				label: props.label || __("Not Configured"),
 				class: "not-configured",
 			};
 	}

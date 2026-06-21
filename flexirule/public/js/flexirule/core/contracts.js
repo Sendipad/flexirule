@@ -1,8 +1,17 @@
 /**
  * FlexiRule action contracts
  *
- * Backend is the canonical source. This module keeps a local fallback so the
- * builder still works if the contract API is temporarily unavailable.
+ * CANONICAL SOURCE: flexirule/ruleflow/core/contracts.py
+ *
+ * This module provides a frontend implementation of the action contracts.
+ * It is primarily used for:
+ * 1. UI rendering (icons, colors, labels)
+ * 2. Real-time canvas status (getNodeStatus)
+ * 3. Reactive frontend validation (validateAgainstContract)
+ *
+ * Fallbacks defined here MUST match the backend definitions in contracts.py.
+ * The system attempts to load fresh contracts via 'loadContractsFromBackend'
+ * but uses these as static defaults.
  */
 
 const ACTION_TYPE_DESCRIPTION = {

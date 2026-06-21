@@ -4,9 +4,15 @@
 """
 Unified Backend/Frontend Contract for FlexiRule Action Types
 
-This module defines the contract for action types that is shared between:
-- Backend validation (Rule.validate)
-- Frontend rendering (rule_builder/store.js)
+CANONICAL SOURCE OF TRUTH:
+This file (flexirule/ruleflow/core/contracts.py) is the canonical source of truth
+for all action contracts, required fields, and operation policies.
+
+SYNC PROTOCOL:
+1. Backend validation (Rule.validate) uses these definitions directly.
+2. The frontend (flexirule/public/js/flexirule/core/contracts.js) MUST be kept
+   in sync with this file to ensure consistent UI status and real-time validation.
+3. Use 'get_contract_dto' API to transfer these definitions to the frontend.
 """
 
 from __future__ import annotations

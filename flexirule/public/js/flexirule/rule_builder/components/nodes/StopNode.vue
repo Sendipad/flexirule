@@ -83,7 +83,12 @@ function openConfig() {
 
 		<!-- Footer/Status -->
 		<div class="node-footer">
-			<NodeStatusIndicator :status="status" :errors="errors" @click="openConfig" />
+			<NodeStatusIndicator
+				:status="status"
+				:label="status === 'configured' ? __('Terminal') : null"
+				:errors="errors"
+				@click="openConfig"
+			/>
 		</div>
 	</div>
 </template>
