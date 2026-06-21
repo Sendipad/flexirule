@@ -403,8 +403,9 @@ def _validate_action_contracts(
 
 	# Validation based on required_config_keys (from both policy and contract)
 	required_config_keys = list(effective_policy.get("required_config_keys") or [])
-	if contract.get("required_config_keys"):
-		required_config_keys.extend(contract.get("required_config_keys"))
+	contract_keys = contract.get("required_config_keys")
+	if isinstance(contract_keys, list):
+		required_config_keys.extend(contract_keys)
 
 	if required_config_keys:
 		config_data = _parse_json_value(_safe_get(action, "config"), {})
@@ -444,13 +445,14 @@ def _validate_action_specifics(
 			_validate_sub_rule_input_mapping(action, errors)
 
 	elif action_type == "Condition":
-		# Legacy/Specific check if required_config_keys doesn't cover it (e.g. if compiled_expression is used instead)
-		if (
-			get_condition_payload(action) is None
-			and _is_empty(_safe_get(action, "compiled_expression"))
-			and "conditions" not in (get_contract(action_type).get("required_config_keys") or [])
-		):
+		if get_condition_payload(action) is None and _is_empty(_safe_get(action, "compiled_expression")):
 			errors.append(_("Action '{0}' is a Condition but no condition is defined.").format(action_label))
+
+	elif action_type == "Loop":
+		if not config.get("iterator"):
+			warnings.append(
+				_("Action '{0}' is a Loop but iterator configuration may be incomplete.").format(action_label)
+			)
 
 	elif action_type == "Switch":
 		if not config.get("cases"):

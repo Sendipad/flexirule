@@ -48,7 +48,6 @@ const DEFAULT_ACTION_TYPE_CONTRACT = {
 	},
 	Condition: {
 		required_fields: ["config"],
-		required_config_keys: ["conditions"],
 		has_next_true: true,
 		has_next_false: true,
 		terminal: false,
@@ -73,7 +72,6 @@ const DEFAULT_ACTION_TYPE_CONTRACT = {
 	},
 	Loop: {
 		required_fields: ["config", "return_variable"],
-		required_config_keys: ["iterator"],
 		has_next_true: true,
 		has_next_false: true,
 		terminal: false,
@@ -1093,6 +1091,22 @@ export function validateAgainstContract(nodeData) {
 				const label = key.charAt(0).toUpperCase() + key.slice(1);
 				errors.push(__("{0} is required for {1}", [label, actionType]));
 			}
+		}
+	}
+
+	// 6. Action-specific deep validation (Condition & Loop legacy)
+	if (actionType === "Condition" || actionType === "Loop") {
+		const config = parseJsonSafe(nodeData.config, {});
+		if (actionType === "Condition") {
+			const { getConditionPayload } = window.flexirule?.utils?.condition_payload || {};
+			const payload = getConditionPayload ? getConditionPayload(nodeData) : config.conditions;
+
+			if (!payload || (Array.isArray(payload) && payload.length === 0)) {
+				errors.push(__("At least one condition is required"));
+			}
+		}
+		if (actionType === "Loop" && !config.iterator) {
+			errors.push(__("Iterator is required for Loop"));
 		}
 	}
 
