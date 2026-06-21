@@ -264,7 +264,7 @@ export function useRuleGraph() {
 				// Reset layout flag and sync baseline so layout change isn't "dirty"
 				setTimeout(() => {
 					uiStore.is_performing_layout = false;
-					ruleStore.clear_dirty();
+					ruleStore.sync_initial_state_positions();
 				}, 650);
 			}, 50);
 		});

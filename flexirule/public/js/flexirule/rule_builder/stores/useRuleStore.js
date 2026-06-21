@@ -644,6 +644,50 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		_is_dirty.value = false;
 	}
 
+	/**
+	 * Sync only positions to the initial state baseline.
+	 * Used after layout operations to ensure the new positions don't
+	 * trigger a dirty state, while preserving other unsaved changes.
+	 */
+	function sync_initial_state_positions() {
+		if (!initial_state.value) return;
+
+		const graphStore = useGraphStore();
+		const currentSnapshot = graphStore.getStateSnapshot();
+		let initialSnapshot;
+		try {
+			initialSnapshot = JSON.parse(initial_state.value);
+		} catch (e) {
+			return;
+		}
+
+		if (!Array.isArray(initialSnapshot)) return;
+
+		// Map current positions by ID - Optimized single-pass
+		const currentPositions = new Map();
+		for (const el of currentSnapshot) {
+			if (el.id && el.position) {
+				currentPositions.set(el.id, el.position);
+			}
+		}
+
+		// Update initial snapshot with current positions
+		const updatedInitialSnapshot = initialSnapshot.map((el) => {
+			if (el.id && el.position && currentPositions.has(el.id)) {
+				return {
+					...el,
+					position: currentPositions.get(el.id),
+				};
+			}
+			return el;
+		});
+
+		initial_state.value = JSON.stringify(updatedInitialSnapshot);
+
+		// Explicitly re-evaluate dirty flag to ensure UI reflects the sync immediately
+		_is_dirty.value = checkDirty();
+	}
+
 	// ── UI Helpers (Delegated to UI Store) ──
 	function open_config(nodeId) {
 		const uiStore = useUIStore();
@@ -869,6 +913,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		mark_dirty,
 		mark_position_change,
 		clear_dirty,
+		sync_initial_state_positions,
 
 		// Undo/Redo coordination
 		undo,
