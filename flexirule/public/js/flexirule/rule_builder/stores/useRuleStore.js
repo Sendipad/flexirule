@@ -24,7 +24,11 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 	const rule_doc = ref(null);
 	const _is_dirty = ref(false); // Manual override flag if needed
 	const is_dirty = computed(() => {
-		if (is_read_only.value) return false;
+		if (is_read_only.value || is_loading.value) return false;
+
+		const uiStore = useUIStore();
+		if (uiStore.is_initializing || uiStore.is_performing_layout) return false;
+
 		if (_is_dirty.value) return true;
 		return checkDirty();
 	});
@@ -165,6 +169,10 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		}
 
 		setup_breadcrumbs();
+
+		// We wait for nextTick to ensure all reactive changes from
+		// graphStore sync and normalize have settled before we capture the baseline.
+		await nextTick();
 		initial_state.value = JSON.stringify(graphStore.getStateSnapshot());
 		_is_dirty.value = false;
 
@@ -601,35 +609,50 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 	// ── Dirty tracking ──
 	function mark_dirty() {
 		const uiStore = useUIStore();
-		if (is_read_only.value || is_loading.value || uiStore.is_initializing) return;
+		if (
+			is_read_only.value ||
+			is_loading.value ||
+			uiStore.is_initializing ||
+			uiStore.is_performing_layout
+		) {
+			return;
+		}
 
-		// Set flag for immediate UI response
-		_is_dirty.value = true;
-
-		// Commit to history
-		const historyStore = useHistoryStore();
-		const graphStore = useGraphStore();
-		historyStore.commit(() => graphStore.getGraphSnapshot());
+		if (checkDirty()) {
+			_is_dirty.value = true;
+			const historyStore = useHistoryStore();
+			const graphStore = useGraphStore();
+			historyStore.commit(() => graphStore.getGraphSnapshot());
+		}
 	}
 
 	function mark_position_change() {
 		const uiStore = useUIStore();
-		if (is_read_only.value || is_loading.value || uiStore.is_initializing) return;
+		if (
+			is_read_only.value ||
+			is_loading.value ||
+			uiStore.is_initializing ||
+			uiStore.is_performing_layout
+		) {
+			return;
+		}
 
-		_is_dirty.value = true;
-
-		// Positions are checked by checkDirty in the computed is_dirty
-		const graphStore = useGraphStore();
-		const historyStore = useHistoryStore();
-		historyStore.commit(() => graphStore.getGraphSnapshot());
+		if (checkDirty()) {
+			_is_dirty.value = true;
+			const graphStore = useGraphStore();
+			const historyStore = useHistoryStore();
+			historyStore.commit(() => graphStore.getGraphSnapshot());
+		}
 	}
 
 	function checkDirty() {
 		if (is_read_only.value || !initial_state.value) return false;
 		const graphStore = useGraphStore();
-		// Ensure nodes and edges are accessed for reactivity
-		const currentNodes = graphStore.nodes;
-		const currentEdges = graphStore.edges;
+
+		// Access nodes/edges for reactivity
+		const _nodes = graphStore.nodes;
+		const _edges = graphStore.edges;
+
 		const current = JSON.stringify(graphStore.getStateSnapshot());
 		return current !== initial_state.value;
 	}
