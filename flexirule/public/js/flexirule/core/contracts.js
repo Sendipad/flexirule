@@ -1067,7 +1067,9 @@ export function validateAgainstContract(nodeData) {
 		const config = parseJsonSafe(nodeData.config, {});
 		for (const key of policy.required_config_keys) {
 			if (config[key] === undefined || config[key] === null || config[key] === "") {
-				errors.push(__("Configuration key '{0}' is required for {1}", [key, nodeData.operation]));
+				errors.push(
+					__("Configuration key '{0}' is required for {1}", [key, nodeData.operation])
+				);
 			}
 		}
 	}

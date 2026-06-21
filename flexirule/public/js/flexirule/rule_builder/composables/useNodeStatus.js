@@ -28,7 +28,9 @@ export function useNodeStatus(nodeIdRef) {
 
 	const errors = computed(() => validation.value.errors || []);
 	const isValid = computed(() => validation.value.valid);
-	const isConfigured = computed(() => status.value === "configured" || status.value === "invalid");
+	const isConfigured = computed(
+		() => status.value === "configured" || status.value === "invalid"
+	);
 	const isInvalid = computed(() => status.value === "invalid");
 
 	return {
