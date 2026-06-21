@@ -1,5 +1,5 @@
-import { computed, watch } from "vue";
-import { useRuleStore } from "../stores";
+import { computed } from "vue";
+import { useGraphStore } from "../stores";
 import { getNodeStatus, validateAgainstContract } from "../../core/contracts";
 
 /**
@@ -12,11 +12,11 @@ import { getNodeStatus, validateAgainstContract } from "../../core/contracts";
  * @returns {Object} { status, errors, isValid, isConfigured }
  */
 export function useNodeStatus(nodeIdRef) {
-	const ruleStore = useRuleStore();
+	const graphStore = useGraphStore();
 
 	const node = computed(() => {
 		const id = typeof nodeIdRef === "string" ? nodeIdRef : nodeIdRef.value;
-		return ruleStore.nodes.find((n) => n.id === id);
+		return graphStore.nodesMap.get(id);
 	});
 
 	const nodeData = computed(() => node.value?.data || {});

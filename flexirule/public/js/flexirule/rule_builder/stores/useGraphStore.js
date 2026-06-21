@@ -31,6 +31,14 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 	const nodes = ref([]);
 	const edges = ref([]);
 
+	const nodesMap = computed(() => {
+		const map = new Map();
+		nodes.value.forEach((node) => {
+			map.set(node.id, node);
+		});
+		return map;
+	});
+
 	// ── Cascade disable computed ──
 	// BFS from start node: any node not reachable via enabled path is "effectively disabled"
 	const effectiveDisabledIds = computed(() => {
@@ -2067,5 +2075,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		getAutoConnectSource,
 		autoConnectNode,
 		autoConnectStartNode,
+		nodesMap,
 	};
 });
