@@ -969,24 +969,27 @@ export function validateAgainstContract(nodeData) {
 		return { valid: true, errors: [] };
 	}
 
-	const contract = getContract(nodeData.action_type);
-	const policy = getEffectiveActionPolicy(nodeData.action_type, {
+	const actionType = normalizeActionType(nodeData.action_type);
+	const contract = getContract(actionType);
+	const policy = getEffectiveActionPolicy(actionType, {
 		operation: nodeData.operation,
 		processName: nodeData.process_name,
 	});
 	const errors = [];
 
-	if (RELEASE_DISABLED_ACTION_TYPES.has(nodeData.action_type)) {
-		errors.push(__("{0} is not available in this release", [nodeData.action_type]));
+	if (RELEASE_DISABLED_ACTION_TYPES.has(actionType)) {
+		errors.push(__("{0} is not available in this release", [actionType]));
 	}
 
+	// 1. Base Required Fields
 	for (const field of contract.required_fields || []) {
 		const value = nodeData[field];
 		if (value === undefined || value === null || value === "") {
-			errors.push(__("Field '{0}' is required for {1}", [field, nodeData.action_type]));
+			errors.push(__("Field '{0}' is required for {1}", [field, actionType]));
 		}
 	}
 
+	// 2. Operation-specific Mandatory Fields
 	if (nodeData.operation && contract.mandatory_fields?.[nodeData.operation]) {
 		for (const field of contract.mandatory_fields[nodeData.operation]) {
 			const value = nodeData[field];
@@ -994,7 +997,7 @@ export function validateAgainstContract(nodeData) {
 				errors.push(
 					__("Field '{0}' is required for {1} in mode {2}", [
 						field,
-						nodeData.action_type,
+						actionType,
 						nodeData.operation,
 					])
 				);
@@ -1002,28 +1005,25 @@ export function validateAgainstContract(nodeData) {
 		}
 	}
 
+	// 3. Flow Integrity
 	if (contract.terminal) {
 		if (nodeData.next_step_if_true || nodeData.next_step_if_false) {
-			errors.push(
-				__("{0} is terminal and should not have next steps", [nodeData.action_type])
-			);
+			errors.push(__("{0} is terminal and should not have next steps", [actionType]));
 		}
 	}
 
-	// We no longer strictly require a false path for actions that support it (e.g., Loop, Condition).
-	// An empty path simply implies the execution terminates for that branch.
-
 	if (!contract.has_next_false && nodeData.next_step_if_false) {
-		errors.push(__("{0} does not support 'next step if false'", [nodeData.action_type]));
+		errors.push(__("{0} does not support 'next step if false'", [actionType]));
 	}
 
+	// 4. Output/Mutation Policies
 	if (nodeData.mutation_mode) {
 		const allowed = policy.allowed_mutations || [];
 		if (Array.isArray(allowed) && allowed.length && !allowed.includes(nodeData.mutation_mode)) {
 			errors.push(
 				__("Mutation mode '{0}' is not allowed for {1}", [
 					nodeData.mutation_mode,
-					nodeData.action_type,
+					actionType,
 				])
 			);
 		}
@@ -1040,16 +1040,17 @@ export function validateAgainstContract(nodeData) {
 			!allowedReturnTypes.includes(nodeData.return_type)
 		) {
 			errors.push(
-				__("Return type '{0}' is not allowed for {1}", [
-					nodeData.return_type,
-					nodeData.action_type,
-				])
+				__("Return type '{0}' is not allowed for {1}", [nodeData.return_type, actionType])
 			);
 		}
 	}
 
 	if (policy.require_return_type && !nodeData.return_type) {
 		errors.push(__("Return type is required for this operation"));
+	}
+
+	if (policy.require_return_variable && !nodeData.return_variable) {
+		errors.push(__("Return Variable Name is required for this operation"));
 	}
 
 	const showReturnType = policy.show_return_type !== false;
@@ -1061,10 +1062,75 @@ export function validateAgainstContract(nodeData) {
 		errors.push(__("Return Schema requires a Return Variable Name"));
 	}
 
+	// 5. Action-specific deep validation (Policy-based)
+	if (nodeData.operation && policy.required_config_keys) {
+		const config = parseJsonSafe(nodeData.config, {});
+		for (const key of policy.required_config_keys) {
+			if (config[key] === undefined || config[key] === null || config[key] === "") {
+				errors.push(__("Configuration key '{0}' is required for {1}", [key, nodeData.operation]));
+			}
+		}
+	}
+
+	// 6. Condition-specific validation
+	if (actionType === "Condition" || actionType === "Loop") {
+		const config = parseJsonSafe(nodeData.config, {});
+		if (actionType === "Condition" && (!config.conditions || !config.conditions.length)) {
+			errors.push(__("At least one condition is required"));
+		}
+		if (actionType === "Loop" && !config.iterator) {
+			errors.push(__("Iterator is required for Loop"));
+		}
+	}
+
 	return {
 		valid: errors.length === 0,
 		errors,
 	};
+}
+
+/**
+ * Get the status of a node based on its configuration and validation.
+ * @param {Object} nodeData - The node's data object
+ * @returns {'not-configured' | 'configured' | 'invalid'}
+ */
+export function getNodeStatus(nodeData) {
+	if (!nodeData || !nodeData.action_type) {
+		return "not-configured";
+	}
+
+	const actionType = normalizeActionType(nodeData.action_type);
+	if (actionType === "Entry Action") return "configured";
+
+	const contract = getContract(actionType);
+
+	// Check if basic required fields are set
+	const requiredFields = contract.required_fields || [];
+	const hasRequiredFields = requiredFields.every((f) => {
+		const val = nodeData[f];
+		return val !== undefined && val !== null && val !== "";
+	});
+
+	if (!hasRequiredFields) {
+		return "not-configured";
+	}
+
+	// For actions with a config object, check if it's empty
+	if (requiredFields.includes("config")) {
+		const config = parseJsonSafe(nodeData.config);
+		const isEmpty =
+			!config ||
+			(Array.isArray(config) && config.length === 0) ||
+			(typeof config === "object" && Object.keys(config).length === 0);
+
+		if (isEmpty) {
+			return "not-configured";
+		}
+	}
+
+	// If configured, check if it's valid
+	const validation = validateAgainstContract(nodeData);
+	return validation.valid ? "configured" : "invalid";
 }
 
 /**

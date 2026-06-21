@@ -4,9 +4,11 @@ import { useStore } from "../../stores";
 import { getContract } from "../../../core/contracts";
 import { computed } from "vue";
 import { useNodeExecutionState } from "../../composables/useNodeExecutionState";
+import { useNodeStatus } from "../../composables/useNodeStatus";
 import { useCanvasLayout } from "../../composables/useCanvasLayout";
 import NodeToolbar from "./NodeToolbar.vue";
 import InlineEditor from "./InlineEditor.vue";
+import NodeStatusIndicator from "./NodeStatusIndicator.vue";
 
 const props = defineProps(["data", "label", "id", "selected", "sourcePosition", "targetPosition"]);
 const store = useStore();
@@ -57,11 +59,7 @@ const conditionSummary = computed(() => {
 
 const nodeIdRef = computed(() => props.id);
 const { isExecuted, isRunning, isErrored, executionOrder } = useNodeExecutionState(nodeIdRef);
-
-const isConfigured = computed(() => {
-	const config = props.data?.config;
-	return config && Array.isArray(config.conditions) && config.conditions.length > 0;
-});
+const { status, errors } = useNodeStatus(nodeIdRef);
 
 function deleteNode() {
 	frappe.confirm(__("Delete this node?"), () => store.delete_node(props.id));
@@ -124,10 +122,7 @@ function openConfig() {
 
 		<!-- Footer/Status -->
 		<div class="node-footer">
-			<div class="config-status" :class="{ configured: isConfigured }">
-				<i class="fa" :class="isConfigured ? 'fa-check-circle' : 'fa-circle-o'"></i>
-				<span>{{ isConfigured ? __("Configured") : __("Not Configured") }}</span>
-			</div>
+			<NodeStatusIndicator :status="status" :errors="errors" @click="openConfig" />
 		</div>
 
 		<!-- True Output (Right/Bottom) -->

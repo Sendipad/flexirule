@@ -4,9 +4,11 @@ import { useStore } from "../../stores";
 import { getContract } from "../../../core/contracts";
 import { computed } from "vue";
 import { useNodeExecutionState } from "../../composables/useNodeExecutionState";
+import { useNodeStatus } from "../../composables/useNodeStatus";
 import { useCanvasLayout } from "../../composables/useCanvasLayout";
 import NodeToolbar from "./NodeToolbar.vue";
 import InlineEditor from "./InlineEditor.vue";
+import NodeStatusIndicator from "./NodeStatusIndicator.vue";
 
 const props = defineProps(["data", "label", "id", "selected", "sourcePosition"]);
 const store = useStore();
@@ -60,6 +62,7 @@ const nodeMeta = computed(() => {
 
 const nodeIdRef = computed(() => props.id || "root");
 const { isExecuted, isRunning, isErrored, executionOrder } = useNodeExecutionState(nodeIdRef);
+const { status, errors } = useNodeStatus(nodeIdRef);
 
 function openConfig() {
 	store.open_config(props.id || "start");
@@ -123,6 +126,7 @@ function openConfig() {
 			>
 				<i class="fa fa-users"></i> {{ role }}
 			</span>
+			<NodeStatusIndicator :status="status" :errors="errors" @click="openConfig" />
 		</div>
 		<Handle
 			type="source"
@@ -320,6 +324,7 @@ function openConfig() {
 	gap: 4px;
 	pointer-events: all;
 	z-index: 5;
+	align-items: center;
 }
 
 .start-node-d:not(.is-vertical) .permission-flags {
@@ -362,6 +367,14 @@ function openConfig() {
 .permission-flag i {
 	margin-right: 4px;
 	color: var(--fxr-text-soft);
+}
+
+.permission-flags :deep(.node-status-indicator) {
+	background-color: var(--fxr-surface-soft);
+	border: 1px solid var(--fxr-border);
+	padding: 3px 8px;
+	border-radius: 12px;
+	box-shadow: var(--fxr-shadow-sm);
 }
 
 /* RTL Support */

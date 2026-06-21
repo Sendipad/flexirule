@@ -4,9 +4,11 @@ import { Handle, Position } from "@vue-flow/core";
 import { useRuleStore, useGraphStore, useUIStore } from "../../stores";
 import { getContract } from "../../../core/contracts";
 import { useNodeExecutionState } from "../../composables/useNodeExecutionState";
+import { useNodeStatus } from "../../composables/useNodeStatus";
 import { useCanvasLayout } from "../../composables/useCanvasLayout";
 import NodeToolbar from "./NodeToolbar.vue";
 import InlineEditor from "./InlineEditor.vue";
+import NodeStatusIndicator from "./NodeStatusIndicator.vue";
 
 const props = defineProps(["data", "label", "id", "selected", "sourcePosition", "targetPosition"]);
 const ruleStore = useRuleStore();
@@ -44,31 +46,7 @@ const nodeMeta = computed(() => {
 
 const nodeIdRef = computed(() => props.id);
 const { isExecuted, isRunning, isErrored, executionOrder } = useNodeExecutionState(nodeIdRef);
-
-const isConfigured = computed(() => {
-	const actionType = props.data?.action_type;
-	if (!actionType) return false;
-
-	const contract = getContract(actionType);
-	const requiredFields = contract.required_fields || [];
-	const hasRequiredFields = requiredFields.every((fieldname) => {
-		const value = props.data?.[fieldname];
-		return value !== undefined && value !== null && value !== "";
-	});
-
-	if (!requiredFields.length) {
-		return true;
-	}
-
-	const config = props.data?.config;
-	const hasConfig =
-		config &&
-		(typeof config === "string"
-			? config.trim() !== "" && config.trim() !== "{}"
-			: Object.keys(config).length > 0);
-
-	return hasRequiredFields || hasConfig;
-});
+const { status, errors } = useNodeStatus(nodeIdRef);
 
 function deleteNode() {
 	frappe.confirm(__("Delete this node?"), () => graphStore.delete_node(props.id));
@@ -163,10 +141,7 @@ const isTerminal = computed(() => {
 
 		<!-- Footer/Status -->
 		<div class="node-footer">
-			<div class="config-status" :class="{ configured: isConfigured }">
-				<i class="fa" :class="isConfigured ? 'fa-check-circle' : 'fa-circle-o'"></i>
-				<span>{{ isConfigured ? __("Configured") : __("Not Configured") }}</span>
-			</div>
+			<NodeStatusIndicator :status="status" :errors="errors" @click="openConfig" />
 		</div>
 
 		<Handle
