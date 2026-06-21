@@ -586,6 +586,7 @@ onMounted(async () => {
 		}),
 	];
 
+	window.addEventListener("keydown", handleKeydown);
 	window.addEventListener("keyup", handleKeyup);
 	window.addEventListener("mousemove", updateMousePos);
 	window.addEventListener("mousedown", handleGlobalMouseDown, true);
@@ -607,6 +608,7 @@ onUnmounted(() => {
 	document.body.classList.remove("fxr-builder-active");
 	popContext("canvas");
 	unregisterShortcuts.value.forEach((unreg) => unreg());
+	window.removeEventListener("keydown", handleKeydown);
 	window.removeEventListener("keyup", handleKeyup);
 	window.removeEventListener("mousemove", updateMousePos);
 	window.removeEventListener("mousedown", handleGlobalMouseDown, true);
@@ -633,8 +635,16 @@ function onDrop(event) {
 	// Handle drop if any drag-and-drop node creation is implemented
 }
 
+function handleKeydown(e) {
+	if (e.key === "Alt" && uiStore.is_developer_mode) {
+		uiStore.is_field_reveal_active = true;
+	}
+}
+
 function handleKeyup(e) {
-	// Keyup cleanup if needed
+	if (e.key === "Alt") {
+		uiStore.is_field_reveal_active = false;
+	}
 }
 
 watch(
@@ -642,6 +652,17 @@ watch(
 	(val) => {
 		if (val) popContext("canvas");
 		else pushContext("canvas");
+	}
+);
+
+watch(
+	() => uiStore.is_field_reveal_active,
+	(val) => {
+		if (val) {
+			document.body.classList.add("is-field-reveal-active");
+		} else {
+			document.body.classList.remove("is-field-reveal-active");
+		}
 	}
 );
 
@@ -653,6 +674,44 @@ function handleGlobalMouseDown(event) {
 	) {
 		closeQuickActions();
 	}
+
+	if (event.altKey && uiStore.is_field_reveal_active) {
+		const fieldEl = event.target?.closest?.("[data-fxr-fieldname]");
+		const fieldname = fieldEl?.dataset?.fxrFieldname;
+		if (fieldname) {
+			event.preventDefault();
+			event.stopPropagation();
+			copyFieldname(fieldname);
+		}
+	}
+}
+
+function copyFieldname(fieldname) {
+	if (!fieldname) return;
+	const copyText = (text) => {
+		if (window.frappe && frappe.utils && frappe.utils.copy_to_clipboard) {
+			frappe.utils.copy_to_clipboard(text);
+			return Promise.resolve();
+		}
+		if (navigator.clipboard && navigator.clipboard.writeText) {
+			return navigator.clipboard.writeText(text);
+		}
+		return Promise.reject("Clipboard API not available");
+	};
+
+	copyText(fieldname)
+		.then(() => {
+			frappe.show_alert(
+				{
+					message: __("Fieldname copied: {0}", [fieldname]),
+					indicator: "green",
+				},
+				2
+			);
+		})
+		.catch((err) => {
+			console.error("Failed to copy fieldname:", err);
+		});
 }
 
 function insertNodeOnEdge(payload) {

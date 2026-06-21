@@ -5,8 +5,7 @@
 			'no-label': hideLabel,
 			'has-error': showValidation && !isValid,
 		}"
-		:data-fxr-fieldname="df?.fieldname || fieldname || null"
-		v-field-reveal="df?.fieldname || fieldname || null"
+		v-fxr-fieldname="df?.fieldname || fieldname || null"
 	>
 		<div
 			class="fxr-input-group"

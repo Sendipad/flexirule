@@ -26,7 +26,7 @@ import CollapsibleSection from "./controls/CollapsibleSection.vue";
 import { fieldRevealDirective } from "./utils/directives.js";
 
 export function registerGlobalComponents(app) {
-	app.directive("field-reveal", fieldRevealDirective);
+	app.directive("fxr-fieldname", fieldRevealDirective);
 
 	app.component("ComboBoxControl", ComboBoxControl)
 		.component("FlexiGrid", FlexiGrid)

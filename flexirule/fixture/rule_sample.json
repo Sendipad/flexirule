@@ -1,450 +1,581 @@
 {
-  "doctype": "Rule",
-  "name": "Block Duplicate Contact",
-  "rule_name": "Block Duplicate Contact",
-  "status": "Draft",
-  "is_active": 0,
-  "priority": "9",
-  "version": 1,
-  "trigger_type": "DocType Event",
-  "document_type": "Contact",
-  "trigger_event": "Before Save",
-  "trigger_condition": "",
-  "execution_mode": "Synchronous",
-  "max_execution_time": 30,
-  "debug_mode": 1,
-  "exposed_as_subrule": 0,
-  "docstatus": 0,
-  "idx": 0,
-  "owner": "Administrator",
-  "creation": "2026-05-09 19:54:23.469693",
-  "modified": "2026-06-20 21:59:17.265518",
-  "modified_by": "Administrator",
-  "visual_data": [
-    { "id": "root", "position": { "x": 45, "y": 150 }, "direction": "LR" },
-    { "id": "ACT-W9J3", "position": { "x": 495, "y": 120 }, "direction": "LR" },
-    { "id": "ACT-OTNO", "position": { "x": 615, "y": -165 }, "direction": "LR" },
-    { "id": "ACT-60C0", "position": { "x": 495, "y": 390 }, "direction": "LR" },
-    { "id": "ACT-8EXU", "position": { "x": 975, "y": -75 }, "direction": "LR" },
-    { "id": "ACT-N3OI", "position": { "x": 1095, "y": 360 }, "direction": "LR" },
-    { "id": "ACT-DIMM", "position": { "x": 975, "y": 600 }, "direction": "LR" },
-    { "id": "ACT-JYWY_2", "position": { "x": 1260, "y": 45 }, "direction": "LR" },
-    { "id": "ACT-2KFJ", "position": { "x": 1530, "y": -120 }, "direction": "LR" },
-    { "id": "node_end", "position": { "x": 1815, "y": 45 }, "direction": "LR" },
-    { "id": "e-root-ACT-W9J3-true", "source": "root", "target": "ACT-W9J3", "sourceHandle": "default", "targetHandle": null },
-    { "id": "e-ACT-W9J3-ACT-OTNO-true", "source": "ACT-W9J3", "target": "ACT-OTNO", "sourceHandle": "true", "targetHandle": null },
-    { "id": "e-ACT-W9J3-ACT-60C0-false", "source": "ACT-W9J3", "target": "ACT-60C0", "sourceHandle": "false", "targetHandle": null },
-    { "id": "e-ACT-OTNO-ACT-8EXU-true", "source": "ACT-OTNO", "target": "ACT-8EXU", "sourceHandle": "default", "targetHandle": null },
-    { "id": "e-ACT-60C0-ACT-N3OI-true", "source": "ACT-60C0", "target": "ACT-N3OI", "sourceHandle": "default", "targetHandle": null },
-    { "id": "e-ACT-60C0-ACT-DIMM-false", "source": "ACT-60C0", "target": "ACT-DIMM", "sourceHandle": "false", "targetHandle": null },
-    { "id": "e-ACT-8EXU-ACT-JYWY_2-true", "source": "ACT-8EXU", "target": "ACT-JYWY_2", "sourceHandle": "default", "targetHandle": null },
-    { "id": "e-ACT-N3OI-ACT-60C0-true", "source": "ACT-N3OI", "target": "ACT-60C0", "sourceHandle": "default", "targetHandle": "return" },
-    { "id": "e-ACT-JYWY_2-ACT-2KFJ-true", "source": "ACT-JYWY_2", "target": "ACT-2KFJ", "sourceHandle": "default", "targetHandle": null },
-    { "id": "e-ACT-2KFJ-node_end-true", "source": "ACT-2KFJ", "target": "node_end", "sourceHandle": "default", "targetHandle": null },
-    { "type": "ui_preferences", "layout": "LR" }
-  ],
-  "actions": [
-    {
-      "doctype": "Rule Action",
-      "name": "0rqc238euh",
-      "idx": 1,
-      "action_id": "root",
-      "action_label": "Start",
-      "action_type": "Entry Action",
-      "is_enabled": 1,
-      "config": {},
-      "on_error": "Stop",
-      "timeout": 30,
-      "retry_count": 0,
-      "is_async": 0,
-      "skip_conditions": 0,
-      "skip_permissions": 0,
-      "next_step_if_true": "ACT-W9J3",
-      "input_source": "",
-      "mutation_mode": "",
-      "return_type": "",
-      "parent": "Block Duplicate Contact",
-      "parentfield": "actions",
-      "parenttype": "Rule"
-    },
-    {
-      "doctype": "Rule Action",
-      "name": "372m5d6qj6",
-      "idx": 2,
-      "action_id": "ACT-W9J3",
-      "action_label": "Check Full Name Changes & Set",
-      "action_type": "Condition",
-      "is_enabled": 1,
-      "config": {
-        "op": "or",
-        "conditions": [
-          {
-            "op": "or",
-            "conditions": [
-              { "left": { "ref": "doc.full_name" }, "op": "is_set", "right": { "value": "" } }
-            ]
-          },
-          {
-            "op": "and",
-            "conditions": [
-              { "left": { "ref": "doc.custom_normalized_full_name" }, "op": "is_not_set", "right": { "value": "" } },
-              { "left": { "ref": "doc.full_name" }, "op": "is_set", "right": { "value": "" } }
-            ]
-          }
-        ]
-      },
-      "condition_json": "{\"op\":\"or\",\"conditions\":[{\"op\":\"or\",\"conditions\":[{\"left\":{\"ref\":\"doc.full_name\"},\"op\":\"is_set\",\"right\":{\"value\":\"\"}}]},{\"op\":\"and\",\"conditions\":[{\"left\":{\"ref\":\"doc.custom_normalized_full_name\"},\"op\":\"is_not_set\",\"right\":{\"value\":\"\"}},{\"left\":{\"ref\":\"doc.full_name\"},\"op\":\"is_set\",\"right\":{\"value\":\"\"}}]}]}",
-      "compiled_expression": "(((doc.get('full_name') is not None and doc.get('full_name') != '')) or ((doc.get('custom_normalized_full_name') is None or doc.get('custom_normalized_full_name') == '') and (doc.get('full_name') is not None and doc.get('full_name') != '')))",
-      "on_error": "Stop",
-      "timeout": 30,
-      "retry_count": 0,
-      "is_async": 0,
-      "skip_conditions": 1,
-      "skip_permissions": 0,
-      "next_step_if_true": "ACT-OTNO",
-      "next_step_if_false": "ACT-60C0",
-      "mutation_mode": "",
-      "parent": "Block Duplicate Contact",
-      "parentfield": "actions",
-      "parenttype": "Rule"
-    },
-    {
-      "doctype": "Rule Action",
-      "name": "jsp8kqpla4",
-      "idx": 3,
-      "action_id": "ACT-OTNO",
-      "action_label": "Query Doc",
-      "action_type": "Query Records",
-      "is_enabled": 1,
-      "operation": "Query Doc",
-      "reference_doctype": "Account",
-      "mutation_mode": "Set Context Variable",
-      "return_type": "Single Record",
-      "return_variable": "query_doc",
-      "config": {
-        "doctype_name": { "mode": "static", "value": "Account" },
-        "docname": {
-          "mode": "resolver",
-          "value": "{frappe.db.get_value(\"Contact\", doc.links, \"links\")}",
-          "config": {
-            "link_source_type": "doc_field",
-            "link_field": "links",
-            "fetch_field": "links",
-            "linked_doctype": "Contact",
-            "kind": "fetch"
-          }
-        },
-        "filters": []
-      },
-      "resolved_output_schema": [
-        { "fieldname": "properties", "fieldtype": "Section Break" },
-        { "fieldname": "column_break0", "fieldtype": "Column Break" },
-        { "label": "Disable", "fieldname": "disabled", "fieldtype": "Check" },
-        { "label": "Account Name", "fieldname": "account_name", "fieldtype": "Data" },
-        { "label": "Account Number", "fieldname": "account_number", "fieldtype": "Data" },
-        { "label": "Is Group", "fieldname": "is_group", "fieldtype": "Check" },
-        { "label": "Company", "fieldname": "company", "fieldtype": "Link", "options": "Company" },
-        {
-          "label": "Root Type",
-          "fieldname": "root_type",
-          "fieldtype": "Select",
-          "options": "\nAsset\nLiability\nIncome\nExpense\nEquity"
-        },
-        {
-          "label": "Report Type",
-          "fieldname": "report_type",
-          "fieldtype": "Select",
-          "options": "\nBalance Sheet\nProfit and Loss"
-        },
-        { "label": "Currency", "fieldname": "account_currency", "fieldtype": "Link", "options": "Currency" },
-        { "fieldname": "column_break1", "fieldtype": "Column Break" },
-        { "label": "Parent Account", "fieldname": "parent_account", "fieldtype": "Link", "options": "Account" },
-        {
-          "label": "Account Type",
-          "fieldname": "account_type",
-          "fieldtype": "Select",
-          "options": "\nAccumulated Depreciation\nAsset Received But Not Billed\nBank\nCash\nChargeable\nCapital Work in Progress\nCost of Goods Sold\nCurrent Asset\nCurrent Liability\nDepreciation\nDirect Expense\nDirect Income\nEquity\nExpense Account\nExpenses Included In Asset Valuation\nExpenses Included In Valuation\nFixed Asset\nIncome Account\nIndirect Expense\nIndirect Income\nLiability\nPayable\nReceivable\nRound Off\nRound Off for Opening\nStock\nStock Adjustment\nStock Received But Not Billed\nService Received But Not Billed\nTax\nTemporary"
-        },
-        { "label": "Tax Rate", "fieldname": "tax_rate", "fieldtype": "Float" },
-        { "label": "Frozen", "fieldname": "freeze_account", "fieldtype": "Select", "options": "No\nYes" },
-        { "label": "Balance must be", "fieldname": "balance_must_be", "fieldtype": "Select", "options": "\nDebit\nCredit" },
-        { "label": "Lft", "fieldname": "lft", "fieldtype": "Int" },
-        { "label": "Rgt", "fieldname": "rgt", "fieldtype": "Int" },
-        { "label": "Old Parent", "fieldname": "old_parent", "fieldtype": "Data" },
-        { "label": "Include in gross", "fieldname": "include_in_gross", "fieldtype": "Check" },
-        { "label": "ID (name)", "fieldname": "name", "fieldtype": "Data" },
-        { "label": "Created By (owner)", "fieldname": "owner", "fieldtype": "Link", "options": "User" },
-        { "label": "Created On (creation)", "fieldname": "creation", "fieldtype": "Datetime" },
-        { "label": "Modified On (modified)", "fieldname": "modified", "fieldtype": "Datetime" },
-        { "label": "Modified By (modified_by)", "fieldname": "modified_by", "fieldtype": "Link", "options": "User" },
-        { "label": "Document Status (docstatus)", "fieldname": "docstatus", "fieldtype": "Int" }
-      ],
-      "on_error": "Stop",
-      "timeout": 30,
-      "retry_count": 0,
-      "is_async": 0,
-      "skip_conditions": 1,
-      "skip_permissions": 0,
-      "next_step_if_true": "ACT-8EXU",
-      "input_source": "",
-      "parent": "Block Duplicate Contact",
-      "parentfield": "actions",
-      "parenttype": "Rule"
-    },
-    {
-      "doctype": "Rule Action",
-      "name": "2poks4v275",
-      "idx": 4,
-      "action_id": "ACT-60C0",
-      "action_label": "Loop",
-      "action_type": "Loop",
-      "is_enabled": 1,
-      "config": { "iterator": "doc.links" },
-      "on_error": "Stop",
-      "timeout": 30,
-      "retry_count": 0,
-      "return_variable": "d",
-      "is_async": 0,
-      "skip_conditions": 1,
-      "skip_permissions": 0,
-      "next_step_if_true": "ACT-N3OI",
-      "next_step_if_false": "ACT-DIMM",
-      "mutation_mode": "",
-      "parent": "Block Duplicate Contact",
-      "parentfield": "actions",
-      "parenttype": "Rule"
-    },
-    {
-      "doctype": "Rule Action",
-      "name": "ep8g8rdjdv",
-      "idx": 5,
-      "action_id": "ACT-8EXU",
-      "action_label": "Set missing value",
-      "action_type": "Assignment",
-      "is_enabled": 1,
-      "reference_doctype": "Contact",
-      "mutation_mode": "",
-      "config": [
-        {
-          "name": "zklAeOZQO",
-          "target": "doc.first_name",
-          "operator": "clear",
-          "when_condition": null,
-          "when_expression": "",
-          "pythonExpression": "",
-          "value": { "mode": "static", "value": "" },
-          "value_source": "none"
-        },
-        {
-          "name": "N16k6NTdg",
-          "target": "doc.last_name",
-          "operator": "set",
-          "when_condition": null,
-          "when_expression": "",
-          "pythonExpression": "",
-          "value": {
-            "mode": "resolver",
-            "value": "{flexirule.ruleflow.utils.normalization.execute_normalization_pipeline(doc.full_name, pipeline=[\"trim\",\"unicode_normalize\",\"translate_chars\",\"remove_diacritics\",\"remove_extra_spaces\",\"remove_punctuation\",\"remove_numbers\"] grandfathered_path_fix_needed_here_if_string)[\"normalized_value\"]}",
-            "config": {
-              "norm_field": "full_name",
-              "norm_profile": "Custom",
-              "norm_pipeline": ["trim", "unicode_normalize", "translate_chars", "remove_diacritics", "remove_extra_spaces", "remove_punctuation", "remove_numbers"],
-              "kind": "normalization"
-            }
-          },
-          "value_source": "jinja",
-          "value_template": "{{ normalize(value, []) }}"
-        }
-      ],
-      "on_error": "Stop",
-      "timeout": 30,
-      "retry_count": 0,
-      "is_async": 0,
-      "skip_conditions": 1,
-      "skip_permissions": 0,
-      "next_step_if_true": "ACT-JYWY_2",
-      "input_source": "",
-      "parent": "Block Duplicate Contact",
-      "parentfield": "actions",
-      "parenttype": "Rule"
-    },
-    {
-      "doctype": "Rule Action",
-      "name": "2po9uf12kq",
-      "idx": 6,
-      "action_id": "ACT-N3OI",
-      "action_label": "Assignment",
-      "action_type": "Assignment",
-      "is_enabled": 1,
-      "reference_doctype": "Contact",
-      "mutation_mode": "",
-      "config": [
-        {
-          "name": "U1jWcaISH",
-          "target": "doc.gender",
-          "operator": "set",
-          "when_condition": null,
-          "when_expression": "",
-          "pythonExpression": "",
-          "value": { "mode": "static", "value": "Male" },
-          "value_source": "literal",
-          "value_literal": "Male"
-        }
-      ],
-      "on_error": "Stop",
-      "timeout": 30,
-      "retry_count": 0,
-      "is_async": 0,
-      "skip_conditions": 1,
-      "skip_permissions": 0,
-      "next_step_if_true": "ACT-60C0",
-      "input_source": "",
-      "parent": "Block Duplicate Contact",
-      "parentfield": "actions",
-      "parenttype": "Rule"
-    },
-    {
-      "doctype": "Rule Action",
-      "name": "3724o4t33u",
-      "idx": 7,
-      "action_id": "ACT-DIMM",
-      "action_label": "New Stop",
-      "action_type": "Stop",
-      "is_enabled": 1,
-      "operation": "Success",
-      "config": {},
-      "on_error": "Stop",
-      "timeout": 30,
-      "retry_count": 0,
-      "is_async": 0,
-      "skip_conditions": 1,
-      "skip_permissions": 0,
-      "mutation_mode": "",
-      "parent": "Block Duplicate Contact",
-      "parentfield": "actions",
-      "parenttype": "Rule"
-    },
-    {
-      "doctype": "Rule Action",
-      "name": "4tin2p1u73",
-      "idx": 8,
-      "action_id": "ACT-JYWY_2",
-      "action_label": "Assignments",
-      "action_type": "Assignment",
-      "is_enabled": 1,
-      "reference_doctype": "Contact",
-      "return_variable": "assignment",
-      "config": [
-        {
-          "name": "5a091bf21",
-          "target": "doc.middle_name",
-          "operator": "set",
-          "when_condition": null,
-          "when_expression": "",
-          "pythonExpression": "",
-          "value": {
-            "mode": "resolver",
-            "value": "{flexirule.ruleflow.utils.normalization.execute_normalization_pipeline(doc.middle_name, pipeline=[\"trim\"])[\"normalized_value\"]}",
-            "config": {
-              "norm_field": "middle_name",
-              "norm_profile": "Custom",
-              "norm_pipeline": ["trim"],
-              "kind": "normalization"
-            }
-          },
-          "value_source": "jinja",
-          "value_template": "{{ normalize(value, []) }}"
-        }
-      ],
-      "on_error": "Stop",
-      "timeout": 30,
-      "retry_count": 0,
-      "is_async": 0,
-      "skip_conditions": 1,
-      "skip_permissions": 0,
-      "next_step_if_true": "ACT-2KFJ",
-      "input_source": "",
-      "parent": "Block Duplicate Contact",
-      "parentfield": "actions",
-      "parenttype": "Rule"
-    },
-    {
-      "doctype": "Rule Action",
-      "name": "0rqlvhdk0l",
-      "idx": 9,
-      "action_id": "ACT-2KFJ",
-      "action_label": "Get All Contacts",
-      "action_type": "Query Records",
-      "is_enabled": 1,
-      "operation": "Query List",
-      "reference_doctype": "Contact",
-      "mutation_mode": "Set Context Variable",
-      "return_type": "List of Records",
-      "return_variable": "query_list_no_fn",
-      "config": {
-        "filters": [
-          ["Contact", "full_name", "is", { "mode": "static", "value": "not set" }],
-          ["Contact", "user", "=", { "mode": "variable", "value": "doc.user" }],
-          ["Contact", "address", "=", { "mode": "variable", "value": "doc.address" }]
-        ],
-        "fields": ["first_name", "middle_name", "last_name", "full_name"],
-        "limit": 20
-      },
-      "resolved_output_schema": [
-        { "label": "First Name", "fieldname": "first_name", "fieldtype": "Data" },
-        { "label": "Middle Name", "fieldname": "middle_name", "fieldtype": "Data" },
-        { "label": "Last Name", "fieldname": "last_name", "fieldtype": "Data" },
-        { "label": "Full Name", "fieldname": "full_name", "fieldtype": "Data" }
-      ],
-      "on_error": "Stop",
-      "timeout": 30,
-      "retry_count": 0,
-      "is_async": 0,
-      "skip_conditions": 1,
-      "skip_permissions": 0,
-      "next_step_if_true": "node_end",
-      "input_source": "",
-      "parent": "Block Duplicate Contact",
-      "parentfield": "actions",
-      "parenttype": "Rule"
-    },
-    {
-      "doctype": "Rule Action",
-      "name": "0rqfa2ltpq",
-      "idx": 10,
-      "action_id": "node_end",
-      "action_label": "End",
-      "action_type": "Stop",
-      "is_enabled": 1,
-      "operation": "Success",
-      "config": {},
-      "on_error": "Stop",
-      "timeout": 30,
-      "retry_count": 0,
-      "is_async": 0,
-      "skip_conditions": 0,
-      "skip_permissions": 0,
-      "mutation_mode": "",
-      "parent": "Block Duplicate Contact",
-      "parentfield": "actions",
-      "parenttype": "Rule"
-    }
-  ],
-  "permissions": [
-    {
-      "doctype": "Rule Permission",
-      "name": "nhkbdtv2pp",
-      "idx": 1,
-      "role": "System Manager",
-      "can_execute": 1,
-      "owner": "Administrator",
-      "creation": "2026-05-09 19:54:23.469693",
-      "modified": "2026-06-20 21:59:17.265518",
-      "modified_by": "Administrator",
-      "parent": "Block Duplicate Contact",
-      "parentfield": "permissions",
-      "parenttype": "Rule"
-    }
-  ],
-  "skip_for_roles": []
+	"doctype": "Rule",
+	"name": "Block Duplicate Contact",
+	"rule_name": "Block Duplicate Contact",
+	"status": "Draft",
+	"is_active": 0,
+	"priority": "9",
+	"version": 1,
+	"trigger_type": "DocType Event",
+	"document_type": "Contact",
+	"trigger_event": "Before Save",
+	"trigger_condition": "",
+	"execution_mode": "Synchronous",
+	"max_execution_time": 30,
+	"debug_mode": 1,
+	"exposed_as_subrule": 0,
+	"docstatus": 0,
+	"idx": 0,
+	"owner": "Administrator",
+	"creation": "2026-05-09 19:54:23.469693",
+	"modified": "2026-06-20 21:59:17.265518",
+	"modified_by": "Administrator",
+	"visual_data": [
+		{ "id": "root", "position": { "x": 45, "y": 150 }, "direction": "LR" },
+		{ "id": "ACT-W9J3", "position": { "x": 495, "y": 120 }, "direction": "LR" },
+		{ "id": "ACT-OTNO", "position": { "x": 615, "y": -165 }, "direction": "LR" },
+		{ "id": "ACT-60C0", "position": { "x": 495, "y": 390 }, "direction": "LR" },
+		{ "id": "ACT-8EXU", "position": { "x": 975, "y": -75 }, "direction": "LR" },
+		{ "id": "ACT-N3OI", "position": { "x": 1095, "y": 360 }, "direction": "LR" },
+		{ "id": "ACT-DIMM", "position": { "x": 975, "y": 600 }, "direction": "LR" },
+		{ "id": "ACT-JYWY_2", "position": { "x": 1260, "y": 45 }, "direction": "LR" },
+		{ "id": "ACT-2KFJ", "position": { "x": 1530, "y": -120 }, "direction": "LR" },
+		{ "id": "node_end", "position": { "x": 1815, "y": 45 }, "direction": "LR" },
+		{
+			"id": "e-root-ACT-W9J3-true",
+			"source": "root",
+			"target": "ACT-W9J3",
+			"sourceHandle": "default",
+			"targetHandle": null
+		},
+		{
+			"id": "e-ACT-W9J3-ACT-OTNO-true",
+			"source": "ACT-W9J3",
+			"target": "ACT-OTNO",
+			"sourceHandle": "true",
+			"targetHandle": null
+		},
+		{
+			"id": "e-ACT-W9J3-ACT-60C0-false",
+			"source": "ACT-W9J3",
+			"target": "ACT-60C0",
+			"sourceHandle": "false",
+			"targetHandle": null
+		},
+		{
+			"id": "e-ACT-OTNO-ACT-8EXU-true",
+			"source": "ACT-OTNO",
+			"target": "ACT-8EXU",
+			"sourceHandle": "default",
+			"targetHandle": null
+		},
+		{
+			"id": "e-ACT-60C0-ACT-N3OI-true",
+			"source": "ACT-60C0",
+			"target": "ACT-N3OI",
+			"sourceHandle": "default",
+			"targetHandle": null
+		},
+		{
+			"id": "e-ACT-60C0-ACT-DIMM-false",
+			"source": "ACT-60C0",
+			"target": "ACT-DIMM",
+			"sourceHandle": "false",
+			"targetHandle": null
+		},
+		{
+			"id": "e-ACT-8EXU-ACT-JYWY_2-true",
+			"source": "ACT-8EXU",
+			"target": "ACT-JYWY_2",
+			"sourceHandle": "default",
+			"targetHandle": null
+		},
+		{
+			"id": "e-ACT-N3OI-ACT-60C0-true",
+			"source": "ACT-N3OI",
+			"target": "ACT-60C0",
+			"sourceHandle": "default",
+			"targetHandle": "return"
+		},
+		{
+			"id": "e-ACT-JYWY_2-ACT-2KFJ-true",
+			"source": "ACT-JYWY_2",
+			"target": "ACT-2KFJ",
+			"sourceHandle": "default",
+			"targetHandle": null
+		},
+		{
+			"id": "e-ACT-2KFJ-node_end-true",
+			"source": "ACT-2KFJ",
+			"target": "node_end",
+			"sourceHandle": "default",
+			"targetHandle": null
+		},
+		{ "type": "ui_preferences", "layout": "LR" }
+	],
+	"actions": [
+		{
+			"doctype": "Rule Action",
+			"name": "0rqc238euh",
+			"idx": 1,
+			"action_id": "root",
+			"action_label": "Start",
+			"action_type": "Entry Action",
+			"is_enabled": 1,
+			"config": {},
+			"on_error": "Stop",
+			"timeout": 30,
+			"retry_count": 0,
+			"is_async": 0,
+			"skip_conditions": 0,
+			"skip_permissions": 0,
+			"next_step_if_true": "ACT-W9J3",
+			"input_source": "",
+			"mutation_mode": "",
+			"return_type": "",
+			"parent": "Block Duplicate Contact",
+			"parentfield": "actions",
+			"parenttype": "Rule"
+		},
+		{
+			"doctype": "Rule Action",
+			"name": "372m5d6qj6",
+			"idx": 2,
+			"action_id": "ACT-W9J3",
+			"action_label": "Check Full Name Changes & Set",
+			"action_type": "Condition",
+			"is_enabled": 1,
+			"config": {
+				"op": "or",
+				"conditions": [
+					{
+						"op": "or",
+						"conditions": [
+							{
+								"left": { "ref": "doc.full_name" },
+								"op": "is_set",
+								"right": { "value": "" }
+							}
+						]
+					},
+					{
+						"op": "and",
+						"conditions": [
+							{
+								"left": { "ref": "doc.custom_normalized_full_name" },
+								"op": "is_not_set",
+								"right": { "value": "" }
+							},
+							{
+								"left": { "ref": "doc.full_name" },
+								"op": "is_set",
+								"right": { "value": "" }
+							}
+						]
+					}
+				]
+			},
+			"condition_json": "{\"op\":\"or\",\"conditions\":[{\"op\":\"or\",\"conditions\":[{\"left\":{\"ref\":\"doc.full_name\"},\"op\":\"is_set\",\"right\":{\"value\":\"\"}}]},{\"op\":\"and\",\"conditions\":[{\"left\":{\"ref\":\"doc.custom_normalized_full_name\"},\"op\":\"is_not_set\",\"right\":{\"value\":\"\"}},{\"left\":{\"ref\":\"doc.full_name\"},\"op\":\"is_set\",\"right\":{\"value\":\"\"}}]}]}",
+			"compiled_expression": "(((doc.get('full_name') is not None and doc.get('full_name') != '')) or ((doc.get('custom_normalized_full_name') is None or doc.get('custom_normalized_full_name') == '') and (doc.get('full_name') is not None and doc.get('full_name') != '')))",
+			"on_error": "Stop",
+			"timeout": 30,
+			"retry_count": 0,
+			"is_async": 0,
+			"skip_conditions": 1,
+			"skip_permissions": 0,
+			"next_step_if_true": "ACT-OTNO",
+			"next_step_if_false": "ACT-60C0",
+			"mutation_mode": "",
+			"parent": "Block Duplicate Contact",
+			"parentfield": "actions",
+			"parenttype": "Rule"
+		},
+		{
+			"doctype": "Rule Action",
+			"name": "jsp8kqpla4",
+			"idx": 3,
+			"action_id": "ACT-OTNO",
+			"action_label": "Query Doc",
+			"action_type": "Query Records",
+			"is_enabled": 1,
+			"operation": "Query Doc",
+			"reference_doctype": "Account",
+			"mutation_mode": "Set Context Variable",
+			"return_type": "Single Record",
+			"return_variable": "query_doc",
+			"config": {
+				"doctype_name": { "mode": "static", "value": "Account" },
+				"docname": {
+					"mode": "resolver",
+					"value": "{frappe.db.get_value(\"Contact\", doc.links, \"links\")}",
+					"config": {
+						"link_source_type": "doc_field",
+						"link_field": "links",
+						"fetch_field": "links",
+						"linked_doctype": "Contact",
+						"kind": "fetch"
+					}
+				},
+				"filters": []
+			},
+			"resolved_output_schema": [
+				{ "fieldname": "properties", "fieldtype": "Section Break" },
+				{ "fieldname": "column_break0", "fieldtype": "Column Break" },
+				{ "label": "Disable", "fieldname": "disabled", "fieldtype": "Check" },
+				{ "label": "Account Name", "fieldname": "account_name", "fieldtype": "Data" },
+				{ "label": "Account Number", "fieldname": "account_number", "fieldtype": "Data" },
+				{ "label": "Is Group", "fieldname": "is_group", "fieldtype": "Check" },
+				{
+					"label": "Company",
+					"fieldname": "company",
+					"fieldtype": "Link",
+					"options": "Company"
+				},
+				{
+					"label": "Root Type",
+					"fieldname": "root_type",
+					"fieldtype": "Select",
+					"options": "\nAsset\nLiability\nIncome\nExpense\nEquity"
+				},
+				{
+					"label": "Report Type",
+					"fieldname": "report_type",
+					"fieldtype": "Select",
+					"options": "\nBalance Sheet\nProfit and Loss"
+				},
+				{
+					"label": "Currency",
+					"fieldname": "account_currency",
+					"fieldtype": "Link",
+					"options": "Currency"
+				},
+				{ "fieldname": "column_break1", "fieldtype": "Column Break" },
+				{
+					"label": "Parent Account",
+					"fieldname": "parent_account",
+					"fieldtype": "Link",
+					"options": "Account"
+				},
+				{
+					"label": "Account Type",
+					"fieldname": "account_type",
+					"fieldtype": "Select",
+					"options": "\nAccumulated Depreciation\nAsset Received But Not Billed\nBank\nCash\nChargeable\nCapital Work in Progress\nCost of Goods Sold\nCurrent Asset\nCurrent Liability\nDepreciation\nDirect Expense\nDirect Income\nEquity\nExpense Account\nExpenses Included In Asset Valuation\nExpenses Included In Valuation\nFixed Asset\nIncome Account\nIndirect Expense\nIndirect Income\nLiability\nPayable\nReceivable\nRound Off\nRound Off for Opening\nStock\nStock Adjustment\nStock Received But Not Billed\nService Received But Not Billed\nTax\nTemporary"
+				},
+				{ "label": "Tax Rate", "fieldname": "tax_rate", "fieldtype": "Float" },
+				{
+					"label": "Frozen",
+					"fieldname": "freeze_account",
+					"fieldtype": "Select",
+					"options": "No\nYes"
+				},
+				{
+					"label": "Balance must be",
+					"fieldname": "balance_must_be",
+					"fieldtype": "Select",
+					"options": "\nDebit\nCredit"
+				},
+				{ "label": "Lft", "fieldname": "lft", "fieldtype": "Int" },
+				{ "label": "Rgt", "fieldname": "rgt", "fieldtype": "Int" },
+				{ "label": "Old Parent", "fieldname": "old_parent", "fieldtype": "Data" },
+				{
+					"label": "Include in gross",
+					"fieldname": "include_in_gross",
+					"fieldtype": "Check"
+				},
+				{ "label": "ID (name)", "fieldname": "name", "fieldtype": "Data" },
+				{
+					"label": "Created By (owner)",
+					"fieldname": "owner",
+					"fieldtype": "Link",
+					"options": "User"
+				},
+				{
+					"label": "Created On (creation)",
+					"fieldname": "creation",
+					"fieldtype": "Datetime"
+				},
+				{
+					"label": "Modified On (modified)",
+					"fieldname": "modified",
+					"fieldtype": "Datetime"
+				},
+				{
+					"label": "Modified By (modified_by)",
+					"fieldname": "modified_by",
+					"fieldtype": "Link",
+					"options": "User"
+				},
+				{
+					"label": "Document Status (docstatus)",
+					"fieldname": "docstatus",
+					"fieldtype": "Int"
+				}
+			],
+			"on_error": "Stop",
+			"timeout": 30,
+			"retry_count": 0,
+			"is_async": 0,
+			"skip_conditions": 1,
+			"skip_permissions": 0,
+			"next_step_if_true": "ACT-8EXU",
+			"input_source": "",
+			"parent": "Block Duplicate Contact",
+			"parentfield": "actions",
+			"parenttype": "Rule"
+		},
+		{
+			"doctype": "Rule Action",
+			"name": "2poks4v275",
+			"idx": 4,
+			"action_id": "ACT-60C0",
+			"action_label": "Loop",
+			"action_type": "Loop",
+			"is_enabled": 1,
+			"config": { "iterator": "doc.links" },
+			"on_error": "Stop",
+			"timeout": 30,
+			"retry_count": 0,
+			"return_variable": "d",
+			"is_async": 0,
+			"skip_conditions": 1,
+			"skip_permissions": 0,
+			"next_step_if_true": "ACT-N3OI",
+			"next_step_if_false": "ACT-DIMM",
+			"mutation_mode": "",
+			"parent": "Block Duplicate Contact",
+			"parentfield": "actions",
+			"parenttype": "Rule"
+		},
+		{
+			"doctype": "Rule Action",
+			"name": "ep8g8rdjdv",
+			"idx": 5,
+			"action_id": "ACT-8EXU",
+			"action_label": "Set missing value",
+			"action_type": "Assignment",
+			"is_enabled": 1,
+			"reference_doctype": "Contact",
+			"mutation_mode": "",
+			"config": [
+				{
+					"name": "zklAeOZQO",
+					"target": "doc.first_name",
+					"operator": "clear",
+					"when_condition": null,
+					"when_expression": "",
+					"pythonExpression": "",
+					"value": { "mode": "static", "value": "" },
+					"value_source": "none"
+				},
+				{
+					"name": "N16k6NTdg",
+					"target": "doc.last_name",
+					"operator": "set",
+					"when_condition": null,
+					"when_expression": "",
+					"pythonExpression": "",
+					"value": {
+						"mode": "resolver",
+						"value": "{flexirule.ruleflow.utils.normalization.execute_normalization_pipeline(doc.full_name, pipeline=[\"trim\",\"unicode_normalize\",\"translate_chars\",\"remove_diacritics\",\"remove_extra_spaces\",\"remove_punctuation\",\"remove_numbers\"] grandfathered_path_fix_needed_here_if_string)[\"normalized_value\"]}",
+						"config": {
+							"norm_field": "full_name",
+							"norm_profile": "Custom",
+							"norm_pipeline": [
+								"trim",
+								"unicode_normalize",
+								"translate_chars",
+								"remove_diacritics",
+								"remove_extra_spaces",
+								"remove_punctuation",
+								"remove_numbers"
+							],
+							"kind": "normalization"
+						}
+					},
+					"value_source": "jinja",
+					"value_template": "{{ normalize(value, []) }}"
+				}
+			],
+			"on_error": "Stop",
+			"timeout": 30,
+			"retry_count": 0,
+			"is_async": 0,
+			"skip_conditions": 1,
+			"skip_permissions": 0,
+			"next_step_if_true": "ACT-JYWY_2",
+			"input_source": "",
+			"parent": "Block Duplicate Contact",
+			"parentfield": "actions",
+			"parenttype": "Rule"
+		},
+		{
+			"doctype": "Rule Action",
+			"name": "2po9uf12kq",
+			"idx": 6,
+			"action_id": "ACT-N3OI",
+			"action_label": "Assignment",
+			"action_type": "Assignment",
+			"is_enabled": 1,
+			"reference_doctype": "Contact",
+			"mutation_mode": "",
+			"config": [
+				{
+					"name": "U1jWcaISH",
+					"target": "doc.gender",
+					"operator": "set",
+					"when_condition": null,
+					"when_expression": "",
+					"pythonExpression": "",
+					"value": { "mode": "static", "value": "Male" },
+					"value_source": "literal",
+					"value_literal": "Male"
+				}
+			],
+			"on_error": "Stop",
+			"timeout": 30,
+			"retry_count": 0,
+			"is_async": 0,
+			"skip_conditions": 1,
+			"skip_permissions": 0,
+			"next_step_if_true": "ACT-60C0",
+			"input_source": "",
+			"parent": "Block Duplicate Contact",
+			"parentfield": "actions",
+			"parenttype": "Rule"
+		},
+		{
+			"doctype": "Rule Action",
+			"name": "3724o4t33u",
+			"idx": 7,
+			"action_id": "ACT-DIMM",
+			"action_label": "New Stop",
+			"action_type": "Stop",
+			"is_enabled": 1,
+			"operation": "Success",
+			"config": {},
+			"on_error": "Stop",
+			"timeout": 30,
+			"retry_count": 0,
+			"is_async": 0,
+			"skip_conditions": 1,
+			"skip_permissions": 0,
+			"mutation_mode": "",
+			"parent": "Block Duplicate Contact",
+			"parentfield": "actions",
+			"parenttype": "Rule"
+		},
+		{
+			"doctype": "Rule Action",
+			"name": "4tin2p1u73",
+			"idx": 8,
+			"action_id": "ACT-JYWY_2",
+			"action_label": "Assignments",
+			"action_type": "Assignment",
+			"is_enabled": 1,
+			"reference_doctype": "Contact",
+			"return_variable": "assignment",
+			"config": [
+				{
+					"name": "5a091bf21",
+					"target": "doc.middle_name",
+					"operator": "set",
+					"when_condition": null,
+					"when_expression": "",
+					"pythonExpression": "",
+					"value": {
+						"mode": "resolver",
+						"value": "{flexirule.ruleflow.utils.normalization.execute_normalization_pipeline(doc.middle_name, pipeline=[\"trim\"])[\"normalized_value\"]}",
+						"config": {
+							"norm_field": "middle_name",
+							"norm_profile": "Custom",
+							"norm_pipeline": ["trim"],
+							"kind": "normalization"
+						}
+					},
+					"value_source": "jinja",
+					"value_template": "{{ normalize(value, []) }}"
+				}
+			],
+			"on_error": "Stop",
+			"timeout": 30,
+			"retry_count": 0,
+			"is_async": 0,
+			"skip_conditions": 1,
+			"skip_permissions": 0,
+			"next_step_if_true": "ACT-2KFJ",
+			"input_source": "",
+			"parent": "Block Duplicate Contact",
+			"parentfield": "actions",
+			"parenttype": "Rule"
+		},
+		{
+			"doctype": "Rule Action",
+			"name": "0rqlvhdk0l",
+			"idx": 9,
+			"action_id": "ACT-2KFJ",
+			"action_label": "Get All Contacts",
+			"action_type": "Query Records",
+			"is_enabled": 1,
+			"operation": "Query List",
+			"reference_doctype": "Contact",
+			"mutation_mode": "Set Context Variable",
+			"return_type": "List of Records",
+			"return_variable": "query_list_no_fn",
+			"config": {
+				"filters": [
+					["Contact", "full_name", "is", { "mode": "static", "value": "not set" }],
+					["Contact", "user", "=", { "mode": "variable", "value": "doc.user" }],
+					["Contact", "address", "=", { "mode": "variable", "value": "doc.address" }]
+				],
+				"fields": ["first_name", "middle_name", "last_name", "full_name"],
+				"limit": 20
+			},
+			"resolved_output_schema": [
+				{ "label": "First Name", "fieldname": "first_name", "fieldtype": "Data" },
+				{ "label": "Middle Name", "fieldname": "middle_name", "fieldtype": "Data" },
+				{ "label": "Last Name", "fieldname": "last_name", "fieldtype": "Data" },
+				{ "label": "Full Name", "fieldname": "full_name", "fieldtype": "Data" }
+			],
+			"on_error": "Stop",
+			"timeout": 30,
+			"retry_count": 0,
+			"is_async": 0,
+			"skip_conditions": 1,
+			"skip_permissions": 0,
+			"next_step_if_true": "node_end",
+			"input_source": "",
+			"parent": "Block Duplicate Contact",
+			"parentfield": "actions",
+			"parenttype": "Rule"
+		},
+		{
+			"doctype": "Rule Action",
+			"name": "0rqfa2ltpq",
+			"idx": 10,
+			"action_id": "node_end",
+			"action_label": "End",
+			"action_type": "Stop",
+			"is_enabled": 1,
+			"operation": "Success",
+			"config": {},
+			"on_error": "Stop",
+			"timeout": 30,
+			"retry_count": 0,
+			"is_async": 0,
+			"skip_conditions": 0,
+			"skip_permissions": 0,
+			"mutation_mode": "",
+			"parent": "Block Duplicate Contact",
+			"parentfield": "actions",
+			"parenttype": "Rule"
+		}
+	],
+	"permissions": [
+		{
+			"doctype": "Rule Permission",
+			"name": "nhkbdtv2pp",
+			"idx": 1,
+			"role": "System Manager",
+			"can_execute": 1,
+			"owner": "Administrator",
+			"creation": "2026-05-09 19:54:23.469693",
+			"modified": "2026-06-20 21:59:17.265518",
+			"modified_by": "Administrator",
+			"parent": "Block Duplicate Contact",
+			"parentfield": "permissions",
+			"parenttype": "Rule"
+		}
+	],
+	"skip_for_roles": []
 }

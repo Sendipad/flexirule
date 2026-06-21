@@ -202,7 +202,7 @@ defineExpose({ validate });
 		<label
 			v-if="df.label"
 			class="control-label"
-			v-field-reveal="df.fieldname || fieldname || null"
+			v-fxr-fieldname="df.fieldname || fieldname || null"
 		>
 			{{ __(df.label) }}
 			<span v-if="df.reqd" class="text-danger">*</span>
@@ -215,7 +215,7 @@ defineExpose({ validate });
 						<th
 							v-for="col in visibleTableFields"
 							:key="col.fieldname"
-							v-field-reveal="col.fieldname"
+							v-fxr-fieldname="col.fieldname"
 							:style="{
 								width: col.width || (col.fieldtype === 'Percent' ? '100px' : ''),
 								minWidth: col.width ? '' : '120px',
@@ -237,7 +237,6 @@ defineExpose({ validate });
 							<select
 								v-if="col.fieldtype === 'Select'"
 								class="input-custom"
-								:data-fxr-fieldname="col.fieldname"
 								:value="row[col.fieldname]"
 								@change="updateCell(idx, col.fieldname, $event.target.value)"
 								:disabled="read_only"
@@ -256,7 +255,6 @@ defineExpose({ validate });
 							<div
 								v-else-if="col.fieldtype === 'DocField'"
 								class="table-cell-control"
-								:data-fxr-fieldname="col.fieldname"
 							>
 								<ComboBoxControl
 									:df="{ ...col, label: '', fieldtype: 'FieldPicker' }"
@@ -273,7 +271,6 @@ defineExpose({ validate });
 							<div v-else-if="col.fieldtype === 'Check'" class="text-center">
 								<input
 									type="checkbox"
-									:data-fxr-fieldname="col.fieldname"
 									:checked="row[col.fieldname]"
 									@change="
 										updateCell(
@@ -291,7 +288,6 @@ defineExpose({ validate });
 								v-else-if="['Int', 'Float', 'Percent'].includes(col.fieldtype)"
 								type="number"
 								class="input-custom"
-								:data-fxr-fieldname="col.fieldname"
 								:value="row[col.fieldname]"
 								@input="
 									updateCell(idx, col.fieldname, parseFloat($event.target.value))
@@ -305,7 +301,6 @@ defineExpose({ validate });
 								v-else
 								type="text"
 								class="input-custom"
-								:data-fxr-fieldname="col.fieldname"
 								:value="row[col.fieldname]"
 								@input="updateCell(idx, col.fieldname, $event.target.value)"
 								:disabled="read_only"

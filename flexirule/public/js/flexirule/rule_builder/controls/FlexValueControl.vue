@@ -7,8 +7,7 @@
 			'is-disabled': disabled || isReadOnly,
 			'has-error': showValidation && !isValid,
 		}"
-		:data-fxr-fieldname="context?.df?.fieldname || fieldname || null"
-		v-field-reveal="context?.df?.fieldname || fieldname || null"
+		v-fxr-fieldname="context?.df?.fieldname || fieldname || null"
 		@keydown.capture="onStaticKeydown"
 	>
 		<!-- ── Main Control Area ── -->
