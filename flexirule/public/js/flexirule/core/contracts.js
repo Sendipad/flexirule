@@ -48,6 +48,7 @@ const DEFAULT_ACTION_TYPE_CONTRACT = {
 	},
 	Condition: {
 		required_fields: ["config"],
+		required_config_keys: ["conditions"],
 		has_next_true: true,
 		has_next_false: true,
 		terminal: false,
@@ -72,6 +73,7 @@ const DEFAULT_ACTION_TYPE_CONTRACT = {
 	},
 	Loop: {
 		required_fields: ["config", "return_variable"],
+		required_config_keys: ["iterator"],
 		has_next_true: true,
 		has_next_false: true,
 		terminal: false,
@@ -1071,26 +1073,26 @@ export function validateAgainstContract(nodeData) {
 		errors.push(__("Return Schema requires a Return Variable Name"));
 	}
 
-	// 5. Action-specific deep validation (Policy-based)
-	if (nodeData.operation && policy.required_config_keys) {
-		const config = parseJsonSafe(nodeData.config, {});
-		for (const key of policy.required_config_keys) {
-			if (config[key] === undefined || config[key] === null || config[key] === "") {
-				errors.push(
-					__("Configuration key '{0}' is required for {1}", [key, nodeData.operation])
-				);
-			}
-		}
-	}
+	// 5. Action-specific deep validation (Policy & Contract based)
+	const requiredConfigKeys = [
+		...(policy.required_config_keys || []),
+		...(contract.required_config_keys || []),
+	];
 
-	// 6. Condition-specific validation
-	if (actionType === "Condition" || actionType === "Loop") {
+	if (requiredConfigKeys.length) {
 		const config = parseJsonSafe(nodeData.config, {});
-		if (actionType === "Condition" && (!config.conditions || !config.conditions.length)) {
-			errors.push(__("At least one condition is required"));
-		}
-		if (actionType === "Loop" && !config.iterator) {
-			errors.push(__("Iterator is required for Loop"));
+		for (const key of requiredConfigKeys) {
+			const value = config[key];
+			const isEmpty =
+				value === undefined ||
+				value === null ||
+				value === "" ||
+				(Array.isArray(value) && value.length === 0);
+
+			if (isEmpty) {
+				const label = key.charAt(0).toUpperCase() + key.slice(1);
+				errors.push(__("{0} is required for {1}", [label, actionType]));
+			}
 		}
 	}
 

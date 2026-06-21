@@ -42,6 +42,7 @@ ACTION_TYPE_CONTRACT: dict[str, dict[str, Any]] = {
 	},
 	"Condition": {
 		"required_fields": ["config"],
+		"required_config_keys": ["conditions"],
 		"has_next_true": True,
 		"has_next_false": True,
 		"terminal": False,
@@ -91,7 +92,8 @@ ACTION_TYPE_CONTRACT: dict[str, dict[str, Any]] = {
 		"config_component": "ProcessConfig",
 	},
 	"Loop": {
-		"required_fields": ["config", "return_variable"],  # config must have iterator
+		"required_fields": ["config", "return_variable"],
+		"required_config_keys": ["iterator"],
 		"has_next_true": True,  # Loop body
 		"has_next_false": True,  # Loop exit
 		"terminal": False,

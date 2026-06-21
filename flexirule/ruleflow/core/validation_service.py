@@ -401,6 +401,25 @@ def _validate_action_contracts(
 			_("Action '{0}' ({1}) does not support 'next step if false'").format(action_label, action_type)
 		)
 
+	# Validation based on required_config_keys (from both policy and contract)
+	required_config_keys = list(effective_policy.get("required_config_keys") or [])
+	if contract.get("required_config_keys"):
+		required_config_keys.extend(contract.get("required_config_keys"))
+
+	if required_config_keys:
+		config_data = _parse_json_value(_safe_get(action, "config"), {})
+		if not isinstance(config_data, Mapping):
+			config_data = {}
+
+		for key in required_config_keys:
+			value = config_data.get(key)
+			if _is_empty(value):
+				errors.append(
+					_("Action '{0}' ({1}) requires configuration key '{2}'").format(
+						action_label, action_type, key
+					)
+				)
+
 
 def _validate_action_specifics(
 	rule_doc,
@@ -425,14 +444,13 @@ def _validate_action_specifics(
 			_validate_sub_rule_input_mapping(action, errors)
 
 	elif action_type == "Condition":
-		if get_condition_payload(action) is None and _is_empty(_safe_get(action, "compiled_expression")):
+		# Legacy/Specific check if required_config_keys doesn't cover it (e.g. if compiled_expression is used instead)
+		if (
+			get_condition_payload(action) is None
+			and _is_empty(_safe_get(action, "compiled_expression"))
+			and "conditions" not in (get_contract(action_type).get("required_config_keys") or [])
+		):
 			errors.append(_("Action '{0}' is a Condition but no condition is defined.").format(action_label))
-
-	elif action_type == "Loop":
-		if not config.get("iterator"):
-			warnings.append(
-				_("Action '{0}' is a Loop but iterator configuration may be incomplete.").format(action_label)
-			)
 
 	elif action_type == "Switch":
 		if not config.get("cases"):
