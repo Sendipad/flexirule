@@ -43,7 +43,7 @@
 				class="assignment-grid-row align-items-center mb-2"
 			>
 				<div class="grid-col-when">
-					<div class="when-editor-cell" v-field-reveal="'assignments.run_if'">
+					<div class="when-editor-cell" v-fxr-fieldname="'assignments.run_if'">
 						<button
 							class="fxr-btn fxr-btn--sm w-100 when-toggle-btn"
 							:class="{

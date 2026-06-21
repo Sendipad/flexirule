@@ -3,7 +3,7 @@
 		class="transform-control fxr-control"
 		ref="containerRef"
 		:class="{ 'has-error': showValidation && !isValid }"
-		:data-fxr-fieldname="df?.fieldname || fieldname || null"
+		v-fxr-fieldname="df?.fieldname || fieldname || null"
 	>
 		<div v-if="df?.label" class="fxr-label" :class="{ reqd: df?.reqd }">
 			{{ __(df.label) }}

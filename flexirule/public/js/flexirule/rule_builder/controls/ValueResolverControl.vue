@@ -2,7 +2,7 @@
 	<div
 		class="value-resolver-control fxr-control"
 		ref="controlRef"
-		:data-fxr-fieldname="resolverFieldname"
+		v-fxr-fieldname="resolverFieldname"
 	>
 		<!-- Token UI -->
 		<div
@@ -33,7 +33,6 @@
 						: 'fxr-popover value-resolver-popover'
 				"
 				:style="viewMode === 'inline' ? {} : popoverStyle"
-				:data-fxr-fieldname="resolverFieldname"
 				@keydown="handlePopoverKeydown"
 			>
 				<div :class="viewMode === 'inline' ? 'fxr-inline-body' : 'fxr-popover__body'">

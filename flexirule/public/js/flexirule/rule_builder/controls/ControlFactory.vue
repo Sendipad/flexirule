@@ -1,5 +1,5 @@
 <template>
-	<div class="fxr-control-wrapper" :data-fxr-fieldname="df?.fieldname || null">
+	<div class="fxr-control-wrapper" v-fxr-fieldname="df?.fieldname || null">
 		<component
 			:is="resolved.component"
 			v-bind="resolved.props"

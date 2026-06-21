@@ -40,7 +40,7 @@
 
 			<!-- Configuration based on selected Mode -->
 			<template v-if="mode === 'Query List'">
-				<div class="sub-section section-subcard" v-field-reveal="'config.filters'">
+				<div class="sub-section section-subcard" v-fxr-fieldname="'config.filters'">
 					<h6>{{ __("Filters") }}</h6>
 					<FilterGroup
 						ref="filterGroupRef"
@@ -223,7 +223,7 @@
 				<div
 					v-if="config.fetch_strategy === 'Get latest Doc'"
 					class="sub-section section-subcard"
-					v-field-reveal="'config.filters'"
+					v-fxr-fieldname="'config.filters'"
 				>
 					<h6>{{ __("Filters") }}</h6>
 					<FilterGroup
@@ -241,7 +241,7 @@
 			</template>
 
 			<template v-else-if="mode === 'Exist Record'">
-				<div class="sub-section section-subcard" v-field-reveal="'config.filters'">
+				<div class="sub-section section-subcard" v-fxr-fieldname="'config.filters'">
 					<h6>{{ __("Filters") }}</h6>
 					<FilterGroup
 						ref="filterGroupRef"
@@ -342,7 +342,7 @@
 			<template
 				v-else-if="['Sum', 'Average', 'Min', 'Max', 'Count', 'Group By'].includes(mode)"
 			>
-				<div class="sub-section section-subcard" v-field-reveal="'config.filters'">
+				<div class="sub-section section-subcard" v-fxr-fieldname="'config.filters'">
 					<h6>{{ __("Filters") }}</h6>
 					<FilterGroup
 						ref="filterGroupRef"
