@@ -17,22 +17,13 @@ export const useUIStore = defineStore("rule-builder-ui", () => {
 	const is_initializing = ref(false);
 	const is_performing_layout = ref(false);
 	const layout_preference = ref("LR"); // "LR" | "TB"
+	const show_layout_mismatch_banner = ref(false);
+	const dismissed_layout_banner = ref(false);
 
 	// ── Developer / Debug ──
 	const is_field_reveal_active = ref(false);
 	const is_developer_mode = computed(() => {
 		return !!(window.frappe && frappe.boot && frappe.boot.developer_mode);
-	});
-
-	// Keep preference in sync with localStorage for session persistence
-	// but the primary persistence is in Rule visual_data
-	const saved_pref = localStorage.getItem("flexirule_layout_preference");
-	if (saved_pref) {
-		layout_preference.value = saved_pref;
-	}
-
-	watch(layout_preference, (val) => {
-		localStorage.setItem("flexirule_layout_preference", val);
 	});
 
 	// ── Config Modal ──
@@ -206,6 +197,8 @@ export const useUIStore = defineStore("rule-builder-ui", () => {
 		test_multi_results,
 		test_current_multi_index,
 		is_initializing,
+		show_layout_mismatch_banner,
+		dismissed_layout_banner,
 
 		// Computed
 		has_selection,

@@ -23,19 +23,10 @@ export function useCanvasLayout() {
 	const sourcePosition = computed(() => (isHorizontal.value ? Position.Right : Position.Bottom));
 	const targetPosition = computed(() => (isHorizontal.value ? Position.Left : Position.Top));
 
-	function toggleLayout() {
-		const newDir = layoutOrientation.value === "LR" ? "TB" : "LR";
-		layoutOrientation.value = newDir;
-
-		// Trigger re-layout with animation
-		layoutGraph(newDir);
-	}
-
 	return {
 		layoutOrientation,
 		isHorizontal,
 		sourcePosition,
 		targetPosition,
-		toggleLayout,
 	};
 }

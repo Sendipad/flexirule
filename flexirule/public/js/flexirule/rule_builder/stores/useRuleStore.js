@@ -138,17 +138,28 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		// Build graph from actions (mirrors workflow_builder: get_workflow_elements)
 		graphStore.sync_actions_to_graph(rule_doc.value);
 
+		const defaultLayout = settings.value?.layout_direction === "Top to Bottom" ? "TB" : "LR";
 		let needs_auto_layout = false;
+		uiStore.show_layout_mismatch_banner = false;
+		uiStore.dismissed_layout_banner = false;
+
 		if (visual_data && visual_data.length > 0) {
 			graphStore.merge_visual_layout(visual_data);
 
-			// Smart layout detection: if stored layout differs from UI preference, re-layout
-			const storedPref = visual_data.find((el) => el.type === "ui_preferences")?.layout;
-			if (storedPref && storedPref !== uiStore.layout_preference) {
+			const storedLayout = visual_data.find((el) => el.type === "ui_preferences")?.layout;
+			if (storedLayout) {
+				uiStore.layout_preference = storedLayout;
+				if (storedLayout !== defaultLayout) {
+					uiStore.show_layout_mismatch_banner = true;
+				}
+			} else {
+				// No stored layout, use default
+				uiStore.layout_preference = defaultLayout;
 				needs_auto_layout = true;
 			}
 		} else {
 			// Brand new rule or missing visual data
+			uiStore.layout_preference = defaultLayout;
 			needs_auto_layout = true;
 		}
 
@@ -729,6 +740,21 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		uiStore.navigate_node(graphStore.nodes, -1);
 	}
 
+	async function apply_ruleflow_layout() {
+		const { useRuleGraph } = await import("../composables/useRuleGraph");
+		const { layoutGraph } = useRuleGraph();
+
+		const defaultLayout = settings.value?.layout_direction === "Top to Bottom" ? "TB" : "LR";
+		uiStore.layout_preference = defaultLayout;
+
+		// Recompute node positions and entire canvas
+		layoutGraph(defaultLayout);
+		uiStore.show_layout_mismatch_banner = false;
+
+		// Mark as modified if required
+		mark_dirty();
+	}
+
 	// ── Undo/Redo coordination ──
 	function undo() {
 		if (is_read_only.value) return;
@@ -957,5 +983,6 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		open_config,
 		next_config_node,
 		prev_config_node,
+		apply_ruleflow_layout,
 	};
 });

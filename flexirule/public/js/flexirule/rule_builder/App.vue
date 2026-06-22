@@ -7,15 +7,38 @@
 				:class="{
 					'has-execution-bottom':
 						uiStore.test_execution_steps?.length &&
-						ruleStore.settings?.layout_direction !== 'Top to Bottom',
+						uiStore.layout_preference === 'LR',
 					'has-execution-right':
 						uiStore.test_execution_steps?.length &&
-						ruleStore.settings?.layout_direction === 'Top to Bottom',
+						uiStore.layout_preference === 'TB',
+					'has-banner': uiStore.show_layout_mismatch_banner && !uiStore.dismissed_layout_banner
 				}"
 				ref="flowWrapper"
 				@dragover="onDragOver"
 				@drop="onDrop"
 			>
+				<div
+					v-if="uiStore.show_layout_mismatch_banner && !uiStore.dismissed_layout_banner"
+					class="layout-mismatch-banner"
+				>
+					<div class="banner-content">
+						<i class="fa fa-info-circle banner-icon"></i>
+						<span>{{
+							__("This rule is using a different layout direction than the current RuleFlow default.")
+						}}</span>
+					</div>
+					<div class="banner-actions">
+						<button
+							class="btn btn-xs btn-primary-light"
+							@click="ruleStore.apply_ruleflow_layout()"
+						>
+							{{ __("Apply RuleFlow Layout") }}
+						</button>
+						<button class="btn btn-xs btn-link text-muted" @click="uiStore.dismissed_layout_banner = true">
+							{{ __("Dismiss") }}
+						</button>
+					</div>
+				</div>
 				<VueFlow
 					:dir="isRTL ? 'rtl' : 'ltr'"
 					:edges-editable="false"
@@ -126,24 +149,6 @@
 
 						<div class="divider-vertical"></div>
 
-						<div class="btn-group controls-row">
-							<button
-								class="btn btn-sm btn-default d-inline-flex align-items-center gap-2"
-								@click="toggleLayout"
-								:title="__('Switch Layout Orientation')"
-							>
-								<i
-									class="fa"
-									:class="isHorizontal ? 'fa-columns' : 'fa-align-justify'"
-								></i>
-								<span class="small font-weight-bold">{{
-									isHorizontal ? __("Vertical") : __("Horizontal")
-								}}</span>
-							</button>
-						</div>
-
-						<div class="divider-vertical"></div>
-
 						<div v-if="isReadOnly" class="read-only-badge mr-2">
 							<i class="fa fa-lock"></i> {{ __("Read Only") }}
 						</div>
@@ -180,7 +185,7 @@
 				</VueFlow>
 				<DebuggerPath
 					v-if="uiStore.test_execution_steps?.length"
-					:layout="ruleStore.settings?.layout_direction === 'Top to Bottom' ? 'TB' : 'LR'"
+					:layout="uiStore.layout_preference"
 				/>
 			</div>
 			<div
@@ -280,7 +285,6 @@ const metaStore = useMetaStore();
 
 const { zoomIn, zoomOut, removeEdges, fitView } = useVueFlow();
 const { layoutGraph } = useRuleGraph();
-const { isHorizontal, toggleLayout } = useCanvasLayout();
 const { copySelectedToClipboard, pasteFromClipboard } = useClipboard();
 const { registerShortcut, pushContext, popContext } = useKeyboardRegistry();
 const showQuickActions = ref(false);
@@ -443,8 +447,7 @@ function handleQuickActionsKeydown(e) {
 }
 
 function runAutoLayout() {
-	const dir = ruleStore.settings?.layout_direction === "Top to Bottom" ? "TB" : "LR";
-	layoutGraph(dir);
+	layoutGraph(uiStore.layout_preference);
 	showQuickActions.value = false;
 }
 
@@ -731,8 +734,7 @@ function insertNodeOnEdge(payload) {
 				clipboard.edges
 			);
 			if (newNodeId) {
-				const dir = ruleStore.settings?.layout_direction === "Left to Right" ? "LR" : "TB";
-				setTimeout(() => layoutGraph(dir), 50);
+				setTimeout(() => layoutGraph(uiStore.layout_preference), 50);
 				frappe.show_alert({ message: __("Nodes pasted on edge"), indicator: "green" }, 2);
 			}
 		}
@@ -745,9 +747,8 @@ function insertNodeOnEdge(payload) {
 		payload
 	);
 	if (newNodeId) {
-		const dir = ruleStore.settings?.layout_direction === "Top to Bottom" ? "TB" : "LR";
 		setTimeout(() => {
-			layoutGraph(dir);
+			layoutGraph(uiStore.layout_preference);
 			// Auto-open config for nodes that require immediate configuration
 			const NEEDS_CONFIG_NOW = ["Condition", "Loop", "Switch"];
 			const insertedNode = graphStore.nodes.find((n) => n.id === newNodeId);
@@ -1054,6 +1055,57 @@ function onEdgeClick({ edge, event }) {
 
 :deep(.executed .execution-badge) {
 	background: var(--green-600, #16a34a) !important;
+}
+.layout-mismatch-banner {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 8px 16px;
+	background-color: var(--fxr-info-soft, #e0f2fe);
+	border-bottom: 1px solid var(--fxr-info-border, #bae6fd);
+	border-radius: var(--fxr-radius-lg) var(--fxr-radius-lg) 0 0;
+	z-index: 20;
+}
+
+.banner-content {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	color: var(--fxr-info-text, #0369a1);
+	font-size: 13px;
+	font-weight: 500;
+}
+
+.banner-icon {
+	font-size: 14px;
+	opacity: 0.9;
+}
+
+.banner-actions {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+.btn-primary-light {
+	background-color: var(--fxr-info-text, #0369a1);
+	color: white;
+	border: none;
+	font-weight: 600;
+}
+
+.btn-primary-light:hover {
+	background-color: #025a87;
+	color: white;
+}
+
+.canvas-container.has-banner {
+	display: flex;
+	flex-direction: column;
+}
+
+.canvas-container.has-banner :deep(.vue-flow) {
+	flex: 1;
 }
 .toolbar-center {
 	display: flex;
