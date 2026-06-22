@@ -6,12 +6,11 @@
 				class="canvas-container"
 				:class="{
 					'has-execution-bottom':
-						uiStore.test_execution_steps?.length &&
-						uiStore.layout_preference === 'LR',
+						uiStore.test_execution_steps?.length && uiStore.layout_preference === 'LR',
 					'has-execution-right':
-						uiStore.test_execution_steps?.length &&
-						uiStore.layout_preference === 'TB',
-					'has-banner': uiStore.show_layout_mismatch_banner && !uiStore.dismissed_layout_banner
+						uiStore.test_execution_steps?.length && uiStore.layout_preference === 'TB',
+					'has-banner':
+						uiStore.show_layout_mismatch_banner && !uiStore.dismissed_layout_banner,
 				}"
 				ref="flowWrapper"
 				@dragover="onDragOver"
@@ -24,7 +23,9 @@
 					<div class="banner-content">
 						<i class="fa fa-info-circle banner-icon"></i>
 						<span>{{
-							__("This rule is using a different layout direction than the current RuleFlow default.")
+							__(
+								"This rule is using a different layout direction than the current RuleFlow default."
+							)
 						}}</span>
 					</div>
 					<div class="banner-actions">
@@ -34,7 +35,10 @@
 						>
 							{{ __("Apply RuleFlow Layout") }}
 						</button>
-						<button class="btn btn-xs btn-link text-muted" @click="uiStore.dismissed_layout_banner = true">
+						<button
+							class="btn btn-xs btn-link text-muted"
+							@click="uiStore.dismissed_layout_banner = true"
+						>
 							{{ __("Dismiss") }}
 						</button>
 					</div>

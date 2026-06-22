@@ -743,6 +743,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 	async function apply_ruleflow_layout() {
 		const { useRuleGraph } = await import("../composables/useRuleGraph");
 		const { layoutGraph } = useRuleGraph();
+		const uiStore = useUIStore();
 
 		const defaultLayout = settings.value?.layout_direction === "Top to Bottom" ? "TB" : "LR";
 		uiStore.layout_preference = defaultLayout;
