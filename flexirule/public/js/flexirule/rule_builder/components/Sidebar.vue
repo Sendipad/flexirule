@@ -191,28 +191,8 @@ function map_action_type(actionType) {
 }
 
 function update_edge(field, newTarget) {
-	const nodeId = selectedNode.value.id;
-	const handleType =
-		field === "next_step_if_true"
-			? selectedNode.value.data?.action_type === "Condition"
-				? "true"
-				: "default"
-			: "false";
-
-	// Remove existing edge
-	graphStore.edges = graphStore.edges.filter(
-		(el) => !(el.source === nodeId && el.sourceHandle === handleType)
-	);
-
-	// Add new edge if target specified
-	if (newTarget) {
-		graphStore.edges.push({
-			id: `e-${nodeId}-${newTarget}-${handleType}`,
-			source: nodeId,
-			target: newTarget,
-			sourceHandle: handleType,
-		});
-	}
+	const branch = field === "next_step_if_true" ? "true" : "false";
+	graphStore.reconnect_node_edge(selectedNode.value.id, branch, newTarget);
 }
 
 function delete_node() {

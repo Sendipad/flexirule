@@ -25,6 +25,7 @@ import {
 import { mapActionTypeToNodeType } from "../composables/useActionTypeMapper";
 import { getConditionPayload } from "../utils/condition_payload";
 import { generateShortId } from "../utils/schema_utils.js";
+import { deepClone } from "../utils/serialization.js";
 
 export const useGraphStore = defineStore("rule-builder-graph", () => {
 	// ── Core graph state ──
@@ -108,7 +109,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 
 		const nodesSnap = nodes.value.map((el) => {
 			// Deep clone data and sort its keys for stability
-			const rawData = JSON.parse(JSON.stringify(el.data || {}));
+			const rawData = deepClone(el.data || {});
 			// We don't need to recursively sort every object here because stringifyStable
 			// will handle the nested objects when comparing snapshots if we used it,
 			// but getStateSnapshot returns an array of objects which is then stringified.
@@ -163,8 +164,8 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		const newNodes = snapshot.filter((el) => el.type && el.position);
 		const newEdges = snapshot.filter((el) => el.source && el.target);
 
-		nodes.value = JSON.parse(JSON.stringify(newNodes));
-		edges.value = JSON.parse(JSON.stringify(newEdges));
+		nodes.value = deepClone(newNodes);
+		edges.value = deepClone(newEdges);
 	}
 
 	function update_node_position(nodeId, position) {
@@ -1832,7 +1833,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			idMap[oldId] = newId;
 
 			// Deep clone
-			const newNode = JSON.parse(JSON.stringify(node));
+			const newNode = deepClone(node);
 			newNode.id = newId;
 			if (newNode.data) {
 				const sourceActionId = newNode.data.action_id || oldId || newId;
@@ -2029,6 +2030,55 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		}
 	}
 
+	/**
+	 * Reconnects a node edge to a new target.
+	 * Synchronizes both the graph edges and the node's internal data pointers.
+	 */
+	function reconnect_node_edge(sourceId, branch, targetId) {
+		if (!sourceId) return;
+
+		const sourceNode = nodes.value.find((n) => n.id === sourceId);
+		const actionType = sourceNode?.data?.action_type;
+
+		// 1. Determine source handle
+		let sourceHandle = "default";
+		if (branch === "false") {
+			sourceHandle = "false";
+		} else if (branch === "true") {
+			sourceHandle = actionType === "Condition" ? "true" : "default";
+		} else {
+			sourceHandle = branch || "default";
+		}
+
+		// Remove existing edge for this handle
+		edges.value = edges.value.filter(
+			(e) => !(e.source === sourceId && (e.sourceHandle || "default") === sourceHandle)
+		);
+
+		// Add new edge if target is valid
+		if (targetId) {
+			edges.value.push({
+				id: `e-${sourceId}-${targetId}-${sourceHandle}`,
+				source: sourceId,
+				target: targetId,
+				sourceHandle: sourceHandle,
+				type: "add",
+				animated: sourceNode?.type === "start",
+			});
+		}
+
+		// 2. Sync node data
+		if (sourceNode && sourceNode.data) {
+			if (branch === "false") {
+				sourceNode.data.next_step_if_false = targetId;
+			} else {
+				sourceNode.data.next_step_if_true = targetId;
+			}
+		}
+
+		touch_node(sourceId);
+	}
+
 	return {
 		// State
 		nodes,
@@ -2076,5 +2126,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		autoConnectNode,
 		autoConnectStartNode,
 		nodesMap,
+		reconnect_node_edge,
 	};
 });

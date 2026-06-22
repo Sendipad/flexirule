@@ -3,6 +3,7 @@ import { useVueFlow } from "@vue-flow/core";
 import { useUIStore } from "../stores/useUIStore";
 import { useRuleStore } from "../stores/useRuleStore";
 import { nextTick } from "vue";
+import { deepClone } from "../utils/serialization.js";
 
 const NODE_WIDTH = 220;
 const NODE_HEIGHT = 140;
@@ -53,8 +54,8 @@ export function useRuleGraph() {
 		if (uiStore.is_performing_layout) return;
 		uiStore.is_performing_layout = true;
 
-		const currentNodes = JSON.parse(JSON.stringify(nodes.value));
-		const currentEdges = JSON.parse(JSON.stringify(edges.value));
+		const currentNodes = deepClone(nodes.value);
+		const currentEdges = deepClone(edges.value);
 
 		const isHorizontal = direction === "LR";
 

@@ -1,6 +1,6 @@
 <template>
 	<div class="subrule-node-config" ref="containerRef">
-		<div class="form-group relative">
+		<div class="form-group relative" v-fxr-fieldname="'rule'">
 			<div class="d-flex justify-content-between align-items-center mb-1">
 				<label class="mb-0">{{ __("Select Rule") }}</label>
 				<div class="custom-control custom-switch custom-switch-sm">

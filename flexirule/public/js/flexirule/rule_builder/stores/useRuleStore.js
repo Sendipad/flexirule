@@ -12,6 +12,7 @@ import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import { normalizeActionType } from "../../core/contracts";
 import { getConditionPayload } from "../utils/condition_payload";
+import { deepClone } from "../utils/serialization";
 
 import { useGraphStore } from "./useGraphStore";
 import { useMetaStore } from "./useMetaStore";
@@ -764,7 +765,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		if (val === undefined || val === null) return null;
 		if (typeof val === "string") return val;
 		try {
-			const plain = JSON.parse(JSON.stringify(val));
+			const plain = deepClone(val);
 			return JSON.stringify(plain);
 		} catch (e) {
 			console.warn("FlexiRule: Field serialization failed", e, val);

@@ -1,6 +1,6 @@
 <template>
 	<div class="loop-node-config">
-		<div class="form-group">
+		<div class="form-group" v-fxr-fieldname="'config.iterator'">
 			<ComboBoxControl
 				ref="controlRefs"
 				fieldname="config.iterator"
@@ -15,7 +15,7 @@
 				{{ __("Select a list or table to iterate over.") }}
 			</div>
 		</div>
-		<div class="form-group">
+		<div class="form-group" v-fxr-fieldname="'return_variable'">
 			<ControlFactory
 				ref="controlRefs"
 				:df="aliasFieldDf"

@@ -2,6 +2,7 @@ import { useVueFlow } from "@vue-flow/core";
 import { useUIStore } from "../stores/useUIStore";
 import { useGraphStore } from "../stores/useGraphStore";
 import { useRuleStore } from "../stores/useRuleStore";
+import { deepClone } from "../utils/serialization";
 
 export function useClipboard() {
 	const uiStore = useUIStore();
@@ -71,7 +72,7 @@ export function useClipboard() {
 				name: ruleStore.rule_name || null,
 			},
 			nodes: filterNodes.map((n) => {
-				const nodeData = JSON.parse(JSON.stringify(n.data || {}));
+				const nodeData = deepClone(n.data || {});
 				// Sync condition_json for Condition nodes if missing
 				if (
 					nodeData.action_type === "Condition" &&
@@ -97,7 +98,7 @@ export function useClipboard() {
 				type: e.type || "add",
 				sourceHandle: e.sourceHandle,
 				targetHandle: e.targetHandle,
-				data: stripNullValues(JSON.parse(JSON.stringify(e.data || {}))),
+				data: stripNullValues(deepClone(e.data || {})),
 			})),
 		};
 

@@ -441,14 +441,26 @@ const debouncedRemoteSearch = flexirule.utils.debounce(async (value) => {
 
 function toggleDropdown() {
 	if (props.read_only) return;
-	toggleFloatingDropdown();
-	if (isDropdownOpen.value) openDropdown();
+	if (isDropdownOpen.value) {
+		closeDropdown();
+	} else {
+		openDropdown();
+	}
 }
 
-function openDropdown() {
-	query.value = props.trigger === "input" ? displayValue.value : "";
+function openDropdown(initialQuery = null) {
+	if (props.read_only) return;
+
+	// Use provided query, or current display value (for input mode), or empty
+	if (initialQuery !== null) {
+		query.value = initialQuery;
+	} else {
+		query.value = props.trigger === "input" ? displayValue.value : "";
+	}
+
 	activeIndex.value = -1;
 	openFloatingDropdown();
+
 	nextTick(() => {
 		updateDropdownPosition();
 		if (props.trigger === "button") {
@@ -459,9 +471,12 @@ function openDropdown() {
 			}
 		} else if (mainInputRef.value) {
 			mainInputRef.value.focus();
-			mainInputRef.value.select();
+			if (initialQuery === null) {
+				mainInputRef.value.select();
+			}
 		}
 	});
+
 	if (isRemote.value) runOptionFetch(query.value || "");
 }
 
@@ -491,9 +506,13 @@ function onFocus() {
 }
 
 function onInput(e) {
-	query.value = e.target.value;
-	if (!isDropdownOpen.value) openDropdown();
-	if (isRemote.value) debouncedRemoteSearch(query.value || "");
+	const val = e.target.value;
+	if (!isDropdownOpen.value) {
+		openDropdown(val);
+	} else {
+		query.value = val;
+		if (isRemote.value) debouncedRemoteSearch(val);
+	}
 }
 
 function onFocusOut(e) {
@@ -672,14 +691,8 @@ function handleClickOutside(e) {
 	closeDropdown();
 }
 
-let queryWatchTimer = null;
-watch(query, (newQuery) => {
+watch(query, () => {
 	activeIndex.value = -1;
-	if (!isRemote.value) return;
-	clearTimeout(queryWatchTimer);
-	queryWatchTimer = setTimeout(() => {
-		runOptionFetch(newQuery || "");
-	}, 180);
 });
 
 watch(

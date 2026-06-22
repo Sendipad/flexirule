@@ -568,6 +568,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from "vue";
+import { deepClone, fromCodeString } from "../../utils/serialization.js";
 import InputPanel from "./InputPanel.vue";
 import ConfigurationPanel from "./ConfigurationPanel.vue";
 import OutputPanel from "./OutputPanel.vue";
@@ -839,11 +840,7 @@ function on_update_action_field(payload, maybeValue) {
 		if (draftNode.value.data.config && typeof draftNode.value.data.config === "object") {
 			baseConfig = draftNode.value.data.config;
 		} else if (typeof draftNode.value.data.config === "string") {
-			try {
-				baseConfig = JSON.parse(draftNode.value.data.config) || {};
-			} catch (e) {
-				baseConfig = {};
-			}
+			baseConfig = fromCodeString(draftNode.value.data.config) || {};
 		}
 		const nextConfig = {
 			...baseConfig,
@@ -859,11 +856,9 @@ function on_update_action_field(payload, maybeValue) {
 			nextConfig[fieldname] = value;
 		}
 		draftNode.value.data.config = nextConfig;
-		ruleStore.mark_dirty();
 		return;
 	}
 	draftNode.value.data[fieldname] = value;
-	ruleStore.mark_dirty();
 }
 
 function markCompactTabRendered(tabKey) {

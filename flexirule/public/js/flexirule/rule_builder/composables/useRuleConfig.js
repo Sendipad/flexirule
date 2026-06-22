@@ -1,6 +1,7 @@
-import { ref, reactive, computed, watch } from "vue";
+import { ref, reactive, computed, watch, nextTick } from "vue";
 import { useStore } from "../stores";
 import { getContract, validateAgainstContract } from "../../core/contracts.js";
+import { deepClone } from "../utils/serialization.js";
 
 /**
  * useRuleConfig
@@ -41,7 +42,7 @@ export function useRuleConfig(props, emit) {
 	function createDraft() {
 		if (!props.node) return;
 		// Deep clone the node
-		draftNode.value = JSON.parse(JSON.stringify(props.node));
+		draftNode.value = deepClone(props.node);
 	}
 
 	/**
@@ -127,7 +128,7 @@ export function useRuleConfig(props, emit) {
 			const oldValue = props.node.data?.rule;
 			const newValue = draftNode.value.data?.rule;
 
-			props.node.data = JSON.parse(JSON.stringify(draftNode.value.data));
+			props.node.data = deepClone(draftNode.value.data);
 			props.node.label = draftNode.value.label || draftNode.value.data?.action_label;
 
 			// Redraw nested nodes when Sub-Rule LinkControl target changes
@@ -157,14 +158,13 @@ export function useRuleConfig(props, emit) {
 				initialDraftState.value = null;
 				showValidation.value = false;
 
-				// Capture baseline state after background discovery (schema, profiles, etc.) settles.
-				// We increase this to 1000ms to ensure all async normalization and schema
-				// discovery tasks have finished before we define what "clean" looks like.
-				setTimeout(() => {
+				// Capture baseline state as soon as draft is created.
+				// We wait for a single tick to ensure the child components have received the draft.
+				nextTick(() => {
 					if (draftNode.value) {
 						initialDraftState.value = JSON.stringify(draftNode.value.data || {});
 					}
-				}, 1000);
+				});
 			}
 		},
 		{ immediate: true }

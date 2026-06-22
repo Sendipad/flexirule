@@ -1,7 +1,7 @@
 <template>
 	<div class="switch-config">
 		<SwitchNodeConfig
-			ref="controlRefs"
+			:ref="setControlRef"
 			:nodeData="node.data"
 			:availableNodes="availableNodes"
 			:getNodeLabel="getNodeLabel"

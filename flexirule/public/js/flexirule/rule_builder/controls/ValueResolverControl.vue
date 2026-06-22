@@ -100,6 +100,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from "vue";
+import { deepClone } from "../utils/serialization";
 import { useFloatingDropdown } from "../composables/useFloatingDropdown";
 import { useKeyboardRegistry } from "../composables/useKeyboardRegistry";
 import { useFocusTrap } from "../composables/useFocusTrap";
@@ -242,7 +243,7 @@ const open = async () => {
 	// Backup state for cancel support
 	backupState.value = {
 		kind: activeKind.value,
-		config: JSON.parse(JSON.stringify(localState.value)),
+		config: deepClone(localState.value),
 	};
 
 	openDropdown();
