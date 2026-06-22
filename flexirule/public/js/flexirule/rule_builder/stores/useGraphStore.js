@@ -93,18 +93,26 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		 * Stable stringification helper that ensures consistent key ordering.
 		 */
 		const stringifyStable = (obj) => {
+			if (obj === undefined) return undefined;
 			if (obj === null || typeof obj !== "object") {
 				return JSON.stringify(obj);
 			}
 			if (Array.isArray(obj)) {
-				return "[" + obj.map(stringifyStable).join(",") + "]";
+				return (
+					"[" +
+					obj.map((x) => (x === undefined ? "null" : stringifyStable(x))).join(",") +
+					"]"
+				);
 			}
 			const keys = Object.keys(obj).sort();
-			return (
-				"{" +
-				keys.map((k) => JSON.stringify(k) + ":" + stringifyStable(obj[k])).join(",") +
-				"}"
-			);
+			const parts = [];
+			for (const k of keys) {
+				const valStr = stringifyStable(obj[k]);
+				if (valStr !== undefined) {
+					parts.push(JSON.stringify(k) + ":" + valStr);
+				}
+			}
+			return "{" + parts.join(",") + "}";
 		};
 
 		const nodesSnap = nodes.value.map((el) => {

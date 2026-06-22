@@ -1457,7 +1457,7 @@ onBeforeUnmount(() => {
 	min-height: 20px;
 	display: flex;
 	align-items: center;
-	white-space: nowrap;
+	white-space: pre-wrap;
 	overflow-x: auto;
 	scrollbar-width: none; /* Firefox */
 }

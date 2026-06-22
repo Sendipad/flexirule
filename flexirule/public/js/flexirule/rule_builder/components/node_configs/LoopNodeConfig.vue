@@ -2,7 +2,7 @@
 	<div class="loop-node-config">
 		<div class="form-group" v-fxr-fieldname="'config.iterator'">
 			<ComboBoxControl
-				ref="controlRefs"
+				:ref="setControlRef"
 				fieldname="config.iterator"
 				:df="{ label: __('Iterator (List)'), fieldtype: 'FieldPicker', reqd: 1 }"
 				:options="listFields"
@@ -17,7 +17,7 @@
 		</div>
 		<div class="form-group" v-fxr-fieldname="'return_variable'">
 			<ControlFactory
-				ref="controlRefs"
+				:ref="setControlRef"
 				:df="aliasFieldDf"
 				:modelValue="nodeData.return_variable"
 				:showValidation="showValidation"
@@ -53,6 +53,10 @@ const controlRefs = ref([]);
 onBeforeUpdate(() => {
 	controlRefs.value = [];
 });
+
+function setControlRef(el) {
+	if (el) controlRefs.value.push(el);
+}
 
 const aliasFieldDf = computed(() => ({
 	fieldname: "return_variable",

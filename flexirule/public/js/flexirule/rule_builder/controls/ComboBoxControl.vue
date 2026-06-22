@@ -760,7 +760,6 @@ onMounted(() => {
 onBeforeUnmount(() => {
 	document.removeEventListener("mousedown", handleClickOutside);
 	cleanupFloatingDropdown();
-	if (queryWatchTimer) clearTimeout(queryWatchTimer);
 	if (typeaheadTimeout) clearTimeout(typeaheadTimeout);
 });
 </script>
