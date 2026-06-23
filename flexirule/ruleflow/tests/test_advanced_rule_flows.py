@@ -474,6 +474,36 @@ class TestAdvancedRuleFlows(FrappeTestCase):
 			priority="0",
 		)
 
+	def _create_switch_rule(self):
+		return self._create_rule(
+			f"{self.RULE_PREFIX} Switch",
+			actions=[
+				{
+					"action_id": "root",
+					"action_type": "Entry Action",
+					"action_label": "Switch Start",
+					"next_step_if_true": "switch_node",
+				},
+				{
+					"action_id": "switch_node",
+					"action_type": "Switch",
+					"action_label": "Decision",
+					"config": _j({"cases": []}),
+					"next_step_if_true": "stop_node",
+					"next_step_if_false": "stop_node",
+				},
+				{
+					"action_id": "stop_node",
+					"action_type": "Stop",
+					"operation": "Success",
+					"action_label": "Stop",
+				},
+			],
+			trigger_type="Callable Event",
+			trigger_event=None,
+			priority="0",
+		)
+
 	def _create_scheduler(self, rule_name, contact_name):
 		return frappe.get_doc(
 			{
@@ -495,6 +525,7 @@ class TestAdvancedRuleFlows(FrappeTestCase):
 		scheduler_rule = self._create_scheduler_rule(callable_rule.name)
 		raise_error_rule = self._create_raise_error_rule()
 		loop_rule = self._create_loop_rule()
+		switch_rule = self._create_switch_rule()
 		return {
 			"nested": nested_rule,
 			"callable": callable_rule,
@@ -503,6 +534,7 @@ class TestAdvancedRuleFlows(FrappeTestCase):
 			"scheduler": scheduler_rule,
 			"raise_error": raise_error_rule,
 			"loop": loop_rule,
+			"switch": switch_rule,
 		}
 
 	def test_suite_fixtures_cover_all_current_action_types(self):
@@ -511,11 +543,7 @@ class TestAdvancedRuleFlows(FrappeTestCase):
 		for rule in scenarios.values():
 			used_action_types.update(action.action_type for action in rule.actions)
 
-		available_action_types = {
-			value.strip()
-			for value in frappe.get_meta("Rule Action").get_field("action_type").options.splitlines()
-			if value.strip()
-		}
+		available_action_types = set(frappe.get_all("Action Type", pluck="name"))
 
 		missing = available_action_types - used_action_types
 		extra = used_action_types - available_action_types
