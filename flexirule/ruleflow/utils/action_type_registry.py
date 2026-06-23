@@ -80,7 +80,7 @@ def seed_default_action_types():
 		{
 			"name": "Loop",
 			"category": "Flow Control",
-			"is_multi_mode": 1,
+			"is_multi_mode": 0,
 			"description": "Iteration over datasets",
 		},
 		{
