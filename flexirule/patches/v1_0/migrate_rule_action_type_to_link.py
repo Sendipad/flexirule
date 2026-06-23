@@ -6,7 +6,7 @@ from flexirule.ruleflow.utils.action_type_registry import ensure_action_type_exi
 def execute():
 	# 1. Ensure the new DocType exists before migrating data
 	# (Frappe handles DocType creation during migration, but we ensure it's synced)
-	frappe.reload_doc("ruleflow", "doctype", "action_type")
+	frappe.reload_doc("Ruleflow", "doctype", "Action Type")
 
 	# 2. Seed default Action Types
 	seed_default_action_types()
@@ -25,7 +25,7 @@ def execute():
 
 	# 4. Update the Rule Action DocType field metadata
 	# We change the fieldtype from 'Select' to 'Link' and set options to 'Action Type'
-	frappe.reload_doc("ruleflow", "doctype", "rule_action")
+	frappe.reload_doc("Ruleflow", "doctype", "Rule Action")
 
 	# Force update the field in the database if reload_doc doesn't reflect it immediately
 	# though usually Frappe handles this. But let's be safe.
