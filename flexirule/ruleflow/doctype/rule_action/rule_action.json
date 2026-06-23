@@ -72,10 +72,10 @@
   {
    "description": "Type of action node",
    "fieldname": "action_type",
-   "fieldtype": "Select",
+   "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Step Type",
-   "options": "Entry Action\nCondition\nProcess\nStop\nRaise Error\nWait\nSub-Rule\nAssignment\nNotify\nQuery Records\nDocument Action\nLoop",
+   "options": "Action Type",
    "reqd": 1
   },
   {
