@@ -110,10 +110,6 @@ const docFields = computed(() => {
 				  })
 				: null;
 
-			if (resolved.fieldname === "action_type") {
-				resolved.options = getActionTypeOptions().join("\n");
-			}
-
 			resolved = getPolicyField(resolved.fieldname, resolved);
 
 			if (policyLabel) {
@@ -263,6 +259,13 @@ function getDoctypeForLink(df) {
 }
 
 async function getAutocompleteOptions(df, txt) {
+	if (df.fieldname === "action_type") {
+		return getActionTypeOptions().map((t) => ({
+			value: t,
+			label: window.__ ? __(t) : t,
+		}));
+	}
+
 	if (df.options === "action_id") {
 		const currentId = props.node?.data?.action_id;
 		return (store.nodes || [])
