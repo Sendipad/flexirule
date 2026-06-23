@@ -1,0 +1,87 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "prompt",
+ "creation": "2026-06-23 17:14:45.686269",
+ "description": "Registry of available FlexiRule action types. Used for builder discovery, categorisation, and UI presentation. Runtime behaviour and validation are defined in code.",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "is_multi_mode",
+  "column_break_jdot",
+  "category",
+  "section_break_yoit",
+  "description"
+ ],
+ "fields": [
+  {
+   "default": "0",
+   "fieldname": "is_multi_mode",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Is Multi Mode",
+   "search_index": 1
+  },
+  {
+   "fieldname": "column_break_jdot",
+   "fieldtype": "Column Break"
+  },
+  {
+   "bold": 1,
+   "fieldname": "category",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Category",
+   "options": "\nFlow Control\nData\nProcess\nCommunication\nOrchestration",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "section_break_yoit",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-06-23 17:47:18.578029",
+ "modified_by": "Administrator",
+ "module": "Ruleflow",
+ "name": "Action Type",
+ "naming_rule": "Set by user",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "All",
+   "select": 1,
+   "share": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
