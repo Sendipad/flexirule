@@ -1161,9 +1161,15 @@ export function getNodeStatus(nodeData) {
 }
 
 /**
- * Get all action type options for Select field.
+ * Get all action type options from registry (bootinfo).
  */
 export function getActionTypeOptions() {
+	const map = window.frappe?.boot?.action_type_map;
+	if (map && typeof map === "object") {
+		return Object.keys(map).sort();
+	}
+
+	// Fallback to contract keys if bootinfo not available
 	return Object.keys(ACTION_TYPE_CONTRACT).filter(
 		(actionType) => !RELEASE_DISABLED_ACTION_TYPES.has(actionType)
 	);

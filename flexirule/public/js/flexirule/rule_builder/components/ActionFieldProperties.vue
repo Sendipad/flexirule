@@ -65,12 +65,6 @@ const doc_fields = computed(() => {
 						processName: props.nodeData?.process_name,
 				  })
 				: null;
-			if (resolved.fieldname === "action_type") {
-				resolved = {
-					...resolved,
-					options: getActionTypeOptions().join("\n"),
-				};
-			}
 			resolved = getPolicyField(resolved.fieldname, resolved);
 			// Inject get_query for Sub-Rule reference
 			if (resolved.fieldname === "rule" && actionType === "Sub-Rule") {
@@ -186,6 +180,13 @@ function update_normalized_value(df, value) {
 // Get options for Autocomplete fields
 async function get_autocomplete_options(df) {
 	const options_ref = df.options;
+
+	if (df.fieldname === "action_type") {
+		return getActionTypeOptions().map((t) => ({
+			value: t,
+			label: window.__ ? __(t) : t,
+		}));
+	}
 
 	// operation field from canonical contract registry
 	if (df.fieldname === "operation") {
