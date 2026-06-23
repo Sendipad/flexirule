@@ -6,6 +6,16 @@ def after_install():
 	Run setup tasks after the FlexiRule app is installed.
 	"""
 	setup_default_ruleflow_settings()
+	setup_action_types()
+
+
+def setup_action_types():
+	"""
+	Seed the Action Type registry with default types.
+	"""
+	from flexirule.ruleflow.utils.action_type_registry import seed_default_action_types
+
+	seed_default_action_types()
 
 
 def setup_default_ruleflow_settings():
