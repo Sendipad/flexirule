@@ -1,7 +1,8 @@
 # Copyright (c) 2026, Abdo Ruzaqi and contributors
 # For license information, please see license.txt
 
-# import frappe
+import frappe
+from frappe import _
 from frappe.model.document import Document
 
 
@@ -18,4 +19,7 @@ class ActionType(Document):
 		description: DF.SmallText | None
 		is_multi_mode: DF.Check
 	# end: auto-generated types
-	pass
+
+	def validate(self):
+		if not frappe.flags.in_install and not frappe.flags.in_migrate:
+			frappe.throw(_("Action Types are managed automatically by FlexiRule."))
