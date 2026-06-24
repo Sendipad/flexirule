@@ -74,7 +74,7 @@
    "print": 1,
    "read": 1,
    "report": 1,
-   "role": "All",
+   "role": "Rule Manager",
    "select": 1,
    "share": 1
   }
