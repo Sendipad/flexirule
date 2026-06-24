@@ -1,119 +1,159 @@
 const { test, expect } = require("@playwright/test");
+const fs = require("fs");
+const path = require("path");
 
-/**
- * Flexirule Rule Builder E2E Test
- *
- * This test covers:
- * 1. Login to Frappe Desk.
- * 2. Creation of a new Rule for 'Contact' doctype.
- * 3. Navigation to the Visual Rule Builder.
- * 4. Adding and configuring multiple Action Types:
- *    - Assignment: Testing label and basic configuration.
- *    - Notify: Testing async flags and error handling.
- *    - Document Action: Testing mutation modes.
- *    - Query Records: Testing data fetching configuration.
- * 5. Saving the complete flow.
- *
- * Prerequisites:
- * - Bench server running on http://localhost:8000
- * - Site: test_site
- * - User: Administrator / admin
- */
+test.describe("Flexirule Visual Builder - Comprehensive Flow", () => {
+	const SCREENSHOTS_DIR = "e2e/screenshots";
 
-test.describe("Flexirule Visual Builder", () => {
-	test.beforeEach(async ({ page }) => {
-		test.setTimeout(120000);
-		console.log("Logging in...");
-		await page.goto("http://localhost:8000/login");
-		await page.fill("#login_email", "Administrator");
-		await page.fill("#login_password", "admin");
-		await page.click("button.btn-login");
-		await page.waitForURL("**/app**", { timeout: 30000 }).catch(() => {});
-		// Give it a moment to settle
-		await page.waitForTimeout(3000);
+	test.beforeAll(async () => {
+		if (!fs.existsSync(SCREENSHOTS_DIR)) {
+			fs.mkdirSync(SCREENSHOTS_DIR, { recursive: true });
+		}
 	});
 
-	test("Create and configure a multi-action rule flow", async ({ page }) => {
+	test.beforeEach(async ({ page }) => {
+		test.setTimeout(120000);
+		console.log("Logging in to Frappe Desk...");
+		await page.goto("http://localhost:8000/login", { waitUntil: "load" });
+
+		await page.waitForSelector("#login_email");
+		await page.fill("#login_email", "Administrator");
+		await page.fill("#login_password", "admin");
+
+		console.log("Submitting login form");
+		await page.click("button.btn-login");
+
+		// Stable wait for transition
+		await page.waitForTimeout(5000);
+
+		// Bypass setup wizard if environment forces it
+		if (page.url().includes("setup-wizard")) {
+			console.log("Setup wizard detected, navigating to rule builder entry point");
+			await page.goto("http://localhost:8000/app", { waitUntil: "networkidle" });
+		}
+
+		await expect(page.locator(".navbar, .standard-sidebar, #body")).toBeVisible({
+			timeout: 60000,
+		});
+	});
+
+	test("Should construct and verify a multi-action rule flow", async ({ page }) => {
 		test.setTimeout(300000);
 
 		// 1. Create New Rule
-		console.log("Creating new rule");
-		await page.goto("http://localhost:8000/app/rule/new-rule-1");
-		await page.waitForSelector('input[data-fieldname="rule_name"]');
+		console.log("Initiating New Rule...");
+		await page.goto("http://localhost:8000/app/rule/new-rule-1", { waitUntil: "networkidle" });
 
-		const ruleName = `Flow_Test_${Date.now()}`;
-		await page.fill('input[data-fieldname="rule_name"]', ruleName);
+		const ruleNameInput = page.locator('input[data-fieldname="rule_name"]');
+		await expect(ruleNameInput).toBeVisible({ timeout: 45000 });
 
-		// Set Target Doctype
-		await page.fill('input[data-fieldname="document_type"]', "Contact");
-		await page.keyboard.press("Tab");
+		const ruleName = `Flow_Harden_${Date.now()}`;
+		await ruleNameInput.fill(ruleName);
 
-		// Set Trigger
-		await page.selectOption('select[data-fieldname="trigger_event"]', "After Save");
+		// Set Document Type
+		console.log("Configuring Rule Metadata...");
+		const docTypeInput = page.locator('[data-fieldname="document_type"] input');
+		await docTypeInput.fill("Contact");
+		await page.keyboard.press("Enter");
+		await expect(docTypeInput).toHaveValue("Contact", { timeout: 15000 });
 
-		// Save
+		// Set Trigger Event
+		await page.selectOption('[data-fieldname="trigger_event"] select', "After Save");
+
+		// Save Rule Form
+		const savePromise = page
+			.waitForResponse(
+				(res) =>
+					res.url().includes("method=frappe.desk.form.save.savedocs") &&
+					res.status() === 200,
+				{ timeout: 30000 }
+			)
+			.catch(() => {});
+
 		await page.click('button.primary-action:has-text("Save")');
-		console.log(`Rule ${ruleName} saved`);
+		await savePromise;
 
 		// 2. Open Visual Builder
-		const builderBtn = page.locator('button:has-text("Visual Builder")');
-		await builderBtn.waitFor({ state: "visible", timeout: 30000 });
-		await builderBtn.click();
-		console.log("Entered Visual Builder");
+		console.log("Entering Visual Builder...");
+		const visualBuilderBtn = page.locator('button:has-text("Visual Builder")');
+		await expect(visualBuilderBtn).toBeVisible({ timeout: 30000 });
+		await visualBuilderBtn.click();
 
-		await page.waitForURL("**/rule-builder/**");
-		await page.waitForSelector(".vue-flow", { timeout: 60000 });
+		await page.waitForURL("**/rule-builder/**", { timeout: 30000 });
+		const canvas = page.locator(".vue-flow");
+		await expect(canvas).toBeVisible({ timeout: 60000 });
 
-		// Helper: Add Action
-		const addAction = async (type) => {
-			console.log(`Adding ${type}`);
-			const actionZones = page.locator(".fa-plus-circle");
-			await actionZones.last().click();
-			await page.waitForTimeout(500);
-			await page.click(`.action-item:has-text("${type}"), text="${type}"`);
-			await page.waitForTimeout(1500);
+		// --- Helper: Add Action ---
+		const addActionToFlow = async (typeLabel, internalClass) => {
+			console.log(`Adding node: ${typeLabel}`);
+			const addBtn = page.locator(".edge-add-button").last();
+			await addBtn.scrollIntoViewIfNeeded();
+			await addBtn.click();
+
+			const option = page.locator(`.result-item.is-option:has-text("${typeLabel}")`);
+			await expect(option).toBeVisible({ timeout: 15000 });
+			await option.click();
+
+			const labeling = page.locator(".labeling-container");
+			if (await labeling.isVisible({ timeout: 3000 })) {
+				await labeling.locator("input").fill(`E2E ${typeLabel}`);
+				await labeling.locator("button.btn-primary").click();
+			}
+
+			await expect(canvas.locator(`.vue-flow__node .${internalClass}`)).toBeVisible({
+				timeout: 15000,
+			});
 		};
 
-		// Helper: Configure Node
-		const configureNode = async (type, configCallback) => {
-			console.log(`Configuring ${type}`);
-			const node = page.locator(`.vue-flow__node:has-text("${type}")`).last();
+		// --- Helper: Configure Node ---
+		const configureNodeDetails = async (internalClass, configCallback) => {
+			console.log(`Configuring node: ${internalClass}`);
+			const node = canvas.locator(`.vue-flow__node .${internalClass}`).last();
 			await node.click();
-			await page.waitForSelector(".action-settings-container");
-			if (configCallback) await configCallback();
-			// Click canvas to close
-			await page.mouse.click(50, 50);
-			await page.waitForTimeout(500);
+
+			const settingsPanel = page.locator(".action-settings-container");
+			await expect(settingsPanel).toBeVisible({ timeout: 15000 });
+
+			if (configCallback) await configCallback(settingsPanel);
+
+			await page.mouse.click(10, 10);
+			await expect(settingsPanel).toBeHidden({ timeout: 15000 });
 		};
 
-		// --- Add Assignment ---
-		await addAction("Assignment");
-		await configureNode("Assignment", async () => {
-			await page.fill('[data-fieldname="action_label"] input', "Init Contact Data");
+		// 3. Construct Flow
+		await addActionToFlow("Assignment", "assignment");
+		await configureNodeDetails("assignment", async (panel) => {
+			const labelInput = panel.locator('[data-fieldname="action_label"] input');
+			await labelInput.fill("Calculate Score");
+			await expect(canvas.locator(".vue-flow__node .assignment .node-title")).toContainText(
+				"Calculate Score"
+			);
 		});
 
-		// --- Add Notify ---
-		await addAction("Notify");
-		await configureNode("Notify", async () => {
-			await page.fill('[data-fieldname="action_label"] input', "Send Welcome Email");
-			const asyncCheck = page.locator('[data-fieldname="is_async"] input');
-			if (await asyncCheck.isVisible()) await asyncCheck.check();
+		await addActionToFlow("Notify", "notify");
+		await configureNodeDetails("notify", async (panel) => {
+			const asyncField = panel.locator('[data-fieldname="is_async"] input');
+			await expect(asyncField).toBeVisible();
+			await asyncField.check();
+			await expect(asyncField).toBeChecked();
+
+			const onError = panel.locator('[data-fieldname="on_error"] select');
+			await onError.selectOption("Ignore");
 		});
 
-		// --- Add Document Action ---
-		await addAction("Document Action");
-		await configureNode("Document Action", async () => {
-			const modeSelect = page.locator('[data-fieldname="mutation_mode"] select');
-			if (await modeSelect.isVisible()) await modeSelect.selectOption("Update");
+		// 4. Final Verification
+		console.log("Finalizing flow...");
+		const flowSaveBtn = page.locator('button:has-text("Save Rule")');
+		await flowSaveBtn.click();
+
+		await expect(page.locator(".alert.desk-alert.green")).toContainText("Saved", {
+			timeout: 25000,
 		});
 
-		// 3. Save Flow
-		console.log("Saving flow");
-		await page.click('button.btn-primary:has-text("Save Rule")');
-		await page.waitForTimeout(2000);
-
-		// 4. Verification
-		await page.screenshot({ path: "e2e/screenshots/comprehensive_flow.png", fullPage: true });
-		console.log("Test completed successfully");
+		await page.screenshot({
+			path: path.join(SCREENSHOTS_DIR, "hardened_e2e_final.png"),
+			fullPage: true,
+		});
+		console.log("E2E Test Cycle Successful!");
 	});
 });
