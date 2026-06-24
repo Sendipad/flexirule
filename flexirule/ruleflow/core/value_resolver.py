@@ -94,11 +94,19 @@ class VariableResolver(CompiledResolver):
 
 
 class DateFormulaResolver(CompiledResolver):
-	def __init__(self, base_type: str, base_field: str | None, offset_value: int, offset_unit: str):
+	def __init__(
+		self,
+		base_type: str,
+		base_field: str | None,
+		offset_value: int,
+		offset_unit: str,
+		offset_sign: str = "+",
+	):
 		self.base_type = base_type
 		self.base_field = base_field
 		self.offset_value = offset_value
 		self.offset_unit = offset_unit
+		self.offset_sign = offset_sign
 
 	def resolve(self, context: dict) -> Any:
 		if self.base_type == "today":
@@ -110,6 +118,9 @@ class DateFormulaResolver(CompiledResolver):
 			return None
 
 		offset = int(self.offset_value or 0)
+		if self.offset_sign == "-" and offset > 0:
+			offset = -offset
+
 		if offset == 0 or not self.offset_unit:
 			return base_date
 
@@ -482,6 +493,7 @@ class ValueResolver:
 				base_field=config.get("base_field"),
 				offset_value=config.get("offset_value", 0),
 				offset_unit=config.get("offset_unit", "days"),
+				offset_sign=config.get("offset_sign", "+"),
 			)
 		if kind == "math_formula":
 			return MathFormulaResolver(
