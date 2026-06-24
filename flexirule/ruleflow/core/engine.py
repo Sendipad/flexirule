@@ -48,7 +48,7 @@ from flexirule.ruleflow.utils.schema_validator import (
 )
 
 # Configuration constants
-MAX_SUB_RULE_DEPTH = 2  # Maximum nesting depth for sub-rule calls
+MAX_SUB_RULE_DEPTH = 5  # Maximum nesting depth for sub-rule calls
 
 
 class TimeoutException(Exception):

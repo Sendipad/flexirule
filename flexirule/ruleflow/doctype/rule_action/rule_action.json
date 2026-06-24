@@ -73,7 +73,7 @@
 			"fieldtype": "Select",
 			"in_list_view": 1,
 			"label": "Step Type",
-			"options": "Entry Action\nCondition\nProcess\nStop\nRaise Error\nWait\nSub-Rule\nAssignment\nNotify\nQuery Records\nDocument Action\nLoop",
+			"options": "Entry Action\nCondition\nProcess\nStop\nSwitch\nRaise Error\nWait\nSub-Rule\nAssignment\nNotify\nQuery Records\nDocument Action\nLoop",
 			"reqd": 1
 		},
 		{

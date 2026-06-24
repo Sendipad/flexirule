@@ -241,6 +241,32 @@ export function convertSegmentsToHtml(segments, variableOptions = []) {
 
 				process(seg.then_segments || []);
 
+				if (seg.elif_branches && seg.elif_branches.length > 0) {
+					seg.elif_branches.forEach((branch) => {
+						const elifCondStr = serializeCondition(branch.condition);
+						let elifLabel = "";
+						if (branch.condition?.left?.ref) elifLabel = getLabel(branch.condition.left.ref);
+						else if (branch.condition?.conditions?.[0]?.left?.ref)
+							elifLabel = getLabel(branch.condition.conditions[0].left.ref);
+
+						const elifAttrs = {
+							type: "conditional",
+							isStart: false,
+							isElif: true,
+							condition: branch.condition,
+							_raw_expr: elifCondStr,
+							label: elifLabel,
+							_key: seg._key,
+						};
+						htmlParts.push(
+							`<span data-type="logic" class="tg-badge tg-badge-elif" data-logic-type='${encodeData(
+								elifAttrs
+							)}'>ELIF</span>`
+						);
+						process(branch.segments || []);
+					});
+				}
+
 				if (seg.else_segments && seg.else_segments.length > 0) {
 					const elseAttrs = {
 						type: "conditional",

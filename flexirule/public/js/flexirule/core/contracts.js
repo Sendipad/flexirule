@@ -99,7 +99,8 @@ const DEFAULT_ACTION_TYPE_CONTRACT = {
 		},
 		node_type: "stop",
 		category: "Control Flow",
-		configurable: false,
+		configurable: true,
+		config_component: "StopConfig",
 	},
 	Switch: {
 		required_fields: ["config"],
@@ -307,7 +308,7 @@ const DEFAULT_TRIGGER_TYPE_CONTRACT = {
 	},
 };
 
-const DEFAULT_RELEASE_DISABLED_ACTION_TYPES = ["Switch"];
+const DEFAULT_RELEASE_DISABLED_ACTION_TYPES = [];
 const DEFAULT_RETURN_TYPE_OPTIONS = [
 	"Yes / No",
 	"Single Record",

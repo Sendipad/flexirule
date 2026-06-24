@@ -120,7 +120,8 @@ ACTION_TYPE_CONTRACT: dict[str, dict[str, Any]] = {
 		"field_labels": {"operation": "Terminal Mode"},
 		"node_type": "stop",
 		"category": "Control Flow",
-		"configurable": False,
+		"configurable": True,
+		"config_component": "StopConfig",
 	},
 	"Switch": {
 		"required_fields": ["config"],  # config must have cases
