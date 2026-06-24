@@ -23,3 +23,11 @@ class ActionType(Document):
 	def validate(self):
 		if not frappe.flags.in_install and not frappe.flags.in_migrate:
 			frappe.throw(_("Action Types are managed automatically by FlexiRule."))
+
+	def before_rename(self, old, new, merge=False):
+		if not frappe.flags.in_install and not frappe.flags.in_migrate:
+			frappe.throw(_("Renaming Action Types is not allowed."))
+
+	def on_trash(self):
+		if not frappe.flags.in_install and not frappe.flags.in_migrate:
+			frappe.throw(_("Deleting Action Types is not allowed."))
