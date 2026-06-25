@@ -574,11 +574,23 @@ def get_contract_dto():
 	process_operation_registry_v2 = get_process_operation_registry_v2(process_registry)
 	operation_registry = build_operation_registry(process_registry, process_operation_policies)
 
+	# Fetch full Action Type records for registry mapping
+	action_types = frappe.get_all("Action Type", fields=["name", "category", "is_multi_mode", "description"])
+	action_type_map = {
+		at.name: {
+			"category": at.category,
+			"is_multi_mode": at.is_multi_mode,
+			"description": at.description,
+		}
+		for at in action_types
+	}
+
 	payload = {
 		**contracts,
 		"process_registry": process_registry,
 		"operation_registry": operation_registry,
 		"process_operation_registry_v2": process_operation_registry_v2,
+		"action_type_map": action_type_map,
 	}
 	payload["contract_version_hash"] = hashlib.sha256(
 		json.dumps(payload, sort_keys=True, default=str).encode("utf-8")

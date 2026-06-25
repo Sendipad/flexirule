@@ -398,6 +398,7 @@ const DEFAULT_FEATURE_FLAGS = {
 };
 
 export let ACTION_TYPE_CONTRACT = withDescriptions(DEFAULT_ACTION_TYPE_CONTRACT);
+export let ACTION_TYPE_MAP = {};
 export let TRIGGER_TYPE_CONTRACT = { ...DEFAULT_TRIGGER_TYPE_CONTRACT };
 export let RELEASE_DISABLED_ACTION_TYPES = new Set(DEFAULT_RELEASE_DISABLED_ACTION_TYPES);
 export let RETURN_TYPE_OPTIONS = [...DEFAULT_RETURN_TYPE_OPTIONS];
@@ -414,7 +415,6 @@ export let PROCESS_OPERATION_REGISTRY_V2 = {};
 export let RUNTIME_FIELD_ALIASES = {};
 
 let _contractsLoaded = false;
-const CONTRACT_CACHE_KEY = "flexirule:contract_dto:v3";
 
 function withDescriptions(contractMap) {
 	const merged = {};
@@ -430,6 +430,10 @@ function withDescriptions(contractMap) {
 function applyContractDto(dto = {}) {
 	if (dto.action_type_contract && typeof dto.action_type_contract === "object") {
 		ACTION_TYPE_CONTRACT = withDescriptions(dto.action_type_contract);
+	}
+
+	if (dto.action_type_map && typeof dto.action_type_map === "object") {
+		ACTION_TYPE_MAP = { ...dto.action_type_map };
 	}
 
 	if (dto.trigger_type_contract && typeof dto.trigger_type_contract === "object") {
@@ -484,48 +488,9 @@ function applyContractDto(dto = {}) {
 	}
 }
 
-function getCachedContractDto() {
-	try {
-		const raw = window.sessionStorage?.getItem(CONTRACT_CACHE_KEY);
-		if (!raw) return null;
-		const parsed = JSON.parse(raw);
-		if (!parsed || typeof parsed !== "object") return null;
-		if (typeof parsed.contract_version_hash !== "string" || !parsed.contract_version_hash) {
-			return null;
-		}
-		return parsed;
-	} catch (_error) {
-		return null;
-	}
-}
-
-function setCachedContractDto(dto) {
-	try {
-		window.sessionStorage?.setItem(CONTRACT_CACHE_KEY, JSON.stringify(dto || {}));
-	} catch (_error) {
-		// Ignore storage failures.
-	}
-}
-
 export async function loadContractsFromBackend(force = false) {
 	if (_contractsLoaded && !force) return;
 	if (!window.frappe?.call) return;
-
-	const bootDto = window.frappe?.boot?.flexirule_contract_dto;
-	if (bootDto && typeof bootDto === "object" && !force) {
-		applyContractDto(bootDto);
-		setCachedContractDto(bootDto);
-		_contractsLoaded = true;
-		return;
-	}
-
-	if (!force) {
-		const cachedDto = getCachedContractDto();
-		if (cachedDto && typeof cachedDto === "object") {
-			applyContractDto(cachedDto);
-			_contractsLoaded = true;
-		}
-	}
 
 	try {
 		const response = await frappe.call({
@@ -533,7 +498,6 @@ export async function loadContractsFromBackend(force = false) {
 		});
 		if (response?.message) {
 			applyContractDto(response.message);
-			setCachedContractDto(response.message);
 			_contractsLoaded = true;
 		}
 	} catch (_error) {
@@ -557,9 +521,6 @@ export async function loadProcessScript(processName) {
 		console.warn(`Failed to load script for process ${processName}`, e);
 	}
 }
-
-// Fire-and-forget canonical sync.
-loadContractsFromBackend();
 
 /**
  * Get contract for an action type with sensible defaults.
@@ -1161,15 +1122,23 @@ export function getNodeStatus(nodeData) {
 }
 
 /**
- * Get all action type options from registry (bootinfo).
+ * Get all action type options from registry (memory).
  */
 export function getActionTypeOptions() {
-	const map = window.frappe?.boot?.action_type_map;
-	if (map && typeof map === "object") {
-		return Object.keys(map).sort();
+	if (
+		ACTION_TYPE_MAP &&
+		typeof ACTION_TYPE_MAP === "object" &&
+		Object.keys(ACTION_TYPE_MAP).length
+	) {
+		return Object.keys(ACTION_TYPE_MAP).sort();
 	}
 
-	// Fallback to contract keys if bootinfo not available
+	const bootMap = window.frappe?.boot?.action_type_map;
+	if (bootMap && typeof bootMap === "object") {
+		return Object.keys(bootMap).sort();
+	}
+
+	// Fallback to contract keys if registry not available
 	return Object.keys(ACTION_TYPE_CONTRACT).filter(
 		(actionType) => !RELEASE_DISABLED_ACTION_TYPES.has(actionType)
 	);
