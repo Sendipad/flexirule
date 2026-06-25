@@ -85,3 +85,44 @@ class TestFetchResolver(unittest.TestCase):
 		result = resolver.resolve(self.context)
 		self.assertIsNone(result)
 		mock_get_value.assert_not_called()
+
+	@patch("frappe.db.get_value")
+	def test_fetch_resolver_various_scopes(self, mock_get_value):
+		mock_get_value.return_value = "Resolved"
+
+		scopes = [
+			("vars.link", "vars"),
+			("loop.link", "loop"),
+			("row.link", "row"),
+			("item.link", "item"),
+		]
+
+		for path, scope in scopes:
+			self.context[scope] = {"link": "LINK-001"}
+			val = {
+				"mode": "resolver",
+				"config": {
+					"kind": "fetch",
+					"link_field": path,
+					"fetch_field": "target",
+					"linked_doctype": "TargetDT",
+				},
+			}
+			resolver = ValueResolver.compile(val)
+			result = resolver.resolve(self.context)
+			self.assertEqual(result, "Resolved")
+			mock_get_value.assert_called_with("TargetDT", "LINK-001", "target")
+
+	def test_fetch_resolver_missing_link_field_scope(self):
+		# link_field is None
+		val = {
+			"mode": "resolver",
+			"config": {
+				"kind": "fetch",
+				"link_field": None,
+				"fetch_field": "target",
+				"linked_doctype": "TargetDT",
+			},
+		}
+		resolver = ValueResolver.compile(val)
+		self.assertIsNone(resolver.resolve(self.context))
