@@ -415,6 +415,7 @@ export let PROCESS_OPERATION_REGISTRY_V2 = {};
 export let RUNTIME_FIELD_ALIASES = {};
 
 let _contractsLoaded = false;
+const CONTRACT_CACHE_KEY = "flexirule:contract_dto:v3";
 
 function withDescriptions(contractMap) {
 	const merged = {};
@@ -488,9 +489,48 @@ function applyContractDto(dto = {}) {
 	}
 }
 
+function getCachedContractDto() {
+	try {
+		const raw = window.sessionStorage?.getItem(CONTRACT_CACHE_KEY);
+		if (!raw) return null;
+		const parsed = JSON.parse(raw);
+		if (!parsed || typeof parsed !== "object") return null;
+		if (typeof parsed.contract_version_hash !== "string" || !parsed.contract_version_hash) {
+			return null;
+		}
+		return parsed;
+	} catch (_error) {
+		return null;
+	}
+}
+
+function setCachedContractDto(dto) {
+	try {
+		window.sessionStorage?.setItem(CONTRACT_CACHE_KEY, JSON.stringify(dto || {}));
+	} catch (_error) {
+		// Ignore storage failures.
+	}
+}
+
 export async function loadContractsFromBackend(force = false) {
 	if (_contractsLoaded && !force) return;
 	if (!window.frappe?.call) return;
+
+	const bootDto = window.frappe?.boot?.flexirule_contract_dto;
+	if (bootDto && typeof bootDto === "object" && !force) {
+		applyContractDto(bootDto);
+		setCachedContractDto(bootDto);
+		_contractsLoaded = true;
+		return;
+	}
+
+	if (!force) {
+		const cachedDto = getCachedContractDto();
+		if (cachedDto && typeof cachedDto === "object") {
+			applyContractDto(cachedDto);
+			_contractsLoaded = true;
+		}
+	}
 
 	try {
 		const response = await frappe.call({
@@ -498,6 +538,7 @@ export async function loadContractsFromBackend(force = false) {
 		});
 		if (response?.message) {
 			applyContractDto(response.message);
+			setCachedContractDto(response.message);
 			_contractsLoaded = true;
 		}
 	} catch (_error) {
