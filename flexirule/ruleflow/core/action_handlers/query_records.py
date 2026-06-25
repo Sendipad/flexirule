@@ -308,7 +308,10 @@ class QueryRecordsHandler(ActionHandler):
 				for key, val in value.items()
 			}
 		if isinstance(value, list):
-			return [self._resolve_value_expression_with_context(v, context, ref_label, action) for v in value]
+			return [
+				self._resolve_value_expression_with_context(v, context, f"{ref_label}[{i}]", action)
+				for i, v in enumerate(value)
+			]
 		if isinstance(value, str) and "{" in value:
 			if value.startswith("{") and value.endswith("}") and value.count("{") == 1:
 				inner_expr = value[1 : len(value) - 1]
@@ -354,7 +357,7 @@ class QueryRecordsHandler(ActionHandler):
 			if "mode" in filters:
 				return self._resolve_value_expression_with_context(filters, context, ref_label, action)
 			return {
-				key: self._resolve_value_expression_with_context(value, context, f"{ref_label}.{key}", action)
+				key: self._resolve_filters_with_context(value, context, f"{ref_label}.{key}", action)
 				for key, value in filters.items()
 			}
 		return self._resolve_value_expression_with_context(filters, context, ref_label, action)
@@ -363,10 +366,10 @@ class QueryRecordsHandler(ActionHandler):
 		"""Resolve and normalize both filters and or_filters with one shared path."""
 		action_label = getattr(action, "label", None) or getattr(action, "action_id", None) or "Query Records"
 		filters = self._resolve_filters_with_context(
-			config.get("filters", {}), context, f"{action_label}.filters", action
+			config.get("filters"), context, f"{action_label}.filters", action
 		)
 		filters = self._normalize_filters_for_backend(filters)
-		or_filters = config.get("or_filters", {})
+		or_filters = config.get("or_filters")
 		if or_filters:
 			or_filters = self._resolve_filters_with_context(
 				or_filters, context, f"{action_label}.or_filters", action
