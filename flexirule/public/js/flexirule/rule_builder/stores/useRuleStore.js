@@ -10,7 +10,7 @@
  */
 import { defineStore } from "pinia";
 import { ref, computed, nextTick } from "vue";
-import { normalizeActionType } from "../../core/contracts";
+import { normalizeActionType, loadContractsFromBackend } from "../../core/contracts";
 import { getConditionPayload } from "../utils/condition_payload";
 import { deepClone } from "../utils/serialization";
 
@@ -84,6 +84,10 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		if (is_loading.value) return;
 		is_loading.value = true;
 		uiStore.is_initializing = true;
+
+		// Load Contracts (Action Types, etc) from backend
+		await loadContractsFromBackend();
+
 		// Fetch Settings
 		try {
 			const res = await frappe.call({

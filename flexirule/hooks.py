@@ -143,7 +143,6 @@ app_include_css = [
 
 # before_install = "flexirule.install.before_install"
 after_install = "flexirule.install.after_install"
-extend_bootinfo = "flexirule.ruleflow.boot.extend_bootinfo"
 after_migrate = [
 	"flexirule.ruleflow.core.process_sync.sync_all_processes",
 	"flexirule.ruleflow.utils.action_type_registry.seed_default_action_types",
