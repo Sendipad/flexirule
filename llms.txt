@@ -5,7 +5,7 @@
 Base URL: https://sendipad.github.io/flexirule/
 Application repository: https://github.com/Sendipad/flexirule
 Documentation repository: https://github.com/Sendipad/flexirule-docs
-Generated: 2026-06-27
+Generated: 2026-06-28
 
 ## Core documentation
 
