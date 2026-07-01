@@ -1489,7 +1489,7 @@ class Rule(Document):
 				).format(action.action_label, target_rule.name)
 			)
 
-		if not target_rule.is_active:
+		if self.is_active and not target_rule.is_active:
 			frappe.throw(
 				_("Action '{0}' must target an active rule. Activate '{1}' first.").format(
 					action.action_label, target_rule.name
