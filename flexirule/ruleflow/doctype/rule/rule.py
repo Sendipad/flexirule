@@ -123,6 +123,8 @@ class Rule(Document):
 		self.validate_active_rule_lock()
 		self.validate_priority_callable()
 		self.set_callable_permissions()
+		self.validate_deactivation_safety()
+		self.validate_activation_safety()
 
 	# Removed status computation for lifecycle_state
 
@@ -149,6 +151,8 @@ class Rule(Document):
 			self._initialize_default_graph()
 		if self.is_new() and not self.version:
 			self.version = 1
+		if not self.get("base_rule_name") and self.rule_name:
+			self.set("base_rule_name", re.sub(r"_v\d+$", "", self.rule_name))
 
 	def is_exposed_as_subrule(self):
 		"""Return whether the rule is allowed to be targeted by Sub-Rule actions."""
@@ -181,7 +185,9 @@ class Rule(Document):
 
 		pass
 
-	def validate_trigger_alignment(self, rule_doc=None, visited_rules=None, is_after_event_context=None):
+	def validate_trigger_alignment(
+		self, rule_doc=None, visited_rules=None, is_after_event_context=None, target_rule_override=None
+	):
 		"""
 		Ensure document-editing actions are only present in 'Before' triggers.
 		Recursively checks sub-rules.
@@ -262,8 +268,19 @@ class Rule(Document):
 
 			# Recursive check for Sub-Rules
 			if action.action_type == "Sub-Rule" and action.rule:
-				sub_rule = frappe.get_doc("Rule", action.rule)
-				self.validate_trigger_alignment(sub_rule, visited_rules, effective_after_event)
+				if target_rule_override and (
+					target_rule_override.base_rule_name == action.rule
+					or target_rule_override.name == action.rule
+				):
+					sub_rule = target_rule_override
+				else:
+					target_rule_name = (
+						frappe.db.get_value("Rule", {"base_rule_name": action.rule}) or action.rule
+					)
+					sub_rule = frappe.get_doc("Rule", target_rule_name)
+				self.validate_trigger_alignment(
+					sub_rule, visited_rules, effective_after_event, target_rule_override=target_rule_override
+				)
 
 	def validate_active_rule_lock(self):
 		"""
@@ -1458,20 +1475,26 @@ class Rule(Document):
 					).format(action.action_label, target_field)
 				)
 
-	def validate_sub_rule_target(self, action):
+	def validate_sub_rule_target(self, action, target_rule_override=None):
 		"""Validate that a Sub-Rule action targets a compatible callable rule."""
 		if not action.rule:
 			return
 
-		if action.rule == self.name:
+		if action.rule == self.name or action.rule == getattr(self, "base_rule_name", None):
 			frappe.throw(
 				_("Action '{0}' cannot reference its own Rule as Sub-Rule.").format(action.action_label)
 			)
 
-		if not frappe.db.exists("Rule", action.rule):
-			frappe.throw(_("Action '{0}' references a missing Rule.").format(action.action_label))
+		if target_rule_override and (
+			target_rule_override.base_rule_name == action.rule or target_rule_override.name == action.rule
+		):
+			target_rule = target_rule_override
+		else:
+			target_rule_name = frappe.db.get_value("Rule", {"base_rule_name": action.rule}) or action.rule
+			if not frappe.db.exists("Rule", target_rule_name):
+				frappe.throw(_("Action '{0}' references a missing Rule.").format(action.action_label))
+			target_rule = frappe.get_cached_doc("Rule", target_rule_name)
 
-		target_rule = frappe.get_cached_doc("Rule", action.rule)
 		if hasattr(target_rule, "normalize_sub_rule_exposure_flag"):
 			target_rule.normalize_sub_rule_exposure_flag()
 
@@ -1489,7 +1512,10 @@ class Rule(Document):
 				).format(action.action_label, target_rule.name)
 			)
 
-		if self.is_active and not target_rule.is_active:
+		is_target_active = target_rule.is_active or (
+			target_rule_override and target_rule.name == target_rule_override.name
+		)
+		if self.is_active and not is_target_active:
 			frappe.throw(
 				_("Action '{0}' must target an active rule. Activate '{1}' first.").format(
 					action.action_label, target_rule.name
@@ -1528,14 +1554,19 @@ class Rule(Document):
 		)
 
 		# Build in-memory adjacency map: parent_rule → {child_rule, ...}
+		# Normalize all parents and children to logical base names for cycle detection
 		adjacency: dict[str, set[str]] = {}
 		for edge in all_edges:
 			if edge.parent and edge.rule:
-				adjacency.setdefault(edge.parent, set()).add(edge.rule)
+				logical_parent = re.sub(r"_v\d+$", "", edge.parent)
+				logical_child = re.sub(r"_v\d+$", "", edge.rule)
+				adjacency.setdefault(logical_parent, set()).add(logical_child)
 
 		# Include this rule's own (possibly unsaved) sub-rule edges
-		current_rule_name = self.name or self.rule_name or _("(unsaved rule)")
-		adjacency[current_rule_name] = sub_rules
+		current_rule_logical = re.sub(r"_v\d+$", "", self.name or self.rule_name or "")
+		if current_rule_logical:
+			logical_sub_rules = {re.sub(r"_v\d+$", "", r) for r in sub_rules if r}
+			adjacency[current_rule_logical] = logical_sub_rules
 
 		# DFS with path tracking — zero additional DB queries
 		max_depth = 200  # Depth guard against Python RecursionError
@@ -1567,11 +1598,12 @@ class Rule(Document):
 
 		# Start DFS from this rule
 		globally_visited: set[str] = set()
-		initial_path = [current_rule_name]
+		initial_path = [current_rule_logical]
 
 		for sub_rule in sub_rules:
 			if sub_rule:
-				cycle = dfs_detect_cycle(sub_rule, initial_path.copy(), globally_visited)
+				logical_sub_rule = re.sub(r"_v\d+$", "", sub_rule)
+				cycle = dfs_detect_cycle(logical_sub_rule, initial_path.copy(), globally_visited)
 				if cycle:
 					frappe.throw(_("Cycle detected in sub-rule graph: {0}").format(cycle))
 
@@ -1697,27 +1729,139 @@ class Rule(Document):
 		if self.is_active:
 			validate_graph_integrity(self)
 
+	def validate_deactivation_safety(self):
+		"""
+		Ensure that we don't deactivate a sub-rule that active rules depend on,
+		unless another version of it is active.
+		"""
+		if self.is_new():
+			return
+
+		if frappe.flags.in_test and not self.flags.run_deactivation_safety_in_test:
+			return
+
+		old_doc = self.get_doc_before_save()
+		if not old_doc:
+			return
+
+		# If transitioning from Active to Inactive
+		if old_doc.is_active and not self.is_active:
+			# Check if there are other active versions
+			other_active_versions = frappe.get_all(
+				"Rule",
+				filters={"base_rule_name": self.base_rule_name, "is_active": 1, "name": ["!=", self.name]},
+				limit=1,
+			)
+			if not other_active_versions:
+				# This is the last active version of this sub-rule. Check active parents.
+				refs = frappe.get_all(
+					"Rule Action",
+					filters={"action_type": "Sub-Rule", "rule": self.base_rule_name},
+					fields=["parent"],
+				)
+				if refs:
+					active_parents = []
+					for r in refs:
+						# If the parent is active and not this rule itself
+						if r.parent != self.name and frappe.db.get_value("Rule", r.parent, "is_active"):
+							active_parents.append(r.parent)
+					if active_parents:
+						names = ", ".join(active_parents[:5])
+						frappe.throw(
+							_(
+								"Cannot deactivate Rule '{0}': it is referenced by active parent rules: {1}"
+							).format(self.name, names)
+						)
+
+	def validate_activation_safety(self):
+		"""
+		When activating a Callable Event rule (sub-rule), ensure all active parent rules
+		remain valid under the new version's schema/interface.
+		"""
+		if not self.is_active:
+			return
+
+		if frappe.flags.in_test and not self.flags.run_activation_safety_in_test:
+			return
+
+		# Only validate sub-rules
+		if self.trigger_type != "Callable Event" or not self.exposed_as_subrule:
+			return
+
+		old_doc = self.get_doc_before_save()
+		# Only check if transitioning to active
+		if old_doc and old_doc.is_active:
+			return
+
+		# Find all active parent rules that call this sub-rule logical name
+		parent_actions = frappe.get_all(
+			"Rule Action", filters={"action_type": "Sub-Rule", "rule": self.base_rule_name}, fields=["parent"]
+		)
+
+		if not parent_actions:
+			return
+
+		parent_names = sorted(list({pa.parent for pa in parent_actions if pa.parent}))
+
+		from flexirule.ruleflow.core.validation_service import validate_rule_definition
+
+		for parent_name in parent_names:
+			if parent_name == self.name:
+				continue
+
+			try:
+				parent_doc = frappe.get_doc("Rule", parent_name)
+			except Exception:
+				continue
+
+			# Only check if parent is active
+			if not parent_doc.is_active:
+				continue
+
+			# Run validation on the active parent with the current rule as target_rule_override
+			result = validate_rule_definition(parent_doc, mode="full", target_rule_override=self)
+			if not result.get("valid"):
+				errors = "<br>".join(result.get("errors", []))
+				frappe.throw(
+					_(
+						"Cannot activate Sub-Rule '{0}': active parent rule '{1}' would become invalid:<br>{2}"
+					).format(self.name, parent_name, errors)
+				)
+
 	def on_trash(self):
 		"""
 		Cleanup when a rule is deleted:
-		1. Block if referenced as sub-rule by another rule
+		1. Block if referenced as sub-rule by another active parent rule (unless other active version exists)
 		2. Delete linked Rule Scheduler records
 		3. Clear rule cache
 		"""
 		from flexirule.ruleflow.core.coordinator import RuleCoordinator
 
-		# 1. Block if referenced as sub-rule
-		refs = frappe.get_all(
-			"Rule Action",
-			filters={"action_type": "Sub-Rule", "rule": self.name},
-			fields=["parent"],
-			limit=5,
+		# 1. Block if referenced as sub-rule and this is the only active version, or if deleting the whole lineage
+		other_active_versions = frappe.get_all(
+			"Rule",
+			filters={"base_rule_name": self.base_rule_name, "is_active": 1, "name": ["!=", self.name]},
+			limit=1,
 		)
-		if refs:
-			names = ", ".join([r.parent for r in refs])
-			frappe.throw(
-				_("Cannot delete Rule '{0}': referenced as sub-rule by {1}").format(self.name, names)
+		if not other_active_versions:
+			refs = frappe.get_all(
+				"Rule Action",
+				filters={"action_type": "Sub-Rule", "rule": self.base_rule_name},
+				fields=["parent"],
+				limit=5,
 			)
+			if refs:
+				active_parents = []
+				for r in refs:
+					if frappe.db.get_value("Rule", r.parent, "is_active"):
+						active_parents.append(r.parent)
+				if active_parents:
+					names = ", ".join(active_parents[:5])
+					frappe.throw(
+						_("Cannot delete Rule '{0}': referenced as sub-rule by active rules: {1}").format(
+							self.name, names
+						)
+					)
 
 		# 2. Delete linked schedulers
 		for s in frappe.get_all("Rule Scheduler", filters={"rule": self.name}, pluck="name"):

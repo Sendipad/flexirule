@@ -9,6 +9,7 @@ and cycle detection.
 """
 
 import json
+import re
 
 import frappe
 from frappe import _
@@ -111,10 +112,26 @@ class SubRuleHandler(ActionHandler):
 				engine._log("WARNING", _("Sub-Rule action missing rule reference"))
 				return None, getattr(action, "next_step_if_true", None)
 
-			if not frappe.db.exists("Rule", sub_rule_name):
-				raise MethodExecutionError(_("Sub-Rule {0} not found").format(sub_rule_name))
+			# Resolve active version of the logical name
+			from flexirule.ruleflow.core.coordinator import RuleCoordinator
 
-			sub_rule_doc = frappe.get_cached_doc("Rule", sub_rule_name)
+			registry = RuleCoordinator.get_runtime_registry()
+			resolved_name = registry.get("active_sub_rules", {}).get(sub_rule_name)
+
+			if not resolved_name:
+				# Fallback 1: check if the name is already versioned and active (backward compatibility)
+				if frappe.db.exists("Rule", {"name": sub_rule_name, "is_active": 1}):
+					resolved_name = sub_rule_name
+				else:
+					# Fallback 2: query database for active version with this base name
+					resolved_name = frappe.db.get_value(
+						"Rule", {"base_rule_name": sub_rule_name, "is_active": 1}, "name"
+					)
+
+			if not resolved_name:
+				raise MethodExecutionError(_("Sub-Rule {0} not found or is not active").format(sub_rule_name))
+
+			sub_rule_doc = frappe.get_cached_doc("Rule", resolved_name)
 
 			if sub_rule_doc.trigger_type != "Callable Event":
 				raise MethodExecutionError(
@@ -129,10 +146,13 @@ class SubRuleHandler(ActionHandler):
 			if not sub_rule_doc.is_active:
 				raise MethodExecutionError(_("Sub-Rule {0} is not active").format(sub_rule_name))
 
-			# Cross-rule cycle detection
+			# Cross-rule cycle detection using logical base name
+			caller_base_name = getattr(engine.rule, "base_rule_name", None) or re.sub(
+				r"_v\d+$", "", engine.rule.name
+			)
 			execution_stack = context.get("meta", {}).get("execution_stack", [])
-			if sub_rule_name in execution_stack:
-				cycle_path = " → ".join([*execution_stack, sub_rule_name])
+			if sub_rule_name in execution_stack or caller_base_name == sub_rule_name:
+				cycle_path = " → ".join([*execution_stack, caller_base_name, sub_rule_name])
 				raise CycleDetectedError(_("Cross-rule cycle detected: {0}").format(cycle_path))
 
 			# Determine bypass flags
@@ -218,7 +238,10 @@ class SubRuleHandler(ActionHandler):
 			sub_context["vars"] = SubRuleVarsOverlay(context.get("vars", {}))
 			sub_context["meta"] = context.get("meta", {}).copy()
 			sub_context["meta"]["parent_rule"] = engine.rule.name
-			sub_context["meta"]["execution_stack"] = [*execution_stack, engine.rule.name]
+			caller_base_name = getattr(engine.rule, "base_rule_name", None) or re.sub(
+				r"_v\d+$", "", engine.rule.name
+			)
+			sub_context["meta"]["execution_stack"] = [*execution_stack, caller_base_name]
 
 			# Check depth limit
 			current_depth = sub_context["meta"].get("call_depth", 0)

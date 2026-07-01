@@ -1260,6 +1260,22 @@ def transition_rule(rule_name: str, target_status: str):
 				frappe.ValidationError,
 			)
 
+		# Deactivate previous active version of the same logical rule
+		if rule.base_rule_name:
+			prev_active = frappe.get_all(
+				"Rule",
+				filters={
+					"base_rule_name": rule.base_rule_name,
+					"is_active": 1,
+					"name": ["!=", rule.name],
+				},
+				pluck="name",
+			)
+			for prev_name in prev_active:
+				frappe.db.set_value(
+					"Rule", prev_name, {"is_active": 0, "status": "Disabled"}, update_modified=False
+				)
+
 	rule.status = target_status
 	rule.is_active = 1 if target_status == "Active" else 0
 	rule.save(ignore_permissions=True)

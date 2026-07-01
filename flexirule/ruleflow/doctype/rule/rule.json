@@ -10,6 +10,8 @@
 		"exposed_as_subrule",
 		"priority",
 		"version",
+		"base_rule_name",
+		"previous_version",
 		"status",
 		"column_break_1",
 		"trigger_type",
@@ -89,6 +91,23 @@
 			"fieldtype": "Int",
 			"label": "Version",
 			"no_copy": 1,
+			"read_only": 1
+		},
+		{
+			"fieldname": "base_rule_name",
+			"fieldtype": "Data",
+			"in_list_view": 1,
+			"label": "Base Rule Name",
+			"no_copy": 1,
+			"read_only": 1,
+			"search_index": 1
+		},
+		{
+			"fieldname": "previous_version",
+			"fieldtype": "Link",
+			"label": "Previous Version",
+			"no_copy": 1,
+			"options": "Rule",
 			"read_only": 1
 		},
 		{

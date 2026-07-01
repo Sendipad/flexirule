@@ -254,6 +254,20 @@ class RuleCoordinator:
 			rules_index[rule_name] = spec
 			event_map.setdefault(doctype, {}).setdefault(event, []).append(rule_name)
 
+		# Fetch all active rules logical name mapping
+		active_logical_rules = frappe.get_all(
+			"Rule",
+			filters={"is_active": 1},
+			fields=["name", "base_rule_name"],
+		)
+		active_sub_rules: dict[str, str] = {}
+		for r in active_logical_rules:
+			base_name = r.get("base_rule_name")
+			if base_name:
+				active_sub_rules[base_name] = r.get("name")
+
+		registry["active_sub_rules"] = active_sub_rules
+
 		return registry
 
 	@staticmethod
@@ -718,22 +732,12 @@ class RuleCoordinator:
 	def should_rebuild_registry_for_rule_change(rule_doc: Any, method: str | None = None) -> bool:
 		"""
 		Decide whether compiled runtime registry must be rebuilt.
-		Rebuild only for active/route-relevant DocType Event rule lifecycle changes.
+		Rebuild for any active-state, naming, or lifecycle transitions.
 		"""
 		method = method or ""
 
-		if method == "on_trash":
-			return bool(
-				rule_doc.get("trigger_type") == "DocType Event"
-				and RuleCoordinator._is_active_value(rule_doc.get("is_active"))
-			)
-
-		# Inserted active doc-event rules must be discoverable immediately.
-		if method == "after_insert":
-			return bool(
-				rule_doc.get("trigger_type") == "DocType Event"
-				and RuleCoordinator._is_active_value(rule_doc.get("is_active"))
-			)
+		if method in ("on_trash", "after_insert"):
+			return True
 
 		# Updates: compare previous state and current state.
 		try:
@@ -742,25 +746,17 @@ class RuleCoordinator:
 			old_doc = None
 
 		if not old_doc:
-			return bool(
-				rule_doc.get("trigger_type") == "DocType Event"
-				and RuleCoordinator._is_active_value(rule_doc.get("is_active"))
-			)
-
-		old_is_doc_event = old_doc.get("trigger_type") == "DocType Event"
-		new_is_doc_event = rule_doc.get("trigger_type") == "DocType Event"
-		old_active = RuleCoordinator._is_active_value(old_doc.get("is_active"))
-		new_active = RuleCoordinator._is_active_value(rule_doc.get("is_active"))
-
-		# If both old and new are outside active DocType Event runtime, skip rebuild.
-		if not (old_is_doc_event and old_active) and not (new_is_doc_event and new_active):
-			return False
-
-		# Trigger on active-state transitions.
-		if old_active != new_active or old_is_doc_event != new_is_doc_event:
 			return True
 
-		# While active in runtime, rebuild if runtime signature changed.
+		# Rebuild if active state, status, name, base name, or runtime signature changed.
+		if (
+			old_doc.get("is_active") != rule_doc.get("is_active")
+			or old_doc.get("status") != rule_doc.get("status")
+			or old_doc.get("rule_name") != rule_doc.get("rule_name")
+			or old_doc.get("base_rule_name") != rule_doc.get("base_rule_name")
+		):
+			return True
+
 		for fieldname in RuleCoordinator.RUNTIME_SIGNATURE_FIELDS:
 			if old_doc.get(fieldname) != rule_doc.get(fieldname):
 				return True

@@ -43,7 +43,7 @@ from flexirule.ruleflow.utils.graph_validator import validate_graph_integrity
 VALIDATION_MODES = {"full", "draft", "node"}
 
 
-def validate_rule_definition(rule_doc, mode="full") -> dict:
+def validate_rule_definition(rule_doc, mode="full", target_rule_override=None) -> dict:
 	"""Validate rule payload/doc and return structured errors/warnings.
 
 	Args:
@@ -52,6 +52,7 @@ def validate_rule_definition(rule_doc, mode="full") -> dict:
 	        - 'full':  Complete validation for activation
 	        - 'draft': Relaxed validation for building (skips activation checks)
 	        - 'node':  Single-action validation (requires action_id in rule_doc)
+	    target_rule_override: Override sub-rule document for validation compatibility checks
 	"""
 	if mode not in VALIDATION_MODES:
 		mode = "full"
@@ -96,7 +97,15 @@ def validate_rule_definition(rule_doc, mode="full") -> dict:
 			errors,
 			mode=mode,
 		)
-		_validate_action_specifics(rule, action, action_type, action_label, warnings, errors)
+		_validate_action_specifics(
+			rule,
+			action,
+			action_type,
+			action_label,
+			warnings,
+			errors,
+			target_rule_override=target_rule_override,
+		)
 
 		handler = HandlerRegistry.get(action_type)
 		if handler:
@@ -133,7 +142,9 @@ def validate_rule_definition(rule_doc, mode="full") -> dict:
 			errors.append(_("Active Rule must have exactly one Entry Action (Start) node."))
 
 		if hasattr(rule, "validate_trigger_alignment"):
-			_capture_validation(errors, rule.validate_trigger_alignment)
+			_capture_validation(
+				errors, rule.validate_trigger_alignment, target_rule_override=target_rule_override
+			)
 
 	return {"valid": len(errors) == 0, "errors": errors, "warnings": warnings, "mode": mode}
 
@@ -429,6 +440,7 @@ def _validate_action_specifics(
 	action_label: str,
 	warnings: list[str],
 	errors: list[str],
+	target_rule_override=None,
 ) -> None:
 	operation = _safe_get(action, "operation")
 	config = _parse_json_value(_safe_get(action, "config"), {})
@@ -440,9 +452,11 @@ def _validate_action_specifics(
 		errors.append(_("Action '{0}' uses removed mode Query API").format(action_label))
 
 	if action_type == "Sub-Rule":
-		_capture_validation(errors, rule_doc.validate_sub_rule_target, action)
+		_capture_validation(
+			errors, rule_doc.validate_sub_rule_target, action, target_rule_override=target_rule_override
+		)
 		if action.rule:
-			_validate_sub_rule_input_mapping(action, errors)
+			_validate_sub_rule_input_mapping(action, errors, target_rule_override=target_rule_override)
 
 	elif action_type == "Condition":
 		if get_condition_payload(action) is None and _is_empty(_safe_get(action, "compiled_expression")):
@@ -817,7 +831,7 @@ def _is_empty(value) -> bool:
 	return value in (None, "", [])
 
 
-def _validate_sub_rule_input_mapping(action, errors: list[str]) -> None:
+def _validate_sub_rule_input_mapping(action, errors: list[str], target_rule_override=None) -> None:
 	"""
 	Verify that all variables required by the target sub-rule are mapped
 	in the parent action's input_mapping.
@@ -825,10 +839,16 @@ def _validate_sub_rule_input_mapping(action, errors: list[str]) -> None:
 	if not action.rule:
 		return
 
-	try:
-		target_rule = frappe.get_doc("Rule", action.rule)
-	except Exception:
-		return
+	if target_rule_override and (
+		target_rule_override.base_rule_name == action.rule or target_rule_override.name == action.rule
+	):
+		target_rule = target_rule_override
+	else:
+		target_rule_name = frappe.db.get_value("Rule", {"base_rule_name": action.rule}) or action.rule
+		try:
+			target_rule = frappe.get_doc("Rule", target_rule_name)
+		except Exception:
+			return
 
 	required_vars = _get_required_variables_for_rule(target_rule)
 	if not required_vars:

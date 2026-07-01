@@ -48,10 +48,12 @@ def amend_rule(rule_name: str) -> str:
 	new_doc.status = "Draft"
 	new_doc.version = (original.version or 1) + 1
 	new_doc.last_error = None
+	new_doc.previous_version = original.name
 
 	# Build versioned name
 	base_name = _strip_version_suffix(original.rule_name)
 	new_doc.rule_name = f"{base_name}_v{new_doc.version}"
+	new_doc.base_rule_name = base_name
 
 	new_doc.insert(ignore_permissions=True)
 	return new_doc.name
