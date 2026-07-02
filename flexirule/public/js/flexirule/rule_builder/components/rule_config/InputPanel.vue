@@ -492,6 +492,7 @@ const referenceDoctypeField = computed(() => {
 		reqd: state.reqd ? 1 : 0,
 		read_only: Boolean(forcedReferenceDoctype.value),
 		description,
+		...state.override,
 	};
 });
 
@@ -503,28 +504,27 @@ const processNameField = computed(() => ({
 	reqd: (contract.value?.required_fields || []).includes("process_name") ? 1 : 0,
 }));
 
-const ruleField = computed(() => ({
-	fieldname: "rule",
-	fieldtype: "Link",
-	label: __("Sub-Rule"),
-	options: "Rule",
-	reqd: (contract.value?.required_fields || []).includes("rule") ? 1 : 0,
-	get_query: () => {
-		const parentDocType = store.rule_doc?.document_type;
-		const filters = {
-			trigger_type: "Callable Event",
-			exposed_as_subrule: 1,
-			is_active: 1,
-			name: ["!=", store.rule_name || ""],
-		};
-		if (parentDocType) {
-			filters.document_type = ["in", [parentDocType, ""]];
+const ruleField = computed(() => {
+	const state = getDerivedFieldState(
+		props.node.data?.action_type,
+		"rule",
+		props.node?.data || {},
+		store.rule_doc || {},
+		{
+			operation: props.node?.data?.operation,
+			processName: props.node?.data?.process_name,
 		}
-		return {
-			filters,
-		};
-	},
-}));
+	);
+
+	return {
+		fieldname: "rule",
+		fieldtype: "Link",
+		label: getFieldLabel(props.node.data?.action_type, "rule") || __("Sub-Rule"),
+		options: "Rule",
+		reqd: state.reqd ? 1 : 0,
+		...state.override,
+	};
+});
 
 const referenceDocnameField = computed(() => {
 	const actionType = props.node?.data?.action_type;
@@ -547,6 +547,7 @@ const referenceDocnameField = computed(() => {
 			options: "Report",
 			reqd: state.reqd ? 1 : 0,
 			description: __("Select the report to run."),
+			...state.override,
 		};
 	}
 
@@ -564,6 +565,7 @@ const referenceDocnameField = computed(() => {
 			options: refDocType,
 			reqd: state.reqd ? 1 : 0,
 			description: __("Select the {0} record.").replace("{0}", refDocType),
+			...state.override,
 		};
 	}
 
