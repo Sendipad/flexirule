@@ -18,20 +18,7 @@ class RuleAction(Document):
 
 		action_id: DF.Data
 		action_label: DF.Data
-		action_type: DF.Literal[
-			"Entry Action",
-			"Condition",
-			"Process",
-			"Stop",
-			"Raise Error",
-			"Wait",
-			"Sub-Rule",
-			"Assignment",
-			"Notify",
-			"Query Records",
-			"Document Action",
-			"Loop",
-		]
+		action_type: DF.Link
 		compiled_expression: DF.Code | None
 		condition_json: DF.Code | None
 		config: DF.Code | None

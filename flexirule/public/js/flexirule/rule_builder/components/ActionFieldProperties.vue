@@ -66,28 +66,7 @@ const doc_fields = computed(() => {
 				  })
 				: null;
 			resolved = getPolicyField(resolved.fieldname, resolved);
-			// Inject get_query for Sub-Rule reference
-			if (resolved.fieldname === "rule" && actionType === "Sub-Rule") {
-				return {
-					...resolved,
-					label: policyLabel ? __(policyLabel) : resolved.label,
-					get_query: () => {
-						const parentDocType = store.rule_doc?.document_type;
-						const filters = {
-							trigger_type: "Callable Event",
-							exposed_as_subrule: 1,
-							is_active: 1,
-							name: ["!=", store.rule_name || ""],
-						};
-						if (parentDocType) {
-							filters.document_type = ["in", [parentDocType, ""]];
-						}
-						return {
-							filters,
-						};
-					},
-				};
-			}
+
 			if (policyLabel) {
 				resolved = { ...resolved, label: __(policyLabel) };
 			}
@@ -217,6 +196,21 @@ async function get_autocomplete_options(df) {
 	// Assignment uses doc.* / vars.* target path directly via AssignmentConfig.vue
 
 	return [];
+}
+
+// Get the correct get_query function for ComboBoxControl
+function get_query_for_control(df) {
+	if (df.get_query) return df.get_query;
+
+	if (
+		df.fieldname === "action_type" ||
+		df.fieldname === "operation" ||
+		df.options === "action_id"
+	) {
+		return (txt) => get_autocomplete_options(df);
+	}
+
+	return null;
 }
 
 // Get available action nodes for next step selection
@@ -362,7 +356,7 @@ onMounted(async () => {
 							? nodeData?.[df.options] || ''
 							: df.options || df.target_doctype
 					"
-					:get_query="(txt) => get_autocomplete_options(df)"
+					:get_query="get_query_for_control(df)"
 					:doc="nodeData"
 					:read_only="is_read_only(df)"
 					:showValidation="showValidation"
