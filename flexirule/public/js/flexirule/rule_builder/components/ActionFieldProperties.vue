@@ -213,6 +213,21 @@ async function get_autocomplete_options(df) {
 		return get_action_node_options();
 	}
 
+	// Rule field for Sub-Rule action - use base_rule_name for logical identity
+	if (df.fieldname === "rule" && props.nodeData?.action_type === "Sub-Rule") {
+		if (!store.available_rules?.length) {
+			await store.fetch_available_rules();
+		}
+		const parentDocType = store.rule_doc?.document_type;
+		return (store.available_rules || [])
+			.filter((r) => !parentDocType || !r.document_type || r.document_type === parentDocType)
+			.map((r) => ({
+				value: r.base_rule_name || r.name,
+				label: r.rule_name || r.name,
+				description: r.name,
+			}));
+	}
+
 	// target_field / variable_name autocomplete (legacy Set Value support removed)
 	// Assignment uses doc.* / vars.* target path directly via AssignmentConfig.vue
 

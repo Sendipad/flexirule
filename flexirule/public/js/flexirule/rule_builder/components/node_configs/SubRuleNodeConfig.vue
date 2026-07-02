@@ -133,8 +133,9 @@ const filteredRules = computed(() => {
 	return rules
 		.filter((r) => {
 			const matchesSearch =
-				r.name.toLowerCase().includes(search) ||
-				(r.rule_name && r.rule_name.toLowerCase().includes(search));
+				(r.name && r.name.toLowerCase().includes(search)) ||
+				(r.rule_name && r.rule_name.toLowerCase().includes(search)) ||
+				(r.base_rule_name && r.base_rule_name.toLowerCase().includes(search));
 
 			if (!matchesSearch) return false;
 
@@ -162,7 +163,10 @@ const filteredRules = computed(() => {
 });
 
 const selectedRuleMetadata = computed(() => {
-	return props.availableRules.find((r) => r.name === props.nodeData?.rule);
+	const val = props.nodeData?.rule;
+	if (!val) return null;
+	// Resolve by base_rule_name (logical identity) or name (legacy/specific)
+	return props.availableRules.find((r) => r.base_rule_name === val || r.name === val);
 });
 
 const compatibilityStatus = ref({ ok: true, message: "" });
@@ -171,7 +175,9 @@ watch(
 	() => props.nodeData?.rule,
 	async (newVal) => {
 		if (newVal) {
-			const r = props.availableRules.find((r) => r.name === newVal);
+			const r = props.availableRules.find(
+				(r) => r.base_rule_name === newVal || r.name === newVal
+			);
 			subRuleSearch.value = r ? r.rule_name || r.name : newVal;
 			await validateCompatibility(r);
 		} else {
@@ -212,7 +218,9 @@ async function validateCompatibility(rule) {
 
 function selectRule(rule) {
 	subRuleSearch.value = rule.rule_name || rule.name;
-	emit("update-field", "rule", rule.name);
+	// Store logical base name if available, else fallback to name
+	const identifier = rule.base_rule_name || rule.name;
+	emit("update-field", "rule", identifier);
 	showSuggestions.value = false;
 	nextTick().then(() => {
 		// Surgical expansion removed per user request
