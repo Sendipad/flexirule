@@ -323,7 +323,9 @@ const {
 } = useAsyncOptionsSource(async ({ query: search, start, pageSize }) => {
 	if (props.get_query) {
 		const rows = await props.get_query(search, props.filters || {});
-		return metaStore.uniqueOptions(metaStore.normalizeLinkRows(rows || []));
+		if (rows !== null) {
+			return metaStore.uniqueOptions(metaStore.normalizeLinkRows(rows || []));
+		}
 	}
 	if (effectiveDoctype.value) {
 		return await metaStore.search_link_options({
