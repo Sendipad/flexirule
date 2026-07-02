@@ -322,8 +322,23 @@ const {
 	reset: resetOptionSource,
 } = useAsyncOptionsSource(async ({ query: search, start, pageSize }) => {
 	if (props.get_query) {
-		const rows = await props.get_query(search, props.filters || {});
-		return metaStore.uniqueOptions(metaStore.normalizeLinkRows(rows || []));
+		const result = await props.get_query(search, props.filters || {});
+
+		// Support Frappe-style get_query returning a filter object
+		if (result && typeof result === "object" && !Array.isArray(result) && result.filters) {
+			const targetDoctype = props.doctype || props.df?.options || effectiveDoctype.value;
+			if (targetDoctype) {
+				return await metaStore.search_link_options({
+					doctype: targetDoctype,
+					txt: search || "",
+					filters: result.filters || {},
+					start,
+					page_length: pageSize,
+				});
+			}
+		}
+
+		return metaStore.uniqueOptions(metaStore.normalizeLinkRows(result || []));
 	}
 	if (effectiveDoctype.value) {
 		return await metaStore.search_link_options({
