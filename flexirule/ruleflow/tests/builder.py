@@ -17,6 +17,7 @@ class RuleBuilder:
 		self._priority = "10"
 		self._max_execution_time = 30
 		self._trigger_condition = None
+		self._replace_existing = True
 
 	def document_type(self, doctype):
 		self._document_type = doctype
@@ -40,6 +41,10 @@ class RuleBuilder:
 		self._exposed_as_subrule = exposed
 		self._trigger_type = "Callable Event"
 		self._trigger_event = None  # type: ignore[assignment]
+		return self
+
+	def replace_existing(self, replace=True):
+		self._replace_existing = replace
 		return self
 
 	def add_action(self, **kwargs):
@@ -114,7 +119,7 @@ class RuleBuilder:
 
 		setup_test_doctypes()
 
-		if frappe.db.exists("Rule", self.rule_name):
+		if self._replace_existing and frappe.db.exists("Rule", self.rule_name):
 			frappe.delete_doc("Rule", self.rule_name, force=1)
 
 		rule_dict = {

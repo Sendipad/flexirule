@@ -114,19 +114,18 @@ class SubRuleHandler(ActionHandler):
 
 			# Resolve active version of the logical name
 			from flexirule.ruleflow.core.coordinator import RuleCoordinator
+			from flexirule.ruleflow.core.rule_service import resolve_rule_reference
 
 			registry = RuleCoordinator.get_runtime_registry()
 			resolved_name = registry.get("active_sub_rules", {}).get(sub_rule_name)
 
 			if not resolved_name:
-				# Fallback 1: check if the name is already versioned and active (backward compatibility)
-				if frappe.db.exists("Rule", {"name": sub_rule_name, "is_active": 1}):
-					resolved_name = sub_rule_name
-				else:
-					# Fallback 2: query database for active version with this base name
-					resolved_name = frappe.db.get_value(
-						"Rule", {"base_rule_name": sub_rule_name, "is_active": 1}, "name"
-					)
+				resolved_name = resolve_rule_reference(
+					sub_rule_name,
+					active_only=True,
+					callable_only=True,
+					exposed_only=True,
+				)
 
 			if not resolved_name:
 				raise MethodExecutionError(_("Sub-Rule {0} not found or is not active").format(sub_rule_name))
@@ -148,11 +147,14 @@ class SubRuleHandler(ActionHandler):
 
 			# Cross-rule cycle detection using logical base name
 			caller_base_name = getattr(engine.rule, "base_rule_name", None) or re.sub(
-				r"_v\d+$", "", engine.rule.name
+				r"_[vV]\d+$", "", engine.rule.name
+			)
+			target_base_name = getattr(sub_rule_doc, "base_rule_name", None) or re.sub(
+				r"_[vV]\d+$", "", sub_rule_doc.name
 			)
 			execution_stack = context.get("meta", {}).get("execution_stack", [])
-			if sub_rule_name in execution_stack or caller_base_name == sub_rule_name:
-				cycle_path = " → ".join([*execution_stack, caller_base_name, sub_rule_name])
+			if target_base_name in execution_stack or caller_base_name == target_base_name:
+				cycle_path = " → ".join([*execution_stack, caller_base_name, target_base_name])
 				raise CycleDetectedError(_("Cross-rule cycle detected: {0}").format(cycle_path))
 
 			# Determine bypass flags
@@ -239,7 +241,7 @@ class SubRuleHandler(ActionHandler):
 			sub_context["meta"] = context.get("meta", {}).copy()
 			sub_context["meta"]["parent_rule"] = engine.rule.name
 			caller_base_name = getattr(engine.rule, "base_rule_name", None) or re.sub(
-				r"_v\d+$", "", engine.rule.name
+				r"_[vV]\d+$", "", engine.rule.name
 			)
 			sub_context["meta"]["execution_stack"] = [*execution_stack, caller_base_name]
 

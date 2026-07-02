@@ -90,6 +90,13 @@ class Rule(Document):
 		watched_fields: DF.SmallText | None
 
 	# end: auto-generated types
+	def _ensure_version_lineage_fields(self):
+		"""Keep version lineage fields populated before validation and naming."""
+		if not self.version:
+			self.version = 1
+		if not self.get("base_rule_name") and self.rule_name:
+			self.set("base_rule_name", re.sub(r"_[vV]\d+$", "", self.rule_name))
+
 	def _sync_status(self):
 		"""Keep status and is_active compatible."""
 		active_flag = self.get("is_active")
@@ -108,6 +115,7 @@ class Rule(Document):
 		"""
 		Validate Rule Configuration
 		"""
+		self._ensure_version_lineage_fields()
 		self._sync_status()
 
 		if not self.visual_data:
@@ -125,6 +133,7 @@ class Rule(Document):
 		self.set_callable_permissions()
 		self.validate_deactivation_safety()
 		self.validate_activation_safety()
+		self.validate_single_active_version()
 
 	# Removed status computation for lifecycle_state
 
@@ -146,13 +155,10 @@ class Rule(Document):
 
 	def before_save(self):
 		"""Initialize version for new rules."""
+		self._ensure_version_lineage_fields()
 		self._sync_status()
 		if not self.visual_data:
 			self._initialize_default_graph()
-		if self.is_new() and not self.version:
-			self.version = 1
-		if not self.get("base_rule_name") and self.rule_name:
-			self.set("base_rule_name", re.sub(r"_v\d+$", "", self.rule_name))
 
 	def is_exposed_as_subrule(self):
 		"""Return whether the rule is allowed to be targeted by Sub-Rule actions."""
@@ -266,21 +272,31 @@ class Rule(Document):
 					except Exception:
 						pass  # Handled by other validations
 
-			# Recursive check for Sub-Rules
-			if action.action_type == "Sub-Rule" and action.rule:
-				if target_rule_override and (
-					target_rule_override.base_rule_name == action.rule
-					or target_rule_override.name == action.rule
-				):
-					sub_rule = target_rule_override
-				else:
-					target_rule_name = (
-						frappe.db.get_value("Rule", {"base_rule_name": action.rule}) or action.rule
+				# Recursive check for Sub-Rules
+				if action.action_type == "Sub-Rule" and action.rule:
+					if target_rule_override and (
+						target_rule_override.base_rule_name == action.rule
+						or target_rule_override.name == action.rule
+					):
+						sub_rule = target_rule_override
+					else:
+						from flexirule.ruleflow.core.rule_service import resolve_rule_reference
+
+						target_rule_name = resolve_rule_reference(
+							action.rule,
+							active_only=bool(doc_to_check.is_active),
+							callable_only=True,
+							exposed_only=True,
+						)
+						if not target_rule_name:
+							target_rule_name = action.rule
+						sub_rule = frappe.get_doc("Rule", target_rule_name)
+					self.validate_trigger_alignment(
+						sub_rule,
+						visited_rules,
+						effective_after_event,
+						target_rule_override=target_rule_override,
 					)
-					sub_rule = frappe.get_doc("Rule", target_rule_name)
-				self.validate_trigger_alignment(
-					sub_rule, visited_rules, effective_after_event, target_rule_override=target_rule_override
-				)
 
 	def validate_active_rule_lock(self):
 		"""
@@ -307,11 +323,10 @@ class Rule(Document):
 				_("Cannot edit an Active Rule. Please set to 'Disabled' (Draft) before making changes.")
 			)
 
-	def before_insert(self):
-		self._initialize_default_graph()
-		self.ensure_start_node()
-		if not self.version:
-			self.version = 1
+		def before_insert(self):
+			self._ensure_version_lineage_fields()
+			self._initialize_default_graph()
+			self.ensure_start_node()
 
 	def _initialize_default_graph(self):
 		"""
@@ -1490,8 +1505,22 @@ class Rule(Document):
 		):
 			target_rule = target_rule_override
 		else:
-			target_rule_name = frappe.db.get_value("Rule", {"base_rule_name": action.rule}) or action.rule
-			if not frappe.db.exists("Rule", target_rule_name):
+			from flexirule.ruleflow.core.rule_service import resolve_rule_reference
+
+			target_rule_name = resolve_rule_reference(
+				action.rule,
+				active_only=bool(self.is_active),
+				callable_only=True,
+				exposed_only=True,
+			)
+			if not target_rule_name and self.is_active:
+				target_rule_name = resolve_rule_reference(
+					action.rule,
+					active_only=False,
+					callable_only=True,
+					exposed_only=True,
+				)
+			if not target_rule_name or not frappe.db.exists("Rule", target_rule_name):
 				frappe.throw(_("Action '{0}' references a missing Rule.").format(action.action_label))
 			target_rule = frappe.get_cached_doc("Rule", target_rule_name)
 
@@ -1558,14 +1587,14 @@ class Rule(Document):
 		adjacency: dict[str, set[str]] = {}
 		for edge in all_edges:
 			if edge.parent and edge.rule:
-				logical_parent = re.sub(r"_v\d+$", "", edge.parent)
-				logical_child = re.sub(r"_v\d+$", "", edge.rule)
+				logical_parent = re.sub(r"_[vV]\d+$", "", edge.parent)
+				logical_child = re.sub(r"_[vV]\d+$", "", edge.rule)
 				adjacency.setdefault(logical_parent, set()).add(logical_child)
 
 		# Include this rule's own (possibly unsaved) sub-rule edges
-		current_rule_logical = re.sub(r"_v\d+$", "", self.name or self.rule_name or "")
+		current_rule_logical = re.sub(r"_[vV]\d+$", "", self.name or self.rule_name or "")
 		if current_rule_logical:
-			logical_sub_rules = {re.sub(r"_v\d+$", "", r) for r in sub_rules if r}
+			logical_sub_rules = {re.sub(r"_[vV]\d+$", "", r) for r in sub_rules if r}
 			adjacency[current_rule_logical] = logical_sub_rules
 
 		# DFS with path tracking — zero additional DB queries
@@ -1602,7 +1631,7 @@ class Rule(Document):
 
 		for sub_rule in sub_rules:
 			if sub_rule:
-				logical_sub_rule = re.sub(r"_v\d+$", "", sub_rule)
+				logical_sub_rule = re.sub(r"_[vV]\d+$", "", sub_rule)
 				cycle = dfs_detect_cycle(logical_sub_rule, initial_path.copy(), globally_visited)
 				if cycle:
 					frappe.throw(_("Cycle detected in sub-rule graph: {0}").format(cycle))
@@ -1827,6 +1856,36 @@ class Rule(Document):
 						"Cannot activate Sub-Rule '{0}': active parent rule '{1}' would become invalid:<br>{2}"
 					).format(self.name, parent_name, errors)
 				)
+
+	def validate_single_active_version(self):
+		"""Enforce one active version per logical rule lineage."""
+		if not self.is_active or not self.base_rule_name:
+			return
+
+		if self.flags.skip_single_active_version_validation:
+			return
+
+		old_doc = self.get_doc_before_save()
+		if old_doc and old_doc.is_active:
+			return
+
+		existing_active = frappe.get_all(
+			"Rule",
+			filters={
+				"base_rule_name": self.base_rule_name,
+				"is_active": 1,
+				"name": ["!=", self.name],
+			},
+			pluck="name",
+			limit=1,
+		)
+		if existing_active:
+			frappe.throw(
+				_(
+					"Cannot activate Rule '{0}' while '{1}' is already active for logical rule '{2}'. "
+					"Use the rule transition action to promote a version safely."
+				).format(self.name, existing_active[0], self.base_rule_name)
+			)
 
 	def on_trash(self):
 		"""

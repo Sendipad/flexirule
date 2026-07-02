@@ -7,8 +7,13 @@ Rule Service: Versioning and Amendment Logic
 Handles rule versioning, amendment workflows, and lineage queries.
 """
 
+import re
+from typing import Any
+
 import frappe
 from frappe import _
+
+VERSION_SUFFIX_PATTERN = re.compile(r"_[vV](\d+)$")
 
 
 def amend_rule(rule_name: str) -> str:
@@ -34,8 +39,8 @@ def amend_rule(rule_name: str) -> str:
 	existing_draft = frappe.db.exists(
 		"Rule",
 		{
-			"is_active": 0,
-			"rule_name": ["like", f"{base_key}%"],
+			"base_rule_name": base_key,
+			"status": "Draft",
 			"name": ["!=", rule_name],
 		},
 	)
@@ -51,8 +56,8 @@ def amend_rule(rule_name: str) -> str:
 	new_doc.previous_version = original.name
 
 	# Build versioned name
-	base_name = _strip_version_suffix(original.rule_name)
-	new_doc.rule_name = f"{base_name}_v{new_doc.version}"
+	base_name = _get_rule_base_key(original)
+	new_doc.rule_name = f"{base_name}_V{new_doc.version}"
 	new_doc.base_rule_name = base_name
 
 	new_doc.insert(ignore_permissions=True)
@@ -69,10 +74,9 @@ def get_latest_rule_version(rule_key: str) -> dict | None:
 	Returns:
 	    Dict with name, version, is_active, or None if not found.
 	"""
-	# Find all rules in this lineage
 	rules = frappe.get_all(
 		"Rule",
-		filters={"rule_name": ["like", f"{rule_key}%"]},
+		filters={"base_rule_name": _strip_version_suffix(rule_key)},
 		fields=["name", "rule_name", "version", "is_active"],
 		order_by="version desc",
 		limit=1,
@@ -90,8 +94,8 @@ def validate_single_draft_copy(rule_doc):
 	other_drafts = frappe.get_all(
 		"Rule",
 		filters={
-			"rule_name": ["like", f"{base_key}%"],
-			"is_active": 0,
+			"base_rule_name": base_key,
+			"status": "Draft",
 			"name": ["!=", rule_doc.name],
 		},
 		pluck="name",
@@ -109,7 +113,8 @@ def _get_rule_base_key(rule_doc) -> str:
 	"""
 	Extract the base name from a rule, stripping the _v{N} suffix.
 	"""
-	return _strip_version_suffix(rule_doc.rule_name)
+	name_val = getattr(rule_doc, "rule_name", None) or getattr(rule_doc, "name", "")
+	return getattr(rule_doc, "base_rule_name", None) or _strip_version_suffix(str(name_val))
 
 
 def _strip_version_suffix(rule_name: str) -> str:
@@ -118,9 +123,12 @@ def _strip_version_suffix(rule_name: str) -> str:
 
 	e.g. "CUSTOMER_CREDIT_VALIDATION_v3" -> "CUSTOMER_CREDIT_VALIDATION"
 	"""
-	import re
+	return VERSION_SUFFIX_PATTERN.sub("", rule_name or "")
 
-	return re.sub(r"_v\d+$", "", rule_name)
+
+def _parse_version_from_name(rule_name: str) -> int | None:
+	match = VERSION_SUFFIX_PATTERN.search(rule_name or "")
+	return int(match.group(1)) if match else None
 
 
 def _get_lineage_names(base_key: str) -> list[str]:
@@ -129,6 +137,82 @@ def _get_lineage_names(base_key: str) -> list[str]:
 	"""
 	return frappe.get_all(
 		"Rule",
-		filters={"rule_name": ["like", f"{base_key}%"]},
+		filters={"base_rule_name": _strip_version_suffix(base_key)},
 		pluck="name",
 	)
+
+
+def resolve_rule_reference(
+	rule_ref: str,
+	*,
+	active_only: bool = False,
+	callable_only: bool = False,
+	exposed_only: bool = False,
+	target_rule_override=None,
+) -> str | None:
+	"""Resolve a versioned or logical rule reference to a concrete Rule name.
+
+	Versioned references prefer the exact active document for backward
+	compatibility. Logical references prefer the active version for the lineage.
+	Draft-time validation may fall back to the newest version in the lineage.
+	"""
+	if not rule_ref:
+		return None
+
+	if target_rule_override and (
+		getattr(target_rule_override, "name", None) == rule_ref
+		or getattr(target_rule_override, "base_rule_name", None) == rule_ref
+	):
+		return target_rule_override.name
+
+	base_name = _strip_version_suffix(rule_ref)
+	is_versioned_ref = bool(VERSION_SUFFIX_PATTERN.search(rule_ref))
+
+	def _matches(doc) -> bool:
+		if active_only and not doc.get("is_active"):
+			return False
+		if callable_only and doc.get("trigger_type") != "Callable Event":
+			return False
+		if exposed_only and not doc.get("exposed_as_subrule"):
+			return False
+		return True
+
+	if is_versioned_ref and frappe.db.exists("Rule", rule_ref):
+		exact = frappe.db.get_value(
+			"Rule",
+			rule_ref,
+			["name", "is_active", "trigger_type", "exposed_as_subrule"],
+			as_dict=True,
+		)
+		if exact and _matches(exact):
+			return exact.name
+
+	filters: dict[str, Any] = {"base_rule_name": base_name}
+	if active_only:
+		filters["is_active"] = 1
+	if callable_only:
+		filters["trigger_type"] = "Callable Event"
+	if exposed_only:
+		filters["exposed_as_subrule"] = 1
+
+	matches = frappe.get_all(
+		"Rule",
+		filters=filters,
+		fields=["name", "version", "modified"],
+		order_by="version desc, modified desc",
+		limit=1,
+	)
+	if matches:
+		return matches[0].name
+
+	if not active_only and frappe.db.exists("Rule", rule_ref):
+		exact = frappe.db.get_value(
+			"Rule",
+			rule_ref,
+			["name", "is_active", "trigger_type", "exposed_as_subrule"],
+			as_dict=True,
+		)
+		if exact and _matches(exact):
+			return exact.name
+
+	return None

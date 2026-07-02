@@ -844,7 +844,16 @@ def _validate_sub_rule_input_mapping(action, errors: list[str], target_rule_over
 	):
 		target_rule = target_rule_override
 	else:
-		target_rule_name = frappe.db.get_value("Rule", {"base_rule_name": action.rule}) or action.rule
+		from flexirule.ruleflow.core.rule_service import resolve_rule_reference
+
+		target_rule_name = resolve_rule_reference(
+			action.rule,
+			active_only=False,
+			callable_only=True,
+			exposed_only=True,
+		)
+		if not target_rule_name:
+			return
 		try:
 			target_rule = frappe.get_doc("Rule", target_rule_name)
 		except Exception:

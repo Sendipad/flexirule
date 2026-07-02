@@ -1,23 +1,26 @@
 # Copyright (c) 2026, FlexiRule and contributors
 # For license information, please see license.txt
 
-import re
-
 import frappe
+
+from flexirule.ruleflow.core.rule_service import _parse_version_from_name, _strip_version_suffix
 
 
 def execute():
 	"""
 	Database patch to migrate rules to logical naming and set lineage versions.
 	"""
-	# 1. Populate base_rule_name for all existing Rules
 	rules = frappe.get_all("Rule", fields=["name", "rule_name", "version"])
 
 	# Group rules by base name to resolve previous_version
 	lineages: dict[str, list] = {}
 	for rule in rules:
-		base_name = re.sub(r"_v\d+$", "", rule.rule_name)
+		base_name = _strip_version_suffix(rule.rule_name or rule.name)
+		parsed_version = _parse_version_from_name(rule.rule_name or rule.name)
 		frappe.db.set_value("Rule", rule.name, "base_rule_name", base_name, update_modified=False)
+		if parsed_version and parsed_version != rule.version:
+			frappe.db.set_value("Rule", rule.name, "version", parsed_version, update_modified=False)
+			rule.version = parsed_version
 		lineages.setdefault(base_name, []).append(rule)
 
 	# 2. Establish previous_version links based on version hierarchy
@@ -36,8 +39,8 @@ def execute():
 
 	for action in sub_rule_actions:
 		if action.rule:
-			logical_name = re.sub(r"_v\d+$", "", action.rule)
+			logical_name = frappe.db.get_value(
+				"Rule", action.rule, "base_rule_name"
+			) or _strip_version_suffix(action.rule)
 			if logical_name != action.rule:
 				frappe.db.set_value("Rule Action", action.name, "rule", logical_name, update_modified=False)
-
-	frappe.db.commit()

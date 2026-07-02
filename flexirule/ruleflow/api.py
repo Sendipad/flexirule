@@ -1248,40 +1248,53 @@ def transition_rule(rule_name: str, target_status: str):
 	if target_status not in ["Draft", "Active", "Disabled", "Invalid", "Error", "Archived"]:
 		frappe.throw(_("Invalid target status: {0}").format(target_status))
 
-	if target_status == "Active":
-		from flexirule.ruleflow.core.validation_service import validate_rule_definition
+	savepoint_name = "flexirule_transition_rule"
+	frappe.db.savepoint(savepoint_name)
+	try:
+		if target_status == "Active":
+			from flexirule.ruleflow.core.validation_service import validate_rule_definition
 
-		rule.is_active = 1
-		result = validate_rule_definition(rule, mode="full")
-		if not result["valid"]:
-			rule.is_active = 0
-			frappe.throw(
-				_("Cannot activate rule. Validation errors:") + "<br>" + "<br>".join(result["errors"]),
-				frappe.ValidationError,
-			)
-
-		# Deactivate previous active version of the same logical rule
-		if rule.base_rule_name:
-			prev_active = frappe.get_all(
-				"Rule",
-				filters={
-					"base_rule_name": rule.base_rule_name,
-					"is_active": 1,
-					"name": ["!=", rule.name],
-				},
-				pluck="name",
-			)
-			for prev_name in prev_active:
-				frappe.db.set_value(
-					"Rule", prev_name, {"is_active": 0, "status": "Disabled"}, update_modified=False
+			rule.is_active = 1
+			rule.status = "Active"
+			result = validate_rule_definition(rule, mode="full")
+			if not result["valid"]:
+				frappe.throw(
+					_("Cannot activate rule. Validation errors:") + "<br>" + "<br>".join(result["errors"]),
+					frappe.ValidationError,
 				)
 
-	rule.status = target_status
-	rule.is_active = 1 if target_status == "Active" else 0
-	rule.save(ignore_permissions=True)
+			rule.flags.run_activation_safety_in_test = True
+			rule.flags.skip_single_active_version_validation = True
+			rule.save(ignore_permissions=True)
+
+			if rule.base_rule_name:
+				prev_active = frappe.get_all(
+					"Rule",
+					filters={
+						"base_rule_name": rule.base_rule_name,
+						"is_active": 1,
+						"name": ["!=", rule.name],
+					},
+					pluck="name",
+				)
+				for prev_name in prev_active:
+					prev_rule = frappe.get_doc("Rule", prev_name)
+					prev_rule.is_active = 0
+					prev_rule.status = "Disabled"
+					prev_rule.flags.run_deactivation_safety_in_test = True
+					prev_rule.save(ignore_permissions=True)
+		else:
+			rule.status = target_status
+			rule.is_active = 0
+			rule.save(ignore_permissions=True)
+	except Exception:
+		frappe.db.rollback(save_point=savepoint_name)
+		raise
+
+	from flexirule.ruleflow.core.coordinator import RuleCoordinator
 
 	frappe.clear_document_cache("Rule", rule.name)
-	frappe.clear_cache(doctype="Rule")
+	RuleCoordinator.clear_cache(doctype=rule.get("document_type"))
 
 	return {
 		"status": rule.status,

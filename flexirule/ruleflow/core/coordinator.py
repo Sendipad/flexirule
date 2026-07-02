@@ -33,6 +33,7 @@ class RuleCoordinator:
 	# Registry-relevant fields on Rule
 	RUNTIME_SIGNATURE_FIELDS: ClassVar[set[str]] = {
 		"is_active",
+		"exposed_as_subrule",
 		"trigger_type",
 		"document_type",
 		"trigger_event",
@@ -257,13 +258,14 @@ class RuleCoordinator:
 		# Fetch all active rules logical name mapping
 		active_logical_rules = frappe.get_all(
 			"Rule",
-			filters={"is_active": 1},
-			fields=["name", "base_rule_name"],
+			filters={"is_active": 1, "trigger_type": "Callable Event", "exposed_as_subrule": 1},
+			fields=["name", "base_rule_name", "version"],
+			order_by="version desc, modified desc",
 		)
 		active_sub_rules: dict[str, str] = {}
 		for r in active_logical_rules:
 			base_name = r.get("base_rule_name")
-			if base_name:
+			if base_name and base_name not in active_sub_rules:
 				active_sub_rules[base_name] = r.get("name")
 
 		registry["active_sub_rules"] = active_sub_rules

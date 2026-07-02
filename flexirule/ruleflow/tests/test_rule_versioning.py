@@ -15,15 +15,26 @@ import json
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
+from flexirule.ruleflow.core.coordinator import RuleCoordinator
 from flexirule.ruleflow.tests.builder import RuleBuilder
 
 
 class TestRuleVersioning(FrappeTestCase):
+	SAVEPOINT_NAME = "test_rule_versioning"
+
 	def setUp(self):
-		frappe.db.delete("Rule")
-		frappe.db.delete("Rule Action")
-		frappe.db.delete("Rule Execution Log")
-		frappe.db.delete("Rule Scheduler")
+		frappe.set_user("Administrator")
+		frappe.db.savepoint(self.SAVEPOINT_NAME)
+
+	def tearDown(self):
+		frappe.db.rollback(save_point=self.SAVEPOINT_NAME)
+		RuleCoordinator.clear_cache()
+		frappe.set_user("Administrator")
+
+	def _transition_rule(self, rule_name, target_status):
+		from flexirule.ruleflow.api import transition_rule
+
+		return transition_rule(rule_name, target_status)
 
 	# ── helpers ──────────────────────────────────────────────
 
@@ -31,6 +42,7 @@ class TestRuleVersioning(FrappeTestCase):
 		"""Create a minimal Callable Event sub-rule."""
 		return (
 			RuleBuilder(name)
+			.replace_existing(False)
 			.document_type("Test Contact")
 			.subrule()
 			.active(active)
@@ -43,6 +55,7 @@ class TestRuleVersioning(FrappeTestCase):
 		"""Create a parent rule that calls a sub-rule by its logical name."""
 		return (
 			RuleBuilder(name)
+			.replace_existing(False)
 			.document_type("Test Contact")
 			.active(active)
 			.entry_action(next_step="call_sub")
@@ -63,6 +76,7 @@ class TestRuleVersioning(FrappeTestCase):
 		"""If rule_name already ends with _v<N>, base_rule_name strips it."""
 		rule = (
 			RuleBuilder("FOO_v3")
+			.replace_existing(False)
 			.document_type("Test Contact")
 			.subrule()
 			.active(0)
@@ -86,7 +100,7 @@ class TestRuleVersioning(FrappeTestCase):
 		self.assertEqual(new_doc.previous_version, original.name)
 		self.assertEqual(new_doc.base_rule_name, "AMEND_TEST")
 		self.assertEqual(new_doc.version, 2)
-		self.assertIn("_v2", new_doc.rule_name)
+		self.assertEqual(new_doc.rule_name, "AMEND_TEST_V2")
 		self.assertEqual(new_doc.is_active, 0)
 
 	def test_amend_creates_correct_chain(self):
@@ -102,8 +116,8 @@ class TestRuleVersioning(FrappeTestCase):
 		self.assertEqual(v2.version, 2)
 
 		# Activate v2 so it can itself be amended
-		v2.is_active = 1
-		v2.save(ignore_permissions=True)
+		self._transition_rule(v2.name, "Active")
+		v2.reload()
 
 		v3_name = amend_rule(v2.name)
 		v3 = frappe.get_doc("Rule", v3_name)
@@ -123,23 +137,29 @@ class TestRuleVersioning(FrappeTestCase):
 
 		v2_name = amend_rule(v1.name)
 		v2 = frappe.get_doc("Rule", v2_name)
-		v2.is_active = 1
-		v2.save(ignore_permissions=True)
+		self.assertEqual(v2.rule_name, "PROMO_TEST_V2")
 
-		# v1 should now be deactivated (by the activation flow in transition_rule,
-		# but since we're using .save() here directly, let's check via the API)
-		from flexirule.ruleflow.api import transition_rule
-
-		# Reset both to test via API
-		frappe.db.set_value("Rule", v1.name, {"is_active": 1, "status": "Active"}, update_modified=False)
-		frappe.db.set_value("Rule", v2.name, {"is_active": 0, "status": "Draft"}, update_modified=False)
-		frappe.db.commit()
-
-		transition_rule(v2.name, "Active")
+		self._transition_rule(v2.name, "Active")
 
 		v1.reload()
+		v2.reload()
 		self.assertEqual(v1.is_active, 0, "v1 should be auto-deactivated after v2 promotion")
 		self.assertEqual(v1.status, "Disabled")
+		self.assertEqual(v2.is_active, 1)
+		self.assertEqual(v2.status, "Active")
+
+	def test_direct_activation_rejects_second_active_version(self):
+		"""Direct .save() cannot leave two active versions for one logical rule."""
+		from flexirule.ruleflow.core.rule_service import amend_rule
+
+		v1 = self._create_callable_sub_rule("CACHE_TEST", active=1)
+		v2 = frappe.get_doc("Rule", amend_rule(v1.name))
+
+		v2.is_active = 1
+		with self.assertRaises(frappe.ValidationError) as cm:
+			v2.save(ignore_permissions=True)
+
+		self.assertIn("already active", str(cm.exception))
 
 	# ── Deactivation safety ───────────────────────────────────
 
@@ -190,8 +210,8 @@ class TestRuleVersioning(FrappeTestCase):
 		# Create and activate v2
 		v2_name = amend_rule(v1.name)
 		v2 = frappe.get_doc("Rule", v2_name)
-		v2.is_active = 1
-		v2.save(ignore_permissions=True)
+		self._transition_rule(v2.name, "Active")
+		v2.reload()
 
 		# Now deactivating v1 should be allowed because v2 covers the logical name
 		v1.reload()
@@ -210,10 +230,6 @@ class TestRuleVersioning(FrappeTestCase):
 		parent = self._create_parent_rule("DEL_PARENT", sub_rule.base_rule_name, active=1)
 		parent.reload()
 
-		# Now deactivate sub-rule (bypass safety for setup) then try delete
-		frappe.db.set_value("Rule", sub_rule.name, "is_active", 0, update_modified=False)
-
-		# Delete should still be blocked because this is the only version and parent is active
 		with self.assertRaises(frappe.ValidationError) as cm:
 			frappe.delete_doc("Rule", sub_rule.name, force=True)
 
@@ -230,11 +246,8 @@ class TestRuleVersioning(FrappeTestCase):
 
 		v2_name = amend_rule(v1.name)
 		v2 = frappe.get_doc("Rule", v2_name)
-		v2.is_active = 1
-		v2.save(ignore_permissions=True)
-
-		# Deactivate v1 first (bypass safety)
-		frappe.db.set_value("Rule", v1.name, "is_active", 0, update_modified=False)
+		self._transition_rule(v2.name, "Active")
+		v1.reload()
 
 		# Should be able to delete v1 because v2 covers the logical name
 		frappe.delete_doc("Rule", v1.name, force=True)
@@ -244,13 +257,9 @@ class TestRuleVersioning(FrappeTestCase):
 
 	def test_cycle_detection_across_versions(self):
 		"""Cycle detection should work with logical base names, not versioned names."""
-		# Create A and B as inactive first, then configure, then activate
+		# Create A and B as inactive first, then configure.
 		rule_a = self._create_callable_sub_rule("CYC_A", active=0)
 		rule_b = self._create_callable_sub_rule("CYC_B", active=0)
-
-		# Activate B so A can reference it
-		rule_b.is_active = 1
-		rule_b.save()
 
 		# A calls B (A is inactive, so editable)
 		rule_a.set("actions", [])
@@ -283,11 +292,7 @@ class TestRuleVersioning(FrappeTestCase):
 		)
 		rule_a.save()
 
-		# Activate A via db so we bypass the lock for the next step
-		frappe.db.set_value("Rule", rule_a.name, "is_active", 1, update_modified=False)
-
-		# B calls A → should detect cycle (B is active but we use db bypass)
-		frappe.db.set_value("Rule", rule_b.name, "is_active", 0, update_modified=False)
+		# B calls A, which should detect the logical cycle even while drafting.
 		rule_b.reload()
 		rule_b.set("actions", [])
 		rule_b.append(
@@ -340,3 +345,72 @@ class TestRuleVersioning(FrappeTestCase):
 		# Verify the action references the logical name
 		sub_action = next(a for a in parent.actions if a.action_type == "Sub-Rule")
 		self.assertEqual(sub_action.rule, sub_rule.base_rule_name)
+
+	def test_runtime_registry_and_cache_follow_active_version(self):
+		"""Runtime logical mapping should update immediately when a new version is promoted."""
+		from flexirule.ruleflow.core.rule_service import amend_rule
+
+		v1 = self._create_callable_sub_rule("PROMO_TEST", active=1)
+		registry = RuleCoordinator.get_runtime_registry()
+		self.assertEqual(registry["active_sub_rules"].get("PROMO_TEST"), v1.name)
+
+		v2_name = amend_rule(v1.name)
+		v2 = frappe.get_doc("Rule", v2_name)
+		self._transition_rule(v2.name, "Active")
+
+		registry = RuleCoordinator.get_runtime_registry()
+		self.assertEqual(registry["active_sub_rules"].get("PROMO_TEST"), v2.name)
+
+	def test_rollback_reactivates_previous_version(self):
+		"""Rollback is a normal activation of the previous version."""
+		from flexirule.ruleflow.core.rule_service import amend_rule
+
+		v1 = self._create_callable_sub_rule("PROMO_TEST", active=1)
+		v2 = frappe.get_doc("Rule", amend_rule(v1.name))
+		self._transition_rule(v2.name, "Active")
+		self._transition_rule(v1.name, "Active")
+
+		v1.reload()
+		v2.reload()
+		self.assertEqual(v1.is_active, 1)
+		self.assertEqual(v2.is_active, 0)
+		self.assertEqual(
+			RuleCoordinator.get_runtime_registry()["active_sub_rules"].get("PROMO_TEST"), v1.name
+		)
+
+	def test_activation_blocks_incompatible_sub_rule_contract(self):
+		"""Promoting a sub-rule with new required inputs must block active parents."""
+		from flexirule.ruleflow.core.rule_service import amend_rule
+
+		v1 = self._create_callable_sub_rule("COMPAT_TEST", active=1)
+		self._create_parent_rule("COMPAT_PARENT", v1.base_rule_name, active=1)
+
+		v2 = frappe.get_doc("Rule", amend_rule(v1.name))
+		stop_action = next(a for a in v2.actions if a.action_type == "Stop")
+		stop_action.value_template = "{{ vars.promo_code }}"
+		v2.save(ignore_permissions=True)
+
+		with self.assertRaises(frappe.ValidationError) as cm:
+			self._transition_rule(v2.name, "Active")
+
+		self.assertIn("requires input mappings", str(cm.exception))
+		v1.reload()
+		v2.reload()
+		self.assertEqual(v1.is_active, 1)
+		self.assertEqual(v2.is_active, 0)
+
+	def test_migration_normalizes_versioned_sub_rule_references(self):
+		"""Migration should convert versioned sub-rule links to logical base names."""
+		from flexirule.patches.migrate_rules_to_logical_names import execute
+
+		target = self._create_callable_sub_rule("MIGRATE_TARGET_v3", active=1)
+		parent = self._create_parent_rule("MIGRATE_PARENT", target.name, active=0)
+
+		execute()
+
+		target.reload()
+		parent.reload()
+		sub_action = next(a for a in parent.actions if a.action_type == "Sub-Rule")
+		self.assertEqual(target.base_rule_name, "MIGRATE_TARGET")
+		self.assertEqual(target.version, 3)
+		self.assertEqual(sub_action.rule, "MIGRATE_TARGET")
