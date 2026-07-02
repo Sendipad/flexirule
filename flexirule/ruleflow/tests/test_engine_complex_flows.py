@@ -20,7 +20,7 @@ class TestComplexFlows(FrappeTestCase):
 		frappe.db.delete("Rule", {"rule_name": ["like", "Test %"]})
 		frappe.db.delete("Rule Action", {"parent": ["like", "Test %"]})
 		frappe.db.delete("Rule Execution Log", {"rule": ["like", "Test %"]})
-		frappe.db.commit()
+		# frappe.db.commit() removed for test isolation
 
 	def create_test_data(self):
 		# Create a dummy doctype or use User

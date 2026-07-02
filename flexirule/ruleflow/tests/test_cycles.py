@@ -140,7 +140,7 @@ class TestRuleCycles(FrappeTestCase):
         # Helper to clear logs before each execution
         def clear_rule_logs():
             frappe.db.sql("DELETE FROM `tabRule Execution Log`")
-            frappe.db.commit()
+            # frappe.db.commit() removed for test isolation
 
         # Create notes for testing
         note1 = frappe.get_doc({"doctype": "Note", "title": "Test Note 1"}).insert()

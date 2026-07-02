@@ -25,7 +25,7 @@ def test_benchmark_hooks():
 
 	# Temporarily deactivate all rules
 	frappe.db.sql("UPDATE `tabRule` SET is_active=0")
-	frappe.db.commit()
+	# frappe.db.commit() removed for test isolation
 	RuleCoordinator.clear_cache()
 
 	avg_base = measure_save(doctype, 10)
@@ -60,7 +60,7 @@ def test_benchmark_hooks():
 	# Restore original state
 	if active_rules:
 		frappe.db.sql("UPDATE `tabRule` SET is_active=1 WHERE name IN %s", (tuple(active_rules),))
-	frappe.db.commit()
+	# frappe.db.commit() removed for test isolation
 	RuleCoordinator.clear_cache()
 	print("\nBenchmark Complete.")
 
@@ -92,11 +92,11 @@ def create_dummy_rules(doctype, count, active=False):
 		r.is_active = 1 if active else 0
 		r.execution_mode = "Synchronous"
 		r.insert()
-	frappe.db.commit()
+	# frappe.db.commit() removed for test isolation
 
 
 def cleanup_dummy_rules():
 	frappe.db.sql("DELETE FROM `tabRule` WHERE rule_name LIKE 'Bench %'")
 	frappe.db.sql("DELETE FROM `tabRule Action` WHERE parent LIKE 'Bench %'")
 	frappe.db.sql("DELETE FROM `tabRule Execution Log` WHERE rule LIKE 'Bench %'")
-	frappe.db.commit()
+	# frappe.db.commit() removed for test isolation

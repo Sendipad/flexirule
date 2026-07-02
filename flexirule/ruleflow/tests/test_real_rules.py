@@ -89,7 +89,7 @@ class TestRealRules(FrappeTestCase):
 			frappe.delete_doc("Rule", r, force=True)
 		for c in frappe.get_all("Contact", filters={"first_name": ["like", "Test-%"]}, pluck="name"):
 			frappe.delete_doc("Contact", c, force=True)
-		frappe.db.commit()
+		# # frappe.db.commit() removed for test isolation removed for test isolation
 		RuleCoordinator.clear_cache()
 
 	def tearDown(self):
@@ -97,7 +97,7 @@ class TestRealRules(FrappeTestCase):
 			frappe.delete_doc("Rule", r, force=True)
 		for c in frappe.get_all("Contact", filters={"first_name": ["like", "Test-%"]}, pluck="name"):
 			frappe.delete_doc("Contact", c, force=True)
-		frappe.db.commit()
+		# frappe.db.commit() removed for test isolation
 		RuleCoordinator.clear_cache()
 
 	# ─────────────────────────────────────────────────────────
@@ -629,7 +629,7 @@ class TestSubRuleIsolation(FrappeTestCase):
 			frappe.delete_doc("Rule", r, force=True)
 		for r in frappe.get_all("Rule", filters={"rule_name": ["like", "TestIso_%"]}, pluck="name"):
 			frappe.delete_doc("Rule", r, force=True)
-		frappe.db.commit()
+		# # frappe.db.commit() removed for test isolation removed for test isolation
 		RuleCoordinator.clear_cache()
 
 	def tearDown(self):
@@ -648,7 +648,7 @@ class TestSubRuleIsolation(FrappeTestCase):
 			frappe.delete_doc("Rule", r, force=True)
 		for c in frappe.get_all("Contact", filters={"first_name": ["like", "Test-%"]}, pluck="name"):
 			frappe.delete_doc("Contact", c, force=True)
-		frappe.db.commit()
+		# frappe.db.commit() removed for test isolation
 		RuleCoordinator.clear_cache()
 
 	def test_subrule_isolation_with_return_variable(self):
@@ -762,7 +762,7 @@ class TestRaiseErrorAction(FrappeTestCase):
 	def setUp(self):
 		for r in frappe.get_all("Rule", filters={"rule_name": ["like", "TestRE_%"]}, pluck="name"):
 			frappe.delete_doc("Rule", r, force=True)
-		frappe.db.commit()
+		# # frappe.db.commit() removed for test isolation removed for test isolation
 		RuleCoordinator.clear_cache()
 
 	def tearDown(self):
@@ -770,7 +770,7 @@ class TestRaiseErrorAction(FrappeTestCase):
 			frappe.delete_doc("Rule", r, force=True)
 		for c in frappe.get_all("Contact", filters={"first_name": ["like", "Test-%"]}, pluck="name"):
 			frappe.delete_doc("Contact", c, force=True)
-		frappe.db.commit()
+		# frappe.db.commit() removed for test isolation
 		RuleCoordinator.clear_cache()
 
 	def test_raise_error_stops_execution(self):
