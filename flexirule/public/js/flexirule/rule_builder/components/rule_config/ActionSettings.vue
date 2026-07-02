@@ -28,6 +28,7 @@
 							}"
 							:modelValue="getDisplayValue(df)"
 							:doctype="getDoctypeForLink(df)"
+							:filters="getLinkFilters(df)"
 							:get_query="(txt) => getAutocompleteOptions(df, txt)"
 							:doc="node.data"
 							:read_only="isReadOnly(df)"
@@ -258,6 +259,19 @@ function getDoctypeForLink(df) {
 	return df.options || df.target_doctype;
 }
 
+function getLinkFilters(df) {
+	if (!df.link_filters) return {};
+	try {
+		if (typeof df.link_filters === "string") {
+			return JSON.parse(df.link_filters);
+		}
+		return df.link_filters;
+	} catch (e) {
+		console.warn("FlexiRule: Failed to parse link_filters for", df.fieldname, e);
+		return {};
+	}
+}
+
 async function getAutocompleteOptions(df, txt) {
 	if (df.fieldname === "action_type") {
 		return getActionTypeOptions().map((t) => ({
@@ -275,7 +289,16 @@ async function getAutocompleteOptions(df, txt) {
 				label: n.data?.action_label || n.label || n.id,
 			}));
 	}
-	// For other Link fields, return null to let ComboBoxControl handle standard search
+
+	// For standard Link/Autocomplete fields, return null to allow default search with filters
+	if (
+		df.fieldtype === "Link" ||
+		df.fieldtype === "Autocomplete" ||
+		df.fieldtype === "Dynamic Link"
+	) {
+		return null;
+	}
+
 	return null;
 }
 
