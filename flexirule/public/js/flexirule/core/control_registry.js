@@ -122,12 +122,21 @@ ControlRegistry.registerDefault({
 			}
 		}
 
+		let filters = df.get_query ? null : df.filters || df.link_filters;
+		if (typeof filters === "string" && (filters.startsWith("{") || filters.startsWith("["))) {
+			try {
+				filters = JSON.parse(filters);
+			} catch (e) {
+				console.warn("FlexiRule: Failed to parse link_filters for", df.fieldname, e);
+			}
+		}
+
 		return {
 			rule: context.engine?.rule_doc,
 			doctype: doctype,
 			options: options,
 			get_query: get_query,
-			filters: df.get_query ? null : df.filters,
+			filters: filters,
 			context: overrideContext,
 			trigger: df.fieldtype === "FieldPicker" ? "button" : "input",
 		};
