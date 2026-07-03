@@ -185,7 +185,11 @@ class QueryRecordsHandler(ActionHandler):
 					config_depends_on_doctype(description="Query configuration (filters, sorting)"),
 					{
 						"fieldname": "mutation_mode",
-						"options": ["Set Context Variable", "Append to Context Variable", "Update Context Variable"],
+						"options": [
+							"Set Context Variable",
+							"Append to Context Variable",
+							"Update Context Variable",
+						],
 						"reqd": 1,
 					},
 					{"fieldname": "return_type", "default": "List of Records", "read_only": 1},
@@ -204,7 +208,11 @@ class QueryRecordsHandler(ActionHandler):
 				action_overrides=[
 					{"fieldname": "action_type", "default": "Query Records"},
 					{"fieldname": "operation", "default": "Query Doc"},
-					{"fieldname": "reference_doctype", "reqd": 0, "link_filters": "[['DocType','istable','=',0]]"},
+					{
+						"fieldname": "reference_doctype",
+						"reqd": 0,
+						"link_filters": "[['DocType','istable','=',0]]",
+					},
 					config_depends_on_doctype(),
 					{
 						"fieldname": "mutation_mode",

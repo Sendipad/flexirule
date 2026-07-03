@@ -78,9 +78,7 @@ class ProcessHandler(ActionHandler):
 				resolve_process_operation_contract_v2,
 			)
 
-			process_name = (
-				process_operation.get("parent") if isinstance(process_operation, dict) else None
-			)
+			process_name = process_operation.get("parent") if isinstance(process_operation, dict) else None
 			if process_name:
 				contract_v2 = resolve_process_operation_contract_v2(
 					process_name,

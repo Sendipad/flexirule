@@ -15,6 +15,7 @@ def normalize_action_type(action_type: str | None, action_types: list[str] | Non
 
 	if action_types is None:
 		from flexirule.ruleflow.core.action_handlers import HandlerRegistry
+
 		action_types = HandlerRegistry.action_types()
 
 	if raw in action_types:
@@ -85,6 +86,7 @@ MUTATION_MODE_OPTIONS = [
 	"Append to Context Variable",
 	"Batch Database Set",
 ]
+
 
 def get_trigger_type_contract(trigger_type: str) -> dict:
 	"""Get contract for a trigger type."""

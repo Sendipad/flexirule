@@ -51,7 +51,10 @@ class ConditionHandler(ActionHandler):
 				action_overrides=[
 					{"fieldname": "action_type", "default": "Condition"},
 					{"fieldname": "config", "reqd": 1},
-					{"fieldname": "next_step_if_false", "mandatory_depends_on": "eval:doc.parent.is_active===1"},
+					{
+						"fieldname": "next_step_if_false",
+						"mandatory_depends_on": "eval:doc.parent.is_active===1",
+					},
 					{"fieldname": "description", "description": "Evaluates a condition to branch execution"},
 				],
 				validation={"frontend": "validate_condition"},

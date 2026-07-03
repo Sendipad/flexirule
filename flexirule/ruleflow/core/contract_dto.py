@@ -61,10 +61,7 @@ def _infer_config_modal_types():
 	"""Infer which action types have config modals from their contracts."""
 	from flexirule.ruleflow.core.action_handlers import HandlerRegistry
 
-	return sorted(
-		at for at, c in HandlerRegistry.get_all_contracts().items()
-		if c.get("configurable")
-	)
+	return sorted(at for at, c in HandlerRegistry.get_all_contracts().items() if c.get("configurable"))
 
 
 def get_contract_dto() -> dict:

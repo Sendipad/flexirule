@@ -69,6 +69,7 @@ def get_operation_field_overrides(
 	# Process operations can contribute generic field-level overrides through metadata.
 	if doctype == "Rule Action" and isinstance(process_operation, dict):
 		from flexirule.ruleflow.core.contracts import get_process_operation_overrides
+
 		process_overrides = get_process_operation_overrides(process_operation)
 		for fieldname, field_config in (process_overrides.get("fields") or {}).items():
 			if not fieldname or not isinstance(field_config, dict):
@@ -109,6 +110,7 @@ def get_effective_action_policy(
 
 def _parse_json_object(value: Any) -> dict[str, Any]:
 	import json
+
 	if isinstance(value, dict):
 		return value
 	if isinstance(value, str):
@@ -139,6 +141,7 @@ def get_process_operation_overrides(process_operation: dict | None = None) -> di
 def infer_process_operation_policy(process_operation: dict | None) -> dict:
 	"""Infer runtime/UI policy from Process Operation metadata."""
 	import json
+
 	policy: dict = {}
 	if not isinstance(process_operation, dict):
 		return policy

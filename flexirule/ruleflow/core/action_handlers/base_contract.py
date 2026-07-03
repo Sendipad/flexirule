@@ -75,7 +75,9 @@ class ActionContract:
 			"node_type": self.node_type,
 			"category": self.category,
 			"configurable": self.configurable,
-			"require_return_type": self.require_return_type if self.require_return_type is not None else False,
+			"require_return_type": self.require_return_type
+			if self.require_return_type is not None
+			else False,
 		}
 
 		if self.config_component:

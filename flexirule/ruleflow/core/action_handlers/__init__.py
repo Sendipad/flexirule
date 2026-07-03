@@ -48,7 +48,7 @@ class ActionHandler(ABC):
 		from flexirule.ruleflow.core.action_handlers.base_contract import ActionContract
 
 		return ActionContract(
-			action_type=cls.action_type,
+			action_type=cls.action_type or "",
 			required_fields=[],
 			has_next_true=True,
 			has_next_false=False,
@@ -84,9 +84,7 @@ class ActionHandler(ABC):
 		}
 
 		if operation:
-			op_policy = dict(
-				(contract_dict.get("operation_policies", {}) or {}).get(operation, {}) or {}
-			)
+			op_policy = dict((contract_dict.get("operation_policies", {}) or {}).get(operation, {}) or {})
 
 			# Merge operation contract action_overrides into policy if relevant
 			op_contracts = cls.get_operation_contracts()
@@ -432,9 +430,7 @@ class HandlerRegistry:
 		    ValueError: If handler has no action_type set
 		"""
 		if not handler.action_type:
-			raise ValueError(
-				f"Handler {handler.__class__.__name__} must set 'action_type' class attribute"
-			)
+			raise ValueError(f"Handler {handler.__class__.__name__} must set 'action_type' class attribute")
 		cls._handlers[handler.action_type] = handler
 		cls._contract_cache = None
 		cls._op_contract_cache = None
@@ -503,9 +499,7 @@ class HandlerRegistry:
 			return cls._contract_cache
 
 		cls._ensure_initialized()
-		cls._contract_cache = {
-			at: h.get_action_contract().to_dict() for at, h in cls._handlers.items()
-		}
+		cls._contract_cache = {at: h.get_action_contract().to_dict() for at, h in cls._handlers.items()}
 		return cls._contract_cache
 
 	@classmethod

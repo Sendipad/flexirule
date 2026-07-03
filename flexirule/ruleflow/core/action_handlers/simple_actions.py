@@ -193,7 +193,10 @@ class RaiseErrorHandler(ActionHandler):
 						"reqd": 1,
 						"description": "⚠️ Error message that will be raised",
 					},
-					{"fieldname": "description", "description": "Raises an exception to abort current operation"},
+					{
+						"fieldname": "description",
+						"description": "Raises an exception to abort current operation",
+					},
 				],
 				validation={"backend": "validate_raise_error"},
 			)

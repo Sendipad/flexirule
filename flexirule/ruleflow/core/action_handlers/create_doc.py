@@ -41,7 +41,13 @@ class DocumentActionHandler(ActionHandler):
 			terminal=False,
 			css={"icon": "fa fa-file-text", "color": "#059669"},
 			operation_label="Document Mode",
-			operation_options=["Create New", "Update Existing", "Delete Record", "Create ToDo", "Add Comment"],
+			operation_options=[
+				"Create New",
+				"Update Existing",
+				"Delete Record",
+				"Create ToDo",
+				"Add Comment",
+			],
 			allowed_mutations=[
 				"Set Doc Field",
 				"Set Context Variable",

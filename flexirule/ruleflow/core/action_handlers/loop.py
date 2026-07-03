@@ -49,7 +49,11 @@ class LoopHandler(ActionHandler):
 				action_overrides=[
 					{"fieldname": "action_type", "default": "Loop"},
 					{"fieldname": "config", "reqd": 1, "description": "Loop configuration (iterator)"},
-					{"fieldname": "return_variable", "reqd": 1, "description": "Variable name for current item"},
+					{
+						"fieldname": "return_variable",
+						"reqd": 1,
+						"description": "Variable name for current item",
+					},
 					{"fieldname": "description", "description": "Iterates over a collection"},
 				],
 			)
