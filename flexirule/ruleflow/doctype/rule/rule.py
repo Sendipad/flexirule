@@ -26,10 +26,10 @@ class Rule(Document):
 		from flexirule.ruleflow.doctype.rule_permission.rule_permission import RulePermission
 
 		actions: DF.Table[RuleAction]
+		base_rule_name: DF.Data | None
 		compiled_expression: DF.Code | None
-
 		debug_mode: DF.Check
-		description: DF.Text | None
+		description: DF.SmallText | None
 		document_type: DF.Link | None
 		execution_mode: DF.Literal["Synchronous", "Asynchronous"]
 		exposed_as_subrule: DF.Check
@@ -38,6 +38,7 @@ class Rule(Document):
 		max_execution_time: DF.Int
 		module: DF.Link | None
 		permissions: DF.Table[RulePermission]
+		previous_version: DF.Link | None
 		priority: DF.Literal[
 			"0",
 			"1",

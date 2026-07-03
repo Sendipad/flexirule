@@ -512,7 +512,7 @@ OPERATION_CONTRACTS: dict[str, dict[str, Any]] = {
 				"fieldname": "rule",
 				"reqd": 1,
 				"options": "Rule",
-				"link_filters": "[['Rule','trigger_type','=','Callable Event'],['Rule','exposed_as_subrule','=',1],['Rule','is_active','=',1]]",
+				"link_filters": "[['Rule','trigger_type','=','Callable Event'],['Rule','exposed_as_subrule','=',1]]",
 			},
 			{
 				"fieldname": "skip_conditions",
