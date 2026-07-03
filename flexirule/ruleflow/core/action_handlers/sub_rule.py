@@ -15,6 +15,10 @@ import frappe
 from frappe import _
 
 from flexirule.ruleflow.core.action_handlers import ActionHandler, HandlerRegistry
+from flexirule.ruleflow.core.action_handlers.base_contract import (
+	ActionContract,
+	OperationContract,
+)
 from flexirule.ruleflow.core.exceptions import CycleDetectedError, MethodExecutionError
 from flexirule.ruleflow.core.permissions import can_skip_permissions
 from flexirule.ruleflow.utils.mapping import apply_input_mapping, apply_output_mapping
@@ -85,6 +89,71 @@ class SubRuleHandler(ActionHandler):
 	"""Handler for Sub-Rule action type."""
 
 	action_type = "Sub-Rule"
+
+	@classmethod
+	def get_action_contract(cls):
+		return ActionContract(
+			action_type="Sub-Rule",
+			required_fields=["rule"],
+			has_next_true=True,
+			has_next_false=False,
+			terminal=False,
+			css={"icon": "fa fa-cube", "color": "#ec4899"},
+			field_labels={
+				"rule": "Sub-Rule Name",
+				"skip_conditions": "Skip Compatibility Check",
+				"return_type": "Sub-Rule Result Type",
+			},
+			allowed_mutations=[
+				"Set Context Variable",
+				"Update Context Variable",
+				"Append to Context Variable",
+			],
+			allowed_return_types=[
+				"Single Record",
+				"List of Records",
+			],
+			default_return_type="Single Record",
+			show_return_type=True,
+			node_type="sub-rule",
+			category="Control Flow",
+			configurable=True,
+			config_component="SubRuleConfig",
+		)
+
+	@classmethod
+	def get_operation_contracts(cls):
+		return {
+			"Sub-Rule": OperationContract(
+				operation="Sub-Rule",
+				action_overrides=[
+					{"fieldname": "action_type", "default": "Sub-Rule"},
+					{
+						"fieldname": "rule",
+						"reqd": 1,
+						"options": "Rule",
+						"link_filters": "[['Rule','trigger_type','=','Callable Event'],['Rule','exposed_as_subrule','=',1],['Rule','is_active','=',1]]",
+					},
+					{
+						"fieldname": "skip_conditions",
+						"default": 1,
+						"description": "⚠️ Bypasses sub-rule's trigger conditions",
+					},
+					{
+						"fieldname": "skip_permissions",
+						"read_only_depends_on": "eval:!frappe.user.has_role('System Manager')",
+						"description": "⚠️ Requires audit reason when enabled",
+					},
+					{
+						"fieldname": "permission_audit_reason",
+						"mandatory_depends_on": "skip_permissions",
+						"hidden": "eval:!doc.skip_permissions",
+					},
+					{"fieldname": "description", "description": "Executes another rule as a subroutine"},
+				],
+				validation={"backend": "validate_sub_rule"},
+			)
+		}
 
 	def execute(self, action, context, engine):
 		"""

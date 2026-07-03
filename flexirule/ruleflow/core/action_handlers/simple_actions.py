@@ -14,6 +14,10 @@ import frappe
 from frappe import _
 
 from flexirule.ruleflow.core.action_handlers import ActionHandler, HandlerRegistry
+from flexirule.ruleflow.core.action_handlers.base_contract import (
+	ActionContract,
+	OperationContract,
+)
 from flexirule.ruleflow.core.action_plan_cache import get_action_plan
 from flexirule.ruleflow.core.engine import SafeFrappeAPI
 from flexirule.ruleflow.utils.field_resolver import parse_field_list
@@ -23,6 +27,53 @@ class StopHandler(ActionHandler):
 	"""Handler for Stop action type - terminates rule execution."""
 
 	action_type = "Stop"
+
+	@classmethod
+	def get_action_contract(cls):
+		return ActionContract(
+			action_type="Stop",
+			required_fields=["operation"],
+			has_next_true=False,
+			has_next_false=False,
+			terminal=True,
+			css={"icon": "fa fa-stop", "color": "#ef4444"},
+			operation_label="Terminal Mode",
+			operation_options=["Success", "Error"],
+			mandatory_fields={
+				"Error": ["value_template"],
+			},
+			field_labels={"operation": "Terminal Mode"},
+			node_type="stop",
+			category="Control Flow",
+			configurable=False,
+		)
+
+	@classmethod
+	def get_operation_contracts(cls):
+		return {
+			"Success": OperationContract(
+				operation="Success",
+				action_overrides=[
+					{"fieldname": "action_type", "default": "Stop"},
+					{"fieldname": "operation", "default": "Success"},
+					{"fieldname": "description", "description": "Terminates rule execution successfully"},
+				],
+			),
+			"Error": OperationContract(
+				operation="Error",
+				action_overrides=[
+					{"fieldname": "action_type", "default": "Stop"},
+					{"fieldname": "operation", "default": "Error"},
+					{
+						"fieldname": "value_template",
+						"reqd": 1,
+						"description": "⚠️ Error message that will be raised",
+					},
+					{"fieldname": "description", "description": "Terminates rule execution with an error"},
+				],
+				validation={"backend": "validate_stop_error"},
+			),
+		}
 
 	def execute(self, action, context, engine):
 		"""
@@ -57,6 +108,34 @@ class WaitHandler(ActionHandler):
 
 	action_type = "Wait"
 
+	@classmethod
+	def get_action_contract(cls):
+		return ActionContract(
+			action_type="Wait",
+			required_fields=[],  # config.duration optional
+			has_next_true=True,
+			has_next_false=False,
+			terminal=False,
+			css={"icon": "fa fa-clock-o", "color": "#64748b"},
+			field_labels={"operation": "Wait Mode"},
+			node_type="wait",
+			category="Control Flow",
+			configurable=True,
+			config_component="WaitConfig",
+		)
+
+	@classmethod
+	def get_operation_contracts(cls):
+		return {
+			"Wait": OperationContract(
+				operation="Wait",
+				action_overrides=[
+					{"fieldname": "action_type", "default": "Wait"},
+					{"fieldname": "description", "description": "Pauses execution for a specified duration"},
+				],
+			)
+		}
+
 	def execute(self, action, context, engine):
 		"""
 		Wait action - pauses execution for specified duration.
@@ -83,6 +162,42 @@ class RaiseErrorHandler(ActionHandler):
 	"""Handler for Raise Error action type - throws ValidationError."""
 
 	action_type = "Raise Error"
+
+	@classmethod
+	def get_action_contract(cls):
+		return ActionContract(
+			action_type="Raise Error",
+			required_fields=["value_template"],
+			has_next_true=False,
+			has_next_false=False,
+			terminal=True,
+			css={"icon": "fa fa-exclamation-triangle", "color": "#dc2626"},
+			field_labels={
+				"config": "Error Details (JSON)",
+			},
+			node_type="raise-error",
+			category="Control Flow",
+			configurable=True,
+			config_component="RaiseErrorConfig",
+		)
+
+	@classmethod
+	def get_operation_contracts(cls):
+		return {
+			"Raise Error": OperationContract(
+				operation="Raise Error",
+				action_overrides=[
+					{"fieldname": "action_type", "default": "Raise Error"},
+					{
+						"fieldname": "value_template",
+						"reqd": 1,
+						"description": "⚠️ Error message that will be raised",
+					},
+					{"fieldname": "description", "description": "Raises an exception to abort current operation"},
+				],
+				validation={"backend": "validate_raise_error"},
+			)
+		}
 
 	def execute(self, action, context, engine):
 		"""
@@ -122,6 +237,87 @@ class NotifyHandler(ActionHandler):
 	"""Handler for Notify action type - sends notifications."""
 
 	action_type = "Notify"
+
+	@classmethod
+	def get_action_contract(cls):
+		return ActionContract(
+			action_type="Notify",
+			required_fields=["value_template", "operation"],
+			has_next_true=True,
+			has_next_false=False,
+			terminal=False,
+			css={"icon": "fa fa-bell", "color": "#0ea5e9"},
+			operation_label="Notification Type",
+			operation_options=["Toast", "System", "Email", "System Notification", "Provider"],
+			operation_policies={
+				"Email": {
+					"required_config_keys": ["subject", "recipients"],
+				},
+				"System Notification": {
+					"required_config_keys": ["subject"],
+				},
+				"Provider": {
+					"required_config_keys": ["provider", "recipient"],
+				},
+			},
+			field_labels={"operation": "Notification Type"},
+			node_type="notify",
+			category="Notifications",
+			configurable=True,
+			config_component="NotifyConfig",
+		)
+
+	@classmethod
+	def get_operation_contracts(cls):
+		return {
+			"Toast": OperationContract(
+				operation="Toast",
+				action_overrides=[
+					{"fieldname": "action_type", "default": "Notify"},
+					{"fieldname": "operation", "default": "Toast"},
+					{"fieldname": "value_template", "reqd": 1},
+					{"fieldname": "description", "description": "Shows a temporary notification to the user"},
+				],
+			),
+			"System": OperationContract(
+				operation="System",
+				action_overrides=[
+					{"fieldname": "action_type", "default": "Notify"},
+					{"fieldname": "operation", "default": "System"},
+					{"fieldname": "value_template", "reqd": 1},
+					{"fieldname": "description", "description": "Sends a system notification"},
+				],
+			),
+			"Email": OperationContract(
+				operation="Email",
+				action_overrides=[
+					{"fieldname": "action_type", "default": "Notify"},
+					{"fieldname": "operation", "default": "Email"},
+					{"fieldname": "value_template", "reqd": 1},
+					{"fieldname": "description", "description": "Sends an email notification"},
+				],
+				validation={"backend": "validate_email_notification"},
+			),
+			"System Notification": OperationContract(
+				operation="System Notification",
+				action_overrides=[
+					{"fieldname": "action_type", "default": "Notify"},
+					{"fieldname": "operation", "default": "System Notification"},
+					{"fieldname": "value_template", "reqd": 1},
+					{"fieldname": "description", "description": "Creates a system notification record"},
+				],
+			),
+			"Provider": OperationContract(
+				operation="Provider",
+				action_overrides=[
+					{"fieldname": "action_type", "default": "Notify"},
+					{"fieldname": "operation", "default": "Provider"},
+					{"fieldname": "value_template", "reqd": 1},
+					{"fieldname": "description", "description": "Sends notification via external provider"},
+				],
+				validation={"backend": "validate_provider_notification"},
+			),
+		}
 
 	MODE_TO_EMAIL = "Email"
 	MODE_TOAST = "Toast"
@@ -351,6 +547,33 @@ class EntryActionHandler(ActionHandler):
 	"""Handler for Entry Action type - marks the start node."""
 
 	action_type = "Entry Action"
+
+	@classmethod
+	def get_action_contract(cls):
+		return ActionContract(
+			action_type="Entry Action",
+			required_fields=[],
+			has_next_true=True,
+			has_next_false=False,
+			terminal=False,
+			css={"icon": "fa fa-play", "color": "#22c55e"},
+			field_labels={},
+			node_type="start",
+			category="Control Flow",
+			configurable=False,
+		)
+
+	@classmethod
+	def get_operation_contracts(cls):
+		return {
+			"Entry Action": OperationContract(
+				operation="Entry Action",
+				action_overrides=[
+					{"fieldname": "action_type", "default": "Entry Action"},
+					{"fieldname": "description", "description": "Entry point for rule execution flow"},
+				],
+			)
+		}
 
 	def execute(self, action, context, engine):
 		"""Entry Action - simply passes through to next step."""

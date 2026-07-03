@@ -10,12 +10,45 @@ Implements switch/case logic based on expression evaluation.
 from frappe import _
 
 from flexirule.ruleflow.core.action_handlers import ActionHandler, HandlerRegistry
+from flexirule.ruleflow.core.action_handlers.base_contract import (
+	ActionContract,
+	OperationContract,
+)
 
 
 class SwitchHandler(ActionHandler):
 	"""Handler for Switch action type."""
 
 	action_type = "Switch"
+
+	@classmethod
+	def get_action_contract(cls):
+		return ActionContract(
+			action_type="Switch",
+			required_fields=["config"],  # config must have cases
+			has_next_true=False,  # Uses cases instead
+			has_next_false=True,  # Default case
+			terminal=False,
+			css={"icon": "fa fa-random", "color": "#06b6d4"},
+			node_type="switch",
+			category="Control Flow",
+			configurable=True,
+			config_component="SwitchConfig",
+		)
+
+	@classmethod
+	def get_operation_contracts(cls):
+		return {
+			"Switch": OperationContract(
+				operation="Switch",
+				action_overrides=[
+					{"fieldname": "action_type", "default": "Switch"},
+					{"fieldname": "config", "reqd": 1},
+					{"fieldname": "next_step_if_false", "description": "Default case (no match)"},
+					{"fieldname": "description", "description": "Multi-way branch based on expression value"},
+				],
+			)
+		}
 
 	def execute(self, action, context, engine):
 		"""
