@@ -9,6 +9,10 @@ import frappe
 from frappe import _
 
 from flexirule.ruleflow.core.action_handlers import ActionHandler, HandlerRegistry
+from flexirule.ruleflow.core.action_handlers.base_contract import (
+	ActionContract,
+	OperationContract,
+)
 from flexirule.ruleflow.core.action_plan_cache import get_action_plan
 from flexirule.ruleflow.core.context_manager import ContextManager
 from flexirule.ruleflow.core.exceptions import MethodExecutionError
@@ -20,6 +24,41 @@ class AssignmentHandler(ActionHandler):
 	"""Handler for Assignment action type - batch state mutation."""
 
 	action_type = "Assignment"
+
+	@classmethod
+	def get_action_contract(cls):
+		return ActionContract(
+			action_type="Assignment",
+			required_fields=["config"],
+			has_next_true=True,
+			has_next_false=False,
+			terminal=False,
+			css={"icon": "fa fa-list-ol", "color": "#14b8a6"},
+			field_labels={
+				"config": "Assignments",
+			},
+			node_type="assignment",
+			category="Data Actions",
+			configurable=True,
+			config_component="AssignmentConfig",
+		)
+
+	@classmethod
+	def get_operation_contracts(cls):
+		return {
+			"Assignment": OperationContract(
+				operation="Assignment",
+				action_overrides=[
+					{"fieldname": "action_type", "default": "Assignment"},
+					{"fieldname": "config", "reqd": 1, "description": "Array of assignments (JSON)"},
+					{
+						"fieldname": "description",
+						"description": "Updates document fields or context variables in batch",
+					},
+				],
+				validation={"backend": "validate_assignment"},
+			)
+		}
 
 	def execute(self, action, context, engine):
 		"""

@@ -12,6 +12,10 @@ import frappe
 from frappe import _
 
 from flexirule.ruleflow.core.action_handlers import ActionHandler, HandlerRegistry
+from flexirule.ruleflow.core.action_handlers.base_contract import (
+	ActionContract,
+	OperationContract,
+)
 from flexirule.ruleflow.core.exceptions import MethodExecutionError
 from flexirule.ruleflow.core.process_runtime_v2 import ProcessOperationExecutor
 from flexirule.ruleflow.utils.mapping import apply_input_mapping
@@ -22,6 +26,87 @@ class ProcessHandler(ActionHandler):
 
 	action_type = "Process"
 	executor = ProcessOperationExecutor()
+
+	@classmethod
+	def get_action_contract(cls):
+		return ActionContract(
+			action_type="Process",
+			required_fields=["process_name", "operation"],
+			has_next_true=True,
+			has_next_false=False,
+			terminal=False,
+			css={"icon": "fa fa-cog", "color": "#8b5cf6"},
+			dynamic_fields=True,
+			field_labels={
+				"operation": "Process Operation",
+				"mutation_mode": "Result Handling",
+				"return_type": "Result Type",
+			},
+			allowed_mutations=[
+				"Set Context Variable",
+				"Update Context Variable",
+				"Append to Context Variable",
+				"Set Doc Field",
+				"Update Doc Field",
+				"Batch Database Set",
+			],
+			allowed_return_types=[
+				"Yes / No",
+				"Single Record",
+				"List of Values",
+				"List of Records",
+				"Full Document",
+			],
+			show_return_type=True,
+			node_type="process",
+			category="Processes",
+			configurable=True,
+			config_component="ProcessConfig",
+		)
+
+	@classmethod
+	def get_runtime_policy(cls, operation=None, process_operation=None) -> dict:
+		"""Resolve runtime policy for Process including metadata-driven inference."""
+		from flexirule.ruleflow.core.contracts import infer_process_operation_policy
+
+		# Base policy from contract
+		policy = super().get_runtime_policy(operation, process_operation)
+
+		# Complex resolution for Process V2
+		if operation and process_operation:
+			from flexirule.ruleflow.core.process_contract_v2 import (
+				resolve_process_operation_contract_v2,
+			)
+
+			process_name = process_operation.get("parent") if isinstance(process_operation, dict) else None
+			if process_name:
+				contract_v2 = resolve_process_operation_contract_v2(
+					process_name,
+					operation,
+					process_operation,
+					strict=True,
+				)
+				op_policy = contract_v2.get("policy") or {}
+				for key, value in op_policy.items():
+					if value is not None:
+						if key in ("allowed_mutations", "allowed_return_types"):
+							policy[key] = list(value)
+						elif key == "field_labels":
+							policy["field_labels"].update(value)
+						else:
+							policy[key] = value
+		elif process_operation:
+			dynamic_policy = infer_process_operation_policy(process_operation)
+			for key, value in dynamic_policy.items():
+				if value is not None:
+					if key in ("allowed_mutations", "allowed_return_types"):
+						policy[key] = list(value)
+					elif key == "field_labels":
+						policy["field_labels"].update(value)
+					else:
+						policy[key] = value
+
+		return policy
 
 	def execute(self, action, context, engine):
 		"""

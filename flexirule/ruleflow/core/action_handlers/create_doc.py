@@ -16,6 +16,11 @@ from frappe import _
 from frappe.model import child_table_fields, default_fields, table_fields
 
 from flexirule.ruleflow.core.action_handlers import ActionHandler, HandlerRegistry
+from flexirule.ruleflow.core.action_handlers.base_contract import (
+	ActionContract,
+	OperationContract,
+	reference_doctype_override,
+)
 from flexirule.ruleflow.core.action_plan_cache import get_action_plan
 from flexirule.ruleflow.core.permissions import can_skip_permissions
 from flexirule.ruleflow.utils.mapping import apply_input_mapping
@@ -25,6 +30,225 @@ class DocumentActionHandler(ActionHandler):
 	"""Handler for creating, updating, or deleting documents."""
 
 	action_type = "Document Action"
+
+	@classmethod
+	def get_action_contract(cls):
+		return ActionContract(
+			action_type="Document Action",
+			required_fields=["reference_doctype", "operation"],
+			has_next_true=True,
+			has_next_false=False,
+			terminal=False,
+			css={"icon": "fa fa-file-text", "color": "#059669"},
+			operation_label="Document Mode",
+			operation_options=[
+				"Create New",
+				"Update Existing",
+				"Delete Record",
+				"Create ToDo",
+				"Add Comment",
+			],
+			allowed_mutations=[
+				"Set Doc Field",
+				"Set Context Variable",
+			],
+			allowed_return_types=[
+				"Single Record",
+				"Full Document",
+				"Yes / No",
+			],
+			default_return_type="Single Record",
+			show_return_type=True,
+			operation_policies={
+				"Create New": {
+					"allowed_return_types": ["Single Record", "Full Document"],
+					"default_return_type": "Single Record",
+					"allowed_mutations": ["Set Context Variable", "Update Context Variable"],
+					"show_return_type": True,
+					"require_return_type": True,
+					"field_labels": {"return_type": "Created Document Output"},
+				},
+				"Update Existing": {
+					"allowed_return_types": ["Single Record", "Full Document"],
+					"default_return_type": "Single Record",
+					"allowed_mutations": ["Set Context Variable", "Update Context Variable", "Set Doc Field"],
+					"show_return_type": True,
+					"require_return_type": True,
+					"field_labels": {"return_type": "Updated Document Output"},
+				},
+				"Delete Record": {
+					"allowed_return_types": ["Yes / No"],
+					"default_return_type": "Yes / No",
+					"allowed_mutations": ["Set Context Variable"],
+					"show_return_type": False,
+					"require_return_type": False,
+					"field_labels": {"return_type": "Deletion Result Type"},
+				},
+				"Create ToDo": {
+					"allowed_return_types": ["Single Record"],
+					"default_return_type": "Single Record",
+					"allowed_mutations": ["Set Context Variable", "Update Context Variable"],
+					"show_return_type": False,
+					"require_return_type": False,
+					"required_config_keys": ["assigned_to", "description"],
+					"field_labels": {"return_type": "ToDo Output Type"},
+				},
+				"Add Comment": {
+					"allowed_return_types": ["Single Record"],
+					"default_return_type": "Single Record",
+					"allowed_mutations": ["Set Context Variable", "Update Context Variable"],
+					"show_return_type": False,
+					"require_return_type": False,
+					"required_config_keys": ["comment_text"],
+					"field_labels": {"return_type": "Comment Output Type"},
+				},
+			},
+			field_labels={
+				"operation": "Document Mode",
+				"reference_doctype": "Target DocType",
+				"reference_docname": "Target Record",
+				"mutation_mode": "Result Handling",
+				"return_type": "Result Type",
+			},
+			node_type="documentaction",
+			category="Data Actions",
+			configurable=True,
+			config_component="DocumentActionConfig",
+		)
+
+	@classmethod
+	def get_operation_contracts(cls):
+		return {
+			"Create New": OperationContract(
+				operation="Create New",
+				rule_overrides=[
+					{"fieldname": "trigger_event", "options": ["Before Insert", "Validate", "Before Save"]},
+					{"fieldname": "trigger_type", "options": ["DocType Event", "Callable Event"]},
+					{
+						"fieldname": "debug_mode",
+						"mandatory_depends_on": "eval:doc.trigger_type==='DocType Event'",
+						"description": "Enable detailed logging for document events",
+					},
+				],
+				action_overrides=[
+					{"fieldname": "action_type", "default": "Document Action"},
+					{"fieldname": "operation", "default": "Create New"},
+					reference_doctype_override(),
+					{
+						"fieldname": "config",
+						"depends_on": "eval:doc.reference_doctype",
+						"reqd": 1,
+						"description": "⚠️ Document data to create",
+					},
+					{
+						"fieldname": "mutation_mode",
+						"options": ["Set Context Variable", "Update Context Variable"],
+						"reqd": 1,
+					},
+					{"fieldname": "return_type", "options": ["Single Record", "Full Document"], "reqd": 1},
+					{
+						"fieldname": "skip_permissions",
+						"hidden": "eval:!frappe.user.has_role('System Manager')",
+						"read_only_depends_on": "eval:!frappe.user.has_role('System Manager')",
+					},
+					{
+						"fieldname": "permission_audit_reason",
+						"mandatory_depends_on": "skip_permissions",
+						"hidden": "eval:!doc.skip_permissions",
+					},
+					{"fieldname": "description", "description": "⚠️ Creates a new document record"},
+				],
+				validation={"backend": "validate_create_document"},
+			),
+			"Update Existing": OperationContract(
+				operation="Update Existing",
+				action_overrides=[
+					{"fieldname": "action_type", "default": "Document Action"},
+					{"fieldname": "operation", "default": "Update Existing"},
+					reference_doctype_override(),
+					{"fieldname": "reference_docname", "depends_on": "eval:doc.reference_doctype", "reqd": 1},
+					{
+						"fieldname": "config",
+						"depends_on": "eval:doc.reference_doctype",
+						"reqd": 1,
+						"description": "⚠️ Fields to update",
+					},
+					{
+						"fieldname": "mutation_mode",
+						"options": ["Set Context Variable", "Update Context Variable", "Set Doc Field"],
+						"reqd": 1,
+					},
+					{"fieldname": "return_type", "options": ["Single Record", "Full Document"], "reqd": 1},
+					{"fieldname": "description", "description": "⚠️ Updates an existing document record"},
+				],
+				validation={"backend": "validate_update_document"},
+			),
+			"Delete Record": OperationContract(
+				operation="Delete Record",
+				action_overrides=[
+					{"fieldname": "action_type", "default": "Document Action"},
+					{"fieldname": "operation", "default": "Delete Record"},
+					reference_doctype_override(),
+					{"fieldname": "reference_docname", "depends_on": "eval:doc.reference_doctype", "reqd": 1},
+					{"fieldname": "return_type", "default": "Yes / No", "read_only": 1},
+					{"fieldname": "description", "description": "⚠️ Permanently deletes a document record"},
+				],
+				validation={"backend": "validate_delete_document"},
+			),
+			"Create ToDo": OperationContract(
+				operation="Create ToDo",
+				rule_overrides=[
+					{"fieldname": "trigger_event", "options": ["After Save", "On Submit", "On Change"]},
+					{"fieldname": "trigger_type", "options": ["DocType Event", "Callable Event"]},
+				],
+				action_overrides=[
+					{"fieldname": "action_type", "default": "Document Action"},
+					{"fieldname": "operation", "default": "Create ToDo"},
+					reference_doctype_override(),
+					{
+						"fieldname": "config",
+						"depends_on": "eval:doc.reference_doctype",
+						"reqd": 1,
+						"description": "⚠️ ToDo details (description, assigned_to, etc.)",
+					},
+					{
+						"fieldname": "mutation_mode",
+						"options": ["Set Context Variable", "Update Context Variable"],
+						"reqd": 1,
+					},
+					{"fieldname": "return_type", "default": "Single Record", "read_only": 1},
+					{"fieldname": "description", "description": "⚠️ Creates a ToDo task for users"},
+				],
+				validation={"backend": "validate_create_todo"},
+			),
+			"Add Comment": OperationContract(
+				operation="Add Comment",
+				rule_overrides=[
+					{"fieldname": "trigger_event", "options": ["After Save", "On Submit", "On Change"]},
+					{"fieldname": "trigger_type", "options": ["DocType Event", "Callable Event"]},
+				],
+				action_overrides=[
+					{"fieldname": "action_type", "default": "Document Action"},
+					{"fieldname": "operation", "default": "Add Comment"},
+					reference_doctype_override(),
+					{"fieldname": "reference_docname", "depends_on": "eval:doc.reference_doctype", "reqd": 1},
+					{
+						"fieldname": "config",
+						"depends_on": "eval:doc.reference_doctype",
+						"reqd": 1,
+						"description": "⚠️ Comment content and settings",
+					},
+					{
+						"fieldname": "mutation_mode",
+						"options": ["Set Context Variable", "Update Context Variable"],
+						"reqd": 1,
+					},
+					{"fieldname": "return_type", "default": "Single Record", "read_only": 1},
+					{"fieldname": "description", "description": "⚠️ Adds a comment to the document"},
+				],
+				validation={"backend": "validate_add_comment"},
+			),
+		}
 
 	def execute(self, action, context, engine):
 		"""Execute document creation/update based on mode."""
