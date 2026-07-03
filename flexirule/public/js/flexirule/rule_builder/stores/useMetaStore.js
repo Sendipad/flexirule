@@ -227,12 +227,14 @@ export const useMetaStore = defineStore("rule-builder-meta", () => {
 			return link_options_cache[key];
 		}
 
+		const sanitizedFilters = filters && typeof filters === "object" ? filters : {};
+
 		const response = await frappe.call({
 			method: "frappe.desk.search.search_link",
 			args: {
 				doctype,
 				txt,
-				filters: filters || {},
+				filters: sanitizedFilters,
 				start,
 				page_length,
 			},

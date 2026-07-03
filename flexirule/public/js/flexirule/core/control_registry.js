@@ -128,6 +128,7 @@ ControlRegistry.registerDefault({
 				filters = JSON.parse(filters);
 			} catch (e) {
 				console.warn("FlexiRule: Failed to parse link_filters for", df.fieldname, e);
+				filters = {};
 			}
 		}
 

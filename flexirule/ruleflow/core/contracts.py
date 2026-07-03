@@ -512,7 +512,7 @@ OPERATION_CONTRACTS: dict[str, dict[str, Any]] = {
 				"fieldname": "rule",
 				"reqd": 1,
 				"options": "Rule",
-				"link_filters": "[['Rule','trigger_type','=','Callable Event'],['Rule','exposed_as_subrule','=',1],['Rule','is_active','=',1]]",
+				"link_filters": '[["Rule","trigger_type","=","Callable Event"],["Rule","exposed_as_subrule","=",1],["Rule","is_active","=",1]]',
 			},
 			{
 				"fieldname": "skip_conditions",
@@ -618,7 +618,7 @@ OPERATION_CONTRACTS: dict[str, dict[str, Any]] = {
 			{
 				"fieldname": "reference_doctype",
 				"reqd": 1,
-				"link_filters": "[['DocType','issingle','=',0],['DocType','istable','=',0]]",
+				"link_filters": '[["DocType","issingle","=",0],["DocType","istable","=",0]]',
 			},
 			{
 				"fieldname": "config",
@@ -662,7 +662,7 @@ OPERATION_CONTRACTS: dict[str, dict[str, Any]] = {
 			{
 				"fieldname": "reference_doctype",
 				"reqd": 0,
-				"link_filters": "[['DocType','istable','=',0]]",
+				"link_filters": '[["DocType","istable","=",0]]',
 			},
 			{"fieldname": "config", "depends_on": "eval:doc.reference_doctype", "reqd": 1},
 			{
@@ -686,7 +686,7 @@ OPERATION_CONTRACTS: dict[str, dict[str, Any]] = {
 			{
 				"fieldname": "reference_doctype",
 				"reqd": 1,
-				"link_filters": "[['DocType','issingle','=',0],['DocType','istable','=',0]]",
+				"link_filters": '[["DocType","issingle","=",0],["DocType","istable","=",0]]',
 			},
 			{"fieldname": "config", "depends_on": "eval:doc.reference_doctype", "reqd": 1},
 			{"fieldname": "return_type", "default": "Yes / No", "read_only": 1},
@@ -706,7 +706,7 @@ OPERATION_CONTRACTS: dict[str, dict[str, Any]] = {
 			{
 				"fieldname": "reference_doctype",
 				"reqd": 1,
-				"link_filters": "[['DocType','issingle','=',0],['DocType','istable','=',0]]",
+				"link_filters": '[["DocType","issingle","=",0],["DocType","istable","=",0]]',
 			},
 			{"fieldname": "config", "depends_on": "eval:doc.reference_doctype", "reqd": 1},
 			{"fieldname": "return_type", "default": "List of Records", "read_only": 1},
@@ -728,7 +728,7 @@ OPERATION_CONTRACTS: dict[str, dict[str, Any]] = {
 			{
 				"fieldname": "reference_doctype",
 				"reqd": 1,
-				"link_filters": "[['DocType','issingle','=',0],['DocType','istable','=',0]]",
+				"link_filters": '[["DocType","issingle","=",0],["DocType","istable","=",0]]',
 			},
 			{"fieldname": "config", "depends_on": "eval:doc.reference_doctype", "reqd": 1},
 			{"fieldname": "return_type", "default": "List of Values", "read_only": 1},
@@ -747,7 +747,7 @@ OPERATION_CONTRACTS: dict[str, dict[str, Any]] = {
 			{
 				"fieldname": "reference_doctype",
 				"reqd": 1,
-				"link_filters": "[['DocType','issingle','=',0],['DocType','istable','=',0]]",
+				"link_filters": '[["DocType","issingle","=",0],["DocType","istable","=",0]]',
 			},
 			{"fieldname": "config", "depends_on": "eval:doc.reference_doctype", "reqd": 1},
 			{"fieldname": "return_type", "default": "List of Values", "read_only": 1},
@@ -766,7 +766,7 @@ OPERATION_CONTRACTS: dict[str, dict[str, Any]] = {
 			{
 				"fieldname": "reference_doctype",
 				"reqd": 1,
-				"link_filters": "[['DocType','issingle','=',0],['DocType','istable','=',0]]",
+				"link_filters": '[["DocType","issingle","=",0],["DocType","istable","=",0]]',
 			},
 			{"fieldname": "config", "depends_on": "eval:doc.reference_doctype", "reqd": 1},
 			{"fieldname": "return_type", "default": "List of Values", "read_only": 1},
@@ -785,7 +785,7 @@ OPERATION_CONTRACTS: dict[str, dict[str, Any]] = {
 			{
 				"fieldname": "reference_doctype",
 				"reqd": 1,
-				"link_filters": "[['DocType','issingle','=',0],['DocType','istable','=',0]]",
+				"link_filters": '[["DocType","issingle","=",0],["DocType","istable","=",0]]',
 			},
 			{"fieldname": "config", "depends_on": "eval:doc.reference_doctype", "reqd": 1},
 			{"fieldname": "return_type", "default": "List of Values", "read_only": 1},
@@ -804,7 +804,7 @@ OPERATION_CONTRACTS: dict[str, dict[str, Any]] = {
 			{
 				"fieldname": "reference_doctype",
 				"reqd": 1,
-				"link_filters": "[['DocType','issingle','=',0],['DocType','istable','=',0]]",
+				"link_filters": '[["DocType","issingle","=",0],["DocType","istable","=",0]]',
 			},
 			{"fieldname": "config", "depends_on": "eval:doc.reference_doctype", "reqd": 1},
 			{"fieldname": "return_type", "default": "List of Values", "read_only": 1},
@@ -823,7 +823,7 @@ OPERATION_CONTRACTS: dict[str, dict[str, Any]] = {
 			{
 				"fieldname": "reference_doctype",
 				"reqd": 1,
-				"link_filters": "[['DocType','issingle','=',0],['DocType','istable','=',0]]",
+				"link_filters": '[["DocType","issingle","=",0],["DocType","istable","=",0]]',
 			},
 			{"fieldname": "config", "depends_on": "eval:doc.reference_doctype", "reqd": 1},
 			{"fieldname": "return_type", "default": "List of Records", "read_only": 1},
@@ -848,7 +848,7 @@ OPERATION_CONTRACTS: dict[str, dict[str, Any]] = {
 			{
 				"fieldname": "reference_doctype",
 				"reqd": 1,
-				"link_filters": "[['DocType','issingle','=',0],['DocType','istable','=',0]]",
+				"link_filters": '[["DocType","issingle","=",0],["DocType","istable","=",0]]',
 			},
 			{
 				"fieldname": "config",
@@ -884,7 +884,7 @@ OPERATION_CONTRACTS: dict[str, dict[str, Any]] = {
 			{
 				"fieldname": "reference_doctype",
 				"reqd": 1,
-				"link_filters": "[['DocType','issingle','=',0],['DocType','istable','=',0]]",
+				"link_filters": '[["DocType","issingle","=",0],["DocType","istable","=",0]]',
 			},
 			{"fieldname": "reference_docname", "depends_on": "eval:doc.reference_doctype", "reqd": 1},
 			{
@@ -911,7 +911,7 @@ OPERATION_CONTRACTS: dict[str, dict[str, Any]] = {
 			{
 				"fieldname": "reference_doctype",
 				"reqd": 1,
-				"link_filters": "[['DocType','issingle','=',0],['DocType','istable','=',0]]",
+				"link_filters": '[["DocType","issingle","=",0],["DocType","istable","=",0]]',
 			},
 			{"fieldname": "reference_docname", "depends_on": "eval:doc.reference_doctype", "reqd": 1},
 			{"fieldname": "return_type", "default": "Yes / No", "read_only": 1},
@@ -930,7 +930,7 @@ OPERATION_CONTRACTS: dict[str, dict[str, Any]] = {
 			{
 				"fieldname": "reference_doctype",
 				"reqd": 1,
-				"link_filters": "[['DocType','issingle','=',0],['DocType','istable','=',0]]",
+				"link_filters": '[["DocType","issingle","=",0],["DocType","istable","=",0]]',
 			},
 			{
 				"fieldname": "config",
@@ -959,7 +959,7 @@ OPERATION_CONTRACTS: dict[str, dict[str, Any]] = {
 			{
 				"fieldname": "reference_doctype",
 				"reqd": 1,
-				"link_filters": "[['DocType','issingle','=',0],['DocType','istable','=',0]]",
+				"link_filters": '[["DocType","issingle","=",0],["DocType","istable","=",0]]',
 			},
 			{"fieldname": "reference_docname", "depends_on": "eval:doc.reference_doctype", "reqd": 1},
 			{

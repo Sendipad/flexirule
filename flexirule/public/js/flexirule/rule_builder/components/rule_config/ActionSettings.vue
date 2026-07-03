@@ -262,10 +262,11 @@ function getDoctypeForLink(df) {
 function getLinkFilters(df) {
 	if (!df.link_filters) return {};
 	try {
-		if (typeof df.link_filters === "string") {
-			return JSON.parse(df.link_filters);
+		let filters = df.link_filters;
+		if (typeof filters === "string") {
+			filters = JSON.parse(filters);
 		}
-		return df.link_filters;
+		return filters && typeof filters === "object" ? filters : {};
 	} catch (e) {
 		console.warn("FlexiRule: Failed to parse link_filters for", df.fieldname, e);
 		return {};
