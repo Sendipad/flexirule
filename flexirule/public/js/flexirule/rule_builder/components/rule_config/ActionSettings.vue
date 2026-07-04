@@ -267,16 +267,21 @@ function getLinkFilters(df) {
 			filters = filters.trim();
 			if (!filters) return {};
 
-			// Handle standard Frappe string filters (JSON list of lists) or JSON object
+			// Robustly attempt to parse JSON. Frappe link_filters can be
+			// standard JSON or single-quoted Python-style lists/dicts.
 			if (
 				(filters.startsWith("[") && filters.endsWith("]")) ||
 				(filters.startsWith("{") && filters.endsWith("}"))
 			) {
-				return JSON.parse(filters);
+				try {
+					return JSON.parse(filters);
+				} catch (inner) {
+					// Fallback for single quotes: replace with double quotes for JSON parsing
+					const normalized = filters.replace(/'/g, '"');
+					return JSON.parse(normalized);
+				}
 			}
 
-			// If it doesn't look like JSON, it might be a single value or something else
-			// but search_link expects a dict or a list.
 			return {};
 		}
 		return filters;
