@@ -41,23 +41,13 @@ const rule_action_meta = computed(() => {
 	return frappe.get_meta("Rule Action");
 });
 
-// Get fields from meta, filtering hidden and layout fields
 const doc_fields = computed(() => {
 	if (!rule_action_meta.value?.fields) return [];
 
 	return rule_action_meta.value.fields
-		.filter((df) => {
-			// Skip layout fields
-			if (LAYOUT_FIELDS.includes(df.fieldtype)) return false;
-
-			// Skip always hidden fields
-			if (df.hidden) return false;
-			if (getPolicyValue(df.fieldname, "hidden", false)) return false;
-
-			return true;
-		})
+		.filter((df) => !LAYOUT_FIELDS.includes(df.fieldtype))
 		.map((df) => {
-			let resolved = { ...df };
+			let resolved = getPolicyField(df.fieldname, { ...df });
 			const actionType = props.nodeData?.action_type;
 			const policyLabel = actionType
 				? getFieldLabel(actionType, df.fieldname, {
@@ -65,20 +55,22 @@ const doc_fields = computed(() => {
 						processName: props.nodeData?.process_name,
 				  })
 				: null;
-			resolved = getPolicyField(resolved.fieldname, resolved);
 
 			if (policyLabel) {
-				resolved = { ...resolved, label: __(policyLabel) };
+				resolved.label = __(policyLabel);
 			}
 			return resolved;
 		});
 });
 
-// Filter visible fields based on depends_on evaluation
+// Filter visible fields based on depends_on evaluation and hidden property
 const visible_fields = computed(() => {
 	const actionType = props.nodeData?.action_type;
 	if (!actionType || actionType === "Selector") return [];
-	return doc_fields.value.filter((df) => evaluate_depends_on(df.depends_on));
+	return doc_fields.value.filter((df) => {
+		if (df.hidden) return false;
+		return evaluate_depends_on(df.depends_on);
+	});
 });
 
 // Evaluate depends_on expression

@@ -59,6 +59,48 @@ RUNTIME_FIELD_ALIASES = {
 
 RELEASE_DISABLED_ACTION_TYPES: set[str] = set()
 
+# Schema version — bump whenever the DTO shape changes in a breaking way.
+# Stored alongside contract_version_hash in sessionStorage so the frontend
+# can detect incompatible cached payloads without deserializing them.
+CONTRACT_SCHEMA_VERSION = "v4"
+
+# Per-action-type human-readable descriptions.
+# These are emitted in the DTO so the frontend never needs to hard-code them.
+ACTION_TYPE_DESCRIPTIONS: dict[str, str] = {
+	"Entry Action": "The starting point of your rule flow. Defines when the rule is triggered.",
+	"Condition": (
+		"Branch your flow based on a logical condition. "
+		"If true, follow the 'True' path; otherwise, follow 'False'."
+	),
+	"Process": (
+		"Execute a specific business process or operation. "
+		"Operations can interact with the database, current document, or external systems."
+	),
+	"Loop": "Iterate over a list of items and execute actions for each item.",
+	"Stop": "Terminates the rule execution as Success or Error.",
+	"Switch": "Direct the flow to different paths based on the value of a specific field or expression.",
+	"Wait": "Introduce a delay or wait for a specific event before proceeding.",
+	"Sub-Rule": "Invoke another rule as a reusable component within this flow.",
+	"Assignment": (
+		"Declare one or more batch state mutations applied sequentially. "
+		"Supports doc.* and vars.* targets with type-aware operators "
+		"(set, clear, increment, decrement, toggle, append, merge)."
+	),
+	"Notify": (
+		"Send a notification as a toast, realtime message, email, "
+		"Notification Log entry, or provider dispatch."
+	),
+	"Raise Error": "Stop execution immediately with a configured error message.",
+	"Query Records": (
+		"Query records from a DocType. Supports Query List, Query Doc, "
+		"Exist Record, and Query Report modes."
+	),
+	"Document Action": (
+		"Create, update, or delete documents, including convenience modes "
+		"for linked ToDos and timeline comments."
+	),
+}
+
 
 def _parse_json_object(value: Any) -> dict[str, Any]:
 	if isinstance(value, dict):

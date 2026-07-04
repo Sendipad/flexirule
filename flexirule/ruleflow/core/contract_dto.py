@@ -16,6 +16,8 @@ import frappe
 
 from flexirule.ruleflow.core.action_handlers import HandlerRegistry
 from flexirule.ruleflow.core.contract_utils import (
+	ACTION_TYPE_DESCRIPTIONS,
+	CONTRACT_SCHEMA_VERSION,
 	MUTATION_MODE_OPTIONS,
 	RELEASE_DISABLED_ACTION_TYPES,
 	RETURN_TYPE_OPTIONS,
@@ -29,8 +31,16 @@ class ContractDTOBuilder:
 
 	@staticmethod
 	def build() -> dict:
+		from flexirule.ruleflow.core.operators import AssignmentOperatorRegistry
+
 		contracts = HandlerRegistry.get_all_contracts()
 		operation_contracts = HandlerRegistry.get_all_operation_contracts()
+
+		# Merge per-type descriptions into the contract entries.
+		# Descriptions live in contract_utils to avoid handler duplication.
+		for action_type, contract in contracts.items():
+			if action_type in ACTION_TYPE_DESCRIPTIONS and "description" not in contract:
+				contract["description"] = ACTION_TYPE_DESCRIPTIONS[action_type]
 
 		# Determine reference context types
 		reference_context_types = {"Query Records", "Document Action", "Process", "Assignment"}
@@ -40,7 +50,10 @@ class ContractDTOBuilder:
 		config_modal_types = {at for at, c in contracts.items() if c.get("configurable")}
 
 		return {
+			"schema_version": CONTRACT_SCHEMA_VERSION,
 			"action_type_contract": contracts,
+			"action_type_descriptions": ACTION_TYPE_DESCRIPTIONS,
+			"assignment_operator_metadata": AssignmentOperatorRegistry.get_metadata_map(),
 			"operation_contract": operation_contracts,
 			"trigger_type_contract": TRIGGER_TYPE_CONTRACT,
 			"runtime_field_aliases": RUNTIME_FIELD_ALIASES,

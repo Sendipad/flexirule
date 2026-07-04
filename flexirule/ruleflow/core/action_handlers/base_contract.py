@@ -172,9 +172,9 @@ class OperationContract:
 # ── Reusable Field Override Presets ──────────────────────────────
 
 # Standard DocType link filters used by Query Records, Document Action, etc.
-STANDARD_DOCTYPE_LINK_FILTERS = "[['DocType','issingle','=',0],['DocType','istable','=',0]]"
+STANDARD_DOCTYPE_LINK_FILTERS = '[["DocType","issingle","=",0],["DocType","istable","=",0]]'
 # Relaxed filter allowing single doctypes (used by Query Doc)
-SINGLE_ALLOWED_DOCTYPE_LINK_FILTERS = "[['DocType','istable','=',0]]"
+SINGLE_ALLOWED_DOCTYPE_LINK_FILTERS = '[["DocType","istable","=",0]]'
 
 
 def reference_doctype_override(*, reqd: int = 1, link_filters: str | None = None) -> dict:

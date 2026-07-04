@@ -1,436 +1,79 @@
 /**
- * FlexiRule action contracts
+ * FlexiRule contract module — frontend mirror of backend DTO.
  *
- * CANONICAL SOURCE: flexirule/ruleflow/core/contracts.py
+ * SINGLE SOURCE OF TRUTH: flexirule/ruleflow/core/contracts.py (backend)
  *
- * This module provides a frontend implementation of the action contracts.
- * It is primarily used for:
- * 1. UI rendering (icons, colors, labels)
- * 2. Real-time canvas status (getNodeStatus)
- * 3. Reactive frontend validation (validateAgainstContract)
+ * This module is a thin stateful container. All contract data originates
+ * from the backend via `loadContractsFromBackend()` which calls
+ * `flexirule.ruleflow.api.get_contract_dto`.
  *
- * Fallbacks defined here MUST match the backend definitions in contracts.py.
- * The system attempts to load fresh contracts via 'loadContractsFromBackend'
- * but uses these as static defaults.
+ * There are NO local fallback defaults. If the backend contract cannot be
+ * loaded, the rule builder will surface an error rather than operating on
+ * stale or incorrect data.
+ *
+ * Retry policy:
+ *   - Transient errors (network, 502, 503, 504, timeout) → retry up to 3
+ *     times with exponential backoff (500ms, 1000ms, 2000ms).
+ *   - Permanent errors (400, 403, 404, 500, schema mismatch) → fail immediately.
+ *
+ * Cache policy:
+ *   - sessionStorage key: CONTRACT_CACHE_KEY (schema-versioned).
+ *   - Valid cached payloads are applied synchronously, then a background
+ *     refresh checks if contract_version_hash changed. On mismatch the
+ *     in-memory state is updated and the cache replaced.
  */
 
-const ACTION_TYPE_DESCRIPTION = {
-	"Entry Action": "The starting point of your rule flow. Defines when the rule is triggered.",
-	Condition:
-		"Branch your flow based on a logical condition. If true, following the 'True' path; otherwise, follow 'False'.",
-	Process:
-		"Execute a specific business process or operation. Operations can interact with the database, current document, or external systems.",
-	Loop: "Iterate over a list of items and execute actions for each item.",
-	Stop: "Terminates the rule execution as Success or Error.",
-	Switch: "Direct the flow to different paths based on the value of a specific field or expression.",
-	Wait: "Introduce a delay or wait for a specific event before proceeding.",
-	"Sub-Rule": "Invoke another rule as a reusable component within this flow.",
-	Assignment:
-		"Declare one or more batch state mutations applied sequentially. Supports doc.* and vars.* targets with type-aware operators (set, clear, increment, decrement, toggle, append, merge).",
-	Notify: "Send a notification as a toast, realtime message, email, Notification Log entry, or provider dispatch.",
-	"Raise Error": "Stop execution immediately with a configured error message.",
-	"Query Records":
-		"Query records from a DocType. Supports Query List, Query Doc, Exist Record, and Query Report modes.",
-	"Document Action":
-		"Create, update, or delete documents, including convenience modes for linked ToDos and timeline comments.",
-};
+// ── Module-level state — populated exclusively from backend DTO ──────────────
 
-const DEFAULT_ACTION_TYPE_CONTRACT = {
-	"Entry Action": {
-		required_fields: [],
-		has_next_true: true,
-		has_next_false: false,
-		terminal: false,
-		css: { icon: "fa fa-play", color: "#22c55e" },
-		node_type: "start",
-		category: "Control Flow",
-		configurable: false,
-	},
-	Condition: {
-		required_fields: ["config"],
-		has_next_true: true,
-		has_next_false: true,
-		terminal: false,
-		css: { icon: "fa fa-code-fork", color: "#3b82f6" },
-		validation: { frontend: "validate_condition" },
-		node_type: "condition",
-		category: "Control Flow",
-		configurable: true,
-		config_component: "ConditionStep",
-	},
-	Process: {
-		required_fields: ["process_name", "operation"],
-		has_next_true: true,
-		has_next_false: false,
-		terminal: false,
-		dynamic_fields: true,
-		css: { icon: "fa fa-cog", color: "#8b5cf6" },
-		node_type: "process",
-		category: "Processes",
-		configurable: true,
-		config_component: "ProcessConfig",
-	},
-	Loop: {
-		required_fields: ["config", "return_variable"],
-		has_next_true: true,
-		has_next_false: true,
-		terminal: false,
-		css: { icon: "fa fa-refresh", color: "#f59e0b" },
-		field_labels: {
-			return_variable: "Item Alias",
-		},
-		show_return_variable: true,
-		require_return_variable: true,
-		node_type: "loop",
-		category: "Control Flow",
-		configurable: true,
-		config_component: "LoopConfig",
-	},
-	Stop: {
-		required_fields: ["operation"],
-		has_next_true: false,
-		has_next_false: false,
-		terminal: true,
-		css: { icon: "fa fa-stop", color: "#ef4444" },
-		operation_label: "Terminal Mode",
-		operation_options: ["Success", "Error"],
-		mandatory_fields: {
-			Error: ["value_template"],
-		},
-		node_type: "stop",
-		category: "Control Flow",
-		configurable: false,
-	},
-	Switch: {
-		required_fields: ["config"],
-		has_next_true: false,
-		has_next_false: true,
-		terminal: false,
-		css: { icon: "fa fa-random", color: "#06b6d4" },
-		node_type: "switch",
-		category: "Control Flow",
-		configurable: true,
-		config_component: "SwitchConfig",
-	},
-	Wait: {
-		required_fields: [],
-		has_next_true: true,
-		has_next_false: false,
-		terminal: false,
-		css: { icon: "fa fa-clock-o", color: "#64748b" },
-		node_type: "wait",
-		category: "Control Flow",
-		configurable: true,
-		config_component: "WaitConfig",
-	},
-	"Sub-Rule": {
-		required_fields: ["rule"],
-		has_next_true: true,
-		has_next_false: false,
-		terminal: false,
-		css: { icon: "fa fa-cube", color: "#ec4899" },
-		node_type: "sub-rule",
-		category: "Control Flow",
-		configurable: true,
-		config_component: "SubRuleConfig",
-	},
-	Assignment: {
-		required_fields: ["config"],
-		has_next_true: true,
-		has_next_false: false,
-		terminal: false,
-		css: { icon: "fa fa-list-ol", color: "#14b8a6" },
-		field_labels: { config: "Assignments" },
-		show_return_variable: false,
-		show_return_type: false,
-		node_type: "assignment",
-		category: "Data Actions",
-		configurable: true,
-		config_component: "AssignmentConfig",
-	},
-	Notify: {
-		required_fields: ["value_template", "operation"],
-		has_next_true: true,
-		has_next_false: false,
-		terminal: false,
-		css: { icon: "fa fa-bell", color: "#0ea5e9" },
-		operation_label: "Notification Type",
-		operation_options: ["Toast", "System", "Email", "System Notification", "Provider"],
-		operation_policies: {
-			Email: {
-				required_config_keys: ["subject", "recipients"],
-			},
-			"System Notification": {
-				required_config_keys: ["subject"],
-			},
-			Provider: {
-				required_config_keys: ["provider", "recipient"],
-			},
-		},
-		node_type: "notify",
-		category: "Notifications",
-		configurable: true,
-		config_component: "NotifyConfig",
-	},
-	"Raise Error": {
-		required_fields: ["value_template"],
-		has_next_true: false,
-		has_next_false: false,
-		terminal: true,
-		css: { icon: "fa fa-exclamation-triangle", color: "#dc2626" },
-		field_labels: {
-			value_template: "Error Message Template",
-			config: "Error Details",
-		},
-		node_type: "raise-error",
-		category: "Control Flow",
-		configurable: true,
-		config_component: "RaiseErrorConfig",
-	},
-	"Query Records": {
-		required_fields: ["reference_doctype", "operation"],
-		has_next_true: true,
-		has_next_false: false,
-		terminal: false,
-		allowed_mutations: [
-			"Set Context Variable",
-			"Append to Context Variable",
-			"Update Context Variable",
-		],
-		css: { icon: "fa fa-search", color: "#0891b2" },
-		operation_label: "Query Mode",
-		operation_options: [
-			"Query List",
-			"Query Doc",
-			"Exist Record",
-			"Query Report",
-			"Count",
-			"Sum",
-			"Average",
-			"Min",
-			"Max",
-			"Group By",
-		],
-		mandatory_fields: {
-			"Exist Record": ["reference_doctype"],
-		},
-		node_type: "query",
-		category: "Data Actions",
-		configurable: true,
-		config_component: "QueryRecordsConfig",
-	},
-	"Document Action": {
-		required_fields: ["reference_doctype", "operation"],
-		has_next_true: true,
-		has_next_false: false,
-		terminal: false,
-		operation_label: "Document Mode",
-		operation_options: [
-			"Create New",
-			"Update Existing",
-			"Delete Record",
-			"Create ToDo",
-			"Add Comment",
-		],
-		allowed_mutations: ["Set Doc Field", "Set Context Variable"],
-		operation_policies: {
-			"Create New": {
-				allowed_return_types: ["Single Record", "Full Document"],
-				default_return_type: "Single Record",
-				allowed_mutations: ["Set Context Variable", "Update Context Variable"],
-				show_return_type: true,
-				require_return_type: true,
-				field_labels: { return_type: "Created Document Output" },
-			},
-			"Update Existing": {
-				allowed_return_types: ["Single Record", "Full Document"],
-				default_return_type: "Single Record",
-				allowed_mutations: [
-					"Set Context Variable",
-					"Update Context Variable",
-					"Set Doc Field",
-				],
-				show_return_type: true,
-				require_return_type: true,
-				field_labels: { return_type: "Updated Document Output" },
-			},
-			"Delete Record": {
-				allowed_return_types: ["Yes / No"],
-				default_return_type: "Yes / No",
-				allowed_mutations: ["Set Context Variable"],
-				show_return_type: false,
-				require_return_type: false,
-				field_labels: { return_type: "Deletion Result Type" },
-			},
-			"Create ToDo": {
-				allowed_return_types: ["Single Record"],
-				default_return_type: "Single Record",
-				allowed_mutations: ["Set Context Variable", "Update Context Variable"],
-				show_return_type: false,
-				require_return_type: false,
-				required_config_keys: ["assigned_to", "description"],
-				field_labels: { return_type: "ToDo Output Type" },
-			},
-			"Add Comment": {
-				allowed_return_types: ["Single Record"],
-				default_return_type: "Single Record",
-				allowed_mutations: ["Set Context Variable", "Update Context Variable"],
-				show_return_type: false,
-				require_return_type: false,
-				required_config_keys: ["comment_text"],
-				field_labels: { return_type: "Comment Output Type" },
-			},
-		},
-		css: { icon: "fa fa-file-text", color: "#059669" },
-		node_type: "documentaction",
-		category: "Data Actions",
-		configurable: true,
-		config_component: "DocumentActionConfig",
-	},
-};
-
-const DEFAULT_TRIGGER_TYPE_CONTRACT = {
-	"DocType Event": {
-		required_fields: ["document_type", "trigger_event"],
-		optional_fields: ["trigger_condition", "compiled_expression"],
-		hidden_fields: [],
-	},
-	"Scheduler Event": {
-		required_fields: [],
-		optional_fields: ["document_type"],
-		hidden_fields: ["trigger_event", "trigger_condition", "compiled_expression"],
-	},
-	"Callable Event": {
-		required_fields: [],
-		optional_fields: ["document_type", "trigger_condition", "compiled_expression"],
-		hidden_fields: ["trigger_event"],
-	},
-};
-
-const DEFAULT_RELEASE_DISABLED_ACTION_TYPES = ["Switch"];
-const DEFAULT_RETURN_TYPE_OPTIONS = [
-	"Yes / No",
-	"Single Record",
-	"List of Values",
-	"List of Records",
-	"Full Document",
-];
-const DEFAULT_MUTATION_MODE_OPTIONS = [
-	"Set Doc Field",
-	"Update Doc Field",
-	"Set Context Variable",
-	"Update Context Variable",
-	"Append to Context Variable",
-	"Batch Database Set",
-];
-
-const DEFAULT_ACTION_TYPES_WITH_REFERENCE_CONTEXT = [
-	"Query Records",
-	"Document Action",
-	"Process",
-	"Assignment",
-];
-const DEFAULT_ACTION_TYPES_WITH_RETURN_SCHEMA = ["Process", "Query Records", "Document Action"];
-const DEFAULT_CONFIG_MODAL_TYPES = [
-	"Process",
-	"Condition",
-	"Assignment",
-	"Stop",
-	"Raise Error",
-	"Notify",
-	"Wait",
-	"Sub-Rule",
-	"Document Action",
-	"Loop",
-];
-
-// Operator metadata for the Assignment action type.
-// Mirrors operators.py AssignmentOperatorRegistry metadata.
-// Used by AssignmentConfig.vue for target-aware operator filtering.
-export const ASSIGNMENT_OPERATOR_METADATA = {
-	set: {
-		label: "Set Value",
-		requires_value: true,
-		supported_target_types: [], // All types
-		is_idempotent: true,
-	},
-	clear: {
-		label: "Clear",
-		requires_value: false,
-		supported_target_types: [], // All types
-		is_idempotent: true,
-	},
-	increment: {
-		label: "Increment By",
-		requires_value: true,
-		supported_target_types: ["Int", "Float", "Currency", "Percent"],
-		is_idempotent: false,
-	},
-	decrement: {
-		label: "Decrement By",
-		requires_value: true,
-		supported_target_types: ["Int", "Float", "Currency", "Percent"],
-		is_idempotent: false,
-	},
-	append: {
-		label: "Append To List",
-		requires_value: true,
-		supported_target_types: ["Table", "Table MultiSelect"],
-		is_idempotent: false,
-	},
-	merge: {
-		label: "Merge Object",
-		requires_value: true,
-		supported_target_types: ["JSON", "Code", "Text"],
-		is_idempotent: false,
-	},
-	toggle: {
-		label: "Toggle Boolean",
-		requires_value: false,
-		supported_target_types: ["Check"],
-		is_idempotent: false,
-	},
-};
-const DEFAULT_FEATURE_FLAGS = {
-	supports_logic_builder: false,
-	supports_reference_context: false,
-	supports_return_schema: false,
-};
-
-export let ACTION_TYPE_CONTRACT = withDescriptions(DEFAULT_ACTION_TYPE_CONTRACT);
+export let ACTION_TYPE_CONTRACT = {};
 export let ACTION_TYPE_MAP = {};
-export let TRIGGER_TYPE_CONTRACT = { ...DEFAULT_TRIGGER_TYPE_CONTRACT };
-export let RELEASE_DISABLED_ACTION_TYPES = new Set(DEFAULT_RELEASE_DISABLED_ACTION_TYPES);
-export let RETURN_TYPE_OPTIONS = [...DEFAULT_RETURN_TYPE_OPTIONS];
-export let MUTATION_MODE_OPTIONS = [...DEFAULT_MUTATION_MODE_OPTIONS];
-export let ACTION_TYPES_WITH_REFERENCE_CONTEXT = new Set(
-	DEFAULT_ACTION_TYPES_WITH_REFERENCE_CONTEXT
-);
-export let ACTION_TYPES_WITH_RETURN_SCHEMA = new Set(DEFAULT_ACTION_TYPES_WITH_RETURN_SCHEMA);
-export let CONFIG_MODAL_TYPES = new Set(DEFAULT_CONFIG_MODAL_TYPES);
+export let TRIGGER_TYPE_CONTRACT = {};
+export let RELEASE_DISABLED_ACTION_TYPES = new Set();
+export let RETURN_TYPE_OPTIONS = [];
+export let MUTATION_MODE_OPTIONS = [];
+export let ACTION_TYPES_WITH_REFERENCE_CONTEXT = new Set();
+export let ACTION_TYPES_WITH_RETURN_SCHEMA = new Set();
+export let CONFIG_MODAL_TYPES = new Set();
 export let PROCESS_REGISTRY = [];
 export let OPERATION_REGISTRY = [];
 export let OPERATION_CONTRACT = {};
 export let PROCESS_OPERATION_REGISTRY_V2 = {};
 export let RUNTIME_FIELD_ALIASES = {};
 
-let _contractsLoaded = false;
-const CONTRACT_CACHE_KEY = "flexirule:contract_dto:v3";
+/**
+ * Assignment operator metadata — sourced from backend operators.py.
+ * Keyed by operator slug (e.g. "set", "clear", "increment").
+ * Each entry: { label, requires_value, supported_target_types, is_idempotent }
+ */
+export let ASSIGNMENT_OPERATOR_METADATA = {};
 
-function withDescriptions(contractMap) {
+// ── Cache internals ───────────────────────────────────────────────────────────
+
+let _contractsLoaded = false;
+let _loadPromise = null;
+
+// Key includes the schema version so old cached payloads are automatically
+// discarded when CONTRACT_SCHEMA_VERSION bumps on the backend.
+const CONTRACT_CACHE_KEY = "flexirule:contract_dto:v4";
+
+// ── DTO application ───────────────────────────────────────────────────────────
+
+function withDescriptions(contractMap, descriptionsMap) {
 	const merged = {};
 	Object.entries(contractMap || {}).forEach(([actionType, contract]) => {
 		merged[actionType] = {
 			...(contract || {}),
-			description: ACTION_TYPE_DESCRIPTION[actionType] || contract?.description || "",
+			description: descriptionsMap?.[actionType] || contract?.description || "",
 		};
 	});
 	return merged;
 }
 
 function applyContractDto(dto = {}) {
+	const descriptions = dto.action_type_descriptions || {};
+
 	if (dto.action_type_contract && typeof dto.action_type_contract === "object") {
-		ACTION_TYPE_CONTRACT = withDescriptions(dto.action_type_contract);
+		ACTION_TYPE_CONTRACT = withDescriptions(dto.action_type_contract, descriptions);
 	}
 
 	if (dto.action_type_map && typeof dto.action_type_map === "object") {
@@ -487,7 +130,13 @@ function applyContractDto(dto = {}) {
 	) {
 		PROCESS_OPERATION_REGISTRY_V2 = { ...dto.process_operation_registry_v2 };
 	}
+
+	if (dto.assignment_operator_metadata && typeof dto.assignment_operator_metadata === "object") {
+		ASSIGNMENT_OPERATOR_METADATA = { ...dto.assignment_operator_metadata };
+	}
 }
+
+// ── sessionStorage cache ──────────────────────────────────────────────────────
 
 function getCachedContractDto() {
 	try {
@@ -495,7 +144,11 @@ function getCachedContractDto() {
 		if (!raw) return null;
 		const parsed = JSON.parse(raw);
 		if (!parsed || typeof parsed !== "object") return null;
+		// Require both hash and schema_version for a cache hit
 		if (typeof parsed.contract_version_hash !== "string" || !parsed.contract_version_hash) {
+			return null;
+		}
+		if (typeof parsed.schema_version !== "string" || !parsed.schema_version) {
 			return null;
 		}
 		return parsed;
@@ -508,43 +161,152 @@ function setCachedContractDto(dto) {
 	try {
 		window.sessionStorage?.setItem(CONTRACT_CACHE_KEY, JSON.stringify(dto || {}));
 	} catch (_error) {
-		// Ignore storage failures.
+		// Ignore storage quota failures — the builder will still work in-memory.
 	}
 }
 
-export async function loadContractsFromBackend(force = false) {
-	if (_contractsLoaded && !force) return;
-	if (!window.frappe?.call) return;
+// ── Error classification ──────────────────────────────────────────────────────
 
+/**
+ * Returns true for transient HTTP/network errors that should be retried.
+ * Permanent errors (4xx other than 408/429, 500) are not retried.
+ */
+function isTransientError(err) {
+	if (!err) return false;
+	// No HTTP status → pure network failure
+	if (!err.httpStatus && !err.status) {
+		return true; // Network error, CORS failure, DNS timeout
+	}
+	const status = err.httpStatus || err.status || 0;
+	return (
+		status === 0 ||
+		status === 408 ||
+		status === 429 ||
+		status === 502 ||
+		status === 503 ||
+		status === 504
+	);
+}
+
+async function sleep(ms) {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Fetch the contract DTO from the backend with transient-error retries.
+ * On permanent failure throws immediately; on transient failure retries up to
+ * maxAttempts times with exponential backoff.
+ *
+ * @param {number} maxAttempts
+ * @returns {Promise<object>} The validated DTO
+ * @throws on permanent error or exhausted retries
+ */
+async function fetchContractDtoWithRetry(maxAttempts = 3) {
+	let lastError;
+	for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+		try {
+			const response = await frappe.call({
+				method: "flexirule.ruleflow.api.get_contract_dto",
+			});
+			const dto = response?.message;
+			if (!dto || typeof dto !== "object") {
+				throw new Error("Backend returned an empty or invalid contract DTO.");
+			}
+			if (!dto.contract_version_hash) {
+				throw new Error("Backend contract DTO is missing contract_version_hash.");
+			}
+			return dto;
+		} catch (err) {
+			lastError = err;
+			if (!isTransientError(err)) {
+				// Permanent error — fail immediately without retry
+				throw err;
+			}
+			if (attempt < maxAttempts) {
+				const delay = 500 * Math.pow(2, attempt - 1); // 500ms, 1000ms, 2000ms
+				console.warn(
+					`FlexiRule: Contract fetch attempt ${attempt} failed (transient). Retrying in ${delay}ms…`,
+					err
+				);
+				await sleep(delay);
+			}
+		}
+	}
+	throw lastError;
+}
+
+// ── Public loader ─────────────────────────────────────────────────────────────
+
+/**
+ * Load contracts from the backend and apply them to module state.
+ *
+ * Called once during rule builder initialisation. Subsequent calls are
+ * no-ops unless `force = true`.
+ *
+ * On failure the function throws — callers are expected to surface the error
+ * to the user rather than silently proceeding with empty contracts.
+ *
+ * @param {boolean} force - Force re-fetch even if already loaded.
+ */
+export async function loadContractsFromBackend(force = false) {
+	// Deduplicate concurrent calls
+	if (_loadPromise && !force) return _loadPromise;
+
+	_loadPromise = _doLoad(force);
+	try {
+		await _loadPromise;
+	} finally {
+		if (!_contractsLoaded) {
+			// Reset so the next call can retry
+			_loadPromise = null;
+		}
+	}
+}
+
+async function _doLoad(force) {
+	if (_contractsLoaded && !force) return;
+	if (!window.frappe?.call) {
+		throw new Error("FlexiRule: frappe.call is not available — contracts cannot be loaded.");
+	}
+
+	// 1. Apply from Frappe boot context (fastest path, no network call)
 	const bootDto = window.frappe?.boot?.flexirule_contract_dto;
-	if (bootDto && typeof bootDto === "object" && !force) {
+	if (bootDto && typeof bootDto === "object" && bootDto.contract_version_hash && !force) {
 		applyContractDto(bootDto);
 		setCachedContractDto(bootDto);
 		_contractsLoaded = true;
 		return;
 	}
 
-	if (!force) {
-		const cachedDto = getCachedContractDto();
-		if (cachedDto && typeof cachedDto === "object") {
-			applyContractDto(cachedDto);
-			_contractsLoaded = true;
-		}
+	// 2. Apply cached DTO synchronously for instant render, then refresh in background
+	const cachedDto = getCachedContractDto();
+	if (cachedDto && !force) {
+		applyContractDto(cachedDto);
+		_contractsLoaded = true;
+
+		// Background refresh — updates state and cache if hash changed
+		fetchContractDtoWithRetry()
+			.then((freshDto) => {
+				if (freshDto.contract_version_hash !== cachedDto.contract_version_hash) {
+					applyContractDto(freshDto);
+					setCachedContractDto(freshDto);
+				}
+			})
+			.catch((err) => {
+				// Non-blocking: cached data is already applied. Log but don't throw.
+				console.warn("FlexiRule: Background contract refresh failed:", err);
+			});
+		return;
 	}
 
-	try {
-		const response = await frappe.call({
-			method: "flexirule.ruleflow.api.get_contract_dto",
-		});
-		if (response?.message) {
-			applyContractDto(response.message);
-			setCachedContractDto(response.message);
-			_contractsLoaded = true;
-		}
-	} catch (_error) {
-		// Keep local fallbacks silently.
-	}
+	// 3. Fresh fetch (no cache or force refresh)
+	const dto = await fetchContractDtoWithRetry();
+	applyContractDto(dto);
+	setCachedContractDto(dto);
+	_contractsLoaded = true;
 }
+
+// ── Process script loader ─────────────────────────────────────────────────────
 
 export async function loadProcessScript(processName) {
 	if (!processName) return;
@@ -563,8 +325,11 @@ export async function loadProcessScript(processName) {
 	}
 }
 
+// ── Contract accessors ────────────────────────────────────────────────────────
+
 /**
- * Get contract for an action type with sensible defaults.
+ * Get contract for an action type.
+ * Returns an empty-safe contract object (never null).
  */
 export function getContract(actionType) {
 	actionType = normalizeActionType(actionType);
@@ -574,8 +339,6 @@ export function getContract(actionType) {
 			has_next_true: true,
 			has_next_false: false,
 			terminal: false,
-			icon: "fa fa-circle",
-			color: "#6b7280",
 		}
 	);
 }
@@ -596,7 +359,6 @@ export function getActionFeatureFlags(actionType) {
 	const normalized = normalizeActionType(actionType);
 	const contract = getContract(normalized);
 	return {
-		...DEFAULT_FEATURE_FLAGS,
 		supports_logic_builder: CONFIG_MODAL_TYPES.has(normalized),
 		supports_reference_context: ACTION_TYPES_WITH_REFERENCE_CONTEXT.has(normalized),
 		supports_return_schema: ACTION_TYPES_WITH_RETURN_SCHEMA.has(normalized),
@@ -613,16 +375,15 @@ export function normalizeActionType(actionType) {
 	if (ACTION_TYPE_CONTRACT[raw]) return raw;
 
 	// 2. Try to map hyphenated/machine types back to canonical
-	// Normalized for easy lookup: e.g. "set-value" -> "set value"
 	const normalized = raw.toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
 
-	// Case-insensitive direct match: "assignment" -> "Assignment"
+	// Case-insensitive direct match: "assignment" → "Assignment"
 	const canonicalKeys = Object.keys(ACTION_TYPE_CONTRACT);
 	const match = canonicalKeys.find((k) => k.toLowerCase() === normalized);
 	if (match) return match;
 
 	// 3. Compact match for common UI variants:
-	//    "subrule" / "sub-rule" -> "Sub-Rule", "raiseerror" -> "Raise Error"
+	//    "subrule" / "sub-rule" → "Sub-Rule", "raiseerror" → "Raise Error"
 	const compact = normalized.replace(/[^a-z0-9]/g, "");
 	const compactMatch = canonicalKeys.find(
 		(k) => k.toLowerCase().replace(/[^a-z0-9]/g, "") === compact
@@ -632,16 +393,10 @@ export function normalizeActionType(actionType) {
 	return actionType;
 }
 
-/**
- * Check if action type terminates the flow.
- */
 export function isTerminalAction(actionType) {
 	return getContract(actionType).terminal || false;
 }
 
-/**
- * Get required fields for an action type.
- */
 export function getRequiredFields(actionType) {
 	return getContract(actionType).required_fields || [];
 }
@@ -663,6 +418,8 @@ export function getReturnTypeOptions() {
 export function getMutationModeOptions() {
 	return [...MUTATION_MODE_OPTIONS];
 }
+
+// ── Policy helpers ────────────────────────────────────────────────────────────
 
 function mergePolicy(basePolicy = {}, overridePolicy = {}) {
 	const merged = {
@@ -1179,7 +936,7 @@ export function getActionTypeOptions() {
 		return Object.keys(bootMap).sort();
 	}
 
-	// Fallback to contract keys if registry not available
+	// Derive from loaded contract keys (no hardcoded fallback)
 	return Object.keys(ACTION_TYPE_CONTRACT).filter(
 		(actionType) => !RELEASE_DISABLED_ACTION_TYPES.has(actionType)
 	);
