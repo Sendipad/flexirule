@@ -34,6 +34,7 @@ class AssignmentHandler(ActionHandler):
 			field_labels={
 				"config": "Assignments",
 			},
+			produces_result=False,
 			node_type="assignment",
 			category="Data Actions",
 			configurable=True,

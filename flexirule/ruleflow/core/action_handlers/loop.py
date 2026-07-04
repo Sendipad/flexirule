@@ -32,6 +32,8 @@ class LoopHandler(ActionHandler):
 			},
 			show_return_variable=True,
 			require_return_variable=True,
+			produces_result=False,
+			return_variable_mode="new_key",
 			node_type="loop",
 			category="Control Flow",
 			configurable=True,

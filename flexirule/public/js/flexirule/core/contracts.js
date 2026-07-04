@@ -591,6 +591,12 @@ export function getEffectiveActionPolicy(actionType, ctx = {}) {
 		field_labels: { ...(contract.field_labels || {}) },
 		show_return_type: contract.show_return_type,
 		require_return_type: contract.require_return_type || false,
+		show_return_variable: contract.show_return_variable,
+		require_return_variable: contract.require_return_variable || false,
+		show_mutation_mode: contract.show_mutation_mode,
+		require_mutation_mode: contract.require_mutation_mode || false,
+		produces_result: contract.produces_result,
+		return_variable_mode: contract.return_variable_mode || null,
 	};
 
 	if (operation) {
@@ -601,22 +607,73 @@ export function getEffectiveActionPolicy(actionType, ctx = {}) {
 		effective = mergePolicy(effective, getProcessOperationPolicy(processName, operation));
 	}
 
+	effective = normalizeOutputPolicy(effective);
 	return effective;
 }
 
+function normalizeOutputPolicy(policy = {}) {
+	const normalized = { ...policy };
+	const allowedMutations = Array.isArray(normalized.allowed_mutations)
+		? normalized.allowed_mutations
+		: [];
+	const allowedReturnTypes = Array.isArray(normalized.allowed_return_types)
+		? normalized.allowed_return_types
+		: [];
+	const hasStorage =
+		allowedMutations.length ||
+		allowedReturnTypes.length ||
+		normalized.show_return_variable ||
+		normalized.require_return_variable;
+
+	if (normalized.produces_result === undefined || normalized.produces_result === null) {
+		normalized.produces_result = !!hasStorage;
+	}
+	if (normalized.produces_result === false) {
+		normalized.allowed_mutations = [];
+		normalized.allowed_return_types = [];
+		normalized.default_return_type = null;
+		normalized.show_mutation_mode = false;
+		normalized.show_return_type = false;
+		if (!normalized.show_return_variable) {
+			normalized.show_return_variable = false;
+			normalized.require_return_variable = false;
+		}
+		return normalized;
+	}
+	if (normalized.show_mutation_mode === undefined || normalized.show_mutation_mode === null) {
+		normalized.show_mutation_mode = allowedMutations.length > 0;
+	}
+	if (normalized.show_return_type === undefined || normalized.show_return_type === null) {
+		normalized.show_return_type = allowedReturnTypes.length > 0;
+	}
+	if (normalized.show_return_variable === undefined || normalized.show_return_variable === null) {
+		normalized.show_return_variable = !!(
+			allowedMutations.length ||
+			allowedReturnTypes.length ||
+			normalized.require_return_variable
+		);
+	}
+	if (!normalized.return_variable_mode) {
+		normalized.return_variable_mode = "context_key";
+	}
+	return normalized;
+}
+
 export function getAllowedReturnTypeOptions(actionType, ctx = {}) {
-	const normalizedType = normalizeActionType(actionType);
 	const policy = getEffectiveActionPolicy(actionType, ctx);
+	if (policy.produces_result === false) return [];
 	const allowed = policy.allowed_return_types || [];
 	if (allowed.length) return [...allowed];
+	const normalizedType = normalizeActionType(actionType);
 	if (ACTION_TYPES_WITH_RETURN_SCHEMA.has(normalizedType)) return [...RETURN_TYPE_OPTIONS];
 	return [];
 }
 
 export function getAllowedMutationModeOptions(actionType, ctx = {}) {
 	const policy = getEffectiveActionPolicy(actionType, ctx);
+	if (policy.produces_result === false || policy.show_mutation_mode === false) return [];
 	const allowed = policy.allowed_mutations || [];
-	return allowed.length ? [...allowed] : [...MUTATION_MODE_OPTIONS];
+	return allowed.length ? [...allowed] : [];
 }
 
 export function getFieldLabel(actionType, fieldname, ctx = {}) {

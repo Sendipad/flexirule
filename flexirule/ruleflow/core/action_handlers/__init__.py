@@ -69,6 +69,10 @@ class ActionHandler(ABC):
 			"require_return_type": contract.require_return_type,
 			"show_return_variable": contract.show_return_variable,
 			"require_return_variable": contract.require_return_variable,
+			"show_mutation_mode": contract.extras.get("show_mutation_mode"),
+			"require_mutation_mode": contract.extras.get("require_mutation_mode", False),
+			"produces_result": contract.extras.get("produces_result"),
+			"return_variable_mode": contract.extras.get("return_variable_mode"),
 		}
 
 		if operation:
@@ -89,6 +93,14 @@ class ActionHandler(ABC):
 					policy["require_return_variable"] = op_policy.get("require_return_variable")
 				if op_policy.get("field_labels"):
 					policy["field_labels"].update(op_policy.get("field_labels", {}))
+				for key in (
+					"show_mutation_mode",
+					"require_mutation_mode",
+					"produces_result",
+					"return_variable_mode",
+				):
+					if op_policy.get(key) is not None:
+						policy[key] = op_policy.get(key)
 
 			# Override with operation contract settings if defined
 			op_contracts = cls.get_operation_contracts()
@@ -106,7 +118,42 @@ class ActionHandler(ABC):
 						if "read_only" in field_def:
 							policy["show_return_type"] = not field_def.get("read_only", False)
 							policy["require_return_type"] = field_def.get("reqd", False)
+		cls._normalize_runtime_policy(policy)
 		return policy
+
+	@staticmethod
+	def _normalize_runtime_policy(policy: dict) -> None:
+		"""Fill storage visibility defaults from declared mutation/return capabilities."""
+		allowed_mutations = policy.get("allowed_mutations") or []
+		allowed_return_types = policy.get("allowed_return_types") or []
+		has_storage = bool(
+			allowed_mutations
+			or allowed_return_types
+			or policy.get("show_return_variable")
+			or policy.get("require_return_variable")
+		)
+		if policy.get("produces_result") is None:
+			policy["produces_result"] = has_storage
+		if policy.get("produces_result") is False:
+			policy["allowed_mutations"] = []
+			policy["allowed_return_types"] = []
+			policy["default_return_type"] = None
+			policy["show_mutation_mode"] = False
+			policy["show_return_type"] = False
+			if not policy.get("show_return_variable"):
+				policy["show_return_variable"] = False
+				policy["require_return_variable"] = False
+			return
+		if policy.get("show_mutation_mode") is None:
+			policy["show_mutation_mode"] = bool(allowed_mutations)
+		if policy.get("show_return_type") is None:
+			policy["show_return_type"] = bool(allowed_return_types)
+		if policy.get("show_return_variable") is None:
+			policy["show_return_variable"] = bool(
+				allowed_mutations or allowed_return_types or policy.get("require_return_variable")
+			)
+		if not policy.get("return_variable_mode"):
+			policy["return_variable_mode"] = "context_key"
 
 	@abstractmethod
 	def execute(self, action, context: dict, engine: "RuleEngine") -> tuple[Any, str | None]:
@@ -589,6 +636,7 @@ class HandlerRegistry:
 				if value is not None:
 					policy[key] = value
 
+		ActionHandler._normalize_runtime_policy(policy)
 		return policy
 
 	@classmethod
