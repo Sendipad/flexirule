@@ -393,7 +393,7 @@ class DocumentActionHandler(ActionHandler):
 		if is_async:
 			# Enqueue document creation
 			frappe.enqueue(
-				"flexirule.ruleflow.core.action_handlers.create_doc._async_create_doc",
+				"flexirule.ruleflow.core.action_handlers.document_action._async_create_doc",
 				queue="default",
 				doc_data=doc_data,
 				ignore_permissions=ignore_permissions,

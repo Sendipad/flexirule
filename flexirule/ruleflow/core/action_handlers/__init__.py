@@ -602,7 +602,7 @@ class HandlerRegistry:
 		from flexirule.ruleflow.core.action_handlers import (
 			assignment,
 			condition,
-			create_doc,
+			document_action,
 			loop,
 			process,
 			query_records,

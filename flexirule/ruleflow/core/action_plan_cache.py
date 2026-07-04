@@ -179,7 +179,7 @@ def _compile_notify_action(action) -> dict[str, Any]:
 
 
 def _compile_document_action(action) -> dict[str, Any]:
-	from flexirule.ruleflow.core.action_handlers.create_doc import DocumentActionHandler
+	from flexirule.ruleflow.core.action_handlers.document_action import DocumentActionHandler
 
 	handler = DocumentActionHandler()
 	config = handler._parse_config(getattr(action, "config", None))
