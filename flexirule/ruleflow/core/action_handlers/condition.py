@@ -11,6 +11,7 @@ next_step_if_true or next_step_if_false based on the result.
 from frappe import _
 
 from flexirule.ruleflow.core.action_handlers import ActionHandler, HandlerRegistry
+from flexirule.ruleflow.core.action_handlers.base_contract import ActionContract, OperationContract
 from flexirule.ruleflow.core.condition_payload import get_condition_payload
 
 
@@ -18,6 +19,44 @@ class ConditionHandler(ActionHandler):
 	"""Handler for Condition action type."""
 
 	action_type = "Condition"
+
+	@classmethod
+	def get_action_contract(cls):
+		return ActionContract(
+			action_type="Condition",
+			required_fields=["config"],
+			has_next_true=True,
+			has_next_false=True,
+			terminal=False,
+			css={"icon": "fa fa-code-fork", "color": "#3b82f6"},
+			validation={"frontend": "validate_condition"},
+			field_labels={
+				"compiled_expression": "Compiled Expression (Python)",
+				"config": "Condition Builder Config",
+			},
+			node_type="condition",
+			category="Control Flow",
+			configurable=True,
+			config_component="ConditionStep",
+		)
+
+	@classmethod
+	def get_operation_contracts(cls) -> dict:
+		return {
+			"Condition": OperationContract(
+				operation="Condition",
+				action_overrides=[
+					{"fieldname": "action_type", "default": "Condition"},
+					{"fieldname": "config", "reqd": 1},
+					{
+						"fieldname": "next_step_if_false",
+						"mandatory_depends_on": "eval:doc.parent.is_active===1",
+					},
+					{"fieldname": "description", "description": "Evaluates a condition to branch execution"},
+				],
+				validation={"frontend": "validate_condition"},
+			)
+		}
 
 	def execute(self, action, context, engine):
 		"""

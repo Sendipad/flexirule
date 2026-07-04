@@ -38,6 +38,76 @@ class ActionHandler(ABC):
 
 	action_type: str | None = None  # Must be set by subclass
 
+	@classmethod
+	def get_action_contract(cls):
+		"""Return the action type's top-level contract."""
+		from flexirule.ruleflow.core.action_handlers.base_contract import ActionContract
+
+		return ActionContract(
+			action_type=cls.action_type or "",
+			required_fields=[],
+			has_next_true=True,
+			has_next_false=False,
+			terminal=False,
+		)
+
+	@classmethod
+	def get_operation_contracts(cls) -> dict:
+		"""Return operation-level contracts keyed by operation name."""
+		return {}
+
+	@classmethod
+	def get_runtime_policy(cls, operation: str | None = None, process_operation: dict | None = None) -> dict:
+		"""Resolve runtime policy for this handler + optional operation."""
+		contract = cls.get_action_contract()
+		policy = {
+			"allowed_mutations": list(contract.allowed_mutations or []),
+			"allowed_return_types": list(contract.allowed_return_types or []),
+			"default_return_type": contract.default_return_type,
+			"field_labels": dict(contract.field_labels or {}),
+			"show_return_type": contract.show_return_type,
+			"require_return_type": contract.require_return_type,
+			"show_return_variable": contract.show_return_variable,
+			"require_return_variable": contract.require_return_variable,
+		}
+
+		if operation:
+			if contract.operation_policies and operation in contract.operation_policies:
+				op_policy = contract.operation_policies[operation]
+				for key in ("allowed_mutations", "allowed_return_types"):
+					if op_policy.get(key):
+						policy[key] = list(op_policy[key])
+				if op_policy.get("default_return_type"):
+					policy["default_return_type"] = op_policy["default_return_type"]
+				if op_policy.get("show_return_type") is not None:
+					policy["show_return_type"] = op_policy.get("show_return_type")
+				if op_policy.get("require_return_type") is not None:
+					policy["require_return_type"] = op_policy.get("require_return_type")
+				if op_policy.get("show_return_variable") is not None:
+					policy["show_return_variable"] = op_policy.get("show_return_variable")
+				if op_policy.get("require_return_variable") is not None:
+					policy["require_return_variable"] = op_policy.get("require_return_variable")
+				if op_policy.get("field_labels"):
+					policy["field_labels"].update(op_policy.get("field_labels", {}))
+
+			# Override with operation contract settings if defined
+			op_contracts = cls.get_operation_contracts()
+			if operation in op_contracts:
+				op_contract = op_contracts[operation]
+				for field_def in op_contract.action_overrides:
+					fieldname = field_def.get("fieldname")
+					if fieldname == "mutation_mode" and field_def.get("options"):
+						policy["allowed_mutations"] = field_def["options"]
+					elif fieldname == "return_type":
+						if field_def.get("options"):
+							policy["allowed_return_types"] = field_def["options"]
+						if field_def.get("default"):
+							policy["default_return_type"] = field_def["default"]
+						if "read_only" in field_def:
+							policy["show_return_type"] = not field_def.get("read_only", False)
+							policy["require_return_type"] = field_def.get("reqd", False)
+		return policy
+
 	@abstractmethod
 	def execute(self, action, context: dict, engine: "RuleEngine") -> tuple[Any, str | None]:
 		"""
@@ -332,6 +402,7 @@ class HandlerRegistry:
 
 	_handlers: ClassVar[dict] = {}
 	_initialized: bool = False
+	_contract_cache: ClassVar[dict | None] = None
 
 	@classmethod
 	def register(cls, handler: ActionHandler) -> None:
@@ -347,6 +418,7 @@ class HandlerRegistry:
 		if not handler.action_type:
 			raise ValueError(f"Handler {handler.__class__.__name__} must set 'action_type' class attribute")
 		cls._handlers[handler.action_type] = handler
+		cls._contract_cache = None  # Force re-aggregation
 
 	@classmethod
 	def get(cls, action_type: str) -> ActionHandler | None:
@@ -361,6 +433,137 @@ class HandlerRegistry:
 		"""
 		cls._ensure_initialized()
 		return cls._handlers.get(action_type)
+
+	@classmethod
+	def get_action_contract(cls, action_type: str) -> dict:
+		"""Get contract for a specific action type."""
+		cls._ensure_initialized()
+		from flexirule.ruleflow.core.contract_utils import normalize_action_type
+
+		norm_type = normalize_action_type(action_type)
+		handler = cls._handlers.get(norm_type)
+		if handler:
+			return handler.get_action_contract().to_dict()
+		return {
+			"required_fields": [],
+			"has_next_true": True,
+			"has_next_false": False,
+			"terminal": False,
+			"css": {},
+			"node_type": "action",
+			"category": "Other",
+			"configurable": True,
+		}
+
+	@classmethod
+	def get_all_contracts(cls) -> dict[str, dict]:
+		"""Aggregate all action contracts. Cached for performance."""
+		cls._ensure_initialized()
+		if cls._contract_cache is not None:
+			return cls._contract_cache
+		cls._contract_cache = {at: h.get_action_contract().to_dict() for at, h in cls._handlers.items()}
+		return cls._contract_cache
+
+	@classmethod
+	def get_operation_contract(cls, operation: str, process_operation: dict | None = None) -> dict:
+		"""Get operation contract from the owning handler."""
+		cls._ensure_initialized()
+		# Find owning handler for this operation
+		for handler in cls._handlers.values():
+			op_contracts = handler.get_operation_contracts()
+			if operation in op_contracts:
+				return op_contracts[operation].to_dict()
+
+		# Fallback to action type based contract:
+		from flexirule.ruleflow.core.contract_utils import normalize_action_type
+
+		action_type = None
+		for at, handler in cls._handlers.items():
+			contract = handler.get_action_contract()
+			if operation in (contract.operation_options or []):
+				action_type = at
+				break
+		if not action_type:
+			for at in cls._handlers:
+				if operation == at:
+					action_type = at
+					break
+
+		if action_type:
+			base_contract = cls.get_action_contract(action_type)
+			return {
+				"Rule": [],
+				"Rule Action": [
+					{"fieldname": "action_type", "default": action_type},
+					{"fieldname": "operation", "default": operation if operation != action_type else None},
+					{
+						"fieldname": "description",
+						"description": base_contract.get("description", f"Executes {operation}"),
+					},
+				]
+				+ [{"fieldname": f, "reqd": 1} for f in base_contract.get("required_fields", [])],
+				"Validation": base_contract.get("validation", {}),
+			}
+
+		return {
+			"Rule": [],
+			"Rule Action": [{"fieldname": "description", "description": f"Unknown operation: {operation}"}],
+			"Validation": {},
+		}
+
+	@classmethod
+	def get_all_operation_contracts(cls) -> dict[str, dict]:
+		"""Aggregate all operation contracts from all handlers."""
+		cls._ensure_initialized()
+		result = {}
+		for handler in cls._handlers.values():
+			for op_name, oc in handler.get_operation_contracts().items():
+				result[op_name] = oc.to_dict()
+		return result
+
+	@classmethod
+	def get_effective_policy(
+		cls, action_type: str | None, operation: str | None = None, process_operation: dict | None = None
+	) -> dict:
+		"""Resolve action policy including operation-level overrides."""
+		cls._ensure_initialized()
+		from flexirule.ruleflow.core.contract_utils import normalize_action_type
+
+		norm_type = normalize_action_type(action_type) if action_type else ""
+		handler = cls._handlers.get(norm_type)
+
+		policy = {}
+		if handler:
+			policy = handler.get_runtime_policy(operation, process_operation)
+
+		# Add support for Process Handler-specific dynamic policies
+		if norm_type == "Process" and process_operation and operation:
+			from flexirule.ruleflow.core.process_contract_v2 import resolve_process_operation_contract_v2
+
+			process_name = process_operation.get("parent") if isinstance(process_operation, dict) else None
+			if process_name:
+				try:
+					contract_v2 = resolve_process_operation_contract_v2(
+						process_name,
+						operation,
+						process_operation,
+						strict=True,
+					)
+					for key, value in (contract_v2.get("policy") or {}).items():
+						if value is not None:
+							policy[key] = value
+				except Exception:
+					pass
+		elif norm_type == "Process" and process_operation:
+			# Import here to avoid circular imports
+			from flexirule.ruleflow.core.contracts import infer_process_operation_policy
+
+			dynamic_policy = infer_process_operation_policy(process_operation)
+			for key, value in dynamic_policy.items():
+				if value is not None:
+					policy[key] = value
+
+		return policy
 
 	@classmethod
 	def all(cls) -> dict:
@@ -417,3 +620,4 @@ class HandlerRegistry:
 		"""
 		cls._handlers = {}
 		cls._initialized = False
+		cls._contract_cache = None

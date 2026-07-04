@@ -18,6 +18,19 @@ from frappe import _
 from frappe.utils import add_days, get_first_day, get_last_day, getdate, nowdate
 
 from flexirule.ruleflow.core.action_handlers import ActionHandler, HandlerRegistry
+from flexirule.ruleflow.core.action_handlers.base_contract import (
+	AFTER_TRIGGER_EVENTS,
+	BROAD_TRIGGER_EVENTS,
+	SINGLE_ALLOWED_DOCTYPE_LINK_FILTERS,
+	STANDARD_TRIGGER_TYPES,
+	VALIDATE_TRIGGER_EVENTS,
+	ActionContract,
+	OperationContract,
+	aggregate_operation_overrides,
+	config_depends_on_doctype,
+	reference_doctype_override,
+	standard_trigger_overrides,
+)
 from flexirule.ruleflow.core.permissions import can_skip_permissions
 from flexirule.ruleflow.utils.mapping import apply_input_mapping
 
@@ -26,6 +39,257 @@ class QueryRecordsHandler(ActionHandler):
 	"""Handler for querying records from DocTypes."""
 
 	action_type = "Query Records"
+
+	@classmethod
+	def get_action_contract(cls):
+		return ActionContract(
+			action_type="Query Records",
+			required_fields=["reference_doctype", "operation"],
+			has_next_true=True,
+			has_next_false=False,
+			terminal=False,
+			css={"icon": "fa fa-search", "color": "#0891b2"},
+			operation_label="Query Mode",
+			operation_options=[
+				"Query List",
+				"Query Doc",
+				"Exist Record",
+				"Query Report",
+				"Count",
+				"Sum",
+				"Average",
+				"Min",
+				"Max",
+				"Group By",
+			],
+			allowed_mutations=[
+				"Set Context Variable",
+				"Append to Context Variable",
+				"Update Context Variable",
+			],
+			allowed_return_types=[
+				"Yes / No",
+				"Single Record",
+				"List of Values",
+				"List of Records",
+			],
+			default_return_type="List of Records",
+			show_return_type=True,
+			require_return_type=False,
+			mandatory_fields={
+				"Exist Record": ["reference_doctype"],
+			},
+			operation_policies={
+				"Query List": {
+					"allowed_return_types": ["List of Records"],
+					"default_return_type": "List of Records",
+					"show_return_type": False,
+					"require_return_type": False,
+					"field_labels": {"return_type": "Rows Output Type"},
+				},
+				"Query Doc": {
+					"allowed_return_types": ["Single Record", "Full Document"],
+					"default_return_type": "Single Record",
+					"show_return_type": True,
+					"require_return_type": True,
+					"field_labels": {"return_type": "Record Output Type"},
+				},
+				"Exist Record": {
+					"allowed_return_types": ["Yes / No"],
+					"default_return_type": "Yes / No",
+					"show_return_type": False,
+					"require_return_type": False,
+					"field_labels": {"return_type": "Boolean Output Type"},
+				},
+				"Query Report": {
+					"allowed_return_types": ["List of Records"],
+					"default_return_type": "List of Records",
+					"show_return_type": False,
+					"require_return_type": False,
+					"field_labels": {"return_type": "Report Output Type"},
+				},
+				"Count": {
+					"allowed_return_types": ["List of Values"],
+					"default_return_type": "List of Values",
+					"show_return_type": False,
+					"require_return_type": False,
+					"field_labels": {"return_type": "Metric Output Type"},
+				},
+				"Sum": {
+					"allowed_return_types": ["List of Values"],
+					"default_return_type": "List of Values",
+					"show_return_type": False,
+					"require_return_type": False,
+					"field_labels": {"return_type": "Metric Output Type"},
+				},
+				"Average": {
+					"allowed_return_types": ["List of Values"],
+					"default_return_type": "List of Values",
+					"show_return_type": False,
+					"require_return_type": False,
+					"field_labels": {"return_type": "Metric Output Type"},
+				},
+				"Min": {
+					"allowed_return_types": ["List of Values"],
+					"default_return_type": "List of Values",
+					"show_return_type": False,
+					"require_return_type": False,
+					"field_labels": {"return_type": "Metric Output Type"},
+				},
+				"Max": {
+					"allowed_return_types": ["List of Values"],
+					"default_return_type": "List of Values",
+					"show_return_type": False,
+					"require_return_type": False,
+					"field_labels": {"return_type": "Metric Output Type"},
+				},
+				"Group By": {
+					"allowed_return_types": ["List of Records"],
+					"default_return_type": "List of Records",
+					"show_return_type": False,
+					"require_return_type": False,
+					"field_labels": {"return_type": "Grouped Output Type"},
+				},
+			},
+			field_labels={
+				"operation": "Query Mode",
+				"reference_doctype": "Target DocType",
+				"reference_docname": "Target Record",
+				"mutation_mode": "Result Handling",
+				"return_type": "Result Type",
+			},
+			node_type="query",
+			category="Data Actions",
+			configurable=True,
+			config_component="QueryRecordsConfig",
+		)
+
+	@classmethod
+	def get_operation_contracts(cls) -> dict:
+		return {
+			"Query List": OperationContract(
+				operation="Query List",
+				rule_overrides=standard_trigger_overrides(
+					trigger_events=BROAD_TRIGGER_EVENTS,
+					trigger_types=STANDARD_TRIGGER_TYPES,
+				),
+				action_overrides=[
+					{"fieldname": "action_type", "default": "Query Records"},
+					{"fieldname": "operation", "default": "Query List"},
+					reference_doctype_override(),
+					config_depends_on_doctype(description="Query configuration (filters, sorting)"),
+					{
+						"fieldname": "mutation_mode",
+						"options": [
+							"Set Context Variable",
+							"Append to Context Variable",
+							"Update Context Variable",
+						],
+						"reqd": 1,
+					},
+					{"fieldname": "return_type", "default": "List of Records", "read_only": 1},
+					{
+						"fieldname": "timeout",
+						"hidden": "eval:doc.parent.execution_mode!=='Asynchronous'",
+						"description": "Only available for async rules",
+					},
+					{"fieldname": "description", "description": "Queries multiple records from a DocType"},
+				],
+				validation={"backend": "validate_query_list"},
+			),
+			"Query Doc": OperationContract(
+				operation="Query Doc",
+				rule_overrides=standard_trigger_overrides(
+					trigger_events=BROAD_TRIGGER_EVENTS,
+					trigger_types=STANDARD_TRIGGER_TYPES,
+				),
+				action_overrides=[
+					{"fieldname": "action_type", "default": "Query Records"},
+					{"fieldname": "operation", "default": "Query Doc"},
+					reference_doctype_override(reqd=0, link_filters=SINGLE_ALLOWED_DOCTYPE_LINK_FILTERS),
+					config_depends_on_doctype(),
+					{
+						"fieldname": "mutation_mode",
+						"options": ["Set Context Variable", "Update Context Variable"],
+						"reqd": 1,
+					},
+					{"fieldname": "return_type", "options": ["Single Record", "Full Document"], "reqd": 1},
+					{"fieldname": "description", "description": "Queries a single record using filters"},
+				],
+				validation={"backend": "validate_query_doc"},
+			),
+			"Exist Record": OperationContract(
+				operation="Exist Record",
+				rule_overrides=standard_trigger_overrides(
+					trigger_events=VALIDATE_TRIGGER_EVENTS,
+					trigger_types=STANDARD_TRIGGER_TYPES,
+				),
+				action_overrides=[
+					{"fieldname": "action_type", "default": "Query Records"},
+					{"fieldname": "operation", "default": "Exist Record"},
+					reference_doctype_override(),
+					config_depends_on_doctype(),
+					{"fieldname": "return_type", "default": "Yes / No", "read_only": 1},
+					{"fieldname": "description", "description": "Checks if records exist matching criteria"},
+				],
+				validation={"backend": "validate_exist_record"},
+			),
+			"Query Report": OperationContract(
+				operation="Query Report",
+				rule_overrides=standard_trigger_overrides(
+					trigger_events=AFTER_TRIGGER_EVENTS,
+					trigger_types=STANDARD_TRIGGER_TYPES,
+				),
+				action_overrides=[
+					{"fieldname": "action_type", "default": "Query Records"},
+					{"fieldname": "operation", "default": "Query Report"},
+					reference_doctype_override(),
+					config_depends_on_doctype(),
+					{"fieldname": "return_type", "default": "List of Records", "read_only": 1},
+					{
+						"fieldname": "description",
+						"description": "Queries records using a custom report configuration",
+					},
+				],
+				validation={"backend": "validate_query_report"},
+			),
+			"Count": OperationContract(
+				operation="Count",
+				rule_overrides=standard_trigger_overrides(
+					trigger_events=BROAD_TRIGGER_EVENTS,
+					trigger_types=STANDARD_TRIGGER_TYPES,
+				),
+				action_overrides=[
+					{"fieldname": "action_type", "default": "Query Records"},
+					{"fieldname": "operation", "default": "Count"},
+					reference_doctype_override(),
+					config_depends_on_doctype(),
+					{"fieldname": "return_type", "default": "List of Values", "read_only": 1},
+					{"fieldname": "description", "description": "Counts records matching criteria"},
+				],
+				validation={"backend": "validate_count_records"},
+			),
+			"Sum": aggregate_operation_overrides("Sum", "Calculates sum of a numeric field"),
+			"Average": aggregate_operation_overrides("Average", "Calculates average of a numeric field"),
+			"Min": aggregate_operation_overrides("Min", "Finds minimum value of a field"),
+			"Max": aggregate_operation_overrides("Max", "Finds maximum value of a field"),
+			"Group By": OperationContract(
+				operation="Group By",
+				rule_overrides=standard_trigger_overrides(
+					trigger_events=AFTER_TRIGGER_EVENTS,
+					trigger_types=STANDARD_TRIGGER_TYPES,
+				),
+				action_overrides=[
+					{"fieldname": "action_type", "default": "Query Records"},
+					{"fieldname": "operation", "default": "Group By"},
+					reference_doctype_override(),
+					config_depends_on_doctype(),
+					{"fieldname": "return_type", "default": "List of Records", "read_only": 1},
+					{"fieldname": "description", "description": "Groups records by specified fields"},
+				],
+				validation={"backend": "validate_group_by_query"},
+			),
+		}
 
 	def execute(self, action, context, engine):
 		"""Execute a query based on the configured mode (operation field)."""

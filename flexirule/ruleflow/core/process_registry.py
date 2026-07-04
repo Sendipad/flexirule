@@ -10,7 +10,7 @@ and runtime policy resolution share one source of truth.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 import frappe
 
@@ -192,7 +192,7 @@ def build_operation_registry(
 			}
 		)
 
-	for action_type, action_contract in ACTION_TYPE_CONTRACT.items():
+	for action_type, action_contract in cast(dict[str, dict[str, Any]], ACTION_TYPE_CONTRACT).items():
 		for operation_name in action_contract.get("operation_options", []) or []:
 			op_policy = (action_contract.get("operation_policies", {}) or {}).get(operation_name, {})
 			_append_operation(

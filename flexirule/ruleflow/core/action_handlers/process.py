@@ -12,6 +12,7 @@ import frappe
 from frappe import _
 
 from flexirule.ruleflow.core.action_handlers import ActionHandler, HandlerRegistry
+from flexirule.ruleflow.core.action_handlers.base_contract import ActionContract
 from flexirule.ruleflow.core.exceptions import MethodExecutionError
 from flexirule.ruleflow.core.process_runtime_v2 import ProcessOperationExecutor
 from flexirule.ruleflow.utils.mapping import apply_input_mapping
@@ -22,6 +23,44 @@ class ProcessHandler(ActionHandler):
 
 	action_type = "Process"
 	executor = ProcessOperationExecutor()
+
+	@classmethod
+	def get_action_contract(cls):
+		return ActionContract(
+			action_type="Process",
+			required_fields=["process_name", "operation"],
+			has_next_true=True,
+			has_next_false=False,
+			terminal=False,
+			css={"icon": "fa fa-cog", "color": "#8b5cf6"},
+			dynamic_fields=True,
+			field_labels={
+				"operation": "Process Operation",
+				"mutation_mode": "Result Handling",
+				"return_type": "Result Type",
+			},
+			allowed_mutations=[
+				"Set Context Variable",
+				"Update Context Variable",
+				"Append to Context Variable",
+				"Set Doc Field",
+				"Update Doc Field",
+				"Batch Database Set",
+			],
+			allowed_return_types=[
+				"Yes / No",
+				"Single Record",
+				"List of Values",
+				"List of Records",
+				"Full Document",
+			],
+			show_return_type=True,
+			require_return_type=False,
+			node_type="process",
+			category="Processes",
+			configurable=True,
+			config_component="ProcessConfig",
+		)
 
 	def execute(self, action, context, engine):
 		"""

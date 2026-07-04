@@ -10,12 +10,33 @@ Implements iteration over collections with loop state management.
 from frappe import _
 
 from flexirule.ruleflow.core.action_handlers import ActionHandler, HandlerRegistry
+from flexirule.ruleflow.core.action_handlers.base_contract import ActionContract
 
 
 class LoopHandler(ActionHandler):
 	"""Handler for Loop action type."""
 
 	action_type = "Loop"
+
+	@classmethod
+	def get_action_contract(cls):
+		return ActionContract(
+			action_type="Loop",
+			required_fields=["config", "return_variable"],
+			has_next_true=True,
+			has_next_false=True,
+			terminal=False,
+			css={"icon": "fa fa-refresh", "color": "#f59e0b"},
+			field_labels={
+				"return_variable": "Item Alias",
+			},
+			show_return_variable=True,
+			require_return_variable=True,
+			node_type="loop",
+			category="Control Flow",
+			configurable=True,
+			config_component="LoopConfig",
+		)
 
 	def execute(self, action, context, engine):
 		"""
