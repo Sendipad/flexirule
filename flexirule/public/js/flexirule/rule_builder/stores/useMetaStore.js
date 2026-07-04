@@ -232,7 +232,7 @@ export const useMetaStore = defineStore("rule-builder-meta", () => {
 			args: {
 				doctype,
 				txt,
-				filters: filters || {},
+				filters: filters ? JSON.stringify(filters) : "{}",
 				start,
 				page_length,
 			},

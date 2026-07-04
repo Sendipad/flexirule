@@ -267,16 +267,16 @@ function getLinkFilters(df) {
 			filters = filters.trim();
 			if (!filters) return {};
 
-			// Handle standard Frappe string filters (JSON list of lists)
-			if (filters.startsWith("[") && filters.endsWith("]")) {
+			// Handle standard Frappe string filters (JSON list of lists) or JSON object
+			if (
+				(filters.startsWith("[") && filters.endsWith("]")) ||
+				(filters.startsWith("{") && filters.endsWith("}"))
+			) {
 				return JSON.parse(filters);
 			}
 
-			// Handle JSON object
-			if (filters.startsWith("{") && filters.endsWith("}")) {
-				return JSON.parse(filters);
-			}
-
+			// If it doesn't look like JSON, it might be a single value or something else
+			// but search_link expects a dict or a list.
 			return {};
 		}
 		return filters;

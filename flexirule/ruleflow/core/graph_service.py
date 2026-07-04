@@ -182,6 +182,7 @@ def get_node_config_schema(
 			"depends_on": df.depends_on,
 			"mandatory_depends_on": df.mandatory_depends_on,
 			"description": df.description,
+			"link_filters": df.link_filters,
 		}
 		base_fields.append(field_dict)
 
