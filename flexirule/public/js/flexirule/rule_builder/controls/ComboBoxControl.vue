@@ -310,6 +310,13 @@ const effectiveDoctype = computed(() => {
 	) {
 		return props.doctype || null;
 	}
+
+	// For Link/Dynamic Link fields, if no explicit doctype is provided, we should only fall back
+	// if the field actually behaves like a standard Link to the parent document type.
+	if (props.df?.fieldtype === "Link" || props.df?.fieldtype === "Dynamic Link") {
+		return props.doctype || null;
+	}
+
 	return props.doctype || props.rule?.document_type || props.context?.document_type;
 });
 

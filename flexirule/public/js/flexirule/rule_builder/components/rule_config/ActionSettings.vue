@@ -259,12 +259,27 @@ function getDoctypeForLink(df) {
 }
 
 function getLinkFilters(df) {
-	if (!df.link_filters) return {};
+	let filters = df.link_filters;
+	if (!filters) return {};
+
 	try {
-		if (typeof df.link_filters === "string") {
-			return JSON.parse(df.link_filters);
+		if (typeof filters === "string") {
+			filters = filters.trim();
+			if (!filters) return {};
+
+			// Handle standard Frappe string filters (JSON list of lists)
+			if (filters.startsWith("[") && filters.endsWith("]")) {
+				return JSON.parse(filters);
+			}
+
+			// Handle JSON object
+			if (filters.startsWith("{") && filters.endsWith("}")) {
+				return JSON.parse(filters);
+			}
+
+			return {};
 		}
-		return df.link_filters;
+		return filters;
 	} catch (e) {
 		console.warn("FlexiRule: Failed to parse link_filters for", df.fieldname, e);
 		return {};
@@ -276,6 +291,19 @@ async function getAutocompleteOptions(df, txt) {
 		return getActionTypeOptions().map((t) => ({
 			value: t,
 			label: window.__ ? __(t) : t,
+		}));
+	}
+
+	if (df.fieldname === "operation") {
+		const options = getOperationOptions(props.node?.data?.action_type, {
+			processName: props.node?.data?.process_name,
+		});
+
+		return options.map((opt) => ({
+			value: opt.value,
+			label: window.__ ? __(opt.label) : opt.label,
+			description: opt.description,
+			icon: opt.icon,
 		}));
 	}
 
