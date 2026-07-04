@@ -472,7 +472,10 @@ class HandlerRegistry:
 		for handler in cls._handlers.values():
 			op_contracts = handler.get_operation_contracts()
 			if operation in op_contracts:
-				return op_contracts[operation].to_dict()
+				return cls._with_action_field_overrides(
+					handler.get_action_contract(),
+					op_contracts[operation].to_dict(),
+				)
 
 		# Fallback to action type based contract:
 		from flexirule.ruleflow.core.contract_utils import normalize_action_type
@@ -491,25 +494,45 @@ class HandlerRegistry:
 
 		if action_type:
 			base_contract = cls.get_action_contract(action_type)
-			return {
-				"Rule": [],
-				"Rule Action": [
-					{"fieldname": "action_type", "default": action_type},
-					{"fieldname": "operation", "default": operation if operation != action_type else None},
-					{
-						"fieldname": "description",
-						"description": base_contract.get("description", f"Executes {operation}"),
-					},
-				]
-				+ [{"fieldname": f, "reqd": 1} for f in base_contract.get("required_fields", [])],
-				"Validation": base_contract.get("validation", {}),
-			}
+			return cls._with_action_field_overrides(
+				cls._handlers[action_type].get_action_contract(),
+				{
+					"Rule": [],
+					"Rule Action": [
+						{"fieldname": "action_type", "default": action_type},
+						{
+							"fieldname": "operation",
+							"default": operation if operation != action_type else None,
+						},
+						{
+							"fieldname": "description",
+							"description": base_contract.get("description", f"Executes {operation}"),
+						},
+					]
+					+ [{"fieldname": f, "reqd": 1} for f in base_contract.get("required_fields", [])],
+					"Validation": base_contract.get("validation", {}),
+				},
+			)
 
 		return {
 			"Rule": [],
 			"Rule Action": [{"fieldname": "description", "description": f"Unknown operation: {operation}"}],
 			"Validation": {},
 		}
+
+	@staticmethod
+	def _with_action_field_overrides(action_contract, operation_contract: dict) -> dict:
+		"""Merge action-wide Rule Action field overrides into an operation contract."""
+		overrides = action_contract.get_common_action_overrides()
+		if not overrides:
+			return operation_contract
+
+		merged = {
+			"Rule": list(operation_contract.get("Rule", [])),
+			"Rule Action": [dict(row) for row in overrides] + list(operation_contract.get("Rule Action", [])),
+			"Validation": dict(operation_contract.get("Validation", {})),
+		}
+		return merged
 
 	@classmethod
 	def get_all_operation_contracts(cls) -> dict[str, dict]:
@@ -518,7 +541,10 @@ class HandlerRegistry:
 		result = {}
 		for handler in cls._handlers.values():
 			for op_name, oc in handler.get_operation_contracts().items():
-				result[op_name] = oc.to_dict()
+				result[op_name] = cls._with_action_field_overrides(
+					handler.get_action_contract(),
+					oc.to_dict(),
+				)
 		return result
 
 	@classmethod

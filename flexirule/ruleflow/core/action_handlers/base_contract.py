@@ -59,6 +59,7 @@ class ActionContract:
 		mandatory_fields: dict | None = None,
 		validation: dict | None = None,
 		dynamic_fields: bool | None = None,
+		field_overrides: list[dict] | None = None,
 		# Runtime field aliases for frontend mapping
 		runtime_field_aliases: dict | None = None,
 		# Additional custom keys stored as extras
@@ -88,8 +89,21 @@ class ActionContract:
 		self.mandatory_fields = mandatory_fields
 		self.validation = validation
 		self.dynamic_fields = dynamic_fields
+		self.field_overrides = field_overrides or []
 		self.runtime_field_aliases = runtime_field_aliases
 		self.extras = extras
+
+	def get_common_action_overrides(self) -> list[dict[str, Any]]:
+		"""Return action-wide Rule Action field overrides inferred from contract flags."""
+		overrides: list[dict[str, Any]] = []
+
+		if self.terminal or not self.has_next_true:
+			overrides.append({"fieldname": "next_step_if_true", "hidden": 1, "reqd": 0})
+		if self.terminal or not self.has_next_false:
+			overrides.append({"fieldname": "next_step_if_false", "hidden": 1, "reqd": 0})
+
+		overrides.extend(dict(row) for row in self.field_overrides)
+		return overrides
 
 	def to_dict(self) -> dict[str, Any]:
 		"""Serialize to the same dict format as legacy ACTION_TYPE_CONTRACT entries."""
@@ -134,6 +148,9 @@ class ActionContract:
 			d["validation"] = self.validation
 		if self.dynamic_fields is not None:
 			d["dynamic_fields"] = self.dynamic_fields
+		common_overrides = self.get_common_action_overrides()
+		if common_overrides:
+			d["field_overrides"] = common_overrides
 
 		# Merge extras
 		d.update(self.extras)
