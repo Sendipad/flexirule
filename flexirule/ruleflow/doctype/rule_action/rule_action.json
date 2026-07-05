@@ -79,7 +79,7 @@
    "reqd": 1
   },
   {
-   "depends_on": "eval:doc.action_type=='Sub-Rule'",
+   "depends_on": "eval:doc.action_type==='Sub-Rule'",
    "fieldname": "rule",
    "fieldtype": "Link",
    "label": "Rule",
@@ -98,7 +98,7 @@
    "fieldtype": "Column Break"
   },
   {
-   "depends_on": "eval:doc.action_type=='Condition'",
+   "depends_on": "eval:doc.action_type===\"Condition\"",
    "description": "Compiled condition expression generated from Condition (JSON)",
    "fieldname": "compiled_expression",
    "fieldtype": "Code",
@@ -374,7 +374,7 @@
  ],
  "istable": 1,
  "links": [],
- "modified": "2026-07-02 19:31:20.524070",
+ "modified": "2026-07-05 17:52:53.860054",
  "modified_by": "Administrator",
  "module": "Ruleflow",
  "name": "Rule Action",
