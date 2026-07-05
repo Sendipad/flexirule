@@ -66,8 +66,13 @@ export function validateConditions(node, isRoot = false, isMandatory = true) {
 				"is_not_empty",
 			];
 			if (!valueNotRequired.includes(n.op)) {
+				let rightVal = n.right?.value;
+				if (rightVal && typeof rightVal === "object" && "mode" in rightVal) {
+					rightVal = rightVal.value;
+				}
+
 				const hasValue =
-					(n.right && n.right.value !== undefined && n.right.value !== "") ||
+					(rightVal !== undefined && rightVal !== null && rightVal !== "") ||
 					(n.right && n.right.ref);
 
 				if (!hasValue) {

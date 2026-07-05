@@ -432,7 +432,11 @@ const selectedOption = computed(
 		null
 );
 
-const displayValue = computed(() => selectedOption.value?.label || props.modelValue || "");
+const displayValue = computed(() => {
+	if (selectedOption.value) return selectedOption.value.label;
+	if (props.modelValue === 0 || props.modelValue === "0") return "0";
+	return props.modelValue || "";
+});
 
 function openLink() {
 	if (!effectiveDoctype.value || !props.modelValue) return;
