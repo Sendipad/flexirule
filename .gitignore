@@ -16,6 +16,8 @@ plans/
 # Build artifacts
 cypress/screenshots
 cypress/videos
+.nyc_output
+coverage
 landing-page/docs/
 temp-docs/
 server.log
