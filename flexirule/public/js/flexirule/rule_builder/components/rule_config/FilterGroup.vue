@@ -789,7 +789,7 @@ const getControlFactorySchema = (row) => {
 				{ value: "1", label: __("Submitted") },
 				{ value: "2", label: __("Cancelled") },
 			];
-	} else if (isCheckField(field)) {
+		} else if (isCheckField(field)) {
 			schema.fieldtype = "Select";
 			schema.options = [
 				{ label: __("Yes"), value: "1" },
