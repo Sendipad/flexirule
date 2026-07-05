@@ -734,14 +734,14 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		const uiStore = useUIStore();
 		const graphStore = useGraphStore();
 		uiStore.config_modal_mode = "setup";
-		uiStore.navigate_node(graphStore.nodes, 1);
+		uiStore.navigate_node(graphStore.orderedConfigurableNodes, 1);
 	}
 
 	function prev_config_node() {
 		const uiStore = useUIStore();
 		const graphStore = useGraphStore();
 		uiStore.config_modal_mode = "setup";
-		uiStore.navigate_node(graphStore.nodes, -1);
+		uiStore.navigate_node(graphStore.orderedConfigurableNodes, -1);
 	}
 
 	async function apply_ruleflow_layout() {

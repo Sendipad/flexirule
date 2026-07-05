@@ -40,6 +40,22 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		return map;
 	});
 
+	/**
+	 * Returns nodes in their logical execution order (topological sort).
+	 * Filtered to include only configurable nodes (Start + Actions),
+	 * excluding placeholders (selector) and terminal nodes (stop) as per UX preference.
+	 */
+	const orderedConfigurableNodes = computed(() => {
+		const sorted = getTopologicalSort();
+		return sorted.filter((n) => {
+			if (n.type === "selector") return false;
+			// Stop nodes are terminals with minimal config; we exclude them from step navigation
+			// but keep them as valid graph elements.
+			if (n.type === "stop" || n.data?.action_type === "Stop") return false;
+			return true;
+		});
+	});
+
 	// ── Cascade disable computed ──
 	// BFS from start node: any node not reachable via enabled path is "effectively disabled"
 	const effectiveDisabledIds = computed(() => {
@@ -2134,6 +2150,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		autoConnectNode,
 		autoConnectStartNode,
 		nodesMap,
+		orderedConfigurableNodes,
 		reconnect_node_edge,
 	};
 });
