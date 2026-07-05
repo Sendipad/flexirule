@@ -801,10 +801,10 @@ const actionPresentation = computed(() => {
 	return getActionPresentation(type);
 });
 
-const totalNodes = computed(() => graphStore.nodes.length);
+const totalNodes = computed(() => graphStore.orderedConfigurableNodes.length);
 const currentNodeIndex = computed(() => {
 	if (!uiStore.selected_id) return -1;
-	return graphStore.nodes.findIndex((n) => n.id === uiStore.selected_id);
+	return graphStore.orderedConfigurableNodes.findIndex((n) => n.id === uiStore.selected_id);
 });
 
 const transitionName = ref("slide-right");
