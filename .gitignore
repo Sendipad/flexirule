@@ -14,6 +14,8 @@ combine_source.py
 CLAUDE.md
 plans/
 # Build artifacts
+cypress/screenshots
+cypress/videos
 landing-page/docs/
 temp-docs/
 server.log
