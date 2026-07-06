@@ -289,7 +289,8 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 			doc.is_active = currentIsActive;
 
 			const startNode = graphStore.nodes.find((el) => el.type === "start");
-			doc.trigger_condition = serializeField(startNode?.data?.trigger_condition);
+			// Dual-write: serialize Start Node config back to root trigger_condition
+			doc.trigger_condition = serializeField(startNode?.data?.trigger_condition || startNode?.data?.config);
 			doc.compiled_expression = null;
 
 			if (startNode?.data) {
@@ -378,10 +379,11 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 						operation: node.data?.operation,
 					}) || {};
 				const conditionPayload =
-					action_type === "Condition"
+					action_type === "Condition" || action_type === "Entry Action"
 						? getConditionPayload({
 								config: node.data?.config,
 								condition_json: node.data?.condition_json,
+								trigger_condition: node.data?.trigger_condition,
 						  })
 						: null;
 
@@ -406,7 +408,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 				}
 
 				const finalConfig =
-					action_type === "Condition"
+					action_type === "Condition" || action_type === "Entry Action"
 						? conditionPayload || normalizedConfig
 						: normalizedConfig;
 

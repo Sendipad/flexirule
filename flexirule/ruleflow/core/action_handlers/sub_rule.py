@@ -236,12 +236,13 @@ class SubRuleHandler(ActionHandler):
 			)
 
 			# Evaluate trigger condition if not skipped
-			if not skip_conditions and sub_rule_doc.trigger_condition:
+			sub_rule_condition = sub_rule_doc.get_entry_condition()
+			if not skip_conditions and sub_rule_condition:
 				if not sub_rule_doc.compiled_expression:
 					from flexirule.ruleflow.core.compiler import ConditionCompiler
 
 					sub_rule_doc.compiled_expression = ConditionCompiler().compile(
-						sub_rule_doc.trigger_condition
+						sub_rule_condition
 					)
 
 				caller_rule_meta = {

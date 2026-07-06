@@ -46,7 +46,10 @@ export function getConditionPayload(actionLike = {}) {
 	if (fromConfig !== null) return fromConfig;
 
 	const legacy = safeJsonParse(actionLike.condition_json, null);
-	return isConditionPayloadShape(legacy) ? legacy : null;
+	if (isConditionPayloadShape(legacy)) return legacy;
+
+	const trigger = safeJsonParse(actionLike.trigger_condition, null);
+	return isConditionPayloadShape(trigger) ? trigger : null;
 }
 
 export function hasConditionPayload(actionLike = {}) {
