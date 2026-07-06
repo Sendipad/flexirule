@@ -38,9 +38,18 @@ Currently, the `Rule` DocType maintains two fields for rule-entry filtering:
 The proposal relocates the source-of-truth JSON from the `Rule` header to the `Entry Action` child record.
 
 ### Key Changes:
--   **Source of Truth:** `Entry Action.config` (specifically the root of the JSON object).
+-   **Source of Truth:** `Entry Action.config`.
 -   **Compilation Target:** Remains `Rule.compiled_expression`.
 -   **Validation:** Ensuring exactly one `Entry Action` exists per rule is now a critical validation step.
+
+### Evaluation of Storage Options:
+Three options were evaluated for the `config` schema:
+1. **Root Object (Selected):** The `config` field stores the condition builder object directly (e.g., `{"op": "and", "conditions": [...]}`).
+   * *Justification:* Consistent with how the `Condition` action type works. Reduces nesting.
+2. **Keyed (e.g., `{"condition": {...}}`):**
+   * *Justification:* Allows for future metadata (e.g., "description" or "version" of the condition builder itself) but adds unnecessary boilerplate for the current scope.
+3. **Dedicated Field:** Adding a `condition_json` to the child table.
+   * *Justification:* Redundant given the existence of the `config` field which is designed for this purpose.
 
 ---
 

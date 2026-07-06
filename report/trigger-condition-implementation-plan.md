@@ -1,100 +1,155 @@
 # Implementation Plan: Deprecate trigger_condition JSON Field
 
-This plan outlines the steps to migrate the Rule Trigger Condition from the `Rule` DocType to the `Entry Action` config.
+This document provides a comprehensive engineering blueprint for relocating the Rule Trigger Condition from the `Rule` DocType to the `Entry Action` configuration.
 
 ## 1. Overview
 
 - **Objective:** Establish `Entry Action` as the single source of truth for trigger logic.
-- **Phase 1:** Backend updates & Migration.
-- **Phase 2:** Frontend & UI persistence changes.
-- **Phase 3:** Cleanup & Field Removal (Future).
+- **Architectural Shift:** Move from parent-level storage to child-level action configuration.
+- **Phase 1 (Release N):** Introduce storage, enable dual-read, execute idempotent migration.
+- **Phase 2 (Release N+1):** Ignore old field, issue deprecation warnings.
+- **Phase 3 (Release N+2):** Remove field and compatibility layers.
 
 ---
 
-## 2. Code Changes
+## 2. Core Abstractions & API
 
-### 2.1 Rule DocType (`flexirule/ruleflow/doctype/rule/rule.py`)
-- **`compile_conditions()`**:
-    - Update to find the `Entry Action` in `self.actions`.
-    - Extract JSON from `entry_action.config`.
-    - Fallback to `self.trigger_condition` during transition.
-    - Compile into `self.compiled_expression`.
-- **`validate()`**:
-    - Add check to ensure exactly one `Entry Action` exists.
-    - Throw error if multiple or zero `Entry Action` nodes are found.
+To avoid duplicated lookup logic, the following methods will be added to the `Rule` class in `flexirule/ruleflow/doctype/rule/rule.py`:
 
-### 2.2 Sub-Rule Handler (`flexirule/ruleflow/core/action_handlers/sub_rule.py`)
-- **`execute()`**:
-    - Update logic to look for the entry condition JSON inside the resolved sub-rule's `Entry Action` config rather than `rule_doc.trigger_condition`.
-    - Maintain fallback to `rule_doc.trigger_condition`.
+- **`get_entry_action()`**: Returns the `Rule Action` document representing the Entry Action.
+- **`get_entry_action_config()`**: Returns the parsed JSON configuration from the Entry Action.
 
-### 2.3 Rule Coordinator (`flexirule/ruleflow/core/coordinator.py`)
-- **`check_eligibility()`**:
-    - Update the fallback logic (the "Rule has trigger_condition but no compiled_expression" check) to also check the `Entry Action`.
-
-### 2.4 UI - Rule Builder (`flexirule/public/js/flexirule/rule_builder/...`)
-- **`useRuleStore.js`**:
-    - In `save_changes()`, stop assigning to `doc.trigger_condition`.
-    - Ensure the `Entry Action`'s `config` is correctly serialized with the condition JSON.
-- **`useGraphStore.js`**:
-    - Update `sync_actions_to_graph` to hydrate the Start Node's `trigger_condition` data from the `Entry Action` config.
-- **`StartNodeProperties.vue`**:
-    - Update to read/write `trigger_condition` from the node data (which maps to `Entry Action` config). (Note: It already uses `props.nodeData?.trigger_condition`, so the change is mainly in how that data gets into/out of the store).
-- **`SubRuleNodeConfig.vue`**:
-    - Update compatibility check display logic to read from the sub-rule's Entry Action config instead of `sub_rule.trigger_condition`.
-- **`ConditionStep.vue`**:
-    - Ensure it correctly handles the mapping when used within a Start Node context.
-- **Fixtures & Samples**:
-    - Update `flexirule/fixture/rule_sample.json` to move `trigger_condition` data into the Entry Action config.
+All subsystems (Compiler, Coordinator, SubRuleHandler, UI serialization) MUST use these methods.
 
 ---
 
-## 3. Migration Strategy
+## 3. Storage Schema Contract
 
-### 3.1 Migration Patch (`flexirule/patches/migrate_trigger_condition_to_entry_action.py`)
-- For every `Rule`:
-    1. Find or create an `Entry Action` in the `actions` table.
-    2. If `Rule.trigger_condition` has data, move it to `Entry Action.config`.
-    3. Clear `Rule.trigger_condition` (or keep it if dual-write is preferred during transition).
-    4. Re-run `rule.save()` to trigger re-compilation of `compiled_expression`.
+The `Entry Action` configuration will store the Condition Builder JSON at the root of the `config` field.
 
-### 3.2 Dual-Read Period
-- The backend (`rule.py` and `sub_rule.py`) will check **both** locations for a period of one release.
-- Priority: `Entry Action.config` > `Rule.trigger_condition`.
+**Example JSON Schema:**
+```json
+{
+  "op": "and",
+  "conditions": [
+    {
+      "left": {"ref": "doc.status"},
+      "op": "==",
+      "right": {"value": "Open"}
+    }
+  ]
+}
+```
 
----
-
-## 4. Documentation & API Updates
-
-### 4.1 Documentation
-- **Developer Guide**: Update Rule Lifecycle documentation to reflect that Trigger Conditions are stored in the Entry Action.
-- **API Reference**: Update DocType schema documentation for `Rule` and `Rule Action`.
-
-### 4.2 API Updates
-- **`flexirule.ruleflow.api.validate_rule_document`**: Ensure it handles the new location for trigger conditions during pre-save validation.
-- **REST API**: Advise users against direct manipulation of `Rule.trigger_condition`.
+**Justification:** This matches the schema used by the `Condition` action type, ensuring a uniform developer experience and simplifying the implementation of the `ConditionBuilder` component.
 
 ---
 
-## 5. Validation & Testing
+## 4. Migration Strategy (Idempotent & Safe)
 
-### 5.1 Unit Tests
-- Update `flexirule/ruleflow/tests/builder.py` to set conditions on the Entry Action node.
-- Add test case for "Missing Entry Action" validation.
-- Add test case for "Successful migration" verification.
-- Update `flexirule/ruleflow/tests/test_cycles.py`, `test_coordinator.py`, and `test_advanced_rule_flows.py` to use the new Entry Action based configuration.
+### 4.1 Migration Patch (`flexirule/patches/migrate_trigger_condition_to_entry_action.py`)
+The patch will be designed to run multiple times without side effects and WITHOUT calling `rule.save()`.
 
-### 5.2 Integration Tests
-- Verify that `Sub-Rule` compatibility checks still work for rules migrated to the new format.
-
-### 5.3 UI Verification
-- Open Rule Builder for an existing rule: verify Trigger Condition is loaded correctly.
-- Save a rule: verify JSON is stored in the `Rule Action` table and `compiled_expression` is updated.
+**Logic Flow:**
+1. Fetch all Rules.
+2. For each Rule:
+   - Identify `Entry Action`. If missing, create one.
+   - **Case A: Data in both locations:** If `Rule.trigger_condition` and `EntryAction.config` both have data, `EntryAction.config` takes precedence.
+   - **Case B: Only old location:** Move `Rule.trigger_condition` to `EntryAction.config`.
+   - **Case C: Multiple Entry Actions:** Merge configuration from the first one and delete duplicates (logging a warning).
+   - **Case D: Malformed JSON:** Log as an error and skip the specific rule; do not abort the patch.
+3. Update database directly via `frappe.db.set_value` or `frappe.db.sql` for the `Rule Action` config and `Rule.compiled_expression` to avoid triggering notifications or unrelated hooks.
+4. Call a dedicated `Rule.compile_trigger_expression()` method that updates only the compiled field.
 
 ---
 
-## 6. Rollback Plan
+## 5. Serialization & UI Flow
 
-1. **Code:** Revert changes to `Rule.py`, `useRuleStore.js`, etc.
-2. **Data:** Run a reverse patch that moves JSON from `Entry Action.config` back to `Rule.trigger_condition` if the latter is empty.
-3. **Cache:** Clear the `RuleCoordinator` cache.
+The UI behavior remains unchanged, but the persistence layer is redirected.
+
+### 5.1 Load Flow
+1. `useRuleStore.fetch()` calls `frappe.client.get`.
+2. `useGraphStore.sync_actions_to_graph` identifies the `Entry Action`.
+3. Start Node data is hydrated from `Entry Action.config`.
+
+### 5.2 Save Flow
+1. Condition Builder writes to Start Node state.
+2. `useRuleStore.save_changes()` serializes Graph.
+3. Start Node data is mapped to `Rule Action.config`.
+4. Backend `Rule.validate()` calls `Rule.compile_conditions()`.
+5. Compiler reads via `Rule.get_entry_action_config()`.
+6. Compiled string saved to `Rule.compiled_expression`.
+
+---
+
+## 6. Runtime Compatibility Matrix
+
+| Component | Status | Modification Description |
+| :--- | :--- | :--- |
+| **RuleCoordinator** | No Change | Still reads from `Rule.compiled_expression`. |
+| **Runtime Registry** | No Change | Signature still includes `compiled_expression`. |
+| **Execution Engine** | No Change | Logic remains decoupled from persistence. |
+| **Compiler** | Changed | Input source redirected to `get_entry_action_config()`. |
+| **Debugger** | No Change | Visualizes based on `visual_data`. |
+| **Scheduler** | No Change | Triggered by system events. |
+| **SubRule Handler** | Changed | Inspects sub-rule `Entry Action` for compatibility. |
+| **Import/Export** | No Change | Child tables are exported/imported by default. |
+| **REST API** | Changed | Documentation updated to target child table. |
+| **Rule Cache** | No Change | Rebuilds on `compiled_expression` change. |
+
+---
+
+## 7. Validation Rules
+
+The following invariants will be enforced in `Rule.validate()` and `graph_validator.py`:
+
+- **Existence:** Exactly one `Entry Action` must exist.
+- **Topology:** `Entry Action` must be the root node (no incoming edges).
+- **Immutability:** `Entry Action` type cannot be changed.
+- **Deletability:** `Entry Action` cannot be deleted via UI or API.
+- **Schema:** `Entry Action.config` must be a valid JSON object or list.
+- **No Dual State:** After Phase 2, `Rule.validate()` will throw an error if `Rule.trigger_condition` contains data that differs from `Entry Action.config`.
+
+---
+
+## 8. Testing Matrix
+
+### 8.1 Migration Tests
+- Verify idempotency by running the patch twice.
+- Test handling of malformed/empty JSON.
+- Test migration of fixtures and sample rules.
+
+### 8.2 Compiler Tests
+- Verify `compiled_expression` matches legacy generation.
+- Test compilation with empty conditions.
+
+### 8.3 Validation Tests
+- Verify error on missing/multiple Entry Actions.
+- Verify block on deleting/changing Entry Action.
+
+### 8.4 Runtime & Backward Compatibility
+- Verify rules with data ONLY in the old field still execute during Release N.
+- Verify sub-rule compatibility checks pass across different storage formats.
+
+---
+
+## 9. Deprecation Timeline
+
+| Release | Milestones |
+| :--- | :--- |
+| **Release N** | Introduce `get_entry_action` helpers. Enable dual-read. Run migration patch. |
+| **Release N+1** | Mark `Rule.trigger_condition` as Deprecated. Start using Entry Action as exclusive source. UI hides old field. |
+| **Release N+2** | Remove `Rule.trigger_condition` field. Remove `get_entry_action` fallbacks. |
+
+---
+
+## 10. Success Criteria & Acceptance Checklist
+
+- [ ] All 100% of existing rules successfully migrated to Entry Action config.
+- [ ] `Rule.get_entry_action_config()` returns correct JSON for all test cases.
+- [ ] `Rule.compiled_expression` is generated correctly from the new location.
+- [ ] `SubRuleHandler` correctly identifies compatibility using the new location.
+- [ ] Rule Builder UI shows no visible change in behavior for Start Node.
+- [ ] No performance regression in `Rule.validate()` or `RuleCoordinator`.
+- [ ] All automated tests in the testing matrix pass.
+- [ ] Documentation updated to reflect the new architecture.
