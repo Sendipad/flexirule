@@ -243,7 +243,12 @@ class RuleCoordinator:
 				"execution_mode": row.get("execution_mode") or "Synchronous",
 				"debug_mode": bool(row.get("debug_mode")),
 				"compiled_expression": row.get("compiled_expression") or "",
-				"has_trigger_condition": bool(row.get("trigger_condition")),
+				"has_trigger_condition": bool(row.get("trigger_condition"))
+				or bool(
+					frappe.db.get_value(
+						"Rule Action", {"parent": rule_name, "action_type": "Entry Action"}, "config"
+					)
+				),
 				# Only use explicitly configured watched fields for dispatch-time pruning.
 				# Trigger-condition dependencies are evaluated in eligibility and are not safe skip keys.
 				"watched_fields": sorted(set(explicit_watched)),
@@ -617,11 +622,11 @@ class RuleCoordinator:
 				return False, _("Trigger Evaluation Error: {0}").format(str(e))
 
 		# Conditions MUST be pre-compiled - no runtime JSON parsing
-		elif rule_doc.get("trigger_condition"):
+		elif rule_doc.get_entry_condition():
 			try:
 				import json
 
-				parsed = json.loads(rule_doc.get("trigger_condition"))
+				parsed = rule_doc.get_entry_condition()
 				if isinstance(parsed, dict) and not parsed.get("conditions"):
 					return True, _("Eligible")
 				if isinstance(parsed, list) and not parsed:

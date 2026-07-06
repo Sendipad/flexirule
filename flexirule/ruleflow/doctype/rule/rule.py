@@ -514,9 +514,17 @@ class Rule(Document):
 					if isinstance(self.trigger_condition, str)
 					else self.trigger_condition
 				)
-				return legacy_config
+				# Check if legacy config is non-empty
+				if legacy_config and (
+					isinstance(legacy_config, list)
+					or (
+						isinstance(legacy_config, dict)
+						and (legacy_config.get("conditions") or legacy_config.get("collection"))
+					)
+				):
+					return legacy_config
 			except (ValueError, TypeError):
-				return None
+				pass
 
 		return config
 
