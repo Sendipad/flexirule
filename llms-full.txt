@@ -5,8 +5,8 @@ Enterprise documentation for FlexiRule, a metadata-driven automation and rules o
 
 ---
 title: Entry Action
-url: https://sendipad.github.io/flexirule/action-types/entry-action/
-lastmod: 2026-06-26
+url: https://sendipad.github.io/flexirule/action-type/entry-action/
+lastmod: 2026-07-05
 summary: The starting point of every business rule.
 concepts: 
 tags: 
@@ -46,9 +46,26 @@ get_rule_stats# Returns performance and reliability metrics for a specific rule 
 
 
 ---
+title: Assignment: Architecture Reference
+url: https://sendipad.github.io/flexirule/advanced-concepts/architecture/actions/assignment/
+lastmod: 2026-06-27
+summary: Sequential mutation engine and normalization pipeline internals.
+concepts: 
+tags: 
+difficulty: 
+related: 
+actions: read, implement, integrate, troubleshoot, improve
+
+Assignment Action: Architecture Reference# Purpose# The Assignment action implements the &amp;ldquo;Mutation&amp;rdquo; logic of FlexiRule. It is designed to handle sequential state updates to both the triggering document (doc) and the execution context (vars). It integrates directly with the Value Resolver and Normalization Pipeline.
+Class Structure# AssignmentHandler(ActionHandler)# Responsibility: Processes a grid of assignment rows. Key Method: execute(action, context, engine) Sequential Mutation Engine# Unlike standard field mapping, assignments are processed sequentially (top-to-bottom) within a single node.
+Row Isolation: Each row in the configuration grid is treated as an independent mutation event. Conditional Evaluation: The when condition of the row is evaluated against the current context (which may have been modified by previous rows in the same block). Value Resolution: The value is resolved using the unified ValueResolver. Pipeline Application: If a normalization pipeline or profile is configured, it is applied to the resolved value. Mutation: The final value is written to the target path (doc.field or vars.var). Integration with Normalization# The AssignmentHandler uses the NormalizationService to apply transformations.
+Standard Operations: trim, lowercase, slug, etc. Profiles: Pre-configured sets of operations stored in the database. Implementation: See flexirule/ruleflow/utils/normalization.py. Path Resolvers# The handler supports deep path resolution for targets:
+doc.base_amount: Standard field. vars.results.0.name: Deeply nested variable (using dot/index notation). Source Files# Backend: flexirule/ruleflow/core/action_handlers/assignment.py Normalization: flexirule/ruleflow/utils/normalization.py Value Resolver: flexirule/ruleflow/core/value_resolver.py 
+
+---
 title: Canvas Navigation
-url: https://sendipad.github.io/flexirule/rule-builder/canvas-navigation/
-lastmod: 2026-06-26
+url: https://sendipad.github.io/flexirule/rule-builder/canvas/
+lastmod: 2026-07-06
 summary: Learn how to navigate and use the visual Rule Builder canvas.
 concepts: 
 tags: 
@@ -56,18 +73,17 @@ difficulty:
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Canvas Navigation# The Rule Builder is your visual workspace for designing business logic. It provides a drag-and-drop canvas where you can orchestrate workflows while maintaining full visibility into the execution flow.
-Rule Builder Overview Core Canvas Interactions# Moving and Zooming# Pan: Click and drag any empty space on the canvas to move around. Zoom: Use your mouse wheel or the zoom controls in the corner to adjust the view. Working with Nodes# Select: Click a node to select it and open its configuration panel. Move: Drag a node to reposition it. Delete: Select a node and press Backspace or Delete. The builder will automatically attempt to reconnect the remaining nodes. Bulk Actions# You can select multiple nodes by holding Shift and dragging a selection box. This allows you to move or copy groups of logic at once.
-Debugging on the Canvas# The Rule Builder includes built-in tools to test your rules in real-time.
+Canvas Navigation# The Rule Builder provides a visual workspace where you can design your business logic by dragging, dropping, and connecting different &amp;ldquo;Blocks.&amp;rdquo; This visual approach allows you to see exactly how data flows through your system.
+Rule Builder Overview The Visual Workspace# The canvas is an infinite workspace that represents your rule&amp;rsquo;s logic as a flowchart.
+How Logic is Represented# Blocks: Each step in your rule is represented by a Block (node). Blocks have a clear icon, a title, and often a sub-label describing their specific configuration. Connections: Arrows between blocks show the direction of execution. The flow typically moves from the Start block at the top towards various outcomes or a Stop block. Entry &amp;amp; Exit Points: Most blocks have a circular handle at the top (input) and one or more handles at the bottom (output). Navigation &amp;amp; Zooming# Panning: Click and drag any empty space on the canvas to move around. Zooming: Use the mouse wheel or the zoom controls in the corner to adjust your view. Core Canvas Interactions# Moving and Zooming# Pan: Click and drag any empty space on the canvas to move around. Zoom: Use your mouse wheel or the zoom controls in the corner to adjust the view. Working with Nodes# Select: Click a node to select it and open its configuration panel on the right. Move: Click and drag a node to reposition it. Delete: Select a node and press Backspace or Delete. The builder will intelligently attempt to reconnect remaining nodes to maintain the flow. Bulk Actions# Multi-Select: Hold Shift and drag a selection box over multiple nodes. Copy/Paste: You can copy selected nodes and paste them elsewhere on the canvas or into a different rule. Debugging on the Canvas# The Rule Builder includes built-in tools to test your rules in real-time.
 Visual Execution Path# When you run a test, the builder highlights the exact path taken during execution, showing you exactly which nodes were triggered.
 Inspecting Results# You can click on any node after a test run to see its specific results, including modified variables and return values.
-Debug View Return Result Examples# For more information on how to build rules, see our Quick Start Guide.
-
+Debug View Return Result Examples# For more information on how to build …
 
 ---
 title: Create New
-url: https://sendipad.github.io/flexirule/action-types/update-record/create-new/
-lastmod: 2026-06-26
+url: https://sendipad.github.io/flexirule/action-type/update-record/create-new/
+lastmod: 2026-07-05
 summary: Generating new documents automatically via rule logic.
 concepts: 
 tags: 
@@ -83,8 +99,8 @@ Target DocType: Project. Field Mapping: project_name ← doc.name customer ← d
 
 ---
 title: Email
-url: https://sendipad.github.io/flexirule/action-types/notify/email/
-lastmod: 2026-06-26
+url: https://sendipad.github.io/flexirule/action-type/notify/email/
+lastmod: 2026-07-05
 summary: Sending automated emails with attachments and dynamic templates.
 concepts: 
 tags: 
@@ -121,7 +137,7 @@ Enable Rule Execution: Globally toggle all rules on or off. Useful during large 
 ---
 title: Normalization Value Resolver
 url: https://sendipad.github.io/flexirule/advanced-concepts/data-manipulation/normalization-value-resolver/
-lastmod: 2026-06-26
+lastmod: 2026-07-05
 summary: Resolve, format, and normalize variables natively within the rule canvas using pipelines and profiles.
 concepts: 
 tags: 
@@ -158,20 +174,20 @@ FlexiRule enqueues logs to a background worker. The main transaction completes i
 
 ---
 title: Query Doc
-url: https://sendipad.github.io/flexirule/action-types/query-records/query-doc/
-lastmod: 2026-06-26
-summary: Retrieving a single record for data enrichment.
+url: https://sendipad.github.io/flexirule/action-type/query-records/query-doc/
+lastmod: 2026-07-05
+summary: Find one specific item and retrieve its details.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Query Doc# Use Query Doc when you need to fetch specific details from a single record in the system.
-How it Works# Filters: You provide filters to identify the unique record (e.g., name = doc.customer). Result: FlexiRule fetches the record and returns it as a single Object. Availability: All fields of that record are now available in the vars of your rule (if you assigned a return variable). Example# Scenario: You want to get the &amp;ldquo;Credit Limit&amp;rdquo; of a Customer while saving a Sales Order.
-DocType: Customer Filters: name Equals {{ doc.customer }} Return Variable: customer_info In the next node, you can use {{ vars.customer_info.credit_limit }} in a calculation or condition.
-Performance Note# If you only need one or two fields, it is more efficient to specify those fields in the &amp;ldquo;Fields&amp;rdquo; configuration rather than fetching the whole document.
-
+Query Doc# The Query Doc mode is used to retrieve a single record and its associated details. It is primarily used for &amp;ldquo;data enrichment&amp;rdquo;—gathering more information about a specific entity (like a Customer or Item) to support complex logic later in the rule.
+1. When to Use# Detail Retrieval: &amp;ldquo;Fetch the credit limit and territory for the customer on this Sales Order.&amp;rdquo; Settings Access: &amp;ldquo;Get the global &amp;lsquo;Default Tax Account&amp;rsquo; from the Company settings.&amp;rdquo; Context Enrichment: &amp;ldquo;Find the parent Project details for a specific Task.&amp;rdquo; 2. Configuration# Table (DocType): Choose the source of the data (e.g., Customer, Project, Item). Strategy: Select how the record is found: Standard (Get doc): Fetches the record normally. Cached (Get Doc from Cache): Retrieves the record from system memory if available. Recommended for performance on frequently accessed master data. Latest (Get latest Doc): Automatically finds the most recently created record matching your filters. Single (Get Single DocType): Used specifically for &amp;ldquo;Single&amp;rdquo; type records like Global Settings. Filters: Define criteria to identify the record (e.g., ID equals doc.customer). Fields: Select the specific fields you need to fetch. 3. Output# This mode returns a Single Record (Object).
+The record&amp;rsquo;s fields can be accessed in subsequent blocks using the output variable (e.g., vars.customer_info.credit_limit).
+4. Example# Scenario: When a Sales Order is saved, the rule fetches the Customer&amp;rsquo;s credit limit to verify if the order amount is acceptable.
+Table: Customer Strategy: Cached Filters: ID equals doc.customer Output Variable: cust_data Logic: A subsequent &amp;ldquo;Check&amp;rdquo; block compares doc.grand_total with vars.cust_data.credit_limit. 5. Performance Notes# Use Caching: The &amp;ldquo;Cached&amp;rdquo; strategy is an optimized path that avoids unnecessary database lookups. Field Selection: Fetching only the required fields reduces the data load on the rule engine. Stale Data Warning: When using the Cached strategy, be aware it may return slightly stale data depending on the system&amp;rsquo;s cache policy. For strict financial consistency, use …
 
 ---
 title: Query Filters
@@ -208,24 +224,6 @@ Quick Start Guide# Ready to see FlexiRule in action? Follow this guide to build 
 Rule Name: &amp;ldquo;High Value Alert&amp;rdquo; Document Type: &amp;ldquo;Sales Invoice&amp;rdquo; Trigger Event: &amp;ldquo;Before Save&amp;rdquo; 2. Open the Builder# Click the Open Rule Builder button in the dashboard. You&amp;rsquo;ll see a blank canvas with an Entry Action.
 3. Add a Condition (Check)# Hover over the Entry Action and click the + icon. Search for Condition and add it. In the config panel: Click Add Condition. Select field: grand_total. Operator: is greater than. Value: 10000. 4. Add a Notification# Drag a line from the True (Green) port of your Condition. Select Notify. In the config panel: Mode: &amp;ldquo;Toast&amp;rdquo;. Message: &amp;ldquo;💰 High value invoice detected! ID: {{ doc.name }}&amp;rdquo;. 5. Test it# Click Test Run. Pick an existing Sales Invoice with a total &amp;gt; 10,000. Click Run Test. You should see a success toast and a green path on your canvas! 6. Go Live# Close the builder, set the Rule to Enabled, and click Save. You&amp;rsquo;ve just built your first FlexiRule!
 Common Beginner Mistakes# Forgetting to Enable: A rule won&amp;rsquo;t run automatically unless the &amp;ldquo;Enabled&amp;rdquo; checkbox is checked on the main Rule document. Wrong Trigger Event: If you want to update a field on the document being saved, use &amp;ldquo;Before Save&amp;rdquo;. If you use &amp;ldquo;After Save&amp;rdquo;, the document is already in the database and your changes might not be persisted. Broken Connections: Ensure every node in your logic is connected. An isolated node will never execute. 
-
----
-title: Rule Lifecycle
-url: https://sendipad.github.io/flexirule/rule-builder/lifecycle-execution/
-lastmod: 2026-06-26
-summary: Understanding the stages of a rule from creation to execution and retirement.
-concepts: 
-tags: 
-difficulty: 
-related: 
-actions: read, implement, integrate, troubleshoot, improve
-
-Rule Lifecycle# A FlexiRule goes through several stages during its existence. Understanding these stages is key to managing your automations safely.
-1. Draft# When you create a new Rule, it starts in Draft mode.
-Logic and configuration can be modified freely. The rule will NOT trigger automatically upon system events. You can use the Visual Builder and run Manual Tests to verify your logic. 2. Active (Enabled)# Once you are satisfied with your logic, you can Activate the rule.
-The rule becomes eligible for execution when its configured trigger occurs (e.g., Before Save of a Sales Order). The visual configuration and rule settings are locked to prevent accidental changes. To edit, you must either deactivate the rule or create an amendment. 3. Versioning (Amending)# To modify an Active rule, you use the Amend workflow.
-FlexiRule creates a new Draft version of the rule with an incremented version number (e.g., MY_RULE_v2). The original version remains Active until you manually disable it or activate the new version. This provides a clear audit trail of logic changes over time, tracked via the built-in version history. Rule States# State Active Editable Description Draft No Yes Initial state for new rules or amendments. Active Yes No Locked and eligible for automatic execution. Disabled No Yes An activated rule that has been manually stopped. Archived No No Retired rule, kept for historical audit logs. Rule Trigger Flow# The engine follows a strict sequence when an event occurs:
-Event Occurs: A DocType event (like Validate) or a Scheduled event triggers the check. Find Matching Rules: The engine retrieves all active rules matching the DocType and Event. Sort by Priority: Rules are sorted by their Priority (0-20). Higher priority rules run first. Evaluate Rule Condition: Before loading the graph, the Trigger Condition is evaluated. If false, the rule is skipped entirely. Execute Entry Action: Execution starts at the Start node in the Visual Builder. Traverse Graph: The engine follows the outgoing connections according to each action&amp;rsquo;s execution flow. Complete: Execution ends when a Stop node is reached or no further connections exist. Execution Order# 1. …
 
 ---
 title: Send Email on Sales Order Submission
@@ -382,27 +380,27 @@ Purpose# Standardized metadata allows AI models and system tools to understand t
 AI Rule Generation: Helping LLMs select the correct action for a business requirement. Validation: Catching configuration errors before execution. Discovery: Powering the &amp;ldquo;Action Zone&amp;rdquo; search and filtering. Recommendations: Suggesting relevant next steps in a rule flow. Field Definitions# Field Type Description action string The unique identifier of the action (e.g., assignment, query-records). category string The high-level grouping (e.g., data, flow, integration). targets array List of data types this action can modify (doc, vars, db). operators array List of supported operations (if applicable). supports_conditions boolean Whether individual components support row-level guards. supports_batch_operations boolean Whether the action can perform multiple operations in one node. triggers_compatible array Lifecycle events where this action is safe to use. Constraints# Lower-case: All string identifiers should be lower-case and use hyphens for separation (kebab-case). Explicit Targets: If an action does not modify data, targets should be an empty list []. Strict Operators: Only list operators that are formally supported by the backend handler. Example Payloads# 1. Assignment Action# { &amp;#34;action&amp;#34;: &amp;#34;assignment&amp;#34;, &amp;#34;category&amp;#34;: &amp;#34;data&amp;#34;, &amp;#34;targets&amp;#34;: [&amp;#34;doc&amp;#34;, &amp;#34;vars&amp;#34;], &amp;#34;operators&amp;#34;: [&amp;#34;set&amp;#34;, &amp;#34;clear&amp;#34;, &amp;#34;increment&amp;#34;, &amp;#34;decrement&amp;#34;, &amp;#34;append&amp;#34;, &amp;#34;merge&amp;#34;, &amp;#34;toggle&amp;#34;], &amp;#34;supports_conditions&amp;#34;: true, &amp;#34;supports_batch_operations&amp;#34;: true, &amp;#34;triggers_compatible&amp;#34;: [&amp;#34;any&amp;#34;] } 2. Query Records Action# { &amp;#34;action&amp;#34;: &amp;#34;query-records&amp;#34;, &amp;#34;category&amp;#34;: &amp;#34;data&amp;#34;, &amp;#34;targets&amp;#34;: [&amp;#34;vars&amp;#34;], &amp;#34;operators&amp;#34;: …
 
 ---
-title: Adding and Managing Actions
-url: https://sendipad.github.io/flexirule/rule-builder/adding-managing-actions/
-lastmod: 2026-06-26
-summary: Learn how to use the Action Zone to build your rule logic.
+title: Adding Actions
+url: https://sendipad.github.io/flexirule/rule-builder/add-action/
+lastmod: 2026-07-06
+summary: Learn how to add new logic blocks to your rule.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Adding and Managing Actions# Building logic in FlexiRule is centered around adding and connecting &amp;ldquo;Action&amp;rdquo; nodes.
-The Action Zone# The Action Zone is the primary way to add new logic. It provides a searchable menu of all available actions.
-How to Add an Action# Hover: Hover your mouse over any connection line or empty space on the canvas. Trigger: Click the + icon that appears. Search &amp;amp; Select: Browse categories or type to find the action you need (e.g., &amp;ldquo;Email&amp;rdquo; or &amp;ldquo;Update Record&amp;rdquo;). Insert: The new node is automatically inserted and connected into your flow. Managing Connections# Reconnecting Nodes# If you delete a node between two others, FlexiRule intelligently heals the connection to maintain your logic flow.
-Manual Connections# You can also manually connect nodes by dragging from the output handle of one node to the input handle of another.
-Intelligent Configuration# When you select an action, a configuration panel opens on the right.
-Smart Pickers: Field pickers only show variables that are actually available at that point in the rule. Validation: The builder alerts you if required fields are missing before you save. 
+Adding Actions# Building a rule involves adding &amp;ldquo;Actions&amp;rdquo; (Blocks) to the canvas and connecting them to form a logical flow. FlexiRule makes this process intuitive with the Action Zone.
+The Action Zone# The Action Zone is the primary way to insert new logic into your rule. It appears dynamically as you work on the canvas.
+How to Add an Action# Trigger the Menu: Hover your mouse over any connection line (the arrows between blocks) or click the + icon that appears in empty spaces on the canvas. Browse or Search: An action menu will pop up. You can: Search: Type keywords like &amp;ldquo;Email,&amp;rdquo; &amp;ldquo;Update,&amp;rdquo; or &amp;ldquo;Check&amp;rdquo; to find specific actions quickly. Categories: Browse through categorized lists like Data Operations, Communications, or Flow Control. Select: Click the action you want to add. Auto-Insertion: The new block will be automatically placed on the canvas. If you clicked a connection line, the new block will be inserted between the two existing blocks, and the connections will be automatically updated. Types of Actions# When adding an action, you will see several types of blocks categorized by their purpose:
+Set Value: Used for calculations and updating variables within the rule. Check (Condition): Creates a fork in the road based on logic (True/False). Update Record: Saves changes directly to a record in your system. Notify: Sends alerts via Email, SMS, or System Notifications. Repeat (Loop): Runs a series of actions for every item in a list. Process: Triggers advanced system operations or external integrations. Organizing Blocks# Once an action is added, you can click and drag it to any position on the canvas.
+Inserting Between Blocks# The easiest way to add logic to an existing flow is to hover over the arrow connecting two blocks. When the + icon appears, clicking it and selecting an action will &amp;ldquo;splice&amp;rdquo; the new action into the flow, saving you from manually deleting and re-drawing connection lines.
+Quick Configuration# As soon as you add an action, it is selected by default, and its Action Settings panel opens on the right. This allows you to immediately configure the details of the new block without extra …
 
 ---
 title: AI Features
 url: https://sendipad.github.io/flexirule/advanced-concepts/ai-features/
-lastmod: 2026-06-26
+lastmod: 2026-07-05
 summary: Leveraging Artificial Intelligence within FlexiRule logic.
 concepts: 
 tags: 
@@ -472,7 +470,7 @@ Invocation Methods# Programmatic: Using the flexirule.api.execute_rule method. S
 ---
 title: Condition: Architecture Reference
 url: https://sendipad.github.io/flexirule/advanced-concepts/architecture/actions/condition/
-lastmod: 2026-06-26
+lastmod: 2026-07-05
 summary: Internal implementation details and developer reference for the Condition action.
 concepts: 
 tags: 
@@ -487,7 +485,7 @@ Input: Reads from ContextManager scope. Internal: May create temporary local var
 ---
 title: Condition: Execution Semantics
 url: https://sendipad.github.io/flexirule/advanced-concepts/reference/execution/condition/
-lastmod: 2026-06-26
+lastmod: 2026-07-05
 summary: Technical runtime behavior and engine guarantees for the Condition action.
 concepts: 
 tags: 
@@ -505,7 +503,7 @@ The result is explicitly coerced to a boolean. If True, the engine resolves next
 ---
 title: DocTypes
 url: https://sendipad.github.io/flexirule/advanced-concepts/reference/doctypes/
-lastmod: 2026-06-26
+lastmod: 2026-07-06
 summary: Reference for all DocTypes used in FlexiRule.
 concepts: 
 tags: 
@@ -611,19 +609,20 @@ Every action has a Skip Permissions checkbox. When checked, you MUST provide an 
 
 ---
 title: Query List
-url: https://sendipad.github.io/flexirule/action-types/query-records/query-list/
-lastmod: 2026-06-26
-summary: Finding multiple records for bulk processing or loops.
+url: https://sendipad.github.io/flexirule/action-type/query-records/query-list/
+lastmod: 2026-07-05
+summary: Find multiple records matching specific criteria.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Query List# Query List is used when you expect to find multiple records.
-How it Works# Filters: Define criteria to find a set of records. Result: Returns a List (Array) of objects. Looping: Because the result is a list, you typically connect this node to a Loop node to perform actions on each individual record found. Example# Scenario: Find all &amp;ldquo;Overdue&amp;rdquo; Tasks for a Project.
-DocType: Task Filters: project = doc.name AND status = Overdue. Return Variable: overdue_tasks. You can then loop over vars.overdue_tasks to send a reminder for each one.
-
+Query List# The Query List mode is used to retrieve a collection of records. It is the standard choice when you need to perform actions on multiple related items, such as identifying all open tasks for a specific project.
+1. When to Use# Collection Gathering: &amp;ldquo;Find all Sales Orders created by a specific user.&amp;rdquo; Loop Preparation: &amp;ldquo;Gather all items that are below their reorder level.&amp;rdquo; Summarization: &amp;ldquo;Identify all transactions that occurred today.&amp;rdquo; 2. Configuration# Table (DocType): Choose the source of the data (e.g., Sales Order, Task). Filters: Define criteria to narrow down the result set (e.g., Status equals Open). Fields: Select which pieces of information to retrieve for each record. Sorting: Define the order of the results (e.g., &amp;ldquo;Creation Date Descending&amp;rdquo;). Result Limit: Set a maximum number of records to return (e.g., 50). 3. Output# This mode returns a List of Records.
+To use the data inside these records, you typically follow this block with a Loop block to process each item individually.
+4. Example# Scenario: A project manager needs a list of all &amp;ldquo;Urgent&amp;rdquo; tasks that are not yet assigned.
+Table: Task Filters: Priority equals Urgent AND Status equals Open AND Assigned To is empty. Sorting: Creation Date (Ascending) Result Limit: 20 Output Variable: urgent_tasks 5. Performance Notes# Mandatory Filtering: Searching large tables without filters will cause performance degradation. Limit Your Results: Always set a Result Limit. This protects the rule from attempting to load thousands of records, which can cause timeouts. Optimized Fetching: Selecting only the specific fields required (rather than the entire record) significantly reduces the data load. 6. Common Mistakes# Missing a Loop: A &amp;ldquo;List&amp;rdquo; cannot be updated directly. You must use a Loop block to iterate through the results. Broad Filters: Failing to use specific filters on high-volume tables (like Stock Ledger) can slow down the entire system. 
 
 ---
 title: Registry and Contracts
@@ -686,8 +685,8 @@ actions: read, implement, integrate, troubleshoot, improve
 
 ---
 title: Update Existing
-url: https://sendipad.github.io/flexirule/action-types/update-record/update-existing/
-lastmod: 2026-06-26
+url: https://sendipad.github.io/flexirule/action-type/update-record/update-existing/
+lastmod: 2026-07-05
 summary: Modifying specific records in the system.
 concepts: 
 tags: 
@@ -781,7 +780,7 @@ By adding &amp;ldquo;Source&amp;rdquo; and &amp;ldquo;Target&amp;rdquo; column t
 ---
 title: Condition System
 url: https://sendipad.github.io/flexirule/advanced-concepts/architecture/engine/condition-system/
-lastmod: 2026-06-26
+lastmod: 2026-07-05
 summary: FlexiRule employs a sophisticated, high-performance condition system that allows users to build complex logic visually while executing it with the ...
 concepts: 
 tags: 
@@ -799,7 +798,7 @@ Input: JSON AST. Output: An optimized Python Expression String and a list of Wat
 ---
 title: Decision Trees
 url: https://sendipad.github.io/flexirule/advanced-concepts/decision-trees/
-lastmod: 2026-06-26
+lastmod: 2026-07-06
 summary: Guidance on choosing the right FlexiRule features.
 concepts: 
 tags: 
@@ -895,9 +894,26 @@ Execution Context Reference# This reference describes the variables available to
 DocType Events# doc: The current document object. old_doc: The document state before the current transaction. user: The user who initiated the event. Scheduler Events# now: The current system timestamp. 
 
 ---
+title: Exist Record
+url: https://sendipad.github.io/flexirule/action-type/query-records/exist-record/
+lastmod: 2026-07-05
+summary: Check if a record exists without retrieving data.
+concepts: 
+tags: 
+difficulty: 
+related: 
+actions: read, implement, integrate, troubleshoot, improve
+
+Exist Record# The Exist Record mode is an efficient way to verify the presence of a record in the system. It returns a simple Yes/No result based on whether any record matches your specified criteria.
+1. When to Use# Duplicate Prevention: &amp;ldquo;Check if a Lead with this email address already exists.&amp;rdquo; Presence Validation: &amp;ldquo;Verify if a specific item is in the system before proceeding.&amp;rdquo; Dependency Checks: &amp;ldquo;Confirm an active Contract exists for this Customer.&amp;rdquo; 2. Configuration# Table (DocType): Choose which part of the system to check. Filters: Define the conditions that must be met (e.g., Reference ID equals doc.ref_id). 3. Output# This mode returns a Boolean (True if a match is found, False if not).
+This result is commonly used as a condition in a subsequent Check block.
+4. Example# Scenario: A rule ensures that a Sales Order cannot be submitted unless a valid &amp;ldquo;Customer PO&amp;rdquo; reference is provided and hasn&amp;rsquo;t been used before.
+Table: Sales Order Filters: Customer PO equals doc.po_no AND Status is not Cancelled. Output Variable: already_used Logic: If vars.already_used is True, the rule triggers an error message. 5. Performance Notes# Optimized Path: This is the most efficient check available. The system stops searching as soon as it finds one match. No Data Load: Because no field data is retrieved, this mode uses minimal system resources. Automatic Pushdown: The search is performed entirely at the database level. 6. Common Mistakes# Using Query Doc Instead: Do not use Query Doc if you only need to know if something exists. Loading a full document is significantly slower than an &amp;ldquo;Exist&amp;rdquo; check. Incomplete Filters: If your filters are too broad, you may get a &amp;ldquo;True&amp;rdquo; result for a record that isn&amp;rsquo;t the specific one you intended to check. 
+
+---
 title: Glossary
 url: https://sendipad.github.io/flexirule/advanced-concepts/reference/glossary/
-lastmod: 2026-06-26
+lastmod: 2026-07-06
 summary: Common terminology used in FlexiRule.
 concepts: 
 tags: 
@@ -927,6 +943,27 @@ visual_data: A JSON blob (typically for VueFlow or ReactFlow) that stores node p
 Non-Linear Workflows: Jumping back to a previous state for retries or corrections. Parallel Branches (Future): The graph topology already supports multiple outgoing edges that could be executed in parallel. Visual Debugging: The path_trace can be overlaid on the graph to show exactly where an execution failed or took a wrong turn. 
 
 ---
+title: Rule Configuration
+url: https://sendipad.github.io/flexirule/rule-builder/rule-configuration/
+lastmod: 2026-07-06
+summary: Learn how to set up the global settings for your rule.
+concepts: 
+tags: 
+difficulty: 
+related: 
+actions: read, implement, integrate, troubleshoot, improve
+
+Rule Configuration# Before you start drawing logic on the canvas, you need to define the &amp;ldquo;Who, When, and How&amp;rdquo; of your rule. This is handled in the Rule Configuration section, which you can access via the Configure button or when creating a new rule.
+Setup Flow# Configuring a rule typically follows these steps in the UI:
+1. Basic Information# Rule Name: Give your rule a clear, descriptive name (e.g., &amp;ldquo;Auto-Approve Low Value Orders&amp;rdquo;). Document Type: Select the type of record this rule applies to (e.g., &amp;ldquo;Sales Order&amp;rdquo; or &amp;ldquo;Support Ticket&amp;rdquo;). 2. The Trigger (When)# The Trigger defines the specific event that wakes up the rule.
+Events: Common triggers include Before Save, After Save, On Submit, or On Cancel. Trigger Condition: You can define a high-level &amp;ldquo;gatekeeper&amp;rdquo; condition. If this condition isn&amp;rsquo;t met, the rule won&amp;rsquo;t even start, saving system resources. Example: Total Amount &amp;gt; 500 3. Execution Order (Priority)# If you have multiple rules running on the same event (e.g., three different rules that all run &amp;ldquo;Before Save&amp;rdquo; on a Sales Order), you can control which one runs first using Priority.
+Rules with a higher number run first. Tip: Use this if Rule B depends on a value calculated by Rule A. The Configuration Modal# When you click Configure on an existing rule, a modal appears allowing you to adjust these settings without leaving the canvas.
+Dynamic Setup# As you select different Document Types, the available fields for your Trigger Condition will automatically update to match. The Smart Value Selector is used here to help you pick fields and define logic easily.
+Advanced Setup (Optional)# Order of Operations# In the configuration UI, you can also see a summary of how the rule is positioned relative to other rules in your system. This &amp;ldquo;execution stack&amp;rdquo; view helps you ensure that your automation doesn&amp;rsquo;t conflict with other active rules.
+Performance Settings# For advanced users, the configuration may include toggles for:
+Asynchronous Execution: Allowing the rule to run in the background so the user doesn&amp;rsquo;t have to wait for it to finish. Logging Level: …
+
+---
 title: RuleFlow Settings
 url: https://sendipad.github.io/flexirule/setup/settings/
 lastmod: 2026-06-26
@@ -942,9 +979,24 @@ Core Settings# 1. Enable Rule Execution# Checkbox: enabled Purpose: This is the 
 5. Debug Mode# Checkbox: debug_mode Purpose: Enables more verbose logging in the Rule Execution Log, including full context snapshots for every step. Use this only during development or troubleshooting, as it increases log size. 
 
 ---
+title: Advanced Process: Architecture Reference
+url: https://sendipad.github.io/flexirule/advanced-concepts/architecture/actions/advanced-process/
+lastmod: 2026-06-27
+summary: Runtime orchestration, Registry pattern, and the ProcessOperationExecutor internals.
+concepts: 
+tags: 
+difficulty: 
+related: 
+actions: read, implement, integrate, troubleshoot, improve
+
+Advanced Process: Architecture Reference# Purpose# The Advanced Process action (internally Process) implements the &amp;ldquo;Strategy&amp;rdquo; pattern within FlexiRule. It provides a generic orchestration layer that can execute any registered business operation while providing standardized services like input/output mapping, retry logic, and transactional safety.
+Class Structure# ProcessHandler(ActionHandler)# Responsibility: The entry point for all process-type actions. Key Method: execute(action, context, engine) Orchestration: It does not execute logic directly; instead, it delegates to the ProcessOperationExecutor. ProcessOperationExecutor (flexirule/ruleflow/core/process_runtime_v2.py)# Responsibility: The high-level runtime for declarative business processes. Key Methods: execute(): Orchestrates the lifecycle of a process operation. _resolve_adapter(): Locates the specific Python code (Adapter) for the requested operation. _validate_inputs(): Verifies configuration against the operation&amp;rsquo;s schema. The Process Registry# Processes are not hard-coded into the engine. They are discovered dynamically via the ProcessRegistry.
+Discovery: On system startup, the registry scans for all Process DocTypes. Metadata: Each process defines its available Operations, each with a schema (JSON Schema) for inputs and outputs. Binding: Operations are bound to Adapters—Python classes that implement the actual logic. Execution Lifecycle# Context Preparation: ProcessHandler hydates the action configuration using apply_input_mapping. Executor Initialization: The ProcessOperationExecutor takes over. Schema Validation: Inputs are validated. If a required field is missing or of the wrong type, a ValidationError is raised. Savepoint Creation: For synchronous processes, a database savepoint is created. Adapter Execution: The specific Adapter&amp;rsquo;s execute() method is called. Result Normalization: The adapter&amp;rsquo;s return value is normalized according to the output schema. Mapping Back: The result is stored in the rule&amp;rsquo;s vars based on the return_variable configuration. Async vs. Sync# Sync: Runs in the same process/request. If it fails, the rule can rollback the entire …
+
+---
 title: Condition
-url: https://sendipad.github.io/flexirule/action-types/condition/
-lastmod: 2026-06-26
+url: https://sendipad.github.io/flexirule/action-type/condition/
+lastmod: 2026-07-05
 summary: Evaluate complex logic gates to determine the execution path.
 concepts: 
 tags: 
@@ -1000,7 +1052,7 @@ Summary Checklist# Pain Point Solution with FlexiRule &amp;ldquo;I&amp;rsquo;m a
 ---
 title: Entry Action: Architecture Reference
 url: https://sendipad.github.io/flexirule/advanced-concepts/architecture/actions/entry/
-lastmod: 2026-06-26
+lastmod: 2026-07-05
 summary: Internal implementation details and developer reference for the Entry Action.
 concepts: 
 tags: 
@@ -1049,7 +1101,7 @@ Debouncing: Only trigger a rule once if 10 events arrive in 1 second. Throttling
 ---
 title: Execution Engine
 url: https://sendipad.github.io/flexirule/advanced-concepts/architecture/engine/execution-engine/
-lastmod: 2026-06-26
+lastmod: 2026-07-06
 summary: Deep dive into the FlexiRule deterministic graph executor.
 concepts: 
 tags: 
@@ -1089,9 +1141,26 @@ It starts at the Entry Action (or deduces the root). For each node, it looks up 
 Savepoints: The engine creates frappe.db.savepoint before complex actions. If they fail, it can rollback to that specific point without failing the whole transaction. Retry with Backoff: Configurable retry logic for transient failures (e.g., external API timeouts). Cycle Detection: A visit-counting mechanism prevents infinite loops, a common danger in graph-based systems. 📈 Runtime Dispatch &amp;amp; Performance# Watched …
 
 ---
+title: Query Report
+url: https://sendipad.github.io/flexirule/action-type/query-records/query-report/
+lastmod: 2026-07-05
+summary: Retrieve data using an existing system report.
+concepts: 
+tags: 
+difficulty: 
+related: 
+actions: read, implement, integrate, troubleshoot, improve
+
+Query Report# The Query Report mode allows rules to leverage existing reports defined in the system. This is useful for reusing complex data logic or pulling from custom SQL reports without rebuilding the logic in the rule builder.
+1. When to Use# Complex Logic Reuse: &amp;ldquo;Use the logic in the &amp;lsquo;Overdue Payments&amp;rsquo; report to find targets for notifications.&amp;rdquo; Built-in Summaries: &amp;ldquo;Fetch stock availability from a standard inventory report.&amp;rdquo; SQL-Based Data: Retrieve results from a complex SQL report that cannot be easily recreated using standard filters. 2. Configuration# Report Name: Select any report available in your system. Report Filters: Provide values for the filters expected by the report (e.g., Date Range, Company, Territory). 3. Output# This mode returns a List of Records. Each row from the report output becomes a record in the list.
+You will typically follow this block with a Loop block to process the results.
+4. Example# Scenario: A rule runs every Monday to find all Sales Orders that are &amp;ldquo;Pending&amp;rdquo; according to a specific custom report.
+Report: Custom Pending Orders Report Filters: Posting Date set to &amp;ldquo;Last Week.&amp;rdquo; Output Variable: report_data Logic: A Loop iterates through vars.report_data to send summary emails. 5. Performance Notes# Black-Box Execution: A report is treated as a single, opaque query. Dependency: The performance of this block depends entirely on the efficiency of the underlying report implementation. A slow report will result in a slow rule. Filter Scope: Always provide as many filters as possible to the report to reduce the volume of data processed. 6. Common Mistakes# Running Heavy Reports: Using reports that analyze millions of rows in a real-time rule can cause timeouts. Variable Names: Ensure you use the correct internal fieldnames from the report columns when referencing the results in later blocks. 
+
+---
 title: Rule Entry Condition vs. Condition Action
 url: https://sendipad.github.io/flexirule/advanced-concepts/rule-entry-condition-vs-condition-action/
-lastmod: 2026-06-26
+lastmod: 2026-07-05
 summary: Understand when to use a Rule Entry Condition and when to use a Condition Action in FlexiRule.
 concepts: 
 tags: 
@@ -1165,9 +1234,29 @@ Fast Lookup: Queries a request-local cache (then Redis) for rules matching the D
 Level 1 (Request): frappe.local storage for the duration of a single request. Level 2 (Redis): A global flexirule_runtime_registry in Redis. Level 3 (Database): Rebuilds the registry …
 
 ---
+title: Smart Value System
+url: https://sendipad.github.io/flexirule/rule-builder/smart-value-system/
+lastmod: 2026-07-06
+summary: Learn how FlexiRule handles inputs using static values, variables, and resolvers.
+concepts: 
+tags: 
+difficulty: 
+related: 
+actions: read, implement, integrate, troubleshoot, improve
+
+Smart Value System# The Smart Value System is the unified way FlexiRule handles data across the entire platform. Whether you are setting a field value, defining a condition, or configuring a notification, you use the same consistent interface to provide data.
+The Core Principle: Every input field in FlexiRule is a &amp;ldquo;Smart&amp;rdquo; field that can be a static value, a variable reference, or a dynamically calculated result.
+The Three Input Modes# Every input field in FlexiRule supports three distinct modes of operation. You can switch between these modes seamlessly within the same field.
+1. Static Value# This is the simplest mode. You directly type the value you want to use.
+Text: Open, High Priority, Welcome to FlexiRule Numbers: 100, 0.05, -10 Dates: Picked from a calendar or typed in a standard format. 2. Variable Reference (@)# Variables allow you to access live data from your system or values calculated earlier in your rule. You trigger this mode by typing the @ symbol or clicking the Variable (@) icon.
+@doc.* (Document Variables): Access fields from the record that triggered the rule. Example: @doc.customer_name, @doc.grand_total @rule.* (Rule Variables): Access values you have created using &amp;ldquo;Set Value&amp;rdquo; or &amp;ldquo;Query&amp;rdquo; blocks earlier in the flow. Example: @rule.discounted_price, @rule.is_valid_customer @system.* (System Variables): Access global information. Example: @system.current_date, @system.current_user 3. Resolver Functions (/)# Resolvers are dynamic functions that transform data or perform calculations on the fly. You trigger this mode by typing the / symbol or clicking the Magic Wand (/) icon.
+Calculations: /math.sum, /math.multiply Formatting: /date.format, /text.upper Logic: /logic.if_else (Choose a value based on a condition) Combinations: /text.concat (Merge multiple pieces of text and variables) UI Interactions# FlexiRule provides visual cues in every input field to help you use the Smart Value System.
+Default State: Just start typing to enter a Static Value. The @ Icon: Clicking this opens a searchable list of all available variables in the current context. The / Icon: Clicking this opens a menu of available resolver …
+
+---
 title: Assignment
-url: https://sendipad.github.io/flexirule/action-types/assignment/
-lastmod: 2026-06-26
+url: https://sendipad.github.io/flexirule/action-type/assignment/
+lastmod: 2026-07-05
 summary: Perform sequential batch state mutations on document fields and context variables.
 concepts: 
 tags: 
@@ -1182,6 +1271,42 @@ Update fields on the triggering document (e.g., change status to &amp;ldquo;Appr
 doc.field_name: Updates a field on the current document. vars.variable_name: Sets a temporary variable available for the rest of the rule execution. 2. Operator# Defines how the value is applied:
 Set: Replaces the current value with the new value. Clear: Removes the value (sets to None or empty). Increment / Decrement: Adds or subtracts from the current numeric value. Append: Adds a value to the end of a list/array. Merge: Merges a dictionary into the target dictionary. Toggle: Swaps a boolean value between true and false. 3. Value# The new value or operand. This can be:
 Static Value: A hardcoded string, number, or date. Variable Path: A reference to another field (e.g., doc.base_amount). Formula: A Python-based expression for calculations. Data Pipeline: A sequence of normalization steps (e.g., Trim → Uppercase). 4. Condition (When)# An optional expression that must evaluate to true for this specific assignment to run. This allows for …
+
+---
+title: Condition Builder
+url: https://sendipad.github.io/flexirule/rule-builder/condition-builder/
+lastmod: 2026-07-06
+summary: Learn how to create logical branches in your rules.
+concepts: 
+tags: 
+difficulty: 
+related: 
+actions: read, implement, integrate, troubleshoot, improve
+
+Condition Builder# The Condition Builder is a visual interface used to define &amp;ldquo;Yes/No&amp;rdquo; logic. It is most commonly found inside the Check block, but it is also used for filters and trigger conditions.
+How it Looks# Instead of writing complex code, you build conditions using a structured, row-based interface. Each row represents a single logical check.
+Condition Builder Example Building a Condition# A single condition row consists of three main parts:
+Field/Value: What you are checking (e.g., Status or Grand Total). Operator: How you are checking it (e.g., is, is not, is greater than, contains). Comparison Value: What you are checking against (e.g., Open or 1000). Powered by the Smart Value System# For both the first and third parts of a condition, you use the Smart Value System. This allows you to:
+Pick fields directly from the document using @doc. Use variables calculated earlier in the rule using @rule. Enter static text or numbers. Use resolver functions with / for complex comparisons. Grouping Logic (AND / OR)# Rules often require checking more than one thing at a time. The Condition Builder uses Groups to handle this.
+AND Groups: All conditions in the group must be true for the whole group to be true. (e.g., &amp;ldquo;Status is Open&amp;rdquo; AND &amp;ldquo;Total &amp;gt; 1000&amp;rdquo;). OR Groups: Only one condition in the group needs to be true for the whole group to be true. (e.g., &amp;ldquo;Customer is VIP&amp;rdquo; OR &amp;ldquo;Order is Urgent&amp;rdquo;). Nested Groups# You can add groups inside of other groups to create complex logic. The UI represents this with indented boxes, making it easy to see which conditions belong together.
+Visual Structure# Add Condition: Click the + Condition button to add a new row to the current group. Add Group: Click the + Group button to create a new nested AND/OR block. Toggle Logic: Click the AND/OR label at the top of a group to switch the logic for all rows within that group. Delete: Use the trash icon next to any row or group to remove it. Example: Complex Approval Logic# Imagine you want a rule to run if: (The Order is from a VIP Customer) AND (The Total is over $5,000 OR the Order is marked as &amp;ldquo;Urgent&amp;rdquo;)
+In the …
+
+---
+title: Count
+url: https://sendipad.github.io/flexirule/action-type/query-records/count/
+lastmod: 2026-07-05
+summary: Determine the total number of records matching your criteria.
+concepts: 
+tags: 
+difficulty: 
+related: 
+actions: read, implement, integrate, troubleshoot, improve
+
+Count# The Count mode returns the total number of records that match your filters. It is a highly efficient way to measure volume or verify limits without retrieving actual record data.
+1. When to Use# Volume Monitoring: &amp;ldquo;How many &amp;lsquo;Open&amp;rsquo; support tickets are currently assigned to this user?&amp;rdquo; Threshold Verification: &amp;ldquo;Count how many times this customer has ordered this year to determine their loyalty tier.&amp;rdquo; Restriction Enforcement: &amp;ldquo;Ensure a user doesn&amp;rsquo;t exceed a daily document creation limit.&amp;rdquo; 2. Configuration# Table (DocType): Select the table to search. Filters: Define the criteria for the count (e.g., Status equals Open). 3. Output# This mode returns a Number.
+4. Example# Scenario: A company limits customers to a maximum of 5 &amp;ldquo;Active&amp;rdquo; projects.
+Table: Project Filters: Customer equals doc.customer AND Status is Active. Output Variable: active_project_count Logic: A &amp;ldquo;Check&amp;rdquo; block ensures vars.active_project_count is less than 5 before allowing a new project to be created. 5. Performance Notes# Database Math: This mode uses database-level aggregation. It is significantly more efficient than fetching a list of records and counting them in the rule engine. Low Data Load: Only a single number is returned, regardless of how many thousands of records were counted. 6. Common Mistakes# Broad Filters on Large Tables: While efficient, counting millions of records in a very large table (like Activity Log) without restrictive filters can still impact system performance. 
 
 ---
 title: Dynamic Forms
@@ -1329,6 +1454,27 @@ What Happens Over Time?# In many real systems, business rules start simple but g
 Python hooks Server scripts Custom app overrides Background jobs Patch scripts Edge-case fixes across modules Initial implementation ↓ Server Script added ↓ Hook introduced ↓ Custom method in app ↓ Background worker added ↓ Patch script for edge case ↓ Logic …
 
 ---
+title: Action Settings
+url: https://sendipad.github.io/flexirule/rule-builder/action-settings/
+lastmod: 2026-07-06
+summary: Learn how to configure individual blocks in your rule.
+concepts: 
+tags: 
+difficulty: 
+related: 
+actions: read, implement, integrate, troubleshoot, improve
+
+Action Settings# When you select a block on the canvas, the Action Settings panel slides out from the right side of the screen. This is where you define the specific behavior for that step in your rule.
+Common Interface Elements# While every action has different options, they all share a consistent design:
+Block Title: At the top, you can see and edit the name of the block. Description: A brief explanation of what the action does. Configuration Fields: The main area where you input data, select options, and define logic. Smart Value Fields# Most settings in FlexiRule use &amp;ldquo;Smart&amp;rdquo; fields. These fields allow you to provide data in three different ways: static text, variables, or dynamic functions.
+To learn more about the logic behind these fields, see the Smart Value System.
+Quick Access# In any Smart Value field, you can use these shortcuts:
+Static Input: Just type a value directly into the field. Variable Picker (@): Type @ or click the variable icon to see a list of available data, such as @doc.customer_name or @rule.total_count. Advanced Resolvers (/): Type / or click the magic wand icon to access tools like math, text formatting, and date calculations. Field Types# In the settings panel, you will encounter different types of input controls:
+Dropdowns: Choose from a fixed list of options. Checkboxes: Toggle settings on or off. Data Grids: Used for actions like &amp;ldquo;Set Value,&amp;rdquo; where you need to map multiple fields at once. Each row in the grid uses a Smart Value field for the value column. Multi-Select: Pick one or more tags or items from a list. Context Awareness# The settings panel is &amp;ldquo;Smart.&amp;rdquo; It knows where the block is located in your flow.
+Available Variables: In the @ menu, you will only see variables that have actually been defined before the current block. Validation: Required fields are marked, and the panel will alert you if your configuration is incomplete or contains errors. Saving Changes# Changes in the Action Settings panel are usually drafted immediately. However, you must Save the entire rule using the button at the top of the canvas to commit your changes to the system.
+💡TipKeep it Readable: Use the title field …
+
+---
 title: Frontend Technical
 url: https://sendipad.github.io/flexirule/advanced-concepts/architecture/ui/overview/
 lastmod: 2026-06-26
@@ -1367,24 +1513,9 @@ It does not perform graph validation at runtime. It does not compile conditions 
 Example Registry …
 
 ---
-title: Loop
-url: https://sendipad.github.io/flexirule/action-types/loop/
-lastmod: 2026-06-26
-summary: Repeat a sequence of actions for each item in a list.
-concepts: 
-tags: 
-difficulty: 
-related: 
-actions: read, implement, integrate, troubleshoot, improve
-
-Loop Action# The Loop action allows you to repeat a series of steps for multiple items. This is essential when you have a list of records (like those from a Query Records action) and need to perform the same task for each one.
-How it Works# Input List: Select the list of items you want to process. Loop Flow: Any actions connected to the loop&amp;rsquo;s output will be executed once for every item in the list. Current Item: Inside the loop, you can access the specific item currently being processed. Example# Scenario: Send a notification for every overdue invoice found.
-Query Records: Find all &amp;ldquo;Invoices&amp;rdquo; where status is &amp;ldquo;Overdue&amp;rdquo;. Loop: Connect the results to a Loop node. Notify: Inside the loop, use the Notify action. It will run for each individual invoice. Best Practices# Efficiency: Only loop over the items you need. Use filters in your query to keep the list small. Complexity: If your loop logic gets too complex, consider using a Sub-rule. 
-
----
 title: Notify: Architecture Reference
 url: https://sendipad.github.io/flexirule/advanced-concepts/architecture/actions/notify/
-lastmod: 2026-06-26
+lastmod: 2026-07-05
 summary: Internal implementation details and developer reference for the Notify action.
 concepts: 
 tags: 
@@ -1401,7 +1532,7 @@ Example Registration:
 ---
 title: Notify: Execution Semantics
 url: https://sendipad.github.io/flexirule/advanced-concepts/reference/execution/notify/
-lastmod: 2026-06-26
+lastmod: 2026-07-05
 summary: Technical runtime behavior and engine guarantees for the Notify action.
 concepts: 
 tags: 
@@ -1414,6 +1545,24 @@ Execution Lifecycle# Dispatch: The RuleEngine identifies the node type as notify
 doc: The primary document triggering the rule. vars: All context variables defined in the current execution scope. frappe: Safe access to Frappe utilities (e.g., frappe.utils.get_url_to_form). Template Rendering Flow# Rendering is performed using frappe.render_template within a restricted context.
 Jinja Support: Templates have access to the same context as the action itself. Strictness: If a template fails to render due to syntax errors, the engine will raise a Jinja rendering error, which is caught by the global rule error handler. Recipients Spec: Support for list sources (iterating over multiple items) or literal/jinja sources. Transaction Behavior# The Notify action interacts with transactions differently depending on the mode:
 Mode Transaction Impact Behavior Toast / System Non-transactional Dispatched immediately via …
+
+---
+title: Repeat (Loop)
+url: https://sendipad.github.io/flexirule/action-type/loop/
+lastmod: 2026-07-05
+summary: Iterate over a list of items and execute a sequence of actions for each.
+concepts: 
+tags: 
+difficulty: 
+related: 
+actions: read, implement, integrate, troubleshoot, improve
+
+Repeat Action (Loop)# The Repeat action (internally called Loop) allows you to iterate over a collection of items—such as rows in a child table or results from a Query Records block—and execute a specific execution path for each item.
+How it Works# Iterator: You define which list to iterate over (e.g., doc.items or vars.query_results). Item Alias: You define a name for the current item (e.g., item or row). This variable is updated in every iteration. The Loop Path: The engine follows the True branch for every item in the list. The Exit Path: Once all items have been processed, the engine follows the False branch to continue the rest of the rule. Configuration# 1. Iterator# An expression that resolves to a list or tuple.
+Example: doc.items (standard Frappe child table). Example: vars.matching_invoices (result from a previous Query Records block). 2. Item Alias (Return Variable)# The name of the variable that will hold the current item during each iteration.
+Default: item. Accessible as: vars.item (or your custom name). 3. Loop Metadata# Inside the loop, FlexiRule providing a special vars.loop object with useful metadata:
+vars.loop.index: The current iteration index (starting from 0). vars.loop.length: The total number of items in the list. vars.loop.first: Boolean, true if this is the first iteration. vars.loop.last: Boolean, true if this is the last iteration. Execution Semantics# Top-to-Bottom Iteration: The loop processes items in the order they appear in the input list. State Preservation: Variables modified inside the loop persist across iterations and after the loop completes. Safety: FlexiRule&amp;rsquo;s global iteration limit (1000 steps) applies to loops to prevent accidental infinite recursion. Example: Apply Discount to All Items# Scenario: You want to set a 10% discount on every row in a Sales Order items table.
+Repeat Block: Iterator: doc.items Alias: row Next (True): Connect to an Assignment block. Next (False): Connect to the rest of your rule (e.g., a &amp;ldquo;Notify&amp;rdquo; block). Assignment Block: Target: vars.row.discount_percentage Value: 10 Next: Connect back to the Repeat block to continue iteration. Best Practices# Connect Back: Ensure the last …
 
 ---
 title: Runtime Optimization
@@ -1448,6 +1597,38 @@ actions: read, implement, integrate, troubleshoot, improve
 Scheduler Triggers# Scheduler triggers are used for background automation and periodic tasks that are not tied to a specific user action or document event.
 Scheduling Options# Cron Expressions: Standard unix-style cron for precise timing. Intervals: Run every X minutes, hours, or days. Standard Frappe Events: Hourly, Daily, Weekly, Monthly. Usage Patterns# Since scheduler triggers aren&amp;rsquo;t tied to a specific document, they often begin with a Query Records action to identify the set of documents that need processing.
 
+
+---
+title: Sum
+url: https://sendipad.github.io/flexirule/action-type/query-records/sum/
+lastmod: 2026-07-05
+summary: Calculate the total of a numeric field across multiple records.
+concepts: 
+tags: 
+difficulty: 
+related: 
+actions: read, implement, integrate, troubleshoot, improve
+
+Sum# The Sum mode calculates the total value of a specific numeric field across all records that match your filters. This is the standard way to calculate balances, totals, and accumulated values.
+1. When to Use# Balance Calculation: &amp;ldquo;What is the total &amp;lsquo;Unpaid Amount&amp;rsquo; for this customer?&amp;rdquo; Accumulation: &amp;ldquo;Calculate the total &amp;lsquo;Hours Logged&amp;rsquo; on a project across all timesheets.&amp;rdquo; Financial Verification: &amp;ldquo;Sum the total of all &amp;lsquo;Payment Entries&amp;rsquo; for a specific Sales Order.&amp;rdquo; 2. Configuration# Table (DocType): Choose the source table. Filters: Define which records to include (e.g., Status equals Paid). Field to Aggregate: Select the numeric field you want to total (e.g., Grand Total, Amount, Quantity). 3. Output# This mode returns a Number.
+4. Example# Scenario: Before approving a new Purchase Order, the rule calculates the total expenditure for the department this month.
+Table: Purchase Order Field to Aggregate: Total Amount Filters: Department equals doc.department AND Date is This Month. Output Variable: monthly_spend Logic: The rule compares vars.monthly_spend against the department&amp;rsquo;s budget. 5. Performance Notes# Database Math: Calculations are performed directly at the database level. This avoids the overhead of loading data into the rule engine. Efficiency: This is the most efficient way to generate totals for large datasets. 6. Common Mistakes# Non-Numeric Fields: Attempting to sum a field that contains text or non-numeric data will cause the rule to fail. Missing Status Filters: Forgetting to filter by &amp;ldquo;Status&amp;rdquo; (e.g., excluding Cancelled records) can lead to incorrect totals. 
+
+---
+title: Average
+url: https://sendipad.github.io/flexirule/action-type/query-records/average/
+lastmod: 2026-07-05
+summary: Calculate the mean value of a numeric field.
+concepts: 
+tags: 
+difficulty: 
+related: 
+actions: read, implement, integrate, troubleshoot, improve
+
+Average# The Average mode calculates the mean value of a numeric field across all records matching your filters. It is used to determine typical values or benchmark performance.
+1. When to Use# Benchmarking: &amp;ldquo;Find the average order value for this customer over the last 12 months.&amp;rdquo; Performance Monitoring: &amp;ldquo;What is the average rating given to this support agent?&amp;rdquo; Price Analysis: &amp;ldquo;Calculate the average purchase price for this item across all suppliers.&amp;rdquo; 2. Configuration# Table (DocType): Choose the source table. Filters: Define the scope of records to analyze. Field to Aggregate: Select the numeric field to average (e.g., Price, Score, Amount). 3. Output# This mode returns a Number.
+4. Example# Scenario: A rule flags any Sales Order where the discount percentage is significantly higher than the customer&amp;rsquo;s historical average.
+Table: Sales Order Field to Aggregate: Discount Percentage Filters: Customer equals doc.customer AND Status is Completed. Output Variable: avg_discount 5. Performance Notes# Database Math: Like Sum and Count, this uses database-level aggregation to ensure high performance even on large datasets. Lightweight: The engine only processes a single result value. 6. Common Mistakes# Averaging Zeroes: Records with a value of 0 are included in the average and will lower the result. If zeroes should be ignored, add a filter (e.g., Field is Greater than 0). 
 
 ---
 title: Core Concepts
@@ -1485,7 +1666,7 @@ Operator Mappings: See Query Filters Reference. Timespan Resolution: Handled via
 ---
 title: Query Records Execution Semantics
 url: https://sendipad.github.io/flexirule/advanced-concepts/reference/execution/query-records/
-lastmod: 2026-06-26
+lastmod: 2026-07-05
 summary: Detailed runtime behavior, filter resolution, and permission guarantees for Query Records.
 concepts: 
 tags: 
@@ -1501,9 +1682,30 @@ Skip Permissions# When skip_permissions is enabled:
 The engine uses …
 
 ---
+title: Rule Lifecycle
+url: https://sendipad.github.io/flexirule/rule-builder/rule-lifecycle/
+lastmod: 2026-07-06
+summary: Learn how to manage rules from creation to activation and update.
+concepts: 
+tags: 
+difficulty: 
+related: 
+actions: read, implement, integrate, troubleshoot, improve
+
+Rule Lifecycle# Every automation you build in FlexiRule follows a clear path from a simple idea to a live business process. Understanding this lifecycle ensures you can safely build, test, and update your logic without interrupting your daily operations.
+The Six Stages of a Rule# 1. Creation# Start by giving your rule a name and choosing the Document Type it applies to. This creates a new Draft rule and opens the visual canvas.
+2. Configuration# Define When the rule should run (the Trigger) and What it should do (the Logic).
+Use the Rule Configuration modal for global settings. Use the Canvas to draw your business flow. Use Action Settings to fine-tune each step. 3. Activation# When your logic is complete and tested, click the Activate button.
+Validation: FlexiRule checks for missing connections or incomplete settings. Locking: Once active, the rule is locked. You cannot edit a live rule directly, ensuring that no &amp;ldquo;work-in-progress&amp;rdquo; changes affect your business data. 4. Execution# The rule is now &amp;ldquo;Live.&amp;rdquo; Whenever the trigger event occurs (e.g., a Sales Order is saved), FlexiRule automatically runs your logic. You can monitor this in the Execution Logs.
+5. Update (Amending)# To change a live rule, use the Amend Rule button.
+FlexiRule creates a new Draft version of your rule. The original version stays Active and continues to run. You can work on the new version safely in the background. When you activate the new version, it will replace the old one. 6. Deactivation# If a rule is no longer needed, you can set it to Disabled or Archived.
+Disabled: The rule stops running but can be easily re-activated later. Archived: The rule is retired and kept only for historical reference. Rule States at a Glance# You can see the current state of a rule in the Status Badge at the top of the page.
+State Runs on Events? Can be Edited? Purpose Draft No Yes Building and testing new logic. Active Yes No Live automation. Locked for safety. Disabled No Yes Temporarily paused logic. Archived No No Retired logic for historical records. Best Practices for Lifecycle Management# Always Test First: Use the Debug Rule tool while in the Draft stage. It allows you to …
+
+---
 title: Switch
-url: https://sendipad.github.io/flexirule/action-types/switch/
-lastmod: 2026-06-26
+url: https://sendipad.github.io/flexirule/action-type/switch/
+lastmod: 2026-07-05
 summary: Route execution down different paths based on a specific value.
 concepts: 
 tags: 
@@ -1516,9 +1718,28 @@ How to Configure# Select Field: Choose the field or variable you want to check (
 Switch on category. Path &amp;ldquo;Billing&amp;rdquo;: Connect to a node that notifies the finance team. Path &amp;ldquo;Technical&amp;rdquo;: Connect to a node that notifies the support engineering team. Path &amp;ldquo;General&amp;rdquo;: Connect to the default path. 
 
 ---
+title: Debugging & Execution Logs
+url: https://sendipad.github.io/flexirule/rule-builder/debugging/
+lastmod: 2026-07-06
+summary: Learn how to test your rules and understand why they run.
+concepts: 
+tags: 
+difficulty: 
+related: 
+actions: read, implement, integrate, troubleshoot, improve
+
+Debugging &amp;amp; Execution Logs# FlexiRule provides built-in tools to help you understand exactly what happens when a rule runs. Whether you are testing a new idea or investigating why a live rule didn&amp;rsquo;t behave as expected, these tools give you full visibility.
+Testing with the Debugger# The Debug Rule tool allows you to run your logic in a &amp;ldquo;sandbox&amp;rdquo; mode before you activate it.
+How to Run a Test# Open Debugger: Click the Debug Rule button at the top of the canvas. Select a Record: Pick a real document from your system (e.g., a specific Sales Order) to use as the test data. Simulate: Click Run Test. Understanding the Results# Visual Path Trace: On the canvas, the path taken by the logic is highlighted. You can see exactly which &amp;ldquo;Check&amp;rdquo; blocks were true and which actions were triggered. No Real Changes: The debugger simulates the actions but does not save any changes to your database. It is 100% safe to use on production data. Result Inspection: Click on any highlighted block after the test to see its specific inputs and outputs (e.g., what value was calculated or what email would have been sent). Debug View Return Result Execution Logs# For Active rules, FlexiRule keeps a history of every time the rule was triggered. This is your primary tool for troubleshooting live automations.
+Why did the rule trigger?# The logs will show you:
+The Event: Which document and event (e.g., Save) triggered the run. The Outcome: Whether the rule finished successfully, was skipped, or hit an error. Why did the rule NOT trigger?# If you expected a rule to run but it didn&amp;rsquo;t, check the logs for:
+Trigger Condition Failed: The high-level &amp;ldquo;gatekeeper&amp;rdquo; condition you set in the Rule Configuration wasn&amp;rsquo;t met. Disabled State: The rule was set to &amp;ldquo;Disabled&amp;rdquo; at the time of the event. Priority Conflict: Another rule with higher priority might have stopped the execution chain. Understanding the Visual Path# When viewing a log or a debug run, the canvas uses color-coded highlights:
+Green/Highlighted: The block was executed successfully. Grey/Dimmed: The block was skipped (e.g., it was on the &amp;ldquo;False&amp;rdquo; path of a …
+
+---
 title: High-level Architecture
 url: https://sendipad.github.io/flexirule/introduction/architecture/
-lastmod: 2026-06-26
+lastmod: 2026-06-27
 summary: A deep dive into the subsystems and architectural philosophy powering FlexiRule.
 concepts: 
 tags: 
@@ -1528,11 +1749,26 @@ actions: read, implement, integrate, troubleshoot, improve
 
 High-level Architecture# FlexiRule is built around a contract-driven, metadata-first architecture. Rather than hard-coding automation into scattered Python modules, business logic is represented as structured metadata. The visual designer, validation engine, and runtime executor all consume the same centralized contracts, ensuring the system remains consistent, extensible, and high-performance.
 System Overview# FlexiRule sits as an orchestration layer on top of the Frappe Framework, coordinating how events from ERPNext are transformed into executable business logic.
-graph TD subgraph &#34;FlexiRule Platform&#34; RB[Rule Builder - Vue 3] --&gt;|Saves Metadata| MC[Metadata &amp; Contracts] MC --&gt;|Informs| VE[Validation Engine] MC --&gt;|Informs| RE[Execution Engine] RE --&gt;|Lookup| RR[Rule Registry] RR --&gt;|Cached in| RC[Redis Cache] end subgraph &#34;Application Layer&#34; FR[Frappe Framework] --&gt;|Events| RE RE --&gt;|Calls| AP[ERPNext APIs] RE --&gt;|Writes| LOG[Audit Logs] end subgraph &#34;Data Layer&#34; AP --&gt; DB[(MariaDB)] RC -.-&gt; DB end Architectural Philosophy# The core design of FlexiRule is guided by the principle of Separation of Concerns. We distinguish between the definition of logic (Design Time) and the execution of logic (Runtime), using Technical Contracts as the bridge between them.
-1. Registry &amp;amp; Contracts: The Single Source of Truth# This is the most critical subsystem in FlexiRule. Every Action Type (e.g., &amp;ldquo;Send Email&amp;rdquo; or &amp;ldquo;Query Records&amp;rdquo;) publishes a Technical Contract that defines:
-Configuration Schema: What fields are needed in the UI. Validation Rules: What constitutes a &amp;ldquo;valid&amp;rdquo; block. Runtime Behavior: The specific Python logic to execute. Input/Output Mapping: How data enters and leaves the block. Why this matters: Because every subsystem consumes the same contract, adding a new Action Type automatically makes it available to the Rule Builder, validation engine, and runtime executor without modifying the core engine.
-2. Rule Builder: Metadata-Driven Designer# The Rule Builder is more than just a drag-and-drop canvas. It is a Contract-Driven Designer that:
-Dynamically generates configuration forms based on Action Contracts. Provides …
+graph TD subgraph &#34;FlexiRule Platform&#34; RB[Rule Builder - Vue 3] --&gt;|Saves Metadata| MC[Metadata &amp; Contracts] MC --&gt;|Informs| VE[Validation Engine] MC --&gt;|Informs| RE[Execution Engine] RE --&gt;|Lookup| RR[Rule Registry] RR --&gt;|Cached in| RC[Redis Cache] end subgraph &#34;Application Layer&#34; FR[Frappe Framework] --&gt;|Events| RE RE --&gt;|Calls| AP[ERPNext APIs] RE --&gt;|Writes| LOG[Audit Logs] end subgraph &#34;Data Layer&#34; AP --&gt; DB[(MariaDB)] RC -.-&gt; DB end Core Components# 1. Registry &amp;amp; Contracts (flexirule/ruleflow/core/contracts.py)# This is the single source of truth. Every Action Type (e.g., &amp;ldquo;Assignment&amp;rdquo;, &amp;ldquo;Condition&amp;rdquo;, &amp;ldquo;Query Records&amp;rdquo;) publishes a contract.
+Why this matters: The Rule Builder uses these contracts to dynamically generate UI forms, while the Engine uses them to validate execution. Implementation: See ActionType DocType and action_type_registry.py. 2. The Engine (flexirule/ruleflow/core/engine.py)# The engine is the heart of FlexiRule. It handles:
+Discovery: Identifying which rules to run based on the event. Orchestration: Walking the execution graph. Context Management: Managing the lifecycle of doc, old_doc, and vars. 3. Execution Context (flexirule/ruleflow/core/context_manager.py)# A sandboxed environment where the rule runs. It ensures that variables (vars) are isolated and that document mutations (doc) follow Frappe&amp;rsquo;s security model.
+4. Rule Builder (flexirule/public/js/flexirule/rule_builder/)# A Vue 3-based visual designer. It isn&amp;rsquo;t just a drawing tool; it&amp;rsquo;s a schema-aware editor that understands the requirements of every logic block in …
+
+---
+title: Min / Max
+url: https://sendipad.github.io/flexirule/action-type/query-records/min-max/
+lastmod: 2026-07-05
+summary: Retrieve the smallest or largest value from a group of records.
+concepts: 
+tags: 
+difficulty: 
+related: 
+actions: read, implement, integrate, troubleshoot, improve
+
+Min / Max# The Min (Minimum) and Max (Maximum) modes are used to identify the lowest or highest value in a specific field across a group of matching records.
+1. When to Use# Price Discovery: &amp;ldquo;Identify the lowest price offered for this item across all active Supplier Quotations.&amp;rdquo; Timeline Analysis: &amp;ldquo;Find the earliest start date and latest end date for all tasks in a project.&amp;rdquo; Record Highs: &amp;ldquo;Find the highest amount ever invoiced to a specific customer.&amp;rdquo; 2. Configuration# Table (DocType): Choose the source table. Mode: Choose Min for the lowest value or Max for the highest. Filters: Define which records to analyze. Field to Aggregate: Select the field to compare (e.g., Price, Date, Quantity). 3. Output# This mode returns a single Number or Date.
+4. Example# Scenario: A rule automatically updates a Project&amp;rsquo;s &amp;ldquo;Estimated End Date&amp;rdquo; based on the latest end date of its sub-tasks.
+Table: Task Mode: Max Field to Aggregate: Expected End Date Filters: Project equals doc.name AND Status is not Cancelled. Output Variable: last_task_date 5. Performance Notes# Optimized Search: Database-level optimization allows the system to find these values without reading the full details of every record. Efficiency: This is significantly faster than retrieving a sorted list and selecting the first result. 6. Common Mistakes# Ignoring Status: Forgetting to filter out Cancelled or Draft records can result in picking a &amp;ldquo;Max&amp;rdquo; value that is no longer valid. 
 
 ---
 title: Stop: Architecture Reference
@@ -1552,7 +1788,7 @@ Dependencies# frappe.throw: Used to raise ValidationError and stop the request. 
 ---
 title: Stop: Execution Semantics
 url: https://sendipad.github.io/flexirule/advanced-concepts/reference/execution/stop/
-lastmod: 2026-06-26
+lastmod: 2026-07-05
 summary: Technical runtime behavior and engine guarantees for the Stop action.
 concepts: 
 tags: 
@@ -1569,8 +1805,8 @@ Performance Notes# The Stop action is extremely lightweight. In Success mode, it
 
 ---
 title: Wait
-url: https://sendipad.github.io/flexirule/action-types/wait/
-lastmod: 2026-06-26
+url: https://sendipad.github.io/flexirule/action-type/wait/
+lastmod: 2026-07-05
 summary: Pause rule execution for a specified duration or until a date.
 concepts: 
 tags: 
@@ -1581,6 +1817,24 @@ actions: read, implement, integrate, troubleshoot, improve
 Wait Action# The Wait action pauses the execution of your rule. This is useful for follow-up automations or time-delayed tasks.
 Wait Options# Duration: Wait for a specific amount of time (e.g., &amp;ldquo;2 days&amp;rdquo;, &amp;ldquo;4 hours&amp;rdquo;). Until Date: Wait until a specific date and time reached. You can use fields from the document (e.g., doc.due_date). Example# Scenario: Send a reminder email 24 hours after a quote is sent.
 Rule triggers when Quote is saved. Wait action set for &amp;ldquo;1 day&amp;rdquo;. Notify action sends the reminder email. 
+
+---
+title: Group By
+url: https://sendipad.github.io/flexirule/action-type/query-records/group-by/
+lastmod: 2026-07-05
+summary: Summarize and categorize data into grouped results.
+concepts: 
+tags: 
+difficulty: 
+related: 
+actions: read, implement, integrate, troubleshoot, improve
+
+Group By# The Group By mode is used to organize summarized data into categories. Instead of a single total, it provides a breakdown of values based on a specific field, such as &amp;ldquo;Total Sales by Region&amp;rdquo; or &amp;ldquo;Count of Tickets by Priority.&amp;rdquo;
+1. When to Use# Categorized Summaries: &amp;ldquo;Show me the count of Tasks organized by their &amp;lsquo;Status&amp;rsquo;.&amp;rdquo; Performance breakdowns: &amp;ldquo;Calculate the total sales amount grouped by &amp;lsquo;Sales Person&amp;rsquo;.&amp;rdquo; Inventory Audits: &amp;ldquo;Find the total stock quantity grouped by &amp;lsquo;Warehouse&amp;rsquo;.&amp;rdquo; 2. Configuration# Table (DocType): Choose the source data. Filters: Define which records to include in the analysis. Group By Field: Choose the category field (e.g., Warehouse, Status, Sales Person). Aggregate Field: Choose the numeric or ID field to calculate. Aggregate Function: Count: Count the number of items in each group. Sum: Total a numeric field for each group. Avg: Calculate the average for each group. 3. Output# This mode returns a List of Summaries.
+Each item in the list follows a standardized format:
+The grouping field (e.g., Status) contains the category name. The value field contains the calculated result for that category. Example Output Shape:
+[ { &amp;#34;status&amp;#34;: &amp;#34;Open&amp;#34;, &amp;#34;value&amp;#34;: 12 }, { &amp;#34;status&amp;#34;: &amp;#34;Pending&amp;#34;, &amp;#34;value&amp;#34;: 5 } ] 4. Example# Scenario: A rule runs nightly to build a summary of Sales Orders placed today, categorized by their current status.
+Table: Sales Order Group By Field: Status Aggregate Field: ID (Name) Function: Count Filters: Posting Date is Today. Output Variable: status_summary 5. Performance Notes# Efficient Categorization: Using Group By is a database-level optimization. It is significantly faster than fetching thousands of individual records and grouping them within the rule logic. Reduced Data Transfer: By only returning the summarized categories and their values, the system avoids loading unnecessary record details. 6. Common Mistakes# Grouping by Unique Fields: Do not group by a field that is unique for every record (like ID or Creation Time). This will result in every group having a value of 1, …
 
 ---
 title: Key Capabilities
@@ -1598,8 +1852,8 @@ Visual Rule Builder# Vue 3 Interface: A modern, responsive canvas for designing 
 
 ---
 title: Sub-rule
-url: https://sendipad.github.io/flexirule/action-types/sub-rule/
-lastmod: 2026-06-26
+url: https://sendipad.github.io/flexirule/action-type/sub-rule/
+lastmod: 2026-07-05
 summary: Run another rule from within your current flow.
 concepts: 
 tags: 
@@ -1612,8 +1866,8 @@ Why Use Sub-rules?# Organization: Break down very large, complex rules into smal
 
 ---
 title: Stop and Error Handling
-url: https://sendipad.github.io/flexirule/action-types/stop-error/
-lastmod: 2026-06-26
+url: https://sendipad.github.io/flexirule/action-type/stop-error/
+lastmod: 2026-07-05
 summary: Terminate rule execution silently or raise validation errors to the user.
 concepts: 
 tags: 
@@ -1628,16 +1882,20 @@ Behavior: No further nodes are executed. Any changes made by previous nodes in t
 Behavior: A standard Frappe error popup appears with your message. The current database transaction is rolled back, meaning any changes made by previous nodes in the same rule are cancelled. Message: You can use Jinja to make the error helpful: Cannot submit order {{ doc.name }}: The grand total must be at least {{ vars.min_amount }}. Configuration# Operation/Mode: Choose between &amp;ldquo;Success&amp;rdquo; or &amp;ldquo;Error&amp;rdquo;. Error Message: (Only for Error mode) The template for the message shown to the user. Error Title: (Optional) A custom title for the error popup. Best Practices# Provide Clear Messages: When raising an error, tell the user exactly why the rule stopped and what they can do to fix it. Use for Guard Clauses: Use a Condition followed by a Stop node at the beginning of your rule to &amp;ldquo;exit early&amp;rdquo; if the document doesn&amp;rsquo;t need processing. This saves system resources. Validation First: Perform all your checks and &amp;ldquo;Raise Error&amp;rdquo; nodes before you perform any …
 
 ---
-title: Process
-url: https://sendipad.github.io/flexirule/action-types/process/
-lastmod: 2026-06-26
-summary: Execute complex custom logic or background tasks.
+title: Advanced Process
+url: https://sendipad.github.io/flexirule/action-type/process/
+lastmod: 2026-07-05
+summary: Execute complex, reusable business logic operations.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Process Action# The Process action is used for advanced logic that goes beyond standard record updates or notifications.
-When to Use# Custom Scripts: Run a predefined Python or JavaScript process. Heavy Calculations: Offload complex math to a dedicated process to keep the UI responsive. External Integrations: Call third-party APIs or services. Configuration# Select the Process you want to run. Provide any required Input Parameters. Use the Return Value in subsequent nodes of your rule. 
+Advanced Process Action# The Advanced Process action (internally called Process) is the primary extension point for custom business logic in FlexiRule. While blocks like &amp;ldquo;Check&amp;rdquo; or &amp;ldquo;Assignment&amp;rdquo; handle basic flow and data updates, the Process action allows you to execute sophisticated, reusable operations defined in the Process Registry.
+Purpose# Use the Process action for:
+Complex Calculations: Tax engines, freight calculators, or financial models. External Integrations: Sending data to Slack, calling a REST API, or interacting with AWS. System Tasks: Generating PDFs, bulk-creating documents, or triggering Frappe background jobs. Reusable Business Logic: Any logic that is used across multiple rules should be encapsulated as a &amp;ldquo;Process&amp;rdquo;. Action Capabilities# Capability Support Notes Input Mapping ✅ Yes Map variables from the rule context to the Process inputs. Output Mapping ✅ Yes Store the Process result back into the rule context. Schema-Aware ✅ Yes The UI dynamically adapts based on the Process configuration schema. Transactional ✅ Yes Supports savepoints to ensure data integrity during execution. Configuration# 1. Process Selection# Select from the list of registered Processes. Each process may have multiple Operations (e.g., a &amp;ldquo;Slack&amp;rdquo; process might have &amp;ldquo;Send Message&amp;rdquo; and &amp;ldquo;Upload File&amp;rdquo; operations).
+2. Input Configuration# Based on the selected process, you will see a dynamic set of fields. You can provide:
+Static Values: Hardcoded strings or numbers. Dynamic Resolvers: Reference fields from doc or vars. Input Mapping: Use the mapping grid to bind complex context data to process parameters. 3. Execution Options# On Error: Choose whether to stop, continue, or retry the rule if the process fails. Is Async: If enabled, the process will run in a background worker (using frappe.enqueue), and the rule will continue immediately. 4. Output Handling# Specify a Return Variable (e.g., vars.api_response) where the result of the process will be stored for use in subsequent blocks.
+Execution Semantics# Input Resolution: The engine resolves all input mapping and dynamic values. Validation: The engine …
 

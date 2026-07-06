@@ -5,19 +5,21 @@
 Base URL: https://sendipad.github.io/flexirule/
 Application repository: https://github.com/Sendipad/flexirule
 Documentation repository: https://github.com/Sendipad/flexirule-docs
-Generated: 2026-06-28
+Generated: 2026-07-06
 
 ## Core documentation
 
-- [Entry Action](https://sendipad.github.io/flexirule/action-types/entry-action/) — The starting point of every business rule.
+- [Entry Action](https://sendipad.github.io/flexirule/action-type/entry-action/) — The starting point of every business rule.
 
 - [API Reference](https://sendipad.github.io/flexirule/api-reference/public-apis/) — Public whitelisted methods for programmatic interaction with FlexiRule.
 
-- [Canvas Navigation](https://sendipad.github.io/flexirule/rule-builder/canvas-navigation/) — Learn how to navigate and use the visual Rule Builder canvas.
+- [Assignment: Architecture Reference](https://sendipad.github.io/flexirule/advanced-concepts/architecture/actions/assignment/) — Sequential mutation engine and normalization pipeline internals.
 
-- [Create New](https://sendipad.github.io/flexirule/action-types/update-record/create-new/) — Generating new documents automatically via rule logic.
+- [Canvas Navigation](https://sendipad.github.io/flexirule/rule-builder/canvas/) — Learn how to navigate and use the visual Rule Builder canvas.
 
-- [Email](https://sendipad.github.io/flexirule/action-types/notify/email/) — Sending automated emails with attachments and dynamic templates.
+- [Create New](https://sendipad.github.io/flexirule/action-type/update-record/create-new/) — Generating new documents automatically via rule logic.
+
+- [Email](https://sendipad.github.io/flexirule/action-type/notify/email/) — Sending automated emails with attachments and dynamic templates.
 
 - [Installation Guide](https://sendipad.github.io/flexirule/setup/installation/) — How to install FlexiRule in your Frappe/ERPNext environment.
 
@@ -25,13 +27,11 @@ Generated: 2026-06-28
 
 - [Performance Architecture](https://sendipad.github.io/flexirule/performance/architecture/) — How FlexiRule maintains lightning-fast execution speeds.
 
-- [Query Doc](https://sendipad.github.io/flexirule/action-types/query-records/query-doc/) — Retrieving a single record for data enrichment.
+- [Query Doc](https://sendipad.github.io/flexirule/action-type/query-records/query-doc/) — Find one specific item and retrieve its details.
 
 - [Query Filters](https://sendipad.github.io/flexirule/advanced-concepts/reference/query-filters/) — Reference guide for filtering logic across FlexiRule actions.
 
 - [Quick Start](https://sendipad.github.io/flexirule/getting-started/quick-start/) — Build your first automation in under 5 minutes.
-
-- [Rule Lifecycle](https://sendipad.github.io/flexirule/rule-builder/lifecycle-execution/) — Understanding the stages of a rule from creation to execution and retirement.
 
 - [Send Email on Sales Order Submission](https://sendipad.github.io/flexirule/tutorials/send-email-sales-order/) — A beginner tutorial on triggering an automated email when a Sales Order is submitted.
 
@@ -51,7 +51,7 @@ Generated: 2026-06-28
 
 - [Action Metadata Schema](https://sendipad.github.io/flexirule/advanced-concepts/reference/ai/action-metadata-schema/) — Reference specification for action metadata used by AI and programmatic tools.
 
-- [Adding and Managing Actions](https://sendipad.github.io/flexirule/rule-builder/adding-managing-actions/) — Learn how to use the Action Zone to build your rule logic.
+- [Adding Actions](https://sendipad.github.io/flexirule/rule-builder/add-action/) — Learn how to add new logic blocks to your rule.
 
 - [AI Features](https://sendipad.github.io/flexirule/advanced-concepts/ai-features/) — Leveraging Artificial Intelligence within FlexiRule logic.
 
@@ -77,7 +77,7 @@ Generated: 2026-06-28
 
 - [Permissions](https://sendipad.github.io/flexirule/setup/permissions/) — Managing access to the Rule Builder and rule execution.
 
-- [Query List](https://sendipad.github.io/flexirule/action-types/query-records/query-list/) — Finding multiple records for bulk processing or loops.
+- [Query List](https://sendipad.github.io/flexirule/action-type/query-records/query-list/) — Find multiple records matching specific criteria.
 
 - [Registry and Contracts](https://sendipad.github.io/flexirule/advanced-concepts/registry-contracts/) — The backbone of FlexiRule&#39;s extensibility and dynamic UI.
 
@@ -85,7 +85,7 @@ Generated: 2026-06-28
 
 - [System Overview (AR)](https://sendipad.github.io/flexirule/advanced-concepts/reference/localized/arabic-overview/) — يُطلق على FlexiRule في بنيته الحالية اسم **&#34;محرك تنسيق القواعد البصري&#34; (Visual Rule Orchestration Engine)**. وهو عبارة عن منصة متقدمة مبنية خصيصاً ...
 
-- [Update Existing](https://sendipad.github.io/flexirule/action-types/update-record/update-existing/) — Modifying specific records in the system.
+- [Update Existing](https://sendipad.github.io/flexirule/action-type/update-record/update-existing/) — Modifying specific records in the system.
 
 - [Why should I use FlexiRule?](https://sendipad.github.io/flexirule/introduction/why-flexirule/) — Understanding the business value and agility provided by visual rules.
 
@@ -109,13 +109,19 @@ Generated: 2026-06-28
 
 - [Execution Context Reference](https://sendipad.github.io/flexirule/advanced-concepts/triggers/context-reference/) — This reference describes the variables available to the engine at the moment of triggering.
 
+- [Exist Record](https://sendipad.github.io/flexirule/action-type/query-records/exist-record/) — Check if a record exists without retrieving data.
+
 - [Glossary](https://sendipad.github.io/flexirule/advanced-concepts/reference/glossary/) — Common terminology used in FlexiRule.
 
 - [Graph Orchestration](https://sendipad.github.io/flexirule/advanced-concepts/architecture/runtime/graph-orchestration/) — FlexiRule represents automation as a **Directed Graph**. This is not just a UI choice; it is the fundamental way the engine reasons about execution.
 
+- [Rule Configuration](https://sendipad.github.io/flexirule/rule-builder/rule-configuration/) — Learn how to set up the global settings for your rule.
+
 - [RuleFlow Settings](https://sendipad.github.io/flexirule/setup/settings/) — Global configuration for the FlexiRule engine.
 
-- [Condition](https://sendipad.github.io/flexirule/action-types/condition/) — Evaluate complex logic gates to determine the execution path.
+- [Advanced Process: Architecture Reference](https://sendipad.github.io/flexirule/advanced-concepts/architecture/actions/advanced-process/) — Runtime orchestration, Registry pattern, and the ProcessOperationExecutor internals.
+
+- [Condition](https://sendipad.github.io/flexirule/action-type/condition/) — Evaluate complex logic gates to determine the execution path.
 
 - [Controls](https://sendipad.github.io/flexirule/advanced-concepts/architecture/ui/controls/) — This document details the smart and innovative Vue components used throughout the FlexiRule UI. These controls are designed for high reusability, p...
 
@@ -131,6 +137,8 @@ Generated: 2026-06-28
 
 - [Overview](https://sendipad.github.io/flexirule/advanced-concepts/architecture/runtime/overview/) — The `RuleEngine` is the heart of FlexiRule. It doesn&#39;t just run code; it manages a **Stateful Execution Pipeline**.
 
+- [Query Report](https://sendipad.github.io/flexirule/action-type/query-records/query-report/) — Retrieve data using an existing system report.
+
 - [Rule Entry Condition vs. Condition Action](https://sendipad.github.io/flexirule/advanced-concepts/rule-entry-condition-vs-condition-action/) — Understand when to use a Rule Entry Condition and when to use a Condition Action in FlexiRule.
 
 - [Setup Troubleshooting](https://sendipad.github.io/flexirule/setup/troubleshooting/) — Resolving issues during installation and configuration.
@@ -139,7 +147,13 @@ Generated: 2026-06-28
 
 - [Trigger System](https://sendipad.github.io/flexirule/advanced-concepts/triggers/engine-details/) — The FlexiRule Trigger System determines when a rule should begin its execution. It is managed by the `RuleCoordinator`, which acts as a high-perfor...
 
-- [Assignment](https://sendipad.github.io/flexirule/action-types/assignment/) — Perform sequential batch state mutations on document fields and context variables.
+- [Smart Value System](https://sendipad.github.io/flexirule/rule-builder/smart-value-system/) — Learn how FlexiRule handles inputs using static values, variables, and resolvers.
+
+- [Assignment](https://sendipad.github.io/flexirule/action-type/assignment/) — Perform sequential batch state mutations on document fields and context variables.
+
+- [Condition Builder](https://sendipad.github.io/flexirule/rule-builder/condition-builder/) — Learn how to create logical branches in your rules.
+
+- [Count](https://sendipad.github.io/flexirule/action-type/query-records/count/) — Determine the total number of records matching your criteria.
 
 - [Dynamic Forms](https://sendipad.github.io/flexirule/advanced-concepts/architecture/ui/dynamic-forms/) — FlexiRule uses a **Schema-Driven Rendering** approach. The frontend does not &#34;know&#34; what an action&#39;s configuration looks like; it asks the backend ...
 
@@ -157,19 +171,25 @@ Generated: 2026-06-28
 
 - [Why is FlexiRule better than hard-coded customizations?](https://sendipad.github.io/flexirule/introduction/better-than-hard-coded/) — A separation-of-concerns approach showing how FlexiRule complements custom development by isolating business policies from application code.
 
+- [Action Settings](https://sendipad.github.io/flexirule/rule-builder/action-settings/) — Learn how to configure individual blocks in your rule.
+
 - [Frontend Technical](https://sendipad.github.io/flexirule/advanced-concepts/architecture/ui/overview/) — The FlexiRule frontend is a Vue 3 application that synchronizes complex graph logic with Frappe&#39;s relational data model.
 
 - [How does FlexiRule achieve high performance?](https://sendipad.github.io/flexirule/introduction/performance/) — An in-depth look at the architectural decisions that ensure FlexiRule remains fast and scalable in production environments.
-
-- [Loop](https://sendipad.github.io/flexirule/action-types/loop/) — Repeat a sequence of actions for each item in a list.
 
 - [Notify: Architecture Reference](https://sendipad.github.io/flexirule/advanced-concepts/architecture/actions/notify/) — Internal implementation details and developer reference for the Notify action.
 
 - [Notify: Execution Semantics](https://sendipad.github.io/flexirule/advanced-concepts/reference/execution/notify/) — Technical runtime behavior and engine guarantees for the Notify action.
 
+- [Repeat (Loop)](https://sendipad.github.io/flexirule/action-type/loop/) — Iterate over a list of items and execute a sequence of actions for each.
+
 - [Runtime Optimization](https://sendipad.github.io/flexirule/advanced-concepts/roadmap/runtime-optimization/) — As FlexiRule deployments grow to thousands of rules and millions of executions, performance becomes the primary architectural challenge.
 
 - [Scheduler Triggers](https://sendipad.github.io/flexirule/advanced-concepts/triggers/scheduler-triggers/) — Scheduler triggers are used for background automation and periodic tasks that are not tied to a specific user action or document event.
+
+- [Sum](https://sendipad.github.io/flexirule/action-type/query-records/sum/) — Calculate the total of a numeric field across multiple records.
+
+- [Average](https://sendipad.github.io/flexirule/action-type/query-records/average/) — Calculate the mean value of a numeric field.
 
 - [Core Concepts](https://sendipad.github.io/flexirule/introduction/core-concepts/) — The fundamental building blocks of the FlexiRule ecosystem.
 
@@ -177,21 +197,29 @@ Generated: 2026-06-28
 
 - [Query Records Execution Semantics](https://sendipad.github.io/flexirule/advanced-concepts/reference/execution/query-records/) — Detailed runtime behavior, filter resolution, and permission guarantees for Query Records.
 
-- [Switch](https://sendipad.github.io/flexirule/action-types/switch/) — Route execution down different paths based on a specific value.
+- [Rule Lifecycle](https://sendipad.github.io/flexirule/rule-builder/rule-lifecycle/) — Learn how to manage rules from creation to activation and update.
+
+- [Switch](https://sendipad.github.io/flexirule/action-type/switch/) — Route execution down different paths based on a specific value.
+
+- [Debugging & Execution Logs](https://sendipad.github.io/flexirule/rule-builder/debugging/) — Learn how to test your rules and understand why they run.
 
 - [High-level Architecture](https://sendipad.github.io/flexirule/introduction/architecture/) — A deep dive into the subsystems and architectural philosophy powering FlexiRule.
+
+- [Min / Max](https://sendipad.github.io/flexirule/action-type/query-records/min-max/) — Retrieve the smallest or largest value from a group of records.
 
 - [Stop: Architecture Reference](https://sendipad.github.io/flexirule/advanced-concepts/architecture/actions/stop/) — Internal implementation details and developer reference for the Stop action.
 
 - [Stop: Execution Semantics](https://sendipad.github.io/flexirule/advanced-concepts/reference/execution/stop/) — Technical runtime behavior and engine guarantees for the Stop action.
 
-- [Wait](https://sendipad.github.io/flexirule/action-types/wait/) — Pause rule execution for a specified duration or until a date.
+- [Wait](https://sendipad.github.io/flexirule/action-type/wait/) — Pause rule execution for a specified duration or until a date.
+
+- [Group By](https://sendipad.github.io/flexirule/action-type/query-records/group-by/) — Summarize and categorize data into grouped results.
 
 - [Key Capabilities](https://sendipad.github.io/flexirule/introduction/key-capabilities/) — A summary of the major features and functional highlights of FlexiRule.
 
-- [Sub-rule](https://sendipad.github.io/flexirule/action-types/sub-rule/) — Run another rule from within your current flow.
+- [Sub-rule](https://sendipad.github.io/flexirule/action-type/sub-rule/) — Run another rule from within your current flow.
 
-- [Stop and Error Handling](https://sendipad.github.io/flexirule/action-types/stop-error/) — Terminate rule execution silently or raise validation errors to the user.
+- [Stop and Error Handling](https://sendipad.github.io/flexirule/action-type/stop-error/) — Terminate rule execution silently or raise validation errors to the user.
 
-- [Process](https://sendipad.github.io/flexirule/action-types/process/) — Execute complex custom logic or background tasks.
+- [Advanced Process](https://sendipad.github.io/flexirule/action-type/process/) — Execute complex, reusable business logic operations.
 
