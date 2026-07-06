@@ -416,9 +416,7 @@ class Rule(Document):
 		if not entry_actions:
 			frappe.throw(_("Rule must have exactly one Entry Action (Start Node)."))
 		if len(entry_actions) > 1:
-			frappe.throw(
-				_("Rule cannot have multiple Entry Actions. Found {0}.").format(len(entry_actions))
-			)
+			frappe.throw(_("Rule cannot have multiple Entry Actions. Found {0}.").format(len(entry_actions)))
 
 	def ensure_start_node(self):
 		"""Ensure a Start Node (Entry Action) exists"""
