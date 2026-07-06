@@ -122,6 +122,7 @@ class Rule(Document):
 			self._initialize_default_graph()
 
 		self.ensure_start_node()
+		self.validate_entry_action_invariants()
 		self.reorder_actions()
 		self.compile_conditions()
 		self.compile_action_templates()
@@ -405,13 +406,24 @@ class Rule(Document):
 		}
 		self.visual_data = json.dumps(default_visual)
 
+	def validate_entry_action_invariants(self):
+		"""Enforce that exactly one Entry Action exists."""
+		entry_actions = [
+			a
+			for a in self.actions
+			if (a.get("action_type") == "Entry Action" or a.get("action_id") == "root")
+		]
+		if not entry_actions:
+			frappe.throw(_("Rule must have exactly one Entry Action (Start Node)."))
+		if len(entry_actions) > 1:
+			frappe.throw(
+				_("Rule cannot have multiple Entry Actions. Found {0}.").format(len(entry_actions))
+			)
+
 	def ensure_start_node(self):
 		"""Ensure a Start Node (Entry Action) exists"""
 		# Check if an Entry Action already exists (by type or by the standard 'root' ID)
-		root_action = next(
-			(a for a in self.actions if a.action_type == "Entry Action" or a.get("action_id") == "root"),
-			None,
-		)
+		root_action = self.get_entry_action()
 
 		if not root_action:
 			# Determine next step if there are existing actions
@@ -429,6 +441,7 @@ class Rule(Document):
 					"action_id": "root",
 					"is_enabled": 1,
 					"next_step_if_true": first_action_id,  # Link to first existing action
+					"config": self.trigger_condition,
 				},
 			)
 
@@ -453,6 +466,61 @@ class Rule(Document):
 		# Re-assign idx
 		for i, action in enumerate(self.actions):
 			action.idx = i + 1
+
+	def get_entry_action(self):
+		"""
+		Returns the Entry Action (Start Node) for this rule.
+		An Entry Action is identified by action_id='root' or action_type='Entry Action'.
+		"""
+		for action in self.actions:
+			if action.get("action_id") == "root" or action.get("action_type") == "Entry Action":
+				return action
+		return None
+
+	def get_entry_condition(self):
+		"""
+		Public API to get the trigger condition JSON.
+		Encapsulates the dual-read logic during the migration period.
+		"""
+		return self.resolve_entry_condition()
+
+	def resolve_entry_condition(self):
+		"""
+		Internal helper for Release N dual-read logic.
+		Priority: EntryAction.config > Rule.trigger_condition.
+		"""
+		entry_action = self.get_entry_action()
+		config = {}
+		if entry_action and entry_action.config:
+			try:
+				config = (
+					json.loads(entry_action.config)
+					if isinstance(entry_action.config, str)
+					else entry_action.config
+				)
+			except (ValueError, TypeError):
+				config = {}
+
+		# If Entry Action has a non-empty configuration, use it.
+		if config and (
+			isinstance(config, list)
+			or (isinstance(config, dict) and (config.get("conditions") or config.get("collection")))
+		):
+			return config
+
+		# Fallback to legacy Rule-level field during Release N transition.
+		if self.trigger_condition:
+			try:
+				legacy_config = (
+					json.loads(self.trigger_condition)
+					if isinstance(self.trigger_condition, str)
+					else self.trigger_condition
+				)
+				return legacy_config
+			except (ValueError, TypeError):
+				return None
+
+		return config
 
 	def _parse_action_config(self, action):
 		"""Parse action config to mutable dict."""
@@ -1277,10 +1345,11 @@ class Rule(Document):
 
 		compiler = ConditionCompiler()
 
-		# Compile Trigger
-		if self.trigger_condition:
+		# Compile Trigger using encapsulated API
+		trigger_condition = self.get_entry_condition()
+		if trigger_condition:
 			try:
-				compiled_expression = compiler.compile(self.trigger_condition)
+				compiled_expression = compiler.compile(trigger_condition)
 				self.compiled_expression = compiled_expression
 				is_valid, error = compiler.validate(compiled_expression)
 				if not is_valid:

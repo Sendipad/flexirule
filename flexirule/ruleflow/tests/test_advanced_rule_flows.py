@@ -51,6 +51,8 @@ class TestAdvancedRuleFlows(FrappeTestCase):
 		exposed_as_subrule=0,
 		priority="10",
 	):
+		cond = self._trigger_filter() if trigger_type == "DocType Event" else None
+
 		rule = frappe.get_doc(
 			{
 				"doctype": "Rule",
@@ -58,7 +60,7 @@ class TestAdvancedRuleFlows(FrappeTestCase):
 				"document_type": "Contact",
 				"trigger_type": trigger_type,
 				"trigger_event": trigger_event,
-				"trigger_condition": self._trigger_filter() if trigger_type == "DocType Event" else None,
+				"trigger_condition": cond,
 				"is_active": is_active,
 				"priority": priority,
 				"exposed_as_subrule": exposed_as_subrule,

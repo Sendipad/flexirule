@@ -5,51 +5,58 @@ This document provides a final engineering blueprint for relocating the Rule Tri
 ## 1. Architectural Principles
 
 - **Action Ownership:** Each action owns its own configuration (Condition Builder JSON).
-- **Rule Metadata Boundary:** Rule-level fields contain only metadata (Rule Name, Priority) or derived runtime artifacts (compiled Python expressions).
-- **Runtime Purity:** The execution engine and coordinator operate on compiled artifacts, not editable UI configuration.
-- **Persistence Decoupling:** UI behavior is independent of the underlying persistence layer.
-- **Encapsulation:** No component should access the internal storage format of another.
+- **Rule Metadata Boundary:** Rule-level fields contain only metadata or derived runtime artifacts.
+- **Runtime Purity:** The engine executes compiled artifacts, not editable configuration.
+- **Persistence Decoupling:** UI behavior is independent of persistence details.
+- **Encapsulation:** Access to storage format is centralized via APIs.
 
 ---
 
 ## 2. Core API & Encapsulation
 
-The following methods will be implemented on the `Rule` class to encapsulate access to the entry condition. All other components (Compiler, SubRuleHandler, etc.) MUST use these methods.
+The following methods will be added to the `Rule` class in `flexirule/ruleflow/doctype/rule/rule.py`.
 
-### 2.1 State Management
-- **`get_entry_action()`**: Returns the `Rule Action` child document associated with the rule's entry point.
-- **`get_entry_condition()`**: Returns the Condition Builder JSON object from the Entry Action.
-- **`set_entry_condition(payload)`**: Persists the Condition Builder JSON to the Entry Action.
+### 2.1 Public Rule API
+- **`get_entry_action()`**: Returns the `Rule Action` child document for the rule's entry point.
+- **`get_entry_condition()`**: Returns the Condition Builder JSON object. Uses `resolve_entry_condition()` internally.
 
-### 2.2 Compatibility Layer (Release N only)
-- **`resolve_entry_condition()`**: Centralized helper that implements the dual-read logic (`EntryAction.config` > `Rule.trigger_condition`). This is the **only** place where dual-read logic should exist.
+### 2.2 Compatibility Layer (Internal)
+- **`resolve_entry_condition()`**: Implements the dual-read logic (`EntryAction.config` > `Rule.trigger_condition`) for Release N only.
 
----
-
-## 3. Ownership Contract
-
-- **Entry Action:** Owns the **editable definition** (Condition Builder JSON).
-- **Rule:** Owns the **runtime artifact** (`compiled_expression`).
-
-No other component is permitted to duplicate or own the trigger configuration.
+*Note: `set_entry_condition()` is intentionally omitted from the public API as repository analysis shows persistence is handled via standard child-table save flows in the UI store.*
 
 ---
 
-## 4. Migration Strategy (Conservative & Deterministic)
+## 3. Compilation Pipeline Integration
 
-### 4.1 Migration Patch (`flexirule/patches/migrate_trigger_condition_to_entry_action.py`)
+The existing compilation pipeline in `Rule.compile_conditions()` will be reused. The ONLY modification is the source of the input:
+
+```python
+# Before
+compiled = compiler.compile(self.trigger_condition)
+
+# After
+condition_json = self.get_entry_condition()
+compiled = compiler.compile(condition_json)
+```
+
+---
+
+## 4. Migration Strategy (Conservative)
+
+### 4.1 Migration Patch
 The patch will be strictly idempotent and will NOT trigger standard save hooks.
 
 **Logic Flow:**
 1. Fetch all Rules.
 2. For each Rule:
-   - Identify `Entry Action`. If missing, create one.
+   - Identify/Create `Entry Action`.
    - **Case A: Clean Move:** Data exists only in `Rule.trigger_condition`. Move to `EntryAction.config`.
-   - **Case B: Ambiguous Data:** Data exists in both locations and differs. **Log as Error and Skip.**
-   - **Case C: Corrupted Topology:** Multiple `Entry Action` nodes found. **Log as Error and Skip.**
-   - **Case D: Malformed JSON:** Log as Error and Skip.
-3. Update via `frappe.db.set_value` to bypass lifecycle hooks and side effects.
-4. Call `Rule.compile_trigger_expression()` to update the derived runtime field.
+   - **Case B: Ambiguous Data:** Data exists in both and differs. **Log as Error and Skip.**
+   - **Case C: Multiple Entry Actions:** **Log as Error and Skip.**
+   - **Case D: Malformed JSON:** **Log as Error and Skip.**
+3. Update via `frappe.db.set_value` to bypass side effects.
+4. Call `self.compile_conditions()` to update `compiled_expression`.
 
 ---
 
@@ -57,65 +64,35 @@ The patch will be strictly idempotent and will NOT trigger standard save hooks.
 
 | Release | Milestones |
 | :--- | :--- |
-| **Release N** | Implement Rule API. Centralize dual-read in `resolve_entry_condition`. Execute conservative migration. |
-| **Release N+1** | UI hides `Rule.trigger_condition`. Backend issues `DeprecationWarning` if old field is accessed. |
-| **Release N+2** | Remove `Rule.trigger_condition` field. Remove `resolve_entry_condition` compatibility layer. |
+| **Release N** | Implement API & `resolve_entry_condition`. Execute conservative migration. |
+| **Release N+1** | UI hides `Rule.trigger_condition`. Backend issues `DeprecationWarning`. |
+| **Release N+2** | Remove `Rule.trigger_condition` field and compatibility layer. |
 
 ---
 
-## 6. Runtime Compatibility Matrix
-
-| Component | Status | Required Modification |
-| :--- | :--- | :--- |
-| **RuleCoordinator** | No Change | Reads from `Rule.compiled_expression`. |
-| **Runtime Registry** | No Change | Signature remains stable. |
-| **Execution Engine** | No Change | Logic remains decoupled. |
-| **Compiler** | Changed | Uses `Rule.get_entry_condition()`. |
-| **Debugger** | No Change | Visualizes `visual_data`. |
-| **SubRule Handler** | Changed | Uses `Rule.get_entry_condition()` for sub-rule compatibility. |
-| **Import/Export** | No Change | Child tables are exported. |
-| **Rule Cache** | No Change | Rebuilds on `compiled_expression` change. |
-
----
-
-## 7. Expanded Validation
-
-Invariants enforced in `Rule.validate()` and `graph_validator.py`:
-
-- **Exactly One Entry Action:** Throw if zero or multiple exist.
-- **Topology:** Entry Action must be the root (no incoming edges).
-- **Immutability:** Entry Action type and `action_id` are locked.
-- **Deletability:** Entry Action deletion is blocked at the model level.
-- **Schema Compliance:** Entry Action config must be a valid JSON object/list.
-
----
-
-## 8. Testing Matrix
+## 6. Testing Matrix
 
 | Category | Test Objectives |
 | :--- | :--- |
-| **Migration** | Idempotency, conservative skip on ambiguity, fixture migration. |
-| **Compiler** | Generation of `compiled_expression` from the new API. |
-| **Validation** | Enforcement of topology, existence, and immutability. |
-| **Runtime** | Transition-period execution (Release N dual-read). |
-| **Backward Compatibility** | Verify sub-rules created in previous versions still validate. |
+| **Migration** | Idempotency, conservative skip on ambiguity. |
+| **Compiler** | Generation of `compiled_expression` from new API. |
+| **Validation** | Enforcement of topology (Exactly one Entry Action, Root node). |
+| **Runtime** | Transition-period execution (Dual-read). |
+| **UI** | Verify Start Node persistence to `Rule Action` child table. |
 
 ---
 
-## 9. Future Work (Out of Scope)
+## 7. Future Work (Out of Scope)
 
-The following improvements are enabled by this refactoring but will be addressed in future tasks:
-- **Action Versioning:** Fine-grained versioning of individual action configurations.
-- **Schema Evolution:** Implementing a schema registry for `Action.config` fields.
-- **Generic Trigger System:** Decoupling triggers from `Entry Action` to support multi-start rules.
+- Action-level versioning.
+- Schema registry for `Action.config`.
+- Multi-start support.
 
 ---
 
-## 10. Success Criteria
+## 8. Success Criteria
 
-- [ ] 100% of non-ambiguous rules migrated successfully.
-- [ ] `Rule.trigger_condition` is no longer the source of truth for the compiler.
-- [ ] `SubRuleHandler` utilizes the encapsulated Rule API.
-- [ ] No direct reads/writes of `Rule.trigger_condition` remain in the codebase.
-- [ ] All regression and migration tests pass.
-- [ ] Acceptance checklist finalized.
+- [ ] 100% of non-ambiguous rules migrated.
+- [ ] No direct reads/writes of `Rule.trigger_condition` outside `resolve_entry_condition`.
+- [ ] UI behavior is unchanged; persistence redirected.
+- [ ] All automated tests pass.
