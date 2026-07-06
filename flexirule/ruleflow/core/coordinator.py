@@ -243,7 +243,12 @@ class RuleCoordinator:
 				"execution_mode": row.get("execution_mode") or "Synchronous",
 				"debug_mode": bool(row.get("debug_mode")),
 				"compiled_expression": row.get("compiled_expression") or "",
-				"has_trigger_condition": bool(row.get("trigger_condition")) or bool(frappe.db.get_value("Rule Action", {"parent": rule_name, "action_type": "Entry Action"}, "config")),
+				"has_trigger_condition": bool(row.get("trigger_condition"))
+				or bool(
+					frappe.db.get_value(
+						"Rule Action", {"parent": rule_name, "action_type": "Entry Action"}, "config"
+					)
+				),
 				# Only use explicitly configured watched fields for dispatch-time pruning.
 				# Trigger-condition dependencies are evaluated in eligibility and are not safe skip keys.
 				"watched_fields": sorted(set(explicit_watched)),

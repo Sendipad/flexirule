@@ -290,7 +290,9 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 
 			const startNode = graphStore.nodes.find((el) => el.type === "start");
 			// Dual-write: serialize Start Node config back to root trigger_condition
-			doc.trigger_condition = serializeField(startNode?.data?.trigger_condition || startNode?.data?.config);
+			doc.trigger_condition = serializeField(
+				startNode?.data?.trigger_condition || startNode?.data?.config
+			);
 			doc.compiled_expression = null;
 
 			if (startNode?.data) {

@@ -1,5 +1,7 @@
-import frappe
 import json
+
+import frappe
+
 
 def execute():
 	"""
@@ -14,7 +16,8 @@ def execute():
 
 			# 1. Identify Entry Action
 			entry_actions = [
-				a for a in doc.actions
+				a
+				for a in doc.actions
 				if (a.get("action_type") == "Entry Action" or a.get("action_id") == "root")
 			]
 
@@ -26,7 +29,7 @@ def execute():
 				# Case C: Multiple entry actions
 				frappe.log_error(
 					f"Rule {doc.name} has multiple entry actions. Skipping migration.",
-					"FlexiRule Trigger Condition Migration"
+					"FlexiRule Trigger Condition Migration",
 				)
 				continue
 			else:
@@ -43,14 +46,14 @@ def execute():
 			if doc.trigger_condition and legacy_cond is None:
 				frappe.log_error(
 					f"Rule {doc.name} has malformed legacy trigger_condition. Skipping migration.",
-					"FlexiRule Trigger Condition Migration"
+					"FlexiRule Trigger Condition Migration",
 				)
 				continue
 
 			if entry_action.config and action_cond is None:
 				frappe.log_error(
 					f"Rule {doc.name} has malformed Entry Action config. Skipping migration.",
-					"FlexiRule Trigger Condition Migration"
+					"FlexiRule Trigger Condition Migration",
 				)
 				continue
 
@@ -63,7 +66,9 @@ def execute():
 				# Case A: Clean Move
 				_update_action_config(entry_action, doc.trigger_condition)
 				doc.compile_conditions()
-				frappe.db.set_value("Rule", doc.name, "compiled_expression", doc.compiled_expression, update_modified=False)
+				frappe.db.set_value(
+					"Rule", doc.name, "compiled_expression", doc.compiled_expression, update_modified=False
+				)
 			else:
 				# Both have data - check for ambiguity
 				if _is_equal(legacy_cond, action_cond):
@@ -73,16 +78,18 @@ def execute():
 					# Case B: Ambiguous Data
 					frappe.log_error(
 						f"Rule {doc.name} has differing conditions in Rule.trigger_condition and EntryAction.config. Skipping migration.",
-						"FlexiRule Trigger Condition Migration"
+						"FlexiRule Trigger Condition Migration",
 					)
 					continue
 
 		except Exception as e:
 			import traceback
+
 			frappe.log_error(
-				f"Migration failed for Rule {r.name}: {str(e)}\n\n{traceback.format_exc()}",
-				"FlexiRule Trigger Condition Migration"
+				f"Migration failed for Rule {r.name}: {e!s}\n\n{traceback.format_exc()}",
+				"FlexiRule Trigger Condition Migration",
 			)
+
 
 def _parse_json(value):
 	if not value:
@@ -94,6 +101,7 @@ def _parse_json(value):
 	except (ValueError, TypeError):
 		return None
 
+
 def _is_effectively_empty(cond):
 	if not cond:
 		return True
@@ -104,21 +112,17 @@ def _is_effectively_empty(cond):
 			return True
 	return False
 
+
 def _is_equal(cond1, cond2):
 	# Simple stable comparison
 	return json.dumps(cond1, sort_keys=True) == json.dumps(cond2, sort_keys=True)
+
 
 def _update_action_config(action_doc, config_value):
 	# Update via frappe.db.set_value to bypass hooks as requested
 	if isinstance(config_value, dict | list):
 		config_value = json.dumps(config_value)
 
-	frappe.db.set_value(
-		"Rule Action",
-		action_doc.name,
-		"config",
-		config_value,
-		update_modified=False
-	)
+	frappe.db.set_value("Rule Action", action_doc.name, "config", config_value, update_modified=False)
 	# Update in-memory for compile_conditions
 	action_doc.config = config_value

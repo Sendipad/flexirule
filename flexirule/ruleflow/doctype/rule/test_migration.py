@@ -1,6 +1,8 @@
-import frappe
 import json
+
+import frappe
 from frappe.tests.utils import FrappeTestCase
+
 
 class TestTriggerConditionMigration(FrappeTestCase):
 	def setUp(self):
@@ -11,33 +13,33 @@ class TestTriggerConditionMigration(FrappeTestCase):
 		# Create a rule with legacy trigger_condition
 		self.condition = {
 			"op": "and",
-			"conditions": [
-				{"left": {"ref": "doc.status"}, "op": "==", "right": {"value": "Open"}}
-			]
+			"conditions": [{"left": {"ref": "doc.status"}, "op": "==", "right": {"value": "Open"}}],
 		}
 
-		self.rule = frappe.get_doc({
-			"doctype": "Rule",
-			"rule_name": self.rule_name,
-			"document_type": "User",
-			"trigger_type": "DocType Event",
-			"trigger_event": "Before Save",
-			"trigger_condition": json.dumps(self.condition),
-			"actions": [
-				{
-					"action_id": "root",
-					"action_type": "Entry Action",
-					"action_label": "Start",
-					"next_step_if_true": "stop_node"
-				},
-				{
-					"action_id": "stop_node",
-					"action_type": "Stop",
-					"action_label": "Stop",
-					"operation": "Success"
-				}
-			]
-		})
+		self.rule = frappe.get_doc(
+			{
+				"doctype": "Rule",
+				"rule_name": self.rule_name,
+				"document_type": "User",
+				"trigger_type": "DocType Event",
+				"trigger_event": "Before Save",
+				"trigger_condition": json.dumps(self.condition),
+				"actions": [
+					{
+						"action_id": "root",
+						"action_type": "Entry Action",
+						"action_label": "Start",
+						"next_step_if_true": "stop_node",
+					},
+					{
+						"action_id": "stop_node",
+						"action_type": "Stop",
+						"action_label": "Stop",
+						"operation": "Success",
+					},
+				],
+			}
+		)
 		self.rule.insert(ignore_permissions=True)
 		# Clear config of entry action to simulate Case A
 		entry_action = self.rule.get_entry_action()
@@ -78,18 +80,18 @@ class TestTriggerConditionMigration(FrappeTestCase):
 		# Set different config in Entry Action
 		other_condition = {
 			"op": "and",
-			"conditions": [
-				{"left": {"ref": "doc.status"}, "op": "==", "right": {"value": "Closed"}}
-			]
+			"conditions": [{"left": {"ref": "doc.status"}, "op": "==", "right": {"value": "Closed"}}],
 		}
 		entry_action = self.rule.get_entry_action()
 		frappe.db.set_value("Rule Action", entry_action.name, "config", json.dumps(other_condition))
 
-		from flexirule.patches.v1_0.migrate_trigger_condition_to_entry_action import execute
 		# Mock log_error to verify it was called since Error Log is proving tricky in test transaction
 		import flexirule.patches.v1_0.migrate_trigger_condition_to_entry_action as patch_mod
+		from flexirule.patches.v1_0.migrate_trigger_condition_to_entry_action import execute
+
 		original_log = patch_mod.frappe.log_error
 		log_called = [False]
+
 		def mock_log(msg, title):
 			log_called[0] = True
 

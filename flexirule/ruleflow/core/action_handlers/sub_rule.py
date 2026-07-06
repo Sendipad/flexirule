@@ -241,9 +241,7 @@ class SubRuleHandler(ActionHandler):
 				if not sub_rule_doc.compiled_expression:
 					from flexirule.ruleflow.core.compiler import ConditionCompiler
 
-					sub_rule_doc.compiled_expression = ConditionCompiler().compile(
-						sub_rule_condition
-					)
+					sub_rule_doc.compiled_expression = ConditionCompiler().compile(sub_rule_condition)
 
 				caller_rule_meta = {
 					"name": engine.rule.name,
