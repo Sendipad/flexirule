@@ -298,8 +298,12 @@ def test_rule(
 
 	if rule_doc_json:
 		rule_data = json.loads(rule_doc_json)
-		# Ensure it's a Rule doctype and has a name for logging consistency
-		rule_data.setdefault("doctype", "Rule")
+
+		# Validate that the payload represents a Rule document
+		if rule_data.get("doctype") != "Rule":
+			frappe.throw(_("Invalid simulation payload: doctype must be 'Rule'"))
+
+		# Ensure it has a name for logging consistency
 		rule_data.setdefault("name", rule_name)
 		rule = frappe.get_doc(rule_data)
 		# Compile conditions to ensure simulation uses current draft logic

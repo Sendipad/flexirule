@@ -127,8 +127,8 @@ class RuleBuilder {
 
 		// Watch for active status changes - Unified Source of Truth
 		watch(
-			() => [this.ruleStore.is_active, this.ruleStore.rule_doc?.is_active],
-			([is_active]) => {
+			() => this.ruleStore.is_active,
+			(is_active) => {
 				this.update_status_button(is_active);
 			},
 			{ immediate: true }

@@ -40,9 +40,15 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 	 */
 	const is_semantically_dirty = computed(() => {
 		if (is_read_only.value || is_loading.value) return false;
+
+		const uiStore = useUIStore();
+		if (uiStore.is_initializing || uiStore.is_performing_layout) return false;
+
+		if (_is_dirty.value) return true;
 		return checkDirty({ includePositions: false });
 	});
 	const initial_state = ref(null);
+	const initial_semantic_state = ref(null);
 	const settings = ref(null);
 	const validation_errors = ref([]);
 	const is_loading = ref(false);
@@ -195,16 +201,33 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 
 		setup_breadcrumbs();
 
-		// We wait for nextTick to ensure all reactive changes from
-		// graphStore sync and normalize have settled before we capture the baseline.
+		// Capture the baseline after layout settling.
+		// Watchers on uiStore.is_initializing and is_performing_layout
+		// will ensure we only capture when the graph is stable.
+		const waitSettled = () => {
+			return new Promise((resolve) => {
+				const unwatch = watch(
+					() => [uiStore.is_initializing, uiStore.is_performing_layout],
+					([initializing, layouting]) => {
+						if (!initializing && !layouting) {
+							unwatch();
+							resolve();
+						}
+					},
+					{ immediate: true }
+				);
+				// Safety timeout
+				setTimeout(() => {
+					unwatch();
+					resolve();
+				}, 2000);
+			});
+		};
+
+		await waitSettled();
 		await nextTick();
 
-		// Wait slightly longer for fitView and layout animations to settle
-		// to prevent "Not Saved" appearing immediately on load.
-		await new Promise((resolve) => setTimeout(resolve, 200));
-
-		initial_state.value = JSON.stringify(graphStore.getStateSnapshot());
-		_is_dirty.value = false;
+		clear_dirty();
 
 		// Ensure App.vue bindings see the nodes/edges immediately
 		// by triggering a reactivity update if needed
@@ -233,6 +256,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 			: { doctype: "Rule", name: rule_name.value };
 
 		const startNode = graphStore.nodes.find((el) => el.type === "start");
+		doc.doctype = "Rule";
 		doc.trigger_condition = serializeField(startNode?.data?.trigger_condition);
 		doc.compiled_expression = null; // Backend will re-compile
 
@@ -703,22 +727,8 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 
 		const current = JSON.stringify(graphStore.getStateSnapshot(options));
 
-		// For semantic-only checks, we need to compare against a semantic baseline
 		if (!options.includePositions) {
-			let initialSnapshot;
-			try {
-				initialSnapshot = JSON.parse(initial_state.value);
-			} catch (e) {
-				return false;
-			}
-			// Re-serialize the baseline WITHOUT positions for comparison
-			const semanticBaseline = JSON.stringify(
-				initialSnapshot.map((el) => {
-					const { position, ...rest } = el;
-					return rest;
-				})
-			);
-			return current !== semanticBaseline;
+			return current !== initial_semantic_state.value;
 		}
 
 		return current !== initial_state.value;
@@ -730,7 +740,12 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 	 */
 	function clear_dirty() {
 		const graphStore = useGraphStore();
-		initial_state.value = JSON.stringify(graphStore.getStateSnapshot());
+		initial_state.value = JSON.stringify(
+			graphStore.getStateSnapshot({ includePositions: true })
+		);
+		initial_semantic_state.value = JSON.stringify(
+			graphStore.getStateSnapshot({ includePositions: false })
+		);
 		_is_dirty.value = false;
 	}
 
