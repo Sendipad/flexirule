@@ -49,9 +49,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		const sorted = getTopologicalSort();
 		return sorted.filter((n) => {
 			if (n.type === "selector") return false;
-			// Stop nodes are terminals with minimal config; we exclude them from step navigation
-			// but keep them as valid graph elements.
-			if (n.type === "stop" || n.data?.action_type === "Stop") return false;
 			return true;
 		});
 	});

@@ -41,7 +41,7 @@ class StopHandler(ActionHandler):
 			produces_result=False,
 			node_type="stop",
 			category="Control Flow",
-			configurable=False,
+			configurable=True,
 		)
 
 	@classmethod
@@ -563,7 +563,7 @@ class EntryActionHandler(ActionHandler):
 			produces_result=False,
 			node_type="start",
 			category="Control Flow",
-			configurable=False,
+			configurable=True,
 		)
 
 	@classmethod
