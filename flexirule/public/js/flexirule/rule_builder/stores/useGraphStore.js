@@ -100,8 +100,11 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 	 * Returns a stable, serializable representation of the graph data.
 	 * Excludes transient UI state (selection, dragging, etc.) to ensure
 	 * comparison only detects meaningful changes.
+	 *
+	 * @param {Object} options - snapshot options
+	 * @param {boolean} options.includePositions - whether to include node positions (default: true)
 	 */
-	function getStateSnapshot() {
+	function getStateSnapshot(options = { includePositions: true }) {
 		/**
 		 * Stable stringification helper that ensures consistent key ordering.
 		 */
@@ -137,16 +140,21 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			// To be absolutely safe, we'll return the data as-is but ensure the top-level
 			// snapshot objects themselves have a stable structure.
 
-			return {
+			const nodeSnap = {
 				data: rawData,
 				id: el.id,
 				label: el.label,
-				position: {
-					x: Math.round(el.position?.x || 0),
-					y: Math.round(el.position?.y || 0),
-				},
 				type: el.type,
 			};
+
+			if (options.includePositions) {
+				nodeSnap.position = {
+					x: Math.round(el.position?.x || 0),
+					y: Math.round(el.position?.y || 0),
+				};
+			}
+
+			return nodeSnap;
 		});
 
 		const edgesSnap = edges.value.map((el) => ({

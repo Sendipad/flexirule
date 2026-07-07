@@ -31,7 +31,16 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		if (uiStore.is_initializing || uiStore.is_performing_layout) return false;
 
 		if (_is_dirty.value) return true;
-		return checkDirty();
+		return checkDirty({ includePositions: true });
+	});
+
+	/**
+	 * Returns true if there are semantic changes (logic, connections, config)
+	 * ignoring pure visual layout/position changes.
+	 */
+	const is_semantically_dirty = computed(() => {
+		if (is_read_only.value || is_loading.value) return false;
+		return checkDirty({ includePositions: false });
 	});
 	const initial_state = ref(null);
 	const settings = ref(null);
@@ -189,6 +198,11 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		// We wait for nextTick to ensure all reactive changes from
 		// graphStore sync and normalize have settled before we capture the baseline.
 		await nextTick();
+
+		// Wait slightly longer for fitView and layout animations to settle
+		// to prevent "Not Saved" appearing immediately on load.
+		await new Promise((resolve) => setTimeout(resolve, 200));
+
 		initial_state.value = JSON.stringify(graphStore.getStateSnapshot());
 		_is_dirty.value = false;
 
@@ -201,6 +215,180 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		is_loading.value = false;
 
 		// Note: is_initializing is kept true until VueFlow reports ready in App.vue
+	}
+
+	/**
+	 * Extracts a full Rule document object from the current store state.
+	 * Can be used for saving or for simulation/debugging of unsaved changes.
+	 */
+	function generateRuleDoc(baseDoc = null) {
+		const graphStore = useGraphStore();
+		const uiStore = useUIStore();
+
+		// Use provided base, current rule_doc, or a fresh structure
+		let doc = baseDoc
+			? deepClone(baseDoc)
+			: rule_doc.value
+			? deepClone(rule_doc.value)
+			: { doctype: "Rule", name: rule_name.value };
+
+		const startNode = graphStore.nodes.find((el) => el.type === "start");
+		doc.trigger_condition = serializeField(startNode?.data?.trigger_condition);
+		doc.compiled_expression = null; // Backend will re-compile
+
+		if (startNode?.data) {
+			doc.trigger_type = startNode.data.trigger_type ?? doc.trigger_type;
+			doc.document_type = startNode.data.document_type ?? doc.document_type;
+			doc.trigger_event = startNode.data.trigger_event ?? doc.trigger_event;
+			doc.priority = startNode.data.priority ?? doc.priority;
+			doc.execution_mode = startNode.data.execution_mode ?? doc.execution_mode;
+			doc.max_execution_time =
+				startNode.data.max_execution_time !== undefined
+					? startNode.data.max_execution_time
+					: doc.max_execution_time;
+			doc.debug_mode = startNode.data.debug_mode ? 1 : 0;
+			doc.description = startNode.data.description;
+			const exposedAsSubrule = startNode.data.exposed_as_subrule ? 1 : 0;
+			doc.exposed_as_subrule = exposedAsSubrule;
+			const skip_roles = Array.isArray(startNode.data.skip_for_roles)
+				? startNode.data.skip_for_roles
+				: [];
+			doc.skip_for_roles = skip_roles.filter(Boolean).map((role) => ({ role: role }));
+			const perms = Array.isArray(startNode.data.permissions)
+				? startNode.data.permissions
+				: [];
+			doc.permissions = perms
+				.filter((row) => row && row.role)
+				.map((row) => ({
+					role: row.role,
+					can_execute: row.can_execute ? 1 : 0,
+				}));
+		}
+
+		// Topological sort for action ordering
+		const edgesList = graphStore.edges;
+		const orderedNodes = graphStore.getTopologicalSort(graphStore.nodes, edgesList);
+		const nodeIdToActionId = new Map(
+			graphStore.nodes
+				.map((node) => [node.id, getActionIdForNode(node)])
+				.filter(([nodeId, actionId]) => nodeId && actionId)
+		);
+		const resolveActionId = (nodeId) => nodeIdToActionId.get(nodeId) || nodeId || null;
+
+		doc.visual_data = JSON.stringify(
+			canonicalizeGraphData(
+				graphStore.get_visual_data_payload(
+					uiStore.layout_preference ||
+						(settings.value?.layout_direction === "Top to Bottom" ? "TB" : "LR")
+				),
+				nodeIdToActionId
+			)
+		);
+
+		doc.actions = orderedNodes.map((node, idx) => {
+			const outgoing = edgesList.filter((e) => e.source === node.id);
+			let true_edge = outgoing.find(
+				(e) => e.sourceHandle === "true" || e.sourceHandle === "default"
+			);
+			const false_edge = outgoing.find((e) => e.sourceHandle === "false");
+
+			const is_start_node = node.type === "start";
+			const action_type = is_start_node
+				? "Entry Action"
+				: normalizeActionType(node.data?.action_type || "Process");
+
+			if (is_start_node && !true_edge) {
+				const startOutgoing = edgesList.filter(
+					(e) => e.source === "start" || e.source === "root"
+				);
+				true_edge = startOutgoing.find(
+					(e) => e.sourceHandle === "true" || e.sourceHandle === "default"
+				);
+			}
+
+			let rawConfig = node.data?.config || {};
+			if (typeof rawConfig === "string") {
+				try {
+					rawConfig = JSON.parse(rawConfig);
+				} catch (e) {
+					rawConfig = {};
+				}
+			}
+			const normalizedConfig =
+				graphStore.clean_action_config(rawConfig, {
+					actionType: action_type,
+					processName: node.data?.process_name,
+					operation: node.data?.operation,
+				}) || {};
+			const conditionPayload =
+				action_type === "Condition"
+					? getConditionPayload({
+							config: node.data?.config,
+							condition_json: node.data?.condition_json,
+					  })
+					: null;
+
+			const finalInputMapping =
+				node.data?.input_mapping && node.data.input_mapping.length > 0
+					? node.data.input_mapping
+					: normalizedConfig.input_mapping;
+			if (finalInputMapping) {
+				normalizedConfig.input_mapping = finalInputMapping;
+			}
+
+			const finalOutputMapping =
+				node.data?.output_mapping && node.data.output_mapping.length > 0
+					? node.data.output_mapping
+					: normalizedConfig.output_mapping;
+			if (finalOutputMapping) {
+				normalizedConfig.output_mapping = finalOutputMapping;
+			}
+
+			if (action_type === "Sub-Rule" && node.data?.rule) {
+				normalizedConfig.sub_rule_name = node.data.rule;
+			}
+
+			const finalConfig =
+				action_type === "Condition"
+					? conditionPayload || normalizedConfig
+					: normalizedConfig;
+
+			return {
+				name: node.data?.name,
+				idx: idx + 1,
+				action_id: resolveActionId(node.id),
+				action_label: node.data?.action_label || node.label,
+				action_type: action_type,
+				is_enabled: node.data?.is_enabled !== undefined ? node.data.is_enabled : 1,
+				process_name: node.data?.process_name,
+				operation: node.data?.operation,
+				config: serializeField(finalConfig),
+				target_field: node.data?.target_field,
+				value_template: node.data?.value_template,
+				compiled_expression: node.data?.compiled_expression,
+				condition_json: action_type === "Condition" ? serializeField(finalConfig) : null,
+				on_error: node.data?.on_error || "Stop",
+				timeout: node.data?.timeout || 30,
+				priority: node.data?.priority || 0,
+				retry_count: node.data?.retry_count || 0,
+				return_variable: node.data?.return_variable,
+				rule: node.data?.rule,
+				is_async: node.data?.is_async || 0,
+				skip_conditions:
+					node.data?.skip_conditions !== undefined ? node.data.skip_conditions : 1,
+				skip_permissions: node.data?.skip_permissions || 0,
+				next_step_if_true: resolveActionId(true_edge?.target),
+				next_step_if_false: resolveActionId(false_edge?.target),
+				input_source: node.data?.input_source,
+				reference_doctype: node.data?.reference_doctype,
+				reference_docname: node.data?.reference_docname,
+				mutation_mode: node.data?.mutation_mode,
+				return_type: node.data?.return_type,
+				resolved_output_schema: serializeField(node.data?.resolved_output_schema),
+			};
+		});
+
+		return doc;
 	}
 
 	// ── Save ──
@@ -285,166 +473,10 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 
 			const currentIsActive = rule_doc.value.is_active;
 			frappe.model.sync(fresh.message);
-			let doc = frappe.get_doc("Rule", rule_name.value);
+
+			// Extract rule payload using our helper, passing the fresh doc as base
+			const doc = generateRuleDoc(frappe.get_doc("Rule", rule_name.value));
 			doc.is_active = currentIsActive;
-
-			const startNode = graphStore.nodes.find((el) => el.type === "start");
-			doc.trigger_condition = serializeField(startNode?.data?.trigger_condition);
-			doc.compiled_expression = null;
-
-			if (startNode?.data) {
-				doc.trigger_type = startNode.data.trigger_type ?? doc.trigger_type;
-				doc.document_type = startNode.data.document_type ?? doc.document_type;
-				doc.trigger_event = startNode.data.trigger_event ?? doc.trigger_event;
-				doc.priority = startNode.data.priority ?? doc.priority;
-				doc.execution_mode = startNode.data.execution_mode ?? doc.execution_mode;
-				doc.max_execution_time =
-					startNode.data.max_execution_time !== undefined
-						? startNode.data.max_execution_time
-						: doc.max_execution_time;
-				doc.debug_mode = startNode.data.debug_mode ? 1 : 0;
-				doc.description = startNode.data.description;
-				const exposedAsSubrule = startNode.data.exposed_as_subrule ? 1 : 0;
-				doc.exposed_as_subrule = exposedAsSubrule;
-				const skip_roles = Array.isArray(startNode.data.skip_for_roles)
-					? startNode.data.skip_for_roles
-					: [];
-				doc.skip_for_roles = skip_roles.filter(Boolean).map((role) => ({ role: role }));
-				const perms = Array.isArray(startNode.data.permissions)
-					? startNode.data.permissions
-					: [];
-				doc.permissions = perms
-					.filter((row) => row && row.role)
-					.map((row) => ({
-						role: row.role,
-						can_execute: row.can_execute ? 1 : 0,
-					}));
-			}
-
-			// Topological sort for action ordering
-			const edgesList = graphStore.edges;
-			const orderedNodes = graphStore.getTopologicalSort(graphStore.nodes, edgesList);
-			const nodeIdToActionId = new Map(
-				graphStore.nodes
-					.map((node) => [node.id, getActionIdForNode(node)])
-					.filter(([nodeId, actionId]) => nodeId && actionId)
-			);
-			const resolveActionId = (nodeId) => nodeIdToActionId.get(nodeId) || nodeId || null;
-
-			const uiStore = useUIStore();
-			doc.visual_data = JSON.stringify(
-				canonicalizeGraphData(
-					graphStore.get_visual_data_payload(
-						uiStore.layout_preference ||
-							(settings.value?.layout_direction === "Top to Bottom" ? "TB" : "LR")
-					),
-					nodeIdToActionId
-				)
-			);
-
-			doc.actions = orderedNodes.map((node, idx) => {
-				const outgoing = edgesList.filter((e) => e.source === node.id);
-				let true_edge = outgoing.find(
-					(e) => e.sourceHandle === "true" || e.sourceHandle === "default"
-				);
-				const false_edge = outgoing.find((e) => e.sourceHandle === "false");
-
-				const is_start_node = node.type === "start";
-				const action_type = is_start_node
-					? "Entry Action"
-					: normalizeActionType(node.data?.action_type || "Process");
-
-				if (is_start_node && !true_edge) {
-					const startOutgoing = edgesList.filter(
-						(e) => e.source === "start" || e.source === "root"
-					);
-					true_edge = startOutgoing.find(
-						(e) => e.sourceHandle === "true" || e.sourceHandle === "default"
-					);
-				}
-
-				let rawConfig = node.data?.config || {};
-				if (typeof rawConfig === "string") {
-					try {
-						rawConfig = JSON.parse(rawConfig);
-					} catch (e) {
-						rawConfig = {};
-					}
-				}
-				const normalizedConfig =
-					graphStore.clean_action_config(rawConfig, {
-						actionType: action_type,
-						processName: node.data?.process_name,
-						operation: node.data?.operation,
-					}) || {};
-				const conditionPayload =
-					action_type === "Condition"
-						? getConditionPayload({
-								config: node.data?.config,
-								condition_json: node.data?.condition_json,
-						  })
-						: null;
-
-				const finalInputMapping =
-					node.data?.input_mapping && node.data.input_mapping.length > 0
-						? node.data.input_mapping
-						: normalizedConfig.input_mapping;
-				if (finalInputMapping) {
-					normalizedConfig.input_mapping = finalInputMapping;
-				}
-
-				const finalOutputMapping =
-					node.data?.output_mapping && node.data.output_mapping.length > 0
-						? node.data.output_mapping
-						: normalizedConfig.output_mapping;
-				if (finalOutputMapping) {
-					normalizedConfig.output_mapping = finalOutputMapping;
-				}
-
-				if (action_type === "Sub-Rule" && node.data?.rule) {
-					normalizedConfig.sub_rule_name = node.data.rule;
-				}
-
-				const finalConfig =
-					action_type === "Condition"
-						? conditionPayload || normalizedConfig
-						: normalizedConfig;
-
-				return {
-					name: node.data?.name,
-					idx: idx + 1,
-					action_id: resolveActionId(node.id),
-					action_label: node.data?.action_label || node.label,
-					action_type: action_type,
-					is_enabled: node.data?.is_enabled !== undefined ? node.data.is_enabled : 1,
-					process_name: node.data?.process_name,
-					operation: node.data?.operation,
-					config: serializeField(finalConfig),
-					target_field: node.data?.target_field,
-					value_template: node.data?.value_template,
-					compiled_expression: node.data?.compiled_expression,
-					condition_json:
-						action_type === "Condition" ? serializeField(finalConfig) : null,
-					on_error: node.data?.on_error || "Stop",
-					timeout: node.data?.timeout || 30,
-					priority: node.data?.priority || 0,
-					retry_count: node.data?.retry_count || 0,
-					return_variable: node.data?.return_variable,
-					rule: node.data?.rule,
-					is_async: node.data?.is_async || 0,
-					skip_conditions:
-						node.data?.skip_conditions !== undefined ? node.data.skip_conditions : 1,
-					skip_permissions: node.data?.skip_permissions || 0,
-					next_step_if_true: resolveActionId(true_edge?.target),
-					next_step_if_false: resolveActionId(false_edge?.target),
-					input_source: node.data?.input_source,
-					reference_doctype: node.data?.reference_doctype,
-					reference_docname: node.data?.reference_docname,
-					mutation_mode: node.data?.mutation_mode,
-					return_type: node.data?.return_type,
-					resolved_output_schema: serializeField(node.data?.resolved_output_schema),
-				};
-			});
 
 			// 3. Backend validation precheck (draft mode: relaxed for building)
 			validation_errors.value = []; // Clear previous errors
@@ -661,7 +693,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		}
 	}
 
-	function checkDirty() {
+	function checkDirty(options = { includePositions: true }) {
 		if (is_read_only.value || !initial_state.value) return false;
 		const graphStore = useGraphStore();
 
@@ -669,7 +701,26 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		const _nodes = graphStore.nodes;
 		const _edges = graphStore.edges;
 
-		const current = JSON.stringify(graphStore.getStateSnapshot());
+		const current = JSON.stringify(graphStore.getStateSnapshot(options));
+
+		// For semantic-only checks, we need to compare against a semantic baseline
+		if (!options.includePositions) {
+			let initialSnapshot;
+			try {
+				initialSnapshot = JSON.parse(initial_state.value);
+			} catch (e) {
+				return false;
+			}
+			// Re-serialize the baseline WITHOUT positions for comparison
+			const semanticBaseline = JSON.stringify(
+				initialSnapshot.map((el) => {
+					const { position, ...rest } = el;
+					return rest;
+				})
+			);
+			return current !== semanticBaseline;
+		}
+
 		return current !== initial_state.value;
 	}
 
@@ -953,6 +1004,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		// Computed
 		is_active,
 		is_read_only,
+		is_semantically_dirty,
 		doc_fields,
 		raw_meta,
 
@@ -989,5 +1041,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		next_config_node,
 		prev_config_node,
 		apply_ruleflow_layout,
+
+		generateRuleDoc,
 	};
 });

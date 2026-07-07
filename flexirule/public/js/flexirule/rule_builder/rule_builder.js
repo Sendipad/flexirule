@@ -125,30 +125,17 @@ class RuleBuilder {
 			}
 		);
 
-		// Watch for active status changes
+		// Watch for active status changes - Unified Source of Truth
 		watch(
-			() => this.ruleStore.rule_doc?.is_active,
-			(is_active) => {
+			() => [this.ruleStore.is_active, this.ruleStore.rule_doc?.is_active],
+			([is_active]) => {
 				this.update_status_button(is_active);
-			}
+			},
+			{ immediate: true }
 		);
 
 		this.uiStore.$subscribe((mutation, state) => {
 			this.update_test_ui(state.test_execution_path);
-		});
-
-		// Initial status update after fetch
-		// We might need to wait for fetch, but store.$subscribe handles mutations.
-		// We can also watch rule_doc specifically if needed, but the main subscribe is usually enough for state changes.
-		// Also manual call after mount if data is already there (it fetches async)
-
-		// Use a watcher on rule_doc specifically
-		const unwatch = this.ruleStore.$onAction(({ name, after }) => {
-			if (name === "fetch") {
-				after(() => {
-					this.update_status_button(this.ruleStore.rule_doc?.is_active);
-				});
-			}
 		});
 
 		this.setup_debug_api();
@@ -167,21 +154,34 @@ class RuleBuilder {
 			if (this.ruleStore.rule_doc.is_active) {
 				await this.ruleStore.deactivate_rule();
 			} else {
-				// If there are unsaved edits, persist first, then activate.
-				if (this.ruleStore.is_dirty) {
+				// If there are semantic changes (logic, edges), persist first.
+				// We allow purely visual changes (positions) to be saved during activation
+				// if save_changes() is called, but is_semantically_dirty is the blocker.
+				if (this.ruleStore.is_semantically_dirty) {
+					const confirmed = await new Promise((resolve) => {
+						frappe.confirm(
+							__("You have unsaved semantic changes. Save and activate now?"),
+							() => resolve(true),
+							() => resolve(false)
+						);
+					});
+					if (!confirmed) return;
+
 					await this.ruleStore.save_changes();
-					if (this.ruleStore.is_dirty) {
+					if (this.ruleStore.is_semantically_dirty) {
 						// Save failed or was blocked; keep current status.
 						return;
 					}
+				} else if (this.ruleStore.is_dirty) {
+					// Purely visual changes - just save silently or continue
+					await this.ruleStore.save_changes();
 				}
+
 				await this.ruleStore.activate_rule();
 			}
 		} finally {
 			frappe.dom.unfreeze();
 		}
-
-		this.update_status_button(this.ruleStore.rule_doc?.is_active);
 	}
 
 	update_status_button(is_active) {
@@ -368,17 +368,24 @@ class RuleBuilder {
 
 				this.uiStore.clear_test_result();
 
+				const args = {
+					rule_name: this.rule,
+					doctype: values.doctype,
+					docnames: values.docnames,
+					sim_user: values.sim_user,
+					sim_role: values.sim_role,
+					dry_run: !values.save_log,
+					skip_log_enqueue: !values.save_log,
+				};
+
+				// If rule is dirty, send current draft for simulation
+				if (this.ruleStore.is_dirty) {
+					args.rule_doc_json = JSON.stringify(this.ruleStore.generateRuleDoc());
+				}
+
 				frappe.call({
 					method: "flexirule.ruleflow.api.test_rule",
-					args: {
-						rule_name: this.rule,
-						doctype: values.doctype,
-						docnames: values.docnames,
-						sim_user: values.sim_user,
-						sim_role: values.sim_role,
-						dry_run: !values.save_log,
-						skip_log_enqueue: !values.save_log,
-					},
+					args: args,
 					callback: (r) => {
 						if (r.message?.multi) {
 							// For multi-run, we might already have results from realtime.

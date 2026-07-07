@@ -287,6 +287,7 @@ def test_rule(
 	docname: str | None = None,
 	docnames: list | str | None = None,
 	document_json: str | None = None,
+	rule_doc_json: str | None = None,
 	dry_run: int | bool | str = True,
 	skip_log_enqueue: int | bool | str = True,
 	save_log: int | bool | str | None = None,
@@ -295,7 +296,17 @@ def test_rule(
 ):
 	_require_api_access()
 
-	rule = frappe.get_doc("Rule", rule_name)
+	if rule_doc_json:
+		rule_data = json.loads(rule_doc_json)
+		# Ensure it's a Rule doctype and has a name for logging consistency
+		rule_data.setdefault("doctype", "Rule")
+		rule_data.setdefault("name", rule_name)
+		rule = frappe.get_doc(rule_data)
+		# Compile conditions to ensure simulation uses current draft logic
+		if hasattr(rule, "compile_conditions"):
+			rule.compile_conditions()
+	else:
+		rule = frappe.get_doc("Rule", rule_name)
 
 	# Multi-document mode
 	if docnames:
