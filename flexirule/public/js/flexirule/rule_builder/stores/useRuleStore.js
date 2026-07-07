@@ -206,19 +206,27 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		// will ensure we only capture when the graph is stable.
 		const waitSettled = () => {
 			return new Promise((resolve) => {
+				// 1. If already settled, resolve immediately to avoid TDZ with unwatch
+				if (!uiStore.is_initializing && !uiStore.is_performing_layout) {
+					resolve();
+					return;
+				}
+
+				// 2. Otherwise, start the watcher. We don't use immediate: true
+				// to ensure unwatch is initialized before the callback can run.
 				const unwatch = watch(
 					() => [uiStore.is_initializing, uiStore.is_performing_layout],
 					([initializing, layouting]) => {
 						if (!initializing && !layouting) {
-							unwatch();
+							if (typeof unwatch === "function") unwatch();
 							resolve();
 						}
-					},
-					{ immediate: true }
+					}
 				);
+
 				// Safety timeout
 				setTimeout(() => {
-					unwatch();
+					if (typeof unwatch === "function") unwatch();
 					resolve();
 				}, 2000);
 			});
