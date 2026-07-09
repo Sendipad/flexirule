@@ -184,8 +184,6 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 			});
 		}
 
-		setup_breadcrumbs();
-
 		// We wait for nextTick to ensure all reactive changes from
 		// graphStore sync and normalize have settled before we capture the baseline.
 		await nextTick();
@@ -910,29 +908,6 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		} catch (e) {
 			console.error("FlexiRule: Failed to fetch rules:", e);
 			available_rules.value = [];
-		}
-	}
-
-	// ── Breadcrumbs (Frappe pattern) ──
-	function setup_breadcrumbs() {
-		if (frappe.breadcrumbs && frappe.breadcrumbs.$breadcrumbs) {
-			let breadcrumbs = `
-				<li><a href="/app/rule">${__("Rule")}</a></li>
-				<li><a href="/app/rule/${rule_name.value}">${__(
-				rule_doc.value?.rule_name || rule_name.value
-			)}</a></li>
-				<li class="disabled"><a href="#">${__("Builder")}</a></li>
-			`;
-			frappe.breadcrumbs.clear();
-			frappe.breadcrumbs.$breadcrumbs.append(breadcrumbs);
-		} else if (frappe.breadcrumbs && frappe.breadcrumbs.add) {
-			// Modern Frappe 15 fallback (usually handled automatically by standard views,
-			// but we can add the workspace breadcrumb if needed)
-			frappe.breadcrumbs.add({
-				type: "Custom",
-				module: "Rule",
-				workspace: "RuleFlow",
-			});
 		}
 	}
 
