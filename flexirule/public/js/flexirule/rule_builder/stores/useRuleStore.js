@@ -80,8 +80,8 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		const historyStore = useHistoryStore();
 		const uiStore = useUIStore();
 
-		// Guard to prevent redundant fetches
-		if (is_loading.value) return;
+		// Guard to prevent redundant fetches, but allow if it's a forced refresh
+		// (is_loading is often set by the caller like save_changes or activate_rule)
 		is_loading.value = true;
 		uiStore.is_initializing = true;
 

@@ -100,6 +100,9 @@ class RuleBuilder {
 			const is_active = this.ruleStore.is_active;
 			const has_test_path = this.uiStore.has_test_path;
 
+			// Access rule_doc to ensure re-run on full doc refresh
+			const _doc = this.ruleStore.rule_doc;
+
 			// 1. Update Title & Breadcrumbs
 			this.page.set_title(__(this.ruleStore.rule_doc?.rule_name || this.rule));
 			this.setup_breadcrumbs();
