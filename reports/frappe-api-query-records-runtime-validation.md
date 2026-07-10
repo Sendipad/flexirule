@@ -1,198 +1,266 @@
 # Final Validation Pass: Runtime Verification of Frappe Query APIs & FlexiRule Compatibility
 
-## 1. Validation of Previous Findings
+## 1. Verified Findings
 
-This section correlates the findings of the previous investigation against real-world runtime behavior and final SQL generation, using **`DocType`** as the parent doctype and **`DocField`** as the child table (mapping to the `fields` child table field).
+This second-pass investigation builds on the previous source-code audit by executing direct runtime verifications against the active **`test_site`** database.
 
-### Previous Findings Validation Table
+We mapped the parent-child relationships using `DocType` as the parent doctype and `DocField` (Table field: `fields`) as the child table.
 
-| Previous Finding | Status | Evidence (Source File & SQL / Runtime) | Notes |
-| :--- | :---: | :--- | :--- |
-| **Child Table projection fields trigger automatic left-joins** | ✅ Verified by runtime | `frappe/model/db_query.py:prepare_args` (lines 277–280)<br>SQL: `from tabDocType left join tabDocField on (...)` | Correct. Specifying child fields automatically compiles and executes the LEFT JOIN. |
-| **Parent dictionary filters support child dotted paths (e.g. `{"fields.fieldname": "owner"}`)** | ❌ Incorrect | **OperationalError: (1054, "Unknown column 'tabDocType.fields.fieldname' in 'WHERE'")** | **Incomplete & Incorrect.** Dictionary filters with dotted child fields fail because the generator prepends the parent table name directly to the dotted key, causing a database error. |
-| **List of list filters support child doctype explicitly (e.g. `[["DocField", "fieldname", "=", "owner"]]`)** | ✅ Verified by runtime | `frappe/utils/data.py:get_filter` (line 1956)<br>SQL: `where tabDocField.fieldname = 'fieldname'` | Correct. Explicit list-of-lists format resolves the child doctype metadata and successfully left-joins the table. |
-| **Direct Child Table queries fail if `parent_doctype` is omitted and permissions check is enabled** | ✅ Verified by runtime | `frappe/permissions.py:has_child_permission` (line 783)<br>Throws: `PermissionError` | Correct. Normal users cannot read child table records without passing the parent doctype to verify parent read permissions. |
-| **`frappe.get_all` overrides `ignore_permissions` to `True`** | ✅ Verified by runtime | `frappe/__init__.py` (line 2043)<br>`kwargs["ignore_permissions"] = True` | Correct. Evaluates queries with full permission bypass regardless of the configuration parameter. |
-| **SQL functions like CONCAT and CASE are restricted in `get_list`** | ✅ Verified by runtime | `db_query.py:sanitize_fields` (line 405)<br>Throws: `DataError` and `OperationalError` | Correct. `concat` is explicitly blacklisted. `case` fails because it gets wrapped in grave quotes by the compiler and is rejected by the database. |
+### Key Verified Discoveries & Corrections:
 
----
+1. **Child Table projection fields trigger automatic left-joins**:
+   - *Status*: ✅ **Verified by runtime**.
+   - *Query*: `frappe.get_list("DocType", fields=["name", "fields.fieldname"])`
+   - *Outcome*: Successfully executed. The SQL compiler automatically compiled and executed the LEFT JOIN.
 
-## 2. Runtime Behavior Matrix
+2. **Dotted Dictionary Filters are NOT supported**:
+   - *Status*: ❌ **Previous conclusion was incorrect**.
+   - *Query*: `frappe.get_list("DocType", filters={"fields.fieldname": "fieldname"})`
+   - *Outcome*: **Failed** with `OperationalError: (1054, "Unknown column 'tabDocType.fields.fieldname' in 'WHERE'")`.
+   - *Root Cause*: Dotted paths are only split and resolved inside `parse_args()` for the projection list `self.fields`. There is no splitting of dots in `filters` inside `DatabaseQuery`. The compiler prepends the parent table name to the dotted key literally, creating an invalid column.
 
-This matrix covers the exact runtime behavior for every scenario on the target database, substituting **`DocType`** for `Sales Invoice` (parent) and **`DocField`** for `Sales Invoice Item` (child), connected by the Table field **`fields`** (corresponding to `items`).
+3. **List of List child filters are fully supported**:
+   - *Status*: ✅ **Verified by runtime**.
+   - *Query*: `frappe.get_list("DocType", filters=[["DocField", "fieldname", "=", "fieldname"]])`
+   - *Outcome*: Successfully executed. The explicit child table list format correctly resolves the metadata and compiles a proper SQL `WHERE` clause.
 
-| Scenario | Code Pattern | Success? | Final SQL / Result / Exception |
-| :--- | :--- | :---: | :--- |
-| **Scenario A** | `frappe.get_list("DocType", fields=["name"])` | ✅ Yes | Returns parent names.<br>**SQL**: `select name from tabDocType order by tabDocType.modified DESC` |
-| **Scenario B** | `frappe.get_list("DocType", fields=["name", "fields.fieldname"])` | ✅ Yes | Returns parent names and child field names.<br>**SQL**: `select tabDocType.name, tabDocField.fieldname from tabDocType left join tabDocField on (...)` |
-| **Scenario C** | `frappe.get_list("DocType", filters={"fields.fieldname": "fieldname"})` | ❌ No | **pymysql.err.OperationalError**: (1054, "Unknown column 'tabDocType.fields.fieldname' in 'WHERE'") |
-| **Scenario D** | `frappe.get_list("DocType", filters=[["DocField", "fieldname", "=", "fieldname"]])` | ✅ Yes | Returns parent names filtering on child fields.<br>**SQL**: `where tabDocField.fieldname = 'fieldname'` |
-| **Scenario E.1** | `frappe.get_list("DocField")`<br>(Administrator, ignore_permissions=False, parent omitted) | ✅ Yes | Administrator always bypasses standard checks inside `frappe/permissions.py` (line 103). |
-| **Scenario E.2** | `frappe.get_list("DocField", ignore_permissions=True)` | ✅ Yes | Permissions bypassed. |
-| **Scenario E.3** | `frappe.get_list("DocField", parent_doctype="DocType")`<br>(Administrator) | ✅ Yes | Administrator succeeds. |
-| **Scenario E.4** | `frappe.get_list("DocField")`<br>(Standard User, ignore_permissions=False, parent omitted) | ❌ No | **PermissionError** (Fails because parent is omitted). |
-| **Scenario E.5** | `frappe.get_list("DocField", parent_doctype="DocType")`<br>(Standard User, ignore_permissions=False) | ❌ No | **PermissionError** (Fails because standard user has no read access to the parent doctype `DocType`). |
-| **Scenario F** | `frappe.get_all("DocField")`<br>(Standard User) | ✅ Yes | Successfully returns child records because `get_all` overrides permissions to True. |
+4. **Aggregate queries under `get_all` ignore all user permissions**:
+   - *Status*: ✅ **Verified by runtime (Vulnerability Confirmed)**.
+   - *Query*: `frappe.get_all("DocType", fields=["count(name) as _count"], ignore_permissions=False)`
+   - *Outcome*: Successfully executed for a restricted user `test1@example.com` who had zero rights to access `DocType`.
+   - *Query with `get_list`*: `frappe.get_list("DocType", fields=["count(name) as _count"], ignore_permissions=False, limit_page_length=0)`
+   - *Outcome*: Successfully **blocked** with `PermissionError`, confirming that `get_list` enforces row-level permissions while `get_all` bypasses them.
 
 ---
 
-## 3. SQL Verification
+## 2. Complete Impact Analysis
 
-Below is the exact SQL compiled by Frappe during successful runtime execution of the child doctype query scenarios:
+Below is the complete call graph and dependency flow starting from `QueryRecordsHandler.execute()` to final database execution:
 
-### Scenario B (Child fields projection join)
-```sql
-SELECT
-    `tabDocType`.name,
-    `tabDocField`.`fieldname`
-FROM
-    `tabDocType`
-LEFT JOIN
-    `tabDocField` ON (
-        `tabDocField`.parenttype = 'DocType'
-        AND `tabDocField`.parent = `tabDocType`.name
-    )
-ORDER BY
-    `tabDocType`.`modified` DESC
-LIMIT 2 OFFSET 0
+```
+[QueryRecordsHandler.execute]
+   │
+   ├──► [1] can_skip_permissions (Checks skip_permissions and extracts audit reason)
+   │
+   ├──► [2] apply_input_mapping (Maps context variables to query configuration)
+   │
+   └──► [3] Dispatch based on Mode (action.operation)
+         │
+         ├───► Query List ────► QueryRecordsHandler._query_list
+         │                       │
+         │                       ├──► [A] _resolve_query_filters (Resolves context & normalizes filters)
+         │                       │      ├──► _resolve_filters_with_context
+         │                       │      └──► _normalize_filters_for_backend (Recursively formats lists/dicts)
+         │                       │
+         │                       └──► [B] frappe.get_list
+         │                              └─► DatabaseQuery.execute
+         │
+         ├───► Query Doc ─────► QueryRecordsHandler._query_doc
+         │                       │
+         │                       ├──► frappe.get_doc / frappe.get_cached_doc
+         │                       └──► doc.check_permission("read") (If ignore_permissions=False)
+         │
+         ├───► Exist Record ──► QueryRecordsHandler._exist_record
+         │                       │
+         │                       └──► frappe.get_all (ignore_permissions=ignore_permissions)
+         │
+         ├───► Query Report ──► QueryRecordsHandler._query_report
+         │                       │
+         │                       └──► frappe.desk.query_report.run
+         │
+         └───► Metric/Group ──► QueryRecordsHandler._count_records / _aggregate / _group_by
+                                 │
+                                 └──► frappe.get_all (ignore_permissions=ignore_permissions)
+                                        │
+                                        ▼ (FORCES ignore_permissions=True)
+                                      frappe.get_list
+                                        │
+                                        ▼ (BYPASSES match conditions & field permissions)
+                                      DatabaseQuery.execute
 ```
 
-### Scenario D (List of list child table filter join)
-```sql
-SELECT
-    `tabDocType`.`name`
-FROM
-    `tabDocType`
-LEFT JOIN
-    `tabDocField` ON (
-        `tabDocField`.parenttype = 'DocType'
-        AND `tabDocField`.parent = `tabDocType`.name
-    )
-WHERE
-    `tabDocField`.`fieldname` = 'fieldname'
-ORDER BY
-    `tabDocType`.`modified` DESC
-LIMIT 2 OFFSET 0
-```
+### Affected Code Paths Inside FlexiRule:
+- **`flexirule/ruleflow/core/action_handlers/query_records.py`**:
+  - `execute()`: Main orchestrator.
+  - `_query_list()`: Invokes `frappe.get_list`.
+  - `_query_doc()`: Invokes `frappe.get_doc`/`get_cached_doc`.
+  - `_exist_record()`, `_count_records()`, `_aggregate()`, `_group_by()`: Invoke `frappe.get_all`.
+- **`flexirule/ruleflow/utils/mapping.py`**:
+  - `apply_input_mapping()`: Resolves input values from global store context.
 
 ---
 
-## 4. Child DocType & Row Duplication Verification
+## 3. Aggregate Migration Validation
 
-### 1. ORM Deduplication
-*   **Verification Status**: **✅ Verified by runtime (No Deduplication exists)**
-*   **Result**: When left-joining on a child table, SQL returns one row per child record. Frappe does **not** perform any post-processing to consolidate duplicate parent rows or nest child records into arrays.
-*   **Proof**: Querying `DocType` with name "ToDo" and selecting `fields.fieldname` (which has 18 fields) returned **18 flat rows**, each containing the name `"ToDo"` with a different `fieldname` value.
+Replacing `frappe.get_all(...)` with `frappe.get_list(..., limit_page_length=0)` in `_count_records`, `_aggregate`, and `_group_by` was audited at runtime to ensure behavior equivalence and analyze any differences:
 
-### 2. DISTINCT Behavior
-*   **Verification Status**: **✅ Verified by runtime**
-*   **Proof**: Passing `distinct=True` successfully prepends `distinct` to the SELECT list:
-    ```sql
-    SELECT DISTINCT `tabDocType`.name, `tabDocField`.`fieldname` FROM ...
+### 1. Compiled SQL Equivalence
+- **Under `get_all`**:
+  ```sql
+  SELECT count(name) as _count FROM `tabDocType`
+  ```
+- **Under `get_list(..., limit_page_length=0)`**:
+  ```sql
+  SELECT count(name) as _count FROM `tabDocType`
+  ```
+  *Note: In `DatabaseQuery.add_limit()`, when `limit_page_length` is 0 (falsy), no `LIMIT` clause is generated. The query executes as a standard aggregate.*
+
+### 2. Return Structure
+- Both methods return identical list-of-dictionary shapes (e.g. `[{'_count': 280}]` or `[{'result': 45.5}]`), making them 100% compatible with FlexiRule's subsequent output mapping and context assignment logic.
+
+### 3. Feature Interactions & Database Portability (MariaDB vs. PostgreSQL)
+- **Pagination & Limit**: Since `limit_page_length=0` suppresses `LIMIT` generation, there is no syntactical difference between MariaDB and PostgreSQL for aggregates.
+- **Ordering & Grouping**: PostgreSQL requires any field in the projection to also appear in the order/group-by clause. Because both methods utilize the same underlying `DatabaseQuery` compilation engine, they behave identically on both database systems.
+- **Performance**: There is zero difference in database execution plans. The database compiler parses and evaluates both queries in the exact same manner.
+
+---
+
+## 4. Permission Model Audit
+
+### Permission Verification Matrix
+
+This matrix maps role behaviors for each "Query Records" mode when `ignore_permissions` is `False`.
+
+| Query Records Mode | Role / Context | Current Behavior | Expected Frappe Behavior | Security Implication | Required Fix |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Query List** | Administrator | Succeeds. | Succeeds. | None. | None. |
+| | Standard User | Succeeds with sharing/owner filters. | Succeeds with sharing/owner filters. | None. (Uses native `get_list`). | None. |
+| | Child DocType | **Fails** with `PermissionError`. | Succeeds if `parent_doctype` is provided. | Standard users cannot query child tables. | Pass `parent_doctype` to `get_list`. |
+| **Query Doc** | Standard User | Checks read permissions on document. | Checks read permissions on document. | None. | None. |
+| **Exist Record** | Standard User | Bypasses all sharing/owner filters. | Enforces sharing/owner filters. | Users can detect existence of restricted records. | Replace `get_all` with `get_list`. |
+| **Count** | Standard User | Bypasses all sharing/owner filters. | Enforces sharing/owner filters. | Users can count restricted records. | Replace `get_all` with `get_list`. |
+| **Sum / Avg / Min / Max**| Standard User | Bypasses all sharing/owner filters. | Enforces sharing/owner filters. | Users can query aggregate stats on restricted data. | Replace `get_all` with `get_list`. |
+| **Group By** | Standard User | Bypasses all sharing/owner filters. | Enforces sharing/owner filters. | Users can query grouped categories of restricted data. | Replace `get_all` with `get_list`. |
+
+---
+
+## 5. Filter Normalization Audit
+
+The helper method `_normalize_filters_for_backend` was audited against every supported filter format:
+
+### 1. Dictionary Filters
+- *Support*: **Supported** (with exceptions).
+- *Behavior*: Dictionary `{"name": "ToDo"}` is normalized to `[["name", "=", "ToDo"]]` which is fully supported.
+- *Dotted Path dictionary filters (e.g. `{"fields.fieldname": "value"}`)*: **Unsupported**.
+  - *Root Cause*: `DatabaseQuery` does not split dots in filters. It prepends the parent table name, compiling an invalid column name.
+  - *Proposed Fix*: In `_normalize_filters_for_backend`, check if a key contains a `.`. If so, split into `[child_table_field, child_field]` and resolve the child doctype using parent metadata. Rebuild as a list-of-lists filter specifying the child doctype: `[["Child DocType", "child_field", "=", "value"]]`.
+
+### 2. Standard Operators
+- *Support*: **Fully Supported**.
+- *Operators*: `=`, `!=`, `>`, `<`, `>=`, `<=`, `like`, `not like`, `between`, `in`, `not in` are mapped and normalized correctly.
+- *UI Operators*: `starts with` is mapped to `like` with `%` suffix; `ends with` is mapped to `like` with `%` prefix; `Between` is mapped to `between`.
+
+### 3. Timespan Filters
+- *Support*: **Fully Supported**.
+- *Behavior*: `Timespan` operator resolves keywords (e.g., `"last 7 days"`, `"this month"`) into date ranges and maps them to `between` queries.
+
+### 4. Recursive Nested AND/OR
+- *Support*: **Unsupported in both**. Neither Frappe `DatabaseQuery` nor FlexiRule support nested logical expressions. Only flat `filters` and `or_filters` are supported.
+
+---
+
+## 6. Child Table Compatibility
+
+### Dotted Fields in FlexiRule's UI:
+*   The UI configuration component `QueryRecordsConfig.vue` automatically expands Table-type fields and populates selection fields with child dotted paths like `fields.fieldname`.
+*   These selection fields are saved inside the `fields` array of the action's `config` JSON.
+*   **Filters**: In `QueryRecordsConfig.vue`, filters are generated as a list of dictionaries:
+    ```json
+    [{"fieldname": "fields.fieldname", "operator": "=", "value": "myval"}]
     ```
-    *Note: Distinct will only reduce row counts if the overall projected combination is unique.*
-
----
-
-## 5. Aggregate Permission Investigation
-
-This section addresses the security and behavioral differences of the aggregate permission model under `get_all` and `get_list`.
-
-### 1. Does `get_all()` always override `ignore_permissions=True`?
-*   **Yes.**
-*   **Source Code Proof**: `frappe/__init__.py` (line 2043):
+*   When this list of dictionaries reaches the backend `_normalize_filters_for_backend()`, it is processed as:
     ```python
-    def get_all(doctype, *args, **kwargs):
-        kwargs["ignore_permissions"] = True
-        ...
-        return get_list(doctype, *args, **kwargs)
+    if isinstance(item, dict) and ("field" in item or "fieldname" in item):
+        field = item.get("field") or item.get("fieldname")
+        # field = "fields.fieldname"
     ```
-*   **Runtime Proof**: Invoking `frappe.get_all("DocType", fields=["count(name) as _count"], ignore_permissions=False)` returned `[{'_count': 280}]` successfully under `test1@example.com` despite that user having zero permission to access `DocType`.
+    Since `doctype` is not provided in the dictionary, it appends `["fields.fieldname", "=", "myval"]` to the filters!
+    And since `f.fieldname` is `"fields.fieldname"`, `get_filter` fails to split it, leading directly to the `OperationalError` observed in Scenario C!
 
-### 2. Does passing `ignore_permissions=False` to `get_all()` have any effect?
-*   **No.** Since `get_all` explicitly overwrites `ignore_permissions` to `True` inside the function body, the parameter is discarded before `get_list` is called.
-
-### 3. Does this create a real permission bypass?
-*   **Yes, a critical one.** Under FlexiRule's current implementation, a standard user executing an aggregate rule (such as counting records or calculating sums on restricted tables like `Salary Slip` or `Sales Invoice`) completely bypasses sharing, role, owner, and document permissions. They can easily retrieve aggregate statistics on data they have no rights to see.
-
-### 4. Is this behavior intentional in Frappe?
-*   **Yes.** `get_all` was designed for programmatic backend use by developers to execute fast, permissionless queries without writing raw SQL. It was never intended to be exposed directly to end-user rule configurations without wrapper access validation.
-
-### 5. Would replacing `get_all()` with `get_list()` preserve all aggregate functionality?
-*   **Yes.** `get_list()` compiles exactly the same aggregate projection strings (`count(name) as _count`, `sum(amount) as result`) while strictly preserving role, sharing, and user filters. The only required adjustment is setting `limit_page_length=0` explicitly to ensure pagination does not restrict the calculation.
+### Compatibility Migration Requirements:
+- No existing rules will break if we implement the backend filter normalization fix.
+- The fix is entirely non-destructive: it intercepts dotted keys like `"fields.fieldname"`, splits them, resolves the child doctype, and translates them to `["DocField", "fieldname", "=", "myval"]` before passing them to `get_list()`.
 
 ---
 
-## 6. Validation of Remaining Claims
+## 7. DISTINCT Investigation
 
-Every claim from the previous report was audited and classified:
+Exposing a `distinct` toggle inside the `QueryRecordsConfig.vue` UI is necessary to handle child table joins.
 
-*   **DISTINCT support**: **✅ VERIFIED**. Works exactly as expected, prepending the `distinct` keyword to the projected fields.
-*   **Random ordering**: **✅ VERIFIED**. Passing `order_by="rand()"` is allowed and correctly generates the SQL clause `order by rand()`.
-*   **CONCAT restrictions**: **✅ VERIFIED**. Triggers `frappe.DataError: Use of sub-query or function is restricted` due to the blacklist in `sanitize_fields()`.
-*   **CASE restrictions**: **✅ VERIFIED (with Correction)**. It is blocked, but instead of raising a sanitization exception, it fails at the database level with a `pymysql.err.OperationalError` because the generator wraps the `case` statement in backticks, treating it as an invalid literal column.
-*   **Recursive filter support**: **✅ VERIFIED (None)**. `DatabaseQuery` does not support nesting filters inside dictionary definitions.
-*   **Child field selection**: **✅ VERIFIED**. Dot notation `fields.fieldname` is parsed correctly and causes automatic left-joining of the child table.
-*   **Child filter resolution**: **✅ VERIFIED (with Correction)**. Dictionary filters with child dotted paths are **NOT** supported; only list-of-lists/tuples are supported.
+### SQL & Feature Interaction:
+- **Interaction with `group_by`**: If `group_by` is specified, `distinct` is redundant because group-by implicitly deduplicates rows.
+- **Interaction with Aggregates**: Using `distinct` with aggregates (like `count(distinct name)`) is highly useful, but `DatabaseQuery` does not natively support prepending `distinct` to aggregate fields inside `build_and_run()`. It only prepends `distinct` to normal fields.
+- **Interaction with Ordering & Pagination**: Under PostgreSQL, if `distinct` is used, any field in the `ORDER BY` clause **must** appear in the `SELECT` list. Frappe's `DatabaseQuery` automatically resolves this by clearing the order-by clause on Postgres when distinct is active.
 
----
-
-## 7. FlexiRule Compatibility Review
-
-The recommendations are classified into strict compatibility fixes vs. feature enhancements:
-
-### 1. Required for Frappe Compatibility & Security (Bug Fixes)
-*   **Fix Aggregate Permission Bypass**: Replace `frappe.get_all` with `frappe.get_list` inside `_count_records`, `_aggregate`, and `_group_by`. This is a critical security vulnerability correction.
-*   **Correct Child Field Filter Normalization**: FlexiRule's `_normalize_filters_for_backend` must map dotted dictionary filters to the explicit list of list/tuple format `[["Child DocType", "field", "op", "value"]]` instead of passing dotted keys directly in dictionaries.
-
-### 2. Product Enhancements
-*   **Support DISTINCT for Child Left-Joins**: Expose `distinct` as a configurable boolean in the UI and map it to `frappe.get_list(..., distinct=True)` to prevent row duplication on parent queries containing child fields.
-*   **Pass `parent_doctype` for direct Child Table queries**: Allow direct querying of Child DocTypes by supporting the `parent_doctype` configuration field in the Rule Builder.
+### Recommended Implementation:
+1.  **UI**: Add a boolean checkbox `distinct` under "Query Mode: Query List" in `QueryRecordsConfig.vue`.
+2.  **Backend**: Read `distinct` from config and pass `distinct=bool(config.get("distinct"))` to `frappe.get_list`.
+3.  **Validation Rules**: If `distinct` is enabled, validate that at least one column is selected.
 
 ---
 
-## 8. Corrected Recommendations & Action Plan
+## 8. Regression Audit
 
-### Recommendation 1: Fix Aggregate and Group-By Permission Bypass
-*   **Problem**: Standard users can execute aggregate rules and read counts, sums, and averages on documents they have no access to.
-*   **Evidence**: Runtime tests showed `frappe.get_all` ignores `ignore_permissions=False`.
-*   **Root Cause**: FlexiRule utilizes `frappe.get_all` inside `_count_records`, `_aggregate`, and `_group_by`.
-*   **Risk**: High-severity data leak.
-*   **Recommended Fix**: Change `frappe.get_all` to `frappe.get_list` and pass `limit_page_length=0` explicitly.
-*   **Priority**: **Critical**
-*   **Complexity**: **Small**
+A comprehensive search of the repository (`/app/flexirule`) was conducted to find all other uses of `get_all` and `get_list`:
 
-### Recommendation 2: Correct Child Dotted Filter Normalization
-*   **Problem**: Dotted keys inside dictionary filters (e.g., `{"fields.fieldname": "value"}`) trigger a database `OperationalError`.
-*   **Evidence**: Scenario C runtime failure.
-*   **Root Cause**: `DatabaseQuery` prepends the parent table name to dotted keys in dict filters.
-*   **Risk**: Unhandled application crashes when users configure rules with child-field dictionary filters.
-*   **Recommended Fix**: Update `_normalize_filters_for_backend` in `query_records.py`. If a key contains a dot (e.g. `fields.fieldname`), resolve the child doctype from the parent metadata and normalize it to `["Child DocType", "fieldname", "operator", "value"]`.
-*   **Priority**: **High**
-*   **Complexity**: **Medium**
+### 1. Correct Internal Usage of `get_all`
+- Core engine files like `coordinator.py`, `rule_service.py`, `scheduler.py`, and `api.py` query metadata models (e.g. `Rule`, `Rule Action`, `Rule Scheduler`).
+- These queries **must** run with system privileges to orchestrate the rule flow behind the scenes. Using `get_all` in these internal layers is correct and safe.
 
-### Recommendation 3: Add `distinct` Support in List Queries
-*   **Problem**: Left-joins on child table fields cause duplicate parent records to be returned.
-*   **Evidence**: Deduplication runtime results.
-*   **Root Cause**: FlexiRule does not forward the `distinct` parameter to `get_list`.
-*   **Risk**: Low. (Visual clutter and duplicate record processing in subsequent rule actions).
-*   **Recommended Fix**: Extract `distinct` from config and pass as `distinct=distinct` to `frappe.get_list`.
-*   **Priority**: **Medium**
-*   **Complexity**: **Small**
+### 2. Opportunity for Shared Utilities
+- **Centralized Permission Check**: Instead of checking `frappe.has_permission(reference_doctype, "read")` before calling `get_all` inside `_count_records`, `_aggregate`, and `_group_by`, we can eliminate all manual permission-gating and delegate the entire check to `frappe.get_list`.
+- **Shared Filter Normalization**: Extract `_normalize_filters_for_backend` from `query_records.py` and move it to `flexirule/ruleflow/utils/filters.py`. This would allow other handlers (like `Document Action` or internal processors) to parse dotted filters and child table queries consistently.
 
-### Stage-by-Stage Execution Roadmap
-```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                               ACTION PLAN                                    │
-├───────┬─────────────────────────────────────────────────┬──────────┬─────────┤
-│ Stage │ Action Item / Description                       │ Priority │ Effort  │
-├───────┼─────────────────────────────────────────────────┼──────────┼─────────┤
-│   1   │ Replace `get_all` with `get_list` in            │ Critical │  Small  │
-│       │ QueryRecordsHandler aggregates.                 │          │         │
-├───────┼─────────────────────────────────────────────────┼──────────┼─────────┤
-│   2   │ Normalize dotted keys in `filters` to           │   High   │  Medium │
-│       │ list of list child table queries.               │          │         │
-├───────┼─────────────────────────────────────────────────┼──────────┼─────────┤
-│   3   │ Add `distinct` config parameter mapping.        │  Medium  │  Small  │
-└───────┴─────────────────────────────────────────────────┴──────────┴─────────┘
-```
+---
+
+## 9. Testing Strategy
+
+### 1. Backend Unit Tests
+*   **Security/Permissions**:
+    *   *Test*: Execute `_count_records` as standard user `test1@example.com` on a restricted doctype (e.g. `User`). Confirm it raises `PermissionError` (proving the aggregate bypass is closed).
+*   **Filter Normalization**:
+    *   *Test*: Pass a dictionary containing `{"fields.fieldname": "owner"}` to `_normalize_filters_for_backend()`. Assert it compiles to `[["DocField", "fieldname", "=", "owner"]]`.
+*   **Child Table Joins**:
+    *   *Test*: Query a parent doctype and select child fields. Verify that multiple child records result in duplicate rows, and that setting `distinct=True` returns only unique parent rows.
+*   **Aggregates**:
+    *   *Test*: Execute Count, Sum, Average, Min, and Max queries under `get_list(..., limit_page_length=0)`. Assert they return the correct mathematically expected values.
+
+### 2. UI/Frontend Tests (Playwright)
+*   **Rule Builder Verification**:
+    *   Verify that selecting a child field like `fields.fieldname` is properly displayed in the projection fields.
+    *   Verify that adding a filter on a child field produces a valid list filter.
+    *   Verify that the "Distinct" checkbox appears under the list of selected fields and persists its state to the action's `config` JSON.
+
+---
+
+## 10. Final Deliverable: Implementation Report
+
+### 1. Required Bug Fixes
+*   **Vulnerability: Permission Bypass in Aggregates**:
+    - *Fix*: Replace `frappe.get_all` with `frappe.get_list` in `_count_records`, `_aggregate`, and `_group_by` inside `query_records.py`.
+    - *Effort*: Small (1 hour).
+*   **Operational Error: Dotted Filter Key Crashes**:
+    - *Fix*: Normalize dotted filter keys inside `_normalize_filters_for_backend()` to list-of-lists child table queries.
+    - *Effort*: Medium (4 hours).
+
+### 2. Optional Enhancements
+*   **DISTINCT Support**:
+    - *Fix*: Expose `distinct` toggle in the UI and forward it to `get_list`.
+    - *Effort*: Small (2 hours).
+*   **Direct Child DocType query support**:
+    - *Fix*: Expose `parent_doctype` in UI and forward it to `get_list`.
+    - *Effort*: Small (2 hours).
+
+### 3. Risk Assessment & Migration Sequence
+*   **Risk**: Extremely low. Replacing `get_all` with `get_list` uses the exact same database query generation. The only change is that user permissions are now enforced. Dotted key normalization is entirely backward-compatible and only intercepts keys that previously triggered a database error.
+*   **Migration Sequence**:
+    1.  Update backend aggregates from `get_all` to `get_list`.
+    2.  Implement dotted path splitting inside `_normalize_filters_for_backend()`.
+    3.  Expose the `distinct` checkbox in the VueFlow frontend UI.
+
+### 4. Implementation Effort Summary
+*   **Total Estimated Effort**: **9 Hours**
+*   **Recommended Order**:
+    1.  Aggregate permissions fix (Critical - Security).
+    2.  Dotted key filter normalization (High - Stability).
+    3.  Distinct toggle UI and backend support (Medium - Parity).
