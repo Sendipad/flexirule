@@ -444,7 +444,110 @@ Additionally, once `run` finishes execution, `_query_report` re-implements colum
 
 ---
 
-## 14. Appendix A — Repository References
+## 14. Focused Permission Architecture Audit (Query Report)
+
+An in-depth, code-level investigation was conducted on **Frappe Framework (v15+)**'s permission system to analyze how permissions are evaluated during Query Report execution and whether an existing native bypass parameter or flag exists that avoids changing the executing session user.
+
+### Evidence & Findings
+
+#### 1. Evaluation of `frappe.desk.query_report.run()`
+- **No Native Bypass Parameter:** The `run()` signature does not accept `ignore_permissions` or any analogous bypass control.
+- **Explicit Hardcoded Permission Assertion:** The method hardcodes a validation check invoking `frappe.has_permission(report.ref_doctype, "report")`:
+  ```python
+  # frappe/desk/query_report.py
+  if not frappe.has_permission(report.ref_doctype, "report"):
+      frappe.msgprint(
+          _("Must have report permission to access this report."),
+          raise_exception=True,
+      )
+  ```
+
+#### 2. Evaluation of `frappe.permissions.has_permission()`
+- **No Global Flag Support:** The permission checker `frappe.permissions.has_permission` does not look at `frappe.flags.ignore_permissions` or similar global variables.
+- **Hardcoded Administrator Bypass:** The core logic inside `frappe/permissions.py` implements an explicit bypass check restricted solely to the `"Administrator"` user:
+  ```python
+  # frappe/permissions.py
+  if user == "Administrator":
+      debug and _debug_log("Allowed everything because user is Administrator")
+      return True
+  ```
+
+#### 3. Scope of `ignore_permissions` in Frappe
+- **Document/DBQuery Only:** In Frappe, the `ignore_permissions` flag belongs strictly to `frappe.model.document.Document` operations (e.g., `insert()`, `save()`, `delete()`) and `frappe.model.db_query.DbQuery` (for raw list fetching like `frappe.get_list`). It sets a localized `self.flags.ignore_permissions = True`.
+- **No Propagation to Report API:** This document-level or DBQuery-level flag does not propagate to report runner methods, filter validators, or report-permission functions.
+
+### Comparative Analysis of Implementation Approaches
+
+#### Option A: Native Wrapper / Context Manager (Recommended)
+- **Feasibility:** Highly Feasible.
+- **Mechanics:** Temporarily switches `frappe.session.user` to `"Administrator"` before invoking the report running pipeline and safely restores it afterwards within a robust `try-finally` block.
+- **Safety:** High. Since it executes within a context manager, any unexpected error during query execution will still trigger the `finally` block and correctly restore the previous context, preventing state leakage.
+
+#### Option B: Temporary Permission Flag
+- **Feasibility:** None (Not supported).
+- **Mechanics:** Setting `frappe.flags.ignore_permissions = True` or passing `ignore_permissions` arguments.
+- **Safety:** No-op. Since the Report execution path completely ignores these variables, permission validations will still execute, throwing unexpected permission exceptions and breaking the feature.
+
+#### Option C: Controlled User Elevation
+- **Feasibility:** Highly Feasible.
+- **Mechanics:** Swapping `frappe.session.user` to `"Administrator"`.
+- **Safety:** High when coupled with a safe context manager (Option A), preventing session leakage.
+
+#### Option D: Not Supported by Framework
+- **Feasibility:** Factually accurate for native bypass flags/parameters.
+- **Mechanics:** Bypassing report permissions natively via parameters is not supported. Context-managed user elevation (Option A + C) is the only valid, framework-compliant solution.
+
+### Recommended FlexiRule Implementation Pattern
+
+To safely implement the "Skip Permissions" feature for `Query Report` execution within `flexirule`, the following Python context-managed implementation is recommended:
+
+```python
+import frappe
+from contextlib import contextmanager
+
+@contextmanager
+def elevated_permission_context(skip: bool):
+    """
+    Safely elevate user session context to Administrator if skip is enabled.
+    Guarantees restoration of the original user under any exception scenario.
+    """
+    original_user = frappe.session.user if hasattr(frappe, "session") and frappe.session else None
+    elevated = False
+
+    try:
+        if skip and original_user and original_user != "Administrator":
+            frappe.set_user("Administrator")
+            elevated = True
+        yield
+    finally:
+        if elevated and original_user:
+            frappe.set_user(original_user)
+```
+
+Usage inside `QueryRecordsHandler._query_report`:
+
+```python
+def _query_report(self, reference_doctype, config, context, action, ignore_permissions):
+    # ... filter parsing and preparation logic ...
+
+    from frappe.desk.query_report import run as run_report
+
+    with elevated_permission_context(ignore_permissions):
+        result = run_report(
+            report_name,
+            filters=report_filters,
+        )
+
+    # ... result mapping and return logic ...
+```
+
+### Security Implications of Bypassing Report Permissions
+1. **Audit Logs:** Running under `"Administrator"` records `"Administrator"` as the executing user in certain database action or SQL metrics logs if the query logs metadata. To maintain clear accountability, FlexiRule should write a warning/audit log entry to the `Rule Execution Log` specifying the original executing user name and the audit reason.
+2. **Access Escapes:** Bypassing report permissions grants executing actions complete read access to all system records within that report, regardless of tenant or document constraints. This bypass should only be accessible for rules with a validated `permission_audit_reason`.
+
+---
+
+## 15. Appendix A — Repository References
 
 The following source code locations serve as direct evidence for findings:
 
@@ -472,7 +575,7 @@ The following source code locations serve as direct evidence for findings:
 
 ---
 
-## 15. Appendix B — Execution Sequence Diagrams
+## 16. Appendix B — Execution Sequence Diagrams
 
 ### 1. Native Frappe Report Execution Lifecycle
 
@@ -528,7 +631,7 @@ sequenceDiagram
 
 ---
 
-## 16. Appendix C — Request/Response Examples
+## 17. Appendix C — Request/Response Examples
 
 ### 1. Correct Flat Filter Format (Expected by Frappe)
 Passed directly as key-value mapping parameters:
