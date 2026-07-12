@@ -40,7 +40,7 @@ Below is the complete call graph and dependency flow starting from `QueryRecords
 ```
 [QueryRecordsHandler.execute]
    │
-   ├──► [1] can_skip_permissions (Checks skip_permissions and extracts audit reason)
+   ├──► [1] can_ignore_permissions (Checks ignore_permissions and extracts audit reason)
    │
    ├──► [2] apply_input_mapping (Maps context variables to query configuration)
    │

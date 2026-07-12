@@ -354,7 +354,7 @@ FlexiRule implements its query capability via the `QueryRecordsHandler` class in
                                 ▼
          QueryRecordsHandler.execute(action, context, engine)
                                 │
-                  [can_skip_permissions check]
+                  [can_ignore_permissions check]
                                 │
                      [apply_input_mapping]
                                 │
@@ -369,7 +369,7 @@ FlexiRule implements its query capability via the `QueryRecordsHandler` class in
 
 ### Execution Flow & Parsing Details:
 1.  **Entry**: `execute(action, context, engine)` is invoked.
-2.  **Permission Gate Check**: `can_skip_permissions` checks if `skip_permissions` is configured and audits the reason.
+2.  **Permission Gate Check**: `can_ignore_permissions` checks if `ignore_permissions` is configured and audits the reason.
 3.  **Input Mapping**: Resolves contextual values and mappings from Pinia context to filters.
 4.  **Filter Normalization**: Parses standard lists/dicts, resolving timespans, wildcards, and UI operators (e.g. `starts with` -> `like`, `Between` -> `between`).
 5.  **Execution Modes**:
@@ -431,7 +431,8 @@ The table below contrasts the actual query capabilities supported by Frappe vs. 
     )
     ```
 *   **The Bug**: `frappe.get_all()` explicitly overrides `kwargs["ignore_permissions"] = True`.
-*   **Result**: Even if the action is configured with `skip_permissions=0` (meaning permissions must be enforced) and FlexiRule verifies reader access using `frappe.has_permission(reference_doctype, "read")`, the subsequent `get_all` execution completely ignores role-matching, document sharing constraints, owner restrictions, and user permissions. Users can retrieve aggregate metrics and counts across records they are not permitted to see.
+*   **Result**: Even if the action is configured with `ignore_permissions=0` (meaning permissions must be enforced) and FlexiRule verifies reader access using `frappe.has_permission(reference_doctype, "read")`, the subsequent `get_all` execution completely ignores role-matching, document sharing constraints, owner restrictions, and user permissions. Users can retrieve aggregate metrics and counts across records they are not permitted to see.
+*   **Security of Reports**: For `Query Report`, because report execution does not support an `ignore_permissions` flag (and report permissions are strictly audited/enforced by Frappe's report rendering engine), report permissions can never be bypassed, even if `ignore_permissions` is passed. Thus, report permissions can never be bypassed, while `ignore_permissions` only applies to Query List/Database operations.
 
 ---
 

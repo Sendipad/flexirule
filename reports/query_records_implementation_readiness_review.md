@@ -1,4 +1,4 @@
-# Final Implementation Readiness Review: Query Records Refactor — Codebase Alignment Before Changes
+# Final Implementation Readiness Review: Query Records Refactor (Completed)
 
 ## 1. Existing Code Alignment Audit
 
@@ -136,7 +136,7 @@ This plan outlines the smallest possible code changes to achieve full compatibil
 
 ### 1. Security Tests:
 *   *Standard user reads Count*: Execute count aggregate under `test1@example.com` on a restricted doctype. Verify it throws `PermissionError`.
-*   *Admin reads Count*: Execute count aggregate with `skip_permissions=True` and verify it succeeds.
+*   *Admin reads Count*: Execute count aggregate with `ignore_permissions=True` and verify it succeeds.
 
 ### 2. Child Table Tests:
 *   *Parent Query*: Query `DocType` and filter on `[["DocField", "fieldname", "=", "fieldname"]]`. Verify correct list returned.

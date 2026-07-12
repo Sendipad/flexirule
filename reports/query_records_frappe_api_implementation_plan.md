@@ -1,8 +1,10 @@
-# Engineering Migration Plan: Query Records Frappe API Refactor
+# Engineering Migration Plan: Query Records Frappe API Refactor (Completed)
 
 ## 1. Executive Summary
 
-This document outlines the engineering specification and implementation plan to align **FlexiRule's Query Records** action handler with the security, permissions, and child-table querying behavior of the **Frappe Framework (v15+)**.
+This document outlines the engineering specification and implementation report to align **FlexiRule's Query Records** action handler with the security, permissions, and child-table querying behavior of the **Frappe Framework (v15+)**.
+
+All components and phases detailed in this plan have been **successfully implemented, tested, and verified** inside the codebase.
 
 This plan is based strictly on empirical evidence gathered during deep source-code auditing and live database runtime checks on the Frappe target site.
 
@@ -253,7 +255,7 @@ Querying child DocTypes directly requires verifying read privileges on the paren
 | :--- | :--- | :--- | :--- |
 | **Standard user reads Count on Restricted DocType** | `Count` query on `User` under `test1@example.com` | Raise `PermissionError` | Verified Aggregate Security |
 | **Standard user reads Sum on Permitted DocType** | `Sum` query with sharing restrictions | Returns sum of *only* permitted rows | Verified Fine-Grained Metrics |
-| **System manager reads Count with ignore_perm=True**| Query with `skip_permissions=True` | Returns absolute total count | Verified Skip Overrides |
+| **System manager reads Count with ignore_perm=True**| Query with `ignore_permissions=True` | Returns absolute total count | Verified Skip Overrides |
 
 ### 6.2 Filter Tests
 | Test Case Scenario | Input / Configuration | Expected Outcome | Behavior Verified |
