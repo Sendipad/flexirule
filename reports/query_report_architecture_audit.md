@@ -117,7 +117,7 @@ When initiating a report, the browser constructs a `GET` request to `frappe.desk
 
 The main backend entry points are situated in `frappe/desk/query_report.py`.
 
-### Entry Point Methods
+### Point Methods
 
 #### 1. `frappe.desk.query_report.get_script(report_name)`
 * **Purpose:** Loads the controller script (JavaScript) and HTML templates associated with a standard or custom report.
@@ -436,10 +436,12 @@ Additionally, once `run` finishes execution, `_query_report` re-implements colum
 * **Benefits:** Prevents broken rule configuration from being activated.
 * **Implementation Complexity:** Low.
 
-### Recommendation 4: Align Permission Bypassing via Context Elevation
-* **Current Implementation:** Propagates `ignore_permissions` down but it is ignored by Frappe report endpoints.
-* **Aligned Target:** If `skip_permissions` is checked, temporarily elevate execution context to `Administrator` for the duration of the report execution, then restore previous user context.
-* **Benefits:** Guarantees standard background rules running in system contexts can run reports without raising permission errors.
+### Recommendation 4: Implement Scoped Permission Bypassing (Inviolable Report Permissions)
+* **Current Implementation:** Bypassing permissions at the Report level is entirely non-functional.
+* **Aligned Target (Strictly Scoped):**
+  - **Disallow Report Access Bypass:** Access permissions for the `Report` document itself (and the reference DocType) **must never be bypassed** for any user. Under no circumstances should the system elevate the session context to `"Administrator"` to run a report that the user has no rights to view.
+  - **Restrict `ignore_permissions` to DB-Query Level Only:** The `ignore_permissions` option in FlexiRule's `Query Records` must be scoped strictly to the lower-level database query APIs (e.g. `Query List`, `Query Doc`, and `Exist Record`). This allows custom reporting scripts or sub-rule dispatchers to retrieve data from linked child DocTypes (such as `User` or `ToDo`) that the user might not have direct view access to, while strictly prohibiting they bypass standard report-access policies.
+* **Benefits:** Prevents unauthorized document-level privilege escalation, preserves standard security boundaries on reports, and safely enables automated background rules to fetch necessary lookup rows.
 * **Implementation Complexity:** Medium.
 
 ---
@@ -476,74 +478,76 @@ An in-depth, code-level investigation was conducted on **Frappe Framework (v15+)
 - **Document/DBQuery Only:** In Frappe, the `ignore_permissions` flag belongs strictly to `frappe.model.document.Document` operations (e.g., `insert()`, `save()`, `delete()`) and `frappe.model.db_query.DbQuery` (for raw list fetching like `frappe.get_list`). It sets a localized `self.flags.ignore_permissions = True`.
 - **No Propagation to Report API:** This document-level or DBQuery-level flag does not propagate to report runner methods, filter validators, or report-permission functions.
 
+### Analysis of the Refined Permission Scoping
+
+Following the security design review, we have established a **Strict No-Bypass Rule** for Report documents and a **Scoped Bypass Rule** for internal Database queries:
+
+1. **Top-Level Report Permissions (Inviolable):**
+   - Users who do not have permissions on the `Report` document or its referenced `ref_doctype` are **never** allowed to execute the report.
+   - `ignore_permissions` in `QueryRecordsHandler` **must not** switch the session context to `"Administrator"` to run reports, ensuring standard Report Access policies remain strictly enforced.
+
+2. **Lower-Level DB Queries (Scoped Bypassing):**
+   - Bypassing is explicitly permitted and highly beneficial at the lower-level database query APIs (`Query List`, `Query Doc`, `Exist Record`, and database operations inside custom report sub-scripts).
+   - This allows background workflows, rule processes, and reporting aggregators to query database records that the executing user does not directly own or have UI visibility of, but which are required to compute metrics, compile counters, or trigger business events.
+
 ### Comparative Analysis of Implementation Approaches
 
-#### Option A: Native Wrapper / Context Manager (Recommended)
+#### Option A: Native Wrapper / Context Manager (Recommended for lower-level DB Query Modes)
 - **Feasibility:** Highly Feasible.
-- **Mechanics:** Temporarily switches `frappe.session.user` to `"Administrator"` before invoking the report running pipeline and safely restores it afterwards within a robust `try-finally` block.
-- **Safety:** High. Since it executes within a context manager, any unexpected error during query execution will still trigger the `finally` block and correctly restore the previous context, preventing state leakage.
+- **Mechanics:** Useful for setting document/query-level flags during execution of `Query List` or `Query Doc` (or passing `ignore_permissions=True` to `frappe.get_list`).
+- **Safety:** High. It isolates the bypass to the exact database context without elevating the global session user to `"Administrator"`.
 
 #### Option B: Temporary Permission Flag
-- **Feasibility:** None (Not supported).
+- **Feasibility:** None (Not supported for reports).
 - **Mechanics:** Setting `frappe.flags.ignore_permissions = True` or passing `ignore_permissions` arguments.
-- **Safety:** No-op. Since the Report execution path completely ignores these variables, permission validations will still execute, throwing unexpected permission exceptions and breaking the feature.
+- **Safety:** No-op for top-level Report execution, but natively supported for underlying database `DbQuery` queries inside custom report logic.
 
-#### Option C: Controlled User Elevation
-- **Feasibility:** Highly Feasible.
-- **Mechanics:** Swapping `frappe.session.user` to `"Administrator"`.
-- **Safety:** High when coupled with a safe context manager (Option A), preventing session leakage.
+#### Option C: Controlled User Elevation (Disallowed for Reports)
+- **Feasibility:** Rejected on Security Grounds.
+- **Mechanics:** Swapping `frappe.session.user` to `"Administrator"` for executing the Report.
+- **Safety:** Rejected. Since it violates standard user separation and allows unauthorized access to blocked reports, this practice is explicitly discouraged and disallowed.
 
-#### Option D: Not Supported by Framework
-- **Feasibility:** Factually accurate for native bypass flags/parameters.
-- **Mechanics:** Bypassing report permissions natively via parameters is not supported. Context-managed user elevation (Option A + C) is the only valid, framework-compliant solution.
+#### Option D: Not Supported by Framework (Report-level Bypassing)
+- **Feasibility:** Natively correct. Report document permissions cannot be bypassed. The system must raise a `PermissionError` if an unauthorized user attempts to execute a Report action.
 
 ### Recommended FlexiRule Implementation Pattern
 
-To safely implement the "Skip Permissions" feature for `Query Report` execution within `flexirule`, the following Python context-managed implementation is recommended:
+Based on this scoped permission model, `QueryRecordsHandler` should enforce strict top-level Report checks while safely routing `ignore_permissions` to the database query drivers:
 
 ```python
-import frappe
-from contextlib import contextmanager
+# inside flexirule/ruleflow/core/action_handlers/query_records.py
 
-@contextmanager
-def elevated_permission_context(skip: bool):
-    """
-    Safely elevate user session context to Administrator if skip is enabled.
-    Guarantees restoration of the original user under any exception scenario.
-    """
-    original_user = frappe.session.user if hasattr(frappe, "session") and frappe.session else None
-    elevated = False
+def execute(self, action, context, engine):
+    mode = action.operation
+    reference_doctype = action.reference_doctype
+    ignore_permissions = can_skip_permissions(action, context, throw=True)
 
-    try:
-        if skip and original_user and original_user != "Administrator":
-            frappe.set_user("Administrator")
-            elevated = True
-        yield
-    finally:
-        if elevated and original_user:
-            frappe.set_user(original_user)
-```
+    if mode == "Query Report":
+        # 1. Check top-level Report Document Permissions first (NEVER bypass)
+        config = self._parse_config(action.config)
+        report_name = config.get("report_name")
 
-Usage inside `QueryRecordsHandler._query_report`:
+        # Enforce strict Report-level access checks
+        if not frappe.has_permission("Report", "read", report_name):
+            frappe.throw(
+                _("You do not have permission to execute the Report '{0}'.").format(report_name),
+                frappe.PermissionError
+            )
 
-```python
-def _query_report(self, reference_doctype, config, context, action, ignore_permissions):
-    # ... filter parsing and preparation logic ...
-
-    from frappe.desk.query_report import run as run_report
-
-    with elevated_permission_context(ignore_permissions):
-        result = run_report(
-            report_name,
-            filters=report_filters,
+        # 2. Dispatch query report standard execution (without elevation)
+        result = self._query_report(
+            reference_doctype=reference_doctype,
+            config=config,
+            context=context,
+            action=action,
+            ignore_permissions=False  # Hardcoded to False for reports
         )
+        return result, action.next_step_if_true
 
-    # ... result mapping and return logic ...
+    # For other database modes (Query List, Exist Record, Count, Sum etc.):
+    # Safely propagate ignore_permissions directly to the ORM / DB Query layer
+    # ...
 ```
-
-### Security Implications of Bypassing Report Permissions
-1. **Audit Logs:** Running under `"Administrator"` records `"Administrator"` as the executing user in certain database action or SQL metrics logs if the query logs metadata. To maintain clear accountability, FlexiRule should write a warning/audit log entry to the `Rule Execution Log` specifying the original executing user name and the audit reason.
-2. **Access Escapes:** Bypassing report permissions grants executing actions complete read access to all system records within that report, regardless of tenant or document constraints. This bypass should only be accessible for rules with a validated `permission_audit_reason`.
 
 ---
 
