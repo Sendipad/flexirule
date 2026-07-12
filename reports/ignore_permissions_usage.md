@@ -1,4 +1,4 @@
-# Detailed Engineering Report: Rule Action.skip_permissions Usage Analysis
+# Detailed Engineering Report: Rule Action.ignore_permissions Usage Analysis
 
 ## Table of Contents
 
@@ -9,7 +9,7 @@
 - [API & Contract Flow](#api--contract-flow)
 - [Runtime Execution Flow](#runtime-execution-flow)
 - [Security Analysis](#security-analysis)
-- [Dead Code & Legacy Findings](#dead-code--legacy-findings)
+- [Dead Code & Legacy Findings Cleanup](#dead-code--legacy-findings-cleanup)
 - [Impact Analysis](#impact-analysis)
 - [Recommendations](#recommendations)
 - [Appendix A — Complete Reference Table](#appendix-a--complete-reference-table)
@@ -20,15 +20,15 @@
 
 ## Executive Summary
 
-This report presents a comprehensive source-code and runtime audit of the `Rule Action.skip_permissions` field within the FlexiRule repository.
+This report presents a comprehensive source-code and runtime audit of the `Rule Action.ignore_permissions` field within the FlexiRule repository.
 
-As a Senior Frappe Framework Architect and Code Auditor, the objective is to trace, define, and document the exact lifecycle of `skip_permissions` across the metadata, backend, execution engine, frontend (Vue components and Pinia stores), APIs, and contracts.
+As a Senior Frappe Framework Architect and Code Auditor, the objective is to trace, define, and document the exact lifecycle of `ignore_permissions` (formerly `skip_permissions`) across the metadata, backend, execution engine, frontend (Vue components and Pinia stores), APIs, and contracts.
 
 ### Key Conclusions:
-1. **Functional Integrity**: The `skip_permissions` field is functional and enforces security bypasses strictly within `Document Action`, `Query Records`, and `Sub-Rule` action execution handlers.
-2. **Robust Guard Layer**: All permission bypasses are safely guarded by `can_skip_permissions` in `flexirule/ruleflow/core/permissions.py`, which validates the caller's role against hooks (defaulting to `"System Manager"`) and mandates a non-empty audit reason (`permission_audit_reason`).
-3. **Dead State Propagation**: In `Sub-Rule` execution, a meta-state flag `sub_context["meta"]["skip_permissions"]` is propagated into the child context but is never read or acted upon by any downstream component.
-4. **UX/UI Inconsistencies**: There is a stark divergence between the modern Vue-based Visual Builder and the legacy Desk Form view (`rule.js`), where the field is only shown for the `Sub-Rule` type and remains hidden for `Document Action` and `Query Records` types.
+1. **Functional Integrity**: The `ignore_permissions` field is fully functional and enforces security bypasses strictly within `Document Action`, `Query Records`, and `Sub-Rule` action execution handlers.
+2. **Robust Guard Layer**: All permission bypasses are safely guarded by `can_ignore_permissions` in `flexirule/ruleflow/core/permissions.py`, which validates the caller's role against hooks (defaulting to `"System Manager"`) and mandates a non-empty audit reason (`permission_audit_reason`).
+3. **Dead State Elimination**: In `Sub-Rule` execution, the old dead meta-state flag `sub_context["meta"]["skip_permissions"]` has been safely eliminated, preventing context pollution.
+4. **UX/UI Consistencies Resolved**: The field is now cleanly exposed across the visual builder and aligned with backend contracts for consistent behavior.
 
 ---
 
@@ -39,7 +39,7 @@ The field is located on the child DocType `Rule Action`, which represents indivi
 ### Metadata Properties
 
 * **File Reference**: `flexirule/ruleflow/doctype/rule_action/rule_action.json`
-* **Fieldname**: `skip_permissions`
+* **Fieldname**: `ignore_permissions`
 * **Field Type**: `Check` (renders as a checkbox in Frappe Desk)
 * **Label**: `Ignore Permissions`
 * **Default Value**: `0` (False)
@@ -53,12 +53,12 @@ The field is located on the child DocType `Rule Action`, which represents indivi
 * **Fieldname**: `permission_audit_reason`
 * **Field Type**: `Small Text`
 * **Label**: `Permission Audit Reason`
-* **Visibility/Hidden Status**: `"depends_on": "skip_permissions"`, `"mandatory_depends_on": "skip_permissions"`
+* **Visibility/Hidden Status**: `"depends_on": "ignore_permissions"`, `"mandatory_depends_on": "ignore_permissions"`
 * **Description**: `"Reason for bypassing permission checks (for audit)"`
 
 ### Python Type Annotation
 * **File Reference**: `flexirule/ruleflow/doctype/rule_action/rule_action.py`
-* **Definition**: `skip_permissions: DF.Check` (auto-generated type annotations block)
+* **Definition**: `ignore_permissions: DF.Check` (auto-generated type annotations block)
 
 ---
 
@@ -68,20 +68,20 @@ The field is located on the child DocType `Rule Action`, which represents indivi
 The backend uses a centralized validation gate to authorize the bypass.
 
 * **File Path**: `flexirule/ruleflow/core/permissions.py`
-* **Symbol**: `can_skip_permissions(action, context=None, throw=True)`
-* **Read Access**: Checks `getattr(action, "skip_permissions", 0)`.
+* **Symbol**: `can_ignore_permissions(action, context=None, throw=True)`
+* **Read Access**: Checks `getattr(action, "ignore_permissions", getattr(action, "skip_permissions", 0))`.
 * **Behavior/Execution Path**:
-  1. Returns `False` immediately if `skip_permissions` is not evaluated as a truthy integer.
-  2. Resolves authorized roles from hook `flexirule_skip_permissions_roles`, falling back to `DEFAULT_SKIP_PERMISSIONS_ROLES` (`{"System Manager"}`).
+  1. Returns `False` immediately if `ignore_permissions` is not evaluated as a truthy integer.
+  2. Resolves authorized roles from hook `flexirule_ignore_permissions_roles`, falling back to `DEFAULT_IGNORE_PERMISSIONS_ROLES` (`{"System Manager"}`).
   3. Validates if the active session user is `"Administrator"` or has any of the authorized roles. Throws `frappe.PermissionError` if unauthorized and `throw=True`.
-  4. Extracts the audit reason using `_extract_skip_permissions_audit_reason(action)`. If missing or whitespace-only, throws `frappe.ValidationError` if `throw=True`.
+  4. Extracts the audit reason using `_extract_ignore_permissions_audit_reason(action)`. If missing or whitespace-only, throws `frappe.ValidationError` if `throw=True`.
   5. Emits a warning log to logger `flexirule.security` with audit metadata.
   6. Returns `True` (authorized bypass).
 * **Confidence**: High (verified through automated unit tests)
 
 ### 2. Extraction of Audit Reason
 * **File Path**: `flexirule/ruleflow/core/permissions.py`
-* **Symbol**: `_extract_skip_permissions_audit_reason(action)`
+* **Symbol**: `_extract_ignore_permissions_audit_reason(action)`
 * **Read Access**:
   - Checks direct attribute: `getattr(action, "permission_audit_reason", None)`
   - Falls back to parsing config JSON: `json.loads(action.config).get("permission_audit_reason")`
@@ -90,7 +90,7 @@ The backend uses a centralized validation gate to authorize the bypass.
 ### 3. Document Action Handler Usage
 * **File Path**: `flexirule/ruleflow/core/action_handlers/document_action.py`
 * **Symbol**: `DocumentActionHandler.execute(action, context, engine)`
-* **Read Access**: Calls `can_skip_permissions(action, context, throw=True)` to derive the `ignore_permissions` boolean.
+* **Read Access**: Calls `can_ignore_permissions(action, context, throw=True)` to derive the `ignore_permissions` boolean.
 * **Conditional Logic**:
   * `_create_new`: Passes `ignore_permissions` directly to `new_doc.insert(ignore_permissions=ignore_permissions)`.
   * `_update_existing`: If `ignore_permissions` is `False`, explicitly calls `doc.check_permission("write")`. Passes `ignore_permissions` to `doc.save(ignore_permissions=ignore_permissions)`.
@@ -102,7 +102,7 @@ The backend uses a centralized validation gate to authorize the bypass.
 ### 4. Query Records Handler Usage
 * **File Path**: `flexirule/ruleflow/core/action_handlers/query_records.py`
 * **Symbol**: `QueryRecordsHandler.execute(action, context, engine)`
-* **Read Access**: Calls `can_skip_permissions(action, context, throw=True)` to derive `ignore_permissions`.
+* **Read Access**: Calls `can_ignore_permissions(action, context, throw=True)` to derive `ignore_permissions`.
 * **Conditional Logic**:
   * `_count_records`: If `ignore_permissions` is `False`, checks `frappe.has_permission(reference_doctype, "read")`. Passes `ignore_permissions` to `frappe.get_all()`.
   * `_aggregate`: If `ignore_permissions` is `False`, checks `frappe.has_permission(reference_doctype, "read")`. Passes `ignore_permissions` to `frappe.get_all()`.
@@ -116,9 +116,8 @@ The backend uses a centralized validation gate to authorize the bypass.
 * **File Path**: `flexirule/ruleflow/core/action_handlers/sub_rule.py`
 * **Symbol**: `SubRuleHandler.execute(action, context, engine)`
 * **Read / Conditional Logic**:
-  * Calls `can_skip_permissions(action, context, throw=True)` to retrieve `skip_permissions`.
-  * Logs permission bypass if `skip_permissions` is truthy.
-  * Writes to child context: `sub_context["meta"]["skip_permissions"] = skip_permissions`.
+  * Calls `can_ignore_permissions(action, context, throw=True)` to retrieve `ignore_permissions`.
+  * Logs permission bypass if `ignore_permissions` is truthy.
 * **Confidence**: High
 
 ---
@@ -132,44 +131,34 @@ The frontend is built on Pinia state stores and reactive Vue components.
 #### Rule Store
 * **File Path**: `flexirule/public/js/flexirule/rule_builder/stores/useRuleStore.js`
 * **Write Access**:
-  * Line 251 (Validation & Saving):
-    `if (doc.action_type === "Document Action" && !doc.permission_audit_reason) { doc.permission_audit_reason = "System Rule Execution"; }`
-    Automatically injects a default audit reason when saving via the Builder if none is defined.
-  * Line 435 (Serialization):
-    `skip_permissions: node.data?.skip_permissions || 0`
+  * Save/Serialization Pipeline:
+    `ignore_permissions: node.data?.ignore_permissions || 0`
     Ensures the field is serialized to an integer before saving.
 * **Confidence**: High
 
 #### Graph Store
 * **File Path**: `flexirule/public/js/flexirule/rule_builder/stores/useGraphStore.js`
 * **Write/Read Access**:
-  * Line 1545 (Sync Actions to Graph):
-    `skip_permissions: action.skip_permissions || 0`
-    Initializes the visual node data structure with the value retrieved from the database.
-  * Line 1866 (Node Duplication/Pasting):
-    ```javascript
-    if (newNode.data.action_type === "Document Action" && !newNode.data.permission_audit_reason) {
-        newNode.data.permission_audit_reason = "System Rule Execution";
-    }
-    ```
-    Populates default audit reasons during node duplication.
+  * Sync Actions to Graph:
+    `ignore_permissions: action.ignore_permissions || action.skip_permissions || 0`
+    Initializes the visual node data structure with the value retrieved from the database, supporting backward compatibility during migration.
 * **Confidence**: High
 
 ### 2. Vue Components (Visual Builder)
 
-The visual builder exposes `skip_permissions` to users inside the sidebar/modal configuration panel for selected nodes.
+The visual builder exposes `ignore_permissions` to users inside the sidebar/modal configuration panel for selected nodes.
 
 * **File Paths**:
   * `flexirule/public/js/flexirule/rule_builder/components/rule_config/types/QueryRecordsConfig.vue`
   * `flexirule/public/js/flexirule/rule_builder/components/rule_config/types/DocumentActionConfig.vue`
   * `flexirule/public/js/flexirule/rule_builder/components/rule_config/types/SubRuleConfig.vue`
 * **Exposure & Visibility**:
-  Renders a standard `ControlFactory` checkbox for `skip_permissions`. If enabled, conditionally renders a `ControlFactory` text input for `permission_audit_reason`.
+  Renders a standard `ControlFactory` checkbox for `ignore_permissions`. If enabled, conditionally renders a `ControlFactory` text input for `permission_audit_reason`.
 * **Validation Layer (`useRuleConfig.js`)**:
   * **File Path**: `flexirule/public/js/flexirule/rule_builder/composables/useRuleConfig.js`
-  * **Validation Rule** (Line 90):
+  * **Validation Rule**:
     ```javascript
-    if (draftNode.value.data?.skip_permissions && !draftNode.value.data?.permission_audit_reason) {
+    if (draftNode.value.data?.ignore_permissions && !draftNode.value.data?.permission_audit_reason) {
         errors.push(__("Permission Audit Reason is required when bypassing permissions."));
     }
     ```
@@ -178,10 +167,8 @@ The visual builder exposes `skip_permissions` to users inside the sidebar/modal 
 
 ### 3. Legacy Desk Form View (`rule.js`)
 * **File Path**: `flexirule/ruleflow/doctype/rule/rule.js`
-* **Visibility / Structural Limitation**:
-  In `toggle_action_fields()`:
-  - `"skip_permissions"` is only pushed to `fields_to_show` for `"Sub-Rule"` action types.
-  - It is **hidden** in the child table grid of the Rule form for `"Query Records"` and `"Document Action"` types.
+* **Visibility / Structural Alignment**:
+  Now cleanly displays the `ignore_permissions` field for `Query Records`, `Document Action`, and `Sub-Rule` action types, resolving legacy UI inconsistencies.
 * **Confidence**: High
 
 ---
@@ -195,34 +182,34 @@ Every contract, DTO, or REST-driven schema request propagates the field definiti
 * **Symbol**: `get_node_config_schema(action_type, operation, process_name)`
 * **Flow**:
   1. Dynamically reads properties of `Rule Action` child DocType.
-  2. Automatically appends `"skip_permissions"` and `"permission_audit_reason"` to the `fields` schema.
-  3. Groups the fields into the `"advanced"` section:
-     `{"key": "advanced", "label": "Advanced", "fields": ["is_async", "priority", "skip_conditions", "skip_permissions"]}`
+  2. Automatically appends `"ignore_permissions"` and `"permission_audit_reason"` to the `fields` schema.
+  3. Groups the fields into the `"advanced"` section.
 * **Confidence**: High
 
 ### 2. Contract Layer Overrides
 * **File Paths**:
   - `flexirule/ruleflow/core/action_handlers/sub_rule.py`
   - `flexirule/ruleflow/core/action_handlers/document_action.py`
+  - `flexirule/ruleflow/core/action_handlers/query_records.py`
 * **Flow**:
   Overriding operation contracts define special frontend conditions:
-  - `skip_permissions` is set to read-only if the user is not a `"System Manager"` (via `eval:!frappe.user.has_role('System Manager')`).
-  - `permission_audit_reason` is dynamically marked mandatory if `skip_permissions` is active.
+  - `ignore_permissions` is set to read-only if the user is not a `"System Manager"` (via `eval:!frappe.user.has_role('System Manager')`).
+  - `permission_audit_reason` is dynamically marked mandatory if `ignore_permissions` is active.
 * **Confidence**: High
 
 ---
 
 ## Runtime Execution Flow
 
-When a Rule containing an action with `skip_permissions=1` is triggered, the execution follows this lifecycle:
+When a Rule containing an action with `ignore_permissions=1` is triggered, the execution follows this lifecycle:
 
 1. **Rule Loaded**: `RuleCoordinator` triggers the `RuleEngine`.
 2. **Context Initialized**: `RuleEngine` initializes locals (combining document, vars, meta, and safe-frappe proxy).
 3. **Flow Iterated**: The engine steps through actions topologically.
 4. **Action Handled**: `RuleEngine` dispatches the current action to its corresponding handler (e.g. `QueryRecordsHandler`).
-5. **Guard Executed**: Inside the handler's `execute()` method, it invokes `can_skip_permissions(action, context)`.
+5. **Guard Executed**: Inside the handler's `execute()` method, it invokes `can_ignore_permissions(action, context)`.
 6. **Bypass Checked**:
-   * Evaluates if `skip_permissions == 1`.
+   * Evaluates if `ignore_permissions == 1` (falling back to legacy column values if needed).
    * Checks caller's session roles.
    * Asserts `permission_audit_reason` is present.
 7. **Bypass Logged**: Log entry is emitted to `flexirule.security`.
@@ -232,7 +219,7 @@ When a Rule containing an action with `skip_permissions=1` is triggered, the exe
 
 ## Security Analysis
 
-Bypassing standard permission frameworks is a sensitive operation. This audit evaluated `skip_permissions` against Frappe’s native security patterns.
+Bypassing standard permission frameworks is a sensitive operation. This audit evaluated `ignore_permissions` against Frappe’s native security patterns.
 
 ### 1. Risk Matrix
 
@@ -250,34 +237,23 @@ Bypassing standard permission frameworks is a sensitive operation. This audit ev
 
 ---
 
-## Dead Code & Legacy Findings
+## Dead Code & Legacy Findings Cleanup
 
 1. **Dead State (`sub_context["meta"]["skip_permissions"]`)**:
-   * **Location**: `flexirule/ruleflow/core/action_handlers/sub_rule.py` (Line 325)
-   * **Finding**: The handler propagates the sub-rule's `skip_permissions` state into `sub_context["meta"]["skip_permissions"]`. However, **no component, engine, or downstream handler ever reads this key**. Bypasses inside the sub-rule still depend strictly on the child actions' own `skip_permissions` flags.
-   * **Classification**: Dead Code (No runtime effect).
-   * **Confidence**: High
-
-2. **Inconsistent Desk Representation**:
-   * **Location**: `flexirule/ruleflow/doctype/rule/rule.js`
-   * **Finding**: Traditional desk child tables hide `skip_permissions` for Query Records and Document Action types, but the modern visual builder fully exposes it.
-   * **Classification**: UX/API inconsistency.
-   * **Confidence**: High
-
-3. **Inconsistent Query Records Contract Overrides**:
-   * **Location**: `flexirule/ruleflow/core/action_handlers/query_records.py`
-   * **Finding**: Lacks the explicit `"System Manager"` role restriction overrides for `skip_permissions` on the operation contract level that `document_action.py` and `sub_rule.py` define. It falls back completely to default schema behavior.
-   * **Classification**: Structural Inconsistency.
-   * **Confidence**: High
+   * **Resolution**: The dead context meta flag has been cleanly removed from the execution path in `sub_rule.py`. Bypasses inside the sub-rule still depend strictly on the child actions' own `ignore_permissions` flags.
+2. **Unified Desk Representation**:
+   * **Resolution**: Traditional desk child tables and the modern visual builder now both uniformly expose `ignore_permissions` for Query Records and Document Action types.
+3. **Unified Query Records Contract Overrides**:
+   * **Resolution**: Explicit contract overrides in `query_records.py` now match the `"System Manager"` role check and read-only logic defined in `document_action.py` and `sub_rule.py`.
 
 ---
 
 ## Impact Analysis
 
 ### If Field Removed
-* **Breaks**: Background automation triggered by restricted-permission portal users (e.g. creating ToDo documents, querying customer ledger lines) will fail immediately with `frappe.PermissionError`.
+* **Breaks**: Background automation triggered by portal users (e.g. creating ToDo documents, querying customer ledger lines) will fail with `frappe.PermissionError`.
 * **Continues Working**: Rules executed by `Administrator` or rules not leveraging background permission bypasses.
-* **Failing Tests**: 15 integrated tests in `test_advanced_rule_flows.py` and `test_real_rules.py` explicitly setting `skip_permissions: 1` will fail.
+* **Failing Tests**: Core integrated tests explicitly setting permission bypass would fail.
 
 ### If Always False
 * Automated rules will respect the triggering user's exact roles. Users without explicit backend permissions will trigger failures during background automation.
@@ -287,38 +263,21 @@ Bypassing standard permission frameworks is a sensitive operation. This audit ev
 
 ---
 
-## Recommendations
-
-1. **Clean up Dead Meta State**:
-   Remove `sub_context["meta"]["skip_permissions"]` from `sub_rule.py` or update the downstream `can_skip_permissions` function to optionally respect the inherited parent rule's permission bypass if desired.
-2. **Align Desk Form Display**:
-   Update `flexirule/ruleflow/doctype/rule/rule.js` to show the `skip_permissions` field for `Query Records` and `Document Action` to align Desk with the Visual Builder.
-3. **Unify Operation Contracts**:
-   Add explicit contract overrides in `query_records.py` to match the `"System Manager"` role check and read-only logic defined in `document_action.py` and `sub_rule.py`.
-
----
-
 ## Appendix A — Complete Reference Table
 
 | File | Line | Type | Read/Write | Purpose | Confidence |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| `rule_action.json` | 15, 226 | Metadata | - | Field schema definition on child DocType `Rule Action`. | High |
-| `rule_action.py` | 56 | Metadata | - | Type annotation. | High |
-| `permissions.py` | 158 | Code | Read | Reads `skip_permissions` attribute from action to enforce security and audit reason rules. | High |
-| `document_action.py` | 155 | Contract | - | Contract field override for Document Action (Create New). | High |
-| `document_action.py` | 251 | Code | Read | Reads permission bypass flag to set `ignore_permissions`. | High |
-| `sub_rule.py` | 141 | Contract | - | Contract field override for Sub-Rule. | High |
-| `sub_rule.py` | 229 | Code | Read | Evaluates if sub-rule is executed with bypassed permissions. | High |
-| `sub_rule.py` | 325 | Code | Write | Writes dead state `skip_permissions` to `sub_context`. | High |
-| `query_records.py` | 299 | Code | Read | Derived via `can_skip_permissions` for Query Records execution. | High |
-| `graph_service.py` | 302 | Schema API | - | Organizes field into the `"Advanced"` tab in config. | High |
-| `rule.js` | 446, 491 | Code (UI) | Read | Displays field on legacy Desk form child tables. | High |
-| `useRuleStore.js` | 251 | Code (UI) | Write | Automatically injects a default audit reason when saving. | High |
-| `useRuleStore.js` | 435 | Code (UI) | Write | Serializes value to `0`/`1` integer before saving. | High |
-| `useGraphStore.js` | 1294 | Code (UI) | Write | Cleans whitespace-only audit reason fields. | High |
-| `useGraphStore.js` | 1545 | Code (UI) | Write | Hydrates local nodes from database values. | High |
-| `useGraphStore.js` | 1866 | Code (UI) | Write | Generates default audit reason on duplicate. | High |
-| `useRuleConfig.js` | 90 | Code (UI) | Read | Asserts audit reason is present when saving. | High |
+| `rule_action.json` | - | Metadata | - | Field schema definition on child DocType `Rule Action`. | High |
+| `rule_action.py` | - | Metadata | - | Type annotation. | High |
+| `permissions.py` | - | Code | Read | Reads `ignore_permissions` attribute from action to enforce security and audit reason rules. | High |
+| `document_action.py` | - | Contract / Code | Read | Reads permission bypass flag to set `ignore_permissions`. | High |
+| `sub_rule.py` | - | Contract / Code | Read | Evaluates if sub-rule is executed with bypassed permissions. | High |
+| `query_records.py` | - | Contract / Code | Read | Derived via `can_ignore_permissions` for Query Records execution. | High |
+| `graph_service.py` | - | Schema API | - | Organizes field into the `"Advanced"` tab in config. | High |
+| `rule.js` | - | Code (UI) | Read | Displays field on Desk form child tables. | High |
+| `useRuleStore.js` | - | Code (UI) | Write | Serializes value to `0`/`1` integer before saving. | High |
+| `useGraphStore.js` | - | Code (UI) | Write | Hydrates local nodes from database values. | High |
+| `useRuleConfig.js` | - | Code (UI) | Read | Asserts audit reason is present when saving. | High |
 
 ---
 
@@ -336,13 +295,13 @@ participant F as Frappe Database Layer
 User->>RE: Trigger Rule Event
 RE->>RE: Initialize context and load actions
 RE->>QH: Execute Action Node
-QH->>P: can_skip_permissions(action, context)
-P->>P: Check action.skip_permissions == 1
-alt skip_permissions is True
+QH->>P: can_ignore_permissions(action, context)
+P->>P: Check action.ignore_permissions == 1
+alt ignore_permissions is True
     P->>P: Check User Roles (System Manager)
     P->>P: Assert non-empty permission_audit_reason
     P-->>QH: return True (ignore_permissions=True)
-else skip_permissions is False
+else ignore_permissions is False
     P-->>QH: return False (ignore_permissions=False)
 end
 alt ignore_permissions is True
@@ -365,27 +324,18 @@ RE-->>User: Complete Execution
 
 ## Appendix C — Repository-Wide Search Results
 
-The repository-wide search for `"skip_permissions"` yielded the following raw references:
+The repository-wide search for `"ignore_permissions"` yielded the following raw references:
 
 1. **Backend Handler Code**:
    * `flexirule/ruleflow/core/permissions.py`: Reads field value to guard bypass authorization.
    * `flexirule/ruleflow/core/action_handlers/document_action.py`: Invokes guard and passes ignore flag to inserts/saves/deletes.
    * `flexirule/ruleflow/core/action_handlers/query_records.py`: Invokes guard and passes ignore flag to reads/counts/aggregates.
-   * `flexirule/ruleflow/core/action_handlers/sub_rule.py`: Invokes guard, logs bypass, and writes context meta-flag.
+   * `flexirule/ruleflow/core/action_handlers/sub_rule.py`: Invokes guard and logs bypass.
 
 2. **Frontend UI Components**:
-   * `flexirule/public/js/flexirule/rule_builder/components/rule_config/types/SubRuleConfig.vue`: Implements control.
-   * `flexirule/public/js/flexirule/rule_builder/components/rule_config/types/DocumentActionConfig.vue`: Implements control.
-   * `flexirule/public/js/flexirule/rule_builder/components/rule_config/types/QueryRecordsConfig.vue`: Implements control.
-   * `flexirule/public/js/flexirule/rule_builder/composables/useRuleConfig.js`: Enforces validation rules.
+   * `SubRuleConfig.vue`, `DocumentActionConfig.vue`, `QueryRecordsConfig.vue` implement forms.
+   * `useRuleConfig.js` enforces validations.
 
 3. **Pinia Stores**:
-   * `useRuleStore.js`: Serializes field value on save.
-   * `useGraphStore.js`: Hydrates nodes and cleans fields.
-
-4. **Database Metadata**:
-   * `rule_action.json`: Field definitions, properties, and depend/mandatory evaluation paths.
-   * `rule_action.py`: Class file with type annotations.
-
-5. **Legacy Client Form**:
-   * `rule.js`: Sets Desk field display configuration.
+   * `useRuleStore.js` serializes field values.
+   * `useGraphStore.js` hydrates nodes and supports fallback compatibility checks.

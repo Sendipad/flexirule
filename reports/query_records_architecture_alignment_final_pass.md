@@ -100,7 +100,7 @@ class QueryRecordsHandler(ActionHandler):
         mode = action.operation
         reference_doctype = action.reference_doctype
         config = self._parse_config(action.config)
-        ignore_permissions = can_skip_permissions(action, context, throw=True)
+        ignore_permissions = can_ignore_permissions(action, context, throw=True)
 
         if not mode:
             frappe.throw(_("Operation/Mode is required for Query Records action"))
@@ -177,7 +177,8 @@ class QueryRecordsHandler(ActionHandler):
 
 By replacing `get_all()` with `get_list()` for all aggregate operations, we align permissions behavior perfectly with Frappe's security engine:
 - **Count / Metrics Permissions**: Standard user role constraints, document sharing limitations, and owner checks are automatically appended to the `WHERE` clauses compiled in SQL.
-- **`ignore_permissions` Handling**: If standard users run queries under a rule where `skip_permissions` is disabled, permissions are enforced. If `skip_permissions` is configured, it is validated by `can_skip_permissions` and audited, setting `ignore_permissions=True` to allow access under controlled conditions.
+- **`ignore_permissions` Handling**: If standard users run queries under a rule where `ignore_permissions` is disabled, permissions are enforced. If `ignore_permissions` is configured, it is validated by `can_ignore_permissions` and audited, setting `ignore_permissions=True` to allow access under controlled conditions.
+- **Security of Reports**: Report permissions can never be bypassed, while `ignore_permissions` only applies where explicitly intended (such as Query List/Database operations).
 - **No Extra Code Overhead**: Bypasses the need for custom manual permissions evaluation wrappers.
 
 ---

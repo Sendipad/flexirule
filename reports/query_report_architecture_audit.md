@@ -520,14 +520,14 @@ Based on this scoped permission model, `QueryRecordsHandler` should enforce stri
 def execute(self, action, context, engine):
     mode = action.operation
     reference_doctype = action.reference_doctype
-    ignore_permissions = can_skip_permissions(action, context, throw=True)
+    ignore_permissions = can_ignore_permissions(action, context, throw=True)
 
     if mode == "Query Report":
         # 1. Check top-level Report Document Permissions first (NEVER bypass)
         config = self._parse_config(action.config)
         report_name = config.get("report_name")
 
-        # Enforce strict Report-level access checks
+        # Enforce strict Report-level access checks (Report permissions can never be bypassed)
         if not frappe.has_permission("Report", "read", report_name):
             frappe.throw(
                 _("You do not have permission to execute the Report '{0}'.").format(report_name),
@@ -540,7 +540,7 @@ def execute(self, action, context, engine):
             config=config,
             context=context,
             action=action,
-            ignore_permissions=False  # Hardcoded to False for reports
+            ignore_permissions=False  # Hardcoded to False/no-op for reports
         )
         return result, action.next_step_if_true
 
