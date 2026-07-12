@@ -245,6 +245,8 @@ Commit the `rule_action.json` schema updates with the new `ignore_permissions` f
 #### Step 2: Idempotent Migration Patch (`flexirule/patches/v2_0/migrate_skip_permissions_to_ignore_permissions.py`)
 This Python patch runs during the upgrade cycle. It reads active values from the old database column and populates the new column.
 
+Following standard Frappe best practices, the patch must be registered in the **`flexirule/patches.txt`** registry file under the `[post_model_sync]` section so that it executes automatically during `bench migrate` once the schema has been synchronized.
+
 ##### Implementation Blueprint:
 ```python
 import frappe
@@ -265,6 +267,14 @@ def execute():
     """)
 
     frappe.db.commit()
+```
+
+##### Patches Registration (`flexirule/patches.txt`):
+Add the patch file path to the end of the `[post_model_sync]` section:
+```text
+[post_model_sync]
+...
+flexirule.patches.v2_0.migrate_skip_permissions_to_ignore_permissions
 ```
 
 #### Step 3: Delete the Old Field Schema
