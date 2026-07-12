@@ -31,7 +31,7 @@ from flexirule.ruleflow.core.action_handlers.base_contract import (
 	reference_doctype_override,
 	standard_trigger_overrides,
 )
-from flexirule.ruleflow.core.permissions import can_skip_permissions
+from flexirule.ruleflow.core.permissions import can_ignore_permissions
 from flexirule.ruleflow.utils.mapping import apply_input_mapping
 
 
@@ -166,7 +166,7 @@ class QueryRecordsHandler(ActionHandler):
 
 	@classmethod
 	def get_operation_contracts(cls) -> dict:
-		return {
+		contracts = {
 			"Query List": OperationContract(
 				operation="Query List",
 				rule_overrides=standard_trigger_overrides(
@@ -291,12 +291,29 @@ class QueryRecordsHandler(ActionHandler):
 			),
 		}
 
+		permission_overrides = [
+			{
+				"fieldname": "ignore_permissions",
+				"read_only": "eval:!frappe.user.has_role('System Manager')",
+			},
+			{
+				"fieldname": "permission_audit_reason",
+				"mandatory_depends_on": "ignore_permissions",
+				"hidden": "eval:!doc.ignore_permissions",
+			},
+		]
+
+		for op in contracts.values():
+			op.action_overrides.extend(permission_overrides)
+
+		return contracts
+
 	def execute(self, action, context, engine):
 		"""Execute a query based on the configured mode (operation field)."""
 		mode = action.operation
 		reference_doctype = action.reference_doctype
 		config = self._parse_config(action.config)
-		ignore_permissions = can_skip_permissions(action, context, throw=True)
+		ignore_permissions = can_ignore_permissions(action, context, throw=True)
 
 		if not mode:
 			frappe.throw(_("Operation/Mode is required for Query Records action"))

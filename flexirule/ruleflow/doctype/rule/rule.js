@@ -443,7 +443,8 @@ function toggle_action_fields(frm, cdt, cdn) {
 		"next_step_if_false",
 		"rule",
 		"skip_conditions",
-		"skip_permissions",
+		"ignore_permissions",
+		"permission_audit_reason",
 		"configure_operation",
 		"target_field",
 		"value_template",
@@ -488,9 +489,16 @@ function toggle_action_fields(frm, cdt, cdn) {
 	} else if (type === "Condition") {
 		fields_to_show.push("compiled_expression", "next_step_if_false");
 	} else if (type === "Sub-Rule") {
-		fields_to_show.push("skip_conditions", "skip_permissions");
+		fields_to_show.push("skip_conditions", "ignore_permissions", "permission_audit_reason");
 	} else if (["Query Records", "Document Action"].includes(type)) {
-		fields_to_show.push("input_source", "mutation_mode", "return_type", "return_variable");
+		fields_to_show.push(
+			"input_source",
+			"mutation_mode",
+			"return_type",
+			"return_variable",
+			"ignore_permissions",
+			"permission_audit_reason"
+		);
 	}
 
 	// Always show operation if it has options or is for specific types

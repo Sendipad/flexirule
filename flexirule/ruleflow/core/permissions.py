@@ -10,7 +10,7 @@ import json
 import frappe
 from frappe import _
 
-DEFAULT_SKIP_PERMISSIONS_ROLES = {"System Manager"}
+DEFAULT_IGNORE_PERMISSIONS_ROLES = {"System Manager"}
 DEFAULT_ALLOWED_METHOD_PREFIXES = ("flexirule.",)
 
 
@@ -147,44 +147,48 @@ def check_method_permission(method_path, throw=True):
 	return True
 
 
-def can_skip_permissions(action, context=None, throw=True):
+def can_ignore_permissions(action, context=None, throw=True):
 	"""
-	Guard skip_permissions usage behind explicit role policy and audit reason.
+	Guard ignore_permissions usage behind explicit role policy and audit reason.
 
 	Audit reason is read from:
 	- action.permission_audit_reason (if field exists), or
 	- action.config.permission_audit_reason
 	"""
-	if not int(getattr(action, "skip_permissions", 0) or 0):
+	if not int(getattr(action, "ignore_permissions", getattr(action, "skip_permissions", 0)) or 0):
 		return False
 
 	user = frappe.session.user
 	user_roles = set(frappe.get_roles(user))
-	allowed_roles = set(frappe.get_hooks("flexirule_skip_permissions_roles") or [])
+	allowed_roles = set(
+		frappe.get_hooks("flexirule_ignore_permissions_roles")
+		or frappe.get_hooks("flexirule_skip_permissions_roles")
+		or []
+	)
 	if not allowed_roles:
-		allowed_roles = set(DEFAULT_SKIP_PERMISSIONS_ROLES)
+		allowed_roles = set(DEFAULT_IGNORE_PERMISSIONS_ROLES)
 
 	if user != "Administrator" and not user_roles.intersection(allowed_roles):
 		if throw:
 			frappe.throw(
-				_("skip_permissions is restricted. Requires one of roles: {0}").format(
+				_("ignore_permissions is restricted. Requires one of roles: {0}").format(
 					", ".join(sorted(allowed_roles))
 				),
 				frappe.PermissionError,
 			)
 		return False
 
-	audit_reason = _extract_skip_permissions_audit_reason(action)
+	audit_reason = _extract_ignore_permissions_audit_reason(action)
 	if not audit_reason:
 		if throw:
 			frappe.throw(
-				_("skip_permissions requires 'permission_audit_reason' in action configuration."),
+				_("ignore_permissions requires 'permission_audit_reason' in action configuration."),
 				frappe.ValidationError,
 			)
 		return False
 
 	frappe.logger("flexirule.security").warning(
-		"skip_permissions override by user=%s action=%s action_id=%s reason=%s",
+		"ignore_permissions override by user=%s action=%s action_id=%s reason=%s",
 		user,
 		getattr(action, "action_label", None) or getattr(action, "name", None),
 		getattr(action, "action_id", None),
@@ -193,7 +197,7 @@ def can_skip_permissions(action, context=None, throw=True):
 	return True
 
 
-def _extract_skip_permissions_audit_reason(action) -> str:
+def _extract_ignore_permissions_audit_reason(action) -> str:
 	direct_reason = getattr(action, "permission_audit_reason", None)
 	if direct_reason:
 		return str(direct_reason).strip()

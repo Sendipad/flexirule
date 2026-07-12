@@ -223,17 +223,17 @@
    "default": "0",
    "depends_on": "eval:['Sub-Rule', 'Query Records', 'Document Action'].includes(doc.action_type)",
    "description": "Skip permission checks for this action (requires audit reason)",
-   "fieldname": "skip_permissions",
+   "fieldname": "ignore_permissions",
    "fieldtype": "Check",
    "label": "Ignore Permissions"
   },
   {
-   "depends_on": "skip_permissions",
+   "depends_on": "ignore_permissions",
    "description": "Reason for bypassing permission checks (for audit)",
    "fieldname": "permission_audit_reason",
    "fieldtype": "Small Text",
    "label": "Permission Audit Reason",
-   "mandatory_depends_on": "skip_permissions"
+   "mandatory_depends_on": "ignore_permissions"
   },
   {
    "collapsible": 1,

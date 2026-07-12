@@ -299,7 +299,7 @@ def _organize_fields_into_sections(fields, action_type, contract):
 				"is_async",
 				"priority",
 				"skip_conditions",
-				"skip_permissions",
+				"ignore_permissions",
 			],
 		},
 	]

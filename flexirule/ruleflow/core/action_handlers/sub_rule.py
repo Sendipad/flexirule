@@ -17,7 +17,7 @@ from frappe import _
 from flexirule.ruleflow.core.action_handlers import ActionHandler, HandlerRegistry
 from flexirule.ruleflow.core.action_handlers.base_contract import ActionContract, OperationContract
 from flexirule.ruleflow.core.exceptions import CycleDetectedError, MethodExecutionError
-from flexirule.ruleflow.core.permissions import can_skip_permissions
+from flexirule.ruleflow.core.permissions import can_ignore_permissions
 from flexirule.ruleflow.utils.mapping import apply_input_mapping, apply_output_mapping
 
 # Maximum nesting depth for sub-rule calls
@@ -138,14 +138,14 @@ class SubRuleHandler(ActionHandler):
 						"description": "⚠️ Bypasses sub-rule's trigger conditions",
 					},
 					{
-						"fieldname": "skip_permissions",
+						"fieldname": "ignore_permissions",
 						"read_only_depends_on": "eval:!frappe.user.has_role('System Manager')",
 						"description": "⚠️ Requires audit reason when enabled",
 					},
 					{
 						"fieldname": "permission_audit_reason",
-						"mandatory_depends_on": "skip_permissions",
-						"hidden": "eval:!doc.skip_permissions",
+						"mandatory_depends_on": "ignore_permissions",
+						"hidden": "eval:!doc.ignore_permissions",
 					},
 					{"fieldname": "description", "description": "Executes another rule as a subroutine"},
 				],
@@ -226,12 +226,12 @@ class SubRuleHandler(ActionHandler):
 
 			# Determine bypass flags
 			skip_conditions = self._get_skip_conditions(action)
-			skip_permissions = int(can_skip_permissions(action, context, throw=True))
+			ignore_permissions = int(can_ignore_permissions(action, context, throw=True))
 
 			engine._log(
 				"INFO",
-				_("Sub-Rule {0}: skip_conditions={1}, skip_permissions={2}").format(
-					sub_rule_name, skip_conditions, skip_permissions
+				_("Sub-Rule {0}: skip_conditions={1}, ignore_permissions={2}").format(
+					sub_rule_name, skip_conditions, ignore_permissions
 				),
 			)
 
@@ -290,10 +290,10 @@ class SubRuleHandler(ActionHandler):
 					return None, getattr(action, "next_step_if_true", None)
 
 			# Log permission bypass for audit
-			if skip_permissions:
+			if ignore_permissions:
 				engine._log(
 					"AUDIT",
-					_("Sub-Rule {0}: Executing with skip_permissions=True by user {1}").format(
+					_("Sub-Rule {0}: Executing with ignore_permissions=True by user {1}").format(
 						sub_rule_name, frappe.session.user
 					),
 				)
@@ -322,7 +322,6 @@ class SubRuleHandler(ActionHandler):
 				)
 			sub_context["meta"]["call_depth"] = current_depth + 1
 			sub_context["meta"]["skip_conditions"] = skip_conditions
-			sub_context["meta"]["skip_permissions"] = skip_permissions
 			sub_context["meta"]["caller_rule"] = engine.rule.name
 			sub_context["meta"]["caller_trigger_type"] = engine.rule.trigger_type
 			sub_context["meta"]["caller_trigger_event"] = (
