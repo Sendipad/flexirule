@@ -53,7 +53,7 @@ class RuleAction(Document):
 		return_variable: DF.Data | None
 		rule: DF.Link | None
 		skip_conditions: DF.Check
-		skip_permissions: DF.Check
+		ignore_permissions: DF.Check
 		target_field: DF.Data | None
 		timeout: DF.Int
 		value_template: DF.Code | None

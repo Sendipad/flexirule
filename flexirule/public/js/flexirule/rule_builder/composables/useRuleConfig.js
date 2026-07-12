@@ -87,7 +87,7 @@ export function useRuleConfig(props, emit) {
 
 		// 3. Global Business Rules
 		if (
-			draftNode.value.data?.skip_permissions &&
+			draftNode.value.data?.ignore_permissions &&
 			!draftNode.value.data?.permission_audit_reason
 		) {
 			errors.push(__("Permission Audit Reason is required when bypassing permissions."));

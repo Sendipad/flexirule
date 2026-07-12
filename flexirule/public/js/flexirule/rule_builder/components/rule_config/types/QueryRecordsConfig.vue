@@ -13,7 +13,7 @@
 				<ControlFactory
 					:ref="setControlRef"
 					:df="{
-						fieldname: 'skip_permissions',
+						fieldname: 'ignore_permissions',
 						fieldtype: 'Check',
 						label: __('Skip Permissions'),
 						description: __(
@@ -21,11 +21,11 @@
 						),
 						read_only: readOnly,
 					}"
-					:modelValue="node?.data?.skip_permissions"
-					@update:modelValue="(val) => update_action_key('skip_permissions', val)"
+					:modelValue="node?.data?.ignore_permissions"
+					@update:modelValue="(val) => update_action_key('ignore_permissions', val)"
 				/>
 				<ControlFactory
-					v-if="!!node?.data?.skip_permissions"
+					v-if="!!node?.data?.ignore_permissions"
 					:ref="setControlRef"
 					:df="{
 						fieldname: 'permission_audit_reason',
@@ -1397,7 +1397,7 @@ async function validate() {
 	}
 
 	// 4. Permission Audit Reason (Global check, though child CheckControl should handle reqd)
-	if (props.node?.data?.skip_permissions && !props.node?.data?.permission_audit_reason) {
+	if (props.node?.data?.ignore_permissions && !props.node?.data?.permission_audit_reason) {
 		errors.push(__("Permission Audit Reason is required when bypassing permissions."));
 	}
 

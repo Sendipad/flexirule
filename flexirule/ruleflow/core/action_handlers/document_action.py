@@ -29,7 +29,7 @@ from flexirule.ruleflow.core.action_handlers.base_contract import (
 	standard_trigger_overrides,
 )
 from flexirule.ruleflow.core.action_plan_cache import get_action_plan
-from flexirule.ruleflow.core.permissions import can_skip_permissions
+from flexirule.ruleflow.core.permissions import can_ignore_permissions
 from flexirule.ruleflow.utils.mapping import apply_input_mapping
 
 
@@ -152,14 +152,14 @@ class DocumentActionHandler(ActionHandler):
 					},
 					{"fieldname": "return_type", "options": ["Single Record", "Full Document"], "reqd": 1},
 					{
-						"fieldname": "skip_permissions",
+						"fieldname": "ignore_permissions",
 						"hidden": "eval:!frappe.user.has_role('System Manager')",
-						"read_only_depends_on": "eval:!frappe.user.has_role('System Manager')",
+						"read_only": "eval:!frappe.user.has_role('System Manager')",
 					},
 					{
 						"fieldname": "permission_audit_reason",
-						"mandatory_depends_on": "skip_permissions",
-						"hidden": "eval:!doc.skip_permissions",
+						"mandatory_depends_on": "ignore_permissions",
+						"hidden": "eval:!doc.ignore_permissions",
 					},
 					{"fieldname": "description", "description": "⚠️ Creates a new document record"},
 				],
@@ -248,7 +248,7 @@ class DocumentActionHandler(ActionHandler):
 		config = (
 			plan.get("config") if isinstance(plan.get("config"), dict) else self._parse_config(action.config)
 		)
-		ignore_permissions = can_skip_permissions(action, context, throw=True)
+		ignore_permissions = can_ignore_permissions(action, context, throw=True)
 		is_async = bool(plan.get("is_async") if "is_async" in plan else action.is_async)
 
 		if not mode:
