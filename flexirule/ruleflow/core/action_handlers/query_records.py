@@ -368,6 +368,8 @@ class QueryRecordsHandler(ActionHandler):
 			config = self._parse_config(action.config)
 			if not config.get("report_name"):
 				errors.append(_("Query Report mode requires report_name in config"))
+			elif not frappe.db.exists("Report", config.get("report_name")):
+				errors.append(_("Report '{0}' does not exist").format(config.get("report_name")))
 
 		if mode in ("Sum", "Average", "Min", "Max"):
 			config = self._parse_config(action.config)
@@ -498,30 +500,21 @@ class QueryRecordsHandler(ActionHandler):
 		return errors
 
 	def _count_records(self, reference_doctype, config, context, action, ignore_permissions):
-		"""Count records matching filters using get_list-compatible filters."""
+		"""Count records matching filters using get_list with permission enforcement."""
 		filters, or_filters = self._resolve_query_filters(config, context, action)
-		if not ignore_permissions and not frappe.has_permission(reference_doctype, "read"):
-			frappe.throw(
-				_("You don't have read permission for {0}").format(reference_doctype), frappe.PermissionError
-			)
 
-		# Use get_list/get_all style query so child-table and nested-set operators work consistently.
-		rows = frappe.get_all(
+		rows = frappe.get_list(
 			reference_doctype,
 			filters=filters,
 			or_filters=or_filters,
 			fields=["count(name) as _count"],
 			ignore_permissions=ignore_permissions,
+			limit_page_length=0,
 		)
 		return (rows and rows[0].get("_count")) or 0
 
 	def _aggregate(self, reference_doctype, config, context, action, ignore_permissions):
-		"""Perform sum/avg/min/max via frappe.get_all for consistent filter semantics."""
-		if not ignore_permissions and not frappe.has_permission(reference_doctype, "read"):
-			frappe.throw(
-				_("You don't have read permission for {0}").format(reference_doctype), frappe.PermissionError
-			)
-
+		"""Perform sum/avg/min/max via frappe.get_list with permission enforcement."""
 		filters, or_filters = self._resolve_query_filters(config, context, action)
 		field = config.get("field", "name")
 		mode = action.operation
@@ -535,35 +528,32 @@ class QueryRecordsHandler(ActionHandler):
 		if not agg_fn:
 			frappe.throw(_("Unsupported aggregation mode: {0}").format(mode))
 
-		rows = frappe.get_all(
+		rows = frappe.get_list(
 			reference_doctype,
 			filters=filters,
 			or_filters=or_filters,
 			fields=[f"{agg_fn}({field}) as result"],
 			ignore_permissions=ignore_permissions,
+			limit_page_length=0,
 		)
 		return (rows and rows[0].get("result")) or 0
 
 	def _group_by(self, reference_doctype, config, context, action, ignore_permissions):
-		"""Perform group_by aggregation via frappe.get_all for consistent filter semantics."""
-		if not ignore_permissions and not frappe.has_permission(reference_doctype, "read"):
-			frappe.throw(
-				_("You don't have read permission for {0}").format(reference_doctype), frappe.PermissionError
-			)
-
+		"""Perform group_by aggregation via frappe.get_list with permission enforcement."""
 		filters, or_filters = self._resolve_query_filters(config, context, action)
 		aggregate_field = config.get("field", "name")
 		group_field = config.get("group_by_field", aggregate_field)
 		agg_function = config.get("agg_function", "count").lower()
 		agg_field = config.get("agg_field", "name")
 		safe_agg_fn = agg_function if agg_function in {"sum", "avg", "min", "max", "count"} else "count"
-		return frappe.get_all(
+		return frappe.get_list(
 			reference_doctype,
 			filters=filters,
 			or_filters=or_filters,
 			fields=[group_field, f"{safe_agg_fn}({agg_field}) as value"],
 			group_by=group_field,
 			ignore_permissions=ignore_permissions,
+			limit_page_length=0,
 		)
 
 	def _safe_eval_with_context(self, expression, context, ref_label: str):
@@ -930,6 +920,10 @@ class QueryRecordsHandler(ActionHandler):
 			kwargs["or_filters"] = or_filters
 		if group_by:
 			kwargs["group_by"] = group_by
+		if config.get("distinct"):
+			kwargs["distinct"] = True
+		if config.get("parent_doctype"):
+			kwargs["parent_doctype"] = config["parent_doctype"]
 
 		return frappe.get_list(**kwargs)
 
@@ -1000,7 +994,7 @@ class QueryRecordsHandler(ActionHandler):
 		"""Check if records exist matching filters. Returns boolean."""
 		filters, or_filters = self._resolve_query_filters(config, context, action)
 
-		rows = frappe.get_all(
+		rows = frappe.get_list(
 			reference_doctype,
 			filters=filters,
 			or_filters=or_filters,
@@ -1011,12 +1005,47 @@ class QueryRecordsHandler(ActionHandler):
 		return bool(rows)
 
 	def _query_report(self, reference_doctype, config, context, action, ignore_permissions):
-		"""Run a report and return results as a list of dicts."""
+		"""Run a report and return results as a list of dicts.
+
+		Note: ignore_permissions is a no-op for Query Report mode.
+		Frappe's query_report.run() enforces report-level permissions
+		(frappe.has_permission(ref_doctype, "report")) internally and
+		does not accept an ignore_permissions parameter. Report access
+		for disallowed users will always raise PermissionError.
+		"""
 		report_name = config.get("report_name")
 		if not report_name:
 			frappe.throw(_("report_name is required in config for Query Report mode"))
 
-		report_filters, unused = self._resolve_query_filters(config, context, action)
+		# Resolve filter variables but DO NOT normalize to list-of-lists.
+		# Frappe's query_report.run() passes filters to frappe.db.sql(query, filters)
+		# which expects a flat dict for %(key)s SQL parameter binding.
+		action_label = getattr(action, "label", None) or getattr(action, "action_id", None) or "Query Records"
+		raw_filters = config.get("filters") or {}
+		resolved_filters = self._resolve_filters_with_context(
+			raw_filters, context, f"{action_label}.filters", action
+		)
+
+		# Ensure filters remain a flat dict for SQL parameter binding.
+		# If the resolved output is a list of UI-dict objects, convert to flat dict.
+		report_filters = {}
+		if isinstance(resolved_filters, dict):
+			for k, v in resolved_filters.items():
+				report_filters[k] = self._extract_filter_value_payload(v)
+		elif isinstance(resolved_filters, list):
+			# Convert list-of-dicts [{fieldname, operator, value}] to flat dict
+			for item in resolved_filters:
+				if isinstance(item, dict):
+					field = item.get("field") or item.get("fieldname")
+					val = self._extract_filter_value_payload(item.get("value"))
+					if field:
+						report_filters[field] = val
+				elif isinstance(item, list) and len(item) >= 3:
+					# [field, op, value] or [doctype, field, op, value]
+					if len(item) == 4:
+						report_filters[item[1]] = self._extract_filter_value_payload(item[3])
+					else:
+						report_filters[item[0]] = self._extract_filter_value_payload(item[2])
 
 		from frappe.desk.query_report import run as run_report
 
@@ -1025,63 +1054,12 @@ class QueryRecordsHandler(ActionHandler):
 			filters=report_filters,
 		)
 
-		data: list = []
-		columns: list = []
-
-		if isinstance(result, dict):
-			data = result.get("result") or result.get("data") or []
-			columns = result.get("columns") or []
-		elif isinstance(result, list | tuple) and len(result) >= 2:
-			columns = result[0]
-			data = result[1]
-		elif isinstance(result, list):
-			data = result
-
-		# 2. Try to fetch columns from report definition if missing
-		if not columns and report_name:
-			try:
-				report_doc = frappe.get_doc("Report", report_name)
-				if report_doc.report_type == "Query Report":
-					# Extract columns from query
-					pass
-				elif report_doc.json:
-					report_data = json.loads(report_doc.json)
-					columns = report_data.get("columns", [])
-			except Exception:
-				pass
-
-		# 3. If data is empty, still return columns for schema detection
-		if not data:
-			return {"columns": columns, "result": []}
-
-		# 4. Transform data (List of Lists/Mixed -> List of Dicts)
-		if columns:
-			col_names = []
-			for col in columns:
-				name = None
-				if isinstance(col, dict):
-					name = col.get("fieldname") or col.get("label")
-				elif isinstance(col, str):
-					name = col
-
-				if name:
-					col_names.append(name)
-
-			if col_names:
-				new_data = []
-				for row in data:
-					if isinstance(row, list | tuple):
-						row_dict = {}
-						# Handle mixed length or missing columns gracefully
-						for i, val in enumerate(row):
-							if i < len(col_names):
-								row_dict[col_names[i]] = val
-						new_data.append(row_dict)
-					elif isinstance(row, dict):
-						new_data.append(row)
-				data = new_data
-
-		return {"columns": columns, "result": data}
+		# Frappe's run() returns a dict with normalized "result" (list of dicts)
+		# and "columns" (list of dicts) via its native normalize_result().
+		return {
+			"columns": result.get("columns", []) if isinstance(result, dict) else [],
+			"result": result.get("result", []) if isinstance(result, dict) else [],
+		}
 
 
 # Register handler

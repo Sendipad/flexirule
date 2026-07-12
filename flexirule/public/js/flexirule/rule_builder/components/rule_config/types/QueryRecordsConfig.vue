@@ -141,6 +141,41 @@
 								@update:modelValue="(val) => update_config_key('limit', val)"
 							/>
 						</div>
+						<div class="grid-item" v-if="!config.group_by">
+							<ControlFactory
+								:ref="setControlRef"
+								:df="
+									with_read_only({
+										fieldname: 'distinct',
+										fieldtype: 'Check',
+										label: __('Deduplicate Rows (DISTINCT)'),
+										description: __('Return only unique parent records'),
+									})
+								"
+								:modelValue="config.distinct"
+								@update:modelValue="(val) => update_config_key('distinct', val)"
+							/>
+						</div>
+						<div class="grid-item" v-if="is_child_table_target">
+							<ControlFactory
+								:ref="setControlRef"
+								:df="
+									with_read_only({
+										fieldname: 'parent_doctype',
+										fieldtype: 'Link',
+										options: 'DocType',
+										label: __('Parent DocType'),
+										description: __(
+											'Required for querying Child DocTypes directly'
+										),
+									})
+								"
+								:modelValue="config.parent_doctype"
+								@update:modelValue="
+									(val) => update_config_key('parent_doctype', val)
+								"
+							/>
+						</div>
 						<div class="grid-item">
 							<label class="control-label small">{{ __("Group By") }}</label>
 							<ComboBoxControl
@@ -589,6 +624,7 @@ const report_filter_values = reactive({});
 const report_filter_types = reactive({});
 const test_status = ref("");
 const is_single_doctype = ref(false);
+const is_child_table_target = ref(false);
 const showValidation = ref(false);
 const filterGroupRef = ref(null);
 const controlRefs = ref([]);
@@ -615,6 +651,7 @@ onMounted(async () => {
 
 			const meta = await flexirule.utils.get_doctype_meta(reference_doctype.value);
 			is_single_doctype.value = !!meta?.issingle;
+			is_child_table_target.value = !!meta?.istable;
 		}
 		// Ensure schema is initialized on first load even before any user edits.
 		// This avoids empty OutputPanel schema when config already has selected fields.
@@ -652,9 +689,13 @@ watch(
 					// Re-initialize for Query Doc if not single
 					if (mode.value === "Query Doc") {
 						const meta = await flexirule.utils.get_doctype_meta(val);
+						is_child_table_target.value = !!meta?.istable;
 						if (meta && !meta.issingle) {
 							config.filters = [[val, "name", "=", { mode: "static", value: "" }]];
 						}
+					} else {
+						const meta = await flexirule.utils.get_doctype_meta(val);
+						is_child_table_target.value = !!meta?.istable;
 					}
 				} else if (typeof config.filters === "object") {
 					config.filters = {};
