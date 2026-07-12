@@ -56,16 +56,18 @@
 				</div>
 
 				<div class="sub-section section-subcard">
+					<h6>{{ __("Fields") }}</h6>
 					<MultiSelectList
 						:ref="setControlRef"
 						:df="{
-							label: __('Fields'),
+							label: '',
 							fieldname: 'fields',
 							placeholder: __('Select fields to fetch...'),
 						}"
 						:options="doctype_fields"
 						:modelValue="config.fields || []"
 						:read_only="readOnly"
+						:hideLabel="true"
 						@update:modelValue="(val) => update_config_key('fields', val)"
 					/>
 				</div>
@@ -73,11 +75,7 @@
 				<div class="sub-section section-subcard">
 					<h6>{{ __("Order By") }}</h6>
 					<div class="table-rows">
-						<div
-							v-for="(row, idx) in order_by_rows"
-							:key="idx"
-							class="row-item field-row"
-						>
+						<div v-for="(row, idx) in order_by_rows" :key="idx" class="order-by-row">
 							<ComboBoxControl
 								:ref="setControlRef"
 								:df="{ label: '', fieldtype: 'FieldPicker' }"
@@ -95,8 +93,7 @@
 								@update:modelValue="(val) => (row.field = val)"
 							/>
 							<select
-								class="form-control input-xs ml-2"
-								style="width: 80px"
+								class="form-control input-xs direction-select"
 								v-model="row.direction"
 								:disabled="readOnly"
 							>
@@ -105,14 +102,18 @@
 							</select>
 							<button
 								v-if="!readOnly"
-								class="btn btn-xs btn-link text-danger"
+								class="btn btn-xs btn-link text-danger remove-sort-btn"
 								@click="remove_order_by(idx)"
 							>
 								<i class="fa fa-trash"></i>
 							</button>
 						</div>
-						<button v-if="!readOnly" class="btn btn-xs btn-link" @click="add_order_by">
-							<i class="fa fa-plus"></i> {{ __("Add Sort Criteria") }}
+						<button
+							v-if="!readOnly"
+							class="btn btn-xs btn-link p-0 text-primary mt-2 align-self-start"
+							@click="add_order_by"
+						>
+							<i class="fa fa-plus mr-1"></i> {{ __("Add Sort Criteria") }}
 						</button>
 					</div>
 				</div>
@@ -141,19 +142,16 @@
 								@update:modelValue="(val) => update_config_key('limit', val)"
 							/>
 						</div>
-						<div class="grid-item" v-if="!config.group_by">
-							<ControlFactory
+						<div class="grid-item">
+							<ComboBoxControl
 								:ref="setControlRef"
-								:df="
-									with_read_only({
-										fieldname: 'distinct',
-										fieldtype: 'Check',
-										label: __('Deduplicate Rows (DISTINCT)'),
-										description: __('Return only unique parent records'),
-									})
-								"
-								:modelValue="config.distinct"
-								@update:modelValue="(val) => update_config_key('distinct', val)"
+								fieldname="group_by"
+								:df="{ label: __('Group By'), fieldtype: 'Autocomplete' }"
+								:modelValue="config.group_by"
+								:get_query="get_group_by_options"
+								:read_only="readOnly"
+								:showOnFocus="true"
+								@update:modelValue="update_config_key('group_by', $event)"
 							/>
 						</div>
 						<div class="grid-item" v-if="is_child_table_target">
@@ -176,18 +174,22 @@
 								"
 							/>
 						</div>
-						<div class="grid-item">
-							<label class="control-label small">{{ __("Group By") }}</label>
-							<ComboBoxControl
+					</div>
+
+					<div v-if="!config.group_by" class="retrieval-checkboxes mt-2">
+						<div class="checkbox-item">
+							<ControlFactory
 								:ref="setControlRef"
-								fieldname="group_by"
-								:df="{ label: '', fieldtype: 'Autocomplete' }"
-								:modelValue="config.group_by"
-								:get_query="get_group_by_options"
-								:read_only="readOnly"
-								:hideLabel="true"
-								:showOnFocus="true"
-								@update:modelValue="update_config_key('group_by', $event)"
+								:df="
+									with_read_only({
+										fieldname: 'distinct',
+										fieldtype: 'Check',
+										label: __('Deduplicate Rows (DISTINCT)'),
+										description: __('Return only unique parent records'),
+									})
+								"
+								:modelValue="config.distinct"
+								@update:modelValue="(val) => update_config_key('distinct', val)"
 							/>
 						</div>
 					</div>
@@ -1377,7 +1379,7 @@ function load_local_config(val) {
 					field: parts[0],
 					direction: (parts[1] || "asc").toLowerCase(),
 				};
-		  })
+			})
 		: [];
 	const current_order_by_rows = order_by_rows.value.map((r) => ({
 		field: r.field,
@@ -1465,6 +1467,45 @@ defineExpose({
 	gap: var(--spacing-sm);
 }
 
+.sub-section h6 {
+	margin: 0;
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--fxr-text-strong);
+	letter-spacing: 0.02em;
+}
+
+.order-by-row {
+	display: flex;
+	align-items: center;
+	gap: var(--spacing-md);
+	width: 100%;
+}
+
+.direction-select {
+	width: 100px !important;
+	flex-shrink: 0;
+}
+
+.remove-sort-btn {
+	width: 32px;
+	height: 32px;
+	padding: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: var(--fxr-radius-sm);
+	opacity: 0.6;
+	transition: all var(--fxr-transition-fast);
+	flex-shrink: 0;
+}
+
+.remove-sort-btn:hover {
+	opacity: 1;
+	background-color: var(--fxr-bg-danger);
+	text-decoration: none;
+}
+
 .section-card {
 	border: 1px solid var(--fxr-border-subtle);
 	border-radius: var(--fxr-radius-md);
@@ -1489,7 +1530,13 @@ defineExpose({
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 	gap: var(--spacing-md);
-	align-items: flex-end;
+	align-items: start;
+}
+
+.retrieval-checkboxes {
+	display: flex;
+	flex-direction: column;
+	gap: var(--spacing-sm);
 }
 
 .grid-item {
@@ -1598,7 +1645,9 @@ defineExpose({
 	border-radius: var(--fxr-radius-md) !important;
 	background-color: var(--fxr-bg-input) !important;
 	color: var(--fxr-text) !important;
-	transition: border-color var(--fxr-transition-fast), box-shadow var(--fxr-transition-fast) !important;
+	transition:
+		border-color var(--fxr-transition-fast),
+		box-shadow var(--fxr-transition-fast) !important;
 }
 
 :deep(.form-control:focus) {

@@ -69,7 +69,7 @@ const showTooltip = ref(false);
 		</div>
 
 		<!-- standard description -->
-		<div v-if="df.description && !hideLabel" class="mt-2 description">
+		<div v-if="df.description && !hideLabel" class="description">
 			{{ __(df.description) }}
 		</div>
 
@@ -86,7 +86,9 @@ const showTooltip = ref(false);
 	position: relative;
 	min-height: var(--fxr-input-height);
 	display: flex;
-	align-items: center;
+	flex-direction: column;
+	align-items: flex-start;
+	justify-content: center;
 }
 
 .fxr-checkbox {
@@ -106,6 +108,7 @@ const showTooltip = ref(false);
 	border: 1px solid var(--fxr-border);
 	border-radius: var(--fxr-radius-sm);
 	transition: all var(--fxr-transition-fast);
+	flex-shrink: 0;
 }
 
 .fxr-checkbox input:checked {
@@ -117,6 +120,7 @@ const showTooltip = ref(false);
 	font-size: var(--fxr-text-base);
 	color: var(--fxr-text);
 	font-weight: var(--fxr-weight-medium);
+	line-height: 1.4;
 }
 
 .label-area.reqd::after {
@@ -127,7 +131,9 @@ const showTooltip = ref(false);
 .description {
 	font-size: var(--fxr-text-xs);
 	color: var(--fxr-text-muted);
-	margin-top: var(--fxr-space-2);
+	margin-top: var(--fxr-space-1);
+	line-height: 1.4;
+	padding-left: calc(16px + var(--fxr-space-3));
 }
 
 /* Tooltip */
