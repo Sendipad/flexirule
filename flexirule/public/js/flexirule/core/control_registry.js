@@ -103,9 +103,8 @@ ControlRegistry.registerDefault({
 				get_query = async (search_term) => {
 					try {
 						// Fallback to global window object if needed
-						const fields = await window.flexirule.utils.get_doctype_fields(
-							targetDoctype
-						);
+						const fields =
+							await window.flexirule.utils.get_doctype_fields(targetDoctype);
 						if (!search_term) return fields;
 						const q = search_term.toLowerCase();
 						return fields.filter(
@@ -189,16 +188,24 @@ ControlRegistry.registerDefault({
 // 8. MultiSelectList
 ControlRegistry.registerDefault({
 	match: (df) =>
-		["MultiSelect", "MultiFieldPicker", "MultiSelectList", "MultiCheck"].includes(
-			df?.fieldtype
-		),
+		[
+			"MultiSelect",
+			"MultiFieldPicker",
+			"MultiSelectList",
+			"MultiCheck",
+			"Table MultiSelect",
+		].includes(df?.fieldtype),
 	component: "MultiSelectList",
 	mapProps: (df, context) => {
 		let displayMode = df.displayMode;
 		if (!displayMode) {
-			if (df.fieldtype === "MultiSelect" || df.fieldtype === "MultiFieldPicker")
+			if (
+				df.fieldtype === "MultiSelect" ||
+				df.fieldtype === "MultiFieldPicker" ||
+				df.fieldtype === "MultiSelectList" ||
+				df.fieldtype === "Table MultiSelect"
+			)
 				displayMode = "badges";
-			else if (df.fieldtype === "MultiSelectList") displayMode = "list";
 			else if (df.fieldtype === "MultiCheck") displayMode = "columns";
 			else displayMode = "badges";
 		}

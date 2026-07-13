@@ -16,20 +16,26 @@
 			:class="{
 				'is-dynamic': isDynamicMode || !isStaticSupported,
 				'is-static-link': !isDynamicMode && isLinkType,
+				'is-multi-select': !isDynamicMode && isMultiSelect,
 			}"
 			@click="onWrapClick"
 		>
 			<!-- Static Mode (via ControlFactory or MultiSelectList) -->
-			<div v-if="!isDynamicMode && isStaticSupported" class="fvc-static-container flex-1">
+			<div
+				v-if="!isDynamicMode && isStaticSupported"
+				class="fvc-static-container flex-1"
+				:class="{ 'is-multi-select': isMultiSelect }"
+			>
 				<MultiSelectList
 					v-if="isMultiSelect"
 					:df="staticDf"
 					:modelValue="staticValue"
 					:documentType="isLinkType ? referenceDoctype : undefined"
 					:options="isLinkType ? undefined : fieldOptions"
+					:get_data="props.context?.df?.get_data"
 					displayMode="badges"
-					:badgeCollapseAfter="2"
-					:allowWrap="false"
+					:badgeCollapseAfter="0"
+					:allowWrap="true"
 					:hideLabel="true"
 					class="flex-1 min-w-0 w-100"
 					@update:modelValue="updateStaticValue"
@@ -377,11 +383,16 @@ const emit = defineEmits(["update:modelValue", "update"]);
 
 const isReadOnly = computed(() => !!props.readOnly || !!props.read_only);
 const isMultiSelect = computed(() => {
+	const ft = fieldType.value;
+	// Always treat native multi-value fieldtypes as multi-select
+	if (["MultiSelectList", "MultiSelect", "Table MultiSelect"].includes(ft)) {
+		return true;
+	}
+
 	const op = props.context?.operator;
 	const isListOp = op === "in list" || op === "not in list";
 	if (!isListOp) return false;
 
-	const ft = fieldType.value;
 	return (
 		ft === "Select" || PURE_TEXT_FIELDTYPES.has(ft) || ft === "Link" || ft === "Dynamic Link"
 	);
@@ -1225,7 +1236,7 @@ function handleBuilderUpdate(config, details) {
 					fieldType: fieldType.value,
 					referenceDoctype: referenceDoctype.value,
 					context: props.context,
-			  })
+				})
 			: props.context?.resolverDefaults;
 	const mergedConfig =
 		defaults && typeof defaults === "object" ? { ...defaults, ...config } : config;
@@ -1335,6 +1346,13 @@ onBeforeUnmount(() => {
 	transition: all 0.2s ease;
 }
 
+.fvc-main-field.is-multi-select {
+	height: auto !important;
+	min-height: var(--fxr-input-height, 32px) !important;
+	max-height: none !important;
+	overflow: visible !important;
+}
+
 .fvc-main-field:focus-within {
 	border-color: var(--fxr-accent);
 	box-shadow: var(--fxr-shadow-focus);
@@ -1364,6 +1382,15 @@ onBeforeUnmount(() => {
 	font-weight: var(--fxr-weight-bold) !important;
 	color: var(--fxr-text-strong) !important;
 	height: var(--fxr-input-height, 32px) !important;
+}
+
+.fvc-static-container.is-multi-select :deep(.multi-select-trigger) {
+	height: auto !important;
+	min-height: var(--fxr-input-height, 30px) !important;
+	border: none !important;
+	box-shadow: none !important;
+	background: transparent !important;
+	padding: 4px var(--fxr-input-padding-x) !important;
 }
 
 .fvc-main-field:focus-within {

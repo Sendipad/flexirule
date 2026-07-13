@@ -696,7 +696,28 @@ window.frappe.query_report.set_filter_value = (name, val) => {
 		};
 	}
 	sync_local_config();
+
+	const filterDef = report_filters.value.find((f) => f.fieldname === name);
+	if (filterDef && typeof filterDef.on_change === "function") {
+		try {
+			filterDef.on_change();
+		} catch (e) {
+			console.warn(`Failed to run on_change for filter ${name}`, e);
+		}
+	}
 };
+window.frappe.query_report.toggle_filter_display = (fieldname, show) => {
+	const filterDef = report_filters.value.find((f) => f.fieldname === fieldname);
+	if (filterDef) {
+		filterDef.hidden = !show;
+	}
+};
+Object.defineProperty(window.frappe.query_report, "filters", {
+	get() {
+		return report_filters.value;
+	},
+	configurable: true,
+});
 window.cur_report = window.frappe.query_report;
 
 const flat_report_filter_values = computed(() => {
@@ -1256,6 +1277,24 @@ async function load_report_filters(report_name) {
 				};
 			}
 		});
+
+		// Execute onload settings callback for initial filter adjustments
+		const settings = frappe.query_reports[report_name] || {};
+		if (typeof settings.onload === "function") {
+			try {
+				const mockReport = {
+					page: {
+						add_inner_button: () => {},
+					},
+					get_values: () => flat_report_filter_values.value,
+					set_filter_value: (name, val) =>
+						window.frappe.query_report.set_filter_value(name, val),
+				};
+				settings.onload(mockReport);
+			} catch (e) {
+				console.warn("Failed to execute onload handler for report", report_name, e);
+			}
+		}
 	} catch (e) {
 		console.error("Failed to load report filters", e);
 	} finally {
@@ -1266,6 +1305,15 @@ async function load_report_filters(report_name) {
 function update_report_filter(fieldname, value) {
 	report_filter_values[fieldname] = value;
 	sync_local_config();
+
+	const filterDef = report_filters.value.find((f) => f.fieldname === fieldname);
+	if (filterDef && typeof filterDef.on_change === "function") {
+		try {
+			filterDef.on_change();
+		} catch (e) {
+			console.warn(`Failed to run on_change for filter ${fieldname}`, e);
+		}
+	}
 }
 
 function fetch_default_values() {
@@ -1384,7 +1432,7 @@ function load_local_config(val) {
 					field: parts[0],
 					direction: (parts[1] || "asc").toLowerCase(),
 				};
-		  })
+			})
 		: [];
 	const current_order_by_rows = order_by_rows.value.map((r) => ({
 		field: r.field,
@@ -1650,7 +1698,9 @@ defineExpose({
 	border-radius: var(--fxr-radius-md) !important;
 	background-color: var(--fxr-bg-input) !important;
 	color: var(--fxr-text) !important;
-	transition: border-color var(--fxr-transition-fast), box-shadow var(--fxr-transition-fast) !important;
+	transition:
+		border-color var(--fxr-transition-fast),
+		box-shadow var(--fxr-transition-fast) !important;
 }
 
 :deep(.form-control:focus) {
