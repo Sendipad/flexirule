@@ -51,7 +51,7 @@ const conditionSummary = computed(() => {
 		const op = first.op;
 		const right = first.right?.ref
 			? first.right.ref.replace("doc.", "")
-			: (first.right?.value ?? "?");
+			: first.right?.value ?? "?";
 		return `${left} ${op} ${right}${count > 1 ? ` (+${count - 1})` : ""}`;
 	}
 	return `${count} ${__("conditions")}`;
