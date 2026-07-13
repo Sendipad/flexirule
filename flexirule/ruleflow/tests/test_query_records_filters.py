@@ -168,13 +168,12 @@ class TestQueryRecordsFilters(FrappeTestCase):
 			"filters": {
 				"customer": {"mode": "static", "value": "Customer A"},
 				"status": {"mode": "variable", "path": "doc.status"},
-			}
+			},
 		}
 		mock_run.return_value = {"columns": [], "result": []}
 
 		self.handler._query_report("Report", config, self.context, self.action, ignore_permissions=True)
 
 		mock_run.assert_called_once_with(
-			"Sales Register",
-			filters={"customer": "Customer A", "status": "Open"}
+			"Sales Register", filters={"customer": "Customer A", "status": "Open"}
 		)
