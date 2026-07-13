@@ -1634,10 +1634,10 @@ defineExpose({
 	margin-bottom: 0 !important;
 }
 
-/* ─── Unified input sizing inside QRC ─── */
-:deep(.form-control),
-:deep(input.form-control),
-:deep(select.form-control) {
+/* ─── Unified input sizing inside QRC (excluding FlexValueControl internals) ─── */
+:deep(.form-control:not(.fvc-main-field *)),
+:deep(input.form-control:not(.fvc-main-field *)),
+:deep(select.form-control:not(.fvc-main-field *)) {
 	height: var(--fxr-input-height) !important;
 	padding: var(--fxr-input-padding-y) var(--fxr-input-padding-x) !important;
 	font-size: var(--fxr-input-font-size) !important;
