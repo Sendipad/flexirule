@@ -329,9 +329,22 @@ const {
 	reset: resetOptionSource,
 } = useAsyncOptionsSource(async ({ query: search, start, pageSize }) => {
 	if (props.get_query) {
-		const rows = await props.get_query(search, props.filters || {});
-		if (rows !== null) {
-			return metaStore.uniqueOptions(metaStore.normalizeLinkRows(rows || []));
+		const res = await props.get_query(search, props.filters || {});
+		if (res !== null) {
+			if (res && typeof res === "object" && !Array.isArray(res)) {
+				if (res.filters || res.query) {
+					const mergedFilters = { ...(props.filters || {}), ...(res.filters || {}) };
+					return await metaStore.search_link_options({
+						doctype: effectiveDoctype.value,
+						txt: search || "",
+						filters: mergedFilters,
+						start,
+						page_length: pageSize,
+					});
+				}
+			} else {
+				return metaStore.uniqueOptions(metaStore.normalizeLinkRows(res || []));
+			}
 		}
 	}
 	if (effectiveDoctype.value) {
