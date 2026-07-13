@@ -684,15 +684,20 @@ watch(
 // Sync local config changes back to node (handled by debounced_sync)
 
 // Shim for frappe.query_report to support report JS scripts that use it
-if (!window.frappe.query_report) {
-	window.frappe.query_report = {
-		get_filter_value: (name) => report_filter_values[name] || "",
-		set_filter_value: (name, val) => {
-			report_filter_values[name] = val;
-			sync_local_config();
-		},
-	};
-}
+window.frappe.query_report = window.frappe.query_report || {};
+window.frappe.query_report.get_filter_value = (name) => flat_report_filter_values.value[name] || "";
+window.frappe.query_report.set_filter_value = (name, val) => {
+	if (val && typeof val === "object" && val.mode) {
+		report_filter_values[name] = val;
+	} else {
+		report_filter_values[name] = {
+			mode: "static",
+			value: val ?? "",
+		};
+	}
+	sync_local_config();
+};
+window.cur_report = window.frappe.query_report;
 
 const flat_report_filter_values = computed(() => {
 	const flat = {};
