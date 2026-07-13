@@ -295,15 +295,27 @@
 			</template>
 
 			<template v-else-if="mode === 'Query Report'">
-				<div v-if="report_filters.length || loading" class="sub-section">
-					<div class="section-header">
-						<h6>{{ __("Report Filters") }}</h6>
-						<div
-							v-if="loading"
-							class="spinner-border spinner-border-sm text-muted"
-						></div>
+				<div v-if="report_filters.length || loading" class="sub-section section-subcard">
+					<div class="section-header d-flex align-items-center justify-content-between">
+						<div class="d-flex align-items-center" style="gap: 8px">
+							<h6 class="m-0">{{ __("Report Filters") }}</h6>
+							<div
+								v-if="loading"
+								class="spinner-border spinner-border-sm text-muted"
+							></div>
+						</div>
+						<button
+							v-if="!readOnly && report_filters.length"
+							class="btn btn-xs btn-default text-muted d-flex align-items-center"
+							style="gap: 4px; padding: 2px 8px; font-weight: 500"
+							@click="fetch_default_values"
+							type="button"
+						>
+							<i class="fa fa-magic text-primary"></i>
+							{{ __("Fetch Default Values") }}
+						</button>
 					</div>
-					<div class="table-rows report-filter-table">
+					<div class="table-rows report-filter-table mt-2">
 						<div
 							v-for="df in visible_filters"
 							:key="df.fieldname"
@@ -311,61 +323,23 @@
 						>
 							<div class="filter-label-group">
 								<label class="filter-label">{{ df.label }}</label>
-								<div class="filter-type-toggle">
-									<button
-										class="btn btn-xs btn-link p-0"
-										:class="{
-											active:
-												report_filter_types[df.fieldname] === 'Expression',
-										}"
-										@click="toggle_report_filter_type(df.fieldname)"
-										:title="__('Toggle Expression')"
-									>
-										<span class="extra-small font-weight-bold">{{
-											report_filter_types[df.fieldname] === "Expression"
-												? "{ }"
-												: "abc"
-										}}</span>
-									</button>
-								</div>
 							</div>
 
 							<div class="filter-input-wrapper">
-								<template v-if="report_filter_types[df.fieldname] === 'Expression'">
-									<div class="expression-input-group">
-										<span class="expr-prefix">{</span>
-										<ComboBoxControl
-											:ref="setControlRef"
-											:df="{
-												fieldtype: 'Autocomplete',
-												label: '',
-												read_only: readOnly,
-											}"
-											:modelValue="
-												strip_expression(report_filter_values[df.fieldname])
-											"
-											:get_query="get_variable_options"
-											:placeholder="__('variable')"
-											:read_only="readOnly"
-											:hideLabel="true"
-											@update:modelValue="
-												report_filter_values[df.fieldname] = `{${$event}}`;
-												sync_local_config();
-											"
-										/>
-										<span class="expr-suffix">}</span>
-									</div>
-								</template>
-								<template v-else>
-									<ControlFactory
-										:ref="setControlRef"
-										:df="{ ...with_read_only(df), label: '' }"
-										:modelValue="report_filter_values[df.fieldname]"
-										@update:modelValue="
-											update_report_filter(df.fieldname, $event)
-										"
-									/>
-								</template>
+								<FlexValueControl
+									:ref="setControlRef"
+									:modelValue="report_filter_values[df.fieldname]"
+									:variableOptions="variable_options"
+									:readOnly="readOnly"
+									:showValidation="showValidation"
+									:context="{
+										df: df,
+										referenceDoctype: df.options,
+									}"
+									@update:modelValue="
+										(val) => update_report_filter(df.fieldname, val)
+									"
+								/>
 							</div>
 						</div>
 					</div>
@@ -623,7 +597,6 @@ function resolveFieldPolicy(fieldname, fallback) {
 const order_by_rows = ref([]);
 const report_filters = ref([]);
 const report_filter_values = reactive({});
-const report_filter_types = reactive({});
 const test_status = ref("");
 const is_single_doctype = ref(false);
 const is_child_table_target = ref(false);
@@ -711,15 +684,32 @@ watch(
 // Sync local config changes back to node (handled by debounced_sync)
 
 // Shim for frappe.query_report to support report JS scripts that use it
-if (!window.frappe.query_report) {
-	window.frappe.query_report = {
-		get_filter_value: (name) => report_filter_values[name] || "",
-		set_filter_value: (name, val) => {
-			report_filter_values[name] = val;
-			sync_local_config();
-		},
-	};
-}
+window.frappe.query_report = window.frappe.query_report || {};
+window.frappe.query_report.get_filter_value = (name) => flat_report_filter_values.value[name] || "";
+window.frappe.query_report.set_filter_value = (name, val) => {
+	if (val && typeof val === "object" && val.mode) {
+		report_filter_values[name] = val;
+	} else {
+		report_filter_values[name] = {
+			mode: "static",
+			value: val ?? "",
+		};
+	}
+	sync_local_config();
+};
+window.cur_report = window.frappe.query_report;
+
+const flat_report_filter_values = computed(() => {
+	const flat = {};
+	Object.entries(report_filter_values).forEach(([k, v]) => {
+		if (v && typeof v === "object" && v.mode) {
+			flat[k] = v.value;
+		} else {
+			flat[k] = v;
+		}
+	});
+	return flat;
+});
 
 function evaluate_depends_on(expression, values) {
 	if (!expression) return true;
@@ -744,24 +734,11 @@ const visible_filters = computed(() => {
 	return report_filters.value.filter((df) => {
 		if (!df.label || df.fieldtype?.includes("Break") || df.hidden) return false;
 		if (df.depends_on) {
-			return evaluate_depends_on(df.depends_on, report_filter_values);
+			return evaluate_depends_on(df.depends_on, flat_report_filter_values.value);
 		}
 		return true;
 	});
 });
-
-function toggle_report_filter_type(fieldname) {
-	const current = report_filter_types[fieldname];
-	const new_state = current === "Expression" ? "Value" : "Expression";
-	report_filter_types[fieldname] = new_state;
-
-	if (new_state === "Expression") {
-		report_filter_values[fieldname] = "{}";
-	} else {
-		report_filter_values[fieldname] = "";
-	}
-	sync_local_config();
-}
 
 const SYSTEM_FIELDS = [
 	{ fieldname: "name", label: __("ID (name)"), fieldtype: "Data" },
@@ -886,7 +863,7 @@ async function update_report_columns() {
 			method: "frappe.desk.query_report.run",
 			args: {
 				report_name: report_name,
-				filters: report_filter_values,
+				filters: flat_report_filter_values.value,
 				are_default_filters: false,
 			},
 		});
@@ -1210,7 +1187,6 @@ async function load_report_filters(report_name) {
 	if (!report_name || mode.value !== "Query Report") {
 		report_filters.value = [];
 		Object.keys(report_filter_values).forEach((k) => delete report_filter_values[k]);
-		Object.keys(report_filter_types).forEach((k) => delete report_filter_types[k]);
 		return;
 	}
 	try {
@@ -1265,11 +1241,19 @@ async function load_report_filters(report_name) {
 		report_filters.value.forEach((f) => {
 			if (saved_filters[f.fieldname] !== undefined) {
 				const val = saved_filters[f.fieldname];
-				report_filter_values[f.fieldname] = val;
-				report_filter_types[f.fieldname] = parse_value_type(val);
+				if (val && typeof val === "object" && val.mode) {
+					report_filter_values[f.fieldname] = val;
+				} else {
+					report_filter_values[f.fieldname] = {
+						mode: "static",
+						value: val ?? "",
+					};
+				}
 			} else {
-				report_filter_values[f.fieldname] = f.default || "";
-				report_filter_types[f.fieldname] = "Value";
+				report_filter_values[f.fieldname] = {
+					mode: "static",
+					value: f.default !== undefined ? f.default : "",
+				};
 			}
 		});
 	} catch (e) {
@@ -1281,8 +1265,23 @@ async function load_report_filters(report_name) {
 
 function update_report_filter(fieldname, value) {
 	report_filter_values[fieldname] = value;
-	report_filter_types[fieldname] = parse_value_type(value);
 	sync_local_config();
+}
+
+function fetch_default_values() {
+	if (!report_filters.value || !report_filters.value.length) return;
+	report_filters.value.forEach((f) => {
+		const defaultValue = f.default !== undefined ? f.default : "";
+		report_filter_values[f.fieldname] = {
+			mode: "static",
+			value: defaultValue,
+		};
+	});
+	sync_local_config();
+	frappe.show_alert({
+		message: __("Loaded default filters from report definition"),
+		indicator: "green",
+	});
 }
 
 async function test_query() {
@@ -1366,8 +1365,14 @@ function load_local_config(val) {
 	if (mode.value === "Query Report") {
 		const r_filters = parsed.filters || {};
 		Object.entries(r_filters).forEach(([k, v]) => {
-			report_filter_values[k] = v;
-			report_filter_types[k] = parse_value_type(v);
+			if (v && typeof v === "object" && v.mode) {
+				report_filter_values[k] = v;
+			} else {
+				report_filter_values[k] = {
+					mode: "static",
+					value: v ?? "",
+				};
+			}
 		});
 	}
 
@@ -1634,10 +1639,10 @@ defineExpose({
 	margin-bottom: 0 !important;
 }
 
-/* ─── Unified input sizing inside QRC ─── */
-:deep(.form-control),
-:deep(input.form-control),
-:deep(select.form-control) {
+/* ─── Unified input sizing inside QRC (excluding FlexValueControl internals) ─── */
+:deep(.form-control:not(.fvc-main-field *)),
+:deep(input.form-control:not(.fvc-main-field *)),
+:deep(select.form-control:not(.fvc-main-field *)) {
 	height: var(--fxr-input-height) !important;
 	padding: var(--fxr-input-padding-y) var(--fxr-input-padding-x) !important;
 	font-size: var(--fxr-input-font-size) !important;

@@ -159,3 +159,21 @@ class TestQueryRecordsFilters(FrappeTestCase):
 			self.assertEqual(filters, [["status", "=", "Open"]])
 			self.assertIn(["priority", "=", "High"], or_filters)
 			self.assertIn(["owner", "=", "Open"], or_filters)
+
+	@patch("frappe.desk.query_report.run")
+	def test_query_report_structured_filters(self, mock_run):
+		# Mock report execution with structured FlexValue filters
+		config = {
+			"report_name": "Sales Register",
+			"filters": {
+				"customer": {"mode": "static", "value": "Customer A"},
+				"status": {"mode": "variable", "path": "doc.status"},
+			},
+		}
+		mock_run.return_value = {"columns": [], "result": []}
+
+		self.handler._query_report("Report", config, self.context, self.action, ignore_permissions=True)
+
+		mock_run.assert_called_once_with(
+			"Sales Register", filters={"customer": "Customer A", "status": "Open"}
+		)
