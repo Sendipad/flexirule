@@ -392,9 +392,7 @@ const isMultiSelect = computed(() => {
 	if (!isListOp) return false;
 
 	const ft = fieldType.value;
-	return (
-		ft === "Select" || TEXT_FIELDTYPES.has(ft) || ft === "Link" || ft === "Dynamic Link"
-	);
+	return ft === "Select" || TEXT_FIELDTYPES.has(ft) || ft === "Link" || ft === "Dynamic Link";
 });
 const isDynamicMode = ref(false);
 const isEditorFocused = ref(false);
