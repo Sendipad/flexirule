@@ -435,7 +435,10 @@ const resolverContext = computed(() => {
 	};
 });
 
-const isLinkType = computed(() => fieldType.value === "Link" || fieldType.value === "Dynamic Link");
+const isLinkType = computed(() => {
+	const ft = fieldType.value;
+	return ft === "Link" || ft === "Dynamic Link" || ft === "MultiSelectList" || ft === "MultiSelect";
+});
 
 const PURE_TEXT_FIELDTYPES = new Set([
 	"Data",

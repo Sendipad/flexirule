@@ -82,9 +82,16 @@ const selectedValues = computed(() => {
 	return [String(props.modelValue)];
 });
 
-const isRemote = computed(() =>
-	Boolean(props.get_data || props.documentType || props.df?.fieldtype === "Link")
-);
+const isRemote = computed(() => {
+	const ft = props.df?.fieldtype;
+	return Boolean(
+		props.get_data ||
+		props.documentType ||
+		ft === "Link" ||
+		ft === "MultiSelectList" ||
+		ft === "MultiSelect"
+	);
+});
 
 const {
 	options: fetchedOptions,
@@ -100,15 +107,26 @@ const {
 		return metaStore.uniqueOptions(metaStore.normalizeLinkRows(rows || []));
 	}
 
-	if (props.documentType) {
-		const fields = await metaStore.get_doctype_field_options(props.documentType);
-		if (!search) return fields || [];
-		const q = String(search || "").toLowerCase();
-		return (fields || []).filter((row) =>
-			String(`${row.label} ${row.description || ""} ${row.value}`)
-				.toLowerCase()
-				.includes(q)
-		);
+	// Resolve the target doctype dynamic reference (e.g. from props.documentType or df.options)
+	let target_dt = props.documentType;
+	if (!target_dt && props.df?.options && typeof props.df.options === "string") {
+		const parent_val = window.frappe?.query_report?.get_filter_value(props.df.options);
+		if (parent_val) {
+			target_dt = parent_val;
+		} else if (!props.df.options.includes("\n") && props.df.options !== props.df.fieldname) {
+			target_dt = props.df.options;
+		}
+	}
+
+	if (target_dt) {
+		// Use native standard search_link_options to fetch target DocType options safely
+		return await metaStore.search_link_options({
+			doctype: target_dt,
+			txt: search || "",
+			filters: props.df?.filters || {},
+			start,
+			page_length: pageSize,
+		});
 	}
 
 	if (props.df?.fieldtype === "Link" && props.df?.options) {

@@ -198,15 +198,24 @@ ControlRegistry.registerDefault({
 		if (!displayMode) {
 			if (df.fieldtype === "MultiSelect" || df.fieldtype === "MultiFieldPicker")
 				displayMode = "badges";
-			else if (df.fieldtype === "MultiSelectList") displayMode = "list";
+			else if (df.fieldtype === "MultiSelectList") displayMode = "badges";
 			else if (df.fieldtype === "MultiCheck") displayMode = "columns";
 			else displayMode = "badges";
 		}
 
-		const documentType =
-			df.fieldtype === "MultiFieldPicker"
-				? df.target_doctype || context.engine?.rule_doc?.document_type
-				: undefined;
+		// Support dynamic / dynamic-link multi-select options loading when options matches another filter key
+		let documentType = undefined;
+		if (df.fieldtype === "MultiFieldPicker") {
+			documentType = df.target_doctype || context.engine?.rule_doc?.document_type;
+		} else if (df.options && typeof df.options === "string") {
+			// Resolve options dynamically using the scoped frappe.query_report shim if it references another filter field (like party_type)
+			const parent_val = window.frappe?.query_report?.get_filter_value(df.options);
+			if (parent_val) {
+				documentType = parent_val;
+			} else if (!df.options.includes("\n") && df.options !== df.fieldname) {
+				documentType = df.options;
+			}
+		}
 
 		return {
 			displayMode,
