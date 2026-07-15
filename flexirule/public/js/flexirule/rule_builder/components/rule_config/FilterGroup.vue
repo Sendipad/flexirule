@@ -799,7 +799,8 @@ const getControlFactorySchema = (row) => {
 	}
 
 	// FlexiRule Specific overrides for multi-value operators
-	if (["in", "not in"].includes(row.operator)) {
+	const opLower = (row.operator || "").toLowerCase();
+	if (["in", "not in"].includes(opLower)) {
 		if (field && field.fieldtype === "Link") {
 			schema.fieldtype = "MultiSelectList";
 			schema.displayMode = "compact";
