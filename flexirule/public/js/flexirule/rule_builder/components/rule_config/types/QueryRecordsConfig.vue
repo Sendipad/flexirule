@@ -692,8 +692,8 @@ function resolve_value_recursively(val) {
 	if (Array.isArray(val)) {
 		const resolved = val
 			.map(resolve_value_recursively)
-			.filter((x) => x !== undefined && x !== null && x !== "");
-		return resolved;
+			.filter((x) => x !== undefined && x !== null && x !== "" && JSON.stringify(x) !== "{}");
+		return resolved.length === 1 && Array.isArray(resolved[0]) ? resolved[0] : resolved;
 	}
 
 	if (typeof val === "object") {

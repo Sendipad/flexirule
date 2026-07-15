@@ -1010,11 +1010,26 @@ class QueryRecordsHandler(ActionHandler):
 			# Support standard FlexValueControl mode objects
 			if "mode" in val:
 				val = val.get("value")
+				# If we stripped a dynamic wrapper, recursively evaluate the inner value
+				return self._resolve_nested_primitive_value(val)
 			else:
-				return {k: self._resolve_nested_primitive_value(v) for k, v in val.items()}
+				resolved_dict = {}
+				for k, v in val.items():
+					res_v = self._resolve_nested_primitive_value(v)
+					# Do not populate empty or unresolved configurations like {} or empty strings in dictionaries
+					if res_v not in (None, "", {}, []):
+						resolved_dict[k] = res_v
+				return resolved_dict
 
 		if isinstance(val, list):
-			return [self._resolve_nested_primitive_value(item) for item in val]
+			resolved_list = []
+			for item in val:
+				res_item = self._resolve_nested_primitive_value(item)
+				if isinstance(res_item, list):
+					resolved_list.extend(res_item)
+				elif res_item not in (None, "", {}, []):
+					resolved_list.append(res_item)
+			return resolved_list
 
 		return val
 
@@ -1071,7 +1086,7 @@ class QueryRecordsHandler(ActionHandler):
 					res_item = self._resolve_nested_primitive_value(item)
 					if isinstance(res_item, list):
 						resolved_items.extend(res_item)
-					else:
+					elif res_item not in (None, "", {}, []):
 						resolved_items.append(res_item)
 				report_filters[key] = resolved_items
 

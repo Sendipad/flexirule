@@ -16,6 +16,7 @@
 			:class="{
 				'is-dynamic': isDynamicMode || !isStaticSupported,
 				'is-static-link': !isDynamicMode && isLinkType,
+				'is-multi-select': isMultiSelect,
 			}"
 			@click="onWrapClick"
 		>
@@ -1333,6 +1334,13 @@ onBeforeUnmount(() => {
 	border-radius: var(--fxr-radius-sm);
 	background-color: var(--fxr-bg-input);
 	transition: all 0.2s ease;
+}
+
+.fvc-main-field.is-multi-select {
+	height: auto !important;
+	min-height: var(--fxr-input-height, 32px) !important;
+	max-height: none !important;
+	overflow: visible !important;
 }
 
 .fvc-main-field:focus-within {
