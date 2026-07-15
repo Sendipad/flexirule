@@ -28,7 +28,7 @@ class TestQueryReportSerialization(FrappeTestCase):
 		# MultiSelectList containing FlexValueControl representations
 		list_val = [
 			{"mode": "static", "value": "Cost Center A"},
-			{"mode": "static", "value": "Cost Center B"}
+			{"mode": "static", "value": "Cost Center B"},
 		]
 		res = self.handler._resolve_nested_primitive_value(list_val)
 		self.assertEqual(res, ["Cost Center A", "Cost Center B"])
@@ -40,10 +40,8 @@ class TestQueryReportSerialization(FrappeTestCase):
 			"filters": {
 				"company": {"mode": "variable", "path": "doc.company"},
 				"range": {"mode": "static", "value": "30,60,90,120"},
-				"cost_center": [
-					{"mode": "variable", "path": "vars.cost_centers"}
-				]
-			}
+				"cost_center": [{"mode": "variable", "path": "vars.cost_centers"}],
+			},
 		}
 
 		mock_run_report.return_value = {"columns": [], "result": []}
@@ -53,7 +51,7 @@ class TestQueryReportSerialization(FrappeTestCase):
 			config=config,
 			context=self.context,
 			action=self.action,
-			ignore_permissions=True
+			ignore_permissions=True,
 		)
 
 		mock_run_report.assert_called_once()

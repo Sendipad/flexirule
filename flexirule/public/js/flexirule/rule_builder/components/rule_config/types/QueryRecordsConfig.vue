@@ -507,7 +507,16 @@
 </template>
 
 <script setup>
-import { reactive, ref, computed, watch, onMounted, onBeforeUnmount, onBeforeUpdate, nextTick } from "vue";
+import {
+	reactive,
+	ref,
+	computed,
+	watch,
+	onMounted,
+	onBeforeUnmount,
+	onBeforeUpdate,
+	nextTick,
+} from "vue";
 import { fromCodeString } from "../../../utils/serialization";
 import { useActionConfig } from "../../../composables/useActionConfig";
 import ControlFactory from "../../../controls/ControlFactory.vue";
@@ -691,7 +700,8 @@ function get_resolved_filter_value(name) {
 		const path = raw.value || "";
 		if (path.startsWith("doc.")) {
 			const key = path.substring(4);
-			if (context_vars.doc && context_vars.doc[key] !== undefined) return context_vars.doc[key];
+			if (context_vars.doc && context_vars.doc[key] !== undefined)
+				return context_vars.doc[key];
 		} else if (path.startsWith("vars.")) {
 			const key = path.substring(5);
 			if (context_vars[key] !== undefined) return context_vars[key];
@@ -739,7 +749,7 @@ const query_report_adapter = {
 		if (filter) {
 			filter.hidden = !show;
 		}
-	}
+	},
 };
 
 onMounted(() => {
