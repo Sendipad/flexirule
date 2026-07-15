@@ -101,19 +101,43 @@ const showTooltip = ref(false);
 }
 
 .fxr-checkbox input {
+	-webkit-appearance: none;
+	appearance: none;
 	width: 16px;
 	height: 16px;
 	cursor: pointer;
 	margin: 0 !important;
-	border: 1px solid var(--fxr-border);
-	border-radius: var(--fxr-radius-sm);
-	transition: all var(--fxr-transition-fast);
+	border: 1.5px solid var(--fxr-border-strong, #94a3b8);
+	border-radius: var(--fxr-radius-sm, 4px);
+	outline: none;
+	background-color: var(--fxr-bg-input, #ffffff);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	transition: all var(--fxr-transition-fast, 0.15s) ease;
 	flex-shrink: 0;
 }
 
+.fxr-checkbox input:hover:not(:disabled) {
+	border-color: var(--fxr-accent, #2490ef);
+}
+
+.fxr-checkbox input:focus-visible,
+.fxr-checkbox input:focus {
+	border-color: var(--fxr-accent, #2490ef) !important;
+	box-shadow: 0 0 0 3px rgba(36, 144, 239, 0.25) !important;
+}
+
 .fxr-checkbox input:checked {
-	background-color: var(--fxr-accent);
-	border-color: var(--fxr-accent);
+	background-color: var(--fxr-accent, #2490ef) !important;
+	border-color: var(--fxr-accent, #2490ef) !important;
+}
+
+.fxr-checkbox input:checked::after {
+	content: "✓";
+	color: #ffffff;
+	font-size: 11px;
+	font-weight: bold;
 }
 
 .label-area {
