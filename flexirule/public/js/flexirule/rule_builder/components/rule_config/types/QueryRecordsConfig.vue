@@ -222,8 +222,10 @@
 							/>
 						</div>
 
-						<div class="grid-item">
-							<label class="control-label small">{{ __("DocType Name") }}</label>
+						<div class="grid-item fxr-control">
+							<label class="fxr-label" :class="{ reqd: doctypeNameField.reqd }">
+								{{ __("DocType Name") }}
+							</label>
 							<FlexValueControl
 								:ref="setControlRef"
 								:modelValue="config.doctype_name"
@@ -237,10 +239,10 @@
 							/>
 						</div>
 
-						<div v-if="show_docname_field" class="grid-item">
-							<label class="control-label small">{{
-								__("Document Name (ID)")
-							}}</label>
+						<div v-if="show_docname_field" class="grid-item fxr-control">
+							<label class="fxr-label" :class="{ reqd: docnameField.reqd }">
+								{{ __("Document Name (ID)") }}
+							</label>
 							<FlexValueControl
 								:ref="setControlRef"
 								:modelValue="config.docname"
