@@ -23,11 +23,11 @@
 			<!-- Static Mode (via ControlFactory or MultiSelectList) -->
 			<div v-if="!isDynamicMode && isStaticSupported" class="fvc-static-container flex-1">
 				<MultiSelectList
-					v-if="isMultiSelect"
+					v-if="isMultiSelectInline"
 					:df="staticDf"
 					:modelValue="staticValue"
-					:documentType="isMultiSelectRemote ? referenceDoctype : undefined"
-					:options="isMultiSelectRemote ? undefined : fieldOptions"
+					:documentType="isLinkType ? referenceDoctype : undefined"
+					:options="isLinkType ? undefined : fieldOptions"
 					displayMode="badges"
 					:badgeCollapseAfter="2"
 					:allowWrap="false"
@@ -401,19 +401,15 @@ const isMultiSelect = computed(() => {
 	return ft === "Select" || TEXT_FIELDTYPES.has(ft) || ft === "Link" || ft === "Dynamic Link";
 });
 
-const isMultiSelectRemote = computed(() => {
+const isMultiSelectInline = computed(() => {
+	const op = props.context?.operator;
+	const isListOp = ["in", "not in", "in list", "not in list"].includes(
+		String(op || "").toLowerCase()
+	);
+	if (!isListOp) return false;
+
 	const ft = fieldType.value;
-	if (ft === "Link" || ft === "Dynamic Link" || ft === "Table MultiSelect") return true;
-	if (ft === "MultiSelectList" || ft === "MultiSelect") {
-		const opts = fieldOptions.value;
-		if (!opts) return false;
-		if (Array.isArray(opts)) return false;
-		if (typeof opts === "string") {
-			if (opts.includes("\n") || opts.includes(",") || opts.includes(";")) return false;
-			return true;
-		}
-	}
-	return false;
+	return ft === "Select" || TEXT_FIELDTYPES.has(ft) || ft === "Link" || ft === "Dynamic Link";
 });
 const isDynamicMode = ref(false);
 const isEditorFocused = ref(false);
