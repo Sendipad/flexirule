@@ -123,8 +123,18 @@ const {
 		const parent_val = window.frappe?.query_report?.get_filter_value(props.df.options);
 		if (parent_val) {
 			target_dt = parent_val;
-		} else if (!props.df.options.includes("\n") && props.df.options !== props.df.fieldname) {
-			target_dt = props.df.options;
+		} else {
+			const query_report_filters = window.frappe?.query_report?.filters || [];
+			const is_parent_filter = query_report_filters.some(
+				(f) => f.fieldname === props.df.options
+			);
+			if (
+				!is_parent_filter &&
+				!props.df.options.includes("\n") &&
+				props.df.options !== props.df.fieldname
+			) {
+				target_dt = props.df.options;
+			}
 		}
 	}
 

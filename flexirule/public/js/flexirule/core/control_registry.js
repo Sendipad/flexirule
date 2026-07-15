@@ -63,7 +63,10 @@ ControlRegistry.registerDefault({
 		if (df.fieldtype === "Link") {
 			doctype = df.options || df.target_doctype || null;
 		} else if (df.fieldtype === "Dynamic Link") {
-			doctype = context.doc?.[df.options] || "";
+			doctype =
+				context.doc?.[df.options] ||
+				window.frappe?.query_report?.get_filter_value(df.options) ||
+				"";
 		}
 
 		let options = [];
