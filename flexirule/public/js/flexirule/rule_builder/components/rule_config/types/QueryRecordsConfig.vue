@@ -730,6 +730,9 @@ function get_resolved_filter_value(name) {
 
 const original_query_report = window.frappe.query_report;
 
+// Guard to prevent infinite recursion/re-entry when filters trigger cascading set_filter_value updates
+const is_updating_filters = ref(false);
+
 // Isolated, scoped frappe.query_report adapter to evaluate report filter dependencies safely without global state bleed
 const query_report_adapter = {
 	filters: report_filters.value,
@@ -740,15 +743,34 @@ const query_report_adapter = {
 			// Do not overwrite dynamic variables or expressions via UI set, preserve user config!
 			return;
 		}
-		report_filter_values[name] = val;
-		sync_local_config();
-		refresh_dependent_filters();
+		// If value actually changed, update it and run local listener securely
+		const current_primitive = get_resolved_filter_value(name);
+		const target_primitive = val && typeof val === "object" ? val.value : val;
+		if (current_primitive !== target_primitive) {
+			report_filter_values[name] = val;
+			sync_local_config();
+
+			if (!is_updating_filters.value) {
+				is_updating_filters.value = true;
+				try {
+					const df = report_filters.value.find((f) => f.fieldname === name);
+					if (df && typeof df.on_change === "function") {
+						df.on_change();
+					}
+				} finally {
+					is_updating_filters.value = false;
+				}
+			}
+		}
 	},
 	toggle_filter_display: (name, show) => {
 		const filter = report_filters.value.find((f) => f.fieldname === name);
 		if (filter) {
 			filter.hidden = !show;
 		}
+	},
+	page: {
+		add_inner_button: () => {},
 	},
 };
 
@@ -795,19 +817,24 @@ const visible_filters = computed(() => {
 	});
 });
 
-// Refresh dependent filters whenever report filter values update
+// Refresh dependent filters whenever report filter values update (non-reentrant)
 function refresh_dependent_filters() {
 	query_report_adapter.filters = report_filters.value;
-	visible_filters.value.forEach((df) => {
-		// If custom on_change function is declared in script, trigger it inside our scoped shim
-		if (typeof df.on_change === "function") {
-			try {
-				df.on_change();
-			} catch (err) {
-				console.warn("Report filter on_change failed", df.fieldname, err);
+	if (is_updating_filters.value) return;
+	is_updating_filters.value = true;
+	try {
+		visible_filters.value.forEach((df) => {
+			if (typeof df.on_change === "function") {
+				try {
+					df.on_change();
+				} catch (err) {
+					console.warn("Report filter on_change failed", df.fieldname, err);
+				}
 			}
-		}
-	});
+		});
+	} finally {
+		is_updating_filters.value = false;
+	}
 }
 
 const SYSTEM_FIELDS = [
@@ -929,11 +956,17 @@ async function update_report_columns() {
 
 	try {
 		const report_name = props.node.data.reference_docname;
+		// Resolve raw report filters structure into clean primitive values before executing the API request from the client
+		const resolved_filters = {};
+		Object.keys(report_filter_values).forEach((k) => {
+			resolved_filters[k] = get_resolved_filter_value(k);
+		});
+
 		const res = await frappe.call({
 			method: "frappe.desk.query_report.run",
 			args: {
 				report_name: report_name,
-				filters: report_filter_values,
+				filters: resolved_filters,
 				are_default_filters: false,
 			},
 		});
