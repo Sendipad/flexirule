@@ -291,6 +291,12 @@ function validate() {
 defineExpose({ validate });
 
 function emitValue(nextValues) {
+	console.log("MultiSelectList emitValue:", {
+		fieldname: props.fieldname || props.df?.fieldname,
+		nextValues,
+		isRemote: isRemote.value,
+		get_data: !!props.get_data,
+	});
 	emit("update:modelValue", nextValues);
 	emit("change", nextValues);
 }

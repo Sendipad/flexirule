@@ -1314,6 +1314,11 @@ function sync_local_config() {
 	// Compare before sending out to avoid loops
 	const current_str = JSON.stringify(props.node?.data?.config || {});
 	const next_str = JSON.stringify(new_config || {});
+	console.log("QueryRecordsConfig sync_local_config comparison:", {
+		current_str,
+		next_str,
+		isDifferent: current_str !== next_str,
+	});
 
 	if (current_str !== next_str) {
 		is_internal_update.value = true;
@@ -1430,6 +1435,7 @@ async function load_report_filters(report_name) {
 }
 
 function update_report_filter(fieldname, value) {
+	console.log("QueryRecordsConfig update_report_filter called:", { fieldname, value });
 	report_filter_values[fieldname] = value;
 	if (report_filter_types) {
 		report_filter_types[fieldname] = parse_value_type(value);

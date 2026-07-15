@@ -1102,6 +1102,13 @@ function deserialize(val) {
 function emitChanges() {
 	const output = coerceStructuredValue(serialize());
 	const json = JSON.stringify(output);
+	console.log("FlexValueControl emitChanges:", {
+		fieldname: props.fieldname || props.context?.df?.fieldname,
+		output,
+		json,
+		lastEmittedJSON,
+		isSame: json === lastEmittedJSON,
+	});
 	if (json === lastEmittedJSON) return; // idempotency guard: prevent feedback loops
 	lastEmittedJSON = json;
 	emit("update:modelValue", output);
@@ -1162,6 +1169,12 @@ function onStaticKeydown(e) {
 }
 
 function updateStaticValue(val) {
+	console.log(
+		"FlexValueControl updateStaticValue called with:",
+		val,
+		"for field:",
+		props.fieldname || props.context?.df?.fieldname
+	);
 	if (isVariableSyntax(val)) {
 		const path = val.startsWith("@") ? val.substring(1) : val;
 		isDynamicMode.value = true;
