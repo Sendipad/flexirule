@@ -607,6 +607,17 @@ def _validate_variable_dependencies(actions, operation_metadata=None) -> dict:
 					).format(action_label, var_name)
 				)
 
+		mutation_mode = _safe_get(action, "mutation_mode")
+		return_variable = _safe_get(action, "return_variable")
+		if mutation_mode == "Update Context Variable" and return_variable:
+			if return_variable not in available_vars:
+				errors.append(
+					_(
+						"Action '{0}' uses mutation mode 'Update Context Variable' with variable '{1}', "
+						"but '{1}' does not exist in the available context."
+					).format(action_label, return_variable)
+				)
+
 		writes_vars = _load_json_list(op_meta.get("writes_vars"), warnings, action_label, "writes_vars")
 		for var_def in writes_vars:
 			var_name = var_def if isinstance(var_def, str) else _safe_get(var_def, "fieldname")

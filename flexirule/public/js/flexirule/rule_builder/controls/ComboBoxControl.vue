@@ -151,7 +151,7 @@
 
 							<!-- Create New Option -->
 							<div
-								v-if="allowCustomValue && query !== '' && !exactMatch"
+								v-if="canAcceptCustom && query !== '' && !exactMatch"
 								class="fxr-dropdown-item is-create"
 								:class="{ active: activeIndex === -2 }"
 								@click="onSelect(query)"
@@ -258,6 +258,7 @@ const props = defineProps({
 	placeholder: String,
 	trigger: { type: String, default: "input" },
 	allowCustomValue: Boolean,
+	autocompleteMode: { type: String, default: null }, // "strict" | "creatable" | "prefix"
 	hideSearch: Boolean,
 	sortBy: [String, Function],
 	dropdownMinWidth: { type: Number, default: 220 },
@@ -321,6 +322,16 @@ const effectiveDoctype = computed(() => {
 });
 
 const isRemote = computed(() => Boolean(props.get_query || effectiveDoctype.value));
+
+const canAcceptCustom = computed(() => {
+	if (props.autocompleteMode === "strict") {
+		return false;
+	}
+	if (props.autocompleteMode === "creatable" || props.autocompleteMode === "prefix") {
+		return true;
+	}
+	return props.allowCustomValue;
+});
 
 const {
 	options: fetchedOptions,
@@ -547,10 +558,12 @@ function onFocusOut(e) {
 				closeDropdown();
 			}
 		} else if (
-			props.allowCustomValue ||
-			query.value.startsWith("@") ||
-			query.value.startsWith("doc.") ||
-			query.value.startsWith("vars.")
+			canAcceptCustom.value ||
+			(props.autocompleteMode !== "strict" && (
+				query.value.startsWith("@") ||
+				query.value.startsWith("doc.") ||
+				query.value.startsWith("vars.")
+			))
 		) {
 			onSelect(query.value);
 		} else {
@@ -630,7 +643,7 @@ function onKeydown(e) {
 
 	if (e.key === "Enter") {
 		e.preventDefault();
-		if (activeIndex.value === -2 && props.allowCustomValue) {
+		if (activeIndex.value === -2 && canAcceptCustom.value) {
 			onSelect(query.value);
 		} else if (activeIndex.value >= 0 && activeIndex.value < filteredOptions.value.length) {
 			onSelect(filteredOptions.value[activeIndex.value].value);
@@ -639,10 +652,12 @@ function onKeydown(e) {
 		} else if (
 			query.value !== "" &&
 			!exactMatch.value &&
-			(props.allowCustomValue ||
-				query.value.startsWith("@") ||
-				query.value.startsWith("doc.") ||
-				query.value.startsWith("vars."))
+			(canAcceptCustom.value ||
+				(props.autocompleteMode !== "strict" && (
+					query.value.startsWith("@") ||
+					query.value.startsWith("doc.") ||
+					query.value.startsWith("vars.")
+				)))
 		) {
 			onSelect(query.value);
 		}
@@ -659,7 +674,7 @@ function onKeydown(e) {
 
 	if (e.key === "Tab" && isDropdownOpen.value) {
 		// If we are at -2 (Create New) or have a selection, commit it
-		if (activeIndex.value === -2 && props.allowCustomValue) {
+		if (activeIndex.value === -2 && canAcceptCustom.value) {
 			onSelect(query.value);
 		} else if (activeIndex.value >= 0 && activeIndex.value < filteredOptions.value.length) {
 			onSelect(filteredOptions.value[activeIndex.value].value);
@@ -692,10 +707,12 @@ function handleClickOutside(e) {
 				return;
 			}
 		} else if (
-			props.allowCustomValue ||
-			query.value.startsWith("@") ||
-			query.value.startsWith("doc.") ||
-			query.value.startsWith("vars.")
+			canAcceptCustom.value ||
+			(props.autocompleteMode !== "strict" && (
+				query.value.startsWith("@") ||
+				query.value.startsWith("doc.") ||
+				query.value.startsWith("vars.")
+			))
 		) {
 			onSelect(query.value);
 			return;

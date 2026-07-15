@@ -56,6 +56,43 @@ class TestRule(FrappeTestCase):
 		with self.assertRaises(frappe.ValidationError):
 			rule.insert(ignore_permissions=True)
 
+	def test_update_context_variable_requires_existing_variable(self):
+		rule = frappe.get_doc(
+			{
+				"doctype": "Rule",
+				"rule_name": "Test Rule Validation Missing Context Variable",
+				"document_type": "ToDo",
+				"trigger_type": "DocType Event",
+				"trigger_event": "Validate",
+				"is_active": 1,
+				"actions": [
+					{
+						"action_id": "root",
+						"action_type": "Entry Action",
+						"action_label": "Start",
+						"next_step_if_true": "action_1",
+					},
+					{
+						"action_id": "action_1",
+						"action_type": "Query Records",
+						"operation": "Query Doc",
+						"reference_doctype": "ToDo",
+						"mutation_mode": "Update Context Variable",
+						"return_variable": "non_existent_var",
+						"next_step_if_true": "stop_1",
+					},
+					{
+						"action_id": "stop_1",
+						"action_type": "Stop",
+						"action_label": "Stop",
+					},
+				],
+			}
+		)
+
+		with self.assertRaises(frappe.ValidationError):
+			rule.insert(ignore_permissions=True)
+
 	def test_scheduler_rule_clears_doc_event_fields(self):
 		rule = frappe.get_doc(
 			{

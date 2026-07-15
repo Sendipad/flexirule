@@ -30,6 +30,8 @@
 							:get_query="getReturnVariableOptions"
 							:read_only="readOnly"
 							:showValidation="showValidation"
+							:autocompleteMode="autocompleteMode"
+							:placeholder="returnVariablePlaceholder"
 							@update:modelValue="updateField('return_variable', $event)"
 						/>
 						<ControlFactory
@@ -279,6 +281,22 @@ const returnVariableField = computed(() => ({
 const useAutocompleteForReturnVariable = computed(() => {
 	const mode = (props.node?.data?.mutation_mode || "").toString();
 	return mode.includes("Context Variable");
+});
+
+const autocompleteMode = computed(() => {
+	const mode = props.node?.data?.mutation_mode;
+	if (mode === "Update Context Variable") return "strict";
+	if (mode === "Set Context Variable") return "creatable";
+	if (mode === "Append to Context Variable") return "prefix";
+	return null;
+});
+
+const returnVariablePlaceholder = computed(() => {
+	const mode = props.node?.data?.mutation_mode;
+	if (mode === "Update Context Variable") return __("Select an existing variable...");
+	if (mode === "Set Context Variable") return __("Select or enter a variable name...");
+	if (mode === "Append to Context Variable") return __("Select a variable then continue typing...");
+	return __("Result Variable Name");
 });
 
 const isReturnVariableMandatory = computed(() => {
