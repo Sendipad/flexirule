@@ -310,7 +310,9 @@
 							class="row-item report-filter-row"
 						>
 							<div class="filter-label-group">
-								<label class="filter-label" :class="{ reqd: df.reqd }">{{ df.label }}</label>
+								<label class="filter-label" :class="{ reqd: df.reqd }">
+									{{ df.label }}
+								</label>
 							</div>
 
 							<div class="filter-input-wrapper">
