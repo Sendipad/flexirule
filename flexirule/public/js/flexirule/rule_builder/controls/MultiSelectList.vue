@@ -83,14 +83,24 @@ const selectedValues = computed(() => {
 });
 
 const isRemote = computed(() => {
+	if (props.get_data) return true;
+	if (props.documentType) return true;
+
 	const ft = props.df?.fieldtype;
-	return Boolean(
-		props.get_data ||
-			props.documentType ||
-			ft === "Link" ||
-			ft === "MultiSelectList" ||
-			ft === "MultiSelect"
-	);
+	if (ft === "Link") return true;
+
+	if (ft === "MultiSelectList" || ft === "MultiSelect") {
+		const opts = props.df?.options;
+		if (!opts) return false;
+		if (Array.isArray(opts)) return false;
+		if (typeof opts === "string") {
+			// If contains newlines, commas, or semicolons, it is definitely static options.
+			if (opts.includes("\n") || opts.includes(",") || opts.includes(";")) return false;
+			// If it does not contain delimiters and is not empty, treat as a remote DocType/link reference.
+			return true;
+		}
+	}
+	return false;
 });
 
 const {
