@@ -388,7 +388,9 @@ const TEXT_FIELDTYPES = new Set([
 ]);
 const isMultiSelect = computed(() => {
 	const op = props.context?.operator;
-	const isListOp = op === "in list" || op === "not in list";
+	const isListOp = ["in", "not in", "in list", "not in list"].includes(
+		String(op || "").toLowerCase()
+	);
 	if (!isListOp) return false;
 
 	const ft = fieldType.value;
