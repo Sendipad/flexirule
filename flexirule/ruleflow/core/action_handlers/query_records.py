@@ -1004,6 +1004,20 @@ class QueryRecordsHandler(ActionHandler):
 		)
 		return bool(rows)
 
+	def _resolve_nested_primitive_value(self, val):
+		"""Recursively strip all FlexValueControl configuration structures and resolve down to primitives."""
+		if isinstance(val, dict):
+			# Support standard FlexValueControl mode objects
+			if "mode" in val:
+				val = val.get("value")
+			else:
+				return {k: self._resolve_nested_primitive_value(v) for k, v in val.items()}
+
+		if isinstance(val, list):
+			return [self._resolve_nested_primitive_value(item) for item in val]
+
+		return val
+
 	def _query_report(self, reference_doctype, config, context, action, ignore_permissions):
 		"""Run a report and return results as a list of dicts.
 
@@ -1031,21 +1045,35 @@ class QueryRecordsHandler(ActionHandler):
 		report_filters = {}
 		if isinstance(resolved_filters, dict):
 			for k, v in resolved_filters.items():
-				report_filters[k] = self._extract_filter_value_payload(v)
+				report_filters[k] = self._resolve_nested_primitive_value(v)
 		elif isinstance(resolved_filters, list):
 			# Convert list-of-dicts [{fieldname, operator, value}] to flat dict
 			for item in resolved_filters:
 				if isinstance(item, dict):
 					field = item.get("field") or item.get("fieldname")
-					val = self._extract_filter_value_payload(item.get("value"))
+					val = self._resolve_nested_primitive_value(item.get("value"))
 					if field:
 						report_filters[field] = val
 				elif isinstance(item, list) and len(item) >= 3:
 					# [field, op, value] or [doctype, field, op, value]
 					if len(item) == 4:
-						report_filters[item[1]] = self._extract_filter_value_payload(item[3])
+						report_filters[item[1]] = self._resolve_nested_primitive_value(item[3])
 					else:
-						report_filters[item[0]] = self._extract_filter_value_payload(item[2])
+						report_filters[item[0]] = self._resolve_nested_primitive_value(item[2])
+
+		# Native Frappe MultiSelectList compatibility: MultiSelectList filters must be serialized
+		# as list of primitives (standard list of strings/integers/values) if of type array or list.
+		for key, val in list(report_filters.items()):
+			if isinstance(val, list):
+				# Flatten list of lists if a sub-list is produced during resolution
+				resolved_items = []
+				for item in val:
+					res_item = self._resolve_nested_primitive_value(item)
+					if isinstance(res_item, list):
+						resolved_items.extend(res_item)
+					else:
+						resolved_items.append(res_item)
+				report_filters[key] = resolved_items
 
 		from frappe.desk.query_report import run as run_report
 

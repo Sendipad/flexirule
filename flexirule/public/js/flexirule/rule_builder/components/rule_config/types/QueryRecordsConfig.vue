@@ -311,61 +311,21 @@
 						>
 							<div class="filter-label-group">
 								<label class="filter-label">{{ df.label }}</label>
-								<div class="filter-type-toggle">
-									<button
-										class="btn btn-xs btn-link p-0"
-										:class="{
-											active:
-												report_filter_types[df.fieldname] === 'Expression',
-										}"
-										@click="toggle_report_filter_type(df.fieldname)"
-										:title="__('Toggle Expression')"
-									>
-										<span class="extra-small font-weight-bold">{{
-											report_filter_types[df.fieldname] === "Expression"
-												? "{ }"
-												: "abc"
-										}}</span>
-									</button>
-								</div>
 							</div>
 
 							<div class="filter-input-wrapper">
-								<template v-if="report_filter_types[df.fieldname] === 'Expression'">
-									<div class="expression-input-group">
-										<span class="expr-prefix">{</span>
-										<ComboBoxControl
-											:ref="setControlRef"
-											:df="{
-												fieldtype: 'Autocomplete',
-												label: '',
-												read_only: readOnly,
-											}"
-											:modelValue="
-												strip_expression(report_filter_values[df.fieldname])
-											"
-											:get_query="get_variable_options"
-											:placeholder="__('variable')"
-											:read_only="readOnly"
-											:hideLabel="true"
-											@update:modelValue="
-												report_filter_values[df.fieldname] = `{${$event}}`;
-												sync_local_config();
-											"
-										/>
-										<span class="expr-suffix">}</span>
-									</div>
-								</template>
-								<template v-else>
-									<ControlFactory
-										:ref="setControlRef"
-										:df="{ ...with_read_only(df), label: '' }"
-										:modelValue="report_filter_values[df.fieldname]"
-										@update:modelValue="
-											update_report_filter(df.fieldname, $event)
-										"
-									/>
-								</template>
+								<FlexValueControl
+									:ref="setControlRef"
+									:modelValue="report_filter_values[df.fieldname]"
+									:variableOptions="variable_options"
+									:readOnly="readOnly"
+									:showValidation="showValidation"
+									:context="{
+										df: df,
+										referenceDoctype: df.options,
+									}"
+									@update:modelValue="update_report_filter(df.fieldname, $event)"
+								/>
 							</div>
 						</div>
 					</div>
@@ -547,14 +507,16 @@
 </template>
 
 <script setup>
-import { reactive, ref, computed, watch, onMounted, onBeforeUpdate } from "vue";
+import { reactive, ref, computed, watch, onMounted, onBeforeUnmount, onBeforeUpdate, nextTick } from "vue";
 import { fromCodeString } from "../../../utils/serialization";
 import { useActionConfig } from "../../../composables/useActionConfig";
 import ControlFactory from "../../../controls/ControlFactory.vue";
 import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
 import FilterGroup from "../FilterGroup.vue";
 import MultiSelectList from "../../../controls/MultiSelectList.vue";
+import FlexValueControl from "../../../controls/FlexValueControl.vue";
 import { useNodeConfigPolicy } from "../../../composables/useNodeConfigPolicy";
+import { useUIStore } from "../../../stores/useUIStore";
 
 const props = defineProps({
 	node: Object,
@@ -710,32 +672,105 @@ watch(
 
 // Sync local config changes back to node (handled by debounced_sync)
 
-// Shim for frappe.query_report to support report JS scripts that use it
-if (!window.frappe.query_report) {
-	window.frappe.query_report = {
-		get_filter_value: (name) => report_filter_values[name] || "",
-		set_filter_value: (name, val) => {
-			report_filter_values[name] = val;
-			sync_local_config();
-		},
-	};
+// Setup active uiStore reference for mock context value resolution
+const uiStore = useUIStore();
+
+// Design-time fallback and simulation context resolution strategy
+function get_resolved_filter_value(name) {
+	const raw = report_filter_values[name];
+	if (raw === undefined || raw === null) return "";
+
+	// 1. Static value resolution
+	if (typeof raw !== "object" || !raw.mode || raw.mode === "static") {
+		return typeof raw === "object" ? raw.value : raw;
+	}
+
+	// 2. Variable or Resolve Value / Expression Resolution against rule test/simulation context
+	const context_vars = uiStore.test_context || {};
+	if (raw.mode === "variable") {
+		const path = raw.value || "";
+		if (path.startsWith("doc.")) {
+			const key = path.substring(4);
+			if (context_vars.doc && context_vars.doc[key] !== undefined) return context_vars.doc[key];
+		} else if (path.startsWith("vars.")) {
+			const key = path.substring(5);
+			if (context_vars[key] !== undefined) return context_vars[key];
+		} else if (context_vars[path] !== undefined) {
+			return context_vars[path];
+		}
+	} else if (raw.mode === "resolver" || raw.mode === "expression") {
+		// Attempt simple resolution from test context snapshot
+		const expression = raw.value || "";
+		if (expression.includes("doc.")) {
+			const match = expression.match(/doc\.([a-zA-Z0-9_]+)/);
+			if (match && context_vars.doc && context_vars.doc[match[1]] !== undefined) {
+				return context_vars.doc[match[1]];
+			}
+		} else if (expression.includes("vars.")) {
+			const match = expression.match(/vars\.([a-zA-Z0-9_]+)/);
+			if (match && context_vars[match[1]] !== undefined) {
+				return context_vars[match[1]];
+			}
+		}
+	}
+
+	// 3. Graceful fallback (Return empty to indicate waiting state or trigger dynamic filter options safely)
+	return "";
 }
+
+const original_query_report = window.frappe.query_report;
+
+// Isolated, scoped frappe.query_report adapter to evaluate report filter dependencies safely without global state bleed
+const query_report_adapter = {
+	filters: report_filters.value,
+	get_filter_value: (name) => get_resolved_filter_value(name),
+	set_filter_value: (name, val) => {
+		const current = report_filter_values[name];
+		if (current && typeof current === "object" && current.mode && current.mode !== "static") {
+			// Do not overwrite dynamic variables or expressions via UI set, preserve user config!
+			return;
+		}
+		report_filter_values[name] = val;
+		sync_local_config();
+		refresh_dependent_filters();
+	},
+	toggle_filter_display: (name, show) => {
+		const filter = report_filters.value.find((f) => f.fieldname === name);
+		if (filter) {
+			filter.hidden = !show;
+		}
+	}
+};
+
+onMounted(() => {
+	window.frappe.query_report = query_report_adapter;
+});
+
+onBeforeUnmount(() => {
+	window.frappe.query_report = original_query_report;
+});
 
 function evaluate_depends_on(expression, values) {
 	if (!expression) return true;
 	if (typeof expression === "boolean") return expression;
 
+	// Resolve actual primitive values of report filters
+	const resolved_values = {};
+	Object.keys(report_filter_values).forEach((k) => {
+		resolved_values[k] = get_resolved_filter_value(k);
+	});
+
 	if (typeof expression === "string" && expression.startsWith("eval:")) {
 		try {
 			return frappe.utils.eval(expression.substring(5), {
-				doc: values,
-				values,
+				doc: resolved_values,
+				values: resolved_values,
 			});
 		} catch (e) {
 			return false;
 		}
 	} else if (typeof expression === "string") {
-		return !!values[expression];
+		return !!resolved_values[expression];
 	}
 	return true;
 }
@@ -750,17 +785,19 @@ const visible_filters = computed(() => {
 	});
 });
 
-function toggle_report_filter_type(fieldname) {
-	const current = report_filter_types[fieldname];
-	const new_state = current === "Expression" ? "Value" : "Expression";
-	report_filter_types[fieldname] = new_state;
-
-	if (new_state === "Expression") {
-		report_filter_values[fieldname] = "{}";
-	} else {
-		report_filter_values[fieldname] = "";
-	}
-	sync_local_config();
+// Refresh dependent filters whenever report filter values update
+function refresh_dependent_filters() {
+	query_report_adapter.filters = report_filters.value;
+	visible_filters.value.forEach((df) => {
+		// If custom on_change function is declared in script, trigger it inside our scoped shim
+		if (typeof df.on_change === "function") {
+			try {
+				df.on_change();
+			} catch (err) {
+				console.warn("Report filter on_change failed", df.fieldname, err);
+			}
+		}
+	});
 }
 
 const SYSTEM_FIELDS = [
@@ -1253,12 +1290,22 @@ async function load_report_filters(report_name) {
 			}
 		}
 
-		report_filters.value = filters.map((f) => ({
-			...f,
-			fieldname: f.fieldname,
-			fieldtype: f.fieldtype || "Data",
-			label: f.label || f.fieldname,
-		}));
+		report_filters.value = filters.map((f) => {
+			const mapped = {
+				...f,
+				fieldname: f.fieldname,
+				fieldtype: f.fieldtype || "Data",
+				label: f.label || f.fieldname,
+			};
+			// Dynamically set get_query / get_data callback shims to route options through our adapter context
+			if (typeof f.get_query === "function") {
+				mapped.get_query = f.get_query;
+			}
+			if (typeof f.get_data === "function") {
+				mapped.get_data = f.get_data;
+			}
+			return mapped;
+		});
 
 		const cfg = props.node?.data?.config || {};
 		const saved_filters = cfg.filters || {};
@@ -1266,11 +1313,29 @@ async function load_report_filters(report_name) {
 			if (saved_filters[f.fieldname] !== undefined) {
 				const val = saved_filters[f.fieldname];
 				report_filter_values[f.fieldname] = val;
-				report_filter_types[f.fieldname] = parse_value_type(val);
+				if (report_filter_types) {
+					report_filter_types[f.fieldname] = parse_value_type(val);
+				}
 			} else {
 				report_filter_values[f.fieldname] = f.default || "";
-				report_filter_types[f.fieldname] = "Value";
+				if (report_filter_types) {
+					report_filter_types[f.fieldname] = "Value";
+				}
 			}
+		});
+
+		// Trigger initial execution of report settings callbacks (onload & dependency refreshes)
+		nextTick(() => {
+			const settings = frappe.query_reports[report_name] || {};
+			if (typeof settings.onload === "function") {
+				try {
+					// Execute onload setup
+					settings.onload(query_report_adapter);
+				} catch (e) {
+					console.warn("Report onload callback failed", e);
+				}
+			}
+			refresh_dependent_filters();
 		});
 	} catch (e) {
 		console.error("Failed to load report filters", e);
@@ -1281,8 +1346,13 @@ async function load_report_filters(report_name) {
 
 function update_report_filter(fieldname, value) {
 	report_filter_values[fieldname] = value;
-	report_filter_types[fieldname] = parse_value_type(value);
+	if (report_filter_types) {
+		report_filter_types[fieldname] = parse_value_type(value);
+	}
 	sync_local_config();
+	nextTick(() => {
+		refresh_dependent_filters();
+	});
 }
 
 async function test_query() {
