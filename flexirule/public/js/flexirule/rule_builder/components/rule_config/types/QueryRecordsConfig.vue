@@ -310,7 +310,7 @@
 							class="row-item report-filter-row"
 						>
 							<div class="filter-label-group">
-								<label class="filter-label">{{ df.label }}</label>
+								<label class="filter-label" :class="{ reqd: df.reqd }">{{ df.label }}</label>
 							</div>
 
 							<div class="filter-input-wrapper">
@@ -1199,12 +1199,17 @@ watch(
 			if (newMode === "Query List") {
 				config.limit = config.limit || 20;
 				config.limit_type = config.limit_type || "Custom Limit";
+				// Clear reference_docname as it must be hidden/not used in Query List
+				update_action_field("reference_docname", "");
 			}
 		}
 
 		if (newMode === "Query Report" && props.node?.data) {
 			if (props.node.data.reference_doctype !== "Report") {
 				update_action_field("reference_doctype", "Report");
+			}
+			if (props.node.data.reference_docname) {
+				config.report_name = props.node.data.reference_docname;
 			}
 		}
 
@@ -1292,7 +1297,12 @@ function sync_local_config() {
 
 	if (mode.value === "Query Report") {
 		const report_name = props.node?.data?.reference_docname || config.report_name;
-		if (report_name) new_config.report_name = report_name;
+		if (report_name) {
+			new_config.report_name = report_name;
+			if (props.node?.data && props.node.data.reference_docname !== report_name) {
+				update_action_field("reference_docname", report_name);
+			}
+		}
 		const filters = { ...report_filter_values };
 		if (Object.keys(filters).length) new_config.filters = filters;
 	}
@@ -1715,6 +1725,12 @@ defineExpose({
 	font-size: var(--fxr-text-base);
 	color: var(--fxr-text-secondary);
 	font-weight: var(--fxr-weight-medium);
+}
+
+.filter-label.reqd::after {
+	content: " *";
+	color: var(--fxr-text-danger, #ef4444);
+	font-weight: bold;
 }
 
 .expression-input-group {

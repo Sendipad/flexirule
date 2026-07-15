@@ -177,6 +177,7 @@ class QueryRecordsHandler(ActionHandler):
 					{"fieldname": "action_type", "default": "Query Records"},
 					{"fieldname": "operation", "default": "Query List"},
 					reference_doctype_override(),
+					{"fieldname": "reference_docname", "hidden": 1, "reqd": 0},
 					config_depends_on_doctype(description="Query configuration (filters, sorting)"),
 					{
 						"fieldname": "mutation_mode",
@@ -243,7 +244,14 @@ class QueryRecordsHandler(ActionHandler):
 				action_overrides=[
 					{"fieldname": "action_type", "default": "Query Records"},
 					{"fieldname": "operation", "default": "Query Report"},
-					reference_doctype_override(),
+					{"fieldname": "reference_doctype", "default": "Report", "read_only": 1},
+					{
+						"fieldname": "reference_docname",
+						"label": "Report Name",
+						"options": "Report",
+						"reqd": 1,
+						"hidden": 0,
+					},
 					config_depends_on_doctype(),
 					{"fieldname": "return_type", "default": "List of Records", "read_only": 1},
 					{
@@ -365,11 +373,17 @@ class QueryRecordsHandler(ActionHandler):
 
 		mode = action.operation
 		if mode == "Query Report":
+			if action.reference_doctype != "Report":
+				errors.append(_("Query Report mode requires reference_doctype to be 'Report'"))
+			if not action.reference_docname:
+				errors.append(_("Query Report mode requires a target Report Name"))
+			elif not frappe.db.exists("Report", action.reference_docname):
+				errors.append(_("Report '{0}' does not exist").format(action.reference_docname))
+
 			config = self._parse_config(action.config)
 			if not config.get("report_name"):
-				errors.append(_("Query Report mode requires report_name in config"))
-			elif not frappe.db.exists("Report", config.get("report_name")):
-				errors.append(_("Report '{0}' does not exist").format(config.get("report_name")))
+				# Synchronize report_name inside config to reference_docname
+				config["report_name"] = action.reference_docname
 
 		if mode in ("Sum", "Average", "Min", "Max"):
 			config = self._parse_config(action.config)
