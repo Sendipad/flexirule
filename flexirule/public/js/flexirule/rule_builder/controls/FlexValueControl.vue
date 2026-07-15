@@ -1369,6 +1369,15 @@ onBeforeUnmount(() => {
 	border-radius: inherit !important;
 }
 
+/* Ensure nested control wrapper and input groups stretch to fill the static container */
+.fvc-static-container :deep(.fxr-control),
+.fvc-static-container :deep(.fxr-input-group),
+.fvc-static-container :deep(.combobox-container) {
+	width: 100% !important;
+	flex: 1 !important;
+	min-width: 0 !important;
+}
+
 .fvc-static-container :deep(.fxr-input),
 .fvc-static-container :deep(.fxr-select),
 .fvc-static-container :deep(.combobox-input),
