@@ -295,7 +295,8 @@ const returnVariablePlaceholder = computed(() => {
 	const mode = props.node?.data?.mutation_mode;
 	if (mode === "Update Context Variable") return __("Select an existing variable...");
 	if (mode === "Set Context Variable") return __("Select or enter a variable name...");
-	if (mode === "Append to Context Variable") return __("Select a variable then continue typing...");
+	if (mode === "Append to Context Variable")
+		return __("Select a variable then continue typing...");
 	return __("Result Variable Name");
 });
 

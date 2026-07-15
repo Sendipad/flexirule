@@ -559,11 +559,10 @@ function onFocusOut(e) {
 			}
 		} else if (
 			canAcceptCustom.value ||
-			(props.autocompleteMode !== "strict" && (
-				query.value.startsWith("@") ||
-				query.value.startsWith("doc.") ||
-				query.value.startsWith("vars.")
-			))
+			(props.autocompleteMode !== "strict" &&
+				(query.value.startsWith("@") ||
+					query.value.startsWith("doc.") ||
+					query.value.startsWith("vars.")))
 		) {
 			onSelect(query.value);
 		} else {
@@ -653,11 +652,10 @@ function onKeydown(e) {
 			query.value !== "" &&
 			!exactMatch.value &&
 			(canAcceptCustom.value ||
-				(props.autocompleteMode !== "strict" && (
-					query.value.startsWith("@") ||
-					query.value.startsWith("doc.") ||
-					query.value.startsWith("vars.")
-				)))
+				(props.autocompleteMode !== "strict" &&
+					(query.value.startsWith("@") ||
+						query.value.startsWith("doc.") ||
+						query.value.startsWith("vars."))))
 		) {
 			onSelect(query.value);
 		}
@@ -708,11 +706,10 @@ function handleClickOutside(e) {
 			}
 		} else if (
 			canAcceptCustom.value ||
-			(props.autocompleteMode !== "strict" && (
-				query.value.startsWith("@") ||
-				query.value.startsWith("doc.") ||
-				query.value.startsWith("vars.")
-			))
+			(props.autocompleteMode !== "strict" &&
+				(query.value.startsWith("@") ||
+					query.value.startsWith("doc.") ||
+					query.value.startsWith("vars.")))
 		) {
 			onSelect(query.value);
 			return;
@@ -1005,7 +1002,8 @@ onBeforeUnmount(() => {
 /* Dropdown Animation */
 .dropdown-fade-enter-active,
 .dropdown-fade-leave-active {
-	transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+	transition:
+		opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1),
 		transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
