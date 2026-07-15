@@ -684,48 +684,73 @@ watch(
 // Setup active uiStore reference for mock context value resolution
 const uiStore = useUIStore();
 
+// Recursive strategy to cleanly resolve nested static, dynamic, or list filter values to native primitives
+function resolve_value_recursively(val) {
+	if (val === undefined || val === null) return "";
+
+	// Handle Array of filter values
+	if (Array.isArray(val)) {
+		const resolved = val.map(resolve_value_recursively).filter(x => x !== undefined && x !== null && x !== "");
+		return resolved;
+	}
+
+	if (typeof val === "object") {
+		// Handle standard FlexValueControl mode objects
+		if (val.mode !== undefined) {
+			if (val.mode === "static") {
+				return resolve_value_recursively(val.value);
+			}
+			const context_vars = uiStore.test_context || {};
+			if (val.mode === "variable") {
+				const path = val.value || "";
+				if (path.startsWith("doc.")) {
+					const key = path.substring(4);
+					if (context_vars.doc && context_vars.doc[key] !== undefined) {
+						return resolve_value_recursively(context_vars.doc[key]);
+					}
+				} else if (path.startsWith("vars.")) {
+					const key = path.substring(5);
+					if (context_vars[key] !== undefined) {
+						return resolve_value_recursively(context_vars[key]);
+					}
+				} else if (context_vars[path] !== undefined) {
+					return resolve_value_recursively(context_vars[path]);
+				}
+				return "";
+			}
+			if (val.mode === "resolver" || val.mode === "expression") {
+				const expression = val.value || "";
+				if (expression.includes("doc.")) {
+					const match = expression.match(/doc\.([a-zA-Z0-9_]+)/);
+					if (match && context_vars.doc && context_vars.doc[match[1]] !== undefined) {
+						return resolve_value_recursively(context_vars.doc[match[1]]);
+					}
+				} else if (expression.includes("vars.")) {
+					const match = expression.match(/vars\.([a-zA-Z0-9_]+)/);
+					if (match && context_vars[match[1]] !== undefined) {
+						return resolve_value_recursively(context_vars[match[1]]);
+					}
+				}
+				return "";
+			}
+		}
+
+		// If it's a generic plain object, check if it's empty
+		if (Object.keys(val).length === 0) {
+			return "";
+		}
+
+		// Return val.value if present, otherwise serialize/return empty string to avoid dictionary passing
+		return val.value !== undefined ? resolve_value_recursively(val.value) : "";
+	}
+
+	return val;
+}
+
 // Design-time fallback and simulation context resolution strategy
 function get_resolved_filter_value(name) {
 	const raw = report_filter_values[name];
-	if (raw === undefined || raw === null) return "";
-
-	// 1. Static value resolution
-	if (typeof raw !== "object" || !raw.mode || raw.mode === "static") {
-		return typeof raw === "object" ? raw.value : raw;
-	}
-
-	// 2. Variable or Resolve Value / Expression Resolution against rule test/simulation context
-	const context_vars = uiStore.test_context || {};
-	if (raw.mode === "variable") {
-		const path = raw.value || "";
-		if (path.startsWith("doc.")) {
-			const key = path.substring(4);
-			if (context_vars.doc && context_vars.doc[key] !== undefined)
-				return context_vars.doc[key];
-		} else if (path.startsWith("vars.")) {
-			const key = path.substring(5);
-			if (context_vars[key] !== undefined) return context_vars[key];
-		} else if (context_vars[path] !== undefined) {
-			return context_vars[path];
-		}
-	} else if (raw.mode === "resolver" || raw.mode === "expression") {
-		// Attempt simple resolution from test context snapshot
-		const expression = raw.value || "";
-		if (expression.includes("doc.")) {
-			const match = expression.match(/doc\.([a-zA-Z0-9_]+)/);
-			if (match && context_vars.doc && context_vars.doc[match[1]] !== undefined) {
-				return context_vars.doc[match[1]];
-			}
-		} else if (expression.includes("vars.")) {
-			const match = expression.match(/vars\.([a-zA-Z0-9_]+)/);
-			if (match && context_vars[match[1]] !== undefined) {
-				return context_vars[match[1]];
-			}
-		}
-	}
-
-	// 3. Graceful fallback (Return empty to indicate waiting state or trigger dynamic filter options safely)
-	return "";
+	return resolve_value_recursively(raw);
 }
 
 const original_query_report = window.frappe.query_report;
