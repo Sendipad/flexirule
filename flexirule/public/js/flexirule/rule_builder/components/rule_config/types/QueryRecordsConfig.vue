@@ -1396,7 +1396,8 @@ async function load_report_filters(report_name) {
 		report_filters.value.forEach((f) => {
 			if (saved_filters[f.fieldname] !== undefined) {
 				const val = saved_filters[f.fieldname];
-				report_filter_values[f.fieldname] = val;
+				report_filter_values[f.fieldname] =
+					val && typeof val === "object" ? JSON.parse(JSON.stringify(val)) : val;
 				if (report_filter_types) {
 					report_filter_types[f.fieldname] = parse_value_type(val);
 				}

@@ -26,8 +26,8 @@
 					v-if="isMultiSelect"
 					:df="staticDf"
 					:modelValue="staticValue"
-					:documentType="isLinkType ? referenceDoctype : undefined"
-					:options="isLinkType ? undefined : fieldOptions"
+					:documentType="isMultiSelectRemote ? referenceDoctype : undefined"
+					:options="isMultiSelectRemote ? undefined : fieldOptions"
 					displayMode="badges"
 					:badgeCollapseAfter="2"
 					:allowWrap="false"
@@ -387,14 +387,33 @@ const TEXT_FIELDTYPES = new Set([
 	"JSON",
 ]);
 const isMultiSelect = computed(() => {
+	const ft = fieldType.value;
+	if (["MultiSelect", "MultiSelectList", "Table MultiSelect"].includes(ft)) {
+		return true;
+	}
+
 	const op = props.context?.operator;
 	const isListOp = ["in", "not in", "in list", "not in list"].includes(
 		String(op || "").toLowerCase()
 	);
 	if (!isListOp) return false;
 
-	const ft = fieldType.value;
 	return ft === "Select" || TEXT_FIELDTYPES.has(ft) || ft === "Link" || ft === "Dynamic Link";
+});
+
+const isMultiSelectRemote = computed(() => {
+	const ft = fieldType.value;
+	if (ft === "Link" || ft === "Dynamic Link" || ft === "Table MultiSelect") return true;
+	if (ft === "MultiSelectList" || ft === "MultiSelect") {
+		const opts = fieldOptions.value;
+		if (!opts) return false;
+		if (Array.isArray(opts)) return false;
+		if (typeof opts === "string") {
+			if (opts.includes("\n") || opts.includes(",") || opts.includes(";")) return false;
+			return true;
+		}
+	}
+	return false;
 });
 const isDynamicMode = ref(false);
 const isEditorFocused = ref(false);

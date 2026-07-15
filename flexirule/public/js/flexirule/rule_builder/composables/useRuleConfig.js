@@ -20,13 +20,20 @@ export function useRuleConfig(props, emit) {
 	// Capture initial draft state after a short delay to allow background sync to settle
 	const initialDraftState = ref(null);
 
-	const isDirty = computed(() => {
-		if (!props.node || !draftNode.value || initialDraftState.value === null) return false;
+	const isDirty = ref(false);
 
-		// Compare current draft state with the captured initial state
-		const current = JSON.stringify(draftNode.value.data || {});
-		return current !== initialDraftState.value;
-	});
+	watch(
+		[() => draftNode.value?.data, initialDraftState],
+		() => {
+			if (!props.node || !draftNode.value || initialDraftState.value === null) {
+				isDirty.value = false;
+				return;
+			}
+			const current = JSON.stringify(draftNode.value.data || {});
+			isDirty.value = current !== initialDraftState.value;
+		},
+		{ deep: true, immediate: true }
+	);
 
 	// Refs for panel validation
 	const panelRefs = {
