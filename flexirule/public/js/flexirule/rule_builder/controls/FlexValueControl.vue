@@ -377,6 +377,15 @@ const props = defineProps({
 const emit = defineEmits(["update:modelValue", "update"]);
 
 const isReadOnly = computed(() => !!props.readOnly || !!props.read_only);
+const TEXT_FIELDTYPES = new Set([
+	"Data",
+	"Small Text",
+	"Text",
+	"Long Text",
+	"Code",
+	"Text Editor",
+	"JSON",
+]);
 const isMultiSelect = computed(() => {
 	const op = props.context?.operator;
 	const isListOp = op === "in list" || op === "not in list";
@@ -384,7 +393,7 @@ const isMultiSelect = computed(() => {
 
 	const ft = fieldType.value;
 	return (
-		ft === "Select" || PURE_TEXT_FIELDTYPES.has(ft) || ft === "Link" || ft === "Dynamic Link"
+		ft === "Select" || TEXT_FIELDTYPES.has(ft) || ft === "Link" || ft === "Dynamic Link"
 	);
 });
 const isDynamicMode = ref(false);
@@ -442,15 +451,7 @@ const isLinkType = computed(() => {
 	);
 });
 
-const PURE_TEXT_FIELDTYPES = new Set([
-	"Data",
-	"Small Text",
-	"Text",
-	"Long Text",
-	"Code",
-	"Text Editor",
-	"JSON",
-]);
+const PURE_TEXT_FIELDTYPES = new Set(["Code", "Text Editor", "JSON"]);
 
 const isStaticSupported = computed(() => {
 	if (isMultiSelect.value) return true;
