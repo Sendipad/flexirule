@@ -690,7 +690,9 @@ function resolve_value_recursively(val) {
 
 	// Handle Array of filter values
 	if (Array.isArray(val)) {
-		const resolved = val.map(resolve_value_recursively).filter(x => x !== undefined && x !== null && x !== "");
+		const resolved = val
+			.map(resolve_value_recursively)
+			.filter((x) => x !== undefined && x !== null && x !== "");
 		return resolved;
 	}
 
