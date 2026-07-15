@@ -86,10 +86,10 @@ const isRemote = computed(() => {
 	const ft = props.df?.fieldtype;
 	return Boolean(
 		props.get_data ||
-		props.documentType ||
-		ft === "Link" ||
-		ft === "MultiSelectList" ||
-		ft === "MultiSelect"
+			props.documentType ||
+			ft === "Link" ||
+			ft === "MultiSelectList" ||
+			ft === "MultiSelect"
 	);
 });
 
