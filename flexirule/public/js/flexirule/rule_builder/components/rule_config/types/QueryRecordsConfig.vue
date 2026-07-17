@@ -327,6 +327,7 @@
 									:context="{
 										df: df,
 										referenceDoctype: df.options,
+										filters: report_filter_values,
 									}"
 									@update:modelValue="update_report_filter(df.fieldname, $event)"
 								/>

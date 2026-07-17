@@ -63,7 +63,11 @@ ControlRegistry.registerDefault({
 		if (df.fieldtype === "Link") {
 			doctype = df.options || df.target_doctype || null;
 		} else if (df.fieldtype === "Dynamic Link") {
-			doctype = context.doc?.[df.options] || "";
+			doctype =
+				context.doc?.[df.options] ||
+				context.filters?.[df.options] ||
+				window.frappe?.query_report?.get_filter_value(df.options) ||
+				"";
 		}
 
 		let options = [];
@@ -122,7 +126,7 @@ ControlRegistry.registerDefault({
 			}
 		}
 
-		let filters = df.get_query ? null : df.filters || df.link_filters;
+		let filters = df.filters || df.link_filters || context.filters || {};
 		if (typeof filters === "string" && (filters.startsWith("{") || filters.startsWith("["))) {
 			try {
 				filters = JSON.parse(filters);
@@ -209,7 +213,9 @@ ControlRegistry.registerDefault({
 			documentType = df.target_doctype || context.engine?.rule_doc?.document_type;
 		} else if (df.options && typeof df.options === "string") {
 			// Resolve options dynamically using the scoped frappe.query_report shim if it references another filter field (like party_type)
-			const parent_val = window.frappe?.query_report?.get_filter_value(df.options);
+			const parent_val =
+				context.filters?.[df.options] ||
+				window.frappe?.query_report?.get_filter_value(df.options);
 			if (parent_val) {
 				documentType = parent_val;
 			} else if (!df.options.includes("\n") && df.options !== df.fieldname) {

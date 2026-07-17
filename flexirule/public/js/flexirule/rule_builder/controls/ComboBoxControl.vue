@@ -340,9 +340,17 @@ const {
 	reset: resetOptionSource,
 } = useAsyncOptionsSource(async ({ query: search, start, pageSize }) => {
 	if (props.get_query) {
-		const rows = await props.get_query(search, props.filters || {});
+		const df = { get_query: props.get_query, options: effectiveDoctype.value };
+		const rows = await metaStore.execute_get_query(
+			df,
+			search,
+			effectiveDoctype.value,
+			start,
+			pageSize,
+			props.filters || {}
+		);
 		if (rows !== null) {
-			return metaStore.uniqueOptions(metaStore.normalizeLinkRows(rows || []));
+			return rows;
 		}
 	}
 	if (effectiveDoctype.value) {
@@ -741,15 +749,26 @@ watch(
 	}
 );
 
+const siblingFilters = computed(() => {
+	if (!props.filters) return "";
+	const f = {};
+	for (const k in props.filters) {
+		if (k !== props.df?.fieldname) {
+			f[k] = props.filters[k];
+		}
+	}
+	return JSON.stringify(f);
+});
+
 watch(
-	() => props.filters,
-	() => {
+	() => siblingFilters.value,
+	(newVal, oldVal) => {
+		if (newVal === oldVal) return;
 		resetOptionSource();
 		if (isDropdownOpen.value && isRemote.value) {
 			runOptionFetch(query.value || "");
 		}
-	},
-	{ deep: true }
+	}
 );
 
 const isValid = computed(() => {
