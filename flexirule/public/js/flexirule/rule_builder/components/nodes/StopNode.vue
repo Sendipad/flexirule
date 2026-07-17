@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from "vue";
 import { Handle, Position } from "@vue-flow/core";
-import { useStore } from "../../stores";
+import { useStore, useRuleStore } from "../../stores";
 import { useNodeExecutionState } from "../../composables/useNodeExecutionState";
 import { useNodeStatus } from "../../composables/useNodeStatus";
 import { useCanvasLayout } from "../../composables/useCanvasLayout";
@@ -19,7 +19,8 @@ const isEffectiveDisabled = computed(() => {
 	return store.effectiveDisabledIds?.has(props.id);
 });
 
-const isReadOnly = computed(() => store.is_read_only);
+const ruleStore = useRuleStore();
+const isReadOnly = computed(() => ruleStore.is_read_only);
 
 const nodeIdRef = computed(() => props.id);
 const { isExecuted, isRunning, isErrored, executionOrder } = useNodeExecutionState(nodeIdRef);

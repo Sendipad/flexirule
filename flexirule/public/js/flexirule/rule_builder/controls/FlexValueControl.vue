@@ -28,6 +28,8 @@
 					:modelValue="staticValue"
 					:documentType="isLinkType ? referenceDoctype : undefined"
 					:options="isLinkType ? undefined : fieldOptions"
+					:filters="context?.filters || {}"
+					:get_data="context?.df?.get_data || undefined"
 					displayMode="badges"
 					:badgeCollapseAfter="2"
 					:allowWrap="false"
@@ -41,6 +43,7 @@
 					:modelValue="staticValue"
 					:doc="doc"
 					:engine="engine"
+					:context="context"
 					:options="isLinkType ? undefined : fieldOptions"
 					:hideLabel="true"
 					class="flex-1 min-w-0 w-100 static-control-factory"
@@ -388,7 +391,8 @@ const TEXT_FIELDTYPES = new Set([
 ]);
 const isMultiSelect = computed(() => {
 	const ft = fieldType.value;
-	if (["MultiSelect", "MultiSelectList", "Table MultiSelect"].includes(ft)) {
+	// Native multi-select fieldtypes are always rendered as MultiSelectList
+	if (["MultiSelect", "MultiSelectList", "Table MultiSelect", "MultiCheck"].includes(ft)) {
 		return true;
 	}
 
@@ -439,7 +443,23 @@ const referenceDoctype = computed(() => {
 	if (fieldType.value === "Link" && fieldOptions.value) {
 		return fieldOptions.value;
 	}
-	return props.context?.referenceDoctype || fieldOptions.value || "";
+
+	const opts = fieldOptions.value;
+
+	// For MultiSelectList / Dynamic Link, df.options may reference a sibling filter field
+	if (opts && typeof opts === "string" && props.context?.filters) {
+		const filterVal = props.context.filters[opts];
+		if (filterVal !== undefined && filterVal !== null) {
+			if (typeof filterVal === "object" && filterVal.mode === "static") {
+				return String(filterVal.value || "");
+			}
+			if (typeof filterVal === "string") {
+				return filterVal;
+			}
+		}
+	}
+
+	return props.context?.referenceDoctype || opts || "";
 });
 
 const triggerDoctype = computed(() => {
@@ -1102,13 +1122,7 @@ function deserialize(val) {
 function emitChanges() {
 	const output = coerceStructuredValue(serialize());
 	const json = JSON.stringify(output);
-	console.log("FlexValueControl emitChanges:", {
-		fieldname: props.fieldname || props.context?.df?.fieldname,
-		output,
-		json,
-		lastEmittedJSON,
-		isSame: json === lastEmittedJSON,
-	});
+
 	if (json === lastEmittedJSON) return; // idempotency guard: prevent feedback loops
 	lastEmittedJSON = json;
 	emit("update:modelValue", output);
@@ -1169,12 +1183,6 @@ function onStaticKeydown(e) {
 }
 
 function updateStaticValue(val) {
-	console.log(
-		"FlexValueControl updateStaticValue called with:",
-		val,
-		"for field:",
-		props.fieldname || props.context?.df?.fieldname
-	);
 	if (isVariableSyntax(val)) {
 		const path = val.startsWith("@") ? val.substring(1) : val;
 		isDynamicMode.value = true;

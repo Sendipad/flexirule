@@ -1,6 +1,6 @@
 <script setup>
 import { Handle, Position } from "@vue-flow/core";
-import { useStore } from "../../stores";
+import { useStore, useRuleStore } from "../../stores";
 import { getContract } from "../../../core/contracts";
 import { computed } from "vue";
 import { useNodeExecutionState } from "../../composables/useNodeExecutionState";
@@ -27,7 +27,8 @@ const isEffectiveDisabled = computed(() => {
 	return store.effectiveDisabledIds?.has(props.id);
 });
 
-const isReadOnly = computed(() => store.is_read_only);
+const ruleStore = useRuleStore();
+const isReadOnly = computed(() => ruleStore.is_read_only);
 
 const nodeMeta = computed(() => {
 	const actionType = props.data?.action_type || "Condition";

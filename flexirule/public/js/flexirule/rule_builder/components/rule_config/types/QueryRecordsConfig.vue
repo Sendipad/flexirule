@@ -1314,11 +1314,6 @@ function sync_local_config() {
 	// Compare before sending out to avoid loops
 	const current_str = JSON.stringify(props.node?.data?.config || {});
 	const next_str = JSON.stringify(new_config || {});
-	console.log("QueryRecordsConfig sync_local_config comparison:", {
-		current_str,
-		next_str,
-		isDifferent: current_str !== next_str,
-	});
 
 	if (current_str !== next_str) {
 		is_internal_update.value = true;
@@ -1329,8 +1324,6 @@ function sync_local_config() {
 		}, 150);
 	}
 }
-
-const debounced_sync = flexirule.utils.debounce(sync_local_config, 300);
 
 async function load_report_filters(report_name) {
 	if (!report_name || mode.value !== "Query Report") {
@@ -1435,7 +1428,6 @@ async function load_report_filters(report_name) {
 }
 
 function update_report_filter(fieldname, value) {
-	console.log("QueryRecordsConfig update_report_filter called:", { fieldname, value });
 	report_filter_values[fieldname] = value;
 	if (report_filter_types) {
 		report_filter_types[fieldname] = parse_value_type(value);
@@ -1556,7 +1548,7 @@ watch(
 	() => [order_by_rows.value, config, report_filter_values, mode.value, reference_doctype.value],
 	() => {
 		if (!is_internal_update.value) {
-			debounced_sync();
+			sync_local_config();
 			update_resolved_schema_local();
 			debounced_schema_update();
 		}
