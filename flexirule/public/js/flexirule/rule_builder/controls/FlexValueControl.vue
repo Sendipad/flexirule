@@ -28,6 +28,8 @@
 					:modelValue="staticValue"
 					:documentType="isLinkType ? referenceDoctype : undefined"
 					:options="isLinkType ? undefined : fieldOptions"
+					:filters="context?.filters || {}"
+					:get_data="context?.df?.get_data || undefined"
 					displayMode="badges"
 					:badgeCollapseAfter="2"
 					:allowWrap="false"
@@ -41,6 +43,7 @@
 					:modelValue="staticValue"
 					:doc="doc"
 					:engine="engine"
+					:context="context"
 					:options="isLinkType ? undefined : fieldOptions"
 					:hideLabel="true"
 					class="flex-1 min-w-0 w-100 static-control-factory"
@@ -387,13 +390,17 @@ const TEXT_FIELDTYPES = new Set([
 	"JSON",
 ]);
 const isMultiSelect = computed(() => {
+	const ft = fieldType.value;
+
+	// Native multi-select fieldtypes are always rendered as MultiSelectList
+	if (ft === "MultiSelectList" || ft === "MultiSelect" || ft === "MultiCheck") return true;
+
 	const op = props.context?.operator;
 	const isListOp = ["in", "not in", "in list", "not in list"].includes(
 		String(op || "").toLowerCase()
 	);
 	if (!isListOp) return false;
 
-	const ft = fieldType.value;
 	return ft === "Select" || TEXT_FIELDTYPES.has(ft) || ft === "Link" || ft === "Dynamic Link";
 });
 const isDynamicMode = ref(false);
@@ -424,7 +431,25 @@ const referenceDoctype = computed(() => {
 	if (fieldType.value === "Link" && fieldOptions.value) {
 		return fieldOptions.value;
 	}
-	return props.context?.referenceDoctype || fieldOptions.value || "";
+
+	const opts = fieldOptions.value;
+
+	// For MultiSelectList / Dynamic Link, df.options may reference a sibling filter field
+	// (e.g. options: "party_type" means "resolve the value of the party_type filter to get the DocType").
+	if (opts && typeof opts === "string" && props.context?.filters) {
+		const filterVal = props.context.filters[opts];
+		if (filterVal !== undefined && filterVal !== null) {
+			// Unwrap FlexValueControl structured value { mode: "static", value: "Customer" }
+			if (typeof filterVal === "object" && filterVal.mode === "static") {
+				return String(filterVal.value || "");
+			}
+			if (typeof filterVal === "string") {
+				return filterVal;
+			}
+		}
+	}
+
+	return props.context?.referenceDoctype || opts || "";
 });
 
 const triggerDoctype = computed(() => {

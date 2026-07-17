@@ -266,6 +266,59 @@ export const useMetaStore = defineStore("rule-builder-meta", () => {
 		}
 	}
 
+	async function execute_get_query(
+		df,
+		search,
+		reference_doctype,
+		start = 0,
+		page_length = 40,
+		filters = {}
+	) {
+		if (!df || typeof df.get_query !== "function") return [];
+
+		try {
+			// Execute the native Frappe get_query function
+			const query_config = await df.get_query(search || "", filters);
+
+			if (Array.isArray(query_config)) {
+				// Some custom get_query methods return an array directly
+				return uniqueOptions(normalizeLinkRows(query_config));
+			}
+
+			// It returned a query configuration object { query: "...", filters: {...} }
+			const target_doctype = df.options || reference_doctype;
+
+			let method = "frappe.desk.search.search_link";
+			const args = {
+				doctype: target_doctype,
+				txt: search || "",
+				filters: "{}",
+				searchfield: "name",
+				start: start,
+				page_length: page_length,
+			};
+
+			if (query_config && typeof query_config === "object") {
+				if (query_config.query) {
+					method = query_config.query;
+				}
+				if (query_config.filters) {
+					args.filters = JSON.stringify(query_config.filters);
+				}
+			}
+
+			const response = await frappe.call({
+				method: method,
+				args: args,
+			});
+
+			return uniqueOptions(normalizeLinkRows(response?.message || []));
+		} catch (e) {
+			console.warn("FlexiRule: get_query execution failed", e);
+			return [];
+		}
+	}
+
 	function clear_option_caches() {
 		Object.keys(link_options_cache).forEach((key) => delete link_options_cache[key]);
 		Object.keys(doctype_fields_cache).forEach((key) => delete doctype_fields_cache[key]);
@@ -284,6 +337,7 @@ export const useMetaStore = defineStore("rule-builder-meta", () => {
 		get_fields_for_doctype,
 		get_raw_meta,
 		search_link_options,
+		execute_get_query,
 		get_doctype_field_options,
 		clear_option_caches,
 		normalizeLinkRows,

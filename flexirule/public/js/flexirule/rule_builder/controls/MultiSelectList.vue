@@ -9,6 +9,7 @@ const props = defineProps({
 	fieldname: String,
 	df: { type: Object, default: () => ({}) },
 	options: { type: Array, default: null },
+	filters: { type: Object, default: () => ({}) },
 	get_data: { type: Function, default: null },
 	columns: { type: Number, default: 1 },
 	displayMode: { type: String, default: "badges" }, // compact|badges|list|numbered|columns
@@ -510,6 +511,27 @@ watch(
 watch(
 	() => props.documentType,
 	() => {
+		reset();
+		if (canInteract.value) clearAll();
+		if (showExpanded.value || isDropdownOpen.value) fetchOptions(query.value || "");
+	}
+);
+
+const siblingFilters = computed(() => {
+	if (!props.filters) return "";
+	const f = {};
+	for (const k in props.filters) {
+		if (k !== props.df?.fieldname) {
+			f[k] = props.filters[k];
+		}
+	}
+	return JSON.stringify(f);
+});
+
+watch(
+	() => siblingFilters.value,
+	(newVal, oldVal) => {
+		if (newVal === oldVal) return;
 		reset();
 		if (canInteract.value) clearAll();
 		if (showExpanded.value || isDropdownOpen.value) fetchOptions(query.value || "");
