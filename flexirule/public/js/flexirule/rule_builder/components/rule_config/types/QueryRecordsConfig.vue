@@ -530,6 +530,7 @@ import MultiSelectList from "../../../controls/MultiSelectList.vue";
 import FlexValueControl from "../../../controls/FlexValueControl.vue";
 import { useNodeConfigPolicy } from "../../../composables/useNodeConfigPolicy";
 import { useUIStore } from "../../../stores/useUIStore";
+import { provideControlContext } from "../../../composables/useControlContext";
 
 const props = defineProps({
 	node: Object,
@@ -804,6 +805,14 @@ const query_report_adapter = {
 		add_inner_button: () => {},
 	},
 };
+
+// ── Provide ControlContext for child controls ──
+// This replaces the need for child controls to access window.frappe.query_report directly.
+// Controls can now inject this context and call getFieldValue(fieldname) to resolve
+// sibling/parent filter values within the local report adapter scope.
+provideControlContext({
+	getFieldValue: (name) => get_resolved_filter_value(name),
+});
 
 onMounted(() => {
 	window.frappe.query_report = query_report_adapter;
