@@ -335,7 +335,11 @@
 <script setup>
 import { computed, ref, watch, onBeforeUnmount, nextTick } from "vue";
 import { Editor, EditorContent, VueRenderer, VueNodeViewRenderer } from "@tiptap/vue-3";
-import { useControlContext, resolveTargetDoctype, cloneForEmit } from "../composables/useControlContext";
+import {
+	useControlContext,
+	resolveTargetDoctype,
+	cloneForEmit,
+} from "../composables/useControlContext";
 import { StarterKit } from "@tiptap/starter-kit";
 import { Node, mergeAttributes } from "@tiptap/core";
 import Mention from "@tiptap/extension-mention";
@@ -1256,7 +1260,7 @@ function handleBuilderUpdate(config, details) {
 					fieldType: fieldType.value,
 					referenceDoctype: referenceDoctype.value,
 					context: props.context,
-			  })
+				})
 			: props.context?.resolverDefaults;
 	const mergedConfig =
 		defaults && typeof defaults === "object" ? { ...defaults, ...config } : config;

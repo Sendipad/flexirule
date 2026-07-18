@@ -3,7 +3,12 @@ import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from "vue"
 import { useMetaStore } from "../stores/useMetaStore";
 import { useFloatingDropdown } from "../composables/useFloatingDropdown";
 import { useAsyncOptionsSource } from "../composables/useAsyncOptionsSource";
-import { useControlContext, resolveTargetDoctype, buildSearchRequest, cloneForEmit } from "../composables/useControlContext";
+import {
+	useControlContext,
+	resolveTargetDoctype,
+	buildSearchRequest,
+	cloneForEmit,
+} from "../composables/useControlContext";
 
 const props = defineProps({
 	modelValue: { type: [Array, String], default: () => [] },
@@ -119,31 +124,34 @@ const {
 	loadMore,
 	hasMore,
 	reset,
-} = useAsyncOptionsSource(async ({ query: search, start, pageSize }) => {
-	if (props.get_data) {
-		const rows = await props.get_data(search || "");
-		return metaStore.uniqueOptions(metaStore.normalizeLinkRows(rows || []));
-	}
+} = useAsyncOptionsSource(
+	async ({ query: search, start, pageSize }) => {
+		if (props.get_data) {
+			const rows = await props.get_data(search || "");
+			return metaStore.uniqueOptions(metaStore.normalizeLinkRows(rows || []));
+		}
 
-	const dt = targetDoctype.value;
-	if (dt) {
-		const req = buildSearchRequest({
-			doctype: dt,
-			txt: search || "",
-			filters: props.df?.filters || {},
-			start,
-			page_length: pageSize,
-		});
-		return await metaStore.search_link_options(req);
-	}
+		const dt = targetDoctype.value;
+		if (dt) {
+			const req = buildSearchRequest({
+				doctype: dt,
+				txt: search || "",
+				filters: props.df?.filters || {},
+				start,
+				page_length: pageSize,
+			});
+			return await metaStore.search_link_options(req);
+		}
 
-	return [];
-}, {
-	dependencies: computed(() => ({
-		doctype: targetDoctype.value,
-		filters: props.df?.filters,
-	}))
-});
+		return [];
+	},
+	{
+		dependencies: computed(() => ({
+			doctype: targetDoctype.value,
+			filters: props.df?.filters,
+		})),
+	}
+);
 
 const normalizedOptions = computed(() => {
 	let source = props.options;
@@ -853,7 +861,9 @@ onBeforeUnmount(() => {
 	align-items: center;
 	gap: 8px;
 	cursor: pointer;
-	transition: border-color 0.15s ease, box-shadow 0.15s ease;
+	transition:
+		border-color 0.15s ease,
+		box-shadow 0.15s ease;
 }
 
 .multi-select-trigger.invalid {
@@ -1181,7 +1191,9 @@ onBeforeUnmount(() => {
 
 .dropdown-fade-enter-active,
 .dropdown-fade-leave-active {
-	transition: opacity 0.2s ease, transform 0.2s ease;
+	transition:
+		opacity 0.2s ease,
+		transform 0.2s ease;
 }
 
 .dropdown-fade-enter-from,

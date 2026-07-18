@@ -151,7 +151,8 @@ export function useActionConfig(props, options = {}) {
 
 		if (current_str !== next_str) {
 			// Explicitly store as Object (deeply cloned to prevent reference leaking)
-			const resolvedConfig = typeof new_config === "string" ? fromCodeString(new_config) : new_config;
+			const resolvedConfig =
+				typeof new_config === "string" ? fromCodeString(new_config) : new_config;
 			props.node.data.config = cloneForEmit(resolvedConfig);
 			store.mark_dirty();
 		}

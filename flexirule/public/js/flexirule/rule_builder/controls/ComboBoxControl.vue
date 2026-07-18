@@ -242,7 +242,12 @@ import { ref, computed, watch, onMounted, nextTick, onBeforeUnmount } from "vue"
 import { useMetaStore } from "../stores/useMetaStore";
 import { useFloatingDropdown } from "../composables/useFloatingDropdown";
 import { useAsyncOptionsSource } from "../composables/useAsyncOptionsSource";
-import { useControlContext, resolveTargetDoctype, buildSearchRequest, cloneForEmit } from "../composables/useControlContext";
+import {
+	useControlContext,
+	resolveTargetDoctype,
+	buildSearchRequest,
+	cloneForEmit,
+} from "../composables/useControlContext";
 
 const props = defineProps({
 	modelValue: [String, Number, Object],
@@ -337,30 +342,33 @@ const {
 	loading,
 	run: runOptionFetch,
 	reset: resetOptionSource,
-} = useAsyncOptionsSource(async ({ query: search, start, pageSize }) => {
-	if (props.get_query) {
-		const rows = await props.get_query(search, props.filters || {});
-		if (rows !== null) {
-			return metaStore.uniqueOptions(metaStore.normalizeLinkRows(rows || []));
+} = useAsyncOptionsSource(
+	async ({ query: search, start, pageSize }) => {
+		if (props.get_query) {
+			const rows = await props.get_query(search, props.filters || {});
+			if (rows !== null) {
+				return metaStore.uniqueOptions(metaStore.normalizeLinkRows(rows || []));
+			}
 		}
-	}
-	if (effectiveDoctype.value) {
-		const req = buildSearchRequest({
+		if (effectiveDoctype.value) {
+			const req = buildSearchRequest({
+				doctype: effectiveDoctype.value,
+				txt: search || "",
+				filters: props.filters || {},
+				start,
+				page_length: pageSize,
+			});
+			return await metaStore.search_link_options(req);
+		}
+		return [];
+	},
+	{
+		dependencies: computed(() => ({
 			doctype: effectiveDoctype.value,
-			txt: search || "",
-			filters: props.filters || {},
-			start,
-			page_length: pageSize,
-		});
-		return await metaStore.search_link_options(req);
+			filters: props.filters,
+		})),
 	}
-	return [];
-}, {
-	dependencies: computed(() => ({
-		doctype: effectiveDoctype.value,
-		filters: props.filters,
-	}))
-});
+);
 
 const normalizedOptions = computed(() => {
 	let source = props.options;
@@ -1008,7 +1016,8 @@ onBeforeUnmount(() => {
 /* Dropdown Animation */
 .dropdown-fade-enter-active,
 .dropdown-fade-leave-active {
-	transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+	transition:
+		opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1),
 		transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
