@@ -170,6 +170,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, inject, nextTick } from "vue";
+import { cloneForEmit } from "../../composables/useControlContext";
 import ComboBoxControl from "../../controls/ComboBoxControl.vue";
 import FlexValueControl from "../../controls/FlexValueControl.vue";
 import { useStore } from "../../stores";
@@ -554,17 +555,19 @@ const emitUpdate = () => {
 					r.doctype || props.doctype,
 					r.field,
 					r.operator || "=",
-					r.value.slice(0, 2).map((val) => normalizeStructuredForOperator(r, val)),
+					r.value
+						.slice(0, 2)
+						.map((val) => cloneForEmit(normalizeStructuredForOperator(r, val))),
 				];
 			}
 			return [
 				r.doctype || props.doctype,
 				r.field,
 				r.operator || "=",
-				normalizeStructuredForOperator(r, r.value),
+				cloneForEmit(normalizeStructuredForOperator(r, r.value)),
 			];
 		});
-	emit("update:modelValue", serialized);
+	emit("update:modelValue", cloneForEmit(serialized));
 };
 
 const doctypeFieldsCache = new Map();

@@ -27,6 +27,7 @@
  * (e.g., in native Frappe forms or standalone dialogs).
  */
 import { provide, inject, computed, unref } from "vue";
+import { deepClone } from "../utils/serialization";
 
 const CONTROL_CONTEXT_KEY = Symbol("fxr-control-context");
 
@@ -186,4 +187,40 @@ export function resolveTargetDoctype(df, ctx, opts = {}) {
 	}
 
 	return df.options || "";
+}
+
+/**
+ * Shared value normalization / deep cloning helper for immutable updates.
+ * Ensures that any configuration value emitted from controls produces a new reference.
+ *
+ * @param {*} value - The value to normalize and clone
+ * @returns {*} Cloned value
+ */
+export function cloneForEmit(value) {
+	if (value === null || value === undefined) return value;
+	return deepClone(value);
+}
+
+/**
+ * Build and normalize a standard search request object for MetaStore/Frappe link search.
+ * Organizes search concerns (target doctype, text, and additional query parameters).
+ *
+ * @param {Object} opts
+ * @param {string} opts.doctype - Resolved target DocType name
+ * @param {string} [opts.txt=""] - Search text query
+ * @param {Object} [opts.filters={}] - Query filters
+ * @param {number} [opts.start=0] - Pagination start index
+ * @param {number} [opts.page_length=40] - Number of rows to return
+ * @param {string} [opts.searchfield] - Field to search by
+ * @returns {Object} Normalized search request
+ */
+export function buildSearchRequest(opts = {}) {
+	return {
+		doctype: opts.doctype || "",
+		txt: opts.txt || "",
+		filters: opts.filters || {},
+		start: Number(opts.start || 0),
+		page_length: Number(opts.page_length || 40),
+		searchfield: opts.searchfield || undefined,
+	};
 }

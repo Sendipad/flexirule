@@ -1256,11 +1256,13 @@ watch(
 );
 
 function add_order_by() {
-	order_by_rows.value.push({ field: "", direction: "asc" });
+	order_by_rows.value = [...order_by_rows.value, { field: "", direction: "asc" }];
 }
 
 function remove_order_by(idx) {
-	order_by_rows.value.splice(idx, 1);
+	const next = [...order_by_rows.value];
+	next.splice(idx, 1);
+	order_by_rows.value = next;
 	sync_local_config();
 }
 

@@ -1,4 +1,4 @@
-import { ref } from "vue";
+import { ref, watch } from "vue";
 
 export function useAsyncOptionsSource(fetcher, config = {}) {
 	const pageSize = Number(config.pageSize || 40);
@@ -75,6 +75,16 @@ export function useAsyncOptionsSource(fetcher, config = {}) {
 	async function loadMore() {
 		if (loading.value || !hasMore.value) return options.value;
 		return run(lastQuery.value, { append: true });
+	}
+
+	if (config.dependencies) {
+		watch(
+			config.dependencies,
+			() => {
+				reset();
+			},
+			{ deep: true }
+		);
 	}
 
 	return {
