@@ -242,6 +242,7 @@ import { ref, computed, watch, onMounted, nextTick, onBeforeUnmount } from "vue"
 import { useMetaStore } from "../stores/useMetaStore";
 import { useFloatingDropdown } from "../composables/useFloatingDropdown";
 import { useAsyncOptionsSource } from "../composables/useAsyncOptionsSource";
+import { useControlContext, resolveTargetDoctype, buildSearchRequest, cloneForEmit } from "../composables/useControlContext";
 
 const props = defineProps({
 	modelValue: [String, Number, Object],
@@ -278,6 +279,7 @@ const props = defineProps({
 
 const emit = defineEmits(["update:modelValue", "change"]);
 const metaStore = useMetaStore();
+const controlContext = useControlContext();
 
 const query = ref("");
 const mainInputRef = ref(null);
@@ -312,13 +314,10 @@ const effectiveDoctype = computed(() => {
 		return props.doctype || null;
 	}
 
-	// For Link/Dynamic Link fields, if no explicit doctype is provided, we should only fall back
-	// if the field actually behaves like a standard Link to the parent document type.
-	if (props.df?.fieldtype === "Link" || props.df?.fieldtype === "Dynamic Link") {
-		return props.doctype || null;
-	}
-
-	return props.doctype || props.rule?.document_type || props.context?.document_type;
+	return resolveTargetDoctype(props.df, controlContext, {
+		explicitDoctype: props.doctype || props.rule?.document_type || props.context?.document_type,
+		doc: props.context?.doc || props.context,
+	});
 });
 
 const isRemote = computed(() => Boolean(props.get_query || effectiveDoctype.value));
@@ -346,15 +345,21 @@ const {
 		}
 	}
 	if (effectiveDoctype.value) {
-		return await metaStore.search_link_options({
+		const req = buildSearchRequest({
 			doctype: effectiveDoctype.value,
 			txt: search || "",
 			filters: props.filters || {},
 			start,
 			page_length: pageSize,
 		});
+		return await metaStore.search_link_options(req);
 	}
 	return [];
+}, {
+	dependencies: computed(() => ({
+		doctype: effectiveDoctype.value,
+		filters: props.filters,
+	}))
 });
 
 const normalizedOptions = computed(() => {
@@ -574,9 +579,10 @@ function onFocusOut(e) {
 }
 
 function onSelect(val) {
-	emit("update:modelValue", val);
+	const clonedVal = cloneForEmit(val);
+	emit("update:modelValue", clonedVal);
 	const option = normalizedOptions.value.find((o) => String(o.value) === String(val));
-	emit("change", option?.raw || val);
+	emit("change", cloneForEmit(option?.raw || val));
 	query.value = "";
 	closeDropdown(true);
 }

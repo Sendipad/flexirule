@@ -3,6 +3,7 @@ import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from "vue"
 import { useMetaStore } from "../stores/useMetaStore";
 import { useFloatingDropdown } from "../composables/useFloatingDropdown";
 import { useAsyncOptionsSource } from "../composables/useAsyncOptionsSource";
+import { useControlContext, resolveTargetDoctype, buildSearchRequest, cloneForEmit } from "../composables/useControlContext";
 
 const props = defineProps({
 	modelValue: { type: [Array, String], default: () => [] },
@@ -44,6 +45,13 @@ const props = defineProps({
 
 const emit = defineEmits(["update:modelValue", "change"]);
 const metaStore = useMetaStore();
+const controlContext = useControlContext();
+
+const targetDoctype = computed(() => {
+	return resolveTargetDoctype(props.df, controlContext, {
+		explicitDoctype: props.documentType,
+	});
+});
 
 const query = ref("");
 const activeIndex = ref(-1);
@@ -84,7 +92,7 @@ const selectedValues = computed(() => {
 
 const isRemote = computed(() => {
 	if (props.get_data) return true;
-	if (props.documentType) return true;
+	if (targetDoctype.value) return true;
 
 	const ft = props.df?.fieldtype;
 	if (ft === "Link") return true;
@@ -117,49 +125,24 @@ const {
 		return metaStore.uniqueOptions(metaStore.normalizeLinkRows(rows || []));
 	}
 
-	// Resolve the target doctype dynamic reference (e.g. from props.documentType or df.options)
-	let target_dt = props.documentType;
-	if (!target_dt && props.df?.options && typeof props.df.options === "string") {
-		const parent_val = window.frappe?.query_report?.get_filter_value(props.df.options);
-		if (parent_val) {
-			target_dt = parent_val;
-		} else {
-			const query_report_filters = window.frappe?.query_report?.filters || [];
-			const is_parent_filter = query_report_filters.some(
-				(f) => f.fieldname === props.df.options
-			);
-			if (
-				!is_parent_filter &&
-				!props.df.options.includes("\n") &&
-				props.df.options !== props.df.fieldname
-			) {
-				target_dt = props.df.options;
-			}
-		}
-	}
-
-	if (target_dt) {
-		// Use native standard search_link_options to fetch target DocType options safely
-		return await metaStore.search_link_options({
-			doctype: target_dt,
+	const dt = targetDoctype.value;
+	if (dt) {
+		const req = buildSearchRequest({
+			doctype: dt,
 			txt: search || "",
 			filters: props.df?.filters || {},
 			start,
 			page_length: pageSize,
 		});
-	}
-
-	if (props.df?.fieldtype === "Link" && props.df?.options) {
-		return await metaStore.search_link_options({
-			doctype: props.df.options,
-			txt: search || "",
-			filters: props.df.filters || {},
-			start,
-			page_length: pageSize,
-		});
+		return await metaStore.search_link_options(req);
 	}
 
 	return [];
+}, {
+	dependencies: computed(() => ({
+		doctype: targetDoctype.value,
+		filters: props.df?.filters,
+	}))
 });
 
 const normalizedOptions = computed(() => {
@@ -291,8 +274,9 @@ function validate() {
 defineExpose({ validate });
 
 function emitValue(nextValues) {
-	emit("update:modelValue", nextValues);
-	emit("change", nextValues);
+	const cloned = cloneForEmit(nextValues);
+	emit("update:modelValue", cloned);
+	emit("change", cloned);
 }
 
 function validateSelection() {
@@ -518,7 +502,7 @@ watch(
 );
 
 watch(
-	() => props.documentType,
+	() => targetDoctype.value,
 	() => {
 		reset();
 		if (canInteract.value) clearAll();

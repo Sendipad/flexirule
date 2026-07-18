@@ -335,6 +335,7 @@
 <script setup>
 import { computed, ref, watch, onBeforeUnmount, nextTick } from "vue";
 import { Editor, EditorContent, VueRenderer, VueNodeViewRenderer } from "@tiptap/vue-3";
+import { useControlContext, resolveTargetDoctype, cloneForEmit } from "../composables/useControlContext";
 import { StarterKit } from "@tiptap/starter-kit";
 import { Node, mergeAttributes } from "@tiptap/core";
 import Mention from "@tiptap/extension-mention";
@@ -439,27 +440,13 @@ const staticValue = ref("");
 
 const fieldType = computed(() => props.context?.df?.fieldtype || "Data");
 const fieldOptions = computed(() => props.context?.df?.options || []);
+const controlContext = useControlContext();
+
 const referenceDoctype = computed(() => {
-	if (fieldType.value === "Link" && fieldOptions.value) {
-		return fieldOptions.value;
-	}
-
-	const opts = fieldOptions.value;
-
-	// For MultiSelectList / Dynamic Link, df.options may reference a sibling filter field
-	if (opts && typeof opts === "string" && props.context?.filters) {
-		const filterVal = props.context.filters[opts];
-		if (filterVal !== undefined && filterVal !== null) {
-			if (typeof filterVal === "object" && filterVal.mode === "static") {
-				return String(filterVal.value || "");
-			}
-			if (typeof filterVal === "string") {
-				return filterVal;
-			}
-		}
-	}
-
-	return props.context?.referenceDoctype || opts || "";
+	return resolveTargetDoctype(props.context?.df, controlContext, {
+		explicitDoctype: props.context?.referenceDoctype,
+		doc: props.doc,
+	});
 });
 
 const triggerDoctype = computed(() => {
@@ -1125,14 +1112,15 @@ function emitChanges() {
 
 	if (json === lastEmittedJSON) return; // idempotency guard: prevent feedback loops
 	lastEmittedJSON = json;
-	emit("update:modelValue", output);
-	emit("update", output);
+	const clonedOutput = cloneForEmit(output);
+	emit("update:modelValue", clonedOutput);
+	emit("update", clonedOutput);
 	try {
 		if (typeof props.context?.onUpdate === "function") {
-			props.context.onUpdate(output);
+			props.context.onUpdate(clonedOutput);
 		}
 		if (typeof props.context?.onChange === "function") {
-			props.context.onChange(output);
+			props.context.onChange(clonedOutput);
 		}
 	} catch (error) {
 		console.warn("FlexValueControl context callback failed:", error);

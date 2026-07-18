@@ -1,6 +1,7 @@
 import { reactive, ref, computed, watch, onMounted, provide } from "vue";
 import { useStore } from "../stores";
 import { fromCodeString } from "../utils/serialization";
+import { cloneForEmit } from "./useControlContext";
 
 export function useActionConfig(props, options = {}) {
 	const store = useStore();
@@ -149,9 +150,9 @@ export function useActionConfig(props, options = {}) {
 		const next_str = JSON.stringify(new_config || {});
 
 		if (current_str !== next_str) {
-			// Explicitly store as Object
-			props.node.data.config =
-				typeof new_config === "string" ? fromCodeString(new_config) : new_config;
+			// Explicitly store as Object (deeply cloned to prevent reference leaking)
+			const resolvedConfig = typeof new_config === "string" ? fromCodeString(new_config) : new_config;
+			props.node.data.config = cloneForEmit(resolvedConfig);
 			store.mark_dirty();
 		}
 	}
