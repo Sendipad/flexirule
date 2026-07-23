@@ -63,10 +63,19 @@ ControlRegistry.registerDefault({
 		if (df.fieldtype === "Link") {
 			doctype = df.options || df.target_doctype || null;
 		} else if (df.fieldtype === "Dynamic Link") {
-			doctype =
-				context.doc?.[df.options] ||
-				window.frappe?.query_report?.get_filter_value(df.options) ||
-				"";
+			// Resolve Dynamic Link target via context chain:
+			// 1. Doc-level (standard Frappe form)
+			// 2. Injected ControlContext (Rule Builder / Query Report adapter)
+			// 3. Fallback empty
+			doctype = context.doc?.[df.options] || "";
+			if (!doctype && context.controlContext) {
+				const ctxVal = context.controlContext.getFieldValue(df.options);
+				if (ctxVal && typeof ctxVal === "object" && ctxVal.mode === "static") {
+					doctype = String(ctxVal.value || "");
+				} else if (typeof ctxVal === "string") {
+					doctype = ctxVal;
+				}
+			}
 		}
 
 		let options = [];
@@ -211,8 +220,15 @@ ControlRegistry.registerDefault({
 		if (df.fieldtype === "MultiFieldPicker") {
 			documentType = df.target_doctype || context.engine?.rule_doc?.document_type;
 		} else if (df.options && typeof df.options === "string") {
-			// Resolve options dynamically using the scoped frappe.query_report shim if it references another filter field (like party_type)
-			const parent_val = window.frappe?.query_report?.get_filter_value(df.options);
+			// Resolve options through injected ControlContext (Rule Builder / Query Report)
+			// instead of reaching into window.frappe.query_report.
+			let parent_val = undefined;
+			if (context.controlContext) {
+				parent_val = context.controlContext.getFieldValue(df.options);
+				if (parent_val && typeof parent_val === "object" && parent_val.mode === "static") {
+					parent_val = parent_val.value || undefined;
+				}
+			}
 			if (parent_val) {
 				documentType = parent_val;
 			} else if (!df.options.includes("\n") && df.options !== df.fieldname) {

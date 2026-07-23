@@ -1,6 +1,6 @@
 <script setup>
 import { Handle, Position } from "@vue-flow/core";
-import { useStore } from "../../stores";
+import { useStore, useRuleStore } from "../../stores";
 import { getContract } from "../../../core/contracts";
 import { computed } from "vue";
 import { useNodeExecutionState } from "../../composables/useNodeExecutionState";
@@ -12,7 +12,8 @@ import NodeStatusIndicator from "./NodeStatusIndicator.vue";
 
 const props = defineProps(["data", "label", "id", "selected", "sourcePosition"]);
 const store = useStore();
-const isReadOnly = computed(() => store.is_read_only);
+const ruleStore = useRuleStore();
+const isReadOnly = computed(() => ruleStore.is_read_only);
 
 const { isHorizontal, sourcePosition: defaultSourcePos } = useCanvasLayout();
 const sourcePos = computed(() => props.sourcePosition || defaultSourcePos.value);
