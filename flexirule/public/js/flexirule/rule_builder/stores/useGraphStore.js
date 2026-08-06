@@ -1102,6 +1102,84 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		};
 	}
 
+	function upgrade_selector_node(nodeId, selection) {
+		const nodeIndex = nodes.value.findIndex((n) => n.id === nodeId);
+		if (nodeIndex === -1) return;
+
+		const node = nodes.value[nodeIndex];
+		const action_type = selection.action_type;
+		const label = selection.label;
+		const nodeType = mapActionTypeToNodeType(action_type);
+
+		const nodeData = get_default_node_data(action_type.toLowerCase(), label);
+		const suggestedParentId = node.data?.suggested_parent_id;
+		const suggestedSourceHandle = node.data?.suggested_source_handle || "default";
+
+		if (selection.operation) nodeData.operation = selection.operation;
+		if (selection.process_name) nodeData.process_name = selection.process_name;
+
+		if (action_type === "Process" && nodeData.operation && !nodeData.process_name) {
+			const matches = getOperationOptions("Process", {})
+				.filter((op) => op.value === nodeData.operation && op.process_name)
+				.map((op) => op.process_name);
+			const unique = [...new Set(matches)];
+			if (unique.length === 1) nodeData.process_name = unique[0];
+		}
+
+		const isTerminal = isTerminalAction(action_type);
+
+		const updatedNodeData = {
+			...nodeData,
+			action_id: nodeId,
+			action_label: label,
+			next_step_if_true: isTerminal
+				? null
+				: node.data?.next_step_if_true || nodeData.next_step_if_true,
+			next_step_if_false: isTerminal
+				? null
+				: node.data?.next_step_if_false || nodeData.next_step_if_false,
+			suggested_parent_id: null,
+			suggested_source_handle: null,
+		};
+
+		// Atomic node replacement
+		nodes.value = nodes.value.map((n) => {
+			if (n.id === nodeId) {
+				return {
+					...n,
+					type: nodeType,
+					label: label,
+					data: updatedNodeData,
+				};
+			}
+			return n;
+		});
+
+		if (suggestedParentId) {
+			const edgeId = `e-${suggestedParentId}-${nodeId}-${suggestedSourceHandle}`;
+			const hasIncoming = edges.value.some((edge) => edge.target === nodeId);
+			if (!hasIncoming) {
+				edges.value = [
+					...edges.value,
+					{
+						id: edgeId,
+						source: suggestedParentId,
+						target: nodeId,
+						sourceHandle: suggestedSourceHandle,
+						animated: suggestedParentId === "root",
+					},
+				];
+			}
+		}
+
+		if (isTerminal) {
+			edges.value = edges.value.filter((edge) => edge.source !== nodeId);
+		}
+
+		touch_node(nodeId);
+		return true;
+	}
+
 	// ── Data cleaning ──
 	function clean_graph_data() {
 		return [...nodes.value, ...edges.value].map((el) => {
@@ -2127,6 +2205,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		pasteNodes,
 		paste_on_edge,
 		toggle_node_enabled,
+		upgrade_selector_node,
 
 		// Sync
 		sync_actions_to_graph,
