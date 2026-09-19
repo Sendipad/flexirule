@@ -5,7 +5,7 @@ import frappe
 from frappe.exceptions import ValidationError
 
 from flexirule.ruleflow.core.action_handlers.document_action import DocumentActionHandler
-from flexirule.ruleflow.core.action_handlers.sub_rule import SubRuleHandler, MAX_SUB_RULE_DEPTH
+from flexirule.ruleflow.core.action_handlers.sub_rule import MAX_SUB_RULE_DEPTH, SubRuleHandler
 from flexirule.ruleflow.core.engine import RuleEngine, SafeFrappeAPI
 from flexirule.ruleflow.core.exceptions import CycleDetectedError
 from flexirule.ruleflow.core.permissions import validate_safe_eval
@@ -47,14 +47,16 @@ class TestAuditReproductions(FlexiRuleTestCase):
 
 	def test_FR_ENGINE_002_sub_rule_recursion_depth_propagated(self):
 		"""FR-ENGINE-002 (HIGH): Sub-rule execution context propagates recursion depth and enforces limit."""
-		sub_rule = frappe.get_doc({
-			"doctype": "Rule",
-			"rule_name": "Test_Sub_Rule_Depth_Check",
-			"trigger_type": "Callable Event",
-			"exposed_as_subrule": 1,
-			"is_active": 1,
-			"status": "Active",
-		}).insert(ignore_permissions=True)
+		sub_rule = frappe.get_doc(
+			{
+				"doctype": "Rule",
+				"rule_name": "Test_Sub_Rule_Depth_Check",
+				"trigger_type": "Callable Event",
+				"exposed_as_subrule": 1,
+				"is_active": 1,
+				"status": "Active",
+			}
+		).insert(ignore_permissions=True)
 
 		try:
 			handler = SubRuleHandler()
@@ -63,7 +65,9 @@ class TestAuditReproductions(FlexiRuleTestCase):
 				"doc": frappe._dict({"doctype": "User", "name": "Administrator"}),
 				"_sub_rule_depth": MAX_SUB_RULE_DEPTH,
 			}
-			engine = RuleEngine(frappe._dict({"name": "Parent_Rule", "actions": []}), execution_context=context)
+			engine = RuleEngine(
+				frappe._dict({"name": "Parent_Rule", "actions": []}), execution_context=context
+			)
 
 			with self.assertRaises(CycleDetectedError):
 				handler.execute(action, context, engine)
