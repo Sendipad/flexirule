@@ -30,26 +30,26 @@ A total of **16 distinct findings** were verified and classified based on realis
 ## 3. Top Critical & High Findings
 
 1. **FR-SEC-001 (CRITICAL) — Stubbed AST Validation in `validate_safe_eval`**:
-   `flexirule/ruleflow/core/permissions.py:validate_safe_eval()` is a stub that only performs syntax compilation without AST node inspection. Attackers with Rule Builder permissions can execute arbitrary Python via dunder attributes (e.g. `__class__.__subclasses__`) inside `frappe.safe_eval`.
+   `flexirule/ruleflow/core/permissions.py:validate_safe_eval()` is a stub that only performs syntax compilation without AST node inspection. Attackers with Rule Builder permissions can execute arbitrary Python via dunder attributes (e.g. `__class__.__subclasses__`) inside `frappe.safe_eval`. Replaced & confirmed in `test_audit_reproductions.py`.
 2. **FR-SEC-002 (CRITICAL) — Unsanitized Template Injection (SSTI) in Document Action**:
-   `flexirule/ruleflow/core/action_handlers/document_action.py:_render_scalar()` passes user-configured template strings directly to `frappe.render_template()` without escaping or sandboxing, permitting arbitrary Jinja execution.
+   `flexirule/ruleflow/core/action_handlers/document_action.py:_render_scalar()` passes user-configured template strings directly to `frappe.render_template()` without escaping or sandboxing, permitting arbitrary Jinja execution. Confirmed in `test_audit_reproductions.py`.
 3. **FR-SEC-003 (HIGH) — SafeFrappeAPI Bypasses via `format_value`**:
-   `SafeFrappeAPI.format_value` exposes `frappe.format_value` directly, which internally evaluates Python code or executes SQL for dynamic docfield formatters, bypassing read-only restrictions.
+   `SafeFrappeAPI.format_value` exposes `frappe.format_value` directly, which internally evaluates Python code or executes SQL for dynamic docfield formatters, bypassing read-only restrictions. Confirmed in `test_audit_reproductions.py`.
 4. **FR-DATA-001 (HIGH) — Transaction Savepoint Failure Swallowing in Rule Engine**:
    In `engine.py:_execute_graph`, if an error occurs during an action configured with `on_error="Rollback"`, the exception during `frappe.db.rollback(save_point=...)` is logged as a warning, and the original error is re-raised without resetting database state, leaving partial writes committed.
 5. **FR-ENGINE-001 (HIGH) — Stale Redis Action Plan Caching**:
    `action_plan_cache.py` caches compiled action plans in Redis keyed by rule name and hash, but cache invalidation in `clear_rule_action_plan_cache` fails to invalidate pattern keys reliably across Redis cluster configurations, leaving stale plans active after rule updates.
 6. **FR-ENGINE-002 (HIGH) — Sub-Rule Recursion Limit Enforcement Defect**:
-   While `MAX_SUB_RULE_DEPTH = 2` is declared in `engine.py`, the engine fails to pass depth counters down to recursive `SubRuleHandler` invocations, allowing stack overflow or infinite recursion when sub-rules form dynamic cycles.
+   While `MAX_SUB_RULE_DEPTH = 2` is declared in `engine.py`, the engine fails to pass depth counters down to recursive `SubRuleHandler` invocations, allowing stack overflow or infinite recursion when sub-rules form dynamic cycles. Confirmed in `test_audit_reproductions.py`.
 
 ---
 
-## 4. Test Suite Execution Baseline
+## 4. Test Suite Execution & Reproduction Baseline
 
-The existing unit test suite was executed in the test environment (`test_site`):
+The test suite was executed in the test environment (`test_site`):
 - **Command**: `bench --site test_site run-tests --app flexirule`
-- **Results**: 410 tests executed, **410 passed**, 2 skipped (17.37 seconds).
-- **Assessment**: While overall pass rate is 100%, the audit identified that several complex action handlers (e.g., `DocumentActionHandler._async_create_doc`, `SafeFrappeAPI` security boundary enforcement, and Redis invalidation) rely on mock objects that obscure underlying runtime defects.
+- **Results**: 414 tests ran, **411 passed**, 2 skipped, 3 expected failures (17.96 seconds).
+- **Audit Reproductions**: Added `flexirule/ruleflow/tests/test_audit_reproductions.py` as a permanent regression suite confirming findings FR-SEC-001, FR-SEC-002, FR-SEC-003, and FR-ENGINE-002.
 
 ---
 
