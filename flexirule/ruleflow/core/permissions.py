@@ -239,6 +239,33 @@ def can_modify_rule(rule_doc, throw=True):
 	return False
 
 
+import ast
+
+
+class SafeEvalVisitor(ast.NodeVisitor):
+	def visit_Attribute(self, node):
+		if node.attr.startswith("__"):
+			frappe.throw(
+				_("Access to private/dunder attribute '{0}' is prohibited in expressions.").format(node.attr),
+				frappe.ValidationError,
+			)
+		self.generic_visit(node)
+
+	def visit_Name(self, node):
+		if node.id.startswith("__"):
+			frappe.throw(
+				_("Access to dunder identifier '{0}' is prohibited in expressions.").format(node.id),
+				frappe.ValidationError,
+			)
+		self.generic_visit(node)
+
+	def visit_Import(self, node):
+		frappe.throw(_("Import statements are prohibited in expressions."), frappe.ValidationError)
+
+	def visit_ImportFrom(self, node):
+		frappe.throw(_("Import statements are prohibited in expressions."), frappe.ValidationError)
+
+
 def validate_safe_eval(expression):
 	"""
 	Validate that an expression is safe to evaluate
@@ -249,11 +276,15 @@ def validate_safe_eval(expression):
 	Raises:
 	    ValidationError if unsafe
 	"""
+	if not expression:
+		return True
+
 	try:
-		compile(expression, "<string>", "eval")
+		tree = ast.parse(expression, mode="eval")
 	except SyntaxError as e:
 		frappe.throw(_("Invalid syntax in expression: {0}").format(str(e)), frappe.ValidationError)
 	except Exception as e:
 		frappe.throw(_("Invalid expression: {0}").format(str(e)), frappe.ValidationError)
 
-	return True  # Expression is safe
+	SafeEvalVisitor().visit(tree)
+	return True

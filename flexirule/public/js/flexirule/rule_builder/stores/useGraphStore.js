@@ -1857,8 +1857,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			const newNode = deepClone(node);
 			newNode.id = newId;
 			if (newNode.data) {
-				const sourceActionId = newNode.data.action_id || oldId || newId;
-				newNode.data.action_id = getUniqueActionId(sourceActionId);
+				newNode.data.action_id = getUniqueActionId(generateShortId());
 				newNode.data.name = null; // Clear backend name to force new record
 				// Ensure mandatory fields are at least present
 				if (

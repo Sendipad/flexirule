@@ -179,9 +179,8 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		if (needs_auto_layout) {
 			const { useRuleGraph } = await import("../composables/useRuleGraph");
 			const { layoutGraph } = useRuleGraph();
-			nextTick(() => {
-				layoutGraph(uiStore.layout_preference);
-			});
+			await nextTick();
+			layoutGraph(uiStore.layout_preference);
 		}
 
 		// We wait for nextTick to ensure all reactive changes from

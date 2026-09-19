@@ -303,7 +303,16 @@ class SubRuleHandler(ActionHandler):
 			# Prepare sub-context with isolation:
 			# - vars use overlay (no deep-copy, copy-on-write)
 			# - meta gets a shallow copy
+			current_depth = context.get("_sub_rule_depth", 0)
+			if current_depth >= MAX_SUB_RULE_DEPTH:
+				raise CycleDetectedError(
+					_("Max sub-rule recursion depth ({0}) exceeded in {1}").format(
+						MAX_SUB_RULE_DEPTH, sub_rule_name
+					)
+				)
+
 			sub_context = context.copy()
+			sub_context["_sub_rule_depth"] = current_depth + 1
 			sub_context["vars"] = SubRuleVarsOverlay(context.get("vars", {}))
 			sub_context["meta"] = context.get("meta", {}).copy()
 			sub_context["meta"]["parent_rule"] = engine.rule.name
@@ -313,13 +322,6 @@ class SubRuleHandler(ActionHandler):
 			sub_context["meta"]["execution_stack"] = [*execution_stack, caller_base_name]
 
 			# Check depth limit
-			current_depth = sub_context["meta"].get("call_depth", 0)
-			if current_depth >= MAX_SUB_RULE_DEPTH:
-				raise CycleDetectedError(
-					_("Max sub-rule recursion depth ({0}) exceeded in {1}").format(
-						MAX_SUB_RULE_DEPTH, sub_rule_name
-					)
-				)
 			sub_context["meta"]["call_depth"] = current_depth + 1
 			sub_context["meta"]["skip_conditions"] = skip_conditions
 			sub_context["meta"]["caller_rule"] = engine.rule.name

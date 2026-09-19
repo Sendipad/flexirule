@@ -62,9 +62,9 @@ def clear_rule_action_plan_cache(rule_name: str | None = None) -> None:
 
 	try:
 		pattern = f"{CACHE_KEY_PREFIX}:{rule_name}:*"
-		frappe.cache.delete_keys(pattern)
-		if hasattr(frappe.cache, "make_key"):
-			frappe.cache.delete_keys(frappe.cache.make_key(pattern))
+		frappe.cache.delete_value(pattern)
+		if hasattr(frappe.cache, "delete_keys"):
+			frappe.cache.delete_keys(pattern)
 	except Exception:
 		pass
 

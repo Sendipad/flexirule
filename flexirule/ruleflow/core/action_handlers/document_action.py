@@ -663,9 +663,6 @@ class DocumentActionHandler(ActionHandler):
 		return {
 			"doc": context.get("doc"),
 			"vars": context.get("vars", {}),
-			"context": context,
-			"frappe": context.get("frappe") or frappe,
-			"utils": frappe.utils,
 		}
 
 	def _render_scalar(self, value, context):

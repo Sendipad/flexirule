@@ -183,6 +183,8 @@ class SafeFrappeAPI:
 	@staticmethod
 	def format_value(value, df=None, doc=None, currency=None):
 		"""Format value for display"""
+		if isinstance(df, dict):
+			raise PermissionError("Passing custom dictionary overrides as df is not allowed in SafeFrappeAPI.format_value.")
 		return frappe.format_value(value, df, doc, currency)
 
 	# Logging (safe)
@@ -656,9 +658,9 @@ class RuleEngine:
 						)
 						try:
 							frappe.db.rollback(save_point=savepoint_name)
-						except Exception:
-							# Savepoint might not exist, log and continue to raise
-							self._log("WARNING", _("Savepoint rollback failed, raising error"))
+						except Exception as rollback_err:
+							self._log("ERROR", _("Savepoint rollback failed critically: {0}, issuing full transaction rollback").format(str(rollback_err)))
+							frappe.db.rollback()
 						raise
 					elif current.on_error == "Escalate":
 						self._log(
