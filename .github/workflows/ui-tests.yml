@@ -157,6 +157,7 @@ jobs:
           bench new-site --db-root-password root --admin-password admin test_site
           bench --site test_site install-app flexirule
           bench --site test_site set-config allow_tests true
+          bench use test_site
           bench --site test_site execute frappe.utils.install.complete_setup_wizard
           bench --site test_site execute frappe.tests.ui_test_helpers.create_test_user
           bench --site test_site set-admin-password admin
