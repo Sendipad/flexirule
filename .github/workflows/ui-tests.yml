@@ -175,19 +175,18 @@ jobs:
         env:
           CI: "Yes"
 
-      - name: Start Bench Server
+      - name: Run UI Tests
         working-directory: /home/runner/frappe-bench
         run: |
-          bench --site test_site serve --port 8000 &
-          timeout 60 bash -c 'until curl -s http://localhost:8000 > /dev/null; do sleep 2; done'
+          nohup bench --site test_site serve --port 8000 > bench_serve.log 2>&1 &
+          timeout 60 bash -c 'until curl -s http://127.0.0.1:8000 > /dev/null; do sleep 2; done'
+          bench --site test_site run-ui-tests flexirule --headless
         env:
           CI: "Yes"
 
-      - name: Run UI Tests
-        working-directory: /home/runner/frappe-bench
-        run: bench --site test_site run-ui-tests flexirule --headless
-        env:
-          CI: "Yes"
+      - name: Show Bench Server Output on Failure
+        if: failure()
+        run: cat /home/runner/frappe-bench/bench_serve.log || true
 
       - name: Upload Test Artifacts on Failure
         if: failure()
