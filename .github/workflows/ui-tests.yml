@@ -106,6 +106,9 @@ jobs:
           node-version: 18
           check-latest: true
 
+      - name: Add to Hosts
+        run: echo "127.0.0.1 test_site" | sudo tee -a /etc/hosts
+
       - name: Cache pip
         uses: actions/cache@v4
         with:
@@ -159,6 +162,13 @@ jobs:
         env:
           CI: "Yes"
 
+      - name: Prepare Cypress Environment
+        run: |
+          mkdir -p $(dirname $GITHUB_WORKSPACE)
+          ln -s /home/runner/frappe-bench/apps/frappe $(dirname $GITHUB_WORKSPACE)/frappe
+          cd /home/runner/frappe-bench/apps/frappe && yarn install
+          cd $GITHUB_WORKSPACE && yarn install
+
       - name: Build Frontend Assets
         working-directory: /home/runner/frappe-bench
         run: bench build --app flexirule
@@ -187,4 +197,6 @@ jobs:
           path: |
             /home/runner/frappe-bench/apps/flexirule/cypress/screenshots
             /home/runner/frappe-bench/apps/flexirule/cypress/videos
+            /home/runner/work/flexirule/flexirule/cypress/screenshots
+            /home/runner/work/flexirule/flexirule/cypress/videos
           if-no-files-found: ignore
