@@ -158,6 +158,7 @@ jobs:
           bench --site test_site install-app flexirule
           bench --site test_site set-config allow_tests true
           bench --site test_site execute frappe.utils.install.complete_setup_wizard
+          bench --site test_site execute frappe.tests.ui_test_helpers.create_test_user
           bench --site test_site set-admin-password admin
         env:
           CI: "Yes"
@@ -175,10 +176,12 @@ jobs:
         env:
           CI: "Yes"
 
-      - name: Run UI Tests
+      - name: Start Bench Server & Run UI Tests
         working-directory: /home/runner/frappe-bench
         run: |
-          nohup bench --site test_site serve --port 8000 > bench_serve.log 2>&1 &
+          sed -i 's/^watch:/# watch:/g' Procfile
+          sed -i 's/^schedule:/# schedule:/g' Procfile
+          bench start &> /home/runner/frappe-bench/bench_start.log &
           timeout 60 bash -c 'until curl -s http://127.0.0.1:8000 > /dev/null; do sleep 2; done'
           bench --site test_site run-ui-tests flexirule --headless
         env:
@@ -186,7 +189,7 @@ jobs:
 
       - name: Show Bench Server Output on Failure
         if: failure()
-        run: cat /home/runner/frappe-bench/bench_serve.log || true
+        run: cat /home/runner/frappe-bench/bench_start.log || true
 
       - name: Upload Test Artifacts on Failure
         if: failure()
