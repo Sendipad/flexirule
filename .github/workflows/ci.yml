@@ -193,23 +193,8 @@ jobs:
                   restore-keys: |
                       ${{ runner.os }}-yarn-
 
-            - name: Install MariaDB Client
-              run: sudo apt-get install mariadb-client
-
-            - name: Setup
-              run: |
-                  pip install frappe-bench
-                  bench init --frappe-branch version-15 --skip-redis-config-generation --skip-assets --python "$(which python)" ~/frappe-bench
-                  mariadb --host 127.0.0.1 --port 3306 -u root -proot -e "SET GLOBAL character_set_server = 'utf8mb4'"
-                  mariadb --host 127.0.0.1 --port 3306 -u root -proot -e "SET GLOBAL collation_server = 'utf8mb4_unicode_ci'"
-
-            - name: Install
-              working-directory: /home/runner/frappe-bench
-              run: |
-                  bench get-app flexirule $GITHUB_WORKSPACE
-                  bench setup requirements --dev
-                  bench new-site --db-root-password root --admin-password admin test_site
-                  bench --site test_site install-app flexirule
+            - name: Setup and Install
+              run: .github/helper/tests_setup.sh
               env:
                   CI: "Yes"
 
