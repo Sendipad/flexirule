@@ -465,6 +465,7 @@ function onPasteClick() {
 
 function onCreate(finalPayload = null) {
 	if (props.mode !== "node") return;
+
 	const nodeIndex = store.nodes.findIndex((n) => n.id === props.id);
 	if (nodeIndex === -1) {
 		console.warn("[ActionZone] Node not found for upgrade:", props.id);
@@ -504,7 +505,9 @@ function onCreate(finalPayload = null) {
 		if (unique.length === 1) nodeData.process_name = unique[0];
 	}
 
-	// Trigger full reactivity by replacing the node object
+	const isTerminal = isTerminalAction(action_type);
+
+	// Construct the updated node object
 	const updatedNode = {
 		...node,
 		type: nodeType,
@@ -513,13 +516,18 @@ function onCreate(finalPayload = null) {
 			...nodeData,
 			action_id: props.id,
 			action_label: label,
-			next_step_if_true: node.data?.next_step_if_true || nodeData.next_step_if_true,
-			next_step_if_false: node.data?.next_step_if_false || nodeData.next_step_if_false,
+			next_step_if_true: isTerminal
+				? null
+				: node.data?.next_step_if_true || nodeData.next_step_if_true,
+			next_step_if_false: isTerminal
+				? null
+				: node.data?.next_step_if_false || nodeData.next_step_if_false,
 			suggested_parent_id: null,
 			suggested_source_handle: null,
 		},
 	};
 
+	// Use splice to force reactivity in the store's nodes array
 	store.nodes.splice(nodeIndex, 1, updatedNode);
 
 	if (suggestedParentId) {
@@ -536,10 +544,8 @@ function onCreate(finalPayload = null) {
 		}
 	}
 
-	if (isTerminalAction(action_type)) {
+	if (isTerminal) {
 		store.edges = store.edges.filter((edge) => edge.source !== props.id);
-		store.nodes[nodeIndex].data.next_step_if_true = null;
-		store.nodes[nodeIndex].data.next_step_if_false = null;
 	}
 
 	store.select(props.id);
