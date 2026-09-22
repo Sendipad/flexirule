@@ -153,7 +153,16 @@ export function useRuleConfig(props, emit) {
 	}
 
 	function cancel() {
-		emit("update:modelValue", false);
+		if (isDirty.value) {
+			frappe.confirm(
+				__("You have unsaved changes. Are you sure you want to discard them?"),
+				() => {
+					emit("update:modelValue", false);
+				}
+			);
+		} else {
+			emit("update:modelValue", false);
+		}
 	}
 
 	// Watch for node changes or modal open to refresh draft

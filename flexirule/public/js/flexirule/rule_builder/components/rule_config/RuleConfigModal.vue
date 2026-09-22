@@ -105,21 +105,11 @@
 									<div class="toolbar-group toggles">
 										<button
 											class="toolbar-btn"
-											:class="{ active: showContextSidebar }"
-											@click="showContextSidebar = !showContextSidebar"
-											:title="__('Context Variables')"
-										>
-											<i class="fa fa-database"></i>
-											<span>{{ __("Variables") }}</span>
-										</button>
-										<button
-											class="toolbar-btn"
 											:class="{ active: showSettingsBar }"
 											@click="showSettingsBar = !showSettingsBar"
-											:title="__('Action Settings')"
+											:title="__('Raw Configuration')"
 										>
 											<i class="fa fa-cog"></i>
-											<span>{{ __("Settings") }}</span>
 										</button>
 									</div>
 
@@ -132,10 +122,10 @@
 									<button
 										v-if="
 											!ruleStore.is_read_only &&
-											(!isMobile || (isDirty && !isEditingLabel))
+											isDirty &&
+											(!isMobile || !isEditingLabel)
 										"
 										class="toolbar-btn save-action"
-										:disabled="!isDirty"
 										@click="save"
 										:title="__('Save Changes')"
 									>
@@ -227,23 +217,6 @@
 														<button
 															class="menu-item"
 															role="menuitem"
-															:class="{
-																active: showContextSidebar,
-															}"
-															@click="
-																showContextSidebar =
-																	!showContextSidebar;
-																closeOverflow();
-															"
-														>
-															<i class="fa fa-database"></i>
-															<span>{{
-																__("Context Variables")
-															}}</span>
-														</button>
-														<button
-															class="menu-item"
-															role="menuitem"
 															:class="{ active: showSettingsBar }"
 															@click="
 																showSettingsBar = !showSettingsBar;
@@ -251,7 +224,7 @@
 															"
 														>
 															<i class="fa fa-cog"></i>
-															<span>{{ __("Action Settings") }}</span>
+															<span>{{ __("Raw Configuration") }}</span>
 														</button>
 													</div>
 												</div>
@@ -325,17 +298,6 @@
 									<!-- Unified Action Setup -->
 									<div v-else-if="draftNode" class="panels-container-modern">
 										<template v-if="!isCompactLayout">
-											<aside
-												class="sidebar-variables"
-												v-if="showContextSidebar"
-											>
-												<InputPanel
-													:node="draftNode"
-													:readOnly="ruleStore.is_read_only"
-													mode="variables"
-												/>
-											</aside>
-
 											<div class="config-main-area">
 												<div class="config-scroll-container">
 													<div class="config-content-wrapper">
@@ -678,7 +640,6 @@ const compactConfigRef = ref(null);
 const compactOutputRef = ref(null);
 
 // -- Sidebar / Slide States --
-const showContextSidebar = ref(false);
 const showGuideSidebar = ref(false);
 const showSettingsBar = ref(false);
 const collapseInputPanel = ref(false);
@@ -990,20 +951,10 @@ onMounted(() => {
 			alt: true,
 			context: "modal",
 			priority: 10,
-			callback: () => {
-				showContextSidebar.value = true;
-				nextTick(() => panelRefs.input.value?.focusSearch());
-			},
-		}),
-		registerShortcut({
-			key: "2",
-			alt: true,
-			context: "modal",
-			priority: 10,
 			callback: () => panelRefs.config.value?.focusFirst(),
 		}),
 		registerShortcut({
-			key: "3",
+			key: "2",
 			alt: true,
 			context: "modal",
 			priority: 10,
