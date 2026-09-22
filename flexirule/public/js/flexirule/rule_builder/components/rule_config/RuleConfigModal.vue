@@ -224,7 +224,9 @@
 															"
 														>
 															<i class="fa fa-cog"></i>
-															<span>{{ __("Raw Configuration") }}</span>
+															<span>{{
+																__("Raw Configuration")
+															}}</span>
 														</button>
 													</div>
 												</div>
