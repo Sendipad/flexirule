@@ -22,6 +22,17 @@ export function useRuleConfig(props, emit) {
 
 	const isDirty = ref(false);
 
+	/**
+	 * Helper to get a canonical, dirty-check representation of node data
+	 * by stripping transient fields like `resolved_output_schema`.
+	 */
+	function getCleanDataState(data) {
+		if (!data || typeof data !== "object") return "{}";
+		const copy = { ...data };
+		delete copy.resolved_output_schema;
+		return JSON.stringify(copy);
+	}
+
 	watch(
 		[() => draftNode.value?.data, initialDraftState],
 		() => {
@@ -29,7 +40,7 @@ export function useRuleConfig(props, emit) {
 				isDirty.value = false;
 				return;
 			}
-			const current = JSON.stringify(draftNode.value.data || {});
+			const current = getCleanDataState(draftNode.value.data);
 			isDirty.value = current !== initialDraftState.value;
 		},
 		{ deep: true, immediate: true }
@@ -174,11 +185,10 @@ export function useRuleConfig(props, emit) {
 				initialDraftState.value = null;
 				showValidation.value = false;
 
-				// Capture baseline state as soon as draft is created.
-				// We wait for a single tick to ensure the child components have received the draft.
+				// Capture baseline state after child components have mounted and initialized.
 				nextTick(() => {
 					if (draftNode.value) {
-						initialDraftState.value = JSON.stringify(draftNode.value.data || {});
+						initialDraftState.value = getCleanDataState(draftNode.value.data);
 					}
 				});
 			}
