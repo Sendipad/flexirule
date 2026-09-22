@@ -243,6 +243,62 @@ class SafeFrappeAPI:
 _safe_frappe = SafeFrappeAPI()
 
 
+# Bolt Optimization: Move static helper functions to module level and pre-build base context
+# to avoid re-defining functions and rebuilding the full dict on every expression evaluation.
+def _get_meta(doctype):
+	if not doctype:
+		return None
+	try:
+		return frappe.get_meta(doctype)
+	except Exception:
+		return None
+
+
+def _is_submittable(doctype):
+	meta = _get_meta(doctype)
+	return bool(getattr(meta, "is_submittable", 0)) if meta else False
+
+
+def _has_field(doctype, fieldname):
+	meta = _get_meta(doctype)
+	return bool(meta and fieldname and meta.has_field(fieldname))
+
+
+def _length_of(value):
+	if value is None:
+		return 0
+	if isinstance(value, str):
+		return len(value.strip())
+	if isinstance(value, list | tuple | dict | set):
+		return len(value)
+	try:
+		return len(value)
+	except Exception:
+		return 0
+
+
+def _is_empty_value(value):
+	if value is None:
+		return True
+	if isinstance(value, str):
+		return value.strip() == ""
+	if isinstance(value, list | tuple | dict | set):
+		return len(value) == 0
+	return False
+
+
+BASE_EVAL_CONTEXT = {
+	"is_submittable": _is_submittable,
+	"has_field": _has_field,
+	"get_meta": _get_meta,
+	"any": any,
+	"all": all,
+	"True": True,
+	"False": False,
+	"None": None,
+}
+
+
 class RuleEngine:
 	"""
 	Production-ready rule execution engine with:
@@ -773,66 +829,26 @@ class RuleEngine:
 			or self.rule.document_type
 		)
 
-		def _get_meta(doctype):
-			if not doctype:
-				return None
-			try:
-				return frappe.get_meta(doctype)
-			except Exception:
-				return None
-
-		def _is_submittable(doctype):
-			meta = _get_meta(doctype)
-			return bool(getattr(meta, "is_submittable", 0)) if meta else False
-
-		def _has_field(doctype, fieldname):
-			meta = _get_meta(doctype)
-			return bool(meta and fieldname and meta.has_field(fieldname))
-
-		def _length_of(value):
-			if value is None:
-				return 0
-			if isinstance(value, str):
-				return len(value.strip())
-			if isinstance(value, list | tuple | dict | set):
-				return len(value)
-			try:
-				return len(value)
-			except Exception:
-				return 0
-
-		def _is_empty_value(value):
-			if value is None:
-				return True
-			if isinstance(value, str):
-				return value.strip() == ""
-			if isinstance(value, list | tuple | dict | set):
-				return len(value) == 0
-			return False
-
-		return {
-			"doc": doc,
-			"old_doc": old_doc,
-			"vars": context.get("vars", {}),
-			"item": context.get("item"),
-			"loop": context.get("loop"),
-			"frappe": context.get("frappe", _safe_frappe),
-			"caller": frappe._dict(caller_meta or {}),
-			"rule": frappe._dict(rule_meta or {}),
-			"doctype": doctype_name,
-			"is_submittable": _is_submittable,
-			"has_field": _has_field,
-			"get_meta": _get_meta,
-			"resolve": FieldResolver.resolve,
-			"check_link_match": check_link_match,
-			"length_of": _length_of,
-			"is_empty_value": _is_empty_value,
-			"any": any,
-			"all": all,
-			"True": True,
-			"False": False,
-			"None": None,
-		}
+		# Bolt Optimization: Use shallow copy and update for performance
+		eval_locals = BASE_EVAL_CONTEXT.copy()
+		eval_locals.update(
+			{
+				"doc": doc,
+				"old_doc": old_doc,
+				"vars": context.get("vars", {}),
+				"item": context.get("item"),
+				"loop": context.get("loop"),
+				"frappe": context.get("frappe", _safe_frappe),
+				"caller": frappe._dict(caller_meta or {}),
+				"rule": frappe._dict(rule_meta or {}),
+				"doctype": doctype_name,
+				"resolve": FieldResolver.resolve,
+				"check_link_match": check_link_match,
+				"length_of": _length_of,
+				"is_empty_value": _is_empty_value,
+			}
+		)
+		return eval_locals
 
 	def _evaluate_python_condition(self, expression, context):
 		"""Evaluate Python expression safely and coerce to bool.
