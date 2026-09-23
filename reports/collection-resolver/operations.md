@@ -49,4 +49,21 @@ Following source verification, candidate operations are classified as Core Backe
 
 ### 2.7 `unique`
 - **Behavior**: Extracts a `list[Any]` containing distinct `target_field` values from matching rows while preserving insertion order.
-- **Handling Unhashable Values**: For primitive scalar values (`str`, `int`, `float`, `bool`, `None`), standard set deduplication is used. If an unhashable dict/list is encountered, it is serialized to JSON string for key comparison or safely skipped with a warning.
+- **First Occurrence Included, Duplicates Filtered**: When extracting `target_field` values across collection rows, the first occurrence of `None` (or an empty string `""` or `0`) in a matching row will be preserved in the returned result array. Subsequent rows with the same `None` or empty value are recognized as duplicates and skipped.
+- **`None` vs Empty String (`""`) Distinction**: `None` (missing/null field) and `""` (empty string) are distinct values in Python and set tracking. If a collection contains rows with both `None` and `""`, the result array will contain one `None` and one `""` (e.g., `["Hardware", None, "Software", ""]`).
+- **Complex / Dictionary Row Values**: If the target field value is a nested dictionary or list, it is canonicalized (via sorted JSON serialization) so that structurally identical objects are properly de-duplicated.
+- **All Missing / Empty Collection**: If no rows match the filter condition or if `target_field` is not specified, `unique` returns an empty list `[]`.
+
+#### Example:
+```python
+rows = [
+    {"item_code": "ITEM-A", "group": "Hardware"},
+    {"item_code": "ITEM-B", "group": None},
+    {"item_code": "ITEM-C", "group": "Hardware"},
+    {"item_code": "ITEM-D", "group": None},
+    {"item_code": "ITEM-E", "group": ""},
+]
+
+# CollectionResolver(source="doc.items", operation="unique", target_field="group")
+# Result: ["Hardware", None, ""]
+```
