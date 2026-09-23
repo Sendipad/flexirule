@@ -70,8 +70,9 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, watch } from "vue";
 import { useStore } from "../../../stores";
+import { useMetaStore } from "../../../stores/useMetaStore";
 import { __ } from "../utils";
 import ComboBoxControl from "../../ComboBoxControl.vue";
 import SelectControl from "../../SelectControl.vue";
@@ -106,6 +107,7 @@ const props = defineProps({
 });
 
 const store = useStore();
+const metaStore = useMetaStore();
 
 const operationOptions = [
 	{ value: "count", label: __("Count Rows (count)") },
@@ -123,7 +125,7 @@ const sourceOptions = computed(() => {
 	const options = [];
 
 	if (dt) {
-		const fields = store.doc_meta[dt];
+		const fields = metaStore.doc_meta[dt] || store.doc_meta[dt];
 		if (fields && Array.isArray(fields)) {
 			fields
 				.filter((f) => f.fieldtype === "Table")
@@ -152,6 +154,30 @@ const sourceOptions = computed(() => {
 	return options;
 });
 
+watch(
+	() => [props.modelValue.source, props.doctype, store.rule_doc?.document_type],
+	async ([newSource]) => {
+		const dt = store.rule_doc?.document_type || props.doctype;
+		if (dt && !metaStore.doc_meta[dt]) {
+			await metaStore.fetch_metadata(dt);
+		}
+		if (!newSource) return;
+
+		const cleanTable = String(newSource).replace(/^(doc|vars|old_doc)\./, "");
+		const fields = metaStore.doc_meta[dt] || store.doc_meta[dt];
+		if (!fields || !Array.isArray(fields)) return;
+
+		const tableField = fields.find(
+			(f) =>
+				f.fieldtype === "Table" && (f.fieldname === cleanTable || f.fieldname === newSource)
+		);
+		if (tableField && tableField.options && !metaStore.doc_meta[tableField.options]) {
+			await metaStore.fetch_metadata(tableField.options);
+		}
+	},
+	{ immediate: true }
+);
+
 const childMeta = computed(() => {
 	const source = props.modelValue.source || "";
 	if (!source) return null;
@@ -160,7 +186,7 @@ const childMeta = computed(() => {
 	const dt = store.rule_doc?.document_type || props.doctype;
 	if (!dt) return null;
 
-	const fields = store.doc_meta[dt];
+	const fields = metaStore.doc_meta[dt] || store.doc_meta[dt];
 	if (!fields || !Array.isArray(fields)) return null;
 
 	const tableField = fields.find(
@@ -169,7 +195,7 @@ const childMeta = computed(() => {
 	if (!tableField || !tableField.options) return null;
 
 	const childDoctype = tableField.options;
-	return store.doc_meta[childDoctype] || null;
+	return metaStore.doc_meta[childDoctype] || store.doc_meta[childDoctype] || null;
 });
 
 const targetFieldOptions = computed(() => {
