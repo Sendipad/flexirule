@@ -260,7 +260,14 @@ export function getAllowedBuilderKinds(fieldtype) {
 			fieldtype
 		)
 	) {
-		return ["normalization", "format", "fetch", "string_formula", "collection", "system_context"];
+		return [
+			"normalization",
+			"format",
+			"fetch",
+			"string_formula",
+			"collection",
+			"system_context",
+		];
 	}
 	if (["Check"].includes(fieldtype)) {
 		return ["fetch", "collection", "system_context"];

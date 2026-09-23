@@ -6,7 +6,10 @@
 				v-model="modelValue.source"
 				:options="sourceOptions"
 				:read_only="readOnly"
-				:df="{ label: __('Collection Source'), placeholder: __('e.g. doc.items or vars.list') }"
+				:df="{
+					label: __('Collection Source'),
+					placeholder: __('e.g. doc.items or vars.list'),
+				}"
 			/>
 		</div>
 
@@ -36,25 +39,29 @@
 		<!-- Filter Condition Section -->
 		<div class="d-flex flex-column fxr-gap-1 mt-1">
 			<div class="d-flex align-items-center justify-content-between">
-				<label class="fxr-label-sm mb-0">{{ __('Filter Condition (Optional)') }}</label>
+				<label class="fxr-label-sm mb-0">{{ __("Filter Condition (Optional)") }}</label>
 				<button
 					v-if="!readOnly && !hasCondition"
 					class="btn btn-xs btn-default text-primary"
 					@click="enableCondition"
 				>
-					<i class="fa fa-plus mr-1"></i> {{ __('Add Filter') }}
+					<i class="fa fa-plus mr-1"></i> {{ __("Add Filter") }}
 				</button>
 				<button
 					v-if="!readOnly && hasCondition"
 					class="btn btn-xs btn-default text-danger"
 					@click="clearCondition"
 				>
-					<i class="fa fa-trash mr-1"></i> {{ __('Clear Filter') }}
+					<i class="fa fa-trash mr-1"></i> {{ __("Clear Filter") }}
 				</button>
 			</div>
 
 			<div v-if="hasCondition" class="condition-editor-card p-2 rounded border bg-light">
-				<div v-for="(cond, idx) in conditionList" :key="idx" class="d-flex flex-column fxr-gap-1 mb-2">
+				<div
+					v-for="(cond, idx) in conditionList"
+					:key="idx"
+					class="d-flex flex-column fxr-gap-1 mb-2"
+				>
 					<div class="row align-items-center g-1">
 						<!-- Row Field -->
 						<div class="col-5">
@@ -73,7 +80,11 @@
 								class="fxr-select form-control form-control-sm"
 								:disabled="readOnly"
 							>
-								<option v-for="op in operatorOptions" :key="op.value" :value="op.value">
+								<option
+									v-for="op in operatorOptions"
+									:key="op.value"
+									:value="op.value"
+								>
 									{{ op.label }}
 								</option>
 							</select>

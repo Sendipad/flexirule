@@ -92,7 +92,9 @@ registerStrategy("collection", {
 			const store = useStore();
 			const dt = store.rule_doc?.document_type || props.doctype;
 			const fields = store.doc_meta?.[dt];
-			const isTable = fields?.some((f) => f.fieldname === cleanName && f.fieldtype === "Table");
+			const isTable = fields?.some(
+				(f) => f.fieldname === cleanName && f.fieldtype === "Table"
+			);
 			if (isTable) {
 				defaultSource = `doc.${cleanName}`;
 			}
