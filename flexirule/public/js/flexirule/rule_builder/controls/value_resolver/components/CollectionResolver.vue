@@ -38,8 +38,8 @@
 
 		<!-- Filter Condition Section -->
 		<div class="d-flex flex-column fxr-gap-1 mt-1">
-			<div class="d-flex align-items-center justify-content-between">
-				<label class="fxr-label-sm mb-0">{{ __("Filter Condition (Optional)") }}</label>
+			<div class="d-flex align-items-center justify-content-between mb-1">
+				<label class="fxr-label-sm mb-0">{{ __("FILTER CONDITION (OPTIONAL)") }}</label>
 				<button
 					v-if="!readOnly && !hasCondition"
 					class="btn btn-xs btn-default text-primary"
@@ -56,62 +56,26 @@
 				</button>
 			</div>
 
-			<div v-if="hasCondition" class="condition-editor-card p-2 rounded border bg-light">
-				<div
-					v-for="(cond, idx) in conditionList"
-					:key="idx"
-					class="d-flex flex-column fxr-gap-1 mb-2"
-				>
-					<div class="row align-items-center g-1">
-						<!-- Row Field -->
-						<div class="col-5">
-							<ComboBoxControl
-								v-model="cond.left.ref"
-								:options="rowFieldOptions"
-								:read_only="readOnly"
-								:df="{ label: '', placeholder: __('row.field') }"
-								:hideLabel="true"
-							/>
-						</div>
-						<!-- Operator -->
-						<div class="col-3">
-							<select
-								v-model="cond.op"
-								class="fxr-select form-control form-control-sm"
-								:disabled="readOnly"
-							>
-								<option
-									v-for="op in operatorOptions"
-									:key="op.value"
-									:value="op.value"
-								>
-									{{ op.label }}
-								</option>
-							</select>
-						</div>
-						<!-- Right Value -->
-						<div class="col-4" v-if="!['is_set', 'is_not_set'].includes(cond.op)">
-							<input
-								type="text"
-								v-model="cond.right.value"
-								class="form-control form-control-sm"
-								:disabled="readOnly"
-								:placeholder="__('Value')"
-							/>
-						</div>
-					</div>
-				</div>
+			<div v-if="hasCondition" class="condition-builder-wrapper">
+				<ConditionBuilder
+					v-model="conditionModel"
+					:docFields="rowFieldOptions"
+					:readOnly="readOnly"
+					:variableOptions="variableOptions"
+					:isMandatory="false"
+				/>
 			</div>
 		</div>
 	</div>
 </template>
 
 <script setup>
-import { computed, watch } from "vue";
+import { computed } from "vue";
 import { useStore } from "../../../stores";
 import { __ } from "../utils";
 import ComboBoxControl from "../../ComboBoxControl.vue";
 import SelectControl from "../../SelectControl.vue";
+import ConditionBuilder from "../../../components/condition_builder/ConditionBuilder.vue";
 
 const props = defineProps({
 	modelValue: {
@@ -154,19 +118,6 @@ const operationOptions = [
 	{ value: "unique", label: __("Extract Unique Values (unique)") },
 ];
 
-const operatorOptions = [
-	{ value: "==", label: "==" },
-	{ value: "!=", label: "!=" },
-	{ value: ">", label: ">" },
-	{ value: "<", label: "<" },
-	{ value: ">=", label: ">=" },
-	{ value: "<=", label: "<=" },
-	{ value: "in", label: "in" },
-	{ value: "contains", label: __("contains") },
-	{ value: "is_set", label: __("is set") },
-	{ value: "is_not_set", label: __("is not set") },
-];
-
 const sourceOptions = computed(() => {
 	const dt = store.rule_doc?.document_type || props.doctype;
 	const options = [];
@@ -205,7 +156,6 @@ const childMeta = computed(() => {
 	const source = props.modelValue.source || "";
 	if (!source) return null;
 
-	// Extract table field name e.g. 'doc.items' -> 'items'
 	const cleanTable = source.replace(/^(doc|vars|old_doc)\./, "");
 	const dt = store.rule_doc?.document_type || props.doctype;
 	if (!dt) return null;
@@ -239,6 +189,8 @@ const rowFieldOptions = computed(() => {
 		.map((f) => ({
 			label: `row.${f.fieldname} (${f.label || f.fieldname})`,
 			value: `row.${f.fieldname}`,
+			fieldname: f.fieldname,
+			fieldtype: f.fieldtype,
 		}));
 });
 
@@ -246,31 +198,42 @@ const hasCondition = computed(() => {
 	const cond = props.modelValue.condition;
 	if (!cond) return false;
 	if (Array.isArray(cond)) return cond.length > 0;
-	if (typeof cond === "object") return Boolean(cond.left || cond.op);
+	if (typeof cond === "object") return Boolean(cond.conditions?.length || cond.left || cond.op);
 	return false;
 });
 
-const conditionList = computed({
+const conditionModel = computed({
 	get() {
 		const cond = props.modelValue.condition;
-		if (!cond) return [];
-		if (Array.isArray(cond)) return cond;
-		if (typeof cond === "object") return [cond];
-		return [];
+		if (!cond) return { op: "and", conditions: [] };
+		if (typeof cond === "object" && !Array.isArray(cond) && cond.conditions) {
+			return cond;
+		}
+		if (Array.isArray(cond)) {
+			return { op: "and", conditions: cond };
+		}
+		if (typeof cond === "object") {
+			return { op: "and", conditions: [cond] };
+		}
+		return { op: "and", conditions: [] };
 	},
 	set(val) {
-		props.modelValue.condition = val && val.length > 0 ? val : null;
+		props.modelValue.condition = val && val.conditions?.length > 0 ? val : null;
 	},
 });
 
 function enableCondition() {
-	props.modelValue.condition = [
-		{
-			left: { ref: "" },
-			op: "==",
-			right: { value: "" },
-		},
-	];
+	const defaultRef = rowFieldOptions.value[0]?.value || "row.";
+	props.modelValue.condition = {
+		op: "and",
+		conditions: [
+			{
+				left: { ref: defaultRef },
+				op: "==",
+				right: { value: "" },
+			},
+		],
+	};
 }
 
 function clearCondition() {
@@ -279,8 +242,9 @@ function clearCondition() {
 </script>
 
 <style scoped>
-.condition-editor-card {
-	background-color: var(--fxr-bg-card, #f8f9fa);
-	border-color: var(--fxr-border, #dee2e6) !important;
+.condition-builder-wrapper {
+	border: 1px solid var(--fxr-border, #dee2e6);
+	border-radius: var(--fxr-radius-md, 6px);
+	overflow: hidden;
 }
 </style>
