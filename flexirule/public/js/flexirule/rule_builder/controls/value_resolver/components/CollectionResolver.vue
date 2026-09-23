@@ -40,37 +40,78 @@
 		<div class="d-flex flex-column fxr-gap-1 mt-1">
 			<div class="d-flex align-items-center justify-content-between mb-1">
 				<label class="fxr-label-sm mb-0">{{ __("FILTER CONDITION (OPTIONAL)") }}</label>
-				<button
-					v-if="!readOnly && !hasCondition"
-					class="btn btn-xs btn-default text-primary"
-					@click="enableCondition"
-				>
-					<i class="fa fa-plus mr-1"></i> {{ __("Add Filter") }}
-				</button>
-				<button
-					v-if="!readOnly && hasCondition"
-					class="btn btn-xs btn-default text-danger"
-					@click="clearCondition"
-				>
-					<i class="fa fa-trash mr-1"></i> {{ __("Clear Filter") }}
-				</button>
 			</div>
 
-			<div v-if="hasCondition" class="condition-builder-wrapper">
-				<ConditionBuilder
-					v-model="conditionModel"
-					:docFields="rowFieldOptions"
-					:readOnly="readOnly"
-					:variableOptions="variableOptions"
-					:isMandatory="false"
-				/>
-			</div>
+			<button
+				type="button"
+				class="fxr-btn fxr-btn--sm w-100 when-toggle-btn"
+				:class="{
+					'is-active': hasCondition,
+					'is-default': !hasCondition,
+				}"
+				:disabled="readOnly"
+				@click="openConditionModal"
+			>
+				<i
+					:class="hasCondition ? 'fa fa-filter text-primary' : 'fa fa-plus-circle'"
+					class="mr-2"
+				></i>
+				<span class="truncate">
+					{{ hasCondition ? __("Condition Set") : __("Add Filter Condition") }}
+				</span>
+			</button>
 		</div>
+
+		<Teleport to="body">
+			<div
+				v-if="conditionModalOpen"
+				class="fxr-modal-overlay"
+				@click.self="closeConditionModal"
+			>
+				<div class="fxr-modal-card">
+					<div class="d-flex align-items-center justify-content-between mb-2">
+						<h5 class="mb-0">{{ __("Collection Filter Condition") }}</h5>
+						<button
+							type="button"
+							class="fxr-btn fxr-btn--icon fxr-btn--sm fxr-btn--ghost"
+							@click="closeConditionModal"
+						>
+							<i class="fa fa-times"></i>
+						</button>
+					</div>
+					<div class="condition-builder-wrap">
+						<ConditionBuilder
+							v-model="conditionModel"
+							:docFields="rowFieldOptions"
+							:readOnly="readOnly"
+							:variableOptions="variableOptions"
+							:isMandatory="false"
+						/>
+					</div>
+					<div class="d-flex justify-content-between mt-3">
+						<button
+							type="button"
+							class="fxr-btn fxr-btn--sm fxr-btn--ghost text-danger"
+							@click="clearCondition"
+						>
+							{{ __("Clear Condition") }}
+						</button>
+						<button
+							type="button"
+							class="fxr-btn fxr-btn--sm fxr-btn--primary"
+							@click="closeConditionModal"
+						>
+							{{ __("Done") }}
+						</button>
+					</div>
+				</div>
+			</div>
+		</Teleport>
 	</div>
 </template>
 
 <script setup>
-import { computed, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { useStore } from "../../../stores";
 import { useMetaStore } from "../../../stores/useMetaStore";
 import { __ } from "../utils";
@@ -108,6 +149,7 @@ const props = defineProps({
 
 const store = useStore();
 const metaStore = useMetaStore();
+const conditionModalOpen = ref(false);
 
 const operationOptions = [
 	{ value: "count", label: __("Count Rows (count)") },
@@ -248,6 +290,18 @@ const conditionModel = computed({
 	},
 });
 
+function openConditionModal() {
+	if (props.readOnly) return;
+	if (!hasCondition.value) {
+		enableCondition();
+	}
+	conditionModalOpen.value = true;
+}
+
+function closeConditionModal() {
+	conditionModalOpen.value = false;
+}
+
 function enableCondition() {
 	const defaultRef = rowFieldOptions.value[0]?.value || "row.";
 	props.modelValue.condition = {
@@ -264,13 +318,64 @@ function enableCondition() {
 
 function clearCondition() {
 	props.modelValue.condition = null;
+	conditionModalOpen.value = false;
 }
 </script>
 
 <style scoped>
-.condition-builder-wrapper {
-	border: 1px solid var(--fxr-border, #dee2e6);
+.when-toggle-btn {
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	padding: 6px 12px;
+	font-weight: 600;
+	font-size: 12px;
 	border-radius: var(--fxr-radius-md, 6px);
+	border: 1px solid var(--fxr-border, #dee2e6);
+	background-color: var(--fxr-bg-card, #ffffff);
+	cursor: pointer;
+	transition: all 0.2s ease;
+}
+
+.when-toggle-btn:hover:not(:disabled) {
+	border-color: var(--fxr-accent, #3b82f6);
+	background-color: var(--fxr-bg-hover, #f1f5f9);
+}
+
+.when-toggle-btn.is-active {
+	background-color: color-mix(in srgb, var(--fxr-accent, #3b82f6) 12%, transparent);
+	color: var(--fxr-accent, #3b82f6);
+	border-color: var(--fxr-accent, #3b82f6);
+}
+
+.fxr-modal-overlay {
+	position: fixed;
+	inset: 0;
+	background-color: rgba(0, 0, 0, 0.5);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 13000;
+}
+
+.fxr-modal-card {
+	width: min(880px, 92vw);
+	max-height: 86vh;
+	background-color: var(--fxr-surface-elevated, #ffffff);
+	border-radius: 14px;
+	border: 1px solid var(--fxr-border-subtle, #dee2e6);
+	padding: 16px;
 	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+	box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
+}
+
+.condition-builder-wrap {
+	overflow: auto;
+	border: 1px solid var(--fxr-border-subtle, #dee2e6);
+	border-radius: 12px;
+	padding: 10px;
+	background-color: var(--fxr-surface-soft, #f8f9fa);
 }
 </style>
