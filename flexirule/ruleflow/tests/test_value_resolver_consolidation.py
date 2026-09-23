@@ -193,3 +193,86 @@ class TestValueResolverConsolidation(FrappeTestCase):
 			}
 		)
 		self.assertEqual(res_cast.resolve(self.context), 1500)
+
+
+class TestLegacyCompatibilityMatrix(FrappeTestCase):
+	"""
+	Comprehensive matrix verifying raw legacy saved JSON configurations compile and execute
+	with 100% behavioral equivalence under canonical resolvers.
+	"""
+
+	def setUp(self):
+		self.context = {
+			"doc": frappe._dict(
+				{
+					"name": "INV-2026-0001",
+					"customer_name": "acme corporation",
+					"amount": 2500.75,
+					"posting_date": "2026-05-10",
+					"due_date": "2026-05-20",
+				}
+			),
+			"vars": {"currency": "USD"},
+		}
+
+	def test_matrix_normalization_trim(self):
+		payload = {"kind": "normalization", "norm_field": "doc.customer_name", "norm_op": "trim"}
+		res = ValueResolver.compile(payload)
+		self.assertEqual(res.resolve(self.context), "acme corporation")
+
+	def test_matrix_normalization_slug(self):
+		payload = {"kind": "normalization", "norm_field": "doc.customer_name", "norm_op": "slug"}
+		res = ValueResolver.compile(payload)
+		self.assertEqual(res.resolve(self.context), "acme-corporation")
+
+	def test_matrix_normalization_snake(self):
+		payload = {"kind": "normalization", "norm_field": "doc.customer_name", "norm_op": "snake"}
+		res = ValueResolver.compile(payload)
+		self.assertEqual(res.resolve(self.context), "acme_corporation")
+
+	def test_matrix_normalization_title(self):
+		payload = {"kind": "normalization", "norm_field": "doc.customer_name", "norm_op": "title"}
+		res = ValueResolver.compile(payload)
+		self.assertEqual(res.resolve(self.context), "Acme Corporation")
+
+	def test_matrix_string_formula_uppercase(self):
+		payload = {
+			"kind": "string_formula",
+			"str_op": "uppercase",
+			"str_a_type": "field",
+			"str_a": "doc.name",
+		}
+		res = ValueResolver.compile(payload)
+		self.assertEqual(res.resolve(self.context), "INV-2026-0001")
+
+	def test_matrix_string_formula_concat(self):
+		payload = {
+			"kind": "string_formula",
+			"str_op": "concat",
+			"str_a_type": "field",
+			"str_a": "doc.name",
+			"str_b_type": "constant",
+			"str_b": " - PAID",
+		}
+		res = ValueResolver.compile(payload)
+		self.assertEqual(res.resolve(self.context), "INV-2026-0001 - PAID")
+
+	def test_matrix_format_template(self):
+		payload = {
+			"kind": "format",
+			"fmt_op": "format",
+			"fmt_field": "doc.name",
+			"fmt_config": "Invoice #{0}",
+		}
+		res = ValueResolver.compile(payload)
+		self.assertEqual(res.resolve(self.context), "Invoice #INV-2026-0001")
+
+	def test_matrix_date_diff(self):
+		payload = {
+			"kind": "date_diff",
+			"diff_start_field": "doc.posting_date",
+			"diff_end_field": "doc.due_date",
+			"diff_unit": "days",
+		}
+		res = ValueResolver.compile(payload)
+		self.assertEqual(res.resolve(self.context), 10)

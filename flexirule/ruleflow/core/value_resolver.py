@@ -938,11 +938,17 @@ class ValueResolver:
 			)
 
 		if kind == "date_diff":
+			start_type = config.get("diff_start_type") or (
+				"doc_field" if config.get("diff_start_field") else "today"
+			)
+			end_type = config.get("diff_end_type") or (
+				"doc_field" if config.get("diff_end_field") else "today"
+			)
 			return DateResolver(
 				operation="diff",
-				diff_start_type=config.get("diff_start_type", "today"),
+				diff_start_type=start_type,
 				diff_start_field=config.get("diff_start_field"),
-				diff_end_type=config.get("diff_end_type", "doc_field"),
+				diff_end_type=end_type,
 				diff_end_field=config.get("diff_end_field"),
 				diff_unit=config.get("diff_unit", "days"),
 			)
