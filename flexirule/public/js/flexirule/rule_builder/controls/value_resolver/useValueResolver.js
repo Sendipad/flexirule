@@ -1,6 +1,86 @@
 import { ref, computed, watch } from "vue";
 import { getStrategy, getAllStrategies } from "./strategies";
 
+export function normalizeResolverPayload(val) {
+	if (!val || typeof val !== "object") return val;
+	const kind = val.kind;
+	if (!kind) return val;
+
+	// Normalize legacy kinds to canonical taxonomy
+	if (kind === "date_formula") {
+		return {
+			...val,
+			kind: "date",
+			operation: val.offset_sign === "-" ? "subtract" : "add",
+		};
+	}
+	if (kind === "date_diff") {
+		return {
+			...val,
+			kind: "date",
+			operation: "diff",
+		};
+	}
+	if (kind === "math_formula") {
+		return {
+			...val,
+			kind: "math",
+			operation: val.math_op || "+",
+		};
+	}
+	if (kind === "string_formula") {
+		const opMap = { uppercase: "upper", lowercase: "lower" };
+		return {
+			...val,
+			kind: "text",
+			operation: opMap[val.str_op] || val.str_op || "concat",
+			field_a: val.str_a,
+			field_b: val.str_b,
+		};
+	}
+	if (kind === "normalization") {
+		return {
+			...val,
+			kind: "text",
+			operation: val.norm_op || "trim",
+			field_a: val.norm_field,
+		};
+	}
+	if (kind === "format") {
+		return {
+			...val,
+			kind: "text",
+			operation: val.fmt_op || "format_date",
+			field_a: val.fmt_field,
+		};
+	}
+	if (kind === "child_aggregation") {
+		return {
+			...val,
+			kind: "aggregate",
+			agg_table: val.agg_table,
+			agg_field: val.agg_field,
+			agg_op: val.agg_op || "sum",
+		};
+	}
+	if (kind === "fetch") {
+		return {
+			...val,
+			kind: "lookup",
+			operation: "get",
+		};
+	}
+	if (kind === "system_context") {
+		return {
+			...val,
+			kind: "value_source",
+			operation: "system_context",
+		};
+	}
+
+	return val;
+}
+
 export function useValueResolver(props, emit) {
 	const localState = ref({});
 	const activeKind = ref(null);
@@ -27,19 +107,20 @@ export function useValueResolver(props, emit) {
 				val = val.config;
 			}
 
-			const kind = val.kind || availableStrategies.value[0]?.kind || "date_formula";
+			// Normalize legacy resolver payload
+			val = normalizeResolverPayload(val);
+
+			const kind = val.kind || availableStrategies.value[0]?.kind || "value_source";
 			activeKind.value = kind;
 
 			const strategy = getStrategy(kind);
 			if (strategy) {
-				// Merge default state with provided config
 				localState.value = {
 					...strategy.defaultState(props),
 					...val,
 				};
 			}
 		} finally {
-			// We delay resetting the flag slightly to allow watchers to skip the first pulse
 			setTimeout(() => {
 				isInitializing.value = false;
 			}, 0);

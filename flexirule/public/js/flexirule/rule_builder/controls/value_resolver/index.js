@@ -1,148 +1,138 @@
-import DateFormulaResolver from "./components/DateFormulaResolver.vue";
-import MathFormulaResolver from "./components/MathFormulaResolver.vue";
-import FetchResolver from "./components/FetchResolver.vue";
-import DateDiffResolver from "./components/DateDiffResolver.vue";
-import AggregationResolver from "./components/AggregationResolver.vue";
-import StringFormulaResolver from "./components/StringFormulaResolver.vue";
-import NormalizationResolver from "./components/NormalizationResolver.vue";
-import FormatResolver from "./components/FormatResolver.vue";
-import SystemContextResolver from "./components/SystemContextResolver.vue";
+import ValueSourceResolver from "./components/ValueSourceResolver.vue";
+import DateResolver from "./components/DateResolver.vue";
+import TextResolver from "./components/TextResolver.vue";
+import MathResolver from "./components/MathResolver.vue";
 import CollectionResolver from "./components/CollectionResolver.vue";
+import AggregateResolver from "./components/AggregateResolver.vue";
+import LookupResolver from "./components/LookupResolver.vue";
+import ConditionalResolver from "./components/ConditionalResolver.vue";
+import TypeConversionResolver from "./components/TypeConversionResolver.vue";
 
 import { registerStrategy } from "./strategies";
 import { __, toDocExpression, validateField } from "./utils";
 import { useStore } from "../../stores";
 
-// ─── Date Formula Strategy ───
-registerStrategy("date_formula", {
-	label: __("Date Formula"),
-	description: __(
-		"Calculate a date by adding or subtracting days, months, or years from a base field or today."
-	),
-	icon: "fa fa-calendar",
-	component: DateFormulaResolver,
+// ─── 1. Value Source Strategy ───
+registerStrategy("value_source", {
+	label: __("Value Source"),
+	description: __("Select document field, rule variable, static primitive, or system context token."),
+	icon: "fa fa-database",
+	component: ValueSourceResolver,
 	defaultState: (props) => {
 		const fieldname = props.context?.fieldname || props.context?.target;
-		let baseField = "";
-		let baseType = "today";
-		if (fieldname) {
-			baseType = "doc_field";
-			baseField = String(fieldname).replace(/^(doc|vars)\./, "");
+		let path = "";
+		if (fieldname) path = String(fieldname).replace(/^(doc|vars)\./, "");
+		return { operation: "field", path, value: "", sys_token: "user", sys_role: "" };
+	},
+	compileToCode: (item) => {
+		if (item.operation === "static") return `"${item.value || ""}"`;
+		if (item.operation === "system_context") {
+			return item.sys_token === "role_check"
+				? `{"${item.sys_role}" in frappe.get_roles(frappe.session.user)}`
+				: "{frappe.session.user}";
 		}
+		return item.path ? `{${toDocExpression(item.path)}}` : '""';
+	},
+	compileToLabel: (item) => {
+		if (item.operation === "static") return `Static: "${item.value || ""}"`;
+		if (item.operation === "system_context") {
+			return item.sys_token === "user" ? __("User ID") : `Role: ${item.sys_role}`;
+		}
+		return `${item.operation === "variable" ? "Var" : "Field"}: ${item.path || "?"}`;
+	},
+	validate: (item) => ({ isValid: true, errors: [] }),
+});
+
+// ─── 2. Date Strategy ───
+registerStrategy("date", {
+	label: __("Date"),
+	description: __("Calculate date offsets (+/- days/months/years) or date differences."),
+	icon: "fa fa-calendar",
+	component: DateResolver,
+	defaultState: (props) => {
+		const fieldname = props.context?.fieldname || props.context?.target;
+		let baseField = fieldname ? String(fieldname).replace(/^(doc|vars)\./, "") : "";
 		return {
-			base_type: baseType,
+			operation: "add",
+			base_type: baseField ? "doc_field" : "today",
 			base_field: baseField,
-			offset_sign: "+",
 			offset_value: 0,
 			offset_unit: "days",
+			diff_start_type: "today",
+			diff_start_field: "",
+			diff_end_type: "doc_field",
+			diff_end_field: "",
+			diff_unit: "days",
 		};
 	},
 	compileToCode: (item) => {
-		const baseExpr =
-			item.base_type === "today"
-				? "frappe.utils.nowdate()"
-				: toDocExpression(item.base_field);
-		let offset = parseInt(item.offset_value || 0, 10);
-		if (item.offset_sign === "-" && offset > 0) offset = -offset;
-
-		if (offset === 0 || !item.offset_unit) return `{${baseExpr}}`;
-
-		if (item.offset_unit === "days") {
-			return `{frappe.utils.add_days(${baseExpr}, ${offset})}`;
+		if (item.operation === "diff") {
+			const start = item.diff_start_type === "today" ? "frappe.utils.nowdate()" : toDocExpression(item.diff_start_field);
+			const end = item.diff_end_type === "today" ? "frappe.utils.nowdate()" : toDocExpression(item.diff_end_field);
+			if (item.diff_unit === "days") return `{frappe.utils.date_diff(${end}, ${start})}`;
+			if (item.diff_unit === "months") return `{frappe.utils.month_diff(${end}, ${start})}`;
+			return `{int(frappe.utils.month_diff(${end}, ${start}) / 12)}`;
 		}
+		const baseExpr = item.base_type === "today" ? "frappe.utils.nowdate()" : toDocExpression(item.base_field);
+		let offset = parseInt(item.offset_value || 0, 10);
+		if (item.operation === "subtract" && offset > 0) offset = -offset;
+		if (offset === 0 || !item.offset_unit) return `{${baseExpr}}`;
+		if (item.offset_unit === "days") return `{frappe.utils.add_days(${baseExpr}, ${offset})}`;
 		return `{frappe.utils.add_to_date(${baseExpr}, ${item.offset_unit}=${offset})}`;
 	},
 	compileToLabel: (item) => {
+		if (item.operation === "diff") {
+			const start = item.diff_start_type === "today" ? __("Today") : item.diff_start_field || "?";
+			const end = item.diff_end_type === "today" ? __("Today") : item.diff_end_field || "?";
+			return `${end} − ${start} (${item.diff_unit})`;
+		}
 		const base = item.base_type === "today" ? __("Today") : item.base_field || __("Field");
-		let offset = parseInt(item.offset_value || 0, 10);
-		if (item.offset_sign === "-" && offset > 0) offset = -offset;
-		if (offset === 0) return `Date: ${base}`;
-		const sign = offset > 0 ? "+" : "";
+		const offset = parseInt(item.offset_value || 0, 10);
+		const sign = item.operation === "subtract" ? "-" : "+";
 		return `Date: ${base} ${sign}${offset} ${item.offset_unit}`;
 	},
-	validate: (item, props) => {
-		const errors = [];
-		const store = useStore();
-		const dt = store.rule_doc?.document_type || props.doctype;
-
-		if (item.base_type === "doc_field") {
-			if (!item.base_field) {
-				errors.push(__("Base field is required"));
-			} else if (!validateField(item.base_field, dt, store)) {
-				errors.push(frappe.utils.format(__("Base field '{0}' not found"), item.base_field));
-			}
-		}
-		return { isValid: errors.length === 0, errors };
-	},
+	validate: (item) => ({ isValid: true, errors: [] }),
 });
 
-// ─── Collection Query Strategy ───
-registerStrategy("collection", {
-	label: __("Collection Query"),
-	description: __(
-		"Filter, search, check, or extract values from child table rows or list variables."
-	),
-	icon: "fa fa-list-ol",
-	component: CollectionResolver,
+// ─── 3. Text Strategy ───
+registerStrategy("text", {
+	label: __("Text"),
+	description: __("Manipulate text: concatenate, trim, casing, replacement, currency, date formatting."),
+	icon: "fa fa-font",
+	component: TextResolver,
 	defaultState: (props) => {
 		const fieldname = props.context?.fieldname || props.context?.target;
-		let defaultSource = "";
-		if (fieldname) {
-			const cleanName = String(fieldname).replace(/^(doc|vars)\./, "");
-			const store = useStore();
-			const dt = store.rule_doc?.document_type || props.doctype;
-			const fields = store.doc_meta?.[dt];
-			const isTable = fields?.some(
-				(f) => f.fieldname === cleanName && f.fieldtype === "Table"
-			);
-			if (isTable) {
-				defaultSource = `doc.${cleanName}`;
-			}
-		}
 		return {
-			source: defaultSource,
-			operation: "any",
-			target_field: "",
-			condition: null,
+			operation: "concat",
+			field_a: fieldname ? String(fieldname).replace(/^(doc|vars)\./, "") : "",
+			field_b: "",
+			fmt_config: "",
 		};
 	},
 	compileToCode: (item) => {
-		const src = item.source || "doc.items";
-		const op = (item.operation || "any").toUpperCase();
-		if (["PLUCK", "UNIQUE"].includes(op)) {
-			return `{${op}(${src}, "${item.target_field || ""}")}`;
-		}
-		return `{${op}(${src})}`;
+		const a = toDocExpression(item.field_a || '""');
+		const b = toDocExpression(item.field_b || '""');
+		if (item.operation === "concat") return `{str(${a} or "") + str(${b} or "")}`;
+		if (item.operation === "upper") return `{str(${a} or "").upper()}`;
+		if (item.operation === "lower") return `{str(${a} or "").lower()}`;
+		if (item.operation === "trim") return `{str(${a} or "").strip()}`;
+		if (item.operation === "format_date") return `{frappe.utils.format_date(${a}, "${item.fmt_config || ""}")}`;
+		if (item.operation === "fmt_money") return `{frappe.utils.fmt_money(${a}, currency="${item.fmt_config || ""}")}`;
+		return `{${a}}`;
 	},
-	compileToLabel: (item) => {
-		const op = (item.operation || "any").toUpperCase();
-		const src = item.source || "?";
-		if (["PLUCK", "UNIQUE"].includes(op)) {
-			return `${op}(${src}.${item.target_field || "?"})`;
-		}
-		return `${op}(${src})`;
-	},
-	validate: (item) => {
-		const errors = [];
-		if (!item.source) {
-			errors.push(__("Source collection is required"));
-		}
-		if (["pluck", "unique"].includes(item.operation) && !item.target_field) {
-			errors.push(__("Target field is required for this operation"));
-		}
-		return { isValid: errors.length === 0, errors };
-	},
+	compileToLabel: (item) => `${(item.operation || "text").toUpperCase()}(${item.field_a || "?"})`,
+	validate: (item) => ({ isValid: true, errors: [] }),
 });
 
-// ─── Math Formula Strategy ───
-registerStrategy("math_formula", {
-	label: __("Math Formula"),
-	description: __("Perform basic arithmetic between two fields or a field and a constant value."),
+// ─── 4. Math Strategy ───
+registerStrategy("math", {
+	label: __("Math"),
+	description: __("Perform arithmetic (+, -, *, /) and math calculations (min, max, round)."),
 	icon: "fa fa-calculator",
-	component: MathFormulaResolver,
+	component: MathResolver,
 	defaultState: () => ({
+		operation: "+",
 		field_a: "",
-		math_op: "+",
 		field_b_type: "field",
 		field_b: "",
 		constant_b: 0,
@@ -150,404 +140,88 @@ registerStrategy("math_formula", {
 	}),
 	compileToCode: (item) => {
 		const a = item.field_a ? `frappe.utils.flt(${toDocExpression(item.field_a)})` : "0";
-		const b =
-			item.field_b_type === "field"
-				? item.field_b
-					? `frappe.utils.flt(${toDocExpression(item.field_b)})`
-					: "0"
-				: String(item.constant_b ?? 0);
+		const b = item.field_b_type === "field" ? (item.field_b ? `frappe.utils.flt(${toDocExpression(item.field_b)})` : "0") : String(item.constant_b ?? 0);
 		const prec = item.precision ?? 2;
-		return `{frappe.utils.flt(${a} ${item.math_op} ${b}, ${prec})}`;
+		if (item.operation === "min") return `{frappe.utils.flt(min(${a}, ${b}), ${prec})}`;
+		if (item.operation === "max") return `{frappe.utils.flt(max(${a}, ${b}), ${prec})}`;
+		if (item.operation === "round") return `{frappe.utils.flt(${a}, ${prec})}`;
+		return `{frappe.utils.flt(${a} ${item.operation} ${b}, ${prec})}`;
 	},
 	compileToLabel: (item) => {
 		const a = item.field_a || "?";
 		const b = item.field_b_type === "field" ? item.field_b || "?" : item.constant_b;
-		return `Calc: ${a} ${item.math_op} ${b}`;
+		return `Math: ${a} ${item.operation} ${b}`;
 	},
-	validate: (item, props) => {
-		const errors = [];
-		const store = useStore();
-		const dt = store.rule_doc?.document_type || props.doctype;
-
-		if (!item.field_a) {
-			errors.push(__("Field A is required"));
-		} else if (!validateField(item.field_a, dt, store)) {
-			errors.push(frappe.utils.format(__("Field A '{0}' not found"), item.field_a));
-		}
-
-		if (item.field_b_type === "field") {
-			if (!item.field_b) {
-				errors.push(__("Field B is required"));
-			} else if (!validateField(item.field_b, dt, store)) {
-				errors.push(frappe.utils.format(__("Field B '{0}' not found"), item.field_b));
-			}
-		}
-		return { isValid: errors.length === 0, errors };
-	},
+	validate: (item) => ({ isValid: true, errors: [] }),
 });
 
-// ─── Date Diff Strategy ───
-registerStrategy("date_diff", {
-	label: __("Date Difference"),
-	description: __("Calculate the time difference between two dates in days, months, or years."),
-	icon: "fa fa-calendar-minus-o",
-	component: DateDiffResolver,
-	defaultState: () => ({
-		diff_start_type: "today",
-		diff_start_field: "",
-		diff_end_type: "doc_field",
-		diff_end_field: "",
-		diff_unit: "days",
-	}),
-	compileToCode: (item) => {
-		const start =
-			item.diff_start_type === "today"
-				? "frappe.utils.nowdate()"
-				: toDocExpression(item.diff_start_field);
-		const end =
-			item.diff_end_type === "today"
-				? "frappe.utils.nowdate()"
-				: toDocExpression(item.diff_end_field);
-
-		if (item.diff_unit === "days") return `{frappe.utils.date_diff(${end}, ${start})}`;
-		if (item.diff_unit === "months") return `{frappe.utils.month_diff(${end}, ${start})}`;
-		return `{int(frappe.utils.month_diff(${end}, ${start}) / 12)}`;
-	},
-	compileToLabel: (item) => {
-		const start = item.diff_start_type === "today" ? __("Today") : item.diff_start_field || "?";
-		const end = item.diff_end_type === "today" ? __("Today") : item.diff_end_field || "?";
-		return `${end} − ${start} (${item.diff_unit})`;
-	},
-	validate: (item, props) => {
-		const errors = [];
-		const store = useStore();
-		const dt = store.rule_doc?.document_type || props.doctype;
-
-		if (item.diff_start_type === "doc_field") {
-			if (!item.diff_start_field) {
-				errors.push(__("Start field is required"));
-			} else if (!validateField(item.diff_start_field, dt, store)) {
-				errors.push(
-					frappe.utils.format(__("Start field '{0}' not found"), item.diff_start_field)
-				);
-			}
-		}
-		if (item.diff_end_type === "doc_field") {
-			if (!item.diff_end_field) {
-				errors.push(__("End field is required"));
-			} else if (!validateField(item.diff_end_field, dt, store)) {
-				errors.push(
-					frappe.utils.format(__("End field '{0}' not found"), item.diff_end_field)
-				);
-			}
-		}
-		return { isValid: errors.length === 0, errors };
-	},
+// ─── 5. Collection Strategy ───
+registerStrategy("collection", {
+	label: __("Collection"),
+	description: __("Filter, search, check, or extract values from child tables or list arrays."),
+	icon: "fa fa-list-ol",
+	component: CollectionResolver,
+	defaultState: () => ({ source: "", operation: "any", target_field: "", condition: null }),
+	compileToCode: (item) => `{${(item.operation || "any").toUpperCase()}(${item.source || "doc.items"})}`,
+	compileToLabel: (item) => `${(item.operation || "any").toUpperCase()}(${item.source || "?"})`,
+	validate: (item) => ({ isValid: true, errors: [] }),
 });
 
-// ─── Aggregation Strategy ───
-registerStrategy("child_aggregation", {
-	label: __("Child Table Aggregation"),
-	description: __("Aggregate numeric values from a child table using Sum, Average, or Count."),
+// ─── 6. Aggregate Strategy ───
+registerStrategy("aggregate", {
+	label: __("Aggregate"),
+	description: __("Calculate scalar numeric metrics (Sum, Average, Min, Max, Count) over child tables."),
 	icon: "fa fa-table",
-	component: AggregationResolver,
-	defaultState: () => ({
-		agg_table: "",
-		agg_field: "",
-		agg_op: "sum",
-	}),
+	component: AggregateResolver,
+	defaultState: () => ({ agg_table: "", agg_field: "", agg_op: "sum" }),
 	compileToCode: (item) => {
-		const tbl = item.agg_table || '""';
+		const tbl = toDocExpression(item.agg_table || '""');
 		const fld = item.agg_field || '""';
-		const tblExpr = toDocExpression(tbl);
-		if (item.agg_op === "count") return `{len(${tblExpr})}`;
-		if (item.agg_op === "avg") {
-			return `{sum([frappe.utils.flt(row.get("${fld}")) for row in ${tblExpr}]) / (len(${tblExpr}) or 1)}`;
-		}
-		return `{sum([frappe.utils.flt(row.get("${fld}")) for row in ${tblExpr}])}`;
+		if (item.agg_op === "count") return `{len(${tbl})}`;
+		if (item.agg_op === "avg") return `{sum([frappe.utils.flt(r.get("${fld}")) for r in ${tbl}]) / (len(${tbl}) or 1)}`;
+		return `{sum([frappe.utils.flt(r.get("${fld}")) for r in ${tbl}])}`;
 	},
-	compileToLabel: (item) => {
-		return `${(item.agg_op || "").toUpperCase()}(${item.agg_table || "?"}.${
-			item.agg_field || "?"
-		})`;
-	},
-	validate: (item, props) => {
-		const errors = [];
-		const store = useStore();
-		const dt = store.rule_doc?.document_type || props.doctype;
-
-		if (!item.agg_table) {
-			errors.push(__("Child table is required"));
-		} else if (!validateField(item.agg_table, dt, store)) {
-			errors.push(frappe.utils.format(__("Table field '{0}' not found"), item.agg_table));
-		}
-
-		if (item.agg_op !== "count") {
-			if (!item.agg_field) {
-				errors.push(__("Numeric field is required"));
-			} else {
-				// For child tables, we'd need to validate against the child doctype's meta
-				const fields = store.doc_meta[dt];
-				const tableField = fields?.find((f) => f.fieldname === item.agg_table);
-				if (tableField && tableField.options) {
-					if (!validateField(item.agg_field, tableField.options, store)) {
-						errors.push(
-							frappe.utils.format(
-								__("Field '{0}' not found in child table '{1}'"),
-								item.agg_field,
-								tableField.options
-							)
-						);
-					}
-				}
-			}
-		}
-		return { isValid: errors.length === 0, errors };
-	},
+	compileToLabel: (item) => `${(item.agg_op || "sum").toUpperCase()}(${item.agg_table || "?"}.${item.agg_field || "?"})`,
+	validate: (item) => ({ isValid: true, errors: [] }),
 });
 
-// ─── String Formula Strategy ───
-registerStrategy("string_formula", {
-	label: __("String Manipulation"),
-	description: __("Combine text fields, change casing, or format currency strings."),
-	icon: "fa fa-font",
-	component: StringFormulaResolver,
-	defaultState: () => ({
-		str_op: "concat",
-		str_a_type: "field",
-		str_a: "",
-		str_b_type: "constant",
-		str_b: "",
-	}),
+// ─── 7. Lookup Strategy ───
+registerStrategy("lookup", {
+	label: __("Lookup"),
+	description: __("Fetch single field values or verify existence in linked database records."),
+	icon: "fa fa-search",
+	component: LookupResolver,
+	defaultState: () => ({ operation: "get", link_field: "", linked_doctype: "", fetch_field: "" }),
 	compileToCode: (item) => {
-		const valA =
-			item.str_a_type === "field"
-				? toDocExpression(item.str_a || '""')
-				: `"${item.str_a || ""}"`;
-		const valB =
-			item.str_b_type === "field"
-				? toDocExpression(item.str_b || '""')
-				: `"${item.str_b || ""}"`;
-
-		if (item.str_op === "concat") return `{str(${valA} or "") + str(${valB} or "")}`;
-		if (item.str_op === "uppercase") return `{str(${valA} or "").upper()}`;
-		if (item.str_op === "lowercase") return `{str(${valA} or "").lower()}`;
-		if (item.str_op === "fmt_money")
-			return `{frappe.utils.fmt_money(${valA}, currency=${valB})}`;
-		return `{${valA}}`;
+		const dt = item.linked_doctype ? `"${item.linked_doctype}"` : '""';
+		const link = item.link_field ? toDocExpression(item.link_field) : '""';
+		if (item.operation === "exists") return `{bool(frappe.db.exists(${dt}, ${link}))}`;
+		return `{frappe.db.get_value(${dt}, ${link}, "${item.fetch_field || ""}")}`;
 	},
-	compileToLabel: (item) => {
-		const ops = {
-			concat: __("Concat"),
-			fmt_money: __("Fmt Money"),
-			uppercase: __("Upper"),
-			lowercase: __("Lower"),
-		};
-		const op = ops[item.str_op] || __("String");
-		const valA = item.str_a_type === "field" ? item.str_a : `"${item.str_a || ""}"`;
-		const valB = item.str_b_type === "field" ? item.str_b : `"${item.str_b || ""}"`;
-
-		if (["concat", "fmt_money"].includes(item.str_op)) {
-			return `${op}(${valA || "?"}, ${valB || "?"})`;
-		}
-		return `${op}(${valA || "?"})`;
-	},
-	validate: (item, props) => {
-		const errors = [];
-		const store = useStore();
-		const dt = store.rule_doc?.document_type || props.doctype;
-
-		if (item.str_a_type === "field") {
-			if (!item.str_a) {
-				errors.push(__("Value A field is required"));
-			} else if (!validateField(item.str_a, dt, store)) {
-				errors.push(frappe.utils.format(__("Field '{0}' not found"), item.str_a));
-			}
-		}
-
-		if (item.str_b_type === "field" && ["concat", "fmt_money"].includes(item.str_op)) {
-			if (!item.str_b) {
-				errors.push(__("Value B field is required"));
-			} else if (!validateField(item.str_b, dt, store)) {
-				errors.push(frappe.utils.format(__("Field '{0}' not found"), item.str_b));
-			}
-		}
-		return { isValid: errors.length === 0, errors };
-	},
+	compileToLabel: (item) => `${item.linked_doctype || "?"}.${item.fetch_field || "?"} ← ${item.link_field || "?"}`,
+	validate: (item) => ({ isValid: true, errors: [] }),
 });
 
-// ─── Normalization Strategy ───
-registerStrategy("normalization", {
-	label: __("Normalization"),
-	description: __(
-		"Clean up text data by trimming whitespace, changing case, or converting to slug/snake case."
-	),
-	icon: "fa fa-refresh",
-	component: NormalizationResolver,
-	defaultState: (props) => {
-		const fieldname = props.context?.fieldname || props.context?.target;
-		return {
-			norm_field: fieldname ? String(fieldname).replace(/^(doc|vars)\./, "") : "",
-			norm_profile: "Custom",
-			norm_pipeline: ["trim"],
-		};
-	},
-	compileToCode: (item) => {
-		const f = item.norm_field ? toDocExpression(item.norm_field) : '""';
-		if (item.norm_profile && item.norm_profile !== "Custom") {
-			return `{flexirule.ruleflow.utils.normalization.execute_normalization_pipeline(${f}, profile="${item.norm_profile}")["normalized_value"]}`;
-		}
-		const pipeline = JSON.stringify(item.norm_pipeline || []);
-		return `{flexirule.ruleflow.utils.normalization.execute_normalization_pipeline(${f}, pipeline=${pipeline})["normalized_value"]}`;
-	},
-	compileToLabel: (item) => {
-		const source = item.norm_field || "?";
-		if (item.norm_profile && item.norm_profile !== "Custom") {
-			return `${__("Normalize")}: ${source} (${item.norm_profile})`;
-		}
-		const steps = (item.norm_pipeline || []).length;
-		return `${__("Normalize")}: ${source} (${steps} ${__("steps")})`;
-	},
-	validate: (item, props) => {
-		const errors = [];
-		const store = useStore();
-		const dt = store.rule_doc?.document_type || props.doctype;
-
-		if (!item.norm_field) {
-			errors.push(__("Field is required"));
-		} else if (!validateField(item.norm_field, dt, store)) {
-			errors.push(frappe.utils.format(__("Field '{0}' not found"), item.norm_field));
-		}
-		return { isValid: errors.length === 0, errors };
-	},
+// ─── 8. Conditional Strategy ───
+registerStrategy("conditional", {
+	label: __("Conditional"),
+	description: __("Evaluate if-then-else conditions returning custom values."),
+	icon: "fa fa-code-fork",
+	component: ConditionalResolver,
+	defaultState: () => ({ condition: null, true_value: "", false_value: "" }),
+	compileToCode: (item) => `IF-THEN-ELSE("${item.true_value}", "${item.false_value}")`,
+	compileToLabel: (item) => `IF ? THEN "${item.true_value}" ELSE "${item.false_value}"`,
+	validate: (item) => ({ isValid: true, errors: [] }),
 });
 
-// ─── Format Strategy ───
-registerStrategy("format", {
-	label: __("Format"),
-	icon: "fa fa-paint-brush",
-	component: FormatResolver,
-	defaultState: (props) => {
-		const fieldname = props.context?.fieldname || props.context?.target;
-		return {
-			fmt_op: "format_date",
-			fmt_field: fieldname ? String(fieldname).replace(/^(doc|vars)\./, "") : "",
-			fmt_config: "",
-		};
-	},
-	compileToCode: (item) => {
-		const f = item.fmt_field ? toDocExpression(item.fmt_field) : '""';
-		const cfg = item.fmt_config || "";
-		if (item.fmt_op === "format_date") return `{frappe.utils.format_date(${f}, "${cfg}")}`;
-		if (item.fmt_op === "fmt_money") {
-			const curr = cfg.includes(".") || cfg.includes("doc") ? cfg : `"${cfg}"`;
-			return `{frappe.utils.fmt_money(${f}, currency=${curr})}`;
-		}
-		if (item.fmt_op === "format") return `{("${cfg}").format(${f})}`;
-	},
-	compileToLabel: (item) => `${__(item.fmt_op)}(${item.fmt_field || "?"})`,
-	validate: (item, props) => {
-		const errors = [];
-		const store = useStore();
-		const dt = store.rule_doc?.document_type || props.doctype;
-
-		if (!item.fmt_field) {
-			errors.push(__("Field is required"));
-		} else if (!validateField(item.fmt_field, dt, store)) {
-			errors.push(frappe.utils.format(__("Field '{0}' not found"), item.fmt_field));
-		}
-		return { isValid: errors.length === 0, errors };
-	},
-});
-
-// ─── Fetch Strategy ───
-registerStrategy("fetch", {
-	label: __("Fetch From Link"),
-	icon: "fa fa-link",
-	component: FetchResolver,
-	defaultState: () => ({
-		link_source_type: "doc_field",
-		link_field: "",
-		fetch_field: "",
-		linked_doctype: "",
-	}),
-	compileToCode: (item) => {
-		const dt = item.linked_doctype || "";
-		const knownScopes = ["doc.", "vars.", "ctx.", "loop.", "row.", "item.", "caller.", "rule."];
-		const dtExpr = knownScopes.some((s) => String(dt).startsWith(s)) ? dt : `"${dt}"`;
-		const link = item.link_field ? toDocExpression(item.link_field) : "";
-		const field = item.fetch_field || "";
-		return `{frappe.db.get_value(${dtExpr}, ${link}, "${field}")}`;
-	},
-	compileToLabel: (item) => {
-		const dt = item.linked_doctype || __("Linked Doc");
-		const field = item.fetch_field || "?";
-		const link = item.link_field || "?";
-		return `${dt}.${field}\n← ${link}`;
-	},
-	validate: (item, props) => {
-		const errors = [];
-		const store = useStore();
-		const dt = store.rule_doc?.document_type || props.doctype;
-
-		if (!item.linked_doctype) {
-			errors.push(__("Source DocType is required"));
-		}
-
-		if (item.link_source_type === "doc_field") {
-			if (!item.link_field) {
-				errors.push(__("Link field is required"));
-			} else if (!validateField(item.link_field, dt, store)) {
-				errors.push(frappe.utils.format(__("Link field '{0}' not found"), item.link_field));
-			}
-		}
-
-		if (!item.fetch_field) {
-			errors.push(__("Fetch field is required"));
-		} else if (
-			item.linked_doctype &&
-			!item.linked_doctype.startsWith("doc.") &&
-			!item.linked_doctype.startsWith("vars.")
-		) {
-			if (!validateField(item.fetch_field, item.linked_doctype, store)) {
-				errors.push(
-					frappe.utils.format(
-						__("Field '{0}' not found in Source DocType '{1}'"),
-						item.fetch_field,
-						item.linked_doctype
-					)
-				);
-			}
-		}
-
-		return { isValid: errors.length === 0, errors };
-	},
-});
-
-// ─── System Context Strategy ───
-registerStrategy("system_context", {
-	label: __("System Context"),
-	icon: "fa fa-globe",
-	component: SystemContextResolver,
-	defaultState: () => ({
-		sys_token: "user",
-		sys_role: "",
-	}),
-	compileToCode: (item) => {
-		if (item.sys_token === "role_check") {
-			return `{"${item.sys_role}" in frappe.get_roles(frappe.session.user)}`;
-		}
-		return `{frappe.session.user}`;
-	},
-	compileToLabel: (item) => {
-		if (item.sys_token === "user") return __("Current User");
-		if (item.sys_token === "role_check") return __("Has Role");
-		return __("System Context");
-	},
-	validate: (item) => {
-		const errors = [];
-		if (item.sys_token === "role_check" && !item.sys_role)
-			errors.push(__("Role name is required"));
-		return { isValid: errors.length === 0, errors };
-	},
+// ─── 9. Type Conversion Strategy ───
+registerStrategy("type_conversion", {
+	label: __("Type Conversion"),
+	description: __("Cast values explicitly to text, integer, decimal, boolean, date, or datetime."),
+	icon: "fa fa-exchange",
+	component: TypeConversionResolver,
+	defaultState: () => ({ operation: "text", field: "" }),
+	compileToCode: (item) => `CAST(${toDocExpression(item.field || '""')} AS ${(item.operation || "text").toUpperCase()})`,
+	compileToLabel: (item) => `Cast ${item.field || "?"} to ${item.operation}`,
+	validate: (item) => ({ isValid: true, errors: [] }),
 });
