@@ -355,7 +355,7 @@ function clearCondition() {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	z-index: 13000;
+	z-index: 25000;
 }
 
 .fxr-modal-card {
