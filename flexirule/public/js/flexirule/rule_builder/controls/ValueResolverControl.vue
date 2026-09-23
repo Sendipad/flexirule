@@ -176,6 +176,7 @@ const {
 	maxWidth: 400,
 	maxHeight: 500,
 	matchTriggerWidth: false,
+	zIndex: 15000,
 });
 
 const resolverFieldname = computed(() => {

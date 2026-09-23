@@ -8,6 +8,7 @@ export function useFloatingDropdown(config = {}) {
 		maxWidth = 640,
 		maxHeight = 360,
 		matchTriggerWidth = true,
+		zIndex = 30000,
 	} = config;
 
 	const triggerRef = ref(null);
@@ -67,7 +68,7 @@ export function useFloatingDropdown(config = {}) {
 			minWidth: `${Math.min(width, Math.max(minWidth, rect.width))}px`,
 			maxWidth: `${Math.min(maxWidth, viewportWidth - viewportPadding * 2)}px`,
 			maxHeight: `${effectiveMaxHeight}px`,
-			zIndex: 15000,
+			zIndex,
 		};
 	}
 
