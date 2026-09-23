@@ -214,8 +214,6 @@ class TestQueryRecordsFilters(FrappeTestCase):
 			"field": "name",
 			"group_by_field": "roles.role",
 		}
-		res_gb = self.handler._group_by(
-			"User", config_gb, self.context, self.action, ignore_permissions=True
-		)
+		res_gb = self.handler._group_by("User", config_gb, self.context, self.action, ignore_permissions=True)
 		self.assertTrue(isinstance(res_gb, list))
 		self.assertEqual(res_gb[0].get("role"), "System Manager")

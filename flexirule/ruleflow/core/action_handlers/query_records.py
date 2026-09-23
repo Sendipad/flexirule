@@ -12,6 +12,7 @@ Modes:
 """
 
 import json
+from typing import Any
 
 import frappe
 from frappe import _
@@ -515,7 +516,9 @@ class QueryRecordsHandler(ActionHandler):
 
 	def _count_records(self, reference_doctype, config, context, action, ignore_permissions):
 		"""Count records matching filters using get_list with permission enforcement."""
-		filters, or_filters = self._resolve_query_filters(config, context, action, reference_doctype=reference_doctype)
+		filters, or_filters = self._resolve_query_filters(
+			config, context, action, reference_doctype=reference_doctype
+		)
 
 		rows = frappe.get_list(
 			reference_doctype,
@@ -529,7 +532,9 @@ class QueryRecordsHandler(ActionHandler):
 
 	def _aggregate(self, reference_doctype, config, context, action, ignore_permissions):
 		"""Perform sum/avg/min/max via frappe.get_list with permission enforcement."""
-		filters, or_filters = self._resolve_query_filters(config, context, action, reference_doctype=reference_doctype)
+		filters, or_filters = self._resolve_query_filters(
+			config, context, action, reference_doctype=reference_doctype
+		)
 		field = config.get("field", "name")
 		mode = action.operation
 		agg_map = {
@@ -560,7 +565,9 @@ class QueryRecordsHandler(ActionHandler):
 
 	def _group_by(self, reference_doctype, config, context, action, ignore_permissions):
 		"""Perform group_by aggregation via frappe.get_list with permission enforcement."""
-		filters, or_filters = self._resolve_query_filters(config, context, action, reference_doctype=reference_doctype)
+		filters, or_filters = self._resolve_query_filters(
+			config, context, action, reference_doctype=reference_doctype
+		)
 		aggregate_field = config.get("field", "name")
 		group_field = config.get("group_by_field", aggregate_field)
 		agg_function = config.get("agg_function", "count").lower()
@@ -568,7 +575,9 @@ class QueryRecordsHandler(ActionHandler):
 		safe_agg_fn = agg_function if agg_function in {"sum", "avg", "min", "max", "count"} else "count"
 
 		group_dt, group_name = self._resolve_filter_doctype_and_field(reference_doctype, None, group_field)
-		group_expr = f"`tab{group_dt}`.`{group_name}`" if group_dt and group_dt != reference_doctype else group_name
+		group_expr = (
+			f"`tab{group_dt}`.`{group_name}`" if group_dt and group_dt != reference_doctype else group_name
+		)
 
 		agg_dt, agg_name = self._resolve_filter_doctype_and_field(reference_doctype, None, agg_field)
 		agg_expr = (
@@ -665,7 +674,7 @@ class QueryRecordsHandler(ActionHandler):
 		return self._resolve_value_expression_with_context(filters, context, ref_label, action)
 
 	def _resolve_filter_doctype_and_field(
-		self, reference_doctype: str | None, doctype: str | None, fieldname: str
+		self, reference_doctype: str | None, doctype: str | None, fieldname: Any
 	) -> tuple[str | None, str]:
 		"""Resolve field path and DocType for filters.
 
@@ -674,7 +683,7 @@ class QueryRecordsHandler(ActionHandler):
 		("Journal Entry Account", "party_master").
 		"""
 		if not fieldname:
-			return doctype, fieldname
+			return doctype, ""
 
 		fieldname_str = str(fieldname).strip()
 
@@ -922,58 +931,66 @@ class QueryRecordsHandler(ActionHandler):
 		if isinstance(filters, dict):
 			normalized = []
 			for key, value in filters.items():
-				dt, field = self._resolve_filter_doctype_and_field(reference_doctype, None, key)
+				dt_res, field_res = self._resolve_filter_doctype_and_field(reference_doctype, None, key)
 				if isinstance(value, list) and len(value) == 2 and isinstance(value[0], str):
 					op, val = self._normalize_single_filter_operator(value[0], value[1])
-					if dt and dt != reference_doctype:
-						normalized.append([dt, field, op, val])
+					if dt_res and dt_res != reference_doctype:
+						normalized.append([dt_res, field_res, op, val])
 					else:
-						normalized.append([field, op, val])
+						normalized.append([field_res, op, val])
 				else:
 					norm_val = self._normalize_filters_for_backend(value, reference_doctype=reference_doctype)
-					if dt and dt != reference_doctype:
-						normalized.append([dt, field, "=", norm_val])
+					if dt_res and dt_res != reference_doctype:
+						normalized.append([dt_res, field_res, "=", norm_val])
 					else:
-						normalized.append([field, "=", norm_val])
+						normalized.append([field_res, "=", norm_val])
 			return normalized
 
 		if isinstance(filters, list):
 			normalized_list = []
 			for item in filters:
 				if isinstance(item, dict) and ("field" in item or "fieldname" in item):
-					field = item.get("field") or item.get("fieldname")
-					op = item.get("operator", "=")
-					val = self._extract_filter_value_payload(item.get("value"))
-					doctype = item.get("doctype")
-					op, val = self._normalize_single_filter_operator(op, val)
-					dt, field = self._resolve_filter_doctype_and_field(reference_doctype, doctype, field)
-					if dt and dt != reference_doctype:
-						normalized_list.append([dt, field, op, val])
+					field_item = item.get("field") or item.get("fieldname")
+					op_item = item.get("operator", "=")
+					val_item = self._extract_filter_value_payload(item.get("value"))
+					dt_item = item.get("doctype")
+					op_item, val_item = self._normalize_single_filter_operator(op_item, val_item)
+					dt_res, field_res = self._resolve_filter_doctype_and_field(
+						reference_doctype, dt_item, field_item
+					)
+					if dt_res and dt_res != reference_doctype:
+						normalized_list.append([dt_res, field_res, op_item, val_item])
 					else:
-						normalized_list.append([field, op, val])
+						normalized_list.append([field_res, op_item, val_item])
 					continue
 				if isinstance(item, list):
 					if len(item) == 4:
-						dt, field, op, val = item
-						val = self._extract_filter_value_payload(val)
-						op, val = self._normalize_single_filter_operator(op, val)
-						resolved_dt, resolved_field = self._resolve_filter_doctype_and_field(reference_doctype, dt, field)
+						dt_4, field_4, op_4, val_4 = item
+						val_4 = self._extract_filter_value_payload(val_4)
+						op_4, val_4 = self._normalize_single_filter_operator(op_4, val_4)
+						resolved_dt, resolved_field = self._resolve_filter_doctype_and_field(
+							reference_doctype, dt_4, field_4
+						)
 						if resolved_dt and resolved_dt != reference_doctype:
-							normalized_list.append([resolved_dt, resolved_field, op, val])
+							normalized_list.append([resolved_dt, resolved_field, op_4, val_4])
 						else:
-							normalized_list.append([resolved_field, op, val])
+							normalized_list.append([resolved_field, op_4, val_4])
 						continue
 					if len(item) == 3:
-						field, op, val = item
-						val = self._extract_filter_value_payload(val)
-						op, val = self._normalize_single_filter_operator(op, val)
-						resolved_dt, resolved_field = self._resolve_filter_doctype_and_field(reference_doctype, None, field)
+						field_3, op_3, val_3 = item
+						val_3 = self._extract_filter_value_payload(val_3)
+						op_3, val_3 = self._normalize_single_filter_operator(op_3, val_3)
+						resolved_dt, resolved_field = self._resolve_filter_doctype_and_field(
+							reference_doctype, None, field_3
+						)
 						if resolved_dt and resolved_dt != reference_doctype:
-							normalized_list.append([resolved_dt, resolved_field, op, val])
+							normalized_list.append([resolved_dt, resolved_field, op_3, val_3])
 						else:
-							normalized_list.append([resolved_field, op, val])
+							normalized_list.append([resolved_field, op_3, val_3])
 						continue
-				normalized_list.append(self._normalize_filters_for_backend(item, reference_doctype=reference_doctype))
+				normalized_list.append(
+					self._normalize_filters_for_backend(item, reference_doctype=reference_doctype)
+				)
 			return normalized_list
 
 		return filters
@@ -1002,7 +1019,9 @@ class QueryRecordsHandler(ActionHandler):
 
 	def _query_list(self, reference_doctype, config, context, action, ignore_permissions):
 		"""Execute frappe.get_list with configured filters, fields, etc."""
-		filters, or_filters = self._resolve_query_filters(config, context, action, reference_doctype=reference_doctype)
+		filters, or_filters = self._resolve_query_filters(
+			config, context, action, reference_doctype=reference_doctype
+		)
 		fields = config.get("fields", ["name"])
 		limit_type = config.get("limit_type", "Custom Limit")
 		if limit_type == "All":
@@ -1067,7 +1086,9 @@ class QueryRecordsHandler(ActionHandler):
 				frappe.throw(_("DocType {0} is not a Single DocType").format(resolved_doctype))
 			docname = resolved_doctype
 		elif strategy == "Get latest Doc":
-			filters, or_filters = self._resolve_query_filters(config, context, action, reference_doctype=resolved_doctype)
+			filters, or_filters = self._resolve_query_filters(
+				config, context, action, reference_doctype=resolved_doctype
+			)
 			names = frappe.get_all(
 				resolved_doctype,
 				filters=filters,
@@ -1106,7 +1127,9 @@ class QueryRecordsHandler(ActionHandler):
 
 	def _exist_record(self, reference_doctype, config, context, action, ignore_permissions):
 		"""Check if records exist matching filters. Returns boolean."""
-		filters, or_filters = self._resolve_query_filters(config, context, action, reference_doctype=reference_doctype)
+		filters, or_filters = self._resolve_query_filters(
+			config, context, action, reference_doctype=reference_doctype
+		)
 
 		rows = frappe.get_list(
 			reference_doctype,
