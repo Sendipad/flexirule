@@ -73,7 +73,7 @@
 						:doctype="doctype"
 						:readOnly="readOnly"
 						:context="context"
-						:variableOptions="variableOptions"
+						:variableOptions="effectiveVariableOptions"
 					/>
 				</div>
 				<div
@@ -99,7 +99,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from "vue";
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick, inject } from "vue";
 import { deepClone } from "../utils/serialization";
 import { useFloatingDropdown } from "../composables/useFloatingDropdown";
 import { useKeyboardRegistry } from "../composables/useKeyboardRegistry";
@@ -150,6 +150,14 @@ const { registerShortcut } = useKeyboardRegistry();
 const { handleTab } = useFocusTrap();
 const unregisterEsc = ref(null);
 const backupState = ref(null);
+
+const injectedVariableOptions = inject("variableOptions", ref([]));
+const effectiveVariableOptions = computed(() => {
+	if (props.variableOptions && props.variableOptions.length > 0) {
+		return props.variableOptions;
+	}
+	return injectedVariableOptions.value || [];
+});
 
 const {
 	localState,
@@ -367,7 +375,7 @@ hr.border-top {
 }
 
 .resolver-close-btn:hover {
-	background: var(--fxr-danger-soft);
+	background: var(--fxr-bg-muted-hover, var(--fxr-danger-soft));
 	color: var(--fxr-text-danger);
 	transform: rotate(90deg);
 }

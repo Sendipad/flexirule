@@ -93,7 +93,119 @@ class VariableResolver(CompiledResolver):
 		return get_context_value(context, self.path)
 
 
-class DateFormulaResolver(CompiledResolver):
+class ValueSourceResolver(CompiledResolver):
+	"""
+	Canonical Value Source Resolver handling field, variable, old_field, static, or system_context.
+	"""
+
+	def __init__(
+		self,
+		operation: str = "field",
+		path: str | None = None,
+		value: Any = None,
+		sys_token: str = "user",
+		sys_role: str = "",
+	):
+		self.operation = operation
+		self.path = path
+		self.value = value
+		self.sys_token = sys_token
+		self.sys_role = sys_role
+
+	def resolve(self, context: dict) -> Any:
+		op = self.operation
+		if op == "static":
+			return self.value
+		if op in ("field", "variable", "old_field"):
+			return get_context_value(context, self.path)
+		if op == "system_context":
+			if self.sys_token == "user":
+				return frappe.session.user
+			if self.sys_token == "role_check":
+				return bool(self.sys_role in frappe.get_roles(frappe.session.user))
+			return None
+		return get_context_value(context, self.path) if self.path else self.value
+
+
+class DateResolver(CompiledResolver):
+	"""
+	Canonical Date Resolver handling add, subtract, and diff operations.
+	"""
+
+	def __init__(
+		self,
+		operation: str = "add",
+		base_type: str = "today",
+		base_field: str | None = None,
+		offset_value: int = 0,
+		offset_unit: str = "days",
+		offset_sign: str = "+",
+		diff_start_type: str = "today",
+		diff_start_field: str | None = None,
+		diff_end_type: str = "doc_field",
+		diff_end_field: str | None = None,
+		diff_unit: str = "days",
+	):
+		self.operation = operation
+		self.base_type = base_type
+		self.base_field = base_field
+		self.offset_value = offset_value
+		self.offset_unit = offset_unit
+		self.offset_sign = offset_sign
+		self.diff_start_type = diff_start_type
+		self.diff_start_field = diff_start_field
+		self.diff_end_type = diff_end_type
+		self.diff_end_field = diff_end_field
+		self.diff_unit = diff_unit
+
+	def resolve(self, context: dict) -> Any:
+		op = getattr(self, "operation", "add")
+		if op in ("add", "subtract"):
+			if self.base_type == "today":
+				base_date = frappe.utils.nowdate()
+			else:
+				base_date = get_context_value(context, self.base_field)
+
+			if not base_date:
+				return None
+
+			offset = int(self.offset_value or 0)
+			if (op == "subtract" or self.offset_sign == "-") and offset > 0:
+				offset = -offset
+
+			if offset == 0 or not self.offset_unit:
+				return base_date
+
+			if self.offset_unit == "days":
+				return frappe.utils.add_days(base_date, offset)
+
+			return frappe.utils.add_to_date(base_date, **{self.offset_unit: offset})
+
+		if op == "diff":
+			if self.diff_start_type == "today":
+				start = frappe.utils.nowdate()
+			else:
+				start = get_context_value(context, self.diff_start_field)
+
+			if self.diff_end_type == "today":
+				end = frappe.utils.nowdate()
+			else:
+				end = get_context_value(context, self.diff_end_field)
+
+			if not start or not end:
+				return 0
+
+			diff_u = getattr(self, "diff_unit", "days")
+			if diff_u == "days":
+				return frappe.utils.date_diff(end, start)
+			if diff_u == "months":
+				return frappe.utils.month_diff(end, start)
+			return int(frappe.utils.month_diff(end, start) / 12)
+
+		return None
+
+
+class DateFormulaResolver(DateResolver):
 	def __init__(
 		self,
 		base_type: str,
@@ -102,35 +214,90 @@ class DateFormulaResolver(CompiledResolver):
 		offset_unit: str,
 		offset_sign: str = "+",
 	):
-		self.base_type = base_type
-		self.base_field = base_field
-		self.offset_value = offset_value
-		self.offset_unit = offset_unit
-		self.offset_sign = offset_sign
+		super().__init__(
+			operation="subtract" if offset_sign == "-" else "add",
+			base_type=base_type,
+			base_field=base_field,
+			offset_value=offset_value,
+			offset_unit=offset_unit,
+			offset_sign=offset_sign,
+		)
+
+
+class DateDiffResolver(DateResolver):
+	def __init__(
+		self,
+		diff_start_type: str,
+		diff_start_field: str | None,
+		diff_end_type: str,
+		diff_end_field: str | None,
+		diff_unit: str,
+	):
+		super().__init__(
+			operation="diff",
+			diff_start_type=diff_start_type,
+			diff_start_field=diff_start_field,
+			diff_end_type=diff_end_type,
+			diff_end_field=diff_end_field,
+			diff_unit=diff_unit,
+		)
+
+
+class MathResolver(CompiledResolver):
+	"""
+	Canonical Math Resolver for binary arithmetic (+, -, *, /) and math functions (min, max, round).
+	"""
+
+	def __init__(
+		self,
+		operation: str = "+",
+		field_a: str | None = None,
+		field_b_type: str = "field",
+		field_b: str | None = None,
+		constant_b: Any = 0,
+		precision: int | None = 2,
+		math_op: str | None = None,
+	):
+		self.operation = math_op or operation
+		self.math_op = math_op or operation
+		self.field_a = field_a
+		self.field_b_type = field_b_type
+		self.field_b = field_b
+		self.constant_b = constant_b
+		self.precision = precision
 
 	def resolve(self, context: dict) -> Any:
-		if self.base_type == "today":
-			base_date = frappe.utils.nowdate()
+		val_a = frappe.utils.flt(get_context_value(context, self.field_a)) if self.field_a else 0.0
+		if getattr(self, "field_b_type", "field") == "field":
+			val_b = frappe.utils.flt(get_context_value(context, self.field_b)) if self.field_b else 0.0
 		else:
-			base_date = get_context_value(context, self.base_field)
+			val_b = frappe.utils.flt(getattr(self, "constant_b", 0))
 
-		if not base_date:
-			return None
+		op = getattr(self, "math_op", getattr(self, "operation", "+"))
+		if op in ("+", "add"):
+			res = val_a + val_b
+		elif op in ("-", "subtract"):
+			res = val_a - val_b
+		elif op in ("*", "multiply"):
+			res = val_a * val_b
+		elif op in ("/", "divide"):
+			res = val_a / val_b if val_b != 0.0 else 0.0
+		elif op == "min":
+			res = min(val_a, val_b)
+		elif op == "max":
+			res = max(val_a, val_b)
+		elif op == "round":
+			res = val_a
+		else:
+			res = 0.0
 
-		offset = int(self.offset_value or 0)
-		if self.offset_sign == "-" and offset > 0:
-			offset = -offset
-
-		if offset == 0 or not self.offset_unit:
-			return base_date
-
-		if self.offset_unit == "days":
-			return frappe.utils.add_days(base_date, offset)
-
-		return frappe.utils.add_to_date(base_date, **{self.offset_unit: offset})
+		prec = getattr(self, "precision", None)
+		if prec is not None:
+			res = frappe.utils.flt(res, prec)
+		return res
 
 
-class MathFormulaResolver(CompiledResolver):
+class MathFormulaResolver(MathResolver):
 	def __init__(
 		self,
 		field_a: str | None,
@@ -140,75 +307,210 @@ class MathFormulaResolver(CompiledResolver):
 		constant_b: Any,
 		precision: int | None,
 	):
-		self.field_a = field_a
-		self.math_op = math_op
-		self.field_b_type = field_b_type
-		self.field_b = field_b
-		self.constant_b = constant_b
-		self.precision = precision
-
-	def resolve(self, context: dict) -> Any:
-		val_a = frappe.utils.flt(get_context_value(context, self.field_a)) if self.field_a else 0.0
-		if self.field_b_type == "field":
-			val_b = frappe.utils.flt(get_context_value(context, self.field_b)) if self.field_b else 0.0
-		else:
-			val_b = frappe.utils.flt(self.constant_b)
-
-		if self.math_op == "+":
-			res = val_a + val_b
-		elif self.math_op == "-":
-			res = val_a - val_b
-		elif self.math_op == "*":
-			res = val_a * val_b
-		elif self.math_op == "/":
-			res = val_a / val_b if val_b != 0.0 else 0.0
-		else:
-			res = 0.0
-
-		if self.precision is not None:
-			res = frappe.utils.flt(res, self.precision)
-		return res
+		super().__init__(
+			operation=math_op,
+			field_a=field_a,
+			field_b_type=field_b_type,
+			field_b=field_b,
+			constant_b=constant_b,
+			precision=precision,
+			math_op=math_op,
+		)
 
 
-class DateDiffResolver(CompiledResolver):
+class TextResolver(CompiledResolver):
+	"""
+	Canonical Text Resolver consolidating concatenation, casing, trim, slug, snake, title,
+	normalization pipeline, and string/currency/date formatting.
+	"""
+
 	def __init__(
 		self,
-		diff_start_type: str,
-		diff_start_field: str | None,
-		diff_end_type: str,
-		diff_end_field: str | None,
-		diff_unit: str,
+		operation: str = "concat",
+		field_a: str | None = None,
+		field_a_type: str = "field",
+		field_b: str | None = None,
+		field_b_type: str = "constant",
+		norm_profile: str | None = None,
+		norm_pipeline: list[str] | None = None,
+		fmt_config: str | None = None,
+		pattern: str | None = None,
+		str_op: str | None = None,
+		str_a: str | None = None,
+		str_a_type: str | None = None,
+		str_b: str | None = None,
+		str_b_type: str | None = None,
+		norm_field: str | None = None,
+		norm_op: str | None = None,
+		fmt_op: str | None = None,
+		fmt_field: str | None = None,
 	):
-		self.diff_start_type = diff_start_type
-		self.diff_start_field = diff_start_field
-		self.diff_end_type = diff_end_type
-		self.diff_end_field = diff_end_field
-		self.diff_unit = diff_unit
+		self.str_op = str_op
+		self.norm_op = norm_op
+		self.fmt_op = fmt_op
+		self.operation = str_op or norm_op or fmt_op or operation
+		if norm_profile or norm_pipeline:
+			self.operation = "normalize"
+		self.field_a = norm_field or fmt_field or str_a or field_a
+		self.str_a = self.field_a
+		self.norm_field = self.field_a
+		self.fmt_field = self.field_a
+		self.field_a_type = str_a_type or field_a_type
+		self.str_a_type = self.field_a_type
+		self.field_b = str_b or field_b
+		self.str_b = self.field_b
+		self.field_b_type = str_b_type or field_b_type
+		self.str_b_type = self.field_b_type
+		self.norm_profile = norm_profile
+		self.norm_pipeline = norm_pipeline
+		self.fmt_config = fmt_config or pattern
 
 	def resolve(self, context: dict) -> Any:
-		if self.diff_start_type == "today":
-			start = frappe.utils.nowdate()
+		op = (
+			getattr(self, "str_op", None)
+			or getattr(self, "norm_op", None)
+			or getattr(self, "fmt_op", None)
+			or getattr(self, "operation", "concat")
+		)
+
+		f_a_type = getattr(self, "str_a_type", getattr(self, "field_a_type", "field"))
+		f_a = getattr(
+			self,
+			"str_a",
+			getattr(self, "norm_field", getattr(self, "fmt_field", getattr(self, "field_a", None))),
+		)
+
+		f_b_type = getattr(self, "str_b_type", getattr(self, "field_b_type", "constant"))
+		f_b = getattr(self, "str_b", getattr(self, "field_b", None))
+
+		if f_a_type == "field":
+			val_a = get_context_value(context, f_a)
 		else:
-			start = get_context_value(context, self.diff_start_field)
+			val_a = f_a
 
-		if self.diff_end_type == "today":
-			end = frappe.utils.nowdate()
+		if f_b_type == "field":
+			val_b = get_context_value(context, f_b)
 		else:
-			end = get_context_value(context, self.diff_end_field)
+			val_b = f_b
 
-		if not start or not end:
-			return 0
+		if op == "concat":
+			return str(val_a or "") + str(val_b or "")
 
-		if self.diff_unit == "days":
-			return frappe.utils.date_diff(end, start)
-		if self.diff_unit == "months":
-			return frappe.utils.month_diff(end, start)
-		return int(frappe.utils.month_diff(end, start) / 12)
+		if op in ("upper", "uppercase"):
+			return str(val_a or "").upper()
+
+		if op in ("lower", "lowercase"):
+			return str(val_a or "").lower()
+
+		if op == "trim":
+			return str(val_a or "").strip()
+
+		if (
+			op in ("slug", "snake", "title", "normalize")
+			or getattr(self, "norm_profile", None)
+			or getattr(self, "norm_pipeline", None)
+		):
+			if val_a is None:
+				return None
+			from flexirule.ruleflow.utils.normalization import execute_normalization_pipeline
+
+			pipeline = getattr(self, "norm_pipeline", None)
+			profile = getattr(self, "norm_profile", None)
+			if not profile and not pipeline and op:
+				legacy_map = {
+					"trim": ["trim"],
+					"slug": ["slug"],
+					"snake": ["snake_case"],
+					"title": ["title_case"],
+					"upper": ["uppercase"],
+					"uppercase": ["uppercase"],
+					"lower": ["lowercase"],
+					"lowercase": ["lowercase"],
+				}
+				pipeline = legacy_map.get(op)
+
+			res = execute_normalization_pipeline(value=val_a, pipeline=pipeline, profile=profile)
+			return res.get("normalized_value")
+
+		if op == "format_date":
+			if val_a is None:
+				return ""
+			return frappe.utils.format_date(val_a, getattr(self, "fmt_config", None))
+
+		if op == "fmt_money":
+			if val_a is None:
+				return ""
+			curr = getattr(self, "fmt_config", None) or val_b or ""
+			if isinstance(curr, str) and (curr.startswith("doc.") or curr.startswith("vars.")):
+				resolved_curr = get_context_value(context, curr)
+			else:
+				resolved_curr = curr
+			return frappe.utils.fmt_money(val_a, currency=resolved_curr)
+
+		if op in ("format", "pattern"):
+			if val_a is None:
+				return ""
+			return (getattr(self, "fmt_config", None) or "").format(val_a)
+
+		if op == "replace":
+			return str(val_a or "").replace(str(f_b or ""), str(getattr(self, "fmt_config", None) or ""))
+
+		return val_a
 
 
-class ChildAggregationResolver(CompiledResolver):
-	def __init__(self, agg_table: str | None, agg_field: str | None, agg_op: str):
-		self.agg_table = agg_table
+class StringFormulaResolver(TextResolver):
+	def __init__(self, str_op: str, str_a_type: str, str_a: str | None, str_b_type: str, str_b: str | None):
+		super().__init__(
+			operation=str_op,
+			str_op=str_op,
+			str_a_type=str_a_type,
+			str_a=str_a,
+			str_b_type=str_b_type,
+			str_b=str_b,
+		)
+
+
+class NormalizationResolver(TextResolver):
+	def __init__(
+		self,
+		norm_field: str | None,
+		norm_profile: str | None = None,
+		norm_pipeline: list[str] | None = None,
+		norm_op: str | None = None,
+	):
+		super().__init__(
+			operation=norm_op or "normalize",
+			norm_field=norm_field,
+			norm_profile=norm_profile,
+			norm_pipeline=norm_pipeline,
+			norm_op=norm_op,
+		)
+
+
+class FormatResolver(TextResolver):
+	def __init__(self, fmt_op: str, fmt_field: str | None, fmt_config: str):
+		super().__init__(
+			operation=fmt_op,
+			fmt_op=fmt_op,
+			fmt_field=fmt_field,
+			fmt_config=fmt_config,
+		)
+
+
+class AggregateResolver(CompiledResolver):
+	"""
+	Canonical Aggregate Resolver for evaluating scalar metric reductions (sum, avg, min, max, count)
+	over child tables or list collections.
+	"""
+
+	def __init__(
+		self,
+		agg_table: str | None = None,
+		agg_field: str | None = None,
+		agg_op: str = "sum",
+		source: str | None = None,
+	):
+		self.agg_table = source or agg_table
 		self.agg_field = agg_field
 		self.agg_op = agg_op
 
@@ -217,7 +519,8 @@ class ChildAggregationResolver(CompiledResolver):
 		if not rows or not isinstance(rows, list):
 			return 0
 
-		if self.agg_op == "count":
+		op = getattr(self, "agg_op", "sum")
+		if op == "count":
 			return len(rows)
 
 		if not self.agg_field:
@@ -229,122 +532,21 @@ class ChildAggregationResolver(CompiledResolver):
 			if hasattr(row, "get") and row.get(self.agg_field) is not None
 		]
 
-		if self.agg_op == "sum":
+		if op == "sum":
 			return sum(values)
-		if self.agg_op == "avg":
+		if op == "avg":
 			return sum(values) / len(values) if values else 0.0
+		if op == "min":
+			return min(values) if values else 0.0
+		if op == "max":
+			return max(values) if values else 0.0
 
 		return 0
 
 
-class StringFormulaResolver(CompiledResolver):
-	def __init__(self, str_op: str, str_a_type: str, str_a: str | None, str_b_type: str, str_b: str | None):
-		self.str_op = str_op
-		self.str_a_type = str_a_type
-		self.str_a = str_a
-		self.str_b_type = str_b_type
-		self.str_b = str_b
-
-	def resolve(self, context: dict) -> Any:
-		if self.str_a_type == "field":
-			val_a = get_context_value(context, self.str_a)
-		else:
-			val_a = self.str_a
-
-		if self.str_b_type == "field":
-			val_b = get_context_value(context, self.str_b)
-		else:
-			val_b = self.str_b
-
-		if self.str_op == "concat":
-			return str(val_a or "") + str(val_b or "")
-		if self.str_op == "uppercase":
-			return str(val_a or "").upper()
-		if self.str_op == "lowercase":
-			return str(val_a or "").lower()
-		if self.str_op == "fmt_money":
-			return frappe.utils.fmt_money(val_a, currency=val_b)
-
-		return val_a
-
-
-class NormalizationResolver(CompiledResolver):
-	def __init__(
-		self,
-		norm_field: str | None,
-		norm_profile: str | None = None,
-		norm_pipeline: list[str] | None = None,
-		norm_op: str | None = None,
-	):
-		self.norm_field = norm_field
-		self.norm_profile = norm_profile
-		self.norm_pipeline = norm_pipeline
-		self.norm_op = norm_op
-
-	def resolve(self, context: dict) -> Any:
-		val = get_context_value(context, self.norm_field)
-		if val is None:
-			return None
-
-		from flexirule.ruleflow.utils.normalization import execute_normalization_pipeline
-
-		# Legacy support
-		pipeline = self.norm_pipeline
-		if not self.norm_profile and not pipeline and self.norm_op:
-			legacy_map = {
-				"trim": ["trim"],
-				"slug": ["slug"],
-				"snake": ["snake_case"],
-				"title": ["title_case"],
-				"upper": ["uppercase"],
-				"lower": ["lowercase"],
-			}
-			pipeline = legacy_map.get(self.norm_op)
-
-		result = execute_normalization_pipeline(value=val, pipeline=pipeline, profile=self.norm_profile)
-		return result.get("normalized_value")
-
-
-class FormatResolver(CompiledResolver):
-	def __init__(self, fmt_op: str, fmt_field: str | None, fmt_config: str):
-		self.fmt_op = fmt_op
-		self.fmt_field = fmt_field
-		self.fmt_config = fmt_config
-
-	def resolve(self, context: dict) -> Any:
-		val = get_context_value(context, self.fmt_field)
-		if val is None:
-			return ""
-
-		if self.fmt_op == "format_date":
-			return frappe.utils.format_date(val, self.fmt_config)
-
-		if self.fmt_op == "fmt_money":
-			# Determine if currency is static code or dynamic field
-			curr = self.fmt_config or ""
-			if curr.startswith("doc.") or curr.startswith("vars."):
-				resolved_curr = get_context_value(context, curr)
-			else:
-				resolved_curr = curr
-			return frappe.utils.fmt_money(val, currency=resolved_curr)
-
-		if self.fmt_op == "format":
-			return (self.fmt_config or "").format(val)
-
-		return str(val)
-
-
-class SystemContextResolver(CompiledResolver):
-	def __init__(self, sys_token: str, sys_role: str):
-		self.sys_token = sys_token
-		self.sys_role = sys_role
-
-	def resolve(self, context: dict) -> Any:
-		if self.sys_token == "user":
-			return frappe.session.user
-		if self.sys_token == "role_check":
-			return bool(self.sys_role in frappe.get_roles(frappe.session.user))
-		return None
+class ChildAggregationResolver(AggregateResolver):
+	def __init__(self, agg_table: str | None, agg_field: str | None, agg_op: str):
+		super().__init__(agg_table=agg_table, agg_field=agg_field, agg_op=agg_op)
 
 
 class CollectionResolver(CompiledResolver):
@@ -357,7 +559,7 @@ class CollectionResolver(CompiledResolver):
 
 	def __init__(
 		self,
-		source: str | None,
+		source: str | None = None,
 		operation: str = "any",
 		condition: dict | list | None = None,
 		target_field: str | None = None,
@@ -466,17 +668,28 @@ class CollectionResolver(CompiledResolver):
 		return getattr(row, fieldname, None)
 
 
-class FetchResolver(CompiledResolver):
-	def __init__(self, link_field: str | None, fetch_field: str | None, linked_doctype: str | None):
+class LookupResolver(CompiledResolver):
+	"""
+	Canonical Lookup Resolver for single-record database fetches or existence checks.
+	Backward compatible with FetchResolver.
+	"""
+
+	def __init__(
+		self,
+		link_field: str | None = None,
+		fetch_field: str | None = None,
+		linked_doctype: str | None = None,
+		operation: str = "get",
+	):
 		self.link_field = link_field
 		self.fetch_field = fetch_field
 		self.linked_doctype = linked_doctype
+		self.operation = operation
 
 	def resolve(self, context: dict) -> Any:
-		if not self.link_field or not self.fetch_field or not self.linked_doctype:
+		if not self.link_field or not self.linked_doctype:
 			return None
 
-		# Ensure link_field has a scope, default to doc.
 		path = self.link_field
 		known_scopes = ("doc.", "vars.", "ctx.", "loop.", "row.", "item.", "caller.", "rule.")
 		if not any(path.startswith(s) for s in known_scopes):
@@ -484,9 +697,92 @@ class FetchResolver(CompiledResolver):
 
 		link_value = get_context_value(context, path)
 		if not link_value:
+			return False if getattr(self, "operation", "get") == "exists" else None
+
+		if getattr(self, "operation", "get") == "exists":
+			return bool(frappe.db.exists(self.linked_doctype, link_value))
+
+		if not self.fetch_field:
 			return None
 
 		return frappe.db.get_value(self.linked_doctype, link_value, self.fetch_field)
+
+
+class FetchResolver(LookupResolver):
+	def __init__(self, link_field: str | None, fetch_field: str | None, linked_doctype: str | None):
+		super().__init__(
+			link_field=link_field,
+			fetch_field=fetch_field,
+			linked_doctype=linked_doctype,
+			operation="get",
+		)
+
+
+class ConditionalResolver(CompiledResolver):
+	"""
+	Canonical Conditional Resolver evaluating an if-then-else condition structure.
+	"""
+
+	def __init__(
+		self,
+		condition: dict | list | None = None,
+		true_value: Any = None,
+		false_value: Any = None,
+	):
+		self.condition = condition
+		self.true_value = true_value
+		self.false_value = false_value
+		self._compiled_evaluator = None
+
+		if self.condition:
+			from flexirule.ruleflow.core.evaluator import ConditionEvaluator
+
+			cond_list = self.condition if isinstance(self.condition, list) else [self.condition]
+			self._compiled_evaluator = ConditionEvaluator(json.dumps(cond_list))
+
+	def resolve(self, context: dict) -> Any:
+		doc = context.get("doc")
+		is_true = False
+		if self._compiled_evaluator:
+			is_true = self._compiled_evaluator.evaluate(doc)
+
+		target_raw = self.true_value if is_true else self.false_value
+		return ValueResolver.compile(target_raw).resolve(context)
+
+
+class TypeConversionResolver(CompiledResolver):
+	"""
+	Canonical Type Conversion Resolver casting input fields or values into specified types.
+	"""
+
+	def __init__(
+		self,
+		field: str | None = None,
+		operation: str = "text",
+		value: Any = None,
+	):
+		self.field = field
+		self.operation = operation
+		self.value = value
+
+	def resolve(self, context: dict) -> Any:
+		val = get_context_value(context, self.field) if self.field else self.value
+		op = self.operation
+
+		if op in ("text", "string"):
+			return str(val) if val is not None else ""
+		if op == "integer":
+			return frappe.utils.cint(val)
+		if op in ("decimal", "number", "float"):
+			return frappe.utils.flt(val)
+		if op in ("boolean", "bool"):
+			return frappe.utils.cint(val) != 0 if isinstance(val, int | float | str) else bool(val)
+		if op == "date":
+			return frappe.utils.getdate(val) if val else None
+		if op == "datetime":
+			return frappe.utils.get_datetime(val) if val else None
+
+		return val
 
 
 class JinjaResolver(CompiledResolver):
@@ -539,6 +835,19 @@ class ExpressionResolver(CompiledResolver):
 			val = seg.resolve(context)
 			parts.append(str(val) if val is not None else "")
 		return "".join(parts)
+
+
+class SystemContextResolver(CompiledResolver):
+	"""Legacy SystemContextResolver for backward compatibility."""
+
+	def __init__(self, sys_token: str, sys_role: str):
+		self.sys_token = sys_token
+		self.sys_role = sys_role
+
+	def resolve(self, context: dict) -> Any:
+		return ValueSourceResolver(
+			operation="system_context", sys_token=self.sys_token, sys_role=self.sys_role
+		).resolve(context)
 
 
 class ValueResolver:
@@ -606,74 +915,130 @@ class ValueResolver:
 		if not kind:
 			return NoneResolver()
 
-		if kind == "date_formula":
-			return DateFormulaResolver(
+		# Canonical Resolvers & Legacy Aliases
+		if kind == "value_source":
+			return ValueSourceResolver(
+				operation=config.get("operation", "field"),
+				path=config.get("path"),
+				value=config.get("value"),
+				sys_token=config.get("sys_token", "user"),
+				sys_role=config.get("sys_role", ""),
+			)
+
+		if kind in ("date", "date_formula"):
+			sign = config.get("offset_sign", "+")
+			op = "subtract" if sign == "-" else "add"
+			return DateResolver(
+				operation=config.get("operation", op),
 				base_type=config.get("base_type", "today"),
 				base_field=config.get("base_field"),
 				offset_value=config.get("offset_value", 0),
 				offset_unit=config.get("offset_unit", "days"),
-				offset_sign=config.get("offset_sign", "+"),
+				offset_sign=sign,
 			)
-		if kind == "math_formula":
-			return MathFormulaResolver(
+
+		if kind == "date_diff":
+			start_type = config.get("diff_start_type") or (
+				"doc_field" if config.get("diff_start_field") else "today"
+			)
+			end_type = config.get("diff_end_type") or (
+				"doc_field" if config.get("diff_end_field") else "today"
+			)
+			return DateResolver(
+				operation="diff",
+				diff_start_type=start_type,
+				diff_start_field=config.get("diff_start_field"),
+				diff_end_type=end_type,
+				diff_end_field=config.get("diff_end_field"),
+				diff_unit=config.get("diff_unit", "days"),
+			)
+
+		if kind in ("math", "math_formula"):
+			return MathResolver(
+				operation=config.get("operation", config.get("math_op", "+")),
 				field_a=config.get("field_a"),
-				math_op=config.get("math_op", "+"),
 				field_b_type=config.get("field_b_type", "field"),
 				field_b=config.get("field_b"),
 				constant_b=config.get("constant_b", 0),
 				precision=config.get("precision", 2),
 			)
-		if kind == "date_diff":
-			return DateDiffResolver(
-				diff_start_type=config.get("diff_start_type", "today"),
-				diff_start_field=config.get("diff_start_field"),
-				diff_end_type=config.get("diff_end_type", "doc_field"),
-				diff_end_field=config.get("diff_end_field"),
-				diff_unit=config.get("diff_unit", "days"),
+
+		if kind in ("text", "string_formula", "normalization", "format"):
+			f_b = config.get("field_b") or config.get("str_b")
+			f_b_type = config.get("field_b_type") or config.get("str_b_type")
+			if (
+				not f_b_type
+				and f_b
+				and isinstance(f_b, str)
+				and (f_b.startswith("doc.") or f_b.startswith("vars."))
+			):
+				f_b_type = "field"
+
+			default_op = (
+				"normalize" if kind == "normalization" else ("format_date" if kind == "format" else "concat")
 			)
-		if kind == "child_aggregation":
-			return ChildAggregationResolver(
-				agg_table=config.get("agg_table"),
+			op = (
+				config.get("operation")
+				or config.get("str_op")
+				or config.get("norm_op")
+				or config.get("fmt_op")
+				or default_op
+			)
+
+			return TextResolver(
+				operation=op,
+				field_a=config.get("field_a")
+				or config.get("str_a")
+				or config.get("norm_field")
+				or config.get("fmt_field"),
+				field_a_type=config.get("field_a_type") or config.get("str_a_type", "field"),
+				field_b=f_b,
+				field_b_type=f_b_type or "constant",
+				norm_profile=config.get("norm_profile"),
+				norm_pipeline=config.get("norm_pipeline"),
+				fmt_config=config.get("fmt_config") or config.get("pattern"),
+			)
+
+		if kind in ("aggregate", "child_aggregation"):
+			return AggregateResolver(
+				agg_table=config.get("agg_table") or config.get("source"),
 				agg_field=config.get("agg_field"),
 				agg_op=config.get("agg_op", "sum"),
 			)
-		if kind == "string_formula":
-			return StringFormulaResolver(
-				str_op=config.get("str_op", "concat"),
-				str_a_type=config.get("str_a_type", "field"),
-				str_a=config.get("str_a"),
-				str_b_type=config.get("str_b_type", "constant"),
-				str_b=config.get("str_b"),
-			)
-		if kind == "normalization":
-			return NormalizationResolver(
-				norm_field=config.get("norm_field"),
-				norm_profile=config.get("norm_profile"),
-				norm_pipeline=config.get("norm_pipeline"),
-				norm_op=config.get("norm_op"),
-			)
-		if kind == "format":
-			return FormatResolver(
-				fmt_op=config.get("fmt_op", "format_date"),
-				fmt_field=config.get("fmt_field"),
-				fmt_config=config.get("fmt_config", ""),
-			)
-		if kind == "fetch":
-			return FetchResolver(
-				link_field=config.get("link_field"),
-				fetch_field=config.get("fetch_field"),
-				linked_doctype=config.get("linked_doctype"),
-			)
-		if kind == "system_context":
-			return SystemContextResolver(
-				sys_token=config.get("sys_token", "user"), sys_role=config.get("sys_role", "")
-			)
+
 		if kind == "collection":
 			return CollectionResolver(
 				source=config.get("source"),
 				operation=config.get("operation", "any"),
 				condition=config.get("condition"),
 				target_field=config.get("target_field"),
+			)
+
+		if kind in ("lookup", "fetch"):
+			return LookupResolver(
+				link_field=config.get("link_field"),
+				fetch_field=config.get("fetch_field"),
+				linked_doctype=config.get("linked_doctype"),
+				operation=config.get("operation", "get"),
+			)
+
+		if kind == "conditional":
+			return ConditionalResolver(
+				condition=config.get("condition"),
+				true_value=config.get("true_value"),
+				false_value=config.get("false_value"),
+			)
+
+		if kind == "type_conversion":
+			return TypeConversionResolver(
+				field=config.get("field"),
+				operation=config.get("operation", "text"),
+				value=config.get("value"),
+			)
+
+		if kind == "system_context":
+			return SystemContextResolver(
+				sys_token=config.get("sys_token", "user"), sys_role=config.get("sys_role", "")
 			)
 
 		return NoneResolver()

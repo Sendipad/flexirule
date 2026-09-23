@@ -312,8 +312,6 @@ const effectiveDoctype = computed(() => {
 		return props.doctype || null;
 	}
 
-	// For Link/Dynamic Link fields, if no explicit doctype is provided, we should only fall back
-	// if the field actually behaves like a standard Link to the parent document type.
 	if (props.df?.fieldtype === "Link" || props.df?.fieldtype === "Dynamic Link") {
 		return props.doctype || null;
 	}
@@ -321,7 +319,16 @@ const effectiveDoctype = computed(() => {
 	return props.doctype || props.rule?.document_type || props.context?.document_type;
 });
 
-const isRemote = computed(() => Boolean(props.get_query || effectiveDoctype.value));
+const isLinkField = computed(() => {
+	const ft = props.df?.fieldtype || props.df?.options;
+	return ft === "Link" || ft === "Dynamic Link" || props.autocompleteMode === "link";
+});
+
+const isRemote = computed(() => {
+	if (props.get_query) return true;
+	if (isLinkField.value && effectiveDoctype.value) return true;
+	return false;
+});
 
 const canAcceptCustom = computed(() => {
 	if (props.autocompleteMode === "strict") {
@@ -345,7 +352,7 @@ const {
 			return metaStore.uniqueOptions(metaStore.normalizeLinkRows(rows || []));
 		}
 	}
-	if (effectiveDoctype.value) {
+	if (effectiveDoctype.value && isLinkField.value) {
 		return await metaStore.search_link_options({
 			doctype: effectiveDoctype.value,
 			txt: search || "",
@@ -515,7 +522,6 @@ function closeDropdown(restoreFocus = false) {
 				const btn = wrapperRef.value.querySelector(".combobox-button-trigger");
 				if (btn) btn.focus();
 			} else if (mainInputRef.value) {
-				// Don't forcefully steal focus if they are already focused on the input
 				if (document.activeElement !== mainInputRef.value) {
 					mainInputRef.value.focus();
 				}
@@ -671,7 +677,6 @@ function onKeydown(e) {
 	}
 
 	if (e.key === "Tab" && isDropdownOpen.value) {
-		// If we are at -2 (Create New) or have a selection, commit it
 		if (activeIndex.value === -2 && canAcceptCustom.value) {
 			onSelect(query.value);
 		} else if (activeIndex.value >= 0 && activeIndex.value < filteredOptions.value.length) {
@@ -679,7 +684,6 @@ function onKeydown(e) {
 		} else {
 			closeDropdown();
 		}
-		// Allow default Tab behavior to move focus to next element
 		return;
 	}
 
