@@ -15,7 +15,9 @@ import { useStore } from "../../stores";
 // ─── 1. Value Source Strategy ───
 registerStrategy("value_source", {
 	label: __("Value Source"),
-	description: __("Select document field, rule variable, static primitive, or system context token."),
+	description: __(
+		"Select document field, rule variable, static primitive, or system context token."
+	),
 	icon: "fa fa-database",
 	component: ValueSourceResolver,
 	defaultState: (props) => {
@@ -67,13 +69,22 @@ registerStrategy("date", {
 	},
 	compileToCode: (item) => {
 		if (item.operation === "diff") {
-			const start = item.diff_start_type === "today" ? "frappe.utils.nowdate()" : toDocExpression(item.diff_start_field);
-			const end = item.diff_end_type === "today" ? "frappe.utils.nowdate()" : toDocExpression(item.diff_end_field);
+			const start =
+				item.diff_start_type === "today"
+					? "frappe.utils.nowdate()"
+					: toDocExpression(item.diff_start_field);
+			const end =
+				item.diff_end_type === "today"
+					? "frappe.utils.nowdate()"
+					: toDocExpression(item.diff_end_field);
 			if (item.diff_unit === "days") return `{frappe.utils.date_diff(${end}, ${start})}`;
 			if (item.diff_unit === "months") return `{frappe.utils.month_diff(${end}, ${start})}`;
 			return `{int(frappe.utils.month_diff(${end}, ${start}) / 12)}`;
 		}
-		const baseExpr = item.base_type === "today" ? "frappe.utils.nowdate()" : toDocExpression(item.base_field);
+		const baseExpr =
+			item.base_type === "today"
+				? "frappe.utils.nowdate()"
+				: toDocExpression(item.base_field);
 		let offset = parseInt(item.offset_value || 0, 10);
 		if (item.operation === "subtract" && offset > 0) offset = -offset;
 		if (offset === 0 || !item.offset_unit) return `{${baseExpr}}`;
@@ -82,7 +93,8 @@ registerStrategy("date", {
 	},
 	compileToLabel: (item) => {
 		if (item.operation === "diff") {
-			const start = item.diff_start_type === "today" ? __("Today") : item.diff_start_field || "?";
+			const start =
+				item.diff_start_type === "today" ? __("Today") : item.diff_start_field || "?";
 			const end = item.diff_end_type === "today" ? __("Today") : item.diff_end_field || "?";
 			return `${end} − ${start} (${item.diff_unit})`;
 		}
@@ -97,7 +109,9 @@ registerStrategy("date", {
 // ─── 3. Text Strategy ───
 registerStrategy("text", {
 	label: __("Text"),
-	description: __("Manipulate text: concatenate, trim, casing, replacement, currency, date formatting."),
+	description: __(
+		"Manipulate text: concatenate, trim, casing, replacement, currency, date formatting."
+	),
 	icon: "fa fa-font",
 	component: TextResolver,
 	defaultState: (props) => {
@@ -116,8 +130,10 @@ registerStrategy("text", {
 		if (item.operation === "upper") return `{str(${a} or "").upper()}`;
 		if (item.operation === "lower") return `{str(${a} or "").lower()}`;
 		if (item.operation === "trim") return `{str(${a} or "").strip()}`;
-		if (item.operation === "format_date") return `{frappe.utils.format_date(${a}, "${item.fmt_config || ""}")}`;
-		if (item.operation === "fmt_money") return `{frappe.utils.fmt_money(${a}, currency="${item.fmt_config || ""}")}`;
+		if (item.operation === "format_date")
+			return `{frappe.utils.format_date(${a}, "${item.fmt_config || ""}")}`;
+		if (item.operation === "fmt_money")
+			return `{frappe.utils.fmt_money(${a}, currency="${item.fmt_config || ""}")}`;
 		return `{${a}}`;
 	},
 	compileToLabel: (item) => `${(item.operation || "text").toUpperCase()}(${item.field_a || "?"})`,
@@ -140,7 +156,12 @@ registerStrategy("math", {
 	}),
 	compileToCode: (item) => {
 		const a = item.field_a ? `frappe.utils.flt(${toDocExpression(item.field_a)})` : "0";
-		const b = item.field_b_type === "field" ? (item.field_b ? `frappe.utils.flt(${toDocExpression(item.field_b)})` : "0") : String(item.constant_b ?? 0);
+		const b =
+			item.field_b_type === "field"
+				? item.field_b
+					? `frappe.utils.flt(${toDocExpression(item.field_b)})`
+					: "0"
+				: String(item.constant_b ?? 0);
 		const prec = item.precision ?? 2;
 		if (item.operation === "min") return `{frappe.utils.flt(min(${a}, ${b}), ${prec})}`;
 		if (item.operation === "max") return `{frappe.utils.flt(max(${a}, ${b}), ${prec})}`;
@@ -162,7 +183,8 @@ registerStrategy("collection", {
 	icon: "fa fa-list-ol",
 	component: CollectionResolver,
 	defaultState: () => ({ source: "", operation: "any", target_field: "", condition: null }),
-	compileToCode: (item) => `{${(item.operation || "any").toUpperCase()}(${item.source || "doc.items"})}`,
+	compileToCode: (item) =>
+		`{${(item.operation || "any").toUpperCase()}(${item.source || "doc.items"})}`,
 	compileToLabel: (item) => `${(item.operation || "any").toUpperCase()}(${item.source || "?"})`,
 	validate: (item) => ({ isValid: true, errors: [] }),
 });
@@ -170,7 +192,9 @@ registerStrategy("collection", {
 // ─── 6. Aggregate Strategy ───
 registerStrategy("aggregate", {
 	label: __("Aggregate"),
-	description: __("Calculate scalar numeric metrics (Sum, Average, Min, Max, Count) over child tables."),
+	description: __(
+		"Calculate scalar numeric metrics (Sum, Average, Min, Max, Count) over child tables."
+	),
 	icon: "fa fa-table",
 	component: AggregateResolver,
 	defaultState: () => ({ agg_table: "", agg_field: "", agg_op: "sum" }),
@@ -178,10 +202,14 @@ registerStrategy("aggregate", {
 		const tbl = toDocExpression(item.agg_table || '""');
 		const fld = item.agg_field || '""';
 		if (item.agg_op === "count") return `{len(${tbl})}`;
-		if (item.agg_op === "avg") return `{sum([frappe.utils.flt(r.get("${fld}")) for r in ${tbl}]) / (len(${tbl}) or 1)}`;
+		if (item.agg_op === "avg")
+			return `{sum([frappe.utils.flt(r.get("${fld}")) for r in ${tbl}]) / (len(${tbl}) or 1)}`;
 		return `{sum([frappe.utils.flt(r.get("${fld}")) for r in ${tbl}])}`;
 	},
-	compileToLabel: (item) => `${(item.agg_op || "sum").toUpperCase()}(${item.agg_table || "?"}.${item.agg_field || "?"})`,
+	compileToLabel: (item) =>
+		`${(item.agg_op || "sum").toUpperCase()}(${item.agg_table || "?"}.${
+			item.agg_field || "?"
+		})`,
 	validate: (item) => ({ isValid: true, errors: [] }),
 });
 
@@ -198,7 +226,8 @@ registerStrategy("lookup", {
 		if (item.operation === "exists") return `{bool(frappe.db.exists(${dt}, ${link}))}`;
 		return `{frappe.db.get_value(${dt}, ${link}, "${item.fetch_field || ""}")}`;
 	},
-	compileToLabel: (item) => `${item.linked_doctype || "?"}.${item.fetch_field || "?"} ← ${item.link_field || "?"}`,
+	compileToLabel: (item) =>
+		`${item.linked_doctype || "?"}.${item.fetch_field || "?"} ← ${item.link_field || "?"}`,
 	validate: (item) => ({ isValid: true, errors: [] }),
 });
 
@@ -217,11 +246,16 @@ registerStrategy("conditional", {
 // ─── 9. Type Conversion Strategy ───
 registerStrategy("type_conversion", {
 	label: __("Type Conversion"),
-	description: __("Cast values explicitly to text, integer, decimal, boolean, date, or datetime."),
+	description: __(
+		"Cast values explicitly to text, integer, decimal, boolean, date, or datetime."
+	),
 	icon: "fa fa-exchange",
 	component: TypeConversionResolver,
 	defaultState: () => ({ operation: "text", field: "" }),
-	compileToCode: (item) => `CAST(${toDocExpression(item.field || '""')} AS ${(item.operation || "text").toUpperCase()})`,
+	compileToCode: (item) =>
+		`CAST(${toDocExpression(item.field || '""')} AS ${(
+			item.operation || "text"
+		).toUpperCase()})`,
 	compileToLabel: (item) => `Cast ${item.field || "?"} to ${item.operation}`,
 	validate: (item) => ({ isValid: true, errors: [] }),
 });

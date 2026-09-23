@@ -2,7 +2,11 @@
 	<div class="d-flex flex-column fxr-gap-2">
 		<div class="form-group mb-0">
 			<label class="fxr-label-sm">{{ __("Text Operation") }}</label>
-			<select v-model="localState.operation" class="form-control form-control-sm" :disabled="readOnly">
+			<select
+				v-model="localState.operation"
+				class="form-control form-control-sm"
+				:disabled="readOnly"
+			>
 				<option value="concat">{{ __("Concatenate") }}</option>
 				<option value="trim">{{ __("Trim Whitespace") }}</option>
 				<option value="upper">{{ __("Uppercase") }}</option>
@@ -28,7 +32,9 @@
 		</div>
 
 		<div v-if="['concat', 'replace'].includes(localState.operation)" class="form-group mb-0">
-			<label class="fxr-label-sm">{{ localState.operation === 'concat' ? __('Text / Field B') : __('Search Text') }}</label>
+			<label class="fxr-label-sm">{{
+				localState.operation === "concat" ? __("Text / Field B") : __("Search Text")
+			}}</label>
 			<ComboBoxControl
 				v-model="localState.field_b"
 				:options="variableOptions"
@@ -37,15 +43,30 @@
 			/>
 		</div>
 
-		<div v-if="['replace', 'format_date', 'fmt_money', 'pattern'].includes(localState.operation)" class="form-group mb-0">
+		<div
+			v-if="['replace', 'format_date', 'fmt_money', 'pattern'].includes(localState.operation)"
+			class="form-group mb-0"
+		>
 			<label class="fxr-label-sm">
-				{{ localState.operation === 'replace' ? __('Replace With') : localState.operation === 'fmt_money' ? __('Currency Code / Field') : __('Format Pattern / String') }}
+				{{
+					localState.operation === "replace"
+						? __("Replace With")
+						: localState.operation === "fmt_money"
+						? __("Currency Code / Field")
+						: __("Format Pattern / String")
+				}}
 			</label>
 			<input
 				v-model="localState.fmt_config"
 				type="text"
 				class="form-control form-control-sm"
-				:placeholder="localState.operation === 'format_date' ? 'YYYY-MM-DD' : localState.operation === 'fmt_money' ? 'USD' : ''"
+				:placeholder="
+					localState.operation === 'format_date'
+						? 'YYYY-MM-DD'
+						: localState.operation === 'fmt_money'
+						? 'USD'
+						: ''
+				"
 				:disabled="readOnly"
 			/>
 		</div>

@@ -2,7 +2,11 @@
 	<div class="d-flex flex-column fxr-gap-2">
 		<div class="form-group mb-0">
 			<label class="fxr-label-sm">{{ __("Lookup Operation") }}</label>
-			<select v-model="localState.operation" class="form-control form-control-sm" :disabled="readOnly">
+			<select
+				v-model="localState.operation"
+				class="form-control form-control-sm"
+				:disabled="readOnly"
+			>
 				<option value="get">{{ __("Fetch Field Value") }}</option>
 				<option value="exists">{{ __("Check Record Exists") }}</option>
 			</select>

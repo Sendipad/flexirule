@@ -2,7 +2,11 @@
 	<div class="d-flex flex-column fxr-gap-2">
 		<div class="form-group mb-0">
 			<label class="fxr-label-sm">{{ __("Target Type") }}</label>
-			<select v-model="localState.operation" class="form-control form-control-sm" :disabled="readOnly">
+			<select
+				v-model="localState.operation"
+				class="form-control form-control-sm"
+				:disabled="readOnly"
+			>
 				<option value="text">{{ __("Text (String)") }}</option>
 				<option value="integer">{{ __("Integer (Integer)") }}</option>
 				<option value="decimal">{{ __("Decimal (Float)") }}</option>

@@ -2,7 +2,11 @@
 	<div class="d-flex flex-column fxr-gap-2">
 		<div class="form-group mb-0">
 			<label class="fxr-label-sm">{{ __("Operation") }}</label>
-			<select v-model="localState.operation" class="form-control form-control-sm" :disabled="readOnly">
+			<select
+				v-model="localState.operation"
+				class="form-control form-control-sm"
+				:disabled="readOnly"
+			>
 				<option value="field">{{ __("Document Field") }}</option>
 				<option value="variable">{{ __("Rule Variable") }}</option>
 				<option value="static">{{ __("Static Value") }}</option>
@@ -10,7 +14,10 @@
 			</select>
 		</div>
 
-		<div v-if="['field', 'variable', 'old_field'].includes(localState.operation)" class="form-group mb-0">
+		<div
+			v-if="['field', 'variable', 'old_field'].includes(localState.operation)"
+			class="form-group mb-0"
+		>
 			<label class="fxr-label-sm">{{ __("Path / Fieldname") }}</label>
 
 			<ComboBoxControl
@@ -35,7 +42,11 @@
 		<div v-if="localState.operation === 'system_context'" class="d-flex flex-column fxr-gap-2">
 			<div class="form-group mb-0">
 				<label class="fxr-label-sm">{{ __("Context Token") }}</label>
-				<select v-model="localState.sys_token" class="form-control form-control-sm" :disabled="readOnly">
+				<select
+					v-model="localState.sys_token"
+					class="form-control form-control-sm"
+					:disabled="readOnly"
+				>
 					<option value="user">{{ __("Current User ID") }}</option>
 					<option value="role_check">{{ __("Role Membership Check") }}</option>
 				</select>

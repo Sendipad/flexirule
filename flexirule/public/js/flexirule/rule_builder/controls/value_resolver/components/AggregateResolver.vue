@@ -2,7 +2,11 @@
 	<div class="d-flex flex-column fxr-gap-2">
 		<div class="form-group mb-0">
 			<label class="fxr-label-sm">{{ __("Aggregation Operation") }}</label>
-			<select v-model="localState.agg_op" class="form-control form-control-sm" :disabled="readOnly">
+			<select
+				v-model="localState.agg_op"
+				class="form-control form-control-sm"
+				:disabled="readOnly"
+			>
 				<option value="sum">{{ __("Sum") }}</option>
 				<option value="avg">{{ __("Average") }}</option>
 				<option value="min">{{ __("Minimum") }}</option>

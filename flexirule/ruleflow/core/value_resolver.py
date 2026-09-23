@@ -366,10 +366,19 @@ class TextResolver(CompiledResolver):
 		self.fmt_config = fmt_config or pattern
 
 	def resolve(self, context: dict) -> Any:
-		op = getattr(self, "str_op", None) or getattr(self, "norm_op", None) or getattr(self, "fmt_op", None) or getattr(self, "operation", "concat")
+		op = (
+			getattr(self, "str_op", None)
+			or getattr(self, "norm_op", None)
+			or getattr(self, "fmt_op", None)
+			or getattr(self, "operation", "concat")
+		)
 
 		f_a_type = getattr(self, "str_a_type", getattr(self, "field_a_type", "field"))
-		f_a = getattr(self, "str_a", getattr(self, "norm_field", getattr(self, "fmt_field", getattr(self, "field_a", None))))
+		f_a = getattr(
+			self,
+			"str_a",
+			getattr(self, "norm_field", getattr(self, "fmt_field", getattr(self, "field_a", None))),
+		)
 
 		f_b_type = getattr(self, "str_b_type", getattr(self, "field_b_type", "constant"))
 		f_b = getattr(self, "str_b", getattr(self, "field_b", None))
@@ -396,7 +405,11 @@ class TextResolver(CompiledResolver):
 		if op == "trim":
 			return str(val_a or "").strip()
 
-		if op in ("slug", "snake", "title", "normalize") or getattr(self, "norm_profile", None) or getattr(self, "norm_pipeline", None):
+		if (
+			op in ("slug", "snake", "title", "normalize")
+			or getattr(self, "norm_profile", None)
+			or getattr(self, "norm_pipeline", None)
+		):
 			if val_a is None:
 				return None
 			from flexirule.ruleflow.utils.normalization import execute_normalization_pipeline
@@ -416,9 +429,7 @@ class TextResolver(CompiledResolver):
 				}
 				pipeline = legacy_map.get(op)
 
-			res = execute_normalization_pipeline(
-				value=val_a, pipeline=pipeline, profile=profile
-			)
+			res = execute_normalization_pipeline(value=val_a, pipeline=pipeline, profile=profile)
 			return res.get("normalized_value")
 
 		if op == "format_date":
@@ -765,7 +776,7 @@ class TypeConversionResolver(CompiledResolver):
 		if op in ("decimal", "number", "float"):
 			return frappe.utils.flt(val)
 		if op in ("boolean", "bool"):
-			return frappe.utils.cint(val) != 0 if isinstance(val, (int, float, str)) else bool(val)
+			return frappe.utils.cint(val) != 0 if isinstance(val, int | float | str) else bool(val)
 		if op == "date":
 			return frappe.utils.getdate(val) if val else None
 		if op == "datetime":
@@ -949,15 +960,31 @@ class ValueResolver:
 		if kind in ("text", "string_formula", "normalization", "format"):
 			f_b = config.get("field_b") or config.get("str_b")
 			f_b_type = config.get("field_b_type") or config.get("str_b_type")
-			if not f_b_type and f_b and isinstance(f_b, str) and (f_b.startswith("doc.") or f_b.startswith("vars.")):
+			if (
+				not f_b_type
+				and f_b
+				and isinstance(f_b, str)
+				and (f_b.startswith("doc.") or f_b.startswith("vars."))
+			):
 				f_b_type = "field"
 
-			default_op = "normalize" if kind == "normalization" else ("format_date" if kind == "format" else "concat")
-			op = config.get("operation") or config.get("str_op") or config.get("norm_op") or config.get("fmt_op") or default_op
+			default_op = (
+				"normalize" if kind == "normalization" else ("format_date" if kind == "format" else "concat")
+			)
+			op = (
+				config.get("operation")
+				or config.get("str_op")
+				or config.get("norm_op")
+				or config.get("fmt_op")
+				or default_op
+			)
 
 			return TextResolver(
 				operation=op,
-				field_a=config.get("field_a") or config.get("str_a") or config.get("norm_field") or config.get("fmt_field"),
+				field_a=config.get("field_a")
+				or config.get("str_a")
+				or config.get("norm_field")
+				or config.get("fmt_field"),
 				field_a_type=config.get("field_a_type") or config.get("str_a_type", "field"),
 				field_b=f_b,
 				field_b_type=f_b_type or "constant",
