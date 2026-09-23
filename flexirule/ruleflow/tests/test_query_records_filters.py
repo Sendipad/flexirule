@@ -159,3 +159,63 @@ class TestQueryRecordsFilters(FrappeTestCase):
 			self.assertEqual(filters, [["status", "=", "Open"]])
 			self.assertIn(["priority", "=", "High"], or_filters)
 			self.assertIn(["owner", "=", "Open"], or_filters)
+
+	def test_child_table_filter_normalization(self):
+		# Test dotted syntax roles.role on User DocType (core Frappe DocType with Has Role child table)
+		config = {
+			"filters": [
+				["roles.role", "=", "System Manager"],
+				{"doctype": "roles", "field": "role", "operator": "=", "value": "Script Manager"},
+				["enabled", "=", 1],
+			]
+		}
+		filters, _ = self.handler._resolve_query_filters(
+			config, self.context, self.action, reference_doctype="User"
+		)
+
+		self.assertIn(["Has Role", "role", "=", "System Manager"], filters)
+		self.assertIn(["Has Role", "role", "=", "Script Manager"], filters)
+		self.assertIn(["enabled", "=", 1], filters)
+
+	def test_child_table_query_execution_all_modes(self):
+		# Test User DocType with child table roles (Has Role)
+		config = {"filters": [["roles.role", "=", "System Manager"]]}
+
+		# 1. Query List
+		res_list = self.handler._query_list(
+			"User", config, self.context, self.action, ignore_permissions=True
+		)
+		self.assertTrue(isinstance(res_list, list))
+
+		# 2. Count
+		res_count = self.handler._count_records(
+			"User", config, self.context, self.action, ignore_permissions=True
+		)
+		self.assertGreaterEqual(res_count, 1)
+
+		# 3. Exist Record
+		res_exist = self.handler._exist_record(
+			"User", config, self.context, self.action, ignore_permissions=True
+		)
+		self.assertTrue(res_exist)
+
+		# 4. Aggregate
+		self.action.operation = "Sum"
+		config_sum = {"filters": [["roles.role", "=", "System Manager"]], "field": "enabled"}
+		res_sum = self.handler._aggregate(
+			"User", config_sum, self.context, self.action, ignore_permissions=True
+		)
+		self.assertGreaterEqual(res_sum, 1)
+
+		# 5. Group By
+		self.action.operation = "Group By"
+		config_gb = {
+			"filters": [["roles.role", "=", "System Manager"]],
+			"field": "name",
+			"group_by_field": "roles.role",
+		}
+		res_gb = self.handler._group_by(
+			"User", config_gb, self.context, self.action, ignore_permissions=True
+		)
+		self.assertTrue(isinstance(res_gb, list))
+		self.assertEqual(res_gb[0].get("role"), "System Manager")

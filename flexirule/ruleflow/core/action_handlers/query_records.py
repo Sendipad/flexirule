@@ -515,13 +515,13 @@ class QueryRecordsHandler(ActionHandler):
 
 	def _count_records(self, reference_doctype, config, context, action, ignore_permissions):
 		"""Count records matching filters using get_list with permission enforcement."""
-		filters, or_filters = self._resolve_query_filters(config, context, action)
+		filters, or_filters = self._resolve_query_filters(config, context, action, reference_doctype=reference_doctype)
 
 		rows = frappe.get_list(
 			reference_doctype,
 			filters=filters,
 			or_filters=or_filters,
-			fields=["count(name) as _count"],
+			fields=[f"count(distinct `tab{reference_doctype}`.name) as _count"],
 			ignore_permissions=ignore_permissions,
 			limit_page_length=0,
 		)
@@ -529,7 +529,7 @@ class QueryRecordsHandler(ActionHandler):
 
 	def _aggregate(self, reference_doctype, config, context, action, ignore_permissions):
 		"""Perform sum/avg/min/max via frappe.get_list with permission enforcement."""
-		filters, or_filters = self._resolve_query_filters(config, context, action)
+		filters, or_filters = self._resolve_query_filters(config, context, action, reference_doctype=reference_doctype)
 		field = config.get("field", "name")
 		mode = action.operation
 		agg_map = {
@@ -542,11 +542,17 @@ class QueryRecordsHandler(ActionHandler):
 		if not agg_fn:
 			frappe.throw(_("Unsupported aggregation mode: {0}").format(mode))
 
+		field_dt, field_name = self._resolve_filter_doctype_and_field(reference_doctype, None, field)
+		if field_dt and field_dt != reference_doctype:
+			agg_field_expr = f"`tab{field_dt}`.`{field_name}`"
+		else:
+			agg_field_expr = f"`tab{reference_doctype}`.`{field_name}`"
+
 		rows = frappe.get_list(
 			reference_doctype,
 			filters=filters,
 			or_filters=or_filters,
-			fields=[f"{agg_fn}({field}) as result"],
+			fields=[f"{agg_fn}({agg_field_expr}) as result"],
 			ignore_permissions=ignore_permissions,
 			limit_page_length=0,
 		)
@@ -554,18 +560,29 @@ class QueryRecordsHandler(ActionHandler):
 
 	def _group_by(self, reference_doctype, config, context, action, ignore_permissions):
 		"""Perform group_by aggregation via frappe.get_list with permission enforcement."""
-		filters, or_filters = self._resolve_query_filters(config, context, action)
+		filters, or_filters = self._resolve_query_filters(config, context, action, reference_doctype=reference_doctype)
 		aggregate_field = config.get("field", "name")
 		group_field = config.get("group_by_field", aggregate_field)
 		agg_function = config.get("agg_function", "count").lower()
 		agg_field = config.get("agg_field", "name")
 		safe_agg_fn = agg_function if agg_function in {"sum", "avg", "min", "max", "count"} else "count"
+
+		group_dt, group_name = self._resolve_filter_doctype_and_field(reference_doctype, None, group_field)
+		group_expr = f"`tab{group_dt}`.`{group_name}`" if group_dt and group_dt != reference_doctype else group_name
+
+		agg_dt, agg_name = self._resolve_filter_doctype_and_field(reference_doctype, None, agg_field)
+		agg_expr = (
+			f"`tab{agg_dt}`.`{agg_name}`"
+			if agg_dt and agg_dt != reference_doctype
+			else f"`tab{reference_doctype}`.`{agg_name}`"
+		)
+
 		return frappe.get_list(
 			reference_doctype,
 			filters=filters,
 			or_filters=or_filters,
-			fields=[group_field, f"{safe_agg_fn}({agg_field}) as value"],
-			group_by=group_field,
+			fields=[group_expr, f"{safe_agg_fn}({agg_expr}) as value"],
+			group_by=group_expr,
 			ignore_permissions=ignore_permissions,
 			limit_page_length=0,
 		)
@@ -647,19 +664,62 @@ class QueryRecordsHandler(ActionHandler):
 			}
 		return self._resolve_value_expression_with_context(filters, context, ref_label, action)
 
-	def _resolve_query_filters(self, config, context, action=None):
+	def _resolve_filter_doctype_and_field(
+		self, reference_doctype: str | None, doctype: str | None, fieldname: str
+	) -> tuple[str | None, str]:
+		"""Resolve field path and DocType for filters.
+
+		Translates child table fields (e.g. accounts.party_master) or table field references
+		(doctype="accounts", fieldname="party_master") into Frappe's native child DocType format
+		("Journal Entry Account", "party_master").
+		"""
+		if not fieldname:
+			return doctype, fieldname
+
+		fieldname_str = str(fieldname).strip()
+
+		# Case 1: Dotted field syntax (e.g., accounts.party_master)
+		if "." in fieldname_str:
+			table_field, child_field = fieldname_str.split(".", 1)
+			target_dt = doctype or reference_doctype
+			if target_dt:
+				try:
+					meta = frappe.get_meta(target_dt)
+					table_df = meta.get_field(table_field)
+					if table_df and table_df.fieldtype in {"Table", "Table MultiSelect"} and table_df.options:
+						return table_df.options, child_field
+				except Exception:
+					pass
+
+		# Case 2: Doctype is specified as a table field name (e.g., doctype="accounts", fieldname="party_master")
+		if doctype and reference_doctype and doctype != reference_doctype:
+			try:
+				meta = frappe.get_meta(reference_doctype)
+				table_df = meta.get_field(doctype)
+				if table_df and table_df.fieldtype in {"Table", "Table MultiSelect"} and table_df.options:
+					return table_df.options, fieldname_str
+			except Exception:
+				pass
+
+		# Case 3: Doctype is specified and is already a child table DocType or standard DocType
+		if doctype:
+			return doctype, fieldname_str
+
+		return reference_doctype, fieldname_str
+
+	def _resolve_query_filters(self, config, context, action=None, reference_doctype=None):
 		"""Resolve and normalize both filters and or_filters with one shared path."""
 		action_label = getattr(action, "label", None) or getattr(action, "action_id", None) or "Query Records"
 		filters = self._resolve_filters_with_context(
 			config.get("filters"), context, f"{action_label}.filters", action
 		)
-		filters = self._normalize_filters_for_backend(filters)
+		filters = self._normalize_filters_for_backend(filters, reference_doctype=reference_doctype)
 		or_filters = config.get("or_filters")
 		if or_filters:
 			or_filters = self._resolve_filters_with_context(
 				or_filters, context, f"{action_label}.or_filters", action
 			)
-			or_filters = self._normalize_filters_for_backend(or_filters)
+			or_filters = self._normalize_filters_for_backend(or_filters, reference_doctype=reference_doctype)
 		else:
 			or_filters = None
 		return filters, or_filters
@@ -857,16 +917,24 @@ class QueryRecordsHandler(ActionHandler):
 			return raw
 		return value
 
-	def _normalize_filters_for_backend(self, filters):
+	def _normalize_filters_for_backend(self, filters, reference_doctype: str | None = None):
 		"""Recursively normalize filter operators and emit frappe-style filter tuples."""
 		if isinstance(filters, dict):
 			normalized = []
 			for key, value in filters.items():
+				dt, field = self._resolve_filter_doctype_and_field(reference_doctype, None, key)
 				if isinstance(value, list) and len(value) == 2 and isinstance(value[0], str):
 					op, val = self._normalize_single_filter_operator(value[0], value[1])
-					normalized.append([key, op, val])
+					if dt and dt != reference_doctype:
+						normalized.append([dt, field, op, val])
+					else:
+						normalized.append([field, op, val])
 				else:
-					normalized.append([key, "=", self._normalize_filters_for_backend(value)])
+					norm_val = self._normalize_filters_for_backend(value, reference_doctype=reference_doctype)
+					if dt and dt != reference_doctype:
+						normalized.append([dt, field, "=", norm_val])
+					else:
+						normalized.append([field, "=", norm_val])
 			return normalized
 
 		if isinstance(filters, list):
@@ -878,8 +946,9 @@ class QueryRecordsHandler(ActionHandler):
 					val = self._extract_filter_value_payload(item.get("value"))
 					doctype = item.get("doctype")
 					op, val = self._normalize_single_filter_operator(op, val)
-					if doctype:
-						normalized_list.append([doctype, field, op, val])
+					dt, field = self._resolve_filter_doctype_and_field(reference_doctype, doctype, field)
+					if dt and dt != reference_doctype:
+						normalized_list.append([dt, field, op, val])
 					else:
 						normalized_list.append([field, op, val])
 					continue
@@ -888,22 +957,52 @@ class QueryRecordsHandler(ActionHandler):
 						dt, field, op, val = item
 						val = self._extract_filter_value_payload(val)
 						op, val = self._normalize_single_filter_operator(op, val)
-						normalized_list.append([dt, field, op, val])
+						resolved_dt, resolved_field = self._resolve_filter_doctype_and_field(reference_doctype, dt, field)
+						if resolved_dt and resolved_dt != reference_doctype:
+							normalized_list.append([resolved_dt, resolved_field, op, val])
+						else:
+							normalized_list.append([resolved_field, op, val])
 						continue
 					if len(item) == 3:
 						field, op, val = item
 						val = self._extract_filter_value_payload(val)
 						op, val = self._normalize_single_filter_operator(op, val)
-						normalized_list.append([field, op, val])
+						resolved_dt, resolved_field = self._resolve_filter_doctype_and_field(reference_doctype, None, field)
+						if resolved_dt and resolved_dt != reference_doctype:
+							normalized_list.append([resolved_dt, resolved_field, op, val])
+						else:
+							normalized_list.append([resolved_field, op, val])
 						continue
-				normalized_list.append(self._normalize_filters_for_backend(item))
+				normalized_list.append(self._normalize_filters_for_backend(item, reference_doctype=reference_doctype))
 			return normalized_list
 
 		return filters
 
+	def _qualify_order_by(self, reference_doctype: str, order_by: str | None) -> str | None:
+		"""Ensure order_by fields are table-qualified to prevent SQL ambiguity during child table joins."""
+		if not order_by or not reference_doctype:
+			return order_by
+
+		parts = [p.strip() for p in str(order_by).split(",") if p.strip()]
+		qualified_parts = []
+		for part in parts:
+			tokens = part.split()
+			field_token = tokens[0]
+			direction = f" {tokens[1]}" if len(tokens) > 1 else ""
+
+			if "`" in field_token or "(" in field_token:
+				qualified_parts.append(f"{field_token}{direction}")
+				continue
+
+			dt, field = self._resolve_filter_doctype_and_field(reference_doctype, None, field_token)
+			target_dt = dt or reference_doctype
+			qualified_parts.append(f"`tab{target_dt}`.`{field}`{direction}")
+
+		return ", ".join(qualified_parts)
+
 	def _query_list(self, reference_doctype, config, context, action, ignore_permissions):
 		"""Execute frappe.get_list with configured filters, fields, etc."""
-		filters, or_filters = self._resolve_query_filters(config, context, action)
+		filters, or_filters = self._resolve_query_filters(config, context, action, reference_doctype=reference_doctype)
 		fields = config.get("fields", ["name"])
 		limit_type = config.get("limit_type", "Custom Limit")
 		if limit_type == "All":
@@ -920,6 +1019,7 @@ class QueryRecordsHandler(ActionHandler):
 				except ValueError:
 					limit = 20
 		order_by = config.get("order_by", "modified desc")
+		order_by = self._qualify_order_by(reference_doctype, order_by)
 		group_by = config.get("group_by")
 
 		kwargs = {
@@ -967,7 +1067,7 @@ class QueryRecordsHandler(ActionHandler):
 				frappe.throw(_("DocType {0} is not a Single DocType").format(resolved_doctype))
 			docname = resolved_doctype
 		elif strategy == "Get latest Doc":
-			filters, or_filters = self._resolve_query_filters(config, context, action)
+			filters, or_filters = self._resolve_query_filters(config, context, action, reference_doctype=resolved_doctype)
 			names = frappe.get_all(
 				resolved_doctype,
 				filters=filters,
@@ -1006,13 +1106,13 @@ class QueryRecordsHandler(ActionHandler):
 
 	def _exist_record(self, reference_doctype, config, context, action, ignore_permissions):
 		"""Check if records exist matching filters. Returns boolean."""
-		filters, or_filters = self._resolve_query_filters(config, context, action)
+		filters, or_filters = self._resolve_query_filters(config, context, action, reference_doctype=reference_doctype)
 
 		rows = frappe.get_list(
 			reference_doctype,
 			filters=filters,
 			or_filters=or_filters,
-			fields=["name"],
+			fields=[f"`tab{reference_doctype}`.name"],
 			limit_page_length=1,
 			ignore_permissions=ignore_permissions,
 		)
