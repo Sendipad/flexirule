@@ -1,10 +1,9 @@
 # Collection Resolver: Data Model & Contracts
 
-## 1. JSON Schema Contract
+## 1. Verified JSON Schema Contract
 
-The Collection Resolver conforms to FlexiRule's `mode: "resolver"` JSON contract schema.
+The Collection Resolver JSON structure conforms to existing FlexiRule resolver schemas (e.g. `kind: "child_aggregation"`, `kind: "math_formula"`).
 
-### 1.1 Complete Config Schema
 ```json
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
@@ -18,15 +17,15 @@ The Collection Resolver conforms to FlexiRule's `mode: "resolver"` JSON contract
     },
     "operation": {
       "type": "string",
-      "enum": ["count", "any", "all", "first", "last", "find", "filter", "pluck", "unique"]
+      "enum": ["count", "any", "all", "first", "find", "filter", "pluck", "unique"]
     },
     "source": {
       "type": "string",
-      "description": "Path to collection array in context (e.g. 'doc.items', 'vars.tax_list')"
+      "description": "Path to collection in context: 'doc.<table_field>', 'vars.<var_name>', 'old_doc.<table_field>'"
     },
     "condition": {
       "type": "object",
-      "description": "Structured condition JSON evaluated per row via ConditionEvaluator"
+      "description": "Structured condition payload evaluated per row via ConditionEvaluator"
     },
     "target_field": {
       "type": ["string", "null"],
@@ -40,8 +39,7 @@ The Collection Resolver conforms to FlexiRule's `mode: "resolver"` JSON contract
 
 ## 2. Concrete Data Payload Examples
 
-### Example 1: `ANY` Condition Check
-Check if any row in `doc.items` has `qty > 100`:
+### Example 1: `ANY` Predicate Check
 ```json
 {
   "mode": "resolver",
@@ -59,7 +57,6 @@ Check if any row in `doc.items` has `qty > 100`:
 ```
 
 ### Example 2: `PLUCK` Field Values
-Extract all `item_code` values from `doc.items`:
 ```json
 {
   "mode": "resolver",
@@ -73,7 +70,6 @@ Extract all `item_code` values from `doc.items`:
 ```
 
 ### Example 3: `FILTER` Sub-Collection
-Filter `doc.items` where `item_group == "Services"`:
 ```json
 {
   "mode": "resolver",
@@ -90,29 +86,13 @@ Filter `doc.items` where `item_group == "Services"`:
 }
 ```
 
-### Example 4: Filtered `COUNT`
-Count items in `doc.items` where `rate <= 0`:
-```json
-{
-  "mode": "resolver",
-  "config": {
-    "kind": "collection",
-    "operation": "count",
-    "source": "doc.items",
-    "condition": {
-      "left": { "ref": "row.rate" },
-      "op": "<=",
-      "right": { "value": 0 }
-    }
-  }
-}
-```
-
 ---
 
-## 3. Deserialization & Reconstruction Principles
-The frontend control reconstructs its visual state deterministically from the `config` object:
-1. `source` populates the child table / collection dropdown.
-2. `operation` sets the operation dropdown (`any`, `pluck`, etc.).
-3. `target_field` renders when `operation` is `pluck` or `unique`.
-4. `condition` renders the filter row / predicate controls when `operation` accepts a condition.
+## 3. Verified Source Path Rules
+
+The `source` string must strictly match one of the following scope patterns:
+1. `doc.<child_table_fieldname>` (e.g. `doc.items`)
+2. `vars.<variable_name>` (e.g. `vars.tax_list`)
+3. `old_doc.<child_table_fieldname>` (e.g. `old_doc.items`)
+
+Arbitrary nested indexing (`doc.items[0].taxes`) or row scope sources (`row.items`) are rejected in Beta during validation.

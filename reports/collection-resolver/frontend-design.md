@@ -1,7 +1,10 @@
 # Collection Resolver: Frontend Design & UI Integration
 
-## 1. Overview
-The Collection Resolver UI integrates smoothly with standard FlexiRule controls: `FlexValueControl.vue` and `ValueResolverControl.vue`.
+## 1. Overview & Reused Controls
+
+The Collection Resolver UI integrates with `FlexValueControl.vue` and `ValueResolverControl.vue` without creating imaginary UI abstractions.
+
+It extends the strategy registry in `flexirule/public/js/flexirule/rule_builder/controls/value_resolver/index.js` and reuses existing controls (`ComboBoxControl`, `SelectControl`, `SimpleCondition.vue`).
 
 ```
                   ┌────────────────────────────────────────┐
@@ -21,9 +24,10 @@ The Collection Resolver UI integrates smoothly with standard FlexiRule controls:
 
 ---
 
-## 2. Component Specifications
+## 2. Verified Strategy Registration
 
-### 2.1 Strategy Registration (`flexirule/public/js/flexirule/rule_builder/controls/value_resolver/index.js`)
+In `flexirule/public/js/flexirule/rule_builder/controls/value_resolver/index.js`:
+
 ```javascript
 import CollectionResolver from "./components/CollectionResolver.vue";
 
@@ -33,7 +37,7 @@ registerStrategy("collection", {
     icon: "fa fa-list-ol",
     component: CollectionResolver,
     defaultState: (props) => ({
-        source: props.context?.fieldname || "",
+        source: props.context?.fieldname ? `doc.${props.context.fieldname}` : "",
         operation: "any",
         target_field: "",
         condition: null,
@@ -65,24 +69,10 @@ registerStrategy("collection", {
 });
 ```
 
-### 2.2 Control Component Architecture (`CollectionResolver.vue`)
-The component layout will present:
-1. **Source Collection Dropdown** (`ComboBoxControl` populated with child table fields from `metaStore` and `vars`).
-2. **Operation Selector** (`SelectControl` with operations: `Count`, `Any`, `All`, `First`, `Last`, `Find`, `Filter`, `Pluck`, `Unique`).
-3. **Target Field Selector** (rendered when `operation` is `pluck` or `unique`).
-4. **Row Condition Builder** (rendered when operation accepts a condition; embeds `SimpleCondition.vue` or filter row with `row.` field suggestions).
-
 ---
 
-## 3. Slash Commands & Formula Registry
+## 3. Verified Formula Registry Extensions
+
 In `flexirule/public/js/flexirule/core/formula_registry.js`:
-- Add `collection` command under `FORMULA_GROUPS.TABLE`:
-```javascript
-{ id: "any", label: "any", description: "Check if any row matches condition" },
-{ id: "all", label: "all", description: "Check if all rows match condition" },
-{ id: "find", label: "find", description: "Find first row matching condition" },
-{ id: "filter", label: "filter", description: "Filter collection rows by condition" },
-{ id: "pluck", label: "pluck", description: "Extract list of field values from rows" },
-{ id: "unique", label: "unique", description: "Extract distinct list of field values" }
-```
+- Add `collection` command options under `FORMULA_GROUPS.TABLE`: `any`, `all`, `count`, `first`, `find`, `filter`, `pluck`, `unique`.
 - Update `getAllowedBuilderKinds(fieldtype)` to include `"collection"` for `Table`, `MultiSelect`, and list variable fields.

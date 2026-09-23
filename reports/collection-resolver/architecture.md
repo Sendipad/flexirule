@@ -1,9 +1,8 @@
 # Collection Resolver: System Architecture
 
-## 1. Architectural Philosophy
-FlexiRule employs a multi-tiered execution architecture where dynamic data derivation is cleanly separated from graph execution and control flow.
+## 1. Verified Core Architecture
 
-Value Resolution is performed by compiled `CompiledResolver` strategy instances. These instances are generated during rule compilation / execution and evaluated against execution context.
+The Collection Resolver integrates directly into FlexiRule's existing compiled resolver architecture.
 
 ```
                     ┌──────────────────────────────────┐
@@ -21,45 +20,72 @@ Value Resolution is performed by compiled `CompiledResolver` strategy instances.
                    ┌──────────────────┴──────────────────┐
                    ▼                                     ▼
         ┌─────────────────────┐               ┌─────────────────────┐
-        │    FieldResolver    │               │ ConditionEvaluator  │
+        │  get_context_value  │               │ ConditionEvaluator  │
         │ (Collection Source) │               │   (Row Context)     │
         └─────────────────────┘               └─────────────────────┘
 ```
 
-## 2. Integration Points
+## 2. Verified Against Existing Source
 
 ### 2.1 Compiler Integration (`flexirule/ruleflow/core/value_resolver.py`)
-`ValueResolver.compile_resolver_config(config)` inspects the `kind` property of a resolver configuration dictionary.
-When `kind == "collection"`, `ValueResolver` instantiates `CollectionResolver` with pre-validated parameters:
-- `source`: Field path string pointing to collection (e.g. `doc.items`).
-- `operation`: String key identifying operation (`any`, `all`, `count`, `first`, `last`, `find`, `filter`, `pluck`, `unique`).
-- `condition`: Structured condition JSON or `None`.
-- `target_field`: Target row field name (for `pluck` and `unique`).
+- **Implementation Location**: `flexirule/ruleflow/core/value_resolver.py:465`
+- **Verified Signature**:
+  ```python
+  @staticmethod
+  def compile_resolver_config(config: dict) -> CompiledResolver:
+  ```
+- **Integration**:
+  When `config.get("kind") == "collection"`, `compile_resolver_config` instantiates `CollectionResolver`:
+  ```python
+  if kind == "collection":
+      return CollectionResolver(
+          source=config.get("source"),
+          operation=config.get("operation", "any"),
+          condition=config.get("condition"),
+          target_field=config.get("target_field"),
+      )
+  ```
 
-### 2.2 Execution Context Architecture
-The execution context passed into `CollectionResolver.resolve(context)` follows the standard FlexiRule structure:
-```python
-context = {
-    "doc": <Frappe Document / Dict>,
-    "vars": <Variable Dictionary>,
-    "item": <Current Loop Item if applicable>,
-    "row": <Current Row Dict during Collection iteration>
-}
-```
+### 2.2 Base Class Contract (`CompiledResolver`)
+- **Implementation Location**: `flexirule/ruleflow/core/value_resolver.py:73`
+- **Verified Signature**:
+  ```python
+  class CompiledResolver:
+      def resolve(self, context: dict) -> Any:
+          raise NotImplementedError()
+  ```
+- **Integration**: `CollectionResolver` subclasses `CompiledResolver` and implements `resolve(self, context: dict) -> Any`.
 
-When evaluating conditions on individual rows during collection iteration, `CollectionResolver` constructs a lightweight local context frame or passes `doc` and `row` directly to `ConditionEvaluator.evaluate(doc, row=r)`.
+### 2.3 Context Value Resolution (`get_context_value`)
+- **Implementation Location**: `flexirule/ruleflow/core/value_resolver.py:12`
+- **Verified Signature**:
+  ```python
+  def get_context_value(context: dict, path: str | None) -> Any:
+  ```
+- **Behavior**: Traverses `doc`, `vars`, `item`, `loop`, `row`, or fallback root keys.
+- **Integration**: Used by `CollectionResolver` to fetch the source array: `rows = get_context_value(context, self.source)`.
 
-### 2.3 Condition Evaluator Compatibility
-FlexiRule's `ConditionEvaluator` already accepts `row` as a second parameter in `evaluate(doc, row=None)`.
-Inside `_resolve_value(value_def, doc, row=None)`, when `ref` begins with `row.` or when `row` is provided, `ConditionEvaluator` resolves field values directly against the row object:
-```python
-if scope == "row" and row:
-    return self._get_field_value(row, subpath)
-```
-This existing capability allows `CollectionResolver` to seamlessly evaluate complex row predicates without modifying `ConditionEvaluator`.
+### 2.4 Row Predicate Evaluation (`ConditionEvaluator`)
+- **Implementation Location**: `flexirule/ruleflow/core/evaluator.py:15`
+- **Verified Signature**:
+  ```python
+  class ConditionEvaluator:
+      def __init__(self, conditions_json: str):
+      def evaluate(self, doc, row=None) -> bool:
+  ```
+- **Behavior**: Accepts a JSON array string of conditions. Evaluates left/right expressions against `doc` and `row` using safe built-in operators.
+- **Integration**: `CollectionResolver` compiles its condition JSON in `__init__` once and reuses `self._compiled_evaluator.evaluate(doc, row=r)` across all collection items.
 
-## 3. Core Design Principles
-1. **Zero Production Code Intrusion During Design**: Design strictly integrates with current structures.
-2. **Single Responsibility**: `CollectionResolver` only derives values from existing collections in context; it never mutates documents or executes side-effect actions.
-3. **No Arbitrary Code Execution**: All row predicates use structured JSON conditions evaluated by `ConditionEvaluator`. Python `eval` / `exec` / `lambda` are forbidden.
-4. **Backward Compatibility**: Existing rules with static values, formulas, or child aggregations remain 100% unaffected.
+### 2.5 Request-Local Caching (`get_compiled_resolver`)
+- **Implementation Location**: `flexirule/ruleflow/core/value_resolver.py:556`
+- **Verified Signature**:
+  ```python
+  def get_compiled_resolver(action, key: str, value_payload: Any) -> CompiledResolver:
+  ```
+- **Behavior**: Caches compiled resolvers in `frappe.local.flexirule_compiled_resolvers` under key `{action_name}_{key}`. Fully compatible out of the box.
+
+---
+
+## 3. Result Contract & Consumer Verification
+- **Verified Result Types**: `AssignmentHandler` (`assignment.py:119`), `ContextManager` (`context_manager.py`), and `QueryRecordsHandler` process resolver results. When target path is in `vars` (e.g. `vars.filtered_items`), `context["vars"]` is a standard dictionary accepting `list[dict]`, `dict`, `list[Any]`, `int`, `bool`, or `None`.
+- **No Schema Modifications Required**: Resolvers are already allowed to return non-scalar structures (such as arrays and dictionaries).

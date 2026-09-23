@@ -8,10 +8,10 @@ This roadmap outlines the exact, phased steps for implementing the Collection Re
 
 1. **Implement `CollectionResolver` Class**:
    - Location: `flexirule/ruleflow/core/value_resolver.py`
-   - Implement `CollectionResolver(CompiledResolver)` supporting the 9 operations: `count`, `any`, `all`, `first`, `last`, `find`, `filter`, `pluck`, `unique`.
-   - Incorporate `ConditionEvaluator` delegation and the 10,000 row iteration guard.
+   - Implement `CollectionResolver(CompiledResolver)` supporting core operations: `count`, `any`, `all`, `first`, `filter`, `pluck`, `unique` (and mapping UI alias `find` -> `first`).
+   - Incorporate `ConditionEvaluator` delegation and the 10,000 row iteration exception guard.
 2. **Register Factory Kind in Compiler**:
-   - In `ValueResolver.compile_resolver_config(config)`:
+   - In `ValueResolver.compile_resolver_config(config)` at line 465:
      Add branch for `kind == "collection"`.
 
 ---
@@ -20,7 +20,7 @@ This roadmap outlines the exact, phased steps for implementing the Collection Re
 
 1. **Add Test Class `TestCollectionResolver`**:
    - Location: `flexirule/ruleflow/tests/test_value_resolvers_complex.py`
-   - Implement unit tests covering all 9 operations, null/empty collections, row context isolation, and iteration guards.
+   - Implement unit tests covering all 8 operations/aliases, null/empty collections, row context isolation, and limit exception guards.
 2. **Run Python Test Suite**:
    - Run `bench run-tests --module flexirule.ruleflow.tests.test_value_resolvers_complex`.
 
@@ -30,7 +30,7 @@ This roadmap outlines the exact, phased steps for implementing the Collection Re
 
 1. **Create `CollectionResolver.vue` Component**:
    - Location: `flexirule/public/js/flexirule/rule_builder/controls/value_resolver/components/CollectionResolver.vue`
-   - Build UI inputs for `source`, `operation`, `target_field`, and embedded row filter condition.
+   - Build UI inputs for `source`, `operation`, `target_field`, and embedded row filter condition using `ComboBoxControl` and `SelectControl`.
 2. **Register Strategy in Resolver Strategy Registry**:
    - In `flexirule/public/js/flexirule/rule_builder/controls/value_resolver/index.js`:
      Add `registerStrategy("collection", ...)` definition.
@@ -46,4 +46,3 @@ This roadmap outlines the exact, phased steps for implementing the Collection Re
    - Verify UI rendering in Rule Builder, Tiptap token creation, and JSON serialization.
 2. **Pre-Commit Checks**:
    - Run `pre-commit run --all` across the repository.
-   - Run Cypress UI tests where applicable (`bench run-ui-tests flexirule`).
