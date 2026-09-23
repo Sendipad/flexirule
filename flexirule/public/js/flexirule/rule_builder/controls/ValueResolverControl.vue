@@ -210,7 +210,12 @@ const handleClickOutside = (e) => {
 	if (popoverRef.value?.contains(e.target)) return;
 
 	const target = e.target;
-	if (target.closest(".fxr-dropdown") || target.closest(".tippy-box")) {
+	if (
+		target.closest(".fxr-dropdown") ||
+		target.closest(".tippy-box") ||
+		target.closest(".fxr-modal-overlay") ||
+		target.closest(".fxr-modal-card")
+	) {
 		return;
 	}
 
