@@ -7,6 +7,7 @@ import StringFormulaResolver from "./components/StringFormulaResolver.vue";
 import NormalizationResolver from "./components/NormalizationResolver.vue";
 import FormatResolver from "./components/FormatResolver.vue";
 import SystemContextResolver from "./components/SystemContextResolver.vue";
+import CollectionResolver from "./components/CollectionResolver.vue";
 
 import { registerStrategy } from "./strategies";
 import { __, toDocExpression, validateField } from "./utils";
@@ -70,6 +71,62 @@ registerStrategy("date_formula", {
 			} else if (!validateField(item.base_field, dt, store)) {
 				errors.push(frappe.utils.format(__("Base field '{0}' not found"), item.base_field));
 			}
+		}
+		return { isValid: errors.length === 0, errors };
+	},
+});
+
+// ─── Collection Query Strategy ───
+registerStrategy("collection", {
+	label: __("Collection Query"),
+	description: __(
+		"Filter, search, check, or extract values from child table rows or list variables."
+	),
+	icon: "fa fa-list-ol",
+	component: CollectionResolver,
+	defaultState: (props) => {
+		const fieldname = props.context?.fieldname || props.context?.target;
+		let defaultSource = "";
+		if (fieldname) {
+			const cleanName = String(fieldname).replace(/^(doc|vars)\./, "");
+			const store = useStore();
+			const dt = store.rule_doc?.document_type || props.doctype;
+			const fields = store.doc_meta?.[dt];
+			const isTable = fields?.some((f) => f.fieldname === cleanName && f.fieldtype === "Table");
+			if (isTable) {
+				defaultSource = `doc.${cleanName}`;
+			}
+		}
+		return {
+			source: defaultSource,
+			operation: "any",
+			target_field: "",
+			condition: null,
+		};
+	},
+	compileToCode: (item) => {
+		const src = item.source || "doc.items";
+		const op = (item.operation || "any").toUpperCase();
+		if (["PLUCK", "UNIQUE"].includes(op)) {
+			return `{${op}(${src}, "${item.target_field || ""}")}`;
+		}
+		return `{${op}(${src})}`;
+	},
+	compileToLabel: (item) => {
+		const op = (item.operation || "any").toUpperCase();
+		const src = item.source || "?";
+		if (["PLUCK", "UNIQUE"].includes(op)) {
+			return `${op}(${src}.${item.target_field || "?"})`;
+		}
+		return `${op}(${src})`;
+	},
+	validate: (item) => {
+		const errors = [];
+		if (!item.source) {
+			errors.push(__("Source collection is required"));
+		}
+		if (["pluck", "unique"].includes(item.operation) && !item.target_field) {
+			errors.push(__("Target field is required for this operation"));
 		}
 		return { isValid: errors.length === 0, errors };
 	},

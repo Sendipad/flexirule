@@ -154,6 +154,13 @@ export const SLASH_COMMANDS = [
 		icon: "📑",
 		groups: [FORMULA_GROUPS.MULTISELECT],
 	},
+	{
+		id: "collection",
+		label: __("Collection Query"),
+		type: "logic",
+		icon: "🔢",
+		groups: [FORMULA_GROUPS.TABLE, FORMULA_GROUPS.GENERAL],
+	},
 ];
 
 export const FORMULA_REGISTRY = {
@@ -197,8 +204,14 @@ export const FORMULA_REGISTRY = {
 	[FORMULA_GROUPS.TABLE]: [
 		{ id: "sum", label: "sum", description: "Sum of a child table field" },
 		{ id: "count", label: "count", description: "Count of child table rows" },
-		{ id: "map", label: "map", description: "Extract values from child table" },
+		{ id: "any", label: "any", description: "Check if any row matches condition" },
+		{ id: "all", label: "all", description: "Check if all rows match condition" },
+		{ id: "first", label: "first", description: "Find first matching child table row" },
+		{ id: "find", label: "find", description: "Find matching child table row" },
 		{ id: "filter", label: "filter", description: "Filter child table rows" },
+		{ id: "pluck", label: "pluck", description: "Extract array of field values" },
+		{ id: "unique", label: "unique", description: "Extract array of unique field values" },
+		{ id: "map", label: "map", description: "Extract values from child table" },
 		{ id: "reduce", label: "reduce", description: "Reduce child table to a single value" },
 	],
 };
@@ -225,13 +238,17 @@ export function getFormulasForFieldtype(ft) {
  */
 export function getAllowedBuilderKinds(fieldtype) {
 	if (!fieldtype) return null;
+	if (["Table", "Table MultiSelect", "MultiSelect"].includes(fieldtype)) {
+		return ["collection", "child_aggregation", "fetch", "system_context"];
+	}
 	if (["Date", "Datetime", "Time"].includes(fieldtype)) {
-		return ["date_formula", "date_diff", "fetch", "format", "system_context"];
+		return ["date_formula", "date_diff", "fetch", "format", "system_context", "collection"];
 	}
 	if (["Int", "Float", "Currency", "Percent", "Duration"].includes(fieldtype)) {
 		return [
 			"math_formula",
 			"child_aggregation",
+			"collection",
 			"date_diff",
 			"fetch",
 			"format",
@@ -243,13 +260,13 @@ export function getAllowedBuilderKinds(fieldtype) {
 			fieldtype
 		)
 	) {
-		return ["normalization", "format", "fetch", "string_formula", "system_context"];
+		return ["normalization", "format", "fetch", "string_formula", "collection", "system_context"];
 	}
 	if (["Check"].includes(fieldtype)) {
-		return ["fetch", "system_context"];
+		return ["fetch", "collection", "system_context"];
 	}
 	if (["Link", "Dynamic Link"].includes(fieldtype)) {
-		return ["fetch", "string_formula", "format", "system_context"];
+		return ["fetch", "string_formula", "format", "collection", "system_context"];
 	}
 	return null;
 }
