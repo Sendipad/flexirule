@@ -4,17 +4,15 @@
 
 This document provides the ordered, step-by-step implementation roadmap for executing the Value Resolver consolidation in Phase 2.
 
-Each step specifies target files, required modifications, and verification gates.
-
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
 │                   Phase 2 Implementation Progression                   │
 ├────────────────────────────────────────────────────────────────────────┤
-│ Step 1: Backend Normalizer & Canonical Dispatch (value_resolver.py)    │
-│ Step 2: Frontend Family & Operation Registries (families.js, etc.)    │
-│ Step 3: Frontend Family Vue Components (TextResolver.vue, etc.)        │
+│ Step 1: Explicit Legacy Adapters & Canonical Dispatch (value_resolver) │
+│ Step 2: Frontend Family & Operation Registries (families.js, etc.)     │
+│ Step 3: Frontend Family Vue Components (TextResolver.vue, etc.)         │
 │ Step 4: FlexValueControl.vue & Control Integration                     │
-│ Step 5: Test Suite Updates & Regression Run                           │
+│ Step 5: Test Suite Updates & Regression Execution (392 Test Methods)   │
 │ Step 6: Documentation & Fixture Migration                              │
 └────────────────────────────────────────────────────────────────────────┘
 ```
@@ -23,12 +21,13 @@ Each step specifies target files, required modifications, and verification gates
 
 ## 2. Detailed Execution Steps
 
-### Step 1: Backend Normalizer & Canonical Dispatch Layer
+### Step 1: Explicit Legacy Adapters & Backend Normalizer
 - **Target File**: `flexirule/ruleflow/core/value_resolver.py`
 - **Actions**:
-  1. Implement `normalize_resolver_payload(payload)` to convert legacy `{ "kind": "..." }` dicts into canonical `{ "family": "...", "operation": "...", "config": { ... } }`.
-  2. Implement `_compile_canonical_family()` in `ValueResolver.compile_resolver_config()`.
-  3. Map `number` + `format_money` to `FormatResolver`.
+  1. Implement explicit field-level adapter functions for `date_formula`, `normalization`, `format`, `string_formula`, `child_aggregation`, and `fetch`.
+  2. Implement `normalize_resolver_payload(payload)` with strict `UnrecognizedResolverPayloadError` on unmapped payloads.
+  3. Implement canonical family dispatch in `ValueResolver.compile_resolver_config()`.
+  4. Map `number` + `format_money` to `FormatResolver`.
 - **Verification**: Run `bench --site test_site run-tests --module flexirule.ruleflow.tests.test_value_resolver_core`.
 
 ---
@@ -39,8 +38,8 @@ Each step specifies target files, required modifications, and verification gates
   - `flexirule/public/js/flexirule/rule_builder/controls/value_resolver/operations.js`
   - `flexirule/public/js/flexirule/rule_builder/controls/value_resolver/index.js`
 - **Actions**:
-  1. Create `families.js` registering the 8 core families (Date, Text, Number, Collection, Lookup, System, Conversion, Conditional).
-  2. Create `operations.js` mapping all operations to their respective families.
+  1. Create `families.js` registering the core families (Date, Text, Number, Collection, Lookup, System).
+  2. Create `operations.js` mapping all verified existing operations to their respective families.
   3. Refactor `index.js` to expose family-level strategy lookup functions.
 - **Verification**: Verify frontend build with `yarn build`.
 
@@ -52,7 +51,7 @@ Each step specifies target files, required modifications, and verification gates
   1. Build `TextResolver.vue` (consolidates `StringFormulaResolver` and `NormalizationResolver`).
   2. Build `NumberResolver.vue` (includes arithmetic, rounding, and `format_money`).
   3. Build `DateResolver.vue` (consolidates date calculation, diff, and date formatting).
-  4. Build `LookupResolver.vue`, `SystemResolver.vue`, `ConversionResolver.vue`, `ConditionalResolver.vue`.
+  4. Build `LookupResolver.vue` and `SystemResolver.vue`.
   5. Refactor `CollectionResolver.vue` to support both predicate filtering and child aggregation operations.
 - **Verification**: Inspect components in Vue DevTools and run Cypress UI tests.
 
@@ -74,8 +73,8 @@ Each step specifies target files, required modifications, and verification gates
 - **Target Directory**: `flexirule/ruleflow/tests/`
 - **Actions**:
   1. Add `TestCanonicalResolverContract` class to `test_value_resolver_core.py`.
-  2. Add runtime tests for new canonical families in `test_value_resolvers_complex.py`.
-  3. Execute full backend test suite.
+  2. Add runtime tests for canonical families in `test_value_resolvers_complex.py`.
+  3. Execute full backend test suite (392 methods across 42 test files).
 - **Verification**: Run `bench --site test_site run-tests --app flexirule`.
 
 ---

@@ -1,57 +1,60 @@
-# Comprehensive Test Strategy & Verification Plan
+# Comprehensive Test Strategy & Verification Metrics
 
-## 1. Test Architecture Overview
+## 1. Verified Repository Test Metrics
 
-The verification strategy for FlexiRule's canonical Value Resolver system spans five distinct testing tiers:
+Following an automated repository audit:
+- **Exact Test Files Count**: **42 Python test files** under `flexirule/ruleflow/tests/`.
+- **Exact Test Methods Count**: **392 test methods** (`def test_*`).
+
+---
+
+## 2. Five-Tier Test Matrix for Phase 2
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
 │                          Five-Tier Test Matrix                         │
 ├────────────────────────────────────────────────────────────────────────┤
-│ Tier 1: Frontend Component & Control Tests (Cypress / Vitest)          │
-│ Tier 2: Canonical Contract & Normalization Tests (Python Unit)         │
-│ Tier 3: Compiler AST & Code Generation Tests (Python Unit)             │
-│ Tier 4: Runtime Execution & Security Sandbox Tests (Bench Integration)  │
-│ Tier 5: Development Data Migration Regression Suite (Bench Full Suite) │
+│ Tier 1: Frontend Component & Control Tests (Cypress UI)                │
+│ Tier 2: Canonical Contract & Adapter Tests (Python Unit)               │
+│ Tier 3: Compiler AST & Expression Generation Tests (Python Unit)       │
+│ Tier 4: Runtime Resolution & Security Sandbox Tests (Bench Integration)│
+│ Tier 5: Full Regression Suite Run (392 Methods across 42 Test Files)   │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 2. Tier Specifications & Test Cases
+## 3. Detailed Test Tier Specifications
 
 ### Tier 1: Frontend Component & Control Tests
-- **Location**: `cypress/e2e/value_resolver.cy.js`
-- **Scope**:
-  - Verify switching family dropdowns updates available operations and loads correct Vue component.
-  - Test `TextResolver.vue` concatenation, case changes, and normalization pipeline configuration.
-  - Test `NumberResolver.vue` currency formatting (`format_money`) and arithmetic input.
-  - Confirm `update:modelValue` emits canonical `{ "family": "...", "operation": "...", "config": { ... } }` payload.
+- **Target File**: `cypress/e2e/value_resolver.cy.js`
+- **Cases**:
+  - Test family dropdown selection (`date`, `text`, `number`, `collection`, `lookup`, `system`).
+  - Test `TextResolver.vue` concatenation, casing, and normalization pipeline UI.
+  - Test `NumberResolver.vue` arithmetic and currency formatting (`format_money`) UI.
+  - Confirm control emits canonical payload `{ "family": "...", "operation": "...", "config": { ... } }`.
 
-### Tier 2: Canonical Contract & Normalization Tests
-- **Location**: `flexirule/ruleflow/tests/test_value_resolver_core.py`
+### Tier 2: Canonical Contract & Adapter Tests
+- **Target File**: `flexirule/ruleflow/tests/test_value_resolver_core.py`
 - **Test Class**: `TestCanonicalResolverContract`
 - **Cases**:
   - `test_canonical_payload_structure`: Validate canonical JSON serialization and deserialization.
-  - `test_legacy_payload_auto_normalization`: Confirm legacy `{ "kind": "normalization" }` and `{ "kind": "format", "fmt_op": "fmt_money" }` payloads convert to canonical `family` + `operation` contracts.
+  - `test_legacy_adapters`: Verify explicit field-level adapter mappings for `date_formula`, `normalization`, `format`, `string_formula`, `child_aggregation`, and `fetch`.
+  - `test_unrecognized_payload_rejection`: Confirm unmapped legacy payloads raise `UnrecognizedResolverPayloadError`.
 
-### Tier 3: Compiler AST & Code Generation Tests
-- **Location**: `flexirule/ruleflow/tests/test_compiler.py`
-- **Test Class**: `TestResolverCompiler`
+### Tier 3: Compiler AST & Expression Generation Tests
+- **Target File**: `flexirule/ruleflow/tests/test_compiler.py`
 - **Cases**:
-  - `test_text_normalize_ast`: Verify `execute_normalization_pipeline` expression compilation.
-  - `test_number_format_money_ast`: Verify `frappe.utils.fmt_money` expression compilation.
-  - `test_date_calculate_ast`: Verify `frappe.utils.add_to_date` expression compilation.
+  - Verify AST expression generation for `text.normalize`, `number.format_money`, `date.calculate`, and `date.diff`.
 
-### Tier 4: Runtime Execution & Security Sandbox Tests
-- **Location**: `flexirule/ruleflow/tests/test_value_resolvers_complex.py`
-- **Test Class**: `TestValueResolversRuntime`
+### Tier 4: Runtime Resolution & Security Sandbox Tests
+- **Target File**: `flexirule/ruleflow/tests/test_value_resolvers_complex.py`
 - **Cases**:
-  - `test_text_operations_execution`: Execute `combine`, `case`, `normalize` against document context.
-  - `test_number_operations_execution`: Execute arithmetic, rounding, and `format_money` against test documents.
-  - `test_collection_operations_execution`: Execute `count`, `any`, `all`, `filter`, `pluck`, `unique` with 10,000 row bounds verification.
-  - `test_sandbox_dunder_blocking`: Confirm attempts to access `__class__` or execute `import` in expressions raise `PermissionError`.
+  - Execute `combine`, `case`, `normalize` against document context.
+  - Execute `calculate`, `round`, and `format_money` against test documents.
+  - Execute `count`, `any`, `all`, `filter`, `pluck`, `unique` with 10,000 row limit check.
+  - Verify AST sandbox blocks dunder attribute access (`__class__`).
 
-### Tier 5: Development Data Migration Regression Suite
+### Tier 5: Repository Regression Suite Run
 - **Command**: `bench --site test_site run-tests --app flexirule`
-- **Verification**: Ensure all 47 existing test files pass without regression.
+- **Gate**: All 392 test methods across 42 test files must pass with zero regression.

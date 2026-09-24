@@ -1,16 +1,8 @@
-# Canonical Resolver Contract Specification
+# Canonical Resolver Contract & Explicit Legacy Adapter Specification
 
-## 1. Specification Overview
+## 1. Canonical Schema Definition
 
-This document specifies the canonical JSON payload structure for FlexiRule's Value Resolvers in v1.0.
-
-The canonical model replaces flat, implementation-centric `kind` values with a structured **`family + operation + config`** schema.
-
----
-
-## 2. Canonical Payload Schema
-
-Every canonical Value Resolver configuration persisted in rule nodes, actions, or sub-rule parameters MUST conform to the following JSON structure:
+The canonical payload structure for Value Resolvers in FlexiRule v1.0 uses a structured **`family + operation + config`** JSON schema.
 
 ```json
 {
@@ -22,138 +14,120 @@ Every canonical Value Resolver configuration persisted in rule nodes, actions, o
 }
 ```
 
-### Schema Definitions
+---
 
-1. **`family`** (Required, String):
-   The top-level value domain. Must be one of:
-   `"date"`, `"text"`, `"number"`, `"collection"`, `"lookup"`, `"system"`, `"conversion"`, `"conditional"`.
+## 2. Explicit Legacy Adapters (Field-Level Mapping)
 
-2. **`operation`** (Required, String):
-   The specific operation name registered under the family (e.g. `"normalize"`, `"calculate"`, `"format_money"`, `"filter"`, `"pluck"`).
-
-3. **`config`** (Required, Object):
-   An operation-specific dictionary containing inputs, field references, parameters, and flags required to execute the operation.
+To prevent nesting old schema structures inside the new schema (i.e. avoiding `"config": { "kind": "...", ... }`), every development-era legacy payload is converted to canonical format through an **explicit field-level legacy adapter**.
 
 ---
 
-## 3. Concrete Family & Operation Payload Examples
+### Adapter 1: `date_formula` Adapter
+```python
+# Input Legacy Payload
+{"kind": "date_formula", "base_type": "field", "base_field": "doc.date", "offset_value": 5, "offset_unit": "days", "offset_sign": "+"}
 
-### 3.1 Text Family — Normalize Operation
-```json
-{
-  "family": "text",
-  "operation": "normalize",
-  "config": {
-    "source_type": "field",
-    "source_field": "doc.item_name",
-    "pipeline": ["trim", "slug", "lower"]
-  }
-}
-```
-
-### 3.2 Number Family — Format Money Operation
-```json
-{
-  "family": "number",
-  "operation": "format_money",
-  "config": {
-    "value_type": "field",
-    "value_field": "doc.grand_total",
-    "currency_type": "constant",
-    "currency_constant": "USD",
-    "decimals": 2
-  }
-}
-```
-
-### 3.3 Date Family — Calculate Date Operation
-```json
-{
-  "family": "date",
-  "operation": "calculate",
-  "config": {
-    "base_date_type": "field",
-    "base_date_field": "doc.transaction_date",
-    "operator": "add",
-    "amount_type": "constant",
-    "amount_value": 30,
-    "unit": "days"
-  }
-}
-```
-
-### 3.4 Collection Family — Filter Operation
-```json
-{
-  "family": "collection",
-  "operation": "filter",
-  "config": {
-    "source": "doc.items",
-    "condition": {
-      "field": "row.rate",
-      "operator": ">",
-      "value": 100
-    }
-  }
-}
-```
-
-### 3.5 Lookup Family — Get Field Operation
-```json
-{
-  "family": "lookup",
-  "operation": "field",
-  "config": {
-    "link_field": "doc.customer",
-    "target_doctype": "Customer",
-    "target_field": "customer_group"
-  }
+# Adapter Mapping
+canonical_family = "date"
+canonical_operation = "calculate"
+canonical_config = {
+    "base_date_type": legacy.get("base_type", "field"),
+    "base_date_field": legacy.get("base_field"),
+    "amount_value": legacy.get("offset_value", 0),
+    "amount_unit": legacy.get("offset_unit", "days"),
+    "operator": "add" if legacy.get("offset_sign") == "+" else "subtract"
 }
 ```
 
 ---
 
-## 4. Normalization Layer & Legacy Payload Coexistence
+### Adapter 2: `normalization` Adapter
+```python
+# Input Legacy Payload
+{"kind": "normalization", "norm_field": "doc.title", "norm_pipeline": ["trim", "slug"]}
 
-To ensure 100% backward compatibility with development-era fixtures and test suites that use the legacy `{ "kind": "..." }` structure, a automatic normalizer function is embedded at the backend compiler boundary:
+# Adapter Mapping
+canonical_family = "text"
+canonical_operation = "normalize"
+canonical_config = {
+    "source_field": legacy.get("norm_field"),
+    "pipeline": legacy.get("norm_pipeline", [])
+}
+```
+
+---
+
+### Adapter 3: `format` (`fmt_money`) Adapter
+```python
+# Input Legacy Payload
+{"kind": "format", "fmt_op": "fmt_money", "fmt_field": "doc.grand_total", "fmt_config": "USD"}
+
+# Adapter Mapping
+canonical_family = "number"
+canonical_operation = "format_money"
+canonical_config = {
+    "source_field": legacy.get("fmt_field"),
+    "currency": legacy.get("fmt_config", "USD")
+}
+```
+
+---
+
+### Adapter 4: `string_formula` Adapter
+```python
+# Input Legacy Payload (Concat)
+{"kind": "string_formula", "str_op": "concat", "str_a": "doc.first_name", "str_b": "doc.last_name"}
+
+# Adapter Mapping
+canonical_family = "text"
+canonical_operation = "combine"
+canonical_config = {
+    "items": [legacy.get("str_a"), legacy.get("str_b")],
+    "delimiter": " "
+}
+```
+
+---
+
+### Adapter 5: `child_aggregation` Adapter
+```python
+# Input Legacy Payload
+{"kind": "child_aggregation", "agg_table": "doc.items", "agg_field": "amount", "agg_op": "sum"}
+
+# Adapter Mapping
+canonical_family = "collection"
+canonical_operation = legacy.get("agg_op") if legacy.get("agg_op") in ("sum", "count") else "average"
+canonical_config = {
+    "source": legacy.get("agg_table"),
+    "target_field": legacy.get("agg_field")
+}
+```
+
+---
+
+### Adapter 6: `fetch` Adapter
+```python
+# Input Legacy Payload
+{"kind": "fetch", "link_field": "doc.customer", "fetch_field": "customer_group", "linked_doctype": "Customer"}
+
+# Adapter Mapping
+canonical_family = "lookup"
+canonical_operation = "field"
+canonical_config = {
+    "link_field": legacy.get("link_field"),
+    "target_field": legacy.get("fetch_field"),
+    "target_doctype": legacy.get("linked_doctype")
+}
+```
+
+---
+
+## 3. Strict Failure on Unknown Legacy Payload
+
+If an incoming legacy payload contains an unmapped or unrecognized `kind` or `str_op`/`fmt_op`, the normalizer **MUST NOT** silently guess or reinterpret the payload. It raises an explicit exception:
 
 ```python
-def normalize_resolver_payload(payload: dict) -> dict:
-    """Normalizes legacy { 'kind': '...' } payloads to canonical family + operation + config."""
-    if not isinstance(payload, dict):
-        return payload
-
-    # Already canonical format
-    if "family" in payload and "operation" in payload:
-        return payload
-
-    kind = payload.get("kind")
-    if not kind:
-        return payload
-
-    # Legacy mapping dispatch
-    legacy_map = {
-        "date_formula": ("date", "calculate"),
-        "date_diff": ("date", "diff"),
-        "math_formula": ("number", "calculate"),
-        "string_formula": ("text", "combine" if payload.get("str_op") == "concat" else "case"),
-        "normalization": ("text", "normalize"),
-        "format": ("number" if payload.get("fmt_op") == "fmt_money" else "text", "format_money" if payload.get("fmt_op") == "fmt_money" else "format"),
-        "fetch": ("lookup", "field"),
-        "system_context": ("system", payload.get("context_key", "user")),
-        "collection": ("collection", payload.get("op", "filter")),
-        "child_aggregation": ("collection", payload.get("agg_op", "sum"))
-    }
-
-    if kind in legacy_map:
-        family, operation = legacy_map[kind]
-        return {
-            "family": family,
-            "operation": operation,
-            "config": payload
-        }
-
-    return payload
+class UnrecognizedResolverPayloadError(ValueError):
+    """Raised when an incoming legacy payload cannot be deterministically mapped."""
+    pass
 ```
-
-This normalization layer guarantees that any legacy test case or JSON fixture executes without error while emitting standard canonical contracts on write.

@@ -12,129 +12,128 @@ Each resolver strategy was inspected across:
 
 ---
 
-## 2. Exhaustive Strategy Inventory
+## 2. Exhaustive Strategy Inventory & Classification
+
+All capabilities in this inventory are classified according to the Phase 1 audit standards:
+- **`EXISTING`**: Functionality demonstrably present in current source code.
+- **`CONSOLIDATED`**: Existing capability exposed under a unified user-facing family.
+- **`RENAMED`**: Existing capability with terminology updated for clarity.
+- **`NEW`**: Capability not currently implemented in source code.
+- **`REMOVED`**: Existing capability intentionally removed due to redundancy.
+- **`DEFERRED`**: Candidate capability postponed to post-v1.0 releases.
+
+---
 
 ### 1. `date_formula`
 - **Frontend Component**: `DateFormulaResolver.vue`
 - **Backend Class**: `DateFormulaResolver(CompiledResolver)`
-- **User Problem Solved**: Computing future or past dates relative to a base date.
-- **Data/Value Type**: `Date`, `Datetime`
-- **Current Operations**: `add` (plus), `subtract` (minus) with units `days`, `weeks`, `months`, `years`.
-- **Backend Compilation**: Outputs Python string expression invoking `frappe.utils.add_to_date(...)`.
-- **Issues / Overlap**: Conceptually isolated from `date_diff` and date formatting, forcing users to switch components for related date operations.
+- **Classification**: `CONSOLIDATED`
+- **Current Parameters**: `base_type` (`"field"` / `"today"`), `base_field`, `offset_value`, `offset_unit` (`"days"`, `"weeks"`, `"months"`, `"years"`), `offset_sign` (`"+"` / `"-"`).
+- **Target Family & Operation**: `date` → `calculate`
 
 ---
 
 ### 2. `math_formula`
 - **Frontend Component**: `MathFormulaResolver.vue`
 - **Backend Class**: `MathFormulaResolver(CompiledResolver)`
-- **User Problem Solved**: Performing basic arithmetic and rounding between two values or fields.
-- **Data/Value Type**: `Float`, `Int`, `Currency`
-- **Current Operations**: `add` (`+`), `subtract` (`-`), `multiply` (`*`), `divide` (`/`), `round` (`round(x, n)`).
-- **Backend Compilation**: Outputs SafeEval expression or direct numeric evaluation.
-- **Issues / Overlap**: Does not include currency formatting or percentage calculations.
+- **Classification**: `CONSOLIDATED`
+- **Current Parameters**: `field_a`, `math_op` (`"+"`, `"-"`, `*`, `/`), `field_b_type`, `field_b`, `constant_b`, `precision`.
+- **Target Family & Operation**: `number` → `calculate`
 
 ---
 
 ### 3. `date_diff`
 - **Frontend Component**: `DateDiffResolver.vue`
 - **Backend Class**: `DateDiffResolver(CompiledResolver)`
-- **User Problem Solved**: Calculating the integer difference between two dates.
-- **Data/Value Type**: `Integer` (days/hours count)
-- **Current Operations**: `date_diff` (in days), `time_diff` (in hours/seconds).
-- **Backend Compilation**: Outputs `frappe.utils.date_diff(a, b)` or `frappe.utils.time_diff_in_hours(a, b)`.
-- **Issues / Overlap**: Small single-operation strategy that belongs under a unified **Date & Time** family.
+- **Classification**: `CONSOLIDATED`
+- **Current Parameters**: `diff_start_type`, `diff_start_field`, `diff_end_type`, `diff_end_field`, `diff_unit` (`"days"`, `"months"`, `"years"`).
+- **Target Family & Operation**: `date` → `diff`
 
 ---
 
 ### 4. `child_aggregation`
 - **Frontend Component**: `AggregationResolver.vue`
 - **Backend Class**: `ChildAggregationResolver(CompiledResolver)`
-- **User Problem Solved**: Aggregating numeric column values from Frappe child tables.
-- **Data/Value Type**: `Float`, `Int`, `Currency`
-- **Current Operations**: `sum`, `avg`, `min`, `max`, `count`.
-- **Backend Compilation**: Iterates over `doc.get(child_table_field)` and computes mathematical aggregation over target field.
-- **Issues / Overlap**: Overlaps with `collection` resolver's `count` and numeric operations, but focuses specifically on child table fields.
+- **Classification**: `CONSOLIDATED`
+- **Current Parameters**: `agg_table`, `agg_field`, `agg_op` (`"sum"`, `"avg"`, `"count"`).
+- **Target Family & Operation**: `collection` → `sum` / `average` / `count`
+- **Audit Note**: `min` and `max` operations do not exist in `ChildAggregationResolver` implementation and are classified as `DEFERRED`.
 
 ---
 
 ### 5. `string_formula`
 - **Frontend Component**: `StringFormulaResolver.vue`
 - **Backend Class**: `StringFormulaResolver(CompiledResolver)`
-- **User Problem Solved**: Basic text manipulation (concatenation, casing, formatting currency).
-- **Data/Value Type**: `String`
-- **Current Operations**: `concat`, `uppercase`, `lowercase`, `fmt_money`.
-- **Backend Compilation**: String joins or Python string methods.
-- **Issues / Overlap**: Heavy overlap with `normalization` (casing) and `format` (`fmt_money`). `fmt_money` here is a duplicate.
+- **Classification**: `CONSOLIDATED` / `REMOVED`
+- **Current Operations**:
+  - `concat`: `CONSOLIDATED` → `text` → `combine`
+  - `uppercase` / `lowercase`: `CONSOLIDATED` → `text` → `case`
+  - `fmt_money`: `REMOVED` from string formula (reassigned exclusively to `number` → `format_money`).
 
 ---
 
 ### 6. `normalization`
 - **Frontend Component**: `NormalizationResolver.vue`
 - **Backend Class**: `NormalizationResolver(CompiledResolver)`
-- **User Problem Solved**: Executing text cleanup pipelines (trimming, casing, slugifying).
-- **Data/Value Type**: `String`
-- **Current Operations**: Multi-step pipeline supporting `trim`, `slug`, `snake`, `title`, `upper`, `lower`, `normalize`.
-- **Backend Compilation**: Delegates to `flexirule.ruleflow.utils.normalization.execute_normalization_pipeline`.
-- **Issues / Overlap**: `upper` and `lower` duplicate `string_formula`'s `uppercase` and `lowercase`.
+- **Classification**: `CONSOLIDATED`
+- **Current Parameters**: `norm_field`, `norm_pipeline` (`["trim", "slug", "snake", "title", "upper", "lower", "normalize"]`).
+- **Target Family & Operation**: `text` → `normalize`
 
 ---
 
 ### 7. `format`
 - **Frontend Component**: `FormatResolver.vue`
 - **Backend Class**: `FormatResolver(CompiledResolver)`
-- **User Problem Solved**: Applying standard Frappe formatting to dates, numbers, or currency.
-- **Data/Value Type**: `String` (formatted presentation)
-- **Current Operations**: `format_date`, `fmt_money`, `format_number`.
-- **Backend Compilation**: Calls `frappe.utils.format_date` or `frappe.utils.fmt_money`.
-- **Issues / Overlap**: `fmt_money` duplicated for the third time in this component. "Format" is a capability rather than a data type.
+- **Classification**: `CONSOLIDATED`
+- **Current Operations**:
+  - `format_date`: `CONSOLIDATED` → `date` → `format`
+  - `fmt_money`: `CONSOLIDATED` → `number` → `format_money`
+  - `format_number`: `CONSOLIDATED` → `number` → `format`
 
 ---
 
 ### 8. `fetch`
 - **Frontend Component**: `FetchResolver.vue`
 - **Backend Class**: `FetchResolver(CompiledResolver)`
-- **User Problem Solved**: Fetching a field value from a linked Frappe document.
-- **Data/Value Type**: Any (field type of target document)
-- **Current Operations**: `fetch_link` (resolves `frappe.db.get_value(doctype, name, fieldname)`).
-- **Backend Compilation**: Resolves link field dynamically or queries DB via `FieldResolver`.
-- **Issues / Overlap**: Technical name ("Fetch From Link") is low-level; better described as **Lookup**.
+- **Classification**: `RENAMED`
+- **Current Parameters**: `link_field`, `fetch_field`, `linked_doctype`.
+- **Target Family & Operation**: `lookup` → `field`
 
 ---
 
 ### 9. `system_context`
 - **Frontend Component**: `SystemContextResolver.vue`
 - **Backend Class**: `SystemContextResolver(CompiledResolver)`
-- **User Problem Solved**: Injecting runtime environment metadata into rule evaluation.
-- **Data/Value Type**: `String`, `List`, `Date`
-- **Current Operations**: `current_user`, `user_roles`, `today`, `now`, `current_company`.
-- **Backend Compilation**: Reads from `frappe.session.user`, `frappe.flags`, or system utils.
-- **Issues / Overlap**: Works well, but label should be updated to **System & Context**.
+- **Classification**: `RENAMED`
+- **Current Parameters**: `sys_token` (`"user"`, `"role_check"`, `"today"`, `"now"`), `sys_role`.
+- **Target Family & Operation**: `system` → `user` / `role_check` / `context`
 
 ---
 
 ### 10. `collection`
 - **Frontend Component**: `CollectionResolver.vue`
 - **Backend Class**: `CollectionResolver(CompiledResolver)`
-- **User Problem Solved**: Querying, filtering, and checking elements in lists and child tables.
-- **Data/Value Type**: `List[Dict]`, `List[Any]`, `Dict`, `Boolean`, `Integer`
-- **Current Operations**: `count`, `any`, `all`, `first`, `filter`, `pluck`, `unique` (plus alias `find`).
-- **Backend Compilation**: Evaluates structured row conditions using `ConditionEvaluator` with 10,000 row safety bounds.
-- **Issues / Overlap**: Overlaps conceptually with `child_aggregation`.
+- **Classification**: `CONSOLIDATED`
+- **Current Operations**: `count`, `any`, `all`, `first` (and alias `find`), `filter`, `pluck`, `unique`.
+- **Target Family & Operation**: `collection` → `count` / `any` / `all` / `first` / `filter` / `pluck` / `unique`
 
 ---
 
-## 3. Inventory Summary Matrix
+## 3. Inventory Classification Summary
 
-| Current Kind | Component | Target Operations | Identified Overlaps | Proposed Family |
+| Current Strategy (`kind`) | Implemented Operations in Source | Target Family | Target Operation | Classification |
 | :--- | :--- | :--- | :--- | :--- |
-| `date_formula` | `DateFormulaResolver.vue` | Date offset calculation | Isolated from date diff/formatting | **Date & Time** |
-| `math_formula` | `MathFormulaResolver.vue` | Basic arithmetic, rounding | Missing currency/percentage | **Number** |
-| `date_diff` | `DateDiffResolver.vue` | Days/hours difference | Isolated from date formula | **Date & Time** |
-| `child_aggregation` | `AggregationResolver.vue` | Child table column math | Overlaps with collection | **Collections & Tables** |
-| `string_formula` | `StringFormulaResolver.vue` | Concat, upper/lower, fmt_money | Duplicates normalization & format | **Text** / **Number** |
-| `normalization` | `NormalizationResolver.vue` | Text pipeline (slug, trim, etc.) | Duplicates upper/lower | **Text** |
-| `format` | `FormatResolver.vue` | Date, currency, number format | Duplicates fmt_money & date format | **Date** / **Text** / **Number** |
-| `fetch` | `FetchResolver.vue` | Link field resolution | Technical naming | **Lookup** |
-| `system_context` | `SystemContextResolver.vue` | User, roles, current date | Good, minor label update | **System & Context** |
-| `collection` | `CollectionResolver.vue` | List filtering, pluck, any/all | Overlaps with child aggregation | **Collections & Tables** |
+| `date_formula` | Base + Offset (days, weeks, months, years) | `date` | `calculate` | `CONSOLIDATED` |
+| `date_diff` | Diff (days, months, years) | `date` | `diff` | `CONSOLIDATED` |
+| `math_formula` | Add, Subtract, Multiply, Divide | `number` | `calculate` | `CONSOLIDATED` |
+| `string_formula` | Concat, Uppercase, Lowercase, Fmt Money | `text` / `number` | `combine`, `case`, `format_money` | `CONSOLIDATED` |
+| `normalization` | Pipeline (trim, slug, snake, title, upper, lower) | `text` | `normalize` | `CONSOLIDATED` |
+| `format` | Format Date, Fmt Money, Format Number | `date` / `number` / `text` | `format`, `format_money` | `CONSOLIDATED` |
+| `child_aggregation` | Sum, Avg, Count | `collection` | `sum`, `average`, `count` | `CONSOLIDATED` |
+| `collection` | Count, Any, All, First, Find, Filter, Pluck, Unique | `collection` | `count`, `any`, `all`, `first`, `filter`, `pluck`, `unique` | `CONSOLIDATED` |
+| `fetch` | Fetch Linked Field | `lookup` | `field` | `RENAMED` |
+| `system_context` | Session User, Role Check | `system` | `user`, `role_check` | `RENAMED` |
+| *Candidate* | Percentage calculation | `number` | `percentage` | `DEFERRED` |
+| *Candidate* | Record lookup by key/value | `lookup` | `record` | `DEFERRED` |
+| *Candidate* | Type Casting (To Number, To Text, To Date) | `conversion` | `to_text`, `to_number` | `DEFERRED` |
+| *Candidate* | Conditional If/Else, Coalesce | `conditional` | `if_else`, `coalesce` | `DEFERRED` |

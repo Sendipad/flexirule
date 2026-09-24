@@ -1,41 +1,27 @@
-# Performance Analysis & Bounds
+# Performance Analysis & Verification
 
-## 1. Algorithmic Complexity & Micro-Benchmarks
+## 1. Current vs. Proposed Performance Claims
 
-The consolidated Value Resolver architecture was evaluated for computational efficiency across compilation, runtime resolution, memory overhead, and frontend rendering.
+All performance characteristics in this document were verified against actual source code in `flexirule/ruleflow/core/value_resolver.py` and `flexirule/public/js/flexirule/rule_builder/controls/value_resolver/`.
 
-| Resolver Family | Operation | Time Complexity | Space Complexity | Performance Notes / Limits |
+| Performance Claim | Implementation Status | Source Verification Location | Classification | Performance Characteristics |
 | :--- | :--- | :--- | :--- | :--- |
-| **Date & Time** | `calculate` / `diff` | $O(1)$ | $O(1)$ | Native C-level `datetime` arithmetic via `frappe.utils`. |
-| **Text** | `normalize` | $O(N)$ (string len) | $O(N)$ | Direct CPython string method execution. |
-| **Number** | `calculate` | $O(1)$ | $O(1)$ | Fast compiled bytecode evaluation via `SafeEval`. |
-| **Collections** | `count` / `any` / `all` | $O(N)$ ($N \le 10,000$) | $O(1)$ | Short-circuiting iteration; early return on match. |
-| **Collections** | `filter` / `pluck` | $O(N)$ ($N \le 10,000$) | $O(N)$ | Enforces `MAX_COLLECTION_ROWS = 10,000` guard. |
-| **Lookup** | `field` | $O(1)$ (cached) | $O(1)$ | Utilizes `frappe.cache` and request-local memory cache. |
+| **Max Collection Limit Guard** | **CURRENT** | `value_resolver.py:CollectionResolver.MAX_COLLECTION_ROWS` | `CURRENT` | `MAX_COLLECTION_ROWS = 10000`. Raises `MethodExecutionError` if `len(rows) > 10000`. |
+| **Collection Short-Circuiting** | **CURRENT** | `value_resolver.py:CollectionResolver.resolve()` | `CURRENT` | `any` and `all` operations use Python `any()` and `all()` generators, stopping iteration on first match. |
+| **Request-Local Lookup Cache** | **CURRENT** | `flexirule/ruleflow/utils/field_resolver.py` | `CURRENT` | Utilizes `frappe.cache` and request-local dictionary cache for `FieldResolver`. |
+| **Frontend Lazy Component Loading** | **PROPOSED** | `useValueResolver.js` & `index.js` | `PROPOSED` | Dynamic component loading using `markRaw()` in family strategy registry to reduce canvas initial load time. |
+| **Reactivity Guarding ($O(N^2)$ Avoidance)**| **PROPOSED** | `useValueResolver.js:syncFromProps` | `PROPOSED` | `isInitializing` flag delays reactive watchers during hydration to avoid Pinia `mark_dirty()` overhead. |
+| **Micro-Benchmarks** | **N/A** | N/A | `PROPOSED` | Micro-benchmarks have NOT been executed yet. Profiling will occur during Phase 2 testing. |
 
 ---
 
-## 2. Collection Execution Safety Guards
+## 2. Verified Algorithmic Bounds
 
-To prevent unbounded memory allocation or CPU starvation when processing large child tables in `CollectionResolver`:
+1. **`DateFormulaResolver` / `DateDiffResolver`**:
+   $O(1)$ time and space complexity. Direct execution of `frappe.utils.add_to_date` or `frappe.utils.date_diff`.
 
-```python
-MAX_COLLECTION_ROWS = 10000
+2. **`NormalizationResolver`**:
+   $O(N)$ time complexity where $N$ is text string length. Delegates to string normalization pipeline.
 
-def resolve_collection(self, context):
-    items = self._get_source_collection(context)
-    if len(items) > MAX_COLLECTION_ROWS:
-        raise MethodExecutionError(
-            f"Collection size ({len(items)}) exceeds maximum safety threshold ({MAX_COLLECTION_ROWS})."
-        )
-```
-
----
-
-## 3. Frontend Rendering Optimization
-
-1. **Lazy Loading of Family Components**:
-   Family components (`DateResolver.vue`, `TextResolver.vue`, etc.) are loaded asynchronously or via `markRaw()` in the family registry, avoiding bulk component tree overhead during visual canvas initial load.
-
-2. **Reactivity Guarding**:
-   State updates in `useValueResolver` during family or operation switching use `isInitializing` guards to prevent cascading Pinia store `mark_dirty()` triggers and $O(N^2)$ canvas re-renders.
+3. **`CollectionResolver`**:
+   $O(K)$ time complexity where $K \le 10,000$ (bounded by `MAX_COLLECTION_ROWS`). Operations `filter`, `pluck`, and `unique` allocate $O(K)$ memory for result arrays.

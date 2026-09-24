@@ -1,79 +1,52 @@
 # Executive Summary: Value Resolver Architecture
 
-## 1. Context & Objectives
+## 1. Context & Consistency Audit Summary
 
 FlexiRule is an enterprise rule engine built on the Frappe framework. Value Resolvers are the foundational mechanism used by FlexiRule actions (such as Assignments, Condition Evaluations, and Sub-rule Arguments) to compute dynamic values from document fields, expressions, formulas, context variables, and external lookups.
 
-As FlexiRule prepares for its **first public/installable release**, this architectural investigation was conducted to eliminate development-era complexity and establish a clean, production-grade Value Resolver architecture.
+Following a thorough **Phase 1 Consistency Audit**, all proposed architectural components were verified against the actual repository source code (`flexirule/ruleflow/core/value_resolver.py`, `permissions.py`, `evaluator.py`, and `flexirule/public/js/flexirule/rule_builder/controls/value_resolver/`).
 
 ---
 
-## 2. Key Findings of Current State
+## 2. Verified Architectural Decisions
 
-1. **Fragmented User Mental Model**:
-   The current UI exposes 10 implementation-centric resolver strategies (`date_formula`, `math_formula`, `date_diff`, `child_aggregation`, `string_formula`, `normalization`, `format`, `fetch`, `system_context`, `collection`) directly to the user. Users are forced to choose an *implementation strategy* first rather than stating *what kind of value* they are computing.
+1. **Focus on Consolidating Existing Capabilities**:
+   Consolidation focuses strictly on existing capabilities (`EXISTING`, `CONSOLIDATED`, `RENAMED`). Unimplemented candidate operations (such as `conversion`, `conditional`, `percentage`, `min`/`max` column aggregation, and `lookup.record`) are classified as `DEFERRED` for post-v1.0 releases to avoid inventing untested functionality during pre-release consolidation.
 
-2. **Conceptual Duplication (`fmt_money`)**:
-   Money and currency formatting logic is duplicated across `StringFormulaResolver.vue` (`str_op: "fmt_money"`), `FormatResolver.vue` (`fmt_op: "fmt_money"`), and backend action handlers.
+2. **Explicit Field-Level Legacy Adapters**:
+   Legacy payloads (`{ "kind": "..." }`) are mapped to canonical `{ "family": "...", "operation": "...", "config": { ... } }` contracts via explicit field-level adapters, ensuring legacy schemas are NOT wrapped inside the canonical config object. Unmapped or unknown legacy operations raise an explicit `UnrecognizedResolverPayloadError`.
 
-3. **Collection vs Child Aggregation Ambiguity**:
-   Both `CollectionResolver.vue` and `AggregationResolver.vue` handle table/list operations. While `child_aggregation` targets Frappe child tables specifically with direct SQL/Python math, `collection` provides memory-safe row predicate filtering and plucking. These represent different execution strategies for a single cohesive user concept: **Collections & Tables**.
+3. **Duplication Elimination (`fmt_money`)**:
+   Currency formatting (`fmt_money`) is removed from `StringFormulaResolver` and `FormatResolver` and assigned exclusively to **Number** → `format_money`.
 
-4. **Zero Public Legacy Constraint**:
-   Because FlexiRule has not had its first public/installable release, there is no external public API contract constraint. However, approximately 120 test assertions and internal development fixtures depend on existing resolver structures. A lightweight load/save normalization layer completely satisfies development compatibility while providing a clean canonical contract for v1.0.
+4. **Unified Collection & Table Mental Model**:
+   Both child table column aggregation (`ChildAggregationResolver`) and predicate filtering (`CollectionResolver`) are presented under a single user-facing component: **Collections & Tables** (`CollectionResolver.vue`). The backend compiler automatically dispatches to `ChildAggregationResolver` when un-filtered column math is requested, or `CollectionResolver` when predicate conditions are present.
+
+5. **Security & Performance Verification**:
+   - `CollectionResolver` enforces `MAX_COLLECTION_ROWS = 10000` and uses non-eval `ConditionEvaluator` predicate execution.
+   - Expression evaluation is guarded by `SafeEvalVisitor` AST inspection (`permissions.py`).
+   - Repository test suite metrics are verified at **42 test files** containing **392 test methods**.
 
 ---
 
-## 3. Proposed First-Release Taxonomy
-
-The proposed user taxonomy reduces 10 fragmented components to **8 cohesive value families**:
+## 3. The Consolidated First-Release Value Taxonomy
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                       FlexiRule Value Families                              │
+│                    FlexiRule Consolidated Value Families                    │
 ├───────────────┬───────────────┬───────────────┬─────────────────────────────┤
-│ Date & Time   │ Text          │ Number        │ Collections & Tables        │
+│ 1. Date & Time│ 2. Text       │ 3. Number     │ 4. Collections & Tables     │
 ├───────────────┼───────────────┼───────────────┼─────────────────────────────┤
-│ Lookup        │ System        │ Conversion    │ Conditional                 │
+│ 5. Lookup     │ 6. System     │ (Conversion)* │ (Conditional)*              │
 └───────────────┴───────────────┴───────────────┴─────────────────────────────┘
+  * Note: Conversion and Conditional families are DEFERRED to post-v1.0.
 ```
 
-### Family Summary
+### Core Family Summary
 
-1. **Date & Time** (`date`): Calculate future/past dates, compute date differences, and format dates.
-2. **Text** (`text`): String concatenation, case transformation, text normalization pipeline, and text formatting.
-3. **Number** (`number`): Arithmetic operations, rounding, currency formatting (`fmt_money`), and percentages.
-4. **Collections & Tables** (`collection`): Counting, predicate checks (`any`, `all`), row lookup (`first`/`find`), filtering, field plucking, uniqueness, and aggregation (`sum`, `average`).
-5. **Lookup** (`lookup`): Fetching linked document fields or resolving related records.
-6. **System & Context** (`system`): Contextual values such as current user, user roles, system date, and company context.
-7. **Conversion** (`conversion`): Explicit type casting (`to_text`, `to_number`, `to_date`, `to_boolean`).
-8. **Conditional** (`conditional`): Inline branching (`if_else`, `coalesce`).
-
----
-
-## 4. Canonical Contract Schema
-
-The canonical first-release persisted format replaces flat `kind` dispatch with a structured `family + operation + config` payload:
-
-```json
-{
-  "family": "text",
-  "operation": "normalize",
-  "config": {
-    "source_type": "field",
-    "source_field": "doc.title",
-    "pipeline": ["trim", "slug"]
-  }
-}
-```
-
-A transparent normalizer at `ValueResolver.compile_resolver_config()` automatically converts legacy `{ "kind": "normalization", ... }` structures into the canonical contract at runtime.
-
----
-
-## 5. Architectural Benefits
-
-- **Reduced Cognitive Load**: Non-technical Rule Designers select the data domain first, then choose from a clear dropdown of business operations.
-- **Single Source of Truth**: Currency formatting (`fmt_money`) resides strictly under the **Number** family as `format_money`.
-- **Extensibility**: Adding a new text operation (e.g., `regex_replace`) requires adding an entry to the `text` operation registry without creating a new Vue component or top-level concept.
-- **Maintainability**: Pure separation between UI component, operation configuration, AST compilation, and backend execution runtime.
+1. **Date & Time** (`date`): `calculate` (add/subtract offset), `diff` (difference in days/months/years), `format` (format date string).
+2. **Text** (`text`): `combine` (concatenation), `case` (upper/lower/title), `normalize` (multi-step pipeline), `format` (string interpolation).
+3. **Number** (`number`): `calculate` (add/subtract/multiply/divide), `round` (precision rounding), `format_money` (currency formatting).
+4. **Collections & Tables** (`collection`): `count`, `any`, `all`, `first` (`find`), `filter`, `pluck`, `unique`, `sum`, `average`.
+5. **Lookup** (`lookup`): `field` (fetch field from linked document).
+6. **System & Context** (`system`): `user` (session user), `role_check` (user role check), `context` (today/now).
