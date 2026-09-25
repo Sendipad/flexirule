@@ -80,7 +80,7 @@ registerStrategy("date_formula", {
 registerStrategy("collection", {
 	label: __("Collection Query"),
 	description: __(
-		"Filter, search, check, or extract values from child table rows or list variables."
+		"Filter, search, aggregate, check, or extract values from child table rows or list variables."
 	),
 	icon: "fa fa-list-ol",
 	component: CollectionResolver,
@@ -109,7 +109,7 @@ registerStrategy("collection", {
 	compileToCode: (item) => {
 		const src = item.source || "doc.items";
 		const op = (item.operation || "any").toUpperCase();
-		if (["PLUCK", "UNIQUE"].includes(op)) {
+		if (["SUM", "AVG", "PLUCK", "UNIQUE"].includes(op)) {
 			return `{${op}(${src}, "${item.target_field || ""}")}`;
 		}
 		return `{${op}(${src})}`;
@@ -117,7 +117,7 @@ registerStrategy("collection", {
 	compileToLabel: (item) => {
 		const op = (item.operation || "any").toUpperCase();
 		const src = item.source || "?";
-		if (["PLUCK", "UNIQUE"].includes(op)) {
+		if (["SUM", "AVG", "PLUCK", "UNIQUE"].includes(op)) {
 			return `${op}(${src}.${item.target_field || "?"})`;
 		}
 		return `${op}(${src})`;
@@ -127,7 +127,7 @@ registerStrategy("collection", {
 		if (!item.source) {
 			errors.push(__("Source collection is required"));
 		}
-		if (["pluck", "unique"].includes(item.operation) && !item.target_field) {
+		if (["sum", "avg", "pluck", "unique"].includes(item.operation) && !item.target_field) {
 			errors.push(__("Target field is required for this operation"));
 		}
 		return { isValid: errors.length === 0, errors };

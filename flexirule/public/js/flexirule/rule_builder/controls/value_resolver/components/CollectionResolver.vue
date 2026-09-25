@@ -23,16 +23,16 @@
 			/>
 		</div>
 
-		<!-- Target Field (for pluck and unique) -->
+		<!-- Target Field (for sum, avg, pluck, and unique) -->
 		<div
-			v-if="['pluck', 'unique'].includes(modelValue.operation)"
+			v-if="['sum', 'avg', 'pluck', 'unique'].includes(modelValue.operation)"
 			class="d-flex flex-column fxr-gap-1"
 		>
 			<ComboBoxControl
 				v-model="modelValue.target_field"
 				:options="targetFieldOptions"
 				:read_only="readOnly"
-				:df="{ label: __('Target Field'), placeholder: __('e.g. item_code or rate') }"
+				:df="{ label: __('Target Field'), placeholder: __('e.g. amount or rate') }"
 			/>
 		</div>
 
@@ -152,6 +152,8 @@ const metaStore = useMetaStore();
 const conditionModalOpen = ref(false);
 
 const operationOptions = [
+	{ value: "sum", label: __("Sum Numeric Values (sum)") },
+	{ value: "avg", label: __("Average Numeric Values (avg)") },
 	{ value: "count", label: __("Count Rows (count)") },
 	{ value: "any", label: __("Check Any Match (any)") },
 	{ value: "all", label: __("Check All Match (all)") },
