@@ -5,6 +5,7 @@
 FlexiRule executes rule flows synchronously during Frappe document save events (`before_save`, `validate`, `on_update`) or asynchronously via background workers (`frappe.enqueue`).
 
 Key performance areas audited:
+
 1. **Rule Selection & Event Filtering**: `RuleCoordinator._get_matching_rules()`.
 2. **Action Graph Compilation**: `_compile_rule_action_plan()` and `action_plan_cache.py`.
 3. **Condition & Expression Evaluation**: `evaluator.py`, `runtime_eval.py`, `compiler.py`.
@@ -17,6 +18,7 @@ Key performance areas audited:
 ## 2. Detailed Findings
 
 ### Finding FR-PERF-001 (HIGH) — N+1 Database Query Pattern in Document Action Child Table Appends
+
 - **File**: `flexirule/ruleflow/core/action_handlers/document_action.py`
 - **Function/Class**: `DocumentActionHandler._apply_table_mappings`
 - **Description**: Iterative database lookups during child table row mapping.
@@ -27,6 +29,7 @@ Key performance areas audited:
 ---
 
 ### Finding FR-PERF-002 (MEDIUM) — Uncached Metadata Lookups in Field Resolver
+
 - **Files**: `flexirule/ruleflow/utils/field_resolver.py`, `flexirule/ruleflow/core/compiler.py`
 - **Function/Class**: `FieldResolver.resolve`
 - **Description**: Repeated `frappe.get_meta()` calls during expression compilation.
@@ -37,6 +40,7 @@ Key performance areas audited:
 ---
 
 ### Finding FR-PERF-003 (LOW) — Large Visual Graph Payload Serialization Overhead
+
 - **File**: `flexirule/ruleflow/doctype/rule/rule.py`
 - **Function/Class**: `Rule._initialize_default_graph`
 - **Description**: Full `visual_data` JSON payload is parsed and re-serialized on every document save.
