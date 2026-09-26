@@ -360,9 +360,8 @@ const coerceStructuredFilterValue = (rawValue) => {
 			const config = { ...(rawValue.config || {}) };
 			if (!config.kind) {
 				if (rawValue.mode === "formula") config.kind = "math_formula";
-				if (rawValue.mode === "format") config.kind = "format";
-				if (rawValue.mode === "normalize" || rawValue.mode === "normalization") {
-					config.kind = "normalization";
+				if (["format", "normalize", "normalization"].includes(rawValue.mode)) {
+					config.kind = "text";
 				}
 			}
 			return {

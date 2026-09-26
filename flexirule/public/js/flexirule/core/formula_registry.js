@@ -242,10 +242,10 @@ export function getAllowedBuilderKinds(fieldtype) {
 		return ["collection", "fetch", "system_context"];
 	}
 	if (["Date", "Datetime", "Time"].includes(fieldtype)) {
-		return ["date_formula", "date_diff", "fetch", "format", "system_context", "collection"];
+		return ["date_formula", "date_diff", "fetch", "system_context", "collection"];
 	}
 	if (["Int", "Float", "Currency", "Percent", "Duration"].includes(fieldtype)) {
-		return ["math_formula", "collection", "date_diff", "fetch", "format", "system_context"];
+		return ["math_formula", "collection", "date_diff", "fetch", "system_context"];
 	}
 	if (
 		["Data", "Small Text", "Text", "Long Text", "Text Editor", "Code", "Select"].includes(
@@ -253,10 +253,8 @@ export function getAllowedBuilderKinds(fieldtype) {
 		)
 	) {
 		return [
-			"normalization",
-			"format",
+			"text",
 			"fetch",
-			"string_formula",
 			"collection",
 			"system_context",
 		];
@@ -265,7 +263,7 @@ export function getAllowedBuilderKinds(fieldtype) {
 		return ["fetch", "collection", "system_context"];
 	}
 	if (["Link", "Dynamic Link"].includes(fieldtype)) {
-		return ["fetch", "string_formula", "format", "collection", "system_context"];
+		return ["text", "fetch", "collection", "system_context"];
 	}
 	return null;
 }

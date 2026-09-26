@@ -654,6 +654,48 @@ class ValueResolver:
 				target_field=target_field,
 			)
 
+		if family == "text" or kind == "text":
+			raw_inner = config.get("config")
+			inner_dict = raw_inner if isinstance(raw_inner, dict) else {}
+			op = config.get("operation") or inner_dict.get("operation") or "combine"
+
+			if op == "combine":
+				return StringFormulaResolver(
+					str_op="concat",
+					str_a_type=inner_dict.get("str_a_type") or config.get("str_a_type", "field"),
+					str_a=inner_dict.get("str_a") or config.get("str_a"),
+					str_b_type=inner_dict.get("str_b_type") or config.get("str_b_type", "constant"),
+					str_b=inner_dict.get("str_b") or config.get("str_b"),
+				)
+			if op == "case":
+				mode = inner_dict.get("case_mode") or config.get("case_mode", "uppercase")
+				fld = inner_dict.get("field") or config.get("field")
+				if mode in ("uppercase", "lowercase"):
+					return StringFormulaResolver(
+						str_op=mode,
+						str_a_type="field",
+						str_a=fld,
+						str_b_type="constant",
+						str_b="",
+					)
+				return NormalizationResolver(
+					norm_field=fld,
+					norm_pipeline=[mode],
+				)
+			if op == "normalize":
+				return NormalizationResolver(
+					norm_field=inner_dict.get("norm_field") or config.get("norm_field"),
+					norm_profile=inner_dict.get("norm_profile") or config.get("norm_profile"),
+					norm_pipeline=inner_dict.get("norm_pipeline") or config.get("norm_pipeline"),
+					norm_op=inner_dict.get("norm_op") or config.get("norm_op"),
+				)
+			if op == "format":
+				return FormatResolver(
+					fmt_op="format",
+					fmt_field=inner_dict.get("fmt_field") or config.get("fmt_field"),
+					fmt_config=inner_dict.get("fmt_config") or config.get("fmt_config", ""),
+				)
+
 		if not kind:
 			return NoneResolver()
 
