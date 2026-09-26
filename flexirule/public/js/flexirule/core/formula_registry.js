@@ -252,12 +252,7 @@ export function getAllowedBuilderKinds(fieldtype) {
 			fieldtype
 		)
 	) {
-		return [
-			"text",
-			"fetch",
-			"collection",
-			"system_context",
-		];
+		return ["text", "fetch", "collection", "system_context"];
 	}
 	if (["Check"].includes(fieldtype)) {
 		return ["fetch", "collection", "system_context"];

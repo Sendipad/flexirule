@@ -160,7 +160,12 @@ class TestValueResolversComplex(FrappeTestCase):
 		val_combine = {
 			"family": "text",
 			"operation": "combine",
-			"config": {"str_a_type": "field", "str_a": "doc.first", "str_b_type": "field", "str_b": "doc.last"},
+			"config": {
+				"str_a_type": "field",
+				"str_a": "doc.first",
+				"str_b_type": "field",
+				"str_b": "doc.last",
+			},
 		}
 		self.context["doc"].update({"first": "John", "last": "Doe"})
 		resolver = ValueResolver.compile_resolver_config(val_combine)

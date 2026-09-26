@@ -495,20 +495,8 @@ const isStaticSupported = computed(() => {
 
 const RESOLVER_LEVEL_KIND_MAP = {
 	basic: ["system_context", "text"],
-	standard: [
-		"date_formula",
-		"date_diff",
-		"system_context",
-		"text",
-	],
-	advanced: [
-		"date_formula",
-		"date_diff",
-		"math_formula",
-		"collection",
-		"system_context",
-		"text",
-	],
+	standard: ["date_formula", "date_diff", "system_context", "text"],
+	advanced: ["date_formula", "date_diff", "math_formula", "collection", "system_context", "text"],
 	full: null,
 };
 
@@ -1262,7 +1250,7 @@ function handleBuilderUpdate(config, details) {
 					fieldType: fieldType.value,
 					referenceDoctype: referenceDoctype.value,
 					context: props.context,
-			  })
+				})
 			: props.context?.resolverDefaults;
 	const mergedConfig =
 		defaults && typeof defaults === "object" ? { ...defaults, ...config } : config;

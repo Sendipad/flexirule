@@ -11,7 +11,7 @@
 	<!-- Operation: Combine -->
 	<template v-if="modelValue.operation === 'combine'">
 		<div class="d-flex flex-column fxr-gap-1 mt-2">
-			<label class="fxr-label-sm">{{ __('Value A') }}</label>
+			<label class="fxr-label-sm">{{ __("Value A") }}</label>
 			<div class="d-flex gap-2">
 				<SelectControl
 					class="flex-1"
@@ -40,7 +40,7 @@
 			</div>
 		</div>
 		<div class="d-flex flex-column fxr-gap-1 mt-2">
-			<label class="fxr-label-sm">{{ __('Value B') }}</label>
+			<label class="fxr-label-sm">{{ __("Value B") }}</label>
 			<div class="d-flex gap-2">
 				<SelectControl
 					class="flex-1"
@@ -110,9 +110,9 @@
 		</div>
 		<div class="d-flex flex-column fxr-gap-1 mt-3">
 			<div class="d-flex align-items-center justify-content-between">
-				<label class="fxr-label-sm mb-0">{{ __('Pipeline Operations') }}</label>
+				<label class="fxr-label-sm mb-0">{{ __("Pipeline Operations") }}</label>
 				<span v-if="!isCustomProfile" class="fxr-text-xs text-muted">
-					{{ __('Read-only for selected profile') }}
+					{{ __("Read-only for selected profile") }}
 				</span>
 			</div>
 			<MultiSelectList
