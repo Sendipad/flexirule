@@ -495,8 +495,8 @@ const isStaticSupported = computed(() => {
 
 const RESOLVER_LEVEL_KIND_MAP = {
 	basic: ["system_context", "text"],
-	standard: ["date_formula", "date_diff", "system_context", "text"],
-	advanced: ["date_formula", "date_diff", "math_formula", "collection", "system_context", "text"],
+	standard: ["date", "system_context", "text"],
+	advanced: ["date", "math_formula", "collection", "system_context", "text"],
 	full: null,
 };
 

@@ -675,8 +675,8 @@ function getDefaultResolverKind(target) {
 	if (["Int", "Float", "Percent", "Currency"].includes(fieldtype)) {
 		return "math_formula";
 	}
-	if (["Date", "Datetime"].includes(fieldtype)) {
-		return "date_formula";
+	if (["Date", "Datetime", "Time"].includes(fieldtype)) {
+		return "date";
 	}
 	return "text";
 }

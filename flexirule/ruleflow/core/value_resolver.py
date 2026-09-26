@@ -696,17 +696,37 @@ class ValueResolver:
 					fmt_config=inner_dict.get("fmt_config") or config.get("fmt_config", ""),
 				)
 
-		if not kind:
+		if family == "date" or kind == "date":
+			raw_inner = config.get("config")
+			inner_dict = raw_inner if isinstance(raw_inner, dict) else {}
+			op = config.get("operation") or inner_dict.get("operation") or "calculate"
+
+			if op == "calculate":
+				return DateFormulaResolver(
+					base_type=inner_dict.get("base_type") or config.get("base_type", "today"),
+					base_field=inner_dict.get("base_field") or config.get("base_field"),
+					offset_value=inner_dict.get("offset_value") if "offset_value" in inner_dict else config.get("offset_value", 0),
+					offset_unit=inner_dict.get("offset_unit") or config.get("offset_unit", "days"),
+					offset_sign=inner_dict.get("offset_sign") or config.get("offset_sign", "+"),
+				)
+			if op == "diff":
+				return DateDiffResolver(
+					diff_start_type=inner_dict.get("diff_start_type") or config.get("diff_start_type", "today"),
+					diff_start_field=inner_dict.get("diff_start_field") or config.get("diff_start_field"),
+					diff_end_type=inner_dict.get("diff_end_type") or config.get("diff_end_type", "doc_field"),
+					diff_end_field=inner_dict.get("diff_end_field") or config.get("diff_end_field"),
+					diff_unit=inner_dict.get("diff_unit") or config.get("diff_unit", "days"),
+				)
+			if op == "format":
+				return FormatResolver(
+					fmt_op="format_date",
+					fmt_field=inner_dict.get("fmt_field") or config.get("fmt_field"),
+					fmt_config=inner_dict.get("fmt_config") or config.get("fmt_config", "YYYY-MM-DD"),
+				)
+
+		if not kind and not family:
 			return NoneResolver()
 
-		if kind == "date_formula":
-			return DateFormulaResolver(
-				base_type=config.get("base_type", "today"),
-				base_field=config.get("base_field"),
-				offset_value=config.get("offset_value", 0),
-				offset_unit=config.get("offset_unit", "days"),
-				offset_sign=config.get("offset_sign", "+"),
-			)
 		if kind == "math_formula":
 			return MathFormulaResolver(
 				field_a=config.get("field_a"),
@@ -715,14 +735,6 @@ class ValueResolver:
 				field_b=config.get("field_b"),
 				constant_b=config.get("constant_b", 0),
 				precision=config.get("precision", 2),
-			)
-		if kind == "date_diff":
-			return DateDiffResolver(
-				diff_start_type=config.get("diff_start_type", "today"),
-				diff_start_field=config.get("diff_start_field"),
-				diff_end_type=config.get("diff_end_type", "doc_field"),
-				diff_end_field=config.get("diff_end_field"),
-				diff_unit=config.get("diff_unit", "days"),
 			)
 		if kind == "string_formula":
 			return StringFormulaResolver(
