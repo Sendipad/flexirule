@@ -640,11 +640,11 @@ class ValueResolver:
 
 		if family == "collection" or kind == "collection":
 			raw_inner = config.get("config")
-			inner_dict: dict[str, Any] = raw_inner if isinstance(raw_inner, dict) else {}
-			source = inner_dict.get("source") or config.get("source")
-			operation = inner_dict.get("operation") or config.get("operation") or "any"
-			condition = inner_dict.get("condition") if "condition" in inner_dict else config.get("condition")
-			target_field = inner_dict.get("target_field") or config.get("target_field")
+			coll_inner_dict: dict[str, Any] = raw_inner if isinstance(raw_inner, dict) else {}
+			source = coll_inner_dict.get("source") or config.get("source")
+			operation = coll_inner_dict.get("operation") or config.get("operation") or "any"
+			condition = coll_inner_dict.get("condition") if "condition" in coll_inner_dict else config.get("condition")
+			target_field = coll_inner_dict.get("target_field") or config.get("target_field")
 			return CollectionResolver(
 				source=source,
 				operation=operation,
