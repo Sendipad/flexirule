@@ -1123,9 +1123,24 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 
 	function legacySourceToExpression(source) {
 		if (!source || typeof source !== "object") return null;
-		const kind = source.kind || "date_formula";
+		const kind = source.kind || source.family || "date";
+		const op = source.operation || "calculate";
 
-		if (kind === "date_formula") {
+		if (kind === "date" || kind === "date_formula") {
+			if (op === "diff" || kind === "date_diff") {
+				const start =
+					source.diff_start_type === "doc_field"
+						? toDocExpression(source.diff_start_field || "")
+						: "frappe.utils.nowdate()";
+				const end =
+					source.diff_end_type === "doc_field"
+						? toDocExpression(source.diff_end_field || "")
+						: "frappe.utils.nowdate()";
+				const unit = source.diff_unit || "days";
+				if (unit === "months") return `frappe.utils.month_diff(${end}, ${start})`;
+				if (unit === "years") return `int(frappe.utils.month_diff(${end}, ${start}) / 12)`;
+				return `frappe.utils.date_diff(${end}, ${start})`;
+			}
 			const baseType = source.base_type || "today";
 			const baseExpr =
 				baseType === "doc_field"
