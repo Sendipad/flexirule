@@ -15,9 +15,7 @@ import { useStore } from "../../stores";
 // ─── Date Strategy ───
 registerStrategy("date", {
 	label: __("Date"),
-	description: __(
-		"Calculate date offsets, calculate date differences, or format date values."
-	),
+	description: __("Calculate date offsets, calculate date differences, or format date values."),
 	icon: "fa fa-calendar",
 	component: DateResolver,
 	defaultState: (props) => {
@@ -94,7 +92,8 @@ registerStrategy("date", {
 			return `Date: ${base} ${sign}${offset} ${item.offset_unit}`;
 		}
 		if (op === "diff") {
-			const start = item.diff_start_type === "today" ? __("Today") : item.diff_start_field || "?";
+			const start =
+				item.diff_start_type === "today" ? __("Today") : item.diff_start_field || "?";
 			const end = item.diff_end_type === "today" ? __("Today") : item.diff_end_field || "?";
 			return `${end} − ${start} (${item.diff_unit})`;
 		}
@@ -114,7 +113,9 @@ registerStrategy("date", {
 				if (!item.base_field) {
 					errors.push(__("Base field is required"));
 				} else if (!validateField(item.base_field, dt, store)) {
-					errors.push(frappe.utils.format(__("Base field '{0}' not found"), item.base_field));
+					errors.push(
+						frappe.utils.format(__("Base field '{0}' not found"), item.base_field)
+					);
 				}
 			}
 		} else if (op === "diff") {
@@ -123,7 +124,10 @@ registerStrategy("date", {
 					errors.push(__("Start field is required"));
 				} else if (!validateField(item.diff_start_field, dt, store)) {
 					errors.push(
-						frappe.utils.format(__("Start field '{0}' not found"), item.diff_start_field)
+						frappe.utils.format(
+							__("Start field '{0}' not found"),
+							item.diff_start_field
+						)
 					);
 				}
 			}
