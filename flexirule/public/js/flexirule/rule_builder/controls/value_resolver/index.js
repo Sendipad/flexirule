@@ -471,9 +471,7 @@ registerStrategy("text", {
 // ─── Lookup Strategy (Canonical Family: Lookup, Operation: Fetch) ───
 registerStrategy("lookup", {
 	label: __("Lookup"),
-	description: __(
-		"Fetch a field value from a linked document record or dynamic link."
-	),
+	description: __("Fetch a field value from a linked document record or dynamic link."),
 	icon: "fa fa-search",
 	component: LookupResolver,
 	defaultState: () => ({
@@ -493,8 +491,8 @@ registerStrategy("lookup", {
 					? toDocExpression(cfg.doctype_source)
 					: '""'
 				: cfg.target_doctype
-				? `"${cfg.target_doctype}"`
-				: '""';
+					? `"${cfg.target_doctype}"`
+					: '""';
 		const rec = cfg.record_field ? toDocExpression(cfg.record_field) : '""';
 		const field = cfg.fetch_field || "";
 		return `{frappe.db.get_value(${dt}, ${rec}, "${field}")}`;
@@ -540,7 +538,9 @@ registerStrategy("lookup", {
 			if (!cfg.record_field) {
 				errors.push(__("Record field is required"));
 			} else if (!validateField(cfg.record_field, dt, store)) {
-				errors.push(frappe.utils.format(__("Record field '{0}' not found"), cfg.record_field));
+				errors.push(
+					frappe.utils.format(__("Record field '{0}' not found"), cfg.record_field)
+				);
 			}
 		}
 
