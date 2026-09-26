@@ -464,27 +464,105 @@ class SystemContextResolver(CompiledResolver):
 		return None
 
 
-class FetchResolver(CompiledResolver):
-	def __init__(self, link_field: str | None, fetch_field: str | None, linked_doctype: str | None):
-		self.link_field = link_field
-		self.fetch_field = fetch_field
-		self.linked_doctype = linked_doctype
+class LookupResolver(CompiledResolver):
+	"""
+	Canonical resolver strategy for fetching record values from another DocType.
+	Supports both static target DocType and dynamic DocType resolution (Dynamic Link).
+	"""
 
-	def resolve(self, context: dict) -> Any:
-		if not self.link_field or not self.fetch_field or not self.linked_doctype:
+	def __init__(
+		self,
+		doctype_mode: str = "static",
+		target_doctype: str | None = None,
+		doctype_source: str | None = None,
+		record_field: str | None = None,
+		fetch_field: str | None = None,
+		linked_doctype: str | None = None,
+		link_field: str | None = None,
+	):
+		self.doctype_mode = doctype_mode or "static"
+		self.target_doctype = target_doctype or linked_doctype
+		self.doctype_source = doctype_source
+		self.record_field = record_field or link_field
+		self.fetch_field = fetch_field
+
+	@staticmethod
+	def _resolve_scoped_value(context: dict, path: str | None) -> Any:
+		if not path:
+			return None
+		path_str = str(path).strip()
+		if not path_str:
 			return None
 
-		# Ensure link_field has a scope, default to doc.
-		path = self.link_field
 		known_scopes = ("doc.", "vars.", "ctx.", "loop.", "row.", "item.", "caller.", "rule.")
-		if not any(path.startswith(s) for s in known_scopes):
-			path = f"doc.{path}"
+		if any(path_str.startswith(s) for s in known_scopes):
+			return get_context_value(context, path_str)
 
-		link_value = get_context_value(context, path)
+		if "row" in context and context["row"] is not None:
+			val = get_context_value(context, f"row.{path_str}")
+			if val is not None:
+				return val
+		if "item" in context and context["item"] is not None:
+			val = get_context_value(context, f"item.{path_str}")
+			if val is not None:
+				return val
+
+		return get_context_value(context, f"doc.{path_str}")
+
+	def resolve(self, context: dict) -> Any:
+		if not self.fetch_field or not self.record_field:
+			return None
+
+		# Determine target DocType
+		if self.doctype_mode == "dynamic":
+			if not self.doctype_source:
+				return None
+			resolved_doctype = self._resolve_scoped_value(context, self.doctype_source)
+		else:
+			resolved_doctype = self.target_doctype
+			if resolved_doctype and isinstance(resolved_doctype, str):
+				known_scopes = ("doc.", "vars.", "ctx.", "loop.", "row.", "item.", "caller.", "rule.")
+				if any(resolved_doctype.startswith(s) for s in known_scopes):
+					resolved_doctype = get_context_value(context, resolved_doctype)
+
+		if not resolved_doctype or not isinstance(resolved_doctype, str):
+			return None
+
+		resolved_doctype = resolved_doctype.strip()
+		if not resolved_doctype:
+			return None
+
+		# Check permission for non-Administrator sessions
+		if (
+			hasattr(frappe, "session")
+			and frappe.session
+			and getattr(frappe.session, "user", None)
+			and frappe.session.user != "Administrator"
+		):
+			if not frappe.has_permission(resolved_doctype, "read"):
+				raise frappe.PermissionError(
+					_("Insufficient permission to read DocType '{0}'.").format(resolved_doctype)
+				)
+
+		# Resolve record name / ID
+		link_value = self._resolve_scoped_value(context, self.record_field)
 		if not link_value:
 			return None
 
-		return frappe.db.get_value(self.linked_doctype, link_value, self.fetch_field)
+		return frappe.db.get_value(resolved_doctype, link_value, self.fetch_field)
+
+
+class FetchResolver(LookupResolver):
+	"""Legacy alias for LookupResolver."""
+
+	def __init__(self, link_field: str | None, fetch_field: str | None, linked_doctype: str | None):
+		super().__init__(
+			doctype_mode="static",
+			target_doctype=linked_doctype,
+			doctype_source=None,
+			record_field=link_field,
+			fetch_field=fetch_field,
+		)
 
 
 class JinjaResolver(CompiledResolver):
@@ -586,9 +664,17 @@ class ValueResolver:
 				or "kind" in val
 				or "family" in val
 			):
-				config = val.get("config") or val
-				if isinstance(config, dict) and ("kind" in config or "family" in config):
-					return ValueResolver.compile_resolver_config(config)
+				config = val.get("config")
+				if isinstance(config, dict):
+					merged = {**config}
+					if "kind" in val and "kind" not in merged:
+						merged["kind"] = val["kind"]
+					if "family" in val and "family" not in merged:
+						merged["family"] = val["family"]
+					if "operation" in val and "operation" not in merged:
+						merged["operation"] = val["operation"]
+					return ValueResolver.compile_resolver_config(merged)
+				return ValueResolver.compile_resolver_config(val)
 
 			if "value" in val:
 				return StaticResolver(val.get("value"))
@@ -607,8 +693,11 @@ class ValueResolver:
 		if not isinstance(config, dict):
 			return NoneResolver()
 
-		family = config.get("family")
-		kind = config.get("kind")
+		raw_inner = config.get("config")
+		inner_dict: dict[str, Any] = raw_inner if isinstance(raw_inner, dict) else {}
+
+		family = config.get("family") or inner_dict.get("family")
+		kind = config.get("kind") or inner_dict.get("kind")
 
 		if family == "collection" or kind == "collection":
 			raw_inner = config.get("config")
@@ -760,11 +849,36 @@ class ValueResolver:
 				fmt_field=config.get("fmt_field"),
 				fmt_config=config.get("fmt_config", ""),
 			)
-		if kind == "fetch":
-			return FetchResolver(
-				link_field=config.get("link_field"),
-				fetch_field=config.get("fetch_field"),
-				linked_doctype=config.get("linked_doctype"),
+		if family == "lookup" or kind == "lookup" or kind == "fetch":
+			raw_inner = config.get("config")
+			inner_dict: dict[str, Any] = raw_inner if isinstance(raw_inner, dict) else {}
+
+			doctype_source = inner_dict.get("doctype_source") or config.get("doctype_source")
+			doctype_mode = (
+				inner_dict.get("doctype_mode")
+				or config.get("doctype_mode")
+				or ("dynamic" if doctype_source else "static")
+			)
+			target_doctype = (
+				inner_dict.get("target_doctype")
+				or inner_dict.get("linked_doctype")
+				or config.get("target_doctype")
+				or config.get("linked_doctype")
+			)
+			record_field = (
+				inner_dict.get("record_field")
+				or inner_dict.get("link_field")
+				or config.get("record_field")
+				or config.get("link_field")
+			)
+			fetch_field = inner_dict.get("fetch_field") or config.get("fetch_field")
+
+			return LookupResolver(
+				doctype_mode=doctype_mode,
+				target_doctype=target_doctype,
+				doctype_source=doctype_source,
+				record_field=record_field,
+				fetch_field=fetch_field,
 			)
 		if kind == "system_context":
 			return SystemContextResolver(

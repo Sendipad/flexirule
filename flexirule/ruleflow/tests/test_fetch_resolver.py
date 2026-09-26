@@ -126,3 +126,173 @@ class TestFetchResolver(unittest.TestCase):
 		}
 		resolver = ValueResolver.compile(val)
 		self.assertIsNone(resolver.resolve(self.context))
+
+	@patch("frappe.db.get_value")
+	def test_canonical_lookup_static(self, mock_get_value):
+		mock_get_value.return_value = "Commercial"
+		val = {
+			"family": "lookup",
+			"operation": "fetch",
+			"kind": "lookup",
+			"config": {
+				"doctype_mode": "static",
+				"target_doctype": "Customer",
+				"record_field": "customer",
+				"fetch_field": "customer_group",
+			},
+		}
+		resolver = ValueResolver.compile(val)
+		result = resolver.resolve(self.context)
+		mock_get_value.assert_called_once_with("Customer", "CUST-0001", "customer_group")
+		self.assertEqual(result, "Commercial")
+
+	@patch("frappe.db.get_value")
+	def test_canonical_lookup_dynamic_customer(self, mock_get_value):
+		mock_get_value.return_value = "Retail"
+		self.doc.party_type = "Customer"
+		self.doc.party = "CUST-0001"
+
+		val = {
+			"family": "lookup",
+			"operation": "fetch",
+			"kind": "lookup",
+			"config": {
+				"doctype_mode": "dynamic",
+				"doctype_source": "party_type",
+				"record_field": "party",
+				"fetch_field": "customer_group",
+			},
+		}
+		resolver = ValueResolver.compile(val)
+		result = resolver.resolve(self.context)
+		mock_get_value.assert_called_once_with("Customer", "CUST-0001", "customer_group")
+		self.assertEqual(result, "Retail")
+
+	@patch("frappe.db.get_value")
+	def test_canonical_lookup_dynamic_supplier(self, mock_get_value):
+		mock_get_value.return_value = "Services"
+		self.doc.party_type = "Supplier"
+		self.doc.party = "SUP-0001"
+
+		val = {
+			"family": "lookup",
+			"operation": "fetch",
+			"kind": "lookup",
+			"config": {
+				"doctype_mode": "dynamic",
+				"doctype_source": "party_type",
+				"record_field": "party",
+				"fetch_field": "supplier_group",
+			},
+		}
+		resolver = ValueResolver.compile(val)
+		result = resolver.resolve(self.context)
+		mock_get_value.assert_called_once_with("Supplier", "SUP-0001", "supplier_group")
+		self.assertEqual(result, "Services")
+
+	@patch("frappe.db.get_value")
+	def test_canonical_lookup_child_table_row_context(self, mock_get_value):
+		mock_get_value.return_value = "Hardware"
+		self.context["row"] = {"party_type": "Supplier", "party": "SUP-0099"}
+
+		val = {
+			"family": "lookup",
+			"operation": "fetch",
+			"kind": "lookup",
+			"config": {
+				"doctype_mode": "dynamic",
+				"doctype_source": "party_type",
+				"record_field": "party",
+				"fetch_field": "supplier_type",
+			},
+		}
+		resolver = ValueResolver.compile(val)
+		result = resolver.resolve(self.context)
+		mock_get_value.assert_called_once_with("Supplier", "SUP-0099", "supplier_type")
+		self.assertEqual(result, "Hardware")
+
+	@patch("frappe.db.get_value")
+	def test_canonical_lookup_missing_doctype_source(self, mock_get_value):
+		self.doc.party_type = None
+		self.doc.party = "CUST-0001"
+
+		val = {
+			"family": "lookup",
+			"operation": "fetch",
+			"kind": "lookup",
+			"config": {
+				"doctype_mode": "dynamic",
+				"doctype_source": "party_type",
+				"record_field": "party",
+				"fetch_field": "customer_group",
+			},
+		}
+		resolver = ValueResolver.compile(val)
+		result = resolver.resolve(self.context)
+		self.assertIsNone(result)
+		mock_get_value.assert_not_called()
+
+	@patch("frappe.db.get_value")
+	def test_canonical_lookup_missing_record_field(self, mock_get_value):
+		self.doc.party_type = "Customer"
+		self.doc.party = None
+
+		val = {
+			"family": "lookup",
+			"operation": "fetch",
+			"kind": "lookup",
+			"config": {
+				"doctype_mode": "dynamic",
+				"doctype_source": "party_type",
+				"record_field": "party",
+				"fetch_field": "customer_group",
+			},
+		}
+		resolver = ValueResolver.compile(val)
+		result = resolver.resolve(self.context)
+		self.assertIsNone(result)
+		mock_get_value.assert_not_called()
+
+	def test_canonical_lookup_invalid_doctype(self):
+		self.doc.party_type = "NonExistentDocType_XYZ"
+		self.doc.party = "123"
+
+		val = {
+			"family": "lookup",
+			"operation": "fetch",
+			"kind": "lookup",
+			"config": {
+				"doctype_mode": "dynamic",
+				"doctype_source": "party_type",
+				"record_field": "party",
+				"fetch_field": "customer_group",
+			},
+		}
+		resolver = ValueResolver.compile(val)
+		result = resolver.resolve(self.context)
+		self.assertIsNone(result)
+
+	@patch("frappe.has_permission", return_value=False)
+	def test_canonical_lookup_permission_denied(self, mock_has_perm):
+		self.doc.party_type = "Customer"
+		self.doc.party = "CUST-0001"
+
+		val = {
+			"family": "lookup",
+			"operation": "fetch",
+			"kind": "lookup",
+			"config": {
+				"doctype_mode": "dynamic",
+				"doctype_source": "party_type",
+				"record_field": "party",
+				"fetch_field": "customer_group",
+			},
+		}
+		resolver = ValueResolver.compile(val)
+		current_user = frappe.session.user if getattr(frappe, "session", None) else "Administrator"
+		try:
+			frappe.set_user("restricted_user")
+			with self.assertRaises(frappe.PermissionError):
+				resolver.resolve(self.context)
+		finally:
+			frappe.set_user(current_user)

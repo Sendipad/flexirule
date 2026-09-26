@@ -1,12 +1,13 @@
 import DateTimeResolver from "./components/DateTimeResolver.vue";
 import MathFormulaResolver from "./components/MathFormulaResolver.vue";
 import FetchResolver from "./components/FetchResolver.vue";
+import LookupResolver from "./components/LookupResolver.vue";
 import AggregationResolver from "./components/AggregationResolver.vue";
 import TextTransformResolver from "./components/TextTransformResolver.vue";
 import SystemContextResolver from "./components/SystemContextResolver.vue";
 import CollectionResolver from "./components/CollectionResolver.vue";
 
-import { registerStrategy } from "./strategies";
+import { registerStrategy, getStrategy } from "./strategies";
 import { __, toDocExpression, validateField } from "./utils";
 import { useStore } from "../../stores";
 
@@ -467,61 +468,96 @@ registerStrategy("text", {
 	},
 });
 
-// ─── Fetch Strategy ───
-registerStrategy("fetch", {
-	label: __("Fetch From Link"),
-	icon: "fa fa-link",
-	component: FetchResolver,
+// ─── Lookup Strategy (Canonical Family: Lookup, Operation: Fetch) ───
+registerStrategy("lookup", {
+	label: __("Lookup"),
+	description: __(
+		"Fetch a field value from a linked document record or dynamic link."
+	),
+	icon: "fa fa-search",
+	component: LookupResolver,
 	defaultState: () => ({
-		link_source_type: "doc_field",
-		link_field: "",
+		doctype_mode: "static",
+		target_doctype: "",
+		doctype_source: "",
+		record_source_type: "doc_field",
+		record_field: "",
 		fetch_field: "",
-		linked_doctype: "",
 	}),
 	compileToCode: (item) => {
-		const dt = item.linked_doctype || "";
-		const knownScopes = ["doc.", "vars.", "ctx.", "loop.", "row.", "item.", "caller.", "rule."];
-		const dtExpr = knownScopes.some((s) => String(dt).startsWith(s)) ? dt : `"${dt}"`;
-		const link = item.link_field ? toDocExpression(item.link_field) : "";
-		const field = item.fetch_field || "";
-		return `{frappe.db.get_value(${dtExpr}, ${link}, "${field}")}`;
+		const cfg = item.config || item;
+		const mode = cfg.doctype_mode || "static";
+		const dt =
+			mode === "dynamic"
+				? cfg.doctype_source
+					? toDocExpression(cfg.doctype_source)
+					: '""'
+				: cfg.target_doctype
+				? `"${cfg.target_doctype}"`
+				: '""';
+		const rec = cfg.record_field ? toDocExpression(cfg.record_field) : '""';
+		const field = cfg.fetch_field || "";
+		return `{frappe.db.get_value(${dt}, ${rec}, "${field}")}`;
 	},
 	compileToLabel: (item) => {
-		const dt = item.linked_doctype || __("Linked Doc");
-		const field = item.fetch_field || "?";
-		const link = item.link_field || "?";
-		return `${dt}.${field}\n← ${link}`;
+		const cfg = item.config || item;
+		const mode = cfg.doctype_mode || "static";
+		const dt =
+			mode === "dynamic"
+				? cfg.doctype_source
+					? `{${cfg.doctype_source}}`
+					: __("Dynamic Doc")
+				: cfg.target_doctype || __("Target Doc");
+		const field = cfg.fetch_field || "?";
+		const rec = cfg.record_field || "?";
+		return `${dt}.${field}\n← ${rec}`;
 	},
 	validate: (item, props) => {
 		const errors = [];
 		const store = useStore();
 		const dt = store.rule_doc?.document_type || props.doctype;
+		const cfg = item.config || item;
+		const mode = cfg.doctype_mode || "static";
 
-		if (!item.linked_doctype) {
-			errors.push(__("Source DocType is required"));
-		}
-
-		if (item.link_source_type === "doc_field") {
-			if (!item.link_field) {
-				errors.push(__("Link field is required"));
-			} else if (!validateField(item.link_field, dt, store)) {
-				errors.push(frappe.utils.format(__("Link field '{0}' not found"), item.link_field));
+		if (mode === "dynamic") {
+			if (!cfg.doctype_source) {
+				errors.push(__("DocType source field is required for Dynamic Lookup"));
+			} else if (!validateField(cfg.doctype_source, dt, store)) {
+				errors.push(
+					frappe.utils.format(
+						__("DocType source field '{0}' not found"),
+						cfg.doctype_source
+					)
+				);
+			}
+		} else {
+			if (!cfg.target_doctype) {
+				errors.push(__("Target DocType is required"));
 			}
 		}
 
-		if (!item.fetch_field) {
+		if (cfg.record_source_type === "doc_field") {
+			if (!cfg.record_field) {
+				errors.push(__("Record field is required"));
+			} else if (!validateField(cfg.record_field, dt, store)) {
+				errors.push(frappe.utils.format(__("Record field '{0}' not found"), cfg.record_field));
+			}
+		}
+
+		if (!cfg.fetch_field) {
 			errors.push(__("Fetch field is required"));
 		} else if (
-			item.linked_doctype &&
-			!item.linked_doctype.startsWith("doc.") &&
-			!item.linked_doctype.startsWith("vars.")
+			mode === "static" &&
+			cfg.target_doctype &&
+			!cfg.target_doctype.startsWith("doc.") &&
+			!cfg.target_doctype.startsWith("vars.")
 		) {
-			if (!validateField(item.fetch_field, item.linked_doctype, store)) {
+			if (!validateField(cfg.fetch_field, cfg.target_doctype, store)) {
 				errors.push(
 					frappe.utils.format(
-						__("Field '{0}' not found in Source DocType '{1}'"),
-						item.fetch_field,
-						item.linked_doctype
+						__("Field '{0}' not found in Target DocType '{1}'"),
+						cfg.fetch_field,
+						cfg.target_doctype
 					)
 				);
 			}
@@ -529,6 +565,25 @@ registerStrategy("fetch", {
 
 		return { isValid: errors.length === 0, errors };
 	},
+});
+
+// Legacy Fetch Strategy (Hidden Alias)
+registerStrategy("fetch", {
+	hidden: true,
+	label: __("Lookup"),
+	icon: "fa fa-search",
+	component: FetchResolver,
+	defaultState: () => ({
+		doctype_mode: "static",
+		target_doctype: "",
+		doctype_source: "",
+		record_source_type: "doc_field",
+		record_field: "",
+		fetch_field: "",
+	}),
+	compileToCode: (item) => getStrategy("lookup").compileToCode(item),
+	compileToLabel: (item) => getStrategy("lookup").compileToLabel(item),
+	validate: (item, props) => getStrategy("lookup").validate(item, props),
 });
 
 // ─── System Context Strategy ───
