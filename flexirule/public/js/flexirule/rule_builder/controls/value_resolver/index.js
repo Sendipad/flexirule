@@ -137,10 +137,7 @@ registerStrategy("date", {
 					errors.push(__("Start field is required"));
 				} else if (!validateField(cfg.diff_start_field, dt, store)) {
 					errors.push(
-						frappe.utils.format(
-							__("Start field '{0}' not found"),
-							cfg.diff_start_field
-						)
+						frappe.utils.format(__("Start field '{0}' not found"), cfg.diff_start_field)
 					);
 				}
 			}
