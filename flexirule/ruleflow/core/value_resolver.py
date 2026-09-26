@@ -206,6 +206,140 @@ class DateDiffResolver(CompiledResolver):
 		return int(frappe.utils.month_diff(end, start) / 12)
 
 
+class CollectionResolver(CompiledResolver):
+	"""
+	Compiled resolver strategy for querying, checking, filtering, and extracting
+	values from child table collections or list variables.
+	"""
+
+	MAX_COLLECTION_ROWS = 10000
+
+	def __init__(
+		self,
+		source: str | None,
+		operation: str = "any",
+		condition: dict | list | None = None,
+		target_field: str | None = None,
+	):
+		self.source = source
+		self.operation = (operation or "any").lower()
+		if self.operation == "find":
+			self.operation = "first"  # Map UI alias directly to first matching row
+		self.condition = condition
+		self.target_field = target_field
+		self._compiled_evaluator = None
+
+		if self.condition:
+			from flexirule.ruleflow.core.evaluator import ConditionEvaluator
+
+			cond_list = self.condition if isinstance(self.condition, list) else [self.condition]
+			self._compiled_evaluator = ConditionEvaluator(json.dumps(cond_list))
+
+	def resolve(self, context: dict) -> Any:
+		rows = get_context_value(context, self.source)
+		if rows is None or not isinstance(rows, list):
+			if self.operation == "count":
+				return 0
+			if self.operation in ("sum", "avg"):
+				return 0.0 if self.operation == "avg" else 0
+			if self.operation in ("filter", "pluck", "unique"):
+				return []
+			if self.operation == "all":
+				return True if rows is not None and isinstance(rows, list) else False
+			if self.operation == "any":
+				return False
+			return None
+
+		if len(rows) > self.MAX_COLLECTION_ROWS:
+			from flexirule.ruleflow.core.exceptions import MethodExecutionError
+
+			raise MethodExecutionError(
+				_("Collection '{0}' exceeds maximum execution limit of {1} rows (got {2} rows).").format(
+					self.source, self.MAX_COLLECTION_ROWS, len(rows)
+				)
+			)
+
+		doc = context.get("doc")
+
+		def _matches(r) -> bool:
+			if not self._compiled_evaluator:
+				return True
+			return self._compiled_evaluator.evaluate(doc, row=r)
+
+		op = self.operation
+
+		if op == "count":
+			if not self._compiled_evaluator:
+				return len(rows)
+			return sum(1 for r in rows if _matches(r))
+
+		if op in ("sum", "avg"):
+			if not self.target_field:
+				return 0.0 if op == "avg" else 0
+			values = [
+				frappe.utils.flt(self._get_row_field(r, self.target_field))
+				for r in rows
+				if _matches(r) and self._get_row_field(r, self.target_field) is not None
+			]
+			if op == "sum":
+				return sum(values) if values else 0
+			if op == "avg":
+				return sum(values) / len(values) if values else 0.0
+
+		if op == "any":
+			if not self._compiled_evaluator:
+				return len(rows) > 0
+			return any(_matches(r) for r in rows)
+
+		if op == "all":
+			if not self._compiled_evaluator:
+				return True
+			return all(_matches(r) for r in rows)
+
+		if op == "first":
+			for r in rows:
+				if _matches(r):
+					return r
+			return None
+
+		if op == "filter":
+			return [r for r in rows if _matches(r)]
+
+		if op == "pluck":
+			if not self.target_field:
+				return []
+			return [self._get_row_field(r, self.target_field) for r in rows if _matches(r)]
+
+		if op == "unique":
+			if not self.target_field:
+				return []
+			seen = set()
+			res = []
+			for r in rows:
+				if _matches(r):
+					val = self._get_row_field(r, self.target_field)
+					try:
+						key = val
+						if isinstance(val, dict | list):
+							key = json.dumps(val, sort_keys=True)
+					except Exception:
+						key = str(val)
+					if key not in seen:
+						seen.add(key)
+						res.append(val)
+			return res
+
+		return None
+
+	@staticmethod
+	def _get_row_field(row: Any, fieldname: str) -> Any:
+		if row is None or not fieldname:
+			return None
+		if isinstance(row, dict) or hasattr(row, "get"):
+			return row.get(fieldname)
+		return getattr(row, fieldname, None)
+
+
 class ChildAggregationResolver(CompiledResolver):
 	def __init__(self, agg_table: str | None, agg_field: str | None, agg_op: str):
 		self.agg_table = agg_table
@@ -213,28 +347,11 @@ class ChildAggregationResolver(CompiledResolver):
 		self.agg_op = agg_op
 
 	def resolve(self, context: dict) -> Any:
-		rows = get_context_value(context, self.agg_table)
-		if not rows or not isinstance(rows, list):
-			return 0
-
-		if self.agg_op == "count":
-			return len(rows)
-
-		if not self.agg_field:
-			return 0
-
-		values = [
-			frappe.utils.flt(row.get(self.agg_field))
-			for row in rows
-			if hasattr(row, "get") and row.get(self.agg_field) is not None
-		]
-
-		if self.agg_op == "sum":
-			return sum(values)
-		if self.agg_op == "avg":
-			return sum(values) / len(values) if values else 0.0
-
-		return 0
+		return CollectionResolver(
+			source=self.agg_table,
+			operation=self.agg_op,
+			target_field=self.agg_field,
+		).resolve(context)
 
 
 class StringFormulaResolver(CompiledResolver):
@@ -345,125 +462,6 @@ class SystemContextResolver(CompiledResolver):
 		if self.sys_token == "role_check":
 			return bool(self.sys_role in frappe.get_roles(frappe.session.user))
 		return None
-
-
-class CollectionResolver(CompiledResolver):
-	"""
-	Compiled resolver strategy for querying, checking, filtering, and extracting
-	values from child table collections or list variables.
-	"""
-
-	MAX_COLLECTION_ROWS = 10000
-
-	def __init__(
-		self,
-		source: str | None,
-		operation: str = "any",
-		condition: dict | list | None = None,
-		target_field: str | None = None,
-	):
-		self.source = source
-		self.operation = (operation or "any").lower()
-		if self.operation == "find":
-			self.operation = "first"  # Map UI alias directly to first matching row
-		self.condition = condition
-		self.target_field = target_field
-		self._compiled_evaluator = None
-
-		if self.condition:
-			from flexirule.ruleflow.core.evaluator import ConditionEvaluator
-
-			cond_list = self.condition if isinstance(self.condition, list) else [self.condition]
-			self._compiled_evaluator = ConditionEvaluator(json.dumps(cond_list))
-
-	def resolve(self, context: dict) -> Any:
-		rows = get_context_value(context, self.source)
-		if rows is None or not isinstance(rows, list):
-			if self.operation == "count":
-				return 0
-			if self.operation in ("filter", "pluck", "unique"):
-				return []
-			if self.operation == "all":
-				return True if rows is not None and isinstance(rows, list) else False
-			if self.operation == "any":
-				return False
-			return None
-
-		if len(rows) > self.MAX_COLLECTION_ROWS:
-			from flexirule.ruleflow.core.exceptions import MethodExecutionError
-
-			raise MethodExecutionError(
-				_("Collection '{0}' exceeds maximum execution limit of {1} rows (got {2} rows).").format(
-					self.source, self.MAX_COLLECTION_ROWS, len(rows)
-				)
-			)
-
-		doc = context.get("doc")
-
-		def _matches(r) -> bool:
-			if not self._compiled_evaluator:
-				return True
-			return self._compiled_evaluator.evaluate(doc, row=r)
-
-		op = self.operation
-
-		if op == "count":
-			if not self._compiled_evaluator:
-				return len(rows)
-			return sum(1 for r in rows if _matches(r))
-
-		if op == "any":
-			if not self._compiled_evaluator:
-				return len(rows) > 0
-			return any(_matches(r) for r in rows)
-
-		if op == "all":
-			if not self._compiled_evaluator:
-				return True
-			return all(_matches(r) for r in rows)
-
-		if op == "first":
-			for r in rows:
-				if _matches(r):
-					return r
-			return None
-
-		if op == "filter":
-			return [r for r in rows if _matches(r)]
-
-		if op == "pluck":
-			if not self.target_field:
-				return []
-			return [self._get_row_field(r, self.target_field) for r in rows if _matches(r)]
-
-		if op == "unique":
-			if not self.target_field:
-				return []
-			seen = set()
-			res = []
-			for r in rows:
-				if _matches(r):
-					val = self._get_row_field(r, self.target_field)
-					try:
-						key = val
-						if isinstance(val, dict | list):
-							key = json.dumps(val, sort_keys=True)
-					except Exception:
-						key = str(val)
-					if key not in seen:
-						seen.add(key)
-						res.append(val)
-			return res
-
-		return None
-
-	@staticmethod
-	def _get_row_field(row: Any, fieldname: str) -> Any:
-		if row is None or not fieldname:
-			return None
-		if isinstance(row, dict) or hasattr(row, "get"):
-			return row.get(fieldname)
-		return getattr(row, fieldname, None)
 
 
 class FetchResolver(CompiledResolver):
@@ -583,9 +581,13 @@ class ValueResolver:
 						segments.append(JinjaResolver(item.get("attrs", {}).get("value") or ""))
 				return ExpressionResolver(segments)
 
-			if mode in ("resolver", "formatter", "normalize", "format", "normalization") or "kind" in val:
+			if (
+				mode in ("resolver", "formatter", "normalize", "format", "normalization")
+				or "kind" in val
+				or "family" in val
+			):
 				config = val.get("config") or val
-				if isinstance(config, dict) and "kind" in config:
+				if isinstance(config, dict) and ("kind" in config or "family" in config):
 					return ValueResolver.compile_resolver_config(config)
 
 			if "value" in val:
@@ -602,7 +604,98 @@ class ValueResolver:
 
 	@staticmethod
 	def compile_resolver_config(config: dict) -> CompiledResolver:
+		if not isinstance(config, dict):
+			return NoneResolver()
+
+		family = config.get("family")
 		kind = config.get("kind")
+
+		if family == "collection" or kind == "collection":
+			raw_inner = config.get("config")
+			inner_dict: dict[str, Any] = raw_inner if isinstance(raw_inner, dict) else {}
+			source = inner_dict.get("source") or config.get("source")
+			operation = inner_dict.get("operation") or config.get("operation") or "any"
+			condition = inner_dict.get("condition") if "condition" in inner_dict else config.get("condition")
+			target_field = inner_dict.get("target_field") or config.get("target_field")
+			return CollectionResolver(
+				source=source,
+				operation=operation,
+				condition=condition,
+				target_field=target_field,
+			)
+
+		if kind == "child_aggregation" or family == "child_aggregation":
+			raw_inner = config.get("config")
+			inner_dict = raw_inner if isinstance(raw_inner, dict) else {}
+			source = (
+				inner_dict.get("source")
+				or inner_dict.get("agg_table")
+				or config.get("agg_table")
+				or config.get("source")
+			)
+			target_field = (
+				inner_dict.get("target_field")
+				or inner_dict.get("agg_field")
+				or config.get("agg_field")
+				or config.get("target_field")
+			)
+			operation = (
+				inner_dict.get("operation")
+				or inner_dict.get("agg_op")
+				or config.get("agg_op")
+				or config.get("operation")
+				or "sum"
+			)
+			condition = inner_dict.get("condition") if "condition" in inner_dict else config.get("condition")
+			return CollectionResolver(
+				source=source,
+				operation=operation,
+				condition=condition,
+				target_field=target_field,
+			)
+
+		if family == "text" or kind == "text":
+			raw_inner = config.get("config")
+			inner_dict = raw_inner if isinstance(raw_inner, dict) else {}
+			op = config.get("operation") or inner_dict.get("operation") or "combine"
+
+			if op == "combine":
+				return StringFormulaResolver(
+					str_op="concat",
+					str_a_type=inner_dict.get("str_a_type") or config.get("str_a_type", "field"),
+					str_a=inner_dict.get("str_a") or config.get("str_a"),
+					str_b_type=inner_dict.get("str_b_type") or config.get("str_b_type", "constant"),
+					str_b=inner_dict.get("str_b") or config.get("str_b"),
+				)
+			if op == "case":
+				mode = inner_dict.get("case_mode") or config.get("case_mode", "uppercase")
+				fld = inner_dict.get("field") or config.get("field")
+				if mode in ("uppercase", "lowercase"):
+					return StringFormulaResolver(
+						str_op=mode,
+						str_a_type="field",
+						str_a=fld,
+						str_b_type="constant",
+						str_b="",
+					)
+				return NormalizationResolver(
+					norm_field=fld,
+					norm_pipeline=[mode],
+				)
+			if op == "normalize":
+				return NormalizationResolver(
+					norm_field=inner_dict.get("norm_field") or config.get("norm_field"),
+					norm_profile=inner_dict.get("norm_profile") or config.get("norm_profile"),
+					norm_pipeline=inner_dict.get("norm_pipeline") or config.get("norm_pipeline"),
+					norm_op=inner_dict.get("norm_op") or config.get("norm_op"),
+				)
+			if op == "format":
+				return FormatResolver(
+					fmt_op="format",
+					fmt_field=inner_dict.get("fmt_field") or config.get("fmt_field"),
+					fmt_config=inner_dict.get("fmt_config") or config.get("fmt_config", ""),
+				)
+
 		if not kind:
 			return NoneResolver()
 
@@ -630,12 +723,6 @@ class ValueResolver:
 				diff_end_type=config.get("diff_end_type", "doc_field"),
 				diff_end_field=config.get("diff_end_field"),
 				diff_unit=config.get("diff_unit", "days"),
-			)
-		if kind == "child_aggregation":
-			return ChildAggregationResolver(
-				agg_table=config.get("agg_table"),
-				agg_field=config.get("agg_field"),
-				agg_op=config.get("agg_op", "sum"),
 			)
 		if kind == "string_formula":
 			return StringFormulaResolver(
@@ -667,13 +754,6 @@ class ValueResolver:
 		if kind == "system_context":
 			return SystemContextResolver(
 				sys_token=config.get("sys_token", "user"), sys_role=config.get("sys_role", "")
-			)
-		if kind == "collection":
-			return CollectionResolver(
-				source=config.get("source"),
-				operation=config.get("operation", "any"),
-				condition=config.get("condition"),
-				target_field=config.get("target_field"),
 			)
 
 		return NoneResolver()

@@ -27,7 +27,56 @@ export function useValueResolver(props, emit) {
 				val = val.config;
 			}
 
-			const kind = val.kind || availableStrategies.value[0]?.kind || "date_formula";
+			// Normalize canonical family / legacy structure
+			let family = val.family;
+			let kind = val.kind;
+			let innerConfig = val.config && typeof val.config === "object" ? val.config : {};
+
+			if (kind === "child_aggregation" || family === "child_aggregation") {
+				family = "collection";
+				kind = "collection";
+				val = {
+					source:
+						val.source ||
+						val.agg_table ||
+						innerConfig.source ||
+						innerConfig.agg_table ||
+						"",
+					target_field:
+						val.target_field ||
+						val.agg_field ||
+						innerConfig.target_field ||
+						innerConfig.agg_field ||
+						"",
+					operation:
+						val.operation ||
+						val.agg_op ||
+						innerConfig.operation ||
+						innerConfig.agg_op ||
+						"sum",
+					condition:
+						val.condition !== undefined ? val.condition : innerConfig.condition || null,
+				};
+			} else if (family === "collection" || kind === "collection") {
+				kind = "collection";
+				val = {
+					source: val.source || innerConfig.source || "",
+					target_field: val.target_field || innerConfig.target_field || "",
+					operation: val.operation || innerConfig.operation || "any",
+					condition:
+						val.condition !== undefined ? val.condition : innerConfig.condition || null,
+				};
+			} else if (family === "text" || kind === "text") {
+				kind = "text";
+				val = {
+					operation: val.operation || innerConfig.operation || "combine",
+					config: {
+						...(val.config || innerConfig || {}),
+					},
+				};
+			}
+
+			kind = kind || availableStrategies.value[0]?.kind || "date_formula";
 			activeKind.value = kind;
 
 			const strategy = getStrategy(kind);
@@ -39,7 +88,6 @@ export function useValueResolver(props, emit) {
 				};
 			}
 		} finally {
-			// We delay resetting the flag slightly to allow watchers to skip the first pulse
 			setTimeout(() => {
 				isInitializing.value = false;
 			}, 0);
@@ -65,13 +113,42 @@ export function useValueResolver(props, emit) {
 			const strategy = getStrategy(newKind);
 			if (!strategy) return;
 
-			const config = { ...newState, kind: newKind };
-			const label = strategy.compileToLabel(config);
-			const expression = strategy.compileToCode(config);
+			let config;
+			if (newKind === "collection") {
+				const { source, operation, target_field, condition } = newState;
+				config = {
+					family: "collection",
+					operation: operation || "any",
+					config: {
+						source: source || "",
+						target_field: target_field || "",
+						condition: condition || null,
+					},
+					kind: "collection",
+				};
+			} else if (newKind === "text") {
+				const { operation, config: innerConfig } = newState;
+				config = {
+					family: "text",
+					operation: operation || "combine",
+					config: innerConfig || {},
+					kind: "text",
+				};
+			} else {
+				config = { ...newState, kind: newKind };
+			}
+
+			const flatStateForCompile =
+				newKind === "collection" || newKind === "text"
+					? { ...newState, kind: newKind }
+					: config;
+
+			const label = strategy.compileToLabel(flatStateForCompile);
+			const expression = strategy.compileToCode(flatStateForCompile);
 
 			// Run validation
 			if (strategy.validate) {
-				const validation = strategy.validate(config, props);
+				const validation = strategy.validate(flatStateForCompile, props);
 				isValid.value = validation.isValid;
 				errors.value = validation.errors || [];
 			} else {

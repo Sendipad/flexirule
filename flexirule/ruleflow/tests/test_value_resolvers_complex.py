@@ -155,31 +155,49 @@ class TestValueResolversComplex(FrappeTestCase):
 		resolver.agg_op = "sum"
 		self.assertEqual(resolver.resolve(self.context), 5.0)
 
-	def test_string_formula_resolver(self):
-		# Concat fields
-		resolver = StringFormulaResolver(
-			str_op="concat", str_a_type="field", str_a="doc.first", str_b_type="field", str_b="doc.last"
-		)
+	def test_text_transform_resolver(self):
+		# Combine operation via ValueResolver.compile
+		val_combine = {
+			"family": "text",
+			"operation": "combine",
+			"config": {
+				"str_a_type": "field",
+				"str_a": "doc.first",
+				"str_b_type": "field",
+				"str_b": "doc.last",
+			},
+		}
 		self.context["doc"].update({"first": "John", "last": "Doe"})
+		resolver = ValueResolver.compile_resolver_config(val_combine)
 		self.assertEqual(resolver.resolve(self.context), "JohnDoe")
 
-		# Uppercase
-		resolver = StringFormulaResolver(
-			str_op="uppercase", str_a_type="field", str_a="doc.first", str_b_type="constant", str_b=None
-		)
+		# Case operation
+		val_case = {
+			"family": "text",
+			"operation": "case",
+			"config": {"field": "doc.first", "case_mode": "uppercase"},
+		}
+		resolver = ValueResolver.compile_resolver_config(val_case)
 		self.assertEqual(resolver.resolve(self.context), "JOHN")
 
-		# Lowercase
-		resolver.str_op = "lowercase"
-		self.assertEqual(resolver.resolve(self.context), "john")
+		# Normalize operation
+		val_norm = {
+			"family": "text",
+			"operation": "normalize",
+			"config": {"norm_field": "doc.raw", "norm_pipeline": ["trim", "lowercase"]},
+		}
+		self.context["doc"]["raw"] = "  HELLO WORLD  "
+		resolver = ValueResolver.compile_resolver_config(val_norm)
+		self.assertEqual(resolver.resolve(self.context), "hello world")
 
-		# Money format
-		resolver = StringFormulaResolver(
-			str_op="fmt_money", str_a_type="field", str_a="doc.amount", str_b_type="constant", str_b="USD"
-		)
-		self.context["doc"]["amount"] = 100
-		res = resolver.resolve(self.context)
-		self.assertIn("100", res)
+		# Format operation
+		val_fmt = {
+			"family": "text",
+			"operation": "format",
+			"config": {"fmt_field": "doc.first", "fmt_config": "Hello {0}!"},
+		}
+		resolver = ValueResolver.compile_resolver_config(val_fmt)
+		self.assertEqual(resolver.resolve(self.context), "Hello John!")
 
 	def test_system_context_resolver(self):
 		# User
@@ -222,15 +240,17 @@ class TestValueResolversComplex(FrappeTestCase):
 		val = {
 			"mode": "expression",
 			"value": [
-				{"type": "text", "value": "Date: "},
+				{"type": "text", "value": "Name: "},
 				{
 					"type": "resolverToken",
 					"attrs": {
 						"config": {
-							"kind": "format",
-							"fmt_op": "format_date",
-							"fmt_field": "doc.creation",
-							"fmt_config": "yyyy",
+							"family": "text",
+							"operation": "format",
+							"config": {
+								"fmt_field": "doc.first",
+								"fmt_config": "{0}",
+							},
 						}
 					},
 				},
@@ -238,10 +258,10 @@ class TestValueResolversComplex(FrappeTestCase):
 				{"type": "jsonToken", "attrs": {"value": "{{ doc.first }}"}},
 			],
 		}
-		self.context["doc"].update({"creation": "2026-05-20", "first": "Jules"})
+		self.context["doc"].update({"first": "Jules"})
 		resolver = ValueResolver.compile(val)
 		self.assertIsInstance(resolver, ExpressionResolver)
-		self.assertEqual(resolver.resolve(self.context), "Date: 2026 - Jules")
+		self.assertEqual(resolver.resolve(self.context), "Name: Jules - Jules")
 
 	def test_value_resolver_compile_resolver_token_eval(self):
 		# Test resolverToken with expression/resolver instead of config

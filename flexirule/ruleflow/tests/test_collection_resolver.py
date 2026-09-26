@@ -122,6 +122,69 @@ class TestCollectionResolver(unittest.TestCase):
 		with self.assertRaises(MethodExecutionError):
 			res.resolve(ctx_huge)
 
+	def test_sum_operation(self):
+		# Unfiltered sum of qty (10 + 50 + 120 + 30 = 210)
+		res_sum = CollectionResolver(source="doc.items", operation="sum", target_field="qty")
+		self.assertEqual(res_sum.resolve(self.context), 210)
+
+		# Filtered sum (Hardware category: 10 + 120 + 30 = 160)
+		cond = [{"left": {"ref": "row.category"}, "op": "==", "right": {"value": "Hardware"}}]
+		res_filtered_sum = CollectionResolver(
+			source="doc.items", operation="sum", target_field="qty", condition=cond
+		)
+		self.assertEqual(res_filtered_sum.resolve(self.context), 160)
+
+	def test_avg_operation(self):
+		# Unfiltered avg of rate (100 + 200 + 150 + 100) / 4 = 137.5
+		res_avg = CollectionResolver(source="doc.items", operation="avg", target_field="rate")
+		self.assertEqual(res_avg.resolve(self.context), 137.5)
+
+		# Filtered avg (Hardware category: (100 + 150 + 100) / 3 = 116.66666666666667)
+		cond = [{"left": {"ref": "row.category"}, "op": "==", "right": {"value": "Hardware"}}]
+		res_filtered_avg = CollectionResolver(
+			source="doc.items", operation="avg", target_field="rate", condition=cond
+		)
+		self.assertAlmostEqual(res_filtered_avg.resolve(self.context), 116.66666666666667)
+
+	def test_child_aggregation_backward_compatibility(self):
+		# Legacy child_aggregation payload format
+		legacy_payload = {
+			"mode": "resolver",
+			"config": {
+				"kind": "child_aggregation",
+				"agg_table": "doc.items",
+				"agg_field": "qty",
+				"agg_op": "sum",
+			},
+		}
+		compiled = ValueResolver.compile(legacy_payload)
+		self.assertIsInstance(compiled, CollectionResolver)
+		self.assertEqual(compiled.resolve(self.context), 210)
+
+		# Legacy child_aggregation avg
+		legacy_avg_payload = {
+			"kind": "child_aggregation",
+			"agg_table": "doc.items",
+			"agg_field": "rate",
+			"agg_op": "avg",
+		}
+		compiled_avg = ValueResolver.compile_resolver_config(legacy_avg_payload)
+		self.assertEqual(compiled_avg.resolve(self.context), 137.5)
+
+	def test_canonical_two_level_contract(self):
+		canonical_payload = {
+			"family": "collection",
+			"operation": "sum",
+			"config": {
+				"source": "doc.items",
+				"target_field": "qty",
+				"condition": [{"left": {"ref": "row.category"}, "op": "==", "right": {"value": "Hardware"}}],
+			},
+		}
+		compiled = ValueResolver.compile_resolver_config(canonical_payload)
+		self.assertIsInstance(compiled, CollectionResolver)
+		self.assertEqual(compiled.resolve(self.context), 160)
+
 	def test_compiler_integration(self):
 		config_payload = {
 			"mode": "resolver",

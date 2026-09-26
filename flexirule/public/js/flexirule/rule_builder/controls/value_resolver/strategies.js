@@ -26,8 +26,10 @@ export function getStrategy(kind) {
 }
 
 export function getAllStrategies() {
-	return Object.entries(RESOLVER_STRATEGIES).map(([kind, s]) => ({
-		kind,
-		...s,
-	}));
+	return Object.entries(RESOLVER_STRATEGIES)
+		.filter(([kind, s]) => !s.hidden && kind !== "child_aggregation")
+		.map(([kind, s]) => ({
+			kind,
+			...s,
+		}));
 }

@@ -3,9 +3,7 @@ import MathFormulaResolver from "./components/MathFormulaResolver.vue";
 import FetchResolver from "./components/FetchResolver.vue";
 import DateDiffResolver from "./components/DateDiffResolver.vue";
 import AggregationResolver from "./components/AggregationResolver.vue";
-import StringFormulaResolver from "./components/StringFormulaResolver.vue";
-import NormalizationResolver from "./components/NormalizationResolver.vue";
-import FormatResolver from "./components/FormatResolver.vue";
+import TextTransformResolver from "./components/TextTransformResolver.vue";
 import SystemContextResolver from "./components/SystemContextResolver.vue";
 import CollectionResolver from "./components/CollectionResolver.vue";
 
@@ -80,7 +78,7 @@ registerStrategy("date_formula", {
 registerStrategy("collection", {
 	label: __("Collection Query"),
 	description: __(
-		"Filter, search, check, or extract values from child table rows or list variables."
+		"Filter, search, aggregate, check, or extract values from child table rows or list variables."
 	),
 	icon: "fa fa-list-ol",
 	component: CollectionResolver,
@@ -109,7 +107,7 @@ registerStrategy("collection", {
 	compileToCode: (item) => {
 		const src = item.source || "doc.items";
 		const op = (item.operation || "any").toUpperCase();
-		if (["PLUCK", "UNIQUE"].includes(op)) {
+		if (["SUM", "AVG", "PLUCK", "UNIQUE"].includes(op)) {
 			return `{${op}(${src}, "${item.target_field || ""}")}`;
 		}
 		return `{${op}(${src})}`;
@@ -117,7 +115,7 @@ registerStrategy("collection", {
 	compileToLabel: (item) => {
 		const op = (item.operation || "any").toUpperCase();
 		const src = item.source || "?";
-		if (["PLUCK", "UNIQUE"].includes(op)) {
+		if (["SUM", "AVG", "PLUCK", "UNIQUE"].includes(op)) {
 			return `${op}(${src}.${item.target_field || "?"})`;
 		}
 		return `${op}(${src})`;
@@ -127,7 +125,7 @@ registerStrategy("collection", {
 		if (!item.source) {
 			errors.push(__("Source collection is required"));
 		}
-		if (["pluck", "unique"].includes(item.operation) && !item.target_field) {
+		if (["sum", "avg", "pluck", "unique"].includes(item.operation) && !item.target_field) {
 			errors.push(__("Target field is required for this operation"));
 		}
 		return { isValid: errors.length === 0, errors };
@@ -245,8 +243,9 @@ registerStrategy("date_diff", {
 	},
 });
 
-// ─── Aggregation Strategy ───
+// ─── Aggregation Strategy (Legacy) ───
 registerStrategy("child_aggregation", {
+	hidden: true,
 	label: __("Child Table Aggregation"),
 	description: __("Aggregate numeric values from a child table using Sum, Average, or Count."),
 	icon: "fa fa-table",
@@ -286,7 +285,6 @@ registerStrategy("child_aggregation", {
 			if (!item.agg_field) {
 				errors.push(__("Numeric field is required"));
 			} else {
-				// For child tables, we'd need to validate against the child doctype's meta
 				const fields = store.doc_meta[dt];
 				const tableField = fields?.find((f) => f.fieldname === item.agg_table);
 				if (tableField && tableField.options) {
@@ -306,156 +304,136 @@ registerStrategy("child_aggregation", {
 	},
 });
 
-// ─── String Formula Strategy ───
-registerStrategy("string_formula", {
-	label: __("String Manipulation"),
-	description: __("Combine text fields, change casing, or format currency strings."),
-	icon: "fa fa-font",
-	component: StringFormulaResolver,
-	defaultState: () => ({
-		str_op: "concat",
-		str_a_type: "field",
-		str_a: "",
-		str_b_type: "constant",
-		str_b: "",
-	}),
-	compileToCode: (item) => {
-		const valA =
-			item.str_a_type === "field"
-				? toDocExpression(item.str_a || '""')
-				: `"${item.str_a || ""}"`;
-		const valB =
-			item.str_b_type === "field"
-				? toDocExpression(item.str_b || '""')
-				: `"${item.str_b || ""}"`;
-
-		if (item.str_op === "concat") return `{str(${valA} or "") + str(${valB} or "")}`;
-		if (item.str_op === "uppercase") return `{str(${valA} or "").upper()}`;
-		if (item.str_op === "lowercase") return `{str(${valA} or "").lower()}`;
-		if (item.str_op === "fmt_money")
-			return `{frappe.utils.fmt_money(${valA}, currency=${valB})}`;
-		return `{${valA}}`;
-	},
-	compileToLabel: (item) => {
-		const ops = {
-			concat: __("Concat"),
-			fmt_money: __("Fmt Money"),
-			uppercase: __("Upper"),
-			lowercase: __("Lower"),
-		};
-		const op = ops[item.str_op] || __("String");
-		const valA = item.str_a_type === "field" ? item.str_a : `"${item.str_a || ""}"`;
-		const valB = item.str_b_type === "field" ? item.str_b : `"${item.str_b || ""}"`;
-
-		if (["concat", "fmt_money"].includes(item.str_op)) {
-			return `${op}(${valA || "?"}, ${valB || "?"})`;
-		}
-		return `${op}(${valA || "?"})`;
-	},
-	validate: (item, props) => {
-		const errors = [];
-		const store = useStore();
-		const dt = store.rule_doc?.document_type || props.doctype;
-
-		if (item.str_a_type === "field") {
-			if (!item.str_a) {
-				errors.push(__("Value A field is required"));
-			} else if (!validateField(item.str_a, dt, store)) {
-				errors.push(frappe.utils.format(__("Field '{0}' not found"), item.str_a));
-			}
-		}
-
-		if (item.str_b_type === "field" && ["concat", "fmt_money"].includes(item.str_op)) {
-			if (!item.str_b) {
-				errors.push(__("Value B field is required"));
-			} else if (!validateField(item.str_b, dt, store)) {
-				errors.push(frappe.utils.format(__("Field '{0}' not found"), item.str_b));
-			}
-		}
-		return { isValid: errors.length === 0, errors };
-	},
-});
-
-// ─── Normalization Strategy ───
-registerStrategy("normalization", {
-	label: __("Normalization"),
+// ─── Text Transform Strategy ───
+registerStrategy("text", {
+	label: __("Text Transform"),
 	description: __(
-		"Clean up text data by trimming whitespace, changing case, or converting to slug/snake case."
+		"Combine text fields, change casing, apply normalization pipelines, or format text using templates."
 	),
-	icon: "fa fa-refresh",
-	component: NormalizationResolver,
+	icon: "fa fa-font",
+	component: TextTransformResolver,
 	defaultState: (props) => {
 		const fieldname = props.context?.fieldname || props.context?.target;
+		const cleanField = fieldname ? String(fieldname).replace(/^(doc|vars)\./, "") : "";
 		return {
-			norm_field: fieldname ? String(fieldname).replace(/^(doc|vars)\./, "") : "",
-			norm_profile: "Custom",
-			norm_pipeline: ["trim"],
+			operation: "combine",
+			config: {
+				str_a_type: "field",
+				str_a: cleanField,
+				str_b_type: "constant",
+				str_b: "",
+				field: cleanField,
+				case_mode: "uppercase",
+				norm_field: cleanField,
+				norm_profile: "Custom",
+				norm_pipeline: ["trim"],
+				fmt_field: cleanField,
+				fmt_config: "",
+			},
 		};
 	},
 	compileToCode: (item) => {
-		const f = item.norm_field ? toDocExpression(item.norm_field) : '""';
-		if (item.norm_profile && item.norm_profile !== "Custom") {
-			return `{flexirule.ruleflow.utils.normalization.execute_normalization_pipeline(${f}, profile="${item.norm_profile}")["normalized_value"]}`;
+		const op = item.operation || "combine";
+		const cfg = item.config || {};
+
+		if (op === "combine") {
+			const valA =
+				cfg.str_a_type === "field"
+					? toDocExpression(cfg.str_a || '""')
+					: `"${cfg.str_a || ""}"`;
+			const valB =
+				cfg.str_b_type === "field"
+					? toDocExpression(cfg.str_b || '""')
+					: `"${cfg.str_b || ""}"`;
+			return `{str(${valA} or "") + str(${valB} or "")}`;
 		}
-		const pipeline = JSON.stringify(item.norm_pipeline || []);
-		return `{flexirule.ruleflow.utils.normalization.execute_normalization_pipeline(${f}, pipeline=${pipeline})["normalized_value"]}`;
+
+		if (op === "case") {
+			const f = cfg.field ? toDocExpression(cfg.field) : '""';
+			const mode = cfg.case_mode || "uppercase";
+			if (mode === "uppercase") return `{str(${f} or "").upper()}`;
+			if (mode === "lowercase") return `{str(${f} or "").lower()}`;
+			if (mode === "titlecase") return `{str(${f} or "").title()}`;
+			return `{flexirule.ruleflow.utils.normalization.execute_normalization_pipeline(${f}, pipeline=["${mode}"])["normalized_value"]}`;
+		}
+
+		if (op === "normalize") {
+			const f = cfg.norm_field ? toDocExpression(cfg.norm_field) : '""';
+			if (cfg.norm_profile && cfg.norm_profile !== "Custom") {
+				return `{flexirule.ruleflow.utils.normalization.execute_normalization_pipeline(${f}, profile="${cfg.norm_profile}")["normalized_value"]}`;
+			}
+			const pipeline = JSON.stringify(cfg.norm_pipeline || []);
+			return `{flexirule.ruleflow.utils.normalization.execute_normalization_pipeline(${f}, pipeline=${pipeline})["normalized_value"]}`;
+		}
+
+		if (op === "format") {
+			const f = cfg.fmt_field ? toDocExpression(cfg.fmt_field) : '""';
+			const tmpl = cfg.fmt_config || "";
+			return `{("${tmpl}").format(${f})}`;
+		}
+
+		return '""';
 	},
 	compileToLabel: (item) => {
-		const source = item.norm_field || "?";
-		if (item.norm_profile && item.norm_profile !== "Custom") {
-			return `${__("Normalize")}: ${source} (${item.norm_profile})`;
+		const op = item.operation || "combine";
+		const cfg = item.config || {};
+
+		if (op === "combine") {
+			const a = cfg.str_a_type === "field" ? cfg.str_a : `"${cfg.str_a || ""}"`;
+			const b = cfg.str_b_type === "field" ? cfg.str_b : `"${cfg.str_b || ""}"`;
+			return `Combine(${a || "?"}, ${b || "?"})`;
 		}
-		const steps = (item.norm_pipeline || []).length;
-		return `${__("Normalize")}: ${source} (${steps} ${__("steps")})`;
+
+		if (op === "case") {
+			return `Case[${cfg.case_mode || "upper"}](${cfg.field || "?"})`;
+		}
+
+		if (op === "normalize") {
+			const src = cfg.norm_field || "?";
+			if (cfg.norm_profile && cfg.norm_profile !== "Custom") {
+				return `Normalize: ${src} (${cfg.norm_profile})`;
+			}
+			return `Normalize: ${src} (${(cfg.norm_pipeline || []).length} steps)`;
+		}
+
+		if (op === "format") {
+			return `Format(${cfg.fmt_field || "?"})`;
+		}
+
+		return `Text Transform`;
 	},
 	validate: (item, props) => {
 		const errors = [];
 		const store = useStore();
 		const dt = store.rule_doc?.document_type || props.doctype;
+		const op = item.operation || "combine";
+		const cfg = item.config || {};
 
-		if (!item.norm_field) {
-			errors.push(__("Field is required"));
-		} else if (!validateField(item.norm_field, dt, store)) {
-			errors.push(frappe.utils.format(__("Field '{0}' not found"), item.norm_field));
+		if (op === "combine") {
+			if (cfg.str_a_type === "field") {
+				if (!cfg.str_a) errors.push(__("Value A field is required"));
+				else if (!validateField(cfg.str_a, dt, store))
+					errors.push(frappe.utils.format(__("Field '{0}' not found"), cfg.str_a));
+			}
+			if (cfg.str_b_type === "field") {
+				if (!cfg.str_b) errors.push(__("Value B field is required"));
+				else if (!validateField(cfg.str_b, dt, store))
+					errors.push(frappe.utils.format(__("Field '{0}' not found"), cfg.str_b));
+			}
+		} else if (op === "case") {
+			if (!cfg.field) errors.push(__("Target field is required"));
+			else if (!validateField(cfg.field, dt, store))
+				errors.push(frappe.utils.format(__("Field '{0}' not found"), cfg.field));
+		} else if (op === "normalize") {
+			if (!cfg.norm_field) errors.push(__("Field is required"));
+			else if (!validateField(cfg.norm_field, dt, store))
+				errors.push(frappe.utils.format(__("Field '{0}' not found"), cfg.norm_field));
+		} else if (op === "format") {
+			if (!cfg.fmt_field) errors.push(__("Field is required"));
+			else if (!validateField(cfg.fmt_field, dt, store))
+				errors.push(frappe.utils.format(__("Field '{0}' not found"), cfg.fmt_field));
 		}
-		return { isValid: errors.length === 0, errors };
-	},
-});
 
-// ─── Format Strategy ───
-registerStrategy("format", {
-	label: __("Format"),
-	icon: "fa fa-paint-brush",
-	component: FormatResolver,
-	defaultState: (props) => {
-		const fieldname = props.context?.fieldname || props.context?.target;
-		return {
-			fmt_op: "format_date",
-			fmt_field: fieldname ? String(fieldname).replace(/^(doc|vars)\./, "") : "",
-			fmt_config: "",
-		};
-	},
-	compileToCode: (item) => {
-		const f = item.fmt_field ? toDocExpression(item.fmt_field) : '""';
-		const cfg = item.fmt_config || "";
-		if (item.fmt_op === "format_date") return `{frappe.utils.format_date(${f}, "${cfg}")}`;
-		if (item.fmt_op === "fmt_money") {
-			const curr = cfg.includes(".") || cfg.includes("doc") ? cfg : `"${cfg}"`;
-			return `{frappe.utils.fmt_money(${f}, currency=${curr})}`;
-		}
-		if (item.fmt_op === "format") return `{("${cfg}").format(${f})}`;
-	},
-	compileToLabel: (item) => `${__(item.fmt_op)}(${item.fmt_field || "?"})`,
-	validate: (item, props) => {
-		const errors = [];
-		const store = useStore();
-		const dt = store.rule_doc?.document_type || props.doctype;
-
-		if (!item.fmt_field) {
-			errors.push(__("Field is required"));
-		} else if (!validateField(item.fmt_field, dt, store)) {
-			errors.push(frappe.utils.format(__("Field '{0}' not found"), item.fmt_field));
-		}
 		return { isValid: errors.length === 0, errors };
 	},
 });
