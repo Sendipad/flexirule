@@ -38,11 +38,11 @@ class TestValueResolversComplex(FrappeTestCase):
 			"vars": {"test_var": "test_val"},
 		}
 
-	def test_date_family_resolver(self):
-		# 1. Date Formula (calculate) via canonical family compile
+	def test_date_time_family_resolver(self):
+		# 1. Date & Time Formula (calculate) via canonical family compile
 		with patch("frappe.utils.nowdate", return_value="2026-01-01"):
 			val_calc = {
-				"family": "date",
+				"family": "date_time",
 				"operation": "calculate",
 				"config": {
 					"base_type": "today",
@@ -56,7 +56,7 @@ class TestValueResolversComplex(FrappeTestCase):
 
 		# From field + 1 month
 		val_calc_field = {
-			"family": "date",
+			"family": "date_time",
 			"operation": "calculate",
 			"config": {
 				"base_type": "doc_field",
@@ -69,9 +69,9 @@ class TestValueResolversComplex(FrappeTestCase):
 		resolver = ValueResolver.compile_resolver_config(val_calc_field)
 		self.assertEqual(str(resolver.resolve(self.context)), "2026-02-01")
 
-		# 2. Date Difference (diff) via canonical family compile
+		# 2. Date & Time Difference (diff) via canonical family compile
 		val_diff = {
-			"family": "date",
+			"family": "date_time",
 			"operation": "diff",
 			"config": {
 				"diff_start_type": "doc_field",
@@ -85,9 +85,9 @@ class TestValueResolversComplex(FrappeTestCase):
 		resolver = ValueResolver.compile_resolver_config(val_diff)
 		self.assertEqual(resolver.resolve(self.context), 10)
 
-		# 3. Date Format (format) via canonical family compile
+		# 3. Date & Time Format (format) via canonical family compile
 		val_fmt = {
-			"family": "date",
+			"family": "date_time",
 			"operation": "format",
 			"config": {
 				"fmt_field": "doc.creation",
