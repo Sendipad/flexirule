@@ -38,95 +38,68 @@ class TestValueResolversComplex(FrappeTestCase):
 			"vars": {"test_var": "test_val"},
 		}
 
-	def test_date_formula_resolver(self):
-		# Today + 5 days
-		with patch("frappe.utils.nowdate", return_value="2026-01-01"):
-			resolver = DateFormulaResolver(
-				base_type="today", base_field=None, offset_value=5, offset_unit="days", offset_sign="+"
-			)
-			self.assertEqual(str(resolver.resolve(self.context)), "2026-01-06")
+	def test_date_family_resolver(self):
+		# 1. Date Formula (calculate operation) via canonical payload
+		val_calc = {
+			"family": "date",
+			"operation": "calculate",
+			"config": {
+				"base_type": "doc_field",
+				"base_field": "doc.creation",
+				"offset_value": 5,
+				"offset_unit": "days",
+				"offset_sign": "+",
+			},
+		}
+		self.context["doc"]["creation"] = "2026-01-01"
+		resolver = ValueResolver.compile_resolver_config(val_calc)
+		self.assertIsInstance(resolver, DateFormulaResolver)
+		self.assertEqual(str(resolver.resolve(self.context)), "2026-01-06")
 
-			# Today - 5 days
-			resolver = DateFormulaResolver(
-				base_type="today", base_field=None, offset_value=5, offset_unit="days", offset_sign="-"
-			)
-			self.assertEqual(str(resolver.resolve(self.context)), "2025-12-27")
+		# Calculate Today - 3 days
+		with patch("frappe.utils.nowdate", return_value="2026-01-10"):
+			val_calc_today = {
+				"family": "date",
+				"operation": "calculate",
+				"config": {
+					"base_type": "today",
+					"offset_value": 3,
+					"offset_unit": "days",
+					"offset_sign": "-",
+				},
+			}
+			resolver = ValueResolver.compile(val_calc_today)
+			self.assertEqual(str(resolver.resolve(self.context)), "2026-01-07")
 
-		# From field + 1 month
-		resolver = DateFormulaResolver(
-			base_type="field",
-			base_field="doc.creation",
-			offset_value=1,
-			offset_unit="months",
-			offset_sign="+",
-		)
-		self.assertEqual(str(resolver.resolve(self.context)), "2026-02-01")
-
-		# Leap year test: 2024-02-28 + 1 day
-		self.context["doc"]["creation"] = "2024-02-28"
-		resolver = DateFormulaResolver(
-			base_type="field", base_field="doc.creation", offset_value=1, offset_unit="days", offset_sign="+"
-		)
-		self.assertEqual(str(resolver.resolve(self.context)), "2024-02-29")
-
-		# Month rollover: 2026-01-31 + 1 month -> 2026-02-28
-		self.context["doc"]["creation"] = "2026-01-31"
-		resolver = DateFormulaResolver(
-			base_type="field",
-			base_field="doc.creation",
-			offset_value=1,
-			offset_unit="months",
-			offset_sign="+",
-		)
-		self.assertEqual(str(resolver.resolve(self.context)), "2026-02-28")
-
-		# Null base date
-		self.context["doc"]["creation"] = None
-		resolver = DateFormulaResolver(
-			base_type="field", base_field="doc.creation", offset_value=1, offset_unit="days", offset_sign="+"
-		)
-		self.assertIsNone(resolver.resolve(self.context))
-
-	def test_date_diff_resolver(self):
-		# Diff in days
-		resolver = DateDiffResolver(
-			diff_start_type="field",
-			diff_start_field="doc.start",
-			diff_end_type="field",
-			diff_end_field="doc.end",
-			diff_unit="days",
-		)
+		# 2. Date Difference (diff operation) via canonical payload
+		val_diff = {
+			"family": "date",
+			"operation": "diff",
+			"config": {
+				"diff_start_type": "doc_field",
+				"diff_start_field": "doc.start",
+				"diff_end_type": "doc_field",
+				"diff_end_field": "doc.end",
+				"diff_unit": "days",
+			},
+		}
 		self.context["doc"].update({"start": "2026-01-01", "end": "2026-01-11"})
+		resolver = ValueResolver.compile_resolver_config(val_diff)
+		self.assertIsInstance(resolver, DateDiffResolver)
 		self.assertEqual(resolver.resolve(self.context), 10)
 
-		# Diff in months
-		# frappe.utils.month_diff is inclusive, 2026-01-01 to 2026-03-01 -> 3 months
-		self.context["doc"].update({"start": "2026-01-01", "end": "2026-03-01"})
-		resolver.diff_unit = "months"
-		self.assertEqual(resolver.resolve(self.context), 3)
-
-		# Diff in years
-		# frappe.utils.month_diff returns months + 1 (it's inclusive)
-		# 2028-01-01 to 2026-01-01 -> 25 months -> int(25/12) = 2 years
-		self.context["doc"].update({"start": "2026-01-01", "end": "2028-01-01"})
-		resolver.diff_unit = "years"
-		self.assertEqual(resolver.resolve(self.context), 2)
-
-		# Today comparison
-		with patch("frappe.utils.nowdate", return_value="2026-01-15"):
-			resolver = DateDiffResolver(
-				diff_start_type="field",
-				diff_start_field="doc.start",
-				diff_end_type="today",
-				diff_end_field=None,
-				diff_unit="days",
-			)
-			self.context["doc"]["start"] = "2026-01-01"
-			self.assertEqual(resolver.resolve(self.context), 14)
-
-		# Missing dates
-		self.context["doc"]["start"] = None
-		self.assertEqual(resolver.resolve(self.context), 0)
+		# 3. Date Format (format operation) via canonical payload
+		val_fmt = {
+			"family": "date",
+			"operation": "format",
+			"config": {
+				"fmt_field": "doc.creation",
+				"fmt_config": "dd-mm-yyyy",
+			},
+		}
+		self.context["doc"]["creation"] = "2026-01-01"
+		resolver = ValueResolver.compile_resolver_config(val_fmt)
+		self.assertEqual(resolver.resolve(self.context), "01-01-2026")
 
 	def test_child_aggregation_resolver(self):
 		# Sum

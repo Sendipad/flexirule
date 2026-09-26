@@ -1,7 +1,6 @@
-import DateFormulaResolver from "./components/DateFormulaResolver.vue";
+import DateResolver from "./components/DateResolver.vue";
 import MathFormulaResolver from "./components/MathFormulaResolver.vue";
 import FetchResolver from "./components/FetchResolver.vue";
-import DateDiffResolver from "./components/DateDiffResolver.vue";
 import AggregationResolver from "./components/AggregationResolver.vue";
 import TextTransformResolver from "./components/TextTransformResolver.vue";
 import SystemContextResolver from "./components/SystemContextResolver.vue";
@@ -11,14 +10,12 @@ import { registerStrategy } from "./strategies";
 import { __, toDocExpression, validateField } from "./utils";
 import { useStore } from "../../stores";
 
-// ─── Date Formula Strategy ───
-registerStrategy("date_formula", {
-	label: __("Date Formula"),
-	description: __(
-		"Calculate a date by adding or subtracting days, months, or years from a base field or today."
-	),
+// ─── Date Strategy ───
+registerStrategy("date", {
+	label: __("Date"),
+	description: __("Calculate dates, measure differences between dates, or format date values."),
 	icon: "fa fa-calendar",
-	component: DateFormulaResolver,
+	component: DateResolver,
 	defaultState: (props) => {
 		const fieldname = props.context?.fieldname || props.context?.target;
 		let baseField = "";
@@ -27,49 +24,144 @@ registerStrategy("date_formula", {
 			baseType = "doc_field";
 			baseField = String(fieldname).replace(/^(doc|vars)\./, "");
 		}
+		const targetFieldtype = props.context?.df?.fieldtype || "";
+		const defaultOp = ["Int", "Float", "Currency", "Percent", "Duration"].includes(
+			targetFieldtype
+		)
+			? "diff"
+			: "calculate";
+
 		return {
-			base_type: baseType,
-			base_field: baseField,
-			offset_sign: "+",
-			offset_value: 0,
-			offset_unit: "days",
+			operation: defaultOp,
+			config: {
+				base_type: baseType,
+				base_field: baseField,
+				offset_sign: "+",
+				offset_value: 0,
+				offset_unit: "days",
+				diff_start_type: "today",
+				diff_start_field: baseField,
+				diff_end_type: "doc_field",
+				diff_end_field: "",
+				diff_unit: "days",
+				fmt_field: baseField,
+				fmt_config: "YYYY-MM-DD",
+			},
 		};
 	},
 	compileToCode: (item) => {
-		const baseExpr =
-			item.base_type === "today"
-				? "frappe.utils.nowdate()"
-				: toDocExpression(item.base_field);
-		let offset = parseInt(item.offset_value || 0, 10);
-		if (item.offset_sign === "-" && offset > 0) offset = -offset;
+		const op = item.operation || "calculate";
+		const cfg = item.config || item;
 
-		if (offset === 0 || !item.offset_unit) return `{${baseExpr}}`;
+		if (op === "calculate") {
+			const baseExpr =
+				cfg.base_type === "today"
+					? "frappe.utils.nowdate()"
+					: toDocExpression(cfg.base_field);
+			let offset = parseInt(cfg.offset_value || 0, 10);
+			if (cfg.offset_sign === "-" && offset > 0) offset = -offset;
 
-		if (item.offset_unit === "days") {
-			return `{frappe.utils.add_days(${baseExpr}, ${offset})}`;
+			if (offset === 0 || !cfg.offset_unit) return `{${baseExpr}}`;
+
+			if (cfg.offset_unit === "days") {
+				return `{frappe.utils.add_days(${baseExpr}, ${offset})}`;
+			}
+			return `{frappe.utils.add_to_date(${baseExpr}, ${cfg.offset_unit}=${offset})}`;
 		}
-		return `{frappe.utils.add_to_date(${baseExpr}, ${item.offset_unit}=${offset})}`;
+
+		if (op === "diff") {
+			const start =
+				cfg.diff_start_type === "today"
+					? "frappe.utils.nowdate()"
+					: toDocExpression(cfg.diff_start_field);
+			const end =
+				cfg.diff_end_type === "today"
+					? "frappe.utils.nowdate()"
+					: toDocExpression(cfg.diff_end_field);
+
+			if (cfg.diff_unit === "days") return `{frappe.utils.date_diff(${end}, ${start})}`;
+			if (cfg.diff_unit === "months") return `{frappe.utils.month_diff(${end}, ${start})}`;
+			return `{int(frappe.utils.month_diff(${end}, ${start}) / 12)}`;
+		}
+
+		if (op === "format") {
+			const f = cfg.fmt_field ? toDocExpression(cfg.fmt_field) : '""';
+			const fmt = cfg.fmt_config || "YYYY-MM-DD";
+			return `{frappe.utils.format_date(${f}, "${fmt}")}`;
+		}
+
+		return '""';
 	},
 	compileToLabel: (item) => {
-		const base = item.base_type === "today" ? __("Today") : item.base_field || __("Field");
-		let offset = parseInt(item.offset_value || 0, 10);
-		if (item.offset_sign === "-" && offset > 0) offset = -offset;
-		if (offset === 0) return `Date: ${base}`;
-		const sign = offset > 0 ? "+" : "";
-		return `Date: ${base} ${sign}${offset} ${item.offset_unit}`;
+		const op = item.operation || "calculate";
+		const cfg = item.config || item;
+
+		if (op === "calculate") {
+			const base = cfg.base_type === "today" ? __("Today") : cfg.base_field || __("Field");
+			let offset = parseInt(cfg.offset_value || 0, 10);
+			if (cfg.offset_sign === "-" && offset > 0) offset = -offset;
+			if (offset === 0) return `Date: ${base}`;
+			const sign = offset > 0 ? "+" : "";
+			return `Date: ${base} ${sign}${offset} ${cfg.offset_unit}`;
+		}
+
+		if (op === "diff") {
+			const start =
+				cfg.diff_start_type === "today" ? __("Today") : cfg.diff_start_field || "?";
+			const end = cfg.diff_end_type === "today" ? __("Today") : cfg.diff_end_field || "?";
+			return `${end} − ${start} (${cfg.diff_unit})`;
+		}
+
+		if (op === "format") {
+			return `FormatDate(${cfg.fmt_field || "?"})`;
+		}
+
+		return `Date`;
 	},
 	validate: (item, props) => {
 		const errors = [];
 		const store = useStore();
 		const dt = store.rule_doc?.document_type || props.doctype;
+		const op = item.operation || "calculate";
+		const cfg = item.config || item;
 
-		if (item.base_type === "doc_field") {
-			if (!item.base_field) {
-				errors.push(__("Base field is required"));
-			} else if (!validateField(item.base_field, dt, store)) {
-				errors.push(frappe.utils.format(__("Base field '{0}' not found"), item.base_field));
+		if (op === "calculate") {
+			if (cfg.base_type === "doc_field") {
+				if (!cfg.base_field) {
+					errors.push(__("Base field is required"));
+				} else if (!validateField(cfg.base_field, dt, store)) {
+					errors.push(
+						frappe.utils.format(__("Base field '{0}' not found"), cfg.base_field)
+					);
+				}
+			}
+		} else if (op === "diff") {
+			if (cfg.diff_start_type === "doc_field") {
+				if (!cfg.diff_start_field) {
+					errors.push(__("Start field is required"));
+				} else if (!validateField(cfg.diff_start_field, dt, store)) {
+					errors.push(
+						frappe.utils.format(__("Start field '{0}' not found"), cfg.diff_start_field)
+					);
+				}
+			}
+			if (cfg.diff_end_type === "doc_field") {
+				if (!cfg.diff_end_field) {
+					errors.push(__("End field is required"));
+				} else if (!validateField(cfg.diff_end_field, dt, store)) {
+					errors.push(
+						frappe.utils.format(__("End field '{0}' not found"), cfg.diff_end_field)
+					);
+				}
+			}
+		} else if (op === "format") {
+			if (!cfg.fmt_field) {
+				errors.push(__("Date field is required"));
+			} else if (!validateField(cfg.fmt_field, dt, store)) {
+				errors.push(frappe.utils.format(__("Field '{0}' not found"), cfg.fmt_field));
 			}
 		}
+
 		return { isValid: errors.length === 0, errors };
 	},
 });
@@ -178,65 +270,6 @@ registerStrategy("math_formula", {
 				errors.push(__("Field B is required"));
 			} else if (!validateField(item.field_b, dt, store)) {
 				errors.push(frappe.utils.format(__("Field B '{0}' not found"), item.field_b));
-			}
-		}
-		return { isValid: errors.length === 0, errors };
-	},
-});
-
-// ─── Date Diff Strategy ───
-registerStrategy("date_diff", {
-	label: __("Date Difference"),
-	description: __("Calculate the time difference between two dates in days, months, or years."),
-	icon: "fa fa-calendar-minus-o",
-	component: DateDiffResolver,
-	defaultState: () => ({
-		diff_start_type: "today",
-		diff_start_field: "",
-		diff_end_type: "doc_field",
-		diff_end_field: "",
-		diff_unit: "days",
-	}),
-	compileToCode: (item) => {
-		const start =
-			item.diff_start_type === "today"
-				? "frappe.utils.nowdate()"
-				: toDocExpression(item.diff_start_field);
-		const end =
-			item.diff_end_type === "today"
-				? "frappe.utils.nowdate()"
-				: toDocExpression(item.diff_end_field);
-
-		if (item.diff_unit === "days") return `{frappe.utils.date_diff(${end}, ${start})}`;
-		if (item.diff_unit === "months") return `{frappe.utils.month_diff(${end}, ${start})}`;
-		return `{int(frappe.utils.month_diff(${end}, ${start}) / 12)}`;
-	},
-	compileToLabel: (item) => {
-		const start = item.diff_start_type === "today" ? __("Today") : item.diff_start_field || "?";
-		const end = item.diff_end_type === "today" ? __("Today") : item.diff_end_field || "?";
-		return `${end} − ${start} (${item.diff_unit})`;
-	},
-	validate: (item, props) => {
-		const errors = [];
-		const store = useStore();
-		const dt = store.rule_doc?.document_type || props.doctype;
-
-		if (item.diff_start_type === "doc_field") {
-			if (!item.diff_start_field) {
-				errors.push(__("Start field is required"));
-			} else if (!validateField(item.diff_start_field, dt, store)) {
-				errors.push(
-					frappe.utils.format(__("Start field '{0}' not found"), item.diff_start_field)
-				);
-			}
-		}
-		if (item.diff_end_type === "doc_field") {
-			if (!item.diff_end_field) {
-				errors.push(__("End field is required"));
-			} else if (!validateField(item.diff_end_field, dt, store)) {
-				errors.push(
-					frappe.utils.format(__("End field '{0}' not found"), item.diff_end_field)
-				);
 			}
 		}
 		return { isValid: errors.length === 0, errors };

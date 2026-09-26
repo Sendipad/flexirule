@@ -1123,16 +1123,39 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 
 	function legacySourceToExpression(source) {
 		if (!source || typeof source !== "object") return null;
-		const kind = source.kind || "date_formula";
+		const family = source.family || source.kind || "date";
+		const op = source.operation;
 
-		if (kind === "date_formula") {
-			const baseType = source.base_type || "today";
+		if (family === "date" || family === "date_formula") {
+			if (op === "diff" || family === "date_diff") {
+				const cfg = source.config || source;
+				const start =
+					cfg.diff_start_type === "doc_field"
+						? toDocExpression(cfg.diff_start_field || "")
+						: "frappe.utils.nowdate()";
+				const end =
+					cfg.diff_end_type === "doc_field"
+						? toDocExpression(cfg.diff_end_field || "")
+						: "frappe.utils.nowdate()";
+				const unit = cfg.diff_unit || "days";
+				if (unit === "months") return `frappe.utils.month_diff(${end}, ${start})`;
+				if (unit === "years") return `int(frappe.utils.month_diff(${end}, ${start}) / 12)`;
+				return `frappe.utils.date_diff(${end}, ${start})`;
+			}
+			if (op === "format") {
+				const cfg = source.config || source;
+				const f = cfg.fmt_field ? toDocExpression(cfg.fmt_field) : '""';
+				const fmt = cfg.fmt_config || "YYYY-MM-DD";
+				return `frappe.utils.format_date(${f}, "${fmt}")`;
+			}
+			const cfg = source.config || source;
+			const baseType = cfg.base_type || "today";
 			const baseExpr =
 				baseType === "doc_field"
-					? toDocExpression(source.base_field || "")
+					? toDocExpression(cfg.base_field || "")
 					: "frappe.utils.nowdate()";
-			const offset = Number(source.offset_value || 0);
-			const unit = source.offset_unit || "days";
+			const offset = Number(cfg.offset_value || 0);
+			const unit = cfg.offset_unit || "days";
 			if (!offset) return baseExpr;
 			if (unit === "days") {
 				return `frappe.utils.add_days(${baseExpr}, ${offset})`;
@@ -1140,34 +1163,19 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			return `frappe.utils.add_to_date(${baseExpr}, ${unit}=${offset})`;
 		}
 
-		if (kind === "math_formula") {
+		if (family === "math_formula") {
 			const a = source.field_a ? `frappe.utils.flt(${toDocExpression(source.field_a)})` : "0";
 			const b =
 				source.field_b_type === "constant"
 					? String(source.constant_b ?? 0)
 					: source.field_b
-					? `frappe.utils.flt(${toDocExpression(source.field_b)})`
-					: "0";
+						? `frappe.utils.flt(${toDocExpression(source.field_b)})`
+						: "0";
 			const op = source.math_op || "+";
 			const precision = Number.isFinite(Number(source.precision))
 				? Number(source.precision)
 				: 2;
 			return `frappe.utils.flt(${a} ${op} ${b}, ${precision})`;
-		}
-
-		if (kind === "date_diff") {
-			const start =
-				source.diff_start_type === "doc_field"
-					? toDocExpression(source.diff_start_field || "")
-					: "frappe.utils.nowdate()";
-			const end =
-				source.diff_end_type === "doc_field"
-					? toDocExpression(source.diff_end_field || "")
-					: "frappe.utils.nowdate()";
-			const unit = source.diff_unit || "days";
-			if (unit === "months") return `frappe.utils.month_diff(${end}, ${start})`;
-			if (unit === "years") return `int(frappe.utils.month_diff(${end}, ${start}) / 12)`;
-			return `frappe.utils.date_diff(${end}, ${start})`;
 		}
 
 		return null;
@@ -1505,14 +1513,14 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 							actionType: "Process",
 							processName: action.process_name,
 							operation: action.operation,
-					  }) || {}
+						}) || {}
 					: rawConfigData;
 			const conditionPayload =
 				actionTypeRaw === "Condition"
 					? getConditionPayload({
 							config: configData,
 							condition_json: action.condition_json,
-					  })
+						})
 					: null;
 			const effectiveConfig =
 				actionTypeRaw === "Condition"

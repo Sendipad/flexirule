@@ -32,7 +32,15 @@ export function useValueResolver(props, emit) {
 			let kind = val.kind;
 			let innerConfig = val.config && typeof val.config === "object" ? val.config : {};
 
-			if (kind === "child_aggregation" || family === "child_aggregation") {
+			if (family === "date" || kind === "date") {
+				kind = "date";
+				val = {
+					operation: val.operation || innerConfig.operation || "calculate",
+					config: {
+						...(val.config || innerConfig || {}),
+					},
+				};
+			} else if (kind === "child_aggregation" || family === "child_aggregation") {
 				family = "collection";
 				kind = "collection";
 				val = {
@@ -76,7 +84,7 @@ export function useValueResolver(props, emit) {
 				};
 			}
 
-			kind = kind || availableStrategies.value[0]?.kind || "date_formula";
+			kind = kind || availableStrategies.value[0]?.kind || "date";
 			activeKind.value = kind;
 
 			const strategy = getStrategy(kind);
@@ -134,12 +142,20 @@ export function useValueResolver(props, emit) {
 					config: innerConfig || {},
 					kind: "text",
 				};
+			} else if (newKind === "date") {
+				const { operation, config: innerConfig } = newState;
+				config = {
+					family: "date",
+					operation: operation || "calculate",
+					config: innerConfig || {},
+					kind: "date",
+				};
 			} else {
 				config = { ...newState, kind: newKind };
 			}
 
 			const flatStateForCompile =
-				newKind === "collection" || newKind === "text"
+				newKind === "collection" || newKind === "text" || newKind === "date"
 					? { ...newState, kind: newKind }
 					: config;
 
