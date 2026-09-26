@@ -696,7 +696,7 @@ class ValueResolver:
 					fmt_config=inner_dict.get("fmt_config") or config.get("fmt_config", ""),
 				)
 
-		if family == "date" or kind == "date":
+		if family == "date_time" or kind == "date_time":
 			raw_inner = config.get("config")
 			inner_dict = raw_inner if isinstance(raw_inner, dict) else {}
 			op = config.get("operation") or inner_dict.get("operation") or "calculate"

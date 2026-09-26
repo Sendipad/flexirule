@@ -1,4 +1,4 @@
-import DateResolver from "./components/DateResolver.vue";
+import DateTimeResolver from "./components/DateTimeResolver.vue";
 import MathFormulaResolver from "./components/MathFormulaResolver.vue";
 import FetchResolver from "./components/FetchResolver.vue";
 import AggregationResolver from "./components/AggregationResolver.vue";
@@ -10,14 +10,14 @@ import { registerStrategy } from "./strategies";
 import { __, toDocExpression, validateField } from "./utils";
 import { useStore } from "../../stores";
 
-// ─── Date Strategy (Unified Date Family) ───
-registerStrategy("date", {
-	label: __("Date"),
+// ─── Date & Time Strategy (Unified Date & Time Family) ───
+registerStrategy("date_time", {
+	label: __("Date & Time"),
 	description: __(
-		"Calculate dates, compute time differences between dates, or format date values."
+		"Calculate date & time values, compute time differences, or format date/time values."
 	),
 	icon: "fa fa-calendar",
-	component: DateResolver,
+	component: DateTimeResolver,
 	defaultState: (props) => {
 		const fieldname = props.context?.fieldname || props.context?.target;
 		let baseField = "";
@@ -112,7 +112,7 @@ registerStrategy("date", {
 			return `FormatDate(${f})`;
 		}
 
-		return `Date`;
+		return `Date & Time`;
 	},
 	validate: (item, props) => {
 		const errors = [];
@@ -152,7 +152,7 @@ registerStrategy("date", {
 			}
 		} else if (op === "format") {
 			if (!cfg.fmt_field) {
-				errors.push(__("Date field is required"));
+				errors.push(__("Date & Time field is required"));
 			} else if (!validateField(cfg.fmt_field, dt, store)) {
 				errors.push(frappe.utils.format(__("Field '{0}' not found"), cfg.fmt_field));
 			}

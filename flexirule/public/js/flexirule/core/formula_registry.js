@@ -242,10 +242,10 @@ export function getAllowedBuilderKinds(fieldtype) {
 		return ["collection", "fetch", "system_context"];
 	}
 	if (["Date", "Datetime", "Time"].includes(fieldtype)) {
-		return ["date", "fetch", "system_context", "collection"];
+		return ["date_time", "fetch", "system_context", "collection"];
 	}
 	if (["Int", "Float", "Currency", "Percent", "Duration"].includes(fieldtype)) {
-		return ["math_formula", "collection", "date", "fetch", "system_context"];
+		return ["math_formula", "collection", "date_time", "fetch", "system_context"];
 	}
 	if (
 		["Data", "Small Text", "Text", "Long Text", "Text Editor", "Code", "Select"].includes(

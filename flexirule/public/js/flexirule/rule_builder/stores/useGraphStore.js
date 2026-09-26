@@ -1123,11 +1123,11 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 
 	function legacySourceToExpression(source) {
 		if (!source || typeof source !== "object") return null;
-		const kind = source.kind || "date";
+		const kind = source.kind || "date_time";
 
-		if (kind === "date_formula" || kind === "date") {
+		if (kind === "date_time") {
 			const op = source.operation || "calculate";
-			if (op === "diff" || kind === "date_diff") {
+			if (op === "diff") {
 				const start =
 					source.diff_start_type === "doc_field"
 						? toDocExpression(source.diff_start_field || "")
