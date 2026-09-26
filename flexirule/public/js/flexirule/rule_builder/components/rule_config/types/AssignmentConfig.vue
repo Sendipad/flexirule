@@ -433,8 +433,8 @@ watch(
 				if (!config.kind) {
 					const kindMap = {
 						formula: "math_formula",
-						format: "format",
-						normalize: "normalization",
+						format: "text",
+						normalize: "text",
 					};
 					config.kind = kindMap[structuredVal.mode];
 				}
@@ -670,7 +670,7 @@ function clearWhenCondition() {
 }
 function getDefaultResolverKind(target) {
 	const fieldtype = getTargetFieldtype(target);
-	if (!fieldtype) return "string_formula";
+	if (!fieldtype) return "text";
 
 	if (["Int", "Float", "Percent", "Currency"].includes(fieldtype)) {
 		return "math_formula";
@@ -678,7 +678,7 @@ function getDefaultResolverKind(target) {
 	if (["Date", "Datetime"].includes(fieldtype)) {
 		return "date_formula";
 	}
-	return "string_formula";
+	return "text";
 }
 
 function onOperatorChange(index, value) {

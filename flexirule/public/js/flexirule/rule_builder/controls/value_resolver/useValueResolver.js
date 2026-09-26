@@ -27,7 +27,7 @@ export function useValueResolver(props, emit) {
 				val = val.config;
 			}
 
-			// Normalize canonical family / legacy child_aggregation structure
+			// Normalize canonical family / legacy structure
 			let family = val.family;
 			let kind = val.kind;
 			let innerConfig = val.config && typeof val.config === "object" ? val.config : {};
@@ -66,6 +66,14 @@ export function useValueResolver(props, emit) {
 					condition:
 						val.condition !== undefined ? val.condition : innerConfig.condition || null,
 				};
+			} else if (family === "text" || kind === "text") {
+				kind = "text";
+				val = {
+					operation: val.operation || innerConfig.operation || "combine",
+					config: {
+						...(val.config || innerConfig || {}),
+					},
+				};
 			}
 
 			kind = kind || availableStrategies.value[0]?.kind || "date_formula";
@@ -80,7 +88,6 @@ export function useValueResolver(props, emit) {
 				};
 			}
 		} finally {
-			// We delay resetting the flag slightly to allow watchers to skip the first pulse
 			setTimeout(() => {
 				isInitializing.value = false;
 			}, 0);
@@ -119,12 +126,22 @@ export function useValueResolver(props, emit) {
 					},
 					kind: "collection",
 				};
+			} else if (newKind === "text") {
+				const { operation, config: innerConfig } = newState;
+				config = {
+					family: "text",
+					operation: operation || "combine",
+					config: innerConfig || {},
+					kind: "text",
+				};
 			} else {
 				config = { ...newState, kind: newKind };
 			}
 
 			const flatStateForCompile =
-				newKind === "collection" ? { ...newState, kind: "collection" } : config;
+				newKind === "collection" || newKind === "text"
+					? { ...newState, kind: newKind }
+					: config;
 
 			const label = strategy.compileToLabel(flatStateForCompile);
 			const expression = strategy.compileToCode(flatStateForCompile);

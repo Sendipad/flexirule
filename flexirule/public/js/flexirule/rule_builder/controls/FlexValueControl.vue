@@ -494,14 +494,12 @@ const isStaticSupported = computed(() => {
 });
 
 const RESOLVER_LEVEL_KIND_MAP = {
-	basic: ["system_context", "string_formula", "normalization", "format"],
+	basic: ["system_context", "text"],
 	standard: [
 		"date_formula",
 		"date_diff",
 		"system_context",
-		"string_formula",
-		"normalization",
-		"format",
+		"text",
 	],
 	advanced: [
 		"date_formula",
@@ -509,9 +507,7 @@ const RESOLVER_LEVEL_KIND_MAP = {
 		"math_formula",
 		"collection",
 		"system_context",
-		"string_formula",
-		"normalization",
-		"format",
+		"text",
 	],
 	full: null,
 };
@@ -886,15 +882,15 @@ const editor = new Editor({
 					if (isCommand) {
 						const preferredKindMap = {
 							formula: "math_formula",
-							normalize: "normalization",
-							formatter: "format",
-							resolver: "string_formula",
+							normalize: "text",
+							formatter: "text",
+							resolver: "text",
 							fetch: "fetch",
 						};
 						const allowedKinds = Array.isArray(allowedBuilderKinds.value)
 							? allowedBuilderKinds.value
 							: [];
-						let initialKind = preferredKindMap[props.id] || "string_formula";
+						let initialKind = preferredKindMap[props.id] || "text";
 						if (allowedKinds.length && !allowedKinds.includes(initialKind)) {
 							initialKind = allowedKinds[0];
 						}
@@ -975,9 +971,8 @@ function coerceStructuredValue(val) {
 			const config = { ...(val.config || {}) };
 			if (!config.kind) {
 				if (val.mode === "formula") config.kind = "math_formula";
-				if (val.mode === "format") config.kind = "format";
-				if (val.mode === "normalize" || val.mode === "normalization") {
-					config.kind = "normalization";
+				if (["format", "normalize", "normalization"].includes(val.mode)) {
+					config.kind = "text";
 				}
 			}
 			return {
@@ -1231,9 +1226,8 @@ function openTokenEditor(node, pos, typeOverride = null) {
 
 	if (node.type.name === "resolverToken") {
 		const kind = node.attrs.config?.kind;
-		if (["normalization", "format", "fetch"].includes(kind)) {
-			if (kind === "normalization") activeTokenType.value = "normalize";
-			else if (kind === "format") activeTokenType.value = "format";
+		if (["text", "fetch"].includes(kind)) {
+			if (kind === "text") activeTokenType.value = "resolver";
 			else activeTokenType.value = "fetch";
 		} else if (kind?.includes("formula") || kind?.includes("aggregation")) {
 			activeTokenType.value = "formula";
