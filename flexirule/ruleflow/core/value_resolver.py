@@ -700,8 +700,6 @@ class ValueResolver:
 		kind = config.get("kind") or inner_dict.get("kind")
 
 		if family == "collection" or kind == "collection":
-			raw_inner = config.get("config")
-			inner_dict: dict[str, Any] = raw_inner if isinstance(raw_inner, dict) else {}
 			source = inner_dict.get("source") or config.get("source")
 			operation = inner_dict.get("operation") or config.get("operation") or "any"
 			condition = inner_dict.get("condition") if "condition" in inner_dict else config.get("condition")
@@ -714,8 +712,6 @@ class ValueResolver:
 			)
 
 		if kind == "child_aggregation" or family == "child_aggregation":
-			raw_inner = config.get("config")
-			inner_dict = raw_inner if isinstance(raw_inner, dict) else {}
 			source = (
 				inner_dict.get("source")
 				or inner_dict.get("agg_table")
@@ -744,8 +740,6 @@ class ValueResolver:
 			)
 
 		if family == "text" or kind == "text":
-			raw_inner = config.get("config")
-			inner_dict = raw_inner if isinstance(raw_inner, dict) else {}
 			op = config.get("operation") or inner_dict.get("operation") or "combine"
 
 			if op == "combine":
@@ -786,8 +780,6 @@ class ValueResolver:
 				)
 
 		if family == "date_time" or kind == "date_time":
-			raw_inner = config.get("config")
-			inner_dict = raw_inner if isinstance(raw_inner, dict) else {}
 			op = config.get("operation") or inner_dict.get("operation") or "calculate"
 
 			if op == "calculate":
@@ -850,9 +842,6 @@ class ValueResolver:
 				fmt_config=config.get("fmt_config", ""),
 			)
 		if family == "lookup" or kind == "lookup" or kind == "fetch":
-			raw_inner = config.get("config")
-			inner_dict: dict[str, Any] = raw_inner if isinstance(raw_inner, dict) else {}
-
 			doctype_source = inner_dict.get("doctype_source") or config.get("doctype_source")
 			doctype_mode = (
 				inner_dict.get("doctype_mode")
