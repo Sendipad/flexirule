@@ -87,10 +87,12 @@ export function useValueResolver(props, emit) {
 				kind = "lookup";
 				const rawCfg = val.config && typeof val.config === "object" ? val.config : val;
 				val = {
-					doctype_mode: rawCfg.doctype_mode || (rawCfg.doctype_source ? "dynamic" : "static"),
+					doctype_mode:
+						rawCfg.doctype_mode || (rawCfg.doctype_source ? "dynamic" : "static"),
 					target_doctype: rawCfg.target_doctype || rawCfg.linked_doctype || "",
 					doctype_source: rawCfg.doctype_source || "",
-					record_source_type: rawCfg.record_source_type || rawCfg.link_source_type || "doc_field",
+					record_source_type:
+						rawCfg.record_source_type || rawCfg.link_source_type || "doc_field",
 					record_field: rawCfg.record_field || rawCfg.link_field || "",
 					fetch_field: rawCfg.fetch_field || "",
 				};

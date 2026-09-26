@@ -13,7 +13,7 @@
 			</template>
 
 			<div class="d-flex fxr-gap-2 mb-2 align-items-center">
-				<label class="fxr-text-xs text-muted mb-0 mr-2">{{ __('Mode:') }}</label>
+				<label class="fxr-text-xs text-muted mb-0 mr-2">{{ __("Mode:") }}</label>
 				<SelectControl
 					style="width: 220px"
 					v-model="modelValue.doctype_mode"
@@ -108,9 +108,13 @@
 			<ComboBoxControl
 				v-model="modelValue.fetch_field"
 				:options="fetchFieldOptions"
-				:read_only="readOnly || (modelValue.doctype_mode === 'static' && !modelValue.target_doctype)"
+				:read_only="
+					readOnly || (modelValue.doctype_mode === 'static' && !modelValue.target_doctype)
+				"
 				:loading="fetchMetaLoading"
-				:placeholder="fetchMetaLoading ? __('Loading metadata...') : __('Select field to fetch...')"
+				:placeholder="
+					fetchMetaLoading ? __('Loading metadata...') : __('Select field to fetch...')
+				"
 				:allow-custom-value="true"
 				hide-label
 			/>
@@ -256,7 +260,11 @@ watch(
 			if (opt.fieldtype === "Dynamic Link" && opt.options) {
 				props.modelValue.doctype_mode = "dynamic";
 				props.modelValue.doctype_source = opt.options;
-			} else if (opt.fieldtype === "Link" && opt.options && !props.modelValue.target_doctype) {
+			} else if (
+				opt.fieldtype === "Link" &&
+				opt.options &&
+				!props.modelValue.target_doctype
+			) {
 				props.modelValue.doctype_mode = "static";
 				props.modelValue.target_doctype = opt.options;
 			}
