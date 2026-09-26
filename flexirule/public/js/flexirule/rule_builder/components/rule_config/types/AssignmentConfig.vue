@@ -676,7 +676,7 @@ function getDefaultResolverKind(target) {
 		return "math_formula";
 	}
 	if (["Date", "Datetime"].includes(fieldtype)) {
-		return "date_formula";
+		return "date";
 	}
 	return "string_formula";
 }

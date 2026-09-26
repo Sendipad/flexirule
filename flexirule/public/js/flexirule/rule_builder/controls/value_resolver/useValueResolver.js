@@ -27,12 +27,21 @@ export function useValueResolver(props, emit) {
 				val = val.config;
 			}
 
-			// Normalize canonical family / legacy child_aggregation structure
+			// Normalize canonical family / legacy structure
 			let family = val.family;
 			let kind = val.kind;
 			let innerConfig = val.config && typeof val.config === "object" ? val.config : {};
 
-			if (kind === "child_aggregation" || family === "child_aggregation") {
+			if (family === "date" || kind === "date") {
+				kind = "date";
+				const op = val.operation || innerConfig.operation || "calculate";
+				val = {
+					...val,
+					...innerConfig,
+					family: "date",
+					operation: op,
+				};
+			} else if (kind === "child_aggregation" || family === "child_aggregation") {
 				family = "collection";
 				kind = "collection";
 				val = {
@@ -68,7 +77,7 @@ export function useValueResolver(props, emit) {
 				};
 			}
 
-			kind = kind || availableStrategies.value[0]?.kind || "date_formula";
+			kind = kind || availableStrategies.value[0]?.kind || "date";
 			activeKind.value = kind;
 
 			const strategy = getStrategy(kind);
@@ -107,7 +116,15 @@ export function useValueResolver(props, emit) {
 			if (!strategy) return;
 
 			let config;
-			if (newKind === "collection") {
+			if (newKind === "date") {
+				const op = newState.operation || "calculate";
+				config = {
+					family: "date",
+					operation: op,
+					config: { ...newState, family: "date", operation: op },
+					kind: "date",
+				};
+			} else if (newKind === "collection") {
 				const { source, operation, target_field, condition } = newState;
 				config = {
 					family: "collection",
@@ -124,7 +141,9 @@ export function useValueResolver(props, emit) {
 			}
 
 			const flatStateForCompile =
-				newKind === "collection" ? { ...newState, kind: "collection" } : config;
+				newKind === "collection" || newKind === "date"
+					? { ...newState, kind: newKind }
+					: config;
 
 			const label = strategy.compileToLabel(flatStateForCompile);
 			const expression = strategy.compileToCode(flatStateForCompile);

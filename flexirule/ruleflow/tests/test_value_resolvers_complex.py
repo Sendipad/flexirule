@@ -252,3 +252,50 @@ class TestValueResolversComplex(FrappeTestCase):
 		self.context["doc"]["amount"] = 90
 		resolver = ValueResolver.compile(val)
 		self.assertEqual(resolver.resolve(self.context), "100")
+
+	def test_date_family_calculate(self):
+		# Family = "date", operation = "calculate"
+		val = {
+			"family": "date",
+			"operation": "calculate",
+			"config": {
+				"base_type": "today",
+				"offset_value": 5,
+				"offset_unit": "days",
+				"offset_sign": "+",
+			},
+		}
+		with patch("frappe.utils.nowdate", return_value="2026-01-01"):
+			resolver = ValueResolver.compile_resolver_config(val)
+			self.assertEqual(str(resolver.resolve(self.context)), "2026-01-06")
+
+	def test_date_family_diff(self):
+		# Family = "date", operation = "diff"
+		val = {
+			"family": "date",
+			"operation": "diff",
+			"config": {
+				"diff_start_type": "field",
+				"diff_start_field": "doc.start",
+				"diff_end_type": "field",
+				"diff_end_field": "doc.end",
+				"diff_unit": "days",
+			},
+		}
+		self.context["doc"].update({"start": "2026-01-01", "end": "2026-01-11"})
+		resolver = ValueResolver.compile_resolver_config(val)
+		self.assertEqual(resolver.resolve(self.context), 10)
+
+	def test_date_family_format(self):
+		# Family = "date", operation = "format"
+		val = {
+			"family": "date",
+			"operation": "format",
+			"config": {
+				"fmt_field": "doc.creation",
+				"fmt_config": "YYYY",
+			},
+		}
+		self.context["doc"]["creation"] = "2026-05-20"
+		resolver = ValueResolver.compile_resolver_config(val)
+		self.assertEqual(resolver.resolve(self.context), "2026")
