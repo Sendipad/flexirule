@@ -38,8 +38,67 @@ class TestValueResolversComplex(FrappeTestCase):
 			"vars": {"test_var": "test_val"},
 		}
 
+	def test_date_family_resolver(self):
+		# 1. Date Formula (calculate) via canonical family compile
+		with patch("frappe.utils.nowdate", return_value="2026-01-01"):
+			val_calc = {
+				"family": "date",
+				"operation": "calculate",
+				"config": {
+					"base_type": "today",
+					"offset_value": 5,
+					"offset_unit": "days",
+					"offset_sign": "+",
+				},
+			}
+			resolver = ValueResolver.compile_resolver_config(val_calc)
+			self.assertEqual(str(resolver.resolve(self.context)), "2026-01-06")
+
+		# From field + 1 month
+		val_calc_field = {
+			"family": "date",
+			"operation": "calculate",
+			"config": {
+				"base_type": "doc_field",
+				"base_field": "doc.creation",
+				"offset_value": 1,
+				"offset_unit": "months",
+				"offset_sign": "+",
+			},
+		}
+		resolver = ValueResolver.compile_resolver_config(val_calc_field)
+		self.assertEqual(str(resolver.resolve(self.context)), "2026-02-01")
+
+		# 2. Date Difference (diff) via canonical family compile
+		val_diff = {
+			"family": "date",
+			"operation": "diff",
+			"config": {
+				"diff_start_type": "doc_field",
+				"diff_start_field": "doc.start",
+				"diff_end_type": "doc_field",
+				"diff_end_field": "doc.end",
+				"diff_unit": "days",
+			},
+		}
+		self.context["doc"].update({"start": "2026-01-01", "end": "2026-01-11"})
+		resolver = ValueResolver.compile_resolver_config(val_diff)
+		self.assertEqual(resolver.resolve(self.context), 10)
+
+		# 3. Date Format (format) via canonical family compile
+		val_fmt = {
+			"family": "date",
+			"operation": "format",
+			"config": {
+				"fmt_field": "doc.creation",
+				"fmt_config": "YYYY-MM-DD",
+			},
+		}
+		resolver = ValueResolver.compile_resolver_config(val_fmt)
+		self.assertEqual(resolver.resolve(self.context), "2026-01-01")
+
 	def test_date_formula_resolver(self):
-		# Today + 5 days
+		# Direct DateFormulaResolver test
 		with patch("frappe.utils.nowdate", return_value="2026-01-01"):
 			resolver = DateFormulaResolver(
 				base_type="today", base_field=None, offset_value=5, offset_unit="days", offset_sign="+"
@@ -88,7 +147,7 @@ class TestValueResolversComplex(FrappeTestCase):
 		self.assertIsNone(resolver.resolve(self.context))
 
 	def test_date_diff_resolver(self):
-		# Diff in days
+		# Direct DateDiffResolver test
 		resolver = DateDiffResolver(
 			diff_start_type="field",
 			diff_start_field="doc.start",
@@ -100,14 +159,11 @@ class TestValueResolversComplex(FrappeTestCase):
 		self.assertEqual(resolver.resolve(self.context), 10)
 
 		# Diff in months
-		# frappe.utils.month_diff is inclusive, 2026-01-01 to 2026-03-01 -> 3 months
 		self.context["doc"].update({"start": "2026-01-01", "end": "2026-03-01"})
 		resolver.diff_unit = "months"
 		self.assertEqual(resolver.resolve(self.context), 3)
 
 		# Diff in years
-		# frappe.utils.month_diff returns months + 1 (it's inclusive)
-		# 2028-01-01 to 2026-01-01 -> 25 months -> int(25/12) = 2 years
 		self.context["doc"].update({"start": "2026-01-01", "end": "2028-01-01"})
 		resolver.diff_unit = "years"
 		self.assertEqual(resolver.resolve(self.context), 2)
