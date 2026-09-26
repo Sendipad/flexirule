@@ -82,6 +82,18 @@ export function useValueResolver(props, emit) {
 						...(val.config || innerConfig || {}),
 					},
 				};
+			} else if (family === "lookup" || kind === "lookup" || kind === "fetch") {
+				family = "lookup";
+				kind = "lookup";
+				const rawCfg = val.config && typeof val.config === "object" ? val.config : val;
+				val = {
+					doctype_mode: rawCfg.doctype_mode || (rawCfg.doctype_source ? "dynamic" : "static"),
+					target_doctype: rawCfg.target_doctype || rawCfg.linked_doctype || "",
+					doctype_source: rawCfg.doctype_source || "",
+					record_source_type: rawCfg.record_source_type || rawCfg.link_source_type || "doc_field",
+					record_field: rawCfg.record_field || rawCfg.link_field || "",
+					fetch_field: rawCfg.fetch_field || "",
+				};
 			}
 
 			kind = kind || availableStrategies.value[0]?.kind || "date_time";
@@ -150,12 +162,37 @@ export function useValueResolver(props, emit) {
 					config: innerConfig || {},
 					kind: "date_time",
 				};
+			} else if (newKind === "lookup") {
+				const {
+					doctype_mode,
+					target_doctype,
+					doctype_source,
+					record_source_type,
+					record_field,
+					fetch_field,
+				} = newState;
+				config = {
+					family: "lookup",
+					operation: "fetch",
+					kind: "lookup",
+					config: {
+						doctype_mode: doctype_mode || "static",
+						target_doctype: target_doctype || "",
+						doctype_source: doctype_source || "",
+						record_source_type: record_source_type || "doc_field",
+						record_field: record_field || "",
+						fetch_field: fetch_field || "",
+					},
+				};
 			} else {
 				config = { ...newState, kind: newKind };
 			}
 
 			const flatStateForCompile =
-				newKind === "collection" || newKind === "text" || newKind === "date_time"
+				newKind === "collection" ||
+				newKind === "text" ||
+				newKind === "date_time" ||
+				newKind === "lookup"
 					? { ...newState, kind: newKind }
 					: config;
 

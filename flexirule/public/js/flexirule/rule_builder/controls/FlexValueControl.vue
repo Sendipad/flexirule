@@ -873,7 +873,8 @@ const editor = new Editor({
 							normalize: "text",
 							formatter: "text",
 							resolver: "text",
-							fetch: "fetch",
+							fetch: "lookup",
+							lookup: "lookup",
 						};
 						const allowedKinds = Array.isArray(allowedBuilderKinds.value)
 							? allowedBuilderKinds.value
@@ -1194,7 +1195,8 @@ const activeTokenPresentation = computed(() => {
 		resolver: { title: __("Configure Resolver"), icon: "fa fa-bolt" },
 		normalize: { title: __("Configure Normalization"), icon: "fa fa-refresh" },
 		format: { title: __("Configure Format"), icon: "fa fa-paint-brush" },
-		fetch: { title: __("Fetch From Link"), icon: "fa fa-link" },
+		fetch: { title: __("Record Lookup"), icon: "fa fa-search" },
+		lookup: { title: __("Record Lookup"), icon: "fa fa-search" },
 		json: { title: __("JSON Editor"), icon: "fa fa-code" },
 	};
 	return map[activeTokenType.value] || { title: __("Token Configuration"), icon: "fa fa-cog" };
