@@ -507,7 +507,7 @@ const RESOLVER_LEVEL_KIND_MAP = {
 		"date_formula",
 		"date_diff",
 		"math_formula",
-		"child_aggregation",
+		"collection",
 		"system_context",
 		"string_formula",
 		"normalization",

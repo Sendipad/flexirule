@@ -245,8 +245,9 @@ registerStrategy("date_diff", {
 	},
 });
 
-// ─── Aggregation Strategy ───
+// ─── Aggregation Strategy (Legacy) ───
 registerStrategy("child_aggregation", {
+	hidden: true,
 	label: __("Child Table Aggregation"),
 	description: __("Aggregate numeric values from a child table using Sum, Average, or Count."),
 	icon: "fa fa-table",
