@@ -7,15 +7,18 @@ Enterprise documentation for FlexiRule, a metadata-driven automation and rules o
 title: Start (Entry Action)
 url: https://sendipad.github.io/flexirule/action-type/entry-action/
 lastmod: 2026-09-27
-summary: The entry root node of every visual rule execution graph.
+summary: The starting root node on every visual rule canvas.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Start (Entry Action) Action# The Start node (internal handler: simple_actions.EntryActionHandler) serves as the immutable root node of every visual rule canvas. It initializes runtime context (@doc, @old_doc, @vars, @system) when a rule is triggered.
-1. When to Use# Automatically present as the mandatory starting node on every rule canvas. Serves as the anchor point from which execution graph connections begin. 2. Configuration# Automatic Initialization: Requires no manual configuration. Fast Trigger Filters: Trigger filters (watched_fields and trigger_condition JSON) configured on the Rule header evaluate before loading the Start node. 3. Output# Context Payload: Exposes @doc (trigger document), @old_doc (pre-event state), @vars (initialized context dictionary), and @system (session user/time). Execution Path: Directs execution down its primary outbound connection edge. 4. Example# Trigger Event: Sales Invoice Before Save. Start Node: Initializes @doc with current form data. Outbound Port: Connects directly to Check or Query Records block. 5. Performance Notes# Zero Latency: Context pointer binding occurs instantly in $O(1)$ time upon rule instantiation. 6. Common Mistakes# Attempting to Delete Start Node: The Start node is mandatory and cannot be deleted from the rule canvas. Confusing Trigger Condition with Check Node: Putting complex multi-node branching into trigger conditions instead of connecting a Check (Condition) node after Start. 
+Start Node# The Start node is the mandatory starting point of every visual rule canvas. It initializes rule data when a triggering event occurs and directs execution to your first action node.
+1. What is it?# Every rule canvas begins with a Start node. It represents the entry point when a rule is triggered (such as when a document is saved or submitted). It makes document data (@doc), historical pre-event data (@old_doc), variables (@vars), and system context (@system) available to all downstream actions.
+Start (Event Trigger) ──→ Check / Set Value / Query Records 2. How it Works# Automatic Presence: The Start node is created automatically whenever you create a new rule. It cannot be deleted. No Manual Configuration: It requires no manual configuration settings on the canvas. Outbound Edge: Connect its outbound port directly to your rule&amp;rsquo;s first action (such as a Check or Query Records block). 3. Available Data Provided at Start# When execution begins at the Start node, the following context data is made available through the Smart Value Selector:
+Category Description Document Fields (@doc) The current values of the document that triggered the rule. Previous Values (@old_doc) Document values prior to the current save/update (useful for change tracking). System Info (@system) Active session user, timestamp, and company information. Variables (@vars) Temporary rule variables available for storage throughout execution. 4. Practical Example# Trigger Event: Set rule header trigger to Sales Invoice on Before Save. Start Node: Automatically initializes with form field values when a user clicks Save. First Connection: Connect the Start node&amp;rsquo;s outbound port directly to a Check or Set Value block. 5. Related Features# Rule Lifecycle: Understand how triggers initiate rule execution. Canvas: Learn how to build visual flows starting from the Start node. 6. Developer &amp;amp; Technical Details# For graph traversal bootstrapping and context initialization mechanics:
+Entry Action Architecture Reference 
 
 ---
 title: API Reference
@@ -80,36 +83,34 @@ Debug View Return Result Examples# For more information on how to build …
 ---
 title: Create New
 url: https://sendipad.github.io/flexirule/action-type/update-record/create-new/
-lastmod: 2026-07-05
-summary: Generating new documents automatically via rule logic.
+lastmod: 2026-09-27
+summary: Generate new records automatically using UI field mappings in FlexiRule.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Create New Record# This mode allows FlexiRule to generate brand-new records in any DocType.
-Field Mappings# You define how the new document&amp;rsquo;s fields should be populated:
-Source: Where the data comes from (doc.field, vars.variable, or a static &#39;String&#39;). Target: The fieldname on the new document. Table Mappings (Child Tables)# You can also populate child tables (like Items in a Sales Order).
-Source Collection: A list of items (e.g., doc.items). Row Mapping: Define how each row in the source list maps to a row in the new document&amp;rsquo;s child table. Example# Scenario: Automatically create a &amp;ldquo;Project&amp;rdquo; when a &amp;ldquo;Sales Order&amp;rdquo; is submitted.
-Target DocType: Project. Field Mapping: project_name ← doc.name customer ← doc.customer Condition: Only if doc.order_type is &amp;ldquo;Project-Based&amp;rdquo;. 
+Create New Record# The Create New Record mode allows FlexiRule to generate brand-new records automatically in any DocType.
+1. Field Mappings# In the UI configuration grid, map how the new document&amp;rsquo;s fields should be populated:
+Target Field: Select the field on the new document. Value: Select the source value using the Smart Value Selector (a current document field @doc.field, rule variable @vars.variable, or static text). 2. Child Table Mappings# You can also populate child tables on the new document (such as line items on a new Sales Order):
+Source Collection: Select a source child table (e.g., Items or @doc.items) using the Smart Value Selector. Row Mapping: Map fields from each source row to fields in the target child table. 3. Practical Example# Scenario: Automatically Create a Project when a Sales Order is Submitted# Add an Update Record block and set Operation to Create New. Target DocType: Select Project. Field Mappings: Project Name ← Select Project Name or @doc.title using Smart Value Selector. Customer ← Select Customer (@doc.customer) using Smart Value Selector. Condition: Add a Check action prior to creation to verify Order Type == &amp;quot;Project-Based&amp;quot;. 
 
 ---
 title: Email
 url: https://sendipad.github.io/flexirule/action-type/notify/email/
-lastmod: 2026-07-05
-summary: Sending automated emails with attachments and dynamic templates.
+lastmod: 2026-09-27
+summary: Configure automated emails with attachments and dynamic templates in FlexiRule.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Email Notification# The Email mode of the Notify action is the most common way to send information to customers and external stakeholders.
-Configuration# 1. Recipients# You can specify recipients in three ways:
-Static: Enter a single email or a comma-separated list. Dynamic Variable: Use {{ doc.contact_email }} or {{ vars.manager_email }}. User Link: Select a User Link field from your DocType. 2. Subject and Message# Both fields support Jinja2 templates.
-Example Subject: Order Confirmation: {{ doc.name }} Example Message: Dear {{ doc.customer }},&amp;lt;br&amp;gt; Your order placed on {{ doc.posting_date }} has been received. 3. Attachments# Attach PDF: Generates a PDF of the triggering document using its default print format and attaches it to the email. Execution Behavior# Emails are added to the Email Queue in Frappe. They are not sent instantly by the web server but are picked up by the background worker (usually every minute).
-
+Email Notification# The Email channel in the Notify action allows you to send automated emails to customers, suppliers, and internal users.
+1. How to Configure Email Notifications# Recipients# Choose recipients using three methods in the UI:
+Static List: Enter one or more email addresses. Dynamic Field / Variable: Use the Smart Value Selector to select an email field from the document (e.g., @doc.contact_email) or a variable (@vars.manager_email). User / Role: Select specific system users or roles. Subject &amp;amp; Message# Compose subjects and body content using text and field tags selected through the Smart Value Selector:
+Subject: &amp;quot;Order Confirmation: {doc.name}&amp;quot; Message: Insert document fields like Customer Name (@doc.customer) or Date (@doc.posting_date) directly into the body text. Attachments# Attach PDF: Toggle on to generate and attach a PDF of the triggering document using its print format. 2. Practical Example# Add Notify action and select Email channel. Recipients: Open Smart Value Selector → Select @doc.contact_email. Subject: &amp;quot;Invoice {doc.name} Payment Received&amp;quot;. Attach PDF: Enable PDF attachment. 
 
 ---
 title: Installation Guide
@@ -706,19 +707,18 @@ actions: read, implement, integrate, troubleshoot, improve
 ---
 title: Update Existing
 url: https://sendipad.github.io/flexirule/action-type/update-record/update-existing/
-lastmod: 2026-07-05
-summary: Modifying specific records in the system.
+lastmod: 2026-09-27
+summary: Modify specific existing database records using UI field mappings.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Update Existing Record# Use this mode to change fields on a document that already exists in the database.
-Identifying the Document# You must tell FlexiRule which record to update:
-Document Name: A fixed name (e.g., PROJ-001). Dynamic Expression: A path to the name (e.g., doc.linked_project). Partial Updates# Unlike &amp;ldquo;Create New&amp;rdquo;, you only need to map the fields you want to change. All other fields on the existing record will remain exactly as they are.
-Example# Scenario: When a &amp;ldquo;Task&amp;rdquo; is completed, update its parent &amp;ldquo;Project&amp;rdquo; status.
-Target DocType: Project. Document Name: doc.project. Field Mapping: status ← &#39;In Progress&#39; 
+Update Existing Record# Use Update Existing Record mode to change field values on records that already exist in the database.
+1. Identifying Target Record# In the configuration panel, specify which record to update:
+Target Record: Choose a record variable retrieved from a Query Records block (e.g., @vars.target_project). DocType + Document Name: Select the target DocType and pick the document name field using the Smart Value Selector (e.g., @doc.linked_project). 2. Partial Field Updates# Unlike creating a new record, you only need to map the specific fields you want to change. All unmapped fields on the target record remain unchanged.
+3. Practical Example# Scenario: Update Project Status when a Task is Completed# Add an Update Record block and set Operation to Update Existing. Target DocType: Select Project. Document Name: Select Project (@doc.project) using the Smart Value Selector. Field Mapping: Status ← &amp;quot;In Progress&amp;quot; 
 
 ---
 title: Why should I use FlexiRule?
@@ -1033,17 +1033,17 @@ Discovery: On system startup, the registry scans for all Process DocTypes. Metad
 title: Check (Condition)
 url: https://sendipad.github.io/flexirule/action-type/condition/
 lastmod: 2026-09-27
-summary: Evaluate logical condition groups to branch execution path between True and False branches.
+summary: Evaluate logical condition groups in the UI to branch execution paths between True and False branches.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Check (Condition) Action# The Check action (internal handler: Condition) is the visual decision-making block in FlexiRule. It evaluates condition expressions against runtime context and branches the execution path along either the True or False outbound edge.
-1. When to Use# Use the Check action when you need to:
-Validate document attributes before allowing workflow progression (e.g., check if grand_total &amp;gt; 50000). Route execution down different business branches based on customer tier, region, or status. Evaluate child table collection rules (e.g., verify whether all line items have warehouse assigned). Compare current document values against historical @old_doc values or @vars. 2. Configuration# The Check action is configured using the Condition Builder:
-Structure &amp;amp; Operators# Logic Grouping: Combine conditions with ALL (AND), ANY (OR), or NOT logic. Comparison Operators: == (Equals), != (Not Equals) &amp;gt;, &amp;gt;=, &amp;lt;, &amp;lt;= (Numeric comparisons) contains, not contains, in, not in (Text/List search) is set, is not set (Null/empty checks) Operands: Configured using the Smart Value Selector (@doc, @vars, @system, or / Resolvers). Collection Conditions: Evaluate child table lists using any, all, none, or count operations. 3. Output# Boolean Decision: Evaluates to True or False. Branching: If True: Execution continues along the True outbound edge. If False: Execution continues along the False outbound edge. Return Contract: Returns {&amp;quot;result&amp;quot;: true, &amp;quot;evaluated_expression&amp;quot;: &amp;quot;...&amp;quot;}. 4. Example# Scenario: High-Value VIP Credit Check# Condition Group: ALL Row 1: @doc.grand_total &amp;gt; 100000 Row 2: @doc.customer_group == &amp;quot;VIP&amp;quot; Row 3: /fetch (customer, Customer, credit_limit) &amp;gt;= @doc.grand_total True Branch: Connect to Set Value (doc.status = &amp;quot;Approved&amp;quot;). False Branch: Connect to Notify (Alert Credit Manager). 5. Performance Notes# Pre-Compiled Expressions: Condition expressions are pre-compiled into optimized Python Bytecode by ConditionEvaluator, executing in under 0.1ms per evaluation. Short-Circuit Evaluation: Logical groups evaluate lazily (ALL stops at first False; ANY stops at first True), avoiding …
+Check (Condition) Action# A Check action lets a rule evaluate one or more conditions and direct execution along different visual paths depending on whether those conditions are satisfied.
+1. What is it?# The Check block is the visual decision-making hub of a rule. It evaluates your configured logic against document data or context variables and splits execution into two outbound branches:
+True: Followed when all or any conditions pass (depending on your logic setting). False: Followed when the conditions do not pass. ┌── True ──→ Action A (e.g. Set Status = &amp;#34;Approved&amp;#34;) Check ───────────┤ └── False ─→ Action B (e.g. Notify Manager) 2. When to Use# Use a Check action whenever you need to:
+Validate field values before proceeding (e.g., check if Grand Total is greater than 50,000). Branch business logic based on customer tier, region, or document status. Check child-table data (e.g., verify if all line items have a warehouse assigned). Compare current values against historical document state or temporary rule variables. 3. How to Configure# Add the Action: Drag or add a Check block onto your visual canvas. Choose Logic Grouping: ALL (AND): Every condition row in the group must evaluate to true. ANY (OR): At least one condition row must evaluate to true. NOT: Inverts the result of the condition group. Configure Conditions using Smart Value Selector: Click the left operand field. Type @ or click the value selector to open the Smart Value Selector. Search for and select your document field (e.g., Grand Total). Choose a comparison operator (Equals, Greater Than, Contains, Is Set, etc.). Click the right operand field and select a static value, variable, or calculated value using the Smart Value Selector. Connect Branches: Drag a line from the True port to the action you want to execute when conditions pass. Drag a line from the False port to the action you want to execute when conditions fail. 4. UI Configuration Options# Setting Options / Description Logic Grouping Select ALL (all rows must match), ANY (at least one row matches), or NOT (inverts group result). Comparison Operators == (Equals), != (Not Equals), &amp;gt;, &amp;gt;=, &amp;lt;, &amp;lt;= (Numeric), contains, is …
 
 ---
 title: Controls
@@ -1271,41 +1271,41 @@ Level 1 (Request): frappe.local storage for the duration of a single request. Le
 title: Smart Value System
 url: https://sendipad.github.io/flexirule/rule-builder/smart-value-system/
 lastmod: 2026-09-27
-summary: Learn how FlexiRule handles dynamic inputs using static values, variables, and canonical dynamic resolvers.
+summary: Learn how FlexiRule handles dynamic inputs using static values, variables, and dynamic value resolvers.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Smart Value System# The Smart Value System is the unified data entry and expression evaluation engine in FlexiRule. Whether you are setting a field value in an assignment block, configuring a check condition, constructing an email template, or filtering queries, you use the same intuitive input mechanism across the visual canvas.
-The Core Principle: Every input field in FlexiRule is a &amp;ldquo;Smart&amp;rdquo; input powered by the Smart Value Selector (FlexValueControl), enabling seamless toggling between static values, variable references, and dynamic value resolvers.
-The Three Input Modes# Input fields in FlexiRule support three distinct operational modes:
+Smart Value System# The Smart Value System is the dynamic input interface in FlexiRule. Whether you are setting a field value in a Set Value block, configuring a Check condition, constructing an email template, or filtering queries, you use the same intuitive input mechanism across the visual canvas.
+The Core Principle: Every input field in FlexiRule is a smart input powered by the Smart Value Selector, enabling seamless toggling between static values, variable references, and dynamic value resolvers without writing complex manual syntax.
+The Three Input Modes# Input fields in FlexiRule support three operational modes:
 1. Static Value# Directly type or pick constant values:
-Text: Approved, High Priority, Welcome to FlexiRule Numbers: 100, 0.05, -10 Dates: Selected via calendar picker or standard ISO string format (YYYY-MM-DD). 2. Variable Reference (@)# Variables allow you to reference context data dynamically at runtime. Type the @ key or click the Variable (@) button to open the searchable variable auto-complete menu:
-@doc.* (Trigger Document): Access fields on the document triggering the rule (e.g., @doc.grand_total, @doc.customer, @doc.status). @old_doc.* (Previous Document State): Access pre-mutation field values on update events (e.g., @old_doc.status to check if a status field changed). @vars.* / @rule.* (Rule Context Variables): Access temporary variables created by previous blocks in the current rule (e.g., @vars.calculated_discount, @vars.open_invoices). @system.* (System Context): Access environment metadata such as @system.current_user or @system.today. 3. Dynamic Value Resolvers (/)# Value Resolvers calculate dynamic values on the fly. Type the / key or click the Resolver (/) button to select a visual resolver builder.
-Canonical Value Resolver Families# FlexiRule features 12 canonical user-facing Value Resolver families accessible via the / menu in the Smart Value Selector:
-Resolver Family Trigger Symbol / Key Primary Output Use Case Date Formula /date_formula Date / Datetime Add or subtract days, months, or years from today or a base date field. Math Formula /math_formula Float / Int Perform arithmetic (+, -, *, /) …
+Text: Approved, High Priority, Welcome to FlexiRule Numbers: 100, 0.05, -10 Dates: Selected via the calendar picker or standard date format (YYYY-MM-DD). 2. Variable Reference (@)# Variables allow you to reference document data and context dynamically. Type the @ key or click the Variable (@) button to open the searchable variable selector menu:
+Document Fields (@doc): Select fields on the document triggering the rule (e.g., Grand Total, Customer, Status). Previous Values (@old_doc): Select pre-update field values on change events (e.g., Previous Status to verify if a field was modified). Rule Variables (@vars): Select temporary variables created by previous action blocks in the current rule flow (e.g., Calculated Discount, Open Invoices). System Information (@system): Access environment information such as Current User or Today. 3. Dynamic Value Resolvers (/)# Value Resolvers calculate dynamic values on the fly. Type the / key or click the Resolver (/) button to select a visual resolver builder.
+Dynamic Value Resolver Families# FlexiRule features 12 user-facing Value Resolver families accessible via the / menu in the Smart Value Selector:
+Resolver Family Trigger Key Primary Output Use Case Date Formula /date_formula Date / Datetime Add or subtract days, months, or years from today or a base date field. Math Formula /math_formula Float / Int Perform safe arithmetic (+, -, *, /) with rounding precision. Date Difference /date_diff Integer Calculate time difference in days, months, or years …
 
 ---
 title: Condition Builder
 url: https://sendipad.github.io/flexirule/rule-builder/condition-builder/
-lastmod: 2026-07-06
-summary: Learn how to create logical branches in your rules.
+lastmod: 2026-09-27
+summary: Learn how to create visual logical condition groups in FlexiRule.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Condition Builder# The Condition Builder is a visual interface used to define &amp;ldquo;Yes/No&amp;rdquo; logic. It is most commonly found inside the Check block, but it is also used for filters and trigger conditions.
-How it Looks# Instead of writing complex code, you build conditions using a structured, row-based interface. Each row represents a single logical check.
-Condition Builder Example Building a Condition# A single condition row consists of three main parts:
-Field/Value: What you are checking (e.g., Status or Grand Total). Operator: How you are checking it (e.g., is, is not, is greater than, contains). Comparison Value: What you are checking against (e.g., Open or 1000). Powered by the Smart Value System# For both the first and third parts of a condition, you use the Smart Value System. This allows you to:
-Pick fields directly from the document using @doc. Use variables calculated earlier in the rule using @rule. Enter static text or numbers. Use resolver functions with / for complex comparisons. Grouping Logic (AND / OR)# Rules often require checking more than one thing at a time. The Condition Builder uses Groups to handle this.
-AND Groups: All conditions in the group must be true for the whole group to be true. (e.g., &amp;ldquo;Status is Open&amp;rdquo; AND &amp;ldquo;Total &amp;gt; 1000&amp;rdquo;). OR Groups: Only one condition in the group needs to be true for the whole group to be true. (e.g., &amp;ldquo;Customer is VIP&amp;rdquo; OR &amp;ldquo;Order is Urgent&amp;rdquo;). Nested Groups# You can add groups inside of other groups to create complex logic. The UI represents this with indented boxes, making it easy to see which conditions belong together.
-Visual Structure# Add Condition: Click the + Condition button to add a new row to the current group. Add Group: Click the + Group button to create a new nested AND/OR block. Toggle Logic: Click the AND/OR label at the top of a group to switch the logic for all rows within that group. Delete: Use the trash icon next to any row or group to remove it. Example: Complex Approval Logic# Imagine you want a rule to run if: (The Order is from a VIP Customer) AND (The Total is over $5,000 OR the Order is marked as &amp;ldquo;Urgent&amp;rdquo;)
-In the …
+Condition Builder# The Condition Builder is a visual interface used to define logical &amp;ldquo;True/False&amp;rdquo; evaluation rules. It is used in Check blocks, query filters, and trigger condition evaluations.
+1. Visual Condition Rows# Instead of writing complex code, you build conditions using a structured, row-based interface. Each row represents a single comparison check.
+A condition row consists of three main parts:
+Left Operand: Select the document field or variable to check (e.g., Status or Grand Total). Operator: Select the comparison operator (e.g., Equals, Not Equals, Greater Than, Contains, Is Set). Right Operand: Select the comparison value or field to compare against (e.g., &amp;quot;Open&amp;quot; or 5000). 2. Using the Smart Value Selector# For both operands in a condition row, click the field to open the Smart Value Selector:
+Select document fields (@doc.grand_total). Select temporary rule variables (@vars.calculated_total). Select system metadata (@system.today). Choose dynamic value resolvers (/math_formula, /fetch, /child_aggregation). 3. Logical Grouping (ALL / ANY / NOT)# You can combine multiple conditions using Logic Groups:
+ALL (AND): Every condition row in the group must be true for the group to evaluate to true (e.g., Status == &amp;quot;Open&amp;quot; ALL Grand Total &amp;gt; 5000). ANY (OR): At least one condition row in the group must be true (e.g., Customer Group == &amp;quot;VIP&amp;quot; ANY Priority == &amp;quot;Urgent&amp;quot;). NOT: Inverts the result of the group. Nested Condition Groups# You can add nested groups inside a parent group to express complex logic. The UI represents nested groups with indented visual cards.
+4. UI Controls# Add Condition: Click + Condition to add a new check row to the current group. Add Group: Click + Group to create a nested ALL/ANY block. Toggle Group Logic: Click the ALL / ANY logic pill at the top of a group card to toggle logic. Remove Row / Group: Click the trash icon next to a condition row or group to remove it. 5. Practical Example# Scenario: High-Value VIP Approval Condition# To check if an order requires manager approval:
+Group (ALL) Row 1: Customer Group Equals &amp;quot;VIP&amp;quot; Group (ANY) Row 2: Grand Total Greater Than …
 
 ---
 title: Count
@@ -1433,19 +1433,17 @@ A &amp;ldquo;Reasoning&amp;rdquo; node that takes the ExecutionContext and decid
 title: Set Value (Assignment)
 url: https://sendipad.github.io/flexirule/action-type/assignment/
 lastmod: 2026-09-27
-summary: Perform sequential batch state mutations on document fields and context variables.
+summary: Update document fields or store values in rule variables using a visual configuration grid.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Set Value (Assignment) Action# The Set Value action (internal handler: Assignment) is the primary mechanism for state mutation in FlexiRule. It allows you to define a sequence of mutations—Batch Assignments—that run sequentially to update document fields or store internal rule state.
-1. When to Use# Use the Set Value action when you need to:
-Update fields on the triggering document (e.g., set workflow_state to &amp;quot;Approved&amp;quot; or posting_date to today). Initialize or update temporary context variables (@vars) to store intermediate calculation results for downstream blocks. Perform numeric calculations (Increment, Decrement) on fields or variables. Append items to list variables or merge dictionary objects. Normalize and sanitize incoming text fields before saving. 2. Configuration# The Set Value configuration panel uses a sequential grid where each row represents one mutation step:
-Row Configuration Fields# Target Path: Destination path (doc.fieldname for document fields or vars.variable_name for temporary context variables). Operator: Set: Overwrites target with resolved value. Clear: Resets target to None or empty. Increment: Adds numeric value to existing total. Decrement: Subtracts numeric value from existing total. Append: Appends item to a list/array variable. Merge: Merges key-value dictionary into target object. Toggle: Inverts boolean value (true &amp;lt;-&amp;gt; false). Value Input: Configured via the Smart Value Selector (Static Value, @ Variable, or / Resolver). Condition (when): Optional boolean expression evaluated before running the specific row mutation. 3. Output# Context Mutation: Directly mutates @doc or @vars in the execution context. Return Contract: Returns a dictionary of applied mutations: {&amp;quot;mutations&amp;quot;: [{&amp;quot;target&amp;quot;: &amp;quot;doc.status&amp;quot;, &amp;quot;value&amp;quot;: &amp;quot;Approved&amp;quot;}, ...]}. Next Node Execution: Execution immediately proceeds down the primary outbound edge. 4. Example# Scenario: Calculate Customer Discount and Loyalty Points# Row 1:
-Target: vars.discount_rate Operator: Set Value: /math_formula (doc.loyalty_points * 0.01) When: doc.loyalty_points &amp;gt; 100 Row 2:
-Target: doc.discount_amount Operator: Set Value: …
+Set Value (Assignment) Action# The Set Value action is the primary way to update document fields or store calculations in rule variables as execution flows through your rule.
+1. What is it?# A Set Value block allows you to make one or more changes in sequence. You can set a document field (like setting Status to &amp;ldquo;Approved&amp;rdquo;), update temporary rule variables, or perform numeric calculations like incrementing a total.
+2. When to Use# Use the Set Value action when you need to:
+Update fields on the triggering document (e.g., set Workflow State to &amp;quot;Approved&amp;quot; or Posting Date to today). Store temporary values in rule variables (@vars) to use in downstream steps or calculations. Perform numeric operations such as adding to or subtracting from existing totals. Manage collections by appending items to list variables. 3. How to Configure# Add the Action: Add a Set Value block to your visual canvas. Add an Assignment Row: Click Add Row in the configuration grid. Select Target: Click the Target field. Use the picker or search to choose whether you are updating a Document Field (e.g., Status) or a Rule Variable (e.g., vars.discount_rate). Choose an Operator: Set: Replaces the target with a new value. Clear: Resets the target to empty. Increment / Decrement: Adds or subtracts a number from the current target value. Append: Adds an item to a list variable. Toggle: Inverts a true/false boolean. Set Value using Smart Value Selector: Click the Value field. Type @ or / or click the picker icon to open the Smart Value Selector. Pick a document field, variable, system value, or formula. Optional Row Condition (&amp;ldquo;When&amp;rdquo;): Click Add Condition on a row if this specific update should only run under certain conditions. 4. UI Configuration Options# Option Description Target Field Select a document field (doc.field) or temporary variable (vars.name). Operator Set, Clear, Increment, Decrement, Append, Merge, or Toggle. Value Input Enter values using the Smart Value Selector (Static value, @ Variable, or / Resolver). When Condition Optional boolean check evaluated before applying this specific row update. 5. Practical Example# Scenario: Calculate Discount and …
 
 ---
 title: System Philosophy
@@ -1489,7 +1487,7 @@ Python hooks Server scripts Custom app overrides Background jobs Patch scripts E
 ---
 title: Action Settings
 url: https://sendipad.github.io/flexirule/rule-builder/action-settings/
-lastmod: 2026-07-06
+lastmod: 2026-09-27
 summary: Learn how to configure individual blocks in your rule.
 concepts: 
 tags: 
@@ -1502,10 +1500,10 @@ Common Interface Elements# While every action has different options, they all sh
 Block Title: At the top, you can see and edit the name of the block. Description: A brief explanation of what the action does. Configuration Fields: The main area where you input data, select options, and define logic. Smart Value Fields# Most settings in FlexiRule use &amp;ldquo;Smart&amp;rdquo; fields. These fields allow you to provide data in three different ways: static text, variables, or dynamic functions.
 To learn more about the logic behind these fields, see the Smart Value System.
 Quick Access# In any Smart Value field, you can use these shortcuts:
-Static Input: Just type a value directly into the field. Variable Picker (@): Type @ or click the variable icon to see a list of available data, such as @doc.customer_name or @rule.total_count. Advanced Resolvers (/): Type / or click the magic wand icon to access tools like math, text formatting, and date calculations. Field Types# In the settings panel, you will encounter different types of input controls:
-Dropdowns: Choose from a fixed list of options. Checkboxes: Toggle settings on or off. Data Grids: Used for actions like &amp;ldquo;Set Value,&amp;rdquo; where you need to map multiple fields at once. Each row in the grid uses a Smart Value field for the value column. Multi-Select: Pick one or more tags or items from a list. Context Awareness# The settings panel is &amp;ldquo;Smart.&amp;rdquo; It knows where the block is located in your flow.
-Available Variables: In the @ menu, you will only see variables that have actually been defined before the current block. Validation: Required fields are marked, and the panel will alert you if your configuration is incomplete or contains errors. Saving Changes# Changes in the Action Settings panel are usually drafted immediately. However, you must Save the entire rule using the button at the top of the canvas to commit your changes to the system.
-💡TipKeep it Readable: Use the title field …
+Static Input: Just type a value directly into the field. Variable Picker (@): Type @ or click the variable icon to see a list of available data, such as @doc.customer_name or @vars.total_count. Advanced Resolvers (/): Type / or click the resolver icon to access tools like math, text formatting, and date calculations. Field Types# In the settings panel, you will encounter different types of input controls:
+Dropdowns: Choose from a fixed list of options. Checkboxes: Toggle settings on or off. Data Grids: Used for actions like &amp;ldquo;Set Value,&amp;rdquo; where you need to map multiple fields at once. Each row in the grid uses a Smart Value field for the value column. Multi-Select: Pick one or more tags or items from a list. Context Awareness# The settings panel knows where the block is located in your flow:
+Available Variables: In the @ menu, you will see variables that have been defined before the current block. Validation: Required fields are marked, and the panel will alert you if your configuration is incomplete or contains errors. Saving Changes# Changes in the Action Settings panel are drafted immediately. Save the entire rule using the button at the top of the canvas to commit your changes to the system.
+💡TipKeep it Readable: Use the title field at the top of the settings panel to give each block a …
 
 ---
 title: Frontend Technical
@@ -1583,18 +1581,17 @@ Mode Transaction Impact Behavior Toast / System Non-transactional Dispatched imm
 title: Repeat (Loop)
 url: https://sendipad.github.io/flexirule/action-type/loop/
 lastmod: 2026-09-27
-summary: Iterate over child table rows or query collections to run actions for each item.
+summary: Iterate over child table rows or query result collections to run actions for each item in the UI.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Repeat (Loop) Action# The Repeat action (internal handler: Loop) iterates over a collection of items—such as child table rows (@doc.items) or query results (@vars.query_results)—executing a sub-flow for each item before exiting.
-1. When to Use# Use the Repeat action when you need to:
-Process every row in a child table (e.g., validate warehouse stock for each item row). Perform batch field calculations across multiple child records. Iterate over records returned by a Query Records block. Create external records or send notifications for each record in a collection. 2. Configuration# Configuration Fields# Collection Source: Target array to iterate over (e.g., doc.items or vars.open_invoices). Item Alias: Variable name assigned to the active row during iteration (default: item, accessible via @vars.item). Loop Metadata (vars.loop): vars.loop.index: 0-based iteration index. vars.loop.length: Total row count. vars.loop.first: true if processing the first row. vars.loop.last: true if processing the final row. Ports &amp;amp; Branching# Loop Port (True / Body): Connects to the action flow executed for each item. Exit Port (False / Completed): Connects to the action flow executed after all rows have been processed. 3. Output# **Context Variable: Assigns @vars.item(or custom alias) and@vars.loop` metadata during each iteration. **Branching`: For each row: Follows the Loop branch. After all rows finish: Follows the Exit branch. Return Contract: Returns {&amp;quot;processed_count&amp;quot;: N, &amp;quot;completed&amp;quot;: true}. 4. Example# Scenario: Calculate Line Item Discount for Sales Order Items# Repeat Block Configuration:
-Collection: doc.items Item Alias: row Loop Branch: Connect to Set Value block. Exit Branch: Connect to Set Value (doc.total_discount_calculated = true). Set Value Block Inside Loop:
-Target: vars.row.discount_amount Value: /math_formula (vars.row.rate * 0.10) Outbound Edge: Connect back to Repeat node to continue next iteration. 5. Performance Notes# Max Safety Iteration Limit: FlexiRule enforces a safety ceiling of 1,000 iterations per loop node execution to catch infinite recursion. In-Memory Iteration: Iterating over local list variables adds minimal overhead …
+Repeat (Loop) Action# The Repeat action iterates over a list of items—such as child table rows (Items) or records returned by a Query Records block—running a set of actions for each item before continuing through the rest of the rule.
+1. What is it?# The Repeat block lets you automate actions on lists of records. It loops through a collection item by item, making the current row available to downstream actions through a item alias (like @vars.item or @vars.row).
+┌── Loop Body ──→ Action (Set Value / Check) │ │ Repeat ─────────┼←─────────────────────┘ (Collection) │ └── Exit ───────→ Downstream Action 2. When to Use# Use the Repeat action when you need to:
+Process every row in a child table (e.g., check stock or update prices on every item line in an invoice). Iterate over retrieved records returned by a Query Records block. Perform calculations or validations across collections row by row. Send notifications or create records for each item in a list. 3. How to Configure# Add the Action: Add a Repeat block to your visual canvas. Select Collection Source: Click the Collection field. Use the Smart Value Selector to select a child table (e.g., Items or doc.items) or a query result (e.g., vars.open_invoices). Set Item Alias: Enter a variable name to represent the active row during iteration (default is item, accessed as @vars.item or @vars.row). Connect Outbound Branches: Loop Branch (Loop Body): Connect to the first action you want to run for each row. Loop Back Connection: Connect the final action inside the loop back to the Repeat block so it can advance to the next item. Exit Branch (Completed): Connect to the action that should run after all rows have been processed. 4. UI Configuration Options# Option Description Collection Source Select the child table or array variable to iterate over using the Smart Value Selector. Item Alias Set the name used to reference the active row in downstream actions (e.g., row gives @vars.row). Loop Metadata Automatically provides iteration info during each loop cycle: - vars.loop.index: Current row index (0, 1, 2&amp;hellip;). - vars.loop.length: Total number of rows in collection. - vars.loop.first: true on the first row. - …
 
 ---
 title: Runtime Optimization
@@ -1738,16 +1735,17 @@ State Runs on Events? Can be Edited? Purpose Draft No Yes Building and testing n
 title: Switch
 url: https://sendipad.github.io/flexirule/action-type/switch/
 lastmod: 2026-09-27
-summary: Route rule execution down multiple matching branches based on key value comparisons.
+summary: Route execution along multiple outbound paths based on matching field values.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Switch Action# The Switch action (internal handler: SwitchHandler) provides multi-way value branching, routing execution down matching case branches based on an evaluated target expression.
-1. When to Use# Use the Switch action when you need to:
-Route logic based on categorical fields with more than two outcomes (e.g., doc.status, doc.territory, doc.customer_group). Replace multiple nested Check (Condition) nodes with a single clean multi-port branching block. Fallback safely to a Default branch when no explicit cases match. 2. Configuration# Configuration Fields# Target Value: Field or variable evaluated by the switch (e.g., @doc.status or @vars.category). Cases List: Define case key values (e.g., &amp;quot;Pending&amp;quot;, &amp;quot;Approved&amp;quot;, &amp;quot;Rejected&amp;quot;). Default Branch: Fallback outbound edge executed when no defined cases match. 3. Output# Multi-Port Branching: Execution proceeds down the outbound port corresponding to the matching case key. Return Contract: Returns {&amp;quot;matched_case&amp;quot;: &amp;quot;Approved&amp;quot;, &amp;quot;target_value&amp;quot;: &amp;quot;Approved&amp;quot;}. 4. Example# Scenario: Route Support Tickets by Priority# Switch Configuration: Target: @doc.priority Cases: &amp;quot;High&amp;quot;, &amp;quot;Medium&amp;quot;, &amp;quot;Low&amp;quot; Branch Outputs: Case &amp;ldquo;High&amp;rdquo;: Connect to Notify (SMS alert to On-Call Engineer). Case &amp;ldquo;Medium&amp;rdquo;: Connect to Notify (Email to Support Queue). Case &amp;ldquo;Low&amp;rdquo;: Connect to Set Value (doc.sla_days = 5). Default: Connect to Set Value (doc.sla_days = 3). 5. Performance Notes# O(1) Hash Lookup: Case evaluation matches keys in constant time $O(1)$, making it significantly faster than chaining 5+ Check nodes. 6. Common Mistakes# Case-Sensitivity Mismatches: Matching &amp;quot;high&amp;quot; against &amp;quot;High&amp;quot; without normalizing string casing first. Unconnected Default Branch: Leaving the Default port empty, causing execution to halt unexpectedly when an unhandled value is encountered. 
+Switch Action# The Switch action provides multi-way visual branching, routing execution down matching case paths based on the value of a target field or variable.
+1. What is it?# Instead of connecting multiple Check (If/Else) blocks together, a Switch block evaluates a single field or variable and branches execution directly to the matching case port. It also includes a Default branch for unhandled values.
+┌── &amp;#34;High&amp;#34; ───→ Action A (Alert Engineer) ├── &amp;#34;Medium&amp;#34; ─→ Action B (Queue Email) Switch (Priority) ───┼── &amp;#34;Low&amp;#34; ────→ Action C (Set SLA = 5) └── Default ──→ Action D (Set SLA = 3) 2. When to Use# Use the Switch action when you need to:
+Route logic based on categorical fields with three or more values (e.g., Status, Territory, Customer Group, Priority). Simplify complex flows by replacing chained Check (If/Else) blocks with a single multi-port node. Provide a fallback path using the Default branch when an unexpected or unlisted value is encountered. 3. How to Configure# Add the Action: Add a Switch block to your visual canvas. Select Target Value: Click Target Field. Use the Smart Value Selector to pick a document field (e.g., Priority or @doc.priority) or variable (@vars.category). Add Cases: Click Add Case. Enter the expected value string or number for each branch (e.g., &amp;quot;High&amp;quot;, &amp;quot;Medium&amp;quot;, &amp;quot;Low&amp;quot;). Connect Outbound Branches: Connect each case port (&amp;quot;High&amp;quot;, &amp;quot;Medium&amp;quot;, &amp;quot;Low&amp;quot;) to its corresponding action. Connect the Default port to the action that should run if none of the explicit cases match. 4. UI Configuration Options# Option Description Target Field Select the field or variable to evaluate using the Smart Value Selector. Cases List Add matching case values (e.g., &amp;quot;Pending&amp;quot;, &amp;quot;Approved&amp;quot;, &amp;quot;Rejected&amp;quot;). Each case creates an outbound port. Default Branch Outbound port followed when no defined cases match the evaluated target value. 5. Practical Example# Scenario: Route Support Tickets by Priority# Add a Switch action and set Target Field to Priority (@doc.priority). Add three cases: &amp;quot;High&amp;quot;, &amp;quot;Medium&amp;quot;, and &amp;quot;Low&amp;quot;. Connect …
 
 ---
 title: Debugging & Execution Logs
@@ -1839,16 +1837,17 @@ Performance Notes# The Stop action is extremely lightweight. In Success mode, it
 title: Wait
 url: https://sendipad.github.io/flexirule/action-type/wait/
 lastmod: 2026-09-27
-summary: Pause rule execution for a specified duration or until a scheduled date/time.
+summary: Pause rule execution for a specified duration or until a target date and time.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Wait Action# The Wait action (internal handler: simple_actions.WaitActionHandler) pauses execution for a designated time duration or until a target date/time, deferring execution to background scheduler queues.
-1. When to Use# Use the Wait action when you need to:
-Implement delayed follow-up notifications (e.g., send reminder email 3 days after quote creation). Pause execution until a target document date is reached (e.g., wait until doc.due_date). Rate-limit background processes or API interactions. 2. Configuration# Configuration Fields# Wait Mode: Duration: Pause for relative time offset (e.g., 2 Hours, 3 Days). Until Date: Pause until explicit absolute timestamp evaluated from @doc field or resolver (e.g., @doc.follow_up_date). Duration Unit: Seconds, Minutes, Hours, Days. 3. Output# Deferred State: In synchronous contexts, pauses current thread. In asynchronous contexts, reschedules remaining rule execution via Frappe Scheduler. Return Contract: Returns {&amp;quot;status&amp;quot;: &amp;quot;deferred&amp;quot;, &amp;quot;resume_at&amp;quot;: &amp;quot;YYYY-MM-DD HH:mm:ss&amp;quot;}. 4. Example# Scenario: Send Follow-Up Quotation Email After 48 Hours# Trigger: Quotation After Insert. Wait Node: Mode = Duration, Value = 48, Unit = Hours. Notify Node: Email quotation follow-up message to customer. 5. Performance Notes# Non-Blocking Background Worker: In Asynchronous execution mode, Wait releases foreground worker threads, using scheduled background tasks (frappe.enqueue) to resume execution at resume_at. 6. Common Mistakes# Blocking Synchronous UI Threads: Setting a long Wait duration on synchronous web requests, causing HTTP timeouts. Past Resume Timestamps: Supplying an Until Date value that has already passed (resolves immediately without waiting). 
+Wait Action# The Wait action pauses rule execution for a set duration or until a specific date/time, deferring remaining actions until the waiting period expires.
+1. What is it?# A Wait block creates a timed delay in your rule. When execution reaches a Wait node, the system pauses the rule and automatically resumes execution from the next action node when the time arrives.
+Action A (Send Quote) ──→ Wait (48 Hours) ──→ Action B (Send Follow-up Email) 2. When to Use# Use the Wait action when you need to:
+Schedule delayed follow-ups (e.g., send a reminder email 3 days after a quote is created). Pause until a document date (e.g., wait until the document&amp;rsquo;s Follow-up Date is reached). Stagger background actions or rate-limit automated operations. 3. How to Configure# Add the Action: Add a Wait block to your visual canvas. Select Wait Mode: Duration: Pause for a relative time offset (e.g., 2 Hours, 3 Days). Until Date: Pause until an absolute date/time field or variable (e.g., @doc.follow_up_date). Configure Duration / Date Field: For Duration: Enter the numeric value and select the time unit (Seconds, Minutes, Hours, Days). For Until Date: Select the target date field using the Smart Value Selector. Connect Outbound Edge: Connect the Wait block&amp;rsquo;s outbound port to the action that should execute after the delay completes. 4. UI Configuration Options# Option Description Wait Mode Choose Duration (relative offset) or Until Date (absolute target timestamp). Duration Value &amp;amp; Unit Set the number and select unit: Seconds, Minutes, Hours, or Days. Target Date Field Select the document date field (@doc.due_date) using the Smart Value Selector when in Until Date mode. 5. Practical Example# Scenario: Follow Up on Open Quotation After 48 Hours# Trigger: Set rule trigger to Quotation After Insert. Wait Block: Mode: Duration Value: 48 Unit: Hours Notify Block: Connect Wait block to a Notify action (Email quotation follow-up message to customer). 6. Common Mistakes# Blocking Synchronous UI Threads: Placing long delays on web form events (like Before Save). Long delays work best with background or scheduled event rules. Past Date Targets: Supplying an Until Date value …
 
 ---
 title: Group By
@@ -1886,44 +1885,47 @@ Visual Rule Builder# Vue 3 Interface: A modern, responsive canvas for designing 
 title: Sub-Rule
 url: https://sendipad.github.io/flexirule/action-type/sub-rule/
 lastmod: 2026-09-27
-summary: Execute nested reusable sub-rules within the primary rule execution flow.
+summary: Run an exposed sub-rule as a reusable module within your visual rule flow.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Sub-Rule Action# The Sub-Rule action (internal handler: SubRuleHandler) executes another rule exposed as a sub-rule directly within the parent execution context, enabling nested composition and logic reuse.
-1. When to Use# Use the Sub-Rule action when you need to:
-Encapsulate reusable multi-step verification or workflow logic (e.g., standard approval workflows). Modularize complex rules into clean, maintainable sub-flows. Share automation routines across different DocTypes or trigger events. 2. Configuration# Configuration Fields# Sub-Rule: Select target Rule (must have exposed_as_subrule = 1 enabled). Target Context / Document: Pass the target document or payload (@doc or custom variable). Input Mappings: Map parent context variables (@vars) to input fields expected by the sub-rule. Output Variable: Store the sub-rule&amp;rsquo;s returned variables in parent @vars.&amp;lt;output_variable&amp;gt;. 3. Output# Sub-Context Merging: Sub-rule execution outputs are captured and mapped into parent @vars. Branching: Continues down primary outbound edge after sub-rule completion. Return Contract: Returns {&amp;quot;sub_rule_execution_id&amp;quot;: &amp;quot;...&amp;quot;, &amp;quot;outputs&amp;quot;: {...}}. 4. Example# Scenario: Invoke Standard Risk Scoring Sub-Rule# Sub-Rule Configuration: Target Sub-Rule: &amp;quot;Calculate Customer Risk Score&amp;quot; Input Mapping: customer -&amp;gt; @doc.customer Output Variable: risk_score_result Next Node (Check): Condition: @vars.risk_score_result.score &amp;gt; 80 True Branch: Route to manager review. 5. Performance Notes# In-Memory Invocation: Sub-rules execute in the same process thread and transaction boundary, avoiding network overhead. Depth Guard: FlexiRule enforces a maximum call depth ceiling (10 levels) to prevent stack overflow from infinite recursion. 6. Common Mistakes# Sub-Rule Not Exposed: Attempting to select a target rule that does not have Exposed as Sub-Rule enabled in its settings. Circular Sub-Rule Calls: Creating a chain where Rule A calls Rule B, which calls Rule A. Missing Variable Mappings: Failing to supply required input variables expected by the sub-rule. 
+Sub-Rule Action# The Sub-Rule action lets you run another rule—exposed as a sub-rule—directly inside your main rule flow, allowing you to reuse modular logic across multiple rules.
+1. What is it?# A Sub-Rule block executes a separate rule flow and passes variables back and forth. This lets you build reusable logic modules (like standard approval workflows or credit checks) once and call them from multiple rules.
+Main Rule ──→ Sub-Rule (&amp;#34;Calculate Customer Risk&amp;#34;) ──→ Next Action (Check Risk Score) 2. When to Use# Use a Sub-Rule action when you need to:
+Reuse multi-step verification routines across different DocTypes or trigger events. Break down complex rules into clean, modular sub-flows. Standardize business calculations (e.g., standard credit scoring or discount rules). 3. How to Configure# Add the Action: Add a Sub-Rule block to your visual canvas. Select Target Sub-Rule: Choose from the list of rules exposed as sub-rules. Map Input Variables: Map values from your main rule to the input variables expected by the sub-rule using the Smart Value Selector. Set Output Variable: Enter a variable name (e.g., risk_result) to capture the sub-rule&amp;rsquo;s returned output in @vars. Connect Outbound Branch: Connect the Sub-Rule block&amp;rsquo;s output port to the next action node. 4. UI Configuration Options# Option Description Sub-Rule Select target rule (must have Exposed as Sub-Rule enabled in its rule configuration). Input Mappings Map main rule fields/variables to sub-rule parameters using the Smart Value Selector. Output Variable Variable name in @vars where sub-rule output results will be stored. 5. Practical Example# Scenario: Run Standard Customer Risk Scoring Sub-Rule# Sub-Rule Block Configuration: Sub-Rule: Select &amp;quot;Calculate Customer Risk Score&amp;quot;. Input Mapping: Map Customer → @doc.customer using Smart Value Selector. Output Variable: Enter risk_score_result. Next Action (Check): Add a Check block following the sub-rule. Condition: @vars.risk_score_result.score &amp;gt; 80 True Branch: Route to manager review notification. 6. Common Mistakes# Sub-Rule Not Exposed: Trying to select a rule that does not have Exposed as Sub-Rule enabled in its settings. …
 
 ---
 title: Stop / Error
 url: https://sendipad.github.io/flexirule/action-type/stop-error/
 lastmod: 2026-09-27
-summary: Terminate rule execution silently or block document saving with a custom validation error message.
+summary: Terminate rule execution cleanly or display a validation error message to block document saving.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Stop / Error Action# The Stop / Error action (internal handler: simple_actions.StopActionHandler) serves as a terminal node in the visual rule graph, controlling how rule execution terminates.
-1. When to Use# Use the Stop / Error action when you need to:
-Block Document Save/Submit: Prevent users from saving invalid data by throwing a user-facing frappe.ValidationError. Early Exit (Silent Stop): Terminate rule execution cleanly when pre-conditions fail without raising errors. Rollback Changes: Cancel pending database mutations made during the current transaction. 2. Configuration# Configuration Options# Mode: Error (Raise Validation Error): Displays error popup and aborts transaction. Stop / Exit (Silent Exit): Terminates rule execution cleanly without error popup. Message Template: Configured via the Smart Value Selector (Static Text, @ Variables, or / Resolvers). Supports formatted error messages. Title: (Optional) Title header displayed on Frappe error dialogs. 3. Output# Terminal Node: No outbound edges are allowed; execution halts immediately. Transaction Impact: Error Mode: Raises frappe.ValidationError, causing Frappe to rollback database transaction. Stop Mode: Completes cleanly, committing preceding in-memory @doc mutations. 4. Example# Scenario: Prevent Sales Order Submission without Valid Customer Tax ID# Check Node: Is @doc.tax_id is not set AND @doc.grand_total &amp;gt; 10000? True Branch: Connect to Stop / Error node. Stop / Error Configuration: Mode: Error Message: &amp;quot;Sales Order {doc.name} cannot be submitted without a valid Tax ID for orders above 10,000.&amp;quot; 5. Performance Notes# Zero DB Overhead: Terminal checks execute immediately in memory without additional database operations. Fast Exit: Placing a Stop (Silent Exit) early in the flow saves CPU cycles by bypassing unnecessary downstream nodes. 6. Common Mistakes# Confusing Silent Stop with Error: Using Stop (Exit) when you intended to prevent a document save (Silent Stop allows save to complete). Generic Error Messages: Raising unhelpful errors like &amp;quot;Error occurred&amp;quot; instead of providing actionable feedback to the user. Redundant Stop Nodes: Adding a Stop node at the end of every …
+Stop / Error Action# The Stop / Error action is a terminal block in a rule flow that controls how rule execution finishes—either exiting quietly or throwing a validation error to prevent a document save.
+1. What is it?# A Stop / Error block ends rule processing. Depending on how you configure its mode, it can either:
+Stop (Exit): End rule execution quietly when conditions fail, allowing normal processing to continue. Error (Validation Error): Display an error dialog to the user and prevent the document from saving or submitting. Check (Valid Tax ID?) ─── False ───→ Stop / Error (Error Mode: &amp;#34;Tax ID is required!&amp;#34;) 2. When to Use# Use the Stop / Error action when you need to:
+Block invalid document saves (e.g., prevent submitting an invoice without a required purchase order number). Exit early from a rule flow when preconditions fail (e.g., exit cleanly if the document is not in Draft state). Provide clear validation feedback to users directly on their screen. 3. How to Configure# Add the Action: Add a Stop / Error block at the end of a rule branch. Select Mode: Error Mode: Displays an error popup and cancels the document save/submit. Stop Mode: Exits rule execution cleanly with no error popup. Configure Error Message (for Error Mode): Click the Message field. Use the Smart Value Selector to compose a dynamic message including document fields (e.g., &amp;quot;Sales Order {doc.name} requires a Tax ID for totals above 10,000.&amp;quot;). Set Error Title (Optional): Enter a title header displayed on the error popup dialog (e.g., &amp;quot;Validation Error&amp;quot;). 4. UI Configuration Options# Option Description Mode Select Error (blocks save with error dialog) or Stop (silent early exit). Message Error message template constructed using the Smart Value Selector. Title Optional dialog header title displayed to the user. 5. Practical Example# Scenario: Prevent Sales Order Submission Without Tax ID# Check Block: Is Tax ID (@doc.tax_id) empty AND Grand Total (@doc.grand_total) greater than 10,000? True Branch: Connect to Stop / Error block. Stop / Error Configuration: Mode: Error Title: &amp;quot;Tax ID Required&amp;quot; Message: &amp;quot;Sales Order {doc.name} cannot be saved without …
 
 ---
 title: Advanced Process
 url: https://sendipad.github.io/flexirule/action-type/process/
 lastmod: 2026-09-27
-summary: Execute complex, reusable business logic operations using registered Process contracts.
+summary: Run reusable, system-registered business processes and custom operations directly from your rules.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Advanced Process Action# The Advanced Process action (internal handler: Process) executes registered business operations created by developers or system plugins. It decouples complex orchestration tasks (such as deduplication, validation pipelines, batch operations, or enrichment) from visual rule layout.
-1. When to Use# Use the Advanced Process action when you need to:
-Run complex multi-step algorithms (e.g., deduplication matching, tax engines, credit score calculation). Perform external API integrations or system operations (e.g., generating PDFs, calling webhooks). Reuse standard business operations across multiple rules without repeating node logic. Execute heavy background operations asynchronously using frappe.enqueue. 2. Configuration# Configuration Fields# Process: Select registered Process definition (e.g., Deduplication, Validation, Batch, Enrichment). Operation: Select specific operation within the process (e.g., Score Duplicates, Validate Tax ID). Operation Config: Input parameters rendered dynamically based on the operation&amp;rsquo;s schema contract. Input Mapping: Map @doc or @vars fields to required operation input parameters. Output Variable: Destination variable name in @vars where process outputs will be stored. Error Handling Strategy: Choose action behavior on failure (Stop Rule, Continue, or Branch on Error). 3. Output# Context Variable Mutation: Stores structured operation output dictionary in @vars.&amp;lt;output_variable&amp;gt;. Branching: Success: Continues down primary outbound edge. Failure: Halts rule execution (or branches to error port if configured). Return Contract: Returns dictionary of outputs defined by the operation&amp;rsquo;s ProcessContract. 4. Example# Scenario: Deduplicate Customer Records on Insert# Advanced Process Block Configuration: Process: Deduplication Operation: Find Duplicates Input Mapping: email_id -&amp;gt; @doc.email_id tax_id -&amp;gt; @doc.tax_id Output Variable: duplicate_result Next Node (Check): Condition: @vars.duplicate_result.is_duplicate == true True Branch: Connect to Stop / Error (&amp;quot;Duplicate Customer Detected!&amp;quot;). 5. Performance Notes# Registry Execution: Process operations are executed via …
+Advanced Process Action# The Advanced Process action allows you to execute complex, pre-built business operations—such as record deduplication, tax calculations, credit scoring, or external integrations—directly within a visual rule.
+1. What is it?# An Advanced Process block lets you call modular, reusable operations configured in your system without having to build complex logic steps manually on the visual canvas. It passes inputs from your rule into the process and saves the output into a rule variable (@vars).
+2. When to Use# Use the Advanced Process action when you need to:
+Run pre-built business algorithms (e.g., customer deduplication checks, risk score calculations). Perform integrations or system tasks (e.g., generating documents, sending webhooks, invoking tax services). Reuse standard operations across multiple rules without duplicating canvas nodes. Run heavy background operations asynchronously using background worker queues. 3. How to Configure# Add the Action: Add an Advanced Process block to your visual canvas. Select Process &amp;amp; Operation: Select the registered Process (e.g., Deduplication, Tax Calculation). Select the specific Operation (e.g., Find Duplicates, Calculate Line Item Tax). Map Inputs: Fill in the required input parameters using the Smart Value Selector (@doc, @vars, or static values). Set Output Variable: Enter a variable name in Output Variable where process outputs will be saved (e.g., dedup_result). Configure Failure Handling: Select how the rule should respond if the process fails (Stop Rule, Continue, or Branch on Error). 4. UI Configuration Options# Option Description Process Select the registered business process group from the dropdown list. Operation Choose the specific action operation provided by the selected process. Input Mapping Map required operation parameters to document fields (@doc) or variables (@vars) using the Smart Value Selector. Output Variable Variable name in @vars where the output dictionary will be stored for downstream actions. Error Handling Configure rule behavior on failure: Stop Rule, Continue, or Branch on Error. 5. Practical Example# Scenario: Deduplicate Customer Records on Create# Add an …
 
