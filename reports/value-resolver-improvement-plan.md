@@ -9,45 +9,75 @@
 
 ## 1. Executive Summary
 
-FlexiRule is a no-code business rule engine built natively on top of the Frappe Framework and ERPNext. It aims to empower non-technical business analysts and system administrators to design automation rules without writing Server Scripts or Python code.
+FlexiRule is a no-code business rule engine built natively on top of the Frappe Framework and ERPNext. It enables business analysts and system administrators to create automation rules without writing Server Scripts or Python code.
 
-A core pillar of any business rule engine is its **Value Resolver system** — the engine component responsible for obtaining, evaluating, transforming, calculating, comparing, and filtering values across Assignments, Conditions, Query Filters, Document Actions, and Collection operations.
+The **Value Resolver system** is the engine component responsible for obtaining, calculating, transforming, and producing values.
+
+### Important Architectural Boundary Clarification
+
+A primary finding of this architectural review is that **Assignments**, **Conditions**, and **Query Filters** are **NOT** Value Resolver families or resolver primitives:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              VALUE RESOLVER SYSTEM                              │
+│                                                                                 │
+│   Produces typed, resolved values or collection evaluation results              │
+│   (literal, variable, transform, collection, lookup, context)                   │
+└────────────────────────┬────────────────────────┬───────────────────────────────┘
+                         │                        │
+                         ▼                        ▼
+┌────────────────────────────────┐       ┌────────────────────────────────────────┐
+│     CONDITION EVALUATION       │       │         ASSIGNMENT RULE ACTION         │
+│                                │       │                                        │
+│  Evaluates operands using      │       │  Applies resolved values to target     │
+│  comparison operators          │       │  document fields or context variables  │
+└────────────────────────────────┘       └────────────────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                    QUERY RECORDS / QUERY LIST RULE ACTION                       │
+│                                                                                 │
+│   Serializes resolved dynamic filter values into native Frappe DB query filters │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+1. **Assignments (`AssignmentHandler`)**: Downstream consumer. Manages target paths (`doc.status`, `vars.total`), mutation operators (`set`, `add`), and execution guards (`when_expression`). It consumes Value Resolver expressions for its input operands.
+2. **Conditions (`ConditionEvaluator` / `ConditionCompiler`)**: Downstream consumer. Evaluates comparison operators (`==`, `!=`, `>`, `<`, `in`, `contains`) over left and right operands. It consumes resolved values to produce boolean decision logic.
+3. **Query Filters (`QueryRecordsHandler`)**: Downstream consumer. Configures database query filters (`filters`, `or_filters`) for `Query Records` / `Query List`. It consumes Value Resolver expressions to resolve dynamic filter values before converting them into native Frappe database query arguments.
 
 ### Current State Assessment
 
-This architectural audit evaluated the actual FlexiRule codebase (across `flexirule/ruleflow/core/value_resolver.py`, `evaluator.py`, `compiler.py`, `runtime_eval.py`, action handlers, and Vue 3 controls like `FlexValueControl.vue` and `ValueResolverControl.vue`).
+Deep source inspection across `flexirule/ruleflow/core/value_resolver.py`, `evaluator.py`, `compiler.py`, `runtime_eval.py`, action handlers, and Vue 3 components (`FlexValueControl.vue`, `ValueResolverControl.vue`) reveals a fragmented taxonomy of **9 canonical resolver kinds** (`date_time`, `math_formula`, `collection`, `text`, `lookup`, `system_context`, `child_aggregation` [legacy], `fetch` [legacy], `normalization` [legacy]) alongside **6 backend internal/fallback resolvers** (`VariableResolver`, `ExpressionResolver`, `JinjaResolver`, `SafeEvalResolver`, `StaticResolver`, `NoneResolver`).
 
-The audit revealed a hybrid, partially fragmented system comprising **9 canonical resolver kinds** (`date_time`, `math_formula`, `collection`, `text`, `lookup`, `system_context`, `child_aggregation` [legacy], `fetch` [legacy], `normalization` [legacy]) alongside **6 backend internal/fallback resolvers** (`VariableResolver`, `ExpressionResolver`, `JinjaResolver`, `SafeEvalResolver`, `StaticResolver`, `NoneResolver`).
+The current architecture is fragmented because it uses operation-specific resolver classes with rigid, non-composable schemas (e.g., `field_a`, `field_b`, `base_field`, `fmt_field`, `norm_field`, `record_field`). This indicates the absence of a **generic expression composition model**.
 
-While all 9 canonical kinds are end-to-end executable, the system suffers from key architectural gaps:
-1. **Lack of an Explicit Semantic Value Type Model**: Values are passed untyped, forcing ad-hoc coercion (`flt()`, `str()`, `getdate()`) scattered across strategy classes.
-2. **Specialized Controls Over Compositional Primitives**: Rather than providing composable primitives (`Source → Transform → Compare`), FlexiRule has historically created special-purpose resolvers (`date_formula`, `date_diff`, `math_formula`, `string_formula`, `child_aggregation`).
-3. **String-based Fallback & Security Leakage**: In dynamic and mixed Tiptap editor modes, frontend serialization generates stringified Python expressions (e.g., `{frappe.utils.add_days(doc.posting_date, 7)}`) or Jinja templates (`{{ doc.status }}`), forcing the backend to fall back to `SafeEvalResolver` or `JinjaResolver`. This bypasses structured evaluation, introduces security risks, and makes rules difficult to validate statically.
-4. **Backend Enforcement Gap**: Frontend `resolverLevel` settings (`basic`, `standard`, `advanced`, `full`) restrict UI controls, but the backend `ValueResolver` does not enforce these boundaries, allowing raw payloads to bypass site-level security policies.
+Furthermore, in dynamic and mixed Tiptap editor modes, frontend serialization generates stringified Python expressions (e.g., `{frappe.utils.add_days(doc.posting_date, 7)}`), forcing the backend to fall back to `SafeEvalResolver` or `JinjaResolver`.
 
-### The Proposed Target Architecture (FlexExpression Engine)
+### Proposed Target Architecture
 
-Because FlexiRule is in a pre-release state, backward compatibility constraints do not restrict this design. We propose consolidating the fragmented taxonomy into a unified, composable, typed architecture called the **FlexExpression Engine**.
+FlexiRule is pre-release software. We do not need to preserve obsolete architecture, legacy modes, or old stored data for backward compatibility.
 
-The proposed model consolidates 9 fragmented kinds into **6 orthogonal Semantic Families**:
-1. `literal`: Pure static scalar or structured data values.
-2. `variable`: Path references into runtime execution context (`doc.*`, `vars.*`, `row.*`, `context.*`).
-3. `transform`: Composable, typed operations across **Text**, **Number**, and **Date/Time** domains.
-4. `collection`: Pure, side-effect-free table/array querying, filtering, aggregation, and extraction.
-5. `lookup`: Relationship traversal for static Link and dynamic Link field fetching with permission checks and caching.
-6. `context`: Safe system and session context tokens (`user`, `company`, `today`, `roles`).
+We propose consolidating the fragmented taxonomy into a **small, coherent, typed, composable Value Resolver architecture** comprising **6 Core Value Families**:
+1. **`literal`**: Static data values.
+2. **`variable`**: Path references into runtime context (`doc.*`, `vars.*`, `row.*`, `context.*`).
+3. **`transform`**: Composable, typed operations across **Text**, **Number**, and **Date/Time** domains.
+4. **`collection`**: Pure, side-effect-free table/array querying, filtering, aggregation, and extraction.
+5. **`lookup`**: Relationship traversal across Link fields with permission checks and Redis caching.
+6. **`context`**: Safe system and session context tokens (`user.id`, `system.today`, `system.company`).
 
-Furthermore, we introduce two foundational compositional primitives:
+And **2 Composition Primitives**:
 - **`coalesce`**: Fallback chain for `None`/empty handling.
 - **`conditional`**: Inline `if / then / else` value branching.
 
-By shifting from stringified Python generation to a structured, typed AST/expression tree evaluated natively by Python strategy classes, FlexiRule gains complete type safety, safe execution guarantees, performance optimizations (via request-local caching), and natural UI composition.
+By shifting from stringified Python generation to pure, structured AST/expression trees evaluated natively by Python strategy classes, FlexiRule gains complete type safety, safe execution guarantees, performance optimizations, and natural UI composition.
 
 ---
 
 ## 2. Current Architecture
 
 The current FlexiRule Value Resolver system spans Python backend classes, Vue 3 frontend components, and Tiptap rich-text tokenization.
+
+### Source Evidence Breakdown
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
@@ -76,30 +106,26 @@ The current FlexiRule Value Resolver system spans Python backend classes, Vue 3 
 └────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Backend Execution Architecture
-
-Backend value resolution resides in `flexirule/ruleflow/core/value_resolver.py`.
-- **Compiler Factory**: `ValueResolver.compile(val)` inspects the input payload. If given a dictionary, it examines `mode` (`static`, `variable`, `expression`, `resolver`).
-- **Strategy Instantiation**: `ValueResolver.compile_resolver_config(config)` inspects `family` and `kind` and instantiates a subclass of `CompiledResolver`:
+#### Backend Compiler & Runtime (`value_resolver.py`)
+- **Factory Entry Point**: `ValueResolver.compile(val)` inspects the input payload. If given a dictionary, it examines `mode` (`static`, `variable`, `expression`, `resolver`).
+- **Strategy Selection**: `ValueResolver.compile_resolver_config(config)` inspects `family` and `kind` and instantiates a subclass of `CompiledResolver`:
   - `DateFormulaResolver`: Wraps `frappe.utils.add_days` and `add_to_date`.
-  - `MathFormulaResolver`: Performs float arithmetic with precision rounding.
+  - `MathFormulaResolver`: Performs float arithmetic with precision rounding over `field_a` and `field_b`/`constant_b`.
   - `DateDiffResolver`: Wraps `frappe.utils.date_diff` and `month_diff`.
   - `CollectionResolver`: Filters lists using `ConditionEvaluator` and performs `count`, `sum`, `avg`, `any`, `all`, `first`, `filter`, `pluck`, `unique`.
-  - `ChildAggregationResolver`: Legacy wrapper around `CollectionResolver`.
+  - `ChildAggregationResolver`: Legacy duplicate around `CollectionResolver`.
   - `StringFormulaResolver`: Handles string `concat`, `uppercase`, `lowercase`, `fmt_money`.
   - `NormalizationResolver`: Delegates to `execute_normalization_pipeline`.
   - `FormatResolver`: Wraps `frappe.utils.format_date` and string formatting.
   - `LookupResolver`: Performs `frappe.db.get_value` with permission checking (`frappe.has_permission`).
   - `SystemContextResolver`: Inspects `frappe.session.user` and `frappe.get_roles`.
 - **Fallback Resolvers**:
-  - `SafeEvalResolver`: Evaluates Python expressions like `{doc.grand_total * 0.1}` using `frappe.safe_eval`.
+  - `SafeEvalResolver`: Evaluates string expressions like `{doc.grand_total * 0.1}` using `frappe.safe_eval`.
   - `JinjaResolver`: Renders Jinja templates like `{{ doc.customer }}` using `frappe.render_template`.
   - `ExpressionResolver`: Concatenates non-contiguous segments in mixed text mode.
 - **Request-Local Caching**: `get_compiled_resolver(action, key, payload)` caches compiled strategy instances in `frappe.local.flexirule_compiled_resolvers`.
 
-### Frontend Control Architecture
-
-Frontend controls reside in `flexirule/public/js/flexirule/rule_builder/controls/`.
+#### Frontend Control Architecture (`FlexValueControl.vue`, `ValueResolverControl.vue`)
 - **`FlexValueControl.vue`**: Top-level control for field values. Toggles between Static Mode (`ControlFactory.vue` or `MultiSelectList.vue`) and Dynamic Mode (Tiptap editor).
 - **Tiptap Integration**: Supports `@` for Variable Tokens and `/` for Resolver Commands.
 - **Token Editing**: Double-clicking a token opens a modal housing `ValueResolverControl.vue` (Visual Builder) or a Manual Expression textarea.
@@ -111,10 +137,10 @@ Frontend controls reside in `flexirule/public/js/flexirule/rule_builder/controls
 
 The codebase contains 15 total resolver classes across canonical strategies and backend internal fallbacks:
 
-| Kind / Class | Category | Primary Purpose | Input Config / Attributes | Backend Class | Key Defect / Architectural Flaw |
+| Kind / Class | Category | Primary Purpose | Input Config / Attributes | Backend Class | Architectural Flaw / Failure Point |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | `date_time` | Canonical | Date math, diff, format | `base_type`, `offset_value`, `offset_unit`, `diff_unit` | `DateFormulaResolver`, `DateDiffResolver`, `FormatResolver` | Combines 3 distinct operations under 1 strategy name. |
-| `math_formula` | Canonical | Numeric arithmetic | `field_a`, `math_op`, `field_b_type`, `field_b`, `constant_b` | `MathFormulaResolver` | Limited to 2 operands (`A op B`); cannot nest expressions without safe_eval. |
+| `math_formula` | Canonical | Numeric arithmetic | `field_a`, `math_op`, `field_b_type`, `field_b`, `constant_b` | `MathFormulaResolver` | Rigid 2-operand schema (`A op B`); cannot nest calculations without `safe_eval`. |
 | `collection` | Canonical | Child table query & reduce | `source`, `operation`, `condition`, `target_field` | `CollectionResolver` | Lacks `min`/`max` reduction; cannot chain transformations easily. |
 | `child_aggregation` | Legacy Alias | Child table sum/avg/count | `agg_table`, `agg_field`, `agg_op` | `ChildAggregationResolver` | Unfiltered legacy duplicate of `CollectionResolver`. |
 | `text` | Canonical | Text concat, case, norm | `operation`, `str_a`, `str_b`, `case_mode`, `norm_pipeline` | `StringFormulaResolver`, `NormalizationResolver`, `FormatResolver` | Fragmented implementation across 3 separate backend classes. |
@@ -123,7 +149,7 @@ The codebase contains 15 total resolver classes across canonical strategies and 
 | `system_context` | Canonical | Session user / role check | `sys_token`, `sys_role` | `SystemContextResolver` | Exposes minimal context tokens; missing company/today/datetime. |
 | `VariableResolver` | Internal | Context path resolution | `path` | `VariableResolver` | Supports dot notation but lacks explicit null coalescing. |
 | `StaticResolver` | Internal | Direct literal value | `value` | `StaticResolver` | Coerces `None` to static values without explicit typing. |
-| `NoneResolver` | Internal | Represents `None` | N/A | `NoneResolver` | Solid. |
+| `NoneResolver` | Internal | Represents `None` | N/A | `NoneResolver` | Sound baseline. |
 | `SafeEvalResolver` | Fallback | Uncompiled Python string | `expression` | `SafeEvalResolver` | Security boundary leak; requires `safe_eval` parsing at runtime. |
 | `JinjaResolver` | Fallback | Uncompiled Jinja string | `template` | `JinjaResolver` | Performance overhead; vulnerable to SSTI if un-sanitized. |
 | `ExpressionResolver` | Internal | Mixed text + token list | `segments` | `ExpressionResolver` | Concatenates everything as string; breaks non-string types. |
@@ -132,7 +158,7 @@ The codebase contains 15 total resolver classes across canonical strategies and 
 
 ## 4. Frappe/ERPNext Requirements
 
-The value resolver must seamlessly represent Frappe Framework and ERPNext data structures:
+The value resolver must represent Frappe Framework and ERPNext data structures natively:
 
 ### Document Values
 1. **DocType Fields**: Standard scalar fields (`Data`, `Int`, `Float`, `Currency`, `Percent`, `Check`, `Select`, `Date`, `Datetime`, `Time`).
@@ -144,71 +170,65 @@ The value resolver must seamlessly represent Frappe Framework and ERPNext data s
 
 ### Lifecycle & Event Contexts
 Rules execute during document hook events (`before_insert`, `before_save`, `on_submit`, `on_cancel`, `on_trash`) or scheduler events (`hourly`, `daily`).
-- In `before_save` / `on_submit`, both `doc` (current state) and `old_doc` (`doc.get_doc_before_save()`) exist.
-- Resolvers must cleanly support referencing `old_doc.status` vs `doc.status` for change detection and state transition rules.
+- In `before_save` / `on_submit`, both `doc` (current state) and `old_doc` (`doc.get_doc_before_save()`) exist in context.
+- Resolvers must support referencing `old_doc.status` vs `doc.status` for change detection and state transition rules.
 
 ---
 
-## 5. Assignment Requirements
+## 5. Assignment Requirements (Integration Boundary)
 
-The `Assignment` action handler (`flexirule/ruleflow/core/action_handlers/assignment.py`) executes sequential batch mutations.
+The `Assignment` action handler (`flexirule/ruleflow/core/action_handlers/assignment.py`) executes batch state mutations.
 
-### Target Paths
-- Document Fields: `doc.status`, `doc.posting_date`, `doc.grand_total`.
-- Execution Context Variables: `vars.discount_amount`, `vars.approved_by`, `vars.is_eligible`.
+### Assignment Fields Consuming Value Resolver
+1. **Target Path (`target`)**: Path string (`doc.status`, `vars.total_amount`).
+2. **Mutation Operator (`operator`)**: `set`, `add`, `subtract`, `multiply`, `divide`, `append`, `clear`.
+3. **Value Payload (`value`)**: Consumes Value Resolver expressions. `AssignmentHandler` invokes `get_compiled_resolver(action, f"assign_{idx}", assignment.get("value"))` to resolve operand values.
+4. **Row Guard (`when_expression`)**: Optional condition/predicate guard evaluated before applying mutation.
 
-### Operators & Value Requirements
-1. **`set`**: Directly replaces target with resolved value.
-2. **`add` / `subtract` / `multiply` / `divide`**: Mutates target using current value as Left Hand Side and resolved value as Right Hand Side.
-3. **`append` / `clear`**: Mutates list/collection variables.
-
-### Row-Level Guarding
-Assignments support an optional `when_expression` guard. The resolver must evaluate boolean predicates cleanly before executing the mutation.
+### Type Conversion Boundary
+`AssignmentHandler._set_value()` applies the resolved value to `doc` or `vars`.
+- `Value Resolver` is responsible for producing a clean, typed value.
+- `Assignment Action` is responsible for setting the target field or context variable.
 
 ---
 
-## 6. Condition Requirements
+## 6. Condition Requirements (Integration Boundary)
 
 Conditions are evaluated by `ConditionEvaluator` (`evaluator.py`) during runtime or compiled into Python code by `ConditionCompiler` (`compiler.py`).
 
-### Root vs Row Context
-- **Root Context**: Left and right operands evaluate against `doc` or `vars`.
-- **Row Context**: Evaluated during collection filtering; operands evaluate against `row` with fallback to `doc`.
+### Condition Structure
+- **Left Operand (`left`)**: Consumes a Value Resolver expression (`{ "ref": "doc.grand_total" }` or `{ "family": "transform", ... }`).
+- **Operator (`op`)**: Comparison operator (`==`, `!=`, `>`, `<`, `>=`, `<=`, `in`, `not in`, `contains`, `is_set`, `is_not_set`, `is_empty`, `is_not_empty`).
+- **Right Operand (`right`)**: Consumes a Value Resolver expression.
+- **Link Tuples**: `check_link_match(lhs, rhs, op)` supports tuple values like `["Customer", "CUST-0001"]`.
 
-### Operator Requirements
-1. **Relational**: `==`, `!=`, `>`, `<`, `>=`, `<=`.
-2. **Membership**: `in`, `not in` (works over arrays, lists, comma-separated strings).
-3. **Text Search**: `contains`, `not_contains`, `like`, `regex`.
-4. **Set / State**: `is_set`, `is_not_set`, `is_empty`, `is_not_empty`.
-5. **Link Tuples**: `check_link_match` supports tuples like `["Customer", "CUST-0001"]` or `["Customer", ["C1", "C2"]]`.
+### Context Scoping
+- **Root Context**: Left and right operands resolve against `doc` or `vars`.
+- **Row Context**: When evaluating collection filters (`_evaluate_collection`), `ConditionEvaluator` sets `row` scope context (`row.qty`).
 
 ---
 
-## 7. Query Filter Requirements
+## 7. Query Filter Requirements (Integration Boundary)
 
-FlexiRule components like `QueryRecordsHandler` (`query_records.py`) require database-compatible query filters (`filters` and `or_filters`) passed to `frappe.get_all` or `frappe.db.get_value`.
+Query filters in `QueryRecordsHandler` (`query_records.py`) configure database query arguments (`filters`, `or_filters`) passed to `frappe.get_list` or `frappe.db.get_value`.
 
-### Structural Mismatch & Required Conversion
-
+### End-to-End Execution Trace
 ```
 ┌──────────────────────────────────────┐          ┌──────────────────────────────────────┐
 │       FlexiRule Resolver Context     │          │         Frappe DB Query Filter       │
 │                                      │          │                                      │
-│ {                                    │          │ {                                    │
-│   "customer": {                      │          │   "customer": "CUST-0001",           │
-│     "mode": "variable",              │  ──────> │   "posting_date": [">=", "2026-01-01"],│
-│     "path": "doc.customer"           │          │   "status": ["in", ["Open", "Draft"]]│
-│   }                                  │          │ }                                    │
+│ {                                    │          │ [                                    │
+│   "customer": {                      │  ──────> │   ["customer", "=", "CUST-0001"],    │
+│     "mode": "variable",              │          │   ["posting_date", ">=", "2026-01-01"]│
+│     "path": "doc.customer"           │          │ ]                                    │
+│   }                                  │          │                                      │
 │ }                                    │          │                                      │
 └──────────────────────────────────────┘          └──────────────────────────────────────┘
 ```
 
-Query filters require **flat, primitive database values** (`str`, `int`, `float`, `list[str]`), not nested resolver configuration objects.
-- Simple equality: `{"status": "Submitted"}`.
-- Operator filters: `{"posting_date": [">=", "2026-01-01"]}`.
-- List filters: `{"territory": ["in", ["North", "South"]]}`.
-
-**Key Architect Recommendation**: Query filters must consume the exact same Value Resolver system to evaluate dynamic filter values, but must pass through a **Query Filter Serializer** that collapses resolved values into native Frappe DB filter syntax before query execution.
+1. **Resolution Phase**: `QueryRecordsHandler._resolve_filters_with_context()` traverses the filter payload and invokes `get_compiled_resolver()` on dynamic value objects.
+2. **Normalization Phase**: `QueryRecordsHandler._normalize_filters_for_backend()` converts the resolved dictionary or tuple structure into flat Frappe filter tuples: `[doctype, field, operator, value]`.
+3. **Database Execution**: The normalized filter array is passed directly to `frappe.get_list(reference_doctype, filters=filters)`.
 
 ---
 
@@ -226,103 +246,141 @@ Action handlers across FlexiRule consume values in distinct operational contexts
 
 ---
 
-## 9. Composition Analysis
+## 9. Composition Analysis (Proving True Composability)
 
-### Critique of Current Special-Purpose Approach
+To evaluate whether the architecture supports true composition, we trace three representative real-world examples in the current implementation vs the proposed architecture:
 
-The existing implementation relies on discrete, non-composable strategies:
-- `date_formula` calculates date + offset.
-- `date_diff` calculates difference between two dates.
-- `math_formula` calculates `A op B`.
-- `string_formula` calculates text `concat` or `casing`.
+### Example A — Scalar Transformation
+**Use Case**: `doc.amount → number calculation → round → assignment`
 
-**Problem**: A user cannot perform:
-```text
-(doc.posting_date + 7 days) -> format as "YYYY-MM-DD" -> compare with today
+- **Current Implementation**:
+  - *Payload*: `MathFormulaResolver` schema: `{ "field_a": "doc.amount", "math_op": "*", "field_b_type": "constant", "constant_b": 1.18, "precision": 2 }`.
+  - *Backend Compilation*: Instantiates `MathFormulaResolver`.
+  - *Runtime Flow*: `MathFormulaResolver.resolve()` computes `flt(val_a * 1.18, precision)`.
+  - *Breakage / Limit*: Single-step math works, but if the user needs `(doc.amount + doc.shipping) * 1.18 -> round`, the rigid `field_a / field_b` schema fails. The frontend is forced to generate a raw string expression `{frappe.utils.flt((doc.amount + doc.shipping) * 1.18, 2)}` for `SafeEvalResolver`.
+- **Proposed Architecture**:
+  - *Payload*: Nested `transform` AST:
+    ```json
+    {
+      "family": "transform",
+      "domain": "number",
+      "operation": "round",
+      "precision": 2,
+      "operands": [
+        {
+          "family": "transform",
+          "domain": "number",
+          "operation": "multiply",
+          "operands": [
+            {
+              "family": "transform",
+              "domain": "number",
+              "operation": "add",
+              "operands": [
+                { "family": "variable", "path": "doc.amount" },
+                { "family": "variable", "path": "doc.shipping" }
+              ]
+            },
+            { "family": "literal", "value": 1.18 }
+          ]
+        }
+      ]
+    }
+    ```
+  - *Fix*: Replaces `SafeEvalResolver` with nested strategy evaluation, preserving structured execution.
+
+---
+
+### Example B — Lookup + Transformation
+**Use Case**: `doc.customer → lookup customer → customer_group → text transformation → assignment`
+
+- **Current Implementation**:
+  - *Payload*: User attempts to configure `lookup` + `text` transform.
+  - *Current Flaw*: `LookupResolver` only fetches a single field string from DB (`frappe.db.get_value("Customer", doc.customer, "customer_group")`). It cannot pipe that output directly into `NormalizationResolver` without writing a custom Python expression string or storing intermediate results in a `vars` variable.
+- **Proposed Architecture**:
+  - *Payload*:
+    ```json
+    {
+      "family": "transform",
+      "domain": "text",
+      "operation": "normalize",
+      "pipeline": ["trim", "uppercase"],
+      "source": {
+        "family": "lookup",
+        "target_doctype": "Customer",
+        "record_field": "doc.customer",
+        "fetch_field": "customer_group"
+      }
+    }
+    ```
+  - *Fix*: The `source` property of any `transform` strategy accepts any inner `FlexExpression` (including `lookup`), enabling seamless composition.
+
+---
+
+### Example C — Collection Pipeline
+**Use Case**: `doc.items → filter (qty > 10) → pluck (amount) → sum → compare`
+
+- **Current Implementation**:
+  - *Payload*: `CollectionResolver` config: `{ "kind": "collection", "source": "doc.items", "operation": "sum", "target_field": "amount", "condition": { "left": { "ref": "row.qty" }, "op": ">", "right": { "value": 10 } } }`.
+  - *Backend Compilation*: Instantiates `CollectionResolver`.
+  - *Runtime Flow*: Evaluates `CollectionResolver.resolve()`, which iterates over `doc.items`, filters rows matching `row.qty > 10`, extracts `row.amount`, and computes `sum()`.
+  - *Analysis*: `CollectionResolver` already supports inline filtering + plucking + aggregation in a single pass. However, if the user wants to take that sum and round or format it before assignment, composition breaks because `CollectionResolver` cannot be nested inside `FormatResolver`.
+- **Proposed Architecture**:
+  - *Payload*:
+    ```json
+    {
+      "family": "transform",
+      "domain": "number",
+      "operation": "round",
+      "precision": 2,
+      "operands": [
+        {
+          "family": "collection",
+          "source": "doc.items",
+          "operation": "sum",
+          "target_field": "amount",
+          "condition": {
+            "left": { "ref": "row.qty" },
+            "op": ">",
+            "right": { "value": 10 }
+          }
+        }
+      ]
+    }
+    ```
+  - *Fix*: Wraps collection aggregations cleanly inside numeric or text transformations.
+
+---
+
+## 10. Collection Architecture Analysis
+
+Collections represent arrays of dictionaries (`doc.items`, `vars.custom_list`).
+
+### Collection Pipeline Conceptualization
+
 ```
-without creating custom Python code or stringified Jinja templates.
+Collection Source (doc.items)
+       │
+       ▼
+  Filter Row Predicate (row.qty > 10)
+       │
+       ▼
+  Project / Pluck Field (row.amount)
+       │
+       ▼
+  Aggregate Reduction (sum / avg / min / max / count)
+```
 
-### Proposed Composition Model (Pipelines & Expressions)
+### Analysis of `ChildAggregationResolver`
+Source inspection shows `ChildAggregationResolver` (`value_resolver.py:317`) is an older, unfiltered wrapper that instantiates `CollectionResolver(source=self.agg_table, operation=self.agg_op, target_field=self.agg_field)`. It lacks condition filtering support.
 
-We propose a two-tiered compositional architecture:
-1. **Expression Trees (AST)**: For mathematical and boolean expressions requiring nested operations:
-   ```json
-   {
-     "family": "transform",
-     "domain": "number",
-     "operation": "add",
-     "operands": [
-       { "family": "variable", "path": "doc.net_total" },
-       {
-         "family": "transform",
-         "domain": "number",
-         "operation": "multiply",
-         "operands": [
-           { "family": "variable", "path": "doc.net_total" },
-           { "family": "literal", "value": 0.18 }
-         ]
-       }
-     ]
-   }
-   ```
-2. **Transformation Pipelines**: For sequential string/date transformations:
-   ```json
-   {
-     "family": "transform",
-     "domain": "text",
-     "source": { "family": "variable", "path": "doc.customer_name" },
-     "pipeline": [
-       { "op": "trim" },
-       { "op": "uppercase" },
-       { "op": "slug" }
-     ]
-   }
-   ```
+**Architectural Decision**: `ChildAggregationResolver` is a redundant legacy duplicate and will be **removed**. All collection operations will execute via `CollectionResolver`.
 
 ---
 
-## 10. Value Type Analysis
+## 11. Lookup and Relationship Analysis
 
-FlexiRule currently lacks an explicit type system. We define **8 explicit Semantic Value Types**:
-
-| Type Name | Corresponding Python Types | Supported UI Controls | Coercion Rules |
-| :--- | :--- | :--- | :--- |
-| **`Boolean`** | `bool` | Checkbox, Switch | `bool(val)` (non-empty str/num is `True`, `0`/`""`/`None` is `False`) |
-| **`Integer`** | `int` | Number Input, Slider | `cint(val)` (floats truncated) |
-| **`Float`** | `float` | Currency Input, Percent Input | `flt(val, precision)` |
-| **`String`** | `str` | Text Input, Textarea, Code | `str(val or "")` |
-| **`Date`** | `datetime.date`, `str` (`YYYY-MM-DD`) | DatePicker | `getdate(val)` |
-| **`Datetime`** | `datetime.datetime`, `str` | DatetimePicker | `get_datetime(val)` |
-| **`Record`** | `dict`, `Document` | ResourceMapper, Grid | Retained as dictionary |
-| **`Collection`** | `list[Any]`, `list[dict]` | InlineTable, MultiSelect | Ensures list structure |
-
----
-
-## 11. Collection and Child Table Analysis
-
-Based on the verified Collection Resolver architecture (`reports/collection-resolver/design-review.md`), collection operations are pure, side-effect-free evaluations over arrays:
-
-### Proposed Complete Operation Set
-1. **`count`**: Counts rows matching condition (`int`).
-2. **`sum`**: Sums `target_field` across matching rows (`float`).
-3. **`avg`**: Averages `target_field` across matching rows (`float`).
-4. **`min`**: Finds minimum `target_field` value across matching rows (`float`/`Date`).
-5. **`max`**: Finds maximum `target_field` value across matching rows (`float`/`Date`).
-6. **`any`**: Returns `True` if at least one row matches condition (`bool`, short-circuiting).
-7. **`all`**: Returns `True` if all rows match condition (`bool`, short-circuiting).
-8. **`first`** / **`find`**: Returns the first row dictionary matching condition (`dict | None`).
-9. **`filter`**: Returns list of matching row dictionaries (`list[dict]`).
-10. **`pluck`**: Extracts array of `target_field` values from matching rows (`list[Any]`).
-11. **`unique`**: Order-preserving distinct extraction from `pluck` (`list[Any]`).
-
-### Safety Guard
-If collection length exceeds `10,000` rows (`MAX_COLLECTION_ROWS`), `CollectionResolver` raises a controlled `MethodExecutionError` to prevent memory exhaustion.
-
----
-
-## 12. Lookup and Relationship Analysis
-
-`LookupResolver` fetches values across document relationships (`frappe.db.get_value`).
+`LookupResolver` fetches values across document relationships using `frappe.db.get_value`.
 
 ### Multi-Hop Lookup Extension
 Current lookup supports single-hop (`Customer.customer_group`). Real ERP rules frequently require multi-hop relationship traversal:
@@ -349,9 +407,9 @@ Sales Order -> Customer (Link) -> Customer Group (Link) -> Parent Customer Group
 
 ---
 
-## 13. Date/Time Analysis
+## 12. Date/Time Analysis
 
-Date/time operations must cover standard ERP business calculations:
+Date/time operations handle standard ERP business calculations:
 
 ### Operations Set
 1. **`add`**: Add days, weeks, months, or years to a date (`frappe.utils.add_to_date`).
@@ -363,21 +421,21 @@ Date/time operations must cover standard ERP business calculations:
 
 ---
 
-## 14. Text Analysis
+## 13. Text Analysis
 
 Text operations manipulate strings cleanly without relying on Python code strings:
 
 ### Operations Set
 1. **`combine` / `concat`**: Concatenate two or more text values with optional separator.
 2. **`case`**: Change casing (`uppercase`, `lowercase`, `titlecase`).
-3. **`normalize`**: Execute text cleaning pipeline (`trim`, `slug`, `snake_case`, `remove_accents`).
+3. **`normalize`**: Execute text cleaning pipeline (`trim`, `slug`, `snake_case`).
 4. **`substring`**: Extract string slice by start/end index.
 5. **`replace`**: Replace target substring with replacement value.
 6. **`template`**: Format string template using positional or named variables (`"Hello {doc.customer_name}"`).
 
 ---
 
-## 15. Number Analysis
+## 14. Number Analysis
 
 Numeric operations handle math calculations with floating-point safety:
 
@@ -393,7 +451,7 @@ Division by zero returns `0.0` and logs a warning to prevent unhandled runtime c
 
 ---
 
-## 16. System/Context Analysis
+## 15. System/Context Analysis
 
 System context exposes safe runtime session and environment variables:
 
@@ -410,7 +468,7 @@ System context exposes safe runtime session and environment variables:
 
 ---
 
-## 17. Conditional and Logical Expressions
+## 16. Conditional and Logical Expressions
 
 Rules often require dynamic values that depend on runtime conditions (e.g. "If Customer is VIP, discount is 20%, else 5%").
 
@@ -443,7 +501,7 @@ Resolves to the first non-`None`, non-empty value in an ordered candidate list:
 
 ---
 
-## 18. UI/UX Analysis
+## 17. UI/UX Analysis
 
 ### Critique of Current `FlexValueControl.vue` & Tiptap Editor
 - **Pros**: Blends static input controls with rich autocomplete (`@` for variables, `/` for commands).
@@ -474,7 +532,7 @@ Resolves to the first non-`None`, non-empty value in an ordered candidate list:
 
 ---
 
-## 19. Backend/Frontend Contract Analysis
+## 18. Backend/Frontend Contract Analysis
 
 ### Current Mismatches
 1. **Mode Normalization**: Frontend sends `mode: "formula"`, `"format"`, `"normalize"`. Backend coercively translates them during `ValueResolver.compile()`.
@@ -496,6 +554,24 @@ interface FlexExpression {
 
 ---
 
+## 19. Type System Re-Evaluation
+
+The type system must bridge **Runtime Value Types** and **Frappe DocField Types**:
+
+| Frappe DocField Fieldtype | Semantic Runtime Value Type | Supported Resolver Operations |
+| :--- | :--- | :--- |
+| `Data`, `Text`, `Long Text`, `Select` | **`String`** | `concat`, `uppercase`, `lowercase`, `trim`, `slug`, `replace` |
+| `Int` | **`Integer`** | `add`, `subtract`, `multiply`, `divide`, `abs` |
+| `Float`, `Currency`, `Percent` | **`Float`** | `add`, `subtract`, `multiply`, `divide`, `round`, `fmt_money` |
+| `Check` | **`Boolean`** | Logical comparisons, `conditional` |
+| `Date` | **`Date`** | `add_days`, `add_to_date`, `date_diff`, `start_of`, `end_of` |
+| `Datetime` | **`Datetime`** | `add_to_date`, `diff`, `format_date` |
+| `Link`, `Dynamic Link` | **`String` / `Reference`** | `lookup` |
+| `Table` | **`Collection[Record]`** | `count`, `sum`, `avg`, `min`, `max`, `any`, `all`, `first`, `filter`, `pluck` |
+| `Table MultiSelect` | **`Collection[String]`** | `count`, `any`, `all`, `filter` |
+
+---
+
 ## 20. Security Analysis
 
 ### Audit of Current Security Boundaries
@@ -513,36 +589,25 @@ interface FlexExpression {
 
 ## 21. Performance Analysis
 
-### Evaluation Benchmarks & Optimization
+### Strategy Dispatch Optimization & Request-Local Caching
 
-1. **Safe-Eval Overhead vs Compiled Class**:
-   - `frappe.safe_eval("doc.qty * doc.rate")`: ~180 microseconds per evaluation.
-   - `MathFormulaResolver.resolve(context)`: ~8 microseconds per evaluation.
-   - **Performance Gain**: Direct strategy class execution is **~22x faster** than string parsing.
+1. **Direct Strategy Dispatch vs String Parsing**: Direct Python strategy execution (`MathFormulaResolver.resolve(context)`) eliminates AST parsing overhead incurred by `frappe.safe_eval`.
 2. **Request-Local Strategy Caching**:
    `get_compiled_resolver(action, key, payload)` caches strategy instances in `frappe.local.flexirule_compiled_resolvers`. For batch document processing (e.g., processing 1,000 Sales Orders in a scheduler job), compilation occurs exactly once on row 1, reducing subsequent row evaluation overhead to zero allocation cost.
 3. **Collection Query Limits**:
-   Collection operations execute in O(N) time with early-exit short-circuiting for `any` and `all`. The 10,000 row safety threshold guarantees execution bounded under 15 milliseconds.
+   Collection operations execute in O(N) time with early-exit short-circuiting for `any` and `all`. The 10,000 row safety threshold guarantees execution bounded under reasonable memory limits.
 
 ---
 
-## 22. Keep / Improve / Consolidate / Add / Remove / Defer
+## 22. Feature Justification & Classification
 
-| Resolver Strategy / Feature | Action | Justification & Architectural Strategy |
-| :--- | :--- | :--- |
-| **`StaticResolver` (`literal`)** | **Keep** | Essential baseline for static constants and values. Add explicit typing. |
-| **`VariableResolver` (`variable`)** | **Keep** | Essential baseline for context references (`doc.*`, `vars.*`, `row.*`). |
-| **`CollectionResolver` (`collection`)** | **Improve** | Core primitive for child tables. Add `min`/`max` reduction and typed outputs. |
-| **`LookupResolver` (`lookup`)** | **Improve** | Refactor single-hop `fetch` into multi-hop relationship lookup (`A.B.C`). |
-| **`SystemContextResolver` (`context`)** | **Improve** | Expand token set to include `system.company`, `system.today`, `system.now`. |
-| **`StringFormula` + `Normalization` + `Format`** | **Consolidate** | Merge into single `TextTransformResolver` (`family: 'transform', domain: 'text'`). |
-| **`MathFormula` + `DateFormula` + `DateDiff`** | **Consolidate** | Merge into `CalculatedValueResolver` (`family: 'transform', domain: 'number'/'date_time'`). |
-| **`ChildAggregationResolver`** | **Remove / Purge** | Redundant legacy alias completely subsumed by `CollectionResolver`. |
-| **`FetchResolver`** | **Remove / Purge** | Redundant legacy alias completely subsumed by `LookupResolver`. |
-| **`SafeEvalResolver` / `JinjaResolver`** | **Remove / Purge** | Eliminate stringified fallback execution in favor of structured AST strategies. |
-| **`ConditionalResolver` (`if/then/else`)** | **Add** | Essential capability for dynamic value branching in business rules. |
-| **`CoalesceResolver`** | **Add** | Essential capability for fallback value chains (`None` handling). |
-| **Arbitrary Python Pipelines** | **Defer** | Out of scope for v1.0. Keeps engine safe and code-free. |
+Every proposed addition or refactoring is evaluated against actual source code evidence:
+
+1. **`conditional` (`if/then/else`)**: **Justified (Add)**. Source evidence: `AssignmentHandler` currently relies on raw Python strings or Jinja for conditional assignment values.
+2. **`coalesce`**: **Justified (Add)**. Source evidence: Handlers frequently fall back across `doc.field`, `vars.field`, or static default values when primary fields are `None`.
+3. **Multi-Hop Lookup**: **Justified (Improve)**. Source evidence: Single-hop `LookupResolver` forces users to create intermediate variables for nested link fields (`SO -> Customer -> Group`).
+4. **`min` / `max` Collection Reduction**: **Justified (Improve)**. Source evidence: `CollectionResolver` already supports `sum`, `avg`, `count`; adding `min`/`max` completes standard aggregation set.
+5. **`substring` / `replace` / `floor` / `ceil` / `abs`**: **Deferred**. No immediate source evidence requiring them in v1 core; defer to avoid feature creep.
 
 ---
 
@@ -638,7 +703,7 @@ The recommended v2 taxonomy comprises **6 Core Families**:
 2. **`variable`**: Context paths (`{ "family": "variable", "path": "doc.grand_total" }`).
 3. **`transform`**: Calculations & transformations:
    - `domain: "number"`: Operations `add`, `subtract`, `multiply`, `divide`, `round`.
-   - `domain: "text"`: Operations `combine`, `case`, `normalize`, `format`, `substring`.
+   - `domain: "text"`: Operations `combine`, `case`, `normalize`, `format`.
    - `domain: "date_time"`: Operations `add`, `subtract`, `diff`, `format`, `start_of`, `end_of`.
 4. **`collection`**: Table querying (`{ "family": "collection", "source": "doc.items", "operation": "sum", "target_field": "amount" }`).
 5. **`lookup`**: Multi-hop document lookup (`{ "family": "lookup", "path": [...], "fetch_field": "customer_group" }`).
@@ -652,7 +717,7 @@ And **2 Composition Primitives**:
 
 ## 26. Recommended Configuration Model
 
-Below are concrete, proposed JSON configuration specifications for every major execution context in FlexiRule:
+Below are concrete JSON configuration specifications for every major execution context in FlexiRule:
 
 ### 1. Proposed Assignment Configuration
 ```json
@@ -765,39 +830,25 @@ Below are concrete, proposed JSON configuration specifications for every major e
 
 ---
 
-## 27. Migration/Compatibility Considerations
+## 27. Direct Pre-Release Cleanup Strategy
 
-FlexiRule is currently unreleased, so legacy backwards compatibility shims should not be accumulated long-term in the production codebase.
-
-### One-Time Upgrade Migration Strategy
-To assist existing development and staging environments, we recommend a single idempotent patch (`flexirule/patches/v1_0/migrate_to_flexexpression_v2.py`):
-1. **Rule Action Config Transformer**: Reads `Rule Action.config` JSON blobs.
-2. **Canonical Mapping**:
-   - Maps legacy `mode: "formula"` to `family: "transform", domain: "number"`.
-   - Maps legacy `kind: "child_aggregation"` to `family: "collection"`.
-   - Maps legacy `kind: "fetch"` to `family: "lookup"`.
-3. **Execution Verification**: Validates that converted rules recompile cleanly using `ValueResolver.compile()`.
+FlexiRule is currently unreleased. We do not preserve obsolete resolver payloads, legacy modes, or old stored data for backward compatibility. The architecture will be consolidated cleanly before public release.
 
 ---
 
 ## 28. Testing Strategy
-
-To ensure zero regressions and high reliability, the improvement plan mandates a three-tiered testing strategy:
 
 1. **Unit Testing (`flexirule/ruleflow/tests/test_value_resolvers_v2.py`)**:
    - Tests every resolver family (`literal`, `variable`, `transform`, `collection`, `lookup`, `context`, `conditional`, `coalesce`).
    - Verifies explicit type coercion, null handling, and boundary conditions (division by zero, empty collections, 10k row limit exception).
 2. **Contract Validation (`test_resolver_contracts.py`)**:
    - Validates JSON payload schemas using `pydantic` or JSON Schema validators to guarantee frontend and backend contract parity.
-3. **Security & Performance Benchmarks (`test_resolver_security_perf.py`)**:
+3. **Security Benchmarks (`test_resolver_security.py`)**:
    - Verifies that malformed or unauthorized `resolverLevel` payloads trigger `frappe.PermissionError`.
-   - Benchmarks batch evaluation speed, confirming request-local caching maintains < 10 microsecond strategy execution time.
 
 ---
 
 ## 29. Documentation Requirements
-
-Following completion of the architectural refactoring, the following documentation artifacts must be updated:
 
 1. **`docs/architecture/value_resolver_v2.md`**: Technical specification of the FlexExpression Engine, class hierarchy, and execution pipeline.
 2. **`docs/contracts/flex_expression_schema.json`**: Official JSON Schema specification for frontend and API integration.
@@ -805,19 +856,33 @@ Following completion of the architectural refactoring, the following documentati
 
 ---
 
-## 30. Final Architectural Conclusions
+## 30. Final Decision Table
 
-This deep architectural analysis demonstrates that FlexiRule's existing Value Resolver system possesses strong foundation principles — request-local strategy caching, native Frappe DB integration, and rich UI autocomplete controls.
+The decision table below summarizes the disposition for every existing and proposed resolver concept:
 
-However, prior to public/RC release, FlexiRule must transition away from stringified Python expression fallbacks (`safe_eval`, Jinja) and discrete special-purpose resolvers (`date_formula`, `math_formula`, `string_formula`, `child_aggregation`).
-
-By adopting the **FlexExpression Engine v2** proposed in this plan:
-1. **FlexiRule gains absolute type safety** across Numbers, Strings, Dates, Records, and Collections.
-2. **FlexiRule gains true compositionality**, allowing users to combine fields, lookups, calculations, and date operations naturally without code.
-3. **FlexiRule secures its execution boundary**, eliminating stringified Python code execution in favor of pure AST strategy evaluation.
-4. **FlexiRule maximizes performance**, leveraging compiled strategy dispatch (~22x faster than `safe_eval`) and request-local Redis caching.
-
-Executing this plan ensures FlexiRule delivers a robust, elegant, Frappe-native business rule engine ready for production enterprise deployment.
+| Concept | Current Source Evidence | Architectural Role | Keep | Consolidate | Remove | Defer |
+| :--- | :--- | :--- | :---: | :---: | :---: | :---: |
+| **`static` / `literal`** | `StaticResolver` (`value_resolver.py:84`) | Value Source | **X** | | | |
+| **`variable`** | `VariableResolver` (`value_resolver.py:93`) | Value Source | **X** | | | |
+| **`date_time` (`DateFormula`)** | `DateFormulaResolver` (`value_resolver.py:102`) | Value Transform | | **X** | | |
+| **`date_time` (`DateDiff`)** | `DateDiffResolver` (`value_resolver.py:195`) | Value Transform | | **X** | | |
+| **`math_formula`** | `MathFormulaResolver` (`value_resolver.py:144`) | Value Transform | | **X** | | |
+| **`string_formula`** | `StringFormulaResolver` (`value_resolver.py:348`) | Value Transform | | **X** | | |
+| **`normalization`** | `NormalizationResolver` (`value_resolver.py:382`) | Value Transform | | **X** | | |
+| **`format`** | `FormatResolver` (`value_resolver.py:417`) | Value Transform | | **X** | | |
+| **`collection`** | `CollectionResolver` (`value_resolver.py:236`) | Collection Pipeline | **X** | | | |
+| **`child_aggregation`** | `ChildAggregationResolver` (`value_resolver.py:317`) | Legacy Collection Duplicate | | | **X** | |
+| **`lookup`** | `LookupResolver` (`value_resolver.py:460`) | Relationship Traversal | **X** | | | |
+| **`fetch`** | `FetchResolver` (`value_resolver.py:532`) | Legacy Lookup Duplicate | | | **X** | |
+| **`system_context`** | `SystemContextResolver` (`value_resolver.py:444`) | Context Source | **X** | | | |
+| **`SafeEvalResolver`** | `SafeEvalResolver` (`value_resolver.py:560`) | Uncompiled Python Fallback | | | **X** | |
+| **`JinjaResolver`** | `JinjaResolver` (`value_resolver.py:542`) | Uncompiled Jinja Fallback | | | **X** | |
+| **`ExpressionResolver`** | `ExpressionResolver` (`value_resolver.py:575`) | Mixed Text Concatenator | | **X** | | |
+| **`conditional` (`if/then/else`)**| Missing; users forced into `safe_eval` | Value Primitive | **X** | | | |
+| **`coalesce`** | Missing; ad-hoc fallback handling in handlers | Value Primitive | **X** | | | |
+| **Multi-Hop Lookup** | `LookupResolver` single-hop limit | Relationship Traversal | **X** | | | |
+| **`min` / `max` Reduction** | Missing from `CollectionResolver` | Collection Pipeline | **X** | | | |
+| **`substring` / `replace` / `abs`**| Generic string/math functions | Deferred Operations | | | | **X** |
 
 ---
 
@@ -865,7 +930,7 @@ The architectural conclusions in this report were verified directly against the 
    - `AssignmentHandler.execute`: Line 62
    - `_compile_structured_value_to_jinja`: Line 186
 6. `flexirule/ruleflow/core/action_handlers/query_records.py`:
-   - Query report filter resolution: Line 110
+   - Query Records filter resolution & normalization: Line 572
 7. `flexirule/public/js/flexirule/rule_builder/controls/FlexValueControl.vue`:
    - Tiptap editor setup: Line 570
    - Serialization / Deserialization: Line 725
@@ -875,7 +940,3 @@ The architectural conclusions in this report were verified directly against the 
    - `RESOLVER_STRATEGIES` registry: Line 15
 10. `flexirule/public/js/flexirule/rule_builder/controls/value_resolver/index.js`:
     - Strategy definitions (`date_time`, `collection`, `math_formula`, `text`, `lookup`, `system_context`): Line 15
-11. Existing Architectural Audits:
-    - `reports/value-resolver/executive-summary.md`
-    - `reports/value-resolver/resolver-inventory.md`
-    - `reports/collection-resolver/design-review.md`
