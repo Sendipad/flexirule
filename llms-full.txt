@@ -4,21 +4,18 @@ Enterprise documentation for FlexiRule, a metadata-driven automation and rules o
 
 
 ---
-title: Entry Action
+title: Start (Entry Action)
 url: https://sendipad.github.io/flexirule/action-type/entry-action/
-lastmod: 2026-07-05
-summary: The starting point of every business rule.
+lastmod: 2026-09-27
+summary: The entry root node of every visual rule execution graph.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Entry Action# Every business rule starts with an Entry Action. This node represents the document and data that triggered the rule.
-What is the Entry Action?# Think of the Entry Action as the &amp;ldquo;input&amp;rdquo; for your logic. It contains the doc (the record that triggered the rule) and makes it available to all following steps.
-Rule Entry Conditions# You can configure &amp;ldquo;Entry Conditions&amp;rdquo; directly on the Rule header. These act as a gatekeeper: if the condition isn&amp;rsquo;t met, the rule won&amp;rsquo;t even start.
-Note: For branching logic after the rule has already started, use the Condition Action.
-
+Start (Entry Action) Action# The Start node (internal handler: simple_actions.EntryActionHandler) serves as the immutable root node of every visual rule canvas. It initializes runtime context (@doc, @old_doc, @vars, @system) when a rule is triggered.
+1. When to Use# Automatically present as the mandatory starting node on every rule canvas. Serves as the anchor point from which execution graph connections begin. 2. Configuration# Automatic Initialization: Requires no manual configuration. Fast Trigger Filters: Trigger filters (watched_fields and trigger_condition JSON) configured on the Rule header evaluate before loading the Start node. 3. Output# Context Payload: Exposes @doc (trigger document), @old_doc (pre-event state), @vars (initialized context dictionary), and @system (session user/time). Execution Path: Directs execution down its primary outbound connection edge. 4. Example# Trigger Event: Sales Invoice Before Save. Start Node: Initializes @doc with current form data. Outbound Port: Connects directly to Check or Query Records block. 5. Performance Notes# Zero Latency: Context pointer binding occurs instantly in $O(1)$ time upon rule instantiation. 6. Common Mistakes# Attempting to Delete Start Node: The Start node is mandatory and cannot be deleted from the rule canvas. Confusing Trigger Condition with Check Node: Putting complex multi-node branching into trigger conditions instead of connecting a Check (Condition) node after Start. 
 
 ---
 title: API Reference
@@ -211,35 +208,38 @@ Child Table Filtering# items.item_code == &amp;quot;CPU-01&amp;quot;: Filters fo
 ---
 title: Quick Start
 url: https://sendipad.github.io/flexirule/getting-started/quick-start/
-lastmod: 2026-06-26
-summary: Build your first automation in under 5 minutes.
+lastmod: 2026-09-27
+summary: Build your first automation visually in under 5 minutes.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Quick Start Guide# Ready to see FlexiRule in action? Follow this guide to build a simple automation that alerts you whenever a high-value Sales Invoice is created.
-1. Create your First Rule# Go to Rule List and click New.
-Rule Name: &amp;ldquo;High Value Alert&amp;rdquo; Document Type: &amp;ldquo;Sales Invoice&amp;rdquo; Trigger Event: &amp;ldquo;Before Save&amp;rdquo; 2. Open the Builder# Click the Open Rule Builder button in the dashboard. You&amp;rsquo;ll see a blank canvas with an Entry Action.
-3. Add a Condition (Check)# Hover over the Entry Action and click the + icon. Search for Condition and add it. In the config panel: Click Add Condition. Select field: grand_total. Operator: is greater than. Value: 10000. 4. Add a Notification# Drag a line from the True (Green) port of your Condition. Select Notify. In the config panel: Mode: &amp;ldquo;Toast&amp;rdquo;. Message: &amp;ldquo;💰 High value invoice detected! ID: {{ doc.name }}&amp;rdquo;. 5. Test it# Click Test Run. Pick an existing Sales Invoice with a total &amp;gt; 10,000. Click Run Test. You should see a success toast and a green path on your canvas! 6. Go Live# Close the builder, set the Rule to Enabled, and click Save. You&amp;rsquo;ve just built your first FlexiRule!
-Common Beginner Mistakes# Forgetting to Enable: A rule won&amp;rsquo;t run automatically unless the &amp;ldquo;Enabled&amp;rdquo; checkbox is checked on the main Rule document. Wrong Trigger Event: If you want to update a field on the document being saved, use &amp;ldquo;Before Save&amp;rdquo;. If you use &amp;ldquo;After Save&amp;rdquo;, the document is already in the database and your changes might not be persisted. Broken Connections: Ensure every node in your logic is connected. An isolated node will never execute. 
+Quick Start Guide# Build a visual rule in under 5 minutes that alerts you whenever a high-value Sales Invoice is created.
+1. Create your First Rule# Go to FlexiRule -&amp;gt; Rule List and click New. Set Rule Name to High Value Alert. Set Document Type to Sales Invoice. Set Trigger Event to Before Save. Click Save. 2. Open the Visual Rule Builder# Click Open Rule Builder at the top of the form. You will see the visual canvas containing the mandatory Start (Entry Action) node. 3. Add a Check (Condition) Node# Hover over the Start node&amp;rsquo;s connection port and click the + Add Action button. Select Check (Condition) from the action list. In the configuration panel on the right: Ensure Group Logic is set to ALL. Click Add Condition. Click the left value field and type @ to open the Smart Value Selector. In the search popup, search for Grand Total. Select Sales Invoice → Grand Total. Set the comparison operator dropdown to Is Greater Than. In the right value field, enter 10000. 4. Add a Notification Node# Click and drag a connection line from the True (Green) outbound port of the Check node. Select Notify from the action picker. In the Notify configuration panel: Set Channel / Mode to UI Message (Toast). Click inside the Message editor field. Enter 💰 High value invoice detected! Invoice ID: . Type @ to open the Smart Value Selector. Search for Name and select Sales Invoice → Name to dynamically insert the document ID token. 5. Test Your Rule Visually# Click Test Run in the top action bar. Select an existing Sales Invoice record with a Grand Total above 10,000. Click Run Test. Observe the green execution path highlighted on your canvas leading to the Notify block, along with the live toast notification preview! 6. Go Live# Close the Rule Builder using the Close button. On the main Rule document, check the Enabled box. Click Save. Your rule is now active! Visual Design Best Practices# Use the Smart Value Selector: Always use @ or click the Variable (@) button to pick document fields rather than typing field names manually. Connect Every Node: Ensure outbound ports are connected to downstream actions so the execution flow completes seamlessly. 
 
 ---
 title: Send Email on Sales Order Submission
 url: https://sendipad.github.io/flexirule/tutorials/send-email-sales-order/
-lastmod: 2026-06-26
-summary: A beginner tutorial on triggering an automated email when a Sales Order is submitted.
+lastmod: 2026-09-27
+summary: Step-by-step visual tutorial on configuring automated email notifications using the Smart Value Selector.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Tutorial: Send Email on Sales Order Submission# In this tutorial, we will create an automation that sends a &amp;ldquo;Thank You&amp;rdquo; email to a customer as soon as their Sales Order is submitted.
-Business Scenario# Objective: Improve customer engagement by providing instant confirmation of their order. Prerequisites: A working Email Account configured in your ERPNext/Frappe site.
-Step-by-Step Instructions# 1. Create a New Rule# Navigate to Rule List and click New. Rule Name: &amp;ldquo;Customer Submission Thank You&amp;rdquo;. Document Type: &amp;ldquo;Sales Order&amp;rdquo;. Trigger Event: &amp;ldquo;On Submit&amp;rdquo;. Click Save and then click Open Rule Builder. 2. Add a Notify Action# On the canvas, hover over the connection point of the Entry Action and click the + icon. Search for Notify and select it. Change the node label to &amp;ldquo;Send Thank You Email&amp;rdquo;. 3. Configure the Email# Click on the &amp;ldquo;Send Thank You Email&amp;rdquo; node to open the configuration panel. Mode: Select &amp;ldquo;Email&amp;rdquo;. Recipients: Enter {{ doc.contact_email }}. This dynamically fetches the customer&amp;rsquo;s email from the Sales Order. Subject: Thank you for your order! {{ doc.name }}. Message: Hi {{ doc.customer }},&amp;lt;br&amp;gt;&amp;lt;br&amp;gt; We&amp;#39;ve received your order &amp;lt;b&amp;gt;{{ doc.name }}&amp;lt;/b&amp;gt; for a total of {{ doc.grand_total }}.&amp;lt;br&amp;gt; Our team is now processing it. Attach PDF: Check this box to include the Sales Order printout. 4. Test the Rule# Click Test Run in the top bar. Select a recent &amp;ldquo;Submitted&amp;rdquo; Sales Order. Click Run Test. Review the Execution Trace to ensure the path is highlighted in green. 5. Activate# Close the Rule Builder. On the Rule document, toggle Enabled to Yes. Click Save. Expected Result# The next time any user submits a Sales Order, the customer will receive an email automatically.
-Common Mistakes# Incorrect Field Name: Using {{ doc.email }} instead of {{ doc.contact_email }}. Always use the field picker in the UI to ensure accuracy. Email Account Not Set: If your site doesn&amp;rsquo;t have a default outgoing email account, the email will stay in the &amp;ldquo;Error&amp;rdquo; queue. 
+Tutorial: Send Email on Sales Order Submission# In this tutorial, you will visually configure a rule that sends an automated order confirmation email with a PDF attachment whenever a Sales Order is submitted.
+Scenario Overview# Business Goal: Send instant order confirmation emails to customers upon Sales Order submission.
+Target DocType: Sales Order Trigger Event: DocType Event -&amp;gt; On Submit Visual Nodes: Start -&amp;gt; Notify Step-by-Step UI Instructions# Step 1: Create a New Rule# Navigate to FlexiRule -&amp;gt; Rule List -&amp;gt; New. Set Rule Name to Send Order Confirmation Email. Set Document Type to Sales Order. Set Trigger Event to On Submit. Click Save and open the Rule Builder. Step 2: Add and Configure the Notify Node# Hover over the Start node&amp;rsquo;s connection port and click + Add Action.
+Select Notify from the action picker.
+In the Notify configuration panel on the right:
+Set Channel to Email. Configure Recipients:
+Click the Recipients field. Type @ to open the Smart Value Selector. Search for Contact Email and select Sales Order → Contact Email. Configure Subject:
+Click the Subject field. Type Thank you for your order! Order #. Type @ to open the Smart Value Selector, search for Name, and select Sales Order → Name. Configure Message Body:
+Click inside the Message editor. Type Dear . Type @, search for Customer Name, and select Sales Order → Customer Name. Type , thank you for your order #. Type @ and select Sales Order → Name. Type for a total amount of. Type @ and select Sales Order → Grand Total. Type . Our team is now processing your order.. Attach PDF Printout:
+Check the Attach PDF box. Select your preferred Print Format from the dropdown menu. Step 3: Test and Activate# Click Test Run in the top action bar. Select a submitted Sales Order record and click Run Test. Verify that the visual execution path highlights in green and displays the rendered email preview. Close the builder, enable the rule, and click Save. 
 
 ---
 title: Timespan Keywords
@@ -576,17 +576,17 @@ Use Filters: Never query without filters if you expect many records. Limit Resul
 ---
 title: Manager Approval for Large Purchase Orders
 url: https://sendipad.github.io/flexirule/tutorials/manager-approval/
-lastmod: 2026-06-26
-summary: How to implement an approval workflow based on document value.
+lastmod: 2026-09-27
+summary: Step-by-step visual guide to enforcing manager approval thresholds on Purchase Orders.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Tutorial: Manager Approval for Large Purchase Orders# This tutorial demonstrates how to block the submission of a Purchase Order if it exceeds a certain amount and hasn&amp;rsquo;t been approved by a manager.
-Business Scenario# Objective: Prevent unauthorized large expenditures. Criteria: Purchase Orders over $10,000 must have the &amp;ldquo;Manager Approved&amp;rdquo; checkbox checked before they can be submitted.
-Step-by-Step Instructions# 1. Create the Rule# Rule Name: &amp;ldquo;PO Approval Enforcement&amp;rdquo;. Document Type: &amp;ldquo;Purchase Order&amp;rdquo;. Trigger Event: &amp;ldquo;Before Submit&amp;rdquo;. 2. Add the Value Check# Add a Condition node. Rule: grand_total is greater than 10000. 3. Add the Approval Check# From the True branch (meaning it IS a large order), add another Condition node. Rule: manager_approved is No (or 0). 4. Block Submission# From the True branch of the approval check (meaning it is large AND not approved), add a Stop and Error Handling (Stop) node. Mode: &amp;ldquo;Error&amp;rdquo;. Error Message: &amp;ldquo;Purchase Orders over $10,000 require Manager Approval before submission.&amp;rdquo; 5. Expected Result# If a PO is $5,000, it submits normally (Condition 1 is False). If a PO is $15,000 and &amp;ldquo;Manager Approved&amp;rdquo; is checked, it submits normally (Condition 2 is False). If a PO is $15,000 and &amp;ldquo;Manager Approved&amp;rdquo; is NOT checked, the user sees an error message and the submission is blocked. Common Mistakes# Wrong Event: Using &amp;ldquo;On Submit&amp;rdquo; instead of &amp;ldquo;Before Submit&amp;rdquo;. &amp;ldquo;On Submit&amp;rdquo; happens after the document is already finalized, so you can&amp;rsquo;t block it with a simple error. 
+Tutorial: Manager Approval for Large Purchase Orders# In this tutorial, you will visually construct a rule that blocks submission of Purchase Orders above $10,000 unless manager approval has been recorded.
+Scenario Overview# Business Goal: Prevent unauthorized large purchases by enforcing manager sign-off prior to submission.
+Target DocType: Purchase Order Trigger Event: DocType Event -&amp;gt; Before Submit Visual Nodes: Start -&amp;gt; Check (Value) -&amp;gt; Check (Approval) -&amp;gt; Stop / Error Step-by-Step UI Instructions# Step 1: Create the Rule Document# Go to FlexiRule -&amp;gt; Rule List -&amp;gt; New. Set Rule Name to PO - Manager Approval Threshold. Set Document Type to Purchase Order. Set Trigger Event to Before Submit. Click Save and open the Rule Builder. Step 2: Check Purchase Order Value Threshold# Connect a Check node from the Start node. In the Check configuration panel: Click the left value field and type @ to open the Smart Value Selector. Search for Grand Total and select Purchase Order → Grand Total. Set Operator to Is Greater Than. In the right value field, enter 10000. Step 3: Check Manager Approval Status# From the True outbound port (orders &amp;gt; $10,000), connect a second Check node. In the configuration panel: Click the left value field, type @, and select Purchase Order → Manager Approved. Set Operator to Equals. In the right value field, select or enter No (or 0). Step 4: Add Stop / Error Validation Message# From the True outbound port of the second Check node (orders &amp;gt; $10,000 AND not approved), connect a Stop / Error node. In the Stop / Error configuration panel: Set Mode to Error (Raise Validation Error). Set Title to Approval Required. In the Message field, type Purchase Order , type @ to select Purchase Order → Name, and append exceeds $10,000 and requires Manager Approval before submission.. Step 5: Verify Logic Flow# Click Test Run in the header action bar. Test a $5,000 Purchase Order -&amp;gt; Execution bypasses checks cleanly. Test a $15,000 unapproved Purchase Order -&amp;gt; Execution halts at Stop / Error. Enable the rule and save. 
 
 ---
 title: Permissions
@@ -625,6 +625,27 @@ To use the data inside these records, you typically follow this block with a Loo
 Table: Task Filters: Priority equals Urgent AND Status equals Open AND Assigned To is empty. Sorting: Creation Date (Ascending) Result Limit: 20 Output Variable: urgent_tasks 5. Performance Notes# Mandatory Filtering: Searching large tables without filters will cause performance degradation. Limit Your Results: Always set a Result Limit. This protects the rule from attempting to load thousands of records, which can cause timeouts. Optimized Fetching: Selecting only the specific fields required (rather than the entire record) significantly reduces the data load. 6. Common Mistakes# Missing a Loop: A &amp;ldquo;List&amp;rdquo; cannot be updated directly. You must use a Loop block to iterate through the results. Broad Filters: Failing to use specific filters on high-volume tables (like Stock Ledger) can slow down the entire system. 
 
 ---
+title: Recipe: Validate and Block Document Submission
+url: https://sendipad.github.io/flexirule/tutorials/validate-and-block-document/
+lastmod: 2026-09-27
+summary: Learn how to build visual validation guardrails that enforce business rules using the Smart Value Selector and Stop / Error actions.
+concepts: 
+tags: 
+difficulty: 
+related: 
+actions: read, implement, integrate, troubleshoot, improve
+
+Recipe: Validate and Block Document Submission# In ERPNext, business rules frequently require blocking document submission when critical conditions are not met—such as when an invoice exceeds a budget limit without an assigned project code.
+In this recipe, you will visually configure a rule that evaluates document criteria using the Smart Value Selector and blocks submission with a custom error popup.
+Scenario Overview# Business Goal: Prevent submission of a Purchase Invoice if the invoice amount exceeds 50,000 and no Project is assigned.
+Target DocType: Purchase Invoice Trigger Event: DocType Event -&amp;gt; Before Submit Visual Nodes: Start -&amp;gt; Check -&amp;gt; Stop / Error Step-by-Step UI Instructions# Step 1: Create the Rule Document# Navigate to FlexiRule -&amp;gt; Rule List -&amp;gt; New. Set Rule Name to PI - Enforce Project on Large Invoices. Set Document Type to Purchase Invoice. Set Trigger Type to DocType Event. Set Trigger Event to Before Submit. Click Save, then click Open Rule Builder. Step 2: Configure the Check (Condition) Node# Hover over the Start node and click + Add Action.
+Select Check (Condition) from the action menu.
+In the Check configuration panel on the right:
+Set Group Logic to ALL. Click Add Condition. Configure Condition 1 (Grand Total Check):
+Click the left value field. Type @ to open the Smart Value Selector. Search for Grand Total in the search popup. Select Purchase Invoice → Grand Total. Set the Operator dropdown to Is Greater Than. In the right value field, enter 50000. Configure Condition 2 (Project Assignment Check):
+Click Add Row to add a second condition. Click the left value field and type @ to open the Smart Value Selector. Search for Project in the search popup. Select Purchase Invoice → Project. Set the Operator dropdown to Is Not Set. Step 3: Add and Configure the Stop / Error Node# From the True (Green) outbound port of the Check node, drag a connection to a new node position. Select Stop / Error from the action picker. In the Stop / Error configuration panel: Set Mode to Error (Raise Validation Error). Set Title to Missing Project Assignment. Click inside the Error Message editor field. Type Purchase Invoice . Type @ to open the …
+
+---
 title: Registry and Contracts
 url: https://sendipad.github.io/flexirule/advanced-concepts/registry-contracts/
 lastmod: 2026-06-26
@@ -645,23 +666,22 @@ Capabilities: What the action can do (e.g., is_async, has_condition). Config Sch
 Schema-Driven: We use standard JSON Schema to define configuration parameters. Custom Controls: FlexiRule provides specialized Frappe-style controls (Link Pickers, Table Builders, Condition Editors) that can be used within any action configuration form. Extensibility: If you …
 
 ---
-title: Resolver Patterns
+title: Resolver Architecture & Execution Patterns
 url: https://sendipad.github.io/flexirule/advanced-concepts/architecture/resolver/resolver-patterns/
-lastmod: 2026-06-26
-summary: This document catalogs the practical patterns enabled by the FlexiRule Resolver Engine.
+lastmod: 2026-09-27
+summary: Technical breakdown of compiled Value Resolvers, class hierarchy, dispatching, and execution semantics.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Resolver: Resolver Patterns# 📚 Capability Encyclopedia# This document catalogs the practical patterns enabled by the FlexiRule Resolver Engine.
-1. Dynamic Path Traversal# Resolvers support deep dot-notation.
-doc.items.0.amount: Get the amount of the first item. vars.query_result.name: Get a field from a previously queried record. 2. Time-Based Logic# The DateFormulaResolver and DateDiffResolver handle enterprise date requirements:
-Today + 14 days: For due date calculation. Diff(doc.delivery_date, doc.posting_date): For lead-time calculation. 3. Collection Aggregation# The ChildAggregationResolver eliminates the need for &amp;ldquo;Loop&amp;rdquo; nodes in simple cases:
-Sum(doc.items.amount): Total an entire child table in one step. Count(doc.attachments): Check if any files were uploaded. 4. String Interpolation &amp;amp; Templating# The ExpressionResolver and JinjaResolver allow for rich text generation:
-&amp;quot;Hello {{ doc.first_name }}, your order #{{ doc.name }} is ready.&amp;quot; These are used in notifications, descriptions, and comments. 5. System Context Injection# Resolvers can access environmental data without explicit passing:
-User: The current session user. Role Check: Boolean check if the user has a specific role. 🛠️ Enterprise Use Cases# Requirement Resolver Pattern Clean a URL slug NormalizationResolver(mode=&#39;slug&#39;, path=&#39;doc.title&#39;) Apply a 10% discount MathFormulaResolver(a=&#39;doc.total&#39;, op=&#39;*&#39;, b=0.9) Format for a Report FormatResolver(mode=&#39;date&#39;, config=&#39;dd-mm-yyyy&#39;, path=&#39;doc.posting_date&#39;) Default if empty JinjaResolver(template=&#39;{{ doc.email or vars.fallback_email }}&#39;) 🔮 Future Evolution Ideas# Lookup Resolvers: A resolver that performs a frappe.db.get_value directly without needing a separate &amp;ldquo;Query Records&amp;rdquo; node. Mapping Resolvers: Transforming a list of IDs into a list of Names. Conditional Resolvers: If(Condition, ValueA, ValueB) logic within the resolver itself. 
+Value Resolver Architecture &amp;amp; Execution Patterns# The Value Resolver Engine in FlexiRule evaluates dynamic expressions at runtime. It decouples action handlers from value resolution, providing compiled, type-safe transformers for data inputs.
+Class Hierarchy &amp;amp; Execution Model# All value resolvers inherit from CompiledResolver (flexirule.ruleflow.core.value_resolver):
+CompiledResolver (Base Strategy) ├── StaticResolver (Constant values) ├── VariableResolver (@doc, @old_doc, @vars, @system) ├── DateFormulaResolver (Date addition/subtraction via frappe.utils) ├── MathFormulaResolver (Arithmetic operations +, -, *, /) ├── DateDiffResolver (Date differences in days/months/years) ├── ChildAggregationResolver (Sum, Avg, Count over child table rows) ├── CollectionResolver (Count, Any, All, First, Filter, Pluck, Unique over collections) ├── StringFormulaResolver (Concat, Uppercase, Lowercase, Fmt Money) ├── NormalizationResolver (Clean text pipelines) ├── FormatResolver (Date formatting, Money formatting) ├── SystemContextResolver (Session user, role checks) ├── LookupResolver -&amp;gt; FetchResolver (frappe.db.get_value single-field lookups) └── JinjaResolver / ExpressionResolver (Template string evaluation) Canonical Resolver Capabilities# 1. Dynamic Context Traversal (VariableResolver)# Reads runtime values from context maps using dot-notation:
+@doc.items.0.amount: Accesses first item amount in triggering document. @vars.query_result.name: Accesses field from stored query results. @old_doc.status: Compares pre-mutation document state. 2. Time &amp;amp; Date Math (DateFormulaResolver, DateDiffResolver)# Executes safe date math using frappe.utils:
+DateFormula: Adds/subtracts offset days, months, or years relative to today or @doc.posting_date. DateDiff: Computes total days/months/years between start and end dates. 3. Collection Filtering &amp;amp; Aggregation (CollectionResolver, ChildAggregationResolver)# Operates on child table collections and list variables in memory:
+CollectionResolver: Supports count, any, all, first / find, filter, pluck, unique, sum, avg. Enforces a safety limit of 10,000 rows. ChildAggregationResolver: Direct Sum, Average, or Count aggregation over …
 
 ---
 title: System Overview (AR)
@@ -725,17 +745,17 @@ In a standard system, finding the answer involves searching through logs and cod
 ---
 title: Automatically Assign Documents
 url: https://sendipad.github.io/flexirule/tutorials/automatic-assignment/
-lastmod: 2026-06-26
-summary: Tutorial on routing documents to users based on round-robin or specific field values.
+lastmod: 2026-09-27
+summary: Visual step-by-step tutorial on routing documents to specific team members based on field selections.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Tutorial: Automatically Assign Documents# In this tutorial, we will build a rule that automatically assigns a &amp;ldquo;High Priority&amp;rdquo; Support Ticket to a Senior Support Engineer.
-Business Scenario# Objective: Ensure that critical issues are immediately brought to the attention of the right personnel without manual intervention. Prerequisites: A &amp;ldquo;Support Ticket&amp;rdquo; DocType with a &amp;ldquo;Priority&amp;rdquo; field.
-Step-by-Step Instructions# 1. Create the Rule# Go to Rule List and click New. Rule Name: &amp;ldquo;Auto-Assign Critical Tickets&amp;rdquo;. Document Type: &amp;ldquo;Support Ticket&amp;rdquo;. Trigger Event: &amp;ldquo;Before Save&amp;rdquo;. Click Save and Open Rule Builder. 2. Add Priority Check# Add a Condition node after the Entry Action. Config: priority is High OR Critical. 3. Add Assignment Action# From the True branch of the Condition, add an Update Record action. Mode: &amp;ldquo;Create ToDo&amp;rdquo;. Assigned To: senior_engineer@yourcompany.com (or use a dynamic expression to pick from a list). Description: High priority ticket {{ doc.name }} requires your attention. 4. Update Ticket Status# Add an Assignment node after the &amp;ldquo;Create ToDo&amp;rdquo; action. Target: doc.status. Operator: Set. Value: Assigned. 5. Test and Enable# Run a Test Run with a High priority ticket. Verify that a ToDo is created and the ticket status changes to &amp;ldquo;Assigned&amp;rdquo;. Enable the rule. Tips and Best Practices# Round-Robin: For more advanced routing, you can use a Process Operation that keeps track of the last assigned user in a custom DocType and picks the next one in line. Notification: Consider adding a Notify action (Toast) to tell the person saving the ticket that it has been automatically assigned. 
+Tutorial: Automatically Assign Documents# In this tutorial, you will visually build a rule that automatically assigns high-priority Support Tickets to a Senior Engineer and updates ticket status.
+Scenario Overview# Business Goal: Instantly assign critical support tickets to senior staff without manual triage.
+Target DocType: Support Ticket Trigger Event: DocType Event -&amp;gt; Before Save Visual Nodes: Start -&amp;gt; Check -&amp;gt; Update Record -&amp;gt; Set Value Step-by-Step UI Instructions# Step 1: Create the Rule# Go to FlexiRule -&amp;gt; Rule List -&amp;gt; New. Set Rule Name to Auto-Assign Critical Tickets. Set Document Type to Support Ticket. Set Trigger Event to Before Save. Click Save and open the Rule Builder. Step 2: Configure the Check Node for Ticket Priority# Connect a Check (Condition) node from the Start node. In the Check configuration panel: Set Group Logic to ANY. Click the first value field, type @ to open the Smart Value Selector, and select Support Ticket → Priority. Set Operator to Equals, enter High. Click Add Condition. Select Support Ticket → Priority, set Operator to Equals, enter Critical. Step 3: Add Update Record Node (Create Assignment)# From the True outbound port of the Check node, connect an Update Record action node. In the Update Record configuration panel: Set Target Operation to Create ToDo / Assignment. In the Assigned To field, enter senior_engineer@yourcompany.com or use @ to select a user field. Click the Description field, type Critical issue requires attention for ticket , type @ to open the Smart Value Selector, and select Support Ticket → Name. Step 4: Update Ticket Status using Set Value# From the outbound port of the Update Record node, connect a Set Value node. In the Set Value configuration panel: Click Target Path, type @, and select Support Ticket → Status. Set Operator to Set. In the Value field, enter Assigned. Step 5: Test and Enable# Click Test Run, select a High priority ticket, and click Run Test. Verify the visual path highlights in green, creating a ToDo and setting ticket status to Assigned. Close the builder, enable the rule, and save. 
 
 ---
 title: Backend Hooks
@@ -943,6 +963,22 @@ visual_data: A JSON blob (typically for VueFlow or ReactFlow) that stores node p
 Non-Linear Workflows: Jumping back to a previous state for retries or corrections. Parallel Branches (Future): The graph topology already supports multiple outgoing edges that could be executed in parallel. Visual Debugging: The path_trace can be overlaid on the graph to show exactly where an execution failed or took a wrong turn. 
 
 ---
+title: Recipe: Work with Child Tables and Item Calculations
+url: https://sendipad.github.io/flexirule/tutorials/child-table-calculations/
+lastmod: 2026-09-27
+summary: Learn how to visually iterate over child table items, evaluate row attributes using the Smart Value Selector, and calculate discounts.
+concepts: 
+tags: 
+difficulty: 
+related: 
+actions: read, implement, integrate, troubleshoot, improve
+
+Recipe: Work with Child Tables and Item Calculations# Child tables (such as Sales Order Items, Purchase Invoice Items, or Quotation Items) contain multi-row details. Automating line item calculations requires looping through rows and applying transformations visually.
+In this recipe, you will build a rule that iterates through Sales Order Items, checks line item properties, and applies discounts.
+Scenario Overview# Business Goal: Apply a 10% promotional discount to all line items belonging to the &amp;quot;Electronics&amp;quot; item group in a Sales Order before saving.
+Target DocType: Sales Order Trigger Event: DocType Event -&amp;gt; Before Save Visual Nodes: Start -&amp;gt; Repeat (Loop) -&amp;gt; Check -&amp;gt; Set Value Step-by-Step UI Instructions# Step 1: Create the Rule# Navigate to FlexiRule -&amp;gt; Rule List -&amp;gt; New. Set Rule Name to SO - Electronics Item Discount. Set Document Type to Sales Order. Set Trigger Event to Before Save. Click Save and open the Rule Builder. Step 2: Add and Configure the Repeat (Loop) Node# Connect a Repeat (Loop) node from the Start node&amp;rsquo;s outbound port. In the Repeat configuration panel: Click the Collection Source field and type @ to open the Smart Value Selector. Search for Items and select Sales Order → Items (Child Table). Set Item Alias to item (this creates a temporary loop variable for the active row). Step 3: Add Check Node Inside the Loop Body# From the Loop (True/Body) outbound port of the Repeat node, connect a Check node. In the Check configuration panel: Click the left value field and type @ to open the Smart Value Selector. Navigate to Loop Context (item) and select item → Item Group. Set the Operator dropdown to Equals. In the right value field, enter Electronics. Step 4: Calculate Line Discount using Set Value# From the True outbound port of the Check node, connect a Set Value node. In the Set Value configuration panel: Click Add Assignment. Click the Target Path field, type @, navigate to Loop Context (item), and select item → Discount Percentage. Set Operator to Set. In the Value field, enter 10. Drag a connection from the outbound port of the Set Value node back to the Repeat node to continue the loop for remaining …
+
+---
 title: Rule Configuration
 url: https://sendipad.github.io/flexirule/rule-builder/rule-configuration/
 lastmod: 2026-07-06
@@ -994,22 +1030,20 @@ Class Structure# ProcessHandler(ActionHandler)# Responsibility: The entry point 
 Discovery: On system startup, the registry scans for all Process DocTypes. Metadata: Each process defines its available Operations, each with a schema (JSON Schema) for inputs and outputs. Binding: Operations are bound to Adapters—Python classes that implement the actual logic. Execution Lifecycle# Context Preparation: ProcessHandler hydates the action configuration using apply_input_mapping. Executor Initialization: The ProcessOperationExecutor takes over. Schema Validation: Inputs are validated. If a required field is missing or of the wrong type, a ValidationError is raised. Savepoint Creation: For synchronous processes, a database savepoint is created. Adapter Execution: The specific Adapter&amp;rsquo;s execute() method is called. Result Normalization: The adapter&amp;rsquo;s return value is normalized according to the output schema. Mapping Back: The result is stored in the rule&amp;rsquo;s vars based on the return_variable configuration. Async vs. Sync# Sync: Runs in the same process/request. If it fails, the rule can rollback the entire …
 
 ---
-title: Condition
+title: Check (Condition)
 url: https://sendipad.github.io/flexirule/action-type/condition/
-lastmod: 2026-07-05
-summary: Evaluate complex logic gates to determine the execution path.
+lastmod: 2026-09-27
+summary: Evaluate logical condition groups to branch execution path between True and False branches.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Condition Action (Check)# The Condition action (referred to as Check in user-first documentation) is the primary decision-making node in FlexiRule. it evaluates one or more logical expressions and directs the flow to either the True (Success) or False (Failure) branch.
-Purpose# Use the Condition action to:
-Validate data before proceeding (e.g., &amp;ldquo;Is the Sales Order date in the future?&amp;rdquo;). Branch logic based on field values (e.g., &amp;ldquo;If Category is &amp;lsquo;Electronics&amp;rsquo;, go to Step A, else go to Step B&amp;rdquo;). Evaluate complex business rules involving multiple fields and child tables. Action Capabilities# Capability Support Notes Nested Groups ✅ Yes Support for recursive AND/OR logic groups. Collection Logic ✅ Yes Check if Any, All, or None of the rows in a child table meet a criteria. Fast Execution ✅ Yes Conditions are pre-compiled into optimized Python strings. Cross-Context ✅ Yes Compare doc fields against vars, session user, or global constants. Configuration# 1. Condition Groups# Conditions are organized into groups. Each group has a logical operator:
-ALL (AND): Every condition in the group must be true. ANY (OR): At least one condition in the group must be true. NONE (NOT): No conditions in the group can be true. 2. Simple Conditions# A simple condition consists of:
-Field/Subject: The value being checked (e.g., doc.status). Operator: The comparison logic (e.g., Equals, Contains, Is Set, Matches Regex). Value/Object: The criteria to check against. 3. Collection Evaluations (New in V2)# You can now evaluate child tables (collections) directly:
-Target: A child table field (e.g., doc.items). Evaluation: &amp;ldquo;At least one row matches&amp;rdquo;, &amp;ldquo;Every row matches&amp;rdquo;, &amp;ldquo;No rows match&amp;rdquo;. Criteria: A nested set of conditions applied to each row in the collection. Execution Semantics# Evaluation: The engine evaluates the compiled expression against the current context. Branching: If True: The engine follows the connection labeled True (next_step_if_true). If False: The engine follows the connection labeled False (next_step_if_false). Default Behavior: If a branch is not connected, the rule execution finishes successfully at …
+Check (Condition) Action# The Check action (internal handler: Condition) is the visual decision-making block in FlexiRule. It evaluates condition expressions against runtime context and branches the execution path along either the True or False outbound edge.
+1. When to Use# Use the Check action when you need to:
+Validate document attributes before allowing workflow progression (e.g., check if grand_total &amp;gt; 50000). Route execution down different business branches based on customer tier, region, or status. Evaluate child table collection rules (e.g., verify whether all line items have warehouse assigned). Compare current document values against historical @old_doc values or @vars. 2. Configuration# The Check action is configured using the Condition Builder:
+Structure &amp;amp; Operators# Logic Grouping: Combine conditions with ALL (AND), ANY (OR), or NOT logic. Comparison Operators: == (Equals), != (Not Equals) &amp;gt;, &amp;gt;=, &amp;lt;, &amp;lt;= (Numeric comparisons) contains, not contains, in, not in (Text/List search) is set, is not set (Null/empty checks) Operands: Configured using the Smart Value Selector (@doc, @vars, @system, or / Resolvers). Collection Conditions: Evaluate child table lists using any, all, none, or count operations. 3. Output# Boolean Decision: Evaluates to True or False. Branching: If True: Execution continues along the True outbound edge. If False: Execution continues along the False outbound edge. Return Contract: Returns {&amp;quot;result&amp;quot;: true, &amp;quot;evaluated_expression&amp;quot;: &amp;quot;...&amp;quot;}. 4. Example# Scenario: High-Value VIP Credit Check# Condition Group: ALL Row 1: @doc.grand_total &amp;gt; 100000 Row 2: @doc.customer_group == &amp;quot;VIP&amp;quot; Row 3: /fetch (customer, Customer, credit_limit) &amp;gt;= @doc.grand_total True Branch: Connect to Set Value (doc.status = &amp;quot;Approved&amp;quot;). False Branch: Connect to Notify (Alert Credit Manager). 5. Performance Notes# Pre-Compiled Expressions: Condition expressions are pre-compiled into optimized Python Bytecode by ConditionEvaluator, executing in under 0.1ms per evaluation. Short-Circuit Evaluation: Logical groups evaluate lazily (ALL stops at first False; ANY stops at first True), avoiding …
 
 ---
 title: Controls
@@ -1236,41 +1270,22 @@ Level 1 (Request): frappe.local storage for the duration of a single request. Le
 ---
 title: Smart Value System
 url: https://sendipad.github.io/flexirule/rule-builder/smart-value-system/
-lastmod: 2026-07-06
-summary: Learn how FlexiRule handles inputs using static values, variables, and resolvers.
+lastmod: 2026-09-27
+summary: Learn how FlexiRule handles dynamic inputs using static values, variables, and canonical dynamic resolvers.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Smart Value System# The Smart Value System is the unified way FlexiRule handles data across the entire platform. Whether you are setting a field value, defining a condition, or configuring a notification, you use the same consistent interface to provide data.
-The Core Principle: Every input field in FlexiRule is a &amp;ldquo;Smart&amp;rdquo; field that can be a static value, a variable reference, or a dynamically calculated result.
-The Three Input Modes# Every input field in FlexiRule supports three distinct modes of operation. You can switch between these modes seamlessly within the same field.
-1. Static Value# This is the simplest mode. You directly type the value you want to use.
-Text: Open, High Priority, Welcome to FlexiRule Numbers: 100, 0.05, -10 Dates: Picked from a calendar or typed in a standard format. 2. Variable Reference (@)# Variables allow you to access live data from your system or values calculated earlier in your rule. You trigger this mode by typing the @ symbol or clicking the Variable (@) icon.
-@doc.* (Document Variables): Access fields from the record that triggered the rule. Example: @doc.customer_name, @doc.grand_total @rule.* (Rule Variables): Access values you have created using &amp;ldquo;Set Value&amp;rdquo; or &amp;ldquo;Query&amp;rdquo; blocks earlier in the flow. Example: @rule.discounted_price, @rule.is_valid_customer @system.* (System Variables): Access global information. Example: @system.current_date, @system.current_user 3. Resolver Functions (/)# Resolvers are dynamic functions that transform data or perform calculations on the fly. You trigger this mode by typing the / symbol or clicking the Magic Wand (/) icon.
-Calculations: /math.sum, /math.multiply Formatting: /date.format, /text.upper Logic: /logic.if_else (Choose a value based on a condition) Combinations: /text.concat (Merge multiple pieces of text and variables) UI Interactions# FlexiRule provides visual cues in every input field to help you use the Smart Value System.
-Default State: Just start typing to enter a Static Value. The @ Icon: Clicking this opens a searchable list of all available variables in the current context. The / Icon: Clicking this opens a menu of available resolver …
-
----
-title: Assignment
-url: https://sendipad.github.io/flexirule/action-type/assignment/
-lastmod: 2026-07-05
-summary: Perform sequential batch state mutations on document fields and context variables.
-concepts: 
-tags: 
-difficulty: 
-related: 
-actions: read, implement, integrate, troubleshoot, improve
-
-Assignment Action# The Assignment action (formerly Set Value) is the primary mechanism for state mutation in FlexiRule. It allows you to define a sequence of mutations—Batch Assignments—that are executed in order to update document fields or manage internal rule state.
-Purpose# Use the Assignment action when you need to:
-Update fields on the triggering document (e.g., change status to &amp;ldquo;Approved&amp;rdquo;). Initialize or update context variables (vars) to store intermediate calculation results. Perform mathematical operations (Increment, Decrement) on numeric fields. Manage collections (Append to lists, Merge dictionaries). Action Capabilities# Capability Support Notes Batch Execution ✅ Yes Execute multiple assignments in a single node. Conditional Rows ✅ Yes Each assignment row can have its own when condition. Multi-Operator ✅ Yes Supports Set, Clear, Increment, Decrement, Append, Merge, and Toggle. Data Normalization ✅ Yes Integrated pipelines for cleaning and transforming data. Value Resolution ✅ Yes Unified resolver for static values, formulas, and complex lookups. Configuration# The Assignment action uses a grid-based interface where each row represents one mutation.
-1. Target Path# Defines where the value will be stored.
-doc.field_name: Updates a field on the current document. vars.variable_name: Sets a temporary variable available for the rest of the rule execution. 2. Operator# Defines how the value is applied:
-Set: Replaces the current value with the new value. Clear: Removes the value (sets to None or empty). Increment / Decrement: Adds or subtracts from the current numeric value. Append: Adds a value to the end of a list/array. Merge: Merges a dictionary into the target dictionary. Toggle: Swaps a boolean value between true and false. 3. Value# The new value or operand. This can be:
-Static Value: A hardcoded string, number, or date. Variable Path: A reference to another field (e.g., doc.base_amount). Formula: A Python-based expression for calculations. Data Pipeline: A sequence of normalization steps (e.g., Trim → Uppercase). 4. Condition (When)# An optional expression that must evaluate to true for this specific assignment to run. This allows for …
+Smart Value System# The Smart Value System is the unified data entry and expression evaluation engine in FlexiRule. Whether you are setting a field value in an assignment block, configuring a check condition, constructing an email template, or filtering queries, you use the same intuitive input mechanism across the visual canvas.
+The Core Principle: Every input field in FlexiRule is a &amp;ldquo;Smart&amp;rdquo; input powered by the Smart Value Selector (FlexValueControl), enabling seamless toggling between static values, variable references, and dynamic value resolvers.
+The Three Input Modes# Input fields in FlexiRule support three distinct operational modes:
+1. Static Value# Directly type or pick constant values:
+Text: Approved, High Priority, Welcome to FlexiRule Numbers: 100, 0.05, -10 Dates: Selected via calendar picker or standard ISO string format (YYYY-MM-DD). 2. Variable Reference (@)# Variables allow you to reference context data dynamically at runtime. Type the @ key or click the Variable (@) button to open the searchable variable auto-complete menu:
+@doc.* (Trigger Document): Access fields on the document triggering the rule (e.g., @doc.grand_total, @doc.customer, @doc.status). @old_doc.* (Previous Document State): Access pre-mutation field values on update events (e.g., @old_doc.status to check if a status field changed). @vars.* / @rule.* (Rule Context Variables): Access temporary variables created by previous blocks in the current rule (e.g., @vars.calculated_discount, @vars.open_invoices). @system.* (System Context): Access environment metadata such as @system.current_user or @system.today. 3. Dynamic Value Resolvers (/)# Value Resolvers calculate dynamic values on the fly. Type the / key or click the Resolver (/) button to select a visual resolver builder.
+Canonical Value Resolver Families# FlexiRule features 12 canonical user-facing Value Resolver families accessible via the / menu in the Smart Value Selector:
+Resolver Family Trigger Symbol / Key Primary Output Use Case Date Formula /date_formula Date / Datetime Add or subtract days, months, or years from today or a base date field. Math Formula /math_formula Float / Int Perform arithmetic (+, -, *, /) …
 
 ---
 title: Condition Builder
@@ -1311,7 +1326,7 @@ Table: Project Filters: Customer equals doc.customer AND Status is Active. Outpu
 ---
 title: Dynamic Forms
 url: https://sendipad.github.io/flexirule/advanced-concepts/architecture/ui/dynamic-forms/
-lastmod: 2026-06-26
+lastmod: 2026-09-27
 summary: FlexiRule uses a **Schema-Driven Rendering** approach. The frontend does not "know" what an action's configuration looks like; it asks the backend ...
 concepts: 
 tags: 
@@ -1321,7 +1336,7 @@ actions: read, implement, integrate, troubleshoot, improve
 
 UI: Schema-Driven UI# 🎨 The Philosophy: Metadata as UI# FlexiRule uses a Schema-Driven Rendering approach. The frontend does not &amp;ldquo;know&amp;rdquo; what an action&amp;rsquo;s configuration looks like; it asks the backend for the &amp;ldquo;Contract.&amp;rdquo;
 The Rendering Pipeline# Action Selected: User adds a &amp;ldquo;Process&amp;rdquo; action. Contract Fetch: Frontend calls get_contract_dto(process_name, operation). Schema Parsing: The backend returns a JSON Schema of the required inputs. Dynamic Generation: The ControlFactory interprets the schema and renders the appropriate Vue components. 🧩 Reusable Field Abstractions# The UI is built on a library of Polymorphic Controls:
-ComboBoxControl: Handles Links, Autocompletes, and &amp;ldquo;DocField&amp;rdquo; selection. MultiSelectList: Manages collections and multi-select tags. FlexValueControl: The &amp;ldquo;King&amp;rdquo; of controls—a multi-modal input that switches between static values, variable tokens, and advanced resolver builders. ⚡ FlexValueControl: The Multi-Modal Editor# This is a critical low-code primitive. It uses Tiptap (ProseMirror) to allow users to mix:
+ComboBoxControl: Handles Links, Autocompletes, and &amp;ldquo;DocField&amp;rdquo; selection. MultiSelectList: Manages collections and multi-select tags. FlexValueControl (Smart Value Selector): The &amp;ldquo;King&amp;rdquo; of controls—a multi-modal input that switches between static values, variable tokens, and advanced resolver builders. ⚡ Smart Value Selector (FlexValueControl): The Multi-Modal Editor# This is a critical low-code primitive. It uses Tiptap (ProseMirror) to allow users to mix:
 Plain Text: Just typing. @Variables: Searching for context variables via a mention-style popup. ** /Resolvers**: Accessing a visual builder for Formulas, Math, and Formatting. This turns a simple input into a Visual Programming Interface.
 🏗️ Extensible Action Panels# Action configurations are not hardcoded forms. They are collections of fields defined in the action&amp;rsquo;s contract.
 This allows a developer to add a new &amp;ldquo;Process&amp;rdquo; with 10 different input parameters, and the Rule Builder will automatically show the correct form with validation, without the developer writing a single line of JavaScript. 🔮 Visual Programming Concepts# FlexiRule&amp;rsquo;s UI architecture is the foundation for a Visual Builder:
@@ -1413,6 +1428,24 @@ Future: Low-Code Platform Potential# 🔭 The Vision: Beyond Simple Rules# The F
 The &amp;ldquo;Rule Actions&amp;rdquo; and &amp;ldquo;Edges&amp;rdquo; already define the necessary topology. The ActionConfigPanels are ready to become &amp;ldquo;Node Inspector&amp;rdquo; sidebars. Event-Driven Orchestration# Expanding from &amp;ldquo;DocType Events&amp;rdquo; to a global Event Bus:
 Triggering rules from Webhooks, Redis pub/sub, or System Events (e.g., &amp;ldquo;User Login&amp;rdquo;). The foundation is already there in the RuleCoordinator dispatch logic. AI-Augmented Automation# Integrating Large Language Models (LLMs) as first-class actions:
 A &amp;ldquo;Reasoning&amp;rdquo; node that takes the ExecutionContext and decides the next path. An LLM-based Resolver that can perform natural language extraction within a transformation chain. 🌍 Market Positioning (Comparison)# Future Capability FlexiRule Path Competition Edge Visual Builder Natural (Topology already exists) Deep Frappe integration. Connectors Via Process Adapters No &amp;ldquo;Middleware&amp;rdquo; required; runs in-DB. Stateful Workflow Via context persistence Transactional safety. 🏁 Summary# FlexiRule is currently a &amp;ldquo;Rule Engine,&amp;rdquo; but its architecture is that of a Runtime Orchestration Framework. It has the potential to become the &amp;ldquo;Automation Operating System&amp;rdquo; for …
+
+---
+title: Set Value (Assignment)
+url: https://sendipad.github.io/flexirule/action-type/assignment/
+lastmod: 2026-09-27
+summary: Perform sequential batch state mutations on document fields and context variables.
+concepts: 
+tags: 
+difficulty: 
+related: 
+actions: read, implement, integrate, troubleshoot, improve
+
+Set Value (Assignment) Action# The Set Value action (internal handler: Assignment) is the primary mechanism for state mutation in FlexiRule. It allows you to define a sequence of mutations—Batch Assignments—that run sequentially to update document fields or store internal rule state.
+1. When to Use# Use the Set Value action when you need to:
+Update fields on the triggering document (e.g., set workflow_state to &amp;quot;Approved&amp;quot; or posting_date to today). Initialize or update temporary context variables (@vars) to store intermediate calculation results for downstream blocks. Perform numeric calculations (Increment, Decrement) on fields or variables. Append items to list variables or merge dictionary objects. Normalize and sanitize incoming text fields before saving. 2. Configuration# The Set Value configuration panel uses a sequential grid where each row represents one mutation step:
+Row Configuration Fields# Target Path: Destination path (doc.fieldname for document fields or vars.variable_name for temporary context variables). Operator: Set: Overwrites target with resolved value. Clear: Resets target to None or empty. Increment: Adds numeric value to existing total. Decrement: Subtracts numeric value from existing total. Append: Appends item to a list/array variable. Merge: Merges key-value dictionary into target object. Toggle: Inverts boolean value (true &amp;lt;-&amp;gt; false). Value Input: Configured via the Smart Value Selector (Static Value, @ Variable, or / Resolver). Condition (when): Optional boolean expression evaluated before running the specific row mutation. 3. Output# Context Mutation: Directly mutates @doc or @vars in the execution context. Return Contract: Returns a dictionary of applied mutations: {&amp;quot;mutations&amp;quot;: [{&amp;quot;target&amp;quot;: &amp;quot;doc.status&amp;quot;, &amp;quot;value&amp;quot;: &amp;quot;Approved&amp;quot;}, ...]}. Next Node Execution: Execution immediately proceeds down the primary outbound edge. 4. Example# Scenario: Calculate Customer Discount and Loyalty Points# Row 1:
+Target: vars.discount_rate Operator: Set Value: /math_formula (doc.loyalty_points * 0.01) When: doc.loyalty_points &amp;gt; 100 Row 2:
+Target: doc.discount_amount Operator: Set Value: …
 
 ---
 title: System Philosophy
@@ -1549,20 +1582,19 @@ Mode Transaction Impact Behavior Toast / System Non-transactional Dispatched imm
 ---
 title: Repeat (Loop)
 url: https://sendipad.github.io/flexirule/action-type/loop/
-lastmod: 2026-07-05
-summary: Iterate over a list of items and execute a sequence of actions for each.
+lastmod: 2026-09-27
+summary: Iterate over child table rows or query collections to run actions for each item.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Repeat Action (Loop)# The Repeat action (internally called Loop) allows you to iterate over a collection of items—such as rows in a child table or results from a Query Records block—and execute a specific execution path for each item.
-How it Works# Iterator: You define which list to iterate over (e.g., doc.items or vars.query_results). Item Alias: You define a name for the current item (e.g., item or row). This variable is updated in every iteration. The Loop Path: The engine follows the True branch for every item in the list. The Exit Path: Once all items have been processed, the engine follows the False branch to continue the rest of the rule. Configuration# 1. Iterator# An expression that resolves to a list or tuple.
-Example: doc.items (standard Frappe child table). Example: vars.matching_invoices (result from a previous Query Records block). 2. Item Alias (Return Variable)# The name of the variable that will hold the current item during each iteration.
-Default: item. Accessible as: vars.item (or your custom name). 3. Loop Metadata# Inside the loop, FlexiRule providing a special vars.loop object with useful metadata:
-vars.loop.index: The current iteration index (starting from 0). vars.loop.length: The total number of items in the list. vars.loop.first: Boolean, true if this is the first iteration. vars.loop.last: Boolean, true if this is the last iteration. Execution Semantics# Top-to-Bottom Iteration: The loop processes items in the order they appear in the input list. State Preservation: Variables modified inside the loop persist across iterations and after the loop completes. Safety: FlexiRule&amp;rsquo;s global iteration limit (1000 steps) applies to loops to prevent accidental infinite recursion. Example: Apply Discount to All Items# Scenario: You want to set a 10% discount on every row in a Sales Order items table.
-Repeat Block: Iterator: doc.items Alias: row Next (True): Connect to an Assignment block. Next (False): Connect to the rest of your rule (e.g., a &amp;ldquo;Notify&amp;rdquo; block). Assignment Block: Target: vars.row.discount_percentage Value: 10 Next: Connect back to the Repeat block to continue iteration. Best Practices# Connect Back: Ensure the last …
+Repeat (Loop) Action# The Repeat action (internal handler: Loop) iterates over a collection of items—such as child table rows (@doc.items) or query results (@vars.query_results)—executing a sub-flow for each item before exiting.
+1. When to Use# Use the Repeat action when you need to:
+Process every row in a child table (e.g., validate warehouse stock for each item row). Perform batch field calculations across multiple child records. Iterate over records returned by a Query Records block. Create external records or send notifications for each record in a collection. 2. Configuration# Configuration Fields# Collection Source: Target array to iterate over (e.g., doc.items or vars.open_invoices). Item Alias: Variable name assigned to the active row during iteration (default: item, accessible via @vars.item). Loop Metadata (vars.loop): vars.loop.index: 0-based iteration index. vars.loop.length: Total row count. vars.loop.first: true if processing the first row. vars.loop.last: true if processing the final row. Ports &amp;amp; Branching# Loop Port (True / Body): Connects to the action flow executed for each item. Exit Port (False / Completed): Connects to the action flow executed after all rows have been processed. 3. Output# **Context Variable: Assigns @vars.item(or custom alias) and@vars.loop` metadata during each iteration. **Branching`: For each row: Follows the Loop branch. After all rows finish: Follows the Exit branch. Return Contract: Returns {&amp;quot;processed_count&amp;quot;: N, &amp;quot;completed&amp;quot;: true}. 4. Example# Scenario: Calculate Line Item Discount for Sales Order Items# Repeat Block Configuration:
+Collection: doc.items Item Alias: row Loop Branch: Connect to Set Value block. Exit Branch: Connect to Set Value (doc.total_discount_calculated = true). Set Value Block Inside Loop:
+Target: vars.row.discount_amount Value: /math_formula (vars.row.rate * 0.10) Outbound Edge: Connect back to Repeat node to continue next iteration. 5. Performance Notes# Max Safety Iteration Limit: FlexiRule enforces a safety ceiling of 1,000 iterations per loop node execution to catch infinite recursion. In-Memory Iteration: Iterating over local list variables adds minimal overhead …
 
 ---
 title: Runtime Optimization
@@ -1633,7 +1665,7 @@ Table: Sales Order Field to Aggregate: Discount Percentage Filters: Customer equ
 ---
 title: Core Concepts
 url: https://sendipad.github.io/flexirule/introduction/core-concepts/
-lastmod: 2026-06-26
+lastmod: 2026-09-27
 summary: The fundamental building blocks of the FlexiRule ecosystem.
 concepts: 
 tags: 
@@ -1705,17 +1737,17 @@ State Runs on Events? Can be Edited? Purpose Draft No Yes Building and testing n
 ---
 title: Switch
 url: https://sendipad.github.io/flexirule/action-type/switch/
-lastmod: 2026-07-05
-summary: Route execution down different paths based on a specific value.
+lastmod: 2026-09-27
+summary: Route rule execution down multiple matching branches based on key value comparisons.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Switch Action# The Switch action is like a multi-way branch. Instead of a simple &amp;ldquo;True/False&amp;rdquo; condition, it allows you to choose from many different paths based on the value of a field.
-How to Configure# Select Field: Choose the field or variable you want to check (e.g., doc.priority). Define Cases: Create a &amp;ldquo;Case&amp;rdquo; for each possible value you want to handle. Case: High: Path for high-priority items. Case: Medium: Path for medium-priority items. Default Path: Define what happens if the value doesn&amp;rsquo;t match any of your cases. Example# Scenario: Route a support ticket based on its category.
-Switch on category. Path &amp;ldquo;Billing&amp;rdquo;: Connect to a node that notifies the finance team. Path &amp;ldquo;Technical&amp;rdquo;: Connect to a node that notifies the support engineering team. Path &amp;ldquo;General&amp;rdquo;: Connect to the default path. 
+Switch Action# The Switch action (internal handler: SwitchHandler) provides multi-way value branching, routing execution down matching case branches based on an evaluated target expression.
+1. When to Use# Use the Switch action when you need to:
+Route logic based on categorical fields with more than two outcomes (e.g., doc.status, doc.territory, doc.customer_group). Replace multiple nested Check (Condition) nodes with a single clean multi-port branching block. Fallback safely to a Default branch when no explicit cases match. 2. Configuration# Configuration Fields# Target Value: Field or variable evaluated by the switch (e.g., @doc.status or @vars.category). Cases List: Define case key values (e.g., &amp;quot;Pending&amp;quot;, &amp;quot;Approved&amp;quot;, &amp;quot;Rejected&amp;quot;). Default Branch: Fallback outbound edge executed when no defined cases match. 3. Output# Multi-Port Branching: Execution proceeds down the outbound port corresponding to the matching case key. Return Contract: Returns {&amp;quot;matched_case&amp;quot;: &amp;quot;Approved&amp;quot;, &amp;quot;target_value&amp;quot;: &amp;quot;Approved&amp;quot;}. 4. Example# Scenario: Route Support Tickets by Priority# Switch Configuration: Target: @doc.priority Cases: &amp;quot;High&amp;quot;, &amp;quot;Medium&amp;quot;, &amp;quot;Low&amp;quot; Branch Outputs: Case &amp;ldquo;High&amp;rdquo;: Connect to Notify (SMS alert to On-Call Engineer). Case &amp;ldquo;Medium&amp;rdquo;: Connect to Notify (Email to Support Queue). Case &amp;ldquo;Low&amp;rdquo;: Connect to Set Value (doc.sla_days = 5). Default: Connect to Set Value (doc.sla_days = 3). 5. Performance Notes# O(1) Hash Lookup: Case evaluation matches keys in constant time $O(1)$, making it significantly faster than chaining 5+ Check nodes. 6. Common Mistakes# Case-Sensitivity Mismatches: Matching &amp;quot;high&amp;quot; against &amp;quot;High&amp;quot; without normalizing string casing first. Unconnected Default Branch: Leaving the Default port empty, causing execution to halt unexpectedly when an unhandled value is encountered. 
 
 ---
 title: Debugging & Execution Logs
@@ -1806,17 +1838,17 @@ Performance Notes# The Stop action is extremely lightweight. In Success mode, it
 ---
 title: Wait
 url: https://sendipad.github.io/flexirule/action-type/wait/
-lastmod: 2026-07-05
-summary: Pause rule execution for a specified duration or until a date.
+lastmod: 2026-09-27
+summary: Pause rule execution for a specified duration or until a scheduled date/time.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Wait Action# The Wait action pauses the execution of your rule. This is useful for follow-up automations or time-delayed tasks.
-Wait Options# Duration: Wait for a specific amount of time (e.g., &amp;ldquo;2 days&amp;rdquo;, &amp;ldquo;4 hours&amp;rdquo;). Until Date: Wait until a specific date and time reached. You can use fields from the document (e.g., doc.due_date). Example# Scenario: Send a reminder email 24 hours after a quote is sent.
-Rule triggers when Quote is saved. Wait action set for &amp;ldquo;1 day&amp;rdquo;. Notify action sends the reminder email. 
+Wait Action# The Wait action (internal handler: simple_actions.WaitActionHandler) pauses execution for a designated time duration or until a target date/time, deferring execution to background scheduler queues.
+1. When to Use# Use the Wait action when you need to:
+Implement delayed follow-up notifications (e.g., send reminder email 3 days after quote creation). Pause execution until a target document date is reached (e.g., wait until doc.due_date). Rate-limit background processes or API interactions. 2. Configuration# Configuration Fields# Wait Mode: Duration: Pause for relative time offset (e.g., 2 Hours, 3 Days). Until Date: Pause until explicit absolute timestamp evaluated from @doc field or resolver (e.g., @doc.follow_up_date). Duration Unit: Seconds, Minutes, Hours, Days. 3. Output# Deferred State: In synchronous contexts, pauses current thread. In asynchronous contexts, reschedules remaining rule execution via Frappe Scheduler. Return Contract: Returns {&amp;quot;status&amp;quot;: &amp;quot;deferred&amp;quot;, &amp;quot;resume_at&amp;quot;: &amp;quot;YYYY-MM-DD HH:mm:ss&amp;quot;}. 4. Example# Scenario: Send Follow-Up Quotation Email After 48 Hours# Trigger: Quotation After Insert. Wait Node: Mode = Duration, Value = 48, Unit = Hours. Notify Node: Email quotation follow-up message to customer. 5. Performance Notes# Non-Blocking Background Worker: In Asynchronous execution mode, Wait releases foreground worker threads, using scheduled background tasks (frappe.enqueue) to resume execution at resume_at. 6. Common Mistakes# Blocking Synchronous UI Threads: Setting a long Wait duration on synchronous web requests, causing HTTP timeouts. Past Resume Timestamps: Supplying an Until Date value that has already passed (resolves immediately without waiting). 
 
 ---
 title: Group By
@@ -1851,51 +1883,47 @@ Key Capabilities# FlexiRule combines the power of visual programming with enterp
 Visual Rule Builder# Vue 3 Interface: A modern, responsive canvas for designing complex logic. Drag-and-Drop: Easily add and connect logic blocks. Real-time Validation: The builder alerts you to missing configuration or broken connections as you work. Advanced Logic Control# Nested Conditions: Build multi-level if-then-else logic visually. Switch Blocks: Handle multiple branching scenarios from a single node. Sub-Rules: Call one rule from another to maintain modularity and reuse logic. Safety and Governance# Cycle Detection: Native protection against infinite loops in the graph. Sandboxed Environment: Rules are executed in a safe container that prevents unauthorized database modifications. Role-Based Permissions: Control who can view, edit, or execute specific rules. High-Performance Engine# Condition Compilation: Logic is pre-compiled for near-zero execution overhead. Layered Caching: Multi-level cache (Redis + Local) for lightning-fast rule lookups. Asynchronous Processing: Offload heavy tasks to background workers without slowing down the user. Observability# Execution Logs: Detailed audit trail for every rule run. Visual Path Trace: See exactly which path a document took through your logic graph. Debug Mode: Enable enhanced logging for complex troubleshooting. Developer Friendly# JSON Schema Driven: Configuration forms for custom logic are auto-generated. Extensible Actions: Register custom Python logic as new block types. Git Friendly: Rules are stored as DocTypes, making them easy to migrate between environments. 
 
 ---
-title: Sub-rule
+title: Sub-Rule
 url: https://sendipad.github.io/flexirule/action-type/sub-rule/
-lastmod: 2026-07-05
-summary: Run another rule from within your current flow.
+lastmod: 2026-09-27
+summary: Execute nested reusable sub-rules within the primary rule execution flow.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Sub-rule Action# The Sub-rule action allows you to execute one rule from inside another. This helps keep your rules organized and allows you to reuse common logic.
-Why Use Sub-rules?# Organization: Break down very large, complex rules into smaller, manageable pieces. Reusability: Create a &amp;ldquo;standard approval&amp;rdquo; logic once and call it from many different rules. How to Use# Select the Sub-rule node. Pick the existing rule you want to run. Pass Data: Optionally pass specific variables or documents into the sub-rule. 
+Sub-Rule Action# The Sub-Rule action (internal handler: SubRuleHandler) executes another rule exposed as a sub-rule directly within the parent execution context, enabling nested composition and logic reuse.
+1. When to Use# Use the Sub-Rule action when you need to:
+Encapsulate reusable multi-step verification or workflow logic (e.g., standard approval workflows). Modularize complex rules into clean, maintainable sub-flows. Share automation routines across different DocTypes or trigger events. 2. Configuration# Configuration Fields# Sub-Rule: Select target Rule (must have exposed_as_subrule = 1 enabled). Target Context / Document: Pass the target document or payload (@doc or custom variable). Input Mappings: Map parent context variables (@vars) to input fields expected by the sub-rule. Output Variable: Store the sub-rule&amp;rsquo;s returned variables in parent @vars.&amp;lt;output_variable&amp;gt;. 3. Output# Sub-Context Merging: Sub-rule execution outputs are captured and mapped into parent @vars. Branching: Continues down primary outbound edge after sub-rule completion. Return Contract: Returns {&amp;quot;sub_rule_execution_id&amp;quot;: &amp;quot;...&amp;quot;, &amp;quot;outputs&amp;quot;: {...}}. 4. Example# Scenario: Invoke Standard Risk Scoring Sub-Rule# Sub-Rule Configuration: Target Sub-Rule: &amp;quot;Calculate Customer Risk Score&amp;quot; Input Mapping: customer -&amp;gt; @doc.customer Output Variable: risk_score_result Next Node (Check): Condition: @vars.risk_score_result.score &amp;gt; 80 True Branch: Route to manager review. 5. Performance Notes# In-Memory Invocation: Sub-rules execute in the same process thread and transaction boundary, avoiding network overhead. Depth Guard: FlexiRule enforces a maximum call depth ceiling (10 levels) to prevent stack overflow from infinite recursion. 6. Common Mistakes# Sub-Rule Not Exposed: Attempting to select a target rule that does not have Exposed as Sub-Rule enabled in its settings. Circular Sub-Rule Calls: Creating a chain where Rule A calls Rule B, which calls Rule A. Missing Variable Mappings: Failing to supply required input variables expected by the sub-rule. 
 
 ---
-title: Stop and Error Handling
+title: Stop / Error
 url: https://sendipad.github.io/flexirule/action-type/stop-error/
-lastmod: 2026-07-05
-summary: Terminate rule execution silently or raise validation errors to the user.
+lastmod: 2026-09-27
+summary: Terminate rule execution silently or block document saving with a custom validation error message.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Stop and Error Handling Action# The Stop and Raise Error actions are terminal nodes that control how a rule flow concludes. They are essential for implementing validation logic and early exits.
-Purpose# Use these actions to:
-Silently Terminate: Stop the rule execution without any message (e.g., &amp;ldquo;If Category is not relevant, Stop&amp;rdquo;). Enforce Validation: Block a document save or submission with a custom error message. Rollback Changes: Stop the current database transaction to prevent invalid data from being saved. Action Capabilities# Capability Support Notes Terminal ✅ Yes No next steps are possible after this node. Custom Messages ✅ Yes Supports Jinja templates for dynamic error messages. Transaction Control ✅ Yes &amp;ldquo;Error&amp;rdquo; mode triggers a database rollback. Traceability ✅ Yes Automatically appends a link to the &amp;ldquo;Source Rule&amp;rdquo; in error popups. Modes of Operation# 1. Success (Silent Stop)# The rule finishes immediately and successfully.
-Behavior: No further nodes are executed. Any changes made by previous nodes in the graph are committed to the database. 2. Error (Raise Error)# The rule stops and throws a frappe.ValidationError.
-Behavior: A standard Frappe error popup appears with your message. The current database transaction is rolled back, meaning any changes made by previous nodes in the same rule are cancelled. Message: You can use Jinja to make the error helpful: Cannot submit order {{ doc.name }}: The grand total must be at least {{ vars.min_amount }}. Configuration# Operation/Mode: Choose between &amp;ldquo;Success&amp;rdquo; or &amp;ldquo;Error&amp;rdquo;. Error Message: (Only for Error mode) The template for the message shown to the user. Error Title: (Optional) A custom title for the error popup. Best Practices# Provide Clear Messages: When raising an error, tell the user exactly why the rule stopped and what they can do to fix it. Use for Guard Clauses: Use a Condition followed by a Stop node at the beginning of your rule to &amp;ldquo;exit early&amp;rdquo; if the document doesn&amp;rsquo;t need processing. This saves system resources. Validation First: Perform all your checks and &amp;ldquo;Raise Error&amp;rdquo; nodes before you perform any …
+Stop / Error Action# The Stop / Error action (internal handler: simple_actions.StopActionHandler) serves as a terminal node in the visual rule graph, controlling how rule execution terminates.
+1. When to Use# Use the Stop / Error action when you need to:
+Block Document Save/Submit: Prevent users from saving invalid data by throwing a user-facing frappe.ValidationError. Early Exit (Silent Stop): Terminate rule execution cleanly when pre-conditions fail without raising errors. Rollback Changes: Cancel pending database mutations made during the current transaction. 2. Configuration# Configuration Options# Mode: Error (Raise Validation Error): Displays error popup and aborts transaction. Stop / Exit (Silent Exit): Terminates rule execution cleanly without error popup. Message Template: Configured via the Smart Value Selector (Static Text, @ Variables, or / Resolvers). Supports formatted error messages. Title: (Optional) Title header displayed on Frappe error dialogs. 3. Output# Terminal Node: No outbound edges are allowed; execution halts immediately. Transaction Impact: Error Mode: Raises frappe.ValidationError, causing Frappe to rollback database transaction. Stop Mode: Completes cleanly, committing preceding in-memory @doc mutations. 4. Example# Scenario: Prevent Sales Order Submission without Valid Customer Tax ID# Check Node: Is @doc.tax_id is not set AND @doc.grand_total &amp;gt; 10000? True Branch: Connect to Stop / Error node. Stop / Error Configuration: Mode: Error Message: &amp;quot;Sales Order {doc.name} cannot be submitted without a valid Tax ID for orders above 10,000.&amp;quot; 5. Performance Notes# Zero DB Overhead: Terminal checks execute immediately in memory without additional database operations. Fast Exit: Placing a Stop (Silent Exit) early in the flow saves CPU cycles by bypassing unnecessary downstream nodes. 6. Common Mistakes# Confusing Silent Stop with Error: Using Stop (Exit) when you intended to prevent a document save (Silent Stop allows save to complete). Generic Error Messages: Raising unhelpful errors like &amp;quot;Error occurred&amp;quot; instead of providing actionable feedback to the user. Redundant Stop Nodes: Adding a Stop node at the end of every …
 
 ---
 title: Advanced Process
 url: https://sendipad.github.io/flexirule/action-type/process/
-lastmod: 2026-07-05
-summary: Execute complex, reusable business logic operations.
+lastmod: 2026-09-27
+summary: Execute complex, reusable business logic operations using registered Process contracts.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Advanced Process Action# The Advanced Process action (internally called Process) is the primary extension point for custom business logic in FlexiRule. While blocks like &amp;ldquo;Check&amp;rdquo; or &amp;ldquo;Assignment&amp;rdquo; handle basic flow and data updates, the Process action allows you to execute sophisticated, reusable operations defined in the Process Registry.
-Purpose# Use the Process action for:
-Complex Calculations: Tax engines, freight calculators, or financial models. External Integrations: Sending data to Slack, calling a REST API, or interacting with AWS. System Tasks: Generating PDFs, bulk-creating documents, or triggering Frappe background jobs. Reusable Business Logic: Any logic that is used across multiple rules should be encapsulated as a &amp;ldquo;Process&amp;rdquo;. Action Capabilities# Capability Support Notes Input Mapping ✅ Yes Map variables from the rule context to the Process inputs. Output Mapping ✅ Yes Store the Process result back into the rule context. Schema-Aware ✅ Yes The UI dynamically adapts based on the Process configuration schema. Transactional ✅ Yes Supports savepoints to ensure data integrity during execution. Configuration# 1. Process Selection# Select from the list of registered Processes. Each process may have multiple Operations (e.g., a &amp;ldquo;Slack&amp;rdquo; process might have &amp;ldquo;Send Message&amp;rdquo; and &amp;ldquo;Upload File&amp;rdquo; operations).
-2. Input Configuration# Based on the selected process, you will see a dynamic set of fields. You can provide:
-Static Values: Hardcoded strings or numbers. Dynamic Resolvers: Reference fields from doc or vars. Input Mapping: Use the mapping grid to bind complex context data to process parameters. 3. Execution Options# On Error: Choose whether to stop, continue, or retry the rule if the process fails. Is Async: If enabled, the process will run in a background worker (using frappe.enqueue), and the rule will continue immediately. 4. Output Handling# Specify a Return Variable (e.g., vars.api_response) where the result of the process will be stored for use in subsequent blocks.
-Execution Semantics# Input Resolution: The engine resolves all input mapping and dynamic values. Validation: The engine …
+Advanced Process Action# The Advanced Process action (internal handler: Process) executes registered business operations created by developers or system plugins. It decouples complex orchestration tasks (such as deduplication, validation pipelines, batch operations, or enrichment) from visual rule layout.
+1. When to Use# Use the Advanced Process action when you need to:
+Run complex multi-step algorithms (e.g., deduplication matching, tax engines, credit score calculation). Perform external API integrations or system operations (e.g., generating PDFs, calling webhooks). Reuse standard business operations across multiple rules without repeating node logic. Execute heavy background operations asynchronously using frappe.enqueue. 2. Configuration# Configuration Fields# Process: Select registered Process definition (e.g., Deduplication, Validation, Batch, Enrichment). Operation: Select specific operation within the process (e.g., Score Duplicates, Validate Tax ID). Operation Config: Input parameters rendered dynamically based on the operation&amp;rsquo;s schema contract. Input Mapping: Map @doc or @vars fields to required operation input parameters. Output Variable: Destination variable name in @vars where process outputs will be stored. Error Handling Strategy: Choose action behavior on failure (Stop Rule, Continue, or Branch on Error). 3. Output# Context Variable Mutation: Stores structured operation output dictionary in @vars.&amp;lt;output_variable&amp;gt;. Branching: Success: Continues down primary outbound edge. Failure: Halts rule execution (or branches to error port if configured). Return Contract: Returns dictionary of outputs defined by the operation&amp;rsquo;s ProcessContract. 4. Example# Scenario: Deduplicate Customer Records on Insert# Advanced Process Block Configuration: Process: Deduplication Operation: Find Duplicates Input Mapping: email_id -&amp;gt; @doc.email_id tax_id -&amp;gt; @doc.tax_id Output Variable: duplicate_result Next Node (Check): Condition: @vars.duplicate_result.is_duplicate == true True Branch: Connect to Stop / Error (&amp;quot;Duplicate Customer Detected!&amp;quot;). 5. Performance Notes# Registry Execution: Process operations are executed via …
 
