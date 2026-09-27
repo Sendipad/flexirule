@@ -42,7 +42,7 @@ const props = defineProps({
  * Extensible Date & Time operations registry.
  * Future operations (extract, convert, combine, round, timezone) can be registered here.
  */
-export const DATE_TIME_OPERATIONS = {
+const DATE_TIME_OPERATIONS = {
 	calculate: {
 		id: "calculate",
 		label: __("Date & Time Formula"),
