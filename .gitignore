@@ -12,7 +12,8 @@ flexirule/public/js/.archived_runtime/
 flexirule/ruleflow/core/core_changes_summary.md
 combine_source.py
 CLAUDE.md
-plans/
+/plans/
+!reports/plans/
 # Build artifacts
 cypress/screenshots
 cypress/videos
