@@ -76,11 +76,19 @@ export function useValueResolver(props, emit) {
 				};
 			} else if (family === "date_time" || kind === "date_time") {
 				kind = "date_time";
+				const rawOp = val.operation || innerConfig.operation;
+				let op = rawOp;
+				let cfg = { ...(val.config || innerConfig || {}) };
+				if (!op) {
+					if (props.context?.operator === "Between" || props.context?.operator === "between") {
+						op = "between";
+					} else {
+						op = "calculate";
+					}
+				}
 				val = {
-					operation: val.operation || innerConfig.operation || "calculate",
-					config: {
-						...(val.config || innerConfig || {}),
-					},
+					operation: op,
+					config: cfg,
 				};
 			} else if (family === "lookup" || kind === "lookup" || kind === "fetch") {
 				family = "lookup";

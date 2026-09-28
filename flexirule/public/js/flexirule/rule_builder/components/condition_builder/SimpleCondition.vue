@@ -68,12 +68,14 @@ const DEFAULT_OPERATORS = {
 	Data: ["==", "!=", "in", "not in", "like", "not like", "is_set", "is_not_set"],
 	Select: ["==", "!=", "in", "not in", "is_set", "is_not_set"],
 	Link: ["==", "!=", "in", "not in", "is_set", "is_not_set"],
-	Int: ["==", "!=", ">", "<", ">=", "<=", "is_set", "is_not_set"],
-	Float: ["==", "!=", ">", "<", ">=", "<=", "is_set", "is_not_set"],
-	Currency: ["==", "!=", ">", "<", ">=", "<=", "is_set", "is_not_set"],
+	Int: ["==", "!=", ">", "<", ">=", "<=", "Between", "is_set", "is_not_set"],
+	Float: ["==", "!=", ">", "<", ">=", "<=", "Between", "is_set", "is_not_set"],
+	Currency: ["==", "!=", ">", "<", ">=", "<=", "Between", "is_set", "is_not_set"],
 	Check: ["==", "!="],
-	Date: ["==", "!=", ">", "<", ">=", "<=", "is_set", "is_not_set"],
-	_default: ["==", "!=", ">", "<", ">=", "<=", "in", "contains", "is_set", "is_not_set"],
+	Date: ["==", "!=", ">", "<", ">=", "<=", "Between", "is_set", "is_not_set"],
+	Datetime: ["==", "!=", ">", "<", ">=", "<=", "Between", "is_set", "is_not_set"],
+	Time: ["==", "!=", ">", "<", ">=", "<=", "Between", "is_set", "is_not_set"],
+	_default: ["==", "!=", ">", "<", ">=", "<=", "Between", "in", "contains", "is_set", "is_not_set"],
 };
 
 const DEFAULT_LABELS = {
@@ -83,6 +85,8 @@ const DEFAULT_LABELS = {
 	"<": "<",
 	">=": ">=",
 	"<=": "<=",
+	Between: "Between",
+	between: "Between",
 	in: "in list",
 	"not in": "not in list",
 	like: "contains",
