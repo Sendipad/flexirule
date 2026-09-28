@@ -65,7 +65,7 @@ doc.base_amount: Standard field. vars.results.0.name: Deeply nested variable (us
 ---
 title: Canvas Navigation
 url: https://sendipad.github.io/flexirule/rule-builder/canvas/
-lastmod: 2026-07-06
+lastmod: 2026-09-28
 summary: Learn how to navigate and use the visual Rule Builder canvas.
 concepts: 
 tags: 
@@ -74,11 +74,11 @@ related:
 actions: read, implement, integrate, troubleshoot, improve
 
 Canvas Navigation# The Rule Builder provides a visual workspace where you can design your business logic by dragging, dropping, and connecting different &amp;ldquo;Blocks.&amp;rdquo; This visual approach allows you to see exactly how data flows through your system.
-Rule Builder Overview The Visual Workspace# The canvas is an infinite workspace that represents your rule&amp;rsquo;s logic as a flowchart.
-How Logic is Represented# Blocks: Each step in your rule is represented by a Block (node). Blocks have a clear icon, a title, and often a sub-label describing their specific configuration. Connections: Arrows between blocks show the direction of execution. The flow typically moves from the Start block at the top towards various outcomes or a Stop block. Entry &amp;amp; Exit Points: Most blocks have a circular handle at the top (input) and one or more handles at the bottom (output). Navigation &amp;amp; Zooming# Panning: Click and drag any empty space on the canvas to move around. Zooming: Use the mouse wheel or the zoom controls in the corner to adjust your view. Core Canvas Interactions# Moving and Zooming# Pan: Click and drag any empty space on the canvas to move around. Zoom: Use your mouse wheel or the zoom controls in the corner to adjust the view. Working with Nodes# Select: Click a node to select it and open its configuration panel on the right. Move: Click and drag a node to reposition it. Delete: Select a node and press Backspace or Delete. The builder will intelligently attempt to reconnect remaining nodes to maintain the flow. Bulk Actions# Multi-Select: Hold Shift and drag a selection box over multiple nodes. Copy/Paste: You can copy selected nodes and paste them elsewhere on the canvas or into a different rule. Debugging on the Canvas# The Rule Builder includes built-in tools to test your rules in real-time.
+Rule Builder Canvas Overview The Visual Workspace# The canvas is an infinite workspace that represents your rule&amp;rsquo;s logic as a flowchart.
+Rule Flow Canvas Connections How Logic is Represented# Blocks: Each step in your rule is represented by a Block (node). Blocks have a clear icon, a title, and often a sub-label describing their specific configuration. Connections: Arrows between blocks show the direction of execution. The flow typically moves from the Start block at the top towards various outcomes or a Stop block. Entry &amp;amp; Exit Points: Most blocks have a circular handle at the top (input) and one or more handles at the bottom (output). Navigation &amp;amp; Zooming# Panning: Click and drag any empty space on the canvas to move around. Zooming: Use the mouse wheel or the zoom controls in the corner to adjust your view. Core Canvas Interactions# Moving and Zooming# Pan: Click and drag any empty space on the canvas to move around. Zoom: Use your mouse wheel or the zoom controls in the corner to adjust the view. Working with Nodes# Select: Click a node to select it and open its configuration panel on the right. Move: Click and drag a node to reposition it. Delete: Select a node and press Backspace or Delete. The builder will intelligently attempt to reconnect remaining nodes to maintain the flow. Bulk Actions# Multi-Select: Hold Shift and drag a selection box over multiple nodes. Copy/Paste: You can copy selected nodes and paste them elsewhere on the canvas or into a different rule. Debugging on the Canvas# The Rule Builder includes built-in tools to test your rules in real-time.
 Visual Execution Path# When you run a test, the builder highlights the exact path taken during execution, showing you exactly which nodes were triggered.
 Inspecting Results# You can click on any node after a test run to see its specific results, including modified variables and return values.
-Debug View Return Result Examples# For more information on how to build …
+Debug View Return Result Examples# For …
 
 ---
 title: Create New
@@ -383,7 +383,7 @@ AI Rule Generation: Helping LLMs select the correct action for a business requir
 ---
 title: Adding Actions
 url: https://sendipad.github.io/flexirule/rule-builder/add-action/
-lastmod: 2026-07-06
+lastmod: 2026-09-28
 summary: Learn how to add new logic blocks to your rule.
 concepts: 
 tags: 
@@ -393,10 +393,14 @@ actions: read, implement, integrate, troubleshoot, improve
 
 Adding Actions# Building a rule involves adding &amp;ldquo;Actions&amp;rdquo; (Blocks) to the canvas and connecting them to form a logical flow. FlexiRule makes this process intuitive with the Action Zone.
 The Action Zone# The Action Zone is the primary way to insert new logic into your rule. It appears dynamically as you work on the canvas.
-How to Add an Action# Trigger the Menu: Hover your mouse over any connection line (the arrows between blocks) or click the + icon that appears in empty spaces on the canvas. Browse or Search: An action menu will pop up. You can: Search: Type keywords like &amp;ldquo;Email,&amp;rdquo; &amp;ldquo;Update,&amp;rdquo; or &amp;ldquo;Check&amp;rdquo; to find specific actions quickly. Categories: Browse through categorized lists like Data Operations, Communications, or Flow Control. Select: Click the action you want to add. Auto-Insertion: The new block will be automatically placed on the canvas. If you clicked a connection line, the new block will be inserted between the two existing blocks, and the connections will be automatically updated. Types of Actions# When adding an action, you will see several types of blocks categorized by their purpose:
+Action Bar insertion control How to Add an Action# Trigger the Menu: Hover your mouse over any connection line (the arrows between blocks) or click the + icon that appears in empty spaces on the canvas.
+Browse or Search: An action menu will pop up. You can:
+Search: Type keywords like &amp;ldquo;Email,&amp;rdquo; &amp;ldquo;Update,&amp;rdquo; or &amp;ldquo;Check&amp;rdquo; to find specific actions quickly. Categories: Browse through categorized lists like Data Operations, Communications, or Flow Control. Action Type Selector dropdown menu Select: Click the action you want to add.
+Auto-Insertion: The new block will be automatically placed on the canvas. If you clicked a connection line, the new block will be inserted between the two existing blocks, and the connections will be automatically updated.
+Types of Actions# When adding an action, you will see several types of blocks categorized by their purpose:
 Set Value: Used for calculations and updating variables within the rule. Check (Condition): Creates a fork in the road based on logic (True/False). Update Record: Saves changes directly to a record in your system. Notify: Sends alerts via Email, SMS, or System Notifications. Repeat (Loop): Runs a series of actions for every item in a list. Process: Triggers advanced system operations or external integrations. Organizing Blocks# Once an action is added, you can click and drag it to any position on the canvas.
 Inserting Between Blocks# The easiest way to add logic to an existing flow is to hover over the arrow connecting two blocks. When the + icon appears, clicking it and selecting an action will &amp;ldquo;splice&amp;rdquo; the new action into the flow, saving you from manually deleting and re-drawing connection lines.
-Quick Configuration# As soon as you add an action, it is selected by default, and its Action Settings panel opens on the right. This allows you to immediately configure the details of the new block without extra …
+Quick Configuration# As soon as you add an action, it is selected by default, and its Action Settings panel opens on the right. This allows you to …
 
 ---
 title: AI Features
@@ -1270,7 +1274,7 @@ Level 1 (Request): frappe.local storage for the duration of a single request. Le
 ---
 title: Smart Value System
 url: https://sendipad.github.io/flexirule/rule-builder/smart-value-system/
-lastmod: 2026-09-27
+lastmod: 2026-09-28
 summary: Learn how FlexiRule handles dynamic inputs using static values, variables, and dynamic value resolvers.
 concepts: 
 tags: 
@@ -1284,13 +1288,13 @@ The Three Input Modes# Input fields in FlexiRule support three operational modes
 1. Static Value# Directly type or pick constant values:
 Text: Approved, High Priority, Welcome to FlexiRule Numbers: 100, 0.05, -10 Dates: Selected via the calendar picker or standard date format (YYYY-MM-DD). 2. Variable Reference (@)# Variables allow you to reference document data and context dynamically. Type the @ key or click the Variable (@) button to open the searchable variable selector menu:
 Document Fields (@doc): Select fields on the document triggering the rule (e.g., Grand Total, Customer, Status). Previous Values (@old_doc): Select pre-update field values on change events (e.g., Previous Status to verify if a field was modified). Rule Variables (@vars): Select temporary variables created by previous action blocks in the current rule flow (e.g., Calculated Discount, Open Invoices). System Information (@system): Access environment information such as Current User or Today. 3. Dynamic Value Resolvers (/)# Value Resolvers calculate dynamic values on the fly. Type the / key or click the Resolver (/) button to select a visual resolver builder.
-Dynamic Value Resolver Families# FlexiRule features 12 user-facing Value Resolver families accessible via the / menu in the Smart Value Selector:
-Resolver Family Trigger Key Primary Output Use Case Date Formula /date_formula Date / Datetime Add or subtract days, months, or years from today or a base date field. Math Formula /math_formula Float / Int Perform safe arithmetic (+, -, *, /) with rounding precision. Date Difference /date_diff Integer Calculate time difference in days, months, or years …
+Smart Value Selector showing Logic Commands dropdown Dynamic Value Resolver Families# FlexiRule features 12 user-facing Value Resolver families accessible via the / menu in the Smart Value Selector:
+Resolver Family Trigger Key Primary Output Use Case Date Formula /date_formula Date / Datetime Add or subtract days, months, or years from today or a base date field. Math Formula /math_formula Float / Int Perform safe arithmetic (+, -, *, /) with rounding precision. Date Difference /date_diff Integer …
 
 ---
 title: Condition Builder
 url: https://sendipad.github.io/flexirule/rule-builder/condition-builder/
-lastmod: 2026-09-27
+lastmod: 2026-09-28
 summary: Learn how to create visual logical condition groups in FlexiRule.
 concepts: 
 tags: 
@@ -1300,12 +1304,12 @@ actions: read, implement, integrate, troubleshoot, improve
 
 Condition Builder# The Condition Builder is a visual interface used to define logical &amp;ldquo;True/False&amp;rdquo; evaluation rules. It is used in Check blocks, query filters, and trigger condition evaluations.
 1. Visual Condition Rows# Instead of writing complex code, you build conditions using a structured, row-based interface. Each row represents a single comparison check.
-A condition row consists of three main parts:
+Condition Builder rule configuration panel A condition row consists of three main parts:
 Left Operand: Select the document field or variable to check (e.g., Status or Grand Total). Operator: Select the comparison operator (e.g., Equals, Not Equals, Greater Than, Contains, Is Set). Right Operand: Select the comparison value or field to compare against (e.g., &amp;quot;Open&amp;quot; or 5000). 2. Using the Smart Value Selector# For both operands in a condition row, click the field to open the Smart Value Selector:
 Select document fields (@doc.grand_total). Select temporary rule variables (@vars.calculated_total). Select system metadata (@system.today). Choose dynamic value resolvers (/math_formula, /fetch, /child_aggregation). 3. Logical Grouping (ALL / ANY / NOT)# You can combine multiple conditions using Logic Groups:
 ALL (AND): Every condition row in the group must be true for the group to evaluate to true (e.g., Status == &amp;quot;Open&amp;quot; ALL Grand Total &amp;gt; 5000). ANY (OR): At least one condition row in the group must be true (e.g., Customer Group == &amp;quot;VIP&amp;quot; ANY Priority == &amp;quot;Urgent&amp;quot;). NOT: Inverts the result of the group. Nested Condition Groups# You can add nested groups inside a parent group to express complex logic. The UI represents nested groups with indented visual cards.
-4. UI Controls# Add Condition: Click + Condition to add a new check row to the current group. Add Group: Click + Group to create a nested ALL/ANY block. Toggle Group Logic: Click the ALL / ANY logic pill at the top of a group card to toggle logic. Remove Row / Group: Click the trash icon next to a condition row or group to remove it. 5. Practical Example# Scenario: High-Value VIP Approval Condition# To check if an order requires manager approval:
-Group (ALL) Row 1: Customer Group Equals &amp;quot;VIP&amp;quot; Group (ANY) Row 2: Grand Total Greater Than …
+4. UI Controls# Add Condition: Click + Condition to add a new check row to the current group. Add Group: Click + Group to create a nested ALL/ANY block. Toggle Group Logic: Click the ALL / ANY logic pill at the top of a group card to toggle logic. Remove Row / Group: Click the trash icon next to a condition row or group to remove it. Canvas Condition Preview# Check blocks on the canvas highlight configured conditions directly on the action card for quick visual verification.
+Action card showing inline …
 
 ---
 title: Count
@@ -1487,7 +1491,7 @@ Python hooks Server scripts Custom app overrides Background jobs Patch scripts E
 ---
 title: Action Settings
 url: https://sendipad.github.io/flexirule/rule-builder/action-settings/
-lastmod: 2026-09-27
+lastmod: 2026-09-28
 summary: Learn how to configure individual blocks in your rule.
 concepts: 
 tags: 
@@ -1496,14 +1500,13 @@ related:
 actions: read, implement, integrate, troubleshoot, improve
 
 Action Settings# When you select a block on the canvas, the Action Settings panel slides out from the right side of the screen. This is where you define the specific behavior for that step in your rule.
-Common Interface Elements# While every action has different options, they all share a consistent design:
+Action Settings panel overview Common Interface Elements# While every action has different options, they all share a consistent design:
 Block Title: At the top, you can see and edit the name of the block. Description: A brief explanation of what the action does. Configuration Fields: The main area where you input data, select options, and define logic. Smart Value Fields# Most settings in FlexiRule use &amp;ldquo;Smart&amp;rdquo; fields. These fields allow you to provide data in three different ways: static text, variables, or dynamic functions.
 To learn more about the logic behind these fields, see the Smart Value System.
 Quick Access# In any Smart Value field, you can use these shortcuts:
 Static Input: Just type a value directly into the field. Variable Picker (@): Type @ or click the variable icon to see a list of available data, such as @doc.customer_name or @vars.total_count. Advanced Resolvers (/): Type / or click the resolver icon to access tools like math, text formatting, and date calculations. Field Types# In the settings panel, you will encounter different types of input controls:
-Dropdowns: Choose from a fixed list of options. Checkboxes: Toggle settings on or off. Data Grids: Used for actions like &amp;ldquo;Set Value,&amp;rdquo; where you need to map multiple fields at once. Each row in the grid uses a Smart Value field for the value column. Multi-Select: Pick one or more tags or items from a list. Context Awareness# The settings panel knows where the block is located in your flow:
-Available Variables: In the @ menu, you will see variables that have been defined before the current block. Validation: Required fields are marked, and the panel will alert you if your configuration is incomplete or contains errors. Saving Changes# Changes in the Action Settings panel are drafted immediately. Save the entire rule using the button at the top of the canvas to commit your changes to the system.
-💡TipKeep it Readable: Use the title field at the top of the settings panel to give each block a …
+Action Settings dynamic properties form Dropdowns: Choose from a fixed list of options. Checkboxes: Toggle settings on or off. Data Grids: Used for actions like &amp;ldquo;Set Value,&amp;rdquo; where you need to map multiple fields at once. Each row in the grid uses a Smart Value field for the value column. Multi-Select: Pick one or more tags or items from a list. Action Settings field options overview Context Awareness# The settings panel knows where the block is located in your flow:
+Available Variables: In the @ menu, you will see variables that have been defined before the current block. Validation: Required fields are marked, and the panel will alert you if your configuration is incomplete or contains errors. Saving Changes# Changes in the Action Settings panel are drafted immediately. Save the entire rule using the button at the top of the canvas to commit your changes to the system. …
 
 ---
 title: Frontend Technical
@@ -1750,7 +1753,7 @@ Route logic based on categorical fields with three or more values (e.g., Status,
 ---
 title: Debugging & Execution Logs
 url: https://sendipad.github.io/flexirule/rule-builder/debugging/
-lastmod: 2026-07-06
+lastmod: 2026-09-28
 summary: Learn how to test your rules and understand why they run.
 concepts: 
 tags: 
@@ -1760,11 +1763,11 @@ actions: read, implement, integrate, troubleshoot, improve
 
 Debugging &amp;amp; Execution Logs# FlexiRule provides built-in tools to help you understand exactly what happens when a rule runs. Whether you are testing a new idea or investigating why a live rule didn&amp;rsquo;t behave as expected, these tools give you full visibility.
 Testing with the Debugger# The Debug Rule tool allows you to run your logic in a &amp;ldquo;sandbox&amp;rdquo; mode before you activate it.
-How to Run a Test# Open Debugger: Click the Debug Rule button at the top of the canvas. Select a Record: Pick a real document from your system (e.g., a specific Sales Order) to use as the test data. Simulate: Click Run Test. Understanding the Results# Visual Path Trace: On the canvas, the path taken by the logic is highlighted. You can see exactly which &amp;ldquo;Check&amp;rdquo; blocks were true and which actions were triggered. No Real Changes: The debugger simulates the actions but does not save any changes to your database. It is 100% safe to use on production data. Result Inspection: Click on any highlighted block after the test to see its specific inputs and outputs (e.g., what value was calculated or what email would have been sent). Debug View Return Result Execution Logs# For Active rules, FlexiRule keeps a history of every time the rule was triggered. This is your primary tool for troubleshooting live automations.
+How to Run a Test# Open Debugger: Click the Debug Rule button at the top of the canvas. Select a Record: Pick a real document from your system (e.g., a specific Sales Order) to use as the test data. Simulate: Click Run Test. Rule Builder canvas showing debug execution run dialog Debug Run dialog showing JSON test context Understanding the Results# Visual Path Trace: On the canvas, the path taken by the logic is highlighted. You can see exactly which &amp;ldquo;Check&amp;rdquo; blocks were true and which actions were triggered. No Real Changes: The debugger simulates the actions but does not save any changes to your database. It is 100% safe to use on production data. Result Inspection: Click on any highlighted block after the test to see its specific inputs and outputs (e.g., what value was calculated or what email would have been sent). Debug View Return Result Execution Logs# For Active rules, FlexiRule keeps a history of every time the rule was triggered. This is your primary tool for troubleshooting live automations.
 Why did the rule trigger?# The logs will show you:
 The Event: Which document and event (e.g., Save) triggered the run. The Outcome: Whether the rule finished successfully, was skipped, or hit an error. Why did the rule NOT trigger?# If you expected a rule to run but it didn&amp;rsquo;t, check the logs for:
 Trigger Condition Failed: The high-level &amp;ldquo;gatekeeper&amp;rdquo; condition you set in the Rule Configuration wasn&amp;rsquo;t met. Disabled State: The rule was set to &amp;ldquo;Disabled&amp;rdquo; at the time of the event. Priority Conflict: Another rule with higher priority might have stopped the execution chain. Understanding the Visual Path# When viewing a log or a debug run, the canvas uses color-coded highlights:
-Green/Highlighted: The block was executed successfully. Grey/Dimmed: The block was skipped (e.g., it was on the &amp;ldquo;False&amp;rdquo; path of a …
+Green/Highlighted: The block was executed successfully. …
 
 ---
 title: High-level Architecture
