@@ -418,6 +418,95 @@ class TestValueResolversComplex(FrappeTestCase):
 		).resolve(self.context)
 		self.assertEqual(res, datetime.datetime(2026, 2, 28, 23, 59, 59))
 
+	def test_system_settings_week_boundary_and_iso_weekday(self):
+		# Test date: 2026-02-15 is a Sunday
+		self.doc_data["posting_date"] = "2026-02-15"
+		self.doc_data["log_time"] = "2026-02-15 14:35:50"
+
+		# 1. extract(weekday) returns ISO 1-7 (Sunday = 7)
+		res_extract = ValueResolver.compile_resolver_config(
+			{
+				"family": "date_time",
+				"operation": "extract",
+				"config": {"source": "doc.posting_date", "component": "weekday"},
+			}
+		).resolve(self.context)
+		self.assertEqual(res_extract, 7)
+
+		# 2. start_of_week and end_of_week follow Frappe System Settings
+		with patch("frappe.get_system_settings", return_value="Sunday"):
+			frappe.clear_cache()
+			res_start_sun = ValueResolver.compile_resolver_config(
+				{
+					"family": "date_time",
+					"operation": "boundary",
+					"config": {"source": "doc.posting_date", "boundary_type": "start_of_week"},
+				}
+			).resolve(self.context)
+			self.assertEqual(res_start_sun, datetime.date(2026, 2, 15))
+			self.assertIsInstance(res_start_sun, datetime.date)
+
+			res_end_sun = ValueResolver.compile_resolver_config(
+				{
+					"family": "date_time",
+					"operation": "boundary",
+					"config": {"source": "doc.posting_date", "boundary_type": "end_of_week"},
+				}
+			).resolve(self.context)
+			self.assertEqual(res_end_sun, datetime.date(2026, 2, 21))
+
+		# 3. Test when first_day_of_the_week is "Monday"
+		with patch("frappe.get_system_settings", return_value="Monday"):
+			frappe.clear_cache()
+			res_start_mon = ValueResolver.compile_resolver_config(
+				{
+					"family": "date_time",
+					"operation": "boundary",
+					"config": {"source": "doc.posting_date", "boundary_type": "start_of_week"},
+				}
+			).resolve(self.context)
+			self.assertEqual(res_start_mon, datetime.date(2026, 2, 9))
+
+			res_end_mon = ValueResolver.compile_resolver_config(
+				{
+					"family": "date_time",
+					"operation": "boundary",
+					"config": {"source": "doc.posting_date", "boundary_type": "end_of_week"},
+				}
+			).resolve(self.context)
+			self.assertEqual(res_end_mon, datetime.date(2026, 2, 15))
+
+			# 4. Verify extract(weekday) remains ISO 7 (Sunday) even when system first_day is Monday
+			res_extract_mon = ValueResolver.compile_resolver_config(
+				{
+					"family": "date_time",
+					"operation": "extract",
+					"config": {"source": "doc.posting_date", "component": "weekday"},
+				}
+			).resolve(self.context)
+			self.assertEqual(res_extract_mon, 7)
+
+			# 5. Datetime week boundary returns Datetime
+			res_dt_start = ValueResolver.compile_resolver_config(
+				{
+					"family": "date_time",
+					"operation": "boundary",
+					"config": {"source": "doc.log_time", "boundary_type": "start_of_week"},
+				}
+			).resolve(self.context)
+			self.assertIsInstance(res_dt_start, datetime.datetime)
+			self.assertEqual(res_dt_start, datetime.datetime(2026, 2, 9, 0, 0, 0))
+
+			res_dt_end = ValueResolver.compile_resolver_config(
+				{
+					"family": "date_time",
+					"operation": "boundary",
+					"config": {"source": "doc.log_time", "boundary_type": "end_of_week"},
+				}
+			).resolve(self.context)
+			self.assertIsInstance(res_dt_end, datetime.datetime)
+			self.assertEqual(res_dt_end, datetime.datetime(2026, 2, 15, 23, 59, 59))
+
 	def test_child_aggregation_resolver(self):
 		# Sum
 		resolver = ChildAggregationResolver(agg_table="doc.items", agg_field="qty", agg_op="sum")
