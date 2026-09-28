@@ -135,7 +135,7 @@ Enable Rule Execution: Globally toggle all rules on or off. Useful during large 
 ---
 title: Normalization Value Resolver
 url: https://sendipad.github.io/flexirule/advanced-concepts/data-manipulation/normalization-value-resolver/
-lastmod: 2026-07-05
+lastmod: 2026-09-28
 summary: Resolve, format, and normalize variables natively within the rule canvas using pipelines and profiles.
 concepts: 
 tags: 
