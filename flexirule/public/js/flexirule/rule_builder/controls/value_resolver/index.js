@@ -15,7 +15,7 @@ import { useStore } from "../../stores";
 registerStrategy("date_time", {
 	label: __("Date & Time"),
 	description: __(
-		"Calculate date & time values, compute time differences, or format date/time values."
+		"Calculate date & time values, extract components, compute boundaries or differences, and format values."
 	),
 	icon: "fa fa-calendar",
 	component: DateTimeResolver,
@@ -30,6 +30,7 @@ registerStrategy("date_time", {
 		return {
 			operation: "calculate",
 			config: {
+				token: "date",
 				base_type: baseType,
 				base_field: baseField,
 				offset_sign: "+",
@@ -40,6 +41,8 @@ registerStrategy("date_time", {
 				diff_end_type: "doc_field",
 				diff_end_field: baseField,
 				diff_unit: "days",
+				component: "year",
+				boundary_type: "start_of_month",
 				fmt_field: baseField,
 				fmt_config: "YYYY-MM-DD",
 			},
@@ -49,11 +52,19 @@ registerStrategy("date_time", {
 		const op = item.operation || "calculate";
 		const cfg = item.config || item;
 
+		if (op === "current") {
+			if (cfg.token === "datetime" || cfg.token === "now") return "{frappe.utils.now_datetime()}";
+			if (cfg.token === "time") return "{frappe.utils.nowtime()}";
+			return "{frappe.utils.nowdate()}";
+		}
+
 		if (op === "calculate") {
-			const baseExpr =
-				cfg.base_type === "today"
-					? "frappe.utils.nowdate()"
-					: toDocExpression(cfg.base_field);
+			let baseExpr;
+			if (cfg.base_type === "today") baseExpr = "frappe.utils.nowdate()";
+			else if (cfg.base_type === "current_datetime" || cfg.base_type === "now") baseExpr = "frappe.utils.now_datetime()";
+			else if (cfg.base_type === "current_time") baseExpr = "frappe.utils.nowtime()";
+			else baseExpr = toDocExpression(cfg.base_field);
+
 			let offset = parseInt(cfg.offset_value || 0, 10);
 			if (cfg.offset_sign === "-" && offset > 0) offset = -offset;
 
@@ -77,7 +88,25 @@ registerStrategy("date_time", {
 
 			if (cfg.diff_unit === "days") return `{frappe.utils.date_diff(${end}, ${start})}`;
 			if (cfg.diff_unit === "months") return `{frappe.utils.month_diff(${end}, ${start})}`;
-			return `{int(frappe.utils.month_diff(${end}, ${start}) / 12)}`;
+			if (cfg.diff_unit === "years") return `{int(frappe.utils.month_diff(${end}, ${start}) / 12)}`;
+			if (cfg.diff_unit === "hours") return `{frappe.utils.time_diff_in_hours(${end}, ${start})}`;
+			if (cfg.diff_unit === "minutes") return `{frappe.utils.time_diff_in_seconds(${end}, ${start}) / 60.0}`;
+			if (cfg.diff_unit === "seconds") return `{frappe.utils.time_diff_in_seconds(${end}, ${start})}`;
+			return `{frappe.utils.date_diff(${end}, ${start})}`;
+		}
+
+		if (op === "extract") {
+			const f = cfg.base_field ? toDocExpression(cfg.base_field) : '""';
+			const comp = cfg.component || "year";
+			return `{getattr(${f}, "${comp}")}`;
+		}
+
+		if (op === "boundary") {
+			const f = cfg.base_field ? toDocExpression(cfg.base_field) : '""';
+			const btype = cfg.boundary_type || "start_of_month";
+			if (btype === "start_of_month") return `{frappe.utils.get_first_day(${f})}`;
+			if (btype === "end_of_month") return `{frappe.utils.get_last_day(${f})}`;
+			return `{boundary(${btype}, ${f})}`;
 		}
 
 		if (op === "format") {
@@ -91,6 +120,13 @@ registerStrategy("date_time", {
 	compileToLabel: (item) => {
 		const op = item.operation || "calculate";
 		const cfg = item.config || item;
+
+		if (op === "current") {
+			const t = cfg.token || "date";
+			if (t === "datetime") return __("Current Datetime (Now)");
+			if (t === "time") return __("Current Time");
+			return __("Current Date (Today)");
+		}
 
 		if (op === "calculate") {
 			const base = cfg.base_type === "today" ? __("Today") : cfg.base_field || __("Field");
@@ -106,6 +142,14 @@ registerStrategy("date_time", {
 				cfg.diff_start_type === "today" ? __("Today") : cfg.diff_start_field || "?";
 			const end = cfg.diff_end_type === "today" ? __("Today") : cfg.diff_end_field || "?";
 			return `${end} − ${start} (${cfg.diff_unit})`;
+		}
+
+		if (op === "extract") {
+			return `Extract ${cfg.component || "year"} from ${cfg.base_field || "?"}`;
+		}
+
+		if (op === "boundary") {
+			return `${cfg.boundary_type || "start_of_month"} from ${cfg.base_field || "?"}`;
 		}
 
 		if (op === "format") {
@@ -150,6 +194,12 @@ registerStrategy("date_time", {
 						frappe.utils.format(__("End field '{0}' not found"), cfg.diff_end_field)
 					);
 				}
+			}
+		} else if (op === "extract" || op === "boundary") {
+			if (!cfg.base_field) {
+				errors.push(__("Date & Time field is required"));
+			} else if (!validateField(cfg.base_field, dt, store)) {
+				errors.push(frappe.utils.format(__("Field '{0}' not found"), cfg.base_field));
 			}
 		} else if (op === "format") {
 			if (!cfg.fmt_field) {

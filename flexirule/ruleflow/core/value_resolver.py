@@ -93,41 +93,106 @@ class VariableResolver(CompiledResolver):
 		return get_context_value(context, self.path)
 
 
+class DateCurrentResolver(CompiledResolver):
+	def __init__(self, current_token: str = "date"):
+		self.current_token = (current_token or "date").lower()
+
+	def resolve(self, context: dict) -> Any:
+		if self.current_token in ("datetime", "now"):
+			return frappe.utils.get_datetime(frappe.utils.now_datetime())
+		if self.current_token == "time":
+			return frappe.utils.get_time(frappe.utils.nowtime())
+		return frappe.utils.getdate(frappe.utils.nowdate())
+
+
 class DateFormulaResolver(CompiledResolver):
 	def __init__(
 		self,
-		base_type: str,
-		base_field: str | None,
-		offset_value: int,
-		offset_unit: str,
+		base_type: str | None = None,
+		base_field: str | None = None,
+		offset_value: Any = 0,
+		offset_unit: str = "days",
 		offset_sign: str = "+",
+		source: Any = None,
 	):
 		self.base_type = base_type
 		self.base_field = base_field
 		self.offset_value = offset_value
 		self.offset_unit = offset_unit
 		self.offset_sign = offset_sign
+		self.source = source
+
+		# Compile base source
+		if self.source is not None:
+			self.base_compiled = ValueResolver.compile(self.source)
+		elif self.base_type in ("today", "current_date"):
+			self.base_compiled = DateCurrentResolver("date")
+		elif self.base_type in ("current_datetime", "now"):
+			self.base_compiled = DateCurrentResolver("datetime")
+		elif self.base_type == "current_time":
+			self.base_compiled = DateCurrentResolver("time")
+		elif self.base_field:
+			self.base_compiled = VariableResolver(self.base_field)
+		else:
+			self.base_compiled = NoneResolver()
+
+		# Compile offset
+		if isinstance(self.offset_value, dict) or (
+			isinstance(self.offset_value, str)
+			and (self.offset_value.startswith("doc.") or self.offset_value.startswith("vars."))
+		):
+			self.offset_compiled = ValueResolver.compile(self.offset_value)
+		else:
+			self.offset_compiled = None
 
 	def resolve(self, context: dict) -> Any:
-		if self.base_type == "today":
-			base_date = frappe.utils.nowdate()
-		else:
-			base_date = get_context_value(context, self.base_field)
-
-		if not base_date:
+		base_date = self.base_compiled.resolve(context)
+		if base_date is None or base_date == "":
 			return None
 
-		offset = int(self.offset_value or 0)
+		if self.offset_compiled:
+			raw_offset = self.offset_compiled.resolve(context)
+		else:
+			raw_offset = self.offset_value
+
+		try:
+			offset = float(raw_offset) if raw_offset is not None else 0.0
+			if offset.is_integer():
+				offset = int(offset)
+		except (ValueError, TypeError):
+			offset = 0
+
 		if self.offset_sign == "-" and offset > 0:
 			offset = -offset
 
 		if offset == 0 or not self.offset_unit:
 			return base_date
 
-		if self.offset_unit == "days":
+		import datetime
+
+		unit = self.offset_unit.lower()
+
+		if isinstance(base_date, datetime.time):
+			dt_dummy = datetime.datetime.combine(datetime.date.today(), base_date)
+			res_dt = frappe.utils.add_to_date(dt_dummy, as_string=False, **{unit: offset})
+			return res_dt.time()
+
+		if isinstance(base_date, str):
+			base_str = base_date.strip()
+			if " " in base_str or "T" in base_str:
+				base_date = frappe.utils.get_datetime(base_str)
+			elif ":" in base_str and len(base_str) <= 8:
+				base_date = frappe.utils.get_time(base_str)
+				dt_dummy = datetime.datetime.combine(datetime.date.today(), base_date)
+				res_dt = frappe.utils.add_to_date(dt_dummy, as_string=False, **{unit: offset})
+				return res_dt.time()
+			else:
+				base_date = frappe.utils.getdate(base_str)
+
+		if unit == "days" and isinstance(base_date, datetime.date) and not isinstance(base_date, datetime.datetime):
 			return frappe.utils.add_days(base_date, offset)
 
-		return frappe.utils.add_to_date(base_date, **{self.offset_unit: offset})
+		return frappe.utils.add_to_date(base_date, as_string=False, **{unit: offset})
 
 
 class MathFormulaResolver(CompiledResolver):
@@ -173,37 +238,201 @@ class MathFormulaResolver(CompiledResolver):
 class DateDiffResolver(CompiledResolver):
 	def __init__(
 		self,
-		diff_start_type: str,
-		diff_start_field: str | None,
-		diff_end_type: str,
-		diff_end_field: str | None,
-		diff_unit: str,
+		diff_start_type: str | None = None,
+		diff_start_field: str | None = None,
+		diff_end_type: str | None = None,
+		diff_end_field: str | None = None,
+		diff_unit: str = "days",
+		start_source: Any = None,
+		end_source: Any = None,
 	):
 		self.diff_start_type = diff_start_type
 		self.diff_start_field = diff_start_field
 		self.diff_end_type = diff_end_type
 		self.diff_end_field = diff_end_field
-		self.diff_unit = diff_unit
+		self.diff_unit = diff_unit or "days"
+
+		if start_source is not None:
+			self.start_compiled = ValueResolver.compile(start_source)
+		elif self.diff_start_type in ("today", "current_date"):
+			self.start_compiled = DateCurrentResolver("date")
+		elif self.diff_start_type in ("current_datetime", "now"):
+			self.start_compiled = DateCurrentResolver("datetime")
+		elif self.diff_start_field:
+			self.start_compiled = VariableResolver(self.diff_start_field)
+		else:
+			self.start_compiled = NoneResolver()
+
+		if end_source is not None:
+			self.end_compiled = ValueResolver.compile(end_source)
+		elif self.diff_end_type in ("today", "current_date"):
+			self.end_compiled = DateCurrentResolver("date")
+		elif self.diff_end_type in ("current_datetime", "now"):
+			self.end_compiled = DateCurrentResolver("datetime")
+		elif self.diff_end_field:
+			self.end_compiled = VariableResolver(self.diff_end_field)
+		else:
+			self.end_compiled = NoneResolver()
 
 	def resolve(self, context: dict) -> Any:
-		if self.diff_start_type == "today":
-			start = frappe.utils.nowdate()
-		else:
-			start = get_context_value(context, self.diff_start_field)
+		start = self.start_compiled.resolve(context)
+		end = self.end_compiled.resolve(context)
 
-		if self.diff_end_type == "today":
-			end = frappe.utils.nowdate()
-		else:
-			end = get_context_value(context, self.diff_end_field)
-
-		if not start or not end:
+		if start is None or end is None or start == "" or end == "":
 			return 0
 
-		if self.diff_unit == "days":
+		unit = self.diff_unit.lower()
+
+		if unit == "days":
 			return frappe.utils.date_diff(end, start)
-		if self.diff_unit == "months":
+		if unit == "months":
 			return frappe.utils.month_diff(end, start)
-		return int(frappe.utils.month_diff(end, start) / 12)
+		if unit == "years":
+			return int(frappe.utils.month_diff(end, start) / 12)
+
+		if unit in ("hours", "minutes", "seconds"):
+			sec_diff = frappe.utils.time_diff_in_seconds(end, start)
+			if unit == "seconds":
+				return int(sec_diff)
+			if unit == "minutes":
+				return float(sec_diff / 60.0)
+			if unit == "hours":
+				return float(sec_diff / 3600.0)
+
+		return frappe.utils.date_diff(end, start)
+
+
+class DateExtractResolver(CompiledResolver):
+	def __init__(self, source: Any = None, component: str = "year"):
+		self.component = (component or "year").lower()
+		self.source_compiled = ValueResolver.compile(source) if source is not None else NoneResolver()
+
+	def resolve(self, context: dict) -> Any:
+		val = self.source_compiled.resolve(context)
+		if val is None or val == "":
+			return None
+
+		import datetime
+
+		if isinstance(val, str):
+			val_str = val.strip()
+			if " " in val_str or "T" in val_str:
+				val = frappe.utils.get_datetime(val_str)
+			elif ":" in val_str and len(val_str) <= 8:
+				val = frappe.utils.get_time(val_str)
+			else:
+				val = frappe.utils.getdate(val_str)
+
+		comp = self.component
+
+		if comp in ("year", "month", "day", "weekday", "quarter"):
+			if isinstance(val, datetime.time) and not isinstance(val, datetime.date):
+				return None
+			if comp == "year":
+				return val.year
+			if comp == "month":
+				return val.month
+			if comp == "day":
+				return val.day
+			if comp == "weekday":
+				# ISO 8601: 1 = Monday .. 7 = Sunday
+				return val.isoweekday()
+			if comp == "quarter":
+				return (val.month - 1) // 3 + 1
+
+		if comp in ("hour", "minute", "second"):
+			if isinstance(val, datetime.date) and not isinstance(val, datetime.datetime):
+				return None
+			if comp == "hour":
+				return val.hour
+			if comp == "minute":
+				return val.minute
+			if comp == "second":
+				return val.second
+
+		return None
+
+
+class DateBoundaryResolver(CompiledResolver):
+	def __init__(self, source: Any = None, boundary_type: str = "start_of_month"):
+		self.boundary_type = (boundary_type or "start_of_month").lower()
+		self.source_compiled = ValueResolver.compile(source) if source is not None else NoneResolver()
+
+	def resolve(self, context: dict) -> Any:
+		val = self.source_compiled.resolve(context)
+		if val is None or val == "":
+			return None
+
+		import datetime
+
+		is_datetime = False
+		is_time_only = False
+
+		if isinstance(val, datetime.datetime):
+			is_datetime = True
+		elif isinstance(val, datetime.date):
+			is_datetime = False
+		elif isinstance(val, str):
+			val_str = val.strip()
+			if " " in val_str or "T" in val_str:
+				val = frappe.utils.get_datetime(val_str)
+				is_datetime = True
+			elif ":" in val_str and len(val_str) <= 8:
+				is_time_only = True
+			else:
+				val = frappe.utils.getdate(val_str)
+				is_datetime = False
+
+		if is_time_only:
+			return None
+
+		btype = self.boundary_type
+
+		if btype == "start_of_day":
+			if is_datetime:
+				return val.replace(hour=0, minute=0, second=0, microsecond=0)
+			return val
+
+		if btype == "end_of_day":
+			if is_datetime:
+				return val.replace(hour=23, minute=59, second=59, microsecond=0)
+			return val
+
+		if btype == "start_of_week":
+			start_d = frappe.utils.getdate(frappe.utils.get_first_day_of_week(val))
+			return frappe.utils.get_datetime(start_d).replace(hour=0, minute=0, second=0, microsecond=0) if is_datetime else start_d
+
+		if btype == "end_of_week":
+			start_d = frappe.utils.getdate(frappe.utils.get_first_day_of_week(val))
+			end_d = start_d + datetime.timedelta(days=6)
+			return frappe.utils.get_datetime(end_d).replace(hour=23, minute=59, second=59, microsecond=0) if is_datetime else end_d
+
+		if btype == "start_of_month":
+			start_d = frappe.utils.getdate(frappe.utils.get_first_day(val))
+			return frappe.utils.get_datetime(start_d).replace(hour=0, minute=0, second=0, microsecond=0) if is_datetime else start_d
+
+		if btype == "end_of_month":
+			end_d = frappe.utils.getdate(frappe.utils.get_last_day(val))
+			return frappe.utils.get_datetime(end_d).replace(hour=23, minute=59, second=59, microsecond=0) if is_datetime else end_d
+
+		if btype == "start_of_quarter":
+			start_d = frappe.utils.getdate(frappe.utils.get_quarter_start(val))
+			return frappe.utils.get_datetime(start_d).replace(hour=0, minute=0, second=0, microsecond=0) if is_datetime else start_d
+
+		if btype == "end_of_quarter":
+			q_start = frappe.utils.getdate(frappe.utils.get_quarter_start(val))
+			end_d = frappe.utils.add_to_date(q_start, months=3, days=-1, as_string=False)
+			return frappe.utils.get_datetime(end_d).replace(hour=23, minute=59, second=59, microsecond=0) if is_datetime else end_d
+
+		if btype == "start_of_year":
+			start_d = datetime.date(val.year, 1, 1)
+			return datetime.datetime(val.year, 1, 1, 0, 0, 0) if is_datetime else start_d
+
+		if btype == "end_of_year":
+			end_d = datetime.date(val.year, 12, 31)
+			return datetime.datetime(val.year, 12, 31, 23, 59, 59) if is_datetime else end_d
+
+		return val
 
 
 class CollectionResolver(CompiledResolver):
@@ -684,6 +913,8 @@ class ValueResolver:
 				return JinjaResolver(val)
 			if val.startswith("{") and val.endswith("}") and val.count("{") == 1:
 				return SafeEvalResolver(val[1:-1])
+			if any(val.startswith(p) for p in ("doc.", "vars.", "item.", "row.", "loop.", "caller.", "rule.", "ctx.")):
+				return VariableResolver(val)
 			return StaticResolver(val)
 
 		return StaticResolver(val)
@@ -782,24 +1013,42 @@ class ValueResolver:
 		if family == "date_time" or kind == "date_time":
 			op = config.get("operation") or inner_dict.get("operation") or "calculate"
 
+			if op == "current":
+				return DateCurrentResolver(
+					current_token=inner_dict.get("token") or config.get("token") or "date"
+				)
 			if op == "calculate":
 				return DateFormulaResolver(
-					base_type=inner_dict.get("base_type") or config.get("base_type", "today"),
+					base_type=inner_dict.get("base_type") or config.get("base_type"),
 					base_field=inner_dict.get("base_field") or config.get("base_field"),
 					offset_value=inner_dict.get("offset_value")
 					if "offset_value" in inner_dict
 					else config.get("offset_value", 0),
 					offset_unit=inner_dict.get("offset_unit") or config.get("offset_unit", "days"),
 					offset_sign=inner_dict.get("offset_sign") or config.get("offset_sign", "+"),
+					source=inner_dict.get("source") if "source" in inner_dict else config.get("source"),
 				)
 			if op == "diff":
 				return DateDiffResolver(
 					diff_start_type=inner_dict.get("diff_start_type")
-					or config.get("diff_start_type", "today"),
+					or config.get("diff_start_type"),
 					diff_start_field=inner_dict.get("diff_start_field") or config.get("diff_start_field"),
-					diff_end_type=inner_dict.get("diff_end_type") or config.get("diff_end_type", "doc_field"),
+					diff_end_type=inner_dict.get("diff_end_type")
+					or config.get("diff_end_type"),
 					diff_end_field=inner_dict.get("diff_end_field") or config.get("diff_end_field"),
 					diff_unit=inner_dict.get("diff_unit") or config.get("diff_unit", "days"),
+					start_source=inner_dict.get("start_source") if "start_source" in inner_dict else config.get("start_source"),
+					end_source=inner_dict.get("end_source") if "end_source" in inner_dict else config.get("end_source"),
+				)
+			if op == "extract":
+				return DateExtractResolver(
+					source=inner_dict.get("source") if "source" in inner_dict else (config.get("source") or inner_dict.get("base_field") or config.get("base_field")),
+					component=inner_dict.get("component") or config.get("component", "year"),
+				)
+			if op == "boundary":
+				return DateBoundaryResolver(
+					source=inner_dict.get("source") if "source" in inner_dict else (config.get("source") or inner_dict.get("base_field") or config.get("base_field")),
+					boundary_type=inner_dict.get("boundary_type") or config.get("boundary_type", "start_of_month"),
 				)
 			if op == "format":
 				return FormatResolver(

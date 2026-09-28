@@ -22,8 +22,11 @@
 import { computed, markRaw } from "vue";
 import { __ } from "../utils";
 import SelectControl from "../../SelectControl.vue";
+import DateTimeCurrentConfig from "./operations/DateTimeCurrentConfig.vue";
 import DateTimeCalculateConfig from "./operations/DateTimeCalculateConfig.vue";
 import DateTimeDiffConfig from "./operations/DateTimeDiffConfig.vue";
+import DateTimeExtractConfig from "./operations/DateTimeExtractConfig.vue";
+import DateTimeBoundaryConfig from "./operations/DateTimeBoundaryConfig.vue";
 import DateTimeFormatConfig from "./operations/DateTimeFormatConfig.vue";
 
 const props = defineProps({
@@ -40,9 +43,13 @@ const props = defineProps({
 
 /**
  * Extensible Date & Time operations registry.
- * Future operations (extract, convert, combine, round, timezone) can be registered here.
  */
 const DATE_TIME_OPERATIONS = {
+	current: {
+		id: "current",
+		label: __("Current Value"),
+		component: markRaw(DateTimeCurrentConfig),
+	},
 	calculate: {
 		id: "calculate",
 		label: __("Date & Time Formula"),
@@ -52,6 +59,16 @@ const DATE_TIME_OPERATIONS = {
 		id: "diff",
 		label: __("Date & Time Difference"),
 		component: markRaw(DateTimeDiffConfig),
+	},
+	extract: {
+		id: "extract",
+		label: __("Extract Component"),
+		component: markRaw(DateTimeExtractConfig),
+	},
+	boundary: {
+		id: "boundary",
+		label: __("Period Boundary"),
+		component: markRaw(DateTimeBoundaryConfig),
 	},
 	format: {
 		id: "format",

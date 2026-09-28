@@ -84,7 +84,9 @@ const props = defineProps({
 const store = useStore();
 
 const baseTypeOptions = [
-	{ value: "today", label: __("Today") },
+	{ value: "today", label: __("Current Date (Today)") },
+	{ value: "current_datetime", label: __("Current Datetime (Now)") },
+	{ value: "current_time", label: __("Current Time") },
 	{ value: "doc_field", label: __("Document Field") },
 ];
 
@@ -99,6 +101,8 @@ const unitOptions = [
 	{ value: "months", label: __("Months") },
 	{ value: "years", label: __("Years") },
 	{ value: "hours", label: __("Hours") },
+	{ value: "minutes", label: __("Minutes") },
+	{ value: "seconds", label: __("Seconds") },
 ];
 
 const dateFieldOptions = computed(() => {

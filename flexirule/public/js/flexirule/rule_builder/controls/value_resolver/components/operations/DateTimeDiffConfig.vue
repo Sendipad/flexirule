@@ -84,6 +84,9 @@ const diffUnitOptions = [
 	{ value: "days", label: __("Days") },
 	{ value: "months", label: __("Months") },
 	{ value: "years", label: __("Years") },
+	{ value: "hours", label: __("Hours") },
+	{ value: "minutes", label: __("Minutes") },
+	{ value: "seconds", label: __("Seconds") },
 ];
 
 const dateFieldOptions = computed(() => {
