@@ -228,7 +228,10 @@ registerStrategy("date_time", {
 		} else if (op === "between") {
 			const fromVal = cfg.from?.mode === "static" ? cfg.from?.value : cfg.from;
 			const toVal = cfg.to?.mode === "static" ? cfg.to?.value : cfg.to;
-			if ((fromVal === undefined || fromVal === null || fromVal === "") && (toVal === undefined || toVal === null || toVal === "")) {
+			if (
+				(fromVal === undefined || fromVal === null || fromVal === "") &&
+				(toVal === undefined || toVal === null || toVal === "")
+			) {
 				errors.push(__("Both range values are required"));
 			}
 		}
@@ -565,8 +568,8 @@ registerStrategy("lookup", {
 					? toDocExpression(cfg.doctype_source)
 					: '""'
 				: cfg.target_doctype
-				? `"${cfg.target_doctype}"`
-				: '""';
+					? `"${cfg.target_doctype}"`
+					: '""';
 		const rec = cfg.record_field ? toDocExpression(cfg.record_field) : '""';
 		const field = cfg.fetch_field || "";
 		return `{frappe.db.get_value(${dt}, ${rec}, "${field}")}`;

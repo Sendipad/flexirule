@@ -80,7 +80,10 @@ export function useValueResolver(props, emit) {
 				let op = rawOp;
 				let cfg = { ...(val.config || innerConfig || {}) };
 				if (!op) {
-					if (props.context?.operator === "Between" || props.context?.operator === "between") {
+					if (
+						props.context?.operator === "Between" ||
+						props.context?.operator === "between"
+					) {
 						op = "between";
 					} else {
 						op = "calculate";

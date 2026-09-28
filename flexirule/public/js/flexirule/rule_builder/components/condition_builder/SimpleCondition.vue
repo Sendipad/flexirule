@@ -75,7 +75,19 @@ const DEFAULT_OPERATORS = {
 	Date: ["==", "!=", ">", "<", ">=", "<=", "Between", "is_set", "is_not_set"],
 	Datetime: ["==", "!=", ">", "<", ">=", "<=", "Between", "is_set", "is_not_set"],
 	Time: ["==", "!=", ">", "<", ">=", "<=", "Between", "is_set", "is_not_set"],
-	_default: ["==", "!=", ">", "<", ">=", "<=", "Between", "in", "contains", "is_set", "is_not_set"],
+	_default: [
+		"==",
+		"!=",
+		">",
+		"<",
+		">=",
+		"<=",
+		"Between",
+		"in",
+		"contains",
+		"is_set",
+		"is_not_set",
+	],
 };
 
 const DEFAULT_LABELS = {
@@ -110,8 +122,8 @@ const operators = computed(() => {
 		Array.isArray(fieldOps) && fieldOps.length
 			? fieldOps
 			: Array.isArray(backendOps) && backendOps.length
-			? backendOps
-			: defaultOps;
+				? backendOps
+				: defaultOps;
 
 	const labels = { ...DEFAULT_LABELS, ...(config.operator_labels || {}) };
 
@@ -442,7 +454,9 @@ watch(
 	border: 1px solid var(--fxr-border);
 	border-radius: var(--fxr-radius-md);
 	padding: var(--fxr-space-1) var(--fxr-space-2);
-	transition: border-color var(--fxr-transition-fast), background-color var(--fxr-transition-fast);
+	transition:
+		border-color var(--fxr-transition-fast),
+		background-color var(--fxr-transition-fast);
 }
 
 .simple-condition:hover {
