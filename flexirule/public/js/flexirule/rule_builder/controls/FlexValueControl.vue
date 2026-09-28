@@ -10,8 +10,21 @@
 		v-fxr-fieldname="context?.df?.fieldname || fieldname || null"
 		@keydown.capture="onStaticKeydown"
 	>
+		<!-- ── Range Operator Area (Date & Time Between) ── -->
+		<div v-if="isRangeOperator && !isDynamicMode" class="fvc-range-container w-100">
+			<DateTimeBetweenConfig
+				:modelValue="rangeModelValue"
+				:doctype="referenceDoctype"
+				:context="context"
+				:variableOptions="availableVariableOptions"
+				:readOnly="isReadOnly || disabled"
+				@update:modelValue="updateRangeValue"
+			/>
+		</div>
+
 		<!-- ── Main Control Area ── -->
 		<div
+			v-else
 			class="fvc-main-field"
 			:class="{
 				'is-dynamic': isDynamicMode || !isStaticSupported,
@@ -352,6 +365,7 @@ import ControlFactory from "./ControlFactory.vue";
 import MultiSelectList from "./MultiSelectList.vue";
 import ValueResolverControl from "./ValueResolverControl.vue";
 import ResolverTokenView from "./ResolverTokenView.vue";
+import DateTimeBetweenConfig from "./value_resolver/components/operations/DateTimeBetweenConfig.vue";
 
 const props = defineProps({
 	modelValue: { type: [Object, String, Number, Boolean], default: null },
@@ -485,6 +499,36 @@ const isLinkType = computed(() => {
 		ft === "Link" || ft === "Dynamic Link" || ft === "MultiSelectList" || ft === "MultiSelect"
 	);
 });
+
+const isRangeOperator = computed(() => {
+	const op = String(props.context?.operator || "").toLowerCase();
+	return op === "between";
+});
+
+const rangeModelValue = computed(() => {
+	if (Array.isArray(props.modelValue)) {
+		return {
+			from: props.modelValue[0] ?? { mode: "static", value: "" },
+			to: props.modelValue[1] ?? { mode: "static", value: "" },
+		};
+	}
+	if (props.modelValue && typeof props.modelValue === "object" && props.modelValue.config) {
+		return {
+			from: props.modelValue.config.from ?? { mode: "static", value: "" },
+			to: props.modelValue.config.to ?? { mode: "static", value: "" },
+		};
+	}
+	return {
+		from: { mode: "static", value: "" },
+		to: { mode: "static", value: "" },
+	};
+});
+
+function updateRangeValue(val) {
+	const payload = [val.from, val.to];
+	emit("update:modelValue", payload);
+	emit("update", payload);
+}
 
 const PURE_TEXT_FIELDTYPES = new Set(["Code", "Text Editor", "JSON"]);
 

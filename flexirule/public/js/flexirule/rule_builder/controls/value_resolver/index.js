@@ -121,6 +121,12 @@ registerStrategy("date_time", {
 			return `{frappe.utils.format_date(${f}, "${fmt}")}`;
 		}
 
+		if (op === "between") {
+			const fromVal = cfg.from?.value ?? cfg.from ?? "";
+			const toVal = cfg.to?.value ?? cfg.to ?? "";
+			return `[${JSON.stringify(fromVal)}, ${JSON.stringify(toVal)}]`;
+		}
+
 		return '""';
 	},
 	compileToLabel: (item) => {
@@ -161,6 +167,12 @@ registerStrategy("date_time", {
 		if (op === "format") {
 			const f = cfg.fmt_field || "?";
 			return `FormatDate(${f})`;
+		}
+
+		if (op === "between") {
+			const fromVal = cfg.from?.value ?? cfg.from ?? "?";
+			const toVal = cfg.to?.value ?? cfg.to ?? "?";
+			return `Between(${fromVal}, ${toVal})`;
 		}
 
 		return `Date & Time`;
@@ -212,6 +224,15 @@ registerStrategy("date_time", {
 				errors.push(__("Date & Time field is required"));
 			} else if (!validateField(cfg.fmt_field, dt, store)) {
 				errors.push(frappe.utils.format(__("Field '{0}' not found"), cfg.fmt_field));
+			}
+		} else if (op === "between") {
+			const fromVal = cfg.from?.mode === "static" ? cfg.from?.value : cfg.from;
+			const toVal = cfg.to?.mode === "static" ? cfg.to?.value : cfg.to;
+			if (
+				(fromVal === undefined || fromVal === null || fromVal === "") &&
+				(toVal === undefined || toVal === null || toVal === "")
+			) {
+				errors.push(__("Both range values are required"));
 			}
 		}
 

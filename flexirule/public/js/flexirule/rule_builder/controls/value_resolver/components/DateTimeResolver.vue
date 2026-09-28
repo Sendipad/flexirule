@@ -28,6 +28,7 @@ import DateTimeDiffConfig from "./operations/DateTimeDiffConfig.vue";
 import DateTimeExtractConfig from "./operations/DateTimeExtractConfig.vue";
 import DateTimeBoundaryConfig from "./operations/DateTimeBoundaryConfig.vue";
 import DateTimeFormatConfig from "./operations/DateTimeFormatConfig.vue";
+import DateTimeBetweenConfig from "./operations/DateTimeBetweenConfig.vue";
 
 const props = defineProps({
 	modelValue: {
@@ -38,6 +39,8 @@ const props = defineProps({
 		}),
 	},
 	doctype: String,
+	context: Object,
+	variableOptions: Array,
 	readOnly: Boolean,
 });
 
@@ -54,6 +57,11 @@ const DATE_TIME_OPERATIONS = {
 		id: "calculate",
 		label: __("Date & Time Formula"),
 		component: markRaw(DateTimeCalculateConfig),
+	},
+	between: {
+		id: "between",
+		label: __("Between (Date & Time Range)"),
+		component: markRaw(DateTimeBetweenConfig),
 	},
 	diff: {
 		id: "diff",
