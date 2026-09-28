@@ -137,6 +137,7 @@ class DateFormulaResolver(CompiledResolver):
 			self.base_compiled = NoneResolver()
 
 		# Compile offset
+		self.offset_compiled: CompiledResolver | None
 		if isinstance(self.offset_value, dict) or (
 			isinstance(self.offset_value, str)
 			and (self.offset_value.startswith("doc.") or self.offset_value.startswith("vars."))
@@ -189,7 +190,11 @@ class DateFormulaResolver(CompiledResolver):
 			else:
 				base_date = frappe.utils.getdate(base_str)
 
-		if unit == "days" and isinstance(base_date, datetime.date) and not isinstance(base_date, datetime.datetime):
+		if (
+			unit == "days"
+			and isinstance(base_date, datetime.date)
+			and not isinstance(base_date, datetime.datetime)
+		):
 			return frappe.utils.add_days(base_date, offset)
 
 		return frappe.utils.add_to_date(base_date, as_string=False, **{unit: offset})
@@ -400,29 +405,53 @@ class DateBoundaryResolver(CompiledResolver):
 
 		if btype == "start_of_week":
 			start_d = frappe.utils.getdate(frappe.utils.get_first_day_of_week(val))
-			return frappe.utils.get_datetime(start_d).replace(hour=0, minute=0, second=0, microsecond=0) if is_datetime else start_d
+			return (
+				frappe.utils.get_datetime(start_d).replace(hour=0, minute=0, second=0, microsecond=0)
+				if is_datetime
+				else start_d
+			)
 
 		if btype == "end_of_week":
 			start_d = frappe.utils.getdate(frappe.utils.get_first_day_of_week(val))
 			end_d = start_d + datetime.timedelta(days=6)
-			return frappe.utils.get_datetime(end_d).replace(hour=23, minute=59, second=59, microsecond=0) if is_datetime else end_d
+			return (
+				frappe.utils.get_datetime(end_d).replace(hour=23, minute=59, second=59, microsecond=0)
+				if is_datetime
+				else end_d
+			)
 
 		if btype == "start_of_month":
 			start_d = frappe.utils.getdate(frappe.utils.get_first_day(val))
-			return frappe.utils.get_datetime(start_d).replace(hour=0, minute=0, second=0, microsecond=0) if is_datetime else start_d
+			return (
+				frappe.utils.get_datetime(start_d).replace(hour=0, minute=0, second=0, microsecond=0)
+				if is_datetime
+				else start_d
+			)
 
 		if btype == "end_of_month":
 			end_d = frappe.utils.getdate(frappe.utils.get_last_day(val))
-			return frappe.utils.get_datetime(end_d).replace(hour=23, minute=59, second=59, microsecond=0) if is_datetime else end_d
+			return (
+				frappe.utils.get_datetime(end_d).replace(hour=23, minute=59, second=59, microsecond=0)
+				if is_datetime
+				else end_d
+			)
 
 		if btype == "start_of_quarter":
 			start_d = frappe.utils.getdate(frappe.utils.get_quarter_start(val))
-			return frappe.utils.get_datetime(start_d).replace(hour=0, minute=0, second=0, microsecond=0) if is_datetime else start_d
+			return (
+				frappe.utils.get_datetime(start_d).replace(hour=0, minute=0, second=0, microsecond=0)
+				if is_datetime
+				else start_d
+			)
 
 		if btype == "end_of_quarter":
 			q_start = frappe.utils.getdate(frappe.utils.get_quarter_start(val))
 			end_d = frappe.utils.add_to_date(q_start, months=3, days=-1, as_string=False)
-			return frappe.utils.get_datetime(end_d).replace(hour=23, minute=59, second=59, microsecond=0) if is_datetime else end_d
+			return (
+				frappe.utils.get_datetime(end_d).replace(hour=23, minute=59, second=59, microsecond=0)
+				if is_datetime
+				else end_d
+			)
 
 		if btype == "start_of_year":
 			start_d = datetime.date(val.year, 1, 1)
@@ -913,7 +942,10 @@ class ValueResolver:
 				return JinjaResolver(val)
 			if val.startswith("{") and val.endswith("}") and val.count("{") == 1:
 				return SafeEvalResolver(val[1:-1])
-			if any(val.startswith(p) for p in ("doc.", "vars.", "item.", "row.", "loop.", "caller.", "rule.", "ctx.")):
+			if any(
+				val.startswith(p)
+				for p in ("doc.", "vars.", "item.", "row.", "loop.", "caller.", "rule.", "ctx.")
+			):
 				return VariableResolver(val)
 			return StaticResolver(val)
 
@@ -1030,25 +1062,32 @@ class ValueResolver:
 				)
 			if op == "diff":
 				return DateDiffResolver(
-					diff_start_type=inner_dict.get("diff_start_type")
-					or config.get("diff_start_type"),
+					diff_start_type=inner_dict.get("diff_start_type") or config.get("diff_start_type"),
 					diff_start_field=inner_dict.get("diff_start_field") or config.get("diff_start_field"),
-					diff_end_type=inner_dict.get("diff_end_type")
-					or config.get("diff_end_type"),
+					diff_end_type=inner_dict.get("diff_end_type") or config.get("diff_end_type"),
 					diff_end_field=inner_dict.get("diff_end_field") or config.get("diff_end_field"),
 					diff_unit=inner_dict.get("diff_unit") or config.get("diff_unit", "days"),
-					start_source=inner_dict.get("start_source") if "start_source" in inner_dict else config.get("start_source"),
-					end_source=inner_dict.get("end_source") if "end_source" in inner_dict else config.get("end_source"),
+					start_source=inner_dict.get("start_source")
+					if "start_source" in inner_dict
+					else config.get("start_source"),
+					end_source=inner_dict.get("end_source")
+					if "end_source" in inner_dict
+					else config.get("end_source"),
 				)
 			if op == "extract":
 				return DateExtractResolver(
-					source=inner_dict.get("source") if "source" in inner_dict else (config.get("source") or inner_dict.get("base_field") or config.get("base_field")),
+					source=inner_dict.get("source")
+					if "source" in inner_dict
+					else (config.get("source") or inner_dict.get("base_field") or config.get("base_field")),
 					component=inner_dict.get("component") or config.get("component", "year"),
 				)
 			if op == "boundary":
 				return DateBoundaryResolver(
-					source=inner_dict.get("source") if "source" in inner_dict else (config.get("source") or inner_dict.get("base_field") or config.get("base_field")),
-					boundary_type=inner_dict.get("boundary_type") or config.get("boundary_type", "start_of_month"),
+					source=inner_dict.get("source")
+					if "source" in inner_dict
+					else (config.get("source") or inner_dict.get("base_field") or config.get("base_field")),
+					boundary_type=inner_dict.get("boundary_type")
+					or config.get("boundary_type", "start_of_month"),
 				)
 			if op == "format":
 				return FormatResolver(

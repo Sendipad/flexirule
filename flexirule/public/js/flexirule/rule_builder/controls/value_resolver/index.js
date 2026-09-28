@@ -53,7 +53,8 @@ registerStrategy("date_time", {
 		const cfg = item.config || item;
 
 		if (op === "current") {
-			if (cfg.token === "datetime" || cfg.token === "now") return "{frappe.utils.now_datetime()}";
+			if (cfg.token === "datetime" || cfg.token === "now")
+				return "{frappe.utils.now_datetime()}";
 			if (cfg.token === "time") return "{frappe.utils.nowtime()}";
 			return "{frappe.utils.nowdate()}";
 		}
@@ -61,7 +62,8 @@ registerStrategy("date_time", {
 		if (op === "calculate") {
 			let baseExpr;
 			if (cfg.base_type === "today") baseExpr = "frappe.utils.nowdate()";
-			else if (cfg.base_type === "current_datetime" || cfg.base_type === "now") baseExpr = "frappe.utils.now_datetime()";
+			else if (cfg.base_type === "current_datetime" || cfg.base_type === "now")
+				baseExpr = "frappe.utils.now_datetime()";
 			else if (cfg.base_type === "current_time") baseExpr = "frappe.utils.nowtime()";
 			else baseExpr = toDocExpression(cfg.base_field);
 
@@ -88,10 +90,14 @@ registerStrategy("date_time", {
 
 			if (cfg.diff_unit === "days") return `{frappe.utils.date_diff(${end}, ${start})}`;
 			if (cfg.diff_unit === "months") return `{frappe.utils.month_diff(${end}, ${start})}`;
-			if (cfg.diff_unit === "years") return `{int(frappe.utils.month_diff(${end}, ${start}) / 12)}`;
-			if (cfg.diff_unit === "hours") return `{frappe.utils.time_diff_in_hours(${end}, ${start})}`;
-			if (cfg.diff_unit === "minutes") return `{frappe.utils.time_diff_in_seconds(${end}, ${start}) / 60.0}`;
-			if (cfg.diff_unit === "seconds") return `{frappe.utils.time_diff_in_seconds(${end}, ${start})}`;
+			if (cfg.diff_unit === "years")
+				return `{int(frappe.utils.month_diff(${end}, ${start}) / 12)}`;
+			if (cfg.diff_unit === "hours")
+				return `{frappe.utils.time_diff_in_hours(${end}, ${start})}`;
+			if (cfg.diff_unit === "minutes")
+				return `{frappe.utils.time_diff_in_seconds(${end}, ${start}) / 60.0}`;
+			if (cfg.diff_unit === "seconds")
+				return `{frappe.utils.time_diff_in_seconds(${end}, ${start})}`;
 			return `{frappe.utils.date_diff(${end}, ${start})}`;
 		}
 

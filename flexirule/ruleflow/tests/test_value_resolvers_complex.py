@@ -1,13 +1,13 @@
 # Copyright (c) 2026, FlexiRule and contributors
 # For license information, please see license.txt
 
+import datetime
 import unittest
+from typing import Any, cast
 from unittest.mock import patch
 
 import frappe
 from frappe.tests.utils import FrappeTestCase
-
-import datetime
 
 from flexirule.ruleflow.core.value_resolver import (
 	ChildAggregationResolver,
@@ -28,18 +28,23 @@ from flexirule.ruleflow.core.value_resolver import (
 
 
 class TestValueResolversComplex(FrappeTestCase):
-	def setUp(self):
+	doc_data: dict[str, Any]
+	context: dict[str, Any]
+
+	def setUp(self) -> None:
+		self.doc_data = cast(
+			dict[str, Any],
+			{
+				"creation": "2026-01-01",
+				"amount": 100,
+				"items": [
+					{"qty": 2, "price": 10},
+					{"qty": 1, "price": 20},
+				],
+			},
+		)
 		self.context = {
-			"doc": frappe._dict(
-				{
-					"creation": "2026-01-01",
-					"amount": 100,
-					"items": [
-						{"qty": 2, "price": 10},
-						{"qty": 1, "price": 20},
-					],
-				}
-			),
+			"doc": self.doc_data,
 			"vars": {"test_var": "test_val"},
 		}
 
@@ -86,7 +91,7 @@ class TestValueResolversComplex(FrappeTestCase):
 				"diff_unit": "days",
 			},
 		}
-		self.context["doc"].update({"start": "2026-01-01", "end": "2026-01-11"})
+		self.doc_data.update({"start": "2026-01-01", "end": "2026-01-11"})
 		resolver = ValueResolver.compile_resolver_config(val_diff)
 		self.assertEqual(resolver.resolve(self.context), 10)
 
@@ -127,14 +132,14 @@ class TestValueResolversComplex(FrappeTestCase):
 		self.assertEqual(str(resolver.resolve(self.context)), "2026-02-01")
 
 		# Leap year test: 2024-02-28 + 1 day
-		self.context["doc"]["creation"] = "2024-02-28"
+		self.doc_data["creation"] = "2024-02-28"
 		resolver = DateFormulaResolver(
 			base_type="field", base_field="doc.creation", offset_value=1, offset_unit="days", offset_sign="+"
 		)
 		self.assertEqual(str(resolver.resolve(self.context)), "2024-02-29")
 
 		# Month rollover: 2026-01-31 + 1 month -> 2026-02-28
-		self.context["doc"]["creation"] = "2026-01-31"
+		self.doc_data["creation"] = "2026-01-31"
 		resolver = DateFormulaResolver(
 			base_type="field",
 			base_field="doc.creation",
@@ -145,7 +150,7 @@ class TestValueResolversComplex(FrappeTestCase):
 		self.assertEqual(str(resolver.resolve(self.context)), "2026-02-28")
 
 		# Null base date
-		self.context["doc"]["creation"] = None
+		self.doc_data["creation"] = None
 		resolver = DateFormulaResolver(
 			base_type="field", base_field="doc.creation", offset_value=1, offset_unit="days", offset_sign="+"
 		)
@@ -160,16 +165,16 @@ class TestValueResolversComplex(FrappeTestCase):
 			diff_end_field="doc.end",
 			diff_unit="days",
 		)
-		self.context["doc"].update({"start": "2026-01-01", "end": "2026-01-11"})
+		self.doc_data.update({"start": "2026-01-01", "end": "2026-01-11"})
 		self.assertEqual(resolver.resolve(self.context), 10)
 
 		# Diff in months
-		self.context["doc"].update({"start": "2026-01-01", "end": "2026-03-01"})
+		self.doc_data.update({"start": "2026-01-01", "end": "2026-03-01"})
 		resolver.diff_unit = "months"
 		self.assertEqual(resolver.resolve(self.context), 3)
 
 		# Diff in years
-		self.context["doc"].update({"start": "2026-01-01", "end": "2028-01-01"})
+		self.doc_data.update({"start": "2026-01-01", "end": "2028-01-01"})
 		resolver.diff_unit = "years"
 		self.assertEqual(resolver.resolve(self.context), 2)
 
@@ -182,32 +187,39 @@ class TestValueResolversComplex(FrappeTestCase):
 				diff_end_field=None,
 				diff_unit="days",
 			)
-			self.context["doc"]["start"] = "2026-01-01"
+			self.doc_data["start"] = "2026-01-01"
 			self.assertEqual(resolver.resolve(self.context), 14)
 
 		# Missing dates
-		self.context["doc"]["start"] = None
+		self.doc_data["start"] = None
 		self.assertEqual(resolver.resolve(self.context), 0)
 
 	def test_date_time_current_resolver(self):
 		with patch("frappe.utils.nowdate", return_value="2026-01-15"):
 			with patch("frappe.utils.now_datetime", return_value=datetime.datetime(2026, 1, 15, 10, 30, 0)):
 				with patch("frappe.utils.nowtime", return_value="10:30:00"):
-					res_date = ValueResolver.compile_resolver_config({"family": "date_time", "operation": "current", "config": {"token": "date"}}).resolve(self.context)
+					res_date = ValueResolver.compile_resolver_config(
+						{"family": "date_time", "operation": "current", "config": {"token": "date"}}
+					).resolve(self.context)
 					self.assertIsInstance(res_date, datetime.date)
 					self.assertEqual(res_date, datetime.date(2026, 1, 15))
 
-					res_dt = ValueResolver.compile_resolver_config({"family": "date_time", "operation": "current", "config": {"token": "datetime"}}).resolve(self.context)
+					res_dt = ValueResolver.compile_resolver_config(
+						{"family": "date_time", "operation": "current", "config": {"token": "datetime"}}
+					).resolve(self.context)
 					self.assertIsInstance(res_dt, datetime.datetime)
 					self.assertEqual(res_dt, datetime.datetime(2026, 1, 15, 10, 30, 0))
 
-					res_time = ValueResolver.compile_resolver_config({"family": "date_time", "operation": "current", "config": {"token": "time"}}).resolve(self.context)
+					res_time = ValueResolver.compile_resolver_config(
+						{"family": "date_time", "operation": "current", "config": {"token": "time"}}
+					).resolve(self.context)
 					self.assertIsInstance(res_time, datetime.time)
 					self.assertEqual(res_time, datetime.time(10, 30, 0))
 
 	def test_date_formula_extended(self):
+		doc = self.doc_data
 		# Datetime + minutes and seconds
-		self.context["doc"]["created_at"] = "2026-01-01 12:00:00"
+		doc["created_at"] = "2026-01-01 12:00:00"
 		val_calc = {
 			"family": "date_time",
 			"operation": "calculate",
@@ -223,14 +235,15 @@ class TestValueResolversComplex(FrappeTestCase):
 		self.assertEqual(resolver.resolve(self.context), datetime.datetime(2026, 1, 1, 12, 30, 0))
 
 		# Datetime - 45 seconds
-		val_calc["config"]["offset_value"] = 45
-		val_calc["config"]["offset_unit"] = "seconds"
-		val_calc["config"]["offset_sign"] = "-"
+		val_calc_cfg = cast(dict[str, Any], val_calc["config"])
+		val_calc_cfg["offset_value"] = 45
+		val_calc_cfg["offset_unit"] = "seconds"
+		val_calc_cfg["offset_sign"] = "-"
 		resolver = ValueResolver.compile_resolver_config(val_calc)
 		self.assertEqual(resolver.resolve(self.context), datetime.datetime(2026, 1, 1, 11, 59, 15))
 
 		# Time + 90 minutes
-		self.context["doc"]["shift_start"] = "10:00:00"
+		doc["shift_start"] = "10:00:00"
 		val_calc_time = {
 			"family": "date_time",
 			"operation": "calculate",
@@ -246,7 +259,7 @@ class TestValueResolversComplex(FrappeTestCase):
 		self.assertEqual(resolver.resolve(self.context), datetime.time(11, 30, 0))
 
 		# Dynamic offset from variable
-		self.context["doc"]["payment_terms_days"] = 15
+		doc["payment_terms_days"] = 15
 		val_dynamic = {
 			"family": "date_time",
 			"operation": "calculate",
@@ -258,16 +271,18 @@ class TestValueResolversComplex(FrappeTestCase):
 				"offset_sign": "+",
 			},
 		}
-		self.context["doc"]["creation"] = "2026-01-01"
+		doc["creation"] = "2026-01-01"
 		resolver = ValueResolver.compile_resolver_config(val_dynamic)
 		self.assertEqual(resolver.resolve(self.context), datetime.date(2026, 1, 16))
 
 	def test_date_diff_extended(self):
 		# Duration diff across midnight
-		self.context["doc"].update({
-			"start_time": "2026-01-01 23:59:00",
-			"end_time": "2026-01-02 00:01:00",
-		})
+		self.doc_data.update(
+			{
+				"start_time": "2026-01-01 23:59:00",
+				"end_time": "2026-01-02 00:01:00",
+			}
+		)
 		# Seconds
 		val_diff_sec = {
 			"family": "date_time",
@@ -284,18 +299,20 @@ class TestValueResolversComplex(FrappeTestCase):
 		self.assertEqual(resolver.resolve(self.context), 120)
 
 		# Minutes
-		val_diff_sec["config"]["diff_unit"] = "minutes"
+		val_diff_cfg = cast(dict[str, Any], val_diff_sec["config"])
+		val_diff_cfg["diff_unit"] = "minutes"
 		resolver = ValueResolver.compile_resolver_config(val_diff_sec)
 		self.assertEqual(resolver.resolve(self.context), 2.0)
 
 		# Calendar day diff
-		val_diff_sec["config"]["diff_unit"] = "days"
+		val_diff_cfg["diff_unit"] = "days"
 		resolver = ValueResolver.compile_resolver_config(val_diff_sec)
 		self.assertEqual(resolver.resolve(self.context), 1)
 
 	def test_date_extract_resolver(self):
+		doc = self.doc_data
 		# Date input extractions
-		self.context["doc"]["posting_date"] = "2026-02-15"  # Sunday
+		doc["posting_date"] = "2026-02-15"
 		for comp, expected in [("year", 2026), ("month", 2), ("day", 15), ("weekday", 7), ("quarter", 1)]:
 			val_extract = {
 				"family": "date_time",
@@ -306,7 +323,7 @@ class TestValueResolversComplex(FrappeTestCase):
 			self.assertEqual(resolver.resolve(self.context), expected, f"Failed on {comp}")
 
 		# Datetime input extractions
-		self.context["doc"]["log_time"] = "2026-02-15 14:35:50"
+		doc["log_time"] = "2026-02-15 14:35:50"
 		for comp, expected in [("hour", 14), ("minute", 35), ("second", 50)]:
 			val_extract = {
 				"family": "date_time",
@@ -327,7 +344,7 @@ class TestValueResolversComplex(FrappeTestCase):
 		self.assertIsNone(resolver.resolve(self.context))
 
 		# Extract year from Time -> None
-		self.context["doc"]["pure_time"] = "10:30:00"
+		doc["pure_time"] = "10:30:00"
 		val_invalid_time = {
 			"family": "date_time",
 			"operation": "extract",
@@ -338,55 +355,67 @@ class TestValueResolversComplex(FrappeTestCase):
 
 	def test_date_boundary_resolver(self):
 		# Date boundaries
-		self.context["doc"]["posting_date"] = "2026-02-15"
+		self.doc_data["posting_date"] = "2026-02-15"
 		# start_of_month -> 2026-02-01
-		res = ValueResolver.compile_resolver_config({
-			"family": "date_time",
-			"operation": "boundary",
-			"config": {"source": "doc.posting_date", "boundary_type": "start_of_month"},
-		}).resolve(self.context)
+		res = ValueResolver.compile_resolver_config(
+			{
+				"family": "date_time",
+				"operation": "boundary",
+				"config": {"source": "doc.posting_date", "boundary_type": "start_of_month"},
+			}
+		).resolve(self.context)
 		self.assertEqual(res, datetime.date(2026, 2, 1))
 
 		# end_of_month -> 2026-02-28
-		res = ValueResolver.compile_resolver_config({
-			"family": "date_time",
-			"operation": "boundary",
-			"config": {"source": "doc.posting_date", "boundary_type": "end_of_month"},
-		}).resolve(self.context)
+		res = ValueResolver.compile_resolver_config(
+			{
+				"family": "date_time",
+				"operation": "boundary",
+				"config": {"source": "doc.posting_date", "boundary_type": "end_of_month"},
+			}
+		).resolve(self.context)
 		self.assertEqual(res, datetime.date(2026, 2, 28))
 
 		# start_of_year -> 2026-01-01
-		res = ValueResolver.compile_resolver_config({
-			"family": "date_time",
-			"operation": "boundary",
-			"config": {"source": "doc.posting_date", "boundary_type": "start_of_year"},
-		}).resolve(self.context)
+		res = ValueResolver.compile_resolver_config(
+			{
+				"family": "date_time",
+				"operation": "boundary",
+				"config": {"source": "doc.posting_date", "boundary_type": "start_of_year"},
+			}
+		).resolve(self.context)
 		self.assertEqual(res, datetime.date(2026, 1, 1))
 
 		# Datetime boundaries
-		self.context["doc"]["log_time"] = "2026-02-15 14:35:50"
+		self.doc_data["log_time"] = "2026-02-15 14:35:50"
 		# start_of_day -> 2026-02-15 00:00:00
-		res = ValueResolver.compile_resolver_config({
-			"family": "date_time",
-			"operation": "boundary",
-			"config": {"source": "doc.log_time", "boundary_type": "start_of_day"},
-		}).resolve(self.context)
+		res = ValueResolver.compile_resolver_config(
+			{
+				"family": "date_time",
+				"operation": "boundary",
+				"config": {"source": "doc.log_time", "boundary_type": "start_of_day"},
+			}
+		).resolve(self.context)
 		self.assertEqual(res, datetime.datetime(2026, 2, 15, 0, 0, 0))
 
 		# end_of_day -> 2026-02-15 23:59:59
-		res = ValueResolver.compile_resolver_config({
-			"family": "date_time",
-			"operation": "boundary",
-			"config": {"source": "doc.log_time", "boundary_type": "end_of_day"},
-		}).resolve(self.context)
+		res = ValueResolver.compile_resolver_config(
+			{
+				"family": "date_time",
+				"operation": "boundary",
+				"config": {"source": "doc.log_time", "boundary_type": "end_of_day"},
+			}
+		).resolve(self.context)
 		self.assertEqual(res, datetime.datetime(2026, 2, 15, 23, 59, 59))
 
 		# end_of_month on Datetime -> 2026-02-28 23:59:59
-		res = ValueResolver.compile_resolver_config({
-			"family": "date_time",
-			"operation": "boundary",
-			"config": {"source": "doc.log_time", "boundary_type": "end_of_month"},
-		}).resolve(self.context)
+		res = ValueResolver.compile_resolver_config(
+			{
+				"family": "date_time",
+				"operation": "boundary",
+				"config": {"source": "doc.log_time", "boundary_type": "end_of_month"},
+			}
+		).resolve(self.context)
 		self.assertEqual(res, datetime.datetime(2026, 2, 28, 23, 59, 59))
 
 	def test_child_aggregation_resolver(self):
@@ -403,16 +432,16 @@ class TestValueResolversComplex(FrappeTestCase):
 		self.assertEqual(resolver.resolve(self.context), 1.5)
 
 		# Empty table
-		self.context["doc"]["items"] = []
+		self.doc_data["items"] = []
 		resolver.agg_op = "sum"
 		self.assertEqual(resolver.resolve(self.context), 0)
 
 		# Table is None
-		self.context["doc"]["items"] = None
+		self.doc_data["items"] = None
 		self.assertEqual(resolver.resolve(self.context), 0)
 
 		# agg_field is None for some rows
-		self.context["doc"]["items"] = [{"qty": 5}, {"other": 10}]
+		self.doc_data["items"] = [{"qty": 5}, {"other": 10}]
 		resolver.agg_op = "sum"
 		self.assertEqual(resolver.resolve(self.context), 5.0)
 
@@ -428,7 +457,7 @@ class TestValueResolversComplex(FrappeTestCase):
 				"str_b": "doc.last",
 			},
 		}
-		self.context["doc"].update({"first": "John", "last": "Doe"})
+		self.doc_data.update({"first": "John", "last": "Doe"})
 		resolver = ValueResolver.compile_resolver_config(val_combine)
 		self.assertEqual(resolver.resolve(self.context), "JohnDoe")
 
@@ -447,7 +476,7 @@ class TestValueResolversComplex(FrappeTestCase):
 			"operation": "normalize",
 			"config": {"norm_field": "doc.raw", "norm_pipeline": ["trim", "lowercase"]},
 		}
-		self.context["doc"]["raw"] = "  HELLO WORLD  "
+		self.doc_data["raw"] = "  HELLO WORLD  "
 		resolver = ValueResolver.compile_resolver_config(val_norm)
 		self.assertEqual(resolver.resolve(self.context), "hello world")
 
@@ -478,12 +507,12 @@ class TestValueResolversComplex(FrappeTestCase):
 
 	def test_jinja_resolver(self):
 		resolver = JinjaResolver(template="Hello {{ doc.first }}!")
-		self.context["doc"]["first"] = "Jules"
+		self.doc_data["first"] = "Jules"
 		self.assertEqual(resolver.resolve(self.context), "Hello Jules!")
 
 	def test_safe_eval_resolver(self):
 		resolver = SafeEvalResolver(expression="doc.amount * 2")
-		self.context["doc"]["amount"] = 50
+		self.doc_data["amount"] = 50
 		self.assertEqual(resolver.resolve(self.context), 100)
 
 	def test_expression_resolver(self):
@@ -519,7 +548,7 @@ class TestValueResolversComplex(FrappeTestCase):
 				{"type": "jsonToken", "attrs": {"value": "{{ doc.first }}"}},
 			],
 		}
-		self.context["doc"].update({"first": "Jules"})
+		self.doc_data.update({"first": "Jules"})
 		resolver = ValueResolver.compile(val)
 		self.assertIsInstance(resolver, ExpressionResolver)
 		self.assertEqual(resolver.resolve(self.context), "Name: Jules - Jules")
@@ -530,6 +559,6 @@ class TestValueResolversComplex(FrappeTestCase):
 			"mode": "expression",
 			"value": [{"type": "resolverToken", "attrs": {"expression": "doc.amount + 10"}}],
 		}
-		self.context["doc"]["amount"] = 90
+		self.doc_data["amount"] = 90
 		resolver = ValueResolver.compile(val)
 		self.assertEqual(resolver.resolve(self.context), "100")
