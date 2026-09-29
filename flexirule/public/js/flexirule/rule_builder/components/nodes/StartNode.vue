@@ -27,6 +27,23 @@ const displayLabel = computed(() => {
 	return props.label || __("Start");
 });
 
+const hasEntryCondition = computed(() => {
+	const cond = props.data?.trigger_condition;
+	if (!cond) return false;
+	if (typeof cond === "string") {
+		return (
+			cond !== "{}" &&
+			cond !== "null" &&
+			cond.trim() !== "" &&
+			cond !== '{"op":"and","conditions":[]}'
+		);
+	}
+	if (typeof cond === "object") {
+		return Array.isArray(cond.conditions) && cond.conditions.length > 0;
+	}
+	return false;
+});
+
 const summaryData = computed(() => {
 	const data = props.data || {};
 	const parts = [];
@@ -40,6 +57,13 @@ const summaryData = computed(() => {
 	}
 
 	if (data.priority) parts.push(`${__("Priority")}: ${data.priority}`);
+
+	if (hasEntryCondition.value) {
+		parts.push(`${__("Entry Gate")}: ${__("Configured")}`);
+	} else {
+		parts.push(`${__("Entry Gate")}: ${__("None (Always Runs)")}`);
+	}
+
 	return parts;
 });
 

@@ -265,11 +265,15 @@ onMounted(async () => {
 			</select>
 		</div>
 
-		<!-- Trigger Condition -->
+		<!-- Entry Condition (Execution Gate) -->
 		<div class="form-group">
-			<label class="control-label">{{ __("Trigger Condition (Logic)") }}</label>
+			<label class="control-label">{{ __("Entry Condition (Execution Gate)") }}</label>
 			<div class="description text-muted mb-2">
-				{{ __("Define complex logic conditions for when this rule should trigger.") }}
+				{{
+					__(
+						"Condition evaluated before rule actions run. If false, the rule stops before executing actions."
+					)
+				}}
 			</div>
 
 			<button class="btn btn-default btn-sm w-100" @click="emit('open:conditions')">
@@ -279,7 +283,11 @@ onMounted(async () => {
 
 			<div v-if="has_conditions" class="mt-2 text-success small">
 				<i class="fa fa-check-circle"></i>
-				{{ __("Conditions Configured") }}
+				{{ __("Entry Gate Configured") }}
+			</div>
+			<div v-else class="mt-2 text-muted small">
+				<i class="fa fa-info-circle"></i>
+				{{ __("Entry Gate: None (Always Runs)") }}
 			</div>
 		</div>
 

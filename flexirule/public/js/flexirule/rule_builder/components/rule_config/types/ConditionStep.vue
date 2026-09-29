@@ -3,7 +3,9 @@
 		<div class="condition-step-header">
 			<div class="d-flex align-items-center gap-2">
 				<i class="fa fa-code-fork text-primary"></i>
-				<h5 class="mb-0">{{ __("Conditions") }}</h5>
+				<h5 class="mb-0">
+					{{ isEntryNode ? __("Entry Condition (Execution Gate)") : __("Conditions") }}
+				</h5>
 			</div>
 			<div class="header-actions">
 				<label class="old-doc-toggle">
@@ -11,6 +13,15 @@
 					<span class="toggle-label">{{ __("Show Old Doc Fields") }}</span>
 				</label>
 			</div>
+		</div>
+
+		<div v-if="isEntryNode" class="alert alert-warning py-2 px-3 small my-2">
+			<i class="fa fa-filter mr-1"></i>
+			{{
+				__(
+					"This condition is evaluated before any rule actions run. If the condition is false, execution terminates immediately without starting configured rule actions."
+				)
+			}}
 		</div>
 
 		<div class="condition-builder-container">
@@ -32,7 +43,16 @@
 		<div v-if="localConditions.conditions?.length" class="condition-step-footer mt-3">
 			<div class="alert alert-info py-2 px-3 small mb-0">
 				<i class="fa fa-info-circle"></i>
-				{{ __("Conditions will be evaluated at runtime to determine the next step.") }}
+				<template v-if="isEntryNode">
+					{{
+						__(
+							"This entry condition is evaluated before rule actions start. If it is false, the rule stops before executing any actions."
+						)
+					}}
+				</template>
+				<template v-else>
+					{{ __("Conditions will be evaluated at runtime to determine the next step.") }}
+				</template>
 			</div>
 		</div>
 	</div>
@@ -58,6 +78,10 @@ const localConditions = ref({ op: "and", conditions: [] });
 const showOldDoc = ref(false);
 const variableFields = ref([]);
 const conditionBuilderRef = ref(null);
+
+const isEntryNode = computed(() => {
+	return props.node?.type === "start" || props.node?.data?.action_type === "Entry Action";
+});
 
 /**
  * Hydrates conditions with ephemeral IDs for Vue reactivity.
