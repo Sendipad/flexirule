@@ -207,20 +207,6 @@ Child Table Filtering# items.item_code == &amp;quot;CPU-01&amp;quot;: Filters fo
 {{doc.customer}}: Resolves to the customer …
 
 ---
-title: Quick Start
-url: https://sendipad.github.io/flexirule/getting-started/quick-start/
-lastmod: 2026-09-27
-summary: Build your first automation visually in under 5 minutes.
-concepts: 
-tags: 
-difficulty: 
-related: 
-actions: read, implement, integrate, troubleshoot, improve
-
-Quick Start Guide# Build a visual rule in under 5 minutes that alerts you whenever a high-value Sales Invoice is created.
-1. Create your First Rule# Go to FlexiRule -&amp;gt; Rule List and click New. Set Rule Name to High Value Alert. Set Document Type to Sales Invoice. Set Trigger Event to Before Save. Click Save. 2. Open the Visual Rule Builder# Click Open Rule Builder at the top of the form. You will see the visual canvas containing the mandatory Start (Entry Action) node. 3. Add a Check (Condition) Node# Hover over the Start node&amp;rsquo;s connection port and click the + Add Action button. Select Check (Condition) from the action list. In the configuration panel on the right: Ensure Group Logic is set to ALL. Click Add Condition. Click the left value field and type @ to open the Smart Value Selector. In the search popup, search for Grand Total. Select Sales Invoice → Grand Total. Set the comparison operator dropdown to Is Greater Than. In the right value field, enter 10000. 4. Add a Notification Node# Click and drag a connection line from the True (Green) outbound port of the Check node. Select Notify from the action picker. In the Notify configuration panel: Set Channel / Mode to UI Message (Toast). Click inside the Message editor field. Enter 💰 High value invoice detected! Invoice ID: . Type @ to open the Smart Value Selector. Search for Name and select Sales Invoice → Name to dynamically insert the document ID token. 5. Test Your Rule Visually# Click Test Run in the top action bar. Select an existing Sales Invoice record with a Grand Total above 10,000. Click Run Test. Observe the green execution path highlighted on your canvas leading to the Notify block, along with the live toast notification preview! 6. Go Live# Close the Rule Builder using the Close button. On the main Rule document, check the Enabled box. Click Save. Your rule is now active! Visual Design Best Practices# Use the Smart Value Selector: Always use @ or click the Variable (@) button to pick document fields rather than typing field names manually. Connect Every Node: Ensure outbound ports are connected to downstream actions so the execution flow completes seamlessly. 
-
----
 title: Send Email on Sales Order Submission
 url: https://sendipad.github.io/flexirule/tutorials/send-email-sales-order/
 lastmod: 2026-09-27
@@ -273,8 +259,8 @@ Go to Rule Execution Log. Find the latest entry for your rule. Look at the Trace
 
 ---
 title: What is FlexiRule?
-url: https://sendipad.github.io/flexirule/introduction/what-is-flexirule/
-lastmod: 2026-06-26
+url: https://sendipad.github.io/flexirule/getting-started/what-is-flexirule/
+lastmod: 2026-09-29
 summary: A high-level overview of FlexiRule and its role in the Frappe ecosystem.
 concepts: 
 tags: 
@@ -726,8 +712,8 @@ Target Record: Choose a record variable retrieved from a Query Records block (e.
 
 ---
 title: Why should I use FlexiRule?
-url: https://sendipad.github.io/flexirule/introduction/why-flexirule/
-lastmod: 2026-06-26
+url: https://sendipad.github.io/flexirule/getting-started/why-flexirule/
+lastmod: 2026-09-29
 summary: Understanding the business value and agility provided by visual rules.
 concepts: 
 tags: 
@@ -843,6 +829,28 @@ Need to process a collection? ├── Validate or Update every row → Loop Ac
 Related Topics# Glossary Rule Builder Action Zone 
 
 ---
+title: Do I need FlexiRule?
+url: https://sendipad.github.io/flexirule/getting-started/do-i-need-flexirule/
+lastmod: 2026-09-29
+summary: A decision guide to help you determine if FlexiRule is the right investment for your organization.
+concepts: 
+tags: 
+difficulty: 
+related: 
+actions: read, implement, integrate, troubleshoot, improve
+
+Do I need FlexiRule?# Not every ERPNext implementation requires a visual orchestration engine. Use this guide to determine if FlexiRule is the right investment for your organization based on your current pain points and future growth.
+You Need FlexiRule if&amp;hellip;# 1. Your Business Processes are Growing# As your company scales, simple automations become complex multi-stage processes. If you find yourself adding more and more &amp;ldquo;hacks&amp;rdquo; to standard DocTypes to handle new business cases, it&amp;rsquo;s time for a professional logic layer.
+2. Workflow Changes are Frequent# If your business rules change seasonally (e.g., promotional pricing) or in response to market shifts, waiting for code deployments is a competitive disadvantage. FlexiRule allows you to pivot logic in minutes.
+3. You Manage Customer-Specific Rules# If you have multiple customers with unique validation or approval requirements, managing these through standard Python hooks leads to &amp;ldquo;spaghetti code.&amp;rdquo; FlexiRule allows you to build separate, named rules for specific scenarios.
+4. You Have Heavy Custom Scripting# If your hooks.py or server_scripts list is becoming unmanageable, FlexiRule can help you consolidate and document that logic visually.
+5. You Need Better Auditability# If &amp;ldquo;Who changed this value?&amp;rdquo; and &amp;ldquo;Why did this rule trigger?&amp;rdquo; are common questions in your organization, FlexiRule&amp;rsquo;s detailed execution logs provide the necessary transparency.
+You May NOT Need FlexiRule if&amp;hellip;# Your Requirements are Static# If your business logic hasn&amp;rsquo;t changed in three years and your current automations work perfectly, the overhead of introducing a new tool may not be justified.
+You Have a Simple Setup# If you are using ERPNext for basic accounting and lead management without complex custom workflows, standard features are likely sufficient.
+You Have Very Few Customizations# If you only have 2 or 3 simple scripts, moving them to FlexiRule might be overkill.
+Summary Checklist# Pain Point Solution with FlexiRule &amp;ldquo;I&amp;rsquo;m afraid to change code because I might break something.&amp;rdquo; Visual Trace &amp;amp; Validation &amp;ldquo;I can&amp;rsquo;t tell which …
+
+---
 title: Document Action: Architecture Reference
 url: https://sendipad.github.io/flexirule/advanced-concepts/architecture/actions/document-action/
 lastmod: 2026-06-26
@@ -884,24 +892,6 @@ actions: read, implement, integrate, troubleshoot, improve
 Documentation Standardization Roadmap# This roadmap outlines the steps required to transition all existing FlexiRule action documentation to the newly established 3-layer framework.
 Current State Assessment# As of the implementation of the documentation framework:
 Layer 1 (Actions): Exists for primary actions (Assignment, Condition, Query Records, Notify). However, structural consistency varies. Some contain architecture details that belong in Layer 3. Layer 2 (Execution Semantics): Largely missing as standalone documents. Some semantics are mixed into Layer 1 or Layer 3. Layer 3 (Architecture): Partially exists in a consolidated action-implementation.md file. This violates the goal of action-specific implementation pages. Metadata: capabilities and badges are present in Layer 1 but require auditing against the new standard. Migration Recommendations# 1. Immediate Migrations (High Priority)# Action Task Benefit Assignment Extract implementation details from architecture/engine/action-implementation.md to architecture/actions/assignment.md. Cleans up engine docs; follows 3-layer model. Assignment Create reference/execution/assignment.md by moving &amp;ldquo;Execution Guarantees&amp;rdquo; and &amp;ldquo;State Mutation Model&amp;rdquo;. Separates runtime behavior from implementation. All Actions Audit and update Layer 1 frontmatter to match the new capabilities dimensions. Ensures UI components render correctly. 2. Structural Refactors (Medium Priority)# Action Task Benefit Condition Apply the new Template structure. Move &amp;ldquo;Operator Reference&amp;rdquo; to its own section or Layer 2 if too technical. Improves predictability of the page. Query Records Reorganize &amp;ldquo;Query Modes&amp;rdquo; and &amp;ldquo;Decision Tree&amp;rdquo; to follow the standard &amp;ldquo;Configuration&amp;rdquo; and &amp;ldquo;Execution Behavior&amp;rdquo; sections. Consistency across the catalog. Notify Expand with &amp;ldquo;Best Practices&amp;rdquo; and &amp;ldquo;Common Mistakes&amp;rdquo; sections which are currently sparse. Completeness. Priority Order# Framework Foundation: (Completed) Create standards, templates, and governance. Assignment Refactor: Use the most mature action as a lighthouse example for the 3-layer split. Global Metadata …
-
----
-title: Does ERPNext need FlexiRule?
-url: https://sendipad.github.io/flexirule/introduction/erpnext-need/
-lastmod: 2026-06-26
-summary: A balanced guide on when standard ERPNext features are sufficient versus when FlexiRule becomes necessary.
-concepts: 
-tags: 
-difficulty: 
-related: 
-actions: read, implement, integrate, troubleshoot, improve
-
-Does ERPNext need FlexiRule?# No. ERPNext can run successfully without FlexiRule, and many organizations do exactly that. Standard ERPNext already provides workflows, permissions, scripts, hooks, notifications, scheduled jobs, and many other customization tools.
-However, as business automation grows, managing everything only with native scripts and custom code can become difficult to maintain in ERPNext. FlexiRule is designed for those situations where business logic becomes too scattered, too technical, or too difficult to govern with traditional customization alone. It provides a complete visual UI for building flows, so users can design automation without needing to understand expression syntax or condition code. Instead of writing and maintaining custom scripts for every rule, they can configure logic using the functions and actions FlexiRule provides, making automation easier to build, understand, and change over time.
-What ERPNext already does well# ERPNext already covers a wide range of common business needs. In many cases, these native tools are enough:
-Standard Workflows for simple approval and status transitions Role Permissions for controlling access to documents and actions Assignment Rules for routing work to the right users Notifications for alerts and reminders Server Scripts for backend logic Client Scripts for UI behavior and lightweight calculations Hooks for extending application behavior Custom Apps for deeper customization Scheduled Jobs for recurring automation Print Formats for document presentation These features are powerful and should continue to be used where they fit the requirement. FlexiRule is not meant to replace them. It is meant to help when the logic around them becomes difficult to manage.
-When the hard way begins# Running ERPNext without FlexiRule is straightforward at first. A team may start with a few workflows and a couple of scripts. Over time, the customization landscape often grows like this:
-A few workflows are added. Several Server Scripts are created. More hooks are introduced. Scheduled jobs begin handling background logic. Custom apps are added for special cases. Business rules become scattered across multiple …
 
 ---
 title: Execution Context Reference
@@ -1066,26 +1056,22 @@ The ValueResolverControl is a &amp;ldquo;magic&amp;rdquo; input widget that allo
 ✨ Key Features &amp;amp; Innovation# Multi-Modal Formula Support: A single token-based UI that can switch between: Date Formula: Add/subtract days, weeks, months, or years from &amp;ldquo;Today&amp;rdquo; or a Document Field with sign-aware offsets. Math Formula: Perform arithmetic operations between fields or constants with configurable decimal precision. Date Difference: Calculate the span between two dates in days, months, or years (with intelligent month-to-year conversion). Child Table Aggregation: Perform SUM, AVG, or COUNT operations on child table rows with zero-length safety (e.g., using max(len(rows), 1) for averages). String Manipulation: Advanced concatenation, currency formatting, and case transformations (Upper/Lower). System Context: Access session user data or perform role-based authorization checks directly within a value. Dynamic Expression Preview: As the user configures the formula via the popover UI, a live Jinja-compatible expression snippet is generated and displayed at the bottom of the popover. Context-Aware Field Pickers: Automatically filters and displays relevant document fields based on the selected formula type (e.g., only showing numeric fields for Math Formulas). Tokenized UI: Displays a compact, icon-rich &amp;ldquo;token&amp;rdquo; in the form that summarizes the configured logic (e.g., &amp;ldquo;Today + 5 Days&amp;rdquo;). Intelligent Viewport Positioning (Auto-Flipping): The control automatically calculates available screen space. If there isn&amp;rsquo;t enough room below the input, the configuration popover intelligently &amp;ldquo;flips&amp;rdquo; to appear above the token, …
 
 ---
-title: Do I need FlexiRule?
-url: https://sendipad.github.io/flexirule/introduction/do-i-need-flexirule/
-lastmod: 2026-06-26
-summary: A decision guide to help you determine if FlexiRule is appropriate for your organization.
+title: Does ERPNext need FlexiRule?
+url: https://sendipad.github.io/flexirule/getting-started/erpnext-need/
+lastmod: 2026-09-29
+summary: A balanced guide on when standard ERPNext features are sufficient versus when FlexiRule becomes necessary.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Do I need FlexiRule?# Not every ERPNext implementation requires a visual orchestration engine. Use this guide to determine if FlexiRule is the right investment for your organization based on your current pain points and future growth.
-You Need FlexiRule if&amp;hellip;# 1. Your Business Processes are Growing# As your company scales, simple automations become complex multi-stage processes. If you find yourself adding more and more &amp;ldquo;hacks&amp;rdquo; to standard DocTypes to handle new business cases, it&amp;rsquo;s time for a professional logic layer.
-2. Workflow Changes are Frequent# If your business rules change seasonally (e.g., promotional pricing) or in response to market shifts, waiting for code deployments is a competitive disadvantage. FlexiRule allows you to pivot logic in minutes.
-3. You Manage Customer-Specific Rules# If you have multiple customers with unique validation or approval requirements, managing these through standard Python hooks leads to &amp;ldquo;spaghetti code.&amp;rdquo; FlexiRule allows you to build separate, named rules for specific scenarios.
-4. You Have Heavy Custom Scripting# If your hooks.py or server_scripts list is becoming unmanageable, FlexiRule can help you consolidate and document that logic visually.
-5. You Need Better Auditability# If &amp;ldquo;Who changed this value?&amp;rdquo; and &amp;ldquo;Why did this rule trigger?&amp;rdquo; are common questions in your organization, FlexiRule&amp;rsquo;s detailed execution logs provide the necessary transparency.
-You May NOT Need FlexiRule if&amp;hellip;# Your Requirements are Static# If your business logic hasn&amp;rsquo;t changed in three years and your current automations work perfectly, the overhead of introducing a new tool may not be justified.
-You Have a Simple Setup# If you are using ERPNext for basic accounting and lead management without complex custom workflows, standard features are likely sufficient.
-You Have Very Few Customizations# If you only have 2 or 3 simple scripts, moving them to FlexiRule might be overkill.
-Summary Checklist# Pain Point Solution with FlexiRule &amp;ldquo;I&amp;rsquo;m afraid to change code because I might break something.&amp;rdquo; Visual Trace &amp;amp; Validation &amp;ldquo;I can&amp;rsquo;t tell which …
+Does ERPNext need FlexiRule?# No. ERPNext can run successfully without FlexiRule, and many organizations do exactly that. Standard ERPNext already provides workflows, permissions, scripts, hooks, notifications, scheduled jobs, and many other customization tools.
+However, as business automation grows, managing everything only with native scripts and custom code can become difficult to maintain in ERPNext. FlexiRule is designed for those situations where business logic becomes too scattered, too technical, or too difficult to govern with traditional customization alone. It provides a complete visual UI for building flows, so users can design automation without needing to understand expression syntax or condition code. Instead of writing and maintaining custom scripts for every rule, they can configure logic using the functions and actions FlexiRule provides, making automation easier to build, understand, and change over time.
+What ERPNext already does well# ERPNext already covers a wide range of common business needs. In many cases, these native tools are enough:
+Standard Workflows for simple approval and status transitions Role Permissions for controlling access to documents and actions Assignment Rules for routing work to the right users Notifications for alerts and reminders Server Scripts for backend logic Client Scripts for UI behavior and lightweight calculations Hooks for extending application behavior Custom Apps for deeper customization Scheduled Jobs for recurring automation Print Formats for document presentation These features are powerful and should continue to be used where they fit the requirement. FlexiRule is not meant to replace them. It is meant to help when the logic around them becomes difficult to manage.
+When the hard way begins# Running ERPNext without FlexiRule is straightforward at first. A team may start with a few workflows and a couple of scripts. Over time, the customization landscape often grows like this:
+A few workflows are added. Several Server Scripts are created. More hooks are introduced. Scheduled jobs begin handling background logic. Custom apps are added for special cases. Business rules become scattered across multiple …
 
 ---
 title: Entry Action: Architecture Reference
@@ -1364,6 +1350,20 @@ Change Detection# Event triggers provide access to both doc (current state) and 
 doc.status == &amp;#34;Approved&amp;#34; and old_doc.status != &amp;#34;Approved&amp;#34; 
 
 ---
+title: Key Capabilities
+url: https://sendipad.github.io/flexirule/getting-started/key-capabilities/
+lastmod: 2026-09-29
+summary: A summary of the major features and functional highlights of FlexiRule.
+concepts: 
+tags: 
+difficulty: 
+related: 
+actions: read, implement, integrate, troubleshoot, improve
+
+Key Capabilities# FlexiRule combines the power of visual programming with enterprise-grade governance. Here are the major features that define the platform:
+Visual Rule Builder# Vue 3 Interface: A modern, responsive canvas for designing complex logic. Drag-and-Drop: Easily add and connect logic blocks. Real-time Validation: The builder alerts you to missing configuration or broken connections as you work. Advanced Logic Control# Nested Conditions: Build multi-level if-then-else logic visually. Switch Blocks: Handle multiple branching scenarios from a single node. Sub-Rules: Call one rule from another to maintain modularity and reuse logic. Safety and Governance# Cycle Detection: Native protection against infinite loops in the graph. Sandboxed Environment: Rules are executed in a safe container that prevents unauthorized database modifications. Role-Based Permissions: Control who can view, edit, or execute specific rules. High-Performance Engine# Condition Compilation: Logic is pre-compiled for near-zero execution overhead. Layered Caching: Multi-level cache (Redis + Local) for lightning-fast rule lookups. Asynchronous Processing: Offload heavy tasks to background workers without slowing down the user. Observability# Execution Logs: Detailed audit trail for every rule run. Visual Path Trace: See exactly which path a document took through your logic graph. Debug Mode: Enable enhanced logging for complex troubleshooting. Developer Friendly# JSON Schema Driven: Configuration forms for custom logic are auto-generated. Extensible Actions: Register custom Python logic as new block types. Git Friendly: Rules are stored as DocTypes, making them easy to migrate between environments. 
+
+---
 title: Loop: Architecture Reference
 url: https://sendipad.github.io/flexirule/advanced-concepts/architecture/actions/loop/
 lastmod: 2026-06-26
@@ -1467,28 +1467,6 @@ Process: A reusable, file-backed (or DB-defined) library of Operations. It is th
 A Process defines its Config Schema and Output Schema. The Rule engine uses these schemas to generate UI and validate data flow. This creates a Low-Code Safety Net: Users can&amp;rsquo;t pass invalid data because the system &amp;ldquo;knows&amp;rdquo; the requirements of every node. 🌍 Comparison with Other Platforms# Platform Orchestration Model Integration Level Philosophy Salesforce Flow Graph-based Deep (Object-level) Metadata-driven enterprise automation. Node-RED / n8n Node-based Wide (API-level) General purpose integration/automation. Zapier Linear / Branching Surface (Webhooks) Simple user-facing connectivity. FlexiRule Graph-based Deep (Doc-level) In-database …
 
 ---
-title: Why is FlexiRule better than hard-coded customizations?
-url: https://sendipad.github.io/flexirule/introduction/better-than-hard-coded/
-lastmod: 2026-06-26
-summary: A separation-of-concerns approach showing how FlexiRule complements custom development by isolating business policies from application code.
-concepts: 
-tags: 
-difficulty: 
-related: 
-actions: read, implement, integrate, troubleshoot, improve
-
-Separation of Concerns in Frappe Systems# FlexiRule is not an alternative to custom development. It is an alternative to embedding evolving business policies inside application code.
-In Frappe and ERPNext systems, custom development and FlexiRule are not competing approaches. They operate at different layers of the system:
-Custom development builds capabilities FlexiRule defines and manages evolving business policies on top of those capabilities This separation is the foundation of scalable and maintainable business automation.
-Technical Logic vs Business Logic# A healthy system clearly distinguishes between what the system does and how business decisions are made.
-Technical Logic (Custom Code) Business Logic (FlexiRule) API integrations Approval policies Database access &amp;amp; schema design Discount &amp;amp; pricing rules Framework extensions Validation policies Background workers Escalation rules Custom DocTypes Cross-process automation System hooks/events Business workflows Core principle# Technical logic belongs in custom development. Business logic belongs in configurable rules.
-FlexiRule focuses exclusively on the second category.
-Choosing the Right Approach# Different requirements naturally belong to different layers of the system:
-Requirement Recommended Approach Build a new DocType Custom App Extend Frappe framework behavior Custom Code Build reusable framework components Custom Code Integrate external services Custom Code (optionally exposed as FlexiRule Process) Implement dynamic approval policies FlexiRule Define validation policies FlexiRule Define pricing/discount rules FlexiRule Automate cross-document workflows FlexiRule Combine system capabilities with business rules Both together FlexiRule is most valuable when logic is policy-driven, frequently changing, and business-owned.
-What Happens Over Time?# In many real systems, business rules start simple but gradually spread across multiple layers:
-Python hooks Server scripts Custom app overrides Background jobs Patch scripts Edge-case fixes across modules Initial implementation ↓ Server Script added ↓ Hook introduced ↓ Custom method in app ↓ Background worker added ↓ Patch script for edge case ↓ Logic …
-
----
 title: Action Settings
 url: https://sendipad.github.io/flexirule/rule-builder/action-settings/
 lastmod: 2026-09-28
@@ -1509,6 +1487,23 @@ Action Settings dynamic properties form Dropdowns: Choose from a fixed list of o
 Available Variables: In the @ menu, you will see variables that have been defined before the current block. Validation: Required fields are marked, and the panel will alert you if your configuration is incomplete or contains errors. Saving Changes# Changes in the Action Settings panel are drafted immediately. Save the entire rule using the button at the top of the canvas to commit your changes to the system. …
 
 ---
+title: Core Concepts
+url: https://sendipad.github.io/flexirule/getting-started/core-concepts/
+lastmod: 2026-09-29
+summary: The fundamental building blocks of the FlexiRule ecosystem.
+concepts: 
+tags: 
+difficulty: 
+related: 
+actions: read, implement, integrate, troubleshoot, improve
+
+Core Concepts# FlexiRule is built from a small set of reusable concepts. A rule is not a single script; it is a flow of blocks that read data, make decisions, and perform actions. Understanding these building blocks will help you design, read, and troubleshoot rules, and each concept will later have its own dedicated page for deeper explanation.
+How a rule runs# Business Event │ ▼ Trigger │ ▼ Rule │ ▼ Execution Context │ ▼ Blocks │ ▼ Queries, Value Resolvers, and Logical Commands │ ▼ Execution Result In practice, a business event starts the process, a trigger decides whether the rule should run, the rule creates an execution context, and the blocks inside the rule use queries, values, and logic to produce the final result.
+1. Rule# A Rule is the top-level automation definition in FlexiRule, and it exists so business behavior can be modeled in one place instead of being scattered across hard-coded application logic; it interacts with the trigger that starts execution, the execution context that carries runtime data, and the blocks that perform the actual work, and for example a rule can automatically approve a Sales Order when the total amount is below a configured limit and the customer is in good standing.
+2. Trigger# A Trigger is the entry point that starts a rule, and it exists so FlexiRule only evaluates automation when the correct business event happens instead of running continuously; it interacts with the rule by deciding whether execution should begin, and if the trigger matches then the execution context is created and the rule continues, for example a trigger can run when a Purchase Invoice is submitted or on a nightly schedule to check overdue documents.
+3. Execution Context# The Execution Context is the runtime memory available while a rule is running, and it exists so blocks can share data and reuse values during execution without losing state between steps; it interacts with the rule, blocks, value resolvers, and logical commands by holding the current document as doc, the previous state as old_doc when available, and custom runtime values in vars, and for example a customer credit check rule can store the calculated credit limit in …
+
+---
 title: Frontend Technical
 url: https://sendipad.github.io/flexirule/advanced-concepts/architecture/ui/overview/
 lastmod: 2026-06-26
@@ -1525,26 +1520,6 @@ Frappe Model: The Rule and Rule Action documents in frappe.model. Pinia Stores: 
 Algorithm: Breadth-First Search (BFS) starting from the Entry Action. Purpose: Ensures that when the Rule Engine loads the rule sequentially from the database, nodes that depend on upstream results are generally loaded after their dependencies, facilitating faster registry hydration. Intelligent &amp;amp; Reactive Controls# Schema Renderer &amp;amp; Control Factory# The SchemaRenderer component takes a backend JSON schema and iterates through its properties. For each property, it uses the ControlFactory to mount a Vue component:
 Reactivity: Every control emits a change event that triggers a re-validation of the entire node&amp;rsquo;s schema. Awareness: Controls like FieldPicker use the getAvailableVariables algorithm to traverse the graph and provide real-time suggestions. Variable Resolution Algorithm# Implemented in useGraphStore.getAvailableVariables, this is the heart of the builder&amp;rsquo;s context-awareness:
 Backwards Traversal: Starting from node $N$, find all nodes reachable by following incoming edges. Ancestry Collection: Identify the set of all ancestor nodes. Variable Aggregation: For each ancestor, inspect its return_variable and return_type. Schema Projection: If an ancestor is a Process with a known output_schema, project those fields as selectable child properties (e.g., vars.my_result.status). Performance &amp;amp; Optimization# Snapshot-based History: Undo/Redo is implemented by taking full snapshots of the nodes and edges arrays. To optimize memory, consecutive identical states are deduplicated. …
-
----
-title: How does FlexiRule achieve high performance?
-url: https://sendipad.github.io/flexirule/introduction/performance/
-lastmod: 2026-06-26
-summary: An in-depth look at the architectural decisions that ensure FlexiRule remains fast and scalable in production environments.
-concepts: 
-tags: 
-difficulty: 
-related: 
-actions: read, implement, integrate, troubleshoot, improve
-
-Performance Architecture# Visual rule engines are often assumed to be slower than handwritten Python because they must interpret rules at runtime. FlexiRule is designed differently. Most expensive work happens before a rule is activated for execution, allowing runtime execution to remain lightweight, predictable, and production-ready.
-The Execution Pipeline# To understand FlexiRule&amp;rsquo;s performance, it helps to see how a business event is processed:
-Business Event (e.g. Sales Order Save) │ ▼ Trigger Lookup (Registry-based) │ ▼ Trigger Condition Evaluation (Compiled Python) │ ▼ Load Compiled Rule (From Cache) │ ▼ Create Execution Context (Lightweight) │ ▼ Execute Blocks (Sequential/Branching) │ ▼ Finish Execution &amp;amp; Async Logging At every stage of this pipeline, the engine is designed to minimize execution cost by following a pre-optimized path.
-Design-Time vs. Runtime# The cornerstone of FlexiRule&amp;rsquo;s performance is the strict separation between Design-time (when rules are built) and Runtime (when rules execute).
-Design-Time: The Preparation Phase# When you save or activate a rule, it passes through four distinct phases to ensure it is ready for high-speed execution:
-Validation: The engine checks graph connectivity, cycle detection, and metadata consistency. Compilation: Visual logic (JSON) is transformed into optimized pure Python expressions and a structured execution plan. Registration: The rule is indexed in the system registry by its Trigger, DocType, and Event. Caching: The compiled plan and registry entry are pushed to high-speed memory (Local/Redis). Runtime: The Execution Phase# Because the preparation is finished upfront, the execution engine remains extremely lightweight:
-It does not perform graph validation at runtime. It does not compile conditions during execution. It does not discover action behaviors dynamically; it follows the prepared plan. It does not interpret raw JSON logic. Registry-Based Lookup# FlexiRule uses a centralized Rule Registry to ensure that adding more rules doesn&amp;rsquo;t slow down unrelated parts of the system. Rules are indexed so they can be retrieved instantly without scanning the entire database.
-Example Registry …
 
 ---
 title: Notify: Architecture Reference
@@ -1663,21 +1638,22 @@ Average# The Average mode calculates the mean value of a numeric field across al
 Table: Sales Order Field to Aggregate: Discount Percentage Filters: Customer equals doc.customer AND Status is Completed. Output Variable: avg_discount 5. Performance Notes# Database Math: Like Sum and Count, this uses database-level aggregation to ensure high performance even on large datasets. Lightweight: The engine only processes a single result value. 6. Common Mistakes# Averaging Zeroes: Records with a value of 0 are included in the average and will lower the result. If zeroes should be ignored, add a filter (e.g., Field is Greater than 0). 
 
 ---
-title: Core Concepts
-url: https://sendipad.github.io/flexirule/introduction/core-concepts/
-lastmod: 2026-09-27
-summary: The fundamental building blocks of the FlexiRule ecosystem.
+title: High-level Architecture
+url: https://sendipad.github.io/flexirule/getting-started/architecture/
+lastmod: 2026-09-29
+summary: A deep dive into the subsystems and architectural philosophy powering FlexiRule.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Core Concepts# FlexiRule is built from a small set of reusable concepts. A rule is not a single script; it is a flow of blocks that read data, make decisions, and perform actions. Understanding these building blocks will help you design, read, and troubleshoot rules, and each concept will later have its own dedicated page for deeper explanation.
-How a rule runs# Business Event │ ▼ Trigger │ ▼ Rule │ ▼ Execution Context │ ▼ Blocks │ ▼ Queries, Value Resolvers, and Logical Commands │ ▼ Execution Result In practice, a business event starts the process, a trigger decides whether the rule should run, the rule creates an execution context, and the blocks inside the rule use queries, values, and logic to produce the final result.
-1. Rule# A Rule is the top-level automation definition in FlexiRule, and it exists so business behavior can be modeled in one place instead of being scattered across hard-coded application logic; it interacts with the trigger that starts execution, the execution context that carries runtime data, and the blocks that perform the actual work, and for example a rule can automatically approve a Sales Order when the total amount is below a configured limit and the customer is in good standing.
-2. Trigger# A Trigger is the entry point that starts a rule, and it exists so FlexiRule only evaluates automation when the correct business event happens instead of running continuously; it interacts with the rule by deciding whether execution should begin, and if the trigger matches then the execution context is created and the rule continues, for example a trigger can run when a Purchase Invoice is submitted or on a nightly schedule to check overdue documents.
-3. Execution Context# The Execution Context is the runtime memory available while a rule is running, and it exists so blocks can share data and reuse values during execution without losing state between steps; it interacts with the rule, blocks, value resolvers, and logical commands by holding the current document as doc, the previous state as old_doc when available, and custom runtime values in vars, and for example a customer credit check rule can store the calculated credit limit in …
+High-level Architecture# FlexiRule is built around a contract-driven, metadata-first architecture. Rather than hard-coding automation into scattered Python modules, business logic is represented as structured metadata. The visual designer, validation engine, and runtime executor all consume the same centralized contracts, ensuring the system remains consistent, extensible, and high-performance.
+System Overview# FlexiRule sits as an orchestration layer on top of the Frappe Framework, coordinating how events from ERPNext are transformed into executable business logic.
+graph TD subgraph &#34;FlexiRule Platform&#34; RB[Rule Builder - Vue 3] --&gt;|Saves Metadata| MC[Metadata &amp; Contracts] MC --&gt;|Informs| VE[Validation Engine] MC --&gt;|Informs| RE[Execution Engine] RE --&gt;|Lookup| RR[Rule Registry] RR --&gt;|Cached in| RC[Redis Cache] end subgraph &#34;Application Layer&#34; FR[Frappe Framework] --&gt;|Events| RE RE --&gt;|Calls| AP[ERPNext APIs] RE --&gt;|Writes| LOG[Audit Logs] end subgraph &#34;Data Layer&#34; AP --&gt; DB[(MariaDB)] RC -.-&gt; DB end Core Components# 1. Registry &amp;amp; Contracts (flexirule/ruleflow/core/contracts.py)# This is the single source of truth. Every Action Type (e.g., &amp;ldquo;Assignment&amp;rdquo;, &amp;ldquo;Condition&amp;rdquo;, &amp;ldquo;Query Records&amp;rdquo;) publishes a contract.
+Why this matters: The Rule Builder uses these contracts to dynamically generate UI forms, while the Engine uses them to validate execution. Implementation: See ActionType DocType and action_type_registry.py. 2. The Engine (flexirule/ruleflow/core/engine.py)# The engine is the heart of FlexiRule. It handles:
+Discovery: Identifying which rules to run based on the event. Orchestration: Walking the execution graph. Context Management: Managing the lifecycle of doc, old_doc, and vars. 3. Execution Context (flexirule/ruleflow/core/context_manager.py)# A sandboxed environment where the rule runs. It ensures that variables (vars) are isolated and that document mutations (doc) follow Frappe&amp;rsquo;s security model.
+4. Rule Builder (flexirule/public/js/flexirule/rule_builder/)# A Vue 3-based visual designer. It isn&amp;rsquo;t just a drawing tool; it&amp;rsquo;s a schema-aware editor that understands the requirements of every logic block in …
 
 ---
 title: Query Records Architecture
@@ -1770,24 +1746,6 @@ Trigger Condition Failed: The high-level &amp;ldquo;gatekeeper&amp;rdquo; condit
 Green/Highlighted: The block was executed successfully. …
 
 ---
-title: High-level Architecture
-url: https://sendipad.github.io/flexirule/introduction/architecture/
-lastmod: 2026-06-27
-summary: A deep dive into the subsystems and architectural philosophy powering FlexiRule.
-concepts: 
-tags: 
-difficulty: 
-related: 
-actions: read, implement, integrate, troubleshoot, improve
-
-High-level Architecture# FlexiRule is built around a contract-driven, metadata-first architecture. Rather than hard-coding automation into scattered Python modules, business logic is represented as structured metadata. The visual designer, validation engine, and runtime executor all consume the same centralized contracts, ensuring the system remains consistent, extensible, and high-performance.
-System Overview# FlexiRule sits as an orchestration layer on top of the Frappe Framework, coordinating how events from ERPNext are transformed into executable business logic.
-graph TD subgraph &#34;FlexiRule Platform&#34; RB[Rule Builder - Vue 3] --&gt;|Saves Metadata| MC[Metadata &amp; Contracts] MC --&gt;|Informs| VE[Validation Engine] MC --&gt;|Informs| RE[Execution Engine] RE --&gt;|Lookup| RR[Rule Registry] RR --&gt;|Cached in| RC[Redis Cache] end subgraph &#34;Application Layer&#34; FR[Frappe Framework] --&gt;|Events| RE RE --&gt;|Calls| AP[ERPNext APIs] RE --&gt;|Writes| LOG[Audit Logs] end subgraph &#34;Data Layer&#34; AP --&gt; DB[(MariaDB)] RC -.-&gt; DB end Core Components# 1. Registry &amp;amp; Contracts (flexirule/ruleflow/core/contracts.py)# This is the single source of truth. Every Action Type (e.g., &amp;ldquo;Assignment&amp;rdquo;, &amp;ldquo;Condition&amp;rdquo;, &amp;ldquo;Query Records&amp;rdquo;) publishes a contract.
-Why this matters: The Rule Builder uses these contracts to dynamically generate UI forms, while the Engine uses them to validate execution. Implementation: See ActionType DocType and action_type_registry.py. 2. The Engine (flexirule/ruleflow/core/engine.py)# The engine is the heart of FlexiRule. It handles:
-Discovery: Identifying which rules to run based on the event. Orchestration: Walking the execution graph. Context Management: Managing the lifecycle of doc, old_doc, and vars. 3. Execution Context (flexirule/ruleflow/core/context_manager.py)# A sandboxed environment where the rule runs. It ensures that variables (vars) are isolated and that document mutations (doc) follow Frappe&amp;rsquo;s security model.
-4. Rule Builder (flexirule/public/js/flexirule/rule_builder/)# A Vue 3-based visual designer. It isn&amp;rsquo;t just a drawing tool; it&amp;rsquo;s a schema-aware editor that understands the requirements of every logic block in …
-
----
 title: Min / Max
 url: https://sendipad.github.io/flexirule/action-type/query-records/min-max/
 lastmod: 2026-07-05
@@ -1853,6 +1811,28 @@ Action A (Send Quote) ──→ Wait (48 Hours) ──→ Action B (Send Follow-
 Schedule delayed follow-ups (e.g., send a reminder email 3 days after a quote is created). Pause until a document date (e.g., wait until the document&amp;rsquo;s Follow-up Date is reached). Stagger background actions or rate-limit automated operations. 3. How to Configure# Add the Action: Add a Wait block to your visual canvas. Select Wait Mode: Duration: Pause for a relative time offset (e.g., 2 Hours, 3 Days). Until Date: Pause until an absolute date/time field or variable (e.g., @doc.follow_up_date). Configure Duration / Date Field: For Duration: Enter the numeric value and select the time unit (Seconds, Minutes, Hours, Days). For Until Date: Select the target date field using the Smart Value Selector. Connect Outbound Edge: Connect the Wait block&amp;rsquo;s outbound port to the action that should execute after the delay completes. 4. UI Configuration Options# Option Description Wait Mode Choose Duration (relative offset) or Until Date (absolute target timestamp). Duration Value &amp;amp; Unit Set the number and select unit: Seconds, Minutes, Hours, or Days. Target Date Field Select the document date field (@doc.due_date) using the Smart Value Selector when in Until Date mode. 5. Practical Example# Scenario: Follow Up on Open Quotation After 48 Hours# Trigger: Set rule trigger to Quotation After Insert. Wait Block: Mode: Duration Value: 48 Unit: Hours Notify Block: Connect Wait block to a Notify action (Email quotation follow-up message to customer). 6. Common Mistakes# Blocking Synchronous UI Threads: Placing long delays on web form events (like Before Save). Long delays work best with background or scheduled event rules. Past Date Targets: Supplying an Until Date value …
 
 ---
+title: Why is FlexiRule better than hard-coded customizations?
+url: https://sendipad.github.io/flexirule/getting-started/better-than-hard-coded/
+lastmod: 2026-09-29
+summary: A separation-of-concerns approach showing how FlexiRule complements custom development by isolating business policies from application code.
+concepts: 
+tags: 
+difficulty: 
+related: 
+actions: read, implement, integrate, troubleshoot, improve
+
+Separation of Concerns in Frappe Systems# FlexiRule is not an alternative to custom development. It is an alternative to embedding evolving business policies inside application code.
+In Frappe and ERPNext systems, custom development and FlexiRule are not competing approaches. They operate at different layers of the system:
+Custom development builds capabilities FlexiRule defines and manages evolving business policies on top of those capabilities This separation is the foundation of scalable and maintainable business automation.
+Technical Logic vs Business Logic# A healthy system clearly distinguishes between what the system does and how business decisions are made.
+Technical Logic (Custom Code) Business Logic (FlexiRule) API integrations Approval policies Database access &amp;amp; schema design Discount &amp;amp; pricing rules Framework extensions Validation policies Background workers Escalation rules Custom DocTypes Cross-process automation System hooks/events Business workflows Core principle# Technical logic belongs in custom development. Business logic belongs in configurable rules.
+FlexiRule focuses exclusively on the second category.
+Choosing the Right Approach# Different requirements naturally belong to different layers of the system:
+Requirement Recommended Approach Build a new DocType Custom App Extend Frappe framework behavior Custom Code Build reusable framework components Custom Code Integrate external services Custom Code (optionally exposed as FlexiRule Process) Implement dynamic approval policies FlexiRule Define validation policies FlexiRule Define pricing/discount rules FlexiRule Automate cross-document workflows FlexiRule Combine system capabilities with business rules Both together FlexiRule is most valuable when logic is policy-driven, frequently changing, and business-owned.
+What Happens Over Time?# In many real systems, business rules start simple but gradually spread across multiple layers:
+Python hooks Server scripts Custom app overrides Background jobs Patch scripts Edge-case fixes across modules Initial implementation ↓ Server Script added ↓ Hook introduced ↓ Custom method in app ↓ Background worker added ↓ Patch script for edge case ↓ Logic …
+
+---
 title: Group By
 url: https://sendipad.github.io/flexirule/action-type/query-records/group-by/
 lastmod: 2026-07-05
@@ -1871,18 +1851,24 @@ The grouping field (e.g., Status) contains the category name. The value field co
 Table: Sales Order Group By Field: Status Aggregate Field: ID (Name) Function: Count Filters: Posting Date is Today. Output Variable: status_summary 5. Performance Notes# Efficient Categorization: Using Group By is a database-level optimization. It is significantly faster than fetching thousands of individual records and grouping them within the rule logic. Reduced Data Transfer: By only returning the summarized categories and their values, the system avoids loading unnecessary record details. 6. Common Mistakes# Grouping by Unique Fields: Do not group by a field that is unique for every record (like ID or Creation Time). This will result in every group having a value of 1, …
 
 ---
-title: Key Capabilities
-url: https://sendipad.github.io/flexirule/introduction/key-capabilities/
-lastmod: 2026-06-26
-summary: A summary of the major features and functional highlights of FlexiRule.
+title: How does FlexiRule achieve high performance?
+url: https://sendipad.github.io/flexirule/getting-started/performance/
+lastmod: 2026-09-29
+summary: An in-depth look at the architectural decisions that ensure FlexiRule remains fast and scalable in production environments.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Key Capabilities# FlexiRule combines the power of visual programming with enterprise-grade governance. Here are the major features that define the platform:
-Visual Rule Builder# Vue 3 Interface: A modern, responsive canvas for designing complex logic. Drag-and-Drop: Easily add and connect logic blocks. Real-time Validation: The builder alerts you to missing configuration or broken connections as you work. Advanced Logic Control# Nested Conditions: Build multi-level if-then-else logic visually. Switch Blocks: Handle multiple branching scenarios from a single node. Sub-Rules: Call one rule from another to maintain modularity and reuse logic. Safety and Governance# Cycle Detection: Native protection against infinite loops in the graph. Sandboxed Environment: Rules are executed in a safe container that prevents unauthorized database modifications. Role-Based Permissions: Control who can view, edit, or execute specific rules. High-Performance Engine# Condition Compilation: Logic is pre-compiled for near-zero execution overhead. Layered Caching: Multi-level cache (Redis + Local) for lightning-fast rule lookups. Asynchronous Processing: Offload heavy tasks to background workers without slowing down the user. Observability# Execution Logs: Detailed audit trail for every rule run. Visual Path Trace: See exactly which path a document took through your logic graph. Debug Mode: Enable enhanced logging for complex troubleshooting. Developer Friendly# JSON Schema Driven: Configuration forms for custom logic are auto-generated. Extensible Actions: Register custom Python logic as new block types. Git Friendly: Rules are stored as DocTypes, making them easy to migrate between environments. 
+Performance Architecture# Visual rule engines are often assumed to be slower than handwritten Python because they must interpret rules at runtime. FlexiRule is designed differently. Most expensive work happens before a rule is activated for execution, allowing runtime execution to remain lightweight, predictable, and production-ready.
+The Execution Pipeline# To understand FlexiRule&amp;rsquo;s performance, it helps to see how a business event is processed:
+Business Event (e.g. Sales Order Save) │ ▼ Trigger Lookup (Registry-based) │ ▼ Trigger Condition Evaluation (Compiled Python) │ ▼ Load Compiled Rule (From Cache) │ ▼ Create Execution Context (Lightweight) │ ▼ Execute Blocks (Sequential/Branching) │ ▼ Finish Execution &amp;amp; Async Logging At every stage of this pipeline, the engine is designed to minimize execution cost by following a pre-optimized path.
+Design-Time vs. Runtime# The cornerstone of FlexiRule&amp;rsquo;s performance is the strict separation between Design-time (when rules are built) and Runtime (when rules execute).
+Design-Time: The Preparation Phase# When you save or activate a rule, it passes through four distinct phases to ensure it is ready for high-speed execution:
+Validation: The engine checks graph connectivity, cycle detection, and metadata consistency. Compilation: Visual logic (JSON) is transformed into optimized pure Python expressions and a structured execution plan. Registration: The rule is indexed in the system registry by its Trigger, DocType, and Event. Caching: The compiled plan and registry entry are pushed to high-speed memory (Local/Redis). Runtime: The Execution Phase# Because the preparation is finished upfront, the execution engine remains extremely lightweight:
+It does not perform graph validation at runtime. It does not compile conditions during execution. It does not discover action behaviors dynamically; it follows the prepared plan. It does not interpret raw JSON logic. Registry-Based Lookup# FlexiRule uses a centralized Rule Registry to ensure that adding more rules doesn&amp;rsquo;t slow down unrelated parts of the system. Rules are indexed so they can be retrieved instantly without scanning the entire database.
+Example Registry …
 
 ---
 title: Sub-Rule
@@ -1899,6 +1885,20 @@ Sub-Rule Action# The Sub-Rule action lets you run another rule—exposed as a su
 1. What is it?# A Sub-Rule block executes a separate rule flow and passes variables back and forth. This lets you build reusable logic modules (like standard approval workflows or credit checks) once and call them from multiple rules.
 Main Rule ──→ Sub-Rule (&amp;#34;Calculate Customer Risk&amp;#34;) ──→ Next Action (Check Risk Score) 2. When to Use# Use a Sub-Rule action when you need to:
 Reuse multi-step verification routines across different DocTypes or trigger events. Break down complex rules into clean, modular sub-flows. Standardize business calculations (e.g., standard credit scoring or discount rules). 3. How to Configure# Add the Action: Add a Sub-Rule block to your visual canvas. Select Target Sub-Rule: Choose from the list of rules exposed as sub-rules. Map Input Variables: Map values from your main rule to the input variables expected by the sub-rule using the Smart Value Selector. Set Output Variable: Enter a variable name (e.g., risk_result) to capture the sub-rule&amp;rsquo;s returned output in @vars. Connect Outbound Branch: Connect the Sub-Rule block&amp;rsquo;s output port to the next action node. 4. UI Configuration Options# Option Description Sub-Rule Select target rule (must have Exposed as Sub-Rule enabled in its rule configuration). Input Mappings Map main rule fields/variables to sub-rule parameters using the Smart Value Selector. Output Variable Variable name in @vars where sub-rule output results will be stored. 5. Practical Example# Scenario: Run Standard Customer Risk Scoring Sub-Rule# Sub-Rule Block Configuration: Sub-Rule: Select &amp;quot;Calculate Customer Risk Score&amp;quot;. Input Mapping: Map Customer → @doc.customer using Smart Value Selector. Output Variable: Enter risk_score_result. Next Action (Check): Add a Check block following the sub-rule. Condition: @vars.risk_score_result.score &amp;gt; 80 True Branch: Route to manager review notification. 6. Common Mistakes# Sub-Rule Not Exposed: Trying to select a rule that does not have Exposed as Sub-Rule enabled in its settings. …
+
+---
+title: Quick Start
+url: https://sendipad.github.io/flexirule/getting-started/quick-start/
+lastmod: 2026-09-29
+summary: Build your first automation visually in under 5 minutes.
+concepts: 
+tags: 
+difficulty: 
+related: 
+actions: read, implement, integrate, troubleshoot, improve
+
+Quick Start Guide# Build a visual rule in under 5 minutes that alerts you whenever a high-value Sales Invoice is created.
+1. Create your First Rule# Go to FlexiRule -&amp;gt; Rule List and click New. Set Rule Name to High Value Alert. Set Document Type to Sales Invoice. Set Trigger Event to Before Save. Click Save. 2. Open the Visual Rule Builder# Click Open Rule Builder at the top of the form. You will see the visual canvas containing the mandatory Start (Entry Action) node. 3. Add a Check (Condition) Node# Hover over the Start node&amp;rsquo;s connection port and click the + Add Action button. Select Check (Condition) from the action list. In the configuration panel on the right: Ensure Group Logic is set to ALL. Click Add Condition. Click the left value field and type @ to open the Smart Value Selector. In the search popup, search for Grand Total. Select Sales Invoice → Grand Total. Set the comparison operator dropdown to Is Greater Than. In the right value field, enter 10000. 4. Add a Notification Node# Click and drag a connection line from the True (Green) outbound port of the Check node. Select Notify from the action picker. In the Notify configuration panel: Set Channel / Mode to UI Message (Toast). Click inside the Message editor field. Enter 💰 High value invoice detected! Invoice ID: . Type @ to open the Smart Value Selector. Search for Name and select Sales Invoice → Name to dynamically insert the document ID token. 5. Test Your Rule Visually# Click Test Run in the top action bar. Select an existing Sales Invoice record with a Grand Total above 10,000. Click Run Test. Observe the green execution path highlighted on your canvas leading to the Notify block, along with the live toast notification preview! 6. Go Live# Close the Rule Builder using the Close button. On the main Rule document, check the Enabled box. Click Save. Your rule is now active! Visual Design Best Practices# Use the Smart Value Selector: Always use @ or click the Variable (@) button to pick document fields rather than typing field names manually. Connect Every Node: Ensure outbound ports are connected to downstream actions so the execution flow completes seamlessly. 
 
 ---
 title: Stop / Error
