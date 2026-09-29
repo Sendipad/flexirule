@@ -22,7 +22,6 @@
 								:title="__('Back to Configuration')"
 							>
 								<i class="fa fa-arrow-left"></i>
-								<span v-if="!isMobile">{{ __("Back to Configuration") }}</span>
 							</button>
 
 							<div

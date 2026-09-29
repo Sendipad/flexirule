@@ -146,7 +146,7 @@ describe("FlexiRule UI Test Suite", () => {
 			cy.get(".config-modal-header .header-titles h3").should("contain", "Raw Configuration");
 
 			// Verify Back button exists in header
-			cy.get(".btn-back-nav").should("be.visible").and("contain", "Back to Configuration");
+			cy.get(".btn-back-nav").should("be.visible");
 
 			// Click Back button to return to 3-panel workspace
 			cy.get(".btn-back-nav").click();
