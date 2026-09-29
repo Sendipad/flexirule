@@ -118,4 +118,49 @@ describe("FlexiRule UI Test Suite", () => {
 			cy.get('input[data-fieldname="is_active"]').should("be.checked");
 		});
 	});
+
+	it("6. Rule Configuration Modal - Full-Modal Raw Configuration Transition", () => {
+		const ruleName = `Rule_RawConfig_${Date.now()}`;
+
+		cy.create_test_rule_backend({ rule_name: ruleName }).then((doc) => {
+			ruleBuilderPage.visitRule(doc.name);
+			ruleBuilderPage.openVisualBuilder();
+
+			// Add Assignment Action
+			ruleBuilderPage.addNodeFromEdge("Assignment", "Raw Config Test Action");
+
+			// Open Rule Configuration Modal (double click or node toolbar configure)
+			cy.get(".vue-flow__node .assignment").last().dblclick({ force: true });
+			cy.get(".config-modal-container", { timeout: 10000 }).should("be.visible");
+
+			// Workspace view initially visible (three panels / workspace container)
+			cy.get(".workspace-view-container").should("be.visible");
+			cy.get(".full-raw-config-container").should("not.exist");
+
+			// Click Cog button to enter Full-Modal Raw Configuration view
+			cy.get('.header-toolbar button[title*="Raw Configuration"]').click();
+
+			// Verify Full-Modal Raw Configuration view is active and workspace is hidden
+			cy.get(".full-raw-config-container").should("be.visible");
+			cy.get(".workspace-view-container").should("not.exist");
+			cy.get(".config-modal-header .header-titles h3").should(
+				"contain",
+				"Raw Configuration"
+			);
+
+			// Verify Back button exists in header
+			cy.get(".btn-back-nav").should("be.visible").and("contain", "Back to Configuration");
+
+			// Click Back button to return to 3-panel workspace
+			cy.get(".btn-back-nav").click();
+
+			// Verify workspace view restored and full raw config container removed
+			cy.get(".workspace-view-container").should("be.visible");
+			cy.get(".full-raw-config-container").should("not.exist");
+
+			// Close modal
+			cy.get(".config-modal-header button.close-action").click();
+			cy.get(".config-modal-container").should("not.exist");
+		});
+	});
 });

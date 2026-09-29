@@ -15,8 +15,18 @@
 						@touchend="handleTouchEnd"
 					>
 						<div class="header-left">
+							<button
+								v-if="viewMode === 'raw'"
+								class="btn-back-nav"
+								@click="viewMode = 'workspace'"
+								:title="__('Back to Configuration')"
+							>
+								<i class="fa fa-arrow-left"></i>
+								<span v-if="!isMobile">{{ __("Back to Configuration") }}</span>
+							</button>
+
 							<div
-								v-if="!isMobile || !isEditingLabel"
+								v-if="viewMode !== 'raw' && (!isMobile || !isEditingLabel)"
 								class="header-icon"
 								:style="{
 									background: actionPresentation.background,
@@ -30,7 +40,7 @@
 									class="title-wrapper"
 									:class="{ 'is-editing': isEditingLabel }"
 								>
-									<template v-if="isEditingLabel">
+									<template v-if="viewMode !== 'raw' && isEditingLabel">
 										<input
 											ref="labelInputRef"
 											v-model="labelInput"
@@ -42,9 +52,9 @@
 									</template>
 									<h3
 										v-else
-										@click="startEditingLabel"
-										:class="{ editable: canEditLabel }"
-										:title="canEditLabel ? __('Click to edit label') : ''"
+										@click="viewMode !== 'raw' && startEditingLabel()"
+										:class="{ editable: viewMode !== 'raw' && canEditLabel }"
+										:title="viewMode !== 'raw' && canEditLabel ? __('Click to edit label') : ''"
 									>
 										{{ title }}
 									</h3>
@@ -61,13 +71,13 @@
 										class="type-badge"
 										:style="{ color: contract?.css?.color }"
 									>
-										{{ draftNode?.data?.action_id }}
+										{{ draftNode?.data?.action_id || draftNode?.id }}
 									</span>
 									<i
 										class="fa fa-chevron-right small mx-1 text-muted opacity-50"
 									></i>
 									<span class="text-muted">{{
-										draftNode?.data?.action_type
+										actionTypeLabel
 									}}</span>
 								</div>
 							</div>
@@ -105,9 +115,9 @@
 									<div class="toolbar-group toggles">
 										<button
 											class="toolbar-btn"
-											:class="{ active: showSettingsBar }"
-											@click="showSettingsBar = !showSettingsBar"
-											:title="__('Raw Configuration')"
+											:class="{ active: viewMode === 'raw' }"
+											@click="toggleViewMode"
+											:title="viewMode === 'raw' ? __('Back to Configuration') : __('Raw Configuration')"
 										>
 											<i class="fa fa-cog"></i>
 										</button>
@@ -217,15 +227,17 @@
 														<button
 															class="menu-item"
 															role="menuitem"
-															:class="{ active: showSettingsBar }"
+															:class="{ active: viewMode === 'raw' }"
 															@click="
-																showSettingsBar = !showSettingsBar;
+																toggleViewMode();
 																closeOverflow();
 															"
 														>
 															<i class="fa fa-cog"></i>
 															<span>{{
-																__("Raw Configuration")
+																viewMode === 'raw'
+																	? __("Workspace View")
+																	: __("Raw Configuration")
 															}}</span>
 														</button>
 													</div>
@@ -299,216 +311,203 @@
 
 									<!-- Unified Action Setup -->
 									<div v-else-if="draftNode" class="panels-container-modern">
-										<template v-if="!isCompactLayout">
-											<div class="config-main-area">
-												<div class="config-scroll-container">
-													<div class="config-content-wrapper">
-														<div
-															class="integrated-settings-bar"
-															v-if="showSettingsBar"
-														>
-															<ActionSettings
-																:node="draftNode"
-																:readOnly="ruleStore.is_read_only"
-																:showValidation="showValidation"
-																@update:field="
-																	on_update_action_field
-																"
-																@open:conditions="
-																	uiStore.config_modal_mode =
-																		'logic'
-																"
-															/>
-														</div>
-
-														<div
-															class="action-core-layout"
-															:class="{
-																'input-panel-collapsed':
-																	collapseInputPanel,
-															}"
-														>
-															<div class="core-setup-panel">
-																<button
-																	class="panel-collapse-btn left"
-																	type="button"
-																	@click="
-																		collapseInputPanel =
-																			!collapseInputPanel
-																	"
-																	:title="
-																		collapseInputPanel
-																			? __(
-																					'Expand Input Panel'
-																			  )
-																			: __(
-																					'Collapse Input Panel'
-																			  )
-																	"
-																>
-																	<i
-																		class="fa"
-																		:class="
-																			collapseInputPanel
-																				? 'fa-chevron-right'
-																				: 'fa-chevron-left'
-																		"
-																	></i>
-																</button>
-																<InputPanel
-																	:node="draftNode"
-																	:readOnly="
-																		ruleStore.is_read_only
-																	"
-																	:showValidation="showValidation"
-																	:ref="panelRefs.input"
-																	mode="config"
-																/>
-															</div>
-															<div class="core-config-panel">
-																<ConfigurationPanel
-																	:node="draftNode"
-																	:readOnly="
-																		ruleStore.is_read_only
-																	"
-																	:showValidation="showValidation"
-																	:ref="panelRefs.config"
-																/>
-															</div>
-														</div>
-													</div>
-												</div>
-
-												<aside
-													class="sidebar-mutation"
-													:class="{ collapsed: collapseOutputPanel }"
-												>
-													<button
-														class="panel-collapse-btn right"
-														type="button"
-														@click="
-															collapseOutputPanel =
-																!collapseOutputPanel
-														"
-														:title="
-															collapseOutputPanel
-																? __('Expand Output Panel')
-																: __('Collapse Output Panel')
-														"
-													>
-														<i
-															class="fa"
-															:class="
-																collapseOutputPanel
-																	? 'fa-chevron-left'
-																	: 'fa-chevron-right'
-															"
-														></i>
-													</button>
-													<OutputPanel
-														v-show="!collapseOutputPanel"
+										<transition name="view-slide" mode="out-in">
+											<!-- View 1: Raw Configuration (Full Modal View) -->
+											<div
+												v-if="viewMode === 'raw'"
+												key="raw-view"
+												class="full-raw-config-container"
+											>
+												<div class="raw-config-wrapper">
+													<ActionSettings
 														:node="draftNode"
 														:readOnly="ruleStore.is_read_only"
 														:showValidation="showValidation"
-														:ref="panelRefs.output"
+														@update:field="on_update_action_field"
+														@open:conditions="uiStore.config_modal_mode = 'logic'"
 													/>
-												</aside>
-											</div>
-										</template>
-
-										<template v-else>
-											<div class="compact-config-layout">
-												<div
-													class="compact-tabs"
-													role="tablist"
-													@keydown="onCompactTabKeydown"
-												>
-													<button
-														v-for="tab in compactTabs"
-														:key="tab.key"
-														class="compact-tab-btn"
-														role="tab"
-														:aria-selected="
-															activeCompactTab === tab.key
-														"
-														:class="{
-															active: activeCompactTab === tab.key,
-														}"
-														@click="activateCompactTab(tab.key)"
-													>
-														{{ tab.label }}
-													</button>
 												</div>
+											</div>
 
-												<div class="compact-tab-content">
-													<section
-														v-show="activeCompactTab === 'input'"
-														v-if="isCompactTabRendered('input')"
-														ref="compactInputRef"
-														class="compact-panel-shell"
-														@scroll="
-															rememberCompactScroll('input', $event)
-														"
-													>
-														<InputPanel
-															:node="draftNode"
-															:readOnly="ruleStore.is_read_only"
-															:showValidation="showValidation"
-															mode="config"
-														/>
-													</section>
+											<!-- View 2: Workspace View (Three Panels or Mobile Tabs) -->
+											<div v-else key="workspace-view" class="workspace-view-container">
+												<template v-if="!isCompactLayout">
+													<div class="config-main-area">
+														<div class="config-scroll-container">
+															<div class="config-content-wrapper">
+																<div
+																	class="action-core-layout"
+																	:class="{
+																		'input-panel-collapsed':
+																			collapseInputPanel,
+																	}"
+																>
+																	<div class="core-setup-panel">
+																		<button
+																			class="panel-collapse-btn left"
+																			type="button"
+																			@click="
+																				collapseInputPanel =
+																					!collapseInputPanel
+																			"
+																			:title="
+																				collapseInputPanel
+																					? __(
+																							'Expand Input Panel'
+																					  )
+																					: __(
+																							'Collapse Input Panel'
+																					  )
+																			"
+																		>
+																			<i
+																				class="fa"
+																				:class="
+																					collapseInputPanel
+																						? 'fa-chevron-right'
+																						: 'fa-chevron-left'
+																				"
+																			></i>
+																		</button>
+																		<InputPanel
+																			:node="draftNode"
+																			:readOnly="
+																				ruleStore.is_read_only
+																			"
+																			:showValidation="showValidation"
+																			:ref="panelRefs.input"
+																			mode="config"
+																		/>
+																	</div>
+																	<div class="core-config-panel">
+																		<ConfigurationPanel
+																			:node="draftNode"
+																			:readOnly="
+																				ruleStore.is_read_only
+																			"
+																			:showValidation="showValidation"
+																			:ref="panelRefs.config"
+																		/>
+																	</div>
+																</div>
+															</div>
+														</div>
 
-													<section
-														v-show="activeCompactTab === 'config'"
-														v-if="isCompactTabRendered('config')"
-														ref="compactConfigRef"
-														class="compact-panel-shell"
-														@scroll="
-															rememberCompactScroll('config', $event)
-														"
-													>
-														<div
-															class="integrated-settings-bar"
-															v-if="showSettingsBar"
+														<aside
+															class="sidebar-mutation"
+															:class="{ collapsed: collapseOutputPanel }"
 														>
-															<ActionSettings
+															<button
+																class="panel-collapse-btn right"
+																type="button"
+																@click="
+																	collapseOutputPanel =
+																		!collapseOutputPanel
+																"
+																:title="
+																	collapseOutputPanel
+																		? __('Expand Output Panel')
+																		: __('Collapse Output Panel')
+																"
+															>
+																<i
+																	class="fa"
+																	:class="
+																		collapseOutputPanel
+																			? 'fa-chevron-left'
+																			: 'fa-chevron-right'
+																	"
+																></i>
+															</button>
+															<OutputPanel
+																v-show="!collapseOutputPanel"
 																:node="draftNode"
 																:readOnly="ruleStore.is_read_only"
 																:showValidation="showValidation"
-																@update:field="
-																	on_update_action_field
-																"
-																@open:conditions="
-																	uiStore.config_modal_mode =
-																		'logic'
-																"
+																:ref="panelRefs.output"
 															/>
-														</div>
-														<ConfigurationPanel
-															:node="draftNode"
-															:readOnly="ruleStore.is_read_only"
-															:showValidation="showValidation"
-														/>
-													</section>
+														</aside>
+													</div>
+												</template>
 
-													<section
-														v-show="activeCompactTab === 'output'"
-														v-if="isCompactTabRendered('output')"
-														ref="compactOutputRef"
-														class="compact-panel-shell"
-														@scroll="
-															rememberCompactScroll('output', $event)
-														"
-													>
-														<OutputPanel
-															:node="draftNode"
-															:readOnly="ruleStore.is_read_only"
-															:showValidation="showValidation"
-														/>
-													</section>
-												</div>
+												<template v-else>
+													<div class="compact-config-layout">
+														<div
+															class="compact-tabs"
+															role="tablist"
+															@keydown="onCompactTabKeydown"
+														>
+															<button
+																v-for="tab in compactTabs"
+																:key="tab.key"
+																class="compact-tab-btn"
+																role="tab"
+																:aria-selected="
+																	activeCompactTab === tab.key
+																"
+																:class="{
+																	active: activeCompactTab === tab.key,
+																}"
+																@click="activateCompactTab(tab.key)"
+															>
+																{{ tab.label }}
+															</button>
+														</div>
+
+														<div class="compact-tab-content">
+															<section
+																v-show="activeCompactTab === 'input'"
+																v-if="isCompactTabRendered('input')"
+																ref="compactInputRef"
+																class="compact-panel-shell"
+																@scroll="
+																	rememberCompactScroll('input', $event)
+																"
+															>
+																<InputPanel
+																	:node="draftNode"
+																	:readOnly="ruleStore.is_read_only"
+																	:showValidation="showValidation"
+																	mode="config"
+																/>
+															</section>
+
+															<section
+																v-show="activeCompactTab === 'config'"
+																v-if="isCompactTabRendered('config')"
+																ref="compactConfigRef"
+																class="compact-panel-shell"
+																@scroll="
+																	rememberCompactScroll('config', $event)
+																"
+															>
+																<ConfigurationPanel
+																	:node="draftNode"
+																	:readOnly="ruleStore.is_read_only"
+																	:showValidation="showValidation"
+																/>
+															</section>
+
+															<section
+																v-show="activeCompactTab === 'output'"
+																v-if="isCompactTabRendered('output')"
+																ref="compactOutputRef"
+																class="compact-panel-shell"
+																@scroll="
+																	rememberCompactScroll('output', $event)
+																"
+															>
+																<OutputPanel
+																	:node="draftNode"
+																	:readOnly="ruleStore.is_read_only"
+																	:showValidation="showValidation"
+																/>
+															</section>
+														</div>
+													</div>
+												</template>
 											</div>
-										</template>
+										</transition>
 									</div>
 
 									<!-- Guide Sidebar (Right Sliding) -->
@@ -641,11 +640,15 @@ const compactInputRef = ref(null);
 const compactConfigRef = ref(null);
 const compactOutputRef = ref(null);
 
-// -- Sidebar / Slide States --
+// -- View Mode & Layout States --
+const viewMode = ref("workspace"); // "workspace" | "raw"
 const showGuideSidebar = ref(false);
-const showSettingsBar = ref(false);
 const collapseInputPanel = ref(false);
 const collapseOutputPanel = ref(false);
+
+function toggleViewMode() {
+	viewMode.value = viewMode.value === "raw" ? "workspace" : "raw";
+}
 
 // -- Swipe Navigation --
 const touchStartX = ref(0);
@@ -736,6 +739,7 @@ watch(
 	() => props.modelValue,
 	(isOpen) => {
 		if (isOpen) {
+			viewMode.value = "workspace";
 			collapseInputPanel.value = false;
 			collapseOutputPanel.value = false;
 			activateCompactTab("config");
@@ -749,6 +753,7 @@ watch(
 watch(
 	() => uiStore.selected_id,
 	() => {
+		viewMode.value = "workspace";
 		collapseInputPanel.value = false;
 		collapseOutputPanel.value = false;
 		activateCompactTab("config");
@@ -777,7 +782,14 @@ watch(currentNodeIndex, (newIdx, oldIdx) => {
 	transitionName.value = newIdx > oldIdx ? "slide-left" : "slide-right";
 });
 
+const actionTypeLabel = computed(() => {
+	return draftNode.value?.data?.action_type || draftNode.value?.type || "";
+});
+
 const title = computed(() => {
+	if (viewMode.value === "raw") {
+		return __("Raw Configuration");
+	}
 	if (!draftNode.value) return __("Rule Configuration");
 	let baseTitle =
 		draftNode.value.data?.action_label || draftNode.value.label || __("Rule Configuration");
@@ -960,7 +972,7 @@ onMounted(() => {
 			alt: true,
 			context: "modal",
 			priority: 10,
-			callback: () => (showSettingsBar.value = !showSettingsBar.value),
+			callback: () => toggleViewMode(),
 		}),
 	];
 });
@@ -1550,6 +1562,81 @@ html[data-theme="dark"] .toolbar-btn.save-action {
 	transform: translateX(100%);
 }
 
+.btn-back-nav {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	padding: 6px 12px;
+	border-radius: 8px;
+	border: 1px solid var(--fxr-border-subtle);
+	background: var(--fxr-surface-2);
+	color: var(--fxr-text-strong);
+	font-size: 13px;
+	font-weight: 600;
+	cursor: pointer;
+	transition: all 0.2s ease;
+}
+
+.btn-back-nav:hover {
+	background: var(--fxr-accent-soft);
+	color: var(--fxr-accent);
+	border-color: var(--fxr-accent-border);
+}
+
+.full-raw-config-container {
+	flex: 1;
+	width: 100%;
+	height: 100%;
+	overflow-y: auto;
+	padding: 24px;
+	background-color: var(--fxr-bg-page);
+}
+
+.raw-config-wrapper {
+	max-width: 1200px;
+	margin: 0 auto;
+	background: var(--fxr-surface);
+	border-radius: 16px;
+	border: 1px solid var(--fxr-border-subtle);
+	padding: 24px;
+	box-shadow: var(--fxr-shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.05));
+}
+
+.workspace-view-container {
+	flex: 1;
+	display: flex;
+	overflow: hidden;
+	height: 100%;
+	width: 100%;
+}
+
+/* View transition effect (Horizontal slide) */
+.view-slide-enter-active,
+.view-slide-leave-active {
+	transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.view-slide-enter-from {
+	opacity: 0;
+	transform: translateX(30px);
+}
+
+.view-slide-leave-to {
+	opacity: 0;
+	transform: translateX(-30px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.view-slide-enter-active,
+	.view-slide-leave-active {
+		transition: opacity 0.15s ease;
+	}
+	.view-slide-enter-from,
+	.view-slide-leave-to {
+		transform: none;
+	}
+}
+
 .fxr-overflow-dropdown {
 	background: var(--fxr-surface);
 	border-radius: 12px;
@@ -1759,6 +1846,20 @@ html[data-theme="dark"] .toolbar-btn.save-action {
 	.compact-panel-shell {
 		border-radius: 10px;
 		padding: 12px 8px;
+	}
+
+	.full-raw-config-container {
+		padding: 12px 8px;
+	}
+
+	.raw-config-wrapper {
+		padding: 12px;
+		border-radius: 10px;
+	}
+
+	.btn-back-nav {
+		padding: 4px 8px;
+		font-size: 12px;
 	}
 }
 
