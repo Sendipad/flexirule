@@ -317,7 +317,7 @@
 
 									<!-- Unified Action Setup -->
 									<div v-else-if="draftNode" class="panels-container-modern">
-										<transition name="view-slide" mode="out-in">
+										<transition name="view-slide">
 											<!-- View 1: Raw Configuration (Full Modal View) -->
 											<div
 												v-if="viewMode === 'raw'"
@@ -1657,20 +1657,21 @@ html[data-theme="dark"] .toolbar-btn.save-action {
 	width: 100%;
 }
 
-/* View transition effect (Horizontal slide) */
+/* View transition effect (Fast GPU-accelerated horizontal slide) */
 .view-slide-enter-active,
 .view-slide-leave-active {
-	transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+	transition: opacity 0.18s cubic-bezier(0.2, 0, 0, 1), transform 0.18s cubic-bezier(0.2, 0, 0, 1);
+	will-change: opacity, transform;
 }
 
 .view-slide-enter-from {
 	opacity: 0;
-	transform: translateX(30px);
+	transform: translateX(20px);
 }
 
 .view-slide-leave-to {
 	opacity: 0;
-	transform: translateX(-30px);
+	transform: translateX(-20px);
 }
 
 @media (prefers-reduced-motion: reduce) {
