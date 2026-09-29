@@ -126,10 +126,7 @@ const isTerminal = computed(() => {
 			<!-- Presentation Summary -->
 			<div class="node-details" v-if="summaryItems.length > 0">
 				<template v-for="(item, idx) in summaryItems" :key="idx">
-					<div
-						v-if="item.type === 'tag'"
-						:class="['detail-tag', item.variant || '']"
-					>
+					<div v-if="item.type === 'tag'" :class="['detail-tag', item.variant || '']">
 						<i class="fa" :class="item.icon || 'fa-info-circle'"></i>
 						<span>{{ item.text }}</span>
 					</div>

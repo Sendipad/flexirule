@@ -60,9 +60,10 @@ export function getActionSummary(data = {}) {
 						typeof first.value === "object"
 							? first.value?.mode || "..."
 							: String(first.value ?? "");
-					const summaryText = assignments.length > 1
-						? `${target} ${op} ${val} (+${assignments.length - 1} more)`
-						: `${target} ${op} ${val}`;
+					const summaryText =
+						assignments.length > 1
+							? `${target} ${op} ${val} (+${assignments.length - 1} more)`
+							: `${target} ${op} ${val}`;
 					items.push({
 						type: "row",
 						icon: "fa-sliders",
