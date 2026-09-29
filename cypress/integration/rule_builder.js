@@ -143,10 +143,7 @@ describe("FlexiRule UI Test Suite", () => {
 			// Verify Full-Modal Raw Configuration view is active and workspace is hidden
 			cy.get(".full-raw-config-container").should("be.visible");
 			cy.get(".workspace-view-container").should("not.exist");
-			cy.get(".config-modal-header .header-titles h3").should(
-				"contain",
-				"Raw Configuration"
-			);
+			cy.get(".config-modal-header .header-titles h3").should("contain", "Raw Configuration");
 
 			// Verify Back button exists in header
 			cy.get(".btn-back-nav").should("be.visible").and("contain", "Back to Configuration");

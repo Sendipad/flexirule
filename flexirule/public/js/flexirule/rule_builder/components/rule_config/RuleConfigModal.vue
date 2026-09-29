@@ -54,7 +54,11 @@
 										v-else
 										@click="viewMode !== 'raw' && startEditingLabel()"
 										:class="{ editable: viewMode !== 'raw' && canEditLabel }"
-										:title="viewMode !== 'raw' && canEditLabel ? __('Click to edit label') : ''"
+										:title="
+											viewMode !== 'raw' && canEditLabel
+												? __('Click to edit label')
+												: ''
+										"
 									>
 										{{ title }}
 									</h3>
@@ -76,9 +80,7 @@
 									<i
 										class="fa fa-chevron-right small mx-1 text-muted opacity-50"
 									></i>
-									<span class="text-muted">{{
-										actionTypeLabel
-									}}</span>
+									<span class="text-muted">{{ actionTypeLabel }}</span>
 								</div>
 							</div>
 						</div>
@@ -117,7 +119,11 @@
 											class="toolbar-btn"
 											:class="{ active: viewMode === 'raw' }"
 											@click="toggleViewMode"
-											:title="viewMode === 'raw' ? __('Back to Configuration') : __('Raw Configuration')"
+											:title="
+												viewMode === 'raw'
+													? __('Back to Configuration')
+													: __('Raw Configuration')
+											"
 										>
 											<i class="fa fa-cog"></i>
 										</button>
@@ -235,7 +241,7 @@
 														>
 															<i class="fa fa-cog"></i>
 															<span>{{
-																viewMode === 'raw'
+																viewMode === "raw"
 																	? __("Workspace View")
 																	: __("Raw Configuration")
 															}}</span>
@@ -324,13 +330,19 @@
 														:readOnly="ruleStore.is_read_only"
 														:showValidation="showValidation"
 														@update:field="on_update_action_field"
-														@open:conditions="uiStore.config_modal_mode = 'logic'"
+														@open:conditions="
+															uiStore.config_modal_mode = 'logic'
+														"
 													/>
 												</div>
 											</div>
 
 											<!-- View 2: Workspace View (Three Panels or Mobile Tabs) -->
-											<div v-else key="workspace-view" class="workspace-view-container">
+											<div
+												v-else
+												key="workspace-view"
+												class="workspace-view-container"
+											>
 												<template v-if="!isCompactLayout">
 													<div class="config-main-area">
 														<div class="config-scroll-container">
@@ -374,7 +386,9 @@
 																			:readOnly="
 																				ruleStore.is_read_only
 																			"
-																			:showValidation="showValidation"
+																			:showValidation="
+																				showValidation
+																			"
 																			:ref="panelRefs.input"
 																			mode="config"
 																		/>
@@ -385,7 +399,9 @@
 																			:readOnly="
 																				ruleStore.is_read_only
 																			"
-																			:showValidation="showValidation"
+																			:showValidation="
+																				showValidation
+																			"
 																			:ref="panelRefs.config"
 																		/>
 																	</div>
@@ -395,7 +411,9 @@
 
 														<aside
 															class="sidebar-mutation"
-															:class="{ collapsed: collapseOutputPanel }"
+															:class="{
+																collapsed: collapseOutputPanel,
+															}"
 														>
 															<button
 																class="panel-collapse-btn right"
@@ -407,7 +425,9 @@
 																:title="
 																	collapseOutputPanel
 																		? __('Expand Output Panel')
-																		: __('Collapse Output Panel')
+																		: __(
+																				'Collapse Output Panel'
+																		  )
 																"
 															>
 																<i
@@ -446,7 +466,9 @@
 																	activeCompactTab === tab.key
 																"
 																:class="{
-																	active: activeCompactTab === tab.key,
+																	active:
+																		activeCompactTab ===
+																		tab.key,
 																}"
 																@click="activateCompactTab(tab.key)"
 															>
@@ -456,50 +478,75 @@
 
 														<div class="compact-tab-content">
 															<section
-																v-show="activeCompactTab === 'input'"
+																v-show="
+																	activeCompactTab === 'input'
+																"
 																v-if="isCompactTabRendered('input')"
 																ref="compactInputRef"
 																class="compact-panel-shell"
 																@scroll="
-																	rememberCompactScroll('input', $event)
+																	rememberCompactScroll(
+																		'input',
+																		$event
+																	)
 																"
 															>
 																<InputPanel
 																	:node="draftNode"
-																	:readOnly="ruleStore.is_read_only"
+																	:readOnly="
+																		ruleStore.is_read_only
+																	"
 																	:showValidation="showValidation"
 																	mode="config"
 																/>
 															</section>
 
 															<section
-																v-show="activeCompactTab === 'config'"
-																v-if="isCompactTabRendered('config')"
+																v-show="
+																	activeCompactTab === 'config'
+																"
+																v-if="
+																	isCompactTabRendered('config')
+																"
 																ref="compactConfigRef"
 																class="compact-panel-shell"
 																@scroll="
-																	rememberCompactScroll('config', $event)
+																	rememberCompactScroll(
+																		'config',
+																		$event
+																	)
 																"
 															>
 																<ConfigurationPanel
 																	:node="draftNode"
-																	:readOnly="ruleStore.is_read_only"
+																	:readOnly="
+																		ruleStore.is_read_only
+																	"
 																	:showValidation="showValidation"
 																/>
 															</section>
 
 															<section
-																v-show="activeCompactTab === 'output'"
-																v-if="isCompactTabRendered('output')"
+																v-show="
+																	activeCompactTab === 'output'
+																"
+																v-if="
+																	isCompactTabRendered('output')
+																"
 																ref="compactOutputRef"
 																class="compact-panel-shell"
 																@scroll="
-																	rememberCompactScroll('output', $event)
+																	rememberCompactScroll(
+																		'output',
+																		$event
+																	)
 																"
 															>
 																<OutputPanel
 																	:node="draftNode"
-																	:readOnly="ruleStore.is_read_only"
+																	:readOnly="
+																		ruleStore.is_read_only
+																	"
 																	:showValidation="showValidation"
 																/>
 															</section>
