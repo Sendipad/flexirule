@@ -36,6 +36,7 @@ class ActionContract:
 		self,
 		action_type: str,
 		*,
+		display_label: str | None = None,
 		required_fields: list[str] | None = None,
 		has_next_true: bool = True,
 		has_next_false: bool = False,
@@ -66,6 +67,7 @@ class ActionContract:
 		**extras,
 	):
 		self.action_type = action_type
+		self.display_label = display_label or action_type
 		self.required_fields = required_fields or []
 		self.has_next_true = has_next_true
 		self.has_next_false = has_next_false
@@ -108,6 +110,7 @@ class ActionContract:
 	def to_dict(self) -> dict[str, Any]:
 		"""Serialize to the same dict format as legacy ACTION_TYPE_CONTRACT entries."""
 		d: dict[str, Any] = {
+			"display_label": self.display_label,
 			"required_fields": self.required_fields,
 			"has_next_true": self.has_next_true,
 			"has_next_false": self.has_next_false,

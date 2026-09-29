@@ -66,6 +66,21 @@ class TestProcessContractV2(FrappeTestCase):
 		self.assertEqual(resolved["config_schema"]["required"], ["field"])
 		self.assertEqual(resolved["result_schema"]["required"], ["ok"])
 
+	def test_action_contract_dto_display_labels(self):
+		from flexirule.ruleflow.core.contracts import get_contract_dto
+
+		dto = get_contract_dto()
+		action_contracts = dto.get("action_type_contract", {})
+
+		self.assertIn("Query Records", action_contracts)
+		self.assertEqual(action_contracts["Query Records"].get("display_label"), "Query Records")
+
+		self.assertIn("Assignment", action_contracts)
+		self.assertEqual(action_contracts["Assignment"].get("display_label"), "Assignment")
+
+		self.assertIn("Document Action", action_contracts)
+		self.assertEqual(action_contracts["Document Action"].get("display_label"), "Document Action")
+
 	def test_rejects_unknown_adapter_key(self):
 		with self.assertRaises(frappe.ValidationError):
 			resolve_process_operation_contract_v2(

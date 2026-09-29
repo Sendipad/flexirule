@@ -29,6 +29,7 @@ class StopHandler(ActionHandler):
 	def get_action_contract(cls):
 		return ActionContract(
 			action_type="Stop",
+			display_label="Stop",
 			required_fields=["operation"],
 			has_next_true=False,
 			has_next_false=False,
@@ -108,6 +109,7 @@ class WaitHandler(ActionHandler):
 	def get_action_contract(cls):
 		return ActionContract(
 			action_type="Wait",
+			display_label="Wait",
 			required_fields=[],
 			has_next_true=True,
 			has_next_false=False,
@@ -164,6 +166,7 @@ class RaiseErrorHandler(ActionHandler):
 	def get_action_contract(cls):
 		return ActionContract(
 			action_type="Raise Error",
+			display_label="Raise Error",
 			required_fields=["value_template"],
 			has_next_true=False,
 			has_next_false=False,
@@ -249,6 +252,7 @@ class NotifyHandler(ActionHandler):
 	def get_action_contract(cls):
 		return ActionContract(
 			action_type="Notify",
+			display_label="Notify",
 			required_fields=["value_template", "operation"],
 			has_next_true=True,
 			has_next_false=False,
@@ -554,6 +558,7 @@ class EntryActionHandler(ActionHandler):
 	def get_action_contract(cls):
 		return ActionContract(
 			action_type="Entry Action",
+			display_label="Entry Action",
 			required_fields=[],
 			has_next_true=True,
 			has_next_false=False,

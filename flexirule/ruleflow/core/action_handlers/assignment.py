@@ -26,6 +26,7 @@ class AssignmentHandler(ActionHandler):
 	def get_action_contract(cls):
 		return ActionContract(
 			action_type="Assignment",
+			display_label="Assignment",
 			required_fields=["config"],
 			has_next_true=True,
 			has_next_false=False,

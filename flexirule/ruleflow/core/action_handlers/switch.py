@@ -22,6 +22,7 @@ class SwitchHandler(ActionHandler):
 	def get_action_contract(cls):
 		return ActionContract(
 			action_type="Switch",
+			display_label="Switch",
 			required_fields=["config"],
 			has_next_true=False,
 			has_next_false=True,

@@ -28,6 +28,7 @@ class ProcessHandler(ActionHandler):
 	def get_action_contract(cls):
 		return ActionContract(
 			action_type="Process",
+			display_label="Process",
 			required_fields=["process_name", "operation"],
 			has_next_true=True,
 			has_next_false=False,

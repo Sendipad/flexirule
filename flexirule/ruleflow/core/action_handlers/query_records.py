@@ -45,6 +45,7 @@ class QueryRecordsHandler(ActionHandler):
 	def get_action_contract(cls):
 		return ActionContract(
 			action_type="Query Records",
+			display_label="Query Records",
 			required_fields=["reference_doctype", "operation"],
 			has_next_true=True,
 			has_next_false=False,

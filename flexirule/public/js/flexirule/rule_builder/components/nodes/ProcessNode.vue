@@ -6,6 +6,7 @@ import { getContract } from "../../../core/contracts";
 import { useNodeExecutionState } from "../../composables/useNodeExecutionState";
 import { useNodeStatus } from "../../composables/useNodeStatus";
 import { useCanvasLayout } from "../../composables/useCanvasLayout";
+import { getActionSummary } from "../../composables/useActionSummary";
 import NodeToolbar from "./NodeToolbar.vue";
 import InlineEditor from "./InlineEditor.vue";
 import NodeStatusIndicator from "./NodeStatusIndicator.vue";
@@ -40,9 +41,11 @@ const nodeMeta = computed(() => {
 	return {
 		color: css.color || "#0d6efd",
 		icon: css.icon || "fa-cog",
-		typeLabel: (actionType || "PROCESS").toUpperCase(),
+		typeLabel: (contract.display_label || actionType || "PROCESS").toUpperCase(),
 	};
 });
+
+const summaryItems = computed(() => getActionSummary(props.data));
 
 const nodeIdRef = computed(() => props.id);
 const { isExecuted, isRunning, isErrored, executionOrder } = useNodeExecutionState(nodeIdRef);
@@ -107,35 +110,34 @@ const isTerminal = computed(() => {
 
 		<!-- Main Content -->
 		<div class="node-body">
+			<!-- Subtitle: Operation / Variant when present -->
+			<div class="node-operation-subtitle" v-if="data.operation">
+				{{ data.operation }}
+			</div>
+
+			<!-- User Custom Label / Title -->
 			<InlineEditor
 				v-model:value="data.action_label"
 				:is-read-only="isReadOnly"
 				tag="div"
 				class="node-title"
 			/>
-			<div class="node-subtitle" v-if="data.operation">
-				{{ data.operation }}
-			</div>
 
-			<div class="node-details" v-if="hasDetails || data.action_type === 'Assignment'">
-				<div class="detail-tag" v-if="data.reference_doctype">
-					<i class="fa fa-database"></i>
-					<span>{{ data.reference_doctype }}</span>
-				</div>
-				<div class="detail-tag mutation" v-if="data.mutation_mode">
-					<i class="fa fa-bolt"></i>
-					<span>{{ data.mutation_mode }}</span>
-				</div>
-				<div class="detail-tag mutation" v-else-if="data.action_type === 'Assignment'">
-					<i class="fa fa-bolt"></i>
-					<span>Set Context Variable</span>
-				</div>
-				<div class="detail-row" v-if="data.target_field">
-					<i class="fa fa-crosshairs"></i> {{ data.target_field }}
-				</div>
-				<div class="detail-row" v-if="data.variable_name">
-					<i class="fa fa-code"></i> {{ data.variable_name }}
-				</div>
+			<!-- Presentation Summary -->
+			<div class="node-details" v-if="summaryItems.length > 0">
+				<template v-for="(item, idx) in summaryItems" :key="idx">
+					<div
+						v-if="item.type === 'tag'"
+						:class="['detail-tag', item.variant || '']"
+					>
+						<i class="fa" :class="item.icon || 'fa-info-circle'"></i>
+						<span>{{ item.text }}</span>
+					</div>
+					<div v-else-if="item.type === 'row'" class="detail-row">
+						<i class="fa" :class="item.icon || 'fa-circle-o'"></i>
+						<span>{{ item.text }}</span>
+					</div>
+				</template>
 			</div>
 		</div>
 
@@ -285,17 +287,17 @@ const isTerminal = computed(() => {
 	word-break: break-word;
 }
 
-.node-subtitle {
+.node-operation-subtitle {
 	font-size: 11px;
-	color: var(--fxr-text-soft);
-	font-style: italic;
+	font-weight: 600;
+	color: var(--fxr-accent, #0891b2);
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
-	margin-bottom: 4px;
+	margin-bottom: 2px;
 }
 
-.is-vertical .node-subtitle {
+.is-vertical .node-operation-subtitle {
 	white-space: normal;
 }
 

@@ -42,6 +42,7 @@ class DocumentActionHandler(ActionHandler):
 	def get_action_contract(cls):
 		return ActionContract(
 			action_type="Document Action",
+			display_label="Document Action",
 			required_fields=["reference_doctype", "operation"],
 			has_next_true=True,
 			has_next_false=False,

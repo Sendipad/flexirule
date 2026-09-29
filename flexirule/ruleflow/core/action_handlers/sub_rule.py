@@ -91,6 +91,7 @@ class SubRuleHandler(ActionHandler):
 	def get_action_contract(cls):
 		return ActionContract(
 			action_type="Sub-Rule",
+			display_label="Sub-Rule",
 			required_fields=["rule"],
 			has_next_true=True,
 			has_next_false=False,

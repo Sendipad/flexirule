@@ -24,6 +24,7 @@ class ConditionHandler(ActionHandler):
 	def get_action_contract(cls):
 		return ActionContract(
 			action_type="Condition",
+			display_label="Condition",
 			required_fields=["config"],
 			has_next_true=True,
 			has_next_false=True,

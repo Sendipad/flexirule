@@ -22,6 +22,7 @@ class LoopHandler(ActionHandler):
 	def get_action_contract(cls):
 		return ActionContract(
 			action_type="Loop",
+			display_label="Loop",
 			required_fields=["config", "return_variable"],
 			has_next_true=True,
 			has_next_false=True,
