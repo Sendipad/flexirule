@@ -62,7 +62,7 @@ export function getActionSummary(data = {}) {
 							: String(first.value ?? "");
 					const summaryText =
 						assignments.length > 1
-							? `${target} ${op} ${val} (+${assignments.length - 1} more)`
+							? `${target} ${op} ${val} (${__("+{0} more", [assignments.length - 1])})`
 							: `${target} ${op} ${val}`;
 					items.push({
 						type: "row",

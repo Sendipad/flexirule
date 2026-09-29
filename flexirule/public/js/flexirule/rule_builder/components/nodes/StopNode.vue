@@ -67,18 +67,19 @@ function openConfig() {
 					<div class="icon-section">
 						<i class="fa fa-stop-circle"></i>
 					</div>
-					<div class="type-label">{{ __("TERMINAL") }}</div>
+					<div class="type-label">{{ __("STOP") }}</div>
 				</div>
 			</div>
 			<div class="text-section">
+				<div class="node-operation-subtitle" v-if="data.operation">
+					{{ data.operation }}
+				</div>
 				<InlineEditor
 					v-model:value="data.action_label"
 					:is-read-only="isReadOnly"
 					tag="div"
 					class="main-label"
-				>
-					STOP
-				</InlineEditor>
+				/>
 			</div>
 		</div>
 
@@ -128,7 +129,9 @@ function openConfig() {
 }
 
 .stop-node-card.selected {
-	box-shadow: 0 0 0 2px var(--fxr-bg-card), 0 0 0 4px #dc3545;
+	box-shadow:
+		0 0 0 2px var(--fxr-bg-card),
+		0 0 0 4px #dc3545;
 }
 
 .stop-node-card.executed {
