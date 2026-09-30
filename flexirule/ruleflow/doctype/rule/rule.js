@@ -235,20 +235,32 @@ function create_amendment_and_edit(frm) {
 
 function apply_trigger_type_contract(frm, options = {}) {
 	const contract = flexirule.contracts?.getTriggerTypeContract?.(frm.doc.trigger_type) || {
+		description: "",
 		required_fields: [],
 		optional_fields: [],
 		hidden_fields: [],
 	};
+
+	if (frm.fields_dict.trigger_type) {
+		frm.set_df_property("trigger_type", "description", contract.description || "");
+	}
+
 	const managedFields = [
 		"document_type",
 		"trigger_event",
 		"trigger_condition",
 		"compiled_expression",
+		"exposed_as_subrule",
 	];
 	const visibleFields = new Set([
 		...(contract.required_fields || []),
 		...(contract.optional_fields || []),
 	]);
+
+	if (frm.doc.trigger_type === "Callable Event") {
+		visibleFields.add("exposed_as_subrule");
+	}
+
 	const clearHiddenValues = !!options.clear_hidden_values;
 
 	managedFields.forEach((fieldname) => {
@@ -266,6 +278,72 @@ function apply_trigger_type_contract(frm, options = {}) {
 			frm.set_value(fieldname, null);
 		}
 	});
+}
+
+// Custom Quick Entry Form for Rule to enforce contract-driven trigger descriptions and field dependencies
+if (frappe.ui.form && frappe.ui.form.QuickEntryForm) {
+	frappe.ui.form.RuleQuickEntryForm = class RuleQuickEntryForm extends frappe.ui.form.QuickEntryForm {
+		render_dialog() {
+			super.render_dialog();
+			this.setup_trigger_type_handler();
+		}
+
+		setup_trigger_type_handler() {
+			if (!this.dialog) return;
+
+			flexirule.contracts?.loadContractsFromBackend?.();
+
+			const triggerTypeField = this.dialog.get_field("trigger_type");
+			if (!triggerTypeField) return;
+
+			const updateQuickEntry = (clearHidden = false) => {
+				const val = triggerTypeField.get_value() || "DocType Event";
+				const contract = flexirule.contracts?.getTriggerTypeContract?.(val) || {
+					description: "",
+					required_fields: [],
+					optional_fields: [],
+					hidden_fields: [],
+				};
+
+				triggerTypeField.set_description(contract.description || "");
+
+				const managedFields = ["document_type", "trigger_event", "exposed_as_subrule"];
+				const visibleFields = new Set([
+					...(contract.required_fields || []),
+					...(contract.optional_fields || []),
+				]);
+
+				if (val === "Callable Event") {
+					visibleFields.add("exposed_as_subrule");
+				}
+
+				managedFields.forEach((fieldname) => {
+					const field = this.dialog.get_field(fieldname);
+					if (!field) return;
+
+					const isVisible = visibleFields.has(fieldname);
+					this.dialog.set_df_property(fieldname, "hidden", isVisible ? 0 : 1);
+					this.dialog.set_df_property(
+						fieldname,
+						"reqd",
+						contract.required_fields?.includes(fieldname) ? 1 : 0
+					);
+
+					if (clearHidden && !isVisible) {
+						this.dialog.set_value(fieldname, null);
+					}
+				});
+			};
+
+			if (triggerTypeField.$input) {
+				triggerTypeField.$input.off("change.rule_quick_entry").on("change.rule_quick_entry", () => {
+					updateQuickEntry(true);
+				});
+			}
+
+			updateQuickEntry(false);
+		}
+	};
 }
 function update_dashboard_indicators(frm) {
 	if (!frm.dashboard) return;

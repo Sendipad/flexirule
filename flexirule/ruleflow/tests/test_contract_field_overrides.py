@@ -65,3 +65,21 @@ class TestContractFieldOverrides(FrappeTestCase):
 
 		self.assertEqual(fields["next_step_if_true"].get("hidden"), 1)
 		self.assertEqual(fields["next_step_if_false"].get("hidden"), 1)
+
+	def test_trigger_type_contract_metadata_and_dto(self):
+		from flexirule.ruleflow.core.contract_dto import get_contract_dto
+		from flexirule.ruleflow.core.contract_utils import get_trigger_type_contract
+
+		dto = get_contract_dto()
+		trigger_contracts = dto.get("trigger_type_contract")
+		self.assertIsNotNone(trigger_contracts)
+
+		for trigger_type in ("DocType Event", "Scheduler Event", "Callable Event"):
+			contract = get_trigger_type_contract(trigger_type)
+			self.assertEqual(contract.get("label"), trigger_type)
+			self.assertTrue(len(contract.get("description", "")) > 10)
+
+			dto_contract = trigger_contracts.get(trigger_type)
+			self.assertIsNotNone(dto_contract)
+			self.assertEqual(dto_contract.get("label"), trigger_type)
+			self.assertEqual(dto_contract.get("description"), contract.get("description"))

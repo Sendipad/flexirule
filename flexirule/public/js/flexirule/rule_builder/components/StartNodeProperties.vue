@@ -9,6 +9,7 @@ import { computed, ref, watch, onMounted } from "vue";
 import { useStore } from "../stores";
 import ComboBoxControl from "../controls/ComboBoxControl.vue";
 import ControlFactory from "../controls/ControlFactory.vue";
+import { getTriggerTypeContract } from "../../core/contracts.js";
 
 const props = defineProps({
 	nodeData: Object,
@@ -19,6 +20,22 @@ const props = defineProps({
 const emit = defineEmits(["update:field", "open:conditions"]);
 
 const store = useStore();
+
+const displayed_rule_name = computed(() => {
+	return (
+		props.nodeData?.rule_name ||
+		store.rule_doc?.rule_name ||
+		store.rule_doc?.name ||
+		store.rule_name ||
+		""
+	);
+});
+
+const trigger_type_description = computed(() => {
+	const triggerType = props.nodeData?.trigger_type;
+	if (!triggerType) return "";
+	return getTriggerTypeContract(triggerType)?.description || "";
+});
 
 // Trigger event options from store
 const trigger_event_options = computed(() => store.trigger_event_options || []);
@@ -204,7 +221,7 @@ onMounted(async () => {
 		<!-- Rule Info -->
 		<div class="form-group">
 			<label class="control-label">{{ __("Rule Name") }}</label>
-			<input class="form-control" type="text" disabled :value="nodeData?.rule_name" />
+			<input class="form-control" type="text" disabled :value="displayed_rule_name" />
 		</div>
 
 		<!-- Trigger Type -->
@@ -220,6 +237,9 @@ onMounted(async () => {
 					{{ __(opt) }}
 				</option>
 			</select>
+			<div v-if="trigger_type_description" class="description text-muted mt-1">
+				{{ trigger_type_description }}
+			</div>
 		</div>
 
 		<!-- Document Type -->
@@ -399,41 +419,83 @@ onMounted(async () => {
 		</div>
 
 		<!-- Rule Permissions -->
-		<div class="form-group">
-			<div class="section-header">
-				<label class="control-label">{{ __("Rule Permissions") }}</label>
-				<button v-if="!readOnly" class="btn btn-xs btn-link" @click="add_permission_row">
-					<i class="fa fa-plus"></i> {{ __("Add") }}
+		<div class="form-group permissions-section">
+			<div class="section-header mb-2">
+				<label class="control-label mb-0">{{ __("Rule Permissions") }}</label>
+				<button
+					v-if="!readOnly"
+					type="button"
+					class="btn-add-row"
+					@click="add_permission_row"
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						width="12"
+						height="12"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2.5"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					>
+						<line x1="12" y1="5" x2="12" y2="19"></line>
+						<line x1="5" y1="12" x2="19" y2="12"></line>
+					</svg>
+					{{ __("Add Permission") }}
 				</button>
 			</div>
-			<div class="perm-table" v-if="permission_fields.length">
-				<div class="perm-row perm-header">
-					<span v-for="df in permission_fields" :key="df.fieldname">
-						{{ __(df.label || df.fieldname) }}
-					</span>
-					<span></span>
-				</div>
-				<div v-for="(row, idx) in permissions" :key="idx" class="perm-row">
-					<div v-for="df in permission_fields" :key="df.fieldname">
-						<ControlFactory
-							:df="{ ...df, read_only: readOnly }"
-							:modelValue="row[df.fieldname]"
-							:hideLabel="true"
-							:hideDescription="true"
-							@update:modelValue="(val) => update_permission(idx, df.fieldname, val)"
-						/>
-					</div>
-					<button
-						v-if="!readOnly"
-						class="btn btn-xs btn-link text-danger"
-						@click="remove_permission_row(idx)"
-					>
-						<i class="fa fa-trash"></i>
-					</button>
-				</div>
-				<div v-if="!permissions.length" class="text-muted small">
-					{{ __("No permissions configured.") }}
-				</div>
+
+			<div class="table-wrapper" v-if="permission_fields.length">
+				<table class="table-custom">
+					<thead>
+						<tr>
+							<th
+								v-for="df in permission_fields"
+								:key="df.fieldname"
+								:style="{ width: df.fieldname === 'can_execute' ? '120px' : '' }"
+							>
+								{{ __(df.label || df.fieldname) }}
+							</th>
+							<th v-if="!readOnly" style="width: 40px"></th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr v-for="(row, idx) in permissions" :key="idx">
+							<td
+								v-for="df in permission_fields"
+								:key="df.fieldname"
+								:class="`cell-${df.fieldname}`"
+							>
+								<ControlFactory
+									:df="{ ...df, read_only: readOnly }"
+									:modelValue="row[df.fieldname]"
+									:hideLabel="true"
+									:hideDescription="true"
+									@update:modelValue="(val) => update_permission(idx, df.fieldname, val)"
+								/>
+							</td>
+							<td v-if="!readOnly" class="text-center">
+								<button
+									type="button"
+									class="remove-row-btn"
+									@click="remove_permission_row(idx)"
+									:title="__('Remove Row')"
+								>
+									×
+								</button>
+							</td>
+						</tr>
+						<tr v-if="!permissions.length">
+							<td
+								:colspan="permission_fields.length + (readOnly ? 0 : 1)"
+								class="empty-state"
+							>
+								{{ __("No permissions configured. Click Add Permission to define role-based execution access.") }}
+							</td>
+						</tr>
+					</tbody>
+				</table>
 			</div>
 		</div>
 	</div>
@@ -530,22 +592,113 @@ onMounted(async () => {
 	justify-content: space-between;
 }
 
-.perm-table {
-	display: flex;
-	flex-direction: column;
-	gap: 6px;
+.permissions-section {
+	margin-top: 4px;
 }
 
-.perm-row {
-	display: grid;
-	grid-template-columns: 1.6fr 0.7fr auto;
-	gap: 6px;
+.btn-add-row {
+	display: inline-flex;
 	align-items: center;
-}
-
-.perm-header {
+	gap: 4px;
+	padding: 3px 8px;
 	font-size: 11px;
 	font-weight: 600;
-	color: var(--text-muted);
+	color: var(--fxr-accent, var(--primary));
+	background: var(--fxr-accent-soft, #eff6ff);
+	border: 1px solid var(--fxr-accent-border, #bfdbfe);
+	border-radius: 6px;
+	cursor: pointer;
+	transition: all 0.2s ease;
+}
+
+.btn-add-row:hover {
+	background: var(--fxr-accent, var(--primary));
+	color: #ffffff;
+}
+
+.table-wrapper {
+	overflow-x: auto;
+	width: 100%;
+	border: 1px solid var(--fxr-border-subtle, #e2e8f0);
+	border-radius: 8px;
+	background: var(--fxr-bg-card, #ffffff);
+	box-shadow: var(--fxr-shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.05));
+}
+
+.table-custom {
+	width: 100%;
+	border-collapse: separate;
+	border-spacing: 0;
+	table-layout: fixed;
+}
+
+.table-custom th {
+	font-size: 10px;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	white-space: nowrap;
+	background: var(--fxr-surface-soft, #f8fafc);
+	color: var(--fxr-text-soft, #64748b);
+	border-bottom: 1px solid var(--fxr-border-subtle, #e2e8f0);
+	padding: 6px 10px;
+	text-align: left;
+}
+
+.table-custom td {
+	padding: 4px 8px;
+	vertical-align: middle;
+	border-bottom: 1px solid var(--fxr-border-subtle, #e2e8f0);
+	background: var(--fxr-bg-card, #ffffff);
+	color: var(--fxr-text, #1e293b);
+}
+
+.table-custom tr:last-child td {
+	border-bottom: none;
+}
+
+.table-custom tbody tr:hover td {
+	background: var(--fxr-bg-hover, #f1f5f9);
+}
+
+.cell-can_execute {
+	text-align: center;
+}
+
+.cell-can_execute :deep(.form-group),
+.cell-can_execute :deep(.check-control) {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	margin: 0;
+}
+
+.remove-row-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 22px;
+	height: 22px;
+	border-radius: 50%;
+	border: none;
+	background: transparent;
+	color: var(--fxr-text-soft, #94a3b8);
+	font-size: 16px;
+	line-height: 1;
+	transition: all 0.2s ease;
+	cursor: pointer;
+}
+
+.remove-row-btn:hover {
+	background: var(--fxr-bg-danger, #fee2e2);
+	color: var(--fxr-text-danger, #ef4444);
+}
+
+.empty-state {
+	text-align: center;
+	padding: 16px !important;
+	color: var(--fxr-text-soft, #94a3b8);
+	font-style: italic;
+	font-size: 12px;
 }
 </style>

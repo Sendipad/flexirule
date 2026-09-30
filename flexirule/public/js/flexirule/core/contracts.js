@@ -404,11 +404,17 @@ export function getRequiredFields(actionType) {
 export function getTriggerTypeContract(triggerType) {
 	return (
 		TRIGGER_TYPE_CONTRACT[triggerType] || {
+			label: triggerType || "",
+			description: "",
 			required_fields: [],
 			optional_fields: [],
 			hidden_fields: [],
 		}
 	);
+}
+
+export function getTriggerTypeDescription(triggerType) {
+	return getTriggerTypeContract(triggerType)?.description || "";
 }
 
 export function getReturnTypeOptions() {

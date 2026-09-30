@@ -14,19 +14,35 @@ import json
 from typing import Any
 
 # Trigger Type Contract
-# Defines which fields are required, optional, or hidden for each trigger_type.
+# Defines which fields are required, optional, or hidden for each trigger_type,
+# along with human-readable labels and descriptions for UI guidance.
 TRIGGER_TYPE_CONTRACT = {
 	"DocType Event": {
+		"label": "DocType Event",
+		"description": (
+			"Runs the rule when a document event occurs, such as saving, "
+			"submitting, or cancelling a document."
+		),
 		"required_fields": ["document_type", "trigger_event"],
 		"optional_fields": ["trigger_condition", "compiled_expression"],
 		"hidden_fields": [],
 	},
 	"Scheduler Event": {
+		"label": "Scheduler Event",
+		"description": (
+			"Runs the rule automatically on a scheduled interval or at a "
+			"scheduled time, without requiring a document event."
+		),
 		"required_fields": [],
 		"optional_fields": ["document_type"],
 		"hidden_fields": ["trigger_event", "trigger_condition", "compiled_expression"],
 	},
 	"Callable Event": {
+		"label": "Callable Event",
+		"description": (
+			"Runs the rule when explicitly invoked by another process, "
+			"integration, or application code."
+		),
 		"required_fields": [],
 		"optional_fields": ["document_type", "trigger_condition", "compiled_expression"],
 		"hidden_fields": ["trigger_event"],
@@ -158,6 +174,8 @@ def get_trigger_type_contract(trigger_type: str) -> dict:
 	return TRIGGER_TYPE_CONTRACT.get(
 		trigger_type,
 		{
+			"label": trigger_type or "",
+			"description": "",
 			"required_fields": [],
 			"optional_fields": [],
 			"hidden_fields": [],

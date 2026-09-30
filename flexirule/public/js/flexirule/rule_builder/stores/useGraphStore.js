@@ -1458,6 +1458,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 				data: {
 					action_id: "start",
 					action_type: "Entry Action",
+					rule_name: ruleDoc.rule_name || ruleDoc.name,
 					trigger_type: ruleDoc.trigger_type,
 					document_type: ruleDoc.document_type,
 					trigger_event: ruleDoc.trigger_event,
@@ -1561,6 +1562,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			};
 
 			if (isRoot) {
+				nodeData.rule_name = ruleDoc.rule_name || ruleDoc.name;
 				nodeData.trigger_type = ruleDoc.trigger_type;
 				nodeData.document_type = ruleDoc.document_type;
 				nodeData.trigger_event = ruleDoc.trigger_event;
