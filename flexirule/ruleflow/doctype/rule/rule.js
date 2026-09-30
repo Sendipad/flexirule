@@ -282,7 +282,9 @@ function apply_trigger_type_contract(frm, options = {}) {
 
 // Custom Quick Entry Form for Rule to enforce contract-driven trigger descriptions and field dependencies
 if (frappe.ui.form && frappe.ui.form.QuickEntryForm) {
-	frappe.ui.form.RuleQuickEntryForm = class RuleQuickEntryForm extends frappe.ui.form.QuickEntryForm {
+	frappe.ui.form.RuleQuickEntryForm = class RuleQuickEntryForm extends (
+		frappe.ui.form.QuickEntryForm
+	) {
 		render_dialog() {
 			super.render_dialog();
 			this.setup_trigger_type_handler();
@@ -336,9 +338,11 @@ if (frappe.ui.form && frappe.ui.form.QuickEntryForm) {
 			};
 
 			if (triggerTypeField.$input) {
-				triggerTypeField.$input.off("change.rule_quick_entry").on("change.rule_quick_entry", () => {
-					updateQuickEntry(true);
-				});
+				triggerTypeField.$input
+					.off("change.rule_quick_entry")
+					.on("change.rule_quick_entry", () => {
+						updateQuickEntry(true);
+					});
 			}
 
 			updateQuickEntry(false);

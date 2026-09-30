@@ -472,7 +472,9 @@ onMounted(async () => {
 									:modelValue="row[df.fieldname]"
 									:hideLabel="true"
 									:hideDescription="true"
-									@update:modelValue="(val) => update_permission(idx, df.fieldname, val)"
+									@update:modelValue="
+										(val) => update_permission(idx, df.fieldname, val)
+									"
 								/>
 							</td>
 							<td v-if="!readOnly" class="text-center">
@@ -491,7 +493,11 @@ onMounted(async () => {
 								:colspan="permission_fields.length + (readOnly ? 0 : 1)"
 								class="empty-state"
 							>
-								{{ __("No permissions configured. Click Add Permission to define role-based execution access.") }}
+								{{
+									__(
+										"No permissions configured. Click Add Permission to define role-based execution access."
+									)
+								}}
 							</td>
 						</tr>
 					</tbody>
