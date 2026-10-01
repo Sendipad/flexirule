@@ -14,6 +14,17 @@ export function cloneValue(val) {
 	return val;
 }
 
+export function extractStringValue(val) {
+	if (val === null || val === undefined) return "";
+	if (typeof val === "string") return val;
+	if (typeof val === "object") {
+		if (val.value !== undefined && val.value !== null) {
+			return String(val.value);
+		}
+	}
+	return "";
+}
+
 export function isPopulated(val) {
 	if (val === null || val === undefined || val === "") return false;
 	if (typeof val === "object") {
@@ -68,13 +79,20 @@ export function reconcileQueryDocFields(data) {
 
 	if (isPopulated(refDt) && !isPopulated(cfgDt)) {
 		config.doctype_name = cloneValue(refDt);
+		data.reference_doctype = extractStringValue(refDt);
 	} else if (!isPopulated(refDt) && isPopulated(cfgDt)) {
-		data.reference_doctype = cloneValue(cfgDt);
+		data.reference_doctype = extractStringValue(cfgDt);
 	} else if (isPopulated(refDt) && isPopulated(cfgDt)) {
 		if (!isEqualValue(refDt, cfgDt)) {
 			// Rule Action takes precedence
 			config.doctype_name = cloneValue(refDt);
+			data.reference_doctype = extractStringValue(refDt);
+		} else {
+			data.reference_doctype = extractStringValue(refDt);
 		}
+	} else {
+		data.reference_doctype = "";
+		config.doctype_name = cloneValue(cfgDt) || "";
 	}
 
 	// Reconcile Docname
@@ -83,13 +101,20 @@ export function reconcileQueryDocFields(data) {
 
 	if (isPopulated(refDn) && !isPopulated(cfgDn)) {
 		config.docname = cloneValue(refDn);
+		data.reference_docname = extractStringValue(refDn);
 	} else if (!isPopulated(refDn) && isPopulated(cfgDn)) {
-		data.reference_docname = cloneValue(cfgDn);
+		data.reference_docname = extractStringValue(cfgDn);
 	} else if (isPopulated(refDn) && isPopulated(cfgDn)) {
 		if (!isEqualValue(refDn, cfgDn)) {
 			// Rule Action takes precedence
 			config.docname = cloneValue(refDn);
+			data.reference_docname = extractStringValue(refDn);
+		} else {
+			data.reference_docname = extractStringValue(refDn);
 		}
+	} else {
+		data.reference_docname = "";
+		config.docname = cloneValue(cfgDn) || "";
 	}
 
 	return data;

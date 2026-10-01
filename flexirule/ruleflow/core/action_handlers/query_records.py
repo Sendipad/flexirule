@@ -105,17 +105,35 @@ def reconcile_query_doc_action(action: Any) -> Any:
 		else:
 			setattr(action, field, val)
 
+	def _extract_str(val):
+		if val is None:
+			return ""
+		if isinstance(val, str):
+			return val
+		if isinstance(val, dict):
+			if "value" in val and val["value"] is not None:
+				return str(val["value"])
+		return ""
+
 	# 1. Doctype Reconciliation
 	ref_dt = _get_f("reference_doctype")
 	cfg_dt = config_dict.get("doctype_name")
 
 	if _is_pop(ref_dt) and not _is_pop(cfg_dt):
 		config_dict["doctype_name"] = copy.deepcopy(ref_dt)
+		_set_f("reference_doctype", _extract_str(ref_dt))
 	elif not _is_pop(ref_dt) and _is_pop(cfg_dt):
-		_set_f("reference_doctype", copy.deepcopy(cfg_dt))
+		_set_f("reference_doctype", _extract_str(cfg_dt))
 	elif _is_pop(ref_dt) and _is_pop(cfg_dt):
 		if not _is_eq(ref_dt, cfg_dt):
 			config_dict["doctype_name"] = copy.deepcopy(ref_dt)
+			_set_f("reference_doctype", _extract_str(ref_dt))
+		else:
+			_set_f("reference_doctype", _extract_str(ref_dt))
+	else:
+		_set_f("reference_doctype", "")
+		if "doctype_name" in config_dict and not _is_pop(config_dict["doctype_name"]):
+			config_dict["doctype_name"] = ""
 
 	# 2. Docname Reconciliation
 	ref_dn = _get_f("reference_docname")
@@ -123,11 +141,19 @@ def reconcile_query_doc_action(action: Any) -> Any:
 
 	if _is_pop(ref_dn) and not _is_pop(cfg_dn):
 		config_dict["docname"] = copy.deepcopy(ref_dn)
+		_set_f("reference_docname", _extract_str(ref_dn))
 	elif not _is_pop(ref_dn) and _is_pop(cfg_dn):
-		_set_f("reference_docname", copy.deepcopy(cfg_dn))
+		_set_f("reference_docname", _extract_str(cfg_dn))
 	elif _is_pop(ref_dn) and _is_pop(cfg_dn):
 		if not _is_eq(ref_dn, cfg_dn):
 			config_dict["docname"] = copy.deepcopy(ref_dn)
+			_set_f("reference_docname", _extract_str(ref_dn))
+		else:
+			_set_f("reference_docname", _extract_str(ref_dn))
+	else:
+		_set_f("reference_docname", "")
+		if "docname" in config_dict and not _is_pop(config_dict["docname"]):
+			config_dict["docname"] = ""
 
 	if is_config_str:
 		_set_f("config", frappe.as_json(config_dict))

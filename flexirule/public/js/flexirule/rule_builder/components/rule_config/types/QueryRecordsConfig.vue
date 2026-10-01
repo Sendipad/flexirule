@@ -531,7 +531,12 @@ import FlexValueControl from "../../../controls/FlexValueControl.vue";
 import { useNodeConfigPolicy } from "../../../composables/useNodeConfigPolicy";
 import { useUIStore } from "../../../stores/useUIStore";
 import { provideControlContext } from "../../../composables/useControlContext";
-import { cloneValue, isEqualValue, reconcileQueryDocFields } from "../../../utils/queryDocSync";
+import {
+	cloneValue,
+	extractStringValue,
+	isEqualValue,
+	reconcileQueryDocFields,
+} from "../../../utils/queryDocSync";
 
 const props = defineProps({
 	node: Object,
@@ -1151,11 +1156,11 @@ const show_docname_field = computed(() => {
 async function update_doctype_name(val) {
 	config.doctype_name = val;
 
-	// Synchronize exact structure to reference_doctype
-	update_action_field("reference_doctype", cloneValue(val));
+	// Synchronize primitive string to reference_doctype
+	update_action_field("reference_doctype", extractStringValue(val));
 
-	const dt_name = typeof val === "object" ? val?.value : val;
-	if (dt_name && typeof dt_name === "string" && !isVariableSyntax(dt_name)) {
+	const dt_name = extractStringValue(val);
+	if (dt_name && !isVariableSyntax(dt_name)) {
 		const meta = await flexirule.utils.get_doctype_meta(dt_name);
 		is_single_doctype.value = !!meta?.issingle;
 	} else {
@@ -1167,7 +1172,7 @@ async function update_doctype_name(val) {
 function update_config_key(key, value) {
 	config[key] = value;
 	if (key === "docname" && mode.value === "Query Doc") {
-		update_action_field("reference_docname", cloneValue(value));
+		update_action_field("reference_docname", extractStringValue(value));
 	}
 	sync_local_config();
 }

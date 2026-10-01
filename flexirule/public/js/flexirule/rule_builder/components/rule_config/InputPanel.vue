@@ -348,7 +348,7 @@ import {
 	getEffectiveActionPolicy,
 	normalizeActionType,
 } from "../../../core/contracts.js";
-import { cloneValue } from "../../utils/queryDocSync";
+import { cloneValue, extractStringValue } from "../../utils/queryDocSync";
 import ControlFactory from "../../controls/ControlFactory.vue";
 import SubRuleNodeConfig from "../node_configs/SubRuleNodeConfig.vue";
 
@@ -813,8 +813,10 @@ function updateField(fieldname, value) {
 			}
 			if (fieldname === "reference_doctype") {
 				props.node.data.config.doctype_name = cloneValue(value);
+				props.node.data.reference_doctype = extractStringValue(value);
 			} else if (fieldname === "reference_docname") {
 				props.node.data.config.docname = cloneValue(value);
+				props.node.data.reference_docname = extractStringValue(value);
 			}
 		}
 

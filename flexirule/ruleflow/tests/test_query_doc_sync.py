@@ -169,6 +169,8 @@ class TestQueryDocSync(unittest.TestCase):
 		self.assertEqual(action.config.get("doctype_name"), flex_val_dt)
 		self.assertIsInstance(action.config.get("docname"), dict)
 		self.assertEqual(action.config.get("docname"), flex_val_dn)
+		self.assertEqual(action.reference_doctype, "doc.target_doctype")
+		self.assertEqual(action.reference_docname, "doc.target_docname")
 
 	def test_11_query_doc_runtime_behavior_unchanged(self):
 		"""11. Query Doc runtime behavior remains unchanged."""
