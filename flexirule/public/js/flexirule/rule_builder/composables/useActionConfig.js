@@ -1,6 +1,7 @@
 import { reactive, ref, computed, watch, onMounted, provide } from "vue";
 import { useStore } from "../stores";
 import { fromCodeString } from "../utils/serialization";
+import { isEqualValue } from "../utils/queryDocSync";
 
 export function useActionConfig(props, options = {}) {
 	const store = useStore();
@@ -158,7 +159,7 @@ export function useActionConfig(props, options = {}) {
 
 	function update_action_field(fieldname, value) {
 		if (!props.node?.data) return;
-		if (props.node.data[fieldname] === value) return;
+		if (isEqualValue(props.node.data[fieldname], value)) return;
 
 		props.node.data[fieldname] = value;
 

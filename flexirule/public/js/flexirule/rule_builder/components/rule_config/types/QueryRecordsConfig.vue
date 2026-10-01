@@ -531,6 +531,7 @@ import FlexValueControl from "../../../controls/FlexValueControl.vue";
 import { useNodeConfigPolicy } from "../../../composables/useNodeConfigPolicy";
 import { useUIStore } from "../../../stores/useUIStore";
 import { provideControlContext } from "../../../composables/useControlContext";
+import { cloneValue, isEqualValue, reconcileQueryDocFields } from "../../../utils/queryDocSync";
 
 const props = defineProps({
 	node: Object,
@@ -1150,28 +1151,24 @@ const show_docname_field = computed(() => {
 async function update_doctype_name(val) {
 	config.doctype_name = val;
 
-	const is_dynamic =
-		val && typeof val === "object" ? val.mode !== "static" : isVariableSyntax(val);
+	// Synchronize exact structure to reference_doctype
+	update_action_field("reference_doctype", cloneValue(val));
 
-	if (is_dynamic) {
-		update_action_field("reference_doctype", "");
-		is_single_doctype.value = false;
+	const dt_name = typeof val === "object" ? val?.value : val;
+	if (dt_name && typeof dt_name === "string" && !isVariableSyntax(dt_name)) {
+		const meta = await flexirule.utils.get_doctype_meta(dt_name);
+		is_single_doctype.value = !!meta?.issingle;
 	} else {
-		const dt_name = typeof val === "object" ? val.value : val;
-		update_action_field("reference_doctype", dt_name);
-
-		if (dt_name) {
-			const meta = await flexirule.utils.get_doctype_meta(dt_name);
-			is_single_doctype.value = !!meta?.issingle;
-		} else {
-			is_single_doctype.value = false;
-		}
+		is_single_doctype.value = false;
 	}
 	sync_local_config();
 }
 
 function update_config_key(key, value) {
 	config[key] = value;
+	if (key === "docname" && mode.value === "Query Doc") {
+		update_action_field("reference_docname", cloneValue(value));
+	}
 	sync_local_config();
 }
 
@@ -1180,21 +1177,44 @@ function update_action_key(key, value) {
 	props.node.data[key] = value;
 }
 
+// Watchers for two-way live editing from reference fields -> config fields
+watch(
+	() => props.node?.data?.reference_doctype,
+	(newVal) => {
+		if (mode.value === "Query Doc" && !is_internal_update.value) {
+			if (!isEqualValue(config.doctype_name, newVal)) {
+				config.doctype_name = cloneValue(newVal);
+				sync_local_config();
+			}
+		}
+	}
+);
+
+watch(
+	() => props.node?.data?.reference_docname,
+	(newVal) => {
+		if (mode.value === "Query Doc" && !is_internal_update.value) {
+			if (!isEqualValue(config.docname, newVal)) {
+				config.docname = cloneValue(newVal);
+				sync_local_config();
+			}
+		}
+	}
+);
+
 // Watch for operation changes directly to handle Report special case
 watch(
 	() => mode.value,
 	async (newMode, oldMode) => {
 		if (!is_internal_update.value && newMode !== oldMode) {
-			// Clear irrelevant configuration fields when mode changes
-			const keysToKeep = ["doctype_name", "fetch_strategy"];
+			// Clear irrelevant configuration fields when mode changes, preserving reference/doctype/docname keys
+			const keysToKeep = ["doctype_name", "docname", "fetch_strategy"];
 
 			Object.keys(config).forEach((key) => {
 				if (!keysToKeep.includes(key)) {
 					// Specific mode cleanup
 					if (key === "filters") {
 						config.filters = newMode === "Query Report" ? {} : [];
-					} else if (key === "docname" && newMode !== "Query Doc") {
-						delete config[key];
 					} else if (
 						["limit", "limit_type", "order_by", "fields"].includes(key) &&
 						newMode !== "Query List"
@@ -1212,8 +1232,6 @@ watch(
 			if (newMode === "Query List") {
 				config.limit = config.limit || 20;
 				config.limit_type = config.limit_type || "Custom Limit";
-				// Clear reference_docname as it must be hidden/not used in Query List
-				update_action_field("reference_docname", "");
 			}
 		}
 
@@ -1227,6 +1245,18 @@ watch(
 		}
 
 		if (newMode === "Query Doc" && !is_internal_update.value) {
+			if (props.node?.data) {
+				reconcileQueryDocFields(props.node.data);
+				if (props.node.data.config) {
+					if (props.node.data.config.doctype_name !== undefined) {
+						config.doctype_name = props.node.data.config.doctype_name;
+					}
+					if (props.node.data.config.docname !== undefined) {
+						config.docname = props.node.data.config.docname;
+					}
+				}
+			}
+
 			// Initialize filters if empty
 			if (!config.filters || (Array.isArray(config.filters) && config.filters.length === 0)) {
 				const doctype = reference_doctype.value;
@@ -1510,6 +1540,9 @@ function get_field_options() {
 }
 
 function load_local_config(val) {
+	if (props.node?.data && mode.value === "Query Doc") {
+		reconcileQueryDocFields(props.node.data);
+	}
 	const parsed = typeof val === "string" ? fromCodeString(val) : val || {};
 
 	const current_config_str = JSON.stringify(config);

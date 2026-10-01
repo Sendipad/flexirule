@@ -348,6 +348,7 @@ import {
 	getEffectiveActionPolicy,
 	normalizeActionType,
 } from "../../../core/contracts.js";
+import { cloneValue } from "../../utils/queryDocSync";
 import ControlFactory from "../../controls/ControlFactory.vue";
 import SubRuleNodeConfig from "../node_configs/SubRuleNodeConfig.vue";
 
@@ -801,6 +802,21 @@ function updateField(fieldname, value) {
 		}
 
 		props.node.data[fieldname] = value;
+
+		// Synchronize Query Records -> Query Doc config fields
+		if (
+			props.node.data.action_type === "Query Records" &&
+			props.node.data.operation === "Query Doc"
+		) {
+			if (!props.node.data.config || typeof props.node.data.config !== "object") {
+				props.node.data.config = {};
+			}
+			if (fieldname === "reference_doctype") {
+				props.node.data.config.doctype_name = cloneValue(value);
+			} else if (fieldname === "reference_docname") {
+				props.node.data.config.docname = cloneValue(value);
+			}
+		}
 
 		const isDraft = !store.nodes.some((n) => n === props.node);
 		if (!isDraft) store.mark_dirty();

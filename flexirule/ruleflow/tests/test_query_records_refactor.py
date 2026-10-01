@@ -176,7 +176,7 @@ class TestQueryRecordsRefactor(FrappeTestCase):
 		action = frappe._dict(
 			{
 				"operation": "Query Doc",
-				"reference_doctype": "User",  # reference_doctype should be ignored if doctype_name is provided
+				"reference_doctype": "{vars.runtime_doctype}",
 				"config": frappe.as_json(
 					{
 						"fetch_strategy": "Get doc",

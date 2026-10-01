@@ -11,6 +11,7 @@ Modes:
 - Query Report: frappe.desk.query_report.run() — returns report data
 """
 
+import copy
 import json
 from typing import Any
 
@@ -34,6 +35,106 @@ from flexirule.ruleflow.core.action_handlers.base_contract import (
 )
 from flexirule.ruleflow.core.permissions import can_ignore_permissions
 from flexirule.ruleflow.utils.mapping import apply_input_mapping
+
+
+def reconcile_query_doc_action(action: Any) -> Any:
+	"""
+	Reconciles reference_doctype/reference_docname with config.doctype_name/config.docname
+	for Query Records -> Query Doc actions based on deterministic precedence rules:
+
+	1. Rule Action value populated + config empty -> copy Rule Action to config.
+	2. Config populated + Rule Action empty -> copy config to Rule Action.
+	3. Both populated and equal -> leave unchanged.
+	4. Both populated and conflicting -> Rule Action value wins (reference_* -> config.*).
+	5. Both empty -> remain empty.
+	"""
+	if not action:
+		return action
+
+	action_type = getattr(action, "action_type", None) or (
+		action.get("action_type") if isinstance(action, dict) else None
+	)
+	operation = getattr(action, "operation", None) or (
+		action.get("operation") if isinstance(action, dict) else None
+	)
+
+	if action_type != "Query Records" or operation != "Query Doc":
+		return action
+
+	raw_config = getattr(action, "config", None) if not isinstance(action, dict) else action.get("config")
+	is_config_str = isinstance(raw_config, str)
+	if is_config_str:
+		try:
+			config_dict = frappe.parse_json(raw_config) if raw_config else {}
+		except Exception:
+			config_dict = {}
+	elif isinstance(raw_config, dict):
+		config_dict = copy.deepcopy(raw_config)
+	else:
+		config_dict = {}
+
+	def _is_pop(val):
+		if val is None or val == "":
+			return False
+		if isinstance(val, dict):
+			if not val:
+				return False
+			mode = val.get("mode")
+			val_v = val.get("value")
+			if mode in ("static", "expression") and (val_v is None or val_v == ""):
+				return False
+		return True
+
+	def _is_eq(v1, v2):
+		if v1 == v2:
+			return True
+		if not _is_pop(v1) and not _is_pop(v2):
+			return True
+		if isinstance(v1, (dict, list)) or isinstance(v2, (dict, list)):
+			return frappe.as_json(v1) == frappe.as_json(v2)
+		return str(v1 or "").strip() == str(v2 or "").strip()
+
+	def _get_f(field):
+		if isinstance(action, dict):
+			return action.get(field)
+		return getattr(action, field, None)
+
+	def _set_f(field, val):
+		if isinstance(action, dict):
+			action[field] = val
+		else:
+			setattr(action, field, val)
+
+	# 1. Doctype Reconciliation
+	ref_dt = _get_f("reference_doctype")
+	cfg_dt = config_dict.get("doctype_name")
+
+	if _is_pop(ref_dt) and not _is_pop(cfg_dt):
+		config_dict["doctype_name"] = copy.deepcopy(ref_dt)
+	elif not _is_pop(ref_dt) and _is_pop(cfg_dt):
+		_set_f("reference_doctype", copy.deepcopy(cfg_dt))
+	elif _is_pop(ref_dt) and _is_pop(cfg_dt):
+		if not _is_eq(ref_dt, cfg_dt):
+			config_dict["doctype_name"] = copy.deepcopy(ref_dt)
+
+	# 2. Docname Reconciliation
+	ref_dn = _get_f("reference_docname")
+	cfg_dn = config_dict.get("docname")
+
+	if _is_pop(ref_dn) and not _is_pop(cfg_dn):
+		config_dict["docname"] = copy.deepcopy(ref_dn)
+	elif not _is_pop(ref_dn) and _is_pop(cfg_dn):
+		_set_f("reference_docname", copy.deepcopy(cfg_dn))
+	elif _is_pop(ref_dn) and _is_pop(cfg_dn):
+		if not _is_eq(ref_dn, cfg_dn):
+			config_dict["docname"] = copy.deepcopy(ref_dn)
+
+	if is_config_str:
+		_set_f("config", frappe.as_json(config_dict))
+	else:
+		_set_f("config", config_dict)
+
+	return action
 
 
 class QueryRecordsHandler(ActionHandler):
@@ -398,6 +499,8 @@ class QueryRecordsHandler(ActionHandler):
 			errors.extend(self._validate_doctype_field_references(action.reference_doctype, config))
 
 		if mode == "Query Doc":
+			reconcile_query_doc_action(action)
+			config = self._parse_config(action.config)
 			doctype_name = config.get("doctype_name")
 			if (
 				isinstance(doctype_name, str)
@@ -1063,8 +1166,11 @@ class QueryRecordsHandler(ActionHandler):
 
 	def _query_doc(self, reference_doctype, config, context, action, ignore_permissions):
 		"""Fetch a single document and return as dict."""
-		# Prioritize config.doctype_name for newer version, fallback to action.reference_doctype
-		raw_doctype = config.get("doctype_name") or reference_doctype
+		reconcile_query_doc_action(action)
+		config = self._parse_config(getattr(action, "config", None) or (action.get("config") if isinstance(action, dict) else config))
+		reference_doctype = getattr(action, "reference_doctype", None) or (action.get("reference_doctype") if isinstance(action, dict) else reference_doctype)
+
+		raw_doctype = reference_doctype or config.get("doctype_name")
 
 		# Resolve doctype which can be an expression
 		resolved_doctype = self._resolve_value_expression_with_context(

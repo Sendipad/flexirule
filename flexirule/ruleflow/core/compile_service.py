@@ -102,6 +102,12 @@ def _compile_action(action) -> dict[str, Any]:
 		compiled["document_mapper_plan"] = config if isinstance(config, dict) else {}
 
 	if action_type == "Query Records":
+		if action.operation == "Query Doc":
+			from flexirule.ruleflow.core.action_handlers.query_records import reconcile_query_doc_action
+			reconcile_query_doc_action(action)
+			config = _parse_json_value(action.get("config"))
+			compiled["reference_doctype"] = action.reference_doctype
+			compiled["reference_docname"] = action.reference_docname
 		compiled["query_config"] = config if isinstance(config, dict) else {}
 
 	if action_type == "Process" and action.process_name and action.operation:

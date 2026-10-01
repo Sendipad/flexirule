@@ -26,6 +26,7 @@ import { mapActionTypeToNodeType } from "../composables/useActionTypeMapper";
 import { getConditionPayload } from "../utils/condition_payload";
 import { generateShortId } from "../utils/schema_utils.js";
 import { deepClone } from "../utils/serialization.js";
+import { reconcileQueryDocFields } from "../utils/queryDocSync.js";
 
 export const useGraphStore = defineStore("rule-builder-graph", () => {
 	// ── Core graph state ──
@@ -1380,6 +1381,10 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			normalized.value_template = null;
 		}
 
+		if (actionType === "Query Records" && normalized.operation === "Query Doc") {
+			reconcileQueryDocFields(normalized);
+		}
+
 		return normalized;
 	}
 
@@ -1559,6 +1564,10 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 				input_mapping: effectiveConfig.input_mapping || null,
 				output_mapping: effectiveConfig.output_mapping || null,
 			};
+
+			if (actionTypeRaw === "Query Records" && action.operation === "Query Doc") {
+				reconcileQueryDocFields(nodeData);
+			}
 
 			if (isRoot) {
 				nodeData.trigger_type = ruleDoc.trigger_type;

@@ -127,6 +127,7 @@ class Rule(Document):
 		self.compile_conditions()
 		self.compile_action_templates()
 		self.compile_action_mappings()
+		self.normalize_query_doc_actions()
 		self.normalize_trigger_type_fields()
 		self.validate_with_service()
 		self.validate_active_rule_lock()
@@ -180,6 +181,13 @@ class Rule(Document):
 			has_all = any(p.role == "All" for p in self.permissions)
 			if not has_all:
 				self.append("permissions", {"role": "All", "can_execute": 1})
+
+	def normalize_query_doc_actions(self):
+		"""Synchronize Query Records -> Query Doc actions (reference fields ↔ config fields)."""
+		from flexirule.ruleflow.core.action_handlers.query_records import reconcile_query_doc_action
+
+		for action in self.actions or []:
+			reconcile_query_doc_action(action)
 
 	def normalize_trigger_type_fields(self):
 		"""Clear fields hidden by the selected trigger type."""
