@@ -308,19 +308,25 @@
  "index_web_pages_for_search": 1,
  "links": [
   {
+   "group": "Related Rules",
+   "is_child_table": 1,
    "link_doctype": "Rule",
    "link_fieldname": "rule",
+   "parent_doctype": "Rule",
    "table_fieldname": "actions"
   },
   {
+   "group": "Logs & Schedulers",
    "link_doctype": "Rule Execution Log",
    "link_fieldname": "rule"
   },
   {
+   "group": "Tasks",
    "link_doctype": "Data Review Task",
    "link_fieldname": "rule"
   },
   {
+   "group": "Logs & Schedulers",
    "link_doctype": "Rule Scheduler",
    "link_fieldname": "rule"
   }
