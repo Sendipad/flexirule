@@ -1188,7 +1188,12 @@ watch(
 	(newVal) => {
 		if (mode.value === "Query Doc" && !is_internal_update.value) {
 			if (!isEqualValue(config.doctype_name, newVal)) {
-				config.doctype_name = cloneValue(newVal);
+				const strVal = extractStringValue(newVal);
+				if (typeof config.doctype_name === "object" && config.doctype_name !== null) {
+					config.doctype_name.value = strVal;
+				} else {
+					config.doctype_name = cloneValue(newVal);
+				}
 				sync_local_config();
 			}
 		}
@@ -1200,7 +1205,12 @@ watch(
 	(newVal) => {
 		if (mode.value === "Query Doc" && !is_internal_update.value) {
 			if (!isEqualValue(config.docname, newVal)) {
-				config.docname = cloneValue(newVal);
+				const strVal = extractStringValue(newVal);
+				if (typeof config.docname === "object" && config.docname !== null) {
+					config.docname.value = strVal;
+				} else {
+					config.docname = cloneValue(newVal);
+				}
 				sync_local_config();
 			}
 		}

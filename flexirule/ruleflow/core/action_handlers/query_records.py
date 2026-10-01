@@ -90,9 +90,13 @@ def reconcile_query_doc_action(action: Any) -> Any:
 			return True
 		if not _is_pop(v1) and not _is_pop(v2):
 			return True
-		if isinstance(v1, dict | list) or isinstance(v2, dict | list):
-			return frappe.as_json(v1) == frappe.as_json(v2)
-		return str(v1 or "").strip() == str(v2 or "").strip()
+		s1 = _extract_str(v1)
+		s2 = _extract_str(v2)
+		if s1 == s2:
+			if isinstance(v1, dict) and isinstance(v2, dict):
+				return v1.get("mode") == v2.get("mode")
+			return True
+		return False
 
 	def _get_f(field):
 		if isinstance(action, dict):

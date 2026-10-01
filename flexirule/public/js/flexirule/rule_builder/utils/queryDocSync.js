@@ -48,14 +48,20 @@ export function isPopulated(val) {
 export function isEqualValue(val1, val2) {
 	if (val1 === val2) return true;
 	if (!isPopulated(val1) && !isPopulated(val2)) return true;
-	if (typeof val1 === "object" || typeof val2 === "object") {
-		try {
-			return JSON.stringify(val1) === JSON.stringify(val2);
-		} catch (e) {
-			return false;
+	const s1 = extractStringValue(val1);
+	const s2 = extractStringValue(val2);
+	if (s1 === s2) {
+		if (
+			typeof val1 === "object" &&
+			typeof val2 === "object" &&
+			val1 !== null &&
+			val2 !== null
+		) {
+			return val1.mode === val2.mode;
 		}
+		return true;
 	}
-	return String(val1 || "").trim() === String(val2 || "").trim();
+	return false;
 }
 
 /**
