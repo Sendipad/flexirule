@@ -9,7 +9,7 @@ import { computed, ref, watch, onMounted } from "vue";
 import { useStore, useRuleStore } from "../stores";
 import ComboBoxControl from "../controls/ComboBoxControl.vue";
 import ControlFactory from "../controls/ControlFactory.vue";
-import { getTriggerTypeContract } from "../../../core/contracts.js";
+import { getTriggerTypeContract } from "../../core/contracts.js";
 
 const props = defineProps({
 	nodeData: Object,
