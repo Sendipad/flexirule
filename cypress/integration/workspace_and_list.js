@@ -13,12 +13,18 @@ describe("FlexiRule Rule List & Workspace E2E Suite", () => {
 			cy.get(".list-row-container", { timeout: 30000 }).should("be.visible");
 
 			// Verify dedicated first-column button exists in row
-			cy.get('.list-row-container .list-row').first().within(() => {
-				cy.get('button[title*="Open Rule Builder"]').should("exist");
-			});
+			cy.get(".list-row-container .list-row")
+				.first()
+				.within(() => {
+					cy.get('button[title*="Open Rule Builder"]').should("exist");
+				});
 
 			// Click Builder action button and verify navigation to Rule Builder route
-			cy.get('.list-row-container .list-row').first().find('button[title*="Open Rule Builder"]').first().click({ force: true });
+			cy.get(".list-row-container .list-row")
+				.first()
+				.find('button[title*="Open Rule Builder"]')
+				.first()
+				.click({ force: true });
 			cy.url({ timeout: 15000 }).should("include", "/app/rule-builder/");
 		});
 	});

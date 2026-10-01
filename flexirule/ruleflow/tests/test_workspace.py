@@ -1,4 +1,5 @@
 import unittest
+
 import frappe
 
 
@@ -47,14 +48,16 @@ class TestRuleFlowWorkspace(unittest.TestCase):
 
 		# Create a sample rule so Group By chart has data
 		rule_name = f"Test_Chart_Rule_{frappe.generate_hash(length=6)}"
-		rule = frappe.get_doc({
-			"doctype": "Rule",
-			"rule_name": rule_name,
-			"document_type": "Test Contact",
-			"trigger_type": "DocType Event",
-			"trigger_event": "Before Save",
-			"is_active": 1,
-		}).insert(ignore_permissions=True)
+		rule = frappe.get_doc(
+			{
+				"doctype": "Rule",
+				"rule_name": rule_name,
+				"document_type": "Test Contact",
+				"trigger_type": "DocType Event",
+				"trigger_event": "Before Save",
+				"is_active": 1,
+			}
+		).insert(ignore_permissions=True)
 
 		try:
 			chart_config = get(chart_name="Rule Distribution by Trigger Type")
