@@ -90,7 +90,7 @@ def reconcile_query_doc_action(action: Any) -> Any:
 			return True
 		if not _is_pop(v1) and not _is_pop(v2):
 			return True
-		if isinstance(v1, (dict, list)) or isinstance(v2, (dict, list)):
+		if isinstance(v1, dict | list) or isinstance(v2, dict | list):
 			return frappe.as_json(v1) == frappe.as_json(v2)
 		return str(v1 or "").strip() == str(v2 or "").strip()
 
@@ -1167,8 +1167,12 @@ class QueryRecordsHandler(ActionHandler):
 	def _query_doc(self, reference_doctype, config, context, action, ignore_permissions):
 		"""Fetch a single document and return as dict."""
 		reconcile_query_doc_action(action)
-		config = self._parse_config(getattr(action, "config", None) or (action.get("config") if isinstance(action, dict) else config))
-		reference_doctype = getattr(action, "reference_doctype", None) or (action.get("reference_doctype") if isinstance(action, dict) else reference_doctype)
+		config = self._parse_config(
+			getattr(action, "config", None) or (action.get("config") if isinstance(action, dict) else config)
+		)
+		reference_doctype = getattr(action, "reference_doctype", None) or (
+			action.get("reference_doctype") if isinstance(action, dict) else reference_doctype
+		)
 
 		raw_doctype = reference_doctype or config.get("doctype_name")
 

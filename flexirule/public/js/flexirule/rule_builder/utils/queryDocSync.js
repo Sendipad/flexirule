@@ -18,10 +18,16 @@ export function isPopulated(val) {
 	if (val === null || val === undefined || val === "") return false;
 	if (typeof val === "object") {
 		if (Object.keys(val).length === 0) return false;
-		if (val.mode === "static" && (val.value === null || val.value === undefined || val.value === "")) {
+		if (
+			val.mode === "static" &&
+			(val.value === null || val.value === undefined || val.value === "")
+		) {
 			return false;
 		}
-		if (val.mode === "expression" && (val.value === null || val.value === undefined || val.value === "")) {
+		if (
+			val.mode === "expression" &&
+			(val.value === null || val.value === undefined || val.value === "")
+		) {
 			return false;
 		}
 	}

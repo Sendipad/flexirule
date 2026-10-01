@@ -104,6 +104,7 @@ def _compile_action(action) -> dict[str, Any]:
 	if action_type == "Query Records":
 		if action.operation == "Query Doc":
 			from flexirule.ruleflow.core.action_handlers.query_records import reconcile_query_doc_action
+
 			reconcile_query_doc_action(action)
 			config = _parse_json_value(action.get("config"))
 			compiled["reference_doctype"] = action.reference_doctype
