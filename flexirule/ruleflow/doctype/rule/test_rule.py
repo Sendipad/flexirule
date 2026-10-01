@@ -324,7 +324,9 @@ class TestRule(FrappeTestCase):
 
 		# Verify fieldname and transactions structure
 		self.assertEqual(dashboard_data.get("fieldname"), "rule")
-		transaction_groups = {group["label"]: group["items"] for group in dashboard_data.get("transactions", [])}
+		transaction_groups = {
+			group["label"]: group["items"] for group in dashboard_data.get("transactions", [])
+		}
 		self.assertIn("Rule Execution Log", transaction_groups.get("Logs & Schedulers", []))
 		self.assertIn("Rule Scheduler", transaction_groups.get("Logs & Schedulers", []))
 		self.assertIn("Data Review Task", transaction_groups.get("Tasks", []))
@@ -332,29 +334,43 @@ class TestRule(FrappeTestCase):
 
 		# Create target sub-rule
 		subrule_name = f"Test Sub Rule {frappe.generate_hash(length=6)}"
-		subrule = frappe.get_doc({
-			"doctype": "Rule",
-			"rule_name": subrule_name,
-			"trigger_type": "Callable Event",
-			"exposed_as_subrule": 1,
-			"priority": "0",
-			"actions": [{"action_id": "root", "action_label": "Start", "action_type": "Entry Action"}],
-		})
+		subrule = frappe.get_doc(
+			{
+				"doctype": "Rule",
+				"rule_name": subrule_name,
+				"trigger_type": "Callable Event",
+				"exposed_as_subrule": 1,
+				"priority": "0",
+				"actions": [{"action_id": "root", "action_label": "Start", "action_type": "Entry Action"}],
+			}
+		)
 		self._insert_with_retry(subrule)
 
 		# Create parent caller rule referencing subrule
 		caller_name = f"Test Parent Caller {frappe.generate_hash(length=6)}"
-		caller_rule = frappe.get_doc({
-			"doctype": "Rule",
-			"rule_name": caller_name,
-			"document_type": "User",
-			"trigger_type": "DocType Event",
-			"trigger_event": "Before Save",
-			"actions": [
-				{"action_id": "root", "action_label": "Start", "action_type": "Entry Action", "next_step_if_true": "sub_1"},
-				{"action_id": "sub_1", "action_label": "Call Sub", "action_type": "Sub-Rule", "rule": subrule.name},
-			],
-		})
+		caller_rule = frappe.get_doc(
+			{
+				"doctype": "Rule",
+				"rule_name": caller_name,
+				"document_type": "User",
+				"trigger_type": "DocType Event",
+				"trigger_event": "Before Save",
+				"actions": [
+					{
+						"action_id": "root",
+						"action_label": "Start",
+						"action_type": "Entry Action",
+						"next_step_if_true": "sub_1",
+					},
+					{
+						"action_id": "sub_1",
+						"action_label": "Call Sub",
+						"action_type": "Sub-Rule",
+						"rule": subrule.name,
+					},
+				],
+			}
+		)
 		self._insert_with_retry(caller_rule)
 
 		# Call get_open_count for subrule
