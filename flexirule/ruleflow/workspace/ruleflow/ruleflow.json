@@ -1,0 +1,171 @@
+{
+ "charts": [
+  {
+   "chart_name": "Rule Distribution by Trigger Type"
+  },
+  {
+   "chart_name": "Rule Execution Activity"
+  }
+ ],
+ "content": "[{\"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>RuleFlow Overview</b></span>\", \"col\": 12}}, {\"type\": \"number_card\", \"data\": {\"number_card_name\": \"Total Rules\", \"col\": 4}}, {\"type\": \"number_card\", \"data\": {\"number_card_name\": \"Active Rules\", \"col\": 4}}, {\"type\": \"number_card\", \"data\": {\"number_card_name\": \"Inactive Rules\", \"col\": 4}}, {\"type\": \"number_card\", \"data\": {\"number_card_name\": \"Recently Modified Rules\", \"col\": 4}}, {\"type\": \"number_card\", \"data\": {\"number_card_name\": \"Total Executions\", \"col\": 4}}, {\"type\": \"number_card\", \"data\": {\"number_card_name\": \"Successful Executions\", \"col\": 4}}, {\"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Analytics & Visualizations</b></span>\", \"col\": 12}}, {\"type\": \"chart\", \"data\": {\"chart_name\": \"Rule Distribution by Trigger Type\", \"col\": 6}}, {\"type\": \"chart\", \"data\": {\"chart_name\": \"Rule Execution Activity\", \"col\": 6}}, {\"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Quick Actions & Navigation</b></span>\", \"col\": 12}}, {\"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"New Rule\", \"col\": 3}}, {\"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Rule List\", \"col\": 3}}, {\"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Rule Builder\", \"col\": 3}}, {\"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Execution Logs\", \"col\": 3}}, {\"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Documents & Configuration</b></span>\", \"col\": 12}}, {\"type\": \"card\", \"data\": {\"card_name\": \"Rule Management\", \"col\": 6}}, {\"type\": \"card\", \"data\": {\"card_name\": \"Configuration & Masters\", \"col\": 6}}]",
+ "creation": "2026-10-01 20:10:33.268670",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "hide_custom": 0,
+ "icon": "workflow",
+ "idx": 0,
+ "indicator_color": "green",
+ "is_hidden": 0,
+ "label": "RuleFlow",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Rule Management",
+   "link_count": 3,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Rules",
+   "link_count": 0,
+   "link_to": "Rule",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Rule Execution Logs",
+   "link_count": 0,
+   "link_to": "Rule Execution Log",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Rule Schedulers",
+   "link_count": 0,
+   "link_to": "Rule Scheduler",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Configuration & Masters",
+   "link_count": 4,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Action Types",
+   "link_count": 0,
+   "link_to": "Action Type",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Processes",
+   "link_count": 0,
+   "link_to": "Process",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Rule Permissions",
+   "link_count": 0,
+   "link_to": "Rule Permission",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Ruleflow Settings",
+   "link_count": 0,
+   "link_to": "RuleFlow Settings",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-10-01 20:10:33.268670",
+ "modified_by": "Administrator",
+ "module": "Ruleflow",
+ "name": "RuleFlow",
+ "number_cards": [
+  {
+   "number_card_name": "Total Rules"
+  },
+  {
+   "number_card_name": "Active Rules"
+  },
+  {
+   "number_card_name": "Inactive Rules"
+  },
+  {
+   "number_card_name": "Recently Modified Rules"
+  },
+  {
+   "number_card_name": "Total Executions"
+  },
+  {
+   "number_card_name": "Successful Executions"
+  }
+ ],
+ "owner": "Administrator",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [],
+ "sequence_id": 0.0,
+ "shortcuts": [
+  {
+   "color": "Green",
+   "doc_view": "New",
+   "label": "New Rule",
+   "link_to": "Rule",
+   "type": "DocType"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "List",
+   "label": "Rule List",
+   "link_to": "Rule",
+   "type": "DocType"
+  },
+  {
+   "color": "Purple",
+   "doc_view": "",
+   "label": "Rule Builder",
+   "link_to": "rule-builder",
+   "type": "Page"
+  },
+  {
+   "color": "Orange",
+   "doc_view": "List",
+   "label": "Execution Logs",
+   "link_to": "Rule Execution Log",
+   "type": "DocType"
+  }
+ ],
+ "title": "RuleFlow"
+}

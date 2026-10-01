@@ -1,0 +1,22 @@
+{
+ "creation": "2026-10-01 20:09:30.132226",
+ "docstatus": 0,
+ "doctype": "Number Card",
+ "document_type": "Rule",
+ "filters_json": "[[\"Rule\", \"is_active\", \"=\", 1]]",
+ "function": "Count",
+ "idx": 0,
+ "is_public": 1,
+ "is_standard": 1,
+ "label": "Active Rules",
+ "modified": "2026-10-01 20:09:30.132226",
+ "modified_by": "Administrator",
+ "module": "Ruleflow",
+ "name": "Active Rules",
+ "owner": "Administrator",
+ "report_function": "Sum",
+ "show_full_number": 0,
+ "show_percentage_stats": 1,
+ "stats_time_interval": "Daily",
+ "type": "Document Type"
+}

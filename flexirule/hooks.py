@@ -44,6 +44,9 @@ doctype_js = {"Rule": "ruleflow/doctype/rule/rule.js"}
 fixtures: list = [
 	{"dt": "Rule", "filters": {"module": ["is", "set"]}},
 	{"dt": "Rule Scheduler", "filters": {"module": ["is", "set"]}},
+	{"dt": "Workspace", "filters": {"module": ["=", "Ruleflow"]}},
+	{"dt": "Number Card", "filters": {"module": ["=", "Ruleflow"]}},
+	{"dt": "Dashboard Chart", "filters": {"module": ["=", "Ruleflow"]}},
 ]
 
 flexirule_excluded_doctypes = [

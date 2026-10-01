@@ -1,46 +1,64 @@
 frappe.listview_settings["Rule"] = {
-	add_fields: ["is_active", "document_type", "trigger_event", "rule_type"],
+	add_fields: [
+		"is_active",
+		"status",
+		"trigger_type",
+		"document_type",
+		"trigger_event",
+		"version",
+		"priority",
+		"modified",
+		"modified_by",
+	],
 
-	get_indicator: function (doc) {
-		// Active + Manual
-		if (doc.is_active && doc.trigger_type === "Callable Event") {
-			return [__("Active (Manual)"), "green", "is_active,=,1"];
-		}
-
-		// Active + Non-manual → BLUE
-		if (doc.is_active && doc.trigger_type !== "Callable Event") {
-			return [__(doc.trigger_event), "blue", "is_active,=,1"];
-		}
-
-		// Inactive
-		return [__("Inactive"), "gray", "is_active,=,0"];
-	},
-
-	formatters: {
-		rule_name: function (value, field, doc) {
-			// Add builder icon before rule name
-			return `
-                <span class="rule-name-cell">
-                    <a class="builder-icon"
-                       href="/app/rule-builder/${doc.name}"
-                       title="${__("Open in Rule Builder")}"
-                       onclick="event.stopPropagation();">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="5" cy="20" r="1.5" fill="currentColor" stroke="none"/>
-                            <path d="M5 18 V 9 A 3.5 3.5 0 0 1 12 9 V 15 A 3.5 3.5 0 0 0 19 15 V 4" />
-                            <path d="M16 7 L 19 4 L 22 7" />
-                        </svg>
-                    </a>
-                    ${value}
-                </span>
-            `;
+	// Dedicated first column button for opening Rule Builder
+	button: {
+		show(doc) {
+			return doc.name;
+		},
+		get_label() {
+			return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+				<circle cx="5" cy="20" r="1.5" fill="currentColor" stroke="none"/>
+				<path d="M5 18 V 9 A 3.5 3.5 0 0 1 12 9 V 15 A 3.5 3.5 0 0 0 19 15 V 4" />
+				<path d="M16 7 L 19 4 L 22 7" />
+			</svg>`;
+		},
+		get_description(doc) {
+			return __("Open Rule Builder for {0}", [doc.rule_name || doc.name]);
+		},
+		action(doc) {
+			frappe.set_route("rule-builder", doc.name);
 		},
 	},
 
+	// Contract-driven status indicators
+	get_indicator: function (doc) {
+		const is_active = Boolean(doc.is_active) || doc.status === "Active";
+		if (is_active) {
+			return [__(doc.status || "Active"), "green", "is_active,=,1"];
+		}
+		if (doc.status === "Disabled") {
+			return [__("Disabled"), "gray", "status,=,Disabled"];
+		}
+		if (doc.status === "Archived") {
+			return [__("Archived"), "red", "status,=,Archived"];
+		}
+		if (doc.status === "Invalid" || doc.status === "Error") {
+			return [__(doc.status), "orange", "status,=," + doc.status];
+		}
+		return [__(doc.status || "Draft"), "blue", "status,=,Draft"];
+	},
+
 	onload: function (listview) {
-		// Add "New with Builder" button
+		// Ensure contracts are loaded for backend metadata resolution
+		if (flexirule && flexirule.contracts && flexirule.contracts.loadContractsFromBackend) {
+			flexirule.contracts.loadContractsFromBackend().catch((e) => {
+				console.warn("FlexiRule contracts deferred load:", e);
+			});
+		}
+
+		// Add "Create with Builder" inner action
 		listview.page.add_inner_button(__("Create with Builder"), function () {
-			// Create new rule and open builder
 			frappe.prompt(
 				[
 					{
@@ -90,34 +108,5 @@ frappe.listview_settings["Rule"] = {
 				__("Open Builder")
 			);
 		});
-
-		// Add custom CSS
-		if (!document.getElementById("rule-list-styles")) {
-			const style = document.createElement("style");
-			style.id = "rule-list-styles";
-			style.textContent = `
-                .rule-name-cell {
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                }
-                .builder-icon {
-                    display: inline-flex;
-                    align-items: center;
-                    justify-content: center;
-                    width: 24px;
-                    height: 24px;
-                    border-radius: 4px;
-                    background: var(--bg-light-gray);
-                    color: var(--text-muted);
-                    transition: all 0.2s;
-                }
-                .builder-icon:hover {
-                    background: var(--primary);
-                    color: white;
-                }
-            `;
-			document.head.appendChild(style);
-		}
 	},
 };
