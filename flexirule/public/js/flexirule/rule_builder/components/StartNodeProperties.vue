@@ -472,7 +472,10 @@ onMounted(async () => {
 						</button>
 					</div>
 				</div>
-				<div v-if="!permissions.length" class="text-muted small py-2 text-center empty-perm-msg">
+				<div
+					v-if="!permissions.length"
+					class="text-muted small py-2 text-center empty-perm-msg"
+				>
 					{{ __("No permissions configured.") }}
 				</div>
 			</div>
