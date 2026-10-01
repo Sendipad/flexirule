@@ -17,16 +17,19 @@ from typing import Any
 # Defines which fields are required, optional, or hidden for each trigger_type.
 TRIGGER_TYPE_CONTRACT = {
 	"DocType Event": {
+		"description": "Runs the rule automatically when events (such as Before Save, After Save, On Submission) occur on the selected DocType.",
 		"required_fields": ["document_type", "trigger_event"],
 		"optional_fields": ["trigger_condition", "compiled_expression"],
 		"hidden_fields": [],
 	},
 	"Scheduler Event": {
+		"description": "Runs the rule automatically on a scheduled time interval or recurring schedule.",
 		"required_fields": [],
 		"optional_fields": ["document_type"],
 		"hidden_fields": ["trigger_event", "trigger_condition", "compiled_expression"],
 	},
 	"Callable Event": {
+		"description": "Runs the rule when explicitly invoked by another rule, process, or custom code.",
 		"required_fields": [],
 		"optional_fields": ["document_type", "trigger_condition", "compiled_expression"],
 		"hidden_fields": ["trigger_event"],
