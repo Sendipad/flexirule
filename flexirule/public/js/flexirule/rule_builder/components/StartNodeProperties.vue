@@ -6,9 +6,10 @@
 -->
 <script setup>
 import { computed, ref, watch, onMounted } from "vue";
-import { useStore } from "../stores";
+import { useStore, useRuleStore } from "../stores";
 import ComboBoxControl from "../controls/ComboBoxControl.vue";
 import ControlFactory from "../controls/ControlFactory.vue";
+import { getTriggerTypeContract } from "../../../core/contracts.js";
 
 const props = defineProps({
 	nodeData: Object,
@@ -19,11 +20,27 @@ const props = defineProps({
 const emit = defineEmits(["update:field", "open:conditions"]);
 
 const store = useStore();
+const ruleStore = useRuleStore();
+
+// Rule name source of truth
+const rule_name = computed(() => {
+	return (
+		ruleStore.rule_doc?.rule_name ||
+		ruleStore.rule_doc?.name ||
+		ruleStore.rule_name ||
+		props.nodeData?.rule_name ||
+		""
+	);
+});
 
 // Trigger event options from store
 const trigger_event_options = computed(() => store.trigger_event_options || []);
 const trigger_type_options = computed(() => store.trigger_type_options || []);
 const priority_options = Array.from({ length: 21 }, (_, i) => String(i));
+
+// Dynamic Trigger Type Description
+const trigger_type_contract = computed(() => getTriggerTypeContract(props.nodeData?.trigger_type));
+const trigger_type_description = computed(() => trigger_type_contract.value?.description || "");
 
 const skip_roles = ref([]);
 const permissions = ref([]);
@@ -204,7 +221,7 @@ onMounted(async () => {
 		<!-- Rule Info -->
 		<div class="form-group">
 			<label class="control-label">{{ __("Rule Name") }}</label>
-			<input class="form-control" type="text" disabled :value="nodeData?.rule_name" />
+			<input class="form-control" type="text" disabled :value="rule_name" />
 		</div>
 
 		<!-- Trigger Type -->
@@ -220,6 +237,9 @@ onMounted(async () => {
 					{{ __(opt) }}
 				</option>
 			</select>
+			<div v-if="trigger_type_description" class="description text-muted mt-1">
+				{{ __(trigger_type_description) }}
+			</div>
 		</div>
 
 		<!-- Document Type -->
@@ -282,12 +302,22 @@ onMounted(async () => {
 			</button>
 
 			<div v-if="has_conditions" class="mt-2 text-success small">
-				<i class="fa fa-check-circle"></i>
-				{{ __("Entry Gate Configured") }}
+				<div class="fw-semibold">
+					<i class="fa fa-check-circle"></i>
+					{{ __("RuleFlow Conditional Execution") }}
+				</div>
+				<div class="text-muted mt-0.5">
+					{{ __("The RuleFlow runs only when the entry condition is satisfied.") }}
+				</div>
 			</div>
 			<div v-else class="mt-2 text-muted small">
-				<i class="fa fa-info-circle"></i>
-				{{ __("Entry Gate: None (Always Runs)") }}
+				<div class="fw-semibold">
+					<i class="fa fa-check-circle"></i>
+					{{ __("RuleFlow Always Executes") }}
+				</div>
+				<div class="text-muted mt-0.5">
+					{{ __("No entry condition is configured.") }}
+				</div>
 			</div>
 		</div>
 
@@ -400,21 +430,29 @@ onMounted(async () => {
 
 		<!-- Rule Permissions -->
 		<div class="form-group">
-			<div class="section-header">
-				<label class="control-label">{{ __("Rule Permissions") }}</label>
-				<button v-if="!readOnly" class="btn btn-xs btn-link" @click="add_permission_row">
-					<i class="fa fa-plus"></i> {{ __("Add") }}
+			<div class="section-header mb-2">
+				<label class="control-label mb-0">{{ __("Rule Permissions") }}</label>
+				<button v-if="!readOnly" class="btn btn-xs btn-default" @click="add_permission_row">
+					<i class="fa fa-plus"></i> {{ __("Add Permission") }}
 				</button>
 			</div>
 			<div class="perm-table" v-if="permission_fields.length">
 				<div class="perm-row perm-header">
-					<span v-for="df in permission_fields" :key="df.fieldname">
+					<div
+						v-for="df in permission_fields"
+						:key="df.fieldname"
+						:class="['perm-col-header', `col-${df.fieldname}`]"
+					>
 						{{ __(df.label || df.fieldname) }}
-					</span>
-					<span></span>
+					</div>
+					<div class="perm-col-header col-action"></div>
 				</div>
-				<div v-for="(row, idx) in permissions" :key="idx" class="perm-row">
-					<div v-for="df in permission_fields" :key="df.fieldname">
+				<div v-for="(row, idx) in permissions" :key="idx" class="perm-row perm-body-row">
+					<div
+						v-for="df in permission_fields"
+						:key="df.fieldname"
+						:class="['perm-cell', `col-${df.fieldname}`]"
+					>
 						<ControlFactory
 							:df="{ ...df, read_only: readOnly }"
 							:modelValue="row[df.fieldname]"
@@ -423,15 +461,18 @@ onMounted(async () => {
 							@update:modelValue="(val) => update_permission(idx, df.fieldname, val)"
 						/>
 					</div>
-					<button
-						v-if="!readOnly"
-						class="btn btn-xs btn-link text-danger"
-						@click="remove_permission_row(idx)"
-					>
-						<i class="fa fa-trash"></i>
-					</button>
+					<div class="perm-cell col-action">
+						<button
+							v-if="!readOnly"
+							class="btn btn-xs btn-ghost text-danger delete-perm-btn"
+							:title="__('Delete Permission')"
+							@click="remove_permission_row(idx)"
+						>
+							<i class="fa fa-trash"></i>
+						</button>
+					</div>
 				</div>
-				<div v-if="!permissions.length" class="text-muted small">
+				<div v-if="!permissions.length" class="text-muted small py-2 text-center empty-perm-msg">
 					{{ __("No permissions configured.") }}
 				</div>
 			</div>
@@ -534,18 +575,71 @@ onMounted(async () => {
 	display: flex;
 	flex-direction: column;
 	gap: 6px;
+	border: 1px solid var(--fxr-border-subtle, var(--border-color));
+	border-radius: 6px;
+	padding: 8px;
+	background-color: var(--fxr-surface-2, #fafafa);
 }
 
 .perm-row {
 	display: grid;
-	grid-template-columns: 1.6fr 0.7fr auto;
-	gap: 6px;
+	grid-template-columns: minmax(180px, 1fr) 120px 36px;
+	gap: 12px;
 	align-items: center;
 }
 
 .perm-header {
+	padding-bottom: 4px;
+	border-bottom: 1px solid var(--fxr-border-subtle, var(--border-color));
+}
+
+.perm-col-header {
 	font-size: 11px;
 	font-weight: 600;
 	color: var(--text-muted);
+	padding: 0 4px;
+}
+
+.perm-col-header.col-can_execute {
+	text-align: center;
+}
+
+.perm-body-row {
+	background: var(--fxr-surface, #ffffff);
+	border: 1px solid var(--fxr-border-subtle, var(--border-color));
+	border-radius: 4px;
+	padding: 6px 8px;
+}
+
+.perm-cell {
+	display: flex;
+	align-items: center;
+	min-height: 32px;
+}
+
+.perm-cell.col-can_execute {
+	justify-content: center;
+}
+
+.perm-cell.col-action {
+	justify-content: center;
+}
+
+.btn-ghost {
+	background: transparent;
+	border: none;
+	padding: 4px 8px;
+	border-radius: 4px;
+	cursor: pointer;
+}
+
+.btn-ghost:hover {
+	background: var(--fxr-danger-soft, #fee2e2);
+}
+
+.empty-perm-msg {
+	background: var(--fxr-surface, #ffffff);
+	border-radius: 4px;
+	border: 1px dashed var(--fxr-border-subtle, var(--border-color));
 }
 </style>
