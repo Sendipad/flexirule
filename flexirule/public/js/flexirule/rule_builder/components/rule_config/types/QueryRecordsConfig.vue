@@ -1037,13 +1037,6 @@ const SYSTEM_FIELDS = [
 	{ fieldname: "docstatus", label: __("Document Status (docstatus)"), fieldtype: "Int" },
 ];
 
-function isVariableSyntax(val) {
-	return (
-		typeof val === "string" &&
-		(val.startsWith("@") || val.startsWith("doc.") || val.startsWith("vars."))
-	);
-}
-
 /**
  * Local metadata-based schema detection.
  * Provides instant feedback for Query List and Query Doc modes.
