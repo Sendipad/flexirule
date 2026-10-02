@@ -807,6 +807,22 @@ export function applyOutputPolicyDefaults(nodeData, opts = {}) {
 	return changed;
 }
 
+function hasConfigDoctypeName(nodeData) {
+	if (!nodeData?.config) return false;
+	let cfg = nodeData.config;
+	if (typeof cfg === "string") {
+		cfg = parseJsonSafe(cfg, {});
+	}
+	if (typeof cfg === "object" && cfg !== null && cfg.doctype_name) {
+		const dt = cfg.doctype_name;
+		if (typeof dt === "object") {
+			return Boolean(dt.value || dt.mode || dt.kind || dt.family);
+		}
+		return Boolean(dt);
+	}
+	return false;
+}
+
 /**
  * Validate node data against contract.
  * @param {Object} nodeData - The node's data object
@@ -833,6 +849,13 @@ export function validateAgainstContract(nodeData) {
 	for (const field of contract.required_fields || []) {
 		const value = nodeData[field];
 		if (value === undefined || value === null || value === "") {
+			if (
+				field === "reference_doctype" &&
+				actionType === "Query Records" &&
+				hasConfigDoctypeName(nodeData)
+			) {
+				continue;
+			}
 			errors.push(__("Field '{0}' is required for {1}", [field, actionType]));
 		}
 	}
@@ -973,6 +996,13 @@ export function getNodeStatus(nodeData) {
 	// Check if basic required fields are set
 	const requiredFields = contract.required_fields || [];
 	const hasRequiredFields = requiredFields.every((f) => {
+		if (
+			f === "reference_doctype" &&
+			actionType === "Query Records" &&
+			hasConfigDoctypeName(nodeData)
+		) {
+			return true;
+		}
 		const val = nodeData[f];
 		return val !== undefined && val !== null && val !== "";
 	});
