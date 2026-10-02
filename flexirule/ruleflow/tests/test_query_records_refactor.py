@@ -226,3 +226,161 @@ class TestQueryRecordsRefactor(FrappeTestCase):
 			frappe.ValidationError, "Cannot execute Query Doc on a single, virtual DocType"
 		):
 			validate_graph_integrity(rule_doc)
+
+	def test_query_doc_concrete_normal_target(self):
+		todo = frappe.get_doc(
+			{
+				"doctype": "ToDo",
+				"description": "Concrete Normal Target Test " + random_string(5),
+			}
+		).insert(ignore_permissions=True)
+
+		action = frappe._dict(
+			{
+				"operation": "Query Doc",
+				"reference_doctype": "ToDo",
+				"reference_docname": todo.name,
+				"config": frappe.as_json(
+					{
+						"fetch_strategy": "Get doc",
+						"doctype_name": "ToDo",
+						"docname": todo.name,
+					}
+				),
+			}
+		)
+
+		result, _ = self.handler.execute(action, {}, None)
+		self.assertIsNotNone(result)
+		self.assertEqual(result.get("name"), todo.name)
+
+	def test_query_doc_concrete_single_target_test(self):
+		action = frappe._dict(
+			{
+				"operation": "Query Doc",
+				"reference_doctype": "System Settings",
+				"reference_docname": "",
+				"config": frappe.as_json(
+					{
+						"fetch_strategy": "Get Single DocType",
+						"doctype_name": "System Settings",
+					}
+				),
+			}
+		)
+
+		result, _ = self.handler.execute(action, {}, None)
+		self.assertIsNotNone(result)
+		self.assertEqual(result.get("doctype"), "System Settings")
+
+	def test_query_doc_dynamic_target_and_docname(self):
+		todo = frappe.get_doc(
+			{
+				"doctype": "ToDo",
+				"description": "Dynamic Both Test " + random_string(5),
+			}
+		).insert(ignore_permissions=True)
+
+		context = {"vars": {"target_dt": "ToDo", "target_id": todo.name}}
+		action = frappe._dict(
+			{
+				"operation": "Query Doc",
+				"reference_doctype": "",
+				"reference_docname": "",
+				"config": frappe.as_json(
+					{
+						"fetch_strategy": "Get doc",
+						"doctype_name": "{vars.target_dt}",
+						"docname": "{vars.target_id}",
+					}
+				),
+			}
+		)
+
+		result, _ = self.handler.execute(action, context, None)
+		self.assertIsNotNone(result)
+		self.assertEqual(result.get("name"), todo.name)
+
+	def test_query_doc_concrete_doctype_dynamic_docname(self):
+		todo = frappe.get_doc(
+			{
+				"doctype": "ToDo",
+				"description": "Concrete DT Dynamic Docname Test " + random_string(5),
+			}
+		).insert(ignore_permissions=True)
+
+		context = {"vars": {"target_id": todo.name}}
+		action = frappe._dict(
+			{
+				"operation": "Query Doc",
+				"reference_doctype": "ToDo",
+				"reference_docname": "",
+				"config": frappe.as_json(
+					{
+						"fetch_strategy": "Get doc",
+						"doctype_name": "ToDo",
+						"docname": "{vars.target_id}",
+					}
+				),
+			}
+		)
+
+		result, _ = self.handler.execute(action, context, None)
+		self.assertIsNotNone(result)
+		self.assertEqual(result.get("name"), todo.name)
+
+	def test_query_doc_dynamic_doctype_concrete_docname(self):
+		todo = frappe.get_doc(
+			{
+				"doctype": "ToDo",
+				"description": "Dynamic DT Concrete Docname Test " + random_string(5),
+			}
+		).insert(ignore_permissions=True)
+
+		context = {"vars": {"target_dt": "ToDo"}}
+		action = frappe._dict(
+			{
+				"operation": "Query Doc",
+				"reference_doctype": "",
+				"reference_docname": todo.name,
+				"config": frappe.as_json(
+					{
+						"fetch_strategy": "Get doc",
+						"doctype_name": "{vars.target_dt}",
+						"docname": todo.name,
+					}
+				),
+			}
+		)
+
+		result, _ = self.handler.execute(action, context, None)
+		self.assertIsNotNone(result)
+		self.assertEqual(result.get("name"), todo.name)
+
+	def test_query_doc_resolver_object_config(self):
+		todo = frappe.get_doc(
+			{
+				"doctype": "ToDo",
+				"description": "Resolver Object Test " + random_string(5),
+			}
+		).insert(ignore_permissions=True)
+
+		context = {"vars": {"target_id": todo.name}}
+		action = frappe._dict(
+			{
+				"operation": "Query Doc",
+				"reference_doctype": "ToDo",
+				"reference_docname": "",
+				"config": frappe.as_json(
+					{
+						"fetch_strategy": "Get doc",
+						"doctype_name": "ToDo",
+						"docname": {"mode": "variable", "value": "vars.target_id"},
+					}
+				),
+			}
+		)
+
+		result, _ = self.handler.execute(action, context, None)
+		self.assertIsNotNone(result)
+		self.assertEqual(result.get("name"), todo.name)

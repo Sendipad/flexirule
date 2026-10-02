@@ -329,6 +329,9 @@ class QueryRecordsHandler(ActionHandler):
 			frappe.throw(_("Operation/Mode is required for Query Records action"))
 
 		if not reference_doctype:
+			reference_doctype = config.get("doctype_name")
+
+		if not reference_doctype:
 			frappe.throw(_("Reference DocType is required for Query Records action"))
 
 		# Apply input mapping (Context -> Config)

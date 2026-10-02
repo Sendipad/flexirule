@@ -207,13 +207,8 @@
 									fieldname: 'fetch_strategy',
 									fieldtype: 'Select',
 									label: __('Fetch Strategy'),
-									options: [
-										'Get Doc from Cache',
-										'Get doc',
-										'Get Single DocType',
-										'Get latest Doc',
-									],
-									read_only: readOnly,
+									options: fetch_strategy_options,
+									read_only: readOnly || is_single_doctype,
 								}"
 								:modelValue="config.fetch_strategy || 'Get doc'"
 								@update:modelValue="
@@ -237,6 +232,9 @@
 								}"
 								@update:modelValue="update_doctype_name"
 							/>
+							<div v-if="is_doctype_dynamic" class="mt-1 text-muted small">
+								{{ __("The document type is resolved at runtime.") }}
+							</div>
 						</div>
 
 						<div v-if="show_docname_field" class="grid-item fxr-control">
@@ -619,11 +617,119 @@ function setControlRef(el) {
 const is_internal_update = ref(false);
 
 // Initialize local config
+const reference_docname = computed(
+	() => props.node?.data?.reference_docname || props.node?.data?.docname || ""
+);
+
+function isVariableSyntax(val) {
+	if (typeof val !== "string") return false;
+	const trimmed = val.trim();
+	if (!trimmed) return false;
+	return (
+		trimmed.startsWith("@") ||
+		trimmed.startsWith("doc.") ||
+		trimmed.startsWith("vars.") ||
+		trimmed.startsWith("item.") ||
+		trimmed.startsWith("row.") ||
+		trimmed.startsWith("loop.") ||
+		trimmed.startsWith("caller.") ||
+		trimmed.startsWith("rule.") ||
+		trimmed.startsWith("ctx.") ||
+		(trimmed.startsWith("{") && trimmed.endsWith("}")) ||
+		(trimmed.startsWith("{{") && trimmed.endsWith("}}"))
+	);
+}
+
+function isConcreteStaticValue(val) {
+	if (val === null || val === undefined || val === "") return false;
+	if (typeof val === "object") {
+		const m = val.mode;
+		if (!m || m === "static" || m === "value") {
+			const inner = val.value;
+			if (inner === null || inner === undefined || inner === "") return false;
+			return typeof inner === "string" ? !isVariableSyntax(inner) : true;
+		}
+		return false;
+	}
+	if (typeof val === "string") {
+		return !isVariableSyntax(val);
+	}
+	return true;
+}
+
+function extractStaticValue(val) {
+	if (!isConcreteStaticValue(val)) return "";
+	if (typeof val === "object") {
+		return String(val.value ?? "").trim();
+	}
+	return String(val ?? "").trim();
+}
+
+async function reconcile_query_doc_state() {
+	if (mode.value !== "Query Doc") return;
+
+	const dt_val = config.doctype_name;
+	const doc_val = config.docname;
+
+	const dt_is_static = isConcreteStaticValue(dt_val);
+	const doc_is_static = isConcreteStaticValue(doc_val);
+
+	// 1. DocType Field Reconciliation
+	if (dt_is_static) {
+		const dt_name = extractStaticValue(dt_val);
+		update_action_field("reference_doctype", dt_name);
+
+		let meta = null;
+		if (dt_name) {
+			try {
+				meta = await flexirule.utils.get_doctype_meta(dt_name);
+			} catch (e) {
+				meta = null;
+			}
+		}
+
+		if (meta && meta.issingle) {
+			is_single_doctype.value = true;
+			config.fetch_strategy = "Get Single DocType";
+			if (config.docname) {
+				delete config.docname;
+			}
+			update_action_field("reference_docname", "");
+			return; // Single DocType does not take a docname
+		} else {
+			is_single_doctype.value = false;
+			if (config.fetch_strategy === "Get Single DocType" || !config.fetch_strategy) {
+				config.fetch_strategy = "Get doc";
+			}
+		}
+	} else {
+		// Dynamic or empty DocType
+		update_action_field("reference_doctype", "");
+		is_single_doctype.value = false;
+		if (config.fetch_strategy === "Get Single DocType") {
+			config.fetch_strategy = "Get doc";
+		}
+	}
+
+	// 2. Document Name Field Reconciliation (for normal/dynamic DocTypes)
+	if (doc_is_static) {
+		const doc_name = extractStaticValue(doc_val);
+		update_action_field("reference_docname", doc_name);
+	} else {
+		// Dynamic or empty docname -> clear Rule Action reference field
+		update_action_field("reference_docname", "");
+		// config.docname itself is preserved when dynamic
+	}
+}
+
+// Initialize local config
 onMounted(async () => {
 	is_internal_update.value = true;
 	try {
 		load_local_config(props.node?.data?.config);
-		if (reference_doctype.value) {
+		if (mode.value === "Query Doc") {
+			await reconcile_query_doc_state();
+		} else if (reference_doctype.value) {
 			await loadDocMeta(reference_doctype.value);
 			await load_doctype_fields(reference_doctype.value);
 
@@ -644,9 +750,12 @@ onMounted(async () => {
 // Watch for external config changes
 watch(
 	() => props.node?.data?.config,
-	(val) => {
+	async (val) => {
 		if (!is_internal_update.value) {
 			load_local_config(val);
+			if (mode.value === "Query Doc") {
+				await reconcile_query_doc_state();
+			}
 		}
 	}
 );
@@ -655,11 +764,26 @@ watch(
 watch(
 	() => reference_doctype.value,
 	async (val, oldVal) => {
-		if (val && val !== oldVal) {
-			await loadDocMeta(val);
-			await load_doctype_fields(val);
+		if (val !== oldVal) {
+			if (val) {
+				await loadDocMeta(val);
+				await load_doctype_fields(val);
+			}
+
+			if (mode.value === "Query Doc" && !is_internal_update.value) {
+				if (isConcreteStaticValue(config.doctype_name) || !config.doctype_name) {
+					if (config.doctype_name !== val) {
+						config.doctype_name = val;
+						await reconcile_query_doc_state();
+					}
+				} else {
+					// If config.doctype_name is dynamic, reconcile clears reference_doctype back
+					await reconcile_query_doc_state();
+				}
+			}
+
 			// Only sync if this was a user change (not during initial mount)
-			if (!is_internal_update.value) {
+			if (!is_internal_update.value && val) {
 				// Clear filters when DocType changes
 				if (Array.isArray(config.filters)) {
 					config.filters = [];
@@ -679,6 +803,28 @@ watch(
 					config.filters = {};
 				}
 				sync_local_config();
+			}
+		}
+	}
+);
+
+// Watch for reference_docname changes (e.g. from InputPanel)
+watch(
+	() => reference_docname.value,
+	async (val, oldVal) => {
+		if (mode.value === "Query Doc" && val !== oldVal && !is_internal_update.value) {
+			if (isConcreteStaticValue(config.docname) || !config.docname) {
+				if (config.docname !== val) {
+					if (val) {
+						config.docname = val;
+					} else {
+						delete config.docname;
+					}
+					await reconcile_query_doc_state();
+				}
+			} else {
+				// If config.docname is dynamic, reconcile clears reference_docname back
+				await reconcile_query_doc_state();
 			}
 		}
 	}
@@ -1134,10 +1280,15 @@ const docnameField = computed(() =>
 );
 
 const is_doctype_dynamic = computed(() => {
-	const val = config.doctype_name;
-	if (!val) return false;
-	if (typeof val === "object") return val.mode !== "static";
-	return false;
+	if (!config.doctype_name) return false;
+	return !isConcreteStaticValue(config.doctype_name);
+});
+
+const fetch_strategy_options = computed(() => {
+	if (is_single_doctype.value) {
+		return ["Get Single DocType"];
+	}
+	return ["Get doc", "Get Doc from Cache", "Get latest Doc"];
 });
 
 const show_docname_field = computed(() => {
@@ -1149,29 +1300,15 @@ const show_docname_field = computed(() => {
 
 async function update_doctype_name(val) {
 	config.doctype_name = val;
-
-	const is_dynamic =
-		val && typeof val === "object" ? val.mode !== "static" : isVariableSyntax(val);
-
-	if (is_dynamic) {
-		update_action_field("reference_doctype", "");
-		is_single_doctype.value = false;
-	} else {
-		const dt_name = typeof val === "object" ? val.value : val;
-		update_action_field("reference_doctype", dt_name);
-
-		if (dt_name) {
-			const meta = await flexirule.utils.get_doctype_meta(dt_name);
-			is_single_doctype.value = !!meta?.issingle;
-		} else {
-			is_single_doctype.value = false;
-		}
-	}
+	await reconcile_query_doc_state();
 	sync_local_config();
 }
 
-function update_config_key(key, value) {
+async function update_config_key(key, value) {
 	config[key] = value;
+	if (mode.value === "Query Doc" && (key === "docname" || key === "fetch_strategy")) {
+		await reconcile_query_doc_state();
+	}
 	sync_local_config();
 }
 
