@@ -23,6 +23,19 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 		cls._setup_test_records()
 
 	@classmethod
+	def tearDownClass(cls):
+		frappe.db.delete("QB Test Child")
+		frappe.db.delete("QB Test Parent")
+		frappe.db.delete("QB Test Target")
+
+		for dt in ["QB Test Parent", "QB Test Child", "QB Test Target"]:
+			if frappe.db.exists("DocType", dt):
+				frappe.delete_doc("DocType", dt, force=True, ignore_permissions=True)
+
+		frappe.db.commit()
+		super().tearDownClass()
+
+	@classmethod
 	def _setup_test_doctypes(cls):
 		# 1. Target DocType for Link relationships
 		if not frappe.db.exists("DocType", "QB Test Target"):
@@ -89,6 +102,7 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 
 	@classmethod
 	def _setup_test_records(cls):
+		frappe.db.delete("QB Test Child")
 		frappe.db.delete("QB Test Parent")
 		frappe.db.delete("QB Test Target")
 
