@@ -5,7 +5,7 @@
 Base URL: https://sendipad.github.io/flexirule/
 Application repository: https://github.com/Sendipad/flexirule
 Documentation repository: https://github.com/Sendipad/flexirule-docs
-Generated: 2026-09-29
+Generated: 2026-10-03
 
 ## Core documentation
 
@@ -14,8 +14,6 @@ Generated: 2026-09-29
 - [API Reference](https://sendipad.github.io/flexirule/api-reference/public-apis/) — Public whitelisted methods for programmatic interaction with FlexiRule.
 
 - [Assignment: Architecture Reference](https://sendipad.github.io/flexirule/advanced-concepts/architecture/actions/assignment/) — Sequential mutation engine and normalization pipeline internals.
-
-- [Canvas Navigation](https://sendipad.github.io/flexirule/rule-builder/canvas/) — Learn how to navigate and use the visual Rule Builder canvas.
 
 - [Create New](https://sendipad.github.io/flexirule/action-type/update-record/create-new/) — Generate new records automatically using UI field mappings in FlexiRule.
 
@@ -30,6 +28,8 @@ Generated: 2026-09-29
 - [Query Doc](https://sendipad.github.io/flexirule/action-type/query-records/query-doc/) — Find one specific item and retrieve its details.
 
 - [Query Filters](https://sendipad.github.io/flexirule/advanced-concepts/reference/query-filters/) — Reference guide for filtering logic across FlexiRule actions.
+
+- [Rule Builder Canvas & Layout Modes](https://sendipad.github.io/flexirule/rule-builder/canvas/) — Learn how to navigate the visual Rule Builder canvas and configure rules using Dialog Modal or Three-Panel Workspace View.
 
 - [Send Email on Sales Order Submission](https://sendipad.github.io/flexirule/tutorials/send-email-sales-order/) — Step-by-step visual tutorial on configuring automated email notifications using the Smart Value Selector.
 
@@ -49,7 +49,7 @@ Generated: 2026-09-29
 
 - [Action Metadata Schema](https://sendipad.github.io/flexirule/advanced-concepts/reference/ai/action-metadata-schema/) — Reference specification for action metadata used by AI and programmatic tools.
 
-- [Adding Actions](https://sendipad.github.io/flexirule/rule-builder/add-action/) — Learn how to add new logic blocks to your rule.
+- [Adding Actions & The Action Palette](https://sendipad.github.io/flexirule/rule-builder/add-action/) — Learn how to add, connect, and arrange logic actions on the Rule Builder canvas.
 
 - [AI Features](https://sendipad.github.io/flexirule/advanced-concepts/ai-features/) — Leveraging Artificial Intelligence within FlexiRule logic.
 
@@ -117,7 +117,7 @@ Generated: 2026-09-29
 
 - [Recipe: Work with Child Tables and Item Calculations](https://sendipad.github.io/flexirule/tutorials/child-table-calculations/) — Learn how to visually iterate over child table items, evaluate row attributes using the Smart Value Selector, and calculate discounts.
 
-- [Rule Configuration](https://sendipad.github.io/flexirule/rule-builder/rule-configuration/) — Learn how to set up the global settings for your rule.
+- [Rule Configuration & Trigger Setup](https://sendipad.github.io/flexirule/rule-builder/rule-configuration/) — Learn how to set up global rule parameters, target DocTypes, trigger events, and gatekeeper conditions.
 
 - [RuleFlow Settings](https://sendipad.github.io/flexirule/setup/settings/) — Global configuration for the FlexiRule engine.
 
@@ -149,7 +149,7 @@ Generated: 2026-09-29
 
 - [Trigger System](https://sendipad.github.io/flexirule/advanced-concepts/triggers/engine-details/) — The FlexiRule Trigger System determines when a rule should begin its execution. It is managed by the `RuleCoordinator`, which acts as a high-perfor...
 
-- [Smart Value System](https://sendipad.github.io/flexirule/rule-builder/smart-value-system/) — Learn how FlexiRule handles dynamic inputs using static values, variables, and dynamic value resolvers.
+- [Smart Value Selector & Value Resolvers](https://sendipad.github.io/flexirule/rule-builder/smart-value-system/) — Learn how to input dynamic data across FlexiRule forms using Static Values, Variable References (@), and Dynamic Value Resolvers (⚡).
 
 - [Condition Builder](https://sendipad.github.io/flexirule/rule-builder/condition-builder/) — Learn how to create visual logical condition groups in FlexiRule.
 
@@ -173,7 +173,7 @@ Generated: 2026-09-29
 
 - [System Philosophy](https://sendipad.github.io/flexirule/advanced-concepts/system-philosophy/) — FlexiRule is a **declarative automation orchestration platform** built for the Frappe ecosystem. It bridges the gap between hardcoded Python hooks ...
 
-- [Action Settings](https://sendipad.github.io/flexirule/rule-builder/action-settings/) — Learn how to configure individual blocks in your rule.
+- [Action Settings Panel](https://sendipad.github.io/flexirule/rule-builder/action-settings/) — Learn how to configure individual action nodes using the Action Settings panel and Schema Browser.
 
 - [Core Concepts](https://sendipad.github.io/flexirule/getting-started/core-concepts/) — The fundamental building blocks of the FlexiRule ecosystem.
 
@@ -199,11 +199,11 @@ Generated: 2026-09-29
 
 - [Query Records Execution Semantics](https://sendipad.github.io/flexirule/advanced-concepts/reference/execution/query-records/) — Detailed runtime behavior, filter resolution, and permission guarantees for Query Records.
 
-- [Rule Lifecycle](https://sendipad.github.io/flexirule/rule-builder/rule-lifecycle/) — Learn how to manage rules from creation to activation and update.
+- [Rule Lifecycle & Management](https://sendipad.github.io/flexirule/rule-builder/rule-lifecycle/) — Learn how to manage rules safely across Draft, Active, Disabled, and Archived states, including safe rule versioning (amending).
 
 - [Switch](https://sendipad.github.io/flexirule/action-type/switch/) — Route execution along multiple outbound paths based on matching field values.
 
-- [Debugging & Execution Logs](https://sendipad.github.io/flexirule/rule-builder/debugging/) — Learn how to test your rules and understand why they run.
+- [Debugging & Execution Logs](https://sendipad.github.io/flexirule/rule-builder/debugging/) — Learn how to test rules visually in sandbox mode and inspect live execution logs.
 
 - [Min / Max](https://sendipad.github.io/flexirule/action-type/query-records/min-max/) — Retrieve the smallest or largest value from a group of records.
 
@@ -221,7 +221,7 @@ Generated: 2026-09-29
 
 - [Sub-Rule](https://sendipad.github.io/flexirule/action-type/sub-rule/) — Run an exposed sub-rule as a reusable module within your visual rule flow.
 
-- [Quick Start](https://sendipad.github.io/flexirule/getting-started/quick-start/) — Build your first automation visually in under 5 minutes.
+- [Quick Start Guide](https://sendipad.github.io/flexirule/getting-started/quick-start/) — Build your first visual automation in under 5 minutes starting from the RuleFlow Workspace.
 
 - [Stop / Error](https://sendipad.github.io/flexirule/action-type/stop-error/) — Terminate rule execution cleanly or display a validation error message to block document saving.
 
