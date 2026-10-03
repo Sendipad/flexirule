@@ -2,6 +2,7 @@
 # For license information, please see license.txt
 
 import unittest
+
 import frappe
 from frappe.tests.utils import FrappeTestCase
 from pypika import Field
@@ -25,48 +26,64 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 	def _setup_test_doctypes(cls):
 		# 1. Target DocType for Link relationships
 		if not frappe.db.exists("DocType", "QB Test Target"):
-			frappe.get_doc({
-				"doctype": "DocType",
-				"name": "QB Test Target",
-				"module": "RuleFlow",
-				"custom": 1,
-				"fields": [
-					{"fieldname": "target_name", "fieldtype": "Data", "label": "Target Name", "reqd": 1},
-					{"fieldname": "territory", "fieldtype": "Data", "label": "Territory"}
-				]
-			}).insert(ignore_permissions=True)
+			frappe.get_doc(
+				{
+					"doctype": "DocType",
+					"name": "QB Test Target",
+					"module": "RuleFlow",
+					"custom": 1,
+					"fields": [
+						{"fieldname": "target_name", "fieldtype": "Data", "label": "Target Name", "reqd": 1},
+						{"fieldname": "territory", "fieldtype": "Data", "label": "Territory"},
+					],
+				}
+			).insert(ignore_permissions=True)
 
 		# 2. Child Table DocType
 		if not frappe.db.exists("DocType", "QB Test Child"):
-			frappe.get_doc({
-				"doctype": "DocType",
-				"name": "QB Test Child",
-				"module": "RuleFlow",
-				"custom": 1,
-				"istable": 1,
-				"fields": [
-					{"fieldname": "item_code", "fieldtype": "Data", "label": "Item Code"},
-					{"fieldname": "qty", "fieldtype": "Float", "label": "Qty"},
-					{"fieldname": "rate", "fieldtype": "Currency", "label": "Rate"},
-					{"fieldname": "amount", "fieldtype": "Currency", "label": "Amount"}
-				]
-			}).insert(ignore_permissions=True)
+			frappe.get_doc(
+				{
+					"doctype": "DocType",
+					"name": "QB Test Child",
+					"module": "RuleFlow",
+					"custom": 1,
+					"istable": 1,
+					"fields": [
+						{"fieldname": "item_code", "fieldtype": "Data", "label": "Item Code"},
+						{"fieldname": "qty", "fieldtype": "Float", "label": "Qty"},
+						{"fieldname": "rate", "fieldtype": "Currency", "label": "Rate"},
+						{"fieldname": "amount", "fieldtype": "Currency", "label": "Amount"},
+					],
+				}
+			).insert(ignore_permissions=True)
 
 		# 3. Parent DocType
 		if not frappe.db.exists("DocType", "QB Test Parent"):
-			frappe.get_doc({
-				"doctype": "DocType",
-				"name": "QB Test Parent",
-				"module": "RuleFlow",
-				"custom": 1,
-				"fields": [
-					{"fieldname": "parent_title", "fieldtype": "Data", "label": "Title"},
-					{"fieldname": "status", "fieldtype": "Data", "label": "Status"},
-					{"fieldname": "enabled", "fieldtype": "Check", "label": "Enabled"},
-					{"fieldname": "target_link", "fieldtype": "Link", "options": "QB Test Target", "label": "Target Link"},
-					{"fieldname": "items", "fieldtype": "Table", "options": "QB Test Child", "label": "Items"}
-				]
-			}).insert(ignore_permissions=True)
+			frappe.get_doc(
+				{
+					"doctype": "DocType",
+					"name": "QB Test Parent",
+					"module": "RuleFlow",
+					"custom": 1,
+					"fields": [
+						{"fieldname": "parent_title", "fieldtype": "Data", "label": "Title"},
+						{"fieldname": "status", "fieldtype": "Data", "label": "Status"},
+						{"fieldname": "enabled", "fieldtype": "Check", "label": "Enabled"},
+						{
+							"fieldname": "target_link",
+							"fieldtype": "Link",
+							"options": "QB Test Target",
+							"label": "Target Link",
+						},
+						{
+							"fieldname": "items",
+							"fieldtype": "Table",
+							"options": "QB Test Child",
+							"label": "Items",
+						},
+					],
+				}
+			).insert(ignore_permissions=True)
 
 		frappe.db.commit()
 
@@ -75,39 +92,41 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 		frappe.db.delete("QB Test Parent")
 		frappe.db.delete("QB Test Target")
 
-		cls.target1 = frappe.get_doc({"doctype": "QB Test Target", "target_name": "T1", "territory": "North"}).insert(ignore_permissions=True)
-		cls.target2 = frappe.get_doc({"doctype": "QB Test Target", "target_name": "T2", "territory": "South"}).insert(ignore_permissions=True)
+		cls.target1 = frappe.get_doc(
+			{"doctype": "QB Test Target", "target_name": "T1", "territory": "North"}
+		).insert(ignore_permissions=True)
+		cls.target2 = frappe.get_doc(
+			{"doctype": "QB Test Target", "target_name": "T2", "territory": "South"}
+		).insert(ignore_permissions=True)
 
-		cls.p1 = frappe.get_doc({
-			"doctype": "QB Test Parent",
-			"parent_title": "P1",
-			"status": "Open",
-			"enabled": 1,
-			"target_link": cls.target1.name,
-			"items": [
-				{"item_code": "ITEM-001", "qty": 2, "rate": 10, "amount": 20},
-				{"item_code": "ITEM-002", "qty": 5, "rate": 20, "amount": 100}
-			]
-		}).insert(ignore_permissions=True)
+		cls.p1 = frappe.get_doc(
+			{
+				"doctype": "QB Test Parent",
+				"parent_title": "P1",
+				"status": "Open",
+				"enabled": 1,
+				"target_link": cls.target1.name,
+				"items": [
+					{"item_code": "ITEM-001", "qty": 2, "rate": 10, "amount": 20},
+					{"item_code": "ITEM-002", "qty": 5, "rate": 20, "amount": 100},
+				],
+			}
+		).insert(ignore_permissions=True)
 
-		cls.p2 = frappe.get_doc({
-			"doctype": "QB Test Parent",
-			"parent_title": "P2",
-			"status": "Pending",
-			"enabled": 1,
-			"target_link": cls.target2.name,
-			"items": [
-				{"item_code": "ITEM-001", "qty": 1, "rate": 10, "amount": 10}
-			]
-		}).insert(ignore_permissions=True)
+		cls.p2 = frappe.get_doc(
+			{
+				"doctype": "QB Test Parent",
+				"parent_title": "P2",
+				"status": "Pending",
+				"enabled": 1,
+				"target_link": cls.target2.name,
+				"items": [{"item_code": "ITEM-001", "qty": 1, "rate": 10, "amount": 10}],
+			}
+		).insert(ignore_permissions=True)
 
-		cls.p3 = frappe.get_doc({
-			"doctype": "QB Test Parent",
-			"parent_title": "P3",
-			"status": "Closed",
-			"enabled": 0,
-			"items": []
-		}).insert(ignore_permissions=True)
+		cls.p3 = frappe.get_doc(
+			{"doctype": "QB Test Parent", "parent_title": "P3", "status": "Closed", "enabled": 0, "items": []}
+		).insert(ignore_permissions=True)
 
 		frappe.db.commit()
 
@@ -192,18 +211,18 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 		self.assertEqual(len(res3), 1)
 
 		# Documented string "or" in filters list is NOT supported (parsed as name="or" filter)
-		q_or = frappe.qb.get_query("QB Test Parent", filters=[
-			["status", "=", "Open"],
-			"or",
-			["status", "=", "Pending"]
-		])
+		q_or = frappe.qb.get_query(
+			"QB Test Parent", filters=[["status", "=", "Open"], "or", ["status", "=", "Pending"]]
+		)
 		res_or = q_or.run(as_dict=True)
 		# String "or" gets converted to filter name='or', yielding 0 records
 		self.assertEqual(len(res_or), 0)
 
 		# Working OR logic via Pypika Criterion
 		t = frappe.qb.DocType("QB Test Parent")
-		q_pypika_or = frappe.qb.get_query("QB Test Parent", filters=(t.status == "Open") | (t.status == "Pending"))
+		q_pypika_or = frappe.qb.get_query(
+			"QB Test Parent", filters=(t.status == "Open") | (t.status == "Pending")
+		)
 		res_pypika_or = q_pypika_or.run(as_dict=True)
 		self.assertEqual(len(res_pypika_or), 2)
 
@@ -225,9 +244,16 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 
 		for op, val, expected_count in ops_to_test:
 			with self.subTest(op=op, val=val):
-				q = frappe.qb.get_query("QB Test Parent", filters=[["status" if op not in (">", "<", ">=", "<=") else "enabled", op, val]])
+				q = frappe.qb.get_query(
+					"QB Test Parent",
+					filters=[["status" if op not in (">", "<", ">=", "<=") else "enabled", op, val]],
+				)
 				res = q.run(as_dict=True)
-				self.assertEqual(len(res), expected_count, f"Failed for op '{op}' with val '{val}'. Got {len(res)}, expected {expected_count}")
+				self.assertEqual(
+					len(res),
+					expected_count,
+					f"Failed for op '{op}' with val '{val}'. Got {len(res)}, expected {expected_count}",
+				)
 
 		# Tree / Nested set operators: "descendants of" / "ancestors of"
 		# Test that invalid operator raises KeyError / Exception in Engine operator mapping
@@ -259,7 +285,11 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 
 		# Order by dotted linked field is UNSUPPORTED in order_by string (raises OperationalError: Unknown column)
 		with self.assertRaises(Exception):
-			q_order = frappe.qb.get_query("QB Test Parent", fields=["name", "target_link.territory"], order_by="target_link.territory asc")
+			q_order = frappe.qb.get_query(
+				"QB Test Parent",
+				fields=["name", "target_link.territory"],
+				order_by="target_link.territory asc",
+			)
 			q_order.run(as_dict=True)
 
 	# -------------------------------------------------------------------------
@@ -276,7 +306,9 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 		self.assertEqual(len(p1_rows), 2)
 
 		# Distinct with child join
-		q_dist = frappe.qb.get_query("QB Test Parent", fields=["name"], filters={"items.item_code": "ITEM-001"}, distinct=True)
+		q_dist = frappe.qb.get_query(
+			"QB Test Parent", fields=["name"], filters={"items.item_code": "ITEM-001"}, distinct=True
+		)
 		res_dist = q_dist.run(as_dict=True)
 		self.assertEqual(len(res_dist), 2)  # P1 and P2 both have ITEM-001
 
@@ -334,8 +366,11 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 
 		# WORKING syntax 2: Pypika functions
 		from frappe.query_builder.functions import Count, Sum
+
 		t = frappe.qb.DocType("QB Test Parent")
-		q_pypika_agg = frappe.qb.get_query("QB Test Parent", fields=[Count(t.name).as_("total"), Sum(t.enabled).as_("enabled_sum")])
+		q_pypika_agg = frappe.qb.get_query(
+			"QB Test Parent", fields=[Count(t.name).as_("total"), Sum(t.enabled).as_("enabled_sum")]
+		)
 		res_pypika_agg = q_pypika_agg.run(as_dict=True)
 		self.assertEqual(res_pypika_agg[0]["total"], 3)
 		self.assertEqual(res_pypika_agg[0]["enabled_sum"], 2)
@@ -346,7 +381,9 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 	def test_09_scalar_functions(self):
 		# Documented dict syntax fields=[{"IFNULL": ...}] is UNSUPPORTED (raises AttributeError)
 		with self.assertRaises(AttributeError):
-			frappe.qb.get_query("QB Test Parent", fields=["name", {"IFNULL": ["target_link", "'None'"], "as": "safe_link"}])
+			frappe.qb.get_query(
+				"QB Test Parent", fields=["name", {"IFNULL": ["target_link", "'None'"], "as": "safe_link"}]
+			)
 
 		# String function "now() as current_time" is UNSUPPORTED (raises OperationalError: Unknown column 'now()')
 		with self.assertRaises(Exception):
@@ -355,6 +392,7 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 
 		# WORKING syntax: Frappe QB / Pypika Now() function
 		from frappe.query_builder.functions import Now
+
 		q_now = frappe.qb.get_query("QB Test Parent", fields=[Now().as_("current_time")], limit=1)
 		res_now = q_now.run(as_dict=True)
 		self.assertIn("current_time", res_now[0])
@@ -364,7 +402,9 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 	# -------------------------------------------------------------------------
 	def test_10_order_by_group_by_pagination_distinct(self):
 		# Order by multiple fields
-		q_order = frappe.qb.get_query("QB Test Parent", fields=["name", "status"], order_by="status asc, name desc")
+		q_order = frappe.qb.get_query(
+			"QB Test Parent", fields=["name", "status"], order_by="status asc, name desc"
+		)
 		res_order = q_order.run(as_dict=True)
 		self.assertEqual(len(res_order), 3)
 
@@ -374,7 +414,9 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 		self.assertEqual(len(res_group), 2)
 
 		# Pagination limit & offset
-		q_page = frappe.qb.get_query("QB Test Parent", fields=["name"], order_by="name asc", limit=1, offset=1)
+		q_page = frappe.qb.get_query(
+			"QB Test Parent", fields=["name"], order_by="name asc", limit=1, offset=1
+		)
 		res_page = q_page.run(as_dict=True)
 		self.assertEqual(len(res_page), 1)
 
@@ -397,6 +439,7 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 
 		# Permission checks are performed via frappe.database.query.Permission.check_permissions
 		from frappe.database.query import Permission
+
 		q = frappe.qb.get_query("QB Test Parent", fields=["name"])
 		# Permission.check_permissions verifies user permissions against the generated query SQL
 		Permission.check_permissions(q, user="Administrator")
@@ -427,7 +470,7 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 		self.assertIn("parent_title", res_field[0])
 
 		# Pypika Criterion object in filters
-		p_criterion = (Field("enabled") == 1)
+		p_criterion = Field("enabled") == 1
 		q_pypika_crit = frappe.qb.get_query("QB Test Parent", filters=p_criterion)
 		res_crit = q_pypika_crit.run(as_dict=True)
 		self.assertEqual(len(res_crit), 2)
