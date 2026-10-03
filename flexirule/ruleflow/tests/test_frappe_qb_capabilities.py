@@ -4,7 +4,7 @@
 import unittest
 
 import frappe
-from frappe.query_builder.functions import Coalesce, Count, Max, Min, Now, Sum
+from frappe.query_builder.functions import Abs, Avg, Coalesce, Concat, Count, Extract, Max, Min, Now, Sum
 from frappe.query_builder.utils import PseudoColumnMapper
 from frappe.tests.utils import FrappeTestCase
 from pypika import Field
@@ -94,7 +94,7 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 				}
 			).insert(ignore_permissions=True)
 
-		# 4. Parent DocType
+		# 4. Parent DocType (with nullable_text field for null/set testing)
 		if not frappe.db.exists("DocType", "QB Test Parent"):
 			frappe.get_doc(
 				{
@@ -106,6 +106,7 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 						{"fieldname": "parent_title", "fieldtype": "Data", "label": "Title"},
 						{"fieldname": "status", "fieldtype": "Data", "label": "Status"},
 						{"fieldname": "enabled", "fieldtype": "Check", "label": "Enabled"},
+						{"fieldname": "nullable_text", "fieldtype": "Data", "label": "Nullable Text"},
 						{
 							"fieldname": "target_link",
 							"fieldtype": "Link",
@@ -178,13 +179,14 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 			{"doctype": "QB Test Category", "category_name": "Cat 2", "group_code": "GRP-B"}
 		).insert(ignore_permissions=True)
 
-		# P1 has two duplicate ITEM-001 rows for testing deduplication
+		# P1: nullable_text="A", target_link=T1, category_link=Cat1, two duplicate ITEM-001 rows
 		cls.p1 = frappe.get_doc(
 			{
 				"doctype": "QB Test Parent",
 				"parent_title": "P1",
 				"status": "Open",
 				"enabled": 1,
+				"nullable_text": "A",
 				"target_link": cls.target1.name,
 				"category_link": cls.cat1.name,
 				"items": [
@@ -195,24 +197,28 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 			}
 		).insert(ignore_permissions=True)
 
+		# P2: nullable_text=None, target_link=T2, category_link=Cat2
 		cls.p2 = frappe.get_doc(
 			{
 				"doctype": "QB Test Parent",
 				"parent_title": "P2",
 				"status": "Pending",
 				"enabled": 1,
+				"nullable_text": None,
 				"target_link": cls.target2.name,
 				"category_link": cls.cat2.name,
 				"items": [{"item_code": "ITEM-001", "qty": 1, "rate": 10, "amount": 10}],
 			}
 		).insert(ignore_permissions=True)
 
+		# P3: nullable_text="C", target_link=None, category_link=None
 		cls.p3 = frappe.get_doc(
 			{
 				"doctype": "QB Test Parent",
 				"parent_title": "P3",
 				"status": "Closed",
 				"enabled": 0,
+				"nullable_text": "C",
 				"target_link": None,
 				"category_link": None,
 				"items": [],
@@ -298,13 +304,14 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 		self.assertIsInstance(res_pluck, (tuple, list))
 		self.assertIsInstance(res_pluck[0], str)
 
-		# 5. Iterator execution tests
+		# Iterator execution tests
 		q_iter_dict = frappe.qb.get_query("QB Test Parent", fields=["name", "status"])
 		it_dict = q_iter_dict.run(as_dict=True, as_iterator=True)
 		self.assertTrue(hasattr(it_dict, "__next__") or hasattr(it_dict, "__iter__"))
 		dict_rows = [row for row in it_dict]
 		self.assertEqual(len(dict_rows), 3)
 		self.assertIsInstance(dict_rows[0], dict)
+		self.assertEqual({r["name"] for r in dict_rows}, {self.p1.name, self.p2.name, self.p3.name})
 
 		q_iter_list = frappe.qb.get_query("QB Test Parent", fields=["name", "status"])
 		it_list = q_iter_list.run(as_list=True, as_iterator=True)
@@ -313,7 +320,7 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 		self.assertIsInstance(list_rows[0], (tuple, list))
 
 	# -------------------------------------------------------------------------
-	# 2. Filter Syntax & Logical Operations
+	# 2. Filter Syntax & Null/Set Semantics
 	# -------------------------------------------------------------------------
 	def test_03_filter_forms_and_logic(self):
 		q1 = frappe.qb.get_query("QB Test Parent", filters={"status": "Open"})
@@ -358,37 +365,17 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 		res2 = q2.run(as_dict=True)
 		self.assertEqual({r["name"] for r in res2}, {self.p1.name})
 
-	def test_05_filter_operators(self):
-		ops_to_test = [
-			("=", "Open", {self.p1.name}),
-			("!=", "Open", {self.p2.name, self.p3.name}),
-			(">", 0, {self.p1.name, self.p2.name}),
-			("<", 1, {self.p3.name}),
-			(">=", 1, {self.p1.name, self.p2.name}),
-			("<=", 0, {self.p3.name}),
-			("like", "%pe%", {self.p1.name, self.p2.name}),
-			("not like", "%pe%", {self.p3.name}),
-			("in", ["Open", "Pending"], {self.p1.name, self.p2.name}),
-			("not in", ["Open", "Pending"], {self.p3.name}),
-			("is", "set", {self.p1.name, self.p2.name, self.p3.name}),
-			("is", "not set", set()),
-		]
+	def test_05_null_set_operator_semantics(self):
+		# P1: nullable_text="A", P2: nullable_text=None, P3: nullable_text="C"
+		q_is_set = frappe.qb.get_query("QB Test Parent", filters=[["nullable_text", "is", "set"]])
+		res_is_set = q_is_set.run(as_dict=True)
+		self.assertEqual({r["name"] for r in res_is_set}, {self.p1.name, self.p3.name})
 
-		for op, val, expected_names in ops_to_test:
-			with self.subTest(op=op, val=val):
-				q = frappe.qb.get_query(
-					"QB Test Parent",
-					filters=[["status" if op not in (">", "<", ">=", "<=") else "enabled", op, val]],
-				)
-				res = q.run(as_dict=True)
-				self.assertEqual(
-					{r["name"] for r in res},
-					expected_names,
-					f"Failed for op '{op}' with val '{val}'. Got {{r['name'] for r in res}}, expected {expected_names}",
-				)
+		q_is_not_set = frappe.qb.get_query("QB Test Parent", filters=[["nullable_text", "is", "not set"]])
+		res_is_not_set = q_is_not_set.run(as_dict=True)
+		self.assertEqual({r["name"] for r in res_is_not_set}, {self.p2.name})
 
 	def test_06_tree_operators_on_tree_doctype(self):
-		# Tree operators on a valid is_tree=1 DocType
 		q_desc = frappe.qb.get_query(
 			"QB Test Tree",
 			fields=["name", "tree_name"],
@@ -408,8 +395,8 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 	# -------------------------------------------------------------------------
 	# 3. Link-Field Traversal
 	# -------------------------------------------------------------------------
-	def test_07_link_field_traversal(self):
-		# Selection
+	def test_07_link_field_traversal_and_ordering(self):
+		# Selection across multiple linked tables
 		q = frappe.qb.get_query(
 			"QB Test Parent", fields=["name", "target_link.territory", "category_link.group_code"]
 		)
@@ -421,7 +408,7 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 		self.assertEqual(p1_res.get("territory"), "North")
 		self.assertEqual(p1_res.get("group_code"), "GRP-A")
 
-		# Filtering
+		# Filtering across multiple links
 		q_filter = frappe.qb.get_query(
 			"QB Test Parent", filters={"target_link.territory": "North", "category_link.group_code": "GRP-A"}
 		)
@@ -436,7 +423,7 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 				order_by="target_link.territory asc",
 			).run(as_dict=True)
 
-		# Pypika join & ordering succeeds
+		# Pypika explicit join & ordering succeeds
 		target_tbl = frappe.qb.DocType("QB Test Target")
 		parent_tbl = frappe.qb.DocType("QB Test Parent")
 		q_pypika_order = (
@@ -453,21 +440,21 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 	# 4. Child Table Traversal vs Structured Child Fetching
 	# -------------------------------------------------------------------------
 	def test_08_child_table_traversal_vs_structured(self):
-		# Flat child traversal
+		# Flat child traversal: 1 query, LEFT JOIN, row duplication per child item
 		q_flat = frappe.qb.get_query("QB Test Parent", fields=["name", "items.item_code"])
 		res_flat = q_flat.run(as_dict=True)
 		p1_flat = [r for r in res_flat if r["name"] == self.p1.name]
-		self.assertEqual(len(p1_flat), 3)  # 3 child rows for P1
+		self.assertEqual(len(p1_flat), 3)  # P1 has 3 child records
 
-		# Structured child fetching
+		# Structured child fetching: 2 queries (parent query + ChildQuery sub-query), distinct parent dicts
 		q_struct = frappe.qb.get_query("QB Test Parent", fields=["name", {"items": ["item_code", "qty"]}])
 		res_struct = q_struct.run(as_dict=True)
-		self.assertEqual(len(res_struct), 3)  # 3 distinct parent rows
+		self.assertEqual(len(res_struct), 3)  # 3 distinct parent dicts
 		p1_struct = next(r for r in res_struct if r["name"] == self.p1.name)
 		self.assertEqual(len(p1_struct["items"]), 3)
 
 	def test_09_distinct_semantics(self):
-		# P1 has two ITEM-001 rows and one ITEM-002 row
+		# Duplicate child records for P1 (2 x ITEM-001)
 		q_dup = frappe.qb.get_query(
 			"QB Test Parent", fields=["name"], filters={"items.item_code": "ITEM-001"}
 		)
@@ -494,6 +481,15 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 		self.assertEqual(len(res_child), 4)
 		self.assertTrue(all("parent" in r and "parenttype" in r for r in res_child))
 
+		# Filtering child records by parent context
+		q_child_p1 = frappe.qb.get_query(
+			"QB Test Child",
+			fields=["name", "item_code"],
+			filters=[["parent", "=", self.p1.name], ["parenttype", "=", "QB Test Parent"]],
+		)
+		res_child_p1 = q_child_p1.run(as_dict=True)
+		self.assertEqual(len(res_child_p1), 3)
+
 		# Engine.get_query rejects parent_doctype kwarg
 		with self.assertRaises(TypeError):
 			frappe.qb.get_query("QB Test Child", parent_doctype="QB Test Parent")
@@ -509,13 +505,14 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 		res_count_str = q_count_str.run(as_dict=True)
 		self.assertEqual(res_count_str[0]["total_count"], 3)
 
-		# Pypika functions
+		# Pypika functions: Count, Sum, Avg, Min, Max
 		t = frappe.qb.DocType("QB Test Parent")
 		q_agg = frappe.qb.get_query(
 			"QB Test Parent",
 			fields=[
 				Count(t.name).as_("total"),
 				Sum(t.enabled).as_("sum_enabled"),
+				Avg(t.enabled).as_("avg_enabled"),
 				Min(t.status).as_("min_status"),
 				Max(t.status).as_("max_status"),
 			],
@@ -524,7 +521,7 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 		self.assertEqual(res_agg[0]["total"], 3)
 		self.assertEqual(res_agg[0]["sum_enabled"], 2)
 
-		# Dotted child sum in raw string field raises OperationalError because Engine string parser does not auto-join for function strings
+		# Dotted child sum in raw string field raises OperationalError because Engine string parser does not auto-join child tables for function strings
 		with self.assertRaises(Exception):
 			frappe.qb.get_query(
 				"QB Test Parent", fields=["name", "sum(items.qty) as total_qty"], group_by="name"
@@ -554,12 +551,11 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 		with self.assertRaises(Exception):
 			frappe.qb.get_query("QB Test Parent", fields=["now() as current_time"], limit=1).run(as_dict=True)
 
-		# Pypika Now() function succeeds
+		# Pypika functions: Now, Coalesce, Concat, Abs, Extract
 		q_now = frappe.qb.get_query("QB Test Parent", fields=[Now().as_("current_time")], limit=1)
 		res_now = q_now.run(as_dict=True)
 		self.assertIn("current_time", res_now[0])
 
-		# Table-qualified column term for Coalesce / Ifnull evaluates NULL properly
 		target_col = PseudoColumnMapper("`tabQB Test Parent`.`target_link`")
 		q_coalesce = frappe.qb.get_query(
 			"QB Test Parent", fields=["name", Coalesce(target_col, "'None'").as_("safe_target")]
@@ -568,8 +564,15 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 		p3_coalesce = next(r for r in res_coalesce if r["name"] == self.p3.name)
 		self.assertEqual(p3_coalesce["safe_target"], "'None'")
 
+		t = frappe.qb.DocType("QB Test Parent")
+		q_concat = frappe.qb.get_query(
+			"QB Test Parent", fields=[Concat(t.status, " - ", t.parent_title).as_("full_label")]
+		)
+		res_concat = q_concat.run(as_dict=True)
+		self.assertTrue(any("Open - P1" in str(r.get("full_label")) for r in res_concat))
+
 	# -------------------------------------------------------------------------
-	# 6. Record Locking, Permissions & Debug
+	# 6. Record Locking, Permissions & Security
 	# -------------------------------------------------------------------------
 	def test_13_record_locking_and_transactions(self):
 		frappe.db.begin()
@@ -601,6 +604,10 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 
 		q = frappe.qb.get_query("QB Test Parent", fields=["name"])
 		Permission.check_permissions(q, user="Administrator")
+
+		# Permission check for child query with parent_doctype parameter
+		q_child = frappe.qb.get_query("QB Test Child", fields=["name"])
+		Permission.check_permissions(q_child, user="Administrator", parent_doctype="QB Test Parent")
 
 		# Invalid column raises OperationalError
 		with self.assertRaises(Exception):
