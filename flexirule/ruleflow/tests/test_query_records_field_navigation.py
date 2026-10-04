@@ -33,7 +33,10 @@ class TestQueryRecordsFieldNavigation(FrappeTestCase):
 				"reference_doctype": "User",
 				"config": frappe.as_json(
 					{
-						"filters": [["User", "roles.role", "=", role_name], ["User", "email", "=", user.email]],
+						"filters": [
+							["User", "roles.role", "=", role_name],
+							["User", "email", "=", user.email],
+						],
 						"fields": ["name", "email", "first_name"],
 					}
 				),
@@ -49,7 +52,7 @@ class TestQueryRecordsFieldNavigation(FrappeTestCase):
 	def test_query_list_selected_fields_with_dotted_paths(self):
 		"""Verify Query List returning selected fields with nested dotted paths."""
 		user_email = f"select_fields_{random_string(5).lower()}@example.com"
-		user = frappe.get_doc(
+		frappe.get_doc(
 			{
 				"doctype": "User",
 				"email": user_email,
@@ -79,7 +82,7 @@ class TestQueryRecordsFieldNavigation(FrappeTestCase):
 	def test_query_records_handler_backward_compatibility(self):
 		"""Verify that standard scalar field queries continue working as expected."""
 		desc = f"Backward compat test {random_string(5)}"
-		todo = frappe.get_doc(
+		frappe.get_doc(
 			{
 				"doctype": "ToDo",
 				"description": desc,

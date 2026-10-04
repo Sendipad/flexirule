@@ -120,10 +120,7 @@
 							@keydown="onKeydown"
 						>
 							<!-- Breadcrumbs navigation header -->
-							<div
-								v-if="navStack && navStack.length > 0"
-								class="nav-breadcrumbs-bar"
-							>
+							<div v-if="navStack && navStack.length > 0" class="nav-breadcrumbs-bar">
 								<button
 									v-if="navStack.length > 1"
 									class="nav-back-btn"
@@ -254,9 +251,7 @@
 										type="button"
 										class="option-nav-btn"
 										:title="
-											__('Navigate into {0}', [
-												option.label || option.value,
-											])
+											__('Navigate into {0}', [option.label || option.value])
 										"
 										@click.stop.prevent="onNavigate(option)"
 									>

@@ -94,7 +94,12 @@
 									'border-warning':
 										row.field && !is_field_valid(row.field, doctype_fields),
 								}"
-								@update:modelValue="(val) => { row.field = val; navigableFields.resetStack(); }"
+								@update:modelValue="
+									(val) => {
+										row.field = val;
+										navigableFields.resetStack();
+									}
+								"
 							/>
 							<select
 								class="form-control input-xs direction-select"
@@ -388,7 +393,10 @@
 												!is_field_valid(config.field, doctype_fields),
 										}"
 										@update:modelValue="
-											(val) => { update_config_key('field', val); navigableFields.resetStack(); }
+											(val) => {
+												update_config_key('field', val);
+												navigableFields.resetStack();
+											}
 										"
 									/>
 									<i
@@ -430,7 +438,10 @@
 												),
 										}"
 										@update:modelValue="
-											(val) => { update_config_key('group_by_field', val); navigableFields.resetStack(); }
+											(val) => {
+												update_config_key('group_by_field', val);
+												navigableFields.resetStack();
+											}
 										"
 									/>
 									<i
@@ -477,7 +488,10 @@
 												!is_field_valid(config.agg_field, doctype_fields),
 										}"
 										@update:modelValue="
-											(val) => { update_config_key('agg_field', val); navigableFields.resetStack(); }
+											(val) => {
+												update_config_key('agg_field', val);
+												navigableFields.resetStack();
+											}
 										"
 									/>
 									<i
