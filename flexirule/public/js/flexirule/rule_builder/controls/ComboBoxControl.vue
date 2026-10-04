@@ -202,7 +202,7 @@
 								class="fxr-dropdown-item"
 								:class="{
 									active: idx === activeIndex,
-									selected: option.value === modelValue,
+									selected: isOptionSelected(option.value),
 									'is-compact': hideLabel,
 								}"
 								@click="onSelect(option.value)"
@@ -241,7 +241,10 @@
 											{{ __(option.description) }}
 										</div>
 									</div>
-									<div v-if="option.value === modelValue" class="selected-check">
+									<div
+										v-if="isOptionSelected(option.value)"
+										class="selected-check"
+									>
 										<i class="fa fa-check"></i>
 									</div>
 									<button
@@ -483,10 +486,19 @@ const exactMatch = computed(() => {
 	return options.some((opt) => String(opt.label || "").toLowerCase() === q);
 });
 
+function isOptionSelected(optValue) {
+	if (props.modelValue === undefined || props.modelValue === null || props.modelValue === "") {
+		return false;
+	}
+	const currentVal = String(props.modelValue);
+	const targetVal = String(optValue);
+	if (currentVal === targetVal) return true;
+	if (currentVal.startsWith(targetVal + ".")) return true;
+	return false;
+}
+
 const selectedOption = computed(
-	() =>
-		normalizedOptions.value.find((opt) => String(opt.value) === String(props.modelValue)) ||
-		null
+	() => normalizedOptions.value.find((opt) => isOptionSelected(opt.value)) || null
 );
 
 const displayValue = computed(() => {
@@ -529,9 +541,7 @@ function openDropdown(initialQuery = null) {
 		query.value = props.trigger === "input" ? displayValue.value : "";
 	}
 
-	const targetIdx = filteredOptions.value.findIndex(
-		(opt) => String(opt.value) === String(props.modelValue)
-	);
+	const targetIdx = filteredOptions.value.findIndex((opt) => isOptionSelected(opt.value));
 	if (targetIdx >= 0) {
 		activeIndex.value = targetIdx;
 	} else {
@@ -1322,5 +1332,25 @@ onBeforeUnmount(() => {
 	background-color: var(--fxr-accent, #2563eb);
 	color: #ffffff;
 	border-color: var(--fxr-accent, #2563eb);
+}
+
+/* RTL Language Support for Nav Icons */
+[dir="rtl"] .fxr-dropdown .option-nav-btn,
+html[dir="rtl"] .fxr-dropdown .option-nav-btn,
+body.rtl .fxr-dropdown .option-nav-btn {
+	margin-left: 0 !important;
+	margin-right: auto !important;
+}
+
+[dir="rtl"] .fxr-dropdown .option-nav-btn i,
+html[dir="rtl"] .fxr-dropdown .option-nav-btn i,
+body.rtl .fxr-dropdown .option-nav-btn i {
+	transform: scaleX(-1);
+}
+
+[dir="rtl"] .fxr-dropdown .nav-back-btn i,
+html[dir="rtl"] .fxr-dropdown .nav-back-btn i,
+body.rtl .fxr-dropdown .nav-back-btn i {
+	transform: scaleX(-1);
 }
 </style>
