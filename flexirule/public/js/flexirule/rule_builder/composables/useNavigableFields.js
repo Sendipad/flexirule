@@ -46,16 +46,13 @@ export function useNavigableFields(rootDoctype) {
 					(f.fieldtype === "Table" || f.fieldtype === "Table MultiSelect") && f.options;
 				const isNavigable = isLink || isTable;
 
-				const fieldPath = ctx.pathPrefix
-					? `${ctx.pathPrefix}.${f.fieldname}`
-					: f.fieldname;
+				const fieldPath = ctx.pathPrefix ? `${ctx.pathPrefix}.${f.fieldname}` : f.fieldname;
 
 				let navType = null;
 				if (isLink) navType = "link";
 				if (isTable) navType = "table";
 
-				const isSpecial =
-					f.fieldname === "docstatus" || f.fieldname === "name" || f.is_std;
+				const isSpecial = f.fieldname === "docstatus" || f.fieldname === "name" || f.is_std;
 
 				options.push({
 					value: fieldPath,
@@ -116,7 +113,8 @@ export function useNavigableFields(rootDoctype) {
 		if (!raw || !raw.navigable || !raw.targetDoctype) return;
 
 		const currentPrefix = currentContext.value?.pathPrefix || "";
-		const nextPrefix = raw.fieldPath || (currentPrefix ? `${currentPrefix}.${raw.fieldname}` : raw.fieldname);
+		const nextPrefix =
+			raw.fieldPath || (currentPrefix ? `${currentPrefix}.${raw.fieldname}` : raw.fieldname);
 
 		navStack.value.push({
 			doctype: raw.targetDoctype,

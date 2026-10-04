@@ -36,8 +36,13 @@
 								:hideLabel="true"
 								:navigable="true"
 								:navStack="getRowNavStack(idx, row.doctype || doctype)"
-								@navigate="(opt) => handleRowNavigate(idx, row.doctype || doctype, opt)"
-								@back="(stackIdx) => handleRowBack(idx, row.doctype || doctype, stackIdx)"
+								@navigate="
+									(opt) => handleRowNavigate(idx, row.doctype || doctype, opt)
+								"
+								@back="
+									(stackIdx) =>
+										handleRowBack(idx, row.doctype || doctype, stackIdx)
+								"
 								:class="{
 									'border-warning':
 										row.field &&
@@ -965,7 +970,8 @@ function onRowFieldSelect(idx, val) {
 
 const isFieldValid = (fieldname, dt) => {
 	if (!fieldname) return true;
-	if (typeof fieldname === "string" && (fieldname.startsWith("{") || fieldname.includes("."))) return true;
+	if (typeof fieldname === "string" && (fieldname.startsWith("{") || fieldname.includes(".")))
+		return true;
 	const fields = getFieldsForDoctype(dt || props.doctype);
 	if (!fields || !fields.length) return true;
 	return fields.some((f) => f.value === fieldname);
