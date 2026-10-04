@@ -588,7 +588,10 @@ const {
 	fieldValueMode: "fieldname",
 });
 
-const navigableFields = useNavigableFields(reference_doctype);
+const navigableFields = useNavigableFields(
+	reference_doctype,
+	() => config.field || config.group_by_field || config.agg_field
+);
 const { getPolicyField } = useNodeConfigPolicy({
 	actionType: () => props.node?.data?.action_type || "Query Records",
 	operation: mode,

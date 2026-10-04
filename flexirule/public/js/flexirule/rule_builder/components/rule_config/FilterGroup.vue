@@ -931,7 +931,10 @@ const rowNavMap = reactive(new Map());
 function getRowNav(idx, dt) {
 	const key = `${idx}_${dt || props.doctype}`;
 	if (!rowNavMap.has(key)) {
-		const nav = useNavigableFields(dt || props.doctype);
+		const nav = useNavigableFields(
+			() => dt || props.doctype,
+			() => filters.value[idx]?.field
+		);
 		rowNavMap.set(key, nav);
 	}
 	return rowNavMap.get(key);
