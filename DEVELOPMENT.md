@@ -1,6 +1,6 @@
 # FlexiRule Development Environment
 
-This repository is the Git working tree. The Frappe Bench is deliberately created outside it and the app is linked into the Bench with a symlink.
+The repository is developed through a normal Git checkout. The Frappe Bench is deliberately created outside the repository, and FlexiRule is installed into that Bench with Frappe's canonical `bench get-app` mechanism.
 
 ## Supported stack
 
@@ -13,11 +13,9 @@ This repository is the Git working tree. The Frappe Bench is deliberately create
 - Bench CLI 5.x
 - site name: test_site
 
-The versions above match the repository's existing CI baseline where it already specifies Python 3.10, Node 18, Frappe v15, and MariaDB 10.6.
-
 ## GitHub Codespaces / Dev Container
 
-Open the repository in GitHub Codespaces or VS Code's Dev Containers. The container starts MariaDB and two Redis services and runs .devcontainer/bootstrap.sh.
+Open the repository in GitHub Codespaces or VS Code's Dev Containers. The container starts MariaDB and two Redis services and runs `.devcontainer/bootstrap.sh`.
 
 The bootstrap creates:
 
@@ -25,9 +23,17 @@ The bootstrap creates:
 /home/vscode/frappe-bench/
   apps/frappe
   apps/erpnext
-  apps/flexirule -> /workspaces/flexirule
+  apps/flexirule
   sites/test_site
 ~~~
+
+FlexiRule is installed with:
+
+~~~bash
+bench get-app --branch version-15 https://github.com/Sendipad/flexirule.git
+~~~
+
+For a PR/feature branch, set `FLEXIRULE_REF` to that branch or commit before running the bootstrap.
 
 The generated Bench is stored in a Docker volume, not in the repository.
 
@@ -100,22 +106,22 @@ The test site is created with MariaDB root password root and Frappe Administrato
 
 If the Bench or site becomes corrupted, remove the Codespace/Dev Container volumes and recreate the container. Do not commit the Bench.
 
-The bootstrap is intentionally idempotent: it creates the Bench and apps only when absent, then re-links FlexiRule and runs migration.
+The bootstrap is idempotent: it creates the Bench and apps only when absent, then runs requirements and migration.
 
 ## GitHub Actions
 
-CI verifies the same architecture in isolated jobs:
+CI verifies the same canonical installation architecture in isolated jobs:
 
-1. Frontend lint and Frappe asset build.
-2. Frappe v15 + ERPNext v15 installation.
-3. MariaDB + Redis services.
-4. Creation of test_site.
-5. FlexiRule installation and migration.
-6. Backend tests.
-7. A second migration to catch non-repeatable migrations.
-8. Cypress UI tests against a running Bench.
+1. Create a Frappe v15 Bench.
+2. Install ERPNext v15 with `bench get-app`.
+3. Install FlexiRule with `bench get-app` from the exact PR/commit under test.
+4. Create `test_site`.
+5. Install FlexiRule and migrate.
+6. Build/lint and run backend tests.
+7. Verify repeatable migration.
+8. Run Cypress UI tests against a running Bench.
 
-CI creates the Bench under the runner's home directory and symlinks the checked-out FlexiRule repository into apps/flexirule; no generated Bench is committed.
+CI never symlinks the repository into `apps/flexirule` and never modifies `sites/apps.txt` manually.
 
 ## Troubleshooting
 
@@ -137,6 +143,6 @@ If frontend assets are stale:
 bash scripts/dev-env.sh build
 ~~~
 
-If the site needs to be recreated, remove the test_site site from the Bench and rerun .devcontainer/bootstrap.sh.
+If the site needs to be recreated, remove the `test_site` site from the Bench and rerun `.devcontainer/bootstrap.sh`.
 
-bench start is the preferred iterative debugging mode because it runs the Frappe web, websocket, scheduler, and worker processes together.
+`bench start` is the preferred iterative debugging mode because it runs the Frappe web, websocket, scheduler, and worker processes together.
