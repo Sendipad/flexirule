@@ -1,0 +1,31 @@
+{
+  "name": "FlexiRule · Frappe v15",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "workspace",
+  "workspaceFolder": "/workspaces/flexirule",
+  "shutdownAction": "stopCompose",
+  "forwardPorts": [8000, 9000, 8080],
+  "portsAttributes": {
+    "8000": { "label": "Frappe test_site", "onAutoForward": "notify" },
+    "9000": { "label": "Frappe websocket", "onAutoForward": "silent" },
+    "8080": { "label": "Cypress UI", "onAutoForward": "silent" }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "Vue.volar",
+        "redhat.vscode-yaml"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "eslint.workingDirectories": [{ "mode": "auto" }]
+      }
+    }
+  },
+  "postCreateCommand": "bash .devcontainer/bootstrap.sh",
+  "remoteUser": "vscode"
+}
