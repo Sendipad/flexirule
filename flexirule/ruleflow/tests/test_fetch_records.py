@@ -34,7 +34,7 @@ class TestFetchRecords(FrappeTestCase):
 			}
 		)
 
-		result, next_step = self.handler.execute(action, {}, None)
+		result, _ = self.handler.execute(action, {}, None)
 		self.assertIsInstance(result, list)
 		self.assertGreaterEqual(len(result), 2)
 		names = [d.get("name") for d in result]
@@ -72,7 +72,7 @@ class TestFetchRecords(FrappeTestCase):
 		t1 = frappe.get_doc(
 			{"doctype": "ToDo", "description": f"{prefix}_A", "priority": "High", "status": "Open"}
 		).insert(ignore_permissions=True)
-		t2 = frappe.get_doc(
+		frappe.get_doc(
 			{"doctype": "ToDo", "description": f"{prefix}_B", "priority": "Low", "status": "Closed"}
 		).insert(ignore_permissions=True)
 
@@ -116,12 +116,12 @@ class TestFetchRecords(FrappeTestCase):
 
 	def test_nested_logical_filters_and_or(self):
 		prefix = f"FetchLogic_{random_string(5)}"
-		t1 = frappe.get_doc(
-			{"doctype": "ToDo", "description": f"{prefix}_alpha", "status": "Open"}
-		).insert(ignore_permissions=True)
-		t2 = frappe.get_doc(
-			{"doctype": "ToDo", "description": f"{prefix}_beta", "status": "Closed"}
-		).insert(ignore_permissions=True)
+		t1 = frappe.get_doc({"doctype": "ToDo", "description": f"{prefix}_alpha", "status": "Open"}).insert(
+			ignore_permissions=True
+		)
+		t2 = frappe.get_doc({"doctype": "ToDo", "description": f"{prefix}_beta", "status": "Closed"}).insert(
+			ignore_permissions=True
+		)
 		t3 = frappe.get_doc(
 			{"doctype": "ToDo", "description": f"{prefix}_gamma", "status": "Cancelled"}
 		).insert(ignore_permissions=True)
@@ -155,7 +155,7 @@ class TestFetchRecords(FrappeTestCase):
 	def test_child_table_field_query_and_distinct(self):
 		# Test querying child table field (e.g. roles.role on User)
 		user_email = f"fetch_child_{random_string(5).lower()}@example.com"
-		user = frappe.get_doc(
+		frappe.get_doc(
 			{
 				"doctype": "User",
 				"email": user_email,
@@ -167,15 +167,18 @@ class TestFetchRecords(FrappeTestCase):
 			}
 		).insert(ignore_permissions=True)
 
-		# Query with child table filter 'roles.role' and distinct=True
+		# Query with child table filter 'roles.role' (not in fields) and distinct=True
 		action = frappe._dict(
 			{
 				"operation": "Fetch Records",
 				"reference_doctype": "User",
 				"config": frappe.as_json(
 					{
-						"fields": ["name", "email", "roles.role"],
-						"filters": [["User", "email", "=", user_email], ["roles", "role", "like", "%Manager%"]],
+						"fields": ["name", "email"],
+						"filters": [
+							["User", "email", "=", user_email],
+							["roles.role", "like", "%Manager%"],
+						],
 						"distinct": True,
 					}
 				),
@@ -188,15 +191,9 @@ class TestFetchRecords(FrappeTestCase):
 
 	def test_ordering_limit_and_offset(self):
 		prefix = f"FetchPage_{random_string(5)}"
-		d1 = frappe.get_doc({"doctype": "ToDo", "description": f"{prefix}_1"}).insert(
-			ignore_permissions=True
-		)
-		d2 = frappe.get_doc({"doctype": "ToDo", "description": f"{prefix}_2"}).insert(
-			ignore_permissions=True
-		)
-		d3 = frappe.get_doc({"doctype": "ToDo", "description": f"{prefix}_3"}).insert(
-			ignore_permissions=True
-		)
+		frappe.get_doc({"doctype": "ToDo", "description": f"{prefix}_1"}).insert(ignore_permissions=True)
+		frappe.get_doc({"doctype": "ToDo", "description": f"{prefix}_2"}).insert(ignore_permissions=True)
+		frappe.get_doc({"doctype": "ToDo", "description": f"{prefix}_3"}).insert(ignore_permissions=True)
 
 		action = frappe._dict(
 			{

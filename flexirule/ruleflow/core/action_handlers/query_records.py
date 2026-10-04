@@ -521,7 +521,9 @@ class QueryRecordsHandler(ActionHandler):
 							continue
 						if self._is_plain_field_reference(key):
 							if not self._doctype_has_field(ref_dt, key):
-								errors.append(_("Selected field '{0}' does not exist in {1}").format(key, ref_dt))
+								errors.append(
+									_("Selected field '{0}' does not exist in {1}").format(key, ref_dt)
+								)
 							else:
 								try:
 									meta = frappe.get_meta(ref_dt)
@@ -529,12 +531,14 @@ class QueryRecordsHandler(ActionHandler):
 									target_dt = df.options if df and df.options else None
 									if target_dt and isinstance(val, list):
 										for sub_f in val:
-											if isinstance(sub_f, str) and self._is_plain_field_reference(sub_f):
+											if isinstance(sub_f, str) and self._is_plain_field_reference(
+												sub_f
+											):
 												if not self._doctype_has_field(target_dt, sub_f):
 													errors.append(
-														_("Selected field '{0}' does not exist in {1}").format(
-															sub_f, target_dt
-														)
+														_(
+															"Selected field '{0}' does not exist in {1}"
+														).format(sub_f, target_dt)
 													)
 								except Exception:
 									pass
@@ -548,7 +552,9 @@ class QueryRecordsHandler(ActionHandler):
 					if self._is_plain_field_reference(field_tok) and not self._doctype_has_field(
 						ref_dt, field_tok
 					):
-						errors.append(_("Order/Group-by field '{0}' does not exist in {1}").format(field_tok, ref_dt))
+						errors.append(
+							_("Order/Group-by field '{0}' does not exist in {1}").format(field_tok, ref_dt)
+						)
 
 		# Validate filters
 		errors.extend(self._validate_filter_fields(ref_dt, config.get("filters")))
@@ -684,6 +690,39 @@ class QueryRecordsHandler(ActionHandler):
 			return col.between(start, end)
 		return col == val
 
+	def _apply_implicit_joins(self, query, ref_dt, filters):
+		from frappe.database.query import DynamicTableField
+
+		if not filters:
+			return query
+
+		def collect_fields(f):
+			res = []
+			if isinstance(f, str):
+				if f.lower() not in ("and", "or") and "." in f:
+					res.append(f)
+			elif isinstance(f, dict):
+				for k, v in f.items():
+					if "." in str(k):
+						res.append(str(k))
+					res.extend(collect_fields(v))
+			elif isinstance(f, list | tuple):
+				for item in f:
+					if isinstance(item, str) and "." in item:
+						res.append(item)
+					elif isinstance(item, list | tuple | dict):
+						res.extend(collect_fields(item))
+			return res
+
+		for path in set(collect_fields(filters)):
+			try:
+				dyn = DynamicTableField.parse(path, ref_dt)
+				if dyn:
+					query = dyn.apply_join(query)
+			except Exception:
+				pass
+		return query
+
 	def _compile_filter_tree(self, ref_dt, tree):
 		if not tree:
 			return None
@@ -731,9 +770,10 @@ class QueryRecordsHandler(ActionHandler):
 			filters = self._resolve_filters_with_context(
 				raw_filters, context, f"{action_label}.filters", action
 			)
-			filters = self._compile_filter_tree(reference_doctype, filters)
+			compiled_filters = self._compile_filter_tree(reference_doctype, filters)
 		else:
 			filters = None
+			compiled_filters = None
 
 		# 3. Resolve order_by, group_by, limit, offset
 		order_by = config.get("order_by")
@@ -780,18 +820,21 @@ class QueryRecordsHandler(ActionHandler):
 		}
 		if fields:
 			kwargs["fields"] = fields
-		if filters is not None:
-			kwargs["filters"] = filters
+		if compiled_filters is not None:
+			kwargs["filters"] = compiled_filters
 		if order_by:
 			kwargs["order_by"] = order_by
 		if group_by:
 			kwargs["group_by"] = group_by
-		if limit is not None and limit > 0:
+		if limit is not None and limit >= 0:
 			kwargs["limit"] = limit
 		if offset is not None and offset >= 0:
 			kwargs["offset"] = offset
 
 		query = frappe.qb.get_query(**kwargs)
+		if raw_filters:
+			query = self._apply_implicit_joins(query, reference_doctype, raw_filters)
+
 		return query.run(as_dict=True)
 
 	def _is_plain_field_reference(self, token) -> bool:
