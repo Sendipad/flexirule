@@ -35,23 +35,23 @@ After the container is created:
 
 ~~~bash
 cd /workspaces/flexirule
-./scripts/dev-env.sh doctor
-./scripts/dev-env.sh start
+bash scripts/dev-env.sh doctor
+bash scripts/dev-env.sh start
 ~~~
 
 In another terminal:
 
 ~~~bash
-./scripts/dev-env.sh test
-./scripts/dev-env.sh build
-./scripts/dev-env.sh lint
-./scripts/dev-env.sh migrate
+bash scripts/dev-env.sh test
+bash scripts/dev-env.sh build
+bash scripts/dev-env.sh lint
+bash scripts/dev-env.sh migrate
 ~~~
 
 For UI tests:
 
 ~~~bash
-./scripts/dev-env.sh ui
+bash scripts/dev-env.sh ui
 ~~~
 
 ## Manual Bench commands
@@ -122,19 +122,19 @@ CI creates the Bench under the runner's home directory and symlinks the checked-
 Check the environment first:
 
 ~~~bash
-./scripts/dev-env.sh doctor
+bash scripts/dev-env.sh doctor
 ~~~
 
 If the site needs another migration:
 
 ~~~bash
-./scripts/dev-env.sh migrate
+bash scripts/dev-env.sh migrate
 ~~~
 
 If frontend assets are stale:
 
 ~~~bash
-./scripts/dev-env.sh build
+bash scripts/dev-env.sh build
 ~~~
 
 If the site needs to be recreated, remove the test_site site from the Bench and rerun .devcontainer/bootstrap.sh.
