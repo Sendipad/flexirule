@@ -39,7 +39,205 @@
 			</div>
 
 			<!-- Configuration based on selected Mode -->
-			<template v-if="mode === 'Query List'">
+			<template v-if="mode === 'Fetch Records'">
+				<div class="sub-section section-subcard">
+					<div class="d-flex align-items-center justify-content-between mb-2">
+						<h6 class="mb-0">{{ __("Fields") }}</h6>
+						<div class="form-check form-check-inline m-0">
+							<input
+								class="form-check-input"
+								type="checkbox"
+								id="selectAllFieldsCheck"
+								:checked="config.select_all"
+								:disabled="readOnly"
+								@change="(e) => update_config_key('select_all', e.target.checked)"
+							/>
+							<label class="form-check-label small font-weight-bold" for="selectAllFieldsCheck">
+								{{ __("Select all fields (*)") }}
+							</label>
+						</div>
+					</div>
+
+					<div v-if="!config.select_all">
+						<MultiSelectList
+							:ref="setControlRef"
+							:df="{
+								label: '',
+								fieldname: 'fields',
+								placeholder: __('Select fields to fetch...'),
+							}"
+							:options="navigableFields.currentFields.value"
+							:modelValue="fetch_simple_fields"
+							:read_only="readOnly"
+							:hideLabel="true"
+							@update:modelValue="on_fetch_fields_update"
+						/>
+
+						<!-- Structured Functions / Aliases area -->
+						<div class="mt-3" v-if="fetch_function_rows.length || !readOnly">
+							<label class="control-label small font-weight-bold text-muted mb-2 d-block">
+								{{ __("Functions & Aliases") }}
+							</label>
+							<div v-for="(fnRow, idx) in fetch_function_rows" :key="idx" class="d-flex align-items-center gap-2 mb-2">
+								<select
+									class="form-control input-xs"
+									style="width: 100px"
+									v-model="fnRow.function"
+									:disabled="readOnly"
+									@change="sync_fetch_records_fields"
+								>
+									<option value="">{{ __("None") }}</option>
+									<option value="COUNT">COUNT</option>
+									<option value="SUM">SUM</option>
+									<option value="AVG">AVG</option>
+									<option value="MIN">MIN</option>
+									<option value="MAX">MAX</option>
+								</select>
+
+								<ComboBoxControl
+									:ref="setControlRef"
+									:df="{ label: '', fieldtype: 'FieldPicker' }"
+									:options="navigableFields.currentFields.value"
+									:doctype="reference_doctype"
+									:modelValue="fnRow.field"
+									:read_only="readOnly"
+									:trigger="'button'"
+									:hideLabel="true"
+									:navigable="true"
+									:navStack="navigableFields.navStack.value"
+									@navigate="navigableFields.handleNavigate"
+									@back="navigableFields.handleBack"
+									class="flex-1"
+									@update:modelValue="
+										(val) => {
+											fnRow.field = val;
+											navigableFields.resetStack();
+											sync_fetch_records_fields();
+										}
+									"
+								/>
+
+								<input
+									type="text"
+									class="form-control input-xs"
+									style="width: 120px"
+									:placeholder="__('Alias (optional)')"
+									v-model="fnRow.alias"
+									:disabled="readOnly"
+									@input="sync_fetch_records_fields"
+								/>
+
+								<button
+									v-if="!readOnly"
+									class="btn btn-xs btn-link text-danger p-0"
+									@click="remove_fetch_function(idx)"
+								>
+									<i class="fa fa-trash"></i>
+								</button>
+							</div>
+
+							<button
+								v-if="!readOnly"
+								class="btn btn-xs btn-link p-0 text-primary mt-1"
+								@click="add_fetch_function"
+							>
+								<i class="fa fa-plus mr-1"></i> {{ __("Add Function / Alias Expression") }}
+							</button>
+						</div>
+					</div>
+					<div v-else class="text-muted small p-2 text-center border-dashed rounded mt-1">
+						<i class="fa fa-check-circle text-success mr-1"></i>
+						{{ __("Selecting all columns from target DocType (*)") }}
+					</div>
+				</div>
+
+				<div class="sub-section section-subcard" v-fxr-fieldname="'config.filters'">
+					<h6>{{ __("Filters") }}</h6>
+					<FilterGroup
+						ref="filterGroupRef"
+						:ref="setControlRef"
+						:doctype="reference_doctype"
+						:modelValue="config.filters"
+						:readOnly="readOnly"
+						:showValidation="showValidation"
+						:nodeId="node?.id"
+						:variableOptions="variable_options"
+						@update:modelValue="(val) => update_config_key('filters', val)"
+					/>
+				</div>
+
+				<div class="sub-section section-subcard">
+					<h6>{{ __("Order By") }}</h6>
+					<div class="table-rows">
+						<div v-for="(row, idx) in order_by_rows" :key="idx" class="order-by-row">
+							<ComboBoxControl
+								:ref="setControlRef"
+								:df="{ label: '', fieldtype: 'FieldPicker' }"
+								:options="navigableFields.currentFields.value"
+								:doctype="reference_doctype"
+								:modelValue="row.field"
+								:read_only="readOnly"
+								:trigger="'button'"
+								:hideLabel="true"
+								:navigable="true"
+								:navStack="navigableFields.navStack.value"
+								@navigate="navigableFields.handleNavigate"
+								@back="navigableFields.handleBack"
+								class="flex-1"
+								:class="{
+									'border-warning':
+										row.field && !is_field_valid(row.field, doctype_fields),
+								}"
+								@update:modelValue="
+									(val) => {
+										row.field = val;
+										navigableFields.resetStack();
+									}
+								"
+							/>
+							<select
+								class="form-control input-xs direction-select"
+								v-model="row.direction"
+								:disabled="readOnly"
+							>
+								<option value="asc">{{ __("ASC") }}</option>
+								<option value="desc">{{ __("DESC") }}</option>
+							</select>
+							<button
+								v-if="!readOnly"
+								class="btn btn-xs btn-link text-danger remove-sort-btn"
+								@click="remove_order_by(idx)"
+							>
+								<i class="fa fa-trash"></i>
+							</button>
+						</div>
+						<button
+							v-if="!readOnly"
+							class="btn btn-xs btn-link p-0 text-primary mt-2 align-self-start"
+							@click="add_order_by"
+						>
+							<i class="fa fa-plus mr-1"></i> {{ __("Add Sort Criteria") }}
+						</button>
+					</div>
+				</div>
+
+				<div class="sub-section section-subcard">
+					<h6>{{ __("Limit") }}</h6>
+					<div class="query-doc-grid">
+						<div class="grid-item">
+							<ControlFactory
+								:ref="setControlRef"
+								:df="with_read_only(limitField)"
+								:modelValue="config.limit"
+								:showValidation="showValidation"
+								@update:modelValue="(val) => update_config_key('limit', val)"
+							/>
+						</div>
+					</div>
+				</div>
+			</template>
+
+			<template v-else-if="mode === 'Query List'">
 				<div class="sub-section section-subcard" v-fxr-fieldname="'config.filters'">
 					<h6>{{ __("Filters") }}</h6>
 					<FilterGroup
@@ -629,6 +827,64 @@ function resolveFieldPolicy(fieldname, fallback) {
 	return with_read_only(field);
 }
 
+// Local state for Fetch Records operations
+const fetch_simple_fields = ref(["name"]);
+const fetch_function_rows = ref([]);
+
+function parse_fetch_fields_from_config(raw_fields) {
+	if (!Array.isArray(raw_fields)) {
+		fetch_simple_fields.value = ["name"];
+		fetch_function_rows.value = [];
+		return;
+	}
+	const simples = [];
+	const funcs = [];
+	for (const item of raw_fields) {
+		if (typeof item === "string") {
+			simples.push(item);
+		} else if (typeof item === "object" && item !== null) {
+			funcs.push({
+				field: item.field || "name",
+				function: item.function || "COUNT",
+				alias: item.alias || "",
+			});
+		}
+	}
+	fetch_simple_fields.value = simples.length ? simples : ["name"];
+	fetch_function_rows.value = funcs;
+}
+
+function sync_fetch_records_fields() {
+	if (mode.value !== "Fetch Records") return;
+	const result_fields = [...fetch_simple_fields.value];
+	for (const fnRow of fetch_function_rows.value) {
+		if (fnRow.field) {
+			result_fields.push({
+				field: fnRow.field,
+				function: fnRow.function || "",
+				alias: fnRow.alias || "",
+			});
+		}
+	}
+	config.fields = result_fields.length ? result_fields : ["name"];
+	sync_local_config();
+}
+
+function on_fetch_fields_update(val) {
+	fetch_simple_fields.value = val || ["name"];
+	sync_fetch_records_fields();
+}
+
+function add_fetch_function() {
+	fetch_function_rows.value.push({ field: "name", function: "COUNT", alias: "" });
+	sync_fetch_records_fields();
+}
+
+function remove_fetch_function(idx) {
+	fetch_function_rows.value.splice(idx, 1);
+	sync_fetch_records_fields();
+}
+
 // Local state for UI controls
 const order_by_rows = ref([]);
 const report_filters = ref([]);
@@ -1080,7 +1336,7 @@ const SYSTEM_FIELDS = [
 async function update_resolved_schema_local() {
 	if (!props.node?.data) return;
 
-	if (mode.value === "Query List" || mode.value === "Query Doc") {
+	if (mode.value === "Fetch Records" || mode.value === "Query List" || mode.value === "Query Doc") {
 		const is_query_doc = mode.value === "Query Doc";
 		const fields = (config.fields || []).filter((f) => f);
 
@@ -1466,7 +1722,7 @@ function sync_local_config() {
 		if (val !== undefined && val !== null && val !== "") new_config[k] = val;
 	});
 
-	if (mode.value === "Query List" || mode.value === "Query Doc") {
+	if (mode.value === "Fetch Records" || mode.value === "Query List" || mode.value === "Query Doc") {
 		const fields = build_fields();
 		if (fields.length) new_config.fields = fields;
 
@@ -1689,6 +1945,12 @@ function load_local_config(val) {
 			config.filters = mode.value === "Query Report" ? {} : [];
 		}
 		if (!config.limit && mode.value === "Query List") config.limit = 20;
+		if (mode.value === "Fetch Records") {
+			if (!config.fields || !config.fields.length) {
+				config.fields = ["name"];
+			}
+			parse_fetch_fields_from_config(config.fields);
+		}
 	}
 
 	if (mode.value === "Query Report") {

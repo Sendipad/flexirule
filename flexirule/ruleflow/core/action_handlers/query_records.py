@@ -53,6 +53,7 @@ class QueryRecordsHandler(ActionHandler):
 			css={"icon": "fa fa-search", "color": "#0891b2"},
 			operation_label="Query Mode",
 			operation_options=[
+				"Fetch Records",
 				"Query List",
 				"Query Doc",
 				"Exist Record",
@@ -82,6 +83,13 @@ class QueryRecordsHandler(ActionHandler):
 				"Exist Record": ["reference_doctype"],
 			},
 			operation_policies={
+				"Fetch Records": {
+					"allowed_return_types": ["List of Records"],
+					"default_return_type": "List of Records",
+					"show_return_type": False,
+					"require_return_type": False,
+					"field_labels": {"return_type": "Rows Output Type"},
+				},
 				"Query List": {
 					"allowed_return_types": ["List of Records"],
 					"default_return_type": "List of Records",
@@ -169,6 +177,37 @@ class QueryRecordsHandler(ActionHandler):
 	@classmethod
 	def get_operation_contracts(cls) -> dict:
 		contracts = {
+			"Fetch Records": OperationContract(
+				operation="Fetch Records",
+				rule_overrides=standard_trigger_overrides(
+					trigger_events=BROAD_TRIGGER_EVENTS,
+					trigger_types=STANDARD_TRIGGER_TYPES,
+				),
+				action_overrides=[
+					{"fieldname": "action_type", "default": "Query Records"},
+					{"fieldname": "operation", "default": "Fetch Records"},
+					reference_doctype_override(),
+					{"fieldname": "reference_docname", "hidden": 1, "reqd": 0},
+					config_depends_on_doctype(description="Query configuration (fields, filters, sorting, limit)"),
+					{
+						"fieldname": "mutation_mode",
+						"options": [
+							"Set Context Variable",
+							"Append to Context Variable",
+							"Update Context Variable",
+						],
+						"reqd": 1,
+					},
+					{"fieldname": "return_type", "default": "List of Records", "read_only": 1},
+					{
+						"fieldname": "timeout",
+						"hidden": "eval:doc.parent.execution_mode!=='Asynchronous'",
+						"description": "Only available for async rules",
+					},
+					{"fieldname": "description", "description": "Fetches records using Frappe Query Builder"},
+				],
+				validation={"backend": "validate_fetch_records"},
+			),
 			"Query List": OperationContract(
 				operation="Query List",
 				rule_overrides=standard_trigger_overrides(
@@ -318,6 +357,13 @@ class QueryRecordsHandler(ActionHandler):
 
 		return contracts
 
+	def validate_fetch_records(self, action, context):
+		"""Validation hook for Fetch Records operation."""
+		errors = []
+		if not action.reference_doctype:
+			errors.append(_("Target DocType is required for Fetch Records"))
+		return errors
+
 	def execute(self, action, context, engine):
 		"""Execute a query based on the configured mode (operation field)."""
 		mode = action.operation
@@ -341,6 +387,7 @@ class QueryRecordsHandler(ActionHandler):
 
 		# Dispatch to mode handler
 		mode_handlers = {
+			"Fetch Records": self._fetch_records,
 			"Query List": self._query_list,
 			"Query Doc": self._query_doc,
 			"Exist Record": self._exist_record,
@@ -533,6 +580,229 @@ class QueryRecordsHandler(ActionHandler):
 			limit_page_length=0,
 		)
 		return (rows and rows[0].get("_count")) or 0
+
+	def _fetch_records(self, reference_doctype, config, context, action, ignore_permissions):
+		"""Execute query using frappe.qb.get_query for Fetch Records operation."""
+		# 1. Selected Fields Parsing
+		select_all = config.get("select_all", False)
+		raw_fields = config.get("fields")
+
+		qb_fields = []
+		if select_all or raw_fields == "*":
+			qb_fields = "*"
+		elif raw_fields and isinstance(raw_fields, list):
+			for item in raw_fields:
+				if isinstance(item, str):
+					qb_fields.append(item)
+				elif isinstance(item, dict):
+					# Structured function / alias payload
+					# e.g., {"field": "grand_total", "function": "SUM", "alias": "total_amount"}
+					f_field = item.get("field", "name")
+					f_func = (item.get("function") or "").upper()
+					f_alias = item.get("alias")
+
+					if f_func:
+						expr_str = f"{f_func}({f_field})"
+						if f_alias:
+							expr_str += f" as {f_alias}"
+						qb_fields.append(expr_str)
+					else:
+						if f_alias:
+							qb_fields.append(f"{f_field} as {f_alias}")
+						else:
+							qb_fields.append(f_field)
+
+		if not qb_fields:
+			qb_fields = ["name"]
+
+		# Construct base query builder object
+		query = frappe.qb.get_query(
+			reference_doctype,
+			fields=qb_fields,
+		)
+
+		# 2. Filters Resolution & Compilation
+		raw_filters = config.get("filters")
+		resolved_filters = self._resolve_filters_with_context(
+			raw_filters, context, f"{getattr(action, 'label', None) or getattr(action, 'action_id', None) or 'Fetch Records'}.filters", action
+		)
+
+		query, filter_criterion = self._build_fetch_records_criterion(query, reference_doctype, resolved_filters)
+		if filter_criterion is not None:
+			query = query.where(filter_criterion)
+
+		# 3. Order By & Limit
+		order_by = config.get("order_by")
+		if order_by and isinstance(order_by, str) and order_by.strip():
+			from frappe.query_builder import Order
+			for part in order_by.strip().split(","):
+				part = part.strip()
+				if not part:
+					continue
+				tokens = part.split()
+				fieldname = tokens[0]
+				direction = tokens[1].lower() if len(tokens) > 1 else "asc"
+				order_dir = Order.desc if direction == "desc" else Order.asc
+
+				query, col = self._resolve_column_and_join(query, reference_doctype, None, fieldname)
+				query = query.orderby(col, order=order_dir)
+
+		limit_val = config.get("limit")
+		if limit_val is not None and str(limit_val).isdigit():
+			limit_int = int(limit_val)
+			if limit_int > 0:
+				query = query.limit(limit_int)
+
+		# 4. Permission Enforcement & Execution
+		if not ignore_permissions:
+			from frappe.database.query import Permission
+			Permission().check_permissions(query)
+
+		return query.run(as_dict=True)
+
+	def _resolve_column_and_join(self, query, reference_doctype: str, doctype: str | None, fieldname: str):
+		"""Resolve field column and apply implicit LEFT JOINs for Link or Child Table traversals."""
+		from frappe.database.query import DynamicTableField
+		from frappe.query_builder import DocType
+
+		if isinstance(fieldname, str) and "." in fieldname:
+			# 1. Try Link traversal (e.g. target_link.territory)
+			df = DynamicTableField.parse(fieldname, reference_doctype)
+			if df:
+				query = df.apply_join(query)
+				return query, df.field
+
+			# 2. Try Child Table traversal (e.g. items.item_code)
+			parts = fieldname.split(".", 1)
+			meta = frappe.get_meta(reference_doctype)
+			table_df = meta.get_field(parts[0]) if meta else None
+			if table_df and table_df.fieldtype in {"Table", "Table MultiSelect"} and table_df.options:
+				child_dt = table_df.options
+				child_table = DocType(child_dt)
+				parent_table = DocType(reference_doctype)
+				if not query.is_joined(child_table):
+					query = query.left_join(child_table).on(
+						(child_table.parent == parent_table.name) & (child_table.parenttype == reference_doctype)
+					)
+				return query, child_table[parts[1]]
+
+		# 3. Explicit doctype parameter if provided and is a child table
+		if doctype and reference_doctype and doctype != reference_doctype:
+			meta = frappe.get_meta(doctype)
+			if meta and meta.istable:
+				child_table = DocType(doctype)
+				parent_table = DocType(reference_doctype)
+				if not query.is_joined(child_table):
+					query = query.left_join(child_table).on(
+						(child_table.parent == parent_table.name) & (child_table.parenttype == reference_doctype)
+					)
+				return query, child_table[fieldname]
+
+		target_dt = doctype or reference_doctype
+		tbl = DocType(target_dt)
+		return query, tbl[fieldname]
+
+	def _build_fetch_records_criterion(self, query, reference_doctype: str, filters_tree):
+		"""Recursively build Pypika Criterion for Fetch Records filters."""
+		if not filters_tree:
+			return query, None
+
+		# Legacy flat list of filter tuples support: [["field", "op", "val"], ...]
+		if isinstance(filters_tree, list):
+			if not filters_tree:
+				return query, None
+			tree_obj = {"logic": "ALL", "conditions": []}
+			for item in filters_tree:
+				if isinstance(item, list):
+					if len(item) == 4:
+						tree_obj["conditions"].append({"doctype": item[0], "field": item[1], "operator": item[2], "value": item[3]})
+					elif len(item) == 3:
+						tree_obj["conditions"].append({"field": item[0], "operator": item[1], "value": item[2]})
+				elif isinstance(item, dict):
+					tree_obj["conditions"].append(item)
+			filters_tree = tree_obj
+
+		if not isinstance(filters_tree, dict):
+			return query, None
+
+		logic = (filters_tree.get("logic") or "ALL").upper()
+		conditions = filters_tree.get("conditions") or []
+
+		if not conditions:
+			return query, None
+
+		sub_criteria = []
+		for cond in conditions:
+			if not isinstance(cond, dict):
+				continue
+
+			if "logic" in cond or "conditions" in cond:
+				query, child_crit = self._build_fetch_records_criterion(query, reference_doctype, cond)
+				if child_crit is not None:
+					sub_criteria.append(child_crit)
+			else:
+				field = cond.get("field") or cond.get("fieldname")
+				if not field:
+					continue
+
+				raw_op = cond.get("operator", "=")
+				val = self._extract_filter_value_payload(cond.get("value"))
+				op, val = self._normalize_single_filter_operator(raw_op, val)
+
+				query, column = self._resolve_column_and_join(
+					query, reference_doctype, cond.get("doctype"), field
+				)
+
+				c = self._build_single_pypika_condition(column, op, val)
+				if c is not None:
+					sub_criteria.append(c)
+
+		if not sub_criteria:
+			return query, None
+
+		res = sub_criteria[0]
+		for item in sub_criteria[1:]:
+			if logic == "ANY":
+				res = res | item
+			else:
+				res = res & item
+		return query, res
+
+	def _build_single_pypika_condition(self, column, op: str, val: Any):
+		"""Map operator and value to a Pypika condition on a column."""
+		op_lower = str(op).strip().lower()
+
+		if op_lower in ("=", "equals", "is"):
+			if str(val).strip().lower() == "not set":
+				return column.isnull() | (column == "")
+			if str(val).strip().lower() == "set":
+				return column.isnotnull() & (column != "")
+			return column == val
+		if op_lower in ("!=", "not equals"):
+			return column != val
+		if op_lower in (">", "greater than"):
+			return column > val
+		if op_lower in (">=", "greater than or equal to"):
+			return column >= val
+		if op_lower in ("<", "less than"):
+			return column < val
+		if op_lower in ("<=", "less than or equal to"):
+			return column <= val
+		if op_lower in ("like", "starts with", "ends with"):
+			return column.like(val)
+		if op_lower in ("not like",):
+			return column.not_like(val)
+		if op_lower in ("in",):
+			val_list = val if isinstance(val, list | tuple) else [val]
+			return column.isin(val_list)
+		if op_lower in ("not in",):
+			val_list = val if isinstance(val, list | tuple) else [val]
+			return column.notin(val_list)
+		if op_lower in ("between",):
+			start, end = self._coerce_between_value(val)
+			return column.between(start, end)
+
+		return column == val
 
 	def _aggregate(self, reference_doctype, config, context, action, ignore_permissions):
 		"""Perform sum/avg/min/max via frappe.get_list with permission enforcement."""
