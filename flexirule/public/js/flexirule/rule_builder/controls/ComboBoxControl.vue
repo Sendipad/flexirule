@@ -526,7 +526,7 @@ function openDropdown(initialQuery = null) {
 		query.value = props.trigger === "input" ? displayValue.value : "";
 	}
 
-	activeIndex.value = -1;
+	activeIndex.value = filteredOptions.value.length > 0 ? 0 : -1;
 	openFloatingDropdown();
 
 	nextTick(() => {
