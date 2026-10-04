@@ -666,6 +666,25 @@ function onKeydown(e) {
 		return;
 	}
 
+	if (e.key === "ArrowRight") {
+		if (activeIndex.value >= 0 && activeIndex.value < filteredOptions.value.length) {
+			const activeOpt = filteredOptions.value[activeIndex.value];
+			if (props.navigable && (activeOpt.navigable || activeOpt.raw?.navigable)) {
+				e.preventDefault();
+				onNavigate(activeOpt);
+				return;
+			}
+		}
+	}
+
+	if (e.key === "ArrowLeft" || (e.key === "Backspace" && query.value === "")) {
+		if (props.navStack && props.navStack.length > 1) {
+			e.preventDefault();
+			onBack(props.navStack.length - 2);
+			return;
+		}
+	}
+
 	if (e.key === "ArrowDown") {
 		e.preventDefault();
 		if (activeIndex.value < filteredOptions.value.length - 1) {
