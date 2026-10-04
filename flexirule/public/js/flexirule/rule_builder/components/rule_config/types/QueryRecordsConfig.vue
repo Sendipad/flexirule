@@ -52,7 +52,10 @@
 								:disabled="readOnly"
 								@change="(e) => update_config_key('select_all', e.target.checked)"
 							/>
-							<label class="form-check-label small font-weight-bold" for="selectAllFieldsCheck">
+							<label
+								class="form-check-label small font-weight-bold"
+								for="selectAllFieldsCheck"
+							>
 								{{ __("Select all fields (*)") }}
 							</label>
 						</div>
@@ -75,10 +78,16 @@
 
 						<!-- Structured Functions / Aliases area -->
 						<div class="mt-3" v-if="fetch_function_rows.length || !readOnly">
-							<label class="control-label small font-weight-bold text-muted mb-2 d-block">
+							<label
+								class="control-label small font-weight-bold text-muted mb-2 d-block"
+							>
 								{{ __("Functions & Aliases") }}
 							</label>
-							<div v-for="(fnRow, idx) in fetch_function_rows" :key="idx" class="d-flex align-items-center gap-2 mb-2">
+							<div
+								v-for="(fnRow, idx) in fetch_function_rows"
+								:key="idx"
+								class="d-flex align-items-center gap-2 mb-2"
+							>
 								<select
 									class="form-control input-xs"
 									style="width: 100px"
@@ -141,7 +150,8 @@
 								class="btn btn-xs btn-link p-0 text-primary mt-1"
 								@click="add_fetch_function"
 							>
-								<i class="fa fa-plus mr-1"></i> {{ __("Add Function / Alias Expression") }}
+								<i class="fa fa-plus mr-1"></i>
+								{{ __("Add Function / Alias Expression") }}
 							</button>
 						</div>
 					</div>
@@ -1336,7 +1346,11 @@ const SYSTEM_FIELDS = [
 async function update_resolved_schema_local() {
 	if (!props.node?.data) return;
 
-	if (mode.value === "Fetch Records" || mode.value === "Query List" || mode.value === "Query Doc") {
+	if (
+		mode.value === "Fetch Records" ||
+		mode.value === "Query List" ||
+		mode.value === "Query Doc"
+	) {
 		const is_query_doc = mode.value === "Query Doc";
 		const fields = (config.fields || []).filter((f) => f);
 
@@ -1722,7 +1736,11 @@ function sync_local_config() {
 		if (val !== undefined && val !== null && val !== "") new_config[k] = val;
 	});
 
-	if (mode.value === "Fetch Records" || mode.value === "Query List" || mode.value === "Query Doc") {
+	if (
+		mode.value === "Fetch Records" ||
+		mode.value === "Query List" ||
+		mode.value === "Query Doc"
+	) {
 		const fields = build_fields();
 		if (fields.length) new_config.fields = fields;
 
@@ -1969,7 +1987,7 @@ function load_local_config(val) {
 					field: parts[0],
 					direction: (parts[1] || "asc").toLowerCase(),
 				};
-		  })
+			})
 		: [];
 	const current_order_by_rows = order_by_rows.value.map((r) => ({
 		field: r.field,
@@ -2241,7 +2259,9 @@ defineExpose({
 	border-radius: var(--fxr-radius-md) !important;
 	background-color: var(--fxr-bg-input) !important;
 	color: var(--fxr-text) !important;
-	transition: border-color var(--fxr-transition-fast), box-shadow var(--fxr-transition-fast) !important;
+	transition:
+		border-color var(--fxr-transition-fast),
+		box-shadow var(--fxr-transition-fast) !important;
 }
 
 :deep(.form-control:focus) {

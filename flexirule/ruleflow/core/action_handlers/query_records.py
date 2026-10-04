@@ -188,7 +188,9 @@ class QueryRecordsHandler(ActionHandler):
 					{"fieldname": "operation", "default": "Fetch Records"},
 					reference_doctype_override(),
 					{"fieldname": "reference_docname", "hidden": 1, "reqd": 0},
-					config_depends_on_doctype(description="Query configuration (fields, filters, sorting, limit)"),
+					config_depends_on_doctype(
+						description="Query configuration (fields, filters, sorting, limit)"
+					),
 					{
 						"fieldname": "mutation_mode",
 						"options": [
@@ -587,13 +589,14 @@ class QueryRecordsHandler(ActionHandler):
 		select_all = config.get("select_all", False)
 		raw_fields = config.get("fields")
 
-		qb_fields = []
+		qb_fields: list[str] | str = []
 		if select_all or raw_fields == "*":
 			qb_fields = "*"
 		elif raw_fields and isinstance(raw_fields, list):
+			parsed_list: list[str] = []
 			for item in raw_fields:
 				if isinstance(item, str):
-					qb_fields.append(item)
+					parsed_list.append(item)
 				elif isinstance(item, dict):
 					# Structured function / alias payload
 					# e.g., {"field": "grand_total", "function": "SUM", "alias": "total_amount"}
@@ -605,12 +608,13 @@ class QueryRecordsHandler(ActionHandler):
 						expr_str = f"{f_func}({f_field})"
 						if f_alias:
 							expr_str += f" as {f_alias}"
-						qb_fields.append(expr_str)
+						parsed_list.append(expr_str)
 					else:
 						if f_alias:
-							qb_fields.append(f"{f_field} as {f_alias}")
+							parsed_list.append(f"{f_field} as {f_alias}")
 						else:
-							qb_fields.append(f_field)
+							parsed_list.append(f_field)
+			qb_fields = parsed_list
 
 		if not qb_fields:
 			qb_fields = ["name"]
@@ -624,10 +628,15 @@ class QueryRecordsHandler(ActionHandler):
 		# 2. Filters Resolution & Compilation
 		raw_filters = config.get("filters")
 		resolved_filters = self._resolve_filters_with_context(
-			raw_filters, context, f"{getattr(action, 'label', None) or getattr(action, 'action_id', None) or 'Fetch Records'}.filters", action
+			raw_filters,
+			context,
+			f"{getattr(action, 'label', None) or getattr(action, 'action_id', None) or 'Fetch Records'}.filters",
+			action,
 		)
 
-		query, filter_criterion = self._build_fetch_records_criterion(query, reference_doctype, resolved_filters)
+		query, filter_criterion = self._build_fetch_records_criterion(
+			query, reference_doctype, resolved_filters
+		)
 		if filter_criterion is not None:
 			query = query.where(filter_criterion)
 
@@ -635,6 +644,7 @@ class QueryRecordsHandler(ActionHandler):
 		order_by = config.get("order_by")
 		if order_by and isinstance(order_by, str) and order_by.strip():
 			from frappe.query_builder import Order
+
 			for part in order_by.strip().split(","):
 				part = part.strip()
 				if not part:
@@ -656,6 +666,7 @@ class QueryRecordsHandler(ActionHandler):
 		# 4. Permission Enforcement & Execution
 		if not ignore_permissions:
 			from frappe.database.query import Permission
+
 			Permission().check_permissions(query)
 
 		return query.run(as_dict=True)
@@ -682,7 +693,8 @@ class QueryRecordsHandler(ActionHandler):
 				parent_table = DocType(reference_doctype)
 				if not query.is_joined(child_table):
 					query = query.left_join(child_table).on(
-						(child_table.parent == parent_table.name) & (child_table.parenttype == reference_doctype)
+						(child_table.parent == parent_table.name)
+						& (child_table.parenttype == reference_doctype)
 					)
 				return query, child_table[parts[1]]
 
@@ -694,7 +706,8 @@ class QueryRecordsHandler(ActionHandler):
 				parent_table = DocType(reference_doctype)
 				if not query.is_joined(child_table):
 					query = query.left_join(child_table).on(
-						(child_table.parent == parent_table.name) & (child_table.parenttype == reference_doctype)
+						(child_table.parent == parent_table.name)
+						& (child_table.parenttype == reference_doctype)
 					)
 				return query, child_table[fieldname]
 
@@ -715,9 +728,13 @@ class QueryRecordsHandler(ActionHandler):
 			for item in filters_tree:
 				if isinstance(item, list):
 					if len(item) == 4:
-						tree_obj["conditions"].append({"doctype": item[0], "field": item[1], "operator": item[2], "value": item[3]})
+						tree_obj["conditions"].append(
+							{"doctype": item[0], "field": item[1], "operator": item[2], "value": item[3]}
+						)
 					elif len(item) == 3:
-						tree_obj["conditions"].append({"field": item[0], "operator": item[1], "value": item[2]})
+						tree_obj["conditions"].append(
+							{"field": item[0], "operator": item[1], "value": item[2]}
+						)
 				elif isinstance(item, dict):
 					tree_obj["conditions"].append(item)
 			filters_tree = tree_obj

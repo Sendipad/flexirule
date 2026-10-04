@@ -163,7 +163,11 @@ class TestFetchRecords(FrappeTestCase):
 						"filters": {
 							"logic": "ALL",
 							"conditions": [
-								{"field": "creation", "operator": "Between", "value": ["2020-01-01", "2030-12-31"]}
+								{
+									"field": "creation",
+									"operator": "Between",
+									"value": ["2020-01-01", "2030-12-31"],
+								}
 							],
 						}
 					}

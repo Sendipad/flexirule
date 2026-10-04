@@ -228,7 +228,7 @@ class DedupeScoringEngine:
 
 			self._phonetic_scorer = phonetic_score
 		except ImportError:
-			self._phonetic_scorer = lambda a, b: (1.0 if str(a).lower() == str(b).lower() else 0.0)
+			self._phonetic_scorer = lambda a, b: 1.0 if str(a).lower() == str(b).lower() else 0.0
 
 		return self._phonetic_scorer
 
