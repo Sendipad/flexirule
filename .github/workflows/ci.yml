@@ -117,6 +117,7 @@ jobs:
           bench get-app --branch version-15 erpnext https://github.com/frappe/erpnext.git
           rm -rf apps/flexirule
           ln -s "$GITHUB_WORKSPACE" apps/flexirule
+          grep -qxF flexirule sites/apps.txt || echo flexirule >> sites/apps.txt
           bench setup requirements --dev
       - name: Create test_site
         working-directory: ${{ env.BENCH_DIR }}
@@ -182,6 +183,7 @@ jobs:
           bench get-app --branch version-15 erpnext https://github.com/frappe/erpnext.git
           rm -rf apps/flexirule
           ln -s "$GITHUB_WORKSPACE" apps/flexirule
+          grep -qxF flexirule sites/apps.txt || echo flexirule >> sites/apps.txt
           bench setup requirements --dev
           bench new-site "$SITE" --db-root-password root --admin-password admin --db-host 127.0.0.1 --db-port 3306 --install-app erpnext
           bench --site "$SITE" install-app flexirule
