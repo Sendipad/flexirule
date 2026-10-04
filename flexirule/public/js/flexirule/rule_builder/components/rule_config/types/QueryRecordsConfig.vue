@@ -64,7 +64,7 @@
 							fieldname: 'fields',
 							placeholder: __('Select fields to fetch...'),
 						}"
-						:options="doctype_fields"
+						:options="navigableFields.currentFields.value"
 						:modelValue="config.fields || []"
 						:read_only="readOnly"
 						:hideLabel="true"
@@ -79,18 +79,22 @@
 							<ComboBoxControl
 								:ref="setControlRef"
 								:df="{ label: '', fieldtype: 'FieldPicker' }"
-								:options="doctype_fields"
+								:options="navigableFields.currentFields.value"
 								:doctype="reference_doctype"
 								:modelValue="row.field"
 								:read_only="readOnly"
 								:trigger="'button'"
 								:hideLabel="true"
+								:navigable="true"
+								:navStack="navigableFields.navStack.value"
+								@navigate="navigableFields.handleNavigate"
+								@back="navigableFields.handleBack"
 								class="flex-1"
 								:class="{
 									'border-warning':
 										row.field && !is_field_valid(row.field, doctype_fields),
 								}"
-								@update:modelValue="(val) => (row.field = val)"
+								@update:modelValue="(val) => { row.field = val; navigableFields.resetStack(); }"
 							/>
 							<select
 								class="form-control input-xs direction-select"
@@ -368,19 +372,23 @@
 									<ComboBoxControl
 										:ref="setControlRef"
 										:df="{ ...fieldField, fieldtype: 'FieldPicker' }"
-										:options="doctype_fields"
+										:options="navigableFields.currentFields.value"
 										:doctype="reference_doctype"
 										:modelValue="config.field"
 										:read_only="readOnly"
 										:trigger="'button'"
 										:hideLabel="true"
+										:navigable="true"
+										:navStack="navigableFields.navStack.value"
+										@navigate="navigableFields.handleNavigate"
+										@back="navigableFields.handleBack"
 										:class="{
 											'border-warning':
 												config.field &&
 												!is_field_valid(config.field, doctype_fields),
 										}"
 										@update:modelValue="
-											(val) => update_config_key('field', val)
+											(val) => { update_config_key('field', val); navigableFields.resetStack(); }
 										"
 									/>
 									<i
@@ -403,12 +411,16 @@
 									<ComboBoxControl
 										:ref="setControlRef"
 										:df="{ ...aggGroupByField, fieldtype: 'FieldPicker' }"
-										:options="doctype_fields"
+										:options="navigableFields.currentFields.value"
 										:doctype="reference_doctype"
 										:modelValue="config.group_by_field"
 										:read_only="readOnly"
 										:trigger="'button'"
 										:hideLabel="true"
+										:navigable="true"
+										:navStack="navigableFields.navStack.value"
+										@navigate="navigableFields.handleNavigate"
+										@back="navigableFields.handleBack"
 										:class="{
 											'border-warning':
 												config.group_by_field &&
@@ -418,7 +430,7 @@
 												),
 										}"
 										@update:modelValue="
-											(val) => update_config_key('group_by_field', val)
+											(val) => { update_config_key('group_by_field', val); navigableFields.resetStack(); }
 										"
 									/>
 									<i
@@ -449,19 +461,23 @@
 									<ComboBoxControl
 										:ref="setControlRef"
 										:df="{ ...aggFieldField, fieldtype: 'FieldPicker' }"
-										:options="doctype_fields"
+										:options="navigableFields.currentFields.value"
 										:doctype="reference_doctype"
 										:modelValue="config.agg_field"
 										:read_only="readOnly"
 										:trigger="'button'"
 										:hideLabel="true"
+										:navigable="true"
+										:navStack="navigableFields.navStack.value"
+										@navigate="navigableFields.handleNavigate"
+										@back="navigableFields.handleBack"
 										:class="{
 											'border-warning':
 												config.agg_field &&
 												!is_field_valid(config.agg_field, doctype_fields),
 										}"
 										@update:modelValue="
-											(val) => update_config_key('agg_field', val)
+											(val) => { update_config_key('agg_field', val); navigableFields.resetStack(); }
 										"
 									/>
 									<i
@@ -529,6 +545,7 @@ import FlexValueControl from "../../../controls/FlexValueControl.vue";
 import { useNodeConfigPolicy } from "../../../composables/useNodeConfigPolicy";
 import { useUIStore } from "../../../stores/useUIStore";
 import { provideControlContext } from "../../../composables/useControlContext";
+import { useNavigableFields } from "../../../composables/useNavigableFields";
 
 const props = defineProps({
 	node: Object,
@@ -556,6 +573,8 @@ const {
 } = useActionConfig(props, {
 	fieldValueMode: "fieldname",
 });
+
+const navigableFields = useNavigableFields(reference_doctype);
 const { getPolicyField } = useNodeConfigPolicy({
 	actionType: () => props.node?.data?.action_type || "Query Records",
 	operation: mode,

@@ -119,6 +119,38 @@
 							@mousedown.prevent
 							@keydown="onKeydown"
 						>
+							<!-- Breadcrumbs navigation header -->
+							<div
+								v-if="navStack && navStack.length > 0"
+								class="nav-breadcrumbs-bar"
+							>
+								<button
+									v-if="navStack.length > 1"
+									class="nav-back-btn"
+									type="button"
+									title="Back"
+									@click.stop.prevent="onBack(navStack.length - 2)"
+								>
+									<i class="fa fa-arrow-left"></i>
+								</button>
+								<div class="breadcrumbs-list truncate">
+									<template v-for="(item, idx) in navStack" :key="idx">
+										<span v-if="idx > 0" class="breadcrumb-separator">/</span>
+										<button
+											type="button"
+											v-if="idx < navStack.length - 1"
+											class="breadcrumb-link"
+											@click.stop.prevent="onBack(idx)"
+										>
+											{{ item.label }}
+										</button>
+										<span v-else class="breadcrumb-current">{{
+											item.label
+										}}</span>
+									</template>
+								</div>
+							</div>
+
 							<!-- Search box inside popover for button mode -->
 							<div v-if="trigger === 'button' && !hideSearch" class="popover-search">
 								<i class="fa fa-search text-muted mr-2"></i>
@@ -215,6 +247,21 @@
 									<div v-if="option.value === modelValue" class="selected-check">
 										<i class="fa fa-check"></i>
 									</div>
+									<button
+										v-if="
+											navigable && (option.navigable || option.raw?.navigable)
+										"
+										type="button"
+										class="option-nav-btn"
+										:title="
+											__('Navigate into {0}', [
+												option.label || option.value,
+											])
+										"
+										@click.stop.prevent="onNavigate(option)"
+									>
+										<i class="fa fa-chevron-right"></i>
+									</button>
 								</div>
 							</div>
 
@@ -274,9 +321,11 @@ const props = defineProps({
 	},
 	context: Object,
 	rule: Object,
+	navigable: { type: Boolean, default: false },
+	navStack: { type: Array, default: () => [] },
 });
 
-const emit = defineEmits(["update:modelValue", "change"]);
+const emit = defineEmits(["update:modelValue", "change", "navigate", "back"]);
 const metaStore = useMetaStore();
 
 const query = ref("");
@@ -579,6 +628,14 @@ function onSelect(val) {
 	emit("change", option?.raw || val);
 	query.value = "";
 	closeDropdown(true);
+}
+
+function onNavigate(option) {
+	emit("navigate", option.raw || option);
+}
+
+function onBack(idx) {
+	emit("back", idx);
 }
 
 function scrollToActive() {
@@ -1150,5 +1207,94 @@ onBeforeUnmount(() => {
 	color: var(--fxr-accent);
 	font-size: 10px;
 	margin-top: 4px;
+}
+
+/* Nav Bar & Breadcrumbs Styles */
+.fxr-dropdown .nav-breadcrumbs-bar {
+	display: flex;
+	align-items: center;
+	padding: 6px 10px;
+	background-color: var(--fxr-bg-muted, #f1f5f9);
+	border-bottom: 1px solid var(--fxr-border-subtle, #e2e8f0);
+	font-size: 11px;
+	gap: 6px;
+}
+
+.fxr-dropdown .nav-back-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 22px;
+	height: 22px;
+	border: 1px solid var(--fxr-border-subtle, #cbd5e1);
+	border-radius: 4px;
+	background: #ffffff;
+	color: var(--fxr-text-strong, #1e293b);
+	cursor: pointer;
+	padding: 0;
+	flex-shrink: 0;
+	transition: all 0.15s ease;
+}
+
+.fxr-dropdown .nav-back-btn:hover {
+	background-color: var(--fxr-accent-soft, #eff6ff);
+	color: var(--fxr-accent, #2563eb);
+	border-color: var(--fxr-accent, #2563eb);
+}
+
+.fxr-dropdown .breadcrumbs-list {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+}
+
+.fxr-dropdown .breadcrumb-separator {
+	color: var(--fxr-text-muted, #94a3b8);
+	font-size: 10px;
+}
+
+.fxr-dropdown .breadcrumb-link {
+	border: none;
+	background: none;
+	padding: 0;
+	color: var(--fxr-accent, #2563eb);
+	cursor: pointer;
+	font-weight: 500;
+	text-decoration: none;
+}
+
+.fxr-dropdown .breadcrumb-link:hover {
+	text-decoration: underline;
+}
+
+.fxr-dropdown .breadcrumb-current {
+	color: var(--fxr-text-strong, #1e293b);
+	font-weight: 600;
+}
+
+.fxr-dropdown .option-nav-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 22px;
+	height: 22px;
+	border: 1px solid var(--fxr-border-subtle, #e2e8f0);
+	border-radius: 4px;
+	background: transparent;
+	color: var(--fxr-text-muted, #64748b);
+	cursor: pointer;
+	padding: 0;
+	margin-left: auto;
+	flex-shrink: 0;
+	transition: all 0.15s ease;
+}
+
+.fxr-dropdown .option-nav-btn:hover {
+	background-color: var(--fxr-accent, #2563eb);
+	color: #ffffff;
+	border-color: var(--fxr-accent, #2563eb);
 }
 </style>
