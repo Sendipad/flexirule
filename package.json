@@ -6,7 +6,11 @@
 	"scripts": {
 		"test": "echo \"Error: no test specified\" && exit 1",
 		"lint": "eslint --ext .js,.vue .",
-		"format": "prettier --write \"**/*.{js,vue,scss,json,md}\""
+		"format": "prettier --write \"**/*.{js,vue,scss,json,md}\"",
+		"test:ui": "bench --site test_site run-ui-tests flexirule --headless",
+		"test:ui:open": "bench --site test_site run-ui-tests flexirule",
+		"build:bench": "bench build --app flexirule",
+		"test:backend": "bench --site test_site set-config allow_tests true && bench --site test_site run-tests --app flexirule"
 	},
 	"keywords": [],
 	"author": "",
