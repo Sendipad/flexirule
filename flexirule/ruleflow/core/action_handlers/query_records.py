@@ -432,7 +432,8 @@ class QueryRecordsHandler(ActionHandler):
 					child_meta
 					and (
 						child_meta.has_field(child_field)
-						or child_field in {"name", "owner", "creation", "modified", "modified_by", "docstatus"}
+						or child_field
+						in {"name", "owner", "creation", "modified", "modified_by", "docstatus"}
 					)
 				)
 			if table_df and table_df.fieldtype == "Link" and table_df.options:
@@ -441,7 +442,8 @@ class QueryRecordsHandler(ActionHandler):
 					link_meta
 					and (
 						link_meta.has_field(child_field)
-						or child_field in {"name", "owner", "creation", "modified", "modified_by", "docstatus"}
+						or child_field
+						in {"name", "owner", "creation", "modified", "modified_by", "docstatus"}
 					)
 				)
 			return False

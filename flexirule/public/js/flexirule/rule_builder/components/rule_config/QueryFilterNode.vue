@@ -8,7 +8,10 @@
 						type="button"
 						class="logic-btn"
 						:class="{ active: node.op === 'and' }"
-						@click="node.op = 'and'; emitUpdate()"
+						@click="
+							node.op = 'and';
+							emitUpdate();
+						"
 						:disabled="readOnly"
 					>
 						{{ __("AND") }}
@@ -17,7 +20,10 @@
 						type="button"
 						class="logic-btn"
 						:class="{ active: node.op === 'or' }"
-						@click="node.op = 'or'; emitUpdate()"
+						@click="
+							node.op = 'or';
+							emitUpdate();
+						"
 						:disabled="readOnly"
 					>
 						{{ __("OR") }}
@@ -53,7 +59,11 @@
 				<div v-if="!node.conditions.length" class="empty-group-text">
 					{{ __("Empty group. Click 'Condition' or 'Group' to add rules.") }}
 				</div>
-				<div v-for="(child, cIdx) in node.conditions" :key="child.id || cIdx" class="child-node-wrapper">
+				<div
+					v-for="(child, cIdx) in node.conditions"
+					:key="child.id || cIdx"
+					class="child-node-wrapper"
+				>
 					<QueryFilterNode
 						:node="child"
 						:index="cIdx"
@@ -80,7 +90,12 @@
 						:doctype="'DocType'"
 						:hideLabel="true"
 						:read_only="readOnly"
-						@update:modelValue="(val) => { node.doctype = val; emitUpdate(); }"
+						@update:modelValue="
+							(val) => {
+								node.doctype = val;
+								emitUpdate();
+							}
+						"
 					/>
 				</div>
 
@@ -107,7 +122,9 @@
 						@change="(e) => onOperatorChange(e.target.value)"
 					>
 						<option
-							v-for="op in getOperatorsForField(getFieldDef(node.field, node.doctype))"
+							v-for="op in getOperatorsForField(
+								getFieldDef(node.field, node.doctype)
+							)"
 							:key="op"
 							:value="op"
 						>
@@ -123,7 +140,11 @@
 							<div class="dual-value-wrapper">
 								<div class="value-input-item">
 									<FlexValueControl
-										:modelValue="Array.isArray(node.value) ? node.value[0] : { mode: 'static', value: '' }"
+										:modelValue="
+											Array.isArray(node.value)
+												? node.value[0]
+												: { mode: 'static', value: '' }
+										"
 										:context="{
 											df: { ...getControlFactorySchema(node), reqd: 1 },
 											operator: node.operator,
@@ -140,7 +161,11 @@
 								<span class="between-sep">{{ __("and") }}</span>
 								<div class="value-input-item">
 									<FlexValueControl
-										:modelValue="Array.isArray(node.value) ? node.value[1] : { mode: 'static', value: '' }"
+										:modelValue="
+											Array.isArray(node.value)
+												? node.value[1]
+												: { mode: 'static', value: '' }
+										"
 										:context="{
 											df: { ...getControlFactorySchema(node), reqd: 1 },
 											operator: node.operator,
@@ -273,13 +298,28 @@ function onOperatorChange(op) {
 
 function updateBetweenValue(idx, val) {
 	if (!Array.isArray(props.node.value)) {
-		props.node.value = [{ mode: "static", value: "" }, { mode: "static", value: "" }];
+		props.node.value = [
+			{ mode: "static", value: "" },
+			{ mode: "static", value: "" },
+		];
 	}
 	props.node.value[idx] = val;
 	emitUpdate();
 }
 
-const BASE_QUERY_OPERATORS = ["=", "!=", "like", "not like", "in", "not in", ">", "<", ">=", "<=", "is"];
+const BASE_QUERY_OPERATORS = [
+	"=",
+	"!=",
+	"like",
+	"not like",
+	"in",
+	"not in",
+	">",
+	"<",
+	">=",
+	"<=",
+	"is",
+];
 const QUERY_EXTENSION_OPERATORS = ["Between", "Timespan", "starts with", "ends with"];
 const NESTED_SET_OPERATORS = [
 	"descendants of",
@@ -371,7 +411,9 @@ function getFieldDef(fieldname, dtName) {
 	}
 
 	const storeFields = store.get_fields_for_doctype(dt);
-	const match = (storeFields || []).find((f) => f.value === fieldname || f.fieldname === fieldname);
+	const match = (storeFields || []).find(
+		(f) => f.value === fieldname || f.fieldname === fieldname
+	);
 	if (match) return match;
 
 	return { fieldname, value: fieldname, fieldtype: "Data", label: fieldname };
@@ -391,7 +433,11 @@ function getOperatorsForField(field) {
 		if (!allowed.includes(op)) allowed.push(op);
 	}
 
-	if (field.fieldtype === "Link" && window.frappe && frappe.boot?.nested_set_doctypes?.includes(field.options)) {
+	if (
+		field.fieldtype === "Link" &&
+		window.frappe &&
+		frappe.boot?.nested_set_doctypes?.includes(field.options)
+	) {
 		for (const op of NESTED_SET_OPERATORS) {
 			if (!allowed.includes(op)) allowed.push(op);
 		}
@@ -440,7 +486,10 @@ function getControlFactorySchema(node) {
 
 	if (window.frappe && frappe.ui && frappe.ui.filter_utils) {
 		frappe.ui.filter_utils.set_fieldtype(schema, null, node.operator);
-		if (node.operator === "Between" && ["Date", "Datetime", "Time"].includes(field?.fieldtype)) {
+		if (
+			node.operator === "Between" &&
+			["Date", "Datetime", "Time"].includes(field?.fieldtype)
+		) {
 			schema.fieldtype = field.fieldtype;
 		}
 	} else {

@@ -15,7 +15,10 @@
 						type="button"
 						class="logic-btn"
 						:class="{ active: rootGroup.op === 'and' }"
-						@click="rootGroup.op = 'and'; emitUpdate()"
+						@click="
+							rootGroup.op = 'and';
+							emitUpdate();
+						"
 						:disabled="readOnly"
 					>
 						{{ __("AND") }}
@@ -24,7 +27,10 @@
 						type="button"
 						class="logic-btn"
 						:class="{ active: rootGroup.op === 'or' }"
-						@click="rootGroup.op = 'or'; emitUpdate()"
+						@click="
+							rootGroup.op = 'or';
+							emitUpdate();
+						"
 						:disabled="readOnly"
 					>
 						{{ __("OR") }}
@@ -35,7 +41,10 @@
 					<button class="btn btn-xs btn-outline-primary" @click="addCondition(rootGroup)">
 						<i class="fa fa-plus mr-1"></i> {{ __("Add Condition") }}
 					</button>
-					<button class="btn btn-xs btn-outline-secondary ml-2" @click="addGroup(rootGroup)">
+					<button
+						class="btn btn-xs btn-outline-secondary ml-2"
+						@click="addGroup(rootGroup)"
+					>
 						<i class="fa fa-folder-open-o mr-1"></i> {{ __("Add Group") }}
 					</button>
 					<button
@@ -50,12 +59,23 @@
 
 			<!-- Filter List Body -->
 			<div class="root-group-body">
-				<div v-if="!rootGroup.conditions?.length" class="empty-state p-3 text-center border-dashed rounded text-muted">
+				<div
+					v-if="!rootGroup.conditions?.length"
+					class="empty-state p-3 text-center border-dashed rounded text-muted"
+				>
 					<i class="fa fa-filter fa-2x mb-2 opacity-30"></i>
-					<p class="m-0 small">{{ __("No filters defined. Click 'Add Condition' or 'Add Group' to start.") }}</p>
+					<p class="m-0 small">
+						{{
+							__("No filters defined. Click 'Add Condition' or 'Add Group' to start.")
+						}}
+					</p>
 				</div>
 
-				<div v-for="(node, idx) in rootGroup.conditions" :key="node.id || idx" class="node-item-wrapper">
+				<div
+					v-for="(node, idx) in rootGroup.conditions"
+					:key="node.id || idx"
+					class="node-item-wrapper"
+				>
 					<QueryFilterNode
 						:node="node"
 						:index="idx"
@@ -202,12 +222,7 @@ function emitUpdate() {
 	if (isFlatAnd) {
 		const serialized = rootGroup.conditions
 			.filter((r) => r.field)
-			.map((r) => [
-				r.doctype || props.doctype,
-				r.field,
-				r.operator || "=",
-				r.value,
-			]);
+			.map((r) => [r.doctype || props.doctype, r.field, r.operator || "=", r.value]);
 		emit("update:modelValue", serialized);
 	} else {
 		// Emit full recursive group structure

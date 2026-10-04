@@ -121,7 +121,8 @@
 						<!-- Field List Body -->
 						<div class="browser-body">
 							<div v-if="loading" class="text-center p-3 text-muted">
-								<i class="fa fa-spinner fa-spin mr-2"></i> {{ __("Loading fields...") }}
+								<i class="fa fa-spinner fa-spin mr-2"></i>
+								{{ __("Loading fields...") }}
 							</div>
 
 							<div
@@ -152,12 +153,19 @@
 									<div class="field-meta">
 										<div class="field-label-line">
 											<span class="field-label">{{ field.label }}</span>
-											<span class="field-name-code">({{ field.fieldname }})</span>
+											<span class="field-name-code"
+												>({{ field.fieldname }})</span
+											>
 										</div>
 										<div class="field-desc">
 											<span
 												class="fieldtype-tag"
-												:class="'type-' + String(field.fieldtype).toLowerCase().replace(' ', '-')"
+												:class="
+													'type-' +
+													String(field.fieldtype)
+														.toLowerCase()
+														.replace(' ', '-')
+												"
 											>
 												{{ field.fieldtype }}
 											</span>
@@ -179,7 +187,10 @@
 									</div>
 
 									<!-- Selected Checkmark -->
-									<div v-else-if="isFieldSelected(field.value)" class="selected-check">
+									<div
+										v-else-if="isFieldSelected(field.value)"
+										class="selected-check"
+									>
 										<i class="fa fa-check"></i>
 									</div>
 								</div>
@@ -275,10 +286,20 @@ async function loadFieldsForActiveLevel() {
 		// System / Standard fields for root or child
 		const stdFields = [
 			{ fieldname: "name", label: __("ID (name)"), fieldtype: "Data" },
-			{ fieldname: "owner", label: __("Created By (owner)"), fieldtype: "Link", options: "User" },
+			{
+				fieldname: "owner",
+				label: __("Created By (owner)"),
+				fieldtype: "Link",
+				options: "User",
+			},
 			{ fieldname: "creation", label: __("Created On (creation)"), fieldtype: "Datetime" },
 			{ fieldname: "modified", label: __("Modified On (modified)"), fieldtype: "Datetime" },
-			{ fieldname: "modified_by", label: __("Modified By (modified_by)"), fieldtype: "Link", options: "User" },
+			{
+				fieldname: "modified_by",
+				label: __("Modified By (modified_by)"),
+				fieldtype: "Link",
+				options: "User",
+			},
 			{ fieldname: "docstatus", label: __("Document Status (docstatus)"), fieldtype: "Int" },
 		];
 
@@ -296,9 +317,14 @@ async function loadFieldsForActiveLevel() {
 		});
 
 		if (meta && meta.fields) {
-			const fieldsSorted = [...meta.fields].sort((a, b) => (a.label || a.fieldname || "").localeCompare(b.label || b.fieldname || ""));
+			const fieldsSorted = [...meta.fields].sort((a, b) =>
+				(a.label || a.fieldname || "").localeCompare(b.label || b.fieldname || "")
+			);
 			for (const df of fieldsSorted) {
-				if (frappe.model.no_value_type.includes(df.fieldtype) && !["Table", "Table MultiSelect"].includes(df.fieldtype)) {
+				if (
+					frappe.model.no_value_type.includes(df.fieldtype) &&
+					!["Table", "Table MultiSelect"].includes(df.fieldtype)
+				) {
 					continue;
 				}
 				if (df.is_virtual) continue;
@@ -308,7 +334,9 @@ async function loadFieldsForActiveLevel() {
 				seen.add(fullVal);
 
 				const isNav = Boolean(
-					(df.fieldtype === "Link" || df.fieldtype === "Table" || df.fieldtype === "Table MultiSelect") &&
+					(df.fieldtype === "Link" ||
+						df.fieldtype === "Table" ||
+						df.fieldtype === "Table MultiSelect") &&
 						df.options &&
 						df.options !== dt
 				);
@@ -343,10 +371,18 @@ const filteredFields = computed(() => {
 	if (!q) return levelFields.value;
 	return levelFields.value.filter((f) => {
 		return (
-			String(f.label || "").toLowerCase().includes(q) ||
-			String(f.fieldname || "").toLowerCase().includes(q) ||
-			String(f.fieldtype || "").toLowerCase().includes(q) ||
-			String(f.options || "").toLowerCase().includes(q)
+			String(f.label || "")
+				.toLowerCase()
+				.includes(q) ||
+			String(f.fieldname || "")
+				.toLowerCase()
+				.includes(q) ||
+			String(f.fieldtype || "")
+				.toLowerCase()
+				.includes(q) ||
+			String(f.options || "")
+				.toLowerCase()
+				.includes(q)
 		);
 	});
 });
@@ -517,9 +553,12 @@ function getFieldIcon(field) {
 	return "fa fa-font text-muted";
 }
 
-watch(() => props.doctype, () => {
-	initNavStack();
-});
+watch(
+	() => props.doctype,
+	() => {
+		initNavStack();
+	}
+);
 
 const isValid = computed(() => {
 	if (!props.df?.reqd) return true;

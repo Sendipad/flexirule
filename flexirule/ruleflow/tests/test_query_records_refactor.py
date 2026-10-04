@@ -141,12 +141,14 @@ class TestQueryRecordsRefactor(FrappeTestCase):
 
 	def test_child_table_field_query(self):
 		user_email = f"child_test_{random_string(5).lower()}@example.com"
-		user = frappe.get_doc({
-			"doctype": "User",
-			"email": user_email,
-			"first_name": "Child Table Test User",
-			"roles": [{"role": "System Manager"}],
-		}).insert(ignore_permissions=True)
+		user = frappe.get_doc(
+			{
+				"doctype": "User",
+				"email": user_email,
+				"first_name": "Child Table Test User",
+				"roles": [{"role": "System Manager"}],
+			}
+		).insert(ignore_permissions=True)
 
 		action = frappe._dict(
 			{
@@ -167,11 +169,13 @@ class TestQueryRecordsRefactor(FrappeTestCase):
 		self.assertEqual(result[0].get("name"), user.name)
 
 	def test_link_field_traversal_query(self):
-		todo = frappe.get_doc({
-			"doctype": "ToDo",
-			"description": "Link Traversal Test " + random_string(5),
-			"assigned_by": frappe.session.user,
-		}).insert(ignore_permissions=True)
+		frappe.get_doc(
+			{
+				"doctype": "ToDo",
+				"description": "Link Traversal Test " + random_string(5),
+				"assigned_by": frappe.session.user,
+			}
+		).insert(ignore_permissions=True)
 
 		action = frappe._dict(
 			{
@@ -191,8 +195,12 @@ class TestQueryRecordsRefactor(FrappeTestCase):
 
 	def test_query_list_nested_filter_groups(self):
 		prefix = f"NestedGrp_{random_string(5)}"
-		todo1 = frappe.get_doc({"doctype": "ToDo", "description": f"{prefix} A", "status": "Open"}).insert(ignore_permissions=True)
-		todo2 = frappe.get_doc({"doctype": "ToDo", "description": f"{prefix} B", "status": "Closed"}).insert(ignore_permissions=True)
+		todo1 = frappe.get_doc({"doctype": "ToDo", "description": f"{prefix} A", "status": "Open"}).insert(
+			ignore_permissions=True
+		)
+		todo2 = frappe.get_doc({"doctype": "ToDo", "description": f"{prefix} B", "status": "Closed"}).insert(
+			ignore_permissions=True
+		)
 
 		action = frappe._dict(
 			{
@@ -203,8 +211,18 @@ class TestQueryRecordsRefactor(FrappeTestCase):
 						"filters": {
 							"op": "or",
 							"conditions": [
-								{"doctype": "ToDo", "field": "description", "operator": "=", "value": f"{prefix} A"},
-								{"doctype": "ToDo", "field": "description", "operator": "=", "value": f"{prefix} B"},
+								{
+									"doctype": "ToDo",
+									"field": "description",
+									"operator": "=",
+									"value": f"{prefix} A",
+								},
+								{
+									"doctype": "ToDo",
+									"field": "description",
+									"operator": "=",
+									"value": f"{prefix} B",
+								},
 							],
 						},
 						"fields": ["name", "description", "status"],
@@ -220,7 +238,9 @@ class TestQueryRecordsRefactor(FrappeTestCase):
 		self.assertIn(todo2.name, names)
 
 	def test_query_list_between_operator(self):
-		todo = frappe.get_doc({"doctype": "ToDo", "description": f"BetweenTest_{random_string(5)}"}).insert(ignore_permissions=True)
+		todo = frappe.get_doc({"doctype": "ToDo", "description": f"BetweenTest_{random_string(5)}"}).insert(
+			ignore_permissions=True
+		)
 
 		action = frappe._dict(
 			{
@@ -245,7 +265,9 @@ class TestQueryRecordsRefactor(FrappeTestCase):
 
 	def test_exist_record_and_aggregations(self):
 		prefix = f"AggTest_{random_string(5)}"
-		frappe.get_doc({"doctype": "ToDo", "description": prefix, "priority": "High"}).insert(ignore_permissions=True)
+		frappe.get_doc({"doctype": "ToDo", "description": prefix, "priority": "High"}).insert(
+			ignore_permissions=True
+		)
 
 		# Exist Record
 		action_exist = frappe._dict(
