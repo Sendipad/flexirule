@@ -139,10 +139,10 @@
 											class="breadcrumb-link"
 											@click.stop.prevent="onBack(idx)"
 										>
-											{{ item.label }}
+											{{ __(item.label) }}
 										</button>
 										<span v-else class="breadcrumb-current">{{
-											item.label
+											__(item.label)
 										}}</span>
 									</template>
 								</div>
@@ -215,7 +215,7 @@
 									<div class="option-text">
 										<div class="option-label-row">
 											<span class="option-label">
-												{{ option.label || option.value }}
+												{{ __(option.label || option.value) }}
 											</span>
 											<span
 												v-if="option.raw?.fieldtype || option.raw?.type"
@@ -238,7 +238,7 @@
 											v-if="option.description"
 											class="option-description text-muted"
 										>
-											{{ option.description }}
+											{{ __(option.description) }}
 										</div>
 									</div>
 									<div v-if="option.value === modelValue" class="selected-check">
@@ -251,7 +251,9 @@
 										type="button"
 										class="option-nav-btn"
 										:title="
-											__('Navigate into {0}', [option.label || option.value])
+											__('Navigate into {0}', [
+												__(option.label || option.value),
+											])
 										"
 										@click.stop.prevent="onNavigate(option)"
 									>
@@ -488,9 +490,10 @@ const selectedOption = computed(
 );
 
 const displayValue = computed(() => {
-	if (selectedOption.value) return selectedOption.value.label;
+	if (selectedOption.value) return __(selectedOption.value.label);
 	if (props.modelValue === 0 || props.modelValue === "0") return "0";
-	return props.modelValue || "";
+	if (props.modelValue) return __(String(props.modelValue));
+	return "";
 });
 
 function openLink() {

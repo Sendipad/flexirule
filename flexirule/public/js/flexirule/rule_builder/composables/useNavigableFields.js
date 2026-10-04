@@ -53,10 +53,12 @@ export function useNavigableFields(rootDoctype) {
 				if (isTable) navType = "table";
 
 				const isSpecial = f.fieldname === "docstatus" || f.fieldname === "name" || f.is_std;
+				const rawLabel = f.original_label || f.label || f.fieldname;
+				const translatedLabel = typeof window.__ === "function" ? __(rawLabel) : rawLabel;
 
 				options.push({
 					value: fieldPath,
-					label: `${f.original_label || f.label || f.fieldname} (${f.fieldname})`,
+					label: `${translatedLabel} (${f.fieldname})`,
 					description: isNavigable ? `${f.fieldtype} → ${f.options}` : f.fieldtype || "",
 					fieldname: f.fieldname,
 					fieldtype: f.fieldtype,
