@@ -24,6 +24,7 @@ fi
 # symlink into it; generated Bench files never become part of this repository.
 rm -rf "$BENCH_DIR/apps/flexirule"
 ln -s "$REPO_DIR" "$BENCH_DIR/apps/flexirule"
+grep -qxF flexirule sites/apps.txt || echo flexirule >> sites/apps.txt
 
 bench set-config -g db_host "${DB_HOST:-db}"
 bench set-config -g db_port "${DB_PORT:-3306}"
