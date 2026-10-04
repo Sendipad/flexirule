@@ -13,18 +13,18 @@ The key invariant is that **the FlexiRule repository remains the Git working tre
 ## Daily workflow
 
 ~~~bash
-./scripts/dev-env.sh doctor
-./scripts/dev-env.sh start
+bash scripts/dev-env.sh doctor
+bash scripts/dev-env.sh start
 ~~~
 
 Then use a second terminal for:
 
 ~~~bash
-./scripts/dev-env.sh test
-./scripts/dev-env.sh build
-./scripts/dev-env.sh lint
-./scripts/dev-env.sh migrate
-./scripts/dev-env.sh ui
+bash scripts/dev-env.sh test
+bash scripts/dev-env.sh build
+bash scripts/dev-env.sh lint
+bash scripts/dev-env.sh migrate
+bash scripts/dev-env.sh ui
 ~~~
 
 ## What we welcome
