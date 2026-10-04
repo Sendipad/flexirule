@@ -51,6 +51,7 @@ jobs:
         run: |
           rm -rf apps/flexirule
           ln -s "$GITHUB_WORKSPACE" apps/flexirule
+          grep -qxF flexirule sites/apps.txt || echo flexirule >> sites/apps.txt
           bench setup requirements --dev
       - name: Install frontend dependencies
         working-directory: ${{ env.BENCH_DIR }}
