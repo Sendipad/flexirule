@@ -27,19 +27,23 @@
 							<ComboBoxControl
 								ref="fieldPickerRefs"
 								:df="{ label: '', fieldtype: 'FieldPicker', reqd: 1 }"
-								:options="getFieldsForDoctype(row.doctype || doctype)"
+								:options="getRowFields(idx, row.doctype || doctype)"
 								:doctype="row.doctype || doctype"
 								:modelValue="row.field"
 								:read_only="readOnly"
 								:showValidation="showValidation"
 								:trigger="'button'"
 								:hideLabel="true"
+								:navigable="true"
+								:navStack="getRowNavStack(idx, row.doctype || doctype)"
+								@navigate="(opt) => handleRowNavigate(idx, row.doctype || doctype, opt)"
+								@back="(stackIdx) => handleRowBack(idx, row.doctype || doctype, stackIdx)"
 								:class="{
 									'border-warning':
 										row.field &&
 										!isFieldValid(row.field, row.doctype || doctype),
 								}"
-								@update:modelValue="(val) => updateRow(idx, { field: val })"
+								@update:modelValue="(val) => onRowFieldSelect(idx, val)"
 							/>
 							<i
 								v-if="row.field && !isFieldValid(row.field, row.doctype || doctype)"
@@ -170,10 +174,12 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, inject, nextTick } from "vue";
+import { reactive } from "vue";
 import ComboBoxControl from "../../controls/ComboBoxControl.vue";
 import FlexValueControl from "../../controls/FlexValueControl.vue";
 import { useStore } from "../../stores";
 import { getContract } from "../../../core/contracts.js";
+import { useNavigableFields } from "../../composables/useNavigableFields";
 
 const props = defineProps({
 	modelValue: {
@@ -915,11 +921,53 @@ const updateBetweenValue = (idx, arrayIndex, val) => {
 	emitUpdate();
 };
 
+const rowNavMap = reactive(new Map());
+
+function getRowNav(idx, dt) {
+	const key = `${idx}_${dt || props.doctype}`;
+	if (!rowNavMap.has(key)) {
+		const nav = useNavigableFields(dt || props.doctype);
+		rowNavMap.set(key, nav);
+	}
+	return rowNavMap.get(key);
+}
+
+function getRowFields(idx, dt) {
+	const nav = getRowNav(idx, dt);
+	const fields = nav.currentFields.value;
+	if (fields && fields.length > 0) {
+		return fields;
+	}
+	return getFieldsForDoctype(dt || props.doctype);
+}
+
+function getRowNavStack(idx, dt) {
+	const nav = getRowNav(idx, dt);
+	return nav.navStack.value;
+}
+
+function handleRowNavigate(idx, dt, option) {
+	const nav = getRowNav(idx, dt);
+	nav.handleNavigate(option);
+}
+
+function handleRowBack(idx, dt, stackIdx) {
+	const nav = getRowNav(idx, dt);
+	nav.handleBack(stackIdx);
+}
+
+function onRowFieldSelect(idx, val) {
+	updateRow(idx, { field: val });
+	const dt = filters.value[idx]?.doctype || props.doctype;
+	const nav = getRowNav(idx, dt);
+	nav.resetStack();
+}
+
 const isFieldValid = (fieldname, dt) => {
+	if (!fieldname) return true;
+	if (typeof fieldname === "string" && (fieldname.startsWith("{") || fieldname.includes("."))) return true;
 	const fields = getFieldsForDoctype(dt || props.doctype);
 	if (!fields || !fields.length) return true;
-	if (!fieldname) return true;
-	if (typeof fieldname === "string" && fieldname.startsWith("{")) return true;
 	return fields.some((f) => f.value === fieldname);
 };
 
