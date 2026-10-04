@@ -50,8 +50,10 @@ jobs:
         working-directory: ${{ env.BENCH_DIR }}
         env:
           FLEXIRULE_REF: ${{ github.event.pull_request.head.sha || github.sha }}
+          FLEXIRULE_BRANCH: ${{ github.head_ref || github.ref_name }}
         run: |
-          bench get-app --branch "$FLEXIRULE_REF" https://github.com/Sendipad/flexirule.git
+          bench get-app --branch "$FLEXIRULE_BRANCH" https://github.com/Sendipad/flexirule.git
+          git -C apps/flexirule checkout --detach "$FLEXIRULE_REF"
           bench setup requirements --dev
       - name: Install frontend dependencies
         working-directory: ${{ env.BENCH_DIR }}
@@ -113,9 +115,11 @@ jobs:
         working-directory: ${{ env.BENCH_DIR }}
         env:
           FLEXIRULE_REF: ${{ github.event.pull_request.head.sha || github.sha }}
+          FLEXIRULE_BRANCH: ${{ github.head_ref || github.ref_name }}
         run: |
           bench get-app --branch version-15 erpnext https://github.com/frappe/erpnext.git
-          bench get-app --branch "$FLEXIRULE_REF" https://github.com/Sendipad/flexirule.git
+          bench get-app --branch "$FLEXIRULE_BRANCH" https://github.com/Sendipad/flexirule.git
+          git -C apps/flexirule checkout --detach "$FLEXIRULE_REF"
           bench setup requirements --dev
       - name: Create test_site
         working-directory: ${{ env.BENCH_DIR }}
@@ -173,6 +177,7 @@ jobs:
         working-directory: ${{ env.BENCH_DIR }}
         env:
           FLEXIRULE_REF: ${{ github.event.pull_request.head.sha || github.sha }}
+          FLEXIRULE_BRANCH: ${{ github.head_ref || github.ref_name }}
         run: |
           bench init --frappe-branch version-15 --skip-redis-config-generation --skip-assets --python "$(which python)" "$BENCH_DIR"
           bench set-config -g db_host 127.0.0.1
@@ -181,7 +186,8 @@ jobs:
           bench set-config -g redis_queue redis://127.0.0.1:11000
           bench set-config -g redis_socketio redis://127.0.0.1:11000
           bench get-app --branch version-15 erpnext https://github.com/frappe/erpnext.git
-          bench get-app --branch "$FLEXIRULE_REF" https://github.com/Sendipad/flexirule.git
+          bench get-app --branch "$FLEXIRULE_BRANCH" https://github.com/Sendipad/flexirule.git
+          git -C apps/flexirule checkout --detach "$FLEXIRULE_REF"
           bench setup requirements --dev
           bench new-site "$SITE" --db-root-password root --admin-password admin --db-host 127.0.0.1 --db-port 3306 --install-app erpnext
           bench --site "$SITE" install-app flexirule
