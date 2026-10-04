@@ -426,14 +426,25 @@ class QueryRecordsHandler(ActionHandler):
 			parent_field, child_field = fieldname.split(".", 1)
 			meta = frappe.get_meta(doctype)
 			table_df = meta.get_field(parent_field) if meta else None
-			if (
-				not table_df
-				or table_df.fieldtype not in {"Table", "Table MultiSelect"}
-				or not table_df.options
-			):
-				return False
-			child_meta = frappe.get_meta(table_df.options)
-			return bool(child_meta and child_meta.has_field(child_field))
+			if table_df and table_df.fieldtype in {"Table", "Table MultiSelect"} and table_df.options:
+				child_meta = frappe.get_meta(table_df.options)
+				return bool(
+					child_meta
+					and (
+						child_meta.has_field(child_field)
+						or child_field in {"name", "owner", "creation", "modified", "modified_by", "docstatus"}
+					)
+				)
+			if table_df and table_df.fieldtype == "Link" and table_df.options:
+				link_meta = frappe.get_meta(table_df.options)
+				return bool(
+					link_meta
+					and (
+						link_meta.has_field(child_field)
+						or child_field in {"name", "owner", "creation", "modified", "modified_by", "docstatus"}
+					)
+				)
+			return False
 		if fieldname in {"name", "owner", "creation", "modified", "modified_by", "docstatus"}:
 			return True
 		meta = frappe.get_meta(doctype)
@@ -723,11 +734,22 @@ class QueryRecordsHandler(ActionHandler):
 	def _resolve_query_filters(self, config, context, action=None, reference_doctype=None):
 		"""Resolve and normalize both filters and or_filters with one shared path."""
 		action_label = getattr(action, "label", None) or getattr(action, "action_id", None) or "Query Records"
-		filters = self._resolve_filters_with_context(
-			config.get("filters"), context, f"{action_label}.filters", action
+		raw_filters = config.get("filters")
+		resolved_filters = self._resolve_filters_with_context(
+			raw_filters, context, f"{action_label}.filters", action
 		)
-		filters = self._normalize_filters_for_backend(filters, reference_doctype=reference_doctype)
+		filters = self._normalize_filters_for_backend(resolved_filters, reference_doctype=reference_doctype)
+
 		or_filters = config.get("or_filters")
+
+		# If filters is a structured group with op=="or" and simple condition tuples, map to or_filters!
+		if isinstance(filters, dict) and filters.get("op") == "or":
+			conds = filters.get("conditions", [])
+			if all(isinstance(c, list) for c in conds):
+				if not or_filters:
+					or_filters = conds
+					filters = []
+
 		if or_filters:
 			or_filters = self._resolve_filters_with_context(
 				or_filters, context, f"{action_label}.or_filters", action
@@ -931,8 +953,40 @@ class QueryRecordsHandler(ActionHandler):
 		return value
 
 	def _normalize_filters_for_backend(self, filters, reference_doctype: str | None = None):
-		"""Recursively normalize filter operators and emit frappe-style filter tuples."""
+		"""Recursively normalize filter operators and emit frappe-style filter tuples or group trees."""
 		if isinstance(filters, dict):
+			# Case A: Recursive group object {"op": "and"|"or", "conditions": [...]}
+			if "conditions" in filters and isinstance(filters.get("conditions"), list):
+				group_op = (filters.get("op") or "and").lower()
+				normalized_conditions = [
+					self._normalize_filters_for_backend(c, reference_doctype=reference_doctype)
+					for c in filters["conditions"]
+				]
+				if group_op == "and" and all(
+					isinstance(c, list) and len(c) in (3, 4) for c in normalized_conditions
+				):
+					return normalized_conditions
+				return {
+					"op": group_op,
+					"conditions": normalized_conditions,
+				}
+
+			# Case B: Single condition row dict {"field": "...", "operator": "...", "value": "..."}
+			if "field" in filters or "fieldname" in filters:
+				field_item = filters.get("field") or filters.get("fieldname")
+				op_item = filters.get("operator", "=")
+				val_item = self._extract_filter_value_payload(filters.get("value"))
+				dt_item = filters.get("doctype")
+				op_item, val_item = self._normalize_single_filter_operator(op_item, val_item)
+				dt_res, field_res = self._resolve_filter_doctype_and_field(
+					reference_doctype, dt_item, field_item
+				)
+				if dt_res and dt_res != reference_doctype:
+					return [dt_res, field_res, op_item, val_item]
+				else:
+					return [field_res, op_item, val_item]
+
+			# Case C: Key-value filter dict
 			normalized = []
 			for key, value in filters.items():
 				dt_res, field_res = self._resolve_filter_doctype_and_field(reference_doctype, None, key)
@@ -966,6 +1020,11 @@ class QueryRecordsHandler(ActionHandler):
 						normalized_list.append([dt_res, field_res, op_item, val_item])
 					else:
 						normalized_list.append([field_res, op_item, val_item])
+					continue
+				if isinstance(item, dict) and "conditions" in item:
+					normalized_list.append(
+						self._normalize_filters_for_backend(item, reference_doctype=reference_doctype)
+					)
 					continue
 				if isinstance(item, list):
 					if len(item) == 4:

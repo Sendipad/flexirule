@@ -57,7 +57,23 @@
 
 				<div class="sub-section section-subcard">
 					<h6>{{ __("Fields") }}</h6>
+					<NavigableFieldBrowser
+						v-if="reference_doctype"
+						:ref="setControlRef"
+						:df="{
+							label: '',
+							fieldname: 'fields',
+							placeholder: __('Select fields to fetch...'),
+						}"
+						:doctype="reference_doctype"
+						:modelValue="config.fields || []"
+						:readOnly="readOnly"
+						:hideLabel="true"
+						:allowMulti="true"
+						@update:modelValue="(val) => update_config_key('fields', val)"
+					/>
 					<MultiSelectList
+						v-else
 						:ref="setControlRef"
 						:df="{
 							label: '',
@@ -525,6 +541,7 @@ import ControlFactory from "../../../controls/ControlFactory.vue";
 import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
 import FilterGroup from "../FilterGroup.vue";
 import MultiSelectList from "../../../controls/MultiSelectList.vue";
+import NavigableFieldBrowser from "../../../controls/NavigableFieldBrowser.vue";
 import FlexValueControl from "../../../controls/FlexValueControl.vue";
 import { useNodeConfigPolicy } from "../../../composables/useNodeConfigPolicy";
 import { useUIStore } from "../../../stores/useUIStore";

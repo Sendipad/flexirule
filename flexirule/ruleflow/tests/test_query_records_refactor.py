@@ -139,6 +139,136 @@ class TestQueryRecordsRefactor(FrappeTestCase):
 		self.assertIsNotNone(result)
 		self.assertEqual(result.get("name"), todo.name)
 
+	def test_child_table_field_query(self):
+		user_email = f"child_test_{random_string(5).lower()}@example.com"
+		user = frappe.get_doc({
+			"doctype": "User",
+			"email": user_email,
+			"first_name": "Child Table Test User",
+			"roles": [{"role": "System Manager"}],
+		}).insert(ignore_permissions=True)
+
+		action = frappe._dict(
+			{
+				"operation": "Query List",
+				"reference_doctype": "User",
+				"config": frappe.as_json(
+					{
+						"filters": [["User", "email", "=", user_email]],
+						"fields": ["name", "roles.role"],
+					}
+				),
+			}
+		)
+
+		result, _ = self.handler.execute(action, {}, None)
+		self.assertIsNotNone(result)
+		self.assertGreaterEqual(len(result), 1)
+		self.assertEqual(result[0].get("name"), user.name)
+
+	def test_link_field_traversal_query(self):
+		todo = frappe.get_doc({
+			"doctype": "ToDo",
+			"description": "Link Traversal Test " + random_string(5),
+			"assigned_by": frappe.session.user,
+		}).insert(ignore_permissions=True)
+
+		action = frappe._dict(
+			{
+				"operation": "Query List",
+				"reference_doctype": "ToDo",
+				"config": frappe.as_json(
+					{
+						"filters": [["ToDo", "assigned_by", "=", frappe.session.user]],
+						"fields": ["name", "assigned_by"],
+					}
+				),
+			}
+		)
+
+		result, _ = self.handler.execute(action, {}, None)
+		self.assertIsNotNone(result)
+
+	def test_query_list_nested_filter_groups(self):
+		prefix = f"NestedGrp_{random_string(5)}"
+		todo1 = frappe.get_doc({"doctype": "ToDo", "description": f"{prefix} A", "status": "Open"}).insert(ignore_permissions=True)
+		todo2 = frappe.get_doc({"doctype": "ToDo", "description": f"{prefix} B", "status": "Closed"}).insert(ignore_permissions=True)
+
+		action = frappe._dict(
+			{
+				"operation": "Query List",
+				"reference_doctype": "ToDo",
+				"config": frappe.as_json(
+					{
+						"filters": {
+							"op": "or",
+							"conditions": [
+								{"doctype": "ToDo", "field": "description", "operator": "=", "value": f"{prefix} A"},
+								{"doctype": "ToDo", "field": "description", "operator": "=", "value": f"{prefix} B"},
+							],
+						},
+						"fields": ["name", "description", "status"],
+					}
+				),
+			}
+		)
+
+		result, _ = self.handler.execute(action, {}, None)
+		self.assertIsNotNone(result)
+		names = [r.get("name") for r in result]
+		self.assertIn(todo1.name, names)
+		self.assertIn(todo2.name, names)
+
+	def test_query_list_between_operator(self):
+		todo = frappe.get_doc({"doctype": "ToDo", "description": f"BetweenTest_{random_string(5)}"}).insert(ignore_permissions=True)
+
+		action = frappe._dict(
+			{
+				"operation": "Query List",
+				"reference_doctype": "ToDo",
+				"config": frappe.as_json(
+					{
+						"filters": [
+							["ToDo", "creation", "between", ["2020-01-01 00:00:00", "2030-12-31 23:59:59"]],
+							["ToDo", "name", "=", todo.name],
+						],
+						"fields": ["name", "description"],
+					}
+				),
+			}
+		)
+
+		result, _ = self.handler.execute(action, {}, None)
+		self.assertIsNotNone(result)
+		self.assertEqual(len(result), 1)
+		self.assertEqual(result[0].get("name"), todo.name)
+
+	def test_exist_record_and_aggregations(self):
+		prefix = f"AggTest_{random_string(5)}"
+		frappe.get_doc({"doctype": "ToDo", "description": prefix, "priority": "High"}).insert(ignore_permissions=True)
+
+		# Exist Record
+		action_exist = frappe._dict(
+			{
+				"operation": "Exist Record",
+				"reference_doctype": "ToDo",
+				"config": frappe.as_json({"filters": [["ToDo", "description", "=", prefix]]}),
+			}
+		)
+		exists_res, _ = self.handler.execute(action_exist, {}, None)
+		self.assertTrue(exists_res)
+
+		# Count
+		action_count = frappe._dict(
+			{
+				"operation": "Count",
+				"reference_doctype": "ToDo",
+				"config": frappe.as_json({"filters": [["ToDo", "description", "=", prefix]]}),
+			}
+		)
+		count_res, _ = self.handler.execute(action_count, {}, None)
+		self.assertGreaterEqual(count_res, 1)
+
 	def test_query_doc_latest_with_context_filters(self):
 		user_email = f"test_{random_string(5).lower()}@example.com"
 		frappe.get_doc({"doctype": "User", "email": user_email, "first_name": "Context Filter Test"}).insert(

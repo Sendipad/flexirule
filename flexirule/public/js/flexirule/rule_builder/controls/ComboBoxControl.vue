@@ -1,5 +1,20 @@
 <template>
+	<NavigableFieldBrowser
+		v-if="df?.fieldtype === 'FieldPicker' && effectiveDoctype"
+		:doctype="effectiveDoctype"
+		:modelValue="modelValue"
+		:df="df"
+		:fieldname="fieldname || df?.fieldname"
+		:readOnly="read_only"
+		:hideLabel="hideLabel"
+		:showValidation="showValidation"
+		:placeholder="placeholder"
+		:options="options"
+		@update:modelValue="(val) => emit('update:modelValue', val)"
+		@change="(val) => emit('change', val)"
+	/>
 	<div
+		v-else
 		class="fxr-control"
 		:class="{
 			'no-label': hideLabel,
@@ -242,6 +257,7 @@ import { ref, computed, watch, onMounted, nextTick, onBeforeUnmount } from "vue"
 import { useMetaStore } from "../stores/useMetaStore";
 import { useFloatingDropdown } from "../composables/useFloatingDropdown";
 import { useAsyncOptionsSource } from "../composables/useAsyncOptionsSource";
+import NavigableFieldBrowser from "./NavigableFieldBrowser.vue";
 
 const props = defineProps({
 	modelValue: [String, Number, Object],
