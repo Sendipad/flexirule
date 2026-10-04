@@ -7,7 +7,7 @@ import { useMetaStore } from "../stores/useMetaStore";
  *
  * @param {Ref<string>|Function|string} rootDoctype - Root DocType name (e.g., "Sales Invoice")
  */
-export function useNavigableFields(rootDoctype) {
+export function useNavigableFields(rootDoctype, selectedValue = null) {
 	const metaStore = useMetaStore();
 
 	const navStack = ref([]);
@@ -20,6 +20,14 @@ export function useNavigableFields(rootDoctype) {
 			return rootDoctype.value;
 		}
 		return rootDoctype || "";
+	});
+
+	const targetValue = computed(() => {
+		if (typeof selectedValue === "function") return selectedValue();
+		if (selectedValue && typeof selectedValue === "object" && "value" in selectedValue) {
+			return selectedValue.value;
+		}
+		return selectedValue || "";
 	});
 
 	const currentContext = computed(() => {
@@ -91,6 +99,71 @@ export function useNavigableFields(rootDoctype) {
 		}
 	}
 
+	async function syncStackToValue(val) {
+		const dt = rootDt.value;
+		if (!dt) {
+			navStack.value = [];
+			currentFields.value = [];
+			return;
+		}
+
+		const valStr = String(val || "").trim();
+		if (!valStr || !valStr.includes(".")) {
+			navStack.value = [
+				{
+					doctype: dt,
+					fieldname: "",
+					label: dt,
+					pathPrefix: "",
+				},
+			];
+			await loadCurrentContextFields();
+			return;
+		}
+
+		const parts = valStr.split(".");
+		let currentDt = dt;
+		let prefix = "";
+		const stack = [
+			{
+				doctype: dt,
+				fieldname: "",
+				label: dt,
+				pathPrefix: "",
+			},
+		];
+
+		for (let i = 0; i < parts.length - 1; i++) {
+			const part = parts[i];
+			try {
+				await metaStore.fetch_metadata(currentDt);
+				const rawFields = metaStore.doc_meta[currentDt] || [];
+				const matchField = rawFields.find((f) => f.fieldname === part);
+
+				if (matchField && matchField.options) {
+					prefix = prefix ? `${prefix}.${part}` : part;
+					currentDt = matchField.options;
+					const rawLabel =
+						matchField.original_label || matchField.label || matchField.fieldname;
+					const label = typeof window.__ === "function" ? __(rawLabel) : rawLabel;
+					stack.push({
+						doctype: currentDt,
+						fieldname: part,
+						label,
+						pathPrefix: prefix,
+					});
+				} else {
+					break;
+				}
+			} catch (e) {
+				break;
+			}
+		}
+
+		navStack.value = stack;
+		await loadCurrentContextFields();
+	}
+
 	async function resetStack() {
 		const dt = rootDt.value;
 		if (!dt) {
@@ -135,10 +208,14 @@ export function useNavigableFields(rootDoctype) {
 	}
 
 	watch(
-		() => rootDt.value,
-		async (newDt) => {
+		() => [rootDt.value, targetValue.value],
+		async ([newDt, newVal]) => {
 			if (newDt) {
-				await resetStack();
+				if (newVal && String(newVal).includes(".")) {
+					await syncStackToValue(newVal);
+				} else {
+					await resetStack();
+				}
 			}
 		},
 		{ immediate: true }
@@ -150,6 +227,7 @@ export function useNavigableFields(rootDoctype) {
 		loading,
 		currentContext,
 		resetStack,
+		syncStackToValue,
 		handleNavigate,
 		handleBack,
 	};

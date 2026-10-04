@@ -529,11 +529,20 @@ function openDropdown(initialQuery = null) {
 		query.value = props.trigger === "input" ? displayValue.value : "";
 	}
 
-	activeIndex.value = filteredOptions.value.length > 0 ? 0 : -1;
+	const targetIdx = filteredOptions.value.findIndex(
+		(opt) => String(opt.value) === String(props.modelValue)
+	);
+	if (targetIdx >= 0) {
+		activeIndex.value = targetIdx;
+	} else {
+		activeIndex.value = filteredOptions.value.length > 0 ? 0 : -1;
+	}
+
 	openFloatingDropdown();
 
 	nextTick(() => {
 		updateDropdownPosition();
+		scrollToActive();
 		if (props.trigger === "button") {
 			if (popoverSearchInput.value) {
 				popoverSearchInput.value.focus();
