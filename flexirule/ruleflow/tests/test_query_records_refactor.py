@@ -1,5 +1,5 @@
 import inspect
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import frappe
 from frappe.database.query import Engine
@@ -414,12 +414,11 @@ class TestQueryRecordsRefactor(FrappeTestCase):
 			}
 		)
 
-		mock_query = frappe._dict(
-			run=lambda **kwargs: [{"name": "Administrator"}],
-			get_sql=lambda: "SELECT * FROM `tabUser`",
-			_tables=[frappe.qb.DocType("User")],
-			where=lambda *args, **kwargs: mock_query,
-		)
+		mock_query = MagicMock()
+		mock_query.run.return_value = [{"name": "Administrator"}]
+		mock_query.get_sql.return_value = "SELECT * FROM `tabUser`"
+		mock_query._tables = [frappe.qb.DocType("User")]
+		mock_query.where.return_value = mock_query
 		with patch("frappe.qb.get_query", return_value=mock_query) as get_query:
 			result, _ = self.handler.execute(action, {}, None)
 
@@ -462,12 +461,11 @@ class TestQueryRecordsRefactor(FrappeTestCase):
 				"config": frappe.as_json({"fields": ["name"], "limit": 1}),
 			}
 		)
-		mock_query = frappe._dict(
-			run=lambda **kwargs: [{"name": "Administrator"}],
-			get_sql=lambda: "SELECT * FROM `tabUser`",
-			_tables=[frappe.qb.DocType("User")],
-			where=lambda *args, **kwargs: mock_query,
-		)
+		mock_query = MagicMock()
+		mock_query.run.return_value = [{"name": "Administrator"}]
+		mock_query.get_sql.return_value = "SELECT * FROM `tabUser`"
+		mock_query._tables = [frappe.qb.DocType("User")]
+		mock_query.where.return_value = mock_query
 		with patch("frappe.qb.get_query", return_value=mock_query) as get_query:
 			self.handler.execute(action, {}, None)
 
