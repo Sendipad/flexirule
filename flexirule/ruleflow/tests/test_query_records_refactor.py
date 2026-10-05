@@ -444,6 +444,7 @@ class TestQueryRecordsRefactor(FrappeTestCase):
 				"operation": "Fetch Records",
 				"reference_doctype": "User",
 				"ignore_permissions": 1,
+				"permission_audit_reason": "Test native Fetch Records permission bypass",
 				"config": frappe.as_json({"fields": ["name"], "limit": 1}),
 			}
 		)
