@@ -105,7 +105,7 @@ const emit = defineEmits(["update:modelValue"]);
 const metaStore = useMetaStore();
 const activeEntry = ref(0);
 const entries = reactive([]);
-const functionOptions = ["COUNT", "SUM", "AVG", "MIN", "MAX", "ABS", "IFNULL", "CONCAT", "EXTRACT", "NOW"];
+const functionOptions = ["COUNT", "SUM", "AVG", "MIN", "MAX"];
 
 const navigableFields = useNavigableFields(
 	computed(() => props.doctype),
