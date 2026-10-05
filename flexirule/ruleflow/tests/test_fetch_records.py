@@ -280,6 +280,29 @@ class TestFetchRecords(FrappeTestCase):
 		res, _ = self.handler.execute(action_allowed, {}, None)
 		self.assertIsInstance(res, list)
 
+	def test_nested_filter_validation(self):
+		action = frappe._dict(
+			{
+				"operation": "Fetch Records",
+				"reference_doctype": "ToDo",
+				"config": frappe.as_json(
+					{
+						"filters": [
+							["status", "=", "Open"],
+							"and",
+							[
+								["description", "like", "%task%"],
+								"or",
+								["missing_nested_field", "=", "x"],
+							],
+						]
+					}
+				),
+			}
+		)
+		errs = self.handler.validate(action, {})
+		self.assertTrue(any("missing_nested_field" in e for e in errs))
+
 	def test_validation_rules(self):
 		# 1. Non-existent DocType
 		action_bad_dt = frappe._dict(
