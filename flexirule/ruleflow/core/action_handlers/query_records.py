@@ -490,8 +490,12 @@ class QueryRecordsHandler(ActionHandler):
 			return False
 
 	def validate_fetch_records(self, action, config: dict) -> list[str]:
-		"""Validate configuration for Fetch Records operation."""
-		errors = []
+		"""Validate only stable FlexiRule-level inputs for Fetch Records.
+
+		Field expressions and the complete native filters payload are deliberately
+		left to frappe.qb.get_query so this operation does not fork Frappe's query
+		language or relationship-resolution behavior.
+		"""
 		ref_dt = action.reference_doctype or config.get("doctype_name")
 		if not ref_dt:
 			return [_("Reference DocType is required for Fetch Records")]
@@ -501,91 +505,21 @@ class QueryRecordsHandler(ActionHandler):
 		except Exception:
 			return [_("Reference DocType '{0}' does not exist").format(ref_dt)]
 
-		# Validate fields
-		fields = config.get("fields")
-		if fields:
-			if isinstance(fields, str) and "," in fields:
-				field_list = [f.strip() for f in fields.split(",") if f.strip()]
-			elif isinstance(fields, list):
-				field_list = fields
-			else:
-				field_list = [fields]
-
-			for f in field_list:
-				if isinstance(f, str):
-					if self._is_plain_field_reference(f) and not self._doctype_has_field(ref_dt, f):
-						errors.append(_("Selected field '{0}' does not exist in {1}").format(f, ref_dt))
-				elif isinstance(f, dict):
-					for key, val in f.items():
-						if key in ("COUNT", "SUM", "AVG", "MIN", "MAX", "as"):
-							continue
-						if self._is_plain_field_reference(key):
-							if not self._doctype_has_field(ref_dt, key):
-								errors.append(
-									_("Selected field '{0}' does not exist in {1}").format(key, ref_dt)
-								)
-							else:
-								try:
-									meta = frappe.get_meta(ref_dt)
-									df = meta.get_field(key)
-									target_dt = df.options if df and df.options else None
-									if target_dt and isinstance(val, list):
-										for sub_f in val:
-											if isinstance(sub_f, str) and self._is_plain_field_reference(
-												sub_f
-											):
-												if not self._doctype_has_field(target_dt, sub_f):
-													errors.append(
-														_(
-															"Selected field '{0}' does not exist in {1}"
-														).format(sub_f, target_dt)
-													)
-								except Exception:
-									pass
-
-		# Validate order_by and group_by
-		for key in ("order_by", "group_by"):
-			val = config.get(key)
-			if val and isinstance(val, str):
-				for part in [x.strip() for x in val.split(",") if x.strip()]:
-					field_tok = part.split(" ")[0].strip()
-					if self._is_plain_field_reference(field_tok) and not self._doctype_has_field(
-						ref_dt, field_tok
-					):
-						errors.append(
-							_("Order/Group-by field '{0}' does not exist in {1}").format(field_tok, ref_dt)
-						)
-
-		# Validate filters
-		errors.extend(self._validate_filter_fields(ref_dt, config.get("filters")))
-		errors.extend(self._validate_filter_fields(ref_dt, config.get("or_filters")))
-
-		# Validate limit, offset, distinct
-		limit = config.get("limit")
-		if limit is not None and limit != "":
-			if isinstance(limit, int):
-				if limit < 0:
-					errors.append(_("Limit must be a non-negative integer"))
-			elif isinstance(limit, str) and not (limit.startswith("{") and limit.endswith("}")):
-				try:
-					val = int(limit)
-					if val < 0:
-						errors.append(_("Limit must be a non-negative integer"))
-				except ValueError:
-					errors.append(_("Limit must be an integer"))
-
-		offset = config.get("offset")
-		if offset is not None and offset != "":
-			if isinstance(offset, int):
-				if offset < 0:
-					errors.append(_("Offset must be a non-negative integer"))
-			elif isinstance(offset, str) and not (offset.startswith("{") and offset.endswith("}")):
-				try:
-					val = int(offset)
-					if val < 0:
-						errors.append(_("Offset must be a non-negative integer"))
-				except ValueError:
-					errors.append(_("Offset must be an integer"))
+		errors = []
+		for key in ("limit", "offset"):
+			value = config.get(key)
+			if value in (None, "") or (
+				isinstance(value, str)
+				and (value.strip().startswith("{") or value.strip().startswith("@"))
+			):
+				continue
+			try:
+				parsed = int(value)
+				except (TypeError, ValueError):
+				errors.append(_("{0} must be an integer").format(key.replace("_", " ").title()))
+				continue
+			if parsed < 0:
+				errors.append(_("{0} must be a non-negative integer").format(key.replace("_", " ").title()))
 
 		distinct = config.get("distinct")
 		if distinct is not None and not isinstance(distinct, bool | int):
@@ -594,247 +528,51 @@ class QueryRecordsHandler(ActionHandler):
 
 		return errors
 
-	def _make_single_criterion(self, ref_dt, item):
-		from frappe.query_builder import DocType
-
-		if isinstance(item, dict):
-			if "field" in item or "fieldname" in item:
-				dt = item.get("doctype") or ref_dt
-				field = item.get("field") or item.get("fieldname")
-				op = item.get("operator", "=")
-				val = item.get("value")
-			else:
-				crits = [self._make_single_criterion(ref_dt, [k, v]) for k, v in item.items()]
-				res = crits[0] if crits else None
-				for c in crits[1:]:
-					if res is not None and c is not None:
-						res = res & c
-				return res
-		elif isinstance(item, list | tuple):
-			if len(item) == 4:
-				dt, field, op, val = item
-			elif len(item) == 3:
-				field, op, val = item
-				dt = ref_dt
-			elif len(item) == 2:
-				field, val = item
-				if (
-					isinstance(val, list | tuple)
-					and len(val) == 2
-					and isinstance(val[0], str)
-					and val[0].lower()
-					in (
-						"=",
-						"==",
-						"!=",
-						"<>",
-						">",
-						">=",
-						"<",
-						"<=",
-						"like",
-						"not like",
-						"in",
-						"not in",
-						"is",
-						"between",
-					)
-				):
-					op, val = val[0], val[1]
-				else:
-					op = "="
-				dt = ref_dt
-			else:
-				return None
-		else:
-			return None
-
-		dt_res, field_res = self._resolve_filter_doctype_and_field(ref_dt, dt, field)
-		target_dt = dt_res or ref_dt
-
-		table = DocType(target_dt)
-		col = table[field_res]
-		op_str = str(op).lower()
-		if op_str in ("=", "=="):
-			return col == val
-		if op_str in ("!=", "<>"):
-			return col != val
-		if op_str == ">":
-			return col > val
-		if op_str == ">=":
-			return col >= val
-		if op_str == "<":
-			return col < val
-		if op_str == "<=":
-			return col <= val
-		if op_str == "like":
-			return col.like(val)
-		if op_str == "not like":
-			return col.not_like(val)
-		if op_str == "in":
-			return col.isin(val)
-		if op_str == "not in":
-			return col.notin(val)
-		if op_str == "is":
-			if str(val).strip().lower() == "not set":
-				return (col.isnull()) | (col == "")
-			return (col.isnotnull()) & (col != "")
-		if op_str == "between":
-			if isinstance(val, list | tuple) and len(val) >= 2:
-				start, end = val[0], val[1]
-			elif isinstance(val, str) and "," in val:
-				parts = [p.strip() for p in val.split(",", 1)]
-				start, end = parts[0], parts[1]
-			else:
-				start, end = val, val
-			return col.between(start, end)
-		return col == val
-
-	def _apply_implicit_joins(self, query, ref_dt, filters):
-		from frappe.database.query import DynamicTableField
-
-		if not filters:
-			return query
-
-		def collect_fields(f):
-			res = []
-			if isinstance(f, str):
-				if f.lower() not in ("and", "or") and "." in f:
-					res.append(f)
-			elif isinstance(f, dict):
-				for k, v in f.items():
-					if "." in str(k):
-						res.append(str(k))
-					res.extend(collect_fields(v))
-			elif isinstance(f, list | tuple):
-				for item in f:
-					if isinstance(item, str) and "." in item:
-						res.append(item)
-					elif isinstance(item, list | tuple | dict):
-						res.extend(collect_fields(item))
-			return res
-
-		for path in set(collect_fields(filters)):
-			try:
-				dyn = DynamicTableField.parse(path, ref_dt)
-				if dyn:
-					query = dyn.apply_join(query)
-			except Exception:
-				pass
-		return query
-
-	def _compile_filter_tree(self, ref_dt, tree):
-		if not tree:
-			return None
-		if isinstance(tree, dict):
-			return self._make_single_criterion(ref_dt, tree)
-		if isinstance(tree, list | tuple):
-			if (
-				len(tree) in (2, 3, 4)
-				and isinstance(tree[0], str)
-				and tree[0].lower() not in ("and", "or")
-				and (len(tree) == 2 or not isinstance(tree[1], list | tuple | dict))
-			):
-				return self._make_single_criterion(ref_dt, tree)
-
-			crit = None
-			curr_op = "and"
-			for item in tree:
-				if isinstance(item, str) and item.lower() in ("and", "or"):
-					curr_op = item.lower()
-				else:
-					sub = self._compile_filter_tree(ref_dt, item)
-					if sub is not None:
-						if crit is None:
-							crit = sub
-						else:
-							crit = (crit & sub) if curr_op == "and" else (crit | sub)
-			return crit
-		return None
-
 	def _fetch_records(self, reference_doctype, config, context, action, ignore_permissions):
-		"""Execute query using frappe.qb.get_query and return list of dicts."""
-		if not ignore_permissions:
-			frappe.has_permission(reference_doctype, "read", throw=True)
+		"""Execute Fetch Records through Frappe's native Query Builder API.
 
+		FlexiRule resolves dynamic values only. Frappe owns field parsing, joins,
+		filter semantics, validation, and query-level permission enforcement.
+		"""
 		action_label = getattr(action, "label", None) or getattr(action, "action_id", None) or "Query Records"
 
-		# 1. Selected fields
-		fields = config.get("fields")
-		if isinstance(fields, str) and "," in fields:
-			fields = [f.strip() for f in fields.split(",") if f.strip()]
+		def resolve_payload(value, path):
+			"""Resolve FlexValue payloads recursively without changing native QB structure."""
+			if isinstance(value, dict):
+				if "mode" in value:
+					return self._resolve_value_expression_with_context(
+						value, context, path, action
+					)
+				return {
+					key: resolve_payload(item, f"{path}.{key}")
+					for key, item in value.items()
+				}
+			if isinstance(value, list):
+				return [
+					resolve_payload(item, f"{path}[{index}]")
+					for index, item in enumerate(value)
+				]
+			if isinstance(value, tuple):
+				return tuple(
+					resolve_payload(item, f"{path}[{index}]")
+					for index, item in enumerate(value)
+				)
+			return value
 
-		# 2. Resolve filters with context
-		raw_filters = config.get("filters")
-		if raw_filters:
-			filters = self._resolve_filters_with_context(
-				raw_filters, context, f"{action_label}.filters", action
-			)
-			compiled_filters = self._compile_filter_tree(reference_doctype, filters)
-		else:
-			filters = None
-			compiled_filters = None
+		kwargs = {"ignore_permissions": ignore_permissions}
+		if config.get("fields") not in (None, "", []):
+			kwargs["fields"] = resolve_payload(config["fields"], f"{action_label}.fields")
 
-		# 3. Resolve order_by, group_by, limit, offset
-		order_by = config.get("order_by")
-		if order_by:
-			order_by = self._resolve_value_expression_with_context(
-				order_by, context, f"{action_label}.order_by", action
-			)
+		for key in ("filters", "order_by", "group_by", "limit", "offset", "distinct"):
+			value = config.get(key)
+			if value is None or value == "":
+				continue
+			kwargs[key] = resolve_payload(value, f"{action_label}.{key}")
 
-		group_by = config.get("group_by")
-		if group_by:
-			group_by = self._resolve_value_expression_with_context(
-				group_by, context, f"{action_label}.group_by", action
-			)
-
-		limit = config.get("limit")
-		if limit is not None and limit != "":
-			limit = self._resolve_value_expression_with_context(
-				limit, context, f"{action_label}.limit", action
-			)
-			try:
-				limit = int(limit)
-			except (ValueError, TypeError):
-				limit = None
-		else:
-			limit = None
-
-		offset = config.get("offset")
-		if offset is not None and offset != "":
-			offset = self._resolve_value_expression_with_context(
-				offset, context, f"{action_label}.offset", action
-			)
-			try:
-				offset = int(offset)
-			except (ValueError, TypeError):
-				offset = None
-		else:
-			offset = None
-
-		distinct = bool(config.get("distinct", False))
-
-		kwargs = {
-			"table": reference_doctype,
-			"distinct": distinct,
-		}
-		if fields:
-			kwargs["fields"] = fields
-		if compiled_filters is not None:
-			kwargs["filters"] = compiled_filters
-		if order_by:
-			kwargs["order_by"] = order_by
-		if group_by:
-			kwargs["group_by"] = group_by
-		if limit is not None and limit >= 0:
-			kwargs["limit"] = limit
-		if offset is not None and offset >= 0:
-			kwargs["offset"] = offset
-
-		query = frappe.qb.get_query(**kwargs)
-		if raw_filters:
-			query = self._apply_implicit_joins(query, reference_doctype, raw_filters)
-
+		# Frappe's public API calls this argument "table" in some releases and
+		# "doctype" in others; the supported documented entry point accepts the
+		# target DocType as the first positional argument.
+		query = frappe.qb.get_query(reference_doctype, **kwargs)
 		return query.run(as_dict=True)
 
 	def _is_plain_field_reference(self, token) -> bool:
