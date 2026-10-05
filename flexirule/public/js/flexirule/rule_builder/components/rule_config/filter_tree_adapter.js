@@ -239,9 +239,19 @@ export function validateFilterTree(tree, { allowEmptyRoot = true, validateOperat
 				addError(errors, [...path, "field"], "required", "A filter field is required.");
 			}
 			if (typeof node.operator !== "string" || !node.operator.trim()) {
-				addError(errors, [...path, "operator"], "required", "A filter operator is required.");
+				addError(
+					errors,
+					[...path, "operator"],
+					"required",
+					"A filter operator is required."
+				);
 			} else if (validateOperator && !validateOperator(node.operator, node)) {
-				addError(errors, [...path, "operator"], "unsupported", "The selected filter operator is not supported.");
+				addError(
+					errors,
+					[...path, "operator"],
+					"unsupported",
+					"The selected filter operator is not supported."
+				);
 			}
 			return;
 		}
@@ -253,7 +263,12 @@ export function validateFilterTree(tree, { allowEmptyRoot = true, validateOperat
 
 		const operator = String(node.operator || "").toLowerCase();
 		if (!LOGICAL_OPERATORS.has(operator)) {
-			addError(errors, [...path, "operator"], "unsupported", "Filter group operator must be AND or OR.");
+			addError(
+				errors,
+				[...path, "operator"],
+				"unsupported",
+				"Filter group operator must be AND or OR."
+			);
 		}
 		const children = Array.isArray(node.children) ? node.children : [];
 		if (!children.length && !isRoot) {
