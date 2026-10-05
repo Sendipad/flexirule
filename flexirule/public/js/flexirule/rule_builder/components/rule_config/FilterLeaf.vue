@@ -1,5 +1,6 @@
 <template>
 	<FilterGroup
+		ref="filterGroupRef"
 		:modelValue="modelValue"
 		:doctype="doctype"
 		:nodeId="nodeId"
@@ -13,7 +14,10 @@
 </template>
 
 <script setup>
+import { ref } from "vue";
 import FilterGroup from "./FilterGroup.vue";
+
+const filterGroupRef = ref(null);
 
 const props = defineProps({
 	modelValue: { type: Array, default: () => [] },
@@ -31,10 +35,12 @@ function handleUpdate(value) {
 }
 
 async function validate() {
-	// FilterGroup is intentionally retained as the legacy collection editor.
-	// In the tree, this instance owns exactly one row, so its per-row navigation
-	// state is isolated to this FilterLeaf instance.
-	return (await Promise.resolve()).then(() => ({ valid: true, errors: [] }));
+	return (
+		(await filterGroupRef.value?.validate?.()) || {
+			valid: true,
+			errors: [],
+		}
+	);
 }
 
 defineExpose({ validate });
