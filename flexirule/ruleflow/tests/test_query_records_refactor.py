@@ -55,7 +55,7 @@ class TestQueryRecordsRefactor(FrappeTestCase):
 			}
 		)
 
-		result, next_step = self.handler.execute(action, {}, None)
+		result, _next_step = self.handler.execute(action, {}, None)
 		self.assertIsNotNone(result)
 		# Latest should be the second one created
 		self.assertEqual(result.get("first_name"), "Test Refactor 2")
@@ -70,8 +70,7 @@ class TestQueryRecordsRefactor(FrappeTestCase):
 				),
 			}
 		)
-
-		result, next_step = self.handler.execute(action, {}, None)
+		result, _next_step = self.handler.execute(action, {}, None)
 		self.assertIsNotNone(result)
 		self.assertEqual(result.get("doctype"), "System Settings")
 
