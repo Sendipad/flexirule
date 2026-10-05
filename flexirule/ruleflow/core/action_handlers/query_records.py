@@ -12,11 +12,13 @@ Modes:
 - Fetch Records: frappe.qb.get_query() — returns list of dicts via Frappe Query Builder
 """
 
+import inspect
 import json
 from typing import Any
 
 import frappe
 from frappe import _
+from frappe.database.query import Engine, Permission
 from frappe.utils import add_days, get_first_day, get_last_day, getdate, nowdate
 
 from flexirule.ruleflow.core.action_handlers import ActionHandler, HandlerRegistry
@@ -424,6 +426,8 @@ class QueryRecordsHandler(ActionHandler):
 		if mode == "Fetch Records":
 			config = self._parse_config(action.config)
 			errors.extend(self.validate_fetch_records(action, config))
+			if action.reference_doctype:
+				errors.extend(self._validate_doctype_field_references(action.reference_doctype, config))
 			return errors
 
 		if mode == "Query Report":
@@ -550,7 +554,7 @@ class QueryRecordsHandler(ActionHandler):
 				return tuple(resolve_payload(item, f"{path}[{index}]") for index, item in enumerate(value))
 			return value
 
-		kwargs = {"ignore_permissions": ignore_permissions}
+		kwargs = {}
 		if config.get("fields") not in (None, "", []):
 			kwargs["fields"] = resolve_payload(config["fields"], f"{action_label}.fields")
 
@@ -560,10 +564,17 @@ class QueryRecordsHandler(ActionHandler):
 				continue
 			kwargs[key] = resolve_payload(value, f"{action_label}.{key}")
 
-		# Frappe's public API calls this argument "table" in some releases and
-		# "doctype" in others; the supported documented entry point accepts the
-		# target DocType as the first positional argument.
+		# Frappe's Query Builder gained native query-level permission handling after
+		# the Frappe v15 API used by this app. Pass the flag when the installed
+		# Engine supports it; otherwise use Frappe's own permission checker on the
+		# constructed query rather than maintaining a second permission implementation.
+		if "ignore_permissions" in inspect.signature(Engine.get_query).parameters:
+			kwargs["ignore_permissions"] = ignore_permissions
+
 		query = frappe.qb.get_query(reference_doctype, **kwargs)
+		if not ignore_permissions and "ignore_permissions" not in inspect.signature(Engine.get_query).parameters:
+			Permission.check_permissions(query)
+
 		return query.run(as_dict=True)
 
 	def _is_plain_field_reference(self, token) -> bool:
