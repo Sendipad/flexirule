@@ -51,11 +51,15 @@ const leafRefs = new Map();
 let syncing = false;
 
 function createLeaf() {
+	// A leaf must be renderable as soon as TreeBuilder inserts it. Every Frappe
+	// DocType has the implicit `name` field, so use it as the safe initial field.
+	// FilterGroup can then resolve its metadata and render the operator/value
+	// controls without a second render, schema reload, or placeholder row.
 	return {
 		id: createId(),
 		type: "leaf",
 		doctype: props.doctype,
-		field: "",
+		field: "name",
 		operator: "=",
 		value: { mode: "static", value: "" },
 	};
