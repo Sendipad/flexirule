@@ -515,7 +515,7 @@ class QueryRecordsHandler(ActionHandler):
 				continue
 			try:
 				parsed = int(value)
-				except (TypeError, ValueError):
+			except (TypeError, ValueError):
 				errors.append(_("{0} must be an integer").format(key.replace("_", " ").title()))
 				continue
 			if parsed < 0:
