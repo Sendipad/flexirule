@@ -12,7 +12,7 @@
 	>
 		<template #leaf="{ node }">
 			<div class="query-filter-leaf">
-				<FilterGroup
+				<FilterLeaf
 					:ref="(el) => setLeafRef(node.id, el)"
 					:doctype="node.doctype || doctype"
 					:modelValue="[toFilterRow(node)]"
@@ -20,8 +20,6 @@
 					:showValidation="showValidation"
 					:nodeId="nodeId"
 					:variableOptions="variableOptions"
-					:singleRow="true"
-					:hideActions="true"
 					@update:modelValue="(value) => updateLeaf(node, value)"
 				/>
 			</div>
@@ -32,8 +30,14 @@
 <script setup>
 import { nextTick, reactive, ref, watch } from "vue";
 import TreeBuilder from "../tree_builder/TreeBuilder.vue";
-import FilterGroup from "./FilterGroup.vue";
-import { cloneTree, createId } from "../tree_builder/tree_builder_utils.js";
+import FilterLeaf from "./FilterLeaf.vue";
+import {
+	createFilterLeaf,
+	deserializeFilterPayload,
+	serializeFilterTree,
+	validateFilterTree,
+} from "./filter_tree_adapter.js";
+import { cloneTree } from "../tree_builder/tree_builder_utils.js";
 
 const props = defineProps({
 	modelValue: { type: [Array, Object], default: () => [] },
@@ -46,147 +50,14 @@ const props = defineProps({
 
 const emit = defineEmits(["update:modelValue", "change"]);
 const treeBuilderRef = ref(null);
-const tree = reactive(parseFilterPayload(props.modelValue));
+const tree = reactive(
+	deserializeFilterPayload(props.modelValue, { defaultDoctype: props.doctype })
+);
 const leafRefs = new Map();
 let syncing = false;
 
 function createLeaf() {
-	return {
-		id: createId(),
-		type: "leaf",
-		doctype: props.doctype,
-		field: "",
-		operator: "=",
-		value: { mode: "static", value: "" },
-	};
-}
-
-function normalizeLeaf(value) {
-	if (!value || typeof value !== "object") return createLeaf();
-
-	if (Array.isArray(value)) {
-		if (value.length >= 4) {
-			return {
-				id: createId(),
-				type: "leaf",
-				doctype: value[0] || props.doctype,
-				field: value[1] || "",
-				operator: value[2] || "=",
-				value: cloneTree(value[3]),
-			};
-		}
-		if (value.length === 3) {
-			return {
-				id: createId(),
-				type: "leaf",
-				doctype: props.doctype,
-				field: value[0] || "",
-				operator: value[1] || "=",
-				value: cloneTree(value[2]),
-			};
-		}
-	}
-
-	if (value.field || value.fieldname) {
-		return {
-			id: value.id || createId(),
-			type: "leaf",
-			doctype: value.doctype || props.doctype,
-			field: value.field || value.fieldname || "",
-			operator: value.operator || value.op || "=",
-			value: cloneTree(value.value),
-		};
-	}
-
-	return createLeaf();
-}
-
-function looksLikeLeaf(value) {
-	if (!Array.isArray(value)) return false;
-	return (
-		value.length >= 3 &&
-		typeof value[0] === "string" &&
-		typeof value[1] === "string" &&
-		typeof value[2] === "string" &&
-		!["and", "or"].includes(value[0].toLowerCase())
-	);
-}
-
-function parseFilterPayload(value) {
-	if (!value) {
-		return { id: createId(), type: "group", operator: "and", children: [] };
-	}
-
-	if (value && typeof value === "object" && !Array.isArray(value)) {
-		if (value.type === "group") {
-			return {
-				id: value.id || createId(),
-				type: "group",
-				operator: value.operator || "and",
-				children: (value.children || []).map(parseNode),
-			};
-		}
-		return {
-			id: createId(),
-			type: "group",
-			operator: "and",
-			children: [normalizeLeaf(value)],
-		};
-	}
-
-	if (looksLikeLeaf(value)) {
-		return {
-			id: createId(),
-			type: "group",
-			operator: "and",
-			children: [normalizeLeaf(value)],
-		};
-	}
-
-	if (Array.isArray(value)) {
-		const children = [];
-		let pendingOperator = "and";
-		for (const item of value) {
-			if (typeof item === "string" && ["and", "or"].includes(item.toLowerCase())) {
-				pendingOperator = item.toLowerCase();
-				continue;
-			}
-			const node = parseNode(item);
-			if (!node) continue;
-			children.push(node);
-		}
-
-		// A single explicit nested group should retain its own operator.
-		const inferredOperator =
-			value
-				.find(
-					(item) => typeof item === "string" && ["and", "or"].includes(item.toLowerCase())
-				)
-				?.toLowerCase() || pendingOperator;
-
-		return {
-			id: createId(),
-			type: "group",
-			operator: inferredOperator || "and",
-			children,
-		};
-	}
-
-	return { id: createId(), type: "group", operator: "and", children: [] };
-}
-
-function parseNode(value) {
-	if (Array.isArray(value)) {
-		if (looksLikeLeaf(value)) return normalizeLeaf(value);
-		return parseFilterPayload(value);
-	}
-
-	if (value && typeof value === "object") {
-		if (value.type === "group") return parseFilterPayload(value);
-		return normalizeLeaf(value);
-	}
-
-	return null;
+	return createFilterLeaf({ doctype: props.doctype });
 }
 
 function toFilterRow(node) {
@@ -209,37 +80,17 @@ function updateLeaf(node, value) {
 	});
 }
 
-function serializeNode(node) {
-	if (node.type === "leaf") {
-		const row = toFilterRow(node);
-		return [row.doctype, row.field, row.operator, cloneTree(row.value)];
-	}
-
-	const children = (node.children || []).map(serializeNode).filter(Boolean);
-	if (!children.length) return [];
-	if (children.length === 1) return children[0];
-
-	const result = [children[0]];
-	for (let i = 1; i < children.length; i++) {
-		result.push(node.operator || "and", children[i]);
-	}
-	return result;
-}
-
-function serializeTree(value = tree) {
-	return serializeNode(value);
-}
-
 function setLeafRef(id, instance) {
 	if (instance) leafRefs.set(id, instance);
 	else leafRefs.delete(id);
 }
 
 async function validate() {
-	const errors = [];
-	const refs = Array.from(leafRefs.values());
+	const structural = validateFilterTree(tree, { allowEmptyRoot: true });
+	const errors = structural.errors.map((error) => error.message);
+
 	const results = await Promise.all(
-		refs.map((instance) =>
+		Array.from(leafRefs.values()).map((instance) =>
 			instance && typeof instance.validate === "function"
 				? instance.validate()
 				: { valid: true, errors: [] }
@@ -249,29 +100,22 @@ async function validate() {
 		if (!result?.valid && result.errors) errors.push(...result.errors);
 	}
 
-	function validateStructure(node, isRoot = false) {
-		if (node.type === "leaf") {
-			if (!node.field) errors.push(__("A filter field is required."));
-			return;
-		}
-		if (!node.children?.length) {
-			if (!isRoot) errors.push(__("Filter groups cannot be empty."));
-			return;
-		}
-		node.children.forEach((child) => validateStructure(child, false));
-	}
-	validateStructure(tree, true);
-
 	return { valid: errors.length === 0, errors };
+}
+
+function emitSerialized(value) {
+	const validation = validateFilterTree(value, { allowEmptyRoot: true });
+	if (!validation.valid) return;
+	const payload = serializeFilterTree(value, { defaultDoctype: props.doctype });
+	emit("update:modelValue", payload);
+	emit("change", payload);
 }
 
 watch(
 	tree,
 	(value) => {
 		if (syncing) return;
-		const payload = serializeTree(value);
-		emit("update:modelValue", payload);
-		emit("change", payload);
+		emitSerialized(value);
 	},
 	{ deep: true }
 );
@@ -279,7 +123,7 @@ watch(
 watch(
 	() => props.modelValue,
 	async (value) => {
-		const next = parseFilterPayload(value);
+		const next = deserializeFilterPayload(value, { defaultDoctype: props.doctype });
 		if (JSON.stringify(next) === JSON.stringify(tree)) return;
 		syncing = true;
 		Object.keys(tree).forEach((key) => delete tree[key]);
@@ -290,10 +134,24 @@ watch(
 	{ deep: true }
 );
 
+watch(
+	() => props.doctype,
+	(value) => {
+		if (!value) return;
+		const next = deserializeFilterPayload(props.modelValue, { defaultDoctype: value });
+		syncing = true;
+		Object.keys(tree).forEach((key) => delete tree[key]);
+		Object.assign(tree, next);
+		nextTick().then(() => {
+			syncing = false;
+		});
+	}
+);
+
 defineExpose({
 	validate,
 	getTree: () => cloneTree(tree),
-	getPayload: () => serializeTree(tree),
+	getPayload: () => serializeFilterTree(tree, { defaultDoctype: props.doctype }),
 	addFilter: () => treeBuilderRef.value?.addLeaf(),
 	addGroup: () => treeBuilderRef.value?.addGroup(),
 });
@@ -302,21 +160,6 @@ defineExpose({
 <style scoped>
 .query-filter-leaf {
 	min-width: 0;
-}
-
-:deep(.filter-group-wrapper) {
-	padding: 0;
-	border: 0;
-	background: transparent;
-}
-
-:deep(.filter-list) {
-	gap: 0;
-}
-
-:deep(.filter-row) {
-	border: 0;
-	padding: 0;
 }
 
 @media (max-width: 768px) {
