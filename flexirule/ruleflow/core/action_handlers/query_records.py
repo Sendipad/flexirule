@@ -9,13 +9,16 @@ Modes:
 - Query Doc: frappe.get_doc() — returns doc as dict
 - Exist Record: frappe.db.exists() — returns boolean
 - Query Report: frappe.desk.query_report.run() — returns report data
+- Fetch Records: frappe.qb.get_query() — returns list of dicts via Frappe Query Builder
 """
 
+import inspect
 import json
 from typing import Any
 
 import frappe
 from frappe import _
+from frappe.database.query import Engine, Permission
 from frappe.utils import add_days, get_first_day, get_last_day, getdate, nowdate
 
 from flexirule.ruleflow.core.action_handlers import ActionHandler, HandlerRegistry
@@ -53,6 +56,7 @@ class QueryRecordsHandler(ActionHandler):
 			css={"icon": "fa fa-search", "color": "#0891b2"},
 			operation_label="Query Mode",
 			operation_options=[
+				"Fetch Records",
 				"Query List",
 				"Query Doc",
 				"Exist Record",
@@ -82,6 +86,13 @@ class QueryRecordsHandler(ActionHandler):
 				"Exist Record": ["reference_doctype"],
 			},
 			operation_policies={
+				"Fetch Records": {
+					"allowed_return_types": ["List of Records"],
+					"default_return_type": "List of Records",
+					"show_return_type": False,
+					"require_return_type": False,
+					"field_labels": {"return_type": "Rows Output Type"},
+				},
 				"Query List": {
 					"allowed_return_types": ["List of Records"],
 					"default_return_type": "List of Records",
@@ -169,6 +180,40 @@ class QueryRecordsHandler(ActionHandler):
 	@classmethod
 	def get_operation_contracts(cls) -> dict:
 		contracts = {
+			"Fetch Records": OperationContract(
+				operation="Fetch Records",
+				rule_overrides=standard_trigger_overrides(
+					trigger_events=BROAD_TRIGGER_EVENTS,
+					trigger_types=STANDARD_TRIGGER_TYPES,
+				),
+				action_overrides=[
+					{"fieldname": "action_type", "default": "Query Records"},
+					{"fieldname": "operation", "default": "Fetch Records"},
+					reference_doctype_override(),
+					{"fieldname": "reference_docname", "hidden": 1, "reqd": 0},
+					config_depends_on_doctype(description="Frappe Query Builder configuration"),
+					{
+						"fieldname": "mutation_mode",
+						"options": [
+							"Set Context Variable",
+							"Append to Context Variable",
+							"Update Context Variable",
+						],
+						"reqd": 1,
+					},
+					{"fieldname": "return_type", "default": "List of Records", "read_only": 1},
+					{
+						"fieldname": "timeout",
+						"hidden": "eval:doc.parent.execution_mode!=='Asynchronous'",
+						"description": "Only available for async rules",
+					},
+					{
+						"fieldname": "description",
+						"description": "Queries records using Frappe Query Builder (frappe.qb.get_query)",
+					},
+				],
+				validation={"backend": "validate_fetch_records"},
+			),
 			"Query List": OperationContract(
 				operation="Query List",
 				rule_overrides=standard_trigger_overrides(
@@ -341,6 +386,7 @@ class QueryRecordsHandler(ActionHandler):
 
 		# Dispatch to mode handler
 		mode_handlers = {
+			"Fetch Records": self._fetch_records,
 			"Query List": self._query_list,
 			"Query Doc": self._query_doc,
 			"Exist Record": self._exist_record,
@@ -377,6 +423,13 @@ class QueryRecordsHandler(ActionHandler):
 			errors.append(_("Operation/Mode is required"))
 
 		mode = action.operation
+		if mode == "Fetch Records":
+			config = self._parse_config(action.config)
+			errors.extend(self.validate_fetch_records(action, config))
+			if action.reference_doctype:
+				errors.extend(self._validate_doctype_field_references(action.reference_doctype, config))
+			return errors
+
 		if mode == "Query Report":
 			if action.reference_doctype != "Report":
 				errors.append(_("Query Report mode requires reference_doctype to be 'Report'"))
@@ -424,20 +477,217 @@ class QueryRecordsHandler(ActionHandler):
 			return False
 		if "." in fieldname:
 			parent_field, child_field = fieldname.split(".", 1)
-			meta = frappe.get_meta(doctype)
-			table_df = meta.get_field(parent_field) if meta else None
-			if (
-				not table_df
-				or table_df.fieldtype not in {"Table", "Table MultiSelect"}
-				or not table_df.options
-			):
-				return False
-			child_meta = frappe.get_meta(table_df.options)
-			return bool(child_meta and child_meta.has_field(child_field))
+			try:
+				meta = frappe.get_meta(doctype)
+				df = meta.get_field(parent_field) if meta else None
+				if df and df.fieldtype in {"Table", "Table MultiSelect", "Link"} and df.options:
+					return self._doctype_has_field(df.options, child_field)
+			except Exception:
+				pass
+			return False
 		if fieldname in {"name", "owner", "creation", "modified", "modified_by", "docstatus"}:
 			return True
-		meta = frappe.get_meta(doctype)
-		return bool(meta and meta.has_field(fieldname))
+		try:
+			meta = frappe.get_meta(doctype)
+			return bool(meta and meta.has_field(fieldname))
+		except Exception:
+			return False
+
+	def validate_fetch_records(self, action, config: dict) -> list[str]:
+		"""Validate only stable FlexiRule-level inputs for Fetch Records.
+
+		Field expressions and the complete native filters payload are deliberately
+		left to frappe.qb.get_query so this operation does not fork Frappe's query
+		language or relationship-resolution behavior.
+		"""
+		ref_dt = action.reference_doctype or config.get("doctype_name")
+		if not ref_dt:
+			return [_("Reference DocType is required for Fetch Records")]
+
+		try:
+			frappe.get_meta(ref_dt)
+		except Exception:
+			return [_("Reference DocType '{0}' does not exist").format(ref_dt)]
+
+		errors = []
+		for key in ("limit", "offset"):
+			value = config.get(key)
+			if value in (None, "") or (
+				isinstance(value, str) and (value.strip().startswith("{") or value.strip().startswith("@"))
+			):
+				continue
+			if not isinstance(value, str | int | float):
+				errors.append(_("{0} must be an integer").format(key.replace("_", " ").title()))
+				continue
+			try:
+				parsed = int(value)
+			except (TypeError, ValueError):
+				errors.append(_("{0} must be an integer").format(key.replace("_", " ").title()))
+				continue
+			if parsed < 0:
+				errors.append(_("{0} must be a non-negative integer").format(key.replace("_", " ").title()))
+
+		distinct = config.get("distinct")
+		if distinct is not None and not isinstance(distinct, bool | int):
+			if isinstance(distinct, str) and distinct.lower() not in ("true", "false", "0", "1"):
+				errors.append(_("Distinct must be a boolean value"))
+
+		return errors
+
+	def _fetch_records(self, reference_doctype, config, context, action, ignore_permissions):
+		"""Execute Fetch Records with version-aware Frappe Query Builder compatibility.
+
+		The operation remains centered on ``frappe.qb.get_query``. Older Frappe
+		versions used by FlexiRule do not expose all newer Query Builder features.
+		We adapt only missing capabilities and keep field parsing, joins, operators,
+		pagination, and execution inside Frappe/Pypika.
+		"""
+		action_label = getattr(action, "label", None) or getattr(action, "action_id", None) or "Query Records"
+
+		def resolve_payload(value, path):
+			if isinstance(value, dict):
+				if "mode" in value:
+					return self._resolve_value_expression_with_context(value, context, path, action)
+				return {key: resolve_payload(item, f"{path}.{key}") for key, item in value.items()}
+			if isinstance(value, list):
+				return [resolve_payload(item, f"{path}[{index}]") for index, item in enumerate(value)]
+			if isinstance(value, tuple):
+				return tuple(resolve_payload(item, f"{path}[{index}]") for index, item in enumerate(value))
+			return value
+
+		kwargs = {}
+		if config.get("fields") not in (None, "", []):
+			kwargs["fields"] = resolve_payload(config["fields"], f"{action_label}.fields")
+
+		for key in ("filters", "order_by", "group_by", "limit", "offset", "distinct"):
+			value = config.get(key)
+			if value is None or value == "":
+				continue
+			kwargs[key] = resolve_payload(value, f"{action_label}.{key}")
+
+		engine_params = inspect.signature(Engine.get_query).parameters
+		has_native_permissions = "ignore_permissions" in engine_params
+		has_native_nested_filters = all(
+			hasattr(Engine, name) for name in ("_parse_nested_filters", "_condition_to_criterion")
+		)
+		filters = kwargs.get("filters")
+
+		if self._has_logical_filter_operators(filters) and not has_native_nested_filters:
+			query = self._get_query_with_legacy_filter_compat(
+				reference_doctype, kwargs, ignore_permissions=ignore_permissions,
+				has_native_permissions=has_native_permissions
+			)
+		else:
+			if has_native_permissions:
+				kwargs["ignore_permissions"] = ignore_permissions
+			query = frappe.qb.get_query(reference_doctype, **kwargs)
+
+		if not ignore_permissions and not has_native_permissions:
+			Permission.check_permissions(query)
+
+		return query.run(as_dict=True)
+
+	@staticmethod
+	def _has_logical_filter_operators(filters) -> bool:
+		"""Return True when a filter payload contains explicit AND/OR operators."""
+		if isinstance(filters, dict):
+			return any(QueryRecordsHandler._has_logical_filter_operators(v) for v in filters.values())
+		if isinstance(filters, (list, tuple)):
+			for item in filters:
+				if isinstance(item, str) and item.lower() in {"and", "or"}:
+					return True
+				if QueryRecordsHandler._has_logical_filter_operators(item):
+					return True
+		return False
+
+	def _get_query_with_legacy_filter_compat(self, reference_doctype, kwargs, *, ignore_permissions, has_native_permissions):
+		"""Build the base query normally, then add a Pypika filter Criterion on old Frappe."""
+		filters = kwargs.pop("filters", None)
+		base_kwargs = dict(kwargs)
+		if has_native_permissions:
+			base_kwargs["ignore_permissions"] = ignore_permissions
+
+		builder = Engine()
+		query = builder.get_query(reference_doctype, filters=None, **base_kwargs)
+		criterion = self._compile_legacy_filter_tree(builder, filters)
+		if criterion is not None:
+			query = query.where(criterion)
+		return query
+
+	def _compile_legacy_filter_tree(self, builder, node):
+		"""Compile a FlexiRule AND/OR filter tree into native Pypika Criterion objects."""
+		if node is None or node == []:
+			return None
+		if isinstance(node, dict):
+			criteria = []
+			for field, value in node.items():
+				if str(field).lower() in {"and", "or"}:
+					child = self._compile_legacy_filter_tree(builder, value)
+					if child is not None:
+						criteria.append(child)
+				else:
+					criteria.append(self._compile_legacy_filter_leaf(builder, [field, value]))
+			return self._combine_legacy_criteria(criteria, "and")
+		if isinstance(node, (list, tuple)):
+			if self._is_filter_leaf(node):
+				return self._compile_legacy_filter_leaf(builder, node)
+			result = None
+			pending = "and"
+			for item in node:
+				if isinstance(item, str) and item.lower() in {"and", "or"}:
+					pending = item.lower()
+					continue
+				child = self._compile_legacy_filter_tree(builder, item)
+				if child is None:
+					continue
+				result = child if result is None else self._combine_legacy_criteria([result, child], pending)
+			return result
+		return None
+
+	@staticmethod
+	def _is_filter_leaf(node) -> bool:
+		return (
+			isinstance(node, (list, tuple)) and len(node) in (2, 3, 4)
+			and isinstance(node[0], str)
+			and not (len(node) >= 2 and isinstance(node[1], str) and node[1].lower() in {"and", "or"})
+		)
+
+	def _compile_legacy_filter_leaf(self, builder, node):
+		if len(node) == 2:
+			field, value = node; operator = "="; doctype = None
+		elif len(node) == 3:
+			field, operator, value = node; doctype = None
+		else:
+			doctype, field, operator, value = node[:4]
+
+		build_criterion = getattr(builder, "_build_criterion_for_simple_filter", None)
+		if callable(build_criterion):
+			return build_criterion(field, value, operator, doctype)
+
+		table = frappe.qb.DocType(doctype or builder.doctype)
+		column = table[field]
+		operator = str(operator).lower()
+		if operator in {"=", "=="}: return column == value
+		if operator == "!=": return column != value
+		if operator == ">": return column > value
+		if operator == "<": return column < value
+		if operator == ">=": return column >= value
+		if operator == "<=": return column <= value
+		if operator == "like": return column.like(value)
+		if operator == "not like": return column.not_like(value)
+		if operator == "in": return column.isin(value)
+		if operator == "not in": return ~column.isin(value)
+		if operator == "is": return column.isnull() if str(value).lower() == "not set" else column.isnotnull()
+		if operator == "between": return column.between(*value)
+		frappe.throw(_("Filter operator '{0}' is not supported by the legacy compatibility adapter.").format(operator))
+
+	@staticmethod
+	def _combine_legacy_criteria(criteria, operator):
+		if not criteria: return None
+		combined = criteria[0]
+		for criterion in criteria[1:]:
+			combined = combined | criterion if operator == "or" else combined & criterion
+		return combined
 
 	def _is_plain_field_reference(self, token) -> bool:
 		if not isinstance(token, str):
@@ -450,31 +700,56 @@ class QueryRecordsHandler(ActionHandler):
 		return True
 
 	def _validate_filter_fields(self, reference_doctype: str, filter_payload) -> list[str]:
+		"""Validate filter fields recursively, including nested AND/OR trees."""
 		errors: list[str] = []
-		if not filter_payload:
-			return errors
-		rows = filter_payload if isinstance(filter_payload, list) else [filter_payload]
-		for row in rows:
-			if isinstance(row, dict):
-				fieldname = row.get("field") or row.get("fieldname")
-				row_dt = row.get("doctype") or reference_doctype
+
+		def validate_leaf(fieldname, row_dt=None):
+			row_dt = row_dt or reference_doctype
+			if (
+				fieldname
+				and self._is_plain_field_reference(fieldname)
+				and not self._doctype_has_field(row_dt, fieldname)
+			):
+				errors.append(_("Filter field '{0}' does not exist in {1}").format(fieldname, row_dt))
+
+		def visit(node):
+			if node is None:
+				return
+
+			if isinstance(node, dict):
+				if node.get("type") == "group":
+					for child in node.get("children") or []:
+						visit(child)
+					return
+				fieldname = node.get("field") or node.get("fieldname")
+				if fieldname:
+					validate_leaf(fieldname, node.get("doctype") or reference_doctype)
+					return
+				for key, value in node.items():
+					if str(key).lower() in ("and", "or"):
+						visit(value)
+					elif self._is_plain_field_reference(key):
+						validate_leaf(key)
+				return
+
+			if isinstance(node, list | tuple):
 				if (
-					fieldname
-					and self._is_plain_field_reference(fieldname)
-					and not self._doctype_has_field(row_dt, fieldname)
+					len(node) in (2, 3, 4)
+					and isinstance(node[0], str)
+					and node[0].lower() not in ("and", "or")
 				):
-					errors.append(_("Filter field '{0}' does not exist in {1}").format(fieldname, row_dt))
-			elif isinstance(row, list):
-				if len(row) == 4:
-					row_dt, fieldname = row[0], row[1]
-				elif len(row) == 3:
-					row_dt, fieldname = reference_doctype, row[0]
-				else:
-					continue
-				if self._is_plain_field_reference(fieldname) and not self._doctype_has_field(
-					row_dt, fieldname
-				):
-					errors.append(_("Filter field '{0}' does not exist in {1}").format(fieldname, row_dt))
+					if len(node) == 4:
+						validate_leaf(node[1], node[0] or reference_doctype)
+					else:
+						validate_leaf(node[0], reference_doctype)
+					return
+
+				for item in node:
+					if isinstance(item, str) and item.lower() in ("and", "or"):
+						continue
+					visit(item)
+
+		visit(filter_payload)
 		return errors
 
 	def _validate_doctype_field_references(self, reference_doctype: str, config: dict) -> list[str]:

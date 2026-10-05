@@ -38,6 +38,20 @@
 				/>
 			</div>
 
+			<!-- Fetch Records uses the reusable TreeBuilder-backed filter editor. -->
+			<template v-if="mode === 'Fetch Records'">
+				<FetchRecordsConfig
+					ref="fetchRecordsConfigRef"
+					:modelValue="config"
+					:doctype="reference_doctype"
+					:readOnly="readOnly"
+					:showValidation="showValidation"
+					:nodeId="node?.id"
+					:variableOptions="variable_options"
+					@update:modelValue="update_fetch_records_config"
+				/>
+			</template>
+
 			<!-- Configuration based on selected Mode -->
 			<template v-if="mode === 'Query List'">
 				<div class="sub-section section-subcard" v-fxr-fieldname="'config.filters'">
@@ -554,6 +568,7 @@ import { useActionConfig } from "../../../composables/useActionConfig";
 import ControlFactory from "../../../controls/ControlFactory.vue";
 import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
 import FilterGroup from "../FilterGroup.vue";
+import FetchRecordsConfig from "./FetchRecordsConfig.vue";
 import MultiSelectList from "../../../controls/MultiSelectList.vue";
 import FlexValueControl from "../../../controls/FlexValueControl.vue";
 import { useNodeConfigPolicy } from "../../../composables/useNodeConfigPolicy";
@@ -639,6 +654,7 @@ const is_single_doctype = ref(false);
 const is_child_table_target = ref(false);
 const showValidation = ref(false);
 const filterGroupRef = ref(null);
+const fetchRecordsConfigRef = ref(null);
 const controlRefs = ref([]);
 
 onBeforeUpdate(() => {
@@ -1080,7 +1096,7 @@ const SYSTEM_FIELDS = [
 async function update_resolved_schema_local() {
 	if (!props.node?.data) return;
 
-	if (mode.value === "Query List" || mode.value === "Query Doc") {
+	if (["Fetch Records", "Query List", "Query Doc"].includes(mode.value)) {
 		const is_query_doc = mode.value === "Query Doc";
 		const fields = (config.fields || []).filter((f) => f);
 
@@ -1346,6 +1362,13 @@ function update_action_key(key, value) {
 	props.node.data[key] = value;
 }
 
+function update_fetch_records_config(value) {
+	const next = value && typeof value === "object" ? value : {};
+	Object.keys(config).forEach((key) => delete config[key]);
+	Object.assign(config, next);
+	sync_local_config();
+}
+
 // Watch for operation changes directly to handle Report special case
 watch(
 	() => mode.value,
@@ -1362,8 +1385,16 @@ watch(
 					} else if (key === "docname" && newMode !== "Query Doc") {
 						delete config[key];
 					} else if (
-						["limit", "limit_type", "order_by", "fields"].includes(key) &&
-						newMode !== "Query List"
+						[
+							"limit",
+							"limit_type",
+							"order_by",
+							"fields",
+							"offset",
+							"distinct",
+							"group_by",
+						].includes(key) &&
+						!["Query List", "Fetch Records"].includes(newMode)
 					) {
 						delete config[key];
 					} else if (
@@ -1748,8 +1779,13 @@ async function validate() {
 		if (!res.valid && res.errors) errors.push(...res.errors);
 	});
 
-	// 2. Validate filters if applicable for the current mode
-	if (filterGroupRef.value && typeof filterGroupRef.value.validate === "function") {
+	// 2. Validate filters for the active query editor.
+	if (mode.value === "Fetch Records") {
+		if (fetchRecordsConfigRef.value?.validate) {
+			const res = await fetchRecordsConfigRef.value.validate();
+			if (!res.valid) errors.push(...res.errors);
+		}
+	} else if (filterGroupRef.value && typeof filterGroupRef.value.validate === "function") {
 		const res = await filterGroupRef.value.validate();
 		if (!res.valid) errors.push(...res.errors);
 	}

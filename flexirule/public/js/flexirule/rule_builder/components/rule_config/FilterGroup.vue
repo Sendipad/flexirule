@@ -7,7 +7,12 @@
 			{{ __("Select a DocType to configure filters.") }}
 		</div>
 		<div v-else class="filter-list">
-			<div v-for="(row, idx) in filters" :key="idx" class="filter-row">
+			<div
+				v-for="(row, idx) in filters"
+				:key="idx"
+				class="filter-row"
+				:class="{ 'single-row': singleRow }"
+			>
 				<div class="filter-row-main">
 					<!-- Doctype Picker (if allowAnyDoctype) -->
 					<div v-if="allowAnyDoctype" class="filter-col doctype-col">
@@ -153,7 +158,7 @@
 					</div>
 
 					<!-- Delete -->
-					<div v-if="!readOnly" class="filter-col action-col">
+					<div v-if="!readOnly && !hideActions" class="filter-col action-col">
 						<button class="btn btn-xs btn-link text-danger" @click="removeFilter(idx)">
 							<i class="fa fa-trash"></i>
 						</button>
@@ -161,7 +166,7 @@
 				</div>
 			</div>
 
-			<div v-if="!readOnly" class="filter-actions mt-2">
+			<div v-if="!readOnly && !hideActions && !singleRow" class="filter-actions mt-2">
 				<button class="btn btn-xs btn-link p-0 text-primary" @click="addFilter">
 					<i class="fa fa-plus mr-1"></i> {{ __("Add Filter") }}
 				</button>
@@ -212,6 +217,14 @@ const props = defineProps({
 		default: null,
 	},
 	showValidation: {
+		type: Boolean,
+		default: false,
+	},
+	singleRow: {
+		type: Boolean,
+		default: false,
+	},
+	hideActions: {
 		type: Boolean,
 		default: false,
 	},
@@ -444,13 +457,12 @@ const syncFromProps = () => {
 			};
 		});
 
-	const current_cleaned = format(filters.value.filter((f) => f.field || f.fieldname));
-	const incoming_cleaned = format(
-		(props.modelValue || []).filter((f) => f.field || f.fieldname || (Array.isArray(f) && f[1]))
-	);
+	const current_cleaned = format(filters.value);
+	const incoming_cleaned = format(props.modelValue || []);
 
-	// Stability check: If our cleaned local state is already same as incoming prop,
-	// do nothing. This preserves local state while ensuring we stay synced.
+	// Preserve empty leaf rows. TreeBuilder creates an intentionally blank leaf
+	// first, and dropping it from this comparison makes the leaf editor render
+	// with no controls until another state change occurs.
 	if (JSON.stringify(current_cleaned) === JSON.stringify(incoming_cleaned)) {
 		return;
 	}
