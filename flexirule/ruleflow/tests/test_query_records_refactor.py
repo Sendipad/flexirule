@@ -384,3 +384,71 @@ class TestQueryRecordsRefactor(FrappeTestCase):
 		result, _ = self.handler.execute(action, context, None)
 		self.assertIsNotNone(result)
 		self.assertEqual(result.get("name"), todo.name)
+
+	def test_fetch_records_delegates_native_qb_payload_and_permissions(self):
+		action = frappe._dict(
+			{
+				"operation": "Fetch Records",
+				"reference_doctype": "User",
+				"ignore_permissions": 0,
+				"config": frappe.as_json(
+					{
+						"fields": [
+							"name as user_name",
+							{"COUNT": "name", "as": "user_count"},
+							{"roles": ["role", "parent"]},
+						],
+						"filters": [
+							["User", "enabled", "=", 1],
+							"or",
+							["User", "email", "like", "%@example.com"],
+						],
+						"order_by": "modified desc",
+						"group_by": "enabled",
+						"limit": 10,
+						"offset": 2,
+						"distinct": True,
+					}
+				),
+			}
+		)
+
+		mock_query = frappe._dict(run=lambda **kwargs: [{"name": "Administrator"}])
+		with patch("frappe.qb.get_query", return_value=mock_query) as get_query:
+			result, _ = self.handler.execute(action, {}, None)
+
+		self.assertEqual(result, [{"name": "Administrator"}])
+		get_query.assert_called_once_with(
+			"User",
+			fields=[
+				"name as user_name",
+				{"COUNT": "name", "as": "user_count"},
+				{"roles": ["role", "parent"]},
+			],
+			filters=[
+				["User", "enabled", "=", 1],
+				"or",
+				["User", "email", "like", "%@example.com"],
+			],
+			order_by="modified desc",
+			group_by="enabled",
+			limit=10,
+			offset=2,
+			distinct=True,
+			ignore_permissions=False,
+		)
+
+	def test_fetch_records_forwards_ignore_permissions_true(self):
+		action = frappe._dict(
+			{
+				"operation": "Fetch Records",
+				"reference_doctype": "User",
+				"ignore_permissions": 1,
+				"config": frappe.as_json({"fields": ["name"], "limit": 1}),
+			}
+		)
+		mock_query = frappe._dict(run=lambda **kwargs: [{"name": "Administrator"}])
+		with patch("frappe.qb.get_query", return_value=mock_query) as get_query:
+			self.handler.execute(action, {}, None)
+
+		self.assertEqual(get_query.call_args.kwargs["ignore_permissions"], True)
