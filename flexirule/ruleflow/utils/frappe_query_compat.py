@@ -26,7 +26,7 @@ def detect_query_capabilities() -> FrappeQueryCapabilities:
 	source = getsource(Engine.apply_filters)
 	return FrappeQueryCapabilities(
 		supports_ignore_permissions="ignore_permissions" in parameters,
-		supports_logical_filter_groups='"or"' in source and "Criterion" in source,
+		supports_logical_filter_groups="_parse_nested_filters" in source and "_condition_to_criterion" in source,
 	)
 
 
