@@ -848,31 +848,58 @@ class QueryRecordsHandler(ActionHandler):
 		return True
 
 	def _validate_filter_fields(self, reference_doctype: str, filter_payload) -> list[str]:
+		"""Validate filter fields recursively, including nested AND/OR trees."""
 		errors: list[str] = []
-		if not filter_payload:
-			return errors
-		rows = filter_payload if isinstance(filter_payload, list) else [filter_payload]
-		for row in rows:
-			if isinstance(row, dict):
-				fieldname = row.get("field") or row.get("fieldname")
-				row_dt = row.get("doctype") or reference_doctype
+
+		def validate_leaf(fieldname, row_dt=None):
+			row_dt = row_dt or reference_doctype
+			if (
+				fieldname
+				and self._is_plain_field_reference(fieldname)
+				and not self._doctype_has_field(row_dt, fieldname)
+			):
+				errors.append(
+					_("Filter field '{0}' does not exist in {1}").format(fieldname, row_dt)
+				)
+
+		def visit(node):
+			if node is None:
+				return
+
+			if isinstance(node, dict):
+				if node.get("type") == "group":
+					for child in node.get("children") or []:
+						visit(child)
+					return
+				fieldname = node.get("field") or node.get("fieldname")
+				if fieldname:
+					validate_leaf(fieldname, node.get("doctype") or reference_doctype)
+					return
+				for key, value in node.items():
+					if str(key).lower() in ("and", "or"):
+						visit(value)
+					elif self._is_plain_field_reference(key):
+						validate_leaf(key)
+				return
+
+			if isinstance(node, (list, tuple)):
 				if (
-					fieldname
-					and self._is_plain_field_reference(fieldname)
-					and not self._doctype_has_field(row_dt, fieldname)
+					len(node) in (2, 3, 4)
+					and isinstance(node[0], str)
+					and node[0].lower() not in ("and", "or")
 				):
-					errors.append(_("Filter field '{0}' does not exist in {1}").format(fieldname, row_dt))
-			elif isinstance(row, list):
-				if len(row) == 4:
-					row_dt, fieldname = row[0], row[1]
-				elif len(row) == 3:
-					row_dt, fieldname = reference_doctype, row[0]
-				else:
-					continue
-				if self._is_plain_field_reference(fieldname) and not self._doctype_has_field(
-					row_dt, fieldname
-				):
-					errors.append(_("Filter field '{0}' does not exist in {1}").format(fieldname, row_dt))
+					if len(node) == 4:
+						validate_leaf(node[1], node[0] or reference_doctype)
+					else:
+						validate_leaf(node[0], reference_doctype)
+					return
+
+				for item in node:
+					if isinstance(item, str) and item.lower() in ("and", "or"):
+						continue
+					visit(item)
+
+		visit(filter_payload)
 		return errors
 
 	def _validate_doctype_field_references(self, reference_doctype: str, config: dict) -> list[str]:
