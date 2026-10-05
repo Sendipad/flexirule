@@ -1007,6 +1007,44 @@ The key design rule is:
 
 ---
 
+### 27. Recommended final ownership model
+
+The ownership model should explicitly reflect the FilterLeaf extraction and stable navigation state:
+
+| Responsibility | Component / Layer |
+|---|---|
+| Interactive tree | TreeBuilder |
+| Recursive node rendering | TreeBuilderNode |
+| One filter leaf editor | FilterLeaf |
+| Field navigation for one leaf | FilterLeaf → useNavigableFields |
+| Field picker UI | ComboBoxControl |
+| Legacy flat filter collection | FilterGroup, only where still required |
+| Filter UI tree integration | QueryFilterTree |
+| Tree ↔ backend conversion | Filter Tree Adapter |
+| Complete action configuration | FetchRecordsConfig |
+| Query execution | Fetch Records backend |
+| Frappe API/version compatibility | `frappe_query_compat.py` |
+| Permissions/security | Backend / Frappe |
+
+`FilterGroup.vue` must not become a second navigation implementation. The long-term Query Filter Tree path should use `FilterLeaf.vue` for individual filter editing and stable navigation state.
+
+### 27.1 Migration sequence for FilterGroup → FilterLeaf
+
+Do not rewrite all filter behavior at once. Extract incrementally:
+
+1. Preserve the existing row data shape and operator/value behavior.
+2. Move one complete filter row into `FilterLeaf.vue`.
+3. Move the field picker and its navigation behavior with the row.
+4. Replace index-based navigation state with one `useNavigableFields()` instance per leaf.
+5. Verify Link and child-table navigation.
+6. Switch QueryFilterTree to render `FilterLeaf.vue` through the existing tree structure.
+7. Keep `FilterGroup.vue` available for legacy consumers until repository-wide usage confirms it is no longer required.
+8. Remove duplicated field-discovery/navigation code only after all consumers have migrated.
+
+This staged approach prevents the UI extraction from becoming a simultaneous query-contract refactor.
+
+### 28. Explicit non-goals
+
 ## 28. Explicit non-goals
 
 This implementation must not:
