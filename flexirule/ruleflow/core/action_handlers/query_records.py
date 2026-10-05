@@ -572,7 +572,10 @@ class QueryRecordsHandler(ActionHandler):
 			kwargs["ignore_permissions"] = ignore_permissions
 
 		query = frappe.qb.get_query(reference_doctype, **kwargs)
-		if not ignore_permissions and "ignore_permissions" not in inspect.signature(Engine.get_query).parameters:
+		if (
+			not ignore_permissions
+			and "ignore_permissions" not in inspect.signature(Engine.get_query).parameters
+		):
 			Permission.check_permissions(query)
 
 		return query.run(as_dict=True)
