@@ -78,7 +78,6 @@
 						:title="__('Remove field')" @click="removeField(index)"><i class="fa fa-trash"></i></button>
 				</div>
 			</div>
-		</div>
 
 		<div class="sub-section section-subcard">
 			<h6>{{ __("Order By") }}</h6>
@@ -198,10 +197,6 @@ const navigableFields = useNavigableFields(
 	computed(() => props.doctype),
 	() => orderRows.value[0]?.field || ""
 );
-const fieldNavigator = useNavigableFields(computed(() => props.doctype));
-const fieldPickerValue = ref("");
-const supportedFieldFunctions = ["COUNT", "SUM", "AVG", "MIN", "MAX"];
-
 const fieldExpressionRows = computed(() =>
 	(localConfig.fields || []).map((expression) => parseFieldExpression(String(expression)))
 );
