@@ -535,15 +535,16 @@ class QueryRecordsHandler(ActionHandler):
 		return errors
 
 	def _fetch_records(self, reference_doctype, config, context, action, ignore_permissions):
-		"""Execute Fetch Records through Frappe's native Query Builder API.
+		"""Execute Fetch Records with version-aware Frappe Query Builder compatibility.
 
-		FlexiRule resolves dynamic values only. Frappe owns field parsing, joins,
-		filter semantics, validation, and query-level permission enforcement.
+		The operation remains centered on ``frappe.qb.get_query``. Older Frappe
+		versions used by FlexiRule do not expose all newer Query Builder features.
+		We adapt only missing capabilities and keep field parsing, joins, operators,
+		pagination, and execution inside Frappe/Pypika.
 		"""
 		action_label = getattr(action, "label", None) or getattr(action, "action_id", None) or "Query Records"
 
 		def resolve_payload(value, path):
-			"""Resolve FlexValue payloads recursively without changing native QB structure."""
 			if isinstance(value, dict):
 				if "mode" in value:
 					return self._resolve_value_expression_with_context(value, context, path, action)
@@ -564,21 +565,129 @@ class QueryRecordsHandler(ActionHandler):
 				continue
 			kwargs[key] = resolve_payload(value, f"{action_label}.{key}")
 
-		# Frappe's Query Builder gained native query-level permission handling after
-		# the Frappe v15 API used by this app. Pass the flag when the installed
-		# Engine supports it; otherwise use Frappe's own permission checker on the
-		# constructed query rather than maintaining a second permission implementation.
-		if "ignore_permissions" in inspect.signature(Engine.get_query).parameters:
-			kwargs["ignore_permissions"] = ignore_permissions
+		engine_params = inspect.signature(Engine.get_query).parameters
+		has_native_permissions = "ignore_permissions" in engine_params
+		has_native_nested_filters = all(
+			hasattr(Engine, name) for name in ("_parse_nested_filters", "_condition_to_criterion")
+		)
+		filters = kwargs.get("filters")
 
-		query = frappe.qb.get_query(reference_doctype, **kwargs)
-		if (
-			not ignore_permissions
-			and "ignore_permissions" not in inspect.signature(Engine.get_query).parameters
-		):
+		if self._has_logical_filter_operators(filters) and not has_native_nested_filters:
+			query = self._get_query_with_legacy_filter_compat(
+				reference_doctype, kwargs, ignore_permissions=ignore_permissions,
+				has_native_permissions=has_native_permissions
+			)
+		else:
+			if has_native_permissions:
+				kwargs["ignore_permissions"] = ignore_permissions
+			query = frappe.qb.get_query(reference_doctype, **kwargs)
+
+		if not ignore_permissions and not has_native_permissions:
 			Permission.check_permissions(query)
 
 		return query.run(as_dict=True)
+
+	@staticmethod
+	def _has_logical_filter_operators(filters) -> bool:
+		"""Return True when a filter payload contains explicit AND/OR operators."""
+		if isinstance(filters, dict):
+			return any(QueryRecordsHandler._has_logical_filter_operators(v) for v in filters.values())
+		if isinstance(filters, (list, tuple)):
+			for item in filters:
+				if isinstance(item, str) and item.lower() in {"and", "or"}:
+					return True
+				if QueryRecordsHandler._has_logical_filter_operators(item):
+					return True
+		return False
+
+	def _get_query_with_legacy_filter_compat(self, reference_doctype, kwargs, *, ignore_permissions, has_native_permissions):
+		"""Build the base query normally, then add a Pypika filter Criterion on old Frappe."""
+		filters = kwargs.pop("filters", None)
+		base_kwargs = dict(kwargs)
+		if has_native_permissions:
+			base_kwargs["ignore_permissions"] = ignore_permissions
+
+		builder = Engine()
+		query = builder.get_query(reference_doctype, filters=None, **base_kwargs)
+		criterion = self._compile_legacy_filter_tree(builder, filters)
+		if criterion is not None:
+			query = query.where(criterion)
+		return query
+
+	def _compile_legacy_filter_tree(self, builder, node):
+		"""Compile a FlexiRule AND/OR filter tree into native Pypika Criterion objects."""
+		if node is None or node == []:
+			return None
+		if isinstance(node, dict):
+			criteria = []
+			for field, value in node.items():
+				if str(field).lower() in {"and", "or"}:
+					child = self._compile_legacy_filter_tree(builder, value)
+					if child is not None:
+						criteria.append(child)
+				else:
+					criteria.append(self._compile_legacy_filter_leaf(builder, [field, value]))
+			return self._combine_legacy_criteria(criteria, "and")
+		if isinstance(node, (list, tuple)):
+			if self._is_filter_leaf(node):
+				return self._compile_legacy_filter_leaf(builder, node)
+			result = None
+			pending = "and"
+			for item in node:
+				if isinstance(item, str) and item.lower() in {"and", "or"}:
+					pending = item.lower()
+					continue
+				child = self._compile_legacy_filter_tree(builder, item)
+				if child is None:
+					continue
+				result = child if result is None else self._combine_legacy_criteria([result, child], pending)
+			return result
+		return None
+
+	@staticmethod
+	def _is_filter_leaf(node) -> bool:
+		return (
+			isinstance(node, (list, tuple)) and len(node) in (2, 3, 4)
+			and isinstance(node[0], str)
+			and not (len(node) >= 2 and isinstance(node[1], str) and node[1].lower() in {"and", "or"})
+		)
+
+	def _compile_legacy_filter_leaf(self, builder, node):
+		if len(node) == 2:
+			field, value = node; operator = "="; doctype = None
+		elif len(node) == 3:
+			field, operator, value = node; doctype = None
+		else:
+			doctype, field, operator, value = node[:4]
+
+		build_criterion = getattr(builder, "_build_criterion_for_simple_filter", None)
+		if callable(build_criterion):
+			return build_criterion(field, value, operator, doctype)
+
+		table = frappe.qb.DocType(doctype or builder.doctype)
+		column = table[field]
+		operator = str(operator).lower()
+		if operator in {"=", "=="}: return column == value
+		if operator == "!=": return column != value
+		if operator == ">": return column > value
+		if operator == "<": return column < value
+		if operator == ">=": return column >= value
+		if operator == "<=": return column <= value
+		if operator == "like": return column.like(value)
+		if operator == "not like": return column.not_like(value)
+		if operator == "in": return column.isin(value)
+		if operator == "not in": return ~column.isin(value)
+		if operator == "is": return column.isnull() if str(value).lower() == "not set" else column.isnotnull()
+		if operator == "between": return column.between(*value)
+		frappe.throw(_("Filter operator '{0}' is not supported by the legacy compatibility adapter.").format(operator))
+
+	@staticmethod
+	def _combine_legacy_criteria(criteria, operator):
+		if not criteria: return None
+		combined = criteria[0]
+		for criterion in criteria[1:]:
+			combined = combined | criterion if operator == "or" else combined & criterion
+		return combined
 
 	def _is_plain_field_reference(self, token) -> bool:
 		if not isinstance(token, str):
