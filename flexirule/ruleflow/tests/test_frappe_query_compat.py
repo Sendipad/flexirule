@@ -7,8 +7,8 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from flexirule.ruleflow.utils.frappe_query_compat import (
-	FrappeQueryCapabilities,
 	QUERY_CAPABILITIES,
+	FrappeQueryCapabilities,
 	execute_query,
 )
 
@@ -95,9 +95,7 @@ class TestFrappeQueryCompat(FrappeTestCase):
 			),
 		):
 			with patch("frappe.qb.get_query", return_value=query) as get_query:
-				with patch(
-					"flexirule.ruleflow.utils.frappe_query_compat.Permission.check_permissions"
-				):
+				with patch("flexirule.ruleflow.utils.frappe_query_compat.Permission.check_permissions"):
 					with patch(
 						"flexirule.ruleflow.utils.frappe_query_compat._get_permission_condition",
 						return_value="",
@@ -120,9 +118,7 @@ class TestFrappeQueryCompat(FrappeTestCase):
 			),
 		):
 			with patch("frappe.qb.get_query", return_value=query) as get_query:
-				with patch(
-					"flexirule.ruleflow.utils.frappe_query_compat.Permission.check_permissions"
-				):
+				with patch("flexirule.ruleflow.utils.frappe_query_compat.Permission.check_permissions"):
 					with patch(
 						"flexirule.ruleflow.utils.frappe_query_compat._get_permission_condition",
 						return_value="",
