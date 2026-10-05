@@ -1369,7 +1369,6 @@ function update_fetch_records_config(value) {
 	sync_local_config();
 }
 
-
 // Watch for operation changes directly to handle Report special case
 watch(
 	() => mode.value,
@@ -1386,7 +1385,15 @@ watch(
 					} else if (key === "docname" && newMode !== "Query Doc") {
 						delete config[key];
 					} else if (
-						["limit", "limit_type", "order_by", "fields", "offset", "distinct", "group_by"].includes(key) &&
+						[
+							"limit",
+							"limit_type",
+							"order_by",
+							"fields",
+							"offset",
+							"distinct",
+							"group_by",
+						].includes(key) &&
 						!["Query List", "Fetch Records"].includes(newMode)
 					) {
 						delete config[key];

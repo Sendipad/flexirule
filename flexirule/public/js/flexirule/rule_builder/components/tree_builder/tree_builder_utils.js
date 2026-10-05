@@ -44,6 +44,7 @@ export function normalizeTree(value) {
 export function isDescendant(node, targetId) {
 	if (!node || !targetId) return false;
 	if (node.id === targetId) return true;
-	if (isGroupNode(node)) return (node.children || []).some((child) => isDescendant(child, targetId));
+	if (isGroupNode(node))
+		return (node.children || []).some((child) => isDescendant(child, targetId));
 	return false;
 }

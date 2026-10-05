@@ -7,7 +7,12 @@
 			{{ __("Select a DocType to configure filters.") }}
 		</div>
 		<div v-else class="filter-list">
-			<div v-for="(row, idx) in filters" :key="idx" class="filter-row" :class="{ 'single-row': singleRow }">
+			<div
+				v-for="(row, idx) in filters"
+				:key="idx"
+				class="filter-row"
+				:class="{ 'single-row': singleRow }"
+			>
 				<div class="filter-row-main">
 					<!-- Doctype Picker (if allowAnyDoctype) -->
 					<div v-if="allowAnyDoctype" class="filter-col doctype-col">
