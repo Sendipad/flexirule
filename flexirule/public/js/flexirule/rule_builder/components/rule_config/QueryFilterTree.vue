@@ -249,18 +249,18 @@ async function validate() {
 		if (!result?.valid && result.errors) errors.push(...result.errors);
 	}
 
-	function validateStructure(node) {
+	function validateStructure(node, isRoot = false) {
 		if (node.type === "leaf") {
 			if (!node.field) errors.push(__("A filter field is required."));
 			return;
 		}
 		if (!node.children?.length) {
-			errors.push(__("Filter groups cannot be empty."));
+			if (!isRoot) errors.push(__("Filter groups cannot be empty."));
 			return;
 		}
-		node.children.forEach(validateStructure);
+		node.children.forEach((child) => validateStructure(child, false));
 	}
-	validateStructure(tree);
+	validateStructure(tree, true);
 
 	return { valid: errors.length === 0, errors };
 }
