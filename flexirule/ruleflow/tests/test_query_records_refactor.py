@@ -414,7 +414,12 @@ class TestQueryRecordsRefactor(FrappeTestCase):
 			}
 		)
 
-		mock_query = frappe._dict(run=lambda **kwargs: [{"name": "Administrator"}])
+		mock_query = frappe._dict(
+			run=lambda **kwargs: [{"name": "Administrator"}],
+			get_sql=lambda: "SELECT * FROM `tabUser`",
+			_tables=[frappe.qb.DocType("User")],
+			where=lambda *args, **kwargs: mock_query,
+		)
 		with patch("frappe.qb.get_query", return_value=mock_query) as get_query:
 			result, _ = self.handler.execute(action, {}, None)
 
@@ -457,7 +462,12 @@ class TestQueryRecordsRefactor(FrappeTestCase):
 				"config": frappe.as_json({"fields": ["name"], "limit": 1}),
 			}
 		)
-		mock_query = frappe._dict(run=lambda **kwargs: [{"name": "Administrator"}])
+		mock_query = frappe._dict(
+			run=lambda **kwargs: [{"name": "Administrator"}],
+			get_sql=lambda: "SELECT * FROM `tabUser`",
+			_tables=[frappe.qb.DocType("User")],
+			where=lambda *args, **kwargs: mock_query,
+		)
 		with patch("frappe.qb.get_query", return_value=mock_query) as get_query:
 			self.handler.execute(action, {}, None)
 
