@@ -457,13 +457,12 @@ const syncFromProps = () => {
 			};
 		});
 
-	const current_cleaned = format(filters.value.filter((f) => f.field || f.fieldname));
-	const incoming_cleaned = format(
-		(props.modelValue || []).filter((f) => f.field || f.fieldname || (Array.isArray(f) && f[1]))
-	);
+	const current_cleaned = format(filters.value);
+	const incoming_cleaned = format(props.modelValue || []);
 
-	// Stability check: If our cleaned local state is already same as incoming prop,
-	// do nothing. This preserves local state while ensuring we stay synced.
+	// Preserve empty leaf rows. TreeBuilder creates an intentionally blank leaf
+	// first, and dropping it from this comparison makes the leaf editor render
+	// with no controls until another state change occurs.
 	if (JSON.stringify(current_cleaned) === JSON.stringify(incoming_cleaned)) {
 		return;
 	}
