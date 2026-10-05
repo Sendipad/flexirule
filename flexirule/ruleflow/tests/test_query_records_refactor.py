@@ -395,14 +395,9 @@ class TestQueryRecordsRefactor(FrappeTestCase):
 				"ignore_permissions": 0,
 				"config": frappe.as_json(
 					{
-						"fields": [
-							"name as user_name",
-							{"COUNT": "name", "as": "user_count"},
-							{"roles": ["role", "parent"]},
-						],
+						"fields": ["name as user_name", "email"],
 						"filters": [
 							["User", "enabled", "=", 1],
-							"or",
 							["User", "email", "like", "%@example.com"],
 						],
 						"order_by": "modified desc",
@@ -416,12 +411,17 @@ class TestQueryRecordsRefactor(FrappeTestCase):
 		)
 
 		mock_query = frappe._dict(run=lambda **kwargs: [{"name": "Administrator"}])
-		with patch("frappe.qb.get_query", return_value=mock_query) as get_query:
+		with (
+			patch("frappe.qb.get_query", return_value=mock_query) as get_query,
+			patch("flexirule.ruleflow.core.action_handlers.query_records.Permission.check_permissions") as check_permissions,
+		):
 			result, _ = self.handler.execute(action, {}, None)
 
 		self.assertEqual(result, [{"name": "Administrator"}])
 		get_query.assert_called_once()
 		self.assertEqual(get_query.call_args.args, ("User",))
+		if "ignore_permissions" not in inspect.signature(Engine.get_query).parameters:
+			check_permissions.assert_called_once_with(mock_query)
 		self.assertEqual(
 			get_query.call_args.kwargs,
 			{
