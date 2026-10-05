@@ -12,13 +12,11 @@ Modes:
 - Fetch Records: frappe.qb.get_query() — returns list of dicts via Frappe Query Builder
 """
 
-import inspect
 import json
 from typing import Any
 
 import frappe
 from frappe import _
-from frappe.database.query import Engine, Permission
 from frappe.utils import add_days, get_first_day, get_last_day, getdate, nowdate
 
 from flexirule.ruleflow.core.action_handlers import ActionHandler, HandlerRegistry
@@ -564,21 +562,13 @@ class QueryRecordsHandler(ActionHandler):
 				continue
 			kwargs[key] = resolve_payload(value, f"{action_label}.{key}")
 
-		# Frappe's Query Builder gained native query-level permission handling after
-		# the Frappe v15 API used by this app. Pass the flag when the installed
-		# Engine supports it; otherwise use Frappe's own permission checker on the
-		# constructed query rather than maintaining a second permission implementation.
-		if "ignore_permissions" in inspect.signature(Engine.get_query).parameters:
-			kwargs["ignore_permissions"] = ignore_permissions
+		from flexirule.ruleflow.utils.frappe_query_compat import execute_query
 
-		query = frappe.qb.get_query(reference_doctype, **kwargs)
-		if (
-			not ignore_permissions
-			and "ignore_permissions" not in inspect.signature(Engine.get_query).parameters
-		):
-			Permission.check_permissions(query)
-
-		return query.run(as_dict=True)
+		return execute_query(
+			reference_doctype,
+			kwargs,
+			ignore_permissions,
+		)
 
 	def _is_plain_field_reference(self, token) -> bool:
 		if not isinstance(token, str):
