@@ -54,6 +54,7 @@ class TestFrappeQueryCompat(FrappeTestCase):
 
 	def test_legacy_permission_path_does_not_pass_unsupported_argument(self):
 		query = MagicMock()
+		query.where.return_value = query
 		query.run.return_value = [{"name": "Administrator"}]
 
 		with patch(

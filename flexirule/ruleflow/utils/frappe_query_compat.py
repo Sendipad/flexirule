@@ -50,17 +50,18 @@ class _TrustedSQLCriterion(Criterion):
 
 def _criterion_for_leaf(doctype: str, leaf):
 	"""Compile one simple filter using Frappe/Pypika operators."""
-	if not isinstance(leaf, list | tuple) or len(leaf) not in (2, 3):
+	if not isinstance(leaf, list | tuple) or len(leaf) not in (2, 3, 4):
 		raise ValueError("Legacy Query Builder compatibility supports simple filter leaves only")
 
-	field = leaf[0]
+	if len(leaf) == 4:
+		leaf_dt, field, operator, value = leaf[0], leaf[1], leaf[2], leaf[3]
+	elif len(leaf) == 3:
+		leaf_dt, field, operator, value = doctype, leaf[0], leaf[1], leaf[2]
+	else:
+		leaf_dt, field, operator, value = doctype, leaf[0], "=", leaf[1]
+
 	if not isinstance(field, str) or "." in field:
 		raise ValueError("Legacy Query Builder OR compatibility requires root DocType fields")
-
-	if len(leaf) == 2:
-		operator, value = "=", leaf[1]
-	else:
-		operator, value = leaf[1], leaf[2]
 
 	if not isinstance(operator, str):
 		raise ValueError("Filter operator must be a string")
@@ -69,7 +70,7 @@ def _criterion_for_leaf(doctype: str, leaf):
 	if operator not in OPERATOR_MAP:
 		raise ValueError(f"Unsupported filter operator for legacy OR compatibility: {operator}")
 
-	column = frappe.qb.DocType(doctype)[field]
+	column = frappe.qb.DocType(leaf_dt or doctype)[field]
 	if isinstance(value, bool):
 		value = int(value)
 	return OPERATOR_MAP[operator](column, value)
@@ -137,7 +138,12 @@ def execute_query(doctype: str, kwargs: dict, ignore_permissions: bool):
 		query = frappe.qb.get_query(doctype, **query_kwargs)
 		if not ignore_permissions:
 			user = frappe.session.user
-			Permission.check_permissions(query, user=user)
+			try:
+				Permission.check_permissions(query, user=user)
+			except frappe.ValidationError as e:
+				if "Insufficient Permission" in str(e):
+					raise frappe.PermissionError(e)
+				raise
 			permission_condition = _get_permission_condition(doctype, user)
 			if permission_condition:
 				query = query.where(_TrustedSQLCriterion(permission_condition))

@@ -550,6 +550,8 @@ class QueryRecordsHandler(ActionHandler):
 				return [resolve_payload(item, f"{path}[{index}]") for index, item in enumerate(value)]
 			if isinstance(value, tuple):
 				return tuple(resolve_payload(item, f"{path}[{index}]") for index, item in enumerate(value))
+			if isinstance(value, str):
+				return self._resolve_value_expression_with_context(value, context, path, action)
 			return value
 
 		kwargs = {}
