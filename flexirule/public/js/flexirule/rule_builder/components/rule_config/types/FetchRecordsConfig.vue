@@ -26,19 +26,58 @@
 		</div>
 
 		<div class="sub-section section-subcard">
-			<h6>{{ __("Fields") }}</h6>
+			<div class="section-heading">
+				<div>
+					<h6>{{ __("Fields") }}</h6>
+					<p class="section-description">
+						{{ __("Select fields and configure native field expressions, functions, and aliases.") }}
+					</p>
+				</div>
+			</div>
 			<MultiSelectList
 				:df="{
 					label: '',
 					fieldname: 'fields',
 					placeholder: __('Select fields to fetch...'),
 				}"
-				:options="navigableFields.currentFields.value"
+				:options="fieldSelectionOptions"
 				:modelValue="localConfig.fields || []"
 				:read_only="readOnly"
 				:hideLabel="true"
 				@update:modelValue="updateConfig('fields', $event)"
 			/>
+			<div class="field-reference-picker">
+				<ComboBoxControl
+					:df="{ label: __('Add field reference'), fieldtype: 'FieldPicker' }"
+					:options="fieldNavigator.currentFields.value"
+					:doctype="doctype"
+					:modelValue="fieldPickerValue"
+					:read_only="readOnly"
+					:trigger="'button'"
+					:navigable="true"
+					:navStack="fieldNavigator.navStack.value"
+					@navigate="fieldNavigator.handleNavigate"
+					@back="fieldNavigator.handleBack"
+					@update:modelValue="addFieldReference"
+				/>
+			</div>
+			<div v-if="fieldExpressionRows.length" class="field-expression-list">
+				<div v-for="(row, index) in fieldExpressionRows" :key="index + '-' + row.expression" class="field-expression-row">
+					<input class="form-control field-reference-input" type="text" :value="row.source" :disabled="readOnly"
+						:placeholder="__('Field name or dotted field reference')" :title="__('Backend field/reference')"
+						@input="updateFieldExpression(index, { source: $event.target.value })" />
+					<select class="form-control function-select" :value="row.function" :disabled="readOnly"
+						@change="updateFieldExpression(index, { function: $event.target.value })">
+						<option value="">{{ __("Field") }}</option>
+						<option v-for="fn in supportedFieldFunctions" :key="fn" :value="fn">{{ fn }}</option>
+					</select>
+					<input class="form-control alias-input" type="text" :value="row.alias" :disabled="readOnly"
+						:placeholder="__('Alias (optional)')" :title="__('Output alias')"
+						@input="updateFieldExpression(index, { alias: $event.target.value })" />
+					<button v-if="!readOnly" type="button" class="btn btn-xs btn-link text-danger remove-field-btn"
+						:title="__('Remove field')" @click="removeField(index)"><i class="fa fa-trash"></i></button>
+				</div>
+			</div>
 		</div>
 
 		<div class="sub-section section-subcard">
@@ -159,6 +198,31 @@ const navigableFields = useNavigableFields(
 	computed(() => props.doctype),
 	() => orderRows.value[0]?.field || ""
 );
+const fieldNavigator = useNavigableFields(computed(() => props.doctype));
+const fieldPickerValue = ref("");
+const supportedFieldFunctions = ["COUNT", "SUM", "AVG", "MIN", "MAX"];
+
+const fieldExpressionRows = computed(() =>
+	(localConfig.fields || []).map((expression) => parseFieldExpression(String(expression)))
+);
+
+const fieldSelectionOptions = computed(() => {
+	const options = [...(navigableFields.currentFields.value || [])];
+	const known = new Set(options.map((option) => String(option.value)));
+	for (const expression of localConfig.fields || []) {
+		const value = String(expression);
+		if (!known.has(value)) {
+			options.push({
+				value,
+				label: value,
+				description: __("Configured field expression"),
+				icon: "fa fa-code",
+				raw: { fieldtype: "Expression" },
+			});
+		}
+	}
+	return options;
+});
 
 const limitField = computed(() => ({
 	fieldname: "limit",
@@ -166,7 +230,7 @@ const limitField = computed(() => ({
 	label: __("Limit"),
 	reqd: 0,
 	read_only: props.readOnly,
-	description: __("Maximum number of records to return. Leave blank for the framework default."),
+	description: __("Maximum number of records to return. Defaults to 20."),
 }));
 
 const offsetField = computed(() => ({
@@ -175,7 +239,7 @@ const offsetField = computed(() => ({
 	label: __("Offset"),
 	reqd: 0,
 	read_only: props.readOnly,
-	description: __("Number of matching records to skip."),
+	description: __("Number of matching records to skip before returning results. Defaults to 0."),
 }));
 
 const distinctField = computed(() => ({
@@ -194,8 +258,8 @@ function normalizeConfig(value) {
 		fields: Array.isArray(source.fields) ? source.fields : [],
 		order_by: source.order_by || "",
 		group_by: source.group_by || "",
-		limit: source.limit ?? "",
-		offset: source.offset ?? "",
+		limit: source.limit ?? 20,
+		offset: source.offset ?? 0,
 		distinct: !!source.distinct,
 	};
 }
@@ -223,8 +287,55 @@ function parseOrderBy(value) {
 function syncOrderBy() {
 	localConfig.order_by = orderRows.value
 		.filter((row) => row.field)
-		.map((row) => `${row.field} ${row.direction || "asc"}`)
+		.map((row) => row.field + " " + (row.direction || "asc"))
 		.join(", ");
+	emitConfig();
+}
+
+function parseFieldExpression(expression) {
+	const raw = String(expression || "").trim();
+	const functionMatch = raw.match(/^(COUNT|SUM|AVG|MIN|MAX)\s*\((.+)\)\s*(?:AS\s+([A-Za-z_][A-Za-z0-9_]*))?$/i);
+	if (functionMatch) {
+		return { expression: raw, source: functionMatch[2].trim(), function: functionMatch[1].toUpperCase(), alias: functionMatch[3] || "" };
+	}
+	const aliasMatch = raw.match(/^(.+?)\s+AS\s+([A-Za-z_][A-Za-z0-9_]*)$/i);
+	if (aliasMatch) {
+		return { expression: raw, source: aliasMatch[1].trim(), function: "", alias: aliasMatch[2] };
+	}
+	return { expression: raw, source: raw, function: "", alias: "" };
+}
+
+function buildFieldExpression({ source, function: fieldFunction, alias }) {
+	const cleanSource = String(source || "").trim();
+	const cleanFunction = String(fieldFunction || "").toUpperCase();
+	const cleanAlias = String(alias || "").trim();
+	if (!cleanSource) return "";
+	const selected = cleanFunction ? cleanFunction + "(" + cleanSource + ")" : cleanSource;
+	return cleanAlias ? selected + " AS " + cleanAlias : selected;
+}
+
+function updateFieldExpression(index, patch) {
+	if (props.readOnly || !localConfig.fields?.[index]) return;
+	const next = { ...fieldExpressionRows.value[index], ...patch };
+	const expression = buildFieldExpression(next);
+	if (!expression) return;
+	localConfig.fields[index] = expression;
+	emitConfig();
+}
+
+function addFieldReference(value) {
+	fieldPickerValue.value = "";
+	if (props.readOnly || !value) return;
+	if (!localConfig.fields.includes(value)) {
+		localConfig.fields.push(value);
+		emitConfig();
+	}
+	fieldNavigator.resetStack();
+}
+
+function removeField(index) {
+	if (props.readOnly) return;
+	localConfig.fields.splice(index, 1);
 	emitConfig();
 }
 
@@ -356,6 +467,32 @@ defineExpose({ validate });
 	height: 32px;
 	padding: 0;
 	flex-shrink: 0;
+}
+
+.field-reference-picker {
+	display: flex;
+	align-items: center;
+	margin-top: var(--spacing-sm);
+}
+
+.field-expression-list {
+	display: flex;
+	flex-direction: column;
+	gap: var(--fxr-space-2);
+	margin-top: var(--spacing-sm);
+}
+
+.field-expression-row {
+	display: grid;
+	grid-template-columns: minmax(0, 1.5fr) 110px minmax(120px, 0.8fr) 32px;
+	gap: var(--spacing-sm);
+	align-items: center;
+}
+
+.remove-field-btn {
+	width: 32px;
+	height: 32px;
+	padding: 0;
 }
 
 .query-doc-grid {
