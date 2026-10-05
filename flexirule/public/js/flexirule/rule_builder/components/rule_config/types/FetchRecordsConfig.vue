@@ -192,7 +192,7 @@ const props = defineProps({
 const emit = defineEmits(["update:modelValue", "change"]);
 const filterTreeRef = ref(null);
 
-const localConfig = reactive(normalizeConfig(props.modelValue));
+const localConfig = reactive(normalizeConfig(props.modelValue, true));
 const orderRows = ref(parseOrderBy(localConfig.order_by));
 const navigableFields = useNavigableFields(
 	computed(() => props.doctype),
@@ -207,7 +207,7 @@ const fieldExpressionRows = computed(() =>
 );
 
 const fieldSelectionOptions = computed(() => {
-	const options = [...(navigableFields.currentFields.value || [])];
+	const options = [...(fieldNavigator.currentFields.value || [])];
 	const known = new Set(options.map((option) => String(option.value)));
 	for (const expression of localConfig.fields || []) {
 		const value = String(expression);
@@ -250,7 +250,7 @@ const distinctField = computed(() => ({
 	description: __("Return unique rows after joins and child-table traversal."),
 }));
 
-function normalizeConfig(value) {
+function normalizeConfig(value, applyDefaults = false) {
 	const source = value && typeof value === "object" ? value : {};
 	return {
 		...source,
@@ -258,8 +258,8 @@ function normalizeConfig(value) {
 		fields: Array.isArray(source.fields) ? source.fields : [],
 		order_by: source.order_by || "",
 		group_by: source.group_by || "",
-		limit: source.limit ?? 20,
-		offset: source.offset ?? 0,
+		limit: applyDefaults ? (source.limit ?? 20) : (source.limit ?? ""),
+		offset: applyDefaults ? (source.offset ?? 0) : (source.offset ?? ""),
 		distinct: !!source.distinct,
 	};
 }
