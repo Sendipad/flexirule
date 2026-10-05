@@ -552,7 +552,7 @@ class QueryRecordsHandler(ActionHandler):
 				return [resolve_payload(item, f"{path}[{index}]") for index, item in enumerate(value)]
 			if isinstance(value, tuple):
 				return tuple(resolve_payload(item, f"{path}[{index}]") for index, item in enumerate(value))
-			return value
+			return self._resolve_value_expression_with_context(value, context, path, action)
 
 		kwargs = {}
 		if config.get("fields") not in (None, "", []):
@@ -573,6 +573,10 @@ class QueryRecordsHandler(ActionHandler):
 
 		query = frappe.qb.get_query(reference_doctype, **kwargs)
 		if not ignore_permissions and "ignore_permissions" not in inspect.signature(Engine.get_query).parameters:
+			# Frappe v15 keeps query construction and permission enforcement separate.
+			# Preserve the handler's PermissionError contract before applying Frappe's
+			# native query-level permission checks for user/field restrictions.
+			frappe.has_permission(reference_doctype, "read", throw=True)
 			Permission.check_permissions(query)
 
 		return query.run(as_dict=True)
