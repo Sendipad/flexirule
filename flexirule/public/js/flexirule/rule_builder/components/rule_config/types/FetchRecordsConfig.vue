@@ -5,7 +5,11 @@
 				<div>
 					<h6>{{ __("Filters") }}</h6>
 					<p class="section-description">
-						{{ __("Build nested AND/OR filters. Groups are compiled as query criteria at runtime.") }}
+						{{
+							__(
+								"Build nested AND/OR filters. Groups are compiled as query criteria at runtime."
+							)
+						}}
 					</p>
 				</div>
 			</div>
@@ -241,7 +245,10 @@ function removeOrder(index) {
 
 function getGroupByOptions() {
 	const current = localConfig.group_by || "";
-	const parts = current.split(",").map((part) => part.trim()).filter(Boolean);
+	const parts = current
+		.split(",")
+		.map((part) => part.trim())
+		.filter(Boolean);
 	const prefix = parts.length > 1 ? parts.slice(0, -1).join(", ") + ", " : "";
 	return navigableFields.currentFields.value.map((field) => ({
 		label: prefix + field.label,
@@ -288,7 +295,10 @@ async function validate() {
 		[__("Offset"), localConfig.offset],
 	]) {
 		if (value === "" || value === null || value === undefined) continue;
-		if (typeof value === "string" && (value.trim().startsWith("{") || value.trim().startsWith("@"))) {
+		if (
+			typeof value === "string" &&
+			(value.trim().startsWith("{") || value.trim().startsWith("@"))
+		) {
 			continue;
 		}
 		const parsed = Number(value);

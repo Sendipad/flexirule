@@ -1,6 +1,9 @@
 from unittest.mock import patch
 
+import inspect
+
 import frappe
+from frappe.database.query import Engine
 from frappe.tests.utils import FrappeTestCase
 from frappe.utils import random_string
 
@@ -55,7 +58,7 @@ class TestQueryRecordsRefactor(FrappeTestCase):
 			}
 		)
 
-		result, next_step = self.handler.execute(action, {}, None)
+		result, _next_step = self.handler.execute(action, {}, None)
 		self.assertIsNotNone(result)
 		# Latest should be the second one created
 		self.assertEqual(result.get("first_name"), "Test Refactor 2")
@@ -70,8 +73,7 @@ class TestQueryRecordsRefactor(FrappeTestCase):
 				),
 			}
 		)
-
-		result, next_step = self.handler.execute(action, {}, None)
+		result, _next_step = self.handler.execute(action, {}, None)
 		self.assertIsNotNone(result)
 		self.assertEqual(result.get("doctype"), "System Settings")
 
@@ -384,3 +386,83 @@ class TestQueryRecordsRefactor(FrappeTestCase):
 		result, _ = self.handler.execute(action, context, None)
 		self.assertIsNotNone(result)
 		self.assertEqual(result.get("name"), todo.name)
+
+	def test_fetch_records_delegates_native_qb_payload_and_permissions(self):
+		action = frappe._dict(
+			{
+				"operation": "Fetch Records",
+				"reference_doctype": "User",
+				"ignore_permissions": 0,
+				"config": frappe.as_json(
+					{
+						"fields": ["name as user_name", "email"],
+						"filters": [
+							["User", "enabled", "=", 1],
+							["User", "email", "like", "%@example.com"],
+						],
+						"order_by": "modified desc",
+						"group_by": "enabled",
+						"limit": 10,
+						"offset": 2,
+						"distinct": True,
+					}
+				),
+			}
+		)
+
+		mock_query = frappe._dict(run=lambda **kwargs: [{"name": "Administrator"}])
+		with (
+			patch("frappe.qb.get_query", return_value=mock_query) as get_query,
+			patch("flexirule.ruleflow.core.action_handlers.query_records.Permission.check_permissions") as check_permissions,
+		):
+			result, _ = self.handler.execute(action, {}, None)
+
+		self.assertEqual(result, [{"name": "Administrator"}])
+		get_query.assert_called_once()
+		self.assertEqual(get_query.call_args.args, ("User",))
+		if "ignore_permissions" not in inspect.signature(Engine.get_query).parameters:
+			check_permissions.assert_called_once_with(mock_query)
+		self.assertEqual(
+			get_query.call_args.kwargs,
+			{
+				"fields": [
+					"name as user_name",
+					{"COUNT": "name", "as": "user_count"},
+					{"roles": ["role", "parent"]},
+				],
+				"filters": [
+					["User", "enabled", "=", 1],
+					"or",
+					["User", "email", "like", "%@example.com"],
+				],
+				"order_by": "modified desc",
+				"group_by": "enabled",
+				"limit": 10,
+				"offset": 2,
+				"distinct": True,
+				**(
+					{"ignore_permissions": False}
+					if "ignore_permissions" in inspect.signature(Engine.get_query).parameters
+					else {}
+				),
+			},
+		)
+
+	def test_fetch_records_forwards_ignore_permissions_true(self):
+		action = frappe._dict(
+			{
+				"operation": "Fetch Records",
+				"reference_doctype": "User",
+				"ignore_permissions": 1,
+				"permission_audit_reason": "Test native Fetch Records permission bypass",
+				"config": frappe.as_json({"fields": ["name"], "limit": 1}),
+			}
+		)
+		mock_query = frappe._dict(run=lambda **kwargs: [{"name": "Administrator"}])
+		with patch("frappe.qb.get_query", return_value=mock_query) as get_query:
+			self.handler.execute(action, {}, None)
+
+		if "ignore_permissions" in inspect.signature(Engine.get_query).parameters:
+			self.assertIs(get_query.call_args.kwargs["ignore_permissions"], True)
+		else:
+			self.assertNotIn("ignore_permissions", get_query.call_args.kwargs)

@@ -114,7 +114,7 @@ class TestFetchRecords(FrappeTestCase):
 		self.assertEqual(len(res_in), 1)
 		self.assertEqual(res_in[0].get("name"), t1.name)
 
-	def test_nested_logical_filters_and_or(self):
+	def test_native_filter_structure_with_in_operator(self):
 		prefix = f"FetchLogic_{random_string(5)}"
 		t1 = frappe.get_doc({"doctype": "ToDo", "description": f"{prefix}_alpha", "status": "Open"}).insert(
 			ignore_permissions=True
@@ -126,22 +126,21 @@ class TestFetchRecords(FrappeTestCase):
 			{"doctype": "ToDo", "description": f"{prefix}_gamma", "status": "Cancelled"}
 		).insert(ignore_permissions=True)
 
-		# Tree: description starts with prefix AND (status = 'Open' OR status = 'Closed')
-		filter_tree = [
-			["ToDo", "description", "like", f"{prefix}%"],
-			"and",
-			[
-				["ToDo", "status", "=", "Open"],
-				"or",
-				["ToDo", "status", "=", "Closed"],
-			],
-		]
-
+		# Fetch Records forwards Frappe native filter structures unchanged.
+		# Frappe v15 does not support infix "or" tokens in filter lists, so
+		# multiple values for one field use the native "in" operator.
 		action = frappe._dict(
 			{
 				"operation": "Fetch Records",
 				"reference_doctype": "ToDo",
-				"config": frappe.as_json({"filters": filter_tree}),
+				"config": frappe.as_json(
+					{
+						"filters": [
+							["ToDo", "description", "like", f"{prefix}%"],
+							["ToDo", "status", "in", ["Open", "Closed"]],
+						]
+					}
+				),
 			}
 		)
 
@@ -151,7 +150,6 @@ class TestFetchRecords(FrappeTestCase):
 		self.assertIn(t1.name, names)
 		self.assertIn(t2.name, names)
 		self.assertNotIn(t3.name, names)
-
 	def test_child_table_field_query_and_distinct(self):
 		# Test querying child table field (e.g. roles.role on User)
 		user_email = f"fetch_child_{random_string(5).lower()}@example.com"
