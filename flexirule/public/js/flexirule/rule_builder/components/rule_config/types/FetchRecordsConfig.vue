@@ -79,6 +79,8 @@
 				</div>
 			</div>
 
+		</div>
+
 		<div class="sub-section section-subcard">
 			<h6>{{ __("Order By") }}</h6>
 			<div class="table-rows">
