@@ -62,11 +62,11 @@
 				/>
 			</div>
 			<div v-if="fieldExpressionRows.length" class="field-expression-list">
-				<div v-for="(row, index) in fieldExpressionRows" :key="index + '-' + row.expression" class="field-expression-row">
+				<div v-for="(row, index) in fieldExpressionRows" :key="index" class="field-expression-row">
 					<input class="form-control field-reference-input" type="text" :value="row.source" :disabled="readOnly"
 						:placeholder="__('Field name or dotted field reference')" :title="__('Backend field/reference')"
 						@input="updateFieldExpression(index, { source: $event.target.value })" />
-					<select class="form-control function-select" :value="row.function" :disabled="readOnly"
+					<select class="form-control function-select" :value="row.function" :disabled="readOnly || row.source.includes('.')" :title="row.source.includes('.') ? __('Functions are limited to direct fields in the current backend contract.') : __('Query function')"
 						@change="updateFieldExpression(index, { function: $event.target.value })">
 						<option value="">{{ __("Field") }}</option>
 						<option v-for="fn in supportedFieldFunctions" :key="fn" :value="fn">{{ fn }}</option>
