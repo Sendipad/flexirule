@@ -1361,7 +1361,8 @@ function update_action_key(key, value) {
 	if (!props.node?.data) return;
 	props.node.data[key] = value;
 }
-\nfunction update_fetch_records_config(value) {
+
+function update_fetch_records_config(value) {
 	const next = value && typeof value === "object" ? value : {};
 	Object.keys(config).forEach((key) => delete config[key]);
 	Object.assign(config, next);
@@ -1385,7 +1386,7 @@ watch(
 					} else if (key === "docname" && newMode !== "Query Doc") {
 						delete config[key];
 					} else if (
-						["limit", "limit_type", "order_by", "fields"].includes(key) &&
+						["limit", "limit_type", "order_by", "fields", "offset", "distinct", "group_by"].includes(key) &&
 						!["Query List", "Fetch Records"].includes(newMode)
 					) {
 						delete config[key];
