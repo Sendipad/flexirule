@@ -1096,7 +1096,7 @@ const SYSTEM_FIELDS = [
 async function update_resolved_schema_local() {
 	if (!props.node?.data) return;
 
-	if (mode.value === "Query List" || mode.value === "Query Doc") {
+	if (["Fetch Records", "Query List", "Query Doc"].includes(mode.value)) {
 		const is_query_doc = mode.value === "Query Doc";
 		const fields = (config.fields || []).filter((f) => f);
 
