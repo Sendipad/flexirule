@@ -34,33 +34,25 @@
 					</p>
 				</div>
 			</div>
+			<div class="fields-selection-mode">
+				<ControlFactory
+					:df="allFieldsField"
+					:modelValue="isAllFields"
+					@update:modelValue="setAllFields"
+				/>
+				<p class="section-description fields-mode-description">
+					{{ __("When enabled, Fetch Records returns all fields (fields = *).") }}
+				</p>
+			</div>
 			<MultiSelectList
-				:df="{
-					label: '',
-					fieldname: 'fields',
-					placeholder: __('Select fields to fetch...'),
-				}"
+				v-if="!isAllFields"
+				:df="{ label: '', fieldname: 'fields', placeholder: __('Select fields to fetch...') }"
 				:options="fieldSelectionOptions"
-				:modelValue="localConfig.fields || []"
+				:modelValue="selectedFieldValues"
 				:read_only="readOnly"
 				:hideLabel="true"
-				@update:modelValue="updateConfig('fields', $event)"
+				@update:modelValue="updateSelectedFields"
 			/>
-			<div class="field-reference-picker">
-				<ComboBoxControl
-					:df="{ label: __('Add field reference'), fieldtype: 'FieldPicker' }"
-					:options="navigableFields.currentFields.value"
-					:doctype="doctype"
-					:modelValue="fieldPickerValue"
-					:read_only="readOnly"
-					:trigger="'button'"
-					:navigable="true"
-					:navStack="navigableFields.navStack.value"
-					@navigate="navigableFields.handleNavigate"
-					@back="navigableFields.handleBack"
-					@update:modelValue="addFieldReference"
-				/>
-			</div>
 			<div v-if="fieldExpressionRows.length" class="field-expression-list">
 				<div v-for="(row, index) in fieldExpressionRows" :key="index" class="field-expression-row">
 					<input class="form-control field-reference-input" type="text" :value="row.source" :disabled="readOnly"
@@ -195,7 +187,6 @@ const filterTreeRef = ref(null);
 
 const localConfig = reactive(normalizeConfig(props.modelValue, true));
 const orderRows = ref(parseOrderBy(localConfig.order_by));
-const fieldPickerValue = ref("");
 const supportedFieldFunctions = ["COUNT", "SUM", "AVG", "MIN", "MAX"];
 const navigableFields = useNavigableFields(
 	computed(() => props.doctype),
@@ -204,6 +195,10 @@ const navigableFields = useNavigableFields(
 const fieldExpressionRows = computed(() =>
 	(localConfig.fields || []).map((expression) => parseFieldExpression(String(expression)))
 );
+
+const isAllFields = computed(() => (localConfig.fields || []).length === 1 && String(localConfig.fields[0]) === "*");
+const selectedFieldValues = computed(() => (localConfig.fields || []).filter((value) => String(value) !== "*"));
+const allFieldsField = computed(() => ({ fieldname: "all_fields", fieldtype: "Check", label: __("Return All Fields"), read_only: props.readOnly }));
 
 const fieldSelectionOptions = computed(() => {
 	const options = [...(navigableFields.currentFields.value || [])];
@@ -322,14 +317,16 @@ function updateFieldExpression(index, patch) {
 	emitConfig();
 }
 
-function addFieldReference(value) {
-	fieldPickerValue.value = "";
-	if (props.readOnly || !value) return;
-	if (!localConfig.fields.includes(value)) {
-		localConfig.fields.push(value);
-		emitConfig();
-	}
-	navigableFields.resetStack();
+function updateSelectedFields(values) {
+	if (props.readOnly) return;
+	localConfig.fields = Array.from(new Set((values || []).map(String).filter((value) => value !== "*")));
+	emitConfig();
+}
+
+function setAllFields(value) {
+	if (props.readOnly) return;
+	localConfig.fields = value ? ["*"] : [];
+	emitConfig();
 }
 
 function removeField(index) {
@@ -473,6 +470,8 @@ defineExpose({ validate });
 	align-items: center;
 	margin-top: var(--spacing-sm);
 }
+
+.fields-mode-description { margin-bottom: var(--spacing-sm); }
 
 .field-expression-list {
 	display: flex;
