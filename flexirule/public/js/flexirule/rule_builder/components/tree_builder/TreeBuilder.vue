@@ -19,12 +19,7 @@
 					<i class="fa fa-plus"></i>
 					<span>{{ leafLabel }}</span>
 				</button>
-				<button
-					v-if="allowGroups"
-					type="button"
-					class="fxr-btn"
-					@click="addGroup(root)"
-				>
+				<button v-if="allowGroups" type="button" class="fxr-btn" @click="addGroup(root)">
 					<i class="fa fa-folder-open-o"></i>
 					<span>{{ groupLabel }}</span>
 				</button>

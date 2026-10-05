@@ -158,11 +158,11 @@ function parseFilterPayload(value) {
 
 		// A single explicit nested group should retain its own operator.
 		const inferredOperator =
-			value.find(
-				(item) =>
-					typeof item === "string" &&
-					["and", "or"].includes(item.toLowerCase())
-			)?.toLowerCase() || pendingOperator;
+			value
+				.find(
+					(item) => typeof item === "string" && ["and", "or"].includes(item.toLowerCase())
+				)
+				?.toLowerCase() || pendingOperator;
 
 		return {
 			id: createId(),

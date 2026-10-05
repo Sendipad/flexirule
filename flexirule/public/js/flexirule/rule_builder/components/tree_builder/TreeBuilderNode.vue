@@ -89,7 +89,12 @@ function handleDragLeave() {
 				</div>
 
 				<div v-if="!readOnly" class="tree-group__actions">
-					<button type="button" class="fxr-btn fxr-btn--icon" :title="__('Add Condition')" @click="addLeaf">
+					<button
+						type="button"
+						class="fxr-btn fxr-btn--icon"
+						:title="__('Add Condition')"
+						@click="addLeaf"
+					>
 						<i class="fa fa-plus"></i>
 					</button>
 					<button
