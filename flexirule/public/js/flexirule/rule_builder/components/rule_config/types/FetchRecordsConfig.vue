@@ -325,7 +325,7 @@ function updateSelectedFields(values) {
 
 function setAllFields(value) {
 	if (props.readOnly) return;
-	localConfig.fields = value ? ["*"] : [];
+	localConfig.fields = value === true || value === 1 || value === "1" ? ["*"] : [];
 	emitConfig();
 }
 
