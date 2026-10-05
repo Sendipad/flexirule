@@ -1,6 +1,9 @@
 from unittest.mock import patch
 
+import inspect
+
 import frappe
+from frappe.database.query import Engine
 from frappe.tests.utils import FrappeTestCase
 from frappe.utils import random_string
 
@@ -417,24 +420,32 @@ class TestQueryRecordsRefactor(FrappeTestCase):
 			result, _ = self.handler.execute(action, {}, None)
 
 		self.assertEqual(result, [{"name": "Administrator"}])
-		get_query.assert_called_once_with(
-			"User",
-			fields=[
-				"name as user_name",
-				{"COUNT": "name", "as": "user_count"},
-				{"roles": ["role", "parent"]},
-			],
-			filters=[
-				["User", "enabled", "=", 1],
-				"or",
-				["User", "email", "like", "%@example.com"],
-			],
-			order_by="modified desc",
-			group_by="enabled",
-			limit=10,
-			offset=2,
-			distinct=True,
-			ignore_permissions=False,
+		get_query.assert_called_once()
+		self.assertEqual(get_query.call_args.args, ("User",))
+		self.assertEqual(
+			get_query.call_args.kwargs,
+			{
+				"fields": [
+					"name as user_name",
+					{"COUNT": "name", "as": "user_count"},
+					{"roles": ["role", "parent"]},
+				],
+				"filters": [
+					["User", "enabled", "=", 1],
+					"or",
+					["User", "email", "like", "%@example.com"],
+				],
+				"order_by": "modified desc",
+				"group_by": "enabled",
+				"limit": 10,
+				"offset": 2,
+				"distinct": True,
+				**(
+					{"ignore_permissions": False}
+					if "ignore_permissions" in inspect.signature(Engine.get_query).parameters
+					else {}
+				),
+			},
 		)
 
 	def test_fetch_records_forwards_ignore_permissions_true(self):
@@ -451,4 +462,7 @@ class TestQueryRecordsRefactor(FrappeTestCase):
 		with patch("frappe.qb.get_query", return_value=mock_query) as get_query:
 			self.handler.execute(action, {}, None)
 
-		self.assertEqual(get_query.call_args.kwargs["ignore_permissions"], True)
+		if "ignore_permissions" in inspect.signature(Engine.get_query).parameters:
+			self.assertIs(get_query.call_args.kwargs["ignore_permissions"], True)
+		else:
+			self.assertNotIn("ignore_permissions", get_query.call_args.kwargs)
