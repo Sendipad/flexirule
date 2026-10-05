@@ -279,10 +279,28 @@ watch(
 	{ deep: true }
 );
 
-defineExpose({
-	validate: () =>
-		filterTreeRef.value?.validate?.() || { valid: true, errors: [] },
-});
+async function validate() {
+	const result = (await filterTreeRef.value?.validate?.()) || { valid: true, errors: [] };
+	const errors = [...(result.errors || [])];
+
+	for (const [label, value] of [
+		[__("Limit"), localConfig.limit],
+		[__("Offset"), localConfig.offset],
+	]) {
+		if (value === "" || value === null || value === undefined) continue;
+		if (typeof value === "string" && (value.trim().startsWith("{") || value.trim().startsWith("@"))) {
+			continue;
+		}
+		const parsed = Number(value);
+		if (!Number.isInteger(parsed) || parsed < 0) {
+			errors.push(__("{0} must be a non-negative integer.").format(label));
+		}
+	}
+
+	return { valid: errors.length === 0, errors };
+}
+
+defineExpose({ validate });
 </script>
 
 <style scoped>
