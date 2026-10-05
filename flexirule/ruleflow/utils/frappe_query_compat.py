@@ -49,7 +49,7 @@ class _TrustedSQLCriterion(Criterion):
 
 def _criterion_for_leaf(doctype: str, leaf):
 	"""Compile one simple filter using Frappe/Pypika operators."""
-	if not isinstance(leaf, (list, tuple)) or len(leaf) not in (2, 3):
+	if not isinstance(leaf, list | tuple) or len(leaf) not in (2, 3):
 		raise ValueError("Legacy Query Builder compatibility supports simple filter leaves only")
 
 	field = leaf[0]
@@ -76,7 +76,7 @@ def _criterion_for_leaf(doctype: str, leaf):
 
 def _compile_logical_filters(doctype: str, filters):
 	"""Compile legacy-incompatible AND/OR filter lists into a native Criterion."""
-	if not isinstance(filters, (list, tuple)):
+	if not isinstance(filters, list | tuple):
 		return filters
 
 	if not any(isinstance(item, str) and item.casefold() in {"and", "or"} for item in filters):
@@ -85,7 +85,7 @@ def _compile_logical_filters(doctype: str, filters):
 	if not filters:
 		return None
 
-	criteria = []
+	criteria: list[Criterion] = []
 	pending_operator = "and"
 	for item in filters:
 		if isinstance(item, str) and item.casefold() in {"and", "or"}:
@@ -94,7 +94,7 @@ def _compile_logical_filters(doctype: str, filters):
 
 		criterion = (
 			_compile_logical_filters(doctype, item)
-			if isinstance(item, (list, tuple))
+			if isinstance(item, list | tuple)
 			and any(isinstance(part, str) and part.casefold() in {"and", "or"} for part in item)
 			else _criterion_for_leaf(doctype, item)
 		)
@@ -124,7 +124,7 @@ def execute_query(doctype: str, kwargs: dict, ignore_permissions: bool):
 
 	if not QUERY_CAPABILITIES.supports_logical_filter_groups:
 		filters = query_kwargs.get("filters")
-		if isinstance(filters, (list, tuple)) and any(
+		if isinstance(filters, list | tuple) and any(
 			isinstance(item, str) and item.casefold() in {"and", "or"} for item in filters
 		):
 			query_kwargs["filters"] = _compile_logical_filters(doctype, filters)
