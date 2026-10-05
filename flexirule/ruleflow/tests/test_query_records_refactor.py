@@ -1,6 +1,5 @@
-from unittest.mock import patch
-
 import inspect
+from unittest.mock import patch
 
 import frappe
 from frappe.database.query import Engine
