@@ -159,7 +159,7 @@ def can_ignore_permissions(action, context=None, throw=True):
 		return False
 
 	user = frappe.session.user
-	user_roles = set(frappe.get_roles(user))
+	user_roles = set() if user == "Administrator" else set(frappe.get_roles(user))
 	allowed_roles = set(
 		frappe.get_hooks("flexirule_ignore_permissions_roles")
 		or frappe.get_hooks("flexirule_skip_permissions_roles")
