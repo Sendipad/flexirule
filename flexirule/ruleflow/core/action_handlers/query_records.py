@@ -513,6 +513,9 @@ class QueryRecordsHandler(ActionHandler):
 				and (value.strip().startswith("{") or value.strip().startswith("@"))
 			):
 				continue
+			if not isinstance(value, (str, int, float)):
+				errors.append(_("{0} must be an integer").format(key.replace("_", " ").title()))
+				continue
 			try:
 				parsed = int(value)
 			except (TypeError, ValueError):
@@ -620,7 +623,7 @@ class QueryRecordsHandler(ActionHandler):
 						validate_leaf(key)
 				return
 
-			if isinstance(node, (list, tuple)):
+			if isinstance(node, list | tuple):
 				if (
 					len(node) in (2, 3, 4)
 					and isinstance(node[0], str)
