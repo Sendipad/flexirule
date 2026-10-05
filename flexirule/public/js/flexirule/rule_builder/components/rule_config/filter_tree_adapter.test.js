@@ -25,11 +25,7 @@ const leaf = (field, value, operator = "=") => [
 	const payload = [
 		leaf("status", "Open"),
 		"and",
-		[
-			leaf("priority", "High"),
-			"or",
-			leaf("priority", "Medium"),
-		],
+		[leaf("priority", "High"), "or", leaf("priority", "Medium")],
 	];
 	const tree = deserializeFilterPayload(payload);
 	assert.equal(tree.operator, "and");
@@ -48,14 +44,11 @@ const leaf = (field, value, operator = "=") => [
 	]);
 	assert.equal(tree.operator, "and");
 	assert.equal(tree.children[0].operator, "or");
-	assert.deepEqual(
-		serializeFilterTree(tree),
-		[
-			[leaf("status", "Open"), "or", leaf("status", "Closed")],
-			"and",
-			leaf("enabled", 1),
-		]
-	);
+	assert.deepEqual(serializeFilterTree(tree), [
+		[leaf("status", "Open"), "or", leaf("status", "Closed")],
+		"and",
+		leaf("enabled", 1),
+	]);
 }
 
 {
@@ -73,7 +66,10 @@ const leaf = (field, value, operator = "=") => [
 	const result = validateFilterTree(tree);
 	assert.equal(result.valid, false);
 	assert.equal(result.errors[0].code, "required");
-	assert.throws(() => serializeFilterTree(tree), (error) => error.name === "FilterTreeValidationError");
+	assert.throws(
+		() => serializeFilterTree(tree),
+		(error) => error.name === "FilterTreeValidationError"
+	);
 }
 
 {
