@@ -95,8 +95,8 @@ ACTION_TYPE_DESCRIPTIONS: dict[str, str] = {
 	),
 	"Raise Error": "Stop execution immediately with a configured error message.",
 	"Query Records": (
-		"Query records from a DocType. Supports Query List, Query Doc, "
-		"Exist Record, and Query Report modes."
+		"Query records from a DocType. Supports Fetch Records, Query List, "
+		"Query Doc, Exist Record, Query Report, and aggregation modes."
 	),
 	"Document Action": (
 		"Create, update, or delete documents, including convenience modes "
