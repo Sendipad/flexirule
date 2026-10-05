@@ -509,11 +509,10 @@ class QueryRecordsHandler(ActionHandler):
 		for key in ("limit", "offset"):
 			value = config.get(key)
 			if value in (None, "") or (
-				isinstance(value, str)
-				and (value.strip().startswith("{") or value.strip().startswith("@"))
+				isinstance(value, str) and (value.strip().startswith("{") or value.strip().startswith("@"))
 			):
 				continue
-			if not isinstance(value, (str, int, float)):
+			if not isinstance(value, str | int | float):
 				errors.append(_("{0} must be an integer").format(key.replace("_", " ").title()))
 				continue
 			try:
@@ -543,23 +542,12 @@ class QueryRecordsHandler(ActionHandler):
 			"""Resolve FlexValue payloads recursively without changing native QB structure."""
 			if isinstance(value, dict):
 				if "mode" in value:
-					return self._resolve_value_expression_with_context(
-						value, context, path, action
-					)
-				return {
-					key: resolve_payload(item, f"{path}.{key}")
-					for key, item in value.items()
-				}
+					return self._resolve_value_expression_with_context(value, context, path, action)
+				return {key: resolve_payload(item, f"{path}.{key}") for key, item in value.items()}
 			if isinstance(value, list):
-				return [
-					resolve_payload(item, f"{path}[{index}]")
-					for index, item in enumerate(value)
-				]
+				return [resolve_payload(item, f"{path}[{index}]") for index, item in enumerate(value)]
 			if isinstance(value, tuple):
-				return tuple(
-					resolve_payload(item, f"{path}[{index}]")
-					for index, item in enumerate(value)
-				)
+				return tuple(resolve_payload(item, f"{path}[{index}]") for index, item in enumerate(value))
 			return value
 
 		kwargs = {"ignore_permissions": ignore_permissions}
@@ -599,9 +587,7 @@ class QueryRecordsHandler(ActionHandler):
 				and self._is_plain_field_reference(fieldname)
 				and not self._doctype_has_field(row_dt, fieldname)
 			):
-				errors.append(
-					_("Filter field '{0}' does not exist in {1}").format(fieldname, row_dt)
-				)
+				errors.append(_("Filter field '{0}' does not exist in {1}").format(fieldname, row_dt))
 
 		def visit(node):
 			if node is None:
