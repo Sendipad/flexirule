@@ -49,15 +49,15 @@
 			<div class="field-reference-picker">
 				<ComboBoxControl
 					:df="{ label: __('Add field reference'), fieldtype: 'FieldPicker' }"
-					:options="fieldNavigator.currentFields.value"
+					:options="navigableFields.currentFields.value"
 					:doctype="doctype"
 					:modelValue="fieldPickerValue"
 					:read_only="readOnly"
 					:trigger="'button'"
 					:navigable="true"
-					:navStack="fieldNavigator.navStack.value"
-					@navigate="fieldNavigator.handleNavigate"
-					@back="fieldNavigator.handleBack"
+					:navStack="navigableFields.navStack.value"
+					@navigate="navigableFields.handleNavigate"
+					@back="navigableFields.handleBack"
 					@update:modelValue="addFieldReference"
 				/>
 			</div>
@@ -195,6 +195,8 @@ const filterTreeRef = ref(null);
 
 const localConfig = reactive(normalizeConfig(props.modelValue, true));
 const orderRows = ref(parseOrderBy(localConfig.order_by));
+const fieldPickerValue = ref("");
+const supportedFieldFunctions = ["COUNT", "SUM", "AVG", "MIN", "MAX"];
 const navigableFields = useNavigableFields(
 	computed(() => props.doctype),
 	() => orderRows.value[0]?.field || ""
@@ -204,7 +206,7 @@ const fieldExpressionRows = computed(() =>
 );
 
 const fieldSelectionOptions = computed(() => {
-	const options = [...(fieldNavigator.currentFields.value || [])];
+	const options = [...(navigableFields.currentFields.value || [])];
 	const known = new Set(options.map((option) => String(option.value)));
 	for (const expression of localConfig.fields || []) {
 		const value = String(expression);
@@ -327,7 +329,7 @@ function addFieldReference(value) {
 		localConfig.fields.push(value);
 		emitConfig();
 	}
-	fieldNavigator.resetStack();
+	navigableFields.resetStack();
 }
 
 function removeField(index) {
