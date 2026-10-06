@@ -7,23 +7,23 @@ Enterprise documentation for FlexiRule, a metadata-driven automation and rules o
 title: Which Action Should I Use?
 url: https://sendipad.github.io/flexirule/action-type/which-action/
 lastmod: 2026-10-07
-summary: Choose the right FlexiRule action based on the business outcome you need.
+summary: Choose the right FlexiRule action from the business outcome you need, with clear guidance on when to use each action.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Which Action Should I Use?# Start with the business outcome, then choose the smallest action that clearly expresses it.
-If you need to… Start with Make a true/false decision Condition Choose among several cases Switch Repeat steps for a collection Loop Stop execution or raise an error Stop &amp;amp; Error Pause or defer supported work Wait Reuse another rule Sub-Rule Set a field or variable Assignment / Set Value Read records or calculate a result Query Records Update a document Update Record Send a notification Notify Run a reusable server-side process Process Rule of thumb# Decide → Condition or Switch
-Read → Query Records
-Change data → Assignment or Update Record
-Tell someone → Notify
-Repeat → Loop
-Reuse logic → Sub-Rule
-Technical/custom operation → Process
-See the individual action guides for exact supported behavior.
-
+Which Action Should I Use?# When building a rule, start with what you want the rule to accomplish, not with the Action name.
+Use this page as a decision guide:
+Decide → Read → Set or update → Communicate → Repeat → Reuse → Stop or defer
+If you are unsure which action matches your goal, find the outcome below and follow the recommended action.
+Choose by outcome# I want to… Use this action Why Check whether something is true or false Check (Condition) Evaluates conditions and sends execution down True or False branches. Choose one path from several known cases Switch Matches a value against configured cases and routes execution to the matching branch. Read records or calculate a database result Query Records Retrieves records, checks existence, or calculates supported aggregates such as count, sum, average, minimum, maximum, or grouped results. Set a value on the current document or store a value for later steps Set Value (Assignment) Sets document fields or rule variables using the assignment grid. Create, update, submit, cancel, amend, or otherwise operate on a Frappe record Update Record Performs document operations against a target record or records. Run actions for every item in a collection Repeat (Loop) Iterates over child-table rows or query results and runs a connected loop body for each item. Send a message or notification Notify Handles configured notifications and communication. Reuse another visual rule Sub-Rule Calls another rule as part of the current rule flow. Run a reusable server-side process Process Executes a configured process for work that belongs outside the visual rule flow. Intentionally end execution or raise an error Stop &amp;amp; Error Stops the current execution path, with behavior appropriate to the configured stop/error operation. Pause execution Wait Introduces a configured wait/deferred step where supported. The most common decisions# Do I need a Condition or a Switch?# Use Check (Condition) when the question is essentially:
+Is this true?
+Examples:
+Is the order total greater than 100,000? Is the customer active? Are all required fields set? A Check action produces True and False paths.
+Use Switch when the question is:
+Which case does …
 
 ---
 title: Which Query Mode Should I Use?
