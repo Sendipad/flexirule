@@ -1,5 +1,5 @@
 <template>
-	<div class="tree-builder fxr-accent-scope">
+	<div class="tree-builder fxr-accent-scope" tabindex="0" @keydown="handleKeydown">
 		<div class="tree-builder__header">
 			<div class="tree-builder__logic">
 				<button
@@ -8,18 +8,23 @@
 					type="button"
 					class="logic-btn"
 					:class="{ active: root.operator === operator }"
-					:disabled="readOnly"
+					:disabled="readOnly || !canChangeLogicalOperator"
 					@click="setOperator(root, operator)"
 				>
 					{{ operatorLabel(operator) }}
 				</button>
 			</div>
 			<div v-if="!readOnly" class="tree-builder__actions">
-				<button type="button" class="fxr-btn" @click="addLeaf(root)">
+				<button v-if="canAddLeaf" type="button" class="fxr-btn" @click="addLeaf(root)">
 					<i class="fa fa-plus"></i>
 					<span>{{ leafLabel }}</span>
 				</button>
-				<button v-if="allowGroups" type="button" class="fxr-btn" @click="addGroup(root)">
+				<button
+					v-if="allowGroups && canAddGroup"
+					type="button"
+					class="fxr-btn"
+					@click="addGroup(root)"
+				>
 					<i class="fa fa-folder-open-o"></i>
 					<span>{{ groupLabel }}</span>
 				</button>
@@ -40,11 +45,18 @@
 				:parent="root"
 				:readOnly="readOnly"
 				:allowGroups="allowGroups"
+				:canAddLeaf="canAddLeaf"
+				:canAddGroup="canAddGroup"
+				:canDelete="canDelete"
+				:canDrag="canDrag"
+				:canDrop="canDrop"
 				:groupOperators="groupOperators"
 				:leafLabel="leafLabel"
 				:groupLabel="groupLabel"
 				:operatorLabel="operatorLabel"
 				:leafFactory="leafFactory"
+				:activeNodeId="activeNodeId"
+				@setActive="setActiveNodeId"
 				@remove="removeNode(root, index)"
 			>
 				<template #leaf="slotProps">
@@ -56,7 +68,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, reactive, watch, provide } from "vue";
+import { computed, nextTick, reactive, ref, watch, provide } from "vue";
 import TreeBuilderNode from "./TreeBuilderNode.vue";
 import {
 	cloneTree,
@@ -73,6 +85,13 @@ const props = defineProps({
 	},
 	readOnly: { type: Boolean, default: false },
 	allowGroups: { type: Boolean, default: true },
+	canAddLeaf: { type: Boolean, default: true },
+	canAddGroup: { type: Boolean, default: true },
+	canDelete: { type: Boolean, default: true },
+	canMove: { type: Boolean, default: true },
+	canDrag: { type: Boolean, default: true },
+	canDrop: { type: Boolean, default: true },
+	canChangeLogicalOperator: { type: Boolean, default: true },
 	groupOperators: {
 		type: Array,
 		default: () => ["and", "or"],
@@ -89,47 +108,103 @@ const props = defineProps({
 	},
 });
 
-const emit = defineEmits(["update:modelValue", "change"]);
+const emit = defineEmits([
+	"update:modelValue",
+	"change",
+	"node-added",
+	"node-removed",
+	"node-moved",
+	"group-operator-changed",
+]);
 
 const root = reactive(normalizeTree(props.modelValue));
+const activeNodeId = ref(null);
 let syncing = false;
 
 const operatorLabel = (operator) =>
 	operator === "or" ? __("OR") : operator === "and" ? __("AND") : operator;
 
 function setOperator(group, operator) {
-	if (!groupOperators.value.includes(operator) || props.readOnly) return;
+	if (
+		!groupOperators.value.includes(operator) ||
+		props.readOnly ||
+		!props.canChangeLogicalOperator
+	)
+		return;
 	group.operator = operator;
+	emit("group-operator-changed", { group, operator });
 }
 
 const groupOperators = computed(() => props.groupOperators.filter(Boolean));
 
-function addLeaf(group) {
-	if (props.readOnly) return;
-	group.children.push({
+function setActiveNodeId(id) {
+	activeNodeId.value = id;
+}
+
+function findNodeAndParent(targetId, currentGroup = root, parentGroup = null) {
+	if (currentGroup.id === targetId) {
+		return { node: currentGroup, parent: parentGroup, index: -1 };
+	}
+	if (!currentGroup.children) return null;
+	for (let i = 0; i < currentGroup.children.length; i++) {
+		const child = currentGroup.children[i];
+		if (child.id === targetId) {
+			return { node: child, parent: currentGroup, index: i };
+		}
+		if (isGroupNode(child)) {
+			const res = findNodeAndParent(targetId, child, currentGroup);
+			if (res) return res;
+		}
+	}
+	return null;
+}
+
+function addLeaf(group = root, targetIndex = -1) {
+	if (props.readOnly || !props.canAddLeaf) return null;
+	const newLeaf = {
 		id: createId(),
 		type: "leaf",
 		...cloneTree(props.leafFactory()),
-	});
+	};
+	if (targetIndex >= 0) {
+		group.children.splice(targetIndex, 0, newLeaf);
+	} else {
+		group.children.push(newLeaf);
+	}
+	activeNodeId.value = newLeaf.id;
+	emit("node-added", { node: newLeaf, parent: group });
+	return newLeaf;
 }
 
-function addGroup(group) {
-	if (props.readOnly || !props.allowGroups) return;
-	group.children.push({
+function addGroup(group = root, targetIndex = -1) {
+	if (props.readOnly || !props.allowGroups || !props.canAddGroup) return null;
+	const newGroup = {
 		id: createId(),
 		type: "group",
 		operator: groupOperators.value[0] || "and",
 		children: [],
-	});
+	};
+	if (targetIndex >= 0) {
+		group.children.splice(targetIndex, 0, newGroup);
+	} else {
+		group.children.push(newGroup);
+	}
+	activeNodeId.value = newGroup.id;
+	emit("node-added", { node: newGroup, parent: group });
+	return newGroup;
 }
 
 function removeNode(parent, index) {
-	if (props.readOnly || !parent?.children?.[index]) return;
-	parent.children.splice(index, 1);
+	if (props.readOnly || !props.canDelete || !parent?.children?.[index]) return;
+	const [removed] = parent.children.splice(index, 1);
+	if (activeNodeId.value === removed.id) {
+		activeNodeId.value = null;
+	}
+	emit("node-removed", { node: removed, parent });
 }
 
 function moveNode(fromParent, fromIndex, toParent, toIndex = -1) {
-	if (props.readOnly || !fromParent?.children?.[fromIndex] || !toParent) return;
+	if (props.readOnly || !props.canMove || !fromParent?.children?.[fromIndex] || !toParent) return;
 
 	const node = fromParent.children[fromIndex];
 	if (isGroupNode(node) && isDescendant(node, toParent.id)) return;
@@ -137,21 +212,41 @@ function moveNode(fromParent, fromIndex, toParent, toIndex = -1) {
 	fromParent.children.splice(fromIndex, 1);
 	const targetIndex = toIndex < 0 ? toParent.children.length : toIndex;
 	toParent.children.splice(targetIndex, 0, node);
+
+	emit("node-moved", { node, fromParent, toParent, targetIndex });
 }
 
 const dragState = reactive({ parent: null, index: -1 });
 
 function beginDrag(parent, index) {
-	if (props.readOnly) return;
+	if (props.readOnly || !props.canDrag) return;
 	dragState.parent = parent;
 	dragState.index = index;
 }
 
 function dropNode(targetParent, targetIndex = -1) {
-	if (!dragState.parent) return;
+	if (!dragState.parent || !props.canDrop) return;
 	moveNode(dragState.parent, dragState.index, targetParent, targetIndex);
 	dragState.parent = null;
 	dragState.index = -1;
+}
+
+function handleKeydown(event) {
+	if (props.readOnly) return;
+
+	// Shift + Enter -> Insert sibling leaf
+	if (event.shiftKey && event.key === "Enter") {
+		event.preventDefault();
+		event.stopPropagation();
+		if (activeNodeId.value) {
+			const info = findNodeAndParent(activeNodeId.value);
+			if (info && info.parent) {
+				addLeaf(info.parent, info.index + 1);
+				return;
+			}
+		}
+		addLeaf(root);
+	}
 }
 
 provide("treeBuilderActions", {
@@ -160,6 +255,7 @@ provide("treeBuilderActions", {
 	removeNode,
 	beginDrag,
 	dropNode,
+	setActiveNodeId,
 });
 
 watch(
@@ -188,8 +284,9 @@ watch(
 );
 
 defineExpose({
-	addLeaf: () => addLeaf(root),
-	addGroup: () => addGroup(root),
+	addLeaf: (group = root) => addLeaf(group),
+	addGroup: (group = root) => addGroup(group),
+	removeNode,
 	getTree: () => cloneTree(root),
 });
 </script>
@@ -203,6 +300,11 @@ defineExpose({
 	background: var(--fxr-bg-page);
 	border: 1px solid var(--fxr-border-subtle);
 	border-radius: var(--fxr-radius-lg);
+	outline: none;
+}
+
+.tree-builder:focus-visible {
+	border-color: var(--fxr-accent);
 }
 
 .tree-builder__header {

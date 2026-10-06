@@ -64,7 +64,7 @@ export function getActionSummary(data = {}) {
 						assignments.length > 1
 							? `${target} ${op} ${val} (${__("+{0} more", [
 									assignments.length - 1,
-							  ])})`
+								])})`
 							: `${target} ${op} ${val}`;
 					items.push({
 						type: "row",

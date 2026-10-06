@@ -88,14 +88,23 @@ function normalizeLegacyValue(value) {
 }
 
 function looksLikeLeafTuple(value) {
-	return (
-		Array.isArray(value) &&
-		(value.length === 3 || value.length === 4) &&
-		typeof value[0] === "string" &&
-		typeof value[1] === "string" &&
-		typeof value[2] === "string" &&
-		!LOGICAL_OPERATORS.has(value[0].toLowerCase())
-	);
+	if (!Array.isArray(value)) return false;
+	if (value.length === 3) {
+		return (
+			typeof value[0] === "string" &&
+			typeof value[1] === "string" &&
+			!LOGICAL_OPERATORS.has(value[0].toLowerCase())
+		);
+	}
+	if (value.length === 4) {
+		return (
+			typeof value[0] === "string" &&
+			typeof value[1] === "string" &&
+			typeof value[2] === "string" &&
+			!LOGICAL_OPERATORS.has(value[0].toLowerCase())
+		);
+	}
+	return false;
 }
 
 function tupleToLeaf(tuple, { defaultDoctype = "", createId } = {}) {
