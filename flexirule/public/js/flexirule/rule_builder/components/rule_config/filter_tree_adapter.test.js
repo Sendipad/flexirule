@@ -1,9 +1,21 @@
 import assert from "node:assert/strict";
 import {
+	createFilterLeaf,
 	deserializeFilterPayload,
 	serializeFilterTree,
 	validateFilterTree,
 } from "./filter_tree_adapter.js";
+
+{
+	const blank = createFilterLeaf({ doctype: "Sales Order", createId: () => "leaf-1" });
+	assert.equal(blank.field, "");
+	assert.equal(blank.operator, "=");
+	assert.deepEqual(blank.value, { mode: "static", value: "" });
+
+	const result = validateFilterTree(deserializeFilterPayload({ type: "group", operator: "and", children: [blank] }));
+	assert.equal(result.valid, false);
+	assert.equal(result.errors[0].code, "required");
+}
 
 const leaf = (field, value, operator = "=") => [
 	"Sales Order",
