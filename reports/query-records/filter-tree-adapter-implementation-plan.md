@@ -1085,3 +1085,41 @@ The follow-up review found a second state-boundary issue in the initial fix:
 ### Remaining verification
 
 The repository connector does not provide a running Frappe bench/browser, so end-to-end browser execution, Cypress execution, pytest, ruff, mypy, and pre-commit remain environment-dependent verification items rather than claims of passing CI.
+## Follow-up audit — field selection, operator compatibility, and draft retention — 2026-10-06
+
+The browser report exposed three symptoms that initially looked unrelated:
+
+1. the first FieldPicker selection visually disappeared;
+2. operator choices did not reliably follow the selected field type;
+3. clicking Save after apparently completing a filter caused the filter to disappear and validation to report missing Field/Value.
+
+The code audit traced the first and third symptoms to the same concrete state-boundary defect in FetchRecordsConfig.emitConfig():
+
+- the editor intentionally stores filters as an editable TreeBuilder object during editing;
+- emitConfig() still used if (!next.filters?.length) delete next.filters;
+- an object has no length, so the expression evaluated as true and deleted the active filter tree from the modal draft;
+- QueryRecordsConfig then synchronized that draft back into QueryFilterTree as [];
+- this made the just-selected field/value disappear and left FilterLeaf validation looking at an empty/incomplete filter.
+
+The fix is now explicit: hasFilterPayload() treats the editable tree object and non-empty serialized array as meaningful filter state, while [], null, undefined, and "" are treated as empty.
+
+### Operator compatibility
+
+The operator list was also audited against Frappe v15's native Filter condition values and the existing FlexiRule Query Records backend normalization.
+
+- Core operators remain Frappe-compatible: =, !=, like, not like, in, not in, is, >, <, >=, <=.
+- Between and Timespan are retained because the backend explicitly normalizes them to native Query Builder operations.
+- starts with / ends with remain intentional FlexiRule UI extensions because the backend normalizes them to like patterns.
+- nested-set operators remain restricted to Link fields whose target DocType is in Frappe's nested-set DocTypes.
+- Check fields now expose only = to match Frappe v15's native filter UI; the previous != option was incorrect.
+- Filter validation now rejects a legacy or stale operator when it is not in the field's current allowed operator set, rather than allowing an invalid operator to reach Save/runtime.
+
+The frontend continues to use Frappe's frappe.ui.filter_utils.set_fieldtype() for value-control shaping, so the value editor follows the same field/operator semantics as native Frappe filters.
+
+### Save invariant
+
+The resulting invariant is now:
+
+> During editing, the editable filter tree is retained in the modal draft. On successful validation/save, it is converted once to the canonical Frappe filter payload.
+
+No backend query execution changes are required for this correction.
