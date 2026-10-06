@@ -104,9 +104,10 @@ async function validate() {
 }
 
 function emitSerialized(value) {
-	const validation = validateFilterTree(value, { allowEmptyRoot: true });
-	if (!validation.valid) return;
-	const payload = serializeFilterTree(value, { defaultDoctype: props.doctype });
+	const payload = serializeFilterTree(value, {
+		defaultDoctype: props.doctype,
+		allowIncomplete: true,
+	});
 	emit("update:modelValue", payload);
 	emit("change", payload);
 }
