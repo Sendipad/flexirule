@@ -14,6 +14,8 @@ const props = defineProps({
 	leafLabel: { type: String, default: __("Condition") },
 	groupLabel: { type: String, default: __("Group") },
 	operatorLabel: { type: Function, default: (v) => v },
+	logicalOperations: { type: Array, default: () => [] },
+	onLeafAdded: { type: Function, default: null },
 	leafFactory: { type: Function, default: () => ({ type: "leaf" }) },
 });
 
@@ -34,6 +36,23 @@ function addLeaf() {
 
 function addGroup() {
 	actions?.addGroup(props.node);
+}
+
+function insertLeafAfter() {
+	actions?.insertLeafAfter(props.parent, props.index);
+}
+
+function handleLeafKeydown(event) {
+	if (event.key !== "Enter" || !event.shiftKey || props.readOnly) return;
+	const target = event.target;
+	if (
+		target instanceof HTMLInputElement ||
+		target instanceof HTMLTextAreaElement ||
+		target?.isContentEditable
+	) return;
+	event.preventDefault();
+	event.stopPropagation();
+	insertLeafAfter();
 }
 
 function handleDragStart(event) {
@@ -135,6 +154,8 @@ function handleDragLeave() {
 					:groupLabel="groupLabel"
 					:operatorLabel="operatorLabel"
 					:leafFactory="leafFactory"
+					:logicalOperations="logicalOperations"
+					:onLeafAdded="onLeafAdded"
 					@remove="actions?.removeNode(node, childIndex)"
 				>
 					<template #leaf="slotProps">
@@ -144,7 +165,7 @@ function handleDragLeave() {
 			</div>
 		</div>
 
-		<div v-else class="tree-leaf">
+		<div v-else class="tree-leaf" @keydown="handleLeafKeydown">
 			<slot name="leaf" :node="node" :index="index" :parent="parent" />
 			<button
 				v-if="!readOnly"
