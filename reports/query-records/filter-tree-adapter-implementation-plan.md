@@ -1045,6 +1045,16 @@ This staged approach prevents the UI extraction from becoming a simultaneous que
 
 ### 28. Explicit non-goals
 
+## Audit status — 2026-10-06
+
+The implementation on `refactor/query-records` substantially follows this plan, including the adapter, `QueryFilterTree` integration, `FilterLeaf`, and backend compatibility boundary. The audit identified one correctness defect and one architecture defect:
+
+- **Fixed during this task:** `FilterGroup.syncFromProps()` previously compared only rows with a truthy field, so a newly created blank leaf could be discarded from its local editable state. Blank leaves are now preserved during synchronization while serialization/validation still rejects them as executable filters.
+- **Fixed during this task:** `FilterLeaf` now owns one stable `useNavigableFields()` instance and passes it to `FilterGroup`, avoiding index-keyed navigation state for tree leaves.
+- **Tests added:** Cypress adapter regression coverage for blank-leaf editing semantics, validation/serialization, FlexValue preservation, nested AND/OR round trips, and empty-root versus incomplete-leaf distinction.
+
+The broader `FilterGroup` extraction remains intentionally incremental: legacy flat-filter consumers continue to use `FilterGroup`, while tree leaves use `FilterLeaf` with stable per-leaf navigation state.
+
 ## 28. Explicit non-goals
 
 This implementation must not:
