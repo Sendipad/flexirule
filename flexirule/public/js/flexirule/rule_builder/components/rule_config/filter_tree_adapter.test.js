@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {
 	createFilterLeaf,
 	deserializeFilterPayload,
+	hasFilterPayload,
 	serializeFilterTree,
 	validateFilterTree,
 } from "./filter_tree_adapter.js";
@@ -96,3 +97,18 @@ const leaf = (field, value, operator = "=") => [
 }
 
 console.log("filter_tree_adapter tests passed");
+
+
+{
+	assert.equal(hasFilterPayload([]), false);
+	assert.equal(hasFilterPayload(null), false);
+	assert.equal(hasFilterPayload({ type: "group", operator: "and", children: [] }), true);
+	assert.equal(
+		hasFilterPayload([
+			["Sales Order", "status", "=", { mode: "static", value: "Draft" }],
+		]),
+		true
+	);
+}
+
+console.log("filter_tree_adapter payload-retention tests passed");
