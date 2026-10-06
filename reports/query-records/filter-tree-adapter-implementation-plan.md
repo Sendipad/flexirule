@@ -1123,3 +1123,17 @@ The resulting invariant is now:
 > During editing, the editable filter tree is retained in the modal draft. On successful validation/save, it is converted once to the canonical Frappe filter payload.
 
 No backend query execution changes are required for this correction.
+
+
+### Field/operator/value lifecycle correction
+
+Field changes are now treated as a semantic boundary:
+
+- the operator is recalculated against the newly selected field type;
+- if the previous operator is invalid, the Frappe-compatible default is selected;
+- the value is reset to a compatible empty value so a previous field's value cannot leak into a different control type;
+- the operator select is keyed by DocType + field so its option set is rebuilt when the field changes;
+- shape-changing operators (Between, Timespan, is, in, not in) receive a fresh compatible value structure;
+- empty arrays and whitespace-only strings are now treated as empty values during validation.
+
+This removes stale control state in addition to the draft-state retention fix.
