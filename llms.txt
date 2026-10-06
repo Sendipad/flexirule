@@ -9,7 +9,7 @@ Generated: 2026-10-06
 
 ## Core documentation
 
-- [Which Action Should I Use?](https://sendipad.github.io/flexirule/action-type/which-action/) — Choose the right FlexiRule action from the business outcome you need, with clear guidance on when to use each action.
+- [Which Action Should I Use?](https://sendipad.github.io/flexirule/action-type/which-action/) — Choose the right FlexiRule action type from the business outcome you need, using the names and operations available in the Rule Builder.
 
 - [Which Query Mode Should I Use?](https://sendipad.github.io/flexirule/action-type/query-records/which-query-mode/) — Choose the Query Records mode that matches the result your rule needs.
 

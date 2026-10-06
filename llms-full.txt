@@ -7,23 +7,17 @@ Enterprise documentation for FlexiRule, a metadata-driven automation and rules o
 title: Which Action Should I Use?
 url: https://sendipad.github.io/flexirule/action-type/which-action/
 lastmod: 2026-10-07
-summary: Choose the right FlexiRule action from the business outcome you need, with clear guidance on when to use each action.
+summary: Choose the right FlexiRule action type from the business outcome you need, using the names and operations available in the Rule Builder.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Which Action Should I Use?# When building a rule, start with what you want the rule to accomplish, not with the Action name.
-Use this page as a decision guide:
-Decide → Read → Set or update → Communicate → Repeat → Reuse → Stop or defer
-If you are unsure which action matches your goal, find the outcome below and follow the recommended action.
-Choose by outcome# I want to… Use this action Why Check whether something is true or false Check (Condition) Evaluates conditions and sends execution down True or False branches. Choose one path from several known cases Switch Matches a value against configured cases and routes execution to the matching branch. Read records or calculate a database result Query Records Retrieves records, checks existence, or calculates supported aggregates such as count, sum, average, minimum, maximum, or grouped results. Set a value on the current document or store a value for later steps Set Value (Assignment) Sets document fields or rule variables using the assignment grid. Create, update, submit, cancel, amend, or otherwise operate on a Frappe record Update Record Performs document operations against a target record or records. Run actions for every item in a collection Repeat (Loop) Iterates over child-table rows or query results and runs a connected loop body for each item. Send a message or notification Notify Handles configured notifications and communication. Reuse another visual rule Sub-Rule Calls another rule as part of the current rule flow. Run a reusable server-side process Process Executes a configured process for work that belongs outside the visual rule flow. Intentionally end execution or raise an error Stop &amp;amp; Error Stops the current execution path, with behavior appropriate to the configured stop/error operation. Pause execution Wait Introduces a configured wait/deferred step where supported. The most common decisions# Do I need a Condition or a Switch?# Use Check (Condition) when the question is essentially:
-Is this true?
-Examples:
-Is the order total greater than 100,000? Is the customer active? Are all required fields set? A Check action produces True and False paths.
-Use Switch when the question is:
-Which case does …
+Which Action Should I Use?# When building a rule, start with what you want the rule to accomplish, then choose the Action Type that expresses that operation.
+The Rule Builder currently uses these Action Types:
+Condition — make a true/false decision. Switch — route execution among configured cases. Loop — repeat work for items in a collection. Assignment — set document fields or context values. Query Records — read records or calculate supported query results. Document Action — create, update, delete, or perform other supported document operations. Notify — send a notification. Process — execute a configured process. Sub-Rule — invoke another rule. Wait — pause/defer supported work. Stop — intentionally terminate the flow. Raise Error — terminate the flow with an error. Important: Action Type is the technical name used by FlexiRule&amp;rsquo;s registry and configuration model. In the UI, these are the Actions you add to the canvas.
+Choose by outcome# I want to… Use Why Decide whether something is true or false Condition Evaluates configured conditions and provides True/False branches. Choose among several known cases Switch Matches a value against configured cases and routes execution to the matching branch. Read records Query Records Retrieves matching records using a supported query mode. Check whether a record exists Query Records → Exist Record Returns an existence result without treating the operation as a document update. Count, sum, average, find minimum/maximum, or group records Query Records Uses the appropriate supported query mode for the required result. Set document fields or context values Assignment Applies configured assignments to document/context targets. Create a new document Document Action → Create New Creates a target Frappe document using the configured mappings. Update an existing document Document Action → Update Existing Updates a target document using the configured mappings. Delete a document Document Action → Delete Record Deletes the selected target document. Create a ToDo Document Action → Create ToDo Creates a ToDo with its configured details. Add a comment Document Action → Add Comment Adds a comment to the configured document …
 
 ---
 title: Which Query Mode Should I Use?
