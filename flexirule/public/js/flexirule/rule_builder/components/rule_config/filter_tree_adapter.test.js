@@ -9,7 +9,9 @@ const leaf = (field, value, operator = "=") => [
 	"Sales Order",
 	field,
 	operator,
-	{ mode: "static", value },
+	typeof value === "object" && value !== null && "mode" in value
+		? value
+		: { mode: "static", value },
 ];
 
 {
@@ -80,7 +82,7 @@ const leaf = (field, value, operator = "=") => [
 	const payload = serializeFilterTree(tree);
 	assert.equal(payload.length, 4);
 	assert.equal(payload[0], "Sales Order");
-	assert.equal("uiOnly" in payload[0], false);
+	assert.equal("uiOnly" in payload, false);
 }
 
 console.log("filter_tree_adapter tests passed");

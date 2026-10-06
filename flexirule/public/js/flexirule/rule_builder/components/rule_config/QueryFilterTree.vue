@@ -15,7 +15,7 @@
 				<FilterLeaf
 					:ref="(el) => setLeafRef(node.id, el)"
 					:doctype="node.doctype || doctype"
-					:modelValue="[toFilterRow(node)]"
+					:modelValue="toFilterRow(node)"
 					:readOnly="readOnly"
 					:showValidation="showValidation"
 					:nodeId="nodeId"
@@ -104,9 +104,10 @@ async function validate() {
 }
 
 function emitSerialized(value) {
-	const validation = validateFilterTree(value, { allowEmptyRoot: true });
-	if (!validation.valid) return;
-	const payload = serializeFilterTree(value, { defaultDoctype: props.doctype });
+	const payload = serializeFilterTree(value, {
+		defaultDoctype: props.doctype,
+		skipInvalid: true,
+	});
 	emit("update:modelValue", payload);
 	emit("change", payload);
 }
@@ -151,7 +152,12 @@ watch(
 defineExpose({
 	validate,
 	getTree: () => cloneTree(tree),
-	getPayload: () => serializeFilterTree(tree, { defaultDoctype: props.doctype }),
+	getPayload: () => {
+		return serializeFilterTree(tree, {
+			defaultDoctype: props.doctype,
+			skipInvalid: true,
+		});
+	},
 	addFilter: () => treeBuilderRef.value?.addLeaf(),
 	addGroup: () => treeBuilderRef.value?.addGroup(),
 });

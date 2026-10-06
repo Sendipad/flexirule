@@ -88,14 +88,23 @@ function normalizeLegacyValue(value) {
 }
 
 function looksLikeLeafTuple(value) {
-	return (
-		Array.isArray(value) &&
-		(value.length === 3 || value.length === 4) &&
-		typeof value[0] === "string" &&
-		typeof value[1] === "string" &&
-		typeof value[2] === "string" &&
-		!LOGICAL_OPERATORS.has(value[0].toLowerCase())
-	);
+	if (!Array.isArray(value)) return false;
+	if (value.length === 4) {
+		return (
+			typeof value[0] === "string" &&
+			typeof value[1] === "string" &&
+			typeof value[2] === "string" &&
+			!LOGICAL_OPERATORS.has(value[0].toLowerCase())
+		);
+	}
+	if (value.length === 3) {
+		return (
+			typeof value[0] === "string" &&
+			typeof value[1] === "string" &&
+			!LOGICAL_OPERATORS.has(value[0].toLowerCase())
+		);
+	}
+	return false;
 }
 
 function tupleToLeaf(tuple, { defaultDoctype = "", createId } = {}) {
@@ -287,10 +296,13 @@ export function validateFilterTree(tree, { allowEmptyRoot = true, validateOperat
 export function serializeFilterTree(tree, options = {}) {
 	const normalized = normalizeFilterTree(tree, options);
 	const validation = validateFilterTree(normalized, options);
-	if (!validation.valid) throw new FilterTreeValidationError(validation.errors);
+	if (!validation.valid && !options.skipInvalid) throw new FilterTreeValidationError(validation.errors);
 
 	function serialize(node) {
 		if (isFilterLeaf(node)) {
+			if (options.skipInvalid && (!node.field || !node.field.trim())) {
+				return null;
+			}
 			return [
 				node.doctype || options.defaultDoctype || "",
 				node.field,
@@ -299,7 +311,7 @@ export function serializeFilterTree(tree, options = {}) {
 			];
 		}
 
-		const children = (node.children || []).map(serialize);
+		const children = (node.children || []).map(serialize).filter(Boolean);
 		if (!children.length) return [];
 		if (children.length === 1) return children[0];
 
