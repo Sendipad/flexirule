@@ -100,6 +100,23 @@ async function focusLeaf(node) {
 	leafRefs.get(node?.id)?.focusFirstField?.();
 }
 
+function translateValidationError(error) {
+	const messages = {
+		required: {
+			doctype: __("A filter DocType is required."),
+			field: __("A filter field is required."),
+			operator: __("A filter operator is required."),
+		},
+		unsupported: __("The selected filter operator is not supported."),
+		malformed: __("Filter node is malformed."),
+		empty_group: __("Filter groups cannot be empty."),
+	};
+	if (error.code === "required" && error.path?.at(-1)) {
+		return messages.required[error.path.at(-1)] || __("A required filter value is missing.");
+	}
+	return messages[error.code] || error.message || __("Invalid filter configuration.");
+}
+
 function setLeafRef(id, instance) {
 	if (instance) leafRefs.set(id, instance);
 	else leafRefs.delete(id);
@@ -107,7 +124,7 @@ function setLeafRef(id, instance) {
 
 async function validate() {
 	const structural = validateFilterTree(tree, { allowEmptyRoot: true });
-	const errors = structural.errors.map((error) => error.message);
+	const errors = structural.errors.map(translateValidationError);
 
 	const results = await Promise.all(
 		Array.from(leafRefs.values()).map((instance) =>
@@ -125,7 +142,7 @@ async function validate() {
 
 function commit() {
 	const validation = validateFilterTree(tree, { allowEmptyRoot: true });
-	if (!validation.valid) return { valid: false, errors: validation.errors.map((e) => e.message) };
+	if (!validation.valid) return { valid: false, errors: validation.errors.map(translateValidationError) };
 	const payload = serializeFilterTree(tree, { defaultDoctype: props.doctype });
 	emit("update:modelValue", payload);
 	emit("change", payload);
