@@ -5,7 +5,7 @@
 Base URL: https://sendipad.github.io/flexirule/
 Application repository: https://github.com/Sendipad/flexirule
 Documentation repository: https://github.com/Sendipad/flexirule-docs
-Generated: 2026-10-03
+Generated: 2026-10-06
 
 ## Core documentation
 
@@ -27,7 +27,7 @@ Generated: 2026-10-03
 
 - [Query Doc](https://sendipad.github.io/flexirule/action-type/query-records/query-doc/) — Find one specific item and retrieve its details.
 
-- [Query Filters](https://sendipad.github.io/flexirule/advanced-concepts/reference/query-filters/) — Reference guide for filtering logic across FlexiRule actions.
+- [Query Filters](https://sendipad.github.io/flexirule/advanced-concepts/reference/query-filters/) — Understand filters used to narrow FlexiRule database queries.
 
 - [Rule Builder Canvas & Layout Modes](https://sendipad.github.io/flexirule/rule-builder/canvas/) — Learn how to navigate the visual Rule Builder canvas and configure rules using Dialog Modal or Three-Panel Workspace View.
 
@@ -39,7 +39,9 @@ Generated: 2026-10-03
 
 - [What is FlexiRule?](https://sendipad.github.io/flexirule/getting-started/what-is-flexirule/) — A high-level overview of FlexiRule and its role in the Frappe ecosystem.
 
-- [Initial Configuration](https://sendipad.github.io/flexirule/setup/initial-configuration/) — Steps to take after installing FlexiRule.
+- [Fetch Records](https://sendipad.github.io/flexirule/action-type/query-records/fetch-records/) — Retrieve a filtered collection of records for use in later rule steps.
+
+- [Initial Configuration](https://sendipad.github.io/flexirule/setup/initial-configuration/) — Prepare FlexiRule for safe use after installation.
 
 - [Action Config Panels](https://sendipad.github.io/flexirule/advanced-concepts/architecture/ui/action-config-panels/) — The Rule Builder uses a modular approach to action configuration. Instead of one massive form, it uses **Config Panels** that correspond to specifi...
 
@@ -75,7 +77,7 @@ Generated: 2026-10-03
 
 - [Permissions](https://sendipad.github.io/flexirule/setup/permissions/) — Managing access to the Rule Builder and rule execution.
 
-- [Query List](https://sendipad.github.io/flexirule/action-type/query-records/query-list/) — Find multiple records matching specific criteria.
+- [Query List](https://sendipad.github.io/flexirule/action-type/query-records/query-list/) — Retrieve a list-oriented result for use in later rule steps.
 
 - [Recipe: Validate and Block Document Submission](https://sendipad.github.io/flexirule/tutorials/validate-and-block-document/) — Learn how to build visual validation guardrails that enforce business rules using the Smart Value Selector and Stop / Error actions.
 
@@ -117,9 +119,9 @@ Generated: 2026-10-03
 
 - [Recipe: Work with Child Tables and Item Calculations](https://sendipad.github.io/flexirule/tutorials/child-table-calculations/) — Learn how to visually iterate over child table items, evaluate row attributes using the Smart Value Selector, and calculate discounts.
 
-- [Rule Configuration & Trigger Setup](https://sendipad.github.io/flexirule/rule-builder/rule-configuration/) — Learn how to set up global rule parameters, target DocTypes, trigger events, and gatekeeper conditions.
+- [Rule Configuration & Trigger Setup](https://sendipad.github.io/flexirule/rule-builder/rule-configuration/) — Configure when a rule runs, which document it applies to, and how execution is controlled.
 
-- [RuleFlow Settings](https://sendipad.github.io/flexirule/setup/settings/) — Global configuration for the FlexiRule engine.
+- [RuleFlow Settings](https://sendipad.github.io/flexirule/setup/settings/) — Configure global runtime behavior and Rule Builder preferences.
 
 - [Advanced Process: Architecture Reference](https://sendipad.github.io/flexirule/advanced-concepts/architecture/actions/advanced-process/) — Runtime orchestration, Registry pattern, and the ProcessOperationExecutor internals.
 
@@ -221,7 +223,7 @@ Generated: 2026-10-03
 
 - [Sub-Rule](https://sendipad.github.io/flexirule/action-type/sub-rule/) — Run an exposed sub-rule as a reusable module within your visual rule flow.
 
-- [Quick Start Guide](https://sendipad.github.io/flexirule/getting-started/quick-start/) — Build your first visual automation in under 5 minutes starting from the RuleFlow Workspace.
+- [Quick Start Guide](https://sendipad.github.io/flexirule/getting-started/quick-start/) — Create, test, and activate a first visual rule in Frappe or ERPNext.
 
 - [Stop / Error](https://sendipad.github.io/flexirule/action-type/stop-error/) — Terminate rule execution cleanly or display a validation error message to block document saving.
 
