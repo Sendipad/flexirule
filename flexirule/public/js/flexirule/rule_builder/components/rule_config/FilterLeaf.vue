@@ -32,7 +32,8 @@
 							@navigate="nav.handleNavigate"
 							@back="nav.handleBack"
 							:class="{
-								'border-warning': currentField && !isFieldValid(currentField, currentDoctype),
+								'border-warning':
+									currentField && !isFieldValid(currentField, currentDoctype),
 							}"
 							@update:modelValue="onFieldSelect"
 						/>
@@ -52,11 +53,7 @@
 						:disabled="readOnly"
 						@change="onOperatorChange"
 					>
-						<option
-							v-for="op in allowedOperators"
-							:key="op"
-							:value="op"
-						>
+						<option v-for="op in allowedOperators" :key="op" :value="op">
 							{{ getOperatorLabel(op) }}
 						</option>
 					</select>
@@ -139,7 +136,12 @@ import { useNavigableFields } from "../../composables/useNavigableFields";
 const props = defineProps({
 	modelValue: {
 		type: [Object, Array],
-		default: () => ({ doctype: "", field: "", operator: "=", value: { mode: "static", value: "" } }),
+		default: () => ({
+			doctype: "",
+			field: "",
+			operator: "=",
+			value: { mode: "static", value: "" },
+		}),
 	},
 	doctype: {
 		type: String,
@@ -220,7 +222,10 @@ const coerceStructuredValue = (rawValue) => {
 			};
 		}
 		if (rawType === "variable") {
-			const path = String(rawValue.value || "").trim().replace(/^\{/, "").replace(/\}$/, "");
+			const path = String(rawValue.value || "")
+				.trim()
+				.replace(/^\{/, "")
+				.replace(/\}$/, "");
 			return { mode: "variable", value: path };
 		}
 		if (rawType === "expression") {
@@ -233,7 +238,12 @@ const coerceStructuredValue = (rawValue) => {
 
 const extractRow = (val) => {
 	let target = val;
-	if (Array.isArray(val) && val.length === 1 && typeof val[0] === "object" && !Array.isArray(val[0])) {
+	if (
+		Array.isArray(val) &&
+		val.length === 1 &&
+		typeof val[0] === "object" &&
+		!Array.isArray(val[0])
+	) {
 		target = val[0];
 	}
 
@@ -292,12 +302,14 @@ const currentOperator = computed(() => localRow.value.operator || "=");
 const currentValue = computed(() => localRow.value.value);
 
 const betweenVal1 = computed(() => {
-	if (Array.isArray(currentValue.value)) return currentValue.value[0] || { mode: "static", value: "" };
+	if (Array.isArray(currentValue.value))
+		return currentValue.value[0] || { mode: "static", value: "" };
 	return { mode: "static", value: "" };
 });
 
 const betweenVal2 = computed(() => {
-	if (Array.isArray(currentValue.value)) return currentValue.value[1] || { mode: "static", value: "" };
+	if (Array.isArray(currentValue.value))
+		return currentValue.value[1] || { mode: "static", value: "" };
 	return { mode: "static", value: "" };
 });
 
@@ -580,7 +592,10 @@ const controlSchema = computed(() => {
 
 	if (window.frappe && frappe.ui && frappe.ui.filter_utils) {
 		frappe.ui.filter_utils.set_fieldtype(schema, null, currentOperator.value);
-		if (currentOperator.value === "Between" && ["Date", "Datetime", "Time"].includes(field?.fieldtype)) {
+		if (
+			currentOperator.value === "Between" &&
+			["Date", "Datetime", "Time"].includes(field?.fieldtype)
+		) {
 			schema.fieldtype = field.fieldtype;
 		}
 	} else {
@@ -701,7 +716,7 @@ function updateBetweenValue(index, val) {
 		: [
 				{ mode: "static", value: "" },
 				{ mode: "static", value: "" },
-		  ];
+			];
 	list[index] = val;
 	emitUpdate({ ...localRow.value, value: list });
 }
@@ -853,7 +868,9 @@ defineExpose({ validate, focus });
 	border-radius: var(--fxr-radius-md) !important;
 	background-color: var(--fxr-bg-input) !important;
 	color: var(--fxr-text) !important;
-	transition: border-color var(--fxr-transition-fast), box-shadow var(--fxr-transition-fast) !important;
+	transition:
+		border-color var(--fxr-transition-fast),
+		box-shadow var(--fxr-transition-fast) !important;
 }
 
 .filter-row-main :deep(.fxr-control),

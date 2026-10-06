@@ -296,7 +296,8 @@ export function validateFilterTree(tree, { allowEmptyRoot = true, validateOperat
 export function serializeFilterTree(tree, options = {}) {
 	const normalized = normalizeFilterTree(tree, options);
 	const validation = validateFilterTree(normalized, options);
-	if (!validation.valid && !options.skipInvalid) throw new FilterTreeValidationError(validation.errors);
+	if (!validation.valid && !options.skipInvalid)
+		throw new FilterTreeValidationError(validation.errors);
 
 	function serialize(node) {
 		if (isFilterLeaf(node)) {
