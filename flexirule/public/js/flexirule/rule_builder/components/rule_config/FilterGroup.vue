@@ -66,6 +66,7 @@
 					<!-- Operator -->
 					<div class="filter-col operator-col">
 						<select
+							:key="`${row.doctype || doctype}::${row.field || 'empty'}`"
 							class="form-control input-xs"
 							:value="row.operator"
 							:disabled="readOnly"
@@ -904,26 +905,30 @@ const updateRow = (idx, data) => {
 	const merged = { ...row, ...data };
 	const field = getFieldDef(merged.field, merged.doctype || props.doctype);
 
-	// If field changed, update operator and reset value if needed
+	// A field change is a semantic change: recalculate the operator from the
+	// selected field type and clear the old value so it cannot leak into an
+	// incompatible control.
 	if (data.field && data.field !== row.field) {
 		const operators = getOperatorsForField(field);
-		if (!operators.includes(merged.operator)) {
-			const defaultCondition = getDefaultCondition(field, merged.doctype || props.doctype);
-			merged.operator = operators.includes(defaultCondition)
+		const defaultCondition = getDefaultCondition(field, merged.doctype || props.doctype);
+		merged.operator = operators.includes(merged.operator)
+			? merged.operator
+			: operators.includes(defaultCondition)
 				? defaultCondition
 				: operators[0] || "=";
-		}
+		merged.value = emptyValueForOperator(merged.operator);
 	}
 
-	// Handle operator change to/from Between
+	// Operators that change the value-control shape get a fresh compatible
+	// value. Scalar operators such as =/!=/like/not like can safely preserve
+	// an existing scalar value.
 	if (data.operator && data.operator !== row.operator) {
-		if (data.operator === "Between" && !Array.isArray(merged.value)) {
-			merged.value = [
-				{ mode: "static", value: "" },
-				{ mode: "static", value: "" },
-			];
-		} else if (row.operator === "Between" && Array.isArray(merged.value)) {
-			merged.value = merged.value[0] || { mode: "static", value: "" };
+		const shapeChangingOperators = new Set(["Between", "Timespan", "is", "in", "not in"]);
+		const oldShapeChanging = shapeChangingOperators.has(row.operator);
+		const newShapeChanging = shapeChangingOperators.has(data.operator);
+
+		if (newShapeChanging || oldShapeChanging) {
+			merged.value = emptyValueForOperator(data.operator);
 		}
 	}
 
@@ -1002,7 +1007,21 @@ const isFieldValid = (fieldname, dt) => {
 };
 
 function isValueEmpty(val) {
-	return val === undefined || val === null || val === "";
+	if (val === undefined || val === null) return true;
+	if (Array.isArray(val)) return val.length === 0 || val.every(isValueEmpty);
+	if (typeof val === "string") return val.trim() === "";
+	return false;
+}
+
+function emptyValueForOperator(operator) {
+	if (operator === "Between") {
+		return [
+			{ mode: "static", value: "" },
+			{ mode: "static", value: "" },
+		];
+	}
+	if (operator === "is") return { mode: "static", value: "set" };
+	return { mode: "static", value: "" };
 }
 
 function validate() {
