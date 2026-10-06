@@ -14,6 +14,7 @@ const props = defineProps({
 	leafLabel: { type: String, default: __("Condition") },
 	groupLabel: { type: String, default: __("Group") },
 	operatorLabel: { type: Function, default: (v) => v },
+	operatorDescription: { type: Function, default: () => "" },
 	logicalOperations: { type: Array, default: () => [] },
 	onLeafAdded: { type: Function, default: null },
 	leafFactory: { type: Function, default: () => ({ type: "leaf" }) },
@@ -105,6 +106,9 @@ function handleDragLeave() {
 					>
 						{{ operatorLabel(operator) }}
 					</button>
+					<div v-if="operatorDescription(node.operator)" class="tree-group__logic-description">
+						{{ operatorDescription(node.operator) }}
+					</div>
 				</div>
 
 				<div v-if="!readOnly" class="tree-group__actions">
@@ -153,6 +157,7 @@ function handleDragLeave() {
 					:leafLabel="leafLabel"
 					:groupLabel="groupLabel"
 					:operatorLabel="operatorLabel"
+					:operatorDescription="operatorDescription"
 					:leafFactory="leafFactory"
 					:logicalOperations="logicalOperations"
 					:onLeafAdded="onLeafAdded"
@@ -207,10 +212,18 @@ function handleDragLeave() {
 
 .tree-group__logic {
 	display: flex;
+	align-items: center;
 	gap: 2px;
 	padding: 2px;
 	border-radius: var(--fxr-radius-md);
 	background: var(--fxr-surface-2);
+}
+
+.tree-group__logic-description {
+	font-size: 11px;
+	color: var(--fxr-text-muted);
+	padding: 0 6px;
+	max-width: 320px;
 }
 
 .logic-btn {
