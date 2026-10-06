@@ -825,7 +825,7 @@ function updateBetweenValue(arrayIndex, val) {
 		: [
 				{ mode: "static", value: "" },
 				{ mode: "static", value: "" },
-			];
+		  ];
 	list[arrayIndex] = val;
 	localRow.value.value = list;
 	emitUpdate();
@@ -1036,9 +1036,7 @@ onMounted(() => {
 	border-radius: var(--fxr-radius-md) !important;
 	background-color: var(--fxr-bg-input) !important;
 	color: var(--fxr-text) !important;
-	transition:
-		border-color var(--fxr-transition-fast),
-		box-shadow var(--fxr-transition-fast) !important;
+	transition: border-color var(--fxr-transition-fast), box-shadow var(--fxr-transition-fast) !important;
 }
 
 .filter-row-main :deep(.fxr-control),

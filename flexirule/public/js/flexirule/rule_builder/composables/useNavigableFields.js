@@ -75,8 +75,8 @@ export function useNavigableFields(rootDoctype, selectedValue = null) {
 							? "fa fa-link"
 							: "fa fa-table"
 						: isSpecial
-							? "fa fa-asterisk"
-							: "fa fa-columns",
+						? "fa fa-asterisk"
+						: "fa fa-columns",
 					navigable: isNavigable,
 					navType,
 					targetDoctype: f.options,

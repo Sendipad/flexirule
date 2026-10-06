@@ -78,9 +78,7 @@ defineExpose({
 
 .fxr-collapse-enter-active,
 .fxr-collapse-leave-active {
-	transition:
-		max-height 0.3s ease,
-		opacity 0.3s ease;
+	transition: max-height 0.3s ease, opacity 0.3s ease;
 	overflow: hidden;
 }
 .fxr-collapse-enter-from,

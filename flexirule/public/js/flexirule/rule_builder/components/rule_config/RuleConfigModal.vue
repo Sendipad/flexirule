@@ -365,10 +365,10 @@
 																				collapseInputPanel
 																					? __(
 																							'Expand Input Panel'
-																						)
+																					  )
 																					: __(
 																							'Collapse Input Panel'
-																						)
+																					  )
 																			"
 																		>
 																			<i
@@ -426,7 +426,7 @@
 																		? __('Expand Output Panel')
 																		: __(
 																				'Collapse Output Panel'
-																			)
+																		  )
 																"
 															>
 																<i
@@ -1659,9 +1659,7 @@ html[data-theme="dark"] .toolbar-btn.save-action {
 /* View transition effect (Fast GPU-accelerated horizontal slide) */
 .view-slide-enter-active,
 .view-slide-leave-active {
-	transition:
-		opacity 0.18s cubic-bezier(0.2, 0, 0, 1),
-		transform 0.18s cubic-bezier(0.2, 0, 0, 1);
+	transition: opacity 0.18s cubic-bezier(0.2, 0, 0, 1), transform 0.18s cubic-bezier(0.2, 0, 0, 1);
 	will-change: opacity, transform;
 }
 
