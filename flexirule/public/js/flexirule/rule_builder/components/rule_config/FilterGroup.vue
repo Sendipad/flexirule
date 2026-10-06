@@ -1033,7 +1033,11 @@ function validate() {
 	return { valid: errors.length === 0, errors };
 }
 
-defineExpose({ validate });
+function focusFirstField() {
+	fieldPickerRefs.value?.[0]?.focus?.();
+}
+
+defineExpose({ validate, focusFirstField });
 
 watch(() => props.modelValue, syncFromProps, { deep: true });
 watch(
