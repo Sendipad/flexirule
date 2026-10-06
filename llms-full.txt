@@ -207,7 +207,7 @@ RuleFlow Workspace: Click the Rule Builder shortcut button . Rule Document: Open
 1. Three-Panel Workspace View# The Workspace View organizes the entire rule designer into three side-by-side desktop panels:
 Input / Schema Panel (Left): Browse live schema data from the target document, child table fields, linked records, and available context variables (@doc, @vars, @session, @parent, @loop). Click any field token to copy or insert it into your configuration. Visual Canvas (Center): The main interactive flowchart where nodes are rendered, dragged, connected, and rearranged. Configuration &amp;amp; Output Panel (Right): Displays the configuration form for the currently selected node, validation error notices, and test execution results. 2. Dialog Modal View# The Dialog View maximizes your visual canvas space. Clicking any node opens a focused Rule Configuration Modal containing three organized tabs:
 Input / Schema: Inspect available variables, parent fields, and child table scopes. Action Settings: Configure the action inputs, operation modes, and field mappings. Output / Schema: View return values, set variable outputs (@vars), and inspect schema contracts. Navigation &amp;amp; Canvas Controls# Moving and Zooming# Pan: Click and drag any empty space on the canvas to move around. Zoom: Scroll your mouse wheel, or use the zoom controls (+ / - / fit view) in the lower canvas toolbar. Top Menu Action Bar# The top bar provides essential rule management shortcuts:
-Rule Builder action bar Action Icon Shortcut Description Undo Ctrl Z Revert …
+Action Icon Shortcut Description Undo Ctrl Z Revert the last visual or …
 
 ---
 title: Send Email on Sales Order Submission
