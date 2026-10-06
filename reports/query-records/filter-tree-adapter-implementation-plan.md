@@ -103,17 +103,13 @@ The current internal model is approximately:
 The current serializer produces leaf arrays of the form:
 
 ```js
-[doctype, field, operator, value]
+[doctype, field, operator, value];
 ```
 
 and combines multiple children using logical operator strings:
 
 ```js
-[
-  [doctype, field, "=", value],
-  "or",
-  [doctype, field, "=", value]
-]
+[[doctype, field, "=", value], "or", [doctype, field, "=", value]];
 ```
 
 This is already evidence that an adapter boundary exists conceptually. The production improvement should be to make that boundary explicit and reusable rather than redesigning TreeBuilder around backend arrays.
@@ -175,19 +171,19 @@ The exact file location should be chosen after checking the existing frontend ut
 It should expose four primary operations:
 
 ```js
-normalizeFilterTree(value, context)
-serializeFilterTree(tree, context)
-deserializeFilterPayload(payload, context)
-validateFilterTree(tree, context)
+normalizeFilterTree(value, context);
+serializeFilterTree(tree, context);
+deserializeFilterPayload(payload, context);
+validateFilterTree(tree, context);
 ```
 
 Optional helpers:
 
 ```js
-createFilterLeaf(context)
-createFilterGroup(operator)
-isFilterLeaf(node)
-isFilterGroup(node)
+createFilterLeaf(context);
+createFilterGroup(operator);
+isFilterLeaf(node);
+isFilterGroup(node);
 ```
 
 The adapter should contain **no Vue template logic**.
@@ -261,13 +257,13 @@ Do **not** invent a third query language.
 The preferred simple leaf representation remains list-based where supported:
 
 ```js
-["fieldname", "=", value]
+["fieldname", "=", value];
 ```
 
 or the existing four-part representation where the DocType must travel with the leaf:
 
 ```js
-["DocType", "fieldname", "=", value]
+["DocType", "fieldname", "=", value];
 ```
 
 The exact canonical choice must be the one already accepted by the current Fetch Records backend. The adapter should normalize all UI leaves to that one representation before emitting configuration.
@@ -396,13 +392,13 @@ The adapter may accept more than one input representation when reading existing 
 For example:
 
 ```js
-["status", "=", "Open"]
+["status", "=", "Open"];
 ```
 
 and:
 
 ```js
-["Sales Order", "status", "=", "Open"]
+["Sales Order", "status", "=", "Open"];
 ```
 
 may both be recognized if they are currently valid inputs.
@@ -989,17 +985,17 @@ The implementation is production-ready when all of the following are true:
 
 ## 27. Recommended final ownership model
 
-| Responsibility | Component / Layer |
-|---|---|
-| Interactive tree | TreeBuilder |
-| Recursive node rendering | TreeBuilderNode |
+| Responsibility                     | Component / Layer           |
+| ---------------------------------- | --------------------------- |
+| Interactive tree                   | TreeBuilder                 |
+| Recursive node rendering           | TreeBuilderNode             |
 | Filter field/operator/value editor | FilterGroup / FilterLeaf UI |
-| Filter UI state | QueryFilterTree |
-| Tree ↔ backend conversion | Filter Tree Adapter |
-| Complete action configuration | FetchRecordsConfig |
-| Query execution | Fetch Records backend |
-| Frappe API/version compatibility | `frappe_query_compat.py` |
-| Permissions/security | Backend / Frappe |
+| Filter UI state                    | QueryFilterTree             |
+| Tree ↔ backend conversion          | Filter Tree Adapter         |
+| Complete action configuration      | FetchRecordsConfig          |
+| Query execution                    | Fetch Records backend       |
+| Frappe API/version compatibility   | `frappe_query_compat.py`    |
+| Permissions/security               | Backend / Frappe            |
 
 The key design rule is:
 
@@ -1011,20 +1007,20 @@ The key design rule is:
 
 The ownership model should explicitly reflect the FilterLeaf extraction and stable navigation state:
 
-| Responsibility | Component / Layer |
-|---|---|
-| Interactive tree | TreeBuilder |
-| Recursive node rendering | TreeBuilderNode |
-| One filter leaf editor | FilterLeaf |
-| Field navigation for one leaf | FilterLeaf → useNavigableFields |
-| Field picker UI | ComboBoxControl |
-| Legacy flat filter collection | FilterGroup, only where still required |
-| Filter UI tree integration | QueryFilterTree |
-| Tree ↔ backend conversion | Filter Tree Adapter |
-| Complete action configuration | FetchRecordsConfig |
-| Query execution | Fetch Records backend |
-| Frappe API/version compatibility | `frappe_query_compat.py` |
-| Permissions/security | Backend / Frappe |
+| Responsibility                   | Component / Layer                      |
+| -------------------------------- | -------------------------------------- |
+| Interactive tree                 | TreeBuilder                            |
+| Recursive node rendering         | TreeBuilderNode                        |
+| One filter leaf editor           | FilterLeaf                             |
+| Field navigation for one leaf    | FilterLeaf → useNavigableFields        |
+| Field picker UI                  | ComboBoxControl                        |
+| Legacy flat filter collection    | FilterGroup, only where still required |
+| Filter UI tree integration       | QueryFilterTree                        |
+| Tree ↔ backend conversion        | Filter Tree Adapter                    |
+| Complete action configuration    | FetchRecordsConfig                     |
+| Query execution                  | Fetch Records backend                  |
+| Frappe API/version compatibility | `frappe_query_compat.py`               |
+| Permissions/security             | Backend / Frappe                       |
 
 `FilterGroup.vue` must not become a second navigation implementation. The long-term Query Filter Tree path should use `FilterLeaf.vue` for individual filter editing and stable navigation state.
 

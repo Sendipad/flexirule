@@ -230,9 +230,9 @@ function updateRowFromLeaf(idx, value) {
 	if (!row) return;
 
 	let normalizedValue = row[3] !== undefined ? row[3] : row.value;
-	let normalizedField = row[1] !== undefined ? row[1] : (row.field || row.fieldname || "");
-	let normalizedDoctype = row[0] !== undefined ? row[0] : (row.doctype || props.doctype);
-	let normalizedOperator = row[2] !== undefined ? row[2] : (row.operator || "=");
+	let normalizedField = row[1] !== undefined ? row[1] : row.field || row.fieldname || "";
+	let normalizedDoctype = row[0] !== undefined ? row[0] : row.doctype || props.doctype;
+	let normalizedOperator = row[2] !== undefined ? row[2] : row.operator || "=";
 
 	filters.value[idx] = {
 		doctype: normalizedDoctype,

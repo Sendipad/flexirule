@@ -1,6 +1,9 @@
 <template>
 	<div class="filter-leaf-container fxr-accent-scope" :style="panelStyleVars">
-		<div v-if="!currentDoctype && !allowAnyDoctype" class="text-muted small p-2 text-center border-dashed rounded">
+		<div
+			v-if="!currentDoctype && !allowAnyDoctype"
+			class="text-muted small p-2 text-center border-dashed rounded"
+		>
 			{{ __("Select a DocType to configure filter.") }}
 		</div>
 		<div v-else class="filter-row-main">
@@ -56,7 +59,9 @@
 					@change="onOperatorSelect"
 				>
 					<option
-						v-for="op in getOperatorsForField(getFieldDef(localRow.field, currentDoctype))"
+						v-for="op in getOperatorsForField(
+							getFieldDef(localRow.field, currentDoctype)
+						)"
 						:key="op"
 						:value="op"
 					>
@@ -217,10 +222,7 @@ const localRow = ref({
 const currentDoctype = computed(() => localRow.value.doctype || props.doctype);
 
 // Each FilterLeaf owns a stable useNavigableFields composable instance
-const nav = useNavigableFields(
-	currentDoctype,
-	() => localRow.value.field
-);
+const nav = useNavigableFields(currentDoctype, () => localRow.value.field);
 
 const availableFields = computed(() => {
 	if (nav.currentFields.value && nav.currentFields.value.length > 0) {
@@ -823,7 +825,7 @@ function updateBetweenValue(arrayIndex, val) {
 		: [
 				{ mode: "static", value: "" },
 				{ mode: "static", value: "" },
-		  ];
+			];
 	list[arrayIndex] = val;
 	localRow.value.value = list;
 	emitUpdate();
@@ -865,8 +867,7 @@ function validate() {
 		}
 	} else if (localRow.value.operator !== "is") {
 		const structVal = localRow.value.value;
-		const isEmpty =
-			structVal?.mode === "static" ? isValueEmpty(structVal.value) : !structVal;
+		const isEmpty = structVal?.mode === "static" ? isValueEmpty(structVal.value) : !structVal;
 		if (isEmpty) {
 			errors.push(__("Filter Value is required"));
 		}
@@ -877,11 +878,14 @@ function validate() {
 defineExpose({ validate });
 
 watch(() => props.modelValue, syncFromProps, { deep: true });
-watch(() => props.doctype, () => {
-	if (!props.allowAnyDoctype) {
-		localRow.value.doctype = props.doctype;
+watch(
+	() => props.doctype,
+	() => {
+		if (!props.allowAnyDoctype) {
+			localRow.value.doctype = props.doctype;
+		}
 	}
-});
+);
 
 onMounted(() => {
 	syncFromProps();
@@ -1032,7 +1036,9 @@ onMounted(() => {
 	border-radius: var(--fxr-radius-md) !important;
 	background-color: var(--fxr-bg-input) !important;
 	color: var(--fxr-text) !important;
-	transition: border-color var(--fxr-transition-fast), box-shadow var(--fxr-transition-fast) !important;
+	transition:
+		border-color var(--fxr-transition-fast),
+		box-shadow var(--fxr-transition-fast) !important;
 }
 
 .filter-row-main :deep(.fxr-control),
