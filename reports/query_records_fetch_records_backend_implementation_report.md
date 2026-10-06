@@ -65,16 +65,16 @@ The contract for `fetch_records` is declared in `QueryRecordsHandler.get_operati
 
 The configuration payload stored in `action.config` accepts:
 
-| Property | Type | Required / Default | Description |
-|---|---|---|---|
-| `doctype_name` / `reference_doctype` | `str` | Required | Target DocType to query |
-| `fields` | `list[str]` or `str` or `list[dict]` | Optional (Default: `None` -> selects `name`) | Field paths, aliases (`"email as user_email"`), wildcard `*`, or structured child table fields (`[{"items": ["item_code"]}]`) |
-| `filters` | `dict` or `list` | Optional | Dictionary filters, tuple lists, or recursive AND/OR logical filter trees |
-| `order_by` | `str` | Optional | Sort ordering (e.g., `"creation desc"`, `"customer asc, grand_total desc"`) |
-| `group_by` | `str` | Optional | Grouping field(s) (e.g., `"customer"`) |
-| `limit` | `int` or `str` | Optional | Page length |
-| `offset` | `int` or `str` | Optional | Record offset for pagination |
-| `distinct` | `bool` | Optional (Default: `False`) | Force distinct selection when querying child tables/joins |
+| Property                             | Type                                 | Required / Default                           | Description                                                                                                                   |
+| ------------------------------------ | ------------------------------------ | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `doctype_name` / `reference_doctype` | `str`                                | Required                                     | Target DocType to query                                                                                                       |
+| `fields`                             | `list[str]` or `str` or `list[dict]` | Optional (Default: `None` -> selects `name`) | Field paths, aliases (`"email as user_email"`), wildcard `*`, or structured child table fields (`[{"items": ["item_code"]}]`) |
+| `filters`                            | `dict` or `list`                     | Optional                                     | Dictionary filters, tuple lists, or recursive AND/OR logical filter trees                                                     |
+| `order_by`                           | `str`                                | Optional                                     | Sort ordering (e.g., `"creation desc"`, `"customer asc, grand_total desc"`)                                                   |
+| `group_by`                           | `str`                                | Optional                                     | Grouping field(s) (e.g., `"customer"`)                                                                                        |
+| `limit`                              | `int` or `str`                       | Optional                                     | Page length                                                                                                                   |
+| `offset`                             | `int` or `str`                       | Optional                                     | Record offset for pagination                                                                                                  |
+| `distinct`                           | `bool`                               | Optional (Default: `False`)                  | Force distinct selection when querying child tables/joins                                                                     |
 
 ---
 
@@ -85,12 +85,12 @@ The runtime execution flow inside `QueryRecordsHandler._fetch_records`:
 1. **Permission Check**: Checks permissions via `can_ignore_permissions(action, context, throw=True)`. If `ignore_permissions` is `False`, enforces read permission via `frappe.has_permission(reference_doctype, "read", throw=True)`.
 2. **Selected Fields**: Parses comma-separated field strings or passes structured field arrays.
 3. **Dynamic Value Resolution**:
-   - Resolves filter values, order_by, group_by, limit, and offset using `_resolve_filters_with_context` and `_resolve_value_expression_with_context`.
+    - Resolves filter values, order_by, group_by, limit, and offset using `_resolve_filters_with_context` and `_resolve_value_expression_with_context`.
 4. **Filter Compilation**:
-   - Converts filter trees (including nested AND/OR logic, dicts, tuple lists, and dotted child/link fields) into Pypika / Frappe `Criterion` objects using `_compile_filter_tree`.
+    - Converts filter trees (including nested AND/OR logic, dicts, tuple lists, and dotted child/link fields) into Pypika / Frappe `Criterion` objects using `_compile_filter_tree`.
 5. **Query Builder Construction & Execution**:
-   - Invokes `query = frappe.qb.get_query(...)` with target table, fields, filters, order_by, group_by, limit, offset, and distinct.
-   - Executes `return query.run(as_dict=True)`.
+    - Invokes `query = frappe.qb.get_query(...)` with target table, fields, filters, order_by, group_by, limit, offset, and distinct.
+    - Executes `return query.run(as_dict=True)`.
 
 ---
 
@@ -100,8 +100,8 @@ The runtime execution flow inside `QueryRecordsHandler._fetch_records`:
 
 - In FlexiRule, `ignore_permissions` is derived explicitly using `can_ignore_permissions(action, context, throw=True)` (requiring System Manager authorization and mandatory `permission_audit_reason`).
 - Frappe Framework's `Engine.get_query` builds raw QueryBuilder objects without taking `ignore_permissions` as a keyword argument. Therefore, permission enforcement is strictly performed prior to query construction:
-  - When `ignore_permissions` is `False`, `_fetch_records` explicitly invokes `frappe.has_permission(reference_doctype, "read", throw=True)`, throwing `frappe.PermissionError` if the executing user is unauthorized.
-  - When `ignore_permissions` is `True`, permission enforcement is bypassed securely in accordance with FlexiRule audit logging rules.
+    - When `ignore_permissions` is `False`, `_fetch_records` explicitly invokes `frappe.has_permission(reference_doctype, "read", throw=True)`, throwing `frappe.PermissionError` if the executing user is unauthorized.
+    - When `ignore_permissions` is `True`, permission enforcement is bypassed securely in accordance with FlexiRule audit logging rules.
 
 ---
 
@@ -140,12 +140,12 @@ Relationship field traversals (e.g., `customer.customer_name` for Link fields, `
 In accordance with Query Records conventions:
 
 - `_fetch_records` returns a `list[dict]` directly:
-  ```json
-  [
-    {"name": "TASK-0001", "description": "Review PR", "status": "Open"},
-    {"name": "TASK-0002", "description": "Run tests", "status": "Closed"}
-  ]
-  ```
+    ```json
+    [
+	{ "name": "TASK-0001", "description": "Review PR", "status": "Open" },
+	{ "name": "TASK-0002", "description": "Run tests", "status": "Closed" }
+    ]
+    ```
 - No extra wrapping object or separate count query is added.
 
 ---

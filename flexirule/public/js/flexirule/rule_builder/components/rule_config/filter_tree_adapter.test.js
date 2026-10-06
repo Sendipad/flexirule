@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import {
+	createFilterLeaf,
+	createFilterGroup,
 	deserializeFilterPayload,
 	serializeFilterTree,
 	validateFilterTree,
@@ -12,6 +14,7 @@ const leaf = (field, value, operator = "=") => [
 	{ mode: "static", value },
 ];
 
+// Test 1: Single leaf deserialization & serialization
 {
 	const tree = deserializeFilterPayload(leaf("status", "Open"), {
 		defaultDoctype: "Sales Order",
@@ -21,6 +24,7 @@ const leaf = (field, value, operator = "=") => [
 	assert.deepEqual(serializeFilterTree(tree), leaf("status", "Open"));
 }
 
+// Test 2: Nested groups and operator precedence
 {
 	const payload = [
 		leaf("status", "Open"),
@@ -34,6 +38,7 @@ const leaf = (field, value, operator = "=") => [
 	assert.deepEqual(serializeFilterTree(tree), payload);
 }
 
+// Test 3: Mixed operator sequence parsing
 {
 	const tree = deserializeFilterPayload([
 		leaf("status", "Open"),
@@ -51,18 +56,21 @@ const leaf = (field, value, operator = "=") => [
 	]);
 }
 
+// Test 4: Preserving FlexValue objects (including variable mode)
 {
 	const flexValue = { mode: "variable", value: "doc.status" };
 	const tree = deserializeFilterPayload(["status", "=", flexValue], {
 		defaultDoctype: "Sales Order",
 	});
 	assert.deepEqual(tree.children[0].value, flexValue);
+	assert.deepEqual(serializeFilterTree(tree), ["Sales Order", "status", "=", flexValue]);
 }
 
+// Test 5: Validation of blank/incomplete leaf
 {
-	const tree = deserializeFilterPayload([
-		["Sales Order", "", "=", { mode: "static", value: "" }],
-	]);
+	const tree = createFilterGroup({
+		children: [createFilterLeaf({ doctype: "Sales Order" })],
+	});
 	const result = validateFilterTree(tree);
 	assert.equal(result.valid, false);
 	assert.equal(result.errors[0].code, "required");
@@ -72,15 +80,17 @@ const leaf = (field, value, operator = "=") => [
 	);
 }
 
+// Test 6: UI-only properties are stripped during serialization
 {
 	const tree = deserializeFilterPayload([
 		["Sales Order", "customer", "=", { mode: "static", value: "CUST-1" }],
 	]);
-	tree.children[0].uiOnly = true;
+	tree.children[0].uiOnlyProperty = true;
 	const payload = serializeFilterTree(tree);
 	assert.equal(payload.length, 4);
 	assert.equal(payload[0], "Sales Order");
-	assert.equal("uiOnly" in payload[0], false);
+	assert.equal(payload[1], "customer");
+	assert.equal("uiOnlyProperty" in payload, false);
 }
 
 console.log("filter_tree_adapter tests passed");

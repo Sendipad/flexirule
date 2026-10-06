@@ -15,7 +15,7 @@
 				<FilterLeaf
 					:ref="(el) => setLeafRef(node.id, el)"
 					:doctype="node.doctype || doctype"
-					:modelValue="[toFilterRow(node)]"
+					:modelValue="toLeafValue(node)"
 					:readOnly="readOnly"
 					:showValidation="showValidation"
 					:nodeId="nodeId"
@@ -60,7 +60,7 @@ function createLeaf() {
 	return createFilterLeaf({ doctype: props.doctype });
 }
 
-function toFilterRow(node) {
+function toLeafValue(node) {
 	return {
 		doctype: node.doctype || props.doctype,
 		field: node.field || "",
@@ -70,13 +70,12 @@ function toFilterRow(node) {
 }
 
 function updateLeaf(node, value) {
-	const row = Array.isArray(value) ? value[0] : value;
-	if (!row) return;
+	if (!value) return;
 	Object.assign(node, {
-		doctype: row.doctype || props.doctype,
-		field: row.field || row.fieldname || "",
-		operator: row.operator || row.op || "=",
-		value: cloneTree(row.value),
+		doctype: value.doctype || props.doctype,
+		field: value.field || value.fieldname || "",
+		operator: value.operator || value.op || "=",
+		value: cloneTree(value.value),
 	});
 }
 

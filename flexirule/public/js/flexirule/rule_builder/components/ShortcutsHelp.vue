@@ -274,7 +274,9 @@ kbd {
 
 .shortcuts-popover-enter-active,
 .shortcuts-popover-leave-active {
-	transition: opacity 0.14s ease, transform 0.14s ease;
+	transition:
+		opacity 0.14s ease,
+		transform 0.14s ease;
 }
 
 .shortcuts-popover-enter-from,

@@ -1,6 +1,6 @@
 <script setup>
 import { computed, inject, ref } from "vue";
-import { isGroupNode, isLeafNode, isDescendant } from "./tree_builder_utils.js";
+import { isGroupNode } from "./tree_builder_utils.js";
 
 defineOptions({ name: "TreeBuilderNode" });
 
@@ -10,19 +10,31 @@ const props = defineProps({
 	parent: { type: Object, required: true },
 	readOnly: { type: Boolean, default: false },
 	allowGroups: { type: Boolean, default: true },
+	canAddLeaf: { type: Boolean, default: true },
+	canAddGroup: { type: Boolean, default: true },
+	canDelete: { type: Boolean, default: true },
+	canDrag: { type: Boolean, default: true },
+	canDrop: { type: Boolean, default: true },
 	groupOperators: { type: Array, default: () => ["and", "or"] },
 	leafLabel: { type: String, default: __("Condition") },
 	groupLabel: { type: String, default: __("Group") },
 	operatorLabel: { type: Function, default: (v) => v },
 	leafFactory: { type: Function, default: () => ({ type: "leaf" }) },
+	activeNodeId: { type: String, default: null },
 });
 
-const emit = defineEmits(["remove"]);
+const emit = defineEmits(["remove", "setActive"]);
 const actions = inject("treeBuilderActions");
 const dragOver = ref(false);
 
 const isGroup = computed(() => isGroupNode(props.node));
 const children = computed(() => (isGroup.value ? props.node.children || [] : []));
+const isActive = computed(() => props.activeNodeId === props.node.id);
+
+function markActive() {
+	emit("setActive", props.node.id);
+	actions?.setActiveNodeId?.(props.node.id);
+}
 
 function remove() {
 	emit("remove");
@@ -37,7 +49,7 @@ function addGroup() {
 }
 
 function handleDragStart(event) {
-	if (props.readOnly || !actions) return;
+	if (props.readOnly || !props.canDrag || !actions) return;
 	event.stopPropagation();
 	actions.beginDrag(props.parent, props.index);
 	event.dataTransfer.effectAllowed = "move";
@@ -46,12 +58,12 @@ function handleDragStart(event) {
 
 function handleDrop() {
 	dragOver.value = false;
-	if (!actions) return;
+	if (!actions || !props.canDrop) return;
 	if (isGroup.value) actions.dropNode(props.node);
 }
 
 function handleGroupDragOver(event) {
-	if (!isGroup.value) return;
+	if (!isGroup.value || !props.canDrop) return;
 	event.preventDefault();
 	event.stopPropagation();
 	dragOver.value = true;
@@ -65,8 +77,9 @@ function handleDragLeave() {
 <template>
 	<div
 		class="tree-node"
-		:class="{ 'is-group': isGroup, 'drag-over': dragOver }"
-		draggable="true"
+		:class="{ 'is-group': isGroup, 'drag-over': dragOver, 'is-active': isActive }"
+		:draggable="!readOnly && canDrag"
+		@click.stop="markActive"
 		@dragstart="handleDragStart"
 		@dragover="handleGroupDragOver"
 		@dragleave="handleDragLeave"
@@ -90,6 +103,7 @@ function handleDragLeave() {
 
 				<div v-if="!readOnly" class="tree-group__actions">
 					<button
+						v-if="canAddLeaf"
 						type="button"
 						class="fxr-btn fxr-btn--icon"
 						:title="__('Add Condition')"
@@ -98,7 +112,7 @@ function handleDragLeave() {
 						<i class="fa fa-plus"></i>
 					</button>
 					<button
-						v-if="allowGroups"
+						v-if="allowGroups && canAddGroup"
 						type="button"
 						class="fxr-btn fxr-btn--icon"
 						:title="__('Add Group')"
@@ -108,6 +122,7 @@ function handleDragLeave() {
 					</button>
 					<div class="action-divider"></div>
 					<button
+						v-if="canDelete"
 						type="button"
 						class="fxr-btn fxr-btn--icon fxr-btn--danger"
 						:title="__('Remove Group')"
@@ -130,11 +145,18 @@ function handleDragLeave() {
 					:parent="node"
 					:readOnly="readOnly"
 					:allowGroups="allowGroups"
+					:canAddLeaf="canAddLeaf"
+					:canAddGroup="canAddGroup"
+					:canDelete="canDelete"
+					:canDrag="canDrag"
+					:canDrop="canDrop"
 					:groupOperators="groupOperators"
 					:leafLabel="leafLabel"
 					:groupLabel="groupLabel"
 					:operatorLabel="operatorLabel"
 					:leafFactory="leafFactory"
+					:activeNodeId="activeNodeId"
+					@setActive="(id) => emit('setActive', id)"
 					@remove="actions?.removeNode(node, childIndex)"
 				>
 					<template #leaf="slotProps">
@@ -147,7 +169,7 @@ function handleDragLeave() {
 		<div v-else class="tree-leaf">
 			<slot name="leaf" :node="node" :index="index" :parent="parent" />
 			<button
-				v-if="!readOnly"
+				v-if="!readOnly && canDelete"
 				type="button"
 				class="tree-leaf__remove"
 				:title="__('Remove condition')"
@@ -162,6 +184,12 @@ function handleDragLeave() {
 <style scoped>
 .tree-node {
 	min-width: 0;
+	border-radius: var(--fxr-radius-md);
+	transition: box-shadow var(--fxr-transition-fast);
+}
+
+.tree-node.is-active {
+	box-shadow: 0 0 0 2px var(--fxr-node-accent, var(--fxr-accent));
 }
 
 .tree-group {
