@@ -13,6 +13,9 @@
 				>
 					{{ operatorLabel(operator) }}
 				</button>
+				<div v-if="operatorDescription(root.operator)" class="tree-builder__logic-description">
+					{{ operatorDescription(root.operator) }}
+				</div>
 			</div>
 			<div v-if="!readOnly" class="tree-builder__actions">
 				<button type="button" class="fxr-btn" @click="addLeaf(root)">
@@ -44,6 +47,7 @@
 				:leafLabel="leafLabel"
 				:groupLabel="groupLabel"
 				:operatorLabel="operatorLabel"
+				:operatorDescription="operatorDescription"
 				:leafFactory="leafFactory"
 				:logicalOperations="logicalOperations"
 				:onLeafAdded="onLeafAdded"
@@ -108,6 +112,8 @@ const logicalOperationMap = computed(() =>
 
 const operatorLabel = (operator) =>
 	logicalOperationMap.value.get(String(operator).toLowerCase())?.label || operator;
+const operatorDescription = (operator) =>
+	logicalOperationMap.value.get(String(operator).toLowerCase())?.description || "";
 
 function setOperator(group, operator) {
 	if (!groupOperators.value.includes(operator) || props.readOnly) return;
@@ -248,11 +254,19 @@ defineExpose({
 
 .tree-builder__logic {
 	display: flex;
+	align-items: center;
 	gap: 2px;
 	padding: 3px;
 	background: var(--fxr-surface-2);
 	border: 1px solid var(--fxr-border-subtle);
 	border-radius: var(--fxr-radius-lg);
+}
+
+.tree-builder__logic-description {
+	font-size: 11px;
+	color: var(--fxr-text-muted);
+	padding: 0 6px;
+	max-width: 360px;
 }
 
 .logic-btn {
