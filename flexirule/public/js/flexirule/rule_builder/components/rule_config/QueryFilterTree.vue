@@ -8,7 +8,9 @@
 		:leafLabel="__('Filter')"
 		:groupLabel="__('Group')"
 		:emptyLabel="__('No filters yet. Add a filter or group to begin.')"
+		:logicalOperations="logicalOperations"
 		:leafFactory="createLeaf"
+		:onLeafAdded="focusLeaf"
 	>
 		<template #leaf="{ node }">
 			<div class="query-filter-leaf">
@@ -54,6 +56,19 @@ const tree = reactive(
 	deserializeFilterPayload(props.modelValue, { defaultDoctype: props.doctype })
 );
 const leafRefs = new Map();
+
+const logicalOperations = [
+	{
+		value: "and",
+		label: __("All conditions"),
+		description: __("Every condition in this group must match."),
+	},
+	{
+		value: "or",
+		label: __("Any condition"),
+		description: __("At least one condition in this group must match."),
+	},
+];
 let syncing = false;
 
 function createLeaf() {
@@ -80,6 +95,11 @@ function updateLeaf(node, value) {
 	});
 }
 
+async function focusLeaf(node) {
+	await nextTick();
+	leafRefs.get(node?.id)?.focusFirstField?.();
+}
+
 function setLeafRef(id, instance) {
 	if (instance) leafRefs.set(id, instance);
 	else leafRefs.delete(id);
@@ -101,6 +121,15 @@ async function validate() {
 	}
 
 	return { valid: errors.length === 0, errors };
+}
+
+function commit() {
+	const validation = validateFilterTree(tree, { allowEmptyRoot: true });
+	if (!validation.valid) return { valid: false, errors: validation.errors.map((e) => e.message) };
+	const payload = serializeFilterTree(tree, { defaultDoctype: props.doctype });
+	emit("update:modelValue", payload);
+	emit("change", payload);
+	return { valid: true, errors: [], payload };
 }
 
 function emitSerialized(value) {
@@ -150,6 +179,7 @@ watch(
 
 defineExpose({
 	validate,
+	commit,
 	getTree: () => cloneTree(tree),
 	getPayload: () => serializeFilterTree(tree, { defaultDoctype: props.doctype }),
 	addFilter: () => treeBuilderRef.value?.addLeaf(),
