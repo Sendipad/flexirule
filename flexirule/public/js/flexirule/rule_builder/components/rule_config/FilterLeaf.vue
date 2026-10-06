@@ -51,5 +51,5 @@ async function validate() {
 	);
 }
 
-defineExpose({ validate });
+defineExpose({ validate, focusFirstField: () => filterGroupRef.value?.focusFirstField?.() });
 </script>
