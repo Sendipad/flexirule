@@ -106,7 +106,6 @@ async function validate() {
 function emitSerialized(value) {
 	const payload = serializeFilterTree(value, {
 		defaultDoctype: props.doctype,
-		skipInvalid: true,
 	});
 	emit("update:modelValue", payload);
 	emit("change", payload);
@@ -155,7 +154,6 @@ defineExpose({
 	getPayload: () => {
 		return serializeFilterTree(tree, {
 			defaultDoctype: props.doctype,
-			skipInvalid: true,
 		});
 	},
 	addFilter: () => treeBuilderRef.value?.addLeaf(),

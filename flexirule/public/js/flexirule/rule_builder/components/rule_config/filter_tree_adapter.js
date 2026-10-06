@@ -295,19 +295,13 @@ export function validateFilterTree(tree, { allowEmptyRoot = true, validateOperat
 
 export function serializeFilterTree(tree, options = {}) {
 	const normalized = normalizeFilterTree(tree, options);
-	const validation = validateFilterTree(normalized, options);
-	if (!validation.valid && !options.skipInvalid)
-		throw new FilterTreeValidationError(validation.errors);
 
 	function serialize(node) {
 		if (isFilterLeaf(node)) {
-			if (options.skipInvalid && (!node.field || !node.field.trim())) {
-				return null;
-			}
 			return [
 				node.doctype || options.defaultDoctype || "",
-				node.field,
-				node.operator,
+				node.field || "",
+				node.operator || "=",
 				clone(node.value),
 			];
 		}

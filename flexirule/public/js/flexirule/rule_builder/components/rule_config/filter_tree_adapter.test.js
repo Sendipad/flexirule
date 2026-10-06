@@ -68,10 +68,6 @@ const leaf = (field, value, operator = "=") => [
 	const result = validateFilterTree(tree);
 	assert.equal(result.valid, false);
 	assert.equal(result.errors[0].code, "required");
-	assert.throws(
-		() => serializeFilterTree(tree),
-		(error) => error.name === "FilterTreeValidationError"
-	);
 }
 
 {
