@@ -292,6 +292,8 @@ const timespanOptions = frappe.ui?.filter_utils?.get_timespan_options
 			{ label: __("Next Year"), value: "next year" },
 	  ];
 
+// Match Frappe v15's native Filter condition values. FlexiRule-specific
+// operators are declared separately and normalized by the Query Records backend.
 const BASE_QUERY_OPERATORS = [
 	"=",
 	"!=",
@@ -299,11 +301,11 @@ const BASE_QUERY_OPERATORS = [
 	"not like",
 	"in",
 	"not in",
+	"is",
 	">",
 	"<",
 	">=",
 	"<=",
-	"is",
 ];
 const QUERY_EXTENSION_OPERATORS = ["Between", "Timespan", "starts with", "ends with"];
 const NESTED_SET_OPERATORS = [
@@ -759,7 +761,8 @@ const getOperatorsForField = (field) => {
 	for (const op of nestedSetOps) {
 		if (!allowed.includes(op)) allowed.push(op);
 	}
-	if (isCheckField(field)) return allowed.filter((op) => op === "=" || op === "!=");
+	// Frappe v15 only permits "=" for Check fields.
+	if (isCheckField(field)) return allowed.filter((op) => op === "=");
 	return allowed.length ? allowed : ["="];
 };
 
@@ -1006,12 +1009,23 @@ function validate() {
 	const errors = [];
 	filters.value.forEach((row, idx) => {
 		const n = idx + 1;
+		const field = getFieldDef(row.field, row.doctype || props.doctype);
+		const allowedOperators = getOperatorsForField(field);
+
 		if (!row.field) {
 			errors.push(__("Filter #{0}: Field is required", [n]));
 		}
 		if (!row.operator) {
 			errors.push(__("Filter #{0}: Operator is required", [n]));
+		} else if (!allowedOperators.includes(row.operator)) {
+			errors.push(
+				__("Filter #{0}: Operator '{1}' is not supported for this field type.", [
+					n,
+					getOperatorLabel(row.operator, row),
+				])
+			);
 		}
+
 		if (row.operator === "Between") {
 			if (
 				!Array.isArray(row.value) ||
@@ -1021,10 +1035,24 @@ function validate() {
 			) {
 				errors.push(__("Filter #{0}: Both values are required for Between", [n]));
 			}
-		} else if (row.operator !== "is") {
+		} else if (row.operator === "is") {
+			const value = row.value;
+			if (
+				!value ||
+				value.mode !== "static" ||
+				!["set", "not set"].includes(String(value.value || "").toLowerCase())
+			) {
+				errors.push(__("Filter #{0}: Value must be Set or Not Set", [n]));
+			}
+		} else {
 			const structVal = row.value;
 			const isEmpty =
-				structVal?.mode === "static" ? isValueEmpty(structVal.value) : !structVal;
+				!structVal ||
+				(typeof structVal === "object" && structVal.mode === "static"
+					? isValueEmpty(structVal.value)
+					: typeof structVal === "object" && structVal.mode
+						? isValueEmpty(structVal.value)
+						: isValueEmpty(structVal));
 			if (isEmpty) {
 				errors.push(__("Filter #{0}: Value is required", [n]));
 			}
