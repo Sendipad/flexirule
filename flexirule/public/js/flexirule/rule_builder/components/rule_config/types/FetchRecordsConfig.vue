@@ -307,6 +307,16 @@ async function validate() {
 		}
 	}
 
+	if (!errors.length && filterTreeRef.value?.commit) {
+		const committed = filterTreeRef.value.commit();
+		if (!committed.valid) {
+			errors.push(...(committed.errors || []));
+		} else if (committed.payload !== undefined) {
+			localConfig.filters = clone(committed.payload);
+			emitConfig();
+		}
+	}
+
 	return { valid: errors.length === 0, errors };
 }
 
