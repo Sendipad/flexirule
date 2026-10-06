@@ -13,6 +13,9 @@
 				>
 					{{ operatorLabel(operator) }}
 				</button>
+				<div v-if="operatorDescription(root.operator)" class="tree-builder__logic-description">
+					{{ operatorDescription(root.operator) }}
+				</div>
 			</div>
 			<div v-if="!readOnly" class="tree-builder__actions">
 				<button type="button" class="fxr-btn" @click="addLeaf(root)">
@@ -44,7 +47,10 @@
 				:leafLabel="leafLabel"
 				:groupLabel="groupLabel"
 				:operatorLabel="operatorLabel"
+				:operatorDescription="operatorDescription"
 				:leafFactory="leafFactory"
+				:logicalOperations="logicalOperations"
+				:onLeafAdded="onLeafAdded"
 				@remove="removeNode(root, index)"
 			>
 				<template #leaf="slotProps">
@@ -83,6 +89,8 @@ const props = defineProps({
 		type: String,
 		default: __("No conditions yet. Add a condition or group to begin."),
 	},
+	logicalOperations: { type: Array, default: () => [] },
+	onLeafAdded: { type: Function, default: null },
 	leafFactory: {
 		type: Function,
 		default: () => ({ type: "leaf" }),
@@ -94,8 +102,18 @@ const emit = defineEmits(["update:modelValue", "change"]);
 const root = reactive(normalizeTree(props.modelValue));
 let syncing = false;
 
+const logicalOperationMap = computed(() =>
+	new Map(
+		props.logicalOperations
+			.filter((item) => item && item.value)
+			.map((item) => [String(item.value).toLowerCase(), item])
+	)
+);
+
 const operatorLabel = (operator) =>
-	operator === "or" ? __("OR") : operator === "and" ? __("AND") : operator;
+	logicalOperationMap.value.get(String(operator).toLowerCase())?.label || operator;
+const operatorDescription = (operator) =>
+	logicalOperationMap.value.get(String(operator).toLowerCase())?.description || "";
 
 function setOperator(group, operator) {
 	if (!groupOperators.value.includes(operator) || props.readOnly) return;
@@ -105,12 +123,31 @@ function setOperator(group, operator) {
 const groupOperators = computed(() => props.groupOperators.filter(Boolean));
 
 function addLeaf(group) {
-	if (props.readOnly) return;
-	group.children.push({
+	if (props.readOnly) return null;
+	const node = {
 		id: createId(),
 		type: "leaf",
 		...cloneTree(props.leafFactory()),
-	});
+	};
+	group.children.push(node);
+	handleLeafAdded(node);
+	return node;
+}
+
+function insertLeafAfter(parent, index) {
+	if (props.readOnly || !parent?.children) return null;
+	const node = {
+		id: createId(),
+		type: "leaf",
+		...cloneTree(props.leafFactory()),
+	};
+	parent.children.splice(index + 1, 0, node);
+	handleLeafAdded(node);
+	return node;
+}
+
+function handleLeafAdded(node) {
+	if (typeof props.onLeafAdded === "function") props.onLeafAdded(node);
 }
 
 function addGroup(group) {
@@ -156,6 +193,7 @@ function dropNode(targetParent, targetIndex = -1) {
 
 provide("treeBuilderActions", {
 	addLeaf,
+	insertLeafAfter,
 	addGroup,
 	removeNode,
 	beginDrag,
@@ -216,11 +254,19 @@ defineExpose({
 
 .tree-builder__logic {
 	display: flex;
+	align-items: center;
 	gap: 2px;
 	padding: 3px;
 	background: var(--fxr-surface-2);
 	border: 1px solid var(--fxr-border-subtle);
 	border-radius: var(--fxr-radius-lg);
+}
+
+.tree-builder__logic-description {
+	font-size: 11px;
+	color: var(--fxr-text-muted);
+	padding: 0 6px;
+	max-width: 360px;
 }
 
 .logic-btn {

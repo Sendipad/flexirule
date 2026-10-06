@@ -1045,6 +1045,16 @@ This staged approach prevents the UI extraction from becoming a simultaneous que
 
 ### 28. Explicit non-goals
 
+## Audit status — 2026-10-06
+
+The implementation on `refactor/query-records` substantially follows this plan, including the adapter, `QueryFilterTree` integration, `FilterLeaf`, and backend compatibility boundary. The audit identified one correctness defect and one architecture defect:
+
+- **Fixed during this task:** `FilterGroup.syncFromProps()` previously compared only rows with a truthy field, so a newly created blank leaf could be discarded from its local editable state. Blank leaves are now preserved during synchronization while serialization/validation still rejects them as executable filters.
+- **Fixed during this task:** `FilterLeaf` now owns one stable `useNavigableFields()` instance and passes it to `FilterGroup`, avoiding index-keyed navigation state for tree leaves.
+- **Tests added:** Cypress adapter regression coverage for blank-leaf editing semantics, validation/serialization, FlexValue preservation, nested AND/OR round trips, and empty-root versus incomplete-leaf distinction.
+
+The broader `FilterGroup` extraction remains intentionally incremental: legacy flat-filter consumers continue to use `FilterGroup`, while tree leaves use `FilterLeaf` with stable per-leaf navigation state.
+
 ## 28. Explicit non-goals
 
 This implementation must not:
@@ -1059,3 +1069,71 @@ This implementation must not:
 - change the backend compatibility layer merely to accommodate the UI.
 
 This plan is specifically a **filter-tree representation and boundary refactor**.
+
+## Follow-up audit status — 2026-10-06
+
+The follow-up review found a second state-boundary issue in the initial fix:
+
+- **Editing source of truth:** QueryFilterTree previously emitted only validated backend filter tuples. This meant incomplete/intermediate edits remained only in child-local tree state, so the modal draft did not reliably become dirty and Save could validate one state while the parent configuration held another.
+- **Corrected model:** while editing, the TreeBuilder tree is now emitted as the modal's working representation, including incomplete leaves. Serialization to Frappe-compatible filter tuples occurs explicitly at validation/save time.
+- **Save synchronization:** FetchRecordsConfig.validate() now commits the validated tree payload before returning success, ensuring the draft configuration contains the canonical serialized filters when useRuleConfig.save() copies it to the node.
+- **Dirty state:** because editing tree state now flows through the existing Query Records configuration and useRuleConfig draft, field/operator/value/group changes participate in the established modal dirty comparison without a second ad-hoc dirty-state mechanism.
+- **Logical operations:** TreeBuilder accepts parent-provided logical operation definitions containing value, label, and optional description. Query Records supplies translated AND/OR labels and explanations.
+- **Keyboard insertion:** Shift+Enter on an appropriate Filter Leaf inserts a new blank leaf immediately after the current leaf, including nested groups, and focuses its field control when available.
+- **Translation:** newly surfaced filter-tree validation messages are translated at the Query Filter Tree UI boundary with __(). The generic TreeBuilder does not translate parent-provided logical labels/descriptions a second time.
+
+### Remaining verification
+
+The repository connector does not provide a running Frappe bench/browser, so end-to-end browser execution, Cypress execution, pytest, ruff, mypy, and pre-commit remain environment-dependent verification items rather than claims of passing CI.
+## Follow-up audit — field selection, operator compatibility, and draft retention — 2026-10-06
+
+The browser report exposed three symptoms that initially looked unrelated:
+
+1. the first FieldPicker selection visually disappeared;
+2. operator choices did not reliably follow the selected field type;
+3. clicking Save after apparently completing a filter caused the filter to disappear and validation to report missing Field/Value.
+
+The code audit traced the first and third symptoms to the same concrete state-boundary defect in FetchRecordsConfig.emitConfig():
+
+- the editor intentionally stores filters as an editable TreeBuilder object during editing;
+- emitConfig() still used if (!next.filters?.length) delete next.filters;
+- an object has no length, so the expression evaluated as true and deleted the active filter tree from the modal draft;
+- QueryRecordsConfig then synchronized that draft back into QueryFilterTree as [];
+- this made the just-selected field/value disappear and left FilterLeaf validation looking at an empty/incomplete filter.
+
+The fix is now explicit: hasFilterPayload() treats the editable tree object and non-empty serialized array as meaningful filter state, while [], null, undefined, and "" are treated as empty.
+
+### Operator compatibility
+
+The operator list was also audited against Frappe v15's native Filter condition values and the existing FlexiRule Query Records backend normalization.
+
+- Core operators remain Frappe-compatible: =, !=, like, not like, in, not in, is, >, <, >=, <=.
+- Between and Timespan are retained because the backend explicitly normalizes them to native Query Builder operations.
+- starts with / ends with remain intentional FlexiRule UI extensions because the backend normalizes them to like patterns.
+- nested-set operators remain restricted to Link fields whose target DocType is in Frappe's nested-set DocTypes.
+- Check fields now expose only = to match Frappe v15's native filter UI; the previous != option was incorrect.
+- Filter validation now rejects a legacy or stale operator when it is not in the field's current allowed operator set, rather than allowing an invalid operator to reach Save/runtime.
+
+The frontend continues to use Frappe's frappe.ui.filter_utils.set_fieldtype() for value-control shaping, so the value editor follows the same field/operator semantics as native Frappe filters.
+
+### Save invariant
+
+The resulting invariant is now:
+
+> During editing, the editable filter tree is retained in the modal draft. On successful validation/save, it is converted once to the canonical Frappe filter payload.
+
+No backend query execution changes are required for this correction.
+
+
+### Field/operator/value lifecycle correction
+
+Field changes are now treated as a semantic boundary:
+
+- the operator is recalculated against the newly selected field type;
+- if the previous operator is invalid, the Frappe-compatible default is selected;
+- the value is reset to a compatible empty value so a previous field's value cannot leak into a different control type;
+- the operator select is keyed by DocType + field so its option set is rebuilt when the field changes;
+- shape-changing operators (Between, Timespan, is, in, not in) receive a fresh compatible value structure;
+- empty arrays and whitespace-only strings are now treated as empty values during validation.
+
+This removes stale control state in addition to the draft-state retention fix.

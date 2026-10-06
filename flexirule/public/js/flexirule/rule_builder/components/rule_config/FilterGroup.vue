@@ -66,6 +66,7 @@
 					<!-- Operator -->
 					<div class="filter-col operator-col">
 						<select
+							:key="`${row.doctype || doctype}::${row.field || 'empty'}`"
 							class="form-control input-xs"
 							:value="row.operator"
 							:disabled="readOnly"
@@ -228,6 +229,10 @@ const props = defineProps({
 		type: Boolean,
 		default: false,
 	},
+	navigableFields: {
+		type: Object,
+		default: null,
+	},
 });
 
 const emit = defineEmits(["update:modelValue"]);
@@ -288,6 +293,8 @@ const timespanOptions = frappe.ui?.filter_utils?.get_timespan_options
 			{ label: __("Next Year"), value: "next year" },
 	  ];
 
+// Match Frappe v15's native Filter condition values. FlexiRule-specific
+// operators are declared separately and normalized by the Query Records backend.
 const BASE_QUERY_OPERATORS = [
 	"=",
 	"!=",
@@ -295,11 +302,11 @@ const BASE_QUERY_OPERATORS = [
 	"not like",
 	"in",
 	"not in",
+	"is",
 	">",
 	"<",
 	">=",
 	"<=",
-	"is",
 ];
 const QUERY_EXTENSION_OPERATORS = ["Between", "Timespan", "starts with", "ends with"];
 const NESTED_SET_OPERATORS = [
@@ -457,10 +464,10 @@ const syncFromProps = () => {
 			};
 		});
 
-	const current_cleaned = format(filters.value.filter((f) => f.field || f.fieldname));
-	const incoming_cleaned = format(
-		(props.modelValue || []).filter((f) => f.field || f.fieldname || (Array.isArray(f) && f[1]))
-	);
+	// Preserve incomplete leaves in the editor. A blank field is an editable
+	// filter row, not equivalent to having no filter rows.
+	const current_cleaned = format(filters.value);
+	const incoming_cleaned = format(props.modelValue || []);
 
 	// Stability check: If our cleaned local state is already same as incoming prop,
 	// do nothing. This preserves local state while ensuring we stay synced.
@@ -755,7 +762,8 @@ const getOperatorsForField = (field) => {
 	for (const op of nestedSetOps) {
 		if (!allowed.includes(op)) allowed.push(op);
 	}
-	if (isCheckField(field)) return allowed.filter((op) => op === "=" || op === "!=");
+	// Frappe v15 only permits "=" for Check fields.
+	if (isCheckField(field)) return allowed.filter((op) => op === "=");
 	return allowed.length ? allowed : ["="];
 };
 
@@ -897,26 +905,30 @@ const updateRow = (idx, data) => {
 	const merged = { ...row, ...data };
 	const field = getFieldDef(merged.field, merged.doctype || props.doctype);
 
-	// If field changed, update operator and reset value if needed
+	// A field change is a semantic change: recalculate the operator from the
+	// selected field type and clear the old value so it cannot leak into an
+	// incompatible control.
 	if (data.field && data.field !== row.field) {
 		const operators = getOperatorsForField(field);
-		if (!operators.includes(merged.operator)) {
-			const defaultCondition = getDefaultCondition(field, merged.doctype || props.doctype);
-			merged.operator = operators.includes(defaultCondition)
+		const defaultCondition = getDefaultCondition(field, merged.doctype || props.doctype);
+		merged.operator = operators.includes(merged.operator)
+			? merged.operator
+			: operators.includes(defaultCondition)
 				? defaultCondition
 				: operators[0] || "=";
-		}
+		merged.value = emptyValueForOperator(merged.operator);
 	}
 
-	// Handle operator change to/from Between
+	// Operators that change the value-control shape get a fresh compatible
+	// value. Scalar operators such as =/!=/like/not like can safely preserve
+	// an existing scalar value.
 	if (data.operator && data.operator !== row.operator) {
-		if (data.operator === "Between" && !Array.isArray(merged.value)) {
-			merged.value = [
-				{ mode: "static", value: "" },
-				{ mode: "static", value: "" },
-			];
-		} else if (row.operator === "Between" && Array.isArray(merged.value)) {
-			merged.value = merged.value[0] || { mode: "static", value: "" };
+		const shapeChangingOperators = new Set(["Between", "Timespan", "is", "in", "not in"]);
+		const oldShapeChanging = shapeChangingOperators.has(row.operator);
+		const newShapeChanging = shapeChangingOperators.has(data.operator);
+
+		if (newShapeChanging || oldShapeChanging) {
+			merged.value = emptyValueForOperator(data.operator);
 		}
 	}
 
@@ -942,6 +954,7 @@ const updateBetweenValue = (idx, arrayIndex, val) => {
 const rowNavMap = reactive(new Map());
 
 function getRowNav(idx, dt) {
+	if (props.navigableFields) return props.navigableFields;
 	const key = `${idx}_${dt || props.doctype}`;
 	if (!rowNavMap.has(key)) {
 		const nav = useNavigableFields(
@@ -994,19 +1007,44 @@ const isFieldValid = (fieldname, dt) => {
 };
 
 function isValueEmpty(val) {
-	return val === undefined || val === null || val === "";
+	if (val === undefined || val === null) return true;
+	if (Array.isArray(val)) return val.length === 0 || val.every(isValueEmpty);
+	if (typeof val === "string") return val.trim() === "";
+	return false;
+}
+
+function emptyValueForOperator(operator) {
+	if (operator === "Between") {
+		return [
+			{ mode: "static", value: "" },
+			{ mode: "static", value: "" },
+		];
+	}
+	if (operator === "is") return { mode: "static", value: "set" };
+	return { mode: "static", value: "" };
 }
 
 function validate() {
 	const errors = [];
 	filters.value.forEach((row, idx) => {
 		const n = idx + 1;
+		const field = getFieldDef(row.field, row.doctype || props.doctype);
+		const allowedOperators = getOperatorsForField(field);
+
 		if (!row.field) {
 			errors.push(__("Filter #{0}: Field is required", [n]));
 		}
 		if (!row.operator) {
 			errors.push(__("Filter #{0}: Operator is required", [n]));
+		} else if (!allowedOperators.includes(row.operator)) {
+			errors.push(
+				__("Filter #{0}: Operator '{1}' is not supported for this field type.", [
+					n,
+					getOperatorLabel(row.operator, row),
+				])
+			);
 		}
+
 		if (row.operator === "Between") {
 			if (
 				!Array.isArray(row.value) ||
@@ -1016,10 +1054,24 @@ function validate() {
 			) {
 				errors.push(__("Filter #{0}: Both values are required for Between", [n]));
 			}
-		} else if (row.operator !== "is") {
+		} else if (row.operator === "is") {
+			const value = row.value;
+			if (
+				!value ||
+				value.mode !== "static" ||
+				!["set", "not set"].includes(String(value.value || "").toLowerCase())
+			) {
+				errors.push(__("Filter #{0}: Value must be Set or Not Set", [n]));
+			}
+		} else {
 			const structVal = row.value;
 			const isEmpty =
-				structVal?.mode === "static" ? isValueEmpty(structVal.value) : !structVal;
+				!structVal ||
+				(typeof structVal === "object" && structVal.mode === "static"
+					? isValueEmpty(structVal.value)
+					: typeof structVal === "object" && structVal.mode
+						? isValueEmpty(structVal.value)
+						: isValueEmpty(structVal));
 			if (isEmpty) {
 				errors.push(__("Filter #{0}: Value is required", [n]));
 			}
@@ -1028,7 +1080,11 @@ function validate() {
 	return { valid: errors.length === 0, errors };
 }
 
-defineExpose({ validate });
+function focusFirstField() {
+	fieldPickerRefs.value?.[0]?.focus?.();
+}
+
+defineExpose({ validate, focusFirstField });
 
 watch(() => props.modelValue, syncFromProps, { deep: true });
 watch(

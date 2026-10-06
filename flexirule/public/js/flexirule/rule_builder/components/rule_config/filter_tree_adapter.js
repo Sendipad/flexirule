@@ -218,6 +218,20 @@ export function normalizeFilterTree(value, options = {}) {
 	return deserializeFilterPayload(value, options);
 }
 
+/**
+ * Whether a filter payload is meaningful while the editor is open.
+ *
+ * Query Records keeps an editable TreeBuilder object during editing and a
+ * serialized array/tuple payload after commit. Both are valid non-empty
+ * representations and must survive draft synchronization.
+ */
+export function hasFilterPayload(value) {
+	if (value === undefined || value === null || value === "") return false;
+	if (Array.isArray(value)) return value.length > 0;
+	if (typeof value === "object") return true;
+	return false;
+}
+
 function addError(errors, path, code, message) {
 	errors.push({ path, code, message });
 }

@@ -140,6 +140,7 @@ import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
 import MultiSelectList from "../../../controls/MultiSelectList.vue";
 import { useNavigableFields } from "../../../composables/useNavigableFields";
 import QueryFilterTree from "../QueryFilterTree.vue";
+import { hasFilterPayload } from "../filter_tree_adapter.js";
 
 const props = defineProps({
 	modelValue: { type: Object, default: () => ({}) },
@@ -263,7 +264,10 @@ function updateConfig(key, value) {
 
 function emitConfig() {
 	const next = { ...clone(localConfig) };
-	if (!next.filters?.length) delete next.filters;
+	// While editing, filters are the TreeBuilder object. After commit they are
+	// the canonical serialized array. Do not use Array.length to decide whether
+	// the editable object is meaningful.
+	if (!hasFilterPayload(next.filters)) delete next.filters;
 	if (!next.fields?.length) delete next.fields;
 	if (!next.order_by) delete next.order_by;
 	if (!next.group_by) delete next.group_by;
@@ -304,6 +308,16 @@ async function validate() {
 		const parsed = Number(value);
 		if (!Number.isInteger(parsed) || parsed < 0) {
 			errors.push(__("{0} must be a non-negative integer.").format(label));
+		}
+	}
+
+	if (!errors.length && filterTreeRef.value?.commit) {
+		const committed = filterTreeRef.value.commit();
+		if (!committed.valid) {
+			errors.push(...(committed.errors || []));
+		} else if (committed.payload !== undefined) {
+			localConfig.filters = clone(committed.payload);
+			emitConfig();
 		}
 	}
 
