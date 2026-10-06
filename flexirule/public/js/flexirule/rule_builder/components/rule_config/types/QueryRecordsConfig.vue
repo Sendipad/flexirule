@@ -58,7 +58,6 @@
 					<h6>{{ __("Filters") }}</h6>
 					<FilterGroup
 						ref="filterGroupRef"
-						:ref="setControlRef"
 						:doctype="reference_doctype"
 						:modelValue="config.filters"
 						:readOnly="readOnly"
@@ -288,7 +287,6 @@
 					<h6>{{ __("Filters") }}</h6>
 					<FilterGroup
 						ref="filterGroupRef"
-						:ref="setControlRef"
 						:doctype="reference_doctype"
 						:modelValue="config.filters"
 						:readOnly="readOnly"
@@ -305,7 +303,6 @@
 					<h6>{{ __("Filters") }}</h6>
 					<FilterGroup
 						ref="filterGroupRef"
-						:ref="setControlRef"
 						:doctype="reference_doctype"
 						:modelValue="config.filters"
 						:readOnly="readOnly"
@@ -368,7 +365,6 @@
 					<h6>{{ __("Filters") }}</h6>
 					<FilterGroup
 						ref="filterGroupRef"
-						:ref="setControlRef"
 						:doctype="reference_doctype"
 						:modelValue="config.filters"
 						:readOnly="readOnly"

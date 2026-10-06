@@ -81,4 +81,22 @@ const leaf = (field, value, operator = "=") => [
 	assert.equal("uiOnly" in payload, false);
 }
 
+// Integration Test: Single Authoritative Tree State Sync
+{
+	const rawPayload = [
+		["Journal Entry", "is_system_generated", "=", { mode: "static", value: "0" }],
+		"and",
+		["Journal Entry", "naming_series", "=", { mode: "static", value: "ACC-JV-.YYYY.-" }],
+	];
+	const tree = deserializeFilterPayload(rawPayload, { defaultDoctype: "Journal Entry" });
+	assert.equal(tree.children.length, 2);
+	assert.equal(tree.children[0].field, "is_system_generated");
+	assert.equal(tree.children[1].field, "naming_series");
+
+	// Mutate node directly in tree
+	tree.children[0].value = { mode: "static", value: "1" };
+	const serialized = serializeFilterTree(tree, { defaultDoctype: "Journal Entry" });
+	assert.equal(serialized[0][3].value, "1");
+}
+
 console.log("filter_tree_adapter tests passed");

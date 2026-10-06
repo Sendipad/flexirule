@@ -376,9 +376,11 @@ const EXTRA_FILTER_OPERATORS_BY_FIELDTYPE = {
 	"Long Text": ["starts with", "ends with"],
 	"Text Editor": ["starts with", "ends with"],
 };
+
+// In alignment with Frappe Query Builder capabilities, Date and Datetime fields support standard equality and comparison operators
 const FRAPPE_INVALID_CONDITION_MAP = {
 	Date: ["like", "not like"],
-	Datetime: ["like", "not like", "in", "not in", "=", "!="],
+	Datetime: ["like", "not like"],
 	Data: ["Between", "Timespan"],
 	Time: ["Between", "Timespan"],
 	Select: ["like", "not like", "Between", "Timespan"],
@@ -530,8 +532,7 @@ const availableFields = computed(() => {
 	return getFieldsForDoctype(currentDoctype.value);
 });
 
-const allowedOperators = computed(() => {
-	const field = currentFieldDef.value;
+function calculateOperatorsForFieldDef(field) {
 	if (!field) return [...BASE_QUERY_OPERATORS, ...QUERY_EXTENSION_OPERATORS];
 	const all = [...BASE_QUERY_OPERATORS, ...QUERY_EXTENSION_OPERATORS];
 	const invalid =
@@ -556,6 +557,10 @@ const allowedOperators = computed(() => {
 
 	if (isCheckField(field)) return allowed.filter((op) => op === "=" || op === "!=");
 	return allowed.length ? allowed : ["="];
+}
+
+const allowedOperators = computed(() => {
+	return calculateOperatorsForFieldDef(currentFieldDef.value);
 });
 
 const getDefaultCondition = (field, dt) => {
@@ -684,7 +689,7 @@ function onDoctypeSelect(val) {
 
 function onFieldSelect(val) {
 	const fieldDef = getFieldDef(val, currentDoctype.value);
-	const allowed = allowedOperators.value;
+	const allowed = calculateOperatorsForFieldDef(fieldDef);
 	let nextOp = currentOperator.value;
 	if (!allowed.includes(nextOp)) {
 		const defaultCond = getDefaultCondition(fieldDef, currentDoctype.value);
