@@ -228,6 +228,10 @@ const props = defineProps({
 		type: Boolean,
 		default: false,
 	},
+	navigableFields: {
+		type: Object,
+		default: null,
+	},
 });
 
 const emit = defineEmits(["update:modelValue"]);
@@ -457,10 +461,10 @@ const syncFromProps = () => {
 			};
 		});
 
-	const current_cleaned = format(filters.value.filter((f) => f.field || f.fieldname));
-	const incoming_cleaned = format(
-		(props.modelValue || []).filter((f) => f.field || f.fieldname || (Array.isArray(f) && f[1]))
-	);
+	// Preserve incomplete leaves in the editor. A blank field is an editable
+	// filter row, not equivalent to having no filter rows.
+	const current_cleaned = format(filters.value);
+	const incoming_cleaned = format(props.modelValue || []);
 
 	// Stability check: If our cleaned local state is already same as incoming prop,
 	// do nothing. This preserves local state while ensuring we stay synced.
@@ -942,6 +946,7 @@ const updateBetweenValue = (idx, arrayIndex, val) => {
 const rowNavMap = reactive(new Map());
 
 function getRowNav(idx, dt) {
+	if (props.navigableFields) return props.navigableFields;
 	const key = `${idx}_${dt || props.doctype}`;
 	if (!rowNavMap.has(key)) {
 		const nav = useNavigableFields(
