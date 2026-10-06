@@ -140,6 +140,7 @@ import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
 import MultiSelectList from "../../../controls/MultiSelectList.vue";
 import { useNavigableFields } from "../../../composables/useNavigableFields";
 import QueryFilterTree from "../QueryFilterTree.vue";
+import { hasFilterPayload } from "../filter_tree_adapter.js";
 
 const props = defineProps({
 	modelValue: { type: Object, default: () => ({}) },
@@ -263,7 +264,10 @@ function updateConfig(key, value) {
 
 function emitConfig() {
 	const next = { ...clone(localConfig) };
-	if (!next.filters?.length) delete next.filters;
+	// While editing, filters are the TreeBuilder object. After commit they are
+	// the canonical serialized array. Do not use Array.length to decide whether
+	// the editable object is meaningful.
+	if (!hasFilterPayload(next.filters)) delete next.filters;
 	if (!next.fields?.length) delete next.fields;
 	if (!next.order_by) delete next.order_by;
 	if (!next.group_by) delete next.group_by;
