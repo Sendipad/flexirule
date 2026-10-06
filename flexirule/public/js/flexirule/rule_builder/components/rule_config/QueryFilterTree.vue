@@ -132,19 +132,17 @@ function commit() {
 	return { valid: true, errors: [], payload };
 }
 
-function emitSerialized(value) {
-	const validation = validateFilterTree(value, { allowEmptyRoot: true });
-	if (!validation.valid) return;
-	const payload = serializeFilterTree(value, { defaultDoctype: props.doctype });
-	emit("update:modelValue", payload);
-	emit("change", payload);
+function emitEditingTree(value) {
+	const next = cloneTree(value);
+	emit("update:modelValue", next);
+	emit("change", next);
 }
 
 watch(
 	tree,
 	(value) => {
 		if (syncing) return;
-		emitSerialized(value);
+		emitEditingTree(value);
 	},
 	{ deep: true }
 );
