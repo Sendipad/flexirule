@@ -1069,3 +1069,19 @@ This implementation must not:
 - change the backend compatibility layer merely to accommodate the UI.
 
 This plan is specifically a **filter-tree representation and boundary refactor**.
+
+## Follow-up audit status — 2026-10-06
+
+The follow-up review found a second state-boundary issue in the initial fix:
+
+- **Editing source of truth:** QueryFilterTree previously emitted only validated backend filter tuples. This meant incomplete/intermediate edits remained only in child-local tree state, so the modal draft did not reliably become dirty and Save could validate one state while the parent configuration held another.
+- **Corrected model:** while editing, the TreeBuilder tree is now emitted as the modal's working representation, including incomplete leaves. Serialization to Frappe-compatible filter tuples occurs explicitly at validation/save time.
+- **Save synchronization:** FetchRecordsConfig.validate() now commits the validated tree payload before returning success, ensuring the draft configuration contains the canonical serialized filters when useRuleConfig.save() copies it to the node.
+- **Dirty state:** because editing tree state now flows through the existing Query Records configuration and useRuleConfig draft, field/operator/value/group changes participate in the established modal dirty comparison without a second ad-hoc dirty-state mechanism.
+- **Logical operations:** TreeBuilder accepts parent-provided logical operation definitions containing value, label, and optional description. Query Records supplies translated AND/OR labels and explanations.
+- **Keyboard insertion:** Shift+Enter on an appropriate Filter Leaf inserts a new blank leaf immediately after the current leaf, including nested groups, and focuses its field control when available.
+- **Translation:** newly surfaced filter-tree validation messages are translated at the Query Filter Tree UI boundary with __(). The generic TreeBuilder does not translate parent-provided logical labels/descriptions a second time.
+
+### Remaining verification
+
+The repository connector does not provide a running Frappe bench/browser, so end-to-end browser execution, Cypress execution, pytest, ruff, mypy, and pre-commit remain environment-dependent verification items rather than claims of passing CI.
