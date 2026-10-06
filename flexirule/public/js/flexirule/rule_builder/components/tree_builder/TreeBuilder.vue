@@ -45,6 +45,8 @@
 				:groupLabel="groupLabel"
 				:operatorLabel="operatorLabel"
 				:leafFactory="leafFactory"
+				:logicalOperations="logicalOperations"
+				:onLeafAdded="onLeafAdded"
 				@remove="removeNode(root, index)"
 			>
 				<template #leaf="slotProps">
