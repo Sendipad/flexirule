@@ -83,6 +83,8 @@ const props = defineProps({
 		type: String,
 		default: __("No conditions yet. Add a condition or group to begin."),
 	},
+	logicalOperations: { type: Array, default: () => [] },
+	onLeafAdded: { type: Function, default: null },
 	leafFactory: {
 		type: Function,
 		default: () => ({ type: "leaf" }),
@@ -94,8 +96,16 @@ const emit = defineEmits(["update:modelValue", "change"]);
 const root = reactive(normalizeTree(props.modelValue));
 let syncing = false;
 
+const logicalOperationMap = computed(() =>
+	new Map(
+		props.logicalOperations
+			.filter((item) => item && item.value)
+			.map((item) => [String(item.value).toLowerCase(), item])
+	)
+);
+
 const operatorLabel = (operator) =>
-	operator === "or" ? __("OR") : operator === "and" ? __("AND") : operator;
+	logicalOperationMap.value.get(String(operator).toLowerCase())?.label || operator;
 
 function setOperator(group, operator) {
 	if (!groupOperators.value.includes(operator) || props.readOnly) return;
@@ -105,12 +115,31 @@ function setOperator(group, operator) {
 const groupOperators = computed(() => props.groupOperators.filter(Boolean));
 
 function addLeaf(group) {
-	if (props.readOnly) return;
-	group.children.push({
+	if (props.readOnly) return null;
+	const node = {
 		id: createId(),
 		type: "leaf",
 		...cloneTree(props.leafFactory()),
-	});
+	};
+	group.children.push(node);
+	handleLeafAdded(node);
+	return node;
+}
+
+function insertLeafAfter(parent, index) {
+	if (props.readOnly || !parent?.children) return null;
+	const node = {
+		id: createId(),
+		type: "leaf",
+		...cloneTree(props.leafFactory()),
+	};
+	parent.children.splice(index + 1, 0, node);
+	handleLeafAdded(node);
+	return node;
+}
+
+function handleLeafAdded(node) {
+	if (typeof props.onLeafAdded === "function") props.onLeafAdded(node);
 }
 
 function addGroup(group) {
@@ -156,6 +185,7 @@ function dropNode(targetParent, targetIndex = -1) {
 
 provide("treeBuilderActions", {
 	addLeaf,
+	insertLeafAfter,
 	addGroup,
 	removeNode,
 	beginDrag,
