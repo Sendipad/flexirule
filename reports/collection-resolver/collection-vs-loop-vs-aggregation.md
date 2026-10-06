@@ -23,16 +23,16 @@ FlexiRule maintains three distinct mechanisms for working with child tables. Eac
 
 To avoid duplicate capabilities, FlexiRule assigns specific child-table requirements to canonical mechanisms:
 
-| Specific Requirement | Canonical FlexiRule Mechanism | Architectural Reason |
-| :--- | :--- | :--- |
-| `COUNT(items)` | **Child Aggregation** or **Collection (`count`)** | Simple row count without filters. |
-| `SUM(items.amount)` | **Child Aggregation** (`agg_op: "sum"`) | Unfiltered numeric column sum across all rows. |
-| `COUNT(items WHERE qty > 0)` | **Collection Resolver** (`count`, condition) | Filtered row counting. |
-| `SUM(items.amount WHERE qty > 0)` | **Loop Action + Variable** | Filtered sum requiring numeric reduction over filtered set. |
-| `ANY(items WHERE qty > 100)` | **Collection Resolver** (`any`, condition) | Declarative boolean predicate check. |
-| `FIRST(items WHERE qty > 100)` | **Collection Resolver** (`first`, condition) | Declarative row lookup. |
-| `FILTER(items WHERE qty > 100)` | **Collection Resolver** (`filter`, condition) | Declarative sub-list extraction. |
-| `PLUCK(items, "item_code")` | **Collection Resolver** (`pluck`) | Column value extraction. |
+| Specific Requirement              | Canonical FlexiRule Mechanism                     | Architectural Reason                                        |
+| :-------------------------------- | :------------------------------------------------ | :---------------------------------------------------------- |
+| `COUNT(items)`                    | **Child Aggregation** or **Collection (`count`)** | Simple row count without filters.                           |
+| `SUM(items.amount)`               | **Child Aggregation** (`agg_op: "sum"`)           | Unfiltered numeric column sum across all rows.              |
+| `COUNT(items WHERE qty > 0)`      | **Collection Resolver** (`count`, condition)      | Filtered row counting.                                      |
+| `SUM(items.amount WHERE qty > 0)` | **Loop Action + Variable**                        | Filtered sum requiring numeric reduction over filtered set. |
+| `ANY(items WHERE qty > 100)`      | **Collection Resolver** (`any`, condition)        | Declarative boolean predicate check.                        |
+| `FIRST(items WHERE qty > 100)`    | **Collection Resolver** (`first`, condition)      | Declarative row lookup.                                     |
+| `FILTER(items WHERE qty > 100)`   | **Collection Resolver** (`filter`, condition)     | Declarative sub-list extraction.                            |
+| `PLUCK(items, "item_code")`       | **Collection Resolver** (`pluck`)                 | Column value extraction.                                    |
 
 ---
 
