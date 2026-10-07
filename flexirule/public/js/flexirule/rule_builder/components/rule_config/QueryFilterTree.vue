@@ -29,19 +29,24 @@
 </template>
 
 <script setup>
-import { nextTick, ref, watch } from "vue";
+import { ref } from "vue";
 import TreeBuilder from "../tree_builder/TreeBuilder.vue";
 import FilterLeaf from "./FilterLeaf.vue";
 import {
 	createFilterLeaf,
-	deserializeFilterPayload,
 	serializeFilterTree,
 	validateFilterTree,
 } from "./filter_tree_adapter.js";
-import { cloneTree } from "../tree_builder/tree_builder_utils.js";
+import { cloneTree, normalizeTree } from "../tree_builder/tree_builder_utils.js";
 
 const props = defineProps({
-	modelValue: { type: [Array, Object], default: () => [] },
+	// This component owns an editor AST, not the persisted/backend filter payload.
+	// The parent is responsible for deserializing persisted filters once when
+	// creating the editor draft.
+	modelValue: {
+		type: Object,
+		default: () => ({ type: "group", operator: "and", children: [] }),
+	},
 	doctype: { type: String, required: true },
 	nodeId: { type: String, default: null },
 	readOnly: { type: Boolean, default: false },
@@ -51,9 +56,8 @@ const props = defineProps({
 
 const emit = defineEmits(["update:modelValue", "change"]);
 const treeBuilderRef = ref(null);
-const tree = ref(deserializeFilterPayload(props.modelValue, { defaultDoctype: props.doctype }));
+const tree = ref(normalizeTree(props.modelValue));
 const leafRefs = new Map();
-let syncing = false;
 
 function createLeaf() {
 	return createFilterLeaf({ doctype: props.doctype });
@@ -71,22 +75,27 @@ function toFilterRow(node) {
 function updateLeaf(node, value) {
 	const row = Array.isArray(value) ? value[0] : value;
 	if (!row) return;
+
 	Object.assign(node, {
 		doctype: row.doctype || props.doctype,
 		field: row.field || row.fieldname || "",
 		operator: row.operator || row.op || "=",
 		value: cloneTree(row.value),
 	});
-	if (treeBuilderRef.value?.getTree) {
-		handleTreeUpdate(treeBuilderRef.value.getTree());
-	} else {
-		handleTreeUpdate(tree.value);
-	}
+
+	emitTreeChange();
 }
 
 function setLeafRef(id, instance) {
 	if (instance) leafRefs.set(id, instance);
 	else leafRefs.delete(id);
+}
+
+function emitTreeChange() {
+	const next = treeBuilderRef.value?.getTree() || tree.value;
+	tree.value = next;
+	emit("update:modelValue", cloneTree(next));
+	emit("change", cloneTree(next));
 }
 
 async function validate() {
@@ -101,6 +110,7 @@ async function validate() {
 				: { valid: true, errors: [] }
 		)
 	);
+
 	for (const result of results) {
 		if (!result?.valid && result.errors) errors.push(...result.errors);
 	}
@@ -108,51 +118,20 @@ async function validate() {
 	return { valid: errors.length === 0, errors };
 }
 
-function handleTreeUpdate(newTree) {
-	if (syncing) return;
-	tree.value = newTree;
-	const payload = serializeFilterTree(newTree, {
-		defaultDoctype: props.doctype,
-	});
-	emit("update:modelValue", payload);
-	emit("change", payload);
+function getTree() {
+	return cloneTree(treeBuilderRef.value?.getTree() || tree.value);
 }
 
-watch(
-	() => props.modelValue,
-	async (value) => {
-		const next = deserializeFilterPayload(value, { defaultDoctype: props.doctype });
-		if (JSON.stringify(next) === JSON.stringify(tree.value)) return;
-		syncing = true;
-		tree.value = next;
-		await nextTick();
-		syncing = false;
-	},
-	{ deep: true }
-);
-
-watch(
-	() => props.doctype,
-	(value) => {
-		if (!value) return;
-		const next = deserializeFilterPayload(props.modelValue, { defaultDoctype: value });
-		syncing = true;
-		tree.value = next;
-		nextTick().then(() => {
-			syncing = false;
-		});
-	}
-);
+function getPayload() {
+	return serializeFilterTree(getTree(), {
+		defaultDoctype: props.doctype,
+	});
+}
 
 defineExpose({
 	validate,
-	getTree: () => cloneTree(treeBuilderRef.value?.getTree() || tree.value),
-	getPayload: () => {
-		const currentTree = treeBuilderRef.value?.getTree() || tree.value;
-		return serializeFilterTree(currentTree, {
-			defaultDoctype: props.doctype,
-		});
-	},
+	getTree,
+	getPayload,
 	addFilter: () => treeBuilderRef.value?.addLeaf(),
 	addGroup: () => treeBuilderRef.value?.addGroup(),
 });
