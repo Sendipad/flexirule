@@ -7,6 +7,7 @@ defineOptions({ name: "TreeBuilderNode" });
 const props = defineProps({
 	node: { type: Object, required: true },
 	index: { type: Number, required: true },
+	isRootChild: { type: Boolean, default: false },
 	parent: { type: Object, required: true },
 	readOnly: { type: Boolean, default: false },
 	allowGroups: { type: Boolean, default: true },
@@ -146,6 +147,7 @@ function handleDragLeave() {
 					:parent="node"
 					:readOnly="readOnly"
 					:allowGroups="allowGroups"
+					:isRootChild="false"
 					:groupOperators="groupOperators"
 					:leafLabel="leafLabel"
 					:groupLabel="groupLabel"
@@ -185,6 +187,20 @@ function handleDragLeave() {
 	background: var(--fxr-bg-hover);
 	border: 1px solid var(--fxr-border-subtle);
 	border-radius: var(--fxr-radius-lg);
+}
+
+.tree-group--root-child {
+	padding: var(--fxr-space-2);
+	background: transparent;
+	border-style: dashed;
+}
+
+.tree-group--root-child .tree-group__header {
+	margin-bottom: var(--fxr-space-2);
+}
+
+.tree-group--root-child .tree-group__children {
+	padding-left: var(--fxr-space-2);
 }
 
 .tree-group.drag-over {
