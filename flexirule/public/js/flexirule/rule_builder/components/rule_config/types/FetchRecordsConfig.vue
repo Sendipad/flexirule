@@ -152,10 +152,14 @@ const props = defineProps({
 	variableOptions: { type: Array, default: null },
 });
 
-const emit = defineEmits(["update:modelValue", "change"]);
+const emit = defineEmits(["update:modelValue", "change", "dirty-change"]);
 const filterTreeRef = ref(null);
 const filterTree = ref(deserializeFilterPayload(props.modelValue?.filters || [], { defaultDoctype: props.doctype }));
 const filterDraftDirty = ref(false);
+
+// TreeBuilder edits are editor-local. Expose their dirty state to the Action Modal
+// without serializing the editor AST into config.filters during editing.
+watch(filterDraftDirty, (dirty) => emit("dirty-change", dirty), { immediate: true });
 
 const localConfig = reactive(normalizeConfig(props.modelValue));
 const orderRows = ref(parseOrderBy(localConfig.order_by));
@@ -300,8 +304,6 @@ watch(
 	() => props.modelValue,
 	(value) => {
 		const next = normalizeConfig(value);
-		const filtersChanged =
-			JSON.stringify(next.filters || []) !== JSON.stringify(localConfig.filters || []);
 
 		if (JSON.stringify(next) !== JSON.stringify(localConfig)) {
 			Object.keys(localConfig).forEach((key) => delete localConfig[key]);
@@ -309,15 +311,16 @@ watch(
 			orderRows.value = parseOrderBy(next.order_by);
 		}
 
-		// External config changes represent a committed/persisted state. Never
-		// reconstruct the live editor while the user has uncommitted edits.
-		if (!filterDraftDirty.value && filtersChanged) {
+		// Hydrate persisted filters whenever they become available for the first
+		// time, and whenever an external committed change replaces them. Never
+		// overwrite an editor draft that is currently being edited.
+		if (!filterDraftDirty.value) {
 			filterTree.value = deserializeFilterPayload(next.filters || [], {
 				defaultDoctype: props.doctype,
 			});
 		}
 	},
-	{ deep: true }
+	{ deep: true, immediate: true }
 );
 
 watch(
@@ -367,6 +370,7 @@ async function validate() {
 
 defineExpose({
 	validate,
+	hasUncommittedChanges: () => filterDraftDirty.value,
 	getFilterTree: () => cloneTree(filterTreeRef.value?.getTree?.() || filterTree.value),
 	getFilterPayload: () => serializeFilterTree(
 		filterTreeRef.value?.getTree?.() || filterTree.value,
