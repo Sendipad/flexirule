@@ -35,7 +35,6 @@ import FilterLeaf from "./FilterLeaf.vue";
 import {
 	createFilterLeaf,
 	deserializeFilterPayload,
-	isFilterTreePayloadEquivalent,
 	serializeFilterTree,
 	validateFilterTree,
 } from "./filter_tree_adapter.js";
@@ -123,21 +122,7 @@ watch(
 	() => props.modelValue,
 	async (value) => {
 		const next = deserializeFilterPayload(value, { defaultDoctype: props.doctype });
-
-		// The parent config stores the execution payload, not the editor tree.
-		// Serialization intentionally normalizes single-child groups and empty
-		// groups, so comparing the deserialized tree directly would cause a
-		// local edit to be replaced by that normalized payload on the next
-		// parent update. Treat an equivalent payload as an acknowledgement of
-		// our local change and keep the authoritative editor tree intact.
-		if (
-			isFilterTreePayloadEquivalent(tree.value, value, {
-				defaultDoctype: props.doctype,
-			})
-		)
-			return;
 		if (JSON.stringify(next) === JSON.stringify(tree.value)) return;
-
 		syncing = true;
 		tree.value = next;
 		await nextTick();
