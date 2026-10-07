@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {
 	deserializeFilterPayload,
 	serializeFilterTree,
+	toPersistedFilterTree,
 	validateFilterTree,
 } from "./filter_tree_adapter.js";
 
@@ -149,6 +150,54 @@ const leaf = (field, value, operator = "=") => [
 	assert.equal(tree.children[1].children[0].field, "is_system_generated");
 	assert.equal(tree.children[1].children[1].field, "naming_series");
 	assert.deepEqual(serializeFilterTree(tree), payload);
+}
+
+{
+	// Persisted Fetch Records filters use the semantic tree, not Frappe's
+	// executable filter-array syntax, and never persist editor-only ids.
+	const tree = deserializeFilterPayload(
+		[
+			leaf("title", "set", "is"),
+			"and",
+			[leaf("is_system_generated", 0), "or", leaf("naming_series", "ACC-JV-.YYYY.-")],
+		],
+		{ defaultDoctype: "Journal Entry", createId: () => "editor-id" }
+	);
+	const persisted = toPersistedFilterTree(tree, { defaultDoctype: "Journal Entry" });
+
+	assert.deepEqual(persisted, {
+		type: "group",
+		operator: "and",
+		children: [
+			{
+				type: "leaf",
+				doctype: "Journal Entry",
+				field: "title",
+				operator: "is",
+				value: { mode: "static", value: "set" },
+			},
+			{
+				type: "group",
+				operator: "or",
+				children: [
+					{
+						type: "leaf",
+						doctype: "Journal Entry",
+						field: "is_system_generated",
+						operator: "=",
+						value: { mode: "static", value: 0 },
+					},
+					{
+						type: "leaf",
+						doctype: "Journal Entry",
+						field: "naming_series",
+						operator: "=",
+						value: { mode: "static", value: "ACC-JV-.YYYY.-" },
+					},
+				],
+			},
+		],
+	});
 }
 
 console.log("filter_tree_adapter tests passed");
