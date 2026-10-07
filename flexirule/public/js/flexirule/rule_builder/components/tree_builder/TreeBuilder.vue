@@ -38,6 +38,7 @@
 				:node="node"
 				:index="index"
 				:parent="root"
+				:isRootChild="true"
 				:readOnly="readOnly"
 				:allowGroups="allowGroups"
 				:groupOperators="groupOperators"
