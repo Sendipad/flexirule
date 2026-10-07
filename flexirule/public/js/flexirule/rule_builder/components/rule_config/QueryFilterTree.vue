@@ -35,6 +35,7 @@ import FilterLeaf from "./FilterLeaf.vue";
 import {
 	createFilterLeaf,
 	deserializeFilterPayload,
+	isFilterTreePayloadEquivalent,
 	serializeFilterTree,
 	validateFilterTree,
 } from "./filter_tree_adapter.js";
@@ -129,13 +130,12 @@ watch(
 		// local edit to be replaced by that normalized payload on the next
 		// parent update. Treat an equivalent payload as an acknowledgement of
 		// our local change and keep the authoritative editor tree intact.
-		const currentPayload = serializeFilterTree(tree.value, {
-			defaultDoctype: props.doctype,
-		});
-		const incomingPayload = serializeFilterTree(next, {
-			defaultDoctype: props.doctype,
-		});
-		if (JSON.stringify(currentPayload) === JSON.stringify(incomingPayload)) return;
+		if (
+			isFilterTreePayloadEquivalent(tree.value, value, {
+				defaultDoctype: props.doctype,
+			})
+		)
+			return;
 		if (JSON.stringify(next) === JSON.stringify(tree.value)) return;
 
 		syncing = true;
