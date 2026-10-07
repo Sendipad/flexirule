@@ -16,12 +16,12 @@
 			<QueryFilterTree
 				ref="filterTreeRef"
 				:doctype="doctype"
-				:modelValue="localConfig.filters || []"
+				:modelValue="filterTree"
 				:readOnly="readOnly"
 				:showValidation="showValidation"
 				:nodeId="nodeId"
 				:variableOptions="variableOptions"
-				@update:modelValue="updateConfig('filters', $event)"
+				@update:modelValue="updateFilterTree"
 			/>
 		</div>
 
@@ -140,6 +140,8 @@ import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
 import MultiSelectList from "../../../controls/MultiSelectList.vue";
 import { useNavigableFields } from "../../../composables/useNavigableFields";
 import QueryFilterTree from "../QueryFilterTree.vue";
+import { deserializeFilterPayload, serializeFilterTree } from "../filter_tree_adapter.js";
+import { cloneTree } from "../../tree_builder/tree_builder_utils.js";
 
 const props = defineProps({
 	modelValue: { type: Object, default: () => ({}) },
@@ -152,6 +154,8 @@ const props = defineProps({
 
 const emit = defineEmits(["update:modelValue", "change"]);
 const filterTreeRef = ref(null);
+const filterTree = ref(deserializeFilterPayload(props.modelValue?.filters || [], { defaultDoctype: props.doctype }));
+const filterDraftDirty = ref(false);
 
 const localConfig = reactive(normalizeConfig(props.modelValue));
 const orderRows = ref(parseOrderBy(localConfig.order_by));
@@ -261,6 +265,24 @@ function updateConfig(key, value) {
 	emitConfig();
 }
 
+function updateFilterTree(value) {
+	// Filter editing is intentionally local to the editor. Do not serialize
+	// the tree back into config.filters on every UI mutation.
+	filterTree.value = cloneTree(value);
+	filterDraftDirty.value = true;
+}
+
+function commitFilters() {
+	const tree = filterTreeRef.value?.getTree?.() || filterTree.value;
+	const payload = serializeFilterTree(tree, { defaultDoctype: props.doctype });
+
+	localConfig.filters = clone(payload);
+	filterDraftDirty.value = false;
+	emitConfig();
+
+	return payload;
+}
+
 function emitConfig() {
 	const next = { ...clone(localConfig) };
 	if (!next.filters?.length) delete next.filters;
@@ -278,17 +300,48 @@ watch(
 	() => props.modelValue,
 	(value) => {
 		const next = normalizeConfig(value);
-		if (JSON.stringify(next) === JSON.stringify(localConfig)) return;
-		Object.keys(localConfig).forEach((key) => delete localConfig[key]);
-		Object.assign(localConfig, next);
-		orderRows.value = parseOrderBy(next.order_by);
+		const filtersChanged =
+			JSON.stringify(next.filters || []) !== JSON.stringify(localConfig.filters || []);
+
+		if (JSON.stringify(next) !== JSON.stringify(localConfig)) {
+			Object.keys(localConfig).forEach((key) => delete localConfig[key]);
+			Object.assign(localConfig, next);
+			orderRows.value = parseOrderBy(next.order_by);
+		}
+
+		// External config changes represent a committed/persisted state. Never
+		// reconstruct the live editor while the user has uncommitted edits.
+		if (!filterDraftDirty.value && filtersChanged) {
+			filterTree.value = deserializeFilterPayload(next.filters || [], {
+				defaultDoctype: props.doctype,
+			});
+		}
 	},
 	{ deep: true }
 );
 
+watch(
+	() => props.doctype,
+	(value) => {
+		if (!value || filterDraftDirty.value) return;
+		filterTree.value = deserializeFilterPayload(localConfig.filters || [], {
+			defaultDoctype: value,
+		});
+	}
+);
+
 async function validate() {
+	// Commit the editor AST only at the validation/save boundary. This keeps
+	// interactive TreeBuilder state lossless while guaranteeing that persisted
+	// config.filters is always a valid executable payload.
 	const result = (await filterTreeRef.value?.validate?.()) || { valid: true, errors: [] };
 	const errors = [...(result.errors || [])];
+
+	if (!result.valid) {
+		return { valid: false, errors };
+	}
+
+	commitFilters();
 
 	for (const [label, value] of [
 		[__("Limit"), localConfig.limit],
@@ -310,7 +363,14 @@ async function validate() {
 	return { valid: errors.length === 0, errors };
 }
 
-defineExpose({ validate });
+defineExpose({
+	validate,
+	getFilterTree: () => cloneTree(filterTreeRef.value?.getTree?.() || filterTree.value),
+	getFilterPayload: () => serializeFilterTree(
+		filterTreeRef.value?.getTree?.() || filterTree.value,
+		{ defaultDoctype: props.doctype }
+	),
+});
 </script>
 
 <style scoped>
