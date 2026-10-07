@@ -75,17 +75,22 @@ function toFilterRow(node) {
 
 function updateLeaf(node, value) {
 	const row = Array.isArray(value) ? value[0] : value;
-	if (!row) return;
+	if (!row || !node?.id) return;
 
-	Object.assign(node, {
-		doctype: row.doctype || props.doctype,
-		field: row.field || row.fieldname || "",
-		operator: row.operator || row.op || "=",
-		value: cloneTree(row.value),
+	// TreeBuilder owns the live editor AST. Mutate that live node instead of
+	// QueryFilterTree's mirrored snapshot so TreeBuilder's deep watcher emits
+	// the update all the way to FetchRecordsConfig and config.filters.
+	const updated = treeBuilderRef.value?.updateNode?.(node.id, (target) => {
+		Object.assign(target, {
+			doctype: row.doctype || props.doctype,
+			field: row.field || row.fieldname || "",
+			operator: row.operator || row.op || "=",
+			value: cloneTree(row.value),
+		});
 	});
 
+	if (!updated) return;
 }
-
 function setLeafRef(id, instance) {
 	if (instance) leafRefs.set(id, instance);
 	else leafRefs.delete(id);
