@@ -23,7 +23,6 @@ class TestQueryRecordsFilters(FrappeTestCase):
 		if hasattr(frappe.local, "flexirule_compiled_resolvers"):
 			delattr(frappe.local, "flexirule_compiled_resolvers")
 
-
 	def test_compile_canonical_filter_tree_preserves_nested_logic(self):
 		tree = {
 			"type": "group",

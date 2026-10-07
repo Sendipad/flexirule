@@ -116,26 +116,15 @@ const leaf = (field, value, operator = "=") => [
 	assert.equal(serialized[0][3].value, "1");
 }
 
-
 // Regression: the root AND must contain a sibling leaf and a nested OR group.
 {
 	const payload = [
-		[
-			"Journal Entry",
-			"title",
-			"is",
-			{ mode: "static", value: "set" },
-		],
+		["Journal Entry", "title", "is", { mode: "static", value: "set" }],
 		"and",
 		[
 			["Journal Entry", "is_system_generated", "=", { mode: "static", value: "0" }],
 			"or",
-			[
-				"Journal Entry",
-				"naming_series",
-				"=",
-				{ mode: "static", value: "ACC-JV-.YYYY.-" },
-			],
+			["Journal Entry", "naming_series", "=", { mode: "static", value: "ACC-JV-.YYYY.-" }],
 		],
 	];
 	const tree = deserializeFilterPayload(payload);

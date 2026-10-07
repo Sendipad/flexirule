@@ -402,7 +402,9 @@
 																				showValidation
 																			"
 																			:ref="panelRefs.config"
-																			@dirty-change="markPanelDirty"
+																			@dirty-change="
+																				markPanelDirty
+																			"
 																		/>
 																	</div>
 																</div>
@@ -608,15 +610,8 @@ const uiStore = useUIStore();
 // Legacy support
 const store = uiStore;
 
-const {
-	draftNode,
-	panelRefs,
-	save,
-	cancel,
-	isDirty,
-	showValidation,
-	markPanelDirty,
-} = useRuleConfig(props, emit);
+const { draftNode, panelRefs, save, cancel, isDirty, showValidation, markPanelDirty } =
+	useRuleConfig(props, emit);
 const {
 	activeTab: activeCompactTab,
 	tabs: compactTabs,
