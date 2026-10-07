@@ -295,7 +295,18 @@ function commitFilters() {
 
 function emitConfig() {
 	const next = { ...clone(localConfig) };
-	if (!next.filters?.length) delete next.filters;
+
+	// filters is now a canonical recursive tree, not a Frappe filter array.
+	// Do not use .length to determine whether it exists: a valid group is an
+	// object and would otherwise be deleted on every emit.
+	const filters = next.filters;
+	const hasFilters =
+		(Array.isArray(filters) && filters.length > 0) ||
+		(filters &&
+			typeof filters === "object" &&
+			(filters.type !== "group" || (Array.isArray(filters.children) && filters.children.length > 0)));
+	if (!hasFilters) delete next.filters;
+
 	if (!next.fields?.length) delete next.fields;
 	if (!next.order_by) delete next.order_by;
 	if (!next.group_by) delete next.group_by;
