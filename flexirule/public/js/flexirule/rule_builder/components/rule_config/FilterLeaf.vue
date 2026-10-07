@@ -723,7 +723,7 @@ function updateBetweenValue(index, val) {
 		: [
 				{ mode: "static", value: "" },
 				{ mode: "static", value: "" },
-			];
+		  ];
 	list[index] = val;
 	emitUpdate({ ...localRow.value, value: list });
 }
@@ -875,9 +875,7 @@ defineExpose({ validate, focus });
 	border-radius: var(--fxr-radius-md) !important;
 	background-color: var(--fxr-bg-input) !important;
 	color: var(--fxr-text) !important;
-	transition:
-		border-color var(--fxr-transition-fast),
-		box-shadow var(--fxr-transition-fast) !important;
+	transition: border-color var(--fxr-transition-fast), box-shadow var(--fxr-transition-fast) !important;
 }
 
 .filter-row-main :deep(.fxr-control),
