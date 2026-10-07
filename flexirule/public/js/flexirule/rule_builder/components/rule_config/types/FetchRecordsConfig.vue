@@ -341,8 +341,6 @@ async function validate() {
 		return { valid: false, errors };
 	}
 
-	commitFilters();
-
 	for (const [label, value] of [
 		[__("Limit"), localConfig.limit],
 		[__("Offset"), localConfig.offset],
@@ -358,6 +356,10 @@ async function validate() {
 		if (!Number.isInteger(parsed) || parsed < 0) {
 			errors.push(__("{0} must be a non-negative integer.").format(label));
 		}
+	}
+
+	if (errors.length === 0) {
+		commitFilters();
 	}
 
 	return { valid: errors.length === 0, errors };
