@@ -83,7 +83,6 @@ function updateLeaf(node, value) {
 		value: cloneTree(row.value),
 	});
 
-	emitTreeChange();
 }
 
 function setLeafRef(id, instance) {
@@ -91,8 +90,8 @@ function setLeafRef(id, instance) {
 	else leafRefs.delete(id);
 }
 
-function emitTreeChange() {
-	const next = treeBuilderRef.value?.getTree() || tree.value;
+function handleTreeUpdate(value) {
+	const next = cloneTree(value);
 	tree.value = next;
 	emit("update:modelValue", cloneTree(next));
 	emit("change", cloneTree(next));
