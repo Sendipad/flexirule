@@ -129,13 +129,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		};
 
 		const nodesSnap = nodes.value.map((el) => {
-			// Deep clone data and sort its keys for stability
 			const rawData = deepClone(el.data || {});
-			// We don't need to recursively sort every object here because stringifyStable
-			// will handle the nested objects when comparing snapshots if we used it,
-			// but getStateSnapshot returns an array of objects which is then stringified.
-			// To be absolutely safe, we'll return the data as-is but ensure the top-level
-			// snapshot objects themselves have a stable structure.
 
 			return {
 				data: rawData,
@@ -157,31 +151,20 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			targetHandle: el.targetHandle || null,
 		}));
 
-		// Standardize the flat array by sorting everything by ID.
-		// Since we use JSON.stringify(getStateSnapshot()) for comparison,
-		// we must ensure the key order within nodesSnap/edgesSnap objects is also stable.
-		// We've done this above by defining keys in alphabetical order.
-
 		const combined = [...nodesSnap, ...edgesSnap].sort((a, b) =>
 			(a.id || "").localeCompare(b.id || "")
 		);
 
-		// Final pass: ensure all nested objects in 'data' are also stable by re-parsing
-		// a stable-stringified version. This is slower but guarantees dirty tracking accuracy.
 		return JSON.parse(stringifyStable(combined));
 	}
 
 	function getGraphSnapshot() {
-		// Use the stable state snapshot for history to prevent transient UI changes
-		// (like node selection or dragging) from polluting the undo/redo stack.
 		return getStateSnapshot();
 	}
 
 	function applyGraphSnapshot(snapshot) {
 		if (!Array.isArray(snapshot)) return;
 
-		// Correctly re-split the flat snapshot array into nodes and edges.
-		// Nodes are identified by having a 'type' and 'position', Edges by having a 'source'.
 		const newNodes = snapshot.filter((el) => el.type && el.position);
 		const newEdges = snapshot.filter((el) => el.source && el.target);
 
@@ -243,7 +226,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 
 	// ── Available variables (upstream context) ──
 	async function getAvailableVariables(upToNodeId = null, ruleDoc = null) {
-		// Some callers pass action_id instead of node.id; normalize so upstream traversal works.
 		let scopedNodeId = upToNodeId;
 		if (
 			scopedNodeId &&
@@ -264,7 +246,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 
 				let h = handle || "default";
 				const sourceNode = nodes.value.find((n) => n.id === source);
-				// Treat legacy 'true' handle as 'default' for Loop nodes for scope propagation
 				if (sourceNode?.data?.action_type === "Loop" && h === "true") {
 					h = "default";
 				}
@@ -330,7 +311,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		);
 		const doctype = ruleDoc?.document_type || startNode?.data?.document_type || null;
 
-		// Initial pool: Standard doc fields (so they can be propagated into loops if iterating doc.items)
 		const baseFields = doctype ? await flexirule.utils.get_doctype_fields(doctype, "doc") : [];
 		const context_vars = [...baseFields];
 
@@ -361,11 +341,9 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			return false;
 		};
 
-		// 1. Phase 1: Collect all base variables from upstream nodes
 		for (const node of scopedNodes) {
 			const data = node.data || {};
 
-			// Add Loop root alias (base entry)
 			if (data.action_type === "Loop") {
 				const config = flexirule.utils.safe_json_parse(data.config, {});
 				const itemVar = normalizeReturnVariable(
@@ -385,7 +363,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 				}
 			}
 
-			// Handle Return Variables and Schema
 			const rawReturnVariable = String(data.return_variable || "").trim();
 			const normalizedReturnVariable = normalizeReturnVariable(rawReturnVariable);
 
@@ -401,7 +378,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 					});
 				}
 
-				// Propagate resolved output schema
 				if (data.resolved_output_schema && data.return_type !== "Yes / No") {
 					const schema = flexirule.utils.safe_json_parse(data.resolved_output_schema, []);
 					if (Array.isArray(schema)) {
@@ -426,7 +402,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 					data.reference_doctype &&
 					data.return_type !== "Yes / No"
 				) {
-					// Fallback to doctype fields if no explicit schema
 					try {
 						const dtFields = await flexirule.utils.get_doctype_fields(
 							data.reference_doctype
@@ -452,8 +427,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			}
 		}
 
-		// 2. Phase 2: Perform Loop Schema Propagation
-		// Iterate again to propagate fields into loop aliases, now that all base variables are collected.
 		for (const node of scopedNodes) {
 			const data = node.data || {};
 			if (
@@ -478,10 +451,9 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 						`${normalizedPrefix}.`,
 					];
 
-					// We only iterate over variables collected in Phase 1 (current state of context_vars)
 					const baseVars = [...context_vars];
 					baseVars.forEach((v) => {
-						if (!v.value || v.is_loop_scoped) return; // Skip already scoped or invalid
+						if (!v.value || v.is_loop_scoped) return;
 						const valStr = String(v.value);
 						const matchedPrefix = possiblePrefixes.find((p) => valStr.startsWith(p));
 
@@ -504,7 +476,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 					});
 				}
 
-				// Add standard vars.loop metadata
 				["index", "first", "last", "length"].forEach((key) => {
 					const loopVar = `vars.loop.${key}`;
 					if (!seenContextValues.has(loopVar)) {
@@ -552,7 +523,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			mutation_mode: null,
 		};
 
-		// Type-specific defaults
 		if (type === "condition") {
 			baseData.action_type = "Condition";
 			baseData.compiled_expression = "";
@@ -607,8 +577,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		const actionType = node?.data?.action_type;
 		const isMultiOutput = ["Condition", "Loop", "Switch"].includes(actionType);
 
-		// ── BFS helper: collect all node IDs reachable from `startId`,
-		//   following only edges in `edgeList`, stopping at any ID in `stopSet`.
 		function bfsFrom(startId, edgeList, stopSet = new Set()) {
 			const visited = new Set();
 			const q = [startId];
@@ -624,16 +592,12 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		}
 
 		if (isMultiOutput && outEdges.length > 1) {
-			// Determine which output is the "primary continuation" (kept) vs "secondary" (cascade-delete).
-			// Loop  → primary = "After Last" (sourceHandle === "false")
-			// Condition / Switch → primary = YES / True (sourceHandle !== "false")
 			const isPrimaryFalse = actionType === "Loop";
 			const primaryEdge = outEdges.find((e) =>
 				isPrimaryFalse ? e.sourceHandle === "false" : e.sourceHandle !== "false"
 			);
 			const secondaryEdges = outEdges.filter((e) => e !== primaryEdge);
 
-			// Reconnect parents to the primary target
 			const primaryTargetId = primaryEdge?.target ?? null;
 			inEdges.forEach((inEdge) => {
 				inEdge.target = primaryTargetId;
@@ -647,19 +611,15 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 				}
 			});
 
-			// Cascade-delete nodes ONLY reachable from secondary outputs
-			// (i.e. nodes that would be orphaned and unreachable from the rest of the graph)
 			const edgesWithoutRemoved = edges.value.filter(
 				(e) => e.source !== nodeId && e.target !== nodeId
 			);
-			// Build set of all IDs still reachable from the main graph root
 			const rootId =
 				nodes.value.find(
 					(n) => n.type === "start" || n.data?.action_type === "Entry Action"
 				)?.id || "root";
 			const mainReachable = bfsFrom(rootId, [
 				...edgesWithoutRemoved,
-				// include the reconnected in-edges so the primary target is reachable
 				...inEdges.map((e) => ({ ...e, target: primaryTargetId })),
 			]);
 
@@ -676,7 +636,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 				(e) => !toDelete.has(e.source) && !toDelete.has(e.target)
 			);
 
-			// Fix reconnected in-edge targets in the edge array
 			edges.value = edges.value.map((e) => {
 				if (e.target === nodeId) return { ...e, target: primaryTargetId };
 				return e;
@@ -685,7 +644,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			return true;
 		}
 
-		// ── Simple single-output reconnection ────────────────────────────────
 		if (outEdges.length === 1) {
 			const targetId = outEdges[0].target;
 			inEdges.forEach((inEdge) => {
@@ -700,7 +658,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 				}
 			});
 		} else {
-			// Zero or unresolvable outputs: just clear parent references
 			inEdges.forEach((inEdge) => {
 				const sourceNode = nodes.value.find((n) => n.id === inEdge.source);
 				if (sourceNode && sourceNode.data) {
@@ -726,14 +683,12 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		const node = nodes.value.find((n) => n.id === nodeId);
 		if (!node || !node.data) return;
 
-		// Default to enabled (1) if undefined
 		if (node.data.is_enabled === 0) {
 			node.data.is_enabled = 1;
 		} else {
 			node.data.is_enabled = 0;
 		}
 
-		// Force reactivity update if needed
 		nodes.value = [...nodes.value];
 	}
 
@@ -742,7 +697,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		const edge = edges.value.find((el) => el.id === edgeId);
 		if (!edge) return false;
 
-		// Clear the next_step reference in the source node's data
 		const sourceNode = nodes.value.find((el) => el.id === edge.source);
 		if (sourceNode && sourceNode.data) {
 			const handle = edge.sourceHandle || "default";
@@ -769,20 +723,15 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		const targetId = edge.target;
 		const sourceHandle = edge.sourceHandle || "default";
 
-		// 1. Create new node
 		const newNodeId = generateShortId();
 		const nodeData = get_default_node_data(nodeType, options.label);
 
-		// Apply options (operation, process_name)
 		if (options.operation) nodeData.operation = options.operation;
 		if (options.process_name) nodeData.process_name = options.process_name;
 
 		const actionType = nodeData.action_type;
 
-		// ── LOOP: "For Each" branch gets a selector in the loop body.
-		//         "After Last" continues to the existing downstream target.
 		if (actionType === "Loop") {
-			// Scaffold an empty selector node as the loop body entry
 			const bodyNodeId = generateShortId();
 			const bodyData = get_default_node_data("selector", __("Loop Body"));
 			bodyData.action_id = bodyNodeId;
@@ -795,7 +744,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 				data: { ...bodyData, next_step_if_true: newNodeId },
 			};
 
-			// Loop: For Each (default) → body entry; After Last (false) → existing target
 			nodeData.next_step_if_true = bodyNodeId;
 			nodeData.next_step_if_false = targetId;
 
@@ -821,7 +769,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 
 			edges.value = [
 				...edges.value,
-				// Source → Loop
 				{
 					id: `e-${sourceId}-${newNodeId}-${sourceHandle}`,
 					source: sourceId,
@@ -829,7 +776,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 					sourceHandle,
 					type: "add",
 				},
-				// Loop → For Each → Body entry
 				{
 					id: `e-${newNodeId}-${bodyNodeId}-default`,
 					source: newNodeId,
@@ -838,7 +784,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 					type: "add",
 					data: { loopBody: true },
 				},
-				// Loop body return edge
 				{
 					id: `e-${bodyNodeId}-${newNodeId}-return`,
 					source: bodyNodeId,
@@ -847,7 +792,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 					type: "add",
 					data: { isReturn: true },
 				},
-				// Loop → After Last → Existing target (main flow)
 				{
 					id: `e-${newNodeId}-${targetId}-false`,
 					source: newNodeId,
@@ -861,8 +805,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			return newNodeId;
 		}
 
-		// ── CONDITION / SWITCH: True/YES → existing target,
-		//                        False/NO  → auto-scaffolded Stop. ──
 		if (actionType === "Condition" || actionType === "Switch") {
 			nodeData.next_step_if_true = targetId;
 
@@ -909,7 +851,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 					sourceHandle,
 					type: "add",
 				},
-				// YES / True path → existing target (sourceHandle MUST be "true")
 				{
 					id: `e-${newNodeId}-${targetId}-true`,
 					source: newNodeId,
@@ -917,7 +858,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 					sourceHandle: "true",
 					type: "add",
 				},
-				// NO / False path → new Stop
 				{
 					id: `e-${newNodeId}-${stopNodeId}-false`,
 					source: newNodeId,
@@ -930,7 +870,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			return newNodeId;
 		}
 
-		// ── Simple single-output node (default behaviour) ──
 		const isTerminal = isTerminalAction(nodeData.action_type);
 		if (!isTerminal) {
 			nodeData.next_step_if_true = targetId;
@@ -947,10 +886,8 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			},
 		};
 
-		// 2. Remove old edge
 		delete_edge(edgeId);
 
-		// 3. Update source node pointer to new node
 		const sourceNode = nodes.value.find((n) => n.id === sourceId);
 		if (sourceNode && sourceNode.data) {
 			if (sourceHandle === "false") {
@@ -960,10 +897,8 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			}
 		}
 
-		// 4. Add new node
 		nodes.value = [...nodes.value, newNode];
 
-		// 5. Create new edges
 		const edge1Id = `e-${sourceId}-${newNodeId}-${sourceHandle}`;
 		const newEdges = [
 			{
@@ -975,7 +910,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			},
 		];
 
-		// ONLY create outgoing edge if NOT terminal
 		if (!isTerminalAction(nodeData.action_type)) {
 			const edge2Id = `e-${newNodeId}-${targetId}-default`;
 			newEdges.push({
@@ -983,19 +917,17 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 				source: newNodeId,
 				target: targetId,
 				sourceHandle: "default",
-				targetHandle: edge.targetHandle, // Propagate return handle if applicable
+				targetHandle: edge.targetHandle,
 				type: "add",
-				data: { ...(edge.data || {}) }, // Propagate flags like loopBody or isReturn
+				data: { ...(edge.data || {}) },
 			});
 		}
 
 		edges.value = [...edges.value, ...newEdges];
 
-		// 6. If terminal, remove orphaned target node (as requested)
 		if (isTerminal) {
 			const otherParents = edges.value.filter((e) => e.target === targetId);
 			if (otherParents.length === 0) {
-				// No other parents remaining, delete the target subtree
 				delete_node(targetId);
 			}
 		}
@@ -1011,36 +943,28 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		const targetId = edge.target;
 		const sourceHandle = edge.sourceHandle || "default";
 
-		// 1. Paste nodes and get new ones
 		const newNodes = pasteNodes(pastedNodes, pastedEdges, { x: 0, y: 0 });
 		if (!newNodes.length) return;
 
 		const newNodeIds = new Set(newNodes.map((n) => n.id));
 
-		// 2. Identify entry and exit points in the pasted block
-		// Entry: first node that doesn't have an incoming FORWARD edge from another pasted node
 		const entryNode = newNodes.find((n) => {
 			return !edges.value.some(
 				(e) => e.target === n.id && newNodeIds.has(e.source) && !e.data?.isReturn
 			);
 		});
 
-		// Exit: first node that has a "null" next step (meaning it originally pointed outside the selection)
 		const exitNode = newNodes.find((n) => {
 			if (isTerminalAction(n.data?.action_type)) return false;
-			// For multi-output nodes like Loop/Condition, we check if ANY output is now null
 			return n.data?.next_step_if_true === null || n.data?.next_step_if_false === null;
 		});
 
 		if (!entryNode) {
-			// Fallback: if we can't find clear entry, return the first node but connectivity will be partial
 			return newNodes[0].id;
 		}
 
-		// 3. Remove old edge
 		delete_edge(edgeId);
 
-		// 4. Connect source to entry node
 		const sourceNode = nodes.value.find((n) => n.id === sourceId);
 		if (sourceNode && sourceNode.data) {
 			if (sourceHandle === "false") {
@@ -1058,11 +982,8 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			type: "add",
 		};
 
-		// 5. Connect exit node to target if NOT terminal
 		const newEdgesToAdd = [entryEdge];
 		if (exitNode && !isTerminalAction(exitNode.data?.action_type)) {
-			// Determine which handle to use on the exit node.
-			// Prefer the 'false' handle if it's the one that was nulled (e.g. Loop After Last)
 			const useFalseHandle = exitNode.data.next_step_if_false === null;
 			const exitHandle = useFalseHandle ? "false" : "default";
 
@@ -1095,7 +1016,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		if (idx === -1) return;
 
 		const current = nodes.value[idx];
-		// Replace to trigger Vue reactivity
 		nodes.value[idx] = {
 			...current,
 			data: { ...(current.data || {}) },
@@ -1230,6 +1150,33 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		return normalized;
 	}
 
+	function isLeafTuple(f) {
+		return (
+			Array.isArray(f) &&
+			(f.length === 3 || f.length === 4) &&
+			typeof f[0] === "string" &&
+			typeof f[1] === "string" &&
+			!["and", "or"].includes(f[0].toLowerCase())
+		);
+	}
+
+	function cleanFilters(filters) {
+		if (!Array.isArray(filters)) return filters;
+		if (isLeafTuple(filters)) {
+			const field = filters.length === 4 ? filters[1] : filters[0];
+			return field && field.trim() !== "" ? filters : [];
+		}
+		return filters.filter((f) => {
+			if (typeof f === "string" && ["and", "or"].includes(f.toLowerCase())) return true;
+			if (isLeafTuple(f)) {
+				const field = f.length === 4 ? f[1] : f[0];
+				return field && field.trim() !== "";
+			}
+			if (Array.isArray(f)) return cleanFilters(f).length > 0;
+			return !!(f?.field || f?.fieldname);
+		});
+	}
+
 	function clean_action_config(config, opts = {}) {
 		if (!config || typeof config !== "object") return config;
 		const clean = Array.isArray(config) ? [...config] : { ...config };
@@ -1246,16 +1193,9 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			return normalizedProcessConfig;
 		}
 
-		// Clean filters
+		// Clean filters (supports flat tuples [dt, field, op, val] and nested AND/OR structures)
 		if (Array.isArray(clean.filters)) {
-			clean.filters = clean.filters.filter((f) => {
-				// New tuple format: [doctype, field, op, payload]
-				if (Array.isArray(f)) {
-					return typeof f[1] === "string" && f[1].trim() !== "";
-				}
-				// Legacy object format: { doctype, field, operator, value, ... }
-				return !!(f?.field || f?.fieldname);
-			});
+			clean.filters = cleanFilters(clean.filters);
 		}
 
 		// Clean field lists
@@ -1309,7 +1249,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 	function normalize_action_data(actionType, data = {}) {
 		if (!actionType || !data) return data;
 
-		// Bridging machine node types to canonical contract keys
 		actionType = normalizeActionType(actionType);
 
 		const normalized = { ...data, action_type: actionType };
@@ -1387,7 +1326,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		nodes.value = nodes.value.map((node) => {
 			if (!node.data?.action_type) return node;
 
-			// 1. Deep sync conditions to config before normalization
 			if (node.data.action_type === "Condition") {
 				const payload = getConditionPayload({
 					config: node.data.config,
@@ -1402,7 +1340,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 				}
 			}
 
-			// 2. Structural normalization for Assignments
 			if (node.data.action_type === "Assignment") {
 				if (!node.data.config || !Array.isArray(node.data.config)) {
 					node.data.config = [];
@@ -1444,7 +1381,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		const visualData = flexirule.utils.safe_json_parse(ruleDoc.visual_data, {});
 		const visualNodes = new Map((visualData.nodes || []).map((n) => [n.id, n]));
 
-		// Ensure we have a root/entry action node
 		const rootAction = actionsList.find(
 			(a) => a.action_type === "Entry Action" || a.action_id === "root"
 		);
@@ -1598,7 +1534,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			});
 		}
 
-		// Build edges from next_step references
 		const sourceActions = customActions || actionsList;
 		sourceActions.forEach((action, index) => {
 			const nodeId = action.action_id || `act_${index}`;
@@ -1656,14 +1591,12 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 				])
 		);
 
-		// 0. Extract UI preferences if present
 		const uiStore = useUIStore();
 		const pref = visual_data?.find((el) => el.type === "ui_preferences");
 		if (pref?.layout) {
 			uiStore.layout_preference = pref.layout;
 		}
 
-		// 1. Merge node positions
 		const seenNodeIds = new Set();
 		const mergedNodes = nodes.value.map((node) => {
 			seenNodeIds.add(node.id);
@@ -1691,7 +1624,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			};
 		});
 
-		// 2. Add orphaned visual nodes not in actions
 		visualNodes.forEach((vNode, id) => {
 			if (!seenNodeIds.has(id)) {
 				mergedNodes.push({
@@ -1704,7 +1636,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 
 		nodes.value = [...mergedNodes];
 
-		// 3. Merge edge metadata
 		const seenEdgeKeys = new Set();
 		const mergedEdges = edges.value.map((edge) => {
 			const key = `${edge.source}:${edge.target}:${edge.sourceHandle || "default"}`;
@@ -1724,7 +1655,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			return { ...edge, ...visualEdgeMeta, type: "add" };
 		});
 
-		// Add orphaned edges with valid endpoints
 		visualEdges.forEach((vEdge, key) => {
 			if (!seenEdgeKeys.has(key)) {
 				if (seenNodeIds.has(vEdge.source) && seenNodeIds.has(vEdge.target)) {
@@ -1747,7 +1677,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			direction: layoutDirection || node.direction || null,
 		}));
 
-		// Inject UI preferences into meta if they exist
 		const uiStore = useUIStore();
 		const metaPayload = {
 			type: "ui_preferences",
@@ -1848,23 +1777,19 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			return candidate;
 		};
 
-		// 1. Calculate bounding box of pasted nodes to find offset
 		const minX = Math.min(...pastedNodes.map((n) => n.position?.x || 0));
 		const minY = Math.min(...pastedNodes.map((n) => n.position?.y || 0));
 
-		// 2. Map IDs and create new nodes
 		pastedNodes.forEach((node) => {
 			const oldId = node.id;
 			const newId = generateShortId();
 			idMap[oldId] = newId;
 
-			// Deep clone
 			const newNode = deepClone(node);
 			newNode.id = newId;
 			if (newNode.data) {
 				newNode.data.action_id = getUniqueActionId(generateShortId());
-				newNode.data.name = null; // Clear backend name to force new record
-				// Ensure mandatory fields are at least present
+				newNode.data.name = null;
 				if (
 					newNode.data.action_type === "Document Action" &&
 					!newNode.data.permission_audit_reason
@@ -1873,7 +1798,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 				}
 			}
 
-			// Shift position relative to paste point
 			newNode.position = {
 				x: (node.position?.x || 0) - minX + position.x,
 				y: (node.position?.y || 0) - minY + position.y,
@@ -1882,7 +1806,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			newNodes.push(newNode);
 		});
 
-		// 3. Remap next_step pointers in node data
 		newNodes.forEach((node) => {
 			if (node.data) {
 				if (node.data.next_step_if_true && idMap[node.data.next_step_if_true]) {
@@ -1897,7 +1820,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 					node.data.next_step_if_false = null;
 				}
 
-				// ENSURE terminal nodes have no next steps
 				if (isTerminalAction(node.data.action_type)) {
 					node.data.next_step_if_true = null;
 					node.data.next_step_if_false = null;
@@ -1905,13 +1827,11 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			}
 		});
 
-		// 4. Create new edges for internal connections
 		(pastedEdges || []).forEach((edge) => {
 			if (idMap[edge.source] && idMap[edge.target]) {
 				const newSourceId = idMap[edge.source];
 				const newTargetId = idMap[edge.target];
 
-				// DO NOT paste outgoing edges from terminal nodes
 				const sourceNode = newNodes.find((n) => n.id === newSourceId);
 				if (
 					sourceNode?.data?.action_type &&
@@ -1932,7 +1852,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			}
 		});
 
-		// 5. Auto-scaffold missing paths for Condition/Switch
 		newNodes.forEach((node) => {
 			if (
 				node.data &&
@@ -1969,7 +1888,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			}
 		});
 
-		// 6. Add to store
 		nodes.value = [...nodes.value, ...newNodes];
 		edges.value = [...edges.value, ...newEdges];
 
@@ -2036,7 +1954,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		);
 		if (!startNode) return;
 
-		// Check if start node has any outgoing edges
 		const hasStartEdge = (edges.value || []).some((el) => el.source === startNode.id);
 		if (hasStartEdge) return;
 
@@ -2065,7 +1982,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		const sourceNode = nodes.value.find((n) => n.id === sourceId);
 		const actionType = sourceNode?.data?.action_type;
 
-		// 1. Determine source handle
 		let sourceHandle = "default";
 		if (branch === "false") {
 			sourceHandle = "false";
@@ -2075,12 +1991,10 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			sourceHandle = branch || "default";
 		}
 
-		// Remove existing edge for this handle
 		edges.value = edges.value.filter(
 			(e) => !(e.source === sourceId && (e.sourceHandle || "default") === sourceHandle)
 		);
 
-		// Add new edge if target is valid
 		if (targetId) {
 			edges.value.push({
 				id: `e-${sourceId}-${targetId}-${sourceHandle}`,
@@ -2092,7 +2006,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			});
 		}
 
-		// 2. Sync node data
 		if (sourceNode && sourceNode.data) {
 			if (branch === "false") {
 				sourceNode.data.next_step_if_false = targetId;
