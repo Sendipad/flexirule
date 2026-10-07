@@ -93,6 +93,7 @@ const emit = defineEmits(["update:modelValue", "change"]);
 
 const root = reactive(normalizeTree(props.modelValue));
 let syncing = false;
+const leafRefs = new Map();
 
 const operatorLabel = (operator) =>
 	operator === "or" ? __("OR") : operator === "and" ? __("AND") : operator;
@@ -104,13 +105,46 @@ function setOperator(group, operator) {
 
 const groupOperators = computed(() => props.groupOperators.filter(Boolean));
 
+function registerLeafRef(id, el) {
+	if (el) leafRefs.set(id, el);
+	else leafRefs.delete(id);
+}
+
+async function focusLeaf(id) {
+	await nextTick();
+	const el = leafRefs.get(id);
+	if (!el) return;
+	if (typeof el.focus === "function" && el.tagName !== "DIV") {
+		el.focus();
+		return;
+	}
+	const target = el.querySelector?.("input, select, button, textarea, [tabindex='0']");
+	if (target) {
+		target.focus();
+	}
+}
+
 function addLeaf(group) {
 	if (props.readOnly) return;
-	group.children.push({
+	const newLeaf = {
 		id: createId(),
 		type: "leaf",
 		...cloneTree(props.leafFactory()),
-	});
+	};
+	group.children.push(newLeaf);
+	focusLeaf(newLeaf.id);
+}
+
+function insertSiblingLeaf(parent, index) {
+	if (props.readOnly || !parent?.children) return;
+	const newLeaf = {
+		id: createId(),
+		type: "leaf",
+		...cloneTree(props.leafFactory()),
+	};
+	const targetIndex = index >= 0 ? index + 1 : parent.children.length;
+	parent.children.splice(targetIndex, 0, newLeaf);
+	focusLeaf(newLeaf.id);
 }
 
 function addGroup(group) {
@@ -156,10 +190,12 @@ function dropNode(targetParent, targetIndex = -1) {
 
 provide("treeBuilderActions", {
 	addLeaf,
+	insertSiblingLeaf,
 	addGroup,
 	removeNode,
 	beginDrag,
 	dropNode,
+	registerLeafRef,
 });
 
 watch(

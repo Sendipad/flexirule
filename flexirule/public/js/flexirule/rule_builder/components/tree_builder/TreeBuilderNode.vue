@@ -24,6 +24,12 @@ const dragOver = ref(false);
 const isGroup = computed(() => isGroupNode(props.node));
 const children = computed(() => (isGroup.value ? props.node.children || [] : []));
 
+function setLeafRef(el) {
+	if (!isGroup.value && props.node.id && actions?.registerLeafRef) {
+		actions.registerLeafRef(props.node.id, el);
+	}
+}
+
 function remove() {
 	emit("remove");
 }
@@ -34,6 +40,15 @@ function addLeaf() {
 
 function addGroup() {
 	actions?.addGroup(props.node);
+}
+
+function handleKeydown(event) {
+	if (props.readOnly) return;
+	if (event.shiftKey && event.key === "Enter") {
+		event.preventDefault();
+		event.stopPropagation();
+		actions?.insertSiblingLeaf(props.parent, props.index);
+	}
 }
 
 function handleDragStart(event) {
@@ -71,6 +86,7 @@ function handleDragLeave() {
 		@dragover="handleGroupDragOver"
 		@dragleave="handleDragLeave"
 		@drop.prevent.stop="handleDrop"
+		@keydown="handleKeydown"
 	>
 		<div v-if="isGroup" class="tree-group">
 			<div class="tree-group__header">
@@ -144,7 +160,7 @@ function handleDragLeave() {
 			</div>
 		</div>
 
-		<div v-else class="tree-leaf">
+		<div v-else :ref="setLeafRef" class="tree-leaf">
 			<slot name="leaf" :node="node" :index="index" :parent="parent" />
 			<button
 				v-if="!readOnly"

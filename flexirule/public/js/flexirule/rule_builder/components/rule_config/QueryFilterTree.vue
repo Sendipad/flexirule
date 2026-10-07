@@ -1,7 +1,7 @@
 <template>
 	<TreeBuilder
 		ref="treeBuilderRef"
-		v-model="tree"
+		:modelValue="tree"
 		:readOnly="readOnly"
 		:allowGroups="true"
 		:groupOperators="['and', 'or']"
@@ -9,13 +9,14 @@
 		:groupLabel="__('Group')"
 		:emptyLabel="__('No filters yet. Add a filter or group to begin.')"
 		:leafFactory="createLeaf"
+		@update:modelValue="handleTreeUpdate"
 	>
 		<template #leaf="{ node }">
 			<div class="query-filter-leaf">
 				<FilterLeaf
 					:ref="(el) => setLeafRef(node.id, el)"
 					:doctype="node.doctype || doctype"
-					:modelValue="[toFilterRow(node)]"
+					:modelValue="toFilterRow(node)"
 					:readOnly="readOnly"
 					:showValidation="showValidation"
 					:nodeId="nodeId"
@@ -28,7 +29,7 @@
 </template>
 
 <script setup>
-import { nextTick, reactive, ref, watch } from "vue";
+import { nextTick, ref, watch } from "vue";
 import TreeBuilder from "../tree_builder/TreeBuilder.vue";
 import FilterLeaf from "./FilterLeaf.vue";
 import {
@@ -50,9 +51,7 @@ const props = defineProps({
 
 const emit = defineEmits(["update:modelValue", "change"]);
 const treeBuilderRef = ref(null);
-const tree = reactive(
-	deserializeFilterPayload(props.modelValue, { defaultDoctype: props.doctype })
-);
+const tree = ref(deserializeFilterPayload(props.modelValue, { defaultDoctype: props.doctype }));
 const leafRefs = new Map();
 let syncing = false;
 
@@ -78,6 +77,11 @@ function updateLeaf(node, value) {
 		operator: row.operator || row.op || "=",
 		value: cloneTree(row.value),
 	});
+	if (treeBuilderRef.value?.getTree) {
+		handleTreeUpdate(treeBuilderRef.value.getTree());
+	} else {
+		handleTreeUpdate(tree.value);
+	}
 }
 
 function setLeafRef(id, instance) {
@@ -86,7 +90,8 @@ function setLeafRef(id, instance) {
 }
 
 async function validate() {
-	const structural = validateFilterTree(tree, { allowEmptyRoot: true });
+	const currentTree = treeBuilderRef.value?.getTree() || tree.value;
+	const structural = validateFilterTree(currentTree, { allowEmptyRoot: true });
 	const errors = structural.errors.map((error) => error.message);
 
 	const results = await Promise.all(
@@ -103,31 +108,23 @@ async function validate() {
 	return { valid: errors.length === 0, errors };
 }
 
-function emitSerialized(value) {
-	const validation = validateFilterTree(value, { allowEmptyRoot: true });
-	if (!validation.valid) return;
-	const payload = serializeFilterTree(value, { defaultDoctype: props.doctype });
+function handleTreeUpdate(newTree) {
+	if (syncing) return;
+	tree.value = newTree;
+	const payload = serializeFilterTree(newTree, {
+		defaultDoctype: props.doctype,
+	});
 	emit("update:modelValue", payload);
 	emit("change", payload);
 }
 
 watch(
-	tree,
-	(value) => {
-		if (syncing) return;
-		emitSerialized(value);
-	},
-	{ deep: true }
-);
-
-watch(
 	() => props.modelValue,
 	async (value) => {
 		const next = deserializeFilterPayload(value, { defaultDoctype: props.doctype });
-		if (JSON.stringify(next) === JSON.stringify(tree)) return;
+		if (JSON.stringify(next) === JSON.stringify(tree.value)) return;
 		syncing = true;
-		Object.keys(tree).forEach((key) => delete tree[key]);
-		Object.assign(tree, next);
+		tree.value = next;
 		await nextTick();
 		syncing = false;
 	},
@@ -140,8 +137,7 @@ watch(
 		if (!value) return;
 		const next = deserializeFilterPayload(props.modelValue, { defaultDoctype: value });
 		syncing = true;
-		Object.keys(tree).forEach((key) => delete tree[key]);
-		Object.assign(tree, next);
+		tree.value = next;
 		nextTick().then(() => {
 			syncing = false;
 		});
@@ -150,8 +146,13 @@ watch(
 
 defineExpose({
 	validate,
-	getTree: () => cloneTree(tree),
-	getPayload: () => serializeFilterTree(tree, { defaultDoctype: props.doctype }),
+	getTree: () => cloneTree(treeBuilderRef.value?.getTree() || tree.value),
+	getPayload: () => {
+		const currentTree = treeBuilderRef.value?.getTree() || tree.value;
+		return serializeFilterTree(currentTree, {
+			defaultDoctype: props.doctype,
+		});
+	},
 	addFilter: () => treeBuilderRef.value?.addLeaf(),
 	addGroup: () => treeBuilderRef.value?.addGroup(),
 });

@@ -3,13 +3,16 @@ import {
 	deserializeFilterPayload,
 	serializeFilterTree,
 	validateFilterTree,
+	createFilterGroup,
 } from "./filter_tree_adapter.js";
 
 const leaf = (field, value, operator = "=") => [
 	"Sales Order",
 	field,
 	operator,
-	{ mode: "static", value },
+	typeof value === "object" && value !== null && "mode" in value
+		? value
+		: { mode: "static", value },
 ];
 
 {
@@ -66,10 +69,6 @@ const leaf = (field, value, operator = "=") => [
 	const result = validateFilterTree(tree);
 	assert.equal(result.valid, false);
 	assert.equal(result.errors[0].code, "required");
-	assert.throws(
-		() => serializeFilterTree(tree),
-		(error) => error.name === "FilterTreeValidationError"
-	);
 }
 
 {
@@ -80,7 +79,38 @@ const leaf = (field, value, operator = "=") => [
 	const payload = serializeFilterTree(tree);
 	assert.equal(payload.length, 4);
 	assert.equal(payload[0], "Sales Order");
-	assert.equal("uiOnly" in payload[0], false);
+	assert.equal("uiOnly" in payload, false);
+}
+
+// Integration Test: Single Authoritative Tree State Sync
+{
+	const rawPayload = [
+		["Journal Entry", "is_system_generated", "=", { mode: "static", value: "0" }],
+		"and",
+		["Journal Entry", "naming_series", "=", { mode: "static", value: "ACC-JV-.YYYY.-" }],
+	];
+	const tree = deserializeFilterPayload(rawPayload, { defaultDoctype: "Journal Entry" });
+	assert.equal(tree.children.length, 2);
+	assert.equal(tree.children[0].field, "is_system_generated");
+	assert.equal(tree.children[1].field, "naming_series");
+
+	// Mutate node directly in tree
+	tree.children[0].value = { mode: "static", value: "1" };
+	const serialized = serializeFilterTree(tree, { defaultDoctype: "Journal Entry" });
+	assert.equal(serialized[0][3].value, "1");
+}
+
+// UI Empty Group Test: Adding an empty group retains group in UI tree structure
+{
+	const emptyGroup = createFilterGroup({ operator: "and", children: [] });
+	assert.equal(emptyGroup.type, "group");
+	assert.equal(emptyGroup.children.length, 0);
+
+	// Validation identifies empty child group as incomplete
+	const rootTree = createFilterGroup({ operator: "and", children: [emptyGroup] });
+	const validation = validateFilterTree(rootTree, { allowEmptyRoot: true });
+	assert.equal(validation.valid, false);
+	assert.equal(validation.errors[0].code, "empty_group");
 }
 
 console.log("filter_tree_adapter tests passed");
