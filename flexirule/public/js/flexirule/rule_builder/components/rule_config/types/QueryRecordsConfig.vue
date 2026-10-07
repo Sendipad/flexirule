@@ -49,6 +49,7 @@
 					:nodeId="node?.id"
 					:variableOptions="variable_options"
 					@update:modelValue="update_fetch_records_config"
+					@dirty-change="emit('dirty-change', $event)"
 				/>
 			</template>
 
@@ -576,6 +577,8 @@ const props = defineProps({
 	node: Object,
 	readOnly: Boolean,
 });
+
+const emit = defineEmits(["dirty-change"]);
 
 const {
 	store,
@@ -1809,6 +1812,7 @@ async function validate() {
 
 defineExpose({
 	validate,
+	hasUncommittedChanges: () => !!fetchRecordsConfigRef.value?.hasUncommittedChanges?.(),
 });
 </script>
 
