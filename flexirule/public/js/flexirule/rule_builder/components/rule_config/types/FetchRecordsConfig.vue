@@ -140,7 +140,11 @@ import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
 import MultiSelectList from "../../../controls/MultiSelectList.vue";
 import { useNavigableFields } from "../../../composables/useNavigableFields";
 import QueryFilterTree from "../QueryFilterTree.vue";
-import { deserializeFilterPayload, serializeFilterTree, toPersistedFilterTree } from "../filter_tree_adapter.js";
+import {
+	deserializeFilterPayload,
+	serializeFilterTree,
+	toPersistedFilterTree,
+} from "../filter_tree_adapter.js";
 import { cloneTree } from "../../tree_builder/tree_builder_utils.js";
 
 const props = defineProps({
@@ -154,7 +158,9 @@ const props = defineProps({
 
 const emit = defineEmits(["update:modelValue", "change", "dirty-change"]);
 const filterTreeRef = ref(null);
-const filterTree = ref(deserializeFilterPayload(props.modelValue?.filters || [], { defaultDoctype: props.doctype }));
+const filterTree = ref(
+	deserializeFilterPayload(props.modelValue?.filters || [], { defaultDoctype: props.doctype })
+);
 const filterDraftDirty = ref(false);
 
 // TreeBuilder edits are editor-local. Expose their dirty state to the Action Modal
@@ -304,7 +310,8 @@ function emitConfig() {
 		(Array.isArray(filters) && filters.length > 0) ||
 		(filters &&
 			typeof filters === "object" &&
-			(filters.type !== "group" || (Array.isArray(filters.children) && filters.children.length > 0)));
+			(filters.type !== "group" ||
+				(Array.isArray(filters.children) && filters.children.length > 0)));
 	if (!hasFilters) delete next.filters;
 
 	if (!next.fields?.length) delete next.fields;
@@ -394,10 +401,10 @@ defineExpose({
 	validate,
 	hasUncommittedChanges: () => filterDraftDirty.value,
 	getFilterTree: () => cloneTree(filterTreeRef.value?.getTree?.() || filterTree.value),
-	getFilterPayload: () => serializeFilterTree(
-		filterTreeRef.value?.getTree?.() || filterTree.value,
-		{ defaultDoctype: props.doctype }
-	),
+	getFilterPayload: () =>
+		serializeFilterTree(filterTreeRef.value?.getTree?.() || filterTree.value, {
+			defaultDoctype: props.doctype,
+		}),
 });
 </script>
 
