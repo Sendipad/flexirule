@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
 	deserializeFilterPayload,
+	isFilterTreePayloadEquivalent,
 	serializeFilterTree,
 	validateFilterTree,
 	createFilterGroup,
@@ -111,6 +112,46 @@ const leaf = (field, value, operator = "=") => [
 	const validation = validateFilterTree(rootTree, { allowEmptyRoot: true });
 	assert.equal(validation.valid, false);
 	assert.equal(validation.errors[0].code, "empty_group");
+}
+
+
+
+{
+	const tree = createFilterGroup({
+		operator: "and",
+		children: [createFilterGroup({ operator: "or", children: [] })],
+	});
+	assert.equal(
+		isFilterTreePayloadEquivalent(tree, [], { defaultDoctype: "Sales Order" }),
+		true
+	);
+	// A normalized parent payload must not force an explicit empty group out of
+	// the interactive editor state.
+	assert.equal(tree.children[0].type, "group");
+	assert.equal(tree.children[0].children.length, 0);
+}
+
+{
+	const leafNode = deserializeFilterPayload(leaf("status", "Open"), {
+		defaultDoctype: "Sales Order",
+	}).children[0];
+	const tree = createFilterGroup({
+		operator: "and",
+		children: [
+			createFilterGroup({ operator: "or", children: [leafNode] }),
+		],
+	});
+	assert.equal(
+		isFilterTreePayloadEquivalent(tree, leaf("status", "Open"), {
+			defaultDoctype: "Sales Order",
+		}),
+		true
+	);
+	// Single-child groups remain structural editor nodes even though the
+	// execution payload intentionally normalizes them away.
+	assert.equal(tree.children[0].type, "group");
+	assert.equal(tree.children[0].operator, "or");
+	assert.equal(tree.children[0].children.length, 1);
 }
 
 console.log("filter_tree_adapter tests passed");
