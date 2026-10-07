@@ -1,7 +1,7 @@
 <template>
 	<TreeBuilder
 		ref="treeBuilderRef"
-		v-model="tree"
+		:modelValue="tree"
 		:readOnly="readOnly"
 		:allowGroups="true"
 		:groupOperators="['and', 'or']"
@@ -9,13 +9,14 @@
 		:groupLabel="__('Group')"
 		:emptyLabel="__('No filters yet. Add a filter or group to begin.')"
 		:leafFactory="createLeaf"
+		@update:modelValue="handleTreeUpdate"
 	>
 		<template #leaf="{ node }">
 			<div class="query-filter-leaf">
 				<FilterLeaf
 					:ref="(el) => setLeafRef(node.id, el)"
 					:doctype="node.doctype || doctype"
-					:modelValue="[toFilterRow(node)]"
+					:modelValue="toFilterRow(node)"
 					:readOnly="readOnly"
 					:showValidation="showValidation"
 					:nodeId="nodeId"
@@ -28,19 +29,24 @@
 </template>
 
 <script setup>
-import { nextTick, reactive, ref, watch } from "vue";
+import { ref, watch } from "vue";
 import TreeBuilder from "../tree_builder/TreeBuilder.vue";
 import FilterLeaf from "./FilterLeaf.vue";
 import {
 	createFilterLeaf,
-	deserializeFilterPayload,
 	serializeFilterTree,
 	validateFilterTree,
 } from "./filter_tree_adapter.js";
-import { cloneTree } from "../tree_builder/tree_builder_utils.js";
+import { cloneTree, normalizeTree } from "../tree_builder/tree_builder_utils.js";
 
 const props = defineProps({
-	modelValue: { type: [Array, Object], default: () => [] },
+	// This component owns an editor AST, not the persisted/backend filter payload.
+	// The parent is responsible for deserializing persisted filters once when
+	// creating the editor draft.
+	modelValue: {
+		type: Object,
+		default: () => ({ type: "group", operator: "and", children: [] }),
+	},
 	doctype: { type: String, required: true },
 	nodeId: { type: String, default: null },
 	readOnly: { type: Boolean, default: false },
@@ -50,11 +56,9 @@ const props = defineProps({
 
 const emit = defineEmits(["update:modelValue", "change"]);
 const treeBuilderRef = ref(null);
-const tree = reactive(
-	deserializeFilterPayload(props.modelValue, { defaultDoctype: props.doctype })
-);
+const tree = ref(normalizeTree(props.modelValue));
 const leafRefs = new Map();
-let syncing = false;
+let syncingFromParent = false;
 
 function createLeaf() {
 	return createFilterLeaf({ doctype: props.doctype });
@@ -71,22 +75,52 @@ function toFilterRow(node) {
 
 function updateLeaf(node, value) {
 	const row = Array.isArray(value) ? value[0] : value;
-	if (!row) return;
-	Object.assign(node, {
-		doctype: row.doctype || props.doctype,
-		field: row.field || row.fieldname || "",
-		operator: row.operator || row.op || "=",
-		value: cloneTree(row.value),
-	});
-}
+	if (!row || !node?.id) return;
 
+	// TreeBuilder owns the live editor AST. Mutate that live node instead of
+	// QueryFilterTree's mirrored snapshot so TreeBuilder's deep watcher emits
+	// the update all the way to FetchRecordsConfig and config.filters.
+	const updated = treeBuilderRef.value?.updateNode?.(node.id, (target) => {
+		Object.assign(target, {
+			doctype: row.doctype || props.doctype,
+			field: row.field || row.fieldname || "",
+			operator: row.operator || row.op || "=",
+			value: cloneTree(row.value),
+		});
+	});
+
+	if (!updated) return;
+}
 function setLeafRef(id, instance) {
 	if (instance) leafRefs.set(id, instance);
 	else leafRefs.delete(id);
 }
 
+function handleTreeUpdate(value) {
+	if (syncingFromParent) return;
+	const next = cloneTree(value);
+	tree.value = next;
+	emit("update:modelValue", cloneTree(next));
+	emit("change", cloneTree(next));
+}
+
+watch(
+	() => props.modelValue,
+	async (value) => {
+		const next = normalizeTree(value);
+		if (JSON.stringify(next) === JSON.stringify(tree.value)) return;
+
+		syncingFromParent = true;
+		tree.value = next;
+		await Promise.resolve();
+		syncingFromParent = false;
+	},
+	{ deep: true, immediate: true }
+);
+
 async function validate() {
-	const structural = validateFilterTree(tree, { allowEmptyRoot: true });
+	const currentTree = treeBuilderRef.value?.getTree() || tree.value;
+	const structural = validateFilterTree(currentTree, { allowEmptyRoot: true });
 	const errors = structural.errors.map((error) => error.message);
 
 	const results = await Promise.all(
@@ -96,6 +130,7 @@ async function validate() {
 				: { valid: true, errors: [] }
 		)
 	);
+
 	for (const result of results) {
 		if (!result?.valid && result.errors) errors.push(...result.errors);
 	}
@@ -103,55 +138,20 @@ async function validate() {
 	return { valid: errors.length === 0, errors };
 }
 
-function emitSerialized(value) {
-	const validation = validateFilterTree(value, { allowEmptyRoot: true });
-	if (!validation.valid) return;
-	const payload = serializeFilterTree(value, { defaultDoctype: props.doctype });
-	emit("update:modelValue", payload);
-	emit("change", payload);
+function getTree() {
+	return cloneTree(treeBuilderRef.value?.getTree() || tree.value);
 }
 
-watch(
-	tree,
-	(value) => {
-		if (syncing) return;
-		emitSerialized(value);
-	},
-	{ deep: true }
-);
-
-watch(
-	() => props.modelValue,
-	async (value) => {
-		const next = deserializeFilterPayload(value, { defaultDoctype: props.doctype });
-		if (JSON.stringify(next) === JSON.stringify(tree)) return;
-		syncing = true;
-		Object.keys(tree).forEach((key) => delete tree[key]);
-		Object.assign(tree, next);
-		await nextTick();
-		syncing = false;
-	},
-	{ deep: true }
-);
-
-watch(
-	() => props.doctype,
-	(value) => {
-		if (!value) return;
-		const next = deserializeFilterPayload(props.modelValue, { defaultDoctype: value });
-		syncing = true;
-		Object.keys(tree).forEach((key) => delete tree[key]);
-		Object.assign(tree, next);
-		nextTick().then(() => {
-			syncing = false;
-		});
-	}
-);
+function getPayload() {
+	return serializeFilterTree(getTree(), {
+		defaultDoctype: props.doctype,
+	});
+}
 
 defineExpose({
 	validate,
-	getTree: () => cloneTree(tree),
-	getPayload: () => serializeFilterTree(tree, { defaultDoctype: props.doctype }),
+	getTree,
+	getPayload,
 	addFilter: () => treeBuilderRef.value?.addLeaf(),
 	addGroup: () => treeBuilderRef.value?.addGroup(),
 });

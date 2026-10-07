@@ -76,38 +76,67 @@ def _criterion_for_leaf(doctype: str, leaf):
 	return OPERATOR_MAP[operator](column, value)
 
 
-def _compile_logical_filters(doctype: str, filters):
-	"""Compile legacy-incompatible AND/OR filter lists into a native Criterion."""
-	if not isinstance(filters, list | tuple):
-		return filters
+def _compile_filter_tree(filters, default_doctype: str):
+	"""Compile FlexiRule's canonical filter tree into Frappe's nested QB filter form.
 
-	if not any(isinstance(item, str) and item.casefold() in {"and", "or"} for item in filters):
-		return filters
-
-	if not filters:
+	The persisted contract is intentionally independent of Frappe. At runtime the
+	canonical group/leaf AST is lowered to the nested filter syntax understood by
+	Frappe v15's Engine, which then converts nested conditions into Pypika
+	Criterion objects. This preserves arbitrary AND/OR nesting without exposing
+	Frappe's filter representation to the UI/config contract.
+	"""
+	if filters in (None, "", []):
 		return None
 
-	criteria: list[Criterion] = []
-	pending_operator = "and"
-	for item in filters:
-		if isinstance(item, str) and item.casefold() in {"and", "or"}:
-			pending_operator = item.casefold()
-			continue
+	def leaf_to_condition(node):
+		if not isinstance(node, dict) or node.get("type") != "leaf":
+			raise ValueError("Filter tree leaf must be an object with type='leaf'")
 
-		criterion = (
-			_compile_logical_filters(doctype, item)
-			if isinstance(item, list | tuple)
-			and any(isinstance(part, str) and part.casefold() in {"and", "or"} for part in item)
-			else _criterion_for_leaf(doctype, item)
-		)
-		if not criteria:
-			criteria.append(criterion)
-		elif pending_operator == "or":
-			criteria[-1] = criteria[-1] | criterion
-		else:
-			criteria[-1] = criteria[-1] & criterion
+		doctype = node.get("doctype") or default_doctype
+		field = node.get("field")
+		operator = node.get("operator") or "="
+		if not doctype:
+			raise ValueError("Filter tree leaf requires a DocType")
+		if not isinstance(field, str) or not field.strip():
+			raise ValueError("Filter tree leaf requires a field")
+		if not isinstance(operator, str) or not operator.strip():
+			raise ValueError("Filter tree leaf requires an operator")
 
-	return criteria[0]
+		return [doctype, field, operator, node.get("value")]
+
+	def visit(node):
+		if not isinstance(node, dict):
+			raise ValueError("Filter tree node must be an object")
+
+		if node.get("type") == "leaf":
+			return leaf_to_condition(node)
+
+		if node.get("type") != "group":
+			raise ValueError("Filter tree node type must be 'group' or 'leaf'")
+
+		operator = str(node.get("operator") or "and").lower()
+		if operator not in {"and", "or"}:
+			raise ValueError("Filter tree group operator must be 'and' or 'or'")
+
+		children = node.get("children") or []
+		if not isinstance(children, list):
+			raise ValueError("Filter tree group children must be a list")
+		if not children:
+			return None
+
+		compiled = [visit(child) for child in children]
+		compiled = [child for child in compiled if child is not None]
+		if not compiled:
+			return None
+		if len(compiled) == 1:
+			return compiled[0]
+
+		result = [compiled[0]]
+		for child in compiled[1:]:
+			result.extend([operator, child])
+		return result
+
+	return visit(filters)
 
 
 def _get_permission_condition(doctype: str, user: str) -> str:
@@ -121,31 +150,24 @@ def _get_permission_condition(doctype: str, user: str) -> str:
 
 
 def execute_query(doctype: str, kwargs: dict, ignore_permissions: bool):
-	"""Execute through native Query Builder with the smallest compatibility shim."""
+	"""Build a Frappe Query Builder query and enforce permissions separately."""
 	query_kwargs = dict(kwargs)
 
-	if not QUERY_CAPABILITIES.supports_logical_filter_groups:
-		filters = query_kwargs.get("filters")
-		if isinstance(filters, list | tuple) and any(
-			isinstance(item, str) and item.casefold() in {"and", "or"} for item in filters
-		):
-			query_kwargs["filters"] = _compile_logical_filters(doctype, filters)
+	filters = query_kwargs.get("filters")
+	if isinstance(filters, dict) and filters.get("type") in {"group", "leaf"}:
+		query_kwargs["filters"] = _compile_filter_tree(filters, doctype)
 
-	if QUERY_CAPABILITIES.supports_ignore_permissions:
-		query_kwargs["ignore_permissions"] = ignore_permissions
-		query = frappe.qb.get_query(doctype, **query_kwargs)
-	else:
-		query = frappe.qb.get_query(doctype, **query_kwargs)
-		if not ignore_permissions:
-			user = frappe.session.user
-			try:
-				Permission.check_permissions(query, user=user)
-			except frappe.ValidationError as e:
-				if "Insufficient Permission" in str(e):
-					raise frappe.PermissionError(e)
-				raise
-			permission_condition = _get_permission_condition(doctype, user)
-			if permission_condition:
-				query = query.where(_TrustedSQLCriterion(permission_condition))
+	# Frappe v15's get_query() is a SQL builder, not a permission API. Always
+	# perform permission checking as a separate step and never pass
+	# ignore_permissions/user through get_query().
+	query = frappe.qb.get_query(doctype, **query_kwargs)
+	if not ignore_permissions:
+		user = frappe.session.user
+		try:
+			Permission.check_permissions(query, user=user)
+		except frappe.ValidationError as e:
+			if "Insufficient Permission" in str(e):
+				raise frappe.PermissionError(e)
+			raise
 
 	return query.run(as_dict=True)

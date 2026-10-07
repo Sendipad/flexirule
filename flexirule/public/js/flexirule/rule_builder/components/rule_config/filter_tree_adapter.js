@@ -88,14 +88,23 @@ function normalizeLegacyValue(value) {
 }
 
 function looksLikeLeafTuple(value) {
-	return (
-		Array.isArray(value) &&
-		(value.length === 3 || value.length === 4) &&
-		typeof value[0] === "string" &&
-		typeof value[1] === "string" &&
-		typeof value[2] === "string" &&
-		!LOGICAL_OPERATORS.has(value[0].toLowerCase())
-	);
+	if (!Array.isArray(value)) return false;
+	if (value.length === 4) {
+		return (
+			typeof value[0] === "string" &&
+			typeof value[1] === "string" &&
+			typeof value[2] === "string" &&
+			!LOGICAL_OPERATORS.has(value[0].toLowerCase())
+		);
+	}
+	if (value.length === 3) {
+		return (
+			typeof value[0] === "string" &&
+			typeof value[1] === "string" &&
+			!LOGICAL_OPERATORS.has(value[0].toLowerCase())
+		);
+	}
+	return false;
 }
 
 function tupleToLeaf(tuple, { defaultDoctype = "", createId } = {}) {
@@ -284,23 +293,50 @@ export function validateFilterTree(tree, { allowEmptyRoot = true, validateOperat
 	return { valid: errors.length === 0, errors };
 }
 
+export function toPersistedFilterTree(tree, options = {}) {
+	const normalized = normalizeFilterTree(tree, options);
+
+	function persist(node) {
+		if (isFilterLeaf(node)) {
+			return {
+				type: "leaf",
+				doctype: node.doctype || options.defaultDoctype || "",
+				field: node.field || "",
+				operator: node.operator || "=",
+				value: clone(node.value),
+			};
+		}
+
+		return {
+			type: "group",
+			operator: String(node.operator || "and").toLowerCase(),
+			children: (node.children || []).map(persist),
+		};
+	}
+
+	return persist(normalized);
+}
+
 export function serializeFilterTree(tree, options = {}) {
 	const normalized = normalizeFilterTree(tree, options);
-	const validation = validateFilterTree(normalized, options);
-	if (!validation.valid) throw new FilterTreeValidationError(validation.errors);
 
 	function serialize(node) {
 		if (isFilterLeaf(node)) {
 			return [
 				node.doctype || options.defaultDoctype || "",
-				node.field,
-				node.operator,
+				node.field || "",
+				node.operator || "=",
 				clone(node.value),
 			];
 		}
 
-		const children = (node.children || []).map(serialize);
-		if (!children.length) return [];
+		const children = (node.children || [])
+			.map(serialize)
+			.filter((child) => child !== null && child !== undefined);
+		// Empty groups are valid editor state, but have no executable filter payload.
+		// Keep that distinction at the adapter boundary so empty groups never leak
+		// as [] into a nested backend expression.
+		if (!children.length) return null;
 		if (children.length === 1) return children[0];
 
 		const result = [children[0]];
@@ -310,5 +346,6 @@ export function serializeFilterTree(tree, options = {}) {
 		return result;
 	}
 
-	return serialize(normalized);
+	const serialized = serialize(normalized);
+	return serialized === null || serialized === undefined ? [] : serialized;
 }

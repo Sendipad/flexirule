@@ -19,6 +19,7 @@
 					:read_only="readOnly"
 					:showValidation="showValidation"
 					@update:field="on_update_field"
+					@dirty-change="(dirty) => emit('dirty-change', dirty)"
 				/>
 				<div v-else class="empty-config text-center">
 					<i class="fa fa-sliders fa-3x text-muted mb-3"></i>
@@ -55,6 +56,8 @@ const props = defineProps({
 	readOnly: Boolean,
 	showValidation: { type: Boolean, default: false },
 });
+
+const emit = defineEmits(["dirty-change"]);
 
 const store = useStore();
 
@@ -165,6 +168,7 @@ function focusFirst() {
 defineExpose({
 	validate,
 	focusFirst,
+	hasUncommittedChanges: () => !!configRef.value?.hasUncommittedChanges?.(),
 });
 </script>
 

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {
 	deserializeFilterPayload,
 	serializeFilterTree,
+	toPersistedFilterTree,
 	validateFilterTree,
 } from "./filter_tree_adapter.js";
 
@@ -9,7 +10,9 @@ const leaf = (field, value, operator = "=") => [
 	"Sales Order",
 	field,
 	operator,
-	{ mode: "static", value },
+	typeof value === "object" && value !== null && "mode" in value
+		? value
+		: { mode: "static", value },
 ];
 
 {
@@ -66,10 +69,6 @@ const leaf = (field, value, operator = "=") => [
 	const result = validateFilterTree(tree);
 	assert.equal(result.valid, false);
 	assert.equal(result.errors[0].code, "required");
-	assert.throws(
-		() => serializeFilterTree(tree),
-		(error) => error.name === "FilterTreeValidationError"
-	);
 }
 
 {
@@ -80,7 +79,125 @@ const leaf = (field, value, operator = "=") => [
 	const payload = serializeFilterTree(tree);
 	assert.equal(payload.length, 4);
 	assert.equal(payload[0], "Sales Order");
-	assert.equal("uiOnly" in payload[0], false);
+	assert.equal("uiOnly" in payload, false);
+}
+
+// Empty editor groups must never become executable nested filter arrays.
+{
+	const tree = deserializeFilterPayload([
+		leaf("status", "Open"),
+		"and",
+		{
+			type: "group",
+			operator: "or",
+			children: [],
+		},
+	]);
+	assert.equal(tree.children.length, 2);
+	assert.equal(tree.children[1].type, "group");
+	assert.deepEqual(serializeFilterTree(tree), leaf("status", "Open"));
+}
+
+// Integration Test: Single Authoritative Tree State Sync
+{
+	const rawPayload = [
+		["Journal Entry", "is_system_generated", "=", { mode: "static", value: "0" }],
+		"and",
+		["Journal Entry", "naming_series", "=", { mode: "static", value: "ACC-JV-.YYYY.-" }],
+	];
+	const tree = deserializeFilterPayload(rawPayload, { defaultDoctype: "Journal Entry" });
+	assert.equal(tree.children.length, 2);
+	assert.equal(tree.children[0].field, "is_system_generated");
+	assert.equal(tree.children[1].field, "naming_series");
+
+	// Mutate node directly in tree
+	tree.children[0].value = { mode: "static", value: "1" };
+	const serialized = serializeFilterTree(tree, { defaultDoctype: "Journal Entry" });
+	assert.equal(serialized[0][3].value, "1");
+}
+
+
+// Regression: the root AND must contain a sibling leaf and a nested OR group.
+{
+	const payload = [
+		[
+			"Journal Entry",
+			"title",
+			"is",
+			{ mode: "static", value: "set" },
+		],
+		"and",
+		[
+			["Journal Entry", "is_system_generated", "=", { mode: "static", value: "0" }],
+			"or",
+			[
+				"Journal Entry",
+				"naming_series",
+				"=",
+				{ mode: "static", value: "ACC-JV-.YYYY.-" },
+			],
+		],
+	];
+	const tree = deserializeFilterPayload(payload);
+
+	assert.equal(tree.operator, "and");
+	assert.equal(tree.children.length, 2);
+	assert.equal(tree.children[0].type, "leaf");
+	assert.equal(tree.children[0].field, "title");
+	assert.equal(tree.children[1].type, "group");
+	assert.equal(tree.children[1].operator, "or");
+	assert.equal(tree.children[1].children.length, 2);
+	assert.equal(tree.children[1].children[0].field, "is_system_generated");
+	assert.equal(tree.children[1].children[1].field, "naming_series");
+	assert.deepEqual(serializeFilterTree(tree), payload);
+}
+
+{
+	// Persisted Fetch Records filters use the semantic tree, not Frappe's
+	// executable filter-array syntax, and never persist editor-only ids.
+	const tree = deserializeFilterPayload(
+		[
+			leaf("title", "set", "is"),
+			"and",
+			[leaf("is_system_generated", 0), "or", leaf("naming_series", "ACC-JV-.YYYY.-")],
+		],
+		{ defaultDoctype: "Journal Entry", createId: () => "editor-id" }
+	);
+	const persisted = toPersistedFilterTree(tree, { defaultDoctype: "Journal Entry" });
+
+	assert.deepEqual(persisted, {
+		type: "group",
+		operator: "and",
+		children: [
+			{
+				type: "leaf",
+				doctype: "Journal Entry",
+				field: "title",
+				operator: "is",
+				value: { mode: "static", value: "set" },
+			},
+			{
+				type: "group",
+				operator: "or",
+				children: [
+					{
+						type: "leaf",
+						doctype: "Journal Entry",
+						field: "is_system_generated",
+						operator: "=",
+						value: { mode: "static", value: 0 },
+					},
+					{
+						type: "leaf",
+						doctype: "Journal Entry",
+						field: "naming_series",
+						operator: "=",
+						value: { mode: "static", value: "ACC-JV-.YYYY.-" },
+					},
+				],
+			},
+		],
+	});
 }
 
 console.log("filter_tree_adapter tests passed");

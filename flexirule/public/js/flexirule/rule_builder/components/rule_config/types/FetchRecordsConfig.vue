@@ -16,12 +16,12 @@
 			<QueryFilterTree
 				ref="filterTreeRef"
 				:doctype="doctype"
-				:modelValue="localConfig.filters || []"
+				:modelValue="filterTree"
 				:readOnly="readOnly"
 				:showValidation="showValidation"
 				:nodeId="nodeId"
 				:variableOptions="variableOptions"
-				@update:modelValue="updateConfig('filters', $event)"
+				@update:modelValue="updateFilterTree"
 			/>
 		</div>
 
@@ -140,6 +140,8 @@ import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
 import MultiSelectList from "../../../controls/MultiSelectList.vue";
 import { useNavigableFields } from "../../../composables/useNavigableFields";
 import QueryFilterTree from "../QueryFilterTree.vue";
+import { deserializeFilterPayload, serializeFilterTree, toPersistedFilterTree } from "../filter_tree_adapter.js";
+import { cloneTree } from "../../tree_builder/tree_builder_utils.js";
 
 const props = defineProps({
 	modelValue: { type: Object, default: () => ({}) },
@@ -150,8 +152,14 @@ const props = defineProps({
 	variableOptions: { type: Array, default: null },
 });
 
-const emit = defineEmits(["update:modelValue", "change"]);
+const emit = defineEmits(["update:modelValue", "change", "dirty-change"]);
 const filterTreeRef = ref(null);
+const filterTree = ref(deserializeFilterPayload(props.modelValue?.filters || [], { defaultDoctype: props.doctype }));
+const filterDraftDirty = ref(false);
+
+// TreeBuilder edits are editor-local. Expose their dirty state to the Action Modal
+// without serializing the editor AST into config.filters during editing.
+watch(filterDraftDirty, (dirty) => emit("dirty-change", dirty), { immediate: true });
 
 const localConfig = reactive(normalizeConfig(props.modelValue));
 const orderRows = ref(parseOrderBy(localConfig.order_by));
@@ -261,9 +269,44 @@ function updateConfig(key, value) {
 	emitConfig();
 }
 
+function updateFilterTree(value) {
+	// TreeBuilder is the source of truth while editing, but config.filters must
+	// stay synchronized with the visible tree. Persist the canonical semantic
+	// tree immediately; never convert it to Frappe's executable filter syntax.
+	const nextTree = cloneTree(value);
+	filterTree.value = nextTree;
+	localConfig.filters = toPersistedFilterTree(nextTree, { defaultDoctype: props.doctype });
+	filterDraftDirty.value = true;
+	emitConfig();
+}
+
+function commitFilters() {
+	const tree = filterTreeRef.value?.getTree?.() || filterTree.value;
+	const payload = toPersistedFilterTree(tree, { defaultDoctype: props.doctype });
+
+	// Validation/save is the final synchronization boundary. This also ensures
+	// the exact TreeBuilder state is what the parent draft receives.
+	localConfig.filters = clone(payload);
+	filterDraftDirty.value = false;
+	emitConfig();
+
+	return payload;
+}
+
 function emitConfig() {
 	const next = { ...clone(localConfig) };
-	if (!next.filters?.length) delete next.filters;
+
+	// filters is now a canonical recursive tree, not a Frappe filter array.
+	// Do not use .length to determine whether it exists: a valid group is an
+	// object and would otherwise be deleted on every emit.
+	const filters = next.filters;
+	const hasFilters =
+		(Array.isArray(filters) && filters.length > 0) ||
+		(filters &&
+			typeof filters === "object" &&
+			(filters.type !== "group" || (Array.isArray(filters.children) && filters.children.length > 0)));
+	if (!hasFilters) delete next.filters;
+
 	if (!next.fields?.length) delete next.fields;
 	if (!next.order_by) delete next.order_by;
 	if (!next.group_by) delete next.group_by;
@@ -274,21 +317,54 @@ function emitConfig() {
 	emit("change", next);
 }
 
+function hydrateFilterTree(filters, doctype = props.doctype) {
+	if (filterDraftDirty.value) return;
+	filterTree.value = deserializeFilterPayload(filters ?? [], {
+		defaultDoctype: doctype,
+	});
+}
+
 watch(
 	() => props.modelValue,
 	(value) => {
 		const next = normalizeConfig(value);
-		if (JSON.stringify(next) === JSON.stringify(localConfig)) return;
-		Object.keys(localConfig).forEach((key) => delete localConfig[key]);
-		Object.assign(localConfig, next);
-		orderRows.value = parseOrderBy(next.order_by);
+
+		if (JSON.stringify(next) !== JSON.stringify(localConfig)) {
+			Object.keys(localConfig).forEach((key) => delete localConfig[key]);
+			Object.assign(localConfig, next);
+			orderRows.value = parseOrderBy(next.order_by);
+		}
 	},
-	{ deep: true }
+	{ deep: true, immediate: true }
+);
+
+// Filters have their own explicit hydration boundary. This is intentionally
+// watched separately because QueryRecordsConfig can populate/mutate its shared
+// reactive config object after this component has already mounted.
+watch(
+	() => props.modelValue?.filters,
+	(filters) => hydrateFilterTree(filters),
+	{ deep: true, immediate: true }
+);
+
+watch(
+	() => props.doctype,
+	(value) => {
+		if (!value || filterDraftDirty.value) return;
+		hydrateFilterTree(localConfig.filters || props.modelValue?.filters || [], value);
+	}
 );
 
 async function validate() {
+	// Commit the editor AST only at the validation/save boundary. The persisted
+	// contract is the canonical semantic tree; backend-specific query syntax is
+	// compiled later by the runtime.
 	const result = (await filterTreeRef.value?.validate?.()) || { valid: true, errors: [] };
 	const errors = [...(result.errors || [])];
+
+	if (!result.valid) {
+		return { valid: false, errors };
+	}
 
 	for (const [label, value] of [
 		[__("Limit"), localConfig.limit],
@@ -307,10 +383,22 @@ async function validate() {
 		}
 	}
 
+	if (errors.length === 0) {
+		commitFilters();
+	}
+
 	return { valid: errors.length === 0, errors };
 }
 
-defineExpose({ validate });
+defineExpose({
+	validate,
+	hasUncommittedChanges: () => filterDraftDirty.value,
+	getFilterTree: () => cloneTree(filterTreeRef.value?.getTree?.() || filterTree.value),
+	getFilterPayload: () => serializeFilterTree(
+		filterTreeRef.value?.getTree?.() || filterTree.value,
+		{ defaultDoctype: props.doctype }
+	),
+});
 </script>
 
 <style scoped>

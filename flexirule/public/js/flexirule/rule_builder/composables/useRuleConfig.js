@@ -21,16 +21,21 @@ export function useRuleConfig(props, emit) {
 	const initialDraftState = ref(null);
 
 	const isDirty = ref(false);
+	const panelDirty = ref(false);
+
+	function markPanelDirty(dirty) {
+		panelDirty.value = !!dirty;
+	}
 
 	watch(
-		[() => draftNode.value?.data, initialDraftState],
+		[() => draftNode.value?.data, initialDraftState, panelDirty],
 		() => {
 			if (!props.node || !draftNode.value || initialDraftState.value === null) {
 				isDirty.value = false;
 				return;
 			}
 			const current = JSON.stringify(draftNode.value.data || {});
-			isDirty.value = current !== initialDraftState.value;
+			isDirty.value = current !== initialDraftState.value || panelDirty.value;
 		},
 		{ deep: true, immediate: true }
 	);
@@ -75,13 +80,9 @@ export function useRuleConfig(props, emit) {
 		showValidation.value = true;
 		const errors = [];
 
-		// 1. Canonical Contract Validation (Handles mandatory fields, policies, etc.)
-		const contractRes = validateAgainstContract(draftNode.value.data);
-		if (!contractRes.valid) {
-			errors.push(...contractRes.errors);
-		}
-
-		// 2. Panel-specific deep validation (Component-level validation)
+		// 1. Panel-specific deep validation (Component-level validation).
+		// Panels may commit draft-only editor state (for example TreeBuilder
+		// filters) into the draft before the canonical contract is evaluated.
 		for (const [name, panelRef] of Object.entries(panelRefs)) {
 			if (panelRef.value && typeof panelRef.value.validate === "function") {
 				const res = await panelRef.value.validate();
@@ -90,6 +91,13 @@ export function useRuleConfig(props, emit) {
 					else if (res.message) errors.push(res.message);
 				}
 			}
+		}
+
+		// 2. Canonical Contract Validation (Handles mandatory fields, policies,
+		// and the committed panel state).
+		const contractRes = validateAgainstContract(draftNode.value.data);
+		if (!contractRes.valid) {
+			errors.push(...contractRes.errors);
 		}
 
 		// 3. Global Business Rules
@@ -171,6 +179,7 @@ export function useRuleConfig(props, emit) {
 		([newNode, isOpen]) => {
 			if (isOpen && newNode) {
 				createDraft();
+				panelDirty.value = false;
 				initialDraftState.value = null;
 				showValidation.value = false;
 
@@ -191,6 +200,7 @@ export function useRuleConfig(props, emit) {
 		config,
 		isDirty,
 		panelRefs,
+		markPanelDirty,
 		showValidation,
 		updateField,
 		validate,

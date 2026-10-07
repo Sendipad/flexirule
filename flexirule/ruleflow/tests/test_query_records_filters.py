@@ -8,6 +8,7 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from flexirule.ruleflow.core.action_handlers.query_records import QueryRecordsHandler
+from flexirule.ruleflow.utils.frappe_query_compat import _compile_filter_tree
 
 
 class TestQueryRecordsFilters(FrappeTestCase):
@@ -21,6 +22,88 @@ class TestQueryRecordsFilters(FrappeTestCase):
 		# Clear resolver cache
 		if hasattr(frappe.local, "flexirule_compiled_resolvers"):
 			delattr(frappe.local, "flexirule_compiled_resolvers")
+
+
+	def test_compile_canonical_filter_tree_preserves_nested_logic(self):
+		tree = {
+			"type": "group",
+			"operator": "and",
+			"children": [
+				{
+					"type": "leaf",
+					"doctype": "Journal Entry",
+					"field": "title",
+					"operator": "is",
+					"value": {"mode": "static", "value": "set"},
+				},
+				{
+					"type": "group",
+					"operator": "or",
+					"children": [
+						{
+							"type": "leaf",
+							"doctype": "Journal Entry",
+							"field": "is_system_generated",
+							"operator": "=",
+							"value": {"mode": "static", "value": "0"},
+						},
+						{
+							"type": "leaf",
+							"doctype": "Journal Entry",
+							"field": "naming_series",
+							"operator": "=",
+							"value": {"mode": "static", "value": "ACC-JV-.YYYY.-"},
+						},
+					],
+				},
+			],
+		}
+		compiled = _compile_filter_tree(tree, "Journal Entry")
+		self.assertEqual(compiled[0][1], "title")
+		self.assertEqual(compiled[1], "and")
+		self.assertEqual(compiled[2][0][1], "is_system_generated")
+		self.assertEqual(compiled[2][1], "or")
+		self.assertEqual(compiled[2][2][1], "naming_series")
+
+	def test_compile_canonical_filter_tree_supports_deep_nesting(self):
+		tree = {
+			"type": "group",
+			"operator": "or",
+			"children": [
+				{
+					"type": "group",
+					"operator": "and",
+					"children": [
+						{"type": "leaf", "field": "status", "operator": "=", "value": "Open"},
+						{"type": "leaf", "field": "enabled", "operator": "=", "value": 1},
+					],
+				},
+				{
+					"type": "group",
+					"operator": "and",
+					"children": [
+						{"type": "leaf", "field": "status", "operator": "=", "value": "Pending"},
+						{"type": "leaf", "field": "enabled", "operator": "=", "value": 1},
+					],
+				},
+			],
+		}
+		self.assertEqual(
+			_compile_filter_tree(tree, "QB Test Parent"),
+			[
+				[
+					["QB Test Parent", "status", "=", "Open"],
+					"and",
+					["QB Test Parent", "enabled", "=", 1],
+				],
+				"or",
+				[
+					["QB Test Parent", "status", "=", "Pending"],
+					"and",
+					["QB Test Parent", "enabled", "=", 1],
+				],
+			],
+		)
 
 	def test_resolve_simple_dict_filters(self):
 		# Let's test with resolvers which is the recommended way
