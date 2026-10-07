@@ -72,74 +72,23 @@
 					<!-- Value / Expression -->
 					<div class="filter-col value-col">
 						<div class="value-input-group">
-							<template v-if="row.operator === 'Between'">
-								<div class="dual-value-wrapper">
-									<div class="value-input-item">
-										<FlexValueControl
-											:modelValue="
-												Array.isArray(row.value)
-													? row.value[0]
-													: { mode: 'static', value: '' }
-											"
-											:context="{
-												df: { ...getControlFactorySchema(row), reqd: 1 },
-												operator: row.operator,
-												referenceDoctype: row.doctype || doctype,
-											}"
-											:disabled="readOnly"
-											:showValidation="showValidation"
-											:engine="store"
-											:doc="store?.rule_doc"
-											:variableOptions="effectiveVariableOptions"
-											@update:modelValue="
-												(val) => updateBetweenValue(idx, 0, val)
-											"
-										/>
-									</div>
-									<span class="between-sep">{{ __("and") }}</span>
-									<div class="value-input-item">
-										<FlexValueControl
-											:modelValue="
-												Array.isArray(row.value)
-													? row.value[1]
-													: { mode: 'static', value: '' }
-											"
-											:context="{
-												df: { ...getControlFactorySchema(row), reqd: 1 },
-												operator: row.operator,
-												referenceDoctype: row.doctype || doctype,
-											}"
-											:disabled="readOnly"
-											:showValidation="showValidation"
-											:engine="store"
-											:doc="store?.rule_doc"
-											:variableOptions="effectiveVariableOptions"
-											@update:modelValue="
-												(val) => updateBetweenValue(idx, 1, val)
-											"
-										/>
-									</div>
-								</div>
-							</template>
-							<template v-else>
-								<div class="control-slot w-100 min-w-0">
-									<FlexValueControl
-										v-model="row.value"
-										:context="{
-											df: { ...getControlFactorySchema(row), reqd: 1 },
-											operator: row.operator,
-											referenceDoctype: row.doctype || doctype,
-										}"
-										:engine="store"
-										:doc="store?.rule_doc"
-										:variableOptions="effectiveVariableOptions"
-										:disabled="readOnly"
-										:readOnly="readOnly"
-										:showValidation="showValidation"
-										@update:modelValue="() => emitUpdate()"
-									/>
-								</div>
-							</template>
+							<div class="control-slot w-100 min-w-0">
+								<FlexValueControl
+									v-model="row.value"
+									:context="{
+										df: { ...getControlFactorySchema(row), reqd: 1 },
+										operator: row.operator,
+										referenceDoctype: row.doctype || doctype,
+									}"
+									:engine="store"
+									:doc="store?.rule_doc"
+									:variableOptions="effectiveVariableOptions"
+									:disabled="readOnly"
+									:readOnly="readOnly"
+									:showValidation="showValidation"
+									@update:modelValue="() => emitUpdate()"
+								/>
+							</div>
 						</div>
 					</div>
 
@@ -896,21 +845,6 @@ const updateRow = (idx, data) => {
 		}
 	}
 
-	filters.value[idx] = merged;
-	emitUpdate();
-};
-
-const updateBetweenValue = (idx, arrayIndex, val) => {
-	const row = filters.value[idx];
-	const merged = { ...row };
-	const list = Array.isArray(merged.value)
-		? [...merged.value]
-		: [
-				{ mode: "static", value: "" },
-				{ mode: "static", value: "" },
-		  ];
-	list[arrayIndex] = val;
-	merged.value = list;
 	filters.value[idx] = merged;
 	emitUpdate();
 };
