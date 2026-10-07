@@ -3,6 +3,7 @@ import {
 	deserializeFilterPayload,
 	serializeFilterTree,
 	validateFilterTree,
+	createFilterGroup,
 } from "./filter_tree_adapter.js";
 
 const leaf = (field, value, operator = "=") => [
@@ -97,6 +98,19 @@ const leaf = (field, value, operator = "=") => [
 	tree.children[0].value = { mode: "static", value: "1" };
 	const serialized = serializeFilterTree(tree, { defaultDoctype: "Journal Entry" });
 	assert.equal(serialized[0][3].value, "1");
+}
+
+// UI Empty Group Test: Adding an empty group retains group in UI tree structure
+{
+	const emptyGroup = createFilterGroup({ operator: "and", children: [] });
+	assert.equal(emptyGroup.type, "group");
+	assert.equal(emptyGroup.children.length, 0);
+
+	// Validation identifies empty child group as incomplete
+	const rootTree = createFilterGroup({ operator: "and", children: [emptyGroup] });
+	const validation = validateFilterTree(rootTree, { allowEmptyRoot: true });
+	assert.equal(validation.valid, false);
+	assert.equal(validation.errors[0].code, "empty_group");
 }
 
 console.log("filter_tree_adapter tests passed");
