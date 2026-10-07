@@ -21,16 +21,21 @@ export function useRuleConfig(props, emit) {
 	const initialDraftState = ref(null);
 
 	const isDirty = ref(false);
+	const panelDirty = ref(false);
+
+	function markPanelDirty(dirty) {
+		panelDirty.value = !!dirty;
+	}
 
 	watch(
-		[() => draftNode.value?.data, initialDraftState],
+		[() => draftNode.value?.data, initialDraftState, panelDirty],
 		() => {
 			if (!props.node || !draftNode.value || initialDraftState.value === null) {
 				isDirty.value = false;
 				return;
 			}
 			const current = JSON.stringify(draftNode.value.data || {});
-			isDirty.value = current !== initialDraftState.value;
+			isDirty.value = current !== initialDraftState.value || panelDirty.value;
 		},
 		{ deep: true, immediate: true }
 	);
@@ -174,6 +179,7 @@ export function useRuleConfig(props, emit) {
 		([newNode, isOpen]) => {
 			if (isOpen && newNode) {
 				createDraft();
+				panelDirty.value = false;
 				initialDraftState.value = null;
 				showValidation.value = false;
 
@@ -194,6 +200,7 @@ export function useRuleConfig(props, emit) {
 		config,
 		isDirty,
 		panelRefs,
+		markPanelDirty,
 		showValidation,
 		updateField,
 		validate,
