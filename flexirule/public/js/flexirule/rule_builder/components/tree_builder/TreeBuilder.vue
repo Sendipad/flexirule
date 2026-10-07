@@ -189,11 +189,28 @@ function dropNode(targetParent, targetIndex = -1) {
 	dragState.index = -1;
 }
 
+function updateNode(nodeId, updater) {
+	if (props.readOnly || !nodeId || typeof updater !== "function") return false;
+
+	function visit(node) {
+		if (!node) return false;
+		if (node.id === nodeId) {
+			updater(node);
+			return true;
+		}
+		if (!isGroupNode(node)) return false;
+		return (node.children || []).some(visit);
+	}
+
+	return visit(root);
+}
+
 provide("treeBuilderActions", {
 	addLeaf,
 	insertSiblingLeaf,
 	addGroup,
 	removeNode,
+	updateNode,
 	beginDrag,
 	dropNode,
 	registerLeafRef,
@@ -227,6 +244,7 @@ watch(
 defineExpose({
 	addLeaf: () => addLeaf(root),
 	addGroup: () => addGroup(root),
+	updateNode: (nodeId, updater) => updateNode(nodeId, updater),
 	getTree: () => cloneTree(root),
 });
 </script>
