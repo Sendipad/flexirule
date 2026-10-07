@@ -140,7 +140,7 @@ import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
 import MultiSelectList from "../../../controls/MultiSelectList.vue";
 import { useNavigableFields } from "../../../composables/useNavigableFields";
 import QueryFilterTree from "../QueryFilterTree.vue";
-import { deserializeFilterPayload, toPersistedFilterTree } from "../filter_tree_adapter.js";
+import { deserializeFilterPayload, serializeFilterTree, toPersistedFilterTree } from "../filter_tree_adapter.js";
 import { cloneTree } from "../../tree_builder/tree_builder_utils.js";
 
 const props = defineProps({
@@ -270,18 +270,22 @@ function updateConfig(key, value) {
 }
 
 function updateFilterTree(value) {
-	// Filter editing is intentionally local to the editor. Do not serialize
-	// the tree back into config.filters on every UI mutation.
-	filterTree.value = cloneTree(value);
+	// TreeBuilder is the source of truth while editing, but config.filters must
+	// stay synchronized with the visible tree. Persist the canonical semantic
+	// tree immediately; never convert it to Frappe's executable filter syntax.
+	const nextTree = cloneTree(value);
+	filterTree.value = nextTree;
+	localConfig.filters = toPersistedFilterTree(nextTree, { defaultDoctype: props.doctype });
 	filterDraftDirty.value = true;
+	emitConfig();
 }
 
 function commitFilters() {
 	const tree = filterTreeRef.value?.getTree?.() || filterTree.value;
 	const payload = toPersistedFilterTree(tree, { defaultDoctype: props.doctype });
 
-	// Persist the canonical semantic tree. Backend-specific Frappe filter syntax
-	// is compiled only at execution time and never becomes the UI contract.
+	// Validation/save is the final synchronization boundary. This also ensures
+	// the exact TreeBuilder state is what the parent draft receives.
 	localConfig.filters = clone(payload);
 	filterDraftDirty.value = false;
 	emitConfig();
@@ -304,7 +308,7 @@ function emitConfig() {
 
 function hydrateFilterTree(filters, doctype = props.doctype) {
 	if (filterDraftDirty.value) return;
-	filterTree.value = deserializeFilterPayload(filters || [], {
+	filterTree.value = deserializeFilterPayload(filters ?? [], {
 		defaultDoctype: doctype,
 	});
 }
