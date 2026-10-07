@@ -89,7 +89,11 @@ function handleDragLeave() {
 		@drop.prevent.stop="handleDrop"
 		@keydown="handleKeydown"
 	>
-		<div v-if="isGroup" class="tree-group">
+		<div
+			v-if="isGroup"
+			class="tree-group"
+			:class="{ 'tree-group--root-child': isRootChild }"
+		>
 			<div class="tree-group__header">
 				<div class="tree-group__logic">
 					<button
