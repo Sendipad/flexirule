@@ -293,6 +293,30 @@ export function validateFilterTree(tree, { allowEmptyRoot = true, validateOperat
 	return { valid: errors.length === 0, errors };
 }
 
+export function toPersistedFilterTree(tree, options = {}) {
+	const normalized = normalizeFilterTree(tree, options);
+
+	function persist(node) {
+		if (isFilterLeaf(node)) {
+			return {
+				type: "leaf",
+				doctype: node.doctype || options.defaultDoctype || "",
+				field: node.field || "",
+				operator: node.operator || "=",
+				value: clone(node.value),
+			};
+		}
+
+		return {
+			type: "group",
+			operator: String(node.operator || "and").toLowerCase(),
+			children: (node.children || []).map(persist),
+		};
+	}
+
+	return persist(normalized);
+}
+
 export function serializeFilterTree(tree, options = {}) {
 	const normalized = normalizeFilterTree(tree, options);
 
