@@ -81,6 +81,22 @@ const leaf = (field, value, operator = "=") => [
 	assert.equal("uiOnly" in payload, false);
 }
 
+// Empty editor groups must never become executable nested filter arrays.
+{
+	const tree = deserializeFilterPayload([
+		leaf("status", "Open"),
+		"and",
+		{
+			type: "group",
+			operator: "or",
+			children: [],
+		},
+	]);
+	assert.equal(tree.children.length, 2);
+	assert.equal(tree.children[1].type, "group");
+	assert.deepEqual(serializeFilterTree(tree), leaf("status", "Open"));
+}
+
 // Integration Test: Single Authoritative Tree State Sync
 {
 	const rawPayload = [
