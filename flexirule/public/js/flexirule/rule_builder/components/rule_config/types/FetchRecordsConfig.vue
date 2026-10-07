@@ -300,6 +300,13 @@ function emitConfig() {
 	emit("change", next);
 }
 
+function hydrateFilterTree(filters, doctype = props.doctype) {
+	if (filterDraftDirty.value) return;
+	filterTree.value = deserializeFilterPayload(filters || [], {
+		defaultDoctype: doctype,
+	});
+}
+
 watch(
 	() => props.modelValue,
 	(value) => {
@@ -310,16 +317,16 @@ watch(
 			Object.assign(localConfig, next);
 			orderRows.value = parseOrderBy(next.order_by);
 		}
-
-		// Hydrate persisted filters whenever they become available for the first
-		// time, and whenever an external committed change replaces them. Never
-		// overwrite an editor draft that is currently being edited.
-		if (!filterDraftDirty.value) {
-			filterTree.value = deserializeFilterPayload(next.filters || [], {
-				defaultDoctype: props.doctype,
-			});
-		}
 	},
+	{ deep: true, immediate: true }
+);
+
+// Filters have their own explicit hydration boundary. This is intentionally
+// watched separately because QueryRecordsConfig can populate/mutate its shared
+// reactive config object after this component has already mounted.
+watch(
+	() => props.modelValue?.filters,
+	(filters) => hydrateFilterTree(filters),
 	{ deep: true, immediate: true }
 );
 
@@ -327,9 +334,7 @@ watch(
 	() => props.doctype,
 	(value) => {
 		if (!value || filterDraftDirty.value) return;
-		filterTree.value = deserializeFilterPayload(localConfig.filters || [], {
-			defaultDoctype: value,
-		});
+		hydrateFilterTree(localConfig.filters || props.modelValue?.filters || [], value);
 	}
 );
 
