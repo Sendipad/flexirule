@@ -29,7 +29,7 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { ref, watch } from "vue";
 import TreeBuilder from "../tree_builder/TreeBuilder.vue";
 import FilterLeaf from "./FilterLeaf.vue";
 import {
@@ -58,6 +58,7 @@ const emit = defineEmits(["update:modelValue", "change"]);
 const treeBuilderRef = ref(null);
 const tree = ref(normalizeTree(props.modelValue));
 const leafRefs = new Map();
+let syncingFromParent = false;
 
 function createLeaf() {
 	return createFilterLeaf({ doctype: props.doctype });
@@ -91,11 +92,26 @@ function setLeafRef(id, instance) {
 }
 
 function handleTreeUpdate(value) {
+	if (syncingFromParent) return;
 	const next = cloneTree(value);
 	tree.value = next;
 	emit("update:modelValue", cloneTree(next));
 	emit("change", cloneTree(next));
 }
+
+watch(
+	() => props.modelValue,
+	async (value) => {
+		const next = normalizeTree(value);
+		if (JSON.stringify(next) === JSON.stringify(tree.value)) return;
+
+		syncingFromParent = true;
+		tree.value = next;
+		await Promise.resolve();
+		syncingFromParent = false;
+	},
+	{ deep: true, immediate: true }
+);
 
 async function validate() {
 	const currentTree = treeBuilderRef.value?.getTree() || tree.value;
