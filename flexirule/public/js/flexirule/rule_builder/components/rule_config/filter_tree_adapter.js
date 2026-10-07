@@ -306,8 +306,13 @@ export function serializeFilterTree(tree, options = {}) {
 			];
 		}
 
-		const children = (node.children || []).map(serialize).filter(Boolean);
-		if (!children.length) return [];
+		const children = (node.children || [])
+			.map(serialize)
+			.filter((child) => child !== null && child !== undefined);
+		// Empty groups are valid editor state, but have no executable filter payload.
+		// Keep that distinction at the adapter boundary so empty groups never leak
+		// as [] into a nested backend expression.
+		if (!children.length) return null;
 		if (children.length === 1) return children[0];
 
 		const result = [children[0]];
@@ -317,5 +322,6 @@ export function serializeFilterTree(tree, options = {}) {
 		return result;
 	}
 
-	return serialize(normalized);
+	const serialized = serialize(normalized);
+	return serialized === null || serialized === undefined ? [] : serialized;
 }
