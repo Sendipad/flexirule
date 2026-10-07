@@ -140,7 +140,7 @@ import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
 import MultiSelectList from "../../../controls/MultiSelectList.vue";
 import { useNavigableFields } from "../../../composables/useNavigableFields";
 import QueryFilterTree from "../QueryFilterTree.vue";
-import { deserializeFilterPayload, serializeFilterTree } from "../filter_tree_adapter.js";
+import { deserializeFilterPayload, toPersistedFilterTree } from "../filter_tree_adapter.js";
 import { cloneTree } from "../../tree_builder/tree_builder_utils.js";
 
 const props = defineProps({
@@ -278,8 +278,10 @@ function updateFilterTree(value) {
 
 function commitFilters() {
 	const tree = filterTreeRef.value?.getTree?.() || filterTree.value;
-	const payload = serializeFilterTree(tree, { defaultDoctype: props.doctype });
+	const payload = toPersistedFilterTree(tree, { defaultDoctype: props.doctype });
 
+	// Persist the canonical semantic tree. Backend-specific Frappe filter syntax
+	// is compiled only at execution time and never becomes the UI contract.
 	localConfig.filters = clone(payload);
 	filterDraftDirty.value = false;
 	emitConfig();
@@ -339,9 +341,9 @@ watch(
 );
 
 async function validate() {
-	// Commit the editor AST only at the validation/save boundary. This keeps
-	// interactive TreeBuilder state lossless while guaranteeing that persisted
-	// config.filters is always a valid executable payload.
+	// Commit the editor AST only at the validation/save boundary. The persisted
+	// contract is the canonical semantic tree; backend-specific query syntax is
+	// compiled later by the runtime.
 	const result = (await filterTreeRef.value?.validate?.()) || { valid: true, errors: [] };
 	const errors = [...(result.errors || [])];
 
