@@ -75,13 +75,9 @@ export function useRuleConfig(props, emit) {
 		showValidation.value = true;
 		const errors = [];
 
-		// 1. Canonical Contract Validation (Handles mandatory fields, policies, etc.)
-		const contractRes = validateAgainstContract(draftNode.value.data);
-		if (!contractRes.valid) {
-			errors.push(...contractRes.errors);
-		}
-
-		// 2. Panel-specific deep validation (Component-level validation)
+		// 1. Panel-specific deep validation (Component-level validation).
+		// Panels may commit draft-only editor state (for example TreeBuilder
+		// filters) into the draft before the canonical contract is evaluated.
 		for (const [name, panelRef] of Object.entries(panelRefs)) {
 			if (panelRef.value && typeof panelRef.value.validate === "function") {
 				const res = await panelRef.value.validate();
@@ -90,6 +86,13 @@ export function useRuleConfig(props, emit) {
 					else if (res.message) errors.push(res.message);
 				}
 			}
+		}
+
+		// 2. Canonical Contract Validation (Handles mandatory fields, policies,
+		// and the committed panel state).
+		const contractRes = validateAgainstContract(draftNode.value.data);
+		if (!contractRes.valid) {
+			errors.push(...contractRes.errors);
 		}
 
 		// 3. Global Business Rules
