@@ -3,7 +3,7 @@ import {cloneTree,findNode,findPath,isContainerNode,normalizeTree,treesEqual} fr
 import * as commands from "./tree_builder_commands.js";
 import {validateTree} from "./tree_builder_validation.js";
 export function useTreeBuilder({modelValue,emit,readOnly=false,groupOperators=["and","or"],leafFactory=()=>({}),scopeFactory=()=>({}),allowScopes=true,allowEmptyGroups=true,validateLeaf,validateScope}={}){
-const root=reactive(normalizeTree(modelValue,{groupOperators})),selectedNodeId=ref(null),focusedNodeId=ref(null),editingNodeId=ref(null),expandedNodes=reactive(new Set([root.id])),dragState=reactive({nodeId:null});let syncing=false;
+const root=reactive(normalizeTree(modelValue?.value ?? modelValue,{groupOperators})),selectedNodeId=ref(null),focusedNodeId=ref(null),editingNodeId=ref(null),expandedNodes=reactive(new Set([root.id])),dragState=reactive({nodeId:null});let syncing=false;
 const operators=computed(()=>groupOperators.filter(Boolean)),selectedNode=computed(()=>findNode(root,selectedNodeId.value)),focusedNode=computed(()=>findNode(root,focusedNodeId.value));
 function replaceRoot(next){const n=normalizeTree(next,{groupOperators});Object.keys(root).forEach(k=>delete root[k]);Object.assign(root,n);expandedNodes.clear();expandedNodes.add(root.id);}
 function emitChange(){if(syncing||!emit)return;const n=cloneTree(root);emit("update:modelValue",n);emit("change",n);}
