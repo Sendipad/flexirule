@@ -47,6 +47,7 @@
 				@operator="setOperator(node.id, $event)"
 			>
 				<template #default="p"><slot name="leaf" v-bind="p" /></template>
+				<template #collection="p"><slot name="collection" v-bind="p" /></template>
 			</TreeBuilderNode>
 		</div>
 	</div>
