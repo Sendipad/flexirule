@@ -39,12 +39,17 @@ function tupleToLeaf(tuple, defaultDoctype, path) {
 
 function parse(value, defaultDoctype, path = []) {
 	if (isGroup(value)) {
-		if (!OPERATORS.has(value.operator)) throw new QueryFilterSerializationError("Unsupported filter group operator.");
+		if (!OPERATORS.has(value.operator))
+			throw new QueryFilterSerializationError("Unsupported filter group operator.");
 		return {
 			id: value.id || stableId("group", path),
 			type: "group",
 			operator: value.operator,
-			children: Array.isArray(value.children) ? value.children.map((child, index) => parse(child, defaultDoctype, [...path, index])) : [],
+			children: Array.isArray(value.children)
+				? value.children.map((child, index) =>
+						parse(child, defaultDoctype, [...path, index])
+				  )
+				: [],
 		};
 	}
 	if (isLeaf(value)) {
@@ -53,7 +58,8 @@ function parse(value, defaultDoctype, path = []) {
 	if (isTuple(value)) return tupleToLeaf(value, defaultDoctype, path);
 	if (Array.isArray(value)) {
 		const items = value.filter((item) => item !== undefined && item !== null);
-		if (!items.length) return { id: stableId("root", path), type: "group", operator: "and", children: [] };
+		if (!items.length)
+			return { id: stableId("root", path), type: "group", operator: "and", children: [] };
 		let current = null;
 		let pending = "and";
 		for (const item of items) {
@@ -61,9 +67,17 @@ function parse(value, defaultDoctype, path = []) {
 				pending = item.toLowerCase();
 				continue;
 			}
-			const node = parse(item, defaultDoctype, [...path, current ? current.children.length : 0]);
+			const node = parse(item, defaultDoctype, [
+				...path,
+				current ? current.children.length : 0,
+			]);
 			if (!current) {
-				current = { id: stableId("group", path), type: "group", operator: pending, children: [node] };
+				current = {
+					id: stableId("group", path),
+					type: "group",
+					operator: pending,
+					children: [node],
+				};
 				continue;
 			}
 			if (current.operator === pending) {
@@ -77,9 +91,12 @@ function parse(value, defaultDoctype, path = []) {
 				children: [current, node],
 			};
 		}
-		return current || { id: stableId("root", path), type: "group", operator: "and", children: [] };
+		return (
+			current || { id: stableId("root", path), type: "group", operator: "and", children: [] }
+		);
 	}
-	if (value == null || value === "") return { id: "root", type: "group", operator: "and", children: [] };
+	if (value == null || value === "")
+		return { id: "root", type: "group", operator: "and", children: [] };
 	throw new QueryFilterSerializationError("Unsupported Query Filter backend value.");
 }
 
@@ -95,14 +112,28 @@ function validateCanonical(tree) {
 			return;
 		}
 		if (isGroup(node)) {
-			if (!OPERATORS.has(node.operator)) errors.push({ path: [...path, "operator"], message: "Unsupported group operator." });
-			if (!Array.isArray(node.children)) errors.push({ path: [...path, "children"], message: "Group children must be an array." });
-			else node.children.forEach((child, index) => visit(child, [...path, "children", index]));
+			if (!OPERATORS.has(node.operator))
+				errors.push({
+					path: [...path, "operator"],
+					message: "Unsupported group operator.",
+				});
+			if (!Array.isArray(node.children))
+				errors.push({
+					path: [...path, "children"],
+					message: "Group children must be an array.",
+				});
+			else
+				node.children.forEach((child, index) => visit(child, [...path, "children", index]));
 			return;
 		}
 		if (isLeaf(node)) {
-			if (!node.field) errors.push({ path: [...path, "field"], message: "Filter field is required." });
-			if (!node.operator) errors.push({ path: [...path, "operator"], message: "Filter operator is required." });
+			if (!node.field)
+				errors.push({ path: [...path, "field"], message: "Filter field is required." });
+			if (!node.operator)
+				errors.push({
+					path: [...path, "operator"],
+					message: "Filter operator is required.",
+				});
 			return;
 		}
 		errors.push({ path, message: "Unknown filter node type." });
@@ -114,15 +145,23 @@ function validateCanonical(tree) {
 
 export function serializeQueryFilters(tree, { defaultDoctype = "" } = {}) {
 	const errors = validateCanonical(tree);
-	if (errors.length) throw new QueryFilterSerializationError("Invalid Query Filter tree.", errors);
+	if (errors.length)
+		throw new QueryFilterSerializationError("Invalid Query Filter tree.", errors);
 
 	function serialize(node) {
-		if (isLeaf(node)) return [node.doctype || defaultDoctype || "", node.field, node.operator, cloneTree(node.value)];
+		if (isLeaf(node))
+			return [
+				node.doctype || defaultDoctype || "",
+				node.field,
+				node.operator,
+				cloneTree(node.value),
+			];
 		const children = node.children.map(serialize);
 		if (!children.length) return [];
 		if (children.length === 1) return children[0];
 		const result = [children[0]];
-		for (let index = 1; index < children.length; index += 1) result.push(node.operator, children[index]);
+		for (let index = 1; index < children.length; index += 1)
+			result.push(node.operator, children[index]);
 		return result;
 	}
 	return serialize(tree);
