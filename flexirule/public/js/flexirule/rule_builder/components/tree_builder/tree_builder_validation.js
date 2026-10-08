@@ -8,6 +8,7 @@ export function validateTree(
 		allowEmptyGroups = true,
 		maxDepth = Infinity,
 		validateLeaf,
+		validateCollection,
 	} = {}
 ) {
 	const errors = [];
@@ -37,6 +38,32 @@ export function validateTree(
 				add(path, "empty_group", "Group cannot be empty.");
 			if (!node.children.length && isRoot && !allowEmptyRoot)
 				add(path, "empty_root", "Tree root cannot be empty.");
+			node.children.forEach((child, index) =>
+				visit(child, [...path, "children", index], depth + 1)
+			);
+			return;
+		}
+
+		if (isCollectionNode(node)) {
+			if (!Array.isArray(node.children)) {
+				add([...path, "children"], "children", "Collection children must be an array.");
+				return;
+			}
+			if (!node.children.length && !isRoot && !allowEmptyGroups)
+				add(path, "empty_collection", "Collection cannot be empty.");
+			if (validateCollection) {
+				const result = validateCollection(node);
+				if (result === false) add(path, "invalid_collection", "Collection is invalid.");
+				else if (result?.errors) {
+					result.errors.forEach((error) =>
+						add(
+							[...path, ...(error.path || [])],
+							error.code || "invalid_collection",
+							error.message || "Collection is invalid."
+						)
+					);
+				}
+			}
 			node.children.forEach((child, index) =>
 				visit(child, [...path, "children", index], depth + 1)
 			);
