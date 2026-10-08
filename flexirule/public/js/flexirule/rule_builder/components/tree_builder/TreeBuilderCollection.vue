@@ -2,19 +2,35 @@
 	<div class="tree-collection">
 		<div class="tree-collection__header">
 			<div class="tree-collection__label">
-				<i class="fa fa-sitemap"></i><slot name="label" :node="node"><strong>{{ label }}</strong></slot>
+				<i class="fa fa-sitemap"></i>
+				><slot name="label" :node="node"><strong>{{ label }}</strong></slot
+				>
 			</div>
 			<div v-if="!readOnly" class="tree-collection__actions">
 				<button type="button" class="fxr-btn fxr-btn--icon" @click="$emit('add-leaf')">
 					<i class="fa fa-plus"></i>
 				</button>
-				<button v-if="allowGroups" type="button" class="fxr-btn fxr-btn--icon" @click="$emit('add-group')">
+				<button
+					v-if="allowGroups"
+					type="button"
+					class="fxr-btn fxr-btn--icon"
+					@click="$emit('add-group')"
+				>
 					<i class="fa fa-folder-open-o"></i>
 				</button>
-				<button v-if="allowCollections" type="button" class="fxr-btn fxr-btn--icon" @click="$emit('add-collection')">
+				<button
+					v-if="allowCollections"
+					type="button"
+					class="fxr-btn fxr-btn--icon"
+					@click="$emit('add-collection')"
+				>
 					<i class="fa fa-sitemap"></i>
 				</button>
-				<button type="button" class="fxr-btn fxr-btn--icon fxr-btn--danger" @click="$emit('remove')">
+				<button
+					type="button"
+					class="fxr-btn fxr-btn--icon fxr-btn--danger"
+					@click="$emit('remove')"
+				>
 					<i class="fa fa-times"></i>
 				</button>
 			</div>
