@@ -1,3 +1,4 @@
+<script setup>
 import { computed, nextTick, reactive, ref, watch } from "vue";
 import {
 	cloneTree,
@@ -26,11 +27,14 @@ export function useTreeBuilder({
 	emit,
 	readOnly = false,
 	groupOperators = ["and", "or"],
-	leafFactory = () => ({}),\n	collectionFactory = () => ({}),
+	leafFactory = () => ({}),
+	collectionFactory = () => ({}),
 	allowGroups = true,
+	allowCollections = false,
 	allowEmptyGroups = true,
 	maxDepth = Infinity,
 	validateLeaf,
+	validateCollection,
 } = {}) {
 	const operators = computed(() => groupOperators.filter(Boolean));
 	const normalizedMaxDepth = computed(() =>
@@ -45,6 +49,8 @@ export function useTreeBuilder({
 				groupOperators: operators.value,
 				allowEmptyGroups,
 				maxDepth: normalizedMaxDepth.value,
+				validateLeaf,
+				validateCollection,
 			});
 			if (!structural.valid)
 				throw new TreeModelError(
@@ -108,7 +114,12 @@ export function useTreeBuilder({
 			? mutate((tree) => commands.addLeaf(tree, parentId, payload ?? leafFactory()))
 			: null;
 
-	const addCollection = (parentId = root.id) =>\n\t\tallowCollections && canAddChild(parentId)\n\t\t\t? mutate((tree) => commands.addCollection(tree, parentId, collectionFactory()))\n\t\t\t: null;\n\n\tconst addGroup = (parentId = root.id, operator = operators.value[0]) =>
+	const addCollection = (parentId = root.id) =>
+		allowCollections && canAddChild(parentId)
+			? mutate((tree) => commands.addCollection(tree, parentId, collectionFactory()))
+			: null;
+
+	const addGroup = (parentId = root.id, operator = operators.value[0]) =>
 		allowGroups && canAddChild(parentId)
 			? mutate((tree) => commands.addGroup(tree, parentId, operator))
 			: null;
@@ -151,6 +162,8 @@ export function useTreeBuilder({
 			groupOperators: operators.value,
 			allowEmptyGroups,
 			maxDepth: normalizedMaxDepth.value,
+			validateLeaf,
+			validateCollection,
 		});
 		if (!structural.valid) return false;
 		return mutate((tree) => commands.replaceNode(tree, id, result));
@@ -162,6 +175,7 @@ export function useTreeBuilder({
 			allowEmptyGroups,
 			maxDepth: normalizedMaxDepth.value,
 			validateLeaf,
+			validateCollection,
 		});
 		return {
 			...structural,
@@ -220,6 +234,7 @@ export function useTreeBuilder({
 		operators,
 		maxDepth: normalizedMaxDepth,
 		addLeaf,
+		addCollection,
 		addGroup,
 		removeNode,
 		moveNode,
