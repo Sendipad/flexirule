@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import {
-	createCollection,
 	createGroup,
 	createLeaf,
 	findNode,
