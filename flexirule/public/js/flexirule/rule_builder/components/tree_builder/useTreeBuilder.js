@@ -15,12 +15,12 @@ const removeNode=id=>{const r=mutate(t=>commands.removeNode(t,id));if(r){if(sele
 const moveNode=(id,p,pos=-1)=>mutate(t=>commands.moveNode(t,id,p,pos));
 const setOperator=(id,op)=>operators.value.includes(op)&&mutate(t=>commands.setOperator(t,id,op));
 const replaceNode=(id,n)=>mutate(t=>commands.replaceNode(t,id,n));
-function reset(next=modelValue){syncing=true;replaceRoot(next);nextTick().then(()=>syncing=false);}
+function reset(next=modelValue?.value ?? modelValue){syncing=true;replaceRoot(next);nextTick().then(()=>syncing=false);}
 function toggleExpanded(id){expandedNodes.has(id)?expandedNodes.delete(id):expandedNodes.add(id);}
 function getNodeContext(id){const path=findPath(root,id);return {scopes:path.filter(n=>n.type==="scope").map(n=>cloneTree(n.scope)),path:path.map(n=>({id:n.id,type:n.type}))};}
 function canMove(id,target){if(!id||!target||id===root.id||id===target)return false;const path=findPath(root,target).map(n=>n.id);return !!findNode(root,id)&&isContainerNode(findNode(root,target))&&!path.includes(id);}
 function validate(){return validateTree(root,{groupOperators:operators.value,allowScopes,allowEmptyGroups,validateLeaf,validateScope});}
 function beginDrag(id){if(!readOnly)dragState.nodeId=id;}function dropNode(target,pos=-1){if(!dragState.nodeId)return false;const r=moveNode(dragState.nodeId,target,pos);dragState.nodeId=null;return r;}
-watch(()=>modelValue,async v=>{const n=normalizeTree(v,{groupOperators});if(treesEqual(n,root))return;syncing=true;replaceRoot(n);await nextTick();syncing=false;},{deep:true});
+watch(modelValue,async v=>{const n=normalizeTree(v,{groupOperators});if(treesEqual(n,root))return;syncing=true;replaceRoot(n);await nextTick();syncing=false;},{deep:true});
 return {root,selectedNode,focusedNode,selectedNodeId,focusedNodeId,editingNodeId,expandedNodes,dragState,operators,addLeaf,addGroup,addScope,removeNode,moveNode,setOperator,replaceNode,reset,selectNode:id=>selectedNodeId.value=id,focusNode:id=>focusedNodeId.value=id,setEditing:id=>editingNodeId.value=id,toggleExpanded,isExpanded:id=>expandedNodes.has(id),getNodeContext,canMove,validate,beginDrag,dropNode,getTree:()=>cloneTree(root)};
 }
