@@ -1,23 +1,15 @@
 import { computed, nextTick, reactive, ref, watch } from "vue";
-import {
-	cloneTree,
-	findNode,
-	findPath,
-	isContainerNode,
-	normalizeTree,
-	treesEqual,
-} from "./tree_builder_utils.js";
+import { cloneTree, findNode, findPath, isContainerNode, normalizeTree, treesEqual, TreeModelError } from "./tree_builder_utils.js";
 import * as commands from "./tree_builder_commands.js";
 import { validateTree } from "./tree_builder_validation.js";
 
-function nodeDepth(tree, id) {
+function depthOf(tree, id) {
 	const path = findPath(tree, id);
 	return path.length ? path.length - 1 : -1;
 }
-
-function getSubtreeHeight(node) {
-	if (!isContainerNode(node) || !node.children?.length) return 0;
-	return 1 + Math.max(...node.children.map(getSubtreeHeight));
+function subtreeHeight(node) {
+	if (!isContainerNode(node) || !node.children.length) return 0;
+	return 1 + Math.max(...node.children.map(subtreeHeight));
 }
 
 export function useTreeBuilder({
@@ -26,41 +18,52 @@ export function useTreeBuilder({
 	readOnly = false,
 	groupOperators = ["and", "or"],
 	leafFactory = () => ({}),
-	scopeFactory = () => ({}),
-	allowScopes = true,
+	allowGroups = true,
 	allowEmptyGroups = true,
-	validateLeaf,
-	validateScope,
 	maxDepth = Infinity,
+	validateLeaf,
 } = {}) {
-	const root = reactive(normalizeTree(modelValue?.value ?? modelValue, { groupOperators })),
-		selectedNodeId = ref(null),
-		focusedNodeId = ref(null),
-		editingNodeId = ref(null),
-		expandedNodes = reactive(new Set([root.id])),
-		dragState = reactive({ nodeId: null });
+	const operators = computed(() => groupOperators.filter(Boolean));
+	const modelError = ref(null);
+
+	function safeNormalize(value) {
+		try {
+			return normalizeTree(value, { groupOperators: operators.value });
+		} catch (error) {
+			modelError.value = error instanceof TreeModelError ? error : new TreeModelError(String(error));
+			return normalizeTree(null, { groupOperators: operators.value });
+		}
+	}
+
+	const root = reactive(safeNormalize(modelValue?.value ?? modelValue));
+	const selectedNodeId = ref(null);
+	const focusedNodeId = ref(null);
+	const editingNodeId = ref(null);
+	const expandedNodes = reactive(new Set([root.id]));
+	const dragState = reactive({ nodeId: null });
 	let syncing = false;
 
 	const normalizedMaxDepth = computed(() =>
 		Number.isFinite(Number(maxDepth)) ? Math.max(0, Number(maxDepth)) : Infinity
 	);
-	const operators = computed(() => groupOperators.filter(Boolean)),
-		selectedNode = computed(() => findNode(root, selectedNodeId.value)),
-		focusedNode = computed(() => findNode(root, focusedNodeId.value));
+
+	const selectedNode = computed(() => findNode(root, selectedNodeId.value));
+	const focusedNode = computed(() => findNode(root, focusedNodeId.value));
 
 	function replaceRoot(next) {
-		const n = normalizeTree(next, { groupOperators });
-		Object.keys(root).forEach((k) => delete root[k]);
-		Object.assign(root, n);
+		const normalized = safeNormalize(next);
+		Object.keys(root).forEach((key) => delete root[key]);
+		Object.assign(root, normalized);
 		expandedNodes.clear();
 		expandedNodes.add(root.id);
+		return modelError.value ? false : true;
 	}
 
 	function emitChange() {
 		if (syncing || !emit) return;
-		const n = cloneTree(root);
-		emit("update:modelValue", n);
-		emit("change", n);
+		const next = cloneTree(root);
+		emit("update:modelValue", next);
+		emit("change", next);
 	}
 
 	function mutate(fn) {
@@ -72,113 +75,99 @@ export function useTreeBuilder({
 
 	function canAddChild(parentId) {
 		const parent = findNode(root, parentId);
-		if (!parent || !isContainerNode(parent)) return false;
-		return nodeDepth(root, parentId) + 1 <= normalizedMaxDepth.value;
+		return !!parent && isContainerNode(parent) && depthOf(root, parentId) + 1 <= normalizedMaxDepth.value;
 	}
 
-	const addLeaf = (p = root.id, payload) =>
-		canAddChild(p) && mutate((t) => commands.addLeaf(t, p, payload ?? leafFactory()));
+	const addLeaf = (parentId = root.id, payload) =>
+		allowGroups !== false && canAddChild(parentId) ? mutate((tree) => commands.addLeaf(tree, parentId, payload ?? leafFactory())) : null;
 
-	const addGroup = (p = root.id, op = operators.value[0] || "and") =>
-		canAddChild(p) && mutate((t) => commands.addGroup(t, p, op));
+	const addGroup = (parentId = root.id, operator = operators.value[0]) =>
+		allowGroups && canAddChild(parentId) ? mutate((tree) => commands.addGroup(tree, parentId, operator)) : null;
 
-	const addScope = (p = root.id, scope) =>
-		allowScopes &&
-		canAddChild(p) &&
-		mutate((t) => commands.addScope(t, p, scope ?? scopeFactory()));
-
-	const removeNode = (id) => {
-		const r = mutate((t) => commands.removeNode(t, id));
-		if (r) {
+	function removeNode(id) {
+		const result = mutate((tree) => commands.removeNode(tree, id));
+		if (result) {
 			if (selectedNodeId.value === id) selectedNodeId.value = null;
 			if (focusedNodeId.value === id) focusedNodeId.value = null;
 			if (editingNodeId.value === id) editingNodeId.value = null;
 		}
-		return r;
-	};
-
-	const moveNode = (id, p, pos = -1) =>
-		mutate((t) => {
-			const node = findNode(t, id);
-			const target = findNode(t, p);
-			if (!node || !target || !isContainerNode(target)) return false;
-			const targetDepth = nodeDepth(t, p);
-			const resultingDepth = targetDepth + 1 + getSubtreeHeight(node);
-			if (resultingDepth > normalizedMaxDepth.value) return false;
-			return commands.moveNode(t, id, p, pos);
-		});
-
-	const setOperator = (id, op) =>
-		operators.value.includes(op) && mutate((t) => commands.setOperator(t, id, op));
-
-	const replaceNode = (id, n) => mutate((t) => commands.replaceNode(t, id, n));
-
-	function reset(next = modelValue?.value ?? modelValue) {
-		syncing = true;
-		replaceRoot(next);
-		nextTick().then(() => (syncing = false));
+		return result;
 	}
 
-	function toggleExpanded(id) {
-		expandedNodes.has(id) ? expandedNodes.delete(id) : expandedNodes.add(id);
+	function canMove(id, targetId) {
+		if (!id || !targetId || id === root.id || id === targetId) return false;
+		const node = findNode(root, id);
+		const target = findNode(root, targetId);
+		if (!node || !target || !isContainerNode(target)) return false;
+		if (findPath(root, targetId).some((ancestor) => ancestor.id === id)) return false;
+		return depthOf(root, targetId) + 1 + subtreeHeight(node) <= normalizedMaxDepth.value;
 	}
 
-	function getNodeContext(id) {
-		const path = findPath(root, id);
-		return {
-			scopes: path.filter((n) => n.type === "scope").map((n) => cloneTree(n.scope)),
-			path: path.map((n) => ({ id: n.id, type: n.type })),
-		};
+	function moveNode(id, targetId, position = -1) {
+		if (!canMove(id, targetId)) return false;
+		return mutate((tree) => commands.moveNode(tree, id, targetId, position));
 	}
 
-	function canMove(id, target) {
-		if (!id || !target || id === root.id || id === target) return false;
-		const targetPath = findPath(root, target).map((n) => n.id);
-		if (!findNode(root, id) || !isContainerNode(findNode(root, target)) || targetPath.includes(id))
-			return false;
-		return (
-			nodeDepth(root, target) + 1 + getSubtreeHeight(findNode(root, id)) <=
-			normalizedMaxDepth.value
-		);
+	function setOperator(id, operator) {
+		if (!operators.value.includes(operator)) return false;
+		return mutate((tree) => commands.setOperator(tree, id, operator));
+	}
+
+	function replaceNode(id, replacement) {
+		if (readOnly) return null;
+		const result = normalizeTree(replacement, { groupOperators: operators.value });
+		if (result.type !== "group" && result.type !== "leaf") return false;
+		return mutate((tree) => commands.replaceNode(tree, id, result));
 	}
 
 	function validate() {
-		return validateTree(root, {
-			groupOperators: operators.value,
-			allowScopes,
-			allowEmptyGroups,
-			maxDepth: normalizedMaxDepth.value,
-			validateLeaf,
-			validateScope,
-		});
+		return {
+			...validateTree(root, {
+				groupOperators: operators.value,
+				allowEmptyGroups,
+				maxDepth: normalizedMaxDepth.value,
+				validateLeaf,
+			}),
+			modelError: modelError.value,
+		};
 	}
 
 	function beginDrag(id) {
 		if (!readOnly && canMove(id, root.id)) dragState.nodeId = id;
 	}
 
-	function dropNode(target, pos = -1) {
-		if (!dragState.nodeId || !canMove(dragState.nodeId, target)) return false;
-		const r = moveNode(dragState.nodeId, target, pos);
+	function dropNode(targetId, position = -1) {
+		const id = dragState.nodeId;
+		if (!id) return false;
+		const result = moveNode(id, targetId, position);
 		dragState.nodeId = null;
-		return r;
+		return result;
 	}
 
-	watch(
-		modelValue,
-		async (v) => {
-			const n = normalizeTree(v, { groupOperators });
-			if (treesEqual(n, root)) return;
-			syncing = true;
-			replaceRoot(n);
-			await nextTick();
+	function reset(next = modelValue?.value ?? modelValue) {
+		syncing = true;
+		replaceRoot(next);
+		nextTick().then(() => {
 			syncing = false;
-		},
-		{ deep: true }
-	);
+	});
+	}
+
+	function toggleExpanded(id) {
+		expandedNodes.has(id) ? expandedNodes.delete(id) : expandedNodes.add(id);
+	}
+
+	watch(modelValue, async (value) => {
+		const normalized = safeNormalize(value);
+		if (!modelError.value && treesEqual(normalized, root)) return;
+		syncing = true;
+		replaceRoot(value);
+		await nextTick();
+		syncing = false;
+	}, { deep: true });
 
 	return {
 		root,
+		modelError,
 		selectedNode,
 		focusedNode,
 		selectedNodeId,
@@ -190,7 +179,6 @@ export function useTreeBuilder({
 		maxDepth: normalizedMaxDepth,
 		addLeaf,
 		addGroup,
-		addScope,
 		removeNode,
 		moveNode,
 		setOperator,
@@ -201,7 +189,6 @@ export function useTreeBuilder({
 		setEditing: (id) => (editingNodeId.value = id),
 		toggleExpanded,
 		isExpanded: (id) => expandedNodes.has(id),
-		getNodeContext,
 		canAddChild,
 		canMove,
 		validate,
