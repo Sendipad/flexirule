@@ -21,9 +21,13 @@ function isTuple(value) {
 		typeof value[0] === "string" && typeof value[1] === "string" && typeof value[2] === "string";
 }
 
-function tupleToLeaf(tuple, defaultDoctype) {
+function stableId(prefix, path) {
+	return path.length ? `${prefix}-${path.join("-")}` : prefix;
+}
+
+function tupleToLeaf(tuple, defaultDoctype, path) {
 	return {
-		id: createNodeId("filter"),
+		id: stableId("filter", path),
 		type: "leaf",
 		doctype: tuple.length === 4 ? tuple[0] || defaultDoctype : defaultDoctype,
 		field: tuple.length === 4 ? tuple[1] : tuple[0],
@@ -32,7 +36,7 @@ function tupleToLeaf(tuple, defaultDoctype) {
 	};
 }
 
-function parse(value, defaultDoctype) {
+function parse(value, defaultDoctype, path = []) {
 	if (isGroup(value)) {
 		if (!OPERATORS.has(value.operator)) throw new QueryFilterSerializationError("Unsupported filter group operator.");
 		return {
@@ -43,12 +47,12 @@ function parse(value, defaultDoctype) {
 		};
 	}
 	if (isLeaf(value)) {
-		return { ...cloneTree(value), id: value.id || createNodeId("filter"), type: "leaf" };
+		return { ...cloneTree(value), id: value.id || stableId("filter", path), type: "leaf" };
 	}
-	if (isTuple(value)) return tupleToLeaf(value, defaultDoctype);
+	if (isTuple(value)) return tupleToLeaf(value, defaultDoctype, path);
 	if (Array.isArray(value)) {
 		const items = value.filter((item) => item !== undefined && item !== null);
-		if (!items.length) return { id: createNodeId("root"), type: "group", operator: "and", children: [] };
+		if (!items.length) return { id: stableId("root", path), type: "group", operator: "and", children: [] };
 		let current = null;
 		let pending = "and";
 		for (const item of items) {
@@ -56,9 +60,9 @@ function parse(value, defaultDoctype) {
 				pending = item.toLowerCase();
 				continue;
 			}
-			const node = parse(item, defaultDoctype);
+			const node = parse(item, defaultDoctype, [...path, current ? current.children.length : 0]);
 			if (!current) {
-				current = { id: createNodeId("group"), type: "group", operator: pending, children: [node] };
+				current = { id: stableId("group", path), type: "group", operator: pending, children: [node] };
 				continue;
 			}
 			if (current.operator === pending) {
@@ -66,13 +70,13 @@ function parse(value, defaultDoctype) {
 				continue;
 			}
 			current = {
-				id: createNodeId("group"),
+				id: stableId("group", path),
 				type: "group",
 				operator: pending,
 				children: [current, node],
 			};
 		}
-		return current || { id: createNodeId("root"), type: "group", operator: "and", children: [] };
+		return current || { id: stableId("root", path), type: "group", operator: "and", children: [] };
 	}
 	if (value == null || value === "") return { id: createNodeId("root"), type: "group", operator: "and", children: [] };
 	throw new QueryFilterSerializationError("Unsupported Query Filter backend value.");
