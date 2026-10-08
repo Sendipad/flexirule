@@ -12,7 +12,7 @@ const kind=computed(()=>props.node.type),children=computed(()=>props.node.childr
 function dragStart(e){if(props.readOnly)return;e.stopPropagation();api?.beginDrag(props.node.id);e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/plain",props.node.id||"");}
 function dragOverNode(e){if(props.readOnly||!["group","scope"].includes(kind.value))return;e.preventDefault();e.stopPropagation();dragOver.value=true;}
 function dragLeave(){dragOver.value=false}
-function drop(e){e.preventDefault();e.stopPropagation();dragOver.value=false;api?.dropNode(props.node.id)}
+function drop(e){e.preventDefault();e.stopPropagation();dragOver.value=false;if(["group","scope"].includes(kind.value))api?.dropNode(props.node.id)}
 </script>
 <template>
 <div class="tree-node" :class="{'drag-over':dragOver}" draggable="true" @dragstart="dragStart" @dragover="dragOverNode" @dragleave="dragLeave" @drop="drop">
