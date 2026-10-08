@@ -17,10 +17,29 @@ const nested = {
 	type: "group",
 	operator: "and",
 	children: [
-		{id: "a", type: "leaf", doctype: "Sales Order", field: "status", operator: "=", value: { mode: "static", value: "Open" }},
-		{id: "g", type: "group", operator: "or", children: [
-			{id: "b", type: "leaf", doctype: "Sales Order", field: "docstatus", operator: "=", value: { mode: "static", value: 1 }},
-		]},
+		{
+			id: "a",
+			type: "leaf",
+			doctype: "Sales Order",
+			field: "status",
+			operator: "=",
+			value: { mode: "static", value: "Open" },
+		},
+		{
+			id: "g",
+			type: "group",
+			operator: "or",
+			children: [
+				{
+					id: "b",
+					type: "leaf",
+					doctype: "Sales Order",
+					field: "docstatus",
+					operator: "=",
+					value: { mode: "static", value: 1 },
+				},
+			],
+		},
 	],
 };
 const payload = serializeQueryFilters(nested);
