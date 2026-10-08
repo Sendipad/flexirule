@@ -135,13 +135,15 @@ export function useTreeBuilder({
 	}
 
 	function validate() {
+		const structural = validateTree(root, {
+			groupOperators: operators.value,
+			allowEmptyGroups,
+			maxDepth: normalizedMaxDepth.value,
+			validateLeaf,
+		});
 		return {
-			...validateTree(root, {
-				groupOperators: operators.value,
-				allowEmptyGroups,
-				maxDepth: normalizedMaxDepth.value,
-				validateLeaf,
-			}),
+			...structural,
+			valid: structural.valid && !modelError.value,
 			modelError: modelError.value,
 		};
 	}
