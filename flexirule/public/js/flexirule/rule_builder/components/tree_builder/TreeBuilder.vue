@@ -21,7 +21,12 @@
 				<button v-if="allowGroups" type="button" class="fxr-btn" @click="addGroup()">
 					<i class="fa fa-folder-open-o"></i><span>{{ groupLabel }}</span>
 				</button>
-				<button v-if="allowCollections" type="button" class="fxr-btn" @click="addCollection()">
+				<button
+					v-if="allowCollections"
+					type="button"
+					class="fxr-btn"
+					@click="addCollection()"
+				>
 					<i class="fa fa-sitemap"></i><span>{{ collectionLabel }}</span>
 				</button>
 			</div>
