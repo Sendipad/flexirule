@@ -263,7 +263,15 @@ function updateConfig(key, value) {
 
 function emitConfig() {
 	const next = { ...clone(localConfig) };
-	if (!next.filters?.length) delete next.filters;
+	const filters = next.filters;
+	const hasFilters = Array.isArray(filters)
+		? filters.length > 0
+		: !!(
+				filters &&
+				typeof filters === "object" &&
+				(Array.isArray(filters.children) ? filters.children.length > 0 : true)
+			);
+	if (!hasFilters) delete next.filters;
 	if (!next.fields?.length) delete next.fields;
 	if (!next.order_by) delete next.order_by;
 	if (!next.group_by) delete next.group_by;

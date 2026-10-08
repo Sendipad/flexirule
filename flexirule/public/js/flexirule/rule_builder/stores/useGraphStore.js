@@ -1246,34 +1246,6 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			return normalizedProcessConfig;
 		}
 
-		// Clean filters.
-		// A single native Frappe filter is itself a tuple:
-		// [doctype, field, operator, value]. Do not iterate its scalar members
-		// as though they were separate filters, otherwise the whole tuple is
-		// discarded and filters becomes [] during rule save.
-		if (Array.isArray(clean.filters)) {
-			const filters = clean.filters;
-			const isTuple =
-				(filters.length === 3 || filters.length === 4) &&
-				typeof filters[0] === "string" &&
-				typeof filters[1] === "string" &&
-				typeof filters[2] === "string";
-
-			if (isTuple) {
-				clean.filters =
-					filters[1].trim() !== "" ? filters : [];
-			} else {
-				clean.filters = filters.filter((f) => {
-					// New tuple format: [doctype, field, op, payload]
-					if (Array.isArray(f)) {
-						return typeof f[1] === "string" && f[1].trim() !== "";
-					}
-					// Legacy object format: { doctype, field, operator, value, ... }
-					return !!(f?.field || f?.fieldname);
-				});
-			}
-		}
-
 		// Clean field lists
 		if (Array.isArray(clean.fields)) {
 			clean.fields = clean.fields.filter((f) => f && f.trim?.() !== "");
