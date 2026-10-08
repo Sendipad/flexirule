@@ -127,12 +127,19 @@ function validateCanonical(tree) {
 			return;
 		}
 		if (isLeaf(node)) {
-			if (!node.field)
-				errors.push({ path: [...path, "field"], message: "Filter field is required." });
-			if (!node.operator)
+			// Serialization is intentionally permissive for editable leaves. A newly
+			// added filter is incomplete until the user selects a field/operator/value.
+			// Component validation remains responsible for preventing an invalid rule
+			// from being saved.
+			if (typeof node.field !== "string")
+				errors.push({
+					path: [...path, "field"],
+					message: "Filter field must be a string.",
+				});
+			if (typeof node.operator !== "string")
 				errors.push({
 					path: [...path, "operator"],
-					message: "Filter operator is required.",
+					message: "Filter operator must be a string.",
 				});
 			return;
 		}
