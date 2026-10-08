@@ -224,8 +224,8 @@ function getFieldDef(fieldname) {
 	if (fieldname === "docstatus")
 		return { fieldname, value: fieldname, fieldtype: "Int", label: "Docstatus" };
 	const raw = String(fieldname).replace(/^doc\./, "");
-	if (frappe.meta?.has_field?.(doctype, raw)) {
-		const df = frappe.meta.get_docfield(doctype, raw);
+	if (frappe.meta?.has_field?.(props.doctype, raw)) {
+		const df = frappe.meta.get_docfield(props.doctype, raw);
 		return df ? { ...df, value: fieldname } : null;
 	}
 	return navigableFields.currentFields.value.find((item) => item.value === fieldname) || null;
