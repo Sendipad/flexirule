@@ -177,6 +177,7 @@ class TestQueryRecordsFilters(FrappeTestCase):
 				"operation": "Fetch Records",
 				"reference_doctype": "User",
 				"ignore_permissions": 1,
+				"permission_audit_reason": "Test canonical filter normalization",
 				"config": frappe.as_json(config),
 			}
 		)
