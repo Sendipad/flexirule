@@ -150,19 +150,25 @@ function validateCanonical(tree) {
 	return errors;
 }
 
-export function serializeQueryFilters(tree, { defaultDoctype = "" } = {}) {
+export function toPersistedQueryFilterTree(tree) {
 	const errors = validateCanonical(tree);
 	if (errors.length)
 		throw new QueryFilterSerializationError("Invalid Query Filter tree.", errors);
-
+	function persist(node) {
+		if (isLeaf(node)) return {
+			type: "leaf", doctype: node.doctype || "", field: node.field || "",
+			operator: node.operator || "=", value: cloneTree(node.value),
+		};
+		return { type: "group", operator: node.operator, children: node.children.map(persist) };
+	}
+	return persist(tree);
+}
+export function serializeQueryFilters(tree, { defaultDoctype = "" } = {}) {
+	const persisted = toPersistedQueryFilterTree(tree);
 	function serialize(node) {
-		if (isLeaf(node))
-			return [
-				node.doctype || defaultDoctype || "",
-				node.field,
-				node.operator,
-				cloneTree(node.value),
-			];
+		if (isLeaf(node)) return [
+			node.doctype || defaultDoctype || "", node.field, node.operator, cloneTree(node.value),
+		];
 		const children = node.children.map(serialize);
 		if (!children.length) return [];
 		if (children.length === 1) return children[0];
@@ -171,5 +177,5 @@ export function serializeQueryFilters(tree, { defaultDoctype = "" } = {}) {
 			result.push(node.operator, children[index]);
 		return result;
 	}
-	return serialize(tree);
+	return serialize(persisted);
 }

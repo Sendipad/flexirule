@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { deserializeQueryFilters, serializeQueryFilters } from "./query_filter_serializer.js";
+import { deserializeQueryFilters, serializeQueryFilters, toPersistedQueryFilterTree } from "./query_filter_serializer.js";
 
 const tree = deserializeQueryFilters([
 	["Sales Order", "status", "=", { mode: "static", value: "Open" }],
@@ -49,3 +49,31 @@ assert.deepEqual(payload, [
 	["Sales Order", "docstatus", "=", { mode: "static", value: 1 }],
 ]);
 console.log("query filter serializer tests passed");
+
+
+const canonical = deserializeQueryFilters({
+	type: "group",
+	operator: "and",
+	children: [{
+		type: "leaf",
+		doctype: "Journal Entry",
+		field: "is_system_generated",
+		operator: "=",
+		value: { mode: "static", value: "" },
+	}],
+});
+assert.deepEqual(toPersistedQueryFilterTree(canonical), {
+	type: "group",
+	operator: "and",
+	children: [{
+		type: "leaf",
+		doctype: "Journal Entry",
+		field: "is_system_generated",
+		operator: "=",
+		value: { mode: "static", value: "" },
+	}],
+});
+assert.deepEqual(serializeQueryFilters(canonical), [
+	"Journal Entry", "is_system_generated", "=", { mode: "static", value: "" }
+]);
+console.log("canonical query filter persistence tests passed");

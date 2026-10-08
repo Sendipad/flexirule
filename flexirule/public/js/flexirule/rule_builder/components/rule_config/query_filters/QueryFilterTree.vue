@@ -34,7 +34,7 @@
 import { computed, ref } from "vue";
 import TreeBuilder from "../../tree_builder/TreeBuilder.vue";
 import FilterLeaf from "./FilterLeaf.vue";
-import { deserializeQueryFilters, serializeQueryFilters } from "./query_filter_serializer.js";
+import { deserializeQueryFilters, toPersistedQueryFilterTree } from "./query_filter_serializer.js";
 
 const GROUP_OPERATORS = ["and", "or"];
 const props = defineProps({
@@ -74,7 +74,7 @@ function setLeafRef(id, instance) {
 	else leafRefs.delete(id);
 }
 function emitSerialized(tree) {
-	const payload = serializeQueryFilters(tree, { defaultDoctype: props.doctype });
+	const payload = toPersistedQueryFilterTree(tree);
 	emit("update:modelValue", payload);
 	emit("change", payload);
 }
@@ -93,8 +93,7 @@ async function validate() {
 defineExpose({
 	validate,
 	getTree: () => treeBuilderRef.value?.getTree?.(),
-	getPayload: () =>
-		serializeQueryFilters(treeBuilderRef.value?.getTree?.(), { defaultDoctype: props.doctype }),
+	getPayload: () => toPersistedQueryFilterTree(treeBuilderRef.value?.getTree?.()),
 	addFilter: () => treeBuilderRef.value?.addLeaf(),
 	addGroup: () => treeBuilderRef.value?.addGroup(),
 });
