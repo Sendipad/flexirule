@@ -152,6 +152,60 @@ class TestFetchRecords(FrappeTestCase):
 		self.assertIn(t2.name, names)
 		self.assertNotIn(t3.name, names)
 
+	def test_canonical_filter_tree_is_converted_at_backend_boundary(self):
+		prefix = f"FetchCanonical_{random_string(5)}"
+		t1 = frappe.get_doc(
+			{"doctype": "ToDo", "description": f"{prefix}_open", "status": "Open"}
+		).insert(ignore_permissions=True)
+		frappe.get_doc(
+			{"doctype": "ToDo", "description": f"{prefix}_closed", "status": "Closed"}
+		).insert(ignore_permissions=True)
+
+		filter_tree = {
+			"type": "group",
+			"operator": "and",
+			"children": [
+				{
+					"type": "leaf",
+					"doctype": "ToDo",
+					"field": "description",
+					"operator": "like",
+					"value": {"mode": "static", "value": f"{prefix}%"},
+				},
+				{
+					"type": "group",
+					"operator": "or",
+					"children": [
+						{
+							"type": "leaf",
+							"doctype": "ToDo",
+							"field": "status",
+							"operator": "=",
+							"value": {"mode": "static", "value": "Open"},
+						},
+						{
+							"type": "leaf",
+							"doctype": "ToDo",
+							"field": "status",
+							"operator": "=",
+							"value": {"mode": "static", "value": "Pending"},
+						},
+					],
+				},
+			],
+		}
+
+		action = frappe._dict(
+			{
+				"operation": "Fetch Records",
+				"reference_doctype": "ToDo",
+				"config": frappe.as_json({"filters": filter_tree}),
+			}
+		)
+		result, _ = self.handler.execute(action, {}, None)
+
+		self.assertEqual([row.get("name") for row in result], [t1.name])
+
 	def test_child_table_field_query_and_distinct(self):
 		# Test querying child table field (e.g. roles.role on User)
 		user_email = f"fetch_child_{random_string(5).lower()}@example.com"
