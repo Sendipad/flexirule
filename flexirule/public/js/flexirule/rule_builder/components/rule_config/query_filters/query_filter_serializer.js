@@ -1,4 +1,4 @@
-import { createNodeId, cloneTree } from "../../tree_builder/tree_builder_utils.js";
+import { cloneTree } from "../../tree_builder/tree_builder_utils.js";
 
 const OPERATORS = new Set(["and", "or"]);
 
@@ -40,10 +40,10 @@ function parse(value, defaultDoctype, path = []) {
 	if (isGroup(value)) {
 		if (!OPERATORS.has(value.operator)) throw new QueryFilterSerializationError("Unsupported filter group operator.");
 		return {
-			id: value.id || createNodeId("group"),
+			id: value.id || stableId("group", path),
 			type: "group",
 			operator: value.operator,
-			children: Array.isArray(value.children) ? value.children.map((child) => parse(child, defaultDoctype)) : [],
+			children: Array.isArray(value.children) ? value.children.map((child, index) => parse(child, defaultDoctype, [...path, index])) : [],
 		};
 	}
 	if (isLeaf(value)) {
@@ -78,7 +78,7 @@ function parse(value, defaultDoctype, path = []) {
 		}
 		return current || { id: stableId("root", path), type: "group", operator: "and", children: [] };
 	}
-	if (value == null || value === "") return { id: createNodeId("root"), type: "group", operator: "and", children: [] };
+	if (value == null || value === "") return { id: "root", type: "group", operator: "and", children: [] };
 	throw new QueryFilterSerializationError("Unsupported Query Filter backend value.");
 }
 
