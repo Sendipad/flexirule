@@ -154,6 +154,24 @@ export function normalizeTreeNode(
 				: [],
 		};
 	}
+	if (value.type === TREE_NODE_TYPES.COLLECTION) {
+		const payload = cloneTree(value);
+		delete payload.id;
+		delete payload.type;
+		const children = Array.isArray(payload.children) ? payload.children : [];
+		delete payload.children;
+		return {
+			...payload,
+			id,
+			type: TREE_NODE_TYPES.COLLECTION,
+			children: children.map((child, index) =>
+				normalizeTreeNode(child, {
+					groupOperators: operators,
+					path: [...path, "children", index],
+				})
+			),
+		};
+	}
 	const payload = cloneTree(value);
 	if (Object.prototype.hasOwnProperty.call(payload, "children")) {
 		throw new TreeModelError("Leaf nodes cannot own children.", [...path, "children"]);
