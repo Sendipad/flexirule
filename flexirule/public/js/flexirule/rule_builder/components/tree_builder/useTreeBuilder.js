@@ -1,5 +1,5 @@
 import { computed, nextTick, reactive, ref, watch } from "vue";
-import { cloneTree, findNode, findPath, isContainerNode, normalizeTree, treesEqual, TreeModelError } from "./tree_builder_utils.js";
+import { cloneTree, findNode, findPath, isContainerNode, normalizeTree, normalizeTreeNode, treesEqual, TreeModelError } from "./tree_builder_utils.js";
 import * as commands from "./tree_builder_commands.js";
 import { validateTree } from "./tree_builder_validation.js";
 
@@ -28,7 +28,9 @@ export function useTreeBuilder({
 
 	function safeNormalize(value) {
 		try {
-			return normalizeTree(value, { groupOperators: operators.value });
+			const normalized = normalizeTree(value, { groupOperators: operators.value });
+			modelError.value = null;
+			return normalized;
 		} catch (error) {
 			modelError.value = error instanceof TreeModelError ? error : new TreeModelError(String(error));
 			return normalizeTree(null, { groupOperators: operators.value });
@@ -79,7 +81,7 @@ export function useTreeBuilder({
 	}
 
 	const addLeaf = (parentId = root.id, payload) =>
-		allowGroups !== false && canAddChild(parentId) ? mutate((tree) => commands.addLeaf(tree, parentId, payload ?? leafFactory())) : null;
+		canAddChild(parentId) ? mutate((tree) => commands.addLeaf(tree, parentId, payload ?? leafFactory())) : null;
 
 	const addGroup = (parentId = root.id, operator = operators.value[0]) =>
 		allowGroups && canAddChild(parentId) ? mutate((tree) => commands.addGroup(tree, parentId, operator)) : null;
@@ -115,8 +117,7 @@ export function useTreeBuilder({
 
 	function replaceNode(id, replacement) {
 		if (readOnly) return null;
-		const result = normalizeTree(replacement, { groupOperators: operators.value });
-		if (result.type !== "group" && result.type !== "leaf") return false;
+		const result = normalizeTreeNode(replacement, { groupOperators: operators.value });
 		return mutate((tree) => commands.replaceNode(tree, id, result));
 	}
 
