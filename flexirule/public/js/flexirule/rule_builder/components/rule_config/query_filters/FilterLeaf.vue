@@ -79,10 +79,10 @@
 
 <script setup>
 import { computed, inject, ref } from "vue";
-import ComboBoxControl from "../../controls/ComboBoxControl.vue";
-import FlexValueControl from "../../controls/FlexValueControl.vue";
-import { useStore } from "../../stores";
-import { useNavigableFields } from "../../composables/useNavigableFields";
+import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
+import FlexValueControl from "../../../controls/FlexValueControl.vue";
+import { useStore } from "../../../stores";
+import { useNavigableFields } from "../../../composables/useNavigableFields";
 
 const props = defineProps({
 	modelValue: { type: Object, required: true },
