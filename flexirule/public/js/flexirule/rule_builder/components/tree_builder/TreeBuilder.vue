@@ -21,6 +21,9 @@
 				<button v-if="allowGroups" type="button" class="fxr-btn" @click="addGroup()">
 					<i class="fa fa-folder-open-o"></i><span>{{ groupLabel }}</span>
 				</button>
+				<button v-if="allowCollections" type="button" class="fxr-btn" @click="addCollection()">
+					<i class="fa fa-sitemap"></i><span>{{ collectionLabel }}</span>
+				</button>
 			</div>
 		</div>
 		<div class="tree-builder__content">
@@ -35,6 +38,8 @@
 				:parent="root"
 				:readOnly="readOnly"
 				:allowGroups="allowGroups"
+				:allowCollections="allowCollections"
+				:collectionLabel="collectionLabel"
 				:groupOperators="operators"
 				:operatorLabel="operatorLabel"
 				:visibleNode="visibleNode"
@@ -58,16 +63,20 @@ const props = defineProps({
 	},
 	readOnly: Boolean,
 	allowGroups: { type: Boolean, default: true },
+	allowCollections: { type: Boolean, default: false },
 	groupOperators: { type: Array, default: () => ["and", "or"] },
 	leafLabel: { type: String, default: __("Condition") },
 	groupLabel: { type: String, default: __("Group") },
+	collectionLabel: { type: String, default: __("Collection") },
 	emptyLabel: { type: String, default: __("No items yet. Add an item to begin.") },
 	leafFactory: { type: Function, default: () => ({}) },
+	collectionFactory: { type: Function, default: () => ({}) },
 	maxDepth: { type: Number, default: Infinity },
 	operatorLabel: { type: Function, default: (op) => op },
-	visibleNode: { type: Function, default: () => true },\n\tallowCollections: { type: Boolean, default: false },\n\tcollectionLabel: { type: String, default: __("Collection") },\n\tcollectionFactory: { type: Function, default: () => ({}) },
+	visibleNode: { type: Function, default: () => true },
 	allowEmptyGroups: { type: Boolean, default: true },
-	validateLeaf: { type: Function, default: null },\n\tvalidateCollection: { type: Function, default: null },
+	validateLeaf: { type: Function, default: null },
+	validateCollection: { type: Function, default: null },
 });
 const emit = defineEmits(["update:modelValue", "change", "validation-error"]);
 const api = useTreeBuilder({
@@ -76,10 +85,13 @@ const api = useTreeBuilder({
 	readOnly: props.readOnly,
 	groupOperators: props.groupOperators,
 	leafFactory: props.leafFactory,
+	collectionFactory: props.collectionFactory,
 	allowGroups: props.allowGroups,
+	allowCollections: props.allowCollections,
 	allowEmptyGroups: props.allowEmptyGroups,
 	maxDepth: props.maxDepth,
-	validateLeaf: props.validateLeaf,\n\tvalidateCollection: props.validateCollection,
+	validateLeaf: props.validateLeaf,
+	validateCollection: props.validateCollection,
 });
 provide("treeBuilderContext", api);
 const { root, operators, addLeaf, addCollection, addGroup, removeNode, setOperator } = api;
