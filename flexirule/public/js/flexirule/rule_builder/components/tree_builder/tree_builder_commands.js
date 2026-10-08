@@ -1,4 +1,12 @@
-import { cloneTree, createGroup, createLeaf, findNode, findParent, isContainerNode, isDescendant } from "./tree_builder_utils.js";
+import {
+	cloneTree,
+	createGroup,
+	createLeaf,
+	findNode,
+	findParent,
+	isContainerNode,
+	isDescendant,
+} from "./tree_builder_utils.js";
 
 function parentFor(tree, id) {
 	const node = findNode(tree, id);
@@ -32,7 +40,14 @@ export function moveNode(tree, id, targetId, pos = -1) {
 	const node = findNode(tree, id);
 	const target = parentFor(tree, targetId);
 	const source = findParent(tree, id);
-	if (!node || !target || !source || node.id === tree.id || node.id === target.id || isDescendant(node, target.id)) {
+	if (
+		!node ||
+		!target ||
+		!source ||
+		node.id === tree.id ||
+		node.id === target.id ||
+		isDescendant(node, target.id)
+	) {
 		return false;
 	}
 	const sourceIndex = source.children.findIndex((child) => child.id === id);
