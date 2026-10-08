@@ -86,7 +86,6 @@ const operatorLabel=(op)=>{
 	return labels[op]||op;
 };
 const navigableFields=useNavigableFields(computed(()=>props.doctype),()=>leaf.value.field||"");
-const emitLeaf=()=>emit("update:modelValue",{...leaf.value});
 const updateValue=(value)=>emit("update:modelValue",{...leaf.value,value});
 function updateField(value){
 	const next={...leaf.value,field:value};
