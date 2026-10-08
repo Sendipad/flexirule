@@ -47,6 +47,8 @@ export function useTreeBuilder({
 			const structural = validateTree(normalized, {
 				groupOperators: operators.value,
 				allowEmptyGroups,
+				allowGroups,
+				allowCollections,
 				maxDepth: normalizedMaxDepth.value,
 				validateLeaf,
 				validateCollection,
