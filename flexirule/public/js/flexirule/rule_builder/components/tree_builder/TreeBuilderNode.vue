@@ -1,6 +1,7 @@
 <script setup>
 import { computed, inject, ref } from "vue";
-import { isGroupNode, isLeafNode } from "./tree_builder_utils.js";
+import { isCollectionNode, isGroupNode, isLeafNode } from "./tree_builder_utils.js";
+import TreeBuilderCollection from "./TreeBuilderCollection.vue";
 import TreeBuilderGroup from "./TreeBuilderGroup.vue";
 import TreeBuilderLeaf from "./TreeBuilderLeaf.vue";
 defineOptions({ name: "TreeBuilderNode" });
@@ -10,6 +11,8 @@ const props = defineProps({
 	parent: { type: Object, required: true },
 	readOnly: Boolean,
 	allowGroups: Boolean,
+	allowCollections: Boolean,
+	collectionLabel: { type: String, default: "Collection" },
 	groupOperators: { type: Array, default: () => ["and", "or"] },
 	operatorLabel: { type: Function, default: (v) => v },
 	visibleNode: { type: Function, default: () => true },
@@ -75,6 +78,8 @@ function drop(e) {
 					:parent="node"
 					:readOnly="readOnly"
 					:allowGroups="allowGroups"
+					:allowCollections="allowCollections"
+					:collectionLabel="collectionLabel"
 					:groupOperators="groupOperators"
 					:operatorLabel="operatorLabel"
 					:visibleNode="visibleNode"
@@ -85,6 +90,39 @@ function drop(e) {
 				</TreeBuilderNode>
 			</template>
 		</TreeBuilderGroup>
+		<TreeBuilderCollection
+			v-else-if="isCollectionNode(node)"
+			:node="node"
+			:label="collectionLabel"
+			:readOnly="readOnly"
+			:allowGroups="allowGroups"
+			:allowCollections="allowCollections"
+			@add-leaf="api?.addLeaf(node.id)"
+			@add-group="api?.addGroup(node.id)"
+			@add-collection="api?.addCollection(node.id)"
+			@remove="$emit('remove')"
+		>
+			<template #children>
+				<TreeBuilderNode
+					v-for="(child, i) in children"
+					:key="child.id"
+					:node="child"
+					:index="i"
+					:parent="node"
+					:readOnly="readOnly"
+					:allowGroups="allowGroups"
+					:allowCollections="allowCollections"
+					:collectionLabel="collectionLabel"
+					:groupOperators="groupOperators"
+					:operatorLabel="operatorLabel"
+					:visibleNode="visibleNode"
+					@remove="api?.removeNode(child.id)"
+					@operator="api?.setOperator(child.id, $event)"
+				>
+					<template #default="p"><slot v-bind="p" /></template>
+				</TreeBuilderNode>
+			</template>
+		</TreeBuilderCollection>
 		<TreeBuilderLeaf
 			v-else-if="isLeafNode(node)"
 			:node="node"
