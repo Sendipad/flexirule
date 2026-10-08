@@ -26,7 +26,7 @@ export function useTreeBuilder({
 	emit,
 	readOnly = false,
 	groupOperators = ["and", "or"],
-	leafFactory = () => ({}),
+	leafFactory = () => ({}),\n	collectionFactory = () => ({}),
 	allowGroups = true,
 	allowEmptyGroups = true,
 	maxDepth = Infinity,
@@ -108,7 +108,7 @@ export function useTreeBuilder({
 			? mutate((tree) => commands.addLeaf(tree, parentId, payload ?? leafFactory()))
 			: null;
 
-	const addGroup = (parentId = root.id, operator = operators.value[0]) =>
+	const addCollection = (parentId = root.id) =>\n\t\tallowCollections && canAddChild(parentId)\n\t\t\t? mutate((tree) => commands.addCollection(tree, parentId, collectionFactory()))\n\t\t\t: null;\n\n\tconst addGroup = (parentId = root.id, operator = operators.value[0]) =>
 		allowGroups && canAddChild(parentId)
 			? mutate((tree) => commands.addGroup(tree, parentId, operator))
 			: null;
