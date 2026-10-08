@@ -1,6 +1,6 @@
 <script setup>
 import { computed, inject, ref } from "vue";
-import { isGroupNode } from "./tree_builder_utils.js";
+import { isGroupNode, isLeafNode } from "./tree_builder_utils.js";
 import TreeBuilderGroup from "./TreeBuilderGroup.vue";
 import TreeBuilderLeaf from "./TreeBuilderLeaf.vue";
 defineOptions({ name: "TreeBuilderNode" });
@@ -33,10 +33,10 @@ function drop(e){e.preventDefault();e.stopPropagation();dragOver.value=false;if(
 				</TreeBuilderNode>
 			</template>
 		</TreeBuilderGroup>
-		<TreeBuilderLeaf v-else :node="node" :context="{ path: [] }" :index="index" :parent="parent" :readOnly="readOnly"
+		<TreeBuilderLeaf v-else-if="isLeafNode(node)" :node="node" :context="{ path: [] }" :index="index" :parent="parent" :readOnly="readOnly"
 			@remove="$emit('remove')"><template #default="p"><slot v-bind="p" /></template></TreeBuilderLeaf>
 	</div>
 </template>
 <style scoped>
-.tree-node{min-width:0}.tree-node.drag-over{background:var(--fxr-node-accent-light,var(--fxr-accent-soft));border-radius:var(--fxr-radius-lg);box-shadow:inset 0 0 0 2px var(--fxr-node-accent,var(--fxr-accent))}
+.tree-node{min-width:0}.tree-node__unsupported{padding:var(--fxr-space-2);color:var(--fxr-text-danger)}.tree-node.drag-over{background:var(--fxr-node-accent-light,var(--fxr-accent-soft));border-radius:var(--fxr-radius-lg);box-shadow:inset 0 0 0 2px var(--fxr-node-accent,var(--fxr-accent))}
 </style>
