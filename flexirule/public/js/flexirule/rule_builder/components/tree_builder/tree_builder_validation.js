@@ -50,7 +50,11 @@ export function validateTree(
 
 		if (isCollectionNode(node)) {
 			if (!allowCollections)
-				add(path, "collections_disabled", "Collection nodes are disabled for this tree consumer.");
+				add(
+					path,
+					"collections_disabled",
+					"Collection nodes are disabled for this tree consumer."
+				);
 			if (!Array.isArray(node.children)) {
 				add([...path, "children"], "children", "Collection children must be an array.");
 				return;

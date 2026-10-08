@@ -7,9 +7,19 @@ import {
 	findPath,
 	normalizeTree,
 } from "./tree_builder_utils.js";
-import { addCollection, addGroup, addLeaf, moveNode, removeNode, setOperator } from "./tree_builder_commands.js";
+import {
+	addCollection,
+	addGroup,
+	addLeaf,
+	moveNode,
+	removeNode,
+	setOperator,
+} from "./tree_builder_commands.js";
 import { validateTree } from "./tree_builder_validation.js";
-import { deserializeQueryFilters, serializeQueryFilters } from "../rule_config/query_filters/query_filter_serializer.js";
+import {
+	deserializeQueryFilters,
+	serializeQueryFilters,
+} from "../rule_config/query_filters/query_filter_serializer.js";
 
 const root = createGroup("and", []);
 const group = addGroup(root, root.id, "or");
@@ -48,7 +58,6 @@ assert.equal(depthResult.valid, false);
 assert.ok(depthResult.errors.some((error) => error.code === "max_depth"));
 
 console.log("tree builder core tests passed");
-
 
 const collectionRoot = createGroup("and", []);
 const collection = addCollection(collectionRoot, collectionRoot.id, { name: "rows" });
