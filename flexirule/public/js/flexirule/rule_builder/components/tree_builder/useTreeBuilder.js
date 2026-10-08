@@ -24,11 +24,20 @@ export function useTreeBuilder({
 	validateLeaf,
 } = {}) {
 	const operators = computed(() => groupOperators.filter(Boolean));
+	const normalizedMaxDepth = computed(() =>
+		Number.isFinite(Number(maxDepth)) ? Math.max(0, Number(maxDepth)) : Infinity
+	);
 	const modelError = ref(null);
 
 	function safeNormalize(value) {
 		try {
 			const normalized = normalizeTree(value, { groupOperators: operators.value });
+			const structural = validateTree(normalized, {
+				groupOperators: operators.value,
+				allowEmptyGroups,
+				maxDepth: normalizedMaxDepth.value,
+			});
+			if (!structural.valid) throw new TreeModelError(structural.errors[0]?.message || "Invalid tree.", structural.errors[0]?.path || []);
 			modelError.value = null;
 			return normalized;
 		} catch (error) {
@@ -44,10 +53,6 @@ export function useTreeBuilder({
 	const expandedNodes = reactive(new Set([root.id]));
 	const dragState = reactive({ nodeId: null });
 	let syncing = false;
-
-	const normalizedMaxDepth = computed(() =>
-		Number.isFinite(Number(maxDepth)) ? Math.max(0, Number(maxDepth)) : Infinity
-	);
 
 	const selectedNode = computed(() => findNode(root, selectedNodeId.value));
 	const focusedNode = computed(() => findNode(root, focusedNodeId.value));
@@ -118,6 +123,14 @@ export function useTreeBuilder({
 	function replaceNode(id, replacement) {
 		if (readOnly) return null;
 		const result = normalizeTreeNode(replacement, { groupOperators: operators.value });
+		const candidate = cloneTree(root);
+		if (!commands.replaceNode(candidate, id, result)) return false;
+		const structural = validateTree(candidate, {
+			groupOperators: operators.value,
+			allowEmptyGroups,
+			maxDepth: normalizedMaxDepth.value,
+		});
+		if (!structural.valid) return false;
 		return mutate((tree) => commands.replaceNode(tree, id, result));
 	}
 
