@@ -1,6 +1,59 @@
-<template><div class="tree-scope"><div class="tree-scope__header"><div><i class="fa fa-sitemap mr-1"></i><strong>{{ label }}</strong><span v-if="scopeLabel" class="text-muted small ml-2">{{ scopeLabel }}</span></div><div v-if="!readOnly" class="tree-scope__actions"><button type="button" class="fxr-btn fxr-btn--icon" @click="$emit('add-leaf')"><i class="fa fa-plus"></i></button><button v-if="allowGroups" type="button" class="fxr-btn fxr-btn--icon" @click="$emit('add-group')"><i class="fa fa-folder-open-o"></i></button><button type="button" class="fxr-btn fxr-btn--icon fxr-btn--danger" @click="$emit('remove')"><i class="fa fa-times"></i></button></div></div><div class="tree-scope__children"><slot name="children"/></div></div></template>
+<template>
+	<div class="tree-scope">
+		<div class="tree-scope__header">
+			<div>
+				<i class="fa fa-sitemap mr-1"></i><strong>{{ label }}</strong
+				><span v-if="scopeLabel" class="text-muted small ml-2">{{ scopeLabel }}</span>
+			</div>
+			<div v-if="!readOnly" class="tree-scope__actions">
+				<button type="button" class="fxr-btn fxr-btn--icon" @click="$emit('add-leaf')">
+					<i class="fa fa-plus"></i></button
+				><button
+					v-if="allowGroups"
+					type="button"
+					class="fxr-btn fxr-btn--icon"
+					@click="$emit('add-group')"
+				>
+					<i class="fa fa-folder-open-o"></i></button
+				><button
+					type="button"
+					class="fxr-btn fxr-btn--icon fxr-btn--danger"
+					@click="$emit('remove')"
+				>
+					<i class="fa fa-times"></i>
+				</button>
+			</div>
+		</div>
+		<div class="tree-scope__children"><slot name="children" /></div>
+	</div>
+</template>
 <script setup>
-defineProps({node:{type:Object,required:true},label:{type:String,default:"Scope"},scopeLabel:{type:String,default:""},readOnly:Boolean,allowGroups:Boolean});
-defineEmits(["add-leaf","add-group","remove"]);
+defineProps({
+	node: { type: Object, required: true },
+	label: { type: String, default: "Scope" },
+	scopeLabel: { type: String, default: "" },
+	readOnly: Boolean,
+	allowGroups: Boolean,
+});
+defineEmits(["add-leaf", "add-group", "remove"]);
 </script>
-<style scoped>.tree-scope{padding:var(--fxr-space-3);border:1px solid var(--fxr-border-subtle);border-left:3px solid var(--fxr-node-accent,var(--fxr-accent));border-radius:var(--fxr-radius-lg);background:var(--fxr-surface)}.tree-scope__header{display:flex;justify-content:space-between;align-items:center;gap:var(--fxr-space-2);margin-bottom:var(--fxr-space-2)}.tree-scope__actions{display:flex;gap:var(--fxr-space-1)}</style>
+<style scoped>
+.tree-scope {
+	padding: var(--fxr-space-3);
+	border: 1px solid var(--fxr-border-subtle);
+	border-left: 3px solid var(--fxr-node-accent, var(--fxr-accent));
+	border-radius: var(--fxr-radius-lg);
+	background: var(--fxr-surface);
+}
+.tree-scope__header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: var(--fxr-space-2);
+	margin-bottom: var(--fxr-space-2);
+}
+.tree-scope__actions {
+	display: flex;
+	gap: var(--fxr-space-1);
+}
+</style>
