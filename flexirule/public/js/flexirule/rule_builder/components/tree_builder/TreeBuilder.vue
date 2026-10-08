@@ -65,9 +65,9 @@ const props = defineProps({
 	leafFactory: { type: Function, default: () => ({}) },
 	maxDepth: { type: Number, default: Infinity },
 	operatorLabel: { type: Function, default: (op) => op },
-	visibleNode: { type: Function, default: () => true },
+	visibleNode: { type: Function, default: () => true },\n\tallowCollections: { type: Boolean, default: false },\n\tcollectionLabel: { type: String, default: __("Collection") },\n\tcollectionFactory: { type: Function, default: () => ({}) },
 	allowEmptyGroups: { type: Boolean, default: true },
-	validateLeaf: { type: Function, default: null },
+	validateLeaf: { type: Function, default: null },\n\tvalidateCollection: { type: Function, default: null },
 });
 const emit = defineEmits(["update:modelValue", "change", "validation-error"]);
 const api = useTreeBuilder({
@@ -79,10 +79,10 @@ const api = useTreeBuilder({
 	allowGroups: props.allowGroups,
 	allowEmptyGroups: props.allowEmptyGroups,
 	maxDepth: props.maxDepth,
-	validateLeaf: props.validateLeaf,
+	validateLeaf: props.validateLeaf,\n\tvalidateCollection: props.validateCollection,
 });
 provide("treeBuilderContext", api);
-const { root, operators, addLeaf, addGroup, removeNode, setOperator } = api;
+const { root, operators, addLeaf, addCollection, addGroup, removeNode, setOperator } = api;
 const operatorLabel = (op) => props.operatorLabel(op);
 const visibleNode = (node) => props.visibleNode(node) !== false;
 defineExpose({ ...api });
