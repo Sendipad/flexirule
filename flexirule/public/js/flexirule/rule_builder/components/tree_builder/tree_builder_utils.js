@@ -18,8 +18,11 @@ export function isGroupNode(node) {
 export function isLeafNode(node) {
 	return !!node && node.type === TREE_NODE_TYPES.LEAF;
 }
+export function isCollectionNode(node) {
+	return !!node && node.type === TREE_NODE_TYPES.COLLECTION;
+}
 export function isContainerNode(node) {
-	return isGroupNode(node);
+	return isGroupNode(node) || isCollectionNode(node);
 }
 
 export function createGroup(operator = DEFAULT_GROUP_OPERATORS[0], children = []) {
@@ -27,6 +30,15 @@ export function createGroup(operator = DEFAULT_GROUP_OPERATORS[0], children = []
 		id: createNodeId("group"),
 		type: TREE_NODE_TYPES.GROUP,
 		operator,
+		children: Array.isArray(children) ? children : [],
+	};
+}
+
+export function createCollection(payload = {}, children = []) {
+	return {
+		...cloneTree(payload),
+		id: createNodeId("collection"),
+		type: TREE_NODE_TYPES.COLLECTION,
 		children: Array.isArray(children) ? children : [],
 	};
 }
@@ -116,7 +128,11 @@ export function normalizeTreeNode(
 			: [...DEFAULT_GROUP_OPERATORS];
 	if (!value || typeof value !== "object" || Array.isArray(value))
 		throw new TreeModelError("Tree node must be an object.", path);
-	if (value.type !== TREE_NODE_TYPES.GROUP && value.type !== TREE_NODE_TYPES.LEAF) {
+	if (
+		value.type !== TREE_NODE_TYPES.GROUP &&
+		value.type !== TREE_NODE_TYPES.COLLECTION &&
+		value.type !== TREE_NODE_TYPES.LEAF
+	) {
 		throw new TreeModelError(`Unsupported tree node type: ${value.type}`, path);
 	}
 	const id = typeof value.id === "string" && value.id ? value.id : createNodeId(value.type);
