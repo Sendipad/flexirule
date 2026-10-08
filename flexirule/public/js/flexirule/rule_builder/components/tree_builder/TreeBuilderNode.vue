@@ -67,6 +67,7 @@ function drop(e) {
 			@operator="$emit('operator', $event)"
 			@add-leaf="api?.addLeaf(node.id)"
 			@add-group="api?.addGroup(node.id)"
+			@add-collection="api?.addCollection(node.id)"
 			@remove="$emit('remove')"
 		>
 			<template #children>
