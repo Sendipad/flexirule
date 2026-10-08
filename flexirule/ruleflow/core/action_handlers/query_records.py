@@ -562,7 +562,10 @@ class QueryRecordsHandler(ActionHandler):
 			value = config.get(key)
 			if value is None or value == "":
 				continue
-			kwargs[key] = resolve_payload(value, f"{action_label}.{key}")
+			value = resolve_payload(value, f"{action_label}.{key}")
+			if key == "filters" and self._is_canonical_filter_tree(value):
+				value = self._canonical_filter_tree_to_backend(value, reference_doctype)
+			kwargs[key] = value
 
 		from flexirule.ruleflow.utils.frappe_query_compat import execute_query
 
@@ -1126,7 +1129,7 @@ class QueryRecordsHandler(ActionHandler):
 		"""Recursively normalize filter operators and emit frappe-style filter tuples."""
 
 		if self._is_canonical_filter_tree(filters):
-			filters = self._canonical_filter_tree_to_backend(filters, reference_doctype)
+			return self._canonical_filter_tree_to_backend(filters, reference_doctype)
 
 		if isinstance(filters, dict):
 			normalized = []
