@@ -270,7 +270,7 @@ function emitConfig() {
 				filters &&
 				typeof filters === "object" &&
 				(Array.isArray(filters.children) ? filters.children.length > 0 : true)
-			);
+		  );
 	if (!hasFilters) delete next.filters;
 	if (!next.fields?.length) delete next.fields;
 	if (!next.order_by) delete next.order_by;

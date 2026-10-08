@@ -154,12 +154,12 @@ class TestFetchRecords(FrappeTestCase):
 
 	def test_canonical_filter_tree_is_converted_at_backend_boundary(self):
 		prefix = f"FetchCanonical_{random_string(5)}"
-		t1 = frappe.get_doc(
-			{"doctype": "ToDo", "description": f"{prefix}_open", "status": "Open"}
-		).insert(ignore_permissions=True)
-		frappe.get_doc(
-			{"doctype": "ToDo", "description": f"{prefix}_closed", "status": "Closed"}
-		).insert(ignore_permissions=True)
+		t1 = frappe.get_doc({"doctype": "ToDo", "description": f"{prefix}_open", "status": "Open"}).insert(
+			ignore_permissions=True
+		)
+		frappe.get_doc({"doctype": "ToDo", "description": f"{prefix}_closed", "status": "Closed"}).insert(
+			ignore_permissions=True
+		)
 
 		filter_tree = {
 			"type": "group",
