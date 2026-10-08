@@ -1,44 +1,42 @@
 <template>
 	<TreeBuilder
 		ref="treeBuilderRef"
-		v-model="tree"
+		:modelValue="canonicalTree"
 		:readOnly="readOnly"
 		:allowGroups="true"
-		:groupOperators="['and', 'or']"
+		:groupOperators="GROUP_OPERATORS"
 		:leafLabel="__('Filter')"
 		:groupLabel="__('Group')"
 		:emptyLabel="__('No filters yet. Add a filter or group to begin.')"
 		:leafFactory="createLeaf"
+		:maxDepth="maxDepth"
+		:operatorLabel="operatorLabel"
+		:visibleNode="visibleNode"
+		@update:modelValue="emitSerialized"
+		@change="emitSerialized"
 	>
 		<template #leaf="{ node }">
-			<div class="query-filter-leaf">
-				<FilterLeaf
-					:ref="(el) => setLeafRef(node.id, el)"
-					:doctype="node.doctype || doctype"
-					:modelValue="[toFilterRow(node)]"
-					:readOnly="readOnly"
-					:showValidation="showValidation"
-					:nodeId="nodeId"
-					:variableOptions="variableOptions"
-					@update:modelValue="(value) => updateLeaf(node, value)"
-				/>
-			</div>
+			<FilterLeaf
+				:ref="(el) => setLeafRef(node.id, el)"
+				:modelValue="node"
+				:doctype="node.doctype || doctype"
+				:readOnly="readOnly"
+				:showValidation="showValidation"
+				:nodeId="nodeId"
+				:variableOptions="variableOptions"
+				@update:modelValue="updateLeaf(node.id, $event)"
+			/>
 		</template>
 	</TreeBuilder>
 </template>
 
 <script setup>
-import { nextTick, reactive, ref, watch } from "vue";
+import { computed, ref } from "vue";
 import TreeBuilder from "../../tree_builder/TreeBuilder.vue";
 import FilterLeaf from "./FilterLeaf.vue";
-import {
-	createFilterLeaf,
-	deserializeFilterPayload,
-	serializeFilterTree,
-	validateFilterTree,
-} from "./filter_tree_adapter.js";
-import { cloneTree } from "../../tree_builder/tree_builder_utils.js";
+import { deserializeQueryFilters, serializeQueryFilters } from "./query_filter_serializer.js";
 
+const GROUP_OPERATORS = ["and", "or"];
 const props = defineProps({
 	modelValue: { type: [Array, Object], default: () => [] },
 	doctype: { type: String, required: true },
@@ -46,125 +44,51 @@ const props = defineProps({
 	readOnly: { type: Boolean, default: false },
 	variableOptions: { type: Array, default: null },
 	showValidation: { type: Boolean, default: false },
+	maxDepth: { type: Number, default: Infinity },
+	operatorLabels: { type: Object, default: () => ({ and: __("Match All"), or: __("Match Any") }) },
+	visibleNode: { type: Function, default: () => true },
 });
-
 const emit = defineEmits(["update:modelValue", "change"]);
 const treeBuilderRef = ref(null);
-const tree = reactive(
-	deserializeFilterPayload(props.modelValue, { defaultDoctype: props.doctype })
-);
 const leafRefs = new Map();
-let syncing = false;
+const canonicalTree = computed(() => deserializeQueryFilters(props.modelValue, { defaultDoctype: props.doctype }));
 
 function createLeaf() {
-	return createFilterLeaf({ doctype: props.doctype });
+	return { doctype: props.doctype, field: "", operator: "=", value: { mode: "static", value: "" } };
 }
-
-function toFilterRow(node) {
-	return {
-		doctype: node.doctype || props.doctype,
-		field: node.field || "",
-		operator: node.operator || "=",
-		value: cloneTree(node.value),
-	};
+function operatorLabel(operator) {
+	return props.operatorLabels[operator] || operator;
 }
-
-function updateLeaf(node, value) {
-	const row = Array.isArray(value) ? value[0] : value;
-	if (!row) return;
-	Object.assign(node, {
-		doctype: row.doctype || props.doctype,
-		field: row.field || row.fieldname || "",
-		operator: row.operator || row.op || "=",
-		value: cloneTree(row.value),
-	});
-}
-
 function setLeafRef(id, instance) {
 	if (instance) leafRefs.set(id, instance);
 	else leafRefs.delete(id);
 }
-
-async function validate() {
-	const structural = validateFilterTree(tree, { allowEmptyRoot: true });
-	const errors = structural.errors.map((error) => error.message);
-
-	const results = await Promise.all(
-		Array.from(leafRefs.values()).map((instance) =>
-			instance && typeof instance.validate === "function"
-				? instance.validate()
-				: { valid: true, errors: [] }
-		)
-	);
-	for (const result of results) {
-		if (!result?.valid && result.errors) errors.push(...result.errors);
-	}
-
-	return { valid: errors.length === 0, errors };
-}
-
-function emitSerialized(value) {
-	const validation = validateFilterTree(value, { allowEmptyRoot: true });
-	if (!validation.valid) return;
-	const payload = serializeFilterTree(value, { defaultDoctype: props.doctype });
+function emitSerialized(tree) {
+	const payload = serializeQueryFilters(tree, { defaultDoctype: props.doctype });
 	emit("update:modelValue", payload);
 	emit("change", payload);
 }
-
-watch(
-	tree,
-	(value) => {
-		if (syncing) return;
-		emitSerialized(value);
-	},
-	{ deep: true }
-);
-
-watch(
-	() => props.modelValue,
-	async (value) => {
-		const next = deserializeFilterPayload(value, { defaultDoctype: props.doctype });
-		if (JSON.stringify(next) === JSON.stringify(tree)) return;
-		syncing = true;
-		Object.keys(tree).forEach((key) => delete tree[key]);
-		Object.assign(tree, next);
-		await nextTick();
-		syncing = false;
-	},
-	{ deep: true }
-);
-
-watch(
-	() => props.doctype,
-	(value) => {
-		if (!value) return;
-		const next = deserializeFilterPayload(props.modelValue, { defaultDoctype: value });
-		syncing = true;
-		Object.keys(tree).forEach((key) => delete tree[key]);
-		Object.assign(tree, next);
-		nextTick().then(() => {
-			syncing = false;
-		});
+function updateLeaf(id, value) {
+	if (!props.readOnly && value) treeBuilderRef.value?.replaceNode(id, value);
+}
+async function validate() {
+	const structural = treeBuilderRef.value?.validate?.() || { valid: true, errors: [] };
+	const errors = [...(structural.errors || []).map((error) => error.message)];
+	for (const instance of leafRefs.values()) {
+		const result = await instance?.validate?.();
+		if (!result?.valid && result.errors) errors.push(...result.errors);
 	}
-);
-
+	return { valid: errors.length === 0, errors };
+}
 defineExpose({
 	validate,
-	getTree: () => cloneTree(tree),
-	getPayload: () => serializeFilterTree(tree, { defaultDoctype: props.doctype }),
+	getTree: () => treeBuilderRef.value?.getTree?.(),
+	getPayload: () => serializeQueryFilters(treeBuilderRef.value?.getTree?.(), { defaultDoctype: props.doctype }),
 	addFilter: () => treeBuilderRef.value?.addLeaf(),
 	addGroup: () => treeBuilderRef.value?.addGroup(),
 });
 </script>
 
 <style scoped>
-.query-filter-leaf {
-	min-width: 0;
-}
-
-@media (max-width: 768px) {
-	.query-filter-leaf {
-		width: 100%;
-	}
-}
+.query-filter-leaf{min-width:0}
 </style>
