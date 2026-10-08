@@ -6,6 +6,8 @@ export function validateTree(
 		groupOperators = ["and", "or"],
 		allowEmptyRoot = true,
 		allowEmptyGroups = true,
+		allowGroups = true,
+		allowCollections = false,
 		maxDepth = Infinity,
 		validateLeaf,
 		validateCollection,
@@ -28,6 +30,8 @@ export function validateTree(
 			add(path, "max_depth", "Tree nesting depth exceeds the configured maximum.");
 
 		if (isGroupNode(node)) {
+			if (!allowGroups && !isRoot)
+				add(path, "groups_disabled", "Group nodes are disabled for this tree consumer.");
 			if (!groupOperators.includes(node.operator))
 				add([...path, "operator"], "operator", "Group operator is not allowed.");
 			if (!Array.isArray(node.children)) {
@@ -45,6 +49,8 @@ export function validateTree(
 		}
 
 		if (isCollectionNode(node)) {
+			if (!allowCollections)
+				add(path, "collections_disabled", "Collection nodes are disabled for this tree consumer.");
 			if (!Array.isArray(node.children)) {
 				add([...path, "children"], "children", "Collection children must be an array.");
 				return;
