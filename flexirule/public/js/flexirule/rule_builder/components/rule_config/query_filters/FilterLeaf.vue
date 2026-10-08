@@ -35,11 +35,11 @@
 							@update:modelValue="(value) => updateBetween(index - 1, value)" />
 					</div>
 				</template>
-				<FlexValueControl v-else v-model="leaf.value"
+				<FlexValueControl v-else :modelValue="leaf.value"
 					:context="{ df: controlSchema, operator: leaf.operator, referenceDoctype: doctype }"
 					:engine="store" :doc="store?.rule_doc" :variableOptions="effectiveVariableOptions"
 					:disabled="readOnly" :readOnly="readOnly" :showValidation="showValidation"
-					@update:modelValue="emitLeaf" />
+					@update:modelValue="updateValue" />
 			</div>
 		</div>
 	</div>
@@ -87,6 +87,7 @@ const operatorLabel=(op)=>{
 };
 const navigableFields=useNavigableFields(computed(()=>props.doctype),()=>leaf.value.field||"");
 const emitLeaf=()=>emit("update:modelValue",{...leaf.value});
+const updateValue=(value)=>emit("update:modelValue",{...leaf.value,value});
 function updateField(value){
 	const next={...leaf.value,field:value};
 	const def=getFieldDef(value);
