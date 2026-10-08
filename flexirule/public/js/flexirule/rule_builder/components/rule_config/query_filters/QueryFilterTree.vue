@@ -4,6 +4,7 @@
 		:modelValue="canonicalTree"
 		:readOnly="readOnly"
 		:allowGroups="true"
+		:allowCollections="false"
 		:groupOperators="GROUP_OPERATORS"
 		:leafLabel="__('Filter')"
 		:groupLabel="__('Group')"
