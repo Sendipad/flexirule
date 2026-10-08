@@ -13,7 +13,6 @@
 		:operatorLabel="operatorLabel"
 		:visibleNode="visibleNode"
 		@update:modelValue="emitSerialized"
-		@change="emitSerialized"
 	>
 		<template #leaf="{ node }">
 			<FilterLeaf
