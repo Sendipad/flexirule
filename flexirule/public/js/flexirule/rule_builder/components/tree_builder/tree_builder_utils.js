@@ -121,8 +121,10 @@ export function normalizeTreeNode(value, { groupOperators = DEFAULT_GROUP_OPERAT
 				: [],
 		};
 	}
-	const { children, operator, ...payload } = cloneTree(value);
-	if (children !== undefined) throw new TreeModelError("Leaf nodes cannot own children.", [...path, "children"]);
+	const payload = cloneTree(value);
+	if (Object.prototype.hasOwnProperty.call(payload, "children")) {
+		throw new TreeModelError("Leaf nodes cannot own children.", [...path, "children"]);
+	}
 	return { ...payload, id, type: TREE_NODE_TYPES.LEAF };
 }
 
