@@ -198,7 +198,8 @@ class TestQueryRecordsFilters(FrappeTestCase):
 			],
 		)
 
-	def test_query_list_integration(self, mock_get_list=None):
+	@patch("frappe.get_list")
+	def test_query_list_integration(self, mock_get_list):
 		config = {
 			"filters": {"status": {"mode": "variable", "path": "doc.status"}},
 			"fields": ["name", "status"],
