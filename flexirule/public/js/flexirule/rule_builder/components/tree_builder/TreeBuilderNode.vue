@@ -30,7 +30,7 @@ function dragStart(e) {
 	e.dataTransfer.setData("text/plain", props.node.id || "");
 }
 function dragOverNode(e) {
-	if (props.readOnly || (!isGroupNode(props.node) && !isLeafNode(props.node))) return;
+	if (props.readOnly || (!isGroupNode(props.node) && !isCollectionNode(props.node) && !isLeafNode(props.node))) return;
 	e.preventDefault();
 	e.stopPropagation();
 	dragOver.value = true;
@@ -42,7 +42,7 @@ function drop(e) {
 	e.preventDefault();
 	e.stopPropagation();
 	dragOver.value = false;
-	if (isGroupNode(props.node)) api?.dropNode(props.node.id);
+	if (isGroupNode(props.node) || isCollectionNode(props.node)) api?.dropNode(props.node.id);
 	else if (isLeafNode(props.node)) api?.dropNode(props.parent.id, props.index);
 }
 </script>
