@@ -129,6 +129,12 @@ jobs:
               env:
                   CI: "Yes"
 
+            - name: Validate all frontend sources
+              working-directory: /home/runner/frappe-bench/apps/flexirule
+              run: |
+                  set -e
+                  npx --no-install eslint --ext .js,.vue flexirule/public/js
+
     tests:
         needs: changes
         if: ${{ needs.changes.outputs.backend == 'true' }}

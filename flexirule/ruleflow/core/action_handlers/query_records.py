@@ -562,7 +562,10 @@ class QueryRecordsHandler(ActionHandler):
 			value = config.get(key)
 			if value is None or value == "":
 				continue
-			kwargs[key] = resolve_payload(value, f"{action_label}.{key}")
+			value = resolve_payload(value, f"{action_label}.{key}")
+			if key == "filters" and self._is_canonical_filter_tree(value):
+				value = self._canonical_filter_tree_to_backend(value, reference_doctype)
+			kwargs[key] = value
 
 		from flexirule.ruleflow.utils.frappe_query_compat import execute_query
 
@@ -1088,8 +1091,46 @@ class QueryRecordsHandler(ActionHandler):
 			return raw
 		return value
 
+	def _is_canonical_filter_tree(self, value) -> bool:
+		return isinstance(value, dict) and value.get("type") in {"group", "leaf"}
+
+	def _canonical_filter_tree_to_backend(self, node, reference_doctype: str | None = None):
+		"""Convert persisted QueryFilterTree data into native Frappe filter syntax."""
+		if not isinstance(node, dict):
+			return node
+		if node.get("type") == "leaf":
+			field = node.get("field") or ""
+			doctype = node.get("doctype") or reference_doctype
+			operator = node.get("operator") or "="
+			value = self._extract_filter_value_payload(node.get("value"))
+			operator, value = self._normalize_single_filter_operator(operator, value)
+			resolved_doctype, resolved_field = self._resolve_filter_doctype_and_field(
+				reference_doctype, doctype, field
+			)
+			return [resolved_doctype or reference_doctype, resolved_field, operator, value]
+		if node.get("type") == "group":
+			operator = str(node.get("operator") or "and").lower()
+			children = [
+				self._canonical_filter_tree_to_backend(child, reference_doctype)
+				for child in (node.get("children") or [])
+			]
+			children = [child for child in children if child not in (None, [])]
+			if not children:
+				return []
+			if len(children) == 1:
+				return children[0]
+			result = [children[0]]
+			for child in children[1:]:
+				result.extend([operator, child])
+			return result
+		return node
+
 	def _normalize_filters_for_backend(self, filters, reference_doctype: str | None = None):
 		"""Recursively normalize filter operators and emit frappe-style filter tuples."""
+
+		if self._is_canonical_filter_tree(filters):
+			return self._canonical_filter_tree_to_backend(filters, reference_doctype)
+
 		if isinstance(filters, dict):
 			normalized = []
 			for key, value in filters.items():

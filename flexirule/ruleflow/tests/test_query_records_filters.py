@@ -1,5 +1,4 @@
 # Copyright (c) 2026, FlexiRule and contributors
-# For license information, please see license.txt
 
 import unittest
 from unittest.mock import patch
@@ -113,6 +112,90 @@ class TestQueryRecordsFilters(FrappeTestCase):
 		config = {"filters": [["description", "like", "Status is {doc.status} for {vars.search_term}"]]}
 		filters, _ = self.handler._resolve_query_filters(config, self.context, self.action)
 		self.assertEqual(filters[0][2], "Status is Open for Flexi")
+
+	def test_canonical_filter_tree_normalizes_for_query_list(self):
+		config = {
+			"filters": {
+				"type": "group",
+				"operator": "or",
+				"children": [
+					{
+						"type": "leaf",
+						"doctype": "User",
+						"field": "first_name",
+						"operator": "starts with",
+						"value": {"mode": "static", "value": "Admin"},
+					},
+					{
+						"type": "leaf",
+						"doctype": "User",
+						"field": "enabled",
+						"operator": "=",
+						"value": {"mode": "static", "value": 1},
+					},
+				],
+			}
+		}
+		with patch("frappe.get_list", return_value=[]) as mock_get_list:
+			self.handler._query_list("User", config, self.context, self.action, ignore_permissions=True)
+
+		mock_get_list.assert_called_once()
+		self.assertEqual(
+			mock_get_list.call_args.kwargs["filters"],
+			[
+				["User", "first_name", "like", "Admin%"],
+				"or",
+				["User", "enabled", "=", 1],
+			],
+		)
+
+	def test_canonical_filter_tree_normalizes_for_fetch_records(self):
+		config = {
+			"filters": {
+				"type": "group",
+				"operator": "or",
+				"children": [
+					{
+						"type": "leaf",
+						"doctype": "User",
+						"field": "first_name",
+						"operator": "starts with",
+						"value": {"mode": "static", "value": "Admin"},
+					},
+					{
+						"type": "leaf",
+						"doctype": "User",
+						"field": "enabled",
+						"operator": "=",
+						"value": {"mode": "static", "value": 1},
+					},
+				],
+			}
+		}
+		action = frappe._dict(
+			{
+				"operation": "Fetch Records",
+				"reference_doctype": "User",
+				"ignore_permissions": 1,
+				"permission_audit_reason": "Test canonical filter normalization",
+				"config": frappe.as_json(config),
+			}
+		)
+
+		with patch(
+			"flexirule.ruleflow.utils.frappe_query_compat.execute_query", return_value=[]
+		) as execute_query:
+			self.handler.execute(action, self.context, None)
+
+		execute_query.assert_called_once()
+		self.assertEqual(
+			execute_query.call_args.args[1]["filters"],
+			[
+				["User", "first_name", "like", "Admin%"],
+				"or",
+				["User", "enabled", "=", 1],
+			],
+		)
 
 	@patch("frappe.get_list")
 	def test_query_list_integration(self, mock_get_list):
