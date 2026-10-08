@@ -1,3 +1,5 @@
+> **Lifecycle note:** This document records the architecture audit that preceded implementation. The implementation was subsequently rebuilt against the architecture and acceptance criteria documented here.
+
 # Tree Builder / Query Records Architecture Audit
 
 **Repository:** Sendipad/flexirule  
