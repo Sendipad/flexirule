@@ -47,25 +47,32 @@ function parse(value, defaultDoctype) {
 	}
 	if (isTuple(value)) return tupleToLeaf(value, defaultDoctype);
 	if (Array.isArray(value)) {
-		const children = [];
-		let operator = "and";
-		let current = [];
-		const flush = () => {
-			if (current.length) {
-				children.push(current.length === 1 ? current[0] : { id: createNodeId("group"), type: "group", operator, children: current });
-				current = [];
-			}
-		};
-		for (const item of value) {
+		const items = value.filter((item) => item !== undefined && item !== null);
+		if (!items.length) return { id: createNodeId("root"), type: "group", operator: "and", children: [] };
+		let current = null;
+		let pending = "and";
+		for (const item of items) {
 			if (typeof item === "string" && OPERATORS.has(item.toLowerCase())) {
-				flush();
-				operator = item.toLowerCase();
+				pending = item.toLowerCase();
 				continue;
 			}
-			current.push(parse(item, defaultDoctype));
+			const node = parse(item, defaultDoctype);
+			if (!current) {
+				current = { id: createNodeId("group"), type: "group", operator: pending, children: [node] };
+				continue;
+			}
+			if (current.operator === pending) {
+				current.children.push(node);
+				continue;
+			}
+			current = {
+				id: createNodeId("group"),
+				type: "group",
+				operator: pending,
+				children: [current, node],
+			};
 		}
-		flush();
-		return { id: createNodeId("group"), type: "group", operator: "and", children };
+		return current || { id: createNodeId("root"), type: "group", operator: "and", children: [] };
 	}
 	if (value == null || value === "") return { id: createNodeId("root"), type: "group", operator: "and", children: [] };
 	throw new QueryFilterSerializationError("Unsupported Query Filter backend value.");
