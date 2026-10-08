@@ -137,9 +137,7 @@ class TestQueryRecordsFilters(FrappeTestCase):
 			}
 		}
 		with patch("frappe.get_list", return_value=[]) as mock_get_list:
-			self.handler._query_list(
-				"User", config, self.context, self.action, ignore_permissions=True
-			)
+			self.handler._query_list("User", config, self.context, self.action, ignore_permissions=True)
 
 		mock_get_list.assert_called_once()
 		self.assertEqual(
