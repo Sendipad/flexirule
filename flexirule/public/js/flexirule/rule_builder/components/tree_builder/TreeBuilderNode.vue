@@ -4,7 +4,9 @@ import { isCollectionNode, isGroupNode, isLeafNode } from "./tree_builder_utils.
 import TreeBuilderCollection from "./TreeBuilderCollection.vue";
 import TreeBuilderGroup from "./TreeBuilderGroup.vue";
 import TreeBuilderLeaf from "./TreeBuilderLeaf.vue";
+
 defineOptions({ name: "TreeBuilderNode" });
+
 const props = defineProps({
 	node: { type: Object, required: true },
 	index: { type: Number, required: true },
@@ -17,11 +19,13 @@ const props = defineProps({
 	operatorLabel: { type: Function, default: (v) => v },
 	visibleNode: { type: Function, default: () => true },
 });
+
 const emit = defineEmits(["remove", "operator"]);
-const api = inject("treeBuilderContext", null),
-	dragOver = ref(false);
-const kind = computed(() => props.node.type),
-	children = computed(() => props.node.children || []);
+const api = inject("treeBuilderContext", null);
+const dragOver = ref(false);
+const kind = computed(() => props.node.type);
+const children = computed(() => props.node.children || []);
+
 function dragStart(e) {
 	if (props.readOnly) return;
 	e.stopPropagation();
@@ -29,15 +33,22 @@ function dragStart(e) {
 	e.dataTransfer.effectAllowed = "move";
 	e.dataTransfer.setData("text/plain", props.node.id || "");
 }
+
 function dragOverNode(e) {
-	if (props.readOnly || (!isGroupNode(props.node) && !isCollectionNode(props.node) && !isLeafNode(props.node))) return;
+	if (
+		props.readOnly ||
+		(!isGroupNode(props.node) && !isCollectionNode(props.node) && !isLeafNode(props.node))
+	)
+		return;
 	e.preventDefault();
 	e.stopPropagation();
 	dragOver.value = true;
 }
+
 function dragLeave() {
 	dragOver.value = false;
 }
+
 function drop(e) {
 	e.preventDefault();
 	e.stopPropagation();
@@ -46,6 +57,7 @@ function drop(e) {
 	else if (isLeafNode(props.node)) api?.dropNode(props.parent.id, props.index);
 }
 </script>
+
 <template>
 	<div
 		v-if="visibleNode(node)"
@@ -64,15 +76,14 @@ function drop(e) {
 			:operatorLabel="operatorLabel"
 			:readOnly="readOnly"
 			:allowGroups="allowGroups"
+			:allowCollections="allowCollections"
+			:collectionLabel="collectionLabel"
 			@operator="$emit('operator', $event)"
 			@add-leaf="api?.addLeaf(node.id)"
 			@add-group="api?.addGroup(node.id)"
 			@add-collection="api?.addCollection(node.id)"
 			@remove="$emit('remove')"
 		>
-			<template #label="{ node: collectionNode }">
-				<slot name="collection" :node="collectionNode"><strong>{{ collectionLabel }}</strong></slot>
-			</template>
 			<template #children>
 				<TreeBuilderNode
 					v-for="(child, i) in children"
@@ -95,6 +106,7 @@ function drop(e) {
 				</TreeBuilderNode>
 			</template>
 		</TreeBuilderGroup>
+
 		<TreeBuilderCollection
 			v-else-if="isCollectionNode(node)"
 			:node="node"
@@ -107,6 +119,11 @@ function drop(e) {
 			@add-collection="api?.addCollection(node.id)"
 			@remove="$emit('remove')"
 		>
+			<template #label="{ node: collectionNode }">
+				<slot name="collection" :node="collectionNode">
+					<strong>{{ collectionLabel }}</strong>
+				</slot>
+			</template>
 			<template #children>
 				<TreeBuilderNode
 					v-for="(child, i) in children"
@@ -125,9 +142,11 @@ function drop(e) {
 					@operator="api?.setOperator(child.id, $event)"
 				>
 					<template #default="p"><slot v-bind="p" /></template>
+					<template #collection="p"><slot name="collection" v-bind="p" /></template>
 				</TreeBuilderNode>
 			</template>
 		</TreeBuilderCollection>
+
 		<TreeBuilderLeaf
 			v-else-if="isLeafNode(node)"
 			:node="node"
@@ -136,17 +155,15 @@ function drop(e) {
 			:parent="parent"
 			:readOnly="readOnly"
 			@remove="$emit('remove')"
-			><template #default="p"><slot v-bind="p" /></template
-		></TreeBuilderLeaf>
+		>
+			<template #default="p"><slot v-bind="p" /></template>
+		</TreeBuilderLeaf>
 	</div>
 </template>
+
 <style scoped>
 .tree-node {
 	min-width: 0;
-}
-.tree-node__unsupported {
-	padding: var(--fxr-space-2);
-	color: var(--fxr-text-danger);
 }
 .tree-node.drag-over {
 	background: var(--fxr-node-accent-light, var(--fxr-accent-soft));
