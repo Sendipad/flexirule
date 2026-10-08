@@ -13,6 +13,26 @@ function parentFor(tree, id) {
 	return isContainerNode(node) ? node : null;
 }
 
+export function addCollection(tree, parentId, payload = {}) {
+	const parent = parentFor(tree, parentId);
+	if (!parent) return null;
+	const node = {
+		...cloneTree(payload),
+		id: undefined,
+		type: "collection",
+		children: [],
+	};
+	delete node.id;
+	return node.id === undefined ? (() => {
+		const created = {
+			...node,
+			id: `collection-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+		};
+		parent.children.push(created);
+		return created;
+	})() : null;
+}
+
 export function addLeaf(tree, parentId, payload = {}) {
 	const parent = parentFor(tree, parentId);
 	if (!parent) return null;
