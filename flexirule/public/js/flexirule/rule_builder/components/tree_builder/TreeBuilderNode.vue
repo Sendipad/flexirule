@@ -70,6 +70,9 @@ function drop(e) {
 			@add-collection="api?.addCollection(node.id)"
 			@remove="$emit('remove')"
 		>
+			<template #label="{ node: collectionNode }">
+				<slot name="collection" :node="collectionNode"><strong>{{ collectionLabel }}</strong></slot>
+			</template>
 			<template #children>
 				<TreeBuilderNode
 					v-for="(child, i) in children"
@@ -88,6 +91,7 @@ function drop(e) {
 					@operator="api?.setOperator(child.id, $event)"
 				>
 					<template #default="p"><slot v-bind="p" /></template>
+					<template #collection="p"><slot name="collection" v-bind="p" /></template>
 				</TreeBuilderNode>
 			</template>
 		</TreeBuilderGroup>
