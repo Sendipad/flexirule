@@ -17,8 +17,9 @@ function isLeaf(value) {
 	return value?.type === "leaf";
 }
 function isTuple(value) {
-	return Array.isArray(value) && (value.length === 3 || value.length === 4) &&
-		typeof value[0] === "string" && typeof value[1] === "string" && typeof value[2] === "string";
+	if (!Array.isArray(value) || (value.length !== 3 && value.length !== 4)) return false;
+	if (typeof value[0] !== "string" || typeof value[1] !== "string") return false;
+	return value.length === 3 || typeof value[2] === "string";
 }
 
 function stableId(prefix, path) {
