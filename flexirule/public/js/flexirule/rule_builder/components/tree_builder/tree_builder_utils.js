@@ -32,9 +32,9 @@ export function createGroup(operator = DEFAULT_GROUP_OPERATORS[0], children = []
 
 export function createLeaf(payload = {}) {
 	return {
+		...cloneTree(payload),
 		id: createNodeId("leaf"),
 		type: TREE_NODE_TYPES.LEAF,
-		...cloneTree(payload),
 	};
 }
 
