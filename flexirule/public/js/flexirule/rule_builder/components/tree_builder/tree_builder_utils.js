@@ -1,7 +1,8 @@
 import { DEFAULT_GROUP_OPERATORS, TREE_NODE_TYPES } from "./tree_builder_types.js";
 
 export function createNodeId(prefix = "tree") {
-	if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID();
+	if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function")
+		return crypto.randomUUID();
 	return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 export const createId = createNodeId;
@@ -87,7 +88,10 @@ export function findPath(tree, nodeId) {
 export function isDescendant(node, targetId) {
 	if (!node || !targetId) return false;
 	if (node.id === targetId) return true;
-	return isContainerNode(node) && (node.children || []).some((child) => isDescendant(child, targetId));
+	return (
+		isContainerNode(node) &&
+		(node.children || []).some((child) => isDescendant(child, targetId))
+	);
 }
 
 export function treesEqual(left, right) {
@@ -102,22 +106,35 @@ export class TreeModelError extends Error {
 	}
 }
 
-export function normalizeTreeNode(value, { groupOperators = DEFAULT_GROUP_OPERATORS, path = [] } = {}) {
-	const operators = Array.isArray(groupOperators) && groupOperators.length ? groupOperators.filter(Boolean) : [...DEFAULT_GROUP_OPERATORS];
-	if (!value || typeof value !== "object" || Array.isArray(value)) throw new TreeModelError("Tree node must be an object.", path);
+export function normalizeTreeNode(
+	value,
+	{ groupOperators = DEFAULT_GROUP_OPERATORS, path = [] } = {}
+) {
+	const operators =
+		Array.isArray(groupOperators) && groupOperators.length
+			? groupOperators.filter(Boolean)
+			: [...DEFAULT_GROUP_OPERATORS];
+	if (!value || typeof value !== "object" || Array.isArray(value))
+		throw new TreeModelError("Tree node must be an object.", path);
 	if (value.type !== TREE_NODE_TYPES.GROUP && value.type !== TREE_NODE_TYPES.LEAF) {
 		throw new TreeModelError(`Unsupported tree node type: ${value.type}`, path);
 	}
 	const id = typeof value.id === "string" && value.id ? value.id : createNodeId(value.type);
 	if (value.type === TREE_NODE_TYPES.GROUP) {
 		const operator = operators.includes(value.operator) ? value.operator : operators[0];
-		if (!operator) throw new TreeModelError("A group operator is required.", [...path, "operator"]);
+		if (!operator)
+			throw new TreeModelError("A group operator is required.", [...path, "operator"]);
 		return {
 			id,
 			type: TREE_NODE_TYPES.GROUP,
 			operator,
 			children: Array.isArray(value.children)
-				? value.children.map((child, index) => normalizeTreeNode(child, { groupOperators: operators, path: [...path, "children", index] }))
+				? value.children.map((child, index) =>
+						normalizeTreeNode(child, {
+							groupOperators: operators,
+							path: [...path, "children", index],
+						})
+				  )
 				: [],
 		};
 	}
@@ -133,7 +150,6 @@ export function normalizeTree(value, { groupOperators = DEFAULT_GROUP_OPERATORS,
 		Array.isArray(groupOperators) && groupOperators.length
 			? groupOperators.filter(Boolean)
 			: [...DEFAULT_GROUP_OPERATORS];
-
 
 	if (value === undefined || value === null || value === "") {
 		return createGroup(operators[0], []);
