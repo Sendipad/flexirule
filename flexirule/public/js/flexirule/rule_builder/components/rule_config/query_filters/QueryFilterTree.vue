@@ -44,16 +44,26 @@ const props = defineProps({
 	variableOptions: { type: Array, default: null },
 	showValidation: { type: Boolean, default: false },
 	maxDepth: { type: Number, default: Infinity },
-	operatorLabels: { type: Object, default: () => ({ and: __("Match All"), or: __("Match Any") }) },
+	operatorLabels: {
+		type: Object,
+		default: () => ({ and: __("Match All"), or: __("Match Any") }),
+	},
 	visibleNode: { type: Function, default: () => true },
 });
 const emit = defineEmits(["update:modelValue", "change"]);
 const treeBuilderRef = ref(null);
 const leafRefs = new Map();
-const canonicalTree = computed(() => deserializeQueryFilters(props.modelValue, { defaultDoctype: props.doctype }));
+const canonicalTree = computed(() =>
+	deserializeQueryFilters(props.modelValue, { defaultDoctype: props.doctype })
+);
 
 function createLeaf() {
-	return { doctype: props.doctype, field: "", operator: "=", value: { mode: "static", value: "" } };
+	return {
+		doctype: props.doctype,
+		field: "",
+		operator: "=",
+		value: { mode: "static", value: "" },
+	};
 }
 function operatorLabel(operator) {
 	return props.operatorLabels[operator] || operator;
@@ -82,12 +92,15 @@ async function validate() {
 defineExpose({
 	validate,
 	getTree: () => treeBuilderRef.value?.getTree?.(),
-	getPayload: () => serializeQueryFilters(treeBuilderRef.value?.getTree?.(), { defaultDoctype: props.doctype }),
+	getPayload: () =>
+		serializeQueryFilters(treeBuilderRef.value?.getTree?.(), { defaultDoctype: props.doctype }),
 	addFilter: () => treeBuilderRef.value?.addLeaf(),
 	addGroup: () => treeBuilderRef.value?.addGroup(),
 });
 </script>
 
 <style scoped>
-.query-filter-leaf{min-width:0}
+.query-filter-leaf {
+	min-width: 0;
+}
 </style>
