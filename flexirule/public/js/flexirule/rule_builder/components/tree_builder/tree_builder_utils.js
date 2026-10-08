@@ -102,38 +102,41 @@ export class TreeModelError extends Error {
 	}
 }
 
+export function normalizeTreeNode(value, { groupOperators = DEFAULT_GROUP_OPERATORS, path = [] } = {}) {
+	const operators = Array.isArray(groupOperators) && groupOperators.length ? groupOperators.filter(Boolean) : [...DEFAULT_GROUP_OPERATORS];
+	if (!value || typeof value !== "object" || Array.isArray(value)) throw new TreeModelError("Tree node must be an object.", path);
+	if (value.type !== TREE_NODE_TYPES.GROUP && value.type !== TREE_NODE_TYPES.LEAF) {
+		throw new TreeModelError(`Unsupported tree node type: ${value.type}`, path);
+	}
+	const id = typeof value.id === "string" && value.id ? value.id : createNodeId(value.type);
+	if (value.type === TREE_NODE_TYPES.GROUP) {
+		const operator = operators.includes(value.operator) ? value.operator : operators[0];
+		if (!operator) throw new TreeModelError("A group operator is required.", [...path, "operator"]);
+		return {
+			id,
+			type: TREE_NODE_TYPES.GROUP,
+			operator,
+			children: Array.isArray(value.children)
+				? value.children.map((child, index) => normalizeTreeNode(child, { groupOperators: operators, path: [...path, "children", index] }))
+				: [],
+		};
+	}
+	const { children, operator, ...payload } = cloneTree(value);
+	if (children !== undefined) throw new TreeModelError("Leaf nodes cannot own children.", [...path, "children"]);
+	return { ...payload, id, type: TREE_NODE_TYPES.LEAF };
+}
+
 export function normalizeTree(value, { groupOperators = DEFAULT_GROUP_OPERATORS, rootId } = {}) {
 	const operators =
 		Array.isArray(groupOperators) && groupOperators.length
 			? groupOperators.filter(Boolean)
 			: [...DEFAULT_GROUP_OPERATORS];
 
-	function normalizeNode(node, path = []) {
-		if (!node || typeof node !== "object" || Array.isArray(node)) {
-			throw new TreeModelError("Tree node must be an object.", path);
-		}
-		if (!node.type) throw new TreeModelError("Tree node type is required.", path);
-		if (node.type !== TREE_NODE_TYPES.GROUP && node.type !== TREE_NODE_TYPES.LEAF) {
-			throw new TreeModelError(`Unsupported tree node type: ${node.type}`, path);
-		}
-		const id = typeof node.id === "string" && node.id ? node.id : createNodeId(node.type);
-		if (node.type === TREE_NODE_TYPES.GROUP) {
-			const operator = operators.includes(node.operator) ? node.operator : operators[0];
-			if (!operator) throw new TreeModelError("A group operator is required.", [...path, "operator"]);
-			const children = Array.isArray(node.children)
-				? node.children.map((child, index) => normalizeNode(child, [...path, "children", index]))
-				: [];
-			return { id, type: TREE_NODE_TYPES.GROUP, operator, children };
-		}
-		const { children, operator, ...payload } = cloneTree(node);
-		if (children !== undefined) throw new TreeModelError("Leaf nodes cannot own children.", [...path, "children"]);
-		return { ...payload, id, type: TREE_NODE_TYPES.LEAF };
-	}
 
 	if (value === undefined || value === null || value === "") {
 		return createGroup(operators[0], []);
 	}
-	const normalized = normalizeNode(value);
+	const normalized = normalizeTreeNode(value, { groupOperators: operators });
 	if (normalized.type !== TREE_NODE_TYPES.GROUP) {
 		return {
 			id: rootId || createNodeId("root"),
