@@ -1,5 +1,14 @@
 import { computed, nextTick, reactive, ref, watch } from "vue";
-import { cloneTree, findNode, findPath, isContainerNode, normalizeTree, normalizeTreeNode, treesEqual, TreeModelError } from "./tree_builder_utils.js";
+import {
+	cloneTree,
+	findNode,
+	findPath,
+	isContainerNode,
+	normalizeTree,
+	normalizeTreeNode,
+	treesEqual,
+	TreeModelError,
+} from "./tree_builder_utils.js";
 import * as commands from "./tree_builder_commands.js";
 import { validateTree } from "./tree_builder_validation.js";
 
@@ -37,11 +46,16 @@ export function useTreeBuilder({
 				allowEmptyGroups,
 				maxDepth: normalizedMaxDepth.value,
 			});
-			if (!structural.valid) throw new TreeModelError(structural.errors[0]?.message || "Invalid tree.", structural.errors[0]?.path || []);
+			if (!structural.valid)
+				throw new TreeModelError(
+					structural.errors[0]?.message || "Invalid tree.",
+					structural.errors[0]?.path || []
+				);
 			modelError.value = null;
 			return normalized;
 		} catch (error) {
-			modelError.value = error instanceof TreeModelError ? error : new TreeModelError(String(error));
+			modelError.value =
+				error instanceof TreeModelError ? error : new TreeModelError(String(error));
 			return normalizeTree(null, { groupOperators: operators.value });
 		}
 	}
@@ -82,14 +96,22 @@ export function useTreeBuilder({
 
 	function canAddChild(parentId) {
 		const parent = findNode(root, parentId);
-		return !!parent && isContainerNode(parent) && depthOf(root, parentId) + 1 <= normalizedMaxDepth.value;
+		return (
+			!!parent &&
+			isContainerNode(parent) &&
+			depthOf(root, parentId) + 1 <= normalizedMaxDepth.value
+		);
 	}
 
 	const addLeaf = (parentId = root.id, payload) =>
-		canAddChild(parentId) ? mutate((tree) => commands.addLeaf(tree, parentId, payload ?? leafFactory())) : null;
+		canAddChild(parentId)
+			? mutate((tree) => commands.addLeaf(tree, parentId, payload ?? leafFactory()))
+			: null;
 
 	const addGroup = (parentId = root.id, operator = operators.value[0]) =>
-		allowGroups && canAddChild(parentId) ? mutate((tree) => commands.addGroup(tree, parentId, operator)) : null;
+		allowGroups && canAddChild(parentId)
+			? mutate((tree) => commands.addGroup(tree, parentId, operator))
+			: null;
 
 	function removeNode(id) {
 		const result = mutate((tree) => commands.removeNode(tree, id));
@@ -165,21 +187,25 @@ export function useTreeBuilder({
 		replaceRoot(next);
 		nextTick().then(() => {
 			syncing = false;
-	});
+		});
 	}
 
 	function toggleExpanded(id) {
 		expandedNodes.has(id) ? expandedNodes.delete(id) : expandedNodes.add(id);
 	}
 
-	watch(modelValue, async (value) => {
-		const normalized = safeNormalize(value);
-		if (!modelError.value && treesEqual(normalized, root)) return;
-		syncing = true;
-		replaceRoot(value);
-		await nextTick();
-		syncing = false;
-	}, { deep: true });
+	watch(
+		modelValue,
+		async (value) => {
+			const normalized = safeNormalize(value);
+			if (!modelError.value && treesEqual(normalized, root)) return;
+			syncing = true;
+			replaceRoot(value);
+			await nextTick();
+			syncing = false;
+		},
+		{ deep: true }
+	);
 
 	return {
 		root,
