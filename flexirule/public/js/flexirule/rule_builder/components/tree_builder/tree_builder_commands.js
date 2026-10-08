@@ -1,5 +1,6 @@
 import {
 	cloneTree,
+	createCollection,
 	createGroup,
 	createLeaf,
 	findNode,
