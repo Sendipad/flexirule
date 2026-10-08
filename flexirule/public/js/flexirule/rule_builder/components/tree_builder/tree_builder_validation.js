@@ -19,20 +19,27 @@ export function validateTree(
 			add(path, "malformed", "Tree node is malformed.");
 			return;
 		}
-		if (!node.id || typeof node.id !== "string") add(path, "id", "Every tree node requires an id.");
+		if (!node.id || typeof node.id !== "string")
+			add(path, "id", "Every tree node requires an id.");
 		if (node.id && ids.has(node.id)) add(path, "duplicate_id", "Tree node ids must be unique.");
 		if (node.id) ids.add(node.id);
-		if (Number.isFinite(maxDepth) && depth > maxDepth) add(path, "max_depth", "Tree nesting depth exceeds the configured maximum.");
+		if (Number.isFinite(maxDepth) && depth > maxDepth)
+			add(path, "max_depth", "Tree nesting depth exceeds the configured maximum.");
 
 		if (isGroupNode(node)) {
-			if (!groupOperators.includes(node.operator)) add([...path, "operator"], "operator", "Group operator is not allowed.");
+			if (!groupOperators.includes(node.operator))
+				add([...path, "operator"], "operator", "Group operator is not allowed.");
 			if (!Array.isArray(node.children)) {
 				add([...path, "children"], "children", "Children must be an array.");
 				return;
 			}
-			if (!node.children.length && !isRoot && !allowEmptyGroups) add(path, "empty_group", "Group cannot be empty.");
-			if (!node.children.length && isRoot && !allowEmptyRoot) add(path, "empty_root", "Tree root cannot be empty.");
-			node.children.forEach((child, index) => visit(child, [...path, "children", index], depth + 1));
+			if (!node.children.length && !isRoot && !allowEmptyGroups)
+				add(path, "empty_group", "Group cannot be empty.");
+			if (!node.children.length && isRoot && !allowEmptyRoot)
+				add(path, "empty_root", "Tree root cannot be empty.");
+			node.children.forEach((child, index) =>
+				visit(child, [...path, "children", index], depth + 1)
+			);
 			return;
 		}
 
@@ -45,7 +52,11 @@ export function validateTree(
 				if (result === false) add(path, "invalid_leaf", "Leaf is invalid.");
 				else if (result?.errors) {
 					result.errors.forEach((error) =>
-						add([...path, ...(error.path || [])], error.code || "invalid_leaf", error.message || "Leaf is invalid.")
+						add(
+							[...path, ...(error.path || [])],
+							error.code || "invalid_leaf",
+							error.message || "Leaf is invalid."
+						)
 					);
 				}
 			}
