@@ -5,7 +5,7 @@ const props=defineProps({modelValue:{type:Object,default:()=>({type:"group",oper
 const emit=defineEmits(["update:modelValue","change"]);
 const api=useTreeBuilder({modelValue:computed(()=>props.modelValue),emit,readOnly:props.readOnly,groupOperators:props.groupOperators,leafFactory:props.leafFactory,scopeFactory:props.scopeFactory,allowScopes:props.allowScopes,validateLeaf:props.validateLeaf,validateScope:props.validateScope});
 provide("treeBuilderContext",api);
-const {root,operators,addLeaf,addGroup,addScope,removeNode,setOperator,beginDrag,dropNode}=api;
+const {root,operators,addLeaf,addGroup,addScope,removeNode,setOperator}=api;
 const operatorLabel=op=>op==="or"?__("OR"):op==="and"?__("AND"):op;
 defineExpose({...api});
 </script>
