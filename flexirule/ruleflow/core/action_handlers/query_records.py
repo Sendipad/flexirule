@@ -1089,7 +1089,9 @@ class QueryRecordsHandler(ActionHandler):
 		return value
 
 	def _normalize_filters_for_backend(self, filters, reference_doctype: str | None = None):
-		"""Recursively normalize filter operators and emit frappe-style filter tuples."""	def _is_canonical_filter_tree(self, value) -> bool:
+		"""Recursively normalize filter operators and emit frappe-style filter tuples."""
+
+	def _is_canonical_filter_tree(self, value) -> bool:
 		return isinstance(value, dict) and value.get("type") in {"group", "leaf"}
 
 	def _canonical_filter_tree_to_backend(self, node, reference_doctype: str | None = None):
