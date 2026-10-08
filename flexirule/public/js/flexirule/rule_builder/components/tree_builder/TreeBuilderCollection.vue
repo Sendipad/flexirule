@@ -2,7 +2,7 @@
 	<div class="tree-collection">
 		<div class="tree-collection__header">
 			<div class="tree-collection__label">
-				<i class="fa fa-sitemap"></i><strong>{{ label }}</strong>
+				<i class="fa fa-sitemap"></i><slot name="label" :node="node"><strong>{{ label }}</strong></slot>
 			</div>
 			<div v-if="!readOnly" class="tree-collection__actions">
 				<button type="button" class="fxr-btn fxr-btn--icon" @click="$emit('add-leaf')">
