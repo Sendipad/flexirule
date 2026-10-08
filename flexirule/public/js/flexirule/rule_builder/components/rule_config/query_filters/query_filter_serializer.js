@@ -89,7 +89,7 @@ export function deserializeQueryFilters(payload, { defaultDoctype = "" } = {}) {
 
 function validateCanonical(tree) {
 	const errors = [];
-	function visit(node, path = [], isRoot = false) {
+	function visit(node, path = []) {
 		if (!node || typeof node !== "object") {
 			errors.push({ path, message: "Filter node is malformed." });
 			return;
@@ -107,7 +107,7 @@ function validateCanonical(tree) {
 		}
 		errors.push({ path, message: "Unknown filter node type." });
 	}
-	visit(tree, [], true);
+	visit(tree, []);
 	if (!isGroup(tree)) errors.push({ path: [], message: "Filter root must be a group." });
 	return errors;
 }
