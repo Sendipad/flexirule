@@ -27,8 +27,6 @@ const payload = serializeQueryFilters(nested);
 assert.deepEqual(payload, [
 	["Sales Order", "status", "=", { mode: "static", value: "Open" }],
 	"and",
-	[
-		["Sales Order", "docstatus", "=", { mode: "static", value: 1 }],
-	],
+	["Sales Order", "docstatus", "=", { mode: "static", value: 1 }],
 ]);
 console.log("query filter serializer tests passed");
