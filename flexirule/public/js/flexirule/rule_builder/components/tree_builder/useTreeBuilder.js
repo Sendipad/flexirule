@@ -162,6 +162,8 @@ export function useTreeBuilder({
 		const structural = validateTree(candidate, {
 			groupOperators: operators.value,
 			allowEmptyGroups,
+			allowGroups,
+			allowCollections,
 			maxDepth: normalizedMaxDepth.value,
 			validateLeaf,
 			validateCollection,
@@ -174,6 +176,8 @@ export function useTreeBuilder({
 		const structural = validateTree(root, {
 			groupOperators: operators.value,
 			allowEmptyGroups,
+			allowGroups,
+			allowCollections,
 			maxDepth: normalizedMaxDepth.value,
 			validateLeaf,
 			validateCollection,
