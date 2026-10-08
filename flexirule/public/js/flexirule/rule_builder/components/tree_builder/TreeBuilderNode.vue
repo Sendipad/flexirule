@@ -13,9 +13,9 @@ const emit=defineEmits(["remove","operator"]);
 const api=inject("treeBuilderContext",null), dragOver=ref(false);
 const kind=computed(()=>props.node.type), children=computed(()=>props.node.children||[]);
 function dragStart(e){if(props.readOnly)return;e.stopPropagation();api?.beginDrag(props.node.id);e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/plain",props.node.id||"");}
-function dragOverNode(e){if(props.readOnly||!isGroupNode(props.node))return;e.preventDefault();e.stopPropagation();dragOver.value=true;}
+function dragOverNode(e){if(props.readOnly||(!isGroupNode(props.node)&&!isLeafNode(props.node)))return;e.preventDefault();e.stopPropagation();dragOver.value=true;}
 function dragLeave(){dragOver.value=false;}
-function drop(e){e.preventDefault();e.stopPropagation();dragOver.value=false;if(isGroupNode(props.node))api?.dropNode(props.node.id);}
+function drop(e){e.preventDefault();e.stopPropagation();dragOver.value=false;if(isGroupNode(props.node))api?.dropNode(props.node.id);else if(isLeafNode(props.node))api?.dropNode(props.parent.id,props.index);}
 </script>
 <template>
 	<div v-if="visibleNode(node)" class="tree-node" :class="{ 'drag-over': dragOver }" draggable="true"
