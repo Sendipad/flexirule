@@ -9,6 +9,7 @@ import {
 } from "./tree_builder_utils.js";
 import { addCollection, addGroup, addLeaf, moveNode, removeNode, setOperator } from "./tree_builder_commands.js";
 import { validateTree } from "./tree_builder_validation.js";
+import { deserializeQueryFilters, serializeQueryFilters } from "../rule_config/query_filters/query_filter_serializer.js";
 
 const root = createGroup("and", []);
 const group = addGroup(root, root.id, "or");
@@ -71,3 +72,26 @@ const groupsDisabled = validateTree(
 );
 assert.equal(groupsDisabled.valid, false);
 assert.ok(groupsDisabled.errors.some((error) => error.code === "groups_disabled"));
+
+const editableFilters = deserializeQueryFilters([], { defaultDoctype: "Customer" });
+editableFilters.children.push({
+	id: "leaf-edit",
+	type: "leaf",
+	doctype: "Customer",
+	field: "",
+	operator: "=",
+	value: { mode: "static", value: "" },
+});
+assert.deepEqual(serializeQueryFilters(editableFilters), [
+	"Customer",
+	"",
+	"=",
+	{ mode: "static", value: "" },
+]);
+editableFilters.children[0].field = "customer_group";
+assert.deepEqual(serializeQueryFilters(editableFilters), [
+	"Customer",
+	"customer_group",
+	"=",
+	{ mode: "static", value: "" },
+]);
