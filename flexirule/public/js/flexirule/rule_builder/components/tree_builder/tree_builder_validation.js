@@ -6,6 +6,7 @@ export function validateTree(
 		allowEmptyRoot = true,
 		allowEmptyGroups = true,
 		allowScopes = true,
+		maxDepth = Infinity,
 		validateLeaf,
 		validateScope,
 	} = {}
@@ -21,6 +22,10 @@ export function validateTree(
 		if (!n.id || typeof n.id !== "string") add(path, "id", "Every tree node requires an id.");
 		if (n.id && ids.has(n.id)) add(path, "duplicate_id", "Tree node ids must be unique.");
 		ids.add(n.id);
+		const depth = path.length / 2;
+		if (Number.isFinite(maxDepth) && depth > maxDepth) {
+			add(path, "max_depth", "Tree nesting depth exceeds the configured maximum.");
+		}
 		if (isGroupNode(n)) {
 			if (!groupOperators.includes(n.operator))
 				add([...path, "operator"], "operator", "Group operator is not allowed.");

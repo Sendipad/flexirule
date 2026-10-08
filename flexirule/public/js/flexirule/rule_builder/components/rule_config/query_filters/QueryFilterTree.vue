@@ -29,7 +29,7 @@
 
 <script setup>
 import { nextTick, reactive, ref, watch } from "vue";
-import TreeBuilder from "../tree_builder/TreeBuilder.vue";
+import TreeBuilder from "../../tree_builder/TreeBuilder.vue";
 import FilterLeaf from "./FilterLeaf.vue";
 import {
 	createFilterLeaf,
@@ -37,7 +37,7 @@ import {
 	serializeFilterTree,
 	validateFilterTree,
 } from "./filter_tree_adapter.js";
-import { cloneTree } from "../tree_builder/tree_builder_utils.js";
+import { cloneTree } from "../../tree_builder/tree_builder_utils.js";
 
 const props = defineProps({
 	modelValue: { type: [Array, Object], default: () => [] },

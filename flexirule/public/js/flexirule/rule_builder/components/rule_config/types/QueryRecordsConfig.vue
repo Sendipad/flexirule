@@ -568,7 +568,7 @@ import { useActionConfig } from "../../../composables/useActionConfig";
 import ControlFactory from "../../../controls/ControlFactory.vue";
 import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
 import FilterGroup from "../FilterGroup.vue";
-import FetchRecordsConfig from "./FetchRecordsConfig.vue";
+import FetchRecordsConfig from "./query_records/FetchRecordsConfig.vue";
 import MultiSelectList from "../../../controls/MultiSelectList.vue";
 import FlexValueControl from "../../../controls/FlexValueControl.vue";
 import { useNodeConfigPolicy } from "../../../composables/useNodeConfigPolicy";

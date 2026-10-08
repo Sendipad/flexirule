@@ -54,4 +54,9 @@ assert.equal(validateTree(legacy).valid, true);
 const bad = createGroup("xor", [createLeaf({ field: "x" })]);
 assert.equal(validateTree(bad).valid, false);
 assert.ok(validateTree(bad).errors.some((e) => e.code === "operator"));
+
+const tooDeep = createGroup("and", [createGroup("or", [createLeaf({ field: "x" })])]);
+const depthResult = validateTree(tooDeep, { maxDepth: 1 });
+assert.equal(depthResult.valid, false);
+assert.ok(depthResult.errors.some((e) => e.code === "max_depth"));
 console.log("tree builder core tests passed");
