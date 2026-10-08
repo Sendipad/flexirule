@@ -15,6 +15,7 @@ const props = defineProps({
 	leafLabel: { type: String, default: __("Condition") },
 	scopeLabel: { type: String, default: __("Scope") },
 	operatorLabel: { type: Function, default: (v) => v },
+	visibleNode: { type: Function, default: () => true },
 });
 const emit = defineEmits(["remove", "operator"]);
 const api = inject("treeBuilderContext", null),
@@ -50,6 +51,7 @@ function drop(e) {
 </script>
 <template>
 	<div
+		v-if="visibleNode(node)"
 		class="tree-node"
 		:class="{ 'drag-over': dragOver }"
 		draggable="true"
@@ -63,6 +65,7 @@ function drop(e) {
 			:node="node"
 			:operators="groupOperators"
 			:operatorLabel="operatorLabel"
+					:visibleNode="visibleNode"
 			:readOnly="readOnly"
 			:allowGroups="allowGroups"
 			@operator="$emit('operator', $event)"
@@ -83,6 +86,7 @@ function drop(e) {
 					:leafLabel="leafLabel"
 					:scopeLabel="scopeLabel"
 					:operatorLabel="operatorLabel"
+					:visibleNode="visibleNode"
 					@remove="api?.removeNode(child.id)"
 					@operator="api?.setOperator(child.id, $event)"
 					><template #default="p"><slot v-bind="p" /></template></TreeBuilderNode
@@ -112,6 +116,7 @@ function drop(e) {
 					:leafLabel="leafLabel"
 					:scopeLabel="scopeLabel"
 					:operatorLabel="operatorLabel"
+					:visibleNode="visibleNode"
 					@remove="api?.removeNode(child.id)"
 					@operator="api?.setOperator(child.id, $event)"
 					><template #default="p"><slot v-bind="p" /></template></TreeBuilderNode

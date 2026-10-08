@@ -11,7 +11,7 @@
 					:disabled="readOnly"
 					@click="setOperator(root.id, op)"
 				>
-					{{ operatorLabel(op) }}
+					{{ resolveOperatorLabel(op) }}
 				</button>
 			</div>
 			<div v-if="!readOnly" class="tree-builder__actions">
@@ -39,7 +39,8 @@
 				:groupOperators="operators"
 				:leafLabel="leafLabel"
 				:scopeLabel="scopeLabel"
-				:operatorLabel="operatorLabel"
+				:operatorLabel="resolveOperatorLabel"
+				:visibleNode="isNodeVisible"
 				@remove="removeNode(node.id)"
 				@operator="setOperator(node.id, $event)"
 				><template #default="p"><slot name="leaf" v-bind="p" /></template
@@ -65,6 +66,9 @@ const props = defineProps({
 	scopeFactory: { type: Function, default: () => ({}) },
 	validateLeaf: { type: Function, default: null },
 	validateScope: { type: Function, default: null },
+	maxDepth: { type: Number, default: Infinity },
+	operatorLabel: { type: Function, default: (op) => op },
+	visibleNode: { type: Function, default: () => true },
 });
 const emit = defineEmits(["update:modelValue", "change"]);
 const api = useTreeBuilder({
@@ -77,10 +81,13 @@ const api = useTreeBuilder({
 	allowScopes: props.allowScopes,
 	validateLeaf: props.validateLeaf,
 	validateScope: props.validateScope,
+	maxDepth: props.maxDepth,
 });
 provide("treeBuilderContext", api);
 const { root, operators, addLeaf, addGroup, addScope, removeNode, setOperator } = api;
-const operatorLabel = (op) => (op === "or" ? __("OR") : op === "and" ? __("AND") : op);
+const resolveOperatorLabel = (op) => props.operatorLabel(op);
+const isNodeVisible = (node) =>
+	typeof props.visibleNode === "function" ? props.visibleNode(node) !== false : true;
 defineExpose({ ...api });
 </script>
 <style scoped>

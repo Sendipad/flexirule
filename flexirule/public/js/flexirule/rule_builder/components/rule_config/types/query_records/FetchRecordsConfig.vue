@@ -139,7 +139,7 @@ import ControlFactory from "../../../controls/ControlFactory.vue";
 import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
 import MultiSelectList from "../../../controls/MultiSelectList.vue";
 import { useNavigableFields } from "../../../composables/useNavigableFields";
-import QueryFilterTree from "../QueryFilterTree.vue";
+import QueryFilterTree from "../../query_filters/QueryFilterTree.vue";
 
 const props = defineProps({
 	modelValue: { type: Object, default: () => ({}) },

@@ -15,7 +15,7 @@
 
 <script setup>
 import { ref } from "vue";
-import FilterGroup from "./FilterGroup.vue";
+import FilterGroup from "../FilterGroup.vue";
 
 const filterGroupRef = ref(null);
 
