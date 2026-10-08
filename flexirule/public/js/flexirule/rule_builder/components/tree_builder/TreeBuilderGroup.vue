@@ -16,15 +16,26 @@
 			</div>
 			<div v-if="!readOnly" class="tree-group__actions">
 				<button type="button" class="fxr-btn fxr-btn--icon" @click="$emit('add-leaf')">
-					<i class="fa fa-plus"></i></button
-				><button
+					<i class="fa fa-plus"></i>
+				</button>
+				<button
 					v-if="allowGroups"
 					type="button"
 					class="fxr-btn fxr-btn--icon"
 					@click="$emit('add-group')"
 				>
-					<i class="fa fa-folder-open-o"></i></button
-				><button
+					<i class="fa fa-folder-open-o"></i>
+				</button>
+				<button
+					v-if="allowCollections"
+					type="button"
+					class="fxr-btn fxr-btn--icon"
+					:title="collectionLabel"
+					@click="$emit('add-collection')"
+				>
+					<i class="fa fa-sitemap"></i>
+				</button>
+				<button
 					type="button"
 					class="fxr-btn fxr-btn--icon fxr-btn--danger"
 					@click="$emit('remove')"
@@ -43,8 +54,10 @@ defineProps({
 	operatorLabel: { type: Function, default: (v) => v },
 	readOnly: Boolean,
 	allowGroups: Boolean,
+	allowCollections: Boolean,
+	collectionLabel: { type: String, default: "Collection" },
 });
-defineEmits(["operator", "add-leaf", "add-group", "remove"]);
+defineEmits(["operator", "add-leaf", "add-group", "add-collection", "remove"]);
 </script>
 <style scoped>
 .tree-group {
