@@ -393,10 +393,18 @@ class TestFetchRecords(FrappeTestCase):
 
 	def test_fetch_records_starts_with_and_ends_with_wildcards(self):
 		prefix = f"Inv_{random_string(5)}"
-		t1 = frappe.get_doc({"doctype": "ToDo", "description": f"{prefix}_invoice"}).insert(ignore_permissions=True)
-		t2 = frappe.get_doc({"doctype": "ToDo", "description": f"{prefix}_invoice-001"}).insert(ignore_permissions=True)
-		t3 = frappe.get_doc({"doctype": "ToDo", "description": f"{prefix}_pre-invoice"}).insert(ignore_permissions=True)
-		t4 = frappe.get_doc({"doctype": "ToDo", "description": f"{prefix}_pre-invoice-post"}).insert(ignore_permissions=True)
+		t1 = frappe.get_doc({"doctype": "ToDo", "description": f"{prefix}_invoice"}).insert(
+			ignore_permissions=True
+		)
+		t2 = frappe.get_doc({"doctype": "ToDo", "description": f"{prefix}_invoice-001"}).insert(
+			ignore_permissions=True
+		)
+		t3 = frappe.get_doc({"doctype": "ToDo", "description": f"{prefix}_pre-invoice"}).insert(
+			ignore_permissions=True
+		)
+		t4 = frappe.get_doc({"doctype": "ToDo", "description": f"{prefix}_pre-invoice-post"}).insert(
+			ignore_permissions=True
+		)
 
 		# 'starts with' operator
 		action_starts = frappe._dict(
@@ -411,7 +419,9 @@ class TestFetchRecords(FrappeTestCase):
 			}
 		)
 		res_starts, _ = self.handler.execute(action_starts, {}, None)
-		self.assertEqual({r.get("name") for r in res_starts}, {t1.name, t2.name})
+		names_starts = {r.get("name") for r in res_starts}
+		self.assertEqual(names_starts, {t1.name, t2.name})
+		self.assertNotIn(t4.name, names_starts)
 
 		# 'ends with' operator
 		action_ends = frappe._dict(
@@ -426,12 +436,18 @@ class TestFetchRecords(FrappeTestCase):
 			}
 		)
 		res_ends, _ = self.handler.execute(action_ends, {}, None)
-		self.assertEqual({r.get("name") for r in res_ends}, {t1.name, t3.name})
+		names_ends = {r.get("name") for r in res_ends}
+		self.assertEqual(names_ends, {t1.name, t3.name})
+		self.assertNotIn(t4.name, names_ends)
 
 	def test_fetch_records_boolean_coercion_end_to_end(self):
 		prefix = f"BoolCoerce_{random_string(5)}"
-		t_open = frappe.get_doc({"doctype": "ToDo", "description": f"{prefix}_open", "status": "Open"}).insert(ignore_permissions=True)
-		t_closed = frappe.get_doc({"doctype": "ToDo", "description": f"{prefix}_closed", "status": "Closed"}).insert(ignore_permissions=True)
+		t_open = frappe.get_doc(
+			{"doctype": "ToDo", "description": f"{prefix}_open", "status": "Open"}
+		).insert(ignore_permissions=True)
+		t_closed = frappe.get_doc(
+			{"doctype": "ToDo", "description": f"{prefix}_closed", "status": "Closed"}
+		).insert(ignore_permissions=True)
 
 		# UI structured value payload for boolean status/check filtering
 		action_true = frappe._dict(
@@ -454,4 +470,6 @@ class TestFetchRecords(FrappeTestCase):
 			}
 		)
 		res_true, _ = self.handler.execute(action_true, {}, None)
-		self.assertEqual({r.get("name") for r in res_true}, {t_open.name})
+		res_names = {r.get("name") for r in res_true}
+		self.assertEqual(res_names, {t_open.name})
+		self.assertNotIn(t_closed.name, res_names)

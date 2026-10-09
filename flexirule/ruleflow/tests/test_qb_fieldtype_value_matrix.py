@@ -166,9 +166,9 @@ class TestQBFieldtypeValueMatrix(FrappeTestCase):
 		)
 		self.assertEqual({r["name"] for r in res_curr}, {self.m1.name})
 
-		res_curr_str = frappe.qb.get_query("QB Matrix Parent", filters=[["currency_field", "=", "50.00"]]).run(
-			as_dict=True
-		)
+		res_curr_str = frappe.qb.get_query(
+			"QB Matrix Parent", filters=[["currency_field", "=", "50.00"]]
+		).run(as_dict=True)
 		self.assertEqual({r["name"] for r in res_curr_str}, {self.m3.name})
 
 	def test_03_date_and_datetime_iso_and_python_objects(self):
