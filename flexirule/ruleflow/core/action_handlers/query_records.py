@@ -538,7 +538,7 @@ class QueryRecordsHandler(ActionHandler):
 	_FETCH_RECORDS_OPERATORS = {
 		"=", "!=", "<>", ">", ">=", "<", "<=", "like", "not like", "in", "not in",
 		"between", "not between", "is", "is set", "is not set", "timespan",
-		"starts with", "ends with", "contains", "not contains",
+		"starts with", "ends with",
 		"descendants of", "ancestors of",
 	}
 
