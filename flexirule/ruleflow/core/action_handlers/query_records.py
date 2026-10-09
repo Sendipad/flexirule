@@ -595,9 +595,13 @@ class QueryRecordsHandler(ActionHandler):
 			and value.get("mode") not in {"static", "variable", "resolver", "expression", "jinja"}
 		):
 			errors.append(_("{0}.value.mode is not supported").format(path))
-		elif isinstance(value, dict) and "mode" not in value:
-			errors.append(_("{0}.value must be a FlexValue or JSON value").format(path))
-		elif isinstance(value, dict) and value.get("mode") == "static":
+		elif isinstance(value, dict) and "mode" in value:
+			mode = value.get("mode")
+			if mode == "static" and "value" not in value:
+				errors.append(_("{0}.value.value is required for static values").format(path))
+			elif mode in {"variable", "resolver", "expression", "jinja"} and "value" not in value:
+				errors.append(_("{0}.value.value is required for {1} values").format(path, mode))
+		if isinstance(value, dict) and value.get("mode") == "static" and "value" in value:
 			operator_name = operator.strip().lower() if isinstance(operator, str) else ""
 			static_value = value.get("value")
 			if operator_name in {"between", "not between"} and not (
@@ -630,11 +634,13 @@ class QueryRecordsHandler(ActionHandler):
 				return self._resolve_value_expression_with_context(value, context, path, action)
 			return value
 
-		if config.get("filters") not in (None, "", []):
-			if self._is_canonical_filter_tree(config["filters"]):
-				filter_errors = self._validate_canonical_fetch_filter_tree(config["filters"])
-				if filter_errors:
-					frappe.throw("; ".join(filter_errors))
+		filters = config.get("filters")
+		if filters not in (None, "", []):
+			if not self._is_canonical_filter_tree(filters):
+				frappe.throw(_("Fetch Records filters must use the canonical filter tree format"))
+			filter_errors = self._validate_canonical_fetch_filter_tree(filters)
+			if filter_errors:
+				frappe.throw("; ".join(filter_errors))
 
 		kwargs = {}
 		if config.get("fields") not in (None, "", []):
@@ -646,10 +652,9 @@ class QueryRecordsHandler(ActionHandler):
 				continue
 			value = resolve_payload(value, f"{action_label}.{key}")
 			if key == "filters":
-				if self._is_canonical_filter_tree(value):
-					value = self._canonical_filter_tree_to_backend(value, reference_doctype)
-				elif isinstance(value, list | dict):
-					value = self._normalize_filters_for_backend(value, reference_doctype)
+				# Fetch Records accepts only its canonical persisted tree. Legacy filter
+				# normalization remains available to established Query Records modes.
+				value = self._canonical_filter_tree_to_backend(value, reference_doctype)
 			kwargs[key] = value
 
 		from flexirule.ruleflow.utils.frappe_query_compat import execute_query
