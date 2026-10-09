@@ -550,13 +550,12 @@ class QueryRecordsHandler(ActionHandler):
 		"between",
 		"not between",
 		"is",
-		"is set",
-		"is not set",
 		"timespan",
-		"starts with",
-		"ends with",
 		"descendants of",
+		"descendants of (inclusive)",
+		"not descendants of",
 		"ancestors of",
+		"not ancestors of",
 	}
 
 	def _validate_canonical_fetch_filter_tree(self, node, path="filters") -> list[str]:
@@ -1143,19 +1142,19 @@ class QueryRecordsHandler(ActionHandler):
 		return today, today
 
 	def _normalize_single_filter_operator(self, op, val):
-		"""Normalize UI operators to backend-safe operators/values."""
+		"""Normalize FlexiRule convenience operators; preserve native QB operator keys."""
 		if not isinstance(op, str):
 			return op, val
 		op = op.strip()
-		if op == "starts with":
+		operator_key = op.casefold()
+		# Retain these convenience aliases for legacy modes only. Fetch Records'
+		# canonical tree validates against native operator keys and does not expose them.
+		if operator_key == "starts with":
 			return "like", f"{val}%"
-		if op == "ends with":
+		if operator_key == "ends with":
 			return "like", f"%{val}"
-		if op == "Between":
-			return "between", val
-		if op == "Timespan":
-			start, end = self._resolve_timespan_range(val)
-			return "between", [start, end]
+		if operator_key in {"between", "timespan"}:
+			return operator_key, val
 		return op, val
 
 	def _extract_filter_value_payload(self, value):
@@ -1188,14 +1187,10 @@ class QueryRecordsHandler(ActionHandler):
 			doctype = node.get("doctype") or reference_doctype
 			operator = node.get("operator") or "="
 			value = self._extract_filter_value_payload(node.get("value"))
-			# Canonical Fetch Records operators are case-insensitive; leave legacy
-			# mode normalization untouched.
+			# Canonical Fetch Records persists native Query Builder operator keys.
+			# Normalize case only; native QB owns operator semantics and timespan ranges.
 			if isinstance(operator, str):
-				operator_key = operator.strip().casefold()
-				if operator_key in {"starts with", "ends with"}:
-					operator = operator_key
-				elif operator_key == "timespan":
-					operator = "Timespan"
+				operator = operator.strip().casefold()
 			operator, value = self._normalize_single_filter_operator(operator, value)
 			resolved_doctype, resolved_field = self._resolve_filter_doctype_and_field(
 				reference_doctype, doctype, field
