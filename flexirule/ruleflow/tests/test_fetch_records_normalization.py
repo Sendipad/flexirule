@@ -23,7 +23,11 @@ class TestFetchRecordsNormalization(FrappeTestCase):
 		self.assertEqual(op, "like")
 		self.assertEqual(val, "Test%")
 
-		# starts with with existing wildcard appends another '%' (double wildcarding)
+		# OBSERVED IMPLEMENTATION BEHAVIOR:
+		# QueryRecordsHandler._normalize_single_filter_operator unconditionally appends '%'
+		# when operator is 'starts with'. Inputting an already wildcarded string ('Test%')
+		# yields 'Test%%'. This characterization assertion documents current implementation behavior
+		# and should be evaluated if wildcard sanitization is addressed in a separate focused change.
 		op_dbl, val_dbl = self.handler._normalize_single_filter_operator("starts with", "Test%")
 		self.assertEqual(op_dbl, "like")
 		self.assertEqual(val_dbl, "Test%%")

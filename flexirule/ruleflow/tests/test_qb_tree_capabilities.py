@@ -14,20 +14,29 @@ class TestQBTreeCapabilities(FrappeTestCase):
 	"""
 
 	_created_doctypes: ClassVar[list[str]] = []
+	_created_records: ClassVar[list[tuple[str, str]]] = []
 
 	@classmethod
 	def setUpClass(cls):
 		super().setUpClass()
+		cls._created_doctypes = []
+		cls._created_records = []
 		cls._setup_test_doctypes()
 		cls._setup_test_records()
 
 	@classmethod
 	def tearDownClass(cls):
-		frappe.db.delete("QB Tree Node")
+		for doctype, docname in reversed(cls._created_records):
+			if frappe.db.exists(doctype, docname):
+				frappe.delete_doc(doctype, docname, force=True, ignore_permissions=True)
+
+		cls._created_records.clear()
 
 		for dt in cls._created_doctypes:
 			if frappe.db.exists("DocType", dt):
 				frappe.delete_doc(dt, force=True, ignore_permissions=True)
+
+		cls._created_doctypes.clear()
 
 		frappe.db.commit()
 		super().tearDownClass()
@@ -66,55 +75,64 @@ class TestQBTreeCapabilities(FrappeTestCase):
 
 	@classmethod
 	def _setup_test_records(cls):
-		frappe.db.delete("QB Tree Node")
-
-		cls.root_a = frappe.get_doc(
+		root_a = frappe.get_doc(
 			{
 				"doctype": "QB Tree Node",
-				"tree_name": "Root A",
+				"tree_name": "_TEST_Root A",
 				"is_group": 1,
 				"status": "Active",
 			}
 		).insert(ignore_permissions=True)
+		cls._created_records.append(("QB Tree Node", root_a.name))
 
-		cls.branch_a1 = frappe.get_doc(
+		branch_a1 = frappe.get_doc(
 			{
 				"doctype": "QB Tree Node",
-				"tree_name": "Branch A1",
-				"parent_qb_tree_node": cls.root_a.name,
+				"tree_name": "_TEST_Branch A1",
+				"parent_qb_tree_node": root_a.name,
 				"is_group": 1,
 				"status": "Active",
 			}
 		).insert(ignore_permissions=True)
+		cls._created_records.append(("QB Tree Node", branch_a1.name))
 
-		cls.leaf_a1a = frappe.get_doc(
+		leaf_a1a = frappe.get_doc(
 			{
 				"doctype": "QB Tree Node",
-				"tree_name": "Leaf A1a",
-				"parent_qb_tree_node": cls.branch_a1.name,
+				"tree_name": "_TEST_Leaf A1a",
+				"parent_qb_tree_node": branch_a1.name,
 				"is_group": 0,
 				"status": "Active",
 			}
 		).insert(ignore_permissions=True)
+		cls._created_records.append(("QB Tree Node", leaf_a1a.name))
 
-		cls.leaf_a1b = frappe.get_doc(
+		leaf_a1b = frappe.get_doc(
 			{
 				"doctype": "QB Tree Node",
-				"tree_name": "Leaf A1b",
-				"parent_qb_tree_node": cls.branch_a1.name,
+				"tree_name": "_TEST_Leaf A1b",
+				"parent_qb_tree_node": branch_a1.name,
 				"is_group": 0,
 				"status": "Inactive",
 			}
 		).insert(ignore_permissions=True)
+		cls._created_records.append(("QB Tree Node", leaf_a1b.name))
 
-		cls.root_b = frappe.get_doc(
+		root_b = frappe.get_doc(
 			{
 				"doctype": "QB Tree Node",
-				"tree_name": "Root B",
+				"tree_name": "_TEST_Root B",
 				"is_group": 1,
 				"status": "Active",
 			}
 		).insert(ignore_permissions=True)
+		cls._created_records.append(("QB Tree Node", root_b.name))
+
+		cls.root_a = root_a
+		cls.branch_a1 = branch_a1
+		cls.leaf_a1a = leaf_a1a
+		cls.leaf_a1b = leaf_a1b
+		cls.root_b = root_b
 
 		frappe.db.commit()
 
@@ -127,9 +145,9 @@ class TestQBTreeCapabilities(FrappeTestCase):
 		).run(as_dict=True)
 
 		names = {r["tree_name"] for r in res}
-		self.assertEqual(names, {"Branch A1", "Leaf A1a", "Leaf A1b"})
-		self.assertNotIn("Root A", names)
-		self.assertNotIn("Root B", names)
+		self.assertEqual(names, {"_TEST_Branch A1", "_TEST_Leaf A1a", "_TEST_Leaf A1b"})
+		self.assertNotIn("_TEST_Root A", names)
+		self.assertNotIn("_TEST_Root B", names)
 
 	def test_02_descendants_of_inclusive_operator(self):
 		"""Test 'descendants of (inclusive)' includes queried node itself."""
@@ -140,7 +158,7 @@ class TestQBTreeCapabilities(FrappeTestCase):
 		).run(as_dict=True)
 
 		names = {r["tree_name"] for r in res}
-		self.assertEqual(names, {"Root A", "Branch A1", "Leaf A1a", "Leaf A1b"})
+		self.assertEqual(names, {"_TEST_Root A", "_TEST_Branch A1", "_TEST_Leaf A1a", "_TEST_Leaf A1b"})
 
 	def test_03_ancestors_of_operator(self):
 		"""Test 'ancestors of' returns all recursive ancestors excluding queried node."""
@@ -151,7 +169,7 @@ class TestQBTreeCapabilities(FrappeTestCase):
 		).run(as_dict=True)
 
 		names = {r["tree_name"] for r in res}
-		self.assertEqual(names, {"Root A", "Branch A1"})
+		self.assertEqual(names, {"_TEST_Root A", "_TEST_Branch A1"})
 
 	def test_04_nonexistent_node_tree_filter(self):
 		"""Nonexistent node name in 'descendants of' returns empty list safely."""
@@ -175,5 +193,5 @@ class TestQBTreeCapabilities(FrappeTestCase):
 		).run(as_dict=True)
 
 		names = {r["tree_name"] for r in res}
-		self.assertEqual(names, {"Branch A1", "Leaf A1a"})
-		self.assertNotIn("Leaf A1b", names)
+		self.assertEqual(names, {"_TEST_Branch A1", "_TEST_Leaf A1a"})
+		self.assertNotIn("_TEST_Leaf A1b", names)

@@ -10,222 +10,130 @@ from frappe.tests.utils import FrappeTestCase
 class TestQBFieldPathCapabilities(FrappeTestCase):
 	"""
 	Empirical Test Suite: Field Path Capabilities and Relationship Depth Limits
-	in frappe.qb.get_query().
+	in frappe.qb.get_query() using installed DocTypes (Rule, Rule Action, Process).
 	"""
 
-	_created_doctypes: ClassVar[list[str]] = []
+	_created_records: ClassVar[list[tuple[str, str]]] = []
 
 	@classmethod
 	def setUpClass(cls):
 		super().setUpClass()
-		cls._setup_test_doctypes()
+		cls._created_records = []
 		cls._setup_test_records()
 
 	@classmethod
 	def tearDownClass(cls):
-		frappe.db.delete("QB Path Child")
-		frappe.db.delete("QB Path Parent")
-		frappe.db.delete("QB Path Target 1")
-		frappe.db.delete("QB Path Target 2")
+		for doctype, docname in reversed(cls._created_records):
+			if frappe.db.exists(doctype, docname):
+				frappe.delete_doc(doctype, docname, force=True, ignore_permissions=True)
 
-		for dt in cls._created_doctypes:
-			if frappe.db.exists("DocType", dt):
-				frappe.delete_doc(dt, force=True, ignore_permissions=True)
-
+		cls._created_records.clear()
 		frappe.db.commit()
 		super().tearDownClass()
 
 	@classmethod
-	def _setup_test_doctypes(cls):
-		# Target 2 (Level 2)
-		dt2 = "QB Path Target 2"
-		if not frappe.db.exists("DocType", dt2):
-			frappe.get_doc(
-				{
-					"doctype": "DocType",
-					"name": dt2,
-					"module": "RuleFlow",
-					"custom": 1,
-					"fields": [
-						{
-							"fieldname": "target2_name",
-							"fieldtype": "Data",
-							"label": "Target 2 Name",
-							"reqd": 1,
-						},
-						{"fieldname": "code", "fieldtype": "Data", "label": "Code"},
-					],
-				}
-			).insert(ignore_permissions=True)
-			cls._created_doctypes.append(dt2)
-
-		# Target 1 (Level 1)
-		dt1 = "QB Path Target 1"
-		if not frappe.db.exists("DocType", dt1):
-			frappe.get_doc(
-				{
-					"doctype": "DocType",
-					"name": dt1,
-					"module": "RuleFlow",
-					"custom": 1,
-					"fields": [
-						{
-							"fieldname": "target1_name",
-							"fieldtype": "Data",
-							"label": "Target 1 Name",
-							"reqd": 1,
-						},
-						{
-							"fieldname": "target2_link",
-							"fieldtype": "Link",
-							"options": dt2,
-							"label": "Target 2 Link",
-						},
-						{"fieldname": "region", "fieldtype": "Data", "label": "Region"},
-					],
-				}
-			).insert(ignore_permissions=True)
-			cls._created_doctypes.append(dt1)
-
-		# Child Table
-		dt_child = "QB Path Child"
-		if not frappe.db.exists("DocType", dt_child):
-			frappe.get_doc(
-				{
-					"doctype": "DocType",
-					"name": dt_child,
-					"module": "RuleFlow",
-					"custom": 1,
-					"istable": 1,
-					"fields": [
-						{"fieldname": "item_code", "fieldtype": "Data", "label": "Item Code"},
-						{"fieldname": "qty", "fieldtype": "Float", "label": "Qty"},
-						{
-							"fieldname": "target1_link",
-							"fieldtype": "Link",
-							"options": dt1,
-							"label": "Target 1 Link",
-						},
-					],
-				}
-			).insert(ignore_permissions=True)
-			cls._created_doctypes.append(dt_child)
-
-		# Parent Table
-		dt_parent = "QB Path Parent"
-		if not frappe.db.exists("DocType", dt_parent):
-			frappe.get_doc(
-				{
-					"doctype": "DocType",
-					"name": dt_parent,
-					"module": "RuleFlow",
-					"custom": 1,
-					"fields": [
-						{"fieldname": "title", "fieldtype": "Data", "label": "Title"},
-						{
-							"fieldname": "target1_link",
-							"fieldtype": "Link",
-							"options": dt1,
-							"label": "Target 1 Link",
-						},
-						{"fieldname": "items", "fieldtype": "Table", "options": dt_child, "label": "Items"},
-					],
-				}
-			).insert(ignore_permissions=True)
-			cls._created_doctypes.append(dt_parent)
-
-		frappe.db.commit()
-
-	@classmethod
 	def _setup_test_records(cls):
-		frappe.db.delete("QB Path Child")
-		frappe.db.delete("QB Path Parent")
-		frappe.db.delete("QB Path Target 1")
-		frappe.db.delete("QB Path Target 2")
+		proc_name = "_TEST_QB_PROC_1"
+		rule_name = "_TEST_QB_PATH_RULE_PARENT"
 
-		cls.t2 = frappe.get_doc(
+		if frappe.db.exists("Rule", rule_name):
+			frappe.delete_doc("Rule", rule_name, force=True, ignore_permissions=True)
+		if frappe.db.exists("Process", proc_name):
+			frappe.delete_doc("Process", proc_name, force=True, ignore_permissions=True)
+
+		proc = frappe.get_doc(
 			{
-				"doctype": "QB Path Target 2",
-				"target2_name": "T2",
-				"code": "C2",
+				"doctype": "Process",
+				"process_name": proc_name,
+				"module": "Ruleflow",
+				"description": "North Region Process",
 			}
 		).insert(ignore_permissions=True)
+		cls._created_records.append(("Process", proc.name))
 
-		cls.t1 = frappe.get_doc(
+		rule = frappe.get_doc(
 			{
-				"doctype": "QB Path Target 1",
-				"target1_name": "T1",
-				"target2_link": cls.t2.name,
-				"region": "North",
-			}
-		).insert(ignore_permissions=True)
-
-		cls.p1 = frappe.get_doc(
-			{
-				"doctype": "QB Path Parent",
-				"title": "P1",
-				"target1_link": cls.t1.name,
-				"items": [
-					{"item_code": "I1", "qty": 10.0, "target1_link": cls.t1.name},
+				"doctype": "Rule",
+				"rule_name": rule_name,
+				"priority": "10",
+				"trigger_type": "DocType Event",
+				"document_type": "User",
+				"trigger_event": "Validate",
+				"execution_mode": "Synchronous",
+				"actions": [
+					{
+						"action_id": "act_test_1",
+						"action_label": "Test Action 1",
+						"action_type": "Process",
+						"process_name": proc.name,
+					}
 				],
 			}
 		).insert(ignore_permissions=True)
+		cls._created_records.append(("Rule", rule.name))
+
+		cls.proc_name = proc.name
+		cls.rule_name = rule.name
 
 		frappe.db.commit()
 
 	def test_01_one_level_link_path_selection_and_filtering(self):
-		"""1-level Link path ('target1_link.region') is supported in both select and filters."""
+		"""1-level Link path ('process_name.description') is supported in both select and filters on Rule Action."""
 		q = frappe.qb.get_query(
-			"QB Path Parent",
-			fields=["name", "target1_link.region"],
-			filters={"target1_link.region": "North"},
+			"Rule Action",
+			fields=["name", "action_id", "process_name.description"],
+			filters={"parent": self.rule_name, "process_name.description": "North Region Process"},
 		)
 		sql = q.get_sql()
-		self.assertIn("LEFT JOIN `tabQB Path Target 1`", sql)
+		self.assertIn("LEFT JOIN `tabProcess`", sql)
 
 		res = q.run(as_dict=True)
 		self.assertEqual(len(res), 1)
-		self.assertEqual(res[0]["name"], self.p1.name)
-		self.assertEqual(res[0]["region"], "North")
+		self.assertEqual(res[0]["action_id"], "act_test_1")
+		self.assertEqual(res[0]["description"], "North Region Process")
 
 	def test_02_multi_level_link_path_failure_stage(self):
-		"""Multi-level link path ('target1_link.target2_link.code') fails during DynamicTableField.parse stage."""
+		"""Multi-level link path ('process_name.module.app_name') fails during DynamicTableField.parse stage."""
 		# DynamicTableField.parse does linked_fieldname, fieldname = field.split(".")
 		# With >1 dot, field.split(".") produces 3+ parts, raising ValueError ("too many values to unpack").
 		with self.assertRaises(ValueError) as ctx:
 			frappe.qb.get_query(
-				"QB Path Parent",
-				fields=["name", "target1_link.target2_link.code"],
+				"Rule Action",
+				fields=["name", "process_name.module.app_name"],
 			)
 		self.assertIn("too many values to unpack", str(ctx.exception))
 
 	def test_03_child_table_field_selection_and_filtering(self):
-		"""Direct child table field path ('items.item_code') is supported natively."""
+		"""Direct child table field path ('actions.action_id') is supported natively when querying parent Rule."""
 		q = frappe.qb.get_query(
-			"QB Path Parent",
-			fields=["name", "items.item_code"],
-			filters={"items.item_code": "I1"},
+			"Rule",
+			fields=["name", "actions.action_id"],
+			filters={"rule_name": self.rule_name, "actions.action_id": "act_test_1"},
 		)
 		sql = q.get_sql()
-		self.assertIn("LEFT JOIN `tabQB Path Child`", sql)
+		self.assertIn("LEFT JOIN `tabRule Action`", sql)
 
 		res = q.run(as_dict=True)
 		self.assertEqual(len(res), 1)
-		self.assertEqual(res[0]["name"], self.p1.name)
-		self.assertEqual(res[0]["item_code"], "I1")
+		self.assertEqual(res[0]["name"], self.rule_name)
+		self.assertEqual(res[0]["action_id"], "act_test_1")
 
 	def test_04_child_table_link_field_path_failure_stage(self):
-		"""Link field inside child table path ('items.target1_link.region') fails during parse."""
+		"""Link field inside child table path ('actions.process_name.description') fails during parse."""
 		with self.assertRaises(ValueError) as ctx:
 			frappe.qb.get_query(
-				"QB Path Parent",
-				fields=["name", "items.target1_link.region"],
+				"Rule",
+				fields=["name", "actions.process_name.description"],
 			)
 		self.assertIn("too many values to unpack", str(ctx.exception))
 
 	def test_05_direct_child_query_parent_field(self):
 		"""Querying child table directly allows selecting 'parent' column as data string."""
-		q = frappe.qb.get_query("QB Path Child", fields=["name", "item_code", "parent"])
+		q = frappe.qb.get_query(
+			"Rule Action",
+			fields=["name", "action_id", "parent"],
+			filters={"parent": self.rule_name, "action_id": "act_test_1"},
+		)
 		res = q.run(as_dict=True)
 		self.assertEqual(len(res), 1)
-		self.assertEqual(res[0]["parent"], self.p1.name)
+		self.assertEqual(res[0]["parent"], self.rule_name)

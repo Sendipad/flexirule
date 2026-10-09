@@ -13,108 +13,87 @@ from flexirule.ruleflow.utils.frappe_query_compat import execute_query
 class TestFetchRecordsFilterTreeIntegration(FrappeTestCase):
 	"""
 	Empirical Test Suite: End-to-End Filter Tree Integration,
-	Serialization, and Database Execution.
+	Serialization, and Database Execution using installed Rule DocType.
 	"""
 
-	_created_doctypes: ClassVar[list[str]] = []
+	_created_records: ClassVar[list[tuple[str, str]]] = []
 
 	@classmethod
 	def setUpClass(cls):
 		super().setUpClass()
-		cls._setup_test_doctypes()
+		cls._created_records = []
 		cls._setup_test_records()
 
 	@classmethod
 	def tearDownClass(cls):
-		frappe.db.delete("QB Tree Parent")
+		for doctype, docname in reversed(cls._created_records):
+			if frappe.db.exists(doctype, docname):
+				frappe.delete_doc(doctype, docname, force=True, ignore_permissions=True)
 
-		for dt in cls._created_doctypes:
-			if frappe.db.exists("DocType", dt):
-				frappe.delete_doc(dt, force=True, ignore_permissions=True)
-
+		cls._created_records.clear()
 		frappe.db.commit()
 		super().tearDownClass()
 
 	@classmethod
-	def _setup_test_doctypes(cls):
-		dt = "QB Tree Parent"
-		if not frappe.db.exists("DocType", dt):
-			frappe.get_doc(
+	def _setup_test_records(cls):
+		records = [
+			{
+				"rule_name": "_TEST_QB_TREE_RULE_1",
+				"execution_mode": "Synchronous",
+				"priority": "10",
+				"max_execution_time": 100,
+				"description": "Task 1",
+			},
+			{
+				"rule_name": "_TEST_QB_TREE_RULE_2",
+				"execution_mode": "Asynchronous",
+				"priority": "1",
+				"max_execution_time": 50,
+				"description": "Task 2",
+			},
+			{
+				"rule_name": "_TEST_QB_TREE_RULE_3",
+				"execution_mode": "Synchronous",
+				"priority": "1",
+				"max_execution_time": 10,
+				"description": "Task 3",
+			},
+		]
+
+		for data in records:
+			if frappe.db.exists("Rule", data["rule_name"]):
+				frappe.delete_doc("Rule", data["rule_name"], force=True, ignore_permissions=True)
+
+			doc = frappe.get_doc(
 				{
-					"doctype": "DocType",
-					"name": dt,
-					"module": "RuleFlow",
-					"custom": 1,
-					"fields": [
-						{"fieldname": "title", "fieldtype": "Data", "label": "Title"},
-						{
-							"fieldname": "status",
-							"fieldtype": "Select",
-							"options": "Open\nPending\nClosed",
-							"label": "Status",
-						},
-						{
-							"fieldname": "priority",
-							"fieldtype": "Select",
-							"options": "High\nLow",
-							"label": "Priority",
-						},
-						{"fieldname": "score", "fieldtype": "Int", "label": "Score"},
-					],
+					"doctype": "Rule",
+					"rule_name": data["rule_name"],
+					"execution_mode": data["execution_mode"],
+					"priority": data["priority"],
+					"max_execution_time": data["max_execution_time"],
+					"description": data["description"],
+					"trigger_type": "DocType Event",
+					"document_type": "User",
+					"trigger_event": "Validate",
 				}
 			).insert(ignore_permissions=True)
-			cls._created_doctypes.append(dt)
 
-		frappe.db.commit()
-
-	@classmethod
-	def _setup_test_records(cls):
-		frappe.db.delete("QB Tree Parent")
-
-		cls.t1 = frappe.get_doc(
-			{
-				"doctype": "QB Tree Parent",
-				"title": "Task 1",
-				"status": "Open",
-				"priority": "High",
-				"score": 100,
-			}
-		).insert(ignore_permissions=True)
-
-		cls.t2 = frappe.get_doc(
-			{
-				"doctype": "QB Tree Parent",
-				"title": "Task 2",
-				"status": "Pending",
-				"priority": "Low",
-				"score": 50,
-			}
-		).insert(ignore_permissions=True)
-
-		cls.t3 = frappe.get_doc(
-			{
-				"doctype": "QB Tree Parent",
-				"title": "Task 3",
-				"status": "Closed",
-				"priority": "Low",
-				"score": 10,
-			}
-		).insert(ignore_permissions=True)
+			cls._created_records.append(("Rule", doc.name))
 
 		frappe.db.commit()
 
 	def test_01_canonical_json_tree_execution(self):
-		"""Execute JSON filter tree through Fetch Records handler."""
+		"""Execute JSON filter tree through Fetch Records handler on Rule DocType."""
 		tree_data = {
 			"type": "group",
 			"operator": "and",
 			"children": [
 				{
 					"type": "leaf",
-					"doctype": "QB Tree Parent",
-					"field": "title",
+					"doctype": "Rule",
+					"field": "rule_name",
 					"operator": "starts with",
-					"value": {"value": "Task"},
+					"value": {"value": "_TEST_QB_TREE_RULE_"},
 				},
 				{
 					"type": "group",
@@ -122,17 +101,17 @@ class TestFetchRecordsFilterTreeIntegration(FrappeTestCase):
 					"children": [
 						{
 							"type": "leaf",
-							"doctype": "QB Tree Parent",
-							"field": "status",
+							"doctype": "Rule",
+							"field": "execution_mode",
 							"operator": "=",
-							"value": {"value": "Open"},
+							"value": {"value": "Asynchronous"},
 						},
 						{
 							"type": "leaf",
-							"doctype": "QB Tree Parent",
-							"field": "score",
+							"doctype": "Rule",
+							"field": "max_execution_time",
 							"operator": ">=",
-							"value": {"value": 50},
+							"value": {"value": 100},
 						},
 					],
 				},
@@ -145,8 +124,8 @@ class TestFetchRecordsFilterTreeIntegration(FrappeTestCase):
 			label = "Test Action"
 
 		res = handler._fetch_records(
-			reference_doctype="QB Tree Parent",
-			config={"fields": ["name", "title"], "filters": tree_data},
+			reference_doctype="Rule",
+			config={"fields": ["name", "rule_name"], "filters": tree_data},
 			context={},
 			action=DummyAction(),
 			ignore_permissions=True,
@@ -154,21 +133,21 @@ class TestFetchRecordsFilterTreeIntegration(FrappeTestCase):
 
 		self.assertEqual(len(res), 2)
 		names = {r["name"] for r in res}
-		self.assertIn(self.t1.name, names)
-		self.assertIn(self.t2.name, names)
+		self.assertIn("_TEST_QB_TREE_RULE_1", names)
+		self.assertIn("_TEST_QB_TREE_RULE_2", names)
 
 	def test_02_three_level_deep_logical_tree_execution(self):
-		"""3-level deep nested tree: title starts with 'Task' AND (priority='High' OR (status='Pending' AND score=50))."""
+		"""3-level deep nested tree: rule_name starts with '_TEST_QB_TREE_RULE_' AND (priority='10' OR (execution_mode='Asynchronous' AND max_execution_time=50))."""
 		tree_data = {
 			"type": "group",
 			"operator": "and",
 			"children": [
 				{
 					"type": "leaf",
-					"doctype": "QB Tree Parent",
-					"field": "title",
+					"doctype": "Rule",
+					"field": "rule_name",
 					"operator": "like",
-					"value": "Task%",
+					"value": "_TEST_QB_TREE_RULE_%",
 				},
 				{
 					"type": "group",
@@ -176,10 +155,10 @@ class TestFetchRecordsFilterTreeIntegration(FrappeTestCase):
 					"children": [
 						{
 							"type": "leaf",
-							"doctype": "QB Tree Parent",
+							"doctype": "Rule",
 							"field": "priority",
 							"operator": "=",
-							"value": "High",
+							"value": "10",
 						},
 						{
 							"type": "group",
@@ -187,15 +166,15 @@ class TestFetchRecordsFilterTreeIntegration(FrappeTestCase):
 							"children": [
 								{
 									"type": "leaf",
-									"doctype": "QB Tree Parent",
-									"field": "status",
+									"doctype": "Rule",
+									"field": "execution_mode",
 									"operator": "=",
-									"value": "Pending",
+									"value": "Asynchronous",
 								},
 								{
 									"type": "leaf",
-									"doctype": "QB Tree Parent",
-									"field": "score",
+									"doctype": "Rule",
+									"field": "max_execution_time",
 									"operator": "=",
 									"value": 50,
 								},
@@ -207,15 +186,15 @@ class TestFetchRecordsFilterTreeIntegration(FrappeTestCase):
 		}
 
 		handler = QueryRecordsHandler()
-		backend_filters = handler._canonical_filter_tree_to_backend(tree_data, "QB Tree Parent")
+		backend_filters = handler._canonical_filter_tree_to_backend(tree_data, "Rule")
 
 		res = execute_query(
-			doctype="QB Tree Parent",
+			doctype="Rule",
 			kwargs={"fields": ["name"], "filters": backend_filters},
 			ignore_permissions=True,
 		)
 
 		self.assertEqual(len(res), 2)
 		names = {r["name"] for r in res}
-		self.assertIn(self.t1.name, names)
-		self.assertIn(self.t2.name, names)
+		self.assertIn("_TEST_QB_TREE_RULE_1", names)
+		self.assertIn("_TEST_QB_TREE_RULE_2", names)
