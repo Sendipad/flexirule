@@ -86,7 +86,20 @@
 					<!-- Value / Expression -->
 					<div class="filter-col value-col">
 						<div class="value-input-group">
-							<template v-if="row.operator === 'Between'">
+							<template v-if="row.operator === 'timespan'">
+								<select
+									class="form-control input-xs"
+									:value="row.value?.mode === 'static' ? row.value.value : row.value"
+									:disabled="readOnly"
+									@change="(e) => updateRow(idx, { value: { mode: 'static', value: e.target.value } })"
+								>
+									<option value="">{{ __("Select a time period") }}</option>
+									<option v-for="option in timespanOptions" :key="option.value" :value="option.value">
+										{{ option.label }}
+									</option>
+								</select>
+							</template>
+							<template v-else-if="row.operator === 'between'">
 								<div class="dual-value-wrapper">
 									<div class="value-input-item">
 										<FlexValueControl
@@ -253,14 +266,9 @@ const panelStyleVars = computed(() => {
 const filters = ref([]);
 
 const timespanOptions = frappe.ui?.filter_utils?.get_timespan_options
-	? frappe.ui.filter_utils.get_timespan_options([
-			"Last",
-			"Yesterday",
-			"Today",
-			"Tomorrow",
-			"This",
-			"Next",
-	  ])
+	? frappe.ui.filter_utils
+			.get_timespan_options(["Last", "Yesterday", "Today", "Tomorrow", "This", "Next"])
+			.map((option) => ({ ...option, value: String(option.value || "").toLowerCase() }))
 	: [
 			{ label: __("Last 7 Days"), value: "last 7 days" },
 			{ label: __("Last 14 Days"), value: "last 14 days" },
@@ -301,7 +309,7 @@ const BASE_QUERY_OPERATORS = [
 	"<=",
 	"is",
 ];
-const QUERY_EXTENSION_OPERATORS = ["Between", "Timespan", "starts with", "ends with"];
+const QUERY_EXTENSION_OPERATORS = ["between", "timespan"];
 const NESTED_SET_OPERATORS = [
 	"descendants of",
 	"descendants of (inclusive)",
@@ -321,10 +329,8 @@ const operatorLabelMap = {
 	"<": __("Less Than"),
 	">=": __("Greater Than Or Equal To"),
 	"<=": __("Less Than Or Equal To"),
-	Between: __("Between"),
-	Timespan: __("Timespan"),
-	"starts with": __("Starts With"),
-	"ends with": __("Ends With"),
+	between: __("Between"),
+	timespan: __("Within a relative date period"),
 	"descendants of": __("Descendants Of"),
 	"descendants of (inclusive)": __("Descendants Of (inclusive)"),
 	"not descendants of": __("Not Descendants Of"),
@@ -338,13 +344,7 @@ const DATE_OPERATOR_LABELS = {
 	">=": __("On or After"),
 };
 
-const EXTRA_FILTER_OPERATORS_BY_FIELDTYPE = {
-	Data: ["starts with", "ends with"], // FlexiRule enhancement (not in core Frappe)
-	Text: ["starts with", "ends with"], // FlexiRule enhancement
-	"Small Text": ["starts with", "ends with"], // FlexiRule enhancement
-	"Long Text": ["starts with", "ends with"], // FlexiRule enhancement
-	"Text Editor": ["starts with", "ends with"], // FlexiRule enhancement
-};
+const EXTRA_FILTER_OPERATORS_BY_FIELDTYPE = {};
 const FRAPPE_INVALID_CONDITION_MAP = {
 	Date: ["like", "not like"],
 	Datetime: ["like", "not like", "in", "not in", "=", "!="],
@@ -372,6 +372,11 @@ const getNestedSetOperatorsForField = (field) => {
 	if (!field || field.fieldtype !== "Link") return [];
 	const nestedSetDoctypes = frappe.boot?.nested_set_doctypes || [];
 	return nestedSetDoctypes.includes(field.options) ? NESTED_SET_OPERATORS : [];
+};
+
+const canonicalizeOperator = (operator) => {
+	const value = String(operator || "=").trim().toLowerCase();
+	return value;
 };
 
 const coerceStructuredFilterValue = (rawValue) => {
@@ -445,14 +450,14 @@ const syncFromProps = () => {
 				return {
 					doctype: f[0] || props.doctype,
 					field: f[1],
-					operator: f[2] || "=",
+					operator: canonicalizeOperator(f[2]),
 					value: coerceStructuredFilterValue(f[3]),
 				};
 			}
 			return {
 				doctype: f.doctype || props.doctype,
 				field: f.field || f.fieldname,
-				operator: f.operator || f.op || "=",
+				operator: canonicalizeOperator(f.operator || f.op),
 				value: coerceStructuredFilterValue(f.value),
 			};
 		});
@@ -478,7 +483,7 @@ const syncFromProps = () => {
 			row = {
 				doctype: f[0],
 				field: f[1],
-				operator: f[2],
+				operator: canonicalizeOperator(f[2]),
 				value: structuredValue,
 			};
 		} else {
@@ -487,7 +492,7 @@ const syncFromProps = () => {
 			row = {
 				doctype: f.doctype || props.doctype,
 				field: f.field || f.fieldname,
-				operator: f.operator || f.op || "=",
+				operator: canonicalizeOperator(f.operator || f.op),
 				value: structuredValue,
 			};
 		}
@@ -771,7 +776,7 @@ const getDefaultCondition = (field, doctype) => {
 		return "=";
 	}
 	if (field.fieldtype === "Date" || field.fieldtype === "Datetime") {
-		return "Between";
+		return "between";
 	}
 	return "=";
 };
@@ -800,7 +805,7 @@ const getControlFactorySchema = (row) => {
 		frappe.ui.filter_utils.set_fieldtype(schema, null, row.operator);
 		// Force restore fieldtype for Between if it's a date/time field,
 		// as set_fieldtype might sometimes generalize it to Data for multiple values
-		if (row.operator === "Between" && ["Date", "Datetime", "Time"].includes(field?.fieldtype)) {
+		if (row.operator === "between" && ["Date", "Datetime", "Time"].includes(field?.fieldtype)) {
 			schema.fieldtype = field.fieldtype;
 		}
 	} else {
@@ -856,7 +861,7 @@ const getControlFactorySchema = (row) => {
 		// Ensure Link dropdown is preserved for equality operators
 		schema.fieldtype = "Link";
 		schema.options = field.options;
-	} else if (row.operator === "Between") {
+	} else if (row.operator === "between") {
 		schema.placeholder = __("Value1, Value2");
 	}
 
@@ -910,12 +915,12 @@ const updateRow = (idx, data) => {
 
 	// Handle operator change to/from Between
 	if (data.operator && data.operator !== row.operator) {
-		if (data.operator === "Between" && !Array.isArray(merged.value)) {
+		if (data.operator === "between" && !Array.isArray(merged.value)) {
 			merged.value = [
 				{ mode: "static", value: "" },
 				{ mode: "static", value: "" },
 			];
-		} else if (row.operator === "Between" && Array.isArray(merged.value)) {
+		} else if (row.operator === "between" && Array.isArray(merged.value)) {
 			merged.value = merged.value[0] || { mode: "static", value: "" };
 		}
 	}
@@ -1007,7 +1012,7 @@ function validate() {
 		if (!row.operator) {
 			errors.push(__("Filter #{0}: Operator is required", [n]));
 		}
-		if (row.operator === "Between") {
+		if (row.operator === "between") {
 			if (
 				!Array.isArray(row.value) ||
 				row.value.length < 2 ||
