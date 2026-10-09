@@ -535,10 +535,18 @@ class QueryRecordsHandler(ActionHandler):
 
 		return errors
 
+	_FETCH_RECORDS_TIMESPANS: ClassVar[set[str]] = {
+		"last 7 days", "last 14 days", "last 30 days", "last 90 days",
+		"last week", "last month", "last quarter", "last 6 months", "last year",
+		"yesterday", "today", "tomorrow",
+		"this week", "this month", "this quarter", "this year",
+		"next 7 days", "next 14 days", "next 30 days",
+		"next week", "next month", "next quarter", "next 6 months", "next year",
+	}
+
 	_FETCH_RECORDS_OPERATORS: ClassVar[set[str]] = {
 		"=",
 		"!=",
-		"<>",
 		">",
 		">=",
 		"<",
@@ -548,7 +556,6 @@ class QueryRecordsHandler(ActionHandler):
 		"in",
 		"not in",
 		"between",
-		"not between",
 		"is",
 		"timespan",
 		"descendants of",
@@ -599,12 +606,16 @@ class QueryRecordsHandler(ActionHandler):
 		elif isinstance(value, dict) and value.get("mode") == "static":
 			operator_name = operator.strip().lower() if isinstance(operator, str) else ""
 			static_value = value.get("value")
-			if operator_name in {"between", "not between"} and not (
+			if operator_name == "between" and not (
 				isinstance(static_value, list | tuple) and len(static_value) == 2
 			):
 				errors.append(_("{0}.value for Between must contain exactly two values").format(path))
 			if operator_name in {"in", "not in"} and not isinstance(static_value, list | tuple | str):
 				errors.append(_("{0}.value for IN/NOT IN must be a list or string").format(path))
+			if operator_name == "is" and str(static_value).strip().casefold() not in {"set", "not set"}:
+				errors.append(_("{0}.value for Is must be 'set' or 'not set'").format(path))
+			if operator_name == "timespan" and static_value not in self._FETCH_RECORDS_TIMESPANS:
+				errors.append(_("{0}.value is not a supported Frappe timespan").format(path))
 		return errors
 
 	def _fetch_records(self, reference_doctype, config, context, action, ignore_permissions):
