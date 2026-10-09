@@ -2,16 +2,13 @@
 
 ## Executive Summary
 
-Before refactoring FlexiRule's Query Records backend and frontend contracts, a comprehensive, evidence-backed architectural audit of `frappe.qb.get_query()` was conducted against the repository's target Frappe v15 test environment (`test_site`).
+This report separates three evidence categories that must not be conflated:
 
-An expanded, evidence-hardened backend test suite (`flexirule/ruleflow/tests/test_frappe_qb_capabilities.py`) was constructed and executed. Every documented capability was systematically tested to distinguish:
-1. API accepts input
-2. Query object is constructed
-3. SQL is generated
-4. SQL executes
-5. Returned shape is correct
-6. Semantic result is correct
-7. Limitation root cause (Frappe string field parser, Pypika engine, database driver, or particular syntax form).
+1. **Native Frappe Query Builder characterization** — observations about the installed Frappe v15 `frappe.qb.get_query()` API and its SQL/runtime behavior. The capability findings below are the existing characterization record; they are not evidence that the newly added FlexiRule tests ran in this change.
+2. **Fetch Records canonical-contract tests** — tests added in `flexirule/ruleflow/tests/test_query_records_filters.py` for canonical hierarchical filter trees, nested AND/OR conversion, malformed nodes, and serialized action configuration. These tests have **not been executed as part of this GitHub-connector change**, so their pass/fail status is unknown.
+3. **Existing-mode legacy regression tests** — the same test module contains coverage for flat tuples/lists/dictionaries, operator normalization, Timespan/Between, boolean payloads, child-table filters, Query List, Count, aggregation, and Group By. These existing-mode tests have **not been executed as part of this GitHub-connector change**, so their current pass/fail status is unknown.
+
+The Fetch Records contract is intentionally strict: its persisted `filters` value must be a canonical `group`/`leaf` tree. It does not fall back to the legacy normalizer. Established modes retain their legacy normalization paths. Do not treat the new tests as verified until they are run in the project's Frappe v15 test environment.
 
 ---
 
