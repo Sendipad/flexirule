@@ -217,3 +217,82 @@ The factual audit findings establish clear contracts for the upcoming FlexiRule 
 14. **Permissions:** Perform permission checks explicitly via `Permission.check_permissions(query, user=rule_user)` in the backend handler.
 15. **Pypika Compilation Boundary:** Maintain the explicit architectural boundary:
     `FlexiRule UI Config -> Normalized JSON Specification -> FlexiRule Backend Compiler -> Pypika Criterion / Query -> frappe.qb.get_query() -> MariaDB`.
+
+
+---
+
+## 7. Source Audit Addendum: Canonical Filter Operators and Timespan (Frappe v15.122.0)
+
+**Source baseline for this addendum:** Frappe tag `v15.122.0`, specifically:
+- [`frappe/database/operator_map.py`](https://github.com/frappe/frappe/blob/v15.122.0/frappe/database/operator_map.py)
+- [`frappe/database/query.py`](https://github.com/frappe/frappe/blob/v15.122.0/frappe/database/query.py)
+- [`frappe/database/utils.py`](https://github.com/frappe/frappe/blob/v15.122.0/frappe/database/utils.py)
+- [`frappe/utils/data.py`](https://github.com/frappe/frappe/blob/v15.122.0/frappe/utils/data.py)
+- [`frappe/model/db_query.py`](https://github.com/frappe/frappe/blob/v15.122.0/frappe/model/db_query.py)
+
+This addendum is a source-code audit, not a claim that every operator has been empirically exercised against both MariaDB and PostgreSQL. Database portability claims require tests against both configured engines.
+
+### 7.1 What the native Query Builder actually dispatches
+
+`frappe.database.query.Engine._apply_filter()` case-folds the supplied operator and dispatches it through `OPERATOR_MAP`. The native map includes:
+
+| Canonical key / family | Native behavior | FlexiRule recommendation |
+| --- | --- | --- |
+| `=`, `!=`, `<`, `>`, `<=`, `>=` | Standard comparison operators | Expose these exact lowercase/symbol values; display translated business labels separately |
+| `in`, `not in` | Membership; a string value is split on commas by Frappe's wrapper | Expose with a list/multi-select value editor where possible |
+| `like`, `not like` | SQL LIKE / NOT LIKE | Expose; document that `%` and `_` are SQL wildcard characters |
+| `between` | Inclusive range, represented by a two-value sequence | Expose as `between`; require exactly two values |
+| `is` | Frappe-specific set-state check | Expose as `is`, with the value restricted to `set` or `not set`; present labels such as “Is set” and “Is not set” |
+| `timespan` | Converts a named relative period to a date range, then applies BETWEEN | Expose as `timespan`; show a dedicated choice control populated from Frappe's supported timespan values |
+| `regex` | Delegates to PyPika's regex criterion | Do not expose as a cross-database operator until generated SQL and execution are verified on both MariaDB and PostgreSQL |
+| `ancestors of`, `descendants of`, `not ancestors of`, `not descendants of`, `descendants of (inclusive)` | Frappe nested-set hierarchy handling | Expose only for Link fields targeting a Tree DocType; test empty, missing-root, root, and multi-level cases |
+
+The map also contains `=<` and `=>` aliases, but these should **not** be persisted by FlexiRule: use the conventional `<=` and `>=` canonical values. The map's `+`, `-`, `*`, and `/` entries are Python arithmetic functions, not useful general-purpose business filter operators; do not offer them as filter comparisons.
+
+**Important distinction:** a key being present in `OPERATOR_MAP` proves dispatch support in this Frappe implementation. It does not, by itself, prove equivalent SQL behavior on both database engines or that the operator is suitable for every field type.
+
+### 7.2 Timespan values supported by Frappe
+
+`frappe.database.operator_map.func_timespan()` calls `get_timespan_date_range(value)` and passes the returned range to the native `between` implementation. Frappe v15.122.0 recognizes these exact string values:
+
+- **Past periods:** `last 7 days`, `last 14 days`, `last 30 days`, `last 90 days`, `last week`, `last month`, `last quarter`, `last 6 months`, `last year`
+- **Relative single days:** `yesterday`, `today`, `tomorrow`
+- **Current periods:** `this week`, `this month`, `this quarter`, `this year`
+- **Future periods:** `next 7 days`, `next 14 days`, `next 30 days`, `next week`, `next month`, `next quarter`, `next 6 months`, `next year`
+
+The values are case-sensitive strings in the implementation's pattern match, so FlexiRule should submit the exact lowercase value. An unknown value returns no range; it must be rejected by frontend/backend validation rather than silently treated as a valid filter.
+
+For business-user UI, keep the operator value `timespan` separate from the option label. For example, the dropdown may show “Last 30 days”, while the persisted option value must be exactly `last 30 days`. Use Frappe's own `frappe.ui.filter_utils.get_timespan_options()` when available, but normalize and verify its returned option values against the backend-supported set; keep a tested fallback list for contexts where that UI helper is unavailable.
+
+### 7.3 Current FlexiRule alignment gaps found
+
+At the reviewed branch head:
+
+1. `FilterGroup.vue` uses `Between` and `Timespan` as operator values in the UI, although the native map keys are `between` and `timespan`. The backend currently translates these UI spellings. This is an avoidable split contract.
+2. `FilterGroup.vue` currently advertises `starts with` and `ends with`. These are not native `OPERATOR_MAP` keys; `query_records.py` rewrites them to `like` and adds a wildcard. They are FlexiRule-specific convenience operators and should either be removed from the canonical native-operator selector or explicitly modeled as UI presets that serialize to `like` plus a wildcard-adjusted value. They must not be described as native Frappe operators.
+3. `query_records.py` currently converts `Timespan` into a `between` range using FlexiRule's own `_resolve_timespan_range()`. This duplicates Frappe behavior and risks date-boundary/option drift. Prefer passing the canonical `timespan` operator and its exact supported string value through to `frappe.qb.get_query()`.
+4. The frontend already contains a timespan options list, but the ordinary value editor does not provide a dedicated timespan select. Add a select editor for `timespan` that persists the selected lowercase option value, while preserving dynamic-value behavior only if the backend explicitly supports and validates it.
+5. The current backend `_FETCH_RECORDS_OPERATORS` set does not include `not descendants of` or `descendants of (inclusive)`, even though Frappe v15.122.0's `NestedSetHierarchy` includes both. Add these only with Tree-DocType-aware frontend filtering and tests.
+6. Do not assume `regex` is portable simply because it appears in `OPERATOR_MAP`; test the SQL generated by PyPika for MariaDB and PostgreSQL before exposing it to users.
+
+### 7.4 Recommended contract
+
+Use one canonical operator value end-to-end for Fetch Records:
+
+- The persisted filter tree, frontend option `value`, backend validation, and native Query Builder input all use the same canonical key: for example, `between`, `timespan`, `not in`, or `descendants of`.
+- Human-readable labels are a separate presentation mapping: for example, `between → Between`, `timespan → Within a relative date period`, `is → Is set / Is not set`, `< → Before` for Date fields, and `>= → On or after` for Date fields.
+- Operator availability is field-aware. Tree operators are offered only when the selected Link field targets a Tree DocType; `between` and `timespan` are offered only for appropriate Date/Datetime fields (and any other field types explicitly validated by FlexiRule).
+- `between` values contain exactly two values. `timespan` values must be a member of the exact supported list above. `is` values must be `set` or `not set`. `in` / `not in` values must be normalized to a predictable list/string representation and covered by tests.
+- Keep legacy Query List/Get List normalization separate. This recommendation concerns the new Fetch Records canonical tree contract, not a blanket migration of every legacy mode.
+
+### 7.5 Required evidence before calling the operator contract complete
+
+Add/maintain tests that distinguish:
+1. source-derived operator availability from actual execution evidence;
+2. canonical tree serialization from native Query Builder behavior;
+3. MariaDB results from PostgreSQL results;
+4. Tree-DocType-only operators from ordinary DocType behavior;
+5. exact timespan values and their range boundaries;
+6. legacy mode compatibility from Fetch Records' canonical-only contract.
+
+Do not mark `regex` as cross-database supported until its SQL and record results pass on both engines. Do not report tests as executed unless the relevant Frappe v15.122.0 test environment actually ran them.
