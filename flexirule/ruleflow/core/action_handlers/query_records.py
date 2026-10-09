@@ -563,8 +563,11 @@ class QueryRecordsHandler(ActionHandler):
 			if value is None or value == "":
 				continue
 			value = resolve_payload(value, f"{action_label}.{key}")
-			if key == "filters" and self._is_canonical_filter_tree(value):
-				value = self._canonical_filter_tree_to_backend(value, reference_doctype)
+			if key == "filters":
+				if self._is_canonical_filter_tree(value):
+					value = self._canonical_filter_tree_to_backend(value, reference_doctype)
+				elif isinstance(value, list | dict):
+					value = self._normalize_filters_for_backend(value, reference_doctype)
 			kwargs[key] = value
 
 		from flexirule.ruleflow.utils.frappe_query_compat import execute_query
@@ -1179,7 +1182,12 @@ class QueryRecordsHandler(ActionHandler):
 						else:
 							normalized_list.append([resolved_field, op_4, val_4])
 						continue
-					if len(item) == 3:
+					if (
+						len(item) == 3
+						and isinstance(item[0], str)
+						and isinstance(item[1], str)
+						and item[1].lower() not in ("and", "or")
+					):
 						field_3, op_3, val_3 = item
 						val_3 = self._extract_filter_value_payload(val_3)
 						op_3, val_3 = self._normalize_single_filter_operator(op_3, val_3)
