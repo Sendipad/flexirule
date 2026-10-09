@@ -1214,6 +1214,16 @@ class QueryRecordsHandler(ActionHandler):
 				return []
 			if len(children) == 1:
 				return children[0]
+			# Frappe Query Builder treats a plain list of leaves as implicit AND.
+			# Avoid explicit "and" tokens for flat groups so relationship paths can
+			# be handled by QB's own filter parser instead of the compatibility shim.
+			if operator == "and" and all(
+				isinstance(child, list | tuple)
+				and not any(isinstance(part, str) and part.casefold() in {"and", "or"} for part in child)
+				and len(child) == 3
+				for child in children
+			):
+				return children
 			result = [children[0]]
 			for child in children[1:]:
 				result.extend([operator, child])
