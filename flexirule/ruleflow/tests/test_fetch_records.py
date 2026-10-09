@@ -356,15 +356,15 @@ class TestFetchRecords(FrappeTestCase):
 				"reference_doctype": "ToDo",
 				"config": frappe.as_json(
 					{
-						"filters": [
-							["status", "=", "Open"],
+						"filters": self._group(
 							"and",
-							[
-								["description", "like", "%task%"],
+							self._leaf("status", "=", "Open"),
+							self._group(
 								"or",
-								["missing_nested_field", "=", "x"],
-							],
-						]
+								self._leaf("description", "like", "%task%"),
+								self._leaf("missing_nested_field", "=", "x"),
+							),
+						)
 					}
 				),
 			}
@@ -471,15 +471,11 @@ class TestFetchRecords(FrappeTestCase):
 				"reference_doctype": "ToDo",
 				"config": frappe.as_json(
 					{
-						"filters": [
-							["ToDo", "description", "like", f"{prefix}%"],
-							[
-								"ToDo",
-								"status",
-								"=",
-								{"value": "Open", "value_type": "Value"},
-							],
-						],
+						"filters": self._group(
+							"and",
+							self._leaf("description", "like", f"{prefix}%"),
+							self._leaf("status", "=", {"value": "Open", "value_type": "Value"}),
+						),
 					}
 				),
 			}
