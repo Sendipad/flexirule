@@ -5,12 +5,12 @@
 This report separates three evidence categories that must not be conflated:
 
 1. **Native Frappe Query Builder characterization** — observations about the installed Frappe v15 `frappe.qb.get_query()` API and its SQL/runtime behavior. These characterize Frappe, not the correctness of FlexiRule's adapter.
-2. **Fetch Records integration evidence** — the current CI run exercises the full FlexiRule app suite, but it is **red**: 531 tests ran, with 10 failures, 1 error, and 2 skipped. Ten failures are in `test_fetch_records.py`; the error is the three-level nested logical tree test in `test_fetch_records_filter_tree_integration.py`. Therefore the adapter's current end-to-end behavior is not verified.
+2. **Fetch Records integration evidence** — the latest CI runs for the reviewed head are green: [Server CI run 37973964507](https://github.com/Sendipad/flexirule/actions/runs/37973964507) and [Linters run 37973964439](https://github.com/Sendipad/flexirule/actions/runs/37973964439) completed successfully. The earlier run 37971338723 was red (531 tests, 10 failures, 1 error, 2 skipped) but was superseded by these successful runs. CI success confirms the configured jobs passed; it does not replace targeted assertions for edge cases that the suite may not cover.
 3. **Existing-mode legacy regression tests** — `test_query_records_filters.py` also covers legacy tuple/list/dict normalization and established Query Records modes. Keep those compatibility guarantees separate from Fetch Records' new persisted contract.
 
 **Contract discrepancy at the reviewed head:** the intended Fetch Records contract is canonical `group`/`leaf` tree only, but `query_records.py` currently recursively calls `resolve_payload()` on the entire filter object and then invokes `_normalize_filters_for_backend()` for non-canonical list/dict filters. In addition, `test_03_legacy_tuple_and_list_filter_shapes` in `test_fetch_records_filter_tree_integration.py` explicitly expects Fetch Records to accept legacy filters. Both the implementation and that test conflict with the intended strict contract. Legacy normalization should remain available to established modes such as Query List/Get List; Fetch Records should validate and convert only canonical trees.
 
-**Latest CI evidence:** [run 37971338723](https://github.com/Sendipad/flexirule/actions/runs/37971338723), Server job failed: 531 tests, 10 failures, 1 error, 2 skipped. The report must not characterize this revision as passing or production-ready.
+**Latest CI evidence:** [Server CI run 37973964507](https://github.com/Sendipad/flexirule/actions/runs/37973964507) and [Linters run 37973964439](https://github.com/Sendipad/flexirule/actions/runs/37973964439) both completed successfully for the reviewed head. The earlier failed run 37971338723 is historical and superseded. Keep CI status distinct from the remaining design/test-coverage questions below.
 
 ---
 
