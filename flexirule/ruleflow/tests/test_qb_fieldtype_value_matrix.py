@@ -2,6 +2,7 @@
 # For license information, please see license.txt
 
 import datetime
+import uuid
 from typing import ClassVar
 
 import frappe
@@ -20,12 +21,14 @@ class TestQBFieldtypeValueMatrix(FrappeTestCase):
 
 	_created_doctypes: ClassVar[list[str]] = []
 	_created_records: ClassVar[list[tuple[str, str]]] = []
+	_run_id: ClassVar[str] = ""
 
 	@classmethod
 	def setUpClass(cls):
 		super().setUpClass()
 		cls._created_doctypes = []
 		cls._created_records = []
+		cls._run_id = uuid.uuid4().hex[:8].upper()
 		cls._setup_test_doctypes()
 		cls._setup_test_records()
 
@@ -48,45 +51,50 @@ class TestQBFieldtypeValueMatrix(FrappeTestCase):
 
 	@classmethod
 	def _setup_test_doctypes(cls):
-		dt = "QB Matrix Temporal"
-		if not frappe.db.exists("DocType", dt):
-			frappe.get_doc(
-				{
-					"doctype": "DocType",
-					"name": dt,
-					"module": "RuleFlow",
-					"custom": 1,
-					"fields": [
-						{"fieldname": "code", "fieldtype": "Data", "label": "Code", "reqd": 1},
-						{"fieldname": "currency_field", "fieldtype": "Currency", "label": "Currency Field"},
-						{"fieldname": "date_field", "fieldtype": "Date", "label": "Date Field"},
-					],
-				}
-			).insert(ignore_permissions=True)
-			cls._created_doctypes.append(dt)
+		dt = f"QB Matrix Temp {cls._run_id}"
+		if frappe.db.exists("DocType", dt):
+			raise RuntimeError(f"Unexpected pre-existing DocType: {dt}")
+
+		frappe.get_doc(
+			{
+				"doctype": "DocType",
+				"name": dt,
+				"module": "RuleFlow",
+				"custom": 1,
+				"fields": [
+					{"fieldname": "code", "fieldtype": "Data", "label": "Code", "reqd": 1},
+					{"fieldname": "currency_field", "fieldtype": "Currency", "label": "Currency Field"},
+					{"fieldname": "date_field", "fieldtype": "Date", "label": "Date Field"},
+				],
+			}
+		).insert(ignore_permissions=True)
+		cls._created_doctypes.append(dt)
+		cls.temporal_doctype = dt
 
 		frappe.db.commit()
 
 	@classmethod
 	def _setup_test_records(cls):
+		prefix = f"_TEST_QB_MAT_{cls._run_id}_"
+
 		# 1. Setup Rule records for Data, Check, Int, and Select testing
 		rules: list[dict[str, object]] = [
 			{
-				"rule_name": "_TEST_QB_MAT_RULE_1",
+				"rule_name": f"{prefix}RULE_1",
 				"is_active": 1,
 				"priority": "10",
 				"max_execution_time": 42,
 				"description": "Sample Data",
 			},
 			{
-				"rule_name": "_TEST_QB_MAT_RULE_2",
+				"rule_name": f"{prefix}RULE_2",
 				"is_active": 0,
 				"priority": "1",
 				"max_execution_time": 0,
 				"description": None,
 			},
 			{
-				"rule_name": "_TEST_QB_MAT_RULE_3",
+				"rule_name": f"{prefix}RULE_3",
 				"is_active": 1,
 				"priority": "5",
 				"max_execution_time": -10,
@@ -97,7 +105,7 @@ class TestQBFieldtypeValueMatrix(FrappeTestCase):
 		for data in rules:
 			rule_name = str(data["rule_name"])
 			if frappe.db.exists("Rule", rule_name):
-				frappe.delete_doc("Rule", rule_name, force=True, ignore_permissions=True)
+				raise RuntimeError(f"Unexpected pre-existing Rule record: {rule_name}")
 
 			doc = frappe.get_doc(
 				{
@@ -114,6 +122,11 @@ class TestQBFieldtypeValueMatrix(FrappeTestCase):
 				}
 			).insert(ignore_permissions=True)
 			cls._created_records.append(("Rule", doc.name))
+
+		cls.rule1_name = str(rules[0]["rule_name"])
+		cls.rule2_name = str(rules[1]["rule_name"])
+		cls.rule3_name = str(rules[2]["rule_name"])
+		cls.rule_names = [cls.rule1_name, cls.rule2_name, cls.rule3_name]
 
 		# 2. Setup Data Review Task records for Datetime testing
 		tasks: list[dict[str, str]] = [
@@ -160,102 +173,103 @@ class TestQBFieldtypeValueMatrix(FrappeTestCase):
 
 		# 3. Setup QB Matrix Temporal records for Date and Currency testing
 		temporals: list[dict[str, object]] = [
-			{"code": "_TEST_MAT_T1", "currency_field": 99.99, "date_field": "2026-03-01"},
-			{"code": "_TEST_MAT_T2", "currency_field": 0.00, "date_field": "2026-03-15"},
-			{"code": "_TEST_MAT_T3", "currency_field": 50.00, "date_field": "2026-03-31"},
+			{"code": f"{prefix}T1", "currency_field": 99.99, "date_field": "2026-03-01"},
+			{"code": f"{prefix}T2", "currency_field": 0.00, "date_field": "2026-03-15"},
+			{"code": f"{prefix}T3", "currency_field": 50.00, "date_field": "2026-03-31"},
 		]
 
 		for temp_data in temporals:
 			temp_doc = frappe.get_doc(
 				{
-					"doctype": "QB Matrix Temporal",
+					"doctype": cls.temporal_doctype,
 					"code": temp_data["code"],
 					"currency_field": temp_data["currency_field"],
 					"date_field": temp_data["date_field"],
 				}
 			).insert(ignore_permissions=True)
-			cls._created_records.append(("QB Matrix Temporal", temp_doc.name))
+			cls._created_records.append((cls.temporal_doctype, temp_doc.name))
 
 		cls.temp1_name = cls._created_records[-3][1]
 		cls.temp2_name = cls._created_records[-2][1]
 		cls.temp3_name = cls._created_records[-1][1]
+		cls.temp_codes = [str(t["code"]) for t in temporals]
 
 		frappe.db.commit()
 
 	def test_01_check_field_boolean_and_numeric_coercion(self):
 		"""Check fields convert boolean True/False to 1/0 on Rule.is_active."""
-		base_filters = [["rule_name", "like", "_TEST_QB_MAT_RULE_%"]]
+		base_filters = [["rule_name", "in", self.rule_names]]
 
 		res_true = frappe.qb.get_query("Rule", filters=[*base_filters, ["is_active", "=", True]]).run(
 			as_dict=True
 		)
-		self.assertEqual({r["name"] for r in res_true}, {"_TEST_QB_MAT_RULE_1", "_TEST_QB_MAT_RULE_3"})
+		self.assertEqual({r["name"] for r in res_true}, {self.rule1_name, self.rule3_name})
 
 		res_false = frappe.qb.get_query("Rule", filters=[*base_filters, ["is_active", "=", False]]).run(
 			as_dict=True
 		)
-		self.assertEqual({r["name"] for r in res_false}, {"_TEST_QB_MAT_RULE_2"})
+		self.assertEqual({r["name"] for r in res_false}, {self.rule2_name})
 
 		# Native integer 1 / 0
 		res_int1 = frappe.qb.get_query("Rule", filters=[*base_filters, ["is_active", "=", 1]]).run(
 			as_dict=True
 		)
-		self.assertEqual({r["name"] for r in res_int1}, {"_TEST_QB_MAT_RULE_1", "_TEST_QB_MAT_RULE_3"})
+		self.assertEqual({r["name"] for r in res_int1}, {self.rule1_name, self.rule3_name})
 
 		# Numeric string '1' / '0'
 		res_str1 = frappe.qb.get_query("Rule", filters=[*base_filters, ["is_active", "=", "1"]]).run(
 			as_dict=True
 		)
-		self.assertEqual({r["name"] for r in res_str1}, {"_TEST_QB_MAT_RULE_1", "_TEST_QB_MAT_RULE_3"})
+		self.assertEqual({r["name"] for r in res_str1}, {self.rule1_name, self.rule3_name})
 
 	def test_02_numeric_and_currency_fields(self):
 		"""Int and Currency comparisons across native and string representations."""
-		base_filters = [["rule_name", "like", "_TEST_QB_MAT_RULE_%"]]
+		base_filters = [["rule_name", "in", self.rule_names]]
 
 		# Native Int comparison on Rule.max_execution_time
 		res_int = frappe.qb.get_query("Rule", filters=[*base_filters, ["max_execution_time", ">", 10]]).run(
 			as_dict=True
 		)
-		self.assertEqual({r["name"] for r in res_int}, {"_TEST_QB_MAT_RULE_1"})
+		self.assertEqual({r["name"] for r in res_int}, {self.rule1_name})
 
 		# Numeric string integer comparison
 		res_int_str = frappe.qb.get_query(
 			"Rule", filters=[*base_filters, ["max_execution_time", "=", "42"]]
 		).run(as_dict=True)
-		self.assertEqual({r["name"] for r in res_int_str}, {"_TEST_QB_MAT_RULE_1"})
+		self.assertEqual({r["name"] for r in res_int_str}, {self.rule1_name})
 
 		# Negative integer boundary
 		res_neg_int = frappe.qb.get_query(
 			"Rule", filters=[*base_filters, ["max_execution_time", "<", 0]]
 		).run(as_dict=True)
-		self.assertEqual({r["name"] for r in res_neg_int}, {"_TEST_QB_MAT_RULE_3"})
+		self.assertEqual({r["name"] for r in res_neg_int}, {self.rule3_name})
 
 		# Currency field float and numeric string on QB Matrix Temporal
-		temp_filters = [["code", "like", "_TEST_MAT_T%"]]
+		temp_filters = [["code", "in", self.temp_codes]]
 		res_curr = frappe.qb.get_query(
-			"QB Matrix Temporal", filters=[*temp_filters, ["currency_field", "=", 99.99]]
+			self.temporal_doctype, filters=[*temp_filters, ["currency_field", "=", 99.99]]
 		).run(as_dict=True)
 		self.assertEqual({r["name"] for r in res_curr}, {self.temp1_name})
 
 		res_curr_str = frappe.qb.get_query(
-			"QB Matrix Temporal", filters=[*temp_filters, ["currency_field", "=", "50.00"]]
+			self.temporal_doctype, filters=[*temp_filters, ["currency_field", "=", "50.00"]]
 		).run(as_dict=True)
 		self.assertEqual({r["name"] for r in res_curr_str}, {self.temp3_name})
 
 	def test_03_date_and_datetime_iso_and_python_objects(self):
 		"""ISO date/datetime strings and Python date/datetime objects."""
-		temp_filters = [["code", "like", "_TEST_MAT_T%"]]
+		temp_filters = [["code", "in", self.temp_codes]]
 
 		# ISO Date string
 		res_date_str = frappe.qb.get_query(
-			"QB Matrix Temporal", filters=[*temp_filters, ["date_field", "=", "2026-03-01"]]
+			self.temporal_doctype, filters=[*temp_filters, ["date_field", "=", "2026-03-01"]]
 		).run(as_dict=True)
 		self.assertEqual({r["name"] for r in res_date_str}, {self.temp1_name})
 
 		# Python datetime.date
 		d_obj = datetime.date(2026, 3, 1)
 		res_date_obj = frappe.qb.get_query(
-			"QB Matrix Temporal", filters=[*temp_filters, ["date_field", "=", d_obj]]
+			self.temporal_doctype, filters=[*temp_filters, ["date_field", "=", d_obj]]
 		).run(as_dict=True)
 		self.assertEqual({r["name"] for r in res_date_obj}, {self.temp1_name})
 

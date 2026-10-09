@@ -1,6 +1,7 @@
 # Copyright (c) 2026, FlexiRule and contributors
 # For license information, please see license.txt
 
+import uuid
 from typing import ClassVar
 
 import frappe
@@ -14,11 +15,13 @@ class TestQBOperatorCapabilities(FrappeTestCase):
 	"""
 
 	_created_records: ClassVar[list[tuple[str, str]]] = []
+	_run_id: ClassVar[str] = ""
 
 	@classmethod
 	def setUpClass(cls):
 		super().setUpClass()
 		cls._created_records = []
+		cls._run_id = uuid.uuid4().hex[:8].upper()
 		cls._setup_test_records()
 
 	@classmethod
@@ -33,37 +36,40 @@ class TestQBOperatorCapabilities(FrappeTestCase):
 
 	@classmethod
 	def _setup_test_records(cls):
+		prefix = f"_TEST_QB_OP_{cls._run_id}_"
+
 		records = [
 			{
-				"rule_name": "_TEST_QB_OP_RULE_A",
+				"rule_name": f"{prefix}RULE_A",
 				"max_execution_time": 10,
 				"description": "alpha_1",
 			},
 			{
-				"rule_name": "_TEST_QB_OP_RULE_B",
+				"rule_name": f"{prefix}RULE_B",
 				"max_execution_time": 20,
 				"description": "beta_2",
 			},
 			{
-				"rule_name": "_TEST_QB_OP_RULE_C",
+				"rule_name": f"{prefix}RULE_C",
 				"max_execution_time": 30,
 				"description": None,
 			},
 			{
-				"rule_name": "_TEST_QB_OP_RULE_D",
+				"rule_name": f"{prefix}RULE_D",
 				"max_execution_time": 40,
 				"description": "",
 			},
 		]
 
 		for data in records:
-			if frappe.db.exists("Rule", data["rule_name"]):
-				frappe.delete_doc("Rule", data["rule_name"], force=True, ignore_permissions=True)
+			rule_name = data["rule_name"]
+			if frappe.db.exists("Rule", rule_name):
+				raise RuntimeError(f"Unexpected pre-existing Rule record: {rule_name}")
 
 			doc = frappe.get_doc(
 				{
 					"doctype": "Rule",
-					"rule_name": data["rule_name"],
+					"rule_name": rule_name,
 					"max_execution_time": data["max_execution_time"],
 					"description": data["description"],
 					"priority": "10",
@@ -76,11 +82,17 @@ class TestQBOperatorCapabilities(FrappeTestCase):
 
 			cls._created_records.append(("Rule", doc.name))
 
+		cls.rule_a = records[0]["rule_name"]
+		cls.rule_b = records[1]["rule_name"]
+		cls.rule_c = records[2]["rule_name"]
+		cls.rule_d = records[3]["rule_name"]
+		cls.all_names = [cls.rule_a, cls.rule_b, cls.rule_c, cls.rule_d]
+
 		frappe.db.commit()
 
 	def test_01_all_six_comparison_operators(self):
 		"""Explicitly test all six native comparison operators: =, !=, >, >=, <, <=."""
-		base_filters = [["rule_name", "like", "_TEST_QB_OP_RULE_%"]]
+		base_filters = [["rule_name", "in", self.all_names]]
 
 		# Equals
 		r_eq = frappe.qb.get_query(
@@ -88,7 +100,7 @@ class TestQBOperatorCapabilities(FrappeTestCase):
 			fields=["rule_name", "max_execution_time"],
 			filters=[*base_filters, ["max_execution_time", "=", 10]],
 		).run(as_dict=True)
-		self.assertEqual({r["rule_name"] for r in r_eq}, {"_TEST_QB_OP_RULE_A"})
+		self.assertEqual({r["rule_name"] for r in r_eq}, {self.rule_a})
 
 		# Not Equals
 		r_neq = frappe.qb.get_query(
@@ -98,7 +110,7 @@ class TestQBOperatorCapabilities(FrappeTestCase):
 		).run(as_dict=True)
 		self.assertEqual(
 			{r["rule_name"] for r in r_neq},
-			{"_TEST_QB_OP_RULE_B", "_TEST_QB_OP_RULE_C", "_TEST_QB_OP_RULE_D"},
+			{self.rule_b, self.rule_c, self.rule_d},
 		)
 
 		# Greater Than
@@ -107,7 +119,7 @@ class TestQBOperatorCapabilities(FrappeTestCase):
 			fields=["rule_name", "max_execution_time"],
 			filters=[*base_filters, ["max_execution_time", ">", 20]],
 		).run(as_dict=True)
-		self.assertEqual({r["rule_name"] for r in r_gt}, {"_TEST_QB_OP_RULE_C", "_TEST_QB_OP_RULE_D"})
+		self.assertEqual({r["rule_name"] for r in r_gt}, {self.rule_c, self.rule_d})
 
 		# Greater Than or Equal
 		r_gte = frappe.qb.get_query(
@@ -117,7 +129,7 @@ class TestQBOperatorCapabilities(FrappeTestCase):
 		).run(as_dict=True)
 		self.assertEqual(
 			{r["rule_name"] for r in r_gte},
-			{"_TEST_QB_OP_RULE_B", "_TEST_QB_OP_RULE_C", "_TEST_QB_OP_RULE_D"},
+			{self.rule_b, self.rule_c, self.rule_d},
 		)
 
 		# Less Than
@@ -126,7 +138,7 @@ class TestQBOperatorCapabilities(FrappeTestCase):
 			fields=["rule_name", "max_execution_time"],
 			filters=[*base_filters, ["max_execution_time", "<", 20]],
 		).run(as_dict=True)
-		self.assertEqual({r["rule_name"] for r in r_lt}, {"_TEST_QB_OP_RULE_A"})
+		self.assertEqual({r["rule_name"] for r in r_lt}, {self.rule_a})
 
 		# Less Than or Equal
 		r_lte = frappe.qb.get_query(
@@ -134,11 +146,11 @@ class TestQBOperatorCapabilities(FrappeTestCase):
 			fields=["rule_name", "max_execution_time"],
 			filters=[*base_filters, ["max_execution_time", "<=", 20]],
 		).run(as_dict=True)
-		self.assertEqual({r["rule_name"] for r in r_lte}, {"_TEST_QB_OP_RULE_A", "_TEST_QB_OP_RULE_B"})
+		self.assertEqual({r["rule_name"] for r in r_lte}, {self.rule_a, self.rule_b})
 
 	def test_02_pattern_matching_like_and_not_like(self):
 		"""Test 'like' and 'not like' operators with % and _ wildcards."""
-		base_filters = [["rule_name", "like", "_TEST_QB_OP_RULE_%"]]
+		base_filters = [["rule_name", "in", self.all_names]]
 
 		# Direct caller-supplied wildcards
 		res_like = frappe.qb.get_query(
@@ -146,7 +158,7 @@ class TestQBOperatorCapabilities(FrappeTestCase):
 			fields=["rule_name", "description"],
 			filters=[*base_filters, ["description", "like", "alpha%"]],
 		).run(as_dict=True)
-		self.assertEqual({r["rule_name"] for r in res_like}, {"_TEST_QB_OP_RULE_A"})
+		self.assertEqual({r["rule_name"] for r in res_like}, {self.rule_a})
 
 		# Plain string without wildcards performs exact match
 		res_plain_like = frappe.qb.get_query(
@@ -154,7 +166,7 @@ class TestQBOperatorCapabilities(FrappeTestCase):
 			fields=["rule_name", "description"],
 			filters=[*base_filters, ["description", "like", "alpha_1"]],
 		).run(as_dict=True)
-		self.assertEqual({r["rule_name"] for r in res_plain_like}, {"_TEST_QB_OP_RULE_A"})
+		self.assertEqual({r["rule_name"] for r in res_plain_like}, {self.rule_a})
 
 		# Single-character underscore wildcard (_)
 		res_underscore = frappe.qb.get_query(
@@ -162,33 +174,33 @@ class TestQBOperatorCapabilities(FrappeTestCase):
 			fields=["rule_name", "description"],
 			filters=[*base_filters, ["description", "like", "alpha_1"]],
 		).run(as_dict=True)
-		self.assertEqual({r["rule_name"] for r in res_underscore}, {"_TEST_QB_OP_RULE_A"})
+		self.assertEqual({r["rule_name"] for r in res_underscore}, {self.rule_a})
 
-		# Not like excludes matching records; SQL NULL records (_TEST_QB_OP_RULE_C) are omitted due to SQL NULL tri-state logic
+		# Not like excludes matching records; SQL NULL records (rule_c) are omitted due to SQL NULL tri-state logic
 		res_not_like = frappe.qb.get_query(
 			"Rule",
 			fields=["rule_name", "description"],
 			filters=[*base_filters, ["description", "not like", "alpha%"]],
 		).run(as_dict=True)
-		self.assertEqual({r["rule_name"] for r in res_not_like}, {"_TEST_QB_OP_RULE_B", "_TEST_QB_OP_RULE_D"})
+		self.assertEqual({r["rule_name"] for r in res_not_like}, {self.rule_b, self.rule_d})
 
 	def test_03_in_and_not_in_operators(self):
 		"""Test 'in' and 'not in' with populated and empty sequences."""
-		base_filters = [["rule_name", "like", "_TEST_QB_OP_RULE_%"]]
+		base_filters = [["rule_name", "in", self.all_names]]
 
 		res_in = frappe.qb.get_query(
 			"Rule",
 			fields=["rule_name", "max_execution_time"],
 			filters=[*base_filters, ["max_execution_time", "in", [10, 20]]],
 		).run(as_dict=True)
-		self.assertEqual({r["rule_name"] for r in res_in}, {"_TEST_QB_OP_RULE_A", "_TEST_QB_OP_RULE_B"})
+		self.assertEqual({r["rule_name"] for r in res_in}, {self.rule_a, self.rule_b})
 
 		res_not_in = frappe.qb.get_query(
 			"Rule",
 			fields=["rule_name", "max_execution_time"],
 			filters=[*base_filters, ["max_execution_time", "not in", [10, 20]]],
 		).run(as_dict=True)
-		self.assertEqual({r["rule_name"] for r in res_not_in}, {"_TEST_QB_OP_RULE_C", "_TEST_QB_OP_RULE_D"})
+		self.assertEqual({r["rule_name"] for r in res_not_in}, {self.rule_c, self.rule_d})
 
 		# Empty sequence handling: converted to ('',) natively, returning 0 records
 		res_empty_in = frappe.qb.get_query(
@@ -199,19 +211,17 @@ class TestQBOperatorCapabilities(FrappeTestCase):
 		self.assertEqual(len(res_empty_in), 0)
 
 		# Comma-separated string input: func_in splits on comma natively
+		comma_str = f"{self.rule_a},{self.rule_b}"
 		res_comma_in = frappe.qb.get_query(
 			"Rule",
 			fields=["rule_name", "max_execution_time"],
-			filters=[*base_filters, ["rule_name", "in", "_TEST_QB_OP_RULE_A,_TEST_QB_OP_RULE_B"]],
+			filters=[*base_filters, ["rule_name", "in", comma_str]],
 		).run(as_dict=True)
-		self.assertEqual(
-			{r["rule_name"] for r in res_comma_in},
-			{"_TEST_QB_OP_RULE_A", "_TEST_QB_OP_RULE_B"},
-		)
+		self.assertEqual({r["rule_name"] for r in res_comma_in}, {self.rule_a, self.rule_b})
 
 	def test_04_is_set_and_is_not_set_null_vs_empty_string(self):
 		"""Test 'is set' and 'is not set' behavior against both SQL NULL (None) and empty string ("")."""
-		base_filters = [["rule_name", "like", "_TEST_QB_OP_RULE_%"]]
+		base_filters = [["rule_name", "in", self.all_names]]
 
 		# 'is set' matches non-null and non-empty strings
 		res_set = frappe.qb.get_query(
@@ -219,29 +229,26 @@ class TestQBOperatorCapabilities(FrappeTestCase):
 			fields=["rule_name", "description"],
 			filters=[*base_filters, ["description", "is", "set"]],
 		).run(as_dict=True)
-		self.assertEqual({r["rule_name"] for r in res_set}, {"_TEST_QB_OP_RULE_A", "_TEST_QB_OP_RULE_B"})
+		self.assertEqual({r["rule_name"] for r in res_set}, {self.rule_a, self.rule_b})
 
-		# 'is not set' matches BOTH SQL NULL (_TEST_QB_OP_RULE_C) AND empty string "" (_TEST_QB_OP_RULE_D)
+		# 'is not set' matches BOTH SQL NULL (rule_c) AND empty string "" (rule_d)
 		res_not_set = frappe.qb.get_query(
 			"Rule",
 			fields=["rule_name", "description"],
 			filters=[*base_filters, ["description", "is", "not set"]],
 		).run(as_dict=True)
-		self.assertEqual(
-			{r["rule_name"] for r in res_not_set},
-			{"_TEST_QB_OP_RULE_C", "_TEST_QB_OP_RULE_D"},
-		)
+		self.assertEqual({r["rule_name"] for r in res_not_set}, {self.rule_c, self.rule_d})
 
 	def test_05_between_operator_numeric_boundaries(self):
 		"""Test 'between' operator inclusive range boundaries."""
-		base_filters = [["rule_name", "like", "_TEST_QB_OP_RULE_%"]]
+		base_filters = [["rule_name", "in", self.all_names]]
 
 		res = frappe.qb.get_query(
 			"Rule",
 			fields=["rule_name", "max_execution_time"],
 			filters=[*base_filters, ["max_execution_time", "between", [10, 20]]],
 		).run(as_dict=True)
-		self.assertEqual({r["rule_name"] for r in res}, {"_TEST_QB_OP_RULE_A", "_TEST_QB_OP_RULE_B"})
+		self.assertEqual({r["rule_name"] for r in res}, {self.rule_a, self.rule_b})
 
 	def test_06_unsupported_operator_error_stage(self):
 		"""Unsupported operator string raises KeyError during OPERATOR_MAP lookup."""

@@ -3,13 +3,13 @@
 ## Executive Summary
 This report presents the evidence-backed findings from a source-code analysis and empirical audit of Frappe v15's native Query Builder (`frappe.qb.get_query` / `Engine.get_query`) and FlexiRule's **Fetch Records** integration (`QueryRecordsHandler._fetch_records`).
 
-All findings have been empirically tested and asserted across 38 backend unit tests in 7 dedicated, safe test modules:
+All findings have been empirically tested and asserted across 39 backend unit tests in 7 dedicated, safe test modules:
 1. `test_qb_field_path_capabilities.py` (5 tests) - Reuses installed `Rule`, `Rule Action`, `Process` DocTypes
 2. `test_qb_operator_capabilities.py` (6 tests) - Reuses installed `Rule` DocType
-3. `test_qb_tree_capabilities.py` (5 tests) - Retains dedicated `QB Tree Node` DocType (Tree DocType required)
-4. `test_qb_fieldtype_value_matrix.py` (3 tests) - Reuses installed `Rule`, `Data Review Task` DocTypes & retains `QB Matrix Temporal` fixture for `Date`/`Currency`
+3. `test_qb_tree_capabilities.py` (5 tests) - Retains dedicated `QB Tree Node <RUN_ID>` DocType (Tree DocType required)
+4. `test_qb_fieldtype_value_matrix.py` (3 tests) - Reuses installed `Rule`, `Data Review Task` DocTypes & retains `QB Matrix Temp <RUN_ID>` fixture for `Date`/`Currency`
 5. `test_fetch_records_normalization.py` (4 tests) - Direct unit tests for `QueryRecordsHandler`
-6. `test_fetch_records_filter_tree_integration.py` (2 tests) - Reuses installed `Rule` DocType
+6. `test_fetch_records_filter_tree_integration.py` (3 tests) - Reuses installed `Rule` DocType
 7. `test_fetch_records.py` (13 tests) - Reuses installed `Rule` & `Rule Action` DocTypes
 
 ---
@@ -19,22 +19,24 @@ All findings have been empirically tested and asserted across 38 backend unit te
 - **Database Backend**: MariaDB / MySQL (InnoDB engine on `test_site`)
 - **Test Site**: `test_site` (`/home/jules/frappe-bench`)
 - **Test Command**: `bench --site test_site run-tests --app flexirule --module flexirule.ruleflow.tests.<module_name>`
-- **Total Test Discovery & Results**: 38 total discovered in refactored modules, 38 passed, 0 failed, 0 skipped.
+- **Total Test Discovery & Results**: 39 total discovered in refactored modules, 39 passed, 0 failed, 0 skipped.
 
 ---
 
-## 2. Test Safety, Fixture Reuse & Isolation Architecture
-To ensure running tests never delete pre-existing site data, DocTypes, or shared records:
+## 2. Test Safety, Fixture Isolation & Zero Deletion-on-Collision Architecture
+To guarantee that running tests never delete pre-existing site data, DocTypes, or shared records:
 - **Reuse Installed FlexiRule DocTypes**:
   - `Rule`, `Rule Action`, `Process`, and `Data Review Task` are reused across operator capability, filter tree integration, field path capability, and value matrix tests.
   - Reused fields include `rule_name`, `is_active`, `execution_mode`, `priority`, `max_execution_time`, `description`, `resolved_on`, `actions.action_id`, and `process_name.description`.
 - **Justified Dedicated Fixtures**:
-  - `QB Tree Node`: Retained as a dedicated test DocType because no installed FlexiRule DocType has `is_tree: 1` required to test tree hierarchy operators (`descendants of`, `ancestors of`, etc.).
-  - `QB Matrix Temporal`: Retained as a narrowly scoped dedicated test DocType strictly to cover `Date` and `Currency` fieldtypes not present on installed FlexiRule DocTypes.
-- **Explicit Ownership Tracking & Safe Teardown**:
-  - Unconditional, broad table deletions (`frappe.db.delete("Rule")`, `frappe.db.delete("QB Op Parent")`, etc.) have been completely removed.
-  - Each test module assigns unique deterministic identifiers (e.g. `_TEST_QB_...`) and maintains explicit `_created_records: ClassVar[list[tuple[str, str]]]` and `_created_doctypes: ClassVar[list[str]]` tracking.
-  - `tearDownClass` deletes ONLY test-owned records and test-created DocTypes, preserving pre-existing records and DocTypes.
+  - `QB Tree Node <RUN_ID>`: Retained as a uniquely named per-run test DocType because no installed FlexiRule DocType has `is_tree: 1` required to test tree hierarchy operators (`descendants of`, `ancestors of`, etc.).
+  - `QB Matrix Temp <RUN_ID>`: Retained as a uniquely named per-run test DocType strictly to cover `Date` and `Currency` fieldtypes not present on installed FlexiRule DocTypes.
+- **Zero Deletion-on-Collision & Explicit Ownership Tracking**:
+  - Setup-time deletions (`frappe.delete_doc` / `frappe.db.delete` on pre-existing records) have been completely eliminated.
+  - Each test run generates a unique hex suffix (`_run_id = uuid.uuid4().hex[:8].upper()`) for its test documents and dedicated DocTypes.
+  - If a document or DocType with the generated test name unexpectedly already exists, the test fails fast (`RuntimeError`) rather than silently deleting or reusing pre-existing site data.
+  - Queries match test data using explicit created document name lists (`["rule_name", "in", [name1, name2, ...]]`) rather than fuzzy SQL `LIKE` wildcards with `_`.
+  - `tearDownClass` deletes ONLY test-owned records and test-created DocTypes in reverse creation order, preserving pre-existing site records and shared metadata.
 
 ---
 
@@ -96,15 +98,15 @@ To ensure running tests never delete pre-existing site data, DocTypes, or shared
 | `like`, `not like` | **Supported** | Direct | Executed with `%` and `_` wildcards; SQL NULLs excluded under `not like` |
 | `in`, `not in` | **Supported** | Direct | Comma-strings split; empty lists converted to `("",)` |
 | `is set`, `is not set` | **Supported** | Direct | Matches NULL and empty string `""` |
-| `descendants of` | **Supported** | Direct | Evaluates Tree DocType `lft` and `rgt` on `QB Tree Node` |
-| `ancestors of` | **Supported** | Direct | Evaluates Tree DocType `lft` and `rgt` on `QB Tree Node` |
+| `descendants of` | **Supported** | Direct | Evaluates Tree DocType `lft` and `rgt` on `QB Tree Node <RUN_ID>` |
+| `ancestors of` | **Supported** | Direct | Evaluates Tree DocType `lft` and `rgt` on `QB Tree Node <RUN_ID>` |
 | `starts with` / `ends with` | Unsupported | Normalized | Converted to `like "val%"` / `like "%val"` (see double-wildcarding note) |
 | `Between` / `Timespan` | Unsupported | Normalized | Coerced to `between [start, end]` |
 
 ---
 
 ## 5. Summary & Release Recommendations
-1. **Fixture Isolation Verification**: All 38 capability and integration tests operate safely without table-wide deletions, cleanly creating and removing test-owned documents and dedicated fixtures.
+1. **Fixture Isolation Verification**: All 39 capability and integration tests operate safely without deletion-on-collision, using unique run IDs and strict fast-fail collision checks.
 2. **Dotted Path UI Depth**: UI ComboBox controls for Fetch Records should constrain dotted field navigation to 1 link level or direct child table level, as >1 level dotted chains trigger `ValueError: too many values to unpack` in `frappe.qb.get_query`.
 3. **Double Wildcarding**: Users configuring `starts with` in FlexiRule who manually enter a `%` suffix will produce `%%`. A separate focused change may be considered if wildcard sanitization is desired.
 4. **Child Table Link Fields**: Traversing link fields within child tables (e.g. `actions.process_name.description`) is natively unsupported by `frappe.qb.get_query`. Direct child queries or multi-action sub-queries should be recommended for child link references.

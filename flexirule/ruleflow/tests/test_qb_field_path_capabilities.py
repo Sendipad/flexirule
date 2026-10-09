@@ -1,6 +1,7 @@
 # Copyright (c) 2026, FlexiRule and contributors
 # For license information, please see license.txt
 
+import uuid
 from typing import ClassVar
 
 import frappe
@@ -14,11 +15,13 @@ class TestQBFieldPathCapabilities(FrappeTestCase):
 	"""
 
 	_created_records: ClassVar[list[tuple[str, str]]] = []
+	_run_id: ClassVar[str] = ""
 
 	@classmethod
 	def setUpClass(cls):
 		super().setUpClass()
 		cls._created_records = []
+		cls._run_id = uuid.uuid4().hex[:8].upper()
 		cls._setup_test_records()
 
 	@classmethod
@@ -33,13 +36,13 @@ class TestQBFieldPathCapabilities(FrappeTestCase):
 
 	@classmethod
 	def _setup_test_records(cls):
-		proc_name = "_TEST_QB_PROC_1"
-		rule_name = "_TEST_QB_PATH_RULE_PARENT"
+		proc_name = f"_TEST_QB_PROC_{cls._run_id}"
+		rule_name = f"_TEST_QB_PATH_{cls._run_id}_PARENT"
 
-		if frappe.db.exists("Rule", rule_name):
-			frappe.delete_doc("Rule", rule_name, force=True, ignore_permissions=True)
 		if frappe.db.exists("Process", proc_name):
-			frappe.delete_doc("Process", proc_name, force=True, ignore_permissions=True)
+			raise RuntimeError(f"Unexpected pre-existing Process record: {proc_name}")
+		if frappe.db.exists("Rule", rule_name):
+			raise RuntimeError(f"Unexpected pre-existing Rule record: {rule_name}")
 
 		proc = frappe.get_doc(
 			{
