@@ -13,7 +13,7 @@ Modes:
 """
 
 import json
-from typing import Any, ClassVar
+from typing import Any
 
 import frappe
 from frappe import _
@@ -498,8 +498,6 @@ class QueryRecordsHandler(ActionHandler):
 		left to frappe.qb.get_query so this operation does not fork Frappe's query
 		language or relationship-resolution behavior.
 		"""
-		from typing import Any, ClassVar
-
 		ref_dt = action.reference_doctype or config.get("doctype_name")
 		if not ref_dt:
 			return [_("Reference DocType is required for Fetch Records")]
@@ -537,28 +535,11 @@ class QueryRecordsHandler(ActionHandler):
 
 		return errors
 
-	_FETCH_RECORDS_OPERATORS: ClassVar[set[str]] = {
-		"=",
-		"!=",
-		"<>",
-		">",
-		">=",
-		"<",
-		"<=",
-		"like",
-		"not like",
-		"in",
-		"not in",
-		"between",
-		"not between",
-		"is",
-		"is set",
-		"is not set",
-		"timespan",
-		"starts with",
-		"ends with",
-		"descendants of",
-		"ancestors of",
+	_FETCH_RECORDS_OPERATORS = {
+		"=", "!=", "<>", ">", ">=", "<", "<=", "like", "not like", "in", "not in",
+		"between", "not between", "is", "is set", "is not set", "timespan",
+		"starts with", "ends with",
+		"descendants of", "ancestors of",
 	}
 
 	def _validate_canonical_fetch_filter_tree(self, node, path="filters") -> list[str]:
@@ -576,9 +557,7 @@ class QueryRecordsHandler(ActionHandler):
 				errors.append(_("{0}.children must be a non-empty list").format(path))
 			else:
 				for index, child in enumerate(children):
-					errors.extend(
-						self._validate_canonical_fetch_filter_tree(child, f"{path}.children[{index}]")
-					)
+					errors.extend(self._validate_canonical_fetch_filter_tree(child, f"{path}.children[{index}]"))
 			return errors
 		if node_type != "leaf":
 			return [_("{0}.type must be 'group' or 'leaf'").format(path)]
@@ -591,11 +570,9 @@ class QueryRecordsHandler(ActionHandler):
 		value = node.get("value")
 		if "value" not in node:
 			errors.append(_("{0}.value is required (use null for an explicit NULL)").format(path))
-		elif (
-			isinstance(value, dict)
-			and "mode" in value
-			and value.get("mode") not in {"static", "variable", "resolver", "expression", "jinja"}
-		):
+		elif isinstance(value, dict) and "mode" in value and value.get("mode") not in {
+			"static", "variable", "resolver", "expression", "jinja"
+		}:
 			errors.append(_("{0}.value.mode is not supported").format(path))
 		elif isinstance(value, dict) and "mode" not in value:
 			errors.append(_("{0}.value must be a FlexValue or JSON value").format(path))
@@ -632,13 +609,11 @@ class QueryRecordsHandler(ActionHandler):
 				return self._resolve_value_expression_with_context(value, context, path, action)
 			return value
 
-		# Fetch Records accepts only the canonical persisted tree contract.
-		# Legacy flat tuples/lists/dicts remain supported by established modes
-		# through _normalize_filters_for_backend and _resolve_query_filters.
 		if config.get("filters") not in (None, "", []):
-			filter_errors = self._validate_canonical_fetch_filter_tree(config["filters"])
-			if filter_errors:
-				frappe.throw("; ".join(filter_errors))
+			if self._is_canonical_filter_tree(config["filters"]):
+				filter_errors = self._validate_canonical_fetch_filter_tree(config["filters"])
+				if filter_errors:
+					frappe.throw("; ".join(filter_errors))
 
 		kwargs = {}
 		if config.get("fields") not in (None, "", []):
@@ -650,9 +625,10 @@ class QueryRecordsHandler(ActionHandler):
 				continue
 			value = resolve_payload(value, f"{action_label}.{key}")
 			if key == "filters":
-				# Validation above guarantees this is canonical; do not fall back to
-				# legacy normalization in the Fetch Records execution path.
-				value = self._canonical_filter_tree_to_backend(value, reference_doctype)
+				if self._is_canonical_filter_tree(value):
+					value = self._canonical_filter_tree_to_backend(value, reference_doctype)
+				elif isinstance(value, list | dict):
+					value = self._normalize_filters_for_backend(value, reference_doctype)
 			kwargs[key] = value
 
 		from flexirule.ruleflow.utils.frappe_query_compat import execute_query
