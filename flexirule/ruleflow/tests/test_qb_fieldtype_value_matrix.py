@@ -28,26 +28,25 @@ class TestQBFieldtypeValueMatrix(FrappeTestCase):
 		super().setUpClass()
 		cls._created_doctypes = []
 		cls._created_records = []
+		cls.addClassCleanup(cls._cleanup_resources)
 		cls._run_id = uuid.uuid4().hex[:8].upper()
 		cls._setup_test_doctypes()
 		cls._setup_test_records()
 
 	@classmethod
-	def tearDownClass(cls):
+	def _cleanup_resources(cls):
 		for doctype, docname in reversed(cls._created_records):
 			if frappe.db.exists(doctype, docname):
 				frappe.delete_doc(doctype, docname, force=True, ignore_permissions=True)
 
 		cls._created_records.clear()
 
-		for dt in cls._created_doctypes:
+		for dt in reversed(cls._created_doctypes):
 			if frappe.db.exists("DocType", dt):
 				frappe.delete_doc(dt, force=True, ignore_permissions=True)
 
 		cls._created_doctypes.clear()
-
 		frappe.db.commit()
-		super().tearDownClass()
 
 	@classmethod
 	def _setup_test_doctypes(cls):

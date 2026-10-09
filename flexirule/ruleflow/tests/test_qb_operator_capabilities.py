@@ -21,18 +21,18 @@ class TestQBOperatorCapabilities(FrappeTestCase):
 	def setUpClass(cls):
 		super().setUpClass()
 		cls._created_records = []
+		cls.addClassCleanup(cls._cleanup_resources)
 		cls._run_id = uuid.uuid4().hex[:8].upper()
 		cls._setup_test_records()
 
 	@classmethod
-	def tearDownClass(cls):
+	def _cleanup_resources(cls):
 		for doctype, docname in reversed(cls._created_records):
 			if frappe.db.exists(doctype, docname):
 				frappe.delete_doc(doctype, docname, force=True, ignore_permissions=True)
 
 		cls._created_records.clear()
 		frappe.db.commit()
-		super().tearDownClass()
 
 	@classmethod
 	def _setup_test_records(cls):
