@@ -31,7 +31,13 @@
 				</button>
 			</div>
 		</div>
-		<div class="tree-builder__content">
+		<div
+			class="tree-builder__content"
+			:class="{ 'tree-builder__content--drop-target': rootDragOver }"
+			@dragover="onRootDragOver"
+			@dragleave="onRootDragLeave"
+			@drop="onRootDrop"
+		>
 			<div v-if="!root.children.length" class="tree-builder__empty">
 				<i class="fa fa-sitemap"></i><span>{{ emptyLabel }}</span>
 			</div>
@@ -58,7 +64,7 @@
 	</div>
 </template>
 <script setup>
-import { computed, provide } from "vue";
+import { computed, provide, ref } from "vue";
 import TreeBuilderNode from "./TreeBuilderNode.vue";
 import { useTreeBuilder } from "./useTreeBuilder.js";
 
@@ -103,6 +109,29 @@ provide("treeBuilderContext", api);
 const { root, operators, addLeaf, addCollection, addGroup, removeNode, setOperator } = api;
 const operatorLabel = (op) => props.operatorLabel(op);
 const visibleNode = (node) => props.visibleNode(node) !== false;
+const rootDragOver = ref(false);
+
+function onRootDragOver(e) {
+	const draggedId = api.dragState.nodeId;
+	if (props.readOnly || !draggedId || !api.canMove(draggedId, root.id)) return;
+	e.preventDefault();
+	rootDragOver.value = true;
+}
+
+function onRootDragLeave(e) {
+	if (e.relatedTarget instanceof Node && e.currentTarget.contains(e.relatedTarget)) return;
+	rootDragOver.value = false;
+}
+
+function onRootDrop(e) {
+	e.preventDefault();
+	e.stopPropagation();
+	rootDragOver.value = false;
+	const draggedId = api.dragState.nodeId;
+	if (draggedId && api.canMove(draggedId, root.id)) api.dropNode(root.id);
+	else api.endDrag();
+}
+
 defineExpose({ ...api });
 </script>
 <style scoped>
@@ -146,6 +175,13 @@ defineExpose({ ...api });
 	flex-direction: column;
 	gap: var(--fxr-space-2);
 	min-height: 52px;
+	padding: 2px;
+	border-radius: var(--fxr-radius-md);
+	transition: background-color 120ms ease, box-shadow 120ms ease;
+}
+.tree-builder__content--drop-target {
+	background: var(--fxr-node-accent-light, var(--fxr-accent-soft));
+	box-shadow: inset 0 0 0 2px var(--fxr-node-accent, var(--fxr-accent));
 }
 .tree-builder__empty {
 	display: flex;
