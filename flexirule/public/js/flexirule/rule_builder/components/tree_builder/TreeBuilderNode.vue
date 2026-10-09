@@ -56,6 +56,7 @@ function dragOverNode(e) {
 	if (props.readOnly || !api?.dragState?.nodeId) return;
 	const intent = getDropIntent(e);
 	if (!api.canMove(api.dragState.nodeId, intent.targetId)) {
+		e.stopPropagation();
 		dragOver.value = false;
 		dropPosition.value = null;
 		return;
