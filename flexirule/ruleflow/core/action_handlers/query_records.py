@@ -532,6 +532,48 @@ class QueryRecordsHandler(ActionHandler):
 
 		return errors
 
+	_FETCH_RECORDS_OPERATORS = {
+		"=", "!=", "<>", ">", ">=", "<", "<=", "like", "not like", "in", "not in",
+		"between", "not between", "is", "is set", "is not set", "timespan",
+		"descendants of", "ancestors of",
+	}
+
+	def _validate_canonical_fetch_filter_tree(self, node, path="filters") -> list[str]:
+		"""Validate Fetch Records' persisted tree contract; never accept legacy filter shapes."""
+		errors = []
+		if not isinstance(node, dict):
+			return [_("{0} must be a canonical filter group or leaf").format(path)]
+		node_type = node.get("type")
+		if node_type == "group":
+			operator = node.get("operator")
+			children = node.get("children")
+			if not isinstance(operator, str) or operator.lower() not in {"and", "or"}:
+				errors.append(_("{0}.operator must be 'and' or 'or'").format(path))
+			if not isinstance(children, list) or not children:
+				errors.append(_("{0}.children must be a non-empty list").format(path))
+			else:
+				for index, child in enumerate(children):
+					errors.extend(self._validate_canonical_fetch_filter_tree(child, f"{path}.children[{index}]"))
+			return errors
+		if node_type != "leaf":
+			return [_("{0}.type must be 'group' or 'leaf'").format(path)]
+		field = node.get("field")
+		if not isinstance(field, str) or not field.strip():
+			errors.append(_("{0}.field is required").format(path))
+		operator = node.get("operator")
+		if not isinstance(operator, str) or operator.strip().lower() not in self._FETCH_RECORDS_OPERATORS:
+			errors.append(_("{0}.operator is not supported").format(path))
+		value = node.get("value")
+		if "value" not in node:
+			errors.append(_("{0}.value is required (use null for an explicit NULL)").format(path))
+		elif isinstance(value, dict) and "mode" in value and value.get("mode") not in {
+			"static", "variable", "resolver", "expression", "jinja"
+		}:
+			errors.append(_("{0}.value.mode is not supported").format(path))
+		elif isinstance(value, dict) and "mode" not in value:
+			errors.append(_("{0}.value must be a FlexValue or JSON value").format(path))
+		return errors
+
 	def _fetch_records(self, reference_doctype, config, context, action, ignore_permissions):
 		"""Execute Fetch Records through Frappe's native Query Builder API.
 
@@ -554,6 +596,14 @@ class QueryRecordsHandler(ActionHandler):
 				return self._resolve_value_expression_with_context(value, context, path, action)
 			return value
 
+		# Fetch Records accepts only the canonical persisted tree contract.
+		# Legacy flat tuples/lists/dicts remain supported by established modes
+		# through _normalize_filters_for_backend and _resolve_query_filters.
+		if config.get("filters") not in (None, "", []):
+			filter_errors = self._validate_canonical_fetch_filter_tree(config["filters"])
+			if filter_errors:
+				frappe.throw("; ".join(filter_errors))
+
 		kwargs = {}
 		if config.get("fields") not in (None, "", []):
 			kwargs["fields"] = resolve_payload(config["fields"], f"{action_label}.fields")
@@ -564,10 +614,9 @@ class QueryRecordsHandler(ActionHandler):
 				continue
 			value = resolve_payload(value, f"{action_label}.{key}")
 			if key == "filters":
-				if self._is_canonical_filter_tree(value):
-					value = self._canonical_filter_tree_to_backend(value, reference_doctype)
-				elif isinstance(value, list | dict):
-					value = self._normalize_filters_for_backend(value, reference_doctype)
+				# Validation above guarantees this is canonical; do not fall back to
+				# legacy normalization in the Fetch Records execution path.
+				value = self._canonical_filter_tree_to_backend(value, reference_doctype)
 			kwargs[key] = value
 
 		from flexirule.ruleflow.utils.frappe_query_compat import execute_query
