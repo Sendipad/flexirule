@@ -190,14 +190,22 @@ export function useTreeBuilder({
 	}
 
 	function beginDrag(id) {
-		if (!readOnly && canMove(id, root.id)) dragState.nodeId = id;
+		const node = findNode(root, id);
+		dragState.nodeId = !readOnly && node && id !== root.id ? id : null;
+	}
+
+	function endDrag() {
+		dragState.nodeId = null;
 	}
 
 	function dropNode(targetId, position = -1) {
 		const id = dragState.nodeId;
-		if (!id) return false;
+		if (!id) {
+			endDrag();
+			return false;
+		}
 		const result = moveNode(id, targetId, position);
-		dragState.nodeId = null;
+		endDrag();
 		return result;
 	}
 
@@ -255,6 +263,7 @@ export function useTreeBuilder({
 		canMove,
 		validate,
 		beginDrag,
+		endDrag,
 		dropNode,
 		getTree: () => cloneTree(root),
 	};
