@@ -593,6 +593,7 @@ class QueryRecordsHandler(ActionHandler):
 		if not isinstance(operator, str) or operator.strip().lower() not in self._FETCH_RECORDS_OPERATORS:
 			errors.append(_("{0}.operator is not supported").format(path))
 		value = node.get("value")
+		operator_name = operator.strip().casefold() if isinstance(operator, str) else ""
 		if "value" not in node:
 			errors.append(_("{0}.value is required (use null for an explicit NULL)").format(path))
 		elif (
@@ -603,18 +604,20 @@ class QueryRecordsHandler(ActionHandler):
 			errors.append(_("{0}.value.mode is not supported").format(path))
 		elif isinstance(value, dict) and "mode" not in value:
 			errors.append(_("{0}.value must be a FlexValue or JSON value").format(path))
-		elif isinstance(value, dict) and value.get("mode") == "static":
-			operator_name = operator.strip().lower() if isinstance(operator, str) else ""
-			static_value = value.get("value")
-			if operator_name == "between" and not (
+		else:
+			is_static_value = isinstance(value, dict) and value.get("mode") == "static"
+			static_value = value.get("value") if is_static_value else value
+			if operator_name == "between" and is_static_value and not (
 				isinstance(static_value, list | tuple) and len(static_value) == 2
 			):
 				errors.append(_("{0}.value for Between must contain exactly two values").format(path))
-			if operator_name in {"in", "not in"} and not isinstance(static_value, list | tuple | str):
+			if operator_name in {"in", "not in"} and is_static_value and not isinstance(static_value, list | tuple | str):
 				errors.append(_("{0}.value for IN/NOT IN must be a list or string").format(path))
-			if operator_name == "is" and str(static_value).strip().casefold() not in {"set", "not set"}:
+			if operator_name == "is" and is_static_value and str(static_value).strip().casefold() not in {"set", "not set"}:
 				errors.append(_("{0}.value for Is must be 'set' or 'not set'").format(path))
-			if operator_name == "timespan" and static_value not in self._FETCH_RECORDS_TIMESPANS:
+			if operator_name == "timespan" and is_static_value and static_value not in self._FETCH_RECORDS_TIMESPANS:
+				errors.append(_("{0}.value is not a supported Frappe timespan").format(path))
+			if operator_name == "timespan" and isinstance(value, str) and value not in self._FETCH_RECORDS_TIMESPANS:
 				errors.append(_("{0}.value is not a supported Frappe timespan").format(path))
 		return errors
 
