@@ -306,7 +306,10 @@ class TestFetchRecords(FrappeTestCase):
 				"config": frappe.as_json(
 					{
 						"fields": ["name", "description"],
-						"filters": self._group("and", self._leaf("description", "=", "{vars.target_pattern}")),
+						"filters": self._group(
+							"and",
+							self._leaf("description", "=", {"mode": "variable", "value": "vars.target_pattern"}),
+						),
 						"order_by": "{vars.sort_col}",
 						"limit": "{vars.max_count}",
 					}
