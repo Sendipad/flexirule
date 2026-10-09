@@ -23,7 +23,7 @@ class TestFetchRecords(FrappeTestCase):
 			"doctype": doctype,
 			"field": field,
 			"operator": operator,
-			"value": value if isinstance(value, dict) and "mode" in value else {"mode": "static", "value": value},
+			"value": value if isinstance(value, dict) else {"mode": "static", "value": value},
 		}
 
 	def _group(self, operator, *children):
