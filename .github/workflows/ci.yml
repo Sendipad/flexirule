@@ -60,6 +60,8 @@ jobs:
                         - 'yarn.lock'
                         - '.github/workflows/**'
 
+
+
     build:
         needs: changes
         if: ${{ needs.changes.outputs.frontend == 'true' }}
@@ -126,6 +128,12 @@ jobs:
                   fi
               env:
                   CI: "Yes"
+
+            - name: Validate all frontend sources
+              working-directory: /home/runner/frappe-bench/apps/flexirule
+              run: |
+                  set -e
+                  npx --no-install eslint --ext .js,.vue flexirule/public/js
 
     tests:
         needs: changes

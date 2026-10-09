@@ -1,5 +1,4 @@
 # Copyright (c) 2026, FlexiRule and contributors
-# For license information, please see license.txt
 
 import unittest
 from unittest.mock import patch
@@ -114,6 +113,90 @@ class TestQueryRecordsFilters(FrappeTestCase):
 		filters, _ = self.handler._resolve_query_filters(config, self.context, self.action)
 		self.assertEqual(filters[0][2], "Status is Open for Flexi")
 
+	def test_canonical_filter_tree_normalizes_for_query_list(self):
+		config = {
+			"filters": {
+				"type": "group",
+				"operator": "or",
+				"children": [
+					{
+						"type": "leaf",
+						"doctype": "User",
+						"field": "first_name",
+						"operator": "starts with",
+						"value": {"mode": "static", "value": "Admin"},
+					},
+					{
+						"type": "leaf",
+						"doctype": "User",
+						"field": "enabled",
+						"operator": "=",
+						"value": {"mode": "static", "value": 1},
+					},
+				],
+			}
+		}
+		with patch("frappe.get_list", return_value=[]) as mock_get_list:
+			self.handler._query_list("User", config, self.context, self.action, ignore_permissions=True)
+
+		mock_get_list.assert_called_once()
+		self.assertEqual(
+			mock_get_list.call_args.kwargs["filters"],
+			[
+				["User", "first_name", "like", "Admin%"],
+				"or",
+				["User", "enabled", "=", 1],
+			],
+		)
+
+	def test_canonical_filter_tree_normalizes_for_fetch_records(self):
+		config = {
+			"filters": {
+				"type": "group",
+				"operator": "or",
+				"children": [
+					{
+						"type": "leaf",
+						"doctype": "User",
+						"field": "first_name",
+						"operator": "starts with",
+						"value": {"mode": "static", "value": "Admin"},
+					},
+					{
+						"type": "leaf",
+						"doctype": "User",
+						"field": "enabled",
+						"operator": "=",
+						"value": {"mode": "static", "value": 1},
+					},
+				],
+			}
+		}
+		action = frappe._dict(
+			{
+				"operation": "Fetch Records",
+				"reference_doctype": "User",
+				"ignore_permissions": 1,
+				"permission_audit_reason": "Test canonical filter normalization",
+				"config": frappe.as_json(config),
+			}
+		)
+
+		with patch(
+			"flexirule.ruleflow.utils.frappe_query_compat.execute_query", return_value=[]
+		) as execute_query:
+			self.handler.execute(action, self.context, None)
+
+		execute_query.assert_called_once()
+		self.assertEqual(
+			execute_query.call_args.args[1]["filters"],
+			[
+				["User", "first_name", "like", "Admin%"],
+				"or",
+				["User", "enabled", "=", 1],
+			],
+		)
+
 	@patch("frappe.get_list")
 	def test_query_list_integration(self, mock_get_list):
 		config = {
@@ -217,3 +300,147 @@ class TestQueryRecordsFilters(FrappeTestCase):
 		res_gb = self.handler._group_by("User", config_gb, self.context, self.action, ignore_permissions=True)
 		self.assertTrue(isinstance(res_gb, list))
 		self.assertEqual(res_gb[0].get("role"), "System Manager")
+
+
+class TestFetchRecordsCanonicalFilterContract(FrappeTestCase):
+	def setUp(self):
+		self.handler = QueryRecordsHandler()
+		self.context = {"doc": frappe._dict(), "vars": {}}
+		self.action = frappe._dict({"name": "CANONICAL_TEST", "label": "Canonical test", "config": "{}"})
+
+	def test_nested_canonical_tree_converts_to_native_filters(self):
+		tree = {
+			"type": "group",
+			"operator": "and",
+			"children": [
+				{
+					"type": "leaf",
+					"doctype": "User",
+					"field": "enabled",
+					"operator": "=",
+					"value": {"mode": "static", "value": 1},
+				},
+				{
+					"type": "group",
+					"operator": "or",
+					"children": [
+						{
+							"type": "leaf",
+							"doctype": "User",
+							"field": "first_name",
+							"operator": "starts with",
+							"value": {"mode": "static", "value": "Ada"},
+						},
+						{
+							"type": "leaf",
+							"doctype": "User",
+							"field": "last_name",
+							"operator": "in",
+							"value": {"mode": "static", "value": ["Lovelace", "Hopper"]},
+						},
+					],
+				},
+			],
+		}
+		self.assertEqual(self.handler._validate_canonical_fetch_filter_tree(tree), [])
+		self.assertEqual(
+			self.handler._canonical_filter_tree_to_backend(tree, "User"),
+			[
+				["User", "enabled", "=", 1],
+				"and",
+				[
+					["User", "first_name", "like", "Ada%"],
+					"or",
+					["User", "last_name", "in", ["Lovelace", "Hopper"]],
+				],
+			],
+		)
+
+	def test_rejects_legacy_filter_shapes_for_fetch_records(self):
+		for payload in (
+			[["enabled", "=", 1]],
+			{"enabled": 1},
+			[{"field": "enabled", "operator": "=", "value": 1}],
+		):
+			with self.subTest(payload=payload):
+				self.assertTrue(self.handler._validate_canonical_fetch_filter_tree(payload))
+
+	def test_rejects_malformed_canonical_nodes(self):
+		invalid_trees = [
+			{"type": "group", "operator": "xor", "children": []},
+			{
+				"type": "group",
+				"operator": "and",
+				"children": [{"type": "leaf", "field": "", "operator": "=", "value": 1}],
+			},
+			{"type": "leaf", "field": "enabled", "operator": "contains", "value": "x"},
+			{"type": "leaf", "field": "enabled", "operator": "=", "value": {"unexpected": 1}},
+			{"type": "leaf", "field": "enabled", "operator": "="},
+		]
+		for tree in invalid_trees:
+			with self.subTest(tree=tree):
+				self.assertTrue(self.handler._validate_canonical_fetch_filter_tree(tree))
+
+	def test_serialized_fetch_records_config_uses_only_canonical_conversion(self):
+		config = {
+			"filters": {
+				"type": "group",
+				"operator": "and",
+				"children": [
+					{
+						"type": "leaf",
+						"doctype": "User",
+						"field": "enabled",
+						"operator": "=",
+						"value": {"mode": "static", "value": 1},
+					},
+					{
+						"type": "leaf",
+						"doctype": "User",
+						"field": "first_name",
+						"operator": "like",
+						"value": {"mode": "static", "value": "Ada%"},
+					},
+				],
+			}
+		}
+		action = frappe._dict(
+			{
+				"operation": "Fetch Records",
+				"reference_doctype": "User",
+				"ignore_permissions": 1,
+				"permission_audit_reason": "Canonical contract test",
+				"label": "Canonical contract test",
+				"config": frappe.as_json(config),
+			}
+		)
+		with patch(
+			"flexirule.ruleflow.utils.frappe_query_compat.execute_query", return_value=[{"name": "user-1"}]
+		) as execute_query:
+			result, _ = self.handler.execute(action, self.context, None)
+		self.assertEqual(result, [{"name": "user-1"}])
+		self.assertEqual(
+			execute_query.call_args.args[1]["filters"],
+			[["User", "enabled", "=", 1], "and", ["User", "first_name", "like", "Ada%"]],
+		)
+
+	def test_legacy_in_not_in_null_empty_and_wildcard_semantics_remain_normalized(self):
+		config = {
+			"filters": [
+				["name", "in", ["A", "B"]],
+				["name", "not in", ["C", "D"]],
+				["description", "=", None],
+				["first_name", "=", ""],
+				["last_name", "starts with", "Sm"],
+				["email", "ends with", "@example.test"],
+			]
+		}
+		filters, _ = self.handler._resolve_query_filters(
+			config, self.context, self.action, reference_doctype="User"
+		)
+		self.assertIn(["name", "in", ["A", "B"]], filters)
+		self.assertIn(["name", "not in", ["C", "D"]], filters)
+		self.assertIn(["description", "=", None], filters)
+		self.assertIn(["first_name", "=", ""], filters)
+		self.assertIn(["last_name", "like", "Sm%"], filters)
+		self.assertIn(["email", "like", "%@example.test"], filters)

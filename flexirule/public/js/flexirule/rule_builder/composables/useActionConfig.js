@@ -201,10 +201,10 @@ export function useActionConfig(props, options = {}) {
 	function is_field_valid(fieldname, dt_fields) {
 		if (!dt_fields || !dt_fields.length) return true;
 		if (!fieldname) return true;
-		// Allow expressions, variables, and direct var paths
+		// Allow expressions, variables, direct var paths, and dotted nested fields
 		if (
 			typeof fieldname === "string" &&
-			(fieldname.startsWith("{") || fieldname.startsWith("vars."))
+			(fieldname.startsWith("{") || fieldname.startsWith("vars.") || fieldname.includes("."))
 		)
 			return true;
 

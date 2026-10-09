@@ -7,7 +7,12 @@
 			{{ __("Select a DocType to configure filters.") }}
 		</div>
 		<div v-else class="filter-list">
-			<div v-for="(row, idx) in filters" :key="idx" class="filter-row">
+			<div
+				v-for="(row, idx) in filters"
+				:key="idx"
+				class="filter-row"
+				:class="{ 'single-row': singleRow }"
+			>
 				<div class="filter-row-main">
 					<!-- Doctype Picker (if allowAnyDoctype) -->
 					<div v-if="allowAnyDoctype" class="filter-col doctype-col">
@@ -27,19 +32,28 @@
 							<ComboBoxControl
 								ref="fieldPickerRefs"
 								:df="{ label: '', fieldtype: 'FieldPicker', reqd: 1 }"
-								:options="getFieldsForDoctype(row.doctype || doctype)"
+								:options="getRowFields(idx, row.doctype || doctype)"
 								:doctype="row.doctype || doctype"
 								:modelValue="row.field"
 								:read_only="readOnly"
 								:showValidation="showValidation"
 								:trigger="'button'"
 								:hideLabel="true"
+								:navigable="true"
+								:navStack="getRowNavStack(idx, row.doctype || doctype)"
+								@navigate="
+									(opt) => handleRowNavigate(idx, row.doctype || doctype, opt)
+								"
+								@back="
+									(stackIdx) =>
+										handleRowBack(idx, row.doctype || doctype, stackIdx)
+								"
 								:class="{
 									'border-warning':
 										row.field &&
 										!isFieldValid(row.field, row.doctype || doctype),
 								}"
-								@update:modelValue="(val) => updateRow(idx, { field: val })"
+								@update:modelValue="(val) => onRowFieldSelect(idx, val)"
 							/>
 							<i
 								v-if="row.field && !isFieldValid(row.field, row.doctype || doctype)"
@@ -144,7 +158,7 @@
 					</div>
 
 					<!-- Delete -->
-					<div v-if="!readOnly" class="filter-col action-col">
+					<div v-if="!readOnly && !hideActions" class="filter-col action-col">
 						<button class="btn btn-xs btn-link text-danger" @click="removeFilter(idx)">
 							<i class="fa fa-trash"></i>
 						</button>
@@ -152,7 +166,7 @@
 				</div>
 			</div>
 
-			<div v-if="!readOnly" class="filter-actions mt-2">
+			<div v-if="!readOnly && !hideActions && !singleRow" class="filter-actions mt-2">
 				<button class="btn btn-xs btn-link p-0 text-primary" @click="addFilter">
 					<i class="fa fa-plus mr-1"></i> {{ __("Add Filter") }}
 				</button>
@@ -170,10 +184,12 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, inject, nextTick } from "vue";
+import { reactive } from "vue";
 import ComboBoxControl from "../../controls/ComboBoxControl.vue";
 import FlexValueControl from "../../controls/FlexValueControl.vue";
 import { useStore } from "../../stores";
 import { getContract } from "../../../core/contracts.js";
+import { useNavigableFields } from "../../composables/useNavigableFields";
 
 const props = defineProps({
 	modelValue: {
@@ -201,6 +217,14 @@ const props = defineProps({
 		default: null,
 	},
 	showValidation: {
+		type: Boolean,
+		default: false,
+	},
+	singleRow: {
+		type: Boolean,
+		default: false,
+	},
+	hideActions: {
 		type: Boolean,
 		default: false,
 	},
@@ -915,11 +939,57 @@ const updateBetweenValue = (idx, arrayIndex, val) => {
 	emitUpdate();
 };
 
+const rowNavMap = reactive(new Map());
+
+function getRowNav(idx, dt) {
+	const key = `${idx}_${dt || props.doctype}`;
+	if (!rowNavMap.has(key)) {
+		const nav = useNavigableFields(
+			() => dt || props.doctype,
+			() => filters.value[idx]?.field
+		);
+		rowNavMap.set(key, nav);
+	}
+	return rowNavMap.get(key);
+}
+
+function getRowFields(idx, dt) {
+	const nav = getRowNav(idx, dt);
+	const fields = nav.currentFields.value;
+	if (fields && fields.length > 0) {
+		return fields;
+	}
+	return getFieldsForDoctype(dt || props.doctype);
+}
+
+function getRowNavStack(idx, dt) {
+	const nav = getRowNav(idx, dt);
+	return nav.navStack.value;
+}
+
+function handleRowNavigate(idx, dt, option) {
+	const nav = getRowNav(idx, dt);
+	nav.handleNavigate(option);
+}
+
+function handleRowBack(idx, dt, stackIdx) {
+	const nav = getRowNav(idx, dt);
+	nav.handleBack(stackIdx);
+}
+
+function onRowFieldSelect(idx, val) {
+	updateRow(idx, { field: val });
+	const dt = filters.value[idx]?.doctype || props.doctype;
+	const nav = getRowNav(idx, dt);
+	nav.resetStack();
+}
+
 const isFieldValid = (fieldname, dt) => {
+	if (!fieldname) return true;
+	if (typeof fieldname === "string" && (fieldname.startsWith("{") || fieldname.includes(".")))
+		return true;
 	const fields = getFieldsForDoctype(dt || props.doctype);
 	if (!fields || !fields.length) return true;
-	if (!fieldname) return true;
-	if (typeof fieldname === "string" && fieldname.startsWith("{")) return true;
 	return fields.some((f) => f.value === fieldname);
 };
 
