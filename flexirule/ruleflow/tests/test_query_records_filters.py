@@ -421,7 +421,7 @@ class TestFetchRecordsCanonicalFilterContract(FrappeTestCase):
 		self.assertEqual(result, [{"name": "user-1"}])
 		self.assertEqual(
 			execute_query.call_args.args[1]["filters"],
-			[["enabled", "=", 1], "and", ["first_name", "like", "Ada%"]],
+			[["enabled", "=", 1], ["first_name", "like", "Ada%"]],
 		)
 
 	def test_legacy_in_not_in_null_empty_and_wildcard_semantics_remain_normalized(self):
