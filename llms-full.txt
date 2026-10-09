@@ -6,35 +6,35 @@ Enterprise documentation for FlexiRule, a metadata-driven automation and rules o
 ---
 title: Which Action Should I Use?
 url: https://sendipad.github.io/flexirule/action-type/which-action/
-lastmod: 2026-10-07
-summary: Choose the right FlexiRule action type from the business outcome you need, using the names and operations available in the Rule Builder.
+lastmod: 2026-10-09
+summary: Choose the right FlexiRule action for common business tasks, from decisions and data lookup to document changes and repetition.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Which Action Should I Use?# When building a rule, start with what you want the rule to accomplish, then choose the Action Type that expresses that operation.
-The Rule Builder currently uses these Action Types:
-Condition — make a true/false decision. Switch — route execution among configured cases. Loop — repeat work for items in a collection. Assignment — set document fields or context values. Query Records — read records or calculate supported query results. Document Action — create, update, delete, or perform other supported document operations. Notify — send a notification. Process — execute a configured process. Sub-Rule — invoke another rule. Wait — pause/defer supported work. Stop — intentionally terminate the flow. Raise Error — terminate the flow with an error. Important: Action Type is the technical name used by FlexiRule&amp;rsquo;s registry and configuration model. In the UI, these are the Actions you add to the canvas.
-Choose by outcome# I want to… Use Why Decide whether something is true or false Condition Evaluates configured conditions and provides True/False branches. Choose among several known cases Switch Matches a value against configured cases and routes execution to the matching branch. Read records Query Records Retrieves matching records using a supported query mode. Check whether a record exists Query Records → Exist Record Returns an existence result without treating the operation as a document update. Count, sum, average, find minimum/maximum, or group records Query Records Uses the appropriate supported query mode for the required result. Set document fields or context values Assignment Applies configured assignments to document/context targets. Create a new document Document Action → Create New Creates a target Frappe document using the configured mappings. Update an existing document Document Action → Update Existing Updates a target document using the configured mappings. Delete a document Document Action → Delete Record Deletes the selected target document. Create a ToDo Document Action → Create ToDo Creates a ToDo with its configured details. Add a comment Document Action → Add Comment Adds a comment to the configured document …
+Which Action Should I Use?# Choose an action by the business outcome you want—not just by the name of a control. The guides below use the current action terminology. The controls, operations, and supported behavior can vary by installed FlexiRule version.
+Find an action by task# Common business task Use Why / what to check Continue one way when a yes/no rule is true, and another way when false Condition Creates True and False execution paths. Choose among several known cases, such as status = Draft, Submitted, or Cancelled Switch Better for multiple configured cases than chaining many Condition blocks. Set a value or calculate a value for later steps Assignment Assigns a value to a supported current-document field or rule variable. Read a list of records matching filters Query Records → Fetch Records A newer Query Builder-backed mode. Verify filters, permissions, and returned row shape. Keep an existing list-style record query Query Records → Query List Legacy mode with a different implementation/contract from Fetch Records. Read one document Query Records → Query Doc Check how the configured result is exposed to later steps. Test whether a matching record exists Query Records → Exist Record Use an existence result rather than retrieving a full list just to test presence. Count or aggregate matching data Query Records Select the supported Count, Sum, Average, Min, Max, or Group By mode that matches the result you need. Create a new document Document Action → Create New Maps fields and optional child-table rows, then inserts the target document. Update an existing document Document Action → Update Existing Requires a target DocType and record name; mapped fields are saved. Delete a document Document Action → Delete Record Destructive operation for one explicitly resolved record. Create a user task linked to the current document Document Action → Create ToDo Requires an assignee and description; links the ToDo to the current context document. Add a timeline comment to the current document Document Action → Add Comment Requires comment text; links the Comment to the current context document. Run the same steps for each row in a child table or each item in a list …
 
 ---
 title: Which Query Mode Should I Use?
 url: https://sendipad.github.io/flexirule/action-type/query-records/which-query-mode/
-lastmod: 2026-10-07
-summary: Choose the Query Records mode that matches the result your rule needs.
+lastmod: 2026-10-09
+summary: Choose the Query Records mode that matches the required result and implementation.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Which Query Mode Should I Use?# Choose the mode from the result you actually need.
-Need Mode A collection of matching records with selected fields Fetch Records A lightweight list of selected values Query List One document or single-record result Query Doc Only whether a match exists Exist Record Rows from a supported report Query Report Number of matching records Count Total of a numeric field Sum Average of a numeric field Average Lowest value Min Highest value Max Results summarized by fields Group By Prefer the smallest result# If you only need to know whether a record exists, use Exist Record instead of fetching a list. If you need a count or total, use the corresponding aggregate mode instead of retrieving every record.
-Check the output shape before connecting the result to another action: list results, single records, scalar aggregates, and grouped results are not interchangeable.
-→ Query Records
-→ Query Filters
+Which Query Mode Should I Use?# Start with the result your next step needs, not with the longest list of options.
+If you need… Choose Why A collection of matching rows with configurable fields, filters, sorting, limit, and offset Fetch Records Uses the newer Frappe Query Builder path and returns a list of records. An existing list-style query configuration Query List Keeps the legacy query implementation; do not assume its filters or output behave identically to Fetch Records. One document or a single-record result Query Doc Designed for a single target record/result. Only whether a matching record exists Exist Record Avoids fetching a collection just to answer yes/no. Output from a supported existing report Query Report Uses a Report target and report-specific execution path. The number of matching records Count Use an aggregate mode rather than loading every row. A total or statistical value for a field Sum, Average, Min, or Max Select the aggregate that matches the question and configure its required field. Results grouped by a field Group By Use only grouping behavior supported by the installed implementation. Prefer the smallest useful result# If you need yes/no, choose Exist Record. If you need a count or a supported aggregate, prefer that mode to loading a large list. If you need to process each matching row, Fetch Records may be appropriate with a bounded result size and a Loop.
+Check the contract and output# Modes expose different controls and result types. Fetch Records is contractually a List of Records result; Query Doc can expose single-record/full-document output; Exist Record returns yes/no; other modes have their own result behavior.
+After configuration, run Debug and inspect the actual result before connecting it to another action. Test empty results, permission-limited results, and realistic maximum data volumes.
+→ Query Records overview
+→ Fetch Records details
+→ Query filters
 
 
 ---
@@ -112,18 +112,21 @@ The core principle# Build rules so another person can understand the business po
 ---
 title: Create New
 url: https://sendipad.github.io/flexirule/action-type/update-record/create-new/
-lastmod: 2026-09-27
-summary: Generate new records automatically using UI field mappings in FlexiRule.
+lastmod: 2026-10-09
+summary: Create a new Frappe document using field and child-table mappings.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Create New Record# The Create New Record mode allows FlexiRule to generate brand-new records automatically in any DocType.
-1. Field Mappings# In the UI configuration grid, map how the new document&amp;rsquo;s fields should be populated:
-Target Field: Select the field on the new document. Value: Select the source value using the Smart Value Selector (a current document field @doc.field, rule variable @vars.variable, or static text). 2. Child Table Mappings# You can also populate child tables on the new document (such as line items on a new Sales Order):
-Source Collection: Select a source child table (e.g., Items or @doc.items) using the Smart Value Selector. Row Mapping: Map fields from each source row to fields in the target child table. 3. Practical Example# Scenario: Automatically Create a Project when a Sales Order is Submitted# Add an Update Record block and set Operation to Create New. Target DocType: Select Project. Field Mappings: Project Name ← Select Project Name or @doc.title using Smart Value Selector. Customer ← Select Customer (@doc.customer) using Smart Value Selector. Condition: Add a Check action prior to creation to verify Order Type == &amp;quot;Project-Based&amp;quot;. 
+Document Action: Create New# Choose Create New when the rule needs to create a separate record in a target DocType. The action builds a new document payload, applies the configured mappings, and inserts it.
+Configure it# Add a Document Action node. In the Setup panel, set Document Mode to Create New. Select the target Reference DocType. Configure the Resource Mapper in Classic or Visual view. Map the required target fields and any child-table rows. Choose the available created-document result handling settings. Save and test the rule before activation. Map scalar fields# The Resource Mapper can populate the new record from the execution context:
+Dynamic field mappings map a source expression/path to a target field. Static values set explicit values and take precedence over the other scalar mappings. Copy same fields optionally copies eligible fields with matching names from a source object. The source defaults to the current document; configure the source path and field exclusions when needed. Input mapping can hydrate configuration values from the context before execution. Map the target fields that the DocType requires. Frappe still runs the target document&amp;rsquo;s normal validation and lifecycle hooks during insertion.
+Map child tables# Use a table mapping when the new document needs child rows, such as the Items table on a Sales Order.
+Select the target child-table field. Provide a source collection expression/path that resolves to a list or tuple. Map source row fields to fields on each target child row. Optionally configure a row condition (only include rows that pass) and a row filter (skip rows that pass the filter expression). Configure whether the target table is reset and whether mapping should only run when the target table is empty. Each row is evaluated in a row context. The current row is available as item and through the configured item alias; loop metadata includes zero-based loop.index, loop.first, loop.last, and loop.length.
+Example# Scenario: create a Project when a Sales Order is submitted.
+Document Mode: Create New Reference DocType: Project Field mappings: map the project name from the order or a related rule variable, and map Customer …
 
 ---
 title: Email
@@ -353,20 +356,19 @@ Whether you are automating a simple notification or a multi-stage credit approva
 ---
 title: Fetch Records
 url: https://sendipad.github.io/flexirule/action-type/query-records/fetch-records/
-lastmod: 2026-10-06
-summary: Retrieve a filtered collection of records for use in later rule steps.
+lastmod: 2026-10-09
+summary: Configure the newer Query Records mode backed by Frappe's Query Builder API.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Fetch Records# Use Fetch Records when a rule needs a collection of matching records from a DocType. For example, a rule can retrieve submitted invoices for the current customer and use the result to calculate a decision or process each matching record.
-Configure the query# Add a Query Records action to the canvas. Choose Fetch Records in the query mode selector. Select the target Reference DocType. Add filters for the records that should be returned. Choose the fields needed by later actions, if field selection is available in your mode. Set a sensible result limit and ordering where appropriate. Give the result a clear output name and use the Smart Value Selector to reference it in later steps. Example: find open invoices for the current customer# The goal is to retrieve submitted invoices for the same customer as the triggering document that still have an outstanding balance.
-Field Comparison Value Customer Equals Current document&amp;rsquo;s customer Docstatus Equals 1 Outstanding Amount Greater Than 0 Configure the filters using the UI controls for your installed version. The table describes the intended business criteria; it is not a query-language snippet to paste into the editor.
-After running Debug, verify that the result contains only the expected invoices. Then connect the result to a later action, such as a loop, calculation, or condition.
-Understand the result# Fetch Records returns a collection, not a single document or a numeric total. If you need only one document, use Query Doc where appropriate. If you need only to know whether a match exists, use Exist Record. If you need a count or total, consider Count or Sum instead of retrieving every record.
-Best practices# Filter early to avoid retrieving unrelated records. Keep the result limit appropriate for the business process. Select only the fields the flow actually uses. Test the empty-result case and the maximum expected result size. Confirm permissions and avoid enabling permission bypass unless there is a documented reason. Do not assume arbitrary linked-field paths or child-table conditions are supported; use only the filter capabilities exposed by the selected query mode. Back to Query Records · …
+Fetch Records# Fetch Records is a mode inside the Query Records action. It retrieves a collection of rows from a selected DocType through Frappe&amp;rsquo;s frappe.qb.get_query API. FlexiRule resolves supported dynamic values in the configuration, then passes the resulting query arguments to its Query Builder compatibility layer.
+This is a newer mode. Do not assume it has exactly the same filter semantics or output behavior as the legacy Query List mode.
+When to use it# Use Fetch Records when you need a collection of matching rows with a configurable field list, filters, ordering, offset, and limit. Common next steps are checking the result, storing it in context, or passing it to a Loop.
+Choose a different mode when you need a different shape:
+Exist Record for a yes/no existence result. Query Doc for a single document. Count, Sum, Average, Min, or Max when the supported aggregate mode meets the need. Query List when maintaining an existing configuration that uses that legacy mode. Configure the UI# Add Query Records to the canvas and choose Fetch Records as the Query Mode in the Setup panel. Select the Target DocType / reference DocType. The filter and field controls use this DocType&amp;rsquo;s metadata. Under Fields, select the fields to return. The selected field expressions are passed to Frappe Query Builder; leaving the field list empty omits the fields argument, allowing the API&amp;rsquo;s default behavior to apply. Configure Filters in the Fetch Records filter editor. The editor stores a structured filter tree; at execution time FlexiRule resolves dynamic values recursively and converts its canonical tree representation to the backend form when that representation is detected. Add Sort Criteria as needed. Each row specifies a field and ascending (ASC) or descending (DESC) direction. Configure Retrieval Settings. Set Limit Type and, when Custom Limit is selected, the Limit. The component also supports a Group By field, Offset, and a Deduplicate Rows (DISTINCT) setting where the relevant controls are available in the current UI. Under Execution Permission, keep Skip Permissions disabled unless the action has an approved reason to bypass read permissions. If enabled, …
 
 ---
 title: Initial Configuration
@@ -528,20 +530,24 @@ Invocation Methods# Programmatic: Using the flexirule.api.execute_rule method. S
 
 
 ---
-title: Check (Condition)
+title: Condition
 url: https://sendipad.github.io/flexirule/action-type/condition/
-lastmod: 2026-10-07
-summary: Evaluate logical condition groups in the UI to branch execution paths between True and False branches.
+lastmod: 2026-10-09
+summary: Evaluate a configured logical condition and route execution through True or False paths.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Check (Condition) Action# A Check action lets a rule evaluate one or more conditions and direct execution along different visual paths depending on whether those conditions are satisfied.
-1. What is it?# The Check block is the visual decision-making hub of a rule. It evaluates your configured logic against document data or context variables and splits execution into two outbound branches:
-True: Followed when all or any conditions pass (depending on your logic setting). False: Followed when the conditions do not pass. ┌── True ──→ Action A (e.g. Set Status = &amp;#34;Approved&amp;#34;) Check ───────────┤ └── False ─→ Action B (e.g. Notify Manager) 2. When to Use# Use a Check action whenever you need to:
-Validate field values before proceeding (e.g., check if Grand Total is greater than 50,000). Branch business logic based on customer tier, region, or document status. Check child-table data (e.g., verify if all line items have a warehouse assigned). Compare current values against historical document state or temporary rule variables. Check action condition branch preview 3. How to Configure# Add the Action: Drag or add a Check block onto your visual canvas. Choose Logic Grouping: ALL (AND): Every condition row in the group must evaluate to true. ANY (OR): At least one condition row must evaluate to true. NOT: Inverts the result of the condition group. Configure Conditions using Smart Value Selector: Click the left operand field. Type @ or click the value selector to open the Smart Value Selector. Search for and select your document field (e.g., Grand Total). Choose a comparison operator (Equals, Greater Than, Contains, Is Set, etc.). Click the right operand field and select a static value, variable, or calculated value using the Smart Value Selector. Connect Branches: Drag a line from the True port to the action you want to execute when conditions pass. Drag a line from the False port to the action you want to execute when conditions fail. 4. UI Configuration Options# Setting Options / Description Logic Grouping Select ALL (all rows must match), ANY (at least one row matches), or NOT (inverts group result). Comparison Operators == (Equals), != (Not Equals), &amp;gt;, &amp;gt;=, …
+Condition# Condition evaluates a configured logical rule and chooses the True or False execution path. Older documentation called this action “Check”; the current action name is Condition.
+Use it when a business rule needs a yes/no decision. For multiple configured value cases, consider Switch.
+When to use Condition# Typical examples include:
+Continue an approval flow only when an invoice exceeds a threshold. Check whether a required field is populated. Test a value returned by a previous Query Records action. Check whether a context variable meets a business requirement. Decide whether the current item in a Loop should follow one path or another. If the rule should not start at all unless a condition is true, consider the rule&amp;rsquo;s Entry Condition instead. An Entry Condition is evaluated before configured actions begin; when it is false, execution terminates without running those actions. An in-flow Condition is a separate action that branches execution after the rule has started.
+How execution branches# Condition evaluates the saved configuration using its compiled expression. The result selects the corresponding outbound connection:
+┌── True ──→ actions for a matching condition Condition ────────┤ └── False ──→ actions for an unmet condition Connect both outcomes intentionally. If a path has no next action connected, there is no configured downstream step for that outcome.
+Configure a Condition# Add Condition to the canvas. Open its configuration and build the logical condition. For each row, choose the left-hand field/context reference, a supported operator, and a right-hand value when the operator requires one. Use nested AND / OR groups when the logic requires them. The current Condition Builder also offers a Collection control for collection-based checks; this is different from an ordinary nested group. Connect the True and False outputs to the intended next steps. Save the rule and test representative cases that should produce both outcomes. The exact field options, operators, and dynamic value choices depend on the context and field type. Use the options displayed by the editor rather than assuming every operator applies to every field.
+For the full …
 
 ---
 title: Condition: Architecture Reference
@@ -841,18 +847,20 @@ Debug simulation and live execution are different contexts: testing verifies beh
 ---
 title: Update Existing
 url: https://sendipad.github.io/flexirule/action-type/update-record/update-existing/
-lastmod: 2026-09-27
-summary: Modify specific existing database records using UI field mappings.
+lastmod: 2026-10-09
+summary: Update a selected existing Frappe document using field and child-table mappings.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Update Existing Record# Use Update Existing Record mode to change field values on records that already exist in the database.
-1. Identifying Target Record# In the configuration panel, specify which record to update:
-Target Record: Choose a record variable retrieved from a Query Records block (e.g., @vars.target_project). DocType + Document Name: Select the target DocType and pick the document name field using the Smart Value Selector (e.g., @doc.linked_project). 2. Partial Field Updates# Unlike creating a new record, you only need to map the specific fields you want to change. All unmapped fields on the target record remain unchanged.
-3. Practical Example# Scenario: Update Project Status when a Task is Completed# Add an Update Record block and set Operation to Update Existing. Target DocType: Select Project. Document Name: Select Project (@doc.project) using the Smart Value Selector. Field Mapping: Status ← &amp;quot;In Progress&amp;quot; 
+Document Action: Update Existing# Choose Update Existing to load an existing target record, apply configured changes, and save it. Only the fields you map are intentionally changed; unmapped scalar fields are left as they were, except fields affected by document validation, hooks, or other Frappe behavior.
+Configure it# Add a Document Action node. Set Document Mode to Update Existing. Select the target Reference DocType. Identify the target record using Reference DocName in Setup, or configure a Docname Expression that resolves to the target record&amp;rsquo;s name at runtime. Configure scalar and child-table mappings in the Resource Mapper. Choose the available updated-document result handling settings. Save and test the rule against a known record before activation. The record name must resolve to a valid existing document of the selected DocType. A source document or query result can provide that name, but make sure the expression resolves to the document&amp;rsquo;s name—not the entire record object.
+Field mapping behavior# Copy same fields can optionally copy eligible matching field names from a source object. The source defaults to the current document; source path and excluded fields can be configured. Static values explicitly set fields. Dynamic field mappings resolve source expressions/paths and assign the result to target fields. Child-table mappings can rebuild or append mapped rows depending on the table mapping options. For the same scalar target field, the handler applies same-field copies first, static values next, and dynamic field mappings last. A dynamic mapping can therefore override a static value for the same target field. Avoid mapping the same target from multiple sources unless this precedence is intentional.
+When mapping child tables, inspect Reset Value and Add If Empty carefully. Reset Value defaults to enabled; if enabled, existing rows are cleared before mapped rows are appended. Add If Empty skips the mapping when rows already exist.
+Example# Scenario: update a linked Project when a Task is completed.
+Document Mode: Update Existing Reference DocType: Project Reference DocName: resolve the linked Project&amp;rsquo;s document name from the …
 
 ---
 title: Why should I use FlexiRule?
@@ -973,6 +981,25 @@ Need to process a collection? ├── Validate or Update every row → Loop Ac
 Related Topics# Glossary Rule Builder Action Zone 
 
 ---
+title: Delete Record
+url: https://sendipad.github.io/flexirule/action-type/update-record/delete-record/
+lastmod: 2026-10-09
+summary: Delete one specified existing Frappe document with permission checks.
+concepts: 
+tags: 
+difficulty: 
+related: 
+actions: read, implement, integrate, troubleshoot, improve
+
+Document Action: Delete Record# Choose Delete Record when the rule must permanently delete one existing record. This mode is destructive: it does not search for a set of records or automatically iterate over a query result.
+Configure it# Add a Document Action node. Set Document Mode to Delete Record. Select the target Reference DocType. Set Reference DocName in the Setup panel, or configure a Docname Expression that resolves to the record name. Review permissions and the rule&amp;rsquo;s trigger conditions carefully. Test with a safe record before activating the rule. The resolved name must identify an existing record of the selected DocType. If no name is provided, the handler raises an error. If the target does not exist, deletion fails rather than silently reporting success.
+Example# Scenario: delete a temporary draft record when a parent workflow is cancelled.
+Document Mode: Delete Record Reference DocType: the DocType of the temporary record Reference DocName: resolve the exact linked record name from the triggering document or a rule variable. Guard: use a separate Condition or a valid trigger condition to ensure the deletion is appropriate. Always verify that the expression returns one document name. Do not pass a whole document object or an unreviewed list of names.
+Result and permissions# On success, the action returns a result containing the deletion flag, DocType, and deleted record name. The operation&amp;rsquo;s return type is fixed to Yes / No in its action contract; it does not return the deleted document&amp;rsquo;s full contents.
+The handler checks delete permission for the target record unless Skip Permissions is enabled and authorized by the runtime permission policy. Skip Permissions is a privileged option and requires an audit reason. The target record must exist before the delete operation runs.
+Safety checklist# Confirm the exact DocType and record name. Ensure the rule cannot match unintended records or repeatedly delete a replacement record. Test the name expression and rule conditions before activation. Review Frappe permissions and downstream hooks that may run on deletion. Use Query Records only to find data; this mode itself deletes one …
+
+---
 title: Do I need FlexiRule?
 url: https://sendipad.github.io/flexirule/getting-started/do-i-need-flexirule/
 lastmod: 2026-09-29
@@ -997,30 +1024,34 @@ Summary Checklist# Pain Point Solution with FlexiRule &amp;ldquo;I&amp;rsquo;m a
 ---
 title: Document Action: Architecture Reference
 url: https://sendipad.github.io/flexirule/advanced-concepts/architecture/actions/document-action/
-lastmod: 2026-06-26
-summary: Class structure, Resource Mapper internals, and mode dispatch logic for the Document Action.
+lastmod: 2026-10-09
+summary: Handler structure, Resource Mapper behavior, and mode dispatch for Document Action.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Document Action: Architecture Reference# Purpose# The Document Action implementation abstracts Frappe&amp;rsquo;s CRUD operations into a declarative mapping-based engine. It centralizes document manipulation logic to ensure consistent application of permissions, background enqueuing, and context-aware value resolution.
-Class Structure# DocumentActionHandler(ActionHandler)# Responsibility: The primary singleton handler registered in the HandlerRegistry. Key Methods: execute(): Orchestrates the overall lifecycle, applies input mappings, and dispatches to mode handlers. _create_new(): Constructs document payloads and handles is_async enqueuing. _update_existing(): Handles targeted record modification. _apply_table_mappings(): Implements the recursive row-mapping engine. _get_same_field_mappings(): Implements field-matching logic between source and target. Execution Pipeline# Registry Lookup: RuleEngine identifies the action type and fetches the DocumentActionHandler instance. Mapping Layer: Scalar Mappings: Resolved via _resolve_field_mappings or compiled_scalars (pre-compiled Python dict). Static Values: Merged last to ensure explicit configuration overrides dynamic discovery. Table Engine: Iterates over table_mappings. Resolves the source collection (usually a list of dicts from doc or vars). For each row: Creates a row_context with item (current row) and loop metadata. Evaluates condition (inclusion check) and filter (exclusion check). Applies field-level assignments to the row payload. Appends the result to the parent document via doc.append(). Dispatch: Sync: frappe.get_doc(data).insert() / save(). Async: frappe.enqueue(&amp;quot;..._async_create_doc&amp;quot;, doc_data=data). Context Mutation Model# Direct Memory Mutation: For Update Existing, the handler performs doc.set(field, value) on a loaded object. Persistence Strategy: Mutations are not committed to the database until the explicit .insert() or .save() call at the end of the mode handler. Context Injection: The resulting document (post-save) is returned to the engine and injected into the execution_context (e.g., vars.my_result) using apply_output_mapping. Dependencies# Rule Engine Core: Relies on HandlerRegistry …
+Document Action: Architecture Reference# Purpose# Document Action is a mapping-driven handler for creating, updating, and deleting target Frappe documents, plus two specialized operations that create a ToDo or timeline Comment linked to the current context document. The canonical implementation is the DocumentActionHandler in the application source.
+Handler and contracts# The handler is registered with HandlerRegistry and exposes an ActionContract for the Document Action action type. The contract defines five modes:
+Create New Update Existing Delete Record Create ToDo Add Comment The operation contracts provide mode-specific field overrides, validation metadata, required configuration keys, result types, and supported context mutation policies. The frontend configuration component is DocumentActionConfig.vue, with the mode and effective policy supplied through the action contract system.
+Execution pipeline# Plan hydration: the handler obtains the compiled action plan for the rule action. Permission policy: the handler evaluates whether Skip Permissions is authorized through the can_ignore_permissions policy helper. If a bypass is not authorized, execution fails rather than silently ignoring the policy. Input mapping: configured input mappings are applied to the action configuration using the current execution context. Mode dispatch: the handler dispatches to the method for the selected Document Mode. Result propagation: the handler returns the operation result and the action&amp;rsquo;s next True-path action to the rule engine. Mode behavior# Create New# The handler builds a new document payload for the selected Reference DocType. Optional same-field mapping is applied first, followed by dynamic scalar mappings, and then explicit static values. Static values therefore take precedence over dynamic and same-field mappings for the same target field.
+For synchronous creation, the handler constructs the document, applies configured child-table mappings, inserts it, and returns the saved document as a dictionary. When asynchronous creation is enabled, it enqueues a background job and immediately returns an acknowledgement containing the queued state and target DocType; …
 
 ---
 title: Document Action: Execution Semantics
 url: https://sendipad.github.io/flexirule/advanced-concepts/reference/execution/document-action/
-lastmod: 2026-06-26
-summary: Technical runtime behavior, transaction models, and permission escalation for the Document Action.
+lastmod: 2026-10-09
+summary: Runtime behavior, permission checks, results, and transaction boundaries for Document Action.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Document Action: Execution Semantics# Purpose# The Document Action provides a managed interface for performing CRUD (Create, Read, Update, Delete) operations and social side-effects (ToDo, Comment) within the Frappe framework. It ensures that data mutations are performed according to rule-defined mappings while respecting or explicitly bypassing the system&amp;rsquo;s security model.
-Execution Lifecycle# Plan Hydration: The DocumentActionHandler retrieves the pre-compiled action_plan. Input Mapping: If input_mapping is defined, context paths (e.g., vars.request_payload) are resolved and merged into the action&amp;rsquo;s configuration. Mode Dispatch: The engine routes the request to a specific internal method: _create_new: Builds a doc_data dict using static values, scalar mappings, and same-field copies. _update_existing: Loads the target document via frappe.get_doc(doctype, name). _delete_record: Verifies existence and permissions before calling frappe.delete_doc. _create_todo / _add_comment: Specialized linking to the context document. Table Resolution: For Create/Update modes, child table mappings are processed. By default, the target table is cleared (reset_value: True) before new rows are appended. Permission Escalation: The can_skip_permissions utility verifies if the action is authorized to bypass standard checks based on user roles and the presence of an audit reason. Persistence: Calls new_doc.insert() or doc.save(). In Async mode, enqueues the doc_data to the default Redis queue. Context Visibility# Read Access: The action has full access to the execution_context, including doc, old_doc, vars, and frappe (Safe API). Mutation: Modifies the database state and external records. Updates the execution_context if a return_variable is specified. Async Limitation: Background workers do not inherit the transient vars or old_doc from the enqueuing rule. Transaction Behavior# Atomicity: Synchronous operations execute within the current database transaction. A failure in doc.save() will trigger a rollback of the entire rule execution if the Rule&amp;rsquo;s error policy is set to &amp;ldquo;Rollback&amp;rdquo;. Commits: The action does not perform an explicit frappe.db.commit(). …
+Document Action: Execution Semantics# Document Action performs one of five operations: Create New, Update Existing, Delete Record, Create ToDo, or Add Comment. The selected operation determines which fields are required, which result is returned, and which permission checks apply.
+Execution lifecycle# Plan hydration: the handler obtains the compiled action plan. Input mapping: when configured, input mappings resolve values from the current execution context and apply them to the action configuration. Permission policy: Skip Permissions is checked through the runtime&amp;rsquo;s can_ignore_permissions policy. The bypass is privileged and requires an audit reason. Mode dispatch: the handler calls the implementation for the selected mode. Return: the handler returns the operation result to the rule engine and continues through the action&amp;rsquo;s next True path if execution succeeds. Mode results# Create New: synchronous mode inserts a new target document and returns its saved document data. Asynchronous mode enqueues creation and returns an acknowledgement containing the queued state and target DocType, not the saved document. Update Existing: loads the target by DocType and document name, applies mappings, saves it, and returns its saved data. Delete Record: verifies the target exists, checks delete permission unless a bypass is authorized, deletes the record, and returns a result containing the deletion flag, DocType, and name. Create ToDo: inserts a ToDo linked to the current context document and returns the created ToDo data. Add Comment: inserts a Comment linked to the current context document and returns the created Comment data. The operation contracts constrain result types and context mutation options by mode. Do not assume that every mode exposes the same result selector or produces a full document result.
+Mapping precedence and child tables# For Create New, optional same-field copying runs first, dynamic scalar mappings run next, and explicit static values run last. For Update Existing, same-field copying runs first, static values next, and dynamic scalar mappings last. If multiple sources target the same field, the later source in this order wins. …
 
 ---
 title: Documentation Standardization Roadmap
@@ -1215,6 +1246,25 @@ The ValueResolverControl is a &amp;ldquo;magic&amp;rdquo; input widget that allo
 ✨ Key Features &amp;amp; Innovation# Multi-Modal Formula Support: A single token-based UI that can switch between: Date Formula: Add/subtract days, weeks, months, or years from &amp;ldquo;Today&amp;rdquo; or a Document Field with sign-aware offsets. Math Formula: Perform arithmetic operations between fields or constants with configurable decimal precision. Date Difference: Calculate the span between two dates in days, months, or years (with intelligent month-to-year conversion). Child Table Aggregation: Perform SUM, AVG, or COUNT operations on child table rows with zero-length safety (e.g., using max(len(rows), 1) for averages). String Manipulation: Advanced concatenation, currency formatting, and case transformations (Upper/Lower). System Context: Access session user data or perform role-based authorization checks directly within a value. Dynamic Expression Preview: As the user configures the formula via the popover UI, a live Jinja-compatible expression snippet is generated and displayed at the bottom of the popover. Context-Aware Field Pickers: Automatically filters and displays relevant document fields based on the selected formula type (e.g., only showing numeric fields for Math Formulas). Tokenized UI: Displays a compact, icon-rich &amp;ldquo;token&amp;rdquo; in the form that summarizes the configured logic (e.g., &amp;ldquo;Today + 5 Days&amp;rdquo;). Intelligent Viewport Positioning (Auto-Flipping): The control automatically calculates available screen space. If there isn&amp;rsquo;t enough room below the input, the configuration popover intelligently &amp;ldquo;flips&amp;rdquo; to appear above the token, …
 
 ---
+title: Create ToDo
+url: https://sendipad.github.io/flexirule/action-type/update-record/create-todo/
+lastmod: 2026-10-09
+summary: Create a task assigned to a user and linked to the current document.
+concepts: 
+tags: 
+difficulty: 
+related: 
+actions: read, implement, integrate, troubleshoot, improve
+
+Document Action: Create ToDo# Choose Create ToDo to create a Frappe ToDo assigned to a user and linked to the document currently in the rule execution context. This is a specialized operation; it is not a general-purpose way to create arbitrary DocTypes.
+Configure it# Add a Document Action node. Set Document Mode to Create ToDo. Confirm the target DocType is ToDo. Set Assigned To to a user value, a rule variable, or an expression, depending on the selected input mode. Configure the required Description. You may also set Priority. Save and test the rule with a user who can receive the task. The runtime requires both Assigned To and Description to resolve to non-empty values. Priority defaults to Medium when no value is supplied.
+How the link is created# The handler links the new ToDo to the current context document using its DocType and name. It does not use the selected Reference DocName to choose an unrelated record. A current context document must therefore be available when the action executes.
+Example# Scenario: assign a follow-up task when a Sales Invoice is submitted.
+Document Mode: Create ToDo Reference DocType: ToDo Assigned To: the responsible user, either selected directly or resolved from a variable/expression Description: a clear instruction, optionally rendered with values from the current document and rule variables Priority: choose Low, Medium, or High, or leave the default Result and permissions# The action inserts a ToDo and returns its created document data. The operation contract uses a Single Record result and does not expose the usual result-type selector for this mode.
+Normal permission behavior applies unless Skip Permissions is enabled and authorized by the runtime permission policy. The bypass is privileged and requires an audit reason. The target DocType must remain ToDo.
+Troubleshooting# Assigned To is empty: verify the selected Value, Variable, or Expression mode and the value it resolves to. Description is empty: provide a non-empty description. The action rejects the target DocType: set Reference DocType to ToDo. No task is linked: ensure a current context document exists when the rule runs. 
+
+---
 title: Does ERPNext need FlexiRule?
 url: https://sendipad.github.io/flexirule/getting-started/erpnext-need/
 lastmod: 2026-09-29
@@ -1304,6 +1354,26 @@ Key Format: {doctype}:{name}:{event_name}. Action: If a key is already present i
 graph LR A[Action 1] --&gt; B[Action 2] B --&gt; C[Action 3] subgraph &#34;Context at Action 2&#34; …
 
 ---
+title: Loop
+url: https://sendipad.github.io/flexirule/action-type/loop/
+lastmod: 2026-10-09
+summary: Iterate over a list or tuple and run a connected action path for each item.
+concepts: 
+tags: 
+difficulty: 
+related: 
+actions: read, implement, integrate, troubleshoot, improve
+
+Loop# The Loop action iterates over a list or tuple and exposes the current item to actions in the loop body. Use it when the same sequence of steps must run for every row in a child table or every item returned by an earlier action.
+Loop is a control-flow action: it does not fetch records by itself. If the collection must come from a database query, configure Query Records first and use its result as the iterator.
+When to use Loop# Use Loop to:
+Process each row in a document child table, such as each item in an order. Run actions for each record in a list returned by Query Records. Calculate or validate a value for each item. Send a notification or perform a document operation for each item, where that operation is appropriate and permissions are understood. Do not use Loop when you only need a single yes/no decision. Use Condition for branching, or Switch to choose among several configured cases.
+How the loop runs# The Loop handler reads the configured iterator, selects the current item, exposes it under the item alias, and routes to its True output while an item remains. When the collection is exhausted, it routes to the False output.
+┌── True / Loop body ──→ actions for current item │ │ Loop ────────────┤ └── connect back to Loop │ └── False / Complete ──→ action after the collection Connect the final action in the loop body back to the Loop node so the next iteration can run. Connect the False/completion path to the action that should run after all items have been processed.
+An empty collection has no current item to process, so the loop proceeds to its completion path. The runtime expects the iterator to resolve to a list or tuple; if it resolves to another type, it logs a warning and treats it as an empty collection.
+Configure Loop# Add a Loop action to the canvas. In Iterator (List), choose the list or table to iterate over. Examples might include a document child table such as doc.items or a list variable produced by an earlier action. Set Item Alias to a variable name for the current item, such as row or item. This field is required. Connect the True output to the first action in the loop body. Connect the final action in that body back to the Loop …
+
+---
 title: Overview
 url: https://sendipad.github.io/flexirule/advanced-concepts/architecture/runtime/overview/
 lastmod: 2026-06-26
@@ -1339,22 +1409,6 @@ Query Report# The Query Report mode allows rules to leverage existing reports de
 You will typically follow this block with a Loop block to process the results.
 4. Example# Scenario: A rule runs every Monday to find all Sales Orders that are &amp;ldquo;Pending&amp;rdquo; according to a specific custom report.
 Report: Custom Pending Orders Report Filters: Posting Date set to &amp;ldquo;Last Week.&amp;rdquo; Output Variable: report_data Logic: A Loop iterates through vars.report_data to send summary emails. 5. Performance Notes# Black-Box Execution: A report is treated as a single, opaque query. Dependency: The performance of this block depends entirely on the efficiency of the underlying report implementation. A slow report will result in a slow rule. Filter Scope: Always provide as many filters as possible to the report to reduce the volume of data processed. 6. Common Mistakes# Running Heavy Reports: Using reports that analyze millions of rows in a real-time rule can cause timeouts. Variable Names: Ensure you use the correct internal fieldnames from the report columns when referencing the results in later blocks. 
-
----
-title: Repeat (Loop)
-url: https://sendipad.github.io/flexirule/action-type/loop/
-lastmod: 2026-10-07
-summary: Iterate over child table rows or query result collections to run actions for each item in the UI.
-concepts: 
-tags: 
-difficulty: 
-related: 
-actions: read, implement, integrate, troubleshoot, improve
-
-Repeat (Loop) Action# The Repeat action iterates over a list of items—such as child table rows (Items) or records returned by a Query Records block—running a set of actions for each item before continuing through the rest of the rule.
-1. What is it?# The Repeat block lets you automate actions on lists of records. It loops through a collection item by item, making the current row available to downstream actions through a item alias (like @vars.item or @vars.row).
-┌── Loop Body ──→ Action (Set Value / Check) │ │ Repeat ─────────┼←─────────────────────┘ (Collection) │ └── Exit ───────→ Downstream Action 2. When to Use# Use the Repeat action when you need to:
-Process every row in a child table (e.g., check stock or update prices on every item line in an invoice). Iterate over retrieved records returned by a Query Records block. Perform calculations or validations across collections row by row. Send notifications or create records for each item in a list. Repeat action showing nested sub-nodes 3. How to Configure# Add the Action: Add a Repeat block to your visual canvas. Select Collection Source: Click the Collection field. Use the Smart Value Selector to select a child table (e.g., Items or doc.items) or a query result (e.g., vars.open_invoices). Set Item Alias: Enter a variable name to represent the active row during iteration (default is item, accessed as @vars.item or @vars.row). Connect Outbound Branches: Loop Branch (Loop Body): Connect to the first action you want to run for each row. Loop Back Connection: Connect the final action inside the loop back to the Repeat block so it can advance to the next item. Exit Branch (Completed): Connect to the action that should run after all rows have been processed. 4. UI Configuration Options# Option Description Collection Source Select the child table or array variable to iterate over using the Smart Value Selector. Item Alias Set the name used to reference the active row in downstream actions (e.g., row gives @vars.row). Loop Metadata Automatically provides iteration info during each loop cycle: - vars.loop.index: Current row index (0, 1, 2&amp;hellip;). - vars.loop.length: Total number of rows in collection. - …
 
 ---
 title: Rule Entry Condition vs. Condition Action
@@ -1450,6 +1504,26 @@ Action Settings panel overview Panel Interface Layout# The Action Settings panel
 Action Settings dynamic properties form Smart Value Inputs: Text fields integrated with the Smart Value Selector (@ and /). Select Dropdowns: Single-choice dropdowns for selecting operations or channels. Checkboxes &amp;amp; Switches: Toggles for boolean flags (e.g. Stop Execution on Error). Inline Grids: Tabular controls for mapping multiple fields or variable assignments at once. Tiptap Rich Text Editors: Formatted text editors for drafting notification emails and templates. Action Settings field options overview Schema &amp;amp; Variable Integration# The panel is fully context-aware:
 Available Variables: Press @ in any input to see all document fields (@doc) and variables created by preceding nodes (@vars). Live Validation: Any missing required fields or invalid formula syntax generate real-time inline warning notices . Auto-Saving Configuration# All changes made in the Action Settings panel are drafted instantly. Click Save (Ctrl S) in the top action bar to persist changes to the database.
 
+
+---
+title: Add Comment
+url: https://sendipad.github.io/flexirule/action-type/update-record/add-comment/
+lastmod: 2026-10-09
+summary: Add a timeline comment to the current document.
+concepts: 
+tags: 
+difficulty: 
+related: 
+actions: read, implement, integrate, troubleshoot, improve
+
+Document Action: Add Comment# Choose Add Comment to add an entry to the timeline of the document currently available in the rule execution context. This specialized mode creates a Frappe Comment linked to that current document; it does not target an arbitrary unrelated record.
+Configure it# Add a Document Action node. Set Document Mode to Add Comment. Confirm the target DocType is Comment. Configure the required Comment Text. Choose a Comment Type if needed; the default is Comment. Save and test the rule to confirm the expected timeline entry is created. The Comment Text must resolve to a non-empty value. The handler links the new Comment to the current context document&amp;rsquo;s DocType and name, so a context document must be available.
+Comment types# The configuration UI offers these comment types:
+Comment Info Edit Workflow Choose the type that best represents the timeline entry. Use concise, meaningful content and avoid putting sensitive information into a timeline comment unless the target document&amp;rsquo;s visibility and access rules are appropriate.
+Example# Scenario: add an explanatory note when a Sales Order enters a special processing path.
+Document Mode: Add Comment Reference DocType: Comment Comment Type: Info or Comment, depending on the meaning Comment Text: a static note or a template using available current-document and rule-variable values Result and permissions# The action inserts a Comment and returns its created document data. The operation contract uses a Single Record result; the result-type selector is not shown for this mode.
+Normal permission behavior applies unless Skip Permissions is enabled and authorized by the runtime permission policy. The bypass is privileged and requires an audit reason. The target DocType must be Comment.
+Troubleshooting# Comment Text is empty: provide a non-empty value that resolves at runtime. The action rejects the target DocType: set Reference DocType to Comment. The comment is linked to the wrong record or not linked: confirm the intended document is the current rule context document. No timeline entry appears: inspect the action execution log, permission checks, and any validation error from Frappe. 
 
 ---
 title: Build Your First Rule
@@ -1649,7 +1723,7 @@ A Process defines its Config Schema and Output Schema. The Rule engine uses thes
 ---
 title: Condition Builder
 url: https://sendipad.github.io/flexirule/rule-builder/condition-builder/
-lastmod: 2026-10-07
+lastmod: 2026-10-09
 summary: Learn how to create visual logical condition groups in FlexiRule.
 concepts: 
 tags: 
@@ -1657,14 +1731,18 @@ difficulty:
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Condition Builder# The Condition Builder is a visual interface used to define logical &amp;ldquo;True/False&amp;rdquo; evaluation rules. It is used in Check blocks, query filters, and trigger condition evaluations.
-1. Visual Condition Rows# Instead of writing complex code, you build conditions using a structured, row-based interface. Each row represents a single comparison check.
-Condition Builder rule configuration panel A condition row consists of three main parts:
-Left Operand: Select the document field or variable to check (e.g., Status or Grand Total). Operator: Select the comparison operator (e.g., Equals, Not Equals, Greater Than, Contains, Is Set). Right Operand: Select the comparison value or field to compare against (e.g., &amp;quot;Open&amp;quot; or 5000). 2. Using the Smart Value Selector# For both operands in a condition row, click the field to open the Smart Value Selector:
-Select document fields (@doc.grand_total). Select temporary rule variables (@vars.calculated_total). Select system metadata (@system.today). Choose dynamic value resolvers (/math_formula, /fetch, /child_aggregation). 3. Logical Grouping (ALL / ANY / NOT)# You can combine multiple conditions using Logic Groups:
-ALL (AND): Every condition row in the group must be true for the group to evaluate to true (e.g., Status == &amp;quot;Open&amp;quot; ALL Grand Total &amp;gt; 5000). ANY (OR): At least one condition row in the group must be true (e.g., Customer Group == &amp;quot;VIP&amp;quot; ANY Priority == &amp;quot;Urgent&amp;quot;). NOT: Inverts the result of the group. Nested Condition Groups# You can add nested groups inside a parent group to express complex logic. The UI represents nested groups with indented visual cards.
-4. UI Controls# Add Condition: Click + Condition to add a new check row to the current group. Add Group: Click + Group to create a nested ALL/ANY block. Toggle Group Logic: Click the ALL / ANY logic pill at the top of a group card to toggle logic. Remove Row / Group: Click the trash icon next to a condition row or group to remove it. Canvas Condition Preview# Check blocks on the canvas highlight configured conditions directly on the action card for quick visual verification.
-Action card showing inline …
+Condition Builder# The Condition Builder lets you define business logic as structured conditions instead of writing an expression by hand. It is used by the Condition action and other configuration flows that accept a condition tree, such as supported query filters.
+A condition tree contains comparison rows and nested groups. The visual editor configures the tree; the backend evaluates the saved and compiled condition.
+![Condition Builder rule configuration panel]({{ &amp;ldquo;images/condition-builder-panel.png&amp;rdquo; | relURL }})
+1. Build a condition row# A condition row has three parts:
+Field / left operand — select a document field or context reference from the field picker. Available options depend on where the builder is used. Operator — choose a comparison supported for the selected field type. Value / right operand — enter a static value or configure a supported dynamic value using the value control. For example, an approval rule might compare Grand Total with 100000. Operators and inputs are field-aware: not every operator is available for every field type, and operators such as Is Set or Is Not Set do not need a right-hand value.
+The application can supply operator choices from backend configuration, with frontend defaults as a fallback. Use the options actually displayed by the editor rather than assuming every operator is available in every context.
+2. Choose values# The value control uses FlexiRule&amp;rsquo;s shared structured-value system. Depending on the editor context, you may be able to choose a literal value, a reference, or a supported resolver.
+Examples of references used in FlexiRule include:
+@doc.grand_total — a value from the current document. @vars.calculated_total — a rule variable, when exposed in that context. @system.today — system context, when available. Resolver values configured through the value control. These examples are context-dependent, not a guarantee that every reference or resolver is available in every Condition Builder. The left operand uses the field picker; the right operand uses the value control.
+See Smart Value System.
+3. Combine conditions with groups# Each group combines its children using one logic operator:
+AND — …
 
 ---
 title: Core Concepts
@@ -1907,6 +1985,24 @@ Main Rule ──→ Sub-Rule (&amp;#34;Calculate Customer Risk&amp;#34;) ──�
 Reuse multi-step verification routines across different DocTypes or trigger events. Break down complex rules into clean, modular sub-flows. Standardize business calculations (e.g., standard credit scoring or discount rules). 3. How to Configure# Add the Action: Add a Sub-Rule block to your visual canvas. Select Target Sub-Rule: Choose from the list of rules exposed as sub-rules. Map Input Variables: Map values from your main rule to the input variables expected by the sub-rule using the Smart Value Selector. Set Output Variable: Enter a variable name (e.g., risk_result) to capture the sub-rule&amp;rsquo;s returned output in @vars. Connect Outbound Branch: Connect the Sub-Rule block&amp;rsquo;s output port to the next action node. Sub-Rule flow with nested rule canvas 4. UI Configuration Options# Option Description Sub-Rule Select target rule (must have Exposed as Sub-Rule enabled in its rule configuration). Input Mappings Map main rule fields/variables to sub-rule parameters using the Smart Value Selector. Output Variable Variable name in @vars where sub-rule output results will be stored. 5. Practical Example# Scenario: Run Standard Customer Risk Scoring Sub-Rule# Sub-Rule Block Configuration: Sub-Rule: Select &amp;quot;Calculate Customer Risk Score&amp;quot;. Input Mapping: Map Customer → @doc.customer using Smart Value Selector. Output Variable: Enter risk_score_result. Next Action (Check): Add a Check block following the sub-rule. Condition: @vars.risk_score_result.score &amp;gt; 80 True Branch: Route to manager review notification. 6. Common Mistakes# Sub-Rule Not Exposed: …
 
 ---
+title: Assignment
+url: https://sendipad.github.io/flexirule/action-type/assignment/
+lastmod: 2026-10-09
+summary: Set or transform values on the current document or rule variables using ordered assignment rows.
+concepts: 
+tags: 
+difficulty: 
+related: 
+actions: read, implement, integrate, troubleshoot, improve
+
+Assignment# Assignment applies one or more value operations to the current rule context. Configure an ordered list of rows; each row selects a target, an operator, a value when required, and optionally a Run If condition.
+Use Assignment when a rule needs to set a field, calculate a value, update a rule variable, or transform a supported value. It is the current action name; older documentation may call this “Set Value,” but that is no longer the action type name.
+When to use Assignment# Goal Use Set or calculate a field on the document that triggered the rule Assignment Store an intermediate result for later actions Assignment targeting a vars.* variable Increase/decrease a numeric value or toggle a Check field Assignment with the matching operator Create, update, or delete a separate document Document Action Read records before using their values Query Records Choose which execution path to follow Condition Assignment is not a general-purpose create/update/delete action for arbitrary documents. Its document target is the current document in the rule context; use Document Action for operations on a separate target document.
+Configure an assignment row# Add an Assignment action to the rule canvas. Add a row to the assignment grid. Under Run If, optionally configure a condition. Leave it unset when the row should run every time the action is reached. Select the Target Field. Targets must be in the current document scope (doc.*) or rule-variable scope (vars.*). Choose an Operator that is appropriate for the target field type. If the operator requires an operand, configure Value Expression with the value control. Use a static value or one of the dynamic modes offered by the control. Arrange rows in the intended order, then save and test the rule in Debug. The grid supports adding, removing, and reordering rows. The order matters: each row reads the target&amp;rsquo;s current value when it runs, so later rows can use the result of earlier rows.
+Operators# The available operators are supplied by the operator registry and may be filtered by the target field type in the UI. The current backend registry includes:
+Operator What it does Target considerations Set Value (set) …
+
+---
 title: Min / Max
 url: https://sendipad.github.io/flexirule/action-type/query-records/min-max/
 lastmod: 2026-07-05
@@ -1921,22 +2017,6 @@ Min / Max# The Min (Minimum) and Max (Maximum) modes are used to identify the lo
 1. When to Use# Price Discovery: &amp;ldquo;Identify the lowest price offered for this item across all active Supplier Quotations.&amp;rdquo; Timeline Analysis: &amp;ldquo;Find the earliest start date and latest end date for all tasks in a project.&amp;rdquo; Record Highs: &amp;ldquo;Find the highest amount ever invoiced to a specific customer.&amp;rdquo; 2. Configuration# Table (DocType): Choose the source table. Mode: Choose Min for the lowest value or Max for the highest. Filters: Define which records to analyze. Field to Aggregate: Select the field to compare (e.g., Price, Date, Quantity). 3. Output# This mode returns a single Number or Date.
 4. Example# Scenario: A rule automatically updates a Project&amp;rsquo;s &amp;ldquo;Estimated End Date&amp;rdquo; based on the latest end date of its sub-tasks.
 Table: Task Mode: Max Field to Aggregate: Expected End Date Filters: Project equals doc.name AND Status is not Cancelled. Output Variable: last_task_date 5. Performance Notes# Optimized Search: Database-level optimization allows the system to find these values without reading the full details of every record. Efficiency: This is significantly faster than retrieving a sorted list and selecting the first result. 6. Common Mistakes# Ignoring Status: Forgetting to filter out Cancelled or Draft records can result in picking a &amp;ldquo;Max&amp;rdquo; value that is no longer valid. 
-
----
-title: Set Value (Assignment)
-url: https://sendipad.github.io/flexirule/action-type/assignment/
-lastmod: 2026-10-07
-summary: Update document fields or store values in rule variables using a visual configuration grid.
-concepts: 
-tags: 
-difficulty: 
-related: 
-actions: read, implement, integrate, troubleshoot, improve
-
-Set Value (Assignment) Action# The Set Value action is the primary way to update document fields or store calculations in rule variables as execution flows through your rule.
-1. What is it?# A Set Value block allows you to make one or more changes in sequence. You can set a document field (like setting Status to &amp;ldquo;Approved&amp;rdquo;), update temporary rule variables, or perform numeric calculations like incrementing a total.
-2. When to Use# Use the Set Value action when you need to:
-Update fields on the triggering document (e.g., set Workflow State to &amp;quot;Approved&amp;quot; or Posting Date to today). Store temporary values in rule variables (@vars) to use in downstream steps or calculations. Perform numeric operations such as adding to or subtracting from existing totals. Manage collections by appending items to list variables. 3. How to Configure# Add the Action: Add a Set Value block to your visual canvas. Add an Assignment Row: Click Add Row in the configuration grid. Select Target: Click the Target field. Use the picker or search to choose whether you are updating a Document Field (e.g., Status) or a Rule Variable (e.g., vars.discount_rate). Choose an Operator: Set: Replaces the target with a new value. Clear: Resets the target to empty. Increment / Decrement: Adds or subtracts a number from the current target value. Append: Adds an item to a list variable. Toggle: Inverts a true/false boolean. Set Value using Smart Value Selector: Click the Value field. Type @ or / or click the picker icon to open the Smart Value Selector. Pick a document field, variable, system value, or formula. Optional Row Condition (&amp;ldquo;When&amp;rdquo;): Click Add Condition on a row if this specific update should only run under certain conditions. 4. UI Configuration Options# Option Description Target Field Select a document field (doc.field) or temporary variable (vars.name). Operator Set, Clear, Increment, Decrement, Append, Merge, or Toggle. Value Input Enter values using the Smart Value Selector (Static value, @ Variable, or / Resolver). When Condition Optional boolean check evaluated before applying this specific row update. 5. Practical Example# Scenario: Calculate Discount and …
 
 ---
 title: Stop: Architecture Reference
@@ -2067,4 +2147,21 @@ Advanced Process Action# The Advanced Process action allows you to execute compl
 1. What is it?# An Advanced Process block lets you call modular, reusable operations configured in your system without having to build complex logic steps manually on the visual canvas. It passes inputs from your rule into the process and saves the output into a rule variable (@vars).
 2. When to Use# Use the Advanced Process action when you need to:
 Run pre-built business algorithms (e.g., customer deduplication checks, risk score calculations). Perform integrations or system tasks (e.g., generating documents, sending webhooks, invoking tax services). Reuse standard operations across multiple rules without duplicating canvas nodes. Run heavy background operations asynchronously using background worker queues. 3. How to Configure# Add the Action: Add an Advanced Process block to your visual canvas. Select Process &amp;amp; Operation: Select the registered Process (e.g., Deduplication, Tax Calculation). Select the specific Operation (e.g., Find Duplicates, Calculate Line Item Tax). Map Inputs: Fill in the required input parameters using the Smart Value Selector (@doc, @vars, or static values). Set Output Variable: Enter a variable name in Output Variable where process outputs will be saved (e.g., dedup_result). Configure Failure Handling: Select how the rule should respond if the process fails (Stop Rule, Continue, or Branch on Error). 4. UI Configuration Options# Option Description Process Select the registered business process group from the dropdown list. Operation Choose the specific action operation provided by the selected process. Input Mapping Map required operation parameters to document fields (@doc) or variables (@vars) using the Smart Value Selector. Output Variable Variable name in @vars where the output dictionary will be stored for downstream actions. Error Handling Configure rule behavior on failure: Stop Rule, Continue, or Branch on Error. 5. Practical Example# Scenario: Deduplicate Customer Records on Create# Add an …
+
+---
+title: Actions Documentation Audit
+url: https://sendipad.github.io/flexirule/action-type/actions-documentation-audit/
+lastmod: 2026-10-09
+summary: Source-to-documentation audit for the Actions documentation refresh.
+concepts: 
+tags: 
+difficulty: 
+related: 
+actions: read, implement, integrate, troubleshoot, improve
+
+Actions Documentation Audit# Source repository: Sendipad/flexirule, branch feat/fetch-records-mode
+Documentation repository: Sendipad/flexirule-docs
+Scope: Documentation only. No application files were changed.
+Summary# This pass refreshed the Actions discovery flow and corrected high-impact terminology, Query Records documentation, the shared Condition Builder guide, the Condition action guide, and the Loop guide. The source was traced from Query Records contracts and runtime through its Vue configuration, and from Condition Builder controls through the Condition and Loop handlers.
+Application source inspected# Area Evidence inspected Findings used in documentation Query Records contracts flexirule/ruleflow/core/action_handlers/query_records.py; handler/contract framework Query Records exposes mode-specific contracts, required fields, allowed result types, and UI metadata. Fetch Records&amp;rsquo; result type is fixed to List of Records. Query Records UI flexirule/public/js/flexirule/rule_builder/components/rule_config/types/QueryRecordsConfig.vue Fetch Records has its own configuration panel. Query List has separate filter, fields, sorting, limit, group-by, parent DocType, and DISTINCT controls. Permission controls appear in the shared panel. Fetch Records runtime validate_fetch_records, _fetch_records, and QueryRecordsHandler.execute Mode selection dispatches Fetch Records separately from Query List and other modes. Dynamic values are resolved and supported query arguments passed to the compatibility helper; native Frappe Query Builder behavior still governs much of query semantics. Permissions can_ignore_permissions integration and Query Records UI fields Skip Permissions is an explicit privileged path with a conditional audit reason; documentation warns against casual use. Query Builder behavior Existing query capability audit and tests in the app repository Infix string &amp;quot;or&amp;quot; list-filter form is documented as unsupported/broken in the inspected capability audit. Complex filter shapes should be tested against the installed Frappe version. Condition Builder UI components/condition_builder/ConditionBuilder.vue, ConditionNode.vue, ConditionGroupUI.vue, …
 
