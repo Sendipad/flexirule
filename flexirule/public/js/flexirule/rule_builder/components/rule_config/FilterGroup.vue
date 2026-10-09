@@ -348,18 +348,18 @@ const EXTRA_FILTER_OPERATORS_BY_FIELDTYPE = {};
 const FRAPPE_INVALID_CONDITION_MAP = {
 	Date: ["like", "not like"],
 	Datetime: ["like", "not like", "in", "not in", "=", "!="],
-	Data: ["Between", "Timespan"],
-	Time: ["Between", "Timespan"],
-	Select: ["like", "not like", "Between", "Timespan"],
-	Link: ["Between", "Timespan", ">", "<", ">=", "<="],
-	Currency: ["Between", "Timespan"],
-	Color: ["Between", "Timespan"],
-	Code: ["Between", "Timespan", ">", "<", ">=", "<=", "in", "not in"],
-	"HTML Editor": ["Between", "Timespan", ">", "<", ">=", "<=", "in", "not in"],
-	"Markdown Editor": ["Between", "Timespan", ">", "<", ">=", "<=", "in", "not in"],
-	Password: ["Between", "Timespan", ">", "<", ">=", "<=", "in", "not in"],
-	Rating: ["like", "not like", "Between", "in", "not in", "Timespan"],
-	Float: ["like", "not like", "Between", "in", "not in", "Timespan"],
+	Data: ["between", "timespan"],
+	Time: ["between", "timespan"],
+	Select: ["like", "not like", "between", "timespan"],
+	Link: ["between", "timespan", ">", "<", ">=", "<="],
+	Currency: ["between", "timespan"],
+	Color: ["between", "timespan"],
+	Code: ["between", "timespan", ">", "<", ">=", "<=", "in", "not in"],
+	"HTML Editor": ["between", "timespan", ">", "<", ">=", "<=", "in", "not in"],
+	"Markdown Editor": ["between", "timespan", ">", "<", ">=", "<=", "in", "not in"],
+	Password: ["between", "timespan", ">", "<", ">=", "<=", "in", "not in"],
+	Rating: ["like", "not like", "between", "in", "not in", "timespan"],
+	Float: ["like", "not like", "between", "in", "not in", "timespan"],
 };
 const isCheckField = (field) => field?.original_type === "Check" || field?.fieldtype === "Check";
 
@@ -802,7 +802,11 @@ const getControlFactorySchema = (row) => {
 
 	// Native Frappe Filter Manipulation (perfect parity)
 	if (window.frappe && frappe.ui && frappe.ui.filter_utils) {
-		frappe.ui.filter_utils.set_fieldtype(schema, null, row.operator);
+		frappe.ui.filter_utils.set_fieldtype(
+			schema,
+			null,
+			row.operator === "between" ? "Between" : row.operator === "timespan" ? "Timespan" : row.operator
+		);
 		// Force restore fieldtype for Between if it's a date/time field,
 		// as set_fieldtype might sometimes generalize it to Data for multiple values
 		if (row.operator === "between" && ["Date", "Datetime", "Time"].includes(field?.fieldtype)) {
