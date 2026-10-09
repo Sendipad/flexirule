@@ -1168,6 +1168,14 @@ class QueryRecordsHandler(ActionHandler):
 			doctype = node.get("doctype") or reference_doctype
 			operator = node.get("operator") or "="
 			value = self._extract_filter_value_payload(node.get("value"))
+			# Canonical Fetch Records operators are case-insensitive; leave legacy
+			# mode normalization untouched.
+			if isinstance(operator, str):
+				operator_key = operator.strip().casefold()
+				if operator_key in {"starts with", "ends with"}:
+					operator = operator_key
+				elif operator_key == "timespan":
+					operator = "Timespan"
 			operator, value = self._normalize_single_filter_operator(operator, value)
 			resolved_doctype, resolved_field = self._resolve_filter_doctype_and_field(
 				reference_doctype, doctype, field
