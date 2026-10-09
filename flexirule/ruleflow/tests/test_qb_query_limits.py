@@ -46,93 +46,115 @@ class TestQBQueryLimits(FrappeTestCase):
 	def _setup_test_doctypes(cls):
 		# Level 2 Target
 		if not frappe.db.exists("DocType", "QB Limit Target Level 2"):
-			frappe.get_doc({
-				"doctype": "DocType",
-				"name": "QB Limit Target Level 2",
-				"module": "RuleFlow",
-				"custom": 1,
-				"fields": [
-					{"fieldname": "target2_name", "fieldtype": "Data", "label": "Target 2 Name", "reqd": 1},
-					{"fieldname": "code", "fieldtype": "Data", "label": "Code"},
-				],
-			}).insert(ignore_permissions=True)
+			frappe.get_doc(
+				{
+					"doctype": "DocType",
+					"name": "QB Limit Target Level 2",
+					"module": "RuleFlow",
+					"custom": 1,
+					"fields": [
+						{
+							"fieldname": "target2_name",
+							"fieldtype": "Data",
+							"label": "Target 2 Name",
+							"reqd": 1,
+						},
+						{"fieldname": "code", "fieldtype": "Data", "label": "Code"},
+					],
+				}
+			).insert(ignore_permissions=True)
 
 		# Level 1 Target (Link to Level 2)
 		if not frappe.db.exists("DocType", "QB Limit Target Level 1"):
-			frappe.get_doc({
-				"doctype": "DocType",
-				"name": "QB Limit Target Level 1",
-				"module": "RuleFlow",
-				"custom": 1,
-				"fields": [
-					{"fieldname": "target1_name", "fieldtype": "Data", "label": "Target 1 Name", "reqd": 1},
-					{
-						"fieldname": "target2_link",
-						"fieldtype": "Link",
-						"options": "QB Limit Target Level 2",
-						"label": "Target 2 Link",
-					},
-					{"fieldname": "region", "fieldtype": "Data", "label": "Region"},
-				],
-			}).insert(ignore_permissions=True)
+			frappe.get_doc(
+				{
+					"doctype": "DocType",
+					"name": "QB Limit Target Level 1",
+					"module": "RuleFlow",
+					"custom": 1,
+					"fields": [
+						{
+							"fieldname": "target1_name",
+							"fieldtype": "Data",
+							"label": "Target 1 Name",
+							"reqd": 1,
+						},
+						{
+							"fieldname": "target2_link",
+							"fieldtype": "Link",
+							"options": "QB Limit Target Level 2",
+							"label": "Target 2 Link",
+						},
+						{"fieldname": "region", "fieldtype": "Data", "label": "Region"},
+					],
+				}
+			).insert(ignore_permissions=True)
 
 		# Child Table DocType (with link to Target Level 1)
 		if not frappe.db.exists("DocType", "QB Limit Child"):
-			frappe.get_doc({
-				"doctype": "DocType",
-				"name": "QB Limit Child",
-				"module": "RuleFlow",
-				"custom": 1,
-				"istable": 1,
-				"fields": [
-					{"fieldname": "item_code", "fieldtype": "Data", "label": "Item Code"},
-					{"fieldname": "qty", "fieldtype": "Float", "label": "Qty"},
-					{"fieldname": "rate", "fieldtype": "Currency", "label": "Rate"},
-					{"fieldname": "delivery_date", "fieldtype": "Date", "label": "Delivery Date"},
-					{
-						"fieldname": "target1_link",
-						"fieldtype": "Link",
-						"options": "QB Limit Target Level 1",
-						"label": "Target 1 Link",
-					},
-				],
-			}).insert(ignore_permissions=True)
+			frappe.get_doc(
+				{
+					"doctype": "DocType",
+					"name": "QB Limit Child",
+					"module": "RuleFlow",
+					"custom": 1,
+					"istable": 1,
+					"fields": [
+						{"fieldname": "item_code", "fieldtype": "Data", "label": "Item Code"},
+						{"fieldname": "qty", "fieldtype": "Float", "label": "Qty"},
+						{"fieldname": "rate", "fieldtype": "Currency", "label": "Rate"},
+						{"fieldname": "delivery_date", "fieldtype": "Date", "label": "Delivery Date"},
+						{
+							"fieldname": "target1_link",
+							"fieldtype": "Link",
+							"options": "QB Limit Target Level 1",
+							"label": "Target 1 Link",
+						},
+					],
+				}
+			).insert(ignore_permissions=True)
 
 		# Parent DocType with various field types
 		if not frappe.db.exists("DocType", "QB Limit Parent"):
-			frappe.get_doc({
-				"doctype": "DocType",
-				"name": "QB Limit Parent",
-				"module": "RuleFlow",
-				"custom": 1,
-				"fields": [
-					{"fieldname": "title", "fieldtype": "Data", "label": "Title"},
-					{
-						"fieldname": "status",
-						"fieldtype": "Select",
-						"options": "Open\nPending\nClosed",
-						"label": "Status",
-					},
-					{"fieldname": "enabled", "fieldtype": "Check", "label": "Enabled"},
-					{"fieldname": "score", "fieldtype": "Int", "label": "Score"},
-					{"fieldname": "amount", "fieldtype": "Currency", "label": "Amount"},
-					{"fieldname": "posting_date", "fieldtype": "Date", "label": "Posting Date"},
-					{"fieldname": "posting_datetime", "fieldtype": "Datetime", "label": "Posting Datetime"},
-					{"fieldname": "nullable_data", "fieldtype": "Data", "label": "Nullable Data"},
-					{
-						"fieldname": "target1_link",
-						"fieldtype": "Link",
-						"options": "QB Limit Target Level 1",
-						"label": "Target 1 Link",
-					},
-					{
-						"fieldname": "items",
-						"fieldtype": "Table",
-						"options": "QB Limit Child",
-						"label": "Items",
-					},
-				],
-			}).insert(ignore_permissions=True)
+			frappe.get_doc(
+				{
+					"doctype": "DocType",
+					"name": "QB Limit Parent",
+					"module": "RuleFlow",
+					"custom": 1,
+					"fields": [
+						{"fieldname": "title", "fieldtype": "Data", "label": "Title"},
+						{
+							"fieldname": "status",
+							"fieldtype": "Select",
+							"options": "Open\nPending\nClosed",
+							"label": "Status",
+						},
+						{"fieldname": "enabled", "fieldtype": "Check", "label": "Enabled"},
+						{"fieldname": "score", "fieldtype": "Int", "label": "Score"},
+						{"fieldname": "amount", "fieldtype": "Currency", "label": "Amount"},
+						{"fieldname": "posting_date", "fieldtype": "Date", "label": "Posting Date"},
+						{
+							"fieldname": "posting_datetime",
+							"fieldtype": "Datetime",
+							"label": "Posting Datetime",
+						},
+						{"fieldname": "nullable_data", "fieldtype": "Data", "label": "Nullable Data"},
+						{
+							"fieldname": "target1_link",
+							"fieldtype": "Link",
+							"options": "QB Limit Target Level 1",
+							"label": "Target 1 Link",
+						},
+						{
+							"fieldname": "items",
+							"fieldtype": "Table",
+							"options": "QB Limit Child",
+							"label": "Items",
+						},
+					],
+				}
+			).insert(ignore_permissions=True)
 
 		frappe.db.commit()
 
@@ -143,61 +165,69 @@ class TestQBQueryLimits(FrappeTestCase):
 		frappe.db.delete("QB Limit Target Level 1")
 		frappe.db.delete("QB Limit Target Level 2")
 
-		cls.t2_a = frappe.get_doc({
-			"doctype": "QB Limit Target Level 2",
-			"target2_name": "T2-A",
-			"code": "CODE-2A",
-		}).insert(ignore_permissions=True)
+		cls.t2_a = frappe.get_doc(
+			{
+				"doctype": "QB Limit Target Level 2",
+				"target2_name": "T2-A",
+				"code": "CODE-2A",
+			}
+		).insert(ignore_permissions=True)
 
-		cls.t1_a = frappe.get_doc({
-			"doctype": "QB Limit Target Level 1",
-			"target1_name": "T1-A",
-			"target2_link": cls.t2_a.name,
-			"region": "North",
-		}).insert(ignore_permissions=True)
+		cls.t1_a = frappe.get_doc(
+			{
+				"doctype": "QB Limit Target Level 1",
+				"target1_name": "T1-A",
+				"target2_link": cls.t2_a.name,
+				"region": "North",
+			}
+		).insert(ignore_permissions=True)
 
-		cls.p1 = frappe.get_doc({
-			"doctype": "QB Limit Parent",
-			"title": "Alpha Parent",
-			"status": "Open",
-			"enabled": 1,
-			"score": 100,
-			"amount": 250.50,
-			"posting_date": "2026-03-01",
-			"posting_datetime": "2026-03-01 10:00:00",
-			"nullable_data": "Has Value",
-			"target1_link": cls.t1_a.name,
-			"items": [
-				{
-					"item_code": "ITEM-101",
-					"qty": 5.0,
-					"rate": 10.0,
-					"delivery_date": "2026-03-05",
-					"target1_link": cls.t1_a.name,
-				},
-				{
-					"item_code": "ITEM-102",
-					"qty": 10.0,
-					"rate": 20.0,
-					"delivery_date": "2026-03-10",
-					"target1_link": cls.t1_a.name,
-				},
-			],
-		}).insert(ignore_permissions=True)
+		cls.p1 = frappe.get_doc(
+			{
+				"doctype": "QB Limit Parent",
+				"title": "Alpha Parent",
+				"status": "Open",
+				"enabled": 1,
+				"score": 100,
+				"amount": 250.50,
+				"posting_date": "2026-03-01",
+				"posting_datetime": "2026-03-01 10:00:00",
+				"nullable_data": "Has Value",
+				"target1_link": cls.t1_a.name,
+				"items": [
+					{
+						"item_code": "ITEM-101",
+						"qty": 5.0,
+						"rate": 10.0,
+						"delivery_date": "2026-03-05",
+						"target1_link": cls.t1_a.name,
+					},
+					{
+						"item_code": "ITEM-102",
+						"qty": 10.0,
+						"rate": 20.0,
+						"delivery_date": "2026-03-10",
+						"target1_link": cls.t1_a.name,
+					},
+				],
+			}
+		).insert(ignore_permissions=True)
 
-		cls.p2 = frappe.get_doc({
-			"doctype": "QB Limit Parent",
-			"title": "Beta Parent",
-			"status": "Pending",
-			"enabled": 0,
-			"score": 50,
-			"amount": 100.00,
-			"posting_date": "2026-03-15",
-			"posting_datetime": "2026-03-15 14:30:00",
-			"nullable_data": None,
-			"target1_link": None,
-			"items": [],
-		}).insert(ignore_permissions=True)
+		cls.p2 = frappe.get_doc(
+			{
+				"doctype": "QB Limit Parent",
+				"title": "Beta Parent",
+				"status": "Pending",
+				"enabled": 0,
+				"score": 50,
+				"amount": 100.00,
+				"posting_date": "2026-03-15",
+				"posting_datetime": "2026-03-15 14:30:00",
+				"nullable_data": None,
+				"target1_link": None,
+				"items": [],
+			}
+		).insert(ignore_permissions=True)
 
 		frappe.db.commit()
 
@@ -295,17 +325,23 @@ class TestQBQueryLimits(FrappeTestCase):
 		self.assertEqual(len(res), 1)
 
 		# Not like
-		res = frappe.qb.get_query("QB Limit Parent", filters=[["title", "not like", "%Alpha%"]]).run(as_dict=True)
+		res = frappe.qb.get_query("QB Limit Parent", filters=[["title", "not like", "%Alpha%"]]).run(
+			as_dict=True
+		)
 		self.assertEqual(len(res), 1)
 		self.assertEqual(res[0]["name"], self.p2.name)
 
 		# In
-		res = frappe.qb.get_query("QB Limit Parent", filters=[["status", "in", ["Open", "Closed"]]]).run(as_dict=True)
+		res = frappe.qb.get_query("QB Limit Parent", filters=[["status", "in", ["Open", "Closed"]]]).run(
+			as_dict=True
+		)
 		self.assertEqual(len(res), 1)
 		self.assertEqual(res[0]["name"], self.p1.name)
 
 		# Not In
-		res = frappe.qb.get_query("QB Limit Parent", filters=[["status", "not in", ["Open"]]]).run(as_dict=True)
+		res = frappe.qb.get_query("QB Limit Parent", filters=[["status", "not in", ["Open"]]]).run(
+			as_dict=True
+		)
 		self.assertEqual(len(res), 1)
 		self.assertEqual(res[0]["name"], self.p2.name)
 
