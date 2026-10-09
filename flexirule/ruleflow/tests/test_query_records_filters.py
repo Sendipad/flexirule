@@ -306,6 +306,7 @@ class TestFetchRecordsCanonicalFilterContract(FrappeTestCase):
 	def setUp(self):
 		self.handler = QueryRecordsHandler()
 		self.context = {"doc": frappe._dict(), "vars": {}}
+		self.action = frappe._dict({"name": "CANONICAL_TEST", "label": "Canonical test", "config": "{}"})
 
 	def test_nested_canonical_tree_converts_to_native_filters(self):
 		tree = {
