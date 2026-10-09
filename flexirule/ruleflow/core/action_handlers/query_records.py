@@ -653,11 +653,12 @@ class QueryRecordsHandler(ActionHandler):
 			value = config.get(key)
 			if value is None or value == "":
 				continue
-			value = resolve_payload(value, f"{action_label}.{key}")
 			if key == "filters":
-				# Fetch Records accepts only its canonical persisted tree. Legacy filter
-				# normalization remains available to established Query Records modes.
-				value = self._canonical_filter_tree_to_backend(value, reference_doctype)
+				# Convert the canonical tree to Query Builder's native filter tuples
+				# before resolving FlexValues. Keep relationship paths intact so QB,
+				# rather than the legacy tuple normalizer, owns joins and field semantics.
+				value = self._canonical_fetch_filter_tree_to_backend(value, reference_doctype)
+			value = resolve_payload(value, f"{action_label}.{key}")
 			kwargs[key] = value
 
 		from flexirule.ruleflow.utils.frappe_query_compat import execute_query
@@ -1186,6 +1187,38 @@ class QueryRecordsHandler(ActionHandler):
 
 	def _is_canonical_filter_tree(self, value) -> bool:
 		return isinstance(value, dict) and value.get("type") in {"group", "leaf"}
+
+	def _canonical_fetch_filter_tree_to_backend(self, node, reference_doctype: str | None = None):
+		"""Convert Fetch Records' canonical tree to native Query Builder filter tuples.
+
+		Unlike the legacy-mode converter, this preserves dotted relationship paths
+		and emits root-field tuples without a redundant DocType prefix. Frappe's
+		Query Builder owns relationship resolution for this new mode.
+		"""
+		if not isinstance(node, dict):
+			return node
+		if node.get("type") == "leaf":
+			field = node.get("field") or ""
+			operator = node.get("operator") or "="
+			value = self._extract_filter_value_payload(node.get("value"))
+			operator, value = self._normalize_single_filter_operator(operator, value)
+			return [field, operator, value]
+		if node.get("type") == "group":
+			operator = str(node.get("operator") or "and").lower()
+			children = [
+				self._canonical_fetch_filter_tree_to_backend(child, reference_doctype)
+				for child in (node.get("children") or [])
+			]
+			children = [child for child in children if child not in (None, [])]
+			if not children:
+				return []
+			if len(children) == 1:
+				return children[0]
+			result = [children[0]]
+			for child in children[1:]:
+				result.extend([operator, child])
+			return result
+		return node
 
 	def _canonical_filter_tree_to_backend(self, node, reference_doctype: str | None = None):
 		"""Convert persisted QueryFilterTree data into native Frappe filter syntax."""
