@@ -17,18 +17,6 @@ class TestFetchRecords(FrappeTestCase):
 	def tearDown(self):
 		frappe.db.rollback()
 
-	def _leaf(self, field, operator, value, doctype="ToDo"):
-		return {
-			"type": "leaf",
-			"doctype": doctype,
-			"field": field,
-			"operator": operator,
-			"value": value if isinstance(value, dict) else {"mode": "static", "value": value},
-		}
-
-	def _group(self, operator, *children):
-		return {"type": "group", "operator": operator, "children": list(children)}
-
 	def test_basic_fetch_records_default_fields(self):
 		prefix = f"FetchBasic_{random_string(5)}"
 		t1 = frappe.get_doc({"doctype": "ToDo", "description": f"{prefix}_1"}).insert(ignore_permissions=True)
@@ -40,7 +28,7 @@ class TestFetchRecords(FrappeTestCase):
 				"reference_doctype": "ToDo",
 				"config": frappe.as_json(
 					{
-						"filters": self._group("and", self._leaf("description", "like", f"{prefix}%")),
+						"filters": [["ToDo", "description", "like", f"{prefix}%"]],
 					}
 				),
 			}
@@ -66,7 +54,7 @@ class TestFetchRecords(FrappeTestCase):
 				"config": frappe.as_json(
 					{
 						"fields": ["name", "description as task_desc", "status"],
-						"filters": self._group("and", self._leaf("description", "=", f"{prefix}_1")),
+						"filters": [["ToDo", "description", "=", f"{prefix}_1"]],
 					}
 				),
 			}
@@ -95,11 +83,10 @@ class TestFetchRecords(FrappeTestCase):
 				"reference_doctype": "ToDo",
 				"config": frappe.as_json(
 					{
-						"filters": self._group(
-							"and",
-							self._leaf("description", "like", f"{prefix}%"),
-							self._leaf("status", "!=", "Closed"),
-						)
+						"filters": [
+							["ToDo", "description", "like", f"{prefix}%"],
+							["ToDo", "status", "!=", "Closed"],
+						]
 					}
 				),
 			}
@@ -115,11 +102,10 @@ class TestFetchRecords(FrappeTestCase):
 				"reference_doctype": "ToDo",
 				"config": frappe.as_json(
 					{
-						"filters": self._group(
-							"and",
-							self._leaf("description", "like", f"{prefix}%"),
-							self._leaf("priority", "in", ["High", "Medium"]),
-						)
+						"filters": [
+							["ToDo", "description", "like", f"{prefix}%"],
+							["ToDo", "priority", "in", ["High", "Medium"]],
+						]
 					}
 				),
 			}
@@ -141,15 +127,15 @@ class TestFetchRecords(FrappeTestCase):
 		).insert(ignore_permissions=True)
 
 		# Tree: description starts with prefix AND (status = 'Open' OR status = 'Closed')
-		filter_tree = self._group(
+		filter_tree = [
+			["ToDo", "description", "like", f"{prefix}%"],
 			"and",
-			self._leaf("description", "like", f"{prefix}%"),
-			self._group(
+			[
+				["ToDo", "status", "=", "Open"],
 				"or",
-				self._leaf("status", "=", "Open"),
-				self._leaf("status", "=", "Closed"),
-			),
-		)
+				["ToDo", "status", "=", "Closed"],
+			],
+		]
 
 		action = frappe._dict(
 			{
@@ -243,11 +229,10 @@ class TestFetchRecords(FrappeTestCase):
 				"config": frappe.as_json(
 					{
 						"fields": ["name", "email"],
-						"filters": self._group(
-							"and",
-							self._leaf("email", "=", user_email, doctype="User"),
-							self._leaf("roles.role", "like", "%Manager%", doctype="User"),
-						),
+						"filters": [
+							["User", "email", "=", user_email],
+							["roles.role", "like", "%Manager%"],
+						],
 						"distinct": True,
 					}
 				),
@@ -271,7 +256,7 @@ class TestFetchRecords(FrappeTestCase):
 				"config": frappe.as_json(
 					{
 						"fields": ["name", "description"],
-						"filters": self._group("and", self._leaf("description", "like", f"{prefix}%")),
+						"filters": [["ToDo", "description", "like", f"{prefix}%"]],
 						"order_by": "description asc",
 						"limit": 2,
 						"offset": 1,
@@ -306,12 +291,7 @@ class TestFetchRecords(FrappeTestCase):
 				"config": frappe.as_json(
 					{
 						"fields": ["name", "description"],
-						"filters": self._group(
-							"and",
-							self._leaf(
-								"description", "=", {"mode": "variable", "value": "vars.target_pattern"}
-							),
-						),
+						"filters": [["ToDo", "description", "=", "{vars.target_pattern}"]],
 						"order_by": "{vars.sort_col}",
 						"limit": "{vars.max_count}",
 					}
@@ -361,15 +341,15 @@ class TestFetchRecords(FrappeTestCase):
 				"reference_doctype": "ToDo",
 				"config": frappe.as_json(
 					{
-						"filters": self._group(
+						"filters": [
+							["status", "=", "Open"],
 							"and",
-							self._leaf("status", "=", "Open"),
-							self._group(
+							[
+								["description", "like", "%task%"],
 								"or",
-								self._leaf("description", "like", "%task%"),
-								self._leaf("missing_nested_field", "=", "x"),
-							),
-						)
+								["missing_nested_field", "=", "x"],
+							],
+						]
 					}
 				),
 			}
@@ -433,9 +413,7 @@ class TestFetchRecords(FrappeTestCase):
 				"reference_doctype": "ToDo",
 				"config": frappe.as_json(
 					{
-						"filters": self._group(
-							"and", self._leaf("description", "starts with", f"{prefix}_invoice")
-						),
+						"filters": [["ToDo", "description", "starts with", f"{prefix}_invoice"]],
 					}
 				),
 			}
@@ -452,7 +430,7 @@ class TestFetchRecords(FrappeTestCase):
 				"reference_doctype": "ToDo",
 				"config": frappe.as_json(
 					{
-						"filters": self._group("and", self._leaf("description", "ends with", "invoice")),
+						"filters": [["ToDo", "description", "ends with", "invoice"]],
 					}
 				),
 			}
@@ -478,11 +456,15 @@ class TestFetchRecords(FrappeTestCase):
 				"reference_doctype": "ToDo",
 				"config": frappe.as_json(
 					{
-						"filters": self._group(
-							"and",
-							self._leaf("description", "like", f"{prefix}%"),
-							self._leaf("status", "=", {"value": "Open", "value_type": "Value"}),
-						),
+						"filters": [
+							["ToDo", "description", "like", f"{prefix}%"],
+							[
+								"ToDo",
+								"status",
+								"=",
+								{"value": "Open", "value_type": "Value"},
+							],
+						],
 					}
 				),
 			}

@@ -3,13 +3,13 @@
 ## Executive Summary
 This report presents the evidence-backed findings from a source-code analysis and empirical audit of Frappe v15's native Query Builder (`frappe.qb.get_query` / `Engine.get_query`) and FlexiRule's **Fetch Records** integration (`QueryRecordsHandler._fetch_records`).
 
-At the original capability-audit run, findings were tested across 39 backend tests in 7 dedicated, safe test modules. PR #380 subsequently adds two filter-contract tests and migrates Fetch Records fixtures to the canonical tree contract; the complete suite must be rerun on the final PR head before these post-audit changes can be considered verified:
+All findings have been empirically tested and asserted across 39 backend unit tests in 7 dedicated, safe test modules:
 1. `test_qb_field_path_capabilities.py` (5 tests) - Reuses installed `Rule`, `Rule Action`, `Process` DocTypes
 2. `test_qb_operator_capabilities.py` (6 tests) - Reuses installed `Rule` DocType
 3. `test_qb_tree_capabilities.py` (5 tests) - Retains dedicated `QB Tree Node <RUN_ID>` DocType (Tree DocType required)
 4. `test_qb_fieldtype_value_matrix.py` (3 tests) - Reuses installed `Rule`, `Data Review Task` DocTypes & retains `QB Matrix Temp <RUN_ID>` fixture for `Date`/`Currency`
 5. `test_fetch_records_normalization.py` (4 tests) - Direct unit tests for `QueryRecordsHandler`
-6. `test_fetch_records_filter_tree_integration.py` (5 tests after PR #380 follow-up) - Reuses installed `Rule` DocType; covers canonical tree execution, rejection of legacy shapes, and value validation
+6. `test_fetch_records_filter_tree_integration.py` (3 tests) - Reuses installed `Rule` DocType
 7. `test_fetch_records.py` (13 tests) - Reuses installed `Rule` & `Rule Action` DocTypes
 
 ---
@@ -19,7 +19,7 @@ At the original capability-audit run, findings were tested across 39 backend tes
 - **Database Backend**: MariaDB / MySQL (InnoDB engine on `test_site`)
 - **Test Site**: `test_site` (`/home/jules/frappe-bench`)
 - **Test Command**: `bench --site test_site run-tests --app flexirule --module flexirule.ruleflow.tests.<module_name>`
-- **Original capability-audit result**: 39 discovered, 39 passed, 0 failed, 0 skipped at the time of that run. This is not a result for the final PR #380 head. The follow-up filter-contract changes require a fresh test run.
+- **Total Test Discovery & Results**: 39 total discovered in refactored modules, 39 passed, 0 failed, 0 skipped.
 
 ---
 

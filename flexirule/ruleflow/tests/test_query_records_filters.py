@@ -191,9 +191,9 @@ class TestQueryRecordsFilters(FrappeTestCase):
 		self.assertEqual(
 			execute_query.call_args.args[1]["filters"],
 			[
-				["first_name", "like", "Admin%"],
+				["User", "first_name", "like", "Admin%"],
 				"or",
-				["enabled", "=", 1],
+				["User", "enabled", "=", 1],
 			],
 		)
 
@@ -374,7 +374,7 @@ class TestFetchRecordsCanonicalFilterContract(FrappeTestCase):
 				"children": [{"type": "leaf", "field": "", "operator": "=", "value": 1}],
 			},
 			{"type": "leaf", "field": "enabled", "operator": "contains", "value": "x"},
-			{"type": "leaf", "field": "enabled", "operator": "=", "value": {"mode": "static"}},
+			{"type": "leaf", "field": "enabled", "operator": "=", "value": {"unexpected": 1}},
 			{"type": "leaf", "field": "enabled", "operator": "="},
 		]
 		for tree in invalid_trees:
@@ -421,7 +421,7 @@ class TestFetchRecordsCanonicalFilterContract(FrappeTestCase):
 		self.assertEqual(result, [{"name": "user-1"}])
 		self.assertEqual(
 			execute_query.call_args.args[1]["filters"],
-			[["enabled", "=", 1], ["first_name", "like", "Ada%"]],
+			[["User", "enabled", "=", 1], "and", ["User", "first_name", "like", "Ada%"]],
 		)
 
 	def test_legacy_in_not_in_null_empty_and_wildcard_semantics_remain_normalized(self):

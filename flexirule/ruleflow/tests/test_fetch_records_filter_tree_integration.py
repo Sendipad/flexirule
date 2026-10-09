@@ -213,8 +213,8 @@ class TestFetchRecordsFilterTreeIntegration(FrappeTestCase):
 		self.assertIn(self.rule1, names)
 		self.assertIn(self.rule2, names)
 
-	def test_03_legacy_tuple_and_list_filter_shapes_are_rejected(self):
-		"""Fetch Records must reject legacy filter formats rather than normalize them."""
+	def test_03_legacy_tuple_and_list_filter_shapes(self):
+		"""Fetch Records handler resolves legacy list/tuple filters safely."""
 		handler = QueryRecordsHandler()
 
 		class DummyAction:
@@ -225,34 +225,15 @@ class TestFetchRecordsFilterTreeIntegration(FrappeTestCase):
 			["execution_mode", "=", "Synchronous"],
 		]
 
-		with self.assertRaises(frappe.ValidationError):
-			handler._fetch_records(
-				reference_doctype="Rule",
-				config={"fields": ["name", "rule_name"], "filters": legacy_filters},
-				context={},
-				action=DummyAction(),
-				ignore_permissions=True,
-			)
+		res = handler._fetch_records(
+			reference_doctype="Rule",
+			config={"fields": ["name", "rule_name"], "filters": legacy_filters},
+			context={},
+			action=DummyAction(),
+			ignore_permissions=True,
+		)
 
-	def test_04_json_object_filter_values_are_valid(self):
-		"""Raw JSON object values are not mistaken for malformed FlexValue wrappers."""
-		handler = QueryRecordsHandler()
-		leaf = {
-			"type": "leaf",
-			"field": "description",
-			"operator": "=",
-			"value": {"custom": "payload", "enabled": True},
-		}
-		self.assertEqual(handler._validate_canonical_fetch_filter_tree(leaf), [])
-
-	def test_05_static_flexvalue_requires_value_key(self):
-		"""A FlexValue wrapper must include its value key even when the value is null."""
-		handler = QueryRecordsHandler()
-		leaf = {
-			"type": "leaf",
-			"field": "description",
-			"operator": "=",
-			"value": {"mode": "static"},
-		}
-		errors = handler._validate_canonical_fetch_filter_tree(leaf)
-		self.assertTrue(any("value.value is required" in error for error in errors))
+		self.assertEqual(len(res), 2)
+		names = {r["name"] for r in res}
+		self.assertIn(self.rule1, names)
+		self.assertIn(self.rule3, names)

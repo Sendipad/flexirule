@@ -592,19 +592,12 @@ class QueryRecordsHandler(ActionHandler):
 		elif (
 			isinstance(value, dict)
 			and "mode" in value
-			and value.get("mode")
-			not in {"static", "link", "dynamic_link", "variable", "resolver", "expression", "jinja"}
+			and value.get("mode") not in {"static", "variable", "resolver", "expression", "jinja"}
 		):
 			errors.append(_("{0}.value.mode is not supported").format(path))
-		elif isinstance(value, dict) and "mode" in value:
-			mode = value.get("mode")
-			if mode in {"static", "link", "dynamic_link", "expression", "jinja"} and "value" not in value:
-				errors.append(_("{0}.value.value is required for {1} values").format(path, mode))
-			elif mode == "variable" and not (value.get("path") or "value" in value):
-				errors.append(_("{0}.value.path is required for variable values").format(path))
-			elif mode == "resolver" and not any(key in value for key in ("config", "kind", "family")):
-				errors.append(_("{0}.value requires resolver config, kind, or family").format(path))
-		if isinstance(value, dict) and value.get("mode") == "static" and "value" in value:
+		elif isinstance(value, dict) and "mode" not in value:
+			errors.append(_("{0}.value must be a FlexValue or JSON value").format(path))
+		elif isinstance(value, dict) and value.get("mode") == "static":
 			operator_name = operator.strip().lower() if isinstance(operator, str) else ""
 			static_value = value.get("value")
 			if operator_name in {"between", "not between"} and not (
@@ -637,13 +630,11 @@ class QueryRecordsHandler(ActionHandler):
 				return self._resolve_value_expression_with_context(value, context, path, action)
 			return value
 
-		filters = config.get("filters")
-		if filters not in (None, "", []):
-			if not self._is_canonical_filter_tree(filters):
-				frappe.throw(_("Fetch Records filters must use the canonical filter tree format"))
-			filter_errors = self._validate_canonical_fetch_filter_tree(filters)
-			if filter_errors:
-				frappe.throw("; ".join(filter_errors))
+		if config.get("filters") not in (None, "", []):
+			if self._is_canonical_filter_tree(config["filters"]):
+				filter_errors = self._validate_canonical_fetch_filter_tree(config["filters"])
+				if filter_errors:
+					frappe.throw("; ".join(filter_errors))
 
 		kwargs = {}
 		if config.get("fields") not in (None, "", []):
@@ -653,16 +644,12 @@ class QueryRecordsHandler(ActionHandler):
 			value = config.get(key)
 			if value is None or value == "":
 				continue
-			if key == "filters" and self._is_canonical_filter_tree(value):
-				# Resolve only leaf values. Recursively resolving every string in the
-				# persisted tree corrupts structural tokens such as "group", "and",
-				# field names, and DocType names.
-				value = self._resolve_fetch_filter_tree_values(
-					value, context, f"{action_label}.filters", action
-				)
-				value = self._canonical_fetch_filter_tree_to_backend(value, reference_doctype)
-			else:
-				value = resolve_payload(value, f"{action_label}.{key}")
+			value = resolve_payload(value, f"{action_label}.{key}")
+			if key == "filters":
+				if self._is_canonical_filter_tree(value):
+					value = self._canonical_filter_tree_to_backend(value, reference_doctype)
+				elif isinstance(value, list | dict):
+					value = self._normalize_filters_for_backend(value, reference_doctype)
 			kwargs[key] = value
 
 		from flexirule.ruleflow.utils.frappe_query_compat import execute_query
@@ -1191,79 +1178,6 @@ class QueryRecordsHandler(ActionHandler):
 
 	def _is_canonical_filter_tree(self, value) -> bool:
 		return isinstance(value, dict) and value.get("type") in {"group", "leaf"}
-
-	def _resolve_fetch_filter_tree_values(self, node, context, path, action):
-		"""Resolve FlexValues in canonical Fetch Records leaves without touching tree metadata."""
-		if not isinstance(node, dict):
-			return node
-		node_type = node.get("type")
-		if node_type == "group":
-			resolved = dict(node)
-			resolved["children"] = [
-				self._resolve_fetch_filter_tree_values(child, context, f"{path}.children[{index}]", action)
-				for index, child in enumerate(node.get("children") or [])
-			]
-			return resolved
-		if node_type == "leaf":
-			resolved = dict(node)
-			if "value" in node:
-				resolved["value"] = self._resolve_filter_leaf_value(
-					node["value"], context, f"{path}.value", action
-				)
-			return resolved
-		return node
-
-	def _resolve_filter_leaf_value(self, value, context, path, action):
-		"""Resolve a leaf's FlexValue payload while preserving raw JSON objects."""
-		if isinstance(value, dict):
-			if "mode" in value:
-				return self._resolve_value_expression_with_context(value, context, path, action)
-			return value
-		if isinstance(value, str):
-			return self._resolve_value_expression_with_context(value, context, path, action)
-		return value
-
-	def _canonical_fetch_filter_tree_to_backend(self, node, reference_doctype: str | None = None):
-		"""Convert Fetch Records' canonical tree to native Query Builder filter tuples.
-
-		Unlike the legacy-mode converter, this preserves dotted relationship paths
-		and emits root-field tuples without a redundant DocType prefix. Frappe's
-		Query Builder owns relationship resolution for this new mode.
-		"""
-		if not isinstance(node, dict):
-			return node
-		if node.get("type") == "leaf":
-			field = node.get("field") or ""
-			operator = node.get("operator") or "="
-			value = self._extract_filter_value_payload(node.get("value"))
-			operator, value = self._normalize_single_filter_operator(operator, value)
-			return [field, operator, value]
-		if node.get("type") == "group":
-			operator = str(node.get("operator") or "and").lower()
-			children = [
-				self._canonical_fetch_filter_tree_to_backend(child, reference_doctype)
-				for child in (node.get("children") or [])
-			]
-			children = [child for child in children if child not in (None, [])]
-			if not children:
-				return []
-			if len(children) == 1:
-				return children[0]
-			# Frappe Query Builder treats a plain list of leaves as implicit AND.
-			# Avoid explicit "and" tokens for flat groups so relationship paths can
-			# be handled by QB's own filter parser instead of the compatibility shim.
-			if operator == "and" and all(
-				isinstance(child, list | tuple)
-				and not any(isinstance(part, str) and part.casefold() in {"and", "or"} for part in child)
-				and len(child) == 3
-				for child in children
-			):
-				return children
-			result = [children[0]]
-			for child in children[1:]:
-				result.extend([operator, child])
-			return result
-		return node
 
 	def _canonical_filter_tree_to_backend(self, node, reference_doctype: str | None = None):
 		"""Convert persisted QueryFilterTree data into native Frappe filter syntax."""
