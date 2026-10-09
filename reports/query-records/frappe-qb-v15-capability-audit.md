@@ -298,3 +298,59 @@ Add/maintain tests that distinguish:
 6. legacy mode compatibility from Fetch Records' canonical-only contract.
 
 Do not mark `regex` as cross-database supported until its SQL and record results pass on both engines. Do not report tests as executed unless the relevant Frappe v15.122.0 test environment actually ran them.
+
+
+## 8. Expanded FlexiRule operator architecture (follow-up)
+
+### 8.1 Design decision
+
+Fetch Records must not define its capability ceiling as the current keys in Frappe's `OPERATOR_MAP`. FlexiRule owns the user-facing filter contract and may implement an operator through, in order of preference:
+
+1. A native `frappe.qb.get_query()` filter operator when the pinned Frappe version implements the required semantics.
+2. A PyPika/Frappe Query Builder `Criterion` expression when the expression can be represented safely and compiled for the active database.
+3. A narrowly scoped, database-aware SQL expression adapter only when the first two layers cannot represent the capability. This must use trusted/validated identifiers and bound values; never interpolate user-controlled SQL fragments.
+
+The implementation strategy is an internal detail. Saved filters should use stable, lowercase canonical operator keys and structured values; display labels must not be treated as backend operator names.
+
+### 8.2 Operator names are not the same as operator implementations
+
+The v15.122.0 `frappe/database/operator_map.py` contains wrappers for `like`, `not like`, `regex`, `between`, `is`, and `timespan`, and delegates tree operations through `NestedSetHierarchy`. The v15.122.0 `frappe/database/query.py` resolves those map keys and passes the resulting expression to PyPika. This confirms the normal QB path, but it does not mean FlexiRule must stop there.
+
+Likewise, a human-facing operator such as `starts with` or `ends with` must be investigated across Frappe's filter UI/API and database layers before being classified as either native or a FlexiRule-only extension. It may be represented by a UI label, translated to a `LIKE` pattern, or implemented by a separate path. Do not infer support or non-support from one dictionary alone.
+
+### 8.3 Operators to preserve or add to the investigation matrix
+
+| Canonical key | Intended semantics | Value contract | Implementation direction |
+|---|---|---|---|
+| `between` | Inclusive range | Exactly two boundary values | Native QB where compatible |
+| `not between` | Outside the inclusive range | Exactly two boundary values | Verify native availability; otherwise express as `field < lower OR field > upper`, preserving SQL NULL semantics |
+| `starts with` | Text prefix match | One text/pattern value | Prefer a parameterized LIKE expression or a supported native path; escape wildcard characters if the UI promises literal-prefix semantics |
+| `ends with` | Text suffix match | One text/pattern value | Prefer a parameterized LIKE expression or a supported native path; escape wildcard characters if the UI promises literal-suffix semantics |
+| `regex` | Regular-expression match | One pattern | Use the Frappe/PyPika regex expression where verified; test compilation and behavior on MariaDB and PostgreSQL |
+| `not regex` | Negative regular-expression match | One pattern | Investigate as a separate capability; do not assume a negated regex expression is equivalent on both engines |
+| `timespan` | Relative date interval | Exact supported timespan token | Preserve the token until the execution layer resolves it; test date vs datetime boundaries |
+| `is` | Set / not set | Exactly `set` or `not set` | Define NULL and empty-string behavior explicitly |
+| `in` / `not in` | Membership / non-membership | List of values | Normalize to a typed list; define empty-list behavior |
+| Tree operators | Ancestors / descendants, including negative and inclusive variants | One tree-node identifier | Use tree metadata and verify every variant |
+
+This is an investigation/implementation matrix, not a claim that every row has already passed cross-database runtime tests.
+
+### 8.4 Compatibility and correctness rules
+
+- Keep `not between`; do not omit it simply because an earlier draft operator list missed it.
+- Keep `starts with` and `ends with` available to users wherever their field type makes sense. Determine whether the active Frappe API accepts them directly or whether the adapter translates them; either way, their absence from `OPERATOR_MAP` alone is not sufficient evidence to exclude them.
+- Do not enable `regex` solely because `key.regex()` exists in PyPika or a wrapper exists in Frappe. Verify actual SQL compilation and result semantics against both MariaDB and PostgreSQL.
+- Preserve parameterization. Values must never become SQL syntax; field identifiers and referenced DocTypes must be validated against metadata.
+- Make NULL behavior explicit. For example, SQL `NOT (field BETWEEN a AND b)` and `field < a OR field > b` both generally exclude NULL rows, while negating a custom predicate may have different behavior if wrapped with `COALESCE`.
+- Distinguish case sensitivity and wildcard escaping. MariaDB collation and PostgreSQL operators can differ; an operator contract must either define portable semantics or document backend-specific behavior.
+- Test operator value serialization from the saved filter tree through runtime resolution, SQL generation, and executed result sets on both databases. Unit tests of an allowlist or generated SQL alone are insufficient.
+
+### 8.5 Required implementation sequence
+
+1. Audit the pinned Frappe source for every operator across the UI filter vocabulary, filter normalization, QB map, PyPika terms, and database-specific builder/adapter.
+2. Define a FlexiRule operator registry with canonical key, UI label, compatible field types, value schema, null semantics, implementation strategy, and MariaDB/PostgreSQL support status.
+3. Implement native-QB, PyPika-Criterion, and only-if-needed SQL-adapter strategies behind one Fetch Records filter compiler. Do not fork behavior into unrelated ad-hoc branches per operator.
+4. Add a shared empirical matrix covering comparisons, `between`/`not between`, `like`/prefix/suffix, `regex`/negative regex, `in`/empty lists, `is`, timespans, tree variants, NULLs, wildcard escaping, and case sensitivity.
+5. Run that matrix on MariaDB and PostgreSQL before describing an operator as cross-database supported.
+
+**Release status:** the architecture direction is agreed, but the expanded compiler and cross-database execution matrix are not claimed complete by this report update.
