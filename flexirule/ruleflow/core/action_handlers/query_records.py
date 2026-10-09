@@ -653,12 +653,12 @@ class QueryRecordsHandler(ActionHandler):
 			value = config.get(key)
 			if value is None or value == "":
 				continue
-			if key == "filters":
-				# Convert the canonical tree to Query Builder's native filter tuples
-				# before resolving FlexValues. Keep relationship paths intact so QB,
-				# rather than the legacy tuple normalizer, owns joins and field semantics.
-				value = self._canonical_fetch_filter_tree_to_backend(value, reference_doctype)
 			value = resolve_payload(value, f"{action_label}.{key}")
+			if key == "filters":
+				# Fetch Records accepts only its canonical persisted tree. Resolve
+				# FlexValues first, then emit native tuples while preserving relationship
+				# paths for Query Builder to interpret.
+				value = self._canonical_fetch_filter_tree_to_backend(value, reference_doctype)
 			kwargs[key] = value
 
 		from flexirule.ruleflow.utils.frappe_query_compat import execute_query
