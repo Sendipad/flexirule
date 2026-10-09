@@ -33,6 +33,14 @@ assert.equal(findNode(root, group.id).operator, "or");
 assert.equal(validateTree(root).valid, true);
 assert.equal(moveNode(root, leaf.id, root.id, 0), true);
 assert.equal(findParent(root, leaf.id), root);
+
+// A nested group can be promoted to the root as a sibling of existing groups.
+const siblingGroup = addGroup(root, root.id, "and");
+assert.equal(moveNode(root, group.id, root.id, root.children.length), true);
+assert.equal(findParent(root, group.id), root);
+assert.equal(root.children.at(-1).id, group.id);
+assert.equal(findParent(root, siblingGroup.id), root);
+
 assert.equal(moveNode(root, group.id, leaf.id), false);
 assert.equal(setOperator(root, root.id, "or"), true);
 assert.equal(root.operator, "or");
