@@ -18,12 +18,17 @@ class TestFetchRecordsNormalization(FrappeTestCase):
 
 	def test_01_ui_operator_normalization(self):
 		"""Test operator conversions: starts with, ends with, Between, Timespan."""
-		# starts with
+		# starts with appends '%'
 		op, val = self.handler._normalize_single_filter_operator("starts with", "Test")
 		self.assertEqual(op, "like")
 		self.assertEqual(val, "Test%")
 
-		# ends with
+		# starts with with existing wildcard appends another '%' (double wildcarding)
+		op_dbl, val_dbl = self.handler._normalize_single_filter_operator("starts with", "Test%")
+		self.assertEqual(op_dbl, "like")
+		self.assertEqual(val_dbl, "Test%%")
+
+		# ends with prepends '%'
 		op, val = self.handler._normalize_single_filter_operator("ends with", "End")
 		self.assertEqual(op, "like")
 		self.assertEqual(val, "%End")
@@ -58,12 +63,19 @@ class TestFetchRecordsNormalization(FrappeTestCase):
 		# Plain value
 		self.assertEqual(self.handler._extract_filter_value_payload("plain"), "plain")
 
-		# Dictionary payload with boolean value_type
-		payload_true = {"value": "Yes", "value_type": "boolean"}
-		self.assertEqual(self.handler._extract_filter_value_payload(payload_true), 1)
+		# Dictionary payload with boolean value_type for truthy variants
+		for v_true in (True, 1, "1", "Yes", "yes", "true", "True"):
+			payload_true = {"value": v_true, "value_type": "boolean"}
+			self.assertEqual(self.handler._extract_filter_value_payload(payload_true), 1)
 
-		payload_false = {"value": "No", "value_type": "boolean"}
-		self.assertEqual(self.handler._extract_filter_value_payload(payload_false), 0)
+		# Dictionary payload with boolean value_type for falsy variants
+		for v_false in (False, 0, "0", "No", "no", "false", "False"):
+			payload_false = {"value": v_false, "value_type": "boolean"}
+			self.assertEqual(self.handler._extract_filter_value_payload(payload_false), 0)
+
+		# Plain raw boolean strings without UI value_type dict wrapper pass through uncoerced
+		self.assertEqual(self.handler._extract_filter_value_payload("true"), "true")
+		self.assertEqual(self.handler._extract_filter_value_payload("false"), "false")
 
 	def test_04_normalize_filters_for_backend_group_disambiguation(self):
 		"""3-element items are recognized as filter leaves [field, op, val] vs logical groups [leaf1, 'or', leaf2]."""

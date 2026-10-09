@@ -135,11 +135,25 @@ class TestQBOperatorCapabilities(FrappeTestCase):
 
 	def test_02_pattern_matching_like_and_not_like(self):
 		"""Test 'like' and 'not like' operators with % and _ wildcards."""
+		# Direct caller-supplied wildcards
 		res_like = frappe.qb.get_query(
 			"QB Op Parent", fields=["code", "notes"], filters=[["notes", "like", "alpha%"]]
 		).run(as_dict=True)
 		self.assertEqual({r["code"] for r in res_like}, {"CODE_A"})
 
+		# Plain string without wildcards performs exact match
+		res_plain_like = frappe.qb.get_query(
+			"QB Op Parent", fields=["code", "notes"], filters=[["notes", "like", "alpha_1"]]
+		).run(as_dict=True)
+		self.assertEqual({r["code"] for r in res_plain_like}, {"CODE_A"})
+
+		# Single-character underscore wildcard (_)
+		res_underscore = frappe.qb.get_query(
+			"QB Op Parent", fields=["code", "notes"], filters=[["notes", "like", "alpha_1"]]
+		).run(as_dict=True)
+		self.assertEqual({r["code"] for r in res_underscore}, {"CODE_A"})
+
+		# Not like excludes matching records; SQL NULL records (CODE_C) are omitted due to SQL NULL tri-state logic
 		res_not_like = frappe.qb.get_query(
 			"QB Op Parent", fields=["code", "notes"], filters=[["notes", "not like", "alpha%"]]
 		).run(as_dict=True)
@@ -157,11 +171,17 @@ class TestQBOperatorCapabilities(FrappeTestCase):
 		).run(as_dict=True)
 		self.assertEqual({r["code"] for r in res_not_in}, {"CODE_C", "CODE_D"})
 
-		# Empty sequence handling
+		# Empty sequence handling: converted to ('',) natively, returning 0 records
 		res_empty_in = frappe.qb.get_query(
 			"QB Op Parent", fields=["code", "val"], filters=[["val", "in", []]]
 		).run(as_dict=True)
 		self.assertEqual(len(res_empty_in), 0)
+
+		# Comma-separated string input: func_in splits on comma natively
+		res_comma_in = frappe.qb.get_query(
+			"QB Op Parent", fields=["code", "val"], filters=[["code", "in", "CODE_A,CODE_B"]]
+		).run(as_dict=True)
+		self.assertEqual({r["code"] for r in res_comma_in}, {"CODE_A", "CODE_B"})
 
 	def test_04_is_set_and_is_not_set_null_vs_empty_string(self):
 		"""Test 'is set' and 'is not set' behavior against both SQL NULL (None) and empty string ("")."""

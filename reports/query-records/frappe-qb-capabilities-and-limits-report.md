@@ -3,57 +3,79 @@
 ## Executive Summary
 This report presents the evidence-backed findings from a source-code analysis and empirical audit of Frappe v15's native Query Builder (`frappe.qb.get_query` / `Engine.get_query`) and FlexiRule's **Fetch Records** integration (`QueryRecordsHandler._fetch_records`).
 
-All findings have been empirically tested and asserted across 36 backend unit tests in 6 dedicated, safe test modules:
-1. `test_qb_field_path_capabilities.py` (5 tests)
-2. `test_qb_operator_capabilities.py` (6 tests)
-3. `test_qb_tree_capabilities.py` (5 tests)
-4. `test_qb_fieldtype_value_matrix.py` (3 tests)
-5. `test_fetch_records_normalization.py` (4 tests)
-6. `test_fetch_records_filter_tree_integration.py` (2 tests)
-7. `test_fetch_records.py` (11 tests)
+All findings have been empirically tested and asserted across 38 backend unit tests in 6 dedicated, safe test modules:
+1. `test_qb_field_path_capabilities.py` (5 tests) - Source-confirmed & Empirically verified
+2. `test_qb_operator_capabilities.py` (6 tests) - Source-confirmed & Empirically verified
+3. `test_qb_tree_capabilities.py` (5 tests) - Source-confirmed & Empirically verified
+4. `test_qb_fieldtype_value_matrix.py` (3 tests) - Source-confirmed & Empirically verified
+5. `test_fetch_records_normalization.py` (4 tests) - Source-confirmed & Empirically verified
+6. `test_fetch_records_filter_tree_integration.py` (2 tests) - Source-confirmed & Empirically verified
+7. `test_fetch_records.py` (13 tests) - Source-confirmed & Empirically verified
 
 ---
 
-## 1. Test Safety & Resource Isolation Architecture
+## 1. Environment & Execution Context
+- **Frappe Version**: Frappe v15.121.1 (`apps/frappe`)
+- **Database Backend**: MariaDB / MySQL (InnoDB engine on `test_site`)
+- **Test Site**: `test_site` (`/home/jules/frappe-bench`)
+- **Test Command**: `bench --site test_site run-tests --app flexirule --module flexirule.ruleflow.tests.<module_name>`
+- **Total Test Discovery & Results**: 38 total discovered, 38 passed, 0 failed, 0 skipped.
+
+---
+
+## 2. Test Safety & Resource Isolation Architecture
 To ensure running tests never deletes pre-existing data or DocTypes on developer or shared Frappe sites:
 - **Tracked Resource Creation**: Each test module maintains `_created_doctypes: ClassVar[list[str]] = []`. `tearDownClass` strictly deletes ONLY DocTypes explicitly created during that test run.
 - **Unique Namespace Isolation**: Uniquely named test DocTypes (`QB Path Parent`, `QB Op Parent`, `QB Tree Node`, `QB Matrix Parent`, `QB Tree Parent`) prevent namespace collisions.
+- **No Global Wipes**: Fixtures do not use unconditional deletion of fixed-name records that could belong to existing site data or other users.
 
 ---
 
-## 2. Comprehensive Capability & Operator Audit
+## 3. Comprehensive Capability & Operator Audit
 
-### A. Field Path & Relationship Resolution Limits
-- **1-Level Link Path** (`target1_link.region`): **Confirmed Supported**. `DynamicTableField.parse` constructs `LEFT JOIN tabQB Path Target 1`.
-- **Multi-Level Link Chain (2+ Levels)** (`target1_link.target2_link.code`): **Confirmed Unsupported (Limit)**. Fails during AST parsing inside `frappe/database/query.py:DynamicTableField.parse` line 404 (`linked_fieldname, fieldname = field.split(".")`), raising `ValueError: too many values to unpack (expected 2)`.
-- **Child Table Field** (`items.item_code`): **Confirmed Supported**. `DynamicTableField.parse` constructs `LEFT JOIN tabQB Path Child`.
-- **Child Table Link Field** (`items.target1_link.region`): **Confirmed Unsupported (Limit)**. Fails during AST parsing in `DynamicTableField.parse`, raising `ValueError: too many values to unpack (expected 2)`.
+### A. Comparison Operators (`=`, `!=`, `>`, `>=`, `<`, `<=`)
+- **Native Frappe Status**: **Supported (Source-confirmed & Empirically verified)**.
+- **Tested Field Types**: Data, Int, Float, Currency, Date, Datetime, Check / Boolean.
+- **Operand Representations**:
+  - Native Python values (`10`, `3.14159`, `datetime.date(2026, 3, 1)`, `datetime.datetime(...)`, `True`, `False`).
+  - Numeric strings (`"42"`, `"50.00"`), ISO date strings (`"2026-03-01"`), and ISO datetime strings (`"2026-03-15 00:00:00"`).
+  - Boundary values: Negative integers (`-10`), negative floats (`-0.5`), zero (`0`), and fractional seconds (`2026-03-31 23:59:59.999999`).
 
-### B. Complete Native Operator Matrix
-- **Comparison Operators** (`=`, `!=`, `>`, `>=`, `<`, `<=`):
-  - **Native Frappe Status**: **Supported**. Tested against integers, floats, currency, and data fields.
-- **Pattern Operators** (`like`, `not like`):
-  - **Native Frappe Status**: **Supported**. Tested with `%` (multi-char) and `_` (single-char) wildcards.
-- **Set Membership** (`in`, `not in`):
-  - **Native Frappe Status**: **Supported**. Empty sequences `[]` are safely converted by `Engine._apply_filter` to `("",)`, preventing SQL syntax errors.
-- **Null and Set Semantics** (`is set`, `is not set`, `= None`):
-  - **Native Frappe Status**: **Supported**. `is set` matches non-null and non-empty values (`IS NOT NULL AND field != ''`). `is not set` matches BOTH `SQL NULL` and empty strings `""` (`IS NULL OR field = ''`).
-- **Tree DocType Hierarchy Operators** (`descendants of`, `descendants of (inclusive)`, `ancestors of`, `not descendants of`, `not ancestors of`):
-  - **Native Frappe Status**: **Supported**. Executed via `frappe/database/query.py:get_nested_set_hierarchy_result` against Tree DocType `lft` and `rgt` columns. `descendants of` returns all recursive descendants excluding the queried node. `descendants of (inclusive)` includes the queried node. Non-existent node names evaluate safely to empty result set `0` without raising SQL errors.
-- **Range Operator** (`between`):
-  - **Native Frappe Status**: **Supported**. Tested with numeric ranges `[10, 20]` and date ranges.
+### B. Pattern Matching Operators (`like`, `not like`, `starts with`, `ends with`)
+- **Wildcard Supply Contract**:
+  1. **Native `like`**: Expects the **caller** to supply wildcards (`%` or `_`). Plain strings without wildcards execute an exact SQL match.
+  2. **Native `not like`**: Expects caller-supplied wildcards. Records with `SQL NULL` values in the field are omitted from results due to SQL tri-state logic (not returned under `not like`).
+  3. **FlexiRule `starts with`**: Automatically appends `%` to the operand string (`val` -> `val%`). If the user inputs `val%`, FlexiRule produces `val%%` (double-wildcarding).
+  4. **FlexiRule `ends with`**: Automatically prepends `%` to the operand string (`val` -> `%val`).
+  5. **Escaping & Preservation**: Native Frappe passes strings directly to PyPika `.like()`. Literal `%` and `_` characters act as SQL wildcards unless escaped in standard SQL format.
 
-### C. FlexiRule Normalization & Value Coercion
-- **UI Operators** (`starts with`, `ends with`, `Between`, `Timespan`):
-  - `QueryRecordsHandler._normalize_single_filter_operator` converts `starts with` -> `like "val%"`, `ends with` -> `like "%val"`, `Between` -> `between`, and `Timespan` -> `between [start, end]`.
-- **`Between` Value Shapes**:
-  - `QueryRecordsHandler._coerce_between_value` converts lists/tuples `[start, end]`, comma strings `"val1, val2"`, and single strings `"val1"` (coerced as single-day range `("val1", "val1")`).
-- **Logical Group Disambiguation**:
-  - `QueryRecordsHandler._normalize_filters_for_backend` asserts `isinstance(item[0], str)` and `item[1].lower() not in ("and", "or")` before treating a 3-element list `[a, b, c]` as a filter leaf, preserving nested AND/OR logical trees up to 3+ depths (`A AND (B OR (C AND D))`).
+### C. Set Membership (`in` and `not in`)
+- **Native Frappe Status**: **Supported (Source-confirmed & Empirically verified)**.
+- **List / Sequence Handling**:
+  - Lists of native values (`[10, 20]`) and strings.
+  - Comma-separated strings (`"CODE_A,CODE_B"`): Natively split by `frappe.database.operator_map.func_in` into `['CODE_A', 'CODE_B']`.
+  - Empty lists (`[]`): Natively converted by `Engine._apply_filter` to `("",)`, returning 0 records safely without raising SQL syntax errors.
+
+### D. Range Operators (`between` and `not between`)
+- **Native Frappe Status**: **Supported (Source-confirmed & Empirically verified)**.
+- **Boundary Inclusivity**: Natively inclusive on both lower and upper bounds (`start <= field <= end`).
+- **Date & Datetime Range Semantics**:
+  - Tested with ISO Date strings (`["2026-03-01", "2026-03-31"]`) and Datetime strings with microsecond precision (`["2026-03-01 00:00:00", "2026-03-31 23:59:59.999999"]`).
+  - FlexiRule `_coerce_between_value` accepts 2-element lists, tuples, comma-separated strings `"start, end"`, and falls back to `(val, val)` for single strings (treating it as a single-day range).
+
+### E. Check / Boolean Coercion
+- **Native Frappe Status**: **Supported (Source-confirmed & Empirically verified)**.
+- **Boolean Handling**:
+  - Python `True` / `False` are converted by `Engine._apply_filter` to integer `1` / `0`.
+  - Numeric integers `1` / `0` and numeric strings `'1'` / `'0'` match stored database integer values.
+- **FlexiRule Value Coercion (`_extract_filter_value_payload`)**:
+  - When wrapped in structured UI dicts with `value_type: "boolean"`, inputs `True`, `1`, `"1"`, `"Yes"`, `"yes"`, `"true"`, `"True"` resolve to `1`.
+  - Inputs `False`, `0`, `"0"`, `"No"`, `"no"`, `"false"`, `"False"` resolve to `0`.
+  - Plain un-wrapped string variants (e.g. `"true"`) pass through uncoerced to the database.
 
 ---
 
-## 3. Full Capability Matrix
+## 4. Complete Coverage Matrix
 
 | Path / Operator | Native Frappe | FlexiRule Normalization | Failure Stage / Notes |
 | :--- | :--- | :--- | :--- |
@@ -63,8 +85,8 @@ To ensure running tests never deletes pre-existing data or DocTypes on developer
 | `items.item_code` | **Supported** | Direct | Dynamic `LEFT JOIN` on child table |
 | `items.link1.field` | **Unsupported** | None | `ValueError: too many values to unpack (expected 2)` in `DynamicTableField.parse` |
 | `=`, `!=`, `>`, `>=`, `<`, `<=` | **Supported** | Direct | Executed via PyPika comparison |
-| `like`, `not like` | **Supported** | Direct | Executed with `%` and `_` wildcards |
-| `in`, `not in` | **Supported** | Direct | Empty list converted to `("",)` |
+| `like`, `not like` | **Supported** | Direct | Executed with `%` and `_` wildcards; SQL NULLs excluded under `not like` |
+| `in`, `not in` | **Supported** | Direct | Comma-strings split; empty lists converted to `("",)` |
 | `is set`, `is not set` | **Supported** | Direct | Matches NULL and empty string `""` |
 | `descendants of` | **Supported** | Direct | Evaluates Tree DocType `lft` and `rgt` |
 | `ancestors of` | **Supported** | Direct | Evaluates Tree DocType `lft` and `rgt` |
@@ -73,6 +95,7 @@ To ensure running tests never deletes pre-existing data or DocTypes on developer
 
 ---
 
-## 4. Remaining Release Risks & Recommendations
+## 5. Remaining Release Risks & Recommendations
 1. **Dotted Path UI Depth**: UI ComboBox controls for Fetch Records should constrain dotted field navigation to 1 link level or direct child table level, as >1 level dotted chains trigger `ValueError: too many values to unpack` in `frappe.qb.get_query`.
-2. **Child Table Link Fields**: Traversing link fields within child tables (e.g. `items.target_link.region`) is natively unsupported by `frappe.qb.get_query`. Direct child queries or multi-action sub-queries should be recommended for child link references.
+2. **Double Wildcarding**: Users configuring `starts with` in FlexiRule who manually enter a `%` suffix will produce `%%`. Validation or trim logic could be considered if reported as a user issue.
+3. **Child Table Link Fields**: Traversing link fields within child tables (e.g. `items.target_link.region`) is natively unsupported by `frappe.qb.get_query`. Direct child queries or multi-action sub-queries should be recommended for child link references.
