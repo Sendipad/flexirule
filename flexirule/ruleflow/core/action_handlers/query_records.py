@@ -508,6 +508,9 @@ class QueryRecordsHandler(ActionHandler):
 			return [_("Reference DocType '{0}' does not exist").format(ref_dt)]
 
 		errors = []
+		filters = config.get("filters")
+		if filters not in (None, "", []):
+			errors.extend(self._validate_canonical_fetch_filter_tree(filters))
 		for key in ("limit", "offset"):
 			value = config.get(key)
 			if value in (None, "") or (
