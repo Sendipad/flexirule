@@ -597,10 +597,12 @@ class QueryRecordsHandler(ActionHandler):
 			errors.append(_("{0}.value.mode is not supported").format(path))
 		elif isinstance(value, dict) and "mode" in value:
 			mode = value.get("mode")
-			if mode == "static" and "value" not in value:
-				errors.append(_("{0}.value.value is required for static values").format(path))
-			elif mode in {"variable", "resolver", "expression", "jinja"} and "value" not in value:
+			if mode in {"static", "link", "dynamic_link", "expression", "jinja"} and "value" not in value:
 				errors.append(_("{0}.value.value is required for {1} values").format(path, mode))
+			elif mode == "variable" and not (value.get("path") or "value" in value):
+				errors.append(_("{0}.value.path is required for variable values").format(path))
+			elif mode == "resolver" and not any(key in value for key in ("config", "kind", "family")):
+				errors.append(_("{0}.value requires resolver config, kind, or family").format(path))
 		if isinstance(value, dict) and value.get("mode") == "static" and "value" in value:
 			operator_name = operator.strip().lower() if isinstance(operator, str) else ""
 			static_value = value.get("value")
