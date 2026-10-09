@@ -399,11 +399,24 @@ class TestQueryRecordsRefactor(FrappeTestCase):
 							{"COUNT": "name", "as": "user_count"},
 							{"roles": ["role", "parent"]},
 						],
-						"filters": [
-							["User", "enabled", "=", 1],
-							"or",
-							["User", "email", "like", "%@example.com"],
-						],
+						"filters": {
+							"type": "group",
+							"operator": "or",
+							"children": [
+								{
+									"type": "leaf",
+									"field": "enabled",
+									"operator": "=",
+									"value": {"mode": "static", "value": 1},
+								},
+								{
+									"type": "leaf",
+									"field": "email",
+									"operator": "like",
+									"value": {"mode": "static", "value": "%@example.com"},
+								},
+							],
+						},
 						"order_by": "modified desc",
 						"group_by": "enabled",
 						"limit": 10,
@@ -434,9 +447,9 @@ class TestQueryRecordsRefactor(FrappeTestCase):
 					{"roles": ["role", "parent"]},
 				],
 				"filters": [
-					["User", "enabled", "=", 1],
+					["enabled", "=", 1],
 					"or",
-					["User", "email", "like", "%@example.com"],
+					["email", "like", "%@example.com"],
 				],
 				"order_by": "modified desc",
 				"group_by": "enabled",
