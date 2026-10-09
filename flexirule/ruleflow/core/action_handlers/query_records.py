@@ -509,7 +509,7 @@ class QueryRecordsHandler(ActionHandler):
 
 		errors = []
 		filters = config.get("filters")
-		if filters not in (None, "", []):
+		if filters not in (None, "", []) and self._is_canonical_filter_tree(filters):
 			errors.extend(self._validate_canonical_fetch_filter_tree(filters))
 		for key in ("limit", "offset"):
 			value = config.get(key)
