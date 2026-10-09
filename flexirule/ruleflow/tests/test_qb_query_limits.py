@@ -542,3 +542,99 @@ class TestQBQueryLimits(FrappeTestCase):
 		)
 		self.assertIsInstance(res, list)
 		self.assertEqual(len(res), 2)
+
+	def test_16_can_ignore_permissions_enforcement(self):
+		"""Test that non-System Manager user attempting ignore_permissions=True raises PermissionError."""
+
+		class DummyAction:
+			ignore_permissions = True
+			action_type = "Query Records"
+
+		frappe.set_user("Guest")
+		try:
+			from flexirule.ruleflow.core.permissions import can_ignore_permissions
+
+			with self.assertRaises(frappe.PermissionError):
+				can_ignore_permissions(DummyAction(), {}, throw=True)
+		finally:
+			frappe.set_user("Administrator")
+
+	def test_17_malformed_between_values(self):
+		"""Test coercion of malformed or single-value string inputs for Between operator."""
+		handler = QueryRecordsHandler()
+		start, end = handler._coerce_between_value("2026-03-01, 2026-03-05")
+		self.assertEqual(start, "2026-03-01")
+		self.assertEqual(end, "2026-03-05")
+
+		# Single string value fallback
+		start_single, end_single = handler._coerce_between_value("2026-03-01")
+		self.assertEqual(start_single, "2026-03-01")
+		self.assertEqual(end_single, "2026-03-01")
+
+	def test_18_multi_depth_nested_logical_trees(self):
+		"""Test 3-level deep nested logical tree: status='Open' AND (score >= 50 OR (enabled=1 AND score <= 10))."""
+		tree_data = {
+			"id": "root",
+			"type": "group",
+			"operator": "and",
+			"children": [
+				{
+					"id": "node_1",
+					"type": "leaf",
+					"doctype": "QB Limit Parent",
+					"field": "status",
+					"operator": "=",
+					"value": {"value": "Open", "value_type": "Value"},
+				},
+				{
+					"id": "node_2",
+					"type": "group",
+					"operator": "or",
+					"children": [
+						{
+							"id": "node_3",
+							"type": "leaf",
+							"doctype": "QB Limit Parent",
+							"field": "score",
+							"operator": ">=",
+							"value": {"value": 50, "value_type": "Value"},
+						},
+						{
+							"id": "node_4",
+							"type": "group",
+							"operator": "and",
+							"children": [
+								{
+									"id": "node_5",
+									"type": "leaf",
+									"doctype": "QB Limit Parent",
+									"field": "enabled",
+									"operator": "=",
+									"value": {"value": 1, "value_type": "Value"},
+								},
+								{
+									"id": "node_6",
+									"type": "leaf",
+									"doctype": "QB Limit Parent",
+									"field": "score",
+									"operator": "<=",
+									"value": {"value": 10, "value_type": "Value"},
+								},
+							],
+						},
+					],
+				},
+			],
+		}
+
+		handler = QueryRecordsHandler()
+		backend_filters = handler._canonical_filter_tree_to_backend(tree_data, "QB Limit Parent")
+
+		res = execute_query(
+			doctype="QB Limit Parent",
+			kwargs={"fields": ["name", "title"], "filters": backend_filters},
+			ignore_permissions=True,
+		)
+
+		self.assertEqual(len(res), 1)
+		self.assertEqual(res[0]["name"], self.p1.name)
