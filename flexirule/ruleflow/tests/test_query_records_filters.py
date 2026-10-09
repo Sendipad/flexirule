@@ -373,3 +373,23 @@ class TestFetchRecordsCanonicalFilterContract(FrappeTestCase):
 			execute_query.call_args.args[1]["filters"],
 			[["User", "enabled", "=", 1], "and", ["User", "first_name", "like", "Ada%"]],
 		)
+
+
+	def test_legacy_in_not_in_null_empty_and_wildcard_semantics_remain_normalized(self):
+		config = {
+			"filters": [
+				["name", "in", ["A", "B"]],
+				["name", "not in", ["C", "D"]],
+				["description", "=", None],
+				["first_name", "=", ""],
+				["last_name", "starts with", "Sm"],
+				["email", "ends with", "@example.test"],
+			]
+		}
+		filters, _ = self.handler._resolve_query_filters(config, self.context, self.action, reference_doctype="User")
+		self.assertIn(["name", "in", ["A", "B"]], filters)
+		self.assertIn(["name", "not in", ["C", "D"]], filters)
+		self.assertIn(["description", "=", None], filters)
+		self.assertIn(["first_name", "=", ""], filters)
+		self.assertIn(["last_name", "like", "Sm%"], filters)
+		self.assertIn(["email", "like", "%@example.test"], filters)
