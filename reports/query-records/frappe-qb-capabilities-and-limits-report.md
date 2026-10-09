@@ -3,61 +3,57 @@
 ## Executive Summary
 This report presents the evidence-backed findings from a source-code analysis and empirical audit of Frappe v15's native Query Builder (`frappe.qb.get_query` / `Engine.get_query`) and FlexiRule's **Fetch Records** integration (`QueryRecordsHandler._fetch_records`).
 
-The audit separates native Frappe v15 capabilities from FlexiRule's normalization layer, documenting exact failure stages, exception classes, and verification results across 31 backend unit tests in 5 dedicated, safe test modules:
+All findings have been empirically tested and asserted across 36 backend unit tests in 6 dedicated, safe test modules:
 1. `test_qb_field_path_capabilities.py` (5 tests)
 2. `test_qb_operator_capabilities.py` (6 tests)
-3. `test_qb_fieldtype_value_matrix.py` (3 tests)
-4. `test_fetch_records_normalization.py` (4 tests)
-5. `test_fetch_records_filter_tree_integration.py` (2 tests)
-6. `test_fetch_records.py` (11 tests)
+3. `test_qb_tree_capabilities.py` (5 tests)
+4. `test_qb_fieldtype_value_matrix.py` (3 tests)
+5. `test_fetch_records_normalization.py` (4 tests)
+6. `test_fetch_records_filter_tree_integration.py` (2 tests)
+7. `test_fetch_records.py` (11 tests)
 
 ---
 
-## 1. Test Safety & Isolation Architecture
-To prevent pre-existing data or DocType deletion on developer or shared Frappe sites:
-- **Tracked Resource Creation**: Each test module maintains `_created_doctypes = []` flags. `tearDownClass` only deletes DocTypes explicitly created by that test suite.
-- **Fixture Isolation**: Uniquely named test DocTypes (`QB Path Parent`, `QB Op Parent`, `QB Matrix Parent`, `QB Tree Parent`) prevent namespace collisions.
+## 1. Test Safety & Resource Isolation Architecture
+To ensure running tests never deletes pre-existing data or DocTypes on developer or shared Frappe sites:
+- **Tracked Resource Creation**: Each test module maintains `_created_doctypes: ClassVar[list[str]] = []`. `tearDownClass` strictly deletes ONLY DocTypes explicitly created during that test run.
+- **Unique Namespace Isolation**: Uniquely named test DocTypes (`QB Path Parent`, `QB Op Parent`, `QB Tree Node`, `QB Matrix Parent`, `QB Tree Parent`) prevent namespace collisions.
 
 ---
 
-## 2. Audit Findings by Category
+## 2. Comprehensive Capability & Operator Audit
 
 ### A. Field Path & Relationship Resolution Limits
-- **1-Level Link Path** (`target1_link.region`):
-  - **Native Frappe Status**: **Supported**.
-  - **Behavior**: `DynamicTableField.parse` constructs a dynamic `LEFT JOIN tabTarget`.
-- **Multi-Level Link Chain (2+ Levels)** (`target1_link.target2_link.code`):
-  - **Native Frappe Status**: **Unsupported (Limit)**.
-  - **Failure Stage & Exception**: Fails in AST parsing inside `frappe/database/query.py:DynamicTableField.parse` line 404 (`linked_fieldname, fieldname = field.split(".")`), raising `ValueError: too many values to unpack (expected 2)`.
-- **Child Table Field** (`items.item_code`):
-  - **Native Frappe Status**: **Supported**.
-  - **Behavior**: `DynamicTableField.parse` constructs `LEFT JOIN tabChild` on `parent = root.name` & `parenttype = root.doctype`.
-- **Child Table Link Field** (`items.target1_link.region`):
-  - **Native Frappe Status**: **Unsupported (Limit)**.
-  - **Failure Stage & Exception**: Fails during AST parsing in `DynamicTableField.parse`, raising `ValueError: too many values to unpack (expected 2)`.
+- **1-Level Link Path** (`target1_link.region`): **Confirmed Supported**. `DynamicTableField.parse` constructs `LEFT JOIN tabQB Path Target 1`.
+- **Multi-Level Link Chain (2+ Levels)** (`target1_link.target2_link.code`): **Confirmed Unsupported (Limit)**. Fails during AST parsing inside `frappe/database/query.py:DynamicTableField.parse` line 404 (`linked_fieldname, fieldname = field.split(".")`), raising `ValueError: too many values to unpack (expected 2)`.
+- **Child Table Field** (`items.item_code`): **Confirmed Supported**. `DynamicTableField.parse` constructs `LEFT JOIN tabQB Path Child`.
+- **Child Table Link Field** (`items.target1_link.region`): **Confirmed Unsupported (Limit)**. Fails during AST parsing in `DynamicTableField.parse`, raising `ValueError: too many values to unpack (expected 2)`.
 
-### B. Operator Semantics & Conversion
-- **Native Operators** (`=`, `!=`, `>`, `>=`, `<`, `<=`, `like`, `not like`, `in`, `not in`, `is`, `between`):
-  - **Native Frappe Status**: **Supported**.
-  - **Empty Sequences in `in`**: Converted by `Engine._apply_filter` to `("",)` to avoid SQL syntax errors.
-  - **`is` Operator**: `is set` evaluates to `IS NOT NULL AND field != ''`. `is not set` evaluates to `IS NULL OR field = ''`.
-  - **Unsupported Operators**: Passing an unmapped operator string (e.g. `invalid_op`) raises `KeyError` during `OPERATOR_MAP` lookup in `frappe/database/query.py`.
-- **FlexiRule UI Operators** (`starts with`, `ends with`, `Between`, `Timespan`):
-  - **FlexiRule Normalization**: `QueryRecordsHandler._normalize_single_filter_operator` converts `starts with` -> `like "val%"`, `ends with` -> `like "%val"`, `Between` -> `between`, and `Timespan` -> `between [start, end]`.
-  - **`Between` Value Shapes**: `QueryRecordsHandler._coerce_between_value` normalizes list/tuple `[start, end]`, comma strings `"val1, val2"`, and single strings `"val1"` (coerced as single-day range `("val1", "val1")`).
+### B. Complete Native Operator Matrix
+- **Comparison Operators** (`=`, `!=`, `>`, `>=`, `<`, `<=`):
+  - **Native Frappe Status**: **Supported**. Tested against integers, floats, currency, and data fields.
+- **Pattern Operators** (`like`, `not like`):
+  - **Native Frappe Status**: **Supported**. Tested with `%` (multi-char) and `_` (single-char) wildcards.
+- **Set Membership** (`in`, `not in`):
+  - **Native Frappe Status**: **Supported**. Empty sequences `[]` are safely converted by `Engine._apply_filter` to `("",)`, preventing SQL syntax errors.
+- **Null and Set Semantics** (`is set`, `is not set`, `= None`):
+  - **Native Frappe Status**: **Supported**. `is set` matches non-null and non-empty values (`IS NOT NULL AND field != ''`). `is not set` matches BOTH `SQL NULL` and empty strings `""` (`IS NULL OR field = ''`).
+- **Tree DocType Hierarchy Operators** (`descendants of`, `descendants of (inclusive)`, `ancestors of`, `not descendants of`, `not ancestors of`):
+  - **Native Frappe Status**: **Supported**. Executed via `frappe/database/query.py:get_nested_set_hierarchy_result` against Tree DocType `lft` and `rgt` columns. `descendants of` returns all recursive descendants excluding the queried node. `descendants of (inclusive)` includes the queried node. Non-existent node names evaluate safely to empty result set `0` without raising SQL errors.
+- **Range Operator** (`between`):
+  - **Native Frappe Status**: **Supported**. Tested with numeric ranges `[10, 20]` and date ranges.
 
-### C. Logical Filter Trees & Structure Disambiguation
-- **Nested AND/OR Trees**:
-  - **FlexiRule Normalization**: `QueryRecordsHandler._normalize_filters_for_backend` inspects 3-element list items `[a, b, c]` and confirms `isinstance(a, str)` and `b.lower() not in ("and", "or")` before treating as a filter leaf, preventing 3-element logical group nodes `[node1, "or", node2]` from being incorrectly flattened into stringified leaves.
-  - **Execution**: `frappe_query_compat.py:_compile_logical_filters` compiles nested AND/OR trees (including 3-level deep structures `A AND (B OR (C AND D))`) into PyPika Criteria.
-
-### D. Permission Enforcement
-- **Permission Checking**: `can_ignore_permissions(action, context, throw=True)` verifies `System Manager` roles before allowing `ignore_permissions=True`. Calling with non-System Manager raises `frappe.PermissionError`.
-- **Row-Level Filters**: When `ignore_permissions=False`, `frappe_query_compat.py:execute_query` compiles match conditions via `DatabaseQuery.build_match_conditions()`.
+### C. FlexiRule Normalization & Value Coercion
+- **UI Operators** (`starts with`, `ends with`, `Between`, `Timespan`):
+  - `QueryRecordsHandler._normalize_single_filter_operator` converts `starts with` -> `like "val%"`, `ends with` -> `like "%val"`, `Between` -> `between`, and `Timespan` -> `between [start, end]`.
+- **`Between` Value Shapes**:
+  - `QueryRecordsHandler._coerce_between_value` converts lists/tuples `[start, end]`, comma strings `"val1, val2"`, and single strings `"val1"` (coerced as single-day range `("val1", "val1")`).
+- **Logical Group Disambiguation**:
+  - `QueryRecordsHandler._normalize_filters_for_backend` asserts `isinstance(item[0], str)` and `item[1].lower() not in ("and", "or")` before treating a 3-element list `[a, b, c]` as a filter leaf, preserving nested AND/OR logical trees up to 3+ depths (`A AND (B OR (C AND D))`).
 
 ---
 
-## 3. Capability Matrix
+## 3. Full Capability Matrix
 
 | Path / Operator | Native Frappe | FlexiRule Normalization | Failure Stage / Notes |
 | :--- | :--- | :--- | :--- |
@@ -66,12 +62,17 @@ To prevent pre-existing data or DocType deletion on developer or shared Frappe s
 | `link1.link2.field` | **Unsupported** | None | `ValueError: too many values to unpack (expected 2)` in `DynamicTableField.parse` |
 | `items.item_code` | **Supported** | Direct | Dynamic `LEFT JOIN` on child table |
 | `items.link1.field` | **Unsupported** | None | `ValueError: too many values to unpack (expected 2)` in `DynamicTableField.parse` |
+| `=`, `!=`, `>`, `>=`, `<`, `<=` | **Supported** | Direct | Executed via PyPika comparison |
+| `like`, `not like` | **Supported** | Direct | Executed with `%` and `_` wildcards |
+| `in`, `not in` | **Supported** | Direct | Empty list converted to `("",)` |
+| `is set`, `is not set` | **Supported** | Direct | Matches NULL and empty string `""` |
+| `descendants of` | **Supported** | Direct | Evaluates Tree DocType `lft` and `rgt` |
+| `ancestors of` | **Supported** | Direct | Evaluates Tree DocType `lft` and `rgt` |
 | `starts with` / `ends with` | Unsupported | Normalized | Converted to `like "val%"` / `like "%val"` |
 | `Between` / `Timespan` | Unsupported | Normalized | Coerced to `between [start, end]` |
-| `True` / `False` | **Supported** | Direct | Coerced by `_apply_filter` to `1` / `0` |
 
 ---
 
 ## 4. Remaining Release Risks & Recommendations
-1. **Dotted Path UI Navigation Depth**: Because `frappe.qb.get_query` fails on >1 level dotted paths, the UI field selector for Fetch Records should restrict navigation stack traversals to 1 link level or child table level.
-2. **Child Table Link Traversals**: Traversals through child tables into link fields (e.g. `items.target_link.region`) are natively unsupported by `frappe.qb.get_query`. Users requiring child link fields should use direct child table queries or multi-action sub-queries.
+1. **Dotted Path UI Depth**: UI ComboBox controls for Fetch Records should constrain dotted field navigation to 1 link level or direct child table level, as >1 level dotted chains trigger `ValueError: too many values to unpack` in `frappe.qb.get_query`.
+2. **Child Table Link Fields**: Traversing link fields within child tables (e.g. `items.target_link.region`) is natively unsupported by `frappe.qb.get_query`. Direct child queries or multi-action sub-queries should be recommended for child link references.

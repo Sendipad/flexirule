@@ -1,7 +1,6 @@
 # Copyright (c) 2026, FlexiRule and contributors
 # For license information, please see license.txt
 
-import datetime
 from typing import ClassVar
 
 import frappe
@@ -59,77 +58,127 @@ class TestQBOperatorCapabilities(FrappeTestCase):
 		frappe.db.delete("QB Op Parent")
 
 		cls.r1 = frappe.get_doc(
-			{"doctype": "QB Op Parent", "code": "CODE_A", "val": 10, "notes": "alpha_1"}
+			{
+				"doctype": "QB Op Parent",
+				"code": "CODE_A",
+				"val": 10,
+				"notes": "alpha_1",
+			}
 		).insert(ignore_permissions=True)
+
 		cls.r2 = frappe.get_doc(
-			{"doctype": "QB Op Parent", "code": "CODE_B", "val": 20, "notes": "beta_2"}
+			{
+				"doctype": "QB Op Parent",
+				"code": "CODE_B",
+				"val": 20,
+				"notes": "beta_2",
+			}
 		).insert(ignore_permissions=True)
+
 		cls.r3 = frappe.get_doc(
-			{"doctype": "QB Op Parent", "code": "CODE_C", "val": 30, "notes": None}
+			{
+				"doctype": "QB Op Parent",
+				"code": "CODE_C",
+				"val": 30,
+				"notes": None,
+			}
+		).insert(ignore_permissions=True)
+
+		cls.r4 = frappe.get_doc(
+			{
+				"doctype": "QB Op Parent",
+				"code": "CODE_D",
+				"val": 40,
+				"notes": "",
+			}
 		).insert(ignore_permissions=True)
 
 		frappe.db.commit()
 
-	def test_01_comparison_operators(self):
-		"""Test =, !=, >, >=, <, <="""
-		res = frappe.qb.get_query("QB Op Parent", fields=["code", "val"], filters=[["val", ">", 15]]).run(
+	def test_01_all_six_comparison_operators(self):
+		"""Explicitly test all six native comparison operators: =, !=, >, >=, <, <=."""
+		# Equals
+		r_eq = frappe.qb.get_query("QB Op Parent", fields=["code", "val"], filters=[["val", "=", 10]]).run(
 			as_dict=True
 		)
-		self.assertEqual({r["code"] for r in res}, {"CODE_B", "CODE_C"})
+		self.assertEqual({r["code"] for r in r_eq}, {"CODE_A"})
 
-		res = frappe.qb.get_query("QB Op Parent", fields=["code", "val"], filters=[["val", "<=", 10]]).run(
+		# Not Equals
+		r_neq = frappe.qb.get_query("QB Op Parent", fields=["code", "val"], filters=[["val", "!=", 10]]).run(
 			as_dict=True
 		)
-		self.assertEqual({r["code"] for r in res}, {"CODE_A"})
+		self.assertEqual({r["code"] for r in r_neq}, {"CODE_B", "CODE_C", "CODE_D"})
 
-	def test_02_pattern_matching_wildcards(self):
-		"""Test 'like' and 'not like' with % (multi-char) and _ (single-char) wildcards."""
-		res = frappe.qb.get_query(
+		# Greater Than
+		r_gt = frappe.qb.get_query("QB Op Parent", fields=["code", "val"], filters=[["val", ">", 20]]).run(
+			as_dict=True
+		)
+		self.assertEqual({r["code"] for r in r_gt}, {"CODE_C", "CODE_D"})
+
+		# Greater Than or Equal
+		r_gte = frappe.qb.get_query("QB Op Parent", fields=["code", "val"], filters=[["val", ">=", 20]]).run(
+			as_dict=True
+		)
+		self.assertEqual({r["code"] for r in r_gte}, {"CODE_B", "CODE_C", "CODE_D"})
+
+		# Less Than
+		r_lt = frappe.qb.get_query("QB Op Parent", fields=["code", "val"], filters=[["val", "<", 20]]).run(
+			as_dict=True
+		)
+		self.assertEqual({r["code"] for r in r_lt}, {"CODE_A"})
+
+		# Less Than or Equal
+		r_lte = frappe.qb.get_query("QB Op Parent", fields=["code", "val"], filters=[["val", "<=", 20]]).run(
+			as_dict=True
+		)
+		self.assertEqual({r["code"] for r in r_lte}, {"CODE_A", "CODE_B"})
+
+	def test_02_pattern_matching_like_and_not_like(self):
+		"""Test 'like' and 'not like' operators with % and _ wildcards."""
+		res_like = frappe.qb.get_query(
 			"QB Op Parent", fields=["code", "notes"], filters=[["notes", "like", "alpha%"]]
 		).run(as_dict=True)
-		self.assertEqual(len(res), 1)
-		self.assertEqual(res[0]["code"], "CODE_A")
+		self.assertEqual({r["code"] for r in res_like}, {"CODE_A"})
 
-		res_single = frappe.qb.get_query(
-			"QB Op Parent", fields=["code", "notes"], filters=[["notes", "like", "beta_2"]]
+		res_not_like = frappe.qb.get_query(
+			"QB Op Parent", fields=["code", "notes"], filters=[["notes", "not like", "alpha%"]]
 		).run(as_dict=True)
-		self.assertEqual(len(res_single), 1)
-		self.assertEqual(res_single[0]["code"], "CODE_B")
+		self.assertEqual({r["code"] for r in res_not_like}, {"CODE_B", "CODE_D"})
 
-	def test_03_in_and_not_in_with_empty_sequence(self):
+	def test_03_in_and_not_in_operators(self):
 		"""Test 'in' and 'not in' with populated and empty sequences."""
-		res = frappe.qb.get_query(
+		res_in = frappe.qb.get_query(
 			"QB Op Parent", fields=["code", "val"], filters=[["val", "in", [10, 20]]]
 		).run(as_dict=True)
-		self.assertEqual({r["code"] for r in res}, {"CODE_A", "CODE_B"})
+		self.assertEqual({r["code"] for r in res_in}, {"CODE_A", "CODE_B"})
 
-		# Empty list is converted by _apply_filter to ('',) preventing SQL syntax error
-		res_empty = frappe.qb.get_query(
+		res_not_in = frappe.qb.get_query(
+			"QB Op Parent", fields=["code", "val"], filters=[["val", "not in", [10, 20]]]
+		).run(as_dict=True)
+		self.assertEqual({r["code"] for r in res_not_in}, {"CODE_C", "CODE_D"})
+
+		# Empty sequence handling
+		res_empty_in = frappe.qb.get_query(
 			"QB Op Parent", fields=["code", "val"], filters=[["val", "in", []]]
 		).run(as_dict=True)
-		self.assertEqual(len(res_empty), 0)
+		self.assertEqual(len(res_empty_in), 0)
 
-	def test_04_is_and_null_semantics(self):
-		"""Test 'is' operator with 'set', 'not set', and None in '=' operator."""
-		res_null = frappe.qb.get_query(
-			"QB Op Parent", fields=["code", "notes"], filters=[["notes", "=", None]]
-		).run(as_dict=True)
-		self.assertEqual(len(res_null), 1)
-		self.assertEqual(res_null[0]["code"], "CODE_C")
-
+	def test_04_is_set_and_is_not_set_null_vs_empty_string(self):
+		"""Test 'is set' and 'is not set' behavior against both SQL NULL (None) and empty string ("")."""
+		# 'is set' matches non-null and non-empty strings
 		res_set = frappe.qb.get_query(
 			"QB Op Parent", fields=["code", "notes"], filters=[["notes", "is", "set"]]
 		).run(as_dict=True)
 		self.assertEqual({r["code"] for r in res_set}, {"CODE_A", "CODE_B"})
 
+		# 'is not set' matches BOTH SQL NULL (CODE_C) AND empty string "" (CODE_D)
 		res_not_set = frappe.qb.get_query(
 			"QB Op Parent", fields=["code", "notes"], filters=[["notes", "is", "not set"]]
 		).run(as_dict=True)
-		self.assertEqual(len(res_not_set), 1)
-		self.assertEqual(res_not_set[0]["code"], "CODE_C")
+		self.assertEqual({r["code"] for r in res_not_set}, {"CODE_C", "CODE_D"})
 
-	def test_05_between_operator(self):
-		"""Test 'between' operator with numeric ranges."""
+	def test_05_between_operator_numeric_boundaries(self):
+		"""Test 'between' operator inclusive range boundaries."""
 		res = frappe.qb.get_query(
 			"QB Op Parent", fields=["code", "val"], filters=[["val", "between", [10, 20]]]
 		).run(as_dict=True)
