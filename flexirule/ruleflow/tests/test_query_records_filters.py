@@ -310,13 +310,37 @@ class TestFetchRecordsCanonicalFilterContract(FrappeTestCase):
 
 	def test_nested_canonical_tree_converts_to_native_filters(self):
 		tree = {
-			"type": "group", "operator": "and", "children": [
-				{"type": "leaf", "doctype": "User", "field": "enabled", "operator": "=", "value": {"mode": "static", "value": 1}},
-				{"type": "group", "operator": "or", "children": [
-					{"type": "leaf", "doctype": "User", "field": "first_name", "operator": "starts with", "value": {"mode": "static", "value": "Ada"}},
-					{"type": "leaf", "doctype": "User", "field": "last_name", "operator": "in", "value": {"mode": "static", "value": ["Lovelace", "Hopper"]}},
-				]},
-			]
+			"type": "group",
+			"operator": "and",
+			"children": [
+				{
+					"type": "leaf",
+					"doctype": "User",
+					"field": "enabled",
+					"operator": "=",
+					"value": {"mode": "static", "value": 1},
+				},
+				{
+					"type": "group",
+					"operator": "or",
+					"children": [
+						{
+							"type": "leaf",
+							"doctype": "User",
+							"field": "first_name",
+							"operator": "starts with",
+							"value": {"mode": "static", "value": "Ada"},
+						},
+						{
+							"type": "leaf",
+							"doctype": "User",
+							"field": "last_name",
+							"operator": "in",
+							"value": {"mode": "static", "value": ["Lovelace", "Hopper"]},
+						},
+					],
+				},
+			],
 		}
 		self.assertEqual(self.handler._validate_canonical_fetch_filter_tree(tree), [])
 		self.assertEqual(
@@ -344,7 +368,11 @@ class TestFetchRecordsCanonicalFilterContract(FrappeTestCase):
 	def test_rejects_malformed_canonical_nodes(self):
 		invalid_trees = [
 			{"type": "group", "operator": "xor", "children": []},
-			{"type": "group", "operator": "and", "children": [{"type": "leaf", "field": "", "operator": "=", "value": 1}]},
+			{
+				"type": "group",
+				"operator": "and",
+				"children": [{"type": "leaf", "field": "", "operator": "=", "value": 1}],
+			},
 			{"type": "leaf", "field": "enabled", "operator": "contains", "value": "x"},
 			{"type": "leaf", "field": "enabled", "operator": "=", "value": {"unexpected": 1}},
 			{"type": "leaf", "field": "enabled", "operator": "="},
@@ -356,25 +384,45 @@ class TestFetchRecordsCanonicalFilterContract(FrappeTestCase):
 	def test_serialized_fetch_records_config_uses_only_canonical_conversion(self):
 		config = {
 			"filters": {
-				"type": "group", "operator": "and", "children": [
-					{"type": "leaf", "doctype": "User", "field": "enabled", "operator": "=", "value": {"mode": "static", "value": 1}},
-					{"type": "leaf", "doctype": "User", "field": "first_name", "operator": "like", "value": {"mode": "static", "value": "Ada%"}},
-				]
+				"type": "group",
+				"operator": "and",
+				"children": [
+					{
+						"type": "leaf",
+						"doctype": "User",
+						"field": "enabled",
+						"operator": "=",
+						"value": {"mode": "static", "value": 1},
+					},
+					{
+						"type": "leaf",
+						"doctype": "User",
+						"field": "first_name",
+						"operator": "like",
+						"value": {"mode": "static", "value": "Ada%"},
+					},
+				],
 			}
 		}
-		action = frappe._dict({
-			"operation": "Fetch Records", "reference_doctype": "User",
-			"ignore_permissions": 1, "permission_audit_reason": "Canonical contract test",
-			"label": "Canonical contract test", "config": frappe.as_json(config),
-		})
-		with patch("flexirule.ruleflow.utils.frappe_query_compat.execute_query", return_value=[{"name": "user-1"}]) as execute_query:
+		action = frappe._dict(
+			{
+				"operation": "Fetch Records",
+				"reference_doctype": "User",
+				"ignore_permissions": 1,
+				"permission_audit_reason": "Canonical contract test",
+				"label": "Canonical contract test",
+				"config": frappe.as_json(config),
+			}
+		)
+		with patch(
+			"flexirule.ruleflow.utils.frappe_query_compat.execute_query", return_value=[{"name": "user-1"}]
+		) as execute_query:
 			result, _ = self.handler.execute(action, self.context, None)
 		self.assertEqual(result, [{"name": "user-1"}])
 		self.assertEqual(
 			execute_query.call_args.args[1]["filters"],
 			[["User", "enabled", "=", 1], "and", ["User", "first_name", "like", "Ada%"]],
 		)
-
 
 	def test_legacy_in_not_in_null_empty_and_wildcard_semantics_remain_normalized(self):
 		config = {
@@ -387,7 +435,9 @@ class TestFetchRecordsCanonicalFilterContract(FrappeTestCase):
 				["email", "ends with", "@example.test"],
 			]
 		}
-		filters, _ = self.handler._resolve_query_filters(config, self.context, self.action, reference_doctype="User")
+		filters, _ = self.handler._resolve_query_filters(
+			config, self.context, self.action, reference_doctype="User"
+		)
 		self.assertIn(["name", "in", ["A", "B"]], filters)
 		self.assertIn(["name", "not in", ["C", "D"]], filters)
 		self.assertIn(["description", "=", None], filters)
