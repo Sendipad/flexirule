@@ -653,12 +653,16 @@ class QueryRecordsHandler(ActionHandler):
 			value = config.get(key)
 			if value is None or value == "":
 				continue
-			value = resolve_payload(value, f"{action_label}.{key}")
-			if key == "filters":
-				# Fetch Records accepts only its canonical persisted tree. Resolve
-				# FlexValues first, then emit native tuples while preserving relationship
-				# paths for Query Builder to interpret.
+			if key == "filters" and self._is_canonical_filter_tree(value):
+				# Resolve only leaf values. Recursively resolving every string in the
+				# persisted tree corrupts structural tokens such as "group", "and",
+				# field names, and DocType names.
+				value = self._resolve_fetch_filter_tree_values(
+					value, context, f"{action_label}.filters", action
+				)
 				value = self._canonical_fetch_filter_tree_to_backend(value, reference_doctype)
+			else:
+				value = resolve_payload(value, f"{action_label}.{key}")
 			kwargs[key] = value
 
 		from flexirule.ruleflow.utils.frappe_query_compat import execute_query
@@ -1187,6 +1191,37 @@ class QueryRecordsHandler(ActionHandler):
 
 	def _is_canonical_filter_tree(self, value) -> bool:
 		return isinstance(value, dict) and value.get("type") in {"group", "leaf"}
+
+	def _resolve_fetch_filter_tree_values(self, node, context, path, action):
+		"""Resolve FlexValues in canonical Fetch Records leaves without touching tree metadata."""
+		if not isinstance(node, dict):
+			return node
+		node_type = node.get("type")
+		if node_type == "group":
+			resolved = dict(node)
+			resolved["children"] = [
+				self._resolve_fetch_filter_tree_values(child, context, f"{path}.children[{index}]", action)
+				for index, child in enumerate(node.get("children") or [])
+			]
+			return resolved
+		if node_type == "leaf":
+			resolved = dict(node)
+			if "value" in node:
+				resolved["value"] = self._resolve_filter_leaf_value(
+					node["value"], context, f"{path}.value", action
+				)
+			return resolved
+		return node
+
+	def _resolve_filter_leaf_value(self, value, context, path, action):
+		"""Resolve a leaf's FlexValue payload while preserving raw JSON objects."""
+		if isinstance(value, dict):
+			if "mode" in value:
+				return self._resolve_value_expression_with_context(value, context, path, action)
+			return value
+		if isinstance(value, str):
+			return self._resolve_value_expression_with_context(value, context, path, action)
+		return value
 
 	def _canonical_fetch_filter_tree_to_backend(self, node, reference_doctype: str | None = None):
 		"""Convert Fetch Records' canonical tree to native Query Builder filter tuples.
