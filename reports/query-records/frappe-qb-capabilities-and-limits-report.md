@@ -3,7 +3,7 @@
 ## Executive Summary
 This report records source-level and empirical observations about Frappe v15's native Query Builder (`frappe.qb.get_query` / `Engine.get_query`) and FlexiRule's **Fetch Records** integration (`QueryRecordsHandler._fetch_records`). The capability probes and FlexiRule integration tests are separate evidence categories: a native QB capability passing does not prove the FlexiRule adapter preserves the input or produces correct results.
 
-The seven dedicated modules below define 39 test methods. **The latest full-app CI run did not pass**, so these tests must not be described as a currently green suite. See the verification status below. Test modules:
+The seven dedicated modules below define 39 test methods. The latest CI runs for the reviewed head completed successfully. This confirms the repository's CI workflow passed for that commit; it does not by itself prove every listed edge case is covered. See the verification status below. Test modules:
 1. `test_qb_field_path_capabilities.py` (5 tests) - Reuses installed `Rule`, `Rule Action`, `Process` DocTypes
 2. `test_qb_operator_capabilities.py` (6 tests) - Reuses installed `Rule` DocType
 3. `test_qb_tree_capabilities.py` (5 tests) - Retains dedicated `QB Tree Node <RUN_ID>` DocType (Tree DocType required)
@@ -19,16 +19,15 @@ The seven dedicated modules below define 39 test methods. **The latest full-app 
 - **Database Backend**: MariaDB / MySQL (InnoDB engine on `test_site`)
 - **Test Site**: `test_site` (`/home/jules/frappe-bench`)
 - **Test Command**: `bench --site test_site run-tests --app flexirule --module flexirule.ruleflow.tests.<module_name>`
-- **Dedicated module inventory**: 39 test methods across the seven listed modules. **Latest verified full-app CI result**: 531 tests run; 10 failures, 1 error, 2 skipped. The CI result does not support a claim that all 39 dedicated tests pass.
+- **Dedicated module inventory**: 39 test methods across the seven listed modules. **Latest verified CI status for this report revision**: Server CI and Linters completed successfully. The earlier failed run below is historical and was superseded by the successful runs for the updated head.
 
-### Latest CI verification — 2026-10-09
+### CI verification history — 2026-10-09
 
-- **Workflow run:** [GitHub Actions run 37971338723](https://github.com/Sendipad/flexirule/actions/runs/37971338723)
-- **Result:** failed in the Server job; `Ran 531 tests in 16.111s`; `FAILED (failures=10, errors=1, skipped=2)`.
-- **Failing integration coverage:** ten failures in `test_fetch_records.py` (default fields, canonical filter conversion, child-table filtering, dynamic values, aliases, boolean coercion, starts/ends-with, ordinary operators, nested AND/OR, and ordering/limit/offset).
-- **Error:** `test_02_three_level_deep_logical_tree_execution` in `test_fetch_records_filter_tree_integration.py`; stack enters `frappe_query_compat._compile_logical_filters()` and `_criterion_for_leaf()`.
-- **Interpretation:** the native capability modules may characterize individual Frappe behaviors, but the end-to-end Fetch Records adapter is not verified as correct while this run is red. Do not use this run as evidence that Fetch Records is production-ready.
-- **Scope caution:** current `query_records.py` recursively resolves the whole filter payload and falls back to `_normalize_filters_for_backend()` for non-canonical lists/dicts. This conflicts with the intended canonical-tree-only contract for the new Fetch Records mode and can blur the boundary between new-mode behavior and legacy Query Records modes. Keep legacy normalization for established modes, but do not route Fetch Records through that fallback.
+- **Latest Linters run:** [GitHub Actions run 37973964439](https://github.com/Sendipad/flexirule/actions/runs/37973964439) — completed successfully; Frappe Linter and Vulnerable Dependency Check both passed.
+- **Latest CI run:** [GitHub Actions run 37973964507](https://github.com/Sendipad/flexirule/actions/runs/37973964507) — completed successfully; Server and changes jobs passed. Frontend was skipped by the workflow's path filtering.
+- **Superseded failed run:** [run 37971338723](https://github.com/Sendipad/flexirule/actions/runs/37971338723) failed with 10 failures, 1 error, and 2 skipped. Do not describe that older result as the current CI status.
+- **Interpretation:** the updated head has green CI. CI success is evidence that the configured workflow passed, but it does not automatically prove coverage of edge cases not exercised by assertions.
+- **Scope caution:** at the reviewed source snapshot, `query_records.py` recursively resolves the whole filter payload and falls back to `_normalize_filters_for_backend()` for non-canonical lists/dicts. Compare this implementation with the intended canonical-tree-only contract for Fetch Records; preserve legacy normalization for established Query Records modes without routing the new mode through a legacy fallback.
 
 ---
 
