@@ -4,11 +4,13 @@
 
 This report separates three evidence categories that must not be conflated:
 
-1. **Native Frappe Query Builder characterization** — observations about the installed Frappe v15 `frappe.qb.get_query()` API and its SQL/runtime behavior. The capability findings below are the existing characterization record; they are not evidence that the newly added FlexiRule tests ran in this change.
-2. **Fetch Records canonical-contract tests** — tests added in `flexirule/ruleflow/tests/test_query_records_filters.py` for canonical hierarchical filter trees, nested AND/OR conversion, malformed nodes, and serialized action configuration. These tests have **not been executed as part of this GitHub-connector change**, so their pass/fail status is unknown.
-3. **Existing-mode legacy regression tests** — the same test module contains coverage for flat tuples/lists/dictionaries, operator normalization, Timespan/Between, boolean payloads, child-table filters, Query List, Count, aggregation, and Group By. These existing-mode tests have **not been executed as part of this GitHub-connector change**, so their current pass/fail status is unknown.
+1. **Native Frappe Query Builder characterization** — observations about the installed Frappe v15 `frappe.qb.get_query()` API and its SQL/runtime behavior. These characterize Frappe, not the correctness of FlexiRule's adapter.
+2. **Fetch Records integration evidence** — the current CI run exercises the full FlexiRule app suite, but it is **red**: 531 tests ran, with 10 failures, 1 error, and 2 skipped. Ten failures are in `test_fetch_records.py`; the error is the three-level nested logical tree test in `test_fetch_records_filter_tree_integration.py`. Therefore the adapter's current end-to-end behavior is not verified.
+3. **Existing-mode legacy regression tests** — `test_query_records_filters.py` also covers legacy tuple/list/dict normalization and established Query Records modes. Keep those compatibility guarantees separate from Fetch Records' new persisted contract.
 
-The Fetch Records contract is intentionally strict: its persisted `filters` value must be a canonical `group`/`leaf` tree. It does not fall back to the legacy normalizer. Established modes retain their legacy normalization paths. Do not treat the new tests as verified until they are run in the project's Frappe v15 test environment.
+**Contract discrepancy at the reviewed head:** the intended Fetch Records contract is canonical `group`/`leaf` tree only, but `query_records.py` currently recursively calls `resolve_payload()` on the entire filter object and then invokes `_normalize_filters_for_backend()` for non-canonical list/dict filters. In addition, `test_03_legacy_tuple_and_list_filter_shapes` in `test_fetch_records_filter_tree_integration.py` explicitly expects Fetch Records to accept legacy filters. Both the implementation and that test conflict with the intended strict contract. Legacy normalization should remain available to established modes such as Query List/Get List; Fetch Records should validate and convert only canonical trees.
+
+**Latest CI evidence:** [run 37971338723](https://github.com/Sendipad/flexirule/actions/runs/37971338723), Server job failed: 531 tests, 10 failures, 1 error, 2 skipped. The report must not characterize this revision as passing or production-ready.
 
 ---
 
