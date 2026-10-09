@@ -538,6 +538,7 @@ class QueryRecordsHandler(ActionHandler):
 	_FETCH_RECORDS_OPERATORS = {
 		"=", "!=", "<>", ">", ">=", "<", "<=", "like", "not like", "in", "not in",
 		"between", "not between", "is", "is set", "is not set", "timespan",
+		"starts with", "ends with", "contains", "not contains",
 		"descendants of", "ancestors of",
 	}
 
@@ -575,6 +576,15 @@ class QueryRecordsHandler(ActionHandler):
 			errors.append(_("{0}.value.mode is not supported").format(path))
 		elif isinstance(value, dict) and "mode" not in value:
 			errors.append(_("{0}.value must be a FlexValue or JSON value").format(path))
+		elif isinstance(value, dict) and value.get("mode") == "static":
+			operator_name = operator.strip().lower() if isinstance(operator, str) else ""
+			static_value = value.get("value")
+			if operator_name in {"between", "not between"} and not (
+				isinstance(static_value, list | tuple) and len(static_value) == 2
+			):
+				errors.append(_("{0}.value for Between must contain exactly two values").format(path))
+			if operator_name in {"in", "not in"} and not isinstance(static_value, list | tuple | str):
+				errors.append(_("{0}.value for IN/NOT IN must be a list or string").format(path))
 		return errors
 
 	def _fetch_records(self, reference_doctype, config, context, action, ignore_permissions):
