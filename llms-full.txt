@@ -478,6 +478,23 @@ When to Use# Use AI Features when you need to handle unstructured data (e.g., se
 AI Integration Flow# sequenceDiagram participant E as Engine participant A as AI Action participant P as AI Provider (LLM) E-&gt;&gt;A: Execute Node (Context) A-&gt;&gt;A: Build Prompt with doc/vars A-&gt;&gt;P: Request (Prompt) P--&gt;&gt;A: Response (JSON/Text) A--&gt;&gt;E: Update Context (vars.ai_result) Prompt Best Practices# Be Specific: Provide clear instructions and examples (few-shot prompting) within the action configuration. Limit Output: Request the AI to return data in a specific format (e.g., JSON) for easier parsing by subsequent nodes. Security: Be mindful of PII (Personally Identifiable Information) when sending data to external AI providers. Limitations &amp;amp; Considerations# Latency: AI requests are network-bound and can introduce delays in rule execution. Cost: Each AI …
 
 ---
+title: Application Commit History
+url: https://sendipad.github.io/flexirule/developer-guide/commit-history/
+lastmod: 2026-10-09
+summary: Complete, chronologically ordered traceable record of Sendipad/flexirule commits on the develop branch for developers, maintainers, and scheduled automation agents.
+concepts: 
+tags: 
+difficulty: 
+related: 
+actions: read, implement, integrate, troubleshoot, improve
+
+Welcome to the Application Commit History page. This technical reference provides a full, traceable history of commits for the core application repository Sendipad/flexirule on the develop branch.
+Unlike the Product Updates page—which presents filtered, business-oriented release notes—this page contains the original git commit subjects, author information, SHAs, and links to GitHub commits and pull requests.
+Machine-Readable API Endpoints# For scheduled automation agents, CI pipelines, and external auditing tools, stable machine-readable JSON data is generated and published alongside this site:
+Full Commit History Endpoint: data/commit_history.json Product Review Checkpoint Endpoint: data/product_updates_checkpoint.json Automation Workflow Specification: See Scheduled Agent Workflow Synchronized Application Commits# Use the search box below to filter commit messages, SHAs, authors, or PR references in real time.
+Synchronized History Meta Repository: Sendipad/flexirule (Branch: develop) &amp;bull; Total Commits: 842 Raw JSON Endpoint Last synchronized: Oct 9, 2026 23:06 UTC Showing 842 commits Date SHA Commit Message Author PR 2026-10-04 1c32acc remove Rule Permission from workspace Abdo Ruzaqi &amp;mdash; 2026-10-03 322e824 test(query-records): audit frappe.qb.get_query in frappe v15 Sendipad &amp;mdash; 2026-10-03 709e778 test(query-records): audit frappe.qb.get_query in frappe v15 Sendipad &amp;mdash; 2026-10-03 67f756e test(query-records): audit frappe.qb.get_query in frappe v15 Sendipad &amp;mdash; 2026-10-03 2f8593e test(query-records): audit frappe.qb.get_query in frappe v15 Sendipad &amp;mdash; 2026-10-03 af51f58 test(query-records): audit frappe.qb.get_query in frappe v15 Sendipad &amp;mdash; 2026-10-02 b61619b fix(ruleflow): refine Query Records reference_doctype validation when config has doctype_name Sendipad &amp;mdash; 2026-10-02 c8cb5c6 fix(ruleflow): fix duplicate isVariableSyntax in QueryRecordsConfig and improve Query Doc UI Sendipad &amp;mdash; 2026-10-02 c60c7d7 feat(ruleflow): improve query doc ui, conditional sync, and fetch strategy Sendipad &amp;mdash; 2026-10-01 4c226ca fix(rule): add dashboard setup and link config for connection stats Sendipad &amp;mdash; 2026-10-01 0ffec6b …
+
+---
 title: Architecture
 url: https://sendipad.github.io/flexirule/advanced-concepts/architecture/overview/
 lastmod: 2026-06-26
@@ -1177,6 +1194,22 @@ actions: read, implement, integrate, troubleshoot, improve
 
 RuleFlow Settings# RuleFlow Settings controls site-wide FlexiRule behavior and preferences for the visual builder. Open it from the Frappe Desk by searching for RuleFlow Settings. The available fields in your installed version are the source of truth; this page explains the intent of the settings represented in the current RuleFlow Settings DocType.
 Runtime and operational settings# Setting What it controls Guidance Debug Logging Detailed execution diagnostics Enable when investigating a rule; verbose logs can add overhead and volume Log Retention Days Retention period for execution logs Choose a period that balances troubleshooting needs and database maintenance Default Max Execution Time Default time limit for rule execution Keep the limit appropriate for the type of work performed Allow Async Actions Whether asynchronous actions are permitted Enable only when background processing is configured and appropriate Excluded DocTypes DocTypes excluded from applicable rule behavior Use this carefully to prevent unwanted execution on selected types Rule Builder preferences# Setting Options / purpose Action Configuration Mode Choose Sidebar or Dialog for configuring actions Open Configuration On Choose Click, Double Click, or Icon Only according to your workflow Canvas Theme System, Light, or Dark Layout Direction Left to Right or Top to Bottom Sidebar Position Left or Right when Sidebar mode is selected Enable Edge Insertion Controls the edge-insertion canvas convenience Require Approval to Activate Adds an approval requirement to rule activation Allow Editing Active Rules Controls whether active rules may be edited; changing active rules can affect production behavior Recommended setup# Review logging and retention before enabling production rules. Confirm whether asynchronous actions are needed and that the site&amp;rsquo;s background workers are operating. Choose builder preferences that suit the team; these preferences affect editing experience, not the business meaning of the rule. Decide whether activation approval is appropriate for your change-control process. Be cautious with Allow Editing Active Rules. For controlled production systems, prefer a review-and-test …
+
+---
+title: Scheduled Agent Automation Workflow
+url: https://sendipad.github.io/flexirule/developer-guide/scheduled-agent-workflow/
+lastmod: 2026-10-09
+summary: Automated synchronization and product-update review workflow for scheduled agents.
+concepts: 
+tags: 
+difficulty: 
+related: 
+actions: read, implement, integrate, troubleshoot, improve
+
+Scheduled Agent Automation Workflow# This document details the operational specifications, algorithm, data schemas, checkpoint semantics, data minimization rules, and failure handling procedures for automated scheduled agents that process application commit history and maintain product updates for FlexiRule.
+1. Responsibilities &amp;amp; UI Separation# To preserve absolute accuracy, privacy, and commit traceability, the system strictly separates public user-facing content from internal developer diagnostics:
+content/en/product-updates/_index.md: Public-facing release notes written in clear, business-oriented language for Frappe/ERPNext users. Does not display raw commit SHAs, author email addresses, checkpoint badges, or automation diagnostics. content/en/developer-guide/commit-history.md: Technical developer view providing full git commit subjects, SHAs, PR links, and search controls. data/commit_history.json &amp;amp; static/data/commit_history.json: Canonical public commit history API. Author and committer email addresses are excluded to enforce data minimization. data/product_updates_checkpoint.json &amp;amp; static/data/product_updates_checkpoint.json: Machine-readable review checkpoint tracking the latest commit SHA evaluated for product-facing impact. data/commit_audit_map.json &amp;amp; static/data/commit_audit_map.json: Internal audit matrix mapping each commit SHA to its review classification (user_facing, internal, needs_review) and associated update ID. 2. Agent Execution Algorithm# A scheduled agent must execute the following 11-step procedure during each execution cycle:
+Read Canonical Checkpoint: Read data/product_updates_checkpoint.json to obtain latest_reviewed_commit_sha. Fetch Develop Head SHA: Query the GitHub REST API (https://api.github.com/repos/Sendipad/flexirule/commits?sha=develop&amp;amp;per_page=1) or fetch local git HEAD to obtain head_sha. Compare SHAs: If head_sha == latest_reviewed_commit_sha, log &amp;ldquo;No new commits require review&amp;rdquo; and exit safely with status 0. Synchronize Commit History: Run python3 scripts/sync_commit_history.py to update data/commit_history.json and verify that the static/data/ static mirror is identical. Identify Commit …
 
 ---
 title: Switch

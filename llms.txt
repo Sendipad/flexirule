@@ -59,6 +59,8 @@ Generated: 2026-10-09
 
 - [AI Features](https://sendipad.github.io/flexirule/advanced-concepts/ai-features/) — Leveraging Artificial Intelligence within FlexiRule logic.
 
+- [Application Commit History](https://sendipad.github.io/flexirule/developer-guide/commit-history/) — Complete, chronologically ordered traceable record of Sendipad/flexirule commits on the develop branch for developers, maintainers, and scheduled automation agents.
+
 - [Architecture](https://sendipad.github.io/flexirule/advanced-concepts/architecture/overview/) — Core architecture and design philosophy of FlexiRule.
 
 - [Assignment Action Improvements](https://sendipad.github.io/flexirule/advanced-concepts/roadmap/assignment-action-improvements/) — Strategic roadmap for enhancing the core Assignment mechanism.
@@ -136,6 +138,8 @@ Generated: 2026-10-09
 - [Rule Configuration & Trigger Setup](https://sendipad.github.io/flexirule/rule-builder/rule-configuration/) — Configure when a rule runs, which document it applies to, and how execution is controlled.
 
 - [RuleFlow Settings](https://sendipad.github.io/flexirule/setup/settings/) — Configure global runtime behavior and Rule Builder preferences.
+
+- [Scheduled Agent Automation Workflow](https://sendipad.github.io/flexirule/developer-guide/scheduled-agent-workflow/) — Automated synchronization and product-update review workflow for scheduled agents.
 
 - [Switch](https://sendipad.github.io/flexirule/action-type/switch/) — Route execution along multiple outbound paths based on matching field values.
 
