@@ -23,6 +23,7 @@ const props = defineProps({
 const emit = defineEmits(["remove", "operator"]);
 const api = inject("treeBuilderContext", null);
 const dragOver = ref(false);
+const dropPosition = ref(null);
 const kind = computed(() => props.node.type);
 const children = computed(() => props.node.children || []);
 
@@ -34,27 +35,64 @@ function dragStart(e) {
 	e.dataTransfer.setData("text/plain", props.node.id || "");
 }
 
+function getDropIntent(e) {
+	const rect = e.currentTarget.getBoundingClientRect();
+	const ratio = rect.height > 0 ? (e.clientY - rect.top) / rect.height : 0.5;
+	const isContainer = isGroupNode(props.node) || isCollectionNode(props.node);
+
+	if (isContainer && ratio >= 0.25 && ratio <= 0.75) {
+		return { targetId: props.node.id, position: -1, visualPosition: "inside" };
+	}
+
+	const after = ratio > (isContainer ? 0.75 : 0.5);
+	return {
+		targetId: props.parent.id,
+		position: props.index + (after ? 1 : 0),
+		visualPosition: after ? "after" : "before",
+	};
+}
+
 function dragOverNode(e) {
-	if (
-		props.readOnly ||
-		(!isGroupNode(props.node) && !isCollectionNode(props.node) && !isLeafNode(props.node))
-	)
+	if (props.readOnly || !api?.dragState?.nodeId) return;
+	const intent = getDropIntent(e);
+	if (!api.canMove(api.dragState.nodeId, intent.targetId)) {
+		dragOver.value = false;
+		dropPosition.value = null;
 		return;
+	}
+
 	e.preventDefault();
 	e.stopPropagation();
 	dragOver.value = true;
+	dropPosition.value = intent.visualPosition;
 }
 
-function dragLeave() {
+function dragLeave(e) {
+	// dragleave also fires when the pointer crosses into this node's own children.
+	// Keep the target active for those internal transitions.
+	if (e.relatedTarget instanceof Node && e.currentTarget.contains(e.relatedTarget)) return;
 	dragOver.value = false;
+	dropPosition.value = null;
+}
+
+function dragEnd(e) {
+	e.stopPropagation();
+	dragOver.value = false;
+	dropPosition.value = null;
+	api?.endDrag();
 }
 
 function drop(e) {
 	e.preventDefault();
 	e.stopPropagation();
+	const intent = getDropIntent(e);
 	dragOver.value = false;
-	if (isGroupNode(props.node) || isCollectionNode(props.node)) api?.dropNode(props.node.id);
-	else if (isLeafNode(props.node)) api?.dropNode(props.parent.id, props.index);
+	dropPosition.value = null;
+	if (api?.dragState?.nodeId && api.canMove(api.dragState.nodeId, intent.targetId)) {
+		api.dropNode(intent.targetId, intent.position);
+	} else {
+		api?.endDrag();
+	}
 }
 </script>
 
@@ -62,9 +100,14 @@ function drop(e) {
 	<div
 		v-if="visibleNode(node)"
 		class="tree-node"
-		:class="{ 'drag-over': dragOver }"
+		:class="{
+			'drag-over': dragOver && dropPosition === 'inside',
+			'drop-before': dragOver && dropPosition === 'before',
+			'drop-after': dragOver && dropPosition === 'after',
+		}"
 		draggable="true"
 		@dragstart="dragStart"
+		@dragend="dragEnd"
 		@dragover="dragOverNode"
 		@dragleave="dragLeave"
 		@drop="drop"
@@ -163,11 +206,30 @@ function drop(e) {
 
 <style scoped>
 .tree-node {
+	position: relative;
 	min-width: 0;
 }
 .tree-node.drag-over {
 	background: var(--fxr-node-accent-light, var(--fxr-accent-soft));
 	border-radius: var(--fxr-radius-lg);
 	box-shadow: inset 0 0 0 2px var(--fxr-node-accent, var(--fxr-accent));
+}
+.tree-node.drop-before::before,
+.tree-node.drop-after::after {
+	position: absolute;
+	z-index: 2;
+	right: 0;
+	left: 0;
+	height: 3px;
+	border-radius: 3px;
+	background: var(--fxr-node-accent, var(--fxr-accent));
+	content: "";
+	pointer-events: none;
+}
+.tree-node.drop-before::before {
+	top: -4px;
+}
+.tree-node.drop-after::after {
+	bottom: -4px;
 }
 </style>
