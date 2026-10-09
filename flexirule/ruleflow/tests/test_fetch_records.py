@@ -308,7 +308,9 @@ class TestFetchRecords(FrappeTestCase):
 						"fields": ["name", "description"],
 						"filters": self._group(
 							"and",
-							self._leaf("description", "=", {"mode": "variable", "value": "vars.target_pattern"}),
+							self._leaf(
+								"description", "=", {"mode": "variable", "value": "vars.target_pattern"}
+							),
 						),
 						"order_by": "{vars.sort_col}",
 						"limit": "{vars.max_count}",
@@ -431,7 +433,9 @@ class TestFetchRecords(FrappeTestCase):
 				"reference_doctype": "ToDo",
 				"config": frappe.as_json(
 					{
-						"filters": self._group("and", self._leaf("description", "starts with", f"{prefix}_invoice")),
+						"filters": self._group(
+							"and", self._leaf("description", "starts with", f"{prefix}_invoice")
+						),
 					}
 				),
 			}

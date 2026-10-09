@@ -592,7 +592,8 @@ class QueryRecordsHandler(ActionHandler):
 		elif (
 			isinstance(value, dict)
 			and "mode" in value
-			and value.get("mode") not in {"static", "link", "dynamic_link", "variable", "resolver", "expression", "jinja"}
+			and value.get("mode")
+			not in {"static", "link", "dynamic_link", "variable", "resolver", "expression", "jinja"}
 		):
 			errors.append(_("{0}.value.mode is not supported").format(path))
 		elif isinstance(value, dict) and "mode" in value:
