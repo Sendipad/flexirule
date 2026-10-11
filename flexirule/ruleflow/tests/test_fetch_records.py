@@ -664,3 +664,51 @@ class TestFetchRecords(FrappeTestCase):
 		)
 		errs = self.handler.validate(action_bad_child, {})
 		self.assertTrue(any("not a valid child table" in e for e in errs))
+
+	def test_frappe_style_function_expression_in_fields(self):
+		user_email = f"field_expr_{random_string(5).lower()}@example.com"
+		user = frappe.get_doc(
+			{
+				"doctype": "User",
+				"email": user_email,
+				"first_name": "Expression",
+			}
+		).insert(ignore_permissions=True)
+
+		action = frappe._dict(
+			{
+				"operation": "Fetch Records",
+				"reference_doctype": "User",
+				"config": frappe.as_json(
+					{
+						"result_mode": "flat_fields",
+						"fields": ["name", "COUNT(name) as record_count"],
+						"filters": [["User", "email", "=", user_email]],
+					}
+				),
+			}
+		)
+		result, _ = self.handler.execute(action, {}, None)
+		self.assertEqual(len(result), 1)
+		self.assertEqual(result[0].get("name"), user.name)
+		self.assertEqual(result[0].get("record_count"), 1)
+
+	def test_frappe_style_function_expression_validation(self):
+		def make_action(fields):
+			return frappe._dict(
+				{
+					"operation": "Fetch Records",
+					"reference_doctype": "ToDo",
+					"config": frappe.as_json({"result_mode": "flat_fields", "fields": fields}),
+				}
+			)
+
+		unsupported = self.handler.validate(make_action(["EXPLOIT(name) as value"]), {})
+		self.assertTrue(any("Unsupported SQL function" in error for error in unsupported))
+
+		missing_field = self.handler.validate(make_action(["SUM(missing_field) as total"]), {})
+		self.assertTrue(any("does not exist" in error for error in missing_field))
+
+		missing_alias = self.handler.validate(make_action(["COUNT(name)"]), {})
+		self.assertTrue(any("does not exist" in error or "alias" in error.lower() for error in missing_alias))
+
