@@ -13,6 +13,7 @@ Modes:
 """
 
 import json
+import re
 from typing import Any, ClassVar
 
 import frappe
@@ -541,8 +542,6 @@ class QueryRecordsHandler(ActionHandler):
 				for f in fields:
 					if isinstance(f, str) and f.strip():
 						fname = f.strip()
-						import re
-
 						function_match = re.fullmatch(
 							r"([A-Za-z]+)\(([^()]*)\)\s+as\s+([A-Za-z_][A-Za-z0-9_]*)",
 							fname,
@@ -590,8 +589,6 @@ class QueryRecordsHandler(ActionHandler):
 								_("Duplicate output key '{0}' in selected fields").format(output_key)
 							)
 						output_keys.add(output_key)
-
-			import re
 
 			has_aggregate = any(
 				isinstance(field, str)
