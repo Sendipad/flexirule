@@ -1,5 +1,49 @@
 # Query Records — "Fetch Records" Backend Operation Implementation Report
 
+> **Independent review addendum — 2026-10-11**
+>
+> This review does not treat the historical claims below as verified facts. The PR diff and current compatibility code were inspected independently. The earlier implementation narrative contains material inaccuracies and overstates verification; use this addendum as the current status until the report is fully reconciled with source and CI.
+>
+> ### Verified from the PR diff
+>
+> - The PR adds a dedicated Fetch Records operation and dispatch path in QueryRecordsHandler.
+> - The frontend adds Fetch Records configuration, a filter-tree serializer, reusable Tree Builder components, and unit tests.
+> - The backend routes query execution through frappe.qb.get_query and adds a compatibility module for logical filter groups and query API capabilities.
+> - The PR adds backend tests covering handler execution, filter normalization, field paths, operator/value matrices, filter-tree integration, and compatibility behavior.
+>
+> ### Report claims that must not be relied on without correction
+>
+> - The claim that frappe.has_permission(doctype, "read") alone strictly enforces Fetch Records permissions is not sufficient. A DocType-level check does not establish row-level visibility or field-level access.
+> - The report's description of a single pre-query permission check does not match the PR's compatibility implementation, which conditionally passes ignore_permissions to frappe.qb.get_query and otherwise attempts a separate permission check plus a generated row predicate.
+> - A generated row predicate is not, by itself, proof of parity for User Permissions, shares, ownership restrictions, permission-query hooks, or field-level permissions.
+> - The report says all 9 new tests and 483 total tests passed, but does not provide a run identifier, exact command, commit SHA, environment, or current-head CI evidence. Treat these as historical/unverified claims, not current verification.
+> - The report says frontend work was out of scope, while this PR changes the frontend. That statement is stale and must not define the actual PR scope.
+> - The stated support for aliases, wildcard fields, structured child selection, grouping, and all advertised operators must be backed by end-to-end assertions on the supported Frappe/database matrix; capability detection alone does not prove execution semantics.
+>
+> ### Status after this review
+>
+> | Area | Status | Evidence / remaining work |
+> |---|---|---|
+> | Fetch Records operation and handler path | Implemented in PR diff | Still needs final-head regression verification |
+> | Frontend filter tree and serializer | Implemented in PR diff | UI save/reload/edit/save and browser tests remain unverified |
+> | Native permission-aware query path | Partially implemented | Must verify actual behavior on each supported Frappe version and database |
+> | Compatibility path when native ignore_permissions is absent | Unsafe to claim equivalent | This follow-up changes permission-respecting queries to fail closed rather than emulate full permission semantics with a DocType check and generated predicate |
+> | Logical-filter compatibility compiler | Implemented in PR diff | Needs tests for precedence, malformed trees, unsupported operators, and relationship paths |
+> | Dynamic structural values and query-cost limits | Not demonstrated as complete | Validate resolved values and enforce bounded query complexity/result size |
+> | Cross-version/database integration | Not verified by this report | Record exact CI jobs and results before marking complete |
+> | Existing Query Records modes | Intended to remain compatible | Regression tests must establish this; intent is not proof |
+>
+> ### Follow-up implementation
+>
+> Branch fix/fetch-records-permission-fail-closed is based on feat/fetch-records-mode. The compatibility adapter now rejects permission-respecting queries when the installed API lacks native ignore_permissions support. It no longer treats a DocType permission check plus a generated row condition as equivalent to Frappe's full query permission contract. Explicitly authorized ignore_permissions=True execution remains governed by the existing FlexiRule permission policy.
+>
+> The compatibility tests were updated to assert fail-closed behavior and to keep logical-filter/pagination tests focused on the explicitly bypass-authorized path. These changes have been committed to the follow-up branch, but tests have not been executed in a live Frappe environment by this review.
+>
+> ### Completion rule
+>
+> A task is complete only when source behavior and tests demonstrate its acceptance criteria. PR diff presence, an implementation plan, static capability probes, and historical test-count statements do not independently satisfy that rule.
+>
+> 
 ## Overview
 
 This report documents the backend implementation of the **Fetch Records** operation under FlexiRule's existing **Query Records** Action Type (`action_type: "Query Records"`, `operation: "Fetch Records"`). The new operation is powered natively by Frappe Framework's modern `frappe.qb.get_query` API.
