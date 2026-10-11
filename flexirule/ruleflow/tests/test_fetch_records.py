@@ -711,3 +711,6 @@ class TestFetchRecords(FrappeTestCase):
 		missing_alias = self.handler.validate(make_action(["COUNT(name)"]), {})
 		self.assertTrue(any("does not exist" in error or "alias" in error.lower() for error in missing_alias))
 
+		mixed_aggregate = self.handler.validate(make_action(["name", "COUNT(name) as total"]), {})
+		self.assertTrue(any("Group By" in error for error in mixed_aggregate))
+
