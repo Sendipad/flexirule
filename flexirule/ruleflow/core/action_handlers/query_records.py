@@ -544,11 +544,11 @@ class QueryRecordsHandler(ActionHandler):
 						import re
 
 						function_match = re.fullmatch(
-							r"([A-Za-z]+)\\(([^()]*)\\)\\s+as\\s+([A-Za-z_][A-Za-z0-9_]*)",
+							r"([A-Za-z]+)\(([^()]*)\)\s+as\s+([A-Za-z_][A-Za-z0-9_]*)",
 							fname,
 						)
 						alias_match = re.fullmatch(
-							r"(.+?)\\s+as\\s+([A-Za-z_][A-Za-z0-9_]*)",
+							r"(.+?)\s+as\s+([A-Za-z_][A-Za-z0-9_]*)",
 							fname,
 							re.IGNORECASE,
 						)
