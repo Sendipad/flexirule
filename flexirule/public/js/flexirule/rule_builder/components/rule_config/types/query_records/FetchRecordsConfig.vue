@@ -36,26 +36,40 @@
 		</div>
 
 		<!-- Mode A Info Card -->
-		<div v-if="localConfig.result_mode === 'names'" class="sub-section section-subcard mode-info-card">
+		<div
+			v-if="localConfig.result_mode === 'names'"
+			class="sub-section section-subcard mode-info-card"
+		>
 			<div class="info-body">
 				<i class="fa fa-info-circle info-icon"></i>
 				<div>
 					<strong>{{ __("Document Names Mode") }}</strong>
 					<p class="mb-0 text-muted">
-						{{ __("Returns a list of matching document names: [{ \"name\": \"SO-00001\" }]. Field selection and SQL function controls are not applicable.") }}
+						{{
+							__(
+								'Returns a list of matching document names: [{ "name": "SO-00001" }]. Field selection and SQL function controls are not applicable.'
+							)
+						}}
 					</p>
 				</div>
 			</div>
 		</div>
 
 		<!-- Mode B Info Card -->
-		<div v-if="localConfig.result_mode === 'whole_doc'" class="sub-section section-subcard mode-info-card">
+		<div
+			v-if="localConfig.result_mode === 'whole_doc'"
+			class="sub-section section-subcard mode-info-card"
+		>
 			<div class="info-body">
 				<i class="fa fa-file-text-o info-icon"></i>
 				<div>
 					<strong>{{ __("Whole Documents Mode") }}</strong>
 					<p class="mb-0 text-muted">
-						{{ __("Returns complete parent documents as dictionaries, including all child table arrays. Read permissions are enforced per document.") }}
+						{{
+							__(
+								"Returns complete parent documents as dictionaries, including all child table arrays. Read permissions are enforced per document."
+							)
+						}}
 					</p>
 				</div>
 			</div>
@@ -68,7 +82,11 @@
 					<div>
 						<h6 class="mb-0">{{ __("Selected Fields") }}</h6>
 						<p class="section-description">
-							{{ __("Select parent fields, linked fields (link.field), or flat child table fields.") }}
+							{{
+								__(
+									"Select parent fields, linked fields (link.field), or flat child table fields."
+								)
+							}}
 						</p>
 					</div>
 				</div>
@@ -103,7 +121,11 @@
 					<div>
 						<h6 class="mb-0">{{ __("Parent Fields") }}</h6>
 						<p class="section-description">
-							{{ __("Select parent DocType fields to return alongside embedded child arrays.") }}
+							{{
+								__(
+									"Select parent DocType fields to return alongside embedded child arrays."
+								)
+							}}
 						</p>
 					</div>
 				</div>
@@ -137,7 +159,11 @@
 				<div>
 					<h6 class="mb-0">{{ __("Filters") }}</h6>
 					<p class="section-description">
-						{{ __("Build nested AND/OR filters. Groups are compiled as query criteria at runtime.") }}
+						{{
+							__(
+								"Build nested AND/OR filters. Groups are compiled as query criteria at runtime."
+							)
+						}}
 					</p>
 				</div>
 			</div>
@@ -227,7 +253,13 @@
 						@update:modelValue="updateConfig('offset', $event)"
 					/>
 				</div>
-				<div v-if="localConfig.result_mode === 'flat_fields' || localConfig.result_mode === 'names'" class="grid-item">
+				<div
+					v-if="
+						localConfig.result_mode === 'flat_fields' ||
+						localConfig.result_mode === 'names'
+					"
+					class="grid-item"
+				>
 					<ComboBoxControl
 						:df="{ label: __('Group By'), fieldtype: 'Autocomplete' }"
 						:modelValue="localConfig.group_by"
@@ -275,7 +307,7 @@ const MODE_OPTIONS = [
 	{
 		value: "names",
 		label: __("Document Names"),
-		description: __("Returns list of name dicts: [{ \"name\": \"SO-00001\" }]. Default mode."),
+		description: __('Returns list of name dicts: [{ "name": "SO-00001" }]. Default mode.'),
 	},
 	{
 		value: "whole_doc",
@@ -285,7 +317,9 @@ const MODE_OPTIONS = [
 	{
 		value: "flat_fields",
 		label: __("Selected Fields (Flat)"),
-		description: __("Returns flat dicts with selected parent, link, child fields & SQL functions."),
+		description: __(
+			"Returns flat dicts with selected parent, link, child fields & SQL functions."
+		),
 	},
 	{
 		value: "embedded_child",
@@ -351,14 +385,16 @@ function normalizeConfig(value) {
 		(source.embedded_children?.length
 			? "embedded_child"
 			: source.fields?.length || source.functions?.length
-			? "flat_fields"
-			: "names");
+				? "flat_fields"
+				: "names");
 	return {
 		result_mode: inferredMode,
 		filters: source.filters || [],
 		fields: Array.isArray(source.fields) ? [...source.fields] : [],
 		functions: Array.isArray(source.functions) ? source.functions.map(clone) : [],
-		embedded_children: Array.isArray(source.embedded_children) ? source.embedded_children.map(clone) : [],
+		embedded_children: Array.isArray(source.embedded_children)
+			? source.embedded_children.map(clone)
+			: [],
 		order_by: source.order_by || "",
 		group_by: source.group_by || "",
 		limit: source.limit ?? "",
@@ -466,7 +502,7 @@ function emitConfig() {
 				filters &&
 				typeof filters === "object" &&
 				(Array.isArray(filters.children) ? filters.children.length > 0 : true)
-		  );
+			);
 	if (!hasFilters) delete next.filters;
 	if (!next.order_by) delete next.order_by;
 	if (!next.group_by) delete next.group_by;

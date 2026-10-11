@@ -4,7 +4,11 @@
 			<div>
 				<h6 class="mb-0">{{ __("Embedded Child Tables") }}</h6>
 				<p class="section-description">
-					{{ __("Select child table fields to embed as nested arrays under each document.") }}
+					{{
+						__(
+							"Select child table fields to embed as nested arrays under each document."
+						)
+					}}
 				</p>
 			</div>
 			<button
@@ -22,10 +26,16 @@
 		</div>
 
 		<div v-else class="child-sections">
-			<div v-for="(section, index) in localSections" :key="section.id" class="child-section-card">
+			<div
+				v-for="(section, index) in localSections"
+				:key="section.id"
+				class="child-section-card"
+			>
 				<div class="section-top-row">
 					<div class="child-field-select flex-1">
-						<label class="ctrl-label">{{ __("Child Table") }} <span class="text-danger">*</span></label>
+						<label class="ctrl-label"
+							>{{ __("Child Table") }} <span class="text-danger">*</span></label
+						>
 						<select
 							v-model="section.child_field"
 							class="form-control form-control-sm"
@@ -33,7 +43,11 @@
 							@change="onChildFieldChange(section)"
 						>
 							<option value="">{{ __("-- Select Child Table --") }}</option>
-							<option v-for="ct in childTableOptions" :key="ct.value" :value="ct.value">
+							<option
+								v-for="ct in childTableOptions"
+								:key="ct.value"
+								:value="ct.value"
+							>
 								{{ ct.label }} ({{ ct.value }})
 							</option>
 						</select>

@@ -39,7 +39,9 @@
 					</div>
 
 					<div class="func-alias-input">
-						<label class="func-label">{{ __("Output Alias") }} <span class="text-danger">*</span></label>
+						<label class="func-label"
+							>{{ __("Output Alias") }} <span class="text-danger">*</span></label
+						>
 						<input
 							v-model="fnRow.alias"
 							type="text"
@@ -73,14 +75,21 @@
 							@change="setArgValue(fnRow, 0, 'field', $event.target.value)"
 						>
 							<option value="*">{{ __("* (All Rows)") }}</option>
-							<option v-for="field in fieldsOptions" :key="field.value" :value="field.value">
+							<option
+								v-for="field in fieldsOptions"
+								:key="field.value"
+								:value="field.value"
+							>
 								{{ field.label }}
 							</option>
 						</select>
 					</div>
 
 					<!-- SUM, AVG, MIN, MAX, ABS -->
-					<div v-else-if="['SUM', 'AVG', 'MIN', 'MAX', 'ABS'].includes(fnRow.function)" class="arg-group">
+					<div
+						v-else-if="['SUM', 'AVG', 'MIN', 'MAX', 'ABS'].includes(fnRow.function)"
+						class="arg-group"
+					>
 						<label class="arg-label">{{ __("Target Field") }}</label>
 						<select
 							:value="getArgValue(fnRow, 0)"
@@ -89,7 +98,11 @@
 							@change="setArgValue(fnRow, 0, 'field', $event.target.value)"
 						>
 							<option value="">{{ __("-- Select Field --") }}</option>
-							<option v-for="field in fieldsOptions" :key="field.value" :value="field.value">
+							<option
+								v-for="field in fieldsOptions"
+								:key="field.value"
+								:value="field.value"
+							>
 								{{ field.label }}
 							</option>
 						</select>
@@ -106,7 +119,11 @@
 								@change="setArgValue(fnRow, 0, 'field', $event.target.value)"
 							>
 								<option value="">{{ __("-- Select Field --") }}</option>
-								<option v-for="field in fieldsOptions" :key="field.value" :value="field.value">
+								<option
+									v-for="field in fieldsOptions"
+									:key="field.value"
+									:value="field.value"
+								>
 									{{ field.label }}
 								</option>
 							</select>
@@ -146,7 +163,11 @@
 								@change="emitUpdate"
 							>
 								<option value="">{{ __("-- Select Field --") }}</option>
-								<option v-for="field in fieldsOptions" :key="field.value" :value="field.value">
+								<option
+									v-for="field in fieldsOptions"
+									:key="field.value"
+									:value="field.value"
+								>
 									{{ field.label }}
 								</option>
 							</select>
@@ -207,7 +228,11 @@
 								@change="setArgValue(fnRow, 1, 'field', $event.target.value)"
 							>
 								<option value="">{{ __("-- Select Field --") }}</option>
-								<option v-for="field in fieldsOptions" :key="field.value" :value="field.value">
+								<option
+									v-for="field in fieldsOptions"
+									:key="field.value"
+									:value="field.value"
+								>
 									{{ field.label }}
 								</option>
 							</select>
@@ -216,7 +241,9 @@
 
 					<!-- NOW -->
 					<div v-else-if="fnRow.function === 'NOW'" class="text-muted">
-						<small>{{ __("NOW() takes no parameters and returns current system timestamp.") }}</small>
+						<small>{{
+							__("NOW() takes no parameters and returns current system timestamp.")
+						}}</small>
 					</div>
 				</div>
 			</div>
@@ -255,7 +282,9 @@ function normalizeFunctions(list) {
 	return list.map((item) => ({
 		id: item.id || "fn-" + Math.random().toString(36).substring(2, 8),
 		function: item.function || "COUNT",
-		args: Array.isArray(item.args) ? item.args.map(normalizeArg) : defaultArgsFor(item.function || "COUNT"),
+		args: Array.isArray(item.args)
+			? item.args.map(normalizeArg)
+			: defaultArgsFor(item.function || "COUNT"),
 		alias: item.alias || "",
 	}));
 }
@@ -269,9 +298,21 @@ function normalizeArg(arg) {
 
 function defaultArgsFor(funcName) {
 	if (funcName === "COUNT") return [{ type: "field", value: "*" }];
-	if (funcName === "CONCAT") return [{ type: "field", value: "" }, { type: "literal", value: " " }];
-	if (funcName === "IFNULL") return [{ type: "field", value: "" }, { type: "literal", value: "N/A" }];
-	if (funcName === "EXTRACT") return [{ type: "literal", value: "year" }, { type: "field", value: "" }];
+	if (funcName === "CONCAT")
+		return [
+			{ type: "field", value: "" },
+			{ type: "literal", value: " " },
+		];
+	if (funcName === "IFNULL")
+		return [
+			{ type: "field", value: "" },
+			{ type: "literal", value: "N/A" },
+		];
+	if (funcName === "EXTRACT")
+		return [
+			{ type: "literal", value: "year" },
+			{ type: "field", value: "" },
+		];
 	if (funcName === "NOW") return [];
 	return [{ type: "field", value: "" }];
 }
@@ -392,7 +433,8 @@ watch(
 	min-width: 0;
 }
 
-.func-label, .arg-label {
+.func-label,
+.arg-label {
 	display: block;
 	font-size: 11px;
 	font-weight: 600;

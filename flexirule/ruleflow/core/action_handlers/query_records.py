@@ -563,11 +563,11 @@ class QueryRecordsHandler(ActionHandler):
 								func_name, ", ".join(sorted(self._SUPPORTED_FETCH_FUNCTIONS))
 							)
 						)
-					alias = func_spec.get("alias")
-					if not alias or not isinstance(alias, str) or not alias.strip():
+					raw_alias = func_spec.get("alias")
+					if not isinstance(raw_alias, str) or not raw_alias.strip():
 						errors.append(_("Alias is required for function '{0}'").format(func_name))
 					else:
-						clean_alias = alias.strip()
+						clean_alias = raw_alias.strip()
 						if clean_alias in output_keys:
 							errors.append(_("Duplicate output key/alias '{0}'").format(clean_alias))
 						output_keys.add(clean_alias)
@@ -894,7 +894,7 @@ class QueryRecordsHandler(ActionHandler):
 				config.get("embedded_children") or [], f"{action_label}.embedded_children"
 			)
 
-			query_fields: list[Any] = []
+			query_fields = []
 			if isinstance(raw_fields, list):
 				for f in raw_fields:
 					if isinstance(f, str) and f.strip():
