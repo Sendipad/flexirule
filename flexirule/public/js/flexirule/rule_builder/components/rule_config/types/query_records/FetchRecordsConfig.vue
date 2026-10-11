@@ -25,20 +25,99 @@
 			/>
 		</div>
 
-		<div class="sub-section section-subcard">
-			<h6>{{ __("Fields") }}</h6>
-			<MultiSelectList
-				:df="{
-					label: '',
-					fieldname: 'fields',
-					placeholder: __('Select fields to fetch...'),
-				}"
-				:options="navigableFields.currentFields.value"
-				:modelValue="localConfig.fields || []"
-				:read_only="readOnly"
-				:hideLabel="true"
-				@update:modelValue="updateConfig('fields', $event)"
-			/>
+		<div class="sub-section section-subcard result-shape-section">
+			<h6>{{ __("Result Shape") }}</h6>
+			<p class="section-description">
+				{{ __("Choose the structure returned to downstream rule actions. Frappe Query Builder performs the field selection.") }}
+			</p>
+			<select
+				class="form-control"
+				:value="localConfig.result_shape || 'document_names'"
+				:disabled="readOnly"
+				@change="setResultShape($event.target.value)"
+			>
+				<option value="document_names">{{ __("Document names — { name: ... }") }}</option>
+				<option value="whole_documents">{{ __("Whole documents with embedded child tables") }}</option>
+				<option value="selected_flat">{{ __("Selected fields — flat rows") }}</option>
+				<option value="selected_embedded">{{ __("Selected fields with embedded child tables") }}</option>
+				<option value="flattened_rows">{{ __("Flattened rows — include child-table fields") }}</option>
+			</select>
+			<div v-if="(localConfig.result_shape || 'document_names') === 'document_names'" class="result-shape-hint">
+				{{ __("Returns only document names as dictionaries. Field selection and expressions are hidden.") }}
+			</div>
+			<div v-else-if="localConfig.result_shape === 'whole_documents'" class="result-shape-hint">
+				{{ __("Select parent and child fields below. Embedded child rows remain grouped under their parent document.") }}
+			</div>
+			<div v-else-if="localConfig.result_shape === 'flattened_rows'" class="result-shape-hint">
+				{{ __("Child-table field paths use joins and can produce multiple rows for one parent document.") }}
+			</div>
+		</div>
+
+		<div
+			v-if="(localConfig.result_shape || 'document_names') !== 'document_names'"
+			class="sub-section section-subcard field-selection-section"
+		>
+			<div class="section-heading">
+				<div>
+					<h6>{{ __("Field Selection") }}</h6>
+					<p class="section-description">{{ __("Choose fields, output aliases, and supported SQL functions.") }}</p>
+				</div>
+				<button v-if="!readOnly" type="button" class="btn btn-xs btn-primary" @click="addFieldSpec">
+					<i class="fa fa-plus mr-1"></i>{{ __("Add Field") }}
+				</button>
+			</div>
+
+			<div v-if="!fieldSpecs.length" class="empty-field-state">
+				{{ __("No fields selected. Add a field or function to define the returned row.") }}
+			</div>
+			<div v-for="(item, index) in fieldSpecs" :key="item.id" class="field-spec-row">
+				<select v-model="item.kind" class="form-control field-kind" :disabled="readOnly" @change="syncFieldSpecs">
+					<option value="field">{{ __("Field") }}</option>
+					<option value="child_table" v-if="supportsEmbeddedChildren">{{ __("Embed child table") }}</option>
+					<option value="function">{{ __("SQL function") }}</option>
+				</select>
+
+				<template v-if="item.kind === 'field'">
+					<ComboBoxControl
+						:df="{ label: '', fieldtype: 'FieldPicker' }"
+						:options="navigableFields.currentFields.value"
+						:doctype="doctype"
+						:modelValue="item.field"
+						:read_only="readOnly"
+						:trigger="'button'"
+						:hideLabel="true"
+						:navigable="true"
+						:navStack="navigableFields.navStack.value"
+						@navigate="navigableFields.handleNavigate"
+						@back="navigableFields.handleBack"
+						@update:modelValue="item.field = $event; navigableFields.resetStack(); syncFieldSpecs()"
+					/>
+				</template>
+				<template v-else-if="item.kind === 'child_table'">
+					<input v-model.trim="item.field" class="form-control" :placeholder="__('Child table fieldname')" :disabled="readOnly" @change="syncFieldSpecs" />
+					<input v-model="item.childFieldsText" class="form-control" :placeholder="__('Child fields, comma-separated (e.g. item_code, qty)')" :disabled="readOnly" @change="syncFieldSpecs" />
+				</template>
+				<template v-else>
+					<select v-model="item.fn" class="form-control" :disabled="readOnly" @change="syncFieldSpecs">
+						<option v-for="fn in fieldFunctions" :key="fn.value" :value="fn.value">{{ fn.label }}</option>
+					</select>
+					<input v-model.trim="item.argument" class="form-control" :placeholder="__('Field argument (e.g. grand_total)')" :disabled="readOnly" @change="syncFieldSpecs" />
+					<input v-model.trim="item.alias" class="form-control" :placeholder="__('Output alias')" :disabled="readOnly" @change="syncFieldSpecs" />
+				</template>
+
+				<input
+					v-if="item.kind === 'field'"
+					v-model.trim="item.alias"
+					class="form-control field-alias"
+					:placeholder="__('Optional alias')"
+					:disabled="readOnly"
+					@change="syncFieldSpecs"
+				/>
+				<button v-if="!readOnly" type="button" class="btn btn-xs btn-link text-danger" :title="__('Remove field')" @click="removeFieldSpec(index)">
+					<i class="fa fa-trash"></i>
+				</button>
+			</div>
+			<p class="section-description">{{ __("Functions are allowlisted in the UI; validate the generated native fields server-side before execution.") }}</p>
 		</div>
 
 		<div class="sub-section section-subcard">
@@ -137,7 +216,6 @@
 import { computed, reactive, ref, watch } from "vue";
 import ControlFactory from "../../../../controls/ControlFactory.vue";
 import ComboBoxControl from "../../../../controls/ComboBoxControl.vue";
-import MultiSelectList from "../../../../controls/MultiSelectList.vue";
 import { useNavigableFields } from "../../../../composables/useNavigableFields";
 import QueryFilterTree from "../../query_filters/QueryFilterTree.vue";
 
@@ -152,9 +230,20 @@ const props = defineProps({
 
 const emit = defineEmits(["update:modelValue", "change"]);
 const filterTreeRef = ref(null);
+const fieldSpecs = ref([]);
+const fieldFunctions = [
+	{ value: "COUNT", label: "COUNT" }, { value: "SUM", label: "SUM" },
+	{ value: "AVG", label: "AVG" }, { value: "MAX", label: "MAX" },
+	{ value: "MIN", label: "MIN" }, { value: "ABS", label: "ABS" },
+	{ value: "IFNULL", label: "IFNULL" }, { value: "CONCAT", label: "CONCAT" },
+	{ value: "EXTRACT", label: "EXTRACT" }, { value: "NOW", label: "NOW" },
+];
+const supportsEmbeddedChildren = computed(() => ["selected_embedded", "whole_documents"].includes(localConfig.result_shape));
+let fieldSpecId = 0;
 
 const localConfig = reactive(normalizeConfig(props.modelValue));
 const orderRows = ref(parseOrderBy(localConfig.order_by));
+fieldSpecs.value = parseFieldSpecs(localConfig.field_specs);
 const navigableFields = useNavigableFields(
 	computed(() => props.doctype),
 	() => orderRows.value[0]?.field || ""
@@ -192,6 +281,8 @@ function normalizeConfig(value) {
 		...source,
 		filters: source.filters || [],
 		fields: Array.isArray(source.fields) ? source.fields : [],
+		result_shape: source.result_shape || "document_names",
+		field_specs: Array.isArray(source.field_specs) ? source.field_specs : [],
 		order_by: source.order_by || "",
 		group_by: source.group_by || "",
 		limit: source.limit ?? "",
@@ -200,7 +291,7 @@ function normalizeConfig(value) {
 	};
 }
 
-function clone(value) {
+NaN
 	return JSON.parse(JSON.stringify(value));
 }
 
@@ -273,6 +364,9 @@ function emitConfig() {
 		  );
 	if (!hasFilters) delete next.filters;
 	if (!next.fields?.length) delete next.fields;
+	if (next.result_shape === "document_names") { next.fields = ["name"]; delete next.field_specs; }
+	else if (next.field_specs?.length) next.field_specs = clone(next.field_specs);
+	else delete next.field_specs;
 	if (!next.order_by) delete next.order_by;
 	if (!next.group_by) delete next.group_by;
 	if (next.limit === "" || next.limit === null || next.limit === undefined) delete next.limit;
@@ -290,6 +384,7 @@ watch(
 		Object.keys(localConfig).forEach((key) => delete localConfig[key]);
 		Object.assign(localConfig, next);
 		orderRows.value = parseOrderBy(next.order_by);
+		fieldSpecs.value = parseFieldSpecs(next.field_specs || []);
 	},
 	{ deep: true }
 );
@@ -297,6 +392,9 @@ watch(
 async function validate() {
 	const result = (await filterTreeRef.value?.validate?.()) || { valid: true, errors: [] };
 	const errors = [...(result.errors || [])];
+	if ((localConfig.result_shape || "document_names") !== "document_names" && !fieldSpecs.value.some((item) => item.kind === "child_table" ? !!item.field && !!item.childFieldsText.trim() : item.kind === "function" ? !!item.fn : !!item.field)) {
+		errors.push(__("Select at least one valid field or expression for this result shape."));
+	}
 
 	for (const [label, value] of [
 		[__("Limit"), localConfig.limit],
