@@ -535,7 +535,7 @@ class QueryRecordsHandler(ActionHandler):
 		output_keys = set()
 
 		# Validation for Mode C: Flat Selected Fields & Functions
-		if result_mode == "flat_fields":
+		if result_mode in {"flat_fields", "embedded_child"}:
 			fields = config.get("fields") or []
 			if isinstance(fields, list):
 				for f in fields:
@@ -590,6 +590,21 @@ class QueryRecordsHandler(ActionHandler):
 								_("Duplicate output key '{0}' in selected fields").format(output_key)
 							)
 						output_keys.add(output_key)
+
+			import re
+
+			has_aggregate = any(
+				isinstance(field, str)
+				and re.match(r"^(COUNT|SUM|AVG|MIN|MAX)\\(", field.strip(), re.IGNORECASE)
+				for field in fields
+			)
+			has_regular_field = any(
+				isinstance(field, str)
+				and not re.match(r"^[A-Za-z]+\\(", field.strip())
+				for field in fields
+			)
+			if has_aggregate and has_regular_field and not config.get("group_by"):
+				errors.append(_("Aggregate functions mixed with regular fields require Group By"))
 
 			functions = config.get("functions") or []
 			if isinstance(functions, list):
