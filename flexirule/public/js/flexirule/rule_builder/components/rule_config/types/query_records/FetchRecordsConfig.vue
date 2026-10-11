@@ -1,5 +1,9 @@
 <template>
 	<div class="fetch-records-config">
+		<div class="configuration-heading">
+			<h5 class="mb-0">{{ __("FETCH RECORDS · CONFIGURATION") }}</h5>
+		</div>
+
 		<!-- Result Mode Selector -->
 		<div class="sub-section section-subcard" v-fxr-fieldname="'config.result_mode'">
 			<div class="section-heading">
@@ -435,7 +439,7 @@ function emitConfig() {
 				filters &&
 				typeof filters === "object" &&
 					(Array.isArray(filters.children) ? filters.children.length > 0 : true)
-			);
+		  );
 	if (!hasFilters) delete next.filters;
 	if (!next.order_by) delete next.order_by;
 	if (!next.group_by) delete next.group_by;
@@ -500,6 +504,18 @@ defineExpose({ validate });
 	display: flex;
 	flex-direction: column;
 	gap: var(--spacing-sm);
+}
+
+.configuration-heading {
+	padding-bottom: var(--spacing-xs);
+	border-bottom: 1px solid var(--fxr-border-color, #e2e8f0);
+}
+
+.configuration-heading h5 {
+	font-size: var(--fxr-text-md, 14px);
+	font-weight: 700;
+	letter-spacing: 0.04em;
+	color: var(--fxr-text-heading, #0f172a);
 }
 
 .section-heading {
