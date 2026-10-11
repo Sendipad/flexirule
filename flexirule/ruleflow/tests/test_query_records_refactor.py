@@ -398,9 +398,7 @@ class TestQueryRecordsRefactor(FrappeTestCase):
 						"fields": [
 							"name as user_name",
 						],
-						"functions": [
-							{"function": "COUNT", "args": ["name"], "alias": "user_count"}
-						],
+						"functions": [{"function": "COUNT", "args": ["name"], "alias": "user_count"}],
 						"filters": [
 							["User", "enabled", "=", 1],
 						],
@@ -416,7 +414,9 @@ class TestQueryRecordsRefactor(FrappeTestCase):
 
 		mock_query = MagicMock()
 		mock_query.run.return_value = [{"user_name": "Administrator", "user_count": 1}]
-		mock_query.get_sql.return_value = "SELECT `name` `user_name`, COUNT(`name`) `user_count` FROM `tabUser`"
+		mock_query.get_sql.return_value = (
+			"SELECT `name` `user_name`, COUNT(`name`) `user_count` FROM `tabUser`"
+		)
 		mock_query._tables = [frappe.qb.DocType("User")]
 		mock_query.where.return_value = mock_query
 		with patch("frappe.qb.get_query", return_value=mock_query) as get_query:

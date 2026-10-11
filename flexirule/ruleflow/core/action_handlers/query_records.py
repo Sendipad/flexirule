@@ -542,12 +542,14 @@ class QueryRecordsHandler(ActionHandler):
 					if isinstance(f, str) and f.strip():
 						fname = f.strip()
 						if " as " in fname.lower():
-							raw_name, alias = fname.lower().split(" as ", 1)
+							_raw_name, alias = fname.lower().split(" as ", 1)
 							output_key = alias.strip()
 						else:
 							output_key = fname.split(".")[-1]
 						if output_key in output_keys:
-							errors.append(_("Duplicate output key '{0}' in selected fields").format(output_key))
+							errors.append(
+								_("Duplicate output key '{0}' in selected fields").format(output_key)
+							)
 						output_keys.add(output_key)
 
 			functions = config.get("functions") or []
@@ -595,11 +597,17 @@ class QueryRecordsHandler(ActionHandler):
 						child_dt = df.options
 						child_fields = child_spec.get("fields") or []
 						if not child_fields or not isinstance(child_fields, list):
-							errors.append(_("Embedded child table '{0}' requires a non-empty field selection").format(child_field))
+							errors.append(
+								_("Embedded child table '{0}' requires a non-empty field selection").format(
+									child_field
+								)
+							)
 						else:
 							for cf in child_fields:
 								if isinstance(cf, str) and cf.strip():
-									if cf.strip() != "*" and not self._doctype_has_field(child_dt, cf.strip()):
+									if cf.strip() != "*" and not self._doctype_has_field(
+										child_dt, cf.strip()
+									):
 										errors.append(
 											_("Field '{0}' does not exist in child DocType {1}").format(
 												cf, child_dt
