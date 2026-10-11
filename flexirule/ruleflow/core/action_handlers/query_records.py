@@ -491,26 +491,133 @@ class QueryRecordsHandler(ActionHandler):
 		except Exception:
 			return False
 
-	def validate_fetch_records(self, action, config: dict) -> list[str]:
-		"""Validate only stable FlexiRule-level inputs for Fetch Records.
+	_SUPPORTED_FETCH_FUNCTIONS: ClassVar[set[str]] = {
+		"COUNT",
+		"SUM",
+		"AVG",
+		"MIN",
+		"MAX",
+		"ABS",
+		"IFNULL",
+		"CONCAT",
+		"EXTRACT",
+		"NOW",
+	}
 
-		Field expressions and the complete native filters payload are deliberately
-		left to frappe.qb.get_query so this operation does not fork Frappe's query
-		language or relationship-resolution behavior.
-		"""
+	def validate_fetch_records(self, action, config: dict) -> list[str]:
+		"""Validate semantic configuration schema for Fetch Records."""
 		ref_dt = action.reference_doctype or config.get("doctype_name")
 		if not ref_dt:
 			return [_("Reference DocType is required for Fetch Records")]
 
 		try:
-			frappe.get_meta(ref_dt)
+			meta = frappe.get_meta(ref_dt)
 		except Exception:
 			return [_("Reference DocType '{0}' does not exist").format(ref_dt)]
 
 		errors = []
+		result_mode = config.get("result_mode")
+		if not result_mode:
+			if config.get("embedded_children"):
+				result_mode = "embedded_child"
+			elif config.get("fields") or config.get("functions"):
+				result_mode = "flat_fields"
+			else:
+				result_mode = "names"
+		allowed_modes = {"names", "whole_doc", "flat_fields", "embedded_child"}
+		if result_mode not in allowed_modes:
+			errors.append(
+				_("Invalid result_mode '{0}'. Must be one of: {1}").format(
+					result_mode, ", ".join(sorted(allowed_modes))
+				)
+			)
+
+		output_keys = set()
+
+		# Validation for Mode C: Flat Selected Fields & Functions
+		if result_mode == "flat_fields":
+			fields = config.get("fields") or []
+			if isinstance(fields, list):
+				for f in fields:
+					if isinstance(f, str) and f.strip():
+						fname = f.strip()
+						if " as " in fname.lower():
+							_raw_name, alias = fname.lower().split(" as ", 1)
+							output_key = alias.strip()
+						else:
+							output_key = fname.split(".")[-1]
+						if output_key in output_keys:
+							errors.append(
+								_("Duplicate output key '{0}' in selected fields").format(output_key)
+							)
+						output_keys.add(output_key)
+
+			functions = config.get("functions") or []
+			if isinstance(functions, list):
+				for func_spec in functions:
+					if not isinstance(func_spec, dict):
+						errors.append(_("Function specification must be an object"))
+						continue
+					func_name = str(func_spec.get("function") or "").strip().upper()
+					if func_name not in self._SUPPORTED_FETCH_FUNCTIONS:
+						errors.append(
+							_("Unsupported SQL function '{0}'. Supported functions: {1}").format(
+								func_name, ", ".join(sorted(self._SUPPORTED_FETCH_FUNCTIONS))
+							)
+						)
+					raw_alias = func_spec.get("alias")
+					if not isinstance(raw_alias, str) or not raw_alias.strip():
+						errors.append(_("Alias is required for function '{0}'").format(func_name))
+					else:
+						clean_alias = raw_alias.strip()
+						if clean_alias in output_keys:
+							errors.append(_("Duplicate output key/alias '{0}'").format(clean_alias))
+						output_keys.add(clean_alias)
+
+		# Validation for Mode D: Embedded Child Records
+		if result_mode == "embedded_child":
+			embedded_children = config.get("embedded_children") or []
+			if isinstance(embedded_children, list):
+				for child_spec in embedded_children:
+					if not isinstance(child_spec, dict):
+						errors.append(_("Embedded child specification must be an object"))
+						continue
+					child_field = child_spec.get("child_field")
+					if not child_field:
+						errors.append(_("Child field name is required in embedded_children"))
+						continue
+					df = meta.get_field(child_field)
+					if not df or df.fieldtype not in {"Table", "Table MultiSelect"}:
+						errors.append(
+							_("Field '{0}' is not a valid child table in DocType {1}").format(
+								child_field, ref_dt
+							)
+						)
+					else:
+						child_dt = df.options
+						child_fields = child_spec.get("fields") or []
+						if not child_fields or not isinstance(child_fields, list):
+							errors.append(
+								_("Embedded child table '{0}' requires a non-empty field selection").format(
+									child_field
+								)
+							)
+						else:
+							for cf in child_fields:
+								if isinstance(cf, str) and cf.strip():
+									if cf.strip() != "*" and not self._doctype_has_field(
+										child_dt, cf.strip()
+									):
+										errors.append(
+											_("Field '{0}' does not exist in child DocType {1}").format(
+												cf, child_dt
+											)
+										)
+
 		filters = config.get("filters")
 		if filters not in (None, "", []) and self._is_canonical_filter_tree(filters):
 			errors.extend(self._validate_canonical_fetch_filter_tree(filters))
+
 		for key in ("limit", "offset"):
 			value = config.get(key)
 			if value in (None, "") or (
@@ -608,11 +715,94 @@ class QueryRecordsHandler(ActionHandler):
 				errors.append(_("{0}.value for IN/NOT IN must be a list or string").format(path))
 		return errors
 
-	def _fetch_records(self, reference_doctype, config, context, action, ignore_permissions):
-		"""Execute Fetch Records through Frappe's native Query Builder API.
+	def _compile_function_term(self, reference_doctype: str, func_spec: dict):
+		"""Compile a structured function specification into PyPika / Frappe function terms."""
+		if not isinstance(func_spec, dict):
+			return None
 
-		FlexiRule resolves dynamic values only. Frappe owns field parsing, joins,
-		filter semantics, validation, and query-level permission enforcement.
+		func_name = str(func_spec.get("function") or "").strip().upper()
+		alias = func_spec.get("alias")
+		args = func_spec.get("args") or []
+
+		from frappe.query_builder import functions as fn
+		from pypika.terms import ValueWrapper
+
+		table = frappe.qb.DocType(reference_doctype)
+
+		def resolve_arg_term(arg):
+			if isinstance(arg, dict):
+				arg_type = (arg.get("type") or "field").lower()
+				arg_val = arg.get("value")
+				if arg_type == "field":
+					if not arg_val or arg_val == "*":
+						return table.star
+					if "." in str(arg_val):
+						dt, field = self._resolve_filter_doctype_and_field(reference_doctype, None, arg_val)
+						return frappe.qb.DocType(dt or reference_doctype)[field]
+					return table[arg_val]
+				elif arg_type == "literal":
+					return ValueWrapper(arg_val)
+			if isinstance(arg, str):
+				if arg == "*":
+					return table.star
+				if "." in arg:
+					dt, field = self._resolve_filter_doctype_and_field(reference_doctype, None, arg)
+					return frappe.qb.DocType(dt or reference_doctype)[field]
+				return table[arg]
+			return ValueWrapper(arg)
+
+		term = None
+		if func_name == "COUNT":
+			if not args or args == ["*"] or (isinstance(args[0], dict) and args[0].get("value") == "*"):
+				term = fn.Count("*")
+			else:
+				term = fn.Count(resolve_arg_term(args[0]))
+		elif func_name in {"SUM", "AVG", "MIN", "MAX", "ABS"}:
+			if not args:
+				return None
+			fn_map = {
+				"SUM": fn.Sum,
+				"AVG": fn.Avg,
+				"MIN": fn.Min,
+				"MAX": fn.Max,
+				"ABS": fn.Abs,
+			}
+			term = fn_map[func_name](resolve_arg_term(args[0]))
+		elif func_name == "IFNULL":
+			arg1 = resolve_arg_term(args[0]) if len(args) > 0 else table.name
+			arg2 = resolve_arg_term(args[1]) if len(args) > 1 else ValueWrapper("")
+			term = fn.IfNull(arg1, arg2)
+		elif func_name == "CONCAT":
+			if not args:
+				return None
+			resolved_args = [resolve_arg_term(a) for a in args]
+			term = fn.Concat(*resolved_args)
+		elif func_name == "EXTRACT":
+			unit = (
+				str(args[0].get("value") if isinstance(args[0], dict) else args[0]).lower()
+				if len(args) > 0
+				else "year"
+			)
+			field_term = resolve_arg_term(args[1]) if len(args) > 1 else table.creation
+			term = fn.Extract(unit, field_term)
+		elif func_name == "NOW":
+			term = fn.Now()
+		else:
+			return None
+
+		if alias and term:
+			term = term.as_(str(alias).strip())
+
+		return term
+
+	def _fetch_records(self, reference_doctype, config, context, action, ignore_permissions):
+		"""Execute Fetch Records through Frappe's native Query Builder API across 4 result modes.
+
+		Modes:
+		- names: List of name dicts ([{"name": "SO-00001"}])
+		- whole_doc: Complete documents with embedded child records ([{...}])
+		- flat_fields: Flat dicts with selected parent, link, flat child fields, and function terms
+		- embedded_child: Selected parent fields with nested child table arrays
 		"""
 		action_label = getattr(action, "label", None) or getattr(action, "action_id", None) or "Query Records"
 
@@ -630,35 +820,109 @@ class QueryRecordsHandler(ActionHandler):
 				return self._resolve_value_expression_with_context(value, context, path, action)
 			return value
 
+		result_mode = config.get("result_mode")
+		if not result_mode:
+			if config.get("embedded_children"):
+				result_mode = "embedded_child"
+			elif config.get("fields") or config.get("functions"):
+				result_mode = "flat_fields"
+			else:
+				result_mode = "names"
+		kwargs = {}
+
 		if config.get("filters") not in (None, "", []):
-			if self._is_canonical_filter_tree(config["filters"]):
-				filter_errors = self._validate_canonical_fetch_filter_tree(config["filters"])
+			filters_val = resolve_payload(config["filters"], f"{action_label}.filters")
+			if self._is_canonical_filter_tree(filters_val):
+				filter_errors = self._validate_canonical_fetch_filter_tree(filters_val)
 				if filter_errors:
 					frappe.throw("; ".join(filter_errors))
+				kwargs["filters"] = self._canonical_filter_tree_to_backend(filters_val, reference_doctype)
+			elif isinstance(filters_val, list | dict):
+				kwargs["filters"] = self._normalize_filters_for_backend(filters_val, reference_doctype)
 
-		kwargs = {}
-		if config.get("fields") not in (None, "", []):
-			kwargs["fields"] = resolve_payload(config["fields"], f"{action_label}.fields")
-
-		for key in ("filters", "order_by", "group_by", "limit", "offset", "distinct"):
+		for key in ("order_by", "group_by", "limit", "offset", "distinct"):
 			value = config.get(key)
 			if value is None or value == "":
 				continue
-			value = resolve_payload(value, f"{action_label}.{key}")
-			if key == "filters":
-				if self._is_canonical_filter_tree(value):
-					value = self._canonical_filter_tree_to_backend(value, reference_doctype)
-				elif isinstance(value, list | dict):
-					value = self._normalize_filters_for_backend(value, reference_doctype)
-			kwargs[key] = value
+			kwargs[key] = resolve_payload(value, f"{action_label}.{key}")
 
 		from flexirule.ruleflow.utils.frappe_query_compat import execute_query
 
-		return execute_query(
-			reference_doctype,
-			kwargs,
-			ignore_permissions,
-		)
+		# Mode A: Document names (default)
+		if result_mode == "names":
+			kwargs["fields"] = ["name"]
+			return execute_query(reference_doctype, kwargs, ignore_permissions)
+
+		# Mode B: Whole documents
+		if result_mode == "whole_doc":
+			kwargs["fields"] = ["name"]
+			name_rows = execute_query(reference_doctype, kwargs, ignore_permissions)
+			docs = []
+			fetch_fn = frappe.get_cached_doc if config.get("use_cache") else frappe.get_doc
+			for row in name_rows:
+				doc_name = row.get("name") if isinstance(row, dict) else row
+				if not doc_name:
+					continue
+				try:
+					doc = fetch_fn(reference_doctype, doc_name)
+					if not ignore_permissions:
+						doc.check_permission("read")
+					docs.append(doc.as_dict())
+				except frappe.DoesNotExistError:
+					continue
+			return docs
+
+		# Mode C: Selected fields (flat)
+		if result_mode == "flat_fields":
+			raw_fields = resolve_payload(config.get("fields") or ["name"], f"{action_label}.fields")
+			raw_functions = resolve_payload(config.get("functions") or [], f"{action_label}.functions")
+
+			query_fields: list[Any] = []
+			if isinstance(raw_fields, list):
+				for f in raw_fields:
+					if isinstance(f, str) and f.strip():
+						query_fields.append(f.strip())
+
+			if isinstance(raw_functions, list):
+				for func_spec in raw_functions:
+					compiled = self._compile_function_term(reference_doctype, func_spec)
+					if compiled is not None:
+						query_fields.append(compiled)
+
+			if not query_fields:
+				query_fields = ["name"]
+
+			kwargs["fields"] = query_fields
+			return execute_query(reference_doctype, kwargs, ignore_permissions)
+
+		# Mode D: Selected fields with embedded child records
+		if result_mode == "embedded_child":
+			raw_fields = resolve_payload(config.get("fields") or ["name"], f"{action_label}.fields")
+			raw_children = resolve_payload(
+				config.get("embedded_children") or [], f"{action_label}.embedded_children"
+			)
+
+			query_fields = []
+			if isinstance(raw_fields, list):
+				for f in raw_fields:
+					if isinstance(f, str) and f.strip():
+						query_fields.append(f.strip())
+
+			if isinstance(raw_children, list):
+				for child_spec in raw_children:
+					if isinstance(child_spec, dict):
+						child_field = child_spec.get("child_field")
+						c_fields = child_spec.get("fields") or ["name"]
+						if child_field:
+							query_fields.append({child_field: c_fields})
+
+			if not query_fields:
+				query_fields = ["name"]
+
+			kwargs["fields"] = query_fields
+			return execute_query(reference_doctype, kwargs, ignore_permissions)
+
+		frappe.throw(_("Unknown Fetch Records result_mode: {0}").format(result_mode))
 
 	def _is_plain_field_reference(self, token) -> bool:
 		if not isinstance(token, str):

@@ -473,3 +473,194 @@ class TestFetchRecords(FrappeTestCase):
 		res_names = {r.get("name") for r in res_true}
 		self.assertEqual(res_names, {t_open.name})
 		self.assertNotIn(t_closed.name, res_names)
+
+	def test_result_mode_a_document_names(self):
+		prefix = f"ModeA_{random_string(5)}"
+		t1 = frappe.get_doc({"doctype": "ToDo", "description": f"{prefix}_1"}).insert(ignore_permissions=True)
+
+		action = frappe._dict(
+			{
+				"operation": "Fetch Records",
+				"reference_doctype": "ToDo",
+				"config": frappe.as_json(
+					{
+						"result_mode": "names",
+						"filters": [["ToDo", "description", "=", f"{prefix}_1"]],
+					}
+				),
+			}
+		)
+
+		result, _ = self.handler.execute(action, {}, None)
+		self.assertEqual(len(result), 1)
+		self.assertEqual(list(result[0].keys()), ["name"])
+		self.assertEqual(result[0]["name"], t1.name)
+
+	def test_result_mode_b_whole_documents(self):
+		prefix = f"ModeB_{random_string(5)}"
+		t1 = frappe.get_doc({"doctype": "ToDo", "description": f"{prefix}_1", "status": "Open"}).insert(
+			ignore_permissions=True
+		)
+
+		action = frappe._dict(
+			{
+				"operation": "Fetch Records",
+				"reference_doctype": "ToDo",
+				"config": frappe.as_json(
+					{
+						"result_mode": "whole_doc",
+						"filters": [["ToDo", "description", "=", f"{prefix}_1"]],
+					}
+				),
+			}
+		)
+
+		result, _ = self.handler.execute(action, {}, None)
+		self.assertEqual(len(result), 1)
+		doc_dict = result[0]
+		self.assertEqual(doc_dict.get("name"), t1.name)
+		self.assertEqual(doc_dict.get("doctype"), "ToDo")
+		self.assertEqual(doc_dict.get("status"), "Open")
+
+	def test_result_mode_c_flat_fields_and_sql_functions(self):
+		user_email = f"mode_c_{random_string(5).lower()}@example.com"
+		user = frappe.get_doc(
+			{
+				"doctype": "User",
+				"email": user_email,
+				"first_name": "Jane",
+				"last_name": "Doe",
+			}
+		).insert(ignore_permissions=True)
+
+		action = frappe._dict(
+			{
+				"operation": "Fetch Records",
+				"reference_doctype": "User",
+				"config": frappe.as_json(
+					{
+						"result_mode": "flat_fields",
+						"fields": ["name", "email"],
+						"functions": [
+							{
+								"function": "CONCAT",
+								"args": [
+									{"type": "field", "value": "first_name"},
+									{"type": "literal", "value": " "},
+									{"type": "field", "value": "last_name"},
+								],
+								"alias": "full_name",
+							},
+							{
+								"function": "COUNT",
+								"args": ["*"],
+								"alias": "total_count",
+							},
+						],
+						"filters": [["User", "email", "=", user_email]],
+					}
+				),
+			}
+		)
+
+		result, _ = self.handler.execute(action, {}, None)
+		self.assertEqual(len(result), 1)
+		row = result[0]
+		self.assertEqual(row.get("name"), user.name)
+		self.assertEqual(row.get("email"), user_email)
+		self.assertEqual(row.get("full_name"), "Jane Doe")
+		self.assertEqual(row.get("total_count"), 1)
+
+	def test_result_mode_d_embedded_child_records(self):
+		user_email = f"mode_d_{random_string(5).lower()}@example.com"
+		frappe.get_doc(
+			{
+				"doctype": "User",
+				"email": user_email,
+				"first_name": "John",
+				"roles": [
+					{"role": "System Manager"},
+					{"role": "Blogger"},
+				],
+			}
+		).insert(ignore_permissions=True)
+
+		action = frappe._dict(
+			{
+				"operation": "Fetch Records",
+				"reference_doctype": "User",
+				"config": frappe.as_json(
+					{
+						"result_mode": "embedded_child",
+						"fields": ["name", "email"],
+						"embedded_children": [
+							{
+								"child_field": "roles",
+								"fields": ["role"],
+							}
+						],
+						"filters": [["User", "email", "=", user_email]],
+					}
+				),
+			}
+		)
+
+		result, _ = self.handler.execute(action, {}, None)
+		self.assertEqual(len(result), 1)
+		row = result[0]
+		self.assertEqual(row.get("email"), user_email)
+		self.assertIn("roles", row)
+		roles = [r.get("role") for r in row["roles"]]
+		self.assertIn("System Manager", roles)
+		self.assertIn("Blogger", roles)
+
+	def test_sql_function_validation_and_duplicate_aliases(self):
+		# 1. Invalid function name
+		action_bad_func = frappe._dict(
+			{
+				"operation": "Fetch Records",
+				"reference_doctype": "ToDo",
+				"config": frappe.as_json(
+					{
+						"result_mode": "flat_fields",
+						"functions": [{"function": "INVALID_FUNC", "alias": "a1"}],
+					}
+				),
+			}
+		)
+		errs = self.handler.validate(action_bad_func, {})
+		self.assertTrue(any("Unsupported SQL function" in e for e in errs))
+
+		# 2. Duplicate output key
+		action_dup = frappe._dict(
+			{
+				"operation": "Fetch Records",
+				"reference_doctype": "ToDo",
+				"config": frappe.as_json(
+					{
+						"result_mode": "flat_fields",
+						"fields": ["description as task"],
+						"functions": [{"function": "COUNT", "args": ["*"], "alias": "task"}],
+					}
+				),
+			}
+		)
+		errs_dup = self.handler.validate(action_dup, {})
+		self.assertTrue(any("Duplicate output key" in e for e in errs_dup))
+
+	def test_embedded_child_validation(self):
+		# Non-existent child field
+		action_bad_child = frappe._dict(
+			{
+				"operation": "Fetch Records",
+				"reference_doctype": "User",
+				"config": frappe.as_json(
+					{
+						"result_mode": "embedded_child",
+						"embedded_children": [{"child_field": "non_existent_table", "fields": ["role"]}],
+					}
+				),
+			}
+		)
+		errs = self.handler.validate(action_bad_child, {})
+		self.assertTrue(any("not a valid child table" in e for e in errs))

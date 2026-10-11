@@ -1,9 +1,163 @@
 <template>
 	<div class="fetch-records-config">
+		<!-- Result Mode Selector -->
+		<div class="sub-section section-subcard" v-fxr-fieldname="'config.result_mode'">
+			<div class="section-heading">
+				<div>
+					<h6 class="mb-0">{{ __("Result Output Mode") }}</h6>
+					<p class="section-description">
+						{{ __("Select the desired output shape for fetched records.") }}
+					</p>
+				</div>
+			</div>
+
+			<div class="mode-grid">
+				<div
+					v-for="mode in MODE_OPTIONS"
+					:key="mode.value"
+					class="mode-card"
+					:class="{ active: localConfig.result_mode === mode.value }"
+					@click="setResultMode(mode.value)"
+				>
+					<div class="mode-card-header">
+						<input
+							type="radio"
+							name="result_mode"
+							:value="mode.value"
+							:checked="localConfig.result_mode === mode.value"
+							:disabled="readOnly"
+							class="mode-radio"
+						/>
+						<span class="mode-title">{{ mode.label }}</span>
+					</div>
+					<p class="mode-desc">{{ mode.description }}</p>
+				</div>
+			</div>
+		</div>
+
+		<!-- Mode A Info Card -->
+		<div
+			v-if="localConfig.result_mode === 'names'"
+			class="sub-section section-subcard mode-info-card"
+		>
+			<div class="info-body">
+				<i class="fa fa-info-circle info-icon"></i>
+				<div>
+					<strong>{{ __("Document Names Mode") }}</strong>
+					<p class="mb-0 text-muted">
+						{{
+							__(
+								'Returns a list of matching document names: [{ "name": "SO-00001" }]. Field selection and SQL function controls are not applicable.'
+							)
+						}}
+					</p>
+				</div>
+			</div>
+		</div>
+
+		<!-- Mode B Info Card -->
+		<div
+			v-if="localConfig.result_mode === 'whole_doc'"
+			class="sub-section section-subcard mode-info-card"
+		>
+			<div class="info-body">
+				<i class="fa fa-file-text-o info-icon"></i>
+				<div>
+					<strong>{{ __("Whole Documents Mode") }}</strong>
+					<p class="mb-0 text-muted">
+						{{
+							__(
+								"Returns complete parent documents as dictionaries, including all child table arrays. Read permissions are enforced per document."
+							)
+						}}
+					</p>
+				</div>
+			</div>
+		</div>
+
+		<!-- Mode C: Flat Selected Fields & Functions -->
+		<template v-if="localConfig.result_mode === 'flat_fields'">
+			<div class="sub-section section-subcard" v-fxr-fieldname="'config.fields'">
+				<div class="section-heading mb-2">
+					<div>
+						<h6 class="mb-0">{{ __("Selected Fields") }}</h6>
+						<p class="section-description">
+							{{
+								__(
+									"Select parent fields, linked fields (link.field), or flat child table fields."
+								)
+							}}
+						</p>
+					</div>
+				</div>
+				<MultiSelectList
+					:df="{
+						label: '',
+						fieldname: 'fields',
+						placeholder: __('Select fields to fetch...'),
+					}"
+					:options="navigableFields.currentFields.value"
+					:modelValue="localConfig.fields || []"
+					:read_only="readOnly"
+					:hideLabel="true"
+					@update:modelValue="updateConfig('fields', $event)"
+				/>
+			</div>
+
+			<div class="sub-section section-subcard" v-fxr-fieldname="'config.functions'">
+				<FetchRecordsFunctionEditor
+					:modelValue="localConfig.functions || []"
+					:fieldsOptions="navigableFields.currentFields.value"
+					:readOnly="readOnly"
+					@update:modelValue="updateConfig('functions', $event)"
+				/>
+			</div>
+		</template>
+
+		<!-- Mode D: Embedded Child Records -->
+		<template v-if="localConfig.result_mode === 'embedded_child'">
+			<div class="sub-section section-subcard" v-fxr-fieldname="'config.fields'">
+				<div class="section-heading mb-2">
+					<div>
+						<h6 class="mb-0">{{ __("Parent Fields") }}</h6>
+						<p class="section-description">
+							{{
+								__(
+									"Select parent DocType fields to return alongside embedded child arrays."
+								)
+							}}
+						</p>
+					</div>
+				</div>
+				<MultiSelectList
+					:df="{
+						label: '',
+						fieldname: 'fields',
+						placeholder: __('Select parent fields...'),
+					}"
+					:options="navigableFields.currentFields.value"
+					:modelValue="localConfig.fields || []"
+					:read_only="readOnly"
+					:hideLabel="true"
+					@update:modelValue="updateConfig('fields', $event)"
+				/>
+			</div>
+
+			<div class="sub-section section-subcard" v-fxr-fieldname="'config.embedded_children'">
+				<FetchRecordsEmbeddedChildEditor
+					:modelValue="localConfig.embedded_children || []"
+					:childTableOptions="childTableFields"
+					:readOnly="readOnly"
+					@update:modelValue="updateConfig('embedded_children', $event)"
+				/>
+			</div>
+		</template>
+
+		<!-- Common Filters Section -->
 		<div class="sub-section section-subcard" v-fxr-fieldname="'config.filters'">
 			<div class="section-heading">
 				<div>
-					<h6>{{ __("Filters") }}</h6>
+					<h6 class="mb-0">{{ __("Filters") }}</h6>
 					<p class="section-description">
 						{{
 							__(
@@ -25,24 +179,9 @@
 			/>
 		</div>
 
+		<!-- Common Order By Section -->
 		<div class="sub-section section-subcard">
-			<h6>{{ __("Fields") }}</h6>
-			<MultiSelectList
-				:df="{
-					label: '',
-					fieldname: 'fields',
-					placeholder: __('Select fields to fetch...'),
-				}"
-				:options="navigableFields.currentFields.value"
-				:modelValue="localConfig.fields || []"
-				:read_only="readOnly"
-				:hideLabel="true"
-				@update:modelValue="updateConfig('fields', $event)"
-			/>
-		</div>
-
-		<div class="sub-section section-subcard">
-			<h6>{{ __("Order By") }}</h6>
+			<h6 class="mb-2">{{ __("Order By") }}</h6>
 			<div class="table-rows">
 				<div v-for="(row, index) in orderRows" :key="row.id" class="order-row">
 					<ComboBoxControl
@@ -88,7 +227,7 @@
 				<button
 					v-if="!readOnly"
 					type="button"
-					class="btn btn-xs btn-link p-0 text-primary align-self-start"
+					class="btn btn-xs btn-link p-0 text-primary align-self-start mt-1"
 					@click="addOrder"
 				>
 					<i class="fa fa-plus mr-1"></i>{{ __("Add Sort Criteria") }}
@@ -96,8 +235,9 @@
 			</div>
 		</div>
 
+		<!-- Common Retrieval Settings -->
 		<div class="sub-section section-subcard">
-			<h6>{{ __("Retrieval Settings") }}</h6>
+			<h6 class="mb-2">{{ __("Retrieval Settings") }}</h6>
 			<div class="query-doc-grid">
 				<div class="grid-item">
 					<ControlFactory
@@ -113,7 +253,13 @@
 						@update:modelValue="updateConfig('offset', $event)"
 					/>
 				</div>
-				<div class="grid-item">
+				<div
+					v-if="
+						localConfig.result_mode === 'flat_fields' ||
+						localConfig.result_mode === 'names'
+					"
+					class="grid-item"
+				>
 					<ComboBoxControl
 						:df="{ label: __('Group By'), fieldtype: 'Autocomplete' }"
 						:modelValue="localConfig.group_by"
@@ -134,12 +280,15 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref, watch } from "vue";
+import { computed, onMounted, reactive, ref, watch } from "vue";
 import ControlFactory from "../../../../controls/ControlFactory.vue";
 import ComboBoxControl from "../../../../controls/ComboBoxControl.vue";
 import MultiSelectList from "../../../../controls/MultiSelectList.vue";
 import { useNavigableFields } from "../../../../composables/useNavigableFields";
+import { useMetaStore } from "../../../../stores/useMetaStore";
 import QueryFilterTree from "../../query_filters/QueryFilterTree.vue";
+import FetchRecordsFunctionEditor from "./FetchRecordsFunctionEditor.vue";
+import FetchRecordsEmbeddedChildEditor from "./FetchRecordsEmbeddedChildEditor.vue";
 
 const props = defineProps({
 	modelValue: { type: Object, default: () => ({}) },
@@ -152,6 +301,32 @@ const props = defineProps({
 
 const emit = defineEmits(["update:modelValue", "change"]);
 const filterTreeRef = ref(null);
+const metaStore = useMetaStore();
+
+const MODE_OPTIONS = [
+	{
+		value: "names",
+		label: __("Document Names"),
+		description: __('Returns list of name dicts: [{ "name": "SO-00001" }]. Default mode.'),
+	},
+	{
+		value: "whole_doc",
+		label: __("Whole Documents"),
+		description: __("Returns complete parent documents with embedded child records."),
+	},
+	{
+		value: "flat_fields",
+		label: __("Selected Fields (Flat)"),
+		description: __(
+			"Returns flat dicts with selected parent, link, child fields & SQL functions."
+		),
+	},
+	{
+		value: "embedded_child",
+		label: __("Selected Fields with Embedded Children"),
+		description: __("Returns selected parent fields and nested child record arrays."),
+	},
+];
 
 const localConfig = reactive(normalizeConfig(props.modelValue));
 const orderRows = ref(parseOrderBy(localConfig.order_by));
@@ -160,13 +335,30 @@ const navigableFields = useNavigableFields(
 	() => orderRows.value[0]?.field || ""
 );
 
+onMounted(() => {
+	if (props.doctype) {
+		metaStore.fetch_metadata(props.doctype);
+	}
+});
+
+const childTableFields = computed(() => {
+	if (!props.doctype || !metaStore.doc_meta[props.doctype]) return [];
+	return metaStore.doc_meta[props.doctype]
+		.filter((f) => f.fieldtype === "Table" && f.options)
+		.map((f) => ({
+			label: f.original_label || f.fieldname,
+			value: f.fieldname,
+			child_doctype: f.options,
+		}));
+});
+
 const limitField = computed(() => ({
 	fieldname: "limit",
 	fieldtype: "Int",
 	label: __("Limit"),
 	reqd: 0,
 	read_only: props.readOnly,
-	description: __("Maximum number of records to return. Leave blank for the framework default."),
+	description: __("Maximum number of records to return. Leave blank for default."),
 }));
 
 const offsetField = computed(() => ({
@@ -188,10 +380,21 @@ const distinctField = computed(() => ({
 
 function normalizeConfig(value) {
 	const source = value && typeof value === "object" ? value : {};
+	const inferredMode =
+		source.result_mode ||
+		(source.embedded_children?.length
+			? "embedded_child"
+			: source.fields?.length || source.functions?.length
+				? "flat_fields"
+				: "names");
 	return {
-		...source,
+		result_mode: inferredMode,
 		filters: source.filters || [],
-		fields: Array.isArray(source.fields) ? source.fields : [],
+		fields: Array.isArray(source.fields) ? [...source.fields] : [],
+		functions: Array.isArray(source.functions) ? source.functions.map(clone) : [],
+		embedded_children: Array.isArray(source.embedded_children)
+			? source.embedded_children.map(clone)
+			: [],
 		order_by: source.order_by || "",
 		group_by: source.group_by || "",
 		limit: source.limit ?? "",
@@ -243,6 +446,12 @@ function removeOrder(index) {
 	syncOrderBy();
 }
 
+function setResultMode(modeValue) {
+	if (props.readOnly || localConfig.result_mode === modeValue) return;
+	localConfig.result_mode = modeValue;
+	emitConfig();
+}
+
 function getGroupByOptions() {
 	const current = localConfig.group_by || "";
 	const parts = current
@@ -263,6 +472,29 @@ function updateConfig(key, value) {
 
 function emitConfig() {
 	const next = { ...clone(localConfig) };
+
+	if (Array.isArray(next.functions)) {
+		next.functions = next.functions.map(({ id, ...rest }) => rest);
+	}
+
+	if (Array.isArray(next.embedded_children)) {
+		next.embedded_children = next.embedded_children.map(({ id, ...rest }) => rest);
+	}
+
+	if (next.result_mode === "names" || next.result_mode === "whole_doc") {
+		delete next.fields;
+		delete next.functions;
+		delete next.embedded_children;
+	} else if (next.result_mode === "flat_fields") {
+		delete next.embedded_children;
+		if (!next.fields?.length) delete next.fields;
+		if (!next.functions?.length) delete next.functions;
+	} else if (next.result_mode === "embedded_child") {
+		delete next.functions;
+		if (!next.fields?.length) delete next.fields;
+		if (!next.embedded_children?.length) delete next.embedded_children;
+	}
+
 	const filters = next.filters;
 	const hasFilters = Array.isArray(filters)
 		? filters.length > 0
@@ -270,14 +502,14 @@ function emitConfig() {
 				filters &&
 				typeof filters === "object" &&
 				(Array.isArray(filters.children) ? filters.children.length > 0 : true)
-		  );
+			);
 	if (!hasFilters) delete next.filters;
-	if (!next.fields?.length) delete next.fields;
 	if (!next.order_by) delete next.order_by;
 	if (!next.group_by) delete next.group_by;
 	if (next.limit === "" || next.limit === null || next.limit === undefined) delete next.limit;
 	if (next.offset === "" || next.offset === null || next.offset === undefined) delete next.offset;
 	if (!next.distinct) delete next.distinct;
+
 	emit("update:modelValue", next);
 	emit("change", next);
 }
@@ -292,6 +524,15 @@ watch(
 		orderRows.value = parseOrderBy(next.order_by);
 	},
 	{ deep: true }
+);
+
+watch(
+	() => props.doctype,
+	(dt) => {
+		if (dt) {
+			metaStore.fetch_metadata(dt);
+		}
+	}
 );
 
 async function validate() {
@@ -341,6 +582,73 @@ defineExpose({ validate });
 	font-size: var(--fxr-text-sm);
 }
 
+.mode-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+	gap: var(--spacing-sm);
+	margin-top: var(--spacing-xs);
+}
+
+.mode-card {
+	background: var(--fxr-bg-subtle, #f8fafc);
+	border: 1px solid var(--fxr-border-color, #e2e8f0);
+	border-radius: 6px;
+	padding: var(--spacing-sm);
+	cursor: pointer;
+	transition: all 0.15s ease-in-out;
+}
+
+.mode-card:hover {
+	border-color: var(--fxr-primary, #2563eb);
+}
+
+.mode-card.active {
+	background: var(--fxr-bg-subtle-active, #eff6ff);
+	border-color: var(--fxr-primary, #2563eb);
+	box-shadow: 0 0 0 1px var(--fxr-primary, #2563eb);
+}
+
+.mode-card-header {
+	display: flex;
+	align-items: center;
+	gap: var(--spacing-xs);
+	margin-bottom: 2px;
+}
+
+.mode-radio {
+	cursor: pointer;
+}
+
+.mode-title {
+	font-weight: 600;
+	font-size: var(--fxr-text-sm, 13px);
+	color: var(--fxr-text-heading, #0f172a);
+}
+
+.mode-desc {
+	margin: 0;
+	font-size: 11px;
+	color: var(--fxr-text-muted, #64748b);
+	line-height: 1.3;
+}
+
+.mode-info-card {
+	background: var(--fxr-bg-info-subtle, #f0f9ff);
+	border: 1px solid var(--fxr-border-info, #bae6fd);
+}
+
+.info-body {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--spacing-md);
+}
+
+.info-icon {
+	font-size: 18px;
+	color: var(--fxr-info, #0284c7);
+	margin-top: 2px;
+}
+
 .table-rows {
 	display: flex;
 	flex-direction: column;
@@ -375,6 +683,10 @@ defineExpose({ validate });
 
 .grid-item {
 	min-width: 0;
+}
+
+.flex-1 {
+	flex: 1;
 }
 
 :deep(.filter-group-wrapper) {
