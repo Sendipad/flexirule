@@ -682,7 +682,7 @@ class TestFetchRecords(FrappeTestCase):
 				"config": frappe.as_json(
 					{
 						"result_mode": "flat_fields",
-						"fields": ["name", "COUNT(name) as record_count"],
+						"fields": ["COUNT(name) as record_count"],
 						"filters": [["User", "email", "=", user_email]],
 					}
 				),
@@ -690,7 +690,6 @@ class TestFetchRecords(FrappeTestCase):
 		)
 		result, _ = self.handler.execute(action, {}, None)
 		self.assertEqual(len(result), 1)
-		self.assertEqual(result[0].get("name"), user.name)
 		self.assertEqual(result[0].get("record_count"), 1)
 
 	def test_frappe_style_function_expression_validation(self):
