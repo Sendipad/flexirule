@@ -595,12 +595,12 @@ class QueryRecordsHandler(ActionHandler):
 
 			has_aggregate = any(
 				isinstance(field, str)
-				and re.match(r"^(COUNT|SUM|AVG|MIN|MAX)\\(", field.strip(), re.IGNORECASE)
+				and re.match(r"^(COUNT|SUM|AVG|MIN|MAX)\(", field.strip(), re.IGNORECASE)
 				for field in fields
 			)
 			has_regular_field = any(
 				isinstance(field, str)
-				and not re.match(r"^[A-Za-z]+\\(", field.strip())
+				and not re.match(r"^[A-Za-z]+\(", field.strip())
 				for field in fields
 			)
 			if has_aggregate and has_regular_field and not config.get("group_by"):
