@@ -392,7 +392,7 @@ watch(
 async function validate() {
 	const result = (await filterTreeRef.value?.validate?.()) || { valid: true, errors: [] };
 	const errors = [...(result.errors || [])];
-	if ((localConfig.result_shape || "document_names") !== "document_names" && !fieldSpecs.value.some((item) => item.kind === "child_table" ? !!item.field && !!item.childFieldsText.trim() : item.kind === "function" ? !!item.fn : !!item.field)) {
+	if (!["document_names", "whole_documents"].includes(localConfig.result_shape || "document_names") && !fieldSpecs.value.some((item) => item.kind === "child_table" ? !!item.field && !!item.childFieldsText.trim() : item.kind === "function" ? !!item.fn : !!item.field)) {
 		errors.push(__("Select at least one valid field or expression for this result shape."));
 	}
 
