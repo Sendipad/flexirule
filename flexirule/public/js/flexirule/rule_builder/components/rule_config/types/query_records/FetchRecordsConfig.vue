@@ -280,7 +280,7 @@ function normalizeConfig(value) {
 	return {
 		...source,
 		filters: source.filters || [],
-		fields: Array.isArray(source.fields) ? source.fields : [],
+		fields: (source.result_shape || "document_names") === "document_names" ? ["name"] : (Array.isArray(source.fields) ? source.fields : []),
 		result_shape: source.result_shape || "document_names",
 		field_specs: Array.isArray(source.field_specs) ? source.field_specs : [],
 		order_by: source.order_by || "",
@@ -478,4 +478,41 @@ defineExpose({ validate });
 :deep(.filter-group-wrapper) {
 	margin: 0;
 }
+
+.result-shape-hint,
+.empty-field-state {
+	margin-top: var(--fxr-space-2);
+	padding: var(--fxr-space-3);
+	border-radius: var(--fxr-radius-md, 6px);
+	background: var(--fxr-surface-muted, var(--control-bg));
+	color: var(--fxr-text-muted);
+	font-size: var(--fxr-text-sm);
+}
+
+.field-spec-row {
+	display: grid;
+	grid-template-columns: minmax(105px, 0.8fr) minmax(150px, 1.5fr) minmax(120px, 1fr) auto;
+	align-items: center;
+	gap: var(--fxr-space-2);
+	padding: var(--fxr-space-2) 0;
+	border-bottom: 1px solid var(--fxr-border-subtle);
+}
+
+.field-kind {
+	min-width: 0;
+}
+
+.field-alias {
+	min-width: 0;
+}
+
+@media (max-width: 720px) {
+	.field-spec-row {
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+	}
+	.field-spec-row > button {
+		justify-self: end;
+	}
+}
+
 </style>
