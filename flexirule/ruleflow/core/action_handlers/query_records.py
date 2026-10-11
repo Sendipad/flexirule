@@ -637,7 +637,19 @@ class QueryRecordsHandler(ActionHandler):
 					frappe.throw("; ".join(filter_errors))
 
 		kwargs = {}
-		if config.get("fields") not in (None, "", []):
+		result_shape = config.get("result_shape") or "document_names"
+		allowed_result_shapes = {
+			"document_names",
+			"whole_documents",
+			"selected_flat",
+			"selected_embedded",
+			"flattened_rows",
+		}
+		if result_shape not in allowed_result_shapes:
+			frappe.throw(_("Unsupported Fetch Records result shape: {0}").format(result_shape))
+		if result_shape == "document_names":
+			kwargs["fields"] = ["name"]
+		elif config.get("fields") not in (None, "", []):
 			kwargs["fields"] = resolve_payload(config["fields"], f"{action_label}.fields")
 
 		for key in ("filters", "order_by", "group_by", "limit", "offset", "distinct"):
