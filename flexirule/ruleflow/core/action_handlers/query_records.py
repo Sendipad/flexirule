@@ -567,10 +567,10 @@ class QueryRecordsHandler(ActionHandler):
 					if not alias or not isinstance(alias, str) or not alias.strip():
 						errors.append(_("Alias is required for function '{0}'").format(func_name))
 					else:
-						alias = alias.strip()
-						if alias in output_keys:
-							errors.append(_("Duplicate output key/alias '{0}'").format(alias))
-						output_keys.add(alias)
+						clean_alias = alias.strip()
+						if clean_alias in output_keys:
+							errors.append(_("Duplicate output key/alias '{0}'").format(clean_alias))
+						output_keys.add(clean_alias)
 
 		# Validation for Mode D: Embedded Child Records
 		if result_mode == "embedded_child":
@@ -749,25 +749,32 @@ class QueryRecordsHandler(ActionHandler):
 				term = fn.Count("*")
 			else:
 				term = fn.Count(resolve_arg_term(args[0]))
-		elif func_name == "SUM":
-			term = fn.Sum(resolve_arg_term(args[0]))
-		elif func_name == "AVG":
-			term = fn.Avg(resolve_arg_term(args[0]))
-		elif func_name == "MIN":
-			term = fn.Min(resolve_arg_term(args[0]))
-		elif func_name == "MAX":
-			term = fn.Max(resolve_arg_term(args[0]))
-		elif func_name == "ABS":
-			term = fn.Abs(resolve_arg_term(args[0]))
+		elif func_name in {"SUM", "AVG", "MIN", "MAX", "ABS"}:
+			if not args:
+				return None
+			fn_map = {
+				"SUM": fn.Sum,
+				"AVG": fn.Avg,
+				"MIN": fn.Min,
+				"MAX": fn.Max,
+				"ABS": fn.Abs,
+			}
+			term = fn_map[func_name](resolve_arg_term(args[0]))
 		elif func_name == "IFNULL":
 			arg1 = resolve_arg_term(args[0]) if len(args) > 0 else table.name
 			arg2 = resolve_arg_term(args[1]) if len(args) > 1 else ValueWrapper("")
 			term = fn.IfNull(arg1, arg2)
 		elif func_name == "CONCAT":
+			if not args:
+				return None
 			resolved_args = [resolve_arg_term(a) for a in args]
 			term = fn.Concat(*resolved_args)
 		elif func_name == "EXTRACT":
-			unit = str(args[0].get("value") if isinstance(args[0], dict) else args[0]).lower()
+			unit = (
+				str(args[0].get("value") if isinstance(args[0], dict) else args[0]).lower()
+				if len(args) > 0
+				else "year"
+			)
 			field_term = resolve_arg_term(args[1]) if len(args) > 1 else table.creation
 			term = fn.Extract(unit, field_term)
 		elif func_name == "NOW":
@@ -776,7 +783,7 @@ class QueryRecordsHandler(ActionHandler):
 			return None
 
 		if alias and term:
-			term = term.as_(alias.strip())
+			term = term.as_(str(alias).strip())
 
 		return term
 
@@ -862,7 +869,7 @@ class QueryRecordsHandler(ActionHandler):
 			raw_fields = resolve_payload(config.get("fields") or ["name"], f"{action_label}.fields")
 			raw_functions = resolve_payload(config.get("functions") or [], f"{action_label}.functions")
 
-			query_fields = []
+			query_fields: list[Any] = []
 			if isinstance(raw_fields, list):
 				for f in raw_fields:
 					if isinstance(f, str) and f.strip():
@@ -883,9 +890,11 @@ class QueryRecordsHandler(ActionHandler):
 		# Mode D: Selected fields with embedded child records
 		if result_mode == "embedded_child":
 			raw_fields = resolve_payload(config.get("fields") or ["name"], f"{action_label}.fields")
-			raw_children = resolve_payload(config.get("embedded_children") or [], f"{action_label}.embedded_children")
+			raw_children = resolve_payload(
+				config.get("embedded_children") or [], f"{action_label}.embedded_children"
+			)
 
-			query_fields = []
+			query_fields: list[Any] = []
 			if isinstance(raw_fields, list):
 				for f in raw_fields:
 					if isinstance(f, str) and f.strip():

@@ -573,7 +573,7 @@ class TestFetchRecords(FrappeTestCase):
 
 	def test_result_mode_d_embedded_child_records(self):
 		user_email = f"mode_d_{random_string(5).lower()}@example.com"
-		user = frappe.get_doc(
+		frappe.get_doc(
 			{
 				"doctype": "User",
 				"email": user_email,

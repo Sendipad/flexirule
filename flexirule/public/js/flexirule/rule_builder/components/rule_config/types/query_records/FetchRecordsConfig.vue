@@ -346,8 +346,15 @@ const distinctField = computed(() => ({
 
 function normalizeConfig(value) {
 	const source = value && typeof value === "object" ? value : {};
+	const inferredMode =
+		source.result_mode ||
+		(source.embedded_children?.length
+			? "embedded_child"
+			: source.fields?.length || source.functions?.length
+			? "flat_fields"
+			: "names");
 	return {
-		result_mode: source.result_mode || "names",
+		result_mode: inferredMode,
 		filters: source.filters || [],
 		fields: Array.isArray(source.fields) ? [...source.fields] : [],
 		functions: Array.isArray(source.functions) ? source.functions.map(clone) : [],
@@ -431,15 +438,11 @@ function emitConfig() {
 	const next = { ...clone(localConfig) };
 
 	if (Array.isArray(next.functions)) {
-		next.functions = next.functions
-			.filter((fn) => fn.function && fn.alias)
-			.map(({ id, ...rest }) => rest);
+		next.functions = next.functions.map(({ id, ...rest }) => rest);
 	}
 
 	if (Array.isArray(next.embedded_children)) {
-		next.embedded_children = next.embedded_children
-			.filter((c) => c.child_field && c.fields?.length)
-			.map(({ id, ...rest }) => rest);
+		next.embedded_children = next.embedded_children.map(({ id, ...rest }) => rest);
 	}
 
 	if (next.result_mode === "names" || next.result_mode === "whole_doc") {
