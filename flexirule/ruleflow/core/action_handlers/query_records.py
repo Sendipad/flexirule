@@ -541,11 +541,50 @@ class QueryRecordsHandler(ActionHandler):
 				for f in fields:
 					if isinstance(f, str) and f.strip():
 						fname = f.strip()
-						if " as " in fname.lower():
-							_raw_name, alias = fname.lower().split(" as ", 1)
-							output_key = alias.strip()
+						import re
+
+						function_match = re.fullmatch(
+							r"([A-Za-z]+)\\(([^()]*)\\)\\s+as\\s+([A-Za-z_][A-Za-z0-9_]*)",
+							fname,
+						)
+						alias_match = re.fullmatch(
+							r"(.+?)\\s+as\\s+([A-Za-z_][A-Za-z0-9_]*)",
+							fname,
+							re.IGNORECASE,
+						)
+						if function_match:
+							func_name = function_match.group(1).upper()
+							args = [part.strip() for part in function_match.group(2).split(",")] if function_match.group(2).strip() else []
+							if func_name not in self._SUPPORTED_FETCH_FUNCTIONS:
+								errors.append(_("Unsupported SQL function '{0}'").format(func_name))
+							if not function_match.group(3):
+								errors.append(_("Output function aliases are required"))
+							if func_name == "NOW" and args:
+								errors.append(_("NOW does not accept arguments"))
+							if func_name in {"SUM", "AVG", "MIN", "MAX", "ABS", "COUNT"} and len(args) != 1:
+								errors.append(_("Function '{0}' requires exactly one argument").format(func_name))
+							if func_name == "IFNULL" and len(args) != 2:
+								errors.append(_("IFNULL requires exactly two arguments"))
+							if func_name == "CONCAT" and len(args) < 2:
+								errors.append(_("CONCAT requires at least two arguments"))
+							if func_name == "EXTRACT" and (len(args) != 2 or args[0].lower() not in {"year", "month", "day", "hour", "minute", "second"}):
+								errors.append(_("EXTRACT requires a supported date unit and a field"))
+							for arg_index, arg in enumerate(args):
+								if arg == "*" or (len(arg) > 1 and arg[0] == arg[-1] and arg[0] in {"'", '"'}):
+									continue
+								if func_name == "EXTRACT" and arg_index == 0:
+									continue
+								if not self._doctype_has_field(ref_dt, arg):
+									errors.append(_("Function field '{0}' does not exist in {1}").format(arg, ref_dt))
+							output_key = function_match.group(3)
+						elif alias_match:
+							output_key = alias_match.group(2)
+							if not self._doctype_has_field(ref_dt, alias_match.group(1).strip()):
+								errors.append(_("Selected field '{0}' does not exist in {1}").format(alias_match.group(1).strip(), ref_dt))
 						else:
 							output_key = fname.split(".")[-1]
+							if not self._doctype_has_field(ref_dt, fname):
+								errors.append(_("Selected field '{0}' does not exist in {1}").format(fname, ref_dt))
 						if output_key in output_keys:
 							errors.append(
 								_("Duplicate output key '{0}' in selected fields").format(output_key)
@@ -795,62 +834,6 @@ class QueryRecordsHandler(ActionHandler):
 
 		return term
 
-	def _parse_output_function_expression(self, reference_doctype: str, expression: str):
-		"""Parse the supported output-function grammar into a structured QB term."""
-		import re
-
-		match = re.fullmatch(
-			r"([A-Za-z]+)\\(([^()]*)\\)\\s+as\\s+([A-Za-z_][A-Za-z0-9_]*)",
-			expression.strip(),
-		)
-		if not match:
-			return None
-		function = match.group(1).upper()
-		if function not in self._SUPPORTED_FETCH_FUNCTIONS:
-			frappe.throw(_("Unsupported output function '{0}'").format(function))
-		alias = match.group(3)
-		raw_args = [part.strip() for part in match.group(2).split(",")] if match.group(2).strip() else []
-		if function == "NOW":
-			if raw_args:
-				frappe.throw(_("NOW() does not accept arguments"))
-			args = []
-		elif function == "COUNT":
-			if len(raw_args) != 1 or not raw_args[0]:
-				frappe.throw(_("COUNT requires exactly one field or * argument"))
-			args = [{"type": "field", "value": raw_args[0]}]
-		elif function in {"SUM", "AVG", "MIN", "MAX", "ABS"}:
-			if len(raw_args) != 1 or not raw_args[0]:
-				frappe.throw(_("{0} requires exactly one field argument").format(function))
-			args = [{"type": "field", "value": raw_args[0]}]
-		elif function == "IFNULL":
-			if len(raw_args) != 2 or not raw_args[0]:
-				frappe.throw(_("IFNULL requires a field and a fallback literal"))
-			args = [{"type": "field", "value": raw_args[0]}]
-			fallback = raw_args[1]
-			if len(fallback) >= 2 and fallback[0] == fallback[-1] and fallback[0] in {"'", '"'}:
-				fallback = fallback[1:-1]
-			args.append({"type": "literal", "value": fallback})
-		elif function == "CONCAT":
-			if len(raw_args) < 2 or any(not arg for arg in raw_args):
-				frappe.throw(_("CONCAT requires at least two arguments"))
-			args = []
-			for arg in raw_args:
-				if len(arg) >= 2 and arg[0] == arg[-1] and arg[0] in {"'", '"'}:
-					args.append({"type": "literal", "value": arg[1:-1]})
-				else:
-					args.append({"type": "field", "value": arg})
-		elif function == "EXTRACT":
-			if len(raw_args) != 2 or raw_args[0].lower() not in {"year", "month", "day", "hour", "minute", "second"}:
-				frappe.throw(_("EXTRACT requires a supported date unit and one field"))
-			args = [{"type": "literal", "value": raw_args[0].lower()}, {"type": "field", "value": raw_args[1]}]
-		else:
-			frappe.throw(_("Unsupported output function '{0}'").format(function))
-		for arg in args:
-			if arg["type"] == "field" and arg["value"] != "*":
-				if not self._doctype_has_field(reference_doctype, arg["value"]):
-					frappe.throw(_("Function field '{0}' does not exist in {1}").format(arg["value"], reference_doctype))
-		return self._compile_function_term(reference_doctype, {"function": function, "args": args, "alias": alias})
-
 	def _fetch_records(self, reference_doctype, config, context, action, ignore_permissions):
 		"""Execute Fetch Records through Frappe's native Query Builder API across 4 result modes.
 
@@ -936,19 +919,10 @@ class QueryRecordsHandler(ActionHandler):
 			query_fields: list[Any] = []
 			if isinstance(raw_fields, list):
 				for field_expression in raw_fields:
-					if not isinstance(field_expression, str) or not field_expression.strip():
-						continue
-					expression = field_expression.strip()
-					compiled = self._parse_output_function_expression(reference_doctype, expression)
-					if compiled is not None:
-						query_fields.append(compiled)
-					elif "(" in expression or ")" in expression:
-						frappe.throw(_("Invalid output field expression '{0}'").format(expression))
-					else:
-						query_fields.append(expression)
+					if isinstance(field_expression, str) and field_expression.strip():
+						query_fields.append(field_expression.strip())
 
-			# Structured functions remain accepted at the internal compiler boundary while
-			# the persisted UI contract is a single ordered fields list.
+			# The persisted output contract is an ordered Frappe-style fields list.
 			if isinstance(raw_functions, list):
 				for func_spec in raw_functions:
 					compiled = self._compile_function_term(reference_doctype, func_spec)
