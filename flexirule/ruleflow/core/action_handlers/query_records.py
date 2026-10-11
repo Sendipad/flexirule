@@ -879,6 +879,11 @@ class QueryRecordsHandler(ActionHandler):
 				result_mode = "flat_fields"
 			else:
 				result_mode = "names"
+		if result_mode in {"flat_fields", "embedded_child"}:
+			output_errors = self.validate_fetch_records(action, config)
+			if output_errors:
+				frappe.throw("; ".join(output_errors))
+
 		kwargs = {}
 
 		if config.get("filters") not in (None, "", []):
