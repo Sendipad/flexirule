@@ -291,8 +291,94 @@ function normalizeConfig(value) {
 	};
 }
 
-NaN
+function clone(value) {
 	return JSON.parse(JSON.stringify(value));
+}
+
+function parseFieldSpecs(specs) {
+	return (Array.isArray(specs) ? specs : []).map((spec, index) => ({
+		id: spec.id || `field-${index}-${Math.random().toString(36).slice(2, 8)}`,
+		kind: spec.kind || "field",
+		field: spec.field || "",
+		alias: spec.alias || "",
+		fn: spec.fn || "COUNT",
+		argument: spec.argument || "",
+		childFieldsText: Array.isArray(spec.child_fields)
+			? spec.child_fields.join(", ")
+			: spec.childFieldsText || "",
+	}));
+}
+
+function compileFieldSpecs(specs, resultShape) {
+	const fields = [];
+	for (const spec of specs) {
+		if (spec.kind === "field" && spec.field) {
+			fields.push(spec.alias ? `${spec.field} as ${spec.alias}` : spec.field);
+		} else if (spec.kind === "function" && spec.fn) {
+			const fn = spec.fn.toUpperCase();
+			const argument = spec.argument.trim();
+			const supported = fieldFunctions.some((item) => item.value === fn);
+			if (!supported) continue;
+			const expression = fn === "NOW" ? true : argument || (fn === "COUNT" ? "*" : "");
+			if (expression === "") continue;
+			fields.push({ [fn]: expression, ...(spec.alias ? { as: spec.alias } : {}) });
+		} else if (spec.kind === "child_table" && spec.field && spec.childFieldsText.trim()) {
+			const childFields = spec.childFieldsText.split(",").map((field) => field.trim()).filter(Boolean);
+			if (childFields.length) fields.push({ [spec.field]: childFields });
+		}
+	}
+	if (resultShape === "whole_documents") {
+		return ["*", ...fields.filter((field) => field && typeof field === "object")];
+	}
+	return fields;
+}
+
+function syncFieldSpecs() {
+	localConfig.field_specs = fieldSpecs.value.map((item) => ({
+		kind: item.kind,
+		...(item.field ? { field: item.field } : {}),
+		...(item.alias ? { alias: item.alias } : {}),
+		...(item.kind === "function" ? { fn: item.fn, argument: item.argument } : {}),
+		...(item.kind === "child_table"
+			? { child_fields: item.childFieldsText.split(",").map((field) => field.trim()).filter(Boolean) }
+			: {}),
+	}));
+	localConfig.fields = compileFieldSpecs(fieldSpecs.value, localConfig.result_shape);
+	emitConfig();
+}
+
+function addFieldSpec() {
+	if (props.readOnly) return;
+	fieldSpecs.value.push({
+		id: `field-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+		kind: "field",
+		field: "",
+		alias: "",
+		fn: "COUNT",
+		argument: "",
+		childFieldsText: "",
+	});
+}
+
+function removeFieldSpec(index) {
+	if (props.readOnly) return;
+	fieldSpecs.value.splice(index, 1);
+	syncFieldSpecs();
+}
+
+function setResultShape(shape) {
+	if (props.readOnly) return;
+	localConfig.result_shape = shape;
+	if (shape === "document_names") {
+		localConfig.fields = ["name"];
+		delete localConfig.field_specs;
+		fieldSpecs.value = [];
+	} else if (shape === "whole_documents") {
+		localConfig.fields = compileFieldSpecs(fieldSpecs.value, shape);
+	} else {
+		localConfig.fields = compileFieldSpecs(fieldSpecs.value, shape);
+	}
+	emitConfig();
 }
 
 function parseOrderBy(value) {
