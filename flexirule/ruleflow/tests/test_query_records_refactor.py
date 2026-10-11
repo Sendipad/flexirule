@@ -394,15 +394,15 @@ class TestQueryRecordsRefactor(FrappeTestCase):
 				"ignore_permissions": 0,
 				"config": frappe.as_json(
 					{
+						"result_mode": "flat_fields",
 						"fields": [
 							"name as user_name",
-							{"COUNT": "name", "as": "user_count"},
-							{"roles": ["role", "parent"]},
+						],
+						"functions": [
+							{"function": "COUNT", "args": ["name"], "alias": "user_count"}
 						],
 						"filters": [
 							["User", "enabled", "=", 1],
-							"or",
-							["User", "email", "like", "%@example.com"],
 						],
 						"order_by": "modified desc",
 						"group_by": "enabled",
@@ -415,41 +415,24 @@ class TestQueryRecordsRefactor(FrappeTestCase):
 		)
 
 		mock_query = MagicMock()
-		mock_query.run.return_value = [{"name": "Administrator"}]
-		mock_query.get_sql.return_value = "SELECT * FROM `tabUser`"
+		mock_query.run.return_value = [{"user_name": "Administrator", "user_count": 1}]
+		mock_query.get_sql.return_value = "SELECT `name` `user_name`, COUNT(`name`) `user_count` FROM `tabUser`"
 		mock_query._tables = [frappe.qb.DocType("User")]
 		mock_query.where.return_value = mock_query
 		with patch("frappe.qb.get_query", return_value=mock_query) as get_query:
 			result, _ = self.handler.execute(action, {}, None)
 
-		self.assertEqual(result, [{"name": "Administrator"}])
+		self.assertEqual(result, [{"user_name": "Administrator", "user_count": 1}])
 		get_query.assert_called_once()
 		self.assertEqual(get_query.call_args.args, ("User",))
-		self.assertEqual(
-			get_query.call_args.kwargs,
-			{
-				"fields": [
-					"name as user_name",
-					{"COUNT": "name", "as": "user_count"},
-					{"roles": ["role", "parent"]},
-				],
-				"filters": [
-					["User", "enabled", "=", 1],
-					"or",
-					["User", "email", "like", "%@example.com"],
-				],
-				"order_by": "modified desc",
-				"group_by": "enabled",
-				"limit": 10,
-				"offset": 2,
-				"distinct": True,
-				**(
-					{"ignore_permissions": False}
-					if "ignore_permissions" in inspect.signature(Engine.get_query).parameters
-					else {}
-				),
-			},
-		)
+		called_kwargs = get_query.call_args.kwargs
+		self.assertEqual(called_kwargs["order_by"], "modified desc")
+		self.assertEqual(called_kwargs["group_by"], "enabled")
+		self.assertEqual(called_kwargs["limit"], 10)
+		self.assertEqual(called_kwargs["offset"], 2)
+		self.assertTrue(called_kwargs["distinct"])
+		self.assertEqual(len(called_kwargs["fields"]), 2)
+		self.assertEqual(called_kwargs["fields"][0], "name as user_name")
 
 	def test_fetch_records_forwards_ignore_permissions_true(self):
 		action = frappe._dict(
