@@ -13,6 +13,7 @@ Modes:
 """
 
 import json
+import re
 from typing import Any, ClassVar
 
 import frappe
@@ -535,22 +536,72 @@ class QueryRecordsHandler(ActionHandler):
 		output_keys = set()
 
 		# Validation for Mode C: Flat Selected Fields & Functions
-		if result_mode == "flat_fields":
+		if result_mode in {"flat_fields", "embedded_child"}:
 			fields = config.get("fields") or []
 			if isinstance(fields, list):
 				for f in fields:
 					if isinstance(f, str) and f.strip():
 						fname = f.strip()
-						if " as " in fname.lower():
-							_raw_name, alias = fname.lower().split(" as ", 1)
-							output_key = alias.strip()
+						function_match = re.fullmatch(
+							r"([A-Za-z]+)\(([^()]*)\)\s+as\s+([A-Za-z_][A-Za-z0-9_]*)",
+							fname,
+						)
+						alias_match = re.fullmatch(
+							r"(.+?)\s+as\s+([A-Za-z_][A-Za-z0-9_]*)",
+							fname,
+							re.IGNORECASE,
+						)
+						if function_match:
+							func_name = function_match.group(1).upper()
+							args = [part.strip() for part in function_match.group(2).split(",")] if function_match.group(2).strip() else []
+							if func_name not in self._SUPPORTED_FETCH_FUNCTIONS:
+								errors.append(_("Unsupported SQL function '{0}'").format(func_name))
+							if not function_match.group(3):
+								errors.append(_("Output function aliases are required"))
+							if func_name == "NOW" and args:
+								errors.append(_("NOW does not accept arguments"))
+							if func_name in {"SUM", "AVG", "MIN", "MAX", "ABS", "COUNT"} and len(args) != 1:
+								errors.append(_("Function '{0}' requires exactly one argument").format(func_name))
+							if func_name == "IFNULL" and len(args) != 2:
+								errors.append(_("IFNULL requires exactly two arguments"))
+							if func_name == "CONCAT" and len(args) < 2:
+								errors.append(_("CONCAT requires at least two arguments"))
+							if func_name == "EXTRACT" and (len(args) != 2 or args[0].lower() not in {"year", "month", "day", "hour", "minute", "second"}):
+								errors.append(_("EXTRACT requires a supported date unit and a field"))
+							for arg_index, arg in enumerate(args):
+								if arg == "*" or (len(arg) > 1 and arg[0] == arg[-1] and arg[0] in {"'", '"'}):
+									continue
+								if func_name == "EXTRACT" and arg_index == 0:
+									continue
+								if not self._doctype_has_field(ref_dt, arg):
+									errors.append(_("Function field '{0}' does not exist in {1}").format(arg, ref_dt))
+							output_key = function_match.group(3)
+						elif alias_match:
+							output_key = alias_match.group(2)
+							if not self._doctype_has_field(ref_dt, alias_match.group(1).strip()):
+								errors.append(_("Selected field '{0}' does not exist in {1}").format(alias_match.group(1).strip(), ref_dt))
 						else:
 							output_key = fname.split(".")[-1]
+							if not self._doctype_has_field(ref_dt, fname):
+								errors.append(_("Selected field '{0}' does not exist in {1}").format(fname, ref_dt))
 						if output_key in output_keys:
 							errors.append(
 								_("Duplicate output key '{0}' in selected fields").format(output_key)
 							)
 						output_keys.add(output_key)
+
+			has_aggregate = any(
+				isinstance(field, str)
+				and re.match(r"^(COUNT|SUM|AVG|MIN|MAX)\(", field.strip(), re.IGNORECASE)
+				for field in fields
+			)
+			has_regular_field = any(
+				isinstance(field, str)
+				and not re.match(r"^[A-Za-z]+\(", field.strip())
+				for field in fields
+			)
+			if has_aggregate and has_regular_field and not config.get("group_by"):
+				errors.append(_("Aggregate functions mixed with regular fields require Group By"))
 
 			functions = config.get("functions") or []
 			if isinstance(functions, list):
@@ -828,6 +879,11 @@ class QueryRecordsHandler(ActionHandler):
 				result_mode = "flat_fields"
 			else:
 				result_mode = "names"
+		if result_mode in {"flat_fields", "embedded_child"}:
+			output_errors = self.validate_fetch_records(action, config)
+			if output_errors:
+				frappe.throw("; ".join(output_errors))
+
 		kwargs = {}
 
 		if config.get("filters") not in (None, "", []):
@@ -879,10 +935,11 @@ class QueryRecordsHandler(ActionHandler):
 
 			query_fields: list[Any] = []
 			if isinstance(raw_fields, list):
-				for f in raw_fields:
-					if isinstance(f, str) and f.strip():
-						query_fields.append(f.strip())
+				for field_expression in raw_fields:
+					if isinstance(field_expression, str) and field_expression.strip():
+						query_fields.append(field_expression.strip())
 
+			# The persisted output contract is an ordered Frappe-style fields list.
 			if isinstance(raw_functions, list):
 				for func_spec in raw_functions:
 					compiled = self._compile_function_term(reference_doctype, func_spec)

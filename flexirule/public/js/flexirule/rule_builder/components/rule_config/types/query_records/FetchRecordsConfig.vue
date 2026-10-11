@@ -1,5 +1,9 @@
 <template>
 	<div class="fetch-records-config">
+		<div class="configuration-heading">
+			<h5 class="mb-0">{{ __("FETCH RECORDS · CONFIGURATION") }}</h5>
+		</div>
+
 		<!-- Result Mode Selector -->
 		<div class="sub-section section-subcard" v-fxr-fieldname="'config.result_mode'">
 			<div class="section-heading">
@@ -75,83 +79,25 @@
 			</div>
 		</div>
 
-		<!-- Mode C: Flat Selected Fields & Functions -->
-		<template v-if="localConfig.result_mode === 'flat_fields'">
-			<div class="sub-section section-subcard" v-fxr-fieldname="'config.fields'">
-				<div class="section-heading mb-2">
-					<div>
-						<h6 class="mb-0">{{ __("Selected Fields") }}</h6>
-						<p class="section-description">
-							{{
-								__(
-									"Select parent fields, linked fields (link.field), or flat child table fields."
-								)
-							}}
-						</p>
-					</div>
-				</div>
-				<MultiSelectList
-					:df="{
-						label: '',
-						fieldname: 'fields',
-						placeholder: __('Select fields to fetch...'),
-					}"
-					:options="navigableFields.currentFields.value"
-					:modelValue="localConfig.fields || []"
-					:read_only="readOnly"
-					:hideLabel="true"
-					@update:modelValue="updateConfig('fields', $event)"
-				/>
-			</div>
-
-			<div class="sub-section section-subcard" v-fxr-fieldname="'config.functions'">
-				<FetchRecordsFunctionEditor
-					:modelValue="localConfig.functions || []"
-					:fieldsOptions="navigableFields.currentFields.value"
-					:readOnly="readOnly"
-					@update:modelValue="updateConfig('functions', $event)"
-				/>
-			</div>
-		</template>
-
-		<!-- Mode D: Embedded Child Records -->
-		<template v-if="localConfig.result_mode === 'embedded_child'">
-			<div class="sub-section section-subcard" v-fxr-fieldname="'config.fields'">
-				<div class="section-heading mb-2">
-					<div>
-						<h6 class="mb-0">{{ __("Parent Fields") }}</h6>
-						<p class="section-description">
-							{{
-								__(
-									"Select parent DocType fields to return alongside embedded child arrays."
-								)
-							}}
-						</p>
-					</div>
-				</div>
-				<MultiSelectList
-					:df="{
-						label: '',
-						fieldname: 'fields',
-						placeholder: __('Select parent fields...'),
-					}"
-					:options="navigableFields.currentFields.value"
-					:modelValue="localConfig.fields || []"
-					:read_only="readOnly"
-					:hideLabel="true"
-					@update:modelValue="updateConfig('fields', $event)"
-				/>
-			</div>
-
-			<div class="sub-section section-subcard" v-fxr-fieldname="'config.embedded_children'">
-				<FetchRecordsEmbeddedChildEditor
-					:modelValue="localConfig.embedded_children || []"
-					:childTableOptions="childTableFields"
-					:readOnly="readOnly"
-					@update:modelValue="updateConfig('embedded_children', $event)"
-				/>
-			</div>
-		</template>
+		<!-- Unified Output Fields Builder -->
+		<div
+			v-if="localConfig.result_mode === 'flat_fields' || localConfig.result_mode === 'embedded_child'"
+			class="sub-section section-subcard"
+			v-fxr-fieldname="'config.outputs'"
+		>
+			<FetchRecordsOutputFieldsBuilder
+				:fields="localConfig.fields || []"
+				:functions="localConfig.functions || []"
+				:embeddedChildren="localConfig.embedded_children || []"
+				:fieldsOptions="navigableFields.currentFields.value"
+				:childTableOptions="childTableFields"
+				:resultMode="localConfig.result_mode"
+				:readOnly="readOnly"
+				@update:fields="updateConfig('fields', $event)"
+				@update:functions="updateConfig('functions', $event)"
+				@update:embeddedChildren="updateConfig('embedded_children', $event)"
+			/>
+		</div>
 
 		<!-- Common Filters Section -->
 		<div class="sub-section section-subcard" v-fxr-fieldname="'config.filters'">
@@ -283,12 +229,10 @@
 import { computed, onMounted, reactive, ref, watch } from "vue";
 import ControlFactory from "../../../../controls/ControlFactory.vue";
 import ComboBoxControl from "../../../../controls/ComboBoxControl.vue";
-import MultiSelectList from "../../../../controls/MultiSelectList.vue";
 import { useNavigableFields } from "../../../../composables/useNavigableFields";
 import { useMetaStore } from "../../../../stores/useMetaStore";
 import QueryFilterTree from "../../query_filters/QueryFilterTree.vue";
-import FetchRecordsFunctionEditor from "./FetchRecordsFunctionEditor.vue";
-import FetchRecordsEmbeddedChildEditor from "./FetchRecordsEmbeddedChildEditor.vue";
+import FetchRecordsOutputFieldsBuilder from "./FetchRecordsOutputFieldsBuilder.vue";
 
 const props = defineProps({
 	modelValue: { type: Object, default: () => ({}) },
@@ -385,8 +329,8 @@ function normalizeConfig(value) {
 		(source.embedded_children?.length
 			? "embedded_child"
 			: source.fields?.length || source.functions?.length
-				? "flat_fields"
-				: "names");
+			? "flat_fields"
+			: "names");
 	return {
 		result_mode: inferredMode,
 		filters: source.filters || [],
@@ -481,19 +425,11 @@ function emitConfig() {
 		next.embedded_children = next.embedded_children.map(({ id, ...rest }) => rest);
 	}
 
-	if (next.result_mode === "names" || next.result_mode === "whole_doc") {
-		delete next.fields;
-		delete next.functions;
-		delete next.embedded_children;
-	} else if (next.result_mode === "flat_fields") {
-		delete next.embedded_children;
-		if (!next.fields?.length) delete next.fields;
-		if (!next.functions?.length) delete next.functions;
-	} else if (next.result_mode === "embedded_child") {
-		delete next.functions;
-		if (!next.fields?.length) delete next.fields;
-		if (!next.embedded_children?.length) delete next.embedded_children;
-	}
+	// Keep output selections when changing modes so users can switch back without
+	// losing work. The runtime selects the active result shape via result_mode.
+	if (!next.fields?.length) delete next.fields;
+	if (!next.functions?.length) delete next.functions;
+	if (!next.embedded_children?.length) delete next.embedded_children;
 
 	const filters = next.filters;
 	const hasFilters = Array.isArray(filters)
@@ -501,8 +437,8 @@ function emitConfig() {
 		: !!(
 				filters &&
 				typeof filters === "object" &&
-				(Array.isArray(filters.children) ? filters.children.length > 0 : true)
-			);
+					(Array.isArray(filters.children) ? filters.children.length > 0 : true)
+		  );
 	if (!hasFilters) delete next.filters;
 	if (!next.order_by) delete next.order_by;
 	if (!next.group_by) delete next.group_by;
@@ -567,6 +503,18 @@ defineExpose({ validate });
 	display: flex;
 	flex-direction: column;
 	gap: var(--spacing-sm);
+}
+
+.configuration-heading {
+	padding-bottom: var(--spacing-xs);
+	border-bottom: 1px solid var(--fxr-border-color, #e2e8f0);
+}
+
+.configuration-heading h5 {
+	font-size: var(--fxr-text-md, 14px);
+	font-weight: 700;
+	letter-spacing: 0.04em;
+	color: var(--fxr-text-heading, #0f172a);
 }
 
 .section-heading {
