@@ -65,6 +65,7 @@ class TestFrappeQueryCompat(FrappeTestCase):
 					execute_query("User", {"fields": ["name"]}, False)
 
 		get_query.assert_not_called()
+
 	def test_legacy_logical_filters_are_compiled_to_native_criterion(self):
 		query = MagicMock()
 		query.run.return_value = [{"name": "Administrator"}]
@@ -83,12 +84,7 @@ class TestFrappeQueryCompat(FrappeTestCase):
 			),
 		):
 			with patch("frappe.qb.get_query", return_value=query) as get_query:
-				with patch("flexirule.ruleflow.utils.frappe_query_compat.Permission.check_permissions"):
-					with patch(
-						"flexirule.ruleflow.utils.frappe_query_compat._get_permission_condition",
-						return_value="",
-					):
-						execute_query("User", {"filters": filters}, True)
+				execute_query("User", {"filters": filters}, True)
 
 		compiled = get_query.call_args.kwargs["filters"]
 		self.assertNotIsInstance(compiled, list)
@@ -106,16 +102,11 @@ class TestFrappeQueryCompat(FrappeTestCase):
 			),
 		):
 			with patch("frappe.qb.get_query", return_value=query) as get_query:
-				with patch("flexirule.ruleflow.utils.frappe_query_compat.Permission.check_permissions"):
-					with patch(
-						"flexirule.ruleflow.utils.frappe_query_compat._get_permission_condition",
-						return_value="",
-					):
-						execute_query(
-							"User",
-							{"fields": ["name"], "limit": 50, "offset": 100},
-							True,
-						)
+				execute_query(
+					"User",
+					{"fields": ["name"], "limit": 50, "offset": 100},
+					True,
+				)
 
 		self.assertEqual(get_query.call_args.kwargs["limit"], 50)
 		self.assertEqual(get_query.call_args.kwargs["offset"], 100)
