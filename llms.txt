@@ -227,7 +227,7 @@ Generated: 2026-10-13
 
 - [Query Records Execution Semantics](https://sendipad.github.io/flexirule/advanced-concepts/reference/execution/query-records/) — Detailed runtime behavior, filter resolution, and permission guarantees for Query Records.
 
-- [Smart Value Selector & Value Resolvers](https://sendipad.github.io/flexirule/rule-builder/smart-value-system/) — Learn how to input dynamic data across FlexiRule forms using Static Values, Variable References (@), and Dynamic Value Resolvers (⚡).
+- [Smart Values: Use the Right Information in Your Rules](https://sendipad.github.io/flexirule/rule-builder/smart-value-system/) — Learn how to use fixed values, information available when a rule runs, calculations, lookups, and collections in FlexiRule—without writing code.
 
 - [Sub-Rule](https://sendipad.github.io/flexirule/action-type/sub-rule/) — Run an exposed sub-rule as a reusable module within your visual rule flow.
 

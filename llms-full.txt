@@ -1985,25 +1985,25 @@ Skip Permissions# When skip_permissions is enabled:
 The engine uses …
 
 ---
-title: Smart Value Selector & Value Resolvers
+title: Smart Values: Use the Right Information in Your Rules
 url: https://sendipad.github.io/flexirule/rule-builder/smart-value-system/
-lastmod: 2026-10-07
-summary: Learn how to input dynamic data across FlexiRule forms using Static Values, Variable References (@), and Dynamic Value Resolvers (⚡).
+lastmod: 2026-10-13
+summary: Learn how to use fixed values, information available when a rule runs, calculations, lookups, and collections in FlexiRule—without writing code.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Smart Value Selector &amp;amp; Value Resolvers# The Smart Value Selector is the core dynamic input component in FlexiRule. Whenever you configure an input field—whether setting a document field in Set Value, building conditions in Check, creating query filters, or drafting email templates—you use the Smart Value Selector.
-Core Principle: Every smart input field allows you to seamlessly toggle between static literal values, context variable references (@), and dynamic value resolvers (⚡) without needing to write code or complex syntax.
-The Three Input Modes# Every input field in FlexiRule supports three operational modes:
-1. Static Value# Directly enter constant literal values based on the field&amp;rsquo;s expected data type:
-Text / Strings: Approved, Urgent, Follow up needed Numbers: 100, 0.15, -5 Dates &amp;amp; Times: Selected via interactive calendar pickers or standard date strings (YYYY-MM-DD). Select Dropdowns: Standard single-choice options. 2. Variable Reference (@)# Press the @ key inside any smart input field (or click the Variable (@) button) to open the variable picker popup:
-Smart Value Selector showing Logic Commands dropdown Available variable context scopes include:
-Document Fields (@doc) : Fields on the record triggering the rule (e.g. @doc.grand_total, @doc.customer). Previous Record Values (@old_doc) : Pre-update field state on save events (e.g. compare @old_doc.status with @doc.status to check for status changes). Rule Variables (@vars) : Temporary variables stored by earlier actions in the current flow (e.g. @vars.calculated_discount). Parent Document Fields (@parent) : Parent document fields when inside a child table loop. Loop Item Context (@loop) : Current row item (@loop.item) and iteration index (@loop.index) inside Repeat (Loop) blocks. Session &amp;amp; Environment (@session) : Information about the active user (@session.user, @session.company). 3. Resolver (⚡)# Press the / key or click the Resolver (⚡) button to launch visual value calculation engines.
-Value Resolver Families# FlexiRule includes 6 visual Value Resolver families accessible via the Resolver (⚡) menu:
-Resolver Family Icon Primary Output Business Use Case Date &amp;amp; Time Date / …
+Smart Values: Use the Right Information in Your Rules# When you build a rule, you often need to answer two questions:
+Where will this information come from? Will I know its value now, or only when the rule runs? For example, you may know that a discount is always 10%, but you may not know the customer&amp;rsquo;s credit limit, the invoice&amp;rsquo;s final total, or how many order items there will be until a rule runs. FlexiRule lets you configure values visually so the rule can use the information available at that time—without writing expressions or code.
+You will find the value controls in actions such as Assignment, in the conditions configured for a Condition action, and in other settings that accept values.
+Three ways to provide a value# 1. Enter a fixed value# Use a fixed value when you already know what the rule should use and it should stay the same each time the rule runs.
+Examples:
+Set a priority to High. Apply a fixed discount rate of 10%. Use the message Please review this request. Choose or type the value in the field. FlexiRule offers suitable controls for the kind of information expected, such as text fields, number inputs, date pickers, and choice lists.
+2. Use information that will be available when the rule runs# Use a dynamic value when the correct answer depends on the document being processed, the person using the system, or the result of an earlier step. You do not need to know the actual value while building the rule. Instead, you choose which information FlexiRule should read when the rule runs.
+Click the Variable (@) control, or type @ where supported, to browse the available information. Choose an item from the picker rather than trying to remember its internal reference.
+Choose information from Example The current document Use the customer, posting date, or total from the invoice currently being processed. The previous value Compare a field&amp;rsquo;s earlier value with its new value. A value created by an earlier step Use a calculated amount or a result saved by another action. The current item in a Loop Use the quantity, item code, or rate for the order line currently being processed. The signed-in user or company Use available information …
 
 ---
 title: Sub-Rule
