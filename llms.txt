@@ -5,7 +5,7 @@
 Base URL: https://sendipad.github.io/flexirule/
 Application repository: https://github.com/Sendipad/flexirule
 Documentation repository: https://github.com/Sendipad/flexirule-docs
-Generated: 2026-10-12
+Generated: 2026-10-13
 
 ## Core documentation
 
@@ -43,7 +43,7 @@ Generated: 2026-10-12
 
 - [Troubleshooting](https://sendipad.github.io/flexirule/troubleshooting/troubleshooting/) — Common issues and how to resolve them.
 
-- [What is FlexiRule?](https://sendipad.github.io/flexirule/getting-started/what-is-flexirule/) — A high-level overview of FlexiRule and its role in the Frappe ecosystem.
+- [What is FlexiRule?](https://sendipad.github.io/flexirule/getting-started/what-is-flexirule/) — Learn what FlexiRule does, the problems it solves, and how it fits into Frappe and ERPNext.
 
 - [Fetch Records](https://sendipad.github.io/flexirule/action-type/query-records/fetch-records/) — Configure the newer Query Records mode backed by Frappe&#39;s Query Builder API.
 
@@ -81,7 +81,7 @@ Generated: 2026-10-12
 
 - [High Performance Optimization](https://sendipad.github.io/flexirule/performance/optimization/) — Techniques and best practices for ensuring FlexiRule runs efficiently at scale.
 
-- [How FlexiRule Works](https://sendipad.github.io/flexirule/getting-started/how-it-works/) — Understand the flow from trigger to conditions, actions, outputs, and execution.
+- [How FlexiRule Works](https://sendipad.github.io/flexirule/getting-started/how-it-works/) — Follow the lifecycle of a visual rule, from its trigger and conditions through actions, data, and execution results.
 
 - [Manager Approval for Large Purchase Orders](https://sendipad.github.io/flexirule/tutorials/manager-approval/) — Step-by-step visual guide to enforcing manager approval thresholds on Purchase Orders.
 
@@ -103,7 +103,7 @@ Generated: 2026-10-12
 
 - [Update Existing](https://sendipad.github.io/flexirule/action-type/update-record/update-existing/) — Update a selected existing Frappe document using field and child-table mappings.
 
-- [Why should I use FlexiRule?](https://sendipad.github.io/flexirule/getting-started/why-flexirule/) — Understanding the business value and agility provided by visual rules.
+- [Why should I use FlexiRule?](https://sendipad.github.io/flexirule/getting-started/why-flexirule/) — Understand how visible, testable business rules can improve change management and operational clarity in Frappe and ERPNext.
 
 - [Automatically Assign Documents](https://sendipad.github.io/flexirule/tutorials/automatic-assignment/) — Visual step-by-step tutorial on routing documents to specific team members based on field selections.
 
@@ -117,7 +117,7 @@ Generated: 2026-10-12
 
 - [Delete Record](https://sendipad.github.io/flexirule/action-type/update-record/delete-record/) — Delete one specified existing Frappe document with permission checks.
 
-- [Do I need FlexiRule?](https://sendipad.github.io/flexirule/getting-started/do-i-need-flexirule/) — A decision guide to help you determine if FlexiRule is the right investment for your organization.
+- [Do I need FlexiRule?](https://sendipad.github.io/flexirule/getting-started/do-i-need-flexirule/) — Decide whether a requirement belongs in FlexiRule, a standard Frappe feature, or custom application code.
 
 - [Document Action: Architecture Reference](https://sendipad.github.io/flexirule/advanced-concepts/architecture/actions/document-action/) — Handler structure, Resource Mapper behavior, and mode dispatch for Document Action.
 
@@ -179,7 +179,7 @@ Generated: 2026-10-12
 
 - [Add Comment](https://sendipad.github.io/flexirule/action-type/update-record/add-comment/) — Add a timeline comment to the current document.
 
-- [Build Your First Rule](https://sendipad.github.io/flexirule/getting-started/first-rule/) — A guided path from rule configuration to a tested visual flow.
+- [Build Your First Rule](https://sendipad.github.io/flexirule/getting-started/first-rule/) — Learn the complete rule-building workflow, from defining a business outcome to testing and activating a visual rule.
 
 - [Count](https://sendipad.github.io/flexirule/action-type/query-records/count/) — Determine the total number of records matching your criteria.
 
@@ -187,7 +187,7 @@ Generated: 2026-10-12
 
 - [Event Triggers](https://sendipad.github.io/flexirule/advanced-concepts/triggers/event-triggers/) — Event triggers react directly to state changes within the Frappe DocType lifecycle.
 
-- [Key Capabilities](https://sendipad.github.io/flexirule/getting-started/key-capabilities/) — A summary of the major features and functional highlights of FlexiRule.
+- [Key Capabilities](https://sendipad.github.io/flexirule/getting-started/key-capabilities/) — Explore the core capabilities of FlexiRule and how they support configurable business automation.
 
 - [Loop: Architecture Reference](https://sendipad.github.io/flexirule/advanced-concepts/architecture/actions/loop/) — Internal implementation details and developer reference for the Loop action.
 
@@ -203,7 +203,7 @@ Generated: 2026-10-12
 
 - [Condition Builder](https://sendipad.github.io/flexirule/rule-builder/condition-builder/) — Learn how to create visual logical condition groups in FlexiRule.
 
-- [Core Concepts](https://sendipad.github.io/flexirule/getting-started/core-concepts/) — The fundamental building blocks of the FlexiRule ecosystem.
+- [Core Concepts](https://sendipad.github.io/flexirule/getting-started/core-concepts/) — Learn the essential FlexiRule concepts: rules, triggers, actions, execution context, Smart Values, conditions, and lifecycle.
 
 - [Frontend Technical](https://sendipad.github.io/flexirule/advanced-concepts/architecture/ui/overview/) — The FlexiRule frontend is a Vue 3 application that synchronizes complex graph logic with Frappe&#39;s relational data model.
 
@@ -245,7 +245,7 @@ Generated: 2026-10-12
 
 - [How does FlexiRule achieve high performance?](https://sendipad.github.io/flexirule/getting-started/performance/) — An in-depth look at the architectural decisions that ensure FlexiRule remains fast and scalable in production environments.
 
-- [Quick Start Guide](https://sendipad.github.io/flexirule/getting-started/quick-start/) — Create, test, and activate a first visual rule in Frappe or ERPNext.
+- [Quick Start Guide](https://sendipad.github.io/flexirule/getting-started/quick-start/) — Create, test, and review a first visual rule in Frappe or ERPNext.
 
 - [Advanced Process](https://sendipad.github.io/flexirule/action-type/process/) — Run reusable, system-registered business processes and custom operations directly from your rules.
 

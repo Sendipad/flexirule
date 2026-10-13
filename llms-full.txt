@@ -336,22 +336,21 @@ Go to Rule Execution Log. Find the latest entry for your rule. Look at the Trace
 ---
 title: What is FlexiRule?
 url: https://sendipad.github.io/flexirule/getting-started/what-is-flexirule/
-lastmod: 2026-09-29
-summary: A high-level overview of FlexiRule and its role in the Frappe ecosystem.
+lastmod: 2026-10-13
+summary: Learn what FlexiRule does, the problems it solves, and how it fits into Frappe and ERPNext.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-What is FlexiRule?# FlexiRule is a Visual Rule Engineering &amp;amp; Orchestration Engine built specifically for the Frappe Framework and ERPNext. It provides a visual, graph-based layer that allows you to design, execute, and manage complex business logic without writing scattered Python code.
-In modern enterprise systems, business logic often evolves into a fragmented web of Python hooks, server scripts, and custom app overrides. This &amp;ldquo;technical debt&amp;rdquo; makes execution order difficult to track, debugging nearly impossible, and system upgrades risky. FlexiRule changes this paradigm by centralizing logic into a visual, auditable orchestration layer.
-The Problem: &amp;ldquo;Hook Hell&amp;rdquo;# As ERPNext implementations grow, developers typically resort to:
-Python Hooks: Hidden in multiple custom apps. Server Scripts: Hard to version control and test. Client Scripts: Fragmented logic across the UI. This leads to Hook Hell, where it&amp;rsquo;s unclear which logic runs first, why a document was modified, or how to change a process without breaking unrelated features.
-The Solution: Visual Orchestration# FlexiRule sits as a middle layer between the Frappe Framework and your business processes. Instead of writing code, you build Rules on a visual canvas.
-Deterministic: You define the exact execution path. Observable: Every step is logged and traceable on the canvas. Safe: Built-in validation, cycle detection, and sandboxing prevent system instability. Role in the Ecosystem# FlexiRule is not a replacement for Frappe; it is an enhancement. It leverages standard Frappe features—like DocTypes, Events, and Permissions—while providing a superior way to organize the logic that connects them.
-Whether you are automating a simple notification or a multi-stage credit approval process, FlexiRule provides the tools to build it visually and manage it professionally.
-
+What is FlexiRule?# FlexiRule is a visual business-rule and orchestration platform for the Frappe Framework and ERPNext. It lets teams represent supported business policies as connected, configurable rules instead of spreading every decision across custom hooks, scripts, and app code.
+A rule can respond to a supported trigger, evaluate conditions, read data, assign values, update documents, send notifications, and connect steps into a visible flow. The exact behavior available depends on the installed FlexiRule version and its configured action types.
+The problem it addresses# As an ERPNext implementation grows, business decisions can become scattered across hooks, server scripts, custom methods, and separate applications. The resulting behavior may be difficult to discover, explain, test, or safely change because no single view shows how the pieces work together.
+FlexiRule provides a dedicated place to model supported business policies. The rule&amp;rsquo;s trigger, connected steps, action configuration, and available execution information help a team reason about what should happen and investigate what happened.
+What FlexiRule is—and is not# It is a visual layer for expressing and maintaining supported business rules. It is a way to make decision paths more discoverable and testable. It is not a replacement for Frappe, ERPNext, or custom application development. It does not make every configuration automatically safe; rules still require correct permissions, testing, and review of side effects. A simple example# Imagine that finance wants to notify a reviewer when a Sales Invoice exceeds a threshold. A rule can express the intended flow:
+Invoice event │ ▼ Compare grand total with threshold │ ├── Above threshold → Notify reviewer └── Otherwise → No notification The example separates the business policy (which invoices need review) from the technical capabilities used to execute it (document events, data access, and notification delivery).
+How it fits into a Frappe application# Custom development remains the right place to build new DocTypes, APIs, integrations, and technical capabilities. FlexiRule can then orchestrate those capabilities where supported, while …
 
 ---
 title: Fetch Records
@@ -675,22 +674,19 @@ Use Filters: Never query without filters if you expect many records. Limit Resul
 ---
 title: How FlexiRule Works
 url: https://sendipad.github.io/flexirule/getting-started/how-it-works/
-lastmod: 2026-10-07
-summary: Understand the flow from trigger to conditions, actions, outputs, and execution.
+lastmod: 2026-10-13
+summary: Follow the lifecycle of a visual rule, from its trigger and conditions through actions, data, and execution results.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-How FlexiRule Works# FlexiRule turns a business policy into a visual rule that can be configured, tested, and executed consistently.
-The execution model# A typical rule follows this mental model:
-Trigger → optional trigger condition → actions → branches/loops → outputs
-Trigger defines when the rule is eligible to run. Trigger conditions reject irrelevant events before the action flow starts. Actions perform decisions, reads, assignments, updates, notifications, or other supported operations. Branches and loops control which parts of the flow execute. Outputs and variables make results available to later steps. Execution logs record live activity for operational inspection. What you see is what executes# The canvas is the primary representation of the rule flow. Connections determine execution paths, while each action&amp;rsquo;s configuration determines the inputs and behavior of that step.
-This is why FlexiRule separates:
-Rule configuration — when and where the rule can run. Canvas flow — the order and branching of execution. Action settings — what each step does. Smart values — where each input comes from. Testing — what happens when the rule is simulated before production use. FlexiRule and custom code# FlexiRule is a declarative business-logic layer. It does not replace all custom development.
-Use a rule when the policy is best represented as configurable business behavior. Use custom Frappe/Python development when the requirement needs application-specific technical logic, complex integrations, or capabilities not exposed by supported actions and processes.
-Continue# Core Concepts Build Your First Rule Build Rules 
+How FlexiRule Works# A FlexiRule rule describes a business decision as a connected flow. Instead of hiding every decision in code, the rule makes its entry point, steps, branches, and configured inputs visible in one place.
+The execution journey# Business event or supported trigger │ ▼ Trigger configuration │ ▼ Optional trigger condition │ ▼ Rule starts │ ▼ Connected action steps ├── Read or query data ├── Evaluate a condition ├── Assign or update values └── Notify or call reusable logic │ ▼ Result and logs A trigger defines when a rule is eligible to run. For example, a rule may be associated with a DocType event. An optional trigger condition filters early. It can prevent the rule flow from starting when the incoming document does not meet the configured criteria. The canvas defines the path. Connected action nodes determine the sequence and branches of work. Each action has its own configuration. It determines what the step does and which inputs it uses. Smart Values supply data. Inputs can reference the current document, runtime variables, earlier results, or supported value resolvers. The execution result can be inspected. Testing and execution logs help explain which path ran and where a problem occurred. The canvas is more than a diagram# The canvas represents the configured execution flow; it is not merely an illustration of a separate script. A connection matters because it determines which step can run next. Action settings matter because they define the behavior of each step.
+When troubleshooting, check these layers separately:
+Layer Question to ask Rule configuration Is the trigger, target DocType, and event correct? Flow connections Does the intended branch lead to the correct next step? Action settings Is each action configured for the intended operation? Smart Values Does each input refer to data that is available at that point? Test and execution results What path ran, what values were returned, and where did it fail? A practical example: flag a high-value invoice# Suppose a finance team wants to alert a reviewer when a Sales Invoice exceeds a configured amount.
+Configure a rule for the appropriate Sales Invoice event. Add a Condition that …
 
 ---
 title: Manager Approval for Large Purchase Orders
@@ -882,24 +878,20 @@ Document Mode: Update Existing Reference DocType: Project Reference DocName: res
 ---
 title: Why should I use FlexiRule?
 url: https://sendipad.github.io/flexirule/getting-started/why-flexirule/
-lastmod: 2026-09-29
-summary: Understanding the business value and agility provided by visual rules.
+lastmod: 2026-10-13
+summary: Understand how visible, testable business rules can improve change management and operational clarity in Frappe and ERPNext.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Why should I use FlexiRule?# FlexiRule provides significant business value by transforming how you manage automation. It shifts the focus from writing code to configuring business logic, enabling your team to respond to changes with unprecedented speed.
-Business Agility# In a traditional setup, changing a business rule (e.g., &amp;ldquo;Increase discount for VIP customers&amp;rdquo;) requires a developer to modify Python code, run tests, and deploy a new version of an app.
-With FlexiRule, a functional consultant or administrator can:
-Open the Visual Builder. Update a Condition or Assignment block. Run a Manual Test to verify. Activate the change instantly. Reduced Customization Costs# FlexiRule significantly lowers the Total Cost of Ownership (TCO) for ERPNext implementations:
-Lower Skill Ceiling: Functional consultants can handle 80% of automations that previously required senior developers. Faster Development: Building logic on a canvas is significantly faster than writing, debugging, and documenting manual hooks. Easier Upgrades: Because logic is separated from application code, upgrading ERPNext or Frappe is safer and less likely to break custom rules. Practical Examples# 1. Dynamic Pricing# Automatically calculate complex discounts based on customer group, item category, and historical volume—all visible in one graph rather than hidden in multiple price_list.py overrides.
-2. Multi-Stage Approvals# Build approval workflows that branch based on document value, department, or specific field changes. If the approval logic changes next month, you update the graph, not the code.
-3. Data Validation &amp;amp; Cleaning# Ensure data integrity by checking complex conditions before a document is saved. Automatically normalize phone numbers or format addresses using built-in Process blocks.
-Visibility and Auditability# &amp;ldquo;Why did this Sales Order status change to On Hold?&amp;rdquo;
-In a standard system, finding the answer involves searching through logs and code. In FlexiRule, you simply check the Execution Log for that specific document, which shows you the exact path the rule took on the canvas.
-
+Why should I use FlexiRule?# FlexiRule is valuable when a business decision needs to be understood and changed over time—not simply implemented once. It gives supported business policies a visible home where the team can review the flow, configure inputs, test outcomes, and inspect available execution information.
+Make business decisions easier to see# A rule can show the trigger, conditions, and follow-up actions in a connected flow. This helps reviewers understand the intended decision path without first tracing every relevant code path across a project.
+Change policy without confusing it with application engineering# Consider a finance team that changes its invoice-review threshold. If the decision is represented in a supported FlexiRule configuration, the team may be able to adjust and test the policy without rewriting the underlying technical capability. Changes should still follow the site&amp;rsquo;s permissions, review, and activation practices.
+Test before a change affects live work# A visual flow is only useful if it behaves as intended. Use available debug or simulation tools to test representative inputs, including cases that should take different branches. Review action results and side effects before activating a rule.
+Keep technical capabilities and business policies separate# Custom Frappe development is still essential for new data models, integrations, APIs, and complex technical behavior. FlexiRule can orchestrate supported capabilities while expressing the policy that decides when they should be used.
+Common use cases# Approvals: branch based on document value, department, or other supported fields. Validation: check business-specific requirements at an appropriate document event. Notifications: alert the right people when configured conditions are met. Cross-document decisions: read related data and use it to determine the next step, where supported actions and permissions allow. Reusable behavior: organize repeated supported logic into maintainable rules or reusable processes. These are examples, not a guarantee that every scenario can be implemented without custom development. Check the action types, trigger support, and permission model for …
 
 ---
 title: Automatically Assign Documents
@@ -1019,24 +1011,20 @@ Safety checklist# Confirm the exact DocType and record name. Ensure the rule can
 ---
 title: Do I need FlexiRule?
 url: https://sendipad.github.io/flexirule/getting-started/do-i-need-flexirule/
-lastmod: 2026-09-29
-summary: A decision guide to help you determine if FlexiRule is the right investment for your organization.
+lastmod: 2026-10-13
+summary: Decide whether a requirement belongs in FlexiRule, a standard Frappe feature, or custom application code.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Do I need FlexiRule?# Not every ERPNext implementation requires a visual orchestration engine. Use this guide to determine if FlexiRule is the right investment for your organization based on your current pain points and future growth.
-You Need FlexiRule if&amp;hellip;# 1. Your Business Processes are Growing# As your company scales, simple automations become complex multi-stage processes. If you find yourself adding more and more &amp;ldquo;hacks&amp;rdquo; to standard DocTypes to handle new business cases, it&amp;rsquo;s time for a professional logic layer.
-2. Workflow Changes are Frequent# If your business rules change seasonally (e.g., promotional pricing) or in response to market shifts, waiting for code deployments is a competitive disadvantage. FlexiRule allows you to pivot logic in minutes.
-3. You Manage Customer-Specific Rules# If you have multiple customers with unique validation or approval requirements, managing these through standard Python hooks leads to &amp;ldquo;spaghetti code.&amp;rdquo; FlexiRule allows you to build separate, named rules for specific scenarios.
-4. You Have Heavy Custom Scripting# If your hooks.py or server_scripts list is becoming unmanageable, FlexiRule can help you consolidate and document that logic visually.
-5. You Need Better Auditability# If &amp;ldquo;Who changed this value?&amp;rdquo; and &amp;ldquo;Why did this rule trigger?&amp;rdquo; are common questions in your organization, FlexiRule&amp;rsquo;s detailed execution logs provide the necessary transparency.
-You May NOT Need FlexiRule if&amp;hellip;# Your Requirements are Static# If your business logic hasn&amp;rsquo;t changed in three years and your current automations work perfectly, the overhead of introducing a new tool may not be justified.
-You Have a Simple Setup# If you are using ERPNext for basic accounting and lead management without complex custom workflows, standard features are likely sufficient.
-You Have Very Few Customizations# If you only have 2 or 3 simple scripts, moving them to FlexiRule might be overkill.
-Summary Checklist# Pain Point Solution with FlexiRule &amp;ldquo;I&amp;rsquo;m afraid to change code because I might break something.&amp;rdquo; Visual Trace &amp;amp; Validation &amp;ldquo;I can&amp;rsquo;t tell which …
+Do I need FlexiRule?# FlexiRule is most useful when a business policy changes over time and the team needs to understand, test, and maintain the logic without tracing it through several unrelated code paths. It is not necessary for every automation.
+A quick decision guide# Your requirement A sensible starting point A straightforward approval or validation policy Consider a standard Frappe workflow or feature first; use FlexiRule if the decision logic needs more flexibility or visibility. A business rule changes frequently FlexiRule may help make the policy easier to adjust and test. A decision depends on several fields, related records, or multiple branches FlexiRule can make the decision flow explicit, if supported actions cover the requirement. A process needs readable, inspectable execution steps Consider FlexiRule and its testing and execution-inspection tools. You need a new DocType, API integration, or application capability Build the capability in a custom app; FlexiRule may orchestrate it where supported. The logic is tiny, stable, and already easy to maintain Existing Frappe functionality or a small, well-tested customization may be simpler. FlexiRule is a strong candidate when…# Business policy changes regularly# Examples include approval thresholds, customer-specific rules, discount eligibility, and escalation criteria. A visual rule can make the policy easier to review when requirements change.
+The decision spans multiple steps# When a process reads data, evaluates conditions, follows different paths, and performs follow-up actions, a connected flow can be easier to understand than logic scattered across hooks.
+You need to explain why a result occurred# A visible rule definition and available execution information can help a team investigate which decisions and steps were involved. Logging and trace detail depend on the configuration and execution path; do not treat them as a substitute for testing.
+Business and technical responsibilities should be separated# Developers can implement reusable capabilities while administrators or functional owners maintain supported business policies within the permissions and governance of the installation.
+When …
 
 ---
 title: Document Action: Architecture Reference
@@ -1561,28 +1549,29 @@ Troubleshooting# Comment Text is empty: provide a non-empty value that resolves 
 ---
 title: Build Your First Rule
 url: https://sendipad.github.io/flexirule/getting-started/first-rule/
-lastmod: 2026-10-07
-summary: A guided path from rule configuration to a tested visual flow.
+lastmod: 2026-10-13
+summary: Learn the complete rule-building workflow, from defining a business outcome to testing and activating a visual rule.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Build Your First Rule# This tutorial introduces the complete rule-building workflow without assuming prior FlexiRule experience.
-1. Configure the rule# Open the Rule Builder and configure:
-Rule name Trigger type Target DocType when applicable Trigger event Execution mode and other execution settings See Rule Configuration.
-2. Add the first action# Use the Action Palette or an action insertion point to add the step that represents your business operation.
+Build Your First Rule# This tutorial explains how to turn a business requirement into a rule you can understand, test, and maintain. It focuses on the reasoning behind each step so you can apply the same method to your own process.
+Start with the business outcome# Before opening the builder, write down the behavior in one sentence.
+Example: “When a Sales Invoice exceeds the review threshold, notify the finance reviewer.”
+Identify three things:
+When should it run? The trigger and event. What decision should it make? The condition and its inputs. What should happen next? The action for each outcome. If you cannot describe the expected behavior clearly, clarify the business requirement before configuring the rule.
+1. Configure the rule# Open RuleFlow and create a Rule. Give it a name that describes its purpose, then choose the appropriate trigger type, target DocType when applicable, event, and execution settings.
+Do not copy a trigger event from an example without checking its timing. For instance, a validation rule and a post-submit rule serve different purposes.
+See Rule Configuration.
+2. Sketch the flow# Before adding details, outline the steps:
+Entry │ ▼ Condition: invoice total exceeds threshold? ├── Yes → Notify finance reviewer └── No → No additional action Treat this as a planning sketch, not a promise that every installation displays identical node names or branch labels. The connected nodes and configured action settings define the actual flow.
+3. Add and connect the action steps# Use the Action Palette or a supported insertion point to add a Condition and a Notify action. Connect the nodes so the notification follows only the matching branch.
+If the task is different, select actions by intent rather than by name alone. Which action should I use? compares common business goals and the corresponding action types.
 See Adding Actions.
-3. Configure inputs# Select the action and configure its fields in Action Settings. Use Smart Values when an input should come from the triggering document, a previous result, or a supported resolver.
-See Action Settings and Smart Values.
-4. Add decisions when needed# Use a Condition action when the flow needs different paths. Keep the business decision visible on the canvas rather than hiding it in an opaque expression.
-See Condition Builder.
-5. Test before activation# Run a debug simulation with representative documents. Inspect the execution path, step results, and returned values.
-See Testing &amp;amp; Debugging.
-6. Activate deliberately# After testing, follow the lifecycle rules for your installation. Active rules can affect live document events, so confirm the trigger, permissions, side effects, and expected results before activation.
-See Rule Lifecycle.
-
+4. Configure inputs with Smart Values# For the Condition, select the invoice&amp;rsquo;s grand total as the left value, choose greater than, and provide the threshold as the right value. Use the Smart Value controls to select fields and supported dynamic values instead of manually guessing references.
+Configure the notification …
 
 ---
 title: Count
@@ -1639,16 +1628,22 @@ doc.status == &amp;#34;Approved&amp;#34; and old_doc.status != &amp;#34;Approved
 ---
 title: Key Capabilities
 url: https://sendipad.github.io/flexirule/getting-started/key-capabilities/
-lastmod: 2026-09-29
-summary: A summary of the major features and functional highlights of FlexiRule.
+lastmod: 2026-10-13
+summary: Explore the core capabilities of FlexiRule and how they support configurable business automation.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Key Capabilities# FlexiRule combines the power of visual programming with enterprise-grade governance. Here are the major features that define the platform:
-Visual Rule Builder# Vue 3 Interface: A modern, responsive canvas for designing complex logic. Drag-and-Drop: Easily add and connect logic blocks. Real-time Validation: The builder alerts you to missing configuration or broken connections as you work. Advanced Logic Control# Nested Conditions: Build multi-level if-then-else logic visually. Switch Blocks: Handle multiple branching scenarios from a single node. Sub-Rules: Call one rule from another to maintain modularity and reuse logic. Safety and Governance# Cycle Detection: Native protection against infinite loops in the graph. Sandboxed Environment: Rules are executed in a safe container that prevents unauthorized database modifications. Role-Based Permissions: Control who can view, edit, or execute specific rules. High-Performance Engine# Condition Compilation: Logic is pre-compiled for near-zero execution overhead. Layered Caching: Multi-level cache (Redis + Local) for lightning-fast rule lookups. Asynchronous Processing: Offload heavy tasks to background workers without slowing down the user. Observability# Execution Logs: Detailed audit trail for every rule run. Visual Path Trace: See exactly which path a document took through your logic graph. Debug Mode: Enable enhanced logging for complex troubleshooting. Developer Friendly# JSON Schema Driven: Configuration forms for custom logic are auto-generated. Extensible Actions: Register custom Python logic as new block types. Git Friendly: Rules are stored as DocTypes, making them easy to migrate between environments. 
+Key Capabilities# FlexiRule brings rule configuration, visual flow design, dynamic values, and execution inspection into one Frappe-native business-automation experience. The capabilities available to you depend on the installed version, permissions, and configuration.
+Visual rule design# Build a rule from connected action nodes. The canvas helps communicate the order of work and the branches that represent different business outcomes.
+Conditions and flow control# Use Condition actions to evaluate criteria and choose a path. Use other supported flow-control actions when a process requires repeated work or multiple outcomes. Keep decisions explicit so a reviewer can understand why the flow proceeds in a particular direction.
+Smart Values and dynamic inputs# Configure action inputs using the available value controls. Values may come from the current document, prior state where available, runtime variables, earlier action results, or supported resolvers. Selecting a value through the UI helps reduce mistakes caused by manually entering references that are unavailable at that point in the flow.
+Data access and document operations# Supported actions can retrieve records or perform configured document operations. Choose the action based on the goal—reading data, assigning a value, or performing a document operation are distinct tasks. Permissions and supported query or operation options still apply.
+Testing and execution visibility# Use the available debug or test tools to check representative scenarios before activation. Execution information can help you inspect the path and action outcomes, but it should be paired with careful test cases and review of side effects.
+Lifecycle and governance# Rule lifecycle controls and permissions help teams manage who can edit and activate business logic. Follow the lifecycle behavior of your installed version, and review activation requirements before a rule is allowed to affect live events.
+Extensibility alongside custom development# FlexiRule does not eliminate the need for developers. Custom apps remain responsible for technical capabilities such as new DocTypes, APIs, and integrations; supported rules can coordinate those …
 
 ---
 title: Loop: Architecture Reference
@@ -1780,19 +1775,28 @@ AND — …
 ---
 title: Core Concepts
 url: https://sendipad.github.io/flexirule/getting-started/core-concepts/
-lastmod: 2026-09-29
-summary: The fundamental building blocks of the FlexiRule ecosystem.
+lastmod: 2026-10-13
+summary: Learn the essential FlexiRule concepts: rules, triggers, actions, execution context, Smart Values, conditions, and lifecycle.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Core Concepts# FlexiRule is built from a small set of reusable concepts. A rule is not a single script; it is a flow of blocks that read data, make decisions, and perform actions. Understanding these building blocks will help you design, read, and troubleshoot rules, and each concept will later have its own dedicated page for deeper explanation.
-How a rule runs# Business Event │ ▼ Trigger │ ▼ Rule │ ▼ Execution Context │ ▼ Blocks │ ▼ Queries, Value Resolvers, and Logical Commands │ ▼ Execution Result In practice, a business event starts the process, a trigger decides whether the rule should run, the rule creates an execution context, and the blocks inside the rule use queries, values, and logic to produce the final result.
-1. Rule# A Rule is the top-level automation definition in FlexiRule, and it exists so business behavior can be modeled in one place instead of being scattered across hard-coded application logic; it interacts with the trigger that starts execution, the execution context that carries runtime data, and the blocks that perform the actual work, and for example a rule can automatically approve a Sales Order when the total amount is below a configured limit and the customer is in good standing.
-2. Trigger# A Trigger is the entry point that starts a rule, and it exists so FlexiRule only evaluates automation when the correct business event happens instead of running continuously; it interacts with the rule by deciding whether execution should begin, and if the trigger matches then the execution context is created and the rule continues, for example a trigger can run when a Purchase Invoice is submitted or on a nightly schedule to check overdue documents.
-3. Execution Context# The Execution Context is the runtime memory available while a rule is running, and it exists so blocks can share data and reuse values during execution without losing state between steps; it interacts with the rule, blocks, value resolvers, and logical commands by holding the current document as doc, the previous state as old_doc when available, and custom runtime values in vars, and for example a customer credit check rule can store the calculated credit limit in …
+Core Concepts# You do not need to memorize every action before building a rule. Start with the concepts below: they explain when a rule runs, how its steps connect, where data comes from, and how to test changes safely.
+The big picture# Trigger │ ▼ Optional trigger condition │ ▼ Rule flow on the canvas ├── Read data ├── Evaluate a Condition ├── Assign values or perform document operations └── Notify or run supported reusable logic │ ▼ Result and available execution details Rule# A Rule is the automation definition. It brings together when the automation can run, the flow of action steps, and each step&amp;rsquo;s configuration.
+Ask: What business behavior should this rule implement?
+Trigger# A Trigger determines when a rule is eligible to run, such as a supported DocType event. Choose an event whose timing matches the business requirement; different lifecycle events can have different consequences.
+Ask: When should this rule start?
+Trigger condition# A Trigger Condition is an optional early filter that determines whether the rule should start for a particular event or document. It is different from a Condition action inside the flow: the trigger condition gates entry, while a Condition action chooses what happens after the rule starts.
+Ask: Should this event enter the rule at all?
+Action node and Action Type# An action node is a step on the canvas. Its Action Type defines the kind of work it performs. Depending on the installed version and configuration, actions may evaluate conditions, read records, assign values, perform document operations, notify users, or call supported reusable logic.
+Choose an action by intent, not by a similar-sounding label. Assignment is for assigning a value; Document Action is for a supported operation on a document. They are not interchangeable.
+Ask: What work should this step do?
+See Which action should I use?.
+The canvas and connections# The canvas is the connected flow of action nodes. Connections describe which step can follow another and which branch is taken. A node&amp;rsquo;s presence alone does not guarantee it will run; its position and connections matter.
+Ask: Does the connected path match the intended business process?
+Execution …
 
 ---
 title: Frontend Technical
@@ -2147,23 +2151,24 @@ Example Registry …
 ---
 title: Quick Start Guide
 url: https://sendipad.github.io/flexirule/getting-started/quick-start/
-lastmod: 2026-10-07
-summary: Create, test, and activate a first visual rule in Frappe or ERPNext.
+lastmod: 2026-10-13
+summary: Create, test, and review a first visual rule in Frappe or ERPNext.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Quick Start Guide# This walkthrough shows the typical workflow for a simple rule: check a document value, then take an action when the condition is met. Exact labels can vary slightly with your FlexiRule version and builder preferences.
-Before you begin: Use a development or test site first. Notifications and other actions may have real effects when a rule is active.
-1. Open RuleFlow# In Frappe or ERPNext, open RuleFlow from the application navigation or search for it in the Awesomebar. From the workspace, open the rule list or create a new Rule.
-2. Configure the rule# Give the rule a clear name, such as High Value Invoice Review. For a document-triggered rule, choose:
-Setting Example Meaning Trigger Type DocType Event Run in response to a document lifecycle event Document Type Sales Invoice The document the rule applies to Trigger Event Validate Evaluate the rule during validation Execution Mode Synchronous Run as part of the current request; use asynchronous execution only when appropriate Save the rule before opening the visual builder. Choose an event that fits the intended behavior: validation is usually appropriate for checks that must stop an invalid document, while post-save or submit events suit other kinds of follow-up work.
-3. Open the Rule Builder# Open Rule Builder from the Rule form or workspace. The canvas represents the flow as connected action nodes. Start with the entry node, then add the action types needed for your scenario.
-See the flow in action# 4. Add a condition# Add a Condition action (the exact display label may be Check in some UI areas). Configure a comparison using the Smart Value Selector rather than guessing field names:
-Left value: the current document&amp;rsquo;s Grand Total, commonly represented as @doc.grand_total Operator: greater than Right value: 10000 This creates a decision based on the current Sales Invoice. Confirm the field and operator shown in your installed builder.
-5. Add the next action# Connect the matching branch to an action such as Notify. Configure the channel and message using values from the current document, such as its document name. Leave the other branch empty or connect it to the appropriate alternative …
+Quick Start Guide# This guide walks through a small, practical rule: check a document value and notify someone when it passes a threshold. The goal is to learn the end-to-end workflow, not to cover every builder option.
+Before you begin: Use a development or test site. A live rule may run automatically, and actions such as notifications or document updates can have real effects.
+What you&amp;rsquo;ll build# A rule for Sales Invoices that sends a notification when the invoice&amp;rsquo;s grand total is greater than a threshold. Adapt the DocType, event, and action to your actual business requirement.
+1. Open RuleFlow# In Frappe or ERPNext, open RuleFlow from the application navigation or search for it using the Awesomebar. Open the rule list and create a new Rule.
+If RuleFlow or the rule builder is unavailable, confirm that FlexiRule is installed and enabled for the site and that your user has the required permissions.
+2. Configure the rule# Give the rule a clear, descriptive name such as High Value Invoice Review. For a document-triggered example, the configuration may look like this:
+Setting Example What to verify Trigger Type DocType Event The rule should respond to a document lifecycle event. Document Type Sales Invoice Use the DocType relevant to your requirement. Trigger Event Validate Choose an event whose timing matches the behavior you need. Execution Mode Synchronous Use the mode appropriate to the work and event. The available settings and event choices depend on the installed version. Save the rule, then open the visual builder. Do not select an event simply because it appears in an example: validation, save, and submit events occur at different points and can have different consequences.
+3. Understand the canvas# The canvas shows connected action nodes. Start with the entry point, add the action steps you need, and connect them to express the intended path. A node that is present but not connected to the right path will not produce the intended flow.
+4. Add a Condition# Add a Condition action and configure a comparison:
+Left value: the current document&amp;rsquo;s grand total, selected using Smart Values (commonly referenced as @doc.grand_total). Operator: …
 
 ---
 title: Advanced Process
