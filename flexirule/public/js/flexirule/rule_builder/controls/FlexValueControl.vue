@@ -1542,19 +1542,31 @@ onBeforeUnmount(() => {
 }
 
 :deep(.token-chip) {
-	padding: 1px 6px;
-	border-radius: 4px;
+	max-width: min(320px, 70vw);
+	padding: 3px 8px;
+	border-radius: 6px;
 	font-size: 11px;
-	font-weight: 600;
-	margin: 0 2px;
+	font-weight: 650;
+	line-height: 1.35;
+	margin: 0 3px;
 	cursor: pointer;
 	display: inline-flex;
 	align-items: center;
-	transition: all 0.2s;
+	vertical-align: middle;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	border: 1px solid transparent;
+	box-shadow: 0 1px 1px rgb(15 23 42 / 4%);
+	transition: border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease;
 }
 :deep(.token-chip:hover) {
-	filter: brightness(0.95);
-	transform: scale(1.02);
+	filter: saturate(1.08);
+	box-shadow: 0 1px 3px rgb(15 23 42 / 10%);
+}
+:deep(.token-chip:focus-visible) {
+	outline: 2px solid var(--fxr-accent);
+	outline-offset: 2px;
 }
 :deep(.token-variable) {
 	background-color: var(--fxr-badge-bool);
@@ -1579,7 +1591,9 @@ onBeforeUnmount(() => {
 :deep(.token-resolver) {
 	background-color: var(--fxr-badge-resolver);
 	color: var(--fxr-badge-resolver-text);
-	border: 1px solid rgba(217, 119, 6, 0.2);
+	border-color: color-mix(in srgb, var(--fxr-badge-resolver-text) 18%, transparent);
+	font-family: var(--fxr-font-mono, monospace);
+	font-weight: 600;
 }
 
 .fxr-token-modal-overlay {
