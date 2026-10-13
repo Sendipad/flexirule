@@ -157,7 +157,11 @@ import { ref, watch, onMounted, computed } from "vue";
 import { useStore } from "../../stores";
 import ControlFactory from "../../controls/ControlFactory.vue";
 import ComboBoxControl from "../../controls/ComboBoxControl.vue";
-import { normalizeResolvedOutputSchema } from "../../../utils/output_schema.js";
+import {
+	hasConfiguredResolvedOutputSchema,
+	normalizeResolvedOutputSchema,
+} from "../../../utils/output_schema.js";
+import { ACTION_TYPES_WITH_RETURN_SCHEMA, normalizeActionType } from "../../../core/contracts";
 import {
 	applyOutputPolicyDefaults,
 	getContract,
@@ -304,10 +308,13 @@ const returnVariablePlaceholder = computed(() => {
 const isReturnVariableMandatory = computed(() => {
 	const data = props.node.data || {};
 	const policy = getEffectiveActionPolicy(data.action_type, policyContext.value);
+	const supportsReturnSchema = ACTION_TYPES_WITH_RETURN_SCHEMA.has(
+		normalizeActionType(data.action_type)
+	);
 	return !!(
 		data.mutation_mode ||
-		(data.return_type && data.return_type !== "Yes / No") ||
-		data.resolved_output_schema ||
+		(supportsReturnSchema && data.return_type && data.return_type !== "Yes / No") ||
+		(supportsReturnSchema && hasConfiguredResolvedOutputSchema(data.resolved_output_schema)) ||
 		policy.require_return_variable
 	);
 });
