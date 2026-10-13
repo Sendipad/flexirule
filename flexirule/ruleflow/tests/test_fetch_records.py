@@ -789,9 +789,7 @@ class TestFetchRecords(FrappeTestCase):
 		from flexirule.ruleflow.utils.frappe_query_compat import FrappeQueryCapabilities
 
 		description = f"FetchLegacyPermission_{random_string(6)}"
-		todo = frappe.get_doc(
-			{"doctype": "ToDo", "description": description}
-		).insert(ignore_permissions=True)
+		todo = frappe.get_doc({"doctype": "ToDo", "description": description}).insert(ignore_permissions=True)
 		action = frappe._dict(
 			{
 				"operation": "Fetch Records",
