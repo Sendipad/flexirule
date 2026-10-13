@@ -10,45 +10,43 @@
 		<div v-else class="config-container">
 			<div class="sub-section section-subcard">
 				<h6>{{ __("Execution Permission") }}</h6>
-				<ControlFactory
-					:ref="setControlRef"
-					:df="{
-						fieldname: 'ignore_permissions',
-						fieldtype: 'Check',
-						label: __('Skip Permissions'),
-						description: __(
-							'Bypass read permissions for this action. Requires audit reason.'
-						),
-						read_only:
-							readOnly ||
-							(mode === 'Fetch Records' &&
-								isFrappe15 &&
-								!!node?.data?.ignore_permissions),
-					}"
-					:modelValue="node?.data?.ignore_permissions"
-					@update:modelValue="(val) => update_action_key('ignore_permissions', val)"
-				/>
-				<div
-					v-if="mode === 'Fetch Records' && isFrappe15"
-					class="fetch-records-permission-notice"
-					role="note"
-				>
-					<i class="fa fa-info-circle" aria-hidden="true"></i>
-					<span>{{
-						__(
-							"Frappe 15 requires Skip Permissions and an audit reason for Fetch Records."
-						)
-					}}</span>
-					<details class="permission-notice-details">
-						<summary>{{ __("Why is this required?") }}</summary>
-						<p>
-							{{
-								__(
-									"Frappe 15's Query Builder does not provide the native permission-aware Fetch Records API. Runtime authorization and audit checks still apply. Use Query List when you need frappe.get_list permission behavior."
-								)
-							}}
-						</p>
-					</details>
+				<div class="permission-control-row">
+					<ControlFactory
+						:ref="setControlRef"
+						:df="{
+							fieldname: 'ignore_permissions',
+							fieldtype: 'Check',
+							label: __('Skip Permissions'),
+							description: __(
+								'Bypass read permissions for this action. Requires audit reason.'
+							),
+							read_only:
+								readOnly ||
+								(mode === 'Fetch Records' &&
+									isFrappe15 &&
+									!!node?.data?.ignore_permissions),
+						}"
+						:modelValue="node?.data?.ignore_permissions"
+						@update:modelValue="(val) => update_action_key('ignore_permissions', val)"
+					/>
+					<div
+						v-if="mode === 'Fetch Records' && isFrappe15"
+						class="fetch-records-permission-notice"
+						role="note"
+					>
+						<i class="fa fa-info-circle" aria-hidden="true"></i>
+						<span>{{ __("Required on Frappe 15.") }}</span>
+						<details class="permission-notice-details">
+							<summary>{{ __("Details") }}</summary>
+							<p>
+								{{
+									__(
+										"Frappe 15's Query Builder does not provide the native permission-aware Fetch Records API. Enable Skip Permissions and provide an audit reason. Runtime authorization and audit checks still apply. Use Query List when you need frappe.get_list permission behavior."
+									)
+								}}
+							</p>
+						</details>
+					</div>
 				</div>
 				<ControlFactory
 					v-if="!!node?.data?.ignore_permissions"
@@ -2093,38 +2091,54 @@ defineExpose({
 </script>
 
 <style scoped>
-.fetch-records-permission-notice {
+.permission-control-row {
 	display: flex;
-	align-items: baseline;
+	align-items: flex-start;
 	flex-wrap: wrap;
-	gap: 4px 7px;
-	margin-top: var(--fxr-space-2, 8px);
-	padding: 7px 10px;
-	border: 1px solid var(--fxr-warning-border, #f1d58a);
-	border-radius: var(--fxr-radius-md, 6px);
-	background: var(--fxr-warning-soft, #fff9e8);
+	column-gap: var(--fxr-space-2, 8px);
+}
+.permission-control-row > :first-child {
+	flex: 1 1 240px;
+	min-width: 0;
+}
+.fetch-records-permission-notice {
+	display: inline-flex;
+	align-items: center;
+	flex: 0 1 auto;
+	gap: 4px;
+	margin-top: 4px;
 	color: var(--fxr-warning-text, #875b00);
-	font-size: var(--fxr-text-sm, 12px);
-	line-height: 1.4;
+	font-size: var(--fxr-text-xs, 11px);
+	line-height: 1.35;
 }
 .fetch-records-permission-notice > i {
 	flex: 0 0 auto;
 }
 .permission-notice-details {
-	flex: 0 0 100%;
-	margin-inline-start: 21px;
-	font-size: var(--fxr-text-xs, 11px);
+	position: relative;
+	font-size: inherit;
 }
 .permission-notice-details summary {
 	cursor: pointer;
-	width: fit-content;
+	white-space: nowrap;
 	font-weight: 600;
 }
 .permission-notice-details p {
-	margin: 4px 0 0;
-	max-width: 72ch;
-	color: inherit;
-	opacity: 0.9;
+	position: absolute;
+	z-index: 5;
+	top: 100%;
+	right: 0;
+	width: min(320px, 75vw);
+	margin: 5px 0 0;
+	padding: 8px 10px;
+	border: 1px solid var(--fxr-border-color, #d1d5db);
+	border-radius: var(--fxr-radius-md, 6px);
+	background: var(--fxr-surface, #fff);
+	color: var(--fxr-text-color, #374151);
+	box-shadow: 0 4px 12px rgb(0 0 0 / 10%);
+	white-space: normal;
+	font-size: var(--fxr-text-sm, 12px);
+	line-height: 1.45;
 }
 /* ─── QueryRecordsConfig – Unified Design ─── */
 .query-config {
