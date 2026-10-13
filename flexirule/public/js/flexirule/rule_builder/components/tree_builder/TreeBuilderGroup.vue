@@ -63,7 +63,7 @@ defineEmits(["operator", "add-leaf", "add-group", "add-collection", "remove"]);
 .tree-group {
 	width: 100%;
 	min-width: 0;
-	padding: var(--fxr-space-3);
+	padding: var(--fxr-space-2);
 	background: var(--fxr-bg-hover);
 	border: 1px solid var(--fxr-border-subtle);
 	border-radius: var(--fxr-radius-lg);
@@ -73,8 +73,8 @@ defineEmits(["operator", "add-leaf", "add-group", "add-collection", "remove"]);
 	align-items: center;
 	justify-content: space-between;
 	flex-wrap: wrap;
-	gap: var(--fxr-space-2);
-	margin-bottom: var(--fxr-space-3);
+	gap: var(--fxr-space-1);
+	margin-bottom: var(--fxr-space-2);
 }
 .tree-group__logic,
 .tree-group__actions {
@@ -104,7 +104,7 @@ defineEmits(["operator", "add-leaf", "add-group", "add-collection", "remove"]);
 .logic-btn {
 	border: 0;
 	background: transparent;
-	padding: 4px 10px;
+	padding: 3px 8px;
 	border-radius: var(--fxr-radius-sm);
 	font-size: var(--fxr-text-xs);
 	font-weight: var(--fxr-weight-bold, 700);
@@ -128,7 +128,7 @@ defineEmits(["operator", "add-leaf", "add-group", "add-collection", "remove"]);
 .tree-group__children {
 	display: flex;
 	flex-direction: column;
-	gap: var(--fxr-space-2);
+	gap: var(--fxr-space-1);
 	width: 100%;
 	min-width: 0;
 }
