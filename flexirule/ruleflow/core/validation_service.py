@@ -885,7 +885,7 @@ def _has_configured_output_schema(value) -> bool:
 	if isinstance(parsed, list):
 		return bool(parsed)
 	if isinstance(parsed, Mapping):
-		return bool(parsed)
+		return True
 	return bool(parsed)
 
 
