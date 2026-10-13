@@ -16,10 +16,15 @@
 			v-tippy="validationTooltip"
 		>
 			<div class="fxr-token__content">
-				<i :class="activeStrategy?.icon" class="token-prefix-icon mr-2"></i>
-				<span class="fxr-token__text">{{ previewText }}</span>
+				<span class="fxr-token__icon-wrap" aria-hidden="true">
+					<i :class="activeStrategy?.icon || 'fa fa-bolt'" class="token-prefix-icon"></i>
+				</span>
+				<span class="fxr-token__details">
+					<span class="fxr-token__kind">{{ activeStrategy?.label || __('Resolver') }}</span>
+					<span class="fxr-token__text" :title="previewText">{{ previewText }}</span>
+				</span>
 			</div>
-			<i class="fa fa-chevron-down fxr-token__caret"></i>
+			<i class="fa fa-chevron-down fxr-token__caret" aria-hidden="true"></i>
 		</div>
 
 		<!-- Main Content Wrapper -->
@@ -370,6 +375,97 @@ hr.border-top {
 	background: var(--fxr-danger-soft);
 	color: var(--fxr-text-danger);
 	transform: rotate(90deg);
+}
+
+.fxr-token {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-width: 0;
+	max-width: 100%;
+	min-height: 30px;
+	padding: 3px 8px 3px 5px;
+	border: 1px solid var(--fxr-border);
+	border-radius: 8px;
+	background: var(--fxr-bg-input, var(--fxr-bg));
+	color: var(--fxr-text);
+	box-shadow: 0 1px 2px rgb(15 23 42 / 4%);
+	transition: border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease;
+}
+.fxr-token:hover,
+.fxr-token.is-active {
+	border-color: var(--fxr-accent);
+	background: var(--fxr-bg-muted, var(--fxr-bg-input));
+}
+.fxr-token:focus-visible {
+	outline: 2px solid var(--fxr-accent);
+	outline-offset: 2px;
+}
+.fxr-token__content {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex: 1;
+	min-width: 0;
+}
+.fxr-token__icon-wrap {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 26px;
+	width: 26px;
+	height: 26px;
+	border-radius: 6px;
+	background: var(--fxr-accent-soft, var(--fxr-bg-muted));
+}
+.fxr-token__icon-wrap .token-prefix-icon {
+	margin: 0;
+	font-size: 12px;
+	color: var(--fxr-accent);
+}
+.fxr-token__details {
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+	min-width: 0;
+	flex: 1;
+	line-height: 1.2;
+}
+.fxr-token__kind {
+	font-size: 10px;
+	font-weight: 700;
+	letter-spacing: .035em;
+	text-transform: uppercase;
+	color: var(--fxr-text-muted);
+}
+.fxr-token__text {
+	display: block;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--fxr-text);
+}
+.fxr-token__caret {
+	flex: 0 0 auto;
+	font-size: 10px;
+	color: var(--fxr-text-muted);
+	transition: transform 150ms ease;
+}
+.fxr-token.is-active .fxr-token__caret {
+	transform: rotate(180deg);
+}
+.fxr-token.is-invalid {
+	border-color: var(--fxr-danger, #dc2626);
+	background: var(--fxr-danger-soft, #fef2f2);
+}
+@media (prefers-reduced-motion: reduce) {
+	.fxr-token,
+	.fxr-token__caret {
+		transition: none;
+	}
 }
 
 /* Ensure the category selector doesn't overflow its parent popover */
