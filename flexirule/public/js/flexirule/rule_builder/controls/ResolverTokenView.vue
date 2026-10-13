@@ -29,13 +29,32 @@ const handleUpdate = (config, details) => {
 
 <style scoped>
 .resolver-token-wrapper {
-	display: inline-block;
-	vertical-align: top;
-	line-height: 1;
-	margin-top: 1px;
+	display: inline-flex;
+	align-items: center;
+	vertical-align: middle;
+	max-width: min(360px, 78vw);
+	margin: 1px 2px;
+	line-height: 1.2;
+}
+
+.resolver-token-wrapper :deep(.fxr-token) {
+	max-width: 100%;
+	min-width: 0;
+	text-align: left;
 }
 
 .resolver-token-wrapper.is-selected :deep(.fxr-token) {
 	outline: 2px solid var(--fxr-accent);
+	outline-offset: 1px;
+}
+
+.resolver-token-wrapper :deep(.fxr-token__details) {
+	max-width: 100%;
+}
+
+@media (max-width: 480px) {
+	.resolver-token-wrapper {
+		max-width: 240px;
+	}
 }
 </style>
