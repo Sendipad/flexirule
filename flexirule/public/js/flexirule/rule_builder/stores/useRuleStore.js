@@ -440,7 +440,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 					is_async: node.data?.is_async || 0,
 					skip_conditions:
 						node.data?.skip_conditions !== undefined ? node.data.skip_conditions : 1,
-					skip_permissions:
+					ignore_permissions:
 						node.data?.ignore_permissions ?? node.data?.skip_permissions ?? 0,
 					permission_audit_reason: node.data?.permission_audit_reason ?? "",
 					next_step_if_true: resolveActionId(true_edge?.target),
