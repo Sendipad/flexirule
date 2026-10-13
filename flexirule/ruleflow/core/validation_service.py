@@ -369,16 +369,16 @@ def _validate_action_contracts(
 				)
 			)
 
-	show_return_type = effective_policy.get("show_return_type", contract.get("show_return_type", True))
 	return_type = _safe_get(action, "return_type")
-	if ((show_return_type and return_type) or _safe_get(action, "resolved_output_schema")) and _is_empty(
-		_safe_get(action, "return_variable")
-	):
-		errors.append(
-			_("Action '{0}' ({1}) requires Return Variable Name for Return Schema").format(
-				action_label, action_type
-			)
+	errors.extend(
+		_validate_return_schema_requirements(
+			action_label,
+			action_type,
+			action,
+			contract,
+			effective_policy,
 		)
+	)
 
 	allowed_return_types = effective_policy.get("allowed_return_types") or []
 
@@ -860,6 +860,65 @@ def _clean_config_for_validation(data, schema=None):
 		if schema_type == "boolean" and data in (0, 1):
 			return bool(data)
 	return data
+
+
+def _has_configured_output_schema(value) -> bool:
+	"""Return True only when an output schema is present and non-empty.
+
+	The schema field is JSON text at the Frappe boundary. In particular, the
+	string "[]" is an empty schema, not a configured return contract.
+	Malformed non-empty text is considered configured so it cannot bypass
+	contract checks; schema-format validation can report it separately.
+	"""
+	if value is None or value == "":
+		return False
+
+	parsed = value
+	if isinstance(value, str):
+		if not value.strip():
+			return False
+		try:
+			parsed = json.loads(value)
+		except (TypeError, ValueError):
+			return True
+
+	if isinstance(parsed, list):
+		return bool(parsed)
+	if isinstance(parsed, Mapping):
+		return bool(parsed)
+	return bool(parsed)
+
+
+def _validate_return_schema_requirements(
+	action_label: str, action_type: str, action, contract: dict, effective_policy: dict
+) -> list[str]:
+	"""Validate output configuration against the action type's declared capability."""
+	return_type = _safe_get(action, "return_type")
+	has_output_schema = _has_configured_output_schema(_safe_get(action, "resolved_output_schema"))
+	supports_return_schema = bool(contract.get("supports_return_schema"))
+
+	if not supports_return_schema:
+		if not _is_empty(return_type) or has_output_schema:
+			return [
+				_("Action '{0}' ({1}) does not support a Return Schema").format(
+					action_label, action_type
+				)
+			]
+		return []
+
+	show_return_type = effective_policy.get(
+		"show_return_type", contract.get("show_return_type", True)
+	)
+	if (
+		((show_return_type and return_type) or has_output_schema)
+		and _is_empty(_safe_get(action, "return_variable"))
+	):
+		return [
+			_("Action '{0}' ({1}) requires Return Variable Name for Return Schema").format(
+				action_label, action_type
+			)
+		]
+	return []
 
 
 def _is_empty(value) -> bool:
