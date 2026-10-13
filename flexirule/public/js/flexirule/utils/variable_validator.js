@@ -35,7 +35,9 @@ function hasConfiguredOutputSchema(value) {
 			return true;
 		}
 	}
-	return Array.isArray(schema) ? schema.length > 0 : Boolean(schema);
+	if (Array.isArray(schema)) return schema.length > 0;
+	if (schema && typeof schema === "object") return true;
+	return Boolean(schema);
 }
 
 function supportsReturnSchema(actionType) {
