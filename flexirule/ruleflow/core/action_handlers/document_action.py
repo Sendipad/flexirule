@@ -56,6 +56,7 @@ class DocumentActionHandler(ActionHandler):
 				"Create ToDo",
 				"Add Comment",
 			],
+			supports_return_schema=True,
 			allowed_mutations=[
 				"Set Doc Field",
 				"Set Context Variable",
