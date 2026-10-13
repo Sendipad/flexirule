@@ -155,7 +155,20 @@ def can_ignore_permissions(action, context=None, throw=True):
 	- action.permission_audit_reason (if field exists), or
 	- action.config.permission_audit_reason
 	"""
-	if not int(getattr(action, "ignore_permissions", getattr(action, "skip_permissions", 0)) or 0):
+	# Prefer the mapping/document API when reading persisted action fields. Frappe's
+	# frappe._dict can return None for a missing attribute instead of triggering
+	# getattr's default, which silently ignores legacy skip_permissions-only actions.
+	get_value = getattr(action, "get", None)
+	if callable(get_value):
+		ignore_permissions_value = get_value("ignore_permissions")
+		if ignore_permissions_value in (None, ""):
+			ignore_permissions_value = get_value("skip_permissions")
+	else:
+		ignore_permissions_value = getattr(action, "ignore_permissions", None)
+		if ignore_permissions_value in (None, ""):
+			ignore_permissions_value = getattr(action, "skip_permissions", 0)
+
+	if not int(ignore_permissions_value or 0):
 		return False
 
 	user = frappe.session.user
