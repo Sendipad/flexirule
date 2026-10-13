@@ -14,6 +14,7 @@ import { normalizeActionType, loadContractsFromBackend } from "../../core/contra
 import { getConditionPayload } from "../utils/condition_payload";
 import { deepClone } from "../utils/serialization";
 import { normalizeResolvedOutputSchema } from "../../utils/output_schema.js";
+import { serializeActionPermissionFields } from "../utils/action_permissions.mjs";
 
 import { useGraphStore } from "./useGraphStore";
 import { useMetaStore } from "./useMetaStore";
@@ -440,9 +441,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 					is_async: node.data?.is_async || 0,
 					skip_conditions:
 						node.data?.skip_conditions !== undefined ? node.data.skip_conditions : 1,
-					ignore_permissions:
-						node.data?.ignore_permissions ?? node.data?.skip_permissions ?? 0,
-					permission_audit_reason: node.data?.permission_audit_reason ?? "",
+					...serializeActionPermissionFields(node.data),
 					next_step_if_true: resolveActionId(true_edge?.target),
 					next_step_if_false: resolveActionId(false_edge?.target),
 					input_source: node.data?.input_source,
