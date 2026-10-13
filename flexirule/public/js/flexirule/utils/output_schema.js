@@ -89,5 +89,6 @@ export function hasConfiguredResolvedOutputSchema(value) {
 	}
 
 	if (Array.isArray(schema)) return schema.length > 0;
+	if (schema && typeof schema === "object") return true;
 	return Boolean(schema);
 }
