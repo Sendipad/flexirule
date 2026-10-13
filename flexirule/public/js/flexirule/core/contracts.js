@@ -23,6 +23,8 @@
  *     in-memory state is updated and the cache replaced.
  */
 
+import { hasConfiguredResolvedOutputSchema } from "../utils/output_schema.js";
+
 // ── Module-level state — populated exclusively from backend DTO ──────────────
 
 export let ACTION_TYPE_CONTRACT = {};
@@ -783,10 +785,15 @@ export function applyOutputPolicyDefaults(nodeData, opts = {}) {
 		changed = true;
 	}
 
+	const supportsReturnSchema = ACTION_TYPES_WITH_RETURN_SCHEMA.has(
+		normalizeActionType(nodeData.action_type)
+	);
+	const hasOutputSchema =
+		supportsReturnSchema && hasConfiguredResolvedOutputSchema(nodeData.resolved_output_schema);
 	const needsReturnVariable =
 		!!nodeData.mutation_mode ||
-		(nodeData.return_type && nodeData.return_type !== "Yes / No") ||
-		!!nodeData.resolved_output_schema ||
+		(supportsReturnSchema && nodeData.return_type && nodeData.return_type !== "Yes / No") ||
+		hasOutputSchema ||
 		!!policy.require_return_variable;
 
 	if (returnVarState.hidden && nodeData.return_variable) {
@@ -924,10 +931,21 @@ export function validateAgainstContract(nodeData) {
 		errors.push(__("Return Variable Name is required for this operation"));
 	}
 
+	const supportsReturnSchema = ACTION_TYPES_WITH_RETURN_SCHEMA.has(normalizeActionType(actionType));
+	const hasOutputSchema =
+		supportsReturnSchema && hasConfiguredResolvedOutputSchema(nodeData.resolved_output_schema);
+	if (
+		!supportsReturnSchema &&
+		(nodeData.return_type || hasConfiguredResolvedOutputSchema(nodeData.resolved_output_schema))
+	) {
+		errors.push(__("{0} does not support a Return Schema", [actionType]));
+	}
+
 	const showReturnType = policy.show_return_type !== false;
 	if (
+		supportsReturnSchema &&
 		((showReturnType && nodeData.return_type && nodeData.return_type !== "Yes / No") ||
-			nodeData.resolved_output_schema) &&
+			hasOutputSchema) &&
 		!nodeData.return_variable
 	) {
 		errors.push(__("Return Schema requires a Return Variable Name"));
