@@ -76,7 +76,7 @@ let _loadPromise = null;
 
 // Key includes the schema version so old cached payloads are automatically
 // discarded when CONTRACT_SCHEMA_VERSION bumps on the backend.
-const CONTRACT_CACHE_KEY = "flexirule:contract_dto:v4";
+const CONTRACT_CACHE_KEY = "flexirule:contract_dto:v5";
 
 // ── DTO application ───────────────────────────────────────────────────────────
 
