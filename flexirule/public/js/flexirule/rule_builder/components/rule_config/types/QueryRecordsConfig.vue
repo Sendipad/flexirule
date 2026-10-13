@@ -30,14 +30,23 @@
 				/>
 				<div
 					v-if="mode === 'Fetch Records' && isFrappe15"
-					class="alert alert-warning mb-0"
-					role="alert"
+					class="fetch-records-permission-notice"
+					role="note"
 				>
-					{{
+					<i class="fa fa-info-circle" aria-hidden="true"></i>
+					<span>{{
 						__(
-							"Frappe 15's Query Builder does not support the native permission-aware Fetch Records API. On this installation, Fetch Records requires Skip Permissions to be enabled and a permission audit reason. Runtime authorization and audit checks still apply. Use Query List when you need frappe.get_list permission behavior."
+							"Frappe 15 requires Skip Permissions and an audit reason for Fetch Records."
 						)
-					}}
+					}}</span>
+					<details class="permission-notice-details">
+						<summary>{{ __("Why is this required?") }}</summary>
+						<p>{{
+							__(
+								"Frappe 15's Query Builder does not provide the native permission-aware Fetch Records API. Runtime authorization and audit checks still apply. Use Query List when you need frappe.get_list permission behavior."
+							)
+						}}</p>
+					</details>
 				</div>
 				<ControlFactory
 					v-if="!!node?.data?.ignore_permissions"
@@ -2082,6 +2091,40 @@ defineExpose({
 </script>
 
 <style scoped>
+
+.fetch-records-permission-notice {
+	display: flex;
+	align-items: baseline;
+	flex-wrap: wrap;
+	gap: 4px 7px;
+	margin-top: var(--fxr-space-2, 8px);
+	padding: 7px 10px;
+	border: 1px solid var(--fxr-warning-border, #f1d58a);
+	border-radius: var(--fxr-radius-md, 6px);
+	background: var(--fxr-warning-soft, #fff9e8);
+	color: var(--fxr-warning-text, #875b00);
+	font-size: var(--fxr-text-sm, 12px);
+	line-height: 1.4;
+}
+.fetch-records-permission-notice > i {
+	flex: 0 0 auto;
+}
+.permission-notice-details {
+	flex: 0 0 100%;
+	margin-inline-start: 21px;
+	font-size: var(--fxr-text-xs, 11px);
+}
+.permission-notice-details summary {
+	cursor: pointer;
+	width: fit-content;
+	font-weight: 600;
+}
+.permission-notice-details p {
+	margin: 4px 0 0;
+	max-width: 72ch;
+	color: inherit;
+	opacity: 0.9;
+}
 /* ─── QueryRecordsConfig – Unified Design ─── */
 .query-config {
 	display: flex;
