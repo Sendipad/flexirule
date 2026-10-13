@@ -66,3 +66,28 @@ export function normalizeResolvedOutputSchema(value, options = {}) {
 
 	return schema.map((field) => normalizeResolvedOutputField(field, options));
 }
+
+
+/**
+ * Return whether a schema contains configured output fields.
+ * Empty arrays and their JSON-string representation mean no schema is configured.
+ * Malformed non-empty text remains configured so validation can report it instead
+ * of silently dropping the user's in-progress edit.
+ */
+export function hasConfiguredResolvedOutputSchema(value) {
+	if (value == null || value === "") return false;
+
+	let schema = value;
+	if (typeof schema === "string") {
+		const trimmed = schema.trim();
+		if (!trimmed) return false;
+		try {
+			schema = JSON.parse(trimmed);
+		} catch {
+			return true;
+		}
+	}
+
+	if (Array.isArray(schema)) return schema.length > 0;
+	return Boolean(schema);
+}
