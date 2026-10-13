@@ -44,8 +44,12 @@ class ContractDTOBuilder:
 
 		# Determine reference context types
 		reference_context_types = {"Query Records", "Document Action", "Process", "Assignment"}
-		# Determine return schema types
-		return_schema_types = {"Process", "Query Records", "Document Action"}
+		# Determine return schema types from each handler-owned action contract.
+		return_schema_types = {
+			action_type
+			for action_type, contract in contracts.items()
+			if contract.get("supports_return_schema")
+		}
 		# Determine config modal types: those with configurable=True
 		config_modal_types = {at for at, c in contracts.items() if c.get("configurable")}
 
