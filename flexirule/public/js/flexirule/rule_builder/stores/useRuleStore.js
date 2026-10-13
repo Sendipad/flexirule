@@ -10,10 +10,17 @@
  */
 import { defineStore } from "pinia";
 import { ref, computed, nextTick } from "vue";
-import { normalizeActionType, loadContractsFromBackend } from "../../core/contracts";
+import {
+	ACTION_TYPES_WITH_RETURN_SCHEMA,
+	normalizeActionType,
+	loadContractsFromBackend,
+} from "../../core/contracts";
 import { getConditionPayload } from "../utils/condition_payload";
 import { deepClone } from "../utils/serialization";
-import { normalizeResolvedOutputSchema } from "../../utils/output_schema.js";
+import {
+	hasConfiguredResolvedOutputSchema,
+	normalizeResolvedOutputSchema,
+} from "../../utils/output_schema.js";
 
 import { useGraphStore } from "./useGraphStore";
 import { useMetaStore } from "./useMetaStore";
@@ -415,6 +422,14 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 					action_type === "Condition"
 						? conditionPayload || normalizedConfig
 						: normalizedConfig;
+				const supportsReturnSchema = ACTION_TYPES_WITH_RETURN_SCHEMA.has(
+					normalizeActionType(action_type)
+				);
+				const rawOutputSchema = node.data?.resolved_output_schema;
+				const resolvedOutputSchema =
+					supportsReturnSchema && hasConfiguredResolvedOutputSchema(rawOutputSchema)
+						? serializeField(normalizeResolvedOutputSchema(rawOutputSchema))
+						: null;
 
 				return {
 					name: node.data?.name,
@@ -449,10 +464,8 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 					reference_doctype: node.data?.reference_doctype,
 					reference_docname: node.data?.reference_docname,
 					mutation_mode: node.data?.mutation_mode,
-					return_type: node.data?.return_type,
-					resolved_output_schema: serializeField(
-						normalizeResolvedOutputSchema(node.data?.resolved_output_schema)
-					),
+					return_type: supportsReturnSchema ? node.data?.return_type : null,
+					resolved_output_schema: resolvedOutputSchema,
 				};
 			});
 
