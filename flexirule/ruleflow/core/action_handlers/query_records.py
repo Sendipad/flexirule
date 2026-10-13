@@ -69,6 +69,7 @@ class QueryRecordsHandler(ActionHandler):
 				"Max",
 				"Group By",
 			],
+			supports_return_schema=True,
 			allowed_mutations=[
 				"Set Context Variable",
 				"Append to Context Variable",
