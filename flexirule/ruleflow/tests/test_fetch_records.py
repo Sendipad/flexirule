@@ -783,6 +783,57 @@ class TestFetchRecords(FrappeTestCase):
 					f"Expected {expected_error!r} in validation errors: {errors}",
 				)
 
+	def test_legacy_skip_permissions_flag_is_honored_during_execution(self):
+		from unittest.mock import patch
+
+		from flexirule.ruleflow.utils.frappe_query_compat import FrappeQueryCapabilities
+
+		description = f"FetchLegacyPermission_{random_string(6)}"
+		todo = frappe.get_doc({"doctype": "ToDo", "description": description}).insert(ignore_permissions=True)
+		action = frappe._dict(
+			{
+				"operation": "Fetch Records",
+				"skip_permissions": 1,
+				"permission_audit_reason": "Legacy action permission compatibility regression test",
+				"reference_doctype": "ToDo",
+				"config": frappe.as_json(
+					{"fields": ["name"], "filters": [["ToDo", "description", "=", description]]}
+				),
+			}
+		)
+
+		with patch(
+			"flexirule.ruleflow.utils.frappe_query_compat.QUERY_CAPABILITIES",
+			FrappeQueryCapabilities(supports_ignore_permissions=False),
+		):
+			result, _ = self.handler.execute(action, {}, None)
+
+		self.assertEqual([row.get("name") for row in result], [todo.name])
+
+	def test_explicit_ignore_permissions_false_is_not_overridden_by_legacy_flag(self):
+		from unittest.mock import patch
+
+		from flexirule.ruleflow.utils.frappe_query_compat import FrappeQueryCapabilities
+
+		action = frappe._dict(
+			{
+				"operation": "Fetch Records",
+				"reference_doctype": "ToDo",
+				"ignore_permissions": 0,
+				"skip_permissions": 1,
+				"permission_audit_reason": "Explicit false must win compatibility regression test",
+				"config": frappe.as_json({"fields": ["name"], "limit": 1}),
+			}
+		)
+		with patch(
+			"flexirule.ruleflow.utils.frappe_query_compat.QUERY_CAPABILITIES",
+			FrappeQueryCapabilities(supports_ignore_permissions=False),
+		):
+			with self.assertRaisesRegex(
+				frappe.ValidationError, "cannot enforce record-level read permissions"
+			):
+				self.handler.execute(action, {}, None)
+
 	def test_legacy_query_api_uses_persisted_skip_permissions_flag(self):
 		from unittest.mock import patch
 
