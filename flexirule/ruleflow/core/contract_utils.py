@@ -65,7 +65,7 @@ RELEASE_DISABLED_ACTION_TYPES: set[str] = set()
 # Schema version — bump whenever the DTO shape changes in a breaking way.
 # Stored alongside contract_version_hash in sessionStorage so the frontend
 # can detect incompatible cached payloads without deserializing them.
-CONTRACT_SCHEMA_VERSION = "v4"
+CONTRACT_SCHEMA_VERSION = "v5"
 
 # Per-action-type human-readable descriptions.
 # These are emitted in the DTO so the frontend never needs to hard-code them.
