@@ -142,10 +142,10 @@ defineExpose({ ...api });
 .tree-builder {
 	display: flex;
 	flex-direction: column;
-	gap: var(--fxr-space-3);
+	gap: var(--fxr-space-2);
 	width: 100%;
 	min-width: 0;
-	padding: var(--fxr-space-3);
+	padding: var(--fxr-space-2);
 	background: var(--fxr-bg-card, var(--fxr-surface));
 	border: 1px solid var(--fxr-border-subtle);
 	border-radius: var(--fxr-radius-lg);
@@ -154,8 +154,8 @@ defineExpose({ ...api });
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	gap: var(--fxr-space-3);
-	padding-bottom: var(--fxr-space-2);
+	gap: var(--fxr-space-2);
+	padding-bottom: var(--fxr-space-1);
 	border-bottom: 1px solid var(--fxr-border-subtle);
 }
 .tree-builder__logic,
@@ -167,7 +167,7 @@ defineExpose({ ...api });
 .logic-btn {
 	border: 0;
 	background: transparent;
-	padding: 4px 10px;
+	padding: 3px 8px;
 	border-radius: var(--fxr-radius-sm);
 	font-size: var(--fxr-text-xs);
 	font-weight: var(--fxr-weight-bold, 700);
@@ -191,10 +191,10 @@ defineExpose({ ...api });
 .tree-builder__content {
 	display: flex;
 	flex-direction: column;
-	gap: var(--fxr-space-2);
+	gap: var(--fxr-space-1);
 	width: 100%;
 	min-width: 0;
-	min-height: 52px;
+	min-height: 44px;
 	padding: 2px;
 	border-radius: var(--fxr-radius-md);
 	overflow: visible;
@@ -209,8 +209,8 @@ defineExpose({ ...api });
 	align-items: center;
 	justify-content: center;
 	gap: var(--fxr-space-2);
-	min-height: 72px;
-	padding: var(--fxr-space-4);
+	min-height: 48px;
+	padding: var(--fxr-space-2);
 	color: var(--fxr-text-muted);
 	border: 1px dashed var(--fxr-border-subtle);
 	border-radius: var(--fxr-radius-md);
