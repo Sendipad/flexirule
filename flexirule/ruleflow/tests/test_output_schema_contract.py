@@ -46,6 +46,10 @@ class TestActionReturnSchemaValidation(FrappeTestCase):
 			with self.subTest(value=value):
 				self.assertFalse(_has_configured_output_schema(value))
 
+		# The schema contract is an array. Even an empty object is an invalid,
+		# explicitly supplied shape and must not be normalized as "not configured".
+		self.assertTrue(_has_configured_output_schema({}))
+
 	def test_non_schema_actions_ignore_empty_schema_serialization(self):
 		for action_type in ("Entry Action", "Condition", "Stop", "Assignment"):
 			with self.subTest(action_type=action_type):
