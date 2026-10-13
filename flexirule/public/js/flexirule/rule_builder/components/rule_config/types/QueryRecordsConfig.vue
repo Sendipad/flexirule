@@ -41,11 +41,13 @@
 					}}</span>
 					<details class="permission-notice-details">
 						<summary>{{ __("Why is this required?") }}</summary>
-						<p>{{
-							__(
-								"Frappe 15's Query Builder does not provide the native permission-aware Fetch Records API. Runtime authorization and audit checks still apply. Use Query List when you need frappe.get_list permission behavior."
-							)
-						}}</p>
+						<p>
+							{{
+								__(
+									"Frappe 15's Query Builder does not provide the native permission-aware Fetch Records API. Runtime authorization and audit checks still apply. Use Query List when you need frappe.get_list permission behavior."
+								)
+							}}
+						</p>
 					</details>
 				</div>
 				<ControlFactory
@@ -2091,7 +2093,6 @@ defineExpose({
 </script>
 
 <style scoped>
-
 .fetch-records-permission-notice {
 	display: flex;
 	align-items: baseline;
