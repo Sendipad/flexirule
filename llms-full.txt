@@ -803,7 +803,7 @@ CollectionResolver: Supports count, any, all, first / find, filter, pluck, uniqu
 ---
 title: Rule Builder Canvas & Layout Modes
 url: https://sendipad.github.io/flexirule/rule-builder/canvas/
-lastmod: 2026-10-07
+lastmod: 2026-10-14
 summary: Learn how to navigate the visual Rule Builder canvas and configure rules using Dialog Modal or Three-Panel Workspace View.
 concepts: 
 tags: 
@@ -812,12 +812,12 @@ related:
 actions: read, implement, integrate, troubleshoot, improve
 
 Rule Builder Canvas &amp;amp; Layout Modes# The Rule Builder is FlexiRule&amp;rsquo;s visual workspace where you build and edit rules by arranging interactive nodes on an infinite canvas.
-Rule Builder Canvas Overview Accessing the Rule Builder# You can open the Rule Builder through three primary navigation paths:
+Rule Builder Canvas Overview Video: Remove a node and reconnect the canvas# Watch how the Rule Builder reconnects surrounding nodes when a node is removed from the flow.
+Accessing the Rule Builder# You can open the Rule Builder through three primary navigation paths:
 RuleFlow Workspace: Click the Rule Builder shortcut button . Rule Document: Open any Rule document and click Rule Builder in the top action bar. Awesomebar: Type Rule Builder in the Frappe search bar (Ctrl K or Cmd K) and select the page. Interactive Layout Modes# FlexiRule provides two distinct layout experiences to fit your workflow preferences. You can switch between them anytime via Preferences in the top action bar:
 1. Three-Panel Workspace View# The Workspace View organizes the entire rule designer into three side-by-side desktop panels:
 Input / Schema Panel (Left): Browse live schema data from the target document, child table fields, linked records, and available context variables (@doc, @vars, @session, @parent, @loop). Click any field token to copy or insert it into your configuration. Visual Canvas (Center): The main interactive flowchart where nodes are rendered, dragged, connected, and rearranged. Configuration &amp;amp; Output Panel (Right): Displays the configuration form for the currently selected node, validation error notices, and test execution results. 2. Dialog Modal View# The Dialog View maximizes your visual canvas space. Clicking any node opens a focused Rule Configuration Modal containing three organized tabs:
-Input / Schema: Inspect available variables, parent fields, and child table scopes. Action Settings: Configure the action inputs, operation modes, and field mappings. Output / Schema: View return values, set variable outputs (@vars), and inspect schema contracts. Navigation &amp;amp; Canvas Controls# Moving and Zooming# Pan: Click and drag any empty space on the canvas to move around. Zoom: Scroll your mouse wheel, or use the zoom controls (+ / - / fit view) in the lower canvas toolbar. Top Menu Action Bar# The top bar provides essential rule management shortcuts:
-Action Icon Shortcut Description Undo Ctrl Z Revert the last visual or …
+Input / Schema: Inspect available variables, parent fields, and child table scopes. Action Settings: Configure the action inputs, operation modes, and field mappings. Output / Schema: View return values, set variable outputs (@vars), and inspect schema contracts. Navigation &amp;amp; Canvas Controls# Moving and Zooming# Pan: Click and drag any empty space on the canvas to move around. Zoom: Scroll your mouse wheel, or use the zoom controls (+ / - / fit view) in the lower canvas toolbar. Top Menu …
 
 ---
 title: System Overview (AR)
@@ -842,7 +842,7 @@ actions: read, implement, integrate, troubleshoot, improve
 ---
 title: Testing & Debugging
 url: https://sendipad.github.io/flexirule/test-operate/debugging/
-lastmod: 2026-10-07
+lastmod: 2026-10-14
 summary: Safely simulate rule execution and inspect execution paths, results, and live logs.
 concepts: 
 tags: 
@@ -853,7 +853,8 @@ actions: read, implement, integrate, troubleshoot, improve
 Testing &amp;amp; Debugging# FlexiRule provides visual testing and auditing tools so you can verify a rule before production and inspect live execution afterward.
 Debug simulation# The Debug tool simulates rule execution against selected document records without modifying the database.
 Open the Rule Builder. Click Debug in the top action bar. Select a test document and any supported simulation context. Click Run Test. Inspect the execution path and step results. Rule Builder canvas showing debug execution run dialog Debug Run dialog showing JSON test context Run Debug Test control Inspect results# The debugger shows which nodes executed, which branches were skipped, and where errors occurred. Select a step to inspect its inputs, outputs, and execution details.
-Debug View Return Result Production execution logs# Active rules produce Rule Execution Logs for operational inspection. Use execution IDs, rule information, trigger details, status, duration, and step traces to understand what happened.
+Debug View Return Result Video: Inspecting the rule execution path# Watch how the debugger highlights the execution path and shows the result of each rule step.
+Production execution logs# Active rules produce Rule Execution Logs for operational inspection. Use execution IDs, rule information, trigger details, status, duration, and step traces to understand what happened.
 Debug simulation and live execution are different contexts: testing verifies behavior safely, while live logs describe actual production executions.
 
 
@@ -2151,7 +2152,7 @@ Example Registry …
 ---
 title: Quick Start Guide
 url: https://sendipad.github.io/flexirule/getting-started/quick-start/
-lastmod: 2026-10-13
+lastmod: 2026-10-14
 summary: Create, test, and review a first visual rule in Frappe or ERPNext.
 concepts: 
 tags: 
@@ -2167,8 +2168,8 @@ If RuleFlow or the rule builder is unavailable, confirm that FlexiRule is instal
 2. Configure the rule# Give the rule a clear, descriptive name such as High Value Invoice Review. For a document-triggered example, the configuration may look like this:
 Setting Example What to verify Trigger Type DocType Event The rule should respond to a document lifecycle event. Document Type Sales Invoice Use the DocType relevant to your requirement. Trigger Event Validate Choose an event whose timing matches the behavior you need. Execution Mode Synchronous Use the mode appropriate to the work and event. The available settings and event choices depend on the installed version. Save the rule, then open the visual builder. Do not select an event simply because it appears in an example: validation, save, and submit events occur at different points and can have different consequences.
 3. Understand the canvas# The canvas shows connected action nodes. Start with the entry point, add the action steps you need, and connect them to express the intended path. A node that is present but not connected to the right path will not produce the intended flow.
-4. Add a Condition# Add a Condition action and configure a comparison:
-Left value: the current document&amp;rsquo;s grand total, selected using Smart Values (commonly referenced as @doc.grand_total). Operator: …
+Video: Configure a condition and query# This short demonstration shows the Rule Builder canvas while adding a condition and configuring a query.
+4. Add a Condition# Add a Condition action and configure a …
 
 ---
 title: Advanced Process
