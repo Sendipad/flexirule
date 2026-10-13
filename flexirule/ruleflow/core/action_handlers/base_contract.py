@@ -51,6 +51,7 @@ class ActionContract:
 		operation_options: list[str] | None = None,
 		allowed_mutations: list[str] | None = None,
 		allowed_return_types: list[str] | None = None,
+		supports_return_schema: bool = False,
 		default_return_type: str | None = None,
 		show_return_type: bool | None = None,
 		require_return_type: bool = False,
@@ -82,6 +83,7 @@ class ActionContract:
 		self.operation_options = operation_options
 		self.allowed_mutations = allowed_mutations
 		self.allowed_return_types = allowed_return_types
+		self.supports_return_schema = bool(supports_return_schema)
 		self.default_return_type = default_return_type
 		self.show_return_type = show_return_type
 		self.require_return_type = require_return_type
@@ -120,6 +122,7 @@ class ActionContract:
 			"category": self.category,
 			"configurable": self.configurable,
 		}
+		d["supports_return_schema"] = self.supports_return_schema
 
 		if self.config_component:
 			d["config_component"] = self.config_component
