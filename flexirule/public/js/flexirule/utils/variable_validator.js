@@ -24,6 +24,25 @@ const RELEASE_DISABLED_ACTION_TYPES = new Set(["Loop", "Switch"]);
 const ACTION_TYPES_REQUIRING_FALSE_PATH = new Set(["Condition"]);
 const TERMINAL_ACTION_TYPES = new Set(["Stop"]);
 
+function hasConfiguredOutputSchema(value) {
+	if (value == null || value === "") return false;
+	let schema = value;
+	if (typeof schema === "string") {
+		if (!schema.trim()) return false;
+		try {
+			schema = JSON.parse(schema);
+		} catch (_error) {
+			return true;
+		}
+	}
+	return Array.isArray(schema) ? schema.length > 0 : Boolean(schema);
+}
+
+function supportsReturnSchema(actionType) {
+	const types = window.frappe?.boot?.flexirule_contract_dto?.action_types_with_return_schema;
+	return Array.isArray(types) && types.includes(actionType);
+}
+
 /**
  * Validate variable dependencies across a list of actions in topological order.
  *
@@ -391,8 +410,12 @@ flexirule.validation.validate_action_types = function (
 			);
 		}
 
-		// Return schema requires return variable
-		if ((action.return_type || action.resolved_output_schema) && !action.return_variable) {
+		// Only action types that declare return-schema support can require a result variable.
+		if (
+			supportsReturnSchema(action.action_type) &&
+			(action.return_type || hasConfiguredOutputSchema(action.resolved_output_schema)) &&
+			!action.return_variable
+		) {
 			errors.push(
 				__(
 					"Action '{0}' defines a Return Schema but no Return Variable Name is provided.",
