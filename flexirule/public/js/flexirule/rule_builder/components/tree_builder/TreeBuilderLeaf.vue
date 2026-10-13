@@ -27,8 +27,8 @@ defineEmits(["remove"]);
 <style scoped>
 .tree-leaf {
 	display: grid;
-	grid-template-columns: minmax(0, 1fr) 32px;
-	gap: var(--fxr-space-2);
+	grid-template-columns: minmax(0, 1fr) 30px;
+	gap: var(--fxr-space-1);
 	align-items: stretch;
 	width: 100%;
 	min-width: 0;
@@ -47,8 +47,8 @@ defineEmits(["remove"]);
 	align-self: center;
 	align-items: center;
 	justify-content: center;
-	width: 30px;
-	min-width: 30px;
+	width: 28px;
+	min-width: 28px;
 	height: var(--fxr-input-height);
 	margin: 0;
 	padding: 0;
