@@ -53,7 +53,7 @@ defineEmits(["add-leaf", "add-group", "add-collection", "remove"]);
 </script>
 <style scoped>
 .tree-collection {
-	padding: var(--fxr-space-3);
+	padding: var(--fxr-space-2);
 	border: 1px solid var(--fxr-border-subtle);
 	border-left: 3px solid var(--fxr-node-accent, var(--fxr-accent));
 	border-radius: var(--fxr-radius-lg);
@@ -65,7 +65,7 @@ defineEmits(["add-leaf", "add-group", "add-collection", "remove"]);
 	align-items: center;
 	flex-wrap: wrap;
 	gap: var(--fxr-space-2);
-	margin-bottom: var(--fxr-space-3);
+	margin-bottom: var(--fxr-space-2);
 }
 .tree-collection__label,
 .tree-collection__actions {
@@ -95,7 +95,7 @@ defineEmits(["add-leaf", "add-group", "add-collection", "remove"]);
 .tree-collection__children {
 	display: flex;
 	flex-direction: column;
-	gap: var(--fxr-space-2);
+	gap: var(--fxr-space-1);
 	width: 100%;
 	min-width: 0;
 }
