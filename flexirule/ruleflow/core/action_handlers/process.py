@@ -40,6 +40,7 @@ class ProcessHandler(ActionHandler):
 				"mutation_mode": "Result Handling",
 				"return_type": "Result Type",
 			},
+			supports_return_schema=True,
 			allowed_mutations=[
 				"Set Context Variable",
 				"Update Context Variable",
