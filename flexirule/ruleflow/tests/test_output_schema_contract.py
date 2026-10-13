@@ -1,6 +1,7 @@
 from frappe.tests.utils import FrappeTestCase
 
 from flexirule.ruleflow.api import _aggregate_source, _output_schema_source, _reqd_flag
+from flexirule.ruleflow.core.contract_dto import ContractDTOBuilder
 from flexirule.ruleflow.core.contracts import get_contract
 from flexirule.ruleflow.core.validation_service import (
 	_has_configured_output_schema,
@@ -41,6 +42,13 @@ class TestResolvedOutputSchemaContract(FrappeTestCase):
 
 
 class TestActionReturnSchemaValidation(FrappeTestCase):
+	def test_contract_dto_derives_schema_capabilities_from_handlers(self):
+		dto = ContractDTOBuilder.build()
+		self.assertEqual(
+			set(dto["action_types_with_return_schema"]),
+			{"Process", "Query Records", "Document Action"},
+		)
+
 	def test_empty_schema_payloads_are_not_configured(self):
 		for value in (None, "", "[]", [], "  []  "):
 			with self.subTest(value=value):
