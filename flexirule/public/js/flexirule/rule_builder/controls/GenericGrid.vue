@@ -234,6 +234,7 @@ import {
 	paginateRows,
 	parseClipboardRows,
 	rowMatchesSearch,
+	buildRowProps,
 	selectRangeKeys,
 } from "./generic_grid_model.js";
 
@@ -476,17 +477,14 @@ function getInvalidState(row, index) {
 }
 
 function resolveRowProps(row, index) {
-	const customProps =
-		typeof props.rowProps === "function" ? props.rowProps(row, index) : props.rowProps;
-	return {
-		...(customProps && typeof customProps === "object" ? customProps : {}),
+	return buildRowProps(
 		row,
-		modelValue: row,
 		index,
-		selected: isSelected(getRowKey(row, index, props.rowKey)),
-		invalid: getInvalidState(row, index).invalid,
-		readOnly: props.readOnly,
-	};
+		props.rowProps,
+		isSelected(getRowKey(row, index, props.rowKey)),
+		getInvalidState(row, index).invalid,
+		props.readOnly
+	);
 }
 
 function requestRowAction(action, entry) {
