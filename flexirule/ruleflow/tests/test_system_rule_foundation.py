@@ -44,6 +44,7 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 	def test_system_rule_definition_fields_are_protected(self):
 		rule = frappe.new_doc("Rule")
 		rule.rule_name = "test-system-rule"
+		rule.is_system_generated = 1
 		before = frappe._dict(
 			is_system_generated=1,
 			rule_name="test-system-rule",
@@ -60,6 +61,7 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 	def test_system_rule_activation_state_remains_operator_controlled(self):
 		rule = frappe.new_doc("Rule")
 		rule.rule_name = "test-system-rule"
+		rule.is_system_generated = 1
 		rule.is_active = 1
 		rule.status = "Active"
 		before = frappe._dict(
@@ -75,6 +77,7 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 	def test_registry_flag_allows_source_definition_updates(self):
 		rule = frappe.new_doc("Rule")
 		rule.rule_name = "test-system-rule"
+		rule.is_system_generated = 1
 		rule.description = "New source definition"
 		before = frappe._dict(
 			is_system_generated=1,
@@ -84,7 +87,7 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 			status="Disabled",
 		)
 		with patch.object(rule, "get_doc_before_save", return_value=before):
-			with patch.object(frappe.flags, "flexirule_system_rule_registration", True, create=True):
+			with patch.object(frappe, "flags", frappe._dict(flexirule_system_rule_registration=True)):
 				rule.validate_system_rule_protection()
 
 	def test_core_flexirule_doctypes_are_not_hard_excluded(self):
