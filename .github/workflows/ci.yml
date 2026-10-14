@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
+    # Feature branches are validated by pull_request; running both events duplicates CI.
     branches:
       - develop
-      - feat/self-hosting-system-rules
     paths-ignore:
       - "docs/**"
       - "docs-config/**"
