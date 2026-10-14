@@ -48,7 +48,7 @@
 					v-if="!readOnly && allowCopyPaste"
 					type="button"
 					class="fxr-grid-button fxr-grid-button--quiet"
-					title="__('Paste rows (Ctrl/Cmd+V)')"
+					:title="__('Paste rows (Ctrl/Cmd+V)')"
 					@click="pasteRows"
 				>
 					<i class="fa fa-clipboard" aria-hidden="true"></i>
@@ -82,6 +82,7 @@
 					'is-editing': Boolean(entry.row?.isEditing),
 				}"
 				:aria-invalid="getInvalidState(entry.row, entry.index).invalid ? 'true' : undefined"
+				:title="getInvalidState(entry.row, entry.index).message || undefined"
 				:data-row-index="entry.index"
 			>
 				<div class="fxr-generic-grid-row-toolbar">
@@ -316,9 +317,6 @@ const currentPageResult = computed(() =>
 );
 const displayedRows = computed(() =>
 	props.pagination ? currentPageResult.value.rows : filteredRows.value
-);
-const currentPageNumber = computed(() =>
-	props.pagination ? currentPageResult.value.page : 1
 );
 const pageCount = computed(() =>
 	props.pagination ? currentPageResult.value.pageCount : 1
@@ -650,11 +648,19 @@ function handleKeydown(event) {
 	if (event.altKey && event.key === "Enter" && props.primaryAction && !props.readOnly) {
 		if (!isInputTarget(target)) {
 			event.preventDefault();
+			const activeRowElement = target?.closest?.("[data-row-index]");
+			const activeIndex = activeRowElement
+				? Number(activeRowElement.getAttribute("data-row-index"))
+				: null;
 			const selectedIndexes = sourceRows.value
 				.filter((entry) => selectedKeys.value.has(entry.key))
 				.map((entry) => entry.index);
 			requestPrimaryAction(
-				selectedIndexes.length ? Math.max(...selectedIndexes) : null
+				Number.isInteger(activeIndex)
+					? activeIndex
+					: selectedIndexes.length
+					? Math.max(...selectedIndexes)
+					: null
 			);
 		}
 	}
