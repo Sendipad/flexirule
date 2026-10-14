@@ -13,6 +13,7 @@
 		class="fxr-generic-grid fxr-generic-grid-data"
 		:class="{ 'is-compact': compact, 'is-read-only': readOnly }"
 		:style="gridStyle"
+		role="group"
 		:aria-label="gridLabel || __('Editable list')"
 		:aria-keyshortcuts="ariaKeyShortcuts"
 		tabindex="0"
@@ -725,10 +726,17 @@ async function handleMenuKeydown(event) {
 	items[nextIndex]?.focus();
 }
 
-function requestGridAction(action) {
+async function requestGridAction(action) {
 	if (props.readOnly || !action) return;
+	const wasMenuOpen = primaryMenuOpen.value;
 	closeActionMenus();
 	emit("grid-action", { action: action.id });
+	// If invoked from the menu, restore focus after it unmounts. Keyboard shortcuts
+	// should preserve the consumer's normal add-row focus behavior.
+	if (wasMenuOpen) {
+		await nextTick();
+		primaryMenuButtonRef.value?.focus({ preventScroll: true });
+	}
 }
 
 function loadPrimaryActionPreference() {
