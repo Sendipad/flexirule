@@ -693,8 +693,7 @@ defineExpose({ validate });
 }
 
 .output-field-row-heading,
-.output-field-row-title,
-.output-field-row-actions {
+.output-field-row-title {
 	display: flex;
 	align-items: center;
 	min-width: 0;
