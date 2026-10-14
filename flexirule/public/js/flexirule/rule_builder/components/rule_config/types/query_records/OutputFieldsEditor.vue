@@ -7,7 +7,7 @@
 			}}</span>
 		</div>
 
-		<div class="output-fields-list">
+		<GenericGrid class="output-fields-list" minColumnWidth="420px" gap="var(--fxr-space-3, 12px)">
 			<div
 				v-for="(row, index) in rows"
 				:key="row.id"
@@ -262,7 +262,7 @@
 					</div>
 				</div>
 			</div>
-		</div>
+		</GenericGrid>
 
 		<div v-if="!readOnly" class="output-fields-add-actions">
 			<button type="button" class="output-fields-add-btn" @click="addField">
@@ -321,6 +321,7 @@ import { computed, onMounted, ref, watch } from "vue";
 import MultiSelectList from "../../../../controls/MultiSelectList.vue";
 import FlexValueControl from "../../../../controls/FlexValueControl.vue";
 import SelectControl from "../../../../controls/SelectControl.vue";
+import GenericGrid from "../../../../controls/GenericGrid.vue";
 import { useMetaStore } from "../../../../stores/useMetaStore";
 import {
 	AGGREGATE_FUNCTIONS,
@@ -648,10 +649,7 @@ defineExpose({ validate });
 }
 
 .output-fields-list {
-	border: 1px solid var(--fxr-border-subtle);
-	border-radius: var(--fxr-radius-md);
-	background: var(--fxr-surface);
-	overflow: hidden;
+	min-width: 0;
 }
 
 .output-field-row {
@@ -659,14 +657,12 @@ defineExpose({ validate });
 	flex-direction: column;
 	gap: var(--fxr-space-2, var(--spacing-xs));
 	padding: var(--fxr-space-3, var(--spacing-sm)) var(--fxr-space-4, var(--spacing-md));
-	border-bottom: 1px solid var(--fxr-border-subtle);
-	background: transparent;
+	border: 1px solid var(--fxr-border-subtle);
+	border-radius: var(--fxr-radius-md);
+	background: var(--fxr-surface);
 	transition: background-color var(--fxr-transition-fast);
 }
 
-.output-field-row:last-child {
-	border-bottom: 0;
-}
 
 .output-field-row.is-editing {
 	background: var(--fxr-surface-soft);
