@@ -7,76 +7,33 @@
 			}}</span>
 		</div>
 
-		<GenericGrid class="output-fields-list" minColumnWidth="420px" gap="var(--fxr-space-3, 12px)">
-			<div
-				v-for="(row, index) in rows"
-				:key="row.id"
-				class="output-field-row"
-				:class="{ 'is-editing': row.isEditing }"
-			>
+		<GenericGrid
+			class="output-fields-list"
+			:rows="rows"
+			rowKey="id"
+			:rowInvalid="isRowInvalid"
+			:searchableFields="searchableFields"
+			:primaryAction="primaryGridAction"
+			:cloneRow="cloneGridRow"
+			:readOnly="readOnly"
+			:compact="true"
+			:pagination="true"
+			:pageSize="10"
+			:pageSizeOptions="[5, 10, 20, 50]"
+			@row-action="handleGridRowAction"
+			@primary-action="handleGridPrimaryAction"
+			@update:rows="handlePastedRows"
+		>
+			<template #row="{ row, index }">
+			<div class="output-field-row-content">
 				<div class="output-field-row-heading">
 					<div class="output-field-row-title">
-						<span class="output-field-index">{{ index + 1 }}</span>
 						<div class="output-field-row-copy">
 							<strong :title="rowTitle(row)">{{ rowTitle(row) }}</strong>
 							<p :title="rowDescription(row)">{{ rowDescription(row) }}</p>
 						</div>
 					</div>
 
-					<div class="output-field-row-actions">
-						<button
-							v-if="!readOnly"
-							type="button"
-							class="output-field-action"
-							:class="{ 'is-active': row.isEditing }"
-							:title="
-								row.isEditing
-									? __('Finish editing output field')
-									: __('Edit output field')
-							"
-							:aria-label="
-								row.isEditing
-									? __('Finish editing output field')
-									: __('Edit output field')
-							"
-							:aria-expanded="String(row.isEditing)"
-							@click="toggleEdit(row)"
-						>
-							<i :class="row.isEditing ? 'fa fa-check' : 'fa fa-pencil'"></i>
-						</button>
-						<button
-							v-if="!readOnly"
-							type="button"
-							class="output-field-action"
-							:disabled="index === 0"
-							:title="__('Move output field up')"
-							:aria-label="__('Move output field up')"
-							@click="moveRow(index, -1)"
-						>
-							<i class="fa fa-chevron-up"></i>
-						</button>
-						<button
-							v-if="!readOnly"
-							type="button"
-							class="output-field-action"
-							:disabled="index === rows.length - 1"
-							:title="__('Move output field down')"
-							:aria-label="__('Move output field down')"
-							@click="moveRow(index, 1)"
-						>
-							<i class="fa fa-chevron-down"></i>
-						</button>
-						<button
-							v-if="!readOnly"
-							type="button"
-							class="output-field-action is-danger"
-							:title="__('Remove output field')"
-							:aria-label="__('Remove output field')"
-							@click="removeRow(index)"
-						>
-							<i class="fa fa-trash"></i>
-						</button>
-					</div>
 				</div>
 
 				<div v-if="row.isEditing" class="output-field-edit">
@@ -262,6 +219,7 @@
 					</div>
 				</div>
 			</div>
+			</template>
 		</GenericGrid>
 
 		<div v-if="!readOnly" class="output-fields-add-actions">
@@ -351,6 +309,23 @@ const rows = ref(
 	}))
 );
 const validationErrors = ref([]);
+const searchableFields = [
+	"kind",
+	"field",
+	"alias",
+	"functionName",
+	"fieldname",
+	"label",
+	"tableField",
+	"expression",
+];
+const primaryGridAction = computed(() => ({
+	label: __("Add field"),
+	rowLabel: __("Add field"),
+	icon: "fa fa-plus",
+	shortcut: "Alt+Enter",
+	rowShortcut: true,
+}));
 const requiresGroupBy = computed(
 	() =>
 		rows.value.some((row) => row.kind === "function") &&
@@ -466,9 +441,9 @@ function updateRaw(row, value) {
 	emitRows();
 }
 
-function addField() {
+function addField(afterIndex = null) {
 	if (props.readOnly) return;
-	rows.value.push({
+	const row = {
 		id: newId(),
 		kind: "field",
 		field: "",
@@ -476,7 +451,12 @@ function addField() {
 		fields: [],
 		isEditing: true,
 		childFieldOptions: [],
-	});
+	};
+	const insertIndex =
+		Number.isInteger(afterIndex) && afterIndex >= 0
+			? Math.min(afterIndex + 1, rows.value.length)
+			: rows.value.length;
+	rows.value.splice(insertIndex, 0, row);
 	emitRows();
 }
 
@@ -534,6 +514,73 @@ function addLiteral() {
 		childFieldOptions: [],
 	});
 	emitRows();
+}
+
+function cloneGridRow(row) {
+	const allowedKinds = new Set(["field", "function", "child", "literal", "raw"]);
+	if (!row || typeof row !== "object" || !allowedKinds.has(row.kind)) return null;
+	const copy = JSON.parse(JSON.stringify(row));
+	copy.id = newId();
+	copy.isEditing = false;
+	copy.childFieldOptions = [];
+	return copy;
+}
+
+function handlePastedRows(nextRows) {
+	if (props.readOnly || !Array.isArray(nextRows)) return;
+	rows.value = nextRows.map((row) => ({
+		...row,
+		isEditing: false,
+		childFieldOptions: Array.isArray(row.childFieldOptions) ? row.childFieldOptions : [],
+	}));
+	emitRows();
+	refreshMetadata();
+}
+
+function handleGridPrimaryAction({ afterIndex = null } = {}) {
+	addField(afterIndex);
+}
+
+function handleGridRowAction({ action, row, index }) {
+	if (props.readOnly) return;
+	switch (action) {
+		case "add-after":
+			addField(index);
+			break;
+		case "edit":
+			row.isEditing = true;
+			break;
+		case "view":
+			row.isEditing = false;
+			break;
+		case "move-up":
+			moveRow(index, -1);
+			break;
+		case "move-down":
+			moveRow(index, 1);
+			break;
+		case "remove":
+			removeRow(index);
+			break;
+	}
+}
+
+function isRowInvalid(row, index) {
+	const prefix = "Output field " + (index + 1) + ":";
+	if (validationErrors.value.some((error) => error.startsWith(prefix))) return true;
+	if (row?.kind !== "child") return false;
+	if (
+		row.tableField &&
+		!childTableOptions.value.some((option) => option.value === row.tableField)
+	) {
+		return true;
+	}
+	return (
+		Array.isArray(row.fields) &&
+		row.fields.some(
+			(field) => !row.childFieldOptions.some((option) => option.value === field)
+		)
+	);
 }
 
 function removeRow(index) {
@@ -652,20 +699,12 @@ defineExpose({ validate });
 	min-width: 0;
 }
 
-.output-field-row {
+.output-field-row-content {
 	display: flex;
 	flex-direction: column;
 	gap: var(--fxr-space-2, var(--spacing-xs));
-	padding: var(--fxr-space-3, var(--spacing-sm)) var(--fxr-space-4, var(--spacing-md));
-	border: 1px solid var(--fxr-border-subtle);
-	border-radius: var(--fxr-radius-md);
-	background: var(--fxr-surface);
-	transition: background-color var(--fxr-transition-fast);
-}
-
-
-.output-field-row.is-editing {
-	background: var(--fxr-surface-soft);
+	min-width: 0;
+	user-select: text;
 }
 
 .output-field-row-heading,
@@ -686,20 +725,6 @@ defineExpose({ validate });
 	flex: 1;
 	gap: var(--fxr-space-3, var(--spacing-sm));
 	overflow: hidden;
-}
-
-.output-field-index {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	width: 20px;
-	height: 20px;
-	flex: 0 0 20px;
-	border-radius: var(--fxr-radius-sm, 4px);
-	background: var(--fxr-surface-soft);
-	color: var(--fxr-text-muted);
-	font-size: var(--fxr-text-xs);
-	font-weight: var(--fxr-weight-medium);
 }
 
 .output-field-row-copy {
@@ -727,52 +752,8 @@ defineExpose({ validate });
 	white-space: nowrap;
 }
 
-.output-field-row-actions {
-	flex: 0 0 auto;
-	gap: var(--fxr-space-1, 4px);
-}
-
-.output-field-action {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	width: 26px;
-	height: 26px;
-	padding: 0;
-	border: 1px solid transparent;
-	border-radius: var(--fxr-radius-sm, 4px);
-	background: transparent;
-	color: var(--fxr-text-muted);
-	font-size: var(--fxr-text-xs);
-	cursor: pointer;
-	transition: color var(--fxr-transition-fast), background-color var(--fxr-transition-fast),
-		border-color var(--fxr-transition-fast);
-}
-
-.output-field-action:hover:not(:disabled) {
-	border-color: var(--fxr-border-subtle);
-	background: var(--fxr-surface-soft);
-	color: var(--fxr-text);
-}
-
-.output-field-action.is-active {
-	border-color: var(--fxr-border-focus);
-	background: var(--fxr-surface-soft);
-	color: var(--fxr-accent);
-}
-
-.output-field-action.is-danger:hover:not(:disabled) {
-	border-color: var(--fxr-border-danger, #ef4444);
-	color: var(--fxr-text-danger, #ef4444);
-}
-
-.output-field-action:disabled {
-	opacity: 0.35;
-	cursor: default;
-}
-
 .output-field-edit {
-	padding: var(--fxr-space-3, var(--spacing-sm)) 0 var(--fxr-space-2, var(--spacing-xs)) 32px;
+	padding: var(--fxr-space-2, var(--spacing-xs)) 0 0;
 }
 
 .output-field-controls {
