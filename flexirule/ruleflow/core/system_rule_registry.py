@@ -13,9 +13,6 @@ from typing import Any
 import frappe
 
 _REGISTRATION_FLAG = "flexirule_system_rule_registration"
-_OPERATIONAL_FIELDS = {"is_active", "status"}
-
-
 def ensure_system_rule(definition: Mapping[str, Any]) -> str:
     """Create or synchronize one app-managed Rule while preserving local enablement."""
     if not isinstance(definition, Mapping):
