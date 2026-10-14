@@ -1,30 +1,680 @@
 <template>
-	<div class="fxr-generic-grid" :style="gridStyle">
+	<div
+		v-if="!isDataGrid"
+		class="fxr-generic-grid fxr-generic-grid-layout"
+		:style="gridStyle"
+	>
 		<slot />
+	</div>
+
+	<div
+		v-else
+		ref="rootRef"
+		class="fxr-generic-grid fxr-generic-grid-data"
+		:class="{ 'is-compact': compact, 'is-read-only': readOnly }"
+		:style="gridStyle"
+		tabindex="0"
+		@keydown="handleKeydown"
+		@pointerup="endDragSelection"
+		@pointercancel="endDragSelection"
+	>
+		<div v-if="showToolbar" class="fxr-generic-grid-toolbar">
+			<label v-if="hasSearch && showSearch" class="fxr-generic-grid-search">
+				<i class="fa fa-search" aria-hidden="true"></i>
+				<input
+					v-model="searchQuery"
+					type="search"
+					:placeholder="searchPlaceholder || __('Search rows...')"
+					:aria-label="searchPlaceholder || __('Search rows')"
+				/>
+			</label>
+
+			<div class="fxr-generic-grid-toolbar-actions">
+				<span v-if="selection && selectedRows.length" class="fxr-generic-grid-selection-count">
+					{{ selectedRows.length }} {{ __('selected') }}
+				</span>
+				<button
+					v-if="selection && allowCopyPaste"
+					type="button"
+					class="fxr-grid-button fxr-grid-button--quiet"
+					:disabled="!selectedRows.length"
+					:title="__('Copy selected rows (Ctrl/Cmd+C)')"
+					@click="copySelectedRows"
+				>
+					<i class="fa fa-copy" aria-hidden="true"></i>
+					{{ __('Copy') }}
+				</button>
+				<button
+					v-if="!readOnly && allowCopyPaste"
+					type="button"
+					class="fxr-grid-button fxr-grid-button--quiet"
+					title="__('Paste rows (Ctrl/Cmd+V)')"
+					@click="pasteRows"
+				>
+					<i class="fa fa-clipboard" aria-hidden="true"></i>
+					{{ __('Paste') }}
+				</button>
+				<button
+					v-if="primaryAction && !readOnly"
+					type="button"
+					class="fxr-grid-button fxr-grid-button--primary"
+					:title="primaryActionTitle"
+					@click="requestPrimaryAction()"
+				>
+					<i v-if="primaryAction.icon" :class="primaryAction.icon" aria-hidden="true"></i>
+					{{ primaryAction.label || __('Add row') }}
+					<kbd v-if="primaryAction.shortcut">{{ primaryAction.shortcut }}</kbd>
+				</button>
+			</div>
+		</div>
+
+		<div class="fxr-generic-grid-rows">
+			<div v-if="!filteredRows.length" class="fxr-generic-grid-empty">
+				<slot name="empty">{{ __('No matching rows.') }}</slot>
+			</div>
+			<article
+				v-for="(entry, pageIndex) in displayedRows"
+				:key="entry.key"
+				class="fxr-generic-grid-row"
+				:class="{
+					'is-selected': isSelected(entry.key),
+					'is-invalid': getInvalidState(entry.row, entry.index).invalid,
+					'is-editing': Boolean(entry.row?.isEditing),
+				}"
+				:aria-invalid="getInvalidState(entry.row, entry.index).invalid ? 'true' : undefined"
+				:data-row-index="entry.index"
+			>
+				<div class="fxr-generic-grid-row-toolbar">
+					<button
+						type="button"
+						class="fxr-generic-grid-row-index"
+						:class="{ 'is-selected': isSelected(entry.key) }"
+						:aria-label="__('Select row') + ' ' + (entry.index + 1)"
+						:aria-pressed="String(isSelected(entry.key))"
+						:title="__('Click to select; drag across row numbers to select a range')"
+						@pointerdown.stop.prevent="beginDragSelection(pageIndex, $event)"
+						@pointerenter="extendDragSelection(pageIndex)"
+						@click="handleIndexKeyboardClick(pageIndex, $event)"
+					>
+						{{ entry.index + 1 }}
+					</button>
+
+					<div v-if="!readOnly && showRowActions" class="fxr-generic-grid-row-actions">
+						<button
+							v-if="primaryAction && primaryAction.rowShortcut !== false"
+							type="button"
+							class="fxr-grid-icon-button"
+							:title="addAfterTitle"
+							:aria-label="addAfterTitle"
+							@click="requestPrimaryAction(entry.index)"
+						>
+							<i :class="primaryAction.icon || 'fa fa-plus'" aria-hidden="true"></i>
+						</button>
+						<button
+							type="button"
+							class="fxr-grid-icon-button"
+							:title="entry.row?.isEditing ? __('Switch to readable row (Alt+E)') : __('Edit row (Alt+E)' )"
+							:aria-label="entry.row?.isEditing ? __('Switch to readable row') : __('Edit row')"
+							@click="requestRowAction(entry.row?.isEditing ? 'view' : 'edit', entry)"
+						>
+							<i :class="entry.row?.isEditing ? 'fa fa-check' : 'fa fa-pencil'" aria-hidden="true"></i>
+						</button>
+						<div class="fxr-generic-grid-reorder" :aria-label="__('Move row')">
+							<button
+								type="button"
+								class="fxr-grid-icon-button"
+								:disabled="entry.index === 0"
+								:title="__('Move row up')"
+								:aria-label="__('Move row up')"
+								@click="requestRowAction('move-up', entry)"
+							>
+								<i class="fa fa-chevron-up" aria-hidden="true"></i>
+							</button>
+							<button
+								type="button"
+								class="fxr-grid-icon-button"
+								:disabled="entry.index === sourceRows.length - 1"
+								:title="__('Move row down')"
+								:aria-label="__('Move row down')"
+								@click="requestRowAction('move-down', entry)"
+							>
+								<i class="fa fa-chevron-down" aria-hidden="true"></i>
+							</button>
+						</div>
+						<button
+							type="button"
+							class="fxr-grid-icon-button is-danger"
+							:title="__('Remove row')"
+							:aria-label="__('Remove row')"
+							@click="requestRowAction('remove', entry)"
+						>
+							<i class="fa fa-trash" aria-hidden="true"></i>
+						</button>
+					</div>
+				</div>
+
+				<div class="fxr-generic-grid-row-body">
+					<slot
+						name="row"
+						:row="entry.row"
+						:index="entry.index"
+						:selected="isSelected(entry.key)"
+						:invalid="getInvalidState(entry.row, entry.index).invalid"
+						:invalidMessage="getInvalidState(entry.row, entry.index).message"
+						:rowProps="resolveRowProps(entry.row, entry.index)"
+					>
+						<component
+							v-if="rowComponent"
+							:is="rowComponent"
+							v-bind="resolveRowProps(entry.row, entry.index)"
+							@update:modelValue="
+								emit('row-update', {
+									row: entry.row,
+									index: entry.index,
+									value: $event,
+								})
+							"
+						/>
+						<div v-else class="fxr-generic-grid-row-fallback">{{ entry.row }}</div>
+					</slot>
+				</div>
+			</article>
+		</div>
+
+		<div
+			v-if="pagination && filteredRows.length > currentPageSize"
+			class="fxr-generic-grid-pagination"
+		>
+			<label class="fxr-generic-grid-page-size">
+				<span>{{ __('Rows per page') }}</span>
+				<select :value="currentPageSize" @change="changePageSize($event.target.value)">
+					<option v-for="size in availablePageSizes" :key="size" :value="size">
+						{{ size }}
+					</option>
+				</select>
+			</label>
+			<span class="fxr-generic-grid-page-summary">
+				{{ paginationSummary }}
+			</span>
+			<div class="fxr-generic-grid-page-actions">
+				<button
+					type="button"
+					class="fxr-grid-button fxr-grid-button--quiet"
+					:disabled="currentPage <= 1"
+					@click="changePage(currentPage - 1)"
+				>
+					<i class="fa fa-chevron-left" aria-hidden="true"></i>
+					{{ __('Previous') }}
+				</button>
+				<span>{{ currentPage }} / {{ pageCount }}</span>
+				<button
+					type="button"
+					class="fxr-grid-button fxr-grid-button--quiet"
+					:disabled="currentPage >= pageCount"
+					@click="changePage(currentPage + 1)"
+				>
+					{{ __('Next') }}
+					<i class="fa fa-chevron-right" aria-hidden="true"></i>
+				</button>
+			</div>
+		</div>
+
+		<p v-if="feedback" class="fxr-generic-grid-feedback" role="status" aria-live="polite">
+			{{ feedback }}
+		</p>
 	</div>
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
+import {
+	GRID_CLIPBOARD_FORMAT,
+	getRowKey,
+	paginateRows,
+	parseClipboardRows,
+	rowMatchesSearch,
+	selectRangeKeys,
+} from "./generic_grid_model.js";
 
-/**
- * Responsive grid wrapper for layouts whose item count is not fixed.
- * Columns are created automatically from available width and collapse naturally
- * when the container cannot fit another column.
- */
 const props = defineProps({
+	// Use the default slot for layout-only mode, or provide rows/modelValue for a data grid.
+	rows: { type: Array, default: null },
+	modelValue: { type: Array, default: null },
+	rowKey: { type: String, default: "id" },
+	rowComponent: { type: [Object, Function, String], default: null },
+	rowProps: { type: [Object, Function], default: () => ({}) },
+	rowInvalid: { type: [Function, Array], default: null },
+	searchableFields: { type: [Array, Function], default: () => [] },
+	searchPlaceholder: { type: String, default: "" },
 	minColumnWidth: { type: String, default: "240px" },
 	gap: { type: String, default: "var(--fxr-space-3, 12px)" },
+	readOnly: { type: Boolean, default: false },
+	compact: { type: Boolean, default: true },
+	selection: { type: Boolean, default: true },
+	allowCopyPaste: { type: Boolean, default: true },
+	showSearch: { type: Boolean, default: true },
+	showToolbar: { type: Boolean, default: true },
+	showRowActions: { type: Boolean, default: true },
+	pagination: { type: Boolean, default: true },
+	pageSize: { type: Number, default: 10 },
+	pageSizeOptions: { type: Array, default: () => [5, 10, 20, 50] },
+	primaryAction: { type: Object, default: null },
+	cloneRow: { type: Function, default: null },
 });
 
+const emit = defineEmits([
+	"update:rows",
+	"update:modelValue",
+	"row-action",
+	"row-update",
+	"primary-action",
+	"selection-change",
+	"copy",
+	"paste",
+	"page-change",
+	"clipboard-error",
+]);
+
+const rootRef = ref(null);
+const searchQuery = ref("");
+const currentPage = ref(1);
+const currentPageSize = ref(normalizePageSize(props.pageSize));
+const selectedKeys = ref(new Set());
+const feedback = ref("");
+const internalClipboard = ref("");
+const dragSelection = ref({
+	active: false,
+	anchorIndex: -1,
+	lastIndex: -1,
+	baseKeys: [],
+	modifier: false,
+	wasSelected: false,
+});
+
+const isDataGrid = computed(() => props.rows !== null || props.modelValue !== null);
+const sourceList = computed(() => props.rows ?? props.modelValue ?? []);
+const sourceRows = computed(() =>
+	(Array.isArray(sourceList.value) ? sourceList.value : []).map((row, index) => ({
+		row,
+		index,
+		key: getRowKey(row, index, props.rowKey),
+	}))
+);
+const hasSearch = computed(
+	() =>
+		(typeof props.searchableFields === "function" ||
+			(Array.isArray(props.searchableFields) && props.searchableFields.length > 0)) &&
+		props.searchableFields !== false
+);
+const filteredRows = computed(() =>
+	sourceRows.value.filter((entry) =>
+		rowMatchesSearch(entry.row, props.searchableFields, searchQuery.value)
+	)
+);
+const currentPageResult = computed(() =>
+	paginateRows(filteredRows.value, currentPage.value, currentPageSize.value)
+);
+const displayedRows = computed(() =>
+	props.pagination ? currentPageResult.value.rows : filteredRows.value
+);
+const currentPageNumber = computed(() =>
+	props.pagination ? currentPageResult.value.page : 1
+);
+const pageCount = computed(() =>
+	props.pagination ? currentPageResult.value.pageCount : 1
+);
+const availablePageSizes = computed(() => {
+	const values = [
+		...new Set(
+			(props.pageSizeOptions || [])
+				.map((value) => Number(value))
+				.filter((value) => Number.isInteger(value) && value > 0)
+				.concat(currentPageSize.value)
+				.sort((a, b) => a - b)
+		),
+	];
+	return values;
+});
+const selectedRows = computed(() =>
+	sourceRows.value.filter((entry) => selectedKeys.value.has(entry.key)).map((entry) => entry.row)
+);
+const paginationSummary = computed(() => {
+	const result = currentPageResult.value;
+	return result.total
+		? __('Showing {0}–{1} of {2}', [result.start + 1, result.end, result.total])
+		: __('No rows');
+});
+const primaryActionTitle = computed(() => {
+	const label = props.primaryAction?.label || __("Add row");
+	return props.primaryAction?.shortcut
+		? label + " (" + props.primaryAction.shortcut + ")"
+		: label;
+});
+const addAfterTitle = computed(() => {
+	const label = props.primaryAction?.rowLabel || props.primaryAction?.label || __("Add row");
+	return label + " after this row (" + (props.primaryAction?.shortcut || "Alt+Enter") + ")";
+});
 const gridStyle = computed(() => ({
 	"--fxr-generic-grid-min-column-width": props.minColumnWidth,
 	"--fxr-generic-grid-gap": props.gap,
 }));
+
+watch(searchQuery, () => {
+	currentPage.value = 1;
+});
+watch(currentPageSize, () => {
+	currentPage.value = 1;
+});
+watch(
+	() => filteredRows.value.length,
+	() => {
+		if (currentPage.value > pageCount.value) currentPage.value = pageCount.value;
+	}
+);
+watch(
+	() => sourceRows.value.map((entry) => entry.key),
+	(keys) => {
+		const allowedKeys = new Set(keys);
+		const next = new Set([...selectedKeys.value].filter((key) => allowedKeys.has(key)));
+		if (next.size !== selectedKeys.value.size) {
+			selectedKeys.value = next;
+			emitSelectionChange();
+		}
+		if (currentPage.value > pageCount.value) currentPage.value = pageCount.value;
+	}
+);
+
+function normalizePageSize(value) {
+	const size = Number(value);
+	return Number.isInteger(size) && size > 0 ? size : 10;
+}
+
+function isSelected(key) {
+	return selectedKeys.value.has(String(key));
+}
+
+function emitSelectionChange() {
+	emit("selection-change", selectedRows.value);
+}
+
+function setSelectedKeys(keys) {
+	selectedKeys.value = new Set(keys.map(String));
+	emitSelectionChange();
+}
+
+function selectVisibleRange(startIndex, endIndex, baseKeys = []) {
+	const keys = selectRangeKeys(
+		displayedRows.value,
+		startIndex,
+		endIndex,
+		(entry) => entry.key
+	);
+	setSelectedKeys([...new Set([...baseKeys, ...keys])]);
+}
+
+function beginDragSelection(pageIndex, event) {
+	if (!props.selection) return;
+	const entry = displayedRows.value[pageIndex];
+	if (!entry) return;
+	const modifier = Boolean(event.ctrlKey || event.metaKey);
+	const wasSelected = isSelected(entry.key);
+	const baseKeys = modifier ? [...selectedKeys.value] : [];
+	dragSelection.value = {
+		active: true,
+		anchorIndex: pageIndex,
+		lastIndex: pageIndex,
+		baseKeys,
+		modifier,
+		wasSelected,
+	};
+	selectVisibleRange(pageIndex, pageIndex, baseKeys);
+	if (props.selection) rootRef.value?.focus({ preventScroll: true });
+}
+
+function extendDragSelection(pageIndex) {
+	if (!dragSelection.value.active || pageIndex === dragSelection.value.lastIndex) return;
+	dragSelection.value.lastIndex = pageIndex;
+	selectVisibleRange(
+		dragSelection.value.anchorIndex,
+		pageIndex,
+		dragSelection.value.baseKeys
+	);
+}
+
+function endDragSelection() {
+	if (!dragSelection.value.active) return;
+	const drag = dragSelection.value;
+	if (drag.modifier && drag.anchorIndex === drag.lastIndex && drag.wasSelected) {
+		const entry = displayedRows.value[drag.anchorIndex];
+		if (entry) {
+			const next = new Set(selectedKeys.value);
+			next.delete(entry.key);
+			setSelectedKeys([...next]);
+		}
+	}
+	dragSelection.value = {
+		active: false,
+		anchorIndex: -1,
+		lastIndex: -1,
+		baseKeys: [],
+		modifier: false,
+		wasSelected: false,
+	};
+}
+
+function handleIndexKeyboardClick(pageIndex, event) {
+	if (!props.selection || event.detail !== 0) return;
+	selectVisibleRange(pageIndex, pageIndex);
+}
+
+function getInvalidState(row, index) {
+	let result = false;
+	if (typeof props.rowInvalid === "function") result = props.rowInvalid(row, index);
+	else if (Array.isArray(props.rowInvalid)) result = props.rowInvalid.includes(index);
+	return {
+		invalid: Boolean(result),
+		message: typeof result === "string" ? result : "",
+	};
+}
+
+function resolveRowProps(row, index) {
+	const customProps =
+		typeof props.rowProps === "function" ? props.rowProps(row, index) : props.rowProps;
+	return {
+		...(customProps && typeof customProps === "object" ? customProps : {}),
+		row,
+		modelValue: row,
+		index,
+		selected: isSelected(getRowKey(row, index, props.rowKey)),
+		invalid: getInvalidState(row, index).invalid,
+		readOnly: props.readOnly,
+	};
+}
+
+function requestRowAction(action, entry) {
+	if (props.readOnly) return;
+	emit("row-action", {
+		action,
+		row: entry.row,
+		index: entry.index,
+		key: entry.key,
+	});
+}
+
+function requestPrimaryAction(afterIndex = null) {
+	if (props.readOnly || !props.primaryAction) return;
+	emit("primary-action", { afterIndex });
+}
+
+function emitRowsUpdate(nextRows) {
+	if (props.rows !== null) emit("update:rows", nextRows);
+	if (props.modelValue !== null) emit("update:modelValue", nextRows);
+}
+
+async function copySelectedRows() {
+	const selected = sourceRows.value
+		.filter((entry) => selectedKeys.value.has(entry.key))
+		.map((entry) => entry.row);
+	if (!selected.length || !props.allowCopyPaste) return;
+
+	const text = JSON.stringify(
+		{ format: GRID_CLIPBOARD_FORMAT, version: 1, rows: selected },
+		null,
+		2
+	);
+	internalClipboard.value = text;
+	try {
+		if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) {
+			throw new Error("Clipboard API is not available in this context.");
+		}
+		await navigator.clipboard.writeText(text);
+		feedback.value = __('Copied {0} row(s) to the clipboard.', [selected.length]);
+	} catch (error) {
+		feedback.value = __('Copied {0} row(s) locally; browser clipboard access is unavailable.', [
+			selected.length,
+		]);
+		emit("clipboard-error", error);
+	}
+	emit("copy", selected);
+}
+
+function clonePastedRow(row, index) {
+	try {
+		if (typeof props.cloneRow === "function") return props.cloneRow(row, index);
+		const clone = JSON.parse(JSON.stringify(row));
+		if (clone && typeof clone === "object" && clone[props.rowKey] !== undefined) {
+			clone[props.rowKey] = "pasted-" + Date.now() + "-" + index + "-" + Math.random().toString(36).slice(2, 7);
+		}
+		if (clone && typeof clone === "object" && "isEditing" in clone) clone.isEditing = false;
+		return clone;
+	} catch (error) {
+		emit("clipboard-error", error);
+		return null;
+	}
+}
+
+async function pasteRows() {
+	if (props.readOnly || !props.allowCopyPaste) return;
+	let clipboardText = "";
+	try {
+		if (typeof navigator !== "undefined" && navigator.clipboard?.readText) {
+			clipboardText = await navigator.clipboard.readText();
+		}
+	} catch (error) {
+		emit("clipboard-error", error);
+	}
+	let incoming = parseClipboardRows(clipboardText);
+	if (!incoming.length) incoming = parseClipboardRows(internalClipboard.value);
+	if (!incoming.length) {
+		feedback.value = __("Clipboard does not contain compatible grid rows.");
+		return;
+	}
+
+	const clonedRows = incoming.map((row, index) => clonePastedRow(row, index)).filter(Boolean);
+	if (!clonedRows.length) {
+		feedback.value = __("No compatible rows could be pasted.");
+		return;
+	}
+	const nextRows = [...sourceList.value];
+	const selectedIndexes = sourceRows.value
+		.filter((entry) => selectedKeys.value.has(entry.key))
+		.map((entry) => entry.index);
+	const insertIndex = selectedIndexes.length
+		? Math.max(...selectedIndexes) + 1
+		: nextRows.length;
+	nextRows.splice(insertIndex, 0, ...clonedRows);
+	searchQuery.value = "";
+	emitRowsUpdate(nextRows);
+	await nextTick();
+
+	const nextKeys = sourceRows.value
+		.filter((entry) => entry.index >= insertIndex && entry.index < insertIndex + clonedRows.length)
+		.map((entry) => entry.key);
+	setSelectedKeys(nextKeys);
+	if (props.pagination) currentPage.value = Math.floor(insertIndex / currentPageSize.value) + 1;
+	feedback.value = __('Pasted {0} row(s).', [clonedRows.length]);
+	emit("paste", { rows: clonedRows, insertIndex });
+}
+
+function changePage(page) {
+	const nextPage = Math.max(1, Math.min(pageCount.value, Math.floor(Number(page) || 1)));
+	currentPage.value = nextPage;
+	emit("page-change", { page: nextPage, pageSize: currentPageSize.value });
+}
+
+function changePageSize(value) {
+	currentPageSize.value = normalizePageSize(value);
+	emit("page-change", { page: 1, pageSize: currentPageSize.value });
+}
+
+function isInputTarget(target) {
+	return Boolean(
+		target?.closest?.(
+			"input, textarea, select, [contenteditable='true'], [role='textbox'], [role='combobox']"
+		)
+	);
+}
+
+function handleKeydown(event) {
+	if (!isDataGrid.value || props.readOnly && event.altKey && event.key === "Enter") return;
+
+	const target = event.target;
+	if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "c") {
+		if (!isInputTarget(target) && props.selection && selectedRows.value.length) {
+			event.preventDefault();
+			copySelectedRows();
+		}
+		return;
+	}
+	if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "v") {
+		if (!isInputTarget(target) && !props.readOnly && props.allowCopyPaste) {
+			event.preventDefault();
+			pasteRows();
+		}
+		return;
+	}
+	if (event.altKey && event.key.toLowerCase() === "e") {
+		const activeRowElement = target?.closest?.("[data-row-index]");
+		const rowIndex = activeRowElement
+			? Number(activeRowElement.getAttribute("data-row-index"))
+			: sourceRows.value.find(
+					(entry) => selectedKeys.value.has(entry.key)
+			  )?.index;
+		const entry = sourceRows.value.find((item) => item.index === rowIndex);
+		if (entry && !props.readOnly) {
+			event.preventDefault();
+			requestRowAction(entry.row?.isEditing ? "view" : "edit", entry);
+		}
+		return;
+	}
+	if (event.altKey && event.key === "Enter" && props.primaryAction && !props.readOnly) {
+		if (!isInputTarget(target)) {
+			event.preventDefault();
+			const selectedIndexes = sourceRows.value
+				.filter((entry) => selectedKeys.value.has(entry.key))
+				.map((entry) => entry.index);
+			requestPrimaryAction(
+				selectedIndexes.length ? Math.max(...selectedIndexes) : null
+			);
+		}
+	}
+}
+
+defineExpose({
+	copySelectedRows,
+	pasteRows,
+	selectedRows,
+});
 </script>
 
 <style scoped>
 .fxr-generic-grid {
+	min-width: 0;
+	font-family: var(--fxr-font-family, inherit);
+	color: var(--fxr-text, inherit);
+}
+
+.fxr-generic-grid-layout {
 	display: grid;
 	grid-template-columns: repeat(
 		auto-fit,
@@ -32,10 +682,323 @@ const gridStyle = computed(() => ({
 	);
 	gap: var(--fxr-generic-grid-gap, var(--fxr-space-3, 12px));
 	align-items: start;
+}
+
+.fxr-generic-grid-layout > * {
 	min-width: 0;
 }
 
-.fxr-generic-grid > * {
+.fxr-generic-grid-data {
+	display: flex;
+	flex-direction: column;
+	gap: var(--fxr-space-2, 8px);
+	outline: none;
+}
+
+.fxr-generic-grid-data:focus-visible {
+	border-radius: var(--fxr-radius-md, 6px);
+	outline: 2px solid var(--fxr-border-focus, #3b82f6);
+	outline-offset: 2px;
+}
+
+.fxr-generic-grid-toolbar,
+.fxr-generic-grid-toolbar-actions,
+.fxr-generic-grid-pagination,
+.fxr-generic-grid-page-actions {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: var(--fxr-space-2, 8px);
 	min-width: 0;
+}
+
+.fxr-generic-grid-toolbar {
+	justify-content: space-between;
+	padding-bottom: var(--fxr-space-1, 4px);
+}
+
+.fxr-generic-grid-toolbar-actions {
+	margin-left: auto;
+}
+
+.fxr-generic-grid-search {
+	display: flex;
+	align-items: center;
+	gap: var(--fxr-space-2, 8px);
+	flex: 1 1 180px;
+	min-width: 0;
+	max-width: 340px;
+	padding: 0 var(--fxr-space-2, 8px);
+	border: 1px solid var(--fxr-border, #d1d5db);
+	border-radius: var(--fxr-radius-md, 6px);
+	background: var(--fxr-bg-input, #fff);
+	color: var(--fxr-text-muted, #6b7280);
+}
+
+.fxr-generic-grid-search input {
+	width: 100%;
+	min-width: 0;
+	height: 30px;
+	padding: 0;
+	border: 0;
+	outline: 0;
+	background: transparent;
+	color: var(--fxr-text, #111827);
+	font: inherit;
+	font-size: var(--fxr-text-sm, 12px);
+}
+
+.fxr-generic-grid-selection-count,
+.fxr-generic-grid-page-summary,
+.fxr-generic-grid-page-actions > span {
+	color: var(--fxr-text-muted, #6b7280);
+	font-size: var(--fxr-text-xs, 11px);
+	white-space: nowrap;
+}
+
+.fxr-grid-button,
+.fxr-grid-icon-button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--fxr-space-1, 4px);
+	min-height: 28px;
+	padding: 3px var(--fxr-space-2, 8px);
+	border: 1px solid var(--fxr-border-subtle, #d1d5db);
+	border-radius: var(--fxr-radius-sm, 4px);
+	background: var(--fxr-surface, #fff);
+	color: var(--fxr-text-secondary, #4b5563);
+	font: inherit;
+	font-size: var(--fxr-text-xs, 11px);
+	cursor: pointer;
+	transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.fxr-grid-button--quiet {
+	background: transparent;
+	border-color: transparent;
+}
+
+.fxr-grid-button--primary {
+	border-color: var(--fxr-border-focus, #3b82f6);
+	color: var(--fxr-accent, #2563eb);
+}
+
+.fxr-grid-button:hover:not(:disabled),
+.fxr-grid-icon-button:hover:not(:disabled) {
+	border-color: var(--fxr-border-strong, #9ca3af);
+	background: var(--fxr-surface-soft, #f9fafb);
+	color: var(--fxr-text, #111827);
+}
+
+.fxr-grid-button--primary:hover:not(:disabled) {
+	border-color: var(--fxr-accent, #2563eb);
+	background: var(--fxr-accent-soft, #eff6ff);
+}
+
+.fxr-grid-button:disabled,
+.fxr-grid-icon-button:disabled {
+	opacity: 0.35;
+	cursor: default;
+}
+
+.fxr-grid-button:focus-visible,
+.fxr-grid-icon-button:focus-visible,
+.fxr-generic-grid-row-index:focus-visible {
+	outline: 2px solid var(--fxr-border-focus, #3b82f6);
+	outline-offset: 1px;
+}
+
+.fxr-grid-button kbd {
+	padding: 1px 4px;
+	border: 1px solid var(--fxr-border-subtle, #d1d5db);
+	border-radius: 3px;
+	background: var(--fxr-surface-soft, #f9fafb);
+	font: inherit;
+	font-size: 10px;
+}
+
+.fxr-generic-grid-rows {
+	display: flex;
+	flex-direction: column;
+	gap: var(--fxr-space-2, 6px);
+	min-width: 0;
+}
+
+.fxr-generic-grid-row {
+	min-width: 0;
+	padding: var(--fxr-space-2, 8px);
+	border: 1px solid var(--fxr-border-subtle, #e5e7eb);
+	border-radius: var(--fxr-radius-md, 6px);
+	background: var(--fxr-surface, #fff);
+	transition: border-color 120ms ease, background-color 120ms ease, box-shadow 120ms ease;
+}
+
+.fxr-generic-grid-data.is-compact .fxr-generic-grid-row {
+	padding: var(--fxr-space-2, 8px);
+}
+
+.fxr-generic-grid-row.is-selected {
+	border-color: var(--fxr-border-focus, #3b82f6);
+	background: var(--fxr-accent-soft, #eff6ff);
+	box-shadow: inset 0 0 0 1px var(--fxr-border-focus, #3b82f6);
+}
+
+.fxr-generic-grid-row.is-invalid {
+	border-color: var(--fxr-border-danger, #dc2626);
+	box-shadow: inset 3px 0 0 var(--fxr-border-danger, #dc2626);
+}
+
+.fxr-generic-grid-row.is-invalid .fxr-generic-grid-row-index {
+	border-color: var(--fxr-border-danger, #dc2626);
+	color: var(--fxr-text-danger, #b91c1c);
+}
+
+.fxr-generic-grid-row.is-editing {
+	background: var(--fxr-surface-soft, #f9fafb);
+}
+
+.fxr-generic-grid-row-toolbar {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: var(--fxr-space-2, 8px);
+	margin-bottom: var(--fxr-space-2, 6px);
+	min-width: 0;
+}
+
+.fxr-generic-grid-row-index {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 22px;
+	width: 22px;
+	min-height: 22px;
+	padding: 0;
+	border: 1px solid var(--fxr-border-subtle, #d1d5db);
+	border-radius: var(--fxr-radius-sm, 4px);
+	background: var(--fxr-surface-soft, #f9fafb);
+	color: var(--fxr-text-muted, #6b7280);
+	font-size: var(--fxr-text-xs, 11px);
+	font-weight: var(--fxr-weight-medium, 500);
+	cursor: pointer;
+	user-select: none;
+	-webkit-user-select: none;
+	touch-action: none;
+}
+
+.fxr-generic-grid-row-index.is-selected {
+	border-color: var(--fxr-border-focus, #3b82f6);
+	background: var(--fxr-accent, #2563eb);
+	color: #fff;
+}
+
+.fxr-generic-grid-row-actions {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 2px;
+	min-width: 0;
+}
+
+.fxr-grid-icon-button {
+	flex: 0 0 25px;
+	width: 25px;
+	height: 25px;
+	min-height: 25px;
+	padding: 0;
+	border-color: transparent;
+	background: transparent;
+}
+
+.fxr-grid-icon-button.is-danger:hover:not(:disabled) {
+	border-color: var(--fxr-border-danger, #dc2626);
+	color: var(--fxr-text-danger, #b91c1c);
+}
+
+.fxr-generic-grid-reorder {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0;
+	flex: 0 0 25px;
+}
+
+.fxr-generic-grid-reorder .fxr-grid-icon-button {
+	width: 25px;
+	height: 18px;
+	min-height: 18px;
+}
+
+.fxr-generic-grid-row-body {
+	min-width: 0;
+}
+
+.fxr-generic-grid-row-fallback {
+	overflow-wrap: anywhere;
+	font-size: var(--fxr-text-sm, 12px);
+}
+
+.fxr-generic-grid-empty {
+	padding: var(--fxr-space-3, 12px);
+	border: 1px dashed var(--fxr-border-subtle, #d1d5db);
+	border-radius: var(--fxr-radius-md, 6px);
+	color: var(--fxr-text-muted, #6b7280);
+	font-size: var(--fxr-text-sm, 12px);
+	text-align: center;
+}
+
+.fxr-generic-grid-pagination {
+	justify-content: space-between;
+	padding-top: var(--fxr-space-1, 4px);
+}
+
+.fxr-generic-grid-page-size {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--fxr-space-2, 8px);
+	color: var(--fxr-text-muted, #6b7280);
+	font-size: var(--fxr-text-xs, 11px);
+}
+
+.fxr-generic-grid-page-size select {
+	min-height: 27px;
+	padding: 2px 6px;
+	border: 1px solid var(--fxr-border, #d1d5db);
+	border-radius: var(--fxr-radius-sm, 4px);
+	background: var(--fxr-bg-input, #fff);
+	color: var(--fxr-text, #111827);
+	font: inherit;
+}
+
+.fxr-generic-grid-page-actions {
+	margin-left: auto;
+}
+
+.fxr-generic-grid-feedback {
+	margin: 0;
+	color: var(--fxr-text-muted, #6b7280);
+	font-size: var(--fxr-text-xs, 11px);
+	line-height: 1.4;
+}
+
+@media (max-width: 600px) {
+	.fxr-generic-grid-toolbar {
+		align-items: stretch;
+		flex-direction: column;
+	}
+	.fxr-generic-grid-toolbar-actions {
+		margin-left: 0;
+	}
+	.fxr-generic-grid-row-actions {
+		gap: 0;
+	}
+	.fxr-generic-grid-pagination {
+		align-items: flex-start;
+		flex-direction: column;
+	}
+	.fxr-generic-grid-page-actions {
+		margin-left: 0;
+	}
 }
 </style>
