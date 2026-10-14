@@ -1104,8 +1104,9 @@ async function handleKeydown(event) {
 		}
 		if (event.key === "Home" || event.key === "End") {
 			event.preventDefault();
-			await focusDisplayedRow(event.key === "Home" ? 0 : displayedRows.value.length - 1);
-			keyboardSelectionAnchor.value = getCurrentPageIndex(target);
+			const boundaryIndex = event.key === "Home" ? 0 : displayedRows.value.length - 1;
+			await focusDisplayedRow(boundaryIndex);
+			keyboardSelectionAnchor.value = boundaryIndex;
 			return;
 		}
 		if (event.key === "PageDown" || event.key === "PageUp") {
@@ -1231,7 +1232,7 @@ defineExpose({
 	margin-left: -1px;
 }
 
-.fxr-grid-footer-primary > .fxr-grid-button--primary,
+.fxr-generic-grid-footer-primary > .fxr-grid-button--primary,
 .fxr-grid-primary-menu .fxr-grid-menu-toggle {
 	box-sizing: border-box;
 	min-height: 30px;
