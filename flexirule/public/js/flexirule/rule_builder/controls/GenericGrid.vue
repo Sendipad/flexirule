@@ -199,9 +199,13 @@
 					{{ activePrimaryAction.label || __('Add row') }}
 				</button>
 				<Menu v-if="actionOptions.length > 1 && !readOnly" as="div" class="fxr-grid-menu fxr-grid-primary-menu">
-					<MenuButton class="fxr-grid-menu-toggle" :title="__('Change primary action')">
+					<MenuButton
+						class="fxr-grid-menu-toggle"
+						:title="__('Change primary action')"
+						:aria-label="__('Change primary action')"
+					>
 						<i class="fa fa-chevron-down" aria-hidden="true"></i>
-						<span class="sr-only">{{ __('Change primary action') }}</span>
+						
 					</MenuButton>
 					<MenuItems class="fxr-grid-menu-items fxr-grid-menu-items--left">
 						<div class="fxr-grid-menu-heading">{{ __('Choose primary action') }}</div>
@@ -872,7 +876,7 @@ function handleKeydown(event) {
 		}
 		return;
 	}
-	if (matchesShortcut(event, props.editShortcut)) {
+	if (!isInputTarget(target) && matchesShortcut(event, props.editShortcut)) {
 		if (props.readOnly) return;
 		const selectedEntries = sourceRows.value.filter((entry) =>
 			selectedKeys.value.has(entry.key)
@@ -1193,6 +1197,7 @@ defineExpose({
 
 .fxr-grid-button:focus-visible,
 .fxr-grid-icon-button:focus-visible,
+.fxr-grid-menu-toggle:focus-visible,
 .fxr-generic-grid-row-index:focus-visible {
 	outline: 2px solid var(--fxr-border-focus, #3b82f6);
 	outline-offset: 1px;
@@ -1250,6 +1255,10 @@ defineExpose({
 .fxr-generic-grid-row-summary {
 	grid-column: 2;
 	grid-row: 1;
+	min-width: 0;
+}
+
+.fxr-generic-grid-row-body {
 	min-width: 0;
 }
 
