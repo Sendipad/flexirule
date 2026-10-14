@@ -286,6 +286,25 @@ def ensure_system_rule(definition: Mapping[str, Any]) -> str:
 
 def ensure_system_rules(definitions: list[Mapping[str, Any]]) -> list[str]:
 	"""Register definitions atomically and return their document names."""
+	if not isinstance(definitions, list | tuple):
+		frappe.throw(_("System Rule definitions must be a list or tuple."))
+
+	seen_names: dict[str, str] = {}
+	for definition in definitions:
+		if not isinstance(definition, Mapping):
+			frappe.throw(_("System Rule definition must be a mapping."))
+		logical_name = str(definition.get("rule_name") or "").strip()
+		if not logical_name:
+			frappe.throw(_("System Rule definition requires rule_name."))
+		key = logical_name.casefold()
+		if key in seen_names:
+			frappe.throw(
+				_(
+					"Multiple System Rule definitions use the same logical name: '{0}' and '{1}'."
+				).format(seen_names[key], logical_name)
+			)
+		seen_names[key] = logical_name
+
 	frappe.db.savepoint(_SAVEPOINT_NAME)
 	try:
 		return [ensure_system_rule(definition) for definition in definitions]
