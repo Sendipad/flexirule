@@ -267,7 +267,7 @@
 			</div>
 
 			<div class="fxr-generic-grid-footer-actions">
-								<div v-if="searchOpen" class="fxr-generic-grid-search-popover">
+				<div v-if="searchOpen" class="fxr-generic-grid-search-popover">
 					<i class="fa fa-search" aria-hidden="true"></i>
 					<input
 						ref="searchInputRef"
@@ -312,7 +312,6 @@
 				</button>
 			</div>
 		</div>
-
 
 		<p v-if="feedback" class="fxr-generic-grid-feedback" role="status" aria-live="polite">
 			{{ feedback }}
@@ -1116,8 +1115,10 @@ defineExpose({
 .fxr-grid-menu-item {
 	display: flex;
 	align-items: center;
+	flex: 1 1 auto;
 	gap: 8px;
-	width: 100%;
+	width: auto;
+	min-width: 0;
 	min-height: 32px;
 	padding: 6px 8px;
 	border: 0;
@@ -1135,6 +1136,11 @@ defineExpose({
 	align-items: stretch;
 	gap: 3px;
 	min-width: 0;
+	border-radius: var(--fxr-radius-sm, 4px);
+}
+
+.fxr-grid-menu-action-row:hover {
+	background: var(--fxr-surface-soft, #f3f4f6);
 }
 
 .fxr-grid-menu-item span {
@@ -1163,6 +1169,7 @@ defineExpose({
 }
 
 .fxr-grid-menu-item:hover,
+.fxr-grid-menu-item:focus-visible,
 .fxr-grid-menu-item.is-active {
 	background: var(--fxr-surface-soft, #f3f4f6);
 }
