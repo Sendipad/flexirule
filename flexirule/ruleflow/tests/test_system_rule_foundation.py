@@ -214,6 +214,18 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 			original_description,
 		)
 
+	def test_system_rule_action_definition_is_protected_through_document_save(self):
+		rule_name = ensure_system_rule(self._system_definition("SYSTEM_RULE_ACTION_PROTECTION"))
+		rule = frappe.get_doc("Rule", rule_name)
+		original_label = rule.actions[0].action_label
+		rule.actions[0].action_label = "Manual action edit"
+
+		with self.assertRaises(frappe.ValidationError):
+			rule.save(ignore_permissions=True)
+
+		rule.reload()
+		self.assertEqual(rule.actions[0].action_label, original_label)
+
 	def test_system_rule_rename_is_blocked_through_frappe_api(self):
 		rule_name = ensure_system_rule(self._system_definition("SYSTEM_RULE_RENAME_PROTECTION"))
 
