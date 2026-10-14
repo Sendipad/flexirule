@@ -100,9 +100,19 @@
 						{{ entry.index + 1 }}
 					</button>
 
-					<div v-if="!readOnly && showRowActions" class="fxr-generic-grid-row-actions">
+					<div
+					v-if="
+						!readOnly &&
+						showRowActions &&
+						((primaryAction && primaryAction.rowShortcut !== false && availableRowActions.includes('add-after')) ||
+							availableRowActions.includes('edit') ||
+							availableRowActions.includes('move') ||
+							availableRowActions.includes('remove'))
+					"
+					class="fxr-generic-grid-row-actions"
+				>
 						<button
-							v-if="primaryAction && primaryAction.rowShortcut !== false"
+							v-if="primaryAction && primaryAction.rowShortcut !== false && availableRowActions.includes('add-after')"
 							type="button"
 							class="fxr-grid-icon-button"
 							:title="addAfterTitle"
@@ -112,6 +122,7 @@
 							<i :class="primaryAction.icon || 'fa fa-plus'" aria-hidden="true"></i>
 						</button>
 						<button
+							v-if="availableRowActions.includes('edit')"
 							type="button"
 							class="fxr-grid-icon-button"
 							:title="entry.row?.isEditing ? __('Switch to readable row (Alt+E)') : __('Edit row (Alt+E)' )"
@@ -120,7 +131,7 @@
 						>
 							<i :class="entry.row?.isEditing ? 'fa fa-check' : 'fa fa-pencil'" aria-hidden="true"></i>
 						</button>
-						<div class="fxr-generic-grid-reorder" :aria-label="__('Move row')">
+						<div v-if="availableRowActions.includes('move')" class="fxr-generic-grid-reorder" :aria-label="__('Move row')">
 							<button
 								type="button"
 								class="fxr-grid-icon-button"
@@ -143,6 +154,7 @@
 							</button>
 						</div>
 						<button
+							v-if="availableRowActions.includes('remove')"
 							type="button"
 							class="fxr-grid-icon-button is-danger"
 							:title="__('Remove row')"
@@ -257,6 +269,10 @@ const props = defineProps({
 	showSearch: { type: Boolean, default: true },
 	showToolbar: { type: Boolean, default: true },
 	showRowActions: { type: Boolean, default: true },
+	availableRowActions: {
+		type: Array,
+		default: () => ["add-after", "edit", "move", "remove"],
+	},
 	pagination: { type: Boolean, default: true },
 	pageSize: { type: Number, default: 10 },
 	pageSizeOptions: { type: Array, default: () => [5, 10, 20, 50] },
