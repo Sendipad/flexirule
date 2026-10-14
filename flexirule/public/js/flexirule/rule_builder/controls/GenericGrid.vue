@@ -877,11 +877,21 @@ async function pasteRows() {
 	emit("paste", { rows: clonedRows, insertIndex });
 }
 
-function goToIndex(index) {
-	const targetIndex = Math.max(0, Math.floor(Number(index) || 0));
+async function goToIndex(index) {
+	if (!sourceRows.value.length) {
+		rootRef.value?.focus({ preventScroll: true });
+		return;
+	}
+	const targetIndex = Math.max(
+		0,
+		Math.min(sourceRows.value.length - 1, Math.floor(Number(index) || 0))
+	);
 	searchQuery.value = "";
 	if (props.pagination) currentPage.value = Math.floor(targetIndex / currentPageSize.value) + 1;
-	rootRef.value?.focus({ preventScroll: true });
+	activeRowIndex.value = targetIndex;
+	await nextTick();
+	const pageIndex = displayedRows.value.findIndex((entry) => entry.index === targetIndex);
+	await focusDisplayedRow(pageIndex);
 }
 
 async function toggleSearch() {
@@ -926,7 +936,7 @@ function getCurrentPageIndex(target) {
 	const focusedIndex = displayedRows.value.findIndex((entry) => entry.index === sourceIndex);
 	if (focusedIndex >= 0) return focusedIndex;
 	const selectedIndex = displayedRows.value.findIndex((entry) => selectedKeys.value.has(entry.key));
-	return selectedIndex >= 0 ? selectedIndex : 0;
+	return selectedIndex;
 }
 
 async function focusDisplayedRow(pageIndex) {
@@ -965,7 +975,14 @@ async function moveRowFocus(delta, event) {
 	if (!displayedRows.value.length) return;
 	const originalPage = currentPage.value;
 	const currentIndex = getCurrentPageIndex(event.target);
-	let nextIndex = currentIndex + delta;
+	// When focus starts on the grid container, the first arrow press should land
+	// on the first/last row, not skip a row or wrap to another page.
+	let nextIndex =
+		currentIndex < 0
+			? delta > 0
+				? 0
+				: displayedRows.value.length - 1
+			: currentIndex + delta;
 	if (nextIndex < 0 && props.pagination && currentPage.value > 1) {
 		changePage(currentPage.value - 1);
 		await nextTick();
