@@ -18,56 +18,6 @@
 		@pointerup="endDragSelection"
 		@pointercancel="endDragSelection"
 	>
-		<div v-if="showToolbar" class="fxr-generic-grid-toolbar">
-			<label v-if="hasSearch && showSearch" class="fxr-generic-grid-search">
-				<i class="fa fa-search" aria-hidden="true"></i>
-				<input
-					v-model="searchQuery"
-					type="search"
-					:placeholder="searchPlaceholder || __('Search rows...')"
-					:aria-label="searchPlaceholder || __('Search rows')"
-				/>
-			</label>
-
-			<div class="fxr-generic-grid-toolbar-actions">
-				<span v-if="selection && selectedRows.length" class="fxr-generic-grid-selection-count">
-					{{ selectedRows.length }} {{ __('selected') }}
-				</span>
-				<button
-					v-if="selection && allowCopyPaste"
-					type="button"
-					class="fxr-grid-button fxr-grid-button--quiet"
-					:disabled="!selectedRows.length"
-					:title="__('Copy selected rows (Ctrl/Cmd+C)')"
-					@click="copySelectedRows"
-				>
-					<i class="fa fa-copy" aria-hidden="true"></i>
-					{{ __('Copy') }}
-				</button>
-				<button
-					v-if="!readOnly && allowCopyPaste"
-					type="button"
-					class="fxr-grid-button fxr-grid-button--quiet"
-					:title="__('Paste rows (Ctrl/Cmd+V)')"
-					@click="pasteRows"
-				>
-					<i class="fa fa-clipboard" aria-hidden="true"></i>
-					{{ __('Paste') }}
-				</button>
-				<button
-					v-if="primaryAction && !readOnly"
-					type="button"
-					class="fxr-grid-button fxr-grid-button--primary"
-					:title="primaryActionTitle"
-					@click="requestPrimaryAction()"
-				>
-					<i v-if="primaryAction.icon" :class="primaryAction.icon" aria-hidden="true"></i>
-					{{ primaryAction.label || __('Add row') }}
-					<kbd v-if="primaryAction.shortcut">{{ primaryAction.shortcut }}</kbd>
-				</button>
-			</div>
-		</div>
-
 		<div class="fxr-generic-grid-rows">
 			<div v-if="!filteredRows.length" class="fxr-generic-grid-empty">
 				<slot name="empty">{{ __('No matching rows.') }}</slot>
@@ -104,23 +54,12 @@
 					v-if="
 						!readOnly &&
 						showRowActions &&
-						((primaryAction && primaryAction.rowShortcut !== false && availableRowActions.includes('add-after')) ||
-							availableRowActions.includes('edit') ||
+						(availableRowActions.includes('edit') ||
 							availableRowActions.includes('move') ||
 							availableRowActions.includes('remove'))
 					"
 					class="fxr-generic-grid-row-actions"
 				>
-						<button
-							v-if="primaryAction && primaryAction.rowShortcut !== false && availableRowActions.includes('add-after')"
-							type="button"
-							class="fxr-grid-icon-button"
-							:title="addAfterTitle"
-							:aria-label="addAfterTitle"
-							@click="requestPrimaryAction(entry.index)"
-						>
-							<i :class="primaryAction.icon || 'fa fa-plus'" aria-hidden="true"></i>
-						</button>
 						<button
 							v-if="availableRowActions.includes('edit')"
 							type="button"
@@ -232,6 +171,81 @@
 			</div>
 		</div>
 
+		<div v-if="showToolbar" class="fxr-generic-grid-footer">
+			<div class="fxr-generic-grid-footer-left">
+				<span v-if="selection && selectedRows.length" class="fxr-generic-grid-selection-count">
+					{{ selectedRows.length }} {{ __('selected') }}
+				</span>
+				<div v-if="searchOpen" class="fxr-generic-grid-search-popover">
+					<i class="fa fa-search" aria-hidden="true"></i>
+					<input
+						ref="searchInputRef"
+						v-model="searchQuery"
+						type="search"
+						:placeholder="searchPlaceholder || __('Search rows...')"
+						:aria-label="searchPlaceholder || __('Search rows')"
+						@keydown.esc.stop.prevent="closeSearch"
+					/>
+					<button
+						type="button"
+						class="fxr-grid-icon-button"
+						:title="__('Close search')"
+						:aria-label="__('Close search')"
+						@click="closeSearch"
+					>
+						<i class="fa fa-times" aria-hidden="true"></i>
+					</button>
+				</div>
+			</div>
+
+			<div class="fxr-generic-grid-footer-actions">
+				<slot name="secondary-actions"></slot>
+				<button
+					v-if="hasSearch && showSearch"
+					type="button"
+					class="fxr-grid-icon-button fxr-grid-icon-button--secondary"
+					:title="__('Search rows')"
+					:aria-label="__('Search rows')"
+					:aria-expanded="String(searchOpen)"
+					@click="toggleSearch"
+				>
+					<i :class="searchOpen ? 'fa fa-times' : 'fa fa-search'" aria-hidden="true"></i>
+				</button>
+				<button
+					v-if="selection && allowCopyPaste"
+					type="button"
+					class="fxr-grid-button fxr-grid-button--quiet"
+					:disabled="!selectedRows.length"
+					:title="__('Copy selected rows (Ctrl/Cmd+C)')"
+					@click="copySelectedRows"
+				>
+					<i class="fa fa-copy" aria-hidden="true"></i>
+					{{ __('Copy') }}
+				</button>
+				<button
+					v-if="!readOnly && allowCopyPaste"
+					type="button"
+					class="fxr-grid-button fxr-grid-button--quiet"
+					:title="__('Paste rows (Ctrl/Cmd+V)')"
+					@click="pasteRows"
+				>
+					<i class="fa fa-clipboard" aria-hidden="true"></i>
+					{{ __('Paste') }}
+				</button>
+				<button
+					v-if="primaryAction && !readOnly"
+					type="button"
+					class="fxr-grid-button fxr-grid-button--primary"
+					:title="primaryActionTitle"
+					:aria-label="primaryActionTitle"
+					@click="requestPrimaryAction()"
+				>
+					<i v-if="primaryAction.icon" :class="primaryAction.icon" aria-hidden="true"></i>
+					{{ primaryAction.label || __('Add row') }}
+				</button>
+			</div>
+		</div>
+
 		<p v-if="feedback" class="fxr-generic-grid-feedback" role="status" aria-live="polite">
 			{{ feedback }}
 		</p>
@@ -271,13 +285,14 @@ const props = defineProps({
 	showRowActions: { type: Boolean, default: true },
 	availableRowActions: {
 		type: Array,
-		default: () => ["add-after", "edit", "move", "remove"],
+		default: () => ["edit", "move", "remove"],
 	},
 	pagination: { type: Boolean, default: true },
 	pageSize: { type: Number, default: 10 },
 	pageSizeOptions: { type: Array, default: () => [5, 10, 20, 50] },
 	primaryAction: { type: Object, default: null },
 	editShortcut: { type: String, default: "Alt+E" },
+	editStateKey: { type: String, default: "isEditing" },
 	cloneRow: { type: Function, default: null },
 });
 
@@ -295,6 +310,8 @@ const emit = defineEmits([
 ]);
 
 const rootRef = ref(null);
+const searchInputRef = ref(null);
+const searchOpen = ref(false);
 const searchQuery = ref("");
 const currentPage = ref(1);
 const currentPageSize = ref(normalizePageSize(props.pageSize));
@@ -365,10 +382,6 @@ const primaryActionTitle = computed(() => {
 	return props.primaryAction?.shortcut
 		? label + " (" + props.primaryAction.shortcut + ")"
 		: label;
-});
-const addAfterTitle = computed(() => {
-	const label = props.primaryAction?.rowLabel || props.primaryAction?.label || __("Add row");
-	return label + " after this row (" + (props.primaryAction?.shortcut || "Alt+Enter") + ")";
 });
 const gridStyle = computed(() => ({
 	"--fxr-generic-grid-min-column-width": props.minColumnWidth,
@@ -634,6 +647,21 @@ function goToIndex(index) {
 	rootRef.value?.focus({ preventScroll: true });
 }
 
+async function toggleSearch() {
+	if (searchOpen.value) {
+		closeSearch();
+		return;
+	}
+	searchOpen.value = true;
+	await nextTick();
+	searchInputRef.value?.focus();
+}
+
+function closeSearch() {
+	searchOpen.value = false;
+	searchQuery.value = "";
+}
+
 function changePage(page) {
 	const nextPage = Math.max(1, Math.min(pageCount.value, Math.floor(Number(page) || 1)));
 	currentPage.value = nextPage;
@@ -700,16 +728,27 @@ function handleKeydown(event) {
 		return;
 	}
 	if (matchesShortcut(event, props.editShortcut)) {
+		if (props.readOnly) return;
+		const selectedEntries = sourceRows.value.filter((entry) =>
+			selectedKeys.value.has(entry.key)
+		);
 		const activeRowElement = target?.closest?.("[data-row-index]");
-		const rowIndex = activeRowElement
+		const activeIndex = activeRowElement
 			? Number(activeRowElement.getAttribute("data-row-index"))
-			: sourceRows.value.find(
-					(entry) => selectedKeys.value.has(entry.key)
-			  )?.index;
-		const entry = sourceRows.value.find((item) => item.index === rowIndex);
-		if (entry && !props.readOnly) {
+			: null;
+		const activeEntry = sourceRows.value.find((entry) => entry.index === activeIndex);
+		const targetEntries = selectedEntries.length
+			? selectedEntries
+			: activeEntry
+			? [activeEntry]
+			: [];
+		if (targetEntries.length) {
 			event.preventDefault();
-			requestRowAction(entry.row?.isEditing ? "view" : "edit", entry);
+			const allEditing = targetEntries.every((entry) =>
+				Boolean(entry.row?.[props.editStateKey])
+			);
+			const action = allEditing ? "view" : "edit";
+			for (const entry of targetEntries) requestRowAction(action, entry);
 		}
 		return;
 	}
@@ -772,6 +811,55 @@ defineExpose({
 	flex-direction: column;
 	gap: var(--fxr-space-2, 8px);
 	outline: none;
+}
+
+.fxr-generic-grid-footer,
+.fxr-generic-grid-footer-left,
+.fxr-generic-grid-footer-actions,
+.fxr-generic-grid-search-popover {
+	display: flex;
+	align-items: center;
+	gap: var(--fxr-space-2, 8px);
+	min-width: 0;
+}
+
+.fxr-generic-grid-footer {
+	justify-content: space-between;
+	flex-wrap: wrap;
+	padding-top: var(--fxr-space-2, 8px);
+}
+
+.fxr-generic-grid-footer-left {
+	flex: 1 1 120px;
+}
+
+.fxr-generic-grid-footer-actions {
+	justify-content: flex-end;
+	flex-wrap: wrap;
+	margin-left: auto;
+}
+
+.fxr-generic-grid-search-popover {
+	flex: 1 1 190px;
+	max-width: 300px;
+	padding: 0 var(--fxr-space-2, 8px);
+	border: 1px solid var(--fxr-border, #d1d5db);
+	border-radius: var(--fxr-radius-md, 6px);
+	background: var(--fxr-bg-input, #fff);
+	color: var(--fxr-text-muted, #6b7280);
+}
+
+.fxr-generic-grid-search-popover input {
+	width: 100%;
+	min-width: 0;
+	height: 30px;
+	padding: 0;
+	border: 0;
+	outline: 0;
+	background: transparent;
+	color: var(--fxr-text, #111827);
+	font: inherit;
+	font-size: var(--fxr-text-sm, 12px);
 }
 
 .fxr-generic-grid-data:focus-visible {
@@ -859,8 +947,17 @@ defineExpose({
 }
 
 .fxr-grid-button--primary {
-	border-color: var(--fxr-border-focus, #3b82f6);
-	color: var(--fxr-accent, #2563eb);
+	border-color: var(--fxr-accent, #2563eb);
+	background: var(--fxr-accent, #2563eb);
+	color: var(--fxr-text-on-accent, #fff);
+	font-weight: var(--fxr-weight-semibold, 600);
+	box-shadow: 0 1px 2px rgb(0 0 0 / 10%);
+}
+
+.fxr-grid-icon-button--secondary {
+	border-color: transparent;
+	background: transparent;
+	color: var(--fxr-text-muted, #6b7280);
 }
 
 .fxr-grid-button:hover:not(:disabled),
@@ -872,7 +969,8 @@ defineExpose({
 
 .fxr-grid-button--primary:hover:not(:disabled) {
 	border-color: var(--fxr-accent, #2563eb);
-	background: var(--fxr-accent-soft, #eff6ff);
+	background: var(--fxr-accent-hover, #1d4ed8);
+	color: var(--fxr-text-on-accent, #fff);
 }
 
 .fxr-grid-button:disabled,
@@ -909,18 +1007,58 @@ defineExpose({
 }
 
 .fxr-generic-grid-row {
+	display: grid;
+	grid-template-columns: 22px minmax(0, 1fr) auto;
+	column-gap: var(--fxr-space-2, 8px);
+	row-gap: var(--fxr-space-1, 4px);
+	align-items: start;
 	min-width: 0;
-	padding: var(--fxr-space-3, 12px);
+	padding: var(--fxr-space-1, 4px) var(--fxr-space-2, 8px);
 	border: 1px solid var(--fxr-border-subtle, #e5e7eb);
 	border-radius: var(--fxr-radius-md, 6px);
 	background: var(--fxr-surface, #fff);
 	transition: border-color 120ms ease, background-color 120ms ease, box-shadow 120ms ease;
 }
 
-.fxr-generic-grid-data.is-compact .fxr-generic-grid-row {
+.fxr-generic-grid-row-toolbar {
+	display: contents;
+}
+
+.fxr-generic-grid-row-index {
+	grid-column: 1;
+	grid-row: 1;
+	align-self: start;
+	margin-top: 1px;
+}
+
+.fxr-generic-grid-row-actions {
+	grid-column: 3;
+	grid-row: 1;
+	align-self: start;
+	max-width: 100%;
+}
+
+.fxr-generic-grid-row-body {
+	grid-column: 2;
+	grid-row: 1;
+	min-width: 0;
+}
+
+.fxr-generic-grid-row.is-editing {
+	grid-template-columns: 22px minmax(0, 1fr);
 	padding: var(--fxr-space-2, 8px);
 }
 
+.fxr-generic-grid-row.is-editing .fxr-generic-grid-row-actions {
+	grid-column: 2;
+	grid-row: 1;
+	justify-self: end;
+}
+
+.fxr-generic-grid-row.is-editing .fxr-generic-grid-row-body {
+	grid-column: 1 / -1;
+	grid-row: 2;
+}
 .fxr-generic-grid-row.is-selected {
 	border-color: var(--fxr-border-focus, #3b82f6);
 	background: var(--fxr-accent-soft, #eff6ff);
@@ -939,15 +1077,6 @@ defineExpose({
 
 .fxr-generic-grid-row.is-editing {
 	background: var(--fxr-surface-soft, #f9fafb);
-}
-
-.fxr-generic-grid-row-toolbar {
-	display: flex;
-	align-items: flex-start;
-	justify-content: space-between;
-	gap: var(--fxr-space-2, 8px);
-	margin-bottom: var(--fxr-space-2, 6px);
-	min-width: 0;
 }
 
 .fxr-generic-grid-row-index {
@@ -980,7 +1109,7 @@ defineExpose({
 	display: flex;
 	align-items: center;
 	justify-content: flex-end;
-	gap: 2px;
+	gap: 1px;
 	min-width: 0;
 }
 
@@ -1011,10 +1140,6 @@ defineExpose({
 	width: 25px;
 	height: 18px;
 	min-height: 18px;
-}
-
-.fxr-generic-grid-row-body {
-	min-width: 0;
 }
 
 .fxr-generic-grid-row-fallback {
@@ -1066,12 +1191,11 @@ defineExpose({
 }
 
 @media (max-width: 600px) {
-	.fxr-generic-grid-toolbar {
-		align-items: stretch;
-		flex-direction: column;
+	.fxr-generic-grid-footer {
+		align-items: flex-end;
 	}
-	.fxr-generic-grid-toolbar-actions {
-		margin-left: 0;
+	.fxr-generic-grid-footer-actions {
+		gap: 4px;
 	}
 	.fxr-generic-grid-row-actions {
 		gap: 0;
@@ -1082,6 +1206,13 @@ defineExpose({
 	}
 	.fxr-generic-grid-page-actions {
 		margin-left: 0;
+	}
+	.fxr-generic-grid-footer-left {
+		flex-basis: 100%;
+	}
+	.fxr-generic-grid-footer-actions {
+		width: 100%;
+		justify-content: flex-end;
 	}
 }
 </style>
