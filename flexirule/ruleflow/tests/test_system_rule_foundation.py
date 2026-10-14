@@ -167,6 +167,18 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 		self.assertIn("user-managed Rule already uses that name", str(cm.exception))
 		self.assertFalse(frappe.db.get_value("Rule", user_rule.name, "is_system_generated"))
 
+	def test_registry_rejects_unknown_child_fields_before_writing(self):
+		definition = self._system_definition("SYSTEM_RULE_INVALID_CHILD_FIELD")
+		definition["actions"][0]["unknown_provider_field"] = "must be rejected"
+
+		with self.assertRaises(frappe.ValidationError) as cm:
+			ensure_system_rule(definition)
+
+		self.assertIn("unknown_provider_field", str(cm.exception))
+		self.assertFalse(
+			frappe.db.exists("Rule", {"rule_name": "SYSTEM_RULE_INVALID_CHILD_FIELD"})
+		)
+
 	def test_registry_batch_rolls_back_prior_documents_when_later_definition_fails(self):
 		first = self._system_definition("SYSTEM_RULE_BATCH_ROLLBACK")
 		invalid = {"description": "Missing stable rule name"}
