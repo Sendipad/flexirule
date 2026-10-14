@@ -125,7 +125,7 @@
 							v-if="availableRowActions.includes('edit')"
 							type="button"
 							class="fxr-grid-icon-button"
-							:title="entry.row?.isEditing ? __('Switch to readable row (Alt+E)') : __('Edit row (Alt+E)' )"
+							:title="entry.row?.isEditing ? __('Switch to readable row') + ' (' + editShortcut + ')' : __('Edit row') + ' (' + editShortcut + ')'"
 							:aria-label="entry.row?.isEditing ? __('Switch to readable row') : __('Edit row')"
 							@click="requestRowAction(entry.row?.isEditing ? 'view' : 'edit', entry)"
 						>
@@ -277,6 +277,7 @@ const props = defineProps({
 	pageSize: { type: Number, default: 10 },
 	pageSizeOptions: { type: Array, default: () => [5, 10, 20, 50] },
 	primaryAction: { type: Object, default: null },
+	editShortcut: { type: String, default: "Alt+E" },
 	cloneRow: { type: Function, default: null },
 });
 
@@ -627,6 +628,34 @@ function isInputTarget(target) {
 	);
 }
 
+function isMultilineOrPickerTarget(target) {
+	return Boolean(
+		target?.closest?.("textarea, select, [contenteditable='true'], [role='combobox']")
+	);
+}
+
+function matchesShortcut(event, shortcut) {
+	const keys = String(shortcut || "")
+		.toLowerCase()
+		.split("+")
+		.map((key) => key.trim())
+		.filter(Boolean);
+	if (!keys.length) return false;
+
+	const key = keys[keys.length - 1];
+	const wantsAlt = keys.includes("alt");
+	const wantsCtrl = keys.includes("ctrl") || keys.includes("control");
+	const wantsMeta = keys.includes("cmd") || keys.includes("meta") || keys.includes("command");
+	const wantsShift = keys.includes("shift");
+	return (
+		event.key.toLowerCase() === key &&
+		Boolean(event.altKey) === wantsAlt &&
+		Boolean(event.ctrlKey) === wantsCtrl &&
+		Boolean(event.metaKey) === wantsMeta &&
+		Boolean(event.shiftKey) === wantsShift
+	);
+}
+
 function handleKeydown(event) {
 	if (!isDataGrid.value || props.readOnly && event.altKey && event.key === "Enter") return;
 
@@ -645,7 +674,7 @@ function handleKeydown(event) {
 		}
 		return;
 	}
-	if (event.altKey && event.key.toLowerCase() === "e") {
+	if (matchesShortcut(event, props.editShortcut)) {
 		const activeRowElement = target?.closest?.("[data-row-index]");
 		const rowIndex = activeRowElement
 			? Number(activeRowElement.getAttribute("data-row-index"))
@@ -659,8 +688,12 @@ function handleKeydown(event) {
 		}
 		return;
 	}
-	if (event.altKey && event.key === "Enter" && props.primaryAction && !props.readOnly) {
-		if (!isInputTarget(target)) {
+	if (
+		props.primaryAction &&
+		!props.readOnly &&
+		matchesShortcut(event, props.primaryAction.shortcut || "Alt+Enter")
+	) {
+		if (!isMultilineOrPickerTarget(target)) {
 			event.preventDefault();
 			const activeRowElement = target?.closest?.("[data-row-index]");
 			const activeIndex = activeRowElement
