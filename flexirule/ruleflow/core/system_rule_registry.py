@@ -299,9 +299,9 @@ def ensure_system_rules(definitions: list[Mapping[str, Any]]) -> list[str]:
 		key = logical_name.casefold()
 		if key in seen_names:
 			frappe.throw(
-				_(
-					"Multiple System Rule definitions use the same logical name: '{0}' and '{1}'."
-				).format(seen_names[key], logical_name)
+				_("Multiple System Rule definitions use the same logical name: '{0}' and '{1}'.").format(
+					seen_names[key], logical_name
+				)
 			)
 		seen_names[key] = logical_name
 
