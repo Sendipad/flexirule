@@ -38,7 +38,9 @@ def ensure_system_rule(definition: Mapping[str, Any]) -> str:
 		doc = frappe.get_doc("Rule", existing_name)
 		if not doc.get("is_system_generated"):
 			frappe.throw(
-				_("Cannot register System Rule '{0}': a user-managed Rule already uses that name.").format(rule_name)
+				_("Cannot register System Rule '{0}': a user-managed Rule already uses that name.").format(
+					rule_name
+				)
 			)
 		# Site operators own activation state. A migration must not silently
 		# re-enable a System Rule that an administrator deliberately disabled.
