@@ -65,7 +65,14 @@ def get_excluded_doctypes() -> set[str]:
 		# FlexiRule definition/configuration DocTypes are eligible rule targets even
 		# if older installations seeded them into the excluded list.
 		excluded.difference_update(
-			{"Rule", "Rule Action", "Process", "Process Operation", "Data Review Task", "Data Review Related Document"}
+			{
+				"Rule",
+				"Rule Action",
+				"Process",
+				"Process Operation",
+				"Data Review Task",
+				"Data Review Related Document",
+			}
 		)
 	except Exception:
 		# Table might not exist yet during install/migrate.
