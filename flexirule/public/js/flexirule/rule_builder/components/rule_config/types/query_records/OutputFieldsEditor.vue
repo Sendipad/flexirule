@@ -7,7 +7,9 @@
 			rowKey="id"
 			:rowInvalid="isRowInvalid"
 			:searchableFields="searchableFields"
-			:primaryAction="primaryGridAction"
+			:actionOptions="gridActions"
+			defaultPrimaryAction="add-field"
+			:preferenceKey="'flexirule:fetch-records-output-primary:' + doctype + ':' + shape"
 			:cloneRow="cloneGridRow"
 			:readOnly="readOnly"
 			:compact="true"
@@ -16,21 +18,18 @@
 			:pageSizeOptions="[5, 10, 20, 50]"
 			@row-action="handleGridRowAction"
 			@primary-action="handleGridPrimaryAction"
+			@grid-action="handleGridSecondaryAction"
+			@bulk-delete="handleBulkDelete"
 			@update:rows="handlePastedRows"
 		>
 			<template #empty>{{ __("No output fields yet. Add a field or child selection to get started.") }}</template>
-			<template #row="{ row }">
-			<div class="output-field-row-content">
-				<div class="output-field-row-heading">
-					<div class="output-field-row-title">
-						<div class="output-field-row-copy">
-							<strong :title="rowTitle(row)">{{ rowTitle(row) }}</strong>
-							<p :title="rowDescription(row)">{{ rowDescription(row) }}</p>
-						</div>
-					</div>
-
+			<template #row-summary="{ row }">
+				<div class="output-field-row-copy">
+					<strong :title="rowTitle(row)">{{ rowTitle(row) }}</strong>
+					<p :title="rowDescription(row)">{{ rowDescription(row) }}</p>
 				</div>
-
+			</template>
+			<template #row="{ row }">
 				<div v-if="row.isEditing" class="output-field-edit">
 					<div v-if="row.kind === 'field'" class="output-field-controls">
 						<OutputFieldPicker
@@ -213,25 +212,6 @@
 						></textarea>
 					</div>
 				</div>
-			</div>
-			</template>
-			<template #secondary-actions>
-				<div v-if="!readOnly" class="output-fields-add-actions">
-					<button type="button" class="output-fields-add-btn" @click="addFunction">
-						<i class="fa fa-calculator"></i>{{ __("Add function") }}
-					</button>
-					<button type="button" class="output-fields-add-btn" @click="addLiteral">
-						<i class="fa fa-tag"></i>{{ __("Add literal value") }}
-					</button>
-					<button
-						v-if="shape === 'embedded_children'"
-						type="button"
-						class="output-fields-add-btn"
-						@click="addChild"
-					>
-						<i class="fa fa-sitemap"></i>{{ __("Add child selection") }}
-					</button>
-				</div>
 			</template>
 
 		</GenericGrid>
@@ -314,13 +294,21 @@ const searchableFields = [
 	"tableField",
 	"expression",
 ];
-const primaryGridAction = computed(() => ({
-	label: __("Add field"),
-	rowLabel: __("Add field"),
-	icon: "fa fa-plus",
-	shortcut: "Alt+Enter",
-	rowShortcut: true,
-}));
+const gridActions = computed(() => {
+	const actions = [
+		{ id: "add-field", label: __("Add field"), icon: "fa fa-plus", shortcut: "Alt+Enter" },
+		{ id: "add-function", label: __("Add function"), icon: "fa fa-calculator" },
+		{ id: "add-literal", label: __("Add literal value"), icon: "fa fa-tag" },
+	];
+	if (props.shape === "embedded_children") {
+		actions.push({
+			id: "add-child",
+			label: __("Add child selection"),
+			icon: "fa fa-sitemap",
+		});
+	}
+	return actions;
+});
 const requiresGroupBy = computed(
 	() =>
 		rows.value.some((row) => row.kind === "function") &&
@@ -536,8 +524,39 @@ function handlePastedRows(nextRows) {
 	refreshMetadata();
 }
 
-function handleGridPrimaryAction({ afterIndex = null } = {}) {
-	addField(afterIndex);
+function handleGridPrimaryAction({ action = "add-field" } = {}) {
+	handleGridAction(action);
+}
+
+function handleGridSecondaryAction({ action } = {}) {
+	handleGridAction(action);
+}
+
+function handleGridAction(action) {
+	if (props.readOnly) return;
+	switch (action) {
+		case "add-function":
+			addFunction();
+			break;
+		case "add-literal":
+			addLiteral();
+			break;
+		case "add-child":
+			if (props.shape === "embedded_children") addChild();
+			break;
+		case "add-field":
+		default:
+			addField();
+			break;
+	}
+}
+
+function handleBulkDelete(selectedRows = []) {
+	if (props.readOnly || !Array.isArray(selectedRows) || !selectedRows.length) return;
+	const selectedIds = new Set(selectedRows.map((row) => row?.id).filter(Boolean));
+	rows.value = rows.value.filter((row) => !selectedIds.has(row.id));
+	emitRows();
+	refreshMetadata();
 }
 
 function handleGridRowAction({ action, row, index }) {
@@ -702,31 +721,12 @@ defineExpose({ validate });
 	container-name: output-fields-grid;
 }
 
-.output-field-row-content {
+.output-field-row-copy {
 	display: flex;
 	flex-direction: column;
-	gap: var(--fxr-space-2, var(--spacing-xs));
+	justify-content: center;
 	min-width: 0;
 	user-select: text;
-}
-
-.output-field-row-heading,
-.output-field-row-title {
-	display: flex;
-	align-items: center;
-	min-width: 0;
-}
-
-.output-field-row-heading {
-	justify-content: space-between;
-	gap: var(--fxr-space-3, var(--spacing-sm));
-	min-height: 28px;
-}
-
-.output-field-row-title {
-	flex: 1;
-	gap: var(--fxr-space-3, var(--spacing-sm));
-	overflow: hidden;
 }
 
 .output-field-row-copy {
@@ -760,13 +760,13 @@ defineExpose({ validate });
 
 .output-field-controls {
 	display: grid;
-	grid-template-columns: minmax(0, 2fr) minmax(130px, 1fr);
+	grid-template-columns: repeat(2, minmax(0, 1fr));
 	gap: var(--fxr-space-2, var(--spacing-xs));
 	align-items: start;
 }
 
 .output-function-controls {
-	grid-template-columns: 76px minmax(0, 2fr) minmax(130px, 1fr);
+	grid-template-columns: minmax(76px, 0.45fr) minmax(0, 1.2fr) minmax(0, 1fr);
 }
 
 .output-function-select,
@@ -776,7 +776,7 @@ defineExpose({ validate });
 
 .output-child-controls {
 	display: grid;
-	grid-template-columns: minmax(130px, 0.8fr) minmax(0, 1.2fr);
+	grid-template-columns: repeat(2, minmax(0, 1fr));
 	gap: var(--fxr-space-3, var(--spacing-sm));
 	align-items: start;
 }
