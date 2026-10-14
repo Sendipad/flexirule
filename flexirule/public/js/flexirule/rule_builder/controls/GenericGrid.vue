@@ -13,6 +13,8 @@
 		class="fxr-generic-grid fxr-generic-grid-data"
 		:class="{ 'is-compact': compact, 'is-read-only': readOnly }"
 		:style="gridStyle"
+		:aria-label="gridLabel || __('Editable list')"
+		:aria-keyshortcuts="ariaKeyShortcuts"
 		tabindex="0"
 		@keydown="handleKeydown"
 		@pointerup="endDragSelection"
@@ -66,6 +68,7 @@
 							class="fxr-grid-icon-button"
 							:title="entry.row?.[editStateKey] ? __('Switch to readable row') + ' (' + editShortcut + ')' : __('Edit row') + ' (' + editShortcut + ')'"
 							:aria-label="entry.row?.[editStateKey] ? __('Switch to readable row') : __('Edit row')"
+							:aria-keyshortcuts="editShortcut"
 							@click="requestRowAction(entry.row?.[editStateKey] ? 'view' : 'edit', entry)"
 						>
 							<i :class="entry.row?.[editStateKey] ? 'fa fa-check' : 'fa fa-pencil'" aria-hidden="true"></i>
@@ -190,7 +193,8 @@
 				<button
 					v-if="activePrimaryAction && !readOnly"
 					type="button"
-					class="fxr-grid-button fxr-grid-button--primary"
+					class="fxr-btn fxr-btn--sm fxr-btn--primary fxr-grid-button fxr-grid-button--primary"
+					:aria-keyshortcuts="primaryActionShortcut"
 					:title="primaryActionTitle"
 					:aria-label="primaryActionTitle"
 					@click="requestPrimaryAction()"
@@ -202,7 +206,7 @@
 					<button
 						ref="primaryMenuButtonRef"
 						type="button"
-						class="fxr-grid-menu-toggle"
+						class="fxr-btn fxr-btn--sm fxr-grid-menu-toggle"
 						:title="__('Choose or run another action')"
 						:aria-label="__('Choose or run another action')"
 						aria-haspopup="menu"
@@ -232,7 +236,8 @@
 							<button
 								type="button"
 								role="menuitem"
-								class="fxr-grid-menu-item"
+								class="fxr-btn fxr-btn--sm fxr-grid-menu-item"
+								:aria-keyshortcuts="action.shortcut || undefined"
 								@click="requestGridAction(action)"
 							>
 								<i v-if="action.icon" :class="action.icon" aria-hidden="true"></i>
@@ -336,7 +341,10 @@ const props = defineProps({
 	// Use the default slot for layout-only mode, or provide rows/modelValue for a data grid.
 	rows: { type: Array, default: null },
 	modelValue: { type: Array, default: null },
-	rowKey: { type: String, default: "id" },
+	rowKey: { type: [String, Function], default: "id" },
+	gridLabel: { type: String, default: "" },
+	keyboardNavigation: { type: Boolean, default: true },
+	primaryActionShortcut: { type: String, default: "Alt+Enter" },
 	rowComponent: { type: [Object, Function, String], default: null },
 	rowProps: { type: [Object, Function], default: null },
 	rowInvalid: { type: [Function, Array], default: null },
@@ -395,6 +403,8 @@ const selectedPrimaryActionId = ref(props.defaultPrimaryAction || props.primaryA
 const currentPage = ref(1);
 const currentPageSize = ref(normalizePageSize(props.pageSize));
 const selectedKeys = ref(new Set());
+const activeRowIndex = ref(null);
+const keyboardSelectionAnchor = ref(null);
 const feedback = ref("");
 const internalClipboard = ref("");
 const dragSelection = ref({
@@ -474,9 +484,17 @@ const secondaryActions = computed(() =>
 );
 const primaryActionTitle = computed(() => {
 	const label = activePrimaryAction.value?.label || __("Add row");
-	return activePrimaryAction.value?.shortcut
-		? label + " (" + activePrimaryAction.value.shortcut + ")"
-		: label;
+	return label + " (" + props.primaryActionShortcut + ")";
+});
+const ariaKeyShortcuts = computed(() => {
+	const shortcuts = ["ArrowUp", "ArrowDown", "Home", "End"];
+	if (!props.readOnly) {
+		shortcuts.push(props.editShortcut, props.primaryActionShortcut);
+		for (const action of resolvedActionOptions.value) {
+			if (action.shortcut) shortcuts.push(action.shortcut);
+		}
+	}
+	return [...new Set(shortcuts.filter(Boolean))].join(" ");
 });
 const gridStyle = computed(() => ({
 	"--fxr-generic-grid-min-column-width": props.minColumnWidth,
@@ -565,6 +583,8 @@ function beginDragSelection(pageIndex, event) {
 	if (!props.selection) return;
 	const entry = displayedRows.value[pageIndex];
 	if (!entry) return;
+	activeRowIndex.value = entry.index;
+	keyboardSelectionAnchor.value = pageIndex;
 	const modifier = Boolean(event.ctrlKey || event.metaKey);
 	const wasSelected = isSelected(entry.key);
 	const baseKeys = modifier ? [...selectedKeys.value] : [];
@@ -613,6 +633,10 @@ function endDragSelection() {
 
 function handleIndexKeyboardClick(pageIndex, event) {
 	if (!props.selection || event.detail !== 0) return;
+	const entry = displayedRows.value[pageIndex];
+	if (!entry) return;
+	activeRowIndex.value = entry.index;
+	keyboardSelectionAnchor.value = pageIndex;
 	selectVisibleRange(pageIndex, pageIndex);
 }
 
@@ -659,7 +683,7 @@ async function togglePrimaryMenu() {
 	primaryMenuOpen.value = !primaryMenuOpen.value;
 	if (primaryMenuOpen.value) {
 		await nextTick();
-		rootRef.value?.querySelector(".fxr-grid-primary-menu [role='menuitem']")?.focus();
+		rootRef.value?.querySelector(".fxr-grid-primary-menu .fxr-grid-menu-item")?.focus();
 	}
 }
 
@@ -718,7 +742,7 @@ function loadPrimaryActionPreference() {
 	selectedPrimaryActionId.value = preferred;
 }
 
-function setPrimaryAction(actionId) {
+async function setPrimaryAction(actionId) {
 	if (!resolvedActionOptions.value.some((action) => action.id === actionId)) return;
 	selectedPrimaryActionId.value = actionId;
 	closeActionMenus();
@@ -730,6 +754,8 @@ function setPrimaryAction(actionId) {
 		// The preference still applies in this component session if persistence is unavailable.
 	}
 	emit("primary-action-change", actionId);
+	await nextTick();
+	primaryMenuButtonRef.value?.focus();
 }
 
 function selectAllFilteredRows() {
@@ -899,12 +925,88 @@ function matchesShortcut(event, shortcut) {
 	);
 }
 
-function handleKeydown(event) {
-	if (!isDataGrid.value || props.readOnly && event.altKey && event.key === "Enter") return;
+function getCurrentPageIndex(target) {
+	const rowElement = target?.closest?.("[data-row-index]");
+	const sourceIndex = rowElement
+		? Number(rowElement.getAttribute("data-row-index"))
+		: activeRowIndex.value;
+	const focusedIndex = displayedRows.value.findIndex((entry) => entry.index === sourceIndex);
+	if (focusedIndex >= 0) return focusedIndex;
+	const selectedIndex = displayedRows.value.findIndex((entry) => selectedKeys.value.has(entry.key));
+	return selectedIndex >= 0 ? selectedIndex : 0;
+}
+
+async function focusDisplayedRow(pageIndex) {
+	const entry = displayedRows.value[pageIndex];
+	if (!entry) {
+		rootRef.value?.focus({ preventScroll: true });
+		return;
+	}
+	activeRowIndex.value = entry.index;
+	await nextTick();
+	const selector =
+		'.fxr-generic-grid-row[data-row-index="' +
+		entry.index +
+		'"] .fxr-generic-grid-row-index';
+	rootRef.value?.querySelector(selector)?.focus({ preventScroll: true });
+}
+
+function toggleRowSelection(pageIndex, event = {}) {
+	if (!props.selection) return;
+	const entry = displayedRows.value[pageIndex];
+	if (!entry) return;
+	activeRowIndex.value = entry.index;
+	if (event.shiftKey) {
+		const anchor = keyboardSelectionAnchor.value ?? pageIndex;
+		selectVisibleRange(anchor, pageIndex);
+		return;
+	}
+	const next = new Set(selectedKeys.value);
+	if (next.has(entry.key)) next.delete(entry.key);
+	else next.add(entry.key);
+	keyboardSelectionAnchor.value = pageIndex;
+	setSelectedKeys([...next]);
+}
+
+async function moveRowFocus(delta, event) {
+	if (!displayedRows.value.length) return;
+	const originalPage = currentPage.value;
+	const currentIndex = getCurrentPageIndex(event.target);
+	let nextIndex = currentIndex + delta;
+	if (nextIndex < 0 && props.pagination && currentPage.value > 1) {
+		changePage(currentPage.value - 1);
+		await nextTick();
+		nextIndex = Math.max(0, displayedRows.value.length - 1);
+		keyboardSelectionAnchor.value = null;
+	} else if (
+		nextIndex >= displayedRows.value.length &&
+		props.pagination &&
+		currentPage.value < pageCount.value
+	) {
+		changePage(currentPage.value + 1);
+		await nextTick();
+		nextIndex = 0;
+		keyboardSelectionAnchor.value = null;
+	} else {
+		nextIndex = Math.max(0, Math.min(displayedRows.value.length - 1, nextIndex));
+	}
+	if (event.shiftKey && originalPage === currentPage.value) {
+		const anchor = keyboardSelectionAnchor.value ?? currentIndex;
+		keyboardSelectionAnchor.value = anchor;
+		selectVisibleRange(anchor, nextIndex);
+	} else if (!event.shiftKey) {
+		keyboardSelectionAnchor.value = nextIndex;
+	}
+	await focusDisplayedRow(nextIndex);
+}
+
+async function handleKeydown(event) {
+	if (!isDataGrid.value) return;
 
 	const target = event.target;
 	// Menu keyboard events belong to the open menu, not the grid's row shortcuts.
 	if (target?.closest?.(".fxr-grid-menu")) return;
+
 	if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "c") {
 		if (!isInputTarget(target) && props.selection && selectedRows.value.length) {
 			event.preventDefault();
@@ -919,21 +1021,27 @@ function handleKeydown(event) {
 		}
 		return;
 	}
-	if (!isInputTarget(target) && matchesShortcut(event, props.editShortcut)) {
+
+	// Alt+E works while focus is inside an editable row as well as on the row itself.
+	// This makes the edit/read toggle a quick action instead of requiring a pointer click.
+	if (
+		matchesShortcut(event, props.editShortcut) &&
+		(!isInputTarget(target) || target?.closest?.("[data-row-index]"))
+	) {
 		if (props.readOnly) return;
 		const selectedEntries = sourceRows.value.filter((entry) =>
 			selectedKeys.value.has(entry.key)
 		);
-		const activeRowElement = target?.closest?.("[data-row-index]");
-		const activeIndex = activeRowElement
-			? Number(activeRowElement.getAttribute("data-row-index"))
-			: null;
+		const rowElement = target?.closest?.("[data-row-index]");
+		const activeIndex = rowElement
+			? Number(rowElement.getAttribute("data-row-index"))
+			: activeRowIndex.value;
 		const activeEntry = sourceRows.value.find((entry) => entry.index === activeIndex);
 		const targetEntries = selectedEntries.length
 			? selectedEntries
 			: activeEntry
-			? [activeEntry]
-			: [];
+				? [activeEntry]
+				: [];
 		if (targetEntries.length) {
 			event.preventDefault();
 			const action = getBulkEditAction(
@@ -944,27 +1052,77 @@ function handleKeydown(event) {
 		}
 		return;
 	}
+
+	// Alt+Enter always invokes whichever action is currently pinned as primary.
 	if (
 		activePrimaryAction.value &&
 		!props.readOnly &&
-		matchesShortcut(event, activePrimaryAction.value.shortcut || "Alt+Enter")
+		matchesShortcut(event, props.primaryActionShortcut) &&
+		!isInputTarget(target)
 	) {
-		if (!isInputTarget(target)) {
-			event.preventDefault();
-			const activeRowElement = target?.closest?.("[data-row-index]");
-			const activeIndex = activeRowElement
-				? Number(activeRowElement.getAttribute("data-row-index"))
-				: null;
-			const selectedIndexes = sourceRows.value
-				.filter((entry) => selectedKeys.value.has(entry.key))
-				.map((entry) => entry.index);
-			requestPrimaryAction(
-				Number.isInteger(activeIndex)
-					? activeIndex
-					: selectedIndexes.length
+		event.preventDefault();
+		const rowElement = target?.closest?.("[data-row-index]");
+		const activeIndex = rowElement
+			? Number(rowElement.getAttribute("data-row-index"))
+			: activeRowIndex.value;
+		const selectedIndexes = sourceRows.value
+			.filter((entry) => selectedKeys.value.has(entry.key))
+			.map((entry) => entry.index);
+		requestPrimaryAction(
+			Number.isInteger(activeIndex) && activeIndex >= 0
+				? activeIndex
+				: selectedIndexes.length
 					? Math.max(...selectedIndexes)
 					: null
-			);
+		);
+		return;
+	}
+
+	// Action-specific shortcuts work for secondary actions too, not just the pinned action.
+	if (!isInputTarget(target)) {
+		const shortcutAction = resolvedActionOptions.value.find(
+			(action) => action.shortcut && matchesShortcut(event, action.shortcut)
+		);
+		if (shortcutAction) {
+			event.preventDefault();
+			requestGridAction(shortcutAction);
+			return;
+		}
+	}
+
+	if (
+		props.keyboardNavigation &&
+		!isInputTarget(target) &&
+		!event.altKey &&
+		!event.ctrlKey &&
+		!event.metaKey
+	) {
+		if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+			event.preventDefault();
+			await moveRowFocus(event.key === "ArrowDown" ? 1 : -1, event);
+			return;
+		}
+		if (event.key === "Home" || event.key === "End") {
+			event.preventDefault();
+			await focusDisplayedRow(event.key === "Home" ? 0 : displayedRows.value.length - 1);
+			keyboardSelectionAnchor.value = getCurrentPageIndex(target);
+			return;
+		}
+		if (event.key === "PageDown" || event.key === "PageUp") {
+			if (props.pagination && pageCount.value > 1) {
+				event.preventDefault();
+				const nextPage = event.key === "PageDown" ? currentPage.value + 1 : currentPage.value - 1;
+				changePage(nextPage);
+				await nextTick();
+				await focusDisplayedRow(event.key === "PageDown" ? 0 : displayedRows.value.length - 1);
+				keyboardSelectionAnchor.value = null;
+				return;
+			}
+		}
+		if (event.key === " " && target?.closest?.(".fxr-generic-grid-row-index")) {
+			event.preventDefault();
+			toggleRowSelection(getCurrentPageIndex(target), event);
+			return;
 		}
 	}
 }
@@ -1054,9 +1212,13 @@ defineExpose({
 	min-height: 30px;
 	padding: 0 var(--fxr-space-2, 8px);
 	border: 1px solid var(--fxr-border-subtle, #d1d5db);
-	border-radius: var(--fxr-radius-sm, 4px);
-	background: var(--fxr-surface, #fff);
+	border-radius: var(--fxr-radius-md, 6px);
+	background: transparent;
 	color: var(--fxr-text-secondary, #4b5563);
+	font: inherit;
+	font-size: var(--fxr-text-sm, 12px);
+	font-weight: var(--fxr-weight-medium, 500);
+	line-height: 1;
 	cursor: pointer;
 }
 
@@ -1069,19 +1231,26 @@ defineExpose({
 	margin-left: -1px;
 }
 
+.fxr-grid-footer-primary > .fxr-grid-button--primary,
 .fxr-grid-primary-menu .fxr-grid-menu-toggle {
-	min-height: 28px;
-	padding: 3px 8px;
-	border-color: var(--fxr-accent, #2563eb);
+	box-sizing: border-box;
+	min-height: 30px;
+}
+
+.fxr-grid-primary-menu .fxr-grid-menu-toggle {
+	min-height: 30px;
+	padding: 0 var(--fxr-space-2, 8px);
+	border-color: var(--fxr-border-subtle, #d1d5db);
 	border-top-left-radius: 0;
 	border-bottom-left-radius: 0;
-	background: var(--fxr-accent, #2563eb);
-	color: var(--fxr-text-on-accent, #fff);
+	background: transparent;
+	color: var(--fxr-accent, #2563eb);
 }
 
 .fxr-grid-primary-menu .fxr-grid-menu-toggle:hover {
-	background: var(--fxr-accent-hover, #1d4ed8);
-	color: var(--fxr-text-on-accent, #fff);
+	background: var(--fxr-accent-light, #eff6ff);
+	border-color: var(--fxr-border-strong, #9ca3af);
+	color: var(--fxr-accent, #2563eb);
 }
 
 .fxr-grid-menu-items {
@@ -1256,11 +1425,12 @@ defineExpose({
 }
 
 .fxr-grid-button--primary {
-	border-color: var(--fxr-accent, #2563eb);
-	background: var(--fxr-accent, #2563eb);
-	color: var(--fxr-text-on-accent, #fff);
-	font-weight: var(--fxr-weight-semibold, 600);
-	box-shadow: 0 1px 2px rgb(0 0 0 / 10%);
+	min-height: 30px;
+	border-color: var(--fxr-border-subtle, #d1d5db);
+	background: transparent;
+	color: var(--fxr-accent, #2563eb);
+	font-weight: var(--fxr-weight-medium, 500);
+	box-shadow: none;
 }
 
 .fxr-grid-icon-button--secondary {
@@ -1277,9 +1447,9 @@ defineExpose({
 }
 
 .fxr-grid-button--primary:hover:not(:disabled) {
-	border-color: var(--fxr-accent, #2563eb);
-	background: var(--fxr-accent-hover, #1d4ed8);
-	color: var(--fxr-text-on-accent, #fff);
+	border-color: var(--fxr-border-strong, #9ca3af);
+	background: var(--fxr-accent-light, #eff6ff);
+	color: var(--fxr-accent, #2563eb);
 }
 
 .fxr-grid-button:disabled,
@@ -1508,6 +1678,41 @@ defineExpose({
 	color: var(--fxr-text-muted, #6b7280);
 	font-size: var(--fxr-text-xs, 11px);
 	line-height: 1.4;
+}
+
+@media (max-width: 480px) {
+	.fxr-generic-grid-row {
+		grid-template-columns: 22px minmax(0, 1fr);
+		column-gap: var(--fxr-space-2, 8px);
+	}
+
+	.fxr-generic-grid-row-actions {
+		grid-column: 2;
+		grid-row: 2;
+		justify-self: start;
+		flex-wrap: wrap;
+	}
+
+	.fxr-generic-grid-row-body {
+		grid-column: 1 / -1;
+		grid-row: 3;
+	}
+
+	.fxr-generic-grid-row-summary {
+		grid-column: 2;
+		grid-row: 1;
+	}
+
+	.fxr-generic-grid-row.is-editing .fxr-generic-grid-row-actions {
+		grid-column: 2;
+		grid-row: 2;
+		justify-self: start;
+	}
+
+	.fxr-generic-grid-row.is-editing .fxr-generic-grid-row-body {
+		grid-column: 1 / -1;
+		grid-row: 3;
+	}
 }
 
 @media (max-width: 600px) {
