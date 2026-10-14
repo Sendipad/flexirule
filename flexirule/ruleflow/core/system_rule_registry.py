@@ -213,6 +213,7 @@ def ensure_system_rule(definition: Mapping[str, Any]) -> str:
 					)
 				doc.set(fieldname, value)
 			# App-managed Rules begin as drafts; installation must never activate one.
+			doc.is_system_generated = 1
 			doc.is_active = 0
 			doc.status = "Draft"
 			doc.save(ignore_permissions=True)
