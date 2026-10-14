@@ -8,38 +8,6 @@ export const RESULT_SHAPES = Object.freeze({
 });
 export const AGGREGATE_FUNCTIONS = Object.freeze(["count", "sum", "avg", "min", "max"]);
 
-/**
- * Resolve field metadata for a field name or a dotted Link/child-table path.
- * Missing or not-yet-loaded metadata is a normal UI state and must not break row rendering.
- */
-export function resolveFieldInfo(metaByDoctype, doctype, fieldname) {
-	const parts = String(fieldname || "")
-		.split(".")
-		.map((part) => part.trim())
-		.filter(Boolean);
-	if (!parts.length) return {};
-
-	let currentDoctype = doctype;
-	let resolvedField = null;
-	for (let index = 0; index < parts.length; index += 1) {
-		const fields = metaByDoctype?.[currentDoctype];
-		if (!Array.isArray(fields)) return resolvedField || {};
-		resolvedField = fields.find((field) => field.fieldname === parts[index]) || null;
-		if (!resolvedField) return {};
-
-		if (index < parts.length - 1) {
-			if (
-				["Link", "Table", "Table MultiSelect"].includes(resolvedField.fieldtype) &&
-				resolvedField.options
-			) {
-				currentDoctype = resolvedField.options;
-			} else {
-				return resolvedField;
-			}
-		}
-	}
-	return resolvedField || {};
-}
 
 const AGGREGATE_SET = new Set(AGGREGATE_FUNCTIONS);
 const ALIAS_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
