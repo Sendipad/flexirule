@@ -55,6 +55,29 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 		rule.save(ignore_permissions=True)
 		return frappe.get_doc("Rule", rule_name)
 
+	def _create_active_rule_event_probe(self, rule_name):
+		from flexirule.ruleflow.core.coordinator import RuleCoordinator
+		from flexirule.ruleflow.tests.builder import RuleBuilder
+
+		event_rule = (
+			RuleBuilder(rule_name)
+			.replace_existing(False)
+			.document_type("Rule")
+			.trigger("DocType Event", "After Save")
+			.active(0)
+			.entry_action(next_step="stop_node")
+			.stop(action_id="stop_node")
+			.build()
+		)
+		frappe.db.set_value(
+			"Rule",
+			event_rule.name,
+			{"is_active": 1, "status": "Active"},
+			update_modified=False,
+		)
+		RuleCoordinator.clear_cache()
+		return event_rule
+
 	def test_before_insert_is_a_rule_controller_hook(self):
 		# Frappe discovers controller lifecycle methods from the class, not from
 		# nested function definitions inside another method.
@@ -352,24 +375,7 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 		from flexirule.ruleflow.core.coordinator import RuleCoordinator
 		from flexirule.ruleflow.tests.builder import RuleBuilder
 
-		event_rule = (
-			RuleBuilder("SYSTEM_RULE_INTERNAL_EVENT_DISPATCH")
-			.replace_existing(False)
-			.document_type("Rule")
-			.trigger("DocType Event", "After Save")
-			.active(0)
-			.entry_action(next_step="stop_node")
-			.stop(action_id="stop_node")
-			.build()
-		)
-		frappe.db.set_value(
-			"Rule",
-			event_rule.name,
-			{"is_active": 1, "status": "Active"},
-			update_modified=False,
-		)
-		RuleCoordinator.clear_cache()
-
+		self._create_active_rule_event_probe("SYSTEM_RULE_INTERNAL_EVENT_DISPATCH")
 		original_execute = RuleCoordinator.execute_rules_from_event
 		dispatched_rule_names = []
 
@@ -391,24 +397,52 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 
 		self.assertIn(target.name, dispatched_rule_names)
 
-	def test_indirect_rule_dispatch_recursion_is_bounded_and_unwinds(self):
+	def test_system_rule_registration_suppresses_internal_lifecycle_dispatch(self):
+		from flexirule.ruleflow.core.coordinator import RuleCoordinator
+
+		self._create_active_rule_event_probe("SYSTEM_RULE_REGISTRATION_SUPPRESSION_PROBE")
+		original_execute = RuleCoordinator.execute_rules_from_event
+		dispatched_rule_names = []
+		previous_flag = getattr(frappe.flags, "flexirule_system_rule_registration", False)
+
+		def spy_execute(doc, event_name):
+			if doc.doctype == "Rule" and event_name == "After Save":
+				dispatched_rule_names.append(doc.name)
+			return original_execute(doc, event_name)
+
+		with patch.object(RuleCoordinator, "execute_rules_from_event", new=staticmethod(spy_execute)):
+			rule_name = ensure_system_rule(
+				self._system_definition("SYSTEM_RULE_REGISTRATION_SUPPRESSION_TARGET")
+			)
+
+		self.assertNotIn(rule_name, dispatched_rule_names)
+		self.assertEqual(
+			getattr(frappe.flags, "flexirule_system_rule_registration", False),
+			previous_flag,
+		)
+
+	def test_indirect_cross_document_rule_dispatch_recursion_is_bounded_and_unwinds(self):
 		from flexirule.ruleflow.core.coordinator import RuleCoordinator
 
 		doc = frappe._dict(doctype="Test Contact")
 		initial_depth = getattr(frappe.local, "flexirule_rule_dispatch_depth", 0)
+		dispatched_events = []
+
+		def dispatch_nested_event(nested_doc, event_name):
+			dispatched_events.append((nested_doc.doctype, event_name))
+			next_doctype = "Process" if nested_doc.doctype == "Rule" else "Rule"
+			next_event = "Before Save" if next_doctype == "Process" else "After Save"
+			execute_rules_from_event(frappe._dict(doctype=next_doctype), next_event)
 
 		with (
 			patch.object(RuleCoordinator, "has_active_rules", return_value=True),
-			patch.object(
-				RuleCoordinator,
-				"execute_rules_from_event",
-				side_effect=lambda nested_doc, event: execute_rules_from_event(nested_doc, event),
-			),
+			patch.object(RuleCoordinator, "execute_rules_from_event", side_effect=dispatch_nested_event),
 		):
 			with self.assertRaises(frappe.ValidationError) as cm:
 				execute_rules_from_event(doc, "Before Save")
 
 		self.assertIn("recursive rule chain", str(cm.exception))
+		self.assertTrue({"Rule", "Process"}.issubset({doctype for doctype, _ in dispatched_events}))
 		self.assertEqual(
 			getattr(frappe.local, "flexirule_rule_dispatch_depth", 0),
 			initial_depth,
