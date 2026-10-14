@@ -221,6 +221,7 @@
 						<div v-for="action in secondaryActions" :key="action.id" class="fxr-grid-menu-action-row">
 							<button
 								type="button"
+								role="menuitem"
 								class="fxr-grid-menu-pin"
 								:title="__('Make {0} the primary action', [action.label])"
 								:aria-label="__('Make {0} the primary action', [action.label])"
