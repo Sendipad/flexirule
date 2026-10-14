@@ -179,6 +179,7 @@
 			</div>
 
 			<div class="fxr-generic-grid-footer-actions">
+				<slot name="secondary-actions"></slot>
 				<div v-if="searchOpen" class="fxr-generic-grid-search-popover">
 					<i class="fa fa-search" aria-hidden="true"></i>
 					<input
@@ -190,7 +191,6 @@
 						@keydown.esc.stop.prevent="closeSearch"
 					/>
 				</div>
-				<slot name="secondary-actions"></slot>
 				<button
 					v-if="hasSearch && showSearch"
 					type="button"
@@ -673,12 +673,6 @@ function isInputTarget(target) {
 	);
 }
 
-function isMultilineOrPickerTarget(target) {
-	return Boolean(
-		target?.closest?.("textarea, select, [contenteditable='true'], [role='combobox']")
-	);
-}
-
 function matchesShortcut(event, shortcut) {
 	const keys = String(shortcut || "")
 		.toLowerCase()
@@ -749,7 +743,7 @@ function handleKeydown(event) {
 		!props.readOnly &&
 		matchesShortcut(event, props.primaryAction.shortcut || "Alt+Enter")
 	) {
-		if (!isMultilineOrPickerTarget(target)) {
+		if (!isInputTarget(target)) {
 			event.preventDefault();
 			const activeRowElement = target?.closest?.("[data-row-index]");
 			const activeIndex = activeRowElement
