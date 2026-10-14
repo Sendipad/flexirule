@@ -77,3 +77,21 @@ export function parseClipboardRows(text) {
 		return [];
 	}
 }
+
+/**
+ * Resolve the props passed to a row renderer. Consumer-supplied props are preserved,
+ * while the stable row contract is added consistently for slot and component renderers.
+ */
+export function buildRowProps(row, index, customProps, selected, invalid, readOnly) {
+	const resolved =
+		typeof customProps === "function" ? customProps(row, index) : customProps;
+	return {
+		...(resolved && typeof resolved === "object" ? resolved : {}),
+		row,
+		modelValue: row,
+		index,
+		selected: Boolean(selected),
+		invalid: Boolean(invalid),
+		readOnly: Boolean(readOnly),
+	};
+}
