@@ -1,6 +1,7 @@
 <template>
 	<div class="output-fields-editor">
 		<GenericGrid
+			ref="outputGridRef"
 			class="output-fields-list"
 			:rows="rows"
 			rowKey="id"
@@ -265,7 +266,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
 import MultiSelectList from "../../../../controls/MultiSelectList.vue";
 import FlexValueControl from "../../../../controls/FlexValueControl.vue";
 import SelectControl from "../../../../controls/SelectControl.vue";
@@ -291,6 +292,7 @@ const props = defineProps({
 });
 const emit = defineEmits(["update:modelValue"]);
 const metaStore = useMetaStore();
+const outputGridRef = ref(null);
 const rows = ref(
 	parseOutputFields(props.modelValue).map((row) => ({
 		...row,
@@ -355,6 +357,11 @@ const childTableOptions = computed(() =>
 			doctype: field.options,
 		}))
 );
+
+function revealRow(index) {
+	if (!Number.isInteger(index)) return;
+	nextTick(() => outputGridRef.value?.goToIndex(index));
+}
 
 function newId() {
 	return "output-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8);
@@ -443,6 +450,7 @@ function addField(afterIndex = null) {
 			: rows.value.length;
 	rows.value.splice(insertIndex, 0, row);
 	emitRows();
+	revealRow(insertIndex);
 }
 
 function addFunction() {
@@ -458,6 +466,7 @@ function addFunction() {
 		childFieldOptions: [],
 	});
 	emitRows();
+	revealRow(rows.value.length - 1);
 }
 
 function addChild() {
@@ -471,6 +480,7 @@ function addChild() {
 		childFieldOptions: [],
 	});
 	emitRows();
+	revealRow(rows.value.length - 1);
 }
 
 function addLiteral() {
@@ -499,6 +509,7 @@ function addLiteral() {
 		childFieldOptions: [],
 	});
 	emitRows();
+	revealRow(rows.value.length - 1);
 }
 
 function cloneGridRow(row) {
@@ -540,9 +551,11 @@ function handleGridRowAction({ action, row, index }) {
 			break;
 		case "move-up":
 			moveRow(index, -1);
+			revealRow(index - 1);
 			break;
 		case "move-down":
 			moveRow(index, 1);
+			revealRow(index + 1);
 			break;
 		case "remove":
 			removeRow(index);
