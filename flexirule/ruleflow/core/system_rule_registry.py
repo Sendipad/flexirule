@@ -142,7 +142,7 @@ def _find_system_rule(logical_name: str):
 		fields=["name", "version", "is_system_generated", "status", "is_active", "modified"],
 		order_by="version desc, modified desc",
 	)
-	lineage_names = {row.name for row in lineage}
+	lineage_names = {row.get("name") for row in lineage}
 	if exact_name and exact_name not in lineage_names:
 		lineage.append(
 			{
@@ -160,14 +160,14 @@ def _find_system_rule(logical_name: str):
 			frappe.throw(
 				_(
 					"Cannot register System Rule '{0}': Rule '{1}' in its version lineage is user-managed."
-				).format(logical_name, row.name)
+				).format(logical_name, row.get("name"))
 			)
 
 	if not lineage:
 		return None
 
 	latest = max(lineage, key=lambda row: int(row.get("version") or 1))
-	return frappe.get_doc("Rule", latest.name)
+	return frappe.get_doc("Rule", latest.get("name"))
 
 
 def ensure_system_rule(definition: Mapping[str, Any]) -> str:
