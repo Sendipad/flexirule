@@ -18,6 +18,7 @@
 			@primary-action="handleGridPrimaryAction"
 			@update:rows="handlePastedRows"
 		>
+			<template #empty>{{ __("No output fields yet. Add a field or child selection to get started.") }}</template>
 			<template #row="{ row }">
 			<div class="output-field-row-content">
 				<div class="output-field-row-heading">
@@ -214,9 +215,8 @@
 				</div>
 			</div>
 			</template>
-		</GenericGrid>
-
-		<div v-if="!readOnly" class="output-fields-add-actions">
+					<template #secondary-actions>
+			<div v-if="!readOnly" class="output-fields-add-actions">
 			<button type="button" class="output-fields-add-btn" @click="addFunction">
 				<i class="fa fa-calculator"></i>{{ __("Add function") }}
 			</button>
@@ -232,6 +232,9 @@
 				<i class="fa fa-sitemap"></i>{{ __("Add child selection") }}
 			</button>
 		</div>
+			</template>
+
+		</GenericGrid>
 
 		<p v-if="requiresGroupBy" class="output-fields-warning">
 			<i class="fa fa-info-circle mr-1"></i>
@@ -695,6 +698,8 @@ defineExpose({ validate });
 
 .output-fields-list {
 	min-width: 0;
+	container-type: inline-size;
+	container-name: output-fields-grid;
 }
 
 .output-field-row-content {
@@ -868,7 +873,11 @@ defineExpose({ validate });
 }
 
 :deep(.field-picker-control),
-:deep(.control.frappe-control) {
+:deep(.control.frappe-control),
+:deep(.control-input-wrapper) {
+	min-width: 0;
+	max-width: 100%;
+	width: 100%;
 	margin-bottom: 0 !important;
 }
 
@@ -890,23 +899,25 @@ defineExpose({ validate });
 	box-shadow: var(--fxr-shadow-focus) !important;
 }
 
-@media (max-width: 700px) {
-	.output-field-row {
-		padding: var(--fxr-space-3, var(--spacing-sm));
-	}
-
-	.output-field-edit {
-		padding-left: 0;
-	}
-
+@container output-fields-grid (max-width: 560px) {
 	.output-field-controls,
 	.output-function-controls,
 	.output-child-controls {
 		grid-template-columns: minmax(0, 1fr);
 	}
 
-	.output-field-row-actions {
-		gap: 0;
+	.output-field-controls > *,
+	.output-child-controls > *,
+	.output-literal-controls,
+	.output-field-control {
+		min-width: 0;
+		width: 100%;
+	}
+}
+
+@media (max-width: 700px) {
+	.output-field-edit {
+		padding-left: 0;
 	}
 }
 </style>
