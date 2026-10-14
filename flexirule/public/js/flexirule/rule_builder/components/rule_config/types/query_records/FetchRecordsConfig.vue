@@ -43,13 +43,27 @@
 						:showValidation="showValidation"
 						@update:modelValue="selectResultShape"
 					/>
-					<div v-if="isCustomResultShape(localConfig.result_shape)" class="return-result-guide">
-						<h6><i class="fa fa-info-circle" aria-hidden="true"></i>{{ __("How to set it up") }}</h6>
+					<div
+						v-if="isCustomResultShape(localConfig.result_shape)"
+						class="return-result-guide"
+					>
+						<h6>
+							<i class="fa fa-info-circle" aria-hidden="true"></i
+							>{{ __("How to set it up") }}
+						</h6>
 						<p v-if="localConfig.result_shape === 'selected_fields'">
-							{{ __("Add fields or calculations in the grid on the right. Use an output alias to give each column a clear name for later steps. When you combine calculations with regular fields, set Group By below.") }}
+							{{
+								__(
+									"Add fields or calculations in the grid on the right. Use an output alias to give each column a clear name for later steps. When you combine calculations with regular fields, set Group By below."
+								)
+							}}
 						</p>
 						<p v-else-if="localConfig.result_shape === 'embedded_children'">
-							{{ __("Add a child selection in the grid on the right, choose the parent child table, then select the child fields to include. Each parent result contains those child rows as a nested list.") }}
+							{{
+								__(
+									"Add a child selection in the grid on the right, choose the parent child table, then select the child fields to include. Each parent result contains those child rows as a nested list."
+								)
+							}}
 						</p>
 					</div>
 				</div>

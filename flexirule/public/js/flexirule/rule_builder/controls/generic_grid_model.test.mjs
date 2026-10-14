@@ -31,9 +31,20 @@ assert.equal(matchesShortcut(null, "Ctrl+Shift+E"), false);
 
 assert.equal(getRowKey(rows[0], 0), "a");
 assert.equal(getRowKey({}, 4), "row-4");
-assert.equal(getRowKey(rows[1], 1, (row) => row.field), "customer_name");
-assert.equal(getRowKey(rows[1], 1, () => ""), "row-1");
-assert.equal(getRowKey(rows[1], 1, () => { throw new Error("resolver failure"); }), "row-1");
+assert.equal(
+	getRowKey(rows[1], 1, (row) => row.field),
+	"customer_name"
+);
+assert.equal(
+	getRowKey(rows[1], 1, () => ""),
+	"row-1"
+);
+assert.equal(
+	getRowKey(rows[1], 1, () => {
+		throw new Error("resolver failure");
+	}),
+	"row-1"
+);
 assert.equal(getPathValue(rows[0], "meta.label"), "Title");
 assert.equal(rowMatchesSearch(rows[1], ["field", "meta.label"], "CUSTOMER"), true);
 assert.equal(rowMatchesSearch(rows[2], ["field", "meta.label"], "missing"), false);
@@ -68,7 +79,11 @@ assert.deepEqual(
 	[]
 );
 
-const customRowProps = { doctype: "Sales Invoice", variableOptions: ["customer"], showValidation: true };
+const customRowProps = {
+	doctype: "Sales Invoice",
+	variableOptions: ["customer"],
+	showValidation: true,
+};
 const resolvedRowProps = buildRowProps(rows[0], 0, customRowProps, true, false, false);
 assert.equal(resolvedRowProps.doctype, "Sales Invoice");
 assert.deepEqual(resolvedRowProps.variableOptions, ["customer"]);
@@ -80,7 +95,8 @@ assert.equal(resolvedRowProps.selected, true);
 assert.equal(resolvedRowProps.invalid, false);
 assert.equal(resolvedRowProps.readOnly, false);
 assert.equal(
-	buildRowProps(rows[1], 3, (row, index) => ({ label: row.meta.label, rowIndex: index })).rowIndex,
+	buildRowProps(rows[1], 3, (row, index) => ({ label: row.meta.label, rowIndex: index }))
+		.rowIndex,
 	3
 );
 
@@ -88,7 +104,4 @@ assert.equal(getBulkEditAction([]), null);
 assert.equal(getBulkEditAction([{ isEditing: true }, { isEditing: true }]), "view");
 assert.equal(getBulkEditAction([{ isEditing: false }, { isEditing: false }]), "edit");
 assert.equal(getBulkEditAction([{ isEditing: true }, { isEditing: false }]), "edit");
-assert.equal(
-	getBulkEditAction([{ mode: "editing" }, { mode: "editing" }], "mode"),
-	"view"
-);
+assert.equal(getBulkEditAction([{ mode: "editing" }, { mode: "editing" }], "mode"), "view");

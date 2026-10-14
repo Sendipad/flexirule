@@ -31,8 +31,8 @@ export function getRowKey(row, index, keyName = "id") {
 			typeof keyName === "function"
 				? keyName(row, index)
 				: row && typeof row === "object"
-					? row[keyName]
-					: undefined;
+				? row[keyName]
+				: undefined;
 	} catch {
 		// A failing user key resolver must not break rendering; use the positional fallback.
 		key = undefined;
@@ -48,7 +48,9 @@ export function getPathValue(source, path) {
 }
 
 export function rowMatchesSearch(row, fields, query) {
-	const normalizedQuery = String(query ?? "").trim().toLocaleLowerCase();
+	const normalizedQuery = String(query ?? "")
+		.trim()
+		.toLocaleLowerCase();
 	if (!normalizedQuery) return true;
 
 	let values;
@@ -88,7 +90,12 @@ export function paginateRows(rows, page = 1, pageSize = 10) {
 	};
 }
 
-export function selectRangeKeys(rows, startIndex, endIndex, getKey = (row, index) => getRowKey(row, index)) {
+export function selectRangeKeys(
+	rows,
+	startIndex,
+	endIndex,
+	getKey = (row, index) => getRowKey(row, index)
+) {
 	const list = Array.isArray(rows) ? rows : [];
 	if (!list.length) return [];
 	const start = Math.max(0, Math.min(list.length - 1, Math.min(startIndex, endIndex)));
@@ -118,8 +125,7 @@ export function parseClipboardRows(text) {
  * while the stable row contract is added consistently for slot and component renderers.
  */
 export function buildRowProps(row, index, customProps, selected, invalid, readOnly) {
-	const resolved =
-		typeof customProps === "function" ? customProps(row, index) : customProps;
+	const resolved = typeof customProps === "function" ? customProps(row, index) : customProps;
 	return {
 		...(resolved && typeof resolved === "object" ? resolved : {}),
 		row,

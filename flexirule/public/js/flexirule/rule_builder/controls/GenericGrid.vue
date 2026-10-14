@@ -1,9 +1,5 @@
 <template>
-	<div
-		v-if="!isDataGrid"
-		class="fxr-generic-grid fxr-generic-grid-layout"
-		:style="gridStyle"
-	>
+	<div v-if="!isDataGrid" class="fxr-generic-grid fxr-generic-grid-layout" :style="gridStyle">
 		<slot />
 	</div>
 
@@ -23,7 +19,7 @@
 	>
 		<div class="fxr-generic-grid-rows">
 			<div v-if="!filteredRows.length" class="fxr-generic-grid-empty">
-				<slot name="empty">{{ __('No matching rows.') }}</slot>
+				<slot name="empty">{{ __("No matching rows.") }}</slot>
 			</div>
 			<article
 				v-for="(entry, pageIndex) in displayedRows"
@@ -54,27 +50,44 @@
 					</button>
 
 					<div
-					v-if="
-						!readOnly &&
-						showRowActions &&
-						(availableRowActions.includes('edit') ||
-							availableRowActions.includes('move') ||
-							availableRowActions.includes('remove'))
-					"
-					class="fxr-generic-grid-row-actions"
-				>
+						v-if="
+							!readOnly &&
+							showRowActions &&
+							(availableRowActions.includes('edit') ||
+								availableRowActions.includes('move') ||
+								availableRowActions.includes('remove'))
+						"
+						class="fxr-generic-grid-row-actions"
+					>
 						<button
 							v-if="availableRowActions.includes('edit')"
 							type="button"
 							class="fxr-grid-icon-button"
-							:title="entry.row?.[editStateKey] ? __('Switch to readable row') + ' (' + editShortcut + ')' : __('Edit row') + ' (' + editShortcut + ')'"
-							:aria-label="entry.row?.[editStateKey] ? __('Switch to readable row') : __('Edit row')"
+							:title="
+								entry.row?.[editStateKey]
+									? __('Switch to readable row') + ' (' + editShortcut + ')'
+									: __('Edit row') + ' (' + editShortcut + ')'
+							"
+							:aria-label="
+								entry.row?.[editStateKey]
+									? __('Switch to readable row')
+									: __('Edit row')
+							"
 							:aria-keyshortcuts="editShortcut"
-							@click="requestRowAction(entry.row?.[editStateKey] ? 'view' : 'edit', entry)"
+							@click="
+								requestRowAction(entry.row?.[editStateKey] ? 'view' : 'edit', entry)
+							"
 						>
-							<i :class="entry.row?.[editStateKey] ? 'fa fa-check' : 'fa fa-pencil'" aria-hidden="true"></i>
+							<i
+								:class="entry.row?.[editStateKey] ? 'fa fa-check' : 'fa fa-pencil'"
+								aria-hidden="true"
+							></i>
 						</button>
-						<div v-if="availableRowActions.includes('move')" class="fxr-generic-grid-reorder" :aria-label="__('Move row')">
+						<div
+							v-if="availableRowActions.includes('move')"
+							class="fxr-generic-grid-reorder"
+							:aria-label="__('Move row')"
+						>
 							<button
 								type="button"
 								class="fxr-grid-icon-button"
@@ -156,7 +169,7 @@
 			class="fxr-generic-grid-pagination"
 		>
 			<label class="fxr-generic-grid-page-size">
-				<span>{{ __('Rows per page') }}</span>
+				<span>{{ __("Rows per page") }}</span>
 				<select :value="currentPageSize" @change="changePageSize($event.target.value)">
 					<option v-for="size in availablePageSizes" :key="size" :value="size">
 						{{ size }}
@@ -174,7 +187,7 @@
 					@click="changePage(currentPage - 1)"
 				>
 					<i class="fa fa-chevron-left" aria-hidden="true"></i>
-					{{ __('Previous') }}
+					{{ __("Previous") }}
 				</button>
 				<span>{{ currentPage }} / {{ pageCount }}</span>
 				<button
@@ -183,7 +196,7 @@
 					:disabled="currentPage >= pageCount"
 					@click="changePage(currentPage + 1)"
 				>
-					{{ __('Next') }}
+					{{ __("Next") }}
 					<i class="fa fa-chevron-right" aria-hidden="true"></i>
 				</button>
 			</div>
@@ -200,10 +213,17 @@
 					:aria-label="primaryActionTitle"
 					@click="requestPrimaryAction()"
 				>
-					<i v-if="activePrimaryAction.icon" :class="activePrimaryAction.icon" aria-hidden="true"></i>
-					{{ activePrimaryAction.label || __('Add row') }}
+					<i
+						v-if="activePrimaryAction.icon"
+						:class="activePrimaryAction.icon"
+						aria-hidden="true"
+					></i>
+					{{ activePrimaryAction.label || __("Add row") }}
 				</button>
-				<div v-if="secondaryActions.length && !readOnly" class="fxr-grid-menu fxr-grid-primary-menu">
+				<div
+					v-if="secondaryActions.length && !readOnly"
+					class="fxr-grid-menu fxr-grid-primary-menu"
+				>
 					<button
 						ref="primaryMenuButtonRef"
 						type="button"
@@ -222,8 +242,14 @@
 						role="menu"
 						@keydown="handleMenuKeydown"
 					>
-						<div class="fxr-grid-menu-heading">{{ __('Run an action, or pin it as primary') }}</div>
-						<div v-for="action in secondaryActions" :key="action.id" class="fxr-grid-menu-action-row">
+						<div class="fxr-grid-menu-heading">
+							{{ __("Run an action, or pin it as primary") }}
+						</div>
+						<div
+							v-for="action in secondaryActions"
+							:key="action.id"
+							class="fxr-grid-menu-action-row"
+						>
 							<button
 								type="button"
 								role="menuitem"
@@ -252,13 +278,21 @@
 
 			<div v-if="selection && selectedRows.length" class="fxr-generic-grid-bulk-actions">
 				<span class="fxr-generic-grid-selection-count">
-					{{ selectedRows.length }} {{ __('selected') }}
+					{{ selectedRows.length }} {{ __("selected") }}
 				</span>
-				<button type="button" class="fxr-grid-button fxr-grid-button--quiet" @click="selectAllFilteredRows">
-					{{ searchQuery ? __('Select all matching') : __('Select all') }}
+				<button
+					type="button"
+					class="fxr-grid-button fxr-grid-button--quiet"
+					@click="selectAllFilteredRows"
+				>
+					{{ searchQuery ? __("Select all matching") : __("Select all") }}
 				</button>
-				<button type="button" class="fxr-grid-button fxr-grid-button--quiet" @click="clearSelection">
-					{{ __('Clear') }}
+				<button
+					type="button"
+					class="fxr-grid-button fxr-grid-button--quiet"
+					@click="clearSelection"
+				>
+					{{ __("Clear") }}
 				</button>
 				<button
 					v-if="!readOnly"
@@ -268,7 +302,7 @@
 					@click="requestBulkDelete"
 				>
 					<i class="fa fa-trash" aria-hidden="true"></i>
-					{{ __('Delete selected') }}
+					{{ __("Delete selected") }}
 				</button>
 			</div>
 
@@ -300,22 +334,34 @@
 					type="button"
 					class="fxr-grid-button fxr-grid-button--quiet"
 					:disabled="!canCopyPaste || !selectedRows.length"
-					:title="canCopyPaste ? __('Copy selected rows (Ctrl/Cmd+C)') : __('Provide cloneRow to enable copy/paste with a custom rowKey resolver')"
+					:title="
+						canCopyPaste
+							? __('Copy selected rows (Ctrl/Cmd+C)')
+							: __(
+									'Provide cloneRow to enable copy/paste with a custom rowKey resolver'
+							  )
+					"
 					@click="copySelectedRows"
 				>
 					<i class="fa fa-copy" aria-hidden="true"></i>
-					{{ __('Copy') }}
+					{{ __("Copy") }}
 				</button>
 				<button
 					v-if="!readOnly && allowCopyPaste"
 					type="button"
 					class="fxr-grid-button fxr-grid-button--quiet"
 					:disabled="!canCopyPaste"
-					:title="canCopyPaste ? __('Paste rows (Ctrl/Cmd+V)') : __('Provide cloneRow to enable copy/paste with a custom rowKey resolver')"
+					:title="
+						canCopyPaste
+							? __('Paste rows (Ctrl/Cmd+V)')
+							: __(
+									'Provide cloneRow to enable copy/paste with a custom rowKey resolver'
+							  )
+					"
 					@click="pasteRows"
 				>
 					<i class="fa fa-clipboard" aria-hidden="true"></i>
-					{{ __('Paste') }}
+					{{ __("Paste") }}
 				</button>
 			</div>
 		</div>
@@ -423,7 +469,9 @@ const isDataGrid = computed(() => props.rows !== null || props.modelValue !== nu
 // A computed row key depends on caller-owned identity. Without cloneRow the grid
 // cannot guarantee pasted rows receive a new identity, so disable clipboard mutations.
 const canCopyPaste = computed(
-	() => props.allowCopyPaste && (typeof props.rowKey !== "function" || typeof props.cloneRow === "function")
+	() =>
+		props.allowCopyPaste &&
+		(typeof props.rowKey !== "function" || typeof props.cloneRow === "function")
 );
 const sourceList = computed(() => props.rows ?? props.modelValue ?? []);
 const sourceRows = computed(() =>
@@ -450,9 +498,7 @@ const currentPageResult = computed(() =>
 const displayedRows = computed(() =>
 	props.pagination ? currentPageResult.value.rows : filteredRows.value
 );
-const pageCount = computed(() =>
-	props.pagination ? currentPageResult.value.pageCount : 1
-);
+const pageCount = computed(() => (props.pagination ? currentPageResult.value.pageCount : 1));
 const availablePageSizes = computed(() => {
 	const values = [
 		...new Set(
@@ -471,8 +517,8 @@ const selectedRows = computed(() =>
 const paginationSummary = computed(() => {
 	const result = currentPageResult.value;
 	return result.total
-		? __('Showing {0}–{1} of {2}', [result.start + 1, result.end, result.total])
-		: __('No rows');
+		? __("Showing {0}–{1} of {2}", [result.start + 1, result.end, result.total])
+		: __("No rows");
 });
 const resolvedActionOptions = computed(() => {
 	if (props.actionOptions.length) return props.actionOptions;
@@ -516,7 +562,11 @@ watch(currentPageSize, () => {
 	currentPage.value = 1;
 });
 watch(
-	() => [props.preferenceKey, props.defaultPrimaryAction, props.actionOptions.map((action) => action.id).join("|")],
+	() => [
+		props.preferenceKey,
+		props.defaultPrimaryAction,
+		props.actionOptions.map((action) => action.id).join("|"),
+	],
 	loadPrimaryActionPreference
 );
 watch(
@@ -578,12 +628,7 @@ function setSelectedKeys(keys) {
 }
 
 function selectVisibleRange(startIndex, endIndex, baseKeys = []) {
-	const keys = selectRangeKeys(
-		displayedRows.value,
-		startIndex,
-		endIndex,
-		(entry) => entry.key
-	);
+	const keys = selectRangeKeys(displayedRows.value, startIndex, endIndex, (entry) => entry.key);
 	setSelectedKeys([...new Set([...baseKeys, ...keys])]);
 }
 
@@ -611,11 +656,7 @@ function beginDragSelection(pageIndex, event) {
 function extendDragSelection(pageIndex) {
 	if (!dragSelection.value.active || pageIndex === dragSelection.value.lastIndex) return;
 	dragSelection.value.lastIndex = pageIndex;
-	selectVisibleRange(
-		dragSelection.value.anchorIndex,
-		pageIndex,
-		dragSelection.value.baseKeys
-	);
+	selectVisibleRange(dragSelection.value.anchorIndex, pageIndex, dragSelection.value.baseKeys);
 }
 
 function endDragSelection() {
@@ -718,8 +759,10 @@ async function handleMenuKeydown(event) {
 	if (!items.length) return;
 	const currentIndex = items.indexOf(document.activeElement);
 	let nextIndex = currentIndex;
-	if (event.key === "ArrowDown") nextIndex = currentIndex < items.length - 1 ? currentIndex + 1 : 0;
-	else if (event.key === "ArrowUp") nextIndex = currentIndex > 0 ? currentIndex - 1 : items.length - 1;
+	if (event.key === "ArrowDown")
+		nextIndex = currentIndex < items.length - 1 ? currentIndex + 1 : 0;
+	else if (event.key === "ArrowUp")
+		nextIndex = currentIndex > 0 ? currentIndex - 1 : items.length - 1;
 	else if (event.key === "Home") nextIndex = 0;
 	else if (event.key === "End") nextIndex = items.length - 1;
 	else return;
@@ -809,9 +852,9 @@ async function copySelectedRows() {
 			throw new Error("Clipboard API is not available in this context.");
 		}
 		await navigator.clipboard.writeText(text);
-		feedback.value = __('Copied {0} row(s) to the clipboard.', [selected.length]);
+		feedback.value = __("Copied {0} row(s) to the clipboard.", [selected.length]);
 	} catch (error) {
-		feedback.value = __('Copied {0} row(s) locally; browser clipboard access is unavailable.', [
+		feedback.value = __("Copied {0} row(s) locally; browser clipboard access is unavailable.", [
 			selected.length,
 		]);
 		emit("clipboard-error", error);
@@ -824,7 +867,8 @@ function clonePastedRow(row, index) {
 		if (typeof props.cloneRow === "function") return props.cloneRow(row, index);
 		const clone = JSON.parse(JSON.stringify(row));
 		if (clone && typeof clone === "object" && clone[props.rowKey] !== undefined) {
-			clone[props.rowKey] = "pasted-" + Date.now() + "-" + index + "-" + Math.random().toString(36).slice(2, 7);
+			clone[props.rowKey] =
+				"pasted-" + Date.now() + "-" + index + "-" + Math.random().toString(36).slice(2, 7);
 		}
 		if (clone && typeof clone === "object" && "isEditing" in clone) clone.isEditing = false;
 		return clone;
@@ -860,20 +904,20 @@ async function pasteRows() {
 	const selectedIndexes = sourceRows.value
 		.filter((entry) => selectedKeys.value.has(entry.key))
 		.map((entry) => entry.index);
-	const insertIndex = selectedIndexes.length
-		? Math.max(...selectedIndexes) + 1
-		: nextRows.length;
+	const insertIndex = selectedIndexes.length ? Math.max(...selectedIndexes) + 1 : nextRows.length;
 	nextRows.splice(insertIndex, 0, ...clonedRows);
 	searchQuery.value = "";
 	emitRowsUpdate(nextRows);
 	await nextTick();
 
 	const nextKeys = sourceRows.value
-		.filter((entry) => entry.index >= insertIndex && entry.index < insertIndex + clonedRows.length)
+		.filter(
+			(entry) => entry.index >= insertIndex && entry.index < insertIndex + clonedRows.length
+		)
 		.map((entry) => entry.key);
 	setSelectedKeys(nextKeys);
 	if (props.pagination) currentPage.value = Math.floor(insertIndex / currentPageSize.value) + 1;
-	feedback.value = __('Pasted {0} row(s).', [clonedRows.length]);
+	feedback.value = __("Pasted {0} row(s).", [clonedRows.length]);
 	emit("paste", { rows: clonedRows, insertIndex });
 }
 
@@ -935,7 +979,9 @@ function getCurrentPageIndex(target) {
 		: activeRowIndex.value;
 	const focusedIndex = displayedRows.value.findIndex((entry) => entry.index === sourceIndex);
 	if (focusedIndex >= 0) return focusedIndex;
-	const selectedIndex = displayedRows.value.findIndex((entry) => selectedKeys.value.has(entry.key));
+	const selectedIndex = displayedRows.value.findIndex((entry) =>
+		selectedKeys.value.has(entry.key)
+	);
 	return selectedIndex;
 }
 
@@ -948,9 +994,7 @@ async function focusDisplayedRow(pageIndex) {
 	activeRowIndex.value = entry.index;
 	await nextTick();
 	const selector =
-		'.fxr-generic-grid-row[data-row-index="' +
-		entry.index +
-		'"] .fxr-generic-grid-row-index';
+		'.fxr-generic-grid-row[data-row-index="' + entry.index + '"] .fxr-generic-grid-row-index';
 	rootRef.value?.querySelector(selector)?.focus({ preventScroll: true });
 }
 
@@ -978,11 +1022,7 @@ async function moveRowFocus(delta, event) {
 	// When focus starts on the grid container, the first arrow press should land
 	// on the first/last row, not skip a row or wrap to another page.
 	let nextIndex =
-		currentIndex < 0
-			? delta > 0
-				? 0
-				: displayedRows.value.length - 1
-			: currentIndex + delta;
+		currentIndex < 0 ? (delta > 0 ? 0 : displayedRows.value.length - 1) : currentIndex + delta;
 	if (nextIndex < 0 && props.pagination && currentPage.value > 1) {
 		changePage(currentPage.value - 1);
 		await nextTick();
@@ -1050,8 +1090,8 @@ async function handleKeydown(event) {
 		const targetEntries = selectedEntries.length
 			? selectedEntries
 			: activeEntry
-				? [activeEntry]
-				: [];
+			? [activeEntry]
+			: [];
 		if (targetEntries.length) {
 			event.preventDefault();
 			const action = getBulkEditAction(
@@ -1082,8 +1122,8 @@ async function handleKeydown(event) {
 			Number.isInteger(activeIndex) && activeIndex >= 0
 				? activeIndex
 				: selectedIndexes.length
-					? Math.max(...selectedIndexes)
-					: null
+				? Math.max(...selectedIndexes)
+				: null
 		);
 		return;
 	}
@@ -1122,10 +1162,13 @@ async function handleKeydown(event) {
 		if (event.key === "PageDown" || event.key === "PageUp") {
 			if (props.pagination && pageCount.value > 1) {
 				event.preventDefault();
-				const nextPage = event.key === "PageDown" ? currentPage.value + 1 : currentPage.value - 1;
+				const nextPage =
+					event.key === "PageDown" ? currentPage.value + 1 : currentPage.value - 1;
 				changePage(nextPage);
 				await nextTick();
-				await focusDisplayedRow(event.key === "PageDown" ? 0 : displayedRows.value.length - 1);
+				await focusDisplayedRow(
+					event.key === "PageDown" ? 0 : displayedRows.value.length - 1
+				);
 				keyboardSelectionAnchor.value = null;
 				return;
 			}
@@ -1402,7 +1445,6 @@ defineExpose({
 	outline: 2px solid var(--fxr-border-focus, #3b82f6);
 	outline-offset: 2px;
 }
-
 
 .fxr-generic-grid-selection-count,
 .fxr-generic-grid-page-summary,

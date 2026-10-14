@@ -23,7 +23,9 @@
 			@bulk-delete="handleBulkDelete"
 			@update:rows="handlePastedRows"
 		>
-			<template #empty>{{ __("No output fields yet. Add a field or child selection to get started.") }}</template>
+			<template #empty>{{
+				__("No output fields yet. Add a field or child selection to get started.")
+			}}</template>
 			<template #row-summary="{ row }">
 				<div class="output-field-row-copy">
 					<strong :title="rowTitle(row)">{{ rowTitle(row) }}</strong>
@@ -214,7 +216,6 @@
 					</div>
 				</div>
 			</template>
-
 		</GenericGrid>
 
 		<p v-if="requiresGroupBy" class="output-fields-warning">
@@ -299,8 +300,18 @@ const searchableFields = [
 const gridActions = computed(() => {
 	const actions = [
 		{ id: "add-field", label: __("Add field"), icon: "fa fa-plus", shortcut: "Alt+Shift+F" },
-		{ id: "add-function", label: __("Add function"), icon: "fa fa-calculator", shortcut: "Alt+Shift+G" },
-		{ id: "add-literal", label: __("Add literal value"), icon: "fa fa-tag", shortcut: "Alt+Shift+L" },
+		{
+			id: "add-function",
+			label: __("Add function"),
+			icon: "fa fa-calculator",
+			shortcut: "Alt+Shift+G",
+		},
+		{
+			id: "add-literal",
+			label: __("Add literal value"),
+			icon: "fa fa-tag",
+			shortcut: "Alt+Shift+L",
+		},
 	];
 	if (props.shape === "embedded_children") {
 		actions.push({
@@ -611,9 +622,7 @@ function isRowInvalid(row, index) {
 	}
 	return (
 		Array.isArray(row.fields) &&
-		row.fields.some(
-			(field) => !row.childFieldOptions.some((option) => option.value === field)
-		)
+		row.fields.some((field) => !row.childFieldOptions.some((option) => option.value === field))
 	);
 }
 

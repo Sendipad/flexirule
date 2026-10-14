@@ -356,5 +356,4 @@ assert.ok(
 	).some((error) => error.includes("source field or aggregate"))
 );
 
-
 console.log("output fields model tests passed");
