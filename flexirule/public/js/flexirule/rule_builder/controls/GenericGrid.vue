@@ -257,6 +257,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue"
 import {
 	GRID_CLIPBOARD_FORMAT,
 	getRowKey,
+	getBulkEditAction,
 	paginateRows,
 	parseClipboardRows,
 	rowMatchesSearch,
@@ -744,10 +745,10 @@ function handleKeydown(event) {
 			: [];
 		if (targetEntries.length) {
 			event.preventDefault();
-			const allEditing = targetEntries.every((entry) =>
-				Boolean(entry.row?.[props.editStateKey])
+			const action = getBulkEditAction(
+				targetEntries.map((entry) => entry.row),
+				props.editStateKey
 			);
-			const action = allEditing ? "view" : "edit";
 			for (const entry of targetEntries) requestRowAction(action, entry);
 		}
 		return;
