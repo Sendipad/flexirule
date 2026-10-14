@@ -378,9 +378,7 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 				dispatched_rule_names.append(doc.name)
 			return original_execute(doc, event_name)
 
-		with patch.object(
-			RuleCoordinator, "execute_rules_from_event", new=staticmethod(spy_execute)
-		):
+		with patch.object(RuleCoordinator, "execute_rules_from_event", new=staticmethod(spy_execute)):
 			target = (
 				RuleBuilder("SYSTEM_RULE_INTERNAL_EVENT_TARGET")
 				.replace_existing(False)
