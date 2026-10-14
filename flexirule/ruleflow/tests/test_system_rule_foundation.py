@@ -177,6 +177,16 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 		self.assertIn("unknown_provider_field", str(cm.exception))
 		self.assertFalse(frappe.db.exists("Rule", {"rule_name": "SYSTEM_RULE_INVALID_CHILD_FIELD"}))
 
+	def test_registry_rejects_duplicate_logical_names_in_one_batch(self):
+		first = self._system_definition("SYSTEM_RULE_DUPLICATE_IDENTITY")
+		second = self._system_definition("system_rule_duplicate_identity", "Conflicting provider")
+
+		with self.assertRaises(frappe.ValidationError) as cm:
+			ensure_system_rules([first, second])
+
+		self.assertIn("same logical name", str(cm.exception))
+		self.assertFalse(frappe.db.exists("Rule", {"rule_name": first["rule_name"]}))
+
 	def test_registry_batch_rolls_back_prior_documents_when_later_definition_fails(self):
 		first = self._system_definition("SYSTEM_RULE_BATCH_ROLLBACK")
 		invalid = {"description": "Missing stable rule name"}
