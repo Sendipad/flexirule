@@ -1,70 +1,111 @@
 name: Linters
 
+# Invoked by ci.yml so the server tests and frontend build cannot start before
+# all required static checks have completed successfully.
 on:
-    pull_request:
-        paths-ignore:
-            - "docs/**"
-            - "docs-config/**"
-            - "landing-page/**"
-            - "architecture/**"
-            - "*.md"
-    workflow_dispatch:
+  workflow_call:
 
 permissions:
-    contents: read
-
-concurrency:
-    group: ${{ github.workflow }}-${{ github.ref }}
-    cancel-in-progress: true
+  contents: read
 
 jobs:
-    linter:
-        name: "Frappe Linter"
-        runs-on: ubuntu-latest
-        if: github.event_name == 'pull_request'
+  pre-commit:
+    name: Pre-commit (Ruff, mypy, Prettier, ESLint)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-        steps:
-            - uses: actions/checkout@v4
-              with:
-                  fetch-depth: 0
-            - uses: actions/setup-python@v5
-              with:
-                  python-version: "3.10"
-                  cache: pip
-            - uses: pre-commit/action@v3.0.0
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            pyproject.toml
 
-            - name: Download Semgrep rules
-              run: git clone --depth 1 https://github.com/frappe/semgrep-rules.git frappe-semgrep-rules
+      - name: Cache pre-commit environments
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pre-commit
+          key: ${{ runner.os }}-pre-commit-py310-${{ hashFiles('.pre-commit-config.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pre-commit-py310-
 
-            - name: Run Semgrep rules
-              env:
-                  SEMGREP_BASELINE_REF: ${{ github.event.pull_request.base.sha }}
-              run: |
-                  pip install semgrep
-                  semgrep ci --config ./frappe-semgrep-rules/rules --config r/python.lang.correctness
+      - name: Run pre-commit hooks
+        uses: pre-commit/action@v3.0.1
 
-    deps-vulnerable-check:
-        name: "Vulnerable Dependency Check"
-        runs-on: ubuntu-latest
+  semgrep:
+    name: Semgrep rules
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'pull_request' }}
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-        steps:
-            - uses: actions/setup-python@v5
-              with:
-                  python-version: "3.10"
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            pyproject.toml
 
-            - uses: actions/checkout@v4
+      - name: Download Semgrep rules
+        run: git clone --depth 1 https://github.com/frappe/semgrep-rules.git frappe-semgrep-rules
 
-            - name: Cache pip
-              uses: actions/cache@v3
-              with:
-                  path: ~/.cache/pip
-                  key: ${{ runner.os }}-pip-${{ hashFiles('**/*requirements.txt', '**/pyproject.toml', '**/setup.py') }}
-                  restore-keys: |
-                      ${{ runner.os }}-pip-
-                      ${{ runner.os }}-
+      - name: Run Semgrep rules
+        env:
+          SEMGREP_BASELINE_REF: ${{ github.event.pull_request.base.sha }}
+        run: |
+          python -m pip install semgrep
+          semgrep ci --config ./frappe-semgrep-rules/rules --config r/python.lang.correctness
 
-            - name: Install and run pip-audit
-              run: |
-                  pip install pip-audit
-                  cd ${GITHUB_WORKSPACE}
-                  pip-audit --desc on .
+  deps-vulnerable-check:
+    name: Vulnerable dependency check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            pyproject.toml
+
+      - name: Install and run pip-audit
+        run: |
+          python -m pip install pip-audit
+          pip-audit --desc on .
+
+  fast-js-unit-tests:
+    name: Fast JavaScript unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      - name: Run standalone unit tests
+        run: |
+          node flexirule/public/js/flexirule/rule_builder/components/rule_config/query_filters/filter_operators.test.mjs
+          node flexirule/public/js/flexirule/rule_builder/controls/generic_grid_model.test.mjs
+          node flexirule/public/js/flexirule/rule_builder/components/rule_config/types/query_records/output_field_info.test.mjs
