@@ -105,7 +105,21 @@
 					</div>
 				</div>
 
-				<div class="fxr-generic-grid-row-body">
+				<div v-if="hasSummarySlot" class="fxr-generic-grid-row-summary">
+					<slot
+						name="row-summary"
+						:row="entry.row"
+						:index="entry.index"
+						:selected="isSelected(entry.key)"
+						:invalid="getInvalidState(entry.row, entry.index).invalid"
+						:invalidMessage="getInvalidState(entry.row, entry.index).message"
+						:rowProps="resolveRowProps(entry.row, entry.index)"
+					/>
+				</div>
+				<div
+					v-if="!hasSummarySlot || entry.row?.[editStateKey]"
+					class="fxr-generic-grid-row-body"
+				>
 					<slot
 						name="row"
 						:row="entry.row"
@@ -172,14 +186,86 @@
 		</div>
 
 		<div v-if="showToolbar" class="fxr-generic-grid-footer">
-			<div class="fxr-generic-grid-footer-left">
-				<span v-if="selection && selectedRows.length" class="fxr-generic-grid-selection-count">
+			<div class="fxr-generic-grid-footer-primary">
+				<button
+					v-if="activePrimaryAction && !readOnly"
+					type="button"
+					class="fxr-grid-button fxr-grid-button--primary"
+					:title="primaryActionTitle"
+					:aria-label="primaryActionTitle"
+					@click="requestPrimaryAction()"
+				>
+					<i v-if="activePrimaryAction.icon" :class="activePrimaryAction.icon" aria-hidden="true"></i>
+					{{ activePrimaryAction.label || __('Add row') }}
+				</button>
+				<Menu v-if="actionOptions.length > 1 && !readOnly" as="div" class="fxr-grid-menu fxr-grid-primary-menu">
+					<MenuButton class="fxr-grid-menu-toggle" :title="__('Change primary action')">
+						<i class="fa fa-chevron-down" aria-hidden="true"></i>
+						<span class="sr-only">{{ __('Change primary action') }}</span>
+					</MenuButton>
+					<MenuItems class="fxr-grid-menu-items fxr-grid-menu-items--left">
+						<div class="fxr-grid-menu-heading">{{ __('Choose primary action') }}</div>
+						<MenuItem v-for="action in actionOptions" :key="action.id" v-slot="{ active }">
+							<button
+								type="button"
+								class="fxr-grid-menu-item"
+								:class="{ 'is-active': active, 'is-current': action.id === selectedPrimaryActionId }"
+								@click="setPrimaryAction(action.id)"
+							>
+								<i v-if="action.icon" :class="action.icon" aria-hidden="true"></i>
+								<span>{{ action.label }}</span>
+								<i v-if="action.id === selectedPrimaryActionId" class="fa fa-check" aria-hidden="true"></i>
+							</button>
+						</MenuItem>
+					</MenuItems>
+				</Menu>
+			</div>
+
+			<div v-if="selection && selectedRows.length" class="fxr-generic-grid-bulk-actions">
+				<span class="fxr-generic-grid-selection-count">
 					{{ selectedRows.length }} {{ __('selected') }}
 				</span>
+				<button type="button" class="fxr-grid-button fxr-grid-button--quiet" @click="selectAllFilteredRows">
+					{{ __('Select all') }}
+				</button>
+				<button type="button" class="fxr-grid-button fxr-grid-button--quiet" @click="clearSelection">
+					{{ __('Clear') }}
+				</button>
+				<button
+					v-if="!readOnly"
+					type="button"
+					class="fxr-grid-button fxr-grid-button--danger"
+					:title="__('Delete selected rows')"
+					@click="requestBulkDelete"
+				>
+					<i class="fa fa-trash" aria-hidden="true"></i>
+					{{ __('Delete selected') }}
+				</button>
 			</div>
 
 			<div class="fxr-generic-grid-footer-actions">
-				<slot name="secondary-actions"></slot>
+				<Menu v-if="secondaryActions.length && !readOnly" as="div" class="fxr-grid-menu fxr-grid-secondary-menu">
+					<MenuButton class="fxr-grid-button fxr-grid-button--secondary-menu">
+						<i class="fa fa-plus" aria-hidden="true"></i>
+						{{ __('More actions') }}
+						<i class="fa fa-chevron-down" aria-hidden="true"></i>
+					</MenuButton>
+					<MenuItems class="fxr-grid-menu-items fxr-grid-menu-items--right">
+						<div class="fxr-grid-menu-heading">{{ __('Add another type') }}</div>
+						<MenuItem v-for="action in secondaryActions" :key="action.id" v-slot="{ active }">
+							<button
+								type="button"
+								class="fxr-grid-menu-item"
+								:class="{ 'is-active': active }"
+								@click="requestGridAction(action)"
+							>
+								<i v-if="action.icon" :class="action.icon" aria-hidden="true"></i>
+								<span>{{ action.label }}</span>
+							</button>
+						</MenuItem>
+					</MenuItems>
+				</Menu>
+
 				<div v-if="searchOpen" class="fxr-generic-grid-search-popover">
 					<i class="fa fa-search" aria-hidden="true"></i>
 					<input
@@ -223,19 +309,9 @@
 					<i class="fa fa-clipboard" aria-hidden="true"></i>
 					{{ __('Paste') }}
 				</button>
-				<button
-					v-if="primaryAction && !readOnly"
-					type="button"
-					class="fxr-grid-button fxr-grid-button--primary"
-					:title="primaryActionTitle"
-					:aria-label="primaryActionTitle"
-					@click="requestPrimaryAction()"
-				>
-					<i v-if="primaryAction.icon" :class="primaryAction.icon" aria-hidden="true"></i>
-					{{ primaryAction.label || __('Add row') }}
-				</button>
 			</div>
 		</div>
+
 
 		<p v-if="feedback" class="fxr-generic-grid-feedback" role="status" aria-live="polite">
 			{{ feedback }}
@@ -244,7 +320,8 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, useSlots, watch } from "vue";
+import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/vue";
 import {
 	GRID_CLIPBOARD_FORMAT,
 	getRowKey,
@@ -283,6 +360,9 @@ const props = defineProps({
 	pageSize: { type: Number, default: 10 },
 	pageSizeOptions: { type: Array, default: () => [5, 10, 20, 50] },
 	primaryAction: { type: Object, default: null },
+	actionOptions: { type: Array, default: () => [] },
+	defaultPrimaryAction: { type: String, default: "" },
+	preferenceKey: { type: String, default: "" },
 	editShortcut: { type: String, default: "Alt+E" },
 	editStateKey: { type: String, default: "isEditing" },
 	cloneRow: { type: Function, default: null },
@@ -294,6 +374,9 @@ const emit = defineEmits([
 	"row-action",
 	"row-update",
 	"primary-action",
+	"grid-action",
+	"bulk-delete",
+	"primary-action-change",
 	"selection-change",
 	"copy",
 	"paste",
@@ -302,9 +385,12 @@ const emit = defineEmits([
 ]);
 
 const rootRef = ref(null);
+const slots = useSlots();
+const hasSummarySlot = computed(() => Boolean(slots["row-summary"]));
 const searchInputRef = ref(null);
 const searchOpen = ref(false);
 const searchQuery = ref("");
+const selectedPrimaryActionId = ref(props.defaultPrimaryAction || props.primaryAction?.id || "");
 const currentPage = ref(1);
 const currentPageSize = ref(normalizePageSize(props.pageSize));
 const selectedKeys = ref(new Set());
@@ -369,10 +455,26 @@ const paginationSummary = computed(() => {
 		? __('Showing {0}–{1} of {2}', [result.start + 1, result.end, result.total])
 		: __('No rows');
 });
+const resolvedActionOptions = computed(() => {
+	if (props.actionOptions.length) return props.actionOptions;
+	return props.primaryAction ? [props.primaryAction] : [];
+});
+const activePrimaryAction = computed(() => {
+	return (
+		resolvedActionOptions.value.find((action) => action.id === selectedPrimaryActionId.value) ||
+		resolvedActionOptions.value.find((action) => action.id === props.defaultPrimaryAction) ||
+		resolvedActionOptions.value[0] ||
+		props.primaryAction ||
+		null
+	);
+});
+const secondaryActions = computed(() =>
+	resolvedActionOptions.value.filter((action) => action.id !== activePrimaryAction.value?.id)
+);
 const primaryActionTitle = computed(() => {
-	const label = props.primaryAction?.label || __("Add row");
-	return props.primaryAction?.shortcut
-		? label + " (" + props.primaryAction.shortcut + ")"
+	const label = activePrimaryAction.value?.label || __("Add row");
+	return activePrimaryAction.value?.shortcut
+		? label + " (" + activePrimaryAction.value.shortcut + ")"
 		: label;
 });
 const gridStyle = computed(() => ({
@@ -387,6 +489,10 @@ watch(currentPageSize, () => {
 	currentPage.value = 1;
 });
 watch(
+	() => [props.preferenceKey, props.defaultPrimaryAction, props.actionOptions.map((action) => action.id).join("|")],
+	loadPrimaryActionPreference
+);
+watch(
 	() => props.pageSize,
 	(value) => {
 		const nextSize = normalizePageSize(value);
@@ -400,6 +506,7 @@ watch(
 	}
 );
 onMounted(() => {
+	loadPrimaryActionPreference();
 	if (typeof window === "undefined") return;
 	window.addEventListener("pointerup", endDragSelection);
 	window.addEventListener("pointercancel", endDragSelection);
@@ -538,8 +645,60 @@ function requestRowAction(action, entry) {
 }
 
 function requestPrimaryAction(afterIndex = null) {
-	if (props.readOnly || !props.primaryAction) return;
-	emit("primary-action", { afterIndex });
+	if (props.readOnly || !activePrimaryAction.value) return;
+	emit("primary-action", {
+		afterIndex,
+		action: activePrimaryAction.value.id || null,
+	});
+}
+
+function requestGridAction(action) {
+	if (props.readOnly || !action) return;
+	emit("grid-action", { action: action.id });
+}
+
+function loadPrimaryActionPreference() {
+	const options = resolvedActionOptions.value;
+	const fallback = options.some((action) => action.id === props.defaultPrimaryAction)
+		? props.defaultPrimaryAction
+		: options[0]?.id || "";
+	let preferred = fallback;
+	try {
+		if (typeof window !== "undefined" && props.preferenceKey) {
+			const stored = window.localStorage.getItem(props.preferenceKey);
+			if (options.some((action) => action.id === stored)) preferred = stored;
+		}
+	} catch {
+		// Local storage can be disabled by privacy settings; use the default action for this session.
+	}
+	selectedPrimaryActionId.value = preferred;
+}
+
+function setPrimaryAction(actionId) {
+	if (!resolvedActionOptions.value.some((action) => action.id === actionId)) return;
+	selectedPrimaryActionId.value = actionId;
+	try {
+		if (typeof window !== "undefined" && props.preferenceKey) {
+			window.localStorage.setItem(props.preferenceKey, actionId);
+		}
+	} catch {
+		// The preference still applies in this component session if persistence is unavailable.
+	}
+	emit("primary-action-change", actionId);
+}
+
+function selectAllFilteredRows() {
+	const keys = filteredRows.value.map((entry) => entry.key);
+	setSelectedKeys([...new Set([...selectedKeys.value, ...keys])]);
+}
+
+function clearSelection() {
+	setSelectedKeys([]);
+}
+
+function requestBulkDelete() {
+	if (props.readOnly || !selectedRows.value.length) return;
+	emit("bulk-delete", selectedRows.value);
 }
 
 function emitRowsUpdate(nextRows) {
@@ -739,9 +898,9 @@ function handleKeydown(event) {
 		return;
 	}
 	if (
-		props.primaryAction &&
+		activePrimaryAction.value &&
 		!props.readOnly &&
-		matchesShortcut(event, props.primaryAction.shortcut || "Alt+Enter")
+		matchesShortcut(event, activePrimaryAction.value.shortcut || "Alt+Enter")
 	) {
 		if (!isInputTarget(target)) {
 			event.preventDefault();
@@ -800,9 +959,9 @@ defineExpose({
 }
 
 .fxr-generic-grid-footer,
-.fxr-generic-grid-footer-left,
-.fxr-generic-grid-footer-actions,
-.fxr-generic-grid-search-popover {
+.fxr-generic-grid-footer-primary,
+.fxr-generic-grid-bulk-actions,
+.fxr-generic-grid-footer-actions {
 	display: flex;
 	align-items: center;
 	gap: var(--fxr-space-2, 8px);
@@ -815,8 +974,13 @@ defineExpose({
 	padding-top: var(--fxr-space-2, 8px);
 }
 
-.fxr-generic-grid-footer-left {
-	flex: 1 1 120px;
+.fxr-generic-grid-footer-primary {
+	flex: 0 0 auto;
+}
+
+.fxr-generic-grid-bulk-actions {
+	flex: 1 1 auto;
+	flex-wrap: wrap;
 }
 
 .fxr-generic-grid-footer-actions {
@@ -825,9 +989,114 @@ defineExpose({
 	margin-left: auto;
 }
 
+.fxr-grid-menu {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	flex: 0 0 auto;
+}
+
+.fxr-grid-menu-toggle {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--fxr-space-1, 4px);
+	min-height: 30px;
+	padding: 0 var(--fxr-space-2, 8px);
+	border: 1px solid var(--fxr-border-subtle, #d1d5db);
+	border-radius: var(--fxr-radius-sm, 4px);
+	background: var(--fxr-surface, #fff);
+	color: var(--fxr-text-secondary, #4b5563);
+	cursor: pointer;
+}
+
+.fxr-grid-primary-menu {
+	margin-left: -7px;
+}
+
+.fxr-grid-menu-items {
+	position: absolute;
+	z-index: 100;
+	bottom: calc(100% + 6px);
+	min-width: 210px;
+	max-width: min(300px, calc(100vw - 24px));
+	padding: 5px;
+	border: 1px solid var(--fxr-border-subtle, #d1d5db);
+	border-radius: var(--fxr-radius-md, 6px);
+	background: var(--fxr-surface, #fff);
+	box-shadow: 0 8px 28px rgb(15 23 42 / 16%);
+}
+
+.fxr-grid-menu-items--left {
+	left: 0;
+}
+
+.fxr-grid-menu-items--right {
+	right: 0;
+}
+
+.fxr-grid-menu-heading {
+	padding: 6px 8px 7px;
+	color: var(--fxr-text-muted, #6b7280);
+	font-size: var(--fxr-text-xs, 11px);
+	font-weight: var(--fxr-weight-semibold, 600);
+}
+
+.fxr-grid-menu-item {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	width: 100%;
+	min-height: 32px;
+	padding: 6px 8px;
+	border: 0;
+	border-radius: var(--fxr-radius-sm, 4px);
+	background: transparent;
+	color: var(--fxr-text, #111827);
+	font: inherit;
+	font-size: var(--fxr-text-sm, 12px);
+	text-align: left;
+	cursor: pointer;
+}
+
+.fxr-grid-menu-item span {
+	flex: 1;
+	min-width: 0;
+}
+
+.fxr-grid-menu-item:hover,
+.fxr-grid-menu-item.is-active {
+	background: var(--fxr-surface-soft, #f3f4f6);
+}
+
+.fxr-grid-menu-item.is-current {
+	color: var(--fxr-accent, #2563eb);
+	font-weight: var(--fxr-weight-semibold, 600);
+}
+
+.fxr-grid-button--secondary-menu {
+	background: var(--fxr-surface, #fff);
+	border-color: var(--fxr-border-subtle, #d1d5db);
+}
+
+.fxr-grid-button--danger {
+	border-color: var(--fxr-border-danger, #dc2626);
+	color: var(--fxr-text-danger, #b91c1c);
+}
+
+.fxr-grid-button--danger:hover:not(:disabled) {
+	background: var(--fxr-surface-danger, #fef2f2);
+	border-color: var(--fxr-border-danger, #dc2626);
+	color: var(--fxr-text-danger, #b91c1c);
+}
+
 .fxr-generic-grid-search-popover {
+	display: flex;
+	align-items: center;
+	gap: var(--fxr-space-2, 8px);
 	flex: 1 1 190px;
-	max-width: 300px;
+	min-width: 140px;
+	max-width: 260px;
 	padding: 0 var(--fxr-space-2, 8px);
 	border: 1px solid var(--fxr-border, #d1d5db);
 	border-radius: var(--fxr-radius-md, 6px);
@@ -975,13 +1244,19 @@ defineExpose({
 	min-width: 0;
 }
 
+.fxr-generic-grid-row-summary {
+	grid-column: 2;
+	grid-row: 1;
+	min-width: 0;
+}
+
 .fxr-generic-grid-row.is-editing {
-	grid-template-columns: 22px minmax(0, 1fr);
+	grid-template-columns: 22px minmax(0, 1fr) auto;
 	padding: var(--fxr-space-2, 8px);
 }
 
 .fxr-generic-grid-row.is-editing .fxr-generic-grid-row-actions {
-	grid-column: 2;
+	grid-column: 3;
 	grid-row: 1;
 	justify-self: end;
 }
@@ -1147,12 +1422,22 @@ defineExpose({
 	.fxr-generic-grid-page-actions {
 		margin-left: 0;
 	}
-	.fxr-generic-grid-footer-left {
-		flex-basis: 100%;
+	.fxr-generic-grid-footer {
+		align-items: flex-start;
 	}
 	.fxr-generic-grid-footer-actions {
 		width: 100%;
 		justify-content: flex-end;
+	}
+	.fxr-generic-grid-bulk-actions {
+		flex-basis: 100%;
+		order: 3;
+	}
+	.fxr-generic-grid-footer-primary {
+		order: 1;
+	}
+	.fxr-generic-grid-footer-actions {
+		order: 2;
 	}
 }
 </style>
