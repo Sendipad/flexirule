@@ -174,9 +174,7 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 		with self.assertRaises(frappe.ValidationError):
 			ensure_system_rules([first, invalid])
 
-		self.assertFalse(
-			frappe.db.exists("Rule", {"rule_name": "SYSTEM_RULE_BATCH_ROLLBACK"})
-		)
+		self.assertFalse(frappe.db.exists("Rule", {"rule_name": "SYSTEM_RULE_BATCH_ROLLBACK"}))
 
 	def test_configured_provider_hook_registers_rules(self):
 		definition = self._system_definition("SYSTEM_RULE_PROVIDER_TEST")
@@ -293,9 +291,7 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 			status="Disabled",
 		)
 		with patch.object(rule, "get_doc_before_save", return_value=before):
-			with patch.object(
-				frappe, "flags", frappe._dict(flexirule_system_rule_registration=True)
-			):
+			with patch.object(frappe, "flags", frappe._dict(flexirule_system_rule_registration=True)):
 				rule.validate_system_rule_protection()
 
 	def test_core_flexirule_doctypes_are_not_hard_excluded(self):
