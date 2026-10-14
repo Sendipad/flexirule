@@ -226,7 +226,7 @@
 					{{ selectedRows.length }} {{ __('selected') }}
 				</span>
 				<button type="button" class="fxr-grid-button fxr-grid-button--quiet" @click="selectAllFilteredRows">
-					{{ __('Select all') }}
+					{{ searchQuery ? __('Select all matching') : __('Select all') }}
 				</button>
 				<button type="button" class="fxr-grid-button fxr-grid-button--quiet" @click="clearSelection">
 					{{ __('Clear') }}
@@ -975,6 +975,9 @@ defineExpose({
 }
 
 .fxr-generic-grid-footer-primary {
+	display: flex;
+	align-items: center;
+	gap: 0;
 	flex: 0 0 auto;
 }
 
@@ -1011,7 +1014,7 @@ defineExpose({
 }
 
 .fxr-grid-primary-menu {
-	margin-left: -7px;
+	margin-left: -1px;
 }
 
 .fxr-grid-menu-items {
