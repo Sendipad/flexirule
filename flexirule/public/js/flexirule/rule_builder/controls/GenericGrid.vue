@@ -373,7 +373,7 @@ const props = defineProps({
 	actionOptions: { type: Array, default: () => [] },
 	defaultPrimaryAction: { type: String, default: "" },
 	preferenceKey: { type: String, default: "" },
-	editShortcut: { type: String, default: "Alt+E" },
+	editShortcut: { type: String, default: "Ctrl+Shift+E" },
 	editStateKey: { type: String, default: "isEditing" },
 	cloneRow: { type: Function, default: null },
 });
@@ -1032,8 +1032,8 @@ async function handleKeydown(event) {
 		return;
 	}
 
-	// Alt+E works while focus is inside an editable row as well as on the row itself.
-	// This makes the edit/read toggle a quick action instead of requiring a pointer click.
+	// Ctrl+Shift+E avoids Chrome's Alt+E menu accelerator while allowing the edit/read
+	// toggle to work with focus on a row or inside its controls.
 	if (
 		matchesShortcut(event, props.editShortcut) &&
 		(!isInputTarget(target) || target?.closest?.("[data-row-index]"))
