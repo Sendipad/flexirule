@@ -225,10 +225,9 @@
 								class="fxr-grid-menu-pin"
 								:title="__('Make {0} the primary action', [action.label])"
 								:aria-label="__('Make {0} the primary action', [action.label])"
-								:aria-pressed="String(action.id === selectedPrimaryActionId)"
 								@click.stop="setPrimaryAction(action.id)"
 							>
-								<i :class="action.id === selectedPrimaryActionId ? 'fa fa-star' : 'fa fa-thumb-tack'" aria-hidden="true"></i>
+								<i class="fa fa-thumb-tack" aria-hidden="true"></i>
 							</button>
 							<button
 								type="button"
