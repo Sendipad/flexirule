@@ -215,23 +215,23 @@
 				</div>
 			</div>
 			</template>
-					<template #secondary-actions>
-			<div v-if="!readOnly" class="output-fields-add-actions">
-			<button type="button" class="output-fields-add-btn" @click="addFunction">
-				<i class="fa fa-calculator"></i>{{ __("Add function") }}
-			</button>
-			<button type="button" class="output-fields-add-btn" @click="addLiteral">
-				<i class="fa fa-tag"></i>{{ __("Add literal value") }}
-			</button>
-			<button
-				v-if="shape === 'embedded_children'"
-				type="button"
-				class="output-fields-add-btn"
-				@click="addChild"
-			>
-				<i class="fa fa-sitemap"></i>{{ __("Add child selection") }}
-			</button>
-		</div>
+			<template #secondary-actions>
+				<div v-if="!readOnly" class="output-fields-add-actions">
+					<button type="button" class="output-fields-add-btn" @click="addFunction">
+						<i class="fa fa-calculator"></i>{{ __("Add function") }}
+					</button>
+					<button type="button" class="output-fields-add-btn" @click="addLiteral">
+						<i class="fa fa-tag"></i>{{ __("Add literal value") }}
+					</button>
+					<button
+						v-if="shape === 'embedded_children'"
+						type="button"
+						class="output-fields-add-btn"
+						@click="addChild"
+					>
+						<i class="fa fa-sitemap"></i>{{ __("Add child selection") }}
+					</button>
+				</div>
 			</template>
 
 		</GenericGrid>
