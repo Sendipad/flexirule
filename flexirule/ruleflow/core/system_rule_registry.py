@@ -119,9 +119,7 @@ def _validate_nested_field(field, value: Any, rule_name: str, field_path: str) -
 		return
 
 	if not isinstance(value, list | tuple):
-		frappe.throw(
-			_("System Rule field '{0}' must be a list of row mappings.").format(field_path)
-		)
+		frappe.throw(_("System Rule field '{0}' must be a list of row mappings.").format(field_path))
 
 	child_meta = frappe.get_meta(field.options)
 	for row_index, row in enumerate(value):
