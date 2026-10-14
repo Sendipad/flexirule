@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {
 	GRID_CLIPBOARD_FORMAT,
 	buildRowProps,
+	matchesShortcut,
 	getPathValue,
 	getBulkEditAction,
 	getRowKey,
@@ -16,6 +17,15 @@ const rows = [
 	{ id: "b", field: "customer_name", kind: "field", meta: { label: "Customer" } },
 	{ id: "c", field: "grand_total", kind: "function", meta: { label: "Grand Total" } },
 ];
+
+assert.equal(matchesShortcut({ key: "e", altKey: true }, "Alt+E"), true);
+assert.equal(matchesShortcut({ key: "E", altKey: true }, "Alt+E"), true);
+assert.equal(matchesShortcut({ key: "g", altKey: true, shiftKey: true }, "Alt+Shift+G"), true);
+assert.equal(matchesShortcut({ key: "g", altKey: true }, "Alt+Shift+G"), false);
+assert.equal(matchesShortcut({ key: "Enter", altKey: true }, "Alt+Enter"), true);
+assert.equal(matchesShortcut({ key: "Enter", altKey: true, ctrlKey: true }, "Alt+Enter"), false);
+assert.equal(matchesShortcut({ key: "e" }, "Alt+E"), false);
+assert.equal(matchesShortcut(null, "Alt+E"), false);
 
 assert.equal(getRowKey(rows[0], 0), "a");
 assert.equal(getRowKey({}, 4), "row-4");
