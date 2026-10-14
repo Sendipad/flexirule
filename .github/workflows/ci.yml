@@ -86,6 +86,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Checkout Frappe 15 source
+        uses: actions/checkout@v4
+        with:
+          repository: frappe/frappe
+          ref: version-15
+          path: frappe-src
+          fetch-depth: 1
+          persist-credentials: false
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -105,7 +114,7 @@ jobs:
       - name: Setup Bench
         run: |
           python -m pip install frappe-bench
-          bench init --frappe-branch version-15 --skip-redis-config-generation --skip-assets --python "$(which python)" ~/frappe-bench
+          bench init --skip-redis-config-generation --skip-assets --python "$(which python)" --frappe-path "$GITHUB_WORKSPACE/frappe-src" ~/frappe-bench
 
       - name: Install app and requirements
         working-directory: /home/runner/frappe-bench
@@ -155,6 +164,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Checkout Frappe 15 source
+        uses: actions/checkout@v4
+        with:
+          repository: frappe/frappe
+          ref: version-15
+          path: frappe-src
+          fetch-depth: 1
+          persist-credentials: false
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -179,7 +197,7 @@ jobs:
       - name: Initialize Bench and database
         run: |
           python -m pip install frappe-bench
-          bench init --frappe-branch version-15 --skip-redis-config-generation --skip-assets --python "$(which python)" ~/frappe-bench
+          bench init --skip-redis-config-generation --skip-assets --python "$(which python)" --frappe-path "$GITHUB_WORKSPACE/frappe-src" ~/frappe-bench
           mariadb --host 127.0.0.1 --port 3306 -u root -proot -e "SET GLOBAL character_set_server = 'utf8mb4'"
           mariadb --host 127.0.0.1 --port 3306 -u root -proot -e "SET GLOBAL collation_server = 'utf8mb4_unicode_ci'"
 
@@ -197,7 +215,7 @@ jobs:
         working-directory: /home/runner/frappe-bench
         run: |
           bench --site test_site set-config allow_tests true
-          bench --site test_site run-tests --app flexirule
+          bench --site test_site run-parallel-tests --app flexirule
         env:
           TYPE: server
 
@@ -229,6 +247,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Checkout Frappe 16 source
+        uses: actions/checkout@v4
+        with:
+          repository: frappe/frappe
+          ref: version-16
+          path: frappe-src
+          fetch-depth: 1
+          persist-credentials: false
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -253,7 +280,7 @@ jobs:
       - name: Initialize Bench and database
         run: |
           python -m pip install frappe-bench
-          bench init --frappe-branch version-16 --skip-redis-config-generation --skip-assets --python "$(which python)" ~/frappe-bench
+          bench init --skip-redis-config-generation --skip-assets --python "$(which python)" --frappe-path "$GITHUB_WORKSPACE/frappe-src" ~/frappe-bench
           mariadb --host 127.0.0.1 --port 3306 -u root -proot -e "SET GLOBAL character_set_server = 'utf8mb4'"
           mariadb --host 127.0.0.1 --port 3306 -u root -proot -e "SET GLOBAL collation_server = 'utf8mb4_unicode_ci'"
 
