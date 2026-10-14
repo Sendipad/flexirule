@@ -5,6 +5,7 @@ are version-controlled by the provider app and synchronized during install/migra
 The registry intentionally has no second source-version counter: the provider code
 is the source of truth for managed definition fields.
 """
+
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -47,9 +48,7 @@ def ensure_system_rule(definition: Mapping[str, Any]) -> str:
 
 	meta = frappe.get_meta("Rule")
 	for fieldname, value in fields.items():
-		if fieldname in {
-			"doctype", "name", "owner", "creation", "modified", "modified_by", "docstatus"
-		}:
+		if fieldname in {"doctype", "name", "owner", "creation", "modified", "modified_by", "docstatus"}:
 			continue
 		if not meta.has_field(fieldname):
 			frappe.throw(f"Unknown field '{fieldname}' in System Rule '{rule_name}'.")
@@ -86,7 +85,7 @@ def register_configured_system_rules() -> list[str]:
 		definitions = provider()
 		if definitions is None:
 			continue
-		if not isinstance(definitions, (list, tuple)):
+		if not isinstance(definitions, list | tuple):
 			frappe.throw(f"System Rule provider '{provider_path}' must return a list or tuple.")
 		names.extend(ensure_system_rules(definitions))
 	return names
