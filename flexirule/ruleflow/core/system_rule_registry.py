@@ -12,6 +12,7 @@ from collections.abc import Mapping
 from typing import Any
 
 import frappe
+from frappe import _
 
 _REGISTRATION_FLAG = "flexirule_system_rule_registration"
 
@@ -19,11 +20,11 @@ _REGISTRATION_FLAG = "flexirule_system_rule_registration"
 def ensure_system_rule(definition: Mapping[str, Any]) -> str:
 	"""Create or synchronize one app-managed Rule while preserving local enablement."""
 	if not isinstance(definition, Mapping):
-		frappe.throw("System Rule definition must be a mapping.")
+		frappe.throw(_("System Rule definition must be a mapping."))
 
 	rule_name = str(definition.get("rule_name") or "").strip()
 	if not rule_name:
-		frappe.throw("System Rule definition requires rule_name.")
+		frappe.throw(_("System Rule definition requires rule_name."))
 
 	fields = dict(definition)
 	fields.pop("name", None)
@@ -37,7 +38,7 @@ def ensure_system_rule(definition: Mapping[str, Any]) -> str:
 		doc = frappe.get_doc("Rule", existing_name)
 		if not doc.get("is_system_generated"):
 			frappe.throw(
-				f"Cannot register System Rule '{rule_name}': a user-managed Rule already uses that name."
+				_("Cannot register System Rule '{0}': a user-managed Rule already uses that name.").format(rule_name)
 			)
 		# Site operators own activation state. A migration must not silently
 		# re-enable a System Rule that an administrator deliberately disabled.
@@ -51,7 +52,7 @@ def ensure_system_rule(definition: Mapping[str, Any]) -> str:
 		if fieldname in {"doctype", "name", "owner", "creation", "modified", "modified_by", "docstatus"}:
 			continue
 		if not meta.has_field(fieldname):
-			frappe.throw(f"Unknown field '{fieldname}' in System Rule '{rule_name}'.")
+			frappe.throw(_("Unknown field '{0}' in System Rule '{1}'.").format(fieldname, rule_name))
 		doc.set(fieldname, value)
 
 	# Scope the bypass to this save only; normal UI/API writes remain guarded.
@@ -78,14 +79,14 @@ def register_configured_system_rules() -> list[str]:
 	names: list[str] = []
 	for provider_path in frappe.get_hooks("flexirule_system_rules") or []:
 		if not isinstance(provider_path, str) or not provider_path.strip():
-			frappe.throw("Each flexirule_system_rules hook must be a dotted provider path.")
+			frappe.throw(_("Each flexirule_system_rules hook must be a dotted provider path."))
 		provider = frappe.get_attr(provider_path)
 		if not callable(provider):
-			frappe.throw(f"System Rule provider '{provider_path}' is not callable.")
+			frappe.throw(_("System Rule provider '{0}' is not callable.").format(provider_path))
 		definitions = provider()
 		if definitions is None:
 			continue
 		if not isinstance(definitions, list | tuple):
-			frappe.throw(f"System Rule provider '{provider_path}' must return a list or tuple.")
+			frappe.throw(_("System Rule provider '{0}' must return a list or tuple.").format(provider_path))
 		names.extend(ensure_system_rules(definitions))
 	return names
