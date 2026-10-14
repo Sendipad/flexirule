@@ -45,8 +45,7 @@
   "previous_version",
   "version",
   "section_break_error",
-  "last_error",
-  "system_rule_version"
+  "last_error"
  ],
  "fields": [
   {
@@ -367,16 +366,6 @@
    "label": "Last Error",
    "no_copy": 1,
    "read_only": 1
-  },
-  {
-   "fieldname": "system_rule_version",
-   "fieldtype": "Int",
-   "label": "System Rule Source Version",
-   "default": "0",
-   "read_only": 1,
-   "hidden": 1,
-   "no_copy": 1,
-   "description": "Source definition version used to update app-managed system rules."
   }
  ],
  "index_web_pages_for_search": 1,
