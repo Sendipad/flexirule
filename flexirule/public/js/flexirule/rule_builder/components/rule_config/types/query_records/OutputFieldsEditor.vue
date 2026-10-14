@@ -259,6 +259,7 @@ import {
 	AGGREGATE_FUNCTIONS,
 	humanizeAlias,
 	parseOutputFields,
+	resolveFieldInfo,
 	serializeOutputFields,
 	validateOutputFields,
 } from "./output_fields_model.js";
@@ -350,40 +351,9 @@ const childTableOptions = computed(() =>
 		}))
 );
 
-/**
- * Resolve field metadata for row summaries without assuming that metadata is loaded.
- * Dotted paths may traverse Link or child-table DocTypes; unresolved paths safely fall
- * back to the raw field name instead of crashing the whole grid render.
- */
 function fieldInfo(fieldname) {
-	const parts = String(fieldname || "")
-		.split(".")
-		.map((part) => part.trim())
-		.filter(Boolean);
-	if (!parts.length) return {};
-
-	let currentDoctype = props.doctype;
-	let resolvedField = null;
-	for (let index = 0; index < parts.length; index += 1) {
-		const fields = metaStore.doc_meta?.[currentDoctype];
-		if (!Array.isArray(fields)) return resolvedField || {};
-		resolvedField = fields.find((field) => field.fieldname === parts[index]) || null;
-		if (!resolvedField) return {};
-
-		if (index < parts.length - 1) {
-			if (
-				["Link", "Table", "Table MultiSelect"].includes(resolvedField.fieldtype) &&
-				resolvedField.options
-			) {
-				currentDoctype = resolvedField.options;
-			} else {
-				return resolvedField;
-			}
-		}
-	}
-	return resolvedField || {};
+	return resolveFieldInfo(metaStore.doc_meta, props.doctype, fieldname);
 }
-
 function revealRow(index) {
 	if (!Number.isInteger(index)) return;
 	nextTick(() => outputGridRef.value?.goToIndex(index));
