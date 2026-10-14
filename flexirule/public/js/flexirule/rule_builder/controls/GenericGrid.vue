@@ -1093,6 +1093,15 @@ defineExpose({
 	text-align: center;
 }
 
+.fxr-generic-grid-pagination,
+.fxr-generic-grid-page-actions {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: var(--fxr-space-2, 8px);
+	min-width: 0;
+}
+
 .fxr-generic-grid-pagination {
 	justify-content: space-between;
 	padding-top: var(--fxr-space-1, 4px);
