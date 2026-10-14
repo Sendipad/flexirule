@@ -45,12 +45,13 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 		rule = frappe.new_doc("Rule")
 		rule.rule_name = "test-system-rule"
 		rule.is_system_generated = 1
+		rule.description = "Original description"
 		before = frappe._dict(
-			is_system_generated=1,
-			rule_name="test-system-rule",
-			description="Original description",
-			is_active=0,
-			status="Disabled",
+			{
+				field.fieldname: rule.get(field.fieldname)
+				for field in rule.meta.fields
+				if field.fieldname
+			}
 		)
 		rule.description = "Modified description"
 
@@ -62,15 +63,17 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 		rule = frappe.new_doc("Rule")
 		rule.rule_name = "test-system-rule"
 		rule.is_system_generated = 1
+		rule.is_active = 0
+		rule.status = "Disabled"
+		before = frappe._dict(
+			{
+				field.fieldname: rule.get(field.fieldname)
+				for field in rule.meta.fields
+				if field.fieldname
+			}
+		)
 		rule.is_active = 1
 		rule.status = "Active"
-		before = frappe._dict(
-			is_system_generated=1,
-			rule_name="test-system-rule",
-			description="Original description",
-			is_active=0,
-			status="Disabled",
-		)
 		with patch.object(rule, "get_doc_before_save", return_value=before):
 			rule.validate_system_rule_protection()
 
