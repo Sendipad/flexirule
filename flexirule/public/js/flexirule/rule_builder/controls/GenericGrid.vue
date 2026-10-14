@@ -609,6 +609,13 @@ async function pasteRows() {
 	emit("paste", { rows: clonedRows, insertIndex });
 }
 
+function goToIndex(index) {
+	const targetIndex = Math.max(0, Math.floor(Number(index) || 0));
+	searchQuery.value = "";
+	if (props.pagination) currentPage.value = Math.floor(targetIndex / currentPageSize.value) + 1;
+	rootRef.value?.focus({ preventScroll: true });
+}
+
 function changePage(page) {
 	const nextPage = Math.max(1, Math.min(pageCount.value, Math.floor(Number(page) || 1)));
 	currentPage.value = nextPage;
@@ -717,6 +724,7 @@ defineExpose({
 	copySelectedRows,
 	pasteRows,
 	selectedRows,
+	goToIndex,
 });
 </script>
 
