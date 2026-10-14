@@ -189,15 +189,6 @@
 						:aria-label="searchPlaceholder || __('Search rows')"
 						@keydown.esc.stop.prevent="closeSearch"
 					/>
-					<button
-						type="button"
-						class="fxr-grid-icon-button"
-						:title="__('Close search')"
-						:aria-label="__('Close search')"
-						@click="closeSearch"
-					>
-						<i class="fa fa-times" aria-hidden="true"></i>
-					</button>
 				</div>
 				<slot name="secondary-actions"></slot>
 				<button
