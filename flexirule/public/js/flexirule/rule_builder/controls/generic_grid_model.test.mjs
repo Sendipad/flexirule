@@ -8,7 +8,7 @@ import {
 	parseClipboardRows,
 	rowMatchesSearch,
 	selectRangeKeys,
-} from "./generic_grid_model.js";
+} from "./generic_grid_model.mjs";
 
 const rows = [
 	{ id: "a", field: "title", kind: "field", meta: { label: "Title" } },
