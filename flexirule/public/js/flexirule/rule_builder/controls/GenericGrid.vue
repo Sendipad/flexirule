@@ -68,7 +68,7 @@
 							:aria-label="entry.row?.[editStateKey] ? __('Switch to readable row') : __('Edit row')"
 							@click="requestRowAction(entry.row?.[editStateKey] ? 'view' : 'edit', entry)"
 						>
-							<i :class="entry.row?.isEditing ? 'fa fa-check' : 'fa fa-pencil'" aria-hidden="true"></i>
+							<i :class="entry.row?.[editStateKey] ? 'fa fa-check' : 'fa fa-pencil'" aria-hidden="true"></i>
 						</button>
 						<div v-if="availableRowActions.includes('move')" class="fxr-generic-grid-reorder" :aria-label="__('Move row')">
 							<button
@@ -868,52 +868,6 @@ defineExpose({
 	outline-offset: 2px;
 }
 
-.fxr-generic-grid-toolbar,
-.fxr-generic-grid-toolbar-actions,
-.fxr-generic-grid-pagination,
-.fxr-generic-grid-page-actions {
-	display: flex;
-	align-items: center;
-	flex-wrap: wrap;
-	gap: var(--fxr-space-2, 8px);
-	min-width: 0;
-}
-
-.fxr-generic-grid-toolbar {
-	justify-content: space-between;
-	padding-bottom: var(--fxr-space-1, 4px);
-}
-
-.fxr-generic-grid-toolbar-actions {
-	margin-left: auto;
-}
-
-.fxr-generic-grid-search {
-	display: flex;
-	align-items: center;
-	gap: var(--fxr-space-2, 8px);
-	flex: 1 1 180px;
-	min-width: 0;
-	max-width: 340px;
-	padding: 0 var(--fxr-space-2, 8px);
-	border: 1px solid var(--fxr-border, #d1d5db);
-	border-radius: var(--fxr-radius-md, 6px);
-	background: var(--fxr-bg-input, #fff);
-	color: var(--fxr-text-muted, #6b7280);
-}
-
-.fxr-generic-grid-search input {
-	width: 100%;
-	min-width: 0;
-	height: 30px;
-	padding: 0;
-	border: 0;
-	outline: 0;
-	background: transparent;
-	color: var(--fxr-text, #111827);
-	font: inherit;
-	font-size: var(--fxr-text-sm, 12px);
-}
 
 .fxr-generic-grid-selection-count,
 .fxr-generic-grid-page-summary,
@@ -984,15 +938,6 @@ defineExpose({
 .fxr-generic-grid-row-index:focus-visible {
 	outline: 2px solid var(--fxr-border-focus, #3b82f6);
 	outline-offset: 1px;
-}
-
-.fxr-grid-button kbd {
-	padding: 1px 4px;
-	border: 1px solid var(--fxr-border-subtle, #d1d5db);
-	border-radius: 3px;
-	background: var(--fxr-surface-soft, #f9fafb);
-	font: inherit;
-	font-size: 10px;
 }
 
 .fxr-generic-grid-rows {
