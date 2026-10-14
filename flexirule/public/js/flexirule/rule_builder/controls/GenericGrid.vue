@@ -167,36 +167,47 @@
 		<div
 			v-if="pagination && filteredRows.length > currentPageSize"
 			class="fxr-generic-grid-pagination"
+			:aria-label="__('Grid pagination')"
 		>
-			<label class="fxr-generic-grid-page-size">
-				<span>{{ __("Rows per page") }}</span>
-				<select :value="currentPageSize" @change="changePageSize($event.target.value)">
-					<option v-for="size in availablePageSizes" :key="size" :value="size">
-						{{ size }}
-					</option>
-				</select>
-			</label>
-			<span class="fxr-generic-grid-page-summary">
-				{{ paginationSummary }}
-			</span>
-			<div class="fxr-generic-grid-page-actions">
+			<div class="fxr-generic-grid-pagination-info">
+				<label class="fxr-generic-grid-page-size">
+					<span>{{ __("Rows per page") }}</span>
+					<select
+						:value="currentPageSize"
+						:aria-label="__('Rows per page')"
+						@change="changePageSize($event.target.value)"
+					>
+						<option v-for="size in availablePageSizes" :key="size" :value="size">
+							{{ size }}
+						</option>
+					</select>
+				</label>
+				<span class="fxr-generic-grid-page-summary" aria-live="polite">
+					{{ paginationSummary }}
+				</span>
+			</div>
+			<div class="fxr-generic-grid-page-actions" :aria-label="__('Page navigation')">
 				<button
 					type="button"
 					class="fxr-grid-button fxr-grid-button--quiet"
+					:aria-label="__('Previous page')"
 					:disabled="currentPage <= 1"
 					@click="changePage(currentPage - 1)"
 				>
 					<i class="fa fa-chevron-left" aria-hidden="true"></i>
-					{{ __("Previous") }}
+					<span class="fxr-generic-grid-page-action-label">{{ __("Previous") }}</span>
 				</button>
-				<span>{{ currentPage }} / {{ pageCount }}</span>
+				<span class="fxr-generic-grid-page-indicator" aria-current="page">
+					{{ currentPage }} / {{ pageCount }}
+				</span>
 				<button
 					type="button"
 					class="fxr-grid-button fxr-grid-button--quiet"
+					:aria-label="__('Next page')"
 					:disabled="currentPage >= pageCount"
 					@click="changePage(currentPage + 1)"
 				>
-					{{ __("Next") }}
+					<span class="fxr-generic-grid-page-action-label">{{ __("Next") }}</span>
 					<i class="fa fa-chevron-right" aria-hidden="true"></i>
 				</button>
 			</div>
@@ -1695,39 +1706,77 @@ defineExpose({
 }
 
 .fxr-generic-grid-pagination,
+.fxr-generic-grid-pagination-info,
 .fxr-generic-grid-page-actions {
 	display: flex;
 	align-items: center;
-	flex-wrap: wrap;
-	gap: var(--fxr-space-2, 8px);
 	min-width: 0;
 }
 
 .fxr-generic-grid-pagination {
 	justify-content: space-between;
+	flex-wrap: wrap;
+	column-gap: var(--fxr-space-3, 12px);
+	row-gap: var(--fxr-space-1, 4px);
 	padding-top: var(--fxr-space-1, 4px);
+}
+
+.fxr-generic-grid-pagination-info {
+	flex: 1 1 auto;
+	flex-wrap: wrap;
+	column-gap: var(--fxr-space-3, 12px);
+	row-gap: var(--fxr-space-1, 4px);
 }
 
 .fxr-generic-grid-page-size {
 	display: inline-flex;
 	align-items: center;
-	gap: var(--fxr-space-2, 8px);
+	gap: var(--fxr-space-1, 4px);
 	color: var(--fxr-text-muted, #6b7280);
 	font-size: var(--fxr-text-xs, 11px);
+	white-space: nowrap;
 }
 
 .fxr-generic-grid-page-size select {
-	min-height: 27px;
-	padding: 2px 6px;
+	box-sizing: border-box;
+	height: 24px;
+	min-height: 24px;
+	padding: 0 5px;
 	border: 1px solid var(--fxr-border, #d1d5db);
 	border-radius: var(--fxr-radius-sm, 4px);
 	background: var(--fxr-bg-input, #fff);
 	color: var(--fxr-text, #111827);
 	font: inherit;
+	font-size: var(--fxr-text-xs, 11px);
+}
+
+.fxr-generic-grid-page-summary,
+.fxr-generic-grid-page-indicator {
+	color: var(--fxr-text-muted, #6b7280);
+	font-size: var(--fxr-text-xs, 11px);
+	line-height: 1.2;
+	white-space: nowrap;
 }
 
 .fxr-generic-grid-page-actions {
+	flex: 0 0 auto;
+	justify-content: flex-end;
+	gap: 2px;
 	margin-left: auto;
+}
+
+.fxr-generic-grid-page-actions .fxr-grid-button {
+	min-height: 24px;
+	padding: 1px 5px;
+	gap: 4px;
+	border-radius: var(--fxr-radius-sm, 4px);
+	font-size: var(--fxr-text-xs, 11px);
+	line-height: 1.2;
+}
+
+.fxr-generic-grid-page-indicator {
+	padding: 0 3px;
+	font-variant-numeric: tabular-nums;
 }
 
 .fxr-generic-grid-feedback {
@@ -1863,12 +1912,49 @@ defineExpose({
 	}
 
 	.fxr-generic-grid-pagination {
-		align-items: flex-start;
-		flex-direction: column;
+		align-items: center;
+		flex-direction: row;
+		column-gap: var(--fxr-space-2, 8px);
+		row-gap: 2px;
+	}
+
+	.fxr-generic-grid-pagination-info {
+		flex: 1 1 100%;
+		justify-content: space-between;
+		column-gap: var(--fxr-space-2, 8px);
+	}
+
+	.fxr-generic-grid-page-summary {
+		margin-left: auto;
+		text-align: right;
 	}
 
 	.fxr-generic-grid-page-actions {
+		width: 100%;
+		justify-content: center;
 		margin-left: 0;
+	}
+
+	.fxr-generic-grid-page-actions .fxr-grid-button {
+		min-width: 28px;
+		min-height: 24px;
+	}
+
+	.fxr-generic-grid-page-indicator {
+		min-width: 34px;
+		text-align: center;
+	}
+}
+
+@media (max-width: 420px) {
+	.fxr-generic-grid-page-action-label {
+		display: none;
+	}
+
+	.fxr-generic-grid-page-actions .fxr-grid-button {
+		width: 26px;
+		min-width: 26px;
+		padding: 0;
 	}
 }
 
