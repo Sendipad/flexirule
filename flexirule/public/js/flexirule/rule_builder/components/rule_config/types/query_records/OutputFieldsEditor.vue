@@ -1,12 +1,5 @@
 <template>
 	<div class="output-fields-editor">
-		<div v-if="!rows.length" class="output-fields-empty">
-			<i class="fa fa-list-ul"></i>
-			<span>{{
-				__("No output fields yet. Add a field or child selection to get started.")
-			}}</span>
-		</div>
-
 		<GenericGrid
 			class="output-fields-list"
 			:rows="rows"
@@ -24,7 +17,7 @@
 			@primary-action="handleGridPrimaryAction"
 			@update:rows="handlePastedRows"
 		>
-			<template #row="{ row, index }">
+			<template #row="{ row }">
 			<div class="output-field-row-content">
 				<div class="output-field-row-heading">
 					<div class="output-field-row-title">
@@ -223,9 +216,6 @@
 		</GenericGrid>
 
 		<div v-if="!readOnly" class="output-fields-add-actions">
-			<button type="button" class="output-fields-add-btn" @click="addField">
-				<i class="fa fa-plus"></i>{{ __("Add output field") }}
-			</button>
 			<button type="button" class="output-fields-add-btn" @click="addFunction">
 				<i class="fa fa-calculator"></i>{{ __("Add function") }}
 			</button>
@@ -418,11 +408,6 @@ function rowDescription(row) {
 	return __("Advanced native field expression");
 }
 
-function toggleEdit(row) {
-	if (props.readOnly) return;
-	row.isEditing = !row.isEditing;
-}
-
 function emitRows() {
 	validationErrors.value = [];
 	emit("update:modelValue", serializeOutputFields(rows.value));
@@ -530,7 +515,7 @@ function handlePastedRows(nextRows) {
 	if (props.readOnly || !Array.isArray(nextRows)) return;
 	rows.value = nextRows.map((row) => ({
 		...row,
-		isEditing: false,
+		isEditing: Boolean(row.isEditing),
 		childFieldOptions: Array.isArray(row.childFieldOptions) ? row.childFieldOptions : [],
 	}));
 	emitRows();
