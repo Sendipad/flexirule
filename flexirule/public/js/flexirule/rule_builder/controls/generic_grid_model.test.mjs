@@ -19,6 +19,9 @@ const rows = [
 
 assert.equal(getRowKey(rows[0], 0), "a");
 assert.equal(getRowKey({}, 4), "row-4");
+assert.equal(getRowKey(rows[1], 1, (row) => row.field), "customer_name");
+assert.equal(getRowKey(rows[1], 1, () => ""), "row-1");
+assert.equal(getRowKey(rows[1], 1, () => { throw new Error("resolver failure"); }), "row-1");
 assert.equal(getPathValue(rows[0], "meta.label"), "Title");
 assert.equal(rowMatchesSearch(rows[1], ["field", "meta.label"], "CUSTOMER"), true);
 assert.equal(rowMatchesSearch(rows[2], ["field", "meta.label"], "missing"), false);
