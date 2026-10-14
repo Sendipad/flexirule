@@ -175,9 +175,7 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 			ensure_system_rule(definition)
 
 		self.assertIn("unknown_provider_field", str(cm.exception))
-		self.assertFalse(
-			frappe.db.exists("Rule", {"rule_name": "SYSTEM_RULE_INVALID_CHILD_FIELD"})
-		)
+		self.assertFalse(frappe.db.exists("Rule", {"rule_name": "SYSTEM_RULE_INVALID_CHILD_FIELD"}))
 
 	def test_registry_batch_rolls_back_prior_documents_when_later_definition_fails(self):
 		first = self._system_definition("SYSTEM_RULE_BATCH_ROLLBACK")
