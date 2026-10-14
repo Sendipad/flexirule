@@ -213,11 +213,42 @@ jobs:
         env:
           CI: "Yes"
 
+      - name: Validate app and test package discovery
+        working-directory: /home/runner/frappe-bench
+        run: |
+          bench --site test_site execute frappe.get_installed_apps
+          python - <<'PY'
+          import importlib.util
+          from pathlib import Path
+
+          app_spec = importlib.util.find_spec("flexirule")
+          if app_spec is None or app_spec.origin is None:
+              raise SystemExit("FlexiRule Python package is not importable")
+
+          app_path = Path(app_spec.origin).parent
+          test_dirs = sorted(app_path.rglob("tests"))
+          if not test_dirs:
+              raise SystemExit(f"No tests directories found under {app_path}")
+
+          print(f"FlexiRule package: {app_path}")
+          print("Test directories:")
+          for test_dir in test_dirs:
+              print(f" - {test_dir.relative_to(app_path)}")
+          PY
+
+      - name: Migrate test site
+        working-directory: /home/runner/frappe-bench
+        run: bench --site test_site migrate
+        env:
+          TYPE: server
+
       - name: Run tests
         working-directory: /home/runner/frappe-bench
         run: |
           bench --site test_site set-config allow_tests true
-          bench --site test_site run-parallel-tests --app flexirule
+          # FlexiRule's tests are distributed across feature packages rather
+          # than a single flexirule.tests package; use Frappe's serial app runner.
+          bench --site test_site run-tests --app flexirule
         env:
           TYPE: server
 
