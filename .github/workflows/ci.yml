@@ -136,6 +136,7 @@ jobs:
                   npx --no-install eslint flexirule/public/js
                   node flexirule/public/js/flexirule/rule_builder/components/rule_config/query_filters/filter_operators.test.mjs
                   node flexirule/public/js/flexirule/rule_builder/controls/generic_grid_model.test.mjs
+                  node flexirule/public/js/flexirule/rule_builder/components/rule_config/types/query_records/output_fields_model.test.js
 
     tests:
         needs: changes
