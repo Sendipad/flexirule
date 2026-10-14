@@ -1,7 +1,18 @@
 export const GRID_CLIPBOARD_FORMAT = "flexirule-generic-grid";
 
 export function getRowKey(row, index, keyName = "id") {
-	const key = row && typeof row === "object" ? row[keyName] : undefined;
+	let key;
+	try {
+		key =
+			typeof keyName === "function"
+				? keyName(row, index)
+				: row && typeof row === "object"
+					? row[keyName]
+					: undefined;
+	} catch {
+		// A failing user key resolver must not break rendering; use the positional fallback.
+		key = undefined;
+	}
 	return key === null || key === undefined || key === "" ? "row-" + index : String(key);
 }
 
