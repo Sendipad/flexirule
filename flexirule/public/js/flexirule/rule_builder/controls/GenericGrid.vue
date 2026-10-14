@@ -29,7 +29,7 @@
 				:class="{
 					'is-selected': isSelected(entry.key),
 					'is-invalid': getInvalidState(entry.row, entry.index).invalid,
-					'is-editing': Boolean(entry.row?.isEditing),
+					'is-editing': Boolean(entry.row?.[editStateKey]),
 				}"
 				:aria-invalid="getInvalidState(entry.row, entry.index).invalid ? 'true' : undefined"
 				:title="getInvalidState(entry.row, entry.index).message || undefined"
@@ -64,9 +64,9 @@
 							v-if="availableRowActions.includes('edit')"
 							type="button"
 							class="fxr-grid-icon-button"
-							:title="entry.row?.isEditing ? __('Switch to readable row') + ' (' + editShortcut + ')' : __('Edit row') + ' (' + editShortcut + ')'"
-							:aria-label="entry.row?.isEditing ? __('Switch to readable row') : __('Edit row')"
-							@click="requestRowAction(entry.row?.isEditing ? 'view' : 'edit', entry)"
+							:title="entry.row?.[editStateKey] ? __('Switch to readable row') + ' (' + editShortcut + ')' : __('Edit row') + ' (' + editShortcut + ')'"
+							:aria-label="entry.row?.[editStateKey] ? __('Switch to readable row') : __('Edit row')"
+							@click="requestRowAction(entry.row?.[editStateKey] ? 'view' : 'edit', entry)"
 						>
 							<i :class="entry.row?.isEditing ? 'fa fa-check' : 'fa fa-pencil'" aria-hidden="true"></i>
 						</button>
@@ -176,6 +176,9 @@
 				<span v-if="selection && selectedRows.length" class="fxr-generic-grid-selection-count">
 					{{ selectedRows.length }} {{ __('selected') }}
 				</span>
+			</div>
+
+			<div class="fxr-generic-grid-footer-actions">
 				<div v-if="searchOpen" class="fxr-generic-grid-search-popover">
 					<i class="fa fa-search" aria-hidden="true"></i>
 					<input
@@ -196,9 +199,6 @@
 						<i class="fa fa-times" aria-hidden="true"></i>
 					</button>
 				</div>
-			</div>
-
-			<div class="fxr-generic-grid-footer-actions">
 				<slot name="secondary-actions"></slot>
 				<button
 					v-if="hasSearch && showSearch"
