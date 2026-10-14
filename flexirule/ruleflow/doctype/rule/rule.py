@@ -115,6 +115,35 @@ class Rule(Document):
 			elif status not in ("Error", "Invalid", "Disabled", "Archived"):
 				self.status = "Draft"
 
+	@staticmethod
+	def _system_rule_value_snapshot(value, field):
+		"""Normalize persisted business values without Frappe row metadata."""
+		if field.fieldtype in {"Table", "Table MultiSelect"}:
+			child_meta = frappe.get_meta(field.options)
+			rows = []
+			for row in value or []:
+				row_values = {}
+				for child_field in child_meta.fields:
+					child_fieldname = child_field.fieldname
+					if not child_fieldname:
+						continue
+					row_values[child_fieldname] = Rule._system_rule_value_snapshot(
+						row.get(child_fieldname), child_field
+					)
+				rows.append(row_values)
+			return rows
+
+		if field.fieldtype == "Check":
+			return bool(value)
+
+		if field.fieldtype in {"Code", "JSON"} and isinstance(value, str):
+			try:
+				return json.loads(value)
+			except (TypeError, ValueError):
+				return value
+
+		return value
+
 	def validate_system_rule_protection(self):
 		"""Protect app-managed definitions while allowing operators to disable them."""
 		if getattr(frappe.flags, "flexirule_system_rule_registration", False):
@@ -139,13 +168,9 @@ class Rule(Document):
 			fieldname = field.fieldname
 			if not fieldname or fieldname in {"is_active", "status"}:
 				continue
-			old_value = before.get(fieldname)
-			new_value = self.get(fieldname)
-			if field.fieldtype in {"Table", "Table MultiSelect"}:
-				changed = frappe.as_json(old_value or []) != frappe.as_json(new_value or [])
-			else:
-				changed = old_value != new_value
-			if changed:
+			old_value = self._system_rule_value_snapshot(before.get(fieldname), field)
+			new_value = self._system_rule_value_snapshot(self.get(fieldname), field)
+			if old_value != new_value:
 				frappe.throw(
 					_(
 						"System Rule '{0}' is app-managed; field '{1}' can only be changed by its source app."
