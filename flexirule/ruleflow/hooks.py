@@ -62,14 +62,15 @@ def get_excluded_doctypes() -> set[str]:
 		)
 		if user_excluded:
 			excluded.update([dt for dt in user_excluded if dt])
-		# FlexiRule definition/configuration DocTypes are eligible rule targets even
-		# if older installations seeded them into the excluded list.
-		excluded.difference_update(
-			{"Rule", "Rule Action", "Process", "Process Operation", "Data Review Task", "Data Review Related Document"}
-		)
 	except Exception:
 		# Table might not exist yet during install/migrate.
 		pass
+
+	# Always apply this override, even on fresh installs where the settings table
+	# is not available yet. Older sites may have seeded these into exclusions.
+	excluded.difference_update(
+		{"Rule", "Rule Action", "Process", "Process Operation", "Data Review Task", "Data Review Related Document"}
+	)
 
 	setattr(frappe.local, EXCLUDED_CACHE_KEY, excluded)
 	return excluded
