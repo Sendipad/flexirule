@@ -121,7 +121,9 @@ class Rule(Document):
 			return
 
 		before = self.get_doc_before_save()
-		is_system_rule = bool((before and before.get("is_system_generated")) or self.get("is_system_generated"))
+		is_system_rule = bool(
+			(before and before.get("is_system_generated")) or self.get("is_system_generated")
+		)
 		if not is_system_rule:
 			return
 
@@ -145,9 +147,9 @@ class Rule(Document):
 				changed = old_value != new_value
 			if changed:
 				frappe.throw(
-					_("System Rule '{0}' is app-managed; field '{1}' can only be changed by its source app.").format(
-						self.name or self.rule_name, fieldname
-					)
+					_(
+						"System Rule '{0}' is app-managed; field '{1}' can only be changed by its source app."
+				).format(self.name or self.rule_name, fieldname)
 				)
 
 	def validate(self):
