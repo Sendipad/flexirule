@@ -7,6 +7,7 @@ def after_install():
 	"""
 	setup_default_ruleflow_settings()
 	setup_action_types()
+	register_system_rules()
 
 
 def setup_action_types():
@@ -47,3 +48,10 @@ def setup_default_ruleflow_settings():
 			settings.append("excluded_doctypes", {"document_type": dt})
 
 	settings.save(ignore_permissions=True)
+
+
+def register_system_rules():
+	"""Register system-rule definitions supplied by FlexiRule or dependent apps."""
+	from flexirule.ruleflow.core.system_rule_registry import register_configured_system_rules
+
+	register_configured_system_rules()
