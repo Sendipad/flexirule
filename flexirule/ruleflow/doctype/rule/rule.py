@@ -326,10 +326,11 @@ class Rule(Document):
 				_("Cannot edit an Active Rule. Please set to 'Disabled' (Draft) before making changes.")
 			)
 
-		def before_insert(self):
-			self._ensure_version_lineage_fields()
-			self._initialize_default_graph()
-			self.ensure_start_node()
+	def before_insert(self):
+		"""Initialize the new Rule before validation."""
+		self._ensure_version_lineage_fields()
+		self._initialize_default_graph()
+		self.ensure_start_node()
 
 	def _initialize_default_graph(self):
 		"""
