@@ -86,9 +86,7 @@ def _field_values_match(current: Any, desired: Any, field) -> bool:
 						)
 					)
 				child_field = child_meta.get_field(child_fieldname)
-				if not _field_values_match(
-					current_row.get(child_fieldname), child_value, child_field
-				):
+				if not _field_values_match(current_row.get(child_fieldname), child_value, child_field):
 					return False
 		return True
 
@@ -100,7 +98,8 @@ def _field_values_match(current: Any, desired: Any, field) -> bool:
 
 	# Code/JSON and structured provider values are compared semantically so that
 	# harmless JSON whitespace or key ordering does not trigger a new Rule version.
-	if fieldtype in {"Code", "JSON"} or isinstance(desired, (Mapping, list, tuple)):
+	if fieldtype in {"Code", "JSON"} or isinstance(desired, Mapping | list | tuple):
+
 		def decode_json(value):
 			if not isinstance(value, str):
 				return value
@@ -219,9 +218,7 @@ def ensure_system_rule(definition: Mapping[str, Any]) -> str:
 			doc.save(ignore_permissions=True)
 			return doc.name
 
-		source_fields = {
-			fieldname: value for fieldname, value in fields.items() if fieldname != "rule_name"
-		}
+		source_fields = {fieldname: value for fieldname, value in fields.items() if fieldname != "rule_name"}
 		meta = frappe.get_meta("Rule")
 		has_source_changes = any(
 			not _field_values_match(doc.get(fieldname), value, meta.get_field(fieldname))
@@ -281,9 +278,7 @@ def register_configured_system_rules() -> list[str]:
 		if provided_definitions is None:
 			continue
 		if not isinstance(provided_definitions, list | tuple):
-			frappe.throw(
-				_("System Rule provider '{0}' must return a list or tuple.").format(provider_path)
-			)
+			frappe.throw(_("System Rule provider '{0}' must return a list or tuple.").format(provider_path))
 		definitions.extend(provided_definitions)
 
 	return ensure_system_rules(definitions)
