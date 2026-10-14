@@ -842,8 +842,7 @@ defineExpose({ validate });
 	color: var(--fxr-accent);
 }
 
-.output-fields-add-btn:focus-visible,
-.output-field-action:focus-visible {
+.output-fields-add-btn:focus-visible {
 	outline: none;
 	border-color: var(--fxr-border-focus);
 	box-shadow: var(--fxr-shadow-focus);
