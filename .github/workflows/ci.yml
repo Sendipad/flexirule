@@ -1,303 +1,336 @@
 name: CI
 
 on:
-    push:
-        branches:
-            - develop
-        paths-ignore:
-            - "docs/**"
-            - "docs-config/**"
-            - "landing-page/**"
-            - "architecture/**"
-            - "*.md"
-    pull_request:
-        paths-ignore:
-            - "docs/**"
-            - "docs-config/**"
-            - "landing-page/**"
-            - "architecture/**"
-            - "*.md"
-    workflow_dispatch:
+  push:
+    branches:
+      - develop
+      - feat/self-hosting-system-rules
+    paths-ignore:
+      - "docs/**"
+      - "docs-config/**"
+      - "landing-page/**"
+      - "architecture/**"
+      - "*.md"
+  pull_request:
+    paths-ignore:
+      - "docs/**"
+      - "docs-config/**"
+      - "landing-page/**"
+      - "architecture/**"
+      - "*.md"
+  workflow_dispatch:
 
+permissions:
+  contents: read
+  pull-requests: read
+
+# Keep only the newest run for a given PR or branch. Do not let unrelated
+# branch pushes cancel each other because pull_request.number is unavailable on push.
 concurrency:
-    group: develop-flexirule-${{ github.event.number }}
-    cancel-in-progress: true
+  group: flexirule-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
-    changes:
-        runs-on: ubuntu-latest
-        outputs:
-            frontend: ${{ steps.filter.outputs.frontend }}
-            backend: ${{ steps.filter.outputs.backend }}
-        steps:
-            - name: Clone
-              uses: actions/checkout@v4
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      backend: ${{ steps.filter.outputs.backend }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-            - uses: dorny/paths-filter@v3
-              id: filter
-              with:
-                  filters: |
-                      frontend:
-                        - 'flexirule/public/**'
-                        - 'flexirule/templates/**'
-                        - '**/*.js'
-                        - '**/*.vue'
-                        - '**/*.css'
-                        - '**/*.scss'
-                        - 'package.json'
-                        - 'package-lock.json'
-                        - 'yarn.lock'
-                        - 'requirements.txt'
-                        - 'pyproject.toml'
-                        - '.github/workflows/**'
-                      backend:
-                        - '**/*.py'
-                        - 'flexirule/**/*.json'
-                        - 'requirements.txt'
-                        - 'pyproject.toml'
-                        - 'package.json'
-                        - 'package-lock.json'
-                        - 'yarn.lock'
-                        - '.github/workflows/**'
+      - name: Detect changed areas
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            frontend:
+              - 'flexirule/public/**'
+              - 'flexirule/templates/**'
+              - '**/*.js'
+              - '**/*.vue'
+              - '**/*.css'
+              - '**/*.scss'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'yarn.lock'
+              - 'requirements.txt'
+              - 'pyproject.toml'
+              - '.github/workflows/**'
+            backend:
+              - '**/*.py'
+              - 'flexirule/**/*.json'
+              - 'requirements.txt'
+              - 'pyproject.toml'
+              - '.github/workflows/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'yarn.lock'
 
+  # This reusable workflow is the required gate for every expensive job below.
+  # Its lint, Semgrep, dependency-audit, and small JS unit-test jobs run without
+  # initializing a Frappe bench.
+  lint:
+    name: Lint and static quality gate
+    uses: ./.github/workflows/linter.yml
+    permissions:
+      contents: read
 
+  build:
+    needs: [changes, lint]
+    if: ${{ needs.changes.outputs.frontend == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    name: Frontend (Frappe 15)
 
-    build:
-        needs: changes
-        if: ${{ needs.changes.outputs.frontend == 'true' }}
-        runs-on: ubuntu-latest
-        name: Frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-        steps:
-            - name: Clone
-              uses: actions/checkout@v4
+      - name: Checkout Frappe 15 source
+        uses: actions/checkout@v4
+        with:
+          repository: frappe/frappe
+          ref: version-15
+          path: frappe-src
+          fetch-depth: 1
+          persist-credentials: false
 
-            - name: Setup Python
-              uses: actions/setup-python@v5
-              with:
-                  python-version: "3.10"
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            pyproject.toml
 
-            - name: Setup Node
-              uses: actions/setup-node@v4
-              with:
-                  node-version: 18
-                  check-latest: true
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: yarn
+          cache-dependency-path: yarn.lock
 
-            - name: Cache pip
-              uses: actions/cache@v4
-              with:
-                  path: ~/.cache/pip
-                  key: ${{ runner.os }}-pip-${{ hashFiles('**/*requirements.txt', '**/pyproject.toml', '**/setup.py', '**/setup.cfg') }}
-                  restore-keys: |
-                      ${{ runner.os }}-pip-
-                      ${{ runner.os }}-
+      - name: Setup Bench
+        run: |
+          python -m pip install frappe-bench
+          bench init --skip-redis-config-generation --skip-assets --python "$(which python)" --frappe-path "$GITHUB_WORKSPACE/frappe-src" ~/frappe-bench
 
-            - name: Get yarn cache directory path
-              id: yarn-cache-dir-path
-              run: 'echo "dir=$(yarn cache dir)" >> $GITHUB_OUTPUT'
+      - name: Install app and requirements
+        working-directory: /home/runner/frappe-bench
+        run: |
+          bench get-app flexirule "$GITHUB_WORKSPACE"
+          bench setup requirements --dev
+        env:
+          CI: "Yes"
 
-            - uses: actions/cache@v4
-              id: yarn-cache
-              with:
-                  path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
-                  key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
-                  restore-keys: |
-                      ${{ runner.os }}-yarn-
+      - name: Build
+        working-directory: /home/runner/frappe-bench
+        run: |
+          set -o pipefail
+          bench build --app flexirule --production 2>&1 | tee build_output.log
+        env:
+          CI: "Yes"
 
-            - name: Setup Bench
-              run: |
-                  pip install frappe-bench
-                  bench init --frappe-branch version-15 --skip-redis-config-generation --skip-assets --python "$(which python)" ~/frappe-bench
+      - name: Validate frontend sources
+        working-directory: /home/runner/frappe-bench/apps/flexirule
+        run: npx --no-install eslint flexirule/public/js
 
-            - name: Install App
-              working-directory: /home/runner/frappe-bench
-              run: |
-                  bench get-app flexirule $GITHUB_WORKSPACE
-                  bench setup requirements --dev
-              env:
-                  CI: "Yes"
+  tests:
+    needs: [changes, lint]
+    if: ${{ needs.changes.outputs.backend == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    name: Server tests (Frappe 15)
 
-            - name: Build
-              working-directory: /home/runner/frappe-bench
-              run: |
-                  set -o pipefail
-                  bench build --app flexirule --production 2>&1 | tee build_output.log
-                  if grep -qiE "ERROR|Build failed" build_output.log; then
-                    echo "::error::Build failed detected in logs!"
-                    exit 1
-                  fi
-              env:
-                  CI: "Yes"
+    services:
+      redis-cache:
+        image: redis:7-alpine
+        ports:
+          - 13000:6379
+      redis-queue:
+        image: redis:7-alpine
+        ports:
+          - 11000:6379
+      mariadb:
+        image: mariadb:10.6.24
+        env:
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: --health-cmd="mariadb-admin ping" --health-interval=5s --health-timeout=2s --health-retries=3
 
-            - name: Validate all frontend sources
-              working-directory: /home/runner/frappe-bench/apps/flexirule
-              run: |
-                  set -e
-                  npx --no-install eslint flexirule/public/js
-                  node flexirule/public/js/flexirule/rule_builder/components/rule_config/query_filters/filter_operators.test.mjs
-                  node flexirule/public/js/flexirule/rule_builder/controls/generic_grid_model.test.mjs
-                  node flexirule/public/js/flexirule/rule_builder/components/rule_config/types/query_records/output_field_info.test.mjs
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    tests:
-        needs: changes
-        if: ${{ needs.changes.outputs.backend == 'true' }}
-        runs-on: ubuntu-latest
-        strategy:
-            fail-fast: false
-        name: Server (Frappe 15)
+      - name: Checkout Frappe 15 source
+        uses: actions/checkout@v4
+        with:
+          repository: frappe/frappe
+          ref: version-15
+          path: frappe-src
+          fetch-depth: 1
+          persist-credentials: false
 
-        services:
-            redis-cache:
-                image: redis:alpine
-                ports:
-                    - 13000:6379
-            redis-queue:
-                image: redis:alpine
-                ports:
-                    - 11000:6379
-            mariadb:
-                image: mariadb:10.6
-                env:
-                    MYSQL_ROOT_PASSWORD: root
-                ports:
-                    - 3306:3306
-                options: --health-cmd="mariadb-admin ping" --health-interval=5s --health-timeout=2s --health-retries=3
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            pyproject.toml
 
-        steps:
-            - name: Clone
-              uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: yarn
+          cache-dependency-path: yarn.lock
 
-            - name: Find tests
-              run: |
-                  echo "Finding tests"
-                  grep -rn "def test" > /dev/null
+      - name: Install MariaDB client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mariadb-client
 
-            - name: Setup Python
-              uses: actions/setup-python@v5
-              with:
-                  python-version: "3.10"
+      - name: Initialize Bench and database
+        run: |
+          python -m pip install frappe-bench
+          bench init --skip-redis-config-generation --skip-assets --python "$(which python)" --frappe-path "$GITHUB_WORKSPACE/frappe-src" ~/frappe-bench
+          mariadb --host 127.0.0.1 --port 3306 -u root -proot -e "SET GLOBAL character_set_server = 'utf8mb4'"
+          mariadb --host 127.0.0.1 --port 3306 -u root -proot -e "SET GLOBAL collation_server = 'utf8mb4_unicode_ci'"
 
-            - name: Setup Node
-              uses: actions/setup-node@v4
-              with:
-                  node-version: 18
-                  check-latest: true
+      - name: Install app and create test site
+        working-directory: /home/runner/frappe-bench
+        run: |
+          bench get-app flexirule "$GITHUB_WORKSPACE"
+          bench setup requirements --dev
+          bench new-site --db-root-password root --admin-password admin test_site
+          bench --site test_site install-app flexirule
+        env:
+          CI: "Yes"
 
-            - name: Cache pip
-              uses: actions/cache@v4
-              with:
-                  path: ~/.cache/pip
-                  key: ${{ runner.os }}-pip-${{ hashFiles('**/*requirements.txt', '**/pyproject.toml', '**/setup.py', '**/setup.cfg') }}
-                  restore-keys: |
-                      ${{ runner.os }}-pip-
-                      ${{ runner.os }}-
+      - name: Validate app and test package discovery
+        working-directory: /home/runner/frappe-bench
+        run: |
+          bench --site test_site execute frappe.get_installed_apps
+          ./env/bin/python - <<'PY'
+          import importlib.util
+          from pathlib import Path
 
-            - name: Get yarn cache directory path
-              id: yarn-cache-dir-path
-              run: 'echo "dir=$(yarn cache dir)" >> $GITHUB_OUTPUT'
+          app_spec = importlib.util.find_spec("flexirule")
+          if app_spec is None or app_spec.origin is None:
+              raise SystemExit("FlexiRule Python package is not importable")
 
-            - uses: actions/cache@v4
-              id: yarn-cache
-              with:
-                  path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
-                  key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
-                  restore-keys: |
-                      ${{ runner.os }}-yarn-
+          app_path = Path(app_spec.origin).parent
+          test_dirs = sorted(app_path.rglob("tests"))
+          if not test_dirs:
+              raise SystemExit(f"No tests directories found under {app_path}")
 
-            - name: Install MariaDB Client
-              run: |
-                  sudo apt-get update
-                  sudo apt-get install -y mariadb-client
+          print(f"FlexiRule package: {app_path}")
+          print("Test directories:")
+          for test_dir in test_dirs:
+              print(f" - {test_dir.relative_to(app_path)}")
+          PY
 
-            - name: Setup
-              run: |
-                  pip install frappe-bench
-                  bench init --frappe-branch version-15 --skip-redis-config-generation --skip-assets --python "$(which python)" ~/frappe-bench
-                  mariadb --host 127.0.0.1 --port 3306 -u root -proot -e "SET GLOBAL character_set_server = 'utf8mb4'"
-                  mariadb --host 127.0.0.1 --port 3306 -u root -proot -e "SET GLOBAL collation_server = 'utf8mb4_unicode_ci'"
+      - name: Migrate test site
+        working-directory: /home/runner/frappe-bench
+        run: bench --site test_site migrate
+        env:
+          TYPE: server
 
-            - name: Install
-              working-directory: /home/runner/frappe-bench
-              run: |
-                  bench get-app flexirule $GITHUB_WORKSPACE
-                  bench setup requirements --dev
-                  bench new-site --db-root-password root --admin-password admin test_site
-                  bench --site test_site install-app flexirule
-              env:
-                  CI: "Yes"
+      - name: Run tests
+        working-directory: /home/runner/frappe-bench
+        run: |
+          bench --site test_site set-config allow_tests true
+          # FlexiRule's tests are distributed across feature packages rather
+          # than a single flexirule.tests package; use Frappe's serial app runner.
+          bench --site test_site run-tests --app flexirule
+        env:
+          TYPE: server
 
-            - name: Run Tests
-              working-directory: /home/runner/frappe-bench
-              run: |
-                  bench --site test_site set-config allow_tests true
-                  bench --site test_site run-tests --app flexirule
-              env:
-                  TYPE: server
+  tests_frappe_16_nested_set:
+    needs: [changes, lint]
+    if: ${{ needs.changes.outputs.backend == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    name: Nested-set integration (Frappe 16)
 
-    tests_frappe_16_nested_set:
-        needs: changes
-        if: ${{ needs.changes.outputs.backend == 'true' }}
-        runs-on: ubuntu-latest
-        name: Nested-set integration (Frappe 16)
+    services:
+      redis-cache:
+        image: redis:7-alpine
+        ports:
+          - 13000:6379
+      redis-queue:
+        image: redis:7-alpine
+        ports:
+          - 11000:6379
+      mariadb:
+        image: mariadb:11.8
+        env:
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: --health-cmd="mariadb-admin ping" --health-interval=5s --health-timeout=2s --health-retries=3
 
-        services:
-            redis-cache:
-                image: redis:alpine
-                ports:
-                    - 13000:6379
-            redis-queue:
-                image: redis:alpine
-                ports:
-                    - 11000:6379
-            mariadb:
-                image: mariadb:11.8
-                env:
-                    MYSQL_ROOT_PASSWORD: root
-                ports:
-                    - 3306:3306
-                options: --health-cmd="mariadb-admin ping" --health-interval=5s --health-timeout=2s --health-retries=3
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-        steps:
-            - name: Clone
-              uses: actions/checkout@v4
+      - name: Checkout Frappe 16 source
+        uses: actions/checkout@v4
+        with:
+          repository: frappe/frappe
+          ref: version-16
+          path: frappe-src
+          fetch-depth: 1
+          persist-credentials: false
 
-            - name: Setup Python
-              uses: actions/setup-python@v5
-              with:
-                  python-version: "3.14"
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            pyproject.toml
 
-            - name: Setup Node
-              uses: actions/setup-node@v4
-              with:
-                  node-version: 24
-                  check-latest: true
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: yarn
+          cache-dependency-path: yarn.lock
 
-            - name: Install MariaDB Client
-              run: |
-                  sudo apt-get update
-                  sudo apt-get install -y mariadb-client
+      - name: Install MariaDB client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mariadb-client
 
-            - name: Setup
-              run: |
-                  pip install frappe-bench
-                  bench init --frappe-branch version-16 --skip-redis-config-generation --skip-assets --python "$(which python)" ~/frappe-bench
-                  mariadb --host 127.0.0.1 --port 3306 -u root -proot -e "SET GLOBAL character_set_server = 'utf8mb4'"
-                  mariadb --host 127.0.0.1 --port 3306 -u root -proot -e "SET GLOBAL collation_server = 'utf8mb4_unicode_ci'"
+      - name: Initialize Bench and database
+        run: |
+          python -m pip install frappe-bench
+          bench init --skip-redis-config-generation --skip-assets --python "$(which python)" --frappe-path "$GITHUB_WORKSPACE/frappe-src" ~/frappe-bench
+          mariadb --host 127.0.0.1 --port 3306 -u root -proot -e "SET GLOBAL character_set_server = 'utf8mb4'"
+          mariadb --host 127.0.0.1 --port 3306 -u root -proot -e "SET GLOBAL collation_server = 'utf8mb4_unicode_ci'"
 
-            - name: Install
-              working-directory: /home/runner/frappe-bench
-              run: |
-                  bench get-app flexirule $GITHUB_WORKSPACE
-                  bench setup requirements --dev
-                  bench new-site --db-root-password root --admin-password admin test_site
-                  bench --site test_site install-app flexirule
-              env:
-                  CI: "Yes"
+      - name: Install app and create test site
+        working-directory: /home/runner/frappe-bench
+        run: |
+          bench get-app flexirule "$GITHUB_WORKSPACE"
+          bench setup requirements --dev
+          bench new-site --db-root-password root --admin-password admin test_site
+          bench --site test_site install-app flexirule
+        env:
+          CI: "Yes"
 
-            - name: Run nested-set integration tests
-              working-directory: /home/runner/frappe-bench
-              run: |
-                  bench --site test_site set-config allow_tests true
-                  bench --site test_site run-tests --module flexirule.ruleflow.tests.test_fetch_records_tree_operators
-              env:
-                  TYPE: server
+      - name: Run nested-set integration tests
+        working-directory: /home/runner/frappe-bench
+        run: |
+          bench --site test_site set-config allow_tests true
+          bench --site test_site run-tests --module flexirule.ruleflow.tests.test_fetch_records_tree_operators
+        env:
+          TYPE: server
