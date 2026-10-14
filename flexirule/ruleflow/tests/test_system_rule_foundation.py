@@ -212,12 +212,19 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 
 	def test_registry_batch_rolls_back_prior_documents_when_later_definition_fails(self):
 		first = self._system_definition("SYSTEM_RULE_BATCH_ROLLBACK")
-		invalid = {"description": "Missing stable rule name"}
+		invalid = self._system_definition("SYSTEM_RULE_BATCH_ROLLBACK_INVALID")
+		invalid["trigger_type"] = "Not A Trigger Type"
+		previous_flag = getattr(frappe.flags, "flexirule_system_rule_registration", False)
 
 		with self.assertRaises(frappe.ValidationError):
 			ensure_system_rules([first, invalid])
 
 		self.assertFalse(frappe.db.exists("Rule", {"rule_name": "SYSTEM_RULE_BATCH_ROLLBACK"}))
+		self.assertFalse(frappe.db.exists("Rule", {"rule_name": "SYSTEM_RULE_BATCH_ROLLBACK_INVALID"}))
+		self.assertEqual(
+			getattr(frappe.flags, "flexirule_system_rule_registration", False),
+			previous_flag,
+		)
 
 	def test_configured_provider_hook_registers_rules(self):
 		definition = self._system_definition("SYSTEM_RULE_PROVIDER_TEST")
