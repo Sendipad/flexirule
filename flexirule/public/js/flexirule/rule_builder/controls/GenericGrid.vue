@@ -202,7 +202,11 @@
 			</div>
 		</div>
 
-		<div v-if="showToolbar" class="fxr-generic-grid-footer">
+		<div
+			v-if="showToolbar"
+			class="fxr-generic-grid-footer"
+			:class="{ 'has-open-search': searchOpen }"
+		>
 			<div class="fxr-generic-grid-footer-primary">
 				<button
 					v-if="activePrimaryAction && !readOnly"
@@ -1768,39 +1772,121 @@ defineExpose({
 	}
 }
 
+/* Compact, consistently sized controls across all footer action groups. */
+.fxr-generic-grid-footer .fxr-grid-button {
+	box-sizing: border-box;
+	min-height: 30px;
+	padding: 0 var(--fxr-space-2, 8px);
+	line-height: 1.2;
+	white-space: nowrap;
+}
+
+.fxr-generic-grid-footer .fxr-grid-icon-button {
+	box-sizing: border-box;
+	flex: 0 0 30px;
+	width: 30px;
+	height: 30px;
+	min-height: 30px;
+	padding: 0;
+}
+
+.fxr-generic-grid-bulk-actions {
+	gap: var(--fxr-space-1, 4px);
+}
+
+.fxr-generic-grid-selection-count {
+	margin-right: var(--fxr-space-1, 4px);
+}
+
+.fxr-generic-grid-footer-actions {
+	gap: var(--fxr-space-1, 4px);
+}
+
 @media (max-width: 600px) {
 	.fxr-generic-grid-footer {
-		align-items: flex-end;
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		grid-template-areas:
+			"primary tools"
+			"bulk bulk";
+		align-items: center;
+		column-gap: var(--fxr-space-2, 8px);
+		row-gap: var(--fxr-space-2, 8px);
 	}
+
+	.fxr-generic-grid-footer-primary {
+		grid-area: primary;
+		min-width: 0;
+	}
+
+	.fxr-generic-grid-bulk-actions {
+		grid-area: bulk;
+		flex-basis: auto;
+		width: 100%;
+		min-width: 0;
+		order: unset;
+		flex-wrap: wrap;
+		padding-top: var(--fxr-space-2, 8px);
+		border-top: 1px solid var(--fxr-border-subtle, #e5e7eb);
+	}
+
 	.fxr-generic-grid-footer-actions {
-		gap: 4px;
+		grid-area: tools;
+		width: auto;
+		max-width: 100%;
+		min-width: 0;
+		margin-left: 0;
+		justify-content: flex-end;
+		order: unset;
 	}
+
+	.fxr-generic-grid-footer.has-open-search {
+		grid-template-columns: minmax(0, 1fr);
+		grid-template-areas:
+			"primary"
+			"tools"
+			"bulk";
+	}
+
+	.fxr-generic-grid-footer.has-open-search .fxr-generic-grid-footer-actions {
+		justify-content: stretch;
+	}
+
+	.fxr-generic-grid-footer.has-open-search .fxr-generic-grid-search-popover {
+		flex: 1 1 auto;
+		min-width: 0;
+		max-width: none;
+	}
+
 	.fxr-generic-grid-row-actions {
 		gap: 0;
 	}
+
 	.fxr-generic-grid-pagination {
 		align-items: flex-start;
 		flex-direction: column;
 	}
+
 	.fxr-generic-grid-page-actions {
 		margin-left: 0;
 	}
+}
+
+@media (max-width: 360px) {
 	.fxr-generic-grid-footer {
-		align-items: flex-start;
+		grid-template-columns: minmax(0, 1fr);
+		grid-template-areas:
+			"primary"
+			"tools"
+			"bulk";
 	}
+
 	.fxr-generic-grid-footer-actions {
-		width: 100%;
-		justify-content: flex-end;
+		justify-content: flex-start;
 	}
+
 	.fxr-generic-grid-bulk-actions {
-		flex-basis: 100%;
-		order: 3;
-	}
-	.fxr-generic-grid-footer-primary {
-		order: 1;
-	}
-	.fxr-generic-grid-footer-actions {
-		order: 2;
+		align-items: flex-start;
 	}
 }
 </style>
