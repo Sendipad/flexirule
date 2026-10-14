@@ -332,6 +332,7 @@ import {
 	GRID_CLIPBOARD_FORMAT,
 	getRowKey,
 	getBulkEditAction,
+	matchesShortcut,
 	paginateRows,
 	parseClipboardRows,
 	rowMatchesSearch,
@@ -914,28 +915,6 @@ function isInputTarget(target) {
 		target?.closest?.(
 			"input, textarea, select, [contenteditable='true'], [role='textbox'], [role='combobox']"
 		)
-	);
-}
-
-function matchesShortcut(event, shortcut) {
-	const keys = String(shortcut || "")
-		.toLowerCase()
-		.split("+")
-		.map((key) => key.trim())
-		.filter(Boolean);
-	if (!keys.length) return false;
-
-	const key = keys[keys.length - 1];
-	const wantsAlt = keys.includes("alt");
-	const wantsCtrl = keys.includes("ctrl") || keys.includes("control");
-	const wantsMeta = keys.includes("cmd") || keys.includes("meta") || keys.includes("command");
-	const wantsShift = keys.includes("shift");
-	return (
-		event.key.toLowerCase() === key &&
-		Boolean(event.altKey) === wantsAlt &&
-		Boolean(event.ctrlKey) === wantsCtrl &&
-		Boolean(event.metaKey) === wantsMeta &&
-		Boolean(event.shiftKey) === wantsShift
 	);
 }
 
