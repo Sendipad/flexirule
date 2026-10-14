@@ -239,7 +239,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import {
 	GRID_CLIPBOARD_FORMAT,
 	getRowKey,
@@ -256,9 +256,9 @@ const props = defineProps({
 	modelValue: { type: Array, default: null },
 	rowKey: { type: String, default: "id" },
 	rowComponent: { type: [Object, Function, String], default: null },
-	rowProps: { type: [Object, Function], default: () => ({}) },
+	rowProps: { type: [Object, Function], default: null },
 	rowInvalid: { type: [Function, Array], default: null },
-	searchableFields: { type: [Array, Function], default: () => [] },
+	searchableFields: { type: [Array, Function], default: null },
 	searchPlaceholder: { type: String, default: "" },
 	minColumnWidth: { type: String, default: "240px" },
 	gap: { type: String, default: "var(--fxr-space-3, 12px)" },
@@ -382,11 +382,29 @@ watch(currentPageSize, () => {
 	currentPage.value = 1;
 });
 watch(
+	() => props.pageSize,
+	(value) => {
+		const nextSize = normalizePageSize(value);
+		if (nextSize !== currentPageSize.value) currentPageSize.value = nextSize;
+	}
+);
+watch(
 	() => filteredRows.value.length,
 	() => {
 		if (currentPage.value > pageCount.value) currentPage.value = pageCount.value;
 	}
 );
+onMounted(() => {
+	if (typeof window === "undefined") return;
+	window.addEventListener("pointerup", endDragSelection);
+	window.addEventListener("pointercancel", endDragSelection);
+});
+onBeforeUnmount(() => {
+	if (typeof window === "undefined") return;
+	window.removeEventListener("pointerup", endDragSelection);
+	window.removeEventListener("pointercancel", endDragSelection);
+});
+
 watch(
 	() => sourceRows.value.map((entry) => entry.key),
 	(keys) => {
@@ -882,13 +900,17 @@ defineExpose({
 .fxr-generic-grid-rows {
 	display: flex;
 	flex-direction: column;
-	gap: var(--fxr-space-2, 6px);
+	gap: var(--fxr-space-3, 12px);
 	min-width: 0;
+}
+
+.fxr-generic-grid-data.is-compact .fxr-generic-grid-rows {
+	gap: var(--fxr-space-1, 4px);
 }
 
 .fxr-generic-grid-row {
 	min-width: 0;
-	padding: var(--fxr-space-2, 8px);
+	padding: var(--fxr-space-3, 12px);
 	border: 1px solid var(--fxr-border-subtle, #e5e7eb);
 	border-radius: var(--fxr-radius-md, 6px);
 	background: var(--fxr-surface, #fff);
