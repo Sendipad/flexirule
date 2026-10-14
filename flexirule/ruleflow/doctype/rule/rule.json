@@ -10,6 +10,7 @@
   "description",
   "column_break_scgd",
   "is_active",
+  "is_system_generated",
   "priority",
   "trigger_conditions_section",
   "trigger_type",
@@ -44,7 +45,8 @@
   "previous_version",
   "version",
   "section_break_error",
-  "last_error"
+  "last_error",
+  "system_rule_version"
  ],
  "fields": [
   {
@@ -81,6 +83,16 @@
    "in_standard_filter": 1,
    "label": "Is Active",
    "no_copy": 1
+  },
+  {
+   "fieldname": "is_system_generated",
+   "fieldtype": "Check",
+   "label": "System Generated",
+   "default": "0",
+   "read_only": 1,
+   "hidden": 1,
+   "no_copy": 1,
+   "description": "Managed by FlexiRule's system-rule registry."
   },
   {
    "allow_in_quick_entry": 1,
@@ -355,6 +367,16 @@
    "label": "Last Error",
    "no_copy": 1,
    "read_only": 1
+  },
+  {
+   "fieldname": "system_rule_version",
+   "fieldtype": "Int",
+   "label": "System Rule Source Version",
+   "default": "0",
+   "read_only": 1,
+   "hidden": 1,
+   "no_copy": 1,
+   "description": "Source definition version used to update app-managed system rules."
   }
  ],
  "index_web_pages_for_search": 1,
