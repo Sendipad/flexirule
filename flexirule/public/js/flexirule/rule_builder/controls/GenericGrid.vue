@@ -942,6 +942,8 @@ function handleKeydown(event) {
 	if (!isDataGrid.value || props.readOnly && event.altKey && event.key === "Enter") return;
 
 	const target = event.target;
+	// Menu keyboard events belong to the open menu, not the grid's row shortcuts.
+	if (target?.closest?.(".fxr-grid-menu")) return;
 	if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "c") {
 		if (!isInputTarget(target) && props.selection && selectedRows.value.length) {
 			event.preventDefault();
