@@ -259,10 +259,10 @@ import {
 	AGGREGATE_FUNCTIONS,
 	humanizeAlias,
 	parseOutputFields,
-	resolveFieldInfo,
 	serializeOutputFields,
 	validateOutputFields,
 } from "./output_fields_model.js";
+import { resolveFieldInfo } from "./output_field_info.mjs";
 import OutputFieldPicker from "./OutputFieldPicker.vue";
 
 const props = defineProps({
