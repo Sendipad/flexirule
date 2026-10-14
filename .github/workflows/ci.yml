@@ -135,6 +135,7 @@ jobs:
                   set -e
                   npx --no-install eslint flexirule/public/js
                   node flexirule/public/js/flexirule/rule_builder/components/rule_config/query_filters/filter_operators.test.mjs
+                  node flexirule/public/js/flexirule/rule_builder/controls/generic_grid_model.test.mjs
 
     tests:
         needs: changes
