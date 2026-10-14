@@ -3,6 +3,7 @@ import {
 	GRID_CLIPBOARD_FORMAT,
 	buildRowProps,
 	getPathValue,
+	getBulkEditAction,
 	getRowKey,
 	paginateRows,
 	parseClipboardRows,
@@ -66,4 +67,13 @@ assert.equal(resolvedRowProps.readOnly, false);
 assert.equal(
 	buildRowProps(rows[1], 3, (row, index) => ({ label: row.meta.label, rowIndex: index })).rowIndex,
 	3
+);
+
+assert.equal(getBulkEditAction([]), null);
+assert.equal(getBulkEditAction([{ isEditing: true }, { isEditing: true }]), "view");
+assert.equal(getBulkEditAction([{ isEditing: false }, { isEditing: false }]), "edit");
+assert.equal(getBulkEditAction([{ isEditing: true }, { isEditing: false }]), "edit");
+assert.equal(
+	getBulkEditAction([{ mode: "editing" }, { mode: "editing" }], "mode"),
+	"view"
 );
