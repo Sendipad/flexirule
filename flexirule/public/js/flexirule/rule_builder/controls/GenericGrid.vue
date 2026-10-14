@@ -248,7 +248,7 @@ import {
 	rowMatchesSearch,
 	buildRowProps,
 	selectRangeKeys,
-} from "./generic_grid_model.js";
+} from "./generic_grid_model.mjs";
 
 const props = defineProps({
 	// Use the default slot for layout-only mode, or provide rows/modelValue for a data grid.
