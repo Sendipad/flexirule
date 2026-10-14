@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
 	GRID_CLIPBOARD_FORMAT,
+	buildRowProps,
 	getPathValue,
 	getRowKey,
 	paginateRows,
@@ -49,4 +50,20 @@ assert.deepEqual(
 assert.deepEqual(
 	parseClipboardRows(JSON.stringify({ format: GRID_CLIPBOARD_FORMAT, version: 2, rows })),
 	[]
+);
+
+const customRowProps = { doctype: "Sales Invoice", variableOptions: ["customer"], showValidation: true };
+const resolvedRowProps = buildRowProps(rows[0], 0, customRowProps, true, false, false);
+assert.equal(resolvedRowProps.doctype, "Sales Invoice");
+assert.deepEqual(resolvedRowProps.variableOptions, ["customer"]);
+assert.equal(resolvedRowProps.showValidation, true);
+assert.equal(resolvedRowProps.row, rows[0]);
+assert.equal(resolvedRowProps.modelValue, rows[0]);
+assert.equal(resolvedRowProps.index, 0);
+assert.equal(resolvedRowProps.selected, true);
+assert.equal(resolvedRowProps.invalid, false);
+assert.equal(resolvedRowProps.readOnly, false);
+assert.equal(
+	buildRowProps(rows[1], 3, (row, index) => ({ label: row.meta.label, rowIndex: index })).rowIndex,
+	3
 );
