@@ -1,15 +1,60 @@
-"""Regression tests for system-rule foundation and Rule lifecycle hooks."""
+"""Regression tests for system-rule registration and Rule lifecycle hooks."""
 
 from unittest.mock import patch
 
 import frappe
 
+from flexirule.ruleflow.core.system_rule_registry import (
+	ensure_system_rule,
+	ensure_system_rules,
+	register_configured_system_rules,
+)
 from flexirule.ruleflow.doctype.rule.rule import Rule
-from flexirule.ruleflow.hooks import get_excluded_doctypes
+from flexirule.ruleflow.hooks import execute_rules_from_event, get_excluded_doctypes
 from flexirule.ruleflow.tests.test_case import FlexiRuleTestCase
+from flexirule.ruleflow.tests.test_doctypes import setup_test_doctypes
 
 
 class TestSystemRuleFoundation(FlexiRuleTestCase):
+	def _system_definition(self, rule_name, description="Managed definition"):
+		"""Build a realistic, versioned callable Rule definition for registry tests."""
+		setup_test_doctypes()
+		return {
+			"rule_name": rule_name,
+			"description": description,
+			"module": "Ruleflow",
+			"document_type": "Test Contact",
+			"trigger_type": "Callable Event",
+			"trigger_event": None,
+			"exposed_as_subrule": 1,
+			"priority": "0",
+			"max_execution_time": 30,
+			"is_active": 1,
+			"status": "Active",
+			"actions": [
+				{
+					"action_id": "root",
+					"action_type": "Entry Action",
+					"action_label": "Start",
+					"is_enabled": 1,
+					"next_step_if_true": "stop_node",
+				},
+				{
+					"action_id": "stop_node",
+					"action_type": "Stop",
+					"action_label": "Stop",
+					"is_enabled": 1,
+					"operation": "Success",
+				},
+			],
+		}
+
+	def _activate(self, rule_name):
+		rule = frappe.get_doc("Rule", rule_name)
+		rule.is_active = 1
+		rule.save(ignore_permissions=True)
+		return frappe.get_doc("Rule", rule_name)
+
 	def test_before_insert_is_a_rule_controller_hook(self):
 		# Frappe discovers controller lifecycle methods from the class, not from
 		# nested function definitions inside another method.
@@ -20,6 +65,166 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 		meta = frappe.get_meta("Rule")
 		self.assertTrue(meta.has_field("is_system_generated"))
 		self.assertFalse(meta.has_field("system_rule_version"))
+
+	def test_first_registration_is_draft_and_repeat_registration_is_a_noop(self):
+		definition = self._system_definition("SYSTEM_RULE_REGISTRY_TEST")
+		definition_name = ensure_system_rule(definition)
+
+		rule = frappe.get_doc("Rule", definition_name)
+		self.assertTrue(rule.is_system_generated)
+		self.assertEqual(rule.status, "Draft")
+		self.assertFalse(rule.is_active)
+		modified = rule.modified
+
+		self.assertEqual(ensure_system_rule(definition), definition_name)
+		rule.reload()
+		self.assertEqual(rule.modified, modified)
+		self.assertEqual(rule.status, "Draft")
+		self.assertFalse(rule.is_active)
+
+	def test_unchanged_active_system_rule_is_not_saved_again(self):
+		definition = self._system_definition("SYSTEM_RULE_ACTIVE_NOOP")
+		rule_name = ensure_system_rule(definition)
+		rule = self._activate(rule_name)
+		modified = rule.modified
+
+		self.assertEqual(ensure_system_rule(definition), rule_name)
+		rule.reload()
+		self.assertTrue(rule.is_active)
+		self.assertEqual(rule.modified, modified)
+
+	def test_source_change_amends_active_system_rule_without_mutating_it(self):
+		definition = self._system_definition("SYSTEM_RULE_ACTIVE_AMEND")
+		old_name = ensure_system_rule(definition)
+		old_rule = self._activate(old_name)
+		old_description = old_rule.description
+
+		updated = self._system_definition("SYSTEM_RULE_ACTIVE_AMEND", "Updated source definition")
+		new_name = ensure_system_rule(updated)
+		old_rule.reload()
+		new_rule = frappe.get_doc("Rule", new_name)
+
+		self.assertNotEqual(new_name, old_name)
+		self.assertEqual(old_rule.description, old_description)
+		self.assertTrue(old_rule.is_active)
+		self.assertEqual(old_rule.status, "Active")
+		self.assertEqual(new_rule.previous_version, old_name)
+		self.assertEqual(new_rule.base_rule_name, "SYSTEM_RULE_ACTIVE_AMEND")
+		self.assertEqual(new_rule.version, 2)
+		self.assertTrue(new_rule.is_system_generated)
+		self.assertFalse(new_rule.is_active)
+		self.assertEqual(new_rule.status, "Draft")
+		self.assertEqual(new_rule.description, "Updated source definition")
+
+	def test_disabled_system_rule_stays_disabled_during_noop_sync(self):
+		definition = self._system_definition("SYSTEM_RULE_DISABLED_SYNC")
+		rule_name = ensure_system_rule(definition)
+		frappe.db.set_value(
+			"Rule",
+			rule_name,
+			{"is_active": 0, "status": "Disabled"},
+			update_modified=False,
+		)
+
+		self.assertEqual(ensure_system_rule(definition), rule_name)
+		rule = frappe.get_doc("Rule", rule_name)
+		self.assertFalse(rule.is_active)
+		self.assertEqual(rule.status, "Disabled")
+
+	def test_changed_disabled_system_rule_gets_a_draft_amendment(self):
+		definition = self._system_definition("SYSTEM_RULE_DISABLED_AMEND")
+		old_name = ensure_system_rule(definition)
+		frappe.db.set_value(
+			"Rule",
+			old_name,
+			{"is_active": 0, "status": "Disabled"},
+			update_modified=False,
+		)
+
+		updated = self._system_definition("SYSTEM_RULE_DISABLED_AMEND", "Updated disabled definition")
+		new_name = ensure_system_rule(updated)
+		old_rule = frappe.get_doc("Rule", old_name)
+		new_rule = frappe.get_doc("Rule", new_name)
+
+		self.assertNotEqual(new_name, old_name)
+		self.assertFalse(old_rule.is_active)
+		self.assertEqual(old_rule.status, "Disabled")
+		self.assertFalse(new_rule.is_active)
+		self.assertEqual(new_rule.status, "Draft")
+		self.assertEqual(new_rule.previous_version, old_name)
+
+	def test_registry_rejects_user_managed_name_conflict_through_document_save(self):
+		definition = self._system_definition("SYSTEM_RULE_NAME_CONFLICT")
+		user_definition = dict(definition)
+		user_definition["is_active"] = 0
+		user_definition["status"] = "Draft"
+		user_rule = frappe.get_doc({"doctype": "Rule", **user_definition})
+		user_rule.insert(ignore_permissions=True)
+
+		with self.assertRaises(frappe.ValidationError) as cm:
+			ensure_system_rule(definition)
+
+		self.assertIn("user-managed Rule already uses that name", str(cm.exception))
+		self.assertFalse(frappe.db.get_value("Rule", user_rule.name, "is_system_generated"))
+
+	def test_registry_batch_rolls_back_prior_documents_when_later_definition_fails(self):
+		first = self._system_definition("SYSTEM_RULE_BATCH_ROLLBACK")
+		invalid = {"description": "Missing stable rule name"}
+
+		with self.assertRaises(frappe.ValidationError):
+			ensure_system_rules([first, invalid])
+
+		self.assertFalse(
+			frappe.db.exists("Rule", {"rule_name": "SYSTEM_RULE_BATCH_ROLLBACK"})
+		)
+
+	def test_configured_provider_hook_registers_rules(self):
+		definition = self._system_definition("SYSTEM_RULE_PROVIDER_TEST")
+		original_get_hooks = frappe.get_hooks
+
+		def get_hooks(hook_name):
+			if hook_name == "flexirule_system_rules":
+				return ["tests.provider.system_rule_definitions"]
+			return original_get_hooks(hook_name)
+
+		with (
+			patch.object(frappe, "get_hooks", side_effect=get_hooks),
+			patch.object(frappe, "get_attr", return_value=lambda: [definition]),
+		):
+			names = register_configured_system_rules()
+
+		self.assertEqual(len(names), 1)
+		self.assertTrue(frappe.db.get_value("Rule", names[0], "is_system_generated"))
+
+	def test_system_rule_definition_is_protected_through_document_save(self):
+		rule_name = ensure_system_rule(self._system_definition("SYSTEM_RULE_SAVE_PROTECTION"))
+		rule = frappe.get_doc("Rule", rule_name)
+		original_description = rule.description
+		rule.description = "Manual edit"
+
+		with self.assertRaises(frappe.ValidationError):
+			rule.save(ignore_permissions=True)
+
+		self.assertEqual(
+			frappe.db.get_value("Rule", rule_name, "description"),
+			original_description,
+		)
+
+	def test_system_rule_rename_is_blocked_through_frappe_api(self):
+		rule_name = ensure_system_rule(self._system_definition("SYSTEM_RULE_RENAME_PROTECTION"))
+
+		with self.assertRaises(frappe.ValidationError):
+			frappe.rename_doc("Rule", rule_name, f"{rule_name}_RENAMED")
+
+		self.assertTrue(frappe.db.exists("Rule", rule_name))
+
+	def test_system_rule_delete_is_blocked_through_document_delete(self):
+		rule_name = ensure_system_rule(self._system_definition("SYSTEM_RULE_DELETE_PROTECTION"))
+
+		with self.assertRaises(frappe.ValidationError):
+			frappe.delete_doc("Rule", rule_name, force=True)
+
+		self.assertTrue(frappe.db.exists("Rule", rule_name))
 
 	def test_system_rule_ownership_marker_cannot_be_cleared(self):
 		rule = frappe.new_doc("Rule")
@@ -82,7 +287,9 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 			status="Disabled",
 		)
 		with patch.object(rule, "get_doc_before_save", return_value=before):
-			with patch.object(frappe, "flags", frappe._dict(flexirule_system_rule_registration=True)):
+			with patch.object(
+				frappe, "flags", frappe._dict(flexirule_system_rule_registration=True)
+			):
 				rule.validate_system_rule_protection()
 
 	def test_core_flexirule_doctypes_are_not_hard_excluded(self):
@@ -106,3 +313,26 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 				delattr(frappe.local, "flexirule_excluded_doctypes")
 			if old_local is not None:
 				frappe.local.flexirule_excluded_doctypes = old_local
+
+	def test_indirect_rule_dispatch_recursion_is_bounded_and_unwinds(self):
+		from flexirule.ruleflow.core.coordinator import RuleCoordinator
+
+		doc = frappe._dict(doctype="Test Contact")
+		initial_depth = getattr(frappe.local, "flexirule_rule_dispatch_depth", 0)
+
+		with (
+			patch.object(RuleCoordinator, "has_active_rules", return_value=True),
+			patch.object(
+				RuleCoordinator,
+				"execute_rules_from_event",
+				side_effect=lambda nested_doc, event: execute_rules_from_event(nested_doc, event),
+			),
+		):
+			with self.assertRaises(frappe.ValidationError) as cm:
+				execute_rules_from_event(doc, "Before Save")
+
+		self.assertIn("recursive rule chain", str(cm.exception))
+		self.assertEqual(
+			getattr(frappe.local, "flexirule_rule_dispatch_depth", 0),
+			initial_depth,
+		)
