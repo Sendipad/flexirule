@@ -194,7 +194,7 @@
 					v-if="activePrimaryAction && !readOnly"
 					type="button"
 					class="fxr-btn fxr-btn--sm fxr-btn--primary fxr-grid-button fxr-grid-button--primary"
-					:aria-keyshortcuts="primaryActionShortcut"
+					:aria-keyshortcuts="props.primaryActionShortcut"
 					:title="primaryActionTitle"
 					:aria-label="primaryActionTitle"
 					@click="requestPrimaryAction()"
@@ -298,8 +298,8 @@
 					v-if="selection && allowCopyPaste"
 					type="button"
 					class="fxr-grid-button fxr-grid-button--quiet"
-					:disabled="!selectedRows.length"
-					:title="__('Copy selected rows (Ctrl/Cmd+C)')"
+					:disabled="!canCopyPaste || !selectedRows.length"
+					:title="canCopyPaste ? __('Copy selected rows (Ctrl/Cmd+C)') : __('Provide cloneRow to enable copy/paste with a custom rowKey resolver')"
 					@click="copySelectedRows"
 				>
 					<i class="fa fa-copy" aria-hidden="true"></i>
@@ -309,7 +309,8 @@
 					v-if="!readOnly && allowCopyPaste"
 					type="button"
 					class="fxr-grid-button fxr-grid-button--quiet"
-					:title="__('Paste rows (Ctrl/Cmd+V)')"
+					:disabled="!canCopyPaste"
+					:title="canCopyPaste ? __('Paste rows (Ctrl/Cmd+V)') : __('Provide cloneRow to enable copy/paste with a custom rowKey resolver')"
 					@click="pasteRows"
 				>
 					<i class="fa fa-clipboard" aria-hidden="true"></i>
@@ -417,6 +418,11 @@ const dragSelection = ref({
 });
 
 const isDataGrid = computed(() => props.rows !== null || props.modelValue !== null);
+// A computed row key depends on caller-owned identity. Without cloneRow the grid
+// cannot guarantee pasted rows receive a new identity, so disable clipboard mutations.
+const canCopyPaste = computed(
+	() => props.allowCopyPaste && (typeof props.rowKey !== "function" || typeof props.cloneRow === "function")
+);
 const sourceList = computed(() => props.rows ?? props.modelValue ?? []);
 const sourceRows = computed(() =>
 	(Array.isArray(sourceList.value) ? sourceList.value : []).map((row, index) => ({
@@ -781,7 +787,7 @@ async function copySelectedRows() {
 	const selected = sourceRows.value
 		.filter((entry) => selectedKeys.value.has(entry.key))
 		.map((entry) => entry.row);
-	if (!selected.length || !props.allowCopyPaste) return;
+	if (!selected.length || !canCopyPaste.value) return;
 
 	const text = JSON.stringify(
 		{ format: GRID_CLIPBOARD_FORMAT, version: 1, rows: selected },
@@ -820,7 +826,7 @@ function clonePastedRow(row, index) {
 }
 
 async function pasteRows() {
-	if (props.readOnly || !props.allowCopyPaste) return;
+	if (props.readOnly || !canCopyPaste.value) return;
 	let clipboardText = "";
 	try {
 		if (typeof navigator !== "undefined" && navigator.clipboard?.readText) {
@@ -1015,7 +1021,7 @@ async function handleKeydown(event) {
 		return;
 	}
 	if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "v") {
-		if (!isInputTarget(target) && !props.readOnly && props.allowCopyPaste) {
+		if (!isInputTarget(target) && !props.readOnly && canCopyPaste.value) {
 			event.preventDefault();
 			pasteRows();
 		}
