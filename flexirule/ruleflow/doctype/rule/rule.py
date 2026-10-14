@@ -114,10 +114,46 @@ class Rule(Document):
 			elif status not in ("Error", "Invalid", "Disabled", "Archived"):
 				self.status = "Draft"
 
+	def validate_system_rule_protection(self):
+		"""Protect app-managed definitions while allowing operators to disable them."""
+		if getattr(frappe.flags, "flexirule_system_rule_registration", False):
+			return
+
+		before = self.get_doc_before_save()
+		is_system_rule = bool((before and before.get("is_system_generated")) or self.get("is_system_generated"))
+		if not is_system_rule:
+			return
+
+		if not before:
+			frappe.throw(_("System Rules can only be created by the app's registration process."))
+
+		if not before.get("is_system_generated") or not self.get("is_system_generated"):
+			frappe.throw(_("The System Rule ownership marker cannot be changed."))
+
+		# Site administrators may deliberately enable/disable a System Rule. Its
+		# source-managed definition (including identity and actions) remains read-only.
+		for field in self.meta.fields:
+			fieldname = field.fieldname
+			if not fieldname or fieldname in {"is_active", "status"}:
+				continue
+			old_value = before.get(fieldname)
+			new_value = self.get(fieldname)
+			if field.fieldtype in {"Table", "Table MultiSelect"}:
+				changed = frappe.as_json(old_value or []) != frappe.as_json(new_value or [])
+			else:
+				changed = old_value != new_value
+			if changed:
+				frappe.throw(
+					_("System Rule '{0}' is app-managed; field '{1}' can only be changed by its source app.").format(
+						self.name or self.rule_name, fieldname
+					)
+				)
+
 	def validate(self):
 		"""
 		Validate Rule Configuration
 		"""
+		self.validate_system_rule_protection()
 		self._ensure_version_lineage_fields()
 		self._sync_status()
 
@@ -1891,6 +1927,13 @@ class Rule(Document):
 				).format(self.name, existing_active[0], self.base_rule_name)
 			)
 
+	def before_rename(self, old, new, merge=False):
+		"""System Rule identity is owned by the source app."""
+		if self.get("is_system_generated") and not getattr(
+			frappe.flags, "flexirule_system_rule_registration", False
+		):
+			frappe.throw(_("System Rules cannot be renamed outside the app's registration process."))
+
 	def on_trash(self):
 		"""
 		Cleanup when a rule is deleted:
@@ -1898,6 +1941,11 @@ class Rule(Document):
 		2. Delete linked Rule Scheduler records
 		3. Clear rule cache
 		"""
+		if self.get("is_system_generated") and not getattr(
+			frappe.flags, "flexirule_system_rule_registration", False
+		):
+			frappe.throw(_("System Rules cannot be deleted outside the app's registration process."))
+
 		from flexirule.ruleflow.core.coordinator import RuleCoordinator
 
 		# 1. Block if referenced as sub-rule and this is the only active version, or if deleting the whole lineage
