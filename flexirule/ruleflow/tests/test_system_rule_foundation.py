@@ -3,6 +3,7 @@
 from unittest.mock import patch
 
 import frappe
+
 from flexirule.ruleflow.doctype.rule.rule import Rule
 from flexirule.ruleflow.hooks import get_excluded_doctypes
 from flexirule.ruleflow.tests.test_case import FlexiRuleTestCase
