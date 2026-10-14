@@ -95,3 +95,13 @@ export function buildRowProps(row, index, customProps, selected, invalid, readOn
 		readOnly: Boolean(readOnly),
 	};
 }
+
+/**
+ * A selection is toggled as one group: all-editing becomes readable; any other
+ * combination becomes editable. This avoids leaving a mixed selection in mixed modes.
+ */
+export function getBulkEditAction(rows, editStateKey = "isEditing") {
+	const list = Array.isArray(rows) ? rows : [];
+	if (!list.length) return null;
+	return list.every((row) => Boolean(row?.[editStateKey])) ? "view" : "edit";
+}
