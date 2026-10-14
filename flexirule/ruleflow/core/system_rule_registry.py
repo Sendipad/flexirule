@@ -113,16 +113,52 @@ def _field_values_match(current: Any, desired: Any, field) -> bool:
 	return current == desired
 
 
+def _validate_nested_field(field, value: Any, rule_name: str, field_path: str) -> None:
+	"""Validate provider child rows against their actual Frappe DocType schema."""
+	if field.fieldtype not in {"Table", "Table MultiSelect"}:
+		return
+
+	if not isinstance(value, list | tuple):
+		frappe.throw(
+			_("System Rule field '{0}' must be a list of row mappings.").format(field_path)
+		)
+
+	child_meta = frappe.get_meta(field.options)
+	for row_index, row in enumerate(value):
+		if not isinstance(row, Mapping):
+			frappe.throw(
+				_("System Rule field '{0}' row {1} must be a mapping.").format(field_path, row_index + 1)
+			)
+		for child_fieldname, child_value in row.items():
+			if child_fieldname in _DOCUMENT_METADATA_FIELDS:
+				continue
+			if not child_meta.has_field(child_fieldname):
+				frappe.throw(
+					_("Unknown field '{0}' in System Rule '{1}' ({2}, row {3}).").format(
+						child_fieldname, rule_name, field_path, row_index + 1
+					)
+				)
+			child_field = child_meta.get_field(child_fieldname)
+			_validate_nested_field(
+				child_field,
+				child_value,
+				rule_name,
+				f"{field_path}[{row_index + 1}].{child_fieldname}",
+			)
+
+
 def _validate_definition_fields(fields: Mapping[str, Any], rule_name: str) -> None:
-	"""Reject misspelled provider fields before mutating a document."""
+	"""Reject misspelled provider fields and malformed child rows before writing."""
 	meta = frappe.get_meta("Rule")
-	for fieldname in fields:
+	for fieldname, value in fields.items():
 		if fieldname in _DOCUMENT_METADATA_FIELDS or fieldname in _REGISTRY_OWNED_FIELDS:
 			continue
 		if fieldname == "rule_name":
 			continue
 		if not meta.has_field(fieldname):
 			frappe.throw(_("Unknown field '{0}' in System Rule '{1}'.").format(fieldname, rule_name))
+		field = meta.get_field(fieldname)
+		_validate_nested_field(field, value, rule_name, fieldname)
 
 
 def _find_system_rule(logical_name: str):
