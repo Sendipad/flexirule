@@ -217,7 +217,7 @@ jobs:
         working-directory: /home/runner/frappe-bench
         run: |
           bench --site test_site execute frappe.get_installed_apps
-          python - <<'PY'
+          ./env/bin/python - <<'PY'
           import importlib.util
           from pathlib import Path
 
