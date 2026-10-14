@@ -58,3 +58,26 @@ def ensure_system_rule(definition: Mapping[str, Any]) -> str:
 def ensure_system_rules(definitions: list[Mapping[str, Any]]) -> list[str]:
     """Register definitions in order and return their document names."""
     return [ensure_system_rule(definition) for definition in definitions]
+
+
+def register_configured_system_rules() -> list[str]:
+    """Register definitions contributed through the Frappe hook registry.
+
+    Each flexirule_system_rules hook entry is a dotted import path to a callable
+    returning an iterable of definition mappings. Definitions stay version-controlled
+    with their owning app, and repeated migrations remain safe.
+    """
+    names: list[str] = []
+    for provider_path in frappe.get_hooks("flexirule_system_rules") or []:
+        if not isinstance(provider_path, str) or not provider_path.strip():
+            frappe.throw("Each flexirule_system_rules hook must be a dotted provider path.")
+        provider = frappe.get_attr(provider_path)
+        if not callable(provider):
+            frappe.throw(f"System Rule provider '{provider_path}' is not callable.")
+        definitions = provider()
+        if definitions is None:
+            continue
+        if not isinstance(definitions, (list, tuple)):
+            frappe.throw(f"System Rule provider '{provider_path}' must return a list or tuple.")
+        names.extend(ensure_system_rules(definitions))
+    return names
