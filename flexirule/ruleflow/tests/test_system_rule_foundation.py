@@ -181,15 +181,21 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 	def test_configured_provider_hook_registers_rules(self):
 		definition = self._system_definition("SYSTEM_RULE_PROVIDER_TEST")
 		original_get_hooks = frappe.get_hooks
+		original_get_attr = frappe.get_attr
 
 		def get_hooks(hook_name):
 			if hook_name == "flexirule_system_rules":
 				return ["tests.provider.system_rule_definitions"]
 			return original_get_hooks(hook_name)
 
+		def get_attr(path):
+			if path == "tests.provider.system_rule_definitions":
+				return lambda: [definition]
+			return original_get_attr(path)
+
 		with (
 			patch.object(frappe, "get_hooks", side_effect=get_hooks),
-			patch.object(frappe, "get_attr", return_value=lambda: [definition]),
+			patch.object(frappe, "get_attr", side_effect=get_attr),
 		):
 			names = register_configured_system_rules()
 
