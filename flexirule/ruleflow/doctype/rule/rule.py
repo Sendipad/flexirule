@@ -36,6 +36,7 @@ class Rule(Document):
 		input_schema: DF.Code | None
 		output_schema: DF.Code | None
 		is_active: DF.Check
+		is_system_generated: DF.Check
 		last_error: DF.Text | None
 		max_execution_time: DF.Int
 		module: DF.Link | None
