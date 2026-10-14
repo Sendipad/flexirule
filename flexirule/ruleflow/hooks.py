@@ -69,7 +69,14 @@ def get_excluded_doctypes() -> set[str]:
 	# Always apply this override, even on fresh installs where the settings table
 	# is not available yet. Older sites may have seeded these into exclusions.
 	excluded.difference_update(
-		{"Rule", "Rule Action", "Process", "Process Operation", "Data Review Task", "Data Review Related Document"}
+		{
+			"Rule",
+			"Rule Action",
+			"Process",
+			"Process Operation",
+			"Data Review Task",
+			"Data Review Related Document",
+		}
 	)
 
 	setattr(frappe.local, EXCLUDED_CACHE_KEY, excluded)
