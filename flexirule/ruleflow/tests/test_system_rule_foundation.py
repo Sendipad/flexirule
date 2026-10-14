@@ -1,12 +1,12 @@
 """Regression tests for system-rule foundation and Rule lifecycle hooks."""
 import frappe
-from frappe.tests.utils import FrappeTestCase
+from flexirule.ruleflow.tests.test_case import FlexiRuleTestCase
 
 from flexirule.ruleflow.doctype.rule.rule import Rule
 from flexirule.ruleflow.hooks import get_excluded_doctypes
 
 
-class TestSystemRuleFoundation(FrappeTestCase):
+class TestSystemRuleFoundation(FlexiRuleTestCase):
     def test_before_insert_is_a_rule_controller_hook(self):
         # Frappe discovers controller lifecycle methods from the class, not from
         # nested function definitions inside another method.
