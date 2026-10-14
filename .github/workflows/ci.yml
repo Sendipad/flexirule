@@ -57,11 +57,13 @@ jobs:
               - 'yarn.lock'
               - 'requirements.txt'
               - 'pyproject.toml'
+              - '.github/workflows/**'
             backend:
               - '**/*.py'
               - 'flexirule/**/*.json'
               - 'requirements.txt'
               - 'pyproject.toml'
+              - '.github/workflows/**'
               - 'package.json'
               - 'package-lock.json'
               - 'yarn.lock'
