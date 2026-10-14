@@ -357,7 +357,6 @@ assert.ok(
 	).some((error) => error.includes("source field or aggregate"))
 );
 
-console.log("output fields model tests passed");
 
 const fieldMetadata = {
 	Invoice: [
@@ -374,3 +373,5 @@ assert.equal(resolveFieldInfo(fieldMetadata, "Invoice", "items.item_code").label
 assert.deepEqual(resolveFieldInfo({}, "Invoice", "customer"), {});
 assert.deepEqual(resolveFieldInfo(fieldMetadata, "Invoice", ""), {});
 assert.deepEqual(resolveFieldInfo(fieldMetadata, "Invoice", "missing_field"), {});
+
+console.log("output fields model tests passed");
