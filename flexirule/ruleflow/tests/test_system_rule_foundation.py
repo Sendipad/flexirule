@@ -348,6 +348,51 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 			if old_local is not None:
 				frappe.local.flexirule_excluded_doctypes = old_local
 
+	def test_frappe_save_dispatches_rules_for_internal_rule_doctype(self):
+		from flexirule.ruleflow.core.coordinator import RuleCoordinator
+		from flexirule.ruleflow.tests.builder import RuleBuilder
+
+		event_rule = (
+			RuleBuilder("SYSTEM_RULE_INTERNAL_EVENT_DISPATCH")
+			.replace_existing(False)
+			.document_type("Rule")
+			.trigger("DocType Event", "After Save")
+			.active(0)
+			.entry_action(next_step="stop_node")
+			.stop(action_id="stop_node")
+			.build()
+		)
+		frappe.db.set_value(
+			"Rule",
+			event_rule.name,
+			{"is_active": 1, "status": "Active"},
+			update_modified=False,
+		)
+		RuleCoordinator.clear_cache()
+
+		original_execute = RuleCoordinator.execute_rules_from_event
+		dispatched_rule_names = []
+
+		def spy_execute(doc, event_name):
+			if doc.doctype == "Rule" and event_name == "After Save":
+				dispatched_rule_names.append(doc.name)
+			return original_execute(doc, event_name)
+
+		with patch.object(
+			RuleCoordinator, "execute_rules_from_event", new=staticmethod(spy_execute)
+		):
+			target = (
+				RuleBuilder("SYSTEM_RULE_INTERNAL_EVENT_TARGET")
+				.replace_existing(False)
+				.document_type("Test Contact")
+				.active(0)
+				.entry_action(next_step="stop_node")
+				.stop(action_id="stop_node")
+				.build()
+			)
+
+		self.assertIn(target.name, dispatched_rule_names)
+
 	def test_indirect_rule_dispatch_recursion_is_bounded_and_unwinds(self):
 		from flexirule.ruleflow.core.coordinator import RuleCoordinator
 
