@@ -47,11 +47,7 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 		rule.is_system_generated = 1
 		rule.description = "Original description"
 		before = frappe._dict(
-			{
-				field.fieldname: rule.get(field.fieldname)
-				for field in rule.meta.fields
-				if field.fieldname
-			}
+			{field.fieldname: rule.get(field.fieldname) for field in rule.meta.fields if field.fieldname}
 		)
 		rule.description = "Modified description"
 
