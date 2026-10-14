@@ -3,6 +3,7 @@
 		<GenericGrid
 			ref="outputGridRef"
 			class="output-fields-list"
+			:gridLabel="__('Output fields')"
 			:rows="rows"
 			rowKey="id"
 			:rowInvalid="isRowInvalid"
@@ -54,7 +55,7 @@
 						class="output-field-controls output-function-controls"
 					>
 						<SelectControl
-							class="form-control output-function-select"
+							class="output-function-select"
 							:df="{
 								fieldtype: 'Select',
 								label: '',
@@ -171,7 +172,7 @@
 						<div class="output-child-table">
 							<label class="output-field-label">{{ __("Child table") }}</label>
 							<SelectControl
-								class="form-control"
+								class="output-child-select"
 								:df="{ fieldtype: 'Select', label: '', options: childTableOptions }"
 								:modelValue="row.tableField"
 								:read_only="readOnly"
@@ -297,16 +298,16 @@ const searchableFields = [
 ];
 const gridActions = computed(() => {
 	const actions = [
-		{ id: "add-field", label: __("Add field"), icon: "fa fa-plus", shortcut: "Alt+Enter" },
-		{ id: "add-function", label: __("Add function"), icon: "fa fa-calculator", shortcut: "Alt+Enter" },
-		{ id: "add-literal", label: __("Add literal value"), icon: "fa fa-tag", shortcut: "Alt+Enter" },
+		{ id: "add-field", label: __("Add field"), icon: "fa fa-plus", shortcut: "Alt+Shift+F" },
+		{ id: "add-function", label: __("Add function"), icon: "fa fa-calculator", shortcut: "Alt+Shift+G" },
+		{ id: "add-literal", label: __("Add literal value"), icon: "fa fa-tag", shortcut: "Alt+Shift+L" },
 	];
 	if (props.shape === "embedded_children") {
 		actions.push({
 			id: "add-child",
 			label: __("Add child selection"),
 			icon: "fa fa-sitemap",
-			shortcut: "Alt+Enter",
+			shortcut: "Alt+Shift+C",
 		});
 	}
 	return actions;
@@ -734,6 +735,19 @@ defineExpose({ validate });
 	container-name: output-fields-grid;
 }
 
+.output-fields-list :deep(.fxr-generic-grid-row) {
+	align-items: start;
+}
+
+.output-fields-list :deep(.fxr-generic-grid-row-summary) {
+	align-self: center;
+}
+
+.output-fields-list :deep(.fxr-generic-grid-row.is-editing) {
+	border-color: var(--fxr-border-focus);
+	background: var(--fxr-surface-soft, #f9fafb);
+}
+
 .output-field-row-copy {
 	display: flex;
 	flex-direction: column;
@@ -850,6 +864,50 @@ defineExpose({ validate });
 	max-width: 100%;
 	width: 100%;
 	margin-bottom: 0 !important;
+}
+
+:deep(.output-function-select),
+:deep(.output-child-select) {
+	display: block;
+	width: 100%;
+	min-width: 0;
+	max-width: 100%;
+	margin-bottom: 0 !important;
+}
+
+:deep(.output-function-select .fxr-input-group),
+:deep(.output-child-select .fxr-input-group) {
+	min-width: 0;
+	margin-bottom: 0 !important;
+}
+
+:deep(.output-function-select .combobox-container),
+:deep(.output-child-select .combobox-container),
+:deep(.output-function-select .combobox-wrapper),
+:deep(.output-child-select .combobox-wrapper) {
+	width: 100%;
+	min-width: 0;
+	max-width: 100%;
+	box-sizing: border-box;
+}
+
+:deep(.output-function-select .combobox-wrapper),
+:deep(.output-child-select .combobox-wrapper) {
+	min-height: var(--fxr-input-height, 32px);
+	border-radius: var(--fxr-radius-md, 6px);
+	box-shadow: none;
+}
+
+:deep(.output-function-select .combobox-input-group),
+:deep(.output-child-select .combobox-input-group) {
+	height: var(--fxr-input-height, 32px);
+	padding: 0 var(--fxr-input-padding-x, 8px);
+}
+
+:deep(.output-function-select .combobox-button-trigger),
+:deep(.output-child-select .combobox-button-trigger) {
+	min-width: 0;
+	font-size: var(--fxr-input-font-size, var(--fxr-text-sm));
 }
 
 :deep(.form-control),
