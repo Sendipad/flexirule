@@ -149,7 +149,7 @@ class Rule(Document):
 				frappe.throw(
 					_(
 						"System Rule '{0}' is app-managed; field '{1}' can only be changed by its source app."
-				).format(self.name or self.rule_name, fieldname)
+					).format(self.name or self.rule_name, fieldname)
 				)
 
 	def validate(self):
