@@ -25,55 +25,59 @@
 			/>
 		</div>
 
-		<div class="sub-section section-subcard">
-			<div class="section-heading result-shape-heading">
-				<div>
-					<h6>{{ __("Result shape") }}</h6>
-					<p class="section-description">
-						{{
-							__(
-								"Choose the row structure returned to later steps. Some shapes let you choose fields and calculations."
-							)
-						}}
-					</p>
+		<div class="sub-section section-subcard return-result-section">
+			<GenericGrid class="return-result-grid" minColumnWidth="280px">
+				<div class="return-result-shape">
+					<div class="section-heading result-shape-heading">
+						<div>
+							<h6>{{ __("Return result") }}</h6>
+							<p class="section-description">
+								{{ __("Choose the structure that later steps will receive.") }}
+							</p>
+						</div>
+					</div>
+					<SelectControl
+						:df="resultShapeField"
+						:modelValue="localConfig.result_shape"
+						:read_only="readOnly"
+						:showValidation="showValidation"
+						@update:modelValue="selectResultShape"
+					/>
+					<div v-if="isCustomResultShape(localConfig.result_shape)" class="return-result-guide">
+						<h6><i class="fa fa-info-circle" aria-hidden="true"></i>{{ __("How to set it up") }}</h6>
+						<p v-if="localConfig.result_shape === 'selected_fields'">
+							{{ __("Add fields or calculations in the grid on the right. Use an output alias to give each column a clear name for later steps. When you combine calculations with regular fields, set Group By below.") }}
+						</p>
+						<p v-else-if="localConfig.result_shape === 'embedded_children'">
+							{{ __("Add a child selection in the grid on the right, choose the parent child table, then select the child fields to include. Each parent result contains those child rows as a nested list.") }}
+						</p>
+					</div>
 				</div>
-			</div>
-			<SelectControl
-				:df="resultShapeField"
-				:modelValue="localConfig.result_shape"
-				:read_only="readOnly"
-				:showValidation="showValidation"
-				@update:modelValue="selectResultShape"
-			/>
-		</div>
-
-		<div
-			v-if="isCustomResultShape(localConfig.result_shape)"
-			class="sub-section section-subcard"
-		>
-			<div class="section-heading">
-				<div>
-					<h6>{{ __("Output fields") }}</h6>
-					<p class="section-description">
-						{{
-							__(
-								"Choose the fields or calculations in each result. Add an alias to give a value a clear name for later steps."
-							)
-						}}
-					</p>
+				<div
+					v-if="isCustomResultShape(localConfig.result_shape)"
+					class="return-result-fields"
+				>
+					<div class="section-heading">
+						<div>
+							<h6>{{ __("Output fields") }}</h6>
+							<p class="section-description">
+								{{ __("Define the columns returned to later steps.") }}
+							</p>
+						</div>
+					</div>
+					<OutputFieldsEditor
+						ref="outputFieldsRef"
+						:doctype="doctype"
+						:modelValue="localConfig.fields || []"
+						:shape="localConfig.result_shape"
+						:groupBy="localConfig.group_by"
+						:variableOptions="variableOptions"
+						:readOnly="readOnly"
+						:showValidation="showValidation"
+						@update:modelValue="updateConfig('fields', $event)"
+					/>
 				</div>
-				<OutputFieldsEditor
-					ref="outputFieldsRef"
-					:doctype="doctype"
-					:modelValue="localConfig.fields || []"
-					:shape="localConfig.result_shape"
-					:groupBy="localConfig.group_by"
-					:variableOptions="variableOptions"
-					:readOnly="readOnly"
-					:showValidation="showValidation"
-					@update:modelValue="updateConfig('fields', $event)"
-				/>
-			</div>
+			</GenericGrid>
 		</div>
 		<div class="sub-section section-subcard">
 			<div class="section-heading">
@@ -224,6 +228,7 @@ import { computed, reactive, ref, watch } from "vue";
 import ControlFactory from "../../../../controls/ControlFactory.vue";
 import ComboBoxControl from "../../../../controls/ComboBoxControl.vue";
 import SelectControl from "../../../../controls/SelectControl.vue";
+import GenericGrid from "../../../../controls/GenericGrid.vue";
 import { useNavigableFields } from "../../../../composables/useNavigableFields";
 import QueryFilterTree from "../../query_filters/QueryFilterTree.vue";
 import OutputFieldsEditor from "./OutputFieldsEditor.vue";
@@ -715,6 +720,43 @@ defineExpose({ validate });
 }
 .result-shape-heading {
 	margin-bottom: var(--fxr-space-2);
+}
+.return-result-section {
+	gap: 0;
+}
+.return-result-grid,
+.return-result-shape,
+.return-result-fields {
+	min-width: 0;
+}
+.return-result-fields {
+	display: flex;
+	flex-direction: column;
+	gap: var(--fxr-space-3);
+}
+.return-result-guide {
+	margin-top: var(--fxr-space-3);
+	padding: var(--fxr-space-3);
+	border: 1px solid var(--fxr-border-subtle);
+	border-radius: var(--fxr-radius-md);
+	background: var(--fxr-surface-soft);
+}
+.return-result-guide h6 {
+	display: flex;
+	align-items: center;
+	gap: var(--fxr-space-2);
+	margin: 0 0 var(--fxr-space-2);
+	font-size: var(--fxr-text-sm);
+	font-weight: var(--fxr-weight-semibold, 600);
+}
+.return-result-guide h6 i {
+	color: var(--fxr-text-muted);
+}
+.return-result-guide p {
+	margin: 0;
+	color: var(--fxr-text-secondary);
+	font-size: var(--fxr-text-sm);
+	line-height: 1.5;
 }
 .section-description {
 	margin: var(--fxr-space-1) 0 0;
