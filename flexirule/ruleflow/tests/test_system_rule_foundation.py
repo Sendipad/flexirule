@@ -62,11 +62,7 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 		rule.is_active = 0
 		rule.status = "Disabled"
 		before = frappe._dict(
-			{
-				field.fieldname: rule.get(field.fieldname)
-				for field in rule.meta.fields
-				if field.fieldname
-			}
+			{field.fieldname: rule.get(field.fieldname) for field in rule.meta.fields if field.fieldname}
 		)
 		rule.is_active = 1
 		rule.status = "Active"
