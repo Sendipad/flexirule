@@ -18,14 +18,16 @@ const rows = [
 	{ id: "c", field: "grand_total", kind: "function", meta: { label: "Grand Total" } },
 ];
 
-assert.equal(matchesShortcut({ key: "e", altKey: true }, "Alt+E"), true);
-assert.equal(matchesShortcut({ key: "E", altKey: true }, "Alt+E"), true);
+assert.equal(matchesShortcut({ key: "e", ctrlKey: true, shiftKey: true }, "Ctrl+Shift+E"), true);
+assert.equal(matchesShortcut({ key: "E", ctrlKey: true, shiftKey: true }, "Ctrl+Shift+E"), true);
+assert.equal(matchesShortcut({ key: "e", altKey: true }, "Ctrl+Shift+E"), false);
+assert.equal(matchesShortcut({ key: "e", ctrlKey: true }, "Ctrl+Shift+E"), false);
 assert.equal(matchesShortcut({ key: "g", altKey: true, shiftKey: true }, "Alt+Shift+G"), true);
 assert.equal(matchesShortcut({ key: "g", altKey: true }, "Alt+Shift+G"), false);
 assert.equal(matchesShortcut({ key: "Enter", altKey: true }, "Alt+Enter"), true);
 assert.equal(matchesShortcut({ key: "Enter", altKey: true, ctrlKey: true }, "Alt+Enter"), false);
-assert.equal(matchesShortcut({ key: "e" }, "Alt+E"), false);
-assert.equal(matchesShortcut(null, "Alt+E"), false);
+assert.equal(matchesShortcut({ key: "e" }, "Ctrl+Shift+E"), false);
+assert.equal(matchesShortcut(null, "Ctrl+Shift+E"), false);
 
 assert.equal(getRowKey(rows[0], 0), "a");
 assert.equal(getRowKey({}, 4), "row-4");
