@@ -258,7 +258,7 @@ const props = defineProps({
 	rowComponent: { type: [Object, Function, String], default: null },
 	rowProps: { type: [Object, Function], default: null },
 	rowInvalid: { type: [Function, Array], default: null },
-	searchableFields: { type: [Array, Function], default: null },
+	searchableFields: { type: [Array, Function, Boolean], default: null },
 	searchPlaceholder: { type: String, default: "" },
 	minColumnWidth: { type: String, default: "240px" },
 	gap: { type: String, default: "var(--fxr-space-3, 12px)" },
