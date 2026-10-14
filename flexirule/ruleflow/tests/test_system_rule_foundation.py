@@ -41,6 +41,52 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 			with self.assertRaises(frappe.ValidationError):
 				rule.validate_system_rule_protection()
 
+	def test_system_rule_definition_fields_are_protected(self):
+		rule = frappe.new_doc("Rule")
+		rule.rule_name = "test-system-rule"
+		before = frappe._dict(
+			is_system_generated=1,
+			rule_name="test-system-rule",
+			description="Original description",
+			is_active=0,
+			status="Disabled",
+		)
+		rule.description = "Modified description"
+
+		with patch.object(rule, "get_doc_before_save", return_value=before):
+			with self.assertRaises(frappe.ValidationError):
+				rule.validate_system_rule_protection()
+
+	def test_system_rule_activation_state_remains_operator_controlled(self):
+		rule = frappe.new_doc("Rule")
+		rule.rule_name = "test-system-rule"
+		rule.is_active = 1
+		rule.status = "Active"
+		before = frappe._dict(
+			is_system_generated=1,
+			rule_name="test-system-rule",
+			description="Original description",
+			is_active=0,
+			status="Disabled",
+		)
+		with patch.object(rule, "get_doc_before_save", return_value=before):
+			rule.validate_system_rule_protection()
+
+	def test_registry_flag_allows_source_definition_updates(self):
+		rule = frappe.new_doc("Rule")
+		rule.rule_name = "test-system-rule"
+		rule.description = "New source definition"
+		before = frappe._dict(
+			is_system_generated=1,
+			rule_name="test-system-rule",
+			description="Original description",
+			is_active=0,
+			status="Disabled",
+		)
+		with patch.object(rule, "get_doc_before_save", return_value=before):
+			with patch.object(frappe.flags, "flexirule_system_rule_registration", True, create=True):
+				rule.validate_system_rule_protection()
+
 	def test_core_flexirule_doctypes_are_not_hard_excluded(self):
 		# Older sites may still have these DocTypes stored in RuleFlow Settings.
 		old_local = getattr(frappe.local, "flexirule_excluded_doctypes", None)
