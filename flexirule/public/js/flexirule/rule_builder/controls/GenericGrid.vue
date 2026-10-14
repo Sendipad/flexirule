@@ -198,13 +198,13 @@
 					<i v-if="activePrimaryAction.icon" :class="activePrimaryAction.icon" aria-hidden="true"></i>
 					{{ activePrimaryAction.label || __('Add row') }}
 				</button>
-				<div v-if="actionOptions.length > 1 && !readOnly" class="fxr-grid-menu fxr-grid-primary-menu">
+				<div v-if="secondaryActions.length && !readOnly" class="fxr-grid-menu fxr-grid-primary-menu">
 					<button
 						ref="primaryMenuButtonRef"
 						type="button"
 						class="fxr-grid-menu-toggle"
-						:title="__('Change primary action')"
-						:aria-label="__('Change primary action')"
+						:title="__('Choose or run another action')"
+						:aria-label="__('Choose or run another action')"
 						aria-haspopup="menu"
 						:aria-expanded="String(primaryMenuOpen)"
 						@click="togglePrimaryMenu"
@@ -215,22 +215,31 @@
 						v-if="primaryMenuOpen"
 						class="fxr-grid-menu-items fxr-grid-menu-items--left"
 						role="menu"
-						@keydown="handleMenuKeydown($event, 'primary')"
+						@keydown="handleMenuKeydown"
 					>
-						<div class="fxr-grid-menu-heading">{{ __('Choose primary action') }}</div>
-						<button
-							v-for="action in actionOptions"
-							:key="action.id"
-							type="button"
-							role="menuitem"
-							class="fxr-grid-menu-item"
-							:class="{ 'is-current': action.id === selectedPrimaryActionId }"
-							@click="setPrimaryAction(action.id)"
-						>
-							<i v-if="action.icon" :class="action.icon" aria-hidden="true"></i>
-							<span>{{ action.label }}</span>
-							<i v-if="action.id === selectedPrimaryActionId" class="fa fa-check" aria-hidden="true"></i>
-						</button>
+						<div class="fxr-grid-menu-heading">{{ __('Run an action, or pin it as primary') }}</div>
+						<div v-for="action in secondaryActions" :key="action.id" class="fxr-grid-menu-action-row">
+							<button
+								type="button"
+								class="fxr-grid-menu-pin"
+								:title="__('Make {0} the primary action', [action.label])"
+								:aria-label="__('Make {0} the primary action', [action.label])"
+								:aria-pressed="String(action.id === selectedPrimaryActionId)"
+								@click.stop="setPrimaryAction(action.id)"
+							>
+								<i :class="action.id === selectedPrimaryActionId ? 'fa fa-star' : 'fa fa-thumb-tack'" aria-hidden="true"></i>
+							</button>
+							<button
+								type="button"
+								role="menuitem"
+								class="fxr-grid-menu-item"
+								@click="requestGridAction(action)"
+							>
+								<i v-if="action.icon" :class="action.icon" aria-hidden="true"></i>
+								<span>{{ action.label }}</span>
+								<kbd v-if="action.shortcut">{{ action.shortcut }}</kbd>
+							</button>
+						</div>
 					</div>
 				</div>
 			</div>
@@ -258,41 +267,7 @@
 			</div>
 
 			<div class="fxr-generic-grid-footer-actions">
-				<div v-if="secondaryActions.length && !readOnly" class="fxr-grid-menu fxr-grid-secondary-menu">
-					<button
-						ref="secondaryMenuButtonRef"
-						type="button"
-						class="fxr-grid-button fxr-grid-button--secondary-menu"
-						aria-haspopup="menu"
-						:aria-expanded="String(secondaryMenuOpen)"
-						@click="toggleSecondaryMenu"
-					>
-						<i class="fa fa-plus" aria-hidden="true"></i>
-						{{ __('More actions') }}
-						<i class="fa fa-chevron-down" aria-hidden="true"></i>
-					</button>
-					<div
-						v-if="secondaryMenuOpen"
-						class="fxr-grid-menu-items fxr-grid-menu-items--right"
-						role="menu"
-						@keydown="handleMenuKeydown($event, 'secondary')"
-					>
-						<div class="fxr-grid-menu-heading">{{ __('Add another type') }}</div>
-						<button
-							v-for="action in secondaryActions"
-							:key="action.id"
-							type="button"
-							role="menuitem"
-							class="fxr-grid-menu-item"
-							@click="requestGridAction(action)"
-						>
-							<i v-if="action.icon" :class="action.icon" aria-hidden="true"></i>
-							<span>{{ action.label }}</span>
-						</button>
-					</div>
-				</div>
-
-				<div v-if="searchOpen" class="fxr-generic-grid-search-popover">
+								<div v-if="searchOpen" class="fxr-generic-grid-search-popover">
 					<i class="fa fa-search" aria-hidden="true"></i>
 					<input
 						ref="searchInputRef"
@@ -414,9 +389,7 @@ const slots = useSlots();
 const hasSummarySlot = computed(() => Boolean(slots["row-summary"]));
 const searchInputRef = ref(null);
 const primaryMenuButtonRef = ref(null);
-const secondaryMenuButtonRef = ref(null);
 const primaryMenuOpen = ref(false);
-const secondaryMenuOpen = ref(false);
 const searchOpen = ref(false);
 const searchQuery = ref("");
 const selectedPrimaryActionId = ref(props.defaultPrimaryAction || props.primaryAction?.id || "");
@@ -685,39 +658,28 @@ function requestPrimaryAction(afterIndex = null) {
 
 async function togglePrimaryMenu() {
 	primaryMenuOpen.value = !primaryMenuOpen.value;
-	secondaryMenuOpen.value = false;
 	if (primaryMenuOpen.value) {
 		await nextTick();
 		rootRef.value?.querySelector(".fxr-grid-primary-menu [role='menuitem']")?.focus();
 	}
 }
 
-async function toggleSecondaryMenu() {
-	secondaryMenuOpen.value = !secondaryMenuOpen.value;
-	primaryMenuOpen.value = false;
-	if (secondaryMenuOpen.value) {
-		await nextTick();
-		rootRef.value?.querySelector(".fxr-grid-secondary-menu [role='menuitem']")?.focus();
-	}
-}
-
 function closeActionMenus() {
 	primaryMenuOpen.value = false;
-	secondaryMenuOpen.value = false;
 }
 
 function handleOutsideMenuPointerDown(event) {
-	if (event.target?.closest?.(".fxr-grid-menu")) return;
+	if (event.target?.closest?.(".fxr-grid-primary-menu")) return;
 	closeActionMenus();
 }
 
-async function handleMenuKeydown(event, menu) {
+async function handleMenuKeydown(event) {
 	const menuElement = event.currentTarget;
 	if (event.key === "Escape") {
 		event.preventDefault();
 		closeActionMenus();
 		await nextTick();
-		(menu === "primary" ? primaryMenuButtonRef : secondaryMenuButtonRef).value?.focus();
+		primaryMenuButtonRef.value?.focus();
 		return;
 	}
 
@@ -1099,8 +1061,28 @@ defineExpose({
 	cursor: pointer;
 }
 
+.fxr-generic-grid-footer-primary > .fxr-grid-button--primary {
+	border-top-right-radius: 0;
+	border-bottom-right-radius: 0;
+}
+
 .fxr-grid-primary-menu {
 	margin-left: -1px;
+}
+
+.fxr-grid-primary-menu .fxr-grid-menu-toggle {
+	min-height: 28px;
+	padding: 3px 8px;
+	border-color: var(--fxr-accent, #2563eb);
+	border-top-left-radius: 0;
+	border-bottom-left-radius: 0;
+	background: var(--fxr-accent, #2563eb);
+	color: var(--fxr-text-on-accent, #fff);
+}
+
+.fxr-grid-primary-menu .fxr-grid-menu-toggle:hover {
+	background: var(--fxr-accent-hover, #1d4ed8);
+	color: var(--fxr-text-on-accent, #fff);
 }
 
 .fxr-grid-menu-items {
@@ -1148,9 +1130,36 @@ defineExpose({
 	cursor: pointer;
 }
 
+.fxr-grid-menu-action-row {
+	display: flex;
+	align-items: stretch;
+	gap: 3px;
+	min-width: 0;
+}
+
 .fxr-grid-menu-item span {
 	flex: 1;
 	min-width: 0;
+}
+
+.fxr-grid-menu-pin {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 30px;
+	width: 30px;
+	min-height: 32px;
+	border: 1px solid transparent;
+	border-radius: var(--fxr-radius-sm, 4px);
+	background: transparent;
+	color: var(--fxr-text-muted, #6b7280);
+	cursor: pointer;
+}
+
+.fxr-grid-menu-pin:hover,
+.fxr-grid-menu-pin[aria-pressed="true"] {
+	background: var(--fxr-accent-soft, #eff6ff);
+	color: var(--fxr-accent, #2563eb);
 }
 
 .fxr-grid-menu-item:hover,
@@ -1161,11 +1170,6 @@ defineExpose({
 .fxr-grid-menu-item.is-current {
 	color: var(--fxr-accent, #2563eb);
 	font-weight: var(--fxr-weight-semibold, 600);
-}
-
-.fxr-grid-button--secondary-menu {
-	background: var(--fxr-surface, #fff);
-	border-color: var(--fxr-border-subtle, #d1d5db);
 }
 
 .fxr-grid-button--danger {
