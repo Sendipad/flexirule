@@ -334,7 +334,7 @@ const literalFieldTypes = [
 	{ value: "Select", label: __("Select") },
 ];
 
-const parentFields = computed(() => metaStore.doc_meta[props.doctype] || []);
+const parentFields = computed(() => metaStore.doc_meta?.[props.doctype] || []);
 const childTableOptions = computed(() =>
 	parentFields.value
 		.filter(
@@ -377,7 +377,6 @@ function rowTitle(row) {
 	if (row.kind === "literal") {
 		return row.label || humanizeAlias(row.fieldname) || __("Literal value");
 	}
-	if (row.kind === "child") return row.tableField || __("Embedded child selection");
 	return row.expression || __("Advanced field expression");
 }
 
