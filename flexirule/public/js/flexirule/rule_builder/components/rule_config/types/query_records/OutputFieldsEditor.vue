@@ -297,14 +297,15 @@ const searchableFields = [
 const gridActions = computed(() => {
 	const actions = [
 		{ id: "add-field", label: __("Add field"), icon: "fa fa-plus", shortcut: "Alt+Enter" },
-		{ id: "add-function", label: __("Add function"), icon: "fa fa-calculator" },
-		{ id: "add-literal", label: __("Add literal value"), icon: "fa fa-tag" },
+		{ id: "add-function", label: __("Add function"), icon: "fa fa-calculator", shortcut: "Alt+Enter" },
+		{ id: "add-literal", label: __("Add literal value"), icon: "fa fa-tag", shortcut: "Alt+Enter" },
 	];
 	if (props.shape === "embedded_children") {
 		actions.push({
 			id: "add-child",
 			label: __("Add child selection"),
 			icon: "fa fa-sitemap",
+			shortcut: "Alt+Enter",
 		});
 	}
 	return actions;
@@ -426,15 +427,53 @@ function updateRaw(row, value) {
 
 function addField(afterIndex = null) {
 	if (props.readOnly) return;
-	const row = {
-		id: newId(),
-		kind: "field",
-		field: "",
-		alias: "",
-		fields: [],
-		isEditing: true,
-		childFieldOptions: [],
-	};
+	insertNewRow(
+		{
+			id: newId(),
+			kind: "field",
+			field: "",
+			alias: "",
+			fields: [],
+			isEditing: true,
+			childFieldOptions: [],
+		},
+		afterIndex
+	);
+}
+
+function addFunction(afterIndex = null) {
+	if (props.readOnly) return;
+	insertNewRow(
+		{
+			id: newId(),
+			kind: "function",
+			functionName: "count",
+			field: "",
+			alias: "",
+			fields: [],
+			isEditing: true,
+			childFieldOptions: [],
+		},
+		afterIndex
+	);
+}
+
+function addChild(afterIndex = null) {
+	if (props.readOnly) return;
+	insertNewRow(
+		{
+			id: newId(),
+			kind: "child",
+			tableField: "",
+			fields: [],
+			isEditing: true,
+			childFieldOptions: [],
+		},
+		afterIndex
+	);
+}
+
+function insertNewRow(row, afterIndex = null) {
 	const insertIndex =
 		Number.isInteger(afterIndex) && afterIndex >= 0
 			? Math.min(afterIndex + 1, rows.value.length)
@@ -444,37 +483,7 @@ function addField(afterIndex = null) {
 	revealRow(insertIndex);
 }
 
-function addFunction() {
-	if (props.readOnly) return;
-	rows.value.push({
-		id: newId(),
-		kind: "function",
-		functionName: "count",
-		field: "",
-		alias: "",
-		fields: [],
-		isEditing: true,
-		childFieldOptions: [],
-	});
-	emitRows();
-	revealRow(rows.value.length - 1);
-}
-
-function addChild() {
-	if (props.readOnly) return;
-	rows.value.push({
-		id: newId(),
-		kind: "child",
-		tableField: "",
-		fields: [],
-		isEditing: true,
-		childFieldOptions: [],
-	});
-	emitRows();
-	revealRow(rows.value.length - 1);
-}
-
-function addLiteral() {
+function addLiteral(afterIndex = null) {
 	if (props.readOnly) return;
 	const usedNames = new Set(
 		rows.value
@@ -488,19 +497,20 @@ function addLiteral() {
 	let fieldname = "literal_value";
 	let suffix = 2;
 	while (usedNames.has(fieldname)) fieldname = "literal_value_" + suffix++;
-	rows.value.push({
-		id: newId(),
-		kind: "literal",
-		fieldname,
-		label: humanizeAlias(fieldname),
-		fieldtype: "Data",
-		reqd: 0,
-		value_spec: { mode: "static", value: "" },
-		isEditing: true,
-		childFieldOptions: [],
-	});
-	emitRows();
-	revealRow(rows.value.length - 1);
+	insertNewRow(
+		{
+			id: newId(),
+			kind: "literal",
+			fieldname,
+			label: humanizeAlias(fieldname),
+			fieldtype: "Data",
+			reqd: 0,
+			value_spec: { mode: "static", value: "" },
+			isEditing: true,
+			childFieldOptions: [],
+		},
+		afterIndex
+	);
 }
 
 function cloneGridRow(row) {
@@ -524,29 +534,29 @@ function handlePastedRows(nextRows) {
 	refreshMetadata();
 }
 
-function handleGridPrimaryAction({ action = "add-field" } = {}) {
-	handleGridAction(action);
+function handleGridPrimaryAction({ action = "add-field", afterIndex = null } = {}) {
+	handleGridAction(action, afterIndex);
 }
 
 function handleGridSecondaryAction({ action } = {}) {
 	handleGridAction(action);
 }
 
-function handleGridAction(action) {
+function handleGridAction(action, afterIndex = null) {
 	if (props.readOnly) return;
 	switch (action) {
 		case "add-function":
-			addFunction();
+			addFunction(afterIndex);
 			break;
 		case "add-literal":
-			addLiteral();
+			addLiteral(afterIndex);
 			break;
 		case "add-child":
-			if (props.shape === "embedded_children") addChild();
+			if (props.shape === "embedded_children") addChild(afterIndex);
 			break;
 		case "add-field":
 		default:
-			addField();
+			addField(afterIndex);
 			break;
 	}
 }
@@ -726,12 +736,8 @@ defineExpose({ validate });
 	flex-direction: column;
 	justify-content: center;
 	min-width: 0;
-	user-select: text;
-}
-
-.output-field-row-copy {
-	min-width: 0;
 	flex: 1;
+	user-select: text;
 }
 
 .output-field-row-copy strong {
@@ -809,43 +815,6 @@ defineExpose({ validate });
 	padding: var(--fxr-space-3, var(--spacing-sm));
 	color: var(--fxr-text-muted);
 	font-size: var(--fxr-text-sm);
-}
-
-.output-fields-add-actions {
-	display: flex;
-	flex-wrap: wrap;
-	gap: var(--fxr-space-2, var(--spacing-xs));
-	align-items: center;
-	padding-top: var(--fxr-space-1, 4px);
-}
-
-.output-fields-add-btn {
-	display: inline-flex;
-	align-items: center;
-	gap: var(--fxr-space-2, var(--spacing-xs));
-	min-height: var(--fxr-input-height, 30px);
-	padding: 0 var(--fxr-space-3, var(--spacing-sm));
-	border: 1px solid var(--fxr-border-subtle);
-	border-radius: var(--fxr-radius-md);
-	background: var(--fxr-surface);
-	color: var(--fxr-text-secondary);
-	font-size: var(--fxr-text-sm);
-	font-weight: var(--fxr-weight-medium);
-	cursor: pointer;
-	transition: background-color var(--fxr-transition-fast), border-color var(--fxr-transition-fast),
-		color var(--fxr-transition-fast);
-}
-
-.output-fields-add-btn:hover {
-	border-color: var(--fxr-border-focus);
-	background: var(--fxr-surface-soft);
-	color: var(--fxr-accent);
-}
-
-.output-fields-add-btn:focus-visible {
-	outline: none;
-	border-color: var(--fxr-border-focus);
-	box-shadow: var(--fxr-shadow-focus);
 }
 
 .output-fields-hint,
