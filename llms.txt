@@ -135,7 +135,7 @@ Generated: 2026-10-15
 
 - [Recipe: Work with Child Tables and Item Calculations](https://sendipad.github.io/flexirule/tutorials/child-table-calculations/) — Learn how to visually iterate over child table items, evaluate row attributes using the Smart Value Selector, and calculate discounts.
 
-- [Rule Configuration & Trigger Setup](https://sendipad.github.io/flexirule/rule-builder/rule-configuration/) — Configure when a rule runs, which document it applies to, and how execution is controlled.
+- [Rule Configuration & Trigger Setup](https://sendipad.github.io/flexirule/rule-builder/rule-configuration/) — Configure a rule&#39;s entry point, eligibility conditions, execution behavior, and access.
 
 - [RuleFlow Settings](https://sendipad.github.io/flexirule/setup/settings/) — Configure global runtime behavior and Rule Builder preferences.
 
@@ -143,7 +143,7 @@ Generated: 2026-10-15
 
 - [Switch](https://sendipad.github.io/flexirule/action-type/switch/) — Route execution along multiple outbound paths based on matching field values.
 
-- [Adding Actions & The Action Palette](https://sendipad.github.io/flexirule/rule-builder/add-action/) — Learn how to add, connect, and arrange logic actions on the Rule Builder canvas.
+- [Adding Actions to a Rule](https://sendipad.github.io/flexirule/rule-builder/add-action/) — Find, add, configure, connect, and manage actions in the FlexiRule visual Rule Builder.
 
 - [Advanced Process: Architecture Reference](https://sendipad.github.io/flexirule/advanced-concepts/architecture/actions/advanced-process/) — Runtime orchestration, Registry pattern, and the ProcessOperationExecutor internals.
 
@@ -201,7 +201,7 @@ Generated: 2026-10-15
 
 - [System Philosophy](https://sendipad.github.io/flexirule/advanced-concepts/system-philosophy/) — FlexiRule is a **declarative automation orchestration platform** built for the Frappe ecosystem. It bridges the gap between hardcoded Python hooks ...
 
-- [Condition Builder](https://sendipad.github.io/flexirule/rule-builder/condition-builder/) — Learn how to create visual logical condition groups in FlexiRule.
+- [Condition Builder](https://sendipad.github.io/flexirule/rule-builder/condition-builder/) — Build, combine, and validate visual conditions in FlexiRule.
 
 - [Core Concepts](https://sendipad.github.io/flexirule/getting-started/core-concepts/) — Learn the essential FlexiRule concepts: rules, triggers, actions, execution context, Smart Values, conditions, and lifecycle.
 

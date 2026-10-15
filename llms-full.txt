@@ -1157,19 +1157,22 @@ Target DocType: Sales Order Trigger Event: DocType Event -&amp;gt; Before Save V
 ---
 title: Rule Configuration & Trigger Setup
 url: https://sendipad.github.io/flexirule/rule-builder/rule-configuration/
-lastmod: 2026-10-06
-summary: Configure when a rule runs, which document it applies to, and how execution is controlled.
+lastmod: 2026-10-16
+summary: Configure a rule's entry point, eligibility conditions, execution behavior, and access.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Rule Configuration &amp;amp; Trigger Setup# Configure a Rule before building its action flow. These settings determine when the rule is eligible to run, which document or entry point it uses, and how execution should be managed.
-Core settings# Setting What it means Guidance Rule Name Unique name for the rule Describe the business outcome, not just the implementation Trigger Type DocType Event, Scheduler Event, or Callable Event Choose the kind of entry point that matches the use case Document Type Target DocType for a document-triggered rule Required for DocType Event rules Trigger Event Supported lifecycle event for that DocType Choose the earliest safe event for the intended behavior Execution Mode Synchronous or Asynchronous Synchronous execution participates in the current request; asynchronous execution runs in the background Max Execution Time Time limit in seconds Keep rules focused and avoid long-running work in document events Priority Numeric priority from 0 to 20 Higher values are configured to execute first where rules are ordered together Debug Mode Enables more detailed diagnostic information Use while troubleshooting and consider operational logging settings Watched Fields Comma-separated fields for document events Leave empty when every matching event should be evaluated Skip for Roles Roles for which the rule should not execute Check carefully so exclusions do not bypass required business controls Trigger types# DocType Event# Use this for rules tied to a document lifecycle, such as a Sales Order or Purchase Invoice. The event list includes lifecycle points such as Before Insert, Before Save, Validate, Before Submit, After Insert, After Save, On Submit, Before Cancel, On Cancel, On Trash, and other supported events. The exact event should be selected from the installed UI.
-Scheduler Event# Use a scheduler trigger for recurring background work. Configure the schedule through the available scheduler workflow in your installation.
-Callable Event# Use a callable rule when another supported entry point or rule is intended to invoke it. The Exposed As Sub-Rule option is relevant to callable rules that should be available for reuse.
-Trigger conditions are …
+Rule Configuration &amp;amp; Trigger Setup# A rule&amp;rsquo;s configuration determines when it can start, which records or callers it works with, and how execution is handled. In the visual Rule Builder, most rule-level settings are on the Start node. They are different from action settings, which control individual steps after the flow begins.
+Choose a trigger type# Set Trigger Type according to how the rule should start.
+Trigger Type Use it when What to configure DocType Event The rule should respond to a Frappe/ERPNext document lifecycle event. Select the Document Type and Trigger Event. Scheduler Event The rule should run on a recurring schedule, usually against a batch of records. Create a linked Rule Scheduler record and configure its schedule and target records. Callable Event Another rule, a Process, or supported custom code should invoke the rule explicitly. Define the rule&amp;rsquo;s context and, when reusing it as a sub-rule, enable Exposed As Sub-Rule. Configure a DocType Event# 1. Select the Document Type and Trigger Event# Choose the DocType whose lifecycle should start the rule, then select the event that matches the business requirement.
+The current Rule DocType offers these event choices:
+Before Naming, Before Insert, Before Save, Validate, Before Submit, After Insert, After Save, On Submit, Before Cancel, On Cancel, On Trash, On Update After Submit, On Change, Before Rename, After Rename, and Before Print.
+These events occur at different points in a document&amp;rsquo;s lifecycle. Use a pre-event when the rule must validate or affect an operation before it completes; use an after-event for follow-up work. Choose based on the required timing, not just on the event name. Confirm the behavior in a test site before activating the rule.
+2. Add an Entry Condition (optional)# Select Open Condition Builder under Entry Condition (Execution Gate) to configure a condition that is evaluated before the action flow starts.
+If the condition is true, the rule can proceed to its action flow. If the condition is false, execution stops before the rule&amp;rsquo;s actions run. If no entry condition is configured, the rule is eligible to proceed whenever its trigger matches. An …
 
 ---
 title: RuleFlow Settings
@@ -1218,24 +1221,24 @@ Switch Action# The Switch action provides multi-way visual branching, routing ex
 Route logic based on categorical fields with three or more values (e.g., Status, Territory, Customer Group, Priority). Simplify complex flows by replacing chained Check (If/Else) blocks with a single multi-port node. Provide a fallback path using the Default branch when an unexpected or unlisted value is encountered. 3. How to Configure# Add the Action: Add a Switch block to your visual canvas. Select Target Value: Click Target Field. Use the Smart Value Selector to pick a document field (e.g., Priority or @doc.priority) or variable (@vars.category). Add Cases: Click Add Case. Enter the expected value string or number for each branch (e.g., &amp;quot;High&amp;quot;, &amp;quot;Medium&amp;quot;, &amp;quot;Low&amp;quot;). Connect Outbound Branches: Connect each case port (&amp;quot;High&amp;quot;, &amp;quot;Medium&amp;quot;, &amp;quot;Low&amp;quot;) to its corresponding action. Connect the Default port to the action that should run if none of the explicit cases match. 4. UI Configuration Options# Option Description Target Field Select the field or variable to evaluate using the Smart Value Selector. Cases List Add matching case values (e.g., &amp;quot;Pending&amp;quot;, &amp;quot;Approved&amp;quot;, &amp;quot;Rejected&amp;quot;). Each case creates an outbound port. Default Branch Outbound port followed when no defined cases match the evaluated target value. 5. Practical Example# Scenario: Route Support Tickets by Priority# Add a Switch action and set Target Field to Priority (@doc.priority). Add three cases: &amp;quot;High&amp;quot;, &amp;quot;Medium&amp;quot;, and &amp;quot;Low&amp;quot;. Connect …
 
 ---
-title: Adding Actions & The Action Palette
+title: Adding Actions to a Rule
 url: https://sendipad.github.io/flexirule/rule-builder/add-action/
-lastmod: 2026-10-07
-summary: Learn how to add, connect, and arrange logic actions on the Rule Builder canvas.
+lastmod: 2026-10-16
+summary: Find, add, configure, connect, and manage actions in the FlexiRule visual Rule Builder.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Adding Actions &amp;amp; The Action Palette# Building a rule flow involves inserting action blocks onto the canvas and connecting them into a visual flowchart. FlexiRule makes inserting actions easy with the Action Palette and the interactive Add Action controls.
-Methods for Adding Actions# You can insert new actions using three intuitive methods:
-1. Connector Line Plus Button (+)# Hover over any connector arrow between existing nodes on the canvas. A + button appears.
-Click the + button on the connector line. The Action Palette drawer opens. Select an action. The new block is automatically spliced into the connector line between the two nodes without breaking the flow. 2. Output Port Dragging# Click and drag out from an outbound connector handle (such as the True green port or False red port on a Check node) and release on empty canvas space to immediately open the Action Palette.
-3. Command Palette (Ctrl K)# Press Ctrl K or / anywhere on the canvas to launch the quick Command Palette. Type the action name (e.g. Notify or Query Records) and press Enter to place it on the canvas.
-Exploring the Action Palette Drawer# When the Action Palette opens, actions are organized into clear business categories:
-Action Type Selector dropdown menu Action Categories# Category Icon Featured Action Types Typical Business Use Case Logic &amp;amp; Flow Check , Switch , Repeat (Loop) , Wait , Raise Error Conditional decision making, branching, multi-case matching, and iteration over child tables. Data Operations Set Value , Query Records Assigning document or variable values, running database queries, aggregations, and counts. Document Operations Update Record Creating, updating, submitting, cancelling, or deleting Frappe records. Communication &amp;amp; Notifications Notify Dispatching Emails, System Toast Alerts, SMS, or Webhook/Slack notifications. Advanced Process &amp;amp; Integration Sub-Rule , Process Calling modular child rules or executing custom Python server processes. Node Header Toolbars &amp;amp; Managing Actions# Every action node on the canvas includes an interactive top toolbar:
-Action card header toolbar showing Run Test, Copy, and Delete actions Action card badges and toolbar state …
+Adding Actions to a Rule# Actions are the steps a rule performs after its entry point. In the visual Rule Builder, each action is represented by a node on the canvas. The nodes and their connections define the execution flow, including branches and loops.
+This guide covers how to add and manage actions. Configure each selected node in its properties panel, then save and test the rule.
+Add an action to the flow# Insert an action on a connection# The most direct way to insert an action into an existing flow is the + control on a connection.
+Find the connection where the new action should run. Select the + button on that connection. Search for or choose an action in the action selector. Complete any selection steps, such as choosing an operation or Process, if prompted. Confirm the selection and configure the new node. The new node is inserted into that connection. This is useful when you want a step to run between two existing nodes without manually rebuilding the connection.
+Add a node from an action selector# The canvas also uses an ActionZone selector when a node placeholder or insertion point needs an action. Search for the action or operation you want, select it, and follow the prompts shown by the builder. Depending on the action type, you may need to choose an operation, select a registered Process and its operation, or provide a custom label before the node is added.
+The available choices are driven by FlexiRule&amp;rsquo;s action contracts and registered Process operations. The exact options therefore depend on the action type and the installed app&amp;rsquo;s registered Processes.
+Find the right action# Use these descriptions to choose the appropriate action type. An action type may offer multiple operations or modes; select the specific operation that matches your goal.
+Action type Typical purpose Condition Evaluate a decision and route execution along the True or False branch. Switch Route execution among multiple cases. Loop Repeat work for items in a collection, such as rows in a child table. Assignment Calculate or assign values to variables or document fields. Query Records Retrieve records or perform a supported query operation. Document Action Perform …
 
 ---
 title: Advanced Process: Architecture Reference
@@ -1753,26 +1756,24 @@ A Process defines its Config Schema and Output Schema. The Rule engine uses thes
 ---
 title: Condition Builder
 url: https://sendipad.github.io/flexirule/rule-builder/condition-builder/
-lastmod: 2026-10-09
-summary: Learn how to create visual logical condition groups in FlexiRule.
+lastmod: 2026-10-16
+summary: Build, combine, and validate visual conditions in FlexiRule.
 concepts: 
 tags: 
 difficulty: 
 related: 
 actions: read, implement, integrate, troubleshoot, improve
 
-Condition Builder# The Condition Builder lets you define business logic as structured conditions instead of writing an expression by hand. It is used by the Condition action and other configuration flows that accept a condition tree, such as supported query filters.
-A condition tree contains comparison rows and nested groups. The visual editor configures the tree; the backend evaluates the saved and compiled condition.
+Condition Builder# The Condition Builder lets you express business logic with field comparisons, nested AND / OR groups, and collection checks—without writing a condition expression by hand.
+The same editor is reused in several places, including the Condition action, a Rule&amp;rsquo;s Entry Condition, conditional Assignment rows, and collection-value filters. The available fields, whether a condition is required, and the effect of a false result depend on where you open it.
 ![Condition Builder rule configuration panel]({{ &amp;ldquo;images/condition-builder-panel.png&amp;rdquo; | relURL }})
-1. Build a condition row# A condition row has three parts:
-Field / left operand — select a document field or context reference from the field picker. Available options depend on where the builder is used. Operator — choose a comparison supported for the selected field type. Value / right operand — enter a static value or configure a supported dynamic value using the value control. For example, an approval rule might compare Grand Total with 100000. Operators and inputs are field-aware: not every operator is available for every field type, and operators such as Is Set or Is Not Set do not need a right-hand value.
-The application can supply operator choices from backend configuration, with frontend defaults as a fallback. Use the options actually displayed by the editor rather than assuming every operator is available in every context.
-2. Choose values# The value control uses FlexiRule&amp;rsquo;s shared structured-value system. Depending on the editor context, you may be able to choose a literal value, a reference, or a supported resolver.
-Examples of references used in FlexiRule include:
-@doc.grand_total — a value from the current document. @vars.calculated_total — a rule variable, when exposed in that context. @system.today — system context, when available. Resolver values configured through the value control. These examples are context-dependent, not a guarantee that every reference or resolver is available in every Condition Builder. The left operand uses the field picker; the right operand uses the value control.
-See Smart Value System.
-3. Combine conditions with groups# Each group combines its children using one logic operator:
-AND — …
+Build a condition# A simple condition compares a left-hand value with an operator and, when required, a right-hand value.
+Select the field or reference on the left. Choose an available operator. Set the value on the right, if the operator needs one. For example:
+Grand Total &amp;gt; 100000 The field picker offers choices for the current editor context. Depending on that context, these can include document fields, context references, variables, or fields scoped to a collection row. Use the picker to select a supported reference rather than assuming every field is available in every editor.
+The right-hand value control supports the value types offered in that context. Use a value appropriate for the selected field and operator. For example, compare a numeric field with a number and a Link field with an appropriate linked value.
+Operators depend on the field# FlexiRule loads operator metadata from the backend when available and uses frontend defaults as a fallback. Consequently, the exact list depends on the field type and configuration.
+Common operator families include:
+Equality: equals and does not equal. Ordering: greater than, less than, and inclusive variants where supported. Membership: is in / is not in a list. Text or collection checks: contains / does not contain where supported. Value-state checks: is set, is not set, is empty, or is not empty where available. Some operators do not require a right-hand value. For those operators, configure the comparison itself rather than looking for a second input. Always use the choices shown by the editor; not every operator is valid for every …
 
 ---
 title: Core Concepts
