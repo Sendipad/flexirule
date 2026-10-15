@@ -151,7 +151,6 @@ class Rule(Document):
 		if meta.istable or meta.issingle:
 			frappe.throw(_("Document Event rules cannot target child-table or Single DocTypes."))
 
-
 	def validate_with_service(self):
 		"""Shared structured validation layer used by form save and builder precheck."""
 		from flexirule.ruleflow.core.validation_service import validate_rule_definition
