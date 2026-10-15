@@ -152,7 +152,8 @@ class ConditionCompiler:
 			raise ValueError("Condition must be a dictionary or list")
 
 		compiled = self._compile_node(
-			conditions, scopes={"doc", "old_doc", "row", "vars", "item", "caller", "rule", "doctype", "frappe"}
+			conditions,
+			scopes={"doc", "old_doc", "row", "vars", "item", "caller", "rule", "doctype", "frappe"},
 		)
 		return compiled if compiled else "True"
 
