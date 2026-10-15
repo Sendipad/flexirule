@@ -738,7 +738,7 @@ class RuleCoordinator:
 		"""
 		method = method or ""
 
-		if method in ("on_trash", "after_insert"):
+		if method in ("on_trash", "after_insert", "after_delete"):
 			return True
 
 		# Updates: compare previous state and current state.
