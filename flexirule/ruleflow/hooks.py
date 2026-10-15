@@ -30,14 +30,18 @@ EVENT_MAP = {
 
 # Request-level memo key for excluded doctypes
 EXCLUDED_CACHE_KEY = "flexirule_excluded_doctypes"
+MAX_RULE_DISPATCH_DEPTH = 20
 
 
 def get_excluded_doctypes() -> set[str]:
-	"""Get list of doctypes excluded from lifecycle dispatch (request-memoized)."""
+	"""Return configured lifecycle exclusions, memoized for this request."""
 	cached = getattr(frappe.local, EXCLUDED_CACHE_KEY, None)
 	if isinstance(cached, set):
 		return cached
 
+	# App-level exclusions remain authoritative. Internal DocTypes are not
+	# excluded merely because they belong to FlexiRule; valid target types are
+	# constrained by Rule.document_type's schema and server-side validation.
 	excluded = set(frappe.get_hooks("flexirule_excluded_doctypes") or [])
 	excluded.update(
 		{
@@ -50,33 +54,22 @@ def get_excluded_doctypes() -> set[str]:
 			"Comment",
 			"Communication",
 			"File",
-			# Execution telemetry must not recursively trigger business rules.
 			"Rule Execution Log",
+			"Rule Scheduler",
 		}
 	)
 
 	try:
 		user_excluded = frappe.get_all(
 			"RuleFlow Excluded DocType", parent="RuleFlow Settings", pluck="document_type"
-		)
-		if user_excluded:
-			excluded.update([dt for dt in user_excluded if dt])
+		) or []
+		# "Rule" was seeded as a default exclusion before Rule lifecycle events
+		# became a supported target. Ignore that legacy default while preserving
+		# all other configured exclusions. Apps can still explicitly exclude Rule
+		# through the flexirule_excluded_doctypes hook.
+		excluded.update(dt for dt in user_excluded if dt and dt != "Rule")
 	except Exception:
-		# Table might not exist yet during install/migrate.
-		pass
-
-	# Ruleflow DocTypes are valid event targets, including Rule itself. Discover
-	# them from DocType metadata so newly added FlexiRule DocTypes are supported
-	# without maintaining a second allowlist. Keep execution telemetry excluded.
-	try:
-		app_modules = frappe.get_all("Module Def", filters={"app_name": "flexirule"}, pluck="name") or []
-		if app_modules:
-			flexirule_doctypes = set(
-				frappe.get_all("DocType", filters={"module": ["in", app_modules]}, pluck="name") or []
-			)
-			excluded.difference_update(flexirule_doctypes - {"Rule Execution Log"})
-	except Exception:
-		# Metadata may be unavailable during early installation.
+		# Settings may not exist yet during early installation/migration.
 		pass
 
 	setattr(frappe.local, EXCLUDED_CACHE_KEY, excluded)
@@ -85,13 +78,6 @@ def get_excluded_doctypes() -> set[str]:
 
 def execute_rules(doc, method=None, *args, **kwargs):
 	"""Standard Frappe doc_event hook entry point."""
-	# Rule lifecycle changes must invalidate the runtime registry before any
-	# rules configured on Rule itself are evaluated. Frappe runs wildcard
-	# doc_events before doctype-specific hooks, so doing this in a second Rule
-	# hook would leave dispatch using stale registry state.
-	if doc.doctype == "Rule" and method in {"after_insert", "on_update", "on_trash"}:
-		clear_rule_cache(doc, method)
-
 	trigger_event = EVENT_MAP.get(method)
 	if not trigger_event:
 		return
@@ -119,10 +105,9 @@ def execute_rules_from_event(doc, event):
 	# Same-document re-entry is handled by RuleCoordinator. This additional
 	# request-level bound stops indirect A -> B -> A write cycles across doctypes.
 	depth = getattr(frappe.local, "flexirule_rule_dispatch_depth", 0)
-	max_depth = 20
-	if depth >= max_depth:
+	if depth >= MAX_RULE_DISPATCH_DEPTH:
 		frappe.throw(
-			_("FlexiRule stopped a recursive rule chain after {0} nested document events.").format(max_depth)
+			_("FlexiRule stopped a recursive rule chain after {0} nested document events.").format(MAX_RULE_DISPATCH_DEPTH)
 		)
 
 	frappe.local.flexirule_rule_dispatch_depth = depth + 1
