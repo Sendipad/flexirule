@@ -403,9 +403,7 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 		governance_doc = frappe._dict(doctype="Rule", description="")
 
 		with patch.object(frappe.flags, "in_install", True, create=True):
-			eligible, _ = RuleCoordinator.check_eligibility(
-				governance_rule, governance_doc, "Before Insert"
-			)
+			eligible, _ = RuleCoordinator.check_eligibility(governance_rule, governance_doc, "Before Insert")
 		self.assertFalse(eligible)
 
 		with patch.object(frappe.flags, "in_install", False, create=True):
