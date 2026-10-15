@@ -324,7 +324,7 @@ class TestRuleDocEventDispatch(FrappeTestCase):
 
 	def test_app_hook_can_explicitly_exclude_rule(self):
 		# Reset the request-level memo without relying on LocalProxy.pop().
-		setattr(frappe.local, "flexirule_excluded_doctypes", None)
+		frappe.local.flexirule_excluded_doctypes = None
 		with (
 			patch("frappe.get_hooks", return_value=["Rule"]),
 			patch("frappe.get_all", return_value=[]),
