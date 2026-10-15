@@ -400,6 +400,28 @@ function rowTitle(row) {
 	return row.expression || __("Advanced field expression");
 }
 
+function literalValueModeLabel(mode) {
+	switch (String(mode || "static").toLowerCase()) {
+		case "static":
+			return __("static");
+		case "resolver":
+			return __("resolver");
+		case "formula":
+			return __("formula");
+		case "format":
+			return __("format");
+		case "formatter":
+			return __("formatter");
+		case "normalize":
+		case "normalization":
+			return __("normalization");
+		case "expression":
+			return __("expression");
+		default:
+			return __("dynamic");
+	}
+}
+
 function rowDescription(row) {
 	if (row.kind === "field") {
 		const source = row.field
@@ -425,7 +447,13 @@ function rowDescription(row) {
 	}
 	if (row.kind === "literal") {
 		const mode = row.value_spec?.mode || "static";
-		return __("Literal column") + " · " + (row.fieldname || "—") + " · " + __(mode);
+		return (
+			__("Literal column") +
+			" · " +
+			(row.fieldname || "—") +
+			" · " +
+			literalValueModeLabel(mode)
+		);
 	}
 	return __("Advanced native field expression");
 }
