@@ -44,13 +44,27 @@
 						<ol class="return-result-guide__steps">
 							<template v-if="localConfig.result_shape === 'selected_fields'">
 								<li>{{ __("Add fields or calculations in Output Fields.") }}</li>
-								<li>{{ __("Choose a source field for each function and give every function a clear output alias.") }}</li>
-								<li>{{ __("When aggregate functions are combined with regular fields, set Group By below.") }}</li>
+								<li>
+									{{
+										__(
+											"Choose a source field for each function and give every function a clear output alias."
+										)
+									}}
+								</li>
+								<li>
+									{{
+										__("When aggregate functions are combined with regular fields, set Group By below.")
+									}}
+								</li>
 							</template>
 							<template v-else-if="localConfig.result_shape === 'embedded_children'">
 								<li>{{ __("Add a child selection in Output Fields.") }}</li>
 								<li>{{ __("Choose the parent child-table field.") }}</li>
-								<li>{{ __("Select the child fields to return as a nested list for each parent record.") }}</li>
+								<li>
+									{{
+										__("Select the child fields to return as a nested list for each parent record.")
+									}}
+								</li>
 							</template>
 						</ol>
 					</div>
