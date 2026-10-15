@@ -33,7 +33,13 @@ doc_events = {
 		"on_trash": "flexirule.ruleflow.hooks.execute_rules",
 	},
 	# Frappe's on_trash runs before deletion; invalidate again after the row is gone.
-	"Rule": {"after_delete": "flexirule.ruleflow.hooks.clear_rule_cache"},
+	"Rule": {
+		"after_insert": "flexirule.ruleflow.hooks.clear_rule_cache",
+		"on_update": "flexirule.ruleflow.hooks.clear_rule_cache",
+		"on_trash": "flexirule.ruleflow.hooks.clear_rule_cache",
+		# on_trash runs before deletion; after_delete also invalidates after the row is gone.
+		"after_delete": "flexirule.ruleflow.hooks.clear_rule_cache",
+	},
 }
 
 doctype_js = {"Rule": "ruleflow/doctype/rule/rule.js"}
