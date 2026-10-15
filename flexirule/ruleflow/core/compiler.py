@@ -152,7 +152,7 @@ class ConditionCompiler:
 			raise ValueError("Condition must be a dictionary or list")
 
 		compiled = self._compile_node(
-			conditions, scopes={"doc", "old_doc", "row", "vars", "item", "caller", "rule", "doctype"}
+			conditions, scopes={"doc", "old_doc", "row", "vars", "item", "caller", "rule", "doctype", "frappe"}
 		)
 		return compiled if compiled else "True"
 
@@ -161,7 +161,7 @@ class ConditionCompiler:
 			return ""
 
 		if scopes is None:
-			scopes = {"doc", "old_doc", "row", "vars", "item", "caller", "rule", "doctype"}
+			scopes = {"doc", "old_doc", "row", "vars", "item", "caller", "rule", "doctype", "frappe"}
 
 		# 1. Detect Type
 		# Collection
@@ -221,6 +221,10 @@ class ConditionCompiler:
 		op = node.get("op", "==")
 
 		lhs_code = self._compile_operand(left, scopes)
+
+		# Narrow, read-only helpers used by built-in governance predicates.
+		if op == "has_outer_whitespace":
+			return f"has_outer_whitespace({lhs_code})"
 
 		# Special Unary/Method Operators
 		if op == "is_set":
@@ -491,6 +495,10 @@ class ConditionCompiler:
 
 		if scope not in scopes:
 			return "''"
+
+		# Only expose this one read-only lifecycle flag to declarative conditions.
+		if scope == "frappe":
+			return "frappe.in_install" if path == "frappe.in_install" else "''"
 
 		if len(parts) == 1:
 			# Just the scope itself (rare but valid)
