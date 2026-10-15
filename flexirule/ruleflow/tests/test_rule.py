@@ -292,8 +292,9 @@ class TestRuleDocEventDispatch(FrappeTestCase):
 		for attr in ("flexirule_excluded_doctypes", "flexirule_rule_dispatch_depth"):
 			if hasattr(frappe.local, attr):
 				delattr(frappe.local, attr)
-		if hasattr(frappe.flags, "flexirule_system_rule_registration"):
-			delattr(frappe.flags, "flexirule_system_rule_registration")
+		# frappe.flags is a Frappe _dict; pop is safe even if a flag was
+		# removed by the code under test after hasattr observed it.
+		frappe.flags.pop("flexirule_system_rule_registration", None)
 		super().tearDown()
 
 	def test_internal_doctypes_are_not_implicitly_excluded(self):
@@ -322,9 +323,11 @@ class TestRuleDocEventDispatch(FrappeTestCase):
 		self.assertIn("Rule Execution Log", excluded)
 
 	def test_app_hook_can_explicitly_exclude_rule(self):
+		# Avoid reusing a request-level memo populated by another test.
+		frappe.local.pop("flexirule_excluded_doctypes", None)
 		with (
 			patch("frappe.get_hooks", return_value=["Rule"]),
-			patch("frappe.get_all", return_value=["Rule"]),
+			patch("frappe.get_all", return_value=[]),
 		):
 			excluded = get_excluded_doctypes()
 
