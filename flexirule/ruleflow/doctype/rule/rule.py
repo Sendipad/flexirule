@@ -131,6 +131,7 @@ class Rule(Document):
 		self.compile_action_templates()
 		self.compile_action_mappings()
 		self.normalize_trigger_type_fields()
+		self.validate_document_event_target()
 		self.validate_with_service()
 		self.validate_active_rule_lock()
 		self.validate_priority_callable()
@@ -140,6 +141,18 @@ class Rule(Document):
 		self.validate_single_active_version()
 
 	# Removed status computation for lifecycle_state
+
+	def validate_document_event_target(self):
+		"""Enforce the DocType link field's non-single, non-child target contract on the server."""
+		if self.trigger_type != "DocType Event" or not self.document_type:
+			return
+
+		meta = frappe.get_meta(self.document_type)
+		if meta.istable or meta.issingle:
+			frappe.throw(
+				_("Document Event rules cannot target child-table or Single DocTypes.")
+			)
+
 
 	def validate_with_service(self):
 		"""Shared structured validation layer used by form save and builder precheck."""
