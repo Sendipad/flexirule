@@ -51,8 +51,18 @@ def get_system_rule_definitions() -> list[dict[str, Any]]:
 	naming_condition = _condition_group(
 		_install_guard(),
 		{
-			"left": {"ref": "doc.rule_name"},
-			"op": "has_outer_whitespace",
+			"op": "or",
+			"conditions": [
+				{
+					"left": {"ref": "doc.rule_name"},
+					"op": "is_not_set",
+				},
+				{
+					"left": {"ref": "doc.rule_name"},
+					"op": "starts_with",
+					"right": {"value": "new"},
+				},
+			],
 		},
 	)
 	governance_condition = _condition_group(
@@ -65,8 +75,8 @@ def get_system_rule_definitions() -> list[dict[str, Any]]:
 
 	return [
 		{
-			"rule_name": "RULE_NAMING_NO_OUTER_WHITESPACE",
-			"description": "Reject Rule names with leading or trailing whitespace.",
+			"rule_name": "RULE_NAMING_REJECT_EMPTY_OR_PLACEHOLDER",
+			"description": "Reject Rule names that are empty or use the placeholder prefix 'new'.",
 			"module": "Ruleflow",
 			"document_type": "Rule",
 			"trigger_type": "DocType Event",
@@ -75,7 +85,7 @@ def get_system_rule_definitions() -> list[dict[str, Any]]:
 			"priority": "20",
 			"actions": _stop_with_error(
 				"reject",
-				"Rule Name must not begin or end with whitespace.",
+				"Rule Name must be set to a meaningful value and must not start with the placeholder prefix 'new'.",
 			),
 		},
 		{
