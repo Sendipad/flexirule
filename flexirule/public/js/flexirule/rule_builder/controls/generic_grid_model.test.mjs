@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {
 	GRID_CLIPBOARD_FORMAT,
 	buildRowProps,
+	canEditRowSummary,
 	matchesShortcut,
 	getPathValue,
 	getBulkEditAction,
@@ -99,6 +100,12 @@ assert.equal(
 		.rowIndex,
 	3
 );
+
+assert.equal(canEditRowSummary(rows[0]), true);
+assert.equal(canEditRowSummary(rows[0], { readOnly: true }), false);
+assert.equal(canEditRowSummary(rows[0], { availableRowActions: ["remove"] }), false);
+assert.equal(canEditRowSummary({ isEditing: true }), false);
+assert.equal(canEditRowSummary({ mode: "editing" }, { editStateKey: "mode" }), false);
 
 assert.equal(getBulkEditAction([]), null);
 assert.equal(getBulkEditAction([{ isEditing: true }, { isEditing: true }]), "view");
