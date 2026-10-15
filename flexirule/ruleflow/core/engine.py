@@ -143,6 +143,11 @@ class SafeFrappeAPI:
 		self._roles = roles
 
 	@property
+	def in_install(self) -> bool:
+		"""Expose installation state without granting rule expressions broader Frappe access."""
+		return bool(getattr(frappe.flags, "in_install", False))
+
+	@property
 	def session(self):
 		"""Read-only access to frappe.session (current user, roles, etc.)"""
 		if self._user:
