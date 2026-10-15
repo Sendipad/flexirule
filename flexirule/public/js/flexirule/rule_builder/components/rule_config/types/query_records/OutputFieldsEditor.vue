@@ -856,9 +856,6 @@ defineExpose({ validate });
 .output-fields-hint {
 	max-width: 100%;
 	white-space: normal;
-}
-
-.output-fields-hint {
 	color: var(--fxr-text-muted);
 }
 
