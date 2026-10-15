@@ -374,9 +374,9 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 		naming_expression = compiler.compile(naming["trigger_condition"])
 		governance_expression = compiler.compile(governance["trigger_condition"])
 
-		self.assertIn("frappe.in_install", naming_expression)
+		self.assertIn("vars.get('is_install')", naming_expression)
 		self.assertIn("has_outer_whitespace", naming_expression)
-		self.assertIn("frappe.in_install", governance_expression)
+		self.assertIn("vars.get('is_install')", governance_expression)
 
 		naming_rule = frappe._dict(
 			name=naming["rule_name"],
