@@ -1,16 +1,9 @@
 name: CI
 
 on:
-  push:
-    # Feature branches are validated by pull_request; running both events duplicates CI.
-    branches:
-      - develop
-    paths-ignore:
-      - "docs/**"
-      - "docs-config/**"
-      - "landing-page/**"
-      - "architecture/**"
-      - "*.md"
+  # Pull-request checks are the canonical validation path. A push to develop
+  # immediately after merging a PR would run the same expensive suite again.
+  # Use workflow_dispatch for deliberate post-merge or maintenance validation.
   pull_request:
     paths-ignore:
       - "docs/**"
