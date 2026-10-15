@@ -64,11 +64,9 @@ def get_excluded_doctypes() -> set[str]:
 			frappe.get_all("RuleFlow Excluded DocType", parent="RuleFlow Settings", pluck="document_type")
 			or []
 		)
-		# "Rule" was seeded as a default exclusion before Rule lifecycle events
-		# became a supported target. Ignore that legacy default while preserving
-		# all other configured exclusions. Apps can still explicitly exclude Rule
-		# through the flexirule_excluded_doctypes hook.
-		excluded.update(dt for dt in user_excluded if dt and dt != "Rule")
+		# The migration removes the obsolete Rule default once. From then on,
+		# settings exclusions are authoritative, including an explicit Rule exclusion.
+		excluded.update(dt for dt in user_excluded if dt)
 	except Exception:
 		# Settings may not exist yet during early installation/migration.
 		pass
