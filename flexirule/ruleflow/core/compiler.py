@@ -56,6 +56,7 @@ class ConditionCompiler:
 		"length_gte": "length greater or equal",
 		"length_lt": "length less than",
 		"length_lte": "length less or equal",
+		"starts_with": "starts with",
 		"has_outer_whitespace": "has leading or trailing whitespace",
 	}
 
@@ -225,9 +226,12 @@ class ConditionCompiler:
 
 		lhs_code = self._compile_operand(left, scopes)
 
-		# Narrow, read-only helpers used by built-in governance predicates.
+		# Narrow, read-only predicates used by built-in governance rules.
 		if op == "has_outer_whitespace":
 			return f"(str({lhs_code} or '') != str({lhs_code} or '').strip())"
+		if op == "starts_with":
+			rhs_code = self._compile_operand(right, scopes)
+			return f"str({lhs_code} or '').lower().startswith(str({rhs_code} or '').lower())"
 
 		# Special Unary/Method Operators
 		if op == "is_set":
