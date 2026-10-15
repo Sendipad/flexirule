@@ -118,9 +118,25 @@ assert.equal(getBulkEditAction([{ isEditing: true }, { isEditing: false }]), "ed
 assert.equal(getBulkEditAction([{ mode: "editing" }, { mode: "editing" }], "mode"), "view");
 
 
-assert.equal(getPrimaryActionAfterIndex(1, []), 1, "active row inserts after it without selecting its index");
-assert.equal(getPrimaryActionAfterIndex(0, [1, 2]), 0, "active row takes precedence over selected rows");
-assert.equal(getPrimaryActionAfterIndex(null, [1, 2]), 2, "selected-row fallback remains supported");
-assert.equal(getPrimaryActionAfterIndex(null, []), null, "without an active or selected row, append at the end");
+assert.equal(
+	getPrimaryActionAfterIndex(1, []),
+	1,
+	"active row inserts after it without selecting its index"
+);
+assert.equal(
+	getPrimaryActionAfterIndex(0, [1, 2]),
+	0,
+	"active row takes precedence over selected rows"
+);
+assert.equal(
+	getPrimaryActionAfterIndex(null, [1, 2]),
+	2,
+	"selected-row fallback remains supported"
+);
+assert.equal(
+	getPrimaryActionAfterIndex(null, []),
+	null,
+	"without an active or selected row, append at the end"
+);
 assert.equal(getPrimaryActionAfterIndex(-1, []), null);
 assert.equal(getPrimaryActionAfterIndex(null, [1, -2, 1.5]), 1);

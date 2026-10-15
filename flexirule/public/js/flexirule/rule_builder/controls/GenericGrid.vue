@@ -286,7 +286,11 @@
 									:aria-keyshortcuts="action.shortcut || undefined"
 									@click="requestGridAction(action)"
 								>
-									<i v-if="action.icon" :class="action.icon" aria-hidden="true"></i>
+									<i
+										v-if="action.icon"
+										:class="action.icon"
+										aria-hidden="true"
+									></i>
 									<span>{{ action.label }}</span>
 									<kbd v-if="action.shortcut">{{ action.shortcut }}</kbd>
 								</button>
