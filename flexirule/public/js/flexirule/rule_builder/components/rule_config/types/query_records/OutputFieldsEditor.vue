@@ -413,6 +413,7 @@ function literalValueModeLabel(mode) {
 		case "formatter":
 			return __("formatter");
 		case "normalize":
+			return __("normalize");
 		case "normalization":
 			return __("normalization");
 		case "expression":
