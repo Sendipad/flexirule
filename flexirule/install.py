@@ -59,26 +59,33 @@ _DEPRECATED_SYSTEM_RULE_BASE_NAMES = (
 
 def retire_deprecated_system_rules():
 	"""Disable retired app-managed policies while preserving their audit history."""
-	for logical_name in _DEPRECATED_SYSTEM_RULE_BASE_NAMES:
-		rule_names = set(
-			frappe.get_all(
-				"Rule",
-				filters={"base_rule_name": logical_name, "is_system_generated": 1},
-				pluck="name",
+	# This is a registry-owned lifecycle change; suppress recursive RuleFlow
+	# dispatch just as the regular registration path does.
+	previous_flag = getattr(frappe.flags, "flexirule_system_rule_registration", False)
+	frappe.flags.flexirule_system_rule_registration = True
+	try:
+		for logical_name in _DEPRECATED_SYSTEM_RULE_BASE_NAMES:
+			rule_names = set(
+				frappe.get_all(
+					"Rule",
+					filters={"base_rule_name": logical_name, "is_system_generated": 1},
+					pluck="name",
+				)
 			)
-		)
-		exact_name = frappe.db.get_value("Rule", {"rule_name": logical_name}, "name")
-		if exact_name and frappe.db.get_value("Rule", exact_name, "is_system_generated"):
-			rule_names.add(exact_name)
+			exact_name = frappe.db.get_value("Rule", {"rule_name": logical_name}, "name")
+			if exact_name and frappe.db.get_value("Rule", exact_name, "is_system_generated"):
+				rule_names.add(exact_name)
 
-		for name in rule_names:
-			rule = frappe.get_doc("Rule", name)
-			if not rule.is_system_generated:
-				continue
-			if rule.is_active or rule.status != "Disabled":
-				rule.is_active = 0
-				rule.status = "Disabled"
-				rule.save(ignore_permissions=True)
+			for name in rule_names:
+				rule = frappe.get_doc("Rule", name)
+				if not rule.is_system_generated:
+					continue
+				if rule.is_active or rule.status != "Disabled":
+					rule.is_active = 0
+					rule.status = "Disabled"
+					rule.save(ignore_permissions=True)
+	finally:
+		frappe.flags.flexirule_system_rule_registration = previous_flag
 
 
 def register_system_rules():
