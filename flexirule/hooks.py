@@ -11,6 +11,10 @@ app_license = "agpl-3.0"
 # required_apps = []
 # JS/CSS includes
 app_include_js = ["flexirule.bundle.js"]
+# Rule cache invalidation after delete is separate because Frappe's on_trash
+# event runs before the row is removed from the database.
+doc_events["Rule"] = {"after_delete": "flexirule.ruleflow.hooks.clear_rule_cache"}
+
 # Document Events - ALL paths must be to MODULE-LEVEL functions
 # NEVER use class method paths like "module.ClassName.method"
 doc_events = {
