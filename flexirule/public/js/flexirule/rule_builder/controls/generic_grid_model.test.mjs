@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import {
 	GRID_CLIPBOARD_FORMAT,
 	buildRowProps,
-	canEditRowSummary,
+	getSummaryToggleAction,
 	matchesShortcut,
 	getPathValue,
 	getBulkEditAction,
@@ -101,11 +101,13 @@ assert.equal(
 	3
 );
 
-assert.equal(canEditRowSummary(rows[0]), true);
-assert.equal(canEditRowSummary(rows[0], { readOnly: true }), false);
-assert.equal(canEditRowSummary(rows[0], { availableRowActions: ["remove"] }), false);
-assert.equal(canEditRowSummary({ isEditing: true }), false);
-assert.equal(canEditRowSummary({ mode: "editing" }, { editStateKey: "mode" }), false);
+assert.equal(getSummaryToggleAction(rows[0]), "edit");
+assert.equal(getSummaryToggleAction({ isEditing: true }), "view");
+assert.equal(getSummaryToggleAction(rows[0], { readOnly: true }), null);
+assert.equal(getSummaryToggleAction({ isEditing: true }, { readOnly: true }), null);
+assert.equal(getSummaryToggleAction(rows[0], { availableRowActions: ["remove"] }), null);
+assert.equal(getSummaryToggleAction({ mode: "editing" }, { editStateKey: "mode" }), "view");
+assert.equal(getSummaryToggleAction(rows[0], { availableRowActions: null }), null);
 
 assert.equal(getBulkEditAction([]), null);
 assert.equal(getBulkEditAction([{ isEditing: true }, { isEditing: true }]), "view");

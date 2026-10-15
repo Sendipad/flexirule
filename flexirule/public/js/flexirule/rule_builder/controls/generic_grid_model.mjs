@@ -138,18 +138,17 @@ export function buildRowProps(row, index, customProps, selected, invalid, readOn
 }
 
 /**
- * Whether a readable row summary can switch into edit mode.
+ * Resolve the summary's double-click action for either readable or editing rows.
+ * Read-only rows and rows without an edit action remain non-interactive.
  */
-export function canEditRowSummary(
+export function getSummaryToggleAction(
 	row,
 	{ readOnly = false, availableRowActions = ["edit"], editStateKey = "isEditing" } = {}
 ) {
-	return (
-		!readOnly &&
-		Array.isArray(availableRowActions) &&
-		availableRowActions.includes("edit") &&
-		!Boolean(row?.[editStateKey])
-	);
+	if (readOnly || !Array.isArray(availableRowActions) || !availableRowActions.includes("edit")) {
+		return null;
+	}
+	return Boolean(row?.[editStateKey]) ? "view" : "edit";
 }
 
 /**

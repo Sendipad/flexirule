@@ -384,15 +384,20 @@ function newId() {
 }
 
 function rowTitle(row) {
-	if (row.kind === "field") return row.alias || row.field || __("Output field");
+	if (row.kind === "field") {
+		if (row.alias) return humanizeAlias(row.alias);
+		const label = fieldInfo(row.field).label;
+		return label ? __(label) : row.field || __("Output field");
+	}
 	if (row.kind === "function") {
 		const fn = (row.functionName || "count").toUpperCase();
-		return row.alias
-			? humanizeAlias(row.alias) + " (" + fn + ")"
-			: fn + "(" + (fieldInfo(row.field).label || row.field || "?") + ")";
+		if (row.alias) return humanizeAlias(row.alias) + " (" + fn + ")";
+		const label = fieldInfo(row.field).label;
+		return fn + "(" + (label ? __(label) : row.field || "?") + ")";
 	}
 	if (row.kind === "child") {
-		return fieldInfo(row.tableField).label || __("Embedded child selection");
+		const label = fieldInfo(row.tableField).label;
+		return label ? __(label) : __("Embedded child selection");
 	}
 	if (row.kind === "literal") {
 		return row.label || humanizeAlias(row.fieldname) || __("Literal value");
@@ -426,35 +431,30 @@ function literalValueModeLabel(mode) {
 function rowDescription(row) {
 	if (row.kind === "field") {
 		const source = row.field
-			? (row.field.includes(".") ? __("Related field") : __("Parent field")) +
-			  " · " +
-			  row.field
+			? __("{0}: {1}", [
+					row.field.includes(".") ? __("Related field") : __("Parent field"),
+					row.field,
+				])
 			: __("Choose a field");
-		return row.alias ? source + " · " + __("Output alias") + ": " + row.alias : source;
+		return row.alias ? __("{0} · Output alias: {1}", [source, row.alias]) : source;
 	}
 	if (row.kind === "function") {
 		const expression =
 			(row.functionName || "count").toUpperCase() + "(" + (row.field || "?") + ")";
-		return (
-			__("Function") +
-			" · " +
-			expression +
-			(row.alias ? " · " + __("Output alias") + ": " + row.alias : "")
-		);
+		return row.alias
+			? __("Function: {0} · Output alias: {1}", [expression, row.alias])
+			: __("Function: {0}", [expression]);
 	}
 	if (row.kind === "child") {
 		const fields = Array.isArray(row.fields) ? row.fields.join(", ") : "";
-		return fields ? __("Child fields") + " · " + fields : __("Select child fields");
+		return fields ? __("Child fields: {0}", [fields]) : __("Select child fields");
 	}
 	if (row.kind === "literal") {
 		const mode = row.value_spec?.mode || "static";
-		return (
-			__("Literal column") +
-			" · " +
-			(row.fieldname || "—") +
-			" · " +
-			literalValueModeLabel(mode)
-		);
+		return __("Literal column: {0} · {1}", [
+			row.fieldname || "—",
+			literalValueModeLabel(mode),
+		]);
 	}
 	return __("Advanced native field expression");
 }
@@ -786,7 +786,7 @@ defineExpose({ validate });
 }
 
 .output-fields-list :deep(.fxr-generic-grid-row-summary) {
-	align-self: center;
+	align-self: start;
 }
 
 .output-fields-list :deep(.fxr-generic-grid-row.is-editing) {
@@ -797,9 +797,11 @@ defineExpose({ validate });
 .output-field-row-copy {
 	display: flex;
 	flex-direction: column;
-	justify-content: center;
+	justify-content: flex-start;
+	gap: 2px;
 	min-width: 0;
 	flex: 1;
+	text-align: start;
 	user-select: text;
 }
 
@@ -808,13 +810,14 @@ defineExpose({ validate });
 	overflow: hidden;
 	color: var(--fxr-text);
 	font-size: var(--fxr-text-sm);
-	font-weight: var(--fxr-weight-medium);
+	font-weight: var(--fxr-weight-semibold, 600);
+	line-height: 1.25;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
 .output-field-row-copy p {
-	margin: 1px 0 0;
+	margin: 0;
 	overflow: hidden;
 	color: var(--fxr-text-muted);
 	font-size: var(--fxr-text-xs);

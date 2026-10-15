@@ -125,9 +125,9 @@
 				<div
 					v-if="hasSummarySlot"
 					class="fxr-generic-grid-row-summary"
-					:class="{ 'is-editable': canEditSummary(entry) }"
-					:title="canEditSummary(entry) ? __('Double-click to edit') : undefined"
-					@dblclick="editSummaryRow(entry, $event)"
+					:class="{ 'is-toggleable': summaryToggleAction(entry) !== null }"
+					:title="summaryToggleTitle(entry)"
+					@dblclick="toggleSummaryRow(entry, $event)"
 				>
 					<slot
 						name="row-summary"
@@ -407,7 +407,7 @@ import {
 	parseClipboardRows,
 	rowMatchesSearch,
 	buildRowProps,
-	canEditRowSummary,
+	getSummaryToggleAction,
 	selectRangeKeys,
 } from "./generic_grid_model.mjs";
 
@@ -735,16 +735,24 @@ function resolveRowProps(row, index) {
 	);
 }
 
-function canEditSummary(entry) {
-	return canEditRowSummary(entry.row, {
+function summaryToggleAction(entry) {
+	return getSummaryToggleAction(entry.row, {
 		readOnly: props.readOnly,
 		availableRowActions: props.availableRowActions,
 		editStateKey: props.editStateKey,
 	});
 }
 
-function editSummaryRow(entry, event) {
-	if (!canEditSummary(entry)) return;
+function summaryToggleTitle(entry) {
+	const action = summaryToggleAction(entry);
+	if (action === "view") return __("Double-click to return to reading mode");
+	if (action === "edit") return __("Double-click to edit");
+	return undefined;
+}
+
+function toggleSummaryRow(entry, event) {
+	const action = summaryToggleAction(entry);
+	if (!action) return;
 	if (
 		event.target?.closest?.(
 			"a, button, input, select, textarea, [contenteditable='true'], [role='button'], [role='combobox']"
@@ -752,7 +760,7 @@ function editSummaryRow(entry, event) {
 	) {
 		return;
 	}
-	requestRowAction("edit", entry);
+	requestRowAction(action, entry);
 }
 
 function requestRowAction(action, entry) {
@@ -1626,7 +1634,7 @@ defineExpose({
 	display: flex;
 	grid-column: 2;
 	grid-row: 1;
-	align-self: center;
+	align-self: start;
 	align-items: center;
 	min-width: 0;
 	font-size: var(--fxr-text-sm, 12px);
@@ -1638,13 +1646,13 @@ defineExpose({
 	line-height: 1.25;
 }
 
-.fxr-generic-grid-row-summary.is-editable {
+.fxr-generic-grid-row-summary.is-toggleable {
 	border-radius: var(--fxr-radius-sm, 4px);
 	cursor: pointer;
 	transition: color 120ms ease;
 }
 
-.fxr-generic-grid-row-summary.is-editable:hover {
+.fxr-generic-grid-row-summary.is-toggleable:hover {
 	color: var(--fxr-text-strong, #111827);
 }
 
