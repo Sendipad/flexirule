@@ -1,6 +1,10 @@
 User-agent: *
 Allow: /
 
+# Explicitly allow Google Search to crawl the documentation site.
+User-agent: Googlebot
+Allow: /
+
 # LLM Crawler Directives
 User-agent: GPTBot
 Allow: /
@@ -17,5 +21,6 @@ Allow: /
 User-agent: Google-Extended
 Allow: /
 
+Sitemap: https://sendipad.github.io/flexirule/sitemap_index.xml
 Sitemap: https://sendipad.github.io/flexirule/sitemap.xml
 Sitemap: https://sendipad.github.io/flexirule/sitemap.txt
