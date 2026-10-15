@@ -24,7 +24,6 @@ from frappe import _
 from jsonschema import ValidationError as SchemaValidationError
 from jsonschema import validate
 
-from flexirule.ruleflow.core.condition_helpers import has_outer_whitespace
 from flexirule.ruleflow.core.context_manager import ContextManager
 from flexirule.ruleflow.core.contracts import (
 	get_contract,
@@ -827,7 +826,6 @@ class RuleEngine:
 			"item": context.get("item"),
 			"loop": context.get("loop"),
 			"frappe": context.get("frappe", _safe_frappe),
-			"has_outer_whitespace": has_outer_whitespace,
 			"caller": frappe._dict(caller_meta or {}),
 			"rule": frappe._dict(rule_meta or {}),
 			"doctype": doctype_name,

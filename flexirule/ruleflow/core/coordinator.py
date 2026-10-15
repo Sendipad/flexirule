@@ -16,7 +16,6 @@ import frappe
 from frappe import _
 from frappe.utils import cint
 
-from flexirule.ruleflow.core.condition_helpers import has_outer_whitespace
 
 
 class RuleCoordinator:
@@ -590,7 +589,6 @@ class RuleCoordinator:
 					"old_doc": old_doc,
 					"vars": {"is_install": bool(getattr(frappe.flags, "in_install", False))},
 					"frappe": safe_frappe,
-					"has_outer_whitespace": has_outer_whitespace,
 					"caller": frappe._dict({}),
 					"rule": frappe._dict(rule_meta),
 					"doctype": doctype_name,

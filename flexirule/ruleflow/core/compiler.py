@@ -56,6 +56,7 @@ class ConditionCompiler:
 		"length_gte": "length greater or equal",
 		"length_lt": "length less than",
 		"length_lte": "length less or equal",
+		"has_outer_whitespace": "has leading or trailing whitespace",
 	}
 
 	# Fieldtype to valid operators mapping
@@ -70,12 +71,13 @@ class ConditionCompiler:
 			"not like",
 			"is_set",
 			"is_not_set",
+			"has_outer_whitespace",
 		],
-		"Text": ["==", "!=", "like", "not like", "is_set", "is_not_set"],
-		"Small Text": ["==", "!=", "like", "not like", "is_set", "is_not_set"],
-		"Long Text": ["==", "!=", "like", "not like", "is_set", "is_not_set"],
-		"Text Editor": ["==", "!=", "like", "not like", "is_set", "is_not_set"],
-		"Code": ["==", "!=", "like", "not like", "is_set", "is_not_set"],
+		"Text": ["==", "!=", "like", "not like", "is_set", "is_not_set", "has_outer_whitespace"],
+		"Small Text": ["==", "!=", "like", "not like", "is_set", "is_not_set", "has_outer_whitespace"],
+		"Long Text": ["==", "!=", "like", "not like", "is_set", "is_not_set", "has_outer_whitespace"],
+		"Text Editor": ["==", "!=", "like", "not like", "is_set", "is_not_set", "has_outer_whitespace"],
+		"Code": ["==", "!=", "like", "not like", "is_set", "is_not_set", "has_outer_whitespace"],
 		"Password": ["is_set", "is_not_set"],
 		# Selection fields
 		"Select": ["==", "!=", "in", "not in", "is_set", "is_not_set"],
@@ -225,7 +227,7 @@ class ConditionCompiler:
 
 		# Narrow, read-only helpers used by built-in governance predicates.
 		if op == "has_outer_whitespace":
-			return f"has_outer_whitespace({lhs_code})"
+			return f"(str({lhs_code} or '') != str({lhs_code} or '').strip())"
 
 		# Special Unary/Method Operators
 		if op == "is_set":
