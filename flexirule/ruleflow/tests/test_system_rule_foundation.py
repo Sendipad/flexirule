@@ -356,6 +356,78 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 			with patch.object(frappe, "flags", frappe._dict(flexirule_system_rule_registration=True)):
 				rule.validate_system_rule_protection()
 
+	def test_builtin_governance_and_naming_rules_skip_during_install(self):
+		from flexirule.ruleflow.core.compiler import ConditionCompiler
+		from flexirule.ruleflow.core.coordinator import RuleCoordinator
+		from flexirule.ruleflow.system_rules import get_system_rule_definitions
+
+		definitions = {definition["rule_name"]: definition for definition in get_system_rule_definitions()}
+		naming = definitions["RULE_NAMING_NO_OUTER_WHITESPACE"]
+		governance = definitions["RULE_GOVERNANCE_REQUIRE_DESCRIPTION"]
+		compiler = ConditionCompiler()
+		naming_expression = compiler.compile(naming["trigger_condition"])
+		governance_expression = compiler.compile(governance["trigger_condition"])
+
+		self.assertIn("frappe.in_install", naming_expression)
+		self.assertIn("has_outer_whitespace", naming_expression)
+		self.assertIn("frappe.in_install", governance_expression)
+
+		naming_rule = frappe._dict(
+			name=naming["rule_name"],
+			is_active=1,
+			trigger_type="DocType Event",
+			document_type="Rule",
+			trigger_event="Before Naming",
+			trigger_condition=naming["trigger_condition"],
+			compiled_expression=naming_expression,
+		)
+		naming_doc = frappe._dict(doctype="Rule", rule_name=" padded name ")
+
+		with patch.object(frappe.flags, "in_install", True, create=True):
+			eligible, _ = RuleCoordinator.check_eligibility(naming_rule, naming_doc, "Before Naming")
+		self.assertFalse(eligible)
+
+		with patch.object(frappe.flags, "in_install", False, create=True):
+			eligible, _ = RuleCoordinator.check_eligibility(naming_rule, naming_doc, "Before Naming")
+		self.assertTrue(eligible)
+
+		governance_rule = frappe._dict(
+			name=governance["rule_name"],
+			is_active=1,
+			trigger_type="DocType Event",
+			document_type="Rule",
+			trigger_event="Before Insert",
+			trigger_condition=governance["trigger_condition"],
+			compiled_expression=governance_expression,
+		)
+		governance_doc = frappe._dict(doctype="Rule", description="")
+
+		with patch.object(frappe.flags, "in_install", True, create=True):
+			eligible, _ = RuleCoordinator.check_eligibility(
+				governance_rule, governance_doc, "Before Insert"
+			)
+		self.assertFalse(eligible)
+
+		with patch.object(frappe.flags, "in_install", False, create=True):
+			eligible, _ = RuleCoordinator.check_eligibility(
+				governance_rule, governance_doc, "Before Insert"
+			)
+		self.assertTrue(eligible)
+
+	def test_builtin_system_rules_register_as_inactive_drafts(self):
+		names = register_configured_system_rules()
+
+		self.assertIn("RULE_NAMING_NO_OUTER_WHITESPACE", names)
+		self.assertIn("RULE_GOVERNANCE_REQUIRE_DESCRIPTION", names)
+		for name in (
+			"RULE_NAMING_NO_OUTER_WHITESPACE",
+			"RULE_GOVERNANCE_REQUIRE_DESCRIPTION",
+		):
+			rule = frappe.get_doc("Rule", name)
+			self.assertTrue(rule.is_system_generated)
+			self.assertEqual(rule.status, "Draft")
+			self.assertFalse(rule.is_active)
+
 	def test_rule_is_removed_from_legacy_settings_exclusions(self):
 		from flexirule.install import setup_default_ruleflow_settings
 
