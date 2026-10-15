@@ -150,6 +150,13 @@ function dropOnSibling(position, e) {
 function dragOverNode(e) {
 	const draggedId = api?.dragState?.nodeId || e.dataTransfer?.getData("text/plain");
 	if (props.readOnly || !draggedId) return;
+	if (draggedId === props.node.id) {
+		// Never reinterpret hovering over the source row as a valid sibling/inside drop.
+		e.stopPropagation();
+		clearDropIndicator();
+		if (e.dataTransfer) e.dataTransfer.dropEffect = "none";
+		return;
+	}
 	const intent = getDropIntent(e);
 	if (!api?.canMove(draggedId, intent.targetId)) {
 		e.stopPropagation();
