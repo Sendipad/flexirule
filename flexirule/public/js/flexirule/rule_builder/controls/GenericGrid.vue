@@ -242,22 +242,28 @@
 					></i>
 					{{ activePrimaryAction.label || __("Add row") }}
 				</button>
-				<Menu
+				<div
 					v-if="secondaryActions.length && !readOnly"
-					as="div"
 					class="fxr-grid-menu fxr-grid-primary-menu"
-					v-slot="{ open }"
 				>
-					<MenuButton
+					<button
+						ref="primaryMenuButtonRef"
 						type="button"
 						class="fxr-btn fxr-btn--sm fxr-grid-menu-toggle"
 						:title="__('Choose or run another action')"
 						:aria-label="__('Choose or run another action')"
-						:aria-expanded="String(open)"
+						aria-haspopup="menu"
+						:aria-expanded="String(primaryMenuOpen)"
+						@click="togglePrimaryMenu"
 					>
 						<i class="fa fa-chevron-down" aria-hidden="true"></i>
-					</MenuButton>
-					<MenuItems class="fxr-grid-menu-items fxr-grid-menu-items--left">
+					</button>
+					<div
+						v-if="primaryMenuOpen"
+						class="fxr-grid-menu-items fxr-grid-menu-items--left"
+						role="menu"
+						@keydown="handleMenuKeydown"
+					>
 						<div class="fxr-grid-menu-heading">
 							{{ __("Run an action, or pin it as primary") }}
 						</div>
@@ -266,38 +272,30 @@
 							:key="action.id"
 							class="fxr-grid-menu-action-row"
 						>
-							<MenuItem v-slot="{ active }" as="template">
-								<button
-									type="button"
-									class="fxr-grid-menu-pin"
-									:class="{ 'is-active': active }"
-									:title="__('Make {0} the primary action', [action.label])"
-									:aria-label="__('Make {0} the primary action', [action.label])"
-									@click="setPrimaryAction(action.id)"
-								>
-									<i class="fa fa-thumb-tack" aria-hidden="true"></i>
-								</button>
-							</MenuItem>
-							<MenuItem v-slot="{ active }" as="template">
-								<button
-									type="button"
-									class="fxr-btn fxr-btn--sm fxr-grid-menu-item"
-									:class="{ 'is-active': active }"
-									:aria-keyshortcuts="action.shortcut || undefined"
-									@click="requestGridAction(action)"
-								>
-									<i
-										v-if="action.icon"
-										:class="action.icon"
-										aria-hidden="true"
-									></i>
-									<span>{{ action.label }}</span>
-									<kbd v-if="action.shortcut">{{ action.shortcut }}</kbd>
-								</button>
-							</MenuItem>
+							<button
+								type="button"
+								role="menuitem"
+								class="fxr-grid-menu-pin"
+								:title="__('Make {0} the primary action', [action.label])"
+								:aria-label="__('Make {0} the primary action', [action.label])"
+								@click.stop="setPrimaryAction(action.id)"
+							>
+								<i class="fa fa-thumb-tack" aria-hidden="true"></i>
+							</button>
+							<button
+								type="button"
+								role="menuitem"
+								class="fxr-btn fxr-btn--sm fxr-grid-menu-item"
+								:aria-keyshortcuts="action.shortcut || undefined"
+								@click="requestGridAction(action)"
+							>
+								<i v-if="action.icon" :class="action.icon" aria-hidden="true"></i>
+								<span>{{ action.label }}</span>
+								<kbd v-if="action.shortcut">{{ action.shortcut }}</kbd>
+							</button>
 						</div>
-					</MenuItems>
-				</Menu>
+					</div>
+				</div>
 			</div>
 
 			<div v-if="selection && selectedRows.length" class="fxr-generic-grid-bulk-actions">
@@ -401,7 +399,6 @@
 
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useSlots, watch } from "vue";
-import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/vue";
 import {
 	GRID_CLIPBOARD_FORMAT,
 	getRowKey,
@@ -474,6 +471,8 @@ const rootRef = ref(null);
 const slots = useSlots();
 const hasSummarySlot = computed(() => Boolean(slots["row-summary"]));
 const searchInputRef = ref(null);
+const primaryMenuButtonRef = ref(null);
+const primaryMenuOpen = ref(false);
 const searchOpen = ref(false);
 const searchQuery = ref("");
 const selectedPrimaryActionId = ref(props.defaultPrimaryAction || props.primaryAction?.id || "");
@@ -615,11 +614,13 @@ onMounted(() => {
 	if (typeof window === "undefined") return;
 	window.addEventListener("pointerup", endDragSelection);
 	window.addEventListener("pointercancel", endDragSelection);
+	document.addEventListener("pointerdown", handleOutsideMenuPointerDown);
 });
 onBeforeUnmount(() => {
 	if (typeof window === "undefined") return;
 	window.removeEventListener("pointerup", endDragSelection);
 	window.removeEventListener("pointercancel", endDragSelection);
+	document.removeEventListener("pointerdown", handleOutsideMenuPointerDown);
 });
 
 watch(
@@ -793,9 +794,59 @@ function requestPrimaryAction(afterIndex = null) {
 	});
 }
 
-function requestGridAction(action) {
+async function togglePrimaryMenu() {
+	primaryMenuOpen.value = !primaryMenuOpen.value;
+	if (primaryMenuOpen.value) {
+		await nextTick();
+		rootRef.value?.querySelector(".fxr-grid-primary-menu .fxr-grid-menu-item")?.focus();
+	}
+}
+
+function closeActionMenus() {
+	primaryMenuOpen.value = false;
+}
+
+function handleOutsideMenuPointerDown(event) {
+	if (event.target?.closest?.(".fxr-grid-primary-menu")) return;
+	closeActionMenus();
+}
+
+async function handleMenuKeydown(event) {
+	const menuElement = event.currentTarget;
+	if (event.key === "Escape") {
+		event.preventDefault();
+		closeActionMenus();
+		await nextTick();
+		primaryMenuButtonRef.value?.focus();
+		return;
+	}
+
+	const items = Array.from(menuElement.querySelectorAll('[role="menuitem"]:not(:disabled)'));
+	if (!items.length) return;
+	const currentIndex = items.indexOf(document.activeElement);
+	let nextIndex = currentIndex;
+	if (event.key === "ArrowDown")
+		nextIndex = currentIndex < items.length - 1 ? currentIndex + 1 : 0;
+	else if (event.key === "ArrowUp")
+		nextIndex = currentIndex > 0 ? currentIndex - 1 : items.length - 1;
+	else if (event.key === "Home") nextIndex = 0;
+	else if (event.key === "End") nextIndex = items.length - 1;
+	else return;
+	event.preventDefault();
+	items[nextIndex]?.focus();
+}
+
+async function requestGridAction(action) {
 	if (props.readOnly || !action) return;
+	const wasMenuOpen = primaryMenuOpen.value;
+	closeActionMenus();
 	emit("grid-action", { action: action.id });
+	// If invoked from the menu, restore focus after it unmounts. Keyboard shortcuts
+	// should preserve the consumer's normal add-row focus behavior.
+	if (wasMenuOpen) {
+		await nextTick();
+		primaryMenuButtonRef.value?.focus({ preventScroll: true });
+	}
 }
 
 function loadPrimaryActionPreference() {
@@ -815,9 +866,10 @@ function loadPrimaryActionPreference() {
 	selectedPrimaryActionId.value = preferred;
 }
 
-function setPrimaryAction(actionId) {
+async function setPrimaryAction(actionId) {
 	if (!resolvedActionOptions.value.some((action) => action.id === actionId)) return;
 	selectedPrimaryActionId.value = actionId;
+	closeActionMenus();
 	try {
 		if (typeof window !== "undefined" && props.preferenceKey) {
 			window.localStorage.setItem(props.preferenceKey, actionId);
@@ -826,6 +878,8 @@ function setPrimaryAction(actionId) {
 		// The preference still applies in this component session if persistence is unavailable.
 	}
 	emit("primary-action-change", actionId);
+	await nextTick();
+	primaryMenuButtonRef.value?.focus();
 }
 
 function selectAllFilteredRows() {
