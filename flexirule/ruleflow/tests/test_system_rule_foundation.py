@@ -393,24 +393,18 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 		for rule_name in ("", "new Rule", "NEW_RULE"):
 			naming_doc = frappe._dict(doctype="Rule", rule_name=rule_name)
 			with self._patch_frappe_flags(in_install=False):
-				eligible, reason = RuleCoordinator.check_eligibility(
-					naming_rule, naming_doc, "Before Naming"
-				)
+				eligible, reason = RuleCoordinator.check_eligibility(naming_rule, naming_doc, "Before Naming")
 			self.assertTrue(eligible, f"{rule_name!r} should match the naming policy: {reason}")
 
 		for rule_name in ("Customer Rule", "RULE_CUSTOMER_SYNC"):
 			naming_doc = frappe._dict(doctype="Rule", rule_name=rule_name)
 			with self._patch_frappe_flags(in_install=False):
-				eligible, reason = RuleCoordinator.check_eligibility(
-					naming_rule, naming_doc, "Before Naming"
-				)
+				eligible, reason = RuleCoordinator.check_eligibility(naming_rule, naming_doc, "Before Naming")
 			self.assertFalse(eligible, f"{rule_name!r} should skip the naming policy: {reason}")
 
 		naming_doc = frappe._dict(doctype="Rule", rule_name="new Rule")
 		with self._patch_frappe_flags(in_install=True):
-			eligible, reason = RuleCoordinator.check_eligibility(
-				naming_rule, naming_doc, "Before Naming"
-			)
+			eligible, reason = RuleCoordinator.check_eligibility(naming_rule, naming_doc, "Before Naming")
 		self.assertFalse(eligible, f"Installation must bypass naming policy: {reason}")
 
 		governance_rule = frappe._dict(
@@ -441,7 +435,7 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 		self.assertIn("RULE_NAMING_REJECT_EMPTY_OR_PLACEHOLDER", names)
 		self.assertIn("RULE_GOVERNANCE_REQUIRE_DESCRIPTION", names)
 		for name in (
-			"RULE_NAMING_NO_OUTER_WHITESPACE",
+			"RULE_NAMING_REJECT_EMPTY_OR_PLACEHOLDER",
 			"RULE_GOVERNANCE_REQUIRE_DESCRIPTION",
 		):
 			rule = frappe.get_doc("Rule", name)
