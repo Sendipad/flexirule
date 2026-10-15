@@ -117,7 +117,6 @@ assert.equal(getBulkEditAction([{ isEditing: false }, { isEditing: false }]), "e
 assert.equal(getBulkEditAction([{ isEditing: true }, { isEditing: false }]), "edit");
 assert.equal(getBulkEditAction([{ mode: "editing" }, { mode: "editing" }], "mode"), "view");
 
-
 assert.equal(
 	getPrimaryActionAfterIndex(1, []),
 	1,
