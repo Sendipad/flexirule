@@ -323,8 +323,8 @@ class TestRuleDocEventDispatch(FrappeTestCase):
 		self.assertIn("Rule Execution Log", excluded)
 
 	def test_app_hook_can_explicitly_exclude_rule(self):
-		# Avoid reusing a request-level memo populated by another test.
-		frappe.local.pop("flexirule_excluded_doctypes", None)
+		# Reset the request-level memo without relying on LocalProxy.pop().
+		setattr(frappe.local, "flexirule_excluded_doctypes", None)
 		with (
 			patch("frappe.get_hooks", return_value=["Rule"]),
 			patch("frappe.get_all", return_value=[]),
