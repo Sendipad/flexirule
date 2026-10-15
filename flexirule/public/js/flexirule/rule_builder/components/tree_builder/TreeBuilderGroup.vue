@@ -63,7 +63,7 @@ defineEmits(["operator", "add-leaf", "add-group", "add-collection", "remove"]);
 .tree-group {
 	width: 100%;
 	min-width: 0;
-	padding: var(--fxr-space-2);
+	padding: var(--fxr-space-1);
 	background: var(--fxr-bg-hover);
 	border: 1px solid var(--fxr-border-subtle);
 	border-radius: var(--fxr-radius-lg);
@@ -74,7 +74,7 @@ defineEmits(["operator", "add-leaf", "add-group", "add-collection", "remove"]);
 	justify-content: space-between;
 	flex-wrap: wrap;
 	gap: var(--fxr-space-1);
-	margin-bottom: var(--fxr-space-2);
+	margin-bottom: var(--fxr-space-1);
 }
 .tree-group__logic,
 .tree-group__actions {
@@ -128,7 +128,7 @@ defineEmits(["operator", "add-leaf", "add-group", "add-collection", "remove"]);
 .tree-group__children {
 	display: flex;
 	flex-direction: column;
-	gap: var(--fxr-space-1);
+	gap: 2px;
 	width: 100%;
 	min-width: 0;
 }

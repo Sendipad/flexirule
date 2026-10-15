@@ -13,6 +13,7 @@ const props = defineProps({
 	hideLabel: { type: Boolean, default: false },
 	hideDescription: { type: Boolean, default: false },
 	showValidation: { type: Boolean, default: false },
+	placeholder: { type: String, default: "" },
 });
 
 const emit = defineEmits(["update:modelValue", "change"]);
@@ -84,6 +85,7 @@ defineExpose({ validate });
 		:hide-label="hideLabel || no_label"
 		:hide-description="hideDescription"
 		:show-validation="showValidation"
+		:placeholder="placeholder || df?.placeholder || ''"
 		trigger="button"
 		:hide-search="true"
 		@update:model-value="on_change"

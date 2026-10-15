@@ -142,10 +142,10 @@ defineExpose({ ...api });
 .tree-builder {
 	display: flex;
 	flex-direction: column;
-	gap: var(--fxr-space-2);
+	gap: var(--fxr-space-1);
 	width: 100%;
 	min-width: 0;
-	padding: var(--fxr-space-2);
+	padding: var(--fxr-space-1);
 	background: var(--fxr-bg-card, var(--fxr-surface));
 	border: 1px solid var(--fxr-border-subtle);
 	border-radius: var(--fxr-radius-lg);
@@ -191,11 +191,11 @@ defineExpose({ ...api });
 .tree-builder__content {
 	display: flex;
 	flex-direction: column;
-	gap: var(--fxr-space-1);
+	gap: 2px;
 	width: 100%;
 	min-width: 0;
-	min-height: 44px;
-	padding: 2px;
+	min-height: 32px;
+	padding: 0;
 	border-radius: var(--fxr-radius-md);
 	overflow: visible;
 	transition: background-color var(--fxr-transition-fast), box-shadow var(--fxr-transition-fast);

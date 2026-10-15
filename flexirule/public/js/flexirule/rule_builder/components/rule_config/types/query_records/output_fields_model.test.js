@@ -98,6 +98,14 @@ assert.equal(nestedCommasStayInsideExpressions[1].kind, "raw");
 
 const aggregateOnlyRows = parseOutputFields(["count(name) as total_users"]);
 assert.deepEqual(validateOutputFields(aggregateOnlyRows, RESULT_SHAPES.selectedFields), []);
+const missingAggregateSource = [
+	{ kind: "function", functionName: "sum", field: "", alias: "total_value" },
+];
+assert.ok(
+	validateOutputFields(missingAggregateSource, RESULT_SHAPES.selectedFields).some((error) =>
+		error.includes("select a field for the function")
+	)
+);
 
 // Alias editing must preserve exactly what the user types; validation, not
 // live normalization, decides whether the alias is snake_case.

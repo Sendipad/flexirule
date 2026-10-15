@@ -4,13 +4,6 @@
 			<div class="section-heading">
 				<div>
 					<h6>{{ __("Filters") }}</h6>
-					<p class="section-description">
-						{{
-							__(
-								"Add conditions to narrow results. Leave the root group empty to match all records; each nested group must contain a condition."
-							)
-						}}
-					</p>
 				</div>
 			</div>
 			<QueryFilterTree
@@ -31,9 +24,6 @@
 					<div class="section-heading result-shape-heading">
 						<div>
 							<h6>{{ __("Return result") }}</h6>
-							<p class="section-description">
-								{{ __("Choose the structure that later steps will receive.") }}
-							</p>
 						</div>
 					</div>
 					<SelectControl
@@ -51,20 +41,18 @@
 							<i class="fa fa-info-circle" aria-hidden="true"></i
 							>{{ __("How to set it up") }}
 						</h6>
-						<p v-if="localConfig.result_shape === 'selected_fields'">
-							{{
-								__(
-									"Add fields or calculations in the grid on the right. Use an output alias to give each column a clear name for later steps. When you combine calculations with regular fields, set Group By below."
-								)
-							}}
-						</p>
-						<p v-else-if="localConfig.result_shape === 'embedded_children'">
-							{{
-								__(
-									"Add a child selection in the grid on the right, choose the parent child table, then select the child fields to include. Each parent result contains those child rows as a nested list."
-								)
-							}}
-						</p>
+						<ol class="return-result-guide__steps">
+							<template v-if="localConfig.result_shape === 'selected_fields'">
+								<li>{{ __("Add fields or calculations in Output Fields.") }}</li>
+								<li>{{ __("Choose a source field for each function and give every function a clear output alias.") }}</li>
+								<li>{{ __("When aggregate functions are combined with regular fields, set Group By below.") }}</li>
+							</template>
+							<template v-else-if="localConfig.result_shape === 'embedded_children'">
+								<li>{{ __("Add a child selection in Output Fields.") }}</li>
+								<li>{{ __("Choose the parent child-table field.") }}</li>
+								<li>{{ __("Select the child fields to return as a nested list for each parent record.") }}</li>
+							</template>
+						</ol>
 					</div>
 				</div>
 				<div
@@ -74,9 +62,6 @@
 					<div class="section-heading">
 						<div>
 							<h6>{{ __("Output fields") }}</h6>
-							<p class="section-description">
-								{{ __("Define the columns returned to later steps.") }}
-							</p>
 						</div>
 					</div>
 					<OutputFieldsEditor
@@ -388,7 +373,6 @@ const resultShapeField = computed(() => ({
 	reqd: 1,
 	read_only: props.readOnly,
 	options: resultShapes,
-	description: __("Choose the row structure downstream steps will receive."),
 }));
 const limitModeField = computed(() => ({
 	fieldname: "limit_mode",
@@ -766,11 +750,15 @@ defineExpose({ validate });
 .return-result-guide h6 i {
 	color: var(--fxr-text-muted);
 }
-.return-result-guide p {
+.return-result-guide__steps {
 	margin: 0;
+	padding-inline-start: var(--fxr-space-4);
 	color: var(--fxr-text-secondary);
 	font-size: var(--fxr-text-sm);
 	line-height: 1.5;
+}
+.return-result-guide__steps li + li {
+	margin-top: var(--fxr-space-1);
 }
 .section-description {
 	margin: var(--fxr-space-1) 0 0;

@@ -384,6 +384,9 @@
 		<p v-if="feedback" class="fxr-generic-grid-feedback" role="status" aria-live="polite">
 			{{ feedback }}
 		</p>
+		<div v-if="slots.footer" class="fxr-generic-grid-custom-footer">
+			<slot name="footer" />
+		</div>
 	</div>
 </template>
 
@@ -1974,5 +1977,18 @@ defineExpose({
 	.fxr-generic-grid-bulk-actions {
 		align-items: flex-start;
 	}
+}
+.fxr-generic-grid-custom-footer {
+	min-width: 0;
+	padding: var(--fxr-space-2, 8px) var(--fxr-space-1, 4px) 0;
+	border-top: 1px solid var(--fxr-border-subtle, #e5e7eb);
+	color: var(--fxr-text-muted, #6b7280);
+	font-size: var(--fxr-text-xs, 11px);
+}
+.fxr-generic-grid-custom-footer > :first-child {
+	margin-top: 0;
+}
+.fxr-generic-grid-custom-footer > :last-child {
+	margin-bottom: 0;
 }
 </style>

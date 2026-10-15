@@ -41,6 +41,7 @@
 							@click.prevent="toggleDropdown"
 							@keydown="onKeydown"
 							:disabled="read_only"
+							:aria-label="__(df?.label || placeholder || 'Select option')"
 						>
 							<span class="selected-label truncate">
 								{{ displayValue || placeholder || __("Select option") }}

@@ -9,10 +9,11 @@
 					{{ __("Field") }} <span class="filter-required">*</span>
 				</label>
 				<ComboBoxControl
-					:df="{ label: '', fieldtype: 'FieldPicker', reqd: 1 }"
+					:df="{ label: __('Field'), fieldtype: 'FieldPicker', reqd: 1 }"
 					:options="navigableFields.currentFields.value"
 					:doctype="doctype"
 					:modelValue="leaf.field || ''"
+					:placeholder="__('Select field')"
 					:read_only="readOnly"
 					:hideLabel="true"
 					:showValidation="validationVisible"
@@ -34,6 +35,7 @@
 					:read_only="readOnly || !leaf.field"
 					:hideLabel="true"
 					:showValidation="validationVisible && operatorInvalid"
+					:placeholder="__('Select operator')"
 					@update:modelValue="updateOperator"
 				/>
 			</div>
@@ -49,6 +51,7 @@
 							:modelValue="
 								Array.isArray(leaf.value) ? leaf.value[index - 1] : emptyValue
 							"
+							:placeholder="index === 1 ? __('Start value') : __('End value')"
 							:context="{
 								df: controlSchema,
 								operator: leaf.operator,
@@ -67,6 +70,7 @@
 				<FlexValueControl
 					v-else
 					:modelValue="leaf.value"
+					:placeholder="__('Enter value')"
 					:context="{
 						df: controlSchema,
 						operator: leaf.operator,
@@ -313,7 +317,8 @@ const controlSchema = computed(() => {
 	let schema = field.value
 		? frappe.utils.deep_clone(field.value)
 		: { fieldtype: "Data", fieldname: "value" };
-	schema.label = "";
+	schema.label = __("Value");
+	schema.placeholder = __("Enter value");
 	schema.reqd = String(leaf.value.operator).toLowerCase() === "is" ? 0 : 1;
 	schema.read_only = props.readOnly;
 	schema.fieldname = String(leaf.value.field || "value").replace(/^doc\./, "");
@@ -379,7 +384,7 @@ defineExpose({ validate });
 	width: 100%;
 	min-width: 0;
 	box-sizing: border-box;
-	padding: var(--fxr-space-2) var(--fxr-space-3);
+	padding: var(--fxr-space-1) var(--fxr-space-2);
 	background: var(--fxr-bg-card);
 	border: 1px solid var(--fxr-border);
 	border-radius: var(--fxr-radius-md);
@@ -396,7 +401,7 @@ defineExpose({ validate });
 .filter-row-main {
 	display: grid;
 	grid-template-columns: minmax(170px, 1.2fr) minmax(118px, 0.8fr) minmax(180px, 1.5fr);
-	gap: var(--fxr-space-3);
+	gap: var(--fxr-space-2);
 	align-items: start;
 	width: 100%;
 	min-width: 0;
@@ -405,9 +410,15 @@ defineExpose({ validate });
 	min-width: 0;
 }
 .filter-col-label {
-	display: block;
-	min-height: 15px;
-	margin: 0 0 var(--fxr-space-1);
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
 	color: var(--fxr-text-secondary);
 	font-size: var(--fxr-text-xs);
 	font-weight: var(--fxr-weight-semibold, 600);
@@ -445,7 +456,7 @@ defineExpose({ validate });
 .dual-value-wrapper {
 	display: flex;
 	align-items: stretch;
-	gap: var(--fxr-space-2);
+	gap: var(--fxr-space-1);
 	width: 100%;
 	min-width: 0;
 }

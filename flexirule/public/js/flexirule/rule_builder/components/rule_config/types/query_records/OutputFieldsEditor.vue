@@ -40,6 +40,9 @@
 							:modelValue="row.field"
 							:readOnly="readOnly"
 							:label="__('Field')"
+							:reqd="true"
+							:showValidation="showValidation"
+							:placeholder="__('Select field')"
 							@update:modelValue="updateRowValue(row, 'field', $event)"
 						/>
 						<input
@@ -78,6 +81,9 @@
 							:readOnly="readOnly"
 							:rootOnly="true"
 							:label="__('Source field')"
+							:reqd="true"
+							:showValidation="showValidation"
+							:placeholder="__('Select source field')"
 							@update:modelValue="updateRowValue(row, 'field', $event)"
 						/>
 						<input
@@ -216,6 +222,11 @@
 					</div>
 				</div>
 			</template>
+			<template #footer>
+				<p class="output-fields-hint">
+					{{ __("Functions use Frappe-style field syntax. Aggregate functions currently support fields on the selected DocType, not linked or child-table paths.") }}
+				</p>
+			</template>
 		</GenericGrid>
 
 		<p v-if="requiresGroupBy" class="output-fields-warning">
@@ -231,13 +242,6 @@
 			{{
 				__(
 					"Child selections return nested arrays for each parent record. Use dotted paths only when you want flat joined rows."
-				)
-			}}
-		</p>
-		<p class="output-fields-hint">
-			{{
-				__(
-					"Functions use Frappe-style field syntax. Aggregate functions currently support fields on the selected DocType, not linked or child-table paths."
 				)
 			}}
 		</p>
@@ -848,6 +852,10 @@ defineExpose({ validate });
 	margin: 0;
 	font-size: var(--fxr-text-xs);
 	line-height: 1.4;
+}
+.output-fields-hint {
+	max-width: 100%;
+	white-space: normal;
 }
 
 .output-fields-hint {

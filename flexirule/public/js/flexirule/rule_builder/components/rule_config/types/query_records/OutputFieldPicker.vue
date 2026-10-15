@@ -1,10 +1,12 @@
 <template>
 	<ComboBoxControl
-		:df="{ label: label || __('Select field'), fieldtype: 'FieldPicker' }"
+		:df="{ label: label || __('Select field'), fieldtype: 'FieldPicker', reqd: reqd ? 1 : 0 }
 		:options="navigableFields.currentFields.value"
 		:doctype="doctype"
 		:modelValue="modelValue"
 		:read_only="readOnly"
+		:placeholder="placeholder || label || __('Select field')"
+		:showValidation="showValidation"
 		:trigger="'button'"
 		:hideLabel="true"
 		:navigable="canNavigate"
@@ -26,6 +28,9 @@ const props = defineProps({
 	readOnly: { type: Boolean, default: false },
 	rootOnly: { type: Boolean, default: false },
 	label: { type: String, default: "" },
+	reqd: { type: Boolean, default: false },
+	showValidation: { type: Boolean, default: false },
+	placeholder: { type: String, default: "" },
 });
 const emit = defineEmits(["update:modelValue"]);
 
