@@ -19,7 +19,7 @@ def _condition_group(*conditions: dict[str, Any]) -> str:
 def _install_guard() -> dict[str, Any]:
 	"""Only evaluate governance policies outside the installation lifecycle."""
 	return {
-		"left": {"ref": "frappe.in_install"},
+		"left": {"ref": "vars.is_install"},
 		"op": "!=",
 		"right": {"value": True},
 	}
