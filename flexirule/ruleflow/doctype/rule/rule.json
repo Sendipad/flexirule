@@ -10,6 +10,7 @@
   "description",
   "column_break_scgd",
   "is_active",
+  "is_system_generated",
   "priority",
   "trigger_conditions_section",
   "trigger_type",
@@ -81,6 +82,16 @@
    "in_standard_filter": 1,
    "label": "Is Active",
    "no_copy": 1
+  },
+  {
+   "fieldname": "is_system_generated",
+   "fieldtype": "Check",
+   "label": "System Generated",
+   "default": "0",
+   "read_only": 1,
+   "hidden": 1,
+   "no_copy": 1,
+   "description": "Managed by FlexiRule\u0027s system-rule registry."
   },
   {
    "allow_in_quick_entry": 1,
