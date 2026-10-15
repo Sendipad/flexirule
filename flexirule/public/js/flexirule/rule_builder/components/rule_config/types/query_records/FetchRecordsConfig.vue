@@ -53,7 +53,9 @@
 								</li>
 								<li>
 									{{
-										__("When aggregate functions are combined with regular fields, set Group By below.")
+										__(
+											"When aggregate functions are combined with regular fields, set Group By below."
+										)
 									}}
 								</li>
 							</template>
@@ -62,7 +64,9 @@
 								<li>{{ __("Choose the parent child-table field.") }}</li>
 								<li>
 									{{
-										__("Select the child fields to return as a nested list for each parent record.")
+										__(
+											"Select the child fields to return as a nested list for each parent record."
+										)
 									}}
 								</li>
 							</template>
