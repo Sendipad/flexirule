@@ -154,7 +154,7 @@ after_migrate = [
 
 # Dependent apps can return version-controlled system Rule definitions from a provider.
 # Example: "my_app.rules.system_rule_definitions"
-flexirule_system_rules: list[str] = []
+flexirule_system_rules: list[str] = ["flexirule.ruleflow.system_rules.get_system_rule_definitions"]
 
 # Uninstallation
 # ------------
