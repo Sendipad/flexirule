@@ -1,6 +1,5 @@
 """Regression tests for system-rule registration and Rule lifecycle hooks."""
 
-import json
 from unittest.mock import patch
 
 import frappe
@@ -450,6 +449,7 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 			filters={"base_rule_name": logical_name, "is_system_generated": 1},
 			pluck="name",
 		)
+		self.assertTrue(retired_names, "The retired managed Rule should remain for audit history.")
 		for name in retired_names:
 			retired = frappe.get_doc("Rule", name)
 			self.assertFalse(retired.is_active, f"{name} must be inactive after retirement")
