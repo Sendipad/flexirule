@@ -356,6 +356,19 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 			with patch.object(frappe, "flags", frappe._dict(flexirule_system_rule_registration=True)):
 				rule.validate_system_rule_protection()
 
+	def test_rule_is_removed_from_legacy_settings_exclusions(self):
+		from flexirule.install import setup_default_ruleflow_settings
+
+		settings = frappe.get_doc("RuleFlow Settings")
+		if not any(row.document_type == "Rule" for row in settings.excluded_doctypes):
+			settings.append("excluded_doctypes", {"document_type": "Rule"})
+		settings.save(ignore_permissions=True)
+
+		setup_default_ruleflow_settings()
+
+		settings.reload()
+		self.assertNotIn("Rule", [row.document_type for row in settings.excluded_doctypes])
+
 	def test_core_flexirule_doctypes_are_not_hard_excluded(self):
 		# Older sites may still have these DocTypes stored in RuleFlow Settings.
 		old_local = getattr(frappe.local, "flexirule_excluded_doctypes", None)
