@@ -370,28 +370,44 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 
 		definitions = {definition["rule_name"]: definition for definition in get_system_rule_definitions()}
 
-		# Trigger conditions decide whether a policy executes; the action graph
-		# only assigns its rejection message and then terminates with Stop(Error).
-		for definition in definitions.values():
-			actions = definition["actions"]
-			self.assertEqual(
-				[action["action_type"] for action in actions],
-				["Entry Action", "Assignment", "Stop"],
-			)
-			entry, assignment, terminal = actions
-			self.assertEqual(entry["next_step_if_true"], assignment["action_id"])
-			self.assertEqual(assignment["next_step_if_true"], terminal["action_id"])
-			self.assertEqual(terminal["operation"], "Error")
-			self.assertEqual(terminal["value_template"], "{{ vars.rejection_message }}")
-
-			assignments = json.loads(assignment["config"])
-			self.assertEqual(len(assignments), 1)
-			self.assertEqual(assignments[0]["target"], "vars.rejection_message")
-			self.assertEqual(assignments[0]["operator"], "set")
-			self.assertEqual(assignments[0]["value"]["mode"], "static")
-			self.assertTrue(assignments[0]["value"]["value"])
+		# Trigger conditions decide whether a policy executes. The naming graph
+		# assigns its rejection message, then terminates with Stop(Error).
 		naming = definitions["RULE_NAMING_REJECT_EMPTY_OR_PLACEHOLDER"]
 		governance = definitions["RULE_GOVERNANCE_REQUIRE_DESCRIPTION"]
+		naming_actions = naming["actions"]
+		self.assertEqual(
+			[action["action_type"] for action in naming_actions],
+			["Entry Action", "Assignment", "Stop"],
+		)
+		entry, assignment, terminal = naming_actions
+		self.assertEqual(entry["next_step_if_true"], assignment["action_id"])
+		self.assertEqual(assignment["next_step_if_true"], terminal["action_id"])
+		self.assertEqual(terminal["operation"], "Error")
+		self.assertEqual(terminal["value_template"], "{{ vars.rejection_message }}")
+
+		assignments = json.loads(assignment["config"])
+		self.assertEqual(len(assignments), 1)
+		self.assertEqual(assignments[0]["target"], "vars.rejection_message")
+		self.assertEqual(assignments[0]["operator"], "set")
+		self.assertEqual(assignments[0]["value"]["mode"], "static")
+		self.assertTrue(assignments[0]["value"]["value"])
+
+		# Preserve the governance policy's existing simple terminal graph.
+		governance_actions = governance["actions"]
+		self.assertEqual(
+			[action["action_type"] for action in governance_actions],
+			["Entry Action", "Stop"],
+		)
+		self.assertEqual(
+			governance_actions[0]["next_step_if_true"],
+			governance_actions[1]["action_id"],
+		)
+		self.assertEqual(governance_actions[1]["operation"], "Error")
+		self.assertEqual(
+			governance_actions[1]["value_template"],
+			"Add a short description explaining the purpose of this Rule before saving it.",
+		)
+
 		compiler = ConditionCompiler()
 		naming_expression = compiler.compile(naming["trigger_condition"])
 		governance_expression = compiler.compile(governance["trigger_condition"])
