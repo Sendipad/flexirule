@@ -160,3 +160,16 @@ export function getBulkEditAction(rows, editStateKey = "isEditing") {
 	if (!list.length) return null;
 	return list.every((row) => Boolean(row?.[editStateKey])) ? "view" : "edit";
 }
+
+
+/**
+ * Resolve where the primary action should insert relative to the user's active row.
+ * Row activation is independent of the index-based multi-selection UI.
+ */
+export function getPrimaryActionAfterIndex(activeIndex, selectedIndexes = []) {
+	if (Number.isInteger(activeIndex) && activeIndex >= 0) return activeIndex;
+	const validIndexes = (Array.isArray(selectedIndexes) ? selectedIndexes : []).filter(
+		(index) => Number.isInteger(index) && index >= 0
+	);
+	return validIndexes.length ? Math.max(...validIndexes) : null;
+}

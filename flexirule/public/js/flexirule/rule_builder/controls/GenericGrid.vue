@@ -33,6 +33,7 @@
 				:aria-invalid="getInvalidState(entry.row, entry.index).invalid ? 'true' : undefined"
 				:title="getInvalidState(entry.row, entry.index).message || undefined"
 				:data-row-index="entry.index"
+				@click.capture="handleGridRowClick(entry, $event)"
 			>
 				<div class="fxr-generic-grid-row-toolbar">
 					<button
@@ -241,28 +242,22 @@
 					></i>
 					{{ activePrimaryAction.label || __("Add row") }}
 				</button>
-				<div
+				<Menu
 					v-if="secondaryActions.length && !readOnly"
+					as="div"
 					class="fxr-grid-menu fxr-grid-primary-menu"
+					v-slot="{ open }"
 				>
-					<button
-						ref="primaryMenuButtonRef"
+					<MenuButton
 						type="button"
 						class="fxr-btn fxr-btn--sm fxr-grid-menu-toggle"
 						:title="__('Choose or run another action')"
 						:aria-label="__('Choose or run another action')"
-						aria-haspopup="menu"
-						:aria-expanded="String(primaryMenuOpen)"
-						@click="togglePrimaryMenu"
+						:aria-expanded="String(open)"
 					>
 						<i class="fa fa-chevron-down" aria-hidden="true"></i>
-					</button>
-					<div
-						v-if="primaryMenuOpen"
-						class="fxr-grid-menu-items fxr-grid-menu-items--left"
-						role="menu"
-						@keydown="handleMenuKeydown"
-					>
+					</MenuButton>
+					<MenuItems class="fxr-grid-menu-items fxr-grid-menu-items--left">
 						<div class="fxr-grid-menu-heading">
 							{{ __("Run an action, or pin it as primary") }}
 						</div>
@@ -271,30 +266,34 @@
 							:key="action.id"
 							class="fxr-grid-menu-action-row"
 						>
-							<button
-								type="button"
-								role="menuitem"
-								class="fxr-grid-menu-pin"
-								:title="__('Make {0} the primary action', [action.label])"
-								:aria-label="__('Make {0} the primary action', [action.label])"
-								@click.stop="setPrimaryAction(action.id)"
-							>
-								<i class="fa fa-thumb-tack" aria-hidden="true"></i>
-							</button>
-							<button
-								type="button"
-								role="menuitem"
-								class="fxr-btn fxr-btn--sm fxr-grid-menu-item"
-								:aria-keyshortcuts="action.shortcut || undefined"
-								@click="requestGridAction(action)"
-							>
-								<i v-if="action.icon" :class="action.icon" aria-hidden="true"></i>
-								<span>{{ action.label }}</span>
-								<kbd v-if="action.shortcut">{{ action.shortcut }}</kbd>
-							</button>
+							<MenuItem v-slot="{ active }" as="template">
+								<button
+									type="button"
+									class="fxr-grid-menu-pin"
+									:class="{ 'is-active': active }"
+									:title="__('Make {0} the primary action', [action.label])"
+									:aria-label="__('Make {0} the primary action', [action.label])"
+									@click="setPrimaryAction(action.id)"
+								>
+									<i class="fa fa-thumb-tack" aria-hidden="true"></i>
+								</button>
+							</MenuItem>
+							<MenuItem v-slot="{ active }" as="template">
+								<button
+									type="button"
+									class="fxr-btn fxr-btn--sm fxr-grid-menu-item"
+									:class="{ 'is-active': active }"
+									:aria-keyshortcuts="action.shortcut || undefined"
+									@click="requestGridAction(action)"
+								>
+									<i v-if="action.icon" :class="action.icon" aria-hidden="true"></i>
+									<span>{{ action.label }}</span>
+									<kbd v-if="action.shortcut">{{ action.shortcut }}</kbd>
+								</button>
+							</MenuItem>
 						</div>
-					</div>
-				</div>
+					</MenuItems>
+				</Menu>
 			</div>
 
 			<div v-if="selection && selectedRows.length" class="fxr-generic-grid-bulk-actions">
@@ -398,10 +397,12 @@
 
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useSlots, watch } from "vue";
+import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/vue";
 import {
 	GRID_CLIPBOARD_FORMAT,
 	getRowKey,
 	getBulkEditAction,
+	getPrimaryActionAfterIndex,
 	matchesShortcut,
 	paginateRows,
 	parseClipboardRows,
@@ -418,7 +419,7 @@ const props = defineProps({
 	rowKey: { type: [String, Function], default: "id" },
 	gridLabel: { type: String, default: "" },
 	keyboardNavigation: { type: Boolean, default: true },
-	primaryActionShortcut: { type: String, default: "Alt+Enter" },
+	primaryActionShortcut: { type: String, default: "Shift+Enter" },
 	rowComponent: { type: [Object, Function, String], default: null },
 	rowProps: { type: [Object, Function], default: null },
 	rowInvalid: { type: [Function, Array], default: null },
@@ -469,8 +470,6 @@ const rootRef = ref(null);
 const slots = useSlots();
 const hasSummarySlot = computed(() => Boolean(slots["row-summary"]));
 const searchInputRef = ref(null);
-const primaryMenuButtonRef = ref(null);
-const primaryMenuOpen = ref(false);
 const searchOpen = ref(false);
 const searchQuery = ref("");
 const selectedPrimaryActionId = ref(props.defaultPrimaryAction || props.primaryAction?.id || "");
@@ -612,13 +611,11 @@ onMounted(() => {
 	if (typeof window === "undefined") return;
 	window.addEventListener("pointerup", endDragSelection);
 	window.addEventListener("pointercancel", endDragSelection);
-	document.addEventListener("pointerdown", handleOutsideMenuPointerDown);
-});
+	});
 onBeforeUnmount(() => {
 	if (typeof window === "undefined") return;
 	window.removeEventListener("pointerup", endDragSelection);
 	window.removeEventListener("pointercancel", endDragSelection);
-	document.removeEventListener("pointerdown", handleOutsideMenuPointerDown);
 });
 
 watch(
@@ -714,6 +711,17 @@ function handleIndexKeyboardClick(pageIndex, event) {
 	selectVisibleRange(pageIndex, pageIndex);
 }
 
+function handleGridRowClick(entry, event) {
+	if (!entry) return;
+	activeRowIndex.value = entry.index;
+
+	// Let controls keep focus so Shift+Enter can bubble from a row editor.
+	const interactiveTarget = event.target?.closest?.(
+		"button, input, select, textarea, a, [contenteditable='true'], [role='button'], [role='combobox']"
+	);
+	if (!interactiveTarget) rootRef.value?.focus({ preventScroll: true });
+}
+
 function getInvalidState(row, index) {
 	let result = false;
 	if (typeof props.rowInvalid === "function") result = props.rowInvalid(row, index);
@@ -781,59 +789,9 @@ function requestPrimaryAction(afterIndex = null) {
 	});
 }
 
-async function togglePrimaryMenu() {
-	primaryMenuOpen.value = !primaryMenuOpen.value;
-	if (primaryMenuOpen.value) {
-		await nextTick();
-		rootRef.value?.querySelector(".fxr-grid-primary-menu .fxr-grid-menu-item")?.focus();
-	}
-}
-
-function closeActionMenus() {
-	primaryMenuOpen.value = false;
-}
-
-function handleOutsideMenuPointerDown(event) {
-	if (event.target?.closest?.(".fxr-grid-primary-menu")) return;
-	closeActionMenus();
-}
-
-async function handleMenuKeydown(event) {
-	const menuElement = event.currentTarget;
-	if (event.key === "Escape") {
-		event.preventDefault();
-		closeActionMenus();
-		await nextTick();
-		primaryMenuButtonRef.value?.focus();
-		return;
-	}
-
-	const items = Array.from(menuElement.querySelectorAll('[role="menuitem"]:not(:disabled)'));
-	if (!items.length) return;
-	const currentIndex = items.indexOf(document.activeElement);
-	let nextIndex = currentIndex;
-	if (event.key === "ArrowDown")
-		nextIndex = currentIndex < items.length - 1 ? currentIndex + 1 : 0;
-	else if (event.key === "ArrowUp")
-		nextIndex = currentIndex > 0 ? currentIndex - 1 : items.length - 1;
-	else if (event.key === "Home") nextIndex = 0;
-	else if (event.key === "End") nextIndex = items.length - 1;
-	else return;
-	event.preventDefault();
-	items[nextIndex]?.focus();
-}
-
-async function requestGridAction(action) {
+function requestGridAction(action) {
 	if (props.readOnly || !action) return;
-	const wasMenuOpen = primaryMenuOpen.value;
-	closeActionMenus();
 	emit("grid-action", { action: action.id });
-	// If invoked from the menu, restore focus after it unmounts. Keyboard shortcuts
-	// should preserve the consumer's normal add-row focus behavior.
-	if (wasMenuOpen) {
-		await nextTick();
-		primaryMenuButtonRef.value?.focus({ preventScroll: true });
-	}
 }
 
 function loadPrimaryActionPreference() {
@@ -853,10 +811,9 @@ function loadPrimaryActionPreference() {
 	selectedPrimaryActionId.value = preferred;
 }
 
-async function setPrimaryAction(actionId) {
+function setPrimaryAction(actionId) {
 	if (!resolvedActionOptions.value.some((action) => action.id === actionId)) return;
 	selectedPrimaryActionId.value = actionId;
-	closeActionMenus();
 	try {
 		if (typeof window !== "undefined" && props.preferenceKey) {
 			window.localStorage.setItem(props.preferenceKey, actionId);
@@ -865,8 +822,6 @@ async function setPrimaryAction(actionId) {
 		// The preference still applies in this component session if persistence is unavailable.
 	}
 	emit("primary-action-change", actionId);
-	await nextTick();
-	primaryMenuButtonRef.value?.focus();
 }
 
 function selectAllFilteredRows() {
@@ -1107,7 +1062,7 @@ async function handleKeydown(event) {
 	if (!isDataGrid.value) return;
 
 	const target = event.target;
-	// Menu keyboard events belong to the open menu, not the grid's row shortcuts.
+	// Headless UI owns keyboard navigation inside the secondary-action menu.
 	if (target?.closest?.(".fxr-grid-menu")) return;
 
 	if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "c") {
@@ -1156,28 +1111,31 @@ async function handleKeydown(event) {
 		return;
 	}
 
-	// Alt+Enter always invokes whichever action is currently pinned as primary.
+	// Shift+Enter invokes the pinned primary action from an activated row,
+	// without requiring the row-index selection control to be selected.
+	const rowElement = target?.closest?.("[data-row-index]");
+	const isGridFocus = target === rootRef.value;
+	const preservesNativeEnter = target?.closest?.(
+		"textarea, select, [contenteditable='true'], [role='textbox'], [role='combobox'], [aria-haspopup='listbox']"
+	);
 	if (
 		activePrimaryAction.value &&
 		!props.readOnly &&
 		matchesShortcut(event, props.primaryActionShortcut) &&
-		!isInputTarget(target)
+		(rowElement || isGridFocus) &&
+		!preservesNativeEnter
 	) {
 		event.preventDefault();
-		const rowElement = target?.closest?.("[data-row-index]");
-		const activeIndex = rowElement
+		const rowIndexFromTarget = rowElement
 			? Number(rowElement.getAttribute("data-row-index"))
 			: activeRowIndex.value;
+		const activeIndex = sourceRows.value.some((entry) => entry.index === rowIndexFromTarget)
+			? rowIndexFromTarget
+			: null;
 		const selectedIndexes = sourceRows.value
 			.filter((entry) => selectedKeys.value.has(entry.key))
 			.map((entry) => entry.index);
-		requestPrimaryAction(
-			Number.isInteger(activeIndex) && activeIndex >= 0
-				? activeIndex
-				: selectedIndexes.length
-				? Math.max(...selectedIndexes)
-				: null
-		);
+		requestPrimaryAction(getPrimaryActionAfterIndex(activeIndex, selectedIndexes));
 		return;
 	}
 

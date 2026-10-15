@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {
 	GRID_CLIPBOARD_FORMAT,
 	buildRowProps,
+	getPrimaryActionAfterIndex,
 	getSummaryToggleAction,
 	matchesShortcut,
 	getPathValue,
@@ -25,6 +26,7 @@ assert.equal(matchesShortcut({ key: "e", altKey: true }, "Ctrl+Shift+E"), false)
 assert.equal(matchesShortcut({ key: "e", ctrlKey: true }, "Ctrl+Shift+E"), false);
 assert.equal(matchesShortcut({ key: "g", altKey: true, shiftKey: true }, "Alt+Shift+G"), true);
 assert.equal(matchesShortcut({ key: "g", altKey: true }, "Alt+Shift+G"), false);
+assert.equal(matchesShortcut({ key: "Enter", shiftKey: true }, "Shift+Enter"), true);
 assert.equal(matchesShortcut({ key: "Enter", altKey: true }, "Alt+Enter"), true);
 assert.equal(matchesShortcut({ key: "Enter", altKey: true, ctrlKey: true }, "Alt+Enter"), false);
 assert.equal(matchesShortcut({ key: "e" }, "Ctrl+Shift+E"), false);
@@ -114,3 +116,11 @@ assert.equal(getBulkEditAction([{ isEditing: true }, { isEditing: true }]), "vie
 assert.equal(getBulkEditAction([{ isEditing: false }, { isEditing: false }]), "edit");
 assert.equal(getBulkEditAction([{ isEditing: true }, { isEditing: false }]), "edit");
 assert.equal(getBulkEditAction([{ mode: "editing" }, { mode: "editing" }], "mode"), "view");
+
+
+assert.equal(getPrimaryActionAfterIndex(1, []), 1, "active row inserts after it without selecting its index");
+assert.equal(getPrimaryActionAfterIndex(0, [1, 2]), 0, "active row takes precedence over selected rows");
+assert.equal(getPrimaryActionAfterIndex(null, [1, 2]), 2, "selected-row fallback remains supported");
+assert.equal(getPrimaryActionAfterIndex(null, []), null, "without an active or selected row, append at the end");
+assert.equal(getPrimaryActionAfterIndex(-1, []), null);
+assert.equal(getPrimaryActionAfterIndex(null, [1, -2, 1.5]), 1);
