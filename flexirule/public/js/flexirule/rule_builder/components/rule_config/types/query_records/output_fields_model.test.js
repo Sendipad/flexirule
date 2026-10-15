@@ -43,6 +43,23 @@ assert.equal(expressionRows[0].kind, "function");
 assert.deepEqual(serializeOutputFields(expressionRows), ["sum(grand_total) as total_value"]);
 assert.deepEqual(validateOutputFields(expressionRows, RESULT_SHAPES.selectedFields), []);
 
+// An inserted field row serializes as an empty string until the picker is used.
+// The placeholder is only presentation; the empty selection must fail validation.
+const emptyFieldDraft = parseOutputFields([""]);
+assert.equal(emptyFieldDraft[0].kind, "field");
+assert.equal(emptyFieldDraft[0].field, "");
+assert.ok(
+	validateOutputFields(emptyFieldDraft, RESULT_SHAPES.selectedFields).some(
+		(error) => error === "Output field 1: select a field."
+	)
+);
+assert.ok(
+	validateOutputFields(
+		[{ kind: "field", field: "   ", alias: "" }],
+		RESULT_SHAPES.selectedFields
+	).some((error) => error === "Output field 1: select a field.")
+);
+
 const mixedAggregateRows = parseOutputFields(["customer", "count(name) as total_users"]);
 assert.ok(
 	validateOutputFields(mixedAggregateRows, RESULT_SHAPES.selectedFields).some((error) =>
