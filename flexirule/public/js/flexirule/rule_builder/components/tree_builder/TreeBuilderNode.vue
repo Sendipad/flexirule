@@ -1,6 +1,7 @@
 <script setup>
 import { computed, inject, ref } from "vue";
 import { isCollectionNode, isGroupNode, isLeafNode } from "./tree_builder_utils.js";
+import { getSiblingDropIntent } from "./tree_builder_drag_model.mjs";
 import TreeBuilderCollection from "./TreeBuilderCollection.vue";
 import TreeBuilderGroup from "./TreeBuilderGroup.vue";
 import TreeBuilderLeaf from "./TreeBuilderLeaf.vue";
@@ -99,6 +100,53 @@ function getDropIntent(e) {
 	};
 }
 
+function clearDropIndicator() {
+	dragOver.value = false;
+	dropPosition.value = null;
+}
+
+function canAcceptDrop(intent, draggedId) {
+	return Boolean(
+		!props.readOnly &&
+			draggedId &&
+			draggedId !== props.node.id &&
+			intent &&
+			api?.canMove(draggedId, intent.targetId)
+	);
+}
+
+function dragOverSibling(position, e) {
+	e.stopPropagation();
+	const draggedId = api?.dragState?.nodeId || e.dataTransfer?.getData("text/plain");
+	const intent = getSiblingDropIntent(props.parent?.id, props.index, position);
+	if (!canAcceptDrop(intent, draggedId)) {
+		clearDropIndicator();
+		if (e.dataTransfer) e.dataTransfer.dropEffect = "none";
+		return;
+	}
+
+	e.preventDefault();
+	if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+	dragOver.value = true;
+	dropPosition.value = intent.visualPosition;
+}
+
+function dropOnSibling(position, e) {
+	e.preventDefault();
+	e.stopPropagation();
+	const draggedId = api?.dragState?.nodeId || e.dataTransfer?.getData("text/plain");
+	const intent = getSiblingDropIntent(props.parent?.id, props.index, position);
+	clearDropIndicator();
+
+	try {
+		if (!canAcceptDrop(intent, draggedId)) return;
+		if (api?.dragState?.nodeId) api.dropNode(intent.targetId, intent.position);
+		else api?.moveNode(draggedId, intent.targetId, intent.position);
+	} finally {
+		api?.endDrag();
+	}
+}
+
 function dragOverNode(e) {
 	const draggedId = api?.dragState?.nodeId || e.dataTransfer?.getData("text/plain");
 	if (props.readOnly || !draggedId) return;
@@ -150,6 +198,8 @@ function drop(e) {
 		@dragend="endNodeDrag"
 		:class="{
 			'is-dragging': nodeDragging,
+			'is-tree-drag-active': Boolean(api?.dragState?.nodeId),
+			'is-drag-source': api?.dragState?.nodeId === node.id,
 			'drag-over': dragOver && dropPosition === 'inside',
 			'drop-before': dragOver && dropPosition === 'before',
 			'drop-after': dragOver && dropPosition === 'after',
@@ -158,6 +208,20 @@ function drop(e) {
 		@dragleave="dragLeave"
 		@drop="drop"
 	>
+		<div
+			v-if="!readOnly"
+			class="tree-node__drop-zone tree-node__drop-zone--before"
+			aria-hidden="true"
+			@dragover="dragOverSibling('before', $event)"
+			@drop="dropOnSibling('before', $event)"
+		></div>
+		<div
+			v-if="!readOnly"
+			class="tree-node__drop-zone tree-node__drop-zone--after"
+			aria-hidden="true"
+			@dragover="dragOverSibling('after', $event)"
+			@drop="dropOnSibling('after', $event)"
+		></div>
 		<div class="tree-node__body">
 			<TreeBuilderGroup
 				v-if="kind === 'group'"
@@ -261,6 +325,24 @@ function drop(e) {
 .tree-node__body {
 	min-width: 0;
 	width: 100%;
+}
+.tree-node__drop-zone {
+	position: absolute;
+	z-index: 4;
+	right: 0;
+	left: 0;
+	height: 14px;
+	background: transparent;
+	pointer-events: none;
+}
+.tree-node__drop-zone--before {
+	top: -7px;
+}
+.tree-node__drop-zone--after {
+	bottom: -7px;
+}
+.tree-node.is-tree-drag-active:not(.is-drag-source) > .tree-node__drop-zone {
+	pointer-events: auto;
 }
 .tree-node[draggable="true"] {
 	cursor: grab;
