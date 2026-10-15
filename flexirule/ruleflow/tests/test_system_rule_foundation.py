@@ -362,22 +362,21 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 			with patch.object(frappe, "flags", frappe._dict(flexirule_system_rule_registration=True)):
 				rule.validate_system_rule_protection()
 
-	def test_builtin_governance_and_naming_rules_skip_during_install(self):
+	def test_builtin_governance_and_naming_rules_use_trigger_conditions(self):
 		from flexirule.ruleflow.core.compiler import ConditionCompiler
 		from flexirule.ruleflow.core.coordinator import RuleCoordinator
 		from flexirule.ruleflow.system_rules import get_system_rule_definitions
 
 		definitions = {definition["rule_name"]: definition for definition in get_system_rule_definitions()}
-		naming = definitions["RULE_NAMING_NO_OUTER_WHITESPACE"]
+		naming = definitions["RULE_NAMING_REJECT_EMPTY_OR_PLACEHOLDER"]
 		governance = definitions["RULE_GOVERNANCE_REQUIRE_DESCRIPTION"]
 		compiler = ConditionCompiler()
 		naming_expression = compiler.compile(naming["trigger_condition"])
 		governance_expression = compiler.compile(governance["trigger_condition"])
 
 		self.assertIn("vars.get('is_install')", naming_expression)
-		self.assertIn("strip()", naming_expression)
-		self.assertIn("has_outer_whitespace", ConditionCompiler.OPERATOR_LABELS)
-		self.assertIn("has_outer_whitespace", ConditionCompiler.FIELDTYPE_OPERATORS["Data"])
+		self.assertIn("startswith", naming_expression)
+		self.assertIn("is_not_set", naming["trigger_condition"])
 		self.assertIn("vars.get('is_install')", governance_expression)
 
 		naming_rule = frappe._dict(
@@ -389,15 +388,30 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 			trigger_condition=naming["trigger_condition"],
 			compiled_expression=naming_expression,
 		)
-		naming_doc = frappe._dict(doctype="Rule", rule_name=" padded name ")
 
+		# Empty and placeholder names should enter the RuleFlow policy; valid names skip it.
+		for rule_name in ("", "new Rule", "NEW_RULE"):
+			naming_doc = frappe._dict(doctype="Rule", rule_name=rule_name)
+			with self._patch_frappe_flags(in_install=False):
+				eligible, reason = RuleCoordinator.check_eligibility(
+					naming_rule, naming_doc, "Before Naming"
+				)
+			self.assertTrue(eligible, f"{rule_name!r} should match the naming policy: {reason}")
+
+		for rule_name in ("Customer Rule", "RULE_CUSTOMER_SYNC"):
+			naming_doc = frappe._dict(doctype="Rule", rule_name=rule_name)
+			with self._patch_frappe_flags(in_install=False):
+				eligible, reason = RuleCoordinator.check_eligibility(
+					naming_rule, naming_doc, "Before Naming"
+				)
+			self.assertFalse(eligible, f"{rule_name!r} should skip the naming policy: {reason}")
+
+		naming_doc = frappe._dict(doctype="Rule", rule_name="new Rule")
 		with self._patch_frappe_flags(in_install=True):
-			eligible, reason = RuleCoordinator.check_eligibility(naming_rule, naming_doc, "Before Naming")
-		self.assertFalse(eligible, reason)
-
-		with self._patch_frappe_flags(in_install=False):
-			eligible, reason = RuleCoordinator.check_eligibility(naming_rule, naming_doc, "Before Naming")
-		self.assertTrue(eligible, reason)
+			eligible, reason = RuleCoordinator.check_eligibility(
+				naming_rule, naming_doc, "Before Naming"
+			)
+		self.assertFalse(eligible, f"Installation must bypass naming policy: {reason}")
 
 		governance_rule = frappe._dict(
 			name=governance["rule_name"],
@@ -409,7 +423,6 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 			compiled_expression=governance_expression,
 		)
 		governance_doc = frappe._dict(doctype="Rule", description="")
-
 		with self._patch_frappe_flags(in_install=True):
 			eligible, reason = RuleCoordinator.check_eligibility(
 				governance_rule, governance_doc, "Before Insert"
@@ -425,7 +438,7 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 	def test_builtin_system_rules_register_as_inactive_drafts(self):
 		names = register_configured_system_rules()
 
-		self.assertIn("RULE_NAMING_NO_OUTER_WHITESPACE", names)
+		self.assertIn("RULE_NAMING_REJECT_EMPTY_OR_PLACEHOLDER", names)
 		self.assertIn("RULE_GOVERNANCE_REQUIRE_DESCRIPTION", names)
 		for name in (
 			"RULE_NAMING_NO_OUTER_WHITESPACE",
