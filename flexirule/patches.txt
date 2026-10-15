@@ -20,3 +20,4 @@ flexirule.patches.set_default_action_config_mode_to_dialog
 flexirule.patches.v1_0.migrate_rule_action_type_to_link
 flexirule.patches.migrate_rules_to_logical_names
 flexirule.patches.migrate_skip_permissions
+flexirule.patches.remove_default_rule_event_exclusion
