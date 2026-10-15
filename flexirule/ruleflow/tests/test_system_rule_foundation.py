@@ -374,7 +374,10 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 		# only assigns its rejection message and then terminates with Stop(Error).
 		for definition in definitions.values():
 			actions = definition["actions"]
-			self.assertEqual([action["action_type"] for action in actions], ["Entry Action", "Assignment", "Stop"])
+			self.assertEqual(
+				[action["action_type"] for action in actions],
+				["Entry Action", "Assignment", "Stop"],
+			)
 			entry, assignment, terminal = actions
 			self.assertEqual(entry["next_step_if_true"], assignment["action_id"])
 			self.assertEqual(assignment["next_step_if_true"], terminal["action_id"])
