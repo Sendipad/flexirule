@@ -56,6 +56,8 @@ class ConditionCompiler:
 		"length_gte": "length greater or equal",
 		"length_lt": "length less than",
 		"length_lte": "length less or equal",
+		"starts_with": "starts with",
+		"has_outer_whitespace": "has leading or trailing whitespace",
 	}
 
 	# Fieldtype to valid operators mapping
@@ -70,12 +72,59 @@ class ConditionCompiler:
 			"not like",
 			"is_set",
 			"is_not_set",
+			"starts_with",
+			"has_outer_whitespace",
 		],
-		"Text": ["==", "!=", "like", "not like", "is_set", "is_not_set"],
-		"Small Text": ["==", "!=", "like", "not like", "is_set", "is_not_set"],
-		"Long Text": ["==", "!=", "like", "not like", "is_set", "is_not_set"],
-		"Text Editor": ["==", "!=", "like", "not like", "is_set", "is_not_set"],
-		"Code": ["==", "!=", "like", "not like", "is_set", "is_not_set"],
+		"Text": [
+			"==",
+			"!=",
+			"like",
+			"not like",
+			"is_set",
+			"is_not_set",
+			"starts_with",
+			"has_outer_whitespace",
+		],
+		"Small Text": [
+			"==",
+			"!=",
+			"like",
+			"not like",
+			"is_set",
+			"is_not_set",
+			"starts_with",
+			"has_outer_whitespace",
+		],
+		"Long Text": [
+			"==",
+			"!=",
+			"like",
+			"not like",
+			"is_set",
+			"is_not_set",
+			"starts_with",
+			"has_outer_whitespace",
+		],
+		"Text Editor": [
+			"==",
+			"!=",
+			"like",
+			"not like",
+			"is_set",
+			"is_not_set",
+			"starts_with",
+			"has_outer_whitespace",
+		],
+		"Code": [
+			"==",
+			"!=",
+			"like",
+			"not like",
+			"is_set",
+			"is_not_set",
+			"starts_with",
+			"has_outer_whitespace",
+		],
 		"Password": ["is_set", "is_not_set"],
 		# Selection fields
 		"Select": ["==", "!=", "in", "not in", "is_set", "is_not_set"],
@@ -152,7 +201,8 @@ class ConditionCompiler:
 			raise ValueError("Condition must be a dictionary or list")
 
 		compiled = self._compile_node(
-			conditions, scopes={"doc", "old_doc", "row", "vars", "item", "caller", "rule", "doctype"}
+			conditions,
+			scopes={"doc", "old_doc", "row", "vars", "item", "caller", "rule", "doctype"},
 		)
 		return compiled if compiled else "True"
 
@@ -221,6 +271,13 @@ class ConditionCompiler:
 		op = node.get("op", "==")
 
 		lhs_code = self._compile_operand(left, scopes)
+
+		# Narrow, read-only predicates used by built-in governance rules.
+		if op == "has_outer_whitespace":
+			return f"(str({lhs_code} or '') != str({lhs_code} or '').strip())"
+		if op == "starts_with":
+			rhs_code = self._compile_operand(right, scopes)
+			return f"str({lhs_code} or '').lower().startswith(str({rhs_code} or '').lower())"
 
 		# Special Unary/Method Operators
 		if op == "is_set":

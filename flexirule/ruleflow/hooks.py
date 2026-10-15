@@ -6,6 +6,7 @@ These are called from hooks.py doc_events.
 from __future__ import annotations
 
 import frappe
+from frappe import _
 
 EVENT_MAP = {
 	"before_naming": "Before Naming",
@@ -49,15 +50,10 @@ def get_excluded_doctypes() -> set[str]:
 			"Comment",
 			"Communication",
 			"File",
-			# FlexiRule internal doctypes
-			"Rule",
-			"Rule Action",
+			# Engine telemetry stays excluded to avoid rules firing from their own
+			# execution bookkeeping.
 			"Rule Execution Log",
 			"Rule Scheduler",
-			"Process",
-			"Process Operation",
-			"Data Review Task",
-			"Data Review Related Document",
 		}
 	)
 
@@ -70,6 +66,19 @@ def get_excluded_doctypes() -> set[str]:
 	except Exception:
 		# Table might not exist yet during install/migrate.
 		pass
+
+	# Always apply this override, even on fresh installs where the settings table
+	# is not available yet. Older sites may have seeded these into exclusions.
+	excluded.difference_update(
+		{
+			"Rule",
+			"Rule Action",
+			"Process",
+			"Process Operation",
+			"Data Review Task",
+			"Data Review Related Document",
+		}
+	)
 
 	setattr(frappe.local, EXCLUDED_CACHE_KEY, excluded)
 	return excluded
@@ -89,6 +98,9 @@ def execute_rules_from_event(doc, event):
 	if frappe.flags.in_import or frappe.flags.in_migrate:
 		return
 
+	if getattr(frappe.flags, "flexirule_system_rule_registration", False):
+		return
+
 	if doc.doctype in get_excluded_doctypes():
 		return
 
@@ -98,7 +110,20 @@ def execute_rules_from_event(doc, event):
 	if not RuleCoordinator.has_active_rules(doc.doctype, event):
 		return
 
-	RuleCoordinator.execute_rules_from_event(doc, event)
+	# The coordinator protects same-document/event re-entry. Bound nested events too,
+	# so indirect A -> B -> A write cycles cannot recurse without limit.
+	depth = getattr(frappe.local, "flexirule_rule_dispatch_depth", 0)
+	max_depth = 20
+	if depth >= max_depth:
+		frappe.throw(
+			_("FlexiRule stopped a recursive rule chain after {0} nested document events.").format(max_depth)
+		)
+
+	frappe.local.flexirule_rule_dispatch_depth = depth + 1
+	try:
+		RuleCoordinator.execute_rules_from_event(doc, event)
+	finally:
+		frappe.local.flexirule_rule_dispatch_depth = depth
 
 
 def get_flexirule_map():

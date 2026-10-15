@@ -586,7 +586,7 @@ class RuleCoordinator:
 				eval_locals = {
 					"doc": doc,
 					"old_doc": old_doc,
-					"vars": {},
+					"vars": {"is_install": bool(getattr(frappe.flags, "in_install", False))},
 					"frappe": safe_frappe,
 					"caller": frappe._dict({}),
 					"rule": frappe._dict(rule_meta),

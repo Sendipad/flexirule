@@ -149,7 +149,12 @@ after_install = "flexirule.install.after_install"
 after_migrate = [
 	"flexirule.ruleflow.core.process_sync.sync_all_processes",
 	"flexirule.ruleflow.utils.action_type_registry.seed_default_action_types",
+	"flexirule.install.register_system_rules",
 ]
+
+# Dependent apps can return version-controlled system Rule definitions from a provider.
+# Example: "my_app.rules.system_rule_definitions"
+flexirule_system_rules: list[str] = ["flexirule.ruleflow.system_rules.get_system_rule_definitions"]
 
 # Uninstallation
 # ------------

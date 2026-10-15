@@ -7,6 +7,7 @@ def after_install():
 	"""
 	setup_default_ruleflow_settings()
 	setup_action_types()
+	register_system_rules()
 
 
 def setup_action_types():
@@ -26,7 +27,6 @@ def setup_default_ruleflow_settings():
 	settings = frappe.get_doc("RuleFlow Settings")
 
 	default_doctypes = [
-		"Rule",
 		"Rule Execution Log",
 		"Rule Scheduler",
 		"Error Log",
@@ -40,6 +40,9 @@ def setup_default_ruleflow_settings():
 		"File",
 	]
 
+	# Rule is now eligible for self-hosting RuleFlow events. Remove the
+	# legacy default exclusion from existing sites as well as fresh installs.
+	settings.excluded_doctypes = [row for row in settings.excluded_doctypes if row.document_type != "Rule"]
 	existing_doctypes = [row.document_type for row in settings.excluded_doctypes]
 
 	for dt in default_doctypes:
@@ -47,3 +50,45 @@ def setup_default_ruleflow_settings():
 			settings.append("excluded_doctypes", {"document_type": dt})
 
 	settings.save(ignore_permissions=True)
+
+
+_DEPRECATED_SYSTEM_RULE_BASE_NAMES = ("RULE_NAMING_REJECT_EMPTY_OR_PLACEHOLDER",)
+
+
+def retire_deprecated_system_rules():
+	"""Disable retired app-managed policies while preserving their audit history."""
+	# This is a registry-owned lifecycle change; suppress recursive RuleFlow
+	# dispatch just as the regular registration path does.
+	previous_flag = getattr(frappe.flags, "flexirule_system_rule_registration", False)
+	frappe.flags.flexirule_system_rule_registration = True
+	try:
+		for logical_name in _DEPRECATED_SYSTEM_RULE_BASE_NAMES:
+			rule_names = set(
+				frappe.get_all(
+					"Rule",
+					filters={"base_rule_name": logical_name, "is_system_generated": 1},
+					pluck="name",
+				)
+			)
+			exact_name = frappe.db.get_value("Rule", {"rule_name": logical_name}, "name")
+			if exact_name and frappe.db.get_value("Rule", exact_name, "is_system_generated"):
+				rule_names.add(exact_name)
+
+			for name in rule_names:
+				rule = frappe.get_doc("Rule", name)
+				if not rule.is_system_generated:
+					continue
+				if rule.is_active or rule.status != "Disabled":
+					rule.is_active = 0
+					rule.status = "Disabled"
+					rule.save(ignore_permissions=True)
+	finally:
+		frappe.flags.flexirule_system_rule_registration = previous_flag
+
+
+def register_system_rules():
+	"""Register current definitions, then retire explicitly deprecated policies."""
+	from flexirule.ruleflow.core.system_rule_registry import register_configured_system_rules
+
+	register_configured_system_rules()
+	retire_deprecated_system_rules()

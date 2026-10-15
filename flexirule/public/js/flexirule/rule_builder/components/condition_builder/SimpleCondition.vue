@@ -66,7 +66,17 @@ const isDoctypeContextField = computed(() =>
 );
 
 const DEFAULT_OPERATORS = {
-	Data: ["==", "!=", "in", "not in", "like", "not like", "is_set", "is_not_set"],
+	Data: [
+		"==",
+		"!=",
+		"in",
+		"not in",
+		"like",
+		"not like",
+		"is_set",
+		"is_not_set",
+		"has_outer_whitespace",
+	],
 	Select: ["==", "!=", "in", "not in", "is_set", "is_not_set"],
 	Link: ["==", "!=", "in", "not in", "is_set", "is_not_set"],
 	Int: ["==", "!=", ">", "<", ">=", "<=", "is_set", "is_not_set"],
@@ -92,6 +102,7 @@ const DEFAULT_LABELS = {
 	not_contains: "not contains",
 	is_set: "is set",
 	is_not_set: "is not set",
+	has_outer_whitespace: "has leading or trailing whitespace",
 };
 
 // Available operators based on field type - backend-driven with static defaults
