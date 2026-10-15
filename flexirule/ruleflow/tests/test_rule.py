@@ -305,7 +305,7 @@ class TestRuleDocEventDispatch(FrappeTestCase):
 		self.assertIn("Rule Scheduler", excluded)
 		self.assertIn("Rule Execution Log", excluded)
 
-	def test_configured_exclusions_are_preserved_except_legacy_rule_default(self):
+	def test_configured_exclusions_are_preserved_including_rule(self):
 		def get_all(doctype, **kwargs):
 			if doctype == "RuleFlow Excluded DocType":
 				return ["Rule", "Rule Scheduler", "Process"]
@@ -314,9 +314,9 @@ class TestRuleDocEventDispatch(FrappeTestCase):
 		with patch("frappe.get_hooks", return_value=[]), patch("frappe.get_all", side_effect=get_all):
 			excluded = get_excluded_doctypes()
 
-		# Rule was seeded by older versions as a default exclusion; it is now an
-		# event target. Other settings exclusions remain authoritative.
-		self.assertNotIn("Rule", excluded)
+		# The legacy default is migrated away, but an explicit setting exclusion
+		# remains authoritative, including for the Rule DocType.
+		self.assertIn("Rule", excluded)
 		self.assertIn("Process", excluded)
 		self.assertIn("Rule Scheduler", excluded)
 		self.assertIn("Rule Execution Log", excluded)
