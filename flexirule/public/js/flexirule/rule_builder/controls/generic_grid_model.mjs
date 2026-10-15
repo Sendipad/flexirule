@@ -138,6 +138,21 @@ export function buildRowProps(row, index, customProps, selected, invalid, readOn
 }
 
 /**
+ * Whether a readable row summary can switch into edit mode.
+ */
+export function canEditRowSummary(
+	row,
+	{ readOnly = false, availableRowActions = ["edit"], editStateKey = "isEditing" } = {}
+) {
+	return (
+		!readOnly &&
+		Array.isArray(availableRowActions) &&
+		availableRowActions.includes("edit") &&
+		!Boolean(row?.[editStateKey])
+	);
+}
+
+/**
  * A selection is toggled as one group: all-editing becomes readable; any other
  * combination becomes editable. This avoids leaving a mixed selection in mixed modes.
  */
