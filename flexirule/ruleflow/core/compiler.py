@@ -162,7 +162,7 @@ class ConditionCompiler:
 			return ""
 
 		if scopes is None:
-			scopes = {"doc", "old_doc", "row", "vars", "item", "caller", "rule", "doctype", "frappe"}
+			scopes = {"doc", "old_doc", "row", "vars", "item", "caller", "rule", "doctype"}
 
 		# 1. Detect Type
 		# Collection
