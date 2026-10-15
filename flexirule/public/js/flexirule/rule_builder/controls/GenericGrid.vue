@@ -611,7 +611,7 @@ onMounted(() => {
 	if (typeof window === "undefined") return;
 	window.addEventListener("pointerup", endDragSelection);
 	window.addEventListener("pointercancel", endDragSelection);
-	});
+});
 onBeforeUnmount(() => {
 	if (typeof window === "undefined") return;
 	window.removeEventListener("pointerup", endDragSelection);

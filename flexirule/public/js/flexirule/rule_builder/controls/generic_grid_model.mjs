@@ -161,7 +161,6 @@ export function getBulkEditAction(rows, editStateKey = "isEditing") {
 	return list.every((row) => Boolean(row?.[editStateKey])) ? "view" : "edit";
 }
 
-
 /**
  * Resolve where the primary action should insert relative to the user's active row.
  * Row activation is independent of the index-based multi-selection UI.
