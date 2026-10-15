@@ -122,7 +122,13 @@
 					</div>
 				</div>
 
-				<div v-if="hasSummarySlot" class="fxr-generic-grid-row-summary">
+				<div
+					v-if="hasSummarySlot"
+					class="fxr-generic-grid-row-summary"
+					:class="{ 'is-editable': canEditSummary(entry) }"
+					:title="canEditSummary(entry) ? __('Double-click to edit') : undefined"
+					@dblclick="editSummaryRow(entry, $event)"
+				>
 					<slot
 						name="row-summary"
 						:row="entry.row"
@@ -401,6 +407,7 @@ import {
 	parseClipboardRows,
 	rowMatchesSearch,
 	buildRowProps,
+	canEditRowSummary,
 	selectRangeKeys,
 } from "./generic_grid_model.mjs";
 
@@ -726,6 +733,26 @@ function resolveRowProps(row, index) {
 		getInvalidState(row, index).invalid,
 		props.readOnly
 	);
+}
+
+function canEditSummary(entry) {
+	return canEditRowSummary(entry.row, {
+		readOnly: props.readOnly,
+		availableRowActions: props.availableRowActions,
+		editStateKey: props.editStateKey,
+	});
+}
+
+function editSummaryRow(entry, event) {
+	if (!canEditSummary(entry)) return;
+	if (
+		event.target?.closest?.(
+			"a, button, input, select, textarea, [contenteditable='true'], [role='button'], [role='combobox']"
+		)
+	) {
+		return;
+	}
+	requestRowAction("edit", entry);
 }
 
 function requestRowAction(action, entry) {
@@ -1235,6 +1262,10 @@ defineExpose({
 	outline: none;
 }
 
+.fxr-generic-grid-data.is-compact {
+	gap: var(--fxr-space-1, 4px);
+}
+
 .fxr-generic-grid-footer,
 .fxr-generic-grid-footer-primary,
 .fxr-generic-grid-bulk-actions,
@@ -1548,6 +1579,11 @@ defineExpose({
 	gap: var(--fxr-space-1, 4px);
 }
 
+.fxr-generic-grid-data.is-compact .fxr-generic-grid-row {
+	row-gap: 2px;
+	padding: 2px var(--fxr-space-2, 8px);
+}
+
 .fxr-generic-grid-row {
 	display: grid;
 	grid-template-columns: 22px minmax(0, 1fr) auto;
@@ -1587,9 +1623,29 @@ defineExpose({
 }
 
 .fxr-generic-grid-row-summary {
+	display: flex;
 	grid-column: 2;
 	grid-row: 1;
+	align-self: center;
+	align-items: center;
 	min-width: 0;
+	font-size: var(--fxr-text-sm, 12px);
+	line-height: 1.25;
+}
+
+.fxr-generic-grid-row-summary :deep(p) {
+	margin-block: 0;
+	line-height: 1.25;
+}
+
+.fxr-generic-grid-row-summary.is-editable {
+	border-radius: var(--fxr-radius-sm, 4px);
+	cursor: pointer;
+	transition: color 120ms ease;
+}
+
+.fxr-generic-grid-row-summary.is-editable:hover {
+	color: var(--fxr-text-strong, #111827);
 }
 
 .fxr-generic-grid-row-body {
@@ -1599,6 +1655,10 @@ defineExpose({
 .fxr-generic-grid-row.is-editing {
 	grid-template-columns: 22px minmax(0, 1fr) auto;
 	padding: var(--fxr-space-2, 8px);
+}
+
+.fxr-generic-grid-data.is-compact .fxr-generic-grid-row.is-editing {
+	padding: var(--fxr-space-1, 4px) var(--fxr-space-2, 8px);
 }
 
 .fxr-generic-grid-row.is-editing .fxr-generic-grid-row-actions {
