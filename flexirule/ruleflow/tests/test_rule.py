@@ -1,6 +1,7 @@
 # Copyright (c) 2025, FlexiRule and Contributors
 # See license.txt
 
+import json
 from unittest.mock import patch
 
 import frappe
@@ -407,3 +408,74 @@ class TestRuleDocEventDispatch(FrappeTestCase):
 			execute_rules_from_event(doc, "After Save")
 
 		self.assertEqual(getattr(frappe.local, "flexirule_rule_dispatch_depth", None), 0)
+
+	def test_document_actions_cannot_create_an_unbounded_cross_doctype_cycle(self):
+		"""A ToDo -> Note -> ToDo action cycle is stopped by the lifecycle dispatch bound."""
+		uid = frappe.generate_hash(length=8)
+
+		def insert_cycle_rule(rule_name, source_doctype, target_doctype, operation, config, return_variable):
+			return frappe.get_doc(
+				{
+					"doctype": "Rule",
+					"rule_name": rule_name,
+					"document_type": source_doctype,
+					"trigger_type": "DocType Event",
+					"trigger_event": "After Insert",
+					"is_active": 1,
+					"priority": "0",
+					"actions": [
+						{
+							"action_id": "root",
+							"action_type": "Entry Action",
+							"action_label": "Start",
+							"next_step_if_true": "create_record",
+						},
+						{
+							"action_id": "create_record",
+							"action_type": "Document Action",
+							"action_label": "Create linked record",
+							"reference_doctype": target_doctype,
+							"operation": operation,
+							"config": json.dumps(config),
+							"mutation_mode": "Set Context Variable",
+							"return_type": "Single Record",
+							"return_variable": return_variable,
+							"next_step_if_true": "stop",
+						},
+						{
+							"action_id": "stop",
+							"action_type": "Stop",
+							"action_label": "Stop",
+							"operation": "Success",
+						},
+					],
+				}
+			).insert(ignore_permissions=True)
+
+		insert_cycle_rule(
+			f"Test Dispatch Cycle ToDo {uid}",
+			"ToDo",
+			"Note",
+			"Create New",
+			{"static_values": {"title": f"Cycle Note {uid}"}},
+			"created_note",
+		)
+		insert_cycle_rule(
+			f"Test Dispatch Cycle Note {uid}",
+			"Note",
+			"ToDo",
+			"Create ToDo",
+			{"assigned_to": "Administrator", "description": f"Cycle ToDo {uid}"},
+			"created_todo",
+		)
+
+		if hasattr(frappe.local, "flexirule_excluded_doctypes"):
+			delattr(frappe.local, "flexirule_excluded_doctypes")
+		RuleCoordinator.clear_cache()
+
+		with self.assertRaises(frappe.ValidationError):
+			frappe.get_doc({"doctype": "ToDo", "description": f"Cycle Seed {uid}"}).insert(
+				ignore_permissions=True
+			)
+
+		self.assertEqual(getattr(frappe.local, "flexirule_rule_dispatch_depth", 0), 0)
