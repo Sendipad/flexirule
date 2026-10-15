@@ -16,6 +16,8 @@ import frappe
 from frappe import _
 from frappe.utils import cint
 
+from flexirule.ruleflow.core.condition_helpers import has_outer_whitespace
+
 
 class RuleCoordinator:
 	"""Coordinates rule loading, filtering, and execution"""
@@ -165,11 +167,6 @@ class RuleCoordinator:
 	@staticmethod
 	def _is_active_value(value: Any) -> bool:
 		return cint(value) == 1
-
-	@staticmethod
-	def has_outer_whitespace(value: Any) -> bool:
-		"""Return whether a name begins or ends with whitespace."""
-		return isinstance(value, str) and value != value.strip()
 
 	@staticmethod
 	def _extract_watched_fields(compiled_expression: str | None) -> list[str]:
@@ -593,7 +590,7 @@ class RuleCoordinator:
 					"old_doc": old_doc,
 					"vars": {},
 					"frappe": safe_frappe,
-					"has_outer_whitespace": RuleCoordinator.has_outer_whitespace,
+					"has_outer_whitespace": has_outer_whitespace,
 					"caller": frappe._dict({}),
 					"rule": frappe._dict(rule_meta),
 					"doctype": doctype_name,
