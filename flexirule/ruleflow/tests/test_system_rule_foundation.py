@@ -363,87 +363,30 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 			with patch.object(frappe, "flags", frappe._dict(flexirule_system_rule_registration=True)):
 				rule.validate_system_rule_protection()
 
-	def test_builtin_governance_and_naming_rules_use_trigger_conditions(self):
+	def test_builtin_governance_rule_uses_trigger_condition(self):
 		from flexirule.ruleflow.core.compiler import ConditionCompiler
 		from flexirule.ruleflow.core.coordinator import RuleCoordinator
 		from flexirule.ruleflow.system_rules import get_system_rule_definitions
 
 		definitions = {definition["rule_name"]: definition for definition in get_system_rule_definitions()}
-
-		# Trigger conditions decide whether a policy executes. The naming graph
-		# assigns its rejection message, then terminates with Stop(Error).
-		naming = definitions["RULE_NAMING_REJECT_EMPTY_OR_PLACEHOLDER"]
+		self.assertEqual(set(definitions), {"RULE_GOVERNANCE_REQUIRE_DESCRIPTION"})
 		governance = definitions["RULE_GOVERNANCE_REQUIRE_DESCRIPTION"]
-		naming_actions = naming["actions"]
-		self.assertEqual(
-			[action["action_type"] for action in naming_actions],
-			["Entry Action", "Assignment", "Stop"],
-		)
-		entry, assignment, terminal = naming_actions
-		self.assertEqual(entry["next_step_if_true"], assignment["action_id"])
-		self.assertEqual(assignment["next_step_if_true"], terminal["action_id"])
-		self.assertEqual(terminal["operation"], "Error")
-		self.assertEqual(terminal["value_template"], "{{ vars.rejection_message }}")
 
-		assignments = json.loads(assignment["config"])
-		self.assertEqual(len(assignments), 1)
-		self.assertEqual(assignments[0]["target"], "vars.rejection_message")
-		self.assertEqual(assignments[0]["operator"], "set")
-		self.assertEqual(assignments[0]["value"]["mode"], "static")
-		self.assertTrue(assignments[0]["value"]["value"])
-
-		# Preserve the governance policy's existing simple terminal graph.
-		governance_actions = governance["actions"]
+		actions = governance["actions"]
 		self.assertEqual(
-			[action["action_type"] for action in governance_actions],
+			[action["action_type"] for action in actions],
 			["Entry Action", "Stop"],
 		)
+		self.assertEqual(actions[0]["next_step_if_true"], actions[1]["action_id"])
+		self.assertEqual(actions[1]["operation"], "Error")
 		self.assertEqual(
-			governance_actions[0]["next_step_if_true"],
-			governance_actions[1]["action_id"],
-		)
-		self.assertEqual(governance_actions[1]["operation"], "Error")
-		self.assertEqual(
-			governance_actions[1]["value_template"],
+			actions[1]["value_template"],
 			"Add a short description explaining the purpose of this Rule before saving it.",
 		)
 
 		compiler = ConditionCompiler()
-		naming_expression = compiler.compile(naming["trigger_condition"])
-		governance_expression = compiler.compile(governance["trigger_condition"])
-
-		self.assertIn("vars.get('is_install')", naming_expression)
-		self.assertIn("startswith", naming_expression)
-		self.assertIn("is_not_set", naming["trigger_condition"])
-		self.assertIn("vars.get('is_install')", governance_expression)
-
-		naming_rule = frappe._dict(
-			name=naming["rule_name"],
-			is_active=1,
-			trigger_type="DocType Event",
-			document_type="Rule",
-			trigger_event="Before Naming",
-			trigger_condition=naming["trigger_condition"],
-			compiled_expression=naming_expression,
-		)
-
-		# Empty and placeholder names should enter the RuleFlow policy; valid names skip it.
-		for rule_name in ("", "new Rule", "NEW_RULE"):
-			naming_doc = frappe._dict(doctype="Rule", rule_name=rule_name)
-			with self._patch_frappe_flags(in_install=False):
-				eligible, reason = RuleCoordinator.check_eligibility(naming_rule, naming_doc, "Before Naming")
-			self.assertTrue(eligible, f"{rule_name!r} should match the naming policy: {reason}")
-
-		for rule_name in ("Customer Rule", "RULE_CUSTOMER_SYNC"):
-			naming_doc = frappe._dict(doctype="Rule", rule_name=rule_name)
-			with self._patch_frappe_flags(in_install=False):
-				eligible, reason = RuleCoordinator.check_eligibility(naming_rule, naming_doc, "Before Naming")
-			self.assertFalse(eligible, f"{rule_name!r} should skip the naming policy: {reason}")
-
-		naming_doc = frappe._dict(doctype="Rule", rule_name="new Rule")
-		with self._patch_frappe_flags(in_install=True):
-			eligible, reason = RuleCoordinator.check_eligibility(naming_rule, naming_doc, "Before Naming")
-		self.assertFalse(eligible, f"Installation must bypass naming policy: {reason}")
+		expression = compiler.compile(governance["trigger_condition"])
+		self.assertIn("vars.get('is_install')", expression)
 
 		governance_rule = frappe._dict(
 			name=governance["rule_name"],
@@ -452,30 +395,72 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 			document_type="Rule",
 			trigger_event="Before Insert",
 			trigger_condition=governance["trigger_condition"],
-			compiled_expression=governance_expression,
+			compiled_expression=expression,
 		)
-		governance_doc = frappe._dict(doctype="Rule", description="")
 		with self._patch_frappe_flags(in_install=True):
 			eligible, reason = RuleCoordinator.check_eligibility(
-				governance_rule, governance_doc, "Before Insert"
+				governance_rule, frappe._dict(doctype="Rule", description=""), "Before Insert"
 			)
 		self.assertFalse(eligible, reason)
 
 		with self._patch_frappe_flags(in_install=False):
 			eligible, reason = RuleCoordinator.check_eligibility(
-				governance_rule, governance_doc, "Before Insert"
+				governance_rule, frappe._dict(doctype="Rule", description=""), "Before Insert"
 			)
 		self.assertTrue(eligible, reason)
+
+		with self._patch_frappe_flags(in_install=False):
+			eligible, reason = RuleCoordinator.check_eligibility(
+				governance_rule, frappe._dict(doctype="Rule", description="Has purpose"), "Before Insert"
+			)
+		self.assertFalse(eligible, reason)
+
+	def test_register_disables_retired_naming_system_rule(self):
+		from flexirule.install import register_system_rules
+
+		logical_name = "RULE_NAMING_REJECT_EMPTY_OR_PLACEHOLDER"
+		legacy_rows = frappe.get_all(
+			"Rule",
+			filters={"base_rule_name": logical_name, "is_system_generated": 1},
+			fields=["name", "version"],
+			order_by="version desc",
+		)
+		if not legacy_rows:
+			exact_name = frappe.db.get_value("Rule", {"rule_name": logical_name}, "name")
+			if exact_name:
+				if not frappe.db.get_value("Rule", exact_name, "is_system_generated"):
+					self.skipTest("A user-managed Rule already uses the retired System Rule name.")
+				legacy_rows = [{"name": exact_name, "version": 1}]
+			else:
+				legacy_name = ensure_system_rule(self._system_definition(logical_name))
+				legacy_rows = [{"name": legacy_name, "version": 1}]
+
+		# Simulate the previously registered policy being active without relying on
+		# its old definition graph; retirement only changes operational state.
+		frappe.db.set_value(
+			"Rule",
+			legacy_rows[0]["name"],
+			{"is_active": 1, "status": "Active"},
+			update_modified=False,
+		)
+		register_system_rules()
+
+		retired_names = frappe.get_all(
+			"Rule",
+			filters={"base_rule_name": logical_name, "is_system_generated": 1},
+			pluck="name",
+		)
+		for name in retired_names:
+			retired = frappe.get_doc("Rule", name)
+			self.assertFalse(retired.is_active, f"{name} must be inactive after retirement")
+			self.assertEqual(retired.status, "Disabled")
 
 	def test_builtin_system_rules_register_as_inactive_drafts(self):
 		names = register_configured_system_rules()
 
-		self.assertIn("RULE_NAMING_REJECT_EMPTY_OR_PLACEHOLDER", names)
+		self.assertNotIn("RULE_NAMING_REJECT_EMPTY_OR_PLACEHOLDER", names)
 		self.assertIn("RULE_GOVERNANCE_REQUIRE_DESCRIPTION", names)
-		for name in (
-			"RULE_NAMING_REJECT_EMPTY_OR_PLACEHOLDER",
-			"RULE_GOVERNANCE_REQUIRE_DESCRIPTION",
-		):
+		for name in ("RULE_GOVERNANCE_REQUIRE_DESCRIPTION",):
 			rule = frappe.get_doc("Rule", name)
 			self.assertTrue(rule.is_system_generated)
 			self.assertEqual(rule.status, "Draft")
