@@ -41,7 +41,7 @@
 							:readOnly="readOnly"
 							:label="__('Field')"
 							:reqd="true"
-							:showValidation="showValidation"
+							:showValidation="showValidation || !String(row.field ?? '').trim()"
 							:placeholder="__('Select field')"
 							@update:modelValue="updateRowValue(row, 'field', $event)"
 						/>
@@ -82,7 +82,7 @@
 							:rootOnly="true"
 							:label="__('Source field')"
 							:reqd="true"
-							:showValidation="showValidation"
+							:showValidation="showValidation || !String(row.field ?? '').trim()"
 							:placeholder="__('Select source field')"
 							@update:modelValue="updateRowValue(row, 'field', $event)"
 						/>
@@ -295,6 +295,9 @@ const rows = ref(
 	}))
 );
 const validationErrors = ref([]);
+const currentOutputValidationErrors = computed(() =>
+	validateOutputFields(rows.value, props.shape, props.groupBy)
+);
 const searchableFields = [
 	"kind",
 	"field",
@@ -457,7 +460,7 @@ function rowDescription(row) {
 }
 
 function emitRows() {
-	validationErrors.value = [];
+	validationErrors.value = props.showValidation ? [...currentOutputValidationErrors.value] : [];
 	emit("update:modelValue", serializeOutputFields(rows.value));
 }
 
@@ -646,18 +649,24 @@ function handleGridRowAction({ action, row, index }) {
 
 function isRowInvalid(row, index) {
 	const prefix = "Output field " + (index + 1) + ":";
-	if (validationErrors.value.some((error) => error.startsWith(prefix))) return true;
+	const validationMessage = currentOutputValidationErrors.value.find((error) =>
+		error.startsWith(prefix)
+	);
+	if (validationMessage) return validationMessage;
 	if (row?.kind !== "child") return false;
 	if (
 		row.tableField &&
 		!childTableOptions.value.some((option) => option.value === row.tableField)
 	) {
-		return true;
+		return prefix + " Child selection references a field that is not a child table.";
 	}
-	return (
+	if (
 		Array.isArray(row.fields) &&
 		row.fields.some((field) => !row.childFieldOptions.some((option) => option.value === field))
-	);
+	) {
+		return prefix + " Child selection contains a field unavailable in the selected child DocType.";
+	}
+	return false;
 }
 
 function removeRow(index) {
