@@ -153,7 +153,7 @@ class ConditionCompiler:
 
 		compiled = self._compile_node(
 			conditions,
-			scopes={"doc", "old_doc", "row", "vars", "item", "caller", "rule", "doctype", "frappe"},
+			scopes={"doc", "old_doc", "row", "vars", "item", "caller", "rule", "doctype"},
 		)
 		return compiled if compiled else "True"
 
@@ -496,10 +496,6 @@ class ConditionCompiler:
 
 		if scope not in scopes:
 			return "''"
-
-		# Only expose this one read-only lifecycle flag to declarative conditions.
-		if scope == "frappe":
-			return "frappe.in_install" if path == "frappe.in_install" else "''"
 
 		if len(parts) == 1:
 			# Just the scope itself (rare but valid)
