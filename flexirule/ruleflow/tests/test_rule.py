@@ -21,6 +21,32 @@ class TestRule(FrappeTestCase):
 		super().tearDown()
 		frappe.db.delete("Rule", {"rule_name": ["like", "Test Rule Validation%"]})
 
+	def _minimal_scheduler_rule(self, rule_name=None):
+		values = {
+			"doctype": "Rule",
+			"trigger_type": "Scheduler Event",
+			"is_active": 0,
+			"actions": [],
+		}
+		if rule_name is not None:
+			values["rule_name"] = rule_name
+		return frappe.get_doc(values)
+
+	def test_rule_name_is_required_for_field_autonaming(self):
+		rule = self._minimal_scheduler_rule()
+		with self.assertRaises(frappe.ValidationError):
+			rule.insert(ignore_permissions=True)
+
+	def test_rule_name_is_unique_and_becomes_document_name(self):
+		rule_name = "Test Rule Validation Unique Name"
+		rule = self._minimal_scheduler_rule(rule_name)
+		rule.insert(ignore_permissions=True)
+		self.assertEqual(rule.name, rule_name)
+
+		duplicate = self._minimal_scheduler_rule(rule_name)
+		with self.assertRaises(frappe.DuplicateEntryError):
+			duplicate.insert(ignore_permissions=True)
+
 	def test_active_rule_requires_next_step(self):
 		rule = frappe.get_doc(
 			{
