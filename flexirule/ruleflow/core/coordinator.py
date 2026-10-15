@@ -167,6 +167,11 @@ class RuleCoordinator:
 		return cint(value) == 1
 
 	@staticmethod
+	def has_outer_whitespace(value: Any) -> bool:
+		"""Return whether a name begins or ends with whitespace."""
+		return isinstance(value, str) and value != value.strip()
+
+	@staticmethod
 	def _extract_watched_fields(compiled_expression: str | None) -> list[str]:
 		"""Extract direct doc field dependencies for fast change filtering."""
 		if not compiled_expression:
@@ -588,6 +593,7 @@ class RuleCoordinator:
 					"old_doc": old_doc,
 					"vars": {},
 					"frappe": safe_frappe,
+					"has_outer_whitespace": RuleCoordinator.has_outer_whitespace,
 					"caller": frappe._dict({}),
 					"rule": frappe._dict(rule_meta),
 					"doctype": doctype_name,
