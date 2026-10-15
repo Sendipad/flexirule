@@ -8,6 +8,7 @@ from frappe.tests.utils import FrappeTestCase
 
 from flexirule.ruleflow.core.action_handlers import HandlerRegistry
 from flexirule.ruleflow.core.engine import RuleEngine
+from flexirule.ruleflow.core.coordinator import RuleCoordinator
 from flexirule.ruleflow.hooks import execute_rules, execute_rules_from_event, get_excluded_doctypes
 
 # On IntegrationTestCase, the doctype test records and all
@@ -325,6 +326,10 @@ class TestRuleDocEventDispatch(FrappeTestCase):
 			execute_rules_from_event(doc, "After Save")
 
 		execute.assert_called_once_with(doc, "After Save")
+
+	def test_rule_registry_is_invalidated_after_rule_deletion(self):
+		doc = frappe._dict(doctype="Rule", name="RULE_DELETED_TEST")
+		self.assertTrue(RuleCoordinator.should_rebuild_registry_for_rule_change(doc, "after_delete"))
 
 	def test_rule_cache_is_invalidated_before_rule_event_dispatch(self):
 		doc = frappe._dict(doctype="Rule", name="RULE_CACHE_TEST")
