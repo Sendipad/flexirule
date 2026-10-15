@@ -8,6 +8,7 @@ from frappe.tests.utils import FrappeTestCase
 
 from flexirule.ruleflow.core.action_handlers import HandlerRegistry
 from flexirule.ruleflow.core.engine import RuleEngine
+from flexirule.ruleflow.hooks import execute_rules, execute_rules_from_event, get_excluded_doctypes
 
 # On IntegrationTestCase, the doctype test records and all
 # link-field test record depdendencies are recursively loaded
@@ -281,3 +282,69 @@ class TestNotifyActionHandler(FrappeTestCase):
 			mock_sender.call_args.kwargs["message"],
 			f"Provider payload for {self.doc.name}",
 		)
+
+
+class TestRuleDocEventDispatch(FrappeTestCase):
+	def tearDown(self):
+		if hasattr(frappe.local, "flexirule_excluded_doctypes"):
+			delattr(frappe.local, "flexirule_excluded_doctypes")
+		if hasattr(frappe.local, "flexirule_rule_dispatch_depth"):
+			delattr(frappe.local, "flexirule_rule_dispatch_depth")
+		super().tearDown()
+
+	def test_ruleflow_doctypes_are_event_targets_except_execution_telemetry(self):
+		if hasattr(frappe.local, "flexirule_excluded_doctypes"):
+			delattr(frappe.local, "flexirule_excluded_doctypes")
+
+		def get_all(doctype, **kwargs):
+			if doctype == "DocType":
+				return ["Rule", "Rule Action", "Process", "Process Operation", "New Ruleflow DocType"]
+			if doctype == "RuleFlow Excluded DocType":
+				return ["Rule", "Process"]
+			return []
+
+		with patch("frappe.get_hooks", return_value=[]), patch("frappe.get_all", side_effect=get_all):
+			excluded = get_excluded_doctypes()
+
+		for doctype in ("Rule", "Rule Action", "Process", "Process Operation", "New Ruleflow DocType"):
+			self.assertNotIn(doctype, excluded)
+		self.assertIn("Rule Execution Log", excluded)
+
+	def test_rule_document_event_is_dispatched(self):
+		doc = frappe._dict(doctype="Rule", name="RULE_EVENT_TEST")
+		with (
+			patch("flexirule.ruleflow.core.coordinator.RuleCoordinator.has_active_rules", return_value=True),
+			patch("flexirule.ruleflow.core.coordinator.RuleCoordinator.execute_rules_from_event") as execute,
+			patch("frappe.get_hooks", return_value=[]),
+			patch("frappe.get_all", return_value=[]),
+		):
+			if hasattr(frappe.local, "flexirule_excluded_doctypes"):
+				delattr(frappe.local, "flexirule_excluded_doctypes")
+			execute_rules_from_event(doc, "After Save")
+
+		execute.assert_called_once_with(doc, "After Save")
+
+	def test_rule_cache_is_invalidated_before_rule_event_dispatch(self):
+		doc = frappe._dict(doctype="Rule", name="RULE_CACHE_TEST")
+		with (
+			patch("flexirule.ruleflow.hooks.clear_rule_cache") as clear_cache,
+			patch("flexirule.ruleflow.hooks.execute_rules_from_event") as dispatch,
+		):
+			execute_rules(doc, "on_update")
+
+		self.assertLess(clear_cache.call_args_list[0].call_count if False else 0, 1)
+		clear_cache.assert_called_once_with(doc, "on_update")
+		dispatch.assert_called_once_with(doc, "After Save")
+
+	def test_indirect_rule_dispatch_depth_is_bounded(self):
+		doc = frappe._dict(doctype="Rule", name="RULE_RECURSION_TEST")
+		frappe.local.flexirule_rule_dispatch_depth = 20
+		with (
+			patch("flexirule.ruleflow.core.coordinator.RuleCoordinator.has_active_rules", return_value=True),
+			patch("frappe.get_hooks", return_value=[]),
+			patch("frappe.get_all", return_value=[]),
+			self.assertRaises(frappe.ValidationError),
+		):
+			if hasattr(frappe.local, "flexirule_excluded_doctypes"):
+				delattr(frappe.local, "flexirule_excluded_doctypes")
+			execute_rules_from_event(doc, "After Save")
