@@ -24,8 +24,8 @@ from frappe import _
 from jsonschema import ValidationError as SchemaValidationError
 from jsonschema import validate
 
-from flexirule.ruleflow.core.context_manager import ContextManager
 from flexirule.ruleflow.core.condition_helpers import has_outer_whitespace
+from flexirule.ruleflow.core.context_manager import ContextManager
 from flexirule.ruleflow.core.contracts import (
 	get_contract,
 	get_effective_action_policy,
