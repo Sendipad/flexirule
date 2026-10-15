@@ -390,12 +390,12 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 		naming_doc = frappe._dict(doctype="Rule", rule_name=" padded name ")
 
 		with self._patch_frappe_flags(in_install=True):
-			eligible, _ = RuleCoordinator.check_eligibility(naming_rule, naming_doc, "Before Naming")
-		self.assertFalse(eligible)
+			eligible, reason = RuleCoordinator.check_eligibility(naming_rule, naming_doc, "Before Naming")
+		self.assertFalse(eligible, reason)
 
 		with self._patch_frappe_flags(in_install=False):
-			eligible, _ = RuleCoordinator.check_eligibility(naming_rule, naming_doc, "Before Naming")
-		self.assertTrue(eligible)
+			eligible, reason = RuleCoordinator.check_eligibility(naming_rule, naming_doc, "Before Naming")
+		self.assertTrue(eligible, reason)
 
 		governance_rule = frappe._dict(
 			name=governance["rule_name"],
@@ -408,13 +408,13 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 		)
 		governance_doc = frappe._dict(doctype="Rule", description="")
 
-		with patch.object(frappe.flags, "in_install", True, create=True):
-			eligible, _ = RuleCoordinator.check_eligibility(governance_rule, governance_doc, "Before Insert")
-		self.assertFalse(eligible)
+		with self._patch_frappe_flags(in_install=True):
+			eligible, reason = RuleCoordinator.check_eligibility(governance_rule, governance_doc, "Before Insert")
+		self.assertFalse(eligible, reason)
 
-		with patch.object(frappe.flags, "in_install", False, create=True):
-			eligible, _ = RuleCoordinator.check_eligibility(governance_rule, governance_doc, "Before Insert")
-		self.assertTrue(eligible)
+		with self._patch_frappe_flags(in_install=False):
+			eligible, reason = RuleCoordinator.check_eligibility(governance_rule, governance_doc, "Before Insert")
+		self.assertTrue(eligible, reason)
 
 	def test_builtin_system_rules_register_as_inactive_drafts(self):
 		names = register_configured_system_rules()
