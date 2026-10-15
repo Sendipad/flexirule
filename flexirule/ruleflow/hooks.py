@@ -69,10 +69,12 @@ def get_excluded_doctypes() -> set[str]:
 	# them from DocType metadata so newly added FlexiRule DocTypes are supported
 	# without maintaining a second allowlist. Keep execution telemetry excluded.
 	try:
-		flexirule_doctypes = set(
-			frappe.get_all("DocType", filters={"module": "Ruleflow"}, pluck="name") or []
-		)
-		excluded.difference_update(flexirule_doctypes - {"Rule Execution Log"})
+		app_modules = frappe.get_all("Module Def", filters={"app_name": "flexirule"}, pluck="name") or []
+		if app_modules:
+			flexirule_doctypes = set(
+				frappe.get_all("DocType", filters={"module": ["in", app_modules]}, pluck="name") or []
+			)
+			excluded.difference_update(flexirule_doctypes - {"Rule Execution Log"})
 	except Exception:
 		# Metadata may be unavailable during early installation.
 		pass
