@@ -664,7 +664,9 @@ function isRowInvalid(row, index) {
 		Array.isArray(row.fields) &&
 		row.fields.some((field) => !row.childFieldOptions.some((option) => option.value === field))
 	) {
-		return prefix + " Child selection contains a field unavailable in the selected child DocType.";
+		return (
+			prefix + " Child selection contains a field unavailable in the selected child DocType."
+		);
 	}
 	return false;
 }
