@@ -149,9 +149,7 @@ class Rule(Document):
 
 		meta = frappe.get_meta(self.document_type)
 		if meta.istable or meta.issingle:
-			frappe.throw(
-				_("Document Event rules cannot target child-table or Single DocTypes.")
-			)
+			frappe.throw(_("Document Event rules cannot target child-table or Single DocTypes."))
 
 
 	def validate_with_service(self):
