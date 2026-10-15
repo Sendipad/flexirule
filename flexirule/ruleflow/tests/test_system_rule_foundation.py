@@ -1,5 +1,6 @@
 """Regression tests for system-rule registration and Rule lifecycle hooks."""
 
+import json
 from unittest.mock import patch
 
 import frappe
@@ -368,6 +369,24 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 		from flexirule.ruleflow.system_rules import get_system_rule_definitions
 
 		definitions = {definition["rule_name"]: definition for definition in get_system_rule_definitions()}
+
+		# Trigger conditions decide whether a policy executes; the action graph
+		# only assigns its rejection message and then terminates with Stop(Error).
+		for definition in definitions.values():
+			actions = definition["actions"]
+			self.assertEqual([action["action_type"] for action in actions], ["Entry Action", "Assignment", "Stop"])
+			entry, assignment, terminal = actions
+			self.assertEqual(entry["next_step_if_true"], assignment["action_id"])
+			self.assertEqual(assignment["next_step_if_true"], terminal["action_id"])
+			self.assertEqual(terminal["operation"], "Error")
+			self.assertEqual(terminal["value_template"], "{{ vars.rejection_message }}")
+
+			assignments = json.loads(assignment["config"])
+			self.assertEqual(len(assignments), 1)
+			self.assertEqual(assignments[0]["target"], "vars.rejection_message")
+			self.assertEqual(assignments[0]["operator"], "set")
+			self.assertEqual(assignments[0]["value"]["mode"], "static")
+			self.assertTrue(assignments[0]["value"]["value"])
 		naming = definitions["RULE_NAMING_REJECT_EMPTY_OR_PLACEHOLDER"]
 		governance = definitions["RULE_GOVERNANCE_REQUIRE_DESCRIPTION"]
 		compiler = ConditionCompiler()
