@@ -409,11 +409,15 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 		governance_doc = frappe._dict(doctype="Rule", description="")
 
 		with self._patch_frappe_flags(in_install=True):
-			eligible, reason = RuleCoordinator.check_eligibility(governance_rule, governance_doc, "Before Insert")
+			eligible, reason = RuleCoordinator.check_eligibility(
+				governance_rule, governance_doc, "Before Insert"
+			)
 		self.assertFalse(eligible, reason)
 
 		with self._patch_frappe_flags(in_install=False):
-			eligible, reason = RuleCoordinator.check_eligibility(governance_rule, governance_doc, "Before Insert")
+			eligible, reason = RuleCoordinator.check_eligibility(
+				governance_rule, governance_doc, "Before Insert"
+			)
 		self.assertTrue(eligible, reason)
 
 	def test_builtin_system_rules_register_as_inactive_drafts(self):
