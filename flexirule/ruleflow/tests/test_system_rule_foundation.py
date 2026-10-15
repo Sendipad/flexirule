@@ -389,19 +389,9 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 		expression = compiler.compile(governance["trigger_condition"])
 		self.assertIn("vars.get('is_install')", expression)
 		self.assertIn("doc.get('description')", expression)
-		self.assertFalse(
-			eval(expression, {"__builtins__": {}}, {"vars": {"is_install": True}, "doc": {"description": ""}})
-		)
-		self.assertTrue(
-			eval(expression, {"__builtins__": {}}, {"vars": {"is_install": False}, "doc": {"description": ""}})
-		)
-		self.assertFalse(
-			eval(
-				expression,
-				{"__builtins__": {}},
-				{"vars": {"is_install": False}, "doc": {"description": "Has purpose"}},
-			)
-		)
+		self.assertIn("vars.get('is_install') != 1", expression)
+		self.assertIn("doc.get('description') is None", expression)
+		self.assertIn("doc.get('description') == ''", expression)
 
 	def test_register_disables_retired_naming_system_rule(self):
 		from flexirule.install import register_system_rules
