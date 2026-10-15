@@ -52,8 +52,38 @@ def setup_default_ruleflow_settings():
 	settings.save(ignore_permissions=True)
 
 
+_DEPRECATED_SYSTEM_RULE_BASE_NAMES = (
+	"RULE_NAMING_REJECT_EMPTY_OR_PLACEHOLDER",
+)
+
+
+def retire_deprecated_system_rules():
+	"""Disable retired app-managed policies while preserving their audit history."""
+	for logical_name in _DEPRECATED_SYSTEM_RULE_BASE_NAMES:
+		rule_names = set(
+			frappe.get_all(
+				"Rule",
+				filters={"base_rule_name": logical_name, "is_system_generated": 1},
+				pluck="name",
+			)
+		)
+		exact_name = frappe.db.get_value("Rule", {"rule_name": logical_name}, "name")
+		if exact_name and frappe.db.get_value("Rule", exact_name, "is_system_generated"):
+			rule_names.add(exact_name)
+
+		for name in rule_names:
+			rule = frappe.get_doc("Rule", name)
+			if not rule.is_system_generated:
+				continue
+			if rule.is_active or rule.status != "Disabled":
+				rule.is_active = 0
+				rule.status = "Disabled"
+				rule.save(ignore_permissions=True)
+
+
 def register_system_rules():
-	"""Register system-rule definitions supplied by FlexiRule or dependent apps."""
+	"""Register current definitions, then retire explicitly deprecated policies."""
 	from flexirule.ruleflow.core.system_rule_registry import register_configured_system_rules
 
 	register_configured_system_rules()
+	retire_deprecated_system_rules()
