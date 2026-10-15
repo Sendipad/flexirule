@@ -6,6 +6,7 @@ These are called from hooks.py doc_events.
 from __future__ import annotations
 
 import frappe
+from frappe import _
 
 EVENT_MAP = {
 	"before_naming": "Before Naming",
@@ -119,7 +120,7 @@ def execute_rules_from_event(doc, event):
 	max_depth = 20
 	if depth >= max_depth:
 		frappe.throw(
-			frappe._("FlexiRule stopped a recursive rule chain after {0} nested document events.").format(
+			_("FlexiRule stopped a recursive rule chain after {0} nested document events.").format(
 				max_depth
 			)
 		)
