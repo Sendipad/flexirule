@@ -224,7 +224,11 @@
 			</template>
 			<template #footer>
 				<p class="output-fields-hint">
-					{{ __("Functions use Frappe-style field syntax. Aggregate functions currently support fields on the selected DocType, not linked or child-table paths.") }}
+					{{
+						__(
+							"Functions use Frappe-style field syntax. Aggregate functions currently support fields on the selected DocType, not linked or child-table paths."
+						)
+					}}
 				</p>
 			</template>
 		</GenericGrid>
