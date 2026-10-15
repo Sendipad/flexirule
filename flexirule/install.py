@@ -52,9 +52,7 @@ def setup_default_ruleflow_settings():
 	settings.save(ignore_permissions=True)
 
 
-_DEPRECATED_SYSTEM_RULE_BASE_NAMES = (
-	"RULE_NAMING_REJECT_EMPTY_OR_PLACEHOLDER",
-)
+_DEPRECATED_SYSTEM_RULE_BASE_NAMES = ("RULE_NAMING_REJECT_EMPTY_OR_PLACEHOLDER",)
 
 
 def retire_deprecated_system_rules():
