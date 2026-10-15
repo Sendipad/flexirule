@@ -434,7 +434,7 @@ function rowDescription(row) {
 			? __("{0}: {1}", [
 					row.field.includes(".") ? __("Related field") : __("Parent field"),
 					row.field,
-				])
+			  ])
 			: __("Choose a field");
 		return row.alias ? __("{0} · Output alias: {1}", [source, row.alias]) : source;
 	}
@@ -451,10 +451,7 @@ function rowDescription(row) {
 	}
 	if (row.kind === "literal") {
 		const mode = row.value_spec?.mode || "static";
-		return __("Literal column: {0} · {1}", [
-			row.fieldname || "—",
-			literalValueModeLabel(mode),
-		]);
+		return __("Literal column: {0} · {1}", [row.fieldname || "—", literalValueModeLabel(mode)]);
 	}
 	return __("Advanced native field expression");
 }
