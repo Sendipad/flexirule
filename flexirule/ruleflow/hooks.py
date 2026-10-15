@@ -60,9 +60,10 @@ def get_excluded_doctypes() -> set[str]:
 	)
 
 	try:
-		user_excluded = frappe.get_all(
-			"RuleFlow Excluded DocType", parent="RuleFlow Settings", pluck="document_type"
-		) or []
+		user_excluded = (
+			frappe.get_all("RuleFlow Excluded DocType", parent="RuleFlow Settings", pluck="document_type")
+			or []
+		)
 		# "Rule" was seeded as a default exclusion before Rule lifecycle events
 		# became a supported target. Ignore that legacy default while preserving
 		# all other configured exclusions. Apps can still explicitly exclude Rule
@@ -107,7 +108,9 @@ def execute_rules_from_event(doc, event):
 	depth = getattr(frappe.local, "flexirule_rule_dispatch_depth", 0)
 	if depth >= MAX_RULE_DISPATCH_DEPTH:
 		frappe.throw(
-			_("FlexiRule stopped a recursive rule chain after {0} nested document events.").format(MAX_RULE_DISPATCH_DEPTH)
+			_("FlexiRule stopped a recursive rule chain after {0} nested document events.").format(
+				MAX_RULE_DISPATCH_DEPTH
+			)
 		)
 
 	frappe.local.flexirule_rule_dispatch_depth = depth + 1
