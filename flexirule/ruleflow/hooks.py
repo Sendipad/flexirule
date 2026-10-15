@@ -49,15 +49,8 @@ def get_excluded_doctypes() -> set[str]:
 			"Comment",
 			"Communication",
 			"File",
-			# FlexiRule internal doctypes
-			"Rule",
-			"Rule Action",
+			# Execution telemetry must not recursively trigger business rules.
 			"Rule Execution Log",
-			"Rule Scheduler",
-			"Process",
-			"Process Operation",
-			"Data Review Task",
-			"Data Review Related Document",
 		}
 	)
 
@@ -71,12 +64,31 @@ def get_excluded_doctypes() -> set[str]:
 		# Table might not exist yet during install/migrate.
 		pass
 
+	# Ruleflow DocTypes are valid event targets, including Rule itself. Discover
+	# them from DocType metadata so newly added FlexiRule DocTypes are supported
+	# without maintaining a second allowlist. Keep execution telemetry excluded.
+	try:
+		flexirule_doctypes = set(
+			frappe.get_all("DocType", filters={"module": "Ruleflow"}, pluck="name") or []
+		)
+		excluded.difference_update(flexirule_doctypes - {"Rule Execution Log"})
+	except Exception:
+		# Metadata may be unavailable during early installation.
+		pass
+
 	setattr(frappe.local, EXCLUDED_CACHE_KEY, excluded)
 	return excluded
 
 
 def execute_rules(doc, method=None, *args, **kwargs):
 	"""Standard Frappe doc_event hook entry point."""
+	# Rule lifecycle changes must invalidate the runtime registry before any
+	# rules configured on Rule itself are evaluated. Frappe runs wildcard
+	# doc_events before doctype-specific hooks, so doing this in a second Rule
+	# hook would leave dispatch using stale registry state.
+	if doc.doctype == "Rule" and method in {"after_insert", "on_update", "on_trash"}:
+		clear_rule_cache(doc, method)
+
 	trigger_event = EVENT_MAP.get(method)
 	if not trigger_event:
 		return
@@ -85,8 +97,11 @@ def execute_rules(doc, method=None, *args, **kwargs):
 
 
 def execute_rules_from_event(doc, event):
-	"""Pure hook logic decoupled from Frappe method names."""
+	"""Dispatch matching rules for any non-excluded Frappe DocType event."""
 	if frappe.flags.in_import or frappe.flags.in_migrate:
+		return
+
+	if getattr(frappe.flags, "flexirule_system_rule_registration", False):
 		return
 
 	if doc.doctype in get_excluded_doctypes():
@@ -98,7 +113,22 @@ def execute_rules_from_event(doc, event):
 	if not RuleCoordinator.has_active_rules(doc.doctype, event):
 		return
 
-	RuleCoordinator.execute_rules_from_event(doc, event)
+	# Same-document re-entry is handled by RuleCoordinator. This additional
+	# request-level bound stops indirect A -> B -> A write cycles across doctypes.
+	depth = getattr(frappe.local, "flexirule_rule_dispatch_depth", 0)
+	max_depth = 20
+	if depth >= max_depth:
+		frappe.throw(
+			frappe._("FlexiRule stopped a recursive rule chain after {0} nested document events.").format(
+				max_depth
+			)
+		)
+
+	frappe.local.flexirule_rule_dispatch_depth = depth + 1
+	try:
+		RuleCoordinator.execute_rules_from_event(doc, event)
+	finally:
+		frappe.local.flexirule_rule_dispatch_depth = depth
 
 
 def get_flexirule_map():
