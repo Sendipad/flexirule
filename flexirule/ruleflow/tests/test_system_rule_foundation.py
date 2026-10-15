@@ -407,9 +407,7 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 		self.assertFalse(eligible)
 
 		with patch.object(frappe.flags, "in_install", False, create=True):
-			eligible, _ = RuleCoordinator.check_eligibility(
-				governance_rule, governance_doc, "Before Insert"
-			)
+			eligible, _ = RuleCoordinator.check_eligibility(governance_rule, governance_doc, "Before Insert")
 		self.assertTrue(eligible)
 
 	def test_builtin_system_rules_register_as_inactive_drafts(self):
