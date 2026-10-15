@@ -1277,6 +1277,28 @@ async function update_fetch_records_schema_local() {
 	applySchema(schema);
 }
 
+// Fetch Records' schema depends on the selected DocType and output shape, not on
+// filters, sort order, or result limits. Watch these inputs independently from
+// the config-sync watcher because sync_config marks its prop update as internal
+// and can otherwise suppress the schema refresh when the shape/fields change.
+watch(
+	() => [
+		mode.value,
+		reference_doctype.value,
+		is_doctype_dynamic.value,
+		config.result_shape,
+		JSON.stringify(config.fields ?? null),
+	],
+	() => {
+		if (mode.value === "Fetch Records") {
+			void update_fetch_records_schema_local();
+		} else {
+			// Invalidate an outstanding metadata request after leaving Fetch Records.
+			fetch_records_schema_request_id += 1;
+		}
+	}
+);
+
 function set_resolved_output_schema(schema) {
 	if (!props.node?.data) return;
 	const next = normalizeResolvedOutputSchema(Array.isArray(schema) ? schema : []);
@@ -2026,8 +2048,12 @@ watch(
 	() => {
 		if (!is_internal_update.value) {
 			sync_local_config();
-			update_resolved_schema_local();
-			debounced_schema_update();
+			// Fetch Records has a dedicated schema-input watcher so config sync
+			// cannot suppress updates and irrelevant filter edits do not rebuild it.
+			if (mode.value !== "Fetch Records") {
+				update_resolved_schema_local();
+				debounced_schema_update();
+			}
 		}
 	},
 	{ deep: true }
