@@ -71,6 +71,8 @@ class TestRuleVersioning(FrappeTestCase):
 		rule = self._create_callable_sub_rule("MY_CREDIT_CHECK")
 		rule.reload()
 		self.assertEqual(rule.base_rule_name, "MY_CREDIT_CHECK")
+		self.assertEqual(rule.version, 1)
+		self.assertFalse(rule.previous_version)
 
 	def test_base_rule_name_strips_version_suffix(self):
 		"""If rule_name already ends with _v<N>, base_rule_name strips it."""
