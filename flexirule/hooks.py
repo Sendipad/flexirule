@@ -32,11 +32,6 @@ doc_events = {
 		"after_rename": "flexirule.ruleflow.hooks.execute_rules",
 		"on_trash": "flexirule.ruleflow.hooks.execute_rules",
 	},
-	"Rule": {
-		"after_insert": "flexirule.ruleflow.hooks.clear_rule_cache",
-		"on_update": "flexirule.ruleflow.hooks.clear_rule_cache",
-		"on_trash": "flexirule.ruleflow.hooks.clear_rule_cache",
-	},
 }
 
 doctype_js = {"Rule": "ruleflow/doctype/rule/rule.js"}
