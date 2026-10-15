@@ -332,7 +332,6 @@ class TestRuleDocEventDispatch(FrappeTestCase):
 		):
 			execute_rules(doc, "on_update")
 
-		self.assertLess(clear_cache.call_args_list[0].call_count if False else 0, 1)
 		clear_cache.assert_called_once_with(doc, "on_update")
 		dispatch.assert_called_once_with(doc, "After Save")
 
