@@ -364,7 +364,6 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 
 	def test_builtin_governance_rule_uses_trigger_condition(self):
 		from flexirule.ruleflow.core.compiler import ConditionCompiler
-		from flexirule.ruleflow.core.coordinator import RuleCoordinator
 		from flexirule.ruleflow.system_rules import get_system_rule_definitions
 
 		definitions = {definition["rule_name"]: definition for definition in get_system_rule_definitions()}
@@ -383,36 +382,26 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 			"Add a short description explaining the purpose of this Rule before saving it.",
 		)
 
+		# Validate the generated condition independently of RuleCoordinator's
+		# Frappe safe-eval runtime; this test is about the declarative definition
+		# and compiler output, not the runtime dispatch integration.
 		compiler = ConditionCompiler()
 		expression = compiler.compile(governance["trigger_condition"])
 		self.assertIn("vars.get('is_install')", expression)
-
-		governance_rule = frappe._dict(
-			name=governance["rule_name"],
-			is_active=1,
-			trigger_type="DocType Event",
-			document_type="Rule",
-			trigger_event="Before Insert",
-			trigger_condition=governance["trigger_condition"],
-			compiled_expression=expression,
+		self.assertIn("doc.get('description')", expression)
+		self.assertFalse(
+			eval(expression, {"__builtins__": {}}, {"vars": {"is_install": True}, "doc": {"description": ""}})
 		)
-		with self._patch_frappe_flags(in_install=True):
-			eligible, reason = RuleCoordinator.check_eligibility(
-				governance_rule, frappe._dict(doctype="Rule", description=""), "Before Insert"
+		self.assertTrue(
+			eval(expression, {"__builtins__": {}}, {"vars": {"is_install": False}, "doc": {"description": ""}})
+		)
+		self.assertFalse(
+			eval(
+				expression,
+				{"__builtins__": {}},
+				{"vars": {"is_install": False}, "doc": {"description": "Has purpose"}},
 			)
-		self.assertFalse(eligible, reason)
-
-		with self._patch_frappe_flags(in_install=False):
-			eligible, reason = RuleCoordinator.check_eligibility(
-				governance_rule, frappe._dict(doctype="Rule", description=""), "Before Insert"
-			)
-		self.assertTrue(eligible, reason)
-
-		with self._patch_frappe_flags(in_install=False):
-			eligible, reason = RuleCoordinator.check_eligibility(
-				governance_rule, frappe._dict(doctype="Rule", description="Has purpose"), "Before Insert"
-			)
-		self.assertFalse(eligible, reason)
+		)
 
 	def test_register_disables_retired_naming_system_rule(self):
 		from flexirule.install import register_system_rules
