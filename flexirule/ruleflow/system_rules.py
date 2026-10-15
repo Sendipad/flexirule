@@ -65,6 +65,27 @@ def _assign_error_then_stop(action_id: str, message: str) -> list[dict[str, Any]
 	]
 
 
+def _stop_with_error(action_id: str, message: str) -> list[dict[str, Any]]:
+	"""Build the minimal Entry Action -> Stop(Error) graph."""
+	return [
+		{
+			"action_id": "root",
+			"action_type": "Entry Action",
+			"action_label": "Start",
+			"is_enabled": 1,
+			"next_step_if_true": action_id,
+		},
+		{
+			"action_id": action_id,
+			"action_type": "Stop",
+			"action_label": "Reject",
+			"is_enabled": 1,
+			"operation": "Error",
+			"value_template": message,
+		},
+	]
+
+
 def get_system_rule_definitions() -> list[dict[str, Any]]:
 	"""Return the initial governance and naming policies for Rule documents."""
 	naming_condition = _condition_group(
@@ -116,7 +137,7 @@ def get_system_rule_definitions() -> list[dict[str, Any]]:
 			"trigger_event": "Before Insert",
 			"trigger_condition": governance_condition,
 			"priority": "20",
-			"actions": _assign_error_then_stop(
+			"actions": _stop_with_error(
 				"reject",
 				"Add a short description explaining the purpose of this Rule before saving it.",
 			),
