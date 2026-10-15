@@ -27,7 +27,6 @@ def setup_default_ruleflow_settings():
 	settings = frappe.get_doc("RuleFlow Settings")
 
 	default_doctypes = [
-		"Rule",
 		"Rule Execution Log",
 		"Rule Scheduler",
 		"Error Log",
