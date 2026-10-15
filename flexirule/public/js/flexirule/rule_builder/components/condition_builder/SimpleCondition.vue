@@ -66,7 +66,17 @@ const isDoctypeContextField = computed(() =>
 );
 
 const DEFAULT_OPERATORS = {
-	Data: ["==", "!=", "in", "not in", "like", "not like", "is_set", "is_not_set", "has_outer_whitespace"],
+	Data: [
+		"==",
+		"!=",
+		"in",
+		"not in",
+		"like",
+		"not like",
+		"is_set",
+		"is_not_set",
+		"has_outer_whitespace",
+	],
 	Select: ["==", "!=", "in", "not in", "is_set", "is_not_set"],
 	Link: ["==", "!=", "in", "not in", "is_set", "is_not_set"],
 	Int: ["==", "!=", ">", "<", ">=", "<=", "is_set", "is_not_set"],

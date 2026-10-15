@@ -17,7 +17,6 @@ from frappe import _
 from frappe.utils import cint
 
 
-
 class RuleCoordinator:
 	"""Coordinates rule loading, filtering, and execution"""
 
