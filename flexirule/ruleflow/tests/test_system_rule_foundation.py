@@ -16,6 +16,12 @@ from flexirule.ruleflow.tests.test_doctypes import setup_test_doctypes
 
 
 class TestSystemRuleFoundation(FlexiRuleTestCase):
+	def _patch_frappe_flags(self, **updates):
+		"""Patch flags through the Frappe module even when no request-local flags exist."""
+		flags = frappe._dict(getattr(frappe, "flags", None) or {})
+		flags.update(updates)
+		return patch.object(frappe, "flags", flags)
+
 	def _system_definition(self, rule_name, description="Managed definition"):
 		"""Build a realistic, versioned callable Rule definition for registry tests."""
 		setup_test_doctypes()
@@ -383,11 +389,11 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 		)
 		naming_doc = frappe._dict(doctype="Rule", rule_name=" padded name ")
 
-		with patch.object(frappe.flags, "in_install", True, create=True):
+		with self._patch_frappe_flags(in_install=True):
 			eligible, _ = RuleCoordinator.check_eligibility(naming_rule, naming_doc, "Before Naming")
 		self.assertFalse(eligible)
 
-		with patch.object(frappe.flags, "in_install", False, create=True):
+		with self._patch_frappe_flags(in_install=False):
 			eligible, _ = RuleCoordinator.check_eligibility(naming_rule, naming_doc, "Before Naming")
 		self.assertTrue(eligible)
 
@@ -430,7 +436,8 @@ class TestSystemRuleFoundation(FlexiRuleTestCase):
 		settings = frappe.get_doc("RuleFlow Settings")
 		if not any(row.document_type == "Rule" for row in settings.excluded_doctypes):
 			settings.append("excluded_doctypes", {"document_type": "Rule"})
-		settings.save(ignore_permissions=True)
+		with self._patch_frappe_flags(in_migrate=True):
+			settings.save(ignore_permissions=True)
 
 		setup_default_ruleflow_settings()
 
