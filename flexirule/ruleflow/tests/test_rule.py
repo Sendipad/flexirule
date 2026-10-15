@@ -297,6 +297,8 @@ class TestRuleDocEventDispatch(FrappeTestCase):
 			delattr(frappe.local, "flexirule_excluded_doctypes")
 
 		def get_all(doctype, **kwargs):
+			if doctype == "Module Def":
+				return ["Ruleflow", "FlexiRule"]
 			if doctype == "DocType":
 				return ["Rule", "Rule Action", "Process", "Process Operation", "New Ruleflow DocType"]
 			if doctype == "RuleFlow Excluded DocType":
