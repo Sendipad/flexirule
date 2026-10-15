@@ -40,6 +40,11 @@ def setup_default_ruleflow_settings():
 		"File",
 	]
 
+	# Rule is now eligible for self-hosting RuleFlow events. Remove the
+	# legacy default exclusion from existing sites as well as fresh installs.
+	settings.excluded_doctypes = [
+		row for row in settings.excluded_doctypes if row.document_type != "Rule"
+	]
 	existing_doctypes = [row.document_type for row in settings.excluded_doctypes]
 
 	for dt in default_doctypes:
