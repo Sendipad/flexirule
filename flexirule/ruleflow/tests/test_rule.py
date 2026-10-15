@@ -9,6 +9,7 @@ from frappe.tests.utils import FrappeTestCase
 from flexirule.ruleflow.core.action_handlers import HandlerRegistry
 from flexirule.ruleflow.core.coordinator import RuleCoordinator
 from flexirule.ruleflow.core.engine import RuleEngine
+from flexirule import hooks as app_hooks
 from flexirule.ruleflow.hooks import execute_rules, execute_rules_from_event, get_excluded_doctypes
 
 # On IntegrationTestCase, the doctype test records and all
@@ -287,31 +288,46 @@ class TestNotifyActionHandler(FrappeTestCase):
 
 class TestRuleDocEventDispatch(FrappeTestCase):
 	def tearDown(self):
-		if hasattr(frappe.local, "flexirule_excluded_doctypes"):
-			delattr(frappe.local, "flexirule_excluded_doctypes")
-		if hasattr(frappe.local, "flexirule_rule_dispatch_depth"):
-			delattr(frappe.local, "flexirule_rule_dispatch_depth")
+		for attr in ("flexirule_excluded_doctypes", "flexirule_rule_dispatch_depth"):
+			if hasattr(frappe.local, attr):
+				delattr(frappe.local, attr)
+		if hasattr(frappe.flags, "flexirule_system_rule_registration"):
+			delattr(frappe.flags, "flexirule_system_rule_registration")
 		super().tearDown()
 
-	def test_ruleflow_doctypes_are_event_targets_except_execution_telemetry(self):
-		if hasattr(frappe.local, "flexirule_excluded_doctypes"):
-			delattr(frappe.local, "flexirule_excluded_doctypes")
+	def test_internal_doctypes_are_not_implicitly_excluded(self):
+		with patch("frappe.get_hooks", return_value=[]), patch("frappe.get_all", return_value=[]):
+			excluded = get_excluded_doctypes()
 
+		self.assertNotIn("Rule", excluded)
+		self.assertNotIn("Process", excluded)
+		self.assertIn("Rule Scheduler", excluded)
+		self.assertIn("Rule Execution Log", excluded)
+
+	def test_configured_exclusions_are_preserved_except_legacy_rule_default(self):
 		def get_all(doctype, **kwargs):
-			if doctype == "Module Def":
-				return ["Ruleflow", "FlexiRule"]
-			if doctype == "DocType":
-				return ["Rule", "Rule Action", "Process", "Process Operation", "New Ruleflow DocType"]
 			if doctype == "RuleFlow Excluded DocType":
-				return ["Rule", "Process"]
+				return ["Rule", "Rule Scheduler", "Process"]
 			return []
 
 		with patch("frappe.get_hooks", return_value=[]), patch("frappe.get_all", side_effect=get_all):
 			excluded = get_excluded_doctypes()
 
-		for doctype in ("Rule", "Rule Action", "Process", "Process Operation", "New Ruleflow DocType"):
-			self.assertNotIn(doctype, excluded)
+		# Rule was seeded by older versions as a default exclusion; it is now an
+		# event target. Other settings exclusions remain authoritative.
+		self.assertNotIn("Rule", excluded)
+		self.assertIn("Process", excluded)
+		self.assertIn("Rule Scheduler", excluded)
 		self.assertIn("Rule Execution Log", excluded)
+
+	def test_app_hook_can_explicitly_exclude_rule(self):
+		with (
+			patch("frappe.get_hooks", return_value=["Rule"]),
+			patch("frappe.get_all", return_value=["Rule"]),
+		):
+			excluded = get_excluded_doctypes()
+
+		self.assertIn("Rule", excluded)
 
 	def test_rule_document_event_is_dispatched(self):
 		doc = frappe._dict(doctype="Rule", name="RULE_EVENT_TEST")
@@ -327,11 +343,32 @@ class TestRuleDocEventDispatch(FrappeTestCase):
 
 		execute.assert_called_once_with(doc, "After Save")
 
+	def test_child_and_single_doctypes_are_rejected_as_rule_targets(self):
+		rule = frappe.new_doc("Rule")
+		rule.trigger_type = "DocType Event"
+
+		for doctype in ("Rule Action", "RuleFlow Settings"):
+			rule.document_type = doctype
+			with self.subTest(doctype=doctype), self.assertRaises(frappe.ValidationError):
+				rule.validate_document_event_target()
+
 	def test_rule_registry_is_invalidated_after_rule_deletion(self):
 		doc = frappe._dict(doctype="Rule", name="RULE_DELETED_TEST")
 		self.assertTrue(RuleCoordinator.should_rebuild_registry_for_rule_change(doc, "after_delete"))
 
-	def test_rule_cache_is_invalidated_before_rule_event_dispatch(self):
+	def test_rule_cache_invalidation_uses_doctype_specific_hooks(self):
+		rule_hooks = app_hooks.doc_events["Rule"]
+		clear_cache = "flexirule.ruleflow.hooks.clear_rule_cache"
+		for method in ("after_insert", "on_update", "on_trash", "after_delete"):
+			self.assertEqual(rule_hooks[method], clear_cache)
+
+		# Event dispatch remains the wildcard hook, separate from invalidation.
+		self.assertEqual(
+			app_hooks.doc_events["*"]["on_update"],
+			"flexirule.ruleflow.hooks.execute_rules",
+		)
+
+	def test_generic_dispatch_does_not_clear_rule_cache_itself(self):
 		doc = frappe._dict(doctype="Rule", name="RULE_CACHE_TEST")
 		with (
 			patch("flexirule.ruleflow.hooks.clear_rule_cache") as clear_cache,
@@ -339,14 +376,28 @@ class TestRuleDocEventDispatch(FrappeTestCase):
 		):
 			execute_rules(doc, "on_update")
 
-		clear_cache.assert_called_once_with(doc, "on_update")
+		clear_cache.assert_not_called()
 		dispatch.assert_called_once_with(doc, "After Save")
 
-	def test_indirect_rule_dispatch_depth_is_bounded(self):
-		doc = frappe._dict(doctype="Rule", name="RULE_RECURSION_TEST")
-		frappe.local.flexirule_rule_dispatch_depth = 20
+	def test_system_rule_registration_flag_suppresses_dispatch(self):
+		doc = frappe._dict(doctype="Rule", name="SYSTEM_RULE_REGISTRATION_TEST")
+		frappe.flags.flexirule_system_rule_registration = True
+		with patch("flexirule.ruleflow.core.coordinator.RuleCoordinator.has_active_rules") as has_rules:
+			execute_rules_from_event(doc, "After Save")
+		has_rules.assert_not_called()
+
+	def test_indirect_rule_dispatch_depth_is_bounded_and_restored(self):
+		def dispatch_next(doc, event):
+			next_doctype = "DocType B" if doc.doctype == "DocType A" else "DocType A"
+			execute_rules_from_event(frappe._dict(doctype=next_doctype, name="RECURSION_TEST"), event)
+
+		doc = frappe._dict(doctype="DocType A", name="RECURSION_TEST")
 		with (
 			patch("flexirule.ruleflow.core.coordinator.RuleCoordinator.has_active_rules", return_value=True),
+			patch(
+				"flexirule.ruleflow.core.coordinator.RuleCoordinator.execute_rules_from_event",
+				side_effect=dispatch_next,
+			),
 			patch("frappe.get_hooks", return_value=[]),
 			patch("frappe.get_all", return_value=[]),
 			self.assertRaises(frappe.ValidationError),
@@ -354,3 +405,5 @@ class TestRuleDocEventDispatch(FrappeTestCase):
 			if hasattr(frappe.local, "flexirule_excluded_doctypes"):
 				delattr(frappe.local, "flexirule_excluded_doctypes")
 			execute_rules_from_event(doc, "After Save")
+
+		self.assertEqual(getattr(frappe.local, "flexirule_rule_dispatch_depth", None), 0)
