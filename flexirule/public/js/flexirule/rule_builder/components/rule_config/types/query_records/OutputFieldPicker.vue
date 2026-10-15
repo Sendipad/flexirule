@@ -1,6 +1,6 @@
 <template>
 	<ComboBoxControl
-		:df="{ label: label || __('Select field'), fieldtype: 'FieldPicker', reqd: reqd ? 1 : 0 }
+		:df="{ label: label || __('Select field'), fieldtype: 'FieldPicker', reqd: reqd ? 1 : 0 }"
 		:options="navigableFields.currentFields.value"
 		:doctype="doctype"
 		:modelValue="modelValue"
