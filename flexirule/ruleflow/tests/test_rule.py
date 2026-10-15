@@ -7,8 +7,8 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from flexirule.ruleflow.core.action_handlers import HandlerRegistry
-from flexirule.ruleflow.core.engine import RuleEngine
 from flexirule.ruleflow.core.coordinator import RuleCoordinator
+from flexirule.ruleflow.core.engine import RuleEngine
 from flexirule.ruleflow.hooks import execute_rules, execute_rules_from_event, get_excluded_doctypes
 
 # On IntegrationTestCase, the doctype test records and all
