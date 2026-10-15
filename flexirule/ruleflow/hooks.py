@@ -122,9 +122,7 @@ def execute_rules_from_event(doc, event):
 	max_depth = 20
 	if depth >= max_depth:
 		frappe.throw(
-			_("FlexiRule stopped a recursive rule chain after {0} nested document events.").format(
-				max_depth
-			)
+			_("FlexiRule stopped a recursive rule chain after {0} nested document events.").format(max_depth)
 		)
 
 	frappe.local.flexirule_rule_dispatch_depth = depth + 1
