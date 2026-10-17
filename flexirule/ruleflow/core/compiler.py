@@ -244,9 +244,18 @@ class ConditionCompiler:
 			raise ValueError("has_changed is deprecated; use an On Field Change Process instead")
 
 		rhs_code = self._compile_operand(right, scopes)
-		if op not in self.OPERATOR_MAP:
+		special_operators = {
+			"contains",
+			"not_contains",
+			"length_eq",
+			"length_gt",
+			"length_gte",
+			"length_lt",
+			"length_lte",
+		}
+		if op not in self.OPERATOR_MAP and op not in special_operators:
 			raise ValueError(f"Unsupported condition operator: {op!r}")
-		py_op = self.OPERATOR_MAP[op]
+		py_op = self.OPERATOR_MAP.get(op)
 		right_value = right.get("value") if isinstance(right, dict) else None
 
 		# Link/Dynamic Link Tuple Handling
