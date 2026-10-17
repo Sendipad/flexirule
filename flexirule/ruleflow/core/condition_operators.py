@@ -10,8 +10,10 @@ not yet replace the runtime comparator; that migration is tracked separately.
 
 from __future__ import annotations
 
+import operator
 from dataclasses import dataclass
 from types import MappingProxyType
+from typing import Any
 
 CONDITION_SEMANTICS_VERSION = 1
 
@@ -158,3 +160,101 @@ def normalize_operator(value: str) -> str:
 	"""Normalize case and documented aliases without guessing semantics."""
 	token = value.strip().lower()
 	return OPERATOR_ALIASES.get(token, token)
+
+
+_VALUE_COMPARATORS = {
+	"==": operator.eq,
+	"!=": operator.ne,
+	">": operator.gt,
+	"<": operator.lt,
+	">=": operator.ge,
+	"<=": operator.le,
+	"is": operator.is_,
+	"is not": operator.is_not,
+	"in": lambda left, right: left in right,
+	"not in": lambda left, right: left not in right,
+}
+_LENGTH_COMPARATORS = {
+	"length_eq": operator.eq,
+	"length_gt": operator.gt,
+	"length_gte": operator.ge,
+	"length_lt": operator.lt,
+	"length_lte": operator.le,
+}
+_VALUE_COMPARISON_TOKENS = frozenset(
+	set(_VALUE_COMPARATORS) | {"contains", "not_contains"} | set(_LENGTH_COMPARATORS)
+)
+
+
+def _condition_is_empty(value: Any) -> bool:
+	"""Apply the established FlexiRule empty-value contract without generic truthiness."""
+	if value is None:
+		return True
+	if isinstance(value, str):
+		return value.strip() == ""
+	if isinstance(value, list | tuple | dict | set):
+		return len(value) == 0
+	return False
+
+
+def _condition_length(value: Any) -> int:
+	"""Match the RuleEngine's length helper for existing condition expressions."""
+	if value is None:
+		return 0
+	if isinstance(value, str):
+		return len(value.strip())
+	if isinstance(value, list | tuple | dict | set):
+		return len(value)
+	try:
+		return len(value)
+	except Exception:
+	return 0
+
+
+def compare_values(left: Any, operator_token: str, right: Any = None) -> bool:
+	"""Compare already-resolved values using the canonical primitive semantics.
+
+	Values are not coerced: explicit None remains distinct from an empty string,
+	and zero/False are not treated as empty by generic truthiness checks. A
+	membership operation requires a valid container; a wrong-type RHS raises so
+	callers can log the evaluation error instead of disguising it as a match.
+	Metadata-dependent operators (has_field/is_submittable) belong to the runtime
+	context and are intentionally handled outside this pure value comparator.
+	"""
+	token = normalize_operator(operator_token)
+	if token not in SUPPORTED_OPERATOR_TOKENS:
+		diagnostic = UNSUPPORTED_OPERATOR_DIAGNOSTICS.get(token)
+		if diagnostic:
+			raise ValueError(f"Unsupported condition operator {token!r}: {diagnostic}")
+		raise ValueError(f"Unknown condition operator: {operator_token!r}")
+
+	if token in _VALUE_COMPARATORS:
+		return bool(_VALUE_COMPARATORS[token](left, right))
+
+	if token == "is_set":
+		return left is not None and left != ""
+	if token == "is_not_set":
+		return left is None or left == ""
+	if token == "is_empty":
+		return _condition_is_empty(left)
+	if token == "is_not_empty":
+		return not _condition_is_empty(left)
+
+	if token == "contains":
+		if left is None or left == "":
+			return False
+		return right in str(left)
+	if token == "not_contains":
+		if left is None or left == "":
+			return True
+		return right not in str(left)
+
+	if token in _LENGTH_COMPARATORS:
+		return bool(_LENGTH_COMPARATORS[token](_condition_length(left), right))
+
+	if token in {"has_field", "is_submittable"}:
+		raise ValueError(f"Condition operator {token!r} requires DocType metadata context")
+
+	# These are listed as supported metadata tokens, but any other supported
+	# token needs an explicit implementation here before it may compare values.
+	raise ValueError(f"Condition operator {token!r} has no primitive comparator")

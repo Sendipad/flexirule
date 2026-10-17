@@ -7,32 +7,27 @@ Supports nested AND/OR logic, field comparisons, and various operators
 """
 
 import json
-import operator
 import re
 from typing import Any, ClassVar
 
 import frappe
 from frappe.utils import cint, flt, getdate
 
+from flexirule.ruleflow.core.condition_operators import (
+	SUPPORTED_OPERATOR_TOKENS,
+	compare_values,
+	normalize_operator,
+)
+
 
 class ConditionEvaluator:
 	"""Evaluates rule conditions against a document"""
 
-	# Operator mapping
-	OPERATORS: ClassVar[dict[str, Any]] = {
-		"==": operator.eq,
-		"!=": operator.ne,
-		">": operator.gt,
-		"<": operator.lt,
-		">=": operator.ge,
-		"<=": operator.le,
-		"in": lambda a, b: a in b if b else False,
-		"not_in": lambda a, b: a not in b if b else True,
-		"contains": lambda a, b: b in str(a) if a else False,
-		"not_contains": lambda a, b: b not in str(a) if a else True,
-		"is_set": lambda a, b: a is not None and a != "",
-		"is_not_set": lambda a, b: a is None or a == "",
-		"regex": lambda a, b: bool(re.search(b, str(a))) if a and b else False,
+	# Temporary compatibility path for previously saved regex predicates. The
+	# canonical compiled-condition contract rejects regex until its resource policy
+	# is defined and a saved-rule inventory/migration has been completed.
+	_LEGACY_OPERATORS: ClassVar[dict[str, Any]] = {
+		"regex": lambda left, right: bool(re.search(right, str(left))) if left and right else False,
 	}
 
 	def __init__(self, conditions_json: str):
@@ -144,44 +139,38 @@ class ConditionEvaluator:
 			# Get left value
 			left = self._resolve_value(condition.get("left"), doc, row)
 
-			# Get operator
-			op = condition.get("op", condition.get("operator", "=="))
+			# Use the canonical operator alias table, never an implicit fallback.
+			raw_operator = condition.get("op", condition.get("operator", "=="))
+			if not isinstance(raw_operator, str) or not raw_operator.strip():
+				raise ValueError("Condition operator must be a non-empty string")
+			op = normalize_operator(raw_operator)
 
-			# Special case for operators that don't need right value
-			if op in ["is_set", "is_not_set"]:
-				return self.OPERATORS[op](left, None)
+			# Unary value predicates do not require a right operand.
+			if op in {"is_set", "is_not_set", "is_empty", "is_not_empty"}:
+				return compare_values(left, op)
 
 			# Get right value
 			right = self._resolve_value(condition.get("right"), doc, row)
 
-			# Special Handling for Link/Dynamic Link Tuples
-			# right might be ["DocType", "Value"] or ["DocType", ["V1", "V2"]]
+			# Preserve Link tuple routing for now. DocType target validation is a
+			# separate metadata-aware part of the canonical comparator migration.
 			if isinstance(right, list | tuple) and len(right) == 2 and isinstance(right[0], str):
-				# It is likely a Link Tuple (DocType, Value)
-
-				# Refinement: If op is 'in' or 'not_in', it must have a list as the second element to be a Link Tuple
-				# This prevents treating ["Value1", "Value2"] as a Link Tuple for 'in' operator
-				is_link_tuple = False
-				if op in ["==", "!="]:
+				is_link_tuple = op in {"==", "!="}
+				if op in {"in", "not in"} and isinstance(right[1], list | tuple):
 					is_link_tuple = True
-				elif op in ["in", "not_in", "not in"] and isinstance(right[1], list | tuple):
-					is_link_tuple = True
-
 				if is_link_tuple:
 					return check_link_match(left, right, op)
 
-			# Get operator function
-			op_func = self.OPERATORS.get(op)
-			if not op_func:
-				# Try with spaces (compiler uses 'not in')
-				op_func = self.OPERATORS.get(op.replace(" ", "_"))
+			# Regex remains legacy-only until its safety policy and saved-rule
+			# migration are accepted; it is not part of the canonical operator set.
+			if op == "regex":
+				return self._LEGACY_OPERATORS[op](left, right)
 
-			if not op_func:
-				frappe.log_error(f"Unknown operator: {op}", "ConditionEvaluator")
-				return False
+			if op in SUPPORTED_OPERATOR_TOKENS:
+				return compare_values(left, op, right)
 
-			# Evaluate
-			return op_func(left, right)
+			frappe.log_error(f"Unknown operator: {op}", "ConditionEvaluator")
+			return False
 
 		except Exception as e:
 			condition_repr = json.dumps(condition, default=str)[:500]
@@ -256,8 +245,13 @@ class ConditionEvaluator:
 					)
 					return None
 			else:
-				# New {value: x}
-				return value_def["value"]
+				# New {value: x}; FlexValueControl wraps static values in a mode object.
+				value = value_def["value"]
+				if isinstance(value, dict) and isinstance(value.get("mode"), str):
+					mode = value["mode"].strip().lower()
+					if mode in {"static", "link", "dynamic_link"}:
+						return value.get("value")
+				return value
 
 		return None
 
@@ -297,21 +291,11 @@ def check_link_match(lhs, rhs, op="=="):
 	# rhs format: [DocType, Value] - DocType is included for completeness but not validated here
 	target_value = rhs[1]
 
-	# Mapping standard operators
-	ops = {
-		"==": lambda a, b: a == b,
-		"!=": lambda a, b: a != b,
-		"in": lambda a, b: a in b if b else False,
-		"not in": lambda a, b: a not in b if b else True,
-		"not_in": lambda a, b: a not in b if b else True,
-	}
-
-	op_func = ops.get(op) or ops.get(op.replace(" ", "_"))
-
-	if not op_func:
+	canonical_op = normalize_operator(op)
+	if canonical_op not in {"==", "!=", "in", "not in"}:
 		return False
 
-	return op_func(lhs, target_value)
+	return compare_values(lhs, canonical_op, target_value)
 
 
 def evaluate_condition(expression: str, context: dict) -> bool:

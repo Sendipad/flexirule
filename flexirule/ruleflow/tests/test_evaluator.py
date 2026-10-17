@@ -10,6 +10,7 @@ import unittest
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
+from flexirule.ruleflow.core.condition_operators import compare_values
 from flexirule.ruleflow.core.evaluator import ConditionEvaluator
 
 
@@ -28,6 +29,36 @@ class TestConditionEvaluator(FrappeTestCase):
 				"allocated_to": "Administrator",
 			}
 		)
+
+	def test_shared_comparator_distinguishes_null_empty_and_falsy_values(self):
+		self.assertFalse(compare_values(None, "==", ""))
+		self.assertTrue(compare_values(None, "is_not_set"))
+		self.assertTrue(compare_values("", "is_not_set"))
+		self.assertFalse(compare_values(" ", "is_not_set"))
+		self.assertTrue(compare_values(" ", "is_empty"))
+		self.assertTrue(compare_values(0, "is_set"))
+		self.assertTrue(compare_values(False, "is_set"))
+		self.assertFalse(compare_values(0, "is_empty"))
+		self.assertFalse(compare_values(False, "is_empty"))
+
+	def test_shared_comparator_membership_and_contains_semantics(self):
+		self.assertFalse(compare_values("Open", "in", []))
+		self.assertTrue(compare_values("Open", "not_in", []))
+		self.assertTrue(compare_values(0, "contains", "0"))
+		self.assertTrue(compare_values(None, "not_contains", "x"))
+		with self.assertRaises(TypeError):
+			compare_values("Open", "in", None)
+
+	def test_shared_comparator_length_uses_engine_length_contract(self):
+		self.assertTrue(compare_values("  open  ", "length_eq", 4))
+		self.assertTrue(compare_values([], "length_eq", 0))
+
+	def test_evaluator_resolves_structured_static_flex_value(self):
+		conditions_json = (
+			'[{"left": {"ref": "doc.status"}, "op": "==", '
+			'"right": {"value": {"mode": "static", "value": "Open"}}}]'
+		)
+		self.assertTrue(ConditionEvaluator(conditions_json).evaluate(self.test_doc))
 
 	def test_evaluate_simple_condition_true(self):
 		"""Test evaluating a simple condition that returns True"""
