@@ -140,7 +140,9 @@ def _resolve_field(doctype: str, field_path: str, path: str) -> Any:
 	try:
 		meta = frappe.get_meta(doctype)
 	except Exception as exc:
-		raise ValueError(_("Could not load metadata for DocType {0} while validating {1}.").format(doctype, path)) from exc
+		raise ValueError(
+			_("Could not load metadata for DocType {0} while validating {1}.").format(doctype, path)
+		) from exc
 
 	parts = field_path.split(".")
 	field = None
@@ -168,7 +170,11 @@ def _resolve_field(doctype: str, field_path: str, path: str) -> Any:
 			try:
 				meta = frappe.get_meta(options)
 			except Exception as exc:
-				raise ValueError(_("Could not load linked DocType metadata for {0} while validating {1}.").format(options, path)) from exc
+				raise ValueError(
+					_("Could not load linked DocType metadata for {0} while validating {1}.").format(
+						options, path
+					)
+				) from exc
 		elif fieldtype == "Dynamic Link":
 			# Its target DocType is determined by record data, not static metadata.
 			return None
