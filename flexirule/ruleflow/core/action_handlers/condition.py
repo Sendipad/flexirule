@@ -4,8 +4,8 @@
 """
 Condition Action Handler.
 
-Evaluates a compiled Python condition expression and routes to
-next_step_if_true or next_step_if_false based on the result.
+Evaluates the saved condition tree and routes to the configured true/false
+next steps. Compiled Python remains a legacy fallback for payload-less rules.
 """
 
 import frappe
@@ -98,7 +98,7 @@ class ConditionHandler(ActionHandler):
 		raw_legacy = (
 			action.get("condition_json")
 			if hasattr(action, "get")
-		else getattr(action, "condition_json", None)
+			else getattr(action, "condition_json", None)
 		)
 		if (raw_config not in (None, "") or raw_legacy not in (None, "")) and get_condition_payload(action) is None:
 			errors.append(

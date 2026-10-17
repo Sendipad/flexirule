@@ -541,7 +541,6 @@ class RuleCoordinator:
 		trigger_condition = rule_doc.get("trigger_condition")
 		if trigger_condition:
 			try:
-				from flexirule.ruleflow.core.action_handlers import _safe_get
 				from flexirule.ruleflow.core.engine import SafeFrappeAPI
 				from flexirule.ruleflow.core.evaluator import ConditionEvaluator
 
