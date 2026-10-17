@@ -93,7 +93,7 @@ import ConditionNode from "./ConditionNode.vue";
 import { validateConditions } from "./condition_validator.js";
 
 const props = defineProps({
-	modelValue: { type: Object, default: () => ({ op: "and", conditions: [] }) },
+	modelValue: { type: [Object, Array], default: () => ({ op: "and", conditions: [] }) },
 	docFields: { type: Array, default: () => [] },
 	variableOptions: { type: Array, default: () => [] },
 	readOnly: { type: Boolean, default: false },
