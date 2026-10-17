@@ -12,6 +12,8 @@ from collections.abc import Mapping
 from typing import Any, ClassVar
 
 import frappe
+from frappe import _
+
 from flexirule.ruleflow.core.condition_operators import (
 	SUPPORTED_OPERATOR_TOKENS,
 	compare_values,
@@ -37,6 +39,7 @@ class ConditionEvaluator:
 		than being treated as a condition that happened to be false.
 		"""
 		self.strict = strict
+		self.conditions: Any
 		if isinstance(conditions_json, str):
 			if not conditions_json:
 				self.conditions = []
