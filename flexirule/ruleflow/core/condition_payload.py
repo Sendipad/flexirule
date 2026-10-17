@@ -82,9 +82,20 @@ def get_condition_payload(action_or_dict: Any) -> dict | list | None:
 	Canonical source: action.config
 	Legacy fallback: action.condition_json
 	"""
-	config_payload = extract_condition_payload_from_config(_safe_get(action_or_dict, "config"))
+	raw_config = _safe_get(action_or_dict, "config")
+	config_payload = extract_condition_payload_from_config(raw_config)
 	if config_payload is not None:
 		return config_payload
+
+	# Do not let a malformed canonical config silently fall back to stale legacy
+	# condition_json. A valid generic config object without condition fields may
+	# still use the legacy field during the explicit migration window.
+	parsed_config = parse_condition_payload(raw_config)
+	if raw_config not in (None, ""):
+		if parsed_config is None:
+			return None
+		if isinstance(parsed_config, Mapping) and any(key in parsed_config for key in CONDITION_CONFIG_KEYS):
+			return None
 
 	return parse_condition_payload(_safe_get(action_or_dict, "condition_json"))
 

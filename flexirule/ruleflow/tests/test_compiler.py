@@ -11,6 +11,15 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from flexirule.ruleflow.core.compiler import ConditionCompiler
+from flexirule.ruleflow.core.condition_operators import (
+	FIELD_TYPE_OPERATORS,
+	OPERATOR_LABELS,
+	SUPPORTED_OPERATOR_TOKENS,
+	UNSUPPORTED_OPERATOR_DIAGNOSTICS,
+	normalize_operator,
+)
+from flexirule.ruleflow.core.condition_schema import validate_condition_tree
+from flexirule.ruleflow.core.evaluator import ConditionEvaluator
 
 
 class TestConditionCompiler(FrappeTestCase):
@@ -19,6 +28,37 @@ class TestConditionCompiler(FrappeTestCase):
 	def setUp(self):
 		super().setUp()
 		self.compiler = ConditionCompiler()
+
+	def test_operator_registry_is_the_source_of_validation_and_ui_aliases(self):
+		self.assertEqual(normalize_operator("NOT_IN"), "not in")
+		self.assertIn("contains", FIELD_TYPE_OPERATORS["Data"])
+		self.assertIn("not_contains", FIELD_TYPE_OPERATORS["Data"])
+		self.assertNotIn("like", FIELD_TYPE_OPERATORS["Data"])
+		self.assertNotIn("not like", FIELD_TYPE_OPERATORS["Data"])
+		self.assertIn("contains", SUPPORTED_OPERATOR_TOKENS)
+		self.assertNotIn("like", SUPPORTED_OPERATOR_TOKENS)
+		self.assertIn("like", UNSUPPORTED_OPERATOR_DIAGNOSTICS)
+		self.assertEqual(self.compiler.OPERATOR_LABELS, OPERATOR_LABELS)
+
+	def test_schema_matches_existing_flexvalue_context_and_expression_tokens(self):
+		condition = {
+			"left": {"ref": "ctx.current_value"},
+			"op": "==",
+			"right": {
+				"value": {
+					"mode": "expression",
+					"value": [
+						{"type": "text", "value": "Current: "},
+						{"type": "jsonToken", "attrs": {"value": "{{ doc.status }}"}},
+					{"type": "variableToken", "attrs": {"path": "vars.status"}},
+					{"type": "resolverToken", "attrs": {"expression": "doc.grand_total"}},
+				],
+				}
+			},
+		}
+		normalized = validate_condition_tree(condition)
+		self.assertEqual(normalized["left"]["ref"], "ctx.current_value")
+		self.assertEqual(normalized["right"]["value"]["value"][1]["type"], "jsonToken")
 
 	def test_compile_simple_condition(self):
 		"""Test compiling a simple condition"""
@@ -158,6 +198,48 @@ class TestConditionCompiler(FrappeTestCase):
 		expected = "((doc.get('status') == 'Open' or doc.get('status') == 'Pending') and doc.get('priority') == 'High')"
 		self.assertEqual(result, expected)
 
+	def test_compile_mixed_sibling_operators_match_tree_evaluator(self):
+		"""Mixed sibling joins must not inherit Python's different AND/OR precedence."""
+		condition = {
+			"op": "and",
+			"conditions": [
+				{
+					"left": {"ref": "doc.status"},
+					"op": "==",
+					"right": {"value": "Closed"},
+					"logical_operator": "or",
+				},
+				{
+					"left": {"ref": "doc.priority"},
+					"op": "==",
+					"right": {"value": "High"},
+					"logical_operator": "and",
+				},
+				{
+					"left": {"ref": "doc.description"},
+					"op": "==",
+					"right": {"value": "Test"},
+				},
+			],
+		}
+		doc = frappe._dict({"status": "Closed", "priority": "Low", "description": "Other"})
+
+		compiled = self.compiler.compile(condition)
+		compiled_result = frappe.safe_eval(
+			compiled,
+			{"__builtins__": {}, "doc": doc},
+			{"doc": doc},
+		)
+		tree_result = ConditionEvaluator(frappe.as_json([condition])).evaluate(doc)
+
+		self.assertEqual(
+			compiled,
+			"((doc.get('status') == 'Closed' or doc.get('priority') == 'High') "
+			"and doc.get('description') == 'Test')",
+		)
+		self.assertFalse(compiled_result)
+		self.assertEqual(compiled_result, tree_result)
+
 	def test_compile_link_match_condition(self):
 		"""Test compiling a link match condition"""
 		condition = {
@@ -240,6 +322,58 @@ class TestConditionCompiler(FrappeTestCase):
 		self.assertFalse(is_valid)
 		self.assertIsNotNone(error)
 
+	def test_compile_rejects_unknown_operator_instead_of_defaulting_to_equality(self):
+		condition = {
+			"left": {"ref": "doc.status"},
+			"op": "mystery_operator",
+			"right": {"value": "Open"},
+		}
+		with self.assertRaisesRegex(ValueError, "unknown or unsupported"):
+			self.compiler.compile(condition)
+
+	def test_compile_rejects_empty_nested_group(self):
+		with self.assertRaisesRegex(ValueError, "groups must contain at least one child"):
+			self.compiler.compile({"op": "and", "conditions": []})
+
+	def test_compile_rejects_empty_object_as_a_condition(self):
+		with self.assertRaisesRegex(ValueError, "exactly one node shape"):
+			self.compiler.compile({})
+
+	def test_compile_rejects_unsafe_reference_path(self):
+		condition = {
+			"left": {"ref": "doc.status') or True or ('x"},
+			"op": "==",
+			"right": {"value": "Open"},
+		}
+		with self.assertRaisesRegex(ValueError, "invalid reference path"):
+			self.compiler.compile(condition)
+
+	def test_compile_rejects_invalid_collection_operation(self):
+		condition = {
+			"op": "sometimes",
+			"collection": "doc.items",
+			"alias": "item",
+			"where": {"left": {"ref": "item.qty"}, "op": ">", "right": {"value": 0}},
+		}
+		with self.assertRaisesRegex(ValueError, "unsupported collection operation"):
+			self.compiler.compile(condition)
+
+	def test_compile_rejects_deprecated_fail_open_has_changed(self):
+		condition = {"left": {"ref": "doc.status"}, "op": "has_changed"}
+		with self.assertRaisesRegex(ValueError, "has_changed.*deprecated"):
+			self.compiler.compile(condition)
+
+	def test_compile_normalizes_not_in_alias_explicitly(self):
+		condition = {
+			"left": {"ref": "doc.status"},
+			"op": "not_in",
+			"right": {"value": ["Closed", "Cancelled"]},
+		}
+		self.assertEqual(
+			self.compiler.compile(condition),
+			"doc.get('status') not in ['Closed', 'Cancelled']",
+		)
+
 	def test_resolve_ref_simple_field(self):
 		"""Test resolving simple field references"""
 		result = self.compiler._resolve_ref("doc.status", {"doc", "old_doc", "vars"})
@@ -264,10 +398,10 @@ class TestConditionCompiler(FrappeTestCase):
 		expected = "doctype"
 		self.assertEqual(result, expected)
 
-	def test_compile_empty_conditions(self):
-		"""Test compiling empty conditions"""
-		result = self.compiler.compile([])
-		self.assertEqual(result, "")
+	def test_compile_rejects_empty_condition_list(self):
+		"""An explicitly configured empty condition tree is not a passing rule."""
+		with self.assertRaisesRegex(ValueError, "groups must contain at least one child"):
+			self.compiler.compile([])
 
 	def test_compile_none_conditions(self):
 		"""Test compiling None conditions"""

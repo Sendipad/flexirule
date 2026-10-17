@@ -190,6 +190,22 @@ class TestRuleCoordinator(FrappeTestCase):
 		is_eligible, _reason = RuleCoordinator.check_eligibility(rule, doc, "Validate", skip_event_check=True)
 		self.assertTrue(is_eligible)
 
+	def test_check_eligibility_uses_saved_tree_when_compiled_expression_is_missing(self):
+		trigger_condition = [
+			{"left": {"ref": "doc.description"}, "op": "==", "right": {"value": "Tree Match"}}
+		]
+		rule = self.create_test_rule("Test Tree Without Compiled", trigger_condition=trigger_condition)
+		frappe.db.set_value("Rule", rule.name, "compiled_expression", None)
+		rule.compiled_expression = None
+
+		doc = frappe.get_doc({"doctype": "ToDo", "description": "Tree Match"})
+		is_eligible, _reason = RuleCoordinator.check_eligibility(rule, doc, "Validate")
+		self.assertTrue(is_eligible)
+
+		doc.description = "No Match"
+		is_eligible, _reason = RuleCoordinator.check_eligibility(rule, doc, "Validate")
+		self.assertFalse(is_eligible)
+
 	def test_check_eligibility_trigger_condition_true(self):
 		"""Test eligibility check with trigger condition that evaluates to True"""
 		trigger_condition = [{"left": {"ref": "doc.description"}, "op": "!=", "right": {"value": ""}}]
