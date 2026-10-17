@@ -278,7 +278,7 @@ class TestConditionCompiler(FrappeTestCase):
 
 	def test_compile_rejects_deprecated_fail_open_has_changed(self):
 		condition = {"left": {"ref": "doc.status"}, "op": "has_changed"}
-		with self.assertRaisesRegex(ValueError, "has_changed is deprecated"):
+		with self.assertRaisesRegex(ValueError, "has_changed.*deprecated"):
 			self.compiler.compile(condition)
 
 	def test_compile_normalizes_not_in_alias_explicitly(self):
