@@ -394,6 +394,76 @@ class TestConditionEvaluator(FrappeTestCase):
 		result = evaluator._get_field_value(self.test_doc, "doctype")
 		self.assertEqual(result, "ToDo")
 
+	def test_strict_evaluator_validates_fixed_link_target_doctype(self):
+		from unittest.mock import MagicMock, patch
+
+		doc = frappe._dict({"doctype": "Link Condition Source", "linked_record": "CUST-001"})
+		meta = MagicMock()
+		meta.get_field.return_value = frappe._dict({"fieldtype": "Link", "options": "Customer"})
+		condition = [
+			{
+				"left": {"ref": "doc.linked_record"},
+				"op": "==",
+				"right": {"value": ["Customer", "CUST-001"]},
+			}
+		]
+
+		with patch("frappe.get_meta", return_value=meta):
+			self.assertTrue(ConditionEvaluator(condition, strict=True).evaluate(doc))
+
+	def test_strict_evaluator_rejects_mismatched_fixed_link_target_doctype(self):
+		from unittest.mock import MagicMock, patch
+
+		doc = frappe._dict({"doctype": "Link Condition Source", "linked_record": "CUST-001"})
+		meta = MagicMock()
+		meta.get_field.return_value = frappe._dict({"fieldtype": "Link", "options": "Customer"})
+		condition = [
+			{
+				"left": {"ref": "doc.linked_record"},
+				"op": "==",
+				"right": {"value": ["Supplier", "CUST-001"]},
+			}
+		]
+
+		with patch("frappe.get_meta", return_value=meta):
+			with self.assertRaises(frappe.ValidationError):
+				ConditionEvaluator(condition, strict=True).evaluate(doc)
+
+	def test_strict_evaluator_compares_dynamic_link_target_per_record(self):
+		from unittest.mock import MagicMock, patch
+
+		doc = frappe._dict(
+			{
+				"doctype": "Dynamic Link Condition Source",
+				"party_type": "Supplier",
+				"party": "SUP-001",
+			}
+		)
+		meta = MagicMock()
+		meta.get_field.side_effect = lambda fieldname: (
+			frappe._dict({"fieldtype": "Dynamic Link", "options": "party_type"})
+			if fieldname == "party"
+			else None
+		)
+		equals_condition = [
+			{
+				"left": {"ref": "doc.party"},
+				"op": "==",
+				"right": {"value": ["Customer", "SUP-001"]},
+			}
+		]
+		not_equals_condition = [
+			{
+				"left": {"ref": "doc.party"},
+				"op": "!=",
+				"right": {"value": ["Customer", "SUP-001"]},
+			}
+		]
+
+		with patch("frappe.get_meta", return_value=meta):
+			self.assertFalse(ConditionEvaluator(equals_condition, strict=True).evaluate(doc))
+			self.assertTrue(ConditionEvaluator(not_equals_condition, strict=True).evaluate(doc))
+
 	def test_check_link_match_true(self):
 		"""Test check_link_match helper function returning True"""
 		from flexirule.ruleflow.core.evaluator import check_link_match
