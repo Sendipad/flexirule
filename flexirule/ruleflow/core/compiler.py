@@ -131,9 +131,9 @@ class ConditionCompiler:
 	def compile(self, conditions) -> str:
 		"""Validate a declarative condition tree before compiling it.
 
-		Missing configuration returns an empty artifact. A malformed configured
-		condition raises ValueError and must never be converted into a passing
-		True expression.
+		Missing configuration is handled explicitly by callers; the empty return
+		is retained for compatibility with optional-condition callers. A malformed
+		configured condition raises ValueError and cannot become a passing True.
 		"""
 		if conditions is None or (isinstance(conditions, str) and not conditions.strip()):
 			return ""

@@ -321,7 +321,6 @@ class TestConditionCompiler(FrappeTestCase):
 		with self.assertRaisesRegex(ValueError, "groups must contain at least one child"):
 			self.compiler.compile([])
 
-
 	def test_compile_none_conditions(self):
 		"""Test compiling None conditions"""
 		result = self.compiler.compile(None)
