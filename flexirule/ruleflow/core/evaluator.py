@@ -328,7 +328,6 @@ class ConditionEvaluator:
 
 		return None
 
-
 	def _get_field_value(self, doc, fieldname: str) -> Any:
 		"""
 		Get field value from document, supports dot notation and aggregates
