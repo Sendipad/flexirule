@@ -41,6 +41,27 @@ class TestConditionEvaluator(FrappeTestCase):
 				validate_doctype=True,
 			)
 
+	def test_strict_evaluator_validates_fixed_link_target_from_field_metadata(self):
+		from unittest.mock import MagicMock, patch
+
+		condition = [{"left": {"ref": "doc.customer"}, "op": "==", "right": {"value": ["Supplier", "CUST-0001"]}}]
+		self.test_doc.customer = "CUST-0001"
+		source_meta = MagicMock()
+		source_meta.get_field.return_value = frappe._dict({"fieldtype": "Link", "options": "Customer"})
+		with patch("frappe.get_meta", return_value=source_meta):
+			with self.assertRaises(frappe.ValidationError):
+				ConditionEvaluator(condition, strict=True).evaluate(self.test_doc)
+
+	def test_strict_evaluator_allows_matching_fixed_link_target_from_field_metadata(self):
+		from unittest.mock import MagicMock, patch
+
+		condition = [{"left": {"ref": "doc.customer"}, "op": "==", "right": {"value": ["Customer", "CUST-0001"]}}]
+		self.test_doc.customer = "CUST-0001"
+		source_meta = MagicMock()
+		source_meta.get_field.return_value = frappe._dict({"fieldtype": "Link", "options": "Customer"})
+		with patch("frappe.get_meta", return_value=source_meta):
+			self.assertTrue(ConditionEvaluator(condition, strict=True).evaluate(self.test_doc))
+
 	def test_dynamic_link_comparison_treats_different_target_as_non_match(self):
 		self.assertFalse(
 			check_link_match(
