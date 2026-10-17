@@ -15,46 +15,21 @@ import re
 from collections.abc import Mapping
 from typing import Any
 
+from flexirule.ruleflow.core.condition_operators import (
+	BINARY_OPERATOR_TOKENS as _BINARY_OPERATORS,
+	COLLECTION_OPERATION_TOKENS as _COLLECTION_OPERATORS,
+	GROUP_OPERATOR_TOKENS as _GROUP_OPERATORS,
+	SUPPORTED_OPERATOR_TOKENS as _SUPPORTED_OPERATORS,
+	UNARY_OPERATOR_TOKENS as _UNARY_OPERATORS,
+	UNSUPPORTED_OPERATOR_DIAGNOSTICS as _UNSUPPORTED_OPERATORS,
+	normalize_operator,
+)
+
+
 _BASE_SCOPES = frozenset({"doc", "old_doc", "row", "vars", "item", "caller", "rule", "doctype"})
 _IDENTIFIER = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
 
-_BINARY_OPERATORS = frozenset(
-	{
-		"==",
-		"!=",
-		">",
-		"<",
-		">=",
-		"<=",
-		"in",
-		"not in",
-		"is",
-		"is not",
-		"contains",
-		"not_contains",
-		"length_eq",
-		"length_gt",
-		"length_gte",
-		"length_lt",
-		"length_lte",
-	}
-)
-_UNARY_OPERATORS = frozenset({"is_set", "is_not_set", "is_empty", "is_not_empty", "is_submittable"})
-_SUPPORTED_OPERATORS = _BINARY_OPERATORS | _UNARY_OPERATORS | {"has_field"}
-_GROUP_OPERATORS = frozenset({"and", "or"})
-_COLLECTION_OPERATORS = frozenset({"any", "all", "none"})
-
-# These tokens are visible in parts of the legacy UI or evaluator, but are not
-# safe to compile with the current condition compiler. In particular, "like"
-# currently falls through to equality, and "has_changed" compiles to True.
-_UNSUPPORTED_OPERATORS = {
-	"like": "is not supported in compiled conditions yet; existing rules need an explicit compatibility migration",
-	"not like": "is not supported in compiled conditions yet; existing rules need an explicit compatibility migration",
-	"regex": "is not supported by the compiled condition path",
-	"has_changed": "is deprecated; use an On Field Change Process instead",
-}
-
-# The editor adds descriptive metadata to tree nodes. These fields are never
+0# The editor adds descriptive metadata to tree nodes. These fields are never
 # interpreted by the runtime and may be retained while the condition is edited.
 _NODE_METADATA_KEYS = frozenset(
 	{
@@ -188,10 +163,7 @@ def _normalize_node(node: Any, path: str, scopes: set[str]) -> dict:
 	raw_op = node.get("op", node.get("operator", "=="))
 	if not isinstance(raw_op, str) or not raw_op.strip():
 		raise ValueError(f"{path}.op: operator must be a non-empty string")
-	op = raw_op.strip().lower()
-	# The JSON evaluator recognizes this spelling; normalize it for the compiler.
-	if op == "not_in":
-		op = "not in"
+	op = normalize_operator(raw_op)
 
 	if op in _UNSUPPORTED_OPERATORS:
 		raise ValueError(f"{path}.op: operator {raw_op!r} {_UNSUPPORTED_OPERATORS[op]}")

@@ -12,6 +12,13 @@ from frappe.tests.utils import FrappeTestCase
 
 from flexirule.ruleflow.core.compiler import ConditionCompiler
 from flexirule.ruleflow.core.evaluator import ConditionEvaluator
+from flexirule.ruleflow.core.condition_operators import (
+	FIELD_TYPE_OPERATORS,
+	OPERATOR_LABELS,
+	SUPPORTED_OPERATOR_TOKENS,
+	UNSUPPORTED_OPERATOR_DIAGNOSTICS,
+	normalize_operator,
+)
 
 
 class TestConditionCompiler(FrappeTestCase):
@@ -20,6 +27,17 @@ class TestConditionCompiler(FrappeTestCase):
 	def setUp(self):
 		super().setUp()
 		self.compiler = ConditionCompiler()
+
+	def test_operator_registry_is_the_source_of_validation_and_ui_aliases(self):
+		self.assertEqual(normalize_operator("NOT_IN"), "not in")
+		self.assertIn("contains", FIELD_TYPE_OPERATORS["Data"])
+		self.assertIn("not_contains", FIELD_TYPE_OPERATORS["Data"])
+		self.assertNotIn("like", FIELD_TYPE_OPERATORS["Data"])
+		self.assertNotIn("not like", FIELD_TYPE_OPERATORS["Data"])
+		self.assertIn("contains", SUPPORTED_OPERATOR_TOKENS)
+		self.assertNotIn("like", SUPPORTED_OPERATOR_TOKENS)
+		self.assertIn("like", UNSUPPORTED_OPERATOR_DIAGNOSTICS)
+		self.assertEqual(self.compiler.OPERATOR_LABELS, OPERATOR_LABELS)
 
 	def test_compile_simple_condition(self):
 		"""Test compiling a simple condition"""

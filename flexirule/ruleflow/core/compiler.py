@@ -4,6 +4,11 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import frappe
 from frappe import _
 
+from flexirule.ruleflow.core.condition_operators import (
+	FIELD_TYPE_OPERATORS,
+	OPERATOR_LABELS as CONDITION_OPERATOR_LABELS,
+)
+
 
 class ConditionCompiler:
 	"""
@@ -31,102 +36,9 @@ class ConditionCompiler:
 		"or": "or",
 	}
 
-	# Operator labels for UI display
-	OPERATOR_LABELS: ClassVar[dict[str, str]] = {
-		"==": "equals",
-		"!=": "not equals",
-		">": "greater than",
-		"<": "less than",
-		">=": "greater or equal",
-		"<=": "less or equal",
-		"in": "in list",
-		"not in": "not in list",
-		"like": "contains",
-		"not like": "not contains",
-		"is_set": "is set",
-		"is_not_set": "is not set",
-		"is_submittable": "is submittable",
-		"has_field": "has field",
-		"contains": "contains",
-		"not_contains": "not contains",
-		"is_empty": "is empty",
-		"is_not_empty": "is not empty",
-		"length_eq": "length equals",
-		"length_gt": "length greater than",
-		"length_gte": "length greater or equal",
-		"length_lt": "length less than",
-		"length_lte": "length less or equal",
-	}
-
-	# Fieldtype to valid operators mapping
-	FIELDTYPE_OPERATORS: ClassVar[dict[str, list[str]]] = {
-		# Text fields
-		"Data": [
-			"==",
-			"!=",
-			"in",
-			"not in",
-			"like",
-			"not like",
-			"is_set",
-			"is_not_set",
-		],
-		"Text": ["==", "!=", "like", "not like", "is_set", "is_not_set"],
-		"Small Text": ["==", "!=", "like", "not like", "is_set", "is_not_set"],
-		"Long Text": ["==", "!=", "like", "not like", "is_set", "is_not_set"],
-		"Text Editor": ["==", "!=", "like", "not like", "is_set", "is_not_set"],
-		"Code": ["==", "!=", "like", "not like", "is_set", "is_not_set"],
-		"Password": ["is_set", "is_not_set"],
-		# Selection fields
-		"Select": ["==", "!=", "in", "not in", "is_set", "is_not_set"],
-		"Link": ["==", "!=", "in", "not in", "is_set", "is_not_set"],
-		"Dynamic Link": ["==", "!=", "in", "not in", "is_set", "is_not_set"],
-		# Numeric fields
-		"Int": ["==", "!=", ">", "<", ">=", "<=", "is_set", "is_not_set"],
-		"Float": ["==", "!=", ">", "<", ">=", "<=", "is_set", "is_not_set"],
-		"Currency": ["==", "!=", ">", "<", ">=", "<=", "is_set", "is_not_set"],
-		"Percent": ["==", "!=", ">", "<", ">=", "<=", "is_set", "is_not_set"],
-		"Rating": ["==", "!=", ">", "<", ">=", "<="],
-		# Boolean
-		"Check": ["==", "!="],  # Only 0 or 1
-		# Date/Time
-		"Date": ["==", "!=", ">", "<", ">=", "<=", "is_set", "is_not_set"],
-		"Datetime": ["==", "!=", ">", "<", ">=", "<=", "is_set", "is_not_set"],
-		"Time": ["==", "!=", ">", "<", ">=", "<=", "is_set", "is_not_set"],
-		"Duration": ["==", "!=", ">", "<", ">=", "<=", "is_set", "is_not_set"],
-		# Special
-		"Attach": ["is_set", "is_not_set"],
-		"Attach Image": ["is_set", "is_not_set"],
-		"Signature": ["is_set", "is_not_set"],
-		"Color": ["==", "!=", "is_set", "is_not_set"],
-		"Geolocation": ["is_set", "is_not_set"],
-		"JSON": ["is_set", "is_not_set"],
-		# Table (not directly comparable)
-		"Table": [
-			"is_set",
-			"is_not_set",
-			"is_empty",
-			"is_not_empty",
-			"length_eq",
-			"length_gt",
-			"length_gte",
-			"length_lt",
-			"length_lte",
-		],
-		"Table MultiSelect": [
-			"is_set",
-			"is_not_set",
-			"is_empty",
-			"is_not_empty",
-			"length_eq",
-			"length_gt",
-			"length_gte",
-			"length_lt",
-			"length_lte",
-		],
-		# Default fallback
-		"_default": ["==", "!=", "is_set", "is_not_set", "is_empty", "is_not_empty"],
-	}
+	# Shared operator definitions are the canonical UI and validation metadata.
+	OPERATOR_LABELS: ClassVar[dict[str, str]] = dict(CONDITION_OPERATOR_LABELS)
+	FIELDTYPE_OPERATORS: ClassVar[dict[str, list[str]]] = FIELD_TYPE_OPERATORS
 
 	def compile(self, conditions) -> str:
 		"""Validate a declarative condition tree before compiling it.
