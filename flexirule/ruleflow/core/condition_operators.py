@@ -1,11 +1,11 @@
 # Copyright (c) 2026, FlexiRule and contributors
 # For license information, please see license.txt
 
-"""Canonical metadata for the condition comparison contract.
+"""Canonical metadata and primitive comparison semantics for conditions.
 
 Keep this table small and explicit: it is the source for server validation,
-alias normalization, and the Condition Builder's operator metadata. It does
-not yet replace the runtime comparator; that migration is tracked separately.
+alias normalization, compiled-condition metadata, and the Condition Builder's
+operator options. Runtime tree evaluation uses the same primitive comparator.
 """
 
 from __future__ import annotations
