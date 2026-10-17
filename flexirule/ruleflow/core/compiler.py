@@ -147,11 +147,8 @@ class ConditionCompiler:
 			except Exception as exc:
 				raise ValueError(f"Invalid JSON format: {exc!s}") from exc
 
-		# A serialized empty root list is an omitted condition. An empty object
-		# or an empty nested group is malformed and must be rejected.
-		if isinstance(conditions, list) and not conditions:
-			return ""
-
+		# Empty configured lists are malformed, not a missing condition. Missing
+		# configuration is handled explicitly by callers before compilation.
 		if isinstance(conditions, list):
 			conditions = {"op": "and", "conditions": conditions}
 

@@ -316,10 +316,11 @@ class TestConditionCompiler(FrappeTestCase):
 		expected = "doctype"
 		self.assertEqual(result, expected)
 
-	def test_compile_empty_conditions(self):
-		"""Test compiling empty conditions"""
-		result = self.compiler.compile([])
-		self.assertEqual(result, "")
+	def test_compile_rejects_empty_condition_list(self):
+		"""An explicitly configured empty condition tree is not a passing rule."""
+		with self.assertRaisesRegex(ValueError, "groups must contain at least one child"):
+			self.compiler.compile([])
+
 
 	def test_compile_none_conditions(self):
 		"""Test compiling None conditions"""

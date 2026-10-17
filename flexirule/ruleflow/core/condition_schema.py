@@ -209,9 +209,7 @@ def _normalize_node(node: Any, path: str, scopes: set[str]) -> dict:
 	result["op"] = op
 	result.pop("operator", None)
 	if "logical_operator" in result:
-		result["logical_operator"] = _logical_operator(
-			result["logical_operator"], f"{path}.logical_operator"
-		)
+		result["logical_operator"] = _logical_operator(result["logical_operator"], f"{path}.logical_operator")
 	return result
 
 
