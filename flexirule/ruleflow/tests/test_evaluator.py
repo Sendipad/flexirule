@@ -10,7 +10,9 @@ import unittest
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
+from flexirule.ruleflow.core.condition_operators import compare_values
 from flexirule.ruleflow.core.evaluator import ConditionEvaluator
+from flexirule.ruleflow.core.evaluator import check_link_match
 
 
 class TestConditionEvaluator(FrappeTestCase):
@@ -28,6 +30,338 @@ class TestConditionEvaluator(FrappeTestCase):
 				"allocated_to": "Administrator",
 			}
 		)
+
+	def test_link_comparison_rejects_mismatched_fixed_link_target(self):
+		with self.assertRaisesRegex(ValueError, "does not match the field target"):
+			check_link_match(
+				"CUST-0001",
+				["Supplier", "CUST-0001"],
+				"==",
+				expected_doctype="Customer",
+				validate_doctype=True,
+			)
+
+	def test_strict_evaluator_validates_fixed_link_target_from_field_metadata(self):
+		from unittest.mock import MagicMock, patch
+
+		condition = [{"left": {"ref": "doc.customer"}, "op": "==", "right": {"value": ["Supplier", "CUST-0001"]}}]
+		self.test_doc.customer = "CUST-0001"
+		source_meta = MagicMock()
+		source_meta.get_field.return_value = frappe._dict({"fieldtype": "Link", "options": "Customer"})
+		with patch("frappe.get_meta", return_value=source_meta):
+			with self.assertRaises(frappe.ValidationError):
+				ConditionEvaluator(condition, strict=True).evaluate(self.test_doc)
+
+	def test_strict_evaluator_allows_matching_fixed_link_target_from_field_metadata(self):
+		from unittest.mock import MagicMock, patch
+
+		condition = [{"left": {"ref": "doc.customer"}, "op": "==", "right": {"value": ["Customer", "CUST-0001"]}}]
+		self.test_doc.customer = "CUST-0001"
+		source_meta = MagicMock()
+		source_meta.get_field.return_value = frappe._dict({"fieldtype": "Link", "options": "Customer"})
+		with patch("frappe.get_meta", return_value=source_meta):
+			self.assertTrue(ConditionEvaluator(condition, strict=True).evaluate(self.test_doc))
+
+	def test_strict_evaluator_uses_record_target_for_dynamic_link(self):
+		from unittest.mock import MagicMock, patch
+
+		condition = [
+			{"left": {"ref": "doc.party"}, "op": "==", "right": {"value": ["Supplier", "CUST-0001"]}}
+		]
+		self.test_doc.party_type = "Customer"
+		self.test_doc.party = "CUST-0001"
+		source_meta = MagicMock()
+		source_meta.name = "ToDo"
+		source_meta.istable = False
+		source_meta.get_field.return_value = frappe._dict(
+			{"fieldtype": "Dynamic Link", "options": "party_type"}
+		)
+		with patch("frappe.get_meta", return_value=source_meta):
+			self.assertFalse(ConditionEvaluator(condition, strict=True).evaluate(self.test_doc))
+
+	def test_strict_evaluator_matches_dynamic_link_when_record_target_matches(self):
+		from unittest.mock import MagicMock, patch
+
+		condition = [
+			{"left": {"ref": "doc.party"}, "op": "==", "right": {"value": ["Customer", "CUST-0001"]}}
+		]
+		self.test_doc.party_type = "Customer"
+		self.test_doc.party = "CUST-0001"
+		source_meta = MagicMock()
+		source_meta.name = "ToDo"
+		source_meta.istable = False
+		source_meta.get_field.return_value = frappe._dict(
+			{"fieldtype": "Dynamic Link", "options": "party_type"}
+		)
+		with patch("frappe.get_meta", return_value=source_meta):
+			self.assertTrue(ConditionEvaluator(condition, strict=True).evaluate(self.test_doc))
+
+	def test_dynamic_link_comparison_treats_different_target_as_non_match(self):
+		self.assertFalse(
+			check_link_match(
+				"CUST-0001",
+				["Supplier", "CUST-0001"],
+				"==",
+				expected_doctype="Customer",
+				validate_doctype=True,
+				dynamic_link=True,
+			)
+		)
+		self.assertTrue(
+			check_link_match(
+				"CUST-0001",
+				["Supplier", "CUST-0001"],
+				"!=",
+				expected_doctype="Customer",
+				validate_doctype=True,
+				dynamic_link=True,
+			)
+		)
+
+	def test_shared_comparator_distinguishes_null_empty_and_falsy_values(self):
+		self.assertFalse(compare_values(None, "==", ""))
+		self.assertTrue(compare_values(None, "is_not_set"))
+		self.assertTrue(compare_values("", "is_not_set"))
+		self.assertFalse(compare_values(" ", "is_not_set"))
+		self.assertTrue(compare_values(" ", "is_empty"))
+		self.assertTrue(compare_values(0, "is_set"))
+		self.assertTrue(compare_values(False, "is_set"))
+		self.assertFalse(compare_values(0, "is_empty"))
+		self.assertFalse(compare_values(False, "is_empty"))
+
+	def test_shared_comparator_membership_and_contains_semantics(self):
+		self.assertFalse(compare_values("Open", "in", []))
+		self.assertTrue(compare_values("Open", "not_in", []))
+		self.assertTrue(compare_values(0, "contains", "0"))
+		self.assertTrue(compare_values(None, "not_contains", "x"))
+		with self.assertRaises(TypeError):
+			compare_values("Open", "in", None)
+
+	def test_shared_comparator_length_uses_engine_length_contract(self):
+		self.assertTrue(compare_values("  open  ", "length_eq", 4))
+		self.assertTrue(compare_values([], "length_eq", 0))
+
+	def test_evaluator_resolves_structured_static_flex_value(self):
+		conditions_json = (
+			'[{"left": {"ref": "doc.status"}, "op": "==", '
+			'"right": {"value": {"mode": "static", "value": "Open"}}}]'
+		)
+		self.assertTrue(ConditionEvaluator(conditions_json).evaluate(self.test_doc))
+
+	def test_document_reference_uses_field_resolver_for_nested_paths(self):
+		from unittest.mock import MagicMock, patch
+
+		condition = [{"left": {"ref": "doc.linked_doc.status"}, "op": "==", "right": {"value": "Open"}}]
+		source_meta = MagicMock()
+		source_meta.name = "ToDo"
+		source_meta.istable = False
+		source_meta.get_field.return_value = frappe._dict({"fieldtype": "Link", "options": "Customer"})
+		target_meta = MagicMock()
+		target_meta.name = "Customer"
+		target_meta.istable = False
+		target_meta.get_field.return_value = frappe._dict({"fieldtype": "Data"})
+		with (
+			patch("frappe.get_meta", side_effect=lambda name: source_meta if name == "ToDo" else target_meta),
+			patch(
+				"flexirule.ruleflow.utils.field_resolver.FieldResolver.resolve",
+				return_value="Open",
+			) as resolve,
+		):
+			self.assertTrue(ConditionEvaluator(condition, strict=True).evaluate(self.test_doc))
+		resolve.assert_called_once_with(self.test_doc, "linked_doc.status")
+
+	def test_strict_evaluator_rejects_unknown_doc_field(self):
+		condition = [
+			{
+				"left": {"ref": "doc.no_such_condition_field"},
+				"op": "==",
+				"right": {"value": None},
+			}
+		]
+		with self.assertRaises(frappe.ValidationError):
+			ConditionEvaluator(condition, strict=True).evaluate(self.test_doc)
+
+	def test_strict_evaluator_resolves_ctx_scope_from_runtime_context(self):
+		condition = [
+			{
+				"left": {"ref": "ctx.current_value"},
+				"op": "==",
+				"right": {"value": "Open"},
+			}
+		]
+		self.assertTrue(
+			ConditionEvaluator(condition, strict=True).evaluate(
+				self.test_doc,
+				context={"ctx": {"current_value": "Open"}},
+			)
+		)
+
+	def test_strict_evaluator_resolves_loop_scope_from_runtime_context(self):
+		condition = [
+			{
+				"left": {"ref": "loop.current_value"},
+				"op": "==",
+				"right": {"value": "Open"},
+			}
+		]
+		self.assertTrue(
+			ConditionEvaluator(condition, strict=True).evaluate(
+				self.test_doc,
+				context={"loop": {"current_value": "Open"}},
+			)
+		)
+
+	def test_strict_evaluator_resolves_flexvalue_variable_from_context(self):
+		condition = [
+			{
+				"left": {"ref": "doc.priority"},
+				"op": "==",
+				"right": {"value": {"mode": "variable", "path": "vars.expected_priority"}},
+			}
+		]
+		self.assertTrue(
+			ConditionEvaluator(condition, strict=True).evaluate(
+				self.test_doc,
+				context={"vars": {"expected_priority": "High"}},
+			)
+		)
+
+	def test_strict_evaluator_binds_collection_alias_in_shared_context(self):
+		from unittest.mock import MagicMock, patch
+
+		doc = frappe._dict(
+			{
+				"doctype": "ToDo",
+				"items": [frappe._dict({"qty": 2}), frappe._dict({"qty": 8})],
+			}
+		)
+		condition = {
+			"op": "any",
+			"collection": "doc.items",
+			"alias": "line",
+			"where": {
+				"left": {"ref": "line.qty"},
+				"op": ">",
+				"right": {"value": {"mode": "variable", "path": "vars.minimum"}},
+			},
+		}
+		source_meta = MagicMock()
+		source_meta.name = "ToDo"
+		source_meta.istable = False
+		source_meta.get_field.side_effect = (
+			lambda fieldname: frappe._dict({"fieldtype": "Table", "options": "ToDo Item"})
+			if fieldname == "items"
+			else None
+		)
+		row_meta = MagicMock()
+		row_meta.name = "ToDo Item"
+		row_meta.istable = True
+		row_meta.get_field.return_value = frappe._dict({"fieldtype": "Int"})
+		with patch(
+			"frappe.get_meta",
+			side_effect=lambda doctype: source_meta if doctype == "ToDo" else row_meta,
+		):
+			self.assertTrue(
+				ConditionEvaluator(condition, strict=True).evaluate(
+					doc,
+					context={"vars": {"minimum": 5}},
+				)
+			)
+
+	def test_strict_evaluator_validates_table_multiselect_collection_alias(self):
+		from unittest.mock import MagicMock, patch
+
+		doc = frappe._dict(
+			{
+				"doctype": "ToDo",
+				"tags": [frappe._dict({"tag": "Finance"})],
+			}
+		)
+		condition = {
+			"op": "any",
+			"collection": "doc.tags",
+			"alias": "tag_row",
+			"where": {
+				"left": {"ref": "tag_row.tag"},
+				"op": "==",
+				"right": {"value": "Finance"},
+			},
+		}
+		source_meta = MagicMock()
+		source_meta.name = "ToDo"
+		source_meta.istable = False
+		source_meta.get_field.side_effect = lambda fieldname: (
+			frappe._dict({"fieldtype": "Table MultiSelect", "options": "ToDo Tag"})
+			if fieldname == "tags"
+			else None
+		)
+		child_meta = MagicMock()
+		child_meta.name = "ToDo Tag"
+		child_meta.istable = True
+		child_meta.get_field.side_effect = lambda fieldname: (
+			frappe._dict({"fieldtype": "Data"}) if fieldname == "tag" else None
+		)
+		with patch(
+			"frappe.get_meta",
+			side_effect=lambda doctype: source_meta if doctype == "ToDo" else child_meta,
+		):
+			self.assertTrue(ConditionEvaluator(condition, strict=True).evaluate(doc))
+
+	def test_strict_evaluator_validates_direct_table_multiselect_child_field(self):
+		from unittest.mock import MagicMock, patch
+
+		doc = frappe._dict(
+			{
+				"doctype": "ToDo",
+				"tags": [frappe._dict({"tag": "Finance"})],
+			}
+		)
+		condition = [
+			{
+				"left": {"ref": "doc.tags.tag"},
+				"op": "contains",
+				"right": {"value": "Fin"},
+			}
+		]
+		source_meta = MagicMock()
+		source_meta.name = "ToDo"
+		source_meta.istable = False
+		source_meta.get_field.side_effect = lambda fieldname: (
+			frappe._dict({"fieldtype": "Table MultiSelect", "options": "ToDo Tag"})
+			if fieldname == "tags"
+			else None
+		)
+		child_meta = MagicMock()
+		child_meta.name = "ToDo Tag"
+		child_meta.istable = True
+		child_meta.get_field.side_effect = lambda fieldname: (
+			frappe._dict({"fieldtype": "Data"}) if fieldname == "tag" else None
+		)
+		with patch(
+			"frappe.get_meta",
+			side_effect=lambda doctype: source_meta if doctype == "ToDo" else child_meta,
+		):
+			self.assertTrue(ConditionEvaluator(condition, strict=True).evaluate(doc))
+
+	def test_strict_evaluator_uses_frappe_metadata_api_for_has_field(self):
+		condition = [
+			{
+				"left": {"ref": "rule.document_type"},
+				"op": "has_field",
+				"right": {"value": "description"},
+			}
+		]
+		self.assertTrue(
+			ConditionEvaluator(condition, strict=True).evaluate(
+				self.test_doc,
+				context={"rule": {"document_type": "ToDo"}, "doctype": "ToDo"},
+			)
+		)
+
+	def test_strict_evaluator_throws_frappe_validation_error_for_unknown_operator(self):
+		condition = [{"left": {"ref": "doc.status"}, "op": "invented_operator", "right": {"value": "Open"}}]
+		with self.assertRaises(frappe.ValidationError):
+			ConditionEvaluator(condition, strict=True).evaluate(self.test_doc)
 
 	def test_evaluate_simple_condition_true(self):
 		"""Test evaluating a simple condition that returns True"""
@@ -290,6 +624,76 @@ class TestConditionEvaluator(FrappeTestCase):
 		# Test with a field that exists on the doc object even if not saved
 		result = evaluator._get_field_value(self.test_doc, "doctype")
 		self.assertEqual(result, "ToDo")
+
+	def test_strict_evaluator_validates_fixed_link_target_doctype(self):
+		from unittest.mock import MagicMock, patch
+
+		doc = frappe._dict({"doctype": "Link Condition Source", "linked_record": "CUST-001"})
+		meta = MagicMock()
+		meta.get_field.return_value = frappe._dict({"fieldtype": "Link", "options": "Customer"})
+		condition = [
+			{
+				"left": {"ref": "doc.linked_record"},
+				"op": "==",
+				"right": {"value": ["Customer", "CUST-001"]},
+			}
+		]
+
+		with patch("frappe.get_meta", return_value=meta):
+			self.assertTrue(ConditionEvaluator(condition, strict=True).evaluate(doc))
+
+	def test_strict_evaluator_rejects_mismatched_fixed_link_target_doctype(self):
+		from unittest.mock import MagicMock, patch
+
+		doc = frappe._dict({"doctype": "Link Condition Source", "linked_record": "CUST-001"})
+		meta = MagicMock()
+		meta.get_field.return_value = frappe._dict({"fieldtype": "Link", "options": "Customer"})
+		condition = [
+			{
+				"left": {"ref": "doc.linked_record"},
+				"op": "==",
+				"right": {"value": ["Supplier", "CUST-001"]},
+			}
+		]
+
+		with patch("frappe.get_meta", return_value=meta):
+			with self.assertRaises(frappe.ValidationError):
+				ConditionEvaluator(condition, strict=True).evaluate(doc)
+
+	def test_strict_evaluator_compares_dynamic_link_target_per_record(self):
+		from unittest.mock import MagicMock, patch
+
+		doc = frappe._dict(
+			{
+				"doctype": "Dynamic Link Condition Source",
+				"party_type": "Supplier",
+				"party": "SUP-001",
+			}
+		)
+		meta = MagicMock()
+		meta.get_field.side_effect = lambda fieldname: (
+			frappe._dict({"fieldtype": "Dynamic Link", "options": "party_type"})
+			if fieldname == "party"
+			else None
+		)
+		equals_condition = [
+			{
+				"left": {"ref": "doc.party"},
+				"op": "==",
+				"right": {"value": ["Customer", "SUP-001"]},
+			}
+		]
+		not_equals_condition = [
+			{
+				"left": {"ref": "doc.party"},
+				"op": "!=",
+				"right": {"value": ["Customer", "SUP-001"]},
+			}
+		]
+
+		with patch("frappe.get_meta", return_value=meta):
+			self.assertFalse(ConditionEvaluator(equals_condition, strict=True).evaluate(doc))
+			self.assertTrue(ConditionEvaluator(not_equals_condition, strict=True).evaluate(doc))
 
 	def test_check_link_match_true(self):
 		"""Test check_link_match helper function returning True"""

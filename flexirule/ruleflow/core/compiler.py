@@ -4,6 +4,13 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import frappe
 from frappe import _
 
+from flexirule.ruleflow.core.condition_operators import (
+	FIELD_TYPE_OPERATORS,
+)
+from flexirule.ruleflow.core.condition_operators import (
+	OPERATOR_LABELS as CONDITION_OPERATOR_LABELS,
+)
+
 
 class ConditionCompiler:
 	"""
@@ -31,189 +38,103 @@ class ConditionCompiler:
 		"or": "or",
 	}
 
-	# Operator labels for UI display
-	OPERATOR_LABELS: ClassVar[dict[str, str]] = {
-		"==": "equals",
-		"!=": "not equals",
-		">": "greater than",
-		"<": "less than",
-		">=": "greater or equal",
-		"<=": "less or equal",
-		"in": "in list",
-		"not in": "not in list",
-		"like": "contains",
-		"not like": "not contains",
-		"is_set": "is set",
-		"is_not_set": "is not set",
-		"is_submittable": "is submittable",
-		"has_field": "has field",
-		"contains": "contains",
-		"not_contains": "not contains",
-		"is_empty": "is empty",
-		"is_not_empty": "is not empty",
-		"length_eq": "length equals",
-		"length_gt": "length greater than",
-		"length_gte": "length greater or equal",
-		"length_lt": "length less than",
-		"length_lte": "length less or equal",
-	}
+	# Shared operator definitions are the canonical UI and validation metadata.
+	OPERATOR_LABELS: ClassVar[dict[str, str]] = dict(CONDITION_OPERATOR_LABELS)
+	FIELDTYPE_OPERATORS: ClassVar[dict[str, list[str]]] = FIELD_TYPE_OPERATORS
 
-	# Fieldtype to valid operators mapping
-	FIELDTYPE_OPERATORS: ClassVar[dict[str, list[str]]] = {
-		# Text fields
-		"Data": [
-			"==",
-			"!=",
-			"in",
-			"not in",
-			"like",
-			"not like",
-			"is_set",
-			"is_not_set",
-		],
-		"Text": ["==", "!=", "like", "not like", "is_set", "is_not_set"],
-		"Small Text": ["==", "!=", "like", "not like", "is_set", "is_not_set"],
-		"Long Text": ["==", "!=", "like", "not like", "is_set", "is_not_set"],
-		"Text Editor": ["==", "!=", "like", "not like", "is_set", "is_not_set"],
-		"Code": ["==", "!=", "like", "not like", "is_set", "is_not_set"],
-		"Password": ["is_set", "is_not_set"],
-		# Selection fields
-		"Select": ["==", "!=", "in", "not in", "is_set", "is_not_set"],
-		"Link": ["==", "!=", "in", "not in", "is_set", "is_not_set"],
-		"Dynamic Link": ["==", "!=", "in", "not in", "is_set", "is_not_set"],
-		# Numeric fields
-		"Int": ["==", "!=", ">", "<", ">=", "<=", "is_set", "is_not_set"],
-		"Float": ["==", "!=", ">", "<", ">=", "<=", "is_set", "is_not_set"],
-		"Currency": ["==", "!=", ">", "<", ">=", "<=", "is_set", "is_not_set"],
-		"Percent": ["==", "!=", ">", "<", ">=", "<=", "is_set", "is_not_set"],
-		"Rating": ["==", "!=", ">", "<", ">=", "<="],
-		# Boolean
-		"Check": ["==", "!="],  # Only 0 or 1
-		# Date/Time
-		"Date": ["==", "!=", ">", "<", ">=", "<=", "is_set", "is_not_set"],
-		"Datetime": ["==", "!=", ">", "<", ">=", "<=", "is_set", "is_not_set"],
-		"Time": ["==", "!=", ">", "<", ">=", "<=", "is_set", "is_not_set"],
-		"Duration": ["==", "!=", ">", "<", ">=", "<=", "is_set", "is_not_set"],
-		# Special
-		"Attach": ["is_set", "is_not_set"],
-		"Attach Image": ["is_set", "is_not_set"],
-		"Signature": ["is_set", "is_not_set"],
-		"Color": ["==", "!=", "is_set", "is_not_set"],
-		"Geolocation": ["is_set", "is_not_set"],
-		"JSON": ["is_set", "is_not_set"],
-		# Table (not directly comparable)
-		"Table": [
-			"is_set",
-			"is_not_set",
-			"is_empty",
-			"is_not_empty",
-			"length_eq",
-			"length_gt",
-			"length_gte",
-			"length_lt",
-			"length_lte",
-		],
-		"Table MultiSelect": [
-			"is_set",
-			"is_not_set",
-			"is_empty",
-			"is_not_empty",
-			"length_eq",
-			"length_gt",
-			"length_gte",
-			"length_lt",
-			"length_lte",
-		],
-		# Default fallback
-		"_default": ["==", "!=", "is_set", "is_not_set", "is_empty", "is_not_empty"],
-	}
+	def compile(self, conditions, *, doctype: str | None = None) -> str:
+		"""Validate a declarative condition tree before compiling it.
 
-	def compile(self, conditions) -> str:
-		if not conditions:
+		Missing configuration is handled explicitly by callers; the empty return
+		is retained for compatibility with optional-condition callers. A malformed
+		configured condition raises ValueError and cannot become a passing True.
+		"""
+		if conditions is None or (isinstance(conditions, str) and not conditions.strip()):
 			return ""
 
 		if isinstance(conditions, str):
 			try:
 				conditions = json.loads(conditions)
-				# Handle double-encoded JSON (e.g. '"{\\"op\\": ...}"')
+				# Handle double-encoded JSON payloads.
 				if isinstance(conditions, str):
-					try:
-						conditions = json.loads(conditions)
-					except Exception:
-						pass
-			except Exception as e:
-				raise ValueError(f"Invalid JSON format: {e!s}")
+					conditions = json.loads(conditions)
+			except Exception as exc:
+				raise ValueError(f"Invalid JSON format: {exc!s}") from exc
 
-		# Wrap list in AND group (legacy/root support)
+		# Empty configured lists are malformed, not a missing condition. Missing
+		# configuration is handled explicitly by callers before compilation.
 		if isinstance(conditions, list):
 			conditions = {"op": "and", "conditions": conditions}
 
 		if not isinstance(conditions, dict):
 			raise ValueError("Condition must be a dictionary or list")
 
-		compiled = self._compile_node(
-			conditions, scopes={"doc", "old_doc", "row", "vars", "item", "caller", "rule", "doctype"}
-		)
-		return compiled if compiled else "True"
+		from flexirule.ruleflow.core.condition_schema import validate_condition_tree
+
+		allowed_scopes = {"doc", "old_doc", "row", "vars", "item", "loop", "caller", "rule", "doctype", "ctx"}
+		conditions = validate_condition_tree(conditions, scopes=allowed_scopes)
+		if doctype:
+			from flexirule.ruleflow.core.condition_metadata import validate_condition_metadata
+
+			validate_condition_metadata(conditions, doctype=doctype)
+		compiled = self._compile_node(conditions, scopes=allowed_scopes)
+		if not compiled:
+			raise ValueError("Condition tree did not produce a valid expression")
+		return compiled
 
 	def _compile_node(self, node, scopes=None):
 		if not isinstance(node, dict):
-			return ""
+			raise ValueError("Condition node must be an object")
 
 		if scopes is None:
-			scopes = {"doc", "old_doc", "row", "vars", "item", "caller", "rule", "doctype"}
+			scopes = {"doc", "old_doc", "row", "vars", "item", "loop", "caller", "rule", "doctype", "ctx"}
 
-		# 1. Detect Type
-		# Collection
 		if "collection" in node and "where" in node:
 			return self._compile_collection(node, scopes)
-
-		# Group (has 'conditions' list)
 		if "conditions" in node and isinstance(node["conditions"], list):
 			return self._compile_group(node, scopes)
-
-		# Condition (has 'left')
 		if "left" in node:
 			return self._compile_condition(node, scopes)
 
-		# Fallback/Empty
-		return ""
+		raise ValueError("Unknown condition node shape")
 
 	def _compile_group(self, node, scopes):
 		subs = node.get("conditions", [])
 		if not subs:
-			return ""
+			raise ValueError("Condition groups must contain at least one child")
 
 		default_op = node.get("op", node.get("logical_operator", "and")).lower()
 		if default_op not in ["and", "or"]:
-			default_op = "and"
+			raise ValueError(f"Invalid condition group operator: {default_op!r}")
 
-		result_parts: list[str] = []
+		compiled_nodes: list[str] = []
+		joining_ops: list[str] = []
 		for i, sub in enumerate(subs):
 			compiled_sub = self._compile_node(sub, scopes)
 			if not compiled_sub:
-				continue
+				raise ValueError(f"Condition group child {i} did not compile")
+			compiled_nodes.append(compiled_sub)
 
-			if not result_parts:
-				# First node, just add it
-				result_parts.append(compiled_sub)
-			else:
-				# Subsequent nodes, get operator from PREVIOUS node for joining
-				# Actually, standard behavior is that the item itself says how it joins with the previous one,
-				# or the previous one says how it joins with the next.
-				# In flexirule, we use condition.get('logical_operator') to join with the NEXT.
-				# So we look at the operator of the previous node.
-				prev_node = subs[i - 1]
-				op = prev_node.get("logical_operator", default_op).lower()
+			if i:
+				# A node's logical_operator joins it to the next sibling. Build
+				# mixed joins left-to-right explicitly so Python's AND/OR precedence
+				# cannot change the saved condition tree's meaning.
+				previous_node = subs[i - 1]
+				op = previous_node.get("logical_operator", default_op).lower()
 				if op not in ["and", "or"]:
 					op = default_op
+				joining_ops.append(op)
 
-				result_parts.extend([" ", op, " ", compiled_sub])
+		if not joining_ops:
+			return f"({compiled_nodes[0]})"
 
-		if not result_parts:
-			return ""
+		if len(set(joining_ops)) == 1:
+			return f"({f' {joining_ops[0]} '.join(compiled_nodes)})"
 
-		return f"({''.join(result_parts)})"
+		result = compiled_nodes[0]
+		for op, compiled_sub in zip(joining_ops, compiled_nodes[1:], strict=True):
+			result = f"({result} {op} {compiled_sub})"
+		return result
 
 	def _compile_condition(self, node, scopes):
 		left = node.get("left")
@@ -237,21 +158,21 @@ class ConditionCompiler:
 			rhs_code = self._compile_operand(right, scopes)
 			return f"has_field({lhs_code}, {rhs_code})"
 		if op == "has_changed":
-			# DEPRECATED: has_changed in conditions is architecturally incorrect.
-			# Change detection should use the 'On Field Change' Process instead.
-			# This operator is kept for backward compatibility but always returns True.
-			# Existing rules using this should be migrated.
-			import warnings
-
-			warnings.warn(
-				"has_changed condition operator is deprecated. Use 'On Field Change' Process instead.",
-				DeprecationWarning,
-				stacklevel=2,
-			)
-			return "True"  # Always pass - migration required
+			raise ValueError("has_changed is deprecated; use an On Field Change Process instead")
 
 		rhs_code = self._compile_operand(right, scopes)
-		py_op = self.OPERATOR_MAP.get(op, "==")
+		special_operators = {
+			"contains",
+			"not_contains",
+			"length_eq",
+			"length_gt",
+			"length_gte",
+			"length_lt",
+			"length_lte",
+		}
+		if op not in self.OPERATOR_MAP and op not in special_operators:
+			raise ValueError(f"Unsupported condition operator: {op!r}")
+		py_op = self.OPERATOR_MAP.get(op)
 		right_value = right.get("value") if isinstance(right, dict) else None
 
 		# Link/Dynamic Link Tuple Handling
@@ -296,7 +217,9 @@ class ConditionCompiler:
 		alias = node.get("alias", "row")
 		where = node.get("where")
 
-		# Validate collection reference is not empty
+		# The schema validator also checks the reference and alias before this method.
+		if op not in {"any", "all", "none"}:
+			raise ValueError(f"Unsupported collection operation: {op!r}")
 		if not collection_ref or not collection_ref.strip():
 			raise ValueError("Collection condition requires a valid collection reference (e.g., 'doc.items')")
 
@@ -312,7 +235,9 @@ class ConditionCompiler:
 		new_scopes = scopes.copy()
 		new_scopes.add(alias)
 
-		condition_code = self._compile_node(where, new_scopes) or "True"
+		condition_code = self._compile_node(where, new_scopes)
+		if not condition_code:
+			raise ValueError("Collection condition requires a valid 'where' tree")
 
 		func = "any"
 		prefix = ""
@@ -367,7 +292,7 @@ class ConditionCompiler:
 	def _compile_operand(self, operand, scopes):
 		# { "ref": "doc.status" } or { "value": "x" }
 		if not isinstance(operand, dict):
-			return "''"
+			raise ValueError("Condition operand must be an object")
 
 		if "ref" in operand:
 			return self._resolve_ref(operand["ref"], scopes)
@@ -375,7 +300,7 @@ class ConditionCompiler:
 		if "value" in operand:
 			return self._compile_operand_value(operand["value"], scopes)
 
-		return "''"
+		raise ValueError("Condition operand must contain 'ref' or 'value'")
 
 	def _compile_operand_value(self, value, scopes):
 		"""Compile a literal/structured operand payload into Python code."""
@@ -483,14 +408,16 @@ class ConditionCompiler:
 		Simple paths (doc.field) -> direct attribute access: doc.get('field')
 		Nested paths (doc.child.field) -> resolve() function for child table traversal
 		"""
-		if not path:
-			return "''"
+		if not isinstance(path, str) or not path.strip():
+			raise ValueError("Reference path must be a non-empty string")
 
 		parts = path.split(".")
+		if any(not part.isidentifier() or part.startswith("__") for part in parts):
+			raise ValueError(f"Invalid reference path: {path!r}")
 		scope = parts[0]  # doc, old_doc, row, vars, item or collection alias
 
 		if scope not in scopes:
-			return "''"
+			raise ValueError(f"Unknown reference scope: {scope!r}")
 
 		if len(parts) == 1:
 			# Just the scope itself (rare but valid)

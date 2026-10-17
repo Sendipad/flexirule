@@ -65,52 +65,13 @@ const isDoctypeContextField = computed(() =>
 	doctypeContextRefs.includes(selectedField.value?.value)
 );
 
-const DEFAULT_OPERATORS = {
-	Data: ["==", "!=", "in", "not in", "like", "not like", "is_set", "is_not_set"],
-	Select: ["==", "!=", "in", "not in", "is_set", "is_not_set"],
-	Link: ["==", "!=", "in", "not in", "is_set", "is_not_set"],
-	Int: ["==", "!=", ">", "<", ">=", "<=", "is_set", "is_not_set"],
-	Float: ["==", "!=", ">", "<", ">=", "<=", "is_set", "is_not_set"],
-	Currency: ["==", "!=", ">", "<", ">=", "<=", "is_set", "is_not_set"],
-	Check: ["==", "!="],
-	Date: ["==", "!=", ">", "<", ">=", "<=", "is_set", "is_not_set"],
-	_default: ["==", "!=", ">", "<", ">=", "<=", "in", "contains", "is_set", "is_not_set"],
-};
-
-const DEFAULT_LABELS = {
-	"==": "==",
-	"!=": "!=",
-	">": ">",
-	"<": "<",
-	">=": ">=",
-	"<=": "<=",
-	in: "in list",
-	"not in": "not in list",
-	like: "contains",
-	"not like": "not contains",
-	contains: "contains",
-	not_contains: "not contains",
-	is_set: "is set",
-	is_not_set: "is not set",
-};
-
-// Available operators based on field type - backend-driven with static defaults
+// Operator availability and labels come from the server-owned condition contract.
 const operators = computed(() => {
 	const config = operatorConfig.value || {};
 	const ft = selectedField.value?.fieldtype || "Data";
-	const fieldOps = selectedField.value?.operators;
-
 	const backendOps = config.fieldtype_operators?.[ft] || config.fieldtype_operators?.["_default"];
-	const defaultOps = DEFAULT_OPERATORS[ft] || DEFAULT_OPERATORS._default;
-
-	const validOps =
-		Array.isArray(fieldOps) && fieldOps.length
-			? fieldOps
-			: Array.isArray(backendOps) && backendOps.length
-			? backendOps
-			: defaultOps;
-
-	const labels = { ...DEFAULT_LABELS, ...(config.operator_labels || {}) };
+	const validOps = Array.isArray(backendOps) ? backendOps : [];
+	const labels = config.operator_labels || {};
 
 	return validOps.map((op) => ({
 		value: op,

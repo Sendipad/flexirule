@@ -38,9 +38,14 @@ def get_context_value(context: dict, path: str | None) -> Any:
 	elif base == "row":
 		current = context.get("row")
 		parts = parts[1:]
+	elif base in context:
+		# Reuse the same helper for additional runtime scopes (old_doc, caller,
+		# rule, ctx) and collection aliases injected into the context.
+		current = context.get(base)
+		parts = parts[1:]
 	else:
-		# Fallback context lookup if no explicit scope is declared
-		# Prioritize 'doc' then 'vars'
+		# Fallback context lookup if no explicit scope is declared.
+		# Prioritize 'doc' then 'vars', as the established resolver does.
 		doc = context.get("doc")
 		vars_dict = context.get("vars", {})
 
