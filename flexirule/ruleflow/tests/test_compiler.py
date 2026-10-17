@@ -11,7 +11,6 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from flexirule.ruleflow.core.compiler import ConditionCompiler
-from flexirule.ruleflow.core.condition_schema import validate_condition_tree
 from flexirule.ruleflow.core.condition_operators import (
 	FIELD_TYPE_OPERATORS,
 	OPERATOR_LABELS,
@@ -19,6 +18,7 @@ from flexirule.ruleflow.core.condition_operators import (
 	UNSUPPORTED_OPERATOR_DIAGNOSTICS,
 	normalize_operator,
 )
+from flexirule.ruleflow.core.condition_schema import validate_condition_tree
 from flexirule.ruleflow.core.evaluator import ConditionEvaluator
 
 
