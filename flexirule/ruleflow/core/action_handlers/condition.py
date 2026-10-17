@@ -61,31 +61,35 @@ class ConditionHandler(ActionHandler):
 		}
 
 	def execute(self, action, context, engine):
-		"""Evaluate the saved tree first; use compiled Python only for legacy records."""
+		"""Evaluate the saved tree first; use compiled Python only for payload-less legacy records."""
 		payload = get_condition_payload(action)
 		compiled_expression = getattr(action, "compiled_expression", None)
+		raw_config = action.get("config") if hasattr(action, "get") else getattr(action, "config", None)
+		raw_legacy = (
+			action.get("condition_json")
+			if hasattr(action, "get")
+			else getattr(action, "condition_json", None)
+		)
+
+		# An invalid source payload must not fall through to a potentially stale
+		# compiled expression. The persisted tree is the canonical source of truth.
+		if payload is None and (raw_config not in (None, "") or raw_legacy not in (None, "")):
+			frappe.throw(
+				_(
+					"Action '{0}' has invalid condition configuration. Please correct the condition tree and save the Rule."
+				).format(getattr(action, "action_label", None) or getattr(action, "name", "")),
+				frappe.ValidationError,
+			)
 
 		if payload is not None:
 			from flexirule.ruleflow.core.evaluator import ConditionEvaluator
 
 			result = ConditionEvaluator(payload, strict=True).evaluate(context=context)
 		elif compiled_expression:
-			# Legacy fallback for records without a readable saved condition payload.
+			# Legacy fallback for records that have no source condition payload.
 			result = engine._evaluate_python_condition(compiled_expression, context)
 		else:
-			raw_config = action.get("config") if hasattr(action, "get") else getattr(action, "config", None)
-			raw_legacy = (
-				action.get("condition_json")
-				if hasattr(action, "get")
-				else getattr(action, "condition_json", None)
-			)
-			if raw_config not in (None, "") or raw_legacy not in (None, ""):
-				frappe.throw(
-					_(
-						"Action '{0}' has invalid condition configuration. Please correct the condition tree and save the Rule."
-					).format(getattr(action, "action_label", None) or getattr(action, "name", "")),
-					frappe.ValidationError,
-				)
+			# No condition configured is distinct from a configured but invalid tree.
 			result = True
 
 		next_id = action.next_step_if_true if result else action.next_step_if_false
