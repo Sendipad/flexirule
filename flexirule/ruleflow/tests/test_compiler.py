@@ -289,7 +289,7 @@ class TestConditionCompiler(FrappeTestCase):
 		}
 		self.assertEqual(
 			self.compiler.compile(condition),
-			"(doc.get('status') not in ['Closed', 'Cancelled'])",
+			"doc.get('status') not in ['Closed', 'Cancelled']",
 		)
 
 	def test_resolve_ref_simple_field(self):
