@@ -243,7 +243,22 @@ class ConditionEvaluator:
 				if op in {"in", "not in"} and isinstance(right[1], list | tuple):
 					is_link_tuple = True
 				if is_link_tuple:
-					return check_link_match(left, right, op)
+					metadata_available, link_field, expected_doctype, is_dynamic_link = (
+						self._get_link_field_metadata(condition.get("left"), context)
+					)
+					if link_field is not None:
+						return check_link_match(
+							left,
+							right,
+							op,
+							expected_doctype,
+							validate_doctype=True,
+							dynamic_link=is_dynamic_link,
+						)
+					if not metadata_available:
+						# Preserve older typed-link payloads whose LHS has no resolvable
+						# DocType metadata, while validating normal DocType fields above.
+						return check_link_match(left, right, op)
 
 			# regex is deliberately kept out of the canonical registry but remains
 			# available to legacy CollectionResolver callers pending migration.
@@ -342,6 +357,71 @@ class ConditionEvaluator:
 
 		return None
 
+	@staticmethod
+	def _object_value(target: Any, key: str | None) -> Any:
+		"""Read one value from a Frappe document or mapping without coercion."""
+		if target is None or not key:
+			return None
+		if isinstance(target, Mapping):
+			return target.get(key)
+		getter = getattr(target, "get", None)
+		if callable(getter):
+			return getter(key)
+		return getattr(target, key, None)
+
+	@classmethod
+	def _get_link_field_metadata(
+		cls, left_definition: Any, context: dict
+	) -> tuple[bool, Any, str | None, bool]:
+		"""Resolve whether a left-hand field is Link/Dynamic Link and its target DocType.
+
+		Returns (metadata_available, field, target_doctype, is_dynamic_link).
+		A Dynamic Link's target DocType comes from its configured reference field
+		on the same document/row; it is therefore evaluated per record.
+		"""
+		if not isinstance(left_definition, Mapping):
+			return False, None, None, False
+		reference = left_definition.get("ref")
+		if not isinstance(reference, str) or "." not in reference:
+			return False, None, None, False
+
+		scope, field_path = reference.split(".", 1)
+		source = context.get(scope)
+		doctype = cls._object_value(source, "doctype")
+		if not doctype or not field_path:
+			return False, None, None, False
+
+		meta = frappe.get_meta(doctype)
+		parts = field_path.split(".")
+		field = None
+		for index, fieldname in enumerate(parts):
+			field = meta.get_field(fieldname)
+			if field is None:
+				return True, None, None, False
+			if index == len(parts) - 1:
+				break
+
+			fieldtype = getattr(field, "fieldtype", None)
+			options = getattr(field, "options", None)
+			if fieldtype in {"Table", "Link"} and options:
+				meta = frappe.get_meta(options)
+			elif fieldtype == "Dynamic Link" and options:
+				nested_doctype = cls._object_value(source, options)
+				if not nested_doctype:
+					return True, None, None, False
+				meta = frappe.get_meta(nested_doctype)
+			else:
+				return True, None, None, False
+
+		fieldtype = getattr(field, "fieldtype", None)
+		if fieldtype == "Link":
+			return True, field, getattr(field, "options", None), False
+		if fieldtype == "Dynamic Link":
+			target_fieldname = getattr(field, "options", None)
+			target_doctype = cls._object_value(source, target_fieldname)
+			return True, field, target_doctype, True
+		return True, None, None, False
+
 	def _get_field_value(self, doc, fieldname: str) -> Any:
 		"""
 		Get field value from document, supports dot notation and aggregates
@@ -362,25 +442,46 @@ class ConditionEvaluator:
 		return FieldResolver.resolve(doc, fieldname)
 
 
-def check_link_match(lhs, rhs, op="=="):
+def check_link_match(
+	lhs,
+	rhs,
+	op="==",
+	expected_doctype: str | None = None,
+	*,
+	validate_doctype: bool = False,
+	dynamic_link: bool = False,
+):
 	"""
-	Helper to compare a Link/Dynamic Link field (lhs) with a Tuple value (rhs).
-	rhs format: ["DocType", Value] or ["DocType", [Values]]
+	Compare a Link/Dynamic Link value with a typed RHS.
 
-	Logic:
-	1. If LHS is None/Empty, handle based on Op.
-	2. Unpack RHS.
-	3. Perform standard comparison on values.
+	The typed operand is [target_doctype, value] (or [target_doctype, values]
+	for membership). Runtime tree evaluation passes field metadata so fixed Link
+	targets are validated. Dynamic Link target types are record data, so a different
+	target DocType is a normal non-match rather than a malformed condition. The
+	three-argument form remains for compiled legacy conditions without metadata.
 	"""
 	if not rhs or not isinstance(rhs, list | tuple) or len(rhs) < 2:
 		return False
 
-	# rhs format: [DocType, Value] - DocType is included for completeness but not validated here
-	target_value = rhs[1]
-
+	target_doctype, target_value = rhs[0], rhs[1]
 	canonical_op = normalize_operator(op)
 	if canonical_op not in {"==", "!=", "in", "not in"}:
 		return False
+
+	if validate_doctype:
+		if not isinstance(target_doctype, str) or not target_doctype.strip():
+			raise ValueError(_("Link comparison requires a target DocType."))
+		if dynamic_link and target_doctype != expected_doctype:
+			return canonical_op in {"!=", "not in"}
+		if not dynamic_link:
+			if not expected_doctype:
+				raise ValueError(_("Could not determine the target DocType for this Link field."))
+			if target_doctype != expected_doctype:
+				raise ValueError(
+					_("Link operand DocType '{0}' does not match the field target '{1}'.").format(
+						target_doctype, expected_doctype
+					)
+				)
 
 	return compare_values(lhs, canonical_op, target_value)
 
