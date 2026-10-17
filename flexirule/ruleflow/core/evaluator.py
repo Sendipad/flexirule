@@ -76,6 +76,8 @@ class ConditionEvaluator:
 		if row is not None or "row" not in eval_context:
 			eval_context["row"] = row
 		row = eval_context.get("row")
+		# Legacy condition trees use item.* as an alias for the supplied row.
+		eval_context.setdefault("item", row)
 		eval_context.setdefault("vars", {})
 
 		if not eval_context.get("old_doc") and doc is not None:
