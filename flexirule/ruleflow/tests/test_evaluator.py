@@ -254,6 +254,7 @@ class TestConditionEvaluator(FrappeTestCase):
 			side_effect=lambda doctype: source_meta if doctype == "ToDo" else child_meta,
 		):
 			self.assertTrue(ConditionEvaluator(condition, strict=True).evaluate(doc))
+
 	def test_strict_evaluator_uses_frappe_metadata_api_for_has_field(self):
 		condition = [
 			{
