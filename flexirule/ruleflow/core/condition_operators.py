@@ -181,11 +181,6 @@ _LENGTH_COMPARATORS = {
 	"length_lt": operator.lt,
 	"length_lte": operator.le,
 }
-_VALUE_COMPARISON_TOKENS = frozenset(
-	set(_VALUE_COMPARATORS) | {"contains", "not_contains"} | set(_LENGTH_COMPARATORS)
-)
-
-
 def _condition_is_empty(value: Any) -> bool:
 	"""Apply the established FlexiRule empty-value contract without generic truthiness."""
 	if value is None:
@@ -208,7 +203,7 @@ def _condition_length(value: Any) -> int:
 	try:
 		return len(value)
 	except Exception:
-	return 0
+		return 0
 
 
 def compare_values(left: Any, operator_token: str, right: Any = None) -> bool:
