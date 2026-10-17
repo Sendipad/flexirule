@@ -94,6 +94,13 @@ class ConditionEvaluator:
 
 			try:
 				tree = validate_condition_tree(self.conditions)
+				from flexirule.ruleflow.core.condition_metadata import validate_condition_metadata
+
+				validate_condition_metadata(
+					tree,
+					doctype=self._object_value(doc, "doctype"),
+					context=eval_context,
+				)
 			except ValueError as exc:
 				frappe.throw(
 					_("Invalid condition configuration: {0}").format(str(exc)),

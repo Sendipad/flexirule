@@ -61,15 +61,37 @@ class TestConditionEvaluator(FrappeTestCase):
 		self.assertTrue(ConditionEvaluator(conditions_json).evaluate(self.test_doc))
 
 	def test_document_reference_uses_field_resolver_for_nested_paths(self):
-		from unittest.mock import patch
+		from unittest.mock import MagicMock, patch
 
 		condition = [{"left": {"ref": "doc.linked_doc.status"}, "op": "==", "right": {"value": "Open"}}]
-		with patch(
-			"flexirule.ruleflow.utils.field_resolver.FieldResolver.resolve",
-			return_value="Open",
-		) as resolve:
+		source_meta = MagicMock()
+		source_meta.name = "ToDo"
+		source_meta.istable = False
+		source_meta.get_field.return_value = frappe._dict({"fieldtype": "Link", "options": "Customer"})
+		target_meta = MagicMock()
+		target_meta.name = "Customer"
+		target_meta.istable = False
+		target_meta.get_field.return_value = frappe._dict({"fieldtype": "Data"})
+		with (
+			patch("frappe.get_meta", side_effect=lambda name: source_meta if name == "ToDo" else target_meta),
+			patch(
+				"flexirule.ruleflow.utils.field_resolver.FieldResolver.resolve",
+				return_value="Open",
+			) as resolve,
+		):
 			self.assertTrue(ConditionEvaluator(condition, strict=True).evaluate(self.test_doc))
 		resolve.assert_called_once_with(self.test_doc, "linked_doc.status")
+
+	def test_strict_evaluator_rejects_unknown_doc_field(self):
+		condition = [
+			{
+				"left": {"ref": "doc.no_such_condition_field"},
+				"op": "==",
+				"right": {"value": None},
+			}
+		]
+		with self.assertRaises(frappe.ValidationError):
+			ConditionEvaluator(condition, strict=True).evaluate(self.test_doc)
 
 	def test_strict_evaluator_resolves_ctx_scope_from_runtime_context(self):
 		condition = [

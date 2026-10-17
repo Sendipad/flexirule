@@ -42,7 +42,7 @@ class ConditionCompiler:
 	OPERATOR_LABELS: ClassVar[dict[str, str]] = dict(CONDITION_OPERATOR_LABELS)
 	FIELDTYPE_OPERATORS: ClassVar[dict[str, list[str]]] = FIELD_TYPE_OPERATORS
 
-	def compile(self, conditions) -> str:
+	def compile(self, conditions, *, doctype: str | None = None) -> str:
 		"""Validate a declarative condition tree before compiling it.
 
 		Missing configuration is handled explicitly by callers; the empty return
@@ -73,6 +73,10 @@ class ConditionCompiler:
 
 		allowed_scopes = {"doc", "old_doc", "row", "vars", "item", "loop", "caller", "rule", "doctype", "ctx"}
 		conditions = validate_condition_tree(conditions, scopes=allowed_scopes)
+		if doctype:
+			from flexirule.ruleflow.core.condition_metadata import validate_condition_metadata
+
+			validate_condition_metadata(conditions, doctype=doctype)
 		compiled = self._compile_node(conditions, scopes=allowed_scopes)
 		if not compiled:
 			raise ValueError("Condition tree did not produce a valid expression")

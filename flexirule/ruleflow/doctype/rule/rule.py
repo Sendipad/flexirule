@@ -1294,7 +1294,7 @@ class Rule(Document):
 		# Compile Trigger
 		if self.trigger_condition:
 			try:
-				compiled_expression = compiler.compile(self.trigger_condition)
+				compiled_expression = compiler.compile(self.trigger_condition, doctype=self.document_type)
 				self.compiled_expression = compiled_expression
 				is_valid, error = compiler.validate(compiled_expression)
 				if not is_valid:
@@ -1326,7 +1326,7 @@ class Rule(Document):
 				continue
 
 			try:
-				action.compiled_expression = compiler.compile(condition_payload)
+				action.compiled_expression = compiler.compile(condition_payload, doctype=self.document_type)
 
 				# Persist canonical payload in config for deprecated-condition_json migration.
 				parsed_payload = parse_condition_payload(condition_payload)
