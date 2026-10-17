@@ -260,6 +260,8 @@ class ConditionEvaluator:
 				)
 			frappe.log_error(_("Unknown operator: {0}").format(op), _("ConditionEvaluator"))
 			return False
+		except frappe.ValidationError:
+			raise
 		except Exception as exc:
 			condition_repr = json.dumps(condition, default=str)[:500]
 			message = "\\n".join(
@@ -297,6 +299,14 @@ class ConditionEvaluator:
 				if self.strict:
 					frappe.throw(_("Condition reference must be a non-empty path."), frappe.ValidationError)
 				return None
+			parts = ref_path.split(".", 1)
+			scope = parts[0]
+			if len(parts) == 2:
+				field_path = parts[1]
+				if scope in {"doc", "old_doc", "row", "item", "loop"}:
+					return self._get_field_value(context.get(scope), field_path)
+				if scope in context and scope not in {"vars", "caller", "rule", "ctx", "doctype"}:
+					return self._get_field_value(context.get(scope), field_path)
 			return get_context_value(context, ref_path)
 
 		if "value" in value_def:

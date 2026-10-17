@@ -60,6 +60,19 @@ class TestConditionEvaluator(FrappeTestCase):
 		)
 		self.assertTrue(ConditionEvaluator(conditions_json).evaluate(self.test_doc))
 
+	def test_document_reference_uses_field_resolver_for_nested_paths(self):
+		from unittest.mock import patch
+
+		condition = [
+			{"left": {"ref": "doc.linked_doc.status"}, "op": "==", "right": {"value": "Open"}}
+		]
+		with patch(
+			"flexirule.ruleflow.utils.field_resolver.FieldResolver.resolve",
+			return_value="Open",
+		) as resolve:
+			self.assertTrue(ConditionEvaluator(condition, strict=True).evaluate(self.test_doc))
+		resolve.assert_called_once_with(self.test_doc, "linked_doc.status")
+
 	def test_strict_evaluator_resolves_flexvalue_variable_from_context(self):
 		condition = [
 			{
