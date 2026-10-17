@@ -129,70 +129,74 @@ class ConditionCompiler:
 	}
 
 	def compile(self, conditions) -> str:
-		if not conditions:
+		"""Validate a declarative condition tree before compiling it.
+
+		Missing configuration returns an empty artifact. A malformed configured
+		condition raises ValueError and must never be converted into a passing
+		True expression.
+		"""
+		if conditions is None or (isinstance(conditions, str) and not conditions.strip()):
 			return ""
 
 		if isinstance(conditions, str):
 			try:
 				conditions = json.loads(conditions)
-				# Handle double-encoded JSON (e.g. '"{\\"op\\": ...}"')
+				# Handle double-encoded JSON payloads.
 				if isinstance(conditions, str):
-					try:
-						conditions = json.loads(conditions)
-					except Exception:
-						pass
-			except Exception as e:
-				raise ValueError(f"Invalid JSON format: {e!s}")
+					conditions = json.loads(conditions)
+			except Exception as exc:
+				raise ValueError(f"Invalid JSON format: {exc!s}") from exc
 
-		# Wrap list in AND group (legacy/root support)
+		# A serialized empty root list is an omitted condition. An empty object
+		# or an empty nested group is malformed and must be rejected.
+		if isinstance(conditions, list) and not conditions:
+			return ""
+
 		if isinstance(conditions, list):
 			conditions = {"op": "and", "conditions": conditions}
 
 		if not isinstance(conditions, dict):
 			raise ValueError("Condition must be a dictionary or list")
 
-		compiled = self._compile_node(
-			conditions, scopes={"doc", "old_doc", "row", "vars", "item", "caller", "rule", "doctype"}
-		)
-		return compiled if compiled else "True"
+		from flexirule.ruleflow.core.condition_schema import validate_condition_tree
+
+		allowed_scopes = {"doc", "old_doc", "row", "vars", "item", "caller", "rule", "doctype"}
+		conditions = validate_condition_tree(conditions, scopes=allowed_scopes)
+		compiled = self._compile_node(conditions, scopes=allowed_scopes)
+		if not compiled:
+			raise ValueError("Condition tree did not produce a valid expression")
+		return compiled
 
 	def _compile_node(self, node, scopes=None):
 		if not isinstance(node, dict):
-			return ""
+			raise ValueError("Condition node must be an object")
 
 		if scopes is None:
 			scopes = {"doc", "old_doc", "row", "vars", "item", "caller", "rule", "doctype"}
 
-		# 1. Detect Type
-		# Collection
 		if "collection" in node and "where" in node:
 			return self._compile_collection(node, scopes)
-
-		# Group (has 'conditions' list)
 		if "conditions" in node and isinstance(node["conditions"], list):
 			return self._compile_group(node, scopes)
-
-		# Condition (has 'left')
 		if "left" in node:
 			return self._compile_condition(node, scopes)
 
-		# Fallback/Empty
-		return ""
+		raise ValueError("Unknown condition node shape")
 
 	def _compile_group(self, node, scopes):
 		subs = node.get("conditions", [])
 		if not subs:
-			return ""
+			raise ValueError("Condition groups must contain at least one child")
 
 		default_op = node.get("op", node.get("logical_operator", "and")).lower()
 		if default_op not in ["and", "or"]:
-			default_op = "and"
+			raise ValueError(f"Invalid condition group operator: {default_op!r}")
 
 		result_parts: list[str] = []
 		for i, sub in enumerate(subs):
 			compiled_sub = self._compile_node(sub, scopes)
 			if not compiled_sub:
-				continue
+				raise ValueError(f"Condition group child {i} did not compile")
 
 			if not result_parts:
 				# First node, just add it
@@ -211,7 +215,7 @@ class ConditionCompiler:
 				result_parts.extend([" ", op, " ", compiled_sub])
 
 		if not result_parts:
-			return ""
+			raise ValueError("Condition groups must contain at least one valid child")
 
 		return f"({''.join(result_parts)})"
 
@@ -237,21 +241,12 @@ class ConditionCompiler:
 			rhs_code = self._compile_operand(right, scopes)
 			return f"has_field({lhs_code}, {rhs_code})"
 		if op == "has_changed":
-			# DEPRECATED: has_changed in conditions is architecturally incorrect.
-			# Change detection should use the 'On Field Change' Process instead.
-			# This operator is kept for backward compatibility but always returns True.
-			# Existing rules using this should be migrated.
-			import warnings
-
-			warnings.warn(
-				"has_changed condition operator is deprecated. Use 'On Field Change' Process instead.",
-				DeprecationWarning,
-				stacklevel=2,
-			)
-			return "True"  # Always pass - migration required
+			raise ValueError("has_changed is deprecated; use an On Field Change Process instead")
 
 		rhs_code = self._compile_operand(right, scopes)
-		py_op = self.OPERATOR_MAP.get(op, "==")
+		if op not in self.OPERATOR_MAP:
+			raise ValueError(f"Unsupported condition operator: {op!r}")
+		py_op = self.OPERATOR_MAP[op]
 		right_value = right.get("value") if isinstance(right, dict) else None
 
 		# Link/Dynamic Link Tuple Handling
@@ -296,7 +291,9 @@ class ConditionCompiler:
 		alias = node.get("alias", "row")
 		where = node.get("where")
 
-		# Validate collection reference is not empty
+		# The schema validator also checks the reference and alias before this method.
+		if op not in {"any", "all", "none"}:
+			raise ValueError(f"Unsupported collection operation: {op!r}")
 		if not collection_ref or not collection_ref.strip():
 			raise ValueError("Collection condition requires a valid collection reference (e.g., 'doc.items')")
 
@@ -312,7 +309,9 @@ class ConditionCompiler:
 		new_scopes = scopes.copy()
 		new_scopes.add(alias)
 
-		condition_code = self._compile_node(where, new_scopes) or "True"
+		condition_code = self._compile_node(where, new_scopes)
+		if not condition_code:
+			raise ValueError("Collection condition requires a valid 'where' tree")
 
 		func = "any"
 		prefix = ""
@@ -367,7 +366,7 @@ class ConditionCompiler:
 	def _compile_operand(self, operand, scopes):
 		# { "ref": "doc.status" } or { "value": "x" }
 		if not isinstance(operand, dict):
-			return "''"
+			raise ValueError("Condition operand must be an object")
 
 		if "ref" in operand:
 			return self._resolve_ref(operand["ref"], scopes)
@@ -375,7 +374,7 @@ class ConditionCompiler:
 		if "value" in operand:
 			return self._compile_operand_value(operand["value"], scopes)
 
-		return "''"
+		raise ValueError("Condition operand must contain 'ref' or 'value'")
 
 	def _compile_operand_value(self, value, scopes):
 		"""Compile a literal/structured operand payload into Python code."""
@@ -483,14 +482,16 @@ class ConditionCompiler:
 		Simple paths (doc.field) -> direct attribute access: doc.get('field')
 		Nested paths (doc.child.field) -> resolve() function for child table traversal
 		"""
-		if not path:
-			return "''"
+		if not isinstance(path, str) or not path.strip():
+			raise ValueError("Reference path must be a non-empty string")
 
 		parts = path.split(".")
+		if any(not part.isidentifier() or part.startswith("__") for part in parts):
+			raise ValueError(f"Invalid reference path: {path!r}")
 		scope = parts[0]  # doc, old_doc, row, vars, item or collection alias
 
 		if scope not in scopes:
-			return "''"
+			raise ValueError(f"Unknown reference scope: {scope!r}")
 
 		if len(parts) == 1:
 			# Just the scope itself (rare but valid)

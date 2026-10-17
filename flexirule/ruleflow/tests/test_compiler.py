@@ -240,6 +240,58 @@ class TestConditionCompiler(FrappeTestCase):
 		self.assertFalse(is_valid)
 		self.assertIsNotNone(error)
 
+	def test_compile_rejects_unknown_operator_instead_of_defaulting_to_equality(self):
+		condition = {
+			"left": {"ref": "doc.status"},
+			"op": "mystery_operator",
+			"right": {"value": "Open"},
+		}
+		with self.assertRaisesRegex(ValueError, "unknown or unsupported"):
+			self.compiler.compile(condition)
+
+	def test_compile_rejects_empty_nested_group(self):
+		with self.assertRaisesRegex(ValueError, "groups must contain at least one child"):
+			self.compiler.compile({"op": "and", "conditions": []})
+
+	def test_compile_rejects_empty_object_as_a_condition(self):
+		with self.assertRaisesRegex(ValueError, "exactly one node shape"):
+			self.compiler.compile({})
+
+	def test_compile_rejects_unsafe_reference_path(self):
+		condition = {
+			"left": {"ref": "doc.status') or True or ('x"},
+			"op": "==",
+			"right": {"value": "Open"},
+		}
+		with self.assertRaisesRegex(ValueError, "invalid reference path"):
+			self.compiler.compile(condition)
+
+	def test_compile_rejects_invalid_collection_operation(self):
+		condition = {
+			"op": "sometimes",
+			"collection": "doc.items",
+			"alias": "item",
+			"where": {"left": {"ref": "item.qty"}, "op": ">", "right": {"value": 0}},
+		}
+		with self.assertRaisesRegex(ValueError, "unsupported collection operation"):
+			self.compiler.compile(condition)
+
+	def test_compile_rejects_deprecated_fail_open_has_changed(self):
+		condition = {"left": {"ref": "doc.status"}, "op": "has_changed"}
+		with self.assertRaisesRegex(ValueError, "has_changed is deprecated"):
+			self.compiler.compile(condition)
+
+	def test_compile_normalizes_not_in_alias_explicitly(self):
+		condition = {
+			"left": {"ref": "doc.status"},
+			"op": "not_in",
+			"right": {"value": ["Closed", "Cancelled"]},
+		}
+		self.assertEqual(
+			self.compiler.compile(condition),
+			"(doc.get('status') not in ['Closed', 'Cancelled'])",
+		)
+
 	def test_resolve_ref_simple_field(self):
 		"""Test resolving simple field references"""
 		result = self.compiler._resolve_ref("doc.status", {"doc", "old_doc", "vars"})
