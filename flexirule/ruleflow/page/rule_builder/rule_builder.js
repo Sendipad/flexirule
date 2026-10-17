@@ -22,14 +22,19 @@ function load_rule_builder(wrapper) {
 	$parent.empty();
 
 	if (route.length > 1) {
-		// Load the RuleBuilder bundle on demand
-		frappe.require("rule_builder.bundle.js", () => {
+		const init_builder = () => {
 			frappe.rule_builder = new frappe.ui.RuleBuilder({
 				wrapper: $parent,
 				page: wrapper.page,
 				rule: route[1],
 			});
-		});
+		};
+
+		if (frappe.ui.RuleBuilder) {
+			init_builder();
+		} else {
+			frappe.require("flexirule.bundle.js", init_builder);
+		}
 	} else {
 		// No rule specified - show dialog to select
 		let d = new frappe.ui.Dialog({
