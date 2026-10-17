@@ -580,9 +580,9 @@ class RuleCoordinator:
 		# Legacy compiled-only records still use the existing Frappe safe_eval path.
 		elif rule_doc.get("compiled_expression"):
 			try:
+				from flexirule.ruleflow.core.engine import SafeFrappeAPI
 				from flexirule.ruleflow.core.evaluator import check_link_match
 				from flexirule.ruleflow.utils.field_resolver import FieldResolver
-				from flexirule.ruleflow.core.engine import SafeFrappeAPI
 
 				sim_user = (context or {}).get("sim_user")
 				sim_role = (context or {}).get("sim_role")

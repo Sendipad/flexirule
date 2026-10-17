@@ -100,7 +100,9 @@ class ConditionHandler(ActionHandler):
 			if hasattr(action, "get")
 			else getattr(action, "condition_json", None)
 		)
-		if (raw_config not in (None, "") or raw_legacy not in (None, "")) and get_condition_payload(action) is None:
+		if (raw_config not in (None, "") or raw_legacy not in (None, "")) and get_condition_payload(
+			action
+		) is None:
 			errors.append(
 				_("Condition '{0}' has invalid condition configuration.").format(
 					getattr(action, "action_label", None) or getattr(action, "name", "")

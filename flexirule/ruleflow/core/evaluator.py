@@ -146,7 +146,11 @@ class ConditionEvaluator:
 			else:
 				result = result or group_result
 
-			raw_next = condition.get("logical_operator", default_op) if isinstance(condition, Mapping) else default_op
+			raw_next = (
+				condition.get("logical_operator", default_op)
+				if isinstance(condition, Mapping)
+				else default_op
+			)
 			next_operator = str(raw_next or default_op).upper()
 			if next_operator not in {"AND", "OR"}:
 				if self.strict:
@@ -187,6 +191,7 @@ class ConditionEvaluator:
 			return False
 
 		alias = node.get("alias", "row")
+
 		def row_matches(candidate) -> bool:
 			row_context = dict(context)
 			row_context["row"] = candidate
@@ -308,9 +313,9 @@ class ConditionEvaluator:
 				if value_type == "method":
 					frappe.log_error(
 						title=_("FlexiRule Deprecation Warning"),
-						message=_("The 'method' value type is no longer supported in conditions. Value: {0}").format(
-							str(value)
-						),
+						message=_(
+							"The 'method' value type is no longer supported in conditions. Value: {0}"
+						).format(str(value)),
 					)
 					return None
 
