@@ -11,6 +11,7 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from flexirule.ruleflow.core.compiler import ConditionCompiler
+from flexirule.ruleflow.core.condition_schema import validate_condition_tree
 from flexirule.ruleflow.core.condition_operators import (
 	FIELD_TYPE_OPERATORS,
 	OPERATOR_LABELS,
@@ -38,6 +39,26 @@ class TestConditionCompiler(FrappeTestCase):
 		self.assertNotIn("like", SUPPORTED_OPERATOR_TOKENS)
 		self.assertIn("like", UNSUPPORTED_OPERATOR_DIAGNOSTICS)
 		self.assertEqual(self.compiler.OPERATOR_LABELS, OPERATOR_LABELS)
+
+	def test_schema_matches_existing_flexvalue_context_and_expression_tokens(self):
+		condition = {
+			"left": {"ref": "ctx.current_value"},
+			"op": "==",
+			"right": {
+				"value": {
+					"mode": "expression",
+					"value": [
+						{"type": "text", "value": "Current: "},
+						{"type": "jsonToken", "attrs": {"value": "{{ doc.status }}"}},
+					{"type": "variableToken", "attrs": {"path": "vars.status"}},
+					{"type": "resolverToken", "attrs": {"expression": "doc.grand_total"}},
+				],
+				}
+			},
+		}
+		normalized = validate_condition_tree(condition)
+		self.assertEqual(normalized["left"]["ref"], "ctx.current_value")
+		self.assertEqual(normalized["right"]["value"]["value"][1]["type"], "jsonToken")
 
 	def test_compile_simple_condition(self):
 		"""Test compiling a simple condition"""

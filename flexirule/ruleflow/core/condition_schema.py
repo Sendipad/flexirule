@@ -37,7 +37,7 @@ from flexirule.ruleflow.core.condition_operators import (
 	normalize_operator,
 )
 
-_BASE_SCOPES = frozenset({"doc", "old_doc", "row", "vars", "item", "caller", "rule", "doctype"})
+_BASE_SCOPES = frozenset({"doc", "old_doc", "row", "vars", "item", "caller", "rule", "doctype", "ctx"})
 _IDENTIFIER = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
 
 # The editor adds descriptive metadata to tree nodes. These fields are never
@@ -262,6 +262,7 @@ def _validate_value_payload(value: Any, scopes: set[str], path: str) -> None:
 				"formulaToken",
 				"normalizeToken",
 				"formatToken",
+				"jsonToken",
 			}:
 				raise ValueError(f"{segment_path}.type: unsupported expression segment {segment_type!r}")
 
@@ -285,7 +286,7 @@ def _validate_alias(alias: Any, path: str) -> None:
 		raise ValueError(f"{path}: alias must be a safe identifier")
 	if keyword.iskeyword(alias) or alias in _HELPER_NAMES:
 		raise ValueError(f"{path}: alias {alias!r} is reserved")
-	if alias in {"doc", "old_doc", "vars", "caller", "rule", "doctype", "frappe"}:
+	if alias in {"doc", "old_doc", "vars", "caller", "rule", "doctype", "ctx", "frappe"}:
 		raise ValueError(f"{path}: alias {alias!r} would shadow a reserved condition scope")
 
 
