@@ -616,6 +616,7 @@ class RuleCoordinator:
 					"doc": doc,
 					"old_doc": old_doc,
 					"vars": {},
+					"ctx": (context or {}).get("ctx", {}),
 					"frappe": safe_frappe,
 					"caller": frappe._dict({}),
 					"rule": frappe._dict(rule_meta),

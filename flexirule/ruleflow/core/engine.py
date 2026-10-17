@@ -823,6 +823,7 @@ class RuleEngine:
 			"doc": doc,
 			"old_doc": old_doc,
 			"vars": context.get("vars", {}),
+			"ctx": context.get("ctx", {}),
 			"item": context.get("item"),
 			"loop": context.get("loop"),
 			"frappe": context.get("frappe", _safe_frappe),

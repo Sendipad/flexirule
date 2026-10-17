@@ -60,6 +60,11 @@ class TestConditionCompiler(FrappeTestCase):
 		self.assertEqual(normalized["left"]["ref"], "ctx.current_value")
 		self.assertEqual(normalized["right"]["value"]["value"][1]["type"], "jsonToken")
 
+		compiled = self.compiler.compile(
+			[{"left": {"ref": "ctx.current_value"}, "op": "==", "right": {"value": "Open"}}]
+		)
+		self.assertEqual(compiled, "(ctx.get('current_value') == 'Open')")
+
 	def test_compile_simple_condition(self):
 		"""Test compiling a simple condition"""
 		condition = {"left": {"ref": "doc.status"}, "op": "==", "right": {"value": "Open"}}

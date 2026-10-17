@@ -71,6 +71,21 @@ class TestConditionEvaluator(FrappeTestCase):
 			self.assertTrue(ConditionEvaluator(condition, strict=True).evaluate(self.test_doc))
 		resolve.assert_called_once_with(self.test_doc, "linked_doc.status")
 
+	def test_strict_evaluator_resolves_ctx_scope_from_runtime_context(self):
+		condition = [
+			{
+				"left": {"ref": "ctx.current_value"},
+				"op": "==",
+				"right": {"value": "Open"},
+			}
+		]
+		self.assertTrue(
+			ConditionEvaluator(condition, strict=True).evaluate(
+				self.test_doc,
+				context={"ctx": {"current_value": "Open"}},
+			)
+		)
+
 	def test_strict_evaluator_resolves_flexvalue_variable_from_context(self):
 		condition = [
 			{

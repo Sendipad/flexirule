@@ -71,7 +71,7 @@ class ConditionCompiler:
 
 		from flexirule.ruleflow.core.condition_schema import validate_condition_tree
 
-		allowed_scopes = {"doc", "old_doc", "row", "vars", "item", "caller", "rule", "doctype"}
+		allowed_scopes = {"doc", "old_doc", "row", "vars", "item", "caller", "rule", "doctype", "ctx"}
 		conditions = validate_condition_tree(conditions, scopes=allowed_scopes)
 		compiled = self._compile_node(conditions, scopes=allowed_scopes)
 		if not compiled:
@@ -83,7 +83,7 @@ class ConditionCompiler:
 			raise ValueError("Condition node must be an object")
 
 		if scopes is None:
-			scopes = {"doc", "old_doc", "row", "vars", "item", "caller", "rule", "doctype"}
+			scopes = {"doc", "old_doc", "row", "vars", "item", "caller", "rule", "doctype", "ctx"}
 
 		if "collection" in node and "where" in node:
 			return self._compile_collection(node, scopes)
