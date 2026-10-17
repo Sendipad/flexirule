@@ -37,30 +37,34 @@ class TestV1Compliance(FrappeTestCase):
 		self.assertFalse(is_eligible)
 		self.assertIn("Event mismatch", reason)
 
-		# Test Trigger Condition requires pre-compilation
-		# Now if trigger_condition exists without compiled_expression, it's an error
+		# A valid saved tree is the canonical condition source; compilation is optional.
 		rule.trigger_condition = json.dumps(
 			[
 				{
-					"left": {"type": "field", "value": "status"},
-					"operator": "==",
-					"right": "Open",
+					"left": {"ref": "doc.status"},
+					"op": "==",
+					"right": {"value": "Open"},
 				}
 			]
 		)
-		rule.compiled_expression = None  # No compiled version
+		rule.compiled_expression = None
 
 		doc = frappe.new_doc("ToDo")
 		doc.status = "Closed"
 		is_eligible, reason = RuleCoordinator.check_eligibility(rule, doc, "Before Save")
 		self.assertFalse(is_eligible)
-		# New behavior: Returns error about missing compiled filters
-		self.assertIn("compiled_expression", reason)
+		self.assertIn("Trigger Conditions failed", reason)
 
-		# Test with properly compiled compiled_expression
-		rule.compiled_expression = "resolve(doc, 'status') == 'Open'"
+		doc.status = "Open"
 		is_eligible, reason = RuleCoordinator.check_eligibility(rule, doc, "Before Save")
-		self.assertFalse(is_eligible)  # status is Closed, filter fails
+		self.assertTrue(is_eligible)
+
+		# Compiled-only legacy rules continue to use the existing safe_eval path.
+		rule.trigger_condition = None
+		rule.compiled_expression = "resolve(doc, 'status') == 'Open'"
+		doc.status = "Closed"
+		is_eligible, reason = RuleCoordinator.check_eligibility(rule, doc, "Before Save")
+		self.assertFalse(is_eligible)
 
 		doc.status = "Open"
 		is_eligible, reason = RuleCoordinator.check_eligibility(rule, doc, "Before Save")
