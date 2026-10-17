@@ -13,7 +13,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from types import MappingProxyType
 
-
 CONDITION_SEMANTICS_VERSION = 1
 
 
@@ -82,12 +81,8 @@ _DEFINITIONS = (
 )
 
 CONDITION_OPERATOR_DEFINITIONS = MappingProxyType({item.token: item for item in _DEFINITIONS})
-OPERATOR_ALIASES = MappingProxyType(
-	{alias: item.token for item in _DEFINITIONS for alias in item.aliases}
-)
-SUPPORTED_OPERATOR_TOKENS = frozenset(
-	item.token for item in _DEFINITIONS if item.status == "supported"
-)
+OPERATOR_ALIASES = MappingProxyType({alias: item.token for item in _DEFINITIONS for alias in item.aliases})
+SUPPORTED_OPERATOR_TOKENS = frozenset(item.token for item in _DEFINITIONS if item.status == "supported")
 BINARY_OPERATOR_TOKENS = frozenset(
 	item.token for item in _DEFINITIONS if item.status == "supported" and item.arity == 2
 )
@@ -95,11 +90,7 @@ UNARY_OPERATOR_TOKENS = frozenset(
 	item.token for item in _DEFINITIONS if item.status == "supported" and item.arity == 1
 )
 UNSUPPORTED_OPERATOR_DIAGNOSTICS = MappingProxyType(
-	{
-		item.token: item.diagnostic or "is not supported"
-		for item in _DEFINITIONS
-		if item.status != "supported"
-	}
+	{item.token: item.diagnostic or "is not supported" for item in _DEFINITIONS if item.status != "supported"}
 )
 GROUP_OPERATOR_TOKENS = frozenset({"and", "or"})
 COLLECTION_OPERATION_TOKENS = frozenset({"any", "all", "none"})

@@ -6,6 +6,8 @@ from frappe import _
 
 from flexirule.ruleflow.core.condition_operators import (
 	FIELD_TYPE_OPERATORS,
+)
+from flexirule.ruleflow.core.condition_operators import (
 	OPERATOR_LABELS as CONDITION_OPERATOR_LABELS,
 )
 

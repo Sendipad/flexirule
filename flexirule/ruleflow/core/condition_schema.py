@@ -17,14 +17,25 @@ from typing import Any
 
 from flexirule.ruleflow.core.condition_operators import (
 	BINARY_OPERATOR_TOKENS as _BINARY_OPERATORS,
+)
+from flexirule.ruleflow.core.condition_operators import (
 	COLLECTION_OPERATION_TOKENS as _COLLECTION_OPERATORS,
+)
+from flexirule.ruleflow.core.condition_operators import (
 	GROUP_OPERATOR_TOKENS as _GROUP_OPERATORS,
+)
+from flexirule.ruleflow.core.condition_operators import (
 	SUPPORTED_OPERATOR_TOKENS as _SUPPORTED_OPERATORS,
+)
+from flexirule.ruleflow.core.condition_operators import (
 	UNARY_OPERATOR_TOKENS as _UNARY_OPERATORS,
+)
+from flexirule.ruleflow.core.condition_operators import (
 	UNSUPPORTED_OPERATOR_DIAGNOSTICS as _UNSUPPORTED_OPERATORS,
+)
+from flexirule.ruleflow.core.condition_operators import (
 	normalize_operator,
 )
-
 
 _BASE_SCOPES = frozenset({"doc", "old_doc", "row", "vars", "item", "caller", "rule", "doctype"})
 _IDENTIFIER = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
