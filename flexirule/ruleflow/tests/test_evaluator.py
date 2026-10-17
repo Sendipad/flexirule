@@ -63,9 +63,7 @@ class TestConditionEvaluator(FrappeTestCase):
 	def test_document_reference_uses_field_resolver_for_nested_paths(self):
 		from unittest.mock import patch
 
-		condition = [
-			{"left": {"ref": "doc.linked_doc.status"}, "op": "==", "right": {"value": "Open"}}
-		]
+		condition = [{"left": {"ref": "doc.linked_doc.status"}, "op": "==", "right": {"value": "Open"}}]
 		with patch(
 			"flexirule.ruleflow.utils.field_resolver.FieldResolver.resolve",
 			return_value="Open",
