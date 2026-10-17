@@ -95,12 +95,16 @@ UNARY_OPERATOR_TOKENS = frozenset(
 	item.token for item in _DEFINITIONS if item.status == "supported" and item.arity == 1
 )
 UNSUPPORTED_OPERATOR_DIAGNOSTICS = MappingProxyType(
-	{item.token: item.diagnostic or "is not supported" for item in _DEFINITIONS if item.status != "supported"}
+	{
+		item.token: item.diagnostic or "is not supported"
+		for item in _DEFINITIONS
+		if item.status != "supported"
+	}
 )
 GROUP_OPERATOR_TOKENS = frozenset({"and", "or"})
 COLLECTION_OPERATION_TOKENS = frozenset({"any", "all", "none"})
-OPERATOR_LABELS = {
-	item.token: item.label for item in _DEFINITIONS if item.label is not None
+OPERATOR_LABELS: dict[str, str] = {
+	item.token: str(item.label) for item in _DEFINITIONS if item.label is not None
 }
 
 # Canonical UI options by Frappe fieldtype. Deprecated SQL-like tokens are
@@ -133,8 +137,28 @@ FIELD_TYPE_OPERATORS: dict[str, list[str]] = {
 	"Color": ["==", "!=", "is_set", "is_not_set"],
 	"Geolocation": ["is_set", "is_not_set"],
 	"JSON": ["is_set", "is_not_set"],
-	"Table": ["is_set", "is_not_set", "is_empty", "is_not_empty", "length_eq", "length_gt", "length_gte", "length_lt", "length_lte"],
-	"Table MultiSelect": ["is_set", "is_not_set", "is_empty", "is_not_empty", "length_eq", "length_gt", "length_gte", "length_lt", "length_lte"],
+	"Table": [
+		"is_set",
+		"is_not_set",
+		"is_empty",
+		"is_not_empty",
+		"length_eq",
+		"length_gt",
+		"length_gte",
+		"length_lt",
+		"length_lte",
+	],
+	"Table MultiSelect": [
+		"is_set",
+		"is_not_set",
+		"is_empty",
+		"is_not_empty",
+		"length_eq",
+		"length_gt",
+		"length_gte",
+		"length_lt",
+		"length_lte",
+	],
 	"_default": ["==", "!=", "is_set", "is_not_set", "is_empty", "is_not_empty"],
 }
 

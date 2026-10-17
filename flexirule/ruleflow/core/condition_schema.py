@@ -29,7 +29,7 @@ from flexirule.ruleflow.core.condition_operators import (
 _BASE_SCOPES = frozenset({"doc", "old_doc", "row", "vars", "item", "caller", "rule", "doctype"})
 _IDENTIFIER = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
 
-0# The editor adds descriptive metadata to tree nodes. These fields are never
+# The editor adds descriptive metadata to tree nodes. These fields are never
 # interpreted by the runtime and may be retained while the condition is edited.
 _NODE_METADATA_KEYS = frozenset(
 	{
