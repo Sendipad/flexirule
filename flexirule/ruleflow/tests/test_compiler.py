@@ -97,6 +97,7 @@ class TestConditionCompiler(FrappeTestCase):
 		}
 		with self.assertRaisesRegex(ValueError, "would shadow a reserved condition scope"):
 			validate_condition_tree(condition)
+
 	def test_schema_drops_unused_rhs_for_unary_operator(self):
 		condition = [
 			{
