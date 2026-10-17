@@ -50,9 +50,9 @@ class TestConditionCompiler(FrappeTestCase):
 					"value": [
 						{"type": "text", "value": "Current: "},
 						{"type": "jsonToken", "attrs": {"value": "{{ doc.status }}"}},
-					{"type": "variableToken", "attrs": {"path": "vars.status"}},
-					{"type": "resolverToken", "attrs": {"expression": "doc.grand_total"}},
-				],
+						{"type": "variableToken", "attrs": {"path": "vars.status"}},
+						{"type": "resolverToken", "attrs": {"expression": "doc.grand_total"}},
+					],
 				}
 			},
 		}
