@@ -61,9 +61,7 @@ def _walk_node(node: Any, scope_doctypes: dict[str, str]) -> None:
 	if "collection" in node and "where" in node:
 		nested_scopes = dict(scope_doctypes)
 		alias = node.get("alias", "row")
-		child_doctype = _resolve_collection_doctype(
-			node.get("collection"), scope_doctypes
-		)
+		child_doctype = _resolve_collection_doctype(node.get("collection"), scope_doctypes)
 		if child_doctype:
 			nested_scopes["row"] = child_doctype
 			nested_scopes[str(alias)] = child_doctype
@@ -80,9 +78,7 @@ def _walk_node(node: Any, scope_doctypes: dict[str, str]) -> None:
 		_validate_operand(node.get(operand_name), scope_doctypes, operand_name)
 
 
-def _validate_operand(
-	operand: Any, scope_doctypes: dict[str, str], path: str
-) -> None:
+def _validate_operand(operand: Any, scope_doctypes: dict[str, str], path: str) -> None:
 	if not isinstance(operand, Mapping):
 		return
 	if "ref" in operand:
@@ -95,9 +91,7 @@ def _validate_operand(
 
 	mode = value.get("mode")
 	if mode == "variable":
-		_validate_reference(
-			value.get("path") or value.get("value"), scope_doctypes, f"{path}.value.path"
-		)
+		_validate_reference(value.get("path") or value.get("value"), scope_doctypes, f"{path}.value.path")
 		return
 
 	if mode == "expression":
@@ -116,9 +110,7 @@ def _validate_operand(
 				)
 
 
-def _validate_reference(
-	reference: Any, scope_doctypes: dict[str, str], path: str
-) -> None:
+def _validate_reference(reference: Any, scope_doctypes: dict[str, str], path: str) -> None:
 	if not isinstance(reference, str) or "." not in reference:
 		return
 
@@ -129,9 +121,7 @@ def _validate_reference(
 	_resolve_field(doctype, field_path, f"{path} ({reference})")
 
 
-def _resolve_collection_doctype(
-	reference: Any, scope_doctypes: dict[str, str]
-) -> str | None:
+def _resolve_collection_doctype(reference: Any, scope_doctypes: dict[str, str]) -> str | None:
 	if not isinstance(reference, str) or "." not in reference:
 		return None
 	scope, field_path = reference.split(".", 1)
@@ -149,9 +139,7 @@ def _resolve_field(doctype: str, field_path: str, path: str) -> Any:
 	try:
 		meta = frappe.get_meta(doctype)
 	except Exception as exc:
-		raise ValueError(
-			f"{path}: could not load metadata for DocType {doctype!r}"
-		) from exc
+		raise ValueError(f"{path}: could not load metadata for DocType {doctype!r}") from exc
 
 	parts = field_path.split(".")
 	field = None
@@ -178,16 +166,13 @@ def _resolve_field(doctype: str, field_path: str, path: str) -> Any:
 			try:
 				meta = frappe.get_meta(options)
 			except Exception as exc:
-				raise ValueError(
-					f"{path}: could not load metadata for linked DocType {options!r}"
-				) from exc
+				raise ValueError(f"{path}: could not load metadata for linked DocType {options!r}") from exc
 		elif fieldtype == "Dynamic Link":
 			# Its target DocType is determined by record data, not static metadata.
 			return None
 		else:
 			raise ValueError(
-				f"{path}: field {fieldname!r} on DocType {doctype!r} cannot "
-				"be traversed to another field"
+				f"{path}: field {fieldname!r} on DocType {doctype!r} cannot " "be traversed to another field"
 			)
 
 	return field

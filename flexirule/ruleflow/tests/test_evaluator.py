@@ -139,6 +139,8 @@ class TestConditionEvaluator(FrappeTestCase):
 		)
 
 	def test_strict_evaluator_binds_collection_alias_in_shared_context(self):
+		from unittest.mock import MagicMock, patch
+
 		doc = frappe._dict(
 			{
 				"doctype": "ToDo",
@@ -155,13 +157,28 @@ class TestConditionEvaluator(FrappeTestCase):
 				"right": {"value": {"mode": "variable", "path": "vars.minimum"}},
 			},
 		}
-		self.assertTrue(
-			ConditionEvaluator(condition, strict=True).evaluate(
-				doc,
-				context={"vars": {"minimum": 5}},
-			)
+		source_meta = MagicMock()
+		source_meta.name = "ToDo"
+		source_meta.istable = False
+		source_meta.get_field.side_effect = lambda fieldname: (
+			frappe._dict({"fieldtype": "Table", "options": "ToDo Item"})
+			if fieldname == "items"
+			else None
 		)
-
+		row_meta = MagicMock()
+		row_meta.name = "ToDo Item"
+		row_meta.istable = True
+		row_meta.get_field.return_value = frappe._dict({"fieldtype": "Int"})
+		with patch(
+			"frappe.get_meta",
+			side_effect=lambda doctype: source_meta if doctype == "ToDo" else row_meta,
+		):
+			self.assertTrue(
+				ConditionEvaluator(condition, strict=True).evaluate(
+					doc,
+					context={"vars": {"minimum": 5}},
+				)
+			)
 	def test_strict_evaluator_uses_frappe_metadata_api_for_has_field(self):
 		condition = [
 			{

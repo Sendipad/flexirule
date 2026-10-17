@@ -71,9 +71,7 @@ class TestConditionCompiler(FrappeTestCase):
 		self.assertEqual(loop_compiled, "(loop.get('current_value') == 'Open')")
 
 	def test_compile_validates_doc_fields_against_frappe_metadata(self):
-		condition = [
-			{"left": {"ref": "doc.status"}, "op": "==", "right": {"value": "Open"}}
-		]
+		condition = [{"left": {"ref": "doc.status"}, "op": "==", "right": {"value": "Open"}}]
 		self.assertTrue(self.compiler.compile(condition, doctype="ToDo"))
 
 		invalid_condition = [
@@ -85,6 +83,8 @@ class TestConditionCompiler(FrappeTestCase):
 		]
 		with self.assertRaisesRegex(ValueError, "does not exist on DocType"):
 			self.compiler.compile(invalid_condition, doctype="ToDo")
+
+
 	def test_schema_drops_unused_rhs_for_unary_operator(self):
 		condition = [
 			{
