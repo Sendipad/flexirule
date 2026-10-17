@@ -65,6 +65,11 @@ class TestConditionCompiler(FrappeTestCase):
 		)
 		self.assertEqual(compiled, "(ctx.get('current_value') == 'Open')")
 
+		loop_compiled = self.compiler.compile(
+			[{"left": {"ref": "loop.current_value"}, "op": "==", "right": {"value": "Open"}}]
+		)
+		self.assertEqual(loop_compiled, "(loop.get('current_value') == 'Open')")
+
 	def test_schema_drops_unused_rhs_for_unary_operator(self):
 		condition = [
 			{

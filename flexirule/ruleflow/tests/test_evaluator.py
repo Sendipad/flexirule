@@ -86,6 +86,21 @@ class TestConditionEvaluator(FrappeTestCase):
 			)
 		)
 
+	def test_strict_evaluator_resolves_loop_scope_from_runtime_context(self):
+		condition = [
+			{
+				"left": {"ref": "loop.current_value"},
+				"op": "==",
+				"right": {"value": "Open"},
+			}
+		]
+		self.assertTrue(
+			ConditionEvaluator(condition, strict=True).evaluate(
+				self.test_doc,
+				context={"loop": {"current_value": "Open"}},
+			)
+		)
+
 	def test_strict_evaluator_resolves_flexvalue_variable_from_context(self):
 		condition = [
 			{
