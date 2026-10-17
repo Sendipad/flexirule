@@ -191,6 +191,10 @@ def _normalize_node(node: Any, path: str, scopes: set[str]) -> dict:
 	result = dict(node)
 	result["op"] = op
 	result.pop("operator", None)
+	# Unary comparisons do not consume a right operand. Drop any editor-retained
+	# value from the canonical plan so evaluation cannot accidentally depend on it.
+	if op in _UNARY_OPERATORS:
+		result.pop("right", None)
 	if "logical_operator" in result:
 		result["logical_operator"] = _logical_operator(result["logical_operator"], f"{path}.logical_operator")
 	return result

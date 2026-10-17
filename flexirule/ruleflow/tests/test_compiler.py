@@ -65,6 +65,19 @@ class TestConditionCompiler(FrappeTestCase):
 		)
 		self.assertEqual(compiled, "(ctx.get('current_value') == 'Open')")
 
+	def test_schema_drops_unused_rhs_for_unary_operator(self):
+		condition = [
+			{
+				"left": {"ref": "doc.status"},
+				"op": "is_set",
+				"right": {"value": {"mode": "variable", "path": "vars.ignored"}},
+			}
+		]
+
+		normalized = validate_condition_tree(condition)
+		self.assertNotIn("right", normalized["conditions"][0])
+		self.assertEqual(normalized["conditions"][0]["op"], "is_set")
+
 	def test_compile_simple_condition(self):
 		"""Test compiling a simple condition"""
 		condition = {"left": {"ref": "doc.status"}, "op": "==", "right": {"value": "Open"}}
