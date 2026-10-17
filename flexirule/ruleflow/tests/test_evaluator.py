@@ -62,6 +62,40 @@ class TestConditionEvaluator(FrappeTestCase):
 		with patch("frappe.get_meta", return_value=source_meta):
 			self.assertTrue(ConditionEvaluator(condition, strict=True).evaluate(self.test_doc))
 
+	def test_strict_evaluator_uses_record_target_for_dynamic_link(self):
+		from unittest.mock import MagicMock, patch
+
+		condition = [
+			{"left": {"ref": "doc.party"}, "op": "==", "right": {"value": ["Supplier", "CUST-0001"]}}
+		]
+		self.test_doc.party_type = "Customer"
+		self.test_doc.party = "CUST-0001"
+		source_meta = MagicMock()
+		source_meta.name = "ToDo"
+		source_meta.istable = False
+		source_meta.get_field.return_value = frappe._dict(
+			{"fieldtype": "Dynamic Link", "options": "party_type"}
+		)
+		with patch("frappe.get_meta", return_value=source_meta):
+			self.assertFalse(ConditionEvaluator(condition, strict=True).evaluate(self.test_doc))
+
+	def test_strict_evaluator_matches_dynamic_link_when_record_target_matches(self):
+		from unittest.mock import MagicMock, patch
+
+		condition = [
+			{"left": {"ref": "doc.party"}, "op": "==", "right": {"value": ["Customer", "CUST-0001"]}}
+		]
+		self.test_doc.party_type = "Customer"
+		self.test_doc.party = "CUST-0001"
+		source_meta = MagicMock()
+		source_meta.name = "ToDo"
+		source_meta.istable = False
+		source_meta.get_field.return_value = frappe._dict(
+			{"fieldtype": "Dynamic Link", "options": "party_type"}
+		)
+		with patch("frappe.get_meta", return_value=source_meta):
+			self.assertTrue(ConditionEvaluator(condition, strict=True).evaluate(self.test_doc))
+
 	def test_dynamic_link_comparison_treats_different_target_as_non_match(self):
 		self.assertFalse(
 			check_link_match(
