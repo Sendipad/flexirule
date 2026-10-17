@@ -315,4 +315,4 @@ def _logical_operator(value: Any, path: str) -> str:
 def _check_keys(node: Mapping, allowed: set[str], path: str) -> None:
 	unknown = sorted(set(node) - allowed)
 	if unknown:
-		raise ValueError(f"{path}: unexpected condition node key(s): {', '.join(map(str, unknown))}")
+		raise ValueError(f"{path}: unexpected condition node key(s): {', '.join(str(key) for key in unknown)}")
