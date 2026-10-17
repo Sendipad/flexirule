@@ -23,6 +23,21 @@ class TestConditionHandler(FrappeTestCase):
 		with self.assertRaises(frappe.ValidationError):
 			ConditionHandler().execute(action, {}, engine=None)
 
+	def test_malformed_canonical_config_does_not_fall_back_to_legacy_condition_json(self):
+		action = frappe._dict(
+			{
+				"action_label": "Malformed Canonical Condition",
+				"config": "{invalid-json",
+				"condition_json": '[{"left": {"ref": "doc.status"}, "op": "==", "right": {"value": "Open"}}]',
+				"compiled_expression": "True",
+				"next_step_if_true": "TRUE",
+				"next_step_if_false": "FALSE",
+			}
+		)
+
+		with self.assertRaises(frappe.ValidationError):
+			ConditionHandler().execute(action, {}, engine=None)
+
 	def test_compiled_expression_is_only_used_when_source_payload_is_absent(self):
 		action = frappe._dict(
 			{
