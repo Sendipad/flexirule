@@ -129,7 +129,7 @@ def _resolve_collection_doctype(reference: Any, scope_doctypes: dict[str, str]) 
 	if not doctype or not field_path:
 		return None
 	field = _resolve_field(doctype, field_path, f"collection ({reference})")
-	if _read(field, "fieldtype") == "Table":
+	if _read(field, "fieldtype") in {"Table", "Table MultiSelect"}:
 		options = _read(field, "options")
 		return str(options) if options else None
 	return None

@@ -180,6 +180,44 @@ class TestConditionEvaluator(FrappeTestCase):
 				)
 			)
 
+	def test_strict_evaluator_validates_table_multiselect_collection_alias(self):
+		from unittest.mock import MagicMock, patch
+
+		doc = frappe._dict(
+			{
+				"doctype": "ToDo",
+				"tags": [frappe._dict({"tag": "Finance"})],
+			}
+		)
+		condition = {
+			"op": "any",
+			"collection": "doc.tags",
+			"alias": "tag_row",
+			"where": {
+				"left": {"ref": "tag_row.tag"},
+				"op": "==",
+				"right": {"value": "Finance"},
+			},
+		}
+		source_meta = MagicMock()
+		source_meta.name = "ToDo"
+		source_meta.istable = False
+		source_meta.get_field.side_effect = lambda fieldname: (
+			frappe._dict({"fieldtype": "Table MultiSelect", "options": "ToDo Tag"})
+			if fieldname == "tags"
+			else None
+		)
+		child_meta = MagicMock()
+		child_meta.name = "ToDo Tag"
+		child_meta.istable = True
+		child_meta.get_field.side_effect = lambda fieldname: (
+			frappe._dict({"fieldtype": "Data"}) if fieldname == "tag" else None
+		)
+		with patch(
+			"frappe.get_meta",
+			side_effect=lambda doctype: source_meta if doctype == "ToDo" else child_meta,
+		):
+			self.assertTrue(ConditionEvaluator(condition, strict=True).evaluate(doc))
 	def test_strict_evaluator_uses_frappe_metadata_api_for_has_field(self):
 		condition = [
 			{

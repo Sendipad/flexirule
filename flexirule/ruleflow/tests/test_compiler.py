@@ -84,6 +84,19 @@ class TestConditionCompiler(FrappeTestCase):
 		with self.assertRaisesRegex(ValueError, "does not exist on DocType"):
 			self.compiler.compile(invalid_condition, doctype="ToDo")
 
+	def test_schema_rejects_collection_alias_that_shadows_loop_scope(self):
+		condition = {
+			"op": "any",
+			"collection": "doc.items",
+			"alias": "loop",
+			"where": {
+				"left": {"ref": "loop.qty"},
+				"op": ">",
+				"right": {"value": 0},
+			},
+		}
+		with self.assertRaisesRegex(ValueError, "would shadow a reserved condition scope"):
+			validate_condition_tree(condition)
 	def test_schema_drops_unused_rhs_for_unary_operator(self):
 		condition = [
 			{

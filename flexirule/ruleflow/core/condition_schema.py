@@ -292,7 +292,7 @@ def _validate_alias(alias: Any, path: str) -> None:
 		raise ValueError(f"{path}: alias must be a safe identifier")
 	if keyword.iskeyword(alias) or alias in _HELPER_NAMES:
 		raise ValueError(f"{path}: alias {alias!r} is reserved")
-	if alias in {"doc", "old_doc", "vars", "caller", "rule", "doctype", "ctx", "frappe"}:
+	if alias in {"doc", "old_doc", "vars", "loop", "caller", "rule", "doctype", "ctx", "frappe"}:
 		raise ValueError(f"{path}: alias {alias!r} would shadow a reserved condition scope")
 
 
