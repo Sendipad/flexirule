@@ -12,6 +12,7 @@ from collections.abc import Mapping
 from typing import Any
 
 import frappe
+from frappe import _
 
 _SYSTEM_FIELDS = frozenset(
 	{
@@ -139,7 +140,7 @@ def _resolve_field(doctype: str, field_path: str, path: str) -> Any:
 	try:
 		meta = frappe.get_meta(doctype)
 	except Exception as exc:
-		raise ValueError(f"{path}: could not load metadata for DocType {doctype!r}") from exc
+		raise ValueError(_("Could not load metadata for DocType {0} while validating {1}.").format(doctype, path)) from exc
 
 	parts = field_path.split(".")
 	field = None
@@ -153,8 +154,9 @@ def _resolve_field(doctype: str, field_path: str, path: str) -> Any:
 		field = meta.get_field(fieldname)
 		if field is None:
 			raise ValueError(
-				f"{path}: field {fieldname!r} does not exist on DocType "
-				f"{getattr(meta, 'name', None) or doctype!r}"
+				_("{0}: field {1!r} does not exist on DocType {2!r}.").format(
+					path, fieldname, getattr(meta, "name", None) or doctype
+				)
 			)
 
 		if index == len(parts) - 1:
@@ -162,17 +164,19 @@ def _resolve_field(doctype: str, field_path: str, path: str) -> Any:
 
 		fieldtype = _read(field, "fieldtype")
 		options = _read(field, "options")
-		if fieldtype in {"Table", "Link"} and options:
+		if fieldtype in {"Table", "Table MultiSelect", "Link"} and options:
 			try:
 				meta = frappe.get_meta(options)
 			except Exception as exc:
-				raise ValueError(f"{path}: could not load metadata for linked DocType {options!r}") from exc
+				raise ValueError(_("Could not load linked DocType metadata for {0} while validating {1}.").format(options, path)) from exc
 		elif fieldtype == "Dynamic Link":
 			# Its target DocType is determined by record data, not static metadata.
 			return None
 		else:
 			raise ValueError(
-				f"{path}: field {fieldname!r} on DocType {doctype!r} cannot " "be traversed to another field"
+				_("{0}: field {1!r} on DocType {2!r} cannot be traversed to another field.").format(
+					path, fieldname, doctype
+				)
 			)
 
 	return field
