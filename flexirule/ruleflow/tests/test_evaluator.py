@@ -12,6 +12,7 @@ from frappe.tests.utils import FrappeTestCase
 
 from flexirule.ruleflow.core.condition_operators import compare_values
 from flexirule.ruleflow.core.evaluator import ConditionEvaluator
+from flexirule.ruleflow.core.evaluator import check_link_match
 
 
 class TestConditionEvaluator(FrappeTestCase):
@@ -28,6 +29,38 @@ class TestConditionEvaluator(FrappeTestCase):
 				"date": "2023-01-01",
 				"allocated_to": "Administrator",
 			}
+		)
+
+	def test_link_comparison_rejects_mismatched_fixed_link_target(self):
+		with self.assertRaisesRegex(ValueError, "does not match the field target"):
+			check_link_match(
+				"CUST-0001",
+				["Supplier", "CUST-0001"],
+				"==",
+				expected_doctype="Customer",
+				validate_doctype=True,
+			)
+
+	def test_dynamic_link_comparison_treats_different_target_as_non_match(self):
+		self.assertFalse(
+			check_link_match(
+				"CUST-0001",
+				["Supplier", "CUST-0001"],
+				"==",
+				expected_doctype="Customer",
+				validate_doctype=True,
+				dynamic_link=True,
+			)
+		)
+		self.assertTrue(
+			check_link_match(
+				"CUST-0001",
+				["Supplier", "CUST-0001"],
+				"!=",
+				expected_doctype="Customer",
+				validate_doctype=True,
+				dynamic_link=True,
+			)
 		)
 
 	def test_shared_comparator_distinguishes_null_empty_and_falsy_values(self):
