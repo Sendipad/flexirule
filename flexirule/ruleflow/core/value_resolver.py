@@ -12,8 +12,11 @@ from flexirule.ruleflow.utils.field_resolver import FieldResolver
 
 def get_context_value(context: dict, path: str | None) -> Any:
 	"""
-	Resolve a field or variable value from execution context.
-	Supports dot notation like 'doc.status', 'vars.result', 'item.rate', etc.
+	Resolve a path against the execution context using the shared FlexValue path rules.
+
+	Explicit scopes (doc, old_doc, vars, row, item, loop, caller, rule, ctx)
+	are resolved first. Collection aliases are supplied as context keys by the
+	condition evaluator and use this same lookup path instead of a second resolver.
 	"""
 	if not path:
 		return None
@@ -23,29 +26,20 @@ def get_context_value(context: dict, path: str | None) -> Any:
 
 	parts = path_str.split(".")
 	base = parts[0]
-	if base == "doc":
-		current = context.get("doc")
+	if base in context:
+		current = context.get(base)
 		parts = parts[1:]
-	elif base == "vars":
-		current = context.get("vars", {})
-		parts = parts[1:]
-	elif base == "item":
-		current = context.get("item")
-		parts = parts[1:]
-	elif base == "loop":
-		current = context.get("loop")
-		parts = parts[1:]
-	elif base == "row":
-		current = context.get("row")
+	elif base == "doctype":
+		current = context.get("doctype")
 		parts = parts[1:]
 	else:
-		# Fallback context lookup if no explicit scope is declared
-		# Prioritize 'doc' then 'vars'
+		# Preserve the existing convenience syntax for unscoped document fields
+		# and variables, using mapping access rather than arbitrary attributes.
 		doc = context.get("doc")
 		vars_dict = context.get("vars", {})
-
 		if doc is not None and (
-			(isinstance(doc, dict) and base in doc) or (hasattr(doc, "get") and doc.get(base) is not None)
+			(isinstance(doc, dict) and base in doc)
+			or (hasattr(doc, "get") and doc.get(base) is not None)
 		):
 			current = doc
 		elif isinstance(vars_dict, dict) and base in vars_dict:
@@ -56,9 +50,7 @@ def get_context_value(context: dict, path: str | None) -> Any:
 	for part in parts:
 		if current is None:
 			return None
-		if isinstance(current, dict):
-			current = current.get(part)
-		elif hasattr(current, "get"):
+		if isinstance(current, dict) or hasattr(current, "get"):
 			current = current.get(part)
 		else:
 			return None

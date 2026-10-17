@@ -60,6 +60,65 @@ class TestConditionEvaluator(FrappeTestCase):
 		)
 		self.assertTrue(ConditionEvaluator(conditions_json).evaluate(self.test_doc))
 
+	def test_strict_evaluator_resolves_flexvalue_variable_from_context(self):
+		condition = [
+			{
+				"left": {"ref": "doc.priority"},
+				"op": "==",
+				"right": {"value": {"mode": "variable", "path": "vars.expected_priority"}},
+			}
+		]
+		self.assertTrue(
+			ConditionEvaluator(condition, strict=True).evaluate(
+				self.test_doc,
+				context={"vars": {"expected_priority": "High"}},
+			)
+		)
+
+	def test_strict_evaluator_binds_collection_alias_in_shared_context(self):
+		doc = frappe._dict(
+			{
+				"doctype": "ToDo",
+				"items": [frappe._dict({"qty": 2}), frappe._dict({"qty": 8})],
+			}
+		)
+		condition = {
+			"op": "any",
+			"collection": "doc.items",
+			"alias": "line",
+			"where": {
+				"left": {"ref": "line.qty"},
+				"op": ">",
+				"right": {"value": {"mode": "variable", "path": "vars.minimum"}},
+			},
+		}
+		self.assertTrue(
+			ConditionEvaluator(condition, strict=True).evaluate(
+				doc,
+				context={"vars": {"minimum": 5}},
+			)
+		)
+
+	def test_strict_evaluator_uses_frappe_metadata_api_for_has_field(self):
+		condition = [
+			{
+				"left": {"ref": "rule.document_type"},
+				"op": "has_field",
+				"right": {"value": "description"},
+			}
+		]
+		self.assertTrue(
+			ConditionEvaluator(condition, strict=True).evaluate(
+				self.test_doc,
+				context={"rule": {"document_type": "ToDo"}, "doctype": "ToDo"},
+			)
+		)
+
+	def test_strict_evaluator_throws_frappe_validation_error_for_unknown_operator(self):
+		condition = [{"left": {"ref": "doc.status"}, "op": "invented_operator", "right": {"value": "Open"}}]
+		with self.assertRaises(frappe.ValidationError):
+			ConditionEvaluator(condition, strict=True).evaluate(self.test_doc)
+
 	def test_evaluate_simple_condition_true(self):
 		"""Test evaluating a simple condition that returns True"""
 		conditions_json = '[{"left": {"ref": "doc.status"}, "op": "==", "right": {"value": "Open"}}]'

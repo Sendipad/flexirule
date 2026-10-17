@@ -537,27 +537,63 @@ class RuleCoordinator:
 		# Currently, we don't have explicit 'mode' passed from hooks, so we assume Sync.
 		# If Rule is Async, it will be queued by execute_single_rule.
 
-		# 4. Condition Check (Compiled Expression)
-		# We now rely solely on compiled_expression which is the compiled version of trigger_condition
-		if rule_doc.get("compiled_expression"):
+		# 4. Evaluate the saved condition tree as the primary runtime contract.
+		trigger_condition = rule_doc.get("trigger_condition")
+		if trigger_condition:
 			try:
-				from flexirule.ruleflow.core.evaluator import check_link_match
-				from flexirule.ruleflow.utils.field_resolver import FieldResolver
+				from flexirule.ruleflow.core.action_handlers import _safe_get
+				from flexirule.ruleflow.core.engine import SafeFrappeAPI
+				from flexirule.ruleflow.core.evaluator import ConditionEvaluator
 
-				# Fetch old_doc if missing
 				if not old_doc and hasattr(doc, "get_doc_before_save"):
 					old_doc = doc.get_doc_before_save()
 
-				# Use SafeFrappeAPI to prevent write operations in trigger conditions
+				sim_user = (context or {}).get("sim_user")
+				sim_role = (context or {}).get("sim_role")
+				safe_frappe = (
+					SafeFrappeAPI(user=sim_user, roles=[sim_role] if sim_role else None)
+					if sim_user or sim_role
+					else SafeFrappeAPI()
+				)
+				rule_meta = {
+					"name": rule_doc.name,
+					"trigger_type": rule_doc.trigger_type,
+					"trigger_event": rule_doc.trigger_event,
+					"document_type": rule_doc.document_type,
+				}
+				eval_context = dict(context or {})
+				eval_context.update(
+					{
+						"doc": doc,
+						"old_doc": old_doc,
+						"vars": {},
+						"frappe": safe_frappe,
+						"caller": frappe._dict({}),
+						"rule": frappe._dict(rule_meta),
+						"doctype": rule_doc.document_type or getattr(doc, "doctype", None),
+					}
+				)
+				if not ConditionEvaluator(trigger_condition, strict=True).evaluate(context=eval_context):
+					return False, _("Trigger Conditions failed")
+			except Exception as exc:
+				return False, _("Trigger Evaluation Error: {0}").format(str(exc))
+
+		# Legacy compiled-only records still use the existing Frappe safe_eval path.
+		elif rule_doc.get("compiled_expression"):
+			try:
+				from flexirule.ruleflow.core.evaluator import check_link_match
+				from flexirule.ruleflow.utils.field_resolver import FieldResolver
 				from flexirule.ruleflow.core.engine import SafeFrappeAPI
 
 				sim_user = (context or {}).get("sim_user")
 				sim_role = (context or {}).get("sim_role")
-
-				if sim_user or sim_role:
-					safe_frappe = SafeFrappeAPI(user=sim_user, roles=[sim_role] if sim_role else None)
-				else:
-					safe_frappe = SafeFrappeAPI()
+				safe_frappe = (
+					SafeFrappeAPI(user=sim_user, roles=[sim_role] if sim_user or sim_role else None)
+					if sim_user or sim_role
+					else SafeFrappeAPI()
+				)
+				if not old_doc and hasattr(doc, "get_doc_before_save"):
+					old_doc = doc.get_doc_before_save()
 
 				rule_meta = {
 					"name": rule_doc.name,
@@ -565,15 +601,9 @@ class RuleCoordinator:
 					"trigger_event": rule_doc.trigger_event,
 					"document_type": rule_doc.document_type,
 				}
-				doctype_name = rule_doc.document_type or getattr(doc, "doctype", None)
 
 				def _get_meta(doctype):
-					if not doctype:
-						return None
-					try:
-						return frappe.get_meta(doctype)
-					except Exception:
-						return None
+					return frappe.get_meta(doctype) if doctype else None
 
 				def _is_submittable(doctype):
 					meta = _get_meta(doctype)
@@ -590,7 +620,7 @@ class RuleCoordinator:
 					"frappe": safe_frappe,
 					"caller": frappe._dict({}),
 					"rule": frappe._dict(rule_meta),
-					"doctype": doctype_name,
+					"doctype": rule_doc.document_type or getattr(doc, "doctype", None),
 					"is_submittable": _is_submittable,
 					"has_field": _has_field,
 					"get_meta": _get_meta,
@@ -602,33 +632,12 @@ class RuleCoordinator:
 					"False": False,
 					"None": None,
 				}
-				# Python 3 generator/comprehension expressions create their own
-				# scope and resolve free variables through the *globals* dict,
-				# not the locals dict passed to eval().  Promote eval_locals
-				# into eval_globals so helpers like check_link_match are visible
-				# inside any(…)/all(…) patterns.
 				eval_globals: dict = {"__builtins__": {}}
 				eval_globals.update(eval_locals)
-
 				if not frappe.safe_eval(rule_doc.get("compiled_expression"), eval_globals, eval_locals):
 					return False, _("Trigger Conditions failed")
-
-			except Exception as e:
-				return False, _("Trigger Evaluation Error: {0}").format(str(e))
-
-		# Conditions MUST be pre-compiled - no runtime JSON parsing
-		elif rule_doc.get("trigger_condition"):
-			try:
-				import json
-
-				parsed = json.loads(rule_doc.get("trigger_condition"))
-				if isinstance(parsed, dict) and not parsed.get("conditions"):
-					return True, _("Eligible")
-				if isinstance(parsed, list) and not parsed:
-					return True, _("Eligible")
-			except Exception:
-				pass
-			return False, _("Rule has trigger_condition but no compiled_expression. Please re-save the Rule.")
+			except Exception as exc:
+				return False, _("Trigger Evaluation Error: {0}").format(str(exc))
 
 		return True, _("Eligible")
 

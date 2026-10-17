@@ -8,6 +8,7 @@ Evaluates a compiled Python condition expression and routes to
 next_step_if_true or next_step_if_false based on the result.
 """
 
+import frappe
 from frappe import _
 
 from flexirule.ruleflow.core.action_handlers import ActionHandler, HandlerRegistry
@@ -60,39 +61,50 @@ class ConditionHandler(ActionHandler):
 		}
 
 	def execute(self, action, context, engine):
-		"""
-		Execute condition evaluation.
-
-		The compiled_expression should already be compiled from config
-		during Rule.validate(). If compiled_expression is missing but
-		condition payload exists, the rule was not properly saved.
-
-		Returns:
-		    Tuple of (boolean_result, next_action_id)
-		"""
+		"""Evaluate the saved tree first; use compiled Python only for legacy records."""
+		payload = get_condition_payload(action)
 		compiled_expression = getattr(action, "compiled_expression", None)
-		if not compiled_expression:
-			if get_condition_payload(action) is not None:
-				raise ValueError(
-					_(
-						"Action '{0}' has condition config but no compiled_expression. "
-						"Please re-save the Rule to compile conditions."
-					).format(action.action_label)
-				)
-			# Empty condition passes
-			result = True
-		else:
+
+		if payload is not None:
+			from flexirule.ruleflow.core.evaluator import ConditionEvaluator
+
+			result = ConditionEvaluator(payload, strict=True).evaluate(context=context)
+		elif compiled_expression:
+			# Legacy fallback for records without a readable saved condition payload.
 			result = engine._evaluate_python_condition(compiled_expression, context)
+		else:
+			raw_config = action.get("config") if hasattr(action, "get") else getattr(action, "config", None)
+			raw_legacy = (
+				action.get("condition_json")
+				if hasattr(action, "get")
+				else getattr(action, "condition_json", None)
+			)
+			if raw_config not in (None, "") or raw_legacy not in (None, ""):
+				frappe.throw(
+					_(
+						"Action '{0}' has invalid condition configuration. Please correct the condition tree and save the Rule."
+					).format(getattr(action, "action_label", None) or getattr(action, "name", "")),
+					frappe.ValidationError,
+				)
+			result = True
 
 		next_id = action.next_step_if_true if result else action.next_step_if_false
 		return result, next_id
 
 	def validate(self, action, context):
-		"""Validate condition action configuration."""
+		"""Validate that a configured condition is a readable tree."""
 		errors = []
-		if get_condition_payload(action) is not None and not getattr(action, "compiled_expression", None):
+		raw_config = action.get("config") if hasattr(action, "get") else getattr(action, "config", None)
+		raw_legacy = (
+			action.get("condition_json")
+			if hasattr(action, "get")
+		else getattr(action, "condition_json", None)
+		)
+		if (raw_config not in (None, "") or raw_legacy not in (None, "")) and get_condition_payload(action) is None:
 			errors.append(
-				_("Condition '{0}' needs to be compiled. Re-save the rule.").format(action.action_label)
+				_("Condition '{0}' has invalid condition configuration.").format(
+					getattr(action, "action_label", None) or getattr(action, "name", "")
+				)
 			)
 		return errors
 
