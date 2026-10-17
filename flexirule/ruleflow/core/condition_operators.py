@@ -181,6 +181,8 @@ _LENGTH_COMPARATORS = {
 	"length_lt": operator.lt,
 	"length_lte": operator.le,
 }
+
+
 def _condition_is_empty(value: Any) -> bool:
 	"""Apply the established FlexiRule empty-value contract without generic truthiness."""
 	if value is None:
