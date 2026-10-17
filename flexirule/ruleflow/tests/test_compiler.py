@@ -11,6 +11,7 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from flexirule.ruleflow.core.compiler import ConditionCompiler
+from flexirule.ruleflow.core.evaluator import ConditionEvaluator
 
 
 class TestConditionCompiler(FrappeTestCase):
@@ -157,6 +158,48 @@ class TestConditionCompiler(FrappeTestCase):
 		# Updated expected to match actual output
 		expected = "((doc.get('status') == 'Open' or doc.get('status') == 'Pending') and doc.get('priority') == 'High')"
 		self.assertEqual(result, expected)
+
+	def test_compile_mixed_sibling_operators_match_tree_evaluator(self):
+		"""Mixed sibling joins must not inherit Python's different AND/OR precedence."""
+		condition = {
+			"op": "and",
+			"conditions": [
+				{
+					"left": {"ref": "doc.status"},
+					"op": "==",
+					"right": {"value": "Closed"},
+					"logical_operator": "or",
+				},
+				{
+					"left": {"ref": "doc.priority"},
+					"op": "==",
+					"right": {"value": "High"},
+					"logical_operator": "and",
+				},
+				{
+					"left": {"ref": "doc.description"},
+					"op": "==",
+					"right": {"value": "Test"},
+				},
+			],
+		}
+		doc = frappe._dict({"status": "Closed", "priority": "Low", "description": "Other"})
+
+		compiled = self.compiler.compile(condition)
+		compiled_result = frappe.safe_eval(
+			compiled,
+			{"__builtins__": {}, "doc": doc},
+			{"doc": doc},
+		)
+		tree_result = ConditionEvaluator(frappe.as_json([condition])).evaluate(doc)
+
+		self.assertEqual(
+			compiled,
+			"((doc.get('status') == 'Closed' or doc.get('priority') == 'High') "
+			"and doc.get('description') == 'Test')",
+		)
+		self.assertFalse(compiled_result)
+		self.assertEqual(compiled_result, tree_result)
 
 	def test_compile_link_match_condition(self):
 		"""Test compiling a link match condition"""

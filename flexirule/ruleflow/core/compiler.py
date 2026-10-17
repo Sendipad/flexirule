@@ -189,32 +189,34 @@ class ConditionCompiler:
 		if default_op not in ["and", "or"]:
 			raise ValueError(f"Invalid condition group operator: {default_op!r}")
 
-		result_parts: list[str] = []
+		compiled_nodes: list[str] = []
+		joining_ops: list[str] = []
 		for i, sub in enumerate(subs):
 			compiled_sub = self._compile_node(sub, scopes)
 			if not compiled_sub:
 				raise ValueError(f"Condition group child {i} did not compile")
+			compiled_nodes.append(compiled_sub)
 
-			if not result_parts:
-				# First node, just add it
-				result_parts.append(compiled_sub)
-			else:
-				# Subsequent nodes, get operator from PREVIOUS node for joining
-				# Actually, standard behavior is that the item itself says how it joins with the previous one,
-				# or the previous one says how it joins with the next.
-				# In flexirule, we use condition.get('logical_operator') to join with the NEXT.
-				# So we look at the operator of the previous node.
-				prev_node = subs[i - 1]
-				op = prev_node.get("logical_operator", default_op).lower()
+			if i:
+				# A node's logical_operator joins it to the next sibling. Build
+				# mixed joins left-to-right explicitly so Python's AND/OR precedence
+				# cannot change the saved condition tree's meaning.
+				previous_node = subs[i - 1]
+				op = previous_node.get("logical_operator", default_op).lower()
 				if op not in ["and", "or"]:
 					op = default_op
+				joining_ops.append(op)
 
-				result_parts.extend([" ", op, " ", compiled_sub])
+		if not joining_ops:
+			return f"({compiled_nodes[0]})"
 
-		if not result_parts:
-			raise ValueError("Condition groups must contain at least one valid child")
+		if len(set(joining_ops)) == 1:
+			return f"({f' {joining_ops[0]} '.join(compiled_nodes)})"
 
-		return f"({''.join(result_parts)})"
+		result = compiled_nodes[0]
+		for op, compiled_sub in zip(joining_ops, compiled_nodes[1:], strict=True):
+			result = f"({result} {op} {compiled_sub})"
+		return result
 
 	def _compile_condition(self, node, scopes):
 		left = node.get("left")
