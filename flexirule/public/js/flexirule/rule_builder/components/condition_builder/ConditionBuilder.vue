@@ -108,11 +108,16 @@ const store = useStore();
  * Ensure we have a valid root group structure.
  */
 function normalizeModel(val) {
+	// Older saved conditions may be a root array. Mirror the backend contract:
+	// interpret that form as an AND root without discarding any existing nodes.
+	if (Array.isArray(val)) {
+		return { op: "and", conditions: val };
+	}
 	if (!val || typeof val !== "object") {
 		return { op: "and", conditions: [] };
 	}
 	return {
-		op: val.op || "and",
+		op: val.op || val.logical_operator || "and",
 		conditions: Array.isArray(val.conditions) ? val.conditions : [],
 		id: val.id,
 	};
