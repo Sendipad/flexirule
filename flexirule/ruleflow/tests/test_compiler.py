@@ -84,7 +84,6 @@ class TestConditionCompiler(FrappeTestCase):
 		with self.assertRaisesRegex(ValueError, "does not exist on DocType"):
 			self.compiler.compile(invalid_condition, doctype="ToDo")
 
-
 	def test_schema_drops_unused_rhs_for_unary_operator(self):
 		condition = [
 			{
