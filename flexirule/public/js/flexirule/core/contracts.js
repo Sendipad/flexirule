@@ -960,7 +960,7 @@ export function validateAgainstContract(nodeData) {
 		nodeData.return_type !== "Yes / No";
 	if (
 		(policy.require_return_variable ||
-			(hasConfiguredReturnType && ACTION_TYPES_WITH_RETURN_SCHEMA.has(actionType)) ||
+			(hasConfiguredReturnType && supportsReturnSchema) ||
 			(supportsReturnSchema && hasResolvedOutputSchema)) &&
 		!nodeData.return_variable
 	) {
