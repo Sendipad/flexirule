@@ -724,6 +724,22 @@ function suggestReturnVariableName(nodeData = {}) {
 	return base || "result";
 }
 
+/**
+ * Interpret the persisted output-schema field without treating serialized empty
+ * values (for example "[]", "{}", or "null") as a real schema.
+ */
+function hasPopulatedOutputSchema(value) {
+	const parsed = parseJsonSafe(value, value);
+	if (parsed == null || parsed === "") return false;
+	if (Array.isArray(parsed)) return parsed.length > 0;
+	if (typeof parsed === "object") {
+		if (Array.isArray(parsed.fields)) return parsed.fields.length > 0;
+		if (Array.isArray(parsed.schema)) return parsed.schema.length > 0;
+		return Object.keys(parsed).length > 0;
+	}
+	return false;
+}
+
 export function applyOutputPolicyDefaults(nodeData, opts = {}) {
 	if (!nodeData || !nodeData.action_type) return false;
 	const preserveUserChoices = opts.preserveUserChoices !== false;
@@ -783,10 +799,18 @@ export function applyOutputPolicyDefaults(nodeData, opts = {}) {
 		changed = true;
 	}
 
+	const supportsReturnSchema =
+		policy.supports_return_schema !== undefined
+			? Boolean(policy.supports_return_schema)
+			: ACTION_TYPES_WITH_RETURN_SCHEMA.has(normalizeActionType(nodeData.action_type));
+	const hasResolvedOutputSchema = hasPopulatedOutputSchema(nodeData.resolved_output_schema);
 	const needsReturnVariable =
 		!!nodeData.mutation_mode ||
-		(nodeData.return_type && nodeData.return_type !== "Yes / No") ||
-		!!nodeData.resolved_output_schema ||
+		(policy.produces_result !== false &&
+			policy.show_return_type !== false &&
+			nodeData.return_type &&
+			nodeData.return_type !== "Yes / No") ||
+		(supportsReturnSchema && hasResolvedOutputSchema) ||
 		!!policy.require_return_variable;
 
 	if (returnVarState.hidden && nodeData.return_variable) {
@@ -924,10 +948,20 @@ export function validateAgainstContract(nodeData) {
 		errors.push(__("Return Variable Name is required for this operation"));
 	}
 
-	const showReturnType = policy.show_return_type !== false;
+	const supportsReturnSchema =
+		policy.supports_return_schema !== undefined
+			? Boolean(policy.supports_return_schema)
+			: ACTION_TYPES_WITH_RETURN_SCHEMA.has(actionType);
+	const hasResolvedOutputSchema = hasPopulatedOutputSchema(nodeData.resolved_output_schema);
+	const hasConfiguredReturnType =
+		policy.produces_result !== false &&
+		policy.show_return_type !== false &&
+		nodeData.return_type &&
+		nodeData.return_type !== "Yes / No";
 	if (
-		((showReturnType && nodeData.return_type && nodeData.return_type !== "Yes / No") ||
-			nodeData.resolved_output_schema) &&
+		(policy.require_return_variable ||
+			(hasConfiguredReturnType && ACTION_TYPES_WITH_RETURN_SCHEMA.has(actionType)) ||
+			(supportsReturnSchema && hasResolvedOutputSchema)) &&
 		!nodeData.return_variable
 	) {
 		errors.push(__("Return Schema requires a Return Variable Name"));
