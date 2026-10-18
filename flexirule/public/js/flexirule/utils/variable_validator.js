@@ -391,15 +391,9 @@ flexirule.validation.validate_action_types = function (
 			);
 		}
 
-		// Return schema requires return variable
-		if ((action.return_type || action.resolved_output_schema) && !action.return_variable) {
-			errors.push(
-				__(
-					"Action '{0}' defines a Return Schema but no Return Variable Name is provided.",
-					[label]
-				)
-			);
-		}
+		// Return-variable requirements are validated by the canonical contract
+		// validator in core/contracts.js. Do not infer schema capability here:
+		// this flow-level validator does not own action/operation output policy.
 	}
 
 	return {
