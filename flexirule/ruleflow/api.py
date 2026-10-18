@@ -100,6 +100,16 @@ def _reqd_flag(value: Any) -> int:
 	return 1 if value is True or str(value).strip().lower() in {"1", "true", "yes"} else 0
 
 
+def _is_output_schema_field(df) -> bool:
+	"""Return whether a DocField represents a data field usable in output schemas.
+
+	Frappe's no-value field list excludes many layout controls, but the explicit
+	layout field types are also filtered here so schema generation does not
+	depend on framework-list implementation details.
+	"""
+	return df.fieldtype not in frappe.model.no_value_fields and df.fieldtype not in LAYOUT_FIELDTYPES
+
+
 @frappe.whitelist()
 def get_sub_rule_contract(rule_name: str):
 	"""Resolve the active public interface for a callable Rule used as a Sub-Rule."""
@@ -1114,7 +1124,7 @@ def test_action_query(
 				if mode == "Query Doc" and not fields:
 					# For Query Doc, if no fields specified, we return all non-no_value fields
 					for df in meta.fields:
-						if df.fieldtype not in frappe.model.no_value_fields:
+						if _is_output_schema_field(df):
 							schema.append(
 								{
 									"fieldname": df.fieldname,
