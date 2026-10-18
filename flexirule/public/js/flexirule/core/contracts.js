@@ -806,7 +806,8 @@ export function applyOutputPolicyDefaults(nodeData, opts = {}) {
 	const hasResolvedOutputSchema = hasPopulatedOutputSchema(nodeData.resolved_output_schema);
 	const needsReturnVariable =
 		!!nodeData.mutation_mode ||
-		(policy.produces_result !== false &&
+		(supportsReturnSchema &&
+			policy.produces_result !== false &&
 			policy.show_return_type !== false &&
 			nodeData.return_type &&
 			nodeData.return_type !== "Yes / No") ||
