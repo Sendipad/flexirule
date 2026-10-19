@@ -1,0 +1,4 @@
+# Fetch upstream skills locally; do not commit their contents.
+*
+!.gitignore
+!README.md
