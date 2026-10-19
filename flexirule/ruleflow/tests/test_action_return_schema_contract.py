@@ -252,7 +252,7 @@ class TestActionReturnSchemaContract(FrappeTestCase):
 	def test_operation_level_supports_return_schema_false_override(self):
 		errors = self._validate_action(
 			"Query Records",
-			operation="Exists",
+			operation="Exist Record",
 			return_type="Yes / No",
 			resolved_output_schema="[]",
 		)

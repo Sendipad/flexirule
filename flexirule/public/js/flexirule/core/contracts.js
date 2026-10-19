@@ -15,12 +15,7 @@ import {
 	ACTION_TYPE_CONTRACT,
 	ACTION_TYPE_MAP,
 	RELEASE_DISABLED_ACTION_TYPES,
-	RETURN_TYPE_OPTIONS,
-	ACTION_TYPES_WITH_RETURN_SCHEMA,
 	applyContractDto,
-	getContract,
-	normalizeActionType,
-	validateAgainstContract,
 } from "./contracts_policy.mjs";
 
 let _contractsLoaded = false;
@@ -173,88 +168,6 @@ export async function loadProcessScript(processName) {
 	} catch (e) {
 		console.warn(`Failed to load script for process ${processName}`, e);
 	}
-}
-
-export function getActionPresentation(actionType) {
-	const contract = getContract(actionType);
-	const css = contract?.css || {};
-	return {
-		icon: css.icon || contract.icon || "fa fa-circle",
-		color: css.color || contract.color || "#6b7280",
-		background: css.bg || `color-mix(in srgb, ${css.color || "#6b7280"} 14%, white)`,
-		label: normalizeActionType(actionType) || __("Action"),
-		description: contract?.description || "",
-	};
-}
-
-export function getActionFeatureFlags(actionType) {
-	const normalized = normalizeActionType(actionType);
-	const contract = getContract(normalized);
-	return {
-		supports_logic_builder: contract.supports_logic_builder || false,
-		supports_reference_context: contract.supports_reference_context || false,
-		supports_return_schema: ACTION_TYPES_WITH_RETURN_SCHEMA.has(normalized),
-		...(contract?.feature_flags || {}),
-	};
-}
-
-export function isTerminalAction(actionType) {
-	return getContract(actionType).terminal || false;
-}
-
-export function getRequiredFields(actionType) {
-	return getContract(actionType).required_fields || [];
-}
-
-export function getReturnTypeOptions() {
-	return [...RETURN_TYPE_OPTIONS];
-}
-
-export function getActionTypeOptions() {
-	if (
-		ACTION_TYPE_MAP &&
-		typeof ACTION_TYPE_MAP === "object" &&
-		Object.keys(ACTION_TYPE_MAP).length
-	) {
-		return Object.keys(ACTION_TYPE_MAP).sort();
-	}
-
-	const bootMap = window.frappe?.boot?.action_type_map;
-	if (bootMap && typeof bootMap === "object") {
-		return Object.keys(bootMap).sort();
-	}
-
-	return Object.keys(ACTION_TYPE_CONTRACT).filter(
-		(actionType) => !RELEASE_DISABLED_ACTION_TYPES.has(actionType)
-	);
-}
-
-export function getNodeStatus(nodeData) {
-	if (!nodeData || !nodeData.action_type) {
-		return "not-configured";
-	}
-
-	const actionType = normalizeActionType(nodeData.action_type);
-	if (actionType === "Entry Action") return "configured";
-
-	const contract = getContract(actionType);
-
-	const requiredFields = contract.required_fields || [];
-	const hasRequiredFields = requiredFields.every((f) => {
-		const val = nodeData[f];
-		return val !== undefined && val !== null && val !== "";
-	});
-
-	if (!hasRequiredFields) {
-		return "not-configured";
-	}
-
-	const validation = validateAgainstContract(nodeData);
-	return validation.valid ? "configured" : "invalid";
-}
-
-export function hasDynamicFields(actionType) {
-	return getContract(actionType).dynamic_fields || false;
 }
 
 export default ACTION_TYPE_CONTRACT;

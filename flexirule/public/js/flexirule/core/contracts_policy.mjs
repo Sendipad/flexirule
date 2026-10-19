@@ -154,6 +154,58 @@ export function getContract(actionType) {
 	);
 }
 
+export function getActionPresentation(actionType) {
+	const contract = getContract(actionType);
+	const css = contract?.css || {};
+	const globalObj = typeof window !== "undefined" ? window : globalThis;
+	const translate = globalObj.__ || ((s) => s);
+	return {
+		icon: css.icon || contract.icon || "fa fa-circle",
+		color: css.color || contract.color || "#6b7280",
+		background: css.bg || `color-mix(in srgb, ${css.color || "#6b7280"} 14%, white)`,
+		label: normalizeActionType(actionType) || translate("Action"),
+		description: contract?.description || "",
+	};
+}
+
+export function getActionFeatureFlags(actionType) {
+	const normalized = normalizeActionType(actionType);
+	const contract = getContract(normalized);
+	return {
+		supports_logic_builder: CONFIG_MODAL_TYPES.has(normalized),
+		supports_reference_context: ACTION_TYPES_WITH_REFERENCE_CONTEXT.has(normalized),
+		supports_return_schema: ACTION_TYPES_WITH_RETURN_SCHEMA.has(normalized),
+		...(contract?.feature_flags || {}),
+	};
+}
+
+export function isTerminalAction(actionType) {
+	return getContract(actionType).terminal || false;
+}
+
+export function getRequiredFields(actionType) {
+	return getContract(actionType).required_fields || [];
+}
+
+export function getTriggerTypeContract(triggerType) {
+	return (
+		TRIGGER_TYPE_CONTRACT[triggerType] || {
+			description: "",
+			required_fields: [],
+			optional_fields: [],
+			hidden_fields: [],
+		}
+	);
+}
+
+export function getReturnTypeOptions() {
+	return [...RETURN_TYPE_OPTIONS];
+}
+
+export function getMutationModeOptions() {
+	return [...MUTATION_MODE_OPTIONS];
+}
+
 function mergePolicy(basePolicy = {}, overridePolicy = {}) {
 	const merged = {
 		...(basePolicy || {}),
@@ -333,6 +385,69 @@ function normalizeOutputPolicy(policy = {}) {
 		normalized.return_variable_mode = "context_key";
 	}
 	return normalized;
+}
+
+export function getAllowedReturnTypeOptions(actionType, ctx = {}) {
+	const policy = getEffectiveActionPolicy(actionType, ctx);
+	if (policy.produces_result === false) return [];
+	const allowed = policy.allowed_return_types || [];
+	if (allowed.length) return [...allowed];
+	const normalizedType = normalizeActionType(actionType);
+	if (ACTION_TYPES_WITH_RETURN_SCHEMA.has(normalizedType)) return [...RETURN_TYPE_OPTIONS];
+	return [];
+}
+
+export function getAllowedMutationModeOptions(actionType, ctx = {}) {
+	const policy = getEffectiveActionPolicy(actionType, ctx);
+	if (policy.produces_result === false || policy.show_mutation_mode === false) return [];
+	const allowed = policy.allowed_mutations || [];
+	return allowed.length ? [...allowed] : [];
+}
+
+export function getFieldLabel(actionType, fieldname, ctx = {}) {
+	const policy = getEffectiveActionPolicy(actionType, ctx);
+	return policy?.field_labels?.[fieldname] || null;
+}
+
+export function shouldShowReturnType(actionType, ctx = {}) {
+	const policy = getEffectiveActionPolicy(actionType, ctx);
+	const options = getAllowedReturnTypeOptions(actionType, ctx);
+	if (!options.length) return false;
+	return policy.show_return_type !== false;
+}
+
+export function isReturnTypeMandatory(actionType, ctx = {}) {
+	const policy = getEffectiveActionPolicy(actionType, ctx);
+	return Boolean(policy.require_return_type);
+}
+
+export function getOperationOptions(actionType, ctx = {}) {
+	const normalizedType = normalizeActionType(actionType);
+	const processName = ctx?.processName || null;
+
+	const fromRegistry = (OPERATION_REGISTRY || []).filter((row) => {
+		if (row?.action_type !== normalizedType) return false;
+		if (normalizedType !== "Process") return !row?.process_name;
+		if (!processName) return true;
+		return row?.process_name === processName;
+	});
+
+	if (fromRegistry.length) {
+		return fromRegistry.map((row) => ({
+			value: row.value,
+			label: row.label || row.value,
+			process_name: row.process_name || null,
+			policy: row.policy || {},
+		}));
+	}
+
+	const contract = getContract(normalizedType);
+	return (contract.operation_options || []).map((value) => ({
+		value,
+		label: value,
+		process_name: null,
+		policy: (contract.operation_policies || {})[value] || {},
+	}));
 }
 
 export function requiresReturnVariable(nodeData, ctx = {}) {
@@ -541,7 +656,7 @@ export function validateAgainstContract(nodeData) {
 
 	if (RELEASE_DISABLED_ACTION_TYPES.has(actionType)) {
 		const globalObj = typeof window !== "undefined" ? window : globalThis;
-		const translate = globalObj.__ || ((s, args) => s);
+		const translate = globalObj.__ || ((s) => s);
 		errors.push(translate("{0} is not available in this release", [actionType]));
 	}
 
@@ -668,4 +783,71 @@ export function validateAgainstContract(nodeData) {
 		valid: errors.length === 0,
 		errors,
 	};
+}
+
+export function getNodeStatus(nodeData) {
+	if (!nodeData || !nodeData.action_type) {
+		return "not-configured";
+	}
+
+	const actionType = normalizeActionType(nodeData.action_type);
+	if (actionType === "Entry Action") return "configured";
+
+	const contract = getContract(actionType);
+
+	const requiredFields = contract.required_fields || [];
+	const hasRequiredFields = requiredFields.every((f) => {
+		if (
+			f === "reference_doctype" &&
+			actionType === "Query Records" &&
+			hasConfigDoctypeName(nodeData)
+		) {
+			return true;
+		}
+		const val = nodeData[f];
+		return val !== undefined && val !== null && val !== "";
+	});
+
+	if (!hasRequiredFields) {
+		return "not-configured";
+	}
+
+	if (requiredFields.includes("config")) {
+		const config = parseJsonSafe(nodeData.config);
+		const isEmpty =
+			!config ||
+			(Array.isArray(config) && config.length === 0) ||
+			(typeof config === "object" && Object.keys(config).length === 0);
+
+		if (isEmpty) {
+			return "not-configured";
+		}
+	}
+
+	const validation = validateAgainstContract(nodeData);
+	return validation.valid ? "configured" : "invalid";
+}
+
+export function getActionTypeOptions() {
+	if (
+		ACTION_TYPE_MAP &&
+		typeof ACTION_TYPE_MAP === "object" &&
+		Object.keys(ACTION_TYPE_MAP).length
+	) {
+		return Object.keys(ACTION_TYPE_MAP).sort();
+	}
+
+	const globalObj = typeof window !== "undefined" ? window : globalThis;
+	const bootMap = globalObj.frappe?.boot?.action_type_map;
+	if (bootMap && typeof bootMap === "object") {
+		return Object.keys(bootMap).sort();
+	}
+
+	return Object.keys(ACTION_TYPE_CONTRACT).filter(
+		(actionType) => !RELEASE_DISABLED_ACTION_TYPES.has(actionType)
+	);
+}
+
+export function hasDynamicFields(actionType) {
+	return getContract(actionType).dynamic_fields || false;
 }

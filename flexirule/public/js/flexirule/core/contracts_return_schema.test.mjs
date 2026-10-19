@@ -47,7 +47,7 @@ applyContractDto({
 					supports_return_schema: true,
 					show_return_type: false,
 				},
-				Exists: {
+				"Exist Record": {
 					supports_return_schema: false,
 					show_return_type: false,
 					allowed_return_types: ["Yes / No"],
@@ -250,9 +250,23 @@ for (const actionType of nonResultActionTypes) {
 }
 
 {
-	const queryExistsPolicy = getEffectiveActionPolicy("Query Records", { operation: "Exists" });
+	const queryExistsPolicy = getEffectiveActionPolicy("Query Records", {
+		operation: "Exist Record",
+	});
 	assert.equal(queryExistsPolicy.supports_return_schema, false);
 }
+
+// ── 7. Test Public Module Export Surface ──
+import * as contractsFacade from "./contracts_policy.mjs";
+assert.equal(typeof contractsFacade.getAllowedReturnTypeOptions, "function");
+assert.equal(typeof contractsFacade.getAllowedMutationModeOptions, "function");
+assert.equal(typeof contractsFacade.getFieldLabel, "function");
+assert.equal(typeof contractsFacade.getOperationOptions, "function");
+assert.equal(typeof contractsFacade.getTriggerTypeContract, "function");
+assert.equal(typeof contractsFacade.shouldShowReturnType, "function");
+assert.equal(typeof contractsFacade.isReturnTypeMandatory, "function");
+assert.equal(typeof contractsFacade.getActionFeatureFlags, "function");
+assert.equal(typeof contractsFacade.getNodeStatus, "function");
 
 // ── 5. Test Process contract_v2 Policies ──
 

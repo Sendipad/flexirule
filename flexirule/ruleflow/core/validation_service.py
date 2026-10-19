@@ -391,7 +391,11 @@ def _validate_action_contracts(
 				)
 			)
 
-		if allowed_mutations and _is_empty(_safe_get(action, "return_variable")):
+		if (
+			allowed_mutations
+			and mutation_mode in allowed_mutations
+			and _is_empty(_safe_get(action, "return_variable"))
+		):
 			errors.append(
 				_("Action '{0}' ({1}) requires Return Variable Name when Mutation Mode is set").format(
 					action_label, action_type
