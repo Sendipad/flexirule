@@ -60,17 +60,19 @@ class TestActionReturnSchemaContract(FrappeTestCase):
 	def test_process_operation_writes_to_context_requires_return_variable(self):
 		import json
 
-		contract_v2_json = json.dumps({
-			"contract_v2": {
-				"adapter_key": "validate",
-				"capabilities": {"writes_to": "Context"},
-				"config_schema": {"type": "object", "properties": {}},
-				"result_schema": {"type": "boolean"},
-				"policy": {
-					"require_return_variable": True,
-				},
+		contract_v2_json = json.dumps(
+			{
+				"contract_v2": {
+					"adapter_key": "validate",
+					"capabilities": {"writes_to": "Context"},
+					"config_schema": {"type": "object", "properties": {}},
+					"result_schema": {"type": "boolean"},
+					"policy": {
+						"require_return_variable": True,
+					},
+				}
 			}
-		})
+		)
 		operation_metadata = {
 			"Test Process:update_ctx": {
 				"writes_to": "Context",
@@ -94,7 +96,7 @@ class TestActionReturnSchemaContract(FrappeTestCase):
 		_validate_action_contracts(
 			action,
 			"Process",
-			action["action_label"],
+			str(action["action_label"]),
 			operation_metadata=operation_metadata,
 			errors=errors,
 			mode="draft",
@@ -107,18 +109,20 @@ class TestActionReturnSchemaContract(FrappeTestCase):
 	def test_process_operation_empty_writes_vars_does_not_require_return_variable(self):
 		import json
 
-		contract_v2_json = json.dumps({
-			"contract_v2": {
-				"adapter_key": "validate",
-				"capabilities": {"writes_to": "None"},
-				"config_schema": {"type": "object", "properties": {}},
-				"result_schema": {"type": "boolean"},
-				"policy": {
-					"require_return_variable": False,
-					"supports_return_schema": False,
-				},
+		contract_v2_json = json.dumps(
+			{
+				"contract_v2": {
+					"adapter_key": "validate",
+					"capabilities": {"writes_to": "None"},
+					"config_schema": {"type": "object", "properties": {}},
+					"result_schema": {"type": "boolean"},
+					"policy": {
+						"require_return_variable": False,
+						"supports_return_schema": False,
+					},
+				}
 			}
-		})
+		)
 		operation_metadata = {
 			"Test Process:noop": {
 				"writes_to": "None",
@@ -142,7 +146,7 @@ class TestActionReturnSchemaContract(FrappeTestCase):
 		_validate_action_contracts(
 			action,
 			"Process",
-			action["action_label"],
+			str(action["action_label"]),
 			operation_metadata=operation_metadata,
 			errors=errors,
 			mode="draft",

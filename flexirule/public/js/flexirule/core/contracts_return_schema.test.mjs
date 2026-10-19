@@ -6,7 +6,7 @@ import {
 	applyOutputPolicyDefaults,
 	getEffectiveActionPolicy,
 	requiresReturnVariable,
-} from "./contracts.js";
+} from "./contracts_policy.mjs";
 
 // Mock Frappe global translation function if missing
 if (typeof globalThis.__ === "undefined") {
