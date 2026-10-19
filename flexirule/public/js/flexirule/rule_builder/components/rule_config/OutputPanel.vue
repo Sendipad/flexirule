@@ -166,6 +166,7 @@ import {
 	getAllowedReturnTypeOptions,
 	getEffectiveActionPolicy,
 	getFieldLabel,
+	hasResolvedOutputSchema,
 	isReturnTypeMandatory,
 	shouldShowReturnType,
 } from "../../../core/contracts.js";
@@ -304,10 +305,15 @@ const returnVariablePlaceholder = computed(() => {
 const isReturnVariableMandatory = computed(() => {
 	const data = props.node.data || {};
 	const policy = getEffectiveActionPolicy(data.action_type, policyContext.value);
-	return !!(
+	const supportsReturnSchema = policy.supports_return_schema !== false;
+	const hasSchema = hasResolvedOutputSchema(data.resolved_output_schema);
+	const showReturnType = policy.show_return_type !== false;
+	const hasReturnType =
+		showReturnType && Boolean(data.return_type) && data.return_type !== "Yes / No";
+
+	return Boolean(
 		data.mutation_mode ||
-		(data.return_type && data.return_type !== "Yes / No") ||
-		data.resolved_output_schema ||
+		(supportsReturnSchema && (hasReturnType || hasSchema)) ||
 		policy.require_return_variable
 	);
 });

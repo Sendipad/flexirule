@@ -91,7 +91,7 @@ function withDescriptions(contractMap, descriptionsMap) {
 	return merged;
 }
 
-function applyContractDto(dto = {}) {
+export function applyContractDto(dto = {}) {
 	const descriptions = dto.action_type_descriptions || {};
 
 	if (dto.action_type_contract && typeof dto.action_type_contract === "object") {
@@ -602,6 +602,28 @@ export function getOperationOptions(actionType, ctx = {}) {
 	}));
 }
 
+export function hasResolvedOutputSchema(value) {
+	if (!value) return false;
+	const schema = parseJsonSafe(value, null);
+	if (!schema) return false;
+	if (Array.isArray(schema)) {
+		return schema.some((field) => field && typeof field === "object" && Boolean(field.fieldname));
+	}
+	if (typeof schema === "object" && schema !== null) {
+		const fields = schema.fields;
+		if (Array.isArray(fields)) {
+			if (fields.some((field) => field && typeof field === "object" && Boolean(field.fieldname))) {
+				return true;
+			}
+		}
+		const props = schema.properties;
+		if (props && typeof props === "object" && !Array.isArray(props) && Object.keys(props).length > 0) {
+			return true;
+		}
+	}
+	return false;
+}
+
 export function getEffectiveActionPolicy(actionType, ctx = {}) {
 	const normalizedType = normalizeActionType(actionType);
 	const operation = ctx?.operation || null;
@@ -613,6 +635,9 @@ export function getEffectiveActionPolicy(actionType, ctx = {}) {
 		default_return_type: contract.default_return_type || null,
 		field_labels: { ...(contract.field_labels || {}) },
 		show_return_type: contract.show_return_type,
+		supports_return_schema:
+			ACTION_TYPES_WITH_RETURN_SCHEMA.has(normalizedType) ||
+			Boolean(contract.supports_return_schema),
 		require_return_type: contract.require_return_type || false,
 		show_return_variable: contract.show_return_variable,
 		require_return_variable: contract.require_return_variable || false,
@@ -657,6 +682,7 @@ function normalizeOutputPolicy(policy = {}) {
 		normalized.default_return_type = null;
 		normalized.show_mutation_mode = false;
 		normalized.show_return_type = false;
+		normalized.supports_return_schema = false;
 		if (!normalized.show_return_variable) {
 			normalized.show_return_variable = false;
 			normalized.require_return_variable = false;
@@ -783,10 +809,15 @@ export function applyOutputPolicyDefaults(nodeData, opts = {}) {
 		changed = true;
 	}
 
+	const supportsReturnSchema = policy.supports_return_schema !== false;
+	const hasSchema = hasResolvedOutputSchema(nodeData.resolved_output_schema);
+	const showReturnType = policy.show_return_type !== false;
+	const hasReturnType =
+		showReturnType && Boolean(nodeData.return_type) && nodeData.return_type !== "Yes / No";
+
 	const needsReturnVariable =
 		!!nodeData.mutation_mode ||
-		(nodeData.return_type && nodeData.return_type !== "Yes / No") ||
-		!!nodeData.resolved_output_schema ||
+		(supportsReturnSchema && (hasReturnType || hasSchema)) ||
 		!!policy.require_return_variable;
 
 	if (returnVarState.hidden && nodeData.return_variable) {
@@ -924,10 +955,15 @@ export function validateAgainstContract(nodeData) {
 		errors.push(__("Return Variable Name is required for this operation"));
 	}
 
+	const supportsReturnSchema = policy.supports_return_schema !== false;
+	const hasSchema = hasResolvedOutputSchema(nodeData.resolved_output_schema);
 	const showReturnType = policy.show_return_type !== false;
+	const hasReturnType =
+		showReturnType && Boolean(nodeData.return_type) && nodeData.return_type !== "Yes / No";
+
 	if (
-		((showReturnType && nodeData.return_type && nodeData.return_type !== "Yes / No") ||
-			nodeData.resolved_output_schema) &&
+		supportsReturnSchema &&
+		(hasReturnType || hasSchema) &&
 		!nodeData.return_variable
 	) {
 		errors.push(__("Return Schema requires a Return Variable Name"));
@@ -960,7 +996,8 @@ export function validateAgainstContract(nodeData) {
 	if (actionType === "Condition" || actionType === "Loop") {
 		const config = parseJsonSafe(nodeData.config, {});
 		if (actionType === "Condition") {
-			const { getConditionPayload } = window.flexirule?.utils?.condition_payload || {};
+			const globalObj = typeof window !== "undefined" ? window : globalThis;
+			const { getConditionPayload } = globalObj.flexirule?.utils?.condition_payload || {};
 			const payload = getConditionPayload ? getConditionPayload(nodeData) : config.conditions;
 
 			if (!payload || (Array.isArray(payload) && payload.length === 0)) {

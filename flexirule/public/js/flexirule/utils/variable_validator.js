@@ -366,8 +366,19 @@ flexirule.validation.validate_action_types = function (
 			const op_meta = operation_metadata[op_key] || {};
 
 			const writes_to_context = op_meta.writes_to === "Context";
-			const has_writes_vars = op_meta.writes_vars && op_meta.writes_vars !== "[]";
-			const has_output_schema = !!op_meta.output_schema;
+			const has_writes_vars =
+				op_meta.writes_vars &&
+				op_meta.writes_vars !== "[]" &&
+				op_meta.writes_vars !== "{}";
+			let has_output_schema = false;
+			if (window.flexirule?.contracts?.hasResolvedOutputSchema) {
+				has_output_schema = window.flexirule.contracts.hasResolvedOutputSchema(
+					op_meta.output_schema
+				);
+			} else {
+				const raw = op_meta.output_schema;
+				has_output_schema = Boolean(raw) && raw !== "[]" && raw !== "{}" && raw !== "null";
+			}
 
 			if (
 				(writes_to_context || has_writes_vars || has_output_schema) &&
@@ -388,16 +399,6 @@ flexirule.validation.validate_action_types = function (
 				__("Action '{0}' has Mutation Mode set but no Return Variable Name is provided.", [
 					label,
 				])
-			);
-		}
-
-		// Return schema requires return variable
-		if ((action.return_type || action.resolved_output_schema) && !action.return_variable) {
-			errors.push(
-				__(
-					"Action '{0}' defines a Return Schema but no Return Variable Name is provided.",
-					[label]
-				)
 			);
 		}
 	}

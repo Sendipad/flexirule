@@ -93,6 +93,7 @@ jobs:
 
       - name: Run standalone unit tests
         run: |
+          node flexirule/public/js/flexirule/core/contracts_return_schema.test.mjs
           node flexirule/public/js/flexirule/rule_builder/components/rule_config/query_filters/filter_operators.test.mjs
           node flexirule/public/js/flexirule/rule_builder/controls/generic_grid_model.test.mjs
           node flexirule/public/js/flexirule/rule_builder/components/rule_config/types/query_records/output_field_info.test.mjs

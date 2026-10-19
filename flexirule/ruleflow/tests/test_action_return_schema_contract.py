@@ -95,3 +95,58 @@ class TestActionReturnSchemaContract(FrappeTestCase):
 		self.assertIn("Sub-Rule", dto["action_types_with_return_schema"])
 		self.assertNotIn("Condition", dto["action_types_with_return_schema"])
 		self.assertNotIn("Assignment", dto["action_types_with_return_schema"])
+
+	def test_object_schema_forms_without_properties_or_fields_do_not_require_return_variable(self):
+		for empty_schema in ('{"fields": []}', '{"properties": {}}', "{}", "[]"):
+			with self.subTest(empty_schema=empty_schema):
+				errors = self._validate_action(
+					"Query Records",
+					operation="Fetch Records",
+					return_type="List of Records",
+					resolved_output_schema=empty_schema,
+				)
+				self.assertFalse(
+					any("requires Return Variable Name for Return Schema" in error for error in errors),
+					errors,
+				)
+
+	def test_populated_object_schema_forms_require_return_variable_for_schema_capable_action(self):
+		for populated_schema in (
+			'{"fields": [{"fieldname": "name"}]}',
+			'{"properties": {"name": {"type": "string"}}}',
+		):
+			with self.subTest(populated_schema=populated_schema):
+				errors = self._validate_action(
+					"Query Records",
+					operation="Fetch Records",
+					return_type="List of Records",
+					resolved_output_schema=populated_schema,
+				)
+				self.assertTrue(
+					any("requires Return Variable Name for Return Schema" in error for error in errors),
+					errors,
+				)
+
+	def test_yes_no_return_type_does_not_require_return_variable(self):
+		errors = self._validate_action(
+			"Document Action",
+			operation="Save Doc",
+			return_type="Yes / No",
+			resolved_output_schema="[]",
+		)
+		self.assertFalse(
+			any("requires Return Variable Name for Return Schema" in error for error in errors),
+			errors,
+		)
+
+	def test_operation_level_supports_return_schema_false_override(self):
+		errors = self._validate_action(
+			"Query Records",
+			operation="Exists",
+			return_type="Yes / No",
+			resolved_output_schema="[]",
+		)
+		self.assertFalse(
+			any("requires Return Variable Name for Return Schema" in error for error in errors),
+			errors,
+		)
