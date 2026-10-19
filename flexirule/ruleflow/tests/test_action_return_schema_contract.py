@@ -57,6 +57,17 @@ class TestActionReturnSchemaContract(FrappeTestCase):
 			errors,
 		)
 
+	def test_unsupported_mutation_mode_on_non_mutation_action_does_not_require_return_variable(self):
+		errors = self._validate_action(
+			"Entry Action",
+			mutation_mode="Set Doc Field",
+			return_variable=None,
+		)
+		self.assertFalse(
+			any("requires Return Variable Name when Mutation Mode is set" in error for error in errors),
+			errors,
+		)
+
 	def test_process_operation_writes_to_context_requires_return_variable(self):
 		import json
 

@@ -347,7 +347,8 @@ export function requiresReturnVariable(nodeData, ctx = {}) {
 
 	const hasAllowedMutation =
 		Boolean(nodeData.mutation_mode) &&
-		(!allowedMutations.length || allowedMutations.includes(nodeData.mutation_mode));
+		allowedMutations.length > 0 &&
+		allowedMutations.includes(nodeData.mutation_mode);
 
 	return Boolean(
 		hasAllowedMutation ||

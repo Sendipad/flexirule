@@ -308,4 +308,14 @@ for (const actionType of nonResultActionTypes) {
 	assert.equal(requiresReturnVariable(docActionMutation, ctx), true);
 }
 
+// Unsupported/stale mutation mode on an action with empty allowed_mutations does NOT require return_variable
+{
+	const entryActionWithStaleMutation = {
+		action_type: "Entry Action",
+		mutation_mode: "Set Doc Field",
+		return_variable: null,
+	};
+	assert.equal(requiresReturnVariable(entryActionWithStaleMutation), false);
+}
+
 console.log("Contracts return schema unit tests passed!");

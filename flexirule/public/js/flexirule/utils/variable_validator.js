@@ -362,32 +362,61 @@ flexirule.validation.validate_action_types = function (
 
 		// Process validation: return_variable enforcement
 		if (action_type === "Process" && action.process_name && action.operation) {
-			const op_key = `${action.process_name}:${action.operation}`;
-			const op_meta = operation_metadata[op_key] || {};
-
-			const writes_to_context = op_meta.writes_to === "Context";
-			const has_writes_vars =
-				op_meta.writes_vars && op_meta.writes_vars !== "[]" && op_meta.writes_vars !== "{}";
-			let has_output_schema = false;
-			if (window.flexirule?.contracts?.hasResolvedOutputSchema) {
-				has_output_schema = window.flexirule.contracts.hasResolvedOutputSchema(
-					op_meta.output_schema
-				);
-			} else {
-				const raw = op_meta.output_schema;
-				has_output_schema = Boolean(raw) && raw !== "[]" && raw !== "{}" && raw !== "null";
-			}
+			const globalContracts =
+				window.flexirule?.contracts ||
+				(typeof globalThis !== "undefined" ? globalThis.flexirule?.contracts : null);
+			const policy = globalContracts?.getEffectiveActionPolicy
+				? globalContracts.getEffectiveActionPolicy(action_type, {
+						operation: action.operation,
+						processName: action.process_name,
+				  })
+				: {};
 
 			if (
-				(writes_to_context || has_writes_vars || has_output_schema) &&
-				!action.return_variable
+				policy.require_return_variable === false &&
+				policy.supports_return_schema === false
 			) {
-				errors.push(
-					__(
-						"Action '{0}' uses operation '{1}' which writes to context. Please specify a Return Variable Name.",
-						[label, action.operation]
-					)
-				);
+				// Explicit operation policy opts out of return variable
+			} else if (policy.require_return_variable) {
+				if (!action.return_variable) {
+					errors.push(
+						__(
+							"Action '{0}' uses operation '{1}' which requires a Return Variable Name.",
+							[label, action.operation]
+						)
+					);
+				}
+			} else {
+				const op_key = `${action.process_name}:${action.operation}`;
+				const op_meta = operation_metadata[op_key] || {};
+
+				const writes_to_context = op_meta.writes_to === "Context";
+				const has_writes_vars =
+					op_meta.writes_vars &&
+					op_meta.writes_vars !== "[]" &&
+					op_meta.writes_vars !== "{}";
+				let has_output_schema = false;
+				if (globalContracts?.hasResolvedOutputSchema) {
+					has_output_schema = globalContracts.hasResolvedOutputSchema(
+						op_meta.output_schema
+					);
+				} else {
+					const raw = op_meta.output_schema;
+					has_output_schema =
+						Boolean(raw) && raw !== "[]" && raw !== "{}" && raw !== "null";
+				}
+
+				if (
+					(writes_to_context || has_writes_vars || has_output_schema) &&
+					!action.return_variable
+				) {
+					errors.push(
+						__(
+							"Action '{0}' uses operation '{1}' which writes to context. Please specify a Return Variable Name.",
+							[label, action.operation]
+						)
+					);
+				}
 			}
 		}
 
@@ -403,7 +432,7 @@ flexirule.validation.validate_action_types = function (
 				  })
 				: {};
 			const allowed = policy.allowed_mutations || [];
-			if (!allowed.length || allowed.includes(action.mutation_mode)) {
+			if (allowed.length > 0 && allowed.includes(action.mutation_mode)) {
 				errors.push(
 					__(
 						"Action '{0}' has Mutation Mode set but no Return Variable Name is provided.",
