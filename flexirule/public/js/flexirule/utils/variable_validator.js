@@ -393,11 +393,24 @@ flexirule.validation.validate_action_types = function (
 
 		// Mutation mode requires return variable
 		if (action.mutation_mode && !action.return_variable) {
-			errors.push(
-				__("Action '{0}' has Mutation Mode set but no Return Variable Name is provided.", [
-					label,
-				])
-			);
+			const globalContracts =
+				window.flexirule?.contracts ||
+				(typeof globalThis !== "undefined" ? globalThis.flexirule?.contracts : null);
+			const policy = globalContracts?.getEffectiveActionPolicy
+				? globalContracts.getEffectiveActionPolicy(action_type, {
+						operation: action.operation,
+						processName: action.process_name,
+					})
+				: {};
+			const allowed = policy.allowed_mutations || [];
+			if (!allowed.length || allowed.includes(action.mutation_mode)) {
+				errors.push(
+					__(
+						"Action '{0}' has Mutation Mode set but no Return Variable Name is provided.",
+						[label]
+					)
+				);
+			}
 		}
 	}
 

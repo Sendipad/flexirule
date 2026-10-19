@@ -1,6 +1,7 @@
 /**
  * FlexiRule action policy and contract logic module.
- * Standalone ES module for contract evaluation and testing.
+ * Single source of truth for contract policy calculation, schema normalization,
+ * and contract validation across browser and standalone ES module environments.
  */
 
 export let ACTION_TYPE_CONTRACT = {};
@@ -196,6 +197,19 @@ export function getProcessOperationDefinition(processName, operation) {
 	return v2 ? { ...base, contract_v2: v2 } : base;
 }
 
+export function getProcessOperationConfigFields(processName, operation) {
+	const op = getProcessOperationDefinition(processName, operation);
+	if (!op) return [];
+	const v2 = PROCESS_OPERATION_REGISTRY_V2?.[processName]?.[operation] || op?.contract_v2;
+	if (v2 && Array.isArray(v2.config_schema?.ui_schema)) {
+		return v2.config_schema.ui_schema;
+	}
+	const parsed = parseJsonSafe(op.config_schema, op.config_schema);
+	if (Array.isArray(parsed)) return parsed;
+	if (parsed && Array.isArray(parsed.fields)) return parsed.fields;
+	return [];
+}
+
 export function getProcessOperationPolicy(processName, operation) {
 	if (!processName || !operation) return {};
 	const v2Policy = PROCESS_OPERATION_REGISTRY_V2?.[processName]?.[operation]?.policy || {};
@@ -319,6 +333,27 @@ function normalizeOutputPolicy(policy = {}) {
 		normalized.return_variable_mode = "context_key";
 	}
 	return normalized;
+}
+
+export function requiresReturnVariable(nodeData, ctx = {}) {
+	if (!nodeData || !nodeData.action_type) return false;
+	const policy = getEffectiveActionPolicy(nodeData.action_type, ctx);
+	const allowedMutations = policy.allowed_mutations || [];
+	const supportsReturnSchema = policy.supports_return_schema !== false;
+	const hasSchema = hasResolvedOutputSchema(nodeData.resolved_output_schema);
+	const showReturnType = policy.show_return_type !== false;
+	const hasReturnType =
+		showReturnType && Boolean(nodeData.return_type) && nodeData.return_type !== "Yes / No";
+
+	const hasAllowedMutation =
+		Boolean(nodeData.mutation_mode) &&
+		(!allowedMutations.length || allowedMutations.includes(nodeData.mutation_mode));
+
+	return Boolean(
+		hasAllowedMutation ||
+		(supportsReturnSchema && (hasReturnType || hasSchema)) ||
+		policy.require_return_variable
+	);
 }
 
 function evaluateFieldExpression(expression, doc = {}, parent = {}) {
@@ -454,16 +489,7 @@ export function applyOutputPolicyDefaults(nodeData, opts = {}) {
 		changed = true;
 	}
 
-	const supportsReturnSchema = policy.supports_return_schema !== false;
-	const hasSchema = hasResolvedOutputSchema(nodeData.resolved_output_schema);
-	const showReturnType = policy.show_return_type !== false;
-	const hasReturnType =
-		showReturnType && Boolean(nodeData.return_type) && nodeData.return_type !== "Yes / No";
-
-	const needsReturnVariable =
-		!!nodeData.mutation_mode ||
-		(supportsReturnSchema && (hasReturnType || hasSchema)) ||
-		!!policy.require_return_variable;
+	const needsReturnVariable = requiresReturnVariable(nodeData, ctx);
 
 	if (returnVarState.hidden && nodeData.return_variable) {
 		nodeData.return_variable = null;
@@ -584,13 +610,13 @@ export function validateAgainstContract(nodeData) {
 		errors.push("Return Variable Name is required for this operation");
 	}
 
-	const supportsReturnSchema = policy.supports_return_schema !== false;
-	const hasSchema = hasResolvedOutputSchema(nodeData.resolved_output_schema);
-	const showReturnType = policy.show_return_type !== false;
-	const hasReturnType =
-		showReturnType && Boolean(nodeData.return_type) && nodeData.return_type !== "Yes / No";
-
-	if (supportsReturnSchema && (hasReturnType || hasSchema) && !nodeData.return_variable) {
+	if (
+		requiresReturnVariable(nodeData, {
+			operation: nodeData.operation,
+			processName: nodeData.process_name,
+		}) &&
+		!nodeData.return_variable
+	) {
 		errors.push("Return Schema requires a Return Variable Name");
 	}
 

@@ -57,6 +57,101 @@ class TestActionReturnSchemaContract(FrappeTestCase):
 			errors,
 		)
 
+	def test_process_operation_writes_to_context_requires_return_variable(self):
+		import json
+
+		contract_v2_json = json.dumps({
+			"contract_v2": {
+				"adapter_key": "validate",
+				"capabilities": {"writes_to": "Context"},
+				"config_schema": {"type": "object", "properties": {}},
+				"result_schema": {"type": "boolean"},
+				"policy": {
+					"require_return_variable": True,
+				},
+			}
+		})
+		operation_metadata = {
+			"Test Process:update_ctx": {
+				"writes_to": "Context",
+				"writes_vars": '[{"fieldname": "updated_val"}]',
+				"output_schema": "[]",
+				"action_overrides": contract_v2_json,
+			}
+		}
+		action = {
+			"action_type": "Process",
+			"action_label": "Test Process",
+			"process_name": "Test Process",
+			"operation": "update_ctx",
+			"return_type": None,
+			"return_variable": None,
+			"resolved_output_schema": "[]",
+			"mutation_mode": None,
+			"config": "{}",
+		}
+		errors: list[str] = []
+		_validate_action_contracts(
+			action,
+			"Process",
+			action["action_label"],
+			operation_metadata=operation_metadata,
+			errors=errors,
+			mode="draft",
+		)
+		self.assertTrue(
+			any("requires Return Variable Name" in error for error in errors),
+			errors,
+		)
+
+	def test_process_operation_empty_writes_vars_does_not_require_return_variable(self):
+		import json
+
+		contract_v2_json = json.dumps({
+			"contract_v2": {
+				"adapter_key": "validate",
+				"capabilities": {"writes_to": "None"},
+				"config_schema": {"type": "object", "properties": {}},
+				"result_schema": {"type": "boolean"},
+				"policy": {
+					"require_return_variable": False,
+					"supports_return_schema": False,
+				},
+			}
+		})
+		operation_metadata = {
+			"Test Process:noop": {
+				"writes_to": "None",
+				"writes_vars": "[]",
+				"output_schema": "[]",
+				"action_overrides": contract_v2_json,
+			}
+		}
+		action = {
+			"action_type": "Process",
+			"action_label": "Test Process",
+			"process_name": "Test Process",
+			"operation": "noop",
+			"return_type": None,
+			"return_variable": None,
+			"resolved_output_schema": "[]",
+			"mutation_mode": None,
+			"config": "{}",
+		}
+		errors: list[str] = []
+		_validate_action_contracts(
+			action,
+			"Process",
+			action["action_label"],
+			operation_metadata=operation_metadata,
+			errors=errors,
+			mode="draft",
+		)
+		self.assertFalse(
+			any("requires Return Variable Name" in error for error in errors),
+			errors,
+		)
+
 	def test_populated_schema_requires_return_variable_for_schema_capable_action(self):
 		errors = self._validate_action(
 			"Query Records",

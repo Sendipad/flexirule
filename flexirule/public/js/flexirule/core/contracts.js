@@ -7,158 +7,26 @@
  * from the backend via `loadContractsFromBackend()` which calls
  * `flexirule.ruleflow.api.get_contract_dto`.
  *
- * There are NO local fallback defaults. If the backend contract cannot be
- * loaded, the rule builder will surface an error rather than operating on
- * stale or incorrect data.
- *
- * Retry policy:
- *   - Transient errors (network, 502, 503, 504, timeout) → retry up to 3
- *     times with exponential backoff (500ms, 1000ms, 2000ms).
- *   - Permanent errors (400, 403, 404, 500, schema mismatch) → fail immediately.
- *
- * Cache policy:
- *   - sessionStorage key: CONTRACT_CACHE_KEY (schema-versioned).
- *   - Valid cached payloads are applied synchronously, then a background
- *     refresh checks if contract_version_hash changed. On mismatch the
- *     in-memory state is updated and the cache replaced.
+ * Re-exports state and pure policy functions from `./contracts_policy.mjs`.
  */
 
-// ── Module-level state — populated exclusively from backend DTO ──────────────
-
-export let ACTION_TYPE_CONTRACT = {};
-export let ACTION_TYPE_MAP = {};
-export let TRIGGER_TYPE_CONTRACT = {
-	"DocType Event": {
-		description:
-			"Runs the rule automatically when events (such as Before Save, After Save, On Submission) occur on the selected DocType.",
-		required_fields: ["document_type", "trigger_event"],
-		optional_fields: ["trigger_condition", "compiled_expression"],
-		hidden_fields: [],
-	},
-	"Scheduler Event": {
-		description:
-			"Runs the rule automatically on a scheduled time interval or recurring schedule.",
-		required_fields: [],
-		optional_fields: ["document_type"],
-		hidden_fields: ["trigger_event", "trigger_condition", "compiled_expression"],
-	},
-	"Callable Event": {
-		description:
-			"Runs the rule when explicitly invoked by another rule, process, or custom code.",
-		required_fields: [],
-		optional_fields: ["document_type", "trigger_condition", "compiled_expression"],
-		hidden_fields: ["trigger_event"],
-	},
-};
-export let RELEASE_DISABLED_ACTION_TYPES = new Set();
-export let RETURN_TYPE_OPTIONS = [];
-export let MUTATION_MODE_OPTIONS = [];
-export let ACTION_TYPES_WITH_REFERENCE_CONTEXT = new Set();
-export let ACTION_TYPES_WITH_RETURN_SCHEMA = new Set();
-export let CONFIG_MODAL_TYPES = new Set();
-export let PROCESS_REGISTRY = [];
-export let OPERATION_REGISTRY = [];
-export let OPERATION_CONTRACT = {};
-export let PROCESS_OPERATION_REGISTRY_V2 = {};
-export let RUNTIME_FIELD_ALIASES = {};
-
-/**
- * Assignment operator metadata — sourced from backend operators.py.
- * Keyed by operator slug (e.g. "set", "clear", "increment").
- * Each entry: { label, requires_value, supported_target_types, is_idempotent }
- */
-export let ASSIGNMENT_OPERATOR_METADATA = {};
-
-// ── Cache internals ───────────────────────────────────────────────────────────
+export * from "./contracts_policy.mjs";
+import {
+	ACTION_TYPE_CONTRACT,
+	ACTION_TYPE_MAP,
+	RELEASE_DISABLED_ACTION_TYPES,
+	RETURN_TYPE_OPTIONS,
+	ACTION_TYPES_WITH_RETURN_SCHEMA,
+	applyContractDto,
+	getContract,
+	normalizeActionType,
+	validateAgainstContract,
+} from "./contracts_policy.mjs";
 
 let _contractsLoaded = false;
 let _loadPromise = null;
 
-// Key includes the schema version so old cached payloads are automatically
-// discarded when CONTRACT_SCHEMA_VERSION bumps on the backend.
 const CONTRACT_CACHE_KEY = "flexirule:contract_dto:v4";
-
-// ── DTO application ───────────────────────────────────────────────────────────
-
-function withDescriptions(contractMap, descriptionsMap) {
-	const merged = {};
-	Object.entries(contractMap || {}).forEach(([actionType, contract]) => {
-		merged[actionType] = {
-			...(contract || {}),
-			description: descriptionsMap?.[actionType] || contract?.description || "",
-		};
-	});
-	return merged;
-}
-
-export function applyContractDto(dto = {}) {
-	const descriptions = dto.action_type_descriptions || {};
-
-	if (dto.action_type_contract && typeof dto.action_type_contract === "object") {
-		ACTION_TYPE_CONTRACT = withDescriptions(dto.action_type_contract, descriptions);
-	}
-
-	if (dto.action_type_map && typeof dto.action_type_map === "object") {
-		ACTION_TYPE_MAP = { ...dto.action_type_map };
-	}
-
-	if (dto.trigger_type_contract && typeof dto.trigger_type_contract === "object") {
-		TRIGGER_TYPE_CONTRACT = { ...dto.trigger_type_contract };
-	}
-
-	if (Array.isArray(dto.release_disabled_action_types)) {
-		RELEASE_DISABLED_ACTION_TYPES = new Set(dto.release_disabled_action_types);
-	}
-
-	if (Array.isArray(dto.return_type_options) && dto.return_type_options.length) {
-		RETURN_TYPE_OPTIONS = [...dto.return_type_options];
-	}
-
-	if (Array.isArray(dto.mutation_mode_options) && dto.mutation_mode_options.length) {
-		MUTATION_MODE_OPTIONS = [...dto.mutation_mode_options];
-	}
-
-	if (Array.isArray(dto.action_types_with_reference_context)) {
-		ACTION_TYPES_WITH_REFERENCE_CONTEXT = new Set(dto.action_types_with_reference_context);
-	}
-
-	if (Array.isArray(dto.action_types_with_return_schema)) {
-		ACTION_TYPES_WITH_RETURN_SCHEMA = new Set(dto.action_types_with_return_schema);
-	}
-
-	if (Array.isArray(dto.config_modal_types)) {
-		CONFIG_MODAL_TYPES = new Set(dto.config_modal_types);
-	}
-
-	if (dto.runtime_field_aliases && typeof dto.runtime_field_aliases === "object") {
-		RUNTIME_FIELD_ALIASES = { ...dto.runtime_field_aliases };
-	}
-
-	if (Array.isArray(dto.process_registry)) {
-		PROCESS_REGISTRY = [...dto.process_registry];
-	}
-
-	if (Array.isArray(dto.operation_registry)) {
-		OPERATION_REGISTRY = [...dto.operation_registry];
-	}
-
-	if (dto.operation_contract && typeof dto.operation_contract === "object") {
-		OPERATION_CONTRACT = { ...dto.operation_contract };
-	}
-
-	if (
-		dto.process_operation_registry_v2 &&
-		typeof dto.process_operation_registry_v2 === "object"
-	) {
-		PROCESS_OPERATION_REGISTRY_V2 = { ...dto.process_operation_registry_v2 };
-	}
-
-	if (dto.assignment_operator_metadata && typeof dto.assignment_operator_metadata === "object") {
-		ASSIGNMENT_OPERATOR_METADATA = { ...dto.assignment_operator_metadata };
-	}
-}
-
-// ── sessionStorage cache ──────────────────────────────────────────────────────
 
 function getCachedContractDto() {
 	try {
@@ -166,7 +34,6 @@ function getCachedContractDto() {
 		if (!raw) return null;
 		const parsed = JSON.parse(raw);
 		if (!parsed || typeof parsed !== "object") return null;
-		// Require both hash and schema_version for a cache hit
 		if (typeof parsed.contract_version_hash !== "string" || !parsed.contract_version_hash) {
 			return null;
 		}
@@ -183,21 +50,14 @@ function setCachedContractDto(dto) {
 	try {
 		window.sessionStorage?.setItem(CONTRACT_CACHE_KEY, JSON.stringify(dto || {}));
 	} catch (_error) {
-		// Ignore storage quota failures — the builder will still work in-memory.
+		// Ignore storage quota failures
 	}
 }
 
-// ── Error classification ──────────────────────────────────────────────────────
-
-/**
- * Returns true for transient HTTP/network errors that should be retried.
- * Permanent errors (4xx other than 408/429, 500) are not retried.
- */
 function isTransientError(err) {
 	if (!err) return false;
-	// No HTTP status → pure network failure
 	if (!err.httpStatus && !err.status) {
-		return true; // Network error, CORS failure, DNS timeout
+		return true;
 	}
 	const status = err.httpStatus || err.status || 0;
 	return (
@@ -214,15 +74,6 @@ async function sleep(ms) {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/**
- * Fetch the contract DTO from the backend with transient-error retries.
- * On permanent failure throws immediately; on transient failure retries up to
- * maxAttempts times with exponential backoff.
- *
- * @param {number} maxAttempts
- * @returns {Promise<object>} The validated DTO
- * @throws on permanent error or exhausted retries
- */
 async function fetchContractDtoWithRetry(maxAttempts = 3) {
 	let lastError;
 	for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -241,11 +92,10 @@ async function fetchContractDtoWithRetry(maxAttempts = 3) {
 		} catch (err) {
 			lastError = err;
 			if (!isTransientError(err)) {
-				// Permanent error — fail immediately without retry
 				throw err;
 			}
 			if (attempt < maxAttempts) {
-				const delay = 500 * Math.pow(2, attempt - 1); // 500ms, 1000ms, 2000ms
+				const delay = 500 * Math.pow(2, attempt - 1);
 				console.warn(
 					`FlexiRule: Contract fetch attempt ${attempt} failed (transient). Retrying in ${delay}ms…`,
 					err
@@ -257,21 +107,7 @@ async function fetchContractDtoWithRetry(maxAttempts = 3) {
 	throw lastError;
 }
 
-// ── Public loader ─────────────────────────────────────────────────────────────
-
-/**
- * Load contracts from the backend and apply them to module state.
- *
- * Called once during rule builder initialisation. Subsequent calls are
- * no-ops unless `force = true`.
- *
- * On failure the function throws — callers are expected to surface the error
- * to the user rather than silently proceeding with empty contracts.
- *
- * @param {boolean} force - Force re-fetch even if already loaded.
- */
 export async function loadContractsFromBackend(force = false) {
-	// Deduplicate concurrent calls
 	if (_loadPromise && !force) return _loadPromise;
 
 	_loadPromise = _doLoad(force);
@@ -279,7 +115,6 @@ export async function loadContractsFromBackend(force = false) {
 		await _loadPromise;
 	} finally {
 		if (!_contractsLoaded) {
-			// Reset so the next call can retry
 			_loadPromise = null;
 		}
 	}
@@ -291,7 +126,6 @@ async function _doLoad(force) {
 		throw new Error("FlexiRule: frappe.call is not available — contracts cannot be loaded.");
 	}
 
-	// 1. Apply from Frappe boot context (fastest path, no network call)
 	const bootDto = window.frappe?.boot?.flexirule_contract_dto;
 	if (bootDto && typeof bootDto === "object" && bootDto.contract_version_hash && !force) {
 		applyContractDto(bootDto);
@@ -300,13 +134,11 @@ async function _doLoad(force) {
 		return;
 	}
 
-	// 2. Apply cached DTO synchronously for instant render, then refresh in background
 	const cachedDto = getCachedContractDto();
 	if (cachedDto && !force) {
 		applyContractDto(cachedDto);
 		_contractsLoaded = true;
 
-		// Background refresh — updates state and cache if hash changed
 		fetchContractDtoWithRetry()
 			.then((freshDto) => {
 				if (freshDto.contract_version_hash !== cachedDto.contract_version_hash) {
@@ -315,20 +147,16 @@ async function _doLoad(force) {
 				}
 			})
 			.catch((err) => {
-				// Non-blocking: cached data is already applied. Log but don't throw.
 				console.warn("FlexiRule: Background contract refresh failed:", err);
 			});
 		return;
 	}
 
-	// 3. Fresh fetch (no cache or force refresh)
 	const dto = await fetchContractDtoWithRetry();
 	applyContractDto(dto);
 	setCachedContractDto(dto);
 	_contractsLoaded = true;
 }
-
-// ── Process script loader ─────────────────────────────────────────────────────
 
 export async function loadProcessScript(processName) {
 	if (!processName) return;
@@ -347,24 +175,6 @@ export async function loadProcessScript(processName) {
 	}
 }
 
-// ── Contract accessors ────────────────────────────────────────────────────────
-
-/**
- * Get contract for an action type.
- * Returns an empty-safe contract object (never null).
- */
-export function getContract(actionType) {
-	actionType = normalizeActionType(actionType);
-	return (
-		ACTION_TYPE_CONTRACT[actionType] || {
-			required_fields: [],
-			has_next_true: true,
-			has_next_false: false,
-			terminal: false,
-		}
-	);
-}
-
 export function getActionPresentation(actionType) {
 	const contract = getContract(actionType);
 	const css = contract?.css || {};
@@ -381,38 +191,11 @@ export function getActionFeatureFlags(actionType) {
 	const normalized = normalizeActionType(actionType);
 	const contract = getContract(normalized);
 	return {
-		supports_logic_builder: CONFIG_MODAL_TYPES.has(normalized),
-		supports_reference_context: ACTION_TYPES_WITH_REFERENCE_CONTEXT.has(normalized),
+		supports_logic_builder: contract.supports_logic_builder || false,
+		supports_reference_context: contract.supports_reference_context || false,
 		supports_return_schema: ACTION_TYPES_WITH_RETURN_SCHEMA.has(normalized),
 		...(contract?.feature_flags || {}),
 	};
-}
-
-export function normalizeActionType(actionType) {
-	if (!actionType) return "";
-
-	const raw = String(actionType).trim();
-
-	// 1. Direct match with canonical keys
-	if (ACTION_TYPE_CONTRACT[raw]) return raw;
-
-	// 2. Try to map hyphenated/machine types back to canonical
-	const normalized = raw.toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
-
-	// Case-insensitive direct match: "assignment" → "Assignment"
-	const canonicalKeys = Object.keys(ACTION_TYPE_CONTRACT);
-	const match = canonicalKeys.find((k) => k.toLowerCase() === normalized);
-	if (match) return match;
-
-	// 3. Compact match for common UI variants:
-	//    "subrule" / "sub-rule" → "Sub-Rule", "raiseerror" → "Raise Error"
-	const compact = normalized.replace(/[^a-z0-9]/g, "");
-	const compactMatch = canonicalKeys.find(
-		(k) => k.toLowerCase().replace(/[^a-z0-9]/g, "") === compact
-	);
-	if (compactMatch) return compactMatch;
-
-	return actionType;
 }
 
 export function isTerminalAction(actionType) {
@@ -423,659 +206,10 @@ export function getRequiredFields(actionType) {
 	return getContract(actionType).required_fields || [];
 }
 
-export function getTriggerTypeContract(triggerType) {
-	return (
-		TRIGGER_TYPE_CONTRACT[triggerType] || {
-			description: "",
-			required_fields: [],
-			optional_fields: [],
-			hidden_fields: [],
-		}
-	);
-}
-
 export function getReturnTypeOptions() {
 	return [...RETURN_TYPE_OPTIONS];
 }
 
-export function getMutationModeOptions() {
-	return [...MUTATION_MODE_OPTIONS];
-}
-
-// ── Policy helpers ────────────────────────────────────────────────────────────
-
-function mergePolicy(basePolicy = {}, overridePolicy = {}) {
-	const merged = {
-		...(basePolicy || {}),
-		...(overridePolicy || {}),
-	};
-	if (basePolicy.field_labels || overridePolicy.field_labels) {
-		merged.field_labels = {
-			...(basePolicy.field_labels || {}),
-			...(overridePolicy.field_labels || {}),
-		};
-	}
-	return merged;
-}
-
-function parseJsonSafe(value, fallback = null) {
-	if (value == null || value === "") return fallback;
-	if (typeof value === "object") return value;
-	try {
-		return JSON.parse(value);
-	} catch (_error) {
-		return fallback;
-	}
-}
-
-export function getProcessDefinition(processName) {
-	if (!processName) return null;
-	return (PROCESS_REGISTRY || []).find((proc) => proc?.name === processName) || null;
-}
-
-export function getProcessOperationDefinition(processName, operation) {
-	const process = getProcessDefinition(processName);
-	if (!process || !operation) return null;
-	const base =
-		(process.operations || []).find(
-			(op) => (op?.func_name || op?.value) === operation || op?.label === operation
-		) || null;
-	const v2 = PROCESS_OPERATION_REGISTRY_V2?.[processName]?.[operation] || null;
-	if (!base) {
-		return v2 ? { ...v2, value: operation, func_name: operation, label: operation } : null;
-	}
-	return v2 ? { ...base, contract_v2: v2 } : base;
-}
-
-export function getProcessOperationConfigFields(processName, operation) {
-	const op = getProcessOperationDefinition(processName, operation);
-	if (!op) return [];
-	const v2 = PROCESS_OPERATION_REGISTRY_V2?.[processName]?.[operation] || op?.contract_v2;
-	if (v2 && Array.isArray(v2.config_schema?.ui_schema)) {
-		return v2.config_schema.ui_schema;
-	}
-	const parsed = parseJsonSafe(op.config_schema, op.config_schema);
-	if (Array.isArray(parsed)) return parsed;
-	if (parsed && Array.isArray(parsed.fields)) return parsed.fields;
-	return [];
-}
-
-export function getProcessOperationPolicy(processName, operation) {
-	if (!processName || !operation) return {};
-	const v2Policy = PROCESS_OPERATION_REGISTRY_V2?.[processName]?.[operation]?.policy || {};
-	const op = getProcessOperationDefinition(processName, operation);
-	const contractPolicy = op?.contract_v2?.policy || {};
-	return mergePolicy(v2Policy, contractPolicy);
-}
-
-function evaluateFieldExpression(expression, doc = {}, parent = {}) {
-	if (!expression) return true;
-	if (typeof expression === "boolean") return expression;
-	if (typeof expression !== "string") return Boolean(expression);
-	if (!expression.startsWith("eval:")) return Boolean(doc?.[expression]);
-	try {
-		return frappe.utils.eval(expression.slice(5), { doc, parent });
-	} catch (_error) {
-		return false;
-	}
-}
-
-function getOperationRuleActionFields(operationName) {
-	return OPERATION_CONTRACT?.[operationName]?.["Rule Action"] || [];
-}
-
-export function getOperationFieldOverride(actionType, fieldname, ctx = {}) {
-	const operation = ctx?.operation || null;
-	const processName = ctx?.processName || null;
-	const merged = {};
-	for (const row of getOperationRuleActionFields(actionType)) {
-		if (row?.fieldname === fieldname) Object.assign(merged, row);
-	}
-	if (operation) {
-		for (const row of getOperationRuleActionFields(operation)) {
-			if (row?.fieldname === fieldname) Object.assign(merged, row);
-		}
-	}
-
-	const normalizedType = normalizeActionType(actionType);
-	if (normalizedType === "Process" && processName && operation) {
-		const op = getProcessOperationDefinition(processName, operation);
-		const actionOverrides = parseJsonSafe(op?.action_overrides, {});
-		const fieldOverrides = actionOverrides?.fields || {};
-		if (fieldOverrides && typeof fieldOverrides[fieldname] === "object") {
-			Object.assign(merged, fieldOverrides[fieldname]);
-		}
-	}
-	return merged;
-}
-
-export function getDerivedFieldState(actionType, fieldname, doc = {}, parent = {}, ctx = {}) {
-	const override = getOperationFieldOverride(actionType, fieldname, ctx);
-	const hiddenByOverride = Boolean(
-		override.hidden ? evaluateFieldExpression(override.hidden, doc, parent) : false
-	);
-	const visibleByDepends =
-		override.depends_on !== undefined
-			? evaluateFieldExpression(override.depends_on, doc, parent)
-			: true;
-	let required = Boolean(override.reqd);
-	if (override.mandatory_depends_on !== undefined) {
-		required = evaluateFieldExpression(override.mandatory_depends_on, doc, parent);
-	}
-	const readOnly = override.read_only_depends_on
-		? evaluateFieldExpression(override.read_only_depends_on, doc, parent)
-		: Boolean(override.read_only);
-	return {
-		hidden: hiddenByOverride || !visibleByDepends,
-		reqd: required,
-		read_only: readOnly,
-		override,
-	};
-}
-
-export function getOperationOptions(actionType, ctx = {}) {
-	const normalizedType = normalizeActionType(actionType);
-	const processName = ctx?.processName || null;
-
-	const fromRegistry = (OPERATION_REGISTRY || []).filter((row) => {
-		if (row?.action_type !== normalizedType) return false;
-		if (normalizedType !== "Process") return !row?.process_name;
-		if (!processName) return true;
-		return row?.process_name === processName;
-	});
-
-	if (fromRegistry.length) {
-		return fromRegistry.map((row) => ({
-			value: row.value,
-			label: row.label || row.value,
-			process_name: row.process_name || null,
-			policy: row.policy || {},
-		}));
-	}
-
-	const contract = getContract(normalizedType);
-	return (contract.operation_options || []).map((value) => ({
-		value,
-		label: value,
-		process_name: null,
-		policy: (contract.operation_policies || {})[value] || {},
-	}));
-}
-
-export function hasResolvedOutputSchema(value) {
-	if (!value) return false;
-	const schema = parseJsonSafe(value, null);
-	if (!schema) return false;
-	if (Array.isArray(schema)) {
-		return schema.some(
-			(field) => field && typeof field === "object" && Boolean(field.fieldname)
-		);
-	}
-	if (typeof schema === "object" && schema !== null) {
-		const fields = schema.fields;
-		if (Array.isArray(fields)) {
-			if (
-				fields.some(
-					(field) => field && typeof field === "object" && Boolean(field.fieldname)
-				)
-			) {
-				return true;
-			}
-		}
-		const props = schema.properties;
-		if (
-			props &&
-			typeof props === "object" &&
-			!Array.isArray(props) &&
-			Object.keys(props).length > 0
-		) {
-			return true;
-		}
-	}
-	return false;
-}
-
-export function getEffectiveActionPolicy(actionType, ctx = {}) {
-	const normalizedType = normalizeActionType(actionType);
-	const operation = ctx?.operation || null;
-	const processName = ctx?.processName || null;
-	const contract = getContract(normalizedType);
-	let effective = {
-		allowed_mutations: [...(contract.allowed_mutations || [])],
-		allowed_return_types: [...(contract.allowed_return_types || [])],
-		default_return_type: contract.default_return_type || null,
-		field_labels: { ...(contract.field_labels || {}) },
-		show_return_type: contract.show_return_type,
-		supports_return_schema:
-			ACTION_TYPES_WITH_RETURN_SCHEMA.has(normalizedType) ||
-			Boolean(contract.supports_return_schema),
-		require_return_type: contract.require_return_type || false,
-		show_return_variable: contract.show_return_variable,
-		require_return_variable: contract.require_return_variable || false,
-		show_mutation_mode: contract.show_mutation_mode,
-		require_mutation_mode: contract.require_mutation_mode || false,
-		produces_result: contract.produces_result,
-		return_variable_mode: contract.return_variable_mode || null,
-	};
-
-	if (operation) {
-		effective = mergePolicy(effective, (contract.operation_policies || {})[operation] || {});
-	}
-
-	if (normalizedType === "Process" && operation) {
-		effective = mergePolicy(effective, getProcessOperationPolicy(processName, operation));
-	}
-
-	effective = normalizeOutputPolicy(effective);
-	return effective;
-}
-
-function normalizeOutputPolicy(policy = {}) {
-	const normalized = { ...policy };
-	const allowedMutations = Array.isArray(normalized.allowed_mutations)
-		? normalized.allowed_mutations
-		: [];
-	const allowedReturnTypes = Array.isArray(normalized.allowed_return_types)
-		? normalized.allowed_return_types
-		: [];
-	const hasStorage =
-		allowedMutations.length ||
-		allowedReturnTypes.length ||
-		normalized.show_return_variable ||
-		normalized.require_return_variable;
-
-	if (normalized.produces_result === undefined || normalized.produces_result === null) {
-		normalized.produces_result = !!hasStorage;
-	}
-	if (normalized.produces_result === false) {
-		normalized.allowed_mutations = [];
-		normalized.allowed_return_types = [];
-		normalized.default_return_type = null;
-		normalized.show_mutation_mode = false;
-		normalized.show_return_type = false;
-		normalized.supports_return_schema = false;
-		if (!normalized.show_return_variable) {
-			normalized.show_return_variable = false;
-			normalized.require_return_variable = false;
-		}
-		return normalized;
-	}
-	if (normalized.show_mutation_mode === undefined || normalized.show_mutation_mode === null) {
-		normalized.show_mutation_mode = allowedMutations.length > 0;
-	}
-	if (normalized.show_return_type === undefined || normalized.show_return_type === null) {
-		normalized.show_return_type = allowedReturnTypes.length > 0;
-	}
-	if (normalized.show_return_variable === undefined || normalized.show_return_variable === null) {
-		normalized.show_return_variable = !!(
-			allowedMutations.length ||
-			allowedReturnTypes.length ||
-			normalized.require_return_variable
-		);
-	}
-	if (!normalized.return_variable_mode) {
-		normalized.return_variable_mode = "context_key";
-	}
-	return normalized;
-}
-
-export function getAllowedReturnTypeOptions(actionType, ctx = {}) {
-	const policy = getEffectiveActionPolicy(actionType, ctx);
-	if (policy.produces_result === false) return [];
-	const allowed = policy.allowed_return_types || [];
-	if (allowed.length) return [...allowed];
-	const normalizedType = normalizeActionType(actionType);
-	if (ACTION_TYPES_WITH_RETURN_SCHEMA.has(normalizedType)) return [...RETURN_TYPE_OPTIONS];
-	return [];
-}
-
-export function getAllowedMutationModeOptions(actionType, ctx = {}) {
-	const policy = getEffectiveActionPolicy(actionType, ctx);
-	if (policy.produces_result === false || policy.show_mutation_mode === false) return [];
-	const allowed = policy.allowed_mutations || [];
-	return allowed.length ? [...allowed] : [];
-}
-
-export function getFieldLabel(actionType, fieldname, ctx = {}) {
-	const policy = getEffectiveActionPolicy(actionType, ctx);
-	return policy?.field_labels?.[fieldname] || null;
-}
-
-export function shouldShowReturnType(actionType, ctx = {}) {
-	const policy = getEffectiveActionPolicy(actionType, ctx);
-	const options = getAllowedReturnTypeOptions(actionType, ctx);
-	if (!options.length) return false;
-	return policy.show_return_type !== false;
-}
-
-export function isReturnTypeMandatory(actionType, ctx = {}) {
-	const policy = getEffectiveActionPolicy(actionType, ctx);
-	return Boolean(policy.require_return_type);
-}
-
-function suggestReturnVariableName(nodeData = {}) {
-	const base = String(nodeData?.operation || nodeData?.action_type || "result")
-		.toLowerCase()
-		.replace(/[^a-z0-9]+/g, "_")
-		.replace(/^_+|_+$/g, "");
-	return base || "result";
-}
-
-export function applyOutputPolicyDefaults(nodeData, opts = {}) {
-	if (!nodeData || !nodeData.action_type) return false;
-	const preserveUserChoices = opts.preserveUserChoices !== false;
-	const ctx = {
-		operation: nodeData.operation,
-		processName: nodeData.process_name,
-	};
-	const policy = getEffectiveActionPolicy(nodeData.action_type, ctx);
-	const allowedMutations = policy.allowed_mutations || [];
-	const allowedReturnTypes = policy.allowed_return_types || [];
-	const returnVarState = getDerivedFieldState(
-		nodeData.action_type,
-		"return_variable",
-		nodeData,
-		opts.parent || {},
-		ctx
-	);
-	const mutationState = getDerivedFieldState(
-		nodeData.action_type,
-		"mutation_mode",
-		nodeData,
-		opts.parent || {},
-		ctx
-	);
-	let changed = false;
-
-	if (
-		nodeData.mutation_mode &&
-		(!!mutationState.hidden ||
-			(allowedMutations.length && !allowedMutations.includes(nodeData.mutation_mode)))
-	) {
-		nodeData.mutation_mode = null;
-		changed = true;
-	}
-
-	if (
-		nodeData.return_type &&
-		allowedReturnTypes.length &&
-		!allowedReturnTypes.includes(nodeData.return_type)
-	) {
-		nodeData.return_type = null;
-		changed = true;
-	}
-
-	if (!nodeData.return_type && policy.default_return_type) {
-		nodeData.return_type = policy.default_return_type;
-		changed = true;
-	}
-
-	if (
-		policy.show_return_type === false &&
-		nodeData.return_type &&
-		policy.default_return_type &&
-		nodeData.return_type !== policy.default_return_type
-	) {
-		nodeData.return_type = policy.default_return_type;
-		changed = true;
-	}
-
-	const supportsReturnSchema = policy.supports_return_schema !== false;
-	const hasSchema = hasResolvedOutputSchema(nodeData.resolved_output_schema);
-	const showReturnType = policy.show_return_type !== false;
-	const hasReturnType =
-		showReturnType && Boolean(nodeData.return_type) && nodeData.return_type !== "Yes / No";
-
-	const needsReturnVariable =
-		!!nodeData.mutation_mode ||
-		(supportsReturnSchema && (hasReturnType || hasSchema)) ||
-		!!policy.require_return_variable;
-
-	if (returnVarState.hidden && nodeData.return_variable) {
-		nodeData.return_variable = null;
-		changed = true;
-	}
-
-	if (
-		!returnVarState.hidden &&
-		needsReturnVariable &&
-		!nodeData.return_variable &&
-		!preserveUserChoices
-	) {
-		nodeData.return_variable = suggestReturnVariableName(nodeData);
-		changed = true;
-	}
-
-	return changed;
-}
-
-function hasConfigDoctypeName(nodeData) {
-	if (!nodeData?.config) return false;
-	let cfg = nodeData.config;
-	if (typeof cfg === "string") {
-		cfg = parseJsonSafe(cfg, {});
-	}
-	if (typeof cfg === "object" && cfg !== null && cfg.doctype_name) {
-		const dt = cfg.doctype_name;
-		if (typeof dt === "object") {
-			return Boolean(dt.value || dt.mode || dt.kind || dt.family);
-		}
-		return Boolean(dt);
-	}
-	return false;
-}
-
-/**
- * Validate node data against contract.
- * @param {Object} nodeData - The node's data object
- * @returns {{ valid: boolean, errors: string[] }}
- */
-export function validateAgainstContract(nodeData) {
-	if (!nodeData || !nodeData.action_type) {
-		return { valid: true, errors: [] };
-	}
-
-	const actionType = normalizeActionType(nodeData.action_type);
-	const contract = getContract(actionType);
-	const policy = getEffectiveActionPolicy(actionType, {
-		operation: nodeData.operation,
-		processName: nodeData.process_name,
-	});
-	const errors = [];
-
-	if (RELEASE_DISABLED_ACTION_TYPES.has(actionType)) {
-		errors.push(__("{0} is not available in this release", [actionType]));
-	}
-
-	// 1. Base Required Fields
-	for (const field of contract.required_fields || []) {
-		const value = nodeData[field];
-		if (value === undefined || value === null || value === "") {
-			if (
-				field === "reference_doctype" &&
-				actionType === "Query Records" &&
-				hasConfigDoctypeName(nodeData)
-			) {
-				continue;
-			}
-			errors.push(__("Field '{0}' is required for {1}", [field, actionType]));
-		}
-	}
-
-	// 2. Operation-specific Mandatory Fields
-	if (nodeData.operation && contract.mandatory_fields?.[nodeData.operation]) {
-		for (const field of contract.mandatory_fields[nodeData.operation]) {
-			const value = nodeData[field];
-			if (value === undefined || value === null || value === "") {
-				errors.push(
-					__("Field '{0}' is required for {1} in mode {2}", [
-						field,
-						actionType,
-						nodeData.operation,
-					])
-				);
-			}
-		}
-	}
-
-	// 3. Flow Integrity
-	if (contract.terminal) {
-		if (nodeData.next_step_if_true || nodeData.next_step_if_false) {
-			errors.push(__("{0} is terminal and should not have next steps", [actionType]));
-		}
-	}
-
-	if (!contract.has_next_false && nodeData.next_step_if_false) {
-		errors.push(__("{0} does not support 'next step if false'", [actionType]));
-	}
-
-	// 4. Output/Mutation Policies
-	if (nodeData.mutation_mode) {
-		const allowed = policy.allowed_mutations || [];
-		if (Array.isArray(allowed) && allowed.length && !allowed.includes(nodeData.mutation_mode)) {
-			errors.push(
-				__("Mutation mode '{0}' is not allowed for {1}", [
-					nodeData.mutation_mode,
-					actionType,
-				])
-			);
-		}
-		if (!nodeData.return_variable) {
-			errors.push(__("Mutation Mode requires a Return Variable Name"));
-		}
-	}
-
-	if (nodeData.return_type) {
-		const allowedReturnTypes = policy.allowed_return_types || [];
-		if (
-			Array.isArray(allowedReturnTypes) &&
-			allowedReturnTypes.length &&
-			!allowedReturnTypes.includes(nodeData.return_type)
-		) {
-			errors.push(
-				__("Return type '{0}' is not allowed for {1}", [nodeData.return_type, actionType])
-			);
-		}
-	}
-
-	if (policy.require_return_type && !nodeData.return_type) {
-		errors.push(__("Return type is required for this operation"));
-	}
-
-	if (policy.require_return_variable && !nodeData.return_variable) {
-		errors.push(__("Return Variable Name is required for this operation"));
-	}
-
-	const supportsReturnSchema = policy.supports_return_schema !== false;
-	const hasSchema = hasResolvedOutputSchema(nodeData.resolved_output_schema);
-	const showReturnType = policy.show_return_type !== false;
-	const hasReturnType =
-		showReturnType && Boolean(nodeData.return_type) && nodeData.return_type !== "Yes / No";
-
-	if (supportsReturnSchema && (hasReturnType || hasSchema) && !nodeData.return_variable) {
-		errors.push(__("Return Schema requires a Return Variable Name"));
-	}
-
-	// 5. Action-specific deep validation (Policy & Contract based)
-	const requiredConfigKeys = [
-		...(policy.required_config_keys || []),
-		...(contract.required_config_keys || []),
-	];
-
-	if (requiredConfigKeys.length) {
-		const config = parseJsonSafe(nodeData.config, {});
-		for (const key of requiredConfigKeys) {
-			const value = config[key];
-			const isEmpty =
-				value === undefined ||
-				value === null ||
-				value === "" ||
-				(Array.isArray(value) && value.length === 0);
-
-			if (isEmpty) {
-				const label = key.charAt(0).toUpperCase() + key.slice(1);
-				errors.push(__("{0} is required for {1}", [label, actionType]));
-			}
-		}
-	}
-
-	// 6. Action-specific deep validation (Condition & Loop legacy)
-	if (actionType === "Condition" || actionType === "Loop") {
-		const config = parseJsonSafe(nodeData.config, {});
-		if (actionType === "Condition") {
-			const globalObj = typeof window !== "undefined" ? window : globalThis;
-			const { getConditionPayload } = globalObj.flexirule?.utils?.condition_payload || {};
-			const payload = getConditionPayload ? getConditionPayload(nodeData) : config.conditions;
-
-			if (!payload || (Array.isArray(payload) && payload.length === 0)) {
-				errors.push(__("At least one condition is required"));
-			}
-		}
-		if (actionType === "Loop" && !config.iterator) {
-			errors.push(__("Iterator is required for Loop"));
-		}
-	}
-
-	return {
-		valid: errors.length === 0,
-		errors,
-	};
-}
-
-/**
- * Get the status of a node based on its configuration and validation.
- * @param {Object} nodeData - The node's data object
- * @returns {'not-configured' | 'configured' | 'invalid'}
- */
-export function getNodeStatus(nodeData) {
-	if (!nodeData || !nodeData.action_type) {
-		return "not-configured";
-	}
-
-	const actionType = normalizeActionType(nodeData.action_type);
-	if (actionType === "Entry Action") return "configured";
-
-	const contract = getContract(actionType);
-
-	// Check if basic required fields are set
-	const requiredFields = contract.required_fields || [];
-	const hasRequiredFields = requiredFields.every((f) => {
-		if (
-			f === "reference_doctype" &&
-			actionType === "Query Records" &&
-			hasConfigDoctypeName(nodeData)
-		) {
-			return true;
-		}
-		const val = nodeData[f];
-		return val !== undefined && val !== null && val !== "";
-	});
-
-	if (!hasRequiredFields) {
-		return "not-configured";
-	}
-
-	// For actions with a config object, check if it's empty
-	if (requiredFields.includes("config")) {
-		const config = parseJsonSafe(nodeData.config);
-		const isEmpty =
-			!config ||
-			(Array.isArray(config) && config.length === 0) ||
-			(typeof config === "object" && Object.keys(config).length === 0);
-
-		if (isEmpty) {
-			return "not-configured";
-		}
-	}
-
-	// If configured, check if it's valid
-	const validation = validateAgainstContract(nodeData);
-	return validation.valid ? "configured" : "invalid";
-}
-
-/**
- * Get all action type options from registry (memory).
- */
 export function getActionTypeOptions() {
 	if (
 		ACTION_TYPE_MAP &&
@@ -1090,15 +224,35 @@ export function getActionTypeOptions() {
 		return Object.keys(bootMap).sort();
 	}
 
-	// Derive from loaded contract keys (no hardcoded fallback)
 	return Object.keys(ACTION_TYPE_CONTRACT).filter(
 		(actionType) => !RELEASE_DISABLED_ACTION_TYPES.has(actionType)
 	);
 }
 
-/**
- * Check if action type supports dynamic fields (e.g., Process with operation schema).
- */
+export function getNodeStatus(nodeData) {
+	if (!nodeData || !nodeData.action_type) {
+		return "not-configured";
+	}
+
+	const actionType = normalizeActionType(nodeData.action_type);
+	if (actionType === "Entry Action") return "configured";
+
+	const contract = getContract(actionType);
+
+	const requiredFields = contract.required_fields || [];
+	const hasRequiredFields = requiredFields.every((f) => {
+		const val = nodeData[f];
+		return val !== undefined && val !== null && val !== "";
+	});
+
+	if (!hasRequiredFields) {
+		return "not-configured";
+	}
+
+	const validation = validateAgainstContract(nodeData);
+	return validation.valid ? "configured" : "invalid";
+}
+
 export function hasDynamicFields(actionType) {
 	return getContract(actionType).dynamic_fields || false;
 }
