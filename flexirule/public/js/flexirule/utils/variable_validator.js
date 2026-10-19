@@ -367,9 +367,7 @@ flexirule.validation.validate_action_types = function (
 
 			const writes_to_context = op_meta.writes_to === "Context";
 			const has_writes_vars =
-				op_meta.writes_vars &&
-				op_meta.writes_vars !== "[]" &&
-				op_meta.writes_vars !== "{}";
+				op_meta.writes_vars && op_meta.writes_vars !== "[]" && op_meta.writes_vars !== "{}";
 			let has_output_schema = false;
 			if (window.flexirule?.contracts?.hasResolvedOutputSchema) {
 				has_output_schema = window.flexirule.contracts.hasResolvedOutputSchema(

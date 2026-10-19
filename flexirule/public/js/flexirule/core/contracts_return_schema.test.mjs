@@ -5,7 +5,7 @@ import {
 	validateAgainstContract,
 	applyOutputPolicyDefaults,
 	getEffectiveActionPolicy,
-} from "./contracts.js";
+} from "./contracts_policy.mjs";
 
 // Mock Frappe global translation function if missing
 if (typeof globalThis.__ === "undefined") {
@@ -108,9 +108,7 @@ assert.equal(
 );
 assert.equal(hasResolvedOutputSchema({ properties: { customer: { type: "string" } } }), true);
 assert.equal(
-	hasResolvedOutputSchema(
-		JSON.stringify({ properties: { customer: { type: "string" } } })
-	),
+	hasResolvedOutputSchema(JSON.stringify({ properties: { customer: { type: "string" } } })),
 	true
 );
 
@@ -123,14 +121,19 @@ for (const actionType of nonResultActionTypes) {
 		return_type: "List of Records",
 		resolved_output_schema: "[]",
 		return_variable: null,
-		config: actionType === "Condition" ? JSON.stringify({ op: "and", conditions: [{ field: "name" }] }) : "{}",
+		config:
+			actionType === "Condition"
+				? JSON.stringify({ op: "and", conditions: [{ field: "name" }] })
+				: "{}",
 	};
 
 	const validation = validateAgainstContract(nodeData);
 	assert.equal(
 		validation.valid,
 		true,
-		`Non-result action ${actionType} with stale fields should be valid: ${validation.errors.join(", ")}`
+		`Non-result action ${actionType} with stale fields should be valid: ${validation.errors.join(
+			", "
+		)}`
 	);
 	assert.equal(
 		validation.errors.some((e) => e.includes("Return Schema requires a Return Variable Name")),

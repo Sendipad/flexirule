@@ -607,17 +607,28 @@ export function hasResolvedOutputSchema(value) {
 	const schema = parseJsonSafe(value, null);
 	if (!schema) return false;
 	if (Array.isArray(schema)) {
-		return schema.some((field) => field && typeof field === "object" && Boolean(field.fieldname));
+		return schema.some(
+			(field) => field && typeof field === "object" && Boolean(field.fieldname)
+		);
 	}
 	if (typeof schema === "object" && schema !== null) {
 		const fields = schema.fields;
 		if (Array.isArray(fields)) {
-			if (fields.some((field) => field && typeof field === "object" && Boolean(field.fieldname))) {
+			if (
+				fields.some(
+					(field) => field && typeof field === "object" && Boolean(field.fieldname)
+				)
+			) {
 				return true;
 			}
 		}
 		const props = schema.properties;
-		if (props && typeof props === "object" && !Array.isArray(props) && Object.keys(props).length > 0) {
+		if (
+			props &&
+			typeof props === "object" &&
+			!Array.isArray(props) &&
+			Object.keys(props).length > 0
+		) {
 			return true;
 		}
 	}
@@ -961,11 +972,7 @@ export function validateAgainstContract(nodeData) {
 	const hasReturnType =
 		showReturnType && Boolean(nodeData.return_type) && nodeData.return_type !== "Yes / No";
 
-	if (
-		supportsReturnSchema &&
-		(hasReturnType || hasSchema) &&
-		!nodeData.return_variable
-	) {
+	if (supportsReturnSchema && (hasReturnType || hasSchema) && !nodeData.return_variable) {
 		errors.push(__("Return Schema requires a Return Variable Name"));
 	}
 
