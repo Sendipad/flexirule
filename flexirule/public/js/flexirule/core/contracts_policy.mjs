@@ -587,7 +587,12 @@ export function validateAgainstContract(nodeData) {
 				`Mutation mode '${nodeData.mutation_mode}' is not allowed for ${actionType}`
 			);
 		}
-		if (allowed.length && !nodeData.return_variable) {
+		if (
+			Array.isArray(allowed) &&
+			allowed.length &&
+			allowed.includes(nodeData.mutation_mode) &&
+			!nodeData.return_variable
+		) {
 			errors.push("Mutation Mode requires a Return Variable Name");
 		}
 	}

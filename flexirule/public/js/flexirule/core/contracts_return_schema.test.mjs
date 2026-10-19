@@ -316,6 +316,11 @@ for (const actionType of nonResultActionTypes) {
 		return_variable: null,
 	};
 	assert.equal(requiresReturnVariable(entryActionWithStaleMutation), false);
+	const res = validateAgainstContract(entryActionWithStaleMutation);
+	assert.equal(
+		res.errors.some((e) => e.includes("Mutation Mode requires a Return Variable Name")),
+		false
+	);
 }
 
 console.log("Contracts return schema unit tests passed!");
