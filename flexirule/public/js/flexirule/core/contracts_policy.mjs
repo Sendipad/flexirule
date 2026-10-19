@@ -351,8 +351,8 @@ export function requiresReturnVariable(nodeData, ctx = {}) {
 
 	return Boolean(
 		hasAllowedMutation ||
-		(supportsReturnSchema && (hasReturnType || hasSchema)) ||
-		policy.require_return_variable
+			(supportsReturnSchema && (hasReturnType || hasSchema)) ||
+			policy.require_return_variable
 	);
 }
 

@@ -400,7 +400,7 @@ flexirule.validation.validate_action_types = function (
 				? globalContracts.getEffectiveActionPolicy(action_type, {
 						operation: action.operation,
 						processName: action.process_name,
-					})
+				  })
 				: {};
 			const allowed = policy.allowed_mutations || [];
 			if (!allowed.length || allowed.includes(action.mutation_mode)) {
