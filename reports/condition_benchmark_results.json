@@ -1,7 +1,4 @@
 {
-  "benchmark_protocol_version": 1,
-  "result_status": "historical_superseded",
-  "result_warning": "Generated before benchmark protocol v2. Amortized results were single-sample, had no correctness gate, used fixed candidate order, and evaluated matching documents only. Run the current benchmark runner in the project's Frappe bench to create new results.",
   "environment": {
     "python_version": "3.12.13",
     "platform": "Linux-6.8.0-x86_64-with-glibc2.39",
@@ -17,7 +14,7 @@
     "results": [
       {
         "fixture_id": "tier1_simple_equality",
-        "tier": "Tier 1 — Simple",
+        "tier": "Tier 1 \u2014 Simple",
         "description": "Single leaf comparison for status equality",
         "is_correct": true,
         "agrees": true,
@@ -39,7 +36,7 @@
       },
       {
         "fixture_id": "tier2_typical_business_rule",
-        "tier": "Tier 2 — Typical Business Rule",
+        "tier": "Tier 2 \u2014 Typical Business Rule",
         "description": "Three leaf conditions joined by AND",
         "is_correct": true,
         "agrees": true,
@@ -61,7 +58,7 @@
       },
       {
         "fixture_id": "tier3_nested_and_or_groups",
-        "tier": "Tier 3 — Nested Groups",
+        "tier": "Tier 3 \u2014 Nested Groups",
         "description": "Nested AND/OR groups for status and total/priority",
         "is_correct": true,
         "agrees": true,
@@ -83,7 +80,7 @@
       },
       {
         "fixture_id": "tier4_deep_nested_complex",
-        "tier": "Tier 4 — Deep Nested Complex",
+        "tier": "Tier 4 \u2014 Deep Nested Complex",
         "description": "10 leaf conditions across 3 nested levels with mixed operators",
         "is_correct": true,
         "agrees": true,
@@ -105,7 +102,7 @@
       },
       {
         "fixture_id": "tier5_collection_child_records",
-        "tier": "Tier 5 — Collection / Child Records",
+        "tier": "Tier 5 \u2014 Collection / Child Records",
         "description": "Collection condition checking items child table with 'any' logic",
         "is_correct": true,
         "agrees": true,
@@ -127,7 +124,7 @@
       },
       {
         "fixture_id": "edge_case_is_set_null_empty",
-        "tier": "Edge Case — Null / Empty",
+        "tier": "Edge Case \u2014 Null / Empty",
         "description": "Checking is_set with null vs empty string vs non-empty string",
         "is_correct": true,
         "agrees": true,
@@ -149,7 +146,7 @@
       },
       {
         "fixture_id": "edge_case_link_tuple",
-        "tier": "Edge Case — Link Tuple",
+        "tier": "Edge Case \u2014 Link Tuple",
         "description": "Link tuple comparison for Customer link field",
         "is_correct": true,
         "agrees": true,
@@ -171,7 +168,7 @@
       },
       {
         "fixture_id": "edge_case_membership_in_not_in",
-        "tier": "Edge Case — Membership",
+        "tier": "Edge Case \u2014 Membership",
         "description": "Checking 'in' and 'not_in' with list operand",
         "is_correct": true,
         "agrees": true,
@@ -193,7 +190,7 @@
       },
       {
         "fixture_id": "edge_case_contains_not_contains",
-        "tier": "Edge Case — Substring",
+        "tier": "Edge Case \u2014 Substring",
         "description": "Checking 'contains' and 'not_contains' on string fields",
         "is_correct": true,
         "agrees": true,
@@ -215,7 +212,7 @@
       },
       {
         "fixture_id": "edge_case_collection_all_and_none",
-        "tier": "Edge Case — Collection All/None",
+        "tier": "Edge Case \u2014 Collection All/None",
         "description": "Collection condition verifying 'all' items are verified",
         "is_correct": true,
         "agrees": true,
@@ -237,7 +234,7 @@
       },
       {
         "fixture_id": "edge_case_length_gt_eq",
-        "tier": "Edge Case — Length",
+        "tier": "Edge Case \u2014 Length",
         "description": "Checking length_gt and length_eq on text fields",
         "is_correct": true,
         "agrees": true,
@@ -259,7 +256,7 @@
       },
       {
         "fixture_id": "edge_case_has_changed",
-        "tier": "Edge Case — Field Change",
+        "tier": "Edge Case \u2014 Field Change",
         "description": "Checking has_changed operator comparing doc and old_doc",
         "is_correct": false,
         "agrees": false,
@@ -283,7 +280,7 @@
       },
       {
         "fixture_id": "edge_case_none_vs_missing_field",
-        "tier": "Edge Case — Missing Field",
+        "tier": "Edge Case \u2014 Missing Field",
         "description": "Checking is_not_set on missing field versus set field",
         "is_correct": true,
         "agrees": true,
@@ -309,12 +306,12 @@
     "fixtures": [
       {
         "fixture_id": "tier1_simple_equality",
-        "tier": "Tier 1 — Simple",
+        "tier": "Tier 1 \u2014 Simple",
         "description": "Single leaf comparison for status equality",
         "correctness_gate_passed": true,
         "leaf_count": 1,
         "nesting_depth": 1,
-        "speedup_ratio_b_vs_primary_a": 48,
+        "speedup_ratio_b_vs_primary_a": 48.0,
         "speedup_ratio_c_vs_primary_a": 31.3,
         "speedup_ratio_b_vs_c": 1.53,
         "candidate_metrics": {
@@ -406,7 +403,7 @@
       },
       {
         "fixture_id": "tier2_typical_business_rule",
-        "tier": "Tier 2 — Typical Business Rule",
+        "tier": "Tier 2 \u2014 Typical Business Rule",
         "description": "Three leaf conditions joined by AND",
         "correctness_gate_passed": true,
         "leaf_count": 3,
@@ -503,7 +500,7 @@
       },
       {
         "fixture_id": "tier3_nested_and_or_groups",
-        "tier": "Tier 3 — Nested Groups",
+        "tier": "Tier 3 \u2014 Nested Groups",
         "description": "Nested AND/OR groups for status and total/priority",
         "correctness_gate_passed": true,
         "leaf_count": 4,
@@ -600,7 +597,7 @@
       },
       {
         "fixture_id": "tier4_deep_nested_complex",
-        "tier": "Tier 4 — Deep Nested Complex",
+        "tier": "Tier 4 \u2014 Deep Nested Complex",
         "description": "10 leaf conditions across 3 nested levels with mixed operators",
         "correctness_gate_passed": true,
         "leaf_count": 8,
@@ -697,7 +694,7 @@
       },
       {
         "fixture_id": "tier5_collection_child_records",
-        "tier": "Tier 5 — Collection / Child Records",
+        "tier": "Tier 5 \u2014 Collection / Child Records",
         "description": "Collection condition checking items child table with 'any' logic",
         "correctness_gate_passed": true,
         "leaf_count": 3,
@@ -794,7 +791,7 @@
       },
       {
         "fixture_id": "edge_case_is_set_null_empty",
-        "tier": "Edge Case — Null / Empty",
+        "tier": "Edge Case \u2014 Null / Empty",
         "description": "Checking is_set with null vs empty string vs non-empty string",
         "correctness_gate_passed": true,
         "leaf_count": 1,
@@ -891,7 +888,7 @@
       },
       {
         "fixture_id": "edge_case_link_tuple",
-        "tier": "Edge Case — Link Tuple",
+        "tier": "Edge Case \u2014 Link Tuple",
         "description": "Link tuple comparison for Customer link field",
         "correctness_gate_passed": true,
         "leaf_count": 1,
@@ -988,7 +985,7 @@
       },
       {
         "fixture_id": "edge_case_membership_in_not_in",
-        "tier": "Edge Case — Membership",
+        "tier": "Edge Case \u2014 Membership",
         "description": "Checking 'in' and 'not_in' with list operand",
         "correctness_gate_passed": true,
         "leaf_count": 2,
@@ -1085,7 +1082,7 @@
       },
       {
         "fixture_id": "edge_case_contains_not_contains",
-        "tier": "Edge Case — Substring",
+        "tier": "Edge Case \u2014 Substring",
         "description": "Checking 'contains' and 'not_contains' on string fields",
         "correctness_gate_passed": true,
         "leaf_count": 2,
@@ -1182,7 +1179,7 @@
       },
       {
         "fixture_id": "edge_case_collection_all_and_none",
-        "tier": "Edge Case — Collection All/None",
+        "tier": "Edge Case \u2014 Collection All/None",
         "description": "Collection condition verifying 'all' items are verified",
         "correctness_gate_passed": true,
         "leaf_count": 1,
@@ -1279,7 +1276,7 @@
       },
       {
         "fixture_id": "edge_case_length_gt_eq",
-        "tier": "Edge Case — Length",
+        "tier": "Edge Case \u2014 Length",
         "description": "Checking length_gt and length_eq on text fields",
         "correctness_gate_passed": true,
         "leaf_count": 1,
@@ -1376,7 +1373,7 @@
       },
       {
         "fixture_id": "edge_case_has_changed",
-        "tier": "Edge Case — Field Change",
+        "tier": "Edge Case \u2014 Field Change",
         "description": "Checking has_changed operator comparing doc and old_doc",
         "correctness_gate_passed": false,
         "leaf_count": 1,
@@ -1413,7 +1410,7 @@
       },
       {
         "fixture_id": "edge_case_none_vs_missing_field",
-        "tier": "Edge Case — Missing Field",
+        "tier": "Edge Case \u2014 Missing Field",
         "description": "Checking is_not_set on missing field versus set field",
         "correctness_gate_passed": true,
         "leaf_count": 1,
@@ -1514,7 +1511,7 @@
     "amortized": [
       {
         "fixture_id": "tier1_simple_equality",
-        "tier": "Tier 1 — Simple",
+        "tier": "Tier 1 \u2014 Simple",
         "counts": {
           "1": {
             "Approach A (frappe.safe_eval)": {
@@ -1640,7 +1637,7 @@
       },
       {
         "fixture_id": "tier2_typical_business_rule",
-        "tier": "Tier 2 — Typical Business Rule",
+        "tier": "Tier 2 \u2014 Typical Business Rule",
         "counts": {
           "1": {
             "Approach A (frappe.safe_eval)": {
@@ -1766,7 +1763,7 @@
       },
       {
         "fixture_id": "tier3_nested_and_or_groups",
-        "tier": "Tier 3 — Nested Groups",
+        "tier": "Tier 3 \u2014 Nested Groups",
         "counts": {
           "1": {
             "Approach A (frappe.safe_eval)": {
@@ -1892,7 +1889,7 @@
       },
       {
         "fixture_id": "tier4_deep_nested_complex",
-        "tier": "Tier 4 — Deep Nested Complex",
+        "tier": "Tier 4 \u2014 Deep Nested Complex",
         "counts": {
           "1": {
             "Approach A (frappe.safe_eval)": {
@@ -2018,7 +2015,7 @@
       },
       {
         "fixture_id": "tier5_collection_child_records",
-        "tier": "Tier 5 — Collection / Child Records",
+        "tier": "Tier 5 \u2014 Collection / Child Records",
         "counts": {
           "1": {
             "Approach A (frappe.safe_eval)": {
@@ -2144,7 +2141,7 @@
       },
       {
         "fixture_id": "edge_case_is_set_null_empty",
-        "tier": "Edge Case — Null / Empty",
+        "tier": "Edge Case \u2014 Null / Empty",
         "counts": {
           "1": {
             "Approach A (frappe.safe_eval)": {
@@ -2270,7 +2267,7 @@
       },
       {
         "fixture_id": "edge_case_link_tuple",
-        "tier": "Edge Case — Link Tuple",
+        "tier": "Edge Case \u2014 Link Tuple",
         "counts": {
           "1": {
             "Approach A (frappe.safe_eval)": {
@@ -2396,7 +2393,7 @@
       },
       {
         "fixture_id": "edge_case_membership_in_not_in",
-        "tier": "Edge Case — Membership",
+        "tier": "Edge Case \u2014 Membership",
         "counts": {
           "1": {
             "Approach A (frappe.safe_eval)": {
@@ -2522,7 +2519,7 @@
       },
       {
         "fixture_id": "edge_case_contains_not_contains",
-        "tier": "Edge Case — Substring",
+        "tier": "Edge Case \u2014 Substring",
         "counts": {
           "1": {
             "Approach A (frappe.safe_eval)": {
@@ -2648,7 +2645,7 @@
       },
       {
         "fixture_id": "edge_case_collection_all_and_none",
-        "tier": "Edge Case — Collection All/None",
+        "tier": "Edge Case \u2014 Collection All/None",
         "counts": {
           "1": {
             "Approach A (frappe.safe_eval)": {
@@ -2774,7 +2771,7 @@
       },
       {
         "fixture_id": "edge_case_length_gt_eq",
-        "tier": "Edge Case — Length",
+        "tier": "Edge Case \u2014 Length",
         "counts": {
           "1": {
             "Approach A (frappe.safe_eval)": {
@@ -2900,7 +2897,7 @@
       },
       {
         "fixture_id": "edge_case_has_changed",
-        "tier": "Edge Case — Field Change",
+        "tier": "Edge Case \u2014 Field Change",
         "counts": {
           "1": {
             "Approach A (frappe.safe_eval)": {
@@ -3026,7 +3023,7 @@
       },
       {
         "fixture_id": "edge_case_none_vs_missing_field",
-        "tier": "Edge Case — Missing Field",
+        "tier": "Edge Case \u2014 Missing Field",
         "counts": {
           "1": {
             "Approach A (frappe.safe_eval)": {
