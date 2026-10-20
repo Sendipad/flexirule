@@ -324,7 +324,8 @@ class TestConditionBenchmark(FrappeTestCase):
 			self.assertIn("primary_benchmark", payload)
 			self.assertIn("amortized_benchmark", payload)
 			primary_fixture = next(
-				item for item in payload["primary_benchmark"]["fixtures"]
+				item
+				for item in payload["primary_benchmark"]["fixtures"]
 				if item["fixture_id"] == "tier1_simple_equality"
 			)
 			self.assertTrue(primary_fixture["correctness_gate_passed"])

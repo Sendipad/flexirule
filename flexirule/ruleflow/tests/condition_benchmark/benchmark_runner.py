@@ -105,16 +105,19 @@ class BenchmarkRunner:
 	def _check_fixture_correctness(self, fix) -> tuple[bool, dict]:
 		"""Gate timing on agreement with expected matching and non-matching results."""
 		check_match = self.harness.check_semantic_agreement(
-			fix.condition_payload, fix.matching_doc,
+			fix.condition_payload,
+			fix.matching_doc,
 			expected_result=fix.expected_matching_result,
 		)
 		check_non_match = self.harness.check_semantic_agreement(
-			fix.condition_payload, fix.non_matching_doc,
+			fix.condition_payload,
+			fix.non_matching_doc,
 			expected_result=fix.expected_non_matching_result,
 		)
 		passed = check_match["is_correct"] and check_non_match["is_correct"]
 		failures = (
-			check_match["disagreements"] + check_non_match["disagreements"]
+			check_match["disagreements"]
+			+ check_non_match["disagreements"]
 			+ list(check_match["errors"].values())
 			+ list(check_non_match["errors"].values())
 		)
@@ -133,15 +136,13 @@ class BenchmarkRunner:
 			name = candidate.candidate_name
 			prep = prepared[name]
 			samples = [
-				run[name].preparation_time_seconds for run in runs
-				if name in run and not run[name].error
+				run[name].preparation_time_seconds for run in runs if name in run and not run[name].error
 			]
 			if prep.error:
 				continue
 			if len(samples) != sample_count:
 				prep.error = (
-					"Preparation did not succeed in every repeated sample "
-					f"({len(samples)}/{sample_count})"
+					"Preparation did not succeed in every repeated sample " f"({len(samples)}/{sample_count})"
 				)
 				continue
 			prep.preparation_time_seconds = statistics.median(samples)
@@ -196,10 +197,7 @@ class BenchmarkRunner:
 				error = f"Evaluation error: {result.error}"
 				break
 			if result.result != expected:
-				error = (
-					"Timed result mismatch: "
-					f"expected {expected!r}, got {result.result!r}"
-				)
+				error = "Timed result mismatch: " f"expected {expected!r}, got {result.result!r}"
 				break
 			core_seconds += result.execution_time_seconds
 			successful += 1
@@ -219,8 +217,12 @@ class BenchmarkRunner:
 				name = candidate.candidate_name
 				prep = prepared[name]
 				state = {
-					"prep": prep, "samples_us": [], "core_samples_us": [],
-					"durations": [], "successful": 0, "error": prep.error,
+					"prep": prep,
+					"samples_us": [],
+					"core_samples_us": [],
+					"durations": [],
+					"successful": 0,
+					"error": prep.error,
 				}
 				if not state["error"] and not correct:
 					state["error"] = "Skipped: semantic correctness gate failed"
@@ -240,7 +242,10 @@ class BenchmarkRunner:
 						if state["error"]:
 							continue
 						elapsed, successful, error, core = self._time_evaluation_batch(
-							candidate, state["prep"], fix, self.iterations_per_batch,
+							candidate,
+							state["prep"],
+							fix,
+							self.iterations_per_batch,
 							start_offset=batch_index,
 						)
 						if error:
@@ -267,7 +272,8 @@ class BenchmarkRunner:
 				if state["error"] or len(samples) != self.num_batches:
 					metrics[name] = {
 						"is_valid_measurement": False,
-						"error": state["error"] or f"Only {len(samples)}/{self.num_batches} batches succeeded",
+						"error": state["error"]
+						or f"Only {len(samples)}/{self.num_batches} batches succeeded",
 						**common,
 					}
 					continue
@@ -283,37 +289,48 @@ class BenchmarkRunner:
 					"max_us_per_exec": round(max(samples), 3),
 					"p95_us_per_exec": round(
 						sorted_samples[int(0.95 * len(sorted_samples))]
-						if len(sorted_samples) >= 5 else max(sorted_samples), 3
+						if len(sorted_samples) >= 5
+						else max(sorted_samples),
+						3,
 					),
 					"valid_batch_durations_seconds": [round(v, 4) for v in state["durations"]],
 				}
 
 			def speedup(numerator_metric, denominator_metric):
-				if not (numerator_metric.get("is_valid_measurement") and denominator_metric.get("is_valid_measurement")):
+				if not (
+					numerator_metric.get("is_valid_measurement")
+					and denominator_metric.get("is_valid_measurement")
+				):
 					return None
 				numerator = numerator_metric.get("median_us_per_exec")
 				denominator = denominator_metric.get("median_us_per_exec")
-				if not isinstance(numerator, int | float) or not isinstance(denominator, int | float) or denominator <= 0:
+				if (
+					not isinstance(numerator, int | float)
+					or not isinstance(denominator, int | float)
+					or denominator <= 0
+				):
 					return None
 				return round(numerator / denominator, 2)
 
 			a = metrics.get(self.candidate_a.candidate_name, {})
 			b = metrics.get(self.candidate_b.candidate_name, {})
 			c = metrics.get(self.candidate_c.candidate_name, {})
-			fixture_results.append({
-				"fixture_id": fix.fixture_id,
-				"tier": fix.tier,
-				"description": fix.description,
-				"correctness_gate_passed": correct,
-				"correctness_failures": detail["failures"],
-				"timed_workload": "alternating matching and non-matching documents",
-				"leaf_count": fix.leaf_count,
-				"nesting_depth": fix.nesting_depth,
-				"speedup_ratio_b_vs_primary_a": speedup(a, b),
-				"speedup_ratio_c_vs_primary_a": speedup(a, c),
-				"speedup_ratio_b_vs_c": speedup(c, b),
-				"candidate_metrics": metrics,
-			})
+			fixture_results.append(
+				{
+					"fixture_id": fix.fixture_id,
+					"tier": fix.tier,
+					"description": fix.description,
+					"correctness_gate_passed": correct,
+					"correctness_failures": detail["failures"],
+					"timed_workload": "alternating matching and non-matching documents",
+					"leaf_count": fix.leaf_count,
+					"nesting_depth": fix.nesting_depth,
+					"speedup_ratio_b_vs_primary_a": speedup(a, b),
+					"speedup_ratio_c_vs_primary_a": speedup(a, c),
+					"speedup_ratio_b_vs_c": speedup(c, b),
+					"candidate_metrics": metrics,
+				}
+			)
 		return {
 			"methodology": {
 				"iterations_per_batch": self.iterations_per_batch,
@@ -331,7 +348,7 @@ class BenchmarkRunner:
 		"""Estimate median preparation + N-evaluation cost with repeated timing and parity gates."""
 		if execution_counts is None:
 			execution_counts = [1, 10, 100, 1000]
-		if any(type(n) is not int or n <= 0 for n in execution_counts):
+		if any(not isinstance(n, int) or n <= 0 for n in execution_counts):
 			raise ValueError("execution_counts must contain positive integers")
 
 		results = []
@@ -345,14 +362,20 @@ class BenchmarkRunner:
 				if prep.error:
 					candidate_errors[name] = prep.error
 				elif not correct:
-					candidate_errors[name] = "Skipped: semantic correctness gate failed; see correctness_failures"
+					candidate_errors[name] = (
+						"Skipped: semantic correctness gate failed; see correctness_failures"
+					)
 				else:
 					candidate_errors[name] = self._warm_up_candidate(candidate, prep, fix)
 
 			count_results = {}
 			for count_index, n in enumerate(execution_counts):
-				exec_samples = {candidate.candidate_name: [] for candidate in self.candidates}
-				core_samples = {candidate.candidate_name: [] for candidate in self.candidates}
+				exec_samples: dict[str, list[float]] = {
+					candidate.candidate_name: [] for candidate in self.candidates
+				}
+				core_samples: dict[str, list[float]] = {
+					candidate.candidate_name: [] for candidate in self.candidates
+				}
 				errors = {name: error for name, error in candidate_errors.items() if error}
 				if correct:
 					for batch_index in range(self.num_batches):
@@ -382,7 +405,8 @@ class BenchmarkRunner:
 					if errors.get(name) or len(samples) != self.num_batches:
 						one_count[name] = {
 							"is_valid": False,
-							"error": errors.get(name) or f"Only {len(samples)}/{self.num_batches} samples succeeded",
+							"error": errors.get(name)
+							or f"Only {len(samples)}/{self.num_batches} samples succeeded",
 							**common,
 						}
 						continue
@@ -393,22 +417,26 @@ class BenchmarkRunner:
 						**common,
 						"n_exec_time_ms": round(median_execution * 1000.0, 4),
 						"median_exec_us_per_eval": round(median_execution / n * 1e6, 3),
-						"median_core_exec_us_per_eval": round(statistics.median(core_samples[name]) / n * 1e6, 3),
+						"median_core_exec_us_per_eval": round(
+							statistics.median(core_samples[name]) / n * 1e6, 3
+						),
 						"total_amortized_cost_ms": round(total * 1000.0, 4),
 						"cost_per_eval_us": round(total / n * 1e6, 3),
 						"sample_execution_times_ms": [round(v * 1000.0, 4) for v in samples],
 					}
 				count_results[str(n)] = one_count
 
-			results.append({
-				"fixture_id": fix.fixture_id,
-				"tier": fix.tier,
-				"correctness_gate_passed": correct,
-				"correctness_failures": detail["failures"],
-				"candidate_order": "rotated between repeated samples",
-				"document_workload": "alternating matching and non-matching documents",
-				"counts": count_results,
-			})
+			results.append(
+				{
+					"fixture_id": fix.fixture_id,
+					"tier": fix.tier,
+					"correctness_gate_passed": correct,
+					"correctness_failures": detail["failures"],
+					"candidate_order": "rotated between repeated samples",
+					"document_workload": "alternating matching and non-matching documents",
+					"counts": count_results,
+				}
+			)
 		return {
 			"methodology": {
 				"execution_counts": execution_counts,
@@ -447,8 +475,12 @@ class BenchmarkRunner:
 		md_lines.append("**Repository:** [Sendipad/flexirule](https://github.com/Sendipad/flexirule)  ")
 		md_lines.append("**Branch:** `feat/condition-benchmark`  ")
 		md_lines.append(f"**Report Location:** `{output_markdown_path}`  ")
-		md_lines.append(f"**Benchmark Protocol:** v{full_payload.get('benchmark_protocol_version', 'unknown')}  ")
-		md_lines.append("**Measurement Protocol:** repeated medians, rotating order, alternating matching/non-matching documents, correctness gate  ")
+		md_lines.append(
+			f"**Benchmark Protocol:** v{full_payload.get('benchmark_protocol_version', 'unknown')}  "
+		)
+		md_lines.append(
+			"**Measurement Protocol:** repeated medians, rotating order, alternating matching/non-matching documents, correctness gate  "
+		)
 		md_lines.append("**Raw Results Data:** `reports/condition_benchmark_results.json`  ")
 		md_lines.append("")
 		md_lines.append("---")
@@ -555,19 +587,23 @@ class BenchmarkRunner:
 
 			a_str = (
 				f"{a_m.get('median_us_per_exec')} µs/op (core {a_m.get('median_core_us_per_exec')} µs/op)"
-				if a_m.get("is_valid_measurement") else "INVALID"
+				if a_m.get("is_valid_measurement")
+				else "INVALID"
 			)
 			a_exp_str = (
 				f"{a_exp_m.get('median_us_per_exec')} µs/op (core {a_exp_m.get('median_core_us_per_exec')} µs/op)"
-				if a_exp_m.get("is_valid_measurement") else "INVALID"
+				if a_exp_m.get("is_valid_measurement")
+				else "INVALID"
 			)
 			b_str = (
 				f"{b_m.get('median_us_per_exec')} µs/op (core {b_m.get('median_core_us_per_exec')} µs/op)"
-				if b_m.get("is_valid_measurement") else "INVALID"
+				if b_m.get("is_valid_measurement")
+				else "INVALID"
 			)
 			c_str = (
 				f"{c_m.get('median_us_per_exec')} µs/op (core {c_m.get('median_core_us_per_exec')} µs/op)"
-				if c_m.get("is_valid_measurement") else "INVALID"
+				if c_m.get("is_valid_measurement")
+				else "INVALID"
 			)
 
 			sp_b_a_str = (
