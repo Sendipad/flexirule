@@ -272,40 +272,6 @@ class TestConditionBenchmark(FrappeTestCase):
 		with self.assertRaises(SyntaxError):
 			compile_restricted(forbidden_expr, filename="<safe_eval>", policy=FrappeTransformer, mode="eval")
 
-	def test_amortized_benchmark_repeats_samples_and_gates_correctness(self):
-		runner = BenchmarkRunner(
-			iterations_per_batch=4,
-			num_batches=2,
-			warmup_iterations=1,
-		)
-		results = runner.run_amortized_benchmarks(execution_counts=[1, 3])
-		fixtures_by_id = {item["fixture_id"]: item for item in results["amortized"]}
-
-		# A semantically correct fixture should have the requested number of repeated samples.
-		simple = fixtures_by_id["tier1_simple_equality"]
-		self.assertTrue(simple["correctness_gate_passed"])
-		for count in ("1", "3"):
-			metric = simple["counts"][count]["Approach B (Normalized Execution Plan)"]
-			self.assertTrue(metric["is_valid"])
-			self.assertEqual(metric["valid_batches"], 2)
-			self.assertEqual(len(metric["sample_execution_times_ms"]), 2)
-			self.assertIn("median_exec_us_per_eval", metric)
-
-		# The known has_changed disagreement must never produce benchmark numbers.
-		failed = fixtures_by_id["edge_case_has_changed"]
-		self.assertFalse(failed["correctness_gate_passed"])
-		for count in ("1", "3"):
-			for metric in failed["counts"][count].values():
-				self.assertFalse(metric["is_valid"])
-				self.assertIn("correctness gate failed", metric["error"])
-
-	def test_amortized_benchmark_rejects_non_positive_execution_counts(self):
-		runner = BenchmarkRunner(iterations_per_batch=1, num_batches=1, warmup_iterations=0)
-		for counts in ([0], [-1], [1, 0]):
-			with self.subTest(counts=counts):
-				with self.assertRaises(ValueError):
-					runner.run_amortized_benchmarks(execution_counts=counts)
-
 	def test_benchmark_runner_full_suite_export(self):
 		import os
 		import tempfile

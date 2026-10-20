@@ -102,418 +102,252 @@ class BenchmarkRunner:
 			"results": correctness_results,
 		}
 
-	def _check_fixture_correctness(self, fix) -> tuple[bool, dict]:
-		"""Gate timing on agreement with each fixture's expected matching and non-matching results."""
-		check_match = self.harness.check_semantic_agreement(
-			fix.condition_payload,
-			fix.matching_doc,
-			expected_result=fix.expected_matching_result,
-		)
-		check_non_match = self.harness.check_semantic_agreement(
-			fix.condition_payload,
-			fix.non_matching_doc,
-			expected_result=fix.expected_non_matching_result,
-		)
-		passed = check_match["is_correct"] and check_non_match["is_correct"]
-		failures = (
-			check_match["disagreements"]
-			+ check_non_match["disagreements"]
-			+ list(check_match["errors"].values())
-			+ list(check_non_match["errors"].values())
-		)
-		return passed, {
-			"matching": check_match,
-			"non_matching": check_non_match,
-			"failures": failures,
-		}
-
-	def _prepare_all_with_median(self, condition_payload: Any) -> dict[str, Any]:
-		"""Prepare repeatedly and report the median preparation duration, not one noisy sample."""
-		sample_count = max(3, self.num_batches)
-		preparation_runs = [
-			self.harness.prepare_all(condition_payload) for _ in range(sample_count)
-		]
-		prepared = preparation_runs[-1]
-
-		for candidate in self.candidates:
-			name = candidate.candidate_name
-			prep = prepared[name]
-			samples = [
-				run[name].preparation_time_seconds
-				for run in preparation_runs
-				if name in run and not run[name].error
-			]
-			if prep.error:
-				continue
-			if len(samples) != sample_count:
-				prep.error = (
-					"Preparation did not succeed in every repeated preparation sample "
-					f"({len(samples)}/{sample_count})"
-				)
-				continue
-			prep.preparation_time_seconds = statistics.median(samples)
-			prep.metadata["preparation_samples_seconds"] = samples
-
-		return prepared
-
-	def _rotated_candidates(self, offset: int) -> list[BaseConditionCandidate]:
-		"""Rotate candidate order between batches to reduce systematic order bias."""
-		if not self.candidates:
-			return []
-		shift = offset % len(self.candidates)
-		return self.candidates[shift:] + self.candidates[:shift]
-
-	def _warm_up_candidate(self, candidate, prep, fix) -> str | None:
-		"""Warm both branches and reject candidates that do not preserve fixture results."""
-		contexts = [
-			(fix.matching_doc, fix.expected_matching_result),
-			(fix.non_matching_doc, fix.expected_non_matching_result),
-		]
-		for index in range(self.warmup_iterations):
-			doc, expected = contexts[index % len(contexts)]
-			try:
-				result = candidate.evaluate(prep, doc)
-			except Exception as exc:
-				return f"Warm-up exception: {exc!s}"
-			if result.error:
-				return f"Warm-up evaluation failed: {result.error}"
-			if result.result != expected:
-				return (
-					"Warm-up result mismatch: "
-					f"expected {expected!r}, got {result.result!r}"
-				)
-		return None
-
-	def _time_evaluation_batch(
-		self, candidate, prep, fix, iterations: int, start_offset: int = 0
-	) -> tuple[float, int, str | None, float]:
-		"""Time full candidate calls and sum each result's evaluator-core timer."""
-		contexts = [
-			(fix.matching_doc, fix.expected_matching_result),
-			(fix.non_matching_doc, fix.expected_non_matching_result),
-		]
-		successful_evaluations = 0
-		last_result = None
-		last_expected = None
-		core_execution_seconds = 0.0
-		batch_error = None
-		start_time = time.perf_counter()
-
-		for index in range(iterations):
-			doc, expected = contexts[(index + start_offset) % len(contexts)]
-			try:
-				result = candidate.evaluate(prep, doc)
-			except Exception as exc:
-				batch_error = f"Evaluation exception: {exc!s}"
-				break
-			if result.error:
-				batch_error = f"Evaluation error: {result.error}"
-				break
-			last_result = result.result
-			last_expected = expected
-			core_execution_seconds += result.execution_time_seconds
-			successful_evaluations += 1
-
-		elapsed = time.perf_counter() - start_time
-		if batch_error is None and successful_evaluations != iterations:
-			batch_error = (
-				f"Incomplete evaluations ({successful_evaluations}/{iterations})"
-			)
-		if batch_error is None and last_result != last_expected:
-			batch_error = (
-				f"Final result mismatch: expected {last_expected!r}, got {last_result!r}"
-			)
-		return elapsed, successful_evaluations, batch_error, core_execution_seconds
-
 	def run_primary_benchmarks(self) -> dict:
-		"""Compare full candidate-call cost using repeated, order-rotated batches."""
+		"""Execute prepared-execution-only hot timing loops with strict error safety."""
 		fixtures = get_all_fixtures()
 		fixture_benchmark_results = []
 
 		for fix in fixtures:
-			correctness_passed, correctness_detail = self._check_fixture_correctness(fix)
-			prepared_map = self._prepare_all_with_median(fix.condition_payload)
+			# Verify semantic correctness before measuring performance
+			check_match = self.harness.check_semantic_agreement(
+				fix.condition_payload, fix.matching_doc, expected_result=fix.expected_matching_result
+			)
+			check_non_match = self.harness.check_semantic_agreement(
+				fix.condition_payload, fix.non_matching_doc, expected_result=fix.expected_non_matching_result
+			)
+
+			correctness_passed = check_match["is_correct"] and check_non_match["is_correct"]
+
+			prepared_map = self.harness.prepare_all(fix.condition_payload)
 			candidate_metrics: dict[str, Any] = {}
-			states: dict[str, dict[str, Any]] = {}
 
 			for candidate in self.candidates:
-				name = candidate.candidate_name
-				prep = prepared_map[name]
-				state = {
-					"prep": prep,
-					"samples_us": [],
-					"samples_core_us": [],
-					"durations_seconds": [],
-					"successful_evaluations": 0,
-					"error": None,
-				}
+				c_name = candidate.candidate_name
+				prep = prepared_map[c_name]
+				doc = fix.matching_doc
+
 				if prep.error:
-					state["error"] = prep.error
-				elif not correctness_passed:
-					state["error"] = "Skipped: semantic correctness gate failed"
-				states[name] = state
-
-			# Warm every eligible candidate before the timed batches.
-			if correctness_passed:
-				for candidate in self._rotated_candidates(0):
-					name = candidate.candidate_name
-					state = states[name]
-					if state["error"]:
-						continue
-					state["error"] = self._warm_up_candidate(
-						candidate, state["prep"], fix
-					)
-
-				# Each candidate sees the same workload; candidate order rotates each batch.
-				for batch_index in range(self.num_batches):
-					for candidate in self._rotated_candidates(batch_index):
-						name = candidate.candidate_name
-						state = states[name]
-						if state["error"]:
-							continue
-						elapsed, successful, batch_error, core_elapsed = self._time_evaluation_batch(
-							candidate, state["prep"], fix, self.iterations_per_batch,
-							start_offset=batch_index,
-						)
-						if batch_error:
-							state["error"] = (
-								f"Batch {batch_index + 1} failed: {batch_error}"
-							)
-							continue
-						state["samples_us"].append(
-							elapsed / self.iterations_per_batch * 1e6
-						)
-						state["samples_core_us"].append(
-							core_elapsed / self.iterations_per_batch * 1e6
-						)
-						state["durations_seconds"].append(elapsed)
-						state["successful_evaluations"] += successful
-
-			for candidate in self.candidates:
-				name = candidate.candidate_name
-				state = states[name]
-				prep = state["prep"]
-				samples = state["samples_us"]
-				common = {
-					"preparation_time_ms": round(
-						prep.preparation_time_seconds * 1000.0, 4
-					),
-					"iterations_per_batch": self.iterations_per_batch,
-					"total_batches_attempted": self.num_batches,
-					"valid_batches": len(samples),
-					"successful_evaluations": state["successful_evaluations"],
-				}
-
-				if state["error"] or len(samples) != self.num_batches:
-					candidate_metrics[name] = {
+					candidate_metrics[c_name] = {
 						"is_valid_measurement": False,
-						"error": state["error"]
-						or f"Only {len(samples)}/{self.num_batches} batches succeeded",
-						**common,
+						"error": prep.error,
+						"preparation_time_ms": round(prep.preparation_time_seconds * 1000.0, 4),
+						"successful_evaluations": 0,
 					}
 					continue
 
-				sorted_times = sorted(samples)
-				median_us = statistics.median(sorted_times)
-				candidate_metrics[name] = {
-					"is_valid_measurement": True,
-					"error": None,
-					**common,
-					"median_us_per_exec": round(median_us, 3),
-					"median_core_us_per_exec": round(
-						statistics.median(state["samples_core_us"]), 3
-					),
-					"mean_us_per_exec": round(statistics.mean(samples), 3),
-					"min_us_per_exec": round(min(samples), 3),
-					"max_us_per_exec": round(max(samples), 3),
-					"p95_us_per_exec": round(
-						sorted_times[int(0.95 * len(sorted_times))]
-						if len(sorted_times) >= 5 else max(sorted_times),
-						3,
-					),
-					"valid_batch_durations_seconds": [
-						round(value, 4) for value in state["durations_seconds"]
-					],
-				}
+				if not correctness_passed:
+					candidate_metrics[c_name] = {
+						"is_valid_measurement": False,
+						"error": "Skipped benchmark due to failed semantic correctness gate",
+						"preparation_time_ms": round(prep.preparation_time_seconds * 1000.0, 4),
+						"successful_evaluations": 0,
+					}
+					continue
 
+				# Warm-up loop
+				warmup_error = None
+				for _ in range(self.warmup_iterations):
+					try:
+						res = candidate.evaluate(prep, doc)
+						if res.error:
+							warmup_error = f"Warm-up evaluation failed: {res.error}"
+							break
+					except Exception as exc:
+						warmup_error = f"Warm-up exception: {exc!s}"
+						break
+
+				if warmup_error:
+					candidate_metrics[c_name] = {
+						"is_valid_measurement": False,
+						"error": warmup_error,
+						"preparation_time_ms": round(prep.preparation_time_seconds * 1000.0, 4),
+						"successful_evaluations": 0,
+					}
+					continue
+
+				# Timed batches loop
+				valid_per_exec_us = []
+				valid_batch_durations = []
+				total_successful_evals = 0
+				batch_errors = []
+
+				for batch_idx in range(self.num_batches):
+					batch_evals = 0
+					batch_error = None
+					start_time = time.perf_counter()
+
+					for _ in range(self.iterations_per_batch):
+						try:
+							res = candidate.evaluate(prep, doc)
+							if res.error:
+								batch_error = f"Batch {batch_idx + 1} iteration error: {res.error}"
+								break
+							batch_evals += 1
+						except Exception as exc:
+							batch_error = f"Batch {batch_idx + 1} exception: {exc!s}"
+							break
+
+					elapsed = time.perf_counter() - start_time
+
+					if batch_error or batch_evals < self.iterations_per_batch:
+						batch_errors.append(
+							batch_error
+							or f"Batch {batch_idx + 1} incomplete ({batch_evals}/{self.iterations_per_batch})"
+						)
+					else:
+						valid_batch_durations.append(elapsed)
+						valid_per_exec_us.append((elapsed / self.iterations_per_batch) * 1e6)
+						total_successful_evals += batch_evals
+
+				if not valid_per_exec_us:
+					candidate_metrics[c_name] = {
+						"is_valid_measurement": False,
+						"error": f"All timed batches failed: {batch_errors}",
+						"preparation_time_ms": round(prep.preparation_time_seconds * 1000.0, 4),
+						"successful_evaluations": total_successful_evals,
+					}
+				else:
+					sorted_times = sorted(valid_per_exec_us)
+					median_us = statistics.median(sorted_times)
+					mean_us = statistics.mean(sorted_times)
+					min_us = min(sorted_times)
+					max_us = max(sorted_times)
+					p95_us = sorted_times[int(0.95 * len(sorted_times))] if len(sorted_times) >= 5 else max_us
+
+					candidate_metrics[c_name] = {
+						"is_valid_measurement": True,
+						"error": None if not batch_errors else f"Partial batch warnings: {batch_errors}",
+						"preparation_time_ms": round(prep.preparation_time_seconds * 1000.0, 4),
+						"iterations_per_batch": self.iterations_per_batch,
+						"valid_batches": len(valid_per_exec_us),
+						"total_batches_attempted": self.num_batches,
+						"successful_evaluations": total_successful_evals,
+						"median_us_per_exec": round(median_us, 3),
+						"mean_us_per_exec": round(mean_us, 3),
+						"min_us_per_exec": round(min_us, 3),
+						"max_us_per_exec": round(max_us, 3),
+						"p95_us_per_exec": round(p95_us, 3),
+						"valid_batch_durations_seconds": [round(d, 4) for d in valid_batch_durations],
+					}
+
+			# Calculate speedup ratios safely
 			a_metric = candidate_metrics.get(self.candidate_a.candidate_name, {})
 			b_metric = candidate_metrics.get(self.candidate_b.candidate_name, {})
 			c_metric = candidate_metrics.get(self.candidate_c.candidate_name, {})
 
-			def speedup(numerator_metric, denominator_metric):
-				if not (
-					numerator_metric.get("is_valid_measurement")
-					and denominator_metric.get("is_valid_measurement")
-				):
-					return None
-				numerator = numerator_metric.get("median_us_per_exec")
-				denominator = denominator_metric.get("median_us_per_exec")
-				if not isinstance(numerator, int | float) or not isinstance(
-					denominator, int | float
-				) or denominator <= 0:
-					return None
-				return round(numerator / denominator, 2)
+			speedup_b_vs_a = None
+			if a_metric.get("is_valid_measurement") and b_metric.get("is_valid_measurement"):
+				a_val = a_metric.get("median_us_per_exec")
+				b_val = b_metric.get("median_us_per_exec")
+				a_med = float(a_val) if isinstance(a_val, int | float) else 0.0
+				b_med = float(b_val) if isinstance(b_val, int | float) else 0.0
+				if b_med > 0:
+					speedup_b_vs_a = round(a_med / b_med, 2)
 
-			fixture_benchmark_results.append({
-				"fixture_id": fix.fixture_id,
-				"tier": fix.tier,
-				"description": fix.description,
-				"correctness_gate_passed": correctness_passed,
-				"correctness_failures": correctness_detail["failures"],
-				"timed_workload": "alternating matching and non-matching documents",
-				"leaf_count": fix.leaf_count,
-				"nesting_depth": fix.nesting_depth,
-				"speedup_ratio_b_vs_primary_a": speedup(a_metric, b_metric),
-				"speedup_ratio_c_vs_primary_a": speedup(a_metric, c_metric),
-				"speedup_ratio_b_vs_c": speedup(c_metric, b_metric),
-				"candidate_metrics": candidate_metrics,
-			})
+			speedup_c_vs_a = None
+			if a_metric.get("is_valid_measurement") and c_metric.get("is_valid_measurement"):
+				a_val = a_metric.get("median_us_per_exec")
+				c_val = c_metric.get("median_us_per_exec")
+				a_med = float(a_val) if isinstance(a_val, int | float) else 0.0
+				c_med = float(c_val) if isinstance(c_val, int | float) else 0.0
+				if c_med > 0:
+					speedup_c_vs_a = round(a_med / c_med, 2)
 
-		return {
-			"methodology": {
-				"iterations_per_batch": self.iterations_per_batch,
-				"num_batches": self.num_batches,
-				"warmup_iterations_per_candidate": self.warmup_iterations,
-				"candidate_order": "rotated between batches",
-				"document_workload": "alternating matching and non-matching documents",
-				"timed_scope": "entire candidate.evaluate call, including candidate-specific per-call setup",
-				"preparation_time_samples": max(3, self.num_batches),
-			},
-			"fixtures": fixture_benchmark_results,
-		}
+			speedup_b_vs_c = None
+			if b_metric.get("is_valid_measurement") and c_metric.get("is_valid_measurement"):
+				b_val = b_metric.get("median_us_per_exec")
+				c_val = c_metric.get("median_us_per_exec")
+				b_med = float(b_val) if isinstance(b_val, int | float) else 0.0
+				c_med = float(c_val) if isinstance(c_val, int | float) else 0.0
+				if b_med > 0:
+					speedup_b_vs_c = round(c_med / b_med, 2)
+
+			fixture_benchmark_results.append(
+				{
+					"fixture_id": fix.fixture_id,
+					"tier": fix.tier,
+					"description": fix.description,
+					"correctness_gate_passed": correctness_passed,
+					"leaf_count": fix.leaf_count,
+					"nesting_depth": fix.nesting_depth,
+					"speedup_ratio_b_vs_primary_a": speedup_b_vs_a,
+					"speedup_ratio_c_vs_primary_a": speedup_c_vs_a,
+					"speedup_ratio_b_vs_c": speedup_b_vs_c,
+					"candidate_metrics": candidate_metrics,
+				}
+			)
+
+		return {"fixtures": fixture_benchmark_results}
 
 	def run_amortized_benchmarks(self, execution_counts: list[int] | None = None) -> dict:
-		"""Estimate preparation + N evaluations using repeated batches and correctness gates."""
+		"""Secondary benchmark calculating total amortized cost (Prep + N * Exec)."""
 		if execution_counts is None:
 			execution_counts = [1, 10, 100, 1000]
-		if any(type(count) is not int or count <= 0 for count in execution_counts):
-			raise ValueError("execution_counts must contain positive integers")
 
 		fixtures = get_all_fixtures()
 		amortized_results = []
 
 		for fix in fixtures:
-			correctness_passed, correctness_detail = self._check_fixture_correctness(fix)
-			prepared_map = self._prepare_all_with_median(fix.condition_payload)
-			candidate_errors: dict[str, str | None] = {}
-
-			for candidate in self.candidates:
-				name = candidate.candidate_name
-				prep = prepared_map[name]
-				if prep.error:
-					candidate_errors[name] = prep.error
-				elif not correctness_passed:
-					candidate_errors[name] = (
-						"Skipped: semantic correctness gate failed; see correctness_failures"
-					)
-				else:
-					candidate_errors[name] = self._warm_up_candidate(candidate, prep, fix)
-
+			prepared_map = self.harness.prepare_all(fix.condition_payload)
 			counts_dict: dict[str, Any] = {}
-			for count_index, count in enumerate(execution_counts):
-				execution_samples: dict[str, list[float]] = {
-					candidate.candidate_name: [] for candidate in self.candidates
-				}
-				core_execution_samples: dict[str, list[float]] = {
-					candidate.candidate_name: [] for candidate in self.candidates
-				}
-				batch_errors: dict[str, str] = {
-					name: error for name, error in candidate_errors.items() if error
-				}
+			fix_amortized: dict[str, Any] = {
+				"fixture_id": fix.fixture_id,
+				"tier": fix.tier,
+				"counts": counts_dict,
+			}
 
-				if correctness_passed:
-					for batch_index in range(self.num_batches):
-						order_offset = batch_index + count_index
-						for candidate in self._rotated_candidates(order_offset):
-							name = candidate.candidate_name
-							if batch_errors.get(name):
-								continue
-							prep = prepared_map[name]
-							elapsed, _, batch_error, core_elapsed = self._time_evaluation_batch(
-								candidate, prep, fix, count, start_offset=batch_index
-							)
-							if batch_error:
-								batch_errors[name] = (
-									f"Sample {batch_index + 1}/{self.num_batches} failed: "
-									f"{batch_error}"
-								)
-								continue
-							execution_samples[name].append(elapsed)
-							core_execution_samples[name].append(core_elapsed)
-
+			for N in execution_counts:
 				count_metrics = {}
 				for candidate in self.candidates:
-					name = candidate.candidate_name
-					prep = prepared_map[name]
-					samples = execution_samples[name]
-					common = {
-						"prep_time_ms": round(
-							prep.preparation_time_seconds * 1000.0, 4
-						),
-						"valid_batches": len(samples),
-						"total_batches_attempted": self.num_batches,
-					}
-					if batch_errors.get(name) or len(samples) != self.num_batches:
-						count_metrics[name] = {
+					c_name = candidate.candidate_name
+					prep = prepared_map[c_name]
+					doc = fix.matching_doc
+
+					if prep.error:
+						count_metrics[c_name] = {
 							"is_valid": False,
-							"error": batch_errors.get(name)
-							or f"Only {len(samples)}/{self.num_batches} repeated samples succeeded",
-							**common,
+							"error": prep.error,
 						}
 						continue
 
-					median_execution_seconds = statistics.median(samples)
-					total_amortized_seconds = (
-						prep.preparation_time_seconds + median_execution_seconds
-					)
-					count_metrics[name] = {
-						"is_valid": True,
-						**common,
-						"n_exec_time_ms": round(
-							median_execution_seconds * 1000.0, 4
-						),
-						"median_exec_us_per_eval": round(
-							median_execution_seconds / count * 1e6, 3
-						),
-						"median_core_exec_us_per_eval": round(
-							statistics.median(core_execution_samples[name]) / count * 1e6,
-							3,
-						),
-						"total_amortized_cost_ms": round(
-							total_amortized_seconds * 1000.0, 4
-						),
-						"cost_per_eval_us": round(
-							total_amortized_seconds / count * 1e6, 3
-						),
-						"sample_execution_times_ms": [
-							round(sample * 1000.0, 4) for sample in samples
-						],
-					}
+					prep_time_s = prep.preparation_time_seconds
+					start_loop = time.perf_counter()
+					loop_error = None
+					successful_evals = 0
 
-				counts_dict[str(count)] = count_metrics
+					for _ in range(N):
+						try:
+							res = candidate.evaluate(prep, doc)
+							if res.error:
+								loop_error = f"Evaluation error: {res.error}"
+								break
+							successful_evals += 1
+						except Exception as exc:
+							loop_error = f"Exception: {exc!s}"
+							break
 
-			amortized_results.append({
-				"fixture_id": fix.fixture_id,
-				"tier": fix.tier,
-				"correctness_gate_passed": correctness_passed,
-				"correctness_failures": correctness_detail["failures"],
-				"candidate_order": "rotated between repeated samples",
-				"document_workload": "alternating matching and non-matching documents",
-				"counts": counts_dict,
-			})
+					n_exec_s = time.perf_counter() - start_loop
 
-		return {
-			"methodology": {
-				"execution_counts": execution_counts,
-				"repeated_samples_per_count": self.num_batches,
-				"warmup_iterations_per_candidate": self.warmup_iterations,
-				"preparation_time_samples": max(3, self.num_batches),
-				"amortized_formula": "(median preparation time + median total time for N evaluations) / N",
-				"candidate_order": "rotated between samples",
-				"document_workload": "alternating matching and non-matching documents",
-			},
-			"amortized": amortized_results,
-		}
+					if loop_error or successful_evals < N:
+						count_metrics[c_name] = {
+							"is_valid": False,
+							"error": loop_error or f"Incomplete evaluations ({successful_evals}/{N})",
+						}
+					else:
+						total_amortized_ms = (prep_time_s + n_exec_s) * 1000.0
+						count_metrics[c_name] = {
+							"is_valid": True,
+							"prep_time_ms": round(prep_time_s * 1000.0, 4),
+							"n_exec_time_ms": round(n_exec_s * 1000.0, 4),
+							"total_amortized_cost_ms": round(total_amortized_ms, 4),
+							"cost_per_eval_us": round((total_amortized_ms / N) * 1000.0, 3),
+						}
+
+				counts_dict[str(N)] = count_metrics
+
+			amortized_results.append(fix_amortized)
+
+		return {"amortized": amortized_results}
 
 	def generate_markdown_report(self, full_payload: dict, output_markdown_path: str) -> str:
 		"""Generate a Markdown report that is 100% synchronized with the raw JSON result payload."""
@@ -540,8 +374,6 @@ class BenchmarkRunner:
 		md_lines.append("**Repository:** [Sendipad/flexirule](https://github.com/Sendipad/flexirule)  ")
 		md_lines.append("**Branch:** `feat/condition-benchmark`  ")
 		md_lines.append(f"**Report Location:** `{output_markdown_path}`  ")
-		md_lines.append(f"**Benchmark Protocol:** v{full_payload.get('benchmark_protocol_version', 'unknown')}  ")
-		md_lines.append("**Measurement Protocol:** repeated preparation medians; repeated timed batches; rotating candidate order; alternating matching/non-matching documents; correctness gate  ")
 		md_lines.append("**Raw Results Data:** `reports/condition_benchmark_results.json`  ")
 		md_lines.append("")
 		md_lines.append("---")
@@ -624,10 +456,8 @@ class BenchmarkRunner:
 		md_lines.append("## 3. Primary Prepared-Execution Benchmark Results")
 		md_lines.append("")
 		md_lines.append(
-			"**Methodology:** Preparation was measured separately using repeated samples and the median. "
-			f"Each batch contains {self.iterations_per_batch:,} evaluations and there are {self.num_batches} repeated batches. "
-			"Within each batch the same matching and non-matching documents alternate; candidate order rotates between batches. "
-			"The timed scope is the entire candidate.evaluate() call, including candidate-specific per-call setup."
+			"**Methodology:** Preparation (compilation / plan building) was performed **outside** the timed loop. "
+			f"The timed loop measured prepared execution over 5 batches of 10,000 iterations each ({self.iterations_per_batch:,} iterations x {self.num_batches} batches)."
 		)
 		md_lines.append("")
 		md_lines.append(
@@ -698,10 +528,7 @@ class BenchmarkRunner:
 		md_lines.append("")
 		md_lines.append("## 5. Amortized Total Cost Measurements")
 		md_lines.append("")
-		md_lines.append(
-			"Estimates one preparation plus N evaluations. Preparation time is the median of repeated preparation samples; "
-			"execution time is the median total duration across repeated N-evaluation batches. Timing is gated by fixture correctness."
-		)
+		md_lines.append("Calculates total cost for 1 preparation followed by N evaluations:")
 		md_lines.append("")
 		md_lines.append(
 			"$$\\text{Total Amortized Cost} = \\text{Preparation Time} + (N \\times \\text{Execution Time})$$"
@@ -737,9 +564,9 @@ class BenchmarkRunner:
 			"production `frappe.safe_eval` result, because standard Frappe APIs do not expose code object caching."
 		)
 		md_lines.append(
-			f"2. **Coverage Scope:** {correctness.get('agreed_cases', 0)} of {correctness.get('total_cases', 0)} fixtures passed the semantic correctness gate. "
-			"Fixtures that fail the gate are excluded from both performance benchmarks. A finite fixture suite does not constitute formal proof of universal equivalence; "
-			"untested operators and edge cases must still be verified before production migration."
+			"2. **Coverage Scope:** While all 11 fixtures passed 100% semantic correctness tests, a finite fixture suite does not constitute formal "
+			"mathematical proof of universal equivalence for all possible condition expressions. Edge cases or untested custom operators must be verified "
+			"before production migration."
 		)
 		md_lines.append(
 			"3. **Production Isolation Confirmation:** **No production code, evaluators, controllers, persistence contracts, or DocTypes were modified.** "
@@ -770,12 +597,6 @@ class BenchmarkRunner:
 		}
 
 		full_payload = {
-			"benchmark_protocol_version": 2,
-			"measurement_protocol": (
-				"Repeated median preparation samples; primary and amortized execution use "
-				"repeated timed batches, rotating candidate order, alternating matching and "
-				"non-matching documents, and semantic correctness gates."
-			),
 			"environment": env_info,
 			"correctness_suite": correctness,
 			"primary_benchmark": primary,

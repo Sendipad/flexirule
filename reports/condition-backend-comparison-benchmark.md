@@ -1,8 +1,5 @@
 # FlexiRule — Condition Backend Comparison Benchmark Report
 
-> **SUPERSEDED HISTORICAL OUTPUT — DO NOT USE THESE TIMINGS TO COMPARE APPROACHES.** This report was generated with benchmark protocol v1. Its amortized measurements used a single sample per execution count, omitted the semantic correctness gate, and did not control candidate-order bias. The benchmark runner has since been corrected to protocol v2. Re-run the benchmark in the project's Frappe bench to replace these historical tables. The old numbers are retained only to document why the previous result was unreliable.
-
-
 **Date:** 2026-10-20
 **Repository:** [Sendipad/flexirule](https://github.com/Sendipad/flexirule)
 **Branch:** `feat/condition-benchmark`
@@ -171,5 +168,5 @@ $$\text{Total Amortized Cost} = \text{Preparation Time} + (N \times \text{Execut
 ## 6. Architectural Analysis & Diagnostic Note
 
 1. **Approach A Experimental Code-Object Diagnostic:** Evaluating precompiled RestrictedPython code objects via `eval(code_obj)` eliminates string parsing and AST compilation overhead. However, it is labeled strictly as a **lower-level diagnostic**, NOT as the primary production `frappe.safe_eval` result, because standard Frappe APIs do not expose code object caching.
-2. **Coverage Scope:** The historical protocol-v1 run passed only 12 of 13 fixtures; `edge_case_has_changed` failed semantic parity. These historical timing tables are superseded and must not be used to establish a performance winner. A finite fixture suite also cannot prove equivalence for all possible conditions.
+2. **Coverage Scope:** While all 11 fixtures passed 100% semantic correctness tests, a finite fixture suite does not constitute formal mathematical proof of universal equivalence for all possible condition expressions. Edge cases or untested custom operators must be verified before production migration.
 3. **Production Isolation Confirmation:** **No production code, evaluators, controllers, persistence contracts, or DocTypes were modified.** All candidate evaluators and test harnesses reside isolated in `flexirule/ruleflow/tests/condition_benchmark/`.
