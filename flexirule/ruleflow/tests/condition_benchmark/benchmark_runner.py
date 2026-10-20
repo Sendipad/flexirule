@@ -182,8 +182,6 @@ class BenchmarkRunner:
 			(fix.non_matching_doc, fix.expected_non_matching_result),
 		]
 		successful = 0
-		last_result = None
-		last_expected = None
 		core_seconds = 0.0
 		error = None
 		started = time.perf_counter()
@@ -197,15 +195,17 @@ class BenchmarkRunner:
 			if result.error:
 				error = f"Evaluation error: {result.error}"
 				break
-			last_result = result.result
-			last_expected = expected
+			if result.result != expected:
+				error = (
+					"Timed result mismatch: "
+					f"expected {expected!r}, got {result.result!r}"
+				)
+				break
 			core_seconds += result.execution_time_seconds
 			successful += 1
 		elapsed = time.perf_counter() - started
 		if error is None and successful != iterations:
 			error = f"Incomplete evaluations ({successful}/{iterations})"
-		if error is None and last_result != last_expected:
-			error = f"Final result mismatch: expected {last_expected!r}, got {last_result!r}"
 		return elapsed, successful, error, core_seconds
 
 	def run_primary_benchmarks(self) -> dict:
