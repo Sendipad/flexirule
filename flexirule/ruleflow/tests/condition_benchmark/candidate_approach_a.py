@@ -109,7 +109,9 @@ def _build_eval_globals(safe_locals: dict) -> dict:
 
 
 class ApproachACandidate(BaseConditionCandidate):
-	"""Approach A: Precompiled Python expression evaluated via frappe.safe_eval().
+	"""Approach A: Generated Python expression evaluated via frappe.safe_eval().
+
+	The expression string is generated once during preparation, but frappe.safe_eval parses, validates, and compiles it on every evaluation.
 
 	Measures the actual production frappe.safe_eval path using a pre-generated
 	expression string. Internal work performed by safe_eval (parsing, syntax check,
