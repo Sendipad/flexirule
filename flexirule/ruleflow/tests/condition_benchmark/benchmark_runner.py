@@ -509,6 +509,10 @@ class BenchmarkRunner:
 			"AST node walking (`_validate_safe_eval_syntax`), and RestrictedPython AST transformation / compilation on **every single invocation**. "
 			"It implements **no caching** of compiled bytecode objects."
 		)
+		md_lines.append(
+			"2. **`has_changed` Operator Alignment:** In `ConditionCompiler`, the `has_changed` operator is deprecated and returns `True` for backward compatibility, "
+			"while candidate evaluators implement dynamic diff comparison against `_doc_before_save`. Under the correctness gate, `edge_case_has_changed` fails parity and is excluded from timing measurements."
+		)
 
 		all_correct = correctness.get("all_correct", False)
 		status_str = "PASSED (100% Correctness Parity)" if all_correct else "FAILED (Disagreements Detected)"
@@ -706,7 +710,9 @@ class BenchmarkRunner:
 		return report_content
 
 	def run_full_suite_and_export(
-		self, output_filepath: str = "reports/condition_benchmark_results.json"
+		self,
+		output_filepath: str = "reports/condition_benchmark_results.json",
+		output_markdown_path: str | None = None,
 	) -> dict:
 		"""Run correctness, primary prepared benchmark, amortized benchmark and export JSON."""
 		correctness = self.run_semantic_correctness_suite()
@@ -737,9 +743,13 @@ class BenchmarkRunner:
 		with open(output_filepath, "w", encoding="utf-8") as f:
 			json.dump(full_payload, f, indent=2)
 
-		markdown_path = os.path.join(
-			os.path.dirname(output_filepath), "condition-backend-comparison-benchmark.md"
-		)
+		if output_markdown_path is None:
+			markdown_path = os.path.join(
+				os.path.dirname(output_filepath), "condition-backend-comparison-benchmark.md"
+			)
+		else:
+			markdown_path = output_markdown_path
+
 		self.generate_markdown_report(full_payload, markdown_path)
 
 		return full_payload

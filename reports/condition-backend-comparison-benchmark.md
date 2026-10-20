@@ -20,6 +20,7 @@ This report documents the architectural investigation, empirical runtime probe, 
 ### Summary Statistics and Findings
 
 1. **`frappe.safe_eval` Overhead:** Installed Frappe v15 `frappe.safe_eval` performs `unicodedata.normalize()`, `ast.parse()`, AST node walking (`_validate_safe_eval_syntax`), and RestrictedPython AST transformation / compilation on **every single invocation**. It implements **no caching** of compiled bytecode objects.
+2. **`has_changed` Operator Alignment:** In `ConditionCompiler`, the `has_changed` operator is deprecated and returns `True` for backward compatibility, while candidate evaluators implement dynamic diff comparison against `_doc_before_save`. Under the correctness gate, `edge_case_has_changed` fails parity and is excluded from timing measurements.
 2. **Semantic Correctness Gate Status:** **FAILED (Disagreements Detected)**. Total Fixtures Tested: 13, Agreed: 12.
 3. **Evaluations Completed:** **2,400,000** total error-free evaluations were completed during this benchmark run.
 
@@ -33,7 +34,7 @@ This report documents the architectural investigation, empirical runtime probe, 
 | Platform | Linux-6.8.0-x86_64-with-glibc2.39 |
 | Frappe Framework | 15.123.1 |
 | FlexiRule Version | 1.0.0-beta.3 |
-| Benchmark Execution UTC | 2026-10-20T22:14:54Z |
+| Benchmark Execution UTC | 2026-10-20T22:56:13Z |
 | Benchmark Command | `PYTHONPATH=. /home/jules/frappe-bench/env/bin/python -m flexirule.ruleflow.tests.condition_benchmark.benchmark_runner` |
 
 ---
@@ -66,19 +67,19 @@ The correctness gate evaluates every candidate against matching and non-matching
 
 | Fixture ID | Tier | Leaf / Depth | Approach A (`safe_eval`) | Approach A Exp (`code_obj`) | Approach B (`plan`) | Approach C (`json_tree`) | Speedup B vs Primary A | Speedup C vs Primary A | Speedup B vs C |
 |---|---|---|---|---|---|---|---|---|---|
-| `tier1_simple_equality` | Tier 1 — Simple | 1 / 1 | 173.03 µs/op (core 160.694 µs/op) | 9.595 µs/op (core 2.254 µs/op) | **3.922 µs/op (core 2.137 µs/op)** | 5.8 µs/op (core 3.942 µs/op) | **44.12x** | **29.83x** | **1.48x** |
-| `tier2_typical_business_rule` | Tier 2 — Typical Business Rule | 3 / 1 | 406.805 µs/op (core 391.308 µs/op) | 11.946 µs/op (core 4.539 µs/op) | **6.249 µs/op (core 4.446 µs/op)** | 10.235 µs/op (core 8.344 µs/op) | **65.1x** | **39.75x** | **1.64x** |
-| `tier3_nested_and_or_groups` | Tier 3 — Nested Groups | 4 / 2 | 539.013 µs/op (core 522.833 µs/op) | 11.9 µs/op (core 4.431 µs/op) | **6.642 µs/op (core 4.816 µs/op)** | 11.083 µs/op (core 9.139 µs/op) | **81.15x** | **48.63x** | **1.67x** |
-| `tier4_deep_nested_complex` | Tier 4 — Deep Nested Complex | 8 / 3 | 1124.092 µs/op (core 1105.424 µs/op) | 15.909 µs/op (core 8.451 µs/op) | **10.005 µs/op (core 8.148 µs/op)** | 17.542 µs/op (core 15.487 µs/op) | **112.35x** | **64.08x** | **1.75x** |
-| `tier5_collection_child_records` | Tier 5 — Collection / Child Records | 3 / 2 | 707.112 µs/op (core 689.479 µs/op) | 16.4 µs/op (core 8.736 µs/op) | **10.429 µs/op (core 8.504 µs/op)** | 16.626 µs/op (core 14.606 µs/op) | **67.8x** | **42.53x** | **1.59x** |
-| `edge_case_is_set_null_empty` | Edge Case — Null / Empty | 1 / 1 | 306.567 µs/op (core 291.698 µs/op) | 11.287 µs/op (core 3.807 µs/op) | **3.164 µs/op (core 1.398 µs/op)** | 4.757 µs/op (core 2.961 µs/op) | **96.89x** | **64.45x** | **1.5x** |
-| `edge_case_link_tuple` | Edge Case — Link Tuple | 1 / 1 | 243.209 µs/op (core 229.584 µs/op) | 11.56 µs/op (core 4.121 µs/op) | **5.291 µs/op (core 3.548 µs/op)** | 7.203 µs/op (core 5.387 µs/op) | **45.97x** | **33.76x** | **1.36x** |
-| `edge_case_membership_in_not_in` | Edge Case — Membership | 2 / 1 | 373.397 µs/op (core 357.765 µs/op) | 10.662 µs/op (core 3.06 µs/op) | **4.972 µs/op (core 3.161 µs/op)** | 7.584 µs/op (core 5.73 µs/op) | **75.1x** | **49.23x** | **1.53x** |
-| `edge_case_contains_not_contains` | Edge Case — Substring | 2 / 1 | 573.122 µs/op (core 557.062 µs/op) | 14.472 µs/op (core 7.065 µs/op) | **5.703 µs/op (core 3.889 µs/op)** | 8.899 µs/op (core 7.03 µs/op) | **100.49x** | **64.4x** | **1.56x** |
-| `edge_case_collection_all_and_none` | Edge Case — Collection All/None | 1 / 2 | 465.841 µs/op (core 448.87 µs/op) | 14.036 µs/op (core 6.469 µs/op) | **7.159 µs/op (core 5.31 µs/op)** | 10.739 µs/op (core 8.773 µs/op) | **65.07x** | **43.38x** | **1.5x** |
-| `edge_case_length_gt_eq` | Edge Case — Length | 1 / 1 | 212.726 µs/op (core 199.446 µs/op) | 9.782 µs/op (core 2.434 µs/op) | **4.025 µs/op (core 2.264 µs/op)** | 5.993 µs/op (core 4.157 µs/op) | **52.85x** | **35.5x** | **1.49x** |
+| `tier1_simple_equality` | Tier 1 — Simple | 1 / 1 | 176.924 µs/op (core 164.133 µs/op) | 9.647 µs/op (core 2.302 µs/op) | **3.802 µs/op (core 2.065 µs/op)** | 5.814 µs/op (core 3.981 µs/op) | **46.53x** | **30.43x** | **1.53x** |
+| `tier2_typical_business_rule` | Tier 2 — Typical Business Rule | 3 / 1 | 411.382 µs/op (core 395.655 µs/op) | 12.103 µs/op (core 4.57 µs/op) | **6.275 µs/op (core 4.468 µs/op)** | 10.184 µs/op (core 8.252 µs/op) | **65.56x** | **40.39x** | **1.62x** |
+| `tier3_nested_and_or_groups` | Tier 3 — Nested Groups | 4 / 2 | 541.058 µs/op (core 524.841 µs/op) | 12.094 µs/op (core 4.544 µs/op) | **6.558 µs/op (core 4.78 µs/op)** | 11.238 µs/op (core 9.296 µs/op) | **82.5x** | **48.15x** | **1.71x** |
+| `tier4_deep_nested_complex` | Tier 4 — Deep Nested Complex | 8 / 3 | 1127.632 µs/op (core 1108.819 µs/op) | 15.972 µs/op (core 8.385 µs/op) | **10.11 µs/op (core 8.226 µs/op)** | 17.47 µs/op (core 15.377 µs/op) | **111.54x** | **64.55x** | **1.73x** |
+| `tier5_collection_child_records` | Tier 5 — Collection / Child Records | 3 / 2 | 703.523 µs/op (core 685.727 µs/op) | 16.65 µs/op (core 8.871 µs/op) | **10.485 µs/op (core 8.539 µs/op)** | 16.662 µs/op (core 14.611 µs/op) | **67.1x** | **42.22x** | **1.59x** |
+| `edge_case_is_set_null_empty` | Edge Case — Null / Empty | 1 / 1 | 307.711 µs/op (core 293.129 µs/op) | 11.206 µs/op (core 3.819 µs/op) | **3.122 µs/op (core 1.36 µs/op)** | 4.895 µs/op (core 3.04 µs/op) | **98.56x** | **62.86x** | **1.57x** |
+| `edge_case_link_tuple` | Edge Case — Link Tuple | 1 / 1 | 242.681 µs/op (core 229.193 µs/op) | 11.513 µs/op (core 4.135 µs/op) | **5.294 µs/op (core 3.552 µs/op)** | 7.265 µs/op (core 5.409 µs/op) | **45.84x** | **33.4x** | **1.37x** |
+| `edge_case_membership_in_not_in` | Edge Case — Membership | 2 / 1 | 371.176 µs/op (core 355.76 µs/op) | 10.617 µs/op (core 3.098 µs/op) | **5.013 µs/op (core 3.235 µs/op)** | 7.61 µs/op (core 5.703 µs/op) | **74.04x** | **48.77x** | **1.52x** |
+| `edge_case_contains_not_contains` | Edge Case — Substring | 2 / 1 | 578.181 µs/op (core 561.387 µs/op) | 14.669 µs/op (core 7.125 µs/op) | **5.76 µs/op (core 3.91 µs/op)** | 8.858 µs/op (core 6.915 µs/op) | **100.38x** | **65.27x** | **1.54x** |
+| `edge_case_collection_all_and_none` | Edge Case — Collection All/None | 1 / 2 | 469.711 µs/op (core 452.434 µs/op) | 14.391 µs/op (core 6.653 µs/op) | **7.239 µs/op (core 5.347 µs/op)** | 10.858 µs/op (core 8.875 µs/op) | **64.89x** | **43.26x** | **1.5x** |
+| `edge_case_length_gt_eq` | Edge Case — Length | 1 / 1 | 215.705 µs/op (core 202.14 µs/op) | 9.935 µs/op (core 2.486 µs/op) | **4.029 µs/op (core 2.298 µs/op)** | 5.972 µs/op (core 4.147 µs/op) | **53.54x** | **36.12x** | **1.48x** |
 | `edge_case_has_changed` | Edge Case — Field Change | 1 / 1 | INVALID | INVALID | **INVALID** | INVALID | N/A | N/A | N/A |
-| `edge_case_none_vs_missing_field` | Edge Case — Missing Field | 1 / 1 | 301.281 µs/op (core 286.905 µs/op) | 10.298 µs/op (core 2.864 µs/op) | **3.15 µs/op (core 1.415 µs/op)** | 4.723 µs/op (core 2.947 µs/op) | **95.64x** | **63.79x** | **1.5x** |
+| `edge_case_none_vs_missing_field` | Edge Case — Missing Field | 1 / 1 | 307.881 µs/op (core 292.99 µs/op) | 10.659 µs/op (core 3.005 µs/op) | **3.126 µs/op (core 1.411 µs/op)** | 4.825 µs/op (core 2.999 µs/op) | **98.49x** | **63.81x** | **1.54x** |
 
 ---
 
@@ -88,19 +89,19 @@ Preparation time measured separately outside the execution loop:
 
 | Fixture ID | Approach A Prep (ms) | Approach B Prep (ms) | Approach C Prep (ms) |
 |---|---|---|---|
-| `tier1_simple_equality` | 0.0954 ms | **0.0147 ms** | 0.0015 ms |
-| `tier2_typical_business_rule` | 0.2101 ms | **0.0278 ms** | 0.0018 ms |
-| `tier3_nested_and_or_groups` | 0.2717 ms | **0.0334 ms** | 0.0019 ms |
-| `tier4_deep_nested_complex` | 0.6443 ms | **0.0521 ms** | 0.0018 ms |
-| `tier5_collection_child_records` | 0.3353 ms | **0.0344 ms** | 0.0019 ms |
-| `edge_case_is_set_null_empty` | 0.1486 ms | **0.0167 ms** | 0.0016 ms |
-| `edge_case_link_tuple` | 0.1385 ms | **0.017 ms** | 0.0018 ms |
-| `edge_case_membership_in_not_in` | 0.2053 ms | **0.0232 ms** | 0.0018 ms |
-| `edge_case_contains_not_contains` | 0.3188 ms | **0.0217 ms** | 0.0018 ms |
-| `edge_case_collection_all_and_none` | 0.2092 ms | **0.0228 ms** | 0.0017 ms |
-| `edge_case_length_gt_eq` | 0.1131 ms | **0.0164 ms** | 0.0017 ms |
-| `edge_case_has_changed` | 0.0448 ms | **0.0121 ms** | 0.0015 ms |
-| `edge_case_none_vs_missing_field` | 0.1429 ms | **0.016 ms** | 0.0016 ms |
+| `tier1_simple_equality` | 0.0928 ms | **0.0163 ms** | 0.0016 ms |
+| `tier2_typical_business_rule` | 0.2197 ms | **0.0279 ms** | 0.002 ms |
+| `tier3_nested_and_or_groups` | 0.2742 ms | **0.0348 ms** | 0.0019 ms |
+| `tier4_deep_nested_complex` | 0.6079 ms | **0.0528 ms** | 0.0019 ms |
+| `tier5_collection_child_records` | 0.3302 ms | **0.0342 ms** | 0.002 ms |
+| `edge_case_is_set_null_empty` | 0.1452 ms | **0.0152 ms** | 0.0018 ms |
+| `edge_case_link_tuple` | 0.1375 ms | **0.0172 ms** | 0.0017 ms |
+| `edge_case_membership_in_not_in` | 0.2037 ms | **0.0231 ms** | 0.0018 ms |
+| `edge_case_contains_not_contains` | 0.3179 ms | **0.0223 ms** | 0.0018 ms |
+| `edge_case_collection_all_and_none` | 0.1971 ms | **0.0226 ms** | 0.0019 ms |
+| `edge_case_length_gt_eq` | 0.1181 ms | **0.0168 ms** | 0.0017 ms |
+| `edge_case_has_changed` | 0.0435 ms | **0.0118 ms** | 0.0014 ms |
+| `edge_case_none_vs_missing_field` | 0.1461 ms | **0.0158 ms** | 0.0017 ms |
 
 ---
 
@@ -112,58 +113,58 @@ $$\text{Total Amortized Cost} = \text{Preparation Time} + (N \times \text{Execut
 
 | Fixture ID | N Evaluations | Approach A Total Cost (ms) | Approach B Total Cost (ms) | Approach A Cost/Eval (µs) | Approach B Cost/Eval (µs) |
 |---|---|---|---|---|---|
-| `tier1_simple_equality` | N = 1 | 0.2735 ms | **0.0223 ms** | 273.505 µs | **22.273 µs** |
-| `tier1_simple_equality` | N = 10 | 1.8841 ms | **0.0584 ms** | 188.412 µs | **5.841 µs** |
-| `tier1_simple_equality` | N = 100 | 17.2658 ms | **0.384 ms** | 172.658 µs | **3.84 µs** |
-| `tier1_simple_equality` | N = 1000 | 172.3137 ms | **3.8294 ms** | 172.314 µs | **3.829 µs** |
-| `tier2_typical_business_rule` | N = 1 | 0.6674 ms | **0.0434 ms** | 667.445 µs | **43.381 µs** |
-| `tier2_typical_business_rule` | N = 10 | 4.3306 ms | **0.0987 ms** | 433.057 µs | **9.871 µs** |
-| `tier2_typical_business_rule` | N = 100 | 40.955 ms | **0.6783 ms** | 409.55 µs | **6.783 µs** |
-| `tier2_typical_business_rule` | N = 1000 | 407.2868 ms | **6.217 ms** | 407.287 µs | **6.217 µs** |
-| `tier3_nested_and_or_groups` | N = 1 | 0.8334 ms | **0.0513 ms** | 833.41 µs | **51.294 µs** |
-| `tier3_nested_and_or_groups` | N = 10 | 5.6664 ms | **0.1108 ms** | 566.64 µs | **11.077 µs** |
-| `tier3_nested_and_or_groups` | N = 100 | 54.2464 ms | **0.7095 ms** | 542.464 µs | **7.095 µs** |
-| `tier3_nested_and_or_groups` | N = 1000 | 537.1753 ms | **6.6875 ms** | 537.175 µs | **6.687 µs** |
-| `tier4_deep_nested_complex` | N = 1 | 1.6709 ms | **0.0853 ms** | 1670.887 µs | **85.279 µs** |
-| `tier4_deep_nested_complex` | N = 10 | 11.7305 ms | **0.1717 ms** | 1173.053 µs | **17.169 µs** |
-| `tier4_deep_nested_complex` | N = 100 | 111.9808 ms | **1.1053 ms** | 1119.808 µs | **11.053 µs** |
-| `tier4_deep_nested_complex` | N = 1000 | 1122.9612 ms | **10.0836 ms** | 1122.961 µs | **10.084 µs** |
-| `tier5_collection_child_records` | N = 1 | 1.0879 ms | **0.0589 ms** | 1087.896 µs | **58.879 µs** |
-| `tier5_collection_child_records` | N = 10 | 7.375 ms | **0.1947 ms** | 737.503 µs | **19.469 µs** |
-| `tier5_collection_child_records` | N = 100 | 70.7979 ms | **1.0681 ms** | 707.979 µs | **10.681 µs** |
-| `tier5_collection_child_records` | N = 1000 | 707.603 ms | **10.3623 ms** | 707.603 µs | **10.362 µs** |
-| `edge_case_is_set_null_empty` | N = 1 | 0.4634 ms | **0.0219 ms** | 463.4 µs | **21.928 µs** |
-| `edge_case_is_set_null_empty` | N = 10 | 3.1888 ms | **0.051 ms** | 318.884 µs | **5.099 µs** |
-| `edge_case_is_set_null_empty` | N = 100 | 30.5529 ms | **0.3414 ms** | 305.529 µs | **3.414 µs** |
-| `edge_case_is_set_null_empty` | N = 1000 | 306.0216 ms | **3.1365 ms** | 306.022 µs | **3.137 µs** |
-| `edge_case_link_tuple` | N = 1 | 0.4188 ms | **0.0281 ms** | 418.781 µs | **28.088 µs** |
-| `edge_case_link_tuple` | N = 10 | 2.6067 ms | **0.0766 ms** | 260.674 µs | **7.656 µs** |
-| `edge_case_link_tuple` | N = 100 | 24.496 ms | **0.5672 ms** | 244.96 µs | **5.672 µs** |
-| `edge_case_link_tuple` | N = 1000 | 242.9737 ms | **5.3944 ms** | 242.974 µs | **5.394 µs** |
-| `edge_case_membership_in_not_in` | N = 1 | 0.6332 ms | **0.036 ms** | 633.157 µs | **36.007 µs** |
-| `edge_case_membership_in_not_in` | N = 10 | 3.9438 ms | **0.0809 ms** | 394.381 µs | **8.094 µs** |
-| `edge_case_membership_in_not_in` | N = 100 | 37.6445 ms | **0.4933 ms** | 376.445 µs | **4.933 µs** |
-| `edge_case_membership_in_not_in` | N = 1000 | 500.1436 ms | **5.0049 ms** | 500.144 µs | **5.005 µs** |
-| `edge_case_contains_not_contains` | N = 1 | 1.5949 ms | **0.0652 ms** | 1594.943 µs | **65.216 µs** |
-| `edge_case_contains_not_contains` | N = 10 | 11.5125 ms | **0.1282 ms** | 1151.247 µs | **12.824 µs** |
-| `edge_case_contains_not_contains` | N = 100 | 101.537 ms | **1.0229 ms** | 1015.37 µs | **10.229 µs** |
-| `edge_case_contains_not_contains` | N = 1000 | 575.3814 ms | **5.6856 ms** | 575.381 µs | **5.686 µs** |
-| `edge_case_collection_all_and_none` | N = 1 | 0.6725 ms | **0.04 ms** | 672.452 µs | **39.998 µs** |
-| `edge_case_collection_all_and_none` | N = 10 | 4.8771 ms | **0.1049 ms** | 487.705 µs | **10.491 µs** |
-| `edge_case_collection_all_and_none` | N = 100 | 46.5649 ms | **0.7694 ms** | 465.649 µs | **7.694 µs** |
-| `edge_case_collection_all_and_none` | N = 1000 | 463.1721 ms | **7.1582 ms** | 463.172 µs | **7.158 µs** |
-| `edge_case_length_gt_eq` | N = 1 | 0.3217 ms | **0.0255 ms** | 321.694 µs | **25.459 µs** |
-| `edge_case_length_gt_eq` | N = 10 | 2.2848 ms | **0.0643 ms** | 228.477 µs | **6.435 µs** |
-| `edge_case_length_gt_eq` | N = 100 | 21.12 ms | **0.4432 ms** | 211.2 µs | **4.432 µs** |
-| `edge_case_length_gt_eq` | N = 1000 | 210.3294 ms | **4.0504 ms** | 210.329 µs | **4.05 µs** |
+| `tier1_simple_equality` | N = 1 | 0.2787 ms | **0.0226 ms** | 278.698 µs | **22.634 µs** |
+| `tier1_simple_equality` | N = 10 | 1.9361 ms | **0.0597 ms** | 193.606 µs | **5.967 µs** |
+| `tier1_simple_equality` | N = 100 | 17.6631 ms | **0.4357 ms** | 176.631 µs | **4.357 µs** |
+| `tier1_simple_equality` | N = 1000 | 176.0337 ms | **3.7687 ms** | 176.034 µs | **3.769 µs** |
+| `tier2_typical_business_rule` | N = 1 | 0.6261 ms | **0.0411 ms** | 626.105 µs | **41.062 µs** |
+| `tier2_typical_business_rule` | N = 10 | 4.316 ms | **0.0995 ms** | 431.604 µs | **9.952 µs** |
+| `tier2_typical_business_rule` | N = 100 | 40.9152 ms | **0.6764 ms** | 409.152 µs | **6.764 µs** |
+| `tier2_typical_business_rule` | N = 1000 | 416.3634 ms | **6.3262 ms** | 416.363 µs | **6.326 µs** |
+| `tier3_nested_and_or_groups` | N = 1 | 0.8801 ms | **0.0564 ms** | 880.073 µs | **56.418 µs** |
+| `tier3_nested_and_or_groups` | N = 10 | 5.7991 ms | **0.1149 ms** | 579.915 µs | **11.495 µs** |
+| `tier3_nested_and_or_groups` | N = 100 | 54.3759 ms | **0.7374 ms** | 543.759 µs | **7.374 µs** |
+| `tier3_nested_and_or_groups` | N = 1000 | 537.3958 ms | **6.6905 ms** | 537.396 µs | **6.691 µs** |
+| `tier4_deep_nested_complex` | N = 1 | 1.7171 ms | **0.0813 ms** | 1717.116 µs | **81.33 µs** |
+| `tier4_deep_nested_complex` | N = 10 | 11.7519 ms | **0.173 ms** | 1175.194 µs | **17.304 µs** |
+| `tier4_deep_nested_complex` | N = 100 | 113.0873 ms | **1.0749 ms** | 1130.873 µs | **10.749 µs** |
+| `tier4_deep_nested_complex` | N = 1000 | 1141.9197 ms | **10.2642 ms** | 1141.92 µs | **10.264 µs** |
+| `tier5_collection_child_records` | N = 1 | 1.0766 ms | **0.0609 ms** | 1076.606 µs | **60.907 µs** |
+| `tier5_collection_child_records` | N = 10 | 7.4916 ms | **0.1567 ms** | 749.158 µs | **15.673 µs** |
+| `tier5_collection_child_records` | N = 100 | 71.186 ms | **1.1059 ms** | 711.86 µs | **11.059 µs** |
+| `tier5_collection_child_records` | N = 1000 | 705.1352 ms | **10.5284 ms** | 705.135 µs | **10.528 µs** |
+| `edge_case_is_set_null_empty` | N = 1 | 0.447 ms | **0.0245 ms** | 446.975 µs | **24.517 µs** |
+| `edge_case_is_set_null_empty` | N = 10 | 3.3377 ms | **0.0564 ms** | 333.766 µs | **5.641 µs** |
+| `edge_case_is_set_null_empty` | N = 100 | 30.8987 ms | **0.3591 ms** | 308.987 µs | **3.591 µs** |
+| `edge_case_is_set_null_empty` | N = 1000 | 309.1895 ms | **3.1698 ms** | 309.189 µs | **3.17 µs** |
+| `edge_case_link_tuple` | N = 1 | 0.3909 ms | **0.0278 ms** | 390.852 µs | **27.775 µs** |
+| `edge_case_link_tuple` | N = 10 | 2.7641 ms | **0.077 ms** | 276.407 µs | **7.701 µs** |
+| `edge_case_link_tuple` | N = 100 | 24.9199 ms | **0.5254 ms** | 249.199 µs | **5.254 µs** |
+| `edge_case_link_tuple` | N = 1000 | 244.8524 ms | **5.3412 ms** | 244.852 µs | **5.341 µs** |
+| `edge_case_membership_in_not_in` | N = 1 | 0.6144 ms | **0.037 ms** | 614.443 µs | **37.025 µs** |
+| `edge_case_membership_in_not_in` | N = 10 | 3.8805 ms | **0.0812 ms** | 388.046 µs | **8.117 µs** |
+| `edge_case_membership_in_not_in` | N = 100 | 37.2994 ms | **0.5298 ms** | 372.994 µs | **5.298 µs** |
+| `edge_case_membership_in_not_in` | N = 1000 | 376.3991 ms | **5.064 ms** | 376.399 µs | **5.064 µs** |
+| `edge_case_contains_not_contains` | N = 1 | 0.9207 ms | **0.0363 ms** | 920.661 µs | **36.305 µs** |
+| `edge_case_contains_not_contains` | N = 10 | 6.1219 ms | **0.089 ms** | 612.192 µs | **8.901 µs** |
+| `edge_case_contains_not_contains` | N = 100 | 58.2944 ms | **0.6179 ms** | 582.944 µs | **6.179 µs** |
+| `edge_case_contains_not_contains` | N = 1000 | 578.533 ms | **5.8431 ms** | 578.533 µs | **5.843 µs** |
+| `edge_case_collection_all_and_none` | N = 1 | 0.681 ms | **0.0389 ms** | 681.03 µs | **38.916 µs** |
+| `edge_case_collection_all_and_none` | N = 10 | 4.8397 ms | **0.1031 ms** | 483.967 µs | **10.307 µs** |
+| `edge_case_collection_all_and_none` | N = 100 | 46.271 ms | **0.7106 ms** | 462.71 µs | **7.106 µs** |
+| `edge_case_collection_all_and_none` | N = 1000 | 463.3247 ms | **7.2578 ms** | 463.325 µs | **7.258 µs** |
+| `edge_case_length_gt_eq` | N = 1 | 0.3387 ms | **0.0246 ms** | 338.727 µs | **24.563 µs** |
+| `edge_case_length_gt_eq` | N = 10 | 2.2888 ms | **0.0622 ms** | 228.876 µs | **6.218 µs** |
+| `edge_case_length_gt_eq` | N = 100 | 21.1473 ms | **0.4388 ms** | 211.473 µs | **4.388 µs** |
+| `edge_case_length_gt_eq` | N = 1000 | 216.3843 ms | **4.0483 ms** | 216.384 µs | **4.048 µs** |
 | `edge_case_has_changed` | N = 1 | ERR | **ERR** | ERR | **ERR** |
 | `edge_case_has_changed` | N = 10 | ERR | **ERR** | ERR | **ERR** |
 | `edge_case_has_changed` | N = 100 | ERR | **ERR** | ERR | **ERR** |
 | `edge_case_has_changed` | N = 1000 | ERR | **ERR** | ERR | **ERR** |
-| `edge_case_none_vs_missing_field` | N = 1 | 0.4544 ms | **0.0224 ms** | 454.369 µs | **22.428 µs** |
-| `edge_case_none_vs_missing_field` | N = 10 | 3.266 ms | **0.0535 ms** | 326.597 µs | **5.353 µs** |
-| `edge_case_none_vs_missing_field` | N = 100 | 30.4919 ms | **0.3109 ms** | 304.919 µs | **3.109 µs** |
-| `edge_case_none_vs_missing_field` | N = 1000 | 305.5426 ms | **3.1904 ms** | 305.543 µs | **3.19 µs** |
+| `edge_case_none_vs_missing_field` | N = 1 | 0.4778 ms | **0.0248 ms** | 477.815 µs | **24.804 µs** |
+| `edge_case_none_vs_missing_field` | N = 10 | 3.1949 ms | **0.0543 ms** | 319.488 µs | **5.428 µs** |
+| `edge_case_none_vs_missing_field` | N = 100 | 30.4927 ms | **0.3499 ms** | 304.927 µs | **3.499 µs** |
+| `edge_case_none_vs_missing_field` | N = 1000 | 304.2315 ms | **3.1754 ms** | 304.232 µs | **3.175 µs** |
 
 ---
 

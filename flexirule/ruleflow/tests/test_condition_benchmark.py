@@ -105,7 +105,7 @@ class TestConditionBenchmark(FrappeTestCase):
 		failed_fixtures = [r for r in suite_results["results"] if not r["is_correct"]]
 		failed_ids = [f["fixture_id"] for f in failed_fixtures]
 
-		# edge_case_has_changed is a known production compiler defect (ConditionCompiler hardcodes has_changed to True)
+		# edge_case_has_changed fails parity between ConditionCompiler (deprecated operator returning True) and candidates
 		self.assertEqual(
 			failed_ids, ["edge_case_has_changed"], f"Unexpected correctness failures: {failed_ids}"
 		)
@@ -340,3 +340,29 @@ class TestConditionBenchmark(FrappeTestCase):
 
 			self.assertIn("# FlexiRule — Condition Backend Comparison Benchmark Report", md_content)
 			self.assertIn("Tier 1 — Simple", md_content)
+
+	def test_report_evaluations_count_and_has_changed_contract(self):
+		import json
+		import os
+		import tempfile
+
+		with tempfile.TemporaryDirectory() as tmp_dir:
+			json_path = os.path.join(tmp_dir, "benchmark_results.json")
+			md_path = os.path.join(tmp_dir, "condition-backend-comparison-benchmark.md")
+
+			runner = BenchmarkRunner(iterations_per_batch=100, num_batches=2, warmup_iterations=1)
+			payload = runner.run_full_suite_and_export(json_path, md_path)
+
+			# Verify total error-free evaluation count calculation
+			calculated_evals = 0
+			for fix in payload["primary_benchmark"]["fixtures"]:
+				for metric in fix["candidate_metrics"].values():
+					calculated_evals += metric.get("successful_evaluations", 0)
+
+			with open(md_path, encoding="utf-8") as f:
+				md_content = f.read()
+
+			formatted_count_str = f"**{calculated_evals:,}**"
+			self.assertIn(formatted_count_str, md_content)
+			self.assertIn("has_changed", md_content)
+			self.assertIn("ConditionCompiler", md_content)
