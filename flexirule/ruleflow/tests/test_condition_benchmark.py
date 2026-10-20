@@ -1,6 +1,8 @@
 # Copyright (c) 2026, FlexiRule and contributors
 # For license information, please see license.txt
 
+from typing import Any
+
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
@@ -301,7 +303,8 @@ class TestConditionBenchmark(FrappeTestCase):
 
 	def test_amortized_benchmark_rejects_non_positive_execution_counts(self):
 		runner = BenchmarkRunner(iterations_per_batch=1, num_batches=1, warmup_iterations=0)
-		for counts in ([0], [-1], [1, 0]):
+		invalid_counts: list[list[Any]] = [[0], [-1], [1, 0], [True], [False], [1, True]]
+		for counts in invalid_counts:
 			with self.subTest(counts=counts):
 				with self.assertRaises(ValueError):
 					runner.run_amortized_benchmarks(execution_counts=counts)

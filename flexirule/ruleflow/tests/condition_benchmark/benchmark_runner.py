@@ -344,11 +344,11 @@ class BenchmarkRunner:
 			"fixtures": fixture_results,
 		}
 
-	def run_amortized_benchmarks(self, execution_counts: list[int] | None = None) -> dict:
+	def run_amortized_benchmarks(self, execution_counts: list[Any] | None = None) -> dict:
 		"""Estimate median preparation + N-evaluation cost with repeated timing and parity gates."""
 		if execution_counts is None:
 			execution_counts = [1, 10, 100, 1000]
-		if any(not isinstance(n, int) or n <= 0 for n in execution_counts):
+		if any(isinstance(n, bool) or not isinstance(n, int) or n <= 0 for n in execution_counts):
 			raise ValueError("execution_counts must contain positive integers")
 
 		results = []
@@ -510,8 +510,8 @@ class BenchmarkRunner:
 			"It implements **no caching** of compiled bytecode objects."
 		)
 		md_lines.append(
-			"2. **`has_changed` Operator Alignment:** In `ConditionCompiler`, the `has_changed` operator is deprecated and returns `True` for backward compatibility, "
-			"while candidate evaluators implement dynamic diff comparison against `_doc_before_save`. Under the correctness gate, `edge_case_has_changed` fails parity and is excluded from timing measurements."
+			"2. **`has_changed` Operator Contract Divergence:** In `ConditionCompiler`, the `has_changed` operator is deprecated and returns `True` for backward compatibility, "
+			"while candidate evaluators evaluate dynamic field changes against `_doc_before_save`. Under the semantic correctness gate, `edge_case_has_changed` exhibits contract divergence and is excluded from timing measurements."
 		)
 
 		all_correct = correctness.get("all_correct", False)

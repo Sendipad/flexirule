@@ -174,13 +174,17 @@ class ConditionComparisonHarness:
 		if len(unique_results) > 1:
 			disagreements.append(f"Semantic disagreement detected across candidates: {candidate_outputs}")
 
-		if agrees and expected_result is not None:
-			actual_res = next(iter(unique_results))
-			if actual_res != expected_result:
+		if expected_result is not None:
+			if not agrees:
 				matches_expected = False
-				disagreements.append(
-					f"Candidate agreed result ({actual_res}) does not match expected result ({expected_result})"
-				)
+				disagreements.append("Candidates do not agree or failed, so results do not match expected")
+			else:
+				actual_res = next(iter(unique_results))
+				if actual_res != expected_result:
+					matches_expected = False
+					disagreements.append(
+						f"Candidate agreed result ({actual_res}) does not match expected result ({expected_result})"
+					)
 
 		is_correct = agrees and matches_expected and len(errors) == 0
 
