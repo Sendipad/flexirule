@@ -461,7 +461,7 @@ class BenchmarkRunner:
 		)
 		md_lines.append("")
 		md_lines.append(
-			f"- **Approach A — Precompiled Python Expression (`{cand_a_name}`):** Evaluating a Python expression string "
+			f"- **Approach A — Generated Python Expression (`frappe.safe_eval`; restricted compilation on every evaluation) (`{cand_a_name}`):** Evaluating a Python expression string "
 			"generated from a condition tree using installed Frappe v15 restricted evaluation (`frappe.safe_eval`). "
 			f"Includes an isolated experimental diagnostic (`{cand_a_exp_name}`) for evaluating precompiled RestrictedPython code objects."
 		)
