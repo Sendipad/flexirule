@@ -1,5 +1,8 @@
 # FlexiRule — Condition Backend Comparison Benchmark Report
 
+> **SUPERSEDED HISTORICAL RESULTS — DO NOT USE THESE TIMINGS TO PICK A WINNER.** This report was generated with benchmark protocol v1. Its amortized measurements used one sample per execution count, omitted the semantic-correctness gate, and ran candidates in a fixed order. The runner now uses protocol v2: repeated preparation and execution samples, candidate-order rotation, alternating matching/non-matching inputs, and explicit correctness gates. The project's Frappe bench must run the updated benchmark to produce replacement numbers. The old tables below are preserved only as historical diagnostic evidence.
+
+
 **Date:** 2026-10-20
 **Repository:** [Sendipad/flexirule](https://github.com/Sendipad/flexirule)
 **Branch:** `feat/condition-benchmark`
@@ -168,5 +171,5 @@ $$\text{Total Amortized Cost} = \text{Preparation Time} + (N \times \text{Execut
 ## 6. Architectural Analysis & Diagnostic Note
 
 1. **Approach A Experimental Code-Object Diagnostic:** Evaluating precompiled RestrictedPython code objects via `eval(code_obj)` eliminates string parsing and AST compilation overhead. However, it is labeled strictly as a **lower-level diagnostic**, NOT as the primary production `frappe.safe_eval` result, because standard Frappe APIs do not expose code object caching.
-2. **Coverage Scope:** While all 11 fixtures passed 100% semantic correctness tests, a finite fixture suite does not constitute formal mathematical proof of universal equivalence for all possible condition expressions. Edge cases or untested custom operators must be verified before production migration.
+2. **Coverage Scope:** The historical protocol-v1 run passed only 12 of 13 fixtures; `edge_case_has_changed` failed semantic parity. These historical timings are superseded and must not be used to select a performance winner. A finite fixture suite also cannot prove universal equivalence for all possible condition expressions.
 3. **Production Isolation Confirmation:** **No production code, evaluators, controllers, persistence contracts, or DocTypes were modified.** All candidate evaluators and test harnesses reside isolated in `flexirule/ruleflow/tests/condition_benchmark/`.
