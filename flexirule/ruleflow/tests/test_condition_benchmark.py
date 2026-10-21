@@ -144,6 +144,7 @@ class TestConditionBenchmark(FrappeTestCase):
 		check = harness.check_semantic_agreement({}, {}, expected_result=True)
 		self.assertFalse(check["is_correct"])
 		self.assertFalse(check["agrees"])
+		self.assertFalse(check["matches_expected"])
 
 	def test_correctness_gate_agreed_incorrect_result(self):
 		c1 = DummyCandidate("C1", result=False)
@@ -428,6 +429,7 @@ class TestConditionBenchmark(FrappeTestCase):
 		Group 1 (OR): first_cond (True) -> Group 1 evaluates to True without evaluating cond_group1_skipped.
 		Parent (AND): Group 1 is True, so Group 2 (AND) must be evaluated.
 		Group 2 (AND): cond_group2_a (False) -> Group 2 evaluates to False without evaluating cond_group2_skipped.
+		Parent (AND): Group 2 evaluates to False, so third outer sibling cond_outer_skipped must be skipped.
 		"""
 		nested_payload = {
 			"op": "and",
@@ -446,6 +448,7 @@ class TestConditionBenchmark(FrappeTestCase):
 						{"left": {"ref": "doc.cond_group2_skipped"}, "op": "==", "right": {"value": True}},
 					],
 				},
+				{"left": {"ref": "doc.cond_outer_skipped"}, "op": "==", "right": {"value": True}},
 			],
 		}
 
@@ -457,6 +460,7 @@ class TestConditionBenchmark(FrappeTestCase):
 						"cond_group1_skipped": False,
 						"cond_group2_a": False,
 						"cond_group2_skipped": True,
+						"cond_outer_skipped": True,
 					}
 				)
 				prep = cand.prepare(nested_payload)
@@ -475,6 +479,11 @@ class TestConditionBenchmark(FrappeTestCase):
 					tracking_doc.access_counts.get("cond_group2_skipped", 0),
 					0,
 					f"Candidate '{cand.candidate_name}' evaluated cond_group2_skipped",
+				)
+				self.assertEqual(
+					tracking_doc.access_counts.get("cond_outer_skipped", 0),
+					0,
+					f"Candidate '{cand.candidate_name}' evaluated cond_outer_skipped",
 				)
 
 	def test_short_circuit_collection_any(self):
