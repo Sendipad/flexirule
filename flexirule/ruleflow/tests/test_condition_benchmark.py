@@ -369,3 +369,222 @@ class TestConditionBenchmark(FrappeTestCase):
 			self.assertIn(formatted_count_str, md_content)
 			self.assertIn("has_changed", md_content)
 			self.assertIn("ConditionCompiler", md_content)
+
+	# --- Explicit Short-Circuit Behavior Tests for All Benchmark Approaches ---
+
+	def test_short_circuit_and_operator(self):
+		"""1. AND short-circuit: First condition is False; verify second condition is never evaluated."""
+		and_payload = {
+			"op": "and",
+			"conditions": [
+				{"left": {"ref": "doc.first_cond"}, "op": "==", "right": {"value": True}},
+				{"left": {"ref": "doc.second_cond"}, "op": "==", "right": {"value": True}},
+			],
+		}
+
+		for cand in self.candidates:
+			with self.subTest(candidate=cand.candidate_name):
+				tracking_doc = TrackingDoc({"first_cond": False, "second_cond": True})
+				prep = cand.prepare(and_payload)
+				res = cand.evaluate(prep, tracking_doc)
+
+				self.assertIsNone(res.error)
+				self.assertFalse(res.result)
+				self.assertEqual(tracking_doc.access_counts.get("first_cond", 0), 1)
+				self.assertEqual(
+					tracking_doc.access_counts.get("second_cond", 0),
+					0,
+					f"Candidate '{cand.candidate_name}' evaluated second_cond despite AND short-circuit",
+				)
+
+	def test_short_circuit_or_operator(self):
+		"""2. OR short-circuit: First condition is True; verify second condition is never evaluated."""
+		or_payload = {
+			"op": "or",
+			"conditions": [
+				{"left": {"ref": "doc.first_cond"}, "op": "==", "right": {"value": True}},
+				{"left": {"ref": "doc.second_cond"}, "op": "==", "right": {"value": True}},
+			],
+		}
+
+		for cand in self.candidates:
+			with self.subTest(candidate=cand.candidate_name):
+				tracking_doc = TrackingDoc({"first_cond": True, "second_cond": False})
+				prep = cand.prepare(or_payload)
+				res = cand.evaluate(prep, tracking_doc)
+
+				self.assertIsNone(res.error)
+				self.assertTrue(res.result)
+				self.assertEqual(tracking_doc.access_counts.get("first_cond", 0), 1)
+				self.assertEqual(
+					tracking_doc.access_counts.get("second_cond", 0),
+					0,
+					f"Candidate '{cand.candidate_name}' evaluated second_cond despite OR short-circuit",
+				)
+
+	def test_short_circuit_nested_groups(self):
+		"""3. Nested groups short-circuit across AND/OR groups.
+
+		Group 1 (OR): first_cond (True) -> Group 1 evaluates to True without evaluating cond_group1_skipped.
+		Parent (AND): Group 1 is True, so Group 2 (AND) must be evaluated.
+		Group 2 (AND): cond_group2_a (False) -> Group 2 evaluates to False without evaluating cond_group2_skipped.
+		"""
+		nested_payload = {
+			"op": "and",
+			"conditions": [
+				{
+					"op": "or",
+					"conditions": [
+						{"left": {"ref": "doc.cond_group1_a"}, "op": "==", "right": {"value": True}},
+						{"left": {"ref": "doc.cond_group1_skipped"}, "op": "==", "right": {"value": True}},
+					],
+				},
+				{
+					"op": "and",
+					"conditions": [
+						{"left": {"ref": "doc.cond_group2_a"}, "op": "==", "right": {"value": True}},
+						{"left": {"ref": "doc.cond_group2_skipped"}, "op": "==", "right": {"value": True}},
+					],
+				},
+			],
+		}
+
+		for cand in self.candidates:
+			with self.subTest(candidate=cand.candidate_name):
+				tracking_doc = TrackingDoc(
+					{
+						"cond_group1_a": True,
+						"cond_group1_skipped": False,
+						"cond_group2_a": False,
+						"cond_group2_skipped": True,
+					}
+				)
+				prep = cand.prepare(nested_payload)
+				res = cand.evaluate(prep, tracking_doc)
+
+				self.assertIsNone(res.error)
+				self.assertFalse(res.result)
+				self.assertEqual(tracking_doc.access_counts.get("cond_group1_a", 0), 1)
+				self.assertEqual(
+					tracking_doc.access_counts.get("cond_group1_skipped", 0),
+					0,
+					f"Candidate '{cand.candidate_name}' evaluated cond_group1_skipped",
+				)
+				self.assertEqual(tracking_doc.access_counts.get("cond_group2_a", 0), 1)
+				self.assertEqual(
+					tracking_doc.access_counts.get("cond_group2_skipped", 0),
+					0,
+					f"Candidate '{cand.candidate_name}' evaluated cond_group2_skipped",
+				)
+
+	def test_short_circuit_collection_any(self):
+		"""4a. Collection 'any': stop after the first matching row."""
+		any_payload = {
+			"collection": "doc.items",
+			"op": "any",
+			"alias": "item",
+			"where": {
+				"left": {"ref": "item.qty"},
+				"op": ">",
+				"right": {"value": 10},
+			},
+		}
+
+		for cand in self.candidates:
+			with self.subTest(candidate=cand.candidate_name):
+				r1 = TrackingDoc({"item_code": "I1", "qty": 5})
+				r2 = TrackingDoc({"item_code": "I2", "qty": 15})  # Decisive matching row
+				r3 = TrackingDoc({"item_code": "I3", "qty": 20})  # Should be skipped
+
+				doc = frappe._dict({"items": [r1, r2, r3]})
+				prep = cand.prepare(any_payload)
+				res = cand.evaluate(prep, doc)
+
+				self.assertIsNone(res.error)
+				self.assertTrue(res.result)
+				self.assertEqual(r1.access_counts.get("qty", 0), 1)
+				self.assertEqual(r2.access_counts.get("qty", 0), 1)
+				self.assertEqual(
+					r3.access_counts.get("qty", 0),
+					0,
+					f"Candidate '{cand.candidate_name}' evaluated row 3 in collection 'any'",
+				)
+
+	def test_short_circuit_collection_all(self):
+		"""4b. Collection 'all': stop after the first nonmatching row."""
+		all_payload = {
+			"collection": "doc.items",
+			"op": "all",
+			"alias": "item",
+			"where": {
+				"left": {"ref": "item.qty"},
+				"op": ">",
+				"right": {"value": 10},
+			},
+		}
+
+		for cand in self.candidates:
+			with self.subTest(candidate=cand.candidate_name):
+				r1 = TrackingDoc({"item_code": "I1", "qty": 15})
+				r2 = TrackingDoc({"item_code": "I2", "qty": 5})  # Decisive non-matching row
+				r3 = TrackingDoc({"item_code": "I3", "qty": 20})  # Should be skipped
+
+				doc = frappe._dict({"items": [r1, r2, r3]})
+				prep = cand.prepare(all_payload)
+				res = cand.evaluate(prep, doc)
+
+				self.assertIsNone(res.error)
+				self.assertFalse(res.result)
+				self.assertEqual(r1.access_counts.get("qty", 0), 1)
+				self.assertEqual(r2.access_counts.get("qty", 0), 1)
+				self.assertEqual(
+					r3.access_counts.get("qty", 0),
+					0,
+					f"Candidate '{cand.candidate_name}' evaluated row 3 in collection 'all'",
+				)
+
+	def test_short_circuit_collection_none(self):
+		"""4c. Collection 'none': stop after the first matching row."""
+		none_payload = {
+			"collection": "doc.items",
+			"op": "none",
+			"alias": "item",
+			"where": {
+				"left": {"ref": "item.qty"},
+				"op": ">",
+				"right": {"value": 10},
+			},
+		}
+
+		for cand in self.candidates:
+			with self.subTest(candidate=cand.candidate_name):
+				r1 = TrackingDoc({"item_code": "I1", "qty": 5})
+				r2 = TrackingDoc({"item_code": "I2", "qty": 15})  # Decisive matching row
+				r3 = TrackingDoc({"item_code": "I3", "qty": 20})  # Should be skipped
+
+				doc = frappe._dict({"items": [r1, r2, r3]})
+				prep = cand.prepare(none_payload)
+				res = cand.evaluate(prep, doc)
+
+				self.assertIsNone(res.error)
+				self.assertFalse(res.result)
+				self.assertEqual(r1.access_counts.get("qty", 0), 1)
+				self.assertEqual(r2.access_counts.get("qty", 0), 1)
+				self.assertEqual(
+					r3.access_counts.get("qty", 0),
+					0,
+					f"Candidate '{cand.candidate_name}' evaluated row 3 in collection 'none'",
+				)
+
+
+class TrackingDoc(frappe._dict):
+	"""Helper dictionary context that tracks field access counts for short-circuit assertions."""
+
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args, **kwargs)
+		self.access_counts: dict[str, int] = {}
+
+	def get(self, key, default=None):
+		if key not in ("doctype", "_doc_before_save"):
+			self.access_counts[key] = self.access_counts.get(key, 0) + 1
+		return super().get(key, default)
