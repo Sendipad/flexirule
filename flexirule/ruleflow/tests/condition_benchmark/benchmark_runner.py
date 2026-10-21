@@ -473,7 +473,7 @@ class BenchmarkRunner:
 		md_lines.append("")
 		md_lines.append(f"**Date:** {time.strftime('%Y-%m-%d', time.gmtime())}  ")
 		md_lines.append("**Repository:** [Sendipad/flexirule](https://github.com/Sendipad/flexirule)  ")
-		md_lines.append("**Branch:** `feat/condition-benchmark`  ")
+		md_lines.append("**Branch:** `feat/condition-benchmark-sendipad-only-88653f9d`  ")
 		md_lines.append(f"**Report Location:** `{output_markdown_path}`  ")
 		md_lines.append(
 			f"**Benchmark Protocol:** v{full_payload.get('benchmark_protocol_version', 'unknown')}  "
