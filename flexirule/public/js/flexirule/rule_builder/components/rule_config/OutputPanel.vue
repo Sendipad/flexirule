@@ -167,6 +167,7 @@ import {
 	getEffectiveActionPolicy,
 	getFieldLabel,
 	isReturnTypeMandatory,
+	requiresReturnVariable,
 	shouldShowReturnType,
 } from "../../../core/contracts.js";
 
@@ -302,14 +303,7 @@ const returnVariablePlaceholder = computed(() => {
 });
 
 const isReturnVariableMandatory = computed(() => {
-	const data = props.node.data || {};
-	const policy = getEffectiveActionPolicy(data.action_type, policyContext.value);
-	return !!(
-		data.mutation_mode ||
-		(data.return_type && data.return_type !== "Yes / No") ||
-		data.resolved_output_schema ||
-		policy.require_return_variable
-	);
+	return requiresReturnVariable(props.node?.data, policyContext.value);
 });
 
 const mutationModeField = computed(() => ({

@@ -275,7 +275,14 @@ def _has_resolved_output_schema(value) -> bool:
 	"""Return whether a serialized resolved-output schema contains real fields."""
 	schema = _parse_json_value(value, [])
 	if isinstance(schema, Mapping):
-		return bool(schema.get("fields") or schema.get("properties"))
+		fields = schema.get("fields")
+		if isinstance(fields, list | tuple):
+			if any(isinstance(field, Mapping) and not _is_empty(field.get("fieldname")) for field in fields):
+				return True
+		properties = schema.get("properties")
+		if isinstance(properties, Mapping) and len(properties) > 0:
+			return True
+		return False
 	if isinstance(schema, list | tuple):
 		return any(isinstance(field, Mapping) and not _is_empty(field.get("fieldname")) for field in schema)
 	return False
@@ -384,7 +391,11 @@ def _validate_action_contracts(
 				)
 			)
 
-		if allowed_mutations and _is_empty(_safe_get(action, "return_variable")):
+		if (
+			allowed_mutations
+			and mutation_mode in allowed_mutations
+			and _is_empty(_safe_get(action, "return_variable"))
+		):
 			errors.append(
 				_("Action '{0}' ({1}) requires Return Variable Name when Mutation Mode is set").format(
 					action_label, action_type
@@ -399,9 +410,10 @@ def _validate_action_contracts(
 		effective_policy.get("supports_return_schema", contract.get("supports_return_schema", False))
 	)
 	has_resolved_output_schema = _has_resolved_output_schema(_safe_get(action, "resolved_output_schema"))
+	has_return_type = bool(show_return_type and not _is_empty(return_type) and return_type != "Yes / No")
 	if (
 		supports_return_schema
-		and ((show_return_type and not _is_empty(return_type)) or has_resolved_output_schema)
+		and (has_return_type or has_resolved_output_schema)
 		and _is_empty(_safe_get(action, "return_variable"))
 	):
 		errors.append(

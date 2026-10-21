@@ -57,6 +57,116 @@ class TestActionReturnSchemaContract(FrappeTestCase):
 			errors,
 		)
 
+	def test_unsupported_mutation_mode_on_non_mutation_action_does_not_require_return_variable(self):
+		errors = self._validate_action(
+			"Entry Action",
+			mutation_mode="Set Doc Field",
+			return_variable=None,
+		)
+		self.assertFalse(
+			any("requires Return Variable Name when Mutation Mode is set" in error for error in errors),
+			errors,
+		)
+
+	def test_process_operation_writes_to_context_requires_return_variable(self):
+		import json
+
+		contract_v2_json = json.dumps(
+			{
+				"contract_v2": {
+					"adapter_key": "validate",
+					"capabilities": {"writes_to": "Context"},
+					"config_schema": {"type": "object", "properties": {}},
+					"result_schema": {"type": "boolean"},
+					"policy": {
+						"require_return_variable": True,
+					},
+				}
+			}
+		)
+		operation_metadata = {
+			"Test Process:update_ctx": {
+				"writes_to": "Context",
+				"writes_vars": '[{"fieldname": "updated_val"}]',
+				"output_schema": "[]",
+				"action_overrides": contract_v2_json,
+			}
+		}
+		action = {
+			"action_type": "Process",
+			"action_label": "Test Process",
+			"process_name": "Test Process",
+			"operation": "update_ctx",
+			"return_type": None,
+			"return_variable": None,
+			"resolved_output_schema": "[]",
+			"mutation_mode": None,
+			"config": "{}",
+		}
+		errors: list[str] = []
+		_validate_action_contracts(
+			action,
+			"Process",
+			str(action["action_label"]),
+			operation_metadata=operation_metadata,
+			errors=errors,
+			mode="draft",
+		)
+		self.assertTrue(
+			any("requires Return Variable Name" in error for error in errors),
+			errors,
+		)
+
+	def test_process_operation_empty_writes_vars_does_not_require_return_variable(self):
+		import json
+
+		contract_v2_json = json.dumps(
+			{
+				"contract_v2": {
+					"adapter_key": "validate",
+					"capabilities": {"writes_to": "None"},
+					"config_schema": {"type": "object", "properties": {}},
+					"result_schema": {"type": "boolean"},
+					"policy": {
+						"require_return_variable": False,
+						"supports_return_schema": False,
+					},
+				}
+			}
+		)
+		operation_metadata = {
+			"Test Process:noop": {
+				"writes_to": "None",
+				"writes_vars": "[]",
+				"output_schema": "[]",
+				"action_overrides": contract_v2_json,
+			}
+		}
+		action = {
+			"action_type": "Process",
+			"action_label": "Test Process",
+			"process_name": "Test Process",
+			"operation": "noop",
+			"return_type": None,
+			"return_variable": None,
+			"resolved_output_schema": "[]",
+			"mutation_mode": None,
+			"config": "{}",
+		}
+		errors: list[str] = []
+		_validate_action_contracts(
+			action,
+			"Process",
+			str(action["action_label"]),
+			operation_metadata=operation_metadata,
+			errors=errors,
+			mode="draft",
+		)
+		self.assertFalse(
+			any("requires Return Variable Name" in error for error in errors),
+			errors,
+		)
+
 	def test_populated_schema_requires_return_variable_for_schema_capable_action(self):
 		errors = self._validate_action(
 			"Query Records",
@@ -95,3 +205,58 @@ class TestActionReturnSchemaContract(FrappeTestCase):
 		self.assertIn("Sub-Rule", dto["action_types_with_return_schema"])
 		self.assertNotIn("Condition", dto["action_types_with_return_schema"])
 		self.assertNotIn("Assignment", dto["action_types_with_return_schema"])
+
+	def test_object_schema_forms_without_properties_or_fields_do_not_require_return_variable(self):
+		for empty_schema in ('{"fields": []}', '{"properties": {}}', "{}", "[]"):
+			with self.subTest(empty_schema=empty_schema):
+				errors = self._validate_action(
+					"Query Records",
+					operation="Fetch Records",
+					return_type="List of Records",
+					resolved_output_schema=empty_schema,
+				)
+				self.assertFalse(
+					any("requires Return Variable Name for Return Schema" in error for error in errors),
+					errors,
+				)
+
+	def test_populated_object_schema_forms_require_return_variable_for_schema_capable_action(self):
+		for populated_schema in (
+			'{"fields": [{"fieldname": "name"}]}',
+			'{"properties": {"name": {"type": "string"}}}',
+		):
+			with self.subTest(populated_schema=populated_schema):
+				errors = self._validate_action(
+					"Query Records",
+					operation="Fetch Records",
+					return_type="List of Records",
+					resolved_output_schema=populated_schema,
+				)
+				self.assertTrue(
+					any("requires Return Variable Name for Return Schema" in error for error in errors),
+					errors,
+				)
+
+	def test_yes_no_return_type_does_not_require_return_variable(self):
+		errors = self._validate_action(
+			"Document Action",
+			operation="Save Doc",
+			return_type="Yes / No",
+			resolved_output_schema="[]",
+		)
+		self.assertFalse(
+			any("requires Return Variable Name for Return Schema" in error for error in errors),
+			errors,
+		)
+
+	def test_operation_level_supports_return_schema_false_override(self):
+		errors = self._validate_action(
+			"Query Records",
+			operation="Exist Record",
+			return_type="Yes / No",
+			resolved_output_schema="[]",
+		)
+		self.assertFalse(
+			any("requires Return Variable Name for Return Schema" in error for error in errors),
+			errors,
+		)
