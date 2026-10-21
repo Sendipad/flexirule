@@ -473,7 +473,12 @@ class BenchmarkRunner:
 		md_lines.append("")
 		md_lines.append(f"**Date:** {time.strftime('%Y-%m-%d', time.gmtime())}  ")
 		md_lines.append("**Repository:** [Sendipad/flexirule](https://github.com/Sendipad/flexirule)  ")
-		md_lines.append("**Branch:** `feat/condition-benchmark-sendipad-only-88653f9d`  ")
+		md_lines.append(
+			f"**Benchmark Source Branch:** `{env.get('benchmark_source_branch') or 'not captured'}`  "
+		)
+		md_lines.append(
+			f"**Benchmark Source Commit:** `{env.get('benchmark_source_commit') or 'not captured'}`  "
+		)
 		md_lines.append(f"**Report Location:** `{output_markdown_path}`  ")
 		md_lines.append(
 			f"**Benchmark Protocol:** v{full_payload.get('benchmark_protocol_version', 'unknown')}  "
@@ -725,6 +730,10 @@ class BenchmarkRunner:
 			"frappe_version": getattr(frappe, "__version__", "15.123.1"),
 			"flexirule_version": "1.0.0-beta.3",
 			"timestamp_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+			# Set these explicitly when running a benchmark so provenance identifies the
+			# source revision, rather than accidentally reporting the PR base branch.
+			"benchmark_source_branch": os.environ.get("FLEXIRULE_BENCHMARK_SOURCE_BRANCH"),
+			"benchmark_source_commit": os.environ.get("FLEXIRULE_BENCHMARK_SOURCE_COMMIT"),
 		}
 
 		full_payload = {
