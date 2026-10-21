@@ -2,7 +2,8 @@
 
 **Date:** 2026-10-21
 **Repository:** [Sendipad/flexirule](https://github.com/Sendipad/flexirule)
-**Branch:** `feat/condition-benchmark-sendipad-only-88653f9d`
+**Benchmark Source Branch:** `not captured`  
+**Benchmark Source Commit:** `not captured`
 **Report Location:** `/home/jules/frappe-bench/apps/flexirule/reports/condition-backend-comparison-benchmark.md`
 **Benchmark Protocol:** v2
 **Measurement Protocol:** repeated medians, rotating order, alternating matching/non-matching documents, correctness gate
@@ -21,8 +22,8 @@ This report documents the architectural investigation, empirical runtime probe, 
 
 1. **`frappe.safe_eval` Overhead:** Installed Frappe v15 `frappe.safe_eval` performs `unicodedata.normalize()`, `ast.parse()`, AST node walking (`_validate_safe_eval_syntax`), and RestrictedPython AST transformation / compilation on **every single invocation**. It implements **no caching** of compiled bytecode objects.
 2. **`has_changed` Operator Contract Divergence:** In `ConditionCompiler`, the `has_changed` operator is deprecated and returns `True` for backward compatibility, while candidate evaluators evaluate dynamic field changes against `_doc_before_save`. Under the semantic correctness gate, `edge_case_has_changed` exhibits contract divergence and is excluded from timing measurements.
-2. **Semantic Correctness Gate Status:** **FAILED (Disagreements Detected)**. Total Fixtures Tested: 13, Agreed: 12.
-3. **Evaluations Completed:** **2,400,000** total error-free evaluations were completed during this benchmark run.
+3. **Semantic Correctness Gate Status:** **FAILED (Disagreements Detected)**. Total Fixtures Tested: 13, Agreed: 12.
+4. **Evaluations Completed:** **2,400,000** total error-free evaluations were completed during this benchmark run.
 
 ---
 
