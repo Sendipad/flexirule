@@ -2483,18 +2483,6 @@ async function validate() {
 		errors.push(__("Permission Audit Reason is required when bypassing permissions."));
 	}
 
-	// Persist the Frappe 15 default only when the user is saving a valid edit.
-	// Merely opening the modal must not mutate the action or dirty-state baseline.
-	if (
-		!errors.length &&
-		!props.readOnly &&
-		mode.value === "Fetch Records" &&
-		isFrappe15.value &&
-		![true, 1, "1"].includes(props.node?.data?.ignore_permissions)
-	) {
-		props.node.data.ignore_permissions = 1;
-	}
-
 	return { valid: errors.length === 0, errors };
 }
 

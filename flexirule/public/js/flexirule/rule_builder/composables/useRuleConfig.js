@@ -111,6 +111,25 @@ export function useRuleConfig(props, emit) {
 	}
 
 	/**
+	 * Prepare a normalized candidate draft for commit without mutating live draft/node during validation.
+	 */
+	function normalizeCandidate(candidateDraft) {
+		if (!candidateDraft?.data) return candidateDraft;
+		const doc = candidateDraft.data;
+
+		// Apply Frappe 15 Fetch Records default for ignore_permissions using operation policy
+		if (doc.action_type === "Query Records" && doc.operation === "Fetch Records") {
+			const version = frappe.boot?.versions?.frappe;
+			const isFrappe15 = typeof version === "string" && /^15(?:\.|$)/.test(version);
+			if (isFrappe15 && ![true, 1, "1"].includes(doc.ignore_permissions)) {
+				doc.ignore_permissions = 1;
+			}
+		}
+
+		return candidateDraft;
+	}
+
+	/**
 	 * Save changes back to the source node and close.
 	 */
 	async function save() {
@@ -149,19 +168,26 @@ export function useRuleConfig(props, emit) {
 		isSaving.value = true;
 		let saveResult;
 		try {
+			// Create candidate draft and normalize it before validation
+			const candidateDraft = normalizeCandidate(deepClone(validatedDraft));
+
 			saveResult = await runConfigSaveLifecycle({
 				// Read live domain-store state, not the spread legacy facade.
 				isLoading: () => ruleStore.is_loading,
 				isContextCurrent: isSourceContextCurrent,
-				validate: () => validate(validatedDraft),
+				validate: () => validate(candidateDraft),
 				commit: () => {
-					if (!sourceNode || !validatedDraft) return;
+					if (!sourceNode || !candidateDraft) return;
 
 					const oldValue = sourceNode.data?.rule;
-					const newValue = validatedDraft.data?.rule;
+					const newValue = candidateDraft.data?.rule;
 
-					sourceNode.data = deepClone(validatedDraft.data);
-					sourceNode.label = validatedDraft.label || validatedDraft.data?.action_label;
+					sourceNode.data = deepClone(candidateDraft.data);
+					sourceNode.label = candidateDraft.label || candidateDraft.data?.action_label;
+					if (draftNode.value) {
+						draftNode.value.data = deepClone(candidateDraft.data);
+						draftNode.value.label = candidateDraft.label || candidateDraft.data?.action_label;
+					}
 
 					// Redraw nested nodes when Sub-Rule LinkControl target changes
 					if (sourceNode.data.action_type === "Sub-Rule" && oldValue !== newValue) {
