@@ -1,4 +1,4 @@
-import { cloneTree } from "../../tree_builder/tree_builder_utils.js";
+import { cloneTree } from "../../tree_builder/tree_builder_utils.mjs";
 
 const OPERATORS = new Set(["and", "or"]);
 

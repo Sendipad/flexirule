@@ -1,4 +1,4 @@
-import { DEFAULT_GROUP_OPERATORS, TREE_NODE_TYPES } from "./tree_builder_types.js";
+import { DEFAULT_GROUP_OPERATORS, TREE_NODE_TYPES } from "./tree_builder_types.mjs";
 
 export function createNodeId(prefix = "tree") {
 	if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function")

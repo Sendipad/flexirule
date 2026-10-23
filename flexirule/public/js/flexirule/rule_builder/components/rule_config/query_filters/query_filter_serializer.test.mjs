@@ -3,7 +3,7 @@ import {
 	deserializeQueryFilters,
 	serializeQueryFilters,
 	toPersistedQueryFilterTree,
-} from "./query_filter_serializer.js";
+} from "./query_filter_serializer.mjs";
 
 const tree = deserializeQueryFilters([
 	["Sales Order", "status", "=", { mode: "static", value: "Open" }],

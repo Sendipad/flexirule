@@ -8,9 +8,9 @@ import {
 	normalizeTreeNode,
 	treesEqual,
 	TreeModelError,
-} from "./tree_builder_utils.js";
-import * as commands from "./tree_builder_commands.js";
-import { validateTree } from "./tree_builder_validation.js";
+} from "./tree_builder_utils.mjs";
+import * as commands from "./tree_builder_commands.mjs";
+import { validateTree } from "./tree_builder_validation.mjs";
 
 function depthOf(tree, id) {
 	const path = findPath(tree, id);

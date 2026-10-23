@@ -647,7 +647,7 @@ import {
 	buildResolvedOutputSchema,
 	inferResultShape,
 	parseOutputFields,
-} from "./query_records/output_fields_model.js";
+} from "./query_records/output_fields_model.mjs";
 import { normalizeResolvedOutputSchema } from "../../../../utils/output_schema.js";
 import { getQueryRecordsSchemaRefreshSignature } from "./query_records/schema_refresh.mjs";
 

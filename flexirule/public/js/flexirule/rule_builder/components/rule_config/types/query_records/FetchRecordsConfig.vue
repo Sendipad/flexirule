@@ -14,12 +14,17 @@
 				:showValidation="showValidation"
 				:nodeId="nodeId"
 				:variableOptions="variableOptions"
+				:presentationMode="presentationMode"
 				@update:modelValue="updateConfig('filters', $event)"
 			/>
 		</div>
 
 		<div class="sub-section section-subcard return-result-section">
-			<GenericGrid class="return-result-grid" minColumnWidth="280px">
+			<GenericGrid
+				class="return-result-grid"
+				minColumnWidth="280px"
+				:presentationMode="presentationMode"
+			>
 				<div class="return-result-shape">
 					<div class="section-heading result-shape-heading">
 						<div>
@@ -249,12 +254,16 @@ import GenericGrid from "../../../../controls/GenericGrid.vue";
 import { useNavigableFields } from "../../../../composables/useNavigableFields";
 import QueryFilterTree from "../../query_filters/QueryFilterTree.vue";
 import OutputFieldsEditor from "./OutputFieldsEditor.vue";
+import { useStore } from "../../../../stores";
+
+const store = useStore();
+const presentationMode = computed(() => store.settings?.row_leaf_presentation_mode || "hybrid");
 import {
 	inferResultShape,
 	isCustomResultShape,
 	parseOutputFields,
 	serializeOutputFields,
-} from "./output_fields_model.js";
+} from "./output_fields_model.mjs";
 
 const props = defineProps({
 	modelValue: { type: Object, default: () => ({}) },
