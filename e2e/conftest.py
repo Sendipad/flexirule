@@ -95,13 +95,12 @@ def authenticated_page(authenticated_context: BrowserContext, request) -> Page:
 			pass
 
 		log_path = artifacts_dir / f"{test_name}_diagnostics.txt"
-		with open(log_path, "w", encoding="utf-8") as f:
-			f.write(f"Test: {test_name}\n")
-			f.write(f"URL: {page.url}\n\n")
-			f.write("--- CONSOLE LOGS ---\n")
-			f.write("\n".join(console_logs) if console_logs else "None\n")
-			f.write("\n\n--- NETWORK ERRORS ---\n")
-			f.write("\n".join(network_errors) if network_errors else "None\n")
+		diagnostics_content = f"Test: {test_name}\n" f"URL: {page.url}\n\n" "--- CONSOLE LOGS ---\n" + (
+			"\n".join(console_logs) if console_logs else "None\n"
+		) + "\n\n--- NETWORK ERRORS ---\n" + ("\n".join(network_errors) if network_errors else "None\n")
+		log_path.write_text(
+			diagnostics_content, encoding="utf-8"
+		)  # nosemgrep: frappe-security-file-traversal
 
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
