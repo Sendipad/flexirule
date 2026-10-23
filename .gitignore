@@ -16,6 +16,11 @@ plans/
 # Build artifacts
 cypress/screenshots
 cypress/videos
+artifacts/
+.auth/
+htmlreport.html
+pytest_report.xml
+test-results/
 .nyc_output
 coverage
 landing-page/docs/
