@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { runConfigSaveLifecycle } from "../../../../../flexirule/public/js/flexirule/rule_builder/utils/config_save_lifecycle.mjs";
+import { runConfigSaveLifecycle } from "../utils/config_save_lifecycle.mjs";
 
 // Helper mock to simulate useRuleConfig normalize + save logic
 function createMockUseRuleConfig({ nodeData, isFrappe15 = true, panelValidator = null }) {

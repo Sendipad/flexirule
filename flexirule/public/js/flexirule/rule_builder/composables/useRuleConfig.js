@@ -1,10 +1,6 @@
 import { ref, reactive, computed, watch, nextTick } from "vue";
 import { useGraphStore, useRuleStore, useStore } from "../stores";
-import {
-	getContract,
-	getOperationFieldOverride,
-	validateAgainstContract,
-} from "../../core/contracts.js";
+import { getContract, validateAgainstContract } from "../../core/contracts.js";
 import { deepClone } from "../utils/serialization.js";
 import { stableStringify } from "../utils/stable_serialization.mjs";
 import { runConfigSaveLifecycle } from "../utils/config_save_lifecycle.mjs";
@@ -115,19 +111,17 @@ export function useRuleConfig(props, emit) {
 	}
 
 	/**
-	 * Normalize a copied candidate draft before validation; never mutate the live draft.
+	 * Prepare a normalized candidate draft for commit without mutating live draft/node during validation.
 	 */
 	function normalizeCandidate(candidateDraft) {
 		if (!candidateDraft?.data) return candidateDraft;
 		const doc = candidateDraft.data;
 
+		// Apply Frappe 15 Fetch Records default for ignore_permissions using operation policy
 		if (doc.action_type === "Query Records" && doc.operation === "Fetch Records") {
-			const permissionPolicy = getOperationFieldOverride(
-				doc.action_type,
-				"ignore_permissions",
-				{ operation: doc.operation }
-			);
-			if (permissionPolicy.default === 1) {
+			const version = frappe.boot?.versions?.frappe;
+			const isFrappe15 = typeof version === "string" && /^15(?:\.|$)/.test(version);
+			if (isFrappe15 && ![true, 1, "1"].includes(doc.ignore_permissions)) {
 				doc.ignore_permissions = 1;
 			}
 		}
@@ -174,7 +168,9 @@ export function useRuleConfig(props, emit) {
 		isSaving.value = true;
 		let saveResult;
 		try {
+			// Create candidate draft and normalize it before validation
 			const candidateDraft = normalizeCandidate(deepClone(validatedDraft));
+
 			saveResult = await runConfigSaveLifecycle({
 				// Read live domain-store state, not the spread legacy facade.
 				isLoading: () => ruleStore.is_loading,

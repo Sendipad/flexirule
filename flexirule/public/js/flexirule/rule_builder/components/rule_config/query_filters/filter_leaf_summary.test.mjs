@@ -1,13 +1,10 @@
 import assert from "node:assert/strict";
-import {
-	isFilterLeafValid,
-	validateFilterLeaf,
-} from "../../../../../../../flexirule/public/js/flexirule/rule_builder/components/rule_config/query_filters/query_filter_validation.mjs";
+import { isFilterLeafValid, validateFilterLeaf } from "./query_filter_validation.mjs";
 import {
 	formatSingleValue,
 	formatFilterSummary,
 	resolveFilterFieldDef,
-} from "../../../../../../../flexirule/public/js/flexirule/rule_builder/components/rule_config/query_filters/filter_summary_formatter.mjs";
+} from "./filter_summary_formatter.mjs";
 
 // Global mock for translation __
 if (typeof globalThis.__ !== "function") {

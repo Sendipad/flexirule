@@ -6,8 +6,8 @@ import {
 	RESULT_SHAPES,
 	serializeOutputFields,
 	validateOutputFields,
-} from "../../../../../../../../flexirule/public/js/flexirule/rule_builder/components/rule_config/types/query_records/output_fields_model.mjs";
-import { normalizeResolvedOutputSchema } from "../../../../../../../../flexirule/public/js/flexirule/utils/output_schema.js";
+} from "./output_fields_model.mjs";
+import { normalizeResolvedOutputSchema } from "../../../../../utils/output_schema.js";
 
 assert.equal(inferResultShape(undefined), RESULT_SHAPES.documentNames);
 assert.equal(inferResultShape("*"), RESULT_SHAPES.wholeDocuments);

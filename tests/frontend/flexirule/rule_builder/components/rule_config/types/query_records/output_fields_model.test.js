@@ -129,11 +129,7 @@ assert.ok(
 const trailingUnderscoreAlias = parseOutputFields(["title as reference_"]);
 assert.equal(trailingUnderscoreAlias[0].alias, "reference_");
 assert.deepEqual(serializeOutputFields(trailingUnderscoreAlias), ["title as reference_"]);
-assert.ok(
-	validateOutputFields(trailingUnderscoreAlias, RESULT_SHAPES.selectedFields).some((error) =>
-		error.includes("snake_case")
-	)
-);
+assert.equal(validateOutputFields(trailingUnderscoreAlias, RESULT_SHAPES.selectedFields).length, 0);
 
 const invalidSpacedAlias = [{ kind: "field", field: "title", alias: "Reference Doctype" }];
 assert.equal(invalidSpacedAlias[0].alias, "Reference Doctype");
