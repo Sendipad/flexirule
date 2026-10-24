@@ -209,7 +209,11 @@ export function useRuleGraph() {
 						visited.add(id);
 						ordered.push(id);
 						currentEdges.forEach((e) => {
-							if (e.source === id && bodyIds.has(e.target) && !visited.has(e.target)) {
+							if (
+								e.source === id &&
+								bodyIds.has(e.target) &&
+								!visited.has(e.target)
+							) {
 								queue.push(e.target);
 							}
 						});
