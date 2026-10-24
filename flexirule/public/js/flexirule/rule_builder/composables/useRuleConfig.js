@@ -1,6 +1,10 @@
 import { ref, reactive, computed, watch, nextTick } from "vue";
 import { useGraphStore, useRuleStore, useStore } from "../stores";
-import { getContract, getOperationFieldOverride, validateAgainstContract } from "../../core/contracts.js";
+import {
+	getContract,
+	getOperationFieldOverride,
+	validateAgainstContract,
+} from "../../core/contracts.js";
 import { deepClone } from "../utils/serialization.js";
 import { stableStringify } from "../utils/stable_serialization.mjs";
 import { runConfigSaveLifecycle } from "../utils/config_save_lifecycle.mjs";

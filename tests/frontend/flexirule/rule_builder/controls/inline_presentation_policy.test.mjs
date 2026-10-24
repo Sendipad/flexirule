@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
-import { resolvePresentationMode, getInlinePresentation } from "../../../../../flexirule/public/js/flexirule/rule_builder/controls/inline_presentation_policy.mjs";
+import {
+	resolvePresentationMode,
+	getInlinePresentation,
+} from "../../../../../flexirule/public/js/flexirule/rule_builder/controls/inline_presentation_policy.mjs";
 
 // Mode normalization
 assert.equal(resolvePresentationMode("hybrid"), "hybrid");
