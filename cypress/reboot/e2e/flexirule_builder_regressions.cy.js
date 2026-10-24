@@ -24,7 +24,11 @@ describe("FlexiRule builder regression coverage", () => {
 		});
 
 		cy.get(".modal.show").last().within(() => {
-			cy.contains("button", "Save").should("be.visible").click({ force: true });
+			cy.get("button.btn-modal-primary")
+				.filter(':contains("Save")')
+				.first()
+				.should("be.visible")
+				.click();
 		});
 		cy.get(".modal.show").should("not.exist");
 		cy.request("/api/resource/Rule/" + encodeURIComponent(ruleName))
@@ -36,8 +40,13 @@ describe("FlexiRule builder regression coverage", () => {
 	}
 
 	function addNodeFromEdgeMenu(type) {
-		cy.get(".edge-add-button").last().click({ force: true });
-		cy.contains(type, { timeout: 15000 }).should("be.visible").click({ force: true });
+		cy.get(".edge-add-button").last().should("be.visible").click();
+		// Restrict the query to active node-menu options. A global contains(type)
+		// can match hidden navigation/menu text instead of the open edge menu.
+		cy.get(".result-item.is-option", { timeout: 15000 })
+			.contains(type)
+			.should("be.visible")
+			.click();
 	}
 
 	function persistedRule() {
