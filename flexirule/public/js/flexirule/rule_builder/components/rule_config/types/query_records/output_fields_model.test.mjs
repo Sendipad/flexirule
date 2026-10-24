@@ -6,7 +6,7 @@ import {
 	RESULT_SHAPES,
 	serializeOutputFields,
 	validateOutputFields,
-} from "./output_fields_model.js";
+} from "./output_fields_model.mjs";
 import { normalizeResolvedOutputSchema } from "../../../../../utils/output_schema.js";
 
 assert.equal(inferResultShape(undefined), RESULT_SHAPES.documentNames);

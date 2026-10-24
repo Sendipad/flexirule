@@ -130,6 +130,10 @@ jobs:
         working-directory: /home/runner/frappe-bench/apps/flexirule
         run: npx --no-install eslint flexirule/public/js
 
+      - name: Run frontend unit tests
+        working-directory: /home/runner/frappe-bench/apps/flexirule
+        run: npm test
+
   tests:
     needs: changes
     if: ${{ needs.changes.outputs.backend == 'true' }}

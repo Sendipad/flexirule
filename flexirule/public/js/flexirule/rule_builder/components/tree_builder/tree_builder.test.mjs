@@ -6,7 +6,7 @@ import {
 	findParent,
 	findPath,
 	normalizeTree,
-} from "./tree_builder_utils.js";
+} from "./tree_builder_utils.mjs";
 import {
 	addCollection,
 	addGroup,
@@ -14,12 +14,12 @@ import {
 	moveNode,
 	removeNode,
 	setOperator,
-} from "./tree_builder_commands.js";
-import { validateTree } from "./tree_builder_validation.js";
+} from "./tree_builder_commands.mjs";
+import { validateTree } from "./tree_builder_validation.mjs";
 import {
 	deserializeQueryFilters,
 	serializeQueryFilters,
-} from "../rule_config/query_filters/query_filter_serializer.js";
+} from "../rule_config/query_filters/query_filter_serializer.mjs";
 
 const root = createGroup("and", []);
 const group = addGroup(root, root.id, "or");

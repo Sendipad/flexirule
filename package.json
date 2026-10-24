@@ -4,7 +4,7 @@
 	"description": "Advanced Rule Engine for Frappe",
 	"main": "index.js",
 	"scripts": {
-		"test": "echo \"Error: no test specified\" && exit 1",
+		"test": "node flexirule/public/js/flexirule/rule_builder/controls/inline_presentation_policy.test.mjs && node flexirule/public/js/flexirule/rule_builder/components/rule_config/query_filters/filter_leaf_summary.test.mjs && node flexirule/public/js/flexirule/rule_builder/components/tree_builder/tree_builder.test.mjs && node flexirule/public/js/flexirule/rule_builder/controls/generic_grid_model.test.mjs && node flexirule/public/js/flexirule/rule_builder/components/rule_config/query_filters/filter_operators.test.mjs && node flexirule/public/js/flexirule/rule_builder/components/rule_config/query_filters/query_filter_serializer.test.mjs",
 		"lint": "eslint .",
 		"format": "prettier --write \"**/*.{js,vue,scss,json,md}\""
 	},

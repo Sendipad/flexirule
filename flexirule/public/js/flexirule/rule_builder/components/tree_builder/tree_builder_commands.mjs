@@ -7,7 +7,7 @@ import {
 	findParent,
 	isContainerNode,
 	isDescendant,
-} from "./tree_builder_utils.js";
+} from "./tree_builder_utils.mjs";
 
 function parentFor(tree, id) {
 	const node = findNode(tree, id);

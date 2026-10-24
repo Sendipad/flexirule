@@ -9,7 +9,7 @@ export const RESULT_SHAPES = Object.freeze({
 export const AGGREGATE_FUNCTIONS = Object.freeze(["count", "sum", "avg", "min", "max"]);
 
 const AGGREGATE_SET = new Set(AGGREGATE_FUNCTIONS);
-const ALIAS_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const SNAKE_CASE_ALIAS_PATTERN = /^[a-z_][a-z0-9_]*$/;
 export function humanizeAlias(value) {
 	return String(value ?? "")
 		.split("_")
@@ -82,9 +82,9 @@ function splitTopLevelExpressions(input) {
 function parseAlias(expression) {
 	const match = String(expression)
 		.trim()
-		.match(/^(.+?)\s+as\s+([A-Za-z_][A-Za-z0-9_]*)$/i);
+		.match(/^(.+?)\s+as\s+(.+)$/i);
 	if (!match) return { expression: String(expression).trim(), alias: "" };
-	return { expression: match[1].trim(), alias: match[2] };
+	return { expression: match[1].trim(), alias: match[2].trim() };
 }
 function createRow(kind, index, values = {}) {
 	return {
@@ -456,7 +456,7 @@ export function validateOutputFields(rows, shape, groupBy = "") {
 						"Frappe v15 supports only one-level Link or child-table field paths in this selection."
 				);
 			}
-			if (fieldAlias && !ALIAS_PATTERN.test(fieldAlias)) {
+			if (fieldAlias && !SNAKE_CASE_ALIAS_PATTERN.test(fieldAlias)) {
 				errors.push(
 					prefix +
 						"alias must be lowercase snake_case: start with a letter and use lowercase letters, numbers, and single underscores between words."
@@ -475,7 +475,7 @@ export function validateOutputFields(rows, shape, groupBy = "") {
 				);
 			}
 			if (!alias) errors.push(prefix + "enter an output alias for the function.");
-			else if (!ALIAS_PATTERN.test(alias)) {
+			else if (!SNAKE_CASE_ALIAS_PATTERN.test(alias)) {
 				errors.push(
 					prefix +
 						"alias must start with a letter or underscore and contain only letters, numbers, and underscores."
@@ -489,7 +489,7 @@ export function validateOutputFields(rows, shape, groupBy = "") {
 		} else if (row.kind === "literal") {
 			const fieldname = String(row.fieldname ?? "").trim();
 			if (!fieldname) errors.push(prefix + "enter an output field name.");
-			else if (!ALIAS_PATTERN.test(fieldname)) {
+			else if (!SNAKE_CASE_ALIAS_PATTERN.test(fieldname)) {
 				errors.push(prefix + "output field name must be lowercase snake_case.");
 			}
 			if (!String(row.label ?? "").trim()) errors.push(prefix + "enter a label.");
