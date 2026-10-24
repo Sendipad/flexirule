@@ -112,7 +112,10 @@ jobs:
           # redirect gate before the browser starts.
           frappe.db.set_single_value("System Settings", "language", "en")
           frappe.db.set_single_value("System Settings", "time_zone", "America/New_York")
-          frappe.db.set_default("desktop:home_page", "workspace")
+          # Start on the Rule List route instead of the Workspace route. Frappe 15's
+          # Workspace.show_page can throw when the route slug's casing differs
+          # from the workspace title; the UI tests navigate to the Rule List anyway.
+          frappe.db.set_default("desktop:home_page", "rule")
           frappe.db.commit()
           frappe.clear_cache()
 
