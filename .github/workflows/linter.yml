@@ -81,7 +81,7 @@ jobs:
   fast-js-unit-tests:
     name: Fast JavaScript unit tests
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -89,13 +89,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "18"
 
-      - name: Run frontend unit tests
-        run: |
-          mapfile -d '' test_files < <(find tests/frontend -type f \( -name '*.test.mjs' -o -name '*.test.js' \) -print0 | sort -z)
-          if [ "${#test_files[@]}" -eq 0 ]; then
-            echo "No frontend unit tests found under tests/frontend"
-            exit 1
-          fi
-          node --experimental-default-type=module --test "${test_files[@]}"
+      - name: Run standalone unit tests
+        run: yarn test:frontend

@@ -1,4 +1,4 @@
-import { isCollectionNode, isGroupNode, isLeafNode } from "./tree_builder_utils.js";
+import { isCollectionNode, isGroupNode, isLeafNode } from "./tree_builder_utils.mjs";
 
 export function validateTree(
 	tree,

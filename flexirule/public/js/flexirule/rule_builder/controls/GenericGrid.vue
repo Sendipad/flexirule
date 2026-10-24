@@ -28,7 +28,7 @@
 				:class="{
 					'is-selected': isSelected(entry.key),
 					'is-invalid': getInvalidState(entry.row, entry.index).invalid,
-					'is-editing': Boolean(entry.row?.[editStateKey]),
+					'is-editing': getRowPresentation(entry).presentation === 'editor',
 				}"
 				:aria-invalid="getInvalidState(entry.row, entry.index).invalid ? 'true' : undefined"
 				:title="getInvalidState(entry.row, entry.index).message || undefined"
@@ -61,26 +61,40 @@
 						class="fxr-generic-grid-row-actions"
 					>
 						<button
-							v-if="availableRowActions.includes('edit')"
+							v-if="
+								availableRowActions.includes('edit') &&
+								(getRowPresentation(entry).presentation === 'summary'
+									? getRowPresentation(entry).canToggle
+									: canFinishRowEditing(entry))
+							"
 							type="button"
 							class="fxr-grid-icon-button"
 							:title="
-								entry.row?.[editStateKey]
+								getRowPresentation(entry).presentation === 'editor'
 									? __('Switch to readable row') + ' (' + editShortcut + ')'
 									: __('Edit row') + ' (' + editShortcut + ')'
 							"
 							:aria-label="
-								entry.row?.[editStateKey]
+								getRowPresentation(entry).presentation === 'editor'
 									? __('Switch to readable row')
 									: __('Edit row')
 							"
 							:aria-keyshortcuts="editShortcut"
 							@click="
-								requestRowAction(entry.row?.[editStateKey] ? 'view' : 'edit', entry)
+								requestRowAction(
+									getRowPresentation(entry).presentation === 'editor'
+										? 'view'
+										: 'edit',
+									entry
+								)
 							"
 						>
 							<i
-								:class="entry.row?.[editStateKey] ? 'fa fa-check' : 'fa fa-pencil'"
+								:class="
+									getRowPresentation(entry).presentation === 'editor'
+										? 'fa fa-check'
+										: 'fa fa-pencil'
+								"
 								aria-hidden="true"
 							></i>
 						</button>
@@ -124,7 +138,11 @@
 				</div>
 
 				<div
-					v-if="hasSummarySlot"
+					v-if="
+						hasSummarySlot &&
+						(getRowPresentation(entry).presentation === 'summary' ||
+							editorLayout === 'alongside')
+					"
 					class="fxr-generic-grid-row-summary"
 					:class="{ 'is-toggleable': summaryToggleAction(entry) !== null }"
 					:title="summaryToggleTitle(entry)"
@@ -141,7 +159,7 @@
 					/>
 				</div>
 				<div
-					v-if="!hasSummarySlot || entry.row?.[editStateKey]"
+					v-if="getRowPresentation(entry).presentation === 'editor'"
 					class="fxr-generic-grid-row-body"
 				>
 					<slot
@@ -399,6 +417,7 @@
 
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useSlots, watch } from "vue";
+import { getInlinePresentation, resolvePresentationMode } from "./inline_presentation_policy.mjs";
 import {
 	GRID_CLIPBOARD_FORMAT,
 	getRowKey,
@@ -409,11 +428,14 @@ import {
 	parseClipboardRows,
 	rowMatchesSearch,
 	buildRowProps,
-	getSummaryToggleAction,
 	selectRangeKeys,
 } from "./generic_grid_model.mjs";
 
 const props = defineProps({
+	presentationMode: { type: String, default: "hybrid" },
+	editorLayout: { type: String, default: "alongside" },
+	isRowNew: { type: Function, default: null },
+	isRowValid: { type: Function, default: null },
 	// Use the default slot for layout-only mode, or provide rows/modelValue for a data grid.
 	rows: { type: Array, default: null },
 	modelValue: { type: Array, default: null },
@@ -748,12 +770,57 @@ function resolveRowProps(row, index) {
 	);
 }
 
-function summaryToggleAction(entry) {
-	return getSummaryToggleAction(entry.row, {
+function getRowPresentation(entry) {
+	const invalidInfo = getInvalidState(entry.row, entry.index);
+	const isValid =
+		typeof props.isRowValid === "function"
+			? props.isRowValid(entry.row, entry.index)
+			: !invalidInfo.invalid;
+	const isNew =
+		typeof props.isRowNew === "function"
+			? props.isRowNew(entry.row, entry.index)
+			: Boolean(entry.row?.isNew);
+	const isEditing = Boolean(entry.row?.[props.editStateKey]);
+
+	return getInlinePresentation({
+		mode: props.presentationMode,
+		isNew,
+		isValid,
+		isEditing,
 		readOnly: props.readOnly,
-		availableRowActions: props.availableRowActions,
-		editStateKey: props.editStateKey,
+		hasSummary: hasSummarySlot.value,
 	});
+}
+
+function summaryToggleAction(entry) {
+	if (!props.availableRowActions.includes("edit")) return null;
+	const presentation = getRowPresentation(entry);
+	if (!presentation.canToggle) return null;
+	if (presentation.presentation === "editor") {
+		return canFinishRowEditing(entry) ? "view" : null;
+	}
+	if (presentation.presentation === "summary") return "edit";
+	return null;
+}
+
+function canFinishRowEditing(entry) {
+	if (!props.availableRowActions.includes("edit")) return false;
+	const presentation = getRowPresentation(entry);
+	if (!presentation.canToggle || presentation.presentation !== "editor") return false;
+	const isNew =
+		typeof props.isRowNew === "function"
+			? props.isRowNew(entry.row, entry.index)
+			: Boolean(entry.row?.isNew);
+	const isValid =
+		typeof props.isRowValid === "function"
+			? props.isRowValid(entry.row, entry.index)
+			: !getInvalidState(entry.row, entry.index).invalid;
+	const isEditing = Boolean(entry.row?.[props.editStateKey]);
+	const mode = resolvePresentationMode(props.presentationMode);
+
+	if (mode === "summary") return isEditing;
+	if (mode === "hybrid") return isEditing && !isNew && isValid;
+	return false;
 }
 
 function summaryToggleTitle(entry) {

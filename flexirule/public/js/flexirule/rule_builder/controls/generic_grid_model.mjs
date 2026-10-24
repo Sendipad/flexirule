@@ -1,3 +1,5 @@
+import { resolvePresentationMode } from "./inline_presentation_policy.mjs";
+
 export const GRID_CLIPBOARD_FORMAT = "flexirule-generic-grid";
 
 /** Match a configurable keyboard shortcut while respecting all modifier keys. */
@@ -143,12 +145,26 @@ export function buildRowProps(row, index, customProps, selected, invalid, readOn
  */
 export function getSummaryToggleAction(
 	row,
-	{ readOnly = false, availableRowActions = ["edit"], editStateKey = "isEditing" } = {}
+	{
+		readOnly = false,
+		availableRowActions = ["edit"],
+		editStateKey = "isEditing",
+		isNew = false,
+		isValid = true,
+		mode = "hybrid",
+	} = {}
 ) {
 	if (readOnly || !Array.isArray(availableRowActions) || !availableRowActions.includes("edit")) {
 		return null;
 	}
-	return Boolean(row?.[editStateKey]) ? "view" : "edit";
+	const isEditing = Boolean(row?.[editStateKey]);
+	if (isEditing) {
+		const resolvedMode = resolvePresentationMode(mode);
+		if (resolvedMode === "summary") return "view";
+		if (resolvedMode === "hybrid") return !isNew && isValid ? "view" : null;
+		return null;
+	}
+	return "edit";
 }
 
 /**

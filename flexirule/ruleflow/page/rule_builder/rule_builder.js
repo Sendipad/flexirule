@@ -23,7 +23,7 @@ function load_rule_builder(wrapper) {
 
 	if (route.length > 1) {
 		// Load the RuleBuilder bundle on demand
-		frappe.require("rule_builder.bundle.js", () => {
+		frappe.require("rule_builder.bundle.js").then(() => {
 			frappe.rule_builder = new frappe.ui.RuleBuilder({
 				wrapper: $parent,
 				page: wrapper.page,

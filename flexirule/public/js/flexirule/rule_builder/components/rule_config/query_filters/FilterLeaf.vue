@@ -97,6 +97,12 @@ import SelectControl from "../../../controls/SelectControl.vue";
 import { useStore } from "../../../stores";
 import { useNavigableFields } from "../../../composables/useNavigableFields";
 import { getFieldType, getFilterOperators } from "./filter_operators.mjs";
+import {
+	isFilterLeafValid,
+	isValueConfigured,
+	isValidIsValue,
+	validateFilterLeaf,
+} from "./query_filter_validation.mjs";
 
 const props = defineProps({
 	modelValue: { type: Object, required: true },
@@ -158,50 +164,7 @@ const operatorField = computed(() => ({
 const operatorInvalid = computed(
 	() => !leaf.value.operator || !operators.value.includes(leaf.value.operator)
 );
-function isConfigured(value) {
-	if (Array.isArray(value)) return value.length > 0 && value.every(isConfigured);
-	if (value && typeof value === "object") {
-		if (Object.prototype.hasOwnProperty.call(value, "mode")) {
-			if (value.mode === "static") {
-				const raw = value.value;
-				if (Array.isArray(raw)) {
-					return (
-						raw.length > 0 &&
-						raw.every(
-							(item) =>
-								!isEmpty(item) && !(typeof item === "string" && item.trim() === "")
-						)
-					);
-				}
-				return !isEmpty(raw) && !(typeof raw === "string" && raw.trim() === "");
-			}
-			return (
-				value.value !== undefined &&
-				value.value !== null &&
-				String(value.value).trim() !== ""
-			);
-		}
-		return Object.keys(value).length > 0;
-	}
-	return !isEmpty(value) && !(typeof value === "string" && value.trim() === "");
-}
-function isValidIsValue(value) {
-	if (value && typeof value === "object" && value.mode && value.mode !== "static") {
-		return isConfigured(value);
-	}
-	const raw = value && typeof value === "object" && value.mode === "static" ? value.value : value;
-	if (typeof raw === "string") {
-		const trimmed = raw.trim();
-		if (trimmed.startsWith("{") || trimmed.startsWith("@")) {
-			return true;
-		}
-	}
-	return ["set", "not set"].includes(
-		String(raw ?? "")
-			.trim()
-			.toLowerCase()
-	);
-}
+const isConfigured = isValueConfigured;
 const valueInvalid = computed(() => {
 	if (!leaf.value.field) return false;
 	if (operatorInvalid.value) return true;
@@ -209,16 +172,16 @@ const valueInvalid = computed(() => {
 		return (
 			!Array.isArray(leaf.value.value) ||
 			leaf.value.value.length < 2 ||
-			!isConfigured(leaf.value.value[0]) ||
-			!isConfigured(leaf.value.value[1])
+			!isValueConfigured(leaf.value.value[0]) ||
+			!isValueConfigured(leaf.value.value[1])
 		);
 	}
 	if (String(leaf.value.operator).toLowerCase() === "is")
 		return !isValidIsValue(leaf.value.value);
-	return !isConfigured(leaf.value.value);
+	return !isValueConfigured(leaf.value.value);
 });
 function isMissingBetweenValue(index) {
-	return !Array.isArray(leaf.value.value) || !isConfigured(leaf.value.value[index]);
+	return !Array.isArray(leaf.value.value) || !isValueConfigured(leaf.value.value[index]);
 }
 const leafInvalid = computed(
 	() => !leaf.value.field || operatorInvalid.value || valueInvalid.value
@@ -356,25 +319,19 @@ function isEmpty(value) {
 	return value === undefined || value === null || value === "";
 }
 async function validate() {
-	const errors = [];
-	if (!leaf.value.field) errors.push(__("Filter field is required."));
-	if (!leaf.value.operator || operatorInvalid.value) {
+	const result = validateFilterLeaf(leaf.value, {
+		doctype: props.doctype,
+		fieldDef: field.value,
+	});
+	const errors = result.errors.map((msg) => __(msg));
+	if (
+		operatorInvalid.value &&
+		leaf.value.field &&
+		!errors.includes(__("Choose a supported operator for the selected field."))
+	) {
 		errors.push(__("Choose a supported operator for the selected field."));
-	} else if (leaf.value.operator === "Between") {
-		if (
-			!Array.isArray(leaf.value.value) ||
-			leaf.value.value.length < 2 ||
-			!isConfigured(leaf.value.value[0]) ||
-			!isConfigured(leaf.value.value[1])
-		) {
-			errors.push(__("Both values are required for Between."));
-		}
-	} else if (String(leaf.value.operator).toLowerCase() === "is") {
-		if (!isValidIsValue(leaf.value.value)) errors.push(__("Choose Set or Not Set."));
-	} else if (!isConfigured(leaf.value.value)) {
-		errors.push(__("Filter value is required."));
 	}
-	return { valid: errors.length === 0, errors };
+	return { valid: errors.length === 0, errors: [...new Set(errors)] };
 }
 defineExpose({ validate });
 </script>

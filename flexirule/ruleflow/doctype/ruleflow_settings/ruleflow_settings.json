@@ -23,7 +23,8 @@
 		"column_break_mqxa",
 		"action_config_mode",
 		"sidebar_position",
-		"enable_edge_insertion"
+		"enable_edge_insertion",
+		"row_leaf_presentation_mode"
 	],
 	"fields": [
 		{
@@ -122,6 +123,14 @@
 			"fieldname": "enable_edge_insertion",
 			"fieldtype": "Check",
 			"label": "Enable Edge Insertion (+ Button)"
+		},
+		{
+			"default": "Hybrid",
+			"description": "Default presentation mode for lists, grids, and tree leaf nodes",
+			"fieldname": "row_leaf_presentation_mode",
+			"fieldtype": "Select",
+			"label": "Row / Leaf Presentation Mode",
+			"options": "Hybrid\nSummary\nForm"
 		},
 		{
 			"fieldname": "lifecycle_config",

@@ -105,6 +105,9 @@ jobs:
           cache: yarn
           cache-dependency-path: yarn.lock
 
+      - name: Test layout request queue
+        run: yarn test:layout-queue
+
       - name: Setup Bench
         run: |
           python -m pip install frappe-bench
@@ -129,6 +132,10 @@ jobs:
       - name: Validate frontend sources
         working-directory: /home/runner/frappe-bench/apps/flexirule
         run: npx --no-install eslint flexirule/public/js
+
+      - name: Run inline presentation unit tests
+        working-directory: /home/runner/frappe-bench/apps/flexirule
+        run: yarn test:inline-presentation
 
   tests:
     needs: changes

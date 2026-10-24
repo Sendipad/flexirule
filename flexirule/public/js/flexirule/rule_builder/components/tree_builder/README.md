@@ -36,10 +36,32 @@ UI state is kept outside persisted nodes. `getNodeContext(nodeId)` derives inher
 ## Controlled usage
 
 ```vue
-<TreeBuilder v-model="tree" :leaf-factory="createLeaf" />
+<TreeBuilder
+  v-model="tree"
+  :leaf-factory="createLeaf"
+  presentation-mode="hybrid"
+  editor-layout="replace"
+  :is-leaf-new="(node) => !node.field"
+  :is-leaf-valid="(node) => Boolean(node.field)"
+>
+  <template #leaf-summary="{ node }">
+    <span>{{ node.field }} {{ node.operator }} {{ node.value }}</span>
+  </template>
+  <template #leaf="{ node }">
+    <MyLeafEditor :node="node" />
+  </template>
+</TreeBuilder>
 ```
 
 Consumers own the canonical serializable tree. Domain layers interpret leaf payloads and scope metadata.
+
+## Inline presentation modes
+
+- `presentationMode`: `hybrid` | `summary` | `form` (default: `hybrid`).
+- `editorLayout`: `replace` | `alongside` (default: `replace`).
+- `isLeafNew`: Function `(node) => boolean`.
+- `isLeafValid`: Function `(node) => boolean`.
+- `#leaf-summary`: Optional slot for human-readable leaf summaries. Double-clicking or clicking the Edit action toggles the leaf into form mode.
 
 ## Scope
 

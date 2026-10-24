@@ -105,6 +105,11 @@ assert.equal(
 
 assert.equal(getSummaryToggleAction(rows[0]), "edit");
 assert.equal(getSummaryToggleAction({ isEditing: true }), "view");
+assert.equal(getSummaryToggleAction({ isEditing: true }, { isNew: true, mode: "hybrid" }), null);
+assert.equal(getSummaryToggleAction({ isEditing: true }, { isValid: false, mode: "hybrid" }), null);
+assert.equal(getSummaryToggleAction({ isEditing: true }, { mode: "summary" }), "view");
+assert.equal(getSummaryToggleAction({ isEditing: true }, { mode: "Summary" }), "view");
+assert.equal(getSummaryToggleAction({ isEditing: true }, { mode: "Form" }), null);
 assert.equal(getSummaryToggleAction(rows[0], { readOnly: true }), null);
 assert.equal(getSummaryToggleAction({ isEditing: true }, { readOnly: true }), null);
 assert.equal(getSummaryToggleAction(rows[0], { availableRowActions: ["remove"] }), null);

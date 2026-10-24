@@ -17,6 +17,7 @@
 			:pagination="true"
 			:pageSize="10"
 			:pageSizeOptions="[5, 10, 20, 50]"
+			:presentationMode="presentationMode"
 			@row-action="handleGridRowAction"
 			@primary-action="handleGridPrimaryAction"
 			@grid-action="handleGridSecondaryAction"
@@ -271,9 +272,13 @@ import {
 	parseOutputFields,
 	serializeOutputFields,
 	validateOutputFields,
-} from "./output_fields_model.js";
+} from "./output_fields_model.mjs";
 import { resolveFieldInfo } from "./output_field_info.mjs";
 import OutputFieldPicker from "./OutputFieldPicker.vue";
+import { useStore } from "../../../../stores";
+
+const store = useStore();
+const presentationMode = computed(() => store.settings?.row_leaf_presentation_mode || "hybrid");
 
 const props = defineProps({
 	modelValue: { type: [Array, String], default: () => [] },

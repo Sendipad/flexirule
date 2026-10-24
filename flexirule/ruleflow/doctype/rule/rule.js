@@ -421,6 +421,25 @@ function test_rule(frm) {
 	});
 	d.show();
 }
+function get_grid_row_field(grid_row, fieldname) {
+	if (!grid_row || !fieldname) return null;
+
+	// GridRow.get_field() throws when the inline field and grid form field are both absent.
+	// Check Frappe v15's actual registries before reading a field or changing its display.
+	return (
+		grid_row.on_grid_fields_dict?.[fieldname] ||
+		grid_row.grid_form?.fields_dict?.[fieldname] ||
+		null
+	);
+}
+
+function toggle_grid_row_field_display(grid_row, fieldname, show) {
+	if (!get_grid_row_field(grid_row, fieldname)) return false;
+
+	grid_row.toggle_display(fieldname, show);
+	return true;
+}
+
 function toggle_action_fields(frm, cdt, cdn) {
 	const row = locals?.[cdt]?.[cdn];
 	if (!row) return;
@@ -460,10 +479,8 @@ function toggle_action_fields(frm, cdt, cdn) {
 	];
 
 	// Initial Hide
-	all_config_fields.forEach((f) => {
-		if (grid_row.get_field(f)) {
-			grid_row.toggle_display(f, false);
-		}
+	all_config_fields.forEach((fieldname) => {
+		toggle_grid_row_field_display(grid_row, fieldname, false);
 	});
 
 	const type = row.action_type;
@@ -535,20 +552,18 @@ function toggle_action_fields(frm, cdt, cdn) {
 
 	// Deduplicate and filter existing fields
 	const unique_fields = [...new Set(fields_to_show)];
-	unique_fields.forEach((f) => {
-		if (grid_row.get_field(f)) {
-			grid_row.toggle_display(f, true);
-		}
+	unique_fields.forEach((fieldname) => {
+		toggle_grid_row_field_display(grid_row, fieldname, true);
 	});
 
-	const returnTypeField = grid_row.get_field("return_type");
+	const returnTypeField = get_grid_row_field(grid_row, "return_type");
 	if (returnTypeField) {
 		returnTypeField.df.reqd = requireReturnType ? 1 : 0;
 		returnTypeField.refresh();
 	}
 
 	// Update Operation Label if contract provides it
-	const op_field = grid_row.get_field("operation");
+	const op_field = get_grid_row_field(grid_row, "operation");
 	if (op_field) {
 		const dynamicOperationLabel = flexirule.contracts?.getFieldLabel?.(type, "operation", {
 			operation: row.operation,
@@ -574,7 +589,7 @@ function update_operation_options(frm, cdt, cdn) {
 	if (!grid_row) return;
 
 	const apply_ops = (ops) => {
-		const field = grid_row.get_field("operation");
+		const field = get_grid_row_field(grid_row, "operation");
 		if (!field) return;
 		const normalized = (ops || []).map((op) => {
 			if (typeof op === "string") return op;

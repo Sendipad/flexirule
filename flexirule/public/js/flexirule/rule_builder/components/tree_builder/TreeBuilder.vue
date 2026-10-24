@@ -54,17 +54,23 @@
 				:groupOperators="operators"
 				:operatorLabel="operatorLabel"
 				:visibleNode="visibleNode"
+				:presentationMode="presentationMode"
+				:editorLayout="editorLayout"
+				:isLeafNew="isLeafNew"
+				:isLeafValid="isLeafValid"
 				@remove="removeNode(node.id)"
 				@operator="setOperator(node.id, $event)"
 			>
 				<template #default="p"><slot name="leaf" v-bind="p" /></template>
+				<template #leaf="p"><slot name="leaf" v-bind="p" /></template>
+				<template #leaf-summary="p"><slot name="leaf-summary" v-bind="p" /></template>
 				<template #collection="p"><slot name="collection" v-bind="p" /></template>
 			</TreeBuilderNode>
 		</div>
 	</div>
 </template>
 <script setup>
-import { computed, provide, ref } from "vue";
+import { computed, provide, ref, useSlots } from "vue";
 import TreeBuilderNode from "./TreeBuilderNode.vue";
 import { useTreeBuilder } from "./useTreeBuilder.js";
 
@@ -89,8 +95,13 @@ const props = defineProps({
 	allowEmptyGroups: { type: Boolean, default: true },
 	validateLeaf: { type: Function, default: null },
 	validateCollection: { type: Function, default: null },
+	presentationMode: { type: String, default: "hybrid" },
+	editorLayout: { type: String, default: "replace" },
+	isLeafNew: { type: Function, default: null },
+	isLeafValid: { type: Function, default: null },
 });
 const emit = defineEmits(["update:modelValue", "change", "validation-error"]);
+const slots = useSlots();
 const api = useTreeBuilder({
 	modelValue: computed(() => props.modelValue),
 	emit,
@@ -105,7 +116,16 @@ const api = useTreeBuilder({
 	validateLeaf: props.validateLeaf,
 	validateCollection: props.validateCollection,
 });
-provide("treeBuilderContext", api);
+
+const hasSummarySlot = computed(() => Boolean(slots["leaf-summary"]));
+provide("treeBuilderContext", {
+	...api,
+	presentationMode: computed(() => props.presentationMode),
+	editorLayout: computed(() => props.editorLayout),
+	isLeafNew: computed(() => props.isLeafNew),
+	isLeafValid: computed(() => props.isLeafValid),
+	hasSummarySlot,
+});
 const { root, operators, addLeaf, addCollection, addGroup, removeNode, setOperator } = api;
 const operatorLabel = (op) => props.operatorLabel(op);
 const visibleNode = (node) => props.visibleNode(node) !== false;

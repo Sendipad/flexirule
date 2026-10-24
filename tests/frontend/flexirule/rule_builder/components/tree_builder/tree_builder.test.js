@@ -6,7 +6,7 @@ import {
 	findParent,
 	findPath,
 	normalizeTree,
-} from "../../../../../../flexirule/public/js/flexirule/rule_builder/components/tree_builder/tree_builder_utils.js";
+} from "../../../../../../flexirule/public/js/flexirule/rule_builder/components/tree_builder/tree_builder_utils.mjs";
 import {
 	addCollection,
 	addGroup,
@@ -14,12 +14,12 @@ import {
 	moveNode,
 	removeNode,
 	setOperator,
-} from "../../../../../../flexirule/public/js/flexirule/rule_builder/components/tree_builder/tree_builder_commands.js";
-import { validateTree } from "../../../../../../flexirule/public/js/flexirule/rule_builder/components/tree_builder/tree_builder_validation.js";
+} from "../../../../../../flexirule/public/js/flexirule/rule_builder/components/tree_builder/tree_builder_commands.mjs";
+import { validateTree } from "../../../../../../flexirule/public/js/flexirule/rule_builder/components/tree_builder/tree_builder_validation.mjs";
 import {
 	deserializeQueryFilters,
 	serializeQueryFilters,
-} from "../../../../../../flexirule/public/js/flexirule/rule_builder/components/rule_config/query_filters/query_filter_serializer.js";
+} from "../../../../../../flexirule/public/js/flexirule/rule_builder/components/rule_config/query_filters/query_filter_serializer.mjs";
 
 const root = createGroup("and", []);
 const group = addGroup(root, root.id, "or");
