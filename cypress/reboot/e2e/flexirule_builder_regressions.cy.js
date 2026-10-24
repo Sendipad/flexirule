@@ -31,10 +31,9 @@ describe("FlexiRule builder regression coverage", () => {
 			"have.value",
 			ruleName
 		);
-		cy.get('input[data-fieldname="document_type"][data-doctype="Rule"]', { timeout: 10000 }).should(
-			"have.value",
-			"Contact"
-		);
+		cy.get('input[data-fieldname="document_type"][data-doctype="Rule"]', {
+			timeout: 10000,
+		}).should("have.value", "Contact");
 
 		cy.get(".modal.show button.btn-modal-primary")
 			.filter(':contains("Save")')
