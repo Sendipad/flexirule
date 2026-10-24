@@ -1,6 +1,7 @@
 {
 	"name": "flexirule",
 	"version": "0.0.1",
+	"type": "module",
 	"description": "Advanced Rule Engine for Frappe",
 	"main": "index.js",
 	"scripts": {
