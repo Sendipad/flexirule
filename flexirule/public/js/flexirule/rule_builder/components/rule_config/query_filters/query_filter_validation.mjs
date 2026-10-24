@@ -44,12 +44,35 @@ export function isValidIsValue(val) {
 	);
 }
 
+function getNestedSetOptions(context = {}) {
+	if (context.nestedSetOptions) return context.nestedSetOptions;
+	const bootDoctypes =
+		typeof frappe !== "undefined" && frappe.boot?.nested_set_doctypes
+			? frappe.boot.nested_set_doctypes
+			: [];
+	return {
+		nestedSetDoctypes: bootDoctypes,
+		rootDoctype: context.doctype,
+	};
+}
+
 function resolveFieldDef(leaf, context = {}) {
 	if (context.fieldDef) return context.fieldDef;
 	if (!leaf?.field) return null;
-	const resolved = resolveFilterFieldDef(leaf.field, context.doctype, context.metaMap);
-	if (resolved && resolved.isResolved) return resolved;
-	return null;
+	return resolveFilterFieldDef(leaf.field, context.doctype, context.metaMap);
+}
+
+function isFieldUnavailable(fieldDef, context = {}) {
+	if (!fieldDef || fieldDef.isResolved !== false) return false;
+	if (fieldDef.metadataChecked) return true;
+	if (
+		context.metaMap ||
+		(typeof frappe !== "undefined" && frappe.meta) ||
+		context.requireResolvedField
+	) {
+		return true;
+	}
+	return false;
 }
 
 export function isFilterLeafValid(leaf, context = {}) {
@@ -57,9 +80,16 @@ export function isFilterLeafValid(leaf, context = {}) {
 	if (!leaf.operator) return false;
 
 	const fieldDef = resolveFieldDef(leaf, context);
+	if (isFieldUnavailable(fieldDef, context)) {
+		return false;
+	}
+
+	const nestedSetOpts = getNestedSetOptions(context);
 	const allowed =
 		context.allowedOperators ||
-		(fieldDef ? getFilterOperators(fieldDef, context.nestedSetOptions) : null);
+		(fieldDef && fieldDef.isResolved !== false
+			? getFilterOperators(fieldDef, nestedSetOpts)
+			: null);
 	if (allowed && allowed.length > 0 && !allowed.includes(leaf.operator)) {
 		return false;
 	}
@@ -87,9 +117,19 @@ export function validateFilterLeaf(leaf, context = {}) {
 	}
 
 	const fieldDef = resolveFieldDef(leaf, context);
+	if (isFieldUnavailable(fieldDef, context)) {
+		errors.push(
+			"The selected filter field is unavailable. Choose a valid field for this DocType."
+		);
+		return { valid: false, errors };
+	}
+
+	const nestedSetOpts = getNestedSetOptions(context);
 	const allowed =
 		context.allowedOperators ||
-		(fieldDef ? getFilterOperators(fieldDef, context.nestedSetOptions) : null);
+		(fieldDef && fieldDef.isResolved !== false
+			? getFilterOperators(fieldDef, nestedSetOpts)
+			: null);
 
 	if (allowed && allowed.length > 0 && !allowed.includes(leaf.operator)) {
 		errors.push("Choose a supported operator for the selected field.");

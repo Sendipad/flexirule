@@ -80,6 +80,63 @@ assert.equal(
 	true
 );
 
+// Nested-set operators in headless validation
+const nestedSetContext = {
+	doctype: "Item Group",
+	metaMap: {
+		"Item Group": [
+			{ fieldname: "parent_item_group", fieldtype: "Link", options: "Item Group" },
+		],
+	},
+	nestedSetOptions: { nestedSetDoctypes: ["Item Group"], rootDoctype: "Item Group" },
+};
+assert.equal(
+	isFilterLeafValid(
+		{
+			field: "parent_item_group",
+			operator: "descendants of",
+			value: { mode: "static", value: "All Item Groups" },
+		},
+		nestedSetContext
+	),
+	true
+);
+assert.equal(
+	validateFilterLeaf(
+		{
+			field: "parent_item_group",
+			operator: "descendants of",
+			value: { mode: "static", value: "All Item Groups" },
+		},
+		nestedSetContext
+	).valid,
+	true
+);
+
+// Unresolved field validation test
+const unresolvedResult = validateFilterLeaf(
+	{ field: "nonexistent_field", operator: "=", value: { mode: "static", value: "test" } },
+	{ doctype: "Sales Order", metaMap: { "Sales Order": [] } }
+);
+assert.equal(unresolvedResult.valid, false);
+assert.equal(
+	unresolvedResult.errors.includes(
+		"The selected filter field is unavailable. Choose a valid field for this DocType."
+	),
+	true
+);
+
+// Unsupported operator test
+const unsupportedResult = validateFilterLeaf(
+	{ field: "creation", operator: "invalid_op", value: { mode: "static", value: "2026-01-01" } },
+	{ fieldDef: { fieldtype: "Datetime", isResolved: true } }
+);
+assert.equal(unsupportedResult.valid, false);
+assert.equal(
+	unsupportedResult.errors.includes("Choose a supported operator for the selected field."),
+	true
+);
+
 // Production value formatting tests using formatSingleValue
 assert.equal(formatSingleValue({ mode: "static", value: "Open" }), "Open");
 assert.equal(

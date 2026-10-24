@@ -16,6 +16,7 @@ import {
 	setOperator,
 } from "./tree_builder_commands.mjs";
 import { validateTree } from "./tree_builder_validation.mjs";
+import { useTreeBuilder } from "./useTreeBuilder.js";
 import {
 	deserializeQueryFilters,
 	serializeQueryFilters,
@@ -105,6 +106,39 @@ assert.deepEqual(serializeQueryFilters(editableFilters), [
 	"=",
 	{ mode: "static", value: "" },
 ]);
+
+// Transient new leaf and editing lifecycle tests in useTreeBuilder
+const tb = useTreeBuilder({ modelValue: createGroup("and", []) });
+const newLeaf = tb.addLeaf(tb.root.id, {
+	field: "",
+	operator: "=",
+	value: { mode: "static", value: "" },
+});
+assert.ok(newLeaf?.id);
+assert.equal(tb.editingNodeId.value, newLeaf.id);
+assert.equal(tb.isTransientNew(newLeaf.id), true);
+
+// Finishing editing clears transient new status and editing state
+tb.finishEditing(newLeaf.id);
+assert.equal(tb.editingNodeId.value, null);
+assert.equal(tb.isTransientNew(newLeaf.id), false);
+
+// Adding another leaf and removing it cleans up transient state
+const secondLeaf = tb.addLeaf(tb.root.id, {
+	field: "status",
+	operator: "=",
+	value: { mode: "static", value: "Open" },
+});
+assert.equal(tb.isTransientNew(secondLeaf.id), true);
+tb.removeNode(secondLeaf.id);
+assert.equal(tb.isTransientNew(secondLeaf.id), false);
+assert.equal(tb.editingNodeId.value, null);
+
+// Resetting root clears transient state
+const thirdLeaf = tb.addLeaf(tb.root.id, { field: "status" });
+assert.equal(tb.isTransientNew(thirdLeaf.id), true);
+tb.reset(createGroup("and", []));
+assert.equal(tb.isTransientNew(thirdLeaf.id), false);
 editableFilters.children[0].field = "customer_group";
 assert.deepEqual(serializeQueryFilters(editableFilters), [
 	"Customer",

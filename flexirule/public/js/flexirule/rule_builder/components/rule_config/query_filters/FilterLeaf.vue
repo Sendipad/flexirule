@@ -319,12 +319,19 @@ function isEmpty(value) {
 	return value === undefined || value === null || value === "";
 }
 async function validate() {
-	const result = validateFilterLeaf(leaf.value);
+	const result = validateFilterLeaf(leaf.value, {
+		doctype: props.doctype,
+		fieldDef: field.value,
+	});
 	const errors = result.errors.map((msg) => __(msg));
-	if (operatorInvalid.value && leaf.value.field) {
+	if (
+		operatorInvalid.value &&
+		leaf.value.field &&
+		!errors.includes(__("Choose a supported operator for the selected field."))
+	) {
 		errors.push(__("Choose a supported operator for the selected field."));
 	}
-	return { valid: errors.length === 0, errors };
+	return { valid: errors.length === 0, errors: [...new Set(errors)] };
 }
 defineExpose({ validate });
 </script>

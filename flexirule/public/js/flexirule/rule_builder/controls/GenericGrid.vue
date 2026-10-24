@@ -417,7 +417,7 @@
 
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useSlots, watch } from "vue";
-import { getInlinePresentation } from "./inline_presentation_policy.mjs";
+import { getInlinePresentation, resolvePresentationMode } from "./inline_presentation_policy.mjs";
 import {
 	GRID_CLIPBOARD_FORMAT,
 	getRowKey,
@@ -796,7 +796,9 @@ function summaryToggleAction(entry) {
 	if (!props.availableRowActions.includes("edit")) return null;
 	const presentation = getRowPresentation(entry);
 	if (!presentation.canToggle) return null;
-	if (presentation.presentation === "editor") return "view";
+	if (presentation.presentation === "editor") {
+		return canFinishRowEditing(entry) ? "view" : null;
+	}
 	if (presentation.presentation === "summary") return "edit";
 	return null;
 }
@@ -814,7 +816,7 @@ function canFinishRowEditing(entry) {
 			? props.isRowValid(entry.row, entry.index)
 			: !getInvalidState(entry.row, entry.index).invalid;
 	const isEditing = Boolean(entry.row?.[props.editStateKey]);
-	const mode = props.presentationMode || "hybrid";
+	const mode = resolvePresentationMode(props.presentationMode);
 
 	if (mode === "summary") return isEditing;
 	if (mode === "hybrid") return isEditing && !isNew && isValid;

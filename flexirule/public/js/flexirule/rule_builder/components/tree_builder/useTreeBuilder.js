@@ -71,6 +71,7 @@ export function useTreeBuilder({
 	const selectedNodeId = ref(null);
 	const focusedNodeId = ref(null);
 	const editingNodeId = ref(null);
+	const transientNewNodes = reactive(new Set());
 	const expandedNodes = reactive(new Set([root.id]));
 	const dragState = reactive({ nodeId: null });
 	let syncing = false;
@@ -84,6 +85,7 @@ export function useTreeBuilder({
 		Object.assign(root, normalized);
 		expandedNodes.clear();
 		expandedNodes.add(root.id);
+		transientNewNodes.clear();
 		return modelError.value ? false : true;
 	}
 
@@ -110,10 +112,17 @@ export function useTreeBuilder({
 		);
 	}
 
-	const addLeaf = (parentId = root.id, payload) =>
-		canAddChild(parentId)
-			? mutate((tree) => commands.addLeaf(tree, parentId, payload ?? leafFactory()))
-			: null;
+	const addLeaf = (parentId = root.id, payload) => {
+		if (!canAddChild(parentId)) return null;
+		const createdNode = mutate((tree) =>
+			commands.addLeaf(tree, parentId, payload ?? leafFactory())
+		);
+		if (createdNode?.id) {
+			transientNewNodes.add(createdNode.id);
+			editingNodeId.value = createdNode.id;
+		}
+		return createdNode;
+	};
 
 	const addCollection = (parentId = root.id) =>
 		allowCollections && canAddChild(parentId)
@@ -131,6 +140,7 @@ export function useTreeBuilder({
 			if (selectedNodeId.value === id) selectedNodeId.value = null;
 			if (focusedNodeId.value === id) focusedNodeId.value = null;
 			if (editingNodeId.value === id) editingNodeId.value = null;
+			transientNewNodes.delete(id);
 		}
 		return result;
 	}
@@ -169,6 +179,7 @@ export function useTreeBuilder({
 			validateCollection,
 		});
 		if (!structural.valid) return false;
+		transientNewNodes.delete(id);
 		return mutate((tree) => commands.replaceNode(tree, id, result));
 	}
 
@@ -234,6 +245,28 @@ export function useTreeBuilder({
 		{ deep: true }
 	);
 
+	function finishEditing(id) {
+		if (id) {
+			transientNewNodes.delete(id);
+			if (editingNodeId.value === id) {
+				editingNodeId.value = null;
+			}
+		} else {
+			if (editingNodeId.value) {
+				transientNewNodes.delete(editingNodeId.value);
+			}
+			editingNodeId.value = null;
+		}
+	}
+
+	function clearTransientNew(id) {
+		if (id) {
+			transientNewNodes.delete(id);
+		} else {
+			transientNewNodes.clear();
+		}
+	}
+
 	return {
 		root,
 		modelError,
@@ -242,6 +275,7 @@ export function useTreeBuilder({
 		selectedNodeId,
 		focusedNodeId,
 		editingNodeId,
+		transientNewNodes,
 		expandedNodes,
 		dragState,
 		operators,
@@ -257,6 +291,9 @@ export function useTreeBuilder({
 		selectNode: (id) => (selectedNodeId.value = id),
 		focusNode: (id) => (focusedNodeId.value = id),
 		setEditing: (id) => (editingNodeId.value = id),
+		finishEditing,
+		clearTransientNew,
+		isTransientNew: (id) => transientNewNodes.has(id),
 		toggleExpanded,
 		isExpanded: (id) => expandedNodes.has(id),
 		canAddChild,

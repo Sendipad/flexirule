@@ -58,25 +58,45 @@ export function formatSingleValue(val) {
 export function resolveFilterFieldDef(fieldname, doctype, metaMap = null) {
 	if (!fieldname) return null;
 	if (fieldname === "name")
-		return { fieldname, fieldtype: "Data", isResolved: true, label: "Name" };
+		return {
+			fieldname,
+			fieldtype: "Data",
+			isResolved: true,
+			metadataChecked: true,
+			label: "Name",
+		};
 	if (["owner", "modified_by"].includes(fieldname))
 		return {
 			fieldname,
 			fieldtype: "Link",
 			options: "User",
 			isResolved: true,
+			metadataChecked: true,
 			label: humanize(fieldname),
 		};
 	if (["creation", "modified"].includes(fieldname))
-		return { fieldname, fieldtype: "Datetime", isResolved: true, label: humanize(fieldname) };
+		return {
+			fieldname,
+			fieldtype: "Datetime",
+			isResolved: true,
+			metadataChecked: true,
+			label: humanize(fieldname),
+		};
 	if (fieldname === "docstatus")
-		return { fieldname, fieldtype: "Int", isResolved: true, label: "Docstatus" };
+		return {
+			fieldname,
+			fieldtype: "Int",
+			isResolved: true,
+			metadataChecked: true,
+			label: "Docstatus",
+		};
 
 	const parts = String(fieldname).split(".");
 	if (parts.length > 1) {
 		let currentDoctype = doctype;
 		let targetFieldtype = null;
 		let isResolved = false;
+		let metadataChecked = false;
 		const formattedParts = [];
 
 		for (let i = 0; i < parts.length; i++) {
@@ -85,11 +105,13 @@ export function resolveFilterFieldDef(fieldname, doctype, metaMap = null) {
 
 			if (currentDoctype) {
 				if (metaMap && metaMap[currentDoctype]) {
+					metadataChecked = true;
 					df = metaMap[currentDoctype].find((f) => f.fieldname === part);
 				} else if (
 					typeof frappe !== "undefined" &&
 					frappe.meta?.has_field?.(currentDoctype, part)
 				) {
+					metadataChecked = true;
 					df = frappe.meta.get_docfield(currentDoctype, part);
 				}
 			}
@@ -114,16 +136,20 @@ export function resolveFilterFieldDef(fieldname, doctype, metaMap = null) {
 			fieldname,
 			fieldtype: targetFieldtype || "Data",
 			isResolved,
+			metadataChecked,
 			label: formattedParts.join(" · "),
 		};
 	}
 
 	const raw = String(fieldname).replace(/^doc\./, "");
 	let df = null;
+	let metadataChecked = false;
 	if (doctype) {
 		if (metaMap && metaMap[doctype]) {
+			metadataChecked = true;
 			df = metaMap[doctype].find((f) => f.fieldname === raw);
 		} else if (typeof frappe !== "undefined" && frappe.meta?.has_field?.(doctype, raw)) {
+			metadataChecked = true;
 			df = frappe.meta.get_docfield(doctype, raw);
 		}
 	}
@@ -135,11 +161,18 @@ export function resolveFilterFieldDef(fieldname, doctype, metaMap = null) {
 			fieldname,
 			fieldtype: df.fieldtype,
 			isResolved: true,
+			metadataChecked: true,
 			label: typeof __ === "function" ? __(labelText) : labelText,
 		};
 	}
 
-	return { fieldname, fieldtype: "Data", isResolved: false, label: humanize(raw) };
+	return {
+		fieldname,
+		fieldtype: "Data",
+		isResolved: false,
+		metadataChecked,
+		label: humanize(raw),
+	};
 }
 
 export function formatFilterSummary(node, doctype, metaMap = null) {

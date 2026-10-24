@@ -103,7 +103,10 @@
 
 <script setup>
 import { computed, inject, useSlots } from "vue";
-import { getInlinePresentation } from "../../controls/inline_presentation_policy.mjs";
+import {
+	getInlinePresentation,
+	resolvePresentationMode,
+} from "../../controls/inline_presentation_policy.mjs";
 
 const props = defineProps({
 	node: { type: Object, required: true },
@@ -131,7 +134,15 @@ const isEditing = computed(() => {
 	return editingId === props.node.id;
 });
 
+const isTransientNew = computed(() => {
+	if (typeof api?.isTransientNew === "function") {
+		return api.isTransientNew(props.node.id);
+	}
+	return false;
+});
+
 const isNew = computed(() => {
+	if (isTransientNew.value) return true;
 	if (typeof props.isLeafNew === "function") return props.isLeafNew(props.node);
 	if (typeof api?.isLeafNew?.value === "function") return api.isLeafNew.value(props.node);
 	return Boolean(props.node?.isNew);
@@ -143,8 +154,8 @@ const isValid = computed(() => {
 	return props.node?.isValid !== false;
 });
 
-const resolvedPresentationMode = computed(
-	() => props.presentationMode || api?.presentationMode?.value || "hybrid"
+const resolvedPresentationMode = computed(() =>
+	resolvePresentationMode(props.presentationMode || api?.presentationMode?.value)
 );
 
 const resolvedEditorLayout = computed(
@@ -166,7 +177,7 @@ const canFinishEditing = computed(() => {
 	if (!hasSummarySlot.value || !inlinePresentation.value.canToggle) return false;
 	const mode = resolvedPresentationMode.value;
 	if (mode === "summary") return isEditing.value;
-	if (mode === "hybrid") return isEditing.value && !isNew.value && isValid.value;
+	if (mode === "hybrid") return isEditing.value && isValid.value;
 	return false;
 });
 
@@ -178,7 +189,9 @@ function startEditing() {
 }
 
 function stopEditing() {
-	if (typeof api?.setEditing === "function") {
+	if (typeof api?.finishEditing === "function") {
+		api.finishEditing(props.node.id);
+	} else if (typeof api?.setEditing === "function") {
 		const editingId = api?.editingNodeId?.value ?? api?.editingNodeId;
 		if (editingId === props.node.id) {
 			api.setEditing(null);
