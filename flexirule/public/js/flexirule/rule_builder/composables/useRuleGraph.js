@@ -69,199 +69,199 @@ export function useRuleGraph() {
 			uiStore.is_performing_layout = true;
 			try {
 				const currentNodes = deepClone(nodes.value);
-		const currentEdges = deepClone(edges.value);
+				const currentEdges = deepClone(edges.value);
 
-		const isHorizontal = direction === "LR";
+				const isHorizontal = direction === "LR";
 
-		// ── 1. Identify Loop nodes and their body subgraphs ──────────────────
-		const loopNodes = currentNodes.filter(
-			(n) => n.type === "loop" || n.data?.action_type === "Loop"
-		);
-
-		// Map: loopId → Set of body node IDs (nodes in the For Each branch)
-		const loopBodyMap = new Map();
-		// Set of all body node IDs across all loops (excluded from dagre main graph)
-		const allBodyNodeIds = new Set();
-
-		loopNodes.forEach((loopNode) => {
-			const afterLastId = getLoopAfterLastTarget(loopNode.id, currentEdges);
-			const bodyEntryId = getLoopBodyEntry(loopNode.id, currentEdges);
-
-			if (!bodyEntryId) return;
-
-			// Body = all nodes reachable from bodyEntry that are NOT in the
-			// "After Last" subtree (and not the loop itself)
-			const afterLastSubtree = afterLastId
-				? bfsReachable(afterLastId, currentEdges)
-				: new Set();
-
-			const stopSet = new Set([loopNode.id, ...afterLastSubtree]);
-			const bodyIds = bfsReachable(bodyEntryId, currentEdges, stopSet);
-
-			loopBodyMap.set(loopNode.id, { bodyIds, bodyEntryId, afterLastId });
-			bodyIds.forEach((id) => allBodyNodeIds.add(id));
-		});
-
-		// ── 2. Run dagre on the MAIN FLOW (excluding body nodes) ─────────────
-		const dagreGraph = new dagre.graphlib.Graph();
-		dagreGraph.setDefaultEdgeLabel(() => ({}));
-		dagreGraph.setGraph({
-			rankdir: direction,
-			nodesep: isHorizontal ? V_GAP : H_GAP,
-			ranksep: isHorizontal ? H_GAP + 12 : V_GAP,
-			marginx: 40,
-			marginy: 40,
-		});
-
-		// Only add non-body nodes to the main dagre graph
-		currentNodes.forEach((node) => {
-			if (!allBodyNodeIds.has(node.id)) {
-				dagreGraph.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
-			}
-		});
-
-		// Only add edges that don't connect into the body subgraph
-		currentEdges.forEach((edge) => {
-			if (!allBodyNodeIds.has(edge.target) && !allBodyNodeIds.has(edge.source)) {
-				// Skip the "For Each" edge (it goes into the body) for the main layout
-				dagreGraph.setEdge(edge.source, edge.target);
-			}
-		});
-
-		dagre.layout(dagreGraph);
-
-		// Collect main-flow positions
-		const positions = new Map();
-		currentNodes.forEach((node) => {
-			if (allBodyNodeIds.has(node.id)) return;
-			const p = dagreGraph.node(node.id);
-			if (p) {
-				positions.set(node.id, {
-					x: p.x - NODE_WIDTH / 2,
-					y: p.y - NODE_HEIGHT / 2,
-				});
-			}
-		});
-
-		// ── 2.5. Enforce Adaptive Edge Extension after Trigger ───────────────
-		// Vertical Layout: Trigger -> Next must be 120px gap
-		// Horizontal Layout: Trigger -> Next must be 160px gap
-		const triggerNode = currentNodes.find((n) => n.type === "start");
-		if (triggerNode) {
-			const successors = bfsReachable(triggerNode.id, currentEdges);
-			successors.delete(triggerNode.id);
-
-			const currentRankSep = isHorizontal ? H_GAP + 12 : V_GAP;
-			const targetRankSep = isHorizontal ? 160 : 120;
-			const extraShift = targetRankSep - currentRankSep;
-
-			if (extraShift > 0) {
-				successors.forEach((id) => {
-					const p = positions.get(id);
-					if (p) {
-						if (isHorizontal) p.x += extraShift;
-						else p.y += extraShift;
-					}
-				});
-			}
-		}
-
-		// ── 3. Layout each loop body in a sub-column ─────────────────────────
-		loopBodyMap.forEach(({ bodyIds, bodyEntryId, afterLastId }, loopId) => {
-			const loopPos = positions.get(loopId);
-			if (!loopPos) return;
-
-			// Shift AfterLast subtree out of the way to make room for body
-			if (afterLastId) {
-				const afterLastSubtreeIds = bfsReachable(afterLastId, currentEdges);
-				// In LR layout, After Last exits Bottom -> shift Down (+Y)
-				// In TB layout, After Last exits Right -> shift Right (+X)
-				const shiftX = isHorizontal ? 0 : NODE_WIDTH + H_GAP + 80;
-				const shiftY = isHorizontal ? NODE_HEIGHT + V_GAP + 80 : 0;
-
-				afterLastSubtreeIds.forEach((id) => {
-					const p = positions.get(id);
-					if (p) {
-						p.x += shiftX;
-						p.y += shiftY;
-					}
-				});
-			}
-
-			// Body nodes go straight in the direction of the flow:
-			// TB: Below the loop | LR: Right of the loop
-			let bodyX = loopPos.x;
-			let bodyY = loopPos.y;
-
-			if (isHorizontal) {
-				bodyX += NODE_WIDTH + H_GAP + 60;
-			} else {
-				bodyY += NODE_HEIGHT + V_GAP + 40;
-			}
-
-			// BFS-order the body nodes so they stack nicely
-			const ordered = [];
-			const visited = new Set();
-			const queue = [bodyEntryId];
-			while (queue.length) {
-				const id = queue.shift();
-				if (visited.has(id) || !bodyIds.has(id)) continue;
-				visited.add(id);
-				ordered.push(id);
-				currentEdges.forEach((e) => {
-					if (e.source === id && bodyIds.has(e.target) && !visited.has(e.target)) {
-						queue.push(e.target);
-					}
-				});
-			}
-
-			// Assign positions stacked in the body sub-column
-			ordered.forEach((id, i) => {
-				if (isHorizontal) {
-					positions.set(id, {
-						x: bodyX + (NODE_WIDTH + H_GAP + 40) * i,
-						y: bodyY,
-					});
-				} else {
-					positions.set(id, {
-						x: bodyX,
-						y: bodyY + (NODE_HEIGHT + V_GAP + 16) * i,
-					});
-				}
-			});
-		});
-
-		// ── 4. Apply positions back to nodes ─────────────────────────────────
-		// Identify the "last" node in each loop body (the one that should return)
-		const loopReturnSourceIds = new Set();
-		loopBodyMap.forEach(({ bodyIds, bodyEntryId }, loopId) => {
-			bodyIds.forEach((id) => {
-				const hasChildrenInBody = currentEdges.some(
-					(e) => e.source === id && bodyIds.has(e.target)
+				// ── 1. Identify Loop nodes and their body subgraphs ──────────────────
+				const loopNodes = currentNodes.filter(
+					(n) => n.type === "loop" || n.data?.action_type === "Loop"
 				);
-				if (!hasChildrenInBody) {
-					loopReturnSourceIds.add(id);
+
+				// Map: loopId → Set of body node IDs (nodes in the For Each branch)
+				const loopBodyMap = new Map();
+				// Set of all body node IDs across all loops (excluded from dagre main graph)
+				const allBodyNodeIds = new Set();
+
+				loopNodes.forEach((loopNode) => {
+					const afterLastId = getLoopAfterLastTarget(loopNode.id, currentEdges);
+					const bodyEntryId = getLoopBodyEntry(loopNode.id, currentEdges);
+
+					if (!bodyEntryId) return;
+
+					// Body = all nodes reachable from bodyEntry that are NOT in the
+					// "After Last" subtree (and not the loop itself)
+					const afterLastSubtree = afterLastId
+						? bfsReachable(afterLastId, currentEdges)
+						: new Set();
+
+					const stopSet = new Set([loopNode.id, ...afterLastSubtree]);
+					const bodyIds = bfsReachable(bodyEntryId, currentEdges, stopSet);
+
+					loopBodyMap.set(loopNode.id, { bodyIds, bodyEntryId, afterLastId });
+					bodyIds.forEach((id) => allBodyNodeIds.add(id));
+				});
+
+				// ── 2. Run dagre on the MAIN FLOW (excluding body nodes) ─────────────
+				const dagreGraph = new dagre.graphlib.Graph();
+				dagreGraph.setDefaultEdgeLabel(() => ({}));
+				dagreGraph.setGraph({
+					rankdir: direction,
+					nodesep: isHorizontal ? V_GAP : H_GAP,
+					ranksep: isHorizontal ? H_GAP + 12 : V_GAP,
+					marginx: 40,
+					marginy: 40,
+				});
+
+				// Only add non-body nodes to the main dagre graph
+				currentNodes.forEach((node) => {
+					if (!allBodyNodeIds.has(node.id)) {
+						dagreGraph.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
+					}
+				});
+
+				// Only add edges that don't connect into the body subgraph
+				currentEdges.forEach((edge) => {
+					if (!allBodyNodeIds.has(edge.target) && !allBodyNodeIds.has(edge.source)) {
+						// Skip the "For Each" edge (it goes into the body) for the main layout
+						dagreGraph.setEdge(edge.source, edge.target);
+					}
+				});
+
+				dagre.layout(dagreGraph);
+
+				// Collect main-flow positions
+				const positions = new Map();
+				currentNodes.forEach((node) => {
+					if (allBodyNodeIds.has(node.id)) return;
+					const p = dagreGraph.node(node.id);
+					if (p) {
+						positions.set(node.id, {
+							x: p.x - NODE_WIDTH / 2,
+							y: p.y - NODE_HEIGHT / 2,
+						});
+					}
+				});
+
+				// ── 2.5. Enforce Adaptive Edge Extension after Trigger ───────────────
+				// Vertical Layout: Trigger -> Next must be 120px gap
+				// Horizontal Layout: Trigger -> Next must be 160px gap
+				const triggerNode = currentNodes.find((n) => n.type === "start");
+				if (triggerNode) {
+					const successors = bfsReachable(triggerNode.id, currentEdges);
+					successors.delete(triggerNode.id);
+
+					const currentRankSep = isHorizontal ? H_GAP + 12 : V_GAP;
+					const targetRankSep = isHorizontal ? 160 : 120;
+					const extraShift = targetRankSep - currentRankSep;
+
+					if (extraShift > 0) {
+						successors.forEach((id) => {
+							const p = positions.get(id);
+							if (p) {
+								if (isHorizontal) p.x += extraShift;
+								else p.y += extraShift;
+							}
+						});
+					}
 				}
-			});
-		});
 
-		const layoutedNodes = currentNodes.map((node) => {
-			const pos = positions.get(node.id) || node.position;
-			const isReturnNode = loopReturnSourceIds.has(node.id);
+				// ── 3. Layout each loop body in a sub-column ─────────────────────────
+				loopBodyMap.forEach(({ bodyIds, bodyEntryId, afterLastId }, loopId) => {
+					const loopPos = positions.get(loopId);
+					if (!loopPos) return;
 
-			return {
-				...node,
-				position: pos,
-				sourcePosition: isReturnNode
-					? isHorizontal
-						? "top" // Route above the graph to avoid After Last branch
-						: "left" // Side exit for return path (on the left to avoid After Last branch)
-					: isHorizontal
-					? "right"
-					: "bottom", // Standard flow exit
-				targetPosition: isHorizontal ? "left" : "top",
-			};
-		});
+					// Shift AfterLast subtree out of the way to make room for body
+					if (afterLastId) {
+						const afterLastSubtreeIds = bfsReachable(afterLastId, currentEdges);
+						// In LR layout, After Last exits Bottom -> shift Down (+Y)
+						// In TB layout, After Last exits Right -> shift Right (+X)
+						const shiftX = isHorizontal ? 0 : NODE_WIDTH + H_GAP + 80;
+						const shiftY = isHorizontal ? NODE_HEIGHT + V_GAP + 80 : 0;
+
+						afterLastSubtreeIds.forEach((id) => {
+							const p = positions.get(id);
+							if (p) {
+								p.x += shiftX;
+								p.y += shiftY;
+							}
+						});
+					}
+
+					// Body nodes go straight in the direction of the flow:
+					// TB: Below the loop | LR: Right of the loop
+					let bodyX = loopPos.x;
+					let bodyY = loopPos.y;
+
+					if (isHorizontal) {
+						bodyX += NODE_WIDTH + H_GAP + 60;
+					} else {
+						bodyY += NODE_HEIGHT + V_GAP + 40;
+					}
+
+					// BFS-order the body nodes so they stack nicely
+					const ordered = [];
+					const visited = new Set();
+					const queue = [bodyEntryId];
+					while (queue.length) {
+						const id = queue.shift();
+						if (visited.has(id) || !bodyIds.has(id)) continue;
+						visited.add(id);
+						ordered.push(id);
+						currentEdges.forEach((e) => {
+							if (e.source === id && bodyIds.has(e.target) && !visited.has(e.target)) {
+								queue.push(e.target);
+							}
+						});
+					}
+
+					// Assign positions stacked in the body sub-column
+					ordered.forEach((id, i) => {
+						if (isHorizontal) {
+							positions.set(id, {
+								x: bodyX + (NODE_WIDTH + H_GAP + 40) * i,
+								y: bodyY,
+							});
+						} else {
+							positions.set(id, {
+								x: bodyX,
+								y: bodyY + (NODE_HEIGHT + V_GAP + 16) * i,
+							});
+						}
+					});
+				});
+
+				// ── 4. Apply positions back to nodes ─────────────────────────────────
+				// Identify the "last" node in each loop body (the one that should return)
+				const loopReturnSourceIds = new Set();
+				loopBodyMap.forEach(({ bodyIds, bodyEntryId }, loopId) => {
+					bodyIds.forEach((id) => {
+						const hasChildrenInBody = currentEdges.some(
+							(e) => e.source === id && bodyIds.has(e.target)
+						);
+						if (!hasChildrenInBody) {
+							loopReturnSourceIds.add(id);
+						}
+					});
+				});
+
+				const layoutedNodes = currentNodes.map((node) => {
+					const pos = positions.get(node.id) || node.position;
+					const isReturnNode = loopReturnSourceIds.has(node.id);
+
+					return {
+						...node,
+						position: pos,
+						sourcePosition: isReturnNode
+							? isHorizontal
+								? "top" // Route above the graph to avoid After Last branch
+								: "left" // Side exit for return path (on the left to avoid After Last branch)
+							: isHorizontal
+							? "right"
+							: "bottom", // Standard flow exit
+						targetPosition: isHorizontal ? "left" : "top",
+					};
+				});
 
 				// Apply positions before yielding so subsequent graph edits are not overwritten
 				// by this layout's snapshot. Keep the viewport animation in the same queue slot.
