@@ -507,6 +507,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 	function get_default_node_data(type, label = "") {
 		const id = generateShortId();
 		const actionType = normalizeActionType(flexirule.utils.to_title_case(type));
+		const lowerType = String(type || "").toLowerCase().trim();
 		const baseData = {
 			action_id: id,
 			action_type: actionType,
@@ -518,15 +519,15 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 		};
 
 		// Type-specific defaults
-		if (type === "condition") {
+		if (lowerType === "condition" || actionType === "Condition") {
 			baseData.action_type = "Condition";
 			baseData.compiled_expression = "";
 			baseData.config = { op: "and", conditions: [] };
 			baseData.condition_json = null;
-		} else if (type === "wait") {
+		} else if (lowerType === "wait" || actionType === "Wait") {
 			baseData.action_type = "Wait";
 			baseData.config = { wait_type: "Duration", value: 1, unit: "Minutes" };
-		} else if (type === "assignment") {
+		} else if (lowerType === "assignment" || actionType === "Assignment") {
 			baseData.action_type = "Assignment";
 			baseData.config = [
 				{
@@ -536,19 +537,27 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 					value: { mode: "static", value: "" },
 				},
 			];
-		} else if (type === "stop") {
+		} else if (lowerType === "stop" || actionType === "Stop") {
 			baseData.action_type = "Stop";
 			baseData.operation = "Success";
-		} else if (type === "raise-error" || type === "raise error") {
+		} else if (
+			lowerType === "raise-error" ||
+			lowerType === "raise error" ||
+			actionType === "Raise Error"
+		) {
 			baseData.action_type = "Raise Error";
 			baseData.config = { error_type: "Validation Error" };
-		} else if (type === "loop") {
+		} else if (lowerType === "loop" || actionType === "Loop") {
 			baseData.action_type = "Loop";
 			baseData.config = { iterator: "" };
 			baseData.return_variable = "item";
-		} else if (type === "sub-rule") {
+		} else if (lowerType === "sub-rule" || actionType === "Sub-Rule") {
 			baseData.action_type = "Sub-Rule";
-		} else if (type === "query" || type === "query records") {
+		} else if (
+			lowerType === "query" ||
+			lowerType === "query records" ||
+			actionType === "Query Records"
+		) {
 			baseData.action_type = "Query Records";
 			baseData.operation = "Query List";
 			baseData.return_variable = "query_result";

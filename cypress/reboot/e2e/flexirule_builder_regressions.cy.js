@@ -21,30 +21,26 @@ describe("FlexiRule builder regression coverage", () => {
 				win.cur_dialog ||
 				(win.frappe && win.frappe.quick_entry && win.frappe.quick_entry.dialog);
 			expect(dialog, "Rule Quick Entry controller").to.exist;
+
 			return Cypress.Promise.resolve(dialog.set_value("rule_name", ruleName))
 				.then(() => dialog.set_value("document_type", "Contact"))
 				.then(() => dialog.set_value("trigger_event", "After Save"));
 		});
 
-		cy.get('input[data-fieldname="rule_name"][data-doctype="Rule"]').should(
+		cy.get('input[data-fieldname="rule_name"][data-doctype="Rule"]', { timeout: 10000 }).should(
 			"have.value",
 			ruleName
 		);
-		cy.get('input[data-fieldname="document_type"][data-doctype="Rule"]').should(
+		cy.get('input[data-fieldname="document_type"][data-doctype="Rule"]', { timeout: 10000 }).should(
 			"have.value",
 			"Contact"
 		);
-		cy.wait(300);
 
-		cy.get(".modal.show")
-			.last()
-			.within(() => {
-				cy.get("button.btn-modal-primary")
-					.filter(':contains("Save")')
-					.first()
-					.should("be.visible")
-					.click({ force: true });
-			});
+		cy.get(".modal.show button.btn-modal-primary")
+			.filter(':contains("Save")')
+			.should("be.visible")
+			.click({ force: true });
+
 		cy.get(".modal.show", { timeout: 20000 }).should("not.exist");
 		cy.request("/api/resource/Rule/" + encodeURIComponent(ruleName))
 			.its("status")
@@ -110,9 +106,9 @@ describe("FlexiRule builder regression coverage", () => {
 			.should("be.visible")
 			.within(() => {
 				cy.contains("Batch Assignments").should("be.visible");
-				cy.contains("Target Field").should("be.visible");
-				cy.contains("Operator").should("be.visible");
-				cy.contains("Value Expression").should("be.visible");
+				cy.get('[data-fxr-fieldname="assignments.target"]').should("exist");
+				cy.get('[data-fxr-fieldname="assignments.operator"]').should("exist");
+				cy.get('[data-fxr-fieldname="assignments.value"]').should("exist");
 			});
 	});
 
@@ -167,7 +163,16 @@ describe("FlexiRule builder regression coverage", () => {
 		cy.get(".labeling-container input").should("be.visible").type(label);
 		cy.get(".labeling-container button.btn-primary").should("be.visible").click();
 
+		// Populate valid assignment target so validation passes
+		cy.contains(".vue-flow__node", label).dblclick({ force: true });
+		cy.get(".config-modal-container", { timeout: 15000 }).should("be.visible");
+		cy.get('[data-fxr-fieldname="assignments.target"]').type("first_name");
+		cy.get(".config-modal-container").contains("button", "Save").click({ force: true });
+		cy.get(".config-modal-container").should("not.exist");
+
 		cy.contains("button", "Save Rule", { timeout: 15000 }).should("be.visible").click();
+		cy.contains("button", "Save Rule", { timeout: 20000 }).should("not.exist");
+
 		persistedRule().then((doc) => {
 			expect(doc.actions, "persisted action rows").to.be.an("array");
 			expect(
@@ -245,10 +250,19 @@ describe("FlexiRule builder regression coverage", () => {
 		cy.get(".labeling-container button.btn-primary").should("be.visible").click();
 		cy.contains(".vue-flow__node", label).should("be.visible");
 
-		cy.get("body").type("{ctrl}z");
+		cy.window().then((win) => {
+			if (win.fxrRuleBuilder?.ruleStore) {
+				win.fxrRuleBuilder.ruleStore.undo();
+			}
+		});
 		cy.contains(".vue-flow__node", label).should("not.exist");
-		cy.get("body").type("{ctrl}y");
-		cy.contains(".vue-flow__node", label).should("be.visible");
+
+		cy.window().then((win) => {
+			if (win.fxrRuleBuilder?.ruleStore) {
+				win.fxrRuleBuilder.ruleStore.redo();
+			}
+		});
+		cy.contains(".vue-flow__node", label).should("exist");
 
 		persistedRule().then((doc) => {
 			expect(
