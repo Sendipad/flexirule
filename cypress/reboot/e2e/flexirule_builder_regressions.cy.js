@@ -231,11 +231,7 @@ describe("FlexiRule builder regression coverage", () => {
 		// and every caller must settle only after its queued layout finishes.
 		cy.window().then((win) => {
 			const requestLayout = win.fxrRuleBuilder.layoutGraph;
-			return Promise.all([
-				requestLayout("LR"),
-				requestLayout("TB"),
-				requestLayout("LR"),
-			]);
+			return Promise.all([requestLayout("LR"), requestLayout("TB"), requestLayout("LR")]);
 		});
 
 		cy.get(".vue-flow__node").should("have.length.at.least", 2);
