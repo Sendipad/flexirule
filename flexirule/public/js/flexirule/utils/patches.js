@@ -1,3 +1,5 @@
+import { guardWorkspaceShowPage } from "./workspace_page_guard.js";
+
 /**
  * FlexiRule Patches for Frappe Core Controls
  * Targeted at fixing issues in standard controls without modifying Frappe core files.
@@ -110,5 +112,11 @@
 			standard_refresh_input.apply(this, arguments);
 			this.set_read_only();
 		};
+	}
+
+	// 2. Guard invalid workspace routes without suppressing renderer failures.
+	if (frappe.views && frappe.views.Workspace && frappe.views.Workspace.prototype) {
+		const standard_show_page = frappe.views.Workspace.prototype.show_page;
+		frappe.views.Workspace.prototype.show_page = guardWorkspaceShowPage(standard_show_page);
 	}
 })();
