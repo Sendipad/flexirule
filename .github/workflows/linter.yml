@@ -81,7 +81,7 @@ jobs:
   fast-js-unit-tests:
     name: Fast JavaScript unit tests
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -90,6 +90,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "18"
+          cache: yarn
+          cache-dependency-path: yarn.lock
 
-      - name: Run standalone unit tests
+      - name: Install frontend dependencies
+        run: yarn install --frozen-lockfile --non-interactive
+
+      - name: Run frontend unit tests
         run: yarn test:frontend
