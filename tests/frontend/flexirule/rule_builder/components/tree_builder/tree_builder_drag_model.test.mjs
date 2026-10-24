@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { getSiblingDropIntent } from "./tree_builder_drag_model.mjs";
+import { getSiblingDropIntent } from "../../../../../../flexirule/public/js/flexirule/rule_builder/components/tree_builder/tree_builder_drag_model.mjs";
 
 assert.deepEqual(getSiblingDropIntent("parent", 0, "before"), {
 	targetId: "parent",

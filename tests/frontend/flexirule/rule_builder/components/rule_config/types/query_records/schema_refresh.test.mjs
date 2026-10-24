@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { getQueryRecordsSchemaRefreshSignature } from "./schema_refresh.mjs";
+import { getQueryRecordsSchemaRefreshSignature } from "../../../../../../../../flexirule/public/js/flexirule/rule_builder/components/rule_config/types/query_records/schema_refresh.mjs";
 
 const fetchBase = {
 	mode: "Fetch Records",

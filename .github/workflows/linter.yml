@@ -92,13 +92,4 @@ jobs:
           node-version: "18"
 
       - name: Run standalone unit tests
-        run: |
-          node flexirule/public/js/flexirule/rule_builder/components/rule_config/query_filters/filter_operators.test.mjs
-          node flexirule/public/js/flexirule/rule_builder/controls/generic_grid_model.test.mjs
-          node flexirule/public/js/flexirule/rule_builder/components/rule_config/types/query_records/output_field_info.test.mjs
-          node flexirule/public/js/flexirule/rule_builder/components/tree_builder/tree_builder_drag_model.test.mjs
-          node flexirule/public/js/flexirule/rule_builder/components/rule_config/types/query_records/schema_refresh.test.mjs
-          node flexirule/public/js/flexirule/rule_builder/components/rule_config/types/query_records/output_fields_schema.test.mjs
-          node flexirule/public/js/flexirule/rule_builder/utils/stable_serialization.test.mjs
-          node flexirule/public/js/flexirule/rule_builder/utils/graph_dirty_state.test.mjs
-          node flexirule/public/js/flexirule/rule_builder/utils/config_save_lifecycle.test.mjs
+        run: yarn test:frontend

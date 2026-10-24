@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { createLatestRequestQueue } from "./layout_request_queue.mjs";
+import { createLatestRequestQueue } from "../../../../../flexirule/public/js/flexirule/rule_builder/composables/layout_request_queue.mjs";
 
 function createDeferred() {
 	let resolve;
