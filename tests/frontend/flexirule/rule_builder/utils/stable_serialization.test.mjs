@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { stableStringify } from "./stable_serialization.mjs";
+import { stableStringify } from "../../../../../flexirule/public/js/flexirule/rule_builder/utils/stable_serialization.mjs";
 
 // Object insertion order must not affect dirty comparisons, including nested config.
 assert.equal(

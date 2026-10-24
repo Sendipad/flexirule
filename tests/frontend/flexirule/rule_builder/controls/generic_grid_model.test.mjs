@@ -12,7 +12,7 @@ import {
 	parseClipboardRows,
 	rowMatchesSearch,
 	selectRangeKeys,
-} from "./generic_grid_model.mjs";
+} from "../../../../../flexirule/public/js/flexirule/rule_builder/controls/generic_grid_model.mjs";
 
 const rows = [
 	{ id: "a", field: "title", kind: "field", meta: { label: "Title" } },

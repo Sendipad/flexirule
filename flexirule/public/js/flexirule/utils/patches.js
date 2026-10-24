@@ -1,3 +1,5 @@
+import { createWorkspaceShowPageGuard } from "./workspace_page_guard.js";
+
 /**
  * FlexiRule Patches for Frappe Core Controls
  * Targeted at fixing issues in standard controls without modifying Frappe core files.
@@ -110,5 +112,14 @@
 			standard_refresh_input.apply(this, arguments);
 			this.set_read_only();
 		};
+	}
+
+	// 2. Guard only the missing-workspace-page case for custom Desk routes.
+	// The wrapper delegates valid pages to Frappe's original method and does not
+	// catch its exceptions, so unrelated navigation failures remain visible.
+	if (frappe.views && frappe.views.Workspace) {
+		const standard_show_page = frappe.views.Workspace.prototype.show_page;
+		frappe.views.Workspace.prototype.show_page =
+			createWorkspaceShowPageGuard(standard_show_page);
 	}
 })();

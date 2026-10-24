@@ -4,7 +4,11 @@
 	"description": "Advanced Rule Engine for Frappe",
 	"main": "index.js",
 	"scripts": {
-		"test": "echo \"Error: no test specified\" && exit 1",
+		"test": "yarn test:frontend",
+		"test:frontend": "node --experimental-default-type=module --test --test-reporter=spec $(find tests/frontend -name '*.test.mjs' -o -name '*.test.js')",
+		"test:layout-queue": "node --test tests/frontend/flexirule/rule_builder/composables/layout_request_queue.test.mjs",
+		"test:e2e:cypress:smoke": "cypress run --config-file cypress.reboot.config.js",
+		"test:e2e:cypress:smoke:open": "cypress open --config-file cypress.reboot.config.js",
 		"lint": "eslint .",
 		"format": "prettier --write \"**/*.{js,vue,scss,json,md}\""
 	},
@@ -39,11 +43,13 @@
 		"@playwright/test": "^1.61.1",
 		"@testing-library/cypress": "^10.0.2",
 		"@testing-library/dom": "^8.17.1",
+		"@vue/devtools-api": "^8.2.1",
 		"cypress": "^13.17.0",
 		"cypress-real-events": "^1.13.0",
 		"eslint": "^8.44.0",
 		"eslint-config-prettier": "^8.8.0",
 		"eslint-plugin-vue": "^9.33.0",
+		"pinia": "^4.1.0",
 		"vue-eslint-parser": "^9.4.3"
 	}
 }

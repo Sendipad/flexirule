@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { runConfigSaveLifecycle } from "./config_save_lifecycle.mjs";
+import { runConfigSaveLifecycle } from "../../../../../flexirule/public/js/flexirule/rule_builder/utils/config_save_lifecycle.mjs";
 
 // An active fetch blocks before starting validation.
 {

@@ -19,6 +19,7 @@ import { getConditionPayload } from "../utils/condition_payload";
 import { deepClone } from "../utils/serialization";
 import { normalizeResolvedOutputSchema } from "../../utils/output_schema.js";
 import { stableStringify } from "../utils/stable_serialization.mjs";
+import { assertNoUnsupportedVisualOnlyNodes } from "../utils/visual_layout.js";
 import {
 	hasGraphStateChanged,
 	shouldRecordExplicitGraphCommit,
@@ -235,6 +236,10 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 				});
 				return;
 			}
+
+			// Reject unsupported nodes before normalization can discard their marker and
+			// action serialization can misclassify them as a default "Process" action.
+			assertNoUnsupportedVisualOnlyNodes(graphStore.nodes);
 
 			graphStore.normalize_graph_nodes();
 

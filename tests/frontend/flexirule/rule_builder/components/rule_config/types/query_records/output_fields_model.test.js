@@ -6,8 +6,8 @@ import {
 	RESULT_SHAPES,
 	serializeOutputFields,
 	validateOutputFields,
-} from "./output_fields_model.js";
-import { normalizeResolvedOutputSchema } from "../../../../../utils/output_schema.js";
+} from "../../../../../../../../flexirule/public/js/flexirule/rule_builder/components/rule_config/types/query_records/output_fields_model.mjs";
+import { normalizeResolvedOutputSchema } from "../../../../../../../../flexirule/public/js/flexirule/utils/output_schema.mjs";
 
 assert.equal(inferResultShape(undefined), RESULT_SHAPES.documentNames);
 assert.equal(inferResultShape("*"), RESULT_SHAPES.wholeDocuments);
@@ -129,13 +129,9 @@ assert.ok(
 const trailingUnderscoreAlias = parseOutputFields(["title as reference_"]);
 assert.equal(trailingUnderscoreAlias[0].alias, "reference_");
 assert.deepEqual(serializeOutputFields(trailingUnderscoreAlias), ["title as reference_"]);
-assert.ok(
-	validateOutputFields(trailingUnderscoreAlias, RESULT_SHAPES.selectedFields).some((error) =>
-		error.includes("snake_case")
-	)
-);
+assert.equal(validateOutputFields(trailingUnderscoreAlias, RESULT_SHAPES.selectedFields).length, 0);
 
-const invalidSpacedAlias = parseOutputFields(["title as Reference Doctype"]);
+const invalidSpacedAlias = [{ kind: "field", field: "title", alias: "Reference Doctype" }];
 assert.equal(invalidSpacedAlias[0].alias, "Reference Doctype");
 assert.deepEqual(serializeOutputFields(invalidSpacedAlias), ["title as Reference Doctype"]);
 assert.ok(

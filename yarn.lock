@@ -749,6 +749,28 @@
     "@vue/compiler-dom" "3.5.26"
     "@vue/shared" "3.5.26"
 
+"@vue/devtools-api@^8.2.1":
+  version "8.2.1"
+  resolved "https://registry.yarnpkg.com/@vue/devtools-api/-/devtools-api-8.2.1.tgz#9d95de2b908aa80b9957d737ddca51790e70c3b5"
+  integrity sha512-6u4vXBlIBAC1wMplIZgpyPn7uh/s4Bf6F5bMzvLv+EdJ0aHs/+4B7Ygv864EStQSjRbsRzTko/kUG1A1IejQ3A==
+  dependencies:
+    "@vue/devtools-kit" "^8.2.1"
+
+"@vue/devtools-kit@^8.2.1":
+  version "8.2.1"
+  resolved "https://registry.yarnpkg.com/@vue/devtools-kit/-/devtools-kit-8.2.1.tgz#ad45babb12c51931d32d1b67ffaebc251f550ce9"
+  integrity sha512-FIGIuq3AWReEpbAHY/cRGeHDfI0qOb8OCQ3YjbEAX04uaxIDbGc9rhkbVcG7rnfHPXE3RsU5KrWOu9V/okd8AQ==
+  dependencies:
+    "@vue/devtools-shared" "^8.2.1"
+    birpc "^2.6.1"
+    hookable "^5.5.3"
+    perfect-debounce "^2.0.0"
+
+"@vue/devtools-shared@^8.2.1":
+  version "8.2.1"
+  resolved "https://registry.yarnpkg.com/@vue/devtools-shared/-/devtools-shared-8.2.1.tgz#26524e9e12fd205bcd5477cf3b5e9a17b876aeac"
+  integrity sha512-Fkac7lUdGReh6pVOi3AYPRGe82LQqRmAfThW7RRligOAP0ZA/Z1z9XLHDM9dv34pV2HRc79DK8uKPeG2fLnA/g==
+
 "@vue/reactivity@3.5.26":
   version "3.5.26"
   resolved "https://registry.npmjs.org/@vue/reactivity/-/reactivity-3.5.26.tgz"
@@ -987,6 +1009,11 @@ bcrypt-pbkdf@^1.0.0:
   integrity sha512-qeFIXtP4MSoi6NLqO12WfqARWWuCKi2Rn/9hJLEmtB5yTNr9DqFWkJRCf2qShWzPeAMRnOgCrq0sg/KLv5ES9w==
   dependencies:
     tweetnacl "^0.14.3"
+
+birpc@^2.6.1:
+  version "2.9.0"
+  resolved "https://registry.yarnpkg.com/birpc/-/birpc-2.9.0.tgz#b59550897e4cd96a223e2a6c1475b572236ed145"
+  integrity sha512-KrayHS5pBi69Xi9JmvoqrIgYGDkD6mcSe/i6YKi3w5kekCLzrX4+nawcXqrj2tIp50Kw/mT/s3p+GVK0A0sKxw==
 
 blob-util@^2.0.2:
   version "2.0.2"
@@ -2079,6 +2106,11 @@ hasown@^2.0.2, hasown@^2.0.4:
   dependencies:
     function-bind "^1.1.2"
 
+hookable@^5.5.3:
+  version "5.5.3"
+  resolved "https://registry.yarnpkg.com/hookable/-/hookable-5.5.3.tgz#6cfc358984a1ef991e2518cb9ed4a778bbd3215d"
+  integrity sha512-Yc+BQe8SvoXH1643Qez1zqLRmbA5rCL+sSmk6TVos0LWVfNIB7PGncdlId77WzLGSIB5KaWgTaNTs2lNVEI6VQ==
+
 html-escaper@^2.0.0:
   version "2.0.2"
   resolved "https://registry.npmjs.org/html-escaper/-/html-escaper-2.0.2.tgz"
@@ -2664,6 +2696,11 @@ node-releases@^2.0.27:
   resolved "https://registry.npmjs.org/node-releases/-/node-releases-2.0.27.tgz"
   integrity sha512-nmh3lCkYZ3grZvqcCH+fjmQ7X+H0OeZgP40OierEaAptX4XofMh5kwNbWh7lBduUzCcV/8kZ+NDLCwm2iorIlA==
 
+nostics@^1.2.0:
+  version "1.3.0"
+  resolved "https://registry.yarnpkg.com/nostics/-/nostics-1.3.0.tgz#e1d538463acb0207f9a0ef9ec551b075930559c4"
+  integrity sha512-wzRsrJwNlFbqIRQt8aCeL2WE8USip/uuvGSOZV1D02CxX8ABTMbw8IywKjH7yWHETMXbWJI4OBpihg9rmz2Vyg==
+
 npm-run-path@^4.0.0:
   version "4.0.1"
   resolved "https://registry.npmjs.org/npm-run-path/-/npm-run-path-4.0.1.tgz"
@@ -2861,6 +2898,11 @@ pend@~1.2.0:
   resolved "https://registry.npmjs.org/pend/-/pend-1.2.0.tgz"
   integrity sha512-F3asv42UuXchdzt+xXqfW1OGlVBe+mxa2mqI0pg5yAHZPvFmY3Y6drSf/GQ1A86WgWEN9Kzh/WrgKa6iGcHXLg==
 
+perfect-debounce@^2.0.0:
+  version "2.1.0"
+  resolved "https://registry.yarnpkg.com/perfect-debounce/-/perfect-debounce-2.1.0.tgz#e7078e38f231cb191855c3136a4423aef725d261"
+  integrity sha512-LjgdTytVFXeUgtHZr9WYViYSM/g8MkcTPYDlPa3cDqMirHjKiSZPYd6DoL7pK8AJQr+uWkQvCjHNdiMqsrJs+g==
+
 performance-now@^2.1.0:
   version "2.1.0"
   resolved "https://registry.npmjs.org/performance-now/-/performance-now-2.1.0.tgz"
@@ -2880,6 +2922,13 @@ pify@^2.2.0:
   version "2.3.0"
   resolved "https://registry.npmjs.org/pify/-/pify-2.3.0.tgz"
   integrity sha512-udgsAY+fTnvv7kI7aaxbqwWNb0AHiB0qBO89PZKPkoTmGOgdbrHDKD+0B2X4uTfJ/FT1R09r9gTsjUjNJotuog==
+
+pinia@^4.1.0:
+  version "4.1.0"
+  resolved "https://registry.yarnpkg.com/pinia/-/pinia-4.1.0.tgz#307b0d75db36375caccd85dd2afc479d1bbf59ec"
+  integrity sha512-+5/HMuVjYQfKlCD5xQ7zfXn1xUzYFEa7pd0DQK5SaMfZCaFRTHlaH/c02N1FoGOdlzSiwf5EOPgJx//1QDw6gw==
+  dependencies:
+    nostics "^1.2.0"
 
 pkg-dir@^4.1.0:
   version "4.2.0"

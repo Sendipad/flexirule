@@ -1,4 +1,4 @@
-import { normalizeActionType, getContract } from "../../core/contracts";
+import { normalizeActionType, getContract } from "../../core/contracts.js";
 
 /**
  * Shared mapper from Action Type (Rule Action value) to VueFlow node type.

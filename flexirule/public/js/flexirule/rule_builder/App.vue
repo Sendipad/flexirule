@@ -737,6 +737,7 @@ function insertNodeOnEdge(payload) {
 				clipboard.edges
 			);
 			if (newNodeId) {
+				ruleStore.mark_dirty();
 				setTimeout(() => layoutGraph(uiStore.layout_preference), 50);
 				frappe.show_alert({ message: __("Nodes pasted on edge"), indicator: "green" }, 2);
 			}
@@ -750,6 +751,7 @@ function insertNodeOnEdge(payload) {
 		payload
 	);
 	if (newNodeId) {
+		ruleStore.mark_dirty();
 		setTimeout(() => {
 			layoutGraph(uiStore.layout_preference);
 			// Auto-open config for nodes that require immediate configuration
