@@ -119,7 +119,8 @@
 			if (!page || !page.name) {
 				return;
 			}
-			const pages = page.public && this.public_pages?.length ? this.public_pages : this.private_pages;
+			const pages =
+				page.public && this.public_pages?.length ? this.public_pages : this.private_pages;
 			const current_page = pages?.filter((p) => p.title == page.name)[0];
 			if (!current_page) {
 				return;

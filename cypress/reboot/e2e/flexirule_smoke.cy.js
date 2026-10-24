@@ -49,7 +49,6 @@ describe("FlexiRule — isolated Cypress smoke flow", () => {
 			});
 		});
 
-
 		const user = Cypress.env("frappeUser") || "Administrator";
 		const password = Cypress.env("frappePassword");
 		if (!password) {
