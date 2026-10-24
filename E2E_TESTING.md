@@ -74,4 +74,6 @@ Use a disposable test site: the smoke flow creates and then deletes a Rule. The 
 
 `.github/workflows/cypress-smoke.yml` runs as its own workflow on relevant pull requests and supports manual `workflow_dispatch`. It creates a fresh Frappe v15 site, builds FlexiRule assets, starts a dedicated web server, waits for the login page to respond, runs the isolated Cypress spec, and uploads screenshots, video, diagnostics, and the server log. It does not invoke `bench run-ui-tests` or depend on a separate CI server workflow.
 
+To speed repeat runs, the workflow caches the initialized bench and Cypress binary while dependency manifests remain unchanged. On a bench-cache hit it refreshes both Frappe and FlexiRule to the current checkout, but still creates a fresh site/database and rebuilds production assets. The disposable site directory is removed before the bench cache is saved, so per-run database credentials and the site encryption key are not retained in the cache.
+
 The runner intentionally captures browser `console.log`, `console.warn`, and `console.error` messages without globally swallowing exceptions. It explicitly fails on the previously reported grid-field/schema-getter console regressions and failed JavaScript/CSS asset responses.
