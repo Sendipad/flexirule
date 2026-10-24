@@ -1,15 +1,6 @@
 /* global afterEach */
-import {
-	isConsoleRegressionMessage,
-	isKnownRouterRaceException,
-} from "../support/regression_guards.mjs";
+import { isConsoleRegressionMessage } from "../support/regression_guards.mjs";
 
-// Ignore only the specific transient Frappe desk workspace router race condition during programmatic route changes
-Cypress.on("uncaught:exception", (err) => {
-	if (isKnownRouterRaceException(err)) {
-		return false;
-	}
-});
 
 describe("FlexiRule builder regression coverage", () => {
 	let ruleName;
