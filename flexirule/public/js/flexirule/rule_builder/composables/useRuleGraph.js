@@ -4,16 +4,30 @@ import { useUIStore } from "../stores/useUIStore";
 import { useRuleStore } from "../stores/useRuleStore";
 import { nextTick } from "vue";
 import { deepClone } from "../utils/serialization.js";
+import { createLatestRequestQueue } from "./layout_request_queue.mjs";
 
 const NODE_WIDTH = 220;
 const NODE_HEIGHT = 140;
 const H_GAP = 46; // horizontal gap between ranks (LR) or between main and body column (TB)
 const V_GAP = 72; // vertical gap between nodes
 
+const layoutQueuesByStore = new WeakMap();
+const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+function getLayoutQueue(uiStore) {
+	let queue = layoutQueuesByStore.get(uiStore);
+	if (!queue) {
+		queue = createLatestRequestQueue();
+		layoutQueuesByStore.set(uiStore, queue);
+	}
+	return queue;
+}
+
 export function useRuleGraph() {
 	const { nodes, edges, setNodes, fitView } = useVueFlow();
 	const uiStore = useUIStore();
 	const ruleStore = useRuleStore();
+	const enqueueLayout = getLayoutQueue(uiStore);
 
 	// ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -51,10 +65,10 @@ export function useRuleGraph() {
 	// ── Main layout function ──────────────────────────────────────────────────
 
 	const layoutGraph = (direction = "TB") => {
-		if (uiStore.is_performing_layout) return;
-		uiStore.is_performing_layout = true;
-
-		const currentNodes = deepClone(nodes.value);
+		const request = enqueueLayout(async () => {
+			uiStore.is_performing_layout = true;
+			try {
+				const currentNodes = deepClone(nodes.value);
 		const currentEdges = deepClone(edges.value);
 
 		const isHorizontal = direction === "LR";
@@ -249,26 +263,27 @@ export function useRuleGraph() {
 			};
 		});
 
-		// 5. Update nodes with a brief delay for reactivity to catch up if needed
-		// VueFlow will handle the position transition if we provide the new positions
-		setNodes(layoutedNodes);
-
-		nextTick(() => {
-			setTimeout(() => {
+				// Apply positions before yielding so subsequent graph edits are not overwritten
+				// by this layout's snapshot. Keep the viewport animation in the same queue slot.
+				setNodes(layoutedNodes);
+				await nextTick();
+				await wait(50);
 				fitView({
 					padding: 0.15,
 					duration: 600,
 					minZoom: isHorizontal ? 0.85 : 0.9,
 					maxZoom: 1,
 				});
-
-				// Reset layout flag and sync baseline so layout change isn't "dirty"
-				setTimeout(() => {
-					uiStore.is_performing_layout = false;
-					ruleStore.sync_initial_state_positions();
-				}, 650);
-			}, 50);
+				await wait(650);
+				ruleStore.sync_initial_state_positions();
+			} finally {
+				uiStore.is_performing_layout = false;
+			}
 		});
+		// All requests settle even when coalesced. Log failures for calls that are
+		// intentionally fire-and-forget while preserving rejection for awaited callers.
+		request.catch((error) => console.error("RuleFlow layout request failed:", error));
+		return request;
 	};
 
 	return { layoutGraph };
