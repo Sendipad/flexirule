@@ -268,10 +268,17 @@ export function useRuleGraph() {
 				});
 
 				// Apply positions before yielding so subsequent graph edits are not overwritten
-				// by this layout's snapshot. Keep the viewport animation in the same queue slot.
+				// by this layout's snapshot.
 				setNodes(layoutedNodes);
 				await nextTick();
 				await wait(50);
+
+				// Only suppress graph change tracking while layout positions propagate.
+				// Keeping this flag set for the viewport animation drops legitimate edits
+				// from mark_dirty()/history when users interact during fitView.
+				ruleStore.sync_initial_state_positions();
+				uiStore.is_performing_layout = false;
+
 				fitView({
 					padding: 0.15,
 					duration: 600,
@@ -279,7 +286,6 @@ export function useRuleGraph() {
 					maxZoom: 1,
 				});
 				await wait(650);
-				ruleStore.sync_initial_state_positions();
 			} finally {
 				uiStore.is_performing_layout = false;
 			}
