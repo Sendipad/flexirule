@@ -213,7 +213,9 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 		historyStore.reset(() => graphStore.getGraphSnapshot());
 		is_loading.value = false;
 
-		// Note: is_initializing is kept true until VueFlow reports ready in App.vue
+		// Clear initializing flag once graph setup and initial DOM ticks complete.
+		await nextTick();
+		uiStore.is_initializing = false;
 	}
 
 	// ── Save ──
