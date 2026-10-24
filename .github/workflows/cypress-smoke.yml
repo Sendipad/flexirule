@@ -80,6 +80,9 @@ jobs:
           cache: yarn
           cache-dependency-path: yarn.lock
 
+      - name: Test layout request queue
+        run: yarn test:layout-queue
+
       - name: Install MariaDB client
         run: |
           sudo apt-get update
