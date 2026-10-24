@@ -782,14 +782,11 @@ function onNodeClick(event) {
 
 function onNodeDblClick(event) {
 	uiStore.selected_id = event.node.id;
-	if (event.node.type === "selector") {
+	if (event.node.type === "selector" || event.node.type === "start") {
 		return;
 	}
 
-	const trigger = ruleStore.settings?.open_config_on || "Click";
-	if (trigger === "Double Click" && event.node.type !== "start") {
-		ruleStore.open_config(event.node.id);
-	}
+	uiStore.open_config_modal();
 }
 
 function onPaneClick() {

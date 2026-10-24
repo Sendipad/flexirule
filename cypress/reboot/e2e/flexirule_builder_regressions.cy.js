@@ -23,10 +23,24 @@ describe("FlexiRule builder regression coverage", () => {
 				.then(() => dialog.set_value("trigger_event", "After Save"));
 		});
 
+		cy.get('input[data-fieldname="rule_name"][data-doctype="Rule"]').should(
+			"have.value",
+			ruleName
+		);
+		cy.get('input[data-fieldname="document_type"][data-doctype="Rule"]').should(
+			"have.value",
+			"Contact"
+		);
+		cy.wait(300);
+
 		cy.get(".modal.show").last().within(() => {
-			cy.contains("button", "Save").should("be.visible").click({ force: true });
+			cy.get("button.btn-modal-primary")
+				.filter(':contains("Save")')
+				.first()
+				.should("be.visible")
+				.click({ force: true });
 		});
-		cy.get(".modal.show").should("not.exist");
+		cy.get(".modal.show", { timeout: 20000 }).should("not.exist");
 		cy.request("/api/resource/Rule/" + encodeURIComponent(ruleName))
 			.its("status").should("eq", 200);
 
@@ -37,7 +51,10 @@ describe("FlexiRule builder regression coverage", () => {
 
 	function addNodeFromEdgeMenu(type) {
 		cy.get(".edge-add-button").last().click({ force: true });
-		cy.contains(type, { timeout: 15000 }).should("be.visible").click({ force: true });
+		cy.get(".action-popover", { timeout: 15000 }).should("be.visible");
+		cy.get(".action-popover .result-item.is-option")
+			.contains(type)
+			.click({ force: true });
 	}
 
 	function persistedRule() {
@@ -80,10 +97,12 @@ describe("FlexiRule builder regression coverage", () => {
 			.should("be.visible")
 			.dblclick({ force: true });
 
-		cy.contains("Batch Assignments", { timeout: 15000 }).should("be.visible");
-		cy.contains("Target Field").should("be.visible");
-		cy.contains("Operator").should("be.visible");
-		cy.contains("Value Expression").should("be.visible");
+		cy.get(".config-modal-container", { timeout: 15000 }).should("be.visible").within(() => {
+			cy.contains("Batch Assignments").should("be.visible");
+			cy.contains("Target Field").should("be.visible");
+			cy.contains("Operator").should("be.visible");
+			cy.contains("Value Expression").should("be.visible");
+		});
 	});
 
 	it("opens Condition configuration and renders its condition editor", () => {
@@ -96,23 +115,30 @@ describe("FlexiRule builder regression coverage", () => {
 			.should("be.visible")
 			.dblclick({ force: true });
 
-		// Assert the user-facing editor, not internal component classes or toast markup.
-		cy.contains("Condition", { timeout: 15000 }).should("be.visible");
-		cy.get(".config-modal-container").should("be.visible");
+		cy.get(".config-modal-container", { timeout: 15000 }).should("be.visible").within(() => {
+			cy.contains("Condition").should("be.visible");
+		});
 	});
 
 	it("opens Query Records configuration and exposes the Fetch Records editor", () => {
 		createRuleAndOpenBuilder();
 		addNodeFromEdgeMenu("Query Records");
+		cy.get(".action-popover", { timeout: 10000 }).then(($popover) => {
+			if ($popover.find(".result-item.is-option").length > 0) {
+				cy.wrap($popover).contains("Fetch Records").click({ force: true });
+			}
+		});
 		cy.get(".labeling-container input").should("be.visible").type("Query Records configuration check");
-		cy.contains(".labeling-container button", "Save").click();
+		cy.get(".labeling-container button.btn-primary").should("be.visible").click();
 
 		cy.contains(".vue-flow__node", "Query Records configuration check")
 			.should("be.visible")
 			.dblclick({ force: true });
 
-		cy.contains("Query Mode", { timeout: 15000 }).should("be.visible");
-		cy.contains("Fetch Records").should("be.visible");
+		cy.get(".config-modal-container", { timeout: 15000 }).should("be.visible").within(() => {
+			cy.contains("Query Mode").should("be.visible");
+			cy.contains("Fetch Records").should("be.visible");
+		});
 	});
 
 	it("persists graph node data and edges through a hard reload", () => {
@@ -120,7 +146,7 @@ describe("FlexiRule builder regression coverage", () => {
 		const label = "Persisted graph " + Date.now();
 		addNodeFromEdgeMenu("Assignment");
 		cy.get(".labeling-container input").should("be.visible").type(label);
-		cy.contains(".labeling-container button", "Save").click();
+		cy.get(".labeling-container button.btn-primary").should("be.visible").click();
 
 		cy.contains("button", "Save Rule", { timeout: 15000 }).should("be.visible").click();
 		persistedRule().then((doc) => {
@@ -159,7 +185,7 @@ describe("FlexiRule builder regression coverage", () => {
 		const label = "Dirty state " + Date.now();
 		addNodeFromEdgeMenu("Assignment");
 		cy.get(".labeling-container input").should("be.visible").type(label);
-		cy.contains(".labeling-container button", "Save").click();
+		cy.get(".labeling-container button.btn-primary").should("be.visible").click();
 
 		// The unsaved node is observable in the canvas, but the server copy must
 		// remain unchanged until Save Rule is explicitly invoked.

@@ -528,7 +528,14 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			baseData.config = { wait_type: "Duration", value: 1, unit: "Minutes" };
 		} else if (type === "assignment") {
 			baseData.action_type = "Assignment";
-			baseData.config = [];
+			baseData.config = [
+				{
+					name: generateShortId(),
+					target: "",
+					operator: "set",
+					value: { mode: "static", value: "" },
+				},
+			];
 		} else if (type === "stop") {
 			baseData.action_type = "Stop";
 			baseData.operation = "Success";

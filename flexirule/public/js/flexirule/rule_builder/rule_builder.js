@@ -55,8 +55,8 @@ class RuleBuilder {
 			// Modern Frappe 15 fallback
 			frappe.breadcrumbs.add({
 				type: "Custom",
-				module: "Rule",
-				workspace: "RuleFlow",
+				label: __("Rule"),
+				route: "/app/rule",
 			});
 		}
 	}

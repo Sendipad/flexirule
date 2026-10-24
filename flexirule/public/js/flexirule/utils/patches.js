@@ -111,4 +111,20 @@
 			this.set_read_only();
 		};
 	}
+
+	// 2. Patch Workspace.prototype.show_page to handle non-workspace routes gracefully
+	if (frappe.views && frappe.views.Workspace) {
+		const original_show_page = frappe.views.Workspace.prototype.show_page;
+		frappe.views.Workspace.prototype.show_page = async function (page) {
+			if (!page || !page.name) {
+				return;
+			}
+			const pages = page.public && this.public_pages?.length ? this.public_pages : this.private_pages;
+			const current_page = pages?.filter((p) => p.title == page.name)[0];
+			if (!current_page) {
+				return;
+			}
+			return original_show_page.apply(this, arguments);
+		};
+	}
 })();
