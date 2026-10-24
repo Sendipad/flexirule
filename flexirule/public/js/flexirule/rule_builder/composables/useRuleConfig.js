@@ -186,7 +186,8 @@ export function useRuleConfig(props, emit) {
 					sourceNode.label = candidateDraft.label || candidateDraft.data?.action_label;
 					if (draftNode.value) {
 						draftNode.value.data = deepClone(candidateDraft.data);
-						draftNode.value.label = candidateDraft.label || candidateDraft.data?.action_label;
+						draftNode.value.label =
+							candidateDraft.label || candidateDraft.data?.action_label;
 					}
 
 					// Redraw nested nodes when Sub-Rule LinkControl target changes

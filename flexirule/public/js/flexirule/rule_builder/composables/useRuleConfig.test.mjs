@@ -4,7 +4,11 @@ import { runConfigSaveLifecycle } from "../utils/config_save_lifecycle.mjs";
 // Helper mock to simulate useRuleConfig normalize + save logic
 function createMockUseRuleConfig({ nodeData, isFrappe15 = true, panelValidator = null }) {
 	let liveNode = { id: "node-1", label: "Query Records", data: { ...nodeData } };
-	let draftNode = { id: "node-1", label: "Query Records", data: JSON.parse(JSON.stringify(nodeData)) };
+	let draftNode = {
+		id: "node-1",
+		label: "Query Records",
+		data: JSON.parse(JSON.stringify(nodeData)),
+	};
 	let isLoading = false;
 	let fetchGeneration = 1;
 	let saveContextGeneration = 1;
@@ -76,9 +80,15 @@ function createMockUseRuleConfig({ nodeData, isFrappe15 = true, panelValidator =
 	return {
 		getLiveNode: () => liveNode,
 		getDraftNode: () => draftNode,
-		setLoading: (val) => { isLoading = val; },
-		incrementFetchGeneration: () => { fetchGeneration += 1; },
-		cancelContext: () => { saveContextGeneration += 1; },
+		setLoading: (val) => {
+			isLoading = val;
+		},
+		incrementFetchGeneration: () => {
+			fetchGeneration += 1;
+		},
+		cancelContext: () => {
+			saveContextGeneration += 1;
+		},
 		save,
 	};
 }
