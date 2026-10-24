@@ -4,7 +4,7 @@ import {
 	NESTED_SET_OPERATORS,
 	getFilterOperators,
 	supportsNestedSetOperators,
-} from "./filter_operators.mjs";
+} from "../../../../../../../flexirule/public/js/flexirule/rule_builder/components/rule_config/query_filters/filter_operators.mjs";
 
 const checkOperators = getFilterOperators({ fieldtype: "Check" });
 assert.deepEqual(checkOperators, ["=", "!="], "Check fields must expose Equals and Not Equals");

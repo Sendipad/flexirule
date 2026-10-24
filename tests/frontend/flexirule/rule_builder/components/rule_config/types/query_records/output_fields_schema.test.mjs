@@ -3,7 +3,7 @@ import {
 	buildResolvedOutputSchema,
 	RESULT_SHAPES,
 	serializeOutputFields,
-} from "./output_fields_model.mjs";
+} from "../../../../../../../../flexirule/public/js/flexirule/rule_builder/components/rule_config/types/query_records/output_fields_model.mjs";
 
 const fieldInfoByPath = {
 	customer: {

@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import {
 	hasGraphStateChanged,
 	shouldRecordExplicitGraphCommit,
-} from "../utils/graph_dirty_state.mjs";
-import { stableStringify } from "../utils/stable_serialization.mjs";
+} from "../../../../../flexirule/public/js/flexirule/rule_builder/utils/graph_dirty_state.mjs";
+import { stableStringify } from "../../../../../flexirule/public/js/flexirule/rule_builder/utils/stable_serialization.mjs";
 
 // Test suite for Rule Store Dirty-State and Primary Action Lifecycle (Bug 2)
 

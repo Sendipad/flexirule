@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import { stableStringify } from "./stable_serialization.mjs";
-import { hasGraphStateChanged, shouldRecordExplicitGraphCommit } from "./graph_dirty_state.mjs";
+import { stableStringify } from "../../../../../flexirule/public/js/flexirule/rule_builder/utils/stable_serialization.mjs";
+import { hasGraphStateChanged, shouldRecordExplicitGraphCommit } from "../../../../../flexirule/public/js/flexirule/rule_builder/utils/graph_dirty_state.mjs";
 
 const baselineSnapshot = [
 	{

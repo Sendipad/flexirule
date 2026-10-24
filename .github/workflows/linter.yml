@@ -81,7 +81,7 @@ jobs:
   fast-js-unit-tests:
     name: Fast JavaScript unit tests
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -89,16 +89,13 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "18"
+          node-version: "22"
 
-      - name: Run standalone unit tests
+      - name: Run frontend unit tests
         run: |
-          node flexirule/public/js/flexirule/rule_builder/components/rule_config/query_filters/filter_operators.test.mjs
-          node flexirule/public/js/flexirule/rule_builder/controls/generic_grid_model.test.mjs
-          node flexirule/public/js/flexirule/rule_builder/components/rule_config/types/query_records/output_field_info.test.mjs
-          node flexirule/public/js/flexirule/rule_builder/components/tree_builder/tree_builder_drag_model.test.mjs
-          node flexirule/public/js/flexirule/rule_builder/components/rule_config/types/query_records/schema_refresh.test.mjs
-          node flexirule/public/js/flexirule/rule_builder/components/rule_config/types/query_records/output_fields_schema.test.mjs
-          node flexirule/public/js/flexirule/rule_builder/utils/stable_serialization.test.mjs
-          node flexirule/public/js/flexirule/rule_builder/utils/graph_dirty_state.test.mjs
-          node flexirule/public/js/flexirule/rule_builder/utils/config_save_lifecycle.test.mjs
+          mapfile -d '' test_files < <(find tests/frontend -type f \( -name '*.test.mjs' -o -name '*.test.js' \) -print0 | sort -z)
+          if [ "${#test_files[@]}" -eq 0 ]; then
+            echo "No frontend unit tests found under tests/frontend"
+            exit 1
+          fi
+          node --experimental-default-type=module --test "${test_files[@]}"

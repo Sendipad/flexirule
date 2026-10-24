@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { resolveFieldInfo } from "./output_field_info.mjs";
+import { resolveFieldInfo } from "../../../../../../../../flexirule/public/js/flexirule/rule_builder/components/rule_config/types/query_records/output_field_info.mjs";
 
 const fieldMetadata = {
 	Invoice: [

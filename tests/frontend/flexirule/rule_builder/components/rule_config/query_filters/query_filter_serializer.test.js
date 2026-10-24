@@ -3,7 +3,7 @@ import {
 	deserializeQueryFilters,
 	serializeQueryFilters,
 	toPersistedQueryFilterTree,
-} from "./query_filter_serializer.js";
+} from "../../../../../../../flexirule/public/js/flexirule/rule_builder/components/rule_config/query_filters/query_filter_serializer.js";
 
 const tree = deserializeQueryFilters([
 	["Sales Order", "status", "=", { mode: "static", value: "Open" }],
