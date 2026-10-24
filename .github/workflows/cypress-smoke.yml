@@ -80,27 +80,84 @@ jobs:
           cache: yarn
           cache-dependency-path: yarn.lock
 
-      - name: Install MariaDB client
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y mariadb-client
+      # The Cypress npm package and its Electron/browser binary are cached separately.
+      - name: Cache Cypress binary
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/Cypress
+          key: cypress-binary-node18-${{ hashFiles('yarn.lock') }}
 
-      - name: Initialize Frappe bench
+      # Keep the initialized bench between runs when dependency manifests have not changed.
+      # The app sources are refreshed from the current checkouts before creating the site.
+      - name: Cache initialized Frappe bench
+        id: bench-cache
+        uses: actions/cache@v4
+        with:
+          path: /home/runner/frappe-bench
+          key: frappe15-cypress-bench-py310-node18-v1-${{ hashFiles('requirements.txt', 'pyproject.toml', 'package.json', 'package-lock.json', 'yarn.lock', 'frappe-src/requirements.txt', 'frappe-src/setup.py', 'frappe-src/pyproject.toml', 'frappe-src/package.json', 'frappe-src/package-lock.json', 'frappe-src/yarn.lock') }}
+
+      - name: Install MariaDB client when missing
         run: |
-          set -euo pipefail
-          python -m pip install frappe-bench
-          bench init --skip-redis-config-generation --skip-assets --python "$(which python)" --frappe-path "$GITHUB_WORKSPACE/frappe-src" ~/frappe-bench
+          if ! command -v mariadb >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y mariadb-client
+          else
+            echo "MariaDB client is already available; skipping package installation."
+          fi
+
+      - name: Configure MariaDB defaults
+        run: |
           mariadb --host 127.0.0.1 --port 3306 -u root -proot -e "SET GLOBAL character_set_server = 'utf8mb4'"
           mariadb --host 127.0.0.1 --port 3306 -u root -proot -e "SET GLOBAL collation_server = 'utf8mb4_unicode_ci'"
 
-      - name: Install app and prepare site
+      - name: Initialize or reuse Frappe bench
+        id: bench-setup
+        env:
+          BENCH_CACHE_HIT: ${{ steps.bench-cache.outputs.cache-hit }}
+        run: |
+          set -euo pipefail
+          python -m pip install frappe-bench
+
+          if [ "$BENCH_CACHE_HIT" = "true" ] &&
+             [ -x "$HOME/frappe-bench/env/bin/python" ] &&
+             [ -d "$HOME/frappe-bench/apps/frappe" ] &&
+             [ -d "$HOME/frappe-bench/apps/flexirule" ] &&
+             [ -f "$HOME/frappe-bench/sites/apps.txt" ] &&
+             git -C "$HOME/frappe-bench/apps/frappe" rev-parse --git-dir >/dev/null 2>&1 &&
+             git -C "$HOME/frappe-bench/apps/flexirule" rev-parse --git-dir >/dev/null 2>&1; then
+            echo "reused=true" >> "$GITHUB_OUTPUT"
+            echo "Reusing the cached bench environment and installed dependencies."
+          else
+            echo "reused=false" >> "$GITHUB_OUTPUT"
+            rm -rf "$HOME/frappe-bench"
+            bench init --skip-redis-config-generation --skip-assets --python "$(which python)" --frappe-path "$GITHUB_WORKSPACE/frappe-src" "$HOME/frappe-bench"
+          fi
+
+      - name: Install app and prepare a fresh site
         working-directory: /home/runner/frappe-bench
         env:
           CI: "Yes"
+          BENCH_REUSED: ${{ steps.bench-setup.outputs.reused }}
         run: |
           set -euo pipefail
-          bench get-app flexirule "$GITHUB_WORKSPACE"
-          bench setup requirements --dev
+
+          if [ "$BENCH_REUSED" = "true" ]; then
+            # Refresh source to the checked-out commits without deleting cached node_modules.
+            # Dependency manifests are part of the cache key, so the installed dependencies
+            # remain valid when this path is used.
+            git -C apps/frappe fetch --quiet "$GITHUB_WORKSPACE/frappe-src" HEAD
+            git -C apps/frappe reset --hard FETCH_HEAD
+            git -C apps/flexirule fetch --quiet "$GITHUB_WORKSPACE" HEAD
+            git -C apps/flexirule reset --hard FETCH_HEAD
+          else
+            bench get-app flexirule "$GITHUB_WORKSPACE"
+            bench setup requirements --dev
+          fi
+
+          # A restored bench must never reuse a previous site's credentials or database config.
+          rm -rf sites/localhost
+          rm -f sites/localhost.txt
+
           bench new-site --db-root-password root --admin-password admin localhost
           bench --site localhost install-app flexirule
           # Use Frappe's supported setup flow first; do not fake Installed Application state.
@@ -127,7 +184,7 @@ jobs:
         working-directory: /home/runner/frappe-bench
         env:
           CI: "Yes"
-        # Bench was initialized with --skip-assets, so build Frappe core and FlexiRule assets.
+        # Always rebuild from the current source; never rely on cached bundles for test assertions.
         run: bench build --production
 
       - name: Install Cypress
@@ -174,3 +231,11 @@ jobs:
           path: artifacts/cypress/
           if-no-files-found: warn
           retention-days: 7
+
+      # The site_config.json file contains the per-run database password and encryption key.
+      # Remove the disposable site before actions/cache saves the bench at the end of the job.
+      - name: Remove disposable site before caching
+        if: always()
+        run: |
+          rm -rf "$HOME/frappe-bench/sites/localhost"
+          rm -f "$HOME/frappe-bench/sites/localhost.txt" "$HOME/frappe-bench/sites/currentsite.txt"
