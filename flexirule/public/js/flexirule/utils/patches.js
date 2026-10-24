@@ -111,4 +111,24 @@
 			this.set_read_only();
 		};
 	}
+
+	// 2. Fix Workspace show_page for non-workspace routes / missing page
+	if (frappe.views && frappe.views.Workspace) {
+		const standard_show_page = frappe.views.Workspace.prototype.show_page;
+		frappe.views.Workspace.prototype.show_page = async function (page) {
+			if (!page) return;
+			let pages =
+				page.public && this.public_pages && this.public_pages.length
+					? this.public_pages
+					: this.private_pages;
+			if (pages) {
+				let current_page = pages.filter((p) => p.title == page.name)[0];
+				if (!current_page) {
+					// Non-workspace page route or page not found in workspace list
+					return;
+				}
+			}
+			return await standard_show_page.apply(this, arguments);
+		};
+	}
 })();

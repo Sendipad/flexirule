@@ -2,17 +2,6 @@
 const REGRESSION_CONSOLE =
 	/could not find grid field|grid field.*not found|cannot set property hasResolvedOutputSchema/i;
 
-// Ignore transient Frappe desk workspace router race condition during programmatic route changes
-Cypress.on("uncaught:exception", (err) => {
-	if (
-		err.message &&
-		(err.message.includes("Cannot read properties of undefined (reading 'name')") ||
-			err.message.includes("show_page"))
-	) {
-		return false;
-	}
-});
-
 describe("FlexiRule builder regression coverage", () => {
 	let ruleName;
 

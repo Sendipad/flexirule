@@ -21,7 +21,3 @@ try {
 } catch (e) {
 	// coverage not available
 }
-
-Cypress.on("uncaught:exception", (err, runnable) => {
-	return false;
-});
