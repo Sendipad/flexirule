@@ -5,7 +5,7 @@
 	"main": "index.js",
 	"scripts": {
 		"test": "yarn test:frontend",
-		"test:frontend": "node --test --test-reporter=spec $(find tests/frontend -name '*.test.mjs' -o -name '*.test.js')",
+		"test:frontend": "node --experimental-default-type=module --test --test-reporter=spec $(find tests/frontend -name '*.test.mjs' -o -name '*.test.js')",
 		"test:layout-queue": "node --test tests/frontend/flexirule/rule_builder/composables/layout_request_queue.test.mjs",
 		"test:e2e:cypress:smoke": "cypress run --config-file cypress.reboot.config.js",
 		"test:e2e:cypress:smoke:open": "cypress open --config-file cypress.reboot.config.js",
