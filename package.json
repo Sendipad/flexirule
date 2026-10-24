@@ -5,6 +5,7 @@
 	"main": "index.js",
 	"scripts": {
 		"test": "echo \"Error: no test specified\" && exit 1",
+		"test:layout-queue": "node --test flexirule/public/js/flexirule/rule_builder/composables/layout_request_queue.test.mjs",
 		"test:e2e:cypress:smoke": "cypress run --config-file cypress.reboot.config.js",
 		"test:e2e:cypress:smoke:open": "cypress open --config-file cypress.reboot.config.js",
 		"lint": "eslint .",
