@@ -223,6 +223,27 @@ describe("FlexiRule builder regression coverage", () => {
 		});
 	});
 
+	it("coalesces overlapping layout requests and leaves the graph visible", () => {
+		createRuleAndOpenBuilder();
+
+		// Exercise the same overlap that can happen when initialization and node
+		// insertion both request a layout. The last requested direction must win,
+		// and every caller must settle only after its queued layout finishes.
+		cy.window().then((win) => {
+			const requestLayout = win.fxrRuleBuilder.layoutGraph;
+			return Promise.all([
+				requestLayout("LR"),
+				requestLayout("TB"),
+				requestLayout("LR"),
+			]);
+		});
+
+		cy.get(".vue-flow__node").should("have.length.at.least", 2);
+		cy.get(".vue-flow__node").each(($node) => {
+			cy.wrap($node).should("be.visible");
+		});
+	});
+
 	it("keeps unsaved graph changes distinguishable from the persisted baseline", () => {
 		createRuleAndOpenBuilder();
 		const label = "Dirty state " + Date.now();
