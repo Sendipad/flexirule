@@ -156,25 +156,29 @@ describe("Fetch Records builder regressions", () => {
 
 	function suppressSchemaRefreshConfirmation() {
 		cy.window().then((win) => {
-			const originalConfirm = win.frappe.confirm;
-			cy.stub(win.frappe, "confirm").callsFake(
-				(message, onConfirm, onReject, primaryLabel, secondaryLabel) => {
-					if (/refresh the output schema/i.test(String(message))) {
-						// Output schema refresh is not part of these tests; reject it through
-						// Frappe's callback so the component follows its real code path.
-						onReject?.();
-						return;
-					}
-					return originalConfirm.call(
-						win.frappe,
-						message,
-						onConfirm,
-						onReject,
-						primaryLabel,
-						secondaryLabel
-					);
+			const frappe = win.frappe;
+			const originalKey = "__flexiruleCypressOriginalConfirm";
+			if (frappe[originalKey]) return;
+
+			// The prompt is orthogonal to these configuration tests. Override it
+			// idempotently instead of Sinon-stubbing the shared Frappe function;
+			// direct restoration in afterEach avoids leaving wrapped callbacks behind.
+			const originalConfirm = frappe.confirm;
+			frappe[originalKey] = originalConfirm;
+			frappe.confirm = function (message, onConfirm, onReject, primaryLabel, secondaryLabel) {
+				if (/refresh the output schema/i.test(String(message))) {
+					onReject?.();
+					return;
 				}
-			);
+				return originalConfirm.call(
+					this,
+					message,
+					onConfirm,
+					onReject,
+					primaryLabel,
+					secondaryLabel
+				);
+			};
 		});
 	}
 
@@ -191,8 +195,14 @@ describe("Fetch Records builder regressions", () => {
 		ruleBuilderPage.setConfigField("Custom Limit", String(value));
 	}
 
-	function clearConfigField(label) {
-		ruleBuilderPage.clearConfigField(label);
+	function clearPermissionAuditReason() {
+		cy.get(
+			'.config-modal-container [data-fieldname="permission_audit_reason"] textarea, .config-modal-container [data-fieldname="permission_audit_reason"] input',
+			{ timeout: 15000 }
+		)
+			.first()
+			.should("be.visible")
+			.clear();
 	}
 
 	function parsedActionConfig(doc, actionId) {
@@ -226,7 +236,12 @@ describe("Fetch Records builder regressions", () => {
 	}
 
 	function persistedRule() {
-		return cy.request("/api/resource/Rule/" + encodeURIComponent(ruleName)).its("body.data");
+		return cy.then(() => {
+			expect(ruleName, "created Rule name is available before reading persisted state")
+				.to.be.a("string")
+				.and.not.be.empty;
+			return cy.request("/api/resource/Rule/" + encodeURIComponent(ruleName)).its("body.data");
+		});
 	}
 
 	beforeEach(() => {
@@ -251,6 +266,9 @@ describe("Fetch Records builder regressions", () => {
 	});
 
 	afterEach(function () {
+		const name = ruleName;
+		ruleName = null;
+
 		const assertConsoleRegressions = () => {
 			const regressions = capturedConsoleMessages.filter((item) =>
 				isConsoleRegressionMessage(item.message)
@@ -263,16 +281,23 @@ describe("Fetch Records builder regressions", () => {
 			}
 		};
 
-		if (ruleName) {
-			const name = ruleName;
-			ruleName = null;
+		cy.window({ log: false }).then((win) => {
+			const frappe = win.frappe;
+			const originalKey = "__flexiruleCypressOriginalConfirm";
+			if (frappe?.[originalKey]) {
+				frappe.confirm = frappe[originalKey];
+				delete frappe[originalKey];
+			}
+		});
+
+		if (name) {
 			cy.request({
 				method: "DELETE",
 				url: "/api/resource/Rule/" + encodeURIComponent(name),
 				failOnStatusCode: false,
 			}).then(assertConsoleRegressions);
 		} else {
-			assertConsoleRegressions();
+			cy.then(assertConsoleRegressions);
 		}
 	});
 
@@ -342,7 +367,7 @@ describe("Fetch Records builder regressions", () => {
 		createFetchRecordsRuleAndOpenBuilder();
 		openActionConfig("Fetch Records 1", true);
 		setFetchRecordsLimit(21);
-		clearConfigField("Permission Audit Reason");
+		clearPermissionAuditReason();
 
 		cy.window().then((win) => {
 			cy.stub(win.frappe, "msgprint").as("validationMessage");
