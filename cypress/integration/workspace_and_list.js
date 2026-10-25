@@ -50,12 +50,12 @@ describe("FlexiRule Rule List & Workspace E2E Suite", () => {
 		cy.get(".ce-block", { timeout: 30000 }).should("have.length.at.least", 1);
 
 		// Assert the native Frappe Workspace block types rendered from the fixture.
-		cy.contains(".widget.shortcut", "New Rule").should("be.visible");
-		cy.contains(".widget.shortcut", "Rule List").should("be.visible");
-		cy.contains(".widget.shortcut", "Rule Builder").should("be.visible");
-		cy.contains(".widget.shortcut", "Execution Logs").should("be.visible");
+		cy.contains(".shortcut-widget-box", "New Rule").should("be.visible");
+		cy.contains(".shortcut-widget-box", "Rule List").should("be.visible");
+		cy.contains(".shortcut-widget-box", "Rule Builder").should("be.visible");
+		cy.contains(".shortcut-widget-box", "Execution Logs").should("be.visible");
 
-		cy.contains(".widget.number_card", "Total Rules").should("be.visible");
-		cy.contains(".widget.number_card", "Active Rules").should("be.visible");
+		cy.contains(".number-widget-box", "Total Rules").should("be.visible");
+		cy.contains(".number-widget-box", "Active Rules").should("be.visible");
 	});
 });
