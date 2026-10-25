@@ -1,4 +1,9 @@
+const path = require("node:path");
 const { defineConfig } = require("cypress");
+
+const artifactRoot = process.env.GITHUB_WORKSPACE
+	? path.join(process.env.GITHUB_WORKSPACE, "artifacts", "cypress")
+	: path.join(__dirname, "artifacts", "cypress");
 
 module.exports = defineConfig({
 	defaultCommandTimeout: 30000,
@@ -8,8 +13,8 @@ module.exports = defineConfig({
 	video: true,
 	screenshotOnRunFailure: true,
 	trashAssetsBeforeRuns: true,
-	screenshotsFolder: "artifacts/cypress/screenshots",
-	videosFolder: "artifacts/cypress/videos",
+	screenshotsFolder: path.join(artifactRoot, "screenshots"),
+	videosFolder: path.join(artifactRoot, "videos"),
 	viewportHeight: 960,
 	viewportWidth: 1400,
 	retries: {
@@ -19,6 +24,7 @@ module.exports = defineConfig({
 	testUser: process.env.CYPRESS_testUser || process.env.FRAPPE_USER || "Administrator",
 	env: {
 		adminPassword: process.env.CYPRESS_adminPassword || process.env.FRAPPE_PASSWORD || "admin",
+		artifactRoot,
 	},
 	e2e: {
 		setupNodeEvents(on, config) {
