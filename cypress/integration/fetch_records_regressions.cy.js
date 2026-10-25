@@ -133,8 +133,8 @@ describe("Fetch Records builder regressions", () => {
 				const dto = response?.message;
 				const queryContract = dto?.action_type_contract?.["Query Records"];
 				const fetchPolicy = queryContract?.operation_policies?.["Fetch Records"];
-				const fetchOperationContract =
-					dto?.operation_contract?.["Query Records"]?.["Fetch Records"];
+				// The backend DTO indexes operation contracts by operation name.
+				const fetchOperationContract = dto?.operation_contract?.["Fetch Records"];
 				const actionOverrides = fetchOperationContract?.["Rule Action"] || [];
 				const mutationModeOverride = actionOverrides.find(
 					(field) => field.fieldname === "mutation_mode"
