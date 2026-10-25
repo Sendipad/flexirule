@@ -122,6 +122,13 @@ describe("Process return-variable contract parity", () => {
 				ruleBuilderPage.visitRule(ruleDoc.name);
 			ruleBuilderPage.openVisualBuilder();
 
+			// The canvas shell can render before Rule actions have finished hydrating.
+			// Wait for the seeded action itself, then inspect the shared graph store.
+			cy.contains(".vue-flow__node", "Missing Return Variable Process", {
+				timeout: 30000,
+			})
+				.should("be.visible");
+
 			cy.window().then(async (win) => {
 				const store = win.fxrRuleBuilder?.ruleStore;
 				const contracts = win.flexirule?.contracts;
