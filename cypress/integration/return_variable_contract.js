@@ -152,38 +152,34 @@ describe("Process return-variable contract parity", () => {
 				expect(backendErrors).to.include("Missing Return Variable Process");
 				expect(backendErrors).to.include("Return Variable Name");
 
-				// Attempt a real Frappe save with the same invalid action payload.
-				const savedRuleResponse = await win.frappe.call({
-					method: "frappe.client.get",
-					args: { doctype: "Rule", name: ruleDoc.name },
-				});
+				// Exercise the actual whitelisted save endpoint without Frappe's
+				// client-call error dialog covering the builder under test.
+				const savedRuleResponse = await win.fetch(
+					`/api/resource/Rule/${encodeURIComponent(ruleDoc.name)}`,
+						{ credentials: "same-origin" }
+					);
+				expect(savedRuleResponse.ok, "baseline Rule can be fetched").to.equal(true);
+				const savedRulePayload = await savedRuleResponse.json();
 				const invalidSaveDoc = {
-					...savedRuleResponse.message,
+					...savedRulePayload.data,
 					actions: invalidRulePayload.actions,
 				};
-				let serverSaveError = "";
-				try {
-					await win.frappe.call({
-						method: "frappe.client.save",
-						args: { doc: invalidSaveDoc },
-						silent: true,
-					});
-				} catch (error) {
-					serverSaveError = [
-						error?.message,
-						error?._server_messages,
-						error?.exc,
-						error?.responseText,
-					]
-						.map((value) =>
-							typeof value === "string" ? value : JSON.stringify(value ?? "")
-						)
-						.join("\\n");
-				}
+				const serverSaveResponse = await win.fetch("/api/method/frappe.client.save", {
+					method: "POST",
+					credentials: "same-origin",
+					headers: {
+						Accept: "application/json",
+						"Content-Type": "application/json",
+						"X-Frappe-CSRF-Token": win.frappe.csrf_token,
+					},
+					body: JSON.stringify({ doc: invalidSaveDoc }),
+				});
+				const serverSaveBody = await serverSaveResponse.text();
 				expect(
-					serverSaveError,
-					"backend Rule save rejects the same missing return variable"
-				).to.match(/Return Variable Name/i);
+					serverSaveResponse.status,
+					"backend Rule save rejects the invalid document"
+				).to.be.greaterThan(299);
+				expect(serverSaveBody).to.include("Return Variable Name");
 			});
 
 			cy.window().then((win) => {
