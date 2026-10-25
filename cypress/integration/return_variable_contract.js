@@ -148,9 +148,9 @@ describe("Process return-variable contract parity", () => {
 					args: { mode: "draft", doc: invalidRulePayload },
 				});
 				expect(backendValidation.message?.valid).to.equal(false);
-				expect((backendValidation.message?.errors || []).join("\\n")).to.match(
-					/Missing Return Variable Process .*Return Variable Name/i
-				);
+				const backendErrors = (backendValidation.message?.errors || []).join("\n");
+				expect(backendErrors).to.include("Missing Return Variable Process");
+				expect(backendErrors).to.include("Return Variable Name");
 
 				// Attempt a real Frappe save with the same invalid action payload.
 				const savedRuleResponse = await win.frappe.call({
