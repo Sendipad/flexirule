@@ -105,20 +105,39 @@ describe("FlexiRule builder regression coverage", () => {
 			);
 	}
 
+	function suppressSchemaRefreshConfirmation() {
+		cy.window().then((win) => {
+			const originalConfirm = win.frappe.confirm;
+			if (!originalConfirm || originalConfirm.isSinonStub) return;
+
+			// This confirmation is unrelated to the behaviors covered by these tests.
+			// Resolve it as "Skip" through Frappe's callback instead of racing its
+			// Bootstrap transition with Cypress's modal visibility assertions.
+			cy.stub(win.frappe, "confirm").callsFake(
+				(message, onConfirm, onReject, primaryLabel, secondaryLabel) => {
+					if (/refresh the output schema/i.test(String(message))) {
+						onReject?.();
+						return;
+					}
+					return originalConfirm.call(
+						win.frappe,
+						message,
+						onConfirm,
+						onReject,
+						primaryLabel,
+						secondaryLabel
+					);
+				}
+			);
+		});
+	}
+
 	function openActionConfig(label, skipSchemaRefresh = false) {
+		if (skipSchemaRefresh) suppressSchemaRefreshConfirmation();
+
 		cy.contains(".vue-flow__node", label, { timeout: 15000 })
 			.should("be.visible")
 			.dblclick({ force: true });
-
-		// Fetch Records may open a Frappe confirmation after the double-click's
-		// event handler completes. Wait for that dialog explicitly before clicking.
-		if (skipSchemaRefresh) {
-			cy.get(".modal.show", { timeout: 15000 }).should(($dialog) => {
-				expect($dialog.text()).to.match(/refresh the output schema/i);
-			});
-			cy.get(".modal.show .btn-modal-secondary", { timeout: 15000 }).should("be.visible").click({ force: true });
-			cy.get(".modal.show").should("not.exist");
-		}
 
 		cy.get(".config-modal-container", { timeout: 15000 }).should("be.visible");
 	}
