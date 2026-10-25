@@ -87,7 +87,7 @@ jobs:
       - name: Install MariaDB client
         run: |
           sudo apt-get update
-          sudo apt-get install -y mariadb-client
+          sudo apt-get install -y mariadb-client xvfb
 
       - name: Initialize Frappe bench
         run: |
@@ -171,14 +171,14 @@ jobs:
           # Two independent Cypress processes share the disposable Frappe site.
           # Each process owns separate screenshot/video directories; this avoids
           # Cypress Cloud's --parallel requirement and prevents artifact races.
-          ./node_modules/.bin/cypress run \
+          xvfb-run -a ./node_modules/.bin/cypress run \
             --browser chrome \
             --spec "cypress/integration/fetch_records_regressions.cy.js,cypress/integration/return_variable_contract.js" \
             --config "screenshotsFolder=$GITHUB_WORKSPACE/artifacts/cypress/shards/fetch-records/screenshots,videosFolder=$GITHUB_WORKSPACE/artifacts/cypress/shards/fetch-records/videos,trashAssetsBeforeRuns=false" \
             > "$artifacts/fetch-records.log" 2>&1 &
           fetch_records_pid=$!
 
-          ./node_modules/.bin/cypress run \
+          xvfb-run -a ./node_modules/.bin/cypress run \
             --browser chrome \
             --spec "cypress/integration/flexirule_builder_regressions.cy.js,cypress/integration/flexirule_smoke.cy.js,cypress/integration/workspace_and_list.js" \
             --config "screenshotsFolder=$GITHUB_WORKSPACE/artifacts/cypress/shards/builder/screenshots,videosFolder=$GITHUB_WORKSPACE/artifacts/cypress/shards/builder/videos,trashAssetsBeforeRuns=false" \
