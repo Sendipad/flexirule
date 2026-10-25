@@ -39,9 +39,9 @@ class RuleBuilderPage {
 				.click({ force: true });
 		}
 
-		// Selecting a concrete Process inserts the node directly; it does not
-		// open the separate label-entry dialog used by other action types.
-		if (label && !optionLabel) {
+		// Once an operation is selected, the node picker opens its normal
+		// label-entry step before creating the Process action node.
+		if (label) {
 			cy.get(".labeling-container", { timeout: 10000 }).should("be.visible");
 			cy.get(".labeling-container input").type(label);
 			cy.get(".labeling-container button.btn-primary").click();
