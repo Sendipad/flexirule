@@ -48,6 +48,30 @@ class RuleBuilderPage {
 		}
 	}
 
+	configControlByLabel(label) {
+		return cy
+			.contains(".config-modal-container .fxr-label", label, { timeout: 15000 })
+			.closest(".fxr-control");
+	}
+
+	setConfigField(label, value) {
+		return this.configControlByLabel(label)
+			.find("input.fxr-input, textarea.fxr-input, textarea", { timeout: 15000 })
+			.first()
+			.should("be.visible")
+			.clear()
+			.type(String(value))
+			.should("have.value", String(value));
+	}
+
+	clearConfigField(label) {
+		return this.configControlByLabel(label)
+			.find("input.fxr-input, textarea.fxr-input, textarea", { timeout: 15000 })
+			.first()
+			.should("be.visible")
+			.clear();
+	}
+
 	selectNode(nodeClass) {
 		cy.get(`.vue-flow__node .${nodeClass}`).last().click({ force: true });
 		cy.get(".action-settings-container", { timeout: 10000 }).should("be.visible");
