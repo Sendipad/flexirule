@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { isConsoleRegressionMessage } from "../../../../../cypress/reboot/support/regression_guards.mjs";
+import { isConsoleRegressionMessage } from "../../../../../cypress/support/regression_guards.mjs";
 
 test("isConsoleRegressionMessage detects known grid and schema regressions", () => {
 	assert.equal(
