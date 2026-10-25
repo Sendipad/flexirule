@@ -100,7 +100,9 @@ describe("FlexiRule builder regression coverage", () => {
 			})
 			.then(() => cy.contains("button", "Visual Builder", { timeout: 30000 }).click())
 			.then(() => cy.get(".vue-flow", { timeout: 30000 }).should("be.visible"))
-			.then(() => cy.get(".vue-flow__node", { timeout: 30000 }).should("have.length.at.least", 2));
+			.then(() =>
+				cy.get(".vue-flow__node", { timeout: 30000 }).should("have.length.at.least", 2)
+			);
 	}
 
 	function openActionConfig(label) {
@@ -122,12 +124,16 @@ describe("FlexiRule builder regression coverage", () => {
 		const action = doc.actions.find((row) => row.action_id === actionId);
 		expect(action, `persisted action ${actionId}`).to.exist;
 		if (!action) return {};
-		return typeof action.config === "string" ? JSON.parse(action.config || "{}") : action.config || {};
+		return typeof action.config === "string"
+			? JSON.parse(action.config || "{}")
+			: action.config || {};
 	}
 
 	function saveRuleAndWait(alias) {
 		cy.intercept("POST", "**/api/method/frappe.client.save").as(alias);
-		cy.contains("button", "Save Rule", { timeout: 20000 }).should("be.visible").click({ force: true });
+		cy.contains("button", "Save Rule", { timeout: 20000 })
+			.should("be.visible")
+			.click({ force: true });
 		cy.wait(`@${alias}`);
 	}
 
@@ -425,7 +431,6 @@ describe("FlexiRule builder regression coverage", () => {
 		});
 	});
 
-
 	it("inserts a filter row in Fetch Records action configuration", () => {
 		createRuleAndOpenBuilder();
 		addNodeFromEdgeMenu("Query Records");
@@ -439,9 +444,7 @@ describe("FlexiRule builder regression coverage", () => {
 		cy.get(".labeling-container button.btn-primary").should("be.visible").click();
 		openActionConfig("Filter insertion regression");
 		cy.contains(".config-modal-container h6", "Filters").should("be.visible");
-		cy.get(".config-modal-container .tree-builder__actions button")
-			.contains("Filter")
-			.click();
+		cy.get(".config-modal-container .tree-builder__actions button").contains("Filter").click();
 		cy.get(".config-modal-container .filter-row").should("have.length", 1).and("be.visible");
 	});
 
@@ -520,5 +523,4 @@ describe("FlexiRule builder regression coverage", () => {
 			expect(Number(parsedActionConfig(doc, "query_2").limit)).to.eq(50);
 		});
 	});
-
 });
