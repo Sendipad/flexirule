@@ -31,7 +31,8 @@ module.exports = defineConfig({
 			return require("./cypress/plugins/index.js")(on, config);
 		},
 		testIsolation: true,
-		baseUrl: process.env.CYPRESS_baseUrl || process.env.FRAPPE_SITE_URL || "http://localhost:8000",
+		baseUrl:
+			process.env.CYPRESS_baseUrl || process.env.FRAPPE_SITE_URL || "http://localhost:8000",
 		specPattern: "cypress/integration/*.js",
 		supportFile: "cypress/support/e2e.js",
 	},
