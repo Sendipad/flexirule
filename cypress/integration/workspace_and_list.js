@@ -30,7 +30,7 @@ describe("FlexiRule Rule List & Workspace E2E Suite", () => {
 	});
 
 	it("2. Native RuleFlow Workspace Loading & Component Verification", () => {
-		cy.visit("/app/workspace/ruleflow");
+		cy.visit("/app/ruleflow");
 		cy.get(".workspace-header", { timeout: 30000 }).should("be.visible");
 
 		// Verify Shortcuts
