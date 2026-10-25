@@ -208,12 +208,28 @@ describe("Process return-variable contract parity", () => {
 					actions: invalidActions,
 				};
 
-				const backendValidation = await win.frappe.call({
-					method: "flexirule.ruleflow.api.validate_rule_document",
-					args: { mode: "draft", doc: invalidRulePayload },
-				});
-				expect(backendValidation.message?.valid).to.equal(false);
-				const backendErrors = (backendValidation.message?.errors || []).join("\n");
+				// Read the backend validator over HTTP instead of frappe.call. The
+				// Frappe client wrapper may display returned validation messages as a
+				// modal, which would cover the Save Rule button in the UI assertion below.
+				const validationResponse = await win.fetch(
+					"/api/method/flexirule.ruleflow.api.validate_rule_document",
+					{
+						method: "POST",
+						credentials: "same-origin",
+						headers: {
+							Accept: "application/json",
+							"Content-Type": "application/json",
+							"X-Frappe-CSRF-Token": win.frappe.csrf_token,
+						},
+						body: JSON.stringify({ mode: "draft", doc: invalidRulePayload }),
+					}
+				);
+				expect(validationResponse.ok, "backend Rule validation endpoint responds successfully")
+					.to.equal(true);
+				const validationPayload = await validationResponse.json();
+				const backendValidation = validationPayload.message;
+				expect(backendValidation?.valid).to.equal(false);
+				const backendErrors = (backendValidation?.errors || []).join("\n");
 				expect(backendErrors).to.include("Missing Return Variable Process");
 				expect(backendErrors).to.include("Return Variable Name");
 
