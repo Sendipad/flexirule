@@ -12,7 +12,7 @@ class RuleBuilderPage {
 		cy.get(".vue-flow", { timeout: 30000 }).should("be.visible");
 	}
 
-	addNodeFromEdge(nodeType, label, handle = null) {
+	addNodeFromEdge(nodeType, label, handle = null, optionLabel = null) {
 		if (handle) {
 			cy.get(`.vue-flow__edge-path[data-source-handle="${handle}"]`).trigger("mouseover", {
 				force: true,
@@ -23,6 +23,14 @@ class RuleBuilderPage {
 		}
 
 		cy.get(`.result-item.is-option:contains("${nodeType}")`).click();
+
+		// Some Frappe actions (for example Process) open a second chooser for
+		// the record that will back the action node.
+		if (optionLabel) {
+			cy.get(".result-item.is-option", { timeout: 15000 })
+				.contains(optionLabel, { timeout: 15000 })
+				.click({ force: true });
+		}
 
 		if (label) {
 			cy.get(".labeling-container", { timeout: 10000 }).should("be.visible");
