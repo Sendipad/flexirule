@@ -197,7 +197,7 @@ describe("Fetch Records builder regressions", () => {
 
 	function clearPermissionAuditReason() {
 		cy.get(
-			'.config-modal-container [data-fieldname="permission_audit_reason"] textarea, .config-modal-container [data-fieldname="permission_audit_reason"] input',
+			'.config-modal-container [data-fxr-fieldname="permission_audit_reason"] textarea, .config-modal-container [data-fxr-fieldname="permission_audit_reason"] input',
 			{ timeout: 15000 }
 		)
 			.first()
