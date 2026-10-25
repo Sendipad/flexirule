@@ -93,12 +93,33 @@ describe("Process return-variable contract parity", () => {
 			},
 		];
 
-		cy.create_test_rule_backend({
-			rule_name: ruleName,
-			trigger_type: "DocType Event",
-			actions: baselineActions,
-		}).then((ruleDoc) => {
-			ruleBuilderPage.visitRule(ruleDoc.name);
+		cy.window()
+			.then((win) =>
+				win.frappe.call({
+					method: "frappe.client.insert",
+					args: {
+						doc: {
+							doctype: "Rule",
+							rule_name: ruleName,
+							document_type: "Contact",
+							trigger_event: "After Save",
+							trigger_type: "DocType Event",
+							is_active: 0,
+							actions: baselineActions,
+						},
+					},
+				})
+			)
+			.then((response) => {
+				const ruleDoc = response?.message;
+				expect(ruleDoc?.name, "created Rule with the backend-seeded Process action")
+					.to.be.a("string")
+					.and.not.be.empty;
+				expect(
+					(ruleDoc?.actions || []).some((action) => action.action_id === processActionId),
+					"insert response contains the seeded Process action"
+				).to.equal(true);
+				ruleBuilderPage.visitRule(ruleDoc.name);
 			ruleBuilderPage.openVisualBuilder();
 
 			cy.window().then(async (win) => {
