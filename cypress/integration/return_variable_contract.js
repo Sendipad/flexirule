@@ -61,11 +61,45 @@ describe("Process return-variable contract parity", () => {
 			match_mode: "Any",
 			store_result: "changed_fields",
 		};
+		const processActionId = "process_return";
+		const validProcessAction = {
+			action_id: processActionId,
+			action_type: "Process",
+			action_label: "Missing Return Variable Process",
+			process_name: processName,
+			operation: operationName,
+			config: JSON.stringify(processConfig),
+			return_type: "Yes / No",
+			return_variable: "changed_fields",
+			mutation_mode: null,
+			is_enabled: 1,
+			next_step_if_true: "node_end",
+		};
+		const baselineActions = [
+			{
+				action_id: "root",
+				action_type: "Entry Action",
+				action_label: "Start",
+				is_enabled: 1,
+				next_step_if_true: processActionId,
+			},
+			validProcessAction,
+			{
+				action_id: "node_end",
+				action_type: "Stop",
+				action_label: "End",
+				operation: "Success",
+				is_enabled: 1,
+			},
+		];
 
-		cy.create_test_rule_backend({ rule_name: ruleName }).then((ruleDoc) => {
+		cy.create_test_rule_backend({
+			rule_name: ruleName,
+			trigger_type: "DocType Event",
+			actions: baselineActions,
+		}).then((ruleDoc) => {
 			ruleBuilderPage.visitRule(ruleDoc.name);
 			ruleBuilderPage.openVisualBuilder();
-			ruleBuilderPage.addNodeFromEdge("Process", "Missing Return Variable Process", null, processName, operationName);
 
 			cy.window().then(async (win) => {
 				const store = win.fxrRuleBuilder?.ruleStore;
@@ -80,17 +114,16 @@ describe("Process return-variable contract parity", () => {
 					"the selected operation exists on the Process"
 				).to.equal(true);
 
-				const node = store.nodes.find(
+				const nodeIndex = store.nodes.findIndex(
 					(item) =>
 						item.data?.action_type === "Process" &&
 						item.data?.process_name === processName
 				);
-				expect(node, "Process node on the Rule graph").to.exist;
-				// Native Process selection creates its node without the generic label
-				// dialog. Give this test node a deterministic label before validation.
-				node.data.action_label = "Missing Return Variable Process";
-				node.label = "Missing Return Variable Process";
-				Object.assign(node.data, {
+				expect(nodeIndex, "seeded Process node on the Rule graph").to.be.at.least(0);
+				const node = store.nodes[nodeIndex];
+				const invalidData = {
+					...node.data,
+					action_label: "Missing Return Variable Process",
 					action_type: "Process",
 					process_name: processName,
 					operation: operationName,
@@ -99,31 +132,46 @@ describe("Process return-variable contract parity", () => {
 					return_variable: null,
 					mutation_mode: null,
 					is_enabled: 1,
+				};
+				store.nodes.splice(nodeIndex, 1, {
+					...node,
+					label: invalidData.action_label,
+					data: invalidData,
 				});
+				store.touch_node?.(node.id);
+				store.mark_dirty?.();
 
-				const frontendContractResult = contracts.validateAgainstContract(node.data);
+				const frontendContractResult = contracts.validateAgainstContract(invalidData);
 				expect(
-					contracts.requiresReturnVariable(node.data, {
+					contracts.requiresReturnVariable(invalidData, {
 						processName,
 						operation: operationName,
 					})
 				).to.equal(true);
 				expect(frontendContractResult.valid).to.equal(false);
-				expect(frontendContractResult.errors.join("\\n")).to.match(/Return Variable Name/i);
+				expect(frontendContractResult.errors.join("\n")).to.match(/Return Variable Name/i);
 
-				const processActionId = node.data.action_id || node.id;
-				const processAction = {
-					action_id: processActionId,
-					action_type: "Process",
-					action_label: "Missing Return Variable Process",
-					process_name: processName,
-					operation: operationName,
-					config: JSON.stringify(processConfig),
-					return_type: "Yes / No",
+				const invalidProcessAction = {
+					...validProcessAction,
 					return_variable: null,
-					mutation_mode: null,
-					is_enabled: 1,
 				};
+				const invalidActions = [
+					{
+						action_id: "root",
+						action_type: "Entry Action",
+						action_label: "Start",
+						is_enabled: 1,
+						next_step_if_true: processActionId,
+					},
+					invalidProcessAction,
+					{
+						action_id: "node_end",
+						action_type: "Stop",
+						action_label: "End",
+						operation: "Success",
+						is_enabled: 1,
+					},
+				];
 				const invalidRulePayload = {
 					doctype: "Rule",
 					name: ruleDoc.name,
@@ -131,16 +179,7 @@ describe("Process return-variable contract parity", () => {
 					trigger_type: "DocType Event",
 					document_type: "Contact",
 					trigger_event: "After Save",
-					actions: [
-						{
-							action_id: "root",
-							action_type: "Entry Action",
-							action_label: "Start",
-							is_enabled: 1,
-							next_step_if_true: processActionId,
-						},
-						processAction,
-					],
+					actions: invalidActions,
 				};
 
 				const backendValidation = await win.frappe.call({
@@ -152,18 +191,15 @@ describe("Process return-variable contract parity", () => {
 				expect(backendErrors).to.include("Missing Return Variable Process");
 				expect(backendErrors).to.include("Return Variable Name");
 
-				// Exercise the actual whitelisted save endpoint without Frappe's
-				// client-call error dialog covering the builder under test.
+				// Exercise the same backend save endpoint without showing a Frappe
+				// error dialog; the UI save assertion below covers the visible behavior.
 				const savedRuleResponse = await win.fetch(
 					`/api/resource/Rule/${encodeURIComponent(ruleDoc.name)}`,
-						{ credentials: "same-origin" }
-					);
+					{ credentials: "same-origin" }
+				);
 				expect(savedRuleResponse.ok, "baseline Rule can be fetched").to.equal(true);
 				const savedRulePayload = await savedRuleResponse.json();
-				const invalidSaveDoc = {
-					...savedRulePayload.data,
-					actions: invalidRulePayload.actions,
-				};
+				const invalidSaveDoc = { ...savedRulePayload.data, actions: invalidActions };
 				const serverSaveResponse = await win.fetch("/api/method/frappe.client.save", {
 					method: "POST",
 					credentials: "same-origin",
@@ -185,13 +221,16 @@ describe("Process return-variable contract parity", () => {
 			cy.window().then((win) => {
 				cy.stub(win.frappe, "msgprint").as("saveValidationMessage");
 			});
-			cy.get('button:contains("Save Rule")').click();
+			cy.get('button:contains("Save Rule")')
+				.should("be.visible")
+				.and("be.enabled")
+				.click();
 			cy.get("@saveValidationMessage").should("have.been.called");
 			cy.get("@saveValidationMessage").should((stub) => {
 				const messages = stub
 					.getCalls()
 					.map((call) => JSON.stringify(call.args[0]))
-					.join("\\n");
+					.join("\n");
 				expect(messages).to.match(/Validation Error/i);
 				expect(messages).to.match(/Return Variable Name/i);
 			});
