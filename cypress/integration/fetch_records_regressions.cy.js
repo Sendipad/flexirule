@@ -33,10 +33,10 @@ describe("Fetch Records builder regressions", () => {
 		mutationMode,
 		returnType,
 	} = {}) {
-		expect(mutationMode, "backend-provided Fetch Records result handling").to.be.a("string").and.not
+		expect(mutationMode, "backend-provided Fetch Records result handling").to.be.a("string").and
+			.not.be.empty;
+		expect(returnType, "backend-provided Fetch Records result type").to.be.a("string").and.not
 			.be.empty;
-		expect(returnType, "backend-provided Fetch Records result type").to.be.a("string").and.not.be
-			.empty;
 
 		const actions = [
 			{
@@ -119,7 +119,10 @@ describe("Fetch Records builder regressions", () => {
 			);
 	}
 
-	function createFetchRecordsRuleAndOpenBuilder({ count = 1, auditReason = DEFAULT_AUDIT_REASON } = {}) {
+	function createFetchRecordsRuleAndOpenBuilder({
+		count = 1,
+		auditReason = DEFAULT_AUDIT_REASON,
+	} = {}) {
 		// Read the same backend contract DTO that hydrates the builder UI. Do not
 		// duplicate the result-handling/result-type policy in test fixtures.
 		return cy
@@ -141,12 +144,16 @@ describe("Fetch Records builder regressions", () => {
 				);
 				const mutationMode =
 					mutationModeOverride?.options?.[0] || queryContract?.allowed_mutations?.[0];
-				const returnType = fetchPolicy?.default_return_type || queryContract?.default_return_type;
+				const returnType =
+					fetchPolicy?.default_return_type || queryContract?.default_return_type;
 
-				expect(dto?.contract_version_hash, "backend contract DTO version hash").to.be.a("string")
-					.and.not.be.empty;
-				expect(mutationModeOverride?.reqd, "backend requires Fetch Records result handling").to
-					.equal(1);
+				expect(dto?.contract_version_hash, "backend contract DTO version hash").to.be.a(
+					"string"
+				).and.not.be.empty;
+				expect(
+					mutationModeOverride?.reqd,
+					"backend requires Fetch Records result handling"
+				).to.equal(1);
 
 				return createRuleAndOpenBuilder(
 					queryRecordsActions({ count, auditReason, mutationMode, returnType })
@@ -209,7 +216,9 @@ describe("Fetch Records builder regressions", () => {
 		const action = doc.actions.find((row) => row.action_id === actionId);
 		expect(action, `persisted action ${actionId}`).to.exist;
 		if (!action) return {};
-		return typeof action.config === "string" ? JSON.parse(action.config || "{}") : action.config || {};
+		return typeof action.config === "string"
+			? JSON.parse(action.config || "{}")
+			: action.config || {};
 	}
 
 	function saveRuleAndWait(alias) {
@@ -237,10 +246,13 @@ describe("Fetch Records builder regressions", () => {
 
 	function persistedRule() {
 		return cy.then(() => {
-			expect(ruleName, "created Rule name is available before reading persisted state")
-				.to.be.a("string")
-				.and.not.be.empty;
-			return cy.request("/api/resource/Rule/" + encodeURIComponent(ruleName)).its("body.data");
+			expect(
+				ruleName,
+				"created Rule name is available before reading persisted state"
+			).to.be.a("string").and.not.be.empty;
+			return cy
+				.request("/api/resource/Rule/" + encodeURIComponent(ruleName))
+				.its("body.data");
 		});
 	}
 
@@ -301,7 +313,7 @@ describe("Fetch Records builder regressions", () => {
 		}
 	});
 
-		it("opens Query Records configuration and exposes the Fetch Records editor", () => {
+	it("opens Query Records configuration and exposes the Fetch Records editor", () => {
 		createRuleAndOpenBuilder();
 		addNodeFromEdgeMenu("Query Records");
 		cy.get(".result-item.is-option", { timeout: 15000 })
@@ -314,7 +326,9 @@ describe("Fetch Records builder regressions", () => {
 		cy.get(".labeling-container button.btn-primary").should("be.visible").click();
 
 		openActionConfig("Query Records configuration check", true);
-		cy.contains(".config-modal-container", "Query Mode", { timeout: 15000 }).should("be.visible");
+		cy.contains(".config-modal-container", "Query Mode", { timeout: 15000 }).should(
+			"be.visible"
+		);
 		cy.contains(".config-modal-container", "Fetch Records").should("be.visible");
 	});
 
