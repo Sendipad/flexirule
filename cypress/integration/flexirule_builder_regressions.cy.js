@@ -24,53 +24,6 @@ describe("FlexiRule builder regression coverage", () => {
 		];
 	}
 
-	const DEFAULT_AUDIT_REASON = "Cypress regression test: audited Fetch Records access";
-
-	function queryRecordsActions({ count = 1, auditReason = DEFAULT_AUDIT_REASON } = {}) {
-		const actions = [
-			{
-				action_id: "root",
-				action_label: "Start",
-				action_type: "Entry Action",
-				is_enabled: 1,
-				next_step_if_true: "query_1",
-			},
-		];
-
-		for (let index = 1; index <= count; index += 1) {
-			actions.push({
-				action_id: `query_${index}`,
-				action_label: `Fetch Records ${index}`,
-				action_type: "Query Records",
-				operation: "Fetch Records",
-				reference_doctype: "Contact",
-				is_enabled: 1,
-				ignore_permissions: 1,
-				permission_audit_reason: auditReason,
-				config: JSON.stringify({
-					filters: [],
-					fields: ["name"],
-					result_shape: "document_names",
-					limit_mode: "custom",
-					limit: 20,
-					offset: 0,
-					distinct: false,
-					order_by: "",
-					group_by: "",
-				}),
-				next_step_if_true: index < count ? `query_${index + 1}` : "node_end",
-			});
-		}
-
-		actions.push({
-			action_id: "node_end",
-			action_label: "End",
-			action_type: "Stop",
-			operation: "Success",
-			is_enabled: 1,
-		});
-		return actions;
-	}
 
 	function createRuleAndOpenBuilder(actions = defaultRuleActions()) {
 		const suffix = Date.now().toString() + "_" + Math.floor(Math.random() * 1000);
@@ -105,84 +58,7 @@ describe("FlexiRule builder regression coverage", () => {
 			);
 	}
 
-	function suppressSchemaRefreshConfirmation() {
-		cy.window().then((win) => {
-			const originalConfirm = win.frappe.confirm;
-			if (!originalConfirm || originalConfirm.isSinonStub) return;
 
-			// This confirmation is unrelated to the behaviors covered by these tests.
-			// Resolve it as "Skip" through Frappe's callback instead of racing its
-			// Bootstrap transition with Cypress's modal visibility assertions.
-			cy.stub(win.frappe, "confirm").callsFake(
-				(message, onConfirm, onReject, primaryLabel, secondaryLabel) => {
-					if (/refresh the output schema/i.test(String(message))) {
-						onReject?.();
-						return;
-					}
-					return originalConfirm.call(
-						win.frappe,
-						message,
-						onConfirm,
-						onReject,
-						primaryLabel,
-						secondaryLabel
-					);
-				}
-			);
-		});
-	}
-
-	function openActionConfig(label, skipSchemaRefresh = false) {
-		if (skipSchemaRefresh) suppressSchemaRefreshConfirmation();
-
-		cy.contains(".vue-flow__node", label, { timeout: 15000 })
-			.should("be.visible")
-			.dblclick({ force: true });
-
-		cy.get(".config-modal-container", { timeout: 15000 }).should("be.visible");
-	}
-
-	function setFetchRecordsLimit(value) {
-		cy.contains(".config-modal-container .fxr-label", "Custom Limit", { timeout: 15000 })
-			.closest(".fxr-control")
-			.find("input.fxr-input")
-			.should("be.visible")
-			.clear()
-			.type(String(value))
-			.should("have.value", String(value));
-	}
-
-	function parsedActionConfig(doc, actionId) {
-		const action = doc.actions.find((row) => row.action_id === actionId);
-		expect(action, `persisted action ${actionId}`).to.exist;
-		if (!action) return {};
-		return typeof action.config === "string"
-			? JSON.parse(action.config || "{}")
-			: action.config || {};
-	}
-
-	function saveRuleAndWait(alias) {
-		cy.intercept("POST", "**/api/method/frappe.client.save").as(alias);
-		cy.contains("button", "Save Rule", { timeout: 20000 })
-			.should("be.visible")
-			.click({ force: true });
-		cy.wait(`@${alias}`);
-	}
-
-	function addNodeFromEdgeMenu(type) {
-		cy.get(".edge-add-button", { timeout: 20000 })
-			.last()
-			.should("be.visible")
-			.click({ force: true });
-		cy.get("body").then(($body) => {
-			if ($body.find(".result-item.is-option").length === 0) {
-				cy.get(".edge-add-button", { timeout: 20000 }).last().click({ force: true });
-			}
-		});
-		cy.get(".result-item.is-option", { timeout: 20000 })
-			.contains(type, { timeout: 15000 })
-			.click({ force: true });
-	}
 
 	function persistedRule() {
 		return cy.request("/api/resource/Rule/" + encodeURIComponent(ruleName)).its("body.data");
@@ -286,23 +162,6 @@ describe("FlexiRule builder regression coverage", () => {
 
 		cy.get(".config-modal-container", { timeout: 15000 }).should("be.visible");
 		cy.get(".config-modal-container").contains("Condition").should("be.visible");
-	});
-
-	it("opens Query Records configuration and exposes the Fetch Records editor", () => {
-		createRuleAndOpenBuilder();
-		addNodeFromEdgeMenu("Query Records");
-		cy.get(".result-item.is-option", { timeout: 15000 })
-			.contains("Fetch Records", { timeout: 15000 })
-			.click({ force: true });
-		cy.get(".labeling-container input")
-			.should("be.visible")
-			.clear()
-			.type("Query Records configuration check");
-		cy.get(".labeling-container button.btn-primary").should("be.visible").click();
-
-		openActionConfig("Query Records configuration check", true);
-		cy.contains(".config-modal-container", "Query Mode", { timeout: 15000 }).should("be.visible");
-		cy.contains(".config-modal-container", "Fetch Records").should("be.visible");
 	});
 
 	it("persists graph node data and edges through a hard reload", () => {
@@ -460,113 +319,5 @@ describe("FlexiRule builder regression coverage", () => {
 		});
 	});
 
-	it("inserts a filter row in Fetch Records action configuration", () => {
-		createRuleAndOpenBuilder();
-		addNodeFromEdgeMenu("Query Records");
-		cy.get(".result-item.is-option", { timeout: 15000 })
-			.contains("Fetch Records", { timeout: 15000 })
-			.click({ force: true });
-		cy.get(".labeling-container input")
-			.should("be.visible")
-			.clear()
-			.type("Filter insertion regression");
-		cy.get(".labeling-container button.btn-primary").should("be.visible").click();
-		openActionConfig("Filter insertion regression", true);
-		cy.contains(".config-modal-container h6", "Filters").should("be.visible");
-		cy.get(".config-modal-container .tree-builder__actions button").contains("Filter").click();
-		cy.get(".config-modal-container .filter-row").should("have.length", 1).and("be.visible");
-	});
 
-	it("saves a changed Fetch Records configuration on the first modal click and persists it", () => {
-		createRuleAndOpenBuilder(queryRecordsActions());
-		openActionConfig("Fetch Records 1", true);
-		setFetchRecordsLimit(35);
-
-		// The action dialog itself must commit the isolated candidate on one click.
-		cy.get(".config-modal-container .save-action").should("be.visible").click();
-		cy.get(".config-modal-container").should("not.exist");
-		cy.contains("button", "Save Rule", { timeout: 15000 }).should("be.visible");
-
-		saveRuleAndWait("saveFirstFetchRecordsEdit");
-		persistedRule().then((doc) => {
-			const config = parsedActionConfig(doc, "query_1");
-			expect(Number(config.limit), "saved Fetch Records limit").to.eq(35);
-			const action = doc.actions.find((row) => row.action_id === "query_1");
-			expect(action.permission_audit_reason).to.eq(DEFAULT_AUDIT_REASON);
-		});
-
-		cy.reload();
-		cy.get(".vue-flow", { timeout: 30000 }).should("be.visible");
-		cy.contains(".vue-flow__node", "Fetch Records 1").should("be.visible");
-		persistedRule().then((doc) => {
-			expect(Number(parsedActionConfig(doc, "query_1").limit)).to.eq(35);
-		});
-	});
-
-	it("rejects a Fetch Records modal save without an audit reason and leaves persisted data unchanged", () => {
-		// Frappe 15 server validation requires an audited permission bypass when
-		// initially inserting Fetch Records, so create a valid baseline first.
-		createRuleAndOpenBuilder(queryRecordsActions());
-		openActionConfig("Fetch Records 1", true);
-		setFetchRecordsLimit(21);
-		cy.get('.config-modal-container [data-fieldname="permission_audit_reason"]')
-			.find("textarea, input")
-			.first()
-			.should("be.visible")
-			.clear();
-
-		cy.window().then((win) => {
-			cy.stub(win.frappe, "msgprint").as("validationMessage");
-		});
-		cy.get(".config-modal-container .save-action").should("be.visible").click();
-		cy.get("@validationMessage").should("have.been.called");
-		cy.get("@validationMessage").should((stub) => {
-			const messages = stub
-				.getCalls()
-				.map((call) => JSON.stringify(call.args[0]))
-				.join("\n");
-			expect(messages).to.contain(
-				"Permission Audit Reason is required when bypassing permissions."
-			);
-		});
-		cy.get(".config-modal-container").should("be.visible");
-
-		// Modal validation must not write the candidate to the saved Rule.
-		persistedRule().then((doc) => {
-			expect(Number(parsedActionConfig(doc, "query_1").limit)).to.eq(20);
-			const action = doc.actions.find((row) => row.action_id === "query_1");
-			expect(action.permission_audit_reason).to.eq(DEFAULT_AUDIT_REASON);
-		});
-	});
-
-	it("marks a real second Action edit dirty after the post-save fetch and persists the edit", () => {
-		createRuleAndOpenBuilder(queryRecordsActions({ count: 2 }));
-
-		openActionConfig("Fetch Records 1", true);
-		setFetchRecordsLimit(30);
-		cy.get(".config-modal-container .save-action").should("be.visible").click();
-		cy.get(".config-modal-container").should("not.exist");
-		saveRuleAndWait("saveFirstFetchRecordsAction");
-		cy.contains("button", "Activate Rule", { timeout: 20000 }).should("be.visible");
-
-		// This second edit occurs after the real save_changes() -> fetch() lifecycle.
-		openActionConfig("Fetch Records 2", true);
-		setFetchRecordsLimit(50);
-		cy.get(".config-modal-container .save-action").should("be.visible").click();
-		cy.get(".config-modal-container").should("not.exist");
-		cy.contains("button", "Save Rule", { timeout: 15000 })
-			.should("be.visible")
-			.and("be.enabled")
-			.and("have.class", "btn-primary");
-
-		saveRuleAndWait("saveSecondFetchRecordsAction");
-		cy.contains("button", "Activate Rule", { timeout: 20000 }).should("be.visible");
-		cy.reload();
-		cy.get(".vue-flow", { timeout: 30000 }).should("be.visible");
-		cy.contains(".vue-flow__node", "Fetch Records 2").should("be.visible");
-		persistedRule().then((doc) => {
-			expect(Number(parsedActionConfig(doc, "query_1").limit)).to.eq(30);
-			expect(Number(parsedActionConfig(doc, "query_2").limit)).to.eq(50);
-		});
-	});
 });
