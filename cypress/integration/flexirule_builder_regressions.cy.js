@@ -45,7 +45,7 @@ describe("FlexiRule builder regression coverage", () => {
 				operation: "Fetch Records",
 				reference_doctype: "Contact",
 				is_enabled: 1,
-				ignore_permissions: 0,
+				ignore_permissions: 1,
 				permission_audit_reason: auditReason,
 				config: JSON.stringify({
 					filters: [],
@@ -109,6 +109,17 @@ describe("FlexiRule builder regression coverage", () => {
 		cy.contains(".vue-flow__node", label, { timeout: 15000 })
 			.should("be.visible")
 			.dblclick({ force: true });
+
+		// Fetch Records may ask whether to refresh its output schema when opened.
+		// Dismiss that Frappe dialog before asserting that the config modal is usable.
+		cy.get("body").then(($body) => {
+			const $dialog = $body.find(".modal.show");
+			if ($dialog.length && /refresh the output schema/i.test($dialog.text())) {
+				cy.wrap($dialog).contains("button", "Skip").click({ force: true });
+			}
+		});
+
+		cy.get(".modal.show").should("not.exist");
 		cy.get(".config-modal-container", { timeout: 15000 }).should("be.visible");
 	}
 
@@ -268,12 +279,9 @@ describe("FlexiRule builder regression coverage", () => {
 			.type("Query Records configuration check");
 		cy.get(".labeling-container button.btn-primary").should("be.visible").click();
 
-		cy.contains(".vue-flow__node", "Query Records configuration check")
-			.should("be.visible")
-			.dblclick({ force: true });
-
-		cy.contains("Query Mode", { timeout: 15000 }).should("exist");
-		cy.contains("Fetch Records").should("exist");
+		openActionConfig("Query Records configuration check");
+		cy.contains(".config-modal-container", "Query Mode", { timeout: 15000 }).should("be.visible");
+		cy.contains(".config-modal-container", "Fetch Records").should("be.visible");
 	});
 
 	it("persists graph node data and edges through a hard reload", () => {
@@ -475,21 +483,38 @@ describe("FlexiRule builder regression coverage", () => {
 	});
 
 	it("rejects a Fetch Records modal save without an audit reason and leaves persisted data unchanged", () => {
-		createRuleAndOpenBuilder(queryRecordsActions({ auditReason: "" }));
+		// Frappe 15 server validation requires an audited permission bypass when
+		// initially inserting Fetch Records, so create a valid baseline first.
+		createRuleAndOpenBuilder(queryRecordsActions());
 		openActionConfig("Fetch Records 1");
 		setFetchRecordsLimit(21);
+		cy.get('.config-modal-container [data-fieldname="permission_audit_reason"]')
+			.find("textarea, input")
+			.first()
+			.should("be.visible")
+			.clear();
 
+		cy.window().then((win) => {
+			cy.stub(win.frappe, "msgprint").as("validationMessage");
+		});
 		cy.get(".config-modal-container .save-action").should("be.visible").click();
+		cy.get("@validationMessage").should("have.been.called");
+		cy.get("@validationMessage").should((stub) => {
+			const messages = stub
+				.getCalls()
+				.map((call) => JSON.stringify(call.args[0]))
+				.join("\n");
+			expect(messages).to.contain(
+				"Permission Audit Reason is required when bypassing permissions."
+			);
+		});
 		cy.get(".config-modal-container").should("be.visible");
-		cy.contains("Permission Audit Reason is required when bypassing permissions.", {
-			timeout: 15000,
-		}).should("exist");
 
 		// Modal validation must not write the candidate to the saved Rule.
 		persistedRule().then((doc) => {
 			expect(Number(parsedActionConfig(doc, "query_1").limit)).to.eq(20);
 			const action = doc.actions.find((row) => row.action_id === "query_1");
-			expect(action.permission_audit_reason || "").to.eq("");
+			expect(action.permission_audit_reason).to.eq(DEFAULT_AUDIT_REASON);
 		});
 	});
 
