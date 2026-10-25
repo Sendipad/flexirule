@@ -165,6 +165,14 @@ jobs:
             kill "$(cat artifacts/cypress/bench-server.pid)" 2>/dev/null || true
           fi
 
+      - name: Collect Cypress artifacts
+        if: always()
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/artifacts/cypress"
+          if [ -d "/home/runner/frappe-bench/apps/flexirule/artifacts/cypress" ]; then
+            cp -a "/home/runner/frappe-bench/apps/flexirule/artifacts/cypress/." "$GITHUB_WORKSPACE/artifacts/cypress/"
+          fi
+
       - name: Upload Cypress artifacts
         if: always()
         uses: actions/upload-artifact@v4
