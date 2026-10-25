@@ -78,7 +78,7 @@ describe("FlexiRule Cypress smoke flow", () => {
 				browserMessages,
 				assetFailures,
 			};
-			cy.writeFile("artifacts/cypress/diagnostics.json", diagnostic, {
+			cy.writeFile(`${Cypress.env("artifactRoot")}/diagnostics.json`, diagnostic, {
 				log: false,
 			}).then(cleanupRule);
 		} else {
