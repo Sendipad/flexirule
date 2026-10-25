@@ -60,6 +60,20 @@ describe("FlexiRule builder regression coverage", () => {
 
 
 
+	function addNodeFromEdgeMenu(type) {
+		cy.get(".edge-add-button", { timeout: 20000 })
+			.last()
+			.should("be.visible")
+			.click({ force: true });
+		cy.get("body").then(($body) => {
+			if ($body.find(".result-item.is-option").length === 0) {
+				cy.get(".edge-add-button", { timeout: 20000 }).last().click({ force: true });
+			}
+		});
+		cy.get(".result-item.is-option", { timeout: 20000 })
+			.contains(type, { timeout: 15000 })
+			.click({ force: true });
+	}
 	function persistedRule() {
 		return cy.request("/api/resource/Rule/" + encodeURIComponent(ruleName)).its("body.data");
 	}
