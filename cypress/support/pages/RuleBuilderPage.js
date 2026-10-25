@@ -12,7 +12,7 @@ class RuleBuilderPage {
 		cy.get(".vue-flow", { timeout: 30000 }).should("be.visible");
 	}
 
-	addNodeFromEdge(nodeType, label, handle = null, optionLabel = null) {
+	addNodeFromEdge(nodeType, label, handle = null, optionLabel = null, operationLabel = null) {
 		if (handle) {
 			cy.get(`.vue-flow__edge-path[data-source-handle="${handle}"]`).trigger("mouseover", {
 				force: true,
@@ -29,6 +29,13 @@ class RuleBuilderPage {
 		if (optionLabel) {
 			cy.get(".result-item.is-option", { timeout: 15000 })
 				.contains(optionLabel, { timeout: 15000 })
+				.click({ force: true });
+		}
+
+		// Process actions present a third chooser for the selected operation.
+		if (operationLabel) {
+			cy.get(".result-item.is-option", { timeout: 15000 })
+				.contains(operationLabel, { timeout: 15000 })
 				.click({ force: true });
 		}
 
