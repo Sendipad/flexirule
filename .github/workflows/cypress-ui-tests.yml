@@ -23,9 +23,13 @@ concurrency:
 
 jobs:
   cypress-ui-tests:
-    name: Frappe 15 + Cypress UI suite
+    name: Frappe 15 + Cypress (${{ matrix.shard }})
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [builder, fetch-records]
     services:
       mariadb:
         image: mariadb:10.6.24
@@ -155,48 +159,38 @@ jobs:
           tail -n 200 "$GITHUB_WORKSPACE/artifacts/cypress/bench-server.log" || true
           exit 1
 
-      - name: Run Cypress UI shards in parallel against the Frappe site
+      - name: Run Cypress shard
         working-directory: /home/runner/frappe-bench/apps/flexirule
         env:
           CYPRESS_baseUrl: http://localhost:8000
           CYPRESS_adminPassword: admin
           CYPRESS_testUser: Administrator
           CYPRESS_coverage: "false"
+          CYPRESS_SHARD: ${{ matrix.shard }}
         run: |
-          set -uo pipefail
-          artifacts="$GITHUB_WORKSPACE/artifacts/cypress/shards"
-          mkdir -p "$artifacts/fetch-records/screenshots" "$artifacts/fetch-records/videos"
-          mkdir -p "$artifacts/builder/screenshots" "$artifacts/builder/videos"
+          set -euo pipefail
+          artifacts="$GITHUB_WORKSPACE/artifacts/cypress/shards/$CYPRESS_SHARD"
+          mkdir -p "$artifacts/screenshots" "$artifacts/videos"
 
-          # Two independent Cypress processes share the disposable Frappe site.
-          # Each process owns separate screenshot/video directories; this avoids
-          # Cypress Cloud's --parallel requirement and prevents artifact races.
+          case "$CYPRESS_SHARD" in
+            fetch-records)
+              specs="cypress/integration/fetch_records_regressions.cy.js,cypress/integration/return_variable_contract.js"
+              ;;
+            builder)
+              specs="cypress/integration/flexirule_builder_regressions.cy.js,cypress/integration/flexirule_smoke.cy.js,cypress/integration/workspace_and_list.js"
+              ;;
+            *)
+              echo "Unknown Cypress shard: $CYPRESS_SHARD" >&2
+              exit 2
+              ;;
+          esac
+
+          # Each matrix job provisions its own Frappe site and browser display,
+          # so shards run concurrently without sharing database state.
           xvfb-run -a ./node_modules/.bin/cypress run \
             --browser chrome \
-            --spec "cypress/integration/fetch_records_regressions.cy.js,cypress/integration/return_variable_contract.js" \
-            --config "screenshotsFolder=$GITHUB_WORKSPACE/artifacts/cypress/shards/fetch-records/screenshots,videosFolder=$GITHUB_WORKSPACE/artifacts/cypress/shards/fetch-records/videos,trashAssetsBeforeRuns=false" \
-            > "$artifacts/fetch-records.log" 2>&1 &
-          fetch_records_pid=$!
-
-          xvfb-run -a ./node_modules/.bin/cypress run \
-            --browser chrome \
-            --spec "cypress/integration/flexirule_builder_regressions.cy.js,cypress/integration/flexirule_smoke.cy.js,cypress/integration/workspace_and_list.js" \
-            --config "screenshotsFolder=$GITHUB_WORKSPACE/artifacts/cypress/shards/builder/screenshots,videosFolder=$GITHUB_WORKSPACE/artifacts/cypress/shards/builder/videos,trashAssetsBeforeRuns=false" \
-            > "$artifacts/builder.log" 2>&1 &
-          builder_pid=$!
-
-          fetch_records_status=0
-          builder_status=0
-          wait "$fetch_records_pid" || fetch_records_status=$?
-          wait "$builder_pid" || builder_status=$?
-
-          cat "$artifacts/fetch-records.log"
-          cat "$artifacts/builder.log"
-
-          if [ "$fetch_records_status" -ne 0 ] || [ "$builder_status" -ne 0 ]; then
-            echo "Cypress shard failures: fetch-records=$fetch_records_status, builder=$builder_status"
-            exit 1
-          fi
+            --spec "$specs" \
+            --config "screenshotsFolder=$artifacts/screenshots,videosFolder=$artifacts/videos,trashAssetsBeforeRuns=false"
 
       - name: Stop Frappe web server
         if: always()
@@ -217,7 +211,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: cypress-ui-test-artifacts
+          name: cypress-ui-test-artifacts-${{ matrix.shard }}
           path: artifacts/cypress/
           if-no-files-found: warn
           retention-days: 7
