@@ -7,10 +7,22 @@ describe("FlexiRule Rule List & Workspace E2E Suite", () => {
 		cy.get(".navbar", { timeout: 30000 }).should("be.visible");
 	});
 
+	afterEach(() => {
+		if (!createdRuleName) return;
+		const ruleName = createdRuleName;
+		createdRuleName = null;
+		cy.request({
+			method: "DELETE",
+			url: `/api/resource/Rule/${encodeURIComponent(ruleName)}`,
+			failOnStatusCode: false,
+		});
+	});
+
 	it("1. Rule List Dedicated Builder Action & Column Verification", () => {
 		const ruleName = `Rule_List_Test_${Date.now()}`;
 
 		cy.create_test_rule_backend({ rule_name: ruleName }).then((doc) => {
+			createdRuleName = doc.name;
 			cy.visit("/app/rule");
 			cy.get(".list-row-container", { timeout: 30000 }).should("be.visible");
 
