@@ -143,7 +143,9 @@ describe("FlexiRule builder regression coverage", () => {
 	}
 
 	function setFetchRecordsLimit(value) {
-		cy.get('.config-modal-container [data-fieldname="limit"] input', { timeout: 15000 })
+		cy.contains(".config-modal-container .fxr-label", "Custom Limit", { timeout: 15000 })
+			.closest(".fxr-control")
+			.find("input.fxr-input")
 			.should("be.visible")
 			.clear()
 			.type(String(value))
