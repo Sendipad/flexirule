@@ -116,7 +116,7 @@ describe("FlexiRule builder regression coverage", () => {
 			cy.get(".modal.show", { timeout: 15000 }).should(($dialog) => {
 				expect($dialog.text()).to.match(/refresh the output schema/i);
 			});
-			cy.get(".modal.show").contains("button", "Skip").click({ force: true });
+			cy.get(".modal.show .btn-modal-secondary", { timeout: 15000 }).should("be.visible").click({ force: true });
 			cy.get(".modal.show").should("not.exist");
 		}
 
@@ -486,7 +486,7 @@ describe("FlexiRule builder regression coverage", () => {
 		// Frappe 15 server validation requires an audited permission bypass when
 		// initially inserting Fetch Records, so create a valid baseline first.
 		createRuleAndOpenBuilder(queryRecordsActions());
-		openActionConfig("Fetch Records 1");
+		openActionConfig("Fetch Records 1", true);
 		setFetchRecordsLimit(21);
 		cy.get('.config-modal-container [data-fieldname="permission_audit_reason"]')
 			.find("textarea, input")
