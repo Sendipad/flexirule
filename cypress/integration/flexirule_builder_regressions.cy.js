@@ -24,7 +24,6 @@ describe("FlexiRule builder regression coverage", () => {
 		];
 	}
 
-
 	function createRuleAndOpenBuilder(actions = defaultRuleActions()) {
 		const suffix = Date.now().toString() + "_" + Math.floor(Math.random() * 1000);
 		ruleName = "Cypress_Regression_" + suffix;
@@ -57,8 +56,6 @@ describe("FlexiRule builder regression coverage", () => {
 				cy.get(".vue-flow__node", { timeout: 30000 }).should("have.length.at.least", 2)
 			);
 	}
-
-
 
 	function addNodeFromEdgeMenu(type) {
 		cy.get(".edge-add-button", { timeout: 20000 })
@@ -332,6 +329,4 @@ describe("FlexiRule builder regression coverage", () => {
 			expect(regressions, regressions.map((r) => r.message).join("\n")).to.deep.equal([]);
 		});
 	});
-
-
 });
