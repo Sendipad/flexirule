@@ -65,7 +65,7 @@ describe("Process return-variable contract parity", () => {
 		cy.create_test_rule_backend({ rule_name: ruleName }).then((ruleDoc) => {
 			ruleBuilderPage.visitRule(ruleDoc.name);
 			ruleBuilderPage.openVisualBuilder();
-			ruleBuilderPage.addNodeFromEdge("Process", "Missing Return Variable Process", null, processName);
+			ruleBuilderPage.addNodeFromEdge("Process", "Missing Return Variable Process", null, processName, operationName);
 
 			cy.window().then(async (win) => {
 				const store = win.fxrRuleBuilder?.ruleStore;
