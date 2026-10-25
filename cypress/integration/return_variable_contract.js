@@ -107,12 +107,10 @@ describe("Process return-variable contract parity", () => {
 				expect(store, "whole-Rule builder store").to.exist;
 				expect(contracts, "shared contracts API").to.exist;
 
-				const process = store.processes.find((item) => item.name === processName);
-				expect(process, "installed Process used by this regression").to.exist;
-				expect(
-					(process.operations || []).some((item) => item.func_name === operationName),
-					"the selected operation exists on the Process"
-				).to.equal(true);
+				const processOperation =
+					contracts.PROCESS_OPERATION_REGISTRY_V2?.[processName]?.[operationName];
+				expect(processOperation, "backend-provided Process operation contract").to.exist;
+				expect(processOperation.policy, "resolved operation policy").to.exist;
 
 				const nodeIndex = store.nodes.findIndex(
 					(item) =>
