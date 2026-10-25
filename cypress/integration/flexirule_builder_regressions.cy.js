@@ -521,7 +521,7 @@ describe("FlexiRule builder regression coverage", () => {
 	it("marks a real second Action edit dirty after the post-save fetch and persists the edit", () => {
 		createRuleAndOpenBuilder(queryRecordsActions({ count: 2 }));
 
-		openActionConfig("Fetch Records 1");
+		openActionConfig("Fetch Records 1", true);
 		setFetchRecordsLimit(30);
 		cy.get(".config-modal-container .save-action").should("be.visible").click();
 		cy.get(".config-modal-container").should("not.exist");
