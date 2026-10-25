@@ -2,24 +2,30 @@ const { defineConfig } = require("cypress");
 
 module.exports = defineConfig({
 	defaultCommandTimeout: 30000,
+	requestTimeout: 30000,
+	responseTimeout: 60000,
 	pageLoadTimeout: 60000,
 	video: true,
+	screenshotOnRunFailure: true,
+	trashAssetsBeforeRuns: true,
+	screenshotsFolder: "artifacts/cypress/screenshots",
+	videosFolder: "artifacts/cypress/videos",
 	viewportHeight: 960,
 	viewportWidth: 1400,
 	retries: {
-		runMode: 1,
-		openMode: 1,
+		runMode: 0,
+		openMode: 0,
 	},
+	testUser: process.env.CYPRESS_testUser || process.env.FRAPPE_USER || "Administrator",
 	env: {
-		adminPassword: "admin",
-		testUser: "Administrator",
+		adminPassword: process.env.CYPRESS_adminPassword || process.env.FRAPPE_PASSWORD || "admin",
 	},
 	e2e: {
 		setupNodeEvents(on, config) {
 			return require("./cypress/plugins/index.js")(on, config);
 		},
-		testIsolation: false,
-		baseUrl: "http://localhost:8000",
+		testIsolation: true,
+		baseUrl: process.env.CYPRESS_baseUrl || process.env.FRAPPE_SITE_URL || "http://localhost:8000",
 		specPattern: "cypress/integration/*.js",
 		supportFile: "cypress/support/e2e.js",
 	},
