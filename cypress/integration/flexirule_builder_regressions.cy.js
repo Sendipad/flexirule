@@ -154,6 +154,22 @@ describe("FlexiRule builder regression coverage", () => {
 		ruleName = null;
 		capturedConsoleMessages = [];
 
+		cy.on("window:before:load", (win) => {
+			["error", "warn"].forEach((level) => {
+				const original = win.console[level];
+				if (!original) return;
+				win.console[level] = (...args) => {
+					const message = args.map(String).join(" ");
+					capturedConsoleMessages.push({
+						level,
+						message,
+						url: win.location.href,
+					});
+					return original.apply(win.console, args);
+				};
+			});
+		});
+
 		cy.login();
 		cy.visit("/app");
 		cy.get(".navbar", { timeout: 30000 }).should("be.visible");
