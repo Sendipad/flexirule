@@ -1,9 +1,7 @@
 const path = require("node:path");
 const { defineConfig } = require("cypress");
 
-const artifactRoot = process.env.GITHUB_WORKSPACE
-	? path.join(process.env.GITHUB_WORKSPACE, "artifacts", "cypress")
-	: path.join(__dirname, "artifacts", "cypress");
+const artifactRoot = path.join(__dirname, "artifacts", "cypress");
 
 module.exports = defineConfig({
 	defaultCommandTimeout: 30000,
