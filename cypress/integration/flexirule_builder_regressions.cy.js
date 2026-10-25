@@ -105,21 +105,21 @@ describe("FlexiRule builder regression coverage", () => {
 			);
 	}
 
-	function openActionConfig(label) {
+	function openActionConfig(label, skipSchemaRefresh = false) {
 		cy.contains(".vue-flow__node", label, { timeout: 15000 })
 			.should("be.visible")
 			.dblclick({ force: true });
 
-		// Fetch Records may ask whether to refresh its output schema when opened.
-		// Dismiss that Frappe dialog before asserting that the config modal is usable.
-		cy.get("body").then(($body) => {
-			const $dialog = $body.find(".modal.show");
-			if ($dialog.length && /refresh the output schema/i.test($dialog.text())) {
-				cy.wrap($dialog).contains("button", "Skip").click({ force: true });
-			}
-		});
+		// Fetch Records may open a Frappe confirmation after the double-click's
+		// event handler completes. Wait for that dialog explicitly before clicking.
+		if (skipSchemaRefresh) {
+			cy.get(".modal.show", { timeout: 15000 }).should(($dialog) => {
+				expect($dialog.text()).to.match(/refresh the output schema/i);
+			});
+			cy.get(".modal.show").contains("button", "Skip").click({ force: true });
+			cy.get(".modal.show").should("not.exist");
+		}
 
-		cy.get(".modal.show").should("not.exist");
 		cy.get(".config-modal-container", { timeout: 15000 }).should("be.visible");
 	}
 
@@ -279,7 +279,7 @@ describe("FlexiRule builder regression coverage", () => {
 			.type("Query Records configuration check");
 		cy.get(".labeling-container button.btn-primary").should("be.visible").click();
 
-		openActionConfig("Query Records configuration check");
+		openActionConfig("Query Records configuration check", true);
 		cy.contains(".config-modal-container", "Query Mode", { timeout: 15000 }).should("be.visible");
 		cy.contains(".config-modal-container", "Fetch Records").should("be.visible");
 	});
@@ -450,7 +450,7 @@ describe("FlexiRule builder regression coverage", () => {
 			.clear()
 			.type("Filter insertion regression");
 		cy.get(".labeling-container button.btn-primary").should("be.visible").click();
-		openActionConfig("Filter insertion regression");
+		openActionConfig("Filter insertion regression", true);
 		cy.contains(".config-modal-container h6", "Filters").should("be.visible");
 		cy.get(".config-modal-container .tree-builder__actions button").contains("Filter").click();
 		cy.get(".config-modal-container .filter-row").should("have.length", 1).and("be.visible");
@@ -458,7 +458,7 @@ describe("FlexiRule builder regression coverage", () => {
 
 	it("saves a changed Fetch Records configuration on the first modal click and persists it", () => {
 		createRuleAndOpenBuilder(queryRecordsActions());
-		openActionConfig("Fetch Records 1");
+		openActionConfig("Fetch Records 1", true);
 		setFetchRecordsLimit(35);
 
 		// The action dialog itself must commit the isolated candidate on one click.
@@ -529,7 +529,7 @@ describe("FlexiRule builder regression coverage", () => {
 		cy.contains("button", "Activate Rule", { timeout: 20000 }).should("be.visible");
 
 		// This second edit occurs after the real save_changes() -> fetch() lifecycle.
-		openActionConfig("Fetch Records 2");
+		openActionConfig("Fetch Records 2", true);
 		setFetchRecordsLimit(50);
 		cy.get(".config-modal-container .save-action").should("be.visible").click();
 		cy.get(".config-modal-container").should("not.exist");
