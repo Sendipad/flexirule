@@ -81,9 +81,15 @@ describe("Process return-variable contract parity", () => {
 				).to.equal(true);
 
 				const node = store.nodes.find(
-					(item) => item.data?.action_label === "Missing Return Variable Process"
+					(item) =>
+						item.data?.action_type === "Process" &&
+						item.data?.process_name === processName
 				);
 				expect(node, "Process node on the Rule graph").to.exist;
+				// Native Process selection creates its node without the generic label
+				// dialog. Give this test node a deterministic label before validation.
+				node.data.action_label = "Missing Return Variable Process";
+				node.label = "Missing Return Variable Process";
 				Object.assign(node.data, {
 					action_type: "Process",
 					process_name: processName,
