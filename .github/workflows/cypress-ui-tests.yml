@@ -1,0 +1,175 @@
+name: Cypress UI Tests (Frappe Native)
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/cypress-ui-tests.yml"
+      - "cypress.config.js"
+      - "cypress/integration/**"
+      - "cypress/support/**"
+      - "package.json"
+      - "yarn.lock"
+      - "flexirule/public/**"
+      - "flexirule/templates/**"
+      - "flexirule/ruleflow/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cypress-ui-tests-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cypress-ui-tests:
+    name: Frappe 15 + Cypress UI suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    services:
+      mariadb:
+        image: mariadb:10.6.24
+        env:
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mariadb-admin ping"
+          --health-interval=5s
+          --health-timeout=2s
+          --health-retries=20
+      redis-cache:
+        image: redis:7-alpine
+        ports:
+          - 13000:6379
+      redis-queue:
+        image: redis:7-alpine
+        ports:
+          - 11000:6379
+      redis-socketio:
+        image: redis:7-alpine
+        ports:
+          - 12000:6379
+
+    steps:
+      - name: Checkout FlexiRule
+        uses: actions/checkout@v4
+
+      - name: Checkout Frappe 15 source
+        uses: actions/checkout@v4
+        with:
+          repository: frappe/frappe
+          ref: version-15
+          path: frappe-src
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            pyproject.toml
+            frappe-src/pyproject.toml
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: yarn
+          cache-dependency-path: yarn.lock
+
+      - name: Test layout request queue
+        run: yarn test:layout-queue
+
+      - name: Install MariaDB client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mariadb-client
+
+      - name: Initialize Frappe bench
+        run: |
+          set -euo pipefail
+          python -m pip install frappe-bench
+          bench init --skip-redis-config-generation --skip-assets --python "$(which python)" --frappe-path "$GITHUB_WORKSPACE/frappe-src" ~/frappe-bench
+          mariadb --host 127.0.0.1 --port 3306 -u root -proot -e "SET GLOBAL character_set_server = 'utf8mb4'"
+          mariadb --host 127.0.0.1 --port 3306 -u root -proot -e "SET GLOBAL collation_server = 'utf8mb4_unicode_ci'"
+
+      - name: Install app and prepare site
+        working-directory: /home/runner/frappe-bench
+        env:
+          CI: "Yes"
+        run: |
+          set -euo pipefail
+          bench get-app flexirule "$GITHUB_WORKSPACE"
+          bench setup requirements --dev
+          bench new-site --db-root-password root --admin-password admin localhost
+          bench --site localhost install-app flexirule
+          # Use Frappe's supported setup flow first; do not fake Installed Application state.
+          bench --site localhost execute frappe.utils.install.complete_setup_wizard
+          bench --site localhost console <<'EOF'
+          import frappe
+
+          # Keep the disposable test site deterministic and verify the actual
+          # redirect gate before the browser starts.
+          frappe.db.set_single_value("System Settings", "language", "en")
+          frappe.db.set_single_value("System Settings", "time_zone", "America/New_York")
+          frappe.db.set_default("desktop:home_page", "workspace")
+          frappe.db.commit()
+          frappe.clear_cache()
+
+          assert frappe.is_setup_complete(), "Frappe still considers the site setup incomplete"
+          assert frappe.db.get_single_value("System Settings", "setup_complete"), "System Settings setup_complete is not set"
+          assert frappe.db.get_value("Installed Application", {"app_name": "frappe"}, "is_setup_complete"), "Frappe setup wizard did not mark the frappe application complete"
+          print("Site setup state verified.")
+          EOF
+          bench --site localhost migrate
+
+      - name: Build bench assets
+        working-directory: /home/runner/frappe-bench
+        env:
+          CI: "Yes"
+        # Bench was initialized with --skip-assets, so build Frappe core and FlexiRule assets.
+        run: bench build --production
+
+      - name: Install FlexiRule JavaScript dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Start Frappe web server and wait for login
+        working-directory: /home/runner/frappe-bench
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/artifacts/cypress"
+          nohup bench --site localhost serve --port 8000 > "$GITHUB_WORKSPACE/artifacts/cypress/bench-server.log" 2>&1 &
+          echo $! > "$GITHUB_WORKSPACE/artifacts/cypress/bench-server.pid"
+          for attempt in $(seq 1 90); do
+            if curl --fail --silent --max-time 2 http://localhost:8000/login >/dev/null; then
+              echo "Frappe login page is ready."
+              exit 0
+            fi
+            sleep 2
+          done
+          tail -n 200 "$GITHUB_WORKSPACE/artifacts/cypress/bench-server.log" || true
+          exit 1
+
+      - name: Run Cypress UI suite through Frappe
+        working-directory: /home/runner/frappe-bench
+        run: bench --site localhost run-ui-tests flexirule --headless --browser chrome
+
+      - name: Stop Frappe web server
+        if: always()
+        run: |
+          if [ -f artifacts/cypress/bench-server.pid ]; then
+            kill "$(cat artifacts/cypress/bench-server.pid)" 2>/dev/null || true
+          fi
+
+      - name: Upload Cypress artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cypress-ui-smoke-artifacts
+          path: artifacts/cypress/
+          if-no-files-found: warn
+          retention-days: 7
