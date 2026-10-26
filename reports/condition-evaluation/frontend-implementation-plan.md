@@ -10,6 +10,10 @@ Update the visual Condition Builder so it loads, edits, validates and saves the 
 
 Do not edit Python/backend files, DocType JSON, runtime condition code or API contracts in this task. Use the DTO and fixtures in the shared contract; report required backend contract changes instead of inventing them.
 
+## Related reports and prototypes to inspect first
+
+Read the full [canonical condition + FlexValue implementation plan](../canonical-condition-flexvalue-implementation-plan.md) before coding. Inspect [PR #416](https://github.com/Sendipad/flexirule/pull/416) for its ConditionBuilder/SimpleCondition prototype and tests, but compare its implementation with the frozen shared contract; it is a draft, not an approved final schema. The [PR #433 benchmark report](../condition-backend-comparison-benchmark.md) is background only: correctness gate failed 12/13 agreement due to `has_changed`, and timing source SHA was not captured. Do not derive UI behavior or operator availability from benchmark candidate implementations; the backend DTO is authoritative.
+
 ## Source-first review: existing implementation
 
 Inspect these current source paths before coding:
