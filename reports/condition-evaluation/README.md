@@ -106,7 +106,20 @@ The backend owns validation and runtime semantics; the frontend owns interaction
 
 The frontend and backend tasks may begin in parallel against this contract, but final runtime/UI integration is not merge-ready until both sides pass shared fixture round-trip tests. The backend plan is responsible for inspecting and reconciling [PR #438](https://github.com/Sendipad/flexirule/pull/438): it is a focused task brief, so do not create a competing FlexValue contract implementation in parallel. Reuse its branch/work where useful or supersede it explicitly.
 
-## 4. Repository guardrails
+
+
+## 5. Prior architecture report and related implementation evidence
+
+The full upstream architecture plan from merged PR #434 is now included in this branch at [canonical-condition-flexvalue-implementation-plan.md](../canonical-condition-flexvalue-implementation-plan.md). It is the detailed background report; this directory's README freezes the cross-task v1 wire contract, and the backend/frontend files are the actionable Jules task plans. If a detail differs, stop and reconcile it before coding rather than silently diverging.
+
+Relevant existing work to inspect before implementation:
+
+- [PR #416 — condition tree validation/operator registry/evaluator prototype](https://github.com/Sendipad/flexirule/pull/416): draft implementation with useful source and tests, but not merge-ready. Its report/PR says generated-Python legacy paths remain and several compatibility gates are outstanding. Reuse verified pieces selectively; do not treat the draft as the finished canonical evaluator or merge it wholesale.
+- [PR #433 — benchmark and parity investigation](https://github.com/Sendipad/flexirule/pull/433): includes `reports/condition-backend-comparison-benchmark.md`, raw `reports/condition_benchmark_results.json`, benchmark runner and tests. The recorded correctness gate failed (12 of 13 fixtures agreed; `has_changed` disagreed), so benchmark numbers are not a semantic approval or a release gate pass. Benchmark source branch/commit were recorded as “not captured”; rerun on a pinned source SHA after semantic parity is resolved.
+- [PR #412 — condition architecture audit](https://github.com/Sendipad/flexirule/pull/412): use as supporting source inventory, not as implementation evidence.
+- [PR #438 — canonical FlexValue backend contract task](https://github.com/Sendipad/flexirule/pull/438): task brief only at last inspection; reconcile its current state before creating overlapping contract code.
+
+## 6. Repository guardrails
 
 - Follow [AGENTS.md](https://github.com/Sendipad/flexirule/blob/develop/AGENTS.md): use established action-handler/contract patterns, keep state out of shared handler singletons, preserve mutation policy, and inspect cache invalidation paths.
 - Reuse Frappe Document.validate, DocType metadata, existing whitelisted builder API/access checks, FrappeTestCase, FieldResolver, and existing CompiledResolver/ValueResolver operations where their canonical input has been validated. Do not replace those with a second parallel framework.
