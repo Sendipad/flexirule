@@ -10,6 +10,10 @@ Implement an authoritative, typed condition contract and evaluator, then migrate
 
 Keep this task backend-only. Use the shared fixture contract so the independent frontend task can integrate against it.
 
+## Related reports and prototypes to inspect first
+
+Before implementation, read the full [canonical condition + FlexValue implementation plan](../canonical-condition-flexvalue-implementation-plan.md). Inspect [PR #416](https://github.com/Sendipad/flexirule/pull/416) for the draft operator registry, evaluator integration and regression tests; reuse only after comparing its current head/diff against the shared v1 decisions. Inspect [PR #433](https://github.com/Sendipad/flexirule/pull/433), its [benchmark report](../condition-backend-comparison-benchmark.md), [raw benchmark data](../condition_benchmark_results.json), and benchmark tests. Its recorded correctness gate failed (12/13 fixtures agreed, with `has_changed` disagreement), and its source branch/SHA were not captured; rerun only after parity is fixed on a pinned commit. Do not merge PR #416 wholesale or cite PR #433 timing data as correctness evidence.
+
 ## Source-first review: confirmed current paths
 
 Inspect current source and preserve the distinction between verified code behavior and prior reports:
