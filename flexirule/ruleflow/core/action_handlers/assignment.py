@@ -75,8 +75,8 @@ class AssignmentHandler(ActionHandler):
 		plan = get_action_plan(engine.rule, action)
 		assignments = plan.get("rows")
 		if not isinstance(assignments, list):
-			config_key = self._to_config_cache_key(getattr(action, "config", "[]") or "[]")
 			try:
+				config_key = self._to_config_cache_key(getattr(action, "config", None))
 				assignments = list(self._get_compiled_plan(config_key))
 			except Exception as exc:
 				from flexirule.ruleflow.core.condition_errors import ConditionError
