@@ -544,7 +544,7 @@ class CollectionResolver(CompiledResolver):
 		op = self.operation
 
 		if op == "count":
-			if not self._compiled_evaluator:
+			if self._canonical_condition is None and not self._compiled_evaluator:
 				return len(rows)
 			return sum(1 for r in rows if _matches(r))
 
@@ -562,12 +562,12 @@ class CollectionResolver(CompiledResolver):
 				return sum(values) / len(values) if values else 0.0
 
 		if op == "any":
-			if not self._compiled_evaluator:
+			if self._canonical_condition is None and not self._compiled_evaluator:
 				return len(rows) > 0
 			return any(_matches(r) for r in rows)
 
 		if op == "all":
-			if not self._compiled_evaluator:
+			if self._canonical_condition is None and not self._compiled_evaluator:
 				return True
 			return all(_matches(r) for r in rows)
 
