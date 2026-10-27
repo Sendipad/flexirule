@@ -7,12 +7,15 @@ import json
 import unittest
 from decimal import Decimal
 from pathlib import Path
+from unittest.mock import patch
 
 from flexirule.ruleflow.core.condition_errors import ConditionEvaluationError, ConditionValidationError
 from flexirule.ruleflow.core.condition_evaluator import (
 	clear_condition_plan_cache,
 	condition_plan_cache_info,
+	compile_condition,
 	evaluate_condition,
+	_evaluate_node,
 )
 from flexirule.ruleflow.core.value_resolver import CollectionResolver
 
@@ -88,6 +91,48 @@ class TestCanonicalConditionEvaluator(unittest.TestCase):
 		self.assertTrue(evaluate_condition(compare("ends_with", static("string","FlexiRule"), static("string","Rule"))))
 		self.assertTrue(evaluate_condition(compare("length_eq", static("string","abcd"), static("integer",4))))
 		self.assertTrue(evaluate_condition(compare("is_empty", static("list",[]))))
+
+	def test_operator_matrix_uses_canonical_operator_ids(self):
+		self.assertTrue(evaluate_condition(compare("ne", static("integer", 1), static("integer", 2))))
+		self.assertTrue(evaluate_condition(compare("gte", static("integer", 2), static("integer", 2))))
+		self.assertTrue(evaluate_condition(compare("lte", static("integer", 2), static("integer", 2))))
+		self.assertTrue(evaluate_condition(compare("in", static("string", "Open"), static("list", ["Open", "Closed"]))))
+		self.assertTrue(evaluate_condition(compare("not_in", static("string", "Open"), static("list", ["Closed"]))))
+		self.assertTrue(evaluate_condition(compare("not_contains", static("string", "FlexiRule"), static("string", "other"))))
+		self.assertTrue(evaluate_condition(compare("length_gt", static("string", "abcd"), static("integer", 3))))
+		self.assertTrue(evaluate_condition(compare("length_gte", static("string", "abcd"), static("integer", 4))))
+		self.assertTrue(evaluate_condition(compare("length_lt", static("string", "abcd"), static("integer", 5))))
+		self.assertTrue(evaluate_condition(compare("length_lte", static("string", "abcd"), static("integer", 4))))
+		self.assertTrue(evaluate_condition(compare("is_not_null", static("string", "x"))))
+		self.assertTrue(evaluate_condition(compare("is_not_empty", static("string", "x"))))
+
+	def test_metadata_operators_use_frappe_metadata(self):
+		class FakeMeta:
+			is_submittable = 1
+
+			@staticmethod
+			def has_field(fieldname):
+				return fieldname == "status"
+
+		with patch("frappe.get_meta", return_value=FakeMeta()):
+			self.assertTrue(evaluate_condition(compare("is_submittable", static("string", "ToDo"))))
+			self.assertTrue(evaluate_condition(
+				compare("has_field", static("string", "ToDo"), static("string", "status"))
+			))
+			self.assertFalse(evaluate_condition(
+				compare("has_field", static("string", "ToDo"), static("string", "missing"))
+			))
+
+	def test_compiled_static_plan_is_immutable_after_input_mutation(self):
+		node = compare(
+			"eq",
+			static("list", [1, {"x": 2}]),
+			static("list", [1, {"x": 2}]),
+		)
+		plan = compile_condition(node)
+		self.assertTrue(_evaluate_node(plan, {}))
+		node["left"]["value"][1]["x"] = 99
+		self.assertTrue(_evaluate_node(plan, {}))
 
 	def test_true_short_circuit_and_prevents_later_resolution(self):
 		node = {
