@@ -8,6 +8,7 @@ import unittest
 from decimal import Decimal
 from pathlib import Path
 from unittest.mock import patch
+from typing import Any
 
 from flexirule.ruleflow.core.condition_errors import ConditionEvaluationError, ConditionValidationError
 from flexirule.ruleflow.core.condition_evaluator import (
@@ -41,6 +42,7 @@ def compare(operator_id, left, right=None):
 
 
 class TestCanonicalConditionEvaluator(unittest.TestCase):
+	fixtures: dict[str, Any]
 	@classmethod
 	def setUpClass(cls):
 		cls.fixtures = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
