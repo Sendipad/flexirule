@@ -199,6 +199,11 @@ jobs:
           else
             echo "MariaDB client is already available; skipping package installation."
           fi
+          mkdir -p ~/.config
+          printf "[client]
+skip-ssl
+" > ~/.my.cnf
+          chmod 600 ~/.my.cnf
 
       - name: Initialize Bench and database
         run: |
@@ -320,6 +325,11 @@ jobs:
           else
             echo "MariaDB client is already available; skipping package installation."
           fi
+          mkdir -p ~/.config
+          printf "[client]
+skip-ssl
+" > ~/.my.cnf
+          chmod 600 ~/.my.cnf
 
       - name: Initialize Bench and database
         run: |

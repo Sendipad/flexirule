@@ -249,6 +249,122 @@
       }
     },
     {
+      "id": "valid_is_set_empty_string_vs_whitespace",
+      "description": "is_set returns false for empty string, but returns true for whitespace string",
+      "payload": {
+        "schema": "flexirule.condition",
+        "version": 1,
+        "root": {
+          "type": "comparison",
+          "operator": "is_set",
+          "left": {
+            "mode": "variable",
+            "path": { "scope": "doc", "segments": ["remarks"] }
+          }
+        }
+      },
+      "expected_status": "accept",
+      "expected_diagnostic_code": null,
+      "evaluation": {
+        "context": {
+          "doc": { "remarks": "   " }
+        },
+        "expected_outcome": true,
+        "expected_diagnostic_code": null
+      }
+    },
+    {
+      "id": "valid_is_empty_empty_list_and_object",
+      "description": "is_empty returns true for empty list [] and empty object {}",
+      "payload": {
+        "schema": "flexirule.condition",
+        "version": 1,
+        "root": {
+          "type": "group",
+          "operator": "and",
+          "children": [
+            {
+              "type": "comparison",
+              "operator": "is_empty",
+              "left": {
+                "mode": "variable",
+                "path": { "scope": "doc", "segments": ["items"] }
+              }
+            },
+            {
+              "type": "comparison",
+              "operator": "is_empty",
+              "left": {
+                "mode": "variable",
+                "path": { "scope": "doc", "segments": ["custom_json"] }
+              }
+            }
+          ]
+        }
+      },
+      "expected_status": "accept",
+      "expected_diagnostic_code": null,
+      "evaluation": {
+        "context": {
+          "doc": {
+            "items": [],
+            "custom_json": {}
+          }
+        },
+        "expected_outcome": true,
+        "expected_diagnostic_code": null
+      }
+    },
+    {
+      "id": "valid_short_circuit_and_evaluation",
+      "description": "Group AND short-circuits on first false condition without evaluating subsequent errored condition",
+      "payload": {
+        "schema": "flexirule.condition",
+        "version": 1,
+        "root": {
+          "type": "group",
+          "operator": "and",
+          "children": [
+            {
+              "type": "comparison",
+              "operator": "equals",
+              "left": {
+                "mode": "variable",
+                "path": { "scope": "doc", "segments": ["status"] }
+              },
+              "right": {
+                "mode": "static",
+                "value_type": "string",
+                "value": "Submitted"
+              }
+            },
+            {
+              "type": "comparison",
+              "operator": "greater_than",
+              "left": {
+                "mode": "variable",
+                "path": { "scope": "doc", "segments": ["missing_field"] }
+              },
+              "right": {
+                "mode": "static",
+                "value_type": "integer",
+                "value": 10
+              }
+            }
+          ]
+        }
+      },
+      "expected_status": "accept",
+      "expected_diagnostic_code": null,
+      "evaluation": {
+        "context": {
+          "doc": { "status": "Draft" }
+        },
+        "expected_outcome": false,
+        "expected_diagnostic_code": null
+      }
+    },
+    {
       "id": "valid_null_versus_missing_differentiation",
       "description": "Valid equality comparison with explicit static null comparing against present null",
       "payload": {
@@ -450,6 +566,14 @@
       "evaluation": null
     },
     {
+      "id": "reject_malformed_json_string_payload",
+      "description": "Malformed JSON payload string at consumer boundary fails validation",
+      "payload": "{ malformed_json: ",
+      "expected_status": "reject",
+      "expected_diagnostic_code": "ERR_MALFORMED_JSON_PAYLOAD",
+      "evaluation": null
+    },
+    {
       "id": "reject_malformed_resolver_config",
       "description": "Resolver FlexValue node with unpermitted condition operand operation is rejected",
       "payload": {
@@ -495,6 +619,45 @@
       },
       "expected_status": "migrate",
       "expected_diagnostic_code": "MIGRATE_NON_CANONICAL_OPERATOR_LIKE",
+      "evaluation": null
+    },
+    {
+      "id": "migrate_legacy_token_not_like_ambiguous",
+      "description": "Legacy token 'not like' requires manual migration review diagnostic",
+      "payload": {
+        "type": "comparison",
+        "operator": "not like",
+        "left": { "mode": "variable", "path": { "scope": "doc", "segments": ["name"] } },
+        "right": { "mode": "static", "value_type": "string", "value": "TEMP-%" }
+      },
+      "expected_status": "migrate",
+      "expected_diagnostic_code": "MIGRATE_NON_CANONICAL_OPERATOR_LIKE",
+      "evaluation": null
+    },
+    {
+      "id": "migrate_legacy_token_regex_prohibited",
+      "description": "Legacy token 'regex' is prohibited in v1 canonical AST and emits migration diagnostic",
+      "payload": {
+        "type": "comparison",
+        "operator": "regex",
+        "left": { "mode": "variable", "path": { "scope": "doc", "segments": ["code"] } },
+        "right": { "mode": "static", "value_type": "string", "value": "^[A-Z]{3}-\\d{4}$" }
+      },
+      "expected_status": "migrate",
+      "expected_diagnostic_code": "MIGRATE_NON_CANONICAL_OPERATOR_REGEX",
+      "evaluation": null
+    },
+    {
+      "id": "migrate_legacy_token_contains_context",
+      "description": "Legacy token 'contains' requires context conversion review",
+      "payload": {
+        "type": "comparison",
+        "operator": "contains",
+        "left": { "mode": "variable", "path": { "scope": "doc", "segments": ["description"] } },
+        "right": { "mode": "static", "value_type": "string", "value": "urgent" }
+      },
+      "expected_status": "migrate",
+      "expected_diagnostic_code": "MIGRATE_LEGACY_CONTAINS",
       "evaluation": null
     },
     {
