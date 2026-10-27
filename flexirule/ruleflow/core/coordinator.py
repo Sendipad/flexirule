@@ -641,7 +641,7 @@ class RuleCoordinator:
 					message=f"Rule {getattr(rule_doc, 'name', '')}; {type(exc).__name__}",
 				)
 				return False, _("Trigger Evaluation Error")
-
+		return True, "Eligible"
 
 	@staticmethod
 	def get_applicable_rules(doctype: str, event_name: str, doc=None, _allow_retry: bool = True) -> list:
