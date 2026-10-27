@@ -171,21 +171,21 @@ def _validate_static_value_match(v_type: str, val: Any, path: str) -> None:
 				path=path,
 			)
 	elif v_type == "integer":
-		if type(val) is not int:  # bool is subclass of int in Python
+		if not isinstance(val, int) or isinstance(val, bool):  # bool is subclass of int in Python
 			raise FlexValueError(
 				f"Value at '{path}' must be integer, got {type(val).__name__}",
 				code="TYPE_MISMATCH",
 				path=path,
 			)
 	elif v_type == "boolean":
-		if type(val) is not bool:
+		if not isinstance(val, bool):
 			raise FlexValueError(
 				f"Value at '{path}' must be boolean, got {type(val).__name__}",
 				code="TYPE_MISMATCH",
 				path=path,
 			)
 	elif v_type == "decimal":
-		if isinstance(val, (int, float)) and type(val) is not bool:
+		if isinstance(val, int | float) and not isinstance(val, bool):
 			val = str(val)
 		if not isinstance(val, str) and not isinstance(val, Decimal):
 			raise FlexValueError(
@@ -223,14 +223,14 @@ def _validate_static_value_match(v_type: str, val: Any, path: str) -> None:
 				path=path,
 			)
 	elif v_type == "list":
-		if type(val) is not list:
+		if not isinstance(val, list):
 			raise FlexValueError(
 				f"Value at '{path}' must be a list, got {type(val).__name__}",
 				code="TYPE_MISMATCH",
 				path=path,
 			)
 	elif v_type == "object":
-		if type(val) is not dict:
+		if not isinstance(val, dict):
 			raise FlexValueError(
 				f"Value at '{path}' must be an object (dict), got {type(val).__name__}",
 				code="TYPE_MISMATCH",
@@ -283,7 +283,7 @@ def _validate_variable_flexvalue(data: dict, path: str) -> None:
 
 	segments = p_data["segments"]
 	seg_path = f"{p_path}.segments"
-	if type(segments) is not list:
+	if not isinstance(segments, list):
 		raise FlexValueError(
 			f"Segments at '{seg_path}' must be a list",
 			code="TYPE_MISMATCH",
@@ -353,7 +353,7 @@ def _validate_resolver_flexvalue(data: dict, path: str, resolver_depth: int) -> 
 		)
 
 	config = data["config"]
-	if type(config) is not dict:
+	if not isinstance(config, dict):
 		raise FlexValueError(
 			f"Resolver config at '{path}.config' must be a dictionary",
 			code="TYPE_MISMATCH",
@@ -375,7 +375,7 @@ def _validate_template_flexvalue(data: dict, path: str, resolver_depth: int) -> 
 
 	segments = data["segments"]
 	seg_path = f"{path}.segments"
-	if type(segments) is not list:
+	if not isinstance(segments, list):
 		raise FlexValueError(
 			f"Template segments at '{seg_path}' must be a list",
 			code="TYPE_MISMATCH",
@@ -391,7 +391,7 @@ def _validate_template_flexvalue(data: dict, path: str, resolver_depth: int) -> 
 
 	for idx, item in enumerate(segments):
 		item_path = f"{seg_path}[{idx}]"
-		if type(item) is not dict:
+		if not isinstance(item, dict):
 			raise FlexValueError(
 				f"Template segment at '{item_path}' must be a dict",
 				code="TYPE_MISMATCH",
@@ -433,12 +433,18 @@ def _validate_template_flexvalue(data: dict, path: str, resolver_depth: int) -> 
 
 def _validate_recursive_flexvalues_in_obj(obj: Any, current_path: str, resolver_depth: int) -> None:
 	"""Helper to walk nested dicts/lists in resolver config looking for FlexValue dicts."""
-	if type(obj) is dict:
-		if "mode" in obj and isinstance(obj["mode"], str) and obj["mode"] in {"static", "variable", "resolver", "template"}:
+	if isinstance(obj, dict):
+		if (
+			"mode" in obj
+			and isinstance(obj["mode"], str)
+			and obj["mode"] in {"static", "variable", "resolver", "template"}
+		):
 			validate_flexvalue(obj, path=current_path, resolver_depth=resolver_depth)
 		else:
 			for k, v in obj.items():
 				_validate_recursive_flexvalues_in_obj(v, f"{current_path}.{k}", resolver_depth=resolver_depth)
-	elif type(obj) is list:
+	elif isinstance(obj, list):
 		for idx, item in enumerate(obj):
-			_validate_recursive_flexvalues_in_obj(item, f"{current_path}[{idx}]", resolver_depth=resolver_depth)
+			_validate_recursive_flexvalues_in_obj(
+				item, f"{current_path}[{idx}]", resolver_depth=resolver_depth
+			)

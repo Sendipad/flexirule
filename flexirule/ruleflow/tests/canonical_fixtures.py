@@ -53,7 +53,10 @@ POSITIVE_FIXTURES = [
 						{
 							"type": "comparison",
 							"operator": "eq",
-							"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["is_priority"]}},
+							"left": {
+								"mode": "variable",
+								"path": {"scope": "doc", "segments": ["is_priority"]},
+							},
 							"right": {"mode": "static", "value_type": "boolean", "value": True},
 						},
 					],

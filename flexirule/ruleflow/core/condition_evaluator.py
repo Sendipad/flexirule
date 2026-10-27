@@ -218,7 +218,7 @@ def _eval_comparison(node: dict[str, Any], context: dict[str, Any]) -> bool:
 				"Cannot test 'is_empty' on null value",
 				code="NULL_VALUE",
 			)
-		if isinstance(left_val, (str, list, dict, tuple, set)):
+		if isinstance(left_val, str | list | dict | tuple | set):
 			return len(left_val) == 0
 		raise ConditionEvaluationError(
 			f"Value of type {type(left_val).__name__} does not support emptiness test",
@@ -226,9 +226,7 @@ def _eval_comparison(node: dict[str, Any], context: dict[str, Any]) -> bool:
 		)
 
 	if op_id == "is_not_empty":
-		return not _eval_comparison(
-			{"operator": "is_empty", "left": left_fv}, context
-		)
+		return not _eval_comparison({"operator": "is_empty", "left": left_fv}, context)
 
 	if op_id == "has_field":
 		doc = _get_scope_target("doc", context)
@@ -266,7 +264,7 @@ def _eval_comparison(node: dict[str, Any], context: dict[str, Any]) -> bool:
 		return _compare_order(left_val, right_val, op_id)
 
 	if op_id == "in":
-		if not isinstance(right_val, (list, tuple, set, dict, str)):
+		if not isinstance(right_val, list | tuple | set | dict | str):
 			raise ConditionEvaluationError(
 				f"Right operand for 'in' must be iterable, got {type(right_val).__name__}",
 				code="TYPE_MISMATCH",
@@ -274,7 +272,7 @@ def _eval_comparison(node: dict[str, Any], context: dict[str, Any]) -> bool:
 		return left_val in right_val
 
 	if op_id == "not_in":
-		if not isinstance(right_val, (list, tuple, set, dict, str)):
+		if not isinstance(right_val, list | tuple | set | dict | str):
 			raise ConditionEvaluationError(
 				f"Right operand for 'not_in' must be iterable, got {type(right_val).__name__}",
 				code="TYPE_MISMATCH",
@@ -297,7 +295,7 @@ def _eval_comparison(node: dict[str, Any], context: dict[str, Any]) -> bool:
 			return left_val.endswith(right_val)
 
 	if op_id.startswith("length_"):
-		if not isinstance(left_val, (str, list, dict, tuple, set)):
+		if not isinstance(left_val, str | list | dict | tuple | set):
 			raise ConditionEvaluationError(
 				f"Length operator '{op_id}' requires sized LHS",
 				code="TYPE_MISMATCH",
@@ -326,8 +324,8 @@ def _eval_comparison(node: dict[str, Any], context: dict[str, Any]) -> bool:
 
 def _are_equal(left: Any, right: Any) -> bool:
 	# Strict type distinction for boolean vs zero
-	if type(left) is bool or type(right) is bool:
-		if type(left) is not type(right):
+	if isinstance(left, bool) or isinstance(right, bool):
+		if not (isinstance(left, bool) and isinstance(right, bool)):
 			return False
 		return left is right
 
@@ -410,7 +408,7 @@ def _eval_collection_predicate(
 	if collection is MISSING or collection is None:
 		raise ConditionEvaluationError("Collection source is missing or null", code="MISSING_COLLECTION")
 
-	if not isinstance(collection, (list, tuple)):
+	if not isinstance(collection, list | tuple):
 		raise ConditionEvaluationError(
 			f"Collection source must be a list or tuple, got {type(collection).__name__}",
 			code="TYPE_MISMATCH",

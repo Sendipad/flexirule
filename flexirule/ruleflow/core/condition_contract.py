@@ -92,40 +92,100 @@ class CanonicalOperatorRegistry:
 		cls.register(CanonicalOperator("eq", "Equals", 2, "comparison", "Equal to RHS"))
 		cls.register(CanonicalOperator("ne", "Not Equals", 2, "comparison", "Not equal to RHS"))
 		cls.register(CanonicalOperator("gt", "Greater Than", 2, "comparison", "Greater than RHS"))
-		cls.register(CanonicalOperator("gte", "Greater Than or Equal", 2, "comparison", "Greater than or equal to RHS"))
+		cls.register(
+			CanonicalOperator("gte", "Greater Than or Equal", 2, "comparison", "Greater than or equal to RHS")
+		)
 		cls.register(CanonicalOperator("lt", "Less Than", 2, "comparison", "Less than RHS"))
-		cls.register(CanonicalOperator("lte", "Less Than or Equal", 2, "comparison", "Less than or equal to RHS"))
+		cls.register(
+			CanonicalOperator("lte", "Less Than or Equal", 2, "comparison", "Less than or equal to RHS")
+		)
 
 		# Membership
-		cls.register(CanonicalOperator("in", "In List / Set", 2, "membership", "LHS is contained in RHS list or string"))
-		cls.register(CanonicalOperator("not_in", "Not In List / Set", 2, "membership", "LHS is not contained in RHS list or string"))
+		cls.register(
+			CanonicalOperator(
+				"in", "In List / Set", 2, "membership", "LHS is contained in RHS list or string"
+			)
+		)
+		cls.register(
+			CanonicalOperator(
+				"not_in", "Not In List / Set", 2, "membership", "LHS is not contained in RHS list or string"
+			)
+		)
 
 		# Literal Text Matching
-		cls.register(CanonicalOperator("contains", "Contains Text", 2, "text", "LHS string contains RHS substring"))
-		cls.register(CanonicalOperator("not_contains", "Does Not Contain Text", 2, "text", "LHS string does not contain RHS substring"))
-		cls.register(CanonicalOperator("starts_with", "Starts With", 2, "text", "LHS string starts with RHS prefix"))
-		cls.register(CanonicalOperator("ends_with", "Ends With", 2, "text", "LHS string ends with RHS suffix"))
+		cls.register(
+			CanonicalOperator("contains", "Contains Text", 2, "text", "LHS string contains RHS substring")
+		)
+		cls.register(
+			CanonicalOperator(
+				"not_contains",
+				"Does Not Contain Text",
+				2,
+				"text",
+				"LHS string does not contain RHS substring",
+			)
+		)
+		cls.register(
+			CanonicalOperator("starts_with", "Starts With", 2, "text", "LHS string starts with RHS prefix")
+		)
+		cls.register(
+			CanonicalOperator("ends_with", "Ends With", 2, "text", "LHS string ends with RHS suffix")
+		)
 
 		# Presence & Nullness
-		cls.register(CanonicalOperator("is_set", "Is Set", 1, "presence", "Value is present and not null/empty string"))
-		cls.register(CanonicalOperator("is_not_set", "Is Not Set", 1, "presence", "Value is missing, null, or empty string"))
+		cls.register(
+			CanonicalOperator("is_set", "Is Set", 1, "presence", "Value is present and not null/empty string")
+		)
+		cls.register(
+			CanonicalOperator(
+				"is_not_set", "Is Not Set", 1, "presence", "Value is missing, null, or empty string"
+			)
+		)
 		cls.register(CanonicalOperator("is_null", "Is Null", 1, "nullness", "Value is explicitly null"))
-		cls.register(CanonicalOperator("is_not_null", "Is Not Null", 1, "nullness", "Value is present and not null"))
+		cls.register(
+			CanonicalOperator("is_not_null", "Is Not Null", 1, "nullness", "Value is present and not null")
+		)
 
 		# Emptiness
-		cls.register(CanonicalOperator("is_empty", "Is Empty", 1, "emptiness", "Collection or string is empty"))
-		cls.register(CanonicalOperator("is_not_empty", "Is Not Empty", 1, "emptiness", "Collection or string is not empty"))
+		cls.register(
+			CanonicalOperator("is_empty", "Is Empty", 1, "emptiness", "Collection or string is empty")
+		)
+		cls.register(
+			CanonicalOperator(
+				"is_not_empty", "Is Not Empty", 1, "emptiness", "Collection or string is not empty"
+			)
+		)
 
 		# Length Operators
-		cls.register(CanonicalOperator("length_eq", "Length Equals", 2, "length", "Length of LHS equals RHS integer"))
-		cls.register(CanonicalOperator("length_gt", "Length Greater Than", 2, "length", "Length of LHS > RHS integer"))
-		cls.register(CanonicalOperator("length_gte", "Length Greater Than or Equal", 2, "length", "Length of LHS >= RHS integer"))
-		cls.register(CanonicalOperator("length_lt", "Length Less Than", 2, "length", "Length of LHS < RHS integer"))
-		cls.register(CanonicalOperator("length_lte", "Length Less Than or Equal", 2, "length", "Length of LHS <= RHS integer"))
+		cls.register(
+			CanonicalOperator("length_eq", "Length Equals", 2, "length", "Length of LHS equals RHS integer")
+		)
+		cls.register(
+			CanonicalOperator("length_gt", "Length Greater Than", 2, "length", "Length of LHS > RHS integer")
+		)
+		cls.register(
+			CanonicalOperator(
+				"length_gte", "Length Greater Than or Equal", 2, "length", "Length of LHS >= RHS integer"
+			)
+		)
+		cls.register(
+			CanonicalOperator("length_lt", "Length Less Than", 2, "length", "Length of LHS < RHS integer")
+		)
+		cls.register(
+			CanonicalOperator(
+				"length_lte", "Length Less Than or Equal", 2, "length", "Length of LHS <= RHS integer"
+			)
+		)
 
 		# Frappe Metadata
-		cls.register(CanonicalOperator("has_field", "Has Field", 1, "metadata", "Document context has specified field"))
-		cls.register(CanonicalOperator("is_submittable", "Is Submittable", 1, "metadata", "Document doctype is submittable"))
+		cls.register(
+			CanonicalOperator("has_field", "Has Field", 1, "metadata", "Document context has specified field")
+		)
+		cls.register(
+			CanonicalOperator(
+				"is_submittable", "Is Submittable", 1, "metadata", "Document doctype is submittable"
+			)
+		)
 
 		cls._initialized = True
 
@@ -299,7 +359,7 @@ def _validate_group_node(
 
 	children = data["children"]
 	c_path = f"{path}.children"
-	if type(children) is not list:
+	if not isinstance(children, list):
 		raise ConditionContractError(
 			f"Group children at '{c_path}' must be a list",
 			code="TYPE_MISMATCH",

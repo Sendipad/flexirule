@@ -72,7 +72,9 @@ class TestCanonicalFlexValueContract(unittest.TestCase):
 
 		# Segments count exceeded
 		with self.assertRaises(FlexValueError) as cm:
-			validate_flexvalue({"mode": "variable", "path": {"scope": "doc", "segments": [f"s{i}" for i in range(33)]}})
+			validate_flexvalue(
+				{"mode": "variable", "path": {"scope": "doc", "segments": [f"s{i}" for i in range(33)]}}
+			)
 		self.assertEqual(cm.exception.code, "LIMIT_EXCEEDED")
 
 	def test_valid_resolver_flexvalue(self):
@@ -90,13 +92,15 @@ class TestCanonicalFlexValueContract(unittest.TestCase):
 	def test_invalid_resolver_flexvalue(self):
 		# Unknown key inside resolver
 		with self.assertRaises(FlexValueError) as cm:
-			validate_flexvalue({
-				"mode": "resolver",
-				"family": "math",
-				"operation": "add",
-				"config": {},
-				"ui_id": "999",
-			})
+			validate_flexvalue(
+				{
+					"mode": "resolver",
+					"family": "math",
+					"operation": "add",
+					"config": {},
+					"ui_id": "999",
+				}
+			)
 		self.assertEqual(cm.exception.code, "UNKNOWN_KEY")
 
 	def test_valid_template_flexvalue(self):
@@ -104,7 +108,10 @@ class TestCanonicalFlexValueContract(unittest.TestCase):
 			"mode": "template",
 			"segments": [
 				{"type": "text", "text": "Hello "},
-				{"type": "value", "value": {"mode": "variable", "path": {"scope": "doc", "segments": ["first_name"]}}},
+				{
+					"type": "value",
+					"value": {"mode": "variable", "path": {"scope": "doc", "segments": ["first_name"]}},
+				},
 			],
 		}
 		validate_flexvalue(valid_case)
@@ -112,10 +119,12 @@ class TestCanonicalFlexValueContract(unittest.TestCase):
 	def test_invalid_template_flexvalue(self):
 		# Unknown segment type
 		with self.assertRaises(FlexValueError) as cm:
-			validate_flexvalue({
-				"mode": "template",
-				"segments": [
-					{"type": "raw_python", "code": "1 + 1"},
-				],
-			})
+			validate_flexvalue(
+				{
+					"mode": "template",
+					"segments": [
+						{"type": "raw_python", "code": "1 + 1"},
+					],
+				}
+			)
 		self.assertEqual(cm.exception.code, "INVALID_TEMPLATE_SEGMENT")

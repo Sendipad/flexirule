@@ -2,6 +2,7 @@
 # For license information, please see license.txt
 
 import unittest
+from typing import Any, cast
 
 from flexirule.ruleflow.core.condition_contract import (
 	ConditionContractError,
@@ -20,8 +21,8 @@ class TestCanonicalFixtures(unittest.TestCase):
 	def test_positive_fixtures(self):
 		for fixture in POSITIVE_FIXTURES:
 			with self.subTest(name=fixture["name"]):
-				cond = fixture["condition"]
-				ctx = fixture["context"]
+				cond = cast(dict[str, Any], fixture["condition"])
+				ctx = cast(dict[str, Any], fixture["context"])
 				expected = fixture["expected"]
 
 				# Validate first
@@ -34,8 +35,8 @@ class TestCanonicalFixtures(unittest.TestCase):
 	def test_negative_validation_fixtures(self):
 		for fixture in NEGATIVE_VALIDATION_FIXTURES:
 			with self.subTest(name=fixture["name"]):
-				cond = fixture["condition"]
-				expected_code = fixture["expected_error_code"]
+				cond = cast(dict[str, Any], fixture["condition"])
+				expected_code = cast(str, fixture["expected_error_code"])
 
 				with self.assertRaises(ConditionContractError) as cm:
 					validate_condition_node(cond)
