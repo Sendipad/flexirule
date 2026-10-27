@@ -324,7 +324,15 @@ def _evaluate_value(plan: tuple, context: dict) -> Any:
 				"resolver_not_allowed", path, "Resolver operation is no longer approved"
 			)
 		try:
-			return entry["resolve"](_thaw_json(frozen_config), context)
+			resolved = entry["resolve"](_thaw_json(frozen_config), context)
+			actual_type = _runtime_value_type(resolved, path)
+			if actual_type != entry["output_type"]:
+				raise ConditionEvaluationError(
+					"resolver_output_type_mismatch",
+					path,
+					"Resolver output does not match its declared output type",
+				)
+			return resolved
 		except ConditionEvaluationError:
 			raise
 		except Exception as exc:
