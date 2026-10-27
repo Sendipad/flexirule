@@ -470,7 +470,7 @@ class CollectionResolver(CompiledResolver):
 	values from child table collections or list variables.
 	"""
 
-	MAX_COLLECTION_ROWS = 10000
+	from flexirule.ruleflow.core.flexvalue_contract import MAX_COLLECTION_ROWS as MAX_COLLECTION_ROWS
 
 	def __init__(
 		self,
@@ -527,16 +527,26 @@ class CollectionResolver(CompiledResolver):
 			)
 
 		doc = context.get("doc")
+		condition_evaluation_budget = {"collection_row_visits": 0}
 
 		def _matches(r) -> bool:
 			if self._canonical_condition is not None:
-				from flexirule.ruleflow.core.condition_evaluator import evaluate_condition
+				from flexirule.ruleflow.core.condition_evaluator import (
+					consume_collection_row_visit,
+					evaluate_condition,
+				)
 
+				consume_collection_row_visit(condition_evaluation_budget, "CollectionResolver.condition")
 				row_context = dict(context)
 				row_context["doc"] = doc
 				row_context["row"] = r
 				doctype = getattr(doc, "doctype", None) or row_context.get("doctype")
-				return evaluate_condition(self._canonical_condition, row_context, doctype=doctype)
+				return evaluate_condition(
+					self._canonical_condition,
+					row_context,
+					doctype=doctype,
+					_evaluation_budget=condition_evaluation_budget,
+				)
 			if not self._compiled_evaluator:
 				return True
 			return self._compiled_evaluator.evaluate(doc, row=r)
