@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from datetime import date, datetime, time
 from decimal import Decimal, InvalidOperation
 from functools import lru_cache
@@ -516,7 +517,17 @@ def _runtime_value_type(value: Any, path: str) -> str:
 		return "boolean"
 	if type(value) is int:
 		return "integer"
-	if isinstance(value, (Decimal, float)):
+	if isinstance(value, Decimal):
+		if not value.is_finite():
+			raise ConditionEvaluationError(
+				"non_finite_runtime_number", path, "Runtime numeric values must be finite"
+			)
+		return "decimal"
+	if isinstance(value, float):
+		if not math.isfinite(value):
+			raise ConditionEvaluationError(
+				"non_finite_runtime_number", path, "Runtime numeric values must be finite"
+			)
 		return "decimal"
 	if isinstance(value, str):
 		return "string"
