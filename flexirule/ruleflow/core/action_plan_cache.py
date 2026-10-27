@@ -11,7 +11,7 @@ import frappe
 
 from flexirule.ruleflow.core.contracts import normalize_action_type
 
-CACHE_VERSION = 3
+CACHE_VERSION = 4
 CACHE_KEY_PREFIX = "flexirule_action_plan_v1"
 LOCAL_CACHE_KEY = "flexirule_action_plan_cache"
 
