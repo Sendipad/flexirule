@@ -92,13 +92,16 @@ def register_condition_resolver(
 		or not isinstance(config_schema, dict)
 		or not isinstance(permission_policy, str)
 		or not permission_policy
+		or not isinstance(condition_operand_allowed, bool)
 		or not isinstance(required_capability, str)
 		or not required_capability
 	):
 		raise ValueError("Invalid canonical condition resolver registration")
 	try:
-		json.dumps(config_schema, sort_keys=True, allow_nan=False)
-	except (TypeError, ValueError) as exc:
+		config_schema_copy = json.loads(
+			json.dumps(config_schema, sort_keys=True, allow_nan=False, separators=(",", ":"))
+		)
+	except (TypeError, ValueError, RecursionError) as exc:
 		raise ValueError("Resolver config_schema must be JSON-serializable") from exc
 	if not callable(validate_config) or not callable(resolve):
 		raise ValueError("Resolver validators and resolvers must be callable")
@@ -115,7 +118,7 @@ def register_condition_resolver(
 		"operation": operation,
 		"label": label,
 		"output_type": output_type,
-		"config_schema": config_schema,
+		"config_schema": config_schema_copy,
 		"permission_policy": permission_policy,
 		"required_capability": required_capability,
 		"condition_operand_allowed": bool(condition_operand_allowed),
@@ -148,7 +151,7 @@ def resolver_contract_dto() -> list[dict[str, Any]]:
 			"operation": item["operation"],
 			"label": item["label"],
 			"output_type": item["output_type"],
-			"config_schema": item["config_schema"],
+			"config_schema": json.loads(json.dumps(item["config_schema"], sort_keys=True)),
 			"permission_policy": item["permission_policy"],
 			"required_capability": item["required_capability"],
 			"condition_operand_allowed": bool(item["condition_operand_allowed"]),
