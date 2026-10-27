@@ -442,7 +442,7 @@ def _coerce_field_value(value: Any, fieldtype: str | None, path: str) -> Any:
 				raise ValueError
 			return int(value)
 		if fieldtype in {"Float", "Currency", "Percent"}:
-			if type(value) is bool:
+			if isinstance(value, bool):
 				raise ValueError
 			number = Decimal(str(value))
 			if not number.is_finite():
@@ -472,7 +472,7 @@ def _is_numeric(value: Any) -> bool:
 
 
 def _decimal(value: Any, path: str) -> Decimal:
-	if type(value) is bool:
+	if isinstance(value, bool):
 		raise ConditionEvaluationError("invalid_numeric_type", path, "Boolean values are not numbers")
 	try:
 		result = Decimal(str(value))
@@ -486,8 +486,8 @@ def _decimal(value: Any, path: str) -> Decimal:
 def _strict_equal(left: Any, right: Any, path: str) -> bool:
 	if left is None or right is None:
 		return left is right
-	if type(left) is bool or type(right) is bool:
-		return type(left) is bool and type(right) is bool and left is right
+	if isinstance(left, bool) or isinstance(right, bool):
+		return isinstance(left, bool) and isinstance(right, bool) and left is right
 	if _is_numeric(left) and _is_numeric(right):
 		return _decimal(left, path) == _decimal(right, path)
 	if type(left) is not type(right):
@@ -525,7 +525,7 @@ def _ordered_compare(operator_id: str, left: Any, right: Any, path: str) -> bool
 def _runtime_value_type(value: Any, path: str) -> str:
 	if value is None:
 		return "null"
-	if type(value) is bool:
+	if isinstance(value, bool):
 		return "boolean"
 	if isinstance(value, int) and not isinstance(value, bool):
 		return "integer"
