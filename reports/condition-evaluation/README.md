@@ -143,12 +143,12 @@ The backend owns validation and runtime semantics; the frontend owns interaction
 
 1. **Contract first:** contract DTO, strict FlexValue/condition validation, canonical fixtures and stable path-specific diagnostics.
 2. **Backend evaluator:** typed context access, comparator registry, short-circuit AST traversal and scoped collection predicates. No eval/exec/frappe.safe_eval for canonical conditions.
-3. **Frontend builder:** load/edit the canonical AST, use the contract DTO for operator/resolver options, and round-trip with no semantic loss.
+3. **Frontend builder:** reuse the existing generic `TreeBuilder.vue` / `useTreeBuilder.js` hierarchy, group/scope/leaf components, mutations, validation hooks, drag/drop and presentation slots. Use a thin condition-specific adapter at the boundary to map the direct canonical condition node to/from the generic editor model. Do not build a second recursive condition tree or duplicate structural behavior. Use the contract DTO for operator/resolver options and round-trip with no semantic loss.
 4. **Consumer adapters:** Rule trigger gate, Condition action routing, callable Sub-Rule gate, assignment run-if guard and CollectionResolver all use the same evaluator.
 5. **Legacy inventory/migration:** convert only deterministic payloads. Ambiguous legacy conditions are reported for explicit repair, not silently rewritten on load.
 6. **Deprecation/performance:** remove generated-Python and old evaluator routes only after consumer parity, migration and cache tests pass. Any optimization is ephemeral/rebuildable and derived from canonical JSON; no persisted compiled condition.
 
-The frontend and backend tasks may begin in parallel against this contract, but final runtime/UI integration is not merge-ready until both sides pass shared fixture round-trip tests. The backend plan is responsible for inspecting and reconciling [PR #438](https://github.com/Sendipad/flexirule/pull/438): it is a focused task brief, so do not create a competing FlexValue contract implementation in parallel. Reuse its branch/work where useful or supersede it explicitly.
+The frontend task must first inspect the current generic TreeBuilder API and existing consumers, then reuse it through a domain adapter; TreeBuilder owns hierarchy, group operations, scope context, drag/drop and presentation, while the condition adapter/leaf slots own condition semantics. Do not develop a new condition-specific tree renderer. The frontend and backend tasks may begin in parallel against this contract, but final runtime/UI integration is not merge-ready until both sides pass shared fixture round-trip tests. The backend plan is responsible for inspecting and reconciling [PR #438](https://github.com/Sendipad/flexirule/pull/438): it is a focused task brief, so do not create a competing FlexValue contract implementation in parallel. Reuse its branch/work where useful or supersede it explicitly.
 
 
 
