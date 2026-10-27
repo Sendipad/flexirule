@@ -14,6 +14,7 @@ from flexirule.ruleflow.core.condition_evaluator import (
 	condition_plan_cache_info,
 	evaluate_condition,
 )
+from flexirule.ruleflow.core.value_resolver import CollectionResolver
 
 
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "canonical_condition_fixtures.json"
@@ -118,6 +119,22 @@ class TestCanonicalConditionEvaluator(unittest.TestCase):
 		self.assertTrue(evaluate_condition(none_empty, {"doc":{"items":[]}}))
 		all_empty = {**base, "quantifier":"all"}
 		self.assertTrue(evaluate_condition(all_empty, {"doc":{"items":[]}}))
+
+	def test_collection_resolver_applies_canonical_predicate_for_count_any_all(self):
+		predicate = compare(
+			"gt",
+			variable("row", "amount"),
+			static("integer", 2),
+		)
+		context = {"doc": {"items": [{"amount": 1}, {"amount": 3}]}}
+
+		count = CollectionResolver("doc.items", operation="count", condition=predicate)
+		any_match = CollectionResolver("doc.items", operation="any", condition=predicate)
+		all_match = CollectionResolver("doc.items", operation="all", condition=predicate)
+
+		self.assertEqual(count.resolve(context), 1)
+		self.assertTrue(any_match.resolve(context))
+		self.assertFalse(all_match.resolve(context))
 
 	def test_collection_row_limit_fails_without_truncation(self):
 		base = self.fixtures["valid"]["root_collection_any"]
