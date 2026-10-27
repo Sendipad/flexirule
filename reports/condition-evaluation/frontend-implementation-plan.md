@@ -36,7 +36,7 @@ Relevant test runner in the current package.json: yarn test:frontend / yarn test
 2. Refactor rule_builder/utils/condition_payload.js into explicit functions with separate responsibilities:
    - strict recognition/validation of a direct canonical root node and its recursive child/operand shapes;
    - explicit legacy format detection and conversion for display only when conversion is deterministic;
-   - serialization of an already-valid canonical envelope with UI-only IDs removed;
+   - serialization of an already-valid direct canonical condition node with UI-only IDs removed;
    - stable error records for unknown node/operator IDs, malformed canonical nodes and ambiguous legacy payloads.
 3. Do not silently return a new empty {op:"and", conditions:[]} when a non-empty payload fails parsing. Preserve the original payload for diagnostics, render a blocking migration/error state and do not overwrite it on save.
 4. Keep UI IDs for Vue keys only. They may exist in local component state but must never appear under root, node children, FlexValue configs or persisted JSON.
@@ -47,14 +47,14 @@ Relevant test runner in the current package.json: yarn test:frontend / yarn test
 
 Refactor the builder components to operate on the new node discriminants:
 
-- Group: { type: "group", operator: "and" | "or", children: [...] }
+- Group: { type: "group", operator: "and" | "or", children: [...] } (at least two direct children in saved canonical JSON; children may mix comparisons, nested groups and collection predicates).
 - Comparison: { type: "comparison", operator, left: FlexValue, right?: FlexValue }
 - Collection predicate: { type: "collection_predicate", quantifier: "any" | "all" | "none", source: FlexValue (variable/path only in v1), as, where: ConditionNode }
 
 Tasks:
 
 1. ConditionBuilder.vue stores one ConditionNode as its root, permits a root comparison, group or collection predicate, and emits that node directly on save. The editor may have transient UI wrappers, but do not persist them or a second legacy tree.
-2. ConditionNode.vue dispatches on node.type, not key-presence heuristics such as left or conditions.
+2. ConditionNode.vue dispatches on node.type, not key-presence heuristics such as left or conditions. The root itself may be a comparison, group or collection predicate; do not require a root-group wrapper.
 3. ConditionGroupUI.vue has one AND/OR switch per group and nested groups for mixed logic. Do not persist logical_operator on individual children. Preserve child ordering and drag/drop identity.
 4. CollectionUI.vue builds the explicit collection predicate: source path, validated local alias and where subtree. any/all/none are quantifiers; do not use the legacy {op:"any", collection:"...", alias:"row"} as canonical JSON.
 5. condition_validator.js validates canonical structure, node limits, required values and metadata-driven operator/operand constraints. It is UX validation only; server-side validation remains authoritative.
@@ -84,7 +84,7 @@ Target ConditionStep.vue, condition_payload.js and identified Rule graph/config 
 4. Validate the canonical node type and exact allowed shape at every load/edit/save boundary. A canonical node with an unknown type is preserved and shown as unsupported; do not retry it as legacy data or silently downgrade it.
 5. On deterministic legacy formats, display the converted canonical view and make conversion visible where behavior changed. On ambiguous legacy joins, like/not like, has_changed, raw Python/Jinja or mismatched Link tuples, block destructive save and explain the required repair. Do not “fix” it by resetting to an empty group.
 6. Ensure draft/activation behavior matches the backend rules: empty configuration may remain an absent optional condition on a draft where the owning contract allows it, but never serialize an empty canonical group or bypass Condition-action activation validation.
-7. Ensure importing/exporting/cloning/copy-pasting a Rule preserves the envelope and does not reintroduce legacy op/conditions data on the next save.
+7. Ensure importing/exporting/cloning/copy-pasting a Rule preserves the direct canonical condition node and does not reintroduce legacy op/conditions data on the next save.
 
 **Gate F3:** trigger and Condition-action save/reload works without changing semantics; no nested UI IDs remain in stored JSON.
 
