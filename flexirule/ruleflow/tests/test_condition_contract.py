@@ -6,10 +6,14 @@
 import copy
 import json
 import unittest
-from typing import Any
 from pathlib import Path
+from typing import Any
 
-from flexirule.ruleflow.core.condition_contract import OPERATOR_REGISTRY, condition_contract_dto, validate_condition_node
+from flexirule.ruleflow.core.condition_contract import (
+	OPERATOR_REGISTRY,
+	condition_contract_dto,
+	validate_condition_node,
+)
 from flexirule.ruleflow.core.condition_errors import ConditionValidationError
 from flexirule.ruleflow.core.condition_payload import detect_canonical_condition_payload
 from flexirule.ruleflow.core.flexvalue_contract import validate_flex_value
