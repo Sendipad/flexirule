@@ -236,7 +236,7 @@ def _walk_collection_resolvers(
 		if family in {"collection", "child_aggregation"} or kind in {"collection", "child_aggregation"}:
 			inner = value.get("config") if isinstance(value.get("config"), Mapping) else {}
 			condition: Any = inner.get("condition") if "condition" in inner else value.get("condition")
-			if condition in (None, ""):
+			if condition is None or condition == "":
 				counts["collection_predicate.absent"] += 1
 			else:
 				_inspect_condition(
