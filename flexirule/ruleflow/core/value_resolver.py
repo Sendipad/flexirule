@@ -485,13 +485,22 @@ class CollectionResolver(CompiledResolver):
 			self.operation = "first"  # Map UI alias directly to first matching row
 		self.condition = condition
 		self.target_field = target_field
+		self._canonical_condition = None
 		self._compiled_evaluator = None
 
 		if self.condition:
-			from flexirule.ruleflow.core.evaluator import ConditionEvaluator
+			from flexirule.ruleflow.core.condition_contract import validate_condition_node
+			from flexirule.ruleflow.core.condition_payload import detect_canonical_condition_payload
 
-			cond_list = self.condition if isinstance(self.condition, list) else [self.condition]
-			self._compiled_evaluator = ConditionEvaluator(json.dumps(cond_list))
+			is_canonical, canonical_node = detect_canonical_condition_payload(self.condition)
+			if is_canonical:
+				validate_condition_node(canonical_node)
+				self._canonical_condition = canonical_node
+			else:
+				from flexirule.ruleflow.core.evaluator import ConditionEvaluator
+
+				cond_list = self.condition if isinstance(self.condition, list) else [self.condition]
+				self._compiled_evaluator = ConditionEvaluator(json.dumps(cond_list))
 
 	def resolve(self, context: dict) -> Any:
 		rows = get_context_value(context, self.source)
@@ -520,6 +529,14 @@ class CollectionResolver(CompiledResolver):
 		doc = context.get("doc")
 
 		def _matches(r) -> bool:
+			if self._canonical_condition is not None:
+				from flexirule.ruleflow.core.condition_evaluator import evaluate_condition
+
+				row_context = dict(context)
+				row_context["doc"] = doc
+				row_context["row"] = r
+				doctype = getattr(doc, "doctype", None) or row_context.get("doctype")
+				return evaluate_condition(self._canonical_condition, row_context, doctype=doctype)
 			if not self._compiled_evaluator:
 				return True
 			return self._compiled_evaluator.evaluate(doc, row=r)
