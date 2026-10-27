@@ -283,9 +283,31 @@ class ActionHandler(ABC):
 			if not compiled_expr_or_payload:
 				return False
 
-			from flexirule.ruleflow.core.compiler import ConditionCompiler
-
 			if isinstance(compiled_expr_or_payload, dict | list):
+				from flexirule.ruleflow.core.condition_payload import detect_canonical_condition_payload
+
+				is_canonical, canonical_node = detect_canonical_condition_payload(compiled_expr_or_payload)
+				if is_canonical:
+					from flexirule.ruleflow.core.condition_evaluator import evaluate_condition
+
+					condition_context = dict(context or {})
+					condition_context.setdefault("doc", context.get("doc"))
+					condition_context.setdefault("vars", context.get("vars", {}))
+					if engine:
+						condition_context.setdefault("rule", engine.rule)
+						condition_context.setdefault(
+							"doctype",
+							getattr(engine.rule, "document_type", None)
+							or getattr(condition_context.get("doc"), "doctype", None),
+						)
+					return evaluate_condition(
+						canonical_node,
+						condition_context,
+						doctype=condition_context.get("doctype"),
+					)
+
+				from flexirule.ruleflow.core.compiler import ConditionCompiler
+
 				compiled_expr = ConditionCompiler().compile(compiled_expr_or_payload)
 			else:
 				compiled_expr = str(compiled_expr_or_payload)
