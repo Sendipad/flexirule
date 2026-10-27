@@ -678,33 +678,33 @@ def get_contract_dto():
 
 @frappe.whitelist()
 def validate_rule_document(doc: str | dict, mode: str = "full"):
-	"""Validate a rule payload and return structured errors/warnings.
-
-	Args:
-	    doc: Rule document (JSON string or dict)
-	    mode: Validation mode — 'full' | 'draft' | 'node'
-	        - 'full':  Complete validation for activation
-	        - 'draft': Relaxed for building (skips activation checks)
-	        - 'node':  Single-action validation
-	"""
+	"""Validate a rule payload and return structured errors/warnings."""
 	_require_api_access()
 	payload = json.loads(doc) if isinstance(doc, str) else (doc or {})
 
 	from flexirule.ruleflow.core.validation_service import validate_rule_definition
 
-	# Align API precheck with actual save pipeline:
-	# compile trigger/action conditions before running validators.
+	# Prefer the same coercion + compilation pipeline used by Rule.save(). Once a
+	# Rule document exists, compilation errors must be returned—not hidden by a
+	# permissive fallback to raw payload validation.
 	if isinstance(payload, dict):
+		rule_payload = dict(payload)
+		rule_payload.setdefault("doctype", "Rule")
 		try:
-			rule_payload = dict(payload)
-			rule_payload.setdefault("doctype", "Rule")
 			rule_doc = frappe.get_doc(rule_payload)
+		except Exception:
+			return validate_rule_definition(payload, mode=mode)
+
+		try:
 			if hasattr(rule_doc, "compile_conditions"):
 				rule_doc.compile_conditions()
-			return validate_rule_definition(rule_doc, mode=mode)
-		except Exception:
-			# Fallback to payload validation to preserve prior behavior if coercion fails.
-			pass
+		except Exception as exc:
+			return {
+				"valid": False,
+				"errors": [str(exc)],
+				"warnings": [],
+			}
+		return validate_rule_definition(rule_doc, mode=mode)
 
 	return validate_rule_definition(payload, mode=mode)
 
