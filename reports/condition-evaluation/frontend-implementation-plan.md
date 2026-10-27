@@ -19,7 +19,7 @@ Read the full [canonical condition + FlexValue implementation plan](../canonical
 Inspect these current source paths before coding:
 
 - **components/condition_builder/ConditionBuilder.vue:** owns a legacy root {op, conditions} and emits a deep clone of that editor tree.
-- **ConditionNode.vue, ConditionGroupUI.vue, CollectionUI.vue and SimpleCondition.vue:** discriminate legacy nodes by fields such as left, conditions, collection and where; they use per-node logical joins and legacy row predicate shapes.
+- **Existing TreeBuilder implementation:** must be the structural editor for the canonical condition builder; inspect its README and actual API first. The current condition-specific components (`ConditionNode.vue`, `ConditionGroupUI.vue`, `CollectionUI.vue`) are legacy UI paths to migrate away from as recursive structure owners, not templates for a new parallel tree. Reuse the leaf/collection slots and domain controls where suitable.
 - **components/rule_config/types/ConditionStep.vue:** hydrates the old tree, adds ephemeral IDs, strips them on save, writes trigger condition on the Start node and writes Condition action data.config directly. It also clears condition_json.
 - **rule_builder/utils/condition_payload.js:** permissively unwraps multiple legacy formats; it should become an explicit legacy boundary adapter, not silently classify malformed canonical JSON as an empty tree.
 - **SimpleCondition.vue:** the left side is currently a FieldPicker, the right side is FlexValue, and operator choices include static DEFAULT_OPERATORS/DEFAULT_LABELS fallbacks.
@@ -29,6 +29,29 @@ Inspect these current source paths before coding:
 Relevant test runner in the current package.json: yarn test:frontend / yarn test; existing Cypress command is yarn test:e2e:cypress and regressions live under cypress/. Verify current scripts/test conventions before choosing the final test command.
 
 ## Implementation scope
+
+### Mandatory architecture constraint — reuse the existing Generic TreeBuilder
+
+The frontend implementation **must reuse the already-developed Generic TreeBuilder** at `flexirule/public/js/flexirule/rule_builder/components/tree_builder/`. Do not create a separate recursive ConditionNode/ConditionGroupUI/CollectionUI tree, a second drag/drop implementation, or duplicate generic add/remove/move/group logic.
+
+Inspect and reuse the current public contract and existing source before coding:
+
+- `TreeBuilder.vue` and `TreeBuilderNode.vue` for the generic hierarchy and rendering.
+- `TreeBuilderGroup.vue`, `TreeBuilderScope.vue`, and `TreeBuilderLeaf.vue` for group, scope and leaf presentation.
+- `useTreeBuilder.js`, `tree_builder_commands.js`, `tree_builder_validation.js`, and `tree_builder_utils.js` for controlled state, operations, validation hooks and structural helpers.
+- `components/tree_builder/README.md` for the generic model and slot contract.
+
+TreeBuilder owns hierarchy and interactions, **not condition-language semantics**. The condition feature supplies the leaf editor/summary and collection-slot content, validates conditions against the backend DTO, and keeps the canonical condition node as the sole persisted source of truth. Keep presentation state and TreeBuilder IDs out of persisted condition JSON.
+
+The generic editor model is intentionally different from the saved condition AST. Use one thin, explicit `condition_tree_adapter.js` (or extend an existing suitable adapter) to map between them; this is a boundary adapter, not a second tree implementation:
+
+- Canonical `group` maps to a TreeBuilder group; preserve its `and`/`or` operator and child order.
+- Canonical `comparison` maps to a generic TreeBuilder `leaf`. Keep the full canonical comparison payload under a domain-owned property such as `conditionNode`, because TreeBuilder uses `type: "leaf"` as its structural discriminant.
+- Canonical `collection_predicate` maps to TreeBuilder's generic collection `scope` node, preserving the canonical source, quantifier, alias and `where` subtree as domain payload. Use the existing inherited scope/context mechanism; do not mistake a scope for a logical group.
+- TreeBuilder's UI root is a group. For a canonical root comparison or collection predicate, use a **synthetic UI-only root group** containing that one node; unwrap this wrapper on serialization. If a user adds a second root child, the root becomes a real canonical group. If a group ends with one child, collapse it before serialization; an empty group is invalid and blocks save.
+- For a collection predicate, preserve its `where` root as one child under the TreeBuilder scope, even when `where` is a group. Do not flatten its logic or store a one-child logical group.
+
+The adapter must be tested for canonical → TreeBuilder model → canonical round-trips, nested AND/OR groups, nested collection scopes, root comparisons, transient IDs, and malformed/ambiguous legacy conditions. Do not persist the TreeBuilder model directly and do not build a second condition tree component hierarchy.
 
 ### Stage F0 — Contract fixtures and adapter boundaries
 
@@ -43,24 +66,23 @@ Relevant test runner in the current package.json: yarn test:frontend / yarn test
 
 **Gate F0:** round-trip fixtures preserve canonical JSON; invalid or ambiguous input never becomes an empty passing-looking tree.
 
-### Stage F1 — Build and edit canonical nodes
+### Stage F1 — Adopt Generic TreeBuilder and map canonical nodes
 
-Refactor the builder components to operate on the new node discriminants:
+Do not implement new recursive structure components. Integrate the existing `TreeBuilder.vue` with the condition domain through `condition_tree_adapter.js` and domain slots.
 
-- Group: { type: "group", operator: "and" | "or", children: [...] } (at least two direct children in saved canonical JSON; children may mix comparisons, nested groups and collection predicates).
-- Comparison: { type: "comparison", operator, left: FlexValue, right?: FlexValue }
-- Collection predicate: { type: "collection_predicate", quantifier: "any" | "all" | "none", source: FlexValue (variable/path only in v1), as, where: ConditionNode }
+1. Use TreeBuilder's controlled `v-model`, group operators, leaf/collection factories, structural validation hooks, max-depth and drag/drop operations. Reuse its existing `useTreeBuilder` state/commands and inline presentation API. Do not duplicate these mechanics in ConditionBuilder.
+2. Provide a condition-specific leaf slot (reusing/refactoring `SimpleCondition.vue` as a leaf editor) and, if readable presentation is enabled, a `#leaf-summary` slot. Provide collection-slot content for the condition-specific source, quantifier and alias; leave recursion and descendant rendering to TreeBuilder.
+3. Map the canonical node variants through the adapter:
+   - Group: canonical `{type: "group", operator: "and" | "or", children: [...]}` ↔ TreeBuilder group.
+   - Comparison: canonical `{type: "comparison", operator, left: FlexValue, right?: FlexValue}` ↔ TreeBuilder leaf with the complete canonical node stored as domain payload.
+   - Collection predicate: canonical `{type: "collection_predicate", quantifier, source, as, where}` ↔ TreeBuilder collection `scope` plus domain payload. Preserve `where` as a subtree boundary and use inherited scope context; any/all/none remain quantifiers, not group operators.
+4. TreeBuilder's root is always a UI group. When the saved root is a comparison or collection predicate, represent it temporarily as the only child of a synthetic root group, then unwrap on serialization. A root with two or more direct children serializes as a canonical group. Collapse one-child group wrappers before save; an empty group is invalid and blocks save.
+5. Never persist TreeBuilder IDs, generic `leaf`/`scope` discriminants or presentation/edit state. Persist only the direct canonical condition node. Do not mutate or replace the saved AST with the TreeBuilder model.
+6. Do not serialize per-child `logical_operator`. Each canonical group owns one AND/OR operator; mixed logic is represented by nested groups. Preserve child order.
+7. Keep canonical validation in `condition_validator.js` or the existing domain validator adapter; use TreeBuilder's structural hooks for basic hierarchy checks and the backend as authoritative for operator, operand, field metadata, scopes and resolver capabilities.
+8. A wholly absent optional condition remains different from an empty editor tree. Incomplete local edit state can exist; saving a present empty group or malformed canonical node must be blocked.
 
-Tasks:
-
-1. ConditionBuilder.vue stores one ConditionNode as its root, permits a root comparison, group or collection predicate, and emits that node directly on save. The editor may have transient UI wrappers, but do not persist them or a second legacy tree.
-2. ConditionNode.vue dispatches on node.type, not key-presence heuristics such as left or conditions. The root itself may be a comparison, group or collection predicate; do not require a root-group wrapper.
-3. ConditionGroupUI.vue has one AND/OR switch per group and nested groups for mixed logic. Do not persist logical_operator on individual children. Preserve child ordering and drag/drop identity.
-4. CollectionUI.vue builds the explicit collection predicate: source path, validated local alias and where subtree. any/all/none are quantifiers; do not use the legacy {op:"any", collection:"...", alias:"row"} as canonical JSON.
-5. condition_validator.js validates canonical structure, node limits, required values and metadata-driven operator/operand constraints. It is UX validation only; server-side validation remains authoritative.
-6. Incomplete interaction state can exist locally, but saving a present empty group or malformed canonical node must be blocked. Draft behavior for a wholly absent optional condition follows the owning Rule/Action contract; do not encode absence as an empty canonical group.
-
-**Gate F1:** all node types round-trip; nested AND/OR is explicit; no sibling-join ambiguity remains in saved data.
+**Gate F1:** the existing TreeBuilder owns all generic tree interactions; the condition adapter/slots round-trip every node variant; nested AND/OR and collection scope are preserved; no duplicate recursive tree UI or drag/drop implementation is introduced.
 
 ### Stage F2 — Use FlexValue for both operands
 
@@ -106,13 +128,14 @@ Use the existing Node frontend test harness and Cypress. Add/extend focused test
 Required cases:
 
 - Canonical positive/negative fixtures: root comparison, root group, root collection predicate, root group mixing comparisons and nested groups, all node/FlexValue variants, unknown node type/key/operator/scope/resolver, missing operands, malformed nested configs, empty groups, unary groups and no-predicate trees.
+- TreeBuilder adapter tests: canonical node ↔ generic tree round-trips; synthetic root unwrap/wrap; node IDs never persisted; scope/collection alias context; move/reorder/add/remove preserves direct canonical payload; group operators remain attached to groups; nested collection where boundaries do not flatten.
 - Serialization: no UI id or wrapper; direct node JSON round-trip; static false/zero/null/decimal/list/object preservation; stable semantic operator IDs; aliases and nested groups stable.
 - Logical semantics: nested AND/OR structure remains structural, no per-child logical joins, drag/drop and move preserve child order and group membership.
 - FlexValue operands: variable/static/resolver left and right; supported output-type operator filtering; unary operand rendering; Dynamic Link target; context scopes; template/value tokens; no raw Python/Jinja canonical output.
 - Legacy conversion: supported simple field comparisons convert deterministically; unsupported mixed joins, ambiguous operators, raw code and invalid JSON display blocking diagnostics and are not overwritten on save.
 - Validation UX: empty or one-child groups cannot be saved as canonical; draft absence and Condition-action activation requirements are not conflated; backend errors map to node/operand; missing API DTO gives a clear error, not static fallback.
 - Flow integration: Entry/trigger condition and Condition action config save/reload; Rule clone/import/export/copy/paste; nested collection predicate round-trip.
-- Cypress regressions: create nested groups, edit operands, save/reopen, assert serialized payload at API boundary and verify backend validation response. Do not mock away the contract/serialization layer in every end-to-end test.
+- Cypress regressions: through the existing TreeBuilder UI, create nested groups, edit condition leaves, configure a collection scope, save/reopen, assert the direct canonical serialized payload at the API boundary and verify backend validation response. Assert generic TreeBuilder remains responsible for drag/drop and structural actions; do not mock away the adapter/serialization layer in every end-to-end test.
 
 Run and report actual results:
 
@@ -126,6 +149,8 @@ Do not claim Cypress or build tests passed if not run. This is a docs/plan PR; i
 
 ## Acceptance criteria
 
+- [ ] The builder reuses Generic TreeBuilder for recursive hierarchy, group/scope/leaf rendering, drag/drop and generic mutations; no parallel condition-tree component hierarchy is introduced.
+- [ ] The condition-specific adapter maps between TreeBuilder's editor model and direct canonical condition nodes; TreeBuilder IDs, structural discriminants and UI state never persist.
 - [ ] The builder writes only direct canonical condition nodes and canonical FlexValue variants; no persisted schema/version/root envelope.
 - [ ] Both comparison operands use FlexValue and preserve value types.
 - [ ] Operator/resolver options come from the backend contract DTO.
@@ -137,4 +162,4 @@ Do not claim Cypress or build tests passed if not run. This is a docs/plan PR; i
 
 ## Jules execution notes
 
-Read this plan and the shared README, then inspect current source and test conventions at the task base. Keep the diff frontend-only. Trace each payload through ConditionStep.vue, the graph store, condition_payload.js and save/export/import before changing a component. If the backend API is not yet in the base branch, use the agreed DTO fixtures in unit tests and stack final integration on the backend implementation branch; do not invent a different DTO contract.
+Read this plan and the shared README, then inspect current source and test conventions at the task base. Inspect the current Generic TreeBuilder implementation and its README first; reuse its public API and slots. Do not create a replacement condition-specific tree. Keep the diff frontend-only. Trace each payload through ConditionStep.vue, the graph store, condition_payload.js and save/export/import before changing a component. If the backend API is not yet in the base branch, use the agreed DTO fixtures in unit tests and stack final integration on the backend implementation branch; do not invent a different DTO contract.
