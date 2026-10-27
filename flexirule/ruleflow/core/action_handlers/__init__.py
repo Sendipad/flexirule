@@ -285,7 +285,7 @@ class ActionHandler(ABC):
 
 			is_canonical = False
 			canonical_node = None
-			if isinstance(compiled_expr_or_payload, (dict, list, str)):
+			if isinstance(compiled_expr_or_payload, dict | list | str):
 				from flexirule.ruleflow.core.condition_payload import detect_canonical_condition_payload
 
 				is_canonical, canonical_node = detect_canonical_condition_payload(compiled_expr_or_payload)
@@ -314,7 +314,7 @@ class ActionHandler(ABC):
 					doctype=condition_context.get("doctype"),
 				)
 
-			if isinstance(compiled_expr_or_payload, (dict, list)):
+			if isinstance(compiled_expr_or_payload, dict | list):
 				from flexirule.ruleflow.core.compiler import ConditionCompiler
 
 				compiled_expr = ConditionCompiler().compile(compiled_expr_or_payload)
