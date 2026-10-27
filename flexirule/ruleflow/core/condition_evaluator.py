@@ -38,7 +38,23 @@ from flexirule.ruleflow.core.flexvalue_contract import (
 
 EVALUATOR_CACHE_VERSION = 1
 MAX_CACHEABLE_CONDITION_BYTES = 65536
-_CONDITION_BUDGET_KEY = object()
+
+
+
+class _EvaluationContext(dict):
+	"""Dict-compatible user context with private, non-enumerable evaluation state."""
+
+	__slots__ = ("collection_row_budget",)
+
+	def __init__(self, source=None, budget=None):
+		super().__init__(source or {})
+		self.collection_row_budget = (
+			budget if budget is not None else {"collection_row_visits": 0}
+		)
+
+
+def _child_context(context: _EvaluationContext) -> _EvaluationContext:
+	return _EvaluationContext(context, context.collection_row_budget)
 
 
 def _freeze_json(value: Any) -> Any:
@@ -211,9 +227,9 @@ def evaluate_condition(
 	_evaluation_budget: dict[str, int] | None = None,
 ) -> bool:
 	"""Evaluate one canonical node. Validation/runtime errors remain typed exceptions."""
-	ctx = dict(context or {})
-	ctx[_CONDITION_BUDGET_KEY] = (
-		_evaluation_budget if isinstance(_evaluation_budget, dict) else {"collection_row_visits": 0}
+	ctx = _EvaluationContext(
+		context or {},
+		_evaluation_budget if isinstance(_evaluation_budget, dict) else None,
 	)
 	effective_doctype = doctype or ctx.get("doctype")
 	if not effective_doctype:
@@ -244,12 +260,8 @@ def consume_collection_row_visit(budget: dict[str, int], path: str) -> None:
 		)
 
 
-def _consume_collection_row_budget(context: dict, path: str) -> None:
-	state = context.get(_CONDITION_BUDGET_KEY)
-	if not isinstance(state, dict):
-		state = {"collection_row_visits": 0}
-		context[_CONDITION_BUDGET_KEY] = state
-	consume_collection_row_visit(state, path)
+def _consume_collection_row_budget(context: _EvaluationContext, path: str) -> None:
+	consume_collection_row_visit(context.collection_row_budget, path)
 
 
 def _evaluate_node(plan: tuple, context: dict) -> bool:
@@ -312,7 +324,7 @@ def _evaluate_node(plan: tuple, context: dict) -> bool:
 		if quantifier == "any":
 			for row in rows:
 				_consume_collection_row_budget(context, f"{path}.source")
-				row_context = dict(context)
+				row_context = _child_context(context)
 				row_context["row"] = row
 				row_context[alias] = row
 				if _evaluate_node(where_plan, row_context):
