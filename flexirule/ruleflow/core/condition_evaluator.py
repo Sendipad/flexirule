@@ -190,7 +190,9 @@ def evaluate_condition(
 	effective_doctype = doctype or ctx.get("doctype")
 	if not effective_doctype:
 		doc = ctx.get("doc")
-		effective_doctype = getattr(doc, "doctype", None)
+		effective_doctype = (
+			doc.get("doctype") if isinstance(doc, dict) else getattr(doc, "doctype", None)
+		)
 	plan = compile_condition(node, doctype=effective_doctype)
 	try:
 		return bool(_evaluate_node(plan, ctx))
@@ -441,8 +443,48 @@ def _ordered_compare(operator_id: str, left: Any, right: Any, path: str) -> bool
 		) from exc
 
 
+def _runtime_value_type(value: Any, path: str) -> str:
+	if value is None:
+		return "null"
+	if type(value) is bool:
+		return "boolean"
+	if type(value) is int:
+		return "integer"
+	if isinstance(value, (Decimal, float)):
+		return "decimal"
+	if isinstance(value, str):
+		return "string"
+	if isinstance(value, datetime):
+		return "datetime"
+	if isinstance(value, date):
+		return "date"
+	if isinstance(value, time):
+		return "time"
+	if isinstance(value, list):
+		return "list"
+	if isinstance(value, dict):
+		return "object"
+	raise ConditionEvaluationError(
+		"unsupported_operand_type", path, "Operand type is not supported by canonical conditions"
+	)
+
+
+def _assert_runtime_equality_types(left: Any, right: Any, path: str) -> None:
+	left_type = _runtime_value_type(left, path)
+	right_type = _runtime_value_type(right, path)
+	if left_type == "null" or right_type == "null":
+		return
+	if left_type in {"integer", "decimal"} and right_type in {"integer", "decimal"}:
+		return
+	if left_type != right_type:
+		raise ConditionEvaluationError(
+			"operand_type_mismatch", path, "Equality operands have incompatible runtime types"
+	)
+
+
 def _compare(operator_id: str, left: Any, right: Any, path: str) -> bool:
 	if operator_id in {"eq", "ne"}:
+		_assert_runtime_equality_types(left, right, path)
 		equal = _strict_equal(left, right, path)
 		return equal if operator_id == "eq" else not equal
 	if operator_id in {"gt", "gte", "lt", "lte"}:
