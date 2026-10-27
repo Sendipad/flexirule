@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import math
 from datetime import date, datetime, time
 from decimal import Decimal, InvalidOperation
 from functools import lru_cache
@@ -97,7 +96,12 @@ def _compile_cached(
 ) -> tuple:
 	# payload_digest is part of the cache identity by design. Keep payload_json too
 	# so a collision can never cause one condition to execute as another.
-	if not payload_digest or semantics_version != CONDITION_SEMANTICS_VERSION:
+	if (
+		not payload_digest
+		or semantics_version != CONDITION_SEMANTICS_VERSION
+		or cache_version != EVALUATOR_CACHE_VERSION
+		or hashlib.sha256(payload_json.encode("utf-8")).hexdigest() != payload_digest
+	):
 		raise ConditionValidationError("condition_semantics_version", "$", "Unsupported condition semantics version")
 	try:
 		node = json.loads(payload_json)
@@ -238,6 +242,8 @@ def _evaluate_node(plan: tuple, context: dict) -> bool:
 		right = _evaluate_value(right_plan, context)
 		if right is MISSING:
 			raise ConditionEvaluationError("missing_operand", right_plan[-1], "Right operand path is missing")
+		if operator_id == "has_field":
+			return _compare_metadata(operator_id, left, right, path)
 		return _compare(operator_id, left, right, path)
 
 	if kind == "collection_predicate":
