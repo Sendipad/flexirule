@@ -9,13 +9,17 @@ import json
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, NoReturn
 
 from flexirule.ruleflow.core.condition_errors import ConditionValidationError
 from flexirule.ruleflow.core.flexvalue_contract import (
 	BASE_SCOPES,
 	CONDITION_LIMITS,
 	MAX_CONDITION_PAYLOAD_BYTES,
+	MAX_CONDITION_DEPTH,
+	MAX_CONDITION_NODES,
+	MAX_PATH_SEGMENTS,
+	MAX_TEMPLATE_SEGMENTS,
 	VALUE_TYPES,
 	validate_flex_value,
 )
@@ -121,7 +125,7 @@ def operator_contract_dto() -> list[dict[str, Any]]:
 	return result
 
 
-def _fail(code: str, path: str, message: str) -> None:
+def _fail(code: str, path: str, message: str) -> NoReturn:
 	raise ConditionValidationError(code, path, message)
 
 
@@ -260,9 +264,9 @@ FIELD_TYPE_VALUE_TYPES = {
 def _json_runtime_type(value: Any) -> str:
 	if value is None:
 		return "null"
-	if type(value) is bool:
+	if isinstance(value, bool):
 		return "boolean"
-	if type(value) is int:
+	if isinstance(value, int) and not isinstance(value, bool):
 		return "integer"
 	if isinstance(value, float):
 		return "decimal"
