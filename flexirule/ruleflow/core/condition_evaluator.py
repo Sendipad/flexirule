@@ -9,7 +9,6 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 
 import frappe
-
 from flexirule.ruleflow.core.condition_contract import (
 	CanonicalOperatorRegistry,
 	validate_condition_payload,
@@ -43,7 +42,9 @@ class ConditionEvaluationError(RuntimeError):
 class CanonicalConditionEvaluator:
 	"""Evaluates canonical condition AST directly against evaluation context."""
 
-	def __init__(self, context: dict[str, Any] | None = None, allowed_scopes: set | None = None):
+	def __init__(
+		self, context: dict[str, Any] | None = None, allowed_scopes: set | None = None
+	):
 		self.context = context or {}
 		self.allowed_scopes = allowed_scopes
 
@@ -65,7 +66,9 @@ class CanonicalConditionEvaluator:
 		elif node_type == "collection_predicate":
 			return self._evaluate_collection_predicate(node, path)
 		else:
-			raise ConditionEvaluationError(f"Unsupported node type '{node_type}'", "INVALID_NODE_TYPE", path)
+			raise ConditionEvaluationError(
+				f"Unsupported node type '{node_type}'", "INVALID_NODE_TYPE", path
+			)
 
 	def _evaluate_group(self, node: dict, path: str) -> bool:
 		group_op = node["operator"]
@@ -87,13 +90,17 @@ class CanonicalConditionEvaluator:
 					return True
 			return False
 
-		raise ConditionEvaluationError(f"Invalid group operator '{group_op}'", "INVALID_GROUP_OP", path)
+		raise ConditionEvaluationError(
+			f"Invalid group operator '{group_op}'", "INVALID_GROUP_OP", path
+		)
 
 	def _evaluate_comparison(self, node: dict, path: str) -> bool:
 		op_id = node["operator"]
 		op_meta = CanonicalOperatorRegistry.get(op_id)
 		if not op_meta:
-			raise ConditionEvaluationError(f"Unknown operator '{op_id}'", "UNKNOWN_OPERATOR", path)
+			raise ConditionEvaluationError(
+				f"Unknown operator '{op_id}'", "UNKNOWN_OPERATOR", path
+			)
 
 		is_meta = op_meta.get("is_metadata_operator", False)
 
@@ -112,15 +119,21 @@ class CanonicalConditionEvaluator:
 		right_val = self._resolve_flex_value(node["right"], f"{path}.right")
 		return self._evaluate_binary_operator(op_id, left_val, right_val, path)
 
-	def _evaluate_metadata_operator(self, op_id: str, left_val: Any, node: dict, path: str) -> bool:
+	def _evaluate_metadata_operator(
+		self, op_id: str, left_val: Any, node: dict, path: str
+	) -> bool:
 		if left_val is MISSING or left_val is None:
 			raise ConditionEvaluationError(
-				"Metadata operator require a valid DocType name", "MISSING_OPERAND", f"{path}.left"
+				"Metadata operator require a valid DocType name",
+				"MISSING_OPERAND",
+				f"{path}.left",
 			)
 
 		if not isinstance(left_val, str) or not left_val:
 			raise ConditionEvaluationError(
-				"Metadata operator left operand must be a non-empty string", "INVALID_TYPE", f"{path}.left"
+				"Metadata operator left operand must be a non-empty string",
+				"INVALID_TYPE",
+				f"{path}.left",
 			)
 
 		doctype = left_val
@@ -131,12 +144,19 @@ class CanonicalConditionEvaluator:
 				return bool(meta.is_submittable)
 			except Exception as e:
 				raise ConditionEvaluationError(
-					f"DocType '{doctype}' metadata lookup failed: {e!s}", "METADATA_ERROR", f"{path}.left"
+					f"DocType '{doctype}' metadata lookup failed: {e!s}",
+					"METADATA_ERROR",
+					f"{path}.left",
 				)
 
 		elif op_id == "has_field":
 			right_val = self._resolve_flex_value(node["right"], f"{path}.right")
-			if right_val is MISSING or right_val is None or not isinstance(right_val, str) or not right_val:
+			if (
+				right_val is MISSING
+				or right_val is None
+				or not isinstance(right_val, str)
+				or not right_val
+			):
 				raise ConditionEvaluationError(
 					"has_field right operand must be a non-empty fieldname string",
 					"INVALID_TYPE",
@@ -149,10 +169,14 @@ class CanonicalConditionEvaluator:
 				return meta.has_field(fieldname)
 			except Exception as e:
 				raise ConditionEvaluationError(
-					f"DocType '{doctype}' field lookup failed: {e!s}", "METADATA_ERROR", f"{path}.right"
+					f"DocType '{doctype}' field lookup failed: {e!s}",
+					"METADATA_ERROR",
+					f"{path}.right",
 				)
 
-		raise ConditionEvaluationError(f"Unhandled metadata operator '{op_id}'", "UNKNOWN_OPERATOR", path)
+		raise ConditionEvaluationError(
+			f"Unhandled metadata operator '{op_id}'", "UNKNOWN_OPERATOR", path
+		)
 
 	def _evaluate_unary_operator(self, op_id: str, val: Any, path: str) -> bool:
 		if op_id == "is_set":
@@ -182,16 +206,20 @@ class CanonicalConditionEvaluator:
 		elif op_id == "is_empty":
 			if val is MISSING or val is None:
 				return True
-			if isinstance(val, (str, list, dict, set, tuple)):
+			if isinstance(val, str | list | dict | set | tuple):
 				return len(val) == 0
 			return False
 
 		elif op_id == "is_not_empty":
 			return not self._evaluate_unary_operator("is_empty", val, path)
 
-		raise ConditionEvaluationError(f"Unhandled unary operator '{op_id}'", "UNKNOWN_OPERATOR", path)
+		raise ConditionEvaluationError(
+			f"Unhandled unary operator '{op_id}'", "UNKNOWN_OPERATOR", path
+		)
 
-	def _evaluate_binary_operator(self, op_id: str, left: Any, right: Any, path: str) -> bool:
+	def _evaluate_binary_operator(
+		self, op_id: str, left: Any, right: Any, path: str
+	) -> bool:
 		# Unexpected MISSING operands raise evaluation errors unless unary checks handled them
 		if left is MISSING or right is MISSING:
 			raise ConditionEvaluationError(
@@ -200,9 +228,11 @@ class CanonicalConditionEvaluator:
 
 		# Handle length operators
 		if op_id.startswith("length_"):
-			if not isinstance(left, (str, list, dict, tuple, set)) and left is not None:
+			if not isinstance(left, str | list | dict | tuple | set) and left is not None:
 				raise ConditionEvaluationError(
-					"Length operator requires iterable/string left operand", "INVALID_TYPE", f"{path}.left"
+					"Length operator requires iterable/string left operand",
+					"INVALID_TYPE",
+					f"{path}.left",
 				)
 
 			l_len = len(left) if left is not None else 0
@@ -210,7 +240,9 @@ class CanonicalConditionEvaluator:
 				r_num = int(right)
 			except (ValueError, TypeError):
 				raise ConditionEvaluationError(
-					"Length operator right operand must be an integer", "INVALID_TYPE", f"{path}.right"
+					"Length operator right operand must be an integer",
+					"INVALID_TYPE",
+					f"{path}.right",
 				)
 
 			sub_op = op_id.replace("length_", "")
@@ -242,9 +274,11 @@ class CanonicalConditionEvaluator:
 				return left_num <= right_num
 
 		if op_id == "in":
-			if not isinstance(right, (list, set, tuple, dict, str)):
+			if not isinstance(right, list | set | tuple | dict | str):
 				raise ConditionEvaluationError(
-					"'in' operator right operand must be a collection/string", "INVALID_TYPE", f"{path}.right"
+					"'in' operator right operand must be a collection/string",
+					"INVALID_TYPE",
+					f"{path}.right",
 				)
 			return left in right
 
@@ -252,7 +286,7 @@ class CanonicalConditionEvaluator:
 			return not self._evaluate_binary_operator("in", left, right, path)
 
 		if op_id == "contains":
-			if not isinstance(left, (list, set, tuple, dict, str)):
+			if not isinstance(left, list | set | tuple | dict | str):
 				raise ConditionEvaluationError(
 					"'contains' operator left operand must be a collection/string",
 					"INVALID_TYPE",
@@ -266,11 +300,15 @@ class CanonicalConditionEvaluator:
 		if op_id in ("starts_with", "ends_with"):
 			if not isinstance(left, str) or not isinstance(right, str):
 				raise ConditionEvaluationError(
-					"String prefix/suffix matching requires string operands", "INVALID_TYPE", path
+					"String prefix/suffix matching requires string operands",
+					"INVALID_TYPE",
+					path,
 				)
 			return left.startswith(right) if op_id == "starts_with" else left.endswith(right)
 
-		raise ConditionEvaluationError(f"Unhandled binary operator '{op_id}'", "UNKNOWN_OPERATOR", path)
+		raise ConditionEvaluationError(
+			f"Unhandled binary operator '{op_id}'", "UNKNOWN_OPERATOR", path
+		)
 
 	def _safe_equals(self, left: Any, right: Any) -> bool:
 		# Strict typed equality: False and 0 are distinct!
@@ -280,15 +318,21 @@ class CanonicalConditionEvaluator:
 			return left == right
 
 		# Decimal / Numeric comparison
-		if isinstance(left, (int, float, Decimal)) and isinstance(right, (int, float, Decimal)):
+		if isinstance(left, int | float | Decimal) and isinstance(
+			right, int | float | Decimal
+		):
 			return Decimal(str(left)) == Decimal(str(right))
 
 		return left == right
 
-	def _coerce_numeric_comparison(self, left: Any, right: Any, path: str) -> tuple[Decimal, Decimal]:
+	def _coerce_numeric_comparison(
+		self, left: Any, right: Any, path: str
+	) -> tuple[Decimal, Decimal]:
 		if isinstance(left, bool) or isinstance(right, bool):
 			raise ConditionEvaluationError(
-				"Boolean values cannot be used in numeric inequality comparisons", "TYPE_MISMATCH", path
+				"Boolean values cannot be used in numeric inequality comparisons",
+				"TYPE_MISMATCH",
+				path,
 			)
 
 		try:
@@ -333,7 +377,9 @@ class CanonicalConditionEvaluator:
 			# Create sub-evaluator with scoped item alias context
 			scoped_ctx = dict(self.context)
 			scoped_ctx[alias] = row
-			sub_evaluator = CanonicalConditionEvaluator(scoped_ctx, allowed_scopes=scoped_allowed_scopes)
+			sub_evaluator = CanonicalConditionEvaluator(
+				scoped_ctx, allowed_scopes=scoped_allowed_scopes
+			)
 
 			row_result = sub_evaluator._evaluate_node(where_node, f"{path}.where")
 
@@ -349,7 +395,9 @@ class CanonicalConditionEvaluator:
 		elif quantifier == "none":
 			return match_count == 0
 
-		raise ConditionEvaluationError(f"Invalid quantifier '{quantifier}'", "INVALID_QUANTIFIER", path)
+		raise ConditionEvaluationError(
+			f"Invalid quantifier '{quantifier}'", "INVALID_QUANTIFIER", path
+		)
 
 	def _resolve_flex_value(self, flex_value: dict, path: str) -> Any:
 		validate_flex_value(flex_value, path, allowed_scopes=self.allowed_scopes)
@@ -387,7 +435,9 @@ class CanonicalConditionEvaluator:
 			operation = flex_value["operation"]
 
 			# Check if allowed as condition operand
-			if not FlexValueResolverRegistry.is_allowed_as_condition_operand(family, operation):
+			if not FlexValueResolverRegistry.is_allowed_as_condition_operand(
+				family, operation
+			):
 				raise ConditionEvaluationError(
 					f"Resolver operation '{family}.{operation}' is not allowed as a condition operand",
 					"RESOLVER_DISALLOWED",
@@ -411,4 +461,6 @@ class CanonicalConditionEvaluator:
 					parts.append("" if res in (MISSING, None) else str(res))
 			return "".join(parts)
 
-		raise ConditionEvaluationError(f"Invalid FlexValue mode '{mode}'", "INVALID_FLEXVALUE_MODE", path)
+		raise ConditionEvaluationError(
+			f"Invalid FlexValue mode '{mode}'", "INVALID_FLEXVALUE_MODE", path
+		)

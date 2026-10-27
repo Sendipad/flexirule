@@ -110,10 +110,14 @@ def validate_flex_value(
 		_validate_variable_flex_value(flex_value, keys, path, effective_scopes)
 
 	elif mode == "resolver":
-		_validate_resolver_flex_value(flex_value, keys, path, effective_scopes, resolver_nesting_depth)
+		_validate_resolver_flex_value(
+			flex_value, keys, path, effective_scopes, resolver_nesting_depth
+		)
 
 	elif mode == "template":
-		_validate_template_flex_value(flex_value, keys, path, effective_scopes, resolver_nesting_depth)
+		_validate_template_flex_value(
+			flex_value, keys, path, effective_scopes, resolver_nesting_depth
+		)
 
 
 def _validate_static_flex_value(flex_value: dict, keys: set, path: str) -> None:
@@ -137,18 +141,26 @@ def _validate_static_flex_value(flex_value: dict, keys: set, path: str) -> None:
 
 	if val_type == "null":
 		if val is not None:
-			raise FlexValueValidationError("Static value_type 'null' requires value to be None/null", path)
+			raise FlexValueValidationError(
+				"Static value_type 'null' requires value to be None/null", path
+			)
 	elif val_type == "string":
 		if not isinstance(val, str):
-			raise FlexValueValidationError("Static value_type 'string' requires string value", path)
+			raise FlexValueValidationError(
+				"Static value_type 'string' requires string value", path
+			)
 	elif val_type == "boolean":
 		if not isinstance(val, bool):
-			raise FlexValueValidationError("Static value_type 'boolean' requires boolean value", path)
+			raise FlexValueValidationError(
+				"Static value_type 'boolean' requires boolean value", path
+			)
 	elif val_type == "integer":
 		if isinstance(val, bool) or not isinstance(val, int):
-			raise FlexValueValidationError("Static value_type 'integer' requires integer value", path)
+			raise FlexValueValidationError(
+				"Static value_type 'integer' requires integer value", path
+			)
 	elif val_type == "decimal":
-		if not isinstance(val, (str, int, float, Decimal)):
+		if not isinstance(val, str | int | float | Decimal):
 			raise FlexValueValidationError(
 				"Static value_type 'decimal' must be string, number or Decimal", path
 			)
@@ -163,13 +175,19 @@ def _validate_static_flex_value(flex_value: dict, keys: set, path: str) -> None:
 			)
 	elif val_type == "list":
 		if not isinstance(val, list):
-			raise FlexValueValidationError("Static value_type 'list' requires list value", path)
+			raise FlexValueValidationError(
+				"Static value_type 'list' requires list value", path
+			)
 	elif val_type == "object":
 		if not isinstance(val, dict):
-			raise FlexValueValidationError("Static value_type 'object' requires dict value", path)
+			raise FlexValueValidationError(
+				"Static value_type 'object' requires dict value", path
+			)
 
 
-def _validate_variable_flex_value(flex_value: dict, keys: set, path: str, allowed_scopes: set) -> None:
+def _validate_variable_flex_value(
+	flex_value: dict, keys: set, path: str, allowed_scopes: set
+) -> None:
 	allowed_keys = {"mode", "path"}
 	unknown_keys = keys - allowed_keys
 	if unknown_keys:
@@ -193,17 +211,25 @@ def _validate_variable_flex_value(flex_value: dict, keys: set, path: str, allowe
 		)
 
 	if "scope" not in p_keys or "segments" not in p_keys:
-		raise FlexValueValidationError("Variable path requires 'scope' and 'segments'", f"{path}.path")
+		raise FlexValueValidationError(
+			"Variable path requires 'scope' and 'segments'", f"{path}.path"
+		)
 
 	scope = path_obj["scope"]
 	if scope not in allowed_scopes:
-		raise FlexValueValidationError(f"Invalid or disallowed path scope '{scope}'", f"{path}.path")
+		raise FlexValueValidationError(
+			f"Invalid or disallowed path scope '{scope}'", f"{path}.path"
+		)
 
 	segments = path_obj["segments"]
 	if not isinstance(segments, list):
-		raise FlexValueValidationError("Variable path 'segments' must be a list", f"{path}.path")
+		raise FlexValueValidationError(
+			"Variable path 'segments' must be a list", f"{path}.path"
+		)
 	if not segments:
-		raise FlexValueValidationError("Variable path 'segments' cannot be empty", f"{path}.path")
+		raise FlexValueValidationError(
+			"Variable path 'segments' cannot be empty", f"{path}.path"
+		)
 	if len(segments) > MAX_PATH_SEGMENTS:
 		raise FlexValueValidationError(
 			f"Path segments exceed max limit of {MAX_PATH_SEGMENTS}", f"{path}.path"
@@ -212,11 +238,13 @@ def _validate_variable_flex_value(flex_value: dict, keys: set, path: str, allowe
 	for idx, seg in enumerate(segments):
 		if not isinstance(seg, str) or not seg:
 			raise FlexValueValidationError(
-				f"Segment at index {idx} must be a non-empty string", f"{path}.path.segments[{idx}]"
+				f"Segment at index {idx} must be a non-empty string",
+				f"{path}.path.segments[{idx}]",
 			)
 		if seg.startswith("__") or seg.endswith("__"):
 			raise FlexValueValidationError(
-				f"Segment at index {idx} cannot be a dunder attribute", f"{path}.path.segments[{idx}]"
+				f"Segment at index {idx} cannot be a dunder attribute",
+				f"{path}.path.segments[{idx}]",
 			)
 
 
@@ -245,12 +273,16 @@ def _validate_resolver_flex_value(
 	if not isinstance(family, str) or not family:
 		raise FlexValueValidationError("Resolver family must be a non-empty string", path)
 	if not isinstance(operation, str) or not operation:
-		raise FlexValueValidationError("Resolver operation must be a non-empty string", path)
+		raise FlexValueValidationError(
+			"Resolver operation must be a non-empty string", path
+		)
 	if not isinstance(config, dict):
 		raise FlexValueValidationError("Resolver config must be an object", path)
 
 	# Validate recursive FlexValues in config if any
-	_validate_nested_config_flex_values(config, f"{path}.config", allowed_scopes, resolver_nesting_depth + 1)
+	_validate_nested_config_flex_values(
+		config, f"{path}.config", allowed_scopes, resolver_nesting_depth + 1
+	)
 
 
 def _validate_nested_config_flex_values(
@@ -261,7 +293,9 @@ def _validate_nested_config_flex_values(
 			validate_flex_value(config_obj, path, allowed_scopes, resolver_nesting_depth)
 		else:
 			for k, v in config_obj.items():
-				_validate_nested_config_flex_values(v, f"{path}.{k}", allowed_scopes, resolver_nesting_depth)
+				_validate_nested_config_flex_values(
+					v, f"{path}.{k}", allowed_scopes, resolver_nesting_depth
+				)
 	elif isinstance(config_obj, list):
 		for idx, item in enumerate(config_obj):
 			_validate_nested_config_flex_values(
@@ -290,7 +324,9 @@ def _validate_template_flex_value(
 	if not isinstance(segments, list):
 		raise FlexValueValidationError("Template 'segments' must be a list", path)
 	if len(segments) > MAX_TEMPLATE_SEGMENTS:
-		raise FlexValueValidationError(f"Template segments exceed max limit of {MAX_TEMPLATE_SEGMENTS}", path)
+		raise FlexValueValidationError(
+			f"Template segments exceed max limit of {MAX_TEMPLATE_SEGMENTS}", path
+		)
 
 	for idx, seg in enumerate(segments):
 		seg_path = f"{path}.segments[{idx}]"
@@ -300,5 +336,6 @@ def _validate_template_flex_value(
 			validate_flex_value(seg, seg_path, allowed_scopes, resolver_nesting_depth)
 		else:
 			raise FlexValueValidationError(
-				f"Template segment at index {idx} must be a string or FlexValue object", seg_path
+				f"Template segment at index {idx} must be a string or FlexValue object",
+				seg_path,
 			)

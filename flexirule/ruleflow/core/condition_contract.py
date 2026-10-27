@@ -98,9 +98,7 @@ def _init_default_operators():
 		("is_empty", "Is Empty"),
 		("is_not_empty", "Is Not Empty"),
 	]:
-		CanonicalOperatorRegistry.register(
-			op_id, arity=1, label=label, description=f"Unary {label} check"
-		)
+		CanonicalOperatorRegistry.register(op_id, arity=1, label=label, description=f"Unary {label} check")
 
 	# Length operators (binary: left operand + numeric right threshold)
 	for op_id, label in [
@@ -157,9 +155,7 @@ def validate_condition_payload(
 		)
 
 	if current_depth > MAX_CONDITION_DEPTH:
-		raise ConditionValidationError(
-			f"Exceeded maximum condition depth of {MAX_CONDITION_DEPTH}", path
-		)
+		raise ConditionValidationError(f"Exceeded maximum condition depth of {MAX_CONDITION_DEPTH}", path)
 
 	if not isinstance(node, dict):
 		raise ConditionValidationError("Condition node must be a JSON object", path)
@@ -182,9 +178,7 @@ def validate_condition_payload(
 	if node_type not in VALID_NODE_TYPES:
 		raise ConditionValidationError(f"Invalid condition node type '{node_type}'", path)
 
-	effective_scopes = (
-		allowed_scopes if allowed_scopes is not None else {"doc", "vars", "system", "env"}
-	)
+	effective_scopes = allowed_scopes if allowed_scopes is not None else {"doc", "vars", "system", "env"}
 
 	if node_type == "comparison":
 		_validate_comparison_node(node, keys, path, effective_scopes)
@@ -193,20 +187,14 @@ def validate_condition_payload(
 		_validate_group_node(node, keys, path, current_depth, node_counter, effective_scopes)
 
 	elif node_type == "collection_predicate":
-		_validate_collection_predicate_node(
-			node, keys, path, current_depth, node_counter, effective_scopes
-		)
+		_validate_collection_predicate_node(node, keys, path, current_depth, node_counter, effective_scopes)
 
 
-def _validate_comparison_node(
-	node: dict, keys: set, path: str, allowed_scopes: set[str]
-) -> None:
+def _validate_comparison_node(node: dict, keys: set, path: str, allowed_scopes: set[str]) -> None:
 	allowed_keys = {"type", "operator", "left", "right"}
 	unknown = keys - allowed_keys
 	if unknown:
-		raise ConditionValidationError(
-			f"Unknown key(s) in comparison node: {sorted(list(unknown))}", path
-		)
+		raise ConditionValidationError(f"Unknown key(s) in comparison node: {sorted(list(unknown))}", path)
 
 	if "operator" not in keys:
 		raise ConditionValidationError("Comparison node requires 'operator'", path)
@@ -231,14 +219,10 @@ def _validate_comparison_node(
 
 	if arity == 1:
 		if "right" in keys:
-			raise ConditionValidationError(
-				f"Unary operator '{op_id}' must not have a 'right' operand", path
-			)
+			raise ConditionValidationError(f"Unary operator '{op_id}' must not have a 'right' operand", path)
 	elif arity == 2:
 		if "right" not in keys:
-			raise ConditionValidationError(
-				f"Binary operator '{op_id}' requires a 'right' operand", path
-			)
+			raise ConditionValidationError(f"Binary operator '{op_id}' requires a 'right' operand", path)
 		try:
 			validate_flex_value(node["right"], f"{path}.right", allowed_scopes)
 		except FlexValueValidationError as e:
@@ -256,9 +240,7 @@ def _validate_group_node(
 	allowed_keys = {"type", "operator", "children"}
 	unknown = keys - allowed_keys
 	if unknown:
-		raise ConditionValidationError(
-			f"Unknown key(s) in group node: {sorted(list(unknown))}", path
-		)
+		raise ConditionValidationError(f"Unknown key(s) in group node: {sorted(list(unknown))}", path)
 
 	if "operator" not in keys:
 		raise ConditionValidationError("Group node requires 'operator'", path)
@@ -267,9 +249,7 @@ def _validate_group_node(
 
 	group_op = node["operator"]
 	if group_op not in VALID_GROUP_OPERATORS:
-		raise ConditionValidationError(
-			f"Invalid group operator '{group_op}'. Must be 'and' or 'or'", path
-		)
+		raise ConditionValidationError(f"Invalid group operator '{group_op}'. Must be 'and' or 'or'", path)
 
 	children = node["children"]
 	if not isinstance(children, list):
@@ -314,12 +294,8 @@ def _validate_collection_predicate_node(
 
 	alias = node["as"]
 	if not isinstance(alias, str) or not alias or alias.startswith("__"):
-		raise ConditionValidationError(
-			"Collection alias 'as' must be a non-empty, non-dunder string", path
-		)
+		raise ConditionValidationError("Collection alias 'as' must be a non-empty, non-dunder string", path)
 
 	# Extend allowed scopes inside 'where' clause to include local alias
 	where_scopes = set(allowed_scopes) | {alias}
-	validate_condition_payload(
-		node["where"], f"{path}.where", current_depth + 1, node_counter, where_scopes
-	)
+	validate_condition_payload(node["where"], f"{path}.where", current_depth + 1, node_counter, where_scopes)
