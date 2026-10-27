@@ -35,7 +35,7 @@ Also inspect [ConditionBuilder.vue](https://github.com/Sendipad/flexirule/blob/d
 ### Stage B0 — Reconcile active work and freeze server contract
 
 1. Inspect the actual status, head and diff of [PR #438](https://github.com/Sendipad/flexirule/pull/438). Its current description says it contains a backend task brief only. Do not implement a parallel flexvalue_contract.py if that PR has started to acquire code. Reuse/continue the existing branch, or explicitly supersede it after confirming there is no unmerged implementation.
-2. Adopt the exact flexirule.condition v1 envelope and FlexValue union from README.md; create shared JSON fixture files or Python fixture builders that both backend tests and frontend tests can consume.
+2. Adopt the exact direct condition-node shape and FlexValue union from README.md. There is no persisted schema/version/root envelope. Create shared JSON fixture files or Python fixture builders consumed by both backend and frontend tests.
 3. Add/extend one backend-owned registry for canonical operators, arity, accepted operand/output types, Fieldtypes, aliases allowed only in migration, missing/null behavior, runtime error semantics and UI labels.
 4. Add/extend one resolver-family/operation contract with input config metadata, output type, required resolver level/capability and condition_operand_allowed. Defaults are deny. Enable a resolver operation as a condition operand only after source audit, tests and permission/resource review.
 5. Define and test stable error code + AST path diagnostics. Do not include full documents, secrets or sensitive operand values in logs.
@@ -75,28 +75,28 @@ Target modules:
 
 Required behavior:
 
-1. Validate envelope schema/version, every node variant, exact keys, supported operators and arity, operand types, Fieldtype constraints, context scopes, field paths, collection aliases, config capabilities and limits. Return path-specific errors such as root.children[1].right.config.left.path.segments[1].
+1. Validate the direct root node and every recursive node/FlexValue variant, exact keys, stable operator IDs and arity, operand types, Fieldtype constraints, context scopes, field paths, collection aliases, config capabilities and limits. Do not expect or accept a persisted schema/version/root wrapper. Return path-specific errors such as children[1].right.config.left.path.segments[1].
 2. Evaluate the canonical AST directly. Do not generate source code and do not use eval, exec or frappe.safe_eval for canonical condition evaluation.
 3. Implement strict left-to-right short-circuit AND/OR. No child resolver/evaluator is called after the result is decisive. Mixed logic uses explicit nested groups.
 4. Resolve both comparison operands with the same canonical FlexValue resolver entry point, then call a single comparator registry.
 5. Use a private MISSING sentinel to distinguish an unknown/missing runtime path from a present null. is_set returns false and is_not_set true for missing/null/empty string; whitespace is set. Other comparisons involving MISSING raise a typed evaluation error. A null literal remains comparable as null.
 6. Keep type conversion explicit: no bool-to-int conversion, no implicit generic string coercion, Decimal arithmetic/comparison is decimal-safe, date/datetime/time handling has defined timezone and invalid-input behavior, and Link metadata is not inferred from arbitrary arrays.
 7. collection_predicate resolves a validated collection source, binds as only within its subtree, delegates row comparisons to this same evaluator, preserves the parent doc and caller contexts, and shares the 10,000-row limit. Invalid source/alias/where and limit violations raise typed errors.
-8. V1 canonical operator registry includes ==, !=, >, <, >=, <=, in, not in, contains, not_contains, is_set, is_not_set, is_empty, is_not_empty, length_eq, length_gt, length_gte, length_lt, length_lte, is_submittable and has_field only where defined in the registry. Do not include regex, has_changed, is, is not, like, not like, unknown tokens or aliases as live canonical tokens.
+8. The canonical registry uses stable semantic IDs: eq, ne, gt, gte, lt, lte, in, not_in, contains, not_contains, starts_with, ends_with, is_set, is_not_set, is_null, is_not_null, is_empty, is_not_empty, length_eq, length_gt, length_gte, length_lt, length_lte, is_submittable and has_field, only where defined by the registry. Do not include regex, has_changed, is, is not, like, not like, unknown tokens or legacy aliases as live canonical IDs.
 9. Return distinguishable outcomes: true, false, validation failure and runtime evaluation failure. Runtime errors include a safe Rule/action/node path and do not masquerade as false/true.
 
-**Gate B2:** schema, operator semantics, nested groups, scoped collection evaluation and observable short-circuit tests pass; canonical path never compiles Python.
+**Gate B2:** node/operator semantics, root comparison/group/collection cases, nested groups, scoped collection evaluation and observable short-circuit tests pass; canonical path never compiles Python.
 
 ### Stage B3 — Publish the canonical API contract
 
 Add an authenticated versioned method (for example, get_condition_contract) following existing API and require_builder_access() patterns. Its DTO is built from the backend registries—not duplicated constants—and includes:
 
-- schema name/version and shape;
+- canonical direct-node shape and node variants; if the DTO is versioned, report the API/contract version separately from the persisted payload;
 - canonical operators, labels, arity, applicable Fieldtypes and allowed value types;
 - approved resolver families/operations with input shape, result type, required capability/resolver level and condition_operand_allowed;
 - allowed scopes, collection quantifiers and server limits.
 
-Keep get_operator_config() stable while old UI consumers remain. Add API contract tests for schema shape and authorization. Do not expose internal Python callables or permission bypass controls.
+Keep get_operator_config() stable while old UI consumers remain. Add API contract tests for DTO shape and authorization. Version this API DTO separately from the unversioned saved condition-node payload. Do not expose internal Python callables or permission bypass controls.
 
 **Gate B3:** frontend can render options only from this DTO; a missing endpoint is an explicit error, not a misleading fallback to static operators.
 
@@ -112,7 +112,7 @@ Do this only after B1/B2 are green. Inventory every call site repository-wide, t
 6. **API simulation/validation endpoints:** use the same canonical validator/evaluator; return structured diagnostics rather than evaluating malformed input as passing.
 7. **Rule/import/export/clone and persistence adapters:** preserve canonical JSON exactly and strip UI IDs. Do not alter Query Records filter semantics by assumption.
 
-Keep existing compiled-expression fields and legacy code present while still needed for old saved payloads, but canonical values must not be compiled or evaluated through them. Add cache tests: canonical AST caches may hold immutable, rebuildable derived data only; cache keys include schema/contract version and payload fingerprint; invalidation follows Rule/config edits. Never cache document context, resolved operand values or result booleans across executions.
+Keep existing compiled-expression fields and legacy code present while still needed for old saved payloads, but canonical values must not be compiled or evaluated through them. Add cache tests: canonical AST caches may hold immutable, rebuildable derived data only; cache keys include evaluator/registry semantics version and canonical payload fingerprint; invalidation follows Rule/config edits. Never cache document context, resolved operand values or result booleans across executions.
 
 **Gate B4:** all listed consumers use identical canonical semantics; no known call site silently falls back to the old engine for a canonical payload; context does not leak across documents/users.
 
@@ -120,9 +120,9 @@ Keep existing compiled-expression fields and legacy code present while still nee
 
 1. Add a read-only inventory/diagnostic command or report for existing Rules and Rule Actions. Record Rule/action identifiers and issue codes, not business values or full documents.
 2. Inventory trigger conditions, Condition action config/condition_json/compiled expressions, assignment guard sources, nested CollectionResolver predicates and old FlexValue shapes.
-3. Convert only deterministic formats with table-driven legacy-to-v1 fixtures. Strip transient UI IDs. Make conversion idempotent and rerunnable.
-4. Do not silently rewrite mixed sibling logical joins where old engines disagree, legacy like/not like, has_changed, regex, Python/Jinja condition strings, unknown operators, malformed payloads or mismatched Link tuples. Report each with an actionable repair path.
-5. Write v1 JSON only after a conversion fully succeeds. Never make two live representations compete. Do not auto-save a partially converted payload.
+3. Convert only deterministic legacy formats with table-driven legacy-to-canonical-node fixtures. Strip transient UI IDs. Make conversion idempotent and rerunnable.
+4. Do not silently rewrite mixed sibling logical joins where old engines disagree, legacy like/not like, has_changed, regex, Python/Jinja condition strings, unknown operators, malformed payloads or mismatched Link tuples. Report each with an actionable repair path. Symbolic legacy operator tokens may be mapped to stable IDs only by a deterministic migration with fixtures; any ID rename or semantic change requires an explicit idempotent migration.
+5. Write canonical node JSON only after a conversion fully succeeds. Never make two live representations compete. Do not auto-save a partially converted payload.
 6. Do not add an irreversible database migration without inventory counts and a dry-run report. Add a migration patch only if source conventions and review prove it safe and idempotent for supported Frappe versions.
 
 **Gate B5:** dry-run counts, deterministic conversions, ambiguous failures and rerun idempotency are recorded against a dedicated test site/export.
@@ -138,8 +138,8 @@ Keep existing compiled-expression fields and legacy code present while still nee
 
 Run in the supported Frappe Bench and record exact commands, versions, source SHA and honest outcomes:
 
-- Contract tests: envelope/nodes/FlexValue, valid and invalid config, path-specific errors, schema versions, allowed-key checks, non-mutation and size/depth/node limits.
-- Semantics: all v1 operators and arity; AND/OR/nested groups; missing vs null vs empty string/whitespace vs false/zero vs empty list/dict; Decimal precision; date/time invalid values; Link/Dynamic Link target mismatch; unknown operators fail rather than equality.
+- Contract tests: direct root node variants/nested nodes/FlexValue, valid and invalid config, path-specific errors, required/allowed-key checks, non-mutation and size/depth/node limits.
+- Semantics: all canonical operator IDs and arity; root comparison, root group, root collection predicate, root group mixing direct comparisons and nested groups, AND/OR/nested groups; reject empty groups, one-child canonical groups and trees with no predicate leaf; missing vs null vs empty string/whitespace vs false/zero vs empty list/dict; Decimal precision; date/time invalid values; Link/Dynamic Link target mismatch; unknown operators fail rather than equality.
 - Short-circuit probes: in AND, a false first child prevents resolving the next child; in OR, a true first child prevents resolving the next child.
 - Collection tests: any/all/none; empty collections; nested scope; alias shadowing; parent doc plus row; 10,000 and 10,001 rows; malformed predicate; one shared comparator.
 - Consumer tests: trigger absent/true/false/error; Condition action true/false/error routing; Sub-Rule caller context; assignment guard absent/true/false/error and no mutation before error; CollectionResolver count/sum/avg/any/all/first/filter/pluck/unique; API authorization and response shape; import/export/clone round-trip.
