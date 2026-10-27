@@ -84,7 +84,7 @@ class TestCanonicalConditionContract(unittest.TestCase):
 		self.assertEqual(raised.exception.code, "resolver_not_allowed")
 
 	def test_unhashable_discriminants_return_validation_errors(self):
-		invalid_nodes = [
+		invalid_nodes: list[dict[str, Any]] = [
 			{"type": "group", "operator": [], "children": []},
 			{"type": "collection_predicate", "quantifier": [], "source": {}, "as": "row_item", "where": {}},
 			{
