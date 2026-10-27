@@ -577,9 +577,9 @@ class RuleCoordinator:
 				elif rule_doc.get("compiled_expression"):
 					# Preserve the legacy runtime only for legacy payloads while the
 					# inventory and deterministic migration are in progress.
+					from flexirule.ruleflow.core.engine import SafeFrappeAPI
 					from flexirule.ruleflow.core.evaluator import check_link_match
 					from flexirule.ruleflow.utils.field_resolver import FieldResolver
-					from flexirule.ruleflow.core.engine import SafeFrappeAPI
 
 					sim_user = (context or {}).get("sim_user")
 					sim_role = (context or {}).get("sim_role")
