@@ -45,6 +45,7 @@ CONDITION_LIMITS = {
 	"template_output_chars": MAX_TEMPLATE_OUTPUT_CHARS,
 	"payload_bytes": MAX_CONDITION_PAYLOAD_BYTES,
 	"collection_rows": MAX_COLLECTION_ROWS,
+	"collection_row_visits": MAX_COLLECTION_ROWS,
 	"static_items": MAX_STATIC_ITEMS,
 }
 
