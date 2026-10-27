@@ -78,7 +78,15 @@ class AssignmentHandler(ActionHandler):
 			config_key = self._to_config_cache_key(getattr(action, "config", "[]") or "[]")
 			try:
 				assignments = list(self._get_compiled_plan(config_key))
-			except Exception:
+			except Exception as exc:
+				from flexirule.ruleflow.core.condition_errors import ConditionError
+
+				if isinstance(exc, ConditionError):
+					engine._log(
+						"ERROR",
+						_("Assignment guard is invalid [{0} at {1}]").format(exc.code, exc.path),
+					)
+					raise
 				engine._log("ERROR", _("Assignment action config is not valid JSON"))
 				raise MethodExecutionError(_("Assignment action config is not valid JSON array"))
 
