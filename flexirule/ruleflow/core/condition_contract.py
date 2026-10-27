@@ -60,6 +60,7 @@ def _spec(
 
 
 SCALAR_TYPES = ("string", "integer", "decimal", "boolean", "null", "date", "datetime", "time")
+MEMBERSHIP_TYPES = ("string", "integer", "decimal", "boolean", "null")
 COMPARABLE_TYPES = (*SCALAR_TYPES, "list", "object")
 NUMERIC_TYPES = ("integer", "decimal")
 SIZED_TYPES = ("string", "list", "object")
@@ -76,8 +77,8 @@ OPERATOR_REGISTRY: dict[str, OperatorSpec] = {
 		(*NUMERIC_TYPES, "date", "datetime", "time"), ORDERED_FIELD_TYPES, ("<",)),
 	"lte": _spec("lte", "Less than or equal", 2, (*NUMERIC_TYPES, "date", "datetime", "time"),
 		(*NUMERIC_TYPES, "date", "datetime", "time"), ORDERED_FIELD_TYPES, ("<=",)),
-	"in": _spec("in", "Is in", 2, SCALAR_TYPES, ("list",), legacy_aliases=("in",)),
-	"not_in": _spec("not_in", "Is not in", 2, SCALAR_TYPES, ("list",), legacy_aliases=("not in",)),
+	"in": _spec("in", "Is in", 2, MEMBERSHIP_TYPES, ("list",), legacy_aliases=("in",)),
+	"not_in": _spec("not_in", "Is not in", 2, MEMBERSHIP_TYPES, ("list",), legacy_aliases=("not in",)),
 	"contains": _spec("contains", "Contains text", 2, ("string",), ("string",), TEXT_FIELD_TYPES),
 	"not_contains": _spec("not_contains", "Does not contain text", 2, ("string",), ("string",), TEXT_FIELD_TYPES),
 	"starts_with": _spec("starts_with", "Starts with", 2, ("string",), ("string",), TEXT_FIELD_TYPES),
@@ -188,21 +189,59 @@ def resolve_fieldtype_for_path(scope: str, segments: tuple[str, ...], doctype: s
 			_fail("unknown_field", f"$.{scope}.segments[{index}]", "Field does not exist on the declared DocType")
 		fieldtype = field.fieldtype
 		if index < len(segments) - 1:
-			if fieldtype in {"Table", "Table MultiSelect", "Link"} and field.options:
-				current_doctype = field.options
-			elif fieldtype == "Dynamic Link":
+			if fieldtype in {"Table", "Table MultiSelect", "Link", "Dynamic Link"}:
 				_fail(
-					"unverifiable_field_path",
+					"unsupported_field_traversal",
 					f"$.{scope}.segments[{index}]",
-					"Dynamic Link traversal requires an explicit, supported target contract",
+					"Canonical paths do not implicitly traverse collections or fetch linked documents",
 				)
-			else:
-				_fail(
-					"invalid_field_path",
-					f"$.{scope}.segments[{index}]",
-					"Field path continues through a value that cannot contain child fields",
-				)
+			_fail(
+				"invalid_field_path",
+				f"$.{scope}.segments[{index}]",
+				"Field path continues through a scalar value",
+			)
 	return fieldtype
+
+
+FIELD_TYPE_VALUE_TYPES = {
+	"Data": ("string",),
+	"Small Text": ("string",),
+	"Text": ("string",),
+	"Text Editor": ("string",),
+	"Code": ("string",),
+	"Select": ("string",),
+	"Link": ("string",),
+	"Dynamic Link": ("string",),
+	"Int": ("integer",),
+	"Float": ("integer", "decimal"),
+	"Currency": ("integer", "decimal"),
+	"Percent": ("integer", "decimal"),
+	"Check": ("boolean",),
+	"Date": ("date",),
+	"Datetime": ("datetime",),
+	"Time": ("time",),
+	"Table": ("list",),
+	"Table MultiSelect": ("list",),
+	"JSON": ("string", "list", "object"),
+}
+
+
+def _json_runtime_type(value: Any) -> str:
+	if value is None:
+		return "null"
+	if type(value) is bool:
+		return "boolean"
+	if type(value) is int:
+		return "integer"
+	if isinstance(value, float):
+		return "decimal"
+	if isinstance(value, str):
+		return "string"
+	if isinstance(value, list):
+		return "list"
+	if isinstance(value, dict):
+		return "object"
+	return "unsupported"
 
 
 def _known_fieldtype_check(
@@ -210,6 +249,8 @@ def _known_fieldtype_check(
 	left: Any,
 	fieldtype: str | None,
 	path: str,
+	right_value: Any = None,
+	right_type: str | None = None,
 ) -> None:
 	spec = OPERATOR_REGISTRY[operator_id]
 	if fieldtype and spec.fieldtypes is not None and fieldtype not in spec.fieldtypes:
@@ -218,9 +259,39 @@ def _known_fieldtype_check(
 			f"{path}.left",
 			"Operator is not supported for the left operand's Fieldtype",
 		)
-	if fieldtype == "Check" and operator_id in {"gt", "gte", "lt", "lte", "length_eq", "length_gt",
-		"length_gte", "length_lt", "length_lte", "contains", "not_contains", "starts_with", "ends_with"}:
+	if fieldtype == "Check" and operator_id in {
+		"gt", "gte", "lt", "lte", "length_eq", "length_gt", "length_gte",
+		"length_lt", "length_lte", "contains", "not_contains", "starts_with", "ends_with",
+	}:
 		_fail("fieldtype_not_supported", f"{path}.left", "Boolean fields do not support this operator")
+
+	if not fieldtype:
+		return
+
+	if operator_id in {"in", "not_in"}:
+		expected_types = FIELD_TYPE_VALUE_TYPES.get(fieldtype)
+		if isinstance(right_value, Mapping) and right_value.get("mode") == "static" and right_value.get("value_type") == "list":
+			items = right_value.get("value", [])
+			if expected_types and any(
+				_json_runtime_type(item) not in (*expected_types, "null") for item in items
+			):
+				message = (
+					"Link membership lists must contain record-name strings; link tuples are not inferred"
+					if fieldtype in {"Link", "Dynamic Link"}
+					else "Membership list item types are incompatible with the left field's Fieldtype"
+				)
+				_fail("operand_type_mismatch", f"{path}.right", message)
+		return
+
+	if right_type in (None, "null"):
+		return
+	expected_types = FIELD_TYPE_VALUE_TYPES.get(fieldtype)
+	if expected_types and right_type not in expected_types:
+		_fail(
+			"operand_type_mismatch",
+			f"{path}.right",
+			"Right operand type is incompatible with the left field's declared Fieldtype",
+		)
 
 
 def validate_condition_node(node: Any, *, doctype: str | None = None) -> None:
@@ -309,7 +380,9 @@ def _validate_node(
 			fieldtype = resolve_fieldtype_for_path(
 				scope, segments, scope_doctypes.get(scope)
 			)
-			_known_fieldtype_check(operator_id, left_value, fieldtype, path)
+			_known_fieldtype_check(
+				operator_id, left_value, fieldtype, path, node.get("right"), right_type
+			)
 		if operator_id in {"is_submittable", "has_field"}:
 			# Metadata checks accept explicit DocType names only; no arbitrary objects.
 			for operand, operand_path in ((node.get("left"), f"{path}.left"),):
@@ -348,8 +421,18 @@ def _validate_node(
 					field = current_meta.get_field(segment)
 					if not field:
 						break
-					if segment != source_segments[-1] and field.fieldtype in {"Table", "Table MultiSelect", "Link"} and field.options:
-						current_meta = _meta_for(field.options, f"{path}.source")
+					if segment != source_segments[-1]:
+						if field.fieldtype in {"Table", "Table MultiSelect", "Link", "Dynamic Link"}:
+							_fail(
+								"unsupported_field_traversal",
+								f"{path}.source",
+								"Collection source paths cannot implicitly traverse collections or linked documents",
+							)
+						_fail(
+							"invalid_collection_source",
+							f"{path}.source",
+							"Collection source path continues through a scalar field",
+						)
 				if field and field.fieldtype in {"Table", "Table MultiSelect"}:
 					child_doctype = field.options
 				elif field and field.fieldtype not in {"Table", "Table MultiSelect"}:
