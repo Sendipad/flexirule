@@ -7,6 +7,7 @@ from typing import Any
 import frappe
 from frappe import _
 
+from flexirule.ruleflow.core.flexvalue_contract import MAX_COLLECTION_ROWS
 from flexirule.ruleflow.utils.field_resolver import FieldResolver
 
 
@@ -470,7 +471,7 @@ class CollectionResolver(CompiledResolver):
 	values from child table collections or list variables.
 	"""
 
-	from flexirule.ruleflow.core.flexvalue_contract import MAX_COLLECTION_ROWS as MAX_COLLECTION_ROWS
+	MAX_COLLECTION_ROWS = MAX_COLLECTION_ROWS
 
 	def __init__(
 		self,
