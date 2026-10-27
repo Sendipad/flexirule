@@ -15,9 +15,9 @@ from flexirule.ruleflow.core.condition_errors import ConditionValidationError
 from flexirule.ruleflow.core.flexvalue_contract import (
 	BASE_SCOPES,
 	CONDITION_LIMITS,
-	MAX_CONDITION_PAYLOAD_BYTES,
 	MAX_CONDITION_DEPTH,
 	MAX_CONDITION_NODES,
+	MAX_CONDITION_PAYLOAD_BYTES,
 	MAX_PATH_SEGMENTS,
 	MAX_TEMPLATE_SEGMENTS,
 	VALUE_TYPES,
