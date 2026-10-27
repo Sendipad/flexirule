@@ -38,7 +38,8 @@ def detect_canonical_condition_payload(value: Any) -> tuple[bool, dict | None]:
 			)
 		if {"schema", "version", "root"} & set(candidate):
 			raise ConditionValidationError(
-				"unsupported_condition_envelope", "$",
+				"unsupported_condition_envelope",
+				"$",
 				"Canonical conditions must be stored as a direct node without an envelope",
 			)
 		return False, None
@@ -57,15 +58,14 @@ def detect_canonical_condition_payload(value: Any) -> tuple[bool, dict | None]:
 		if isinstance(parsed, str) and parsed.strip().startswith(("{", "[")):
 			parsed = json.loads(parsed)
 	except Exception as exc:
-		raise ConditionValidationError(
-			"invalid_json", "$", "Structured condition JSON is malformed"
-		) from exc
+		raise ConditionValidationError("invalid_json", "$", "Structured condition JSON is malformed") from exc
 	if isinstance(parsed, Mapping):
 		if "type" in parsed:
 			return True, dict(parsed)
 		if {"schema", "version", "root"} & set(parsed):
 			raise ConditionValidationError(
-				"unsupported_condition_envelope", "$",
+				"unsupported_condition_envelope",
+				"$",
 				"Canonical conditions must be stored as a direct node without an envelope",
 			)
 	return False, None
@@ -146,7 +146,8 @@ def extract_condition_payload_from_config(config_value: Any) -> dict | list | st
 		return dict(config_payload)
 	if {"schema", "version", "root"} & set(config_payload):
 		raise ConditionValidationError(
-			"unsupported_condition_envelope", "$",
+			"unsupported_condition_envelope",
+			"$",
 			"Canonical conditions must be stored as a direct node without an envelope",
 		)
 
