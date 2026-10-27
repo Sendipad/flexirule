@@ -596,7 +596,7 @@ def _compare(operator_id: str, left: Any, right: Any, path: str) -> bool:
 	if operator_id.startswith("length_"):
 		if not isinstance(left, (str, list, dict)):
 			raise ConditionEvaluationError("operand_type_mismatch", path, "Length operator requires a sized value")
-		if type(right) is not int:
+		if not (isinstance(right, int) and not isinstance(right, bool)):
 			raise ConditionEvaluationError("operand_type_mismatch", path, "Length comparison requires an integer")
 		length = len(left)
 		if operator_id == "length_eq":
