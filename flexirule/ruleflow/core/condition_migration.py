@@ -252,7 +252,7 @@ def inventory_condition_migration(start: int = 0, page_size: int = DEFAULT_PAGE_
 	page_size = min(MAX_PAGE_SIZE, max(1, int(page_size)))
 	rules = frappe.get_all(
 		"Rule",
-		fields=["name", "trigger_condition", "document_type"],
+		fields=["name", "trigger_condition", "compiled_expression", "document_type"],
 		order_by="name asc",
 		limit_start=start,
 		limit_page_length=page_size,
@@ -287,6 +287,8 @@ def inventory_condition_migration(start: int = 0, page_size: int = DEFAULT_PAGE_
 		order_by="parent asc, idx asc",
 		limit_page_length=max(1000, page_size * 100),
 	)
+	action_limit = max(1000, page_size * 100)
+	actions_truncated = len(actions) >= action_limit
 	actions_by_parent: dict[str, list[Any]] = {}
 	for action in actions:
 		actions_by_parent.setdefault(action.parent, []).append(action)
@@ -294,8 +296,11 @@ def inventory_condition_migration(start: int = 0, page_size: int = DEFAULT_PAGE_
 	counts: Counter = Counter()
 	issues: list[dict[str, str]] = []
 	for rule in rules:
+		trigger_payload = rule.get("trigger_condition")
+		if trigger_payload in (None, "") and rule.get("compiled_expression"):
+			trigger_payload = rule.get("compiled_expression")
 		_inspect_condition(
-			rule.get("trigger_condition"),
+			trigger_payload,
 			rule_name=rule.name,
 			action_id=None,
 			location="trigger_condition",
@@ -303,6 +308,17 @@ def inventory_condition_migration(start: int = 0, page_size: int = DEFAULT_PAGE_
 			issues=issues,
 			counts=counts,
 		)
+		if rule.get("trigger_condition") not in (None, "") and rule.get("compiled_expression"):
+			try:
+				is_canonical_trigger, _ = detect_canonical_condition_payload(rule.get("trigger_condition"))
+			except ConditionError:
+				is_canonical_trigger = False
+			if is_canonical_trigger:
+				counts["trigger_condition.stale_compiled_expression"] += 1
+				_location_issue(
+					issues, rule_name=rule.name, action_id=None,
+					location="trigger_condition", code="stale_compiled_expression",
+				)
 
 		for action in actions_by_parent.get(rule.name, []):
 			action_id = action.get("action_id") or action.get("name")
@@ -328,6 +344,12 @@ def inventory_condition_migration(start: int = 0, page_size: int = DEFAULT_PAGE_
 								location="condition_action", code="condition_required", severity="error",
 							)
 							continue
+					is_canonical_action = False
+					if payload not in (None, ""):
+						try:
+							is_canonical_action, _ = detect_canonical_condition_payload(payload)
+						except ConditionError:
+							pass
 					_inspect_condition(
 						payload,
 						rule_name=rule.name,
@@ -337,6 +359,18 @@ def inventory_condition_migration(start: int = 0, page_size: int = DEFAULT_PAGE_
 						issues=issues,
 						counts=counts,
 					)
+					if is_canonical_action and action.get("compiled_expression"):
+						counts["condition_action.stale_compiled_expression"] += 1
+						_location_issue(
+							issues, rule_name=rule.name, action_id=action_id,
+							location="condition_action", code="stale_compiled_expression",
+						)
+					if action.get("condition_json") not in (None, ""):
+						counts["condition_action.legacy_condition_json_present"] += 1
+						_location_issue(
+							issues, rule_name=rule.name, action_id=action_id,
+							location="condition_json", code="legacy_condition_json_present",
+						)
 			if action_type == "Assignment":
 				_inspect_assignment_guards(
 					action.get("config"),
@@ -368,7 +402,8 @@ def inventory_condition_migration(start: int = 0, page_size: int = DEFAULT_PAGE_
 		"page_size": page_size,
 		"rules_scanned": len(rules),
 		"next_start": start + len(rules) if len(rules) == page_size else None,
-		"complete": len(rules) < page_size,
+		"complete": len(rules) < page_size and not actions_truncated and not issues_truncated,
+		"actions_truncated": actions_truncated,
 		"counts": dict(sorted(counts.items())),
 		"issues": issues[:MAX_ISSUES_PER_PAGE],
 		"issues_truncated": issues_truncated,
