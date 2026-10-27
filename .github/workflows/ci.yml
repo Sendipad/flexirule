@@ -200,9 +200,9 @@ jobs:
             echo "MariaDB client is already available; skipping package installation."
           fi
           cat <<'EOF' > ~/.my.cnf
-          [client]
-          ssl = 0
-          EOF
+[client]
+ssl=0
+EOF
 
       - name: Initialize Bench and database
         run: |
@@ -325,9 +325,9 @@ jobs:
             echo "MariaDB client is already available; skipping package installation."
           fi
           cat <<'EOF' > ~/.my.cnf
-          [client]
-          ssl = 0
-          EOF
+[client]
+ssl=0
+EOF
 
       - name: Initialize Bench and database
         run: |
