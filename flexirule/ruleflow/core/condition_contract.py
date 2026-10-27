@@ -472,6 +472,8 @@ def _validate_node(
 		spec = OPERATOR_REGISTRY.get(operator_id) if isinstance(operator_id, str) else None
 		if spec is None:
 			_fail("unknown_operator", f"{path}.operator", "Unknown canonical condition operator")
+		if not isinstance(operator_id, str):
+			_fail("unknown_operator", f"{path}.operator", "Unknown canonical condition operator")
 		required = {"type", "operator", "left"}
 		if spec.arity == 2:
 			required.add("right")
@@ -506,6 +508,8 @@ def _validate_node(
 		if isinstance(left_value, Mapping) and left_value.get("mode") == "variable":
 			path_value = left_value.get("path") or {}
 			scope = path_value.get("scope")
+			if not isinstance(scope, str):
+				_fail("invalid_variable_scope", f"{path}.left.path.scope", "Variable scope must be a string")
 			segments = tuple(path_value.get("segments") or ())
 			fieldtype = resolve_fieldtype_for_path(scope, segments, scope_doctypes.get(scope))
 			_known_fieldtype_check(operator_id, left_value, fieldtype, path, node.get("right"), right_type)
