@@ -19,7 +19,6 @@ from typing import Any
 
 from flexirule.ruleflow.core.condition_contract import (
 	CONDITION_SEMANTICS_VERSION,
-	OPERATOR_REGISTRY,
 	UNARY_OPERATORS,
 	validate_condition_node,
 )
