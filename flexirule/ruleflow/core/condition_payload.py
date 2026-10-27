@@ -24,6 +24,18 @@ def detect_canonical_condition_payload(value: Any) -> tuple[bool, dict | None]:
 	if isinstance(candidate, Mapping):
 		if "type" in candidate:
 			return True, dict(candidate)
+		try:
+			encoded = json.dumps(
+				candidate, sort_keys=True, ensure_ascii=False, separators=(",", ":"), allow_nan=False
+			).encode("utf-8")
+		except (TypeError, ValueError, RecursionError) as exc:
+			raise ConditionValidationError(
+				"invalid_json_value", "$", "Condition payload must be a finite, acyclic JSON value"
+			) from exc
+		if len(encoded) > MAX_CONDITION_PAYLOAD_BYTES:
+			raise ConditionValidationError(
+				"condition_payload_too_large", "$", "Condition payload exceeds the configured byte limit"
+			)
 		if {"schema", "version", "root"} & set(candidate):
 			raise ConditionValidationError(
 				"unsupported_condition_envelope", "$",
@@ -34,12 +46,12 @@ def detect_canonical_condition_payload(value: Any) -> tuple[bool, dict | None]:
 	if not isinstance(candidate, str):
 		return False, None
 	text = candidate.strip()
-	if not text or text[0] not in "{[":
-		return False, None
 	if len(text.encode("utf-8")) > MAX_CONDITION_PAYLOAD_BYTES:
 		raise ConditionValidationError(
 			"condition_payload_too_large", "$", "Condition payload exceeds the configured byte limit"
 		)
+	if not text or text[0] not in "{[":
+		return False, None
 	try:
 		parsed = json.loads(text)
 		if isinstance(parsed, str) and parsed.strip().startswith(("{", "[")):
@@ -80,6 +92,10 @@ def parse_condition_payload(value: Any) -> dict | list | str | None:
 
 	if not isinstance(value, str):
 		raise ValueError(f"Unsupported condition payload type: {type(value).__name__}")
+	if len(value.encode("utf-8")) > MAX_CONDITION_PAYLOAD_BYTES:
+		raise ConditionValidationError(
+			"condition_payload_too_large", "$", "Condition payload exceeds the configured byte limit"
+		)
 
 	val_str = value.strip()
 	if not val_str:
