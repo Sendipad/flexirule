@@ -15,7 +15,7 @@ from flexirule.ruleflow.core.contracts import normalize_action_type
 from flexirule.ruleflow.core.coordinator import RuleCoordinator
 from flexirule.ruleflow.core.process_contract_v2 import resolve_process_operation_contract_v2
 
-ARTIFACT_VERSION = 1
+ARTIFACT_VERSION = 2
 
 
 def compile_rule(rule_doc) -> dict[str, Any]:
@@ -56,12 +56,28 @@ def parse_artifact(value: str | Mapping[str, Any] | None) -> dict[str, Any] | No
 
 
 def _compile_trigger(rule_doc) -> dict[str, Any]:
+	from flexirule.ruleflow.core.condition_contract import CONDITION_SEMANTICS_VERSION, validate_condition_node
+	from flexirule.ruleflow.core.condition_payload import detect_canonical_condition_payload
+
+	raw_condition = rule_doc.get("trigger_condition")
+	canonical_condition = None
+	condition_mode = "none"
+	if raw_condition not in (None, ""):
+		is_canonical, node = detect_canonical_condition_payload(raw_condition)
+		condition_mode = "canonical" if is_canonical else "legacy"
+		if is_canonical:
+			validate_condition_node(node, doctype=rule_doc.document_type or None)
+			canonical_condition = node
+
 	return {
 		"trigger_type": rule_doc.trigger_type,
 		"document_type": rule_doc.document_type,
 		"trigger_event": rule_doc.trigger_event,
+		"condition_mode": condition_mode,
+		"canonical_condition": canonical_condition,
+		"condition_semantics_version": CONDITION_SEMANTICS_VERSION if canonical_condition is not None else None,
 		"compiled_expression": rule_doc.compiled_expression,
-		"has_trigger_condition": bool(rule_doc.trigger_condition),
+		"has_trigger_condition": bool(raw_condition),
 		"watched_fields": _parse_field_list(rule_doc.get("watched_fields")),
 		"compiled_dependencies": RuleCoordinator._extract_watched_fields(rule_doc.compiled_expression),
 	}
@@ -87,7 +103,24 @@ def _compile_action(action) -> dict[str, Any]:
 	}
 
 	if action_type == "Condition":
-		compiled["condition"] = {"compiled_expression": action.compiled_expression}
+		from flexirule.ruleflow.core.condition_contract import CONDITION_SEMANTICS_VERSION, validate_condition_node
+		from flexirule.ruleflow.core.condition_payload import detect_canonical_condition_payload, get_condition_payload
+
+		raw_condition = get_condition_payload(action)
+		is_canonical, canonical_node = detect_canonical_condition_payload(raw_condition)
+		if is_canonical:
+			validate_condition_node(canonical_node)
+			compiled["condition"] = {
+				"mode": "canonical",
+				"node": canonical_node,
+				"semantics_version": CONDITION_SEMANTICS_VERSION,
+				"compiled_expression": None,
+			}
+		else:
+			compiled["condition"] = {
+				"mode": "legacy",
+				"compiled_expression": action.compiled_expression,
+			}
 
 	if action_type == "Assignment":
 		compiled["assignment_plan"] = config if isinstance(config, list) else []
@@ -156,7 +189,7 @@ def _parse_field_list(value) -> list[str]:
 	return []
 
 
-COMPILED_ARTIFACT_CACHE_PREFIX = "flexirule_compiled_artifact_v1"
+COMPILED_ARTIFACT_CACHE_PREFIX = "flexirule_compiled_artifact_v2"
 
 
 def cache_compiled_artifact(rule_doc) -> dict[str, Any]:
