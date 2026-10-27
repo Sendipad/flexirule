@@ -8,6 +8,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+from flexirule.ruleflow.core.flexvalue_contract import MAX_CONDITION_PAYLOAD_BYTES
 
 CONDITION_CONFIG_KEYS = ("condition", "condition_tree", "condition_json")
 
@@ -35,6 +36,10 @@ def detect_canonical_condition_payload(value: Any) -> tuple[bool, dict | None]:
 	text = candidate.strip()
 	if not text or text[0] not in "{[":
 		return False, None
+	if len(text.encode("utf-8")) > MAX_CONDITION_PAYLOAD_BYTES:
+		raise ConditionValidationError(
+			"condition_payload_too_large", "$", "Condition payload exceeds the configured byte limit"
+		)
 	try:
 		parsed = json.loads(text)
 		if isinstance(parsed, str) and parsed.strip().startswith(("{", "[")):
