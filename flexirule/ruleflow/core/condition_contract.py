@@ -393,7 +393,7 @@ def _validate_node(
 	if node_type == "comparison":
 		operator_id = node.get("operator")
 		spec = OPERATOR_REGISTRY.get(operator_id) if isinstance(operator_id, str) else None
-		if not spec:
+		if spec is None:
 			_fail("unknown_operator", f"{path}.operator", "Unknown canonical condition operator")
 		required = {"type", "operator", "left"}
 		if spec.arity == 2:
