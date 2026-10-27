@@ -1,0 +1,38 @@
+{
+  "type": "group",
+  "operator": "and",
+  "children": [
+    {
+      "type": "comparison",
+      "operator": "eq",
+      "left": {
+        "mode": "variable",
+        "path": {
+          "scope": "doc",
+          "segments": ["status"]
+        }
+      },
+      "right": {
+        "mode": "static",
+        "value_type": "string",
+        "value": "Open"
+      }
+    },
+    {
+      "type": "comparison",
+      "operator": "gt",
+      "left": {
+        "mode": "variable",
+        "path": {
+          "scope": "doc",
+          "segments": ["grand_total"]
+        }
+      },
+      "right": {
+        "mode": "static",
+        "value_type": "decimal",
+        "value": "100"
+      }
+    }
+  ]
+}
