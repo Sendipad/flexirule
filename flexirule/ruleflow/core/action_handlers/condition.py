@@ -12,7 +12,10 @@ from frappe import _
 
 from flexirule.ruleflow.core.action_handlers import ActionHandler, HandlerRegistry
 from flexirule.ruleflow.core.action_handlers.base_contract import ActionContract, OperationContract
-from flexirule.ruleflow.core.condition_payload import get_condition_payload
+from flexirule.ruleflow.core.condition_contract import validate_condition_node
+from flexirule.ruleflow.core.condition_errors import ConditionError, ConditionValidationError
+from flexirule.ruleflow.core.condition_evaluator import evaluate_condition
+from flexirule.ruleflow.core.condition_payload import detect_canonical_condition_payload, get_condition_payload
 
 
 class ConditionHandler(ActionHandler):
@@ -60,39 +63,57 @@ class ConditionHandler(ActionHandler):
 		}
 
 	def execute(self, action, context, engine):
-		"""
-		Execute condition evaluation.
-
-		The compiled_expression should already be compiled from config
-		during Rule.validate(). If compiled_expression is missing but
-		condition payload exists, the rule was not properly saved.
-
-		Returns:
-		    Tuple of (boolean_result, next_action_id)
-		"""
-		compiled_expression = getattr(action, "compiled_expression", None)
-		if not compiled_expression:
-			if get_condition_payload(action) is not None:
-				raise ValueError(
-					_(
-						"Action '{0}' has condition config but no compiled_expression. "
-						"Please re-save the Rule to compile conditions."
-					).format(action.action_label)
-				)
-			# Empty condition passes
-			result = True
+		"""Evaluate canonical JSON directly, keeping the legacy compiler as an adapter."""
+		payload = get_condition_payload(action)
+		is_canonical, canonical_node = detect_canonical_condition_payload(payload)
+		if is_canonical:
+			doctype = getattr(getattr(engine, "rule", None), "document_type", None)
+			result = evaluate_condition(canonical_node, context, doctype=doctype)
 		else:
+			compiled_expression = getattr(action, "compiled_expression", None)
+			if not compiled_expression:
+				if payload is not None:
+					raise ConditionValidationError(
+						"legacy_condition_not_compiled",
+						"$",
+						"Legacy condition config has no compiled expression; re-save or repair the Rule",
+					)
+				raise ConditionValidationError(
+					"condition_required",
+					"$",
+					"Condition actions require a valid condition before execution",
+				)
 			result = engine._evaluate_python_condition(compiled_expression, context)
 
 		next_id = action.next_step_if_true if result else action.next_step_if_false
 		return result, next_id
 
 	def validate(self, action, context):
-		"""Validate condition action configuration."""
+		"""Validate without treating canonical JSON as a compiled Python expression."""
 		errors = []
-		if get_condition_payload(action) is not None and not getattr(action, "compiled_expression", None):
+		try:
+			payload = get_condition_payload(action)
+			if payload is None:
+				return errors
+			is_canonical, canonical_node = detect_canonical_condition_payload(payload)
+			if is_canonical:
+				rule = context.get("rule") if isinstance(context, dict) else None
+				doctype = getattr(rule, "document_type", None) or (
+					rule.get("document_type") if isinstance(rule, dict) else None
+				)
+				validate_condition_node(canonical_node, doctype=doctype)
+				return errors
+			if not getattr(action, "compiled_expression", None):
+				errors.append(
+					_("Condition '{0}' needs a compiled legacy expression or a valid canonical node.").format(
+						action.action_label
+					)
+				)
+		except ConditionError as exc:
 			errors.append(
-				_("Condition '{0}' needs to be compiled. Re-save the rule.").format(action.action_label)
+				_("Condition '{0}' is invalid [{1} at {2}]: {3}").format(
+					action.action_label, exc.code, exc.path, exc.message
+				)
 			)
 		return errors
 
