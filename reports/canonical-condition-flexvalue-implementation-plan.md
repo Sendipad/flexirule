@@ -467,9 +467,13 @@ List each affected Rule/action and an actionable manual fix. Because the app is 
 
 ### 7.1 Condition Builder changes
 
+**Required implementation direction:** reuse the generic TreeBuilder already present in `flexirule/public/js/flexirule/rule_builder/components/tree_builder/`. Do not build a parallel recursive condition-tree UI. TreeBuilder owns group/leaf/scope rendering, structural mutations, nested scopes, drag/drop and presentation state; the condition implementation owns the leaf editor, condition-specific collection-slot content, validation against the backend DTO and a thin `condition_tree_adapter.js` translating TreeBuilder's `group`/`leaf`/`scope` model to/from the direct canonical condition node. The canonical node remains the only persisted format. A synthetic UI root group may wrap a root comparison/collection temporarily and must be unwrapped before save.
+
 Files:
-- components/condition_builder/ConditionBuilder.vue
-- ConditionGroupUI.vue, ConditionNode.vue, SimpleCondition.vue, CollectionUI.vue, ContextPicker.vue, condition_validator.js
+- existing generic `tree_builder/TreeBuilder.vue`, `TreeBuilderNode.vue`, `TreeBuilderGroup.vue`, `TreeBuilderScope.vue`, `TreeBuilderLeaf.vue`, `useTreeBuilder.js`, and their existing command/validation/util modules
+- `condition_tree_adapter.js` (thin mapping only; not a recursive UI component)
+- `components/condition_builder/ConditionBuilder.vue`, `SimpleCondition.vue`, condition-specific collection slot/editor, `ContextPicker.vue`, and `condition_validator.js` where still needed
+- legacy `ConditionGroupUI.vue`/`ConditionNode.vue`/`CollectionUI.vue` only for explicit compatibility/hydration as required, not as new structure owners
 - components/rule_config/types/ConditionStep.vue
 - rule_builder/utils/condition_payload.js
 - stores/useGraphStore.js, stores/useRuleStore.js
@@ -477,12 +481,12 @@ Files:
 
 Required behavior:
 1. Builder loads a direct canonical condition node. A single explicit adapter converts supported old formats for display and marks unconvertible payloads with a blocking error; hydration must not guess silently.
-2. Builder edits a temporary reactive tree with temporary UI IDs. Save strips those IDs and emits the direct canonical condition node only.
+2. Builder uses the existing TreeBuilder controlled model and condition_tree_adapter.js to translate canonical groups/comparisons/collection predicates to generic group/leaf/scope nodes and back. TreeBuilder owns recursive rendering and mutations; no new ConditionNode/ConditionGroupUI recursive hierarchy is implemented. Save strips all UI IDs and emits the direct canonical condition node only.
 3. ConditionGroupUI exposes one AND/OR operator per group. Mixed logic requires a nested group. If an old tree used per-condition joins, the UI shows its converted grouping only where semantics are unambiguous; otherwise it presents the migration issue instead of silently changing logic.
-4. SimpleCondition edits both operands through the same FlexValue contract. Left operand defaults to a variable/path picker but supports permitted resolvers and typed static values through the same control model. Keep field metadata available for operator filtering when left is a direct field reference.
+4. The TreeBuilder leaf slot hosts the condition editor (reusing/refactoring SimpleCondition) and edits both operands through the same FlexValue contract. Left operand defaults to a variable/path picker but supports permitted resolvers and typed static values through the same control model. Keep field metadata available for operator filtering when left is a direct field reference.
 5. When left is a resolver, derive allowed comparison operators from its declared output type. Unknown/dynamic output type uses a conservative operator subset or requires an explicit typed result; do not display operators the server will reject.
 6. Resolver config editor outputs family + operation + typed config, without requiring a generated Python string. compileToCode may remain a UI label/display helper while legacy formats exist, but its result is not persisted as executable condition truth.
-7. CollectionUI creates explicit collection_predicate nodes with a valid source FlexValue, validated as alias and a nested condition subtree.
+7. TreeBuilder's collection scope and collection slot host the condition-specific collection editor. The adapter converts the scope plus domain metadata to an explicit collection_predicate with valid source FlexValue, validated alias and preserved where subtree; it does not build a second recursive collection tree.
 8. Generate operator metadata/options from the backend definition. Remove duplicate static frontend operator fallback maps only when the metadata endpoint is reliable; never trust frontend validation to enforce execution security.
 9. FlexValueControl's required/optional empty defaults must respect value_type and caller context. A missing resolver config must be an invalid draft, not a generic blank resolver that happens to become None.
 10. Revisit manual mode. It must not emit raw Python/Jinja as a canonical condition operand. For other FlexValue consumers, migrate visual token mode to template/resolver nodes; decide whether manual expressions are retired before production or remain an explicitly separate, narrowly sandboxed legacy feature.
