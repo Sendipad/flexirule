@@ -181,6 +181,37 @@ class TestCanonicalConditionEvaluator(unittest.TestCase):
 		self.assertTrue(any_match.resolve(context))
 		self.assertFalse(all_match.resolve(context))
 
+	def test_nested_collection_predicates_share_total_row_visit_budget(self):
+		inner = {
+			"type": "collection_predicate",
+			"quantifier": "all",
+			"source": {"scope": "item_row", "segments": ["parts"]},
+			"as": "part_row",
+			"where": compare(
+				"eq",
+				variable("part_row", "enabled"),
+				static("boolean", True),
+			),
+		}
+		node = {
+			"type": "collection_predicate",
+			"quantifier": "all",
+			"source": {"scope": "doc", "segments": ["items"]},
+			"as": "item_row",
+			"where": inner,
+		}
+		context = {
+			"doc": {
+				"items": [
+					{"parts": [{"enabled": True} for _ in range(100)]}
+					for _ in range(100)
+				]
+			}
+		}
+		with self.assertRaises(ConditionEvaluationError) as raised:
+			evaluate_condition(node, context)
+		self.assertEqual(raised.exception.code, "collection_evaluation_budget_exceeded")
+
 	def test_collection_row_limit_fails_without_truncation(self):
 		base = self.fixtures["valid"]["root_collection_any"]
 		with self.assertRaises(ConditionEvaluationError) as raised:
