@@ -1345,8 +1345,12 @@ class Rule(Document):
 
 				is_canonical, canonical_node = detect_canonical_condition_payload(condition_payload)
 				if is_canonical:
+					if canonical_node is None:
+						raise ConditionValidationError(
+							"invalid_condition_payload", "$", "Canonical condition payload is missing"
+						)
 					validate_condition_node(canonical_node, doctype=self.document_type or None)
-					set_condition_payload_on_action(action, canonical_node if canonical_node is not None else condition_payload)
+					set_condition_payload_on_action(action, canonical_node)
 					action.compiled_expression = None
 					continue
 
