@@ -81,6 +81,57 @@ class TestCanonicalConditionContract(unittest.TestCase):
 			validate_condition_node(node)
 		self.assertEqual(raised.exception.code, "resolver_not_allowed")
 
+	def test_unhashable_discriminants_return_validation_errors(self):
+		invalid_nodes = [
+			{"type": "group", "operator": [], "children": []},
+			{"type": "collection_predicate", "quantifier": [], "source": {}, "as": "row_item", "where": {}},
+			{
+				"type": "comparison",
+				"operator": "eq",
+				"left": {"mode": "static", "value_type": [], "value": "x"},
+				"right": {"mode": "static", "value_type": "string", "value": "x"},
+			},
+		]
+		for node in invalid_nodes:
+			with self.subTest(node_type=node.get("type")), self.assertRaises(ConditionValidationError):
+				validate_condition_node(node)
+
+	def test_canonical_payload_size_is_bounded(self):
+		from flexirule.ruleflow.core.flexvalue_contract import MAX_CONDITION_PAYLOAD_BYTES
+
+		node = {
+			"type": "comparison",
+			"operator": "eq",
+			"left": {"mode": "static", "value_type": "string", "value": "x" * MAX_CONDITION_PAYLOAD_BYTES},
+			"right": {"mode": "static", "value_type": "string", "value": "x"},
+		}
+		with self.assertRaises(ConditionValidationError) as raised:
+			validate_condition_node(node)
+		self.assertEqual(raised.exception.code, "condition_payload_too_large")
+
+	def test_nested_collection_alias_cannot_shadow_parent_alias(self):
+		node = {
+			"type": "collection_predicate",
+			"quantifier": "any",
+			"source": {"scope": "doc", "segments": ["items"]},
+			"as": "row_item",
+			"where": {
+				"type": "collection_predicate",
+				"quantifier": "any",
+				"source": {"scope": "row_item", "segments": ["parts"]},
+				"as": "row_item",
+				"where": {
+					"type": "comparison",
+					"operator": "eq",
+					"left": {"mode": "static", "value_type": "integer", "value": 1},
+					"right": {"mode": "static", "value_type": "integer", "value": 1},
+				},
+			},
+		}
+		with self.assertRaises(ConditionValidationError) as raised:
+			validate_condition_node(node)
+		self.assertEqual(raised.exception.code, "invalid_collection_alias")
+
 	def test_operator_contract_is_backend_owned_and_stable(self):
 		dto = condition_contract_dto()
 		self.assertEqual(dto["persisted_payload_version"], None)
