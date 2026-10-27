@@ -273,7 +273,7 @@ def validate_flex_value(
 			_fail("unknown_value_type", f"{path}.value_type", "Unsupported static value type")
 		if value_type == "string" and not isinstance(val, str):
 			_fail("invalid_static_type", f"{path}.value", "Expected a string")
-		elif value_type == "integer" and type(val) is not int:
+		elif value_type == "integer" and not (isinstance(val, int) and not isinstance(val, bool)):
 			_fail("invalid_static_type", f"{path}.value", "Expected an integer (not a boolean)")
 		elif value_type == "decimal":
 			if not isinstance(val, str):
@@ -284,7 +284,7 @@ def validate_flex_value(
 				_fail("invalid_decimal", f"{path}.value", "Decimal value is not valid")
 			if not number.is_finite():
 				_fail("invalid_decimal", f"{path}.value", "Decimal value must be finite")
-		elif value_type == "boolean" and type(val) is not bool:
+		elif value_type == "boolean" and not isinstance(val, bool):
 			_fail("invalid_static_type", f"{path}.value", "Expected a boolean")
 		elif value_type == "null" and val is not None:
 			_fail("invalid_static_type", f"{path}.value", "Null values must be JSON null")
@@ -428,7 +428,7 @@ def format_template_value(value: Any, path: str = "$") -> str:
 		return str(value)
 	if isinstance(value, Decimal):
 		return format(value, "f")
-	if isinstance(value, (date, datetime, time)):
+	if isinstance(value, date | datetime | time):
 		return value.isoformat()
 	if isinstance(value, float) and math.isfinite(value):
 		return str(value)
