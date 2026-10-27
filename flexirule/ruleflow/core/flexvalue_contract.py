@@ -25,8 +25,11 @@ BASE_SCOPES = frozenset({
 MAX_CONDITION_DEPTH = 32
 MAX_CONDITION_NODES = 1000
 MAX_RESOLVER_DEPTH = 16
+MAX_FLEXVALUE_DEPTH = 32
 MAX_PATH_SEGMENTS = 32
 MAX_TEMPLATE_SEGMENTS = 1000
+MAX_TEMPLATE_OUTPUT_CHARS = 1_000_000
+MAX_CONDITION_PAYLOAD_BYTES = 1_000_000
 MAX_COLLECTION_ROWS = 10000
 MAX_STATIC_ITEMS = 10000
 
@@ -34,8 +37,11 @@ CONDITION_LIMITS = {
 	"condition_depth": MAX_CONDITION_DEPTH,
 	"condition_nodes": MAX_CONDITION_NODES,
 	"resolver_depth": MAX_RESOLVER_DEPTH,
+	"flexvalue_depth": MAX_FLEXVALUE_DEPTH,
 	"path_segments": MAX_PATH_SEGMENTS,
 	"template_segments": MAX_TEMPLATE_SEGMENTS,
+	"template_output_chars": MAX_TEMPLATE_OUTPUT_CHARS,
+	"payload_bytes": MAX_CONDITION_PAYLOAD_BYTES,
 	"collection_rows": MAX_COLLECTION_ROWS,
 	"static_items": MAX_STATIC_ITEMS,
 }
@@ -62,9 +68,11 @@ def register_condition_resolver(
 ):
 	"""Register a reviewed resolver operation for canonical conditions.
 
-	validate_config must validate exact keys and nested FlexValues. resolve must be
-	read-only, bounded, deterministic for a given context, and must not cache context
-	or resolved values. No operation is enabled by default.
+	validate_config must validate exact keys and nested FlexValues, carrying both the
+	current resolver depth and FlexValue depth into validate_flex_value(). resolve must
+	be read-only, bounded, deterministic for a given context, and must not cache context
+	or resolved values. An operation may only be enabled when its permission policy is
+	"no_data_access"; database-backed resolvers require a separately reviewed adapter.
 	"""
 	if (
 		not family or not operation or output_type not in VALUE_TYPES
@@ -198,8 +206,11 @@ def validate_flex_value(
 	path: str = "$",
 	allowed_scopes: set[str] | None = None,
 	resolver_depth: int = 0,
+	flexvalue_depth: int = 0,
 ) -> str | None:
 	"""Validate one canonical FlexValue without mutating it; return known output type."""
+	if flexvalue_depth > MAX_FLEXVALUE_DEPTH:
+		_fail("flexvalue_depth_exceeded", path, "Nested FlexValue exceeds the configured depth limit")
 	if not isinstance(value, Mapping):
 		_fail("invalid_flex_value", path, "FlexValue must be an object")
 	allowed = set(allowed_scopes or BASE_SCOPES)
@@ -277,7 +288,9 @@ def validate_flex_value(
 		config = value.get("config")
 		if not isinstance(config, dict):
 			_fail("invalid_resolver_config", f"{path}.config", "Resolver config must be an object")
-		entry["validate_config"](config, f"{path}.config", allowed, resolver_depth + 1)
+		entry["validate_config"](
+			config, f"{path}.config", allowed, resolver_depth + 1, flexvalue_depth + 1
+		)
 		return entry["output_type"]
 
 	if mode == "template":
@@ -300,6 +313,7 @@ def validate_flex_value(
 					path=f"{segment_path}.value",
 					allowed_scopes=allowed,
 					resolver_depth=resolver_depth,
+					flexvalue_depth=flexvalue_depth + 1,
 				)
 				if output_type in {"list", "object"}:
 					_fail("invalid_template_value_type", f"{segment_path}.value", "Template values must be scalar")
