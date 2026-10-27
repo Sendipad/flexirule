@@ -91,125 +91,91 @@ Treat these as migration and contract issues, not behavior to copy into the new 
 
 Create a single recursive schema contract shared by backend validation, front-end builder adapters, test fixtures, import/export, and runtime. Proposed module/file names are in Section 8.
 
-### 3.1 Canonical condition envelope
+### 3.1 Direct canonical condition node (current contract)
 
-Every complete persisted condition, whether a Rule trigger filter, Condition action, or assignment guard, uses this envelope:
+Every complete condition persisted in Rule.trigger_condition, Condition action config, an assignment guard, or a collection predicate is the condition node itself. There is no persisted `schema`, `version`, or `root` wrapper. The node's `type` discriminant identifies the variant. The authenticated condition-contract API may be versioned independently, but its version must not be written around the condition payload.
 
-    {
-      "schema": "flexirule.condition",
-      "version": 1,
-      "root": {
-        "type": "group",
-        "operator": "and",
-        "children": [
-          {
-            "type": "comparison",
-            "operator": ">",
-            "left": {
-              "mode": "variable",
-              "path": { "scope": "doc", "segments": ["grand_total"] }
-            },
-            "right": {
-              "mode": "resolver",
-              "family": "math",
-              "operation": "calculate",
-              "config": {
-                "left": {
-                  "mode": "variable",
-                  "path": { "scope": "vars", "segments": ["minimum_total"] }
-                },
-                "operator": "multiply",
-                "right": {
-                  "mode": "static",
-                  "value_type": "decimal",
-                  "value": "1.15"
-                },
-                "precision": 2
-              }
-            }
-          }
-        ]
-      }
-    }
-
-This example is illustrative of the proposed shape; it is not an exact copy of any current saved payload.
-
-Rules:
-1. schema and version are required for complete persisted conditions. Unsupported versions are rejected with an actionable message.
-2. root must be one condition node, normally a group. Do not let arrays, raw strings, {conditions: ...} fragments, or nested wrapper keys silently become alternate canonical formats.
-3. UI-only IDs may exist in reactive Vue state but must never be persisted in canonical condition or FlexValue JSON.
-4. Do not save generated Python as a parallel authoritative representation.
-5. The same schema/version contract is reused in Rule.trigger_condition, Condition action config, assignment guard fields, and nested collection predicates. Storage context may determine whether absence means “no guard” or “invalid configuration”; it must not change the AST's meaning.
-6. schema version is for changes to the public JSON contract. An implementation optimization, cache, or runtime class does not require a new persisted version.
+A root can be a `comparison`, `group`, or `collection_predicate`. A single comparison is valid without a wrapper. A group is used only when combining predicates or defining nested logical precedence.
 
 ### 3.2 Condition node variants
 
-Use explicit node types. Never infer node type from the presence of arbitrary keys.
-
 #### Group
 
+~~~json
+{
+  "type": "group",
+  "operator": "and",
+  "children": [
+    {
+      "type": "comparison",
+      "operator": "eq",
+      "left": {"mode": "variable", "path": {"scope": "doc", "segments": ["status"]}},
+      "right": {"mode": "static", "value_type": "string", "value": "Open"}
+    },
     {
       "type": "group",
-      "operator": "and",
-      "children": [ ...condition nodes... ]
+      "operator": "or",
+      "children": [
+        {
+          "type": "comparison",
+          "operator": "gt",
+          "left": {"mode": "variable", "path": {"scope": "doc", "segments": ["grand_total"]}},
+          "right": {"mode": "static", "value_type": "decimal", "value": "1000"}
+        },
+        {
+          "type": "comparison",
+          "operator": "eq",
+          "left": {"mode": "variable", "path": {"scope": "doc", "segments": ["is_priority"]}},
+          "right": {"mode": "static", "value_type": "boolean", "value": true}
+        }
+      ]
     }
+  ]
+}
+~~~
 
-- operator is exactly and or or.
-- All children in one group share that operator. There is no per-child logical_operator in canonical version 1.
-- Mixed logic is expressed through nested groups. This makes precedence structural and independent of Python.
-- Preserve child order. Do not reorder conditions or distribute groups as an optimization.
+- `operator` is exactly `and` or `or`; `children` contains at least two condition nodes.
+- Direct children can mix comparisons, nested groups, and collection predicates. Mixed logic is represented only through nested groups; no per-child logical operator is serialized.
+- Every persisted group must have at least two direct children. A one-child group is redundant: the frontend may collapse its own transient wrapper and legacy migration may collapse it only when deterministic; strict backend validation rejects a one-child canonical group. An empty group is invalid.
+- Preserve child order. Runtime evaluation is left-to-right and short-circuits; do not reorder, distribute, or algebraically simplify groups.
 
 #### Comparison
 
-    {
-      "type": "comparison",
-      "operator": "==",
-      "left": { ...FlexValue... },
-      "right": { ...FlexValue... }
-    }
+~~~json
+{
+  "type": "comparison",
+  "operator": "gt",
+  "left": {"mode": "variable", "path": {"scope": "doc", "segments": ["grand_total"]}},
+  "right": {"mode": "static", "value_type": "decimal", "value": "1000"}
+}
+~~~
 
-- left and right are both FlexValue nodes. Unary operators have no right operand; the operator contract defines arity.
-- The operator registry defines operand types, null/missing handling, applicable Frappe Fieldtypes, link rules, aliases allowed during migration, and runtime error semantics.
-- A resolver operand is not special to the evaluator: resolve each accepted FlexValue via the shared ValueResolver contract, then hand typed values to the common comparator.
+- `operator` is a stable, semantic ID owned by the backend registry, not a Python token, AST class, SQL snippet, or label.
+- Both operands are FlexValue nodes. Unary operators omit `right`; registry arity is authoritative.
+- The registry defines accepted value types, applicable Frappe Fieldtypes, Link handling, aliases accepted only during migration, missing/null behavior and typed runtime errors.
 
 #### Collection predicate
 
-    {
-      "type": "collection_predicate",
-      "quantifier": "any",
-      "source": {
-        "mode": "variable",
-        "path": { "scope": "doc", "segments": ["items"] }
-      },
-      "as": "item",
-      "where": {
-        "type": "group",
-        "operator": "and",
-        "children": [
-          {
-            "type": "comparison",
-            "operator": ">",
-            "left": {
-              "mode": "variable",
-              "path": { "scope": "item", "segments": ["rate"] }
-            },
-            "right": {
-              "mode": "static",
-              "value_type": "decimal",
-              "value": "100"
-            }
-          }
-        ]
-      }
-    }
+~~~json
+{
+  "type": "collection_predicate",
+  "quantifier": "any",
+  "source": {"mode": "variable", "path": {"scope": "doc", "segments": ["items"]}},
+  "as": "item",
+  "where": {
+    "type": "comparison",
+    "operator": "gt",
+    "left": {"mode": "variable", "path": {"scope": "item", "segments": ["rate"]}},
+    "right": {"mode": "static", "value_type": "decimal", "value": "100"}
+  }
+}
+~~~
 
-- quantifier is exactly any, all, or none.
-- source is a FlexValue with a declared collection result contract; in v1 permit only variable/path values until a resolver source has an explicit safe, bounded collection type.
-- as is a validated identifier defining a local alias for the current row. Alias scope is nested and cannot shadow reserved roots or an ancestor alias.
-- where is a condition node in the same schema, without another envelope.
-- This node and the value resolver's collection family must delegate to the same bounded iteration and predicate evaluator rather than maintain separate comparison engines.
-
-A direct typed collection_predicate is a condition control-flow node. A FlexValue family: collection computes a value such as count, sum, filter, or pluck. They share source handling, scopes, limits, and predicate evaluation, but they are different operations and must not be conflated.
+- `quantifier` is exactly `any`, `all`, or `none`.
+- `source` is a variable/path value in the initial contract; resolver sources require an explicit safe, bounded collection result contract before being enabled.
+- `as` is a validated identifier defining a local row alias. Alias scope is nested and cannot shadow reserved roots or an ancestor alias.
+- `where` is a condition node directly, with no envelope. It may be a comparison or a valid group; do not wrap a single comparison in a one-child group.
+- Collection predicates and collection value resolvers must share bounded iteration and the same condition evaluator/comparator, not maintain separate semantics.
 
 ### 3.3 Canonical FlexValue union
 
@@ -349,26 +315,21 @@ Recommended starting rule: no silent implicit cast other than an explicitly spec
 
 ### 4.4 Operator contract
 
-Define one server-authoritative operator registry. At minimum inventory and make an explicit keep/change/deprecate decision for:
-- equality and inequality: ==, !=
-- ordered comparisons: >, <, >=, <=
-- membership: in, not in (one canonical token; old not_in is a migration alias only)
-- substring operations: contains, not_contains
-- presence and emptiness: is_set, is_not_set, is_empty, is_not_empty
-- length: length_eq, length_gt, length_gte, length_lt, length_lte
-- metadata operations: is_submittable, has_field
-- regex, if retained after resource-safety review
-- like / not like, whose current labels and implementation disagree
-- has_changed, which currently compiles to True and must not be carried forward as an ordinary comparator
-- is / is not, currently part of compiler map but identity comparison is not necessarily meaningful for business values
+Define one server-authoritative registry of stable semantic operator IDs. The initial proposed set is:
 
-Each registry entry declares canonical token, arity, argument types, allowed fieldtypes/resolver results, aliases accepted only by migration, missing/null semantics, Link/Dynamic Link handling, runtime error behavior, and tests. Operator DTO/labels for the UI should be generated from this registry rather than duplicated in several front-end fallback maps.
+- Equality/order: `eq`, `ne`, `gt`, `gte`, `lt`, `lte`.
+- Membership: `in`, `not_in`.
+- Literal, case-sensitive text matching: `contains`, `not_contains`, `starts_with`, `ends_with`.
+- Presence/null: `is_set`, `is_not_set`, `is_null`, `is_not_null`.
+- Emptiness: `is_empty`, `is_not_empty`.
+- Length: `length_eq`, `length_gt`, `length_gte`, `length_lt`, `length_lte`.
+- Frappe metadata: `is_submittable`, `has_field`, with explicit context and operand contracts.
 
-Decisions that need explicit product/owner sign-off as part of Stage 1:
-1. whether like/not like mean literal substring aliases (migrate to contains/not_contains) or wildcard pattern matching. Do not assume SQL LIKE semantics outside a query.
-2. whether regex remains in v1; if retained, set size/pattern policies and use an evaluator with a defensible time/resource bound. If a safe bound is unavailable, reject it in v1.
-3. reject has_changed and require an On Change trigger/process or an explicit old_doc comparison. Inventory old uses and provide an actionable replacement path.
-4. drop is/is not from canonical operators unless a meaningful typed contract is specified.
+Keep `and`/`or` as logical group operators and `any`/`all`/`none` as collection quantifiers, not comparison operators. Each registry entry declares arity, accepted types, applicable Fieldtypes/resolver results, migration-only aliases, missing/null behavior, runtime error behavior and tests. Labels and UI metadata are generated from this registry.
+
+Do not include regex until a safe resource/timeout policy is established. Do not carry forward `has_changed`, identity operators `is`/`is not`, or ambiguous `like`/`not like` into the canonical set. Existing symbolic operators (such as `==`, `!=`, `>`, `>=`, `<`, `<=`, or `not in`) may be mapped to semantic IDs only in the explicit legacy adapter/migration when the historical meaning is deterministic. Ambiguous formats must be reported for repair.
+
+Any operator ID rename or semantic change requires an explicit, idempotent migration and table-driven fixtures proving old-to-new behavior. Never silently reinterpret an existing saved condition or change operator meaning in place. New operator IDs must be included in the backend contract DTO; the frontend must not maintain a parallel registry.
 
 ### 4.5 Runtime error policy
 
@@ -409,7 +370,7 @@ The top-level Rule trigger and callable Sub-Rule conditions have different conte
 Canonical JSON is both the persisted contract and the evaluator input. The validator validates the supplied AST and metadata without rewriting it into another normalized JSON document.
 
 Strict validation should:
-- validate schema name and version;
+- validate the root node type and exact allowed shape;
 - validate node type and allowed keys;
 - validate operator arity and FlexValue union variants;
 - validate all resolver family/operation config schemas recursively;
@@ -419,7 +380,7 @@ Strict validation should:
 - produce stable diagnostic paths such as root.children[1].right.config.left.path;
 - return validation errors rather than mutating or coercing the submitted tree.
 
-If a legacy payload must be converted, that is a boundary migration from a prior format to v1; it is not runtime normalization. Write the canonical v1 result back once only after conversion succeeds. Never keep both legacy and canonical sources active and ambiguous.
+If a legacy payload must be converted, that is a boundary migration from a prior format to v1; it is not runtime normalization. Write the canonical node result back once only after conversion succeeds. Never keep both legacy and canonical sources active and ambiguous.
 
 ### 5.2 Direct evaluator
 
@@ -487,7 +448,7 @@ List each affected Rule/action and an actionable manual fix. Because the app is 
 
 ### 6.4 Persistence strategy
 
-- Rule.trigger_condition and Condition action config write the complete same canonical envelope.
+- Rule.trigger_condition and Condition action config write the complete same canonical condition node.
 - Assignment guards write a complete envelope at a named structured field (for example when_condition); stop writing pythonExpression/when_expression for canonical guards.
 - Collection resolver config embeds the same condition node for its predicate; it does not embed a separate condition language.
 - During transition, old compiled_expression columns may remain for import compatibility and roll-back observation, but runtime must select exactly one source of truth based on an explicit migration/version state. Do not choose payload sources by “first non-empty wins” for canonical v1.
@@ -515,8 +476,8 @@ Files:
 - controls/FlexValueControl.vue and controls/value_resolver/{strategies.js,index.js,useValueResolver.js,utils.js} plus operation config components.
 
 Required behavior:
-1. Builder loads canonical envelope. A single explicit adapter converts supported old formats for display and marks unconvertible payloads with a blocking error; hydration must not guess silently.
-2. Builder edits a temporary reactive tree with temporary UI IDs. Save strips those IDs and emits canonical schema/version/root only.
+1. Builder loads a direct canonical condition node. A single explicit adapter converts supported old formats for display and marks unconvertible payloads with a blocking error; hydration must not guess silently.
+2. Builder edits a temporary reactive tree with temporary UI IDs. Save strips those IDs and emits the direct canonical condition node only.
 3. ConditionGroupUI exposes one AND/OR operator per group. Mixed logic requires a nested group. If an old tree used per-condition joins, the UI shows its converted grouping only where semantics are unambiguous; otherwise it presents the migration issue instead of silently changing logic.
 4. SimpleCondition edits both operands through the same FlexValue contract. Left operand defaults to a variable/path picker but supports permitted resolvers and typed static values through the same control model. Keep field metadata available for operator filtering when left is a direct field reference.
 5. When left is a resolver, derive allowed comparison operators from its declared output type. Unknown/dynamic output type uses a conservative operator subset or requires an explicit typed result; do not display operators the server will reject.
@@ -613,7 +574,7 @@ Target files:
 - FlexValueControl.vue and strategy config editors if Stage 1 did not complete all integration.
 
 Tasks:
-1. Introduce clear load/save adapters; use canonical envelope on load and save. No double stringification or nested condition / condition_tree / condition_json key aliases in new writes.
+1. Introduce clear load/save adapters; use direct canonical condition node on load and save. No double stringification or nested condition / condition_tree / condition_json key aliases in new writes.
 2. Update the UI tree to explicit node types; group operator belongs to group, not individual child joins.
 3. Use FlexValue for both left and right, including resolver output type/operator compatibility.
 4. Preserve ephemeral Vue IDs only in the UI and prove they never leak into persisted JSON.
@@ -661,8 +622,8 @@ Target files:
 
 Tasks:
 1. Generate a read-only inventory before mutation, with counts by legacy shape/operator/resolver and affected Rule/action identifiers.
-2. Implement deterministic v0->v1 conversion mappings as a separate explicit function, not part of runtime evaluation.
-3. Add an idempotent patch that converts only unambiguous payloads and writes v1 canonical envelopes. Back up/export first on the dedicated test site.
+2. Implement deterministic legacy-to-canonical-node conversion mappings as a separate explicit function, not part of runtime evaluation.
+3. Add an idempotent patch that converts only unambiguous payloads and writes direct canonical condition nodes. Back up/export first on the dedicated test site.
 4. Produce a report for ambiguous/unconvertible records. Include a safe reason and remediation; do not dump full business values/documents.
 5. Explicitly reject or require manual editing for mixed-logic chains, raw Python conditions, has_changed, uncertain like/not like, unknown operators, malformed JSON/trees, missing resolver config and unknown family/operation.
 6. Keep compatibility fields for one planned transition only if needed. When canonical migration is complete, no runtime dual-read or compiled-expression fallback remains.
@@ -719,7 +680,7 @@ Create a table-driven suite with the same fixtures evaluated through every consu
 
 ### Schema and validation
 - Every valid canonical node/FlexValue/family-operation config accepted.
-- Wrong schema/version/node/extra key/missing property/operator/operand arity rejected with a stable path.
+- Wrong node type/extra key/missing property/operator ID/operand arity rejected with a stable path.
 - Unknown path scope, invalid field/segments, dunder/call syntax, alias shadowing and resolver policy bypass rejected.
 - Depth/node/config size/work limits enforced.
 - Empty groups rejected; no configured optional trigger/assignment guard treated distinctly from malformed/empty tree.
