@@ -1373,7 +1373,6 @@ class Rule(Document):
 					_("Error compiling Action {0} Condition: {1}").format(action.action_label, str(e))
 				)
 
-
 		# Assignment guards are conditions too. Validate canonical guards at save time
 		# so a malformed guard cannot first fail after earlier assignment mutations.
 		for action in self.actions:
@@ -1390,7 +1389,9 @@ class Rule(Document):
 				for index, row in enumerate(assignment_rows):
 					if not isinstance(row, dict) or row.get("when_condition") in (None, ""):
 						continue
-					is_canonical, canonical_guard = detect_canonical_condition_payload(row.get("when_condition"))
+					is_canonical, canonical_guard = detect_canonical_condition_payload(
+						row.get("when_condition")
+					)
 					if not is_canonical:
 						continue
 					legacy_guard_keys = ("pythonExpression", "when_expression", "when")
