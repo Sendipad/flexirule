@@ -333,7 +333,7 @@ def _evaluate_node(plan: tuple, context: dict) -> bool:
 		if quantifier == "all":
 			for row in rows:
 				_consume_collection_row_budget(context, f"{path}.source")
-				row_context = dict(context)
+				row_context = _child_context(context)
 				row_context["row"] = row
 				row_context[alias] = row
 				if not _evaluate_node(where_plan, row_context):
@@ -341,7 +341,7 @@ def _evaluate_node(plan: tuple, context: dict) -> bool:
 			return True
 		for row in rows:
 			_consume_collection_row_budget(context, f"{path}.source")
-			row_context = dict(context)
+			row_context = _child_context(context)
 			row_context["row"] = row
 			row_context[alias] = row
 			if _evaluate_node(where_plan, row_context):
