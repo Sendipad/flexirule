@@ -150,27 +150,76 @@ class AssignmentHandler(ActionHandler):
 		return None, getattr(action, "next_step_if_true", None)
 
 	def _to_config_cache_key(self, config) -> str:
+		from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
+		max_bytes = 2_000_000
 		if isinstance(config, str):
-			return config
-		try:
-			return json.dumps(config)
-		except Exception:
-			return "[]"
+			config_key = config
+		else:
+			try:
+				config_key = json.dumps(
+					config, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
+				)
+			except (TypeError, ValueError, RecursionError) as exc:
+				raise ConditionValidationError(
+					"invalid_assignment_config",
+					"$",
+					"Assignment config must be a finite JSON value",
+				) from exc
+
+		if len(config_key.encode("utf-8")) > max_bytes:
+			raise ConditionValidationError(
+				"assignment_config_too_large",
+				"$",
+				"Assignment config exceeds the configured byte limit",
+			)
+		return config_key
 
 	@staticmethod
-	@lru_cache(maxsize=1024)
 	def _get_compiled_plan(config_key: str) -> tuple[dict[str, Any], ...]:
+		"""Compile assignment rows strictly; large configs bypass the process LRU."""
+		from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
+		if not isinstance(config_key, str):
+			raise ConditionValidationError(
+				"invalid_assignment_config", "$", "Assignment config must be a JSON string"
+			)
+		if len(config_key.encode("utf-8")) > 2_000_000:
+			raise ConditionValidationError(
+				"assignment_config_too_large", "$", "Assignment config exceeds the configured byte limit"
+			)
+		if len(config_key.encode("utf-8")) <= 65_536:
+			return AssignmentHandler._get_compiled_plan_cached(config_key)
+		return AssignmentHandler._compile_plan(config_key)
+
+	@staticmethod
+	@lru_cache(maxsize=256)
+	def _get_compiled_plan_cached(config_key: str) -> tuple[dict[str, Any], ...]:
+		return AssignmentHandler._compile_plan(config_key)
+
+	@staticmethod
+	def _compile_plan(config_key: str) -> tuple[dict[str, Any], ...]:
+		from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
 		try:
-			rows = json.loads(config_key or "[]")
-		except Exception:
-			rows = []
+			rows = json.loads(config_key)
+		except (TypeError, ValueError, json.JSONDecodeError, RecursionError) as exc:
+			raise ConditionValidationError(
+				"invalid_assignment_json", "$", "Assignment config contains malformed JSON"
+			) from exc
 		if not isinstance(rows, list):
-			rows = []
+			raise ConditionValidationError(
+				"assignment_config_not_list", "$", "Assignment config must be a JSON array"
+			)
 
 		compiled_rows: list[dict[str, Any]] = []
-		for row in rows:
+		for index, row in enumerate(rows):
 			if not isinstance(row, dict):
-				continue
+				raise ConditionValidationError(
+					"invalid_assignment_row",
+					f"assignments[{index}]",
+					"Each assignment must be a JSON object",
+				)
 			compiled = dict(row)
 			# Canonicalize operand payload for unified runtime evaluation
 			# (legacy rows may store structured payload under value_template_ui/value_template_json).
@@ -190,11 +239,9 @@ class AssignmentHandler(ActionHandler):
 				if is_canonical:
 					legacy_guard_keys = ("pythonExpression", "when_expression", "when")
 					if any(compiled.get(key) not in (None, "") for key in legacy_guard_keys):
-						from flexirule.ruleflow.core.condition_errors import ConditionValidationError
-
 						raise ConditionValidationError(
 							"multiple_guard_formats",
-							f"assignments[{len(compiled_rows)}]",
+							f"assignments[{index}]",
 							"An assignment row cannot mix canonical and legacy guard formats",
 						)
 					validate_condition_node(canonical_guard)
