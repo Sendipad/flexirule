@@ -617,6 +617,56 @@ def clear_cache(doctype: str | None = None):
 
 
 @frappe.whitelist()
+def get_condition_contract():
+	"""
+	Return versioned condition contract DTO describing backend operators, FlexValue modes,
+	scopes, quantifiers, and resource limits for the frontend condition builder.
+	"""
+	_require_api_access()
+
+	from flexirule.ruleflow.core.condition_contract import CanonicalOperatorRegistry
+	from flexirule.ruleflow.core.flexvalue_contract import (
+		CANONICAL_SCOPES,
+		MAX_COLLECTION_ROWS,
+		MAX_CONDITION_DEPTH,
+		MAX_CONDITION_NODES,
+		MAX_PATH_SEGMENTS,
+		MAX_RESOLVER_NESTING,
+		MAX_TEMPLATE_SEGMENTS,
+		VALID_VALUE_TYPES,
+	)
+
+	operators = [op.to_dict() for op in CanonicalOperatorRegistry.get_all()]
+
+	payload = {
+		"node_types": ["comparison", "group", "collection_predicate"],
+		"flexvalue_modes": ["static", "variable", "resolver", "template"],
+		"value_types": sorted(list(VALID_VALUE_TYPES)),
+		"scopes": sorted(list(CANONICAL_SCOPES)),
+		"quantifiers": ["any", "all", "none"],
+		"operators": operators,
+		"resolvers": {
+			"condition_operand_allowed_default": False,
+			"allowed_operations": [],
+		},
+		"limits": {
+			"max_condition_depth": MAX_CONDITION_DEPTH,
+			"max_condition_nodes": MAX_CONDITION_NODES,
+			"max_resolver_nesting": MAX_RESOLVER_NESTING,
+			"max_path_segments": MAX_PATH_SEGMENTS,
+			"max_template_segments": MAX_TEMPLATE_SEGMENTS,
+			"max_collection_rows": MAX_COLLECTION_ROWS,
+		},
+	}
+
+	payload["contract_version_hash"] = hashlib.sha256(
+		json.dumps(payload, sort_keys=True, default=str).encode("utf-8")
+	).hexdigest()
+
+	return payload
+
+
+@frappe.whitelist()
 def get_operator_config():
 	"""
 	Get fieldtype-to-operators mapping and operator labels for Condition Builder.
