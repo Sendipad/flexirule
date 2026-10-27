@@ -1369,6 +1369,49 @@ class Rule(Document):
 					_("Error compiling Action {0} Condition: {1}").format(action.action_label, str(e))
 				)
 
+
+		# Assignment guards are conditions too. Validate canonical guards at save time
+		# so a malformed guard cannot first fail after earlier assignment mutations.
+		for action in self.actions:
+			if normalize_action_type(action.action_type) != "Assignment":
+				continue
+			raw_config = action.get("config")
+			try:
+				if isinstance(raw_config, str):
+					assignment_rows = json.loads(raw_config) if raw_config.strip() else []
+				else:
+					assignment_rows = raw_config
+				if not isinstance(assignment_rows, list):
+					continue
+				for index, row in enumerate(assignment_rows):
+					if not isinstance(row, dict) or row.get("when_condition") in (None, ""):
+						continue
+					is_canonical, canonical_guard = detect_canonical_condition_payload(row.get("when_condition"))
+					if not is_canonical:
+						continue
+					legacy_guard_keys = ("pythonExpression", "when_expression", "when")
+					if any(row.get(key) not in (None, "") for key in legacy_guard_keys):
+						from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
+						raise ConditionValidationError(
+							"multiple_guard_formats",
+							f"assignments[{index}]",
+							"An assignment row cannot mix canonical and legacy guard formats",
+						)
+					validate_condition_node(canonical_guard, doctype=self.document_type or None)
+			except ConditionError as exc:
+				frappe.throw(
+					_("Invalid Assignment guard in Action {0} [{1} at {2}]: {3}").format(
+						action.action_label, exc.code, exc.path, exc.message
+					)
+				)
+			except Exception as exc:
+				frappe.throw(
+					_("Invalid Assignment configuration in Action {0}: {1}").format(
+						action.action_label, str(exc)
+					)
+				)
+
 	def _validate_action_config(self, action):
 		if not frappe.db.exists("Process", action.process_name):
 			frappe.throw(_("Process not found: {0}").format(action.process_name))
