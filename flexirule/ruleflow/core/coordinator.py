@@ -542,8 +542,9 @@ class RuleCoordinator:
 		# explicitly legacy payloads may use the old compiled-expression adapter.
 		raw_condition = rule_doc.get("trigger_condition")
 		if raw_condition:
+			from flexirule.ruleflow.core.condition_errors import ConditionError
+
 			try:
-				from flexirule.ruleflow.core.condition_errors import ConditionError
 				from flexirule.ruleflow.core.condition_evaluator import evaluate_condition
 				from flexirule.ruleflow.core.condition_payload import detect_canonical_condition_payload
 
