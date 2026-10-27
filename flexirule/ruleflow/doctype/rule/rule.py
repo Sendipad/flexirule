@@ -1288,7 +1288,7 @@ class Rule(Document):
 		"""
 		from flexirule.ruleflow.core.compiler import ConditionCompiler
 		from flexirule.ruleflow.core.condition_contract import validate_condition_node
-		from flexirule.ruleflow.core.condition_errors import ConditionError
+		from flexirule.ruleflow.core.condition_errors import ConditionError, ConditionValidationError
 		from flexirule.ruleflow.core.condition_payload import (
 			detect_canonical_condition_payload,
 			get_condition_payload,
