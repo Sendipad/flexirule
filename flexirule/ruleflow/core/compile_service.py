@@ -123,7 +123,16 @@ def _compile_action(action) -> dict[str, Any]:
 			}
 
 	if action_type == "Assignment":
-		compiled["assignment_plan"] = config if isinstance(config, list) else []
+		from flexirule.ruleflow.core.action_handlers.assignment import AssignmentHandler
+		from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
+		raw_config = action.get("config")
+		if raw_config in (None, ""):
+			raise ConditionValidationError(
+				"assignment_config_required", "$", "Assignment actions require a JSON array config"
+			)
+		config_key = AssignmentHandler()._to_config_cache_key(raw_config)
+		compiled["assignment_plan"] = list(AssignmentHandler._get_compiled_plan(config_key))
 
 	if action_type == "Notify":
 		compiled["template_spec"] = {
