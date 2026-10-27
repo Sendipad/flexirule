@@ -91,7 +91,9 @@ def parse_condition_payload(value: Any) -> dict | list | str | None:
 		return list(value)
 
 	if not isinstance(value, str):
-		raise ValueError(f"Unsupported condition payload type: {type(value).__name__}")
+		raise ConditionValidationError(
+			"invalid_condition_payload_type", "$", "Condition payload must be an object, array, or string"
+		)
 	if len(value.encode("utf-8")) > MAX_CONDITION_PAYLOAD_BYTES:
 		raise ConditionValidationError(
 			"condition_payload_too_large", "$", "Condition payload exceeds the configured byte limit"
@@ -117,7 +119,9 @@ def parse_condition_payload(value: Any) -> dict | list | str | None:
 			if isinstance(parsed, str) and parsed.strip():
 				return parsed.strip()
 		except Exception as exc:
-			raise ValueError(f"Invalid JSON format in condition payload: {exc!s}") from exc
+			raise ConditionValidationError(
+				"invalid_json", "$", "Structured condition JSON is malformed"
+			) from exc
 
 	return val_str
 
