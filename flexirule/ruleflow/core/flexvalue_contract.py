@@ -16,7 +16,7 @@ from datetime import date, datetime, time
 from decimal import Decimal, InvalidOperation
 from typing import Any, Callable
 
-from flexirule.ruleflow.core.condition_errors import ConditionEvaluationError, ConditionValidationError
+from flexirule.ruleflow.core.condition_errors import ConditionValidationError
 
 BASE_SCOPES = frozenset({
 	"doc", "old_doc", "vars", "item", "loop", "row", "caller", "rule", "doctype"
@@ -147,6 +147,8 @@ def _validate_path(path_value: Any, path: str, allowed_scopes: set[str]) -> tupl
 		_fail("unknown_scope", f"{path}.scope", "Path scope is not available in this context")
 	if not isinstance(segments, list) or len(segments) > MAX_PATH_SEGMENTS:
 		_fail("invalid_path_segments", f"{path}.segments", "Path segments must be a bounded list")
+	if scope != "doctype" and not segments:
+		_fail("invalid_path_segments", f"{path}.segments", "A variable path must name at least one segment")
 	if scope == "doctype" and segments:
 		_fail("invalid_path_segments", f"{path}.segments", "The doctype scope does not accept path segments")
 	for index, segment in enumerate(segments):
