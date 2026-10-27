@@ -47,9 +47,7 @@ class _EvaluationContext(dict):
 
 	def __init__(self, source=None, budget=None):
 		super().__init__(source or {})
-		self.collection_row_budget = (
-			budget if budget is not None else {"collection_row_visits": 0}
-		)
+		self.collection_row_budget = budget if budget is not None else {"collection_row_visits": 0}
 
 
 def _child_context(context: dict | _EvaluationContext) -> _EvaluationContext:
