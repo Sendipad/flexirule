@@ -207,10 +207,13 @@ def evaluate_condition(
 	context: dict | None = None,
 	*,
 	doctype: str | None = None,
+	_evaluation_budget: dict[str, int] | None = None,
 ) -> bool:
 	"""Evaluate one canonical node. Validation/runtime errors remain typed exceptions."""
 	ctx = dict(context or {})
-	ctx[_CONDITION_BUDGET_KEY] = {"collection_row_visits": 0}
+	ctx[_CONDITION_BUDGET_KEY] = (
+		_evaluation_budget if isinstance(_evaluation_budget, dict) else {"collection_row_visits": 0}
+	)
 	effective_doctype = doctype or ctx.get("doctype")
 	if not effective_doctype:
 		doc = ctx.get("doc")
@@ -229,18 +232,23 @@ def evaluate_condition(
 		) from exc
 
 
-def _consume_collection_row_budget(context: dict, path: str) -> None:
-	state = context.get(_CONDITION_BUDGET_KEY)
-	if not isinstance(state, dict):
-		state = {"collection_row_visits": 0}
-		context[_CONDITION_BUDGET_KEY] = state
-	state["collection_row_visits"] += 1
-	if state["collection_row_visits"] > CONDITION_LIMITS["collection_row_visits"]:
+def consume_collection_row_visit(budget: dict[str, int], path: str) -> None:
+	"""Consume one unit from a shared budget, including when a resolver calls us repeatedly."""
+	budget["collection_row_visits"] = budget.get("collection_row_visits", 0) + 1
+	if budget["collection_row_visits"] > CONDITION_LIMITS["collection_row_visits"]:
 		raise ConditionEvaluationError(
 			"collection_evaluation_budget_exceeded",
 			path,
 			"Condition exceeded the configured total collection row-visit budget",
 		)
+
+
+def _consume_collection_row_budget(context: dict, path: str) -> None:
+	state = context.get(_CONDITION_BUDGET_KEY)
+	if not isinstance(state, dict):
+		state = {"collection_row_visits": 0}
+		context[_CONDITION_BUDGET_KEY] = state
+	consume_collection_row_visit(state, path)
 
 
 def _evaluate_node(plan: tuple, context: dict) -> bool:
