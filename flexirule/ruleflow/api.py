@@ -617,6 +617,19 @@ def clear_cache(doctype: str | None = None):
 
 
 @frappe.whitelist()
+def get_condition_contract():
+	"""Return the backend-owned canonical condition/FlexValue contract.
+
+	The DTO version is independent of the persisted, direct-node condition JSON.
+	Only authenticated rule-builder users may retrieve this contract.
+	"""
+	_require_api_access()
+	from flexirule.ruleflow.core.condition_contract import condition_contract_dto
+
+	return condition_contract_dto()
+
+
+@frappe.whitelist()
 def get_operator_config():
 	"""
 	Get fieldtype-to-operators mapping and operator labels for Condition Builder.
