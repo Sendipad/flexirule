@@ -1281,8 +1281,16 @@ class Rule(Document):
 			action.config = json.dumps(config)
 
 	def compile_conditions(self):
+		"""Validate canonical conditions directly and compile legacy forms only.
+
+		Canonical direct-node JSON stays the source of truth; it is never converted
+		into Python source or persisted into compiled_expression.
+		"""
 		from flexirule.ruleflow.core.compiler import ConditionCompiler
+		from flexirule.ruleflow.core.condition_contract import validate_condition_node
+		from flexirule.ruleflow.core.condition_errors import ConditionError
 		from flexirule.ruleflow.core.condition_payload import (
+			detect_canonical_condition_payload,
 			get_condition_payload,
 			parse_condition_payload,
 			set_condition_payload_on_action,
@@ -1291,22 +1299,32 @@ class Rule(Document):
 
 		compiler = ConditionCompiler()
 
-		# Compile Trigger
+		# Trigger condition: absence means no filter; a present canonical node is
+		# validated but deliberately has no generated-Python representation.
 		if self.trigger_condition:
 			try:
-				compiled_expression = compiler.compile(self.trigger_condition)
-				self.compiled_expression = compiled_expression
-				is_valid, error = compiler.validate(compiled_expression)
-				if not is_valid:
-					frappe.throw(_("Invalid Trigger Condition: {0}").format(error))
-			except ValueError as e:
-				frappe.throw(_("Error compiling Trigger Condition: {0}").format(str(e)))
+				is_canonical, canonical_node = detect_canonical_condition_payload(self.trigger_condition)
+				if is_canonical:
+					validate_condition_node(canonical_node, doctype=self.document_type or None)
+					self.compiled_expression = None
+				else:
+					legacy_payload = parse_condition_payload(self.trigger_condition)
+					compiled_expression = compiler.compile(legacy_payload)
+					self.compiled_expression = compiled_expression
+					is_valid, error = compiler.validate(compiled_expression)
+					if not is_valid:
+						frappe.throw(_("Invalid Trigger Condition: {0}").format(error))
+			except ConditionError as exc:
+				frappe.throw(
+					_("Invalid Trigger Condition [{0} at {1}]: {2}").format(exc.code, exc.path, exc.message)
+				)
 			except Exception as e:
 				frappe.throw(_("Error compiling Trigger Condition: {0}").format(str(e)))
 		else:
 			self.compiled_expression = None
 
-		# Compile Action Conditions
+		# Condition actions use the same canonical node and validator. The legacy
+		# adapter remains only for old payloads while migration is in progress.
 		for action in self.actions:
 			if normalize_action_type(action.action_type) != "Condition":
 				continue
@@ -1314,7 +1332,6 @@ class Rule(Document):
 			try:
 				condition_payload = get_condition_payload(action)
 				if condition_payload is None:
-					# Keep strict behavior for malformed/non-empty JSON strings
 					raw_config = action.get("config")
 					raw_legacy = action.get("condition_json")
 					if raw_config not in (None, ""):
@@ -1326,20 +1343,26 @@ class Rule(Document):
 					action.compiled_expression = None
 					continue
 
-				action.compiled_expression = compiler.compile(condition_payload)
+				is_canonical, canonical_node = detect_canonical_condition_payload(condition_payload)
+				if is_canonical:
+					validate_condition_node(canonical_node, doctype=self.document_type or None)
+					set_condition_payload_on_action(action, canonical_node)
+					action.compiled_expression = None
+					continue
 
-				# Persist canonical payload in config for deprecated-condition_json migration.
+				action.compiled_expression = compiler.compile(condition_payload)
 				parsed_payload = parse_condition_payload(condition_payload)
 				if parsed_payload is not None:
 					set_condition_payload_on_action(action, parsed_payload)
 
-				# Validate compiled expression
 				is_valid, error = compiler.validate(action.compiled_expression)
 				if not is_valid:
 					frappe.throw(_("Invalid Condition in Action {0}: {1}").format(action.action_label, error))
-			except ValueError as e:
+			except ConditionError as exc:
 				frappe.throw(
-					_("Error compiling Action {0} Condition: {1}").format(action.action_label, str(e))
+					_("Invalid Condition in Action {0} [{1} at {2}]: {3}").format(
+						action.action_label, exc.code, exc.path, exc.message
+					)
 				)
 			except Exception as e:
 				frappe.throw(
