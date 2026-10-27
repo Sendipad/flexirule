@@ -36,6 +36,7 @@ from flexirule.ruleflow.core.flexvalue_contract import (
 )
 
 EVALUATOR_CACHE_VERSION = 1
+MAX_CACHEABLE_CONDITION_BYTES = 65536
 
 
 def _freeze_json(value: Any) -> Any:
@@ -89,7 +90,7 @@ def compile_condition(node: Any, *, doctype: str | None = None) -> tuple:
 		)
 	payload_digest = hashlib.sha256(payload_bytes).hexdigest()
 	registry_fingerprint = resolver_registry_fingerprint()
-	return _compile_cached(
+	cache_key = (
 		payload_digest,
 		payload_json,
 		CONDITION_SEMANTICS_VERSION,
@@ -97,9 +98,14 @@ def compile_condition(node: Any, *, doctype: str | None = None) -> tuple:
 		registry_fingerprint,
 		doctype or "",
 	)
+	# Do not retain unusually large source strings in the process-local LRU.
+	# These still get full validation and plan compilation, just without caching.
+	if len(payload_bytes) > MAX_CACHEABLE_CONDITION_BYTES:
+		return _compile_cached.__wrapped__(*cache_key)
+	return _compile_cached(*cache_key)
 
 
-@lru_cache(maxsize=1024)
+@lru_cache(maxsize=512)
 def _compile_cached(
 	payload_digest: str,
 	payload_json: str,
