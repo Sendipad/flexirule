@@ -330,7 +330,9 @@ def _evaluate_node(plan: tuple, context: dict | _EvaluationContext) -> bool:
 		_, quantifier, source_scope, source_segments, alias, where_plan, path = plan
 		rows = resolve_variable(source_scope, source_segments, context, f"{path}.source")
 		if rows is MISSING:
-			raise ConditionEvaluationError("missing_collection", f"{path}.source", "Collection source path is missing")
+			raise ConditionEvaluationError(
+				"missing_collection", f"{path}.source", "Collection source path is missing"
+			)
 		if not isinstance(rows, list | tuple):
 			raise ConditionEvaluationError(
 				"invalid_collection", f"{path}.source", "Collection source must resolve to a list"
@@ -617,9 +619,13 @@ def _compare(operator_id: str, left: Any, right: Any, path: str) -> bool:
 		return left.endswith(right)
 	if operator_id.startswith("length_"):
 		if not isinstance(left, str | list | dict):
-			raise ConditionEvaluationError("operand_type_mismatch", path, "Length operator requires a sized value")
+			raise ConditionEvaluationError(
+				"operand_type_mismatch", path, "Length operator requires a sized value"
+			)
 		if not (isinstance(right, int) and not isinstance(right, bool)):
-			raise ConditionEvaluationError("operand_type_mismatch", path, "Length comparison requires an integer")
+			raise ConditionEvaluationError(
+				"operand_type_mismatch", path, "Length comparison requires an integer"
+			)
 		length = len(left)
 		if operator_id == "length_eq":
 			return length == right
@@ -630,13 +636,17 @@ def _compare(operator_id: str, left: Any, right: Any, path: str) -> bool:
 		if operator_id == "length_lt":
 			return length < right
 		return length <= right
-	raise ConditionEvaluationError("unknown_operator", path, "Operator is not available to the canonical evaluator")
+	raise ConditionEvaluationError(
+		"unknown_operator", path, "Operator is not available to the canonical evaluator"
+	)
 
 
 def _is_empty(value: Any, path: str) -> bool:
 	if isinstance(value, str | list | dict):
 		return len(value) == 0
-	raise ConditionEvaluationError("operand_type_mismatch", path, "Emptiness operator requires string, list or object")
+	raise ConditionEvaluationError(
+		"operand_type_mismatch", path, "Emptiness operator requires string, list or object"
+	)
 
 
 def _get_meta(doctype: Any, path: str):
