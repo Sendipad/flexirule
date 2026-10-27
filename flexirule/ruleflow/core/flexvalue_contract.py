@@ -66,8 +66,15 @@ def register_condition_resolver(
 	read-only, bounded, deterministic for a given context, and must not cache context
 	or resolved values. No operation is enabled by default.
 	"""
-	if not family or not operation or output_type not in VALUE_TYPES:
+	if (
+		not family or not operation or output_type not in VALUE_TYPES
+		or not isinstance(config_schema, dict) or not isinstance(permission_policy, str) or not permission_policy
+	):
 		raise ValueError("Invalid canonical condition resolver registration")
+	if condition_operand_allowed and permission_policy != "no_data_access":
+		raise ValueError(
+			"Condition operands may only enable resolvers with permission_policy='no_data_access'"
+		)
 	key = (family, operation)
 	if key in CONDITION_RESOLVER_REGISTRY:
 		raise ValueError(f"Canonical condition resolver already registered: {family}.{operation}")
@@ -76,8 +83,10 @@ def register_condition_resolver(
 		"operation": operation,
 		"label": label,
 		"output_type": output_type,
+		"config_schema": config_schema,
+		"permission_policy": permission_policy,
 		"required_capability": required_capability,
-		"condition_operand_allowed": True,
+		"condition_operand_allowed": bool(condition_operand_allowed),
 		"validate_config": validate_config,
 		"resolve": resolve,
 	}
@@ -91,6 +100,8 @@ def resolver_contract_dto() -> list[dict[str, Any]]:
 			"operation": item["operation"],
 			"label": item["label"],
 			"output_type": item["output_type"],
+			"config_schema": item["config_schema"],
+			"permission_policy": item["permission_policy"],
 			"required_capability": item["required_capability"],
 			"condition_operand_allowed": bool(item["condition_operand_allowed"]),
 		}
@@ -266,7 +277,7 @@ def validate_flex_value(
 		config = value.get("config")
 		if not isinstance(config, dict):
 			_fail("invalid_resolver_config", f"{path}.config", "Resolver config must be an object")
-		entry["validate_config"](config, f"{path}.config", allowed)
+		entry["validate_config"](config, f"{path}.config", allowed, resolver_depth + 1)
 		return entry["output_type"]
 
 	if mode == "template":
