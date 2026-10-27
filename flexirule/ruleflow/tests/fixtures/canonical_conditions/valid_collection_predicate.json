@@ -1,0 +1,28 @@
+{
+  "type": "collection_predicate",
+  "source": {
+    "mode": "variable",
+    "path": {
+      "scope": "doc",
+      "segments": ["items"]
+    }
+  },
+  "quantifier": "any",
+  "as": "item",
+  "where": {
+    "type": "comparison",
+    "operator": "gt",
+    "left": {
+      "mode": "variable",
+      "path": {
+        "scope": "item",
+        "segments": ["amount"]
+      }
+    },
+    "right": {
+      "mode": "static",
+      "value_type": "decimal",
+      "value": "500"
+    }
+  }
+}

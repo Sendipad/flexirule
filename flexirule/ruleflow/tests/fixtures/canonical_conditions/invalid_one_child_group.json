@@ -1,0 +1,22 @@
+{
+  "type": "group",
+  "operator": "and",
+  "children": [
+    {
+      "type": "comparison",
+      "operator": "eq",
+      "left": {
+        "mode": "variable",
+        "path": {
+          "scope": "doc",
+          "segments": ["status"]
+        }
+      },
+      "right": {
+        "mode": "static",
+        "value_type": "string",
+        "value": "Open"
+      }
+    }
+  ]
+}

@@ -1742,3 +1742,48 @@ def search_actions(query: str = "", filters: str | dict | None = None, limit: in
 		frappe.throw(_("filters must be dict or json string"))
 
 	return _search(query, filters=parsed_filters, limit=int(limit))
+
+
+@frappe.whitelist()
+def get_condition_contract():
+	"""
+	Returns the canonical condition contract DTO describing supported operators,
+	arity, accepted types, resolver capabilities, and server resource limits.
+	Requires builder access.
+	"""
+	require_builder_access()
+
+	from flexirule.ruleflow.core.condition_contract import (
+		VALID_COLLECTION_QUANTIFIERS,
+		VALID_GROUP_OPERATORS,
+		CanonicalOperatorRegistry,
+	)
+	from flexirule.ruleflow.core.flexvalue_contract import (
+		MAX_COLLECTION_ROWS,
+		MAX_CONDITION_DEPTH,
+		MAX_CONDITION_NODES,
+		MAX_PATH_SEGMENTS,
+		MAX_RESOLVER_NESTING,
+		MAX_TEMPLATE_SEGMENTS,
+		VALID_MODES,
+		VALID_SCOPES,
+		VALID_VALUE_TYPES,
+	)
+
+	return {
+		"contract_version": "1.0.0",
+		"operators": CanonicalOperatorRegistry.list_operators(),
+		"group_operators": list(VALID_GROUP_OPERATORS),
+		"collection_quantifiers": list(VALID_COLLECTION_QUANTIFIERS),
+		"flex_value_modes": list(VALID_MODES),
+		"flex_value_value_types": list(VALID_VALUE_TYPES),
+		"permitted_scopes": list(VALID_SCOPES),
+		"resource_limits": {
+			"max_condition_depth": MAX_CONDITION_DEPTH,
+			"max_condition_nodes": MAX_CONDITION_NODES,
+			"max_resolver_nesting": MAX_RESOLVER_NESTING,
+			"max_path_segments": MAX_PATH_SEGMENTS,
+			"max_template_segments": MAX_TEMPLATE_SEGMENTS,
+			"max_collection_rows": MAX_COLLECTION_ROWS,
+		},
+	}
