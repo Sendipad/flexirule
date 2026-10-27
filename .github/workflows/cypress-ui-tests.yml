@@ -92,6 +92,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y mariadb-client xvfb
+          sudo mkdir -p /etc/mysql/conf.d
+          printf '[client]
+ssl=0
+skip-ssl
+' | sudo tee /etc/mysql/conf.d/skip-ssl.cnf > /dev/null
 
       - name: Initialize Frappe bench
         run: |
