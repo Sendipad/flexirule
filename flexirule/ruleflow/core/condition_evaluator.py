@@ -53,7 +53,9 @@ class _EvaluationContext(dict):
 
 
 def _child_context(context: dict | _EvaluationContext) -> _EvaluationContext:
-	return _EvaluationContext(context, context.collection_row_budget)
+	if isinstance(context, _EvaluationContext):
+		return _EvaluationContext(context, context.collection_row_budget)
+	return _EvaluationContext(context)
 
 
 def _freeze_json(value: Any) -> Any:
@@ -274,7 +276,12 @@ def consume_collection_row_visit(budget: dict[str, int], path: str) -> None:
 
 
 def _consume_collection_row_budget(context: dict | _EvaluationContext, path: str) -> None:
-	consume_collection_row_visit(context.collection_row_budget, path)
+	budget = (
+		context.collection_row_budget
+		if isinstance(context, _EvaluationContext)
+		else {"collection_row_visits": 0}
+	)
+	consume_collection_row_visit(budget, path)
 
 
 def _evaluate_node(plan: tuple, context: dict | _EvaluationContext) -> bool:
