@@ -32,13 +32,12 @@ from flexirule.ruleflow.core.flexvalue_contract import (
 	MISSING,
 	format_template_value,
 	parse_static_value,
-	resolver_registry_fingerprint,
 	resolve_variable,
+	resolver_registry_fingerprint,
 )
 
 EVALUATOR_CACHE_VERSION = 1
 MAX_CACHEABLE_CONDITION_BYTES = 65536
-
 
 
 class _EvaluationContext(dict):
@@ -84,7 +83,9 @@ def _as_node(node: Any) -> dict:
 		except Exception as exc:
 			raise ConditionValidationError("invalid_json", "$", "Condition JSON is malformed") from exc
 	if not isinstance(node, dict):
-		raise ConditionValidationError("invalid_condition_node", "$", "Canonical condition must be a direct node")
+		raise ConditionValidationError(
+			"invalid_condition_node", "$", "Canonical condition must be a direct node"
+		)
 	return node
 
 
@@ -100,7 +101,9 @@ def compile_condition(node: Any, *, doctype: str | None = None) -> tuple:
 			allow_nan=False,
 		)
 	except (TypeError, ValueError, RecursionError) as exc:
-		raise ConditionValidationError("invalid_json_value", "$", "Condition payload is not valid JSON") from exc
+		raise ConditionValidationError(
+			"invalid_json_value", "$", "Condition payload is not valid JSON"
+		) from exc
 	payload_bytes = payload_json.encode("utf-8")
 	if len(payload_bytes) > MAX_CONDITION_PAYLOAD_BYTES:
 		raise ConditionValidationError(
@@ -141,7 +144,9 @@ def _compile_cached(
 		or registry_fingerprint != resolver_registry_fingerprint()
 		or hashlib.sha256(payload_json.encode("utf-8")).hexdigest() != payload_digest
 	):
-		raise ConditionValidationError("condition_semantics_version", "$", "Unsupported condition semantics version")
+		raise ConditionValidationError(
+			"condition_semantics_version", "$", "Unsupported condition semantics version"
+		)
 	try:
 		node = json.loads(payload_json)
 	except Exception as exc:
@@ -166,7 +171,10 @@ def _compile_node(node: dict, path: str) -> tuple:
 		return (
 			"group",
 			node["operator"],
-			tuple(_compile_node(child, f"{path}.children[{index}]") for index, child in enumerate(node["children"])),
+			tuple(
+				_compile_node(child, f"{path}.children[{index}]")
+				for index, child in enumerate(node["children"])
+			),
 			path,
 		)
 	if node_type == "comparison":
@@ -185,7 +193,9 @@ def _compile_node(node: dict, path: str) -> tuple:
 			_compile_node(node["where"], f"{path}.where"),
 			path,
 		)
-	raise ConditionValidationError("unknown_condition_node_type", f"{path}.type", "Unknown canonical node type")
+	raise ConditionValidationError(
+		"unknown_condition_node_type", f"{path}.type", "Unknown canonical node type"
+	)
 
 
 def _compile_value(value: dict, path: str) -> tuple:
@@ -214,9 +224,13 @@ def _compile_value(value: dict, path: str) -> tuple:
 			if segment["type"] == "text":
 				segments.append(("text", segment["value"], segment_path))
 			else:
-				segments.append(("value", _compile_value(segment["value"], f"{segment_path}.value"), segment_path))
+				segments.append(
+					("value", _compile_value(segment["value"], f"{segment_path}.value"), segment_path)
+				)
 		return ("template", tuple(segments), path)
-	raise ConditionValidationError("unknown_flex_value_mode", f"{path}.mode", "Unknown canonical FlexValue mode")
+	raise ConditionValidationError(
+		"unknown_flex_value_mode", f"{path}.mode", "Unknown canonical FlexValue mode"
+	)
 
 
 def evaluate_condition(
@@ -234,9 +248,7 @@ def evaluate_condition(
 	effective_doctype = doctype or ctx.get("doctype")
 	if not effective_doctype:
 		doc = ctx.get("doc")
-		effective_doctype = (
-			doc.get("doctype") if isinstance(doc, dict) else getattr(doc, "doctype", None)
-		)
+		effective_doctype = doc.get("doctype") if isinstance(doc, dict) else getattr(doc, "doctype", None)
 	plan = compile_condition(node, doctype=effective_doctype)
 	try:
 		return bool(_evaluate_node(plan, ctx))
@@ -244,7 +256,8 @@ def evaluate_condition(
 		raise
 	except Exception as exc:
 		raise ConditionEvaluationError(
-			"runtime_error", plan[-1] if plan and isinstance(plan[-1], str) else "$",
+			"runtime_error",
+			plan[-1] if plan and isinstance(plan[-1], str) else "$",
 			"Canonical condition evaluation failed",
 		) from exc
 
@@ -298,7 +311,9 @@ def _evaluate_node(plan: tuple, context: dict | _EvaluationContext) -> bool:
 		if operator_id == "is_submittable":
 			return _is_submittable(left, left_plan[-1])
 		if right_plan is None:
-			raise ConditionEvaluationError("invalid_operator_arity", path, "Operator requires a right operand")
+			raise ConditionEvaluationError(
+				"invalid_operator_arity", path, "Operator requires a right operand"
+			)
 		right = _evaluate_value(right_plan, context)
 		if right is MISSING:
 			raise ConditionEvaluationError("missing_operand", right_plan[-1], "Right operand path is missing")
@@ -493,11 +508,11 @@ def _strict_equal(left: Any, right: Any, path: str) -> bool:
 	if type(left) is not type(right):
 		return False
 	if isinstance(left, list):
-		return len(left) == len(right) and all(_strict_equal(a, b, path) for a, b in zip(left, right))
-	if isinstance(left, dict):
-		return left.keys() == right.keys() and all(
-			_strict_equal(left[key], right[key], path) for key in left
+		return len(left) == len(right) and all(
+			_strict_equal(a, b, path) for a, b in zip(left, right, strict=False)
 		)
+	if isinstance(left, dict):
+		return left.keys() == right.keys() and all(_strict_equal(left[key], right[key], path) for key in left)
 	return left == right
 
 
@@ -568,7 +583,7 @@ def _assert_runtime_equality_types(left: Any, right: Any, path: str) -> None:
 	if left_type != right_type:
 		raise ConditionEvaluationError(
 			"operand_type_mismatch", path, "Equality operands have incompatible runtime types"
-	)
+		)
 
 
 def _compare(operator_id: str, left: Any, right: Any, path: str) -> bool:
@@ -585,7 +600,9 @@ def _compare(operator_id: str, left: Any, right: Any, path: str) -> bool:
 		return found if operator_id == "in" else not found
 	if operator_id in {"contains", "not_contains", "starts_with", "ends_with"}:
 		if not isinstance(left, str) or not isinstance(right, str):
-			raise ConditionEvaluationError("operand_type_mismatch", path, "Text operators require string operands")
+			raise ConditionEvaluationError(
+				"operand_type_mismatch", path, "Text operators require string operands"
+			)
 		if operator_id == "contains":
 			return right in left
 		if operator_id == "not_contains":
@@ -622,9 +639,12 @@ def _get_meta(doctype: Any, path: str):
 		raise ConditionEvaluationError("invalid_metadata_operand", path, "A DocType name is required")
 	try:
 		import frappe
+
 		return frappe.get_meta(doctype)
 	except Exception as exc:
-		raise ConditionEvaluationError("metadata_lookup_failed", path, "DocType metadata lookup failed") from exc
+		raise ConditionEvaluationError(
+			"metadata_lookup_failed", path, "DocType metadata lookup failed"
+		) from exc
 
 
 def _is_submittable(doctype: Any, path: str) -> bool:
