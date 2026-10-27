@@ -9,6 +9,8 @@ conditions enter through these explicit functions and use only declared capabili
 
 from __future__ import annotations
 
+import hashlib
+import json
 import math
 import re
 from collections.abc import Mapping
@@ -62,8 +64,11 @@ def register_condition_resolver(
 	*,
 	label: str,
 	output_type: str,
-	validate_config: Callable[[dict, str, set[str]], None],
+	config_schema: dict[str, Any],
+	permission_policy: str,
+	validate_config: Callable[[dict, str, set[str], int, int], None],
 	resolve: Callable[[dict, dict], Any],
+	condition_operand_allowed: bool = False,
 	required_capability: str = "condition_operand",
 ):
 	"""Register a reviewed resolver operation for canonical conditions.
@@ -75,10 +80,27 @@ def register_condition_resolver(
 	"no_data_access"; database-backed resolvers require a separately reviewed adapter.
 	"""
 	if (
-		not family or not operation or output_type not in VALUE_TYPES
-		or not isinstance(config_schema, dict) or not isinstance(permission_policy, str) or not permission_policy
+		not isinstance(family, str)
+		or not family
+		or not isinstance(operation, str)
+		or not operation
+		or not isinstance(label, str)
+		or not label
+		or not isinstance(output_type, str)
+		or output_type not in VALUE_TYPES
+		or not isinstance(config_schema, dict)
+		or not isinstance(permission_policy, str)
+		or not permission_policy
+		or not isinstance(required_capability, str)
+		or not required_capability
 	):
 		raise ValueError("Invalid canonical condition resolver registration")
+	try:
+		json.dumps(config_schema, sort_keys=True, allow_nan=False)
+	except (TypeError, ValueError) as exc:
+		raise ValueError("Resolver config_schema must be JSON-serializable") from exc
+	if not callable(validate_config) or not callable(resolve):
+		raise ValueError("Resolver validators and resolvers must be callable")
 	if condition_operand_allowed and permission_policy != "no_data_access":
 		raise ValueError(
 			"Condition operands may only enable resolvers with permission_policy='no_data_access'"
@@ -98,6 +120,18 @@ def register_condition_resolver(
 		"validate_config": validate_config,
 		"resolve": resolve,
 	}
+
+
+def resolver_registry_fingerprint() -> str:
+	"""Stable cache key material; implementation callables stay private."""
+	payload = json.dumps(
+		resolver_contract_dto(),
+		sort_keys=True,
+		ensure_ascii=False,
+		separators=(",", ":"),
+		allow_nan=False,
+	)
+	return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 def resolver_contract_dto() -> list[dict[str, Any]]:
@@ -220,7 +254,7 @@ def validate_flex_value(
 		_exact_keys(value, {"mode", "value_type", "value"}, set(), path)
 		value_type = value.get("value_type")
 		val = value.get("value")
-		if value_type not in VALUE_TYPES:
+		if not isinstance(value_type, str) or value_type not in VALUE_TYPES:
 			_fail("unknown_value_type", f"{path}.value_type", "Unsupported static value type")
 		if value_type == "string" and not isinstance(val, str):
 			_fail("invalid_static_type", f"{path}.value", "Expected a string")
