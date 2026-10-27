@@ -422,6 +422,7 @@ def _validate_node(
 			or not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", alias)
 			or "__" in alias
 			or alias in RESERVED_ALIASES
+			or alias in allowed_scopes
 		):
 			_fail("invalid_collection_alias", f"{path}.as", "Collection alias must be a safe, non-reserved identifier")
 		child_doctype = None
