@@ -140,6 +140,33 @@ def _known_type_compatible(actual: str | None, accepted: tuple[str, ...]) -> boo
 	return actual is None or actual in accepted
 
 
+def _validate_membership_items(left_type: str | None, right_value: Any, path: str) -> None:
+	if left_type is None or left_type == "null":
+		return
+	if not isinstance(right_value, Mapping):
+		return
+	if right_value.get("mode") != "static" or right_value.get("value_type") != "list":
+		return
+	items = right_value.get("value")
+	if not isinstance(items, list):
+		return
+	accepted = {
+		"string": {"string", "null"},
+		"integer": {"integer", "decimal", "null"},
+		"decimal": {"integer", "decimal", "null"},
+		"boolean": {"boolean", "null"},
+	}.get(left_type)
+	if accepted is None:
+		return
+	for index, item in enumerate(items):
+		if _json_runtime_type(item) not in accepted:
+			_fail(
+				"operand_type_mismatch",
+				f"{path}.right.value[{index}]",
+				"Membership list item type is incompatible with the left operand",
+			)
+
+
 def _types_compatible(left_type: str | None, right_type: str | None, operator_id: str, path: str) -> None:
 	if left_type is None or right_type is None:
 		return
@@ -386,6 +413,8 @@ def _validate_node(
 			_fail("operand_type_mismatch", f"{path}.right", "Right operand type is not supported by this operator")
 		if spec.arity == 2:
 			_types_compatible(left_type, right_type, operator_id, path)
+			if operator_id in {"in", "not_in"}:
+				_validate_membership_items(left_type, node.get("right"), path)
 		left_value = node.get("left")
 		if isinstance(left_value, Mapping) and left_value.get("mode") == "variable":
 			path_value = left_value.get("path") or {}
@@ -435,7 +464,11 @@ def _validate_node(
 				for segment in source_segments:
 					field = current_meta.get_field(segment)
 					if not field:
-						break
+						_fail(
+							"unknown_field",
+							f"{path}.source",
+							"Collection source field does not exist on the declared DocType",
+						)
 					if segment != source_segments[-1]:
 						if field.fieldtype in {"Table", "Table MultiSelect", "Link", "Dynamic Link"}:
 							_fail(
