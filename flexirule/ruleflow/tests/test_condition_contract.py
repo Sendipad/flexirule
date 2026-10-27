@@ -18,12 +18,12 @@ from flexirule.ruleflow.core.condition_errors import ConditionValidationError
 from flexirule.ruleflow.core.condition_payload import detect_canonical_condition_payload
 from flexirule.ruleflow.core.flexvalue_contract import validate_flex_value
 
-
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "canonical_condition_fixtures.json"
 
 
 class TestCanonicalConditionContract(unittest.TestCase):
 	fixtures: dict[str, Any]
+
 	@classmethod
 	def setUpClass(cls):
 		cls.fixtures = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
@@ -59,7 +59,9 @@ class TestCanonicalConditionContract(unittest.TestCase):
 
 	def test_envelope_is_rejected_not_guessed(self):
 		with self.assertRaises(ConditionValidationError) as raised:
-			detect_canonical_condition_payload({"schema":"old", "version":1, "root":self.fixtures["valid"]["root_comparison"]})
+			detect_canonical_condition_payload(
+				{"schema": "old", "version": 1, "root": self.fixtures["valid"]["root_comparison"]}
+			)
 		self.assertEqual(raised.exception.code, "unsupported_condition_envelope")
 
 	def test_payload_validation_does_not_mutate_input(self):
@@ -70,18 +72,19 @@ class TestCanonicalConditionContract(unittest.TestCase):
 
 	def test_boolean_is_not_an_integer_literal(self):
 		with self.assertRaises(ConditionValidationError):
-			validate_flex_value({"mode":"static","value_type":"integer","value":True})
+			validate_flex_value({"mode": "static", "value_type": "integer", "value": True})
 
 	def test_decimal_literal_must_be_finite_string(self):
 		for value in (1.25, "NaN", "Infinity"):
 			with self.subTest(value=value), self.assertRaises(ConditionValidationError):
-				validate_flex_value({"mode":"static","value_type":"decimal","value":value})
+				validate_flex_value({"mode": "static", "value_type": "decimal", "value": value})
 
 	def test_unknown_resolver_defaults_to_denied(self):
 		node = {
-			"type":"comparison","operator":"eq",
-			"left":{"mode":"resolver","family":"database","operation":"lookup","config":{}},
-			"right":{"mode":"static","value_type":"string","value":"x"},
+			"type": "comparison",
+			"operator": "eq",
+			"left": {"mode": "resolver", "family": "database", "operation": "lookup", "config": {}},
+			"right": {"mode": "static", "value_type": "string", "value": "x"},
 		}
 		with self.assertRaises(ConditionValidationError) as raised:
 			validate_condition_node(node)
