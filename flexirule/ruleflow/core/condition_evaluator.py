@@ -26,9 +26,12 @@ from flexirule.ruleflow.core.condition_errors import ConditionEvaluationError, C
 from flexirule.ruleflow.core.flexvalue_contract import (
 	CONDITION_LIMITS,
 	CONDITION_RESOLVER_REGISTRY,
+	MAX_CONDITION_PAYLOAD_BYTES,
+	MAX_TEMPLATE_OUTPUT_CHARS,
 	MISSING,
 	format_template_value,
 	parse_static_value,
+	resolver_registry_fingerprint,
 	resolve_variable,
 )
 
@@ -53,6 +56,10 @@ def _thaw_json(value: Any) -> Any:
 
 def _as_node(node: Any) -> dict:
 	if isinstance(node, str):
+		if len(node.encode("utf-8")) > MAX_CONDITION_PAYLOAD_BYTES:
+			raise ConditionValidationError(
+				"condition_payload_too_large", "$", "Condition payload exceeds the configured byte limit"
+			)
 		try:
 			node = json.loads(node)
 		except Exception as exc:
@@ -73,14 +80,21 @@ def compile_condition(node: Any, *, doctype: str | None = None) -> tuple:
 			separators=(",", ":"),
 			allow_nan=False,
 		)
-	except (TypeError, ValueError) as exc:
+	except (TypeError, ValueError, RecursionError) as exc:
 		raise ConditionValidationError("invalid_json_value", "$", "Condition payload is not valid JSON") from exc
-	payload_digest = hashlib.sha256(payload_json.encode("utf-8")).hexdigest()
+	payload_bytes = payload_json.encode("utf-8")
+	if len(payload_bytes) > MAX_CONDITION_PAYLOAD_BYTES:
+		raise ConditionValidationError(
+			"condition_payload_too_large", "$", "Condition payload exceeds the configured byte limit"
+		)
+	payload_digest = hashlib.sha256(payload_bytes).hexdigest()
+	registry_fingerprint = resolver_registry_fingerprint()
 	return _compile_cached(
 		payload_digest,
 		payload_json,
 		CONDITION_SEMANTICS_VERSION,
 		EVALUATOR_CACHE_VERSION,
+		registry_fingerprint,
 		doctype or "",
 	)
 
@@ -91,6 +105,7 @@ def _compile_cached(
 	payload_json: str,
 	semantics_version: int,
 	cache_version: int,
+	registry_fingerprint: str,
 	doctype: str,
 ) -> tuple:
 	# payload_digest is part of the cache identity by design. Keep payload_json too
@@ -99,6 +114,7 @@ def _compile_cached(
 		not payload_digest
 		or semantics_version != CONDITION_SEMANTICS_VERSION
 		or cache_version != EVALUATOR_CACHE_VERSION
+		or registry_fingerprint != resolver_registry_fingerprint()
 		or hashlib.sha256(payload_json.encode("utf-8")).hexdigest() != payload_digest
 	):
 		raise ConditionValidationError("condition_semantics_version", "$", "Unsupported condition semantics version")
@@ -305,16 +321,25 @@ def _evaluate_value(plan: tuple, context: dict) -> Any:
 	if kind == "template":
 		segments, path = plan[1], plan[2]
 		parts = []
+		output_length = 0
 		for segment_kind, item, segment_path in segments:
 			if segment_kind == "text":
-				parts.append(item)
+				part = item
 			else:
 				resolved = _evaluate_value(item, context)
 				if resolved is MISSING:
 					raise ConditionEvaluationError(
 						"missing_template_value", segment_path, "Template value path is missing"
 					)
-				parts.append(format_template_value(resolved, segment_path))
+				part = format_template_value(resolved, segment_path)
+			output_length += len(part)
+			if output_length > MAX_TEMPLATE_OUTPUT_CHARS:
+				raise ConditionEvaluationError(
+					"template_output_too_large",
+					path,
+					"Resolved template exceeds the configured output limit",
+				)
+			parts.append(part)
 		return "".join(parts)
 	if kind == "resolver":
 		_, family, operation, frozen_config, path = plan
