@@ -28,12 +28,27 @@ CONDITION_SEMANTICS_VERSION = 1
 
 ALL_FIELD_TYPES = None
 TEXT_FIELD_TYPES = (
-	"Data", "Small Text", "Text", "Text Editor", "Code", "Select", "Link", "Dynamic Link",
+	"Data",
+	"Small Text",
+	"Text",
+	"Text Editor",
+	"Code",
+	"Select",
+	"Link",
+	"Dynamic Link",
 )
 NUMERIC_FIELD_TYPES = ("Int", "Float", "Currency", "Percent")
 ORDERED_FIELD_TYPES = (*NUMERIC_FIELD_TYPES, "Date", "Datetime", "Time")
 EMPTY_FIELD_TYPES = (
-	"Data", "Small Text", "Text", "Text Editor", "Code", "Select", "Table", "Table MultiSelect", "JSON",
+	"Data",
+	"Small Text",
+	"Text",
+	"Text Editor",
+	"Code",
+	"Select",
+	"Table",
+	"Table MultiSelect",
+	"JSON",
 )
 RESERVED_ALIASES = BASE_SCOPES | {"and", "or", "any", "all", "none"}
 
@@ -75,18 +90,48 @@ SIZED_TYPES = ("string", "list", "object")
 OPERATOR_REGISTRY: dict[str, OperatorSpec] = {
 	"eq": _spec("eq", "Equals", 2, COMPARABLE_TYPES, COMPARABLE_TYPES, legacy_aliases=("==",)),
 	"ne": _spec("ne", "Does not equal", 2, COMPARABLE_TYPES, COMPARABLE_TYPES, legacy_aliases=("!=",)),
-	"gt": _spec("gt", "Greater than", 2, (*NUMERIC_TYPES, "date", "datetime", "time"),
-		(*NUMERIC_TYPES, "date", "datetime", "time"), ORDERED_FIELD_TYPES, (">",)),
-	"gte": _spec("gte", "Greater than or equal", 2, (*NUMERIC_TYPES, "date", "datetime", "time"),
-		(*NUMERIC_TYPES, "date", "datetime", "time"), ORDERED_FIELD_TYPES, (">=",)),
-	"lt": _spec("lt", "Less than", 2, (*NUMERIC_TYPES, "date", "datetime", "time"),
-		(*NUMERIC_TYPES, "date", "datetime", "time"), ORDERED_FIELD_TYPES, ("<",)),
-	"lte": _spec("lte", "Less than or equal", 2, (*NUMERIC_TYPES, "date", "datetime", "time"),
-		(*NUMERIC_TYPES, "date", "datetime", "time"), ORDERED_FIELD_TYPES, ("<=",)),
+	"gt": _spec(
+		"gt",
+		"Greater than",
+		2,
+		(*NUMERIC_TYPES, "date", "datetime", "time"),
+		(*NUMERIC_TYPES, "date", "datetime", "time"),
+		ORDERED_FIELD_TYPES,
+		(">",),
+	),
+	"gte": _spec(
+		"gte",
+		"Greater than or equal",
+		2,
+		(*NUMERIC_TYPES, "date", "datetime", "time"),
+		(*NUMERIC_TYPES, "date", "datetime", "time"),
+		ORDERED_FIELD_TYPES,
+		(">=",),
+	),
+	"lt": _spec(
+		"lt",
+		"Less than",
+		2,
+		(*NUMERIC_TYPES, "date", "datetime", "time"),
+		(*NUMERIC_TYPES, "date", "datetime", "time"),
+		ORDERED_FIELD_TYPES,
+		("<",),
+	),
+	"lte": _spec(
+		"lte",
+		"Less than or equal",
+		2,
+		(*NUMERIC_TYPES, "date", "datetime", "time"),
+		(*NUMERIC_TYPES, "date", "datetime", "time"),
+		ORDERED_FIELD_TYPES,
+		("<=",),
+	),
 	"in": _spec("in", "Is in", 2, MEMBERSHIP_TYPES, ("list",), legacy_aliases=("in",)),
 	"not_in": _spec("not_in", "Is not in", 2, MEMBERSHIP_TYPES, ("list",), legacy_aliases=("not in",)),
 	"contains": _spec("contains", "Contains text", 2, ("string",), ("string",), TEXT_FIELD_TYPES),
-	"not_contains": _spec("not_contains", "Does not contain text", 2, ("string",), ("string",), TEXT_FIELD_TYPES),
+	"not_contains": _spec(
+		"not_contains", "Does not contain text", 2, ("string",), ("string",), TEXT_FIELD_TYPES
+	),
 	"starts_with": _spec("starts_with", "Starts with", 2, ("string",), ("string",), TEXT_FIELD_TYPES),
 	"ends_with": _spec("ends_with", "Ends with", 2, ("string",), ("string",), TEXT_FIELD_TYPES),
 	"is_set": _spec("is_set", "Is set", 1, COMPARABLE_TYPES, fieldtypes=ALL_FIELD_TYPES),
@@ -112,16 +157,18 @@ def operator_contract_dto() -> list[dict[str, Any]]:
 	"""Return stable public metadata without exposing implementation callables."""
 	result = []
 	for operator_id, spec in sorted(OPERATOR_REGISTRY.items()):
-		result.append({
-			"id": operator_id,
-			"label": spec.label,
-			"arity": spec.arity,
-			"accepted_left_types": list(spec.left_types),
-			"accepted_right_types": list(spec.right_types),
-			"fieldtypes": list(spec.fieldtypes) if spec.fieldtypes is not None else None,
-			"legacy_aliases": list(spec.legacy_aliases),
-			"description": spec.description,
-		})
+		result.append(
+			{
+				"id": operator_id,
+				"label": spec.label,
+				"arity": spec.arity,
+				"accepted_left_types": list(spec.left_types),
+				"accepted_right_types": list(spec.right_types),
+				"fieldtypes": list(spec.fieldtypes) if spec.fieldtypes is not None else None,
+				"legacy_aliases": list(spec.legacy_aliases),
+				"description": spec.description,
+			}
+		)
 	return result
 
 
@@ -188,18 +235,25 @@ def _types_compatible(left_type: str | None, right_type: str | None, operator_id
 		_fail("operand_type_mismatch", path, "Ordered comparison operands have incompatible types")
 	if operator_id in {"in", "not_in"}:
 		if right_type != "list" or left_type not in SCALAR_TYPES:
-			_fail("operand_type_mismatch", path, "Membership requires a scalar left operand and list right operand")
+			_fail(
+				"operand_type_mismatch",
+				path,
+				"Membership requires a scalar left operand and list right operand",
+			)
 		return
 	spec = OPERATOR_REGISTRY[operator_id]
 	if left_type not in spec.left_types:
 		_fail("operand_type_mismatch", f"{path}.left", "Left operand type is not supported by this operator")
 	if spec.arity == 2 and right_type not in spec.right_types:
-		_fail("operand_type_mismatch", f"{path}.right", "Right operand type is not supported by this operator")
+		_fail(
+			"operand_type_mismatch", f"{path}.right", "Right operand type is not supported by this operator"
+		)
 
 
 def _meta_for(doctype: str, path: str):
 	try:
 		import frappe
+
 		return frappe.get_meta(doctype)
 	except Exception:
 		_fail("unknown_doctype", path, "Could not resolve DocType metadata for this path")
@@ -221,7 +275,11 @@ def resolve_fieldtype_for_path(scope: str, segments: tuple[str, ...], doctype: s
 		meta = _meta_for(current_doctype, f"$.{scope}.segments[{index}]")
 		field = meta.get_field(segment)
 		if not field:
-			_fail("unknown_field", f"$.{scope}.segments[{index}]", "Field does not exist on the declared DocType")
+			_fail(
+				"unknown_field",
+				f"$.{scope}.segments[{index}]",
+				"Field does not exist on the declared DocType",
+			)
 		fieldtype = field.fieldtype
 		if index < len(segments) - 1:
 			if fieldtype in {"Table", "Table MultiSelect", "Link", "Dynamic Link"}:
@@ -295,8 +353,19 @@ def _known_fieldtype_check(
 			"Operator is not supported for the left operand's Fieldtype",
 		)
 	if fieldtype == "Check" and operator_id in {
-		"gt", "gte", "lt", "lte", "length_eq", "length_gt", "length_gte",
-		"length_lt", "length_lte", "contains", "not_contains", "starts_with", "ends_with",
+		"gt",
+		"gte",
+		"lt",
+		"lte",
+		"length_eq",
+		"length_gt",
+		"length_gte",
+		"length_lt",
+		"length_lte",
+		"contains",
+		"not_contains",
+		"starts_with",
+		"ends_with",
 	}:
 		_fail("fieldtype_not_supported", f"{path}.left", "Boolean fields do not support this operator")
 
@@ -305,7 +374,11 @@ def _known_fieldtype_check(
 
 	if operator_id in {"in", "not_in"}:
 		expected_types = FIELD_TYPE_VALUE_TYPES.get(fieldtype)
-		if isinstance(right_value, Mapping) and right_value.get("mode") == "static" and right_value.get("value_type") == "list":
+		if (
+			isinstance(right_value, Mapping)
+			and right_value.get("mode") == "static"
+			and right_value.get("value_type") == "list"
+		):
 			items = right_value.get("value", [])
 			if expected_types and any(
 				_json_runtime_type(item) not in (*expected_types, "null") for item in items
@@ -378,7 +451,11 @@ def _validate_node(
 			_fail("unknown_group_operator", f"{path}.operator", "Group operator must be 'and' or 'or'")
 		children = node.get("children")
 		if not isinstance(children, list) or len(children) < 2:
-			_fail("invalid_group_children", f"{path}.children", "A persisted group must have at least two children")
+			_fail(
+				"invalid_group_children",
+				f"{path}.children",
+				"A persisted group must have at least two children",
+			)
 		for index, child in enumerate(children):
 			_validate_node(
 				child,
@@ -412,9 +489,15 @@ def _validate_node(
 				allowed_scopes=allowed_scopes,
 			)
 		if not _known_type_compatible(left_type, spec.left_types):
-			_fail("operand_type_mismatch", f"{path}.left", "Left operand type is not supported by this operator")
+			_fail(
+				"operand_type_mismatch", f"{path}.left", "Left operand type is not supported by this operator"
+			)
 		if spec.arity == 2 and not _known_type_compatible(right_type, spec.right_types):
-			_fail("operand_type_mismatch", f"{path}.right", "Right operand type is not supported by this operator")
+			_fail(
+				"operand_type_mismatch",
+				f"{path}.right",
+				"Right operand type is not supported by this operator",
+			)
 		if spec.arity == 2:
 			_types_compatible(left_type, right_type, operator_id, path)
 			if operator_id in {"in", "not_in"}:
@@ -424,29 +507,39 @@ def _validate_node(
 			path_value = left_value.get("path") or {}
 			scope = path_value.get("scope")
 			segments = tuple(path_value.get("segments") or ())
-			fieldtype = resolve_fieldtype_for_path(
-				scope, segments, scope_doctypes.get(scope)
-			)
-			_known_fieldtype_check(
-				operator_id, left_value, fieldtype, path, node.get("right"), right_type
-			)
+			fieldtype = resolve_fieldtype_for_path(scope, segments, scope_doctypes.get(scope))
+			_known_fieldtype_check(operator_id, left_value, fieldtype, path, node.get("right"), right_type)
 		if operator_id in {"is_submittable", "has_field"}:
 			# Metadata checks accept explicit DocType names only; no arbitrary objects.
 			for operand, operand_path in ((node.get("left"), f"{path}.left"),):
 				if isinstance(operand, Mapping) and operand.get("mode") == "static":
 					if operand.get("value_type") != "string":
-						_fail("invalid_metadata_operand", operand_path, "Metadata predicates require a DocType string")
+						_fail(
+							"invalid_metadata_operand",
+							operand_path,
+							"Metadata predicates require a DocType string",
+						)
 			if spec.arity == 2:
 				right = node.get("right")
-				if isinstance(right, Mapping) and right.get("mode") == "static" and right.get("value_type") != "string":
-					_fail("invalid_metadata_operand", f"{path}.right", "Metadata predicates require a field name string")
+				if (
+					isinstance(right, Mapping)
+					and right.get("mode") == "static"
+					and right.get("value_type") != "string"
+				):
+					_fail(
+						"invalid_metadata_operand",
+						f"{path}.right",
+						"Metadata predicates require a field name string",
+					)
 		return
 
 	if node_type == "collection_predicate":
 		_exact_keys(node, {"type", "quantifier", "source", "as", "where"}, path)
 		quantifier = node.get("quantifier")
 		if not isinstance(quantifier, str) or quantifier not in {"any", "all", "none"}:
-			_fail("unknown_collection_quantifier", f"{path}.quantifier", "Quantifier must be any, all, or none")
+			_fail(
+				"unknown_collection_quantifier", f"{path}.quantifier", "Quantifier must be any, all, or none"
+			)
 		source = node.get("source")
 		source_scope, source_segments = _validate_source_path(source, f"{path}.source", allowed_scopes)
 		alias = node.get("as")
@@ -457,7 +550,11 @@ def _validate_node(
 			or alias in RESERVED_ALIASES
 			or alias in allowed_scopes
 		):
-			_fail("invalid_collection_alias", f"{path}.as", "Collection alias must be a safe, non-reserved identifier")
+			_fail(
+				"invalid_collection_alias",
+				f"{path}.as",
+				"Collection alias must be a safe, non-reserved identifier",
+			)
 		child_doctype = None
 		parent_doctype = scope_doctypes.get(source_scope)
 		if parent_doctype:
@@ -488,7 +585,11 @@ def _validate_node(
 				if field and field.fieldtype in {"Table", "Table MultiSelect"}:
 					child_doctype = field.options
 				elif field and field.fieldtype not in {"Table", "Table MultiSelect"}:
-					_fail("collection_source_not_table", f"{path}.source", "Collection source must reference a table/list field")
+					_fail(
+						"collection_source_not_table",
+						f"{path}.source",
+						"Collection source must reference a table/list field",
+					)
 			except ConditionValidationError:
 				raise
 		nested_scopes = set(allowed_scopes)
@@ -508,7 +609,9 @@ def _validate_node(
 
 	if "type" in node:
 		_fail("unknown_condition_node_type", f"{path}.type", "Unknown canonical condition node type")
-	_fail("missing_condition_node_type", f"{path}.type", "Canonical condition node requires a type discriminant")
+	_fail(
+		"missing_condition_node_type", f"{path}.type", "Canonical condition node requires a type discriminant"
+	)
 
 
 def _validate_source_path(source: Any, path: str, allowed_scopes: set[str]) -> tuple[str, tuple[str, ...]]:
@@ -520,13 +623,13 @@ def _validate_source_path(source: Any, path: str, allowed_scopes: set[str]) -> t
 	if not isinstance(scope, str) or scope not in allowed_scopes or scope == "doctype":
 		_fail("unknown_scope", f"{path}.scope", "Collection source scope is not available")
 	if not isinstance(segments, list) or not segments or len(segments) > CONDITION_LIMITS["path_segments"]:
-		_fail("invalid_collection_source", f"{path}.segments", "Collection source must have bounded, non-empty path segments")
+		_fail(
+			"invalid_collection_source",
+			f"{path}.segments",
+			"Collection source must have bounded, non-empty path segments",
+		)
 	for index, segment in enumerate(segments):
-		if (
-			not isinstance(segment, str)
-			or not re.fullmatch(r"[A-Za-z0-9_]+", segment)
-			or "__" in segment
-		):
+		if not isinstance(segment, str) or not re.fullmatch(r"[A-Za-z0-9_]+", segment) or "__" in segment:
 			_fail("invalid_path_segment", f"{path}.segments[{index}]", "Unsafe or empty source path segment")
 	return scope, tuple(segments)
 
@@ -539,8 +642,11 @@ def condition_contract_dto() -> dict[str, Any]:
 		"api_version": "1",
 		"persisted_payload_version": None,
 		"node_types": {
-			"group": {"required_keys": ["type", "operator", "children"], "operators": ["and", "or"],
-				"minimum_children": 2},
+			"group": {
+				"required_keys": ["type", "operator", "children"],
+				"operators": ["and", "or"],
+				"minimum_children": 2,
+			},
 			"comparison": {"required_keys": ["type", "operator", "left"], "right_key_by_arity": True},
 			"collection_predicate": {
 				"required_keys": ["type", "quantifier", "source", "as", "where"],
