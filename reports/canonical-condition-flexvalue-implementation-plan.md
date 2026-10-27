@@ -1,5 +1,8 @@
 # Canonical Condition + FlexValue Contract — Direct Implementation Plan
 
+> **Contract update notice (2026-10-27):** This document preserves detailed architecture rationale from the earlier PR #434 proposal. Its original persisted `schema`/`version` envelope, `root` wrapper, and symbolic operator examples are historical proposals and are superseded by [the current shared contract](condition-evaluation/README.md). The current saved condition is one direct node discriminated by `type`, with no persisted schema/version/root wrapper. Root nodes may be comparisons, groups, or collection predicates. Groups have at least two direct children, and stable semantic operator IDs (for example `eq`, `gt`, `not_in`) are canonical. Use this document for background only; the shared README and actionable backend/frontend plans are authoritative for the wire contract and migration decisions.
+
+
 **Status:** Implementation plan only; no application code or production behavior changed by this document.  
 **Repository:** Sendipad/flexirule  
 **Audited base:** develop at 60c5005e69d5899765748c561f8f426078c008f0 (2026-10-19)  
