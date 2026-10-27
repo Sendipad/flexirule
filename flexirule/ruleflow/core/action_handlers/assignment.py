@@ -1,6 +1,7 @@
 # Copyright (c) 2026, FlexiRule and contributors
 # For license information, please see license.txt
 
+import copy
 import json
 from functools import lru_cache
 from typing import Any
@@ -189,7 +190,9 @@ class AssignmentHandler(ActionHandler):
 				"assignment_config_too_large", "$", "Assignment config exceeds the configured byte limit"
 			)
 		if len(config_key.encode("utf-8")) <= 65_536:
-			return AssignmentHandler._get_compiled_plan_cached(config_key)
+			cached_plan = AssignmentHandler._get_compiled_plan_cached(config_key)
+			# The cache owns its immutable-by-convention plan; callers receive copies.
+			return tuple(copy.deepcopy(row) for row in cached_plan)
 		return AssignmentHandler._compile_plan(config_key)
 
 	@staticmethod
