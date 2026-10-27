@@ -25,7 +25,7 @@ from flexirule.ruleflow.core.contracts import normalize_action_type
 
 
 DEFAULT_PAGE_SIZE = 100
-MAX_PAGE_SIZE = 500
+MAX_PAGE_SIZE = 200
 MAX_ISSUES_PER_PAGE = 2000
 LEGACY_GUARD_KEYS = ("pythonExpression", "when_expression", "when")
 
@@ -313,6 +313,17 @@ def inventory_condition_migration(start: int = 0, page_size: int = DEFAULT_PAGE_
 						location="condition_action", code="condition_payload_parse_error", severity="error",
 					)
 				else:
+					if payload in (None, ""):
+						legacy_expression = action.get("compiled_expression")
+						if legacy_expression:
+							payload = legacy_expression
+						else:
+							counts["condition_action.invalid"] += 1
+							_location_issue(
+								issues, rule_name=rule.name, action_id=action_id,
+								location="condition_action", code="condition_required", severity="error",
+							)
+							continue
 					_inspect_condition(
 						payload,
 						rule_name=rule.name,
@@ -331,19 +342,20 @@ def inventory_condition_migration(start: int = 0, page_size: int = DEFAULT_PAGE_
 					issues=issues,
 					counts=counts,
 				)
-			elif action_type != "Query Records":
+			if action_type != "Query Records":
 				try:
 					config = _decode_json(action.get("config"))
 				except Exception:
-					continue
-				_walk_collection_resolvers(
-					config,
-					rule_name=rule.name,
-					action_id=action_id,
-					doctype=rule.get("document_type"),
-					issues=issues,
-					counts=counts,
-				)
+					config = None
+				if config is not None:
+					_walk_collection_resolvers(
+						config,
+						rule_name=rule.name,
+						action_id=action_id,
+						doctype=rule.get("document_type"),
+						issues=issues,
+						counts=counts,
+					)
 
 	issues_truncated = len(issues) > MAX_ISSUES_PER_PAGE
 	return {
