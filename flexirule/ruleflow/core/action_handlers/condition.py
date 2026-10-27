@@ -90,7 +90,7 @@ class ConditionHandler(ActionHandler):
 
 	def validate(self, action, context):
 		"""Validate without treating canonical JSON as a compiled Python expression."""
-		errors = []
+		errors: list[str] = []
 		try:
 			payload = get_condition_payload(action)
 			if payload is None:
