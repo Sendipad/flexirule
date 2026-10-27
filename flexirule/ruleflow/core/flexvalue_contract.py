@@ -18,7 +18,7 @@ from datetime import date, datetime, time
 from decimal import Decimal, InvalidOperation
 from typing import Any, Callable
 
-from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+from flexirule.ruleflow.core.condition_errors import ConditionEvaluationError, ConditionValidationError
 
 BASE_SCOPES = frozenset({
 	"doc", "old_doc", "vars", "item", "loop", "row", "caller", "rule", "doctype"
@@ -156,6 +156,8 @@ def _fail(code: str, path: str, message: str) -> None:
 
 
 def _exact_keys(value: Mapping, required: set[str], optional: set[str], path: str) -> None:
+	if any(not isinstance(key, str) for key in value):
+		_fail("invalid_key_type", path, "FlexValue object keys must be strings")
 	missing = required - set(value)
 	unknown = set(value) - required - optional
 	if missing:
