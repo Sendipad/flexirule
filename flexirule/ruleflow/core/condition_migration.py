@@ -204,12 +204,16 @@ def _walk_collection_resolvers(
 		)
 		return
 	if isinstance(value, Mapping):
-		if value.get("kind") == "collection":
-			if "condition" not in value or value.get("condition") in (None, ""):
-				counts["collection_predicate.legacy_or_absent"] += 1
+		family = value.get("family")
+		kind = value.get("kind")
+		if family in {"collection", "child_aggregation"} or kind in {"collection", "child_aggregation"}:
+			inner = value.get("config") if isinstance(value.get("config"), Mapping) else {}
+			condition = inner.get("condition") if "condition" in inner else value.get("condition")
+			if condition in (None, ""):
+				counts["collection_predicate.absent"] += 1
 			else:
 				_inspect_condition(
-					value.get("condition"),
+					condition,
 					rule_name=rule_name,
 					action_id=action_id,
 					location=f"{path}.condition",
