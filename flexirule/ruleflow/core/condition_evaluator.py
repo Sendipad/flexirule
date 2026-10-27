@@ -579,7 +579,7 @@ def _compare(operator_id: str, left: Any, right: Any, path: str) -> bool:
 	if operator_id in {"gt", "gte", "lt", "lte"}:
 		return _ordered_compare(operator_id, left, right, path)
 	if operator_id in {"in", "not_in"}:
-		if not isinstance(right, (list, tuple)):
+		if not isinstance(right, list | tuple):
 			raise ConditionEvaluationError("invalid_membership_rhs", path, "Membership requires a list")
 		found = any(_strict_equal(left, candidate, path) for candidate in right)
 		return found if operator_id == "in" else not found
@@ -594,7 +594,7 @@ def _compare(operator_id: str, left: Any, right: Any, path: str) -> bool:
 			return left.startswith(right)
 		return left.endswith(right)
 	if operator_id.startswith("length_"):
-		if not isinstance(left, (str, list, dict)):
+		if not isinstance(left, str | list | dict):
 			raise ConditionEvaluationError("operand_type_mismatch", path, "Length operator requires a sized value")
 		if not (isinstance(right, int) and not isinstance(right, bool)):
 			raise ConditionEvaluationError("operand_type_mismatch", path, "Length comparison requires an integer")
@@ -612,7 +612,7 @@ def _compare(operator_id: str, left: Any, right: Any, path: str) -> bool:
 
 
 def _is_empty(value: Any, path: str) -> bool:
-	if isinstance(value, (str, list, dict)):
+	if isinstance(value, str | list | dict):
 		return len(value) == 0
 	raise ConditionEvaluationError("operand_type_mismatch", path, "Emptiness operator requires string, list or object")
 
