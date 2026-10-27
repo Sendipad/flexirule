@@ -16,7 +16,7 @@ import math
 from datetime import date, datetime, time
 from decimal import Decimal, InvalidOperation
 from functools import lru_cache
-from typing import Any
+from typing import Any, NoReturn
 
 from flexirule.ruleflow.core.condition_contract import (
 	CONDITION_SEMANTICS_VERSION,
@@ -53,7 +53,7 @@ class _EvaluationContext(dict):
 		)
 
 
-def _child_context(context: _EvaluationContext) -> _EvaluationContext:
+def _child_context(context: dict | _EvaluationContext) -> _EvaluationContext:
 	return _EvaluationContext(context, context.collection_row_budget)
 
 
@@ -260,11 +260,11 @@ def consume_collection_row_visit(budget: dict[str, int], path: str) -> None:
 		)
 
 
-def _consume_collection_row_budget(context: _EvaluationContext, path: str) -> None:
+def _consume_collection_row_budget(context: dict | _EvaluationContext, path: str) -> None:
 	consume_collection_row_visit(context.collection_row_budget, path)
 
 
-def _evaluate_node(plan: tuple, context: dict) -> bool:
+def _evaluate_node(plan: tuple, context: dict | _EvaluationContext) -> bool:
 	kind = plan[0]
 	if kind == "group":
 		operator_id, children, path = plan[1], plan[2], plan[3]
@@ -311,7 +311,7 @@ def _evaluate_node(plan: tuple, context: dict) -> bool:
 		rows = resolve_variable(source_scope, source_segments, context, f"{path}.source")
 		if rows is MISSING:
 			raise ConditionEvaluationError("missing_collection", f"{path}.source", "Collection source path is missing")
-		if not isinstance(rows, (list, tuple)):
+		if not isinstance(rows, list | tuple):
 			raise ConditionEvaluationError(
 				"invalid_collection", f"{path}.source", "Collection source must resolve to a list"
 			)
@@ -438,7 +438,7 @@ def _coerce_field_value(value: Any, fieldtype: str | None, path: str) -> Any:
 				return bool(int(value))
 			raise ValueError
 		if fieldtype == "Int":
-			if type(value) is bool:
+			if isinstance(value, bool):
 				raise ValueError
 			return int(value)
 		if fieldtype in {"Float", "Currency", "Percent"}:
@@ -527,7 +527,7 @@ def _runtime_value_type(value: Any, path: str) -> str:
 		return "null"
 	if type(value) is bool:
 		return "boolean"
-	if type(value) is int:
+	if isinstance(value, int) and not isinstance(value, bool):
 		return "integer"
 	if isinstance(value, Decimal):
 		if not value.is_finite():
