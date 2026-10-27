@@ -49,10 +49,20 @@ CONDITION_LIMITS = {
 	"static_items": MAX_STATIC_ITEMS,
 }
 
-VALUE_TYPES = frozenset({
-	"string", "integer", "decimal", "boolean", "null",
-	"date", "datetime", "time", "list", "object",
-})
+VALUE_TYPES = frozenset(
+	{
+		"string",
+		"integer",
+		"decimal",
+		"boolean",
+		"null",
+		"date",
+		"datetime",
+		"time",
+		"list",
+		"object",
+	}
+)
 
 # Resolver operations are deny-by-default. Adding an entry requires a reviewed,
 # deterministic, read-only implementation and explicit config/output validation.
@@ -356,7 +366,11 @@ def validate_flex_value(
 			if segment.get("type") == "text":
 				_exact_keys(segment, {"type", "value"}, set(), segment_path)
 				if not isinstance(segment.get("value"), str):
-					_fail("invalid_template_text", f"{segment_path}.value", "Text segment value must be a string")
+					_fail(
+						"invalid_template_text",
+						f"{segment_path}.value",
+						"Text segment value must be a string",
+					)
 			elif segment.get("type") == "value":
 				_exact_keys(segment, {"type", "value"}, set(), segment_path)
 				output_type = validate_flex_value(
@@ -367,7 +381,11 @@ def validate_flex_value(
 					flexvalue_depth=flexvalue_depth + 1,
 				)
 				if output_type in {"list", "object"}:
-					_fail("invalid_template_value_type", f"{segment_path}.value", "Template values must be scalar")
+					_fail(
+						"invalid_template_value_type",
+						f"{segment_path}.value",
+						"Template values must be scalar",
+					)
 			else:
 				_fail("unknown_template_segment", f"{segment_path}.type", "Expected text or value segment")
 		return "string"
