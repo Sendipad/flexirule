@@ -16,7 +16,7 @@ import re
 from collections.abc import Mapping
 from datetime import date, datetime, time
 from decimal import Decimal, InvalidOperation
-from typing import Any, Callable
+from typing import Any, Callable, NoReturn
 
 from flexirule.ruleflow.core.condition_errors import ConditionEvaluationError, ConditionValidationError
 
@@ -161,7 +161,7 @@ def resolver_contract_dto() -> list[dict[str, Any]]:
 	]
 
 
-def _fail(code: str, path: str, message: str) -> None:
+def _fail(code: str, path: str, message: str) -> NoReturn:
 	raise ConditionValidationError(code, path, message)
 
 
@@ -241,7 +241,10 @@ def infer_flex_value_type(value: Any, *, resolver_depth: int = 0) -> str | None:
 	if mode == "resolver":
 		if resolver_depth > MAX_RESOLVER_DEPTH:
 			return None
-		entry = CONDITION_RESOLVER_REGISTRY.get((value.get("family"), value.get("operation")))
+		family, operation = value.get("family"), value.get("operation")
+		if not isinstance(family, str) or not isinstance(operation, str):
+			return None
+		entry = CONDITION_RESOLVER_REGISTRY.get((family, operation))
 		return entry.get("output_type") if entry else None
 	return None
 
@@ -334,6 +337,8 @@ def validate_flex_value(
 		config = value.get("config")
 		if not isinstance(config, dict):
 			_fail("invalid_resolver_config", f"{path}.config", "Resolver config must be an object")
+		if entry is None:
+			_fail("resolver_not_allowed", path, "Resolver operation is not approved as a condition operand")
 		entry["validate_config"](
 			config, f"{path}.config", allowed, resolver_depth + 1, flexvalue_depth + 1
 		)
@@ -415,11 +420,11 @@ def format_template_value(value: Any, path: str = "$") -> str:
 	"""Format only explicitly supported scalar values; do not coerce arbitrary objects."""
 	if value is None:
 		return ""
-	if type(value) is bool:
+	if isinstance(value, bool):
 		return "true" if value else "false"
 	if isinstance(value, str):
 		return value
-	if type(value) is int:
+	if isinstance(value, int) and not isinstance(value, bool):
 		return str(value)
 	if isinstance(value, Decimal):
 		return format(value, "f")
