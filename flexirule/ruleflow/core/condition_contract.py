@@ -1,0 +1,435 @@
+# Copyright (c) 2026, FlexiRule and contributors
+# For license information, please see license.txt
+
+"""Authoritative schema and operator metadata for canonical conditions."""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from dataclasses import dataclass
+from typing import Any
+
+from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+from flexirule.ruleflow.core.flexvalue_contract import (
+	BASE_SCOPES,
+	CONDITION_LIMITS,
+	MAX_CONDITION_DEPTH,
+	MAX_CONDITION_NODES,
+	MAX_PATH_SEGMENTS,
+	MAX_COLLECTION_ROWS,
+	MAX_RESOLVER_DEPTH,
+	MAX_TEMPLATE_SEGMENTS,
+	VALUE_TYPES,
+	validate_flex_value,
+)
+
+CONDITION_SEMANTICS_VERSION = 1
+
+ALL_FIELD_TYPES = None
+TEXT_FIELD_TYPES = (
+	"Data", "Small Text", "Text", "Text Editor", "Code", "Select", "Link", "Dynamic Link",
+)
+NUMERIC_FIELD_TYPES = ("Int", "Float", "Currency", "Percent")
+ORDERED_FIELD_TYPES = (*NUMERIC_FIELD_TYPES, "Date", "Datetime", "Time")
+EMPTY_FIELD_TYPES = (
+	"Data", "Small Text", "Text", "Text Editor", "Code", "Select", "Table", "Table MultiSelect", "JSON",
+)
+RESERVED_ALIASES = BASE_SCOPES | {"and", "or", "any", "all", "none"}
+
+
+@dataclass(frozen=True)
+class OperatorSpec:
+	operator_id: str
+	label: str
+	arity: int
+	left_types: tuple[str, ...]
+	right_types: tuple[str, ...] = ()
+	fieldtypes: tuple[str, ...] | None = None
+	legacy_aliases: tuple[str, ...] = ()
+	description: str = ""
+
+
+def _spec(
+	operator_id: str,
+	label: str,
+	arity: int,
+	left_types: tuple[str, ...],
+	right_types: tuple[str, ...] = (),
+	fieldtypes: tuple[str, ...] | None = None,
+	legacy_aliases: tuple[str, ...] = (),
+	description: str = "",
+) -> OperatorSpec:
+	return OperatorSpec(
+		operator_id, label, arity, left_types, right_types, fieldtypes, legacy_aliases, description
+	)
+
+
+SCALAR_TYPES = ("string", "integer", "decimal", "boolean", "null", "date", "datetime", "time")
+COMPARABLE_TYPES = (*SCALAR_TYPES, "list", "object")
+NUMERIC_TYPES = ("integer", "decimal")
+SIZED_TYPES = ("string", "list", "object")
+
+# This is the only live canonical operator registry. Legacy aliases are migration-only.
+OPERATOR_REGISTRY: dict[str, OperatorSpec] = {
+	"eq": _spec("eq", "Equals", 2, COMPARABLE_TYPES, COMPARABLE_TYPES, legacy_aliases=("==",)),
+	"ne": _spec("ne", "Does not equal", 2, COMPARABLE_TYPES, COMPARABLE_TYPES, legacy_aliases=("!=",)),
+	"gt": _spec("gt", "Greater than", 2, (*NUMERIC_TYPES, "date", "datetime", "time"),
+		(*NUMERIC_TYPES, "date", "datetime", "time"), ORDERED_FIELD_TYPES, (">",)),
+	"gte": _spec("gte", "Greater than or equal", 2, (*NUMERIC_TYPES, "date", "datetime", "time"),
+		(*NUMERIC_TYPES, "date", "datetime", "time"), ORDERED_FIELD_TYPES, (">=",)),
+	"lt": _spec("lt", "Less than", 2, (*NUMERIC_TYPES, "date", "datetime", "time"),
+		(*NUMERIC_TYPES, "date", "datetime", "time"), ORDERED_FIELD_TYPES, ("<",)),
+	"lte": _spec("lte", "Less than or equal", 2, (*NUMERIC_TYPES, "date", "datetime", "time"),
+		(*NUMERIC_TYPES, "date", "datetime", "time"), ORDERED_FIELD_TYPES, ("<=",)),
+	"in": _spec("in", "Is in", 2, SCALAR_TYPES, ("list",), legacy_aliases=("in",)),
+	"not_in": _spec("not_in", "Is not in", 2, SCALAR_TYPES, ("list",), legacy_aliases=("not in",)),
+	"contains": _spec("contains", "Contains text", 2, ("string",), ("string",), TEXT_FIELD_TYPES),
+	"not_contains": _spec("not_contains", "Does not contain text", 2, ("string",), ("string",), TEXT_FIELD_TYPES),
+	"starts_with": _spec("starts_with", "Starts with", 2, ("string",), ("string",), TEXT_FIELD_TYPES),
+	"ends_with": _spec("ends_with", "Ends with", 2, ("string",), ("string",), TEXT_FIELD_TYPES),
+	"is_set": _spec("is_set", "Is set", 1, COMPARABLE_TYPES, fieldtypes=ALL_FIELD_TYPES),
+	"is_not_set": _spec("is_not_set", "Is not set", 1, COMPARABLE_TYPES, fieldtypes=ALL_FIELD_TYPES),
+	"is_null": _spec("is_null", "Is null", 1, COMPARABLE_TYPES, fieldtypes=ALL_FIELD_TYPES),
+	"is_not_null": _spec("is_not_null", "Is not null", 1, COMPARABLE_TYPES, fieldtypes=ALL_FIELD_TYPES),
+	"is_empty": _spec("is_empty", "Is empty", 1, SIZED_TYPES, fieldtypes=EMPTY_FIELD_TYPES),
+	"is_not_empty": _spec("is_not_empty", "Is not empty", 1, SIZED_TYPES, fieldtypes=EMPTY_FIELD_TYPES),
+	"length_eq": _spec("length_eq", "Length equals", 2, SIZED_TYPES, ("integer",), EMPTY_FIELD_TYPES),
+	"length_gt": _spec("length_gt", "Length greater than", 2, SIZED_TYPES, ("integer",), EMPTY_FIELD_TYPES),
+	"length_gte": _spec("length_gte", "Length at least", 2, SIZED_TYPES, ("integer",), EMPTY_FIELD_TYPES),
+	"length_lt": _spec("length_lt", "Length less than", 2, SIZED_TYPES, ("integer",), EMPTY_FIELD_TYPES),
+	"length_lte": _spec("length_lte", "Length at most", 2, SIZED_TYPES, ("integer",), EMPTY_FIELD_TYPES),
+	"is_submittable": _spec("is_submittable", "DocType is submittable", 1, ("string",)),
+	"has_field": _spec("has_field", "DocType has field", 2, ("string",), ("string",)),
+}
+
+UNARY_OPERATORS = frozenset(key for key, spec in OPERATOR_REGISTRY.items() if spec.arity == 1)
+MISSING = object()
+
+
+def operator_contract_dto() -> list[dict[str, Any]]:
+	"""Return stable public metadata without exposing implementation callables."""
+	result = []
+	for operator_id, spec in sorted(OPERATOR_REGISTRY.items()):
+		result.append({
+			"id": operator_id,
+			"label": spec.label,
+			"arity": spec.arity,
+			"accepted_left_types": list(spec.left_types),
+			"accepted_right_types": list(spec.right_types),
+			"fieldtypes": list(spec.fieldtypes) if spec.fieldtypes is not None else None,
+			"legacy_aliases": list(spec.legacy_aliases),
+			"description": spec.description,
+		})
+	return result
+
+
+def _fail(code: str, path: str, message: str) -> None:
+	raise ConditionValidationError(code, path, message)
+
+
+def _exact_keys(value: Mapping, required: set[str], path: str) -> None:
+	missing = required - set(value)
+	unknown = set(value) - required
+	if missing:
+		_fail("missing_key", path, f"Missing required key(s): {', '.join(sorted(missing))}")
+	if unknown:
+		_fail("unknown_key", path, f"Unknown key(s): {', '.join(sorted(unknown))}")
+
+
+def _known_type_compatible(actual: str | None, accepted: tuple[str, ...]) -> bool:
+	return actual is None or actual in accepted
+
+
+def _types_compatible(left_type: str | None, right_type: str | None, operator_id: str, path: str) -> None:
+	if left_type is None or right_type is None:
+		return
+	if operator_id in {"eq", "ne"}:
+		if left_type == "null" or right_type == "null":
+			return
+		if left_type == right_type or {left_type, right_type} <= {"integer", "decimal"}:
+			return
+		_fail("operand_type_mismatch", path, "Equality operands have incompatible declared types")
+	if operator_id in {"gt", "gte", "lt", "lte"}:
+		if left_type in NUMERIC_TYPES and right_type in NUMERIC_TYPES:
+			return
+		if left_type == right_type and left_type in {"date", "datetime", "time"}:
+			return
+		_fail("operand_type_mismatch", path, "Ordered comparison operands have incompatible types")
+	if operator_id in {"in", "not_in"}:
+		if right_type != "list" or left_type not in SCALAR_TYPES:
+			_fail("operand_type_mismatch", path, "Membership requires a scalar left operand and list right operand")
+		return
+	spec = OPERATOR_REGISTRY[operator_id]
+	if left_type not in spec.left_types:
+		_fail("operand_type_mismatch", f"{path}.left", "Left operand type is not supported by this operator")
+	if spec.arity == 2 and right_type not in spec.right_types:
+		_fail("operand_type_mismatch", f"{path}.right", "Right operand type is not supported by this operator")
+
+
+def _meta_for(doctype: str, path: str):
+	try:
+		import frappe
+		return frappe.get_meta(doctype)
+	except Exception:
+		_fail("unknown_doctype", path, "Could not resolve DocType metadata for this path")
+
+
+def resolve_fieldtype_for_path(scope: str, segments: tuple[str, ...], doctype: str | None) -> str | None:
+	"""Resolve Fieldtype metadata for a variable path when a concrete DocType is known.
+
+	Returns None for scopes whose metadata is not statically available. A provided
+	DocType with an invalid known document path fails closed at validation time.
+	"""
+	if not doctype or scope not in {"doc", "old_doc", "row"} and scope in BASE_SCOPES:
+		return None
+	current_doctype = doctype
+	fieldtype = None
+	for index, segment in enumerate(segments):
+		if segment == "name" and index == len(segments) - 1:
+			return "Data"
+		meta = _meta_for(current_doctype, f"$.{scope}.segments[{index}]")
+		field = meta.get_field(segment)
+		if not field:
+			_fail("unknown_field", f"$.{scope}.segments[{index}]", "Field does not exist on the declared DocType")
+		fieldtype = field.fieldtype
+		if index < len(segments) - 1:
+			if fieldtype in {"Table", "Table MultiSelect", "Link"} and field.options:
+				current_doctype = field.options
+			elif fieldtype == "Dynamic Link":
+				_fail(
+					"unverifiable_field_path",
+					f"$.{scope}.segments[{index}]",
+					"Dynamic Link traversal requires an explicit, supported target contract",
+				)
+			else:
+				_fail(
+					"invalid_field_path",
+					f"$.{scope}.segments[{index}]",
+					"Field path continues through a value that cannot contain child fields",
+				)
+	return fieldtype
+
+
+def _known_fieldtype_check(
+	operator_id: str,
+	left: Any,
+	fieldtype: str | None,
+	path: str,
+) -> None:
+	spec = OPERATOR_REGISTRY[operator_id]
+	if fieldtype and spec.fieldtypes is not None and fieldtype not in spec.fieldtypes:
+		_fail(
+			"fieldtype_not_supported",
+			f"{path}.left",
+			"Operator is not supported for the left operand's Fieldtype",
+		)
+	if fieldtype == "Check" and operator_id in {"gt", "gte", "lt", "lte", "length_eq", "length_gt",
+		"length_gte", "length_lt", "length_lte", "contains", "not_contains", "starts_with", "ends_with"}:
+		_fail("fieldtype_not_supported", f"{path}.left", "Boolean fields do not support this operator")
+
+
+def validate_condition_node(node: Any, *, doctype: str | None = None) -> None:
+	"""Strictly validate a canonical direct-node condition; never repair or mutate it."""
+	counter = {"nodes": 0}
+	scope_doctypes: dict[str, str | None] = {"doc": doctype, "old_doc": doctype}
+	_validate_node(
+		node,
+		path="$",
+		depth=1,
+		counter=counter,
+		allowed_scopes=set(BASE_SCOPES),
+		scope_doctypes=scope_doctypes,
+	)
+
+
+def _validate_node(
+	node: Any,
+	*,
+	path: str,
+	depth: int,
+	counter: dict[str, int],
+	allowed_scopes: set[str],
+	scope_doctypes: dict[str, str | None],
+) -> None:
+	if depth > MAX_CONDITION_DEPTH:
+		_fail("condition_depth_exceeded", path, "Condition tree exceeds the maximum nesting depth")
+	counter["nodes"] += 1
+	if counter["nodes"] > MAX_CONDITION_NODES:
+		_fail("condition_node_limit_exceeded", path, "Condition tree exceeds the maximum node count")
+	if not isinstance(node, Mapping):
+		_fail("invalid_condition_node", path, "Condition node must be an object")
+	node_type = node.get("type")
+
+	if node_type == "group":
+		_exact_keys(node, {"type", "operator", "children"}, path)
+		operator_id = node.get("operator")
+		if operator_id not in {"and", "or"}:
+			_fail("unknown_group_operator", f"{path}.operator", "Group operator must be 'and' or 'or'")
+		children = node.get("children")
+		if not isinstance(children, list) or len(children) < 2:
+			_fail("invalid_group_children", f"{path}.children", "A persisted group must have at least two children")
+		for index, child in enumerate(children):
+			_validate_node(
+				child,
+				path=f"{path}.children[{index}]",
+				depth=depth + 1,
+				counter=counter,
+				allowed_scopes=allowed_scopes,
+				scope_doctypes=scope_doctypes,
+			)
+		return
+
+	if node_type == "comparison":
+		operator_id = node.get("operator")
+		spec = OPERATOR_REGISTRY.get(operator_id) if isinstance(operator_id, str) else None
+		if not spec:
+			_fail("unknown_operator", f"{path}.operator", "Unknown canonical condition operator")
+		required = {"type", "operator", "left"}
+		if spec.arity == 2:
+			required.add("right")
+		_exact_keys(node, required, path)
+		left_type = validate_flex_value(
+			node.get("left"),
+			path=f"{path}.left",
+			allowed_scopes=allowed_scopes,
+		)
+		right_type = None
+		if spec.arity == 2:
+			right_type = validate_flex_value(
+				node.get("right"),
+				path=f"{path}.right",
+				allowed_scopes=allowed_scopes,
+			)
+		if not _known_type_compatible(left_type, spec.left_types):
+			_fail("operand_type_mismatch", f"{path}.left", "Left operand type is not supported by this operator")
+		if spec.arity == 2 and not _known_type_compatible(right_type, spec.right_types):
+			_fail("operand_type_mismatch", f"{path}.right", "Right operand type is not supported by this operator")
+		if spec.arity == 2:
+			_types_compatible(left_type, right_type, operator_id, path)
+		left_value = node.get("left")
+		if isinstance(left_value, Mapping) and left_value.get("mode") == "variable":
+			path_value = left_value.get("path") or {}
+			scope = path_value.get("scope")
+			segments = tuple(path_value.get("segments") or ())
+			fieldtype = resolve_fieldtype_for_path(
+				scope, segments, scope_doctypes.get(scope)
+			)
+			_known_fieldtype_check(operator_id, left_value, fieldtype, path)
+		if operator_id in {"is_submittable", "has_field"}:
+			# Metadata checks accept explicit DocType names only; no arbitrary objects.
+			for operand, operand_path in ((node.get("left"), f"{path}.left"),):
+				if isinstance(operand, Mapping) and operand.get("mode") == "static":
+					if operand.get("value_type") != "string":
+						_fail("invalid_metadata_operand", operand_path, "Metadata predicates require a DocType string")
+			if spec.arity == 2:
+				right = node.get("right")
+				if isinstance(right, Mapping) and right.get("mode") == "static" and right.get("value_type") != "string":
+					_fail("invalid_metadata_operand", f"{path}.right", "Metadata predicates require a field name string")
+		return
+
+	if node_type == "collection_predicate":
+		_exact_keys(node, {"type", "quantifier", "source", "as", "where"}, path)
+		quantifier = node.get("quantifier")
+		if quantifier not in {"any", "all", "none"}:
+			_fail("unknown_collection_quantifier", f"{path}.quantifier", "Quantifier must be any, all, or none")
+		source = node.get("source")
+		source_scope, source_segments = _validate_source_path(source, f"{path}.source", allowed_scopes)
+		alias = node.get("as")
+		if (
+			not isinstance(alias, str)
+			or not alias
+			or not alias.replace("_", "a").isalnum()
+			or alias[0].isdigit()
+			or "__" in alias
+			or alias in RESERVED_ALIASES
+		):
+			_fail("invalid_collection_alias", f"{path}.as", "Collection alias must be a safe, non-reserved identifier")
+		child_doctype = None
+		parent_doctype = scope_doctypes.get(source_scope)
+		if parent_doctype and source_scope in {"doc", "old_doc"}:
+			fieldtype = resolve_fieldtype_for_path(source_scope, source_segments, parent_doctype)
+			_known_fieldtype_check("eq", {"mode": "variable"}, fieldtype, f"{path}.source")
+			try:
+				meta = _meta_for(parent_doctype, f"{path}.source")
+				current_meta = meta
+				field = None
+				for segment in source_segments:
+					field = current_meta.get_field(segment)
+					if not field:
+						break
+					if segment != source_segments[-1] and field.fieldtype in {"Table", "Table MultiSelect", "Link"} and field.options:
+						current_meta = _meta_for(field.options, f"{path}.source")
+				if field and field.fieldtype in {"Table", "Table MultiSelect"}:
+					child_doctype = field.options
+				elif field and field.fieldtype not in {"Table", "Table MultiSelect"}:
+					_fail("collection_source_not_table", f"{path}.source", "Collection source must reference a table/list field")
+			except ConditionValidationError:
+				raise
+		nested_scopes = set(allowed_scopes)
+		nested_scopes.add(alias)
+		nested_doctypes = dict(scope_doctypes)
+		nested_doctypes[alias] = child_doctype
+		nested_doctypes["row"] = child_doctype
+		_validate_node(
+			node.get("where"),
+			path=f"{path}.where",
+			depth=depth + 1,
+			counter=counter,
+			allowed_scopes=nested_scopes,
+			scope_doctypes=nested_doctypes,
+		)
+		return
+
+	if "type" in node:
+		_fail("unknown_condition_node_type", f"{path}.type", "Unknown canonical condition node type")
+	_fail("missing_condition_node_type", f"{path}.type", "Canonical condition node requires a type discriminant")
+
+
+def _validate_source_path(source: Any, path: str, allowed_scopes: set[str]) -> tuple[str, tuple[str, ...]]:
+	if not isinstance(source, Mapping):
+		_fail("invalid_collection_source", path, "Collection source must be a path object")
+	_exact_keys(source, {"scope", "segments"}, path)
+	scope = source.get("scope")
+	segments = source.get("segments")
+	if not isinstance(scope, str) or scope not in allowed_scopes:
+		_fail("unknown_scope", f"{path}.scope", "Collection source scope is not available")
+	if not isinstance(segments, list) or not segments or len(segments) > MAX_PATH_SEGMENTS:
+		_fail("invalid_collection_source", f"{path}.segments", "Collection source must have bounded, non-empty path segments")
+	for index, segment in enumerate(segments):
+		if (
+			not isinstance(segment, str)
+			or not segment
+			or not segment.replace("_", "a").isalnum()
+			or segment[0].isdigit()
+			or "__" in segment
+		):
+			_fail("invalid_path_segment", f"{path}.segments[{index}]", "Unsafe or empty source path segment")
+	return scope, tuple(segments)
+
+
+def condition_contract_dto() -> dict[str, Any]:
+	"""Build the authenticated API contract from the live backend registries."""
+	from flexirule.ruleflow.core.flexvalue_contract import resolver_contract_dto
+
+	return {
+		"api_version": "1",
+		"persisted_payload_version": None,
+		"node_types": {
+			"group": {"required_keys": ["type", "operator", "children"], "operators": ["and", "or"],
+				"minimum_children": 2},
+			"comparison": {"required_keys": ["type", "operator", "left"], "right_key_by_arity": True},
+			"collection_predicate": {
+				"required_keys": ["type", "quantifier", "source", "as", "where"],
+				"quantifiers": ["any", "all", "none"],
+			},
+		},
+		"flexvalue_modes": {
+			"static": sorted(VALUE_TYPES),
+			"variable": {"scopes": sorted(BASE_SCOPES), "path_segment_limit": MAX_PATH_SEGMENTS},
+			"resolver": resolver_contract_dto(),
+			"template": {"segments": ["text", "value"], "maximum_segments": MAX_TEMPLATE_SEGMENTS},
+		},
+		"operators": operator_contract_dto(),
+		"limits": dict(CONDITION_LIMITS),
+		"semantics_version": CONDITION_SEMANTICS_VERSION,
+	}
