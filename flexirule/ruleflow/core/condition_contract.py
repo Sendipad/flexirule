@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
@@ -13,12 +14,6 @@ from flexirule.ruleflow.core.condition_errors import ConditionValidationError
 from flexirule.ruleflow.core.flexvalue_contract import (
 	BASE_SCOPES,
 	CONDITION_LIMITS,
-	MAX_CONDITION_DEPTH,
-	MAX_CONDITION_NODES,
-	MAX_PATH_SEGMENTS,
-	MAX_COLLECTION_ROWS,
-	MAX_RESOLVER_DEPTH,
-	MAX_TEMPLATE_SEGMENTS,
 	VALUE_TYPES,
 	validate_flex_value,
 )
@@ -337,18 +332,14 @@ def _validate_node(
 		alias = node.get("as")
 		if (
 			not isinstance(alias, str)
-			or not alias
-			or not alias.replace("_", "a").isalnum()
-			or alias[0].isdigit()
+			or not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", alias)
 			or "__" in alias
 			or alias in RESERVED_ALIASES
 		):
 			_fail("invalid_collection_alias", f"{path}.as", "Collection alias must be a safe, non-reserved identifier")
 		child_doctype = None
 		parent_doctype = scope_doctypes.get(source_scope)
-		if parent_doctype and source_scope in {"doc", "old_doc"}:
-			fieldtype = resolve_fieldtype_for_path(source_scope, source_segments, parent_doctype)
-			_known_fieldtype_check("eq", {"mode": "variable"}, fieldtype, f"{path}.source")
+		if parent_doctype:
 			try:
 				meta = _meta_for(parent_doctype, f"{path}.source")
 				current_meta = meta
@@ -391,16 +382,14 @@ def _validate_source_path(source: Any, path: str, allowed_scopes: set[str]) -> t
 	_exact_keys(source, {"scope", "segments"}, path)
 	scope = source.get("scope")
 	segments = source.get("segments")
-	if not isinstance(scope, str) or scope not in allowed_scopes:
+	if not isinstance(scope, str) or scope not in allowed_scopes or scope == "doctype":
 		_fail("unknown_scope", f"{path}.scope", "Collection source scope is not available")
-	if not isinstance(segments, list) or not segments or len(segments) > MAX_PATH_SEGMENTS:
+	if not isinstance(segments, list) or not segments or len(segments) > CONDITION_LIMITS["path_segments"]:
 		_fail("invalid_collection_source", f"{path}.segments", "Collection source must have bounded, non-empty path segments")
 	for index, segment in enumerate(segments):
 		if (
 			not isinstance(segment, str)
-			or not segment
-			or not segment.replace("_", "a").isalnum()
-			or segment[0].isdigit()
+			or not re.fullmatch(r"[A-Za-z0-9_]+", segment)
 			or "__" in segment
 		):
 			_fail("invalid_path_segment", f"{path}.segments[{index}]", "Unsafe or empty source path segment")
