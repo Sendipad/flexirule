@@ -315,6 +315,8 @@ def safe_read_segment(value: Any, segment: str) -> Any:
 	if isinstance(value, Mapping):
 		return value.get(segment, MISSING)
 	if getattr(value, "doctype", None) and callable(getattr(value, "get", None)):
+		if segment == "name":
+			return getattr(value, "name", MISSING)
 		try:
 			meta = getattr(value, "meta", None)
 			if meta is not None and meta.has_field(segment):
@@ -327,12 +329,12 @@ def safe_read_segment(value: Any, segment: str) -> Any:
 def resolve_variable(scope: str, segments: tuple[str, ...], context: dict, path: str = "$") -> Any:
 	"""Resolve an explicit scope/path. Missing never falls back to another scope."""
 	if scope not in context:
-		raise ConditionEvaluationError("missing_scope", path, f"Runtime scope '{scope}' is unavailable")
+		return MISSING
 	value = context[scope]
 	for segment in segments:
 		value = safe_read_segment(value, segment)
 		if value is MISSING:
-			raise ConditionEvaluationError("missing_path", path, "A referenced path is missing")
+			return MISSING
 	return value
 
 
