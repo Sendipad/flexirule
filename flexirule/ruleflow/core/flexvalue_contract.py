@@ -56,6 +56,7 @@ VALUE_TYPES = frozenset({
 # Resolver operations are deny-by-default. Adding an entry requires a reviewed,
 # deterministic, read-only implementation and explicit config/output validation.
 CONDITION_RESOLVER_REGISTRY: dict[tuple[str, str], dict[str, Any]] = {}
+_RESOLVER_REGISTRY_FINGERPRINT_CACHE: str | None = None
 
 
 def register_condition_resolver(
@@ -105,6 +106,7 @@ def register_condition_resolver(
 		raise ValueError(
 			"Condition operands may only enable resolvers with permission_policy='no_data_access'"
 		)
+	global _RESOLVER_REGISTRY_FINGERPRINT_CACHE
 	key = (family, operation)
 	if key in CONDITION_RESOLVER_REGISTRY:
 		raise ValueError(f"Canonical condition resolver already registered: {family}.{operation}")
@@ -120,18 +122,22 @@ def register_condition_resolver(
 		"validate_config": validate_config,
 		"resolve": resolve,
 	}
+	_RESOLVER_REGISTRY_FINGERPRINT_CACHE = None
 
 
 def resolver_registry_fingerprint() -> str:
 	"""Stable cache key material; implementation callables stay private."""
-	payload = json.dumps(
-		resolver_contract_dto(),
-		sort_keys=True,
-		ensure_ascii=False,
-		separators=(",", ":"),
-		allow_nan=False,
-	)
-	return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+	global _RESOLVER_REGISTRY_FINGERPRINT_CACHE
+	if _RESOLVER_REGISTRY_FINGERPRINT_CACHE is None:
+		payload = json.dumps(
+			resolver_contract_dto(),
+			sort_keys=True,
+			ensure_ascii=False,
+			separators=(",", ":"),
+			allow_nan=False,
+		)
+		_RESOLVER_REGISTRY_FINGERPRINT_CACHE = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+	return _RESOLVER_REGISTRY_FINGERPRINT_CACHE
 
 
 def resolver_contract_dto() -> list[dict[str, Any]]:
