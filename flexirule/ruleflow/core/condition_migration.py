@@ -31,7 +31,7 @@ LEGACY_GUARD_KEYS = ("pythonExpression", "when_expression", "when")
 
 
 def _decode_json(value: Any) -> Any:
-	if isinstance(value, (dict, list)):
+	if isinstance(value, dict | list):
 		return value
 	if not isinstance(value, str) or not value.strip():
 		return []
