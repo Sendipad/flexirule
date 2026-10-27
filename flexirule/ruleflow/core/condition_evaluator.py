@@ -37,6 +37,7 @@ from flexirule.ruleflow.core.flexvalue_contract import (
 
 EVALUATOR_CACHE_VERSION = 1
 MAX_CACHEABLE_CONDITION_BYTES = 65536
+_CONDITION_BUDGET_KEY = object()
 
 
 def _freeze_json(value: Any) -> Any:
@@ -208,7 +209,8 @@ def evaluate_condition(
 	doctype: str | None = None,
 ) -> bool:
 	"""Evaluate one canonical node. Validation/runtime errors remain typed exceptions."""
-	ctx = context if isinstance(context, dict) else dict(context or {})
+	ctx = dict(context or {})
+	ctx[_CONDITION_BUDGET_KEY] = {"collection_row_visits": 0}
 	effective_doctype = doctype or ctx.get("doctype")
 	if not effective_doctype:
 		doc = ctx.get("doc")
@@ -225,6 +227,20 @@ def evaluate_condition(
 			"runtime_error", plan[-1] if plan and isinstance(plan[-1], str) else "$",
 			"Canonical condition evaluation failed",
 		) from exc
+
+
+def _consume_collection_row_budget(context: dict, path: str) -> None:
+	state = context.get(_CONDITION_BUDGET_KEY)
+	if not isinstance(state, dict):
+		state = {"collection_row_visits": 0}
+		context[_CONDITION_BUDGET_KEY] = state
+	state["collection_row_visits"] += 1
+	if state["collection_row_visits"] > CONDITION_LIMITS["collection_row_visits"]:
+		raise ConditionEvaluationError(
+			"collection_evaluation_budget_exceeded",
+			path,
+			"Condition exceeded the configured total collection row-visit budget",
+		)
 
 
 def _evaluate_node(plan: tuple, context: dict) -> bool:
@@ -286,6 +302,7 @@ def _evaluate_node(plan: tuple, context: dict) -> bool:
 			)
 		if quantifier == "any":
 			for row in rows:
+				_consume_collection_row_budget(context, f"{path}.source")
 				row_context = dict(context)
 				row_context["row"] = row
 				row_context[alias] = row
@@ -294,6 +311,7 @@ def _evaluate_node(plan: tuple, context: dict) -> bool:
 			return False
 		if quantifier == "all":
 			for row in rows:
+				_consume_collection_row_budget(context, f"{path}.source")
 				row_context = dict(context)
 				row_context["row"] = row
 				row_context[alias] = row
@@ -301,6 +319,7 @@ def _evaluate_node(plan: tuple, context: dict) -> bool:
 					return False
 			return True
 		for row in rows:
+			_consume_collection_row_budget(context, f"{path}.source")
 			row_context = dict(context)
 			row_context["row"] = row
 			row_context[alias] = row
