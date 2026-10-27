@@ -6,6 +6,7 @@
 import copy
 import json
 import unittest
+from typing import Any
 from pathlib import Path
 
 from flexirule.ruleflow.core.condition_contract import OPERATOR_REGISTRY, condition_contract_dto, validate_condition_node
@@ -18,6 +19,7 @@ FIXTURE_PATH = Path(__file__).parent / "fixtures" / "canonical_condition_fixture
 
 
 class TestCanonicalConditionContract(unittest.TestCase):
+	fixtures: dict[str, Any]
 	@classmethod
 	def setUpClass(cls):
 		cls.fixtures = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
