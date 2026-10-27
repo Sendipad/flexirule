@@ -13,16 +13,14 @@ import hashlib
 import json
 import math
 import re
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from datetime import date, datetime, time
 from decimal import Decimal, InvalidOperation
-from typing import Any, Callable, NoReturn
+from typing import Any, NoReturn
 
 from flexirule.ruleflow.core.condition_errors import ConditionEvaluationError, ConditionValidationError
 
-BASE_SCOPES = frozenset({
-	"doc", "old_doc", "vars", "item", "loop", "row", "caller", "rule", "doctype"
-})
+BASE_SCOPES = frozenset({"doc", "old_doc", "vars", "item", "loop", "row", "caller", "rule", "doctype"})
 
 MAX_CONDITION_DEPTH = 32
 MAX_CONDITION_NODES = 1000
@@ -349,16 +347,18 @@ def validate_flex_value(
 			_fail("invalid_resolver_config", f"{path}.config", "Resolver config must be an object")
 		if entry is None:
 			_fail("resolver_not_allowed", path, "Resolver operation is not approved as a condition operand")
-		entry["validate_config"](
-			config, f"{path}.config", allowed, resolver_depth + 1, flexvalue_depth + 1
-		)
+		entry["validate_config"](config, f"{path}.config", allowed, resolver_depth + 1, flexvalue_depth + 1)
 		return entry["output_type"]
 
 	if mode == "template":
 		_exact_keys(value, {"mode", "segments"}, set(), path)
 		segments = value.get("segments")
 		if not isinstance(segments, list) or not segments or len(segments) > MAX_TEMPLATE_SEGMENTS:
-			_fail("invalid_template_segments", f"{path}.segments", "Template segments must be a non-empty bounded list")
+			_fail(
+				"invalid_template_segments",
+				f"{path}.segments",
+				"Template segments must be a non-empty bounded list",
+			)
 		for index, segment in enumerate(segments):
 			segment_path = f"{path}.segments[{index}]"
 			if not isinstance(segment, Mapping):
