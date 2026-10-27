@@ -1660,36 +1660,45 @@ def get_execution_preview(rule_name: str, docname: str):
 						doctype=rule.document_type or getattr(doc, "doctype", None),
 					)
 				elif action.compiled_expression:
-					from flexirule.ruleflow.core.evaluator import evaluate_condition as evaluate_legacy_condition
+					from flexirule.ruleflow.core.evaluator import (
+						evaluate_condition as evaluate_legacy_condition,
+					)
 
 					result = evaluate_legacy_condition(
 						action.compiled_expression, {"doc": doc, "old_doc": None, "frappe": frappe}
 					)
 				elif payload is not None:
 					raise ConditionValidationError(
-						"legacy_condition_not_compiled", "$",
+						"legacy_condition_not_compiled",
+						"$",
 						"Legacy condition has no compiled expression",
 					)
 				else:
 					raise ConditionValidationError(
-						"condition_required", "$", "Condition action has no configured condition",
+						"condition_required",
+						"$",
+						"Condition action has no configured condition",
 					)
 				current_id = action.next_step_if_true if result else action.next_step_if_false
 			except ConditionError as exc:
-				evaluation_errors.append({
-					"action_id": current_id,
-					"code": exc.code,
-					"path": exc.path,
-					"message": exc.message,
-				})
+				evaluation_errors.append(
+					{
+						"action_id": current_id,
+						"code": exc.code,
+						"path": exc.path,
+						"message": exc.message,
+					}
+				)
 				break
 			except Exception:
-				evaluation_errors.append({
-					"action_id": current_id,
-					"code": "condition_preview_error",
-					"path": "$",
-					"message": _("Condition could not be evaluated safely"),
-				})
+				evaluation_errors.append(
+					{
+						"action_id": current_id,
+						"code": "condition_preview_error",
+						"path": "$",
+						"message": _("Condition could not be evaluated safely"),
+					}
+				)
 				break
 		else:
 			current_id = action.next_step_if_true
