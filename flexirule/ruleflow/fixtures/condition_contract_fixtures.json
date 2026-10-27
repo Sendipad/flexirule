@@ -1,0 +1,702 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "FlexiRule Canonical Condition Contract Test Fixtures",
+  "version": 1,
+  "fixtures": [
+    {
+      "id": "valid_basic_typed_comparison_equals",
+      "description": "Valid basic string equality comparison with canonical envelope and business operator 'equals'",
+      "payload": {
+        "schema": "flexirule.condition",
+        "version": 1,
+        "root": {
+          "type": "comparison",
+          "operator": "equals",
+          "left": {
+            "mode": "variable",
+            "path": { "scope": "doc", "segments": ["status"] }
+          },
+          "right": {
+            "mode": "static",
+            "value_type": "string",
+            "value": "Submitted"
+          }
+        }
+      },
+      "expected_status": "accept",
+      "expected_diagnostic_code": null,
+      "evaluation": {
+        "context": {
+          "doc": { "status": "Submitted" }
+        },
+        "expected_outcome": true,
+        "expected_diagnostic_code": null
+      }
+    },
+    {
+      "id": "valid_basic_typed_comparison_greater_than",
+      "description": "Valid numeric greater_than comparison between decimal variable and numeric static value",
+      "payload": {
+        "schema": "flexirule.condition",
+        "version": 1,
+        "root": {
+          "type": "comparison",
+          "operator": "greater_than",
+          "left": {
+            "mode": "variable",
+            "path": { "scope": "doc", "segments": ["grand_total"] }
+          },
+          "right": {
+            "mode": "static",
+            "value_type": "integer",
+            "value": 1000
+          }
+        }
+      },
+      "expected_status": "accept",
+      "expected_diagnostic_code": null,
+      "evaluation": {
+        "context": {
+          "doc": { "grand_total": 500.00 }
+        },
+        "expected_outcome": false,
+        "expected_diagnostic_code": null
+      }
+    },
+    {
+      "id": "valid_nested_and_or_groups",
+      "description": "Valid nested AND/OR group structure demonstrating explicit logic without precedence ambiguity",
+      "payload": {
+        "schema": "flexirule.condition",
+        "version": 1,
+        "root": {
+          "type": "group",
+          "operator": "and",
+          "children": [
+            {
+              "type": "comparison",
+              "operator": "equals",
+              "left": {
+                "mode": "variable",
+                "path": { "scope": "doc", "segments": ["docstatus"] }
+              },
+              "right": {
+                "mode": "static",
+                "value_type": "integer",
+                "value": 1
+              }
+            },
+            {
+              "type": "group",
+              "operator": "or",
+              "children": [
+                {
+                  "type": "comparison",
+                  "operator": "greater_than",
+                  "left": {
+                    "mode": "variable",
+                    "path": { "scope": "doc", "segments": ["grand_total"] }
+                  },
+                  "right": {
+                    "mode": "static",
+                    "value_type": "integer",
+                    "value": 5000
+                  }
+                },
+                {
+                  "type": "comparison",
+                  "operator": "equals",
+                  "left": {
+                    "mode": "variable",
+                    "path": { "scope": "doc", "segments": ["customer_group"] }
+                  },
+                  "right": {
+                    "mode": "static",
+                    "value_type": "string",
+                    "value": "VIP"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "expected_status": "accept",
+      "expected_diagnostic_code": null,
+      "evaluation": {
+        "context": {
+          "doc": {
+            "docstatus": 1,
+            "grand_total": 2000,
+            "customer_group": "VIP"
+          }
+        },
+        "expected_outcome": true,
+        "expected_diagnostic_code": null
+      }
+    },
+    {
+      "id": "valid_typed_document_reference",
+      "description": "Valid explicitly typed document reference in FlexValue right operand",
+      "payload": {
+        "schema": "flexirule.condition",
+        "version": 1,
+        "root": {
+          "type": "comparison",
+          "operator": "equals",
+          "left": {
+            "mode": "variable",
+            "path": { "scope": "doc", "segments": ["customer"] }
+          },
+          "right": {
+            "mode": "static",
+            "value_type": "document_reference",
+            "value": {
+              "doctype": "Customer",
+              "name": "CUST-0001"
+            }
+          }
+        }
+      },
+      "expected_status": "accept",
+      "expected_diagnostic_code": null,
+      "evaluation": {
+        "context": {
+          "doc": { "customer": "CUST-0001" }
+        },
+        "expected_outcome": true,
+        "expected_diagnostic_code": null
+      }
+    },
+    {
+      "id": "valid_ordinary_two_item_list",
+      "description": "Valid ordinary two-item list comparison (is_one_of) that must remain a list and not be inferred as a Link tuple",
+      "payload": {
+        "schema": "flexirule.condition",
+        "version": 1,
+        "root": {
+          "type": "comparison",
+          "operator": "is_one_of",
+          "left": {
+            "mode": "variable",
+            "path": { "scope": "doc", "segments": ["status"] }
+          },
+          "right": {
+            "mode": "static",
+            "value_type": "list",
+            "value": ["Customer", "CUST-0001"]
+          }
+        }
+      },
+      "expected_status": "accept",
+      "expected_diagnostic_code": null,
+      "evaluation": {
+        "context": {
+          "doc": { "status": "Customer" }
+        },
+        "expected_outcome": true,
+        "expected_diagnostic_code": null
+      }
+    },
+    {
+      "id": "valid_unary_is_set_present_string",
+      "description": "Valid unary operator is_set evaluated on present non-empty string variable",
+      "payload": {
+        "schema": "flexirule.condition",
+        "version": 1,
+        "root": {
+          "type": "comparison",
+          "operator": "is_set",
+          "left": {
+            "mode": "variable",
+            "path": { "scope": "doc", "segments": ["po_no"] }
+          }
+        }
+      },
+      "expected_status": "accept",
+      "expected_diagnostic_code": null,
+      "evaluation": {
+        "context": {
+          "doc": { "po_no": "PO-12345" }
+        },
+        "expected_outcome": true,
+        "expected_diagnostic_code": null
+      }
+    },
+    {
+      "id": "valid_unary_is_set_missing_path",
+      "description": "Valid unary operator is_set returning false for missing path segment",
+      "payload": {
+        "schema": "flexirule.condition",
+        "version": 1,
+        "root": {
+          "type": "comparison",
+          "operator": "is_set",
+          "left": {
+            "mode": "variable",
+            "path": { "scope": "doc", "segments": ["non_existent_field"] }
+          }
+        }
+      },
+      "expected_status": "accept",
+      "expected_diagnostic_code": null,
+      "evaluation": {
+        "context": {
+          "doc": { "status": "Open" }
+        },
+        "expected_outcome": false,
+        "expected_diagnostic_code": null
+      }
+    },
+    {
+      "id": "valid_is_set_empty_string_vs_whitespace",
+      "description": "is_set returns false for empty string, but returns true for whitespace string",
+      "payload": {
+        "schema": "flexirule.condition",
+        "version": 1,
+        "root": {
+          "type": "comparison",
+          "operator": "is_set",
+          "left": {
+            "mode": "variable",
+            "path": { "scope": "doc", "segments": ["remarks"] }
+          }
+        }
+      },
+      "expected_status": "accept",
+      "expected_diagnostic_code": null,
+      "evaluation": {
+        "context": {
+          "doc": { "remarks": "   " }
+        },
+        "expected_outcome": true,
+        "expected_diagnostic_code": null
+      }
+    },
+    {
+      "id": "valid_is_empty_empty_list_and_object",
+      "description": "is_empty returns true for empty list [] and empty object {}",
+      "payload": {
+        "schema": "flexirule.condition",
+        "version": 1,
+        "root": {
+          "type": "group",
+          "operator": "and",
+          "children": [
+            {
+              "type": "comparison",
+              "operator": "is_empty",
+              "left": {
+                "mode": "variable",
+                "path": { "scope": "doc", "segments": ["items"] }
+              }
+            },
+            {
+              "type": "comparison",
+              "operator": "is_empty",
+              "left": {
+                "mode": "variable",
+                "path": { "scope": "doc", "segments": ["custom_json"] }
+              }
+            }
+          ]
+        }
+      },
+      "expected_status": "accept",
+      "expected_diagnostic_code": null,
+      "evaluation": {
+        "context": {
+          "doc": {
+            "items": [],
+            "custom_json": {}
+          }
+        },
+        "expected_outcome": true,
+        "expected_diagnostic_code": null
+      }
+    },
+    {
+      "id": "valid_short_circuit_and_evaluation",
+      "description": "Group AND short-circuits on first false condition without evaluating subsequent errored condition",
+      "payload": {
+        "schema": "flexirule.condition",
+        "version": 1,
+        "root": {
+          "type": "group",
+          "operator": "and",
+          "children": [
+            {
+              "type": "comparison",
+              "operator": "equals",
+              "left": {
+                "mode": "variable",
+                "path": { "scope": "doc", "segments": ["status"] }
+              },
+              "right": {
+                "mode": "static",
+                "value_type": "string",
+                "value": "Submitted"
+              }
+            },
+            {
+              "type": "comparison",
+              "operator": "greater_than",
+              "left": {
+                "mode": "variable",
+                "path": { "scope": "doc", "segments": ["missing_field"] }
+              },
+              "right": {
+                "mode": "static",
+                "value_type": "integer",
+                "value": 10
+              }
+            }
+          ]
+        }
+      },
+      "expected_status": "accept",
+      "expected_diagnostic_code": null,
+      "evaluation": {
+        "context": {
+          "doc": { "status": "Draft" }
+        },
+        "expected_outcome": false,
+        "expected_diagnostic_code": null
+      }
+    },
+    {
+      "id": "valid_null_versus_missing_differentiation",
+      "description": "Valid equality comparison with explicit static null comparing against present null",
+      "payload": {
+        "schema": "flexirule.condition",
+        "version": 1,
+        "root": {
+          "type": "comparison",
+          "operator": "equals",
+          "left": {
+            "mode": "variable",
+            "path": { "scope": "doc", "segments": ["posting_date"] }
+          },
+          "right": {
+            "mode": "static",
+            "value_type": "null",
+            "value": null
+          }
+        }
+      },
+      "expected_status": "accept",
+      "expected_diagnostic_code": null,
+      "evaluation": {
+        "context": {
+          "doc": { "posting_date": null }
+        },
+        "expected_outcome": true,
+        "expected_diagnostic_code": null
+      }
+    },
+    {
+      "id": "valid_false_versus_zero_no_coercion",
+      "description": "Valid comparison asserting boolean false is distinct from numeric zero",
+      "payload": {
+        "schema": "flexirule.condition",
+        "version": 1,
+        "root": {
+          "type": "comparison",
+          "operator": "equals",
+          "left": {
+            "mode": "variable",
+            "path": { "scope": "vars", "segments": ["is_active"] }
+          },
+          "right": {
+            "mode": "static",
+            "value_type": "integer",
+            "value": 0
+          }
+        }
+      },
+      "expected_status": "accept",
+      "expected_diagnostic_code": null,
+      "evaluation": {
+        "context": {
+          "vars": { "is_active": false }
+        },
+        "expected_outcome": false,
+        "expected_diagnostic_code": null
+      }
+    },
+    {
+      "id": "valid_collection_predicate_any",
+      "description": "Valid collection predicate checking if any child row satisfies the where condition",
+      "payload": {
+        "schema": "flexirule.condition",
+        "version": 1,
+        "root": {
+          "type": "collection_predicate",
+          "quantifier": "any",
+          "source": {
+            "mode": "variable",
+            "path": { "scope": "doc", "segments": ["items"] }
+          },
+          "as": "item_row",
+          "where": {
+            "type": "comparison",
+            "operator": "greater_than",
+            "left": {
+              "mode": "variable",
+              "path": { "scope": "item_row", "segments": ["amount"] }
+            },
+            "right": {
+              "mode": "static",
+              "value_type": "integer",
+              "value": 500
+            }
+          }
+        }
+      },
+      "expected_status": "accept",
+      "expected_diagnostic_code": null,
+      "evaluation": {
+        "context": {
+          "doc": {
+            "items": [
+              { "item_code": "A", "amount": 100 },
+              { "item_code": "B", "amount": 750 }
+            ]
+          }
+        },
+        "expected_outcome": true,
+        "expected_diagnostic_code": null
+      }
+    },
+    {
+      "id": "eval_error_binary_operator_missing_variable",
+      "description": "Binary comparison operator encountering missing variable raises typed evaluation error",
+      "payload": {
+        "schema": "flexirule.condition",
+        "version": 1,
+        "root": {
+          "type": "comparison",
+          "operator": "greater_than",
+          "left": {
+            "mode": "variable",
+            "path": { "scope": "doc", "segments": ["missing_field"] }
+          },
+          "right": {
+            "mode": "static",
+            "value_type": "integer",
+            "value": 10
+          }
+        }
+      },
+      "expected_status": "accept",
+      "expected_diagnostic_code": null,
+      "evaluation": {
+        "context": {
+          "doc": { "status": "Draft" }
+        },
+        "expected_outcome": "error",
+        "expected_diagnostic_code": "ERR_MISSING_VARIABLE_PATH"
+      }
+    },
+    {
+      "id": "reject_unknown_schema_identifier",
+      "description": "Condition envelope with invalid or unknown schema identifier is rejected",
+      "payload": {
+        "schema": "custom.invalid_condition_schema",
+        "version": 1,
+        "root": {
+          "type": "comparison",
+          "operator": "equals",
+          "left": { "mode": "static", "value_type": "string", "value": "a" },
+          "right": { "mode": "static", "value_type": "string", "value": "a" }
+        }
+      },
+      "expected_status": "reject",
+      "expected_diagnostic_code": "ERR_UNKNOWN_SCHEMA",
+      "evaluation": null
+    },
+    {
+      "id": "reject_unsupported_schema_version",
+      "description": "Condition envelope with unsupported schema version 99 is rejected",
+      "payload": {
+        "schema": "flexirule.condition",
+        "version": 99,
+        "root": {
+          "type": "comparison",
+          "operator": "equals",
+          "left": { "mode": "static", "value_type": "string", "value": "a" },
+          "right": { "mode": "static", "value_type": "string", "value": "a" }
+        }
+      },
+      "expected_status": "reject",
+      "expected_diagnostic_code": "ERR_UNSUPPORTED_VERSION",
+      "evaluation": null
+    },
+    {
+      "id": "reject_empty_group_children",
+      "description": "Present condition group with empty children list is invalid and rejected",
+      "payload": {
+        "schema": "flexirule.condition",
+        "version": 1,
+        "root": {
+          "type": "group",
+          "operator": "and",
+          "children": []
+        }
+      },
+      "expected_status": "reject",
+      "expected_diagnostic_code": "ERR_EMPTY_GROUP_CHILDREN",
+      "evaluation": null
+    },
+    {
+      "id": "reject_unknown_operator",
+      "description": "Comparison node with unrecognised operator 'invalid_op' is rejected",
+      "payload": {
+        "schema": "flexirule.condition",
+        "version": 1,
+        "root": {
+          "type": "comparison",
+          "operator": "invalid_op",
+          "left": { "mode": "static", "value_type": "string", "value": "x" },
+          "right": { "mode": "static", "value_type": "string", "value": "x" }
+        }
+      },
+      "expected_status": "reject",
+      "expected_diagnostic_code": "ERR_UNKNOWN_OPERATOR",
+      "evaluation": null
+    },
+    {
+      "id": "reject_malformed_json_string_payload",
+      "description": "Malformed JSON payload string at consumer boundary fails validation",
+      "payload": "{ malformed_json: ",
+      "expected_status": "reject",
+      "expected_diagnostic_code": "ERR_MALFORMED_JSON_PAYLOAD",
+      "evaluation": null
+    },
+    {
+      "id": "reject_malformed_resolver_config",
+      "description": "Resolver FlexValue node with unpermitted condition operand operation is rejected",
+      "payload": {
+        "schema": "flexirule.condition",
+        "version": 1,
+        "root": {
+          "type": "comparison",
+          "operator": "equals",
+          "left": {
+            "mode": "resolver",
+            "family": "lookup",
+            "operation": "unauthorized_db_query",
+            "config": {}
+          },
+          "right": { "mode": "static", "value_type": "string", "value": "val" }
+        }
+      },
+      "expected_status": "reject",
+      "expected_diagnostic_code": "ERR_DISALLOWED_RESOLVER_OPERAND",
+      "evaluation": null
+    },
+    {
+      "id": "migrate_legacy_token_double_equals",
+      "description": "Legacy comparison with token '==' requires migration to canonical 'equals'",
+      "payload": {
+        "type": "comparison",
+        "operator": "==",
+        "left": { "mode": "variable", "path": { "scope": "doc", "segments": ["status"] } },
+        "right": { "mode": "static", "value_type": "string", "value": "Open" }
+      },
+      "expected_status": "migrate",
+      "expected_diagnostic_code": "MIGRATE_LEGACY_TOKEN",
+      "evaluation": null
+    },
+    {
+      "id": "migrate_legacy_token_like_ambiguous",
+      "description": "Legacy token 'like' cannot be auto-converted and requires manual migration review",
+      "payload": {
+        "type": "comparison",
+        "operator": "like",
+        "left": { "mode": "variable", "path": { "scope": "doc", "segments": ["name"] } },
+        "right": { "mode": "static", "value_type": "string", "value": "ACC-%" }
+      },
+      "expected_status": "migrate",
+      "expected_diagnostic_code": "MIGRATE_NON_CANONICAL_OPERATOR_LIKE",
+      "evaluation": null
+    },
+    {
+      "id": "migrate_legacy_token_not_like_ambiguous",
+      "description": "Legacy token 'not like' requires manual migration review diagnostic",
+      "payload": {
+        "type": "comparison",
+        "operator": "not like",
+        "left": { "mode": "variable", "path": { "scope": "doc", "segments": ["name"] } },
+        "right": { "mode": "static", "value_type": "string", "value": "TEMP-%" }
+      },
+      "expected_status": "migrate",
+      "expected_diagnostic_code": "MIGRATE_NON_CANONICAL_OPERATOR_LIKE",
+      "evaluation": null
+    },
+    {
+      "id": "migrate_legacy_token_regex_prohibited",
+      "description": "Legacy token 'regex' is prohibited in v1 canonical AST and emits migration diagnostic",
+      "payload": {
+        "type": "comparison",
+        "operator": "regex",
+        "left": { "mode": "variable", "path": { "scope": "doc", "segments": ["code"] } },
+        "right": { "mode": "static", "value_type": "string", "value": "^[A-Z]{3}-\\d{4}$" }
+      },
+      "expected_status": "migrate",
+      "expected_diagnostic_code": "MIGRATE_NON_CANONICAL_OPERATOR_REGEX",
+      "evaluation": null
+    },
+    {
+      "id": "migrate_legacy_token_contains_context",
+      "description": "Legacy token 'contains' requires context conversion review",
+      "payload": {
+        "type": "comparison",
+        "operator": "contains",
+        "left": { "mode": "variable", "path": { "scope": "doc", "segments": ["description"] } },
+        "right": { "mode": "static", "value_type": "string", "value": "urgent" }
+      },
+      "expected_status": "migrate",
+      "expected_diagnostic_code": "MIGRATE_LEGACY_CONTAINS",
+      "evaluation": null
+    },
+    {
+      "id": "migrate_legacy_token_has_changed_ambiguous",
+      "description": "Legacy token 'has_changed' requires explicit migration diagnostic",
+      "payload": {
+        "type": "comparison",
+        "operator": "has_changed",
+        "left": "status"
+      },
+      "expected_status": "migrate",
+      "expected_diagnostic_code": "MIGRATE_NON_CANONICAL_OPERATOR_HAS_CHANGED",
+      "evaluation": null
+    },
+    {
+      "id": "migrate_legacy_op_conditions_tree",
+      "description": "Legacy ConditionBuilder {op, conditions} tree format requires migration adapter",
+      "payload": {
+        "op": "and",
+        "conditions": [
+          { "left": "status", "op": "==", "right": "Submitted" }
+        ]
+      },
+      "expected_status": "migrate",
+      "expected_diagnostic_code": "MIGRATE_LEGACY_TREE_FORMAT",
+      "evaluation": null
+    },
+    {
+      "id": "migrate_legacy_link_tuple_ambiguous",
+      "description": "Legacy 2-item link tuple without left operand DocType metadata verification requires migration diagnostic",
+      "payload": {
+        "type": "comparison",
+        "operator": "==",
+        "left": { "mode": "variable", "path": { "scope": "doc", "segments": ["custom_link_field"] } },
+        "right": ["Customer", "CUST-0001"]
+      },
+      "expected_status": "migrate",
+      "expected_diagnostic_code": "MIGRATE_AMBIGUOUS_LINK_TUPLE",
+      "evaluation": null
+    }
+  ]
+}

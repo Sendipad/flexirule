@@ -1,33 +1,30 @@
-# Canonical Condition Evaluation — Shared Contract and Handoff
+# Shared Specification — Canonical Condition v1 and FlexValue Wire Contract
 
-**Status:** Source-reviewed implementation plan only. No application behavior was changed and no implementation/test result is claimed.
-
-**Repository:** [Sendipad/flexirule](https://github.com/Sendipad/flexirule)  
+**Target branch:** `plan/canonical-condition-evaluation-tasks-20261026` (PR #460)
+**Primary specification:** PR #460
 **Source review:** Current develop source fetched on 2026-10-26.  
 **Task plans:** [Backend implementation plan](backend-implementation-plan.md) · [Frontend implementation plan](frontend-implementation-plan.md)
 
-## 1. Why this work is required
+---
 
-The current source has multiple paths that define conditions differently:
+## 1. Objective and Scope Boundaries
 
-- [core/compiler.py](https://github.com/Sendipad/flexirule/blob/develop/flexirule/ruleflow/core/compiler.py) turns older condition trees into Python source. Unsupported nodes can disappear and an empty compiled result can become True. Its operator map, labels and supported operators do not fully agree.
-- [core/evaluator.py](https://github.com/Sendipad/flexirule/blob/develop/flexirule/ruleflow/core/evaluator.py) evaluates a separate JSON condition format, has its own operator table, and applies sibling joins differently from Python operator precedence.
-- [core/condition_payload.py](https://github.com/Sendipad/flexirule/blob/develop/flexirule/ruleflow/core/condition_payload.py) accepts multiple legacy wrappers, serialized trees and raw strings.
-- [Rule.validate()/compile_conditions()](https://github.com/Sendipad/flexirule/blob/develop/flexirule/ruleflow/doctype/rule/rule.py), [ConditionHandler](https://github.com/Sendipad/flexirule/blob/develop/flexirule/ruleflow/core/action_handlers/condition.py), [SubRuleHandler](https://github.com/Sendipad/flexirule/blob/develop/flexirule/ruleflow/core/action_handlers/sub_rule.py), and [AssignmentHandler](https://github.com/Sendipad/flexirule/blob/develop/flexirule/ruleflow/core/action_handlers/assignment.py) consume or compile conditions differently. Assignment guard compilation currently catches an exception and returns an empty expression, which can turn a broken guard into “run unconditionally.”
-- [ValueResolver / CollectionResolver](https://github.com/Sendipad/flexirule/blob/develop/flexirule/ruleflow/core/value_resolver.py) uses the legacy ConditionEvaluator for row predicates.
-- [ConditionBuilder.vue](https://github.com/Sendipad/flexirule/blob/develop/flexirule/public/js/flexirule/rule_builder/components/condition_builder/ConditionBuilder.vue) edits the legacy op/conditions tree; [SimpleCondition.vue](https://github.com/Sendipad/flexirule/blob/develop/flexirule/public/js/flexirule/rule_builder/components/condition_builder/SimpleCondition.vue) uses a field picker for the left operand and FlexValue for the right, and includes static operator fallbacks.
+This document freezes the canonical condition and FlexValue wire contract for FlexiRule.
 
-Existing analysis is useful but is not implementation evidence: [PR #412 — condition architecture audit](https://github.com/Sendipad/flexirule/pull/412), [PR #434 — canonical condition/FlexValue proposal](https://github.com/Sendipad/flexirule/pull/434), [PR #438 — focused FlexValue backend-contract handoff](https://github.com/Sendipad/flexirule/pull/438), and [PR #433 — benchmark/parity investigation](https://github.com/Sendipad/flexirule/pull/433). PR #433 recorded a known semantic disagreement around has_changed, so its timing results are not proof of full semantic parity.
+### Scope Boundaries
+- **Specification & Fixtures Only:** This task (Task 0) produces frozen documentation specifications and machine-readable contract fixtures in `flexirule/ruleflow/fixtures/condition_contract_fixtures.json`.
+- **Zero Application Code Changes:** No runtime application code (`flexirule/ruleflow/core/*.py`), frontend Vue/JS components (`public/js/`), DocTypes, database schemas, migrations, or workflows are modified in Task 0.
+- **Single Source of Truth:** PR #460 and `reports/condition-evaluation/README.md` serve as the single primary specification for all subsequent backend and frontend implementation tasks.
 
-## 2. Frozen public contract for implementation
+---
 
-The following is the shared wire contract for both task plans. Any deviation must be raised in review and applied to backend, frontend and fixtures together; do not introduce a second schema.
+## 2. Frozen Public Wire Contract
 
-### 2.1 Condition envelope
+### 2.1 Condition Envelope
 
-A complete canonical condition is JSON-serializable and uses this envelope:
+A complete canonical condition payload is JSON-serializable and MUST use this envelope:
 
-~~~json
+```json
 {
   "schema": "flexirule.condition",
   "version": 1,
@@ -37,7 +34,7 @@ A complete canonical condition is JSON-serializable and uses this envelope:
     "children": [
       {
         "type": "comparison",
-        "operator": "==",
+        "operator": "equals",
         "left": {
           "mode": "variable",
           "path": { "scope": "doc", "segments": ["status"] }
@@ -45,83 +42,217 @@ A complete canonical condition is JSON-serializable and uses this envelope:
         "right": {
           "mode": "static",
           "value_type": "string",
-          "value": "Open"
+          "value": "Submitted"
         }
       }
     ]
   }
 }
-~~~
+```
 
-- Rule trigger condition storage contains the envelope above.
-- The Condition action’s existing config field contains the envelope itself; the UI must not add another condition wrapper. Legacy condition_json is read only by the explicit legacy adapter.
-- Assignment run-if guards and nested row predicates use the same schema. Their owning field may be absent for a documented “no guard” state; a present malformed condition is never treated as absent.
-- UI IDs are ephemeral and must be stripped before persistence.
-- Saved JSON is the source of truth. Do not persist generated Python or a second normalized/compiled JSON tree.
+#### Envelope Rules
+1. **Top-Level Only:** The `schema` and `version` fields appear exactly once at the top level of a complete condition payload. They MUST NOT be repeated on nested nodes.
+2. **JSON AST Source of Truth:** The saved JSON AST is the sole authoritative source of truth. Generated Python code strings and persisted execution plans are NOT part of the contract and MUST NOT be saved.
+3. **No Unneeded Version Bumps:** Implementation-level optimizations do not require schema version changes.
+4. **Explicit Migration for Format Changes:** Any incompatible persisted format or semantic change requires an explicit versioning and migration decision.
+5. **Fail-Closed Verification:** Unknown schema identifiers (anything other than `"flexirule.condition"`) and unsupported versions (anything other than `1`) are rejected with actionable diagnostics. Implementation code MUST NEVER guess a format or silently reset a condition to an empty state.
 
-### 2.2 Canonical nodes and operands
+---
 
-**Group:** type = group, operator = and/or, non-empty children. All siblings in a group use the same operator; express mixed logic using nested groups. Preserve child order.
+### 2.2 Canonical AST Node Types
 
-**Comparison:** type = comparison, canonical operator, left and—except where the operator is explicitly unary—right. Both operands are FlexValue nodes. Operator metadata defines arity, supported value types, Fieldtype constraints, link policy and missing/null behavior.
+The canonical AST contains exactly three node types under `root` or within nested child structures:
 
-**Collection predicate:** type = collection_predicate, quantifier = any/all/none, a variable/path source, validated local alias as, and nested where condition node. The initial canonical contract permits only a variable/path as the collection source. The row alias is scoped to that predicate and its descendants.
+#### 1. Group Node (`type: "group"`)
+- `type`: `"group"`
+- `operator`: `"and"` | `"or"`
+- `children`: Array of non-empty child nodes (`comparison`, `group`, or `collection_predicate`).
+- **Rules:** Siblings within a group share the same logical `operator`. Mixed logic MUST be represented using explicitly nested groups. Children array MUST NOT be empty in saved canonical JSON. Child evaluation order is preserved left-to-right.
 
-**FlexValue union:**
+#### 2. Comparison Node (`type: "comparison"`)
+- `type`: `"comparison"`
+- `operator`: Stable canonical operator ID from the registry (e.g., `"equals"`, `"greater_than"`, `"is_set"`).
+- `left`: Valid FlexValue object.
+- `right`: Valid FlexValue object (omitted ONLY when operator arity is 1, e.g., `"is_set"`, `"is_empty"`).
 
-- **Static:** mode = static with value_type and value. Preserve string, integer, decimal, boolean, null, date, datetime, time, list and object distinctions. Decimal values are serialized as strings and converted to Decimal at the typed runtime boundary.
-- **Variable:** mode = variable with path.scope and path.segments. Canonical scopes are doc, old_doc, vars, item, loop, row, caller, rule, doctype, and a locally declared collection alias. No implicit “try doc, then vars” lookup in canonical mode.
-- **Resolver:** mode = resolver with family, operation and config. Config is operation-specific, backend-owned and recursively validated. Resolver output type/capability must be declared; no general resolver is automatically safe as a condition operand.
-- **Template:** mode = template with typed text/value segments, where value segments recursively contain a valid FlexValue. No raw Python/Jinja expression is allowed in canonical conditions.
+#### 3. Collection Predicate Node (`type: "collection_predicate"`)
+- `type`: `"collection_predicate"`
+- `quantifier`: `"any"` | `"all"` | `"none"`
+- `source`: FlexValue variable reference pointing to a list/child-table (e.g., `{ "mode": "variable", "path": { "scope": "doc", "segments": ["items"] } }`).
+- `as`: Valid string row alias scoped strictly to this predicate and its nested descendants (e.g., `"item_row"`).
+- `where`: Valid nested condition node (`comparison` or `group`) evaluated against each row.
+- **Safety Limit:** Collection iteration reuses the shared constant limit of 10,000 rows. Reaching or exceeding 10,000 rows without finding a terminal result halts evaluation with a typed resource limit error (`ERR_COLLECTION_ROW_GUARD_EXCEEDED`). Collections MUST NEVER be silently truncated.
 
-Reject unknown keys, variants, scopes, operators, operations and schema versions. Do not infer a node or FlexValue kind merely from the keys that happen to be present.
+---
 
-### 2.3 Semantic decisions for v1
+### 2.3 Business-Oriented Operator Registry Contract
 
-1. A group evaluates left-to-right with strict short-circuit AND/OR. Mixed logic requires nested groups; no implicit Python precedence.
-2. An absent trigger filter means no trigger filter. A missing assignment guard means unconditional assignment. A Condition action must be configured before activation. Any present empty group, malformed tree or failed conversion is invalid; it cannot mean True.
-3. Preserve a present null separately from a missing path. is_set returns false and is_not_set true for missing/null/empty string; whitespace is set. Other operators encountering a missing runtime value raise a typed evaluation error. A present null can be compared to a typed null; empty string remains distinct. False is never coerced to numeric zero.
-4. Canonical operators use one server-owned registry. V1 keeps typed equality/order, membership (in, not in), literal substring (contains, not_contains), presence/emptiness, length comparisons, and metadata operators (is_submittable, has_field) with explicit arity/type contracts.
-5. V1 does not include regex, has_changed, identity operators (is/is not), unknown operator fallbacks, or generated-Python condition expressions. like/not like are legacy tokens with ambiguous historical behavior: inventory them; do not auto-rewrite them unless the migration decision is explicitly approved. Legacy not_in is a migration alias for canonical not in, not a second runtime token.
-6. Do not infer a Link tuple from any two-item list. Legacy link tuples can be converted only when left-side DocType metadata proves the tuple target matches; otherwise emit a migration issue.
-7. Invalid schema/operator/resolver configuration is a validation failure. A runtime resolution/type/configuration error is a distinct typed error—not a normal false condition and never a true/pass-through result. Consumer adapters may apply existing Frappe lifecycle/on-error policy, but must retain a distinct diagnostic; trigger errors fail closed (rule does not run) and are logged as errors, not reported as an ordinary false filter.
-8. Reuse the existing collection row guard of 10,000 rows as one shared constant. Add bounded work limits for AST depth, node count, resolver recursion, path segments and template segments; define them once in the backend contract and test their boundaries. Never silently truncate collections.
+The canonical operator contract describes business comparison semantics rather than Python syntax or UI symbols. The backend owns the single authoritative operator registry.
 
-### 2.4 Server-owned metadata
+#### Authoritative Operator Table
 
-The backend is authoritative for operators, arity, operand types, Fieldtype applicability, resolver family/operation config, output type, condition_operand_allowed, required resolver level/capability, allowed scopes and resource limits. Extend the existing authenticated builder API pattern (currently get_operator_config) with a versioned condition-contract DTO. Keep the current endpoint compatible while legacy consumers still use it. Frontend metadata is for UX, not security.
+| Canonical ID | Translatable Label | Arity | Supported Operand Value Types | Applicable Field Types | Missing / Null Semantics |
+|---|---|---|---|---|---|
+| `equals` | Equals | 2 | String, Integer, Decimal, Boolean, Null, Date, Datetime, Document Reference | All | Null == Null is True; missing path in binary op raises `ERR_MISSING_VARIABLE_PATH` |
+| `not_equals` | Does Not Equal | 2 | String, Integer, Decimal, Boolean, Null, Date, Datetime, Document Reference | All | Inverse of `equals` |
+| `greater_than` | Greater Than | 2 | Integer, Decimal, Date, Datetime, Time | Numeric, Date, Datetime, Time | Strict type match required; missing path raises `ERR_MISSING_VARIABLE_PATH` |
+| `less_than` | Less Than | 2 | Integer, Decimal, Date, Datetime, Time | Numeric, Date, Datetime, Time | Strict type match required; missing path raises `ERR_MISSING_VARIABLE_PATH` |
+| `greater_than_or_equals` | Greater Than or Equal | 2 | Integer, Decimal, Date, Datetime, Time | Numeric, Date, Datetime, Time | Strict type match required; missing path raises `ERR_MISSING_VARIABLE_PATH` |
+| `less_than_or_equals` | Less Than or Equal | 2 | Integer, Decimal, Date, Datetime, Time | Numeric, Date, Datetime, Time | Strict type match required; missing path raises `ERR_MISSING_VARIABLE_PATH` |
+| `is_one_of` | Is One Of | 2 | List (Right operand) | Select, Link, Data, Integer | Right operand must be a List; item type matching applied |
+| `is_not_one_of` | Is Not One Of | 2 | List (Right operand) | Select, Link, Data, Integer | Inverse of `is_one_of` |
+| `contains_text` | Contains Text | 2 | String | Text, Data, Small Text, Code, JSON | Case-insensitive literal substring match; non-string raises type error |
+| `is_set` | Is Set | 1 | Any | All | Returns True if value is present, non-null, and non-empty string. Whitespace strings are considered set. Missing path returns False without error. |
+| `is_not_set` | Is Not Set | 1 | Any | All | Inverse of `is_set`. Returns True for missing paths or nulls without error. |
+| `is_empty` | Is Empty | 1 | String, List, Object | Text, Data, Table, JSON | Returns True if length/count is 0 or value is null/missing |
+| `is_not_empty` | Is Not Empty | 1 | String, List, Object | Text, Data, Table, JSON | Inverse of `is_empty` |
+| `is_submittable` | Is Submittable | 1 | Document Reference / DocType String | Link, Dynamic Link | Returns True if target DocType has `is_submittable = 1` |
+| `has_field` | Has Field | 2 | String (Fieldname) | All DocTypes | Checks if target document/DocType contains specified field |
 
-Resolver families/operations default to **not allowed as condition operands** unless the backend registry explicitly sets condition_operand_allowed = true, output type, required configuration, permission policy and regression tests. In particular, lookup/database-backed resolvers must have a verified permission and query-limit policy before being enabled.
+#### Exhaustive Legacy Operator Classification Matrix
 
-## 3. Architecture and implementation ordering
+| Legacy Token | Classification | Canonical Target / Action | Diagnostic Code |
+|---|---|---|---|
+| `==` | Deterministic Mapping | `equals` | `MIGRATE_LEGACY_TOKEN` |
+| `!=` | Deterministic Mapping | `not_equals` | `MIGRATE_LEGACY_TOKEN` |
+| `>` | Deterministic Mapping | `greater_than` | `MIGRATE_LEGACY_TOKEN` |
+| `<` | Deterministic Mapping | `less_than` | `MIGRATE_LEGACY_TOKEN` |
+| `>=` | Deterministic Mapping | `greater_than_or_equals` | `MIGRATE_LEGACY_TOKEN` |
+| `<=` | Deterministic Mapping | `less_than_or_equals` | `MIGRATE_LEGACY_TOKEN` |
+| `in` | Deterministic Mapping | `is_one_of` | `MIGRATE_LEGACY_TOKEN` |
+| `not in`, `not_in` | Deterministic Mapping | `is_not_one_of` | `MIGRATE_LEGACY_TOKEN` |
+| `=` | Unverified Alias (Manual Review) | Requires context verification | `MIGRATE_NON_CANONICAL_OPERATOR_ASSIGNMENT_EQUAL` |
+| `<>` | Unverified Alias (Manual Review) | Requires context verification | `MIGRATE_NON_CANONICAL_OPERATOR_ANGLE_BRACKETS` |
+| `like`, `not like` | Ambiguous / Manual Review | SQL wildcard semantics differ from canonical literal text | `MIGRATE_NON_CANONICAL_OPERATOR_LIKE` |
+| `regex` | Prohibited in v1 | Regex patterns not supported in v1 canonical AST | `MIGRATE_NON_CANONICAL_OPERATOR_REGEX` |
+| `contains` | Context Conversion | Historical compiler `contains` is case-sensitive Python `in`. Convert to `contains_text` only if case-insensitivity is accepted or flagged for review. | `MIGRATE_LEGACY_CONTAINS` |
+| `not_contains` | Context Conversion | Inverse of legacy `contains` | `MIGRATE_LEGACY_NOT_CONTAINS` |
+| `length_eq`, `length_gt`, `length_gte`, `length_lt`, `length_lte` | Unclassified Legacy | Length comparisons require string/collection length resolver or manual migration review | `MIGRATE_LEGACY_LENGTH_OPERATOR` |
+| `has_changed` | Prohibited in v1 | Historical benchmark disparity; requires explicit state tracking resolver in v2 | `MIGRATE_NON_CANONICAL_OPERATOR_HAS_CHANGED` |
+| `is`, `is not` | Prohibited in v1 | Python identity operators strictly forbidden | `MIGRATE_NON_CANONICAL_OPERATOR_IDENTITY` |
 
-The backend owns validation and runtime semantics; the frontend owns interaction, not condition meaning.
+---
 
-1. **Contract first:** contract DTO, strict FlexValue/condition validation, canonical fixtures and stable path-specific diagnostics.
-2. **Backend evaluator:** typed context access, comparator registry, short-circuit AST traversal and scoped collection predicates. No eval/exec/frappe.safe_eval for canonical conditions.
-3. **Frontend builder:** load/edit the canonical AST, use the contract DTO for operator/resolver options, and round-trip with no semantic loss.
-4. **Consumer adapters:** Rule trigger gate, Condition action routing, callable Sub-Rule gate, assignment run-if guard and CollectionResolver all use the same evaluator.
-5. **Legacy inventory/migration:** convert only deterministic payloads. Ambiguous legacy conditions are reported for explicit repair, not silently rewritten on load.
-6. **Deprecation/performance:** remove generated-Python and old evaluator routes only after consumer parity, migration and cache tests pass. Any optimization is ephemeral/rebuildable and derived from canonical JSON; no persisted compiled condition.
+### 2.4 FlexValue Union & Document Reference Semantics
 
-The frontend and backend tasks may begin in parallel against this contract, but final runtime/UI integration is not merge-ready until both sides pass shared fixture round-trip tests. The backend plan is responsible for inspecting and reconciling [PR #438](https://github.com/Sendipad/flexirule/pull/438): it is a focused task brief, so do not create a competing FlexValue contract implementation in parallel. Reuse its branch/work where useful or supersede it explicitly.
+Both left and right comparison operands use the identical FlexValue union structure.
 
+#### FlexValue Union Variants
+1. **Static (`mode: "static"`):** Carries explicit `value_type` and `value`.
+   - Supported value types: `string`, `integer`, `decimal` (serialized as string to avoid floating-point loss), `boolean`, `null`, `date`, `datetime`, `time`, `list`, `object`, `document_reference`.
+2. **Variable (`mode: "variable"`):** Explicit path segment resolution with scope.
+   - Canonical scopes: `doc`, `old_doc`, `vars`, `item`, `loop`, `row`, `caller`, `rule`, `doctype`, and locally declared collection aliases.
+   - Fallback searches across scopes are strictly forbidden in canonical mode.
+3. **Resolver (`mode: "resolver"`):** Explicit resolver invocation.
+   - Carries `family`, `operation`, and backend-validated `config`.
+   - Resolvers default to `condition_operand_allowed = false` unless explicitly audited and permitted by backend capability policy.
+   - Database lookup resolvers MUST NOT be enabled as condition operands without explicit permission and query-limit policies.
+4. **Template (`mode: "template"`):** Structured text/value segments where value segments recursively contain valid FlexValue nodes.
+   - Raw Jinja or Python expression strings are strictly forbidden.
 
+#### Link & Document Reference Comparison Rules
+1. **Scalar Link Values:** Ordinary Link comparisons use scalar strings (`value_type: "string"`, e.g. `"CUST-0001"`). Scalar Link values are compared against typed document references by matching document `name`.
+2. **Explicitly Typed Document Reference:**
+   ```json
+   {
+     "mode": "static",
+     "value_type": "document_reference",
+     "value": {
+       "doctype": "Customer",
+       "name": "CUST-0001"
+     }
+   }
+   ```
+3. **DocType Compatibility Check:** When comparing a scalar Link field or typed reference, the `doctype` specified in the reference MUST be compatible with the target DocType metadata of the left operand field. Mismatched target DocTypes fail validation (`ERR_LINK_DOCTYPES_INCOMPATIBLE`).
+4. **No Implicit Database Query:** Comparison of typed document references performs string/metadata matching only and DOES NOT execute database queries to verify existence unless an explicit lookup resolver is configured.
+5. **Two-Item Lists Are Strictly Lists:** A two-item list (e.g., `["Customer", "CUST-0001"]`) is NEVER interpreted as a Link tuple based on shape alone. It is evaluated strictly as a `list` unless a separate legacy migration adapter proves its legacy meaning using verified left-operand Link metadata.
+6. **Resolver Output Contracts:** Resolvers returning document references MUST declare `value_type: "document_reference"` in their output contract.
 
-## 5. Prior architecture report and related implementation evidence
+---
 
-The full upstream architecture plan from merged PR #434 is now included in this branch at [canonical-condition-flexvalue-implementation-plan.md](../canonical-condition-flexvalue-implementation-plan.md). It is the detailed background report; this directory's README freezes the cross-task v1 wire contract, and the backend/frontend files are the actionable Jules task plans. If a detail differs, stop and reconcile it before coding rather than silently diverging.
+### 2.5 Logical and Value Semantics
 
-Relevant existing work to inspect before implementation:
+1. **Short-Circuit Logical Groups:**
+   - Group nodes (`type: "group"`) evaluate children left-to-right with strict short-circuiting (`and` halts on first `false` or evaluation error; `or` halts on first `true`).
+2. **Absent vs Empty/Malformed Condition Boundary:**
 
-- [PR #416 — condition tree validation/operator registry/evaluator prototype](https://github.com/Sendipad/flexirule/pull/416): draft implementation with useful source and tests, but not merge-ready. Its report/PR says generated-Python legacy paths remain and several compatibility gates are outstanding. Reuse verified pieces selectively; do not treat the draft as the finished canonical evaluator or merge it wholesale.
-- [PR #433 — benchmark and parity investigation](https://github.com/Sendipad/flexirule/pull/433): includes `reports/condition-backend-comparison-benchmark.md`, raw `reports/condition_benchmark_results.json`, benchmark runner and tests. The recorded correctness gate failed (12 of 13 fixtures agreed; `has_changed` disagreed), so benchmark numbers are not a semantic approval or a release gate pass. Benchmark source branch/commit were recorded as “not captured”; rerun on a pinned source SHA after semantic parity is resolved.
-- [PR #412 — condition architecture audit](https://github.com/Sendipad/flexirule/pull/412): use as supporting source inventory, not as implementation evidence.
-- [PR #438 — canonical FlexValue backend contract task](https://github.com/Sendipad/flexirule/pull/438): task brief only at last inspection; reconcile its current state before creating overlapping contract code.
+| Consumer Field State | Semantic Meaning | Evaluation Behavior |
+|---|---|---|
+| Field omitted / missing | Optional guard/filter absent | Unconditional execution (Pass / True) |
+| Field explicitly `null` | Optional guard/filter absent | Unconditional execution (Pass / True) |
+| Valid canonical condition payload | Active condition configured | Evaluated via canonical evaluator |
+| Present condition with `children: []` | Invalid condition | Fails validation / Fails Closed (Error) |
+| Blank or malformed payload string | Invalid condition | Fails validation / Fails Closed (Error) |
+| Unknown schema or version | Invalid condition | Fails validation / Fails Closed (Error) |
+| Malformed node or operator config | Invalid condition | Fails validation / Fails Closed (Error) |
 
-## 6. Repository guardrails
+3. **Value & Type Semantics:**
+   - **Missing Path vs Null Value:** Unary `is_set` and `is_not_set` handle missing paths safely. All binary operators encountering a missing variable path raise a typed evaluation error (`ERR_MISSING_VARIABLE_PATH`).
+   - **Empty String vs Whitespace:** Empty string (`""`) is considered unset (`is_set` -> False). Whitespace strings (e.g., `" "`) are considered set (`is_set` -> True).
+   - **Empty Collection / Object:** Empty lists (`[]`) and empty dicts (`{}`) return True for `is_empty` and False for `is_not_empty`.
+   - **False vs Zero:** Boolean `false` and integer/decimal `0` are distinct types. Boolean `false` is NEVER coerced to numeric `0`.
+   - **Fail-Closed Error Policy:** Evaluation errors (missing paths in binary comparisons, type mismatches, resolver execution errors) fail closed. An evaluation error is NEVER converted to an ordinary `false` or `true` result; it triggers lifecycle error handling while preserving distinct diagnostic codes.
 
-- Follow [AGENTS.md](https://github.com/Sendipad/flexirule/blob/develop/AGENTS.md): use established action-handler/contract patterns, keep state out of shared handler singletons, preserve mutation policy, and inspect cache invalidation paths.
-- Reuse Frappe Document.validate, DocType metadata, existing whitelisted builder API/access checks, FrappeTestCase, FieldResolver, and existing CompiledResolver/ValueResolver operations where their canonical input has been validated. Do not replace those with a second parallel framework.
-- Query Records/Frappe filters are a separate query contract; do not convert them to condition predicates by assumption. Assignment mutation operators are separate from condition comparison operators.
-- This PR and these files are planning-only. No application code, database patch, DocType field, dependency, benchmark or test result is introduced by this PR.
+---
+
+## 3. Server-Owned Metadata Contract (DTO)
+
+The backend exposes a versioned contract DTO endpoint (`flexirule.ruleflow.api.get_condition_contract_dto`) that publishes authoritative capabilities to the frontend builder.
+
+### Contract DTO Response Structure
+```json
+{
+  "schema": "flexirule.condition_dto",
+  "version": 1,
+  "operators": [
+    {
+      "id": "equals",
+      "label": "Equals",
+      "arity": 2,
+      "supported_value_types": ["string", "integer", "decimal", "boolean", "null", "date", "datetime", "document_reference"],
+      "field_types": ["Data", "Select", "Int", "Float", "Currency", "Check", "Date", "Datetime", "Link"]
+    }
+  ],
+  "scopes": ["doc", "old_doc", "vars", "item", "loop", "row", "caller", "rule", "doctype"],
+  "resolvers": [
+    {
+      "family": "date",
+      "operation": "add_days",
+      "condition_operand_allowed": true,
+      "output_type": "date"
+    }
+  ],
+  "limits": {
+    "max_collection_rows": 10000,
+    "max_ast_depth": 20,
+    "max_node_count": 100
+  }
+}
+```
+
+The frontend MUST consume this DTO to populate UI controls rather than hardcoding static operator options or resolver capabilities.
+
+---
+
+## 4. Shared Static Contract Fixtures
+
+Contract fixtures are stored in a single, machine-readable JSON file:
+`flexirule/ruleflow/fixtures/condition_contract_fixtures.json`
+
+### Fixture Schema Overview
+Each fixture entry includes:
+- `id`: Unique identifier
+- `description`: Explanatory title
+- `payload`: Condition or legacy payload
+- `expected_status`: `"accept"`, `"reject"`, or `"migrate"`
+- `expected_diagnostic_code`: Diagnostic string or `null` for clean accepted payloads
+- `evaluation`: (Optional for accepted payloads) Context dictionary, expected outcome (`true`, `false`, or `"error"`), and expected diagnostic code on error.
+
+Both Python backend unit tests and JavaScript frontend unit tests MUST consume this identical fixture file.
+
+---
+
+## 5. Reconciled Task Plans
+
+- [Backend Implementation Plan](backend-implementation-plan.md)
+- [Frontend Implementation Plan](frontend-implementation-plan.md)
