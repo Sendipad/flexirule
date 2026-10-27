@@ -15,7 +15,10 @@ from flexirule.ruleflow.core.action_handlers.base_contract import ActionContract
 from flexirule.ruleflow.core.condition_contract import validate_condition_node
 from flexirule.ruleflow.core.condition_errors import ConditionError, ConditionValidationError
 from flexirule.ruleflow.core.condition_evaluator import evaluate_condition
-from flexirule.ruleflow.core.condition_payload import detect_canonical_condition_payload, get_condition_payload
+from flexirule.ruleflow.core.condition_payload import (
+	detect_canonical_condition_payload,
+	get_condition_payload,
+)
 
 
 class ConditionHandler(ActionHandler):
