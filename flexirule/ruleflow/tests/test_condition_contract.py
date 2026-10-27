@@ -38,8 +38,10 @@ class TestConditionContract(unittest.TestCase):
 		self.assertTrue(CanonicalOperatorRegistry.exists("has_field"))
 
 		meta = CanonicalOperatorRegistry.get("is_submittable")
-		self.assertEqual(meta["arity"], 1)
-		self.assertTrue(meta["is_metadata_operator"])
+		self.assertIsNotNone(meta)
+		if meta is not None:
+			self.assertEqual(meta["arity"], 1)
+			self.assertTrue(meta["is_metadata_operator"])
 
 
 if __name__ == "__main__":
