@@ -32,8 +32,8 @@ This plan was prepared from the current develop tree and related tests/audit rep
 
 | Path | Current representation and runtime | Required destination |
 |---|---|---|
-| Rule trigger condition | Rule.trigger_condition JSON -> Rule.compile_conditions() -> persisted Rule.compiled_expression -> RuleCoordinator.check_eligibility() evaluates Python via frappe.safe_eval | Canonical condition envelope -> shared evaluator; compiled_expression becomes legacy-only and is eventually retired |
-| Condition action | Rule Action.config / legacy condition_json -> ConditionCompiler -> action.compiled_expression -> ConditionHandler -> engine._evaluate_python_condition() | The same canonical condition envelope -> shared evaluator -> true/false graph edge |
+| Rule trigger condition | Rule.trigger_condition JSON -> Rule.compile_conditions() -> persisted Rule.compiled_expression -> RuleCoordinator.check_eligibility() evaluates Python via frappe.safe_eval | Direct canonical condition node -> shared evaluator; compiled_expression becomes legacy-only and is eventually retired |
+| Condition action | Rule Action.config / legacy condition_json -> ConditionCompiler -> action.compiled_expression -> ConditionHandler -> engine._evaluate_python_condition() | The same direct canonical condition node -> shared evaluator -> true/false graph edge |
 | Collection resolver predicate | ValueResolver builds CollectionResolver -> ConditionEvaluator parses/evaluates older JSON tree with doc + row | Same canonical condition AST; shared evaluator gets parent document, current row, and declared alias context |
 | Sub-Rule eligibility | SubRuleHandler checks target Rule.trigger_condition / compiled_expression and calls engine Python-condition evaluation | Same canonical condition evaluator with explicit caller/rule/doctype context |
 | Assignment row guard | AssignmentHandler accepts pythonExpression, when_expression/when, or when_condition; condition compiler generates Python, and compilation errors can become an empty guard | A single canonical guard field containing the condition AST; no silent conversion failure |
@@ -297,7 +297,7 @@ These are separate states and must not be conflated with an empty group or faile
 - Assignment guard absent: assignment row runs unconditionally; a present but invalid guard fails validation and never becomes an empty/no-op guard.
 - Collection resolver predicate absent: only the operation-specific default documented by its contract is allowed (for example, unfiltered count/sum). If the operation requires a predicate, missing predicate is an error.
 - Empty group: invalid in canonical version 1, regardless of AND/OR. If a future user experience needs explicit constants, introduce explicit boolean constant nodes rather than special-case empty groups.
-- Empty source strings, parse failures, unknown nodes, and unsupported versions cannot imply True.
+- Empty source strings, parse failures, unknown node types, and malformed payload shapes cannot imply True.
 
 ### 4.3 Operand and null/missing behavior
 
@@ -377,7 +377,7 @@ Strict validation should:
 - validate path scope, segments, field metadata and allowed collection aliases;
 - validate resolver level and operation capability for the Rule/site/caller;
 - validate node/depth/collection/template/regex limits;
-- produce stable diagnostic paths such as root.children[1].right.config.left.path;
+- produce stable diagnostic paths such as children[1].right.config.left.path;
 - return validation errors rather than mutating or coercing the submitted tree.
 
 If a legacy payload must be converted, that is a boundary migration from a prior format to v1; it is not runtime normalization. Write the canonical node result back once only after conversion succeeds. Never keep both legacy and canonical sources active and ambiguous.
@@ -428,7 +428,7 @@ A migration converter should handle only cases whose meaning is clear:
 - {type: "field"|"literal"} and approved {mode: ...} aliases -> their canonical FlexValue variant;
 - resolver legacy kinds and aliases -> canonical family/operation/config using an explicit mapping table and deterministic defaults only where source semantics are known;
 - rich text made entirely of text/variable/structured resolver tokens -> template segments;
-- current not_in -> canonical not in or vice versa only if one token is selected as canonical and used consistently everywhere;
+- Map legacy `not in` or `not_in` to canonical `not_in` only in the explicit, deterministic legacy migration; new canonical writes use `not_in`.
 - temporary Vue node IDs are discarded.
 
 For every converter mapping, write unit tests containing old input, expected canonical output, and expected runtime result.
@@ -448,10 +448,10 @@ List each affected Rule/action and an actionable manual fix. Because the app is 
 
 ### 6.4 Persistence strategy
 
-- Rule.trigger_condition and Condition action config write the complete same canonical condition node.
-- Assignment guards write a complete envelope at a named structured field (for example when_condition); stop writing pythonExpression/when_expression for canonical guards.
+- Rule.trigger_condition and Condition action config write the direct canonical condition node.
+- Assignment guards store the direct canonical condition node in the selected structured field (for example when_condition); stop writing pythonExpression/when_expression for canonical guards.
 - Collection resolver config embeds the same condition node for its predicate; it does not embed a separate condition language.
-- During transition, old compiled_expression columns may remain for import compatibility and roll-back observation, but runtime must select exactly one source of truth based on an explicit migration/version state. Do not choose payload sources by “first non-empty wins” for canonical v1.
+- During transition, old compiled_expression columns may remain for import compatibility and roll-back observation, but runtime must select exactly one source of truth based on explicit legacy-format detection/migration state, never a guessed payload wrapper. Do not choose payload sources by “first non-empty wins” for canonical node.
 - After migration and call-site removal, retire the Rule/Rule Action compiled_expression fields through the appropriate Frappe DocType metadata migration, removing options: PythonExpression where no longer appropriate. Search import/export, API, tests, patches and client contracts before removal.
 - Make the data migration idempotent; back up or export affected data, produce a migration summary, and fail clearly for unconvertible inputs. It must not rewrite active data silently or bypass Rule validation without preserving an audit trail. Run only on a dedicated test site first.
 
@@ -459,7 +459,7 @@ List each affected Rule/action and an actionable manual fix. Because the app is 
 
 - The RuleCoordinator runtime registry currently stores compiled_expression and derives dependencies from that source. Migrate it deliberately to cache the canonical trigger AST (or to access it through an explicit immutable condition source) and update dependency/caching logic; never infer a safe skip set if dependencies cannot be complete.
 - ValueResolver.get_compiled_resolver() currently caches by action name + key and not by payload fingerprint. Review invalidation and mutation within request; avoid stale values when configs change.
-- A condition/runtime cache, if needed, must be bounded and keyed by stable identity plus canonical payload fingerprint/schema version and relevant resolver policy/site context. Clear/invalidate it when Rule/action config or metadata/policy changes.
+- A condition/runtime cache, if needed, must be bounded and keyed by stable identity plus canonical payload fingerprint and evaluator/operator-registry semantics version and relevant resolver policy/site context. Clear/invalidate it when Rule/action config or metadata/policy changes.
 - Never cache the boolean result as if it were the condition definition; results depend on doc, old_doc, vars, caller, session and time.
 - Benchmark cold compile/cache miss, hot runtime evaluation, and realistic repeated use separately. Cache is an optimization, not a correctness requirement.
 
@@ -490,7 +490,7 @@ Required behavior:
 
 ### 7.2 API and contract DTO
 
-- Add/extend an API response that publishes canonical condition schema version and the authoritative operator metadata; avoid a UI-only duplicate registry.
+- Add/extend an API response that publishes the direct condition-node contract and authoritative operator metadata (version the API DTO separately from saved payloads); avoid a UI-only duplicate registry.
 - Publish resolver families, operations, config schema, output type where available, resolverLevel requirement and condition_operand_allowed.
 - Apply authorization and resolverLevel checks server-side in create/save/activation and at runtime where the capability can vary by caller/site.
 - Keep payloads JSON-compatible across builder, import/export, API DTO, storage and execution. Add explicit schema/DTO tests for each boundary.
@@ -504,7 +504,7 @@ The order below is intentional. Add tests alongside each stage; do not begin the
 **Goal:** Agree on schema and semantics before implementation.
 
 1. Add the schema contract under a backend-owned canonical source, proposed:
-   - flexirule/ruleflow/core/condition_contract.py — node/operator definitions, schema version, value/reference types, validation metadata and error types.
+   - flexirule/ruleflow/core/condition_contract.py — node/operator definitions, value/reference types, validation metadata, error types and an internal registry-semantics version (not a persisted payload field).
    - flexirule/ruleflow/core/flexvalue_contract.py — FlexValue family/operation schemas, coercion policy and resolver capability metadata.
    - JSON Schema files under flexirule/ruleflow/schemas/condition.schema.json and flexirule/ruleflow/schemas/flexvalue.schema.json (or another agreed package schema location).
 2. Define exact condition and FlexValue examples and negative schemas in test fixtures; record version 1 schema compatibility rules.
@@ -722,7 +722,7 @@ Create a table-driven suite with the same fixtures evaluated through every consu
 - condition caches are invalidated/rebuilt on Rule changes and never leak context/results across documents/users/sites.
 
 ### Acceptance checklist
-- [ ] One canonical Condition envelope and one FlexValue union; no competing canonical schemas.
+- [ ] One direct canonical condition-node contract and one FlexValue union; no competing persisted schemas or wrappers.
 - [ ] Both comparison operands accept the same documented FlexValue types, subject to operator/family policy.
 - [ ] No canonical condition is persisted as generated Python.
 - [ ] Server validation is authoritative and strict; no malformed/unknown-to-equality or empty-to-True fallback.
