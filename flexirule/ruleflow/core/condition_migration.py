@@ -20,9 +20,11 @@ import frappe
 
 from flexirule.ruleflow.core.condition_contract import validate_condition_node
 from flexirule.ruleflow.core.condition_errors import ConditionError, ConditionValidationError
-from flexirule.ruleflow.core.condition_payload import detect_canonical_condition_payload, get_condition_payload
+from flexirule.ruleflow.core.condition_payload import (
+	detect_canonical_condition_payload,
+	get_condition_payload,
+)
 from flexirule.ruleflow.core.contracts import normalize_action_type
-
 
 DEFAULT_PAGE_SIZE = 100
 MAX_PAGE_SIZE = 200
@@ -49,14 +51,16 @@ def _location_issue(
 	severity: str = "review",
 ) -> None:
 	"""Append an operand-free diagnostic, bounded to avoid oversized reports."""
-	issues.append({
-		"rule": str(rule_name),
-		"action": str(action_id or ""),
-		"location": location,
-		"code": code,
-		"path": path,
-		"severity": severity,
-	})
+	issues.append(
+		{
+			"rule": str(rule_name),
+			"action": str(action_id or ""),
+			"location": location,
+			"code": code,
+			"path": path,
+			"severity": severity,
+		}
+	)
 
 
 def _inspect_condition(
@@ -123,15 +127,23 @@ def _inspect_assignment_guards(
 	except (TypeError, ValueError, json.JSONDecodeError):
 		counts["assignment_config.invalid"] += 1
 		_location_issue(
-			issues, rule_name=rule_name, action_id=action_id,
-			location="assignment_config", code="invalid_assignment_config", severity="error",
+			issues,
+			rule_name=rule_name,
+			action_id=action_id,
+			location="assignment_config",
+			code="invalid_assignment_config",
+			severity="error",
 		)
 		return
 	if not isinstance(rows, list):
 		counts["assignment_config.invalid"] += 1
 		_location_issue(
-			issues, rule_name=rule_name, action_id=action_id,
-			location="assignment_config", code="assignment_config_not_list", severity="error",
+			issues,
+			rule_name=rule_name,
+			action_id=action_id,
+			location="assignment_config",
+			code="assignment_config_not_list",
+			severity="error",
 		)
 		return
 
@@ -144,7 +156,9 @@ def _inspect_assignment_guards(
 			if has_legacy:
 				counts["assignment_guard.legacy_requires_review"] += 1
 				_location_issue(
-					issues, rule_name=rule_name, action_id=action_id,
+					issues,
+					rule_name=rule_name,
+					action_id=action_id,
 					location=f"assignment_guard[{index}]",
 					code="legacy_assignment_guard_requires_review",
 				)
@@ -164,23 +178,32 @@ def _inspect_assignment_guards(
 			else:
 				counts["assignment_guard.legacy_requires_review"] += 1
 				_location_issue(
-					issues, rule_name=rule_name, action_id=action_id,
+					issues,
+					rule_name=rule_name,
+					action_id=action_id,
 					location=f"assignment_guard[{index}]",
 					code="legacy_assignment_guard_requires_review",
 				)
 		except ConditionError as exc:
 			counts["assignment_guard.invalid"] += 1
 			_location_issue(
-				issues, rule_name=rule_name, action_id=action_id,
+				issues,
+				rule_name=rule_name,
+				action_id=action_id,
 				location=f"assignment_guard[{index}]",
-				code=exc.code, path=exc.path, severity="error",
+				code=exc.code,
+				path=exc.path,
+				severity="error",
 			)
 		except Exception:
 			counts["assignment_guard.invalid"] += 1
 			_location_issue(
-				issues, rule_name=rule_name, action_id=action_id,
+				issues,
+				rule_name=rule_name,
+				action_id=action_id,
 				location=f"assignment_guard[{index}]",
-				code="assignment_guard_inventory_error", severity="error",
+				code="assignment_guard_inventory_error",
+				severity="error",
 			)
 
 
@@ -199,8 +222,12 @@ def _walk_collection_resolvers(
 	if depth > 32:
 		counts["collection_resolver.scan_limit"] += 1
 		_location_issue(
-			issues, rule_name=rule_name, action_id=action_id,
-			location=path, code="collection_resolver_scan_depth_exceeded", severity="error",
+			issues,
+			rule_name=rule_name,
+			action_id=action_id,
+			location=path,
+			code="collection_resolver_scan_depth_exceeded",
+			severity="error",
 		)
 		return
 	if isinstance(value, Mapping):
@@ -274,9 +301,17 @@ def inventory_condition_migration(start: int = 0, page_size: int = DEFAULT_PAGE_
 	action_meta = frappe.get_meta("Rule Action")
 	available_fields = {field.fieldname for field in action_meta.fields}
 	action_fields = [
-		field for field in (
-			"name", "parent", "parenttype", "idx", "action_id", "action_type",
-			"config", "condition_json", "compiled_expression",
+		field
+		for field in (
+			"name",
+			"parent",
+			"parenttype",
+			"idx",
+			"action_id",
+			"action_type",
+			"config",
+			"condition_json",
+			"compiled_expression",
 		)
 		if field in available_fields or field in {"name", "parent", "parenttype", "idx"}
 	]
@@ -316,8 +351,11 @@ def inventory_condition_migration(start: int = 0, page_size: int = DEFAULT_PAGE_
 			if is_canonical_trigger:
 				counts["trigger_condition.stale_compiled_expression"] += 1
 				_location_issue(
-					issues, rule_name=rule.name, action_id=None,
-					location="trigger_condition", code="stale_compiled_expression",
+					issues,
+					rule_name=rule.name,
+					action_id=None,
+					location="trigger_condition",
+					code="stale_compiled_expression",
 				)
 
 		for action in actions_by_parent.get(rule.name, []):
@@ -329,8 +367,12 @@ def inventory_condition_migration(start: int = 0, page_size: int = DEFAULT_PAGE_
 				except Exception:
 					counts["condition_action.invalid"] += 1
 					_location_issue(
-						issues, rule_name=rule.name, action_id=action_id,
-						location="condition_action", code="condition_payload_parse_error", severity="error",
+						issues,
+						rule_name=rule.name,
+						action_id=action_id,
+						location="condition_action",
+						code="condition_payload_parse_error",
+						severity="error",
 					)
 				else:
 					if payload in (None, ""):
@@ -340,8 +382,12 @@ def inventory_condition_migration(start: int = 0, page_size: int = DEFAULT_PAGE_
 						else:
 							counts["condition_action.invalid"] += 1
 							_location_issue(
-								issues, rule_name=rule.name, action_id=action_id,
-								location="condition_action", code="condition_required", severity="error",
+								issues,
+								rule_name=rule.name,
+								action_id=action_id,
+								location="condition_action",
+								code="condition_required",
+								severity="error",
 							)
 							continue
 					is_canonical_action = False
@@ -362,14 +408,20 @@ def inventory_condition_migration(start: int = 0, page_size: int = DEFAULT_PAGE_
 					if is_canonical_action and action.get("compiled_expression"):
 						counts["condition_action.stale_compiled_expression"] += 1
 						_location_issue(
-							issues, rule_name=rule.name, action_id=action_id,
-							location="condition_action", code="stale_compiled_expression",
+							issues,
+							rule_name=rule.name,
+							action_id=action_id,
+							location="condition_action",
+							code="stale_compiled_expression",
 						)
 					if action.get("condition_json") not in (None, ""):
 						counts["condition_action.legacy_condition_json_present"] += 1
 						_location_issue(
-							issues, rule_name=rule.name, action_id=action_id,
-							location="condition_json", code="legacy_condition_json_present",
+							issues,
+							rule_name=rule.name,
+							action_id=action_id,
+							location="condition_json",
+							code="legacy_condition_json_present",
 						)
 			if action_type == "Assignment":
 				_inspect_assignment_guards(
