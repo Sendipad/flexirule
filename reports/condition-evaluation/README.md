@@ -23,73 +23,117 @@ Existing analysis is useful but is not implementation evidence: [PR #412 — con
 
 The following is the shared wire contract for both task plans. Any deviation must be raised in review and applied to backend, frontend and fixtures together; do not introduce a second schema.
 
-### 2.1 Condition envelope
+### 2.1 Direct canonical condition node (no persisted envelope)
 
-A complete canonical condition is JSON-serializable and uses this envelope:
+A complete condition payload is **one condition node itself**. Do not wrap it in `schema`, `version`, or `root` properties. The node's `type` discriminant identifies its kind.
+
+A root may be a `comparison`, `group`, or `collection_predicate`. A group is needed only when combining predicates or explicitly grouping logic. For example, this root group expresses “status is Open AND (total is greater than 1000 OR is_priority is true)”:
 
 ~~~json
 {
-  "schema": "flexirule.condition",
-  "version": 1,
-  "root": {
-    "type": "group",
-    "operator": "and",
-    "children": [
-      {
-        "type": "comparison",
-        "operator": "==",
-        "left": {
-          "mode": "variable",
-          "path": { "scope": "doc", "segments": ["status"] }
-        },
-        "right": {
-          "mode": "static",
-          "value_type": "string",
-          "value": "Open"
-        }
+  "type": "group",
+  "operator": "and",
+  "children": [
+    {
+      "type": "comparison",
+      "operator": "eq",
+      "left": {
+        "mode": "variable",
+        "path": { "scope": "doc", "segments": ["status"] }
+      },
+      "right": {
+        "mode": "static",
+        "value_type": "string",
+        "value": "Open"
       }
-    ]
-  }
+    },
+    {
+      "type": "group",
+      "operator": "or",
+      "children": [
+        {
+          "type": "comparison",
+          "operator": "gt",
+          "left": {
+            "mode": "variable",
+            "path": { "scope": "doc", "segments": ["grand_total"] }
+          },
+          "right": {
+            "mode": "static",
+            "value_type": "decimal",
+            "value": "1000"
+          }
+        },
+        {
+          "type": "comparison",
+          "operator": "eq",
+          "left": {
+            "mode": "variable",
+            "path": { "scope": "doc", "segments": ["is_priority"] }
+          },
+          "right": {
+            "mode": "static",
+            "value_type": "boolean",
+            "value": true
+          }
+        }
+      ]
+    }
+  ]
 }
 ~~~
 
-- Rule trigger condition storage contains the envelope above.
-- The Condition action’s existing config field contains the envelope itself; the UI must not add another condition wrapper. Legacy condition_json is read only by the explicit legacy adapter.
-- Assignment run-if guards and nested row predicates use the same schema. Their owning field may be absent for a documented “no guard” state; a present malformed condition is never treated as absent.
+A single root comparison is also valid and needs no enclosing group. Every persisted logical group has at least two direct children; children may be comparisons, nested groups, or collection predicates. Groups apply one `and` or `or` operator to their direct children. Mixed logic is represented with nested groups, never per-child joins.
+
+Persistence boundaries:
+
+- Rule trigger condition storage contains the node directly as JSON.
+- The Condition action's existing config field contains the condition node itself; do not add an additional `condition`, `root`, or envelope wrapper. Legacy `condition_json` is read only through the explicit legacy adapter.
+- Assignment run-if guards and nested row predicates use the same node contract. Their owning field may be absent for a documented “no guard” state; a present malformed condition is never treated as absent.
 - UI IDs are ephemeral and must be stripped before persistence.
 - Saved JSON is the source of truth. Do not persist generated Python or a second normalized/compiled JSON tree.
+- Versioning of the authenticated contract API/DTO is independent from the saved condition payload and must not add version metadata around the node.
 
 ### 2.2 Canonical nodes and operands
 
-**Group:** type = group, operator = and/or, non-empty children. All siblings in a group use the same operator; express mixed logic using nested groups. Preserve child order.
+**Group:** `type = "group"`, `operator = "and" | "or"`, and `children` containing at least two condition nodes. All direct children share the group's operator; express mixed logic using nested groups. Preserve child order. Do not serialize per-child `logical_operator`.
 
-**Comparison:** type = comparison, canonical operator, left and—except where the operator is explicitly unary—right. Both operands are FlexValue nodes. Operator metadata defines arity, supported value types, Fieldtype constraints, link policy and missing/null behavior.
+**Comparison:** `type = "comparison"`, a stable semantic operator ID, and left/right FlexValue operands unless the operator registry explicitly defines the operator as unary. Both operands use the same FlexValue union.
 
-**Collection predicate:** type = collection_predicate, quantifier = any/all/none, a variable/path source, validated local alias as, and nested where condition node. The initial canonical contract permits only a variable/path as the collection source. The row alias is scoped to that predicate and its descendants.
+**Collection predicate:** `type = "collection_predicate"`, `quantifier = "any" | "all" | "none"`, a variable/path source, validated local alias `as`, and a `where` condition node. The `where` may be a single comparison/collection predicate or a valid group; do not wrap a single predicate in a one-child group. The initial contract permits only a variable/path as the collection source. The row alias is scoped to that predicate and its descendants.
 
 **FlexValue union:**
 
-- **Static:** mode = static with value_type and value. Preserve string, integer, decimal, boolean, null, date, datetime, time, list and object distinctions. Decimal values are serialized as strings and converted to Decimal at the typed runtime boundary.
-- **Variable:** mode = variable with path.scope and path.segments. Canonical scopes are doc, old_doc, vars, item, loop, row, caller, rule, doctype, and a locally declared collection alias. No implicit “try doc, then vars” lookup in canonical mode.
-- **Resolver:** mode = resolver with family, operation and config. Config is operation-specific, backend-owned and recursively validated. Resolver output type/capability must be declared; no general resolver is automatically safe as a condition operand.
-- **Template:** mode = template with typed text/value segments, where value segments recursively contain a valid FlexValue. No raw Python/Jinja expression is allowed in canonical conditions.
+- **Static:** `mode = "static"` with `value_type` and `value`. Preserve string, integer, decimal, boolean, null, date, datetime, time, list and object distinctions. Decimal values are serialized as strings and converted to Decimal at the typed runtime boundary.
+- **Variable:** `mode = "variable"` with `path.scope` and `path.segments`. Canonical scopes are `doc`, `old_doc`, `vars`, `item`, `loop`, `row`, `caller`, `rule`, `doctype`, and a locally declared collection alias. No implicit “try doc, then vars” lookup in canonical mode.
+- **Resolver:** `mode = "resolver"` with `family`, `operation` and `config`. Config is operation-specific, backend-owned and recursively validated. Resolver output type/capability must be declared; no general resolver is automatically safe as a condition operand.
+- **Template:** `mode = "template"` with typed text/value segments, where value segments recursively contain a valid FlexValue. No raw Python/Jinja expression is allowed in canonical conditions.
 
-Reject unknown keys, variants, scopes, operators, operations and schema versions. Do not infer a node or FlexValue kind merely from the keys that happen to be present.
+The saved condition format has no envelope or payload version property. Reject unknown keys, node/FlexValue variants, scopes, operators, operations and resolver config. A payload with a canonical `type` discriminant but an unknown node type is invalid; do not retry it as a legacy payload or infer a kind merely from other keys.
 
-### 2.3 Semantic decisions for v1
+### 2.3 Semantic decisions for the canonical contract
 
 1. A group evaluates left-to-right with strict short-circuit AND/OR. Mixed logic requires nested groups; no implicit Python precedence.
-2. An absent trigger filter means no trigger filter. A missing assignment guard means unconditional assignment. A Condition action must be configured before activation. Any present empty group, malformed tree or failed conversion is invalid; it cannot mean True.
-3. Preserve a present null separately from a missing path. is_set returns false and is_not_set true for missing/null/empty string; whitespace is set. Other operators encountering a missing runtime value raise a typed evaluation error. A present null can be compared to a typed null; empty string remains distinct. False is never coerced to numeric zero.
-4. Canonical operators use one server-owned registry. V1 keeps typed equality/order, membership (in, not in), literal substring (contains, not_contains), presence/emptiness, length comparisons, and metadata operators (is_submittable, has_field) with explicit arity/type contracts.
-5. V1 does not include regex, has_changed, identity operators (is/is not), unknown operator fallbacks, or generated-Python condition expressions. like/not like are legacy tokens with ambiguous historical behavior: inventory them; do not auto-rewrite them unless the migration decision is explicitly approved. Legacy not_in is a migration alias for canonical not in, not a second runtime token.
-6. Do not infer a Link tuple from any two-item list. Legacy link tuples can be converted only when left-side DocType metadata proves the tuple target matches; otherwise emit a migration issue.
-7. Invalid schema/operator/resolver configuration is a validation failure. A runtime resolution/type/configuration error is a distinct typed error—not a normal false condition and never a true/pass-through result. Consumer adapters may apply existing Frappe lifecycle/on-error policy, but must retain a distinct diagnostic; trigger errors fail closed (rule does not run) and are logged as errors, not reported as an ordinary false filter.
-8. Reuse the existing collection row guard of 10,000 rows as one shared constant. Add bounded work limits for AST depth, node count, resolver recursion, path segments and template segments; define them once in the backend contract and test their boundaries. Never silently truncate collections.
+2. An absent trigger filter means no trigger filter. A missing assignment guard means unconditional assignment. A Condition action must be configured before activation. Any present empty group, one-child canonical group, malformed tree or failed conversion is invalid; it cannot mean True. The frontend may collapse its own redundant one-child groups before serializing, while backend validation rejects a submitted canonical one-child group.
+3. Preserve a present null separately from a missing path. `is_set` returns false and `is_not_set` true for missing/null/empty string; whitespace is set. Other operators encountering a missing runtime value raise a typed evaluation error. `is_null`/`is_not_null` test a present null value; a missing path remains a typed error. False is never coerced to numeric zero.
+4. Use stable, lowercase semantic operator IDs, independent of Python syntax and labels. The proposed initial catalogue is:
+   - Equality/order: `eq`, `ne`, `gt`, `gte`, `lt`, `lte`.
+   - Membership: `in`, `not_in`.
+   - Literal, case-sensitive text matching: `contains`, `not_contains`, `starts_with`, `ends_with`.
+   - Presence/null: `is_set`, `is_not_set`, `is_null`, `is_not_null`.
+   - Emptiness: `is_empty`, `is_not_empty`.
+   - Length: `length_eq`, `length_gt`, `length_gte`, `length_lt`, `length_lte`.
+   - Frappe metadata: `has_field`, `is_submittable`, with explicit operand and context contracts.
+   - `and`/`or` are group operators, and `any`/`all`/`none` are collection quantifiers; none of these are comparison IDs.
+5. The registry defines arity, accepted value types, applicable Frappe Fieldtypes, output/operand type rules, aliases accepted only by migration, missing/null semantics and typed-error behavior. String operators are literal and case-sensitive; length operations require a supported sized value and numeric RHS. `is_empty`/`is_not_empty` apply only to explicitly supported empty-capable types; null is handled by null operators. Do not silently coerce booleans/numbers or arbitrary values to strings.
+6. Do not include regex, `has_changed`, `is`/`is not`, unknown operator fallbacks, or generated-Python condition expressions in the canonical registry. Legacy `like`/`not like` have ambiguous historical behavior: inventory and report them; do not auto-rewrite them. Existing symbolic tokens such as `==`, `!=`, `>`, `>=`, `<`, `<=`, and `not in` may be mapped to the semantic IDs only by a deterministic, tested legacy migration. An operator rename or semantic change requires an explicit, idempotent migration and old-to-new fixtures; do not change meaning in place.
+7. Do not infer a Link tuple from any two-item list. Legacy link tuples can be converted only when left-side DocType metadata proves the tuple target matches; otherwise emit a migration issue.
+8. Invalid node/operator/resolver configuration is a validation failure. A runtime resolution/type/configuration error is a distinct typed error—not a normal false condition and never a true/pass-through result. Consumer adapters may apply existing Frappe lifecycle/on-error policy, but must retain a distinct diagnostic; trigger errors fail closed (rule does not run) and are logged as errors, not reported as an ordinary false filter.
+9. Reuse the existing collection row guard of 10,000 rows as one shared constant. Add bounded work limits for tree depth, node count, resolver recursion, path segments and template segments; define them once in the backend contract and test their boundaries. Never silently truncate collections.
 
 ### 2.4 Server-owned metadata
 
-The backend is authoritative for operators, arity, operand types, Fieldtype applicability, resolver family/operation config, output type, condition_operand_allowed, required resolver level/capability, allowed scopes and resource limits. Extend the existing authenticated builder API pattern (currently get_operator_config) with a versioned condition-contract DTO. Keep the current endpoint compatible while legacy consumers still use it. Frontend metadata is for UX, not security.
+The backend is authoritative for operator IDs, labels, arity, operand types, Fieldtype applicability, resolver family/operation config, output type, condition_operand_allowed, required resolver level/capability, allowed scopes and resource limits. Extend the existing authenticated builder API pattern (currently get_operator_config) with a versioned condition-contract DTO. This API/DTO version is independent from the unversioned persisted condition node; do not serialize a schema/version envelope around saved conditions. Keep the current endpoint compatible while legacy consumers still use it. Frontend metadata is for UX, not security.
 
 Resolver families/operations default to **not allowed as condition operands** unless the backend registry explicitly sets condition_operand_allowed = true, output type, required configuration, permission policy and regression tests. In particular, lookup/database-backed resolvers must have a verified permission and query-limit policy before being enabled.
 
@@ -110,7 +154,7 @@ The frontend and backend tasks may begin in parallel against this contract, but 
 
 ## 5. Prior architecture report and related implementation evidence
 
-The full upstream architecture plan from merged PR #434 is now included in this branch at [canonical-condition-flexvalue-implementation-plan.md](../canonical-condition-flexvalue-implementation-plan.md). It is the detailed background report; this directory's README freezes the cross-task v1 wire contract, and the backend/frontend files are the actionable Jules task plans. If a detail differs, stop and reconcile it before coding rather than silently diverging.
+The full upstream architecture plan from merged PR #434 is included in this branch at [canonical-condition-flexvalue-implementation-plan.md](../canonical-condition-flexvalue-implementation-plan.md) as historical rationale. Some of its original payload-envelope and symbolic-operator proposals are superseded by this review. This README is authoritative for the direct-node condition shape and semantic operator IDs; the backend/frontend files are the actionable task plans. If either task plan conflicts with this README, stop and reconcile before coding.
 
 Relevant existing work to inspect before implementation:
 
