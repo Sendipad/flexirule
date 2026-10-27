@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -14,6 +15,7 @@ from flexirule.ruleflow.core.condition_errors import ConditionValidationError
 from flexirule.ruleflow.core.flexvalue_contract import (
 	BASE_SCOPES,
 	CONDITION_LIMITS,
+	MAX_CONDITION_PAYLOAD_BYTES,
 	VALUE_TYPES,
 	validate_flex_value,
 )
@@ -124,6 +126,8 @@ def _fail(code: str, path: str, message: str) -> None:
 
 
 def _exact_keys(value: Mapping, required: set[str], path: str) -> None:
+	if any(not isinstance(key, str) for key in value):
+		_fail("invalid_key_type", path, "Condition object keys must be strings")
 	missing = required - set(value)
 	unknown = set(value) - required
 	if missing:
@@ -296,6 +300,16 @@ def _known_fieldtype_check(
 
 def validate_condition_node(node: Any, *, doctype: str | None = None) -> None:
 	"""Strictly validate a canonical direct-node condition; never repair or mutate it."""
+	try:
+		encoded = json.dumps(
+			node, sort_keys=True, ensure_ascii=False, separators=(",", ":"), allow_nan=False
+		).encode("utf-8")
+	except (TypeError, ValueError, RecursionError) as exc:
+		raise ConditionValidationError(
+			"invalid_json_value", "$", "Condition payload must be a finite, acyclic JSON value"
+		) from exc
+	if len(encoded) > MAX_CONDITION_PAYLOAD_BYTES:
+		_fail("condition_payload_too_large", "$", "Condition payload exceeds the configured byte limit")
 	counter = {"nodes": 0}
 	scope_doctypes: dict[str, str | None] = {"doc": doctype, "old_doc": doctype}
 	_validate_node(
@@ -329,7 +343,7 @@ def _validate_node(
 	if node_type == "group":
 		_exact_keys(node, {"type", "operator", "children"}, path)
 		operator_id = node.get("operator")
-		if operator_id not in {"and", "or"}:
+		if not isinstance(operator_id, str) or operator_id not in {"and", "or"}:
 			_fail("unknown_group_operator", f"{path}.operator", "Group operator must be 'and' or 'or'")
 		children = node.get("children")
 		if not isinstance(children, list) or len(children) < 2:
@@ -398,7 +412,7 @@ def _validate_node(
 	if node_type == "collection_predicate":
 		_exact_keys(node, {"type", "quantifier", "source", "as", "where"}, path)
 		quantifier = node.get("quantifier")
-		if quantifier not in {"any", "all", "none"}:
+		if not isinstance(quantifier, str) or quantifier not in {"any", "all", "none"}:
 			_fail("unknown_collection_quantifier", f"{path}.quantifier", "Quantifier must be any, all, or none")
 		source = node.get("source")
 		source_scope, source_segments = _validate_source_path(source, f"{path}.source", allowed_scopes)
