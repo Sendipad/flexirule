@@ -117,9 +117,7 @@ class TestConditionBenchmark(FrappeTestCase):
 		legacy_p = node_to_legacy_payload(node)
 		canonical_p = node_to_canonical_payload(node)
 
-		self.assertEqual(
-			legacy_p, {"left": {"ref": "doc.status"}, "op": "==", "right": {"value": "Open"}}
-		)
+		self.assertEqual(legacy_p, {"left": {"ref": "doc.status"}, "op": "==", "right": {"value": "Open"}})
 		self.assertEqual(
 			canonical_p,
 			{
