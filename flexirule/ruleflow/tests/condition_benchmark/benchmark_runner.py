@@ -13,7 +13,6 @@ from typing import Any
 
 import frappe
 
-from flexirule.ruleflow.core.condition_evaluator import compile_condition
 from flexirule.ruleflow.tests.condition_benchmark.adapters import (
 	NeutralNode,
 	NeutralScenario,
@@ -32,7 +31,6 @@ from flexirule.ruleflow.tests.condition_benchmark.candidate_canonical import (
 )
 from flexirule.ruleflow.tests.condition_benchmark.comparison_api import (
 	BaseConditionCandidate,
-	ConditionComparisonHarness,
 )
 from flexirule.ruleflow.tests.condition_benchmark.fixtures import get_neutral_scenarios
 
@@ -84,15 +82,15 @@ class UnifiedScenarioEvaluator:
 
 		Returns dict mapping candidate_name -> (prepared_object_or_payload, error_or_unsupported_reason)
 		"""
-		prepared_map = {}
+		prepared_map: dict[str, tuple[Any, str | None]] = {}
 		legacy_payload = node_to_legacy_payload(scenario.root)
 		canonical_payload = node_to_canonical_payload(scenario.root)
 
 		# Clear LRU compilation cache before preparing canonical payloads for cold measurement
 		try:
-			from flexirule.ruleflow.core.condition_evaluator import get_prepared_plan
+			from flexirule.ruleflow.core.condition_evaluator import clear_condition_plan_cache
 
-			get_prepared_plan.cache_clear()
+			clear_condition_plan_cache()
 		except Exception:
 			pass
 
@@ -135,11 +133,11 @@ class UnifiedScenarioEvaluator:
 		"""
 		prepared_map = self.prepare_scenario(scenario)
 
-		matching_check = {}
-		non_matching_check = {}
-		candidate_statuses = {}
-		disagreements = []
-		errors = {}
+		matching_check: dict[str, Any] = {}
+		non_matching_check: dict[str, Any] = {}
+		candidate_statuses: dict[str, str] = {}
+		disagreements: list[str] = []
+		errors: dict[str, str] = {}
 
 		supported_matching_results = {}
 		supported_non_matching_results = {}
@@ -159,7 +157,7 @@ class UnifiedScenarioEvaluator:
 
 			if res_match.error or res_non_match.error:
 				err_msg = res_match.error or res_non_match.error
-				errors[name] = err_msg
+				errors[name] = str(err_msg)
 				candidate_statuses[name] = f"ERROR: {err_msg}"
 				matching_check[name] = f"ERROR: {res_match.error}" if res_match.error else res_match.result
 				non_matching_check[name] = (
@@ -294,9 +292,9 @@ class BenchmarkRunner:
 
 			# 1. Cold Prep Measurement
 			try:
-				from flexirule.ruleflow.core.condition_evaluator import get_prepared_plan
+				from flexirule.ruleflow.core.condition_evaluator import clear_condition_plan_cache
 
-				get_prepared_plan.cache_clear()
+				clear_condition_plan_cache()
 			except Exception:
 				pass
 
@@ -352,7 +350,7 @@ class BenchmarkRunner:
 					cand.evaluate(prep, sc.matching_doc)
 
 				batch_per_exec_us: list[float] = []
-				for batch_idx in range(self.num_batches):
+				for _batch_idx in range(self.num_batches):
 					# Rotate doc evaluation order matching vs non-matching to avoid branch predictor bias
 					start_time = time.perf_counter()
 					for i in range(self.iterations_per_batch):
@@ -395,9 +393,7 @@ class BenchmarkRunner:
 			"scenarios": scenario_results,
 		}
 
-	def run_amortized_benchmarks(
-		self, execution_counts: list[int] | None = None
-	) -> dict:
+	def run_amortized_benchmarks(self, execution_counts: list[int] | None = None) -> dict:
 		"""Run amortized cost benchmarks measuring Total Time = Cold Prep Time + N * Steady Exec Latency."""
 		if execution_counts is None:
 			execution_counts = [1, 10, 100, 1000]
@@ -436,9 +432,11 @@ class BenchmarkRunner:
 					for _ in range(5):
 						# Clear LRU cache to include genuine cold preparation
 						try:
-							from flexirule.ruleflow.core.condition_evaluator import get_prepared_plan
+							from flexirule.ruleflow.core.condition_evaluator import (
+								clear_condition_plan_cache,
+							)
 
-							get_prepared_plan.cache_clear()
+							clear_condition_plan_cache()
 						except Exception:
 							pass
 
@@ -561,7 +559,6 @@ class BenchmarkRunner:
 		env = payload.get("environment", {})
 		correctness = payload.get("correctness_suite", {})
 		steady = payload.get("steady_state_benchmark", {})
-		amortized = payload.get("amortized_benchmark", {})
 
 		md_lines.append("# FlexiRule — Five-Approach Condition Backend Comparison Benchmark Report")
 		md_lines.append("")
@@ -573,7 +570,9 @@ class BenchmarkRunner:
 		md_lines.append("")
 		md_lines.append("## Production Selection Gate Status")
 		md_lines.append("")
-		md_lines.append(f"- **Selected Production Option:** **{payload.get('production_selection_status', 'Not established')}**")
+		md_lines.append(
+			f"- **Selected Production Option:** **{payload.get('production_selection_status', 'Not established')}**"
+		)
 		md_lines.append(f"- **Gate Status:** {payload.get('production_gate_reason', 'N/A')}")
 		md_lines.append("")
 		md_lines.append("---")
@@ -584,12 +583,24 @@ class BenchmarkRunner:
 		md_lines.append("")
 		md_lines.append("| Candidate | Paradigm | Preparation Mechanism | Execution Path |")
 		md_lines.append("|---|---|---|---|")
-		md_lines.append("| **Approach A (`safe_eval`)** | Legacy Dynamic Eval | Python expr string | `frappe.safe_eval` (RestrictedPython parse on every call) |")
-		md_lines.append("| **Approach A Exp (`code_obj`)** | Diagnostic Compiled | Pre-compiled bytecode | `eval(code_object)` |")
-		md_lines.append("| **Approach B (`plan`)** | Normalized AST Plan | Pre-compiled tuple AST | Direct AST recursive interpreter |")
-		md_lines.append("| **Approach C (`json_tree`)** | Direct JSON Evaluator | Pure JSON AST | Direct JSON tree walker |")
-		md_lines.append("| **Canonical (`evaluate_condition`)** | Public PR #469 Runtime | LRU-cached AST compilation | Public API with context normalization & cache lookup |")
-		md_lines.append("| **Canonical (`Prepared Plan`)** | Diagnostic PR #469 Plan | Direct compiled AST plan | Direct internal `_evaluate_node` execution |")
+		md_lines.append(
+			"| **Approach A (`safe_eval`)** | Legacy Dynamic Eval | Python expr string | `frappe.safe_eval` (RestrictedPython parse on every call) |"
+		)
+		md_lines.append(
+			"| **Approach A Exp (`code_obj`)** | Diagnostic Compiled | Pre-compiled bytecode | `eval(code_object)` |"
+		)
+		md_lines.append(
+			"| **Approach B (`plan`)** | Normalized AST Plan | Pre-compiled tuple AST | Direct AST recursive interpreter |"
+		)
+		md_lines.append(
+			"| **Approach C (`json_tree`)** | Direct JSON Evaluator | Pure JSON AST | Direct JSON tree walker |"
+		)
+		md_lines.append(
+			"| **Canonical (`evaluate_condition`)** | Public PR #469 Runtime | LRU-cached AST compilation | Public API with context normalization & cache lookup |"
+		)
+		md_lines.append(
+			"| **Canonical (`Prepared Plan`)** | Diagnostic PR #469 Plan | Direct compiled AST plan | Direct internal `_evaluate_node` execution |"
+		)
 		md_lines.append("")
 		md_lines.append("---")
 		md_lines.append("")
@@ -602,11 +613,17 @@ class BenchmarkRunner:
 			f"Supported scenarios passed: **{correctness.get('total_supported_correct', 0)} / {correctness.get('total_supported_scenarios', 0)}**."
 		)
 		md_lines.append("")
-		md_lines.append("| Scenario ID | Tier | Status | Matching Check | Non-Matching Check | Disagreements / Errors |")
+		md_lines.append(
+			"| Scenario ID | Tier | Status | Matching Check | Non-Matching Check | Disagreements / Errors |"
+		)
 		md_lines.append("|---|---|---|---|---|---|")
 
 		for c_res in correctness.get("results", []):
-			status = "DEPRECATED" if c_res["is_deprecated_case"] else ("PASSED" if c_res["is_correct"] else "FAILED")
+			status = (
+				"DEPRECATED"
+				if c_res["is_deprecated_case"]
+				else ("PASSED" if c_res["is_correct"] else "FAILED")
+			)
 			m_chk = ", ".join([f"{k}: {v}" for k, v in c_res["matching_doc_check"].items()])
 			nm_chk = ", ".join([f"{k}: {v}" for k, v in c_res["non_matching_doc_check"].items()])
 			errs = " | ".join(c_res["disagreements"]) if c_res["disagreements"] else "None"
@@ -648,7 +665,9 @@ class BenchmarkRunner:
 				else:
 					vals.append("UNSUPPORTED")
 
-			md_lines.append(f"| `{sid}` | {tier} | {vals[0]} | {vals[1]} | {vals[2]} | {vals[3]} | {vals[4]} | {vals[5]} |")
+			md_lines.append(
+				f"| `{sid}` | {tier} | {vals[0]} | {vals[1]} | {vals[2]} | {vals[3]} | {vals[4]} | {vals[5]} |"
+			)
 
 		md_lines.append("")
 		md_lines.append("---")
@@ -680,7 +699,7 @@ class BenchmarkRunner:
 		md_lines.append("")
 		md_lines.append("### Measurement Methodology & Isolation")
 		md_lines.append(
-			"1. **Cold Prep Isolation:** All LRU caches (`get_prepared_plan.cache_clear()`) are explicitly cleared prior to cold preparation measurements. Correctness checks execute in an isolated phase to avoid pre-warming cold execution states."
+			"1. **Cold Prep Isolation:** All LRU caches (`clear_condition_plan_cache()`) are explicitly cleared prior to cold preparation measurements. Correctness checks execute in an isolated phase to avoid pre-warming cold execution states."
 		)
 		md_lines.append(
 			"2. **Steady-State Execution Latency:** Timed across 5 batches of 10,000 evaluations using alternating matching and non-matching document instances to prevent CPU branch prediction bias."
@@ -710,18 +729,6 @@ class BenchmarkRunner:
 		return report_content
 
 
-if __name__ == "__main__":
-	sites_path = (
-		"/home/jules/frappe-bench/sites" if os.path.exists("/home/jules/frappe-bench/sites") else "sites"
-	)
-	frappe.init(site="test_site", sites_path=sites_path)
-	runner = BenchmarkRunner(iterations_per_batch=10000, num_batches=5)
-	output_file = os.path.abspath("reports/canonical_condition_benchmark_results.json")
-	md_file = os.path.abspath("reports/condition-backend-comparison-benchmark.md")
-	runner.run_full_suite_and_export(output_file, md_file)
-	print(f"Five-approach benchmark complete. JSON saved to {output_file}, Markdown saved to {md_file}")
-
-
 def run_main():
 	sites_path = (
 		"/home/jules/frappe-bench/sites" if os.path.exists("/home/jules/frappe-bench/sites") else "sites"
@@ -732,3 +739,7 @@ def run_main():
 	md_file = os.path.abspath("reports/condition-backend-comparison-benchmark.md")
 	runner.run_full_suite_and_export(output_file, md_file)
 	print(f"Five-approach benchmark complete. JSON saved to {output_file}, Markdown saved to {md_file}")
+
+
+if __name__ == "__main__":
+	run_main()
