@@ -22,7 +22,7 @@ class ConditionError(Exception):
 		return {"code": self.code, "path": self.path, "message": self.message}
 
 
-class ConditionValidationError(ConditionError):
+class ConditionValidationError(ConditionError, ValueError):
 	"""The submitted canonical contract is invalid."""
 
 	default_code = "condition_validation_error"
