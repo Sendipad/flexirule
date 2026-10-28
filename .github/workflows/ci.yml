@@ -192,6 +192,8 @@ jobs:
           else
             echo "MariaDB client is already available; skipping package installation."
           fi
+          sudo mkdir -p /etc/mysql/conf.d
+          printf '[client]\nssl=0\nskip-ssl\n' | sudo tee /etc/mysql/conf.d/skip-ssl.cnf > /dev/null
 
       - name: Initialize Bench and database
         run: |
@@ -312,6 +314,8 @@ jobs:
           else
             echo "MariaDB client is already available; skipping package installation."
           fi
+          sudo mkdir -p /etc/mysql/conf.d
+          printf '[client]\nssl=0\nskip-ssl\n' | sudo tee /etc/mysql/conf.d/skip-ssl.cnf > /dev/null
 
       - name: Initialize Bench and database
         run: |
