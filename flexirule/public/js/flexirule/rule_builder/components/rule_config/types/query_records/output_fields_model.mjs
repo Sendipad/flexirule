@@ -478,7 +478,7 @@ export function validateOutputFields(rows, shape, groupBy = "") {
 			else if (!ALIAS_PATTERN.test(alias)) {
 				errors.push(
 					prefix +
-						"alias must start with a letter or underscore and contain only letters, numbers, and underscores."
+						"alias must be lowercase snake_case: start with a letter and use lowercase letters, numbers, and single underscores between words."
 				);
 			}
 		} else if (row.kind === "child") {
@@ -543,8 +543,16 @@ export function validateOutputFields(rows, shape, groupBy = "") {
 			}
 		} else if (row.kind === "raw") {
 			const expression = String(row.expression ?? "").trim();
-			const match = expression.match(/^.+?\s+as\s+([A-Za-z_][A-Za-z0-9_]*)$/i);
-			if (match) rowNames.push(match[1]);
+			const match = parseAlias(expression);
+			if (match.alias) {
+				if (!ALIAS_PATTERN.test(match.alias.trim())) {
+					errors.push(
+						prefix +
+							"alias must be lowercase snake_case: start with a letter and use lowercase letters, numbers, and single underscores between words."
+					);
+				}
+				rowNames.push(match.alias.trim());
+			}
 		}
 		for (const outputName of rowNames.filter(Boolean)) {
 			if (outputNames.has(outputName)) {
