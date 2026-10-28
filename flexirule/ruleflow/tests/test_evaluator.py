@@ -134,6 +134,10 @@ class TestConditionEvaluator(FrappeTestCase):
 		self.assertTrue(compare_values("Open", "not_in", []))
 		self.assertTrue(compare_values(0, "contains", "0"))
 		self.assertTrue(compare_values(None, "not_contains", "x"))
+		self.assertTrue(compare_values("Item 123", "contains", 123))
+		self.assertFalse(compare_values("Item 123", "contains", None))
+		self.assertFalse(compare_values("Item 123", "not_contains", 123))
+		self.assertTrue(compare_values("Item 123", "not_contains", None))
 		with self.assertRaises(TypeError):
 			compare_values("Open", "in", None)
 

@@ -9,7 +9,7 @@ export const RESULT_SHAPES = Object.freeze({
 export const AGGREGATE_FUNCTIONS = Object.freeze(["count", "sum", "avg", "min", "max"]);
 
 const AGGREGATE_SET = new Set(AGGREGATE_FUNCTIONS);
-const ALIAS_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const ALIAS_PATTERN = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/;
 export function humanizeAlias(value) {
 	return String(value ?? "")
 		.split("_")
@@ -82,7 +82,7 @@ function splitTopLevelExpressions(input) {
 function parseAlias(expression) {
 	const match = String(expression)
 		.trim()
-		.match(/^(.+?)\s+as\s+([A-Za-z_][A-Za-z0-9_]*)$/i);
+		.match(/^(.+?)\s+as\s+(.+)$/i);
 	if (!match) return { expression: String(expression).trim(), alias: "" };
 	return { expression: match[1].trim(), alias: match[2] };
 }
