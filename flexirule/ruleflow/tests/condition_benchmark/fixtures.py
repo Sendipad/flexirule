@@ -570,7 +570,10 @@ def get_canonical_fixtures() -> list[BenchmarkFixture]:
 					{
 						"type": "comparison",
 						"operator": "eq",
-						"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["customer_group"]}},
+						"left": {
+							"mode": "variable",
+							"path": {"scope": "doc", "segments": ["customer_group"]},
+						},
 						"right": {"mode": "static", "value_type": "string", "value": "Commercial"},
 					},
 				],
@@ -611,13 +614,19 @@ def get_canonical_fixtures() -> list[BenchmarkFixture]:
 							{
 								"type": "comparison",
 								"operator": "eq",
-								"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["status"]}},
+								"left": {
+									"mode": "variable",
+									"path": {"scope": "doc", "segments": ["status"]},
+								},
 								"right": {"mode": "static", "value_type": "string", "value": "Draft"},
 							},
 							{
 								"type": "comparison",
 								"operator": "eq",
-								"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["status"]}},
+								"left": {
+									"mode": "variable",
+									"path": {"scope": "doc", "segments": ["status"]},
+								},
 								"right": {"mode": "static", "value_type": "string", "value": "Submitted"},
 							},
 						],
@@ -690,7 +699,10 @@ def get_canonical_fixtures() -> list[BenchmarkFixture]:
 							{
 								"type": "comparison",
 								"operator": "in",
-								"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["territory"]}},
+								"left": {
+									"mode": "variable",
+									"path": {"scope": "doc", "segments": ["territory"]},
+								},
 								"right": {
 									"mode": "static",
 									"value_type": "list",
@@ -741,7 +753,11 @@ def get_canonical_fixtures() -> list[BenchmarkFixture]:
 											"mode": "variable",
 											"path": {"scope": "doc", "segments": ["workflow_state"]},
 										},
-										"right": {"mode": "static", "value_type": "string", "value": "Approved"},
+										"right": {
+											"mode": "static",
+											"value_type": "string",
+											"value": "Approved",
+										},
 									},
 									{
 										"type": "comparison",

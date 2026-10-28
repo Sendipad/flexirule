@@ -611,7 +611,9 @@ class TestConditionBenchmark(FrappeTestCase):
 		for cand in self.candidates:
 			with self.subTest(candidate=cand.candidate_name):
 				r1 = TrackingDoc({"item_code": "I1", "qty": 5})
-				r2 = TrackingDoc({"item_code": "I2", "qty": 15})  # Decisive matching row; none should return False
+				r2 = TrackingDoc(
+					{"item_code": "I2", "qty": 15}
+				)  # Decisive matching row; none should return False
 				r3 = TrackingDoc({"item_code": "I3", "qty": 20})  # Should be skipped
 
 				doc = frappe._dict({"items": [r1, r2, r3]})
