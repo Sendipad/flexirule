@@ -35,13 +35,13 @@ from flexirule.ruleflow.tests.condition_benchmark.comparison_api import (
 from flexirule.ruleflow.tests.condition_benchmark.fixtures import get_neutral_scenarios
 
 
-def _get_git_metadata() -> tuple[str, str]:
-	"""Dynamically capture git commit SHA and branch name via git CLI.
-
-	If detection fails, returns ("Unavailable", "Unavailable") without misleading fallbacks.
-	"""
+def _get_git_metadata() -> dict[str, Any]:
+	"""Dynamically capture git commit SHA, branch name, working tree dirty status, and provenance notes."""
 	branch = "Unavailable"
 	commit = "Unavailable"
+	is_dirty = False
+	provenance_note = "Exact git commit SHA and clean working tree established."
+
 	try:
 		branch_out = subprocess.check_output(
 			["git", "rev-parse", "--abbrev-ref", "HEAD"],
@@ -64,7 +64,41 @@ def _get_git_metadata() -> tuple[str, str]:
 	except Exception:
 		pass
 
-	return branch, commit
+	try:
+		status_out = subprocess.check_output(
+			["git", "status", "--porcelain"],
+			stderr=subprocess.DEVNULL,
+			text=True,
+		).strip()
+		if status_out:
+			is_dirty = True
+			provenance_note = (
+				"Working tree contains uncommitted changes; benchmark provenance captures "
+				"HEAD commit plus uncommitted working tree state."
+			)
+	except Exception:
+		pass
+
+	return {
+		"branch": branch,
+		"commit": commit,
+		"is_dirty": is_dirty,
+		"provenance_note": provenance_note,
+	}
+
+
+def _clear_cache_safely() -> bool:
+	"""Attempt to clear condition plan LRU cache to establish cold cache isolation.
+
+	Returns True if cache clear succeeded, False if cache isolation could not be verified/established.
+	"""
+	try:
+		from flexirule.ruleflow.core.condition_evaluator import clear_condition_plan_cache
+
+		clear_condition_plan_cache()
+		return True
+	except Exception:
+		return False
 
 
 class UnifiedScenarioEvaluator:
@@ -86,13 +120,8 @@ class UnifiedScenarioEvaluator:
 		legacy_payload = node_to_legacy_payload(scenario.root)
 		canonical_payload = node_to_canonical_payload(scenario.root)
 
-		# Clear LRU compilation cache before preparing canonical payloads for cold measurement
-		try:
-			from flexirule.ruleflow.core.condition_evaluator import clear_condition_plan_cache
-
-			clear_condition_plan_cache()
-		except Exception:
-			pass
+		# Clear LRU compilation cache before preparing canonical payloads
+		_clear_cache_safely()
 
 		for name, candidate in self.candidates.items():
 			# Check unsupported / deprecated cases first
@@ -267,7 +296,11 @@ class BenchmarkRunner:
 		self.evaluator = UnifiedScenarioEvaluator(self.candidates)
 
 	def measure_preparation_times(self, scenario: NeutralScenario) -> dict[str, dict]:
-		"""Measure cold preparation and warm-cache preparation separately."""
+		"""Measure cold preparation and warm-cache preparation separately.
+
+		If cache isolation cannot be verified/established, cold preparation measurement is explicitly
+		marked as invalid/unavailable with reason rather than silently proceeding.
+		"""
 		prep_metrics = {}
 		legacy_payload = node_to_legacy_payload(scenario.root)
 		canonical_payload = node_to_canonical_payload(scenario.root)
@@ -291,12 +324,13 @@ class BenchmarkRunner:
 				continue
 
 			# 1. Cold Prep Measurement
-			try:
-				from flexirule.ruleflow.core.condition_evaluator import clear_condition_plan_cache
-
-				clear_condition_plan_cache()
-			except Exception:
-				pass
+			cache_cleared = _clear_cache_safely()
+			if not cache_cleared:
+				prep_metrics[name] = {
+					"is_supported": False,
+					"reason": "INVALID: Cache isolation could not be established for cold measurement.",
+				}
+				continue
 
 			cold_start = time.perf_counter()
 			prep_cold = cand.prepare(payload)
@@ -429,16 +463,17 @@ class BenchmarkRunner:
 					legacy_payload = node_to_legacy_payload(sc.root)
 					payload = canonical_payload if "Canonical" in name else legacy_payload
 
+					batch_failed = False
 					for _ in range(5):
 						# Clear LRU cache to include genuine cold preparation
-						try:
-							from flexirule.ruleflow.core.condition_evaluator import (
-								clear_condition_plan_cache,
-							)
-
-							clear_condition_plan_cache()
-						except Exception:
-							pass
+						cache_cleared = _clear_cache_safely()
+						if not cache_cleared:
+							cand_counts[name] = {
+								"is_valid": False,
+								"reason": "INVALID: Cache isolation could not be established for amortized run.",
+							}
+							batch_failed = True
+							break
 
 						start_time = time.perf_counter()
 						prep = cand.prepare(payload)
@@ -449,6 +484,9 @@ class BenchmarkRunner:
 
 						elapsed_ms = (time.perf_counter() - start_time) * 1000.0
 						batch_total_ms.append(elapsed_ms)
+
+					if batch_failed:
+						continue
 
 					median_tot_ms = statistics.median(batch_total_ms)
 					cost_per_eval_us = (median_tot_ms * 1000.0) / count
@@ -508,7 +546,7 @@ class BenchmarkRunner:
 		# 3. Amortized Cost Suite
 		amortized_summary = self.run_amortized_benchmarks()
 
-		branch_name, commit_sha = _get_git_metadata()
+		git_meta = _get_git_metadata()
 
 		env_info = {
 			"python_version": platform.python_version(),
@@ -516,8 +554,10 @@ class BenchmarkRunner:
 			"frappe_version": getattr(frappe, "__version__", "15.123.1"),
 			"flexirule_version": "1.0.0-beta.3",
 			"timestamp_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-			"benchmark_source_branch": branch_name,
-			"benchmark_source_commit": commit_sha,
+			"benchmark_source_branch": git_meta["branch"],
+			"benchmark_source_commit": git_meta["commit"],
+			"is_working_tree_dirty": git_meta["is_dirty"],
+			"provenance_note": git_meta["provenance_note"],
 		}
 
 		full_payload = {
@@ -565,6 +605,10 @@ class BenchmarkRunner:
 		md_lines.append(f"**Date:** {env.get('timestamp_utc', 'N/A')}")
 		md_lines.append(f"**Branch:** `{env.get('benchmark_source_branch', 'Unavailable')}`")
 		md_lines.append(f"**Commit:** `{env.get('benchmark_source_commit', 'Unavailable')}`")
+		md_lines.append(
+			f"**Working Tree Dirty:** `{'Yes' if env.get('is_working_tree_dirty') else 'No'}`"
+		)
+		md_lines.append(f"**Provenance Note:** {env.get('provenance_note', 'N/A')}")
 		md_lines.append(f"**Python:** {env.get('python_version', 'N/A')}")
 		md_lines.append(f"**Frappe Framework:** {env.get('frappe_version', 'N/A')}")
 		md_lines.append("")
@@ -699,7 +743,7 @@ class BenchmarkRunner:
 		md_lines.append("")
 		md_lines.append("### Measurement Methodology & Isolation")
 		md_lines.append(
-			"1. **Cold Prep Isolation:** All LRU caches (`clear_condition_plan_cache()`) are explicitly cleared prior to cold preparation measurements. Correctness checks execute in an isolated phase to avoid pre-warming cold execution states."
+			"1. **Cold Prep Isolation:** All LRU caches (`clear_condition_plan_cache()`) are explicitly cleared prior to cold preparation measurements. If cache clearing fails, cold preparation is marked invalid rather than silently proceeding."
 		)
 		md_lines.append(
 			"2. **Steady-State Execution Latency:** Timed across 5 batches of 10,000 evaluations using alternating matching and non-matching document instances to prevent CPU branch prediction bias."
@@ -710,7 +754,7 @@ class BenchmarkRunner:
 		md_lines.append("")
 		md_lines.append("### Security Profile & Analysis")
 		md_lines.append(
-			"- **Approach A (`frappe.safe_eval`)**: Re-compiles Python expressions dynamically using RestrictedPython on every call. While restricted, dynamic string evaluation carries latent code execution attack vectors if input sanitization is bypassed."
+			"- **Approach A (`safe_eval`)**: Re-compiles Python expressions dynamically using RestrictedPython on every call. While restricted, dynamic string evaluation carries latent code execution attack vectors if input sanitization is bypassed."
 		)
 		md_lines.append(
 			"- **Approach B / Approach C / PR #469 Canonical Evaluator**: Parse conditions into structured AST nodes and evaluate them via pure Python tree traversal. This completely avoids `eval()`, `exec()`, and `safe_eval()`, eliminating dynamic string execution vulnerabilities."
