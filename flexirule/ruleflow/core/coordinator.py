@@ -628,9 +628,7 @@ class RuleCoordinator:
 					if not frappe.safe_eval(rule_doc.get("compiled_expression"), eval_globals, eval_locals):
 						return False, _("Trigger Conditions failed")
 				else:
-					return False, _(
-						"Rule has a trigger condition but no valid compiled_expression (legacy expression)."
-					)
+					return False, _("Rule has a trigger condition but no valid compiled legacy expression.")
 			except ConditionError as exc:
 				frappe.log_error(
 					title=f"FlexiRule trigger condition: {exc.code}",

@@ -587,11 +587,6 @@ def _assert_runtime_equality_types(left: Any, right: Any, path: str) -> None:
 		return
 	if left_type in {"integer", "decimal"} and right_type in {"integer", "decimal"}:
 		return
-	# Python treats bool as an int subclass, but canonical equality must not.
-	# A boolean/numeric comparison is a valid comparison that evaluates false,
-	# not a runtime evaluation error.
-	if {left_type, right_type} <= {"boolean", "integer", "decimal"} and "boolean" in {left_type, right_type}:
-		return
 	if left_type != right_type:
 		raise ConditionEvaluationError(
 			"operand_type_mismatch", path, "Equality operands have incompatible runtime types"

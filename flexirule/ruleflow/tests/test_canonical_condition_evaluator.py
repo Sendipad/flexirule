@@ -90,18 +90,19 @@ class TestCanonicalConditionEvaluator(unittest.TestCase):
 		)
 
 	def test_boolean_is_not_equal_to_numeric_zero(self):
-		self.assertFalse(
+		with self.assertRaises(ConditionEvaluationError) as raised:
 			evaluate_condition(
 				compare("eq", variable("doc", "count"), static("boolean", False)),
 				{"doc": {"count": 0}},
 			)
-		)
-		self.assertFalse(
+		self.assertEqual(raised.exception.code, "operand_type_mismatch")
+
+		with self.assertRaises(ConditionEvaluationError) as raised:
 			evaluate_condition(
 				compare("eq", variable("doc", "flag"), static("integer", 0)),
 				{"doc": {"flag": False}},
 			)
-		)
+		self.assertEqual(raised.exception.code, "operand_type_mismatch")
 
 	def test_decimal_comparison_is_precision_safe(self):
 		node = compare("gt", static("decimal", "9007199254740992.2"), static("decimal", "9007199254740992.1"))
