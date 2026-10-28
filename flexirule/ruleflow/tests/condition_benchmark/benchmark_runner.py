@@ -159,7 +159,7 @@ class BenchmarkRunner:
 				continue
 			if len(samples) != sample_count:
 				prep.error = (
-					"Preparation did not succeed in every repeated sample " f"({len(samples)}/{sample_count})"
+					f"Preparation did not succeed in every repeated sample ({len(samples)}/{sample_count})"
 				)
 				continue
 			prep.preparation_time_seconds = statistics.median(samples)
@@ -214,7 +214,7 @@ class BenchmarkRunner:
 				error = f"Evaluation error: {result.error}"
 				break
 			if result.result != expected:
-				error = "Timed result mismatch: " f"expected {expected!r}, got {result.result!r}"
+				error = f"Timed result mismatch: expected {expected!r}, got {result.result!r}"
 				break
 			core_seconds += result.execution_time_seconds
 			successful += 1
@@ -486,10 +486,12 @@ class BenchmarkRunner:
 		primary = full_payload["primary_benchmark"]
 		amortized = full_payload["amortized_benchmark"]
 
-		cand_a_name = getattr(self, "candidate_a", None) and self.candidate_a.candidate_name or "Approach A"
-		cand_a_exp_name = getattr(self, "candidate_a_exp", None) and self.candidate_a_exp.candidate_name or "Approach A Exp"
-		cand_b_name = getattr(self, "candidate_b", None) and self.candidate_b.candidate_name or "Approach B"
-		cand_c_name = getattr(self, "candidate_c", None) and self.candidate_c.candidate_name or "Approach C"
+		cand_a_name = (getattr(self, "candidate_a", None) and self.candidate_a.candidate_name) or "Approach A"
+		cand_a_exp_name = (
+			getattr(self, "candidate_a_exp", None) and self.candidate_a_exp.candidate_name
+		) or "Approach A Exp"
+		cand_b_name = (getattr(self, "candidate_b", None) and self.candidate_b.candidate_name) or "Approach B"
+		cand_c_name = (getattr(self, "candidate_c", None) and self.candidate_c.candidate_name) or "Approach C"
 
 		total_evals_completed = 0
 		for fix_res in primary["fixtures"]:
@@ -770,10 +772,18 @@ class BenchmarkRunner:
 		sec_lines.append("## Canonical Condition Backend — PR #469 Production Evaluation")
 		sec_lines.append("")
 		sec_lines.append(f"**Evaluation UTC Date/Time:** `{env.get('timestamp_utc')}`  ")
-		sec_lines.append(f"**Source Branch:** `{env.get('benchmark_source_branch') or 'benchmark/canonical-condition-pr469'}`  ")
-		sec_lines.append(f"**Source Commit SHA:** `{env.get('benchmark_source_commit') or 'e72aefeff1bb509654791fec9a6930aacaa00414'}`  ")
-		sec_lines.append(f"**Environment:** Python {env.get('python_version')}, Frappe {env.get('frappe_version')}, Platform {env.get('platform')}  ")
-		sec_lines.append(f"**Benchmark Command:** `bench --site test_site run-tests --module flexirule.ruleflow.tests.test_condition_benchmark`  ")
+		sec_lines.append(
+			f"**Source Branch:** `{env.get('benchmark_source_branch') or 'benchmark/canonical-condition-pr469'}`  "
+		)
+		sec_lines.append(
+			f"**Source Commit SHA:** `{env.get('benchmark_source_commit') or 'e72aefeff1bb509654791fec9a6930aacaa00414'}`  "
+		)
+		sec_lines.append(
+			f"**Environment:** Python {env.get('python_version')}, Frappe {env.get('frappe_version')}, Platform {env.get('platform')}  "
+		)
+		sec_lines.append(
+			"**Benchmark Command:** `bench --site test_site run-tests --module flexirule.ruleflow.tests.test_condition_benchmark`  "
+		)
 		sec_lines.append(f"**Correctness Gate Status:** **{gate_status}**  ")
 		sec_lines.append(f"**Production Selection Status:** **{selection_status}**  ")
 		sec_lines.append("")
@@ -856,7 +866,9 @@ class BenchmarkRunner:
 			counts = item["counts"]
 			for n_str, c_data in counts.items():
 				run_info = c_data.get(cand_runtime_name, {})
-				tot_ms = f"{run_info.get('total_amortized_cost_ms')} ms" if run_info.get("is_valid") else "ERR"
+				tot_ms = (
+					f"{run_info.get('total_amortized_cost_ms')} ms" if run_info.get("is_valid") else "ERR"
+				)
 				cost_us = f"**{run_info.get('cost_per_eval_us')} µs**" if run_info.get("is_valid") else "ERR"
 				valid_b = f"{run_info.get('valid_batches')}/{run_info.get('total_batches_attempted')}"
 				sec_lines.append(f"| `{fid}` | N = {n_str} | {tot_ms} | {cost_us} | {valid_b} |")
@@ -911,8 +923,12 @@ class BenchmarkRunner:
 		primary = self.run_primary_benchmarks()
 		amortized = self.run_amortized_benchmarks()
 
-		branch_name = os.environ.get("FLEXIRULE_BENCHMARK_SOURCE_BRANCH") or "benchmark/canonical-condition-pr469"
-		commit_sha = os.environ.get("FLEXIRULE_BENCHMARK_SOURCE_COMMIT") or "e72aefeff1bb509654791fec9a6930aacaa00414"
+		branch_name = (
+			os.environ.get("FLEXIRULE_BENCHMARK_SOURCE_BRANCH") or "benchmark/canonical-condition-pr469"
+		)
+		commit_sha = (
+			os.environ.get("FLEXIRULE_BENCHMARK_SOURCE_COMMIT") or "e72aefeff1bb509654791fec9a6930aacaa00414"
+		)
 
 		env_info = {
 			"python_version": platform.python_version(),
