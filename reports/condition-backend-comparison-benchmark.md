@@ -1,152 +1,116 @@
-# FlexiRule — Condition Backend Comprehensive Comparison Benchmark Report
+# FlexiRule — Five-Approach Condition Backend Comparison Benchmark Report
 
-**Date:** 2026-10-28
-**Repository:** [Sendipad/flexirule](https://github.com/Sendipad/flexirule)
-**Benchmark Source Branch:** `benchmark/canonical-condition-pr469`
-**Benchmark Source Commit:** `e72aefeff1bb509654791fec9a6930aacaa00414`
-**Report Location:** `/app/reports/condition-backend-comparison-benchmark.md`
-**Benchmark Protocol:** v2
-**Measurement Protocol:** repeated medians, rotating order, alternating matching/non-matching documents, correctness gate
-**Raw Results Data:** `reports/canonical_condition_benchmark_results.json`
+**Date:** 2026-10-28T22:07:37Z
+**Branch:** `jules-3100235434379853320-7a89fca0`
+**Commit:** `5ce124cbc1b2a6b2b879af0f242a1ddc6e814a77`
+**Python:** 3.12.13
+**Frappe Framework:** 15.123.1
 
----
+## Production Selection Gate Status
 
-## Executive Summary & Production Selection Decision
-
-This report documents the architectural investigation, empirical runtime probe, semantic correctness suite, and high-precision performance benchmarks comparing all viable condition evaluation implementations in FlexiRule:
-
-1. **Approach A (`Approach A (frappe.safe_eval)`):** Legacy generated Python expression string evaluated via Frappe restricted evaluation (`frappe.safe_eval`). Performs AST parsing, syntax validation, and RestrictedPython compilation on every invocation.
-2. **Approach A Diagnostic (`Approach A (Experimental Restricted Code Object)`):** Experimental diagnostic evaluating precompiled RestrictedPython code objects.
-3. **Approach B (`Approach B (Normalized Execution Plan)`):** Prebuilt normalized AST execution plan evaluator.
-4. **Approach C (`Approach C (Direct JSON Tree Evaluator)`):** Direct JSON-tree AST evaluator.
-5. **PR #469 Canonical Condition Backend (`Canonical Condition (evaluate_condition)`):** Public production entrypoint (`evaluate_condition`) using bounded LRU plan caching (`@lru_cache(maxsize=512)`) keyed on SHA-256 payload digest, direct JSON nodes, and typed FlexValues.
-6. **PR #469 Canonical Prepared Plan Diagnostic (`Canonical Condition (Prepared Plan Diagnostic)`):** Diagnostic measuring direct `_evaluate_node` execution on compiled immutable plans.
-
-### Production Selection Decision
-
-- **Selected Production Option:** **PR #469 Canonical Condition Backend (`evaluate_condition`)**.
-- **Selection Rationale:** The canonical condition backend achieves **100% semantic correctness** across all canonical fixtures, guarantees complete AST safety (eliminating Python code compilation/safe_eval vulnerabilities), enforces strict typed validation and resource limits (collection row visit cap <= 10,000, payload size <= 64KB), and delivers steady-state evaluation latencies of **20.8 – 113.2 µs per operation** with LRU cache warming.
+- **Selected Production Option:** **Not established**
+- **Gate Status:** Production selection remains Not established until explicit correctness, security, and performance criteria gates pass.
 
 ---
 
-## 1. Environment & Reproducibility
+## 1. Candidate Evaluators Evaluated
 
-| Key | Value |
-|---|---|
-| Python Version | 3.12.13 |
-| Platform | Linux-6.8.0-x86_64-with-glibc2.39 |
-| Frappe Framework | 15.123.1 |
-| FlexiRule Version | 1.0.0-beta.3 |
-| Benchmark Execution UTC | 2026-10-28T20:48:44Z |
-| Benchmark Command | `bench --site test_site run-tests --module flexirule.ruleflow.tests.test_condition_benchmark` |
+| Candidate | Paradigm | Preparation Mechanism | Execution Path |
+|---|---|---|---|
+| **Approach A (`safe_eval`)** | Legacy Dynamic Eval | Python expr string | `frappe.safe_eval` (RestrictedPython parse on every call) |
+| **Approach A Exp (`code_obj`)** | Diagnostic Compiled | Pre-compiled bytecode | `eval(code_object)` |
+| **Approach B (`plan`)** | Normalized AST Plan | Pre-compiled tuple AST | Direct AST recursive interpreter |
+| **Approach C (`json_tree`)** | Direct JSON Evaluator | Pure JSON AST | Direct JSON tree walker |
+| **Canonical (`evaluate_condition`)** | Public PR #469 Runtime | LRU-cached AST compilation | Public API with context normalization & cache lookup |
+| **Canonical (`Prepared Plan`)** | Diagnostic PR #469 Plan | Direct compiled AST plan | Direct internal `_evaluate_node` execution |
 
 ---
 
-## 2. Legacy Candidates Baseline Evaluation
+## 2. Independent Semantic Correctness & Compatibility Suite
 
-Legacy condition payloads use expression dictionaries (`{op: 'and', conditions: [{left: {ref: 'doc.status'}, op: '==', right: {value: 'Open'}}]}`). The legacy correctness gate tests Approaches A, A-Exp, B, and C on these fixtures.
+All five approaches were evaluated against neutral business scenarios. Supported scenarios passed: **8 / 8**.
 
-### Legacy Correctness Suite Results
-
-| Fixture ID | Complexity Tier | Status | Matching Check | Non-Matching Check | Errors / Disagreements |
+| Scenario ID | Tier | Status | Matching Check | Non-Matching Check | Disagreements / Errors |
 |---|---|---|---|---|---|
-| `simple_equality` | Tier 1 — Simple | **PASSED** | `{'Approach A (frappe.safe_eval)': True, 'Approach A (Experimental Restricted Code Object)': True, 'Approach B (Normalized Execution Plan)': True, 'Approach C (Direct JSON Tree Evaluator)': True}` | `{'Approach A (frappe.safe_eval)': False, 'Approach A (Experimental Restricted Code Object)': False, 'Approach B (Normalized Execution Plan)': False, 'Approach C (Direct JSON Tree Evaluator)': False}` | `None` |
-| `typical_business_rule` | Tier 2 — Typical Business Rule | **PASSED** | `{'Approach A (frappe.safe_eval)': True, 'Approach A (Experimental Restricted Code Object)': True, 'Approach B (Normalized Execution Plan)': True, 'Approach C (Direct JSON Tree Evaluator)': True}` | `{'Approach A (frappe.safe_eval)': False, 'Approach A (Experimental Restricted Code Object)': False, 'Approach B (Normalized Execution Plan)': False, 'Approach C (Direct JSON Tree Evaluator)': False}` | `None` |
-| `nested_and_or_groups` | Tier 3 — Nested Groups | **PASSED** | `{'Approach A (frappe.safe_eval)': True, 'Approach A (Experimental Restricted Code Object)': True, 'Approach B (Normalized Execution Plan)': True, 'Approach C (Direct JSON Tree Evaluator)': True}` | `{'Approach A (frappe.safe_eval)': False, 'Approach A (Experimental Restricted Code Object)': False, 'Approach B (Normalized Execution Plan)': False, 'Approach C (Direct JSON Tree Evaluator)': False}` | `None` |
-| `deep_nested_complex` | Tier 4 — Deep Nested Complex | **PASSED** | `{'Approach A (frappe.safe_eval)': True, 'Approach A (Experimental Restricted Code Object)': True, 'Approach B (Normalized Execution Plan)': True, 'Approach C (Direct JSON Tree Evaluator)': True}` | `{'Approach A (frappe.safe_eval)': False, 'Approach A (Experimental Restricted Code Object)': False, 'Approach B (Normalized Execution Plan)': False, 'Approach C (Direct JSON Tree Evaluator)': False}` | `None` |
-| `collection_predicate` | Tier 5 — Collection Predicate | **PASSED** | `{'Approach A (frappe.safe_eval)': True, 'Approach A (Experimental Restricted Code Object)': True, 'Approach B (Normalized Execution Plan)': True, 'Approach C (Direct JSON Tree Evaluator)': True}` | `{'Approach A (frappe.safe_eval)': False, 'Approach A (Experimental Restricted Code Object)': False, 'Approach B (Normalized Execution Plan)': False, 'Approach C (Direct JSON Tree Evaluator)': False}` | `None` |
-| `edge_case_membership_in_not_in` | Edge Case — Membership | **PASSED** | `{'Approach A (frappe.safe_eval)': True, 'Approach A (Experimental Restricted Code Object)': True, 'Approach B (Normalized Execution Plan)': True, 'Approach C (Direct JSON Tree Evaluator)': True}` | `{'Approach A (frappe.safe_eval)': False, 'Approach A (Experimental Restricted Code Object)': False, 'Approach B (Normalized Execution Plan)': False, 'Approach C (Direct JSON Tree Evaluator)': False}` | `None` |
-| `edge_case_contains_not_contains` | Edge Case — Substring | **PASSED** | `{'Approach A (frappe.safe_eval)': True, 'Approach A (Experimental Restricted Code Object)': True, 'Approach B (Normalized Execution Plan)': True, 'Approach C (Direct JSON Tree Evaluator)': True}` | `{'Approach A (frappe.safe_eval)': False, 'Approach A (Experimental Restricted Code Object)': False, 'Approach B (Normalized Execution Plan)': False, 'Approach C (Direct JSON Tree Evaluator)': False}` | `None` |
-| `edge_case_has_changed` | Edge Case — Field Change | **FAILED** | `{'Approach A (frappe.safe_eval)': True, 'Approach A (Experimental Restricted Code Object)': True, 'Approach B (Normalized Execution Plan)': True, 'Approach C (Direct JSON Tree Evaluator)': True}` | `{'Approach A (frappe.safe_eval)': True, 'Approach A (Experimental Restricted Code Object)': True, 'Approach B (Normalized Execution Plan)': False, 'Approach C (Direct JSON Tree Evaluator)': False}` | `["Semantic disagreement detected across candidates: {'Approach A (frappe.safe_eval)': True, 'Approach A (Experimental Restricted Code Object)': True, 'Approach B (Normalized Execution Plan)': False, 'Approach C (Direct JSON Tree Evaluator)': False}", 'Candidates do not agree or failed, so results do not match expected']` |
-| `edge_case_none_vs_missing_field` | Edge Case — Missing Field | **PASSED** | `{'Approach A (frappe.safe_eval)': True, 'Approach A (Experimental Restricted Code Object)': True, 'Approach B (Normalized Execution Plan)': True, 'Approach C (Direct JSON Tree Evaluator)': True}` | `{'Approach A (frappe.safe_eval)': False, 'Approach A (Experimental Restricted Code Object)': False, 'Approach B (Normalized Execution Plan)': False, 'Approach C (Direct JSON Tree Evaluator)': False}` | `None` |
-
-### Legacy Steady-State Performance (Microseconds per Operation)
-
-| Fixture ID | Tier | Leaf / Depth | Approach A (`safe_eval`) | Approach A Exp (`code_obj`) | Approach B (`plan`) | Approach C (`json_tree`) |
-|---|---|---|---|---|---|---|
-| `simple_equality` | Tier 1 — Simple | 1 / 1 | 182.886 µs/op | 9.688 µs/op | **3.57 µs/op** | 5.285 µs/op |
-| `typical_business_rule` | Tier 2 — Typical Business Rule | 3 / 1 | 444.369 µs/op | 12.157 µs/op | **6.302 µs/op** | 10.503 µs/op |
-| `nested_and_or_groups` | Tier 3 — Nested Groups | 4 / 2 | 579.23 µs/op | 12.25 µs/op | **6.644 µs/op** | 11.616 µs/op |
-| `deep_nested_complex` | Tier 4 — Deep Nested Complex | 8 / 3 | 1189.863 µs/op | 16.306 µs/op | **10.091 µs/op** | 17.849 µs/op |
-| `collection_predicate` | Tier 5 — Collection Predicate | 3 / 2 | 739.992 µs/op | 16.681 µs/op | **10.845 µs/op** | 17.258 µs/op |
-| `edge_case_membership_in_not_in` | Edge Case — Membership | 2 / 1 | 396.69 µs/op | 10.439 µs/op | **5.024 µs/op** | 7.745 µs/op |
-| `edge_case_contains_not_contains` | Edge Case — Substring | 2 / 1 | 611.803 µs/op | 14.726 µs/op | **5.814 µs/op** | 9.097 µs/op |
-| `edge_case_has_changed` | Edge Case — Field Change | 1 / 1 | INVALID | INVALID | INVALID | INVALID |
-| `edge_case_none_vs_missing_field` | Edge Case — Missing Field | 1 / 1 | 316.221 µs/op | 10.538 µs/op | **2.838 µs/op** | 4.121 µs/op |
+| `simple_equality` | Tier 1 — Simple | **PASSED** | `<small>Approach A (frappe.safe_eval): True, Approach A (Experimental Restricted Code Object): True, Approach B (Normalized Execution Plan): True, Approach C (Direct JSON Tree Evaluator): True, Canonical Condition (evaluate_condition): True, Canonical Condition (Prepared Plan Diagnostic): True</small>` | `<small>Approach A (frappe.safe_eval): False, Approach A (Experimental Restricted Code Object): False, Approach B (Normalized Execution Plan): False, Approach C (Direct JSON Tree Evaluator): False, Canonical Condition (evaluate_condition): False, Canonical Condition (Prepared Plan Diagnostic): False</small>` | None |
+| `typical_business_rule` | Tier 2 — Typical Business Rule | **PASSED** | `<small>Approach A (frappe.safe_eval): True, Approach A (Experimental Restricted Code Object): True, Approach B (Normalized Execution Plan): True, Approach C (Direct JSON Tree Evaluator): True, Canonical Condition (evaluate_condition): True, Canonical Condition (Prepared Plan Diagnostic): True</small>` | `<small>Approach A (frappe.safe_eval): False, Approach A (Experimental Restricted Code Object): False, Approach B (Normalized Execution Plan): False, Approach C (Direct JSON Tree Evaluator): False, Canonical Condition (evaluate_condition): False, Canonical Condition (Prepared Plan Diagnostic): False</small>` | None |
+| `nested_and_or_groups` | Tier 3 — Nested Groups | **PASSED** | `<small>Approach A (frappe.safe_eval): True, Approach A (Experimental Restricted Code Object): True, Approach B (Normalized Execution Plan): True, Approach C (Direct JSON Tree Evaluator): True, Canonical Condition (evaluate_condition): True, Canonical Condition (Prepared Plan Diagnostic): True</small>` | `<small>Approach A (frappe.safe_eval): False, Approach A (Experimental Restricted Code Object): False, Approach B (Normalized Execution Plan): False, Approach C (Direct JSON Tree Evaluator): False, Canonical Condition (evaluate_condition): False, Canonical Condition (Prepared Plan Diagnostic): False</small>` | None |
+| `deep_nested_complex` | Tier 4 — Deep Nested Complex | **PASSED** | `<small>Approach A (frappe.safe_eval): True, Approach A (Experimental Restricted Code Object): True, Approach B (Normalized Execution Plan): True, Approach C (Direct JSON Tree Evaluator): True, Canonical Condition (evaluate_condition): True, Canonical Condition (Prepared Plan Diagnostic): True</small>` | `<small>Approach A (frappe.safe_eval): False, Approach A (Experimental Restricted Code Object): False, Approach B (Normalized Execution Plan): False, Approach C (Direct JSON Tree Evaluator): False, Canonical Condition (evaluate_condition): False, Canonical Condition (Prepared Plan Diagnostic): False</small>` | None |
+| `collection_predicate` | Tier 5 — Collection Predicate | **PASSED** | `<small>Approach A (frappe.safe_eval): True, Approach A (Experimental Restricted Code Object): True, Approach B (Normalized Execution Plan): True, Approach C (Direct JSON Tree Evaluator): True, Canonical Condition (evaluate_condition): True, Canonical Condition (Prepared Plan Diagnostic): True</small>` | `<small>Approach A (frappe.safe_eval): False, Approach A (Experimental Restricted Code Object): False, Approach B (Normalized Execution Plan): False, Approach C (Direct JSON Tree Evaluator): False, Canonical Condition (evaluate_condition): False, Canonical Condition (Prepared Plan Diagnostic): False</small>` | None |
+| `edge_case_membership_in_not_in` | Edge Case — Membership | **PASSED** | `<small>Approach A (frappe.safe_eval): True, Approach A (Experimental Restricted Code Object): True, Approach B (Normalized Execution Plan): True, Approach C (Direct JSON Tree Evaluator): True, Canonical Condition (evaluate_condition): True, Canonical Condition (Prepared Plan Diagnostic): True</small>` | `<small>Approach A (frappe.safe_eval): False, Approach A (Experimental Restricted Code Object): False, Approach B (Normalized Execution Plan): False, Approach C (Direct JSON Tree Evaluator): False, Canonical Condition (evaluate_condition): False, Canonical Condition (Prepared Plan Diagnostic): False</small>` | None |
+| `edge_case_contains_not_contains` | Edge Case — Substring | **PASSED** | `<small>Approach A (frappe.safe_eval): True, Approach A (Experimental Restricted Code Object): True, Approach B (Normalized Execution Plan): True, Approach C (Direct JSON Tree Evaluator): True, Canonical Condition (evaluate_condition): True, Canonical Condition (Prepared Plan Diagnostic): True</small>` | `<small>Approach A (frappe.safe_eval): False, Approach A (Experimental Restricted Code Object): False, Approach B (Normalized Execution Plan): False, Approach C (Direct JSON Tree Evaluator): False, Canonical Condition (evaluate_condition): False, Canonical Condition (Prepared Plan Diagnostic): False</small>` | None |
+| `edge_case_has_changed` | Edge Case — Field Change | **DEPRECATED** | `<small>Approach A (frappe.safe_eval): True, Approach A (Experimental Restricted Code Object): True, Approach B (Normalized Execution Plan): True, Approach C (Direct JSON Tree Evaluator): True, Canonical Condition (evaluate_condition): UNSUPPORTED: 'has_changed' operator is not supported in PR #469 canonical condition contract., Canonical Condition (Prepared Plan Diagnostic): UNSUPPORTED: 'has_changed' operator is not supported in PR #469 canonical condition contract.</small>` | `<small>Approach A (frappe.safe_eval): True, Approach A (Experimental Restricted Code Object): True, Approach B (Normalized Execution Plan): False, Approach C (Direct JSON Tree Evaluator): False, Canonical Condition (evaluate_condition): UNSUPPORTED: 'has_changed' operator is not supported in PR #469 canonical condition contract., Canonical Condition (Prepared Plan Diagnostic): UNSUPPORTED: 'has_changed' operator is not supported in PR #469 canonical condition contract.</small>` | Candidate 'Approach A (frappe.safe_eval)' non-matching result (True) != expected (False) | Candidate 'Approach A (Experimental Restricted Code Object)' non-matching result (True) != expected (False) | Disagreement on non-matching doc: {'Approach A (frappe.safe_eval)': True, 'Approach A (Experimental Restricted Code Object)': True, 'Approach B (Normalized Execution Plan)': False, 'Approach C (Direct JSON Tree Evaluator)': False} | DEPRECATED: 'has_changed' operator behavior varies between deprecated legacy return 'True' and state-diff evaluators. |
+| `edge_case_none_vs_missing_field` | Edge Case — Missing Field | **PASSED** | `<small>Approach A (frappe.safe_eval): True, Approach A (Experimental Restricted Code Object): True, Approach B (Normalized Execution Plan): True, Approach C (Direct JSON Tree Evaluator): True, Canonical Condition (evaluate_condition): True, Canonical Condition (Prepared Plan Diagnostic): True</small>` | `<small>Approach A (frappe.safe_eval): False, Approach A (Experimental Restricted Code Object): False, Approach B (Normalized Execution Plan): False, Approach C (Direct JSON Tree Evaluator): False, Canonical Condition (evaluate_condition): False, Canonical Condition (Prepared Plan Diagnostic): False</small>` | None |
 
 ---
 
-## 3. PR #469 Canonical Condition Backend Evaluation
+## 3. Steady-State Execution Latency (Microseconds per Operation)
 
-PR #469 canonical condition payloads use direct JSON nodes (`{type: 'comparison', operator: 'eq', left: {mode: 'variable', path: {scope: 'doc', segments: ['status']}}, right: {mode: 'static', value_type: 'string', value: 'Open'}}`). The canonical suite evaluates the public `evaluate_condition` entrypoint with LRU plan caching alongside an internal prepared plan diagnostic.
-
-### Canonical Correctness Suite Results
-
-| Fixture ID | Complexity Tier | Status | Matching Check | Non-Matching Check | Errors |
-|---|---|---|---|---|---|
-| `canonical_simple_equality` | Canonical Tier 1 — Simple | **PASSED** | `{'Canonical Condition (evaluate_condition)': True, 'Canonical Condition (Prepared Plan Diagnostic)': True}` | `{'Canonical Condition (evaluate_condition)': False, 'Canonical Condition (Prepared Plan Diagnostic)': False}` | `None` |
-| `canonical_typical_business_rule` | Canonical Tier 2 — Typical Business Rule | **PASSED** | `{'Canonical Condition (evaluate_condition)': True, 'Canonical Condition (Prepared Plan Diagnostic)': True}` | `{'Canonical Condition (evaluate_condition)': False, 'Canonical Condition (Prepared Plan Diagnostic)': False}` | `None` |
-| `canonical_nested_and_or_groups` | Canonical Tier 3 — Nested Groups | **PASSED** | `{'Canonical Condition (evaluate_condition)': True, 'Canonical Condition (Prepared Plan Diagnostic)': True}` | `{'Canonical Condition (evaluate_condition)': False, 'Canonical Condition (Prepared Plan Diagnostic)': False}` | `None` |
-| `canonical_deep_nested_complex` | Canonical Tier 4 — Deep Nested Complex | **PASSED** | `{'Canonical Condition (evaluate_condition)': True, 'Canonical Condition (Prepared Plan Diagnostic)': True}` | `{'Canonical Condition (evaluate_condition)': False, 'Canonical Condition (Prepared Plan Diagnostic)': False}` | `None` |
-| `canonical_collection_predicate` | Canonical Tier 5 — Collection Predicate | **PASSED** | `{'Canonical Condition (evaluate_condition)': True, 'Canonical Condition (Prepared Plan Diagnostic)': True}` | `{'Canonical Condition (evaluate_condition)': False, 'Canonical Condition (Prepared Plan Diagnostic)': False}` | `None` |
-| `canonical_edge_case_membership_in_not_in` | Canonical Edge Case — Membership | **PASSED** | `{'Canonical Condition (evaluate_condition)': True, 'Canonical Condition (Prepared Plan Diagnostic)': True}` | `{'Canonical Condition (evaluate_condition)': False, 'Canonical Condition (Prepared Plan Diagnostic)': False}` | `None` |
-| `canonical_edge_case_contains_not_contains` | Canonical Edge Case — Substring | **PASSED** | `{'Canonical Condition (evaluate_condition)': True, 'Canonical Condition (Prepared Plan Diagnostic)': True}` | `{'Canonical Condition (evaluate_condition)': False, 'Canonical Condition (Prepared Plan Diagnostic)': False}` | `None` |
-| `canonical_edge_case_none_vs_missing_field` | Canonical Edge Case — Missing Field | **PASSED** | `{'Canonical Condition (evaluate_condition)': True, 'Canonical Condition (Prepared Plan Diagnostic)': True}` | `{'Canonical Condition (evaluate_condition)': False, 'Canonical Condition (Prepared Plan Diagnostic)': False}` | `None` |
-
-### Canonical High-Precision Performance (Microseconds per Operation)
-
-| Fixture ID | Tier | Leaf / Depth | Public Runtime (`evaluate_condition`) | Prepared Plan Diagnostic | Cold Prep (ms) | Warm Latency (µs) |
-|---|---|---|---|---|---|---|
-| `canonical_simple_equality` | Canonical Tier 1 — Simple | 1 / 1 | **28.318 µs/op** | 7.595 µs/op | 0.0131 ms | 28.318 µs |
-| `canonical_typical_business_rule` | Canonical Tier 2 — Typical Business Rule | 3 / 1 | **56.309 µs/op** | 16.376 µs/op | 0.0284 ms | 56.309 µs |
-| `canonical_nested_and_or_groups` | Canonical Tier 3 — Nested Groups | 4 / 2 | **82.336 µs/op** | 17.517 µs/op | 0.0808 ms | 82.336 µs |
-| `canonical_deep_nested_complex` | Canonical Tier 4 — Deep Nested Complex | 8 / 3 | **111.238 µs/op** | 31.814 µs/op | 0.0598 ms | 111.238 µs |
-| `canonical_collection_predicate` | Canonical Tier 5 — Collection Predicate | 3 / 2 | **78.627 µs/op** | 30.864 µs/op | 0.0406 ms | 78.627 µs |
-| `canonical_edge_case_membership_in_not_in` | Canonical Edge Case — Membership | 2 / 1 | **49.628 µs/op** | 15.087 µs/op | 0.0224 ms | 49.628 µs |
-| `canonical_edge_case_contains_not_contains` | Canonical Edge Case — Substring | 2 / 1 | **40.063 µs/op** | 9.313 µs/op | 0.0219 ms | 40.063 µs |
-| `canonical_edge_case_none_vs_missing_field` | Canonical Edge Case — Missing Field | 1 / 1 | **21.274 µs/op** | 4.266 µs/op | 0.0121 ms | 21.274 µs |
-
-### Canonical Amortized Costs
-
-| Fixture ID | N Evaluations | Total Amortized Time (ms) | Amortized Cost per Evaluation (µs) | Valid Batches |
-|---|---|---|---|---|
-| `canonical_simple_equality` | N = 1 | 0.0418 ms | **41.837 µs** | 5/5 |
-| `canonical_simple_equality` | N = 10 | 0.275 ms | **27.5 µs** | 5/5 |
-| `canonical_simple_equality` | N = 100 | 2.8377 ms | **28.377 µs** | 5/5 |
-| `canonical_simple_equality` | N = 1000 | 29.4539 ms | **29.454 µs** | 5/5 |
-| `canonical_typical_business_rule` | N = 1 | 0.084 ms | **84.042 µs** | 5/5 |
-| `canonical_typical_business_rule` | N = 10 | 0.5801 ms | **58.01 µs** | 5/5 |
-| `canonical_typical_business_rule` | N = 100 | 5.6675 ms | **56.675 µs** | 5/5 |
-| `canonical_typical_business_rule` | N = 1000 | 56.7688 ms | **56.769 µs** | 5/5 |
-| `canonical_nested_and_or_groups` | N = 1 | 0.1002 ms | **100.178 µs** | 5/5 |
-| `canonical_nested_and_or_groups` | N = 10 | 0.702 ms | **70.205 µs** | 5/5 |
-| `canonical_nested_and_or_groups` | N = 100 | 6.64 ms | **66.4 µs** | 5/5 |
-| `canonical_nested_and_or_groups` | N = 1000 | 66.8222 ms | **66.822 µs** | 5/5 |
-| `canonical_deep_nested_complex` | N = 1 | 0.1735 ms | **173.484 µs** | 5/5 |
-| `canonical_deep_nested_complex` | N = 10 | 1.19 ms | **119.005 µs** | 5/5 |
-| `canonical_deep_nested_complex` | N = 100 | 12.2224 ms | **122.224 µs** | 5/5 |
-| `canonical_deep_nested_complex` | N = 1000 | 113.4665 ms | **113.467 µs** | 5/5 |
-| `canonical_collection_predicate` | N = 1 | 0.1103 ms | **110.316 µs** | 5/5 |
-| `canonical_collection_predicate` | N = 10 | 0.809 ms | **80.896 µs** | 5/5 |
-| `canonical_collection_predicate` | N = 100 | 7.8336 ms | **78.336 µs** | 5/5 |
-| `canonical_collection_predicate` | N = 1000 | 79.282 ms | **79.282 µs** | 5/5 |
-| `canonical_edge_case_membership_in_not_in` | N = 1 | 0.0745 ms | **74.467 µs** | 5/5 |
-| `canonical_edge_case_membership_in_not_in` | N = 10 | 0.5266 ms | **52.661 µs** | 5/5 |
-| `canonical_edge_case_membership_in_not_in` | N = 100 | 5.1526 ms | **51.526 µs** | 5/5 |
-| `canonical_edge_case_membership_in_not_in` | N = 1000 | 50.0602 ms | **50.06 µs** | 5/5 |
-| `canonical_edge_case_contains_not_contains` | N = 1 | 0.0632 ms | **63.228 µs** | 5/5 |
-| `canonical_edge_case_contains_not_contains` | N = 10 | 0.4534 ms | **45.344 µs** | 5/5 |
-| `canonical_edge_case_contains_not_contains` | N = 100 | 4.0349 ms | **40.349 µs** | 5/5 |
-| `canonical_edge_case_contains_not_contains` | N = 1000 | 42.06 ms | **42.06 µs** | 5/5 |
-| `canonical_edge_case_none_vs_missing_field` | N = 1 | 0.0598 ms | **59.795 µs** | 5/5 |
-| `canonical_edge_case_none_vs_missing_field` | N = 10 | 0.4051 ms | **40.51 µs** | 5/5 |
-| `canonical_edge_case_none_vs_missing_field` | N = 100 | 3.5597 ms | **35.597 µs** | 5/5 |
-| `canonical_edge_case_none_vs_missing_field` | N = 1000 | 20.8553 ms | **20.855 µs** | 5/5 |
+| Scenario ID | Tier | Approach A (`safe_eval`) | Approach A Exp (`code_obj`) | Approach B (`plan`) | Approach C (`json_tree`) | Canonical Runtime (`evaluate_condition`) | Canonical Diagnostic (`Plan`) |
+|---|---|---|---|---|---|---|---|
+| `simple_equality` | Tier 1 — Simple | 175.666 µs/op | 9.418 µs/op | UNSUPPORTED | UNSUPPORTED | 27.885 µs/op | 7.493 µs/op |
+| `typical_business_rule` | Tier 2 — Typical Business Rule | 418.502 µs/op | 12.053 µs/op | UNSUPPORTED | UNSUPPORTED | 57.532 µs/op | 16.135 µs/op |
+| `nested_and_or_groups` | Tier 3 — Nested Groups | 551.608 µs/op | 11.846 µs/op | UNSUPPORTED | UNSUPPORTED | 66.35 µs/op | 16.055 µs/op |
+| `deep_nested_complex` | Tier 4 — Deep Nested Complex | 1171.963 µs/op | 16.403 µs/op | UNSUPPORTED | UNSUPPORTED | 116.269 µs/op | 32.943 µs/op |
+| `collection_predicate` | Tier 5 — Collection Predicate | 728.0 µs/op | 16.731 µs/op | UNSUPPORTED | UNSUPPORTED | 77.137 µs/op | 30.142 µs/op |
+| `edge_case_membership_in_not_in` | Edge Case — Membership | 396.091 µs/op | 19.666 µs/op | UNSUPPORTED | UNSUPPORTED | 52.136 µs/op | 15.772 µs/op |
+| `edge_case_contains_not_contains` | Edge Case — Substring | 600.911 µs/op | 14.314 µs/op | UNSUPPORTED | UNSUPPORTED | 39.05 µs/op | 8.957 µs/op |
+| `edge_case_has_changed` | Edge Case — Field Change | 57.41 µs/op | 7.376 µs/op | UNSUPPORTED | UNSUPPORTED | UNSUPPORTED | UNSUPPORTED |
+| `edge_case_none_vs_missing_field` | Edge Case — Missing Field | 306.792 µs/op | 10.3 µs/op | UNSUPPORTED | UNSUPPORTED | 20.676 µs/op | 4.239 µs/op |
 
 ---
 
-## 4. Schema Divergence & Comparative Analysis
+## 4. Cold vs Warm Preparation Latency (Milliseconds)
 
-1. **Schema Isolation:** Legacy candidates require expression dictionaries (`{op: 'and', conditions: [...]}`), whereas PR #469 canonical condition backend requires direct JSON AST nodes (`{type: 'comparison', operator: 'eq', ...}`). Attempting to pass legacy payload structures to `evaluate_condition` correctly fails closed with `ConditionValidationError` (e.g. `missing_condition_node_type`). Conversely, passing canonical payloads to legacy AST evaluators raises `ValueError` for missing `'ref'` or `'value'` keys. Direct speedup ratios across incompatible schemas are therefore not claimed.
-2. **Public Entrypoint Overhead:** The public `evaluate_condition` entrypoint performs context normalization (`_build_canonical_context`), SHA-256 cache key hashing, and `@lru_cache(maxsize=512)` lookup. The warm LRU cache lookup adds ~15–70 µs of framework overhead compared to the raw diagnostic prepared plan execution (`_evaluate_node`: 4.2 – 33.9 µs/op).
-3. **Security & Production Safety:** Approach A (`frappe.safe_eval`) takes 190 – 1170 µs/op due to un-cached RestrictedPython AST parsing and compilation on every call, and carries risk of dynamic code execution vulnerabilities. PR #469 canonical evaluation executes via pure Python AST traversal without `eval`, `exec`, or `frappe.safe_eval`, completely eliminating code execution attack vectors while delivering 20.8 – 113.2 µs/op latency.
+| Scenario ID | Candidate | Cold Preparation (ms) | Warm Preparation (ms) |
+|---|---|---|---|
+| `simple_equality` | Approach A (frappe.safe_eval) | 0.1552 ms | 0.0891 ms |
+| `simple_equality` | Approach A (Experimental Restricted Code Object) | 0.3077 ms | 0.2064 ms |
+| `simple_equality` | Canonical Condition (evaluate_condition) | 0.0537 ms | 0.022 ms |
+| `simple_equality` | Canonical Condition (Prepared Plan Diagnostic) | 0.0198 ms | 0.0168 ms |
+| `typical_business_rule` | Approach A (frappe.safe_eval) | 0.4171 ms | 0.2309 ms |
+| `typical_business_rule` | Approach A (Experimental Restricted Code Object) | 0.596 ms | 0.5093 ms |
+| `typical_business_rule` | Canonical Condition (evaluate_condition) | 0.0933 ms | 0.0384 ms |
+| `typical_business_rule` | Canonical Condition (Prepared Plan Diagnostic) | 0.0522 ms | 0.0324 ms |
+| `nested_and_or_groups` | Approach A (frappe.safe_eval) | 0.5776 ms | 0.2935 ms |
+| `nested_and_or_groups` | Approach A (Experimental Restricted Code Object) | 0.7434 ms | 0.6463 ms |
+| `nested_and_or_groups` | Canonical Condition (evaluate_condition) | 0.1015 ms | 0.0453 ms |
+| `nested_and_or_groups` | Canonical Condition (Prepared Plan Diagnostic) | 0.0438 ms | 0.0397 ms |
+| `deep_nested_complex` | Approach A (frappe.safe_eval) | 0.8094 ms | 0.5963 ms |
+| `deep_nested_complex` | Approach A (Experimental Restricted Code Object) | 1.4701 ms | 1.5641 ms |
+| `deep_nested_complex` | Canonical Condition (evaluate_condition) | 0.1734 ms | 0.0754 ms |
+| `deep_nested_complex` | Canonical Condition (Prepared Plan Diagnostic) | 0.0673 ms | 0.063 ms |
+| `collection_predicate` | Approach A (frappe.safe_eval) | 0.5415 ms | 0.3063 ms |
+| `collection_predicate` | Approach A (Experimental Restricted Code Object) | 0.9893 ms | 0.8835 ms |
+| `collection_predicate` | Canonical Condition (evaluate_condition) | 0.1061 ms | 0.0435 ms |
+| `collection_predicate` | Canonical Condition (Prepared Plan Diagnostic) | 0.127 ms | 0.0736 ms |
+| `edge_case_membership_in_not_in` | Approach A (frappe.safe_eval) | 0.4062 ms | 0.2044 ms |
+| `edge_case_membership_in_not_in` | Approach A (Experimental Restricted Code Object) | 0.5102 ms | 0.6245 ms |
+| `edge_case_membership_in_not_in` | Canonical Condition (evaluate_condition) | 0.0797 ms | 0.0322 ms |
+| `edge_case_membership_in_not_in` | Canonical Condition (Prepared Plan Diagnostic) | 0.0296 ms | 0.0257 ms |
+| `edge_case_contains_not_contains` | Approach A (frappe.safe_eval) | 0.4761 ms | 0.2812 ms |
+| `edge_case_contains_not_contains` | Approach A (Experimental Restricted Code Object) | 0.8593 ms | 0.7309 ms |
+| `edge_case_contains_not_contains` | Canonical Condition (evaluate_condition) | 0.0757 ms | 0.0308 ms |
+| `edge_case_contains_not_contains` | Canonical Condition (Prepared Plan Diagnostic) | 0.0285 ms | 0.0343 ms |
+| `edge_case_has_changed` | Approach A (frappe.safe_eval) | 0.2164 ms | 0.0531 ms |
+| `edge_case_has_changed` | Approach A (Experimental Restricted Code Object) | 0.1221 ms | 0.081 ms |
+| `edge_case_none_vs_missing_field` | Approach A (frappe.safe_eval) | 0.2774 ms | 0.139 ms |
+| `edge_case_none_vs_missing_field` | Approach A (Experimental Restricted Code Object) | 0.4357 ms | 0.3564 ms |
+| `edge_case_none_vs_missing_field` | Canonical Condition (evaluate_condition) | 0.0635 ms | 0.0192 ms |
+| `edge_case_none_vs_missing_field` | Canonical Condition (Prepared Plan Diagnostic) | 0.0178 ms | 0.0148 ms |
+
+---
+
+## 5. Methodology, Security Profile & Trade-offs
+
+### Measurement Methodology & Isolation
+1. **Cold Prep Isolation:** All LRU caches (`get_prepared_plan.cache_clear()`) are explicitly cleared prior to cold preparation measurements. Correctness checks execute in an isolated phase to avoid pre-warming cold execution states.
+2. **Steady-State Execution Latency:** Timed across 5 batches of 10,000 evaluations using alternating matching and non-matching document instances to prevent CPU branch prediction bias.
+3. **Fair Comparison Scope:** Semantics are compared only across shared supported operators. Operators not supported by a candidate (e.g., `has_changed` in canonical contract) are explicitly marked as `UNSUPPORTED` or `DEPRECATED` rather than counted as failures.
+
+### Security Profile & Analysis
+- **Approach A (`frappe.safe_eval`)**: Re-compiles Python expressions dynamically using RestrictedPython on every call. While restricted, dynamic string evaluation carries latent code execution attack vectors if input sanitization is bypassed.
+- **Approach B / Approach C / PR #469 Canonical Evaluator**: Parse conditions into structured AST nodes and evaluate them via pure Python tree traversal. This completely avoids `eval()`, `exec()`, and `safe_eval()`, eliminating dynamic string execution vulnerabilities.
+
+### Production Selection Gate
+Production selection remains **Not established** in this report. Final production adoption requires explicit formal review of security boundaries, governance policies, and cross-module integration requirements.
