@@ -315,7 +315,7 @@ class TestRule(FrappeTestCase):
 		self.assertIsNotNone(artifact)
 		assert artifact is not None  # type narrowing for mypy
 		self.assertEqual(artifact.get("rule"), rule.name)
-		self.assertEqual(artifact.get("artifact_version"), 1)
+		self.assertEqual(artifact.get("artifact_version"), 2)
 
 	def test_rule_dashboard_data_and_counts(self):
 		"""Verify that Rule dashboard metadata and get_open_count work as expected."""
