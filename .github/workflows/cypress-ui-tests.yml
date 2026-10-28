@@ -92,14 +92,16 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y mariadb-client xvfb
+          sudo mkdir -p /etc/mysql/conf.d
+          echo -e "[client]\nskip-ssl" | sudo tee /etc/mysql/conf.d/disable-ssl.cnf
 
       - name: Initialize Frappe bench
         run: |
           set -euo pipefail
           python -m pip install frappe-bench
           bench init --skip-redis-config-generation --skip-assets --python "$(which python)" --frappe-path "$GITHUB_WORKSPACE/frappe-src" ~/frappe-bench
-          mariadb --host 127.0.0.1 --port 3306 -u root -proot -e "SET GLOBAL character_set_server = 'utf8mb4'"
-          mariadb --host 127.0.0.1 --port 3306 -u root -proot -e "SET GLOBAL collation_server = 'utf8mb4_unicode_ci'"
+          mariadb --skip-ssl --host 127.0.0.1 --port 3306 -u root -proot -e "SET GLOBAL character_set_server = 'utf8mb4'"
+          mariadb --skip-ssl --host 127.0.0.1 --port 3306 -u root -proot -e "SET GLOBAL collation_server = 'utf8mb4_unicode_ci'"
 
       - name: Install app and prepare site
         working-directory: /home/runner/frappe-bench
