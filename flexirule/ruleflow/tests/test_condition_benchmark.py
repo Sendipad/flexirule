@@ -1,6 +1,8 @@
 # Copyright (c) 2026, FlexiRule and contributors
 # For license information, please see license.txt
 
+from __future__ import annotations
+
 import json
 import os
 import tempfile
@@ -10,6 +12,11 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from flexirule.ruleflow.core.condition_errors import ConditionEvaluationError, ConditionValidationError
+from flexirule.ruleflow.tests.condition_benchmark.adapters import (
+	NeutralNode,
+	node_to_canonical_payload,
+	node_to_legacy_payload,
+)
 from flexirule.ruleflow.tests.condition_benchmark.benchmark_runner import BenchmarkRunner
 from flexirule.ruleflow.tests.condition_benchmark.candidate_approach_a import (
 	ApproachACandidate,
@@ -79,10 +86,11 @@ class DummyCandidate(BaseConditionCandidate):
 
 
 class TestConditionBenchmark(FrappeTestCase):
-	"""Unit tests for FlexiRule condition benchmark comparison API and candidates."""
+	"""Unit tests for FlexiRule condition benchmark comparison API, adapters, and candidates."""
 
 	def setUp(self):
 		super().setUp()
+		frappe.flags.in_validate_safe_eval = False
 		self.candidate_a = ApproachACandidate()
 		self.candidate_a_exp = ApproachAExperimentalCodeObjectCandidate()
 		self.candidate_b = ApproachBCandidate()
@@ -95,6 +103,31 @@ class TestConditionBenchmark(FrappeTestCase):
 		self.canonical_prepared = CanonicalPreparedPlanCandidate()
 		self.canonical_harness = ConditionComparisonHarness(
 			[self.canonical_candidate, self.canonical_prepared]
+		)
+
+	def test_adapter_neutral_node_translations(self):
+		node = NeutralNode(
+			kind="comparison",
+			operator="eq",
+			left_scope="doc",
+			left_segments=["status"],
+			right_value_type="string",
+			right_value="Open",
+		)
+		legacy_p = node_to_legacy_payload(node)
+		canonical_p = node_to_canonical_payload(node)
+
+		self.assertEqual(
+			legacy_p, {"left": {"ref": "doc.status"}, "op": "==", "right": {"value": "Open"}}
+		)
+		self.assertEqual(
+			canonical_p,
+			{
+				"type": "comparison",
+				"operator": "eq",
+				"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["status"]}},
+				"right": {"mode": "static", "value_type": "string", "value": "Open"},
+			},
 		)
 
 	def test_candidates_prepare_and_evaluate_simple_fixture(self):
@@ -308,7 +341,7 @@ class TestConditionBenchmark(FrappeTestCase):
 		results = runner.run_amortized_benchmarks(execution_counts=[1, 3])
 		fixtures_by_id = {item["fixture_id"]: item for item in results["amortized"]}
 
-		simple = fixtures_by_id["tier1_simple_equality"]
+		simple = fixtures_by_id["simple_equality"]
 		self.assertTrue(simple["correctness_gate_passed"])
 		for count in ("1", "3"):
 			metric = simple["counts"][count]["Approach B (Normalized Execution Plan)"]
