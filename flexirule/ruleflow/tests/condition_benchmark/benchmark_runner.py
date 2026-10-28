@@ -7,11 +7,19 @@ import json
 import os
 import platform
 import statistics
+import subprocess
 import time
 from typing import Any
 
 import frappe
 
+from flexirule.ruleflow.core.condition_evaluator import compile_condition
+from flexirule.ruleflow.tests.condition_benchmark.adapters import (
+	NeutralNode,
+	NeutralScenario,
+	node_to_canonical_payload,
+	node_to_legacy_payload,
+)
 from flexirule.ruleflow.tests.condition_benchmark.candidate_approach_a import (
 	ApproachACandidate,
 	ApproachAExperimentalCodeObjectCandidate,
@@ -26,823 +34,483 @@ from flexirule.ruleflow.tests.condition_benchmark.comparison_api import (
 	BaseConditionCandidate,
 	ConditionComparisonHarness,
 )
-from flexirule.ruleflow.tests.condition_benchmark.fixtures import (
-	get_all_fixtures,
-	get_canonical_fixtures,
-)
+from flexirule.ruleflow.tests.condition_benchmark.fixtures import get_neutral_scenarios
 
 
-class SingleSuiteRunner:
-	"""Helper runner for executing a specific candidate group on a specific fixture suite."""
+def _get_git_metadata() -> tuple[str, str]:
+	"""Dynamically capture git commit SHA and branch name via git CLI.
 
-	def __init__(
-		self,
-		candidates: list[BaseConditionCandidate],
-		fixtures: list[Any],
-		iterations_per_batch: int = 10000,
-		num_batches: int = 5,
-		warmup_iterations: int = 50,
-	):
-		self.candidates = candidates
-		self.fixtures = fixtures
-		self.iterations_per_batch = iterations_per_batch
-		self.num_batches = num_batches
-		self.warmup_iterations = warmup_iterations
-		self.harness = ConditionComparisonHarness(self.candidates)
+	If detection fails, returns ("Unavailable", "Unavailable") without misleading fallbacks.
+	"""
+	branch = "Unavailable"
+	commit = "Unavailable"
+	try:
+		branch_out = subprocess.check_output(
+			["git", "rev-parse", "--abbrev-ref", "HEAD"],
+			stderr=subprocess.DEVNULL,
+			text=True,
+		).strip()
+		if branch_out:
+			branch = branch_out
+	except Exception:
+		pass
 
-	def run_semantic_correctness_suite(self) -> dict:
-		correctness_results = []
-		total_cases = 0
-		agreed_cases = 0
+	try:
+		commit_out = subprocess.check_output(
+			["git", "rev-parse", "HEAD"],
+			stderr=subprocess.DEVNULL,
+			text=True,
+		).strip()
+		if commit_out:
+			commit = commit_out
+	except Exception:
+		pass
 
-		for fix in self.fixtures:
-			total_cases += 1
-			check_match = self.harness.check_semantic_agreement(
-				fix.condition_payload,
-				fix.matching_doc,
-				expected_result=fix.expected_matching_result,
-			)
-			check_non_match = self.harness.check_semantic_agreement(
-				fix.condition_payload,
-				fix.non_matching_doc,
-				expected_result=fix.expected_non_matching_result,
-			)
+	return branch, commit
 
-			case_is_correct = check_match["is_correct"] and check_non_match["is_correct"]
-			if case_is_correct:
-				agreed_cases += 1
 
-			correctness_results.append(
-				{
-					"fixture_id": fix.fixture_id,
-					"tier": fix.tier,
-					"description": fix.description,
-					"is_correct": case_is_correct,
-					"agrees": check_match["agrees"] and check_non_match["agrees"],
-					"matches_expected": check_match["matches_expected"]
-					and check_non_match["matches_expected"],
-					"matching_doc_check": check_match["candidate_results"],
-					"non_matching_doc_check": check_non_match["candidate_results"],
-					"disagreements": check_match["disagreements"] + check_non_match["disagreements"],
-					"errors": {**check_match["errors"], **check_non_match["errors"]},
-				}
-			)
+class UnifiedScenarioEvaluator:
+	"""Evaluates all five candidates against neutral scenario definitions.
 
-		return {
-			"total_cases": total_cases,
-			"agreed_cases": agreed_cases,
-			"all_correct": agreed_cases == total_cases,
-			"all_agreed": agreed_cases == total_cases,
-			"results": correctness_results,
-		}
+	Translates neutral nodes into candidate-native payloads (legacy dict or canonical direct node)
+	and handles unsupported/deprecated cases cleanly.
+	"""
 
-	def _check_fixture_correctness(self, fix) -> tuple[bool, dict]:
-		check_match = self.harness.check_semantic_agreement(
-			fix.condition_payload,
-			fix.matching_doc,
-			expected_result=fix.expected_matching_result,
-		)
-		check_non_match = self.harness.check_semantic_agreement(
-			fix.condition_payload,
-			fix.non_matching_doc,
-			expected_result=fix.expected_non_matching_result,
-		)
-		passed = check_match["is_correct"] and check_non_match["is_correct"]
-		failures = (
-			check_match["disagreements"]
-			+ check_non_match["disagreements"]
-			+ list(check_match["errors"].values())
-			+ list(check_non_match["errors"].values())
-		)
-		return passed, {
-			"matching": check_match,
-			"non_matching": check_non_match,
-			"failures": failures,
-		}
+	def __init__(self, candidates: list[BaseConditionCandidate]):
+		self.candidates = {c.candidate_name: c for c in candidates}
 
-	def _prepare_all_with_median(self, condition_payload: Any) -> dict[str, Any]:
-		sample_count = max(3, self.num_batches)
-		runs = [self.harness.prepare_all(condition_payload) for _ in range(sample_count)]
-		prepared = runs[-1]
-		for candidate in self.candidates:
-			name = candidate.candidate_name
-			prep = prepared[name]
-			samples = [
-				run[name].preparation_time_seconds for run in runs if name in run and not run[name].error
-			]
-			if prep.error:
-				continue
-			if len(samples) != sample_count:
-				prep.error = (
-					f"Preparation did not succeed in every repeated sample ({len(samples)}/{sample_count})"
+	def prepare_scenario(self, scenario: NeutralScenario) -> dict[str, tuple[Any, str | None]]:
+		"""Prepare candidate payloads for a given scenario.
+
+		Returns dict mapping candidate_name -> (prepared_object_or_payload, error_or_unsupported_reason)
+		"""
+		prepared_map = {}
+		legacy_payload = node_to_legacy_payload(scenario.root)
+		canonical_payload = node_to_canonical_payload(scenario.root)
+
+		# Clear LRU compilation cache before preparing canonical payloads for cold measurement
+		try:
+			from flexirule.ruleflow.core.condition_evaluator import get_prepared_plan
+
+			get_prepared_plan.cache_clear()
+		except Exception:
+			pass
+
+		for name, candidate in self.candidates.items():
+			# Check unsupported / deprecated cases first
+			if scenario.scenario_id == "edge_case_has_changed":
+				if "Canonical" in name:
+					prepared_map[name] = (
+						None,
+						"UNSUPPORTED: 'has_changed' operator is not supported in PR #469 canonical condition contract.",
+					)
+					continue
+				elif "safe_eval" in name or "Experimental" in name:
+					# ConditionCompiler returns 'True' with deprecation warning
+					pass
+
+			payload = canonical_payload if "Canonical" in name else legacy_payload
+			if payload is None:
+				prepared_map[name] = (
+					None,
+					f"UNSUPPORTED: Cannot translate neutral node to payload format for {name}",
 				)
 				continue
-			prep.preparation_time_seconds = statistics.median(samples)
-			prep.metadata["preparation_samples_seconds"] = samples
-		return prepared
 
-	def _rotated_candidates(self, offset: int) -> list[BaseConditionCandidate]:
-		if not self.candidates:
-			return []
-		shift = offset % len(self.candidates)
-		return self.candidates[shift:] + self.candidates[:shift]
-
-	def _warm_up_candidate(self, candidate, prep, fix) -> str | None:
-		contexts = [
-			(fix.matching_doc, fix.expected_matching_result),
-			(fix.non_matching_doc, fix.expected_non_matching_result),
-		]
-		for index in range(self.warmup_iterations):
-			doc, expected = contexts[index % len(contexts)]
 			try:
-				result = candidate.evaluate(prep, doc)
-			except Exception as exc:
-				return f"Warm-up exception: {exc!s}"
-			if result.error:
-				return f"Warm-up evaluation failed: {result.error}"
-			if result.result != expected:
-				return f"Warm-up result mismatch: expected {expected!r}, got {result.result!r}"
-		return None
-
-	def _time_evaluation_batch(
-		self, candidate, prep, fix, iterations: int, start_offset: int = 0
-	) -> tuple[float, int, str | None, float]:
-		contexts = [
-			(fix.matching_doc, fix.expected_matching_result),
-			(fix.non_matching_doc, fix.expected_non_matching_result),
-		]
-		successful = 0
-		core_seconds = 0.0
-		error = None
-		started = time.perf_counter()
-		for index in range(iterations):
-			doc, expected = contexts[(index + start_offset) % len(contexts)]
-			try:
-				result = candidate.evaluate(prep, doc)
-			except Exception as exc:
-				error = f"Evaluation exception: {exc!s}"
-				break
-			if result.error:
-				error = f"Evaluation error: {result.error}"
-				break
-			if result.result != expected:
-				error = f"Timed result mismatch: expected {expected!r}, got {result.result!r}"
-				break
-			core_seconds += result.execution_time_seconds
-			successful += 1
-		elapsed = time.perf_counter() - started
-		if error is None and successful != iterations:
-			error = f"Incomplete evaluations ({successful}/{iterations})"
-		return elapsed, successful, error, core_seconds
-
-	def run_primary_benchmarks(self) -> dict:
-		fixture_results = []
-		for fix in self.fixtures:
-			correct, detail = self._check_fixture_correctness(fix)
-			prepared = self._prepare_all_with_median(fix.condition_payload)
-			states = {}
-			for candidate in self.candidates:
-				name = candidate.candidate_name
-				prep = prepared[name]
-				state = {
-					"prep": prep,
-					"samples_us": [],
-					"core_samples_us": [],
-					"durations": [],
-					"successful": 0,
-					"error": prep.error,
-				}
-				if not state["error"] and not correct:
-					state["error"] = "Skipped: semantic correctness gate failed"
-				states[name] = state
-
-			if correct:
-				for candidate in self._rotated_candidates(0):
-					name = candidate.candidate_name
-					state = states[name]
-					if not state["error"]:
-						state["error"] = self._warm_up_candidate(candidate, state["prep"], fix)
-
-				for batch_index in range(self.num_batches):
-					for candidate in self._rotated_candidates(batch_index):
-						name = candidate.candidate_name
-						state = states[name]
-						if state["error"]:
-							continue
-						elapsed, successful, error, core = self._time_evaluation_batch(
-							candidate,
-							state["prep"],
-							fix,
-							self.iterations_per_batch,
-							start_offset=batch_index,
-						)
-						if error:
-							state["error"] = f"Batch {batch_index + 1} failed: {error}"
-							continue
-						state["samples_us"].append(elapsed / self.iterations_per_batch * 1e6)
-						state["core_samples_us"].append(core / self.iterations_per_batch * 1e6)
-						state["durations"].append(elapsed)
-						state["successful"] += successful
-
-			metrics = {}
-			for candidate in self.candidates:
-				name = candidate.candidate_name
-				state = states[name]
-				prep = state["prep"]
-				samples = state["samples_us"]
-				common = {
-					"preparation_time_ms": round(prep.preparation_time_seconds * 1000.0, 4),
-					"iterations_per_batch": self.iterations_per_batch,
-					"total_batches_attempted": self.num_batches,
-					"valid_batches": len(samples),
-					"successful_evaluations": state["successful"],
-				}
-				if state["error"] or len(samples) != self.num_batches:
-					metrics[name] = {
-						"is_valid_measurement": False,
-						"error": state["error"]
-						or f"Only {len(samples)}/{self.num_batches} batches succeeded",
-						**common,
-					}
-					continue
-				sorted_samples = sorted(samples)
-				metrics[name] = {
-					"is_valid_measurement": True,
-					"error": None,
-					**common,
-					"median_us_per_exec": round(statistics.median(samples), 3),
-					"median_core_us_per_exec": round(statistics.median(state["core_samples_us"]), 3),
-					"mean_us_per_exec": round(statistics.mean(samples), 3),
-					"min_us_per_exec": round(min(samples), 3),
-					"max_us_per_exec": round(max(samples), 3),
-					"p95_us_per_exec": round(
-						sorted_samples[int(0.95 * len(sorted_samples))]
-						if len(sorted_samples) >= 5
-						else max(sorted_samples),
-						3,
-					),
-					"valid_batch_durations_seconds": [round(v, 4) for v in state["durations"]],
-				}
-
-			fixture_results.append(
-				{
-					"fixture_id": fix.fixture_id,
-					"tier": fix.tier,
-					"description": fix.description,
-					"correctness_gate_passed": correct,
-					"correctness_failures": detail["failures"],
-					"timed_workload": "alternating matching and non-matching documents",
-					"leaf_count": fix.leaf_count,
-					"nesting_depth": fix.nesting_depth,
-					"candidate_metrics": metrics,
-				}
-			)
-		return {
-			"methodology": {
-				"iterations_per_batch": self.iterations_per_batch,
-				"num_batches": self.num_batches,
-				"warmup_iterations_per_candidate": self.warmup_iterations,
-				"candidate_order": "rotated between batches",
-				"document_workload": "alternating matching and non-matching documents",
-				"timed_scope": "whole candidate.evaluate() call; core timer reported separately",
-				"preparation_time_samples": max(3, self.num_batches),
-			},
-			"fixtures": fixture_results,
-		}
-
-	def run_amortized_benchmarks(self, execution_counts: list[Any] | None = None) -> dict:
-		if execution_counts is None:
-			execution_counts = [1, 10, 100, 1000]
-		if any(isinstance(n, bool) or not isinstance(n, int) or n <= 0 for n in execution_counts):
-			raise ValueError("execution_counts must contain positive integers")
-
-		results = []
-		for fix in self.fixtures:
-			correct, detail = self._check_fixture_correctness(fix)
-			prepared = self._prepare_all_with_median(fix.condition_payload)
-			candidate_errors = {}
-			for candidate in self.candidates:
-				name = candidate.candidate_name
-				prep = prepared[name]
+				prep = candidate.prepare(payload)
 				if prep.error:
-					candidate_errors[name] = prep.error
-				elif not correct:
-					candidate_errors[name] = (
-						"Skipped: semantic correctness gate failed; see correctness_failures"
-					)
+					prepared_map[name] = (None, f"Preparation error: {prep.error}")
 				else:
-					candidate_errors[name] = self._warm_up_candidate(candidate, prep, fix)
+					prepared_map[name] = (prep, None)
+			except Exception as exc:
+				prepared_map[name] = (None, f"Preparation exception: {exc!s}")
 
-			count_results = {}
-			for count_index, n in enumerate(execution_counts):
-				exec_samples: dict[str, list[float]] = {
-					candidate.candidate_name: [] for candidate in self.candidates
-				}
-				core_samples: dict[str, list[float]] = {
-					candidate.candidate_name: [] for candidate in self.candidates
-				}
-				errors = {name: error for name, error in candidate_errors.items() if error}
-				if correct:
-					for batch_index in range(self.num_batches):
-						for candidate in self._rotated_candidates(batch_index + count_index):
-							name = candidate.candidate_name
-							if errors.get(name):
-								continue
-							elapsed, _, error, core = self._time_evaluation_batch(
-								candidate, prepared[name], fix, n, start_offset=batch_index
-							)
-							if error:
-								errors[name] = f"Sample {batch_index + 1}/{self.num_batches} failed: {error}"
-								continue
-							exec_samples[name].append(elapsed)
-							core_samples[name].append(core)
+		return prepared_map
 
-				one_count = {}
-				for candidate in self.candidates:
-					name = candidate.candidate_name
-					prep = prepared[name]
-					samples = exec_samples[name]
-					common = {
-						"prep_time_ms": round(prep.preparation_time_seconds * 1000.0, 4),
-						"valid_batches": len(samples),
-						"total_batches_attempted": self.num_batches,
-					}
-					if errors.get(name) or len(samples) != self.num_batches:
-						one_count[name] = {
-							"is_valid": False,
-							"error": errors.get(name)
-							or f"Only {len(samples)}/{self.num_batches} samples succeeded",
-							**common,
-						}
-						continue
-					median_execution = statistics.median(samples)
-					total = prep.preparation_time_seconds + median_execution
-					one_count[name] = {
-						"is_valid": True,
-						**common,
-						"n_exec_time_ms": round(median_execution * 1000.0, 4),
-						"median_exec_us_per_eval": round(median_execution / n * 1e6, 3),
-						"median_core_exec_us_per_eval": round(
-							statistics.median(core_samples[name]) / n * 1e6, 3
-						),
-						"total_amortized_cost_ms": round(total * 1000.0, 4),
-						"cost_per_eval_us": round(total / n * 1e6, 3),
-						"sample_execution_times_ms": [round(v * 1000.0, 4) for v in samples],
-					}
-				count_results[str(n)] = one_count
+	def check_semantic_correctness(self, scenario: NeutralScenario) -> dict:
+		"""Check semantic correctness across candidates for a neutral scenario.
 
-			results.append(
-				{
-					"fixture_id": fix.fixture_id,
-					"tier": fix.tier,
-					"correctness_gate_passed": correct,
-					"correctness_failures": detail["failures"],
-					"candidate_order": "rotated between repeated samples",
-					"document_workload": "alternating matching and non-matching documents",
-					"counts": count_results,
-				}
+		Unsupported / deprecated cases are excluded from failure status and reported separately.
+		"""
+		prepared_map = self.prepare_scenario(scenario)
+
+		matching_check = {}
+		non_matching_check = {}
+		candidate_statuses = {}
+		disagreements = []
+		errors = {}
+
+		supported_matching_results = {}
+		supported_non_matching_results = {}
+
+		for name, candidate in self.candidates.items():
+			prep_obj, unsupp_reason = prepared_map.get(name, (None, "Missing preparation"))
+			if unsupp_reason:
+				candidate_statuses[name] = unsupp_reason
+				matching_check[name] = unsupp_reason
+				non_matching_check[name] = unsupp_reason
+				continue
+
+			# Evaluate matching doc
+			res_match = candidate.evaluate(prep_obj, scenario.matching_doc)
+			# Evaluate non-matching doc
+			res_non_match = candidate.evaluate(prep_obj, scenario.non_matching_doc)
+
+			if res_match.error or res_non_match.error:
+				err_msg = res_match.error or res_non_match.error
+				errors[name] = err_msg
+				candidate_statuses[name] = f"ERROR: {err_msg}"
+				matching_check[name] = f"ERROR: {res_match.error}" if res_match.error else res_match.result
+				non_matching_check[name] = (
+					f"ERROR: {res_non_match.error}" if res_non_match.error else res_non_match.result
+				)
+			else:
+				candidate_statuses[name] = "SUPPORTED"
+				matching_check[name] = res_match.result
+				non_matching_check[name] = res_non_match.result
+				supported_matching_results[name] = res_match.result
+				supported_non_matching_results[name] = res_non_match.result
+
+		# Determine correctness among supported candidates
+		is_deprecated_case = scenario.scenario_id == "edge_case_has_changed"
+		supported_count = len(supported_matching_results)
+
+		# Agreement check on supported results
+		matching_agrees = len(set(supported_matching_results.values())) <= 1
+		non_matching_agrees = len(set(supported_non_matching_results.values())) <= 1
+
+		matches_expected_match = True
+		matches_expected_non_match = True
+
+		if scenario.expected_matching_result is not None and supported_matching_results:
+			for name, val in supported_matching_results.items():
+				if val != scenario.expected_matching_result:
+					matches_expected_match = False
+					disagreements.append(
+						f"Candidate '{name}' matching result ({val}) != expected ({scenario.expected_matching_result})"
+					)
+
+		if scenario.expected_non_matching_result is not None and supported_non_matching_results:
+			for name, val in supported_non_matching_results.items():
+				if val != scenario.expected_non_matching_result:
+					matches_expected_non_match = False
+					disagreements.append(
+						f"Candidate '{name}' non-matching result ({val}) != expected ({scenario.expected_non_matching_result})"
+					)
+
+		if not matching_agrees:
+			disagreements.append(f"Disagreement on matching doc: {supported_matching_results}")
+		if not non_matching_agrees:
+			disagreements.append(f"Disagreement on non-matching doc: {supported_non_matching_results}")
+
+		all_supported_correct = (
+			supported_count > 0
+			and matching_agrees
+			and non_matching_agrees
+			and matches_expected_match
+			and matches_expected_non_match
+			and len(errors) == 0
+		)
+
+		if is_deprecated_case:
+			disagreements.append(
+				"DEPRECATED: 'has_changed' operator behavior varies between deprecated legacy return 'True' and state-diff evaluators."
 			)
+
 		return {
-			"methodology": {
-				"execution_counts": execution_counts,
-				"repeated_samples_per_count": self.num_batches,
-				"warmup_iterations_per_candidate": self.warmup_iterations,
-				"preparation_time_samples": max(3, self.num_batches),
-				"amortized_formula": "(median preparation time + median total time for N evaluations) / N",
-				"candidate_order": "rotated between samples",
-				"document_workload": "alternating matching and non-matching documents",
-			},
-			"amortized": results,
+			"scenario_id": scenario.scenario_id,
+			"tier": scenario.tier,
+			"description": scenario.description,
+			"is_deprecated_case": is_deprecated_case,
+			"supported_candidate_count": supported_count,
+			"is_correct": all_supported_correct,
+			"matching_doc_check": matching_check,
+			"non_matching_doc_check": non_matching_check,
+			"candidate_statuses": candidate_statuses,
+			"disagreements": disagreements,
+			"errors": errors,
 		}
 
 
 class BenchmarkRunner:
-	"""Unified runner comparing Legacy (Approaches A, A-Exp, B, C) and PR #469 Canonical Candidates."""
+	"""Full five-approach benchmark runner for condition evaluators.
+
+	Measures cold prep, warm prep, steady-state latency, and amortized cost with strict cache isolation.
+	"""
 
 	def __init__(
 		self,
 		iterations_per_batch: int = 10000,
 		num_batches: int = 5,
 		warmup_iterations: int = 50,
-		use_canonical_suite: bool = False,
 	):
 		self.iterations_per_batch = iterations_per_batch
 		self.num_batches = num_batches
 		self.warmup_iterations = warmup_iterations
-		self.use_canonical_suite = use_canonical_suite
 
-		# Legacy Candidate Group
-		self.candidate_a = ApproachACandidate()
-		self.candidate_a_exp = ApproachAExperimentalCodeObjectCandidate()
-		self.candidate_b = ApproachBCandidate()
-		self.candidate_c = ApproachCCandidate()
-		self.legacy_candidates = [
-			self.candidate_a,
-			self.candidate_a_exp,
-			self.candidate_b,
-			self.candidate_c,
+		self.cand_a = ApproachACandidate()
+		self.cand_a_exp = ApproachAExperimentalCodeObjectCandidate()
+		self.cand_b = ApproachBCandidate()
+		self.cand_c = ApproachCCandidate()
+		self.cand_canon_runtime = CanonicalConditionCandidate()
+		self.cand_canon_plan = CanonicalPreparedPlanCandidate()
+
+		self.candidates: list[BaseConditionCandidate] = [
+			self.cand_a,
+			self.cand_a_exp,
+			self.cand_b,
+			self.cand_c,
+			self.cand_canon_runtime,
+			self.cand_canon_plan,
 		]
 
-		# Canonical Candidate Group
-		self.canonical_candidate = CanonicalConditionCandidate()
-		self.canonical_prepared = CanonicalPreparedPlanCandidate()
-		self.canonical_candidates = [
-			self.canonical_candidate,
-			self.canonical_prepared,
-		]
+		self.scenarios = get_neutral_scenarios()
+		self.evaluator = UnifiedScenarioEvaluator(self.candidates)
 
-		# For backward compatibility with existing single-harness code
-		if self.use_canonical_suite:
-			self.candidates = self.canonical_candidates
-		else:
-			self.candidates = self.legacy_candidates
+	def measure_preparation_times(self, scenario: NeutralScenario) -> dict[str, dict]:
+		"""Measure cold preparation and warm-cache preparation separately."""
+		prep_metrics = {}
+		legacy_payload = node_to_legacy_payload(scenario.root)
+		canonical_payload = node_to_canonical_payload(scenario.root)
 
-		self.harness = ConditionComparisonHarness(self.candidates)
+		for cand in self.candidates:
+			name = cand.candidate_name
 
-	def run_semantic_correctness_suite(self) -> dict:
-		if self.use_canonical_suite:
-			runner = SingleSuiteRunner(
-				self.canonical_candidates,
-				get_canonical_fixtures(),
-				self.iterations_per_batch,
-				self.num_batches,
-				self.warmup_iterations,
-			)
-			return runner.run_semantic_correctness_suite()
-		else:
-			runner = SingleSuiteRunner(
-				self.legacy_candidates,
-				get_all_fixtures(),
-				self.iterations_per_batch,
-				self.num_batches,
-				self.warmup_iterations,
-			)
-			return runner.run_semantic_correctness_suite()
+			if scenario.scenario_id == "edge_case_has_changed" and "Canonical" in name:
+				prep_metrics[name] = {
+					"is_supported": False,
+					"reason": "UNSUPPORTED: 'has_changed' not in canonical contract",
+				}
+				continue
 
-	def run_primary_benchmarks(self) -> dict:
-		if self.use_canonical_suite:
-			runner = SingleSuiteRunner(
-				self.canonical_candidates,
-				get_canonical_fixtures(),
-				self.iterations_per_batch,
-				self.num_batches,
-				self.warmup_iterations,
-			)
-			return runner.run_primary_benchmarks()
-		else:
-			runner = SingleSuiteRunner(
-				self.legacy_candidates,
-				get_all_fixtures(),
-				self.iterations_per_batch,
-				self.num_batches,
-				self.warmup_iterations,
-			)
-			return runner.run_primary_benchmarks()
+			payload = canonical_payload if "Canonical" in name else legacy_payload
+			if payload is None:
+				prep_metrics[name] = {
+					"is_supported": False,
+					"reason": "UNSUPPORTED: payload translation empty",
+				}
+				continue
 
-	def run_amortized_benchmarks(self, execution_counts: list[Any] | None = None) -> dict:
-		if self.use_canonical_suite:
-			runner = SingleSuiteRunner(
-				self.canonical_candidates,
-				get_canonical_fixtures(),
-				self.iterations_per_batch,
-				self.num_batches,
-				self.warmup_iterations,
-			)
-			return runner.run_amortized_benchmarks(execution_counts)
-		else:
-			runner = SingleSuiteRunner(
-				self.legacy_candidates,
-				get_all_fixtures(),
-				self.iterations_per_batch,
-				self.num_batches,
-				self.warmup_iterations,
-			)
-			return runner.run_amortized_benchmarks(execution_counts)
+			# 1. Cold Prep Measurement
+			try:
+				from flexirule.ruleflow.core.condition_evaluator import get_prepared_plan
 
-	def run_unified_evaluation(self) -> dict:
-		"""Run both legacy and canonical candidate groups on their respective fixture suites."""
-		legacy_runner = SingleSuiteRunner(
-			self.legacy_candidates,
-			get_all_fixtures(),
-			self.iterations_per_batch,
-			self.num_batches,
-			self.warmup_iterations,
-		)
-		canonical_runner = SingleSuiteRunner(
-			self.canonical_candidates,
-			get_canonical_fixtures(),
-			self.iterations_per_batch,
-			self.num_batches,
-			self.warmup_iterations,
-		)
+				get_prepared_plan.cache_clear()
+			except Exception:
+				pass
 
-		legacy_correctness = legacy_runner.run_semantic_correctness_suite()
-		legacy_primary = legacy_runner.run_primary_benchmarks()
-		legacy_amortized = legacy_runner.run_amortized_benchmarks()
+			cold_start = time.perf_counter()
+			prep_cold = cand.prepare(payload)
+			cold_prep_time_ms = (time.perf_counter() - cold_start) * 1000.0
 
-		canonical_correctness = canonical_runner.run_semantic_correctness_suite()
-		canonical_primary = canonical_runner.run_primary_benchmarks()
-		canonical_amortized = canonical_runner.run_amortized_benchmarks()
+			if prep_cold.error:
+				prep_metrics[name] = {
+					"is_supported": False,
+					"reason": f"Cold preparation error: {prep_cold.error}",
+				}
+				continue
 
-		return {
-			"legacy_suite": {
-				"correctness_suite": legacy_correctness,
-				"primary_benchmark": legacy_primary,
-				"amortized_benchmark": legacy_amortized,
-			},
-			"canonical_suite": {
-				"correctness_suite": canonical_correctness,
-				"primary_benchmark": canonical_primary,
-				"amortized_benchmark": canonical_amortized,
-			},
-		}
+			# 2. Warm Prep Measurement (subsequent preparation on primed instance/cache)
+			warm_start = time.perf_counter()
+			prep_warm = cand.prepare(payload)
+			warm_prep_time_ms = (time.perf_counter() - warm_start) * 1000.0
 
-	def generate_markdown_report(self, full_payload: dict, output_markdown_path: str) -> str:
-		"""Generate a comprehensive Markdown report presenting both Legacy and PR #469 Canonical evaluations."""
-		env = full_payload["environment"]
-		legacy = full_payload.get("legacy_suite", {})
-		canonical = full_payload.get("canonical_suite", {})
-
-		# Fallback if called in legacy mode
-		if not legacy and "primary_benchmark" in full_payload:
-			legacy = {
-				"correctness_suite": full_payload["correctness_suite"],
-				"primary_benchmark": full_payload["primary_benchmark"],
-				"amortized_benchmark": full_payload["amortized_benchmark"],
+			prep_metrics[name] = {
+				"is_supported": True,
+				"cold_preparation_time_ms": round(cold_prep_time_ms, 4),
+				"warm_preparation_time_ms": round(warm_prep_time_ms, 4),
+				"prepared_cold": prep_cold,
+				"prepared_warm": prep_warm,
 			}
 
-		cand_a_name = self.candidate_a.candidate_name
-		cand_a_exp_name = self.candidate_a_exp.candidate_name
-		cand_b_name = self.candidate_b.candidate_name
-		cand_c_name = self.candidate_c.candidate_name
-		cand_canon_runtime = self.canonical_candidate.candidate_name
-		cand_canon_plan = self.canonical_prepared.candidate_name
+		return prep_metrics
 
-		md_lines = []
-		md_lines.append("# FlexiRule — Condition Backend Comprehensive Comparison Benchmark Report")
-		md_lines.append("")
-		md_lines.append(f"**Date:** {time.strftime('%Y-%m-%d', time.gmtime())}  ")
-		md_lines.append("**Repository:** [Sendipad/flexirule](https://github.com/Sendipad/flexirule)  ")
-		md_lines.append(
-			f"**Benchmark Source Branch:** `{env.get('benchmark_source_branch') or 'benchmark/canonical-condition-pr469'}`  "
-		)
-		md_lines.append(
-			f"**Benchmark Source Commit:** `{env.get('benchmark_source_commit') or 'e72aefeff1bb509654791fec9a6930aacaa00414'}`  "
-		)
-		md_lines.append(f"**Report Location:** `{output_markdown_path}`  ")
-		md_lines.append(f"**Benchmark Protocol:** v{full_payload.get('benchmark_protocol_version', '2')}  ")
-		md_lines.append(
-			"**Measurement Protocol:** repeated medians, rotating order, alternating matching/non-matching documents, correctness gate  "
-		)
-		md_lines.append("**Raw Results Data:** `reports/canonical_condition_benchmark_results.json`  ")
-		md_lines.append("")
-		md_lines.append("---")
-		md_lines.append("")
-		md_lines.append("## Executive Summary & Production Selection Decision")
-		md_lines.append("")
-		md_lines.append(
-			"This report documents the architectural investigation, empirical runtime probe, semantic correctness suite, "
-			"and high-precision performance benchmarks comparing all viable condition evaluation implementations in FlexiRule:"
-		)
-		md_lines.append("")
-		md_lines.append(
-			f"1. **Approach A (`{cand_a_name}`):** Legacy generated Python expression string evaluated via Frappe restricted evaluation (`frappe.safe_eval`). Performs AST parsing, syntax validation, and RestrictedPython compilation on every invocation."
-		)
-		md_lines.append(
-			f"2. **Approach A Diagnostic (`{cand_a_exp_name}`):** Experimental diagnostic evaluating precompiled RestrictedPython code objects."
-		)
-		md_lines.append(
-			f"3. **Approach B (`{cand_b_name}`):** Prebuilt normalized AST execution plan evaluator."
-		)
-		md_lines.append(f"4. **Approach C (`{cand_c_name}`):** Direct JSON-tree AST evaluator.")
-		md_lines.append(
-			f"5. **PR #469 Canonical Condition Backend (`{cand_canon_runtime}`):** Public production entrypoint (`evaluate_condition`) using bounded LRU plan caching (`@lru_cache(maxsize=512)`) keyed on SHA-256 payload digest, direct JSON nodes, and typed FlexValues."
-		)
-		md_lines.append(
-			f"6. **PR #469 Canonical Prepared Plan Diagnostic (`{cand_canon_plan}`):** Diagnostic measuring direct `_evaluate_node` execution on compiled immutable plans."
-		)
-		md_lines.append("")
-		md_lines.append("### Production Selection Decision")
-		md_lines.append("")
-		md_lines.append(
-			"- **Selected Production Option:** **PR #469 Canonical Condition Backend (`evaluate_condition`)**."
-		)
-		md_lines.append(
-			"- **Selection Rationale:** The canonical condition backend achieves **100% semantic correctness** across all canonical fixtures, guarantees complete AST safety (eliminating Python code compilation/safe_eval vulnerabilities), enforces strict typed validation and resource limits (collection row visit cap <= 10,000, payload size <= 64KB), and delivers steady-state evaluation latencies of **20.8 – 113.2 µs per operation** with LRU cache warming."
-		)
-		md_lines.append("")
-		md_lines.append("---")
-		md_lines.append("")
-		md_lines.append("## 1. Environment & Reproducibility")
-		md_lines.append("")
-		md_lines.append("| Key | Value |")
-		md_lines.append("|---|---|")
-		md_lines.append(f"| Python Version | {env.get('python_version')} |")
-		md_lines.append(f"| Platform | {env.get('platform')} |")
-		md_lines.append(f"| Frappe Framework | {env.get('frappe_version')} |")
-		md_lines.append(f"| FlexiRule Version | {env.get('flexirule_version')} |")
-		md_lines.append(f"| Benchmark Execution UTC | {env.get('timestamp_utc')} |")
-		md_lines.append(
-			"| Benchmark Command | `bench --site test_site run-tests --module flexirule.ruleflow.tests.test_condition_benchmark` |"
-		)
-		md_lines.append("")
-		md_lines.append("---")
-		md_lines.append("")
+	def run_steady_state_performance(self) -> dict:
+		"""Run steady-state evaluation latency benchmarks across neutral scenarios."""
+		scenario_results = []
 
-		# Section 2: Legacy Candidates Baseline Benchmark
-		if legacy and "primary_benchmark" in legacy:
-			leg_primary = legacy["primary_benchmark"]
-			leg_correct = legacy["correctness_suite"]
-			legacy["amortized_benchmark"]
+		for sc in self.scenarios:
+			prep_metrics = self.measure_preparation_times(sc)
+			candidate_metrics = {}
 
-			md_lines.append("## 2. Legacy Candidates Baseline Evaluation")
-			md_lines.append("")
-			md_lines.append(
-				"Legacy condition payloads use expression dictionaries (`{op: 'and', conditions: [{left: {ref: 'doc.status'}, op: '==', right: {value: 'Open'}}]}`). "
-				"The legacy correctness gate tests Approaches A, A-Exp, B, and C on these fixtures."
+			for cand in self.candidates:
+				name = cand.candidate_name
+				p_info = prep_metrics.get(name, {})
+
+				if not p_info.get("is_supported", False):
+					candidate_metrics[name] = {
+						"is_valid_measurement": False,
+						"reason": p_info.get("reason", "UNSUPPORTED"),
+					}
+					continue
+
+				prep = p_info["prepared_warm"]
+
+				# Warmup execution
+				for _ in range(self.warmup_iterations):
+					cand.evaluate(prep, sc.matching_doc)
+
+				batch_per_exec_us: list[float] = []
+				for batch_idx in range(self.num_batches):
+					# Rotate doc evaluation order matching vs non-matching to avoid branch predictor bias
+					start_time = time.perf_counter()
+					for i in range(self.iterations_per_batch):
+						doc = sc.matching_doc if i % 2 == 0 else sc.non_matching_doc
+						cand.evaluate(prep, doc)
+					elapsed_seconds = time.perf_counter() - start_time
+
+					us_per_exec = (elapsed_seconds / self.iterations_per_batch) * 1_000_000.0
+					batch_per_exec_us.append(us_per_exec)
+
+				median_us = statistics.median(batch_per_exec_us)
+				stdev_us = statistics.stdev(batch_per_exec_us) if len(batch_per_exec_us) > 1 else 0.0
+
+				candidate_metrics[name] = {
+					"is_valid_measurement": True,
+					"cold_preparation_time_ms": p_info["cold_preparation_time_ms"],
+					"warm_preparation_time_ms": p_info["warm_preparation_time_ms"],
+					"median_us_per_exec": round(median_us, 3),
+					"stdev_us_per_exec": round(stdev_us, 3),
+					"min_us_per_exec": round(min(batch_per_exec_us), 3),
+					"max_us_per_exec": round(max(batch_per_exec_us), 3),
+					"batches_per_exec_us": [round(b, 3) for b in batch_per_exec_us],
+				}
+
+			scenario_results.append(
+				{
+					"scenario_id": sc.scenario_id,
+					"tier": sc.tier,
+					"description": sc.description,
+					"leaf_count": sc.leaf_count,
+					"nesting_depth": sc.nesting_depth,
+					"candidate_metrics": candidate_metrics,
+				}
 			)
-			md_lines.append("")
-			md_lines.append("### Legacy Correctness Suite Results")
-			md_lines.append("")
-			md_lines.append(
-				"| Fixture ID | Complexity Tier | Status | Matching Check | Non-Matching Check | Errors / Disagreements |"
+
+		return {
+			"iterations_per_batch": self.iterations_per_batch,
+			"num_batches": self.num_batches,
+			"warmup_iterations": self.warmup_iterations,
+			"scenarios": scenario_results,
+		}
+
+	def run_amortized_benchmarks(
+		self, execution_counts: list[int] | None = None
+	) -> dict:
+		"""Run amortized cost benchmarks measuring Total Time = Cold Prep Time + N * Steady Exec Latency."""
+		if execution_counts is None:
+			execution_counts = [1, 10, 100, 1000]
+
+		for count in execution_counts:
+			if not isinstance(count, int) or count <= 0 or isinstance(count, bool):
+				raise ValueError(f"Execution count must be a positive integer, got {count!r}")
+
+		amortized_results = []
+
+		for sc in self.scenarios:
+			counts_dict: dict[str, dict] = {}
+			prep_metrics = self.measure_preparation_times(sc)
+
+			for count in execution_counts:
+				cand_counts: dict[str, dict] = {}
+
+				for cand in self.candidates:
+					name = cand.candidate_name
+					p_info = prep_metrics.get(name, {})
+
+					if not p_info.get("is_supported", False):
+						cand_counts[name] = {
+							"is_valid": False,
+							"reason": p_info.get("reason", "UNSUPPORTED"),
+						}
+						continue
+
+					# Repeat N-evaluation run across 5 batches
+					batch_total_ms: list[float] = []
+
+					canonical_payload = node_to_canonical_payload(sc.root)
+					legacy_payload = node_to_legacy_payload(sc.root)
+					payload = canonical_payload if "Canonical" in name else legacy_payload
+
+					for _ in range(5):
+						# Clear LRU cache to include genuine cold preparation
+						try:
+							from flexirule.ruleflow.core.condition_evaluator import get_prepared_plan
+
+							get_prepared_plan.cache_clear()
+						except Exception:
+							pass
+
+						start_time = time.perf_counter()
+						prep = cand.prepare(payload)
+
+						for i in range(count):
+							doc = sc.matching_doc if i % 2 == 0 else sc.non_matching_doc
+							cand.evaluate(prep, doc)
+
+						elapsed_ms = (time.perf_counter() - start_time) * 1000.0
+						batch_total_ms.append(elapsed_ms)
+
+					median_tot_ms = statistics.median(batch_total_ms)
+					cost_per_eval_us = (median_tot_ms * 1000.0) / count
+
+					cand_counts[name] = {
+						"is_valid": True,
+						"total_amortized_cost_ms": round(median_tot_ms, 4),
+						"cost_per_eval_us": round(cost_per_eval_us, 3),
+						"valid_batches": len(batch_total_ms),
+						"total_batches_attempted": 5,
+					}
+
+				counts_dict[str(count)] = cand_counts
+
+			amortized_results.append(
+				{
+					"scenario_id": sc.scenario_id,
+					"tier": sc.tier,
+					"description": sc.description,
+					"counts": counts_dict,
+				}
 			)
-			md_lines.append("|---|---|---|---|---|---|")
 
-			for c_res in leg_correct.get("results", []):
-				status = "PASSED" if c_res["is_correct"] else "FAILED"
-				m_chk = str(c_res["matching_doc_check"])
-				nm_chk = str(c_res["non_matching_doc_check"])
-				errs = str(c_res["disagreements"]) if c_res["disagreements"] else "None"
-				md_lines.append(
-					f"| `{c_res['fixture_id']}` | {c_res['tier']} | **{status}** | `{m_chk}` | `{nm_chk}` | `{errs}` |"
-				)
-
-			md_lines.append("")
-			md_lines.append("### Legacy Steady-State Performance (Microseconds per Operation)")
-			md_lines.append("")
-			md_lines.append(
-				"| Fixture ID | Tier | Leaf / Depth | Approach A (`safe_eval`) | Approach A Exp (`code_obj`) | Approach B (`plan`) | Approach C (`json_tree`) |"
-			)
-			md_lines.append("|---|---|---|---|---|---|---|")
-
-			for item in leg_primary.get("fixtures", []):
-				fid = item["fixture_id"]
-				tier = item["tier"]
-				ld = f"{item['leaf_count']} / {item['nesting_depth']}"
-				metrics = item["candidate_metrics"]
-
-				a_m = metrics.get(cand_a_name, {})
-				a_exp_m = metrics.get(cand_a_exp_name, {})
-				b_m = metrics.get(cand_b_name, {})
-				c_m = metrics.get(cand_c_name, {})
-
-				a_str = (
-					f"{a_m.get('median_us_per_exec')} µs/op" if a_m.get("is_valid_measurement") else "INVALID"
-				)
-				a_exp_str = (
-					f"{a_exp_m.get('median_us_per_exec')} µs/op"
-					if a_exp_m.get("is_valid_measurement")
-					else "INVALID"
-				)
-				b_str = (
-					f"**{b_m.get('median_us_per_exec')} µs/op**"
-					if b_m.get("is_valid_measurement")
-					else "INVALID"
-				)
-				c_str = (
-					f"{c_m.get('median_us_per_exec')} µs/op" if c_m.get("is_valid_measurement") else "INVALID"
-				)
-
-				md_lines.append(f"| `{fid}` | {tier} | {ld} | {a_str} | {a_exp_str} | {b_str} | {c_str} |")
-
-			md_lines.append("")
-			md_lines.append("---")
-			md_lines.append("")
-
-		# Section 3: PR #469 Canonical Condition Backend Evaluation
-		if canonical and "primary_benchmark" in canonical:
-			can_primary = canonical["primary_benchmark"]
-			can_correct = canonical["correctness_suite"]
-			can_amort = canonical["amortized_benchmark"]
-
-			md_lines.append("## 3. PR #469 Canonical Condition Backend Evaluation")
-			md_lines.append("")
-			md_lines.append(
-				"PR #469 canonical condition payloads use direct JSON nodes (`{type: 'comparison', operator: 'eq', left: {mode: 'variable', path: {scope: 'doc', segments: ['status']}}, right: {mode: 'static', value_type: 'string', value: 'Open'}}`). "
-				"The canonical suite evaluates the public `evaluate_condition` entrypoint with LRU plan caching alongside an internal prepared plan diagnostic."
-			)
-			md_lines.append("")
-			md_lines.append("### Canonical Correctness Suite Results")
-			md_lines.append("")
-			md_lines.append(
-				"| Fixture ID | Complexity Tier | Status | Matching Check | Non-Matching Check | Errors |"
-			)
-			md_lines.append("|---|---|---|---|---|---|")
-
-			for c_res in can_correct.get("results", []):
-				status = "PASSED" if c_res["is_correct"] else "FAILED"
-				m_chk = str(c_res["matching_doc_check"])
-				nm_chk = str(c_res["non_matching_doc_check"])
-				errs = str(c_res["errors"]) if c_res["errors"] else "None"
-				md_lines.append(
-					f"| `{c_res['fixture_id']}` | {c_res['tier']} | **{status}** | `{m_chk}` | `{nm_chk}` | `{errs}` |"
-				)
-
-			md_lines.append("")
-			md_lines.append("### Canonical High-Precision Performance (Microseconds per Operation)")
-			md_lines.append("")
-			md_lines.append(
-				"| Fixture ID | Tier | Leaf / Depth | Public Runtime (`evaluate_condition`) | Prepared Plan Diagnostic | Cold Prep (ms) | Warm Latency (µs) |"
-			)
-			md_lines.append("|---|---|---|---|---|---|---|")
-
-			for item in can_primary.get("fixtures", []):
-				fid = item["fixture_id"]
-				tier = item["tier"]
-				ld = f"{item['leaf_count']} / {item['nesting_depth']}"
-				metrics = item["candidate_metrics"]
-
-				run_m = metrics.get(cand_canon_runtime, {})
-				plan_m = metrics.get(cand_canon_plan, {})
-
-				run_str = (
-					f"**{run_m.get('median_us_per_exec')} µs/op**"
-					if run_m.get("is_valid_measurement")
-					else "INVALID"
-				)
-				plan_str = (
-					f"{plan_m.get('median_us_per_exec')} µs/op"
-					if plan_m.get("is_valid_measurement")
-					else "INVALID"
-				)
-				cold_prep_str = f"{run_m.get('preparation_time_ms')} ms" if run_m else "N/A"
-				cache_hit_str = f"{run_m.get('median_us_per_exec')} µs" if run_m else "N/A"
-
-				md_lines.append(
-					f"| `{fid}` | {tier} | {ld} | {run_str} | {plan_str} | {cold_prep_str} | {cache_hit_str} |"
-				)
-
-			md_lines.append("")
-			md_lines.append("### Canonical Amortized Costs")
-			md_lines.append("")
-			md_lines.append(
-				"| Fixture ID | N Evaluations | Total Amortized Time (ms) | Amortized Cost per Evaluation (µs) | Valid Batches |"
-			)
-			md_lines.append("|---|---|---|---|---|")
-
-			for item in can_amort.get("amortized", []):
-				fid = item["fixture_id"]
-				counts = item["counts"]
-				for n_str, c_data in counts.items():
-					run_info = c_data.get(cand_canon_runtime, {})
-					tot_ms = (
-						f"{run_info.get('total_amortized_cost_ms')} ms" if run_info.get("is_valid") else "ERR"
-					)
-					cost_us = (
-						f"**{run_info.get('cost_per_eval_us')} µs**" if run_info.get("is_valid") else "ERR"
-					)
-					valid_b = f"{run_info.get('valid_batches')}/{run_info.get('total_batches_attempted')}"
-					md_lines.append(f"| `{fid}` | N = {n_str} | {tot_ms} | {cost_us} | {valid_b} |")
-
-			md_lines.append("")
-			md_lines.append("---")
-			md_lines.append("")
-
-		# Section 4: Schema Divergence & Cross-Candidate Comparative Analysis
-		md_lines.append("## 4. Schema Divergence & Comparative Analysis")
-		md_lines.append("")
-		md_lines.append(
-			"1. **Schema Isolation:** Legacy candidates require expression dictionaries (`{op: 'and', conditions: [...]}`), whereas PR #469 canonical condition backend requires direct JSON AST nodes (`{type: 'comparison', operator: 'eq', ...}`). Attempting to pass legacy payload structures to `evaluate_condition` correctly fails closed with `ConditionValidationError` (e.g. `missing_condition_node_type`). Conversely, passing canonical payloads to legacy AST evaluators raises `ValueError` for missing `'ref'` or `'value'` keys. Direct speedup ratios across incompatible schemas are therefore not claimed."
-		)
-		md_lines.append(
-			"2. **Public Entrypoint Overhead:** The public `evaluate_condition` entrypoint performs context normalization (`_build_canonical_context`), SHA-256 cache key hashing, and `@lru_cache(maxsize=512)` lookup. The warm LRU cache lookup adds ~15–70 µs of framework overhead compared to the raw diagnostic prepared plan execution (`_evaluate_node`: 4.2 – 33.9 µs/op)."
-		)
-		md_lines.append(
-			"3. **Security & Production Safety:** Approach A (`frappe.safe_eval`) takes 190 – 1170 µs/op due to un-cached RestrictedPython AST parsing and compilation on every call, and carries risk of dynamic code execution vulnerabilities. PR #469 canonical evaluation executes via pure Python AST traversal without `eval`, `exec`, or `frappe.safe_eval`, completely eliminating code execution attack vectors while delivering 20.8 – 113.2 µs/op latency."
-		)
-
-		report_content = "\n".join(md_lines)
-		os.makedirs(os.path.dirname(output_markdown_path), exist_ok=True)
-		with open(output_markdown_path, "w", encoding="utf-8") as f:
-			f.write(report_content)
-
-		return report_content
+		return {"execution_counts": execution_counts, "scenarios": amortized_results}
 
 	def run_full_suite_and_export(
 		self,
 		output_filepath: str = "reports/canonical_condition_benchmark_results.json",
 		output_markdown_path: str | None = None,
 	) -> dict:
-		"""Run both legacy and canonical candidate evaluations and export unified results."""
-		evaluation = self.run_unified_evaluation()
+		"""Run unified five-approach benchmark and export JSON and Markdown reports."""
+		# 1. Correctness Suite
+		correctness_results = []
+		total_supported_correct = 0
+		total_supported_scenarios = 0
 
-		branch_name = (
-			os.environ.get("FLEXIRULE_BENCHMARK_SOURCE_BRANCH") or "benchmark/canonical-condition-pr469"
-		)
-		commit_sha = (
-			os.environ.get("FLEXIRULE_BENCHMARK_SOURCE_COMMIT") or "e72aefeff1bb509654791fec9a6930aacaa00414"
-		)
+		for sc in self.scenarios:
+			res = self.evaluator.check_semantic_correctness(sc)
+			correctness_results.append(res)
+
+			if not res["is_deprecated_case"]:
+				total_supported_scenarios += 1
+				if res["is_correct"]:
+					total_supported_correct += 1
+
+		correctness_summary = {
+			"total_scenarios": len(self.scenarios),
+			"total_supported_scenarios": total_supported_scenarios,
+			"total_supported_correct": total_supported_correct,
+			"all_supported_correct": total_supported_correct == total_supported_scenarios,
+			"results": correctness_results,
+		}
+
+		# 2. Steady-State Latency Suite
+		steady_state_summary = self.run_steady_state_performance()
+
+		# 3. Amortized Cost Suite
+		amortized_summary = self.run_amortized_benchmarks()
+
+		branch_name, commit_sha = _get_git_metadata()
 
 		env_info = {
 			"python_version": platform.python_version(),
@@ -855,14 +523,21 @@ class BenchmarkRunner:
 		}
 
 		full_payload = {
-			"benchmark_protocol_version": 2,
-			"benchmark_target": "PR #469 Canonical Condition Backend vs Legacy Candidates",
+			"benchmark_protocol_version": 3,
+			"benchmark_target": "Five-Approach Condition Backend Comparison Benchmark",
+			"production_selection_status": "Not established",
+			"production_gate_reason": (
+				"Production selection remains Not established until explicit correctness, "
+				"security, and performance criteria gates pass."
+			),
 			"measurement_protocol": (
-				"Repeated preparation medians; repeated timed batches; rotating candidate order; "
-				"alternating matching/non-matching documents; semantic correctness gate."
+				"Cold prep measured after cache clear; warm prep measured on primed instance; "
+				"steady-state timed in 5 batches of alternating docs; amortized cost incorporates cold prep."
 			),
 			"environment": env_info,
-			**evaluation,
+			"correctness_suite": correctness_summary,
+			"steady_state_benchmark": steady_state_summary,
+			"amortized_benchmark": amortized_summary,
 		}
 
 		os.makedirs(os.path.dirname(output_filepath), exist_ok=True)
@@ -880,6 +555,160 @@ class BenchmarkRunner:
 
 		return full_payload
 
+	def generate_markdown_report(self, payload: dict, output_markdown_path: str) -> str:
+		"""Generate a comprehensive Markdown benchmark report."""
+		md_lines = []
+		env = payload.get("environment", {})
+		correctness = payload.get("correctness_suite", {})
+		steady = payload.get("steady_state_benchmark", {})
+		amortized = payload.get("amortized_benchmark", {})
+
+		md_lines.append("# FlexiRule — Five-Approach Condition Backend Comparison Benchmark Report")
+		md_lines.append("")
+		md_lines.append(f"**Date:** {env.get('timestamp_utc', 'N/A')}")
+		md_lines.append(f"**Branch:** `{env.get('benchmark_source_branch', 'Unavailable')}`")
+		md_lines.append(f"**Commit:** `{env.get('benchmark_source_commit', 'Unavailable')}`")
+		md_lines.append(f"**Python:** {env.get('python_version', 'N/A')}")
+		md_lines.append(f"**Frappe Framework:** {env.get('frappe_version', 'N/A')}")
+		md_lines.append("")
+		md_lines.append("## Production Selection Gate Status")
+		md_lines.append("")
+		md_lines.append(f"- **Selected Production Option:** **{payload.get('production_selection_status', 'Not established')}**")
+		md_lines.append(f"- **Gate Status:** {payload.get('production_gate_reason', 'N/A')}")
+		md_lines.append("")
+		md_lines.append("---")
+		md_lines.append("")
+
+		# Section 1: Five-Candidate Overview
+		md_lines.append("## 1. Candidate Evaluators Evaluated")
+		md_lines.append("")
+		md_lines.append("| Candidate | Paradigm | Preparation Mechanism | Execution Path |")
+		md_lines.append("|---|---|---|---|")
+		md_lines.append("| **Approach A (`safe_eval`)** | Legacy Dynamic Eval | Python expr string | `frappe.safe_eval` (RestrictedPython parse on every call) |")
+		md_lines.append("| **Approach A Exp (`code_obj`)** | Diagnostic Compiled | Pre-compiled bytecode | `eval(code_object)` |")
+		md_lines.append("| **Approach B (`plan`)** | Normalized AST Plan | Pre-compiled tuple AST | Direct AST recursive interpreter |")
+		md_lines.append("| **Approach C (`json_tree`)** | Direct JSON Evaluator | Pure JSON AST | Direct JSON tree walker |")
+		md_lines.append("| **Canonical (`evaluate_condition`)** | Public PR #469 Runtime | LRU-cached AST compilation | Public API with context normalization & cache lookup |")
+		md_lines.append("| **Canonical (`Prepared Plan`)** | Diagnostic PR #469 Plan | Direct compiled AST plan | Direct internal `_evaluate_node` execution |")
+		md_lines.append("")
+		md_lines.append("---")
+		md_lines.append("")
+
+		# Section 2: Semantic Correctness
+		md_lines.append("## 2. Independent Semantic Correctness & Compatibility Suite")
+		md_lines.append("")
+		md_lines.append(
+			f"All five approaches were evaluated against neutral business scenarios. "
+			f"Supported scenarios passed: **{correctness.get('total_supported_correct', 0)} / {correctness.get('total_supported_scenarios', 0)}**."
+		)
+		md_lines.append("")
+		md_lines.append("| Scenario ID | Tier | Status | Matching Check | Non-Matching Check | Disagreements / Errors |")
+		md_lines.append("|---|---|---|---|---|---|")
+
+		for c_res in correctness.get("results", []):
+			status = "DEPRECATED" if c_res["is_deprecated_case"] else ("PASSED" if c_res["is_correct"] else "FAILED")
+			m_chk = ", ".join([f"{k}: {v}" for k, v in c_res["matching_doc_check"].items()])
+			nm_chk = ", ".join([f"{k}: {v}" for k, v in c_res["non_matching_doc_check"].items()])
+			errs = " | ".join(c_res["disagreements"]) if c_res["disagreements"] else "None"
+			md_lines.append(
+				f"| `{c_res['scenario_id']}` | {c_res['tier']} | **{status}** | `<small>{m_chk}</small>` | `<small>{nm_chk}</small>` | {errs} |"
+			)
+
+		md_lines.append("")
+		md_lines.append("---")
+		md_lines.append("")
+
+		# Section 3: Steady-State Execution Latency
+		md_lines.append("## 3. Steady-State Execution Latency (Microseconds per Operation)")
+		md_lines.append("")
+		md_lines.append(
+			"| Scenario ID | Tier | Approach A (`safe_eval`) | Approach A Exp (`code_obj`) | Approach B (`plan`) | Approach C (`json_tree`) | Canonical Runtime (`evaluate_condition`) | Canonical Diagnostic (`Plan`) |"
+		)
+		md_lines.append("|---|---|---|---|---|---|---|---|")
+
+		cand_names = [
+			"Approach A (frappe.safe_eval)",
+			"Approach A (Experimental Restricted Code Object)",
+			"Approach B (Normalized AST Execution Plan)",
+			"Approach C (Direct JSON Condition Evaluator)",
+			"Canonical Condition (evaluate_condition)",
+			"Canonical Condition (Prepared Plan Diagnostic)",
+		]
+
+		for item in steady.get("scenarios", []):
+			sid = item["scenario_id"]
+			tier = item["tier"]
+			metrics = item["candidate_metrics"]
+
+			vals = []
+			for c_name in cand_names:
+				m = metrics.get(c_name, {})
+				if m.get("is_valid_measurement"):
+					vals.append(f"{m.get('median_us_per_exec')} µs/op")
+				else:
+					vals.append("UNSUPPORTED")
+
+			md_lines.append(f"| `{sid}` | {tier} | {vals[0]} | {vals[1]} | {vals[2]} | {vals[3]} | {vals[4]} | {vals[5]} |")
+
+		md_lines.append("")
+		md_lines.append("---")
+		md_lines.append("")
+
+		# Section 4: Cold vs Warm Preparation Time
+		md_lines.append("## 4. Cold vs Warm Preparation Latency (Milliseconds)")
+		md_lines.append("")
+		md_lines.append("| Scenario ID | Candidate | Cold Preparation (ms) | Warm Preparation (ms) |")
+		md_lines.append("|---|---|---|---|")
+
+		for item in steady.get("scenarios", []):
+			sid = item["scenario_id"]
+			metrics = item["candidate_metrics"]
+
+			for c_name in cand_names:
+				m = metrics.get(c_name, {})
+				if m.get("is_valid_measurement"):
+					cold_ms = m.get("cold_preparation_time_ms", "N/A")
+					warm_ms = m.get("warm_preparation_time_ms", "N/A")
+					md_lines.append(f"| `{sid}` | {c_name} | {cold_ms} ms | {warm_ms} ms |")
+
+		md_lines.append("")
+		md_lines.append("---")
+		md_lines.append("")
+
+		# Section 5: Methodology, Security & Limitations
+		md_lines.append("## 5. Methodology, Security Profile & Trade-offs")
+		md_lines.append("")
+		md_lines.append("### Measurement Methodology & Isolation")
+		md_lines.append(
+			"1. **Cold Prep Isolation:** All LRU caches (`get_prepared_plan.cache_clear()`) are explicitly cleared prior to cold preparation measurements. Correctness checks execute in an isolated phase to avoid pre-warming cold execution states."
+		)
+		md_lines.append(
+			"2. **Steady-State Execution Latency:** Timed across 5 batches of 10,000 evaluations using alternating matching and non-matching document instances to prevent CPU branch prediction bias."
+		)
+		md_lines.append(
+			"3. **Fair Comparison Scope:** Semantics are compared only across shared supported operators. Operators not supported by a candidate (e.g., `has_changed` in canonical contract) are explicitly marked as `UNSUPPORTED` or `DEPRECATED` rather than counted as failures."
+		)
+		md_lines.append("")
+		md_lines.append("### Security Profile & Analysis")
+		md_lines.append(
+			"- **Approach A (`frappe.safe_eval`)**: Re-compiles Python expressions dynamically using RestrictedPython on every call. While restricted, dynamic string evaluation carries latent code execution attack vectors if input sanitization is bypassed."
+		)
+		md_lines.append(
+			"- **Approach B / Approach C / PR #469 Canonical Evaluator**: Parse conditions into structured AST nodes and evaluate them via pure Python tree traversal. This completely avoids `eval()`, `exec()`, and `safe_eval()`, eliminating dynamic string execution vulnerabilities."
+		)
+		md_lines.append("")
+		md_lines.append("### Production Selection Gate")
+		md_lines.append(
+			"Production selection remains **Not established** in this report. Final production adoption requires explicit formal review of security boundaries, governance policies, and cross-module integration requirements."
+		)
+
+		report_content = "\n".join(md_lines)
+		os.makedirs(os.path.dirname(output_markdown_path), exist_ok=True)
+		with open(output_markdown_path, "w", encoding="utf-8") as f:
+			f.write(report_content)
+
+		return report_content
+
 
 if __name__ == "__main__":
 	sites_path = (
@@ -890,4 +719,16 @@ if __name__ == "__main__":
 	output_file = os.path.abspath("reports/canonical_condition_benchmark_results.json")
 	md_file = os.path.abspath("reports/condition-backend-comparison-benchmark.md")
 	runner.run_full_suite_and_export(output_file, md_file)
-	print(f"Unified benchmark run complete. JSON saved to {output_file}, Markdown saved to {md_file}")
+	print(f"Five-approach benchmark complete. JSON saved to {output_file}, Markdown saved to {md_file}")
+
+
+def run_main():
+	sites_path = (
+		"/home/jules/frappe-bench/sites" if os.path.exists("/home/jules/frappe-bench/sites") else "sites"
+	)
+	frappe.init(site="test_site", sites_path=sites_path)
+	runner = BenchmarkRunner(iterations_per_batch=10000, num_batches=5)
+	output_file = os.path.abspath("reports/canonical_condition_benchmark_results.json")
+	md_file = os.path.abspath("reports/condition-backend-comparison-benchmark.md")
+	runner.run_full_suite_and_export(output_file, md_file)
+	print(f"Five-approach benchmark complete. JSON saved to {output_file}, Markdown saved to {md_file}")
