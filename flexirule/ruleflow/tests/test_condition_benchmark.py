@@ -3,10 +3,8 @@
 
 from __future__ import annotations
 
-import json
 import os
 import tempfile
-import types
 from typing import Any
 
 import frappe
@@ -14,7 +12,6 @@ from frappe.tests.utils import FrappeTestCase
 
 from flexirule.ruleflow.tests.condition_benchmark.adapters import (
 	NeutralNode,
-	NeutralScenario,
 	node_to_canonical_payload,
 	node_to_legacy_payload,
 )
@@ -163,7 +160,7 @@ class TestConditionBenchmark(FrappeTestCase):
 		sc = runner.scenarios[0]
 		prep_metrics = runner.measure_preparation_times(sc)
 
-		for c_name, metric in prep_metrics.items():
+		for _c_name, metric in prep_metrics.items():
 			if metric.get("is_supported"):
 				self.assertIn("cold_preparation_time_ms", metric)
 				self.assertIn("warm_preparation_time_ms", metric)
