@@ -1,0 +1,1965 @@
+{
+  "benchmark_protocol_version": 2,
+  "benchmark_target": "PR #469 Canonical Condition Backend",
+  "measurement_protocol": "Repeated preparation medians; repeated timed batches; rotating candidate order; alternating matching/non-matching documents; semantic correctness gate.",
+  "environment": {
+    "python_version": "3.12.13",
+    "platform": "Linux-6.8.0-x86_64-with-glibc2.39",
+    "frappe_version": "15.123.1",
+    "flexirule_version": "1.0.0-beta.3",
+    "timestamp_utc": "2026-10-28T14:36:17Z",
+    "benchmark_source_branch": "benchmark/canonical-condition-pr469",
+    "benchmark_source_commit": "e72aefeff1bb509654791fec9a6930aacaa00414"
+  },
+  "correctness_suite": {
+    "total_cases": 8,
+    "agreed_cases": 8,
+    "all_correct": true,
+    "all_agreed": true,
+    "results": [
+      {
+        "fixture_id": "canonical_tier1_simple_equality",
+        "tier": "Canonical Tier 1 \u2014 Simple",
+        "description": "Canonical direct comparison node for status equality",
+        "is_correct": true,
+        "agrees": true,
+        "matches_expected": true,
+        "matching_doc_check": {
+          "Canonical Condition (evaluate_condition)": true,
+          "Canonical Condition (Prepared Plan Diagnostic)": true
+        },
+        "non_matching_doc_check": {
+          "Canonical Condition (evaluate_condition)": false,
+          "Canonical Condition (Prepared Plan Diagnostic)": false
+        },
+        "disagreements": [],
+        "errors": {}
+      },
+      {
+        "fixture_id": "canonical_tier2_business_rule",
+        "tier": "Canonical Tier 2 \u2014 Business Rule",
+        "description": "Canonical group node joining three comparison nodes",
+        "is_correct": true,
+        "agrees": true,
+        "matches_expected": true,
+        "matching_doc_check": {
+          "Canonical Condition (evaluate_condition)": true,
+          "Canonical Condition (Prepared Plan Diagnostic)": true
+        },
+        "non_matching_doc_check": {
+          "Canonical Condition (evaluate_condition)": false,
+          "Canonical Condition (Prepared Plan Diagnostic)": false
+        },
+        "disagreements": [],
+        "errors": {}
+      },
+      {
+        "fixture_id": "canonical_tier3_nested_groups",
+        "tier": "Canonical Tier 3 \u2014 Nested Groups",
+        "description": "Canonical nested AND/OR groups for status and total/priority",
+        "is_correct": true,
+        "agrees": true,
+        "matches_expected": true,
+        "matching_doc_check": {
+          "Canonical Condition (evaluate_condition)": true,
+          "Canonical Condition (Prepared Plan Diagnostic)": true
+        },
+        "non_matching_doc_check": {
+          "Canonical Condition (evaluate_condition)": false,
+          "Canonical Condition (Prepared Plan Diagnostic)": false
+        },
+        "disagreements": [],
+        "errors": {}
+      },
+      {
+        "fixture_id": "canonical_tier4_deep_nested_complex",
+        "tier": "Canonical Tier 4 \u2014 Deep Nested Complex",
+        "description": "Canonical 8 leaf conditions across 3 nested levels",
+        "is_correct": true,
+        "agrees": true,
+        "matches_expected": true,
+        "matching_doc_check": {
+          "Canonical Condition (evaluate_condition)": true,
+          "Canonical Condition (Prepared Plan Diagnostic)": true
+        },
+        "non_matching_doc_check": {
+          "Canonical Condition (evaluate_condition)": false,
+          "Canonical Condition (Prepared Plan Diagnostic)": false
+        },
+        "disagreements": [],
+        "errors": {}
+      },
+      {
+        "fixture_id": "canonical_tier5_collection_predicate",
+        "tier": "Canonical Tier 5 \u2014 Collection Predicate",
+        "description": "Canonical collection_predicate with 'any' quantifier",
+        "is_correct": true,
+        "agrees": true,
+        "matches_expected": true,
+        "matching_doc_check": {
+          "Canonical Condition (evaluate_condition)": true,
+          "Canonical Condition (Prepared Plan Diagnostic)": true
+        },
+        "non_matching_doc_check": {
+          "Canonical Condition (evaluate_condition)": false,
+          "Canonical Condition (Prepared Plan Diagnostic)": false
+        },
+        "disagreements": [],
+        "errors": {}
+      },
+      {
+        "fixture_id": "canonical_edge_membership",
+        "tier": "Canonical Edge Case \u2014 Membership",
+        "description": "Canonical in and not_in operators with static list values",
+        "is_correct": true,
+        "agrees": true,
+        "matches_expected": true,
+        "matching_doc_check": {
+          "Canonical Condition (evaluate_condition)": true,
+          "Canonical Condition (Prepared Plan Diagnostic)": true
+        },
+        "non_matching_doc_check": {
+          "Canonical Condition (evaluate_condition)": false,
+          "Canonical Condition (Prepared Plan Diagnostic)": false
+        },
+        "disagreements": [],
+        "errors": {}
+      },
+      {
+        "fixture_id": "canonical_edge_text_length",
+        "tier": "Canonical Edge Case \u2014 Text & Length",
+        "description": "Canonical contains and length_gt operators",
+        "is_correct": true,
+        "agrees": true,
+        "matches_expected": true,
+        "matching_doc_check": {
+          "Canonical Condition (evaluate_condition)": true,
+          "Canonical Condition (Prepared Plan Diagnostic)": true
+        },
+        "non_matching_doc_check": {
+          "Canonical Condition (evaluate_condition)": false,
+          "Canonical Condition (Prepared Plan Diagnostic)": false
+        },
+        "disagreements": [],
+        "errors": {}
+      },
+      {
+        "fixture_id": "canonical_edge_missing_vs_set",
+        "tier": "Canonical Edge Case \u2014 Missing Field",
+        "description": "Canonical is_not_set on missing field versus set field",
+        "is_correct": true,
+        "agrees": true,
+        "matches_expected": true,
+        "matching_doc_check": {
+          "Canonical Condition (evaluate_condition)": true,
+          "Canonical Condition (Prepared Plan Diagnostic)": true
+        },
+        "non_matching_doc_check": {
+          "Canonical Condition (evaluate_condition)": false,
+          "Canonical Condition (Prepared Plan Diagnostic)": false
+        },
+        "disagreements": [],
+        "errors": {}
+      }
+    ]
+  },
+  "primary_benchmark": {
+    "methodology": {
+      "iterations_per_batch": 10000,
+      "num_batches": 5,
+      "warmup_iterations_per_candidate": 50,
+      "candidate_order": "rotated between batches",
+      "document_workload": "alternating matching and non-matching documents",
+      "timed_scope": "whole candidate.evaluate() call; core timer reported separately",
+      "preparation_time_samples": 5
+    },
+    "fixtures": [
+      {
+        "fixture_id": "canonical_tier1_simple_equality",
+        "tier": "Canonical Tier 1 \u2014 Simple",
+        "description": "Canonical direct comparison node for status equality",
+        "correctness_gate_passed": true,
+        "correctness_failures": [],
+        "timed_workload": "alternating matching and non-matching documents",
+        "leaf_count": 1,
+        "nesting_depth": 1,
+        "speedup_ratio_b_vs_primary_a": null,
+        "speedup_ratio_c_vs_primary_a": null,
+        "speedup_ratio_b_vs_c": null,
+        "candidate_metrics": {
+          "Canonical Condition (evaluate_condition)": {
+            "is_valid_measurement": true,
+            "error": null,
+            "preparation_time_ms": 0.0131,
+            "iterations_per_batch": 10000,
+            "total_batches_attempted": 5,
+            "valid_batches": 5,
+            "successful_evaluations": 50000,
+            "median_us_per_exec": 27.89,
+            "median_core_us_per_exec": 24.893,
+            "mean_us_per_exec": 27.976,
+            "min_us_per_exec": 27.64,
+            "max_us_per_exec": 28.567,
+            "p95_us_per_exec": 28.567,
+            "valid_batch_durations_seconds": [
+              0.2789,
+              0.2791,
+              0.2764,
+              0.2787,
+              0.2857
+            ]
+          },
+          "Canonical Condition (Prepared Plan Diagnostic)": {
+            "is_valid_measurement": true,
+            "error": null,
+            "preparation_time_ms": 0.0127,
+            "iterations_per_batch": 10000,
+            "total_batches_attempted": 5,
+            "valid_batches": 5,
+            "successful_evaluations": 50000,
+            "median_us_per_exec": 7.482,
+            "median_core_us_per_exec": 5.38,
+            "mean_us_per_exec": 7.482,
+            "min_us_per_exec": 7.451,
+            "max_us_per_exec": 7.526,
+            "p95_us_per_exec": 7.526,
+            "valid_batch_durations_seconds": [
+              0.0748,
+              0.0748,
+              0.0745,
+              0.0747,
+              0.0753
+            ]
+          }
+        }
+      },
+      {
+        "fixture_id": "canonical_tier2_business_rule",
+        "tier": "Canonical Tier 2 \u2014 Business Rule",
+        "description": "Canonical group node joining three comparison nodes",
+        "correctness_gate_passed": true,
+        "correctness_failures": [],
+        "timed_workload": "alternating matching and non-matching documents",
+        "leaf_count": 3,
+        "nesting_depth": 1,
+        "speedup_ratio_b_vs_primary_a": null,
+        "speedup_ratio_c_vs_primary_a": null,
+        "speedup_ratio_b_vs_c": null,
+        "candidate_metrics": {
+          "Canonical Condition (evaluate_condition)": {
+            "is_valid_measurement": true,
+            "error": null,
+            "preparation_time_ms": 0.0278,
+            "iterations_per_batch": 10000,
+            "total_batches_attempted": 5,
+            "valid_batches": 5,
+            "successful_evaluations": 50000,
+            "median_us_per_exec": 64.486,
+            "median_core_us_per_exec": 60.288,
+            "mean_us_per_exec": 67.62,
+            "min_us_per_exec": 56.705,
+            "max_us_per_exec": 86.497,
+            "p95_us_per_exec": 86.497,
+            "valid_batch_durations_seconds": [
+              0.5689,
+              0.567,
+              0.865,
+              0.6449,
+              0.7352
+            ]
+          },
+          "Canonical Condition (Prepared Plan Diagnostic)": {
+            "is_valid_measurement": true,
+            "error": null,
+            "preparation_time_ms": 0.0313,
+            "iterations_per_batch": 10000,
+            "total_batches_attempted": 5,
+            "valid_batches": 5,
+            "successful_evaluations": 50000,
+            "median_us_per_exec": 18.373,
+            "median_core_us_per_exec": 15.601,
+            "mean_us_per_exec": 20.912,
+            "min_us_per_exec": 16.349,
+            "max_us_per_exec": 28.079,
+            "p95_us_per_exec": 28.079,
+            "valid_batch_durations_seconds": [
+              0.1635,
+              0.166,
+              0.2808,
+              0.2517,
+              0.1837
+            ]
+          }
+        }
+      },
+      {
+        "fixture_id": "canonical_tier3_nested_groups",
+        "tier": "Canonical Tier 3 \u2014 Nested Groups",
+        "description": "Canonical nested AND/OR groups for status and total/priority",
+        "correctness_gate_passed": true,
+        "correctness_failures": [],
+        "timed_workload": "alternating matching and non-matching documents",
+        "leaf_count": 4,
+        "nesting_depth": 2,
+        "speedup_ratio_b_vs_primary_a": null,
+        "speedup_ratio_c_vs_primary_a": null,
+        "speedup_ratio_b_vs_c": null,
+        "candidate_metrics": {
+          "Canonical Condition (evaluate_condition)": {
+            "is_valid_measurement": true,
+            "error": null,
+            "preparation_time_ms": 0.0366,
+            "iterations_per_batch": 10000,
+            "total_batches_attempted": 5,
+            "valid_batches": 5,
+            "successful_evaluations": 50000,
+            "median_us_per_exec": 72.672,
+            "median_core_us_per_exec": 68.696,
+            "mean_us_per_exec": 71.507,
+            "min_us_per_exec": 67.686,
+            "max_us_per_exec": 74.137,
+            "p95_us_per_exec": 74.137,
+            "valid_batch_durations_seconds": [
+              0.7267,
+              0.7414,
+              0.7375,
+              0.6929,
+              0.6769
+            ]
+          },
+          "Canonical Condition (Prepared Plan Diagnostic)": {
+            "is_valid_measurement": true,
+            "error": null,
+            "preparation_time_ms": 0.0357,
+            "iterations_per_batch": 10000,
+            "total_batches_attempted": 5,
+            "valid_batches": 5,
+            "successful_evaluations": 50000,
+            "median_us_per_exec": 17.854,
+            "median_core_us_per_exec": 15.336,
+            "mean_us_per_exec": 18.763,
+            "min_us_per_exec": 16.314,
+            "max_us_per_exec": 21.631,
+            "p95_us_per_exec": 21.631,
+            "valid_batch_durations_seconds": [
+              0.2163,
+              0.2033,
+              0.1785,
+              0.1768,
+              0.1631
+            ]
+          }
+        }
+      },
+      {
+        "fixture_id": "canonical_tier4_deep_nested_complex",
+        "tier": "Canonical Tier 4 \u2014 Deep Nested Complex",
+        "description": "Canonical 8 leaf conditions across 3 nested levels",
+        "correctness_gate_passed": true,
+        "correctness_failures": [],
+        "timed_workload": "alternating matching and non-matching documents",
+        "leaf_count": 8,
+        "nesting_depth": 3,
+        "speedup_ratio_b_vs_primary_a": null,
+        "speedup_ratio_c_vs_primary_a": null,
+        "speedup_ratio_b_vs_c": null,
+        "candidate_metrics": {
+          "Canonical Condition (evaluate_condition)": {
+            "is_valid_measurement": true,
+            "error": null,
+            "preparation_time_ms": 0.0598,
+            "iterations_per_batch": 10000,
+            "total_batches_attempted": 5,
+            "valid_batches": 5,
+            "successful_evaluations": 50000,
+            "median_us_per_exec": 110.045,
+            "median_core_us_per_exec": 105.936,
+            "mean_us_per_exec": 109.875,
+            "min_us_per_exec": 109.297,
+            "max_us_per_exec": 110.286,
+            "p95_us_per_exec": 110.286,
+            "valid_batch_durations_seconds": [
+              1.093,
+              1.1005,
+              1.1029,
+              1.097,
+              1.1005
+            ]
+          },
+          "Canonical Condition (Prepared Plan Diagnostic)": {
+            "is_valid_measurement": true,
+            "error": null,
+            "preparation_time_ms": 0.0586,
+            "iterations_per_batch": 10000,
+            "total_batches_attempted": 5,
+            "valid_batches": 5,
+            "successful_evaluations": 50000,
+            "median_us_per_exec": 31.478,
+            "median_core_us_per_exec": 28.641,
+            "mean_us_per_exec": 31.63,
+            "min_us_per_exec": 31.39,
+            "max_us_per_exec": 32.065,
+            "p95_us_per_exec": 32.065,
+            "valid_batch_durations_seconds": [
+              0.3139,
+              0.3148,
+              0.3147,
+              0.3175,
+              0.3206
+            ]
+          }
+        }
+      },
+      {
+        "fixture_id": "canonical_tier5_collection_predicate",
+        "tier": "Canonical Tier 5 \u2014 Collection Predicate",
+        "description": "Canonical collection_predicate with 'any' quantifier",
+        "correctness_gate_passed": true,
+        "correctness_failures": [],
+        "timed_workload": "alternating matching and non-matching documents",
+        "leaf_count": 3,
+        "nesting_depth": 2,
+        "speedup_ratio_b_vs_primary_a": null,
+        "speedup_ratio_c_vs_primary_a": null,
+        "speedup_ratio_b_vs_c": null,
+        "candidate_metrics": {
+          "Canonical Condition (evaluate_condition)": {
+            "is_valid_measurement": true,
+            "error": null,
+            "preparation_time_ms": 0.0337,
+            "iterations_per_batch": 10000,
+            "total_batches_attempted": 5,
+            "valid_batches": 5,
+            "successful_evaluations": 50000,
+            "median_us_per_exec": 75.526,
+            "median_core_us_per_exec": 71.898,
+            "mean_us_per_exec": 75.542,
+            "min_us_per_exec": 74.838,
+            "max_us_per_exec": 76.101,
+            "p95_us_per_exec": 76.101,
+            "valid_batch_durations_seconds": [
+              0.7591,
+              0.7533,
+              0.7553,
+              0.7484,
+              0.761
+            ]
+          },
+          "Canonical Condition (Prepared Plan Diagnostic)": {
+            "is_valid_measurement": true,
+            "error": null,
+            "preparation_time_ms": 0.0327,
+            "iterations_per_batch": 10000,
+            "total_batches_attempted": 5,
+            "valid_batches": 5,
+            "successful_evaluations": 50000,
+            "median_us_per_exec": 29.692,
+            "median_core_us_per_exec": 27.029,
+            "mean_us_per_exec": 29.708,
+            "min_us_per_exec": 29.355,
+            "max_us_per_exec": 29.965,
+            "p95_us_per_exec": 29.965,
+            "valid_batch_durations_seconds": [
+              0.2969,
+              0.2963,
+              0.2997,
+              0.299,
+              0.2935
+            ]
+          }
+        }
+      },
+      {
+        "fixture_id": "canonical_edge_membership",
+        "tier": "Canonical Edge Case \u2014 Membership",
+        "description": "Canonical in and not_in operators with static list values",
+        "correctness_gate_passed": true,
+        "correctness_failures": [],
+        "timed_workload": "alternating matching and non-matching documents",
+        "leaf_count": 2,
+        "nesting_depth": 1,
+        "speedup_ratio_b_vs_primary_a": null,
+        "speedup_ratio_c_vs_primary_a": null,
+        "speedup_ratio_b_vs_c": null,
+        "candidate_metrics": {
+          "Canonical Condition (evaluate_condition)": {
+            "is_valid_measurement": true,
+            "error": null,
+            "preparation_time_ms": 0.0219,
+            "iterations_per_batch": 10000,
+            "total_batches_attempted": 5,
+            "valid_batches": 5,
+            "successful_evaluations": 50000,
+            "median_us_per_exec": 48.471,
+            "median_core_us_per_exec": 44.955,
+            "mean_us_per_exec": 49.377,
+            "min_us_per_exec": 48.079,
+            "max_us_per_exec": 53.08,
+            "p95_us_per_exec": 53.08,
+            "valid_batch_durations_seconds": [
+              0.4808,
+              0.4845,
+              0.5308,
+              0.488,
+              0.4847
+            ]
+          },
+          "Canonical Condition (Prepared Plan Diagnostic)": {
+            "is_valid_measurement": true,
+            "error": null,
+            "preparation_time_ms": 0.0219,
+            "iterations_per_batch": 10000,
+            "total_batches_attempted": 5,
+            "valid_batches": 5,
+            "successful_evaluations": 50000,
+            "median_us_per_exec": 15.179,
+            "median_core_us_per_exec": 12.857,
+            "mean_us_per_exec": 15.184,
+            "min_us_per_exec": 15.014,
+            "max_us_per_exec": 15.355,
+            "p95_us_per_exec": 15.355,
+            "valid_batch_durations_seconds": [
+              0.1501,
+              0.1518,
+              0.1535,
+              0.1522,
+              0.1516
+            ]
+          }
+        }
+      },
+      {
+        "fixture_id": "canonical_edge_text_length",
+        "tier": "Canonical Edge Case \u2014 Text & Length",
+        "description": "Canonical contains and length_gt operators",
+        "correctness_gate_passed": true,
+        "correctness_failures": [],
+        "timed_workload": "alternating matching and non-matching documents",
+        "leaf_count": 2,
+        "nesting_depth": 1,
+        "speedup_ratio_b_vs_primary_a": null,
+        "speedup_ratio_c_vs_primary_a": null,
+        "speedup_ratio_b_vs_c": null,
+        "candidate_metrics": {
+          "Canonical Condition (evaluate_condition)": {
+            "is_valid_measurement": true,
+            "error": null,
+            "preparation_time_ms": 0.0208,
+            "iterations_per_batch": 10000,
+            "total_batches_attempted": 5,
+            "valid_batches": 5,
+            "successful_evaluations": 50000,
+            "median_us_per_exec": 37.348,
+            "median_core_us_per_exec": 34.259,
+            "mean_us_per_exec": 37.436,
+            "min_us_per_exec": 37.086,
+            "max_us_per_exec": 37.94,
+            "p95_us_per_exec": 37.94,
+            "valid_batch_durations_seconds": [
+              0.3794,
+              0.3735,
+              0.3709,
+              0.3764,
+              0.3717
+            ]
+          },
+          "Canonical Condition (Prepared Plan Diagnostic)": {
+            "is_valid_measurement": true,
+            "error": null,
+            "preparation_time_ms": 0.0206,
+            "iterations_per_batch": 10000,
+            "total_batches_attempted": 5,
+            "valid_batches": 5,
+            "successful_evaluations": 50000,
+            "median_us_per_exec": 7.745,
+            "median_core_us_per_exec": 5.662,
+            "mean_us_per_exec": 7.793,
+            "min_us_per_exec": 7.656,
+            "max_us_per_exec": 8.131,
+            "p95_us_per_exec": 8.131,
+            "valid_batch_durations_seconds": [
+              0.0813,
+              0.0777,
+              0.0767,
+              0.0766,
+              0.0774
+            ]
+          }
+        }
+      },
+      {
+        "fixture_id": "canonical_edge_missing_vs_set",
+        "tier": "Canonical Edge Case \u2014 Missing Field",
+        "description": "Canonical is_not_set on missing field versus set field",
+        "correctness_gate_passed": true,
+        "correctness_failures": [],
+        "timed_workload": "alternating matching and non-matching documents",
+        "leaf_count": 1,
+        "nesting_depth": 1,
+        "speedup_ratio_b_vs_primary_a": null,
+        "speedup_ratio_c_vs_primary_a": null,
+        "speedup_ratio_b_vs_c": null,
+        "candidate_metrics": {
+          "Canonical Condition (evaluate_condition)": {
+            "is_valid_measurement": true,
+            "error": null,
+            "preparation_time_ms": 0.0112,
+            "iterations_per_batch": 10000,
+            "total_batches_attempted": 5,
+            "valid_batches": 5,
+            "successful_evaluations": 50000,
+            "median_us_per_exec": 20.813,
+            "median_core_us_per_exec": 17.97,
+            "mean_us_per_exec": 21.106,
+            "min_us_per_exec": 20.776,
+            "max_us_per_exec": 22.274,
+            "p95_us_per_exec": 22.274,
+            "valid_batch_durations_seconds": [
+              0.2227,
+              0.2081,
+              0.2078,
+              0.2081,
+              0.2086
+            ]
+          },
+          "Canonical Condition (Prepared Plan Diagnostic)": {
+            "is_valid_measurement": true,
+            "error": null,
+            "preparation_time_ms": 0.0112,
+            "iterations_per_batch": 10000,
+            "total_batches_attempted": 5,
+            "valid_batches": 5,
+            "successful_evaluations": 50000,
+            "median_us_per_exec": 4.26,
+            "median_core_us_per_exec": 2.142,
+            "mean_us_per_exec": 4.259,
+            "min_us_per_exec": 4.218,
+            "max_us_per_exec": 4.29,
+            "p95_us_per_exec": 4.29,
+            "valid_batch_durations_seconds": [
+              0.0427,
+              0.0429,
+              0.0426,
+              0.0425,
+              0.0422
+            ]
+          }
+        }
+      }
+    ]
+  },
+  "amortized_benchmark": {
+    "methodology": {
+      "execution_counts": [
+        1,
+        10,
+        100,
+        1000
+      ],
+      "repeated_samples_per_count": 5,
+      "warmup_iterations_per_candidate": 50,
+      "preparation_time_samples": 5,
+      "amortized_formula": "(median preparation time + median total time for N evaluations) / N",
+      "candidate_order": "rotated between samples",
+      "document_workload": "alternating matching and non-matching documents"
+    },
+    "amortized": [
+      {
+        "fixture_id": "canonical_tier1_simple_equality",
+        "tier": "Canonical Tier 1 \u2014 Simple",
+        "correctness_gate_passed": true,
+        "correctness_failures": [],
+        "candidate_order": "rotated between repeated samples",
+        "document_workload": "alternating matching and non-matching documents",
+        "counts": {
+          "1": {
+            "Canonical Condition (evaluate_condition)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0127,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 0.0277,
+              "median_exec_us_per_eval": 27.732,
+              "median_core_exec_us_per_eval": 24.764,
+              "total_amortized_cost_ms": 0.0404,
+              "cost_per_eval_us": 40.407,
+              "sample_execution_times_ms": [
+                0.0312,
+                0.0294,
+                0.0277,
+                0.0272,
+                0.0268
+              ]
+            },
+            "Canonical Condition (Prepared Plan Diagnostic)": {
+              "is_valid": true,
+              "prep_time_ms": 0.013,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 0.0085,
+              "median_exec_us_per_eval": 8.471,
+              "median_core_exec_us_per_eval": 5.907,
+              "total_amortized_cost_ms": 0.0215,
+              "cost_per_eval_us": 21.453,
+              "sample_execution_times_ms": [
+                0.0092,
+                0.0084,
+                0.009,
+                0.0082,
+                0.0085
+              ]
+            }
+          },
+          "10": {
+            "Canonical Condition (evaluate_condition)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0127,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 0.3154,
+              "median_exec_us_per_eval": 31.541,
+              "median_core_exec_us_per_eval": 25.389,
+              "total_amortized_cost_ms": 0.3281,
+              "cost_per_eval_us": 32.808,
+              "sample_execution_times_ms": [
+                0.3248,
+                0.2502,
+                0.26,
+                0.3154,
+                0.3295
+              ]
+            },
+            "Canonical Condition (Prepared Plan Diagnostic)": {
+              "is_valid": true,
+              "prep_time_ms": 0.013,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 0.0708,
+              "median_exec_us_per_eval": 7.084,
+              "median_core_exec_us_per_eval": 5.095,
+              "total_amortized_cost_ms": 0.0838,
+              "cost_per_eval_us": 8.382,
+              "sample_execution_times_ms": [
+                0.075,
+                0.0708,
+                0.0672,
+                0.0729,
+                0.0682
+              ]
+            }
+          },
+          "100": {
+            "Canonical Condition (evaluate_condition)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0127,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 2.7425,
+              "median_exec_us_per_eval": 27.425,
+              "median_core_exec_us_per_eval": 24.648,
+              "total_amortized_cost_ms": 2.7551,
+              "cost_per_eval_us": 27.551,
+              "sample_execution_times_ms": [
+                2.6739,
+                2.7208,
+                2.7636,
+                2.7848,
+                2.7425
+              ]
+            },
+            "Canonical Condition (Prepared Plan Diagnostic)": {
+              "is_valid": true,
+              "prep_time_ms": 0.013,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 0.7272,
+              "median_exec_us_per_eval": 7.272,
+              "median_core_exec_us_per_eval": 5.339,
+              "total_amortized_cost_ms": 0.7402,
+              "cost_per_eval_us": 7.402,
+              "sample_execution_times_ms": [
+                0.7272,
+                0.7346,
+                0.7269,
+                0.6668,
+                0.7362
+              ]
+            }
+          },
+          "1000": {
+            "Canonical Condition (evaluate_condition)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0127,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 27.5604,
+              "median_exec_us_per_eval": 27.56,
+              "median_core_exec_us_per_eval": 24.593,
+              "total_amortized_cost_ms": 27.573,
+              "cost_per_eval_us": 27.573,
+              "sample_execution_times_ms": [
+                27.3598,
+                28.0519,
+                27.5604,
+                27.2636,
+                27.5686
+              ]
+            },
+            "Canonical Condition (Prepared Plan Diagnostic)": {
+              "is_valid": true,
+              "prep_time_ms": 0.013,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 7.3626,
+              "median_exec_us_per_eval": 7.363,
+              "median_core_exec_us_per_eval": 5.322,
+              "total_amortized_cost_ms": 7.3756,
+              "cost_per_eval_us": 7.376,
+              "sample_execution_times_ms": [
+                7.4129,
+                7.3626,
+                7.4007,
+                7.2852,
+                7.3484
+              ]
+            }
+          }
+        }
+      },
+      {
+        "fixture_id": "canonical_tier2_business_rule",
+        "tier": "Canonical Tier 2 \u2014 Business Rule",
+        "correctness_gate_passed": true,
+        "correctness_failures": [],
+        "candidate_order": "rotated between repeated samples",
+        "document_workload": "alternating matching and non-matching documents",
+        "counts": {
+          "1": {
+            "Canonical Condition (evaluate_condition)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0269,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 0.0546,
+              "median_exec_us_per_eval": 54.598,
+              "median_core_exec_us_per_eval": 51.395,
+              "total_amortized_cost_ms": 0.0815,
+              "cost_per_eval_us": 81.476,
+              "sample_execution_times_ms": [
+                0.0742,
+                0.0525,
+                0.056,
+                0.0498,
+                0.0546
+              ]
+            },
+            "Canonical Condition (Prepared Plan Diagnostic)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0269,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 0.0196,
+              "median_exec_us_per_eval": 19.64,
+              "median_core_exec_us_per_eval": 16.573,
+              "total_amortized_cost_ms": 0.0465,
+              "cost_per_eval_us": 46.524,
+              "sample_execution_times_ms": [
+                0.0202,
+                0.014,
+                0.0196,
+                0.0139,
+                0.0198
+              ]
+            }
+          },
+          "10": {
+            "Canonical Condition (evaluate_condition)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0269,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 0.5636,
+              "median_exec_us_per_eval": 56.362,
+              "median_core_exec_us_per_eval": 52.342,
+              "total_amortized_cost_ms": 0.5905,
+              "cost_per_eval_us": 59.049,
+              "sample_execution_times_ms": [
+                0.6182,
+                0.5107,
+                0.5113,
+                0.5636,
+                0.5877
+              ]
+            },
+            "Canonical Condition (Prepared Plan Diagnostic)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0269,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 0.1553,
+              "median_exec_us_per_eval": 15.526,
+              "median_core_exec_us_per_eval": 13.18,
+              "total_amortized_cost_ms": 0.1821,
+              "cost_per_eval_us": 18.214,
+              "sample_execution_times_ms": [
+                0.1548,
+                0.2021,
+                0.1522,
+                0.2241,
+                0.1553
+              ]
+            }
+          },
+          "100": {
+            "Canonical Condition (evaluate_condition)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0269,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 5.4412,
+              "median_exec_us_per_eval": 54.412,
+              "median_core_exec_us_per_eval": 50.974,
+              "total_amortized_cost_ms": 5.468,
+              "cost_per_eval_us": 54.68,
+              "sample_execution_times_ms": [
+                5.4127,
+                5.4412,
+                5.4995,
+                5.7171,
+                5.4002
+              ]
+            },
+            "Canonical Condition (Prepared Plan Diagnostic)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0269,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 1.6568,
+              "median_exec_us_per_eval": 16.568,
+              "median_core_exec_us_per_eval": 14.289,
+              "total_amortized_cost_ms": 1.6837,
+              "cost_per_eval_us": 16.837,
+              "sample_execution_times_ms": [
+                1.6077,
+                1.7021,
+                1.5614,
+                1.6568,
+                1.6857
+              ]
+            }
+          },
+          "1000": {
+            "Canonical Condition (evaluate_condition)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0269,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 55.0895,
+              "median_exec_us_per_eval": 55.089,
+              "median_core_exec_us_per_eval": 51.656,
+              "total_amortized_cost_ms": 55.1163,
+              "cost_per_eval_us": 55.116,
+              "sample_execution_times_ms": [
+                55.0895,
+                54.793,
+                55.179,
+                54.7423,
+                55.6499
+              ]
+            },
+            "Canonical Condition (Prepared Plan Diagnostic)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0269,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 16.3622,
+              "median_exec_us_per_eval": 16.362,
+              "median_core_exec_us_per_eval": 14.052,
+              "total_amortized_cost_ms": 16.389,
+              "cost_per_eval_us": 16.389,
+              "sample_execution_times_ms": [
+                16.303,
+                16.3622,
+                16.1908,
+                16.7259,
+                16.4996
+              ]
+            }
+          }
+        }
+      },
+      {
+        "fixture_id": "canonical_tier3_nested_groups",
+        "tier": "Canonical Tier 3 \u2014 Nested Groups",
+        "correctness_gate_passed": true,
+        "correctness_failures": [],
+        "candidate_order": "rotated between repeated samples",
+        "document_workload": "alternating matching and non-matching documents",
+        "counts": {
+          "1": {
+            "Canonical Condition (evaluate_condition)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0364,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 0.0733,
+              "median_exec_us_per_eval": 73.254,
+              "median_core_exec_us_per_eval": 69.407,
+              "total_amortized_cost_ms": 0.1096,
+              "cost_per_eval_us": 109.636,
+              "sample_execution_times_ms": [
+                0.0734,
+                0.0945,
+                0.0733,
+                0.0588,
+                0.0649
+              ]
+            },
+            "Canonical Condition (Prepared Plan Diagnostic)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0354,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 0.0212,
+              "median_exec_us_per_eval": 21.162,
+              "median_core_exec_us_per_eval": 17.543,
+              "total_amortized_cost_ms": 0.0565,
+              "cost_per_eval_us": 56.536,
+              "sample_execution_times_ms": [
+                0.0212,
+                0.0144,
+                0.0213,
+                0.0139,
+                0.0212
+              ]
+            }
+          },
+          "10": {
+            "Canonical Condition (evaluate_condition)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0364,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 0.662,
+              "median_exec_us_per_eval": 66.204,
+              "median_core_exec_us_per_eval": 62.733,
+              "total_amortized_cost_ms": 0.6984,
+              "cost_per_eval_us": 69.842,
+              "sample_execution_times_ms": [
+                0.7689,
+                0.65,
+                0.6186,
+                0.662,
+                0.7664
+              ]
+            },
+            "Canonical Condition (Prepared Plan Diagnostic)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0354,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 0.1606,
+              "median_exec_us_per_eval": 16.061,
+              "median_core_exec_us_per_eval": 13.707,
+              "total_amortized_cost_ms": 0.196,
+              "cost_per_eval_us": 19.598,
+              "sample_execution_times_ms": [
+                0.1606,
+                0.2104,
+                0.1527,
+                0.1752,
+                0.158
+              ]
+            }
+          },
+          "100": {
+            "Canonical Condition (evaluate_condition)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0364,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 6.4624,
+              "median_exec_us_per_eval": 64.624,
+              "median_core_exec_us_per_eval": 61.373,
+              "total_amortized_cost_ms": 6.4988,
+              "cost_per_eval_us": 64.988,
+              "sample_execution_times_ms": [
+                6.4624,
+                6.5576,
+                6.3404,
+                6.6429,
+                6.4084
+              ]
+            },
+            "Canonical Condition (Prepared Plan Diagnostic)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0354,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 1.6558,
+              "median_exec_us_per_eval": 16.558,
+              "median_core_exec_us_per_eval": 14.325,
+              "total_amortized_cost_ms": 1.6911,
+              "cost_per_eval_us": 16.911,
+              "sample_execution_times_ms": [
+                1.6558,
+                1.5949,
+                1.7127,
+                1.5497,
+                1.7182
+              ]
+            }
+          },
+          "1000": {
+            "Canonical Condition (evaluate_condition)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0364,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 67.2115,
+              "median_exec_us_per_eval": 67.212,
+              "median_core_exec_us_per_eval": 63.442,
+              "total_amortized_cost_ms": 67.2479,
+              "cost_per_eval_us": 67.248,
+              "sample_execution_times_ms": [
+                67.2115,
+                66.9317,
+                67.889,
+                66.227,
+                67.794
+              ]
+            },
+            "Canonical Condition (Prepared Plan Diagnostic)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0354,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 16.6478,
+              "median_exec_us_per_eval": 16.648,
+              "median_core_exec_us_per_eval": 14.309,
+              "total_amortized_cost_ms": 16.6832,
+              "cost_per_eval_us": 16.683,
+              "sample_execution_times_ms": [
+                16.8558,
+                18.1394,
+                16.6403,
+                16.6478,
+                16.6247
+              ]
+            }
+          }
+        }
+      },
+      {
+        "fixture_id": "canonical_tier4_deep_nested_complex",
+        "tier": "Canonical Tier 4 \u2014 Deep Nested Complex",
+        "correctness_gate_passed": true,
+        "correctness_failures": [],
+        "candidate_order": "rotated between repeated samples",
+        "document_workload": "alternating matching and non-matching documents",
+        "counts": {
+          "1": {
+            "Canonical Condition (evaluate_condition)": {
+              "is_valid": true,
+              "prep_time_ms": 0.059,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 0.1209,
+              "median_exec_us_per_eval": 120.944,
+              "median_core_exec_us_per_eval": 117.104,
+              "total_amortized_cost_ms": 0.18,
+              "cost_per_eval_us": 179.984,
+              "sample_execution_times_ms": [
+                0.1459,
+                0.0986,
+                0.1209,
+                0.1068,
+                0.1734
+              ]
+            },
+            "Canonical Condition (Prepared Plan Diagnostic)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0609,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 0.0386,
+              "median_exec_us_per_eval": 38.604,
+              "median_core_exec_us_per_eval": 34.906,
+              "total_amortized_cost_ms": 0.0995,
+              "cost_per_eval_us": 99.544,
+              "sample_execution_times_ms": [
+                0.0397,
+                0.0239,
+                0.0386,
+                0.0235,
+                0.0452
+              ]
+            }
+          },
+          "10": {
+            "Canonical Condition (evaluate_condition)": {
+              "is_valid": true,
+              "prep_time_ms": 0.059,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 1.104,
+              "median_exec_us_per_eval": 110.396,
+              "median_core_exec_us_per_eval": 106.745,
+              "total_amortized_cost_ms": 1.163,
+              "cost_per_eval_us": 116.3,
+              "sample_execution_times_ms": [
+                1.1757,
+                1.082,
+                1.104,
+                1.1718,
+                1.0825
+              ]
+            },
+            "Canonical Condition (Prepared Plan Diagnostic)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0609,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 0.3108,
+              "median_exec_us_per_eval": 31.078,
+              "median_core_exec_us_per_eval": 28.207,
+              "total_amortized_cost_ms": 0.3717,
+              "cost_per_eval_us": 37.172,
+              "sample_execution_times_ms": [
+                0.3033,
+                0.3632,
+                0.3108,
+                0.3613,
+                0.3033
+              ]
+            }
+          },
+          "100": {
+            "Canonical Condition (evaluate_condition)": {
+              "is_valid": true,
+              "prep_time_ms": 0.059,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 11.5366,
+              "median_exec_us_per_eval": 115.366,
+              "median_core_exec_us_per_eval": 111.312,
+              "total_amortized_cost_ms": 11.5957,
+              "cost_per_eval_us": 115.957,
+              "sample_execution_times_ms": [
+                11.0793,
+                11.5366,
+                11.4763,
+                12.4743,
+                11.6676
+              ]
+            },
+            "Canonical Condition (Prepared Plan Diagnostic)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0609,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 3.247,
+              "median_exec_us_per_eval": 32.47,
+              "median_core_exec_us_per_eval": 29.341,
+              "total_amortized_cost_ms": 3.308,
+              "cost_per_eval_us": 33.08,
+              "sample_execution_times_ms": [
+                3.2431,
+                3.5343,
+                3.2367,
+                3.247,
+                3.4482
+              ]
+            }
+          },
+          "1000": {
+            "Canonical Condition (evaluate_condition)": {
+              "is_valid": true,
+              "prep_time_ms": 0.059,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 115.273,
+              "median_exec_us_per_eval": 115.273,
+              "median_core_exec_us_per_eval": 110.67,
+              "total_amortized_cost_ms": 115.3321,
+              "cost_per_eval_us": 115.332,
+              "sample_execution_times_ms": [
+                115.6644,
+                115.273,
+                114.4406,
+                115.8511,
+                114.0236
+              ]
+            },
+            "Canonical Condition (Prepared Plan Diagnostic)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0609,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 32.0321,
+              "median_exec_us_per_eval": 32.032,
+              "median_core_exec_us_per_eval": 29.013,
+              "total_amortized_cost_ms": 32.093,
+              "cost_per_eval_us": 32.093,
+              "sample_execution_times_ms": [
+                34.9505,
+                32.0321,
+                31.6649,
+                32.0425,
+                31.9157
+              ]
+            }
+          }
+        }
+      },
+      {
+        "fixture_id": "canonical_tier5_collection_predicate",
+        "tier": "Canonical Tier 5 \u2014 Collection Predicate",
+        "correctness_gate_passed": true,
+        "correctness_failures": [],
+        "candidate_order": "rotated between repeated samples",
+        "document_workload": "alternating matching and non-matching documents",
+        "counts": {
+          "1": {
+            "Canonical Condition (evaluate_condition)": {
+              "is_valid": true,
+              "prep_time_ms": 0.032,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 0.0763,
+              "median_exec_us_per_eval": 76.262,
+              "median_core_exec_us_per_eval": 72.891,
+              "total_amortized_cost_ms": 0.1083,
+              "cost_per_eval_us": 108.273,
+              "sample_execution_times_ms": [
+                0.0962,
+                0.079,
+                0.0763,
+                0.0746,
+                0.0757
+              ]
+            },
+            "Canonical Condition (Prepared Plan Diagnostic)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0321,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 0.0333,
+              "median_exec_us_per_eval": 33.325,
+              "median_core_exec_us_per_eval": 30.056,
+              "total_amortized_cost_ms": 0.0655,
+              "cost_per_eval_us": 65.463,
+              "sample_execution_times_ms": [
+                0.0764,
+                0.0311,
+                0.0334,
+                0.027,
+                0.0333
+              ]
+            }
+          },
+          "10": {
+            "Canonical Condition (evaluate_condition)": {
+              "is_valid": true,
+              "prep_time_ms": 0.032,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 0.786,
+              "median_exec_us_per_eval": 78.596,
+              "median_core_exec_us_per_eval": 75.215,
+              "total_amortized_cost_ms": 0.818,
+              "cost_per_eval_us": 81.797,
+              "sample_execution_times_ms": [
+                0.7686,
+                0.8246,
+                0.7417,
+                0.786,
+                0.9379
+              ]
+            },
+            "Canonical Condition (Prepared Plan Diagnostic)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0321,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 0.2913,
+              "median_exec_us_per_eval": 29.131,
+              "median_core_exec_us_per_eval": 26.499,
+              "total_amortized_cost_ms": 0.3234,
+              "cost_per_eval_us": 32.345,
+              "sample_execution_times_ms": [
+                0.2833,
+                0.2913,
+                0.3278,
+                0.2859,
+                0.3775
+              ]
+            }
+          },
+          "100": {
+            "Canonical Condition (evaluate_condition)": {
+              "is_valid": true,
+              "prep_time_ms": 0.032,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 7.7606,
+              "median_exec_us_per_eval": 77.606,
+              "median_core_exec_us_per_eval": 73.732,
+              "total_amortized_cost_ms": 7.7926,
+              "cost_per_eval_us": 77.926,
+              "sample_execution_times_ms": [
+                7.6261,
+                7.6932,
+                8.2036,
+                7.7606,
+                7.7965
+              ]
+            },
+            "Canonical Condition (Prepared Plan Diagnostic)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0321,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 3.0213,
+              "median_exec_us_per_eval": 30.213,
+              "median_core_exec_us_per_eval": 27.713,
+              "total_amortized_cost_ms": 3.0534,
+              "cost_per_eval_us": 30.534,
+              "sample_execution_times_ms": [
+                2.9371,
+                3.0213,
+                3.0826,
+                2.9882,
+                3.0403
+              ]
+            }
+          },
+          "1000": {
+            "Canonical Condition (evaluate_condition)": {
+              "is_valid": true,
+              "prep_time_ms": 0.032,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 78.0079,
+              "median_exec_us_per_eval": 78.008,
+              "median_core_exec_us_per_eval": 74.328,
+              "total_amortized_cost_ms": 78.0399,
+              "cost_per_eval_us": 78.04,
+              "sample_execution_times_ms": [
+                79.1023,
+                78.0079,
+                76.0958,
+                77.6901,
+                80.7769
+              ]
+            },
+            "Canonical Condition (Prepared Plan Diagnostic)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0321,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 31.1656,
+              "median_exec_us_per_eval": 31.166,
+              "median_core_exec_us_per_eval": 28.224,
+              "total_amortized_cost_ms": 31.1978,
+              "cost_per_eval_us": 31.198,
+              "sample_execution_times_ms": [
+                31.1656,
+                30.2777,
+                30.3865,
+                33.3629,
+                32.9979
+              ]
+            }
+          }
+        }
+      },
+      {
+        "fixture_id": "canonical_edge_membership",
+        "tier": "Canonical Edge Case \u2014 Membership",
+        "correctness_gate_passed": true,
+        "correctness_failures": [],
+        "candidate_order": "rotated between repeated samples",
+        "document_workload": "alternating matching and non-matching documents",
+        "counts": {
+          "1": {
+            "Canonical Condition (evaluate_condition)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0238,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 0.0499,
+              "median_exec_us_per_eval": 49.924,
+              "median_core_exec_us_per_eval": 46.564,
+              "total_amortized_cost_ms": 0.0737,
+              "cost_per_eval_us": 73.709,
+              "sample_execution_times_ms": [
+                0.0694,
+                0.0461,
+                0.0523,
+                0.0423,
+                0.0499
+              ]
+            },
+            "Canonical Condition (Prepared Plan Diagnostic)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0225,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 0.0194,
+              "median_exec_us_per_eval": 19.378,
+              "median_core_exec_us_per_eval": 16.326,
+              "total_amortized_cost_ms": 0.0419,
+              "cost_per_eval_us": 41.853,
+              "sample_execution_times_ms": [
+                0.0199,
+                0.0121,
+                0.0201,
+                0.012,
+                0.0194
+              ]
+            }
+          },
+          "10": {
+            "Canonical Condition (evaluate_condition)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0238,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 0.4991,
+              "median_exec_us_per_eval": 49.912,
+              "median_core_exec_us_per_eval": 46.664,
+              "total_amortized_cost_ms": 0.5229,
+              "cost_per_eval_us": 52.29,
+              "sample_execution_times_ms": [
+                0.4721,
+                0.4991,
+                0.456,
+                0.5573,
+                0.5466
+              ]
+            },
+            "Canonical Condition (Prepared Plan Diagnostic)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0225,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 0.1526,
+              "median_exec_us_per_eval": 15.256,
+              "median_core_exec_us_per_eval": 12.838,
+              "total_amortized_cost_ms": 0.175,
+              "cost_per_eval_us": 17.503,
+              "sample_execution_times_ms": [
+                0.2041,
+                0.1461,
+                0.1403,
+                0.1526,
+                0.222
+              ]
+            }
+          },
+          "100": {
+            "Canonical Condition (evaluate_condition)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0238,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 4.7991,
+              "median_exec_us_per_eval": 47.991,
+              "median_core_exec_us_per_eval": 44.77,
+              "total_amortized_cost_ms": 4.8229,
+              "cost_per_eval_us": 48.229,
+              "sample_execution_times_ms": [
+                4.9144,
+                4.7991,
+                4.7219,
+                4.7192,
+                4.907
+              ]
+            },
+            "Canonical Condition (Prepared Plan Diagnostic)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0225,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 1.5659,
+              "median_exec_us_per_eval": 15.659,
+              "median_core_exec_us_per_eval": 13.204,
+              "total_amortized_cost_ms": 1.5883,
+              "cost_per_eval_us": 15.883,
+              "sample_execution_times_ms": [
+                1.4859,
+                1.6122,
+                1.5153,
+                1.5659,
+                1.68
+              ]
+            }
+          },
+          "1000": {
+            "Canonical Condition (evaluate_condition)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0238,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 49.6367,
+              "median_exec_us_per_eval": 49.637,
+              "median_core_exec_us_per_eval": 46.02,
+              "total_amortized_cost_ms": 49.6605,
+              "cost_per_eval_us": 49.661,
+              "sample_execution_times_ms": [
+                49.6367,
+                50.2963,
+                49.3244,
+                49.3064,
+                49.9081
+              ]
+            },
+            "Canonical Condition (Prepared Plan Diagnostic)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0225,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 15.8951,
+              "median_exec_us_per_eval": 15.895,
+              "median_core_exec_us_per_eval": 13.354,
+              "total_amortized_cost_ms": 15.9175,
+              "cost_per_eval_us": 15.918,
+              "sample_execution_times_ms": [
+                15.2127,
+                16.6558,
+                16.1418,
+                15.3709,
+                15.8951
+              ]
+            }
+          }
+        }
+      },
+      {
+        "fixture_id": "canonical_edge_text_length",
+        "tier": "Canonical Edge Case \u2014 Text & Length",
+        "correctness_gate_passed": true,
+        "correctness_failures": [],
+        "candidate_order": "rotated between repeated samples",
+        "document_workload": "alternating matching and non-matching documents",
+        "counts": {
+          "1": {
+            "Canonical Condition (evaluate_condition)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0224,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 0.0388,
+              "median_exec_us_per_eval": 38.828,
+              "median_core_exec_us_per_eval": 35.7,
+              "total_amortized_cost_ms": 0.0612,
+              "cost_per_eval_us": 61.226,
+              "sample_execution_times_ms": [
+                0.0506,
+                0.0375,
+                0.0403,
+                0.0356,
+                0.0388
+              ]
+            },
+            "Canonical Condition (Prepared Plan Diagnostic)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0212,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 0.0112,
+              "median_exec_us_per_eval": 11.194,
+              "median_core_exec_us_per_eval": 8.063,
+              "total_amortized_cost_ms": 0.0324,
+              "cost_per_eval_us": 32.363,
+              "sample_execution_times_ms": [
+                0.0116,
+                0.0065,
+                0.0112,
+                0.0121,
+                0.0111
+              ]
+            }
+          },
+          "10": {
+            "Canonical Condition (evaluate_condition)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0224,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 0.3615,
+              "median_exec_us_per_eval": 36.148,
+              "median_core_exec_us_per_eval": 33.204,
+              "total_amortized_cost_ms": 0.3839,
+              "cost_per_eval_us": 38.388,
+              "sample_execution_times_ms": [
+                0.5001,
+                0.3615,
+                0.3563,
+                0.4176,
+                0.3535
+              ]
+            },
+            "Canonical Condition (Prepared Plan Diagnostic)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0212,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 0.0758,
+              "median_exec_us_per_eval": 7.579,
+              "median_core_exec_us_per_eval": 5.448,
+              "total_amortized_cost_ms": 0.097,
+              "cost_per_eval_us": 9.696,
+              "sample_execution_times_ms": [
+                0.0773,
+                0.0758,
+                0.073,
+                0.0782,
+                0.0742
+              ]
+            }
+          },
+          "100": {
+            "Canonical Condition (evaluate_condition)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0224,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 3.7806,
+              "median_exec_us_per_eval": 37.806,
+              "median_core_exec_us_per_eval": 34.691,
+              "total_amortized_cost_ms": 3.803,
+              "cost_per_eval_us": 38.03,
+              "sample_execution_times_ms": [
+                3.7888,
+                3.8645,
+                3.6852,
+                3.7661,
+                3.7806
+              ]
+            },
+            "Canonical Condition (Prepared Plan Diagnostic)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0212,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 0.7716,
+              "median_exec_us_per_eval": 7.716,
+              "median_core_exec_us_per_eval": 5.775,
+              "total_amortized_cost_ms": 0.7928,
+              "cost_per_eval_us": 7.928,
+              "sample_execution_times_ms": [
+                0.7586,
+                0.7422,
+                0.7716,
+                0.8273,
+                0.8107
+              ]
+            }
+          },
+          "1000": {
+            "Canonical Condition (evaluate_condition)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0224,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 38.2101,
+              "median_exec_us_per_eval": 38.21,
+              "median_core_exec_us_per_eval": 34.834,
+              "total_amortized_cost_ms": 38.2325,
+              "cost_per_eval_us": 38.233,
+              "sample_execution_times_ms": [
+                37.9332,
+                38.2101,
+                38.243,
+                37.4888,
+                38.3
+              ]
+            },
+            "Canonical Condition (Prepared Plan Diagnostic)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0212,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 7.6883,
+              "median_exec_us_per_eval": 7.688,
+              "median_core_exec_us_per_eval": 5.668,
+              "total_amortized_cost_ms": 7.7094,
+              "cost_per_eval_us": 7.709,
+              "sample_execution_times_ms": [
+                7.6883,
+                7.7628,
+                8.0536,
+                7.6517,
+                7.6827
+              ]
+            }
+          }
+        }
+      },
+      {
+        "fixture_id": "canonical_edge_missing_vs_set",
+        "tier": "Canonical Edge Case \u2014 Missing Field",
+        "correctness_gate_passed": true,
+        "correctness_failures": [],
+        "candidate_order": "rotated between repeated samples",
+        "document_workload": "alternating matching and non-matching documents",
+        "counts": {
+          "1": {
+            "Canonical Condition (evaluate_condition)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0112,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 0.0233,
+              "median_exec_us_per_eval": 23.325,
+              "median_core_exec_us_per_eval": 20.022,
+              "total_amortized_cost_ms": 0.0345,
+              "cost_per_eval_us": 34.487,
+              "sample_execution_times_ms": [
+                0.0234,
+                0.0227,
+                0.0207,
+                0.0893,
+                0.0233
+              ]
+            },
+            "Canonical Condition (Prepared Plan Diagnostic)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0111,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 0.0053,
+              "median_exec_us_per_eval": 5.288,
+              "median_core_exec_us_per_eval": 1.904,
+              "total_amortized_cost_ms": 0.0164,
+              "cost_per_eval_us": 16.356,
+              "sample_execution_times_ms": [
+                0.0047,
+                0.006,
+                0.0047,
+                0.0057,
+                0.0053
+              ]
+            }
+          },
+          "10": {
+            "Canonical Condition (evaluate_condition)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0112,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 0.1947,
+              "median_exec_us_per_eval": 19.471,
+              "median_core_exec_us_per_eval": 16.835,
+              "total_amortized_cost_ms": 0.2059,
+              "cost_per_eval_us": 20.587,
+              "sample_execution_times_ms": [
+                0.2654,
+                0.1947,
+                0.1927,
+                0.188,
+                0.2608
+              ]
+            },
+            "Canonical Condition (Prepared Plan Diagnostic)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0111,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 0.0426,
+              "median_exec_us_per_eval": 4.265,
+              "median_core_exec_us_per_eval": 2.168,
+              "total_amortized_cost_ms": 0.0537,
+              "cost_per_eval_us": 5.371,
+              "sample_execution_times_ms": [
+                0.0442,
+                0.043,
+                0.04,
+                0.0426,
+                0.0409
+              ]
+            }
+          },
+          "100": {
+            "Canonical Condition (evaluate_condition)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0112,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 2.2607,
+              "median_exec_us_per_eval": 22.607,
+              "median_core_exec_us_per_eval": 19.679,
+              "total_amortized_cost_ms": 2.2718,
+              "cost_per_eval_us": 22.718,
+              "sample_execution_times_ms": [
+                2.0661,
+                2.6198,
+                2.638,
+                2.2607,
+                2.0909
+              ]
+            },
+            "Canonical Condition (Prepared Plan Diagnostic)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0111,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 0.457,
+              "median_exec_us_per_eval": 4.57,
+              "median_core_exec_us_per_eval": 2.295,
+              "total_amortized_cost_ms": 0.468,
+              "cost_per_eval_us": 4.68,
+              "sample_execution_times_ms": [
+                0.457,
+                0.4492,
+                0.4131,
+                0.4706,
+                0.4842
+              ]
+            }
+          },
+          "1000": {
+            "Canonical Condition (evaluate_condition)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0112,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 20.7763,
+              "median_exec_us_per_eval": 20.776,
+              "median_core_exec_us_per_eval": 17.98,
+              "total_amortized_cost_ms": 20.7875,
+              "cost_per_eval_us": 20.787,
+              "sample_execution_times_ms": [
+                21.1357,
+                20.9491,
+                20.7258,
+                20.7763,
+                20.5745
+              ]
+            },
+            "Canonical Condition (Prepared Plan Diagnostic)": {
+              "is_valid": true,
+              "prep_time_ms": 0.0111,
+              "valid_batches": 5,
+              "total_batches_attempted": 5,
+              "n_exec_time_ms": 4.2586,
+              "median_exec_us_per_eval": 4.259,
+              "median_core_exec_us_per_eval": 2.111,
+              "total_amortized_cost_ms": 4.2696,
+              "cost_per_eval_us": 4.27,
+              "sample_execution_times_ms": [
+                4.3778,
+                4.2586,
+                4.2002,
+                4.2611,
+                4.1308
+              ]
+            }
+          }
+        }
+      }
+    ]
+  }
+}

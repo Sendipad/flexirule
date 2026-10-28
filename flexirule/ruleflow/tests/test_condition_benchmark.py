@@ -1,11 +1,15 @@
 # Copyright (c) 2026, FlexiRule and contributors
 # For license information, please see license.txt
 
+import json
+import os
+import tempfile
 from typing import Any
 
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
+from flexirule.ruleflow.core.condition_errors import ConditionEvaluationError, ConditionValidationError
 from flexirule.ruleflow.tests.condition_benchmark.benchmark_runner import BenchmarkRunner
 from flexirule.ruleflow.tests.condition_benchmark.candidate_approach_a import (
 	ApproachACandidate,
@@ -16,13 +20,20 @@ from flexirule.ruleflow.tests.condition_benchmark.candidate_approach_b import (
 	ExecutionPlanBuilder,
 )
 from flexirule.ruleflow.tests.condition_benchmark.candidate_approach_c import ApproachCCandidate
+from flexirule.ruleflow.tests.condition_benchmark.candidate_canonical import (
+	CanonicalConditionCandidate,
+	CanonicalPreparedPlanCandidate,
+)
 from flexirule.ruleflow.tests.condition_benchmark.comparison_api import (
 	BaseConditionCandidate,
 	ConditionComparisonHarness,
 	EvaluationResult,
 	PreparedCondition,
 )
-from flexirule.ruleflow.tests.condition_benchmark.fixtures import get_all_fixtures
+from flexirule.ruleflow.tests.condition_benchmark.fixtures import (
+	get_all_fixtures,
+	get_canonical_fixtures,
+)
 
 
 class DummyCandidate(BaseConditionCandidate):
@@ -80,6 +91,12 @@ class TestConditionBenchmark(FrappeTestCase):
 		self.harness = ConditionComparisonHarness(self.candidates)
 		self.builder = ExecutionPlanBuilder()
 
+		self.canonical_candidate = CanonicalConditionCandidate()
+		self.canonical_prepared = CanonicalPreparedPlanCandidate()
+		self.canonical_harness = ConditionComparisonHarness(
+			[self.canonical_candidate, self.canonical_prepared]
+		)
+
 	def test_candidates_prepare_and_evaluate_simple_fixture(self):
 		fixtures = get_all_fixtures()
 		simple_fixture = fixtures[0]
@@ -111,6 +128,17 @@ class TestConditionBenchmark(FrappeTestCase):
 		self.assertEqual(
 			failed_ids, ["edge_case_has_changed"], f"Unexpected correctness failures: {failed_ids}"
 		)
+
+	def test_canonical_suite_agrees_on_all_canonical_fixtures(self):
+		runner = BenchmarkRunner(
+			iterations_per_batch=10, num_batches=1, warmup_iterations=1, use_canonical_suite=True
+		)
+		suite_results = runner.run_semantic_correctness_suite()
+
+		failed_fixtures = [r for r in suite_results["results"] if not r["is_correct"]]
+		failed_ids = [f["fixture_id"] for f in failed_fixtures]
+		self.assertEqual(failed_ids, [], f"Canonical correctness failures: {failed_ids}")
+		self.assertTrue(suite_results["all_correct"])
 
 	def test_correctness_gate_normal_success(self):
 		c1 = DummyCandidate("C1", result=True)
@@ -311,9 +339,6 @@ class TestConditionBenchmark(FrappeTestCase):
 					runner.run_amortized_benchmarks(execution_counts=counts)
 
 	def test_benchmark_runner_full_suite_export(self):
-		import os
-		import tempfile
-
 		with tempfile.TemporaryDirectory() as tmp_dir:
 			json_path = os.path.join(tmp_dir, "benchmark_results.json")
 			md_path = os.path.join(tmp_dir, "condition-backend-comparison-benchmark.md")
@@ -346,10 +371,6 @@ class TestConditionBenchmark(FrappeTestCase):
 			self.assertIn("Tier 1 — Simple", md_content)
 
 	def test_report_evaluations_count_and_has_changed_contract(self):
-		import json
-		import os
-		import tempfile
-
 		with tempfile.TemporaryDirectory() as tmp_dir:
 			json_path = os.path.join(tmp_dir, "benchmark_results.json")
 			md_path = os.path.join(tmp_dir, "condition-backend-comparison-benchmark.md")
@@ -370,6 +391,28 @@ class TestConditionBenchmark(FrappeTestCase):
 			self.assertIn(formatted_count_str, md_content)
 			self.assertIn("has_changed", md_content)
 			self.assertIn("ConditionCompiler", md_content)
+
+	def test_canonical_runner_export_produces_dedicated_json_and_markdown(self):
+		with tempfile.TemporaryDirectory() as tmp_dir:
+			json_path = os.path.join(tmp_dir, "canonical_condition_benchmark_results.json")
+			md_path = os.path.join(tmp_dir, "condition-backend-comparison-benchmark.md")
+
+			runner = BenchmarkRunner(
+				iterations_per_batch=50, num_batches=2, warmup_iterations=1, use_canonical_suite=True
+			)
+			payload = runner.run_full_suite_and_export(json_path, md_path)
+
+			self.assertTrue(os.path.exists(json_path))
+			self.assertTrue(os.path.exists(md_path))
+
+			self.assertEqual(payload["benchmark_target"], "PR #469 Canonical Condition Backend")
+			self.assertTrue(payload["correctness_suite"]["all_correct"])
+
+			with open(md_path, encoding="utf-8") as f:
+				md_content = f.read()
+
+			self.assertIn("## Canonical Condition Backend — PR #469 Production Evaluation", md_content)
+			self.assertIn("Selected production option", md_content)
 
 	# --- Explicit Short-Circuit Behavior Tests for All Benchmark Approaches ---
 
@@ -568,7 +611,7 @@ class TestConditionBenchmark(FrappeTestCase):
 		for cand in self.candidates:
 			with self.subTest(candidate=cand.candidate_name):
 				r1 = TrackingDoc({"item_code": "I1", "qty": 5})
-				r2 = TrackingDoc({"item_code": "I2", "qty": 15})  # Decisive matching row
+				r2 = TrackingDoc({"item_code": "I2", "qty": 15})  # Decisive matching row; none should return False
 				r3 = TrackingDoc({"item_code": "I3", "qty": 20})  # Should be skipped
 
 				doc = frappe._dict({"items": [r1, r2, r3]})
@@ -584,6 +627,32 @@ class TestConditionBenchmark(FrappeTestCase):
 					0,
 					f"Candidate '{cand.candidate_name}' evaluated row 3 in collection 'none'",
 				)
+
+	def test_canonical_candidate_typed_validation_error_handling(self):
+		invalid_payload = {
+			"type": "comparison",
+			"operator": "invalid_op",
+			"left": {"mode": "static", "value_type": "string", "value": "x"},
+			"right": {"mode": "static", "value_type": "string", "value": "x"},
+		}
+		prep = self.canonical_candidate.prepare(invalid_payload)
+		res = self.canonical_candidate.evaluate(prep, {})
+		self.assertIsNotNone(res.error)
+		self.assertIn("unknown_operator", res.error)
+
+	def test_canonical_candidate_typed_evaluation_error_handling(self):
+		payload = {
+			"type": "comparison",
+			"operator": "gt",
+			"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["amount"]}},
+			"right": {"mode": "static", "value_type": "decimal", "value": "100"},
+		}
+		# Document with incompatible type causing evaluation error
+		doc = {"amount": "not_a_number"}
+		prep = self.canonical_candidate.prepare(payload)
+		res = self.canonical_candidate.evaluate(prep, doc)
+		self.assertIsNotNone(res.error)
+		self.assertIn("operand_type_mismatch", res.error)
 
 
 class TrackingDoc(frappe._dict):
