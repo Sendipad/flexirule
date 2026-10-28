@@ -146,7 +146,10 @@ class TestConditionBenchmark(FrappeTestCase):
 		self.assertTrue(check["is_deprecated_case"])
 		# Canonical candidates should report UNSUPPORTED reason, not fail
 		self.assertIn("UNSUPPORTED", check["candidate_statuses"]["Canonical Condition (evaluate_condition)"])
-		self.assertIn("UNSUPPORTED", check["candidate_statuses"]["Canonical Condition (Prepared Plan Diagnostic)"])
+		self.assertIn(
+			"UNSUPPORTED",
+			check["candidate_statuses"]["Canonical Condition (Prepared Plan Diagnostic)"],
+		)
 
 	def test_git_metadata_capture(self):
 		branch, commit = _get_git_metadata()
