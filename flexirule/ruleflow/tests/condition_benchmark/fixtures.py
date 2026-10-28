@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 import frappe
 
@@ -518,5 +518,437 @@ def get_all_fixtures() -> list[BenchmarkFixture]:
 		nesting_depth=1,
 	)
 	fixtures.append(edge8)
+
+	return fixtures
+
+
+def get_canonical_fixtures() -> list[BenchmarkFixture]:
+	"""Return PR #469 direct-node canonical benchmark fixtures using canonical operator IDs and typed FlexValues."""
+	fixtures = []
+
+	# 1. Tier 1: Canonical Simple Equality
+	fixtures.append(
+		BenchmarkFixture(
+			fixture_id="canonical_tier1_simple_equality",
+			tier="Canonical Tier 1 — Simple",
+			description="Canonical direct comparison node for status equality",
+			condition_payload={
+				"type": "comparison",
+				"operator": "eq",
+				"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["status"]}},
+				"right": {"mode": "static", "value_type": "string", "value": "Open"},
+			},
+			matching_doc=frappe._dict({"status": "Open"}),
+			non_matching_doc=frappe._dict({"status": "Closed"}),
+			leaf_count=1,
+			nesting_depth=1,
+		)
+	)
+
+	# 2. Tier 2: Canonical Business Rule
+	fixtures.append(
+		BenchmarkFixture(
+			fixture_id="canonical_tier2_business_rule",
+			tier="Canonical Tier 2 — Business Rule",
+			description="Canonical group node joining three comparison nodes",
+			condition_payload={
+				"type": "group",
+				"operator": "and",
+				"children": [
+					{
+						"type": "comparison",
+						"operator": "eq",
+						"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["status"]}},
+						"right": {"mode": "static", "value_type": "string", "value": "Submitted"},
+					},
+					{
+						"type": "comparison",
+						"operator": "gt",
+						"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["grand_total"]}},
+						"right": {"mode": "static", "value_type": "decimal", "value": "1000"},
+					},
+					{
+						"type": "comparison",
+						"operator": "eq",
+						"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["customer_group"]}},
+						"right": {"mode": "static", "value_type": "string", "value": "Commercial"},
+					},
+				],
+			},
+			matching_doc=frappe._dict(
+				{
+					"status": "Submitted",
+					"grand_total": 1500,
+					"customer_group": "Commercial",
+				}
+			),
+			non_matching_doc=frappe._dict(
+				{
+					"status": "Submitted",
+					"grand_total": 800,
+					"customer_group": "Commercial",
+				}
+			),
+			leaf_count=3,
+			nesting_depth=1,
+		)
+	)
+
+	# 3. Tier 3: Canonical Nested Groups
+	fixtures.append(
+		BenchmarkFixture(
+			fixture_id="canonical_tier3_nested_groups",
+			tier="Canonical Tier 3 — Nested Groups",
+			description="Canonical nested AND/OR groups for status and total/priority",
+			condition_payload={
+				"type": "group",
+				"operator": "and",
+				"children": [
+					{
+						"type": "group",
+						"operator": "or",
+						"children": [
+							{
+								"type": "comparison",
+								"operator": "eq",
+								"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["status"]}},
+								"right": {"mode": "static", "value_type": "string", "value": "Draft"},
+							},
+							{
+								"type": "comparison",
+								"operator": "eq",
+								"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["status"]}},
+								"right": {"mode": "static", "value_type": "string", "value": "Submitted"},
+							},
+						],
+					},
+					{
+						"type": "group",
+						"operator": "or",
+						"children": [
+							{
+								"type": "comparison",
+								"operator": "gte",
+								"left": {
+									"mode": "variable",
+									"path": {"scope": "doc", "segments": ["grand_total"]},
+								},
+								"right": {"mode": "static", "value_type": "decimal", "value": "5000"},
+							},
+							{
+								"type": "comparison",
+								"operator": "eq",
+								"left": {
+									"mode": "variable",
+									"path": {"scope": "doc", "segments": ["priority"]},
+								},
+								"right": {"mode": "static", "value_type": "boolean", "value": True},
+							},
+						],
+					},
+				],
+			},
+			matching_doc=frappe._dict(
+				{
+					"status": "Submitted",
+					"grand_total": 6000,
+					"priority": False,
+				}
+			),
+			non_matching_doc=frappe._dict(
+				{
+					"status": "Cancelled",
+					"grand_total": 6000,
+					"priority": True,
+				}
+			),
+			leaf_count=4,
+			nesting_depth=2,
+		)
+	)
+
+	# 4. Tier 4: Canonical Deep Nested Complex
+	fixtures.append(
+		BenchmarkFixture(
+			fixture_id="canonical_tier4_deep_nested_complex",
+			tier="Canonical Tier 4 — Deep Nested Complex",
+			description="Canonical 8 leaf conditions across 3 nested levels",
+			condition_payload={
+				"type": "group",
+				"operator": "and",
+				"children": [
+					{
+						"type": "comparison",
+						"operator": "eq",
+						"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["docstatus"]}},
+						"right": {"mode": "static", "value_type": "integer", "value": 1},
+					},
+					{
+						"type": "group",
+						"operator": "or",
+						"children": [
+							{
+								"type": "comparison",
+								"operator": "in",
+								"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["territory"]}},
+								"right": {
+									"mode": "static",
+									"value_type": "list",
+									"value": ["North", "East", "West"],
+								},
+							},
+							{
+								"type": "comparison",
+								"operator": "eq",
+								"left": {
+									"mode": "variable",
+									"path": {"scope": "doc", "segments": ["is_prime_customer"]},
+								},
+								"right": {"mode": "static", "value_type": "boolean", "value": True},
+							},
+						],
+					},
+					{
+						"type": "group",
+						"operator": "and",
+						"children": [
+							{
+								"type": "comparison",
+								"operator": "gt",
+								"left": {
+									"mode": "variable",
+									"path": {"scope": "doc", "segments": ["net_amount"]},
+								},
+								"right": {"mode": "static", "value_type": "decimal", "value": "500"},
+							},
+							{
+								"type": "comparison",
+								"operator": "lte",
+								"left": {
+									"mode": "variable",
+									"path": {"scope": "doc", "segments": ["discount_percentage"]},
+								},
+								"right": {"mode": "static", "value_type": "decimal", "value": "15"},
+							},
+							{
+								"type": "group",
+								"operator": "or",
+								"children": [
+									{
+										"type": "comparison",
+										"operator": "eq",
+										"left": {
+											"mode": "variable",
+											"path": {"scope": "doc", "segments": ["workflow_state"]},
+										},
+										"right": {"mode": "static", "value_type": "string", "value": "Approved"},
+									},
+									{
+										"type": "comparison",
+										"operator": "eq",
+										"left": {
+											"mode": "variable",
+											"path": {"scope": "doc", "segments": ["auto_approved"]},
+										},
+										"right": {"mode": "static", "value_type": "boolean", "value": True},
+									},
+								],
+							},
+						],
+					},
+					{
+						"type": "comparison",
+						"operator": "is_set",
+						"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["notes"]}},
+					},
+				],
+			},
+			matching_doc=frappe._dict(
+				{
+					"docstatus": 1,
+					"territory": "North",
+					"is_prime_customer": False,
+					"net_amount": 750,
+					"discount_percentage": 10,
+					"workflow_state": "Approved",
+					"auto_approved": False,
+					"notes": "Verified rule context",
+				}
+			),
+			non_matching_doc=frappe._dict(
+				{
+					"docstatus": 1,
+					"territory": "South",
+					"is_prime_customer": False,
+					"net_amount": 750,
+					"discount_percentage": 10,
+					"workflow_state": "Approved",
+					"auto_approved": False,
+					"notes": "Verified rule context",
+				}
+			),
+			leaf_count=8,
+			nesting_depth=3,
+		)
+	)
+
+	# 5. Tier 5: Canonical Collection Predicate
+	fixtures.append(
+		BenchmarkFixture(
+			fixture_id="canonical_tier5_collection_predicate",
+			tier="Canonical Tier 5 — Collection Predicate",
+			description="Canonical collection_predicate with 'any' quantifier",
+			condition_payload={
+				"type": "group",
+				"operator": "and",
+				"children": [
+					{
+						"type": "comparison",
+						"operator": "eq",
+						"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["status"]}},
+						"right": {"mode": "static", "value_type": "string", "value": "Submitted"},
+					},
+					{
+						"type": "collection_predicate",
+						"quantifier": "any",
+						"source": {"scope": "doc", "segments": ["items"]},
+						"as": "item_row",
+						"where": {
+							"type": "group",
+							"operator": "and",
+							"children": [
+								{
+									"type": "comparison",
+									"operator": "gt",
+									"left": {
+										"mode": "variable",
+										"path": {"scope": "item_row", "segments": ["qty"]},
+									},
+									"right": {"mode": "static", "value_type": "integer", "value": 10},
+								},
+								{
+									"type": "comparison",
+									"operator": "gte",
+									"left": {
+										"mode": "variable",
+										"path": {"scope": "item_row", "segments": ["rate"]},
+									},
+									"right": {"mode": "static", "value_type": "decimal", "value": "100"},
+								},
+							],
+						},
+					},
+				],
+			},
+			matching_doc=frappe._dict(
+				{
+					"status": "Submitted",
+					"items": [
+						frappe._dict({"item_code": "ITEM-1", "qty": 5, "rate": 50}),
+						frappe._dict({"item_code": "ITEM-2", "qty": 15, "rate": 120}),
+					],
+				}
+			),
+			non_matching_doc=frappe._dict(
+				{
+					"status": "Submitted",
+					"items": [
+						frappe._dict({"item_code": "ITEM-1", "qty": 5, "rate": 50}),
+						frappe._dict({"item_code": "ITEM-2", "qty": 8, "rate": 120}),
+					],
+				}
+			),
+			leaf_count=3,
+			nesting_depth=2,
+		)
+	)
+
+	# 6. Canonical Edge Case: Membership (in / not_in)
+	fixtures.append(
+		BenchmarkFixture(
+			fixture_id="canonical_edge_membership",
+			tier="Canonical Edge Case — Membership",
+			description="Canonical in and not_in operators with static list values",
+			condition_payload={
+				"type": "group",
+				"operator": "and",
+				"children": [
+					{
+						"type": "comparison",
+						"operator": "in",
+						"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["status"]}},
+						"right": {
+							"mode": "static",
+							"value_type": "list",
+							"value": ["Open", "Pending", "Draft"],
+						},
+					},
+					{
+						"type": "comparison",
+						"operator": "not_in",
+						"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["priority"]}},
+						"right": {
+							"mode": "static",
+							"value_type": "list",
+							"value": ["Low", "Trivial"],
+						},
+					},
+				],
+			},
+			matching_doc=frappe._dict({"status": "Pending", "priority": "High"}),
+			non_matching_doc=frappe._dict({"status": "Closed", "priority": "High"}),
+			leaf_count=2,
+			nesting_depth=1,
+		)
+	)
+
+	# 7. Canonical Edge Case: Text & Length
+	fixtures.append(
+		BenchmarkFixture(
+			fixture_id="canonical_edge_text_length",
+			tier="Canonical Edge Case — Text & Length",
+			description="Canonical contains and length_gt operators",
+			condition_payload={
+				"type": "group",
+				"operator": "and",
+				"children": [
+					{
+						"type": "comparison",
+						"operator": "contains",
+						"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["subject"]}},
+						"right": {"mode": "static", "value_type": "string", "value": "URGENT"},
+					},
+					{
+						"type": "comparison",
+						"operator": "length_gt",
+						"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["subject"]}},
+						"right": {"mode": "static", "value_type": "integer", "value": 5},
+					},
+				],
+			},
+			matching_doc=frappe._dict({"subject": "URGENT: Server issue"}),
+			non_matching_doc=frappe._dict({"subject": "Normal note"}),
+			leaf_count=2,
+			nesting_depth=1,
+		)
+	)
+
+	# 8. Canonical Edge Case: Missing vs Set
+	fixtures.append(
+		BenchmarkFixture(
+			fixture_id="canonical_edge_missing_vs_set",
+			tier="Canonical Edge Case — Missing Field",
+			description="Canonical is_not_set on missing field versus set field",
+			condition_payload={
+				"type": "comparison",
+				"operator": "is_not_set",
+				"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["missing_field"]}},
+			},
+			matching_doc=frappe._dict({}),
+			non_matching_doc=frappe._dict({"missing_field": "Present"}),
+			leaf_count=1,
+			nesting_depth=1,
+		)
+	)
 
 	return fixtures
