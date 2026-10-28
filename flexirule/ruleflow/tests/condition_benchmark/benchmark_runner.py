@@ -605,9 +605,7 @@ class BenchmarkRunner:
 		md_lines.append(f"**Date:** {env.get('timestamp_utc', 'N/A')}")
 		md_lines.append(f"**Branch:** `{env.get('benchmark_source_branch', 'Unavailable')}`")
 		md_lines.append(f"**Commit:** `{env.get('benchmark_source_commit', 'Unavailable')}`")
-		md_lines.append(
-			f"**Working Tree Dirty:** `{'Yes' if env.get('is_working_tree_dirty') else 'No'}`"
-		)
+		md_lines.append(f"**Working Tree Dirty:** `{'Yes' if env.get('is_working_tree_dirty') else 'No'}`")
 		md_lines.append(f"**Provenance Note:** {env.get('provenance_note', 'N/A')}")
 		md_lines.append(f"**Python:** {env.get('python_version', 'N/A')}")
 		md_lines.append(f"**Frappe Framework:** {env.get('frappe_version', 'N/A')}")
