@@ -181,7 +181,7 @@ def _resolve_field(doctype: str, field_path: str, path: str) -> Any:
 		else:
 			raise ValueError(
 				_("{0}: field {1!r} on DocType {2!r} cannot be traversed to another field.").format(
-					path, fieldname, doctype
+					path, fieldname, getattr(meta, "name", None) or doctype
 				)
 			)
 

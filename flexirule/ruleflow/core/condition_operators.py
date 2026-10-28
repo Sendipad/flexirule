@@ -240,11 +240,15 @@ def compare_values(left: Any, operator_token: str, right: Any = None) -> bool:
 	if token == "contains":
 		if left is None or left == "":
 			return False
-		return right in str(left)
+		if right is None:
+			return False
+		return str(right) in str(left)
 	if token == "not_contains":
 		if left is None or left == "":
 			return True
-		return right not in str(left)
+		if right is None:
+			return True
+		return str(right) not in str(left)
 
 	if token in _LENGTH_COMPARATORS:
 		return bool(_LENGTH_COMPARATORS[token](_condition_length(left), right))

@@ -9,7 +9,7 @@ export const RESULT_SHAPES = Object.freeze({
 export const AGGREGATE_FUNCTIONS = Object.freeze(["count", "sum", "avg", "min", "max"]);
 
 const AGGREGATE_SET = new Set(AGGREGATE_FUNCTIONS);
-const ALIAS_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const ALIAS_PATTERN = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/;
 export function humanizeAlias(value) {
 	return String(value ?? "")
 		.split("_")
@@ -82,7 +82,7 @@ function splitTopLevelExpressions(input) {
 function parseAlias(expression) {
 	const match = String(expression)
 		.trim()
-		.match(/^(.+?)\s+as\s+([A-Za-z_][A-Za-z0-9_]*)$/i);
+		.match(/^(.+?)\s+as\s+(.+)$/i);
 	if (!match) return { expression: String(expression).trim(), alias: "" };
 	return { expression: match[1].trim(), alias: match[2] };
 }
@@ -478,7 +478,7 @@ export function validateOutputFields(rows, shape, groupBy = "") {
 			else if (!ALIAS_PATTERN.test(alias)) {
 				errors.push(
 					prefix +
-						"alias must start with a letter or underscore and contain only letters, numbers, and underscores."
+						"alias must be lowercase snake_case: start with a letter and use lowercase letters, numbers, and single underscores between words."
 				);
 			}
 		} else if (row.kind === "child") {
@@ -543,8 +543,16 @@ export function validateOutputFields(rows, shape, groupBy = "") {
 			}
 		} else if (row.kind === "raw") {
 			const expression = String(row.expression ?? "").trim();
-			const match = expression.match(/^.+?\s+as\s+([A-Za-z_][A-Za-z0-9_]*)$/i);
-			if (match) rowNames.push(match[1]);
+			const match = parseAlias(expression);
+			if (match.alias) {
+				if (!ALIAS_PATTERN.test(match.alias.trim())) {
+					errors.push(
+						prefix +
+							"alias must be lowercase snake_case: start with a letter and use lowercase letters, numbers, and single underscores between words."
+					);
+				}
+				rowNames.push(match.alias.trim());
+			}
 		}
 		for (const outputName of rowNames.filter(Boolean)) {
 			if (outputNames.has(outputName)) {

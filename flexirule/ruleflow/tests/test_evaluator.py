@@ -11,8 +11,7 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from flexirule.ruleflow.core.condition_operators import compare_values
-from flexirule.ruleflow.core.evaluator import ConditionEvaluator
-from flexirule.ruleflow.core.evaluator import check_link_match
+from flexirule.ruleflow.core.evaluator import ConditionEvaluator, check_link_match
 
 
 class TestConditionEvaluator(FrappeTestCase):
@@ -44,7 +43,9 @@ class TestConditionEvaluator(FrappeTestCase):
 	def test_strict_evaluator_validates_fixed_link_target_from_field_metadata(self):
 		from unittest.mock import MagicMock, patch
 
-		condition = [{"left": {"ref": "doc.customer"}, "op": "==", "right": {"value": ["Supplier", "CUST-0001"]}}]
+		condition = [
+			{"left": {"ref": "doc.customer"}, "op": "==", "right": {"value": ["Supplier", "CUST-0001"]}}
+		]
 		self.test_doc.customer = "CUST-0001"
 		source_meta = MagicMock()
 		source_meta.get_field.return_value = frappe._dict({"fieldtype": "Link", "options": "Customer"})
@@ -55,7 +56,9 @@ class TestConditionEvaluator(FrappeTestCase):
 	def test_strict_evaluator_allows_matching_fixed_link_target_from_field_metadata(self):
 		from unittest.mock import MagicMock, patch
 
-		condition = [{"left": {"ref": "doc.customer"}, "op": "==", "right": {"value": ["Customer", "CUST-0001"]}}]
+		condition = [
+			{"left": {"ref": "doc.customer"}, "op": "==", "right": {"value": ["Customer", "CUST-0001"]}}
+		]
 		self.test_doc.customer = "CUST-0001"
 		source_meta = MagicMock()
 		source_meta.get_field.return_value = frappe._dict({"fieldtype": "Link", "options": "Customer"})
@@ -134,6 +137,10 @@ class TestConditionEvaluator(FrappeTestCase):
 		self.assertTrue(compare_values("Open", "not_in", []))
 		self.assertTrue(compare_values(0, "contains", "0"))
 		self.assertTrue(compare_values(None, "not_contains", "x"))
+		self.assertTrue(compare_values("Item 123", "contains", 123))
+		self.assertFalse(compare_values("Item 123", "contains", None))
+		self.assertFalse(compare_values("Item 123", "not_contains", 123))
+		self.assertTrue(compare_values("Item 123", "not_contains", None))
 		with self.assertRaises(TypeError):
 			compare_values("Open", "in", None)
 
@@ -248,10 +255,8 @@ class TestConditionEvaluator(FrappeTestCase):
 		source_meta = MagicMock()
 		source_meta.name = "ToDo"
 		source_meta.istable = False
-		source_meta.get_field.side_effect = (
-			lambda fieldname: frappe._dict({"fieldtype": "Table", "options": "ToDo Item"})
-			if fieldname == "items"
-			else None
+		source_meta.get_field.side_effect = lambda fieldname: (
+			frappe._dict({"fieldtype": "Table", "options": "ToDo Item"}) if fieldname == "items" else None
 		)
 		row_meta = MagicMock()
 		row_meta.name = "ToDo Item"
