@@ -1,6 +1,9 @@
 name: Start Jules Task
 
 on:
+  # Daily scheduled audit on develop branch
+  schedule:
+    - cron: '0 2 * * *'
   # The GitHub connector can hand off a task through an authorized /jules comment.
   issue_comment:
     types: [created]
@@ -36,6 +39,7 @@ jobs:
   start-jules:
     name: Create Jules session
     if: >-
+      github.event_name == 'schedule' ||
       github.event_name == 'workflow_dispatch' ||
       (
         github.event_name == 'issue_comment' &&
@@ -79,6 +83,18 @@ jobs:
               branch = match.group(1) or "develop"
               prompt = "\n".join(lines[1:]).strip()
               title = (os.environ.get("ISSUE_TITLE") or "FlexiRule task").strip()
+          elif event_name == "schedule":
+              branch = "develop"
+              title = "Daily FlexiRule Architecture & Code Audit"
+              prompt = (
+                  "Daily FlexiRule Deep Architecture, Code Quality & Frappe Compatibility Audit\n\n"
+                  "Perform the scheduled daily audit of the repository on the develop branch.\n"
+                  "1. Inspect Python backend, Vue/JS frontend, RuleFlow core, Doctypes, hooks, and tests.\n"
+                  "2. Compare implementations against native Frappe Framework APIs (v14/v15).\n"
+                  "3. Identify bugs, security vulnerabilities, code smells, duplication, and performance risks.\n"
+                  "4. Produce an updated audit report in reports/ with findings, evidence, and recommendations.\n"
+                  "5. Run test verification and static checks before submitting."
+              )
           else:
               prompt = os.environ.get("INPUT_PROMPT", "").strip()
               title = (os.environ.get("INPUT_TITLE") or "FlexiRule task").strip()
