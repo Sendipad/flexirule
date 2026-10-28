@@ -152,7 +152,8 @@ class TestConditionBenchmark(FrappeTestCase):
 		)
 
 	def test_git_metadata_capture(self):
-		branch, commit = _get_git_metadata()
+		git_meta = _get_git_metadata()
+		branch, commit = git_meta["branch"], git_meta["commit"]
 		self.assertIsInstance(branch, str)
 		self.assertIsInstance(commit, str)
 		self.assertNotEqual(branch, "")
