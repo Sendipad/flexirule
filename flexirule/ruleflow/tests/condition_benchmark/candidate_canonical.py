@@ -85,7 +85,7 @@ class CanonicalConditionCandidate(BaseConditionCandidate):
 
 		start_time = time.perf_counter()
 		try:
-			res = evaluate_condition(payload, context)
+			res = evaluate_condition(payload, context, doctype=None)
 			exec_time = time.perf_counter() - start_time
 			return EvaluationResult(
 				candidate_name=self.candidate_name,
