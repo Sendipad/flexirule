@@ -91,8 +91,8 @@
 										getWhenConditionStatus(assignment).isInvalid
 											? 'fa fa-exclamation-triangle'
 											: hasWhenCondition(assignment)
-											? 'fa fa-filter'
-											: 'fa fa-play-circle-o'
+												? 'fa fa-filter'
+												: 'fa fa-play-circle-o'
 									"
 									class="me-2"
 								></i>
@@ -101,8 +101,8 @@
 										getWhenConditionStatus(assignment).isInvalid
 											? __("Invalid Condition")
 											: hasWhenCondition(assignment)
-											? __("Condition Set")
-											: __("Always Run")
+												? __("Condition Set")
+												: __("Always Run")
 									}}
 								</span>
 							</button>
@@ -232,13 +232,13 @@
 
 <script setup>
 import { computed, ref, watch, onMounted, onBeforeUnmount, nextTick } from "vue";
-import GenericGrid from "../../../../controls/GenericGrid.vue";
-import ComboBoxControl from "../../../../controls/ComboBoxControl.vue";
-import FlexValueControl from "../../../../controls/FlexValueControl.vue";
+import GenericGrid from "../../../controls/GenericGrid.vue";
+import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
+import FlexValueControl from "../../../controls/FlexValueControl.vue";
 import ConditionBuilder from "../../tree_builder/ConditionBuilder.vue";
-import { useRuleStore } from "../../../../stores/useRuleStore";
-import { useMetaStore } from "../../../../stores/useMetaStore";
-import { validateConditions } from "../../../../utils/condition_payload";
+import { useRuleStore } from "../../../stores/useRuleStore";
+import { useMetaStore } from "../../../stores/useMetaStore";
+import { validateConditions } from "../../../utils/condition_payload";
 
 const props = defineProps({
 	modelValue: { type: Object, default: () => ({}) },
@@ -289,7 +289,10 @@ function normalizeValuePayload(raw) {
 function normalizeAssignmentItem(item, index) {
 	const raw = item && typeof item === "object" ? item : {};
 	return {
-		name: raw.name || raw.id || `assign_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 4)}`,
+		name:
+			raw.name ||
+			raw.id ||
+			`assign_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 4)}`,
 		target: raw.target || "",
 		operator: raw.operator || "=",
 		value: normalizeValuePayload(raw.value),
@@ -350,7 +353,11 @@ function syncToNode() {
 			operator: a.operator,
 			value: a.value,
 		};
-		if (a.when_condition && Array.isArray(a.when_condition.conditions) && a.when_condition.conditions.length) {
+		if (
+			a.when_condition &&
+			Array.isArray(a.when_condition.conditions) &&
+			a.when_condition.conditions.length
+		) {
 			payload.when_condition = a.when_condition;
 		}
 		if (a.when_expression) {
@@ -428,7 +435,10 @@ const docFields = computed(() => {
 	if (!primaryDoctype.value) return [];
 	const meta = metaStore.doc_meta[primaryDoctype.value] || [];
 	return meta
-		.filter((f) => f.fieldname && !["Section Break", "Column Break", "Tab Break"].includes(f.fieldtype))
+		.filter(
+			(f) =>
+				f.fieldname && !["Section Break", "Column Break", "Tab Break"].includes(f.fieldtype)
+		)
 		.map((f) => ({
 			label: `${f.label || f.fieldname} (${f.fieldname})`,
 			value: `doc.${f.fieldname}`,
@@ -442,7 +452,7 @@ const docFields = computed(() => {
 const variable_options = computed(() => {
 	const vars = store.rule_doc?.variables || [];
 	return vars.map((v) => ({
-		label: `${v.variable_name} (${v.data_type || 'Data'})`,
+		label: `${v.variable_name} (${v.data_type || "Data"})`,
 		value: `vars.${v.variable_name}`,
 		fieldname: v.variable_name,
 		fieldtype: v.data_type || "Data",
@@ -703,8 +713,10 @@ defineExpose({ validate });
 .assignment-grid-header,
 .assignment-grid-row {
 	display: grid;
-	grid-template-columns:
-		minmax(100px, 0.7fr) minmax(140px, 1.1fr) minmax(100px, 0.7fr) minmax(240px, 2.5fr);
+	grid-template-columns: minmax(100px, 0.7fr) minmax(140px, 1.1fr) minmax(100px, 0.7fr) minmax(
+			240px,
+			2.5fr
+		);
 	gap: var(--spacing-md);
 	align-items: center;
 }
