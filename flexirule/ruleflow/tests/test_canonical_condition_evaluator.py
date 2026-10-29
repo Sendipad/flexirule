@@ -4,6 +4,7 @@
 """Runtime tests for canonical condition semantics and isolation."""
 
 import json
+import pickle
 import unittest
 from dataclasses import replace
 from decimal import Decimal
@@ -281,8 +282,14 @@ class TestCanonicalConditionEvaluator(unittest.TestCase):
 	def test_prepared_artifact_reuses_plan_and_keeps_runtime_context_live(self):
 		node = compare("eq", variable("doc", "value"), static("integer", 5))
 		prepared = prepare_condition(node)
-		self.assertTrue(evaluate_prepared_condition(prepared, {"doc": {"value": 5}}))
-		self.assertFalse(evaluate_prepared_condition(prepared, {"doc": {"value": 4}}))
+		with patch(
+			"flexirule.ruleflow.core.condition_evaluator.compile_condition",
+			side_effect=AssertionError("prepared evaluation must not recompile its source"),
+		):
+			self.assertTrue(evaluate_prepared_condition(prepared, {"doc": {"value": 5}}))
+			self.assertFalse(evaluate_prepared_condition(prepared, {"doc": {"value": 4}}))
+		with self.assertRaises(TypeError):
+			pickle.dumps(prepared)
 
 		# Re-preparation still validates the source, while reusing the immutable plan.
 		hits_before = condition_plan_cache_info().hits
