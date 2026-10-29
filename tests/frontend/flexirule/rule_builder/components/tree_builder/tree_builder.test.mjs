@@ -12,11 +12,12 @@ import {
 	addGroup,
 	addLeaf,
 	moveNode,
+	moveUp,
+	moveDown,
 	removeNode,
 	setOperator,
 } from "../../../../../../flexirule/public/js/flexirule/rule_builder/components/tree_builder/tree_builder_commands.mjs";
 import { validateTree } from "../../../../../../flexirule/public/js/flexirule/rule_builder/components/tree_builder/tree_builder_validation.mjs";
-import { useTreeBuilder } from "../../../../../../flexirule/public/js/flexirule/rule_builder/components/tree_builder/useTreeBuilder.js";
 import {
 	deserializeQueryFilters,
 	serializeQueryFilters,
@@ -107,33 +108,32 @@ assert.deepEqual(serializeQueryFilters(editableFilters), [
 	{ mode: "static", value: "" },
 ]);
 
-// Test useTreeBuilder moveUp and moveDown and boundary rules
+// Test tree builder moveUp and moveDown commands and boundary rules
 const tbRoot = createGroup("and", []);
 const leafA = addLeaf(tbRoot, tbRoot.id, { field: "a" });
 const leafB = addLeaf(tbRoot, tbRoot.id, { field: "b" });
 const leafC = addLeaf(tbRoot, tbRoot.id, { field: "c" });
 
-const tb = useTreeBuilder({ modelValue: tbRoot });
-assert.equal(tb.root.children.length, 3);
-assert.equal(tb.root.children[0].id, leafA.id);
-assert.equal(tb.root.children[1].id, leafB.id);
+assert.equal(tbRoot.children.length, 3);
+assert.equal(tbRoot.children[0].id, leafA.id);
+assert.equal(tbRoot.children[1].id, leafB.id);
 
 // First item cannot move up
-assert.equal(tb.moveUp(leafA.id), false);
+assert.equal(moveUp(tbRoot, leafA.id), false);
 
 // Move middle item (leafB) up
-assert.equal(tb.moveUp(leafB.id), true);
-assert.equal(tb.root.children[0].id, leafB.id);
-assert.equal(tb.root.children[1].id, leafA.id);
+assert.equal(moveUp(tbRoot, leafB.id), true);
+assert.equal(tbRoot.children[0].id, leafB.id);
+assert.equal(tbRoot.children[1].id, leafA.id);
 
 // Move leafB down twice
-assert.equal(tb.moveDown(leafB.id), true);
-assert.equal(tb.root.children[1].id, leafB.id);
-assert.equal(tb.moveDown(leafB.id), true);
-assert.equal(tb.root.children[2].id, leafB.id);
+assert.equal(moveDown(tbRoot, leafB.id), true);
+assert.equal(tbRoot.children[1].id, leafB.id);
+assert.equal(moveDown(tbRoot, leafB.id), true);
+assert.equal(tbRoot.children[2].id, leafB.id);
 
 // Last item cannot move down
-assert.equal(tb.moveDown(leafB.id), false);
+assert.equal(moveDown(tbRoot, leafB.id), false);
 
 // Test canEditRule resolution logic
 function resolveCanEditRule(canEditRuleProp, frappeBoot) {

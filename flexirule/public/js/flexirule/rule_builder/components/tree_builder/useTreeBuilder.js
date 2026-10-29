@@ -162,20 +162,12 @@ export function useTreeBuilder({
 
 	function moveUp(id) {
 		if (readOnly) return false;
-		const parent = findParent(root, id);
-		if (!parent) return false;
-		const index = parent.children.findIndex((child) => child.id === id);
-		if (index <= 0) return false;
-		return moveNode(id, parent.id, index - 1);
+		return mutate((tree) => commands.moveUp(tree, id));
 	}
 
 	function moveDown(id) {
 		if (readOnly) return false;
-		const parent = findParent(root, id);
-		if (!parent) return false;
-		const index = parent.children.findIndex((child) => child.id === id);
-		if (index < 0 || index >= parent.children.length - 1) return false;
-		return moveNode(id, parent.id, index + 2);
+		return mutate((tree) => commands.moveDown(tree, id));
 	}
 
 	function setOperator(id, operator) {
