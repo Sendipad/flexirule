@@ -102,8 +102,8 @@
 										getWhenConditionStatus(assignment).isInvalid
 											? 'fa fa-exclamation-triangle'
 											: hasWhenCondition(assignment)
-											? 'fa fa-filter'
-											: 'fa fa-play-circle-o'
+												? 'fa fa-filter'
+												: 'fa fa-play-circle-o'
 									"
 									class="me-2"
 								></i>
@@ -112,8 +112,8 @@
 										getWhenConditionStatus(assignment).isInvalid
 											? __("Invalid Condition")
 											: hasWhenCondition(assignment)
-											? __("Condition Set")
-											: __("Always Run")
+												? __("Condition Set")
+												: __("Always Run")
 									}}
 								</span>
 							</button>
@@ -799,8 +799,10 @@ defineExpose({ validate });
 .grid-cols-wrap,
 .assignment-grid-row-content {
 	display: grid;
-	grid-template-columns:
-		minmax(100px, 0.7fr) minmax(140px, 1.1fr) minmax(100px, 0.7fr) minmax(240px, 2.5fr);
+	grid-template-columns: minmax(100px, 0.7fr) minmax(140px, 1.1fr) minmax(100px, 0.7fr) minmax(
+			240px,
+			2.5fr
+		);
 	gap: var(--spacing-md);
 	align-items: center;
 	flex: 1 1 auto;
