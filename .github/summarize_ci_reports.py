@@ -168,8 +168,8 @@ def summarize_benchmark(
 		if markdown_report.exists():
 			lines.extend(["", "Full Markdown report, raw JSON, and benchmark log are in the uploaded artifact."])
 	except (json.JSONDecodeError, OSError, TypeError) as exc:
-	lines.append(f"- Could not read benchmark JSON: {exc}")
-	issues.append("The benchmark JSON report is invalid.")
+		lines.append(f"- Could not read benchmark JSON: {exc}")
+		issues.append("The benchmark JSON report is invalid.")
 
 
 def main() -> int:
