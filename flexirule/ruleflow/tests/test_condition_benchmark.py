@@ -148,7 +148,7 @@ class TestConditionBenchmark(FrappeTestCase):
 		self.assertIn("UNSUPPORTED", check["candidate_statuses"]["Canonical Condition (evaluate_condition)"])
 		self.assertIn(
 			"UNSUPPORTED",
-			check["candidate_statuses"]["Canonical Condition (Prepared Plan Diagnostic)"],
+			check["candidate_statuses"]["Canonical Condition (Prepared Artifact Runtime)"],
 		)
 
 	def test_git_metadata_capture(self):
@@ -200,7 +200,7 @@ class TestConditionBenchmark(FrappeTestCase):
 				md_content = f.read()
 
 			self.assertIn(
-				"# FlexiRule — Five-Approach Condition Backend Comparison Benchmark Report", md_content
+				# FlexiRule — Condition Backend Comparison Benchmark Report, md_content
 			)
 			self.assertIn("Not established", md_content)
 
