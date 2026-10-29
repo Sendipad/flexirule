@@ -199,9 +199,7 @@ class TestConditionBenchmark(FrappeTestCase):
 			with open(md_path, encoding="utf-8") as f:
 				md_content = f.read()
 
-			self.assertIn(
-				# FlexiRule — Condition Backend Comparison Benchmark Report, md_content
-			)
+			self.assertIn("FlexiRule — Condition Backend Comparison Benchmark Report", md_content)
 			self.assertIn("Not established", md_content)
 
 	# --- Explicit Short-Circuit Behavior Tests for All Benchmark Approaches ---
