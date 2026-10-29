@@ -105,6 +105,7 @@ assert.deepEqual(serializeQueryFilters(editableFilters), [
 	"=",
 	{ mode: "static", value: "" },
 ]);
+
 editableFilters.children[0].field = "customer_group";
 assert.deepEqual(serializeQueryFilters(editableFilters), [
 	"Customer",
@@ -112,3 +113,10 @@ assert.deepEqual(serializeQueryFilters(editableFilters), [
 	"=",
 	{ mode: "static", value: "" },
 ]);
+
+// TreeBuilder shortcut integration
+import { matchesShortcut } from "../../../../../../flexirule/public/js/flexirule/rule_builder/utils/keyboard_shortcuts.mjs";
+
+const ctrlShiftEEvent = { key: "E", ctrlKey: true, shiftKey: true, altKey: false, metaKey: false };
+assert.equal(matchesShortcut(ctrlShiftEEvent, "Ctrl+Shift+E"), true);
+assert.equal(matchesShortcut(ctrlShiftEEvent, "Shift+Enter"), false);

@@ -6,6 +6,8 @@
 			'is-summary-mode': inlinePresentation.presentation === 'summary',
 			'is-editor-mode': inlinePresentation.presentation === 'editor',
 		}"
+		:data-node-id="node.id"
+		tabindex="0"
 	>
 		<div
 			v-if="inlinePresentation.presentation === 'summary'"
