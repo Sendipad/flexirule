@@ -111,10 +111,24 @@ class AssignmentHandler(ActionHandler):
 
 			# 2.5 Optional row-level execution guard
 			if canonical_guard is not None:
-				from flexirule.ruleflow.core.condition_evaluator import evaluate_condition
+				from flexirule.ruleflow.core.condition_evaluator import (
+					evaluate_condition,
+					evaluate_prepared_condition,
+				)
 
 				doctype = getattr(getattr(engine, "rule", None), "document_type", None)
-				if not evaluate_condition(canonical_guard, context, doctype=doctype):
+				prepare_guard = getattr(engine, "_get_prepared_condition_for_payload", None)
+				if callable(prepare_guard):
+					action_key = str(
+						getattr(action, "name", None) or getattr(action, "action_id", None) or id(action)
+					)
+					prepared_guard = prepare_guard(
+						("assignment_guard", action_key, idx), canonical_guard, doctype
+					)
+					matches = evaluate_prepared_condition(prepared_guard, context, doctype=doctype)
+				else:
+					matches = evaluate_condition(canonical_guard, context, doctype=doctype)
+				if not matches:
 					continue
 			elif when_expression and not engine._evaluate_python_condition(when_expression, context):
 				continue
