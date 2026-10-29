@@ -141,8 +141,7 @@ function handleItemClick(item) {
 	background: var(--fxr-surface, #fff);
 	color: var(--fxr-text-secondary, #4b5563);
 	cursor: pointer;
-	transition:
-		background-color var(--fxr-transition-fast, 120ms ease),
+	transition: background-color var(--fxr-transition-fast, 120ms ease),
 		border-color var(--fxr-transition-fast, 120ms ease),
 		color var(--fxr-transition-fast, 120ms ease);
 }
@@ -198,8 +197,7 @@ function handleItemClick(item) {
 	font-size: var(--fxr-text-xs, 12px);
 	text-align: left;
 	cursor: pointer;
-	transition:
-		background-color var(--fxr-transition-fast, 120ms ease),
+	transition: background-color var(--fxr-transition-fast, 120ms ease),
 		color var(--fxr-transition-fast, 120ms ease);
 }
 
@@ -245,9 +243,7 @@ function handleItemClick(item) {
 
 .fxr-action-menu__transition-enter-active,
 .fxr-action-menu__transition-leave-active {
-	transition:
-		opacity 100ms ease,
-		transform 100ms ease;
+	transition: opacity 100ms ease, transform 100ms ease;
 }
 
 .fxr-action-menu__transition-enter-from,

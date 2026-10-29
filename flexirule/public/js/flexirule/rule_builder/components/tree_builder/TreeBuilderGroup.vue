@@ -185,9 +185,7 @@ const menuItems = computed(() => [
 	font-weight: var(--fxr-weight-bold, 700);
 	color: var(--fxr-text-soft);
 	cursor: pointer;
-	transition:
-		background-color var(--fxr-transition-fast),
-		color var(--fxr-transition-fast);
+	transition: background-color var(--fxr-transition-fast), color var(--fxr-transition-fast);
 }
 
 .logic-btn:hover:not(.active):not(:disabled) {
