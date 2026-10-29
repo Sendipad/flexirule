@@ -261,7 +261,7 @@ class UnifiedScenarioEvaluator:
 
 
 class BenchmarkRunner:
-	"""Full five-approach benchmark runner for condition evaluators.
+	"""Full condition benchmark runner for condition evaluators.
 
 	Measures cold prep, warm prep, steady-state latency, and amortized cost with strict cache isolation.
 	"""
@@ -588,7 +588,7 @@ class BenchmarkRunner:
 		output_filepath: str = "reports/canonical_condition_benchmark_results.json",
 		output_markdown_path: str | None = None,
 	) -> dict:
-		"""Run unified five-approach benchmark and export JSON and Markdown reports."""
+		"""Run unified condition benchmark and export JSON and Markdown reports."""
 		# 1. Correctness Suite
 		correctness_results = []
 		total_supported_correct = 0
@@ -633,7 +633,7 @@ class BenchmarkRunner:
 
 		full_payload = {
 			"benchmark_protocol_version": 3,
-			"benchmark_target": "Five-Approach Condition Backend Comparison Benchmark",
+			"benchmark_target": "Condition Backend Comparison Benchmark",
 			"production_selection_status": "Not established",
 			"production_gate_reason": (
 				"Production selection remains Not established until explicit correctness, "
@@ -671,7 +671,7 @@ class BenchmarkRunner:
 		correctness = payload.get("correctness_suite", {})
 		steady = payload.get("steady_state_benchmark", {})
 
-		md_lines.append("# FlexiRule — Five-Approach Condition Backend Comparison Benchmark Report")
+		md_lines.append("# FlexiRule — Condition Backend Comparison Benchmark Report")
 		md_lines.append("")
 		md_lines.append(f"**Date:** {env.get('timestamp_utc', 'N/A')}")
 		md_lines.append(f"**Branch:** `{env.get('benchmark_source_branch', 'Unavailable')}`")
@@ -727,7 +727,7 @@ class BenchmarkRunner:
 		md_lines.append("## 2. Independent Semantic Correctness & Compatibility Suite")
 		md_lines.append("")
 		md_lines.append(
-			f"All five approaches were evaluated against neutral business scenarios. "
+			f"All candidate evaluators were evaluated against neutral business scenarios. "
 			f"Supported scenarios passed: **{correctness.get('total_supported_correct', 0)} / {correctness.get('total_supported_scenarios', 0)}**."
 		)
 		md_lines.append("")
@@ -861,10 +861,20 @@ def run_main():
 	sites_path = os.path.join(bench_root, "sites") if bench_root else sites_path
 	frappe.init(site=site_name, sites_path=sites_path)
 	runner = BenchmarkRunner(iterations_per_batch=10000, num_batches=5)
-	output_file = os.path.abspath("reports/canonical_condition_benchmark_results.json")
-	md_file = os.path.abspath("reports/condition-backend-comparison-benchmark.md")
+	output_file = os.path.abspath(
+		os.environ.get(
+			"CONDITION_BENCHMARK_JSON_PATH",
+			"reports/canonical_condition_benchmark_results.json",
+		)
+	)
+	md_file = os.path.abspath(
+		os.environ.get(
+			"CONDITION_BENCHMARK_MARKDOWN_PATH",
+			"reports/condition-backend-comparison-benchmark.md",
+		)
+	)
 	runner.run_full_suite_and_export(output_file, md_file)
-	print(f"Five-approach benchmark complete. JSON saved to {output_file}, Markdown saved to {md_file}")
+	print(f"Condition benchmark complete. JSON saved to {output_file}, Markdown saved to {md_file}")
 
 
 if __name__ == "__main__":
