@@ -91,10 +91,10 @@ class ConditionHandler(ActionHandler):
 						"Legacy condition config has no compiled expression; re-save or repair the Rule",
 					)
 				raise ConditionValidationError(
-						"condition_required",
-						"$",
-						"Condition actions require a valid condition before execution",
-					)
+					"condition_required",
+					"$",
+					"Condition actions require a valid condition before execution",
+				)
 			result = engine._evaluate_python_condition(compiled_expression, context)
 
 		next_id = action.next_step_if_true if result else action.next_step_if_false
