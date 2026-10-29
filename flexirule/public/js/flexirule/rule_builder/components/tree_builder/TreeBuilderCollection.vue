@@ -1,8 +1,5 @@
 <template>
-	<div
-		class="tree-collection"
-		:class="{ 'has-contextual-edit': readOnly && canEditRule }"
-	>
+	<div class="tree-collection" :class="{ 'has-contextual-edit': readOnly && canEditRule }">
 		<div class="tree-collection__header">
 			<div class="tree-collection__label">
 				<i class="fa fa-sitemap"></i>
@@ -89,7 +86,12 @@ const emit = defineEmits([
 
 const menuItems = computed(() => [
 	{ id: "edit", label: __("Edit"), icon: "fa fa-pencil", handler: () => emit("edit") },
-	{ id: "select", label: __("Select"), icon: "fa fa-mouse-pointer", handler: () => emit("select") },
+	{
+		id: "select",
+		label: __("Select"),
+		icon: "fa fa-mouse-pointer",
+		handler: () => emit("select"),
+	},
 	{
 		id: "move-up",
 		label: __("Move up"),

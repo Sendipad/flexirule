@@ -1,8 +1,5 @@
 <template>
-	<div
-		class="tree-group"
-		:class="{ 'has-contextual-edit': readOnly && canEditRule }"
-	>
+	<div class="tree-group" :class="{ 'has-contextual-edit': readOnly && canEditRule }">
 		<div class="tree-group__header">
 			<div class="tree-group__logic">
 				<button
@@ -97,7 +94,12 @@ const emit = defineEmits([
 
 const menuItems = computed(() => [
 	{ id: "edit", label: __("Edit"), icon: "fa fa-pencil", handler: () => emit("edit") },
-	{ id: "select", label: __("Select"), icon: "fa fa-mouse-pointer", handler: () => emit("select") },
+	{
+		id: "select",
+		label: __("Select"),
+		icon: "fa fa-mouse-pointer",
+		handler: () => emit("select"),
+	},
 	{
 		id: "move-up",
 		label: __("Move up"),
@@ -183,7 +185,9 @@ const menuItems = computed(() => [
 	font-weight: var(--fxr-weight-bold, 700);
 	color: var(--fxr-text-soft);
 	cursor: pointer;
-	transition: background-color var(--fxr-transition-fast), color var(--fxr-transition-fast);
+	transition:
+		background-color var(--fxr-transition-fast),
+		color var(--fxr-transition-fast);
 }
 
 .logic-btn:hover:not(.active):not(:disabled) {

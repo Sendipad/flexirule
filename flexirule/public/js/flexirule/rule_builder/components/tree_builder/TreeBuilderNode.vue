@@ -122,10 +122,10 @@ function clearDropIndicator() {
 function canAcceptDrop(intent, draggedId) {
 	return Boolean(
 		!props.readOnly &&
-			draggedId &&
-			draggedId !== props.node.id &&
-			intent &&
-			api?.canMove(draggedId, intent.targetId)
+		draggedId &&
+		draggedId !== props.node.id &&
+		intent &&
+		api?.canMove(draggedId, intent.targetId)
 	);
 }
 

@@ -147,10 +147,26 @@ function resolveCanEditRule(canEditRuleProp, frappeBoot) {
 }
 
 assert.equal(resolveCanEditRule(true, null), true, "Explicit canEditRule=true takes precedence");
-assert.equal(resolveCanEditRule(false, { user: "Test", canWrite: true }), false, "Explicit canEditRule=false takes precedence");
-assert.equal(resolveCanEditRule(null, { user: "Test", canWrite: true }), true, "Frappe canWrite resolves to true when omitted");
-assert.equal(resolveCanEditRule(null, { user: "Test", canWrite: false }), false, "Frappe canWrite=false suppresses contextual edit");
-assert.equal(resolveCanEditRule(null, null), false, "When canEditRule is omitted and frappe is absent, defaults to false");
+assert.equal(
+	resolveCanEditRule(false, { user: "Test", canWrite: true }),
+	false,
+	"Explicit canEditRule=false takes precedence"
+);
+assert.equal(
+	resolveCanEditRule(null, { user: "Test", canWrite: true }),
+	true,
+	"Frappe canWrite resolves to true when omitted"
+);
+assert.equal(
+	resolveCanEditRule(null, { user: "Test", canWrite: false }),
+	false,
+	"Frappe canWrite=false suppresses contextual edit"
+);
+assert.equal(
+	resolveCanEditRule(null, null),
+	false,
+	"When canEditRule is omitted and frappe is absent, defaults to false"
+);
 editableFilters.children[0].field = "customer_group";
 assert.deepEqual(serializeQueryFilters(editableFilters), [
 	"Customer",

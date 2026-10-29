@@ -210,7 +210,9 @@ defineExpose({ ...api });
 	font-weight: var(--fxr-weight-bold, 700);
 	color: var(--fxr-text-soft);
 	cursor: pointer;
-	transition: background-color var(--fxr-transition-fast), color var(--fxr-transition-fast);
+	transition:
+		background-color var(--fxr-transition-fast),
+		color var(--fxr-transition-fast);
 }
 .logic-btn:hover:not(.active):not(:disabled) {
 	background: var(--fxr-bg-muted);
@@ -235,7 +237,9 @@ defineExpose({ ...api });
 	padding: 0;
 	border-radius: var(--fxr-radius-md);
 	overflow: visible;
-	transition: background-color var(--fxr-transition-fast), box-shadow var(--fxr-transition-fast);
+	transition:
+		background-color var(--fxr-transition-fast),
+		box-shadow var(--fxr-transition-fast);
 }
 .tree-builder__content--drop-target {
 	background: var(--fxr-node-accent-light, var(--fxr-accent-soft));

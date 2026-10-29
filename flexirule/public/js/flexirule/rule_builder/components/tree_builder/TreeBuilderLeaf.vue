@@ -350,7 +350,8 @@ function onDoubleClickSummary(event) {
 	background: transparent;
 	color: var(--fxr-text-secondary, #4b5563);
 	cursor: pointer;
-	transition: background-color var(--fxr-transition-fast, 120ms ease),
+	transition:
+		background-color var(--fxr-transition-fast, 120ms ease),
 		border-color var(--fxr-transition-fast, 120ms ease),
 		color var(--fxr-transition-fast, 120ms ease);
 }
