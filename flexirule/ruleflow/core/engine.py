@@ -392,6 +392,9 @@ class RuleEngine:
 		Returns:
 		        Execution context with results
 		"""
+		# Each execute call is a new validation lifecycle. Reuse is only within this
+		# invocation so current DocType metadata is revalidated for the next execution.
+		self._prepared_condition_cache.clear()
 		# Tracking vars
 		start_time = time.time()
 		status = "Success"
