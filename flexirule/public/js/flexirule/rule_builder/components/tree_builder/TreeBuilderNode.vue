@@ -325,7 +325,6 @@ function onMoveDown() {
 				:node="node"
 				:label="collectionLabel"
 				:readOnly="readOnly"
-				:canEditRule="resolvedCanEditRule"
 				:allowGroups="allowGroups"
 				:allowCollections="allowCollections"
 				:isFirstSibling="isFirstSibling"
