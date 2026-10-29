@@ -1,4 +1,14 @@
-const MODIFIERS = new Set(["alt", "option", "ctrl", "control", "meta", "cmd", "command", "mod", "shift"]);
+const MODIFIERS = new Set([
+	"alt",
+	"option",
+	"ctrl",
+	"control",
+	"meta",
+	"cmd",
+	"command",
+	"mod",
+	"shift",
+]);
 
 function normalizeKey(value) {
 	const raw = String(value ?? "");
@@ -64,10 +74,7 @@ export function matchesShortcut(event, shortcut) {
 		return false;
 	}
 
-	return (
-		alt === Boolean(parsed.alt) &&
-		shift === Boolean(parsed.shift)
-	);
+	return alt === Boolean(parsed.alt) && shift === Boolean(parsed.shift);
 }
 
 const INPUT_TARGET_SELECTOR =
@@ -91,7 +98,11 @@ export function isInputTarget(target) {
 		if (current.isContentEditable) return true;
 
 		const contentEditable = current.getAttribute?.("contenteditable");
-		if (contentEditable !== null && contentEditable !== undefined && contentEditable !== "false") {
+		if (
+			contentEditable !== null &&
+			contentEditable !== undefined &&
+			contentEditable !== "false"
+		) {
 			return true;
 		}
 

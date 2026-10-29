@@ -65,7 +65,10 @@ test("identifies inputs, contenteditable ancestors, and editor widgets", () => {
 		true
 	);
 	assert.equal(
-		isInputTarget({ tagName: "DIV", getAttribute: (name) => (name === "role" ? "combobox" : null) }),
+		isInputTarget({
+			tagName: "DIV",
+			getAttribute: (name) => (name === "role" ? "combobox" : null),
+		}),
 		true
 	);
 	assert.equal(isInputTarget(null), false);

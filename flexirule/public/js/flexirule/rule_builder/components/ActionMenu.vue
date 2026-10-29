@@ -76,7 +76,11 @@ import { autoUpdate, computePosition, flip, offset, shift, size } from "@floatin
 
 const props = defineProps({
 	items: { type: Array, default: () => [] },
-	align: { type: String, default: "right", validator: (value) => ["left", "right"].includes(value) },
+	align: {
+		type: String,
+		default: "right",
+		validator: (value) => ["left", "right"].includes(value),
+	},
 	disabled: Boolean,
 	buttonClass: { type: String, default: "" },
 	menuClass: { type: String, default: "" },
@@ -116,7 +120,10 @@ async function updateMenuPosition() {
 					padding: 8,
 					apply({ availableWidth, availableHeight, elements }) {
 						elements.floating.style.maxWidth = `${Math.max(0, availableWidth)}px`;
-						elements.floating.style.maxHeight = `${Math.max(0, Math.min(280, availableHeight))}px`;
+						elements.floating.style.maxHeight = `${Math.max(
+							0,
+						Math.min(280, availableHeight)
+						)}px`;
 					},
 				}),
 			],
