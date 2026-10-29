@@ -75,8 +75,40 @@ def get_excluded_doctypes() -> set[str]:
 	return excluded
 
 
+def handle_after_rename_json_sync(doc, *args, **kwargs):
+	"""Update FlexiRule JSON references when a document or DocType is renamed."""
+	old_name = None
+	new_name = None
+
+	if len(args) >= 2:
+		new_name = args[0]
+		old_name = args[1]
+	elif len(args) == 1:
+		new_name = args[0]
+		old_name = kwargs.get("old_name") or kwargs.get("old")
+	else:
+		new_name = kwargs.get("new_name") or kwargs.get("new") or getattr(doc, "name", None)
+		old_name = kwargs.get("old_name") or kwargs.get("old")
+
+	if not old_name:
+		old_name = getattr(doc, "_old_name", None) or getattr(doc, "old_name", None)
+
+	if not new_name:
+		new_name = getattr(doc, "name", None)
+
+	if old_name and new_name and old_name != new_name:
+		renamed_doctype = getattr(doc, "doctype", None)
+		if renamed_doctype:
+			from flexirule.ruleflow.utils.rename_handler import process_rename_references
+
+			process_rename_references(renamed_doctype, old_name, new_name)
+
+
 def execute_rules(doc, method=None, *args, **kwargs):
 	"""Standard Frappe doc_event hook entry point."""
+	if method == "after_rename":
+		handle_after_rename_json_sync(doc, *args, **kwargs)
+
 	trigger_event = EVENT_MAP.get(method)
 	if not trigger_event:
 		return
