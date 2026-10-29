@@ -200,6 +200,9 @@ jobs:
             pyproject.toml
             frappe-src/pyproject.toml
 
+      - name: Test CI report failure diagnostics
+        run: python -B "$GITHUB_WORKSPACE/.github/test_summarize_ci_reports.py"
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
