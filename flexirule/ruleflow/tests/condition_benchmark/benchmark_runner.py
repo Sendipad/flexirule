@@ -85,10 +85,14 @@ def _get_git_metadata() -> dict[str, Any]:
 				"the checkout commit plus working-tree state."
 			)
 		else:
-			provenance_note = "Git commit and clean working tree were verified from the benchmark repository root."
+			provenance_note = (
+				"Git commit and clean working tree were verified from the benchmark repository root."
+			)
 	except (OSError, subprocess.CalledProcessError):
 		is_dirty = True
-		provenance_note = "Working-tree status could not be verified; the benchmark is not clean-provenance eligible."
+		provenance_note = (
+			"Working-tree status could not be verified; the benchmark is not clean-provenance eligible."
+		)
 
 	if commit == "Unavailable":
 		commit = os.environ.get("GITHUB_SHA", "Unavailable")
