@@ -10,9 +10,10 @@ import frappe
 
 from flexirule.ruleflow.core.condition_errors import ConditionError
 from flexirule.ruleflow.core.condition_evaluator import (
-	_evaluate_node,
 	compile_condition,
 	evaluate_condition,
+	evaluate_prepared_condition,
+	prepare_condition,
 )
 from flexirule.ruleflow.tests.condition_benchmark.comparison_api import (
 	BaseConditionCandidate,
@@ -111,25 +112,25 @@ class CanonicalConditionCandidate(BaseConditionCandidate):
 
 
 class CanonicalPreparedPlanCandidate(BaseConditionCandidate):
-	"""Canonical Condition prepared plan execution diagnostic.
+	"""Canonical Condition execution through the trusted prepared-artifact API.
 
-	Measures evaluating a pre-compiled, immutable execution plan directly via `_evaluate_node`,
-	bypassing public API cache lookup and entrypoint checks. Labeled strictly as a diagnostic.
+	Preparation performs authoritative validation once; each timed evaluation then exercises
+	the supported runtime boundary intended for repeated production execution.
 	"""
 
-	candidate_name = "Canonical Condition (Prepared Plan Diagnostic)"
+	candidate_name = "Canonical Condition (Prepared Artifact Runtime)"
 
 	def prepare(self, condition_payload: Any, metadata_context: dict | None = None) -> PreparedCondition:
 		start_time = time.perf_counter()
 		try:
-			plan = compile_condition(condition_payload)
+			prepared = prepare_condition(condition_payload)
 			prep_time = time.perf_counter() - start_time
 
 			return PreparedCondition(
 				candidate_name=self.candidate_name,
-				prepared_object=plan,
+				prepared_object=prepared,
 				preparation_time_seconds=prep_time,
-				metadata={"plan_kind": plan[0] if plan else None},
+				metadata={"prepared_artifact_type": type(prepared).__name__},
 			)
 		except Exception as exc:
 			prep_time = time.perf_counter() - start_time
@@ -154,12 +155,12 @@ class CanonicalPreparedPlanCandidate(BaseConditionCandidate):
 				error=prepared_condition.error,
 			)
 
-		plan = prepared_condition.prepared_object
+		prepared = prepared_condition.prepared_object
 		context = _build_canonical_context(document_context, execution_context)
 
 		start_time = time.perf_counter()
 		try:
-			res = _evaluate_node(plan, context)
+			res = evaluate_prepared_condition(prepared, context)
 			exec_time = time.perf_counter() - start_time
 			return EvaluationResult(
 				candidate_name=self.candidate_name,
