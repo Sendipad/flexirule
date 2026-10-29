@@ -176,6 +176,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Prepare CI diagnostic directories
+        run: |
+          rm -rf /tmp/flexirule-ci-reports
+          mkdir -p /tmp/flexirule-ci-reports/test-results /tmp/flexirule-ci-reports/condition-runtime
+
       - name: Checkout Frappe 15 source
         uses: actions/checkout@v4
         with:
@@ -254,18 +259,27 @@ jobs:
           PY
 
       - name: Migrate test site
+        id: migrate_test_site
         working-directory: /home/runner/frappe-bench
         run: bench --site test_site migrate
         env:
           TYPE: server
 
-      - name: Run tests
+      - name: Run tests (capture JUnit XML and full log)
+        id: run_tests
         working-directory: /home/runner/frappe-bench
         run: |
+          set -euo pipefail
           bench --site test_site set-config allow_tests true
-          # FlexiRule's tests are distributed across feature packages rather
-          # than a single flexirule.tests package; use Frappe's serial app runner.
-          bench --site test_site run-tests --app flexirule
+          # Keep the original test exit code while report generation continues.
+          set +e
+          bench --site test_site run-tests --app flexirule \
+            --junit-xml-output /tmp/flexirule-ci-reports/test-results/server-tests.xml \
+            2>&1 | tee /tmp/flexirule-ci-reports/test-results/server-tests.log
+          test_exit_code=${PIPESTATUS[0]}
+          set -e
+          printf '%s\n' "$test_exit_code" > /tmp/flexirule-ci-reports/test-results/server-tests.exitcode
+          echo "exit_code=$test_exit_code" >> "$GITHUB_OUTPUT"
         env:
           TYPE: server
 
