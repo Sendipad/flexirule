@@ -40,7 +40,13 @@ test("isInputTarget identifies input elements", () => {
 });
 
 test("matchesShortcut matches navigation and selection key strings", () => {
-	const arrowDown = { key: "ArrowDown", ctrlKey: false, shiftKey: false, altKey: false, metaKey: false };
+	const arrowDown = {
+		key: "ArrowDown",
+		ctrlKey: false,
+		shiftKey: false,
+		altKey: false,
+		metaKey: false,
+	};
 	assert.strictEqual(matchesShortcut(arrowDown, "ArrowDown"), true);
 
 	const homeKey = { key: "Home", ctrlKey: false, shiftKey: false, altKey: false, metaKey: false };
