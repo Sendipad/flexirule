@@ -388,7 +388,11 @@ class BenchmarkRunner:
 					if res.error:
 						warmup_error = f"Warmup evaluation error: {res.error}"
 						break
-					if expected is not None and res.result != expected and sc.scenario_id != "edge_case_has_changed":
+					if (
+						expected is not None
+						and res.result != expected
+						and sc.scenario_id != "edge_case_has_changed"
+					):
 						warmup_error = f"Warmup produced incorrect result: {res.result} != {expected}"
 						break
 
@@ -407,13 +411,21 @@ class BenchmarkRunner:
 					start_time = time.perf_counter()
 					for i in range(self.iterations_per_batch):
 						doc = sc.matching_doc if i % 2 == 0 else sc.non_matching_doc
-						expected = sc.expected_matching_result if i % 2 == 0 else sc.expected_non_matching_result
+						expected = (
+							sc.expected_matching_result if i % 2 == 0 else sc.expected_non_matching_result
+						)
 						res = cand.evaluate(prep, doc)
 						if res.error:
 							batch_error = f"Batch evaluation error: {res.error}"
 							break
-						if expected is not None and res.result != expected and sc.scenario_id != "edge_case_has_changed":
-							batch_error = f"Batch evaluation produced incorrect result: {res.result} != {expected}"
+						if (
+							expected is not None
+							and res.result != expected
+							and sc.scenario_id != "edge_case_has_changed"
+						):
+							batch_error = (
+								f"Batch evaluation produced incorrect result: {res.result} != {expected}"
+							)
 							break
 					if batch_error:
 						break
@@ -504,7 +516,9 @@ class BenchmarkRunner:
 						# Clear LRU cache to include genuine cold preparation
 						cache_cleared = _clear_cache_safely()
 						if not cache_cleared:
-							batch_fail_reason = "INVALID: Cache isolation could not be established for amortized run."
+							batch_fail_reason = (
+								"INVALID: Cache isolation could not be established for amortized run."
+							)
 							batch_failed = True
 							break
 
@@ -513,17 +527,23 @@ class BenchmarkRunner:
 
 						for i in range(count):
 							doc = sc.matching_doc if i % 2 == 0 else sc.non_matching_doc
-							expected = sc.expected_matching_result if i % 2 == 0 else sc.expected_non_matching_result
+							expected = (
+								sc.expected_matching_result if i % 2 == 0 else sc.expected_non_matching_result
+							)
 							res = cand.evaluate(prep, doc)
 							if res.error:
 								batch_fail_reason = f"Amortized evaluation error: {res.error}"
 								batch_failed = True
 								break
-							if expected is not None and res.result != expected and sc.scenario_id != "edge_case_has_changed":
+							if (
+								expected is not None
+								and res.result != expected
+								and sc.scenario_id != "edge_case_has_changed"
+							):
 								batch_fail_reason = (
-								"Amortized evaluation produced incorrect result: "
-								f"{res.result} != {expected}"
-							)
+									"Amortized evaluation produced incorrect result: "
+									f"{res.result} != {expected}"
+								)
 								batch_failed = True
 								break
 						if batch_failed:
