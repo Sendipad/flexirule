@@ -343,6 +343,29 @@ class RuleEngine:
 		except (json.JSONDecodeError, TypeError):
 			return {}
 
+	def _get_prepared_condition_for_payload(self, cache_key, canonical_node, doctype=None):
+		"""Reuse an artifact for an immutable canonical node within this rule execution."""
+		from flexirule.ruleflow.core.condition_evaluator import prepare_condition
+		from flexirule.ruleflow.core.flexvalue_contract import resolver_registry_fingerprint
+
+		registry_signature = resolver_registry_fingerprint()
+		cached = self._prepared_condition_cache.get(cache_key)
+		if (
+			cached
+			and cached[0] is canonical_node
+			and cached[1] == doctype
+			and cached[2] == registry_signature
+		):
+			return cached[3]
+		prepared = prepare_condition(canonical_node, doctype=doctype)
+		self._prepared_condition_cache[cache_key] = (
+			canonical_node,
+			doctype,
+			registry_signature,
+			prepared,
+		)
+		return prepared
+
 	def execute(self, doc, event_name=None, **kwargs):
 		"""
 		Execute rule with comprehensive error handling
