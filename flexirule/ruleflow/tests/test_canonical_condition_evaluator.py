@@ -319,6 +319,12 @@ class TestCanonicalConditionEvaluator(unittest.TestCase):
 		with self.assertRaises(ConditionValidationError) as raised:
 			evaluate_prepared_condition(bound, {"doctype": "User"})
 		self.assertEqual(raised.exception.code, "condition_doctype_mismatch")
+		with self.assertRaises(ConditionValidationError) as raised:
+			evaluate_prepared_condition(
+				bound,
+				{"doctype": "ToDo", "doc": {"doctype": "User"}},
+			)
+		self.assertEqual(raised.exception.code, "condition_doctype_mismatch")
 
 	def test_preparation_revalidates_even_when_structural_plan_is_cached(self):
 		node = compare("eq", static("integer", 1), static("integer", 1))
