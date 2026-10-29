@@ -1,5 +1,5 @@
 <template>
-	<div class="tree-builder fxr-accent-scope" role="tree" :aria-label="ariaLabel" tabindex="0" @keydown="handleTreeKeydown">
+	<div class="tree-builder fxr-accent-scope">
 		<div class="tree-builder__header">
 			<div class="tree-builder__logic">
 				<button
@@ -32,7 +32,10 @@
 			</div>
 		</div>
 		<div
-			role="group"
+			role="tree"
+			:aria-label="ariaLabel"
+			tabindex="0"
+			@keydown="handleTreeKeydown"
 			class="tree-builder__content"
 			:class="{ 'tree-builder__content--drop-target': rootDragOver }"
 			@dragover="onRootDragOver"
@@ -73,7 +76,10 @@
 <script setup>
 import { computed, provide, ref, useSlots } from "vue";
 import { findNode } from "./tree_builder_utils.mjs";
-import { getInlinePresentation, resolvePresentationMode } from "../../controls/inline_presentation_policy.mjs";
+import {
+	getInlinePresentation,
+	resolvePresentationMode,
+} from "../../controls/inline_presentation_policy.mjs";
 import { isInputTarget, matchesShortcut } from "../../utils/keyboard_shortcuts.mjs";
 import TreeBuilderNode from "./TreeBuilderNode.vue";
 import { useTreeBuilder } from "./useTreeBuilder.js";
@@ -136,11 +142,23 @@ provide("treeBuilderContext", {
 	canEditRule: resolvedCanEditRule,
 	hasSummarySlot,
 });
-const { root, operators, addLeaf, addCollection, addGroup, removeNode, setOperator, selectedNodeId, focusedNodeId, editingNodeId, setEditing, finishEditing } = api;
+const {
+	root,
+	operators,
+	addLeaf,
+	addCollection,
+	addGroup,
+	removeNode,
+	setOperator,
+	selectedNodeId,
+	focusedNodeId,
+	editingNodeId,
+	setEditing,
+	finishEditing,
+} = api;
 const operatorLabel = (op) => props.operatorLabel(op);
 const visibleNode = (node) => props.visibleNode(node) !== false;
 const rootDragOver = ref(false);
-
 
 function getLeafState(node) {
 	const isNew = api.isTransientNew?.(node.id)
@@ -167,7 +185,8 @@ function handleTreeKeydown(event) {
 
 	if (matchesShortcut(event, props.editShortcut)) {
 		if (props.readOnly && !resolvedCanEditRule.value) return;
-		const activeId = nodeId || editingNodeId.value || focusedNodeId.value || selectedNodeId.value;
+		const activeId =
+			nodeId || editingNodeId.value || focusedNodeId.value || selectedNodeId.value;
 		const node = activeId ? findNode(root, activeId) : null;
 		if (!node || node.type !== "leaf" || !hasSummarySlot.value) return;
 		const mode = resolvePresentationMode(props.presentationMode);
@@ -201,10 +220,15 @@ function handleTreeKeydown(event) {
 	if (!treeItems.length) return;
 	const currentIndex = nodeElement
 		? treeItems.indexOf(nodeElement)
-		: treeItems.findIndex((element) => element.getAttribute("data-node-id") === focusedNodeId.value);
+		: treeItems.findIndex(
+				(element) => element.getAttribute("data-node-id") === focusedNodeId.value
+			);
 	let nextIndex = null;
-	if (event.key === "ArrowDown") nextIndex = currentIndex < 0 ? 0 : Math.min(treeItems.length - 1, currentIndex + 1);
-	else if (event.key === "ArrowUp") nextIndex = currentIndex < 0 ? treeItems.length - 1 : Math.max(0, currentIndex - 1);
+	if (event.key === "ArrowDown") {
+		nextIndex = currentIndex < 0 ? 0 : Math.min(treeItems.length - 1, currentIndex + 1);
+	} else if (event.key === "ArrowUp") {
+		nextIndex = currentIndex < 0 ? treeItems.length - 1 : Math.max(0, currentIndex - 1);
+	}
 	else if (event.key === "Home") nextIndex = 0;
 	else if (event.key === "End") nextIndex = treeItems.length - 1;
 	else if (event.key === " " || event.key === "Spacebar") {

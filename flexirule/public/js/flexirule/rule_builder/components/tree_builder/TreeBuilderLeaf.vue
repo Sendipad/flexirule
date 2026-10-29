@@ -81,7 +81,7 @@
 					>
 						<i class="fa fa-check" aria-hidden="true"></i>
 					</button>
-					
+
 					<ActionMenu
 						v-if="!readOnly"
 						:items="menuItems"
