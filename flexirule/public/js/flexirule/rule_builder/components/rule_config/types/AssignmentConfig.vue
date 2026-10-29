@@ -58,7 +58,7 @@
 								label: __('Clear All'),
 								icon: 'fa fa-eraser text-danger',
 							},
-					  ]
+						]
 					: []
 			"
 			:cloneRow="cloneAssignmentRow"
@@ -97,8 +97,8 @@
 										getWhenConditionStatus(assignment).isInvalid
 											? 'fa fa-exclamation-triangle'
 											: hasWhenCondition(assignment)
-											? 'fa fa-filter'
-											: 'fa fa-play-circle-o'
+												? 'fa fa-filter'
+												: 'fa fa-play-circle-o'
 									"
 									class="me-2"
 								></i>
@@ -107,8 +107,8 @@
 										getWhenConditionStatus(assignment).isInvalid
 											? __("Invalid Condition")
 											: hasWhenCondition(assignment)
-											? __("Condition Set")
-											: __("Always Run")
+												? __("Condition Set")
+												: __("Always Run")
 									}}
 								</span>
 							</button>
@@ -776,8 +776,7 @@ defineExpose({ validate });
 /* Horizontal Table Grid Styling */
 .assignment-grid-header {
 	display: grid;
-	grid-template-columns:
-		minmax(100px, 0.7fr) minmax(140px, 1.1fr) minmax(100px, 0.7fr) minmax(
+	grid-template-columns: minmax(100px, 0.7fr) minmax(140px, 1.1fr) minmax(100px, 0.7fr) minmax(
 			240px,
 			2.5fr
 		);
@@ -795,8 +794,7 @@ defineExpose({ validate });
 
 .assignment-grid-row {
 	display: grid;
-	grid-template-columns:
-		minmax(100px, 0.7fr) minmax(140px, 1.1fr) minmax(100px, 0.7fr) minmax(
+	grid-template-columns: minmax(100px, 0.7fr) minmax(140px, 1.1fr) minmax(100px, 0.7fr) minmax(
 			240px,
 			2.5fr
 		);
