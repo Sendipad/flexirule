@@ -18,6 +18,9 @@
 		@pointercancel="endDragSelection"
 	>
 		<div class="fxr-generic-grid-rows">
+			<div v-if="$slots.header && filteredRows.length" class="fxr-generic-grid-header">
+				<slot name="header" />
+			</div>
 			<div v-if="!filteredRows.length" class="fxr-generic-grid-empty">
 				<slot name="empty">{{ __("No matching rows.") }}</slot>
 			</div>
@@ -248,6 +251,7 @@
 					v-if="activePrimaryAction && !readOnly"
 					type="button"
 					class="fxr-btn fxr-btn--sm fxr-btn--primary fxr-grid-button fxr-grid-button--primary"
+					:class="activePrimaryAction.class"
 					:aria-keyshortcuts="props.primaryActionShortcut"
 					:title="primaryActionTitle"
 					:aria-label="primaryActionTitle"
@@ -379,7 +383,7 @@
 							? __('Copy selected rows (Ctrl/Cmd+C)')
 							: __(
 									'Provide cloneRow to enable copy/paste with a custom rowKey resolver'
-							  )
+								)
 					"
 					@click="copySelectedRows"
 				>
@@ -396,7 +400,7 @@
 							? __('Paste rows (Ctrl/Cmd+V)')
 							: __(
 									'Provide cloneRow to enable copy/paste with a custom rowKey resolver'
-							  )
+								)
 					"
 					@click="pasteRows"
 				>
@@ -1223,8 +1227,8 @@ async function handleKeydown(event) {
 		const targetEntries = selectedEntries.length
 			? selectedEntries
 			: activeEntry
-			? [activeEntry]
-			: [];
+				? [activeEntry]
+				: [];
 		if (targetEntries.length) {
 			event.preventDefault();
 			const action = getBulkEditAction(
@@ -1609,7 +1613,10 @@ defineExpose({
 	font: inherit;
 	font-size: var(--fxr-text-xs, 11px);
 	cursor: pointer;
-	transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+	transition:
+		background-color 120ms ease,
+		border-color 120ms ease,
+		color 120ms ease;
 }
 
 .fxr-grid-button--quiet {
@@ -1686,7 +1693,10 @@ defineExpose({
 	border: 1px solid var(--fxr-border-subtle, #e5e7eb);
 	border-radius: var(--fxr-radius-md, 6px);
 	background: var(--fxr-surface, #fff);
-	transition: border-color 120ms ease, background-color 120ms ease, box-shadow 120ms ease;
+	transition:
+		border-color 120ms ease,
+		background-color 120ms ease,
+		box-shadow 120ms ease;
 }
 
 .fxr-generic-grid-row-toolbar {
@@ -1848,6 +1858,10 @@ defineExpose({
 .fxr-generic-grid-row-fallback {
 	overflow-wrap: anywhere;
 	font-size: var(--fxr-text-sm, 12px);
+}
+
+.fxr-generic-grid-header {
+	min-width: 0;
 }
 
 .fxr-generic-grid-empty {

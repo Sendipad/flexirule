@@ -27,195 +27,186 @@
 			</div>
 		</div>
 
-		<!-- Horizontal Table Grid Header -->
-		<div v-if="assignments.length" class="assignment-grid-header">
-			<div class="grid-col-when">{{ __("Run If") }}</div>
-			<div class="grid-col-target">{{ __("Target Field") }}</div>
-			<div class="grid-col-operator">{{ __("Operator") }}</div>
-			<div class="grid-col-value">{{ __("Value Expression") }}</div>
-			<div class="grid-col-actions"></div>
-		</div>
-
-		<div class="assignments-list">
-			<div
-				v-for="(assignment, index) in assignments"
-				:key="assignment.name"
-				class="assignment-grid-row align-items-center mb-2"
-			>
-				<div class="grid-col-when">
-					<div class="when-editor-cell" v-fxr-fieldname="'assignments.run_if'">
-						<button
-							class="fxr-btn fxr-btn--sm w-100 when-toggle-btn"
-							:class="{
-								'is-active': hasWhenCondition(assignment),
-								'is-default': !hasWhenCondition(assignment),
-								'is-invalid':
-									showValidation && getWhenConditionStatus(assignment).isInvalid,
-							}"
-							:disabled="isReadOnly"
-							@click="openWhenConditionEditor(index)"
-						>
-							<i
-								:class="
-									getWhenConditionStatus(assignment).isInvalid
-										? 'fa fa-exclamation-triangle'
-										: hasWhenCondition(assignment)
-										? 'fa fa-filter'
-										: 'fa fa-play-circle-o'
-								"
-								class="me-2"
-							></i>
-							<span class="truncate">
-								{{
-									getWhenConditionStatus(assignment).isInvalid
-										? __("Invalid Condition")
-										: hasWhenCondition(assignment)
-										? __("Condition Set")
-										: __("Always Run")
-								}}
-							</span>
-						</button>
-					</div>
-				</div>
-
-				<!-- Target ComboBox with Type Badge support -->
-				<div class="grid-col-target">
-					<ComboBoxControl
-						:ref="setControlRef"
-						fieldname="assignments.target"
-						:df="{ fieldtype: 'FieldPicker', label: '', reqd: 1 }"
-						:modelValue="assignment.target"
-						:options="targetOptions"
-						:read_only="isReadOnly"
-						:hideLabel="true"
-						:showValidation="showValidation"
-						:trigger="'button'"
-						:placeholder="__('Target field/variable...')"
-						:allowCustomValue="false"
-						@update:modelValue="(val) => onTargetChange(index, val)"
-					/>
-				</div>
-
-				<!-- Operator Selector -->
-				<div class="grid-col-operator">
-					<ComboBoxControl
-						:ref="setControlRef"
-						fieldname="assignments.operator"
-						:df="{ fieldtype: 'Select', label: '', reqd: 1 }"
-						:options="getAvailableOperators(assignment.target)"
-						:modelValue="assignment.operator"
-						:read_only="isReadOnly"
-						:hideLabel="true"
-						:showValidation="showValidation"
-						:trigger="'button'"
-						@update:modelValue="(val) => onOperatorChange(index, val)"
-					/>
-				</div>
-
-				<!-- Value Expression Editor -->
-				<div class="grid-col-value">
-					<template v-if="needsValue(assignment.operator)">
-						<div class="value-mode-wrap">
-							<FlexValueControl
-								:ref="setControlRef"
-								class="flex-1 min-w-0"
-								fieldname="assignments.value"
-								:context="{
-									df: {
-										...(targetOptions.find(
-											(o) => o.value === assignment.target
-										) || {}),
-										reqd: 1,
-									},
-									target: assignment.target,
-									operator: assignment.operator,
-									referenceDoctype: getTargetDoctype(assignment.target),
-								}"
-								:modelValue="assignment.value"
-								:read_only="isReadOnly"
-								:showValidation="showValidation"
-								:engine="store"
-								:doc="store.rule_doc"
-								:variableOptions="variable_options"
-								:placeholder="__('Type value...')"
-								@update:modelValue="(val) => updateTemplate(index, val)"
-							/>
-						</div>
-					</template>
-					<div v-else class="operator-hint-text text-muted small">
-						<i class="fa fa-info-circle me-1"></i>
-						{{ operatorNoValueHint(assignment.operator) }}
-					</div>
-				</div>
-
-				<!-- Row Actions -->
-				<div
-					class="grid-col-actions d-flex align-items-center justify-content-end fxr-gap-2"
-				>
-					<div class="d-flex flex-column justify-content-center" style="gap: 2px">
-						<button
-							class="fxr-btn fxr-btn--icon fxr-btn--ghost p-0"
-							:style="{
-								height: '16px',
-								minHeight: '16px',
-								width: '24px',
-								visibility: index === 0 ? 'hidden' : 'visible',
-							}"
-							@click="moveAssignment(index, -1)"
-							:disabled="isReadOnly"
-							:title="__('Move Up')"
-							aria-label="Move Up"
-						>
-							<i class="fa fa-chevron-up" style="font-size: 10px"></i>
-						</button>
-						<button
-							class="fxr-btn fxr-btn--icon fxr-btn--ghost p-0"
-							:style="{
-								height: '16px',
-								minHeight: '16px',
-								width: '24px',
-								visibility: index === assignments.length - 1 ? 'hidden' : 'visible',
-							}"
-							@click="moveAssignment(index, 1)"
-							:disabled="isReadOnly"
-							:title="__('Move Down')"
-							aria-label="Move Down"
-						>
-							<i class="fa fa-chevron-down" style="font-size: 10px"></i>
-						</button>
-					</div>
-					<button
-						class="fxr-btn fxr-btn--icon fxr-btn--sm fxr-btn--ghost text-danger ms-1"
-						@click="removeAssignment(index)"
-						:disabled="isReadOnly"
-						:title="__('Remove')"
-						aria-label="Remove Assignment"
-					>
-						<i class="fa fa-trash"></i>
-					</button>
-				</div>
-			</div>
-		</div>
-
-		<div
-			v-if="!assignments.length"
-			class="empty-state d-flex flex-column align-items-center justify-content-center py-5"
+		<GenericGrid
+			ref="gridRef"
+			class="assignments-grid"
+			:gridLabel="__('Batch Assignments')"
+			:rows="assignments"
+			rowKey="name"
+			:readOnly="isReadOnly"
+			:compact="true"
+			:pagination="false"
+			:showSearch="false"
+			presentationMode="editor"
+			:availableRowActions="['move', 'remove']"
+			:primaryAction="{
+				id: 'add-assignment',
+				label: __('Add Assignment'),
+				icon: 'fa fa-plus',
+				class: 'add-assignment-btn',
+			}"
+			:actionOptions="
+				assignments.length > 1
+					? [
+							{
+								id: 'add-assignment',
+								label: __('Add Assignment'),
+								icon: 'fa fa-plus',
+							},
+							{
+								id: 'clear-assignments',
+								label: __('Clear All'),
+								icon: 'fa fa-eraser text-danger',
+							},
+					  ]
+					: []
+			"
+			:cloneRow="cloneAssignmentRow"
+			@primary-action="addAssignment"
+			@grid-action="handleSecondaryAction"
+			@row-action="handleRowAction"
+			@update:rows="handlePastedRows"
 		>
-			<div class="empty-state-icon mb-3">
-				<i class="fa fa-list-ol fa-3x text-muted opacity-25"></i>
-			</div>
-			<div class="text-center px-4">
-				<h6 class="mb-1 fw-bold text-muted">{{ __("No Assignments Yet") }}</h6>
-				<p class="small text-muted mb-0">
-					{{ __("Add an assignment to start mutating document fields or variables.") }}
-				</p>
-			</div>
-		</div>
+			<template #header>
+				<div class="assignment-grid-header">
+					<div class="grid-col-when">{{ __("Run If") }}</div>
+					<div class="grid-col-target">{{ __("Target Field") }}</div>
+					<div class="grid-col-operator">{{ __("Operator") }}</div>
+					<div class="grid-col-value">{{ __("Value Expression") }}</div>
+				</div>
+			</template>
 
-		<button class="add-assignment-btn mt-2" @click="addAssignment" :disabled="isReadOnly">
-			<i class="fa fa-plus"></i>
-			<span>{{ __("Add Assignment") }}</span>
-		</button>
+			<template #row="{ row: assignment, index }">
+				<div class="assignment-grid-row align-items-center">
+					<div class="grid-col-when">
+						<div class="when-editor-cell" v-fxr-fieldname="'assignments.run_if'">
+							<button
+								class="fxr-btn fxr-btn--sm w-100 when-toggle-btn"
+								:class="{
+									'is-active': hasWhenCondition(assignment),
+									'is-default': !hasWhenCondition(assignment),
+									'is-invalid':
+										showValidation &&
+										getWhenConditionStatus(assignment).isInvalid,
+								}"
+								:disabled="isReadOnly"
+								@click="openWhenConditionEditor(index)"
+							>
+								<i
+									:class="
+										getWhenConditionStatus(assignment).isInvalid
+											? 'fa fa-exclamation-triangle'
+											: hasWhenCondition(assignment)
+											? 'fa fa-filter'
+											: 'fa fa-play-circle-o'
+									"
+									class="me-2"
+								></i>
+								<span class="truncate">
+									{{
+										getWhenConditionStatus(assignment).isInvalid
+											? __("Invalid Condition")
+											: hasWhenCondition(assignment)
+											? __("Condition Set")
+											: __("Always Run")
+									}}
+								</span>
+							</button>
+						</div>
+					</div>
+
+					<!-- Target ComboBox with Type Badge support -->
+					<div class="grid-col-target">
+						<ComboBoxControl
+							:ref="setControlRef"
+							fieldname="assignments.target"
+							:df="{ fieldtype: 'FieldPicker', label: '', reqd: 1 }"
+							:modelValue="assignment.target"
+							:options="targetOptions"
+							:read_only="isReadOnly"
+							:hideLabel="true"
+							:showValidation="showValidation"
+							:trigger="'button'"
+							:placeholder="__('Target field/variable...')"
+							:allowCustomValue="false"
+							@update:modelValue="(val) => onTargetChange(index, val)"
+						/>
+					</div>
+
+					<!-- Operator Selector -->
+					<div class="grid-col-operator">
+						<ComboBoxControl
+							:ref="setControlRef"
+							fieldname="assignments.operator"
+							:df="{ fieldtype: 'Select', label: '', reqd: 1 }"
+							:options="getAvailableOperators(assignment.target)"
+							:modelValue="assignment.operator"
+							:read_only="isReadOnly"
+							:hideLabel="true"
+							:showValidation="showValidation"
+							:trigger="'button'"
+							@update:modelValue="(val) => onOperatorChange(index, val)"
+						/>
+					</div>
+
+					<!-- Value Expression Editor -->
+					<div class="grid-col-value">
+						<template v-if="needsValue(assignment.operator)">
+							<div class="value-mode-wrap">
+								<FlexValueControl
+									:ref="setControlRef"
+									class="flex-1 min-w-0"
+									fieldname="assignments.value"
+									:context="{
+										df: {
+											...(targetOptions.find(
+												(o) => o.value === assignment.target
+											) || {}),
+											reqd: 1,
+										},
+										target: assignment.target,
+										operator: assignment.operator,
+										referenceDoctype: getTargetDoctype(assignment.target),
+									}"
+									:modelValue="assignment.value"
+									:read_only="isReadOnly"
+									:showValidation="showValidation"
+									:engine="store"
+									:doc="store.rule_doc"
+									:variableOptions="variable_options"
+									:placeholder="__('Type value...')"
+									@update:modelValue="(val) => updateTemplate(index, val)"
+								/>
+							</div>
+						</template>
+						<div v-else class="operator-hint-text text-muted small">
+							<i class="fa fa-info-circle me-1"></i>
+							{{ operatorNoValueHint(assignment.operator) }}
+						</div>
+					</div>
+				</div>
+			</template>
+
+			<template #empty>
+				<div
+					class="empty-state d-flex flex-column align-items-center justify-content-center py-5"
+				>
+					<div class="empty-state-icon mb-3">
+						<i class="fa fa-list-ol fa-3x text-muted opacity-25"></i>
+					</div>
+					<div class="text-center px-4">
+						<h6 class="mb-1 fw-bold text-muted">{{ __("No Assignments Yet") }}</h6>
+						<p class="small text-muted mb-0">
+							{{
+								__(
+									"Add an assignment to start mutating document fields or variables."
+								)
+							}}
+						</p>
+					</div>
+				</div>
+			</template>
+		</GenericGrid>
 
 		<Teleport to="body">
 			<div
@@ -269,9 +260,9 @@ import { fromCodeString, deepClone } from "../../../utils/serialization";
 import { useActionConfig } from "../../../composables/useActionConfig";
 import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
 import FlexValueControl from "../../../controls/FlexValueControl.vue";
+import GenericGrid from "../../../controls/GenericGrid.vue";
 import ConditionBuilder from "../../condition_builder/ConditionBuilder.vue";
 import { validateConditions } from "../../condition_builder/condition_validator.js";
-import { compileSegmentsToJinja } from "../../../utils/text_generator";
 import { ASSIGNMENT_OPERATOR_METADATA } from "../../../../core/contracts.js";
 
 const props = defineProps({
@@ -283,20 +274,10 @@ const props = defineProps({
 const isReadOnly = computed(() => !!props.readOnly || !!props.read_only);
 
 const { doctype_fields, variable_options, update_action_field, store } = useActionConfig(props);
-const supportedTemplateModes = [
-	"formula",
-	"resolver",
-	"link",
-	"dynamic-link",
-	"select",
-	"boolean",
-	"multiselect",
-	"json",
-	"add-key",
-];
 const whenEditor = ref({ open: false, index: -1, draft: null });
 const conditionBuilderRef = ref(null);
 const controlRefs = ref([]);
+const gridRef = ref(null);
 const showValidation = ref(false);
 
 onBeforeUpdate(() => {
@@ -327,10 +308,6 @@ function operatorNoValueHint(operator) {
 	return OPERATOR_HINTS[operator] || __("No value input required for this operator.");
 }
 
-function getOperatorHint(operator) {
-	return OPERATOR_HINTS[operator] || null;
-}
-
 /**
  * Resolve a Frappe fieldtype for a target path.
  * Reuses existing doctype_fields and variable_options arrays.
@@ -345,22 +322,6 @@ function getTargetDoctype(target) {
 	if (!target) return null;
 	const opt = targetOptions.value.find((o) => o.value === target);
 	return opt?.options || null;
-}
-
-/**
- * Custom metadata target options list.
- */
-function getTargetOptions(target) {
-	if (!target) return [];
-	const opt = targetOptions.value.find((o) => o.value === target);
-	if (opt?.value === "doc.docstatus" && !opt.options) {
-		return [
-			{ label: __("0 (Draft)"), value: "0" },
-			{ label: __("1 (Submitted)"), value: "1" },
-			{ label: __("2 (Cancelled)"), value: "2" },
-		];
-	}
-	return opt?.options || [];
 }
 
 /**
@@ -469,8 +430,6 @@ const targetOptions = computed(() => {
 	(variable_options.value || [])
 		.filter((v) => v.is_variable && typeof v.value === "string" && v.value.trim())
 		.forEach((v) => {
-			// getAvailableVariables() already returns canonical vars.* paths.
-			// Do not prefix them again: vars.vars.foo is not a valid context path.
 			const value = v.value.startsWith("vars.") ? v.value : `vars.${v.value}`;
 			const label = String(v.label || "");
 			opts.push({
@@ -548,6 +507,42 @@ function moveAssignment(index, direction) {
 	syncToNode();
 }
 
+function handleRowAction({ action, index }) {
+	if (isReadOnly.value) return;
+	switch (action) {
+		case "move-up":
+			moveAssignment(index, -1);
+			break;
+		case "move-down":
+			moveAssignment(index, 1);
+			break;
+		case "remove":
+			removeAssignment(index);
+			break;
+	}
+}
+
+function handleSecondaryAction({ action }) {
+	if (action === "clear-assignments") {
+		clearAssignments();
+	} else if (action === "add-assignment") {
+		addAssignment();
+	}
+}
+
+function handlePastedRows(nextRows) {
+	if (isReadOnly.value || !Array.isArray(nextRows)) return;
+	assignments.value = deepClone(nextRows);
+	syncToNode();
+}
+
+function cloneAssignmentRow(row) {
+	if (!row || typeof row !== "object") return null;
+	const copy = deepClone(row);
+	copy.name = makeRandomString(9);
+	return copy;
+}
+
 function clearAssignments() {
 	frappe.confirm(__("Are you sure you want to clear all assignments?"), () => {
 		assignments.value = [];
@@ -620,7 +615,6 @@ function openWhenConditionEditor(index) {
 		nextTick(() => {
 			if (conditionBuilderRef.value) {
 				conditionBuilderRef.value.validate();
-				// Scroll to first error in the condition builder
 				nextTick(() => {
 					const firstError = document.querySelector(
 						".condition-builder-wrap .is-invalid"
@@ -672,6 +666,7 @@ function clearWhenCondition() {
 	whenEditor.value.draft = { op: "and", conditions: [] };
 	syncToNode();
 }
+
 function getDefaultResolverKind(target) {
 	const fieldtype = getTargetFieldtype(target);
 	if (!fieldtype) return "text";
@@ -779,14 +774,33 @@ defineExpose({ validate });
 }
 
 /* Horizontal Table Grid Styling */
-.assignment-grid-header,
-.assignment-grid-row {
+.assignment-grid-header {
 	display: grid;
-	grid-template-columns:
-		minmax(100px, 0.7fr) minmax(140px, 1.1fr) minmax(100px, 0.7fr) minmax(240px, 2.5fr)
-		60px;
+	grid-template-columns: minmax(100px, 0.7fr) minmax(140px, 1.1fr) minmax(100px, 0.7fr) minmax(
+			240px,
+			2.5fr
+		);
 	gap: var(--spacing-md);
 	align-items: center;
+	padding: var(--spacing-xs) 38px var(--spacing-xs) 38px;
+	font-size: 10px;
+	font-weight: 800;
+	color: var(--fxr-text-faint);
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	border-bottom: 1px solid var(--fxr-border-subtle);
+	margin-bottom: 4px;
+}
+
+.assignment-grid-row {
+	display: grid;
+	grid-template-columns: minmax(100px, 0.7fr) minmax(140px, 1.1fr) minmax(100px, 0.7fr) minmax(
+			240px,
+			2.5fr
+		);
+	gap: var(--spacing-md);
+	align-items: center;
+	width: 100%;
 }
 
 @media (max-width: 900px) {
@@ -805,21 +819,6 @@ defineExpose({ validate });
 	.grid-col-value {
 		width: 100%;
 	}
-	.grid-col-actions {
-		justify-content: flex-end;
-		margin-top: 4px;
-	}
-}
-
-.assignment-grid-header {
-	padding: var(--spacing-xs) var(--spacing-md);
-	font-size: 10px;
-	font-weight: 800;
-	color: var(--fxr-text-faint);
-	text-transform: uppercase;
-	letter-spacing: 0.05em;
-	border-bottom: 1px solid var(--fxr-border-subtle);
-	margin-bottom: 4px;
 }
 
 .when-editor-cell {
@@ -904,42 +903,6 @@ defineExpose({ validate });
 	width: 100%;
 }
 
-.value-mode-toggle {
-	flex-shrink: 0;
-	width: 30px;
-	height: 30px;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	border-radius: var(--fxr-radius-md);
-	color: var(--fxr-text-soft);
-	border: 1px solid var(--fxr-border-subtle);
-	background-color: var(--fxr-bg-input);
-	transition: all 0.2s ease;
-	cursor: pointer;
-}
-
-.value-mode-toggle:hover:not(:disabled) {
-	color: var(--fxr-accent);
-	border-color: var(--fxr-accent);
-	background-color: var(--fxr-bg-hover);
-}
-
-.assignment-grid-row {
-	background-color: var(--fxr-bg-input);
-	border: 1px solid var(--fxr-border-subtle);
-	border-radius: var(--fxr-radius-sm);
-	padding: var(--spacing-xs) var(--spacing-md);
-	transition: all var(--fxr-transition-fast);
-	margin-bottom: 0 !important;
-}
-
-.assignment-grid-row:hover {
-	border-color: var(--fxr-accent);
-	background-color: var(--fxr-surface-soft);
-	z-index: 1;
-}
-
 .operator-hint-text {
 	display: flex;
 	align-items: center;
@@ -967,46 +930,14 @@ defineExpose({ validate });
 	background-color: var(--fxr-surface);
 }
 
-.add-assignment-btn {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	gap: 6px;
-	background-color: var(--fxr-surface-soft);
-	border: 1px dashed var(--fxr-border-strong);
-	border-radius: var(--fxr-radius-md);
-	padding: var(--spacing-md);
-	width: 100%;
-	color: var(--fxr-text-soft);
-	font-weight: 700;
-	font-size: var(--fxr-text-sm);
-	transition: all var(--fxr-transition-fast);
-	cursor: pointer;
-	margin-top: var(--spacing-md);
-}
-
-.add-assignment-btn:hover:not(:disabled) {
-	background-color: var(--fxr-accent-soft);
-	border-color: var(--fxr-accent);
-	color: var(--fxr-accent);
-}
-
 @media (max-width: 768px) {
 	.assignment-header-card {
-		padding: 10px;
-	}
-
-	.assignment-grid-row {
 		padding: 10px;
 	}
 
 	.value-mode-wrap {
 		flex-direction: column;
 		align-items: stretch;
-	}
-
-	.value-mode-toggle {
-		width: 100%;
 	}
 }
 </style>
