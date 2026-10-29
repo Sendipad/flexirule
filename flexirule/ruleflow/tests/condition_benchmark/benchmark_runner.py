@@ -9,6 +9,7 @@ import platform
 import statistics
 import subprocess
 import time
+from pathlib import Path
 from typing import Any
 
 import frappe
@@ -36,48 +37,61 @@ from flexirule.ruleflow.tests.condition_benchmark.fixtures import get_neutral_sc
 
 
 def _get_git_metadata() -> dict[str, Any]:
-	"""Dynamically capture git commit SHA, branch name, working tree dirty status, and provenance notes."""
+	"""Capture Git provenance from the repository containing this benchmark module."""
+	repo_root = Path(__file__).resolve().parents[4]
 	branch = "Unavailable"
 	commit = "Unavailable"
-	is_dirty = False
-	provenance_note = "Exact git commit SHA and clean working tree established."
+	is_dirty = True
+	provenance_note = "Git provenance could not be fully verified."
 
 	try:
 		branch_out = subprocess.check_output(
 			["git", "rev-parse", "--abbrev-ref", "HEAD"],
+			cwd=repo_root,
 			stderr=subprocess.DEVNULL,
 			text=True,
 		).strip()
-		if branch_out:
+		if branch_out and branch_out != "HEAD":
 			branch = branch_out
-	except Exception:
+	except (OSError, subprocess.CalledProcessError):
 		pass
+
+	if branch == "Unavailable" or branch == "HEAD":
+		branch = os.environ.get("GITHUB_HEAD_REF") or os.environ.get("GITHUB_REF_NAME") or branch
 
 	try:
 		commit_out = subprocess.check_output(
 			["git", "rev-parse", "HEAD"],
+			cwd=repo_root,
 			stderr=subprocess.DEVNULL,
 			text=True,
 		).strip()
 		if commit_out:
 			commit = commit_out
-	except Exception:
-		pass
+	except (OSError, subprocess.CalledProcessError):
+		commit = os.environ.get("GITHUB_SHA", "Unavailable")
 
 	try:
 		status_out = subprocess.check_output(
 			["git", "status", "--porcelain"],
+			cwd=repo_root,
 			stderr=subprocess.DEVNULL,
 			text=True,
 		).strip()
-		if status_out:
-			is_dirty = True
+		is_dirty = bool(status_out)
+		if is_dirty:
 			provenance_note = (
 				"Working tree contains uncommitted changes; benchmark provenance captures "
-				"HEAD commit plus uncommitted working tree state."
+				"the checkout commit plus working-tree state."
 			)
-	except Exception:
-		pass
+		else:
+			provenance_note = "Git commit and clean working tree were verified from the benchmark repository root."
+	except (OSError, subprocess.CalledProcessError):
+		is_dirty = True
+		provenance_note = "Working-tree status could not be verified; the benchmark is not clean-provenance eligible."
+
+	if commit == "Unavailable":
+		commit = os.environ.get("GITHUB_SHA", "Unavailable")
 
 	return {
 		"branch": branch,
