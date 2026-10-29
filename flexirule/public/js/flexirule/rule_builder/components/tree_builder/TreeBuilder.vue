@@ -183,7 +183,11 @@ function handleTreeKeydown(event) {
 	const nodeElement = target?.closest?.("[data-node-id]");
 	const nodeId = nodeElement?.getAttribute("data-node-id") || null;
 
-	if (matchesShortcut(event, props.editShortcut)) {
+	if (
+		matchesShortcut(event, props.editShortcut) &&
+		!isInputTarget(target) &&
+		!target?.closest?.("button, a, [role='button']")
+	) {
 		if (props.readOnly && !resolvedCanEditRule.value) return;
 		const activeId =
 			nodeId || editingNodeId.value || focusedNodeId.value || selectedNodeId.value;
