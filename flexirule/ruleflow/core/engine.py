@@ -303,7 +303,8 @@ class RuleEngine:
 		The cache is engine-instance scoped, so a new RuleEngine revalidates conditions against
 		current DocType metadata. Raw config signatures invalidate the entry if the action changes.
 		"""
-		from flexirule.ruleflow.core.condition_evaluator import prepare_condition
+		from flexirule.ruleflow.core.condition_contract import CONDITION_SEMANTICS_VERSION
+		from flexirule.ruleflow.core.condition_evaluator import EVALUATOR_CACHE_VERSION, prepare_condition
 		from flexirule.ruleflow.core.condition_payload import (
 			detect_canonical_condition_payload,
 			get_condition_payload,
@@ -315,7 +316,14 @@ class RuleEngine:
 		legacy_signature = self._condition_source_signature(getattr(action, "condition_json", None))
 		doctype = getattr(self.rule, "document_type", None)
 		registry_signature = resolver_registry_fingerprint()
-		cache_key = (config_signature, legacy_signature, doctype, registry_signature)
+		cache_key = (
+			config_signature,
+			legacy_signature,
+			doctype,
+			registry_signature,
+			CONDITION_SEMANTICS_VERSION,
+			EVALUATOR_CACHE_VERSION,
+		)
 		cached = self._prepared_condition_cache.get(action_key)
 		if cached and cached[0] == cache_key:
 			return cached[1], cached[2], cached[3], cached[4]
@@ -345,23 +353,29 @@ class RuleEngine:
 
 	def _get_prepared_condition_for_payload(self, cache_key, canonical_node, doctype=None):
 		"""Reuse an artifact for an immutable canonical node within this rule execution."""
-		from flexirule.ruleflow.core.condition_evaluator import prepare_condition
+		from flexirule.ruleflow.core.condition_contract import CONDITION_SEMANTICS_VERSION
+		from flexirule.ruleflow.core.condition_evaluator import EVALUATOR_CACHE_VERSION, prepare_condition
 		from flexirule.ruleflow.core.flexvalue_contract import resolver_registry_fingerprint
 
 		registry_signature = resolver_registry_fingerprint()
+		generation = (
+			registry_signature,
+			CONDITION_SEMANTICS_VERSION,
+			EVALUATOR_CACHE_VERSION,
+		)
 		cached = self._prepared_condition_cache.get(cache_key)
 		if (
 			cached
 			and cached[0] is canonical_node
 			and cached[1] == doctype
-			and cached[2] == registry_signature
+			and cached[2] == generation
 		):
 			return cached[3]
 		prepared = prepare_condition(canonical_node, doctype=doctype)
 		self._prepared_condition_cache[cache_key] = (
 			canonical_node,
 			doctype,
-			registry_signature,
+			generation,
 			prepared,
 		)
 		return prepared
