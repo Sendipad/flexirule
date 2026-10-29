@@ -20,6 +20,23 @@ const rows = [
 	{ id: "c", field: "grand_total", kind: "function", meta: { label: "Grand Total" } },
 ];
 
+import { parseShortcutString } from "../../../../../flexirule/public/js/flexirule/rule_builder/controls/generic_grid_model.mjs";
+
+assert.deepEqual(parseShortcutString("Ctrl+Shift+E"), {
+	key: "e",
+	ctrl: true,
+	meta: false,
+	alt: false,
+	shift: true,
+});
+assert.deepEqual(parseShortcutString("Cmd+Alt+S"), {
+	key: "s",
+	ctrl: false,
+	meta: true,
+	alt: true,
+	shift: false,
+});
+
 assert.equal(matchesShortcut({ key: "e", ctrlKey: true, shiftKey: true }, "Ctrl+Shift+E"), true);
 assert.equal(matchesShortcut({ key: "E", ctrlKey: true, shiftKey: true }, "Ctrl+Shift+E"), true);
 assert.equal(matchesShortcut({ key: "e", altKey: true }, "Ctrl+Shift+E"), false);

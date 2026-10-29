@@ -1,11 +1,15 @@
 <template>
 	<div
 		class="tree-leaf"
+		tabindex="0"
+		:data-node-id="node.id"
 		:class="{
 			'is-editing': isEditing,
 			'is-summary-mode': inlinePresentation.presentation === 'summary',
 			'is-editor-mode': inlinePresentation.presentation === 'editor',
 		}"
+		@focus="onLeafFocus"
+		@click="onLeafClick"
 	>
 		<div
 			v-if="inlinePresentation.presentation === 'summary'"
@@ -180,6 +184,21 @@ const canFinishEditing = computed(() => {
 	if (mode === "hybrid") return isEditing.value && isValid.value;
 	return false;
 });
+
+function onLeafFocus() {
+	if (typeof api?.focusNode === "function") {
+		api.focusNode(props.node.id);
+	}
+}
+
+function onLeafClick() {
+	if (typeof api?.selectNode === "function") {
+		api.selectNode(props.node.id);
+	}
+	if (typeof api?.focusNode === "function") {
+		api.focusNode(props.node.id);
+	}
+}
 
 function startEditing() {
 	if (props.readOnly) return;

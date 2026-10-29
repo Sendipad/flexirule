@@ -1,5 +1,5 @@
 <template>
-	<div class="tree-builder fxr-accent-scope">
+	<div ref="treeRef" class="tree-builder fxr-accent-scope">
 		<div class="tree-builder__header">
 			<div class="tree-builder__logic">
 				<button
@@ -70,9 +70,11 @@
 	</div>
 </template>
 <script setup>
-import { computed, provide, ref, useSlots } from "vue";
+import { computed, onMounted, onUnmounted, provide, ref, useSlots, watch } from "vue";
 import TreeBuilderNode from "./TreeBuilderNode.vue";
 import { useTreeBuilder } from "./useTreeBuilder.js";
+import { useKeyboardRegistry } from "../../composables/useKeyboardRegistry.js";
+import { findNode } from "./tree_builder_utils.mjs";
 
 const props = defineProps({
 	modelValue: {
@@ -99,9 +101,11 @@ const props = defineProps({
 	editorLayout: { type: String, default: "replace" },
 	isLeafNew: { type: Function, default: null },
 	isLeafValid: { type: Function, default: null },
+	editShortcut: { type: String, default: "Ctrl+Shift+E" },
 });
 const emit = defineEmits(["update:modelValue", "change", "validation-error"]);
 const slots = useSlots();
+const treeRef = ref(null);
 const api = useTreeBuilder({
 	modelValue: computed(() => props.modelValue),
 	emit,
@@ -124,12 +128,83 @@ provide("treeBuilderContext", {
 	editorLayout: computed(() => props.editorLayout),
 	isLeafNew: computed(() => props.isLeafNew),
 	isLeafValid: computed(() => props.isLeafValid),
+	editShortcut: computed(() => props.editShortcut),
 	hasSummarySlot,
 });
-const { root, operators, addLeaf, addCollection, addGroup, removeNode, setOperator } = api;
+const {
+	root,
+	operators,
+	addLeaf,
+	addCollection,
+	addGroup,
+	removeNode,
+	setOperator,
+	editingNodeId,
+	focusedNodeId,
+	selectedNodeId,
+	setEditing,
+	finishEditing,
+} = api;
+
 const operatorLabel = (op) => props.operatorLabel(op);
 const visibleNode = (node) => props.visibleNode(node) !== false;
 const rootDragOver = ref(false);
+
+const { registerShortcut } = useKeyboardRegistry();
+let unregisterShortcut = null;
+
+function canFinishEditingNode(nodeId) {
+	if (!nodeId) return true;
+	const node = findNode(root, nodeId);
+	if (!node) return true;
+	if (typeof props.isLeafValid === "function" && !props.isLeafValid(node)) {
+		return false;
+	}
+	if (node.isValid === false) return false;
+	return true;
+}
+
+function handleToggleEditShortcut(e) {
+	if (props.readOnly) return;
+	const target = e?.target;
+	const isInsideTree = treeRef.value && target && treeRef.value.contains(target);
+	const activeEditingId = editingNodeId.value;
+	if (!isInsideTree && !activeEditingId) return;
+
+	if (activeEditingId) {
+		if (canFinishEditingNode(activeEditingId)) {
+			finishEditing(activeEditingId);
+		}
+	} else {
+		const leafNodeId = target?.closest?.("[data-node-id]")?.getAttribute("data-node-id");
+		const targetId = focusedNodeId?.value || selectedNodeId?.value || leafNodeId;
+		if (targetId) {
+			setEditing(targetId);
+		}
+	}
+}
+
+function setupShortcutRegistration() {
+	if (unregisterShortcut) unregisterShortcut();
+	if (!props.editShortcut) return;
+
+	unregisterShortcut = registerShortcut({
+		shortcut: props.editShortcut,
+		allowInInputs: true,
+		context: "global",
+		callback: handleToggleEditShortcut,
+	});
+}
+
+onMounted(() => {
+	setupShortcutRegistration();
+});
+
+onUnmounted(() => {
+	if (unregisterShortcut) unregisterShortcut();
+});
+
+watch(() => props.editShortcut, setupShortcutRegistration);
 
 function onRootDragOver(e) {
 	const draggedId = api.dragState.nodeId || e.dataTransfer?.getData("text/plain");

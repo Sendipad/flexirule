@@ -2,27 +2,43 @@ import { resolvePresentationMode } from "./inline_presentation_policy.mjs";
 
 export const GRID_CLIPBOARD_FORMAT = "flexirule-generic-grid";
 
-/** Match a configurable keyboard shortcut while respecting all modifier keys. */
-export function matchesShortcut(event, shortcut) {
-	if (!event || typeof event.key !== "string") return false;
-	const keys = String(shortcut || "")
+/** Parse a shortcut string (e.g. "Ctrl+Shift+E") into modifier booleans and key. */
+export function parseShortcutString(shortcutStr) {
+	if (!shortcutStr) return null;
+	if (typeof shortcutStr === "object" && shortcutStr.key) return shortcutStr;
+	const keys = String(shortcutStr || "")
 		.toLowerCase()
 		.split("+")
 		.map((key) => key.trim())
 		.filter(Boolean);
-	if (!keys.length) return false;
+	if (!keys.length) return null;
 
 	const key = keys[keys.length - 1];
 	const wantsAlt = keys.includes("alt");
 	const wantsCtrl = keys.includes("ctrl") || keys.includes("control");
 	const wantsMeta = keys.includes("cmd") || keys.includes("meta") || keys.includes("command");
 	const wantsShift = keys.includes("shift");
+	return {
+		key,
+		ctrl: wantsCtrl,
+		meta: wantsMeta,
+		alt: wantsAlt,
+		shift: wantsShift,
+	};
+}
+
+/** Match a configurable keyboard shortcut while respecting all modifier keys. */
+export function matchesShortcut(event, shortcut) {
+	if (!event || typeof event.key !== "string") return false;
+	const parsed = parseShortcutString(shortcut);
+	if (!parsed || !parsed.key) return false;
+
 	return (
-		event.key.toLowerCase() === key &&
-		Boolean(event.altKey) === wantsAlt &&
-		Boolean(event.ctrlKey) === wantsCtrl &&
-		Boolean(event.metaKey) === wantsMeta &&
-		Boolean(event.shiftKey) === wantsShift
+		event.key.toLowerCase() === parsed.key.toLowerCase() &&
+		Boolean(event.altKey) === Boolean(parsed.alt) &&
+		Boolean(event.ctrlKey) === Boolean(parsed.ctrl) &&
+		Boolean(event.metaKey) === Boolean(parsed.meta) &&
+		Boolean(event.shiftKey) === Boolean(parsed.shift)
 	);
 }
 

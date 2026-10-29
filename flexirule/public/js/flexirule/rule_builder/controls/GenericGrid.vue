@@ -418,6 +418,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useSlots, watch } from "vue";
 import { getInlinePresentation, resolvePresentationMode } from "./inline_presentation_policy.mjs";
+import { useKeyboardRegistry } from "../composables/useKeyboardRegistry.js";
 import {
 	GRID_CLIPBOARD_FORMAT,
 	getRowKey,
@@ -631,19 +632,68 @@ watch(
 		if (currentPage.value > pageCount.value) currentPage.value = pageCount.value;
 	}
 );
+const { registerShortcut } = useKeyboardRegistry();
+let unregisterGridShortcuts = [];
+
+function setupGridShortcuts() {
+	unregisterGridShortcuts.forEach((fn) => fn());
+	unregisterGridShortcuts = [];
+
+	if (props.editShortcut) {
+		unregisterGridShortcuts.push(
+			registerShortcut({
+				shortcut: props.editShortcut,
+				allowInInputs: true,
+				context: "global",
+				callback: (e) => {
+					if (!rootRef.value || !e?.target || !rootRef.value.contains(e.target)) return;
+					handleEditShortcutTrigger(e);
+				},
+			})
+		);
+	}
+}
+
+function handleEditShortcutTrigger(event) {
+	if (props.readOnly) return;
+	const target = event.target;
+	const selectedEntries = sourceRows.value.filter((entry) => selectedKeys.value.has(entry.key));
+	const rowElement = target?.closest?.("[data-row-index]");
+	const activeIndex = rowElement
+		? Number(rowElement.getAttribute("data-row-index"))
+		: activeRowIndex.value;
+	const activeEntry = sourceRows.value.find((entry) => entry.index === activeIndex);
+	const targetEntries = selectedEntries.length
+		? selectedEntries
+		: activeEntry
+		? [activeEntry]
+		: [];
+	if (targetEntries.length) {
+		event.preventDefault();
+		const action = getBulkEditAction(
+			targetEntries.map((entry) => entry.row),
+			props.editStateKey
+		);
+		for (const entry of targetEntries) requestRowAction(action, entry);
+	}
+}
+
 onMounted(() => {
 	loadPrimaryActionPreference();
+	setupGridShortcuts();
 	if (typeof window === "undefined") return;
 	window.addEventListener("pointerup", endDragSelection);
 	window.addEventListener("pointercancel", endDragSelection);
 	document.addEventListener("pointerdown", handleOutsideMenuPointerDown);
 });
 onBeforeUnmount(() => {
+	unregisterGridShortcuts.forEach((fn) => fn());
 	if (typeof window === "undefined") return;
 	window.removeEventListener("pointerup", endDragSelection);
 	window.removeEventListener("pointercancel", endDragSelection);
 	document.removeEventListener("pointerdown", handleOutsideMenuPointerDown);
 });
+watch(() => props.editShortcut, setupGridShortcuts);
 
 watch(
 	() => sourceRows.value.map((entry) => entry.key),
