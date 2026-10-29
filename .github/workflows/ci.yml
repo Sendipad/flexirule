@@ -284,6 +284,178 @@ jobs:
           TYPE: server
 
 
+      - name: Run condition runtime benchmark
+        id: condition_benchmark
+        if: ${{ always() && needs.changes.outputs.condition_runtime == 'true' && steps.migrate_test_site.outcome == 'success' }}
+        working-directory: ${{ github.workspace }}
+        env:
+          CI: "Yes"
+          FRAPPE_SITE_NAME: test_site
+          FRAPPE_BENCH_PATH: /home/runner/frappe-bench
+          CONDITION_BENCHMARK_JSON_PATH: /tmp/flexirule-ci-reports/condition-runtime/canonical_condition_benchmark_results.json
+          CONDITION_BENCHMARK_MARKDOWN_PATH: /tmp/flexirule-ci-reports/condition-runtime/condition-backend-comparison-benchmark.md
+        run: |
+          set -euo pipefail
+          set +e
+          /home/runner/frappe-bench/env/bin/python \
+            "$GITHUB_WORKSPACE/flexirule/ruleflow/tests/condition_benchmark/benchmark_runner.py" \
+            2>&1 | tee /tmp/flexirule-ci-reports/condition-runtime/benchmark.log
+          benchmark_exit_code=${PIPESTATUS[0]}
+          set -e
+          printf '%s\n' "$benchmark_exit_code" > /tmp/flexirule-ci-reports/condition-runtime/benchmark.exitcode
+          # Defer failure to the final gate so the log and any generated reports upload first.
+
+      - name: Summarize backend tests and condition benchmark
+        if: always()
+        env:
+          CONDITION_RUNTIME_ENABLED: ${{ needs.changes.outputs.condition_runtime }}
+          TEST_STEP_OUTCOME: ${{ steps.run_tests.outcome }}
+          BENCHMARK_STEP_OUTCOME: ${{ steps.condition_benchmark.outcome }}
+          MIGRATE_STEP_OUTCOME: ${{ steps.migrate_test_site.outcome }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/artifacts/ci-reports"
+          if [ -d /tmp/flexirule-ci-reports ]; then
+            cp -a /tmp/flexirule-ci-reports/. "$GITHUB_WORKSPACE/artifacts/ci-reports/"
+          fi
+          python - <<'PY'
+          import html
+          import json
+          import os
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+
+          root = Path(os.environ["GITHUB_WORKSPACE"]) / "artifacts" / "ci-reports"
+          lines = ["## FlexiRule backend test and condition benchmark report", ""]
+          issues = []
+          test_dir = root / "test-results"
+          test_outcome = os.environ.get("TEST_STEP_OUTCOME", "unknown")
+          junit_file = test_dir / "server-tests.xml"
+          exit_file = test_dir / "server-tests.exitcode"
+          lines.extend(["### Backend tests", ""])
+          if junit_file.exists():
+              try:
+                  junit = ET.parse(junit_file).getroot()
+                  cases = junit.findall(".//testcase")
+                  failures, errors, skipped = [], [], 0
+                  for case in cases:
+                      for item in list(case):
+                          if item.tag == "failure":
+                              failures.append((case, item))
+                          elif item.tag == "error":
+                              errors.append((case, item))
+                          elif item.tag == "skipped":
+                              skipped += 1
+                  passed = max(0, len(cases) - len(failures) - len(errors) - skipped)
+                  lines.append(f"- JUnit totals: {passed} passed, {len(failures)} failures, {len(errors)} errors, {skipped} skipped; {len(cases)} cases.")
+                  for label, records in (("Failure", failures), ("Error", errors)):
+                      for case, item in records[:10]:
+                          name = f"{case.attrib.get('classname', '')}.{case.attrib.get('name', 'unknown')}".strip(".")
+                          detail = (item.text or item.attrib.get("message") or "No traceback provided").strip()[:8000]
+                          lines.extend(["", f"<details><summary>{html.escape(label + ': ' + name)}</summary>", "", "<pre>", html.escape(detail), "</pre>", "", "</details>"])
+                  if failures or errors:
+                      issues.append(f"Frappe tests had {len(failures)} failure(s) and {len(errors)} error(s).")
+              except (ET.ParseError, OSError) as exc:
+                  lines.append(f"- JUnit XML parse failed: {exc}")
+                  issues.append("The JUnit XML report is invalid.")
+          else:
+              lines.append("- JUnit XML was not produced.")
+              if test_outcome != "success":
+                  issues.append(f"The Frappe test command did not complete (step outcome: {test_outcome}).")
+          if exit_file.exists():
+              code = int(exit_file.read_text().strip())
+              lines.append(f"- Original Frappe test command exit code: {code}.")
+              if code:
+                  issues.append(f"The Frappe test command exited with code {code}.")
+          elif test_outcome == "success":
+              issues.append("The Frappe test command exit-code record is missing.")
+
+          enabled = os.environ.get("CONDITION_RUNTIME_ENABLED") == "true"
+          benchmark_outcome = os.environ.get("BENCHMARK_STEP_OUTCOME", "unknown")
+          migrate_outcome = os.environ.get("MIGRATE_STEP_OUTCOME", "unknown")
+          bench_dir = root / "condition-runtime"
+          bench_exit = bench_dir / "benchmark.exitcode"
+          json_report = bench_dir / "canonical_condition_benchmark_results.json"
+          markdown_report = bench_dir / "condition-backend-comparison-benchmark.md"
+          lines.extend(["", "### Condition runtime benchmark", ""])
+          if not enabled:
+              lines.append("- Not run: condition-runtime files were not part of this change.")
+          elif migrate_outcome != "success":
+              lines.append("- Not run because the Frappe test site did not migrate successfully.")
+          elif benchmark_outcome != "success":
+              lines.append(f"- Benchmark step did not complete (step outcome: {benchmark_outcome}).")
+              issues.append("The condition benchmark step did not complete.")
+          else:
+              if bench_exit.exists():
+                  code = int(bench_exit.read_text().strip())
+                  lines.append(f"- Benchmark command exit code: {code}.")
+                  if code:
+                      issues.append(f"The condition benchmark exited with code {code}.")
+              else:
+                  issues.append("The condition benchmark exit-code record is missing.")
+              if not json_report.exists():
+                  lines.append("- JSON benchmark report was not produced.")
+                  issues.append("The JSON benchmark report is missing.")
+              else:
+                  try:
+                      payload = json.loads(json_report.read_text(encoding="utf-8"))
+                      correctness = payload.get("correctness_suite", {})
+                      passed = correctness.get("total_supported_correct", 0)
+                      supported = correctness.get("total_supported_scenarios", 0)
+                      lines.append(f"- Supported semantic scenarios: {passed}/{supported} correct.")
+                      env = payload.get("environment", {})
+                      lines.append(f"- Benchmark source commit: {env.get('benchmark_source_commit', 'unknown')}.")
+                      lines.append(f"- Working tree dirty: {env.get('is_working_tree_dirty', 'unknown')}.")
+                      if not correctness.get("all_supported_correct", False):
+                          issues.append("At least one supported benchmark scenario failed semantic correctness.")
+                      public_key = "Canonical Condition (evaluate_condition)"
+                      prepared_key = "Canonical Condition (Prepared Artifact Runtime)"
+                      scenarios = payload.get("steady_state_benchmark", {}).get("scenarios", [])
+                      lines.extend(["", "| Scenario | Public runtime (microseconds/op) | Prepared artifact (microseconds/op) |", "|---|---:|---:|"])
+                      for scenario in scenarios:
+                          sid = scenario.get("scenario_id", "unknown")
+                          metrics = scenario.get("candidate_metrics", {})
+                          public = metrics.get(public_key, {})
+                          prepared = metrics.get(prepared_key, {})
+                          if sid != "edge_case_has_changed" and not prepared.get("is_valid_measurement", False):
+                              issues.append(f"Prepared-artifact measurement invalid for scenario {sid}.")
+                          public_value = public.get("median_us_per_exec", "unsupported") if public.get("is_valid_measurement") else "unsupported"
+                          prepared_value = prepared.get("median_us_per_exec", "unsupported") if prepared.get("is_valid_measurement") else "unsupported"
+                          lines.append(f"| {sid} | {public_value} | {prepared_value} |")
+                      if markdown_report.exists():
+                          lines.extend(["", "Full Markdown report, raw JSON, and benchmark log are in the uploaded artifact."])
+                  except (json.JSONDecodeError, OSError, TypeError) as exc:
+                      lines.append(f"- Could not read benchmark JSON: {exc}")
+                      issues.append("The benchmark JSON report is invalid.")
+
+          if issues:
+              lines.extend(["", "### Problems detected", ""] + [f"- {issue}" for issue in issues])
+              (root / "ci-summary-failed").write_text("\n".join(issues) + "\n", encoding="utf-8")
+          else:
+              (root / "ci-summary-passed").write_text("All executed report checks passed.\n", encoding="utf-8")
+              lines.extend(["", "No report-detected test or benchmark failures."])
+          target = Path(os.environ["GITHUB_STEP_SUMMARY"])
+          target.write_text("\n".join(lines) + "\n", encoding="utf-8")
+          print("\n".join(lines))
+          PY
+
+      - name: Upload backend test and condition benchmark reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-condition-reports-${{ github.run_id }}
+          path: artifacts/ci-reports/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Fail job if tests or benchmark validation failed
+        if: always()
+        run: |
+          if [ -f "$GITHUB_WORKSPACE/artifacts/ci-reports/ci-summary-failed" ]; then
+            echo "Frappe tests or benchmark validation failed. See the step summary and uploaded backend-test-condition-reports artifact."
+            exit 1
+          fi
+
   tests_frappe_16_nested_set:
     needs: changes
     # Frappe 16 compatibility is an opt-in validation run, not a required PR/push check.
