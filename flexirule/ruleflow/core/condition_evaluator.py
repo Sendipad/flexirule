@@ -13,6 +13,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+from dataclasses import dataclass
 from datetime import date, datetime, time
 from decimal import Decimal, InvalidOperation
 from functools import lru_cache
@@ -38,6 +39,20 @@ from flexirule.ruleflow.core.flexvalue_contract import (
 
 EVALUATOR_CACHE_VERSION = 1
 MAX_CACHEABLE_CONDITION_BYTES = 65536
+_PREPARED_CONDITION_SEAL = object()
+
+
+@dataclass(frozen=True, slots=True)
+class _PreparedCanonicalCondition:
+	"""Opaque, validated artifact intended for one RuleEngine execution."""
+
+	plan: tuple
+	doctype: str | None
+	condition_digest: str
+	semantics_version: int
+	evaluator_version: int
+	resolver_fingerprint: str
+	_seal: object
 
 
 class _EvaluationContext(dict):
@@ -89,8 +104,8 @@ def _as_node(node: Any) -> dict:
 	return node
 
 
-def compile_condition(node: Any, *, doctype: str | None = None) -> tuple:
-	"""Validate and compile a canonical node into a reusable immutable execution plan."""
+def _canonicalize_condition(node: Any) -> tuple[dict, str, bytes, str, str]:
+	"""Validate the input encoding and return one canonical source identity."""
 	condition_node = _as_node(node)
 	try:
 		payload_json = json.dumps(
@@ -109,8 +124,24 @@ def compile_condition(node: Any, *, doctype: str | None = None) -> tuple:
 		raise ConditionValidationError(
 			"condition_payload_too_large", "$", "Condition payload exceeds the configured byte limit"
 		)
-	payload_digest = hashlib.sha256(payload_bytes).hexdigest()
-	registry_fingerprint = resolver_registry_fingerprint()
+	return (
+		condition_node,
+		payload_json,
+		payload_bytes,
+		hashlib.sha256(payload_bytes).hexdigest(),
+		resolver_registry_fingerprint(),
+	)
+
+
+def _get_compiled_plan(
+	payload_json: str,
+	payload_bytes: bytes,
+	payload_digest: str,
+	registry_fingerprint: str,
+	doctype: str | None,
+	*,
+	validated_fresh: bool,
+) -> tuple:
 	cache_key = (
 		payload_digest,
 		payload_json,
@@ -118,12 +149,57 @@ def compile_condition(node: Any, *, doctype: str | None = None) -> tuple:
 		EVALUATOR_CACHE_VERSION,
 		registry_fingerprint,
 		doctype or "",
+		validated_fresh,
 	)
 	# Do not retain unusually large source strings in the process-local LRU.
 	# These still get full validation and plan compilation, just without caching.
 	if len(payload_bytes) > MAX_CACHEABLE_CONDITION_BYTES:
 		return _compile_cached.__wrapped__(*cache_key)
 	return _compile_cached(*cache_key)
+
+
+def compile_condition(node: Any, *, doctype: str | None = None) -> tuple:
+	"""Validate and compile a canonical node into a reusable immutable execution plan."""
+	_, payload_json, payload_bytes, payload_digest, registry_fingerprint = _canonicalize_condition(node)
+	return _get_compiled_plan(
+		payload_json,
+		payload_bytes,
+		payload_digest,
+		registry_fingerprint,
+		doctype,
+		validated_fresh=False,
+	)
+
+
+def prepare_condition(node: Any, *, doctype: str | None = None) -> _PreparedCanonicalCondition:
+	"""Validate once and create an opaque plan artifact for repeated evaluation.
+
+	The condition is revalidated on every preparation, even when its structural plan
+	is cached, so a changed DocType schema cannot inherit an earlier validation result.
+	Prepared artifacts are in-process objects and must not be serialized or put in Redis.
+	"""
+	condition_node, payload_json, payload_bytes, payload_digest, registry_fingerprint = (
+		_canonicalize_condition(node)
+	)
+	# Deliberately validate against current DocType metadata before reusing any cached plan.
+	validate_condition_node(condition_node, doctype=doctype)
+	plan = _get_compiled_plan(
+		payload_json,
+		payload_bytes,
+		payload_digest,
+		registry_fingerprint,
+		doctype,
+		validated_fresh=True,
+	)
+	return _PreparedCanonicalCondition(
+		plan=plan,
+		doctype=doctype or None,
+		condition_digest=payload_digest,
+		semantics_version=CONDITION_SEMANTICS_VERSION,
+		evaluator_version=EVALUATOR_CACHE_VERSION,
+		resolver_fingerprint=registry_fingerprint,
+		_seal=_PREPARED_CONDITION_SEAL,
+	)
 
 
 @lru_cache(maxsize=512)
@@ -134,6 +210,7 @@ def _compile_cached(
 	cache_version: int,
 	registry_fingerprint: str,
 	doctype: str,
+	validated_fresh: bool,
 ) -> tuple:
 	# payload_digest is part of the cache identity by design. Keep payload_json too
 	# so a collision can never cause one condition to execute as another.
@@ -151,7 +228,8 @@ def _compile_cached(
 		node = json.loads(payload_json)
 	except Exception as exc:
 		raise ConditionValidationError("invalid_json", "$", "Condition JSON is malformed") from exc
-	validate_condition_node(node, doctype=doctype or None)
+	if not validated_fresh:
+		validate_condition_node(node, doctype=doctype or None)
 	return _compile_node(node, "$")
 
 
@@ -233,23 +311,32 @@ def _compile_value(value: dict, path: str) -> tuple:
 	)
 
 
-def evaluate_condition(
-	node: Any,
-	context: dict | None = None,
+def _context_doctype(context: dict | None, doctype: str | None = None) -> str | None:
+	"""Resolve the execution DocType from explicit, context, or document metadata."""
+	if doctype:
+		return doctype
+	if not isinstance(context, dict):
+		return None
+	context_doctype = context.get("doctype")
+	if context_doctype:
+		return context_doctype
+	doc = context.get("doc")
+	return doc.get("doctype") if isinstance(doc, dict) else getattr(doc, "doctype", None)
+
+
+def _evaluate_plan(
+	plan: tuple,
+	context: dict | None,
 	*,
 	doctype: str | None = None,
 	_evaluation_budget: dict[str, int] | None = None,
 ) -> bool:
-	"""Evaluate one canonical node. Validation/runtime errors remain typed exceptions."""
 	ctx = _EvaluationContext(
 		context or {},
 		_evaluation_budget if isinstance(_evaluation_budget, dict) else None,
 	)
-	effective_doctype = doctype or ctx.get("doctype")
-	if not effective_doctype:
-		doc = ctx.get("doc")
-		effective_doctype = doc.get("doctype") if isinstance(doc, dict) else getattr(doc, "doctype", None)
-	plan = compile_condition(node, doctype=effective_doctype)
+	if doctype:
+		ctx["doctype"] = doctype
 	try:
 		return bool(_evaluate_node(plan, ctx))
 	except (ConditionValidationError, ConditionEvaluationError):
@@ -260,6 +347,81 @@ def evaluate_condition(
 			plan[-1] if plan and isinstance(plan[-1], str) else "$",
 			"Canonical condition evaluation failed",
 		) from exc
+
+
+def evaluate_condition(
+	node: Any,
+	context: dict | None = None,
+	*,
+	doctype: str | None = None,
+	_evaluation_budget: dict[str, int] | None = None,
+) -> bool:
+	"""Evaluate one canonical node through the validating public entry point."""
+	effective_doctype = _context_doctype(context, doctype)
+	plan = compile_condition(node, doctype=effective_doctype)
+	return _evaluate_plan(
+		plan,
+		context,
+		doctype=effective_doctype,
+		_evaluation_budget=_evaluation_budget,
+	)
+
+
+def evaluate_prepared_condition(
+	prepared: Any,
+	context: dict | None = None,
+	*,
+	doctype: str | None = None,
+	_evaluation_budget: dict[str, int] | None = None,
+) -> bool:
+	"""Evaluate a trusted prepared artifact without re-serializing its source condition."""
+	if (
+		not isinstance(prepared, _PreparedCanonicalCondition)
+		or prepared._seal is not _PREPARED_CONDITION_SEAL
+	):
+		raise ConditionValidationError(
+			"untrusted_prepared_condition",
+			"$",
+			"Prepared conditions must be created by prepare_condition",
+		)
+	if (
+		prepared.semantics_version != CONDITION_SEMANTICS_VERSION
+		or prepared.evaluator_version != EVALUATOR_CACHE_VERSION
+	):
+		raise ConditionValidationError(
+			"condition_semantics_version", "$", "Prepared condition uses an unsupported evaluator version"
+		)
+	if prepared.resolver_fingerprint != resolver_registry_fingerprint():
+		raise ConditionValidationError(
+			"condition_resolver_registry_changed",
+			"$",
+			"Resolver registry changed after this condition was prepared",
+		)
+	context_doctype = _context_doctype(context)
+	if doctype and context_doctype and doctype != context_doctype:
+		raise ConditionValidationError(
+			"condition_doctype_mismatch", "$", "Explicit DocType disagrees with the execution context"
+		)
+	effective_doctype = doctype or context_doctype
+	if prepared.doctype is None:
+		if effective_doctype:
+			raise ConditionValidationError(
+				"condition_doctype_unvalidated",
+				"$",
+				"Prepare this condition with the execution DocType before evaluating it",
+			)
+	elif effective_doctype and prepared.doctype != effective_doctype:
+		raise ConditionValidationError(
+			"condition_doctype_mismatch", "$", "Prepared condition belongs to a different DocType"
+		)
+	else:
+		effective_doctype = prepared.doctype
+	return _evaluate_plan(
+		prepared.plan,
+		context,
+		doctype=effective_doctype,
+		_evaluation_budget=_evaluation_budget,
+	)
 
 
 def consume_collection_row_visit(budget: dict[str, int], path: str) -> None:
