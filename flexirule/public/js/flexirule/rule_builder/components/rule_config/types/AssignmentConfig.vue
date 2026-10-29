@@ -235,7 +235,7 @@ import { computed, ref, watch, onMounted, onBeforeUnmount, nextTick } from "vue"
 import GenericGrid from "../../../controls/GenericGrid.vue";
 import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
 import FlexValueControl from "../../../controls/FlexValueControl.vue";
-import ConditionBuilder from "../../tree_builder/ConditionBuilder.vue";
+import ConditionBuilder from "../../condition_builder/ConditionBuilder.vue";
 import { useRuleStore } from "../../../stores/useRuleStore";
 import { useMetaStore } from "../../../stores/useMetaStore";
 import { validateConditions } from "../../../utils/condition_payload";
