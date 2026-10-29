@@ -123,7 +123,7 @@ async function updateMenuPosition() {
 						elements.floating.style.maxHeight = `${Math.max(
 							0,
 						Math.min(280, availableHeight)
-						)}px`;
+							)}px`;
 					},
 				}),
 			],
@@ -143,7 +143,8 @@ async function updateMenuPosition() {
 		const viewportHeight = document.documentElement?.clientHeight || window.innerHeight;
 		const menuWidth = floating.offsetWidth || 160;
 		const menuHeight = floating.offsetHeight || 40;
-		const requestedLeft = props.align === "left" ? anchorRect.left : anchorRect.right - menuWidth;
+		const requestedLeft =
+			props.align === "left" ? anchorRect.left : anchorRect.right - menuWidth;
 		const maxLeft = Math.max(8, viewportWidth - menuWidth - 8);
 		const maxTop = Math.max(8, viewportHeight - menuHeight - 8);
 

@@ -164,16 +164,16 @@ function getLeafState(node) {
 	const isNew = api.isTransientNew?.(node.id)
 		? true
 		: typeof props.isLeafNew === "function"
-			? Boolean(props.isLeafNew(node))
-			: typeof api.isLeafNew?.value === "function"
-				? Boolean(api.isLeafNew.value(node))
-				: Boolean(node?.isNew);
+		? Boolean(props.isLeafNew(node))
+		: typeof api.isLeafNew?.value === "function"
+		? Boolean(api.isLeafNew.value(node))
+		: Boolean(node?.isNew);
 	const isValid =
 		typeof props.isLeafValid === "function"
 			? Boolean(props.isLeafValid(node))
 			: typeof api.isLeafValid?.value === "function"
-			? Boolean(api.isLeafValid.value(node))
-			: node?.isValid !== false;
+		? Boolean(api.isLeafValid.value(node))
+		: node?.isValid !== false;
 	return { isNew, isValid };
 }
 
@@ -226,14 +226,13 @@ function handleTreeKeydown(event) {
 		? treeItems.indexOf(nodeElement)
 		: treeItems.findIndex(
 				(element) => element.getAttribute("data-node-id") === focusedNodeId.value
-			);
+		  );
 	let nextIndex = null;
 	if (event.key === "ArrowDown") {
 		nextIndex = currentIndex < 0 ? 0 : Math.min(treeItems.length - 1, currentIndex + 1);
 	} else if (event.key === "ArrowUp") {
 		nextIndex = currentIndex < 0 ? treeItems.length - 1 : Math.max(0, currentIndex - 1);
-	}
-	else if (event.key === "Home") nextIndex = 0;
+	} else if (event.key === "Home") nextIndex = 0;
 	else if (event.key === "End") nextIndex = treeItems.length - 1;
 	else if (event.key === " " || event.key === "Spacebar") {
 		const activeId = nodeId || focusedNodeId.value || selectedNodeId.value;
