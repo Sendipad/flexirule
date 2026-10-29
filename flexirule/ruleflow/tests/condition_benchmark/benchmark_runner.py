@@ -379,21 +379,55 @@ class BenchmarkRunner:
 
 				prep = p_info["prepared_warm"]
 
-				# Warmup execution
-				for _ in range(self.warmup_iterations):
-					cand.evaluate(prep, sc.matching_doc)
+				# Warmup execution & validation
+				warmup_error = None
+				for i in range(self.warmup_iterations):
+					doc = sc.matching_doc if i % 2 == 0 else sc.non_matching_doc
+					expected = sc.expected_matching_result if i % 2 == 0 else sc.expected_non_matching_result
+					res = cand.evaluate(prep, doc)
+					if res.error:
+						warmup_error = f"Warmup evaluation error: {res.error}"
+						break
+					if expected is not None and res.result != expected and sc.scenario_id != "edge_case_has_changed":
+						warmup_error = f"Warmup produced incorrect result: {res.result} != {expected}"
+						break
+
+				if warmup_error:
+					candidate_metrics[name] = {
+						"is_valid_measurement": False,
+						"reason": warmup_error,
+					}
+					continue
 
 				batch_per_exec_us: list[float] = []
+				batch_error = None
+
 				for _batch_idx in range(self.num_batches):
 					# Rotate doc evaluation order matching vs non-matching to avoid branch predictor bias
 					start_time = time.perf_counter()
 					for i in range(self.iterations_per_batch):
 						doc = sc.matching_doc if i % 2 == 0 else sc.non_matching_doc
-						cand.evaluate(prep, doc)
-					elapsed_seconds = time.perf_counter() - start_time
+						expected = sc.expected_matching_result if i % 2 == 0 else sc.expected_non_matching_result
+						res = cand.evaluate(prep, doc)
+						if res.error:
+							batch_error = f"Batch evaluation error: {res.error}"
+							break
+						if expected is not None and res.result != expected and sc.scenario_id != "edge_case_has_changed":
+							batch_error = f"Batch evaluation produced incorrect result: {res.result} != {expected}"
+							break
+					if batch_error:
+						break
 
+					elapsed_seconds = time.perf_counter() - start_time
 					us_per_exec = (elapsed_seconds / self.iterations_per_batch) * 1_000_000.0
 					batch_per_exec_us.append(us_per_exec)
+
+				if batch_error:
+					candidate_metrics[name] = {
+						"is_valid_measurement": False,
+						"reason": batch_error,
+					}
+					continue
 
 				median_us = statistics.median(batch_per_exec_us)
 				stdev_us = statistics.stdev(batch_per_exec_us) if len(batch_per_exec_us) > 1 else 0.0
@@ -464,14 +498,13 @@ class BenchmarkRunner:
 					payload = canonical_payload if "Canonical" in name else legacy_payload
 
 					batch_failed = False
+					batch_fail_reason = ""
+
 					for _ in range(5):
 						# Clear LRU cache to include genuine cold preparation
 						cache_cleared = _clear_cache_safely()
 						if not cache_cleared:
-							cand_counts[name] = {
-								"is_valid": False,
-								"reason": "INVALID: Cache isolation could not be established for amortized run.",
-							}
+							batch_fail_reason = "INVALID: Cache isolation could not be established for amortized run."
 							batch_failed = True
 							break
 
@@ -480,12 +513,27 @@ class BenchmarkRunner:
 
 						for i in range(count):
 							doc = sc.matching_doc if i % 2 == 0 else sc.non_matching_doc
-							cand.evaluate(prep, doc)
+							expected = sc.expected_matching_result if i % 2 == 0 else sc.expected_non_matching_result
+							res = cand.evaluate(prep, doc)
+							if res.error:
+								batch_fail_reason = f"Amortized evaluation error: {res.error}"
+								batch_failed = True
+								break
+							if expected is not None and res.result != expected and sc.scenario_id != "edge_case_has_changed":
+								batch_fail_reason = f"Amortized evaluation produced incorrect result: {res.result} != {expected}"
+								batch_failed = True
+								break
+						if batch_failed:
+							break
 
 						elapsed_ms = (time.perf_counter() - start_time) * 1000.0
 						batch_total_ms.append(elapsed_ms)
 
 					if batch_failed:
+						cand_counts[name] = {
+							"is_valid": False,
+							"reason": batch_fail_reason,
+						}
 						continue
 
 					median_tot_ms = statistics.median(batch_total_ms)
@@ -620,16 +668,14 @@ class BenchmarkRunner:
 		md_lines.append("---")
 		md_lines.append("")
 
-		# Section 1: Five-Candidate Overview
+		# Section 1: Candidate Evaluators Overview
 		md_lines.append("## 1. Candidate Evaluators Evaluated")
 		md_lines.append("")
+		md_lines.append("### Core Production Approaches")
 		md_lines.append("| Candidate | Paradigm | Preparation Mechanism | Execution Path |")
 		md_lines.append("|---|---|---|---|")
 		md_lines.append(
 			"| **Approach A (`safe_eval`)** | Legacy Dynamic Eval | Python expr string | `frappe.safe_eval` (RestrictedPython parse on every call) |"
-		)
-		md_lines.append(
-			"| **Approach A Exp (`code_obj`)** | Diagnostic Compiled | Pre-compiled bytecode | `eval(code_object)` |"
 		)
 		md_lines.append(
 			"| **Approach B (`plan`)** | Normalized AST Plan | Pre-compiled tuple AST | Direct AST recursive interpreter |"
@@ -640,8 +686,15 @@ class BenchmarkRunner:
 		md_lines.append(
 			"| **Canonical (`evaluate_condition`)** | Public PR #469 Runtime | LRU-cached AST compilation | Public API with context normalization & cache lookup |"
 		)
+		md_lines.append("")
+		md_lines.append("### Internal Diagnostic Baselines")
+		md_lines.append("| Candidate | Purpose | Preparation Mechanism | Execution Path |")
+		md_lines.append("|---|---|---|---|")
 		md_lines.append(
-			"| **Canonical (`Prepared Plan`)** | Diagnostic PR #469 Plan | Direct compiled AST plan | Direct internal `_evaluate_node` execution |"
+			"| **Approach A Exp (`code_obj`)** | Isolated Bytecode Baseline | Pre-compiled bytecode | `eval(code_object)` |"
+		)
+		md_lines.append(
+			"| **Canonical (`Prepared Plan`)** | Isolated Plan Diagnostic | Direct compiled AST plan | Direct internal `_evaluate_node` execution |"
 		)
 		md_lines.append("")
 		md_lines.append("---")
@@ -681,16 +734,16 @@ class BenchmarkRunner:
 		md_lines.append("## 3. Steady-State Execution Latency (Microseconds per Operation)")
 		md_lines.append("")
 		md_lines.append(
-			"| Scenario ID | Tier | Approach A (`safe_eval`) | Approach A Exp (`code_obj`) | Approach B (`plan`) | Approach C (`json_tree`) | Canonical Runtime (`evaluate_condition`) | Canonical Diagnostic (`Plan`) |"
+			"| Scenario ID | Tier | Approach A (`safe_eval`) | Approach B (`plan`) | Approach C (`json_tree`) | Canonical Runtime (`evaluate_condition`) | *Diagnostic: A Exp (`code_obj`)* | *Diagnostic: Canonical Plan* |"
 		)
 		md_lines.append("|---|---|---|---|---|---|---|---|")
 
 		cand_names = [
 			"Approach A (frappe.safe_eval)",
-			"Approach A (Experimental Restricted Code Object)",
-			"Approach B (Normalized AST Execution Plan)",
-			"Approach C (Direct JSON Condition Evaluator)",
+			"Approach B (Normalized Execution Plan)",
+			"Approach C (Direct JSON Tree Evaluator)",
 			"Canonical Condition (evaluate_condition)",
+			"Approach A (Experimental Restricted Code Object)",
 			"Canonical Condition (Prepared Plan Diagnostic)",
 		]
 
@@ -744,7 +797,7 @@ class BenchmarkRunner:
 			"1. **Cold Prep Isolation:** All LRU caches (`clear_condition_plan_cache()`) are explicitly cleared prior to cold preparation measurements. If cache clearing fails, cold preparation is marked invalid rather than silently proceeding."
 		)
 		md_lines.append(
-			"2. **Steady-State Execution Latency:** Timed across 5 batches of 10,000 evaluations using alternating matching and non-matching document instances to prevent CPU branch prediction bias."
+			"2. **Steady-State & Result Validation:** Timed across 5 batches of 10,000 evaluations using alternating matching and non-matching document instances to prevent CPU branch prediction bias. Evaluation results and errors are strictly validated during benchmark loops."
 		)
 		md_lines.append(
 			"3. **Fair Comparison Scope:** Semantics are compared only across shared supported operators. Operators not supported by a candidate (e.g., `has_changed` in canonical contract) are explicitly marked as `UNSUPPORTED` or `DEPRECATED` rather than counted as failures."
