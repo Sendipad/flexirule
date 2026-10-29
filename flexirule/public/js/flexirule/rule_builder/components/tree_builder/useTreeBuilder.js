@@ -161,19 +161,11 @@ export function useTreeBuilder({
 	}
 
 	function moveNodeUp(id) {
-		const parent = findParent(root, id);
-		if (!parent) return false;
-		const index = parent.children.findIndex((child) => child.id === id);
-		if (index <= 0) return false;
-		return moveNode(id, parent.id, index - 1);
+		return mutate((tree) => commands.moveNodeUp(tree, id));
 	}
 
 	function moveNodeDown(id) {
-		const parent = findParent(root, id);
-		if (!parent) return false;
-		const index = parent.children.findIndex((child) => child.id === id);
-		if (index < 0 || index >= parent.children.length - 1) return false;
-		return moveNode(id, parent.id, index + 2);
+		return mutate((tree) => commands.moveNodeDown(tree, id));
 	}
 
 	function setOperator(id, operator) {

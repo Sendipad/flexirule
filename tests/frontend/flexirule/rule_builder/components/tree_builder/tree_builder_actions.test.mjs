@@ -1,48 +1,44 @@
 import assert from "node:assert/strict";
-import { computed } from "vue";
+import { createGroup } from "../../../../../../flexirule/public/js/flexirule/rule_builder/components/tree_builder/tree_builder_utils.mjs";
 import {
-	createGroup,
-	createLeaf,
-} from "../../../../../../flexirule/public/js/flexirule/rule_builder/components/tree_builder/tree_builder_utils.mjs";
-import {
-	addGroup,
 	addLeaf,
+	moveNodeDown,
+	moveNodeUp,
 } from "../../../../../../flexirule/public/js/flexirule/rule_builder/components/tree_builder/tree_builder_commands.mjs";
-import { useTreeBuilder } from "../../../../../../flexirule/public/js/flexirule/rule_builder/components/tree_builder/useTreeBuilder.js";
+import { getInlinePresentation } from "../../../../../../flexirule/public/js/flexirule/rule_builder/controls/inline_presentation_policy.mjs";
 
 // Global translation shim for node test runner environment
 if (typeof globalThis.__ !== "function") {
 	globalThis.__ = (str) => str;
 }
 
-// 1. Test moveNodeUp and moveNodeDown in useTreeBuilder
+// 1. Test moveNodeUp and moveNodeDown commands
 const root = createGroup("and", []);
 const leaf1 = addLeaf(root, root.id, { field: "a", operator: "=", value: 1 });
 const leaf2 = addLeaf(root, root.id, { field: "b", operator: "=", value: 2 });
 const leaf3 = addLeaf(root, root.id, { field: "c", operator: "=", value: 3 });
 
-const builder = useTreeBuilder({ modelValue: computed(() => root) });
-
 // Moving leaf1 up when it's at index 0 should fail
-assert.equal(builder.moveNodeUp(leaf1.id), false);
+assert.equal(moveNodeUp(root, leaf1.id), false);
 
-// Moving leaf2 up should swap leaf1 and leaf2
-assert.equal(builder.moveNodeUp(leaf2.id), true);
-assert.equal(builder.root.children[0].id, leaf2.id);
-assert.equal(builder.root.children[1].id, leaf1.id);
+// Moving leaf2 up should swap leaf1 and leaf2 -> [leaf2, leaf1, leaf3]
+assert.equal(moveNodeUp(root, leaf2.id), true);
+assert.equal(root.children[0].id, leaf2.id);
+assert.equal(root.children[1].id, leaf1.id);
 
-// Moving leaf3 down when it's at the end should fail
-assert.equal(builder.moveNodeDown(leaf3.id), false);
+// Moving leaf3 down when it's at index 2 (the end) should fail
+assert.equal(moveNodeDown(root, leaf3.id), false);
 
-// Moving leaf1 down should move it to index 2
-assert.equal(builder.moveNodeDown(leaf1.id), true);
-assert.equal(builder.root.children[2].id, leaf1.id);
+// Moving leaf1 down should move it from index 1 to index 2 -> [leaf2, leaf3, leaf1]
+assert.equal(moveNodeDown(root, leaf1.id), true);
+assert.equal(root.children[2].id, leaf1.id);
+
+// Moving leaf1 down now that it's at the end should fail
+assert.equal(moveNodeDown(root, leaf1.id), false);
 
 console.log("tree builder moveNodeUp and moveNodeDown unit tests passed");
 
 // 2. Test GenericGrid row action menu builder model logic
-import { getInlinePresentation } from "../../../../../../flexirule/public/js/flexirule/rule_builder/controls/inline_presentation_policy.mjs";
-
 function mockGetRowMenuActions(entry, totalRows, options = {}) {
 	const {
 		readOnly = false,
