@@ -273,6 +273,9 @@ class RuleEngine:
 
 		self.execution_log = []
 		self.cache = {}
+		# Prepared canonical artifacts are bound to this RuleEngine execution only.
+		# They are never serialized or shared through the process/Redis action-plan caches.
+		self._prepared_condition_cache = {}
 		self.execution_id = self.context.get("execution_id")
 		self.last_execution_payload = None
 		self.last_log_enqueued = False
@@ -281,6 +284,53 @@ class RuleEngine:
 		self.action_map_by_id = {a.action_id: a for a in self.actions if a.action_id}
 		self.action_map_by_label = {a.action_label: a for a in self.actions}
 		self.action_map_by_name = {a.name: a for a in self.actions}
+
+	@staticmethod
+	def _condition_source_signature(value):
+		"""Snapshot a condition source for request-local cache invalidation."""
+		if value is None or isinstance(value, str | bytes | int | float | bool):
+			return value
+		try:
+			return json.dumps(
+				value, sort_keys=True, ensure_ascii=False, separators=(",", ":"), allow_nan=False
+			)
+		except (TypeError, ValueError, RecursionError):
+			return ("object_identity", id(value))
+
+	def _get_condition_payload_and_prepared(self, action):
+		"""Return cached condition classification and a trusted artifact for this execution.
+
+		The cache is engine-instance scoped, so a new RuleEngine revalidates conditions against
+		current DocType metadata. Raw config signatures invalidate the entry if the action changes.
+		"""
+		from flexirule.ruleflow.core.condition_evaluator import prepare_condition
+		from flexirule.ruleflow.core.condition_payload import (
+			detect_canonical_condition_payload,
+			get_condition_payload,
+		)
+		from flexirule.ruleflow.core.flexvalue_contract import resolver_registry_fingerprint
+
+		action_key = str(getattr(action, "name", None) or getattr(action, "action_id", None) or id(action))
+		config_signature = self._condition_source_signature(getattr(action, "config", None))
+		legacy_signature = self._condition_source_signature(getattr(action, "condition_json", None))
+		doctype = getattr(self.rule, "document_type", None)
+		registry_signature = resolver_registry_fingerprint()
+		cache_key = (config_signature, legacy_signature, doctype, registry_signature)
+		cached = self._prepared_condition_cache.get(action_key)
+		if cached and cached[0] == cache_key:
+			return cached[1], cached[2], cached[3], cached[4]
+
+		payload = get_condition_payload(action)
+		is_canonical, canonical_node = detect_canonical_condition_payload(payload)
+		prepared = prepare_condition(canonical_node, doctype=doctype) if is_canonical else None
+		self._prepared_condition_cache[action_key] = (
+			cache_key,
+			payload,
+			is_canonical,
+			canonical_node,
+			prepared,
+		)
+		return payload, is_canonical, canonical_node, prepared
 
 	@staticmethod
 	def _get_action_config(action):
