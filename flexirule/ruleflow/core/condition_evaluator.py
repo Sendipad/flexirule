@@ -188,8 +188,14 @@ def prepare_condition(node: Any, *, doctype: str | None = None) -> _PreparedCano
 	condition_node, payload_json, payload_bytes, payload_digest, registry_fingerprint = (
 		_canonicalize_condition(node)
 	)
-	# Deliberately validate against current DocType metadata before reusing any cached plan.
-	validate_condition_node(condition_node, doctype=doctype)
+	# Validate the exact snapshot that was digested and will be compiled; do not validate
+	# a caller-owned mutable dictionary while compiling a separately serialized snapshot.
+	try:
+		validated_node = json.loads(payload_json)
+	except Exception as exc:
+		raise ConditionValidationError("invalid_json", "$", "Condition JSON is malformed") from exc
+	# Revalidate against current DocType metadata before reusing any cached plan.
+	validate_condition_node(validated_node, doctype=doctype)
 	plan = _get_compiled_plan(
 		payload_json,
 		payload_bytes,
