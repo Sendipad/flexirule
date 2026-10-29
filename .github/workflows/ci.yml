@@ -312,6 +312,7 @@ jobs:
           TEST_STEP_OUTCOME: ${{ steps.run_tests.outcome }}
           BENCHMARK_STEP_OUTCOME: ${{ steps.condition_benchmark.outcome }}
           MIGRATE_STEP_OUTCOME: ${{ steps.migrate_test_site.outcome }}
+          EXPECTED_BENCHMARK_COMMIT: ${{ github.sha }}
         run: |
           set -euo pipefail
           mkdir -p "$GITHUB_WORKSPACE/artifacts/ci-reports"
@@ -362,6 +363,8 @@ jobs:
               lines.append("- JUnit XML was not produced.")
               if test_outcome != "success":
                   issues.append(f"The Frappe test command did not complete (step outcome: {test_outcome}).")
+              else:
+                  issues.append("The Frappe test command completed without producing the configured JUnit XML report.")
           if exit_file.exists():
               code = int(exit_file.read_text().strip())
               lines.append(f"- Original Frappe test command exit code: {code}.")
@@ -404,8 +407,16 @@ jobs:
                       supported = correctness.get("total_supported_scenarios", 0)
                       lines.append(f"- Supported semantic scenarios: {passed}/{supported} correct.")
                       env = payload.get("environment", {})
-                      lines.append(f"- Benchmark source commit: {env.get('benchmark_source_commit', 'unknown')}.")
-                      lines.append(f"- Working tree dirty: {env.get('is_working_tree_dirty', 'unknown')}.")
+                      source_commit = env.get("benchmark_source_commit", "unknown")
+                      expected_commit = os.environ.get("EXPECTED_BENCHMARK_COMMIT", "")
+                      dirty = bool(env.get("is_working_tree_dirty", True))
+                      lines.append(f"- Benchmark source commit: {source_commit}.")
+                      lines.append(f"- Expected workflow commit: {expected_commit}.")
+                      lines.append(f"- Working tree dirty: {dirty}.")
+                      if expected_commit and source_commit != expected_commit:
+                          issues.append("Benchmark provenance commit does not match the workflow head SHA.")
+                      if dirty:
+                          issues.append("Benchmark ran with a dirty working tree; its timing report is not accepted.")
                       if not correctness.get("all_supported_correct", False):
                           issues.append("At least one supported benchmark scenario failed semantic correctness.")
                       public_key = "Canonical Condition (evaluate_condition)"
