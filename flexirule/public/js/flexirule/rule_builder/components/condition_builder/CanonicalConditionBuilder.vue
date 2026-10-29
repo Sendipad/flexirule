@@ -1,10 +1,16 @@
 <template>
 	<div class="canonical-condition-builder">
 		<!-- Contract Load Error Alert -->
-		<div v-if="contractError" class="alert alert-danger d-flex align-items-center justify-content-between p-2 mb-2">
+		<div
+			v-if="contractError"
+			class="alert alert-danger d-flex align-items-center justify-content-between p-2 mb-2"
+		>
 			<div>
 				<i class="fa fa-exclamation-triangle mr-2"></i>
-				<span>{{ __("Failed to load condition contract from server: ") }} {{ contractError }}</span>
+				<span
+					>{{ __("Failed to load condition contract from server: ") }}
+					{{ contractError }}</span
+				>
 			</div>
 			<button class="btn btn-sm btn-outline-danger" @click="loadContract(true)">
 				<i class="fa fa-refresh mr-1"></i> {{ __("Retry") }}
@@ -41,10 +47,7 @@
 
 				<!-- Custom Leaf Summary Slot -->
 				<template #leaf-summary="{ domain }">
-					<ConditionLeafSummary
-						:domain="domain"
-						:operators="contractOperators"
-					/>
+					<ConditionLeafSummary :domain="domain" :operators="contractOperators" />
 				</template>
 
 				<!-- Custom Collection Group Slot (if TreeBuilder provides collection slot) -->

@@ -13,18 +13,18 @@ const LEGACY_OPERATOR_MAP = {
 	">=": "gte",
 	"<": "lt",
 	"<=": "lte",
-	"in": "in",
+	in: "in",
 	"not in": "not_in",
-	"contains": "contains",
+	contains: "contains",
 	"not contains": "not_contains",
-	"starts_with": "starts_with",
-	"ends_with": "ends_with",
-	"is_empty": "is_empty",
-	"is_not_empty": "is_not_empty",
-	"is_set": "is_set",
-	"is_not_set": "is_not_set",
-	"is_null": "is_null",
-	"is_not_null": "is_not_null",
+	starts_with: "starts_with",
+	ends_with: "ends_with",
+	is_empty: "is_empty",
+	is_not_empty: "is_not_empty",
+	is_set: "is_set",
+	is_not_set: "is_not_set",
+	is_null: "is_null",
+	is_not_null: "is_not_null",
 };
 
 /**
@@ -111,8 +111,8 @@ export function normalizeConditionNode(node) {
 		node.right !== undefined
 			? normalizeFlexValue(node.right)
 			: node.value !== undefined
-			? normalizeFlexValue(node.value)
-			: null;
+				? normalizeFlexValue(node.value)
+				: null;
 
 	return {
 		type: "comparison",

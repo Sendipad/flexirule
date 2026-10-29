@@ -81,7 +81,9 @@ const props = defineProps({
 
 const emit = defineEmits(["update:domain"]);
 
-const localDomain = computed(() => props.domain || { type: "comparison", op: "eq", left: null, right: null });
+const localDomain = computed(
+	() => props.domain || { type: "comparison", op: "eq", left: null, right: null }
+);
 
 const operatorOptions = computed(() => {
 	if (props.operators && props.operators.length > 0) {

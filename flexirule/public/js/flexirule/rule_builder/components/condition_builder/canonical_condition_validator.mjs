@@ -94,7 +94,10 @@ export function validateConditionTree(uiNode, options = {}) {
 			}
 			children.forEach((child, idx) => walk(child, `${path}.children[${idx}]`));
 		} else if (node.type === "collection") {
-			if (!node.collection || (node.collection.value_type === "variable" && !node.collection.path)) {
+			if (
+				!node.collection ||
+				(node.collection.value_type === "variable" && !node.collection.path)
+			) {
 				errors.push("Collection path is required for collection predicate.");
 			}
 			const children = node.children || [];

@@ -2,7 +2,9 @@
 	<div class="condition-leaf-summary">
 		<span class="operand-summary left">{{ formatOperand(domain.left) }}</span>
 		<span class="operator-badge badge badge-secondary">{{ operatorLabel }}</span>
-		<span v-if="requiresRightOperand" class="operand-summary right">{{ formatOperand(domain.right) }}</span>
+		<span v-if="requiresRightOperand" class="operand-summary right">{{
+			formatOperand(domain.right)
+		}}</span>
 	</div>
 </template>
 

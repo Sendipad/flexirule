@@ -60,7 +60,9 @@ test("hydrateToTreeBuilder & serializeToCanonicalAst roundtrip preserves canonic
 	};
 
 	// Hydrate to TreeBuilder UI state
-	global.frappe = { utils: { get_random: () => "ui_id_" + Math.random().toString(36).substring(2) } };
+	global.frappe = {
+		utils: { get_random: () => "ui_id_" + Math.random().toString(36).substring(2) },
+	};
 	const uiTree = hydrateToTreeBuilder(canonicalAst);
 
 	// Verify ephemeral UI ID is attached

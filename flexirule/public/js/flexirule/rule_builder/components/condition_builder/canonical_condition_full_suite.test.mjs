@@ -84,7 +84,10 @@ test("Adapter: Legacy payload normalization", () => {
 	assert.equal(normalized.type, "group");
 	assert.equal(normalized.op, "and");
 	assert.equal(normalized.children[0].op, "gt");
-	assert.deepEqual(normalized.children[0].left, { value_type: "variable", path: "doc.grand_total" });
+	assert.deepEqual(normalized.children[0].left, {
+		value_type: "variable",
+		path: "doc.grand_total",
+	});
 	assert.equal(normalized.children[1].op, "ne");
 });
 

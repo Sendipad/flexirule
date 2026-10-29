@@ -38,7 +38,13 @@
 			/>
 		</div>
 
-		<div v-if="localConditions && (localConditions.children?.length || localConditions.conditions?.length)" class="condition-step-footer mt-3">
+		<div
+			v-if="
+				localConditions &&
+				(localConditions.children?.length || localConditions.conditions?.length)
+			"
+			class="condition-step-footer mt-3"
+		>
 			<div class="alert alert-info py-2 px-3 small mb-0">
 				<i class="fa fa-info-circle mr-1"></i>
 				<template v-if="isEntryNode">
