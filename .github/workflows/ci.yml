@@ -199,6 +199,14 @@ jobs:
           else
             echo "MariaDB client is already available; skipping package installation."
           fi
+          cat <<'EOF' | sudo tee /etc/mysql/conf.d/disable-ssl.cnf ~/.my.cnf >/dev/null
+[client]
+ssl=0
+[mysql]
+ssl=0
+[mariadb]
+ssl=0
+EOF
 
       - name: Initialize Bench and database
         run: |
