@@ -381,7 +381,11 @@ class TestCanonicalConditionEvaluator(unittest.TestCase):
 		self.assertTrue(result)
 		self.assertEqual(next_id, "yes")
 
-		result, next_id = handler.execute(action, {"doc": {"value": 4}}, engine)
+		with patch(
+			"flexirule.ruleflow.core.engine.json.dumps",
+			side_effect=AssertionError("prepared condition cache hit must not serialize its source"),
+		):
+			result, next_id = handler.execute(action, {"doc": {"value": 4}}, engine)
 		second_artifact = engine._prepared_condition_cache["action-1"][4]
 		self.assertIs(first_artifact, second_artifact)
 		self.assertFalse(result)
