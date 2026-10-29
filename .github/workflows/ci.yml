@@ -286,7 +286,7 @@ jobs:
 
       - name: Run condition runtime benchmark
         id: condition_benchmark
-        if: ${{ always() && needs.changes.outputs.condition_runtime == 'true' && steps.migrate_test_site.outcome == 'success' }}
+        if: ${{ !cancelled() && needs.changes.outputs.condition_runtime == 'true' && steps.migrate_test_site.outcome == 'success' }}
         working-directory: ${{ github.workspace }}
         env:
           CI: "Yes"
