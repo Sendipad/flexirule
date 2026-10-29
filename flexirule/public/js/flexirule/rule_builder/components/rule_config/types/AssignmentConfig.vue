@@ -86,7 +86,8 @@
 									'is-active': hasWhenCondition(assignment),
 									'is-default': !hasWhenCondition(assignment),
 									'is-invalid':
-										showValidation && getWhenConditionStatus(assignment).isInvalid,
+										showValidation &&
+										getWhenConditionStatus(assignment).isInvalid,
 								}"
 								:disabled="isReadOnly"
 								@click="openWhenConditionEditor(index)"
@@ -197,7 +198,9 @@
 						<h6 class="mb-1 fw-bold text-muted">{{ __("No Assignments Yet") }}</h6>
 						<p class="small text-muted mb-0">
 							{{
-								__("Add an assignment to start mutating document fields or variables.")
+								__(
+									"Add an assignment to start mutating document fields or variables."
+								)
 							}}
 						</p>
 					</div>
@@ -774,7 +777,10 @@ defineExpose({ validate });
 .assignment-grid-header {
 	display: grid;
 	grid-template-columns:
-		minmax(100px, 0.7fr) minmax(140px, 1.1fr) minmax(100px, 0.7fr) minmax(240px, 2.5fr);
+		minmax(100px, 0.7fr) minmax(140px, 1.1fr) minmax(100px, 0.7fr) minmax(
+			240px,
+			2.5fr
+		);
 	gap: var(--spacing-md);
 	align-items: center;
 	padding: var(--spacing-xs) 38px var(--spacing-xs) 38px;
@@ -790,7 +796,10 @@ defineExpose({ validate });
 .assignment-grid-row {
 	display: grid;
 	grid-template-columns:
-		minmax(100px, 0.7fr) minmax(140px, 1.1fr) minmax(100px, 0.7fr) minmax(240px, 2.5fr);
+		minmax(100px, 0.7fr) minmax(140px, 1.1fr) minmax(100px, 0.7fr) minmax(
+			240px,
+			2.5fr
+		);
 	gap: var(--spacing-md);
 	align-items: center;
 	width: 100%;
