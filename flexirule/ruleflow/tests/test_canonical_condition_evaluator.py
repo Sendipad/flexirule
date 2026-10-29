@@ -6,6 +6,7 @@
 import json
 import unittest
 from decimal import Decimal
+from types import SimpleNamespace
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
@@ -17,6 +18,8 @@ from flexirule.ruleflow.core.condition_evaluator import (
 	compile_condition,
 	condition_plan_cache_info,
 	evaluate_condition,
+	evaluate_prepared_condition,
+	prepare_condition,
 )
 from flexirule.ruleflow.core.value_resolver import CollectionResolver
 
@@ -273,6 +276,104 @@ class TestCanonicalConditionEvaluator(unittest.TestCase):
 	def test_collection_exact_limit_is_allowed(self):
 		base = self.fixtures["valid"]["root_collection_any"]
 		self.assertTrue(evaluate_condition(base, {"doc": {"items": [{"amount": 3}] * 10000}}))
+
+	def test_prepared_artifact_reuses_plan_and_keeps_runtime_context_live(self):
+		node = compare("eq", variable("doc", "value"), static("integer", 5))
+		prepared = prepare_condition(node)
+		self.assertTrue(evaluate_prepared_condition(prepared, {"doc": {"value": 5}}))
+		self.assertFalse(evaluate_prepared_condition(prepared, {"doc": {"value": 4}}))
+
+		# Re-preparation still validates the source, while reusing the immutable plan.
+		hits_before = condition_plan_cache_info().hits
+		prepared_again = prepare_condition(node)
+		self.assertIs(prepared.plan, prepared_again.plan)
+		self.assertGreaterEqual(condition_plan_cache_info().hits, hits_before + 1)
+
+	def test_prepared_artifact_fails_closed_for_untrusted_stale_or_mismatched_inputs(self):
+		node = compare("eq", static("integer", 1), static("integer", 1))
+		prepared = prepare_condition(node)
+		with self.assertRaises(ConditionValidationError) as raised:
+			evaluate_prepared_condition(prepared.plan, {})
+		self.assertEqual(raised.exception.code, "untrusted_prepared_condition")
+
+		with self.assertRaises(ConditionValidationError) as raised:
+			evaluate_prepared_condition(prepared, {"doctype": "ToDo"})
+		self.assertEqual(raised.exception.code, "condition_doctype_unvalidated")
+
+		bound = prepare_condition(node, doctype="ToDo")
+		with self.assertRaises(ConditionValidationError) as raised:
+			evaluate_prepared_condition(bound, {"doctype": "User"})
+		self.assertEqual(raised.exception.code, "condition_doctype_mismatch")
+
+	def test_preparation_revalidates_even_when_structural_plan_is_cached(self):
+		node = compare("eq", static("integer", 1), static("integer", 1))
+		prepare_condition(node)
+		changed_metadata_error = ConditionValidationError(
+			"metadata_changed", "$", "simulated DocType metadata change"
+		)
+		with patch(
+			"flexirule.ruleflow.core.condition_evaluator.validate_condition_node",
+			side_effect=changed_metadata_error,
+		):
+			with self.assertRaises(ConditionValidationError) as raised:
+				prepare_condition(node)
+		self.assertEqual(raised.exception.code, "metadata_changed")
+
+	def test_prepared_artifact_is_invalidated_when_resolver_registry_changes(self):
+		node = compare("eq", static("integer", 1), static("integer", 1))
+		prepared = prepare_condition(node)
+		with patch(
+			"flexirule.ruleflow.core.condition_evaluator.resolver_registry_fingerprint",
+			return_value="changed-registry-fingerprint",
+		):
+			with self.assertRaises(ConditionValidationError) as raised:
+				evaluate_prepared_condition(prepared, {})
+		self.assertEqual(raised.exception.code, "condition_resolver_registry_changed")
+
+	def test_condition_action_reuses_prepared_artifact_and_invalidates_changed_config(self):
+		from flexirule.ruleflow.core.action_handlers.condition import ConditionHandler
+		from flexirule.ruleflow.core.engine import RuleEngine
+
+		node = compare("eq", variable("doc", "value"), static("integer", 5))
+		action = SimpleNamespace(
+			is_enabled=True,
+			name="action-1",
+			action_id="action-1",
+			action_type="Condition",
+			action_label="Check value",
+			config=json.dumps(node),
+			condition_json=None,
+			next_step_if_true="yes",
+			next_step_if_false="no",
+		)
+		rule = SimpleNamespace(
+			actions=[action],
+			document_type=None,
+			name="test-rule",
+			trigger_event="Manual",
+		)
+		engine = RuleEngine(rule)
+		handler = ConditionHandler()
+
+		result, next_id = handler.execute(action, {"doc": {"value": 5}}, engine)
+		first_artifact = engine._prepared_condition_cache["action-1"][4]
+		self.assertTrue(result)
+		self.assertEqual(next_id, "yes")
+
+		result, next_id = handler.execute(action, {"doc": {"value": 4}}, engine)
+		second_artifact = engine._prepared_condition_cache["action-1"][4]
+		self.assertIs(first_artifact, second_artifact)
+		self.assertFalse(result)
+		self.assertEqual(next_id, "no")
+
+		action.config = json.dumps(
+			compare("eq", variable("doc", "value"), static("integer", 4))
+		)
+		result, next_id = handler.execute(action, {"doc": {"value": 4}}, engine)
+		updated_artifact = engine._prepared_condition_cache["action-1"][4]
+		self.assertIsNot(first_artifact, updated_artifact)
+		self.assertTrue(result)
+		self.assertEqual(next_id, "yes")
 
 	def test_cache_never_caches_context_or_result(self):
 		node = compare("eq", variable("doc", "value"), static("integer", 5))
