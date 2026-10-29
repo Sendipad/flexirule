@@ -520,7 +520,9 @@ class BenchmarkRunner:
 								batch_failed = True
 								break
 							if expected is not None and res.result != expected and sc.scenario_id != "edge_case_has_changed":
-								batch_fail_reason = f"Amortized evaluation produced incorrect result: {res.result} != {expected}"
+								batch_fail_reason = (
+								f"Amortized evaluation produced incorrect result: {res.result} != {expected}"
+							)
 								batch_failed = True
 								break
 						if batch_failed:
