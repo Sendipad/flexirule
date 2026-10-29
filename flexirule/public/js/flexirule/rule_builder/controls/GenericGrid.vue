@@ -51,89 +51,14 @@
 					</button>
 
 					<div
-						v-if="
-							!readOnly &&
-							showRowActions &&
-							(availableRowActions.includes('edit') ||
-								availableRowActions.includes('move') ||
-								availableRowActions.includes('remove'))
-						"
+						v-if="!readOnly && showRowActions && getRowMenuActions(entry).length"
 						class="fxr-generic-grid-row-actions"
 					>
-						<button
-							v-if="
-								availableRowActions.includes('edit') &&
-								(getRowPresentation(entry).presentation === 'summary'
-									? getRowPresentation(entry).canToggle
-									: canFinishRowEditing(entry))
-							"
-							type="button"
-							class="fxr-grid-icon-button"
-							:title="
-								getRowPresentation(entry).presentation === 'editor'
-									? __('Switch to readable row') + ' (' + editShortcut + ')'
-									: __('Edit row') + ' (' + editShortcut + ')'
-							"
-							:aria-label="
-								getRowPresentation(entry).presentation === 'editor'
-									? __('Switch to readable row')
-									: __('Edit row')
-							"
-							:aria-keyshortcuts="editShortcut"
-							@click="
-								requestRowAction(
-									getRowPresentation(entry).presentation === 'editor'
-										? 'view'
-										: 'edit',
-									entry
-								)
-							"
-						>
-							<i
-								:class="
-									getRowPresentation(entry).presentation === 'editor'
-										? 'fa fa-check'
-										: 'fa fa-pencil'
-								"
-								aria-hidden="true"
-							></i>
-						</button>
-						<div
-							v-if="availableRowActions.includes('move')"
-							class="fxr-generic-grid-reorder"
-							:aria-label="__('Move row')"
-						>
-							<button
-								type="button"
-								class="fxr-grid-icon-button"
-								:disabled="entry.index === 0"
-								:title="__('Move row up')"
-								:aria-label="__('Move row up')"
-								@click="requestRowAction('move-up', entry)"
-							>
-								<i class="fa fa-chevron-up" aria-hidden="true"></i>
-							</button>
-							<button
-								type="button"
-								class="fxr-grid-icon-button"
-								:disabled="entry.index === sourceRows.length - 1"
-								:title="__('Move row down')"
-								:aria-label="__('Move row down')"
-								@click="requestRowAction('move-down', entry)"
-							>
-								<i class="fa fa-chevron-down" aria-hidden="true"></i>
-							</button>
-						</div>
-						<button
-							v-if="availableRowActions.includes('remove')"
-							type="button"
-							class="fxr-grid-icon-button is-danger"
-							:title="__('Remove row')"
-							:aria-label="__('Remove row')"
-							@click="requestRowAction('remove', entry)"
-						>
-							<i class="fa fa-trash" aria-hidden="true"></i>
-						</button>
+						<ActionMenu
+							:actions="getRowMenuActions(entry)"
+							size="xs"
+							:label="__('Row Actions')"
+						/>
 					</div>
 				</div>
 
@@ -418,6 +343,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useSlots, watch } from "vue";
 import { getInlinePresentation, resolvePresentationMode } from "./inline_presentation_policy.mjs";
+import ActionMenu from "./ActionMenu.vue";
 import {
 	GRID_CLIPBOARD_FORMAT,
 	getRowKey,
@@ -790,6 +716,73 @@ function getRowPresentation(entry) {
 		readOnly: props.readOnly,
 		hasSummary: hasSummarySlot.value,
 	});
+}
+
+function getRowMenuActions(entry) {
+	if (props.readOnly || !props.showRowActions) return [];
+	const items = [];
+	const presentation = getRowPresentation(entry);
+
+	if (props.availableRowActions.includes("edit")) {
+		if (presentation.presentation === "summary" && presentation.canToggle) {
+			items.push({
+				id: "edit",
+				label: __("Edit row"),
+				icon: "fa fa-pencil",
+				onClick: () => requestRowAction("edit", entry),
+			});
+		} else if (presentation.presentation === "editor" && canFinishRowEditing(entry)) {
+			items.push({
+				id: "finish",
+				label: __("Finish editing"),
+				icon: "fa fa-check",
+				onClick: () => requestRowAction("view", entry),
+			});
+		}
+	}
+
+	if (props.selection) {
+		const selected = isSelected(entry.key);
+		items.push({
+			id: "select",
+			label: selected ? __("Deselect row") : __("Select row"),
+			icon: "fa fa-mouse-pointer",
+			onClick: () => {
+				const pageIndex = displayedRows.value.findIndex((e) => e.key === entry.key);
+				if (pageIndex >= 0) toggleRowSelection(pageIndex);
+			},
+		});
+	}
+
+	if (props.availableRowActions.includes("move")) {
+		items.push({
+			id: "move-up",
+			label: __("Move row up"),
+			icon: "fa fa-arrow-up",
+			disabled: entry.index === 0,
+			onClick: () => requestRowAction("move-up", entry),
+		});
+
+		items.push({
+			id: "move-down",
+			label: __("Move row down"),
+			icon: "fa fa-arrow-down",
+			disabled: entry.index === sourceRows.value.length - 1,
+			onClick: () => requestRowAction("move-down", entry),
+		});
+	}
+
+	if (props.availableRowActions.includes("remove")) {
+		items.push({
+			id: "delete",
+			label: __("Remove row"),
+			icon: "fa fa-trash",
+			danger: true,
+			onClick: () => requestRowAction("remove", entry),
+		});
+	}
+
+	return items;
 }
 
 function summaryToggleAction(entry) {
@@ -1188,7 +1181,7 @@ async function handleKeydown(event) {
 
 	const target = event.target;
 	// Headless UI owns keyboard navigation inside the secondary-action menu.
-	if (target?.closest?.(".fxr-grid-menu")) return;
+	if (target?.closest?.(".fxr-grid-menu") || target?.closest?.(".fxr-action-menu")) return;
 
 	if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "c") {
 		if (!isInputTarget(target) && props.selection && selectedRows.value.length) {
