@@ -14,7 +14,7 @@ from flexirule.ruleflow.core.action_handlers import ActionHandler, HandlerRegist
 from flexirule.ruleflow.core.action_handlers.base_contract import ActionContract, OperationContract
 from flexirule.ruleflow.core.condition_contract import validate_condition_node
 from flexirule.ruleflow.core.condition_errors import ConditionError, ConditionValidationError
-from flexirule.ruleflow.core.condition_evaluator import evaluate_condition
+from flexirule.ruleflow.core.condition_evaluator import evaluate_condition, evaluate_prepared_condition
 from flexirule.ruleflow.core.condition_payload import (
 	detect_canonical_condition_payload,
 	get_condition_payload,
@@ -66,12 +66,21 @@ class ConditionHandler(ActionHandler):
 		}
 
 	def execute(self, action, context, engine):
-		"""Evaluate canonical JSON directly, keeping the legacy compiler as an adapter."""
-		payload = get_condition_payload(action)
-		is_canonical, canonical_node = detect_canonical_condition_payload(payload)
+		"""Evaluate prepared canonical JSON or route legacy expressions through the adapter."""
+		condition_getter = getattr(engine, "_get_condition_payload_and_prepared", None)
+		if callable(condition_getter):
+			payload, is_canonical, canonical_node, prepared = condition_getter(action)
+		else:
+			payload = get_condition_payload(action)
+			is_canonical, canonical_node = detect_canonical_condition_payload(payload)
+			prepared = None
+
 		if is_canonical:
 			doctype = getattr(getattr(engine, "rule", None), "document_type", None)
-			result = evaluate_condition(canonical_node, context, doctype=doctype)
+			if prepared is not None:
+				result = evaluate_prepared_condition(prepared, context, doctype=doctype)
+			else:
+				result = evaluate_condition(canonical_node, context, doctype=doctype)
 		else:
 			compiled_expression = getattr(action, "compiled_expression", None)
 			if not compiled_expression:
@@ -82,10 +91,10 @@ class ConditionHandler(ActionHandler):
 						"Legacy condition config has no compiled expression; re-save or repair the Rule",
 					)
 				raise ConditionValidationError(
-					"condition_required",
-					"$",
-					"Condition actions require a valid condition before execution",
-				)
+						"condition_required",
+						"$",
+						"Condition actions require a valid condition before execution",
+					)
 			result = engine._evaluate_python_condition(compiled_expression, context)
 
 		next_id = action.next_step_if_true if result else action.next_step_if_false
