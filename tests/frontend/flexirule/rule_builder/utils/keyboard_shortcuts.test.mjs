@@ -4,7 +4,7 @@ import {
 	isInputTarget,
 	matchesShortcut,
 	parseShortcutString,
-} from "../../../../../../flexirule/public/js/flexirule/rule_builder/utils/keyboard_shortcuts.mjs";
+} from "../../../../../flexirule/public/js/flexirule/rule_builder/utils/keyboard_shortcuts.mjs";
 
 test("parses shortcut modifiers and key aliases", () => {
 	assert.deepEqual(parseShortcutString("Ctrl+Shift+E"), {
