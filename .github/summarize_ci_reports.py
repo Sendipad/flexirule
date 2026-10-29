@@ -173,7 +173,7 @@ def summarize_benchmark(
 
 
 def main() -> int:
-	workspace = Path(os.environ["GITHUB_WORKSPACE"])
+	workspace = Path(os.environ.get("GITHUB_WORKSPACE", "."))
 	report_root = workspace / "artifacts" / "ci-reports"
 	report_root.mkdir(parents=True, exist_ok=True)
 	failed_marker = report_root / "ci-summary-failed"
@@ -206,8 +206,10 @@ def main() -> int:
 		passed_marker.write_text("All executed report checks passed.\n", encoding="utf-8")
 		lines.extend(["", "No report-detected test or benchmark failures."])
 
-	summary_path = Path(os.environ["GITHUB_STEP_SUMMARY"])
-	summary_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+	summary_env = os.environ.get("GITHUB_STEP_SUMMARY")
+	if summary_env:
+		summary_path = Path(summary_env)
+		summary_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 	print("\n".join(lines))
 	return 0
 
