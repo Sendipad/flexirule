@@ -286,16 +286,16 @@ class RuleEngine:
 		self.action_map_by_name = {a.name: a for a in self.actions}
 
 	@staticmethod
+	def _condition_source_is_cacheable(value):
+		"""Only cache immutable DocField values; mutable in-memory payloads must be re-read."""
+		return value is None or isinstance(value, str | bytes | int | float | bool)
+
+	@staticmethod
 	def _condition_source_signature(value):
-		"""Snapshot a condition source for request-local cache invalidation."""
-		if value is None or isinstance(value, str | bytes | int | float | bool):
+		"""Return an immutable source value without serializing the condition on cache hits."""
+		if RuleEngine._condition_source_is_cacheable(value):
 			return value
-		try:
-			return json.dumps(
-				value, sort_keys=True, ensure_ascii=False, separators=(",", ":"), allow_nan=False
-			)
-		except (TypeError, ValueError, RecursionError):
-			return ("object_identity", id(value))
+		return ("object_identity", id(value))
 
 	def _get_condition_payload_and_prepared(self, action):
 		"""Return cached condition classification and a trusted artifact for this execution.
@@ -312,9 +312,22 @@ class RuleEngine:
 		from flexirule.ruleflow.core.flexvalue_contract import resolver_registry_fingerprint
 
 		action_key = str(getattr(action, "name", None) or getattr(action, "action_id", None) or id(action))
-		config_signature = self._condition_source_signature(getattr(action, "config", None))
-		legacy_signature = self._condition_source_signature(getattr(action, "condition_json", None))
+		config_value = getattr(action, "config", None)
+		legacy_value = getattr(action, "condition_json", None)
 		doctype = getattr(self.rule, "document_type", None)
+		if not (
+			self._condition_source_is_cacheable(config_value)
+			and self._condition_source_is_cacheable(legacy_value)
+		):
+			# Non-DocField mutable payloads are supported defensively, but not memoized:
+			# an in-place mutation cannot be detected without re-serializing the full tree.
+			payload = get_condition_payload(action)
+			is_canonical, canonical_node = detect_canonical_condition_payload(payload)
+			prepared = prepare_condition(canonical_node, doctype=doctype) if is_canonical else None
+			return payload, is_canonical, canonical_node, prepared
+
+		config_signature = self._condition_source_signature(config_value)
+		legacy_signature = self._condition_source_signature(legacy_value)
 		registry_signature = resolver_registry_fingerprint()
 		cache_key = (
 			config_signature,
