@@ -1,5 +1,5 @@
 <template>
-	<div class="tree-collection" :class="{ 'has-contextual-edit': readOnly && canEditRule }">
+	<div class="tree-collection">
 		<div class="tree-collection__header">
 			<div class="tree-collection__label">
 				<i class="fa fa-sitemap"></i>
@@ -37,16 +37,6 @@
 				>
 					<i class="fa fa-sitemap"></i>
 				</button>
-				<button
-					v-if="readOnly && canEditRule"
-					type="button"
-					class="fxr-btn fxr-btn--icon tree-contextual-edit-btn"
-					:title="__('Edit')"
-					:aria-label="__('Edit')"
-					@click="$emit('edit')"
-				>
-					<i class="fa fa-pencil" aria-hidden="true"></i>
-				</button>
 				<ActionMenu
 					v-if="!readOnly"
 					:items="menuItems"
@@ -66,7 +56,6 @@ const props = defineProps({
 	node: { type: Object, required: true },
 	label: { type: String, default: "Collection" },
 	readOnly: Boolean,
-	canEditRule: Boolean,
 	allowGroups: Boolean,
 	allowCollections: Boolean,
 	isFirstSibling: Boolean,

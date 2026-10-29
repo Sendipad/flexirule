@@ -273,7 +273,6 @@ function onMoveDown() {
 				:operators="groupOperators"
 				:operatorLabel="operatorLabel"
 				:readOnly="readOnly"
-				:canEditRule="resolvedCanEditRule"
 				:allowGroups="allowGroups"
 				:allowCollections="allowCollections"
 				:collectionLabel="collectionLabel"
