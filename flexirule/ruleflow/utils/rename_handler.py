@@ -173,20 +173,20 @@ def update_action_config(
 				new_config["filters"] = updated_filters
 				changed = True
 		elif isinstance(filters, dict):
-			new_filters = dict(filters)
+			new_filters_dict = dict(filters)
 			f_changed = False
-			for fk, fv in new_filters.items():
+			for fk, fv in new_filters_dict.items():
 				if target_type == "docname" and fv == old_name:
-					new_filters[fk] = new_name
+					new_filters_dict[fk] = new_name
 					f_changed = True
 				elif target_type == "doctype" and fv == old_name:
-					new_filters[fk] = new_name
+					new_filters_dict[fk] = new_name
 					f_changed = True
 			if f_changed:
-				new_config["filters"] = new_filters
+				new_config["filters"] = new_filters_dict
 				changed = True
 		elif isinstance(filters, list):
-			new_filters = []
+			new_filters_list = []
 			f_changed = False
 			for fitem in filters:
 				if isinstance(fitem, list) and len(fitem) >= 4:
@@ -198,11 +198,11 @@ def update_action_config(
 						if target_type == "docname" or (target_type == "doctype" and f_copy[1] == "doctype"):
 							f_copy[3] = new_name
 							f_changed = True
-					new_filters.append(f_copy)
+					new_filters_list.append(f_copy)
 				else:
-					new_filters.append(fitem)
+					new_filters_list.append(fitem)
 			if f_changed:
-				new_config["filters"] = new_filters
+				new_config["filters"] = new_filters_list
 				changed = True
 
 	if "condition" in new_config and isinstance(new_config["condition"], dict):
@@ -254,9 +254,7 @@ def update_visual_data(
 	return new_visual, changed
 
 
-def update_schema_json(
-	schema_data: Any, target_type: str, old_name: str, new_name: str
-) -> tuple[Any, bool]:
+def update_schema_json(schema_data: Any, target_type: str, old_name: str, new_name: str) -> tuple[Any, bool]:
 	"""Transform schema JSON array / object."""
 	if not isinstance(schema_data, list):
 		return schema_data, False
@@ -320,9 +318,7 @@ def update_rule_json_references(
 				vis_json, target_type, old_name, new_name, target_doctype
 			)
 			if v_changed:
-				rule_doc.visual_data = json.dumps(
-					updated_vis, ensure_ascii=False, separators=(",", ":")
-				)
+				rule_doc.visual_data = json.dumps(updated_vis, ensure_ascii=False, separators=(",", ":"))
 				rule_changed = True
 		except (TypeError, ValueError, json.JSONDecodeError):
 			pass
@@ -333,9 +329,7 @@ def update_rule_json_references(
 		if val:
 			try:
 				s_json = json.loads(val)
-				updated_s, s_changed = update_schema_json(
-					s_json, target_type, old_name, new_name
-				)
+				updated_s, s_changed = update_schema_json(s_json, target_type, old_name, new_name)
 				if s_changed:
 					setattr(
 						rule_doc,
@@ -357,9 +351,7 @@ def update_rule_json_references(
 					cfg_json, target_type, old_name, new_name, target_doctype
 				)
 				if cfg_changed:
-					action.config = json.dumps(
-						updated_cfg, ensure_ascii=False, separators=(",", ":")
-					)
+					action.config = json.dumps(updated_cfg, ensure_ascii=False, separators=(",", ":"))
 					action_changed = True
 			except (TypeError, ValueError, json.JSONDecodeError):
 				pass
@@ -368,9 +360,7 @@ def update_rule_json_references(
 		if action.resolved_output_schema:
 			try:
 				ros_json = json.loads(action.resolved_output_schema)
-				updated_ros, ros_changed = update_schema_json(
-					ros_json, target_type, old_name, new_name
-				)
+				updated_ros, ros_changed = update_schema_json(ros_json, target_type, old_name, new_name)
 				if ros_changed:
 					action.resolved_output_schema = json.dumps(
 						updated_ros, ensure_ascii=False, separators=(",", ":")
@@ -420,9 +410,7 @@ def update_process_json_references(
 	return process_changed
 
 
-def process_rename_references(
-	renamed_doctype: str, old_name: str, new_name: str
-) -> list[str]:
+def process_rename_references(renamed_doctype: str, old_name: str, new_name: str) -> list[str]:
 	"""Main hook entry point called after a document or DocType is renamed.
 
 	Returns list of updated Rule names.

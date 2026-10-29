@@ -100,6 +100,7 @@ def handle_after_rename_json_sync(doc, *args, **kwargs):
 		renamed_doctype = getattr(doc, "doctype", None)
 		if renamed_doctype:
 			from flexirule.ruleflow.utils.rename_handler import process_rename_references
+
 			process_rename_references(renamed_doctype, old_name, new_name)
 
 
