@@ -51,89 +51,13 @@
 					</button>
 
 					<div
-						v-if="
-							!readOnly &&
-							showRowActions &&
-							(availableRowActions.includes('edit') ||
-								availableRowActions.includes('move') ||
-								availableRowActions.includes('remove'))
-						"
+						v-if="!readOnly && showRowActions && getRowMenuItems(entry).length > 0"
 						class="fxr-generic-grid-row-actions"
 					>
-						<button
-							v-if="
-								availableRowActions.includes('edit') &&
-								(getRowPresentation(entry).presentation === 'summary'
-									? getRowPresentation(entry).canToggle
-									: canFinishRowEditing(entry))
-							"
-							type="button"
-							class="fxr-grid-icon-button"
-							:title="
-								getRowPresentation(entry).presentation === 'editor'
-									? __('Switch to readable row') + ' (' + editShortcut + ')'
-									: __('Edit row') + ' (' + editShortcut + ')'
-							"
-							:aria-label="
-								getRowPresentation(entry).presentation === 'editor'
-									? __('Switch to readable row')
-									: __('Edit row')
-							"
-							:aria-keyshortcuts="editShortcut"
-							@click="
-								requestRowAction(
-									getRowPresentation(entry).presentation === 'editor'
-										? 'view'
-										: 'edit',
-									entry
-								)
-							"
-						>
-							<i
-								:class="
-									getRowPresentation(entry).presentation === 'editor'
-										? 'fa fa-check'
-										: 'fa fa-pencil'
-								"
-								aria-hidden="true"
-							></i>
-						</button>
-						<div
-							v-if="availableRowActions.includes('move')"
-							class="fxr-generic-grid-reorder"
-							:aria-label="__('Move row')"
-						>
-							<button
-								type="button"
-								class="fxr-grid-icon-button"
-								:disabled="entry.index === 0"
-								:title="__('Move row up')"
-								:aria-label="__('Move row up')"
-								@click="requestRowAction('move-up', entry)"
-							>
-								<i class="fa fa-chevron-up" aria-hidden="true"></i>
-							</button>
-							<button
-								type="button"
-								class="fxr-grid-icon-button"
-								:disabled="entry.index === sourceRows.length - 1"
-								:title="__('Move row down')"
-								:aria-label="__('Move row down')"
-								@click="requestRowAction('move-down', entry)"
-							>
-								<i class="fa fa-chevron-down" aria-hidden="true"></i>
-							</button>
-						</div>
-						<button
-							v-if="availableRowActions.includes('remove')"
-							type="button"
-							class="fxr-grid-icon-button is-danger"
-							:title="__('Remove row')"
-							:aria-label="__('Remove row')"
-							@click="requestRowAction('remove', entry)"
-						>
-							<i class="fa fa-trash" aria-hidden="true"></i>
-						</button>
+						<ActionMenu
+							:items="getRowMenuItems(entry)"
+							:buttonAriaLabel="__('Row Actions')"
+						/>
 					</div>
 				</div>
 
@@ -417,7 +341,9 @@
 
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useSlots, watch } from "vue";
+import ActionMenu from "../components/ActionMenu.vue";
 import { getInlinePresentation, resolvePresentationMode } from "./inline_presentation_policy.mjs";
+import { isInputTarget } from "../utils/keyboard_shortcuts.mjs";
 import {
 	GRID_CLIPBOARD_FORMAT,
 	getRowKey,
@@ -823,6 +749,69 @@ function canFinishRowEditing(entry) {
 	return false;
 }
 
+function getRowMenuItems(entry) {
+	const items = [];
+	const presentation = getRowPresentation(entry);
+	const canToggleEdit =
+		presentation.presentation === "summary"
+			? presentation.canToggle
+			: canFinishRowEditing(entry);
+
+	if (props.availableRowActions.includes("edit")) {
+		items.push({
+			id: "edit",
+			label:
+				presentation.presentation === "editor" ? __("Switch to readable row") : __("Edit"),
+			icon: presentation.presentation === "editor" ? "fa fa-check" : "fa fa-pencil",
+			shortcut: props.editShortcut,
+			disabled: !canToggleEdit,
+			handler: () =>
+				requestRowAction(presentation.presentation === "editor" ? "view" : "edit", entry),
+		});
+	}
+
+	if (props.selection) {
+		items.push({
+			id: "select",
+			label: isSelected(entry.key) ? __("Deselect") : __("Select"),
+			icon: "fa fa-mouse-pointer",
+			handler: () => {
+				const pageIdx = displayedRows.value.findIndex((e) => e.key === entry.key);
+				if (pageIdx >= 0) toggleRowSelection(pageIdx);
+			},
+		});
+	}
+
+	if (props.availableRowActions.includes("move")) {
+		items.push({
+			id: "move-up",
+			label: __("Move up"),
+			icon: "fa fa-chevron-up",
+			disabled: entry.index === 0,
+			handler: () => requestRowAction("move-up", entry),
+		});
+		items.push({
+			id: "move-down",
+			label: __("Move down"),
+			icon: "fa fa-chevron-down",
+			disabled: entry.index === sourceRows.value.length - 1,
+			handler: () => requestRowAction("move-down", entry),
+		});
+	}
+
+	if (props.availableRowActions.includes("remove")) {
+		items.push({
+			id: "delete",
+			label: __("Delete"),
+			icon: "fa fa-trash",
+			danger: true,
+			handler: () => requestRowAction("remove", entry),
+		});
+	}
+
+	return items;
+}
+
 function summaryToggleTitle(entry) {
 	const action = summaryToggleAction(entry);
 	if (action === "view") return __("Double-click to return to reading mode");
@@ -1097,14 +1086,6 @@ function changePageSize(value) {
 	emit("page-change", { page: 1, pageSize: currentPageSize.value });
 }
 
-function isInputTarget(target) {
-	return Boolean(
-		target?.closest?.(
-			"input, textarea, select, [contenteditable='true'], [role='textbox'], [role='combobox']"
-		)
-	);
-}
-
 function getCurrentPageIndex(target) {
 	const rowElement = target?.closest?.("[data-row-index]");
 	const sourceIndex = rowElement
@@ -1184,11 +1165,11 @@ async function moveRowFocus(delta, event) {
 }
 
 async function handleKeydown(event) {
-	if (!isDataGrid.value) return;
+	if (event.defaultPrevented || event.isComposing || !isDataGrid.value) return;
 
 	const target = event.target;
 	// Headless UI owns keyboard navigation inside the secondary-action menu.
-	if (target?.closest?.(".fxr-grid-menu")) return;
+	if (target?.closest?.(".fxr-grid-menu, .fxr-action-menu")) return;
 
 	if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "c") {
 		if (!isInputTarget(target) && props.selection && selectedRows.value.length) {
@@ -1281,7 +1262,8 @@ async function handleKeydown(event) {
 		!isInputTarget(target) &&
 		!event.altKey &&
 		!event.ctrlKey &&
-		!event.metaKey
+		!event.metaKey &&
+		!event.shiftKey
 	) {
 		if (event.key === "ArrowDown" || event.key === "ArrowUp") {
 			event.preventDefault();

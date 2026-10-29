@@ -16,6 +16,7 @@
 		:presentationMode="presentationMode"
 		:isLeafNew="isLeafNew"
 		:isLeafValid="isLeafValid"
+		:canEditRule="canEditRule"
 		@update:modelValue="emitSerialized"
 	>
 		<template #leaf-summary="{ node }">
@@ -63,6 +64,7 @@ const props = defineProps({
 	},
 	visibleNode: { type: Function, default: () => true },
 	presentationMode: { type: String, default: "hybrid" },
+	canEditRule: { type: Boolean, default: false },
 });
 const emit = defineEmits(["update:modelValue", "change"]);
 const treeBuilderRef = ref(null);

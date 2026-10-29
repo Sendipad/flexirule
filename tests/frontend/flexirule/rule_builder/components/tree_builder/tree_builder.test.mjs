@@ -12,6 +12,8 @@ import {
 	addGroup,
 	addLeaf,
 	moveNode,
+	moveUp,
+	moveDown,
 	removeNode,
 	setOperator,
 } from "../../../../../../flexirule/public/js/flexirule/rule_builder/components/tree_builder/tree_builder_commands.mjs";
@@ -105,6 +107,34 @@ assert.deepEqual(serializeQueryFilters(editableFilters), [
 	"=",
 	{ mode: "static", value: "" },
 ]);
+
+// Test tree builder moveUp and moveDown commands and boundary rules
+const tbRoot = createGroup("and", []);
+const leafA = addLeaf(tbRoot, tbRoot.id, { field: "a" });
+const leafB = addLeaf(tbRoot, tbRoot.id, { field: "b" });
+const leafC = addLeaf(tbRoot, tbRoot.id, { field: "c" });
+
+assert.equal(tbRoot.children.length, 3);
+assert.equal(tbRoot.children[0].id, leafA.id);
+assert.equal(tbRoot.children[1].id, leafB.id);
+
+// First item cannot move up
+assert.equal(moveUp(tbRoot, leafA.id), false);
+
+// Move middle item (leafB) up
+assert.equal(moveUp(tbRoot, leafB.id), true);
+assert.equal(tbRoot.children[0].id, leafB.id);
+assert.equal(tbRoot.children[1].id, leafA.id);
+
+// Move leafB down twice
+assert.equal(moveDown(tbRoot, leafB.id), true);
+assert.equal(tbRoot.children[1].id, leafB.id);
+assert.equal(moveDown(tbRoot, leafB.id), true);
+assert.equal(tbRoot.children[2].id, leafB.id);
+
+// Last item cannot move down
+assert.equal(moveDown(tbRoot, leafB.id), false);
+
 editableFilters.children[0].field = "customer_group";
 assert.deepEqual(serializeQueryFilters(editableFilters), [
 	"Customer",
