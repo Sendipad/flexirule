@@ -8,8 +8,8 @@ import pickle
 import unittest
 from dataclasses import replace
 from decimal import Decimal
-from types import SimpleNamespace
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import patch
 
@@ -381,9 +381,7 @@ class TestCanonicalConditionEvaluator(unittest.TestCase):
 		self.assertFalse(result)
 		self.assertEqual(next_id, "no")
 
-		action.config = json.dumps(
-			compare("eq", variable("doc", "value"), static("integer", 4))
-		)
+		action.config = json.dumps(compare("eq", variable("doc", "value"), static("integer", 4)))
 		result, next_id = handler.execute(action, {"doc": {"value": 4}}, engine)
 		updated_artifact = engine._prepared_condition_cache["action-1"][4]
 		self.assertIsNot(first_artifact, updated_artifact)
@@ -391,7 +389,7 @@ class TestCanonicalConditionEvaluator(unittest.TestCase):
 		self.assertEqual(next_id, "yes")
 
 	def test_collection_resolver_prepares_canonical_predicate_once_for_all_rows(self):
-		from flexirule.ruleflow.core.condition_evaluator import prepare_condition, evaluate_prepared_condition
+		from flexirule.ruleflow.core.condition_evaluator import evaluate_prepared_condition, prepare_condition
 
 		predicate = compare(
 			"gt",
