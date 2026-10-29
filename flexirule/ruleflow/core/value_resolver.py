@@ -529,23 +529,30 @@ class CollectionResolver(CompiledResolver):
 
 		doc = context.get("doc")
 		condition_evaluation_budget = {"collection_row_visits": 0}
+		prepared_condition = None
+		condition_doctype = getattr(doc, "doctype", None) or context.get("doctype")
+		if self._canonical_condition is not None:
+			from flexirule.ruleflow.core.condition_evaluator import prepare_condition
+
+			# Prepare once for this collection resolution, not once for every row.
+			# Preparation revalidates against current metadata; artifacts are not persisted.
+			prepared_condition = prepare_condition(self._canonical_condition, doctype=condition_doctype)
 
 		def _matches(r) -> bool:
 			if self._canonical_condition is not None:
 				from flexirule.ruleflow.core.condition_evaluator import (
 					consume_collection_row_visit,
-					evaluate_condition,
+					evaluate_prepared_condition,
 				)
 
 				consume_collection_row_visit(condition_evaluation_budget, "CollectionResolver.condition")
 				row_context = dict(context)
 				row_context["doc"] = doc
 				row_context["row"] = r
-				doctype = getattr(doc, "doctype", None) or row_context.get("doctype")
-				return evaluate_condition(
-					self._canonical_condition,
+				return evaluate_prepared_condition(
+					prepared_condition,
 					row_context,
-					doctype=doctype,
+					doctype=condition_doctype,
 					_evaluation_budget=condition_evaluation_budget,
 				)
 			if not self._compiled_evaluator:
