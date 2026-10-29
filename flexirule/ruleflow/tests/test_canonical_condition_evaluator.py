@@ -5,6 +5,7 @@
 
 import json
 import unittest
+from dataclasses import replace
 from decimal import Decimal
 from types import SimpleNamespace
 from pathlib import Path
@@ -294,6 +295,13 @@ class TestCanonicalConditionEvaluator(unittest.TestCase):
 		prepared = prepare_condition(node)
 		with self.assertRaises(ConditionValidationError) as raised:
 			evaluate_prepared_condition(prepared.plan, {})
+		self.assertEqual(raised.exception.code, "untrusted_prepared_condition")
+
+		# Matching fields/seal are not enough: only the exact object issued by prepare_condition
+		# is registered as a trusted artifact.
+		forged = replace(prepared)
+		with self.assertRaises(ConditionValidationError) as raised:
+			evaluate_prepared_condition(forged, {})
 		self.assertEqual(raised.exception.code, "untrusted_prepared_condition")
 
 		with self.assertRaises(ConditionValidationError) as raised:
