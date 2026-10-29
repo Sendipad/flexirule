@@ -5,6 +5,7 @@
 			'is-editing': isEditing,
 			'is-summary-mode': inlinePresentation.presentation === 'summary',
 			'is-editor-mode': inlinePresentation.presentation === 'editor',
+			'has-contextual-edit': readOnly && resolvedCanEditRule,
 		}"
 	>
 		<div
@@ -26,25 +27,20 @@
 			</div>
 			<div class="tree-leaf__actions">
 				<button
-					v-if="inlinePresentation.canToggle"
+					v-if="readOnly && resolvedCanEditRule"
 					type="button"
-					class="tree-leaf__action tree-leaf__edit"
+					class="tree-leaf__action tree-contextual-edit-btn"
 					:title="__('Edit')"
 					:aria-label="__('Edit')"
-					@click="startEditing"
+					@click="triggerContextualEdit"
 				>
 					<i class="fa fa-pencil" aria-hidden="true"></i>
 				</button>
-				<button
+				<ActionMenu
 					v-if="!readOnly"
-					type="button"
-					class="tree-leaf__action tree-leaf__remove"
-					:title="__('Remove')"
-					:aria-label="__('Remove')"
-					@click="$emit('remove')"
-				>
-					<i class="fa fa-trash" aria-hidden="true"></i>
-				</button>
+					:items="menuItems"
+					:buttonAriaLabel="__('Leaf Actions')"
+				/>
 			</div>
 		</div>
 
@@ -70,7 +66,7 @@
 						:context="context"
 						:index="index"
 						:parent="parent"
-						:readOnly="readOnly"
+						:readOnly="editorReadOnly"
 						:isEditing="isEditing"
 					/>
 				</div>
@@ -85,16 +81,12 @@
 					>
 						<i class="fa fa-check" aria-hidden="true"></i>
 					</button>
-					<button
+
+					<ActionMenu
 						v-if="!readOnly"
-						type="button"
-						class="tree-leaf__action tree-leaf__remove"
-						:title="__('Remove')"
-						:aria-label="__('Remove')"
-						@click="$emit('remove')"
-					>
-						<i class="fa fa-trash" aria-hidden="true"></i>
-					</button>
+						:items="menuItems"
+						:buttonAriaLabel="__('Leaf Actions')"
+					/>
 				</div>
 			</div>
 		</div>
@@ -103,6 +95,7 @@
 
 <script setup>
 import { computed, inject, useSlots } from "vue";
+import ActionMenu from "../ActionMenu.vue";
 import {
 	getInlinePresentation,
 	resolvePresentationMode,
@@ -114,20 +107,30 @@ const props = defineProps({
 	index: { type: Number, required: true },
 	parent: { type: Object, required: true },
 	readOnly: Boolean,
+	canEditRule: { type: Boolean, default: undefined },
+	isFirstSibling: Boolean,
+	isLastSibling: Boolean,
 	presentationMode: { type: String, default: undefined },
 	editorLayout: { type: String, default: undefined },
 	isLeafNew: { type: Function, default: undefined },
 	isLeafValid: { type: Function, default: undefined },
 });
 
-defineEmits(["remove"]);
+const emit = defineEmits(["remove", "edit", "select", "move-up", "move-down"]);
 
 const api = inject("treeBuilderContext", null);
 const slots = useSlots();
 
+const resolvedCanEditRule = computed(() => {
+	if (props.canEditRule !== undefined) return Boolean(props.canEditRule);
+	if (api?.canEditRule !== undefined) return Boolean(api.canEditRule.value ?? api.canEditRule);
+	return false;
+});
+
 const hasSummarySlot = computed(() =>
 	api ? Boolean(api.hasSummarySlot?.value) : Boolean(slots["leaf-summary"])
 );
+const editorReadOnly = computed(() => props.readOnly && !resolvedCanEditRule.value);
 
 const isEditing = computed(() => {
 	const editingId = api?.editingNodeId?.value ?? api?.editingNodeId;
@@ -174,18 +177,73 @@ const inlinePresentation = computed(() =>
 );
 
 const canFinishEditing = computed(() => {
-	if (!hasSummarySlot.value || !inlinePresentation.value.canToggle) return false;
+	if (!hasSummarySlot.value || (props.readOnly && !resolvedCanEditRule.value)) return false;
 	const mode = resolvedPresentationMode.value;
 	if (mode === "summary") return isEditing.value;
 	if (mode === "hybrid") return isEditing.value && isValid.value;
 	return false;
 });
 
+const menuItems = computed(() => [
+	{
+		id: "edit",
+		label: __("Edit"),
+		icon: "fa fa-pencil",
+		disabled: isEditing.value,
+		handler: () => {
+			startEditing();
+			emit("edit");
+		},
+	},
+	{
+		id: "select",
+		label: __("Select"),
+		icon: "fa fa-mouse-pointer",
+		handler: () => {
+			api?.selectNode?.(props.node.id);
+			emit("select");
+		},
+	},
+	{
+		id: "move-up",
+		label: __("Move up"),
+		icon: "fa fa-chevron-up",
+		disabled: props.isFirstSibling,
+		handler: () => {
+			api?.moveUp?.(props.node.id);
+			emit("move-up");
+		},
+	},
+	{
+		id: "move-down",
+		label: __("Move down"),
+		icon: "fa fa-chevron-down",
+		disabled: props.isLastSibling,
+		handler: () => {
+			api?.moveDown?.(props.node.id);
+			emit("move-down");
+		},
+	},
+	{
+		id: "delete",
+		label: __("Delete"),
+		icon: "fa fa-trash",
+		danger: true,
+		handler: () => emit("remove"),
+	},
+]);
+
 function startEditing() {
-	if (props.readOnly) return;
+	if (props.readOnly && !resolvedCanEditRule.value) return;
 	if (typeof api?.setEditing === "function") {
 		api.setEditing(props.node.id);
 	}
+}
+
+function triggerContextualEdit() {
+	if (!resolvedCanEditRule.value) return;
+	startEditing();
+	emit("edit");
 }
 
 function stopEditing() {
@@ -216,9 +274,20 @@ function onDoubleClickSummary(event) {
 
 <style scoped>
 .tree-leaf {
+	position: relative;
 	width: 100%;
 	min-width: 0;
 	cursor: grab;
+}
+
+.tree-leaf.has-contextual-edit .tree-contextual-edit-btn {
+	opacity: 0;
+	transition: opacity var(--fxr-transition-fast, 120ms ease);
+}
+
+.tree-leaf.has-contextual-edit:hover .tree-contextual-edit-btn,
+.tree-leaf.has-contextual-edit:focus-within .tree-contextual-edit-btn {
+	opacity: 1;
 }
 
 .tree-leaf.is-dragging {

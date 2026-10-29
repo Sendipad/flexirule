@@ -1,30 +1,13 @@
 import { resolvePresentationMode } from "./inline_presentation_policy.mjs";
+import {
+	matchesShortcut,
+	parseShortcutString,
+	isInputTarget,
+} from "../utils/keyboard_shortcuts.mjs";
+
+export { matchesShortcut, parseShortcutString, isInputTarget };
 
 export const GRID_CLIPBOARD_FORMAT = "flexirule-generic-grid";
-
-/** Match a configurable keyboard shortcut while respecting all modifier keys. */
-export function matchesShortcut(event, shortcut) {
-	if (!event || typeof event.key !== "string") return false;
-	const keys = String(shortcut || "")
-		.toLowerCase()
-		.split("+")
-		.map((key) => key.trim())
-		.filter(Boolean);
-	if (!keys.length) return false;
-
-	const key = keys[keys.length - 1];
-	const wantsAlt = keys.includes("alt");
-	const wantsCtrl = keys.includes("ctrl") || keys.includes("control");
-	const wantsMeta = keys.includes("cmd") || keys.includes("meta") || keys.includes("command");
-	const wantsShift = keys.includes("shift");
-	return (
-		event.key.toLowerCase() === key &&
-		Boolean(event.altKey) === wantsAlt &&
-		Boolean(event.ctrlKey) === wantsCtrl &&
-		Boolean(event.metaKey) === wantsMeta &&
-		Boolean(event.shiftKey) === wantsShift
-	);
-}
 
 export function getRowKey(row, index, keyName = "id") {
 	let key;
