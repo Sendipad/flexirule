@@ -111,8 +111,8 @@ export function normalizeConditionNode(node) {
 		node.right !== undefined
 			? normalizeFlexValue(node.right)
 			: node.value !== undefined
-				? normalizeFlexValue(node.value)
-				: null;
+			? normalizeFlexValue(node.value)
+			: null;
 
 	return {
 		type: "comparison",
