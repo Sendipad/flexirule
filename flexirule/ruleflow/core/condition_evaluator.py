@@ -18,6 +18,7 @@ from datetime import date, datetime, time
 from decimal import Decimal, InvalidOperation
 from functools import lru_cache
 from typing import Any, NoReturn
+from weakref import WeakValueDictionary
 
 from flexirule.ruleflow.core.condition_contract import (
 	CONDITION_SEMANTICS_VERSION,
@@ -42,7 +43,7 @@ MAX_CACHEABLE_CONDITION_BYTES = 65536
 _PREPARED_CONDITION_SEAL = object()
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class _PreparedCanonicalCondition:
 	"""Opaque, validated artifact intended for one RuleEngine execution."""
 
@@ -53,6 +54,12 @@ class _PreparedCanonicalCondition:
 	evaluator_version: int
 	resolver_fingerprint: str
 	_seal: object
+
+	def __reduce__(self):
+		raise TypeError("Prepared condition artifacts are process-local and cannot be serialized")
+
+
+_PREPARED_CONDITION_ARTIFACTS = WeakValueDictionary()
 
 
 class _EvaluationContext(dict):
@@ -191,7 +198,7 @@ def prepare_condition(node: Any, *, doctype: str | None = None) -> _PreparedCano
 		doctype,
 		validated_fresh=True,
 	)
-	return _PreparedCanonicalCondition(
+	prepared = _PreparedCanonicalCondition(
 		plan=plan,
 		doctype=doctype or None,
 		condition_digest=payload_digest,
@@ -200,6 +207,8 @@ def prepare_condition(node: Any, *, doctype: str | None = None) -> _PreparedCano
 		resolver_fingerprint=registry_fingerprint,
 		_seal=_PREPARED_CONDITION_SEAL,
 	)
+	_PREPARED_CONDITION_ARTIFACTS[id(prepared)] = prepared
+	return prepared
 
 
 @lru_cache(maxsize=512)
@@ -377,6 +386,7 @@ def evaluate_prepared_condition(
 	"""Evaluate a trusted prepared artifact without re-serializing its source condition."""
 	if (
 		not isinstance(prepared, _PreparedCanonicalCondition)
+		or _PREPARED_CONDITION_ARTIFACTS.get(id(prepared)) is not prepared
 		or prepared._seal is not _PREPARED_CONDITION_SEAL
 	):
 		raise ConditionValidationError(
