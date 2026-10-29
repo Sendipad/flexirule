@@ -102,7 +102,7 @@ def _clear_cache_safely() -> bool:
 
 
 class UnifiedScenarioEvaluator:
-	"""Evaluates all five candidates against neutral scenario definitions.
+	"""Evaluates all benchmark candidates against neutral scenario definitions.
 
 	Translates neutral nodes into candidate-native payloads (legacy dict or canonical direct node)
 	and handles unsupported/deprecated cases cleanly.
@@ -710,7 +710,7 @@ class BenchmarkRunner:
 			"| **Canonical (`evaluate_condition`)** | Validating public runtime | LRU-cached AST compilation | Public API with context normalization & cache lookup |"
 		)
 		md_lines.append("")
-		md_lines.append("### Internal Diagnostic Baselines")
+		md_lines.append("### Prepared and Experimental Runtime Baselines")
 		md_lines.append("| Candidate | Purpose | Preparation Mechanism | Execution Path |")
 		md_lines.append("|---|---|---|---|")
 		md_lines.append(
