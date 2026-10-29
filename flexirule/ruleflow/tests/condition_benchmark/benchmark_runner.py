@@ -707,7 +707,7 @@ class BenchmarkRunner:
 			"| **Approach C (`json_tree`)** | Direct JSON Evaluator | Pure JSON AST | Direct JSON tree walker |"
 		)
 		md_lines.append(
-			"| **Canonical (`evaluate_condition`)** | Public PR #469 Runtime | LRU-cached AST compilation | Public API with context normalization & cache lookup |"
+			"| **Canonical (`evaluate_condition`)** | Validating public runtime | LRU-cached AST compilation | Public API with context normalization & cache lookup |"
 		)
 		md_lines.append("")
 		md_lines.append("### Internal Diagnostic Baselines")
@@ -717,7 +717,7 @@ class BenchmarkRunner:
 			"| **Approach A Exp (`code_obj`)** | Isolated Bytecode Baseline | Pre-compiled bytecode | `eval(code_object)` |"
 		)
 		md_lines.append(
-			"| **Canonical (`Prepared Plan`)** | Isolated Plan Diagnostic | Direct compiled AST plan | Direct internal `_evaluate_node` execution |"
+			"| **Canonical (`Prepared Plan`)** | Validated prepared-artifact runtime | Immutable validated artifact | Public prepared API without source serialization or cache-key lookup |"
 		)
 		md_lines.append("")
 		md_lines.append("---")
@@ -757,7 +757,7 @@ class BenchmarkRunner:
 		md_lines.append("## 3. Steady-State Execution Latency (Microseconds per Operation)")
 		md_lines.append("")
 		md_lines.append(
-			"| Scenario ID | Tier | Approach A (`safe_eval`) | Approach B (`plan`) | Approach C (`json_tree`) | Canonical Runtime (`evaluate_condition`) | *Diagnostic: A Exp (`code_obj`)* | *Diagnostic: Canonical Plan* |"
+			"| Scenario ID | Tier | Approach A (`safe_eval`) | Approach B (`plan`) | Approach C (`json_tree`) | Canonical Runtime (`evaluate_condition`) | *Diagnostic: A Exp (`code_obj`)* | *Prepared Artifact Runtime* |"
 		)
 		md_lines.append("|---|---|---|---|---|---|---|---|")
 
@@ -767,7 +767,7 @@ class BenchmarkRunner:
 			"Approach C (Direct JSON Tree Evaluator)",
 			"Canonical Condition (evaluate_condition)",
 			"Approach A (Experimental Restricted Code Object)",
-			"Canonical Condition (Prepared Plan Diagnostic)",
+			"Canonical Condition (Prepared Artifact Runtime)",
 		]
 
 		for item in steady.get("scenarios", []):
@@ -851,7 +851,15 @@ def run_main():
 	sites_path = (
 		"/home/jules/frappe-bench/sites" if os.path.exists("/home/jules/frappe-bench/sites") else "sites"
 	)
-	frappe.init(site="test_site", sites_path=sites_path)
+	site_name = os.environ.get("FRAPPE_SITE_NAME", "test_site")
+	bench_root = os.environ.get("FRAPPE_BENCH_PATH")
+	if not bench_root:
+		for candidate in ("/home/jules/frappe-bench", "/home/runner/frappe-bench"):
+			if os.path.isdir(os.path.join(candidate, "sites")):
+				bench_root = candidate
+				break
+	sites_path = os.path.join(bench_root, "sites") if bench_root else sites_path
+	frappe.init(site=site_name, sites_path=sites_path)
 	runner = BenchmarkRunner(iterations_per_batch=10000, num_batches=5)
 	output_file = os.path.abspath("reports/canonical_condition_benchmark_results.json")
 	md_file = os.path.abspath("reports/condition-backend-comparison-benchmark.md")
