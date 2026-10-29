@@ -1,5 +1,9 @@
 import { resolvePresentationMode } from "./inline_presentation_policy.mjs";
-import { matchesShortcut, parseShortcutString, isInputTarget } from "../utils/keyboard_shortcuts.mjs";
+import {
+	matchesShortcut,
+	parseShortcutString,
+	isInputTarget,
+} from "../utils/keyboard_shortcuts.mjs";
 
 export { matchesShortcut, parseShortcutString, isInputTarget };
 
