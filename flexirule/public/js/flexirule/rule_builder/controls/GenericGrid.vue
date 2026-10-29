@@ -18,6 +18,9 @@
 		@pointercancel="endDragSelection"
 	>
 		<div class="fxr-generic-grid-rows">
+			<div v-if="$slots.header && filteredRows.length" class="fxr-generic-grid-header">
+				<slot name="header" />
+			</div>
 			<div v-if="!filteredRows.length" class="fxr-generic-grid-empty">
 				<slot name="empty">{{ __("No matching rows.") }}</slot>
 			</div>
@@ -248,6 +251,7 @@
 					v-if="activePrimaryAction && !readOnly"
 					type="button"
 					class="fxr-btn fxr-btn--sm fxr-btn--primary fxr-grid-button fxr-grid-button--primary"
+					:class="activePrimaryAction.class"
 					:aria-keyshortcuts="props.primaryActionShortcut"
 					:title="primaryActionTitle"
 					:aria-label="primaryActionTitle"
@@ -1848,6 +1852,10 @@ defineExpose({
 .fxr-generic-grid-row-fallback {
 	overflow-wrap: anywhere;
 	font-size: var(--fxr-text-sm, 12px);
+}
+
+.fxr-generic-grid-header {
+	min-width: 0;
 }
 
 .fxr-generic-grid-empty {
