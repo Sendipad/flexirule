@@ -59,7 +59,7 @@ class _PreparedCanonicalCondition:
 		raise TypeError("Prepared condition artifacts are process-local and cannot be serialized")
 
 
-_PREPARED_CONDITION_ARTIFACTS = WeakValueDictionary()
+_PREPARED_CONDITION_ARTIFACTS: WeakValueDictionary[int, _PreparedCanonicalCondition] = WeakValueDictionary()
 
 
 class _EvaluationContext(dict):
