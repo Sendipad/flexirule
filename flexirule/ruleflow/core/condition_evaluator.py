@@ -332,11 +332,9 @@ def _context_doctype(context: dict | None, doctype: str | None = None) -> str | 
 		return doctype
 	if not isinstance(context, dict):
 		return None
-	context_doctype = context.get("doctype")
-	if context_doctype:
-		return context_doctype
 	doc = context.get("doc")
-	return doc.get("doctype") if isinstance(doc, dict) else getattr(doc, "doctype", None)
+	doc_doctype = doc.get("doctype") if isinstance(doc, dict) else getattr(doc, "doctype", None)
+	return doc_doctype or context.get("doctype")
 
 
 def _evaluate_plan(
