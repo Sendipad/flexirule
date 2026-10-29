@@ -390,6 +390,36 @@ class TestCanonicalConditionEvaluator(unittest.TestCase):
 		self.assertTrue(result)
 		self.assertEqual(next_id, "yes")
 
+	def test_collection_resolver_prepares_canonical_predicate_once_for_all_rows(self):
+		from flexirule.ruleflow.core.condition_evaluator import prepare_condition, evaluate_prepared_condition
+
+		predicate = compare(
+			"gt",
+			variable("row", "amount"),
+			static("integer", 2),
+		)
+		resolver = CollectionResolver(
+			"doc.items",
+			operation="count",
+			condition=predicate,
+		)
+		context = {"doc": {"items": [{"amount": 1}, {"amount": 3}, {"amount": 4}]}}
+
+		with (
+			patch(
+				"flexirule.ruleflow.core.condition_evaluator.prepare_condition",
+				wraps=prepare_condition,
+			) as prepare_spy,
+			patch(
+				"flexirule.ruleflow.core.condition_evaluator.evaluate_prepared_condition",
+				wraps=evaluate_prepared_condition,
+			) as evaluate_spy,
+		):
+			self.assertEqual(resolver.resolve(context), 2)
+
+		self.assertEqual(prepare_spy.call_count, 1)
+		self.assertEqual(evaluate_spy.call_count, 3)
+
 	def test_cache_never_caches_context_or_result(self):
 		node = compare("eq", variable("doc", "value"), static("integer", 5))
 		self.assertTrue(evaluate_condition(node, {"doc": {"value": 5}}))
