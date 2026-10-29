@@ -123,7 +123,7 @@ async function updateMenuPosition() {
 						elements.floating.style.maxHeight = `${Math.max(
 							0,
 						Math.min(280, availableHeight)
-							)}px`;
+						)}px`;
 					},
 				}),
 			],

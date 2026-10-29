@@ -172,8 +172,8 @@ function getLeafState(node) {
 		typeof props.isLeafValid === "function"
 			? Boolean(props.isLeafValid(node))
 			: typeof api.isLeafValid?.value === "function"
-		? Boolean(api.isLeafValid.value(node))
-		: node?.isValid !== false;
+			? Boolean(api.isLeafValid.value(node))
+			: node?.isValid !== false;
 	return { isNew, isValid };
 }
 
