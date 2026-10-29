@@ -1,23 +1,39 @@
 import { onMounted, onUnmounted, ref } from "vue";
+import { parseShortcutString } from "../controls/generic_grid_model.mjs";
 
 const registry = ref([]);
 const activeContexts = ref(new Set(["global"]));
 
 export function useKeyboardRegistry() {
 	const registerShortcut = (options) => {
+		let key = options.key;
+		let ctrl = options.ctrl || false;
+		let meta = options.meta || false;
+		let mod = options.mod || false;
+		let shift = options.shift || false;
+		let alt = options.alt || false;
+
+		if (options.shortcut) {
+			const parsed = parseShortcutString(options.shortcut);
+			if (parsed) {
+				key = parsed.key;
+				ctrl = parsed.ctrl;
+				meta = parsed.meta;
+				alt = parsed.alt;
+				shift = parsed.shift;
+			}
+		}
+
 		const {
-			key,
-			ctrl = false,
-			meta = false,
-			mod = false, // Ctrl on Windows, Meta on Mac
-			shift = false,
-			alt = false,
 			callback,
 			context = "global",
 			priority = 0,
 			description = "",
 			prevent = true,
+			allowInInputs = false,
 		} = options;
+
+		if (!key) return () => {};
 
 		// Reserved browser shortcuts that we should NOT override
 		const reserved = [
@@ -59,6 +75,7 @@ export function useKeyboardRegistry() {
 			priority,
 			description,
 			prevent,
+			allowInInputs,
 			id: Math.random().toString(36).substr(2, 9),
 		};
 
@@ -114,8 +131,14 @@ export function useKeyboardRegistry() {
 		if (matches.length > 0) {
 			const bestMatch = matches[0]; // Already sorted by priority
 
-			// If it's an input and not a "global" system shortcut (like Ctrl+S), we might want to skip
-			if (isInput && !bestMatch.ctrl && !bestMatch.meta && bestMatch.key.length === 1) {
+			// If focus is inside an input, only allow if explicitly permitted or modifier combination
+			if (
+				isInput &&
+				!bestMatch.allowInInputs &&
+				!bestMatch.ctrl &&
+				!bestMatch.meta &&
+				bestMatch.key.length === 1
+			) {
 				return;
 			}
 
