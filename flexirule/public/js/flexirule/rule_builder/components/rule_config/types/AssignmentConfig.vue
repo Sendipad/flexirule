@@ -27,195 +27,160 @@
 			</div>
 		</div>
 
-		<!-- Horizontal Table Grid Header -->
-		<div v-if="assignments.length" class="assignment-grid-header">
-			<div class="grid-col-when">{{ __("Run If") }}</div>
-			<div class="grid-col-target">{{ __("Target Field") }}</div>
-			<div class="grid-col-operator">{{ __("Operator") }}</div>
-			<div class="grid-col-value">{{ __("Value Expression") }}</div>
-			<div class="grid-col-actions"></div>
-		</div>
-
-		<div class="assignments-list">
-			<div
-				v-for="(assignment, index) in assignments"
-				:key="assignment.name"
-				class="assignment-grid-row align-items-center mb-2"
-			>
-				<div class="grid-col-when">
-					<div class="when-editor-cell" v-fxr-fieldname="'assignments.run_if'">
-						<button
-							class="fxr-btn fxr-btn--sm w-100 when-toggle-btn"
-							:class="{
-								'is-active': hasWhenCondition(assignment),
-								'is-default': !hasWhenCondition(assignment),
-								'is-invalid':
-									showValidation && getWhenConditionStatus(assignment).isInvalid,
-							}"
-							:disabled="isReadOnly"
-							@click="openWhenConditionEditor(index)"
-						>
-							<i
-								:class="
-									getWhenConditionStatus(assignment).isInvalid
-										? 'fa fa-exclamation-triangle'
-										: hasWhenCondition(assignment)
-										? 'fa fa-filter'
-										: 'fa fa-play-circle-o'
-								"
-								class="me-2"
-							></i>
-							<span class="truncate">
-								{{
-									getWhenConditionStatus(assignment).isInvalid
-										? __("Invalid Condition")
-										: hasWhenCondition(assignment)
-										? __("Condition Set")
-										: __("Always Run")
-								}}
-							</span>
-						</button>
-					</div>
-				</div>
-
-				<!-- Target ComboBox with Type Badge support -->
-				<div class="grid-col-target">
-					<ComboBoxControl
-						:ref="setControlRef"
-						fieldname="assignments.target"
-						:df="{ fieldtype: 'FieldPicker', label: '', reqd: 1 }"
-						:modelValue="assignment.target"
-						:options="targetOptions"
-						:read_only="isReadOnly"
-						:hideLabel="true"
-						:showValidation="showValidation"
-						:trigger="'button'"
-						:placeholder="__('Target field/variable...')"
-						:allowCustomValue="false"
-						@update:modelValue="(val) => onTargetChange(index, val)"
-					/>
-				</div>
-
-				<!-- Operator Selector -->
-				<div class="grid-col-operator">
-					<ComboBoxControl
-						:ref="setControlRef"
-						fieldname="assignments.operator"
-						:df="{ fieldtype: 'Select', label: '', reqd: 1 }"
-						:options="getAvailableOperators(assignment.target)"
-						:modelValue="assignment.operator"
-						:read_only="isReadOnly"
-						:hideLabel="true"
-						:showValidation="showValidation"
-						:trigger="'button'"
-						@update:modelValue="(val) => onOperatorChange(index, val)"
-					/>
-				</div>
-
-				<!-- Value Expression Editor -->
-				<div class="grid-col-value">
-					<template v-if="needsValue(assignment.operator)">
-						<div class="value-mode-wrap">
-							<FlexValueControl
-								:ref="setControlRef"
-								class="flex-1 min-w-0"
-								fieldname="assignments.value"
-								:context="{
-									df: {
-										...(targetOptions.find(
-											(o) => o.value === assignment.target
-										) || {}),
-										reqd: 1,
-									},
-									target: assignment.target,
-									operator: assignment.operator,
-									referenceDoctype: getTargetDoctype(assignment.target),
-								}"
-								:modelValue="assignment.value"
-								:read_only="isReadOnly"
-								:showValidation="showValidation"
-								:engine="store"
-								:doc="store.rule_doc"
-								:variableOptions="variable_options"
-								:placeholder="__('Type value...')"
-								@update:modelValue="(val) => updateTemplate(index, val)"
-							/>
-						</div>
-					</template>
-					<div v-else class="operator-hint-text text-muted small">
-						<i class="fa fa-info-circle me-1"></i>
-						{{ operatorNoValueHint(assignment.operator) }}
-					</div>
-				</div>
-
-				<!-- Row Actions -->
-				<div
-					class="grid-col-actions d-flex align-items-center justify-content-end fxr-gap-2"
-				>
-					<div class="d-flex flex-column justify-content-center" style="gap: 2px">
-						<button
-							class="fxr-btn fxr-btn--icon fxr-btn--ghost p-0"
-							:style="{
-								height: '16px',
-								minHeight: '16px',
-								width: '24px',
-								visibility: index === 0 ? 'hidden' : 'visible',
-							}"
-							@click="moveAssignment(index, -1)"
-							:disabled="isReadOnly"
-							:title="__('Move Up')"
-							aria-label="Move Up"
-						>
-							<i class="fa fa-chevron-up" style="font-size: 10px"></i>
-						</button>
-						<button
-							class="fxr-btn fxr-btn--icon fxr-btn--ghost p-0"
-							:style="{
-								height: '16px',
-								minHeight: '16px',
-								width: '24px',
-								visibility: index === assignments.length - 1 ? 'hidden' : 'visible',
-							}"
-							@click="moveAssignment(index, 1)"
-							:disabled="isReadOnly"
-							:title="__('Move Down')"
-							aria-label="Move Down"
-						>
-							<i class="fa fa-chevron-down" style="font-size: 10px"></i>
-						</button>
-					</div>
-					<button
-						class="fxr-btn fxr-btn--icon fxr-btn--sm fxr-btn--ghost text-danger ms-1"
-						@click="removeAssignment(index)"
-						:disabled="isReadOnly"
-						:title="__('Remove')"
-						aria-label="Remove Assignment"
-					>
-						<i class="fa fa-trash"></i>
-					</button>
-				</div>
-			</div>
-		</div>
-
-		<div
-			v-if="!assignments.length"
-			class="empty-state d-flex flex-column align-items-center justify-content-center py-5"
+		<GenericGrid
+			v-model="assignments"
+			rowKey="name"
+			:readOnly="isReadOnly"
+			:pagination="false"
+			:showSearch="false"
+			:selection="false"
+			:primaryAction="{
+				label: __('Add Assignment'),
+				icon: 'fa fa-plus',
+			}"
+			@primary-action="addAssignment"
+			@row-action="handleGridRowAction"
 		>
-			<div class="empty-state-icon mb-3">
-				<i class="fa fa-list-ol fa-3x text-muted opacity-25"></i>
-			</div>
-			<div class="text-center px-4">
-				<h6 class="mb-1 fw-bold text-muted">{{ __("No Assignments Yet") }}</h6>
-				<p class="small text-muted mb-0">
-					{{ __("Add an assignment to start mutating document fields or variables.") }}
-				</p>
-			</div>
-		</div>
+			<template #header>
+				<div v-if="assignments.length" class="assignment-grid-header">
+					<div class="grid-col-when">{{ __("Run If") }}</div>
+					<div class="grid-col-target">{{ __("Target Field") }}</div>
+					<div class="grid-col-operator">{{ __("Operator") }}</div>
+					<div class="grid-col-value">{{ __("Value Expression") }}</div>
+				</div>
+			</template>
 
-		<button class="add-assignment-btn mt-2" @click="addAssignment" :disabled="isReadOnly">
-			<i class="fa fa-plus"></i>
-			<span>{{ __("Add Assignment") }}</span>
-		</button>
+			<template #empty>
+				<div
+					class="empty-state d-flex flex-column align-items-center justify-content-center py-5"
+				>
+					<div class="empty-state-icon mb-3">
+						<i class="fa fa-list-ol fa-3x text-muted opacity-25"></i>
+					</div>
+					<div class="text-center px-4">
+						<h6 class="mb-1 fw-bold text-muted">{{ __("No Assignments Yet") }}</h6>
+						<p class="small text-muted mb-0">
+							{{
+								__(
+									"Add an assignment to start mutating document fields or variables."
+								)
+							}}
+						</p>
+					</div>
+				</div>
+			</template>
+
+			<template #row="{ row: assignment, index }">
+				<div class="assignment-grid-row align-items-center">
+					<div class="grid-col-when">
+						<div class="when-editor-cell" v-fxr-fieldname="'assignments.run_if'">
+							<button
+								class="fxr-btn fxr-btn--sm w-100 when-toggle-btn"
+								:class="{
+									'is-active': hasWhenCondition(assignment),
+									'is-default': !hasWhenCondition(assignment),
+									'is-invalid':
+										showValidation &&
+										getWhenConditionStatus(assignment).isInvalid,
+								}"
+								:disabled="isReadOnly"
+								@click="openWhenConditionEditor(index)"
+							>
+								<i
+									:class="
+										getWhenConditionStatus(assignment).isInvalid
+											? 'fa fa-exclamation-triangle'
+											: hasWhenCondition(assignment)
+											? 'fa fa-filter'
+											: 'fa fa-play-circle-o'
+									"
+									class="me-2"
+								></i>
+								<span class="truncate">
+									{{
+										getWhenConditionStatus(assignment).isInvalid
+											? __("Invalid Condition")
+											: hasWhenCondition(assignment)
+											? __("Condition Set")
+											: __("Always Run")
+									}}
+								</span>
+							</button>
+						</div>
+					</div>
+
+					<!-- Target ComboBox with Type Badge support -->
+					<div class="grid-col-target">
+						<ComboBoxControl
+							:ref="setControlRef"
+							fieldname="assignments.target"
+							:df="{ fieldtype: 'FieldPicker', label: '', reqd: 1 }"
+							:modelValue="assignment.target"
+							:options="targetOptions"
+							:read_only="isReadOnly"
+							:hideLabel="true"
+							:showValidation="showValidation"
+							:trigger="'button'"
+							:placeholder="__('Target field/variable...')"
+							:allowCustomValue="false"
+							@update:modelValue="(val) => onTargetChange(index, val)"
+						/>
+					</div>
+
+					<!-- Operator Selector -->
+					<div class="grid-col-operator">
+						<ComboBoxControl
+							:ref="setControlRef"
+							fieldname="assignments.operator"
+							:df="{ fieldtype: 'Select', label: '', reqd: 1 }"
+							:options="getAvailableOperators(assignment.target)"
+							:modelValue="assignment.operator"
+							:read_only="isReadOnly"
+							:hideLabel="true"
+							:showValidation="showValidation"
+							:trigger="'button'"
+							@update:modelValue="(val) => onOperatorChange(index, val)"
+						/>
+					</div>
+
+					<!-- Value Expression Editor -->
+					<div class="grid-col-value">
+						<template v-if="needsValue(assignment.operator)">
+							<div class="value-mode-wrap">
+								<FlexValueControl
+									:ref="setControlRef"
+									class="flex-1 min-w-0"
+									fieldname="assignments.value"
+									:context="{
+										df: {
+											...(targetOptions.find(
+												(o) => o.value === assignment.target
+											) || {}),
+											reqd: 1,
+										},
+										target: assignment.target,
+										operator: assignment.operator,
+										referenceDoctype: getTargetDoctype(assignment.target),
+									}"
+									:modelValue="assignment.value"
+									:read_only="isReadOnly"
+									:showValidation="showValidation"
+									:engine="store"
+									:doc="store.rule_doc"
+									:variableOptions="variable_options"
+									:placeholder="__('Type value...')"
+									@update:modelValue="(val) => updateTemplate(index, val)"
+								/>
+							</div>
+						</template>
+						<div v-else class="operator-hint-text text-muted small">
+							<i class="fa fa-info-circle me-1"></i>
+							{{ operatorNoValueHint(assignment.operator) }}
+						</div>
+					</div>
+				</div>
+			</template>
+		</GenericGrid>
 
 		<Teleport to="body">
 			<div
@@ -248,13 +213,15 @@
 							class="fxr-btn fxr-btn--sm fxr-btn--ghost text-danger"
 							@click="clearWhenCondition"
 						>
+							<i class="fa fa-trash me-1"></i>
 							{{ __("Clear Condition") }}
 						</button>
+
 						<button
-							class="fxr-btn fxr-btn--sm fxr-btn--secondary"
+							class="fxr-btn fxr-btn--sm fxr-btn--primary"
 							@click="closeWhenConditionEditor"
 						>
-							{{ __("Close") }}
+							{{ __("Done") }}
 						</button>
 					</div>
 				</div>
@@ -264,283 +231,161 @@
 </template>
 
 <script setup>
-import { computed, watch, ref, onMounted, onBeforeUnmount, onBeforeUpdate, nextTick } from "vue";
-import { fromCodeString, deepClone } from "../../../utils/serialization";
-import { useActionConfig } from "../../../composables/useActionConfig";
-import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
-import FlexValueControl from "../../../controls/FlexValueControl.vue";
-import ConditionBuilder from "../../condition_builder/ConditionBuilder.vue";
-import { validateConditions } from "../../condition_builder/condition_validator.js";
-import { compileSegmentsToJinja } from "../../../utils/text_generator";
-import { ASSIGNMENT_OPERATOR_METADATA } from "../../../../core/contracts.js";
+import { computed, ref, watch, onMounted, onBeforeUnmount, nextTick } from "vue";
+import GenericGrid from "../../../../controls/GenericGrid.vue";
+import ComboBoxControl from "../../../../controls/ComboBoxControl.vue";
+import FlexValueControl from "../../../../controls/FlexValueControl.vue";
+import ConditionBuilder from "../../tree_builder/ConditionBuilder.vue";
+import { useRuleStore } from "../../../../stores/useRuleStore";
+import { useMetaStore } from "../../../../stores/useMetaStore";
+import { validateConditions } from "../../../../utils/condition_payload";
 
 const props = defineProps({
-	node: Object,
+	modelValue: { type: Object, default: () => ({}) },
 	readOnly: { type: Boolean, default: false },
-	read_only: { type: Boolean, default: false },
+	action: { type: Object, default: null },
 });
 
-const isReadOnly = computed(() => !!props.readOnly || !!props.read_only);
+const emit = defineEmits(["update:modelValue"]);
 
-const { doctype_fields, variable_options, update_action_field, store } = useActionConfig(props);
-const supportedTemplateModes = [
-	"formula",
-	"resolver",
-	"link",
-	"dynamic-link",
-	"select",
-	"boolean",
-	"multiselect",
-	"json",
-	"add-key",
-];
-const whenEditor = ref({ open: false, index: -1, draft: null });
-const conditionBuilderRef = ref(null);
-const controlRefs = ref([]);
+const store = useRuleStore();
+const metaStore = useMetaStore();
+
 const showValidation = ref(false);
-
-onBeforeUpdate(() => {
-	controlRefs.value = [];
-});
+const controlRefs = ref([]);
+const conditionBuilderRef = ref(null);
 
 function setControlRef(el) {
-	if (el) controlRefs.value.push(el);
-}
-
-// ─── Operator Helpers ────────────────────────────────────────────────────────
-
-const OPERATOR_HINTS = {
-	set: null,
-	clear: "Clears the value without needing an input.",
-	increment: "Adds the value to the current numeric total.",
-	decrement: "Subtracts the value from the current numeric total.",
-	append: "Appends the value to an existing list.",
-	merge: "Merges an object into the current dictionary value.",
-	toggle: "Flips a boolean field (0 ↔ 1) without needing an input.",
-};
-
-function needsValue(operator) {
-	return ASSIGNMENT_OPERATOR_METADATA[operator]?.requires_value !== false;
-}
-
-function operatorNoValueHint(operator) {
-	return OPERATOR_HINTS[operator] || __("No value input required for this operator.");
-}
-
-function getOperatorHint(operator) {
-	return OPERATOR_HINTS[operator] || null;
-}
-
-/**
- * Resolve a Frappe fieldtype for a target path.
- * Reuses existing doctype_fields and variable_options arrays.
- */
-function getTargetFieldtype(target) {
-	if (!target) return null;
-	const opt = targetOptions.value.find((o) => o.value === target);
-	return opt?.fieldtype || opt?.type || null;
-}
-
-function getTargetDoctype(target) {
-	if (!target) return null;
-	const opt = targetOptions.value.find((o) => o.value === target);
-	return opt?.options || null;
-}
-
-/**
- * Custom metadata target options list.
- */
-function getTargetOptions(target) {
-	if (!target) return [];
-	const opt = targetOptions.value.find((o) => o.value === target);
-	if (opt?.value === "doc.docstatus" && !opt.options) {
-		return [
-			{ label: __("0 (Draft)"), value: "0" },
-			{ label: __("1 (Submitted)"), value: "1" },
-			{ label: __("2 (Cancelled)"), value: "2" },
-		];
+	if (el && !controlRefs.value.includes(el)) {
+		controlRefs.value.push(el);
 	}
-	return opt?.options || [];
 }
 
-/**
- * Target-aware operator filtering: the key architectural enhancement.
- */
-function getAvailableOperators(target) {
-	const fieldtype = getTargetFieldtype(target);
+// Ensure array reset on re-render / validation reset
+watch(
+	() => props.modelValue,
+	() => {
+		controlRefs.value = [];
+	},
+	{ deep: true }
+);
 
-	const operatorIcons = {
-		set: "fa fa-pencil",
-		clear: "fa fa-eraser",
-		increment: "fa fa-plus",
-		decrement: "fa fa-minus",
-		append: "fa fa-list-ul",
-		merge: "fa fa-compress",
-		toggle: "fa fa-toggle-on",
-	};
-
-	return Object.entries(ASSIGNMENT_OPERATOR_METADATA)
-		.filter(([, meta]) => {
-			if (!meta.supported_target_types.length) return true; // "all types"
-			if (!fieldtype) return true; // vars.* or unknown – show all
-			return meta.supported_target_types.includes(fieldtype);
-		})
-		.map(([key, meta]) => ({
-			value: key,
-			label: __(meta.label),
-			icon: operatorIcons[key] || "fa fa-cog",
-		}));
-}
-
-// ─── Unique Row ID Helper ───────────────────────────────────────────────────
-
-function makeRandomString(length = 9) {
-	const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-	let result = "";
-	for (let i = 0; i < length; i++) {
-		result += chars.charAt(Math.floor(Math.random() * chars.length));
-	}
-	return result;
-}
-
-// ─── Assignments State ────────────────────────────────────────────────────────
-
+const isReadOnly = computed(() => props.readOnly);
 const assignments = ref([]);
 
+function normalizeValuePayload(raw) {
+	if (!raw) return { mode: "static", value: "" };
+	if (typeof raw === "string") return { mode: "static", value: raw };
+	if (typeof raw === "object") {
+		return {
+			mode: raw.mode || (raw.resolver ? "resolver" : "static"),
+			value: raw.value ?? "",
+			resolver: raw.resolver ?? null,
+		};
+	}
+	return { mode: "static", value: "" };
+}
+
+function normalizeAssignmentItem(item, index) {
+	const raw = item && typeof item === "object" ? item : {};
+	return {
+		name: raw.name || raw.id || `assign_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 4)}`,
+		target: raw.target || "",
+		operator: raw.operator || "=",
+		value: normalizeValuePayload(raw.value),
+		when_condition:
+			raw.when_condition &&
+			typeof raw.when_condition === "object" &&
+			Array.isArray(raw.when_condition.conditions)
+				? raw.when_condition
+				: null,
+		when_expression: typeof raw.when_expression === "string" ? raw.when_expression : "",
+	};
+}
+
+function deepClone(val) {
+	if (val === null || val === undefined) return val;
+	return JSON.parse(JSON.stringify(val));
+}
+
+// ─── Condition Modal State ──────────────────────────────────────────────────
+const whenEditor = ref({
+	open: false,
+	index: -1,
+	draft: null,
+});
+
+function hasWhenCondition(assignment) {
+	const c = assignment?.when_condition;
+	return !!(c && Array.isArray(c.conditions) && c.conditions.length > 0);
+}
+
+function getWhenConditionStatus(assignment) {
+	if (!hasWhenCondition(assignment)) {
+		return { isInvalid: false, errors: [] };
+	}
+	const res = validateConditions(assignment.when_condition, true, true);
+	return { isInvalid: !res.valid, errors: res.errors || [] };
+}
+
+// Sync from props
 watch(
-	() => props.node?.data?.config,
-	(val) => {
-		let parsed = typeof val === "string" ? fromCodeString(val, []) : val || [];
+	() => props.modelValue,
+	(newVal) => {
+		const rawAssignments = Array.isArray(newVal?.assignments) ? newVal.assignments : [];
+		const normalized = rawAssignments.map(normalizeAssignmentItem);
 
-		parsed = parsed.map((a) => {
-			const name = a.name || makeRandomString(9);
-			let structuredVal = null;
-			if (a.value && typeof a.value === "object" && a.value.mode) {
-				structuredVal = a.value;
-			} else {
-				const legacyVal = a.value || a.value_template || "";
-				const legacyUI = a.value_template_ui;
-				if (legacyUI && typeof legacyUI === "object" && legacyUI.mode) {
-					structuredVal = legacyUI;
-				} else {
-					structuredVal = { mode: "static", value: legacyVal };
-				}
-			}
-
-			// Unified mode migration: migrate specialized modes to 'resolver'
-			if (["formula", "format", "normalize"].includes(structuredVal.mode)) {
-				const config = structuredVal.config || {};
-				if (!config.kind) {
-					const kindMap = {
-						formula: "math_formula",
-						format: "text",
-						normalize: "text",
-					};
-					config.kind = kindMap[structuredVal.mode];
-				}
-				structuredVal.mode = "resolver";
-				structuredVal.config = config;
-			}
-
-			return {
-				name,
-				target: a.target || "",
-				operator: a.operator || "set",
-				when_condition: a.when_condition || null,
-				when_expression: a.when_expression || a.when || "",
-				pythonExpression: a.pythonExpression || "",
-				value: structuredVal,
-			};
-		});
-
-		if (JSON.stringify(parsed) !== JSON.stringify(assignments.value)) {
-			assignments.value = deepClone(parsed);
+		if (JSON.stringify(assignments.value) !== JSON.stringify(normalized)) {
+			assignments.value = normalized;
 		}
 	},
 	{ immediate: true, deep: true }
 );
 
-// ─── Target options for ComboBox ─────────────────────────────────────────────
-
-const targetOptions = computed(() => {
-	const opts = [];
-
-	// ── Context variables (vars.*) ────────────────────────────────────────────
-	(variable_options.value || [])
-		.filter((v) => v.is_variable && typeof v.value === "string" && v.value.trim())
-		.forEach((v) => {
-			// getAvailableVariables() already returns canonical vars.* paths.
-			// Do not prefix them again: vars.vars.foo is not a valid context path.
-			const value = v.value.startsWith("vars.") ? v.value : `vars.${v.value}`;
-			const label = String(v.label || "");
-			opts.push({
-				value,
-				label: label.includes(value) ? label : label ? `${label} (${value})` : value,
-				icon: "fa fa-code",
-				fieldtype: v.fieldtype || "Variable",
-				type: v.fieldtype || "Variable",
-				is_variable: true,
-				fieldname: value,
-				options: v.options,
-			});
-		});
-
-	// ── Doc fields (doc.*) ────────────────────────────────────────────────────
-	(doctype_fields.value || []).forEach((f) => {
-		opts.push({
-			value: f.value,
-			label: f.label,
-			icon: f.icon || "fa fa-columns",
-			fieldtype: f.fieldtype,
-			type: f.fieldtype,
-			fieldname: f.fieldname,
-			options: f.options,
-		});
+function syncToNode() {
+	const cleaned = assignments.value.map((a) => {
+		const payload = {
+			name: a.name,
+			target: a.target,
+			operator: a.operator,
+			value: a.value,
+		};
+		if (a.when_condition && Array.isArray(a.when_condition.conditions) && a.when_condition.conditions.length) {
+			payload.when_condition = a.when_condition;
+		}
+		if (a.when_expression) {
+			payload.when_expression = a.when_expression;
+		}
+		return payload;
 	});
 
-	return opts;
-});
-
-// ─── Mutations ────────────────────────────────────────────────────────────────
-
-function syncToNode() {
-	const clean = assignments.value.map((a) => ({
-		name: a.name || makeRandomString(9),
-		target: a.target,
-		operator: a.operator,
-		when_condition: a.when_condition || null,
-		when_expression: a.when_condition ? "" : a.when_expression || "",
-		pythonExpression: a.pythonExpression || "",
-		value: a.value,
-	}));
-	// Standard: update_action_field handles 'config' as Object
-	update_action_field("config", clean);
-
-	const isDraft = !store.nodes.some((n) => n === props.node);
-	if (!isDraft) {
-		store.mark_dirty();
-	}
+	emit("update:modelValue", {
+		...props.modelValue,
+		assignments: cleaned,
+	});
 }
 
 function addAssignment() {
+	if (isReadOnly.value) return;
 	assignments.value.push({
-		name: makeRandomString(9),
+		name: `assign_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
 		target: "",
-		operator: "set",
+		operator: "=",
+		value: { mode: "static", value: "" },
 		when_condition: null,
 		when_expression: "",
-		pythonExpression: "",
-		value: { mode: "static", value: "" },
 	});
 	syncToNode();
 }
 
 function removeAssignment(index) {
+	if (isReadOnly.value) return;
 	assignments.value.splice(index, 1);
 	syncToNode();
 }
 
 function moveAssignment(index, direction) {
+	if (isReadOnly.value) return;
 	const newIndex = index + direction;
 	if (newIndex < 0 || newIndex >= assignments.value.length) return;
 	const item = assignments.value.splice(index, 1)[0];
@@ -548,56 +393,133 @@ function moveAssignment(index, direction) {
 	syncToNode();
 }
 
+function handleGridRowAction({ action, index }) {
+	if (isReadOnly.value) return;
+	switch (action) {
+		case "remove":
+			removeAssignment(index);
+			break;
+		case "move-up":
+			moveAssignment(index, -1);
+			break;
+		case "move-down":
+			moveAssignment(index, 1);
+			break;
+	}
+}
+
 function clearAssignments() {
-	frappe.confirm(__("Are you sure you want to clear all assignments?"), () => {
-		assignments.value = [];
-		syncToNode();
-	});
+	if (isReadOnly.value) return;
+	assignments.value = [];
+	syncToNode();
+}
+
+// ─── Target & Field Options ──────────────────────────────────────────────────
+
+const primaryDoctype = computed(() => store.rule_doc?.primary_doctype);
+
+onMounted(() => {
+	if (primaryDoctype.value) {
+		metaStore.fetch_metadata(primaryDoctype.value);
+	}
+});
+
+const docFields = computed(() => {
+	if (!primaryDoctype.value) return [];
+	const meta = metaStore.doc_meta[primaryDoctype.value] || [];
+	return meta
+		.filter((f) => f.fieldname && !["Section Break", "Column Break", "Tab Break"].includes(f.fieldtype))
+		.map((f) => ({
+			label: `${f.label || f.fieldname} (${f.fieldname})`,
+			value: `doc.${f.fieldname}`,
+			fieldname: f.fieldname,
+			fieldtype: f.fieldtype,
+			options: f.options,
+			group: __("Document Fields"),
+		}));
+});
+
+const variable_options = computed(() => {
+	const vars = store.rule_doc?.variables || [];
+	return vars.map((v) => ({
+		label: `${v.variable_name} (${v.data_type || 'Data'})`,
+		value: `vars.${v.variable_name}`,
+		fieldname: v.variable_name,
+		fieldtype: v.data_type || "Data",
+		group: __("Variables"),
+	}));
+});
+
+const targetOptions = computed(() => {
+	return [...docFields.value, ...variable_options.value];
+});
+
+function getTargetFieldtype(targetPath) {
+	if (!targetPath) return "Data";
+	const match = targetOptions.value.find((o) => o.value === targetPath);
+	return match?.fieldtype || "Data";
+}
+
+function getTargetDoctype(targetPath) {
+	if (targetPath?.startsWith("doc.")) return primaryDoctype.value;
+	return null;
 }
 
 function onTargetChange(index, value) {
 	assignments.value[index].target = value;
+	const defaultKind = getDefaultResolverKind(value);
+	const currentVal = assignments.value[index].value;
 
-	// Intelligent defaulting for resolver kind based on target
-	if (assignments.value[index].value?.mode === "resolver") {
-		const config = assignments.value[index].value.config || {};
-		if (!config.kind || config.kind === "resolver") {
-			config.kind = getDefaultResolverKind(value);
-			assignments.value[index].value.config = config;
-		}
-	}
-
-	// Reset operator if it's no longer compatible with new target type
-	const available = getAvailableOperators(value).map((o) => o.value);
-	if (!available.includes(assignments.value[index].operator)) {
-		const fieldtype = getTargetFieldtype(value);
-		if (fieldtype === "Check") {
-			assignments.value[index].operator = "toggle";
-		} else {
-			assignments.value[index].operator = "set";
-		}
+	if (currentVal?.mode === "resolver" && currentVal?.resolver) {
+		assignments.value[index].value = {
+			...currentVal,
+			resolver: {
+				...currentVal.resolver,
+				kind: defaultKind,
+			},
+		};
 	}
 	syncToNode();
 }
 
-function hasWhenCondition(assignment) {
-	return !!(
-		assignment?.when_condition &&
-		Array.isArray(assignment.when_condition.conditions) &&
-		assignment.when_condition.conditions.length > 0
-	);
+// ─── Operator Options ────────────────────────────────────────────────────────
+
+const NUMERIC_TYPES = ["Int", "Float", "Currency", "Percent"];
+
+function getAvailableOperators(targetPath) {
+	const ft = getTargetFieldtype(targetPath);
+	const isNumeric = NUMERIC_TYPES.includes(ft);
+
+	const ops = [
+		{ label: "= (Set)", value: "=" },
+		{ label: "Clear (Null)", value: "clear" },
+	];
+
+	if (isNumeric) {
+		ops.push(
+			{ label: "+= (Increment)", value: "+=" },
+			{ label: "-= (Decrement)", value: "-=" },
+			{ label: "*= (Multiply)", value: "*=" },
+			{ label: "/= (Divide)", value: "/=" }
+		);
+	}
+
+	return ops;
 }
 
-function getWhenConditionStatus(assignment) {
-	if (!hasWhenCondition(assignment)) return { isInvalid: false };
-
-	const res = validateConditions(assignment.when_condition, true, true);
-
-	return { isInvalid: !res.valid };
+function needsValue(operator) {
+	return operator !== "clear";
 }
+
+function operatorNoValueHint(operator) {
+	if (operator === "clear") return __("Clears the field value to null / empty");
+	return "";
+}
+
+// ─── Condition Options ───────────────────────────────────────────────────────
 
 const whenConditionDocFields = computed(() =>
-	(doctype_fields.value || []).map((f) => ({
+	(docFields.value || []).map((f) => ({
 		label: f.label || f.fieldname,
 		value: f.value || `doc.${f.fieldname}`,
 		fieldname: f.fieldname,
@@ -615,12 +537,10 @@ function openWhenConditionEditor(index) {
 		draft: deepClone(current?.when_condition || fallback),
 	};
 
-	// If shortcut to invalid condition, trigger validation immediately in the builder
 	if (showValidation.value && getWhenConditionStatus(current).isInvalid) {
 		nextTick(() => {
 			if (conditionBuilderRef.value) {
 				conditionBuilderRef.value.validate();
-				// Scroll to first error in the condition builder
 				nextTick(() => {
 					const firstError = document.querySelector(
 						".condition-builder-wrap .is-invalid"
@@ -672,6 +592,7 @@ function clearWhenCondition() {
 	whenEditor.value.draft = { op: "and", conditions: [] };
 	syncToNode();
 }
+
 function getDefaultResolverKind(target) {
 	const fieldtype = getTargetFieldtype(target);
 	if (!fieldtype) return "text";
@@ -783,8 +704,7 @@ defineExpose({ validate });
 .assignment-grid-row {
 	display: grid;
 	grid-template-columns:
-		minmax(100px, 0.7fr) minmax(140px, 1.1fr) minmax(100px, 0.7fr) minmax(240px, 2.5fr)
-		60px;
+		minmax(100px, 0.7fr) minmax(140px, 1.1fr) minmax(100px, 0.7fr) minmax(240px, 2.5fr);
 	gap: var(--spacing-md);
 	align-items: center;
 }
@@ -804,10 +724,6 @@ defineExpose({ validate });
 	.grid-col-operator,
 	.grid-col-value {
 		width: 100%;
-	}
-	.grid-col-actions {
-		justify-content: flex-end;
-		margin-top: 4px;
 	}
 }
 
@@ -965,30 +881,6 @@ defineExpose({ validate });
 .empty-state:hover {
 	border-color: var(--fxr-border-strong);
 	background-color: var(--fxr-surface);
-}
-
-.add-assignment-btn {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	gap: 6px;
-	background-color: var(--fxr-surface-soft);
-	border: 1px dashed var(--fxr-border-strong);
-	border-radius: var(--fxr-radius-md);
-	padding: var(--spacing-md);
-	width: 100%;
-	color: var(--fxr-text-soft);
-	font-weight: 700;
-	font-size: var(--fxr-text-sm);
-	transition: all var(--fxr-transition-fast);
-	cursor: pointer;
-	margin-top: var(--spacing-md);
-}
-
-.add-assignment-btn:hover:not(:disabled) {
-	background-color: var(--fxr-accent-soft);
-	border-color: var(--fxr-accent);
-	color: var(--fxr-accent);
 }
 
 @media (max-width: 768px) {
