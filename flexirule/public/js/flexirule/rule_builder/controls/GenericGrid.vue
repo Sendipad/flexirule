@@ -430,6 +430,7 @@ import {
 	buildRowProps,
 	selectRangeKeys,
 } from "./generic_grid_model.mjs";
+import { isInputTarget } from "../utils/keyboard_shortcuts.mjs";
 
 const props = defineProps({
 	presentationMode: { type: String, default: "hybrid" },
@@ -1095,14 +1096,6 @@ function changePage(page) {
 function changePageSize(value) {
 	currentPageSize.value = normalizePageSize(value);
 	emit("page-change", { page: 1, pageSize: currentPageSize.value });
-}
-
-function isInputTarget(target) {
-	return Boolean(
-		target?.closest?.(
-			"input, textarea, select, [contenteditable='true'], [role='textbox'], [role='combobox']"
-		)
-	);
 }
 
 function getCurrentPageIndex(target) {
