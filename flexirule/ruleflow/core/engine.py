@@ -364,12 +364,7 @@ class RuleEngine:
 			EVALUATOR_CACHE_VERSION,
 		)
 		cached = self._prepared_condition_cache.get(cache_key)
-		if (
-			cached
-			and cached[0] is canonical_node
-			and cached[1] == doctype
-			and cached[2] == generation
-		):
+		if cached and cached[0] is canonical_node and cached[1] == doctype and cached[2] == generation:
 			return cached[3]
 		prepared = prepare_condition(canonical_node, doctype=doctype)
 		self._prepared_condition_cache[cache_key] = (
