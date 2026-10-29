@@ -12,7 +12,7 @@
 			type="button"
 			class="fxr-action-menu__trigger"
 			:class="buttonClass"
-			:disabled="disabled"
+			:disabled="disabled || visibleItems.length === 0"
 			:title="buttonTitle || __('Actions')"
 			:aria-label="buttonAriaLabel || __('Actions')"
 			@pointerdown.stop
@@ -137,7 +137,23 @@ async function updateMenuPosition() {
 			visibility: "visible",
 		};
 	} catch {
-		// Headless UI still owns menu visibility and focus if the anchor is removed mid-update.
+		// Keep the menu usable if positioning fails after the menu has mounted.
+		const anchorRect = reference.getBoundingClientRect();
+		const viewportWidth = document.documentElement?.clientWidth || window.innerWidth;
+		const viewportHeight = document.documentElement?.clientHeight || window.innerHeight;
+		const menuWidth = floating.offsetWidth || 160;
+		const menuHeight = floating.offsetHeight || 40;
+		const requestedLeft = props.align === "left" ? anchorRect.left : anchorRect.right - menuWidth;
+		const maxLeft = Math.max(8, viewportWidth - menuWidth - 8);
+		const maxTop = Math.max(8, viewportHeight - menuHeight - 8);
+
+		menuStyle.value = {
+			position: "fixed",
+			top: `${Math.max(8, Math.min(anchorRect.bottom + 4, maxTop))}px`,
+			left: `${Math.max(8, Math.min(requestedLeft, maxLeft))}px`,
+			zIndex: 10000,
+			visibility: "visible",
+		};
 	}
 }
 
