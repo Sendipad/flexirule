@@ -99,6 +99,7 @@ const props = defineProps({
 	editorLayout: { type: String, default: "replace" },
 	isLeafNew: { type: Function, default: null },
 	isLeafValid: { type: Function, default: null },
+	canEditRule: { type: Boolean, default: null },
 });
 const emit = defineEmits(["update:modelValue", "change", "validation-error"]);
 const slots = useSlots();
@@ -117,6 +118,21 @@ const api = useTreeBuilder({
 	validateCollection: props.validateCollection,
 });
 
+const resolvedCanEditRule = computed(() => {
+	if (props.canEditRule !== null && props.canEditRule !== undefined) {
+		return Boolean(props.canEditRule);
+	}
+	try {
+		if (typeof window !== "undefined" && window.frappe && window.frappe.boot) {
+			const hasWritePerm = frappe.model.can_write?.("Rule") ?? true;
+			return Boolean(hasWritePerm);
+		}
+	} catch {
+		// Ignore check if frappe context is not present
+	}
+	return false;
+});
+
 const hasSummarySlot = computed(() => Boolean(slots["leaf-summary"]));
 provide("treeBuilderContext", {
 	...api,
@@ -124,6 +140,7 @@ provide("treeBuilderContext", {
 	editorLayout: computed(() => props.editorLayout),
 	isLeafNew: computed(() => props.isLeafNew),
 	isLeafValid: computed(() => props.isLeafValid),
+	canEditRule: resolvedCanEditRule,
 	hasSummarySlot,
 });
 const { root, operators, addLeaf, addCollection, addGroup, removeNode, setOperator } = api;

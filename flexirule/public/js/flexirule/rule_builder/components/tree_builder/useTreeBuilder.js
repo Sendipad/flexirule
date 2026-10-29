@@ -2,6 +2,7 @@ import { computed, nextTick, reactive, ref, watch } from "vue";
 import {
 	cloneTree,
 	findNode,
+	findParent,
 	findPath,
 	isContainerNode,
 	normalizeTree,
@@ -159,6 +160,24 @@ export function useTreeBuilder({
 		return mutate((tree) => commands.moveNode(tree, id, targetId, position));
 	}
 
+	function moveUp(id) {
+		if (readOnly) return false;
+		const parent = findParent(root, id);
+		if (!parent) return false;
+		const index = parent.children.findIndex((child) => child.id === id);
+		if (index <= 0) return false;
+		return moveNode(id, parent.id, index - 1);
+	}
+
+	function moveDown(id) {
+		if (readOnly) return false;
+		const parent = findParent(root, id);
+		if (!parent) return false;
+		const index = parent.children.findIndex((child) => child.id === id);
+		if (index < 0 || index >= parent.children.length - 1) return false;
+		return moveNode(id, parent.id, index + 2);
+	}
+
 	function setOperator(id, operator) {
 		if (!operators.value.includes(operator)) return false;
 		return mutate((tree) => commands.setOperator(tree, id, operator));
@@ -232,18 +251,22 @@ export function useTreeBuilder({
 		expandedNodes.has(id) ? expandedNodes.delete(id) : expandedNodes.add(id);
 	}
 
-	watch(
-		modelValue,
-		async (value) => {
-			const normalized = safeNormalize(value);
-			if (!modelError.value && treesEqual(normalized, root)) return;
-			syncing = true;
-			replaceRoot(value);
-			await nextTick();
-			syncing = false;
-		},
-		{ deep: true }
-	);
+	if (modelValue && (typeof modelValue === "function" || typeof modelValue === "object")) {
+		watch(
+			typeof modelValue === "function"
+				? modelValue
+				: () => (modelValue && "value" in modelValue ? modelValue.value : modelValue),
+			async (value) => {
+				const normalized = safeNormalize(value);
+				if (!modelError.value && treesEqual(normalized, root)) return;
+				syncing = true;
+				replaceRoot(value);
+				await nextTick();
+				syncing = false;
+			},
+			{ deep: true }
+		);
+	}
 
 	function finishEditing(id) {
 		if (id) {
@@ -285,6 +308,8 @@ export function useTreeBuilder({
 		addGroup,
 		removeNode,
 		moveNode,
+		moveUp,
+		moveDown,
 		setOperator,
 		replaceNode,
 		reset,
