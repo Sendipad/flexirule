@@ -199,6 +199,18 @@ jobs:
           else
             echo "MariaDB client is already available; skipping package installation."
           fi
+          mkdir -p ~/.config
+          cat <<'EOF' > ~/.my.cnf
+          [client]
+          ssl=0
+          ssl-verify-server-cert=0
+          EOF
+          sudo mkdir -p /etc/mysql/conf.d
+          cat <<'EOF' | sudo tee /etc/mysql/conf.d/disable-ssl.cnf
+          [client]
+          ssl=0
+          ssl-verify-server-cert=0
+          EOF
 
       - name: Initialize Bench and database
         run: |
@@ -320,6 +332,18 @@ jobs:
           else
             echo "MariaDB client is already available; skipping package installation."
           fi
+          mkdir -p ~/.config
+          cat <<'EOF' > ~/.my.cnf
+          [client]
+          ssl=0
+          ssl-verify-server-cert=0
+          EOF
+          sudo mkdir -p /etc/mysql/conf.d
+          cat <<'EOF' | sudo tee /etc/mysql/conf.d/disable-ssl.cnf
+          [client]
+          ssl=0
+          ssl-verify-server-cert=0
+          EOF
 
       - name: Initialize Bench and database
         run: |
