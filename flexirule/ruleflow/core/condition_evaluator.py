@@ -49,7 +49,7 @@ class _PreparedCanonicalCondition:
 
 	plan: tuple
 	doctype: str | None
-	scope_doctypes: dict[str, str | None] | None
+	scope_doctypes: tuple[tuple[str, str | None], ...] | None
 	condition_digest: str
 	semantics_version: int
 	evaluator_version: int
@@ -222,10 +222,13 @@ def prepare_condition(
 		scope_doctypes,
 		validated_fresh=True,
 	)
+	scope_doctypes_frozen = (
+		tuple(sorted((k, v) for k, v in scope_doctypes.items())) if scope_doctypes else None
+	)
 	prepared = _PreparedCanonicalCondition(
 		plan=plan,
 		doctype=doctype or None,
-		scope_doctypes=scope_doctypes or None,
+		scope_doctypes=scope_doctypes_frozen,
 		condition_digest=payload_digest,
 		semantics_version=CONDITION_SEMANTICS_VERSION,
 		evaluator_version=EVALUATOR_CACHE_VERSION,
@@ -454,7 +457,7 @@ def evaluate_prepared_condition(
 		effective_doctype = prepared.doctype
 
 	if prepared.scope_doctypes:
-		for scope, s_doctype in prepared.scope_doctypes.items():
+		for scope, s_doctype in prepared.scope_doctypes:
 			if s_doctype and isinstance(context, dict):
 				ctx_root = context.get(scope)
 				ctx_doctype = getattr(ctx_root, "doctype", None) or (

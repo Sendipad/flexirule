@@ -96,7 +96,6 @@ class AssignmentHandler(ActionHandler):
 		for idx, assignment in enumerate(assignments):
 			target_path = assignment.get("target")
 			operator_key = assignment.get("operator", "set")
-			when_expression = assignment.get("when_expression") or ""
 			canonical_guard = assignment.get("when_condition_canonical")
 
 			if not target_path:
@@ -130,8 +129,6 @@ class AssignmentHandler(ActionHandler):
 					matches = evaluate_condition(canonical_guard, context, doctype=doctype)
 				if not matches:
 					continue
-			elif when_expression and not engine._evaluate_python_condition(when_expression, context):
-				continue
 
 			# 3. Get operator
 			operator = AssignmentOperatorRegistry.get(operator_key)
@@ -238,8 +235,15 @@ class AssignmentHandler(ActionHandler):
 					"Each assignment must be a JSON object",
 				)
 			compiled = dict(row)
-			# Canonicalize operand payload for unified runtime evaluation
-			# (legacy rows may store structured payload under value_template_ui/value_template_json).
+
+			legacy_guard_keys = ("pythonExpression", "when_expression", "when")
+			if any(compiled.get(key) not in (None, "") for key in legacy_guard_keys):
+				raise ConditionValidationError(
+					"unsupported_assignment_guard",
+					f"assignments[{index}]",
+					"Legacy guard expression fields are not supported in Assignment actions",
+				)
+
 			if compiled.get("value") is None:
 				if compiled.get("value_template_ui") is not None:
 					compiled["value"] = compiled.get("value_template_ui")
@@ -247,111 +251,25 @@ class AssignmentHandler(ActionHandler):
 					compiled["value"] = compiled.get("value_template_json")
 				elif compiled.get("value_template") is not None:
 					compiled["value"] = compiled.get("value_template")
+
 			from flexirule.ruleflow.core.condition_contract import validate_condition_node
 			from flexirule.ruleflow.core.condition_payload import detect_canonical_condition_payload
 
 			raw_guard = compiled.get("when_condition")
-			legacy_guard_keys = ("pythonExpression", "when_expression", "when")
-			has_legacy_expr = any(compiled.get(key) not in (None, "") for key in legacy_guard_keys)
-
 			if raw_guard not in (None, ""):
-				if has_legacy_expr:
-					raise ConditionValidationError(
-						"multiple_guard_formats",
-						f"assignments[{index}]",
-						"An assignment row cannot mix when_condition with other guard fields",
-					)
 				is_canonical, canonical_guard = detect_canonical_condition_payload(raw_guard)
-				if is_canonical:
-					validate_condition_node(canonical_guard)
-					compiled["when_condition_canonical"] = canonical_guard
-					compiled["when_expression"] = ""
-				else:
-					compiled["when_expression"] = AssignmentHandler._compile_when_expression(
-						compiled, row_index=index
+				if not is_canonical or canonical_guard is None:
+					raise ConditionValidationError(
+						"unsupported_assignment_guard",
+						f"assignments[{index}].when_condition",
+						"Assignment action guards must be canonical direct nodes",
 					)
-			else:
-				compiled["when_expression"] = AssignmentHandler._compile_when_expression(
-					compiled, row_index=index
-				)
+				validate_condition_node(canonical_guard)
+				compiled["when_condition_canonical"] = canonical_guard
+
 			compiled_rows.append(compiled)
 
 		return tuple(compiled_rows)
-
-	@classmethod
-	def _compile_when_expression(cls, row: dict, row_index: int = 0) -> str:
-		when_condition = row.get("when_condition")
-		if when_condition not in (None, ""):
-			legacy_guard_keys = ("pythonExpression", "when_expression", "when")
-			if any(row.get(key) not in (None, "") for key in legacy_guard_keys):
-				from flexirule.ruleflow.core.condition_errors import ConditionValidationError
-
-				raise ConditionValidationError(
-					"multiple_guard_formats",
-					f"assignments[{row_index}]",
-					"An assignment row cannot mix when_condition with other guard fields",
-				)
-
-			if isinstance(when_condition, str):
-				val_str = when_condition.strip()
-				if val_str.startswith(("{", "[")):
-					from flexirule.ruleflow.core.condition_errors import ConditionValidationError
-
-					try:
-						parsed_json = json.loads(val_str)
-					except Exception as exc:
-						raise ConditionValidationError(
-							"invalid_json",
-							f"assignments[{row_index}].when_condition",
-							"Assignment guard JSON is malformed",
-						) from exc
-
-					when_condition = parsed_json
-
-			from flexirule.ruleflow.core.condition_payload import detect_canonical_condition_payload
-
-			is_canonical, _canonical_node = detect_canonical_condition_payload(when_condition)
-			if is_canonical:
-				from flexirule.ruleflow.core.condition_errors import ConditionValidationError
-
-				raise ConditionValidationError(
-					"canonical_guard_requires_plan",
-					f"assignments[{row_index}]",
-					"Canonical assignment guards must be handled as structured nodes, not Python expressions",
-				)
-
-			from flexirule.ruleflow.core.compiler import ConditionCompiler
-
-			try:
-				compiled = ConditionCompiler().compile(when_condition)
-			except Exception as exc:
-				from flexirule.ruleflow.core.condition_errors import ConditionValidationError
-
-				raise ConditionValidationError(
-					"invalid_legacy_guard",
-					f"assignments[{row_index}].when_condition",
-					f"Legacy assignment guard is invalid: {exc}",
-				) from exc
-
-			if not compiled or compiled == "True":
-				from flexirule.ruleflow.core.condition_errors import ConditionValidationError
-
-				raise ConditionValidationError(
-					"invalid_legacy_guard",
-					f"assignments[{row_index}].when_condition",
-					"Legacy assignment guard produced an empty or unconditional true expression",
-				)
-			return compiled
-
-		python_expr = row.get("pythonExpression")
-		if python_expr:
-			return python_expr
-
-		when_expression = (row.get("when_expression") or row.get("when") or "").strip()
-		if when_expression:
-			return when_expression
-
-		return ""
 
 	@staticmethod
 	def _compile_structured_value_to_jinja(val: dict) -> str:

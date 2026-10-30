@@ -206,14 +206,13 @@ class TestCompiledControls(FrappeTestCase):
 								"operator": "set",
 								"value_template_ui": {"mode": "static", "value": "Compiled Literal"},
 								"when_condition": {
-									"op": "and",
-									"conditions": [
-										{
-											"left": {"ref": "doc.status"},
-											"op": "==",
-											"right": {"value": "Open"},
-										}
-									],
+									"type": "comparison",
+									"operator": "eq",
+									"left": {
+										"mode": "variable",
+										"path": {"scope": "doc", "segments": ["status"]},
+									},
+									"right": {"mode": "static", "value_type": "string", "value": "Open"},
 								},
 							}
 						]
@@ -234,9 +233,8 @@ class TestCompiledControls(FrappeTestCase):
 		row = json.loads(action.config)[0]
 		self.assertEqual(row.get("value_source"), "literal")
 		self.assertEqual(row.get("value_literal"), "Compiled Literal")
-		python_expression = row.get("pythonExpression", "")
-		self.assertIn("Open", python_expression)
-		self.assertIn("status", python_expression)
+		self.assertIn("when_condition", row)
+		self.assertEqual(row["when_condition"]["type"], "comparison")
 
 	def test_assignment_row_when_expression_skips_row(self):
 		todo = frappe.get_doc({"doctype": "ToDo", "description": "Initial"}).insert(ignore_permissions=True)
@@ -260,7 +258,15 @@ class TestCompiledControls(FrappeTestCase):
 								"target": "doc.description",
 								"operator": "set",
 								"value_template_ui": {"mode": "static", "value": "Should Not Run"},
-								"when_expression": "doc.status == 'Closed'",
+								"when_condition": {
+									"type": "comparison",
+									"operator": "eq",
+									"left": {
+										"mode": "variable",
+										"path": {"scope": "doc", "segments": ["status"]},
+									},
+									"right": {"mode": "static", "value_type": "string", "value": "Closed"},
+								},
 							},
 							{
 								"target": "doc.description",

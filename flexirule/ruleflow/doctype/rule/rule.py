@@ -636,10 +636,6 @@ class Rule(Document):
 				# Handle batch assignment compilation
 				changed = False
 				known_var_roots = self._collect_known_return_variables(self.actions)
-				from flexirule.ruleflow.core.compiler import ConditionCompiler
-
-				condition_compiler = ConditionCompiler()
-
 				for assignment in config:
 					if not isinstance(assignment, dict):
 						continue
@@ -659,15 +655,6 @@ class Rule(Document):
 							assignment["value"] = compiled
 							assignment["value_template"] = compiled
 							changed = True
-
-					compiled_when = self._compile_assignment_when_expression(
-						assignment,
-						condition_compiler,
-						action_label=action.action_label or action.action_id or _("Assignment"),
-					)
-					if assignment.get("pythonExpression") != compiled_when:
-						assignment["pythonExpression"] = compiled_when
-						changed = True
 
 					compiled_operand = self._compile_assignment_operand_metadata(assignment, known_var_roots)
 					for key, value in compiled_operand.items():
@@ -796,30 +783,6 @@ class Rule(Document):
 			"value_path": None,
 			"value_template": None,
 		}
-
-	def _compile_assignment_when_expression(
-		self,
-		assignment: dict,
-		condition_compiler,
-		action_label: str,
-	) -> str:
-		when_condition = assignment.get("when_condition")
-		if isinstance(when_condition, dict | list):
-			compiled_when = condition_compiler.compile(when_condition)
-			is_valid, error = condition_compiler.validate(compiled_when)
-			if not is_valid:
-				frappe.throw(
-					_("Action '{0}' assignment condition is invalid: {1}").format(action_label, error)
-				)
-			return compiled_when or ""
-
-		when_expression = (assignment.get("when_expression") or assignment.get("when") or "").strip()
-		if when_expression:
-			self._validate_allowed_roots(
-				when_expression,
-				_("Action '{0}' assignment expression").format(action_label),
-			)
-		return when_expression
 
 	@staticmethod
 	def _normalize_assignment_context_path(path: str | None) -> str | None:
@@ -1387,23 +1350,31 @@ class Rule(Document):
 				if not isinstance(assignment_rows, list):
 					continue
 				for index, row in enumerate(assignment_rows):
-					if not isinstance(row, dict) or row.get("when_condition") in (None, ""):
+					if not isinstance(row, dict):
 						continue
-					is_canonical, canonical_guard = detect_canonical_condition_payload(
-						row.get("when_condition")
-					)
-					if not is_canonical:
-						continue
+
 					legacy_guard_keys = ("pythonExpression", "when_expression", "when")
 					if any(row.get(key) not in (None, "") for key in legacy_guard_keys):
 						from flexirule.ruleflow.core.condition_errors import ConditionValidationError
 
 						raise ConditionValidationError(
-							"multiple_guard_formats",
+							"unsupported_assignment_guard",
 							f"assignments[{index}]",
-							"An assignment row cannot mix canonical and legacy guard formats",
+							"Legacy expression guard fields are not supported in Assignment actions",
 						)
-					validate_condition_node(canonical_guard, doctype=self.document_type or None)
+
+					raw_guard = row.get("when_condition")
+					if raw_guard not in (None, ""):
+						is_canonical, canonical_guard = detect_canonical_condition_payload(raw_guard)
+						if not is_canonical or canonical_guard is None:
+							from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
+							raise ConditionValidationError(
+								"unsupported_assignment_guard",
+								f"assignments[{index}].when_condition",
+								"Assignment action guards must be canonical direct nodes",
+							)
+						validate_condition_node(canonical_guard, doctype=self.document_type or None)
 			except ConditionError as exc:
 				frappe.throw(
 					_("Invalid Assignment guard in Action {0} [{1} at {2}]: {3}").format(

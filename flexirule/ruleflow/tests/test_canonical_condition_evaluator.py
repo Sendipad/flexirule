@@ -562,7 +562,7 @@ class TestCanonicalConditionEvaluator(unittest.TestCase):
 		node = compare("gt", variable("row", "qty"), static("integer", 5))
 		with patch("frappe.get_meta", return_value=FakeChildMeta()):
 			prepared = prepare_condition(node, scope_doctypes={"row": "Test Order Item"})
-			self.assertEqual(prepared.scope_doctypes, {"row": "Test Order Item"})
+			self.assertEqual(prepared.scope_doctypes, (("row", "Test Order Item"),))
 
 	def test_prepared_condition_rejects_incompatible_metadata_scope(self):
 		node = compare("gt", static("integer", 10), static("integer", 5))
