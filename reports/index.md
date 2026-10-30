@@ -2,22 +2,23 @@
 
 ## Executive Summary
 
-This report provides a comprehensive synthesis and technical analysis of all **45 Pull Requests** (PR #469 through PR #515) in the FlexiRule repository.
+This report provides a comprehensive synthesis and technical analysis of all **51 Pull Requests** (PR #469 through PR #521) in the FlexiRule repository.
 
 ### Key Metrics Overview
-- **Total Pull Requests Analyzed:** 45
-- **Merged PRs:** 7 (15.6%)
-- **Open PRs:** 36 (80.0%)
-- **Closed (Unmerged) PRs:** 2 (4.4%)
+- **Total Pull Requests Analyzed:** 51
+- **Merged PRs:** 7 (13.7%)
+- **Open PRs:** 42 (82.4%)
+- **Closed (Unmerged) PRs:** 2 (3.9%)
 - **Primary Contributors:** `@Sendipad`, `@testwitharkan`, `@ruzaqiarkan-eng`, `@majdruzaqi`, `@flexirule`.
 
 ### Strategic Themes & Engineering Milestones
-1. **Canonical Condition Engine & Benchmark Optimization:** Transitioned from legacy expression evaluation to a high-performance AST canonical condition engine, backed by rigorous benchmark harnesses comparing 5 evaluation strategies.
+1. **Canonical Condition Engine, AST Specs & War Room Implementation:** Transitioned from legacy expression evaluation to a high-performance AST canonical condition engine, backed by 5-approach benchmark harnesses, War Room transcriptions, JSON AST v1.0.0 specs, and production evaluator implementations.
 2. **CI/CD Stabilization & MariaDB SSL Interoperability:** Resolved MariaDB 10.11 SSL handshake failures during Frappe site restoration via client wrappers (`--skip-ssl`), enforced ESLint/Prettier/Mypy compliance, and established daily automated audit workflows.
 3. **Document Rename Safety (`frappe.rename_doc`):** Introduced recursive, schema-aware JSON reference updating during standard Frappe document renames to guarantee data integrity across sub-rules, conditions, and action configurations.
 4. **Rule Builder UI Modernization & Accessibility:** Standardized tree and grid components across `GenericGrid` and `TreeBuilder`, centralized keyboard shortcut registries (`Ctrl+Shift+E`), unified context dropdowns via Headless UI (`ActionMenu.vue`), and migrated legacy Pinia stores to domain-specific stores (`useRuleStore`, `useGraphStore`, `useMetaStore`, `useUIStore`).
 5. **Document Action Contracts (Phase 1):** Aligned operation contracts for Create, Update, Delete, Add Comment, and Create ToDo, establishing unified target record resolution precedence (`reference_docname` > `docname_expression` > `docname`) and Jinja expression evaluation.
-6. **Architectural Audits & UI/UX Redesign Proposals:** Delivered exhaustive War Room adversarial QA audits and architectural blueprints for Progressive Disclosure Action Modals, Vue Flow Switch Action Nodes, Sub-Rule visual contract builders, and Loop action condition deprecation.
+6. **Frappe Template Engine & Query Compatibility:** Conducted deep architectural analyses of Frappe's Jinja template compilation, sandboxing, and caching topology, alongside a compatibility blueprint for Frappe v15 and v16 Query Engine AST transitions.
+7. **Architectural Audits & UI/UX Redesign Proposals:** Delivered exhaustive War Room adversarial QA audits and architectural blueprints for Progressive Disclosure Action Modals, Vue Flow Switch Action Nodes, Sub-Rule visual contract builders, and Loop action condition deprecation.
 
 ---
 
@@ -70,12 +71,18 @@ This report provides a comprehensive synthesis and technical analysis of all **4
 | #513 | docs(proposal): add UI/UX redesign proposal for Rule Action modal | `@testwitharkan` | Open | UI/UX redesign proposal for Rule Action modal with progressive disclosure. |
 | #514 | Add Canvas Switch Node & Dynamic Edge Routing Redesign Proposal | `@ruzaqiarkan-eng` | Open | Switch Action Node and dynamic Vue Flow edge routing redesign proposal. |
 | #515 | Add architectural specification for VueFlow Switch Action Node | `@Sendipad` | Open | VueFlow Switch Action Node architectural specification and data flow. |
+| #516 | docs: add Pull Request Analysis Report (PRs #469 - #515) | `@Sendipad` | Open | Initial PR analysis report synthesizing PRs #469 through #515. |
+| #517 | Deep Technical Analysis of Frappe Framework Template Rendering Architecture | `@flexirule` | Open | Deep architectural analysis of Frappe Framework template rendering engine and Jinja sandboxing. |
+| #518 | Deep Technical Analysis: Frappe Template Rendering & Optimization | `@Sendipad` | Open | Frappe template rendering performance analysis, compilation overhead, and caching mechanisms. |
+| #519 | Frappe v15 and v16 Query Compatibility Plan | `@Sendipad` | Open | Frappe v15 and v16 Query Engine compatibility plan and Query Builder AST migration. |
+| #520 | docs: add canonical condition war room and implementation report | `@Sendipad` | Open | Canonical condition war room transcription, JSON AST spec v1.0.0, and Python evaluator design. |
+| #521 | feat: canonical condition backend implementation specs and war room review | `@Sendipad` | Open | Canonical condition backend implementation specs, war room review, and Frappe integration hooks. |
 
 ---
 
 ## Detailed PR Analysis
 
-### 1. Canonical Condition Engine & Evaluation Benchmark
+### 1. Canonical Condition Engine, Evaluation Benchmark & Implementation Specs
 
 #### PR #469: feat: implement canonical condition backend
 - **Author:** `@flexirule`
@@ -146,6 +153,20 @@ This report provides a comprehensive synthesis and technical analysis of all **4
 - **Timeline:** Created `2026-10-29` | Resolved `-`
 - **Core Changes & Implementation Details:**
   Implemented the new canonical Condition Builder frontend using generic TreeBuilder components, complete with AST adapter, contract client, validation, and consumer migration across ConditionStep, AssignmentConfig, TextGeneratorControl, and CollectionResolver.
+
+#### PR #520: docs: add canonical condition war room and implementation report
+- **Author:** `@Sendipad`
+- **Status:** Open
+- **Timeline:** Created `2026-10-30` | Resolved `-`
+- **Core Changes & Implementation Details:**
+  Add canonical condition war room session transcription, JSON AST spec v1.0.0, Python backend evaluator module design, and Frappe DocType/controller integration hook in reports/canonical-condition-implementation-30-10/README.md.
+
+#### PR #521: feat: canonical condition backend implementation specs and war room review
+- **Author:** `@Sendipad`
+- **Status:** Open
+- **Timeline:** Created `2026-10-30` | Resolved `-`
+- **Core Changes & Implementation Details:**
+  This PR adds comprehensive war room transcription, architectural reviews, AST JSON schema specs, production Python evaluator module code, and Frappe integration hooks for PR #469 in `reports/canonical-condition-implementation-30-10/`.
 
 ### 2. CI/CD Infrastructure, Test Rigor & Daily Audit Automation
 
@@ -364,7 +385,7 @@ This report provides a comprehensive synthesis and technical analysis of all **4
 - **Core Changes & Implementation Details:**
   Deep architectural analysis of the Sub-Rule system in FlexiRule and proposal of a production-ready implementation plan for the Sub-Rule configuration UI.
 
-### 9. Architectural Audits, War Room Debates & Canvas Redesign Proposals
+### 9. Architectural Audits, War Room Debates & UI/UX Redesign Proposals
 
 #### PR #510: docs: compile adversarial QA and UI UX stability audit report for FlexiRule
 - **Author:** `@testwitharkan`
@@ -407,3 +428,33 @@ This report provides a comprehensive synthesis and technical analysis of all **4
 - **Timeline:** Created `2026-10-30` | Resolved `-`
 - **Core Changes & Implementation Details:**
   Adds an exhaustive architectural, data-flow, and UI/UX redesign specification for the VueFlow Switch Action Node in FlexiRule, saved to reports/proposal/rule-builder-switch-node-proposal.md.
+
+#### PR #516: docs: add Pull Request Analysis Report (PRs #469 - #515)
+- **Author:** `@Sendipad`
+- **Status:** Open
+- **Timeline:** Created `2026-10-30` | Resolved `-`
+- **Core Changes & Implementation Details:**
+  Generated a comprehensive synthesis report of PRs #469 through #515 at `reports/index.md` featuring executive summary metrics, strategic themes, breakdown matrix table, and grouped detailed PR technical analysis.
+
+### 10. Frappe Framework Architecture: Template Rendering & Query Engine Compatibility
+
+#### PR #517: Deep Technical Analysis of Frappe Framework Template Rendering Architecture
+- **Author:** `@flexirule`
+- **Status:** Open
+- **Timeline:** Created `2026-10-30` | Resolved `-`
+- **Core Changes & Implementation Details:**
+  Created a detailed architectural report analyzing Frappe Framework's template rendering engine, Jinja environment overlays, security sandboxing, multi-tier caching topology, and consumers (Print Formats and Notifications) in `reports/frappe_template_rendering_analysis.md`.
+
+#### PR #518: Deep Technical Analysis: Frappe Template Rendering & Optimization
+- **Author:** `@Sendipad`
+- **Status:** Open
+- **Timeline:** Created `2026-10-30` | Resolved `-`
+- **Core Changes & Implementation Details:**
+  Presents an in-depth source code analysis of Frappe's template rendering, compilation, sandboxing, and caching mechanisms across Print Formats, Email Templates, and Notifications. Identifies primary performance bottlenecks (such as dynamic string compilation overhead) and outlines key architectural takeaways for building high-performance, secure rule-engine template systems.
+
+#### PR #519: Frappe v15 and v16 Query Compatibility Plan
+- **Author:** `@Sendipad`
+- **Status:** Open
+- **Timeline:** Created `2026-10-30` | Resolved `-`
+- **Core Changes & Implementation Details:**
+  Comprehensive deliberation and architectural design for Frappe v15 and v16 query engine compatibility in FlexiRule.
