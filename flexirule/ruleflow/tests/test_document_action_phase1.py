@@ -65,6 +65,7 @@ class TestDocumentActionPhase1(FrappeTestCase):
 			(row for row in add_comment_overrides if row.get("fieldname") == "reference_doctype"), None
 		)
 		self.assertIsNotNone(comment_ref_doctype)
+		assert comment_ref_doctype is not None
 		self.assertEqual(comment_ref_doctype.get("default"), "Comment")
 
 		# Create ToDo operation contract
@@ -77,6 +78,7 @@ class TestDocumentActionPhase1(FrappeTestCase):
 			None,
 		)
 		self.assertIsNotNone(todo_ref_doctype)
+		assert todo_ref_doctype is not None
 		self.assertEqual(todo_ref_doctype.get("default"), "ToDo")
 
 	def test_validate_add_comment_and_todo(self):
@@ -207,10 +209,11 @@ class TestDocumentActionPhase1(FrappeTestCase):
 			with patch("frappe.get_doc") as mock_get_doc:
 				mock_doc = frappe._dict({"insert": lambda ignore_permissions: None, "as_dict": lambda: {}})
 				mock_get_doc.return_value = mock_doc
+				table_maps: list = list(config["table_mappings"])
 				_async_create_doc(
 					{"doctype": "ToDo"},
-					table_mappings=config["table_mappings"],
+					table_mappings=table_maps,
 					context=context,
 					ignore_permissions=True,
 				)
-				mock_apply.assert_called_once_with(mock_doc, config["table_mappings"], context)
+				mock_apply.assert_called_once_with(mock_doc, table_maps, context)
