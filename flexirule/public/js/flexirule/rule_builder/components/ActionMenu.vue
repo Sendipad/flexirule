@@ -122,13 +122,13 @@ async function updateMenuPosition() {
 						elements.floating.style.maxWidth = `${Math.max(0, availableWidth)}px`;
 						elements.floating.style.maxHeight = `${Math.max(
 							0,
-						Math.min(280, availableHeight)
+							Math.min(280, availableHeight)
 						)}px`;
 					},
 				}),
 			],
 		});
-		if (resolveElement(menuElement.value) !== floating || !floating.isConnected) return;
+		if (resolveElement(menuElement.value) !== floating) return;
 		menuStyle.value = {
 			position: "fixed",
 			top: `${y}px`,
@@ -138,7 +138,6 @@ async function updateMenuPosition() {
 		};
 	} catch {
 		// Keep the menu usable if positioning fails after the menu has mounted.
-		if (!floating?.isConnected) return;
 		const anchorRect = reference.getBoundingClientRect();
 		const viewportWidth = document.documentElement?.clientWidth || window.innerWidth;
 		const viewportHeight = document.documentElement?.clientHeight || window.innerHeight;

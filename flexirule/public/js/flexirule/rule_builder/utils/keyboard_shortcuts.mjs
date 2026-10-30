@@ -19,12 +19,6 @@ function normalizeKey(value) {
 		return: "enter",
 		space: " ",
 		spacebar: " ",
-		plus: "+",
-		up: "arrowup",
-		down: "arrowdown",
-		left: "arrowleft",
-		right: "arrowright",
-		del: "delete",
 	};
 	return aliases[key] ?? key;
 }
@@ -34,34 +28,19 @@ export function parseShortcutString(shortcut) {
 	if (shortcut === " ") {
 		return { key: " ", alt: false, ctrl: false, meta: false, mod: false, shift: false };
 	}
-	if (shortcut === "+") {
-		return { key: "+", alt: false, ctrl: false, meta: false, mod: false, shift: false };
-	}
 
-	let rawKey;
-	let modifierPart;
-
-	if (shortcut.endsWith("++")) {
-		rawKey = "+";
-		modifierPart = shortcut.slice(0, -2);
-	} else if (shortcut.includes("+")) {
-		const lastPlusIndex = shortcut.lastIndexOf("+");
-		rawKey = shortcut.slice(lastPlusIndex + 1);
-		modifierPart = shortcut.slice(0, lastPlusIndex);
-	} else {
-		rawKey = shortcut;
-		modifierPart = "";
-	}
-
-	const key = normalizeKey(rawKey);
-	if (!key || MODIFIERS.has(key)) return null;
-
-	const tokens = modifierPart
+	const tokens = shortcut
 		.split("+")
 		.map((token) => token.trim().toLowerCase())
 		.filter(Boolean);
+	if (!tokens.length) return null;
 
-	if (tokens.some((token) => !MODIFIERS.has(token))) return null;
+	const rawKey = tokens[tokens.length - 1];
+	if (MODIFIERS.has(rawKey)) return null;
+	if (tokens.slice(0, -1).some((token) => !MODIFIERS.has(token))) return null;
+
+	const key = normalizeKey(rawKey);
+	if (!key) return null;
 
 	const mod = tokens.includes("mod");
 	const ctrl = tokens.includes("ctrl") || tokens.includes("control");
