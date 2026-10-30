@@ -268,9 +268,7 @@ function apply_trigger_type_contract(frm, options = {}) {
 	});
 }
 function update_dashboard_indicators(frm) {
-	if (!frm.dashboard) return;
-
-	frm.dashboard.clear_headline();
+	if (!frm.dashboard || frm.is_new()) return;
 
 	if (frm.dashboard.indicator_area) {
 		frm.dashboard.indicator_area.empty();
