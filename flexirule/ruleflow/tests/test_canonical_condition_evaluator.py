@@ -13,8 +13,8 @@ from types import SimpleNamespace
 from typing import Any
 from unittest.mock import patch
 
-from flexirule.ruleflow.core.condition_errors import ConditionEvaluationError, ConditionValidationError
 from flexirule.ruleflow.core.condition_contract import validate_condition_node
+from flexirule.ruleflow.core.condition_errors import ConditionEvaluationError, ConditionValidationError
 from flexirule.ruleflow.core.condition_evaluator import (
 	_evaluate_node,
 	clear_condition_plan_cache,
@@ -458,8 +458,6 @@ class TestCanonicalConditionEvaluator(unittest.TestCase):
 				}
 			)
 
-
-
 	def test_collection_resolver_resolves_child_doctype(self):
 		class FakeParentMeta:
 			def get_field(self, fieldname):
@@ -467,7 +465,9 @@ class TestCanonicalConditionEvaluator(unittest.TestCase):
 					return SimpleNamespace(fieldname="items", fieldtype="Table", options="Test Order Item")
 				return None
 
-		with patch("frappe.get_meta", side_effect=lambda dt: FakeParentMeta() if dt == "Test Order" else None):
+		with patch(
+			"frappe.get_meta", side_effect=lambda dt: FakeParentMeta() if dt == "Test Order" else None
+		):
 			resolver = CollectionResolver("doc.items")
 			child = resolver._resolve_child_doctype("Test Order")
 			self.assertEqual(child, "Test Order Item")
@@ -491,6 +491,7 @@ class TestCanonicalConditionEvaluator(unittest.TestCase):
 			if dt == "Test Order Item":
 				return FakeChildMeta()
 			from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
 			raise ConditionValidationError("unknown_doctype", "$", f"DocType {dt} not found")
 
 		predicate = compare("gt", variable("row", "item_code"), static("integer", 100))
@@ -523,6 +524,7 @@ class TestCanonicalConditionEvaluator(unittest.TestCase):
 			if dt == "Test Order Item":
 				return FakeChildMeta()
 			from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
 			raise ConditionValidationError("unknown_doctype", "$", f"DocType {dt} not found")
 
 		predicate = compare("gt", variable("row", "qty"), static("integer", 10))
@@ -591,6 +593,7 @@ class TestCanonicalConditionEvaluator(unittest.TestCase):
 			if dt == "Test Order Item":
 				return FakeChildMeta()
 			from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
 			raise ConditionValidationError("unknown_doctype", "$", f"DocType {dt} not found")
 
 		node = {

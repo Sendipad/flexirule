@@ -265,7 +265,7 @@ def resolve_fieldtype_for_path(scope: str, segments: tuple[str, ...], doctype: s
 	Returns None for scopes whose metadata is not statically available. A provided
 	DocType with an invalid known document path fails closed at validation time.
 	"""
-	if not doctype or scope not in {"doc", "old_doc", "row"} and scope in BASE_SCOPES:
+	if not doctype or (scope not in {"doc", "old_doc", "row"} and scope in BASE_SCOPES):
 		return None
 	current_doctype = doctype
 	fieldtype = None

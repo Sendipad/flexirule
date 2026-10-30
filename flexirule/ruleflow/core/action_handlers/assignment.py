@@ -265,9 +265,13 @@ class AssignmentHandler(ActionHandler):
 					compiled["when_condition_canonical"] = canonical_guard
 					compiled["when_expression"] = ""
 				else:
-					compiled["when_expression"] = AssignmentHandler._compile_when_expression(compiled, row_index=index)
+					compiled["when_expression"] = AssignmentHandler._compile_when_expression(
+						compiled, row_index=index
+					)
 			else:
-				compiled["when_expression"] = AssignmentHandler._compile_when_expression(compiled, row_index=index)
+				compiled["when_expression"] = AssignmentHandler._compile_when_expression(
+					compiled, row_index=index
+				)
 			compiled_rows.append(compiled)
 
 		return tuple(compiled_rows)
@@ -288,6 +292,7 @@ class AssignmentHandler(ActionHandler):
 				val_str = when_condition.strip()
 				if val_str.startswith(("{", "[")):
 					from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
 					try:
 						parsed_json = json.loads(val_str)
 					except Exception as exc:
@@ -302,7 +307,7 @@ class AssignmentHandler(ActionHandler):
 
 			from flexirule.ruleflow.core.condition_payload import detect_canonical_condition_payload
 
-			is_canonical, canonical_node = detect_canonical_condition_payload(when_condition)
+			is_canonical, _canonical_node = detect_canonical_condition_payload(when_condition)
 			if is_canonical:
 				from flexirule.ruleflow.core.condition_errors import ConditionValidationError
 

@@ -152,9 +152,7 @@ def _get_compiled_plan(
 	validated_fresh: bool,
 ) -> tuple:
 	scope_doctypes_key = (
-		tuple(sorted((k, v or "") for k, v in scope_doctypes.items()))
-		if scope_doctypes
-		else ()
+		tuple(sorted((k, v or "") for k, v in scope_doctypes.items())) if scope_doctypes else ()
 	)
 	cache_key = (
 		payload_digest,
@@ -204,7 +202,7 @@ def prepare_condition(
 	is cached, so a changed DocType schema cannot inherit an earlier validation result.
 	Prepared artifacts are in-process objects and must not be serialized or put in Redis.
 	"""
-	condition_node, payload_json, payload_bytes, payload_digest, registry_fingerprint = (
+	_condition_node, payload_json, payload_bytes, payload_digest, registry_fingerprint = (
 		_canonicalize_condition(node)
 	)
 	# Validate the exact snapshot that was digested and will be compiled; do not validate
@@ -459,9 +457,8 @@ def evaluate_prepared_condition(
 		for scope, s_doctype in prepared.scope_doctypes.items():
 			if s_doctype and isinstance(context, dict):
 				ctx_root = context.get(scope)
-				ctx_doctype = (
-					getattr(ctx_root, "doctype", None)
-					or (ctx_root.get("doctype") if isinstance(ctx_root, dict) else None)
+				ctx_doctype = getattr(ctx_root, "doctype", None) or (
+					ctx_root.get("doctype") if isinstance(ctx_root, dict) else None
 				)
 				if ctx_doctype and ctx_doctype != s_doctype:
 					raise ConditionValidationError(
@@ -652,7 +649,7 @@ def _evaluate_value(plan: tuple, context: dict) -> Any:
 
 
 def _fieldtype_for_context(scope: str, segments: tuple[str, ...], context: dict) -> str | None:
-	if not segments or scope not in {"doc", "old_doc", "row"} and scope not in context:
+	if not segments or (scope not in {"doc", "old_doc", "row"} and scope not in context):
 		return None
 	from flexirule.ruleflow.core.condition_contract import resolve_fieldtype_for_path
 

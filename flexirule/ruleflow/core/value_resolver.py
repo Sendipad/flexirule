@@ -524,6 +524,7 @@ class CollectionResolver(CompiledResolver):
 			return None
 
 		import frappe
+
 		from flexirule.ruleflow.core.condition_errors import ConditionValidationError
 
 		try:
@@ -597,7 +598,7 @@ class CollectionResolver(CompiledResolver):
 			from flexirule.ruleflow.core.condition_evaluator import prepare_condition
 
 			child_doctype = self._resolve_child_doctype(condition_doctype)
-			scope_doctypes = {"row": child_doctype} if child_doctype else None
+			scope_doctypes: dict[str, str | None] | None = {"row": child_doctype} if child_doctype else None
 
 			prepared_condition = prepare_condition(
 				self._canonical_condition,

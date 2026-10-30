@@ -84,12 +84,16 @@ class TestAssignmentConditionGuards(unittest.TestCase):
 			"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["status"]}},
 			"right": {"mode": "static", "value_type": "string", "value": "Open"},
 		}
-		config = json.dumps([{
-			"target": "doc.status",
-			"operator": "set",
-			"value": "Closed",
-			"when_condition": json.dumps(canonical_guard),
-		}])
+		config = json.dumps(
+			[
+				{
+					"target": "doc.status",
+					"operator": "set",
+					"value": "Closed",
+					"when_condition": json.dumps(canonical_guard),
+				}
+			]
+		)
 		plan = AssignmentHandler._get_compiled_plan(config)
 		self.assertEqual(len(plan), 1)
 		self.assertIn("when_condition_canonical", plan[0])
@@ -100,10 +104,14 @@ class TestAssignmentConditionGuards(unittest.TestCase):
 			"op": "==",
 			"right": {"value": "Open"},
 		}
-		config = json.dumps([{
-			"target": "doc.status",
-			"when_condition": json.dumps(legacy_guard),
-		}])
+		config = json.dumps(
+			[
+				{
+					"target": "doc.status",
+					"when_condition": json.dumps(legacy_guard),
+				}
+			]
+		)
 		plan = AssignmentHandler._get_compiled_plan(config)
 		self.assertEqual(len(plan), 1)
 		self.assertEqual(plan[0]["when_expression"], "doc.get('status') == 'Open'")
@@ -121,19 +129,17 @@ class TestAssignmentConditionGuards(unittest.TestCase):
 		self.assertEqual(raised.exception.code, "invalid_json")
 
 	def test_valid_supported_legacy_guard_still_compiles(self):
-		config = (
-			'[{"target":"doc.status","when_condition":{"left":{"ref":"doc.status"},"op":"==","right":{"value":"Open"}}}]'
-		)
+		config = '[{"target":"doc.status","when_condition":{"left":{"ref":"doc.status"},"op":"==","right":{"value":"Open"}}}]'
 		plan = AssignmentHandler._get_compiled_plan(config)
 		self.assertEqual(len(plan), 1)
 		self.assertEqual(plan[0]["when_expression"], "doc.get('status') == 'Open'")
 
 	def test_invalid_later_guard_prevents_earlier_assignment_mutation(self):
 		config = (
-			'['
+			"["
 			'{"target":"doc.status","value":"Closed"},'
 			'{"target":"doc.remarks","when_condition":{"unexpected":"shape"}}'
-			']'
+			"]"
 		)
 		with self.assertRaises(ConditionValidationError) as raised:
 			AssignmentHandler._get_compiled_plan(config)
