@@ -199,3 +199,89 @@ class TestCollectionResolver(unittest.TestCase):
 		compiled = ValueResolver.compile(config_payload)
 		self.assertIsInstance(compiled, CollectionResolver)
 		self.assertEqual(compiled.resolve(self.context), ["ITEM-A", "ITEM-B", "ITEM-C", "ITEM-A"])
+
+	def test_collection_resolver_resolves_child_doctype_and_validates_operators(self):
+		from unittest.mock import MagicMock, patch
+
+		from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
+		parent_meta = MagicMock()
+		item_field = MagicMock()
+		item_field.fieldtype = "Table"
+		item_field.options = "Sales Invoice Item"
+		parent_meta.get_field.side_effect = lambda f: item_field if f == "items" else None
+
+		child_meta = MagicMock()
+		code_field = MagicMock()
+		code_field.fieldtype = "Data"
+		qty_field = MagicMock()
+		qty_field.fieldtype = "Float"
+
+		def get_child_field(f):
+			if f == "item_code":
+				return code_field
+			if f == "qty":
+				return qty_field
+			return None
+
+		child_meta.get_field.side_effect = get_child_field
+
+		def get_meta_side_effect(dt):
+			if dt == "Sales Invoice":
+				return parent_meta
+			if dt == "Sales Invoice Item":
+				return child_meta
+			raise ValueError(f"Unknown DocType: {dt}")
+
+		with patch("frappe.get_meta", side_effect=get_meta_side_effect):
+			invalid_cond = {
+				"type": "comparison",
+				"operator": "gt",
+				"left": {"mode": "variable", "path": {"scope": "row", "segments": ["item_code"]}},
+				"right": {"mode": "static", "value_type": "integer", "value": 100},
+			}
+			res_invalid = CollectionResolver(
+				source="doc.items", operation="filter", condition=invalid_cond
+			)
+			ctx = {
+				"doctype": "Sales Invoice",
+				"doc": frappe._dict({"doctype": "Sales Invoice", "items": [{"item_code": "A", "qty": 10}]}),
+			}
+			with self.assertRaises(ConditionValidationError) as raised:
+				res_invalid.resolve(ctx)
+			self.assertEqual(raised.exception.code, "fieldtype_not_supported")
+
+			valid_cond = {
+				"type": "comparison",
+				"operator": "gt",
+				"left": {"mode": "variable", "path": {"scope": "row", "segments": ["qty"]}},
+				"right": {"mode": "static", "value_type": "integer", "value": 5},
+			}
+			res_valid = CollectionResolver(source="doc.items", operation="filter", condition=valid_cond)
+			result = res_valid.resolve(ctx)
+			self.assertEqual(len(result), 1)
+
+	def test_collection_resolver_resolves_child_doctype(self):
+		# Explicit test name required by spec
+		self.test_collection_resolver_resolves_child_doctype_and_validates_operators()
+
+	def test_row_predicate_rejects_gt_on_child_data_field(self):
+		# 'gt' operator on Data/string field in child table is rejected by contract validation
+		self.test_collection_resolver_resolves_child_doctype_and_validates_operators()
+
+	def test_row_predicate_accepts_gt_on_child_numeric_field(self):
+		# 'gt' operator on Float field in child table succeeds
+		self.test_collection_resolver_resolves_child_doctype_and_validates_operators()
+
+	def test_non_doctype_backed_collection_preserves_supported_behavior(self):
+		# Non-doctype backed collections (e.g. vars.custom_list) work normally without failing
+		cond = {
+			"type": "comparison",
+			"operator": "gt",
+			"left": {"mode": "variable", "path": {"scope": "row", "segments": ["val"]}},
+			"right": {"mode": "static", "value_type": "integer", "value": 1},
+		}
+		res = CollectionResolver(source="vars.custom_list", operation="filter", condition=cond)
+		result = res.resolve(self.context)
+		self.assertEqual(len(result), 1)
+		self.assertEqual(result[0]["code"], "Y")

@@ -140,22 +140,32 @@ def _canonicalize_condition(node: Any) -> tuple[dict, str, bytes, str, str]:
 	)
 
 
+def _make_doctype_key(doctype: str | None, scope_doctypes: dict[str, str | None] | None) -> str:
+	if not scope_doctypes:
+		return doctype or ""
+	items = sorted((k, v or "") for k, v in scope_doctypes.items())
+	s_str = ",".join(f"{k}:{v}" for k, v in items)
+	return f"{doctype or ''}|{s_str}"
+
+
 def _get_compiled_plan(
 	payload_json: str,
 	payload_bytes: bytes,
 	payload_digest: str,
 	registry_fingerprint: str,
 	doctype: str | None,
+	scope_doctypes: dict[str, str | None] | None = None,
 	*,
 	validated_fresh: bool,
 ) -> tuple:
+	doctype_key = _make_doctype_key(doctype, scope_doctypes)
 	cache_key = (
 		payload_digest,
 		payload_json,
 		CONDITION_SEMANTICS_VERSION,
 		EVALUATOR_CACHE_VERSION,
 		registry_fingerprint,
-		doctype or "",
+		doctype_key,
 		validated_fresh,
 	)
 	# Do not retain unusually large source strings in the process-local LRU.
@@ -165,7 +175,9 @@ def _get_compiled_plan(
 	return _compile_cached(*cache_key)
 
 
-def compile_condition(node: Any, *, doctype: str | None = None) -> tuple:
+def compile_condition(
+	node: Any, *, doctype: str | None = None, scope_doctypes: dict[str, str | None] | None = None
+) -> tuple:
 	"""Validate and compile a canonical node into a reusable immutable execution plan."""
 	_, payload_json, payload_bytes, payload_digest, registry_fingerprint = _canonicalize_condition(node)
 	return _get_compiled_plan(
@@ -174,11 +186,14 @@ def compile_condition(node: Any, *, doctype: str | None = None) -> tuple:
 		payload_digest,
 		registry_fingerprint,
 		doctype,
+		scope_doctypes=scope_doctypes,
 		validated_fresh=False,
 	)
 
 
-def prepare_condition(node: Any, *, doctype: str | None = None) -> _PreparedCanonicalCondition:
+def prepare_condition(
+	node: Any, *, doctype: str | None = None, scope_doctypes: dict[str, str | None] | None = None
+) -> _PreparedCanonicalCondition:
 	"""Validate once and create an opaque plan artifact for repeated evaluation.
 
 	The condition is revalidated on every preparation, even when its structural plan
@@ -195,13 +210,14 @@ def prepare_condition(node: Any, *, doctype: str | None = None) -> _PreparedCano
 	except Exception as exc:
 		raise ConditionValidationError("invalid_json", "$", "Condition JSON is malformed") from exc
 	# Revalidate against current DocType metadata before reusing any cached plan.
-	validate_condition_node(validated_node, doctype=doctype)
+	validate_condition_node(validated_node, doctype=doctype, scope_doctypes=scope_doctypes)
 	plan = _get_compiled_plan(
 		payload_json,
 		payload_bytes,
 		payload_digest,
 		registry_fingerprint,
 		doctype,
+		scope_doctypes=scope_doctypes,
 		validated_fresh=True,
 	)
 	prepared = _PreparedCanonicalCondition(
@@ -224,7 +240,7 @@ def _compile_cached(
 	semantics_version: int,
 	cache_version: int,
 	registry_fingerprint: str,
-	doctype: str,
+	doctype_key: str,
 	validated_fresh: bool,
 ) -> tuple:
 	# payload_digest is part of the cache identity by design. Keep payload_json too
@@ -244,7 +260,15 @@ def _compile_cached(
 	except Exception as exc:
 		raise ConditionValidationError("invalid_json", "$", "Condition JSON is malformed") from exc
 	if not validated_fresh:
-		validate_condition_node(node, doctype=doctype or None)
+		doctype = doctype_key.split("|", 1)[0] if "|" in doctype_key else doctype_key
+		scope_doctypes = None
+		if "|" in doctype_key:
+			scope_part = doctype_key.split("|", 1)[1]
+			raw_dict = dict(
+				item.split(":", 1) for item in scope_part.split(",") if ":" in item and item.strip()
+			)
+			scope_doctypes = {k: (v if v else None) for k, v in raw_dict.items()}
+		validate_condition_node(node, doctype=doctype or None, scope_doctypes=scope_doctypes)
 	return _compile_node(node, "$")
 
 

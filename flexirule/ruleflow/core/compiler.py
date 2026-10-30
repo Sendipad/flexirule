@@ -183,6 +183,191 @@ class ConditionCompiler:
 		# Fallback/Empty
 		return ""
 
+	LEGACY_VALID_OPERATORS: ClassVar[set[str]] = {
+		"==",
+		"!=",
+		">",
+		"<",
+		">=",
+		"<=",
+		"in",
+		"not in",
+		"not_in",
+		"is",
+		"is not",
+		"and",
+		"or",
+		"like",
+		"not like",
+		"is_set",
+		"is_not_set",
+		"is_submittable",
+		"has_field",
+		"has_changed",
+		"contains",
+		"not_contains",
+		"is_empty",
+		"is_not_empty",
+		"length_eq",
+		"length_gt",
+		"length_gte",
+		"length_lt",
+		"length_lte",
+	}
+
+	UNARY_LEGACY_OPERATORS: ClassVar[set[str]] = {
+		"is_set",
+		"is_not_set",
+		"is_empty",
+		"is_not_empty",
+		"is_submittable",
+		"has_changed",
+	}
+
+	def compile_legacy_guard(self, raw_guard: Any, path: str = "$") -> str:
+		"""Strictly validate and compile a legacy condition guard into a Python expression.
+
+		Rejects unknown shapes, empty groups, malformed JSON, and unsupported operators/operands.
+		Never falls back to 'True' for invalid or dropped conditions.
+		"""
+		from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+		from flexirule.ruleflow.core.condition_payload import parse_condition_payload
+
+		if raw_guard in (None, ""):
+			return ""
+
+		try:
+			parsed = parse_condition_payload(raw_guard)
+		except ConditionValidationError:
+			raise
+		except Exception as exc:
+			raise ConditionValidationError("invalid_json", path, "Structured condition JSON is malformed") from exc
+
+		if parsed in (None, ""):
+			return ""
+
+		if isinstance(parsed, str):
+			is_valid, err = self.validate(parsed)
+			if not is_valid:
+				raise ConditionValidationError(
+					"invalid_when_expression", path, f"Invalid condition expression: {err}"
+				)
+			return parsed
+
+		self._validate_legacy_structure(parsed, path)
+
+		compiled = self.compile(parsed)
+		if not compiled or compiled.strip() in ("", "True"):
+			raise ConditionValidationError(
+				"empty_legacy_guard", path, "Legacy condition produced an empty expression"
+			)
+
+		is_valid, err = self.validate(compiled)
+		if not is_valid:
+			raise ConditionValidationError(
+				"invalid_compiled_expression", path, f"Invalid compiled condition: {err}"
+			)
+
+		return compiled
+
+	def _validate_legacy_structure(self, node: Any, path: str) -> None:
+		from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
+		if isinstance(node, list):
+			if not node:
+				raise ConditionValidationError(
+					"empty_legacy_group", path, "Legacy condition group cannot be empty"
+				)
+			for index, item in enumerate(node):
+				self._validate_legacy_structure(item, f"{path}[{index}]")
+			return
+
+		if isinstance(node, dict):
+			if "conditions" in node:
+				conditions = node.get("conditions")
+				if not isinstance(conditions, list) or len(conditions) == 0:
+					raise ConditionValidationError(
+						"empty_legacy_group", f"{path}.conditions", "Legacy condition group cannot be empty"
+					)
+				op = node.get("op", node.get("logical_operator", "and"))
+				if not isinstance(op, str) or op.lower() not in ("and", "or"):
+					raise ConditionValidationError(
+						"unknown_group_operator", f"{path}.op", f"Invalid group operator '{op}'"
+					)
+				for index, item in enumerate(conditions):
+					self._validate_legacy_structure(item, f"{path}.conditions[{index}]")
+				return
+
+			if "collection" in node:
+				if "where" not in node:
+					raise ConditionValidationError(
+						"missing_key", f"{path}.where", "Collection condition requires 'where' node"
+					)
+				collection = node.get("collection")
+				if not isinstance(collection, str) or not collection.strip():
+					raise ConditionValidationError(
+						"invalid_collection_source",
+						f"{path}.collection",
+						"Collection reference must be a non-empty string",
+					)
+				op = node.get("op", "any")
+				if not isinstance(op, str) or op.lower() not in ("any", "all", "none"):
+					raise ConditionValidationError(
+						"unknown_collection_quantifier", f"{path}.op", f"Invalid collection quantifier '{op}'"
+					)
+				self._validate_legacy_structure(node["where"], f"{path}.where")
+				return
+
+			if "left" in node:
+				op = node.get("op", "==")
+				if not isinstance(op, str) or op not in self.LEGACY_VALID_OPERATORS:
+					raise ConditionValidationError(
+						"unknown_operator", f"{path}.op", f"Unknown legacy condition operator '{op}'"
+					)
+				self._validate_legacy_operand(node.get("left"), f"{path}.left")
+				if op not in self.UNARY_LEGACY_OPERATORS:
+					if "right" not in node:
+						raise ConditionValidationError(
+							"missing_operand", f"{path}.right", f"Operator '{op}' requires right operand"
+						)
+					self._validate_legacy_operand(node.get("right"), f"{path}.right")
+				return
+
+			raise ConditionValidationError(
+				"unknown_legacy_guard_shape", path, "Unknown or unsupported legacy condition shape"
+			)
+
+		if isinstance(node, str):
+			is_valid, err = self.validate(node)
+			if not is_valid:
+				raise ConditionValidationError(
+					"invalid_when_expression", path, f"Invalid condition expression: {err}"
+				)
+			return
+
+		raise ConditionValidationError(
+			"invalid_legacy_node", path, f"Unsupported legacy condition payload type: {type(node).__name__}"
+		)
+
+	def _validate_legacy_operand(self, operand: Any, path: str) -> None:
+		from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
+		if not isinstance(operand, dict):
+			raise ConditionValidationError("invalid_operand", path, "Operand must be an object")
+
+		if "ref" in operand:
+			ref = operand.get("ref")
+			if not isinstance(ref, str) or not ref.strip():
+				raise ConditionValidationError(
+					"invalid_operand_ref", f"{path}.ref", "Operand ref must be a non-empty string"
+				)
+			return
+
+		if "value" in operand or "mode" in operand:
+			return
+
+		raise ConditionValidationError("invalid_operand", path, "Operand must specify 'ref', 'value', or 'mode'")
+
 	def _compile_group(self, node, scopes):
 		subs = node.get("conditions", [])
 		if not subs:

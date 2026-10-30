@@ -530,13 +530,39 @@ class CollectionResolver(CompiledResolver):
 		doc = context.get("doc")
 		condition_evaluation_budget = {"collection_row_visits": 0}
 		prepared_condition = None
-		condition_doctype = getattr(doc, "doctype", None) or context.get("doctype")
+		parent_doctype = getattr(doc, "doctype", None) or context.get("doctype")
+		child_doctype = None
+
+		if parent_doctype and self.source:
+			# Resolve child DocType when source references a child table field
+			parts = self.source.split(".")
+			scope = parts[0]
+			segments = parts[1:]
+			if scope in ("doc", "old_doc") and segments:
+				try:
+					meta = frappe.get_meta(parent_doctype)
+					current_meta = meta
+					field = None
+					for segment in segments:
+						field = current_meta.get_field(segment)
+						if field and segment != segments[-1]:
+							if field.fieldtype in ("Table", "Table MultiSelect", "Link", "Dynamic Link"):
+								current_meta = frappe.get_meta(field.options)
+					if field and field.fieldtype in ("Table", "Table MultiSelect"):
+						child_doctype = field.options
+				except Exception:
+					child_doctype = None
+
+		scope_doctypes = {"doc": parent_doctype, "row": child_doctype} if parent_doctype else None
+
 		if self._canonical_condition is not None:
 			from flexirule.ruleflow.core.condition_evaluator import prepare_condition
 
 			# Prepare once for this collection resolution, not once for every row.
 			# Preparation revalidates against current metadata; artifacts are not persisted.
-			prepared_condition = prepare_condition(self._canonical_condition, doctype=condition_doctype)
+			prepared_condition = prepare_condition(
+				self._canonical_condition, doctype=parent_doctype, scope_doctypes=scope_doctypes
+			)
 
 		def _matches(r) -> bool:
 			if self._canonical_condition is not None:
@@ -552,7 +578,7 @@ class CollectionResolver(CompiledResolver):
 				return evaluate_prepared_condition(
 					prepared_condition,
 					row_context,
-					doctype=condition_doctype,
+					doctype=parent_doctype,
 					_evaluation_budget=condition_evaluation_budget,
 				)
 			if not self._compiled_evaluator:

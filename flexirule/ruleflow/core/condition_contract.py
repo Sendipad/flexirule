@@ -402,7 +402,9 @@ def _known_fieldtype_check(
 		)
 
 
-def validate_condition_node(node: Any, *, doctype: str | None = None) -> None:
+def validate_condition_node(
+	node: Any, *, doctype: str | None = None, scope_doctypes: dict[str, str | None] | None = None
+) -> None:
 	"""Strictly validate a canonical direct-node condition; never repair or mutate it."""
 	try:
 		encoded = json.dumps(
@@ -415,14 +417,16 @@ def validate_condition_node(node: Any, *, doctype: str | None = None) -> None:
 	if len(encoded) > MAX_CONDITION_PAYLOAD_BYTES:
 		_fail("condition_payload_too_large", "$", "Condition payload exceeds the configured byte limit")
 	counter = {"nodes": 0}
-	scope_doctypes: dict[str, str | None] = {"doc": doctype, "old_doc": doctype}
+	effective_scope_doctypes: dict[str, str | None] = {"doc": doctype, "old_doc": doctype}
+	if scope_doctypes:
+		effective_scope_doctypes.update(scope_doctypes)
 	_validate_node(
 		node,
 		path="$",
 		depth=1,
 		counter=counter,
 		allowed_scopes=set(BASE_SCOPES),
-		scope_doctypes=scope_doctypes,
+		scope_doctypes=effective_scope_doctypes,
 	)
 
 
