@@ -579,3 +579,21 @@ class CanonicalConditionMixin:
 - **Sandbox Security:** Zero `eval()` or `safe_eval()` calls; pure AST deterministic opcode resolution.
 - **Plan Caching:** LRU cache size bounded (`maxsize=1024`) on SHA-256 string fingerprints.
 - **Frappe Controller DX:** Verified single-line decorator `@canonical_condition_eval` and mixin `doc.evaluate_rule_condition()`.
+
+---
+
+## Strategic Roadmap & Next Steps
+
+Following the war room deliberations, empirical benchmark profiling, and optimization architecture, the next implementation milestones for FlexiRule canonical conditions are:
+
+### Phase 1: Core Engine Integration & Activation Warmup (Target: Sprint 1)
+1. **Core Engine Refactoring:** Replace legacy string `frappe.safe_eval` calls in `RuleEngine` (`flexirule/ruleflow/core/engine.py`) with `evaluate_optimized_condition()`.
+2. **Rule Activation Warmup Hook:** Update `Rule.on_update` in `rule.py` to compile and store `FastPreparedPlan` artifacts during rule activation when `is_active = 1`.
+
+### Phase 2: Frontend & Rule Builder UX Alignment (Target: Sprint 1)
+1. **CanonicalConditionBuilder Integration:** Standardize `CanonicalConditionBuilder.vue` across all condition-bearing UI nodes (ConditionStep, AssignmentConfig, TextGeneratorControl).
+2. **Save-Time UI Validation:** Connect `validate_on_save` REST API endpoints (`flexirule.ruleflow.api.validate_condition`) to provide instant validation feedback in the UI.
+
+### Phase 3: CI Performance & Migration Safeguards (Target: Sprint 2)
+1. **Automated CI Performance Gate:** Integrate `test_condition_benchmark.py` into `.github/workflows/ci.yml` with a threshold check enforcing steady-state execution latency under **15 µs/op**.
+2. **Legacy Rule Migration Scanner:** Run `flexirule.ruleflow.core.condition_migration` on production tenant sites to automatically convert legacy Python string expressions into canonical JSON condition trees.
