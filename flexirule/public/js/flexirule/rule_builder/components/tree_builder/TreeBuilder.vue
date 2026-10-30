@@ -164,16 +164,16 @@ function getLeafState(node) {
 	const isNew = api.isTransientNew?.(node.id)
 		? true
 		: typeof props.isLeafNew === "function"
-		? Boolean(props.isLeafNew(node))
-		: typeof api.isLeafNew?.value === "function"
-		? Boolean(api.isLeafNew.value(node))
-		: Boolean(node?.isNew);
+			? Boolean(props.isLeafNew(node))
+			: typeof api.isLeafNew?.value === "function"
+				? Boolean(api.isLeafNew.value(node))
+				: Boolean(node?.isNew);
 	const isValid =
 		typeof props.isLeafValid === "function"
 			? Boolean(props.isLeafValid(node))
 			: typeof api.isLeafValid?.value === "function"
-			? Boolean(api.isLeafValid.value(node))
-			: node?.isValid !== false;
+				? Boolean(api.isLeafValid.value(node))
+				: node?.isValid !== false;
 	return { isNew, isValid };
 }
 
@@ -226,7 +226,7 @@ function handleTreeKeydown(event) {
 		? treeItems.indexOf(nodeElement)
 		: treeItems.findIndex(
 				(element) => element.getAttribute("data-node-id") === focusedNodeId.value
-		  );
+			);
 	let nextIndex = null;
 	if (event.key === "ArrowDown") {
 		nextIndex = currentIndex < 0 ? 0 : Math.min(treeItems.length - 1, currentIndex + 1);
@@ -315,7 +315,9 @@ defineExpose({ ...api });
 	font-weight: var(--fxr-weight-bold, 700);
 	color: var(--fxr-text-soft);
 	cursor: pointer;
-	transition: background-color var(--fxr-transition-fast), color var(--fxr-transition-fast);
+	transition:
+		background-color var(--fxr-transition-fast),
+		color var(--fxr-transition-fast);
 }
 .logic-btn:hover:not(.active):not(:disabled) {
 	background: var(--fxr-bg-muted);
@@ -340,7 +342,9 @@ defineExpose({ ...api });
 	padding: 0;
 	border-radius: var(--fxr-radius-md);
 	overflow: visible;
-	transition: background-color var(--fxr-transition-fast), box-shadow var(--fxr-transition-fast);
+	transition:
+		background-color var(--fxr-transition-fast),
+		box-shadow var(--fxr-transition-fast);
 }
 .tree-builder__content--drop-target {
 	background: var(--fxr-node-accent-light, var(--fxr-accent-soft));

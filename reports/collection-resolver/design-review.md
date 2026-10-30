@@ -9,39 +9,39 @@ This document represents the comprehensive second-pass architecture verification
 The following core components of FlexiRule's resolver engine were verified from source code:
 
 1. **`get_context_value(context: dict, path: str | None) -> Any`**
-   - *Location*: `flexirule/ruleflow/core/value_resolver.py:12`
-   - *Verified Behavior*: Traverses `path` against root scopes (`doc`, `vars`, `item`, `loop`, `row`). Traverses nested dictionary keys via `.get()`.
+    - _Location_: `flexirule/ruleflow/core/value_resolver.py:12`
+    - _Verified Behavior_: Traverses `path` against root scopes (`doc`, `vars`, `item`, `loop`, `row`). Traverses nested dictionary keys via `.get()`.
 2. **`FieldResolver.resolve(doc, field_path: str) -> Any`**
-   - *Location*: `flexirule/ruleflow/utils/field_resolver.py:12`
-   - *Verified Behavior*: Handles dot notation, parent references, and child table fields.
+    - _Location_: `flexirule/ruleflow/utils/field_resolver.py:12`
+    - _Verified Behavior_: Handles dot notation, parent references, and child table fields.
 3. **`ConditionEvaluator`**
-   - *Location*: `flexirule/ruleflow/core/evaluator.py:15`
-   - *Verified Signature*: `__init__(conditions_json: str)`, `evaluate(doc, row=None) -> bool`.
-   - *Verified Behavior*: Accepts JSON string of condition nodes. Resolves left/right references against `doc` and `row` using safe built-in operators.
+    - _Location_: `flexirule/ruleflow/core/evaluator.py:15`
+    - _Verified Signature_: `__init__(conditions_json: str)`, `evaluate(doc, row=None) -> bool`.
+    - _Verified Behavior_: Accepts JSON string of condition nodes. Resolves left/right references against `doc` and `row` using safe built-in operators.
 4. **`ValueResolver.compile_resolver_config(config: dict) -> CompiledResolver`**
-   - *Location*: `flexirule/ruleflow/core/value_resolver.py:465`
-   - *Verified Behavior*: Inspects `kind = config.get("kind")` and instantiates the matching `CompiledResolver` strategy.
+    - _Location_: `flexirule/ruleflow/core/value_resolver.py:465`
+    - _Verified Behavior_: Inspects `kind = config.get("kind")` and instantiates the matching `CompiledResolver` strategy.
 5. **`CompiledResolver`**
-   - *Location*: `flexirule/ruleflow/core/value_resolver.py:73`
-   - *Verified Contract*: Base class defining `resolve(self, context: dict) -> Any`.
+    - _Location_: `flexirule/ruleflow/core/value_resolver.py:73`
+    - _Verified Contract_: Base class defining `resolve(self, context: dict) -> Any`.
 6. **`frappe.local.flexirule_compiled_resolvers`**
-   - *Location*: `flexirule/ruleflow/core/value_resolver.py:556` in `get_compiled_resolver()`.
-   - *Verified Behavior*: Caches compiled resolver strategy instances per request.
+    - _Location_: `flexirule/ruleflow/core/value_resolver.py:556` in `get_compiled_resolver()`.
+    - _Verified Behavior_: Caches compiled resolver strategy instances per request.
 
 ---
 
 ## 2. Confirmed Integration Points
 
 1. **Factory Compiler Entry Point**: In `ValueResolver.compile_resolver_config()`, add:
-   ```python
-   if kind == "collection":
-       return CollectionResolver(
-           source=config.get("source"),
-           operation=config.get("operation", "any"),
-           condition=config.get("condition"),
-           target_field=config.get("target_field"),
-       )
-   ```
+    ```python
+    if kind == "collection":
+        return CollectionResolver(
+            source=config.get("source"),
+            operation=config.get("operation", "any"),
+            condition=config.get("condition"),
+            target_field=config.get("target_field"),
+        )
+    ```
 2. **Execution Context Delegation**: `CollectionResolver.resolve(context)` calls `get_context_value(context, self.source)` to resolve the array, and calls `self._compiled_evaluator.evaluate(doc, row=r)` to test row conditions.
 3. **Caching**: Reuses `get_compiled_resolver(action, key, payload)` with zero changes required to the caching layer.
 
@@ -51,18 +51,18 @@ The following core components of FlexiRule's resolver engine were verified from 
 
 ```json
 {
-  "mode": "resolver",
-  "config": {
-    "kind": "collection",
-    "operation": "any",
-    "source": "doc.items",
-    "condition": {
-      "left": { "ref": "row.qty" },
-      "op": ">",
-      "right": { "value": 100 }
-    },
-    "target_field": null
-  }
+	"mode": "resolver",
+	"config": {
+		"kind": "collection",
+		"operation": "any",
+		"source": "doc.items",
+		"condition": {
+			"left": { "ref": "row.qty" },
+			"op": ">",
+			"right": { "value": 100 }
+		},
+		"target_field": null
+	}
 }
 ```
 
@@ -73,16 +73,14 @@ The following core components of FlexiRule's resolver engine were verified from 
 The Beta operation set is classified into **Core Backend Operations**, **UI Semantic Aliases**, and **Derived Operations**:
 
 - **Core Backend Operations**:
-  1. `count`: Count total or matching rows (`integer`).
-  2. `any`: Short-circuiting boolean check (`boolean`).
-  3. `all`: Short-circuiting boolean check (`boolean`).
-  4. `first`: Retrieve top row or first row matching condition (`dict | None`).
-  5. `filter`: Extract array of matching row dicts (`list[dict]`).
-  6. `pluck`: Extract array of target field values (`list[Any]`).
-- **UI Semantic Aliases**:
-  7. `find`: Semantic UI alias for `first` with a required condition. Backend maps `find` directly to `first`.
-- **Derived Operations**:
-  8. `unique`: Derived from `pluck` with order-preserving distinct key extraction (`list[Any]`).
+    1. `count`: Count total or matching rows (`integer`).
+    2. `any`: Short-circuiting boolean check (`boolean`).
+    3. `all`: Short-circuiting boolean check (`boolean`).
+    4. `first`: Retrieve top row or first row matching condition (`dict | None`).
+    5. `filter`: Extract array of matching row dicts (`list[dict]`).
+    6. `pluck`: Extract array of target field values (`list[Any]`).
+- **UI Semantic Aliases**: 7. `find`: Semantic UI alias for `first` with a required condition. Backend maps `find` directly to `first`.
+- **Derived Operations**: 8. `unique`: Derived from `pluck` with order-preserving distinct key extraction (`list[Any]`).
 
 ---
 
@@ -121,6 +119,7 @@ Verified in `assignment.py:119` and `ContextManager` that setting variable paths
 
 `ConditionEvaluator` natively supports row context via `evaluate(doc, row=r)`.
 Scope prefixes:
+
 - `row.<field>`: Resolves against current collection row.
 - `doc.<field>`: Resolves against root document.
 - `old_doc.<field>`: Resolves against pre-save document.
@@ -131,6 +130,7 @@ Scope prefixes:
 ## 10. Source-Path Rules
 
 Supported source patterns in Beta:
+
 1. `doc.<child_table_fieldname>` (e.g. `doc.items`)
 2. `vars.<variable_name>` (e.g. `vars.tax_list`)
 3. `old_doc.<child_table_fieldname>` (e.g. `old_doc.items`)
@@ -141,12 +141,12 @@ Arbitrary nested paths (`doc.items[0].taxes`) or row scope sources (`row.items`)
 
 ## 11. Error and Empty-Value Semantics
 
-| Input State | `count` | `any` | `all` | `first` / `find` | `filter` | `pluck` | `unique` |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Empty collection `[]`** | `0` | `False` | `True` (vacuous) | `None` | `[]` | `[]` | `[]` |
-| **`source = None`** | `0` | `False` | `False` | `None` | `[]` | `[]` | `[]` |
-| **`source = non-list`** | `0` | `False` | `False` | `None` | `[]` | `[]` | `[]` |
-| **Missing `target_field`** | N/A | N/A | N/A | N/A | N/A | `[]` | `[]` |
+| Input State                | `count` | `any`   | `all`            | `first` / `find` | `filter` | `pluck` | `unique` |
+| :------------------------- | :------ | :------ | :--------------- | :--------------- | :------- | :------ | :------- |
+| **Empty collection `[]`**  | `0`     | `False` | `True` (vacuous) | `None`           | `[]`     | `[]`    | `[]`     |
+| **`source = None`**        | `0`     | `False` | `False`          | `None`           | `[]`     | `[]`    | `[]`     |
+| **`source = non-list`**    | `0`     | `False` | `False`          | `None`           | `[]`     | `[]`    | `[]`     |
+| **Missing `target_field`** | N/A     | N/A     | N/A              | N/A              | N/A      | `[]`    | `[]`     |
 
 ---
 
@@ -160,9 +160,9 @@ Arbitrary nested paths (`doc.items[0].taxes`) or row scope sources (`row.items`)
 ## 13. Performance Model
 
 - Algorithmic bounds:
-  - `count`, `first`, `filter`, `pluck`, `unique`: O(N).
-  - `any`: O(N) with O(1) early exit on first `True`.
-  - `all`: O(N) with O(1) early exit on first `False`.
+    - `count`, `first`, `filter`, `pluck`, `unique`: O(N).
+    - `any`: O(N) with O(1) early exit on first `True`.
+    - `all`: O(N) with O(1) early exit on first `False`.
 - Compiled evaluator instances are reused across all row iterations without JSON re-parsing.
 
 ---
@@ -170,6 +170,7 @@ Arbitrary nested paths (`doc.items[0].taxes`) or row scope sources (`row.items`)
 ## 14. Required Tests
 
 Unit test suite `TestCollectionResolver` in `flexirule/ruleflow/tests/test_value_resolvers_complex.py` covering:
+
 - All 8 operations/aliases.
 - Empty collection, `None` collection, and non-list source handling.
 - Row context isolation (`row.qty` vs `doc.qty`).
@@ -187,16 +188,16 @@ Unit test suite `TestCollectionResolver` in `flexirule/ruleflow/tests/test_value
 ## 16. Exact Implementation Scope
 
 1. **`flexirule/ruleflow/core/value_resolver.py`**:
-   - Add `CollectionResolver(CompiledResolver)` class.
-   - Register `kind == "collection"` in `ValueResolver.compile_resolver_config()`.
+    - Add `CollectionResolver(CompiledResolver)` class.
+    - Register `kind == "collection"` in `ValueResolver.compile_resolver_config()`.
 2. **`flexirule/ruleflow/tests/test_value_resolvers_complex.py`**:
-   - Add `TestCollectionResolver` test class.
+    - Add `TestCollectionResolver` test class.
 3. **`flexirule/public/js/flexirule/rule_builder/controls/value_resolver/components/CollectionResolver.vue`**:
-   - Add frontend Vue component reusing `ComboBoxControl` and `SelectControl`.
+    - Add frontend Vue component reusing `ComboBoxControl` and `SelectControl`.
 4. **`flexirule/public/js/flexirule/rule_builder/controls/value_resolver/index.js`**:
-   - Register strategy `"collection"`.
+    - Register strategy `"collection"`.
 5. **`flexirule/public/js/flexirule/core/formula_registry.js`**:
-   - Register slash commands and update `getAllowedBuilderKinds()`.
+    - Register slash commands and update `getAllowedBuilderKinds()`.
 
 ---
 

@@ -27,16 +27,17 @@ This plan was prepared from the current develop tree and related tests/audit rep
 
 ### 2.1 Current condition paths are not one system
 
-| Path | Current representation and runtime | Required destination |
-|---|---|---|
-| Rule trigger condition | Rule.trigger_condition JSON -> Rule.compile_conditions() -> persisted Rule.compiled_expression -> RuleCoordinator.check_eligibility() evaluates Python via frappe.safe_eval | Canonical condition envelope -> shared evaluator; compiled_expression becomes legacy-only and is eventually retired |
-| Condition action | Rule Action.config / legacy condition_json -> ConditionCompiler -> action.compiled_expression -> ConditionHandler -> engine._evaluate_python_condition() | The same canonical condition envelope -> shared evaluator -> true/false graph edge |
-| Collection resolver predicate | ValueResolver builds CollectionResolver -> ConditionEvaluator parses/evaluates older JSON tree with doc + row | Same canonical condition AST; shared evaluator gets parent document, current row, and declared alias context |
-| Sub-Rule eligibility | SubRuleHandler checks target Rule.trigger_condition / compiled_expression and calls engine Python-condition evaluation | Same canonical condition evaluator with explicit caller/rule/doctype context |
-| Assignment row guard | AssignmentHandler accepts pythonExpression, when_expression/when, or when_condition; condition compiler generates Python, and compilation errors can become an empty guard | A single canonical guard field containing the condition AST; no silent conversion failure |
-| Other expression helpers | Engine/helper and resolver code support restricted Python or Jinja for some non-condition value/template features | Keep these capabilities explicitly separate from the condition grammar; do not interpret arbitrary expression strings as canonical condition operands |
+| Path                          | Current representation and runtime                                                                                                                                          | Required destination                                                                                                                                  |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rule trigger condition        | Rule.trigger_condition JSON -> Rule.compile_conditions() -> persisted Rule.compiled_expression -> RuleCoordinator.check_eligibility() evaluates Python via frappe.safe_eval | Canonical condition envelope -> shared evaluator; compiled_expression becomes legacy-only and is eventually retired                                   |
+| Condition action              | Rule Action.config / legacy condition_json -> ConditionCompiler -> action.compiled_expression -> ConditionHandler -> engine.\_evaluate_python_condition()                   | The same canonical condition envelope -> shared evaluator -> true/false graph edge                                                                    |
+| Collection resolver predicate | ValueResolver builds CollectionResolver -> ConditionEvaluator parses/evaluates older JSON tree with doc + row                                                               | Same canonical condition AST; shared evaluator gets parent document, current row, and declared alias context                                          |
+| Sub-Rule eligibility          | SubRuleHandler checks target Rule.trigger_condition / compiled_expression and calls engine Python-condition evaluation                                                      | Same canonical condition evaluator with explicit caller/rule/doctype context                                                                          |
+| Assignment row guard          | AssignmentHandler accepts pythonExpression, when_expression/when, or when_condition; condition compiler generates Python, and compilation errors can become an empty guard  | A single canonical guard field containing the condition AST; no silent conversion failure                                                             |
+| Other expression helpers      | Engine/helper and resolver code support restricted Python or Jinja for some non-condition value/template features                                                           | Keep these capabilities explicitly separate from the condition grammar; do not interpret arbitrary expression strings as canonical condition operands |
 
 Sources:
+
 - [Rule controller](https://github.com/Sendipad/flexirule/blob/60c5005e69d5899765748c561f8f426078c008f0/flexirule/ruleflow/doctype/rule/rule.py)
 - [Condition compiler](https://github.com/Sendipad/flexirule/blob/60c5005e69d5899765748c561f8f426078c008f0/flexirule/ruleflow/core/compiler.py)
 - [Condition evaluator](https://github.com/Sendipad/flexirule/blob/60c5005e69d5899765748c561f8f426078c008f0/flexirule/ruleflow/core/evaluator.py)
@@ -56,6 +57,7 @@ Current FlexValue-related files include:
 - Existing design notes: reports/value-resolver/frontend-backend-contract.md, backend-architecture.md, resolver-inventory.md, security-audit.md, findings.md, and remediation-plan.md.
 
 The current payload shapes overlap but are not canonical:
+
 - Static values usually use {mode: "static", value: ...}.
 - Variable values may use {mode: "variable", value: "doc.status"} or {mode: "variable", path: "doc.status"}.
 - Visual resolvers use {mode: "resolver", value: "<generated expression>", config: {...}}; config may use kind, family, operation, and sometimes a nested config.
@@ -69,6 +71,7 @@ The intended contract consolidates these cases, but this plan does not blindly r
 ### 2.3 Important condition defects the new contract must not preserve
 
 The current source and existing architecture audit show that:
+
 - ConditionCompiler and ConditionEvaluator implement separate operator and logical semantics.
 - Unknown comparison operators can fall back to equality in the compiler; unknown node shapes can disappear, and empty compiled trees can become a passing expression.
 - The current compiler hard-codes deprecated has_changed to True.
@@ -132,6 +135,7 @@ Every complete persisted condition, whether a Rule trigger filter, Condition act
 This example is illustrative of the proposed shape; it is not an exact copy of any current saved payload.
 
 Rules:
+
 1. schema and version are required for complete persisted conditions. Unsupported versions are rejected with an actionable message.
 2. root must be one condition node, normally a group. Do not let arrays, raw strings, {conditions: ...} fragments, or nested wrapper keys silently become alternate canonical formats.
 3. UI-only IDs may exist in reactive Vue state but must never be persisted in canonical condition or FlexValue JSON.
@@ -290,18 +294,19 @@ Use family + operation + config as the canonical resolver interface. The exact o
 
 Initial family inventory based on current source:
 
-| Canonical family | Operations to inventory/specify | Existing representations to migrate |
-|---|---|---|
-| math | calculate | kind: math_formula; field_a/math_op/field_b_type/field_b/constant_b/precision |
-| date_time | current, calculate, diff, extract, boundary, format | current date_formula/date_diff and family date_time configs; legacy base_type/base_field/offset_* fields |
-| text | combine, case, normalize, format | string_formula, normalization/norm_op aliases, format/fmt_op, legacy mode aliases |
-| collection | count, sum, avg, any, all, first, filter, pluck, unique | collection family/kind, child_aggregation, find-to-first alias and predicate/target fields |
-| lookup | fetch/get-value operation | fetch kind/alias, lookup fields, static/dynamic DocType settings |
-| system_context | user, role_check and any explicitly supported token | system_context kind/token/role fields |
+| Canonical family | Operations to inventory/specify                         | Existing representations to migrate                                                                       |
+| ---------------- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| math             | calculate                                               | kind: math_formula; field_a/math_op/field_b_type/field_b/constant_b/precision                             |
+| date_time        | current, calculate, diff, extract, boundary, format     | current date*formula/date_diff and family date_time configs; legacy base_type/base_field/offset*\* fields |
+| text             | combine, case, normalize, format                        | string_formula, normalization/norm_op aliases, format/fmt_op, legacy mode aliases                         |
+| collection       | count, sum, avg, any, all, first, filter, pluck, unique | collection family/kind, child_aggregation, find-to-first alias and predicate/target fields                |
+| lookup           | fetch/get-value operation                               | fetch kind/alias, lookup fields, static/dynamic DocType settings                                          |
+| system_context   | user, role_check and any explicitly supported token     | system_context kind/token/role fields                                                                     |
 
 This table is the target family organization, not confirmation that every listed family/operation has identical semantics today. The implementation team must extract actual UI strategy defaults and Python constructor behavior, then specify and test each mapping before enabling strict validation.
 
 Important contract points:
+
 - Convert current math_formula into the canonical math family; do not preserve top-level kind as a second canonical discriminant.
 - Move every value-bearing argument (for example formula inputs, date sources, lookup record references, collection sources/projections) to FlexValue nodes when dynamic values are supported.
 - Keep operation-specific settings as strict schemas. Avoid both a generic catch-all config dictionary and one universal operation with undocumented string options.
@@ -323,6 +328,7 @@ Important contract points:
 ### 4.2 Empty and missing conditions
 
 These are separate states and must not be conflated with an empty group or failed parser:
+
 - Rule trigger_condition absent: there is no trigger filter, so the Rule can be eligible subject to other checks.
 - Condition action: a condition must be configured before activation; an empty group is a validation error. It must not quietly pass.
 - Assignment guard absent: assignment row runs unconditionally; a present but invalid guard fails validation and never becomes an empty/no-op guard.
@@ -333,6 +339,7 @@ These are separate states and must not be conflated with an empty group or faile
 ### 4.3 Operand and null/missing behavior
 
 Define and test:
+
 - Missing reference vs a present value of null.
 - null vs empty string vs whitespace-only string.
 - false vs numeric zero.
@@ -347,6 +354,7 @@ Recommended starting rule: no silent implicit cast other than an explicitly spec
 ### 4.4 Operator contract
 
 Define one server-authoritative operator registry. At minimum inventory and make an explicit keep/change/deprecate decision for:
+
 - equality and inequality: ==, !=
 - ordered comparisons: >, <, >=, <=
 - membership: in, not in (one canonical token; old not_in is a migration alias only)
@@ -362,6 +370,7 @@ Define one server-authoritative operator registry. At minimum inventory and make
 Each registry entry declares canonical token, arity, argument types, allowed fieldtypes/resolver results, aliases accepted only by migration, missing/null semantics, Link/Dynamic Link handling, runtime error behavior, and tests. Operator DTO/labels for the UI should be generated from this registry rather than duplicated in several front-end fallback maps.
 
 Decisions that need explicit product/owner sign-off as part of Stage 1:
+
 1. whether like/not like mean literal substring aliases (migrate to contains/not_contains) or wildcard pattern matching. Do not assume SQL LIKE semantics outside a query.
 2. whether regex remains in v1; if retained, set size/pattern policies and use an evaluator with a defensible time/resource bound. If a safe bound is unavailable, reject it in v1.
 3. reject has_changed and require an On Change trigger/process or an explicit old_doc comparison. Inventory old uses and provide an actionable replacement path.
@@ -370,6 +379,7 @@ Decisions that need explicit product/owner sign-off as part of Stage 1:
 ### 4.5 Runtime error policy
 
 Three outcomes must be distinguishable:
+
 1. valid condition evaluates true;
 2. valid condition evaluates false;
 3. invalid configuration / evaluation failure.
@@ -379,6 +389,7 @@ Invalid schema/operator/scope/value resolver is rejected on save or activation. 
 ### 4.6 Context contract
 
 One evaluator receives an explicit context object with approved roots:
+
 - doc and old_doc;
 - vars;
 - item, loop, row;
@@ -406,6 +417,7 @@ The top-level Rule trigger and callable Sub-Rule conditions have different conte
 Canonical JSON is both the persisted contract and the evaluator input. The validator validates the supplied AST and metadata without rewriting it into another normalized JSON document.
 
 Strict validation should:
+
 - validate schema name and version;
 - validate node type and allowed keys;
 - validate operator arity and FlexValue union variants;
@@ -421,6 +433,7 @@ If a legacy payload must be converted, that is a boundary migration from a prior
 ### 5.2 Direct evaluator
 
 Implement one typed AST evaluator which accepts an already parsed canonical object. Responsibilities:
+
 1. evaluate group children with explicit short circuit;
 2. resolve each FlexValue via the one shared value resolver contract;
 3. call one operator registry/comparator;
@@ -445,6 +458,7 @@ Initially prefer direct AST traversal. Do not create another normalized JSON pla
 ### 6.1 Inventory first
 
 Produce a read-only inventory tool/report that scans all Rule documents and Rule Action rows on a dedicated test/site or export, without modifying data, and records:
+
 - trigger_condition and Rule.compiled_expression;
 - Condition action config, condition_json and action.compiled_expression;
 - assignment pythonExpression, when_expression, when, and when_condition;
@@ -458,6 +472,7 @@ Record counts and Rule/action identifiers, but avoid including business field va
 ### 6.2 Deterministic conversion rules
 
 A migration converter should handle only cases whose meaning is clear:
+
 - condition list -> a group with the documented default operator if and only if the legacy representation's semantics are unambiguous;
 - {conditions, op} groups -> typed group nodes;
 - {left: {ref: ...}, right: {value: ...}} -> comparison nodes with variable/static FlexValue nodes;
@@ -472,6 +487,7 @@ For every converter mapping, write unit tests containing old input, expected can
 ### 6.3 Do not auto-migrate ambiguous semantics
 
 Do not silently rewrite:
+
 - mixed sibling logical_operator sequences where compiler and evaluator disagree;
 - raw Python condition strings whose semantic interpretation cannot be represented by the canonical nodes;
 - has_changed, whose current compiler semantics always pass;
@@ -504,6 +520,7 @@ List each affected Rule/action and an actionable manual fix. Because the app is 
 ### 7.1 Condition Builder changes
 
 Files:
+
 - components/condition_builder/ConditionBuilder.vue
 - ConditionGroupUI.vue, ConditionNode.vue, SimpleCondition.vue, CollectionUI.vue, ContextPicker.vue, condition_validator.js
 - components/rule_config/types/ConditionStep.vue
@@ -512,6 +529,7 @@ Files:
 - controls/FlexValueControl.vue and controls/value_resolver/{strategies.js,index.js,useValueResolver.js,utils.js} plus operation config components.
 
 Required behavior:
+
 1. Builder loads canonical envelope. A single explicit adapter converts supported old formats for display and marks unconvertible payloads with a blocking error; hydration must not guess silently.
 2. Builder edits a temporary reactive tree with temporary UI IDs. Save strips those IDs and emits canonical schema/version/root only.
 3. ConditionGroupUI exposes one AND/OR operator per group. Mixed logic requires a nested group. If an old tree used per-condition joins, the UI shows its converted grouping only where semantics are unambiguous; otherwise it presents the migration issue instead of silently changing logic.
@@ -540,9 +558,9 @@ The order below is intentional. Add tests alongside each stage; do not begin the
 **Goal:** Agree on schema and semantics before implementation.
 
 1. Add the schema contract under a backend-owned canonical source, proposed:
-   - flexirule/ruleflow/core/condition_contract.py — node/operator definitions, schema version, value/reference types, validation metadata and error types.
-   - flexirule/ruleflow/core/flexvalue_contract.py — FlexValue family/operation schemas, coercion policy and resolver capability metadata.
-   - JSON Schema files under flexirule/ruleflow/schemas/condition.schema.json and flexirule/ruleflow/schemas/flexvalue.schema.json (or another agreed package schema location).
+    - flexirule/ruleflow/core/condition_contract.py — node/operator definitions, schema version, value/reference types, validation metadata and error types.
+    - flexirule/ruleflow/core/flexvalue_contract.py — FlexValue family/operation schemas, coercion policy and resolver capability metadata.
+    - JSON Schema files under flexirule/ruleflow/schemas/condition.schema.json and flexirule/ruleflow/schemas/flexvalue.schema.json (or another agreed package schema location).
 2. Define exact condition and FlexValue examples and negative schemas in test fixtures; record version 1 schema compatibility rules.
 3. Document every current operator, resolver family, operation, context root, consumer and legacy field.
 4. Decide like/not like, regex, has_changed, identity operators, lookup permissions, resolverLevel, empty condition rules, and legacy raw-expression policy before coding runtime.
@@ -555,6 +573,7 @@ The order below is intentional. Add tests alongside each stage; do not begin the
 **Goal:** Make new FlexValues unambiguous before letting the condition evaluator use them.
 
 Target files:
+
 - flexirule/ruleflow/core/value_resolver.py
 - new flexirule/ruleflow/core/flexvalue_contract.py (or equivalent backend-owned schema/registry)
 - FlexValueControl.vue and controls/value_resolver/{strategies.js,index.js,useValueResolver.js,utils.js}
@@ -562,6 +581,7 @@ Target files:
 - tests: test_value_resolver_core.py, test_value_resolvers_complex.py, test_assignment_resolver.py, test_fetch_resolver.py; add a dedicated canonical FlexValue contract test module.
 
 Tasks:
+
 1. Add strict parsing/validation of canonical FlexValue variants and each family/operation config.
 2. Implement a boundary adapter from current FlexValue shapes to canonical variants for deterministic migrations only. Keep the legacy adapter separate from the canonical runtime resolver.
 3. Implement canonical variable path resolution for scope + segments; remove ambiguous fallback from the canonical path. Reuse FieldResolver after allowed-path validation.
@@ -578,6 +598,7 @@ Tasks:
 **Goal:** Implement one evaluator over canonical AST, with both operands using FlexValue.
 
 Target files:
+
 - new flexirule/ruleflow/core/condition_contract.py and condition runtime/evaluator module (reuse evaluator.py only if boundaries remain clear)
 - flexirule/ruleflow/core/evaluator.py
 - flexirule/ruleflow/core/compiler.py (restrict to legacy/raw expression adapter during transition, then deprecate JSON-to-Python compilation)
@@ -586,6 +607,7 @@ Target files:
 - tests: test_evaluator.py, test_compiler.py (legacy tests revised to migration tests), add canonical condition schema, operators and evaluator parity tests.
 
 Tasks:
+
 1. Implement strict schema validation without changing the AST shape.
 2. Implement typed context access, group evaluation, comparison, collection predicates and diagnostics.
 3. Make evaluator evaluate each child only when reached; implement and instrument observable short-circuit tests.
@@ -603,6 +625,7 @@ Tasks:
 **Goal:** Visual builder emits the exact same contract tested by backend.
 
 Target files:
+
 - ConditionBuilder.vue, ConditionGroupUI.vue, ConditionNode.vue, SimpleCondition.vue, CollectionUI.vue, condition_validator.js
 - ConditionStep.vue
 - rule_builder/utils/condition_payload.js
@@ -610,6 +633,7 @@ Target files:
 - FlexValueControl.vue and strategy config editors if Stage 1 did not complete all integration.
 
 Tasks:
+
 1. Introduce clear load/save adapters; use canonical envelope on load and save. No double stringification or nested condition / condition_tree / condition_json key aliases in new writes.
 2. Update the UI tree to explicit node types; group operator belongs to group, not individual child joins.
 3. Use FlexValue for both left and right, including resolver output type/operator compatibility.
@@ -624,6 +648,7 @@ Tasks:
 **Goal:** No semantic split remains between trigger/action/collection/assignment conditions.
 
 Target files:
+
 - flexirule/ruleflow/doctype/rule/rule.py — stop generating compiled_expression for canonical conditions; validation persists canonical payload only.
 - flexirule/ruleflow/core/action_handlers/condition.py — evaluate canonical AST, then route true/false edges.
 - flexirule/ruleflow/core/coordinator.py — trigger eligibility uses canonical AST and explicit trigger context.
@@ -631,12 +656,13 @@ Target files:
 - flexirule/ruleflow/core/action_handlers/sub_rule.py — target trigger filter through the same evaluator with caller and target-rule context.
 - flexirule/ruleflow/core/action_handlers/assignment.py — replace compiled guard string with canonical when_condition AST. Do not use an empty compiled string to silently skip an invalid condition.
 - flexirule/ruleflow/core/value_resolver.py — CollectionResolver uses same predicate evaluator for any/all/count/filter/etc.
-- flexirule/ruleflow/core/action_handlers/__init__.py and flexirule/ruleflow/core/evaluator.py — audit and replace public/helper entry points that expect compiled Python condition strings, or restrict them to explicitly named legacy expression APIs.
+- flexirule/ruleflow/core/action_handlers/**init**.py and flexirule/ruleflow/core/evaluator.py — audit and replace public/helper entry points that expect compiled Python condition strings, or restrict them to explicitly named legacy expression APIs.
 - flexirule/ruleflow/core/validation_service.py — validate canonical conditions for full, draft, node, and activation/save flows without blocking incomplete draft workflows beyond the decided contract.
 - Rule / Rule Action DocType JSON, import_export.py, API DTOs and rule builder stores as required.
 
 Tasks:
-1. Search repository-wide for ConditionCompiler, ConditionEvaluator, _evaluate_python_condition, evaluate_condition, compiled_expression, condition_json, condition_tree, when_expression, pythonExpression, when_condition, and raw mode/value fallbacks.
+
+1. Search repository-wide for ConditionCompiler, ConditionEvaluator, \_evaluate_python_condition, evaluate_condition, compiled_expression, condition_json, condition_tree, when_expression, pythonExpression, when_condition, and raw mode/value fallbacks.
 2. Build a consumer-to-contract matrix and give each call site an explicit migration in the PR. No consumer may fall back implicitly from canonical JSON to Python code.
 3. In coordinator registry, store/obtain canonical trigger AST and update dependency/caching logic; never infer a safe skip set if dependencies cannot be complete.
 4. All condition entry points call one shared service, pass an explicit context object and return a documented result/error.
@@ -651,12 +677,14 @@ Tasks:
 **Goal:** Old saved Rule data is deterministically converted or explicitly rejected.
 
 Target files:
+
 - new migration converter alongside condition_payload.py / flexvalue_contract.py
 - Frappe patch registered in patches.txt or the repository's current patch mechanism
 - tests using realistic Rule and Rule Action payloads
 - reports/migration output documented for maintainers.
 
 Tasks:
+
 1. Generate a read-only inventory before mutation, with counts by legacy shape/operator/resolver and affected Rule/action identifiers.
 2. Implement deterministic v0->v1 conversion mappings as a separate explicit function, not part of runtime evaluation.
 3. Add an idempotent patch that converts only unambiguous payloads and writes v1 canonical envelopes. Back up/export first on the dedicated test site.
@@ -673,6 +701,7 @@ Tasks:
 **Goal:** Verify correctness first, then performance in the supported Frappe Bench.
 
 Commands to use in the maintained Bench (adapt paths/site to actual environment; do not claim results until executed):
+
 - Focused modules: bench --site <test-site> run-tests --module flexirule.ruleflow.tests.test_evaluator
 - Resolver tests: bench --site <test-site> run-tests --module flexirule.ruleflow.tests.test_value_resolver_core
 - Related integrations: bench --site <test-site> run-tests --module flexirule.ruleflow.tests.test_coordinator
@@ -685,12 +714,14 @@ Commands to use in the maintained Bench (adapt paths/site to actual environment;
 Run supported Frappe v15/Python 3.10 first; test other versions only if they remain supported. Track the exact SHA, commands, versions and outputs in the final implementation PR.
 
 Benchmark cases:
+
 1. Current production trigger/Condition path through safe_eval (baseline).
 2. Canonical direct AST evaluator.
 3. Direct JSON evaluator baseline only where it is semantically equivalent.
 4. Any optional ephemeral cache only after the direct evaluator correctness baseline.
 
 Measure separately:
+
 - parse and schema validation;
 - value resolver creation/preparation;
 - cold first use/cache miss;
@@ -702,6 +733,7 @@ Measure separately:
 All approaches must run the same valid canonical semantics or a defined legacy fixture. Exclude preparation from prepared-execution timing and report it separately. Use short/simple, typical business, nested groups, mixed logic represented structurally, resolver operands, and collection predicates. Include error paths. A faster evaluator that has different semantics is not a valid win.
 
 After integration and migration tests pass:
+
 - remove/deprecate ConditionCompiler JSON-to-Python use;
 - remove old evaluator operator map/legacy condition modes once no consumer needs them;
 - remove raw condition-expression persistence and unused compiled_expression fields/DocType metadata through the correct migration;
@@ -715,6 +747,7 @@ After integration and migration tests pass:
 Create a table-driven suite with the same fixtures evaluated through every consumer where applicable.
 
 ### Schema and validation
+
 - Every valid canonical node/FlexValue/family-operation config accepted.
 - Wrong schema/version/node/extra key/missing property/operator/operand arity rejected with a stable path.
 - Unknown path scope, invalid field/segments, dunder/call syntax, alias shadowing and resolver policy bypass rejected.
@@ -723,6 +756,7 @@ Create a table-driven suite with the same fixtures evaluated through every consu
 - UI node ID never persists.
 
 ### Logical semantics and short circuit
+
 - single-node, AND, OR, nested groups, De Morgan counterexamples, and sequence order;
 - AND false at child A means child B probe never runs;
 - OR true at child A means child B probe never runs;
@@ -730,6 +764,7 @@ Create a table-driven suite with the same fixtures evaluated through every consu
 - no child evaluator/resolver call happens after the group result is decisive.
 
 ### Operators and values
+
 - every retained operator, arity and supported fieldtype;
 - aliases only in migration tests;
 - missing, null, empty string, whitespace, false, zero, list/dict empty, wrong RHS types;
@@ -739,6 +774,7 @@ Create a table-driven suite with the same fixtures evaluated through every consu
 - runtime error distinguishable from false; safe diagnostics omit document contents.
 
 ### FlexValue
+
 - static types, variable path, nested reference path, variable scope rules;
 - each resolver family/operation, nested resolver operands, output-type compatibility;
 - template segment ordering; null handling in template output;
@@ -749,6 +785,7 @@ Create a table-driven suite with the same fixtures evaluated through every consu
 - lookup permission behavior verified, not simply mocked away.
 
 ### Consumer integration
+
 - Rule trigger filters (regular events), missing trigger filter, old_doc and context;
 - Condition action true/false graph routes;
 - callable Sub-Rule eligibility with caller/target-rule vars;
@@ -758,6 +795,7 @@ Create a table-driven suite with the same fixtures evaluated through every consu
 - condition caches are invalidated/rebuilt on Rule changes and never leak context/results across documents/users/sites.
 
 ### Acceptance checklist
+
 - [ ] One canonical Condition envelope and one FlexValue union; no competing canonical schemas.
 - [ ] Both comparison operands accept the same documented FlexValue types, subject to operator/family policy.
 - [ ] No canonical condition is persisted as generated Python.
@@ -774,18 +812,18 @@ Create a table-driven suite with the same fixtures evaluated through every consu
 
 ## 10. Risks and controls
 
-| Risk | Control |
-|---|---|
-| Left-side resolvers change inferred operator choices | Resolver output types and operator compatibility are part of the contract; UI and server use the same definitions |
-| FlexValue contract refactor breaks assignments/query/process values | Build the canonical value adapter and cross-consumer regression fixtures before adopting FlexValue in conditions |
-| Current Rule JSON has mixed sibling joins with engine-dependent semantics | Inventory them; migrate only if the intended grouping is clear; otherwise require manual review |
-| Legacy manual expressions cannot be safely represented as structured AST | Do not guess; keep separate temporarily or require rewrite before release |
-| Lookup resolver bypasses permissions or becomes a per-condition query cost | Define authorization and query limits before enabling lookup in conditions |
-| Resolver recursion/collection nesting increases work or permits denial of service | Explicit depth, node, row, and execution limits; bounded caches and no regex without policy |
-| Schema and metadata duplicated between Python and Vue drift again | Backend-owned operator/family contract and DTO-generated front-end metadata |
-| Old compiled_expression fields and caches keep stale behavior alive | Repository-wide call-site inventory, explicit migration version, updated cache keys/invalidation and final dead-code removal |
-| Validation begins blocking incomplete drafts | Preserve draft/node/full validation distinctions; only enforce activation-only rules during activation while always rejecting unsafe malformed payloads |
-| Runtime error policy changes trigger/save behavior | Make error-vs-false semantics explicit and test blocking and non-blocking Frappe event paths |
+| Risk                                                                              | Control                                                                                                                                                 |
+| --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Left-side resolvers change inferred operator choices                              | Resolver output types and operator compatibility are part of the contract; UI and server use the same definitions                                       |
+| FlexValue contract refactor breaks assignments/query/process values               | Build the canonical value adapter and cross-consumer regression fixtures before adopting FlexValue in conditions                                        |
+| Current Rule JSON has mixed sibling joins with engine-dependent semantics         | Inventory them; migrate only if the intended grouping is clear; otherwise require manual review                                                         |
+| Legacy manual expressions cannot be safely represented as structured AST          | Do not guess; keep separate temporarily or require rewrite before release                                                                               |
+| Lookup resolver bypasses permissions or becomes a per-condition query cost        | Define authorization and query limits before enabling lookup in conditions                                                                              |
+| Resolver recursion/collection nesting increases work or permits denial of service | Explicit depth, node, row, and execution limits; bounded caches and no regex without policy                                                             |
+| Schema and metadata duplicated between Python and Vue drift again                 | Backend-owned operator/family contract and DTO-generated front-end metadata                                                                             |
+| Old compiled_expression fields and caches keep stale behavior alive               | Repository-wide call-site inventory, explicit migration version, updated cache keys/invalidation and final dead-code removal                            |
+| Validation begins blocking incomplete drafts                                      | Preserve draft/node/full validation distinctions; only enforce activation-only rules during activation while always rejecting unsafe malformed payloads |
+| Runtime error policy changes trigger/save behavior                                | Make error-vs-false semantics explicit and test blocking and non-blocking Frappe event paths                                                            |
 
 ## 11. Suggested PR sequence and review gates
 
@@ -804,6 +842,7 @@ Each PR must report: base/head SHA, files changed, contract decisions implemente
 ## 12. Scope boundaries
 
 This plan does **not** call for:
+
 - a second persisted normalized/compiled condition JSON;
 - a CEL migration or external expression language;
 - an AST optimizer / Boolean algebra rewriter;

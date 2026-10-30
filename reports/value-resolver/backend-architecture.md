@@ -59,31 +59,31 @@ class CompiledResolver:
 ### Strategy Implementations
 
 1. **`StaticResolver`**:
-   - Holds static value. Returns `self.value`.
+    - Holds static value. Returns `self.value`.
 2. **`VariableResolver`**:
-   - Calls `get_context_value(context, self.path)`.
-   - Supports dot notation across `doc`, `vars`, `item`, `loop`, `row` scopes.
+    - Calls `get_context_value(context, self.path)`.
+    - Supports dot notation across `doc`, `vars`, `item`, `loop`, `row` scopes.
 3. **`DateFormulaResolver`**:
-   - Resolves base date (`today` or field via `get_context_value`).
-   - Uses `frappe.utils.add_days` or `frappe.utils.add_to_date`.
+    - Resolves base date (`today` or field via `get_context_value`).
+    - Uses `frappe.utils.add_days` or `frappe.utils.add_to_date`.
 4. **`MathFormulaResolver`**:
-   - Coerces inputs using `frappe.utils.flt`.
-   - Evaluates arithmetic (`+`, `-`, `*`, `/`).
-   - Prevents zero-division errors (`val_b != 0.0 else 0.0`).
-   - Applies `frappe.utils.flt(res, precision)`.
+    - Coerces inputs using `frappe.utils.flt`.
+    - Evaluates arithmetic (`+`, `-`, `*`, `/`).
+    - Prevents zero-division errors (`val_b != 0.0 else 0.0`).
+    - Applies `frappe.utils.flt(res, precision)`.
 5. **`DateDiffResolver`**:
-   - Resolves start and end dates.
-   - Evaluates difference via `frappe.utils.date_diff` or `month_diff`.
+    - Resolves start and end dates.
+    - Evaluates difference via `frappe.utils.date_diff` or `month_diff`.
 6. **`ChildAggregationResolver`**:
-   - Retrieves child array from context.
-   - Computes `len(rows)` for `count`, or sums/averages row field values using `frappe.utils.flt`.
+    - Retrieves child array from context.
+    - Computes `len(rows)` for `count`, or sums/averages row field values using `frappe.utils.flt`.
 7. **`StringFormulaResolver`**:
-   - Resolves string inputs `val_a` and `val_b`.
-   - Executes `concat`, `uppercase`, `lowercase`, or `frappe.utils.fmt_money`.
+    - Resolves string inputs `val_a` and `val_b`.
+    - Executes `concat`, `uppercase`, `lowercase`, or `frappe.utils.fmt_money`.
 8. **`NormalizationResolver`**:
-   - Calls `execute_normalization_pipeline(value, pipeline, profile)` from `flexirule.ruleflow.utils.normalization`.
+    - Calls `execute_normalization_pipeline(value, pipeline, profile)` from `flexirule.ruleflow.utils.normalization`.
 9. **`FormatResolver`**:
-   - Applies `frappe.utils.format_date`, `frappe.utils.fmt_money`, or python string `.format()`.
+    - Applies `frappe.utils.format_date`, `frappe.utils.fmt_money`, or python string `.format()`.
 10. **`FetchResolver`**:
     - Resolves link field value from context.
     - Executes single read `frappe.db.get_value(linked_doctype, link_value, fetch_field)`.
@@ -103,15 +103,15 @@ class CompiledResolver:
 Variable lookups in `get_context_value(context, path)` resolve dot-notated paths in the following order:
 
 1. **Explicit Scopes**:
-   - `doc.field` → `context.get("doc")`
-   - `vars.field` → `context.get("vars")`
-   - `item.field` → `context.get("item")`
-   - `loop.field` → `context.get("loop")`
-   - `row.field` → `context.get("row")`
+    - `doc.field` → `context.get("doc")`
+    - `vars.field` → `context.get("vars")`
+    - `item.field` → `context.get("item")`
+    - `loop.field` → `context.get("loop")`
+    - `row.field` → `context.get("row")`
 2. **Implicit Fallback** (if no scope prefix specified):
-   - First checks if field exists in `context.get("doc")`.
-   - Next checks if field exists in `context.get("vars")`.
-   - Returns `None` if unfound.
+    - First checks if field exists in `context.get("doc")`.
+    - Next checks if field exists in `context.get("vars")`.
+    - Returns `None` if unfound.
 
 ---
 

@@ -4,29 +4,30 @@
 
 The following table lists every resolver kind and fallback class identified in the repository:
 
-| Canonical Kind / Class | User-Facing Label | Frontend Strategy File | Backend Executor Class | Registry Entry | Config Structure | Tests | Implementation Status |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| `date_formula` | Date Formula | `value_resolver/index.js` | `DateFormulaResolver` | `RESOLVER_STRATEGIES` | `{ kind: "date_formula", base_type, base_field, offset_value, offset_unit, offset_sign }` | `test_value_resolvers_complex.py` | **Fully Implemented** |
-| `math_formula` | Math Formula | `value_resolver/index.js` | `MathFormulaResolver` | `RESOLVER_STRATEGIES` | `{ kind: "math_formula", field_a, math_op, field_b_type, field_b, constant_b, precision }` | `test_assignment_resolver.py` | **Fully Implemented** |
-| `date_diff` | Date Difference | `value_resolver/index.js` | `DateDiffResolver` | `RESOLVER_STRATEGIES` | `{ kind: "date_diff", diff_start_type, diff_start_field, diff_end_type, diff_end_field, diff_unit }` | `test_value_resolvers_complex.py` | **Fully Implemented** |
-| `child_aggregation` | Child Table Aggregation | `value_resolver/index.js` | `ChildAggregationResolver` | `RESOLVER_STRATEGIES` | `{ kind: "child_aggregation", agg_table, agg_field, agg_op }` | `test_value_resolvers_complex.py` | **Fully Implemented** |
-| `string_formula` | String Manipulation | `value_resolver/index.js` | `StringFormulaResolver` | `RESOLVER_STRATEGIES` | `{ kind: "string_formula", str_op, str_a_type, str_a, str_b_type, str_b }` | `test_value_resolvers_complex.py` | **Fully Implemented** |
-| `normalization` | Normalization | `value_resolver/index.js` | `NormalizationResolver` | `RESOLVER_STRATEGIES` | `{ kind: "normalization", norm_field, norm_profile, norm_pipeline, norm_op }` | `test_normalization_refactor.py` | **Fully Implemented** |
-| `format` | Format | `value_resolver/index.js` | `FormatResolver` | `RESOLVER_STRATEGIES` | `{ kind: "format", fmt_op, fmt_field, fmt_config }` | `test_assignment_resolver.py` | **Fully Implemented** |
-| `fetch` | Fetch From Link | `value_resolver/index.js` | `FetchResolver` | `RESOLVER_STRATEGIES` | `{ kind: "fetch", link_field, fetch_field, linked_doctype }` | `test_fetch_resolver.py` | **Fully Implemented** |
-| `system_context` | System Context | `value_resolver/index.js` | `SystemContextResolver` | `RESOLVER_STRATEGIES` | `{ kind: "system_context", sys_token, sys_role }` | `test_value_resolvers_complex.py` | **Fully Implemented** |
-| `VariableResolver` | Variable | Handled via `@` in Tiptap | `VariableResolver` | N/A | `{ mode: "variable", path: "doc.field" }` | `test_value_resolver_core.py` | **Backend Internal / Full** |
-| `ExpressionResolver` | Expression | Handled via Tiptap content | `ExpressionResolver` | N/A | `{ mode: "expression", value: [...] }` | `test_value_resolvers_complex.py` | **Backend Internal / Full** |
-| `JinjaResolver` | Template String | Handled via raw text / JSON | `JinjaResolver` | N/A | `"{{ doc.field }}"` | `test_value_resolvers_complex.py` | **Backend Internal / Fallback** |
-| `SafeEvalResolver` | Python Expression | Handled via Manual Mode | `SafeEvalResolver` | N/A | `"{ doc.field * 2 }"` | `test_value_resolvers_complex.py` | **Backend Internal / Fallback** |
-| `StaticResolver` | Static Value | Handled via Static Input | `StaticResolver` | N/A | `{ mode: "static", value: "..." }` | `test_value_resolver_core.py` | **Backend Internal / Full** |
-| `NoneResolver` | None | N/A | `NoneResolver` | N/A | `null` | `test_value_resolver_core.py` | **Backend Internal / Full** |
+| Canonical Kind / Class | User-Facing Label       | Frontend Strategy File      | Backend Executor Class     | Registry Entry        | Config Structure                                                                                     | Tests                             | Implementation Status           |
+| :--------------------- | :---------------------- | :-------------------------- | :------------------------- | :-------------------- | :--------------------------------------------------------------------------------------------------- | :-------------------------------- | :------------------------------ |
+| `date_formula`         | Date Formula            | `value_resolver/index.js`   | `DateFormulaResolver`      | `RESOLVER_STRATEGIES` | `{ kind: "date_formula", base_type, base_field, offset_value, offset_unit, offset_sign }`            | `test_value_resolvers_complex.py` | **Fully Implemented**           |
+| `math_formula`         | Math Formula            | `value_resolver/index.js`   | `MathFormulaResolver`      | `RESOLVER_STRATEGIES` | `{ kind: "math_formula", field_a, math_op, field_b_type, field_b, constant_b, precision }`           | `test_assignment_resolver.py`     | **Fully Implemented**           |
+| `date_diff`            | Date Difference         | `value_resolver/index.js`   | `DateDiffResolver`         | `RESOLVER_STRATEGIES` | `{ kind: "date_diff", diff_start_type, diff_start_field, diff_end_type, diff_end_field, diff_unit }` | `test_value_resolvers_complex.py` | **Fully Implemented**           |
+| `child_aggregation`    | Child Table Aggregation | `value_resolver/index.js`   | `ChildAggregationResolver` | `RESOLVER_STRATEGIES` | `{ kind: "child_aggregation", agg_table, agg_field, agg_op }`                                        | `test_value_resolvers_complex.py` | **Fully Implemented**           |
+| `string_formula`       | String Manipulation     | `value_resolver/index.js`   | `StringFormulaResolver`    | `RESOLVER_STRATEGIES` | `{ kind: "string_formula", str_op, str_a_type, str_a, str_b_type, str_b }`                           | `test_value_resolvers_complex.py` | **Fully Implemented**           |
+| `normalization`        | Normalization           | `value_resolver/index.js`   | `NormalizationResolver`    | `RESOLVER_STRATEGIES` | `{ kind: "normalization", norm_field, norm_profile, norm_pipeline, norm_op }`                        | `test_normalization_refactor.py`  | **Fully Implemented**           |
+| `format`               | Format                  | `value_resolver/index.js`   | `FormatResolver`           | `RESOLVER_STRATEGIES` | `{ kind: "format", fmt_op, fmt_field, fmt_config }`                                                  | `test_assignment_resolver.py`     | **Fully Implemented**           |
+| `fetch`                | Fetch From Link         | `value_resolver/index.js`   | `FetchResolver`            | `RESOLVER_STRATEGIES` | `{ kind: "fetch", link_field, fetch_field, linked_doctype }`                                         | `test_fetch_resolver.py`          | **Fully Implemented**           |
+| `system_context`       | System Context          | `value_resolver/index.js`   | `SystemContextResolver`    | `RESOLVER_STRATEGIES` | `{ kind: "system_context", sys_token, sys_role }`                                                    | `test_value_resolvers_complex.py` | **Fully Implemented**           |
+| `VariableResolver`     | Variable                | Handled via `@` in Tiptap   | `VariableResolver`         | N/A                   | `{ mode: "variable", path: "doc.field" }`                                                            | `test_value_resolver_core.py`     | **Backend Internal / Full**     |
+| `ExpressionResolver`   | Expression              | Handled via Tiptap content  | `ExpressionResolver`       | N/A                   | `{ mode: "expression", value: [...] }`                                                               | `test_value_resolvers_complex.py` | **Backend Internal / Full**     |
+| `JinjaResolver`        | Template String         | Handled via raw text / JSON | `JinjaResolver`            | N/A                   | `"{{ doc.field }}"`                                                                                  | `test_value_resolvers_complex.py` | **Backend Internal / Fallback** |
+| `SafeEvalResolver`     | Python Expression       | Handled via Manual Mode     | `SafeEvalResolver`         | N/A                   | `"{ doc.field * 2 }"`                                                                                | `test_value_resolvers_complex.py` | **Backend Internal / Fallback** |
+| `StaticResolver`       | Static Value            | Handled via Static Input    | `StaticResolver`           | N/A                   | `{ mode: "static", value: "..." }`                                                                   | `test_value_resolver_core.py`     | **Backend Internal / Full**     |
+| `NoneResolver`         | None                    | N/A                         | `NoneResolver`             | N/A                   | `null`                                                                                               | `test_value_resolver_core.py`     | **Backend Internal / Full**     |
 
 ---
 
 ## Resolver Detailed Inventory Matrix
 
 ### 1. `date_formula`
+
 - **Canonical Kind**: `date_formula`
 - **Label**: Date Formula
 - **Description**: Calculate a date by adding or subtracting days, months, or years from a base field or today.
@@ -46,6 +47,7 @@ The following table lists every resolver kind and fallback class identified in t
 ---
 
 ### 2. `math_formula`
+
 - **Canonical Kind**: `math_formula`
 - **Label**: Math Formula
 - **Description**: Perform basic arithmetic between two fields or a field and a constant value.
@@ -65,6 +67,7 @@ The following table lists every resolver kind and fallback class identified in t
 ---
 
 ### 3. `date_diff`
+
 - **Canonical Kind**: `date_diff`
 - **Label**: Date Difference
 - **Description**: Calculate time difference between two dates in days, months, or years.
@@ -84,6 +87,7 @@ The following table lists every resolver kind and fallback class identified in t
 ---
 
 ### 4. `child_aggregation`
+
 - **Canonical Kind**: `child_aggregation`
 - **Label**: Child Table Aggregation
 - **Description**: Aggregate numeric values from a child table using Sum, Average, or Count.
@@ -103,6 +107,7 @@ The following table lists every resolver kind and fallback class identified in t
 ---
 
 ### 5. `string_formula`
+
 - **Canonical Kind**: `string_formula`
 - **Label**: String Manipulation
 - **Description**: Combine text fields, change casing, or format currency strings.
@@ -122,6 +127,7 @@ The following table lists every resolver kind and fallback class identified in t
 ---
 
 ### 6. `normalization`
+
 - **Canonical Kind**: `normalization`
 - **Label**: Normalization
 - **Description**: Clean up text data by trimming whitespace, changing case, or converting to slug/snake case.
@@ -141,6 +147,7 @@ The following table lists every resolver kind and fallback class identified in t
 ---
 
 ### 7. `format`
+
 - **Canonical Kind**: `format`
 - **Label**: Format
 - **Description**: Format dates, currency amounts, or custom string templates.
@@ -160,6 +167,7 @@ The following table lists every resolver kind and fallback class identified in t
 ---
 
 ### 8. `fetch`
+
 - **Canonical Kind**: `fetch`
 - **Label**: Fetch From Link
 - **Description**: Fetch field value from a linked document in the database.
@@ -179,6 +187,7 @@ The following table lists every resolver kind and fallback class identified in t
 ---
 
 ### 9. `system_context`
+
 - **Canonical Kind**: `system_context`
 - **Label**: System Context
 - **Description**: Access current logged-in user or evaluate user role checks.

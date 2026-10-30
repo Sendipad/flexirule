@@ -17,13 +17,13 @@ The audit evaluated the entire codebase spanning Python backend controllers, rul
 
 A total of **16 distinct findings** were verified and classified based on realistic exploitability, data integrity impact, and operational frequency:
 
-| Severity | Count | Primary Impact Areas | Status |
-| :--- | :---: | :--- | :--- |
-| **CRITICAL** | **2** | Sandbox escape via AST validation stub, Jinja SSTI in Document Action templates | **Remediated & Verified** |
-| **HIGH** | **4** | SafeFrappeAPI method bypass via `format_value`, transaction savepoint failure swallowing, stale action plan cache in Redis, unhandled recursion depth in sub-rules | **Remediated & Verified** |
-| **MEDIUM** | **5** | Draft-mode dirty state pollution in VueFlow canvas, race condition in active version enforcement, missing validation on `input_mapping` expressions, process discovery silent fallback, false confidence in mock tests | **Remediated & Verified (FE-001, FE-003)** |
-| **LOW** | **3** | Unused legacy handler fallback code, missing index on `Rule Execution Log.execution_id`, typo in UI contract metadata | **Remediated & Verified (DATA-003)** |
-| **INFO** | **2** | Discrepancy between documentation and implementation on dry-run limits, lack of strict type annotations in composables | **Documented** |
+| Severity     | Count | Primary Impact Areas                                                                                                                                                                                                   | Status                                     |
+| :----------- | :---: | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------- |
+| **CRITICAL** | **2** | Sandbox escape via AST validation stub, Jinja SSTI in Document Action templates                                                                                                                                        | **Remediated & Verified**                  |
+| **HIGH**     | **4** | SafeFrappeAPI method bypass via `format_value`, transaction savepoint failure swallowing, stale action plan cache in Redis, unhandled recursion depth in sub-rules                                                     | **Remediated & Verified**                  |
+| **MEDIUM**   | **5** | Draft-mode dirty state pollution in VueFlow canvas, race condition in active version enforcement, missing validation on `input_mapping` expressions, process discovery silent fallback, false confidence in mock tests | **Remediated & Verified (FE-001, FE-003)** |
+| **LOW**      | **3** | Unused legacy handler fallback code, missing index on `Rule Execution Log.execution_id`, typo in UI contract metadata                                                                                                  | **Remediated & Verified (DATA-003)**       |
+| **INFO**     | **2** | Discrepancy between documentation and implementation on dry-run limits, lack of strict type annotations in composables                                                                                                 | **Documented**                             |
 
 ---
 
@@ -47,6 +47,7 @@ A total of **16 distinct findings** were verified and classified based on realis
 ## 4. Test Suite Execution & Remediation Verification
 
 The test suite was executed in the test environment (`test_site`):
+
 - **Command**: `bench --site test_site run-tests --app flexirule`
 - **Results**: 414 tests ran, **412 passed**, 2 skipped (18.21 seconds). All regression tests in `test_audit_reproductions.py` pass cleanly.
 

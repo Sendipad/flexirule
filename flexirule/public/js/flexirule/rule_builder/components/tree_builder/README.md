@@ -37,12 +37,12 @@ UI state is kept outside persisted nodes. `getNodeContext(nodeId)` derives inher
 
 ```vue
 <TreeBuilder
-  v-model="tree"
-  :leaf-factory="createLeaf"
-  presentation-mode="hybrid"
-  editor-layout="replace"
-  :is-leaf-new="(node) => !node.field"
-  :is-leaf-valid="(node) => Boolean(node.field)"
+	v-model="tree"
+	:leaf-factory="createLeaf"
+	presentation-mode="hybrid"
+	editor-layout="replace"
+	:is-leaf-new="(node) => !node.field"
+	:is-leaf-valid="(node) => Boolean(node.field)"
 >
   <template #leaf-summary="{ node }">
     <span>{{ node.field }} {{ node.operator }} {{ node.value }}</span>
@@ -68,10 +68,12 @@ Consumers own the canonical serializable tree. Domain layers interpret leaf payl
 A scope is a context boundary, not a logical group. Nested scopes are returned in ancestry order:
 
 ```js
-{ scopes: [
-  { type: "collection", key: "items" },
-  { type: "collection", key: "taxes" }
-] }
+{
+	scopes: [
+		{ type: "collection", key: "items" },
+		{ type: "collection", key: "taxes" },
+	];
+}
 ```
 
 This allows Fetch Records or Condition Builder composables to resolve field/navigation semantics without coupling them to Tree Builder.

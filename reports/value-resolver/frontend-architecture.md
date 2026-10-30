@@ -37,54 +37,57 @@ Emitted modelValue payload: { mode: "resolver", value: "...", config: {...} }
 ## Detailed Component Responsibilities
 
 ### 1. `FlexValueControl.vue`
+
 - **Responsibility**: Main user-facing control. Dynamically switches between Static mode (`ControlFactory`, `MultiSelectList`) and Dynamic mode (Tiptap editor). Controls the modal editor overlay.
 - **Input Props**:
-  - `modelValue`: Plain value, variable string, or structured object `{ mode, value, config }`.
-  - `context`: Structured field metadata (`df`), reference DocType, operator, callbacks.
-  - `variableOptions`: Available variable list for `@` autocomplete.
-  - `readOnly` / `read_only`: Disables editing.
+    - `modelValue`: Plain value, variable string, or structured object `{ mode, value, config }`.
+    - `context`: Structured field metadata (`df`), reference DocType, operator, callbacks.
+    - `variableOptions`: Available variable list for `@` autocomplete.
+    - `readOnly` / `read_only`: Disables editing.
 - **Static Mode Support**:
-  - Supported for all fieldtypes EXCEPT pure text editors (`Code`, `Text Editor`, `JSON`).
-  - If field operator is `in`, `not in`, or field is a multi-select link type, renders `MultiSelectList`.
-  - Otherwise renders `ControlFactory` for standard inputs.
+    - Supported for all fieldtypes EXCEPT pure text editors (`Code`, `Text Editor`, `JSON`).
+    - If field operator is `in`, `not in`, or field is a multi-select link type, renders `MultiSelectList`.
+    - Otherwise renders `ControlFactory` for standard inputs.
 - **Keydown Interception**:
-  - `onStaticKeydown`: Pressing `@` or `/` in static mode automatically flips `isDynamicMode` to `true` and inserts the key into the Tiptap editor.
+    - `onStaticKeydown`: Pressing `@` or `/` in static mode automatically flips `isDynamicMode` to `true` and inserts the key into the Tiptap editor.
 
 ---
 
 ### 2. Slash Command & Variable Triggers (`formula_registry.js`)
+
 - **Trigger `@`**:
-  - Invokes `VariableTrigger` extension configured with `PluginKey`.
-  - Calls `availableVariableOptions` computed property.
-  - Filters `doc.*`, `vars.*`, and scope variables.
-  - Command callback inserts a `variableToken` node into the editor:
-    ```json
-    { "type": "variableToken", "attrs": { "path": "doc.status", "label": "Status" } }
-    ```
+    - Invokes `VariableTrigger` extension configured with `PluginKey`.
+    - Calls `availableVariableOptions` computed property.
+    - Filters `doc.*`, `vars.*`, and scope variables.
+    - Command callback inserts a `variableToken` node into the editor:
+        ```json
+        { "type": "variableToken", "attrs": { "path": "doc.status", "label": "Status" } }
+        ```
 - **Trigger `/`**:
-  - Invokes `CommandTrigger` extension.
-  - Executes `getCommandsForFieldtype(fieldType)` and `getFormulasForFieldtype(fieldType)`.
-  - Maps commands and formula definitions into menu items.
-  - Command callback checks `allowedBuilderKinds` and inserts a `resolverToken` node:
-    ```json
-    { "type": "resolverToken", "attrs": { "config": { "kind": "math_formula" } } }
-    ```
+    - Invokes `CommandTrigger` extension.
+    - Executes `getCommandsForFieldtype(fieldType)` and `getFormulasForFieldtype(fieldType)`.
+    - Maps commands and formula definitions into menu items.
+    - Command callback checks `allowedBuilderKinds` and inserts a `resolverToken` node:
+        ```json
+        { "type": "resolverToken", "attrs": { "config": { "kind": "math_formula" } } }
+        ```
 
 ---
 
 ### 3. `ValueResolverControl.vue` & `useValueResolver.js`
+
 - **Responsibility**: Provides the category dropdown (`ComboBoxControl`) and dynamically mounts the Vue strategy configuration component (e.g., `MathFormulaResolver.vue`).
 - **View Modes**:
-  - `popover` (default): Floating token trigger that opens popover dropdown via `useFloatingDropdown`.
-  - `inline`: Used inside the Token Editor Modal.
+    - `popover` (default): Floating token trigger that opens popover dropdown via `useFloatingDropdown`.
+    - `inline`: Used inside the Token Editor Modal.
 - **Composable State Management**:
-  - `useValueResolver` maintains `localState`, `activeKind`, `isValid`, and `errors`.
-  - Reactively re-calculates code and label whenever `localState` or `activeKind` mutates:
-    ```javascript
-    const config = { ...newState, kind: newKind };
-    const label = strategy.compileToLabel(config);
-    const expression = strategy.compileToCode(config);
-    ```
+    - `useValueResolver` maintains `localState`, `activeKind`, `isValid`, and `errors`.
+    - Reactively re-calculates code and label whenever `localState` or `activeKind` mutates:
+        ```javascript
+        const config = { ...newState, kind: newKind };
+        const label = strategy.compileToLabel(config);
+        const expression = strategy.compileToCode(config);
+        ```
 
 ---
 
@@ -111,12 +114,12 @@ When a user clicks an existing `resolverToken` in the editor or clicks the JSON/
 ```
 
 - **Visual Mode**:
-  - Binds to `ValueResolverControl.vue` in `inline` mode.
-  - Validates `config` against strategy rules. Disables "Save" if `isValid` is `false`.
+    - Binds to `ValueResolverControl.vue` in `inline` mode.
+    - Validates `config` against strategy rules. Disables "Save" if `isValid` is `false`.
 - **Manual Mode**:
-  - Exposes raw `expression` textarea (e.g. `frappe.utils.add_days(doc.posting_date, 7)`).
-  - Displays variable pills for quick insertion.
-  - Nulls `config` on save (`tokenDraftAttrs.value.config = null`), forcing backend to evaluate via `SafeEvalResolver`.
+    - Exposes raw `expression` textarea (e.g. `frappe.utils.add_days(doc.posting_date, 7)`).
+    - Displays variable pills for quick insertion.
+    - Nulls `config` on save (`tokenDraftAttrs.value.config = null`), forcing backend to evaluate via `SafeEvalResolver`.
 
 ---
 
@@ -126,12 +129,28 @@ Level filtering is managed via `RESOLVER_LEVEL_KIND_MAP` in `FlexValueControl.vu
 
 ```javascript
 const RESOLVER_LEVEL_KIND_MAP = {
-    basic: ["system_context", "string_formula", "normalization", "format"],
-    standard: ["date_formula", "date_diff", "system_context", "string_formula", "normalization", "format"],
-    advanced: ["date_formula", "date_diff", "math_formula", "child_aggregation", "system_context", "string_formula", "normalization", "format"],
-    full: null // Allows all
+	basic: ["system_context", "string_formula", "normalization", "format"],
+	standard: [
+		"date_formula",
+		"date_diff",
+		"system_context",
+		"string_formula",
+		"normalization",
+		"format",
+	],
+	advanced: [
+		"date_formula",
+		"date_diff",
+		"math_formula",
+		"child_aggregation",
+		"system_context",
+		"string_formula",
+		"normalization",
+		"format",
+	],
+	full: null, // Allows all
 };
 ```
 
 The computed property `allowedBuilderKinds` intersects fieldtype allowed kinds with `RESOLVER_LEVEL_KIND_MAP[configuredResolverLevel]`.
-*(Note: As identified in `VR-AUDIT-001`, this restriction is enforced purely in the Vue frontend).*
+_(Note: As identified in `VR-AUDIT-001`, this restriction is enforced purely in the Vue frontend)._

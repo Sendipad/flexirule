@@ -605,10 +605,10 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			action_label: label,
 			next_step_if_true: isTerminal
 				? null
-				: node.data?.next_step_if_true ?? nodeData.next_step_if_true ?? null,
+				: (node.data?.next_step_if_true ?? nodeData.next_step_if_true ?? null),
 			next_step_if_false: isTerminal
 				? null
-				: node.data?.next_step_if_false ?? nodeData.next_step_if_false ?? null,
+				: (node.data?.next_step_if_false ?? nodeData.next_step_if_false ?? null),
 			suggested_parent_id: null,
 			suggested_source_handle: null,
 		};
@@ -690,7 +690,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 							...edge,
 							id: `e-${nodeId}-${returnEdge.target}-true`,
 							sourceHandle: continuationHandle,
-					  }
+						}
 					: edge
 			);
 			nextEdges.push({
@@ -711,7 +711,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 							...edge,
 							id: `e-${nodeId}-${returnEdge.target}-true`,
 							sourceHandle: "default",
-					  }
+						}
 					: edge
 			);
 		} else if (isTerminal) {
@@ -1327,8 +1327,8 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 				source.field_b_type === "constant"
 					? String(source.constant_b ?? 0)
 					: source.field_b
-					? `frappe.utils.flt(${toDocExpression(source.field_b)})`
-					: "0";
+						? `frappe.utils.flt(${toDocExpression(source.field_b)})`
+						: "0";
 			const op = source.math_op || "+";
 			const precision = Number.isFinite(Number(source.precision))
 				? Number(source.precision)
@@ -1668,14 +1668,14 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 							actionType: "Process",
 							processName: action.process_name,
 							operation: action.operation,
-					  }) || {}
+						}) || {}
 					: rawConfigData;
 			const conditionPayload =
 				actionTypeRaw === "Condition"
 					? getConditionPayload({
 							config: configData,
 							condition_json: action.condition_json,
-					  })
+						})
 					: null;
 			const effectiveConfig =
 				actionTypeRaw === "Condition"

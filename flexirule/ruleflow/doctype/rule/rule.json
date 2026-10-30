@@ -1,453 +1,453 @@
 {
- "actions": [],
- "autoname": "field:rule_name",
- "creation": "2025-11-29 14:00:00",
- "doctype": "DocType",
- "engine": "InnoDB",
- "field_order": [
-  "section_break_tjia",
-  "rule_name",
-  "description",
-  "column_break_scgd",
-  "is_active",
-  "is_system_generated",
-  "priority",
-  "trigger_conditions_section",
-  "trigger_type",
-  "exposed_as_subrule",
-  "document_type",
-  "trigger_event",
-  "watched_fields",
-  "column_break_1",
-  "trigger_condition",
-  "compiled_expression",
-  "section_break_subrule_interface",
-  "input_schema",
-  "column_break_subrule_interface",
-  "output_schema",
-  "section_break_flow",
-  "actions",
-  "visual_data",
-  "settings",
-  "section_break_execution",
-  "execution_mode",
-  "max_execution_time",
-  "column_break_2",
-  "debug_mode",
-  "skip_for_roles",
-  "section_break_permissions",
-  "permissions",
-  "section_break_rule_metadata",
-  "status",
-  "module",
-  "column_break_xnyu",
-  "base_rule_name",
-  "previous_version",
-  "version",
-  "section_break_error",
-  "last_error"
- ],
- "fields": [
-  {
-   "fieldname": "section_break_tjia",
-   "fieldtype": "Section Break",
-   "label": "Rule Details",
-   "description": "Define the rule identity, activation state, and execution priority."
-  },
-  {
-   "allow_in_quick_entry": 1,
-   "fieldname": "rule_name",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Rule Name",
-   "no_copy": 1,
-   "reqd": 1,
-   "unique": 1
-  },
-  {
-   "description": "Brief explanation of what this rule does",
-   "fieldname": "description",
-   "fieldtype": "Small Text",
-   "label": "Description"
-  },
-  {
-   "fieldname": "column_break_scgd",
-   "fieldtype": "Column Break"
-  },
-  {
-   "default": "0",
-   "fieldname": "is_active",
-   "fieldtype": "Check",
-   "in_list_view": 1,
-   "in_standard_filter": 1,
-   "label": "Is Active",
-   "no_copy": 1
-  },
-  {
-   "fieldname": "is_system_generated",
-   "fieldtype": "Check",
-   "label": "System Generated",
-   "default": "0",
-   "read_only": 1,
-   "hidden": 1,
-   "no_copy": 1,
-   "description": "Managed by FlexiRule\u0027s system-rule registry."
-  },
-  {
-   "allow_in_quick_entry": 1,
-   "default": "0",
-   "description": "Rules with higher priority execute first (0-20)",
-   "fieldname": "priority",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "label": "Priority",
-   "no_copy": 1,
-   "options": "0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20",
-   "reqd": 1
-  },
-  {
-   "fieldname": "trigger_conditions_section",
-   "fieldtype": "Section Break",
-   "label": "Trigger Configuration",
-   "description": "Choose the event that invokes this rule and configure any optional trigger filters."
-  },
-  {
-   "allow_in_quick_entry": 1,
-   "default": "DocType Event",
-   "fieldname": "trigger_type",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "in_standard_filter": 1,
-   "label": "Trigger Type",
-   "options": "DocType Event\nScheduler Event\nCallable Event",
-   "reqd": 1
-  },
-  {
-   "allow_in_quick_entry": 1,
-   "default": "0",
-   "depends_on": "eval:doc.trigger_type===\"Callable Event\"",
-   "description": "Allow other Rules to invoke this Callable Rule as a Sub-Rule action.",
-   "fieldname": "exposed_as_subrule",
-   "fieldtype": "Check",
-   "label": "Expose as Sub-Rule"
-  },
-  {
-   "allow_in_quick_entry": 1,
-   "fieldname": "document_type",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "in_preview": 1,
-   "in_standard_filter": 1,
-   "label": "Document Type",
-   "link_filters": "[[\"DocType\",\"issingle\",\"=\",0],[\"DocType\",\"istable\",\"=\",0]]",
-   "mandatory_depends_on": "eval:doc.trigger_type==='DocType Event'",
-   "options": "DocType",
-   "search_index": 1
-  },
-  {
-   "allow_in_quick_entry": 1,
-   "depends_on": "eval:doc.trigger_type==='DocType Event'",
-   "fieldname": "trigger_event",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "in_preview": 1,
-   "in_standard_filter": 1,
-   "label": "Trigger Event",
-   "mandatory_depends_on": "eval:doc.trigger_type==='DocType Event'",
-   "options": "\nBefore Naming\nBefore Insert\nBefore Save\nValidate\nBefore Submit\nAfter Insert\nAfter Save\nOn Submit\nBefore Cancel\nOn Cancel\nOn Trash\nOn Update After Submit\nOn Change\nBefore Rename\nAfter Rename\nBefore Print",
-   "search_index": 1
-  },
-  {
-   "depends_on": "eval:doc.trigger_type==='DocType Event'",
-   "description": "Comma-separated DocType fields that may trigger this rule. Leave empty to evaluate on every matching event.",
-   "fieldname": "watched_fields",
-   "fieldtype": "Small Text",
-   "label": "Watched Fields"
-  },
-  {
-   "fieldname": "column_break_1",
-   "fieldtype": "Column Break"
-  },
-  {
-   "depends_on": "eval:doc.trigger_type==='DocType Event'",
-   "description": "JSON-based logic evaluated before loading the rule (Fast Filter)",
-   "fieldname": "trigger_condition",
-   "fieldtype": "Code",
-   "label": "Trigger Condition (JSON)",
-   "max_height": "100 px",
-   "options": "JSON"
-  },
-  {
-   "depends_on": "eval:doc.trigger_type==='DocType Event'",
-   "description": "Python expression evaluated before executing the rule",
-   "fieldname": "compiled_expression",
-   "fieldtype": "Code",
-   "hidden": 1,
-   "label": "Trigger Filters (Python)",
-   "max_height": "50 px",
-   "options": "PythonExpression",
-   "placeholder": "Set Filtering before evaluating Actions",
-   "read_only": 1,
-   "width": "200"
-  },
-  {
-   "fieldname": "section_break_subrule_interface",
-   "fieldtype": "Section Break",
-   "label": "Sub-Rule Interface",
-   "collapsible": 1,
-   "depends_on": "eval:doc.trigger_type===\"Callable Event\" && doc.exposed_as_subrule",
-   "description": "Define the callable Rule's public input and output contract."
-  },
-  {
-   "fieldname": "input_schema",
-   "fieldtype": "Code",
-   "label": "Input Schema (JSON)",
-   "options": "JSON",
-   "depends_on": "eval:doc.trigger_type===\"Callable Event\" && doc.exposed_as_subrule",
-   "description": "JSON array of input fields: fieldname, label, fieldtype, options, reqd (0/1), and optional default/description. Required inputs must be supplied by Sub-Rule callers.",
-   "max_height": "200 px"
-  },
-  {
-   "fieldname": "column_break_subrule_interface",
-   "fieldtype": "Column Break",
-   "depends_on": "eval:doc.trigger_type===\"Callable Event\" && doc.exposed_as_subrule"
-  },
-  {
-   "fieldname": "output_schema",
-   "fieldtype": "Code",
-   "label": "Output Schema (JSON)",
-   "options": "JSON",
-   "depends_on": "eval:doc.trigger_type===\"Callable Event\" && doc.exposed_as_subrule",
-   "description": "JSON array of public outputs: fieldname, label, fieldtype, reqd (0/1), optional source and nested children. Every declared top-level output must be produced by the Rule.",
-   "max_height": "200 px"
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "section_break_flow",
-   "fieldtype": "Section Break",
-   "label": "Flow Definition"
-  },
-  {
-   "fieldname": "actions",
-   "fieldtype": "Table",
-   "label": "Actions",
-   "options": "Rule Action"
-  },
-  {
-   "fieldname": "visual_data",
-   "fieldtype": "Code",
-   "hidden": 1,
-   "label": "Visual Data",
-   "no_copy": 1,
-   "options": "JSON"
-  },
-  {
-   "fieldname": "settings",
-   "fieldtype": "Tab Break",
-   "label": "Settings"
-  },
-  {
-   "fieldname": "section_break_execution",
-   "fieldtype": "Section Break",
-   "label": "Execution & Behavior",
-   "description": "Configure how the rule runs and which users or roles it skips."
-  },
-  {
-   "allow_in_quick_entry": 1,
-   "default": "Synchronous",
-   "description": "Async mode runs in background (non-blocking)",
-   "fieldname": "execution_mode",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "label": "Execution Mode",
-   "options": "Synchronous\nAsynchronous",
-   "reqd": 1
-  },
-  {
-   "default": "30",
-   "description": "Timeout protection to prevent runaway execution",
-   "fieldname": "max_execution_time",
-   "fieldtype": "Int",
-   "label": "Max Execution Time (seconds)"
-  },
-  {
-   "fieldname": "column_break_2",
-   "fieldtype": "Column Break"
-  },
-  {
-   "default": "0",
-   "description": "Log detailed execution information",
-   "fieldname": "debug_mode",
-   "fieldtype": "Check",
-   "label": "Debug Mode"
-  },
-  {
-   "description": "Rule will NOT execute for users with these roles",
-   "fieldname": "skip_for_roles",
-   "fieldtype": "Table MultiSelect",
-   "label": "Skip for Roles",
-   "options": "Has Role"
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "section_break_permissions",
-   "fieldtype": "Section Break",
-   "label": "Rule Permissions"
-  },
-  {
-   "description": "Define role-based permissions for this rule",
-   "fieldname": "permissions",
-   "fieldtype": "Table",
-   "label": "Permissions",
-   "options": "Rule Permission"
-  },
-  {
-   "fieldname": "section_break_rule_metadata",
-   "fieldtype": "Section Break",
-   "label": "Status & Version",
-   "description": "Read-only lifecycle and version information for this Rule."
-  },
-  {
-   "default": "Draft",
-   "fieldname": "status",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "in_standard_filter": 1,
-   "label": "Status",
-   "no_copy": 1,
-   "options": "Draft\nActive\nDisabled\nInvalid\nError\nArchived",
-   "read_only": 1
-  },
-  {
-   "fieldname": "module",
-   "fieldtype": "Link",
-   "label": "Module (for export)",
-   "options": "Module Def"
-  },
-  {
-   "fieldname": "column_break_xnyu",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "base_rule_name",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Base Rule Name",
-   "no_copy": 1,
-   "read_only": 1,
-   "search_index": 1
-  },
-  {
-   "fieldname": "previous_version",
-   "fieldtype": "Link",
-   "label": "Previous Version",
-   "no_copy": 1,
-   "options": "Rule",
-   "read_only": 1
-  },
-  {
-   "default": "1",
-   "description": "Rule version number (auto-incremented on amendment)",
-   "fieldname": "version",
-   "fieldtype": "Int",
-   "label": "Version",
-   "no_copy": 1,
-   "read_only": 1
-  },
-  {
-   "collapsible": 1,
-   "fieldname": "section_break_error",
-   "fieldtype": "Section Break",
-   "label": "Error State"
-  },
-  {
-   "fieldname": "last_error",
-   "fieldtype": "Text",
-   "label": "Last Error",
-   "no_copy": 1,
-   "read_only": 1
-  }
- ],
- "index_web_pages_for_search": 1,
- "links": [
-  {
-   "group": "Related Rules",
-   "is_child_table": 1,
-   "link_doctype": "Rule",
-   "link_fieldname": "rule",
-   "parent_doctype": "Rule",
-   "table_fieldname": "actions"
-  },
-  {
-   "group": "Logs & Schedulers",
-   "link_doctype": "Rule Execution Log",
-   "link_fieldname": "rule"
-  },
-  {
-   "group": "Tasks",
-   "link_doctype": "Data Review Task",
-   "link_fieldname": "rule"
-  },
-  {
-   "group": "Logs & Schedulers",
-   "link_doctype": "Rule Scheduler",
-   "link_fieldname": "rule"
-  }
- ],
- "modified": "2026-07-05 17:51:18.355540",
- "modified_by": "Administrator",
- "module": "Ruleflow",
- "name": "Rule",
- "naming_rule": "By fieldname",
- "owner": "Administrator",
- "permissions": [
-  {
-   "create": 1,
-   "delete": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "System Manager",
-   "share": 1,
-   "write": 1
-  },
-  {
-   "create": 1,
-   "delete": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "Rule Manager",
-   "share": 1,
-   "write": 1
-  }
- ],
- "quick_entry": 1,
- "row_format": "Dynamic",
- "search_fields": "rule_name, document_type, trigger_type, trigger_event",
- "sort_field": "priority",
- "sort_order": "DESC",
- "states": [
-  {
-   "color": "Blue",
-   "title": "Draft"
-  },
-  {
-   "color": "Green",
-   "title": "Active"
-  },
-  {
-   "color": "Gray",
-   "title": "Inactive"
-  },
-  {
-   "color": "Red",
-   "title": "Archived"
-  }
- ],
- "track_changes": 1
+	"actions": [],
+	"autoname": "field:rule_name",
+	"creation": "2025-11-29 14:00:00",
+	"doctype": "DocType",
+	"engine": "InnoDB",
+	"field_order": [
+		"section_break_tjia",
+		"rule_name",
+		"description",
+		"column_break_scgd",
+		"is_active",
+		"is_system_generated",
+		"priority",
+		"trigger_conditions_section",
+		"trigger_type",
+		"exposed_as_subrule",
+		"document_type",
+		"trigger_event",
+		"watched_fields",
+		"column_break_1",
+		"trigger_condition",
+		"compiled_expression",
+		"section_break_subrule_interface",
+		"input_schema",
+		"column_break_subrule_interface",
+		"output_schema",
+		"section_break_flow",
+		"actions",
+		"visual_data",
+		"settings",
+		"section_break_execution",
+		"execution_mode",
+		"max_execution_time",
+		"column_break_2",
+		"debug_mode",
+		"skip_for_roles",
+		"section_break_permissions",
+		"permissions",
+		"section_break_rule_metadata",
+		"status",
+		"module",
+		"column_break_xnyu",
+		"base_rule_name",
+		"previous_version",
+		"version",
+		"section_break_error",
+		"last_error"
+	],
+	"fields": [
+		{
+			"fieldname": "section_break_tjia",
+			"fieldtype": "Section Break",
+			"label": "Rule Details",
+			"description": "Define the rule identity, activation state, and execution priority."
+		},
+		{
+			"allow_in_quick_entry": 1,
+			"fieldname": "rule_name",
+			"fieldtype": "Data",
+			"in_list_view": 1,
+			"label": "Rule Name",
+			"no_copy": 1,
+			"reqd": 1,
+			"unique": 1
+		},
+		{
+			"description": "Brief explanation of what this rule does",
+			"fieldname": "description",
+			"fieldtype": "Small Text",
+			"label": "Description"
+		},
+		{
+			"fieldname": "column_break_scgd",
+			"fieldtype": "Column Break"
+		},
+		{
+			"default": "0",
+			"fieldname": "is_active",
+			"fieldtype": "Check",
+			"in_list_view": 1,
+			"in_standard_filter": 1,
+			"label": "Is Active",
+			"no_copy": 1
+		},
+		{
+			"fieldname": "is_system_generated",
+			"fieldtype": "Check",
+			"label": "System Generated",
+			"default": "0",
+			"read_only": 1,
+			"hidden": 1,
+			"no_copy": 1,
+			"description": "Managed by FlexiRule\u0027s system-rule registry."
+		},
+		{
+			"allow_in_quick_entry": 1,
+			"default": "0",
+			"description": "Rules with higher priority execute first (0-20)",
+			"fieldname": "priority",
+			"fieldtype": "Select",
+			"in_list_view": 1,
+			"label": "Priority",
+			"no_copy": 1,
+			"options": "0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20",
+			"reqd": 1
+		},
+		{
+			"fieldname": "trigger_conditions_section",
+			"fieldtype": "Section Break",
+			"label": "Trigger Configuration",
+			"description": "Choose the event that invokes this rule and configure any optional trigger filters."
+		},
+		{
+			"allow_in_quick_entry": 1,
+			"default": "DocType Event",
+			"fieldname": "trigger_type",
+			"fieldtype": "Select",
+			"in_list_view": 1,
+			"in_standard_filter": 1,
+			"label": "Trigger Type",
+			"options": "DocType Event\nScheduler Event\nCallable Event",
+			"reqd": 1
+		},
+		{
+			"allow_in_quick_entry": 1,
+			"default": "0",
+			"depends_on": "eval:doc.trigger_type===\"Callable Event\"",
+			"description": "Allow other Rules to invoke this Callable Rule as a Sub-Rule action.",
+			"fieldname": "exposed_as_subrule",
+			"fieldtype": "Check",
+			"label": "Expose as Sub-Rule"
+		},
+		{
+			"allow_in_quick_entry": 1,
+			"fieldname": "document_type",
+			"fieldtype": "Link",
+			"in_list_view": 1,
+			"in_preview": 1,
+			"in_standard_filter": 1,
+			"label": "Document Type",
+			"link_filters": "[[\"DocType\",\"issingle\",\"=\",0],[\"DocType\",\"istable\",\"=\",0]]",
+			"mandatory_depends_on": "eval:doc.trigger_type==='DocType Event'",
+			"options": "DocType",
+			"search_index": 1
+		},
+		{
+			"allow_in_quick_entry": 1,
+			"depends_on": "eval:doc.trigger_type==='DocType Event'",
+			"fieldname": "trigger_event",
+			"fieldtype": "Select",
+			"in_list_view": 1,
+			"in_preview": 1,
+			"in_standard_filter": 1,
+			"label": "Trigger Event",
+			"mandatory_depends_on": "eval:doc.trigger_type==='DocType Event'",
+			"options": "\nBefore Naming\nBefore Insert\nBefore Save\nValidate\nBefore Submit\nAfter Insert\nAfter Save\nOn Submit\nBefore Cancel\nOn Cancel\nOn Trash\nOn Update After Submit\nOn Change\nBefore Rename\nAfter Rename\nBefore Print",
+			"search_index": 1
+		},
+		{
+			"depends_on": "eval:doc.trigger_type==='DocType Event'",
+			"description": "Comma-separated DocType fields that may trigger this rule. Leave empty to evaluate on every matching event.",
+			"fieldname": "watched_fields",
+			"fieldtype": "Small Text",
+			"label": "Watched Fields"
+		},
+		{
+			"fieldname": "column_break_1",
+			"fieldtype": "Column Break"
+		},
+		{
+			"depends_on": "eval:doc.trigger_type==='DocType Event'",
+			"description": "JSON-based logic evaluated before loading the rule (Fast Filter)",
+			"fieldname": "trigger_condition",
+			"fieldtype": "Code",
+			"label": "Trigger Condition (JSON)",
+			"max_height": "100 px",
+			"options": "JSON"
+		},
+		{
+			"depends_on": "eval:doc.trigger_type==='DocType Event'",
+			"description": "Python expression evaluated before executing the rule",
+			"fieldname": "compiled_expression",
+			"fieldtype": "Code",
+			"hidden": 1,
+			"label": "Trigger Filters (Python)",
+			"max_height": "50 px",
+			"options": "PythonExpression",
+			"placeholder": "Set Filtering before evaluating Actions",
+			"read_only": 1,
+			"width": "200"
+		},
+		{
+			"fieldname": "section_break_subrule_interface",
+			"fieldtype": "Section Break",
+			"label": "Sub-Rule Interface",
+			"collapsible": 1,
+			"depends_on": "eval:doc.trigger_type===\"Callable Event\" && doc.exposed_as_subrule",
+			"description": "Define the callable Rule's public input and output contract."
+		},
+		{
+			"fieldname": "input_schema",
+			"fieldtype": "Code",
+			"label": "Input Schema (JSON)",
+			"options": "JSON",
+			"depends_on": "eval:doc.trigger_type===\"Callable Event\" && doc.exposed_as_subrule",
+			"description": "JSON array of input fields: fieldname, label, fieldtype, options, reqd (0/1), and optional default/description. Required inputs must be supplied by Sub-Rule callers.",
+			"max_height": "200 px"
+		},
+		{
+			"fieldname": "column_break_subrule_interface",
+			"fieldtype": "Column Break",
+			"depends_on": "eval:doc.trigger_type===\"Callable Event\" && doc.exposed_as_subrule"
+		},
+		{
+			"fieldname": "output_schema",
+			"fieldtype": "Code",
+			"label": "Output Schema (JSON)",
+			"options": "JSON",
+			"depends_on": "eval:doc.trigger_type===\"Callable Event\" && doc.exposed_as_subrule",
+			"description": "JSON array of public outputs: fieldname, label, fieldtype, reqd (0/1), optional source and nested children. Every declared top-level output must be produced by the Rule.",
+			"max_height": "200 px"
+		},
+		{
+			"collapsible": 1,
+			"fieldname": "section_break_flow",
+			"fieldtype": "Section Break",
+			"label": "Flow Definition"
+		},
+		{
+			"fieldname": "actions",
+			"fieldtype": "Table",
+			"label": "Actions",
+			"options": "Rule Action"
+		},
+		{
+			"fieldname": "visual_data",
+			"fieldtype": "Code",
+			"hidden": 1,
+			"label": "Visual Data",
+			"no_copy": 1,
+			"options": "JSON"
+		},
+		{
+			"fieldname": "settings",
+			"fieldtype": "Tab Break",
+			"label": "Settings"
+		},
+		{
+			"fieldname": "section_break_execution",
+			"fieldtype": "Section Break",
+			"label": "Execution & Behavior",
+			"description": "Configure how the rule runs and which users or roles it skips."
+		},
+		{
+			"allow_in_quick_entry": 1,
+			"default": "Synchronous",
+			"description": "Async mode runs in background (non-blocking)",
+			"fieldname": "execution_mode",
+			"fieldtype": "Select",
+			"in_list_view": 1,
+			"label": "Execution Mode",
+			"options": "Synchronous\nAsynchronous",
+			"reqd": 1
+		},
+		{
+			"default": "30",
+			"description": "Timeout protection to prevent runaway execution",
+			"fieldname": "max_execution_time",
+			"fieldtype": "Int",
+			"label": "Max Execution Time (seconds)"
+		},
+		{
+			"fieldname": "column_break_2",
+			"fieldtype": "Column Break"
+		},
+		{
+			"default": "0",
+			"description": "Log detailed execution information",
+			"fieldname": "debug_mode",
+			"fieldtype": "Check",
+			"label": "Debug Mode"
+		},
+		{
+			"description": "Rule will NOT execute for users with these roles",
+			"fieldname": "skip_for_roles",
+			"fieldtype": "Table MultiSelect",
+			"label": "Skip for Roles",
+			"options": "Has Role"
+		},
+		{
+			"collapsible": 1,
+			"fieldname": "section_break_permissions",
+			"fieldtype": "Section Break",
+			"label": "Rule Permissions"
+		},
+		{
+			"description": "Define role-based permissions for this rule",
+			"fieldname": "permissions",
+			"fieldtype": "Table",
+			"label": "Permissions",
+			"options": "Rule Permission"
+		},
+		{
+			"fieldname": "section_break_rule_metadata",
+			"fieldtype": "Section Break",
+			"label": "Status & Version",
+			"description": "Read-only lifecycle and version information for this Rule."
+		},
+		{
+			"default": "Draft",
+			"fieldname": "status",
+			"fieldtype": "Select",
+			"in_list_view": 1,
+			"in_standard_filter": 1,
+			"label": "Status",
+			"no_copy": 1,
+			"options": "Draft\nActive\nDisabled\nInvalid\nError\nArchived",
+			"read_only": 1
+		},
+		{
+			"fieldname": "module",
+			"fieldtype": "Link",
+			"label": "Module (for export)",
+			"options": "Module Def"
+		},
+		{
+			"fieldname": "column_break_xnyu",
+			"fieldtype": "Column Break"
+		},
+		{
+			"fieldname": "base_rule_name",
+			"fieldtype": "Data",
+			"in_list_view": 1,
+			"label": "Base Rule Name",
+			"no_copy": 1,
+			"read_only": 1,
+			"search_index": 1
+		},
+		{
+			"fieldname": "previous_version",
+			"fieldtype": "Link",
+			"label": "Previous Version",
+			"no_copy": 1,
+			"options": "Rule",
+			"read_only": 1
+		},
+		{
+			"default": "1",
+			"description": "Rule version number (auto-incremented on amendment)",
+			"fieldname": "version",
+			"fieldtype": "Int",
+			"label": "Version",
+			"no_copy": 1,
+			"read_only": 1
+		},
+		{
+			"collapsible": 1,
+			"fieldname": "section_break_error",
+			"fieldtype": "Section Break",
+			"label": "Error State"
+		},
+		{
+			"fieldname": "last_error",
+			"fieldtype": "Text",
+			"label": "Last Error",
+			"no_copy": 1,
+			"read_only": 1
+		}
+	],
+	"index_web_pages_for_search": 1,
+	"links": [
+		{
+			"group": "Related Rules",
+			"is_child_table": 1,
+			"link_doctype": "Rule",
+			"link_fieldname": "rule",
+			"parent_doctype": "Rule",
+			"table_fieldname": "actions"
+		},
+		{
+			"group": "Logs & Schedulers",
+			"link_doctype": "Rule Execution Log",
+			"link_fieldname": "rule"
+		},
+		{
+			"group": "Tasks",
+			"link_doctype": "Data Review Task",
+			"link_fieldname": "rule"
+		},
+		{
+			"group": "Logs & Schedulers",
+			"link_doctype": "Rule Scheduler",
+			"link_fieldname": "rule"
+		}
+	],
+	"modified": "2026-07-05 17:51:18.355540",
+	"modified_by": "Administrator",
+	"module": "Ruleflow",
+	"name": "Rule",
+	"naming_rule": "By fieldname",
+	"owner": "Administrator",
+	"permissions": [
+		{
+			"create": 1,
+			"delete": 1,
+			"email": 1,
+			"export": 1,
+			"print": 1,
+			"read": 1,
+			"report": 1,
+			"role": "System Manager",
+			"share": 1,
+			"write": 1
+		},
+		{
+			"create": 1,
+			"delete": 1,
+			"email": 1,
+			"export": 1,
+			"print": 1,
+			"read": 1,
+			"report": 1,
+			"role": "Rule Manager",
+			"share": 1,
+			"write": 1
+		}
+	],
+	"quick_entry": 1,
+	"row_format": "Dynamic",
+	"search_fields": "rule_name, document_type, trigger_type, trigger_event",
+	"sort_field": "priority",
+	"sort_order": "DESC",
+	"states": [
+		{
+			"color": "Blue",
+			"title": "Draft"
+		},
+		{
+			"color": "Green",
+			"title": "Active"
+		},
+		{
+			"color": "Gray",
+			"title": "Inactive"
+		},
+		{
+			"color": "Red",
+			"title": "Archived"
+		}
+	],
+	"track_changes": 1
 }

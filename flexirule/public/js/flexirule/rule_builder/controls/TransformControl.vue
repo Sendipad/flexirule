@@ -326,7 +326,9 @@ watch(
 	stroke-width: 2.5;
 	pointer-events: stroke;
 	cursor: pointer;
-	transition: stroke 0.2s, stroke-width 0.2s;
+	transition:
+		stroke 0.2s,
+		stroke-width 0.2s;
 }
 
 .mapping-line:hover,

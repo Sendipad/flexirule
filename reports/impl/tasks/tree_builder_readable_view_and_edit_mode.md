@@ -209,7 +209,6 @@ Cover at least: missing field/operator/value, normal text/number values, date op
 - Current global settings: [RuleFlow Settings DocType](https://github.com/Sendipad/flexirule/blob/develop/flexirule/ruleflow/doctype/ruleflow_settings/ruleflow_settings.json).
 - Framework user preferences: [Frappe v15 user_settings.js](https://github.com/frappe/frappe/blob/version-15/frappe/public/js/frappe/model/user_settings.js) and [Frappe v15 user_settings.py](https://github.com/frappe/frappe/blob/version-15/frappe/model/utils/user_settings.py).
 
-
 ## 11. Cross-component design checklist
 
 The follow-up requirement is to unify GenericGrid and TreeBuilder behavior and establish **Hybrid** as the RuleFlow Settings default. This section is authoritative if an earlier paragraph still describes a form-only default or per-user settings as the first persistence layer.
@@ -228,12 +227,12 @@ The leaf wrapper and its drag/drop affordance must remain mounted/stable while t
 
 ### Hybrid decision table
 
-| Item status | Hybrid default | Edit permitted? |
-| --- | --- | --- |
-| New item/row/leaf | Form | Yes, unless read-only |
-| Existing and valid | Summary | Yes, via explicit Edit/double-click |
-| Existing but invalid | Form, with validation state visible | Yes, unless read-only |
-| Any status while read-only | Apply the configured display rule; suppress edit actions and mutations | No |
+| Item status                | Hybrid default                                                         | Edit permitted?                     |
+| -------------------------- | ---------------------------------------------------------------------- | ----------------------------------- |
+| New item/row/leaf          | Form                                                                   | Yes, unless read-only               |
+| Existing and valid         | Summary                                                                | Yes, via explicit Edit/double-click |
+| Existing but invalid       | Form, with validation state visible                                    | Yes, unless read-only               |
+| Any status while read-only | Apply the configured display rule; suppress edit actions and mutations | No                                  |
 
 For Hybrid, "new" and "valid" are supplied by the consumer using authoritative identity and validation state. Do not guess that a row is new solely because it lacks a generic `name` property, or duplicate a validator inside the presentation layer. For invalid items, make the error state discoverable in both summary and form, and ensure Hybrid selects the form so the user can repair the item.
 

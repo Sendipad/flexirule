@@ -53,7 +53,7 @@ const doc_fields = computed(() => {
 				? getFieldLabel(actionType, df.fieldname, {
 						operation: props.nodeData?.operation,
 						processName: props.nodeData?.process_name,
-				  })
+					})
 				: null;
 
 			if (policyLabel) {

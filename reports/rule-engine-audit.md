@@ -3,6 +3,7 @@
 ## 1. Overview & Runtime Architecture
 
 The FlexiRule runtime engine (`flexirule/ruleflow/core/engine.py`) orchestrates execution of rule graphs. When a document event or scheduler trigger fires:
+
 1. `RuleCoordinator` fetches candidate active `Rule` records matching `document_type` and `trigger_event`.
 2. Filter conditions (`trigger_condition` / `compiled_expression`) are evaluated using `frappe.safe_eval`.
 3. `RuleEngine` is instantiated with the `Rule` document and execution context (`doc`, `old_doc`, `vars`, `meta`).
@@ -38,22 +39,24 @@ sequenceDiagram
 ## 2. Detailed Findings
 
 ### Finding FR-ENGINE-001 (HIGH) — Unenforced Sub-Rule Recursion Depth Limit
+
 - **Files**: `flexirule/ruleflow/core/engine.py`, `flexirule/ruleflow/core/action_handlers/sub_rule.py`
 - **Description**: Sub-rule calls do not pass or increment recursion depth counters.
 - **Technical Analysis**: `engine.py` defines `MAX_SUB_RULE_DEPTH = 2`, but `SubRuleHandler` instantiates new `RuleEngine` instances without passing `_sub_rule_depth` inside `execution_context`. If sub-rules reference each other dynamically (for example, Rule A calling Rule B which calls Rule A under specific runtime conditions), execution causes infinite recursion or stack overflow crashes rather than throwing `SubRuleRecursionLimitError`.
 - **Impact**: Server crash / stack overflow on dynamic sub-rule recursion.
 - **Remediation**:
-  ```python
-  # In SubRuleHandler.execute:
-  current_depth = context.get("_sub_rule_depth", 0)
-  if current_depth >= MAX_SUB_RULE_DEPTH:
-      raise SubRuleRecursionLimitError(f"Sub-rule recursion limit ({MAX_SUB_RULE_DEPTH}) exceeded")
-  sub_context["_sub_rule_depth"] = current_depth + 1
-  ```
+    ```python
+    # In SubRuleHandler.execute:
+    current_depth = context.get("_sub_rule_depth", 0)
+    if current_depth >= MAX_SUB_RULE_DEPTH:
+        raise SubRuleRecursionLimitError(f"Sub-rule recursion limit ({MAX_SUB_RULE_DEPTH}) exceeded")
+    sub_context["_sub_rule_depth"] = current_depth + 1
+    ```
 
 ---
 
 ### Finding FR-ENGINE-002 (HIGH) — Asynchronous Document Actions Mask Worker Failures
+
 - **File**: `flexirule/ruleflow/core/action_handlers/document_action.py`
 - **Function/Class**: `DocumentActionHandler._create_new`
 - **Description**: Asynchronous document creation reports success before execution occurs.
@@ -64,6 +67,7 @@ sequenceDiagram
 ---
 
 ### Finding FR-ENGINE-003 (MEDIUM) — Inconsistent Default Branch Execution in Switch Handler
+
 - **File**: `flexirule/ruleflow/core/action_handlers/switch.py`
 - **Function/Class**: `SwitchHandler.execute`
 - **Description**: Unmatched `Switch` cases fall back to `next_step_if_true` without warning.
@@ -74,6 +78,7 @@ sequenceDiagram
 ---
 
 ### Finding FR-ENGINE-004 (MEDIUM) — Active Rule Cache Invalidation Race Condition
+
 - **File**: `flexirule/ruleflow/core/coordinator.py`
 - **Function/Class**: `RuleCoordinator.clear_cache`
 - **Description**: Cache invalidation only clears local thread state.
