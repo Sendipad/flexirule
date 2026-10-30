@@ -134,4 +134,5 @@ assert.notEqual(
 	getQueryRecordsSchemaRefreshSignature(groupByBase)
 );
 
+// eslint-disable-next-line no-console
 console.log("query records schema refresh tests passed");

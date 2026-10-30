@@ -64,4 +64,5 @@ assert.equal(
 	'{"left":{"value":1},"right":{"value":1}}'
 );
 
+// eslint-disable-next-line no-console
 console.log("stable serialization tests passed");

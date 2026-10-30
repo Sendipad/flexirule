@@ -2988,4 +2988,3 @@ Then rebuild around:
         -> Query Records backend contract
 
 The architecture is acceptable only when Generic Tree Builder owns structure/state/mutations, Query Records owns domain semantics, there is one canonical tree model, one state owner, one mutation owner, one explicit backend serialization boundary, and no hidden legacy tree/serialization layer remains.
-

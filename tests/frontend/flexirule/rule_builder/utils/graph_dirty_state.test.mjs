@@ -84,4 +84,5 @@ assert.equal(
 	false
 );
 
+// eslint-disable-next-line no-console
 console.log("graph dirty-state tests passed");

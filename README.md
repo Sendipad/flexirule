@@ -221,7 +221,7 @@ Developers can extend FlexiRule at multiple layers to integrate custom business 
 * **Processes & Operations**: Package custom logic into file-backed Python classes. FlexiRule automatically discovers these methods, letting you expose inputs through standard JSON schemas that automatically render as validated forms in the UI.
 * **Dynamic Config Schemas**: Define dynamic layout fields, allowing the builder UI to generate user-friendly configuration panels on the fly.
 * **Custom UI Controls**: Wire custom controls directly into action properties, supporting advanced data selectors and interactive widgets.
- 
+
 ---
 
 ## 📦 Installation

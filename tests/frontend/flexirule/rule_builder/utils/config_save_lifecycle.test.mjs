@@ -184,4 +184,5 @@ import { runConfigSaveLifecycle } from "../../../../../flexirule/public/js/flexi
 	assert.equal(commitCalls, 1);
 }
 
+// eslint-disable-next-line no-console
 console.log("Rule Config save lifecycle tests passed");

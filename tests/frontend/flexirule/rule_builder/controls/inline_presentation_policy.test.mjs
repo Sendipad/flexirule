@@ -146,4 +146,5 @@ assert.deepEqual(
 	{ mode: "hybrid", presentation: "editor", canToggle: false, canEdit: false }
 );
 
+// eslint-disable-next-line no-console
 console.log("inline presentation policy unit tests passed");

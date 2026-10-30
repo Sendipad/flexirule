@@ -118,4 +118,5 @@ function validateDraft(targetDraft, options = {}) {
 	assert.equal(result.status, "blocked-stale-context");
 }
 
+// eslint-disable-next-line no-console
 console.log("Action config validation side-effect and lifecycle tests passed");

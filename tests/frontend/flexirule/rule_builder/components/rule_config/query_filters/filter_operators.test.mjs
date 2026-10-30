@@ -59,4 +59,5 @@ for (const required of ["=", "!=", ">", "<", ">=", "<="]) {
 }
 
 assert.ok(BASE_FILTER_OPERATORS.includes("="));
+// eslint-disable-next-line no-console
 console.log("query filter operator tests passed");
