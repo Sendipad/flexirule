@@ -447,6 +447,7 @@ class DocumentActionHandler(ActionHandler):
 				queue="default",
 				doc_data=new_doc.as_dict(),
 				ignore_permissions=ignore_permissions,
+				enqueue_after_commit=True,
 			)
 			return {"enqueued": True, "doctype": reference_doctype}
 
