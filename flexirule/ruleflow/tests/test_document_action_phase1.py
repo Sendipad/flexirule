@@ -38,10 +38,11 @@ class TestDocumentActionPhase1(FrappeTestCase):
 		# Add Comment must NOT require reference_docname in action_overrides
 		comment_overrides = op_contracts["Add Comment"].action_overrides
 		reqd_docname_comment = [
-			f for f in comment_overrides
-			if f.get("fieldname") == "reference_docname" and f.get("reqd") == 1
+			f for f in comment_overrides if f.get("fieldname") == "reference_docname" and f.get("reqd") == 1
 		]
-		self.assertEqual(len(reqd_docname_comment), 0, "Add Comment should not mark reference_docname as required")
+		self.assertEqual(
+			len(reqd_docname_comment), 0, "Add Comment should not mark reference_docname as required"
+		)
 
 		# Check action contract policies
 		action_contract = DocumentActionHandler.get_action_contract()
@@ -51,24 +52,31 @@ class TestDocumentActionPhase1(FrappeTestCase):
 
 	def test_target_identity_precedence_update(self):
 		"""Test target record identity resolution precedence for Update Existing."""
-		context = {"doc": frappe._dict({"name": "CTX123", "doctype": "Contact", "first_name": "John"}), "vars": {}}
+		context = {
+			"doc": frappe._dict({"name": "CTX123", "doctype": "Contact", "first_name": "John"}),
+			"vars": {},
+		}
 
 		# 1. Action reference_docname takes top precedence
-		action = frappe._dict({
-			"operation": "Update Existing",
-			"reference_doctype": "Contact",
-			"reference_docname": "DOC_DIRECT",
-		})
+		action = frappe._dict(
+			{
+				"operation": "Update Existing",
+				"reference_doctype": "Contact",
+				"reference_docname": "DOC_DIRECT",
+			}
+		)
 		config = {"docname": "DOC_CONFIG", "docname_expression": "'DOC_EXPR'"}
 		resolved = self.handler._resolve_target_docname(action, config, context)
 		self.assertEqual(resolved, "DOC_DIRECT")
 
 		# 2. docname_expression takes second precedence
-		action = frappe._dict({
-			"operation": "Update Existing",
-			"reference_doctype": "Contact",
-			"reference_docname": "",
-		})
+		action = frappe._dict(
+			{
+				"operation": "Update Existing",
+				"reference_doctype": "Contact",
+				"reference_docname": "",
+			}
+		)
 		resolved = self.handler._resolve_target_docname(action, config, context)
 		self.assertEqual(resolved, "DOC_EXPR")
 
@@ -79,10 +87,12 @@ class TestDocumentActionPhase1(FrappeTestCase):
 
 	def test_add_comment_jinja_rendering(self):
 		"""Test Add Comment renders Jinja text templates using context document."""
-		contact = frappe.get_doc({
-			"doctype": "Contact",
-			"first_name": f"Tester_{self._uid()}",
-		}).insert(ignore_permissions=True)
+		contact = frappe.get_doc(
+			{
+				"doctype": "Contact",
+				"first_name": f"Tester_{self._uid()}",
+			}
+		).insert(ignore_permissions=True)
 
 		context = {"doc": contact, "vars": {}}
 		config = {
@@ -98,10 +108,12 @@ class TestDocumentActionPhase1(FrappeTestCase):
 
 	def test_create_todo_execution(self):
 		"""Test Create ToDo attaches to context document."""
-		contact = frappe.get_doc({
-			"doctype": "Contact",
-			"first_name": f"Tester_{self._uid()}",
-		}).insert(ignore_permissions=True)
+		contact = frappe.get_doc(
+			{
+				"doctype": "Contact",
+				"first_name": f"Tester_{self._uid()}",
+			}
+		).insert(ignore_permissions=True)
 
 		context = {"doc": contact, "vars": {}}
 		config = {
@@ -135,7 +147,9 @@ class TestDocumentActionPhase1(FrappeTestCase):
 		self.assertTrue(any("Operation/Mode is required" in e for e in errs))
 
 		# Update without target identity
-		action_update = frappe._dict({"operation": "Update Existing", "reference_doctype": "Contact", "reference_docname": ""})
+		action_update = frappe._dict(
+			{"operation": "Update Existing", "reference_doctype": "Contact", "reference_docname": ""}
+		)
 		action_update.config = "{}"
 		errs = self.handler.validate(action_update, {})
 		self.assertTrue(any("requires a target record" in e for e in errs))

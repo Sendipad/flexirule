@@ -339,10 +339,16 @@ class DocumentActionHandler(ActionHandler):
 						continue
 					target = row.get("target")
 					stype = row.get("source_type") or "path"
-					val = row.get("path") if stype == "path" else (row.get("expr") if stype == "expr" else row.get("literal"))
+					val = (
+						row.get("path")
+						if stype == "path"
+						else (row.get("expr") if stype == "expr" else row.get("literal"))
+					)
 					if target and (val is None or val == ""):
 						errors.append(
-							_("Resource Mapper scalar row #{0} targeting '{1}' is missing a source value").format(idx + 1, target)
+							_(
+								"Resource Mapper scalar row #{0} targeting '{1}' is missing a source value"
+							).format(idx + 1, target)
 						)
 				tables = ui_mapper.get("tables") or []
 				for idx, tbl in enumerate(tables):
@@ -352,7 +358,9 @@ class DocumentActionHandler(ActionHandler):
 					s_path = tbl.get("source_path")
 					if t_field and not s_path:
 						errors.append(
-							_("Resource Mapper table row #{0} targeting '{1}' is missing a source path").format(idx + 1, t_field)
+							_(
+								"Resource Mapper table row #{0} targeting '{1}' is missing a source path"
+							).format(idx + 1, t_field)
 						)
 
 		return errors
