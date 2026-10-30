@@ -278,3 +278,53 @@ class TestCollectionResolver(unittest.TestCase):
 				resolver.resolve({"doc": {"doctype": "Test Order"}})
 			self.assertEqual(raised.exception.code, "unknown_field")
 
+
+
+	def test_table_multiselect_child_doctype_validates_row_fieldtype(self):
+		from types import SimpleNamespace
+		from unittest.mock import patch
+
+		from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
+		parent_meta = SimpleNamespace(
+			get_field=lambda fieldname: (
+				SimpleNamespace(fieldtype="Table MultiSelect", options="Test Tag")
+				if fieldname == "tags"
+				else None
+			)
+		)
+		child_meta = SimpleNamespace(
+			get_field=lambda fieldname: (
+				SimpleNamespace(fieldtype="Data") if fieldname == "tag_name" else None
+			)
+		)
+
+		def get_meta(doctype):
+			if doctype == "Test Parent":
+				return parent_meta
+			if doctype == "Test Tag":
+				return child_meta
+			raise ValueError(f"Unexpected DocType: {doctype}")
+
+		condition = {
+			"type": "comparison",
+			"operator": "gt",
+			"left": {
+				"mode": "variable",
+				"path": {"scope": "row", "segments": ["tag_name"]},
+			},
+			"right": {"mode": "static", "value_type": "string", "value": "M"},
+		}
+		resolver = CollectionResolver(source="doc.tags", operation="filter", condition=condition)
+		context = {
+			"doc": {
+				"doctype": "Test Parent",
+				"tags": [{"tag_name": "A"}],
+			}
+		}
+
+		with patch("frappe.get_meta", side_effect=get_meta):
+			with self.assertRaises(ConditionValidationError) as raised:
+				resolver.resolve(context)
+
+		self.assertEqual(raised.exception.code, "fieldtype_not_supported")
