@@ -24,6 +24,12 @@ test("parses shortcut modifiers and key aliases", () => {
 		shift: true,
 	});
 	assert.equal(parseShortcutString("Space").key, " ");
+	assert.equal(parseShortcutString("+").key, "+");
+	assert.equal(parseShortcutString("Ctrl++").key, "+");
+	assert.equal(parseShortcutString("Ctrl+Shift++").key, "+");
+	assert.equal(parseShortcutString("Ctrl+Up").key, "arrowup");
+	assert.equal(parseShortcutString("Ctrl+Down").key, "arrowdown");
+	assert.equal(parseShortcutString("Del").key, "delete");
 	assert.equal(parseShortcutString("Mod+Shift+E").mod, true);
 	assert.equal(parseShortcutString(""), null);
 	assert.equal(parseShortcutString("Ctrl+Shift"), null);

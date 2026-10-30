@@ -1,4 +1,3 @@
-/* global afterEach */
 import { isConsoleRegressionMessage } from "../support/regression_guards.mjs";
 
 describe("FlexiRule builder regression coverage", () => {

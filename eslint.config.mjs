@@ -153,6 +153,7 @@ export default [
 			before: true,
 			beforeEach: true,
 			after: true,
+			afterEach: true,
 			qz: true,
 			localforage: true,
 			extend_cscript: true,

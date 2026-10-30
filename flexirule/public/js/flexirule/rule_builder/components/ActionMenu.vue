@@ -128,7 +128,7 @@ async function updateMenuPosition() {
 				}),
 			],
 		});
-		if (resolveElement(menuElement.value) !== floating) return;
+		if (resolveElement(menuElement.value) !== floating || !floating.isConnected) return;
 		menuStyle.value = {
 			position: "fixed",
 			top: `${y}px`,
@@ -138,6 +138,7 @@ async function updateMenuPosition() {
 		};
 	} catch {
 		// Keep the menu usable if positioning fails after the menu has mounted.
+		if (!floating?.isConnected) return;
 		const anchorRect = reference.getBoundingClientRect();
 		const viewportWidth = document.documentElement?.clientWidth || window.innerWidth;
 		const viewportHeight = document.documentElement?.clientHeight || window.innerHeight;

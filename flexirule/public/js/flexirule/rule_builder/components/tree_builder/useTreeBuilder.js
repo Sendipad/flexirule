@@ -2,7 +2,6 @@ import { computed, nextTick, reactive, ref, watch } from "vue";
 import {
 	cloneTree,
 	findNode,
-	findParent,
 	findPath,
 	isContainerNode,
 	normalizeTree,
