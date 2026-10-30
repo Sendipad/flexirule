@@ -70,6 +70,7 @@ assert.equal(reopened.children[1].type, "group");
 assert.equal(reopened.children[1].operator, "or");
 assert.equal(reopened.children[1].children.length, 2);
 assert.deepEqual(serializeQueryFilters(reopened), payload);
+// eslint-disable-next-line no-console
 console.log("query filter serializer tests passed");
 
 const canonical = deserializeQueryFilters({
@@ -104,6 +105,7 @@ assert.deepEqual(serializeQueryFilters(canonical), [
 	"=",
 	{ mode: "static", value: "" },
 ]);
+// eslint-disable-next-line no-console
 console.log("canonical query filter persistence tests passed");
 
 const staticListTree = {
@@ -128,4 +130,5 @@ assert.deepEqual(
 	toPersistedQueryFilterTree(deserializeQueryFilters(staticListPayload)),
 	staticListPayload
 );
+// eslint-disable-next-line no-console
 console.log("static list query filter persistence tests passed");

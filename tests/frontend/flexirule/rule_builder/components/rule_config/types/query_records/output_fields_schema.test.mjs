@@ -52,4 +52,5 @@ assert.equal(schema[1].fieldtype, "Currency");
 assert.equal(schema[1].source.kind, "aggregate");
 assert.equal(schema[1].source.expression, "sum(grand_total) as total_amount");
 
+// eslint-disable-next-line no-console
 console.log("query records output schema function tests passed");
