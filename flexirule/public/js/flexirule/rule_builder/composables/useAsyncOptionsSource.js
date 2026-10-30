@@ -40,7 +40,7 @@ export function useAsyncOptionsSource(fetcher, config = {}) {
 							start: nextPage * pageSize,
 							page: nextPage,
 							pageSize,
-						})
+					  })
 					: []) || [];
 
 			if (token !== requestId) return options.value;

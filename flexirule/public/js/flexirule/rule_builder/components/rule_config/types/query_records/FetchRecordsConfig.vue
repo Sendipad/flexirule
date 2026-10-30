@@ -457,8 +457,8 @@ function normalizeConfig(value) {
 			typeof source.fields === "string"
 				? source.fields
 				: Array.isArray(source.fields)
-					? source.fields
-					: [],
+				? source.fields
+				: [],
 		result_shape: inferResultShape(source.fields, source.result_shape),
 		order_by: source.order_by || "",
 		group_by: source.group_by || "",
@@ -613,7 +613,7 @@ function emitConfig() {
 				filters &&
 				typeof filters === "object" &&
 				(Array.isArray(filters.children) ? filters.children.length > 0 : true)
-			);
+		  );
 	if (!hasFilters) delete next.filters;
 	if (!next.fields?.length) delete next.fields;
 	if (!next.order_by) delete next.order_by;
@@ -811,9 +811,7 @@ defineExpose({ validate });
 	background: var(--fxr-bg-card, var(--fxr-surface));
 	border: 1px solid var(--fxr-border);
 	border-radius: var(--fxr-radius-md);
-	transition:
-		border-color var(--fxr-transition-fast),
-		background-color var(--fxr-transition-fast);
+	transition: border-color var(--fxr-transition-fast), background-color var(--fxr-transition-fast);
 }
 .result-shape-card:hover:not(:disabled) {
 	border-color: var(--fxr-border-strong);

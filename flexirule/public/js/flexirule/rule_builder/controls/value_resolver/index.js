@@ -547,8 +547,8 @@ registerStrategy("lookup", {
 					? toDocExpression(cfg.doctype_source)
 					: '""'
 				: cfg.target_doctype
-					? `"${cfg.target_doctype}"`
-					: '""';
+				? `"${cfg.target_doctype}"`
+				: '""';
 		const rec = cfg.record_field ? toDocExpression(cfg.record_field) : '""';
 		const field = cfg.fetch_field || "";
 		return `{frappe.db.get_value(${dt}, ${rec}, "${field}")}`;

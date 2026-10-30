@@ -904,8 +904,8 @@ onMounted(async () => {
 			const targetDoctype = isConcreteStaticValue(config.doctype_name)
 				? extractStaticValue(config.doctype_name)
 				: !config.doctype_name
-					? reference_doctype.value
-					: "";
+				? reference_doctype.value
+				: "";
 			if (targetDoctype) {
 				await loadDocMeta(targetDoctype);
 				await load_doctype_fields(targetDoctype);
@@ -1251,20 +1251,20 @@ async function build_fetch_records_schema_local() {
 		return isStale()
 			? null
 			: is_doctype_dynamic.value
-				? [
-						{
-							label: __("Dynamic Object"),
+			? [
+					{
+						label: __("Dynamic Object"),
+						fieldname: "doc",
+						fieldtype: "JSON",
+						reqd: 0,
+						source: {
+							kind: "dynamic",
 							fieldname: "doc",
-							fieldtype: "JSON",
-							reqd: 0,
-							source: {
-								kind: "dynamic",
-								fieldname: "doc",
-								expression: "doctype_name",
-							},
+							expression: "doctype_name",
 						},
-					]
-				: [];
+					},
+			  ]
+			: [];
 	}
 
 	const meta = await flexirule.utils.get_doctype_meta(targetDoctype);
@@ -1276,8 +1276,8 @@ async function build_fetch_records_schema_local() {
 		const sourceKind = sourceFieldname.includes(".")
 			? "child_field"
 			: SYSTEM_FIELDS.some((item) => item.fieldname === sourceFieldname)
-				? "system"
-				: "field";
+			? "system"
+			: "field";
 		return {
 			fieldname: sourceFieldname,
 			label: label || sourceFieldname,
@@ -1600,8 +1600,8 @@ async function build_group_by_schema_preview() {
 		aggregateFunction === "count"
 			? "Int"
 			: aggregateFunction === "avg"
-				? "Float"
-				: aggregateSourceField?.fieldtype || "Data";
+			? "Float"
+			: aggregateSourceField?.fieldtype || "Data";
 
 	return [
 		groupSchemaField,
@@ -2370,7 +2370,7 @@ function load_local_config(val) {
 					field: parts[0],
 					direction: (parts[1] || "asc").toLowerCase(),
 				};
-			})
+		  })
 		: [];
 	const current_order_by_rows = order_by_rows.value.map((r) => ({
 		field: r.field,
@@ -2740,9 +2740,7 @@ defineExpose({
 	border-radius: var(--fxr-radius-md) !important;
 	background-color: var(--fxr-bg-input) !important;
 	color: var(--fxr-text) !important;
-	transition:
-		border-color var(--fxr-transition-fast),
-		box-shadow var(--fxr-transition-fast) !important;
+	transition: border-color var(--fxr-transition-fast), box-shadow var(--fxr-transition-fast) !important;
 }
 
 :deep(.form-control:focus) {

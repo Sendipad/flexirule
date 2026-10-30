@@ -6,16 +6,16 @@ The `Rule Action.resolved_output_schema` field describes metadata keys exposed t
 
 ```json
 {
-	"label": "Reference Doctype",
-	"fieldname": "reference_doctype",
-	"fieldtype": "Select",
-	"options": "DocType",
-	"reqd": 0,
-	"source": {
-		"kind": "field",
-		"fieldname": "voucher_type",
-		"expression": "voucher_type as reference_doctype"
-	}
+  "label": "Reference Doctype",
+  "fieldname": "reference_doctype",
+  "fieldtype": "Select",
+  "options": "DocType",
+  "reqd": 0,
+  "source": {
+    "kind": "field",
+    "fieldname": "voucher_type",
+    "expression": "voucher_type as reference_doctype"
+  }
 }
 ```
 
@@ -29,16 +29,16 @@ For example, an aggregate uses the alias as its output `fieldname` and stores it
 
 ```json
 {
-	"label": "Totals",
-	"fieldname": "totals",
-	"fieldtype": "Int",
-	"reqd": 0,
-	"source": {
-		"kind": "aggregate",
-		"function": "count",
-		"fieldname": "name",
-		"expression": "count(name) as totals"
-	}
+  "label": "Totals",
+  "fieldname": "totals",
+  "fieldtype": "Int",
+  "reqd": 0,
+  "source": {
+    "kind": "aggregate",
+    "function": "count",
+    "fieldname": "name",
+    "expression": "count(name) as totals"
+  }
 }
 ```
 

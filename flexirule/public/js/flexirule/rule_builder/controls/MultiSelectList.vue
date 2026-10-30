@@ -868,9 +868,7 @@ onBeforeUnmount(() => {
 	align-items: center;
 	gap: 8px;
 	cursor: pointer;
-	transition:
-		border-color 0.15s ease,
-		box-shadow 0.15s ease;
+	transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .multi-select-trigger.invalid {
@@ -1198,9 +1196,7 @@ onBeforeUnmount(() => {
 
 .dropdown-fade-enter-active,
 .dropdown-fade-leave-active {
-	transition:
-		opacity 0.2s ease,
-		transform 0.2s ease;
+	transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
 .dropdown-fade-enter-from,

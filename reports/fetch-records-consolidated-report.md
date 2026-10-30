@@ -393,7 +393,7 @@ Based on the empirical evidence gathered during this audit:
 - **Child-Table Aggregation via PyPika Explicit Joins:** **POSSIBLE & VERIFIED** (Supported natively by Frappe v15 / PyPika).
 - **Current Fetch Records Mode:** **UNSUPPORTED** (Delegates directly to raw string parser).
 - **Recommended Action for PR #389:** **RETAIN CURRENT UI RESTRICTION** (Block aggregate source fields containing dots).
-  \n\n---\n\n# Consolidated source 2: reports/query-records/fetch-records-operator-parity-v15-v16.md\n\n> Original report content follows. Preserved without rewriting so findings, evidence, caveats, and historical context remain attributable to their source.\n\n# Fetch Records Operator Parity Audit: Frappe 15 vs Frappe 16
+\n\n---\n\n# Consolidated source 2: reports/query-records/fetch-records-operator-parity-v15-v16.md\n\n> Original report content follows. Preserved without rewriting so findings, evidence, caveats, and historical context remain attributable to their source.\n\n# Fetch Records Operator Parity Audit: Frappe 15 vs Frappe 16
 
 **Audit date:** 2026-10-12  
 **Scope:** Operators used by `frappe.qb.get_query`, which is the execution API for FlexiRule Fetch Records. This report deliberately separates Query Builder from `frappe.get_list` / `frappe.model.db_query.DatabaseQuery`; the two APIs have overlapping but non-identical parser and execution contracts.
@@ -411,13 +411,13 @@ Fetch Records was not fully aligned before this audit:
 
 The code below was read from both release branches, not inferred from docs or the other major version.
 
-| Source                                                                                                                                 | Frappe 15 blob SHA                         | Frappe 16 blob SHA                         | Why it matters                                                                                                                      |
-| -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
-| [`frappe/database/operator_map.py`](https://github.com/frappe/frappe/blob/version-15/frappe/database/operator_map.py)                  | `837d86282c4483aeec6421153123c024418f6707` | `218983a318fd8005626dffa183ea6ef54df0f120` | The Query Builder operator functions and version differences.                                                                       |
-| [`frappe/database/query.py`](https://github.com/frappe/frappe/blob/version-15/frappe/database/query.py)                                | `30318e2d79dd875b3ed9adea9d710c3c36167775` | `1377710fe5acfb1683a08eb8218e8cdae582778d` | Actual Query Builder filter parsing, operator dispatch, tree expansion and boolean filter behavior.                                 |
-| [`frappe/database/utils.py`](https://github.com/frappe/frappe/blob/version-15/frappe/database/utils.py)                                | `e031e8379510cf7e0121c08d1c28bbe482037297` | `9e2343538595bd822a379a24a73b1d0d865fd27d` | The canonical `NestedSetHierarchy` operator tuple.                                                                                  |
-| [`frappe/query_builder/utils.py`](https://github.com/frappe/frappe/blob/version-15/frappe/query_builder/utils.py)                      | `7074321fb71d23179e2ceb7b2b147f8450a07104` | `d151133d9fb041d5b9465eca2cc8a634678149f7` | Query Builder runtime monkey patches; the checked release snapshots do not include `patch_regex_operator`.                          |
-| [`frappe/model/db_query.py`](https://github.com/frappe/frappe/blob/version-15/frappe/model/db_query.py)                                | `2ddb8ee71b0526f3a4bda58574725d720b6e1cf7` | `dc0c9827703bb43260a66be0fec0dcd1aa6c8ad9` | Cross-check only. This is the ORM query path, not the Fetch Records execution path.                                                 |
+| Source | Frappe 15 blob SHA | Frappe 16 blob SHA | Why it matters |
+|---|---|---|---|
+| [`frappe/database/operator_map.py`](https://github.com/frappe/frappe/blob/version-15/frappe/database/operator_map.py) | `837d86282c4483aeec6421153123c024418f6707` | `218983a318fd8005626dffa183ea6ef54df0f120` | The Query Builder operator functions and version differences. |
+| [`frappe/database/query.py`](https://github.com/frappe/frappe/blob/version-15/frappe/database/query.py) | `30318e2d79dd875b3ed9adea9d710c3c36167775` | `1377710fe5acfb1683a08eb8218e8cdae582778d` | Actual Query Builder filter parsing, operator dispatch, tree expansion and boolean filter behavior. |
+| [`frappe/database/utils.py`](https://github.com/frappe/frappe/blob/version-15/frappe/database/utils.py) | `e031e8379510cf7e0121c08d1c28bbe482037297` | `9e2343538595bd822a379a24a73b1d0d865fd27d` | The canonical `NestedSetHierarchy` operator tuple. |
+| [`frappe/query_builder/utils.py`](https://github.com/frappe/frappe/blob/version-15/frappe/query_builder/utils.py) | `7074321fb71d23179e2ceb7b2b147f8450a07104` | `d151133d9fb041d5b9465eca2cc8a634678149f7` | Query Builder runtime monkey patches; the checked release snapshots do not include `patch_regex_operator`. |
+| [`frappe/model/db_query.py`](https://github.com/frappe/frappe/blob/version-15/frappe/model/db_query.py) | `2ddb8ee71b0526f3a4bda58574725d720b6e1cf7` | `dc0c9827703bb43260a66be0fec0dcd1aa6c8ad9` | Cross-check only. This is the ORM query path, not the Fetch Records execution path. |
 | [Frappe standard filter UI `filter.js`](https://github.com/frappe/frappe/blob/version-15/frappe/public/js/frappe/ui/filters/filter.js) | `59324ff3aee40beb70c699829fd2e4c06ad26869` | `bba692739d2134a347efa6a805b3c12827f9e9f9` | Per-field operator restrictions; Frappe 16 is stricter for Select/Color comparisons and has more explicit text/numeric field rules. |
 
 The Fetch Records UI sources inspected were [`FilterLeaf.vue`](https://github.com/Sendipad/flexirule/blob/fix/fetch-records-review-findings/flexirule/public/js/flexirule/rule_builder/components/rule_config/query_filters/FilterLeaf.vue) and backend handler [`query_records.py`](https://github.com/Sendipad/flexirule/blob/fix/fetch-records-review-findings/flexirule/ruleflow/core/action_handlers/query_records.py), plus the compatibility adapter [`frappe_query_compat.py`](https://github.com/Sendipad/flexirule/blob/fix/fetch-records-review-findings/flexirule/ruleflow/utils/frappe_query_compat.py).
@@ -437,31 +437,31 @@ Frappe's `OPERATOR_MAP` also contains `=<` and `=>`, which are aliases for `<=` 
 
 ### Differences and important traps
 
-| Operator or family                 | Frappe 15 Query Builder                                                                                      | Frappe 16 Query Builder                                                            | Fetch Records decision                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ilike`                            | Not in `OPERATOR_MAP`                                                                                        | In `OPERATOR_MAP`; direct SQL spelling is dialect-dependent                        | Not exposed in the portable contract. Frappe 16 can select ILIKE for PostgreSQL's `like` handling; MariaDB does not use the PostgreSQL ILIKE syntax.                                                                                                                                                                                                                                                                                                                                                                   |
-| `previous`, `next`                 | Not handled by the v15 Query Builder's simple-filter dispatch                                                | Special-cased in `_build_criterion_for_simple_filter` and converted to date ranges | Not exposed directly because these are v16-only. The portable UI offers FlexiRule's `Timespan` abstraction, which the backend converts to `between`.                                                                                                                                                                                                                                                                                                                                                                   |
-| `regex`                            | Present in `OPERATOR_MAP`, but its mapped PyPika rendering is not executable on the inspected release branch | Same issue in the inspected release branch                                         | Not exposed or allowlisted. The Frappe `develop` implementation documents the problem and adds a dialect-aware patch: [`patch_regex_operator`](https://github.com/frappe/frappe/blob/develop/frappe/query_builder/utils.py#L334-L364). PyPika's unpatched `Term.regex` emits `REGEX`, not MariaDB/MySQL's `REGEXP` or PostgreSQL's `~*` ([PyPika terms](https://github.com/kayak/pypika/blob/master/pypika/terms.py#L178-L185), [matching enum](https://github.com/kayak/pypika/blob/master/pypika/enums.py#L32-L40)). |
-| `<>`                               | Not in `OPERATOR_MAP`                                                                                        | Not in `OPERATOR_MAP`                                                              | Removed from Fetch Records validation; use `!=`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| Custom operators from filter hooks | Not supported by this release Query Builder path                                                             | The v16 Query Builder parser consults `get_additional_filters_from_hooks()`        | Not accepted in Fetch Records' fixed portable allowlist. Hook-specific operators need an explicit FlexiRule contract and frontend value/editor before they can safely be exposed.                                                                                                                                                                                                                                                                                                                                      |
+| Operator or family | Frappe 15 Query Builder | Frappe 16 Query Builder | Fetch Records decision |
+|---|---|---|---|
+| `ilike` | Not in `OPERATOR_MAP` | In `OPERATOR_MAP`; direct SQL spelling is dialect-dependent | Not exposed in the portable contract. Frappe 16 can select ILIKE for PostgreSQL's `like` handling; MariaDB does not use the PostgreSQL ILIKE syntax. |
+| `previous`, `next` | Not handled by the v15 Query Builder's simple-filter dispatch | Special-cased in `_build_criterion_for_simple_filter` and converted to date ranges | Not exposed directly because these are v16-only. The portable UI offers FlexiRule's `Timespan` abstraction, which the backend converts to `between`. |
+| `regex` | Present in `OPERATOR_MAP`, but its mapped PyPika rendering is not executable on the inspected release branch | Same issue in the inspected release branch | Not exposed or allowlisted. The Frappe `develop` implementation documents the problem and adds a dialect-aware patch: [`patch_regex_operator`](https://github.com/frappe/frappe/blob/develop/frappe/query_builder/utils.py#L334-L364). PyPika's unpatched `Term.regex` emits `REGEX`, not MariaDB/MySQL's `REGEXP` or PostgreSQL's `~*` ([PyPika terms](https://github.com/kayak/pypika/blob/master/pypika/terms.py#L178-L185), [matching enum](https://github.com/kayak/pypika/blob/master/pypika/enums.py#L32-L40)). |
+| `<>` | Not in `OPERATOR_MAP` | Not in `OPERATOR_MAP` | Removed from Fetch Records validation; use `!=`. |
+| Custom operators from filter hooks | Not supported by this release Query Builder path | The v16 Query Builder parser consults `get_additional_filters_from_hooks()` | Not accepted in Fetch Records' fixed portable allowlist. Hook-specific operators need an explicit FlexiRule contract and frontend value/editor before they can safely be exposed. |
 
 Do not confuse this table with `frappe.model.db_query.DatabaseQuery` or `frappe.get_list`. Those paths have their own filter conversion, including `previous`/`next` handling in Frappe 15. Fetch Records calls `frappe.qb.get_query`, so that ORM behavior does not prove that the Query Builder supports the same syntax.
 
 ## FlexiRule operator mapping after the changes
 
-| FlexiRule UI option                          | Backend payload/execution                                                                                                          | Status                                                                                  |
-| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| Equals / Not Equals / relational comparisons | Native `=`, `!=`, `<`, `<=`, `>`, `>=`                                                                                             | Aligned on v15/v16                                                                      |
-| Like / Not Like                              | Native `like` / `not like`                                                                                                         | Aligned on v15/v16                                                                      |
-| In / Not In                                  | Native `in` / `not in`; the value editor provides lists/strings                                                                    | Aligned on v15/v16                                                                      |
-| Between                                      | Normalized to `between`                                                                                                            | Aligned on v15/v16                                                                      |
-| Timespan                                     | Resolved to date bounds and sent as `between`                                                                                      | FlexiRule abstraction, portable on v15/v16                                              |
-| Starts With / Ends With                      | Normalized to `like` with a trailing/leading `%`                                                                                   | FlexiRule aliases; they do not pretend to be native Frappe operators                    |
-| Is                                           | Native `is`, with value `set` or `not set`                                                                                         | The backend now validates the native value contract                                     |
-| Five nested-set operators                    | Derived on the backend from Frappe's `NestedSetHierarchy`; adapter preserves tree behavior in standalone and boolean-group filters | Aligned on v15/v16; backend validates Tree DocType applicability                        |
-| `<>`                                         | Rejected                                                                                                                           | Previously accepted by the backend despite lacking a native operator mapping; corrected |
-| `regex`                                      | Rejected                                                                                                                           | Map entry is not sufficient proof of executable SQL on the inspected release branches   |
-| `ilike`, `previous`, `next`                  | Rejected by the portable allowlist                                                                                                 | Intentionally excluded due to version/dialect differences                               |
+| FlexiRule UI option | Backend payload/execution | Status |
+|---|---|---|
+| Equals / Not Equals / relational comparisons | Native `=`, `!=`, `<`, `<=`, `>`, `>=` | Aligned on v15/v16 |
+| Like / Not Like | Native `like` / `not like` | Aligned on v15/v16 |
+| In / Not In | Native `in` / `not in`; the value editor provides lists/strings | Aligned on v15/v16 |
+| Between | Normalized to `between` | Aligned on v15/v16 |
+| Timespan | Resolved to date bounds and sent as `between` | FlexiRule abstraction, portable on v15/v16 |
+| Starts With / Ends With | Normalized to `like` with a trailing/leading `%` | FlexiRule aliases; they do not pretend to be native Frappe operators |
+| Is | Native `is`, with value `set` or `not set` | The backend now validates the native value contract |
+| Five nested-set operators | Derived on the backend from Frappe's `NestedSetHierarchy`; adapter preserves tree behavior in standalone and boolean-group filters | Aligned on v15/v16; backend validates Tree DocType applicability |
+| `<>` | Rejected | Previously accepted by the backend despite lacking a native operator mapping; corrected |
+| `regex` | Rejected | Map entry is not sufficient proof of executable SQL on the inspected release branches |
+| `ilike`, `previous`, `next` | Rejected by the portable allowlist | Intentionally excluded due to version/dialect differences |
 
 The UI applies additional field-type restrictions from the Frappe standard filter UI. FlexiRule uses the **intersection of the Frappe 15 and 16 restrictions** so an operator is not offered only on one supported major version: for example, Check fields expose equality only, Select fields do not expose range comparisons (Frappe 16 adds that restriction), Color does not expose range comparisons (also stricter in v16), text-like field types follow the union of the Frappe 15/16 exclusions, and integer/numeric fields inherit the v16 numeric restrictions. `Starts With` and `Ends With` inherit the `like` restriction because they normalize to `like` in the backend.
 
@@ -581,13 +581,17 @@ The current internal model is approximately:
 The current serializer produces leaf arrays of the form:
 
 ```js
-[doctype, field, operator, value];
+[doctype, field, operator, value]
 ```
 
 and combines multiple children using logical operator strings:
 
 ```js
-[[doctype, field, "=", value], "or", [doctype, field, "=", value]];
+[
+  [doctype, field, "=", value],
+  "or",
+  [doctype, field, "=", value]
+]
 ```
 
 This is already evidence that an adapter boundary exists conceptually. The production improvement should be to make that boundary explicit and reusable rather than redesigning TreeBuilder around backend arrays.
@@ -649,19 +653,19 @@ The exact file location should be chosen after checking the existing frontend ut
 It should expose four primary operations:
 
 ```js
-normalizeFilterTree(value, context);
-serializeFilterTree(tree, context);
-deserializeFilterPayload(payload, context);
-validateFilterTree(tree, context);
+normalizeFilterTree(value, context)
+serializeFilterTree(tree, context)
+deserializeFilterPayload(payload, context)
+validateFilterTree(tree, context)
 ```
 
 Optional helpers:
 
 ```js
-createFilterLeaf(context);
-createFilterGroup(operator);
-isFilterLeaf(node);
-isFilterGroup(node);
+createFilterLeaf(context)
+createFilterGroup(operator)
+isFilterLeaf(node)
+isFilterGroup(node)
 ```
 
 The adapter should contain **no Vue template logic**.
@@ -735,13 +739,13 @@ Do **not** invent a third query language.
 The preferred simple leaf representation remains list-based where supported:
 
 ```js
-["fieldname", "=", value];
+["fieldname", "=", value]
 ```
 
 or the existing four-part representation where the DocType must travel with the leaf:
 
 ```js
-["DocType", "fieldname", "=", value];
+["DocType", "fieldname", "=", value]
 ```
 
 The exact canonical choice must be the one already accepted by the current Fetch Records backend. The adapter should normalize all UI leaves to that one representation before emitting configuration.
@@ -870,13 +874,13 @@ The adapter may accept more than one input representation when reading existing 
 For example:
 
 ```js
-["status", "=", "Open"];
+["status", "=", "Open"]
 ```
 
 and:
 
 ```js
-["Sales Order", "status", "=", "Open"];
+["Sales Order", "status", "=", "Open"]
 ```
 
 may both be recognized if they are currently valid inputs.
@@ -1463,17 +1467,17 @@ The implementation is production-ready when all of the following are true:
 
 ## 27. Recommended final ownership model
 
-| Responsibility                     | Component / Layer           |
-| ---------------------------------- | --------------------------- |
-| Interactive tree                   | TreeBuilder                 |
-| Recursive node rendering           | TreeBuilderNode             |
+| Responsibility | Component / Layer |
+|---|---|
+| Interactive tree | TreeBuilder |
+| Recursive node rendering | TreeBuilderNode |
 | Filter field/operator/value editor | FilterGroup / FilterLeaf UI |
-| Filter UI state                    | QueryFilterTree             |
-| Tree ↔ backend conversion          | Filter Tree Adapter         |
-| Complete action configuration      | FetchRecordsConfig          |
-| Query execution                    | Fetch Records backend       |
-| Frappe API/version compatibility   | `frappe_query_compat.py`    |
-| Permissions/security               | Backend / Frappe            |
+| Filter UI state | QueryFilterTree |
+| Tree ↔ backend conversion | Filter Tree Adapter |
+| Complete action configuration | FetchRecordsConfig |
+| Query execution | Fetch Records backend |
+| Frappe API/version compatibility | `frappe_query_compat.py` |
+| Permissions/security | Backend / Frappe |
 
 The key design rule is:
 
@@ -1485,20 +1489,20 @@ The key design rule is:
 
 The ownership model should explicitly reflect the FilterLeaf extraction and stable navigation state:
 
-| Responsibility                   | Component / Layer                      |
-| -------------------------------- | -------------------------------------- |
-| Interactive tree                 | TreeBuilder                            |
-| Recursive node rendering         | TreeBuilderNode                        |
-| One filter leaf editor           | FilterLeaf                             |
-| Field navigation for one leaf    | FilterLeaf → useNavigableFields        |
-| Field picker UI                  | ComboBoxControl                        |
-| Legacy flat filter collection    | FilterGroup, only where still required |
-| Filter UI tree integration       | QueryFilterTree                        |
-| Tree ↔ backend conversion        | Filter Tree Adapter                    |
-| Complete action configuration    | FetchRecordsConfig                     |
-| Query execution                  | Fetch Records backend                  |
-| Frappe API/version compatibility | `frappe_query_compat.py`               |
-| Permissions/security             | Backend / Frappe                       |
+| Responsibility | Component / Layer |
+|---|---|
+| Interactive tree | TreeBuilder |
+| Recursive node rendering | TreeBuilderNode |
+| One filter leaf editor | FilterLeaf |
+| Field navigation for one leaf | FilterLeaf → useNavigableFields |
+| Field picker UI | ComboBoxControl |
+| Legacy flat filter collection | FilterGroup, only where still required |
+| Filter UI tree integration | QueryFilterTree |
+| Tree ↔ backend conversion | Filter Tree Adapter |
+| Complete action configuration | FetchRecordsConfig |
+| Query execution | Fetch Records backend |
+| Frappe API/version compatibility | `frappe_query_compat.py` |
+| Permissions/security | Backend / Frappe |
 
 `FilterGroup.vue` must not become a second navigation implementation. The long-term Query Filter Tree path should use `FilterLeaf.vue` for individual filter editing and stable navigation state.
 
@@ -1536,11 +1540,9 @@ This plan is specifically a **filter-tree representation and boundary refactor**
 \n\n---\n\n# Consolidated source 4: reports/query-records/frappe-qb-capabilities-and-limits-report.md\n\n> Original report content follows. Preserved without rewriting so findings, evidence, caveats, and historical context remain attributable to their source.\n\n# Frappe Query Builder (`frappe.qb.get_query`) Evidence-Based Audit & Capabilities Report
 
 ## Executive Summary
-
 This report records source-level and empirical observations about Frappe v15's native Query Builder (`frappe.qb.get_query` / `Engine.get_query`) and FlexiRule's **Fetch Records** integration (`QueryRecordsHandler._fetch_records`). The capability probes and FlexiRule integration tests are separate evidence categories: a native QB capability passing does not prove the FlexiRule adapter preserves the input or produces correct results.
 
 The seven dedicated modules below define 39 test methods. The latest CI runs for the reviewed head completed successfully. This confirms the repository's CI workflow passed for that commit; it does not by itself prove every listed edge case is covered. See the verification status below. Test modules:
-
 1. `test_qb_field_path_capabilities.py` (5 tests) - Reuses installed `Rule`, `Rule Action`, `Process` DocTypes
 2. `test_qb_operator_capabilities.py` (6 tests) - Reuses installed `Rule` DocType
 3. `test_qb_tree_capabilities.py` (5 tests) - Retains dedicated `QB Tree Node <RUN_ID>` DocType (Tree DocType required)
@@ -1552,7 +1554,6 @@ The seven dedicated modules below define 39 test methods. The latest CI runs for
 ---
 
 ## 1. Environment & Execution Context
-
 - **Frappe Version**: Frappe v15.121.1 (`apps/frappe`)
 - **Database Backend**: MariaDB / MySQL (InnoDB engine on `test_site`)
 - **Test Site**: `test_site` (`/home/jules/frappe-bench`)
@@ -1570,101 +1571,93 @@ The seven dedicated modules below define 39 test methods. The latest CI runs for
 ---
 
 ## 2. Test Safety, Fixture Isolation & Zero Deletion-on-Collision Architecture
-
 To guarantee that running tests never delete pre-existing site data, DocTypes, or shared records:
-
 - **Reuse Installed FlexiRule DocTypes**:
-    - `Rule`, `Rule Action`, `Process`, and `Data Review Task` are reused across operator capability, filter tree integration, field path capability, and value matrix tests.
-    - Reused fields include `rule_name`, `is_active`, `execution_mode`, `priority`, `max_execution_time`, `description`, `resolved_on`, `actions.action_id`, and `process_name.description`.
+  - `Rule`, `Rule Action`, `Process`, and `Data Review Task` are reused across operator capability, filter tree integration, field path capability, and value matrix tests.
+  - Reused fields include `rule_name`, `is_active`, `execution_mode`, `priority`, `max_execution_time`, `description`, `resolved_on`, `actions.action_id`, and `process_name.description`.
 - **Justified Dedicated Fixtures**:
-    - `QB Tree Node <RUN_ID>`: Retained as a uniquely named per-run test DocType because no installed FlexiRule DocType has `is_tree: 1` required to test tree hierarchy operators (`descendants of`, `ancestors of`, etc.).
-    - `QB Matrix Temp <RUN_ID>`: Retained as a uniquely named per-run test DocType strictly to cover `Date` and `Currency` fieldtypes not present on installed FlexiRule DocTypes.
+  - `QB Tree Node <RUN_ID>`: Retained as a uniquely named per-run test DocType because no installed FlexiRule DocType has `is_tree: 1` required to test tree hierarchy operators (`descendants of`, `ancestors of`, etc.).
+  - `QB Matrix Temp <RUN_ID>`: Retained as a uniquely named per-run test DocType strictly to cover `Date` and `Currency` fieldtypes not present on installed FlexiRule DocTypes.
 - **Zero Deletion-on-Collision & Explicit Ownership Tracking**:
-    - Setup-time deletions (`frappe.delete_doc` / `frappe.db.delete` on pre-existing records) have been completely eliminated.
-    - Each test run generates a unique hex suffix (`_run_id = uuid.uuid4().hex[:8].upper()`) for its test documents and dedicated DocTypes.
-    - If a document or DocType with the generated test name unexpectedly already exists, the test fails fast (`RuntimeError`) rather than silently deleting or reusing pre-existing site data.
-    - Queries match test data using explicit created document name lists (`["rule_name", "in", [name1, name2, ...]]`) rather than fuzzy SQL `LIKE` wildcards with `_`.
-    - `tearDownClass` deletes ONLY test-owned records and test-created DocTypes in reverse creation order, preserving pre-existing site records and shared metadata.
+  - Setup-time deletions (`frappe.delete_doc` / `frappe.db.delete` on pre-existing records) have been completely eliminated.
+  - Each test run generates a unique hex suffix (`_run_id = uuid.uuid4().hex[:8].upper()`) for its test documents and dedicated DocTypes.
+  - If a document or DocType with the generated test name unexpectedly already exists, the test fails fast (`RuntimeError`) rather than silently deleting or reusing pre-existing site data.
+  - Queries match test data using explicit created document name lists (`["rule_name", "in", [name1, name2, ...]]`) rather than fuzzy SQL `LIKE` wildcards with `_`.
+  - `tearDownClass` deletes ONLY test-owned records and test-created DocTypes in reverse creation order, preserving pre-existing site records and shared metadata.
 
 ---
 
 ## 3. Comprehensive Capability & Operator Audit
 
 ### A. Comparison Operators (`=`, `!=`, `>`, `>=`, `<`, `<=`)
-
 - **Native Frappe Status**: **Supported (Source-confirmed & Empirically verified)**.
 - **Tested Field Types**: Data, Int, Float, Currency, Date, Datetime, Check / Boolean.
 - **Operand Representations**:
-    - Native Python values (`10`, `3.14159`, `datetime.date(2026, 3, 1)`, `datetime.datetime(...)`, `True`, `False`).
-    - Numeric strings (`"42"`, `"50.00"`), ISO date strings (`"2026-03-01"`), and ISO datetime strings (`"2026-03-15 00:00:00"`).
-    - Boundary values: Negative integers (`-10`), negative floats (`-0.5`), zero (`0`), and fractional seconds (`2026-03-31 23:59:59.999999`).
+  - Native Python values (`10`, `3.14159`, `datetime.date(2026, 3, 1)`, `datetime.datetime(...)`, `True`, `False`).
+  - Numeric strings (`"42"`, `"50.00"`), ISO date strings (`"2026-03-01"`), and ISO datetime strings (`"2026-03-15 00:00:00"`).
+  - Boundary values: Negative integers (`-10`), negative floats (`-0.5`), zero (`0`), and fractional seconds (`2026-03-31 23:59:59.999999`).
 
 ### B. Pattern Matching Operators (`like`, `not like`, `starts with`, `ends with`)
-
 - **Wildcard Supply Contract & Double-Wildcarding**:
-    1. **Native `like`**: Expects the **caller** to supply wildcards (`%` or `_`). Plain strings without wildcards execute an exact SQL match.
-    2. **Native `not like`**: Expects caller-supplied wildcards. Records with `SQL NULL` values in the field are omitted from results due to SQL tri-state logic.
-    3. **FlexiRule `starts with` & Characterization Note**:
-        - `QueryRecordsHandler._normalize_single_filter_operator` automatically appends `%` to the operand string (`val` -> `val%`).
-        - **Observed Behavior**: If an input string is already wildcarded (e.g. `"Test%"`), `starts with` currently produces `"Test%%"`. This observed implementation behavior is documented in characterization test `test_01_ui_operator_normalization` in `test_fetch_records_normalization.py`. Production code remains unchanged in this test refactoring task. If wildcard sanitization/trimming is desired, it should be addressed in a separate focused change.
-    4. **FlexiRule `ends with`**: Automatically prepends `%` to the operand string (`val` -> `%val`).
+  1. **Native `like`**: Expects the **caller** to supply wildcards (`%` or `_`). Plain strings without wildcards execute an exact SQL match.
+  2. **Native `not like`**: Expects caller-supplied wildcards. Records with `SQL NULL` values in the field are omitted from results due to SQL tri-state logic.
+  3. **FlexiRule `starts with` & Characterization Note**:
+     - `QueryRecordsHandler._normalize_single_filter_operator` automatically appends `%` to the operand string (`val` -> `val%`).
+     - **Observed Behavior**: If an input string is already wildcarded (e.g. `"Test%"`), `starts with` currently produces `"Test%%"`. This observed implementation behavior is documented in characterization test `test_01_ui_operator_normalization` in `test_fetch_records_normalization.py`. Production code remains unchanged in this test refactoring task. If wildcard sanitization/trimming is desired, it should be addressed in a separate focused change.
+  4. **FlexiRule `ends with`**: Automatically prepends `%` to the operand string (`val` -> `%val`).
 
 ### C. Set Membership (`in` and `not in`)
-
 - **Native Frappe Status**: **Supported (Source-confirmed & Empirically verified)**.
 - **List / Sequence Handling**:
-    - Lists of native values (`[10, 20]`) and strings.
-    - Comma-separated strings (`"CODE_A,CODE_B"`): Natively split by `frappe.database.operator_map.func_in` into `['CODE_A', 'CODE_B']`.
-    - Empty lists (`[]`): Natively converted by `Engine._apply_filter` to `("",)`, returning 0 records safely without raising SQL syntax errors.
+  - Lists of native values (`[10, 20]`) and strings.
+  - Comma-separated strings (`"CODE_A,CODE_B"`): Natively split by `frappe.database.operator_map.func_in` into `['CODE_A', 'CODE_B']`.
+  - Empty lists (`[]`): Natively converted by `Engine._apply_filter` to `("",)`, returning 0 records safely without raising SQL syntax errors.
 
 ### D. Range Operators (`between` and `not between`)
-
 - **Native Frappe Status**: **Supported (Source-confirmed & Empirically verified)**.
 - **Boundary Inclusivity**: Natively inclusive on both lower and upper bounds (`start <= field <= end`).
 - **Date & Datetime Range Semantics**:
-    - Tested with ISO Date strings (`["2026-03-01", "2026-03-31"]`) and Datetime strings with microsecond precision (`["2026-03-01 00:00:00", "2026-03-31 23:59:59.999999"]`).
-    - FlexiRule `_coerce_between_value` accepts 2-element lists, tuples, comma-separated strings `"start, end"`, and falls back to `(val, val)` for single strings (treating it as a single-day range).
+  - Tested with ISO Date strings (`["2026-03-01", "2026-03-31"]`) and Datetime strings with microsecond precision (`["2026-03-01 00:00:00", "2026-03-31 23:59:59.999999"]`).
+  - FlexiRule `_coerce_between_value` accepts 2-element lists, tuples, comma-separated strings `"start, end"`, and falls back to `(val, val)` for single strings (treating it as a single-day range).
 
 ### E. Check / Boolean Coercion
-
 - **Native Frappe Status**: **Supported (Source-confirmed & Empirically verified)**.
 - **Boolean Handling**:
-    - Python `True` / `False` are converted by `Engine._apply_filter` to integer `1` / `0`.
-    - Numeric integers `1` / `0` and numeric strings `'1'` / `'0'` match stored database integer values.
+  - Python `True` / `False` are converted by `Engine._apply_filter` to integer `1` / `0`.
+  - Numeric integers `1` / `0` and numeric strings `'1'` / `'0'` match stored database integer values.
 - **FlexiRule Value Coercion (`_extract_filter_value_payload`)**:
-    - When wrapped in structured UI dicts with `value_type: "boolean"`, inputs `True`, `1`, `"1"`, `"Yes"`, `"yes"`, `"true"`, `"True"` resolve to `1`.
-    - Inputs `False`, `0`, `"0"`, `"No"`, `"no"`, `"false"`, `"False"` resolve to `0`.
-    - Plain un-wrapped string variants (e.g. `"true"`) pass through uncoerced to the database.
+  - When wrapped in structured UI dicts with `value_type: "boolean"`, inputs `True`, `1`, `"1"`, `"Yes"`, `"yes"`, `"true"`, `"True"` resolve to `1`.
+  - Inputs `False`, `0`, `"0"`, `"No"`, `"no"`, `"false"`, `"False"` resolve to `0`.
+  - Plain un-wrapped string variants (e.g. `"true"`) pass through uncoerced to the database.
 
 ---
 
 ## 4. Complete Coverage Matrix
 
-| Path / Operator                    | Native Frappe   | FlexiRule Normalization | Failure Stage / Notes                                                             |
-| :--------------------------------- | :-------------- | :---------------------- | :-------------------------------------------------------------------------------- |
-| `field`                            | **Supported**   | Direct                  | Selected on root table                                                            |
-| `process_name.description`         | **Supported**   | Direct                  | Dynamic `LEFT JOIN` on Level 1 table (`Rule Action` -> `Process`)                 |
-| `link1.link2.field`                | **Unsupported** | None                    | `ValueError: too many values to unpack (expected 2)` in `DynamicTableField.parse` |
-| `actions.action_id`                | **Supported**   | Direct                  | Dynamic `LEFT JOIN` on child table (`Rule` -> `Rule Action`)                      |
-| `actions.process_name.description` | **Unsupported** | None                    | `ValueError: too many values to unpack (expected 2)` in `DynamicTableField.parse` |
-| `=`, `!=`, `>`, `>=`, `<`, `<=`    | **Supported**   | Direct                  | Executed via PyPika comparison                                                    |
-| `like`, `not like`                 | **Supported**   | Direct                  | Executed with `%` and `_` wildcards; SQL NULLs excluded under `not like`          |
-| `in`, `not in`                     | **Supported**   | Direct                  | Comma-strings split; empty lists converted to `("",)`                             |
-| `is set`, `is not set`             | **Supported**   | Direct                  | Matches NULL and empty string `""`                                                |
-| `descendants of`                   | **Supported**   | Direct                  | Evaluates Tree DocType `lft` and `rgt` on `QB Tree Node <RUN_ID>`                 |
-| `ancestors of`                     | **Supported**   | Direct                  | Evaluates Tree DocType `lft` and `rgt` on `QB Tree Node <RUN_ID>`                 |
-| `starts with` / `ends with`        | Unsupported     | Normalized              | Converted to `like "val%"` / `like "%val"` (see double-wildcarding note)          |
-| `Between` / `Timespan`             | Unsupported     | Normalized              | Coerced to `between [start, end]`                                                 |
+| Path / Operator | Native Frappe | FlexiRule Normalization | Failure Stage / Notes |
+| :--- | :--- | :--- | :--- |
+| `field` | **Supported** | Direct | Selected on root table |
+| `process_name.description` | **Supported** | Direct | Dynamic `LEFT JOIN` on Level 1 table (`Rule Action` -> `Process`) |
+| `link1.link2.field` | **Unsupported** | None | `ValueError: too many values to unpack (expected 2)` in `DynamicTableField.parse` |
+| `actions.action_id` | **Supported** | Direct | Dynamic `LEFT JOIN` on child table (`Rule` -> `Rule Action`) |
+| `actions.process_name.description` | **Unsupported** | None | `ValueError: too many values to unpack (expected 2)` in `DynamicTableField.parse` |
+| `=`, `!=`, `>`, `>=`, `<`, `<=` | **Supported** | Direct | Executed via PyPika comparison |
+| `like`, `not like` | **Supported** | Direct | Executed with `%` and `_` wildcards; SQL NULLs excluded under `not like` |
+| `in`, `not in` | **Supported** | Direct | Comma-strings split; empty lists converted to `("",)` |
+| `is set`, `is not set` | **Supported** | Direct | Matches NULL and empty string `""` |
+| `descendants of` | **Supported** | Direct | Evaluates Tree DocType `lft` and `rgt` on `QB Tree Node <RUN_ID>` |
+| `ancestors of` | **Supported** | Direct | Evaluates Tree DocType `lft` and `rgt` on `QB Tree Node <RUN_ID>` |
+| `starts with` / `ends with` | Unsupported | Normalized | Converted to `like "val%"` / `like "%val"` (see double-wildcarding note) |
+| `Between` / `Timespan` | Unsupported | Normalized | Coerced to `between [start, end]` |
 
 ---
 
 ## 5. Summary & Release Recommendations
-
 1. **Fixture isolation**: the inspected dedicated fixtures use run-specific names and track created records. This is a source review of cleanup behavior, not a claim that the latest CI run passed; keep test-owned-resource cleanup paired with fail-fast collision checks.
 2. **Dotted Path UI Depth**: UI ComboBox controls for Fetch Records should constrain dotted field navigation to 1 link level or direct child table level, as >1 level dotted chains trigger `ValueError: too many values to unpack` in `frappe.qb.get_query`.
 3. **Double Wildcarding**: Users configuring `starts with` in FlexiRule who manually enter a `%` suffix will produce `%%`. A separate focused change may be considered if wildcard sanitization is desired.
 4. **Child Table Link Fields**: Traversing link fields within child tables (e.g. `actions.process_name.description`) is natively unsupported by `frappe.qb.get_query`. Direct child queries or multi-action sub-queries should be recommended for child link references.
-   \n\n---\n\n# Consolidated source 5: reports/query-records/frappe-qb-v15-capability-audit.md\n\n> Original report content follows. Preserved without rewriting so findings, evidence, caveats, and historical context remain attributable to their source.\n\n# Frappe v15 `frappe.qb.get_query` Architectural Capability Audit Report
+\n\n---\n\n# Consolidated source 5: reports/query-records/frappe-qb-v15-capability-audit.md\n\n> Original report content follows. Preserved without rewriting so findings, evidence, caveats, and historical context remain attributable to their source.\n\n# Frappe v15 `frappe.qb.get_query` Architectural Capability Audit Report
 
 ## Executive Summary
 
@@ -1676,187 +1669,177 @@ This report separates three evidence categories that must not be conflated:
 
 **Contract discrepancy at the reviewed head:** the intended Fetch Records contract is canonical `group`/`leaf` tree only, but `query_records.py` currently recursively calls `resolve_payload()` on the entire filter object and then invokes `_normalize_filters_for_backend()` for non-canonical list/dict filters. In addition, `test_03_legacy_tuple_and_list_filter_shapes` in `test_fetch_records_filter_tree_integration.py` explicitly expects Fetch Records to accept legacy filters. Both the implementation and that test conflict with the intended strict contract. Legacy normalization should remain available to established modes such as Query List/Get List; Fetch Records should validate and convert only canonical trees.
 
-\***\*CI evidence:** [CI run 38182490923](https://github.com/Sendipad/flexirule/actions/runs/38182490923) and [Linters run 38182491032](https://github.com/Sendipad/flexirule/actions/runs/38182491032) passed on commit 693971455c0752f45879cee82e91c635a2e07a27. Because .github/workflows/ci.yml was subsequently restored, verify the new head's runs before treating the restored workflow as green.
+****CI evidence:** [CI run 38182490923](https://github.com/Sendipad/flexirule/actions/runs/38182490923) and [Linters run 38182491032](https://github.com/Sendipad/flexirule/actions/runs/38182491032) passed on commit 693971455c0752f45879cee82e91c635a2e07a27. Because .github/workflows/ci.yml was subsequently restored, verify the new head's runs before treating the restored workflow as green.
 
 ---
 
 ## 1. Installed Environment Specifications
 
-- **Frappe Version:** `15.121.1`
-- **Frappe Repository Commit:** `8f801ade016078685c3165c96e38f84f249f5309` (branch: `version-15`)
-- **Python Version:** `3.12.13`
-- **Database Engine:** `MariaDB`
-- **Database Version:** `10.11.14-MariaDB-0ubuntu0.24.04.1`
-- **Query Builder Implementation Files:**
-    - `frappe/query_builder/utils.py` (Defines `get_query()` entry point, `PseudoColumnMapper`, and patches `run()` / `walk()`)
-    - `frappe/database/query.py` (Defines `Engine`, `Permission`, `ChildQuery`, `DynamicTableField`, `parse_fields`, `apply_filters`)
-    - `frappe/database/operator_map.py` (Defines operator mappings including `NestedSetHierarchy`, `is`, `between`, `timespan`)
-    - `frappe/utils/nestedset.py` (Implements `get_ancestors_of`, `get_descendants_of`, `rebuild_tree` for tree hierarchy evaluation)
-    - `frappe/query_builder/builder.py` (Database-specific builder overrides for MariaDB & Postgres)
+* **Frappe Version:** `15.121.1`
+* **Frappe Repository Commit:** `8f801ade016078685c3165c96e38f84f249f5309` (branch: `version-15`)
+* **Python Version:** `3.12.13`
+* **Database Engine:** `MariaDB`
+* **Database Version:** `10.11.14-MariaDB-0ubuntu0.24.04.1`
+* **Query Builder Implementation Files:**
+  * `frappe/query_builder/utils.py` (Defines `get_query()` entry point, `PseudoColumnMapper`, and patches `run()` / `walk()`)
+  * `frappe/database/query.py` (Defines `Engine`, `Permission`, `ChildQuery`, `DynamicTableField`, `parse_fields`, `apply_filters`)
+  * `frappe/database/operator_map.py` (Defines operator mappings including `NestedSetHierarchy`, `is`, `between`, `timespan`)
+  * `frappe/utils/nestedset.py` (Implements `get_ancestors_of`, `get_descendants_of`, `rebuild_tree` for tree hierarchy evaluation)
+  * `frappe/query_builder/builder.py` (Database-specific builder overrides for MariaDB & Postgres)
 
 ---
 
 ## 2. Detailed Capability Audit Findings by Category
 
 ### 2.1 Basic Query & Fields Selection
-
-- **`frappe.qb.get_query("DocType")`**: Generates `SELECT name FROM tabDocType`. Omitting fields defaults selection to `name`.
-- **Explicit Fields (`fields=["name", "status"]`)**: Generates `SELECT name, status FROM tabDocType`. Returns list of dictionaries with matching keys.
-- **Comma-Separated Fields (`fields="name, status"`)**: Supported. `Engine.parse_fields` splits comma-separated string paths.
-- **Wildcard (`fields="*"`)**: Generates `SELECT * FROM tabDocType` selecting all table columns.
-- **Aliases (`fields=["name as doc_id"]`)**: Generates `SELECT name doc_id FROM tabDocType`. Returned dictionary keys match the alias name (`doc_id`).
+* **`frappe.qb.get_query("DocType")`**: Generates `SELECT name FROM tabDocType`. Omitting fields defaults selection to `name`.
+* **Explicit Fields (`fields=["name", "status"]`)**: Generates `SELECT name, status FROM tabDocType`. Returns list of dictionaries with matching keys.
+* **Comma-Separated Fields (`fields="name, status"`)**: Supported. `Engine.parse_fields` splits comma-separated string paths.
+* **Wildcard (`fields="*"`)**: Generates `SELECT * FROM tabDocType` selecting all table columns.
+* **Aliases (`fields=["name as doc_id"]`)**: Generates `SELECT name doc_id FROM tabDocType`. Returned dictionary keys match the alias name (`doc_id`).
 
 ### 2.2 Execution Modes & Iterator Support
-
-- **`query.run(as_dict=True)`**: Returns list of dictionaries.
-- **`query.run(as_list=True)`**: Returns tuple/list of row tuples.
-- **`query.run(pluck=True)`**: Returns a flat list of scalar values for a single selected column.
-- **Iterator Execution (`query.run(as_iterator=True)`)**: **SUPPORTED.** Returns a Python generator object (`<class 'generator'>`).
-    - `query.run(as_dict=True, as_iterator=True)` yields row dictionaries item-by-item during iteration.
-    - `query.run(as_list=True, as_iterator=True)` yields row lists item-by-item during iteration.
-    - Completely consumed during test execution with exact row count and dictionary key validation (`{P1, P2, P3}`).
+* **`query.run(as_dict=True)`**: Returns list of dictionaries.
+* **`query.run(as_list=True)`**: Returns tuple/list of row tuples.
+* **`query.run(pluck=True)`**: Returns a flat list of scalar values for a single selected column.
+* **Iterator Execution (`query.run(as_iterator=True)`)**: **SUPPORTED.** Returns a Python generator object (`<class 'generator'>`).
+  * `query.run(as_dict=True, as_iterator=True)` yields row dictionaries item-by-item during iteration.
+  * `query.run(as_list=True, as_iterator=True)` yields row lists item-by-item during iteration.
+  * Completely consumed during test execution with exact row count and dictionary key validation (`{P1, P2, P3}`).
 
 ### 2.3 Filter Syntax, Null/Set Operators & Complex Logical OR/AND
-
-- **Dict Equality (`filters={"status": "Open"}`)**: Generates `WHERE status = 'Open'`.
-- **Dict Operator (`filters={"qty": [">", 0]}`)**: Generates `WHERE qty > 0`.
-- **List Form (`filters=[["status", "=", "Open"]]`)**: Generates `WHERE status = 'Open'`.
-- **Null / Set Operators (`is set` / `is not set`)**:
-    - Tested on `nullable_text` field (`P1 = "A"`, `P2 = None`, `P3 = "C"`).
-    - `filters=[["nullable_text", "is", "set"]]` generates `WHERE nullable_text != ''` and returns exactly `{P1, P3}`.
-    - `filters=[["nullable_text", "is", "not set"]]` generates `WHERE nullable_text IS NULL OR nullable_text = ''` and returns exactly `{P2}`.
-- **Infix String `"or"` in List Filters (`filters=[["status", "=", "Open"], "or", ["status", "=", "Pending"]]`)**: **UNSUPPORTED / BROKEN.** `Engine.apply_filters` loops through list elements and converts string `"or"` into `{"name": "or"}`, producing `WHERE name = 'or'`, which yields 0 records.
-- **Nested Logical Structures via Pypika `Criterion`**: **SUPPORTED.**
-    - `((t.status == "Open") & (t.enabled == 1)) | ((t.status == "Pending") & (t.enabled == 1))` generates `WHERE (status='Open' AND enabled=1) OR (status='Pending' AND enabled=1)` and returns `{P1, P2}`.
-    - `(t.status == "Open") & ((t.enabled == 1) | (t.status == "Pending"))` generates `WHERE status='Open' AND (enabled=1 OR status='Pending')` and returns `{P1}`.
+* **Dict Equality (`filters={"status": "Open"}`)**: Generates `WHERE status = 'Open'`.
+* **Dict Operator (`filters={"qty": [">", 0]}`)**: Generates `WHERE qty > 0`.
+* **List Form (`filters=[["status", "=", "Open"]]`)**: Generates `WHERE status = 'Open'`.
+* **Null / Set Operators (`is set` / `is not set`)**:
+  * Tested on `nullable_text` field (`P1 = "A"`, `P2 = None`, `P3 = "C"`).
+  * `filters=[["nullable_text", "is", "set"]]` generates `WHERE nullable_text != ''` and returns exactly `{P1, P3}`.
+  * `filters=[["nullable_text", "is", "not set"]]` generates `WHERE nullable_text IS NULL OR nullable_text = ''` and returns exactly `{P2}`.
+* **Infix String `"or"` in List Filters (`filters=[["status", "=", "Open"], "or", ["status", "=", "Pending"]]`)**: **UNSUPPORTED / BROKEN.** `Engine.apply_filters` loops through list elements and converts string `"or"` into `{"name": "or"}`, producing `WHERE name = 'or'`, which yields 0 records.
+* **Nested Logical Structures via Pypika `Criterion`**: **SUPPORTED.**
+  * `((t.status == "Open") & (t.enabled == 1)) | ((t.status == "Pending") & (t.enabled == 1))` generates `WHERE (status='Open' AND enabled=1) OR (status='Pending' AND enabled=1)` and returns `{P1, P2}`.
+  * `(t.status == "Open") & ((t.enabled == 1) | (t.status == "Pending"))` generates `WHERE status='Open' AND (enabled=1 OR status='Pending')` and returns `{P1}`.
 
 ### 2.4 Filter Operators & Tree Operators
-
-- **Standard Comparison Operators (`=`, `!=`, `>`, `<`, `>=`, `<=`, `like`, `not like`, `in`, `not in`)**: Fully supported and verified against exact record sets.
-- **Tree / Nested Set Operators (`descendants of`, `ancestors of`, `not descendants of`, `not ancestors of`)**: **SUPPORTED on `is_tree=1` DocTypes.**
-    - `Engine._apply_filter` checks `_operator.casefold() in OPERATOR_MAP["nested_set"]` (`NestedSetHierarchy`), calling `get_nested_set_hierarchy_result(ref_doctype, docname, hierarchy)`.
-    - `filters=[["name", "descendants of", root_name]]` on `QB Test Tree` generates `WHERE name IN ('Child A', 'Grandchild A', 'Child B')` and returns all descendant nodes.
-    - `filters=[["name", "ancestors of", grandchild_name]]` generates `WHERE name IN ('Child A', 'Root')` and returns ancestor nodes.
-    - Applying tree operators to a non-tree DocType or non-existent document node raises a `KeyError` or returns empty node tuples.
+* **Standard Comparison Operators (`=`, `!=`, `>`, `<`, `>=`, `<=`, `like`, `not like`, `in`, `not in`)**: Fully supported and verified against exact record sets.
+* **Tree / Nested Set Operators (`descendants of`, `ancestors of`, `not descendants of`, `not ancestors of`)**: **SUPPORTED on `is_tree=1` DocTypes.**
+  * `Engine._apply_filter` checks `_operator.casefold() in OPERATOR_MAP["nested_set"]` (`NestedSetHierarchy`), calling `get_nested_set_hierarchy_result(ref_doctype, docname, hierarchy)`.
+  * `filters=[["name", "descendants of", root_name]]` on `QB Test Tree` generates `WHERE name IN ('Child A', 'Grandchild A', 'Child B')` and returns all descendant nodes.
+  * `filters=[["name", "ancestors of", grandchild_name]]` generates `WHERE name IN ('Child A', 'Root')` and returns ancestor nodes.
+  * Applying tree operators to a non-tree DocType or non-existent document node raises a `KeyError` or returns empty node tuples.
 
 ### 2.5 Link-Field Traversal & Ordering
-
-- **Selecting Dotted Linked Fields (`fields=["name", "target_link.territory", "category_link.group_code"]`)**: Fully supported. Automatically generates multiple `LEFT JOIN` clauses (`tabQB Test Target`, `tabQB Test Category`).
-- **Filtering Dotted Linked Fields (`filters={"target_link.territory": "North"}`)**: Fully supported.
-- **Dotted Path `order_by="target_link.territory asc"`**: **UNSUPPORTED in string parser.** `Engine.apply_order_by` splits string by comma and prepends table name without resolving join alias, generating `ORDER BY tabQB Test Parent.target_link.territory ASC`, which raises `pymysql.err.OperationalError: Unknown column`.
-- **Pypika Join & Ordering**: **SUPPORTED.** Explicitly joining tables and ordering via `orderby(target_table.territory)` generates `ORDER BY tabQB Test Target.territory` and executes successfully.
+* **Selecting Dotted Linked Fields (`fields=["name", "target_link.territory", "category_link.group_code"]`)**: Fully supported. Automatically generates multiple `LEFT JOIN` clauses (`tabQB Test Target`, `tabQB Test Category`).
+* **Filtering Dotted Linked Fields (`filters={"target_link.territory": "North"}`)**: Fully supported.
+* **Dotted Path `order_by="target_link.territory asc"`**: **UNSUPPORTED in string parser.** `Engine.apply_order_by` splits string by comma and prepends table name without resolving join alias, generating `ORDER BY tabQB Test Parent.target_link.territory ASC`, which raises `pymysql.err.OperationalError: Unknown column`.
+* **Pypika Join & Ordering**: **SUPPORTED.** Explicitly joining tables and ordering via `orderby(target_table.territory)` generates `ORDER BY tabQB Test Target.territory` and executes successfully.
 
 ### 2.6 Child Table Traversal vs. Structured Child Fetching
-
-- **Flat Child Traversal (`fields=["name", "items.item_code"]`)**: Generates `LEFT JOIN tabQB Test Child ON ...`. Duplicates parent rows in the result set for every matching child record (3 rows for parent `P1` with 3 items).
-- **Structured Child Fetching (`fields=["name", {"items": ["item_code", "qty"]}]`)**: **SUPPORTED.** Returns distinct parent row dictionaries (`len = 3`). `Engine` instantiates a `ChildQuery` object for `items`, executes a secondary query against `tabQB Test Child`, and embeds child dict lists directly into each parent dictionary (`row["items"] = [...]`).
-- **Distinct Parent Deduplication (`distinct=True`)**:
-    - For flat query selecting only parent fields (`fields=["name"]`, `filters={"items.item_code": "ITEM-001"}`), `distinct=True` generates `SELECT DISTINCT name FROM ...` and deduplicates parent rows (`{P1, P2}`).
-    - If child fields are in SELECT (`fields=["name", "items.item_code"]`), `distinct=True` cannot deduplicate parent rows because distinct applies to the entire row tuple `(name, item_code)`.
+* **Flat Child Traversal (`fields=["name", "items.item_code"]`)**: Generates `LEFT JOIN tabQB Test Child ON ...`. Duplicates parent rows in the result set for every matching child record (3 rows for parent `P1` with 3 items).
+* **Structured Child Fetching (`fields=["name", {"items": ["item_code", "qty"]}]`)**: **SUPPORTED.** Returns distinct parent row dictionaries (`len = 3`). `Engine` instantiates a `ChildQuery` object for `items`, executes a secondary query against `tabQB Test Child`, and embeds child dict lists directly into each parent dictionary (`row["items"] = [...]`).
+* **Distinct Parent Deduplication (`distinct=True`)**:
+  * For flat query selecting only parent fields (`fields=["name"]`, `filters={"items.item_code": "ITEM-001"}`), `distinct=True` generates `SELECT DISTINCT name FROM ...` and deduplicates parent rows (`{P1, P2}`).
+  * If child fields are in SELECT (`fields=["name", "items.item_code"]`), `distinct=True` cannot deduplicate parent rows because distinct applies to the entire row tuple `(name, item_code)`.
 
 ### 2.7 Child DocType as Root Query & `parent_doctype`
-
-- **Direct Child Query (`frappe.qb.get_query("QB Test Child")`)**: Fully supported. Generates `SELECT name, item_code, parent, parenttype, parentfield FROM tabQB Test Child`.
-- **Filtering Child DocType by Parent Context**: Fully supported using `filters=[["parent", "=", parent_name], ["parenttype", "=", "QB Test Parent"]]`.
-- **`parent_doctype` Argument (`frappe.qb.get_query("QB Test Child", parent_doctype="QB Test Parent")`)**: **UNSUPPORTED on `get_query()`.** Raises `TypeError: Engine.get_query() got an unexpected keyword argument 'parent_doctype'`.
-- **Permission Enforcement for Child DocTypes**: `parent_doctype` is an argument for permission checks (`Permission.check_permissions(query, parent_doctype="...")` or `frappe.has_permission("QB Test Child", parent_doctype="...")`), not a query builder parameter.
+* **Direct Child Query (`frappe.qb.get_query("QB Test Child")`)**: Fully supported. Generates `SELECT name, item_code, parent, parenttype, parentfield FROM tabQB Test Child`.
+* **Filtering Child DocType by Parent Context**: Fully supported using `filters=[["parent", "=", parent_name], ["parenttype", "=", "QB Test Parent"]]`.
+* **`parent_doctype` Argument (`frappe.qb.get_query("QB Test Child", parent_doctype="QB Test Parent")`)**: **UNSUPPORTED on `get_query()`.** Raises `TypeError: Engine.get_query() got an unexpected keyword argument 'parent_doctype'`.
+* **Permission Enforcement for Child DocTypes**: `parent_doctype` is an argument for permission checks (`Permission.check_permissions(query, parent_doctype="...")` or `frappe.has_permission("QB Test Child", parent_doctype="...")`), not a query builder parameter.
 
 ### 2.8 Aggregation & Scalar Functions
-
-- **Documented Dict Aggregation / Scalar Syntax (`fields=[{"COUNT": "name"}]` / `fields=[{"IFNULL": ...}]`)**: **UNSUPPORTED.** `Engine.parse_fields` interprets dictionary objects in `fields` as child table queries (`ChildQuery`). It looks up table field `"COUNT"`, raising `AttributeError: 'NoneType' object has no attribute 'fieldtype'`.
-- **Raw String Functions (`fields=["count(name) as total_count"]`)**: Supported for standard SQL functions.
-- **Child Dotted Aggregation String (`fields=["sum(items.qty)"]`)**: **UNSUPPORTED.** `Engine.parse_fields` does not trigger automatic child table JOINs when dotted paths are inside raw function strings, raising `OperationalError: Unknown column 'items.qty'`.
-- **Pypika Aggregation & Scalar Objects (`Count()`, `Sum()`, `Avg()`, `Min()`, `Max()`, `Now()`, `Coalesce()`, `Concat()`, `Abs()`, `Extract()`)**:
-    - Pypika function objects in `fields` generate valid SQL expressions.
-    - Pypika explicit child join (`frappe.qb.from_(parent).left_join(child)...`) calculates child `Sum(child.qty)` accurately (`total_qty = 10.0` for `P1`).
-    - `Coalesce(PseudoColumnMapper('\`tabQB Test Parent\`.\`target_link\`'), "'None'")`evaluates NULL values properly. Un-table-qualified string column names in function objects cause`PseudoColumnMapper`to treat them as string literals`'target_link'` due to column name resolution rules.
+* **Documented Dict Aggregation / Scalar Syntax (`fields=[{"COUNT": "name"}]` / `fields=[{"IFNULL": ...}]`)**: **UNSUPPORTED.** `Engine.parse_fields` interprets dictionary objects in `fields` as child table queries (`ChildQuery`). It looks up table field `"COUNT"`, raising `AttributeError: 'NoneType' object has no attribute 'fieldtype'`.
+* **Raw String Functions (`fields=["count(name) as total_count"]`)**: Supported for standard SQL functions.
+* **Child Dotted Aggregation String (`fields=["sum(items.qty)"]`)**: **UNSUPPORTED.** `Engine.parse_fields` does not trigger automatic child table JOINs when dotted paths are inside raw function strings, raising `OperationalError: Unknown column 'items.qty'`.
+* **Pypika Aggregation & Scalar Objects (`Count()`, `Sum()`, `Avg()`, `Min()`, `Max()`, `Now()`, `Coalesce()`, `Concat()`, `Abs()`, `Extract()`)**:
+  * Pypika function objects in `fields` generate valid SQL expressions.
+  * Pypika explicit child join (`frappe.qb.from_(parent).left_join(child)...`) calculates child `Sum(child.qty)` accurately (`total_qty = 10.0` for `P1`).
+  * `Coalesce(PseudoColumnMapper('\`tabQB Test Parent\`.\`target_link\`'), "'None'")` evaluates NULL values properly. Un-table-qualified string column names in function objects cause `PseudoColumnMapper` to treat them as string literals `'target_link'` due to column name resolution rules.
 
 ### 2.9 Record Locking
-
-- **`for_update=True`, `skip_locked=True`, `wait=False`**: **SUPPORTED in transaction.**
-    - `for_update=True, skip_locked=True` generates `FOR UPDATE SKIP LOCKED`.
-    - `for_update=True, wait=False` generates `FOR UPDATE NOWAIT`.
-    - Executed inside active transaction (`frappe.db.begin() ... frappe.db.rollback()`).
+* **`for_update=True`, `skip_locked=True`, `wait=False`**: **SUPPORTED in transaction.**
+  * `for_update=True, skip_locked=True` generates `FOR UPDATE SKIP LOCKED`.
+  * `for_update=True, wait=False` generates `FOR UPDATE NOWAIT`.
+  * Executed inside active transaction (`frappe.db.begin() ... frappe.db.rollback()`).
 
 ### 2.10 Permissions & User Context
-
-- **`ignore_permissions=True` / `user="..."` as `get_query()` kwargs**: **UNSUPPORTED.** Raises `TypeError: Engine.get_query() got an unexpected keyword argument`.
-- **Permission Checking**: `frappe.qb.get_query()` is strictly a SQL builder. Permission checking is performed via `frappe.database.query.Permission.check_permissions(query, user=user)`.
+* **`ignore_permissions=True` / `user="..."` as `get_query()` kwargs**: **UNSUPPORTED.** Raises `TypeError: Engine.get_query() got an unexpected keyword argument`.
+* **Permission Checking**: `frappe.qb.get_query()` is strictly a SQL builder. Permission checking is performed via `frappe.database.query.Permission.check_permissions(query, user=user)`.
 
 ---
 
 ## 3. Evidence-Hardened Capability Matrix
 
-| Capability                  | Input / API Form                          | SQL Generation                | Execution        | Semantic Verification        | Status          | Root Cause / Exact Limitation                                     |
-| :-------------------------- | :---------------------------------------- | :---------------------------- | :--------------- | :--------------------------- | :-------------- | :---------------------------------------------------------------- |
-| **Basic Query**             | `get_query("DocType")`                    | `SELECT name FROM tab`        | Success          | Returns default `name`       | **SUPPORTED**   | None                                                              |
-| **Explicit Fields**         | `fields=["a", "b"]`                       | `SELECT a, b FROM tab`        | Success          | Returns dicts with `a`, `b`  | **SUPPORTED**   | None                                                              |
-| **Comma Fields**            | `fields="a, b"`                           | `SELECT a, b FROM tab`        | Success          | Splits string into fields    | **SUPPORTED**   | None                                                              |
-| **Wildcard Fields**         | `fields="*"`                              | `SELECT * FROM tab`           | Success          | Returns all schema columns   | **SUPPORTED**   | None                                                              |
-| **Field Aliases**           | `fields=["a as foo"]`                     | `SELECT a foo FROM tab`       | Success          | Returned dict has key `foo`  | **SUPPORTED**   | None                                                              |
-| **`as_dict=True`**          | `query.run(as_dict=True)`                 | Native SQL                    | Success          | Returns list of dicts        | **SUPPORTED**   | None                                                              |
-| **`as_list=True`**          | `query.run(as_list=True)`                 | Native SQL                    | Success          | Returns list of tuples       | **SUPPORTED**   | None                                                              |
-| **`pluck=True`**            | `query.run(pluck=True)`                   | Native SQL                    | Success          | Returns flat value list      | **SUPPORTED**   | Requires single field                                             |
-| **`as_iterator=True`**      | `query.run(as_iterator=True)`             | Unbuffered SQL                | Success          | Returns generator yields     | **SUPPORTED**   | Python generator object                                           |
-| **Dict Filters**            | `filters={"a": "b"}`                      | `WHERE a = 'b'`               | Success          | Exact record set             | **SUPPORTED**   | None                                                              |
-| **Dict Op Filters**         | `filters={"a": [">", 0]}`                 | `WHERE a > 0`                 | Success          | Exact record set             | **SUPPORTED**   | None                                                              |
-| **List Filters**            | `filters=[["a", "=", "b"]]`               | `WHERE a = 'b'`               | Success          | Exact record set             | **SUPPORTED**   | None                                                              |
-| **`is set` / `is not set`** | `filters=[["col", "is", "set"]]`          | `WHERE col != ''` / `IS NULL` | Success          | `{P1, P3}` / `{P2}`          | **SUPPORTED**   | Semantic null check verified                                      |
-| **Infix String OR**         | `filters=[..., "or", ...]`                | `WHERE name = 'or'`           | Success          | Returns 0 records            | **BROKEN**      | `Engine.apply_filters` converts string `"or"` to `{"name": "or"}` |
-| **Pypika OR**               | `filters=(t.a==1)\|(t.b==2)`              | `WHERE (a=1) OR (b=2)`        | Success          | Exact record set             | **SUPPORTED**   | Pypika Criterion                                                  |
-| **Tree Operators**          | `filters=[["a", "descendants of", root]]` | `WHERE name IN (...)`         | Success          | Descendants/Ancestors        | **SUPPORTED**   | Requires `is_tree=1` DocType                                      |
-| **Link Field Select**       | `fields=["link.col"]`                     | `LEFT JOIN tabTarget`         | Success          | Joined column value          | **SUPPORTED**   | Auto LEFT JOIN                                                    |
-| **Link Field Filter**       | `filters={"link.col": "v"}`               | `WHERE tabTarget.col = v`     | Success          | Filtered on joined table     | **SUPPORTED**   | Auto LEFT JOIN                                                    |
-| **Link String Order**       | `order_by="link.col asc"`                 | `ORDER BY tabParent.link.col` | OperationalError | Unknown column error         | **UNSUPPORTED** | `Engine.apply_order_by` string parser unmapped alias              |
-| **Pypika Link Order**       | `.left_join().orderby()`                  | `ORDER BY tabTarget.col`      | Success          | Ordered by joined field      | **SUPPORTED**   | Pypika explicit join                                              |
-| **Child Dotted Select**     | `fields=["items.col"]`                    | `LEFT JOIN tabChild`          | Success          | Duplicates parent rows       | **SUPPORTED**   | Relational 1:N join                                               |
-| **Child Dotted Filter**     | `filters={"items.col": "v"}`              | `WHERE tabChild.col = v`      | Success          | Filters on child field       | **SUPPORTED**   | Relational 1:N join                                               |
-| **Structured Child**        | `fields=[{"items": ["a"]}]`               | `SELECT parent` (Sub-query)   | Success          | `row["items"] = [...]` dicts | **SUPPORTED**   | `ChildQuery` sub-query per parent                                 |
-| **Distinct Parent**         | `distinct=True`                           | `SELECT DISTINCT name`        | Success          | Deduplicates parent rows     | **SUPPORTED**   | Only when parent fields selected                                  |
-| **Child Root Query**        | `get_query("Child DocType")`              | `FROM tabChild`               | Success          | Returns child records        | **SUPPORTED**   | Includes parent, parenttype, parentfield                          |
-| **`parent_doctype`**        | `get_query(..., parent_doctype="...")`    | N/A                           | TypeError        | Kwarg rejected               | **UNSUPPORTED** | Not in `Engine.get_query` signature                               |
-| **Dict Aggregation**        | `fields=[{"COUNT": "a"}]`                 | N/A                           | AttributeError   | Interp. as child query       | **UNSUPPORTED** | Dict in fields reserved for `ChildQuery`                          |
-| **String Function**         | `fields=["count(a) as x"]`                | `SELECT COUNT(a) x`           | Success          | Calculated aggregate         | **SUPPORTED**   | Standard SQL string expression                                    |
-| **Pypika Functions**        | `fields=[Count(t.a)]`                     | `SELECT COUNT(a)`             | Success          | Calculated aggregate         | **SUPPORTED**   | Pypika function object                                            |
-| **Dotted Child Sum**        | `fields=["sum(items.qty)"]`               | N/A                           | OperationalError | Unknown column error         | **UNSUPPORTED** | `Engine` string parser fails child join for functions             |
-| **Pypika Child Sum**        | `.left_join().select(Sum())`              | `SELECT SUM(tabChild.qty)`    | Success          | Exact child sum              | **SUPPORTED**   | Pypika explicit join                                              |
-| **Pypika Now()**            | `fields=[Now()]`                          | `SELECT NOW()`                | Success          | `datetime.datetime`          | **SUPPORTED**   | Pypika function object                                            |
-| **Pypika Coalesce**         | `fields=[Coalesce(col, v)]`               | `SELECT COALESCE(col, v)`     | Success          | Safe fallback value          | **SUPPORTED**   | Requires `PseudoColumnMapper` column term                         |
-| **Order By / Group By**     | `order_by="..."`, `group_by="..."`        | `ORDER BY ... GROUP BY ...`   | Success          | Ordered & grouped            | **SUPPORTED**   | Standard fields                                                   |
-| **Pagination**              | `limit=10, offset=10`                     | `LIMIT 10 OFFSET 10`          | Success          | Page slice                   | **SUPPORTED**   | None                                                              |
-| **Record Locking**          | `for_update=True, skip_locked=True`       | `FOR UPDATE SKIP LOCKED`      | Success          | Lock acquired                | **SUPPORTED**   | Requires active transaction                                       |
-| **`ignore_permissions`**    | `get_query(..., ignore_permissions=True)` | N/A                           | TypeError        | Kwarg rejected               | **UNSUPPORTED** | Not in `Engine.get_query` signature                               |
-| **`user` Context**          | `get_query(..., user="...")`              | N/A                           | TypeError        | Kwarg rejected               | **UNSUPPORTED** | Not in `Engine.get_query` signature                               |
-| **Permission Check**        | `Permission.check_permissions()`          | N/A                           | Success          | Asserts read/select          | **SUPPORTED**   | Separate permission checker class                                 |
+| Capability | Input / API Form | SQL Generation | Execution | Semantic Verification | Status | Root Cause / Exact Limitation |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Basic Query** | `get_query("DocType")` | `SELECT name FROM tab` | Success | Returns default `name` | **SUPPORTED** | None |
+| **Explicit Fields** | `fields=["a", "b"]` | `SELECT a, b FROM tab` | Success | Returns dicts with `a`, `b` | **SUPPORTED** | None |
+| **Comma Fields** | `fields="a, b"` | `SELECT a, b FROM tab` | Success | Splits string into fields | **SUPPORTED** | None |
+| **Wildcard Fields**| `fields="*"` | `SELECT * FROM tab` | Success | Returns all schema columns | **SUPPORTED** | None |
+| **Field Aliases** | `fields=["a as foo"]` | `SELECT a foo FROM tab` | Success | Returned dict has key `foo` | **SUPPORTED** | None |
+| **`as_dict=True`** | `query.run(as_dict=True)` | Native SQL | Success | Returns list of dicts | **SUPPORTED** | None |
+| **`as_list=True`** | `query.run(as_list=True)` | Native SQL | Success | Returns list of tuples | **SUPPORTED** | None |
+| **`pluck=True`** | `query.run(pluck=True)` | Native SQL | Success | Returns flat value list | **SUPPORTED** | Requires single field |
+| **`as_iterator=True`**| `query.run(as_iterator=True)`| Unbuffered SQL | Success | Returns generator yields | **SUPPORTED** | Python generator object |
+| **Dict Filters** | `filters={"a": "b"}` | `WHERE a = 'b'` | Success | Exact record set | **SUPPORTED** | None |
+| **Dict Op Filters**| `filters={"a": [">", 0]}`| `WHERE a > 0` | Success | Exact record set | **SUPPORTED** | None |
+| **List Filters** | `filters=[["a", "=", "b"]]`| `WHERE a = 'b'` | Success | Exact record set | **SUPPORTED** | None |
+| **`is set` / `is not set`**| `filters=[["col", "is", "set"]]`| `WHERE col != ''` / `IS NULL`| Success | `{P1, P3}` / `{P2}` | **SUPPORTED** | Semantic null check verified |
+| **Infix String OR** | `filters=[..., "or", ...]`| `WHERE name = 'or'` | Success | Returns 0 records | **BROKEN** | `Engine.apply_filters` converts string `"or"` to `{"name": "or"}` |
+| **Pypika OR** | `filters=(t.a==1)\|(t.b==2)`| `WHERE (a=1) OR (b=2)`| Success | Exact record set | **SUPPORTED** | Pypika Criterion |
+| **Tree Operators** | `filters=[["a", "descendants of", root]]` | `WHERE name IN (...)` | Success | Descendants/Ancestors | **SUPPORTED** | Requires `is_tree=1` DocType |
+| **Link Field Select**| `fields=["link.col"]` | `LEFT JOIN tabTarget` | Success | Joined column value | **SUPPORTED** | Auto LEFT JOIN |
+| **Link Field Filter**| `filters={"link.col": "v"}`| `WHERE tabTarget.col = v`| Success | Filtered on joined table | **SUPPORTED** | Auto LEFT JOIN |
+| **Link String Order**| `order_by="link.col asc"`| `ORDER BY tabParent.link.col`| OperationalError | Unknown column error | **UNSUPPORTED** | `Engine.apply_order_by` string parser unmapped alias |
+| **Pypika Link Order**| `.left_join().orderby()`| `ORDER BY tabTarget.col`| Success | Ordered by joined field | **SUPPORTED** | Pypika explicit join |
+| **Child Dotted Select**| `fields=["items.col"]` | `LEFT JOIN tabChild` | Success | Duplicates parent rows | **SUPPORTED** | Relational 1:N join |
+| **Child Dotted Filter**| `filters={"items.col": "v"}`| `WHERE tabChild.col = v`| Success | Filters on child field | **SUPPORTED** | Relational 1:N join |
+| **Structured Child** | `fields=[{"items": ["a"]}]`| `SELECT parent` (Sub-query) | Success | `row["items"] = [...]` dicts | **SUPPORTED** | `ChildQuery` sub-query per parent |
+| **Distinct Parent** | `distinct=True` | `SELECT DISTINCT name` | Success | Deduplicates parent rows | **SUPPORTED** | Only when parent fields selected |
+| **Child Root Query** | `get_query("Child DocType")`| `FROM tabChild` | Success | Returns child records | **SUPPORTED** | Includes parent, parenttype, parentfield |
+| **`parent_doctype`**| `get_query(..., parent_doctype="...")`| N/A | TypeError | Kwarg rejected | **UNSUPPORTED** | Not in `Engine.get_query` signature |
+| **Dict Aggregation**| `fields=[{"COUNT": "a"}]`| N/A | AttributeError | Interp. as child query | **UNSUPPORTED** | Dict in fields reserved for `ChildQuery` |
+| **String Function** | `fields=["count(a) as x"]`| `SELECT COUNT(a) x` | Success | Calculated aggregate | **SUPPORTED** | Standard SQL string expression |
+| **Pypika Functions**| `fields=[Count(t.a)]` | `SELECT COUNT(a)` | Success | Calculated aggregate | **SUPPORTED** | Pypika function object |
+| **Dotted Child Sum** | `fields=["sum(items.qty)"]`| N/A | OperationalError | Unknown column error | **UNSUPPORTED** | `Engine` string parser fails child join for functions |
+| **Pypika Child Sum**| `.left_join().select(Sum())`| `SELECT SUM(tabChild.qty)`| Success | Exact child sum | **SUPPORTED** | Pypika explicit join |
+| **Pypika Now()** | `fields=[Now()]` | `SELECT NOW()` | Success | `datetime.datetime` | **SUPPORTED** | Pypika function object |
+| **Pypika Coalesce** | `fields=[Coalesce(col, v)]`| `SELECT COALESCE(col, v)`| Success | Safe fallback value | **SUPPORTED** | Requires `PseudoColumnMapper` column term |
+| **Order By / Group By**| `order_by="..."`, `group_by="..."`| `ORDER BY ... GROUP BY ...`| Success | Ordered & grouped | **SUPPORTED** | Standard fields |
+| **Pagination** | `limit=10, offset=10` | `LIMIT 10 OFFSET 10` | Success | Page slice | **SUPPORTED** | None |
+| **Record Locking** | `for_update=True, skip_locked=True`| `FOR UPDATE SKIP LOCKED`| Success | Lock acquired | **SUPPORTED** | Requires active transaction |
+| **`ignore_permissions`**| `get_query(..., ignore_permissions=True)`| N/A | TypeError | Kwarg rejected | **UNSUPPORTED** | Not in `Engine.get_query` signature |
+| **`user` Context** | `get_query(..., user="...")`| N/A | TypeError | Kwarg rejected | **UNSUPPORTED** | Not in `Engine.get_query` signature |
+| **Permission Check**| `Permission.check_permissions()`| N/A | Success | Asserts read/select | **SUPPORTED** | Separate permission checker class |
 
 ---
 
 ## 4. Documentation Mismatches Identified
 
 1. **Dict-Based Aggregation & Scalar Function Syntax Mismatch:**
-    - _Documentation hypothesis:_ `fields=[{"COUNT": "name", "as": "total"}]` or `fields=[{"IFNULL": ["field", "'val'"]}]`
-    - _Installed Frappe v15 reality:_ **REJECTED with `AttributeError`.** `Engine.parse_fields` interprets any `dict` element in `fields` as a child table query (`ChildQuery`). Since `"COUNT"` is not a child table field, `field.fieldtype` raises `AttributeError: 'NoneType' object has no attribute 'fieldtype'`.
-    - _Correct Working Approach:_ Use string function expressions (e.g. `fields=["count(name) as total"]`) or Pypika function objects (`Count()`, `Sum()`, `Now()`).
+   * *Documentation hypothesis:* `fields=[{"COUNT": "name", "as": "total"}]` or `fields=[{"IFNULL": ["field", "'val'"]}]`
+   * *Installed Frappe v15 reality:* **REJECTED with `AttributeError`.** `Engine.parse_fields` interprets any `dict` element in `fields` as a child table query (`ChildQuery`). Since `"COUNT"` is not a child table field, `field.fieldtype` raises `AttributeError: 'NoneType' object has no attribute 'fieldtype'`.
+   * *Correct Working Approach:* Use string function expressions (e.g. `fields=["count(name) as total"]`) or Pypika function objects (`Count()`, `Sum()`, `Now()`).
 
 2. **Infix String `"or"` in List Filters:**
-    - _Documentation hypothesis:_ `filters=[["status", "=", "Open"], "or", ["status", "=", "Pending"]]`
-    - _Installed Frappe v15 reality:_ **BROKEN.** `Engine.apply_filters` iterates through list elements and parses string `"or"` as `{"name": "or"}`, resulting in `WHERE name = 'or'`, returning 0 records.
-    - _Correct Working Approach:_ Compile OR filter conditions into Pypika `Criterion` objects before passing to `get_query(filters=...)`.
+   * *Documentation hypothesis:* `filters=[["status", "=", "Open"], "or", ["status", "=", "Pending"]]`
+   * *Installed Frappe v15 reality:* **BROKEN.** `Engine.apply_filters` iterates through list elements and parses string `"or"` as `{"name": "or"}`, resulting in `WHERE name = 'or'`, returning 0 records.
+   * *Correct Working Approach:* Compile OR filter conditions into Pypika `Criterion` objects before passing to `get_query(filters=...)`.
 
 3. **`ignore_permissions` & `user` Kwargs on `get_query()`:**
-    - _Documentation hypothesis:_ `frappe.qb.get_query("DocType", ignore_permissions=True, user="...")`
-    - _Installed Frappe v15 reality:_ **REJECTED with `TypeError`.** `Engine.get_query()` signature does not accept `ignore_permissions` or `user` kwargs.
-    - _Correct Working Approach:_ Call `frappe.database.query.Permission.check_permissions(query, user=...)` explicitly.
+   * *Documentation hypothesis:* `frappe.qb.get_query("DocType", ignore_permissions=True, user="...")`
+   * *Installed Frappe v15 reality:* **REJECTED with `TypeError`.** `Engine.get_query()` signature does not accept `ignore_permissions` or `user` kwargs.
+   * *Correct Working Approach:* Call `frappe.database.query.Permission.check_permissions(query, user=...)` explicitly.
 
 4. **String-Path `order_by` on Dotted Link Fields:**
-    - _Documentation hypothesis:_ `order_by="target_link.territory asc"`
-    - _Installed Frappe v15 reality:_ **REJECTED with `OperationalError`.** `Engine.apply_order_by` splits comma strings and prepends table name without resolving join table aliases.
-    - _Correct Working Approach:_ Construct explicit Pypika joins (`frappe.qb.from_(parent).left_join(target)...`) and pass `.orderby(target_table.territory)`.
+   * *Documentation hypothesis:* `order_by="target_link.territory asc"`
+   * *Installed Frappe v15 reality:* **REJECTED with `OperationalError`.** `Engine.apply_order_by` splits comma strings and prepends table name without resolving join table aliases.
+   * *Correct Working Approach:* Construct explicit Pypika joins (`frappe.qb.from_(parent).left_join(target)...`) and pass `.orderby(target_table.territory)`.
 
 5. **Dotted Child Field Sum in String Expressions:**
-    - _Documentation hypothesis:_ `fields=["sum(items.qty) as total_qty"]`
-    - _Installed Frappe v15 reality:_ **REJECTED with `OperationalError`.** `Engine.parse_fields` does not trigger child table joins when dotted paths appear inside function strings.
-    - _Correct Working Approach:_ Use explicit Pypika child joins with `Sum(child_table.qty)`.
+   * *Documentation hypothesis:* `fields=["sum(items.qty) as total_qty"]`
+   * *Installed Frappe v15 reality:* **REJECTED with `OperationalError`.** `Engine.parse_fields` does not trigger child table joins when dotted paths appear inside function strings.
+   * *Correct Working Approach:* Use explicit Pypika child joins with `Sum(child_table.qty)`.
 
 ---
 
@@ -1894,6 +1877,7 @@ The factual audit findings establish clear contracts for the upcoming FlexiRule 
 15. **Pypika Compilation Boundary:** Maintain the explicit architectural boundary:
     `FlexiRule UI Config -> Normalized JSON Specification -> FlexiRule Backend Compiler -> Pypika Criterion / Query -> frappe.qb.get_query() -> MariaDB`.
 
+
 ## 16. Current Review-Fix Test Failure and Remediation (2026-10-11)
 
 The server CI log for the review-fix branch shows:
@@ -1906,6 +1890,7 @@ Root cause: this test intends to assert the native frappe.qb.get_query payload, 
 
 Remediation pushed: the test now stubs QUERY_CAPABILITIES to represent the native-capability scenario and asserts the ignore_permissions=False argument explicitly. Separate compatibility tests continue to cover the v15 fallback. This is intended to make the test deterministic across Frappe versions without weakening production permission handling. Do not mark this item complete until the updated CI rerun passes.
 
+
 ## 17. Latest CI Rerun: Normalized Filter Payload Assertion (2026-10-11)
 
 The server failure was a stale test expectation, not a runtime defect: root-DocType filter leaves are normalized before delegation, so the native frappe.qb.get_query payload uses three-item leaves such as ["enabled", "=", 1] and ["email", "like", "%@example.com"], connected by "or". The test was corrected to assert this payload. Both configured workflows passed on commit 693971455c0752f45879cee82e91c635a2e07a27; the CI workflow was subsequently restored in 47e4b5713c9b2e7dcf99a0d89cffc7478a9d8906, and that restored head still needs its own CI verification.
@@ -1913,6 +1898,7 @@ The server failure was a stale test expectation, not a runtime defect: root-DocT
 ### Recommendation: keep root-relative QB filters at the adapter boundary
 
 Do not globally remove the root DocType from FlexiRule's persisted filter representation just to mirror Frappe's native QB payload. Keep one stable, explicit Fetch Records filter-tree contract in the UI/configuration layer; validate each leaf against the selected root DocType and any supported link/child path; then normalize root-field leaves to [field, operator, value] only in the Frappe QB adapter. Preserve qualified paths where they carry meaning, and reject ambiguous or unsupported paths rather than silently stripping a prefix. This isolates Frappe-version-specific syntax from saved rules and avoids breaking existing Query Records modes that use legacy filter formats. Add contract tests for persisted tree -> validated internal representation -> QB payload, including root fields, linked/child paths, and literal values equal to "or".
+
 
 ## 18. Independent source review and current acceptance status (2026-10-12)
 
@@ -1926,16 +1912,16 @@ This section records an independent check of the framework API contracts and the
 
 ### Findings matrix
 
-| Requirement                          | Current assessment                                                                                                                                     | Evidence / remaining proof                                                                                                                |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| v15 + bypass disabled                | Implemented in adapter: uses `frappe.get_list`, with a fail-closed translation for supported filter structures                                         | Source inspection confirms v15 QB lacks the flag. Full integration tests are still needed for row/field permission parity.                |
-| v15 + bypass enabled                 | Implemented in adapter: uses QB without passing the unsupported keyword                                                                                | Requires integration tests proving the action's existing server-side authorization/audit gate and unrestricted results.                   |
-| v16 + bypass disabled                | Implemented by native QB delegation with `ignore_permissions=False` when detected                                                                      | Framework source confirms API support; live Frappe 16 runtime integration remains required.                                               |
-| v16 + bypass enabled                 | Implemented by native QB delegation with `ignore_permissions=True` when detected                                                                       | Framework source confirms API support; live Frappe 16 runtime integration remains required.                                               |
-| Missing/invalid bypass configuration | Existing `can_ignore_permissions` gate returns false for a missing/false flag and requires role authorization plus an audit reason for explicit bypass | Add adversarial handler-level tests for malformed values and verify every execution identity.                                             |
-| v15 filter tree                      | Adapter preserves AND-only trees and one OR group expressible by `filters` + `or_filters`; unsupported OR shapes are rejected                          | Unit tests cover selected cases. Runtime coverage of operators, linked paths, date values, and empty/null groups is incomplete.           |
-| Aggregation and field permissions    | Root-field aggregates can flow through the permission-aware list path; child/link aggregate expressions are rejected by Fetch Records validation       | Do not claim parity for filter/order/group field-level restrictions or all aggregate shapes until tested against both framework versions. |
-| UI warning                           | Added to the Query Records configuration UI; requires Fetch Records mode, Frappe 15 boot version, and enabled bypass                                   | CI/linter run for the warning commit is pending at time of writing. No dedicated component-level behavior test has yet been demonstrated. |
+| Requirement | Current assessment | Evidence / remaining proof |
+|---|---|---|
+| v15 + bypass disabled | Implemented in adapter: uses `frappe.get_list`, with a fail-closed translation for supported filter structures | Source inspection confirms v15 QB lacks the flag. Full integration tests are still needed for row/field permission parity. |
+| v15 + bypass enabled | Implemented in adapter: uses QB without passing the unsupported keyword | Requires integration tests proving the action's existing server-side authorization/audit gate and unrestricted results. |
+| v16 + bypass disabled | Implemented by native QB delegation with `ignore_permissions=False` when detected | Framework source confirms API support; live Frappe 16 runtime integration remains required. |
+| v16 + bypass enabled | Implemented by native QB delegation with `ignore_permissions=True` when detected | Framework source confirms API support; live Frappe 16 runtime integration remains required. |
+| Missing/invalid bypass configuration | Existing `can_ignore_permissions` gate returns false for a missing/false flag and requires role authorization plus an audit reason for explicit bypass | Add adversarial handler-level tests for malformed values and verify every execution identity. |
+| v15 filter tree | Adapter preserves AND-only trees and one OR group expressible by `filters` + `or_filters`; unsupported OR shapes are rejected | Unit tests cover selected cases. Runtime coverage of operators, linked paths, date values, and empty/null groups is incomplete. |
+| Aggregation and field permissions | Root-field aggregates can flow through the permission-aware list path; child/link aggregate expressions are rejected by Fetch Records validation | Do not claim parity for filter/order/group field-level restrictions or all aggregate shapes until tested against both framework versions. |
+| UI warning | Added to the Query Records configuration UI; requires Fetch Records mode, Frappe 15 boot version, and enabled bypass | CI/linter run for the warning commit is pending at time of writing. No dedicated component-level behavior test has yet been demonstrated. |
 
 ### Upstream Frappe 15 API proposal
 
@@ -1986,13 +1972,11 @@ CI and the Frappe/MariaDB integration suite must be rerun on the updated PR head
 \n\n---\n\n# Consolidated source 6: reports/query-records/tree_builder_and_fetch_records_audit.md\n\n> Original report content follows. Preserved without rewriting so findings, evidence, caveats, and historical context remain attributable to their source.\n\n# Tree Builder & Fetch Records Config Audit & Fix Report
 
 ## Overview
-
 This report details the deep analysis, code audit, linter/formatting fixes, and test verification performed on the new Tree Builder component and Fetch Records configuration system in FlexiRule.
 
 ---
 
 ## 1. Scope & System Components Audited
-
 - **Tree Builder Infrastructure (`TreeBuilder.vue`, `TreeBuilderNode.vue`, `useTreeBuilder.js`, `tree_builder_utils.js`)**: Generic nested group/leaf tree editor supporting drag-and-drop, AND/OR logic gates, and structural constraints.
 - **Query Filters & Serializer (`QueryFilterTree.vue`, `FilterLeaf.vue`, `query_filter_serializer.js`, `filter_operators.mjs`)**: Domain-specific query filter tree serialization, deserialization, validation, and metadata navigation.
 - **Fetch Records Configuration (`FetchRecordsConfig.vue`, `OutputFieldsEditor.vue`, `output_fields_model.js`)**: UI controls for result shapes, output field projections, sort criteria, limits, offsets, and group-by clauses.
@@ -2003,43 +1987,39 @@ This report details the deep analysis, code audit, linter/formatting fixes, and 
 ## 2. Issues Identified & Resolved
 
 ### A. Linter & Environment Configuration
-
 - **ESLint Config Compatibility**:
-    - _Issue_: `package.json` was executing `eslint --ext .js,.vue .`, which failed under modern ESLint v9/v10 due to removed CLI flags (`--ext`) and missing `eslint.config.mjs` flat configuration file.
-    - _Fix_: Created `eslint.config.mjs` using `@eslint/eslintrc` `FlatCompat` to preserve rules and globals, and updated `package.json` script to `"lint": "eslint ."`.
-    - _Verification_: `yarn lint` passes cleanly with zero errors.
+  - *Issue*: `package.json` was executing `eslint --ext .js,.vue .`, which failed under modern ESLint v9/v10 due to removed CLI flags (`--ext`) and missing `eslint.config.mjs` flat configuration file.
+  - *Fix*: Created `eslint.config.mjs` using `@eslint/eslintrc` `FlatCompat` to preserve rules and globals, and updated `package.json` script to `"lint": "eslint ."`.
+  - *Verification*: `yarn lint` passes cleanly with zero errors.
 
 ### B. Frontend Filter Validation & Dynamic Expressions
-
 - **Dynamic Expression Support in `Is` Operator (`FilterLeaf.vue`)**:
-    - _Issue_: `FilterLeaf.vue`'s `isValidIsValue` validation assumed static string values `"set"` or `"not set"` for the `is` operator, marking valid dynamic string expressions (e.g., `{doc.status_filter}`) as invalid.
-    - _Fix_: Updated `isValidIsValue` to validate dynamic expressions starting with `{` or `@` as valid value configurations for the `is` operator.
-    - _Verification_: Frontend unit test suite (`node filter_operators.test.mjs`, `node query_filter_serializer.test.js`) and UI validation pass cleanly.
+  - *Issue*: `FilterLeaf.vue`'s `isValidIsValue` validation assumed static string values `"set"` or `"not set"` for the `is` operator, marking valid dynamic string expressions (e.g., `{doc.status_filter}`) as invalid.
+  - *Fix*: Updated `isValidIsValue` to validate dynamic expressions starting with `{` or `@` as valid value configurations for the `is` operator.
+  - *Verification*: Frontend unit test suite (`node filter_operators.test.mjs`, `node query_filter_serializer.test.js`) and UI validation pass cleanly.
 
 ### C. Backend Query Records Field Reference & Validation
-
 - **Group-By Expression Token Splitting (`query_records.py`)**:
-    - _Issue_: `_validate_doctype_field_references` checked `_is_plain_field_reference` on raw `group_by` field expressions without extracting field tokens first when direction modifiers or spaces were present.
-    - _Fix_: Updated token extraction in `group_by` validation (`field_token = field_expr.split()[0].strip()`) prior to checking field existence against target DocType metadata.
+  - *Issue*: `_validate_doctype_field_references` checked `_is_plain_field_reference` on raw `group_by` field expressions without extracting field tokens first when direction modifiers or spaces were present.
+  - *Fix*: Updated token extraction in `group_by` validation (`field_token = field_expr.split()[0].strip()`) prior to checking field existence against target DocType metadata.
 - **Backend `Is` Operator Validation (`query_records.py`)**:
-    - _Issue_: Backend validation in `_validate_canonical_fetch_filter_tree` and `_validate_resolved_fetch_filter_operators` rejected dynamic expressions for `is` operator conditions.
-    - _Fix_: Updated backend validation routines to accept dynamic expressions starting with `{` or `@` for `is` operator filter leaves.
+  - *Issue*: Backend validation in `_validate_canonical_fetch_filter_tree` and `_validate_resolved_fetch_filter_operators` rejected dynamic expressions for `is` operator conditions.
+  - *Fix*: Updated backend validation routines to accept dynamic expressions starting with `{` or `@` for `is` operator filter leaves.
 
 ---
 
 ## 3. Test Suite Verification
-
 - **Python Linter (`ruff check flexirule`)**: 100% Passed (All checks passed).
 - **JavaScript Linter (`yarn lint`)**: 100% Passed (0 errors).
 - **Frontend Unit Tests**:
-    - `filter_operators.test.mjs`: Passed.
-    - `query_filter_serializer.test.js`: Passed.
-    - `tree_builder.test.js`: Passed.
-    - `output_fields_model.test.js`: Passed.
+  - `filter_operators.test.mjs`: Passed.
+  - `query_filter_serializer.test.js`: Passed.
+  - `tree_builder.test.js`: Passed.
+  - `output_fields_model.test.js`: Passed.
 - **Backend Frappe Test Suite (`bench --site test_site run-tests --app flexirule`)**:
-    - Ran 553 tests in 27.5s.
-    - **Result: OK** (553 passed, 0 failures, 2 skipped).
-      \n\n---\n\n# Consolidated source 7: reports/query_records_fetch_records_backend_implementation_report.md\n\n> Original report content follows. Preserved without rewriting so findings, evidence, caveats, and historical context remain attributable to their source.\n\n# Query Records — "Fetch Records" Backend Operation Implementation Report
+  - Ran 553 tests in 27.5s.
+  - **Result: OK** (553 passed, 0 failures, 2 skipped).
+\n\n---\n\n# Consolidated source 7: reports/query_records_fetch_records_backend_implementation_report.md\n\n> Original report content follows. Preserved without rewriting so findings, evidence, caveats, and historical context remain attributable to their source.\n\n# Query Records — "Fetch Records" Backend Operation Implementation Report
 
 ## Overview
 
@@ -2106,16 +2086,16 @@ The contract for `fetch_records` is declared in `QueryRecordsHandler.get_operati
 
 The configuration payload stored in `action.config` accepts:
 
-| Property                             | Type                                 | Required / Default                           | Description                                                                                                                   |
-| ------------------------------------ | ------------------------------------ | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `doctype_name` / `reference_doctype` | `str`                                | Required                                     | Target DocType to query                                                                                                       |
-| `fields`                             | `list[str]` or `str` or `list[dict]` | Optional (Default: `None` -> selects `name`) | Field paths, aliases (`"email as user_email"`), wildcard `*`, or structured child table fields (`[{"items": ["item_code"]}]`) |
-| `filters`                            | `dict` or `list`                     | Optional                                     | Dictionary filters, tuple lists, or recursive AND/OR logical filter trees                                                     |
-| `order_by`                           | `str`                                | Optional                                     | Sort ordering (e.g., `"creation desc"`, `"customer asc, grand_total desc"`)                                                   |
-| `group_by`                           | `str`                                | Optional                                     | Grouping field(s) (e.g., `"customer"`)                                                                                        |
-| `limit`                              | `int` or `str`                       | Optional                                     | Page length                                                                                                                   |
-| `offset`                             | `int` or `str`                       | Optional                                     | Record offset for pagination                                                                                                  |
-| `distinct`                           | `bool`                               | Optional (Default: `False`)                  | Force distinct selection when querying child tables/joins                                                                     |
+| Property | Type | Required / Default | Description |
+|---|---|---|---|
+| `doctype_name` / `reference_doctype` | `str` | Required | Target DocType to query |
+| `fields` | `list[str]` or `str` or `list[dict]` | Optional (Default: `None` -> selects `name`) | Field paths, aliases (`"email as user_email"`), wildcard `*`, or structured child table fields (`[{"items": ["item_code"]}]`) |
+| `filters` | `dict` or `list` | Optional | Dictionary filters, tuple lists, or recursive AND/OR logical filter trees |
+| `order_by` | `str` | Optional | Sort ordering (e.g., `"creation desc"`, `"customer asc, grand_total desc"`) |
+| `group_by` | `str` | Optional | Grouping field(s) (e.g., `"customer"`) |
+| `limit` | `int` or `str` | Optional | Page length |
+| `offset` | `int` or `str` | Optional | Record offset for pagination |
+| `distinct` | `bool` | Optional (Default: `False`) | Force distinct selection when querying child tables/joins |
 
 ---
 
@@ -2126,12 +2106,12 @@ The runtime execution flow inside `QueryRecordsHandler._fetch_records`:
 1. **Permission Check**: Checks permissions via `can_ignore_permissions(action, context, throw=True)`. If `ignore_permissions` is `False`, enforces read permission via `frappe.has_permission(reference_doctype, "read", throw=True)`.
 2. **Selected Fields**: Parses comma-separated field strings or passes structured field arrays.
 3. **Dynamic Value Resolution**:
-    - Resolves filter values, order_by, group_by, limit, and offset using `_resolve_filters_with_context` and `_resolve_value_expression_with_context`.
+   - Resolves filter values, order_by, group_by, limit, and offset using `_resolve_filters_with_context` and `_resolve_value_expression_with_context`.
 4. **Filter Compilation**:
-    - Converts filter trees (including nested AND/OR logic, dicts, tuple lists, and dotted child/link fields) into Pypika / Frappe `Criterion` objects using `_compile_filter_tree`.
+   - Converts filter trees (including nested AND/OR logic, dicts, tuple lists, and dotted child/link fields) into Pypika / Frappe `Criterion` objects using `_compile_filter_tree`.
 5. **Query Builder Construction & Execution**:
-    - Invokes `query = frappe.qb.get_query(...)` with target table, fields, filters, order_by, group_by, limit, offset, and distinct.
-    - Executes `return query.run(as_dict=True)`.
+   - Invokes `query = frappe.qb.get_query(...)` with target table, fields, filters, order_by, group_by, limit, offset, and distinct.
+   - Executes `return query.run(as_dict=True)`.
 
 ---
 
@@ -2141,8 +2121,8 @@ The runtime execution flow inside `QueryRecordsHandler._fetch_records`:
 
 - In FlexiRule, `ignore_permissions` is derived explicitly using `can_ignore_permissions(action, context, throw=True)` (requiring System Manager authorization and mandatory `permission_audit_reason`).
 - Frappe Framework's `Engine.get_query` builds raw QueryBuilder objects without taking `ignore_permissions` as a keyword argument. Therefore, permission enforcement is strictly performed prior to query construction:
-    - When `ignore_permissions` is `False`, `_fetch_records` explicitly invokes `frappe.has_permission(reference_doctype, "read", throw=True)`, throwing `frappe.PermissionError` if the executing user is unauthorized.
-    - When `ignore_permissions` is `True`, permission enforcement is bypassed securely in accordance with FlexiRule audit logging rules.
+  - When `ignore_permissions` is `False`, `_fetch_records` explicitly invokes `frappe.has_permission(reference_doctype, "read", throw=True)`, throwing `frappe.PermissionError` if the executing user is unauthorized.
+  - When `ignore_permissions` is `True`, permission enforcement is bypassed securely in accordance with FlexiRule audit logging rules.
 
 ---
 
@@ -2181,12 +2161,12 @@ Relationship field traversals (e.g., `customer.customer_name` for Link fields, `
 In accordance with Query Records conventions:
 
 - `_fetch_records` returns a `list[dict]` directly:
-    ```json
-    [
-	{ "name": "TASK-0001", "description": "Review PR", "status": "Open" },
-	{ "name": "TASK-0002", "description": "Run tests", "status": "Closed" }
-    ]
-    ```
+  ```json
+  [
+    {"name": "TASK-0001", "description": "Review PR", "status": "Open"},
+    {"name": "TASK-0002", "description": "Run tests", "status": "Closed"}
+  ]
+  ```
 - No extra wrapping object or separate count query is added.
 
 ---
@@ -2238,11 +2218,13 @@ The upcoming frontend task should build upon this finalized backend contract:
 4. **Ordering & Pagination UI**: Provide inputs for `order_by`, `limit`, `offset`, and `distinct` toggle.
 5. **Result Mutation**: Bind output to standard mutation modes (`Set Context Variable`, `Update Context Variable`, `Append to Context Variable`).
 
+
 ## 13. Review-Fix CI Follow-up (2026-10-11)
 
 The review-fix branch adds compatibility handling around frappe.qb.get_query and the permission-aware Frappe v15 frappe.get_list fallback. The first server CI run on this branch executed 543 tests and reported one error (two skipped): test_fetch_records_delegates_native_qb_payload_and_permissions failed because the test unintentionally exercised the installed Frappe v15 fallback against a live mocked DocType lookup instead of isolating the native Query Builder delegation contract.
 
 The test was corrected to explicitly stub the capability descriptor as supporting native permission and logical-filter support for that test, while separate compatibility tests continue to validate the legacy fallback. This is a test-isolation correction, not a production behavior change. The corrected test and configured workflows passed on commit 693971455c0752f45879cee82e91c635a2e07a27; the workflow file was subsequently restored, so its new run is tracked separately.
+
 
 ## 14. Latest CI Rerun: Payload Expectation Correction (2026-10-11)
 
@@ -2292,11 +2274,11 @@ An earlier test-site run reported **414 tests**, 412 passed, and 2 skipped in 18
 ## 2. Regression Test Suite for Confirmed Findings
 
 A dedicated regression test module `flexirule/ruleflow/tests/test_audit_reproductions.py` was implemented and permanently integrated into the test suite to verify fixes for the key findings:
-
 1. **AST Validation & Sandbox Escape (FR-SEC-001)**: `test_FR_SEC_001_ast_validation_stub_sandbox_escape` verifies `validate_safe_eval` throws `ValidationError` when encountering dunder attribute traversal expressions (`__subclasses__`).
 2. **Server-Side Template Injection (FR-SEC-002)**: `test_FR_SEC_002_ssti_in_document_action_rendering` verifies `DocumentActionHandler._render_scalar` does not evaluate raw `frappe` module database calls.
 3. **SafeFrappeAPI Parameter Guard (FR-SEC-003)**: `test_FR_SEC_003_safe_frappe_api_format_value_dict_override` verifies `SafeFrappeAPI.format_value` blocks custom dictionary overrides as `df`.
 4. **Sub-Rule Recursion Depth Limit Enforcement (FR-ENGINE-002)**: `test_FR_ENGINE_002_sub_rule_recursion_depth_propagated` verifies `SubRuleHandler` enforces `MAX_SUB_RULE_DEPTH = 2` when context depth exceeds the limit.
+
 
 ## 3. Follow-up Verification Status
 
@@ -2307,6 +2289,7 @@ A dedicated regression test module `flexirule/ruleflow/tests/test_audit_reproduc
 - [ ] Reconfirm CI after restoring the original .github/workflows/ci.yml; the restored workflow's run is the acceptance evidence for the current workflow definition.
 
 Do not convert the unchecked items to complete based only on the code change; the CI results for the new commit are the acceptance evidence.
+
 
 ## 4. Latest CI Rerun: Native Payload Assertion (2026-10-11)
 
@@ -2674,26 +2657,26 @@ There must not be several intermediate filter-tree representations.
 
 ## 14. Responsibility matrix
 
-| Responsibility        | Generic TreeBuilder | QueryFilterTree |    FilterLeaf | FetchRecordsConfig | Backend boundary |
-| --------------------- | ------------------: | --------------: | ------------: | -----------------: | ---------------: |
-| Tree state            |                 YES |              NO |            NO |                 NO |               NO |
-| Tree mutations        |                 YES |              NO |            NO |                 NO |               NO |
-| Group creation        |                 YES |          policy |            NO |                 NO |               NO |
-| Leaf creation         |                 YES |          policy |            NO |                 NO |               NO |
-| Movement/reordering   |                 YES |          policy |            NO |                 NO |               NO |
-| Nesting               |                 YES |          policy |            NO |                 NO |               NO |
-| Max depth             |                 YES |          config |            NO |                 NO |               NO |
-| Structural validation |                 YES |   domain policy |            NO |                 NO |               NO |
-| Group operators       |           mechanism |          policy |            NO |                 NO |               NO |
-| Operator labels       |           mechanism |          policy | filter labels |                 NO |               NO |
-| Node visibility       |           mechanism |          policy |            NO |                 NO |               NO |
-| Leaf rendering        |           framework |      configures |           YES |                 NO |               NO |
-| Field selection       |                  NO |              NO |           YES |                 NO |               NO |
-| Filter operator       |                  NO |          policy |           YES |                 NO |               NO |
-| Filter value          |                  NO |              NO |           YES |                 NO |               NO |
-| Value Resolver        |                  NO |              NO |           YES |                 NO |               NO |
-| Query configuration   |                  NO |              NO |            NO |                YES |               NO |
-| Backend serialization |                  NO |              NO |            NO |                 NO | YES, if required |
+| Responsibility | Generic TreeBuilder | QueryFilterTree | FilterLeaf | FetchRecordsConfig | Backend boundary |
+|---|---:|---:|---:|---:|---:|
+| Tree state | YES | NO | NO | NO | NO |
+| Tree mutations | YES | NO | NO | NO | NO |
+| Group creation | YES | policy | NO | NO | NO |
+| Leaf creation | YES | policy | NO | NO | NO |
+| Movement/reordering | YES | policy | NO | NO | NO |
+| Nesting | YES | policy | NO | NO | NO |
+| Max depth | YES | config | NO | NO | NO |
+| Structural validation | YES | domain policy | NO | NO | NO |
+| Group operators | mechanism | policy | NO | NO | NO |
+| Operator labels | mechanism | policy | filter labels | NO | NO |
+| Node visibility | mechanism | policy | NO | NO | NO |
+| Leaf rendering | framework | configures | YES | NO | NO |
+| Field selection | NO | NO | YES | NO | NO |
+| Filter operator | NO | policy | YES | NO | NO |
+| Filter value | NO | NO | YES | NO | NO |
+| Value Resolver | NO | NO | YES | NO | NO |
+| Query configuration | NO | NO | NO | YES | NO |
+| Backend serialization | NO | NO | NO | NO | YES, if required |
 
 ## 15. Existing FlexiRule architecture
 
@@ -2802,36 +2785,31 @@ The important rule is responsibility, not historical filename placement.
 
 ## 18. File classification
 
-| File                        | Decision | Reason                                              |
-| --------------------------- | -------- | --------------------------------------------------- |
-| FilterLeaf.vue              | D/E      | Keep concept, rewrite as one domain leaf            |
-| QueryFilterTree.vue         | B        | Keep as thin composition; remove duplicate state    |
-| filter_tree_adapter.js      | D/E      | Replace with minimal backend boundary if required   |
-| filter_tree_adapter.test.js | B/D      | Rewrite around public serialization contract        |
-| FetchRecordsConfig.vue      | A/B      | Keep; delegate filters and own Query Records config |
-| QueryRecordsConfig.vue      | A/B      | Keep as top-level mode configuration                |
-| FilterGroup.vue             | A        | Retain for existing non-Fetch-Records consumers     |
+| File | Decision | Reason |
+|---|---|---|
+| FilterLeaf.vue | D/E | Keep concept, rewrite as one domain leaf |
+| QueryFilterTree.vue | B | Keep as thin composition; remove duplicate state |
+| filter_tree_adapter.js | D/E | Replace with minimal backend boundary if required |
+| filter_tree_adapter.test.js | B/D | Rewrite around public serialization contract |
+| FetchRecordsConfig.vue | A/B | Keep; delegate filters and own Query Records config |
+| QueryRecordsConfig.vue | A/B | Keep as top-level mode configuration |
+| FilterGroup.vue | A | Retain for existing non-Fetch-Records consumers |
 
 ## 19. Redundant layers
 
 ### Redundant 1
-
 QueryFilterTree.tree — Generic TreeBuilder already owns the tree.
 
 ### Redundant 2
-
 FilterLeaf -> FilterGroup — a leaf renderer must not mount a filter tree/editor.
 
 ### Redundant 3
-
 normalizeFilterTree() — Generic TreeBuilder should normalize the canonical model.
 
 ### Redundant 4
-
 validateFilterTree() — Generic TreeBuilder should own structure; Query Filter validates leaf/domain semantics.
 
 ### Redundant 5
-
 Historical compatibility parsing — keep only if the active backend/persistence contract requires it.
 
 ## 20. Target QueryFilterTree composition
@@ -2937,31 +2915,24 @@ Only compatibility required by the active persisted/backend contract should surv
 Implementation should begin only after this audit is accepted.
 
 ### Phase 1 — Canonical generic model
-
 Define and test one tree model. Remove generic scope semantics that are not genuinely generic.
 
 ### Phase 2 — Single state owner
-
 Remove QueryFilterTree duplicate reactive state. Generic TreeBuilder becomes the tree state owner.
 
 ### Phase 3 — Real FilterLeaf
-
 Rewrite FilterLeaf as a one-row domain component. Stop using FilterGroup as its implementation.
 
 ### Phase 4 — Serialization boundary
-
 Confirm the active Query Records backend contract and replace the current adapter with one minimal serializer/deserializer if required.
 
 ### Phase 5 — QueryFilterTree composition
-
 Configure TreeBuilder with Query Filter policy and renderer only.
 
 ### Phase 6 — FetchRecordsConfig integration
-
 Keep FetchRecordsConfig focused on Query Records configuration and delegate filters.
 
 ### Phase 7 — Tests/build
-
 Run generic tree, Query Filter, serializer, Fetch Records, lint/build, and targeted UI tests. Investigate frappe-vue-style only after module resolution succeeds.
 
 ## 25. Critical acceptance criteria

@@ -345,9 +345,7 @@ defineExpose({ validate });
 	background: var(--fxr-bg-card);
 	border: 1px solid var(--fxr-border);
 	border-radius: var(--fxr-radius-md);
-	transition:
-		border-color var(--fxr-transition-fast),
-		background-color var(--fxr-transition-fast);
+	transition: border-color var(--fxr-transition-fast), background-color var(--fxr-transition-fast);
 }
 .filter-row:hover {
 	border-color: var(--fxr-border-strong);

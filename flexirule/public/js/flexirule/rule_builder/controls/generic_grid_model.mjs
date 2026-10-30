@@ -16,8 +16,8 @@ export function getRowKey(row, index, keyName = "id") {
 			typeof keyName === "function"
 				? keyName(row, index)
 				: row && typeof row === "object"
-					? row[keyName]
-					: undefined;
+				? row[keyName]
+				: undefined;
 	} catch {
 		// A failing user key resolver must not break rendering; use the positional fallback.
 		key = undefined;
@@ -95,8 +95,8 @@ export function parseClipboardRows(text) {
 		const rows = Array.isArray(parsed)
 			? parsed
 			: parsed?.format === GRID_CLIPBOARD_FORMAT && parsed.version === 1
-				? parsed.rows
-				: null;
+			? parsed.rows
+			: null;
 		return Array.isArray(rows)
 			? rows.filter((row) => row !== null && typeof row === "object" && !Array.isArray(row))
 			: [];

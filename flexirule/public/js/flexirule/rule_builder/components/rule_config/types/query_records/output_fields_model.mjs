@@ -347,12 +347,12 @@ export function buildResolvedOutputSchema({
 					fn === "count"
 						? "Int"
 						: fn === "avg"
-							? "Float"
-							: ["min", "max"].includes(fn)
-								? info.fieldtype || "Data"
-								: numericType
-									? info.fieldtype
-									: "Float",
+						? "Float"
+						: ["min", "max"].includes(fn)
+						? info.fieldtype || "Data"
+						: numericType
+						? info.fieldtype
+						: "Float",
 				reqd: 0,
 				source: {
 					kind: "aggregate",

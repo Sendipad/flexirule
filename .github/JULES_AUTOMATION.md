@@ -7,9 +7,9 @@ The `Start Jules Task` workflow starts a Jules API session for `Sendipad/flexiru
 1. Open **Actions → Start Jules Task → Run workflow**.
 2. Choose the workflow ref that contains this workflow (normally `develop`).
 3. Enter:
-    - **Base branch**: the existing repository branch Jules should start from (defaults to `develop`).
-    - **Prompt**: the complete task, implementation constraints, and acceptance criteria.
-    - **Task title** (optional): the Jules session title.
+   - **Base branch**: the existing repository branch Jules should start from (defaults to `develop`).
+   - **Prompt**: the complete task, implementation constraints, and acceptance criteria.
+   - **Task title** (optional): the Jules session title.
 4. Run the workflow. The Actions log and run summary show the Jules session URL; comment-triggered runs also publish it to the issue/PR.
 
 The workflow validates the Git ref format and confirms that the requested base branch exists in this repository before creating a Jules session.

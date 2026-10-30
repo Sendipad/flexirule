@@ -87,7 +87,7 @@ Use this map as a starting point, then verify details against current code.
 - Keep validation deterministic and side-effect-light. Do not send notifications, mutate business documents, enqueue durable work, or commit transactions as a by-product of validating a draft.
 - For JSON fields, normalize and validate the shape at a boundary, handle malformed/empty values deliberately, and avoid silently turning invalid user input into a valid but semantically different value.
 - Avoid N+1 database access in loops when a bulk query or existing registry pattern is appropriate. Do not add a cache or an index based solely on assumption; identify the access pattern, invalidation requirements, and testable benefit.
-- Preserve translation conventions with frappe.\_ where user-facing messages need translation.
+- Preserve translation conventions with frappe._ where user-facing messages need translation.
 
 ## 7. Rule Builder and frontend implementation guidance
 
@@ -128,14 +128,14 @@ Use this map as a starting point, then verify details against current code.
 
 Run commands from the appropriate Bench or app environment. Substitute a dedicated test site for <test-site>.
 
-```sh
+~~~sh
 ruff check flexirule
 yarn lint
 bench --site <test-site> run-tests --app flexirule
 bench --site <test-site> run-tests --module flexirule.ruleflow.tests.test_engine
 bench build --app flexirule
 bench --site <test-site> run-ui-tests flexirule --headless
-```
+~~~
 
 - Use a focused backend test module during development, then run the app suite when feasible. Replace the example module with the actual test module covering the change.
 - UI tests use the repository's Frappe/Cypress path described in E2E_TESTING.md and require a prepared test site/Bench environment.

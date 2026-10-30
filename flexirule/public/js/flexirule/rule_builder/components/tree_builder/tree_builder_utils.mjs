@@ -150,7 +150,7 @@ export function normalizeTreeNode(
 							groupOperators: operators,
 							path: [...path, "children", index],
 						})
-					)
+				  )
 				: [],
 		};
 	}

@@ -442,7 +442,7 @@ function rowDescription(row) {
 			? __("{0}: {1}", [
 					row.field.includes(".") ? __("Related field") : __("Parent field"),
 					row.field,
-				])
+			  ])
 			: __("Choose a field");
 		return row.alias ? __("{0} · Output alias: {1}", [source, row.alias]) : source;
 	}
@@ -983,9 +983,7 @@ defineExpose({ validate });
 	background-color: var(--fxr-bg-input) !important;
 	color: var(--fxr-text) !important;
 	font-size: var(--fxr-input-font-size, var(--fxr-text-sm)) !important;
-	transition:
-		border-color var(--fxr-transition-fast),
-		box-shadow var(--fxr-transition-fast);
+	transition: border-color var(--fxr-transition-fast), box-shadow var(--fxr-transition-fast);
 }
 
 :deep(.form-control:focus) {

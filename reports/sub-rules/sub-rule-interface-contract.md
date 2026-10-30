@@ -17,14 +17,8 @@ Example input schema:
 
 ```json
 [
-	{
-		"fieldname": "party",
-		"label": "Customer",
-		"fieldtype": "Link",
-		"options": "Customer",
-		"reqd": 1
-	},
-	{ "fieldname": "from_date", "label": "From Date", "fieldtype": "Date", "reqd": 0 }
+  { "fieldname": "party", "label": "Customer", "fieldtype": "Link", "options": "Customer", "reqd": 1 },
+  { "fieldname": "from_date", "label": "From Date", "fieldtype": "Date", "reqd": 0 }
 ]
 ```
 
@@ -32,29 +26,17 @@ Example output schema:
 
 ```json
 [
-	{
-		"fieldname": "document_counts",
-		"label": "Document Counts",
-		"fieldtype": "Table",
-		"reqd": 0,
-		"source": { "kind": "sub_rule_output" },
-		"children": [
-			{
-				"fieldname": "document_type",
-				"label": "Document Type",
-				"fieldtype": "Data",
-				"reqd": 0,
-				"source": { "kind": "literal" }
-			},
-			{
-				"fieldname": "issued_count",
-				"label": "Issued Count",
-				"fieldtype": "Int",
-				"reqd": 0,
-				"source": { "kind": "aggregate" }
-			}
-		]
-	}
+  {
+    "fieldname": "document_counts",
+    "label": "Document Counts",
+    "fieldtype": "Table",
+    "reqd": 0,
+    "source": { "kind": "sub_rule_output" },
+    "children": [
+      { "fieldname": "document_type", "label": "Document Type", "fieldtype": "Data", "reqd": 0, "source": { "kind": "literal" } },
+      { "fieldname": "issued_count", "label": "Issued Count", "fieldtype": "Int", "reqd": 0, "source": { "kind": "aggregate" } }
+    ]
+  }
 ]
 ```
 

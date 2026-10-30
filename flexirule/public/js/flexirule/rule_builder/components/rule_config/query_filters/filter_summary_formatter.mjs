@@ -228,8 +228,8 @@ export function formatFilterSummary(node, doctype, metaMap = null) {
 						? __("Set")
 						: "Set"
 					: typeof __ === "function"
-						? __("Not Set")
-						: "Not Set";
+					? __("Not Set")
+					: "Not Set";
 		} else {
 			valueLabel = formatSingleValue(value) || (typeof __ === "function" ? __("Set") : "Set");
 		}

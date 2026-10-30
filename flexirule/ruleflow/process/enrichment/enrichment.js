@@ -172,8 +172,8 @@ flexirule.processes["Enrichment"] = {
 				const fields = Array.isArray(config.field_list)
 					? config.field_list
 					: typeof config.field_list === "string"
-						? config.field_list.split("\n").filter((f) => f.trim())
-						: [];
+					? config.field_list.split("\n").filter((f) => f.trim())
+					: [];
 
 				return fields.map((field) => {
 					return {

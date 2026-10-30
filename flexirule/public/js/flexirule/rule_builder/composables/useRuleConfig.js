@@ -257,15 +257,15 @@ export function useRuleConfig(props, emit) {
 		const isSourceContextCurrent = () =>
 			Boolean(
 				props.modelValue &&
-				props.node === sourceNode &&
-				draftNode.value === sourceDraft &&
-				activeNodeId.value === activeEntry.nodeId &&
-				draftEntries.get(activeEntry.nodeId) === activeEntry &&
-				!activeEntry.isStale &&
-				sourceIsCurrent() &&
-				hasUnchangedDraft() &&
-				saveContextGeneration === sourceContextGeneration &&
-				ruleStore.fetch_generation === sourceGeneration
+					props.node === sourceNode &&
+					draftNode.value === sourceDraft &&
+					activeNodeId.value === activeEntry.nodeId &&
+					draftEntries.get(activeEntry.nodeId) === activeEntry &&
+					!activeEntry.isStale &&
+					sourceIsCurrent() &&
+					hasUnchangedDraft() &&
+					saveContextGeneration === sourceContextGeneration &&
+					ruleStore.fetch_generation === sourceGeneration
 			);
 
 		isSaving.value = true;

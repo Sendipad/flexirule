@@ -60,8 +60,8 @@
 									getWhenConditionStatus(assignment).isInvalid
 										? 'fa fa-exclamation-triangle'
 										: hasWhenCondition(assignment)
-											? 'fa fa-filter'
-											: 'fa fa-play-circle-o'
+										? 'fa fa-filter'
+										: 'fa fa-play-circle-o'
 								"
 								class="me-2"
 							></i>
@@ -70,8 +70,8 @@
 									getWhenConditionStatus(assignment).isInvalid
 										? __("Invalid Condition")
 										: hasWhenCondition(assignment)
-											? __("Condition Set")
-											: __("Always Run")
+										? __("Condition Set")
+										: __("Always Run")
 								}}
 							</span>
 						</button>
