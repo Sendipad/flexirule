@@ -25,7 +25,7 @@
 				frappe.utils.format(
 					__("Field '{0}' not found in {1}"),
 					modelValue.base_field,
-					doctype || store.rule_doc?.document_type
+					doctype || ruleStore.rule_doc?.document_type
 				)
 			}}
 		</div>
@@ -60,7 +60,7 @@
 
 <script setup>
 import { computed } from "vue";
-import { useStore } from "../../../../stores";
+import { useMetaStore, useRuleStore } from "../../../../stores";
 import { __, validateField } from "../../utils";
 import SelectControl from "../../../SelectControl.vue";
 import ComboBoxControl from "../../../ComboBoxControl.vue";
@@ -81,7 +81,8 @@ const props = defineProps({
 	readOnly: Boolean,
 });
 
-const store = useStore();
+const metaStore = useMetaStore();
+const ruleStore = useRuleStore();
 
 const baseTypeOptions = [
 	{ value: "today", label: __("Current Date (Today)") },
@@ -106,9 +107,9 @@ const unitOptions = [
 ];
 
 const dateFieldOptions = computed(() => {
-	const dt = store.rule_doc?.document_type || props.doctype;
+	const dt = ruleStore.rule_doc?.document_type || props.doctype;
 	if (!dt) return [];
-	const fields = store.doc_meta[dt];
+	const fields = metaStore.doc_meta[dt];
 	if (!fields || !Array.isArray(fields)) return [];
 	return fields
 		.filter((f) => ["Date", "Datetime", "Time"].includes(f.fieldtype))
@@ -121,7 +122,7 @@ const dateFieldOptions = computed(() => {
 const isBaseFieldValid = computed(() => {
 	if (props.modelValue.base_type !== "doc_field") return true;
 	if (!props.modelValue.base_field) return true;
-	const dt = store.rule_doc?.document_type || props.doctype;
-	return validateField(props.modelValue.base_field, dt, store);
+	const dt = ruleStore.rule_doc?.document_type || props.doctype;
+	return validateField(props.modelValue.base_field, dt, metaStore);
 });
 </script>

@@ -9,7 +9,7 @@ import CollectionResolver from "./components/CollectionResolver.vue";
 
 import { registerStrategy, getStrategy } from "./strategies";
 import { __, toDocExpression, validateField } from "./utils";
-import { useStore } from "../../stores";
+import { useMetaStore, useRuleStore } from "../../stores";
 
 // ─── Date & Time Strategy (Unified Date & Time Family) ───
 registerStrategy("date_time", {
@@ -167,8 +167,9 @@ registerStrategy("date_time", {
 	},
 	validate: (item, props) => {
 		const errors = [];
-		const store = useStore();
-		const dt = store.rule_doc?.document_type || props.doctype;
+		const metaStore = useMetaStore();
+		const ruleStore = useRuleStore();
+		const dt = ruleStore.rule_doc?.document_type || props.doctype;
 		const op = item.operation || "calculate";
 		const cfg = item.config || item;
 
@@ -176,7 +177,7 @@ registerStrategy("date_time", {
 			if (cfg.base_type === "doc_field") {
 				if (!cfg.base_field) {
 					errors.push(__("Base field is required"));
-				} else if (!validateField(cfg.base_field, dt, store)) {
+				} else if (!validateField(cfg.base_field, dt, metaStore)) {
 					errors.push(
 						frappe.utils.format(__("Base field '{0}' not found"), cfg.base_field)
 					);
@@ -186,7 +187,7 @@ registerStrategy("date_time", {
 			if (cfg.diff_start_type === "doc_field") {
 				if (!cfg.diff_start_field) {
 					errors.push(__("Start field is required"));
-				} else if (!validateField(cfg.diff_start_field, dt, store)) {
+				} else if (!validateField(cfg.diff_start_field, dt, metaStore)) {
 					errors.push(
 						frappe.utils.format(__("Start field '{0}' not found"), cfg.diff_start_field)
 					);
@@ -195,7 +196,7 @@ registerStrategy("date_time", {
 			if (cfg.diff_end_type === "doc_field") {
 				if (!cfg.diff_end_field) {
 					errors.push(__("End field is required"));
-				} else if (!validateField(cfg.diff_end_field, dt, store)) {
+				} else if (!validateField(cfg.diff_end_field, dt, metaStore)) {
 					errors.push(
 						frappe.utils.format(__("End field '{0}' not found"), cfg.diff_end_field)
 					);
@@ -204,13 +205,13 @@ registerStrategy("date_time", {
 		} else if (op === "extract" || op === "boundary") {
 			if (!cfg.base_field) {
 				errors.push(__("Date & Time field is required"));
-			} else if (!validateField(cfg.base_field, dt, store)) {
+			} else if (!validateField(cfg.base_field, dt, metaStore)) {
 				errors.push(frappe.utils.format(__("Field '{0}' not found"), cfg.base_field));
 			}
 		} else if (op === "format") {
 			if (!cfg.fmt_field) {
 				errors.push(__("Date & Time field is required"));
-			} else if (!validateField(cfg.fmt_field, dt, store)) {
+			} else if (!validateField(cfg.fmt_field, dt, metaStore)) {
 				errors.push(frappe.utils.format(__("Field '{0}' not found"), cfg.fmt_field));
 			}
 		}
@@ -232,9 +233,10 @@ registerStrategy("collection", {
 		let defaultSource = "";
 		if (fieldname) {
 			const cleanName = String(fieldname).replace(/^(doc|vars)\./, "");
-			const store = useStore();
-			const dt = store.rule_doc?.document_type || props.doctype;
-			const fields = store.doc_meta?.[dt];
+			const metaStore = useMetaStore();
+			const ruleStore = useRuleStore();
+			const dt = ruleStore.rule_doc?.document_type || props.doctype;
+			const fields = metaStore.doc_meta?.[dt];
 			const isTable = fields?.some(
 				(f) => f.fieldname === cleanName && f.fieldtype === "Table"
 			);
@@ -309,19 +311,20 @@ registerStrategy("math_formula", {
 	},
 	validate: (item, props) => {
 		const errors = [];
-		const store = useStore();
-		const dt = store.rule_doc?.document_type || props.doctype;
+		const metaStore = useMetaStore();
+		const ruleStore = useRuleStore();
+		const dt = ruleStore.rule_doc?.document_type || props.doctype;
 
 		if (!item.field_a) {
 			errors.push(__("Field A is required"));
-		} else if (!validateField(item.field_a, dt, store)) {
+		} else if (!validateField(item.field_a, dt, metaStore)) {
 			errors.push(frappe.utils.format(__("Field A '{0}' not found"), item.field_a));
 		}
 
 		if (item.field_b_type === "field") {
 			if (!item.field_b) {
 				errors.push(__("Field B is required"));
-			} else if (!validateField(item.field_b, dt, store)) {
+			} else if (!validateField(item.field_b, dt, metaStore)) {
 				errors.push(frappe.utils.format(__("Field B '{0}' not found"), item.field_b));
 			}
 		}
@@ -358,12 +361,13 @@ registerStrategy("child_aggregation", {
 	},
 	validate: (item, props) => {
 		const errors = [];
-		const store = useStore();
-		const dt = store.rule_doc?.document_type || props.doctype;
+		const metaStore = useMetaStore();
+		const ruleStore = useRuleStore();
+		const dt = ruleStore.rule_doc?.document_type || props.doctype;
 
 		if (!item.agg_table) {
 			errors.push(__("Child table is required"));
-		} else if (!validateField(item.agg_table, dt, store)) {
+		} else if (!validateField(item.agg_table, dt, metaStore)) {
 			errors.push(frappe.utils.format(__("Table field '{0}' not found"), item.agg_table));
 		}
 
@@ -371,10 +375,10 @@ registerStrategy("child_aggregation", {
 			if (!item.agg_field) {
 				errors.push(__("Numeric field is required"));
 			} else {
-				const fields = store.doc_meta[dt];
+				const fields = metaStore.doc_meta[dt];
 				const tableField = fields?.find((f) => f.fieldname === item.agg_table);
 				if (tableField && tableField.options) {
-					if (!validateField(item.agg_field, tableField.options, store)) {
+					if (!validateField(item.agg_field, tableField.options, metaStore)) {
 						errors.push(
 							frappe.utils.format(
 								__("Field '{0}' not found in child table '{1}'"),
@@ -490,33 +494,34 @@ registerStrategy("text", {
 	},
 	validate: (item, props) => {
 		const errors = [];
-		const store = useStore();
-		const dt = store.rule_doc?.document_type || props.doctype;
+		const metaStore = useMetaStore();
+		const ruleStore = useRuleStore();
+		const dt = ruleStore.rule_doc?.document_type || props.doctype;
 		const op = item.operation || "combine";
 		const cfg = item.config || {};
 
 		if (op === "combine") {
 			if (cfg.str_a_type === "field") {
 				if (!cfg.str_a) errors.push(__("Value A field is required"));
-				else if (!validateField(cfg.str_a, dt, store))
+				else if (!validateField(cfg.str_a, dt, metaStore))
 					errors.push(frappe.utils.format(__("Field '{0}' not found"), cfg.str_a));
 			}
 			if (cfg.str_b_type === "field") {
 				if (!cfg.str_b) errors.push(__("Value B field is required"));
-				else if (!validateField(cfg.str_b, dt, store))
+				else if (!validateField(cfg.str_b, dt, metaStore))
 					errors.push(frappe.utils.format(__("Field '{0}' not found"), cfg.str_b));
 			}
 		} else if (op === "case") {
 			if (!cfg.field) errors.push(__("Target field is required"));
-			else if (!validateField(cfg.field, dt, store))
+			else if (!validateField(cfg.field, dt, metaStore))
 				errors.push(frappe.utils.format(__("Field '{0}' not found"), cfg.field));
 		} else if (op === "normalize") {
 			if (!cfg.norm_field) errors.push(__("Field is required"));
-			else if (!validateField(cfg.norm_field, dt, store))
+			else if (!validateField(cfg.norm_field, dt, metaStore))
 				errors.push(frappe.utils.format(__("Field '{0}' not found"), cfg.norm_field));
 		} else if (op === "format") {
 			if (!cfg.fmt_field) errors.push(__("Field is required"));
-			else if (!validateField(cfg.fmt_field, dt, store))
+			else if (!validateField(cfg.fmt_field, dt, metaStore))
 				errors.push(frappe.utils.format(__("Field '{0}' not found"), cfg.fmt_field));
 		}
 
@@ -568,15 +573,16 @@ registerStrategy("lookup", {
 	},
 	validate: (item, props) => {
 		const errors = [];
-		const store = useStore();
-		const dt = store.rule_doc?.document_type || props.doctype;
+		const metaStore = useMetaStore();
+		const ruleStore = useRuleStore();
+		const dt = ruleStore.rule_doc?.document_type || props.doctype;
 		const cfg = item.config || item;
 		const mode = cfg.doctype_mode || "static";
 
 		if (mode === "dynamic") {
 			if (!cfg.doctype_source) {
 				errors.push(__("DocType source field is required for Dynamic Lookup"));
-			} else if (!validateField(cfg.doctype_source, dt, store)) {
+			} else if (!validateField(cfg.doctype_source, dt, metaStore)) {
 				errors.push(
 					frappe.utils.format(
 						__("DocType source field '{0}' not found"),
@@ -593,7 +599,7 @@ registerStrategy("lookup", {
 		if (cfg.record_source_type === "doc_field") {
 			if (!cfg.record_field) {
 				errors.push(__("Record field is required"));
-			} else if (!validateField(cfg.record_field, dt, store)) {
+			} else if (!validateField(cfg.record_field, dt, metaStore)) {
 				errors.push(
 					frappe.utils.format(__("Record field '{0}' not found"), cfg.record_field)
 				);
@@ -608,7 +614,7 @@ registerStrategy("lookup", {
 			!cfg.target_doctype.startsWith("doc.") &&
 			!cfg.target_doctype.startsWith("vars.")
 		) {
-			if (!validateField(cfg.fetch_field, cfg.target_doctype, store)) {
+			if (!validateField(cfg.fetch_field, cfg.target_doctype, metaStore)) {
 				errors.push(
 					frappe.utils.format(
 						__("Field '{0}' not found in Target DocType '{1}'"),

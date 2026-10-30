@@ -60,7 +60,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted } from "vue";
-import { useStore } from "../../../stores";
+import { useRuleStore, useGraphStore, useMetaStore } from "../../../stores";
 import { fromCodeString } from "../../../utils/serialization";
 import ConditionBuilder from "../../condition_builder/ConditionBuilder.vue";
 import { validateConditions } from "../../condition_builder/condition_validator.js";
@@ -73,7 +73,9 @@ const props = defineProps({
 	showValidation: { type: Boolean, default: false },
 });
 
-const store = useStore();
+const ruleStore = useRuleStore();
+const graphStore = useGraphStore();
+const metaStore = useMetaStore();
 const localConditions = ref({ op: "and", conditions: [] });
 const showOldDoc = ref(false);
 const variableFields = ref([]);
@@ -183,13 +185,12 @@ const docFields = computed(() => {
 		dedupe.set(field.value, field);
 	};
 
-	store.doc_fields.forEach(pushField);
+	ruleStore.doc_fields.forEach(pushField);
 	variableFields.value.forEach(pushField);
 	let fields = Array.from(dedupe.values());
 
 	if (showOldDoc.value) {
-		const metaStore = store;
-		const doctype = store.rule_doc?.document_type;
+		const doctype = ruleStore.rule_doc?.document_type;
 		if (doctype) {
 			const oldFields = metaStore.get_fields_for_doctype(doctype, {
 				alias: "old_doc",
@@ -200,7 +201,7 @@ const docFields = computed(() => {
 	}
 
 	const triggerTypeOptions = "DocType Event\nScheduler Event\nCallable Event";
-	const triggerEventOptions = (store.trigger_event_options || []).join("\n");
+	const triggerEventOptions = (ruleStore.trigger_event_options || []).join("\n");
 	const contextFields = [
 		{
 			label: "context.doctype (Current Doctype)",
@@ -319,7 +320,7 @@ async function refreshVariableFields() {
 	}
 
 	try {
-		const available = await store.getAvailableVariables(nodeId);
+		const available = await ruleStore.getAvailableVariables(nodeId);
 		variableFields.value = available || [];
 	} catch (e) {
 		variableFields.value = [];
@@ -331,9 +332,9 @@ onMounted(async () => {
 	const node = props.node;
 	if (!node) return;
 
-	const doctype = node.data?.document_type || store.rule_doc?.document_type;
-	if (doctype && !store.doc_fields.length) {
-		await store.fetch_metadata(doctype);
+	const doctype = node.data?.document_type || ruleStore.rule_doc?.document_type;
+	if (doctype && !ruleStore.doc_fields.length) {
+		await metaStore.fetch_metadata(doctype);
 	}
 	await refreshVariableFields();
 });
@@ -341,7 +342,7 @@ onMounted(async () => {
 watch(
 	() => [
 		props.node?.id,
-		(store.nodes || [])
+		(graphStore.nodes || [])
 			.filter(Boolean)
 			.map((node) => [
 				node.id,

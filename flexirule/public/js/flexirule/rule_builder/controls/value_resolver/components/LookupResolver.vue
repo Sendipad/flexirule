@@ -124,7 +124,7 @@
 
 <script setup>
 import { ref, computed, watch } from "vue";
-import { useStore } from "../../../stores";
+import { useMetaStore, useRuleStore } from "../../../stores";
 import ComboBoxControl from "../../ComboBoxControl.vue";
 import SelectControl from "../../SelectControl.vue";
 import DataControl from "../../DataControl.vue";
@@ -145,7 +145,8 @@ const props = defineProps({
 	context: Object,
 });
 
-const store = useStore();
+const metaStore = useMetaStore();
+const ruleStore = useRuleStore();
 const fetchMetaLoading = ref(false);
 
 const doctypeModeOptions = [
@@ -181,9 +182,9 @@ const targetDocTypeHeader = computed(() => {
 });
 
 const prioritizedFieldOptions = computed(() => {
-	const dt = store.rule_doc?.document_type || props.doctype;
+	const dt = ruleStore.rule_doc?.document_type || props.doctype;
 	if (!dt) return [];
-	const fields = store.doc_meta[dt];
+	const fields = metaStore.doc_meta[dt];
 	if (!fields || !Array.isArray(fields)) return [];
 
 	const prioritizedTypes = ["Dynamic Link", "Link", "Data", "Select"];
@@ -208,9 +209,9 @@ const prioritizedFieldOptions = computed(() => {
 });
 
 const doctypeSourceFieldOptions = computed(() => {
-	const dt = store.rule_doc?.document_type || props.doctype;
+	const dt = ruleStore.rule_doc?.document_type || props.doctype;
 	if (!dt) return [];
-	const fields = store.doc_meta[dt];
+	const fields = metaStore.doc_meta[dt];
 	if (!fields || !Array.isArray(fields)) return [];
 
 	return fields
@@ -238,7 +239,7 @@ const recordLinkOptions = computed(() => {
 const fetchFieldOptions = computed(() => {
 	const linkedDt = props.modelValue.target_doctype;
 	if (!linkedDt) return [];
-	return store.get_fields_for_doctype(linkedDt, { valueMode: "fieldname" });
+	return metaStore.get_fields_for_doctype(linkedDt, { valueMode: "fieldname" });
 });
 
 function onDoctypeModeChange() {
@@ -291,7 +292,7 @@ watch(
 		if (newVal && !newVal.startsWith("doc.") && !newVal.startsWith("vars.")) {
 			fetchMetaLoading.value = true;
 			try {
-				await store.fetch_metadata(newVal);
+				await metaStore.fetch_metadata(newVal);
 			} finally {
 				fetchMetaLoading.value = false;
 			}
