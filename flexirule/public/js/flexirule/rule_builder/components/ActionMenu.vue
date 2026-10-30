@@ -122,7 +122,7 @@ async function updateMenuPosition() {
 						elements.floating.style.maxWidth = `${Math.max(0, availableWidth)}px`;
 						elements.floating.style.maxHeight = `${Math.max(
 							0,
-						Math.min(280, availableHeight)
+							Math.min(280, availableHeight)
 						)}px`;
 					},
 				}),

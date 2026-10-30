@@ -33,6 +33,13 @@ from flexirule.ruleflow.core.permissions import can_ignore_permissions
 from flexirule.ruleflow.utils.mapping import apply_input_mapping
 
 
+@frappe.whitelist()
+def _async_create_doc(doc_data: dict, ignore_permissions: bool = False) -> dict:
+	doc = frappe.get_doc(doc_data)
+	doc.insert(ignore_permissions=ignore_permissions)
+	return doc.as_dict()
+
+
 class DocumentActionHandler(ActionHandler):
 	"""Handler for creating, updating, or deleting documents."""
 
@@ -103,6 +110,7 @@ class DocumentActionHandler(ActionHandler):
 					"require_return_type": False,
 					"required_config_keys": ["assigned_to", "description"],
 					"field_labels": {"return_type": "ToDo Output Type"},
+					"fixed_doctype": "ToDo",
 				},
 				"Add Comment": {
 					"allowed_return_types": ["Single Record"],
@@ -112,6 +120,7 @@ class DocumentActionHandler(ActionHandler):
 					"require_return_type": False,
 					"required_config_keys": ["comment_text"],
 					"field_labels": {"return_type": "Comment Output Type"},
+					"fixed_doctype": "Comment",
 				},
 			},
 			field_labels={
@@ -174,7 +183,7 @@ class DocumentActionHandler(ActionHandler):
 					{"fieldname": "action_type", "default": "Document Action"},
 					{"fieldname": "operation", "default": "Update Existing"},
 					reference_doctype_override(),
-					{"fieldname": "reference_docname", "depends_on": "eval:doc.reference_doctype", "reqd": 1},
+					{"fieldname": "reference_docname", "depends_on": "eval:doc.reference_doctype"},
 					config_depends_on_doctype(description="⚠️ Fields to update"),
 					{
 						"fieldname": "mutation_mode",
@@ -192,7 +201,7 @@ class DocumentActionHandler(ActionHandler):
 					{"fieldname": "action_type", "default": "Document Action"},
 					{"fieldname": "operation", "default": "Delete Record"},
 					reference_doctype_override(),
-					{"fieldname": "reference_docname", "depends_on": "eval:doc.reference_doctype", "reqd": 1},
+					{"fieldname": "reference_docname", "depends_on": "eval:doc.reference_doctype"},
 					{"fieldname": "return_type", "default": "Yes / No", "read_only": 1},
 					{"fieldname": "description", "description": "⚠️ Permanently deletes a document record"},
 				],
@@ -229,7 +238,6 @@ class DocumentActionHandler(ActionHandler):
 					{"fieldname": "action_type", "default": "Document Action"},
 					{"fieldname": "operation", "default": "Add Comment"},
 					reference_doctype_override(),
-					{"fieldname": "reference_docname", "depends_on": "eval:doc.reference_doctype", "reqd": 1},
 					config_depends_on_doctype(description="⚠️ Comment content and settings"),
 					{
 						"fieldname": "mutation_mode",
@@ -393,30 +401,40 @@ class DocumentActionHandler(ActionHandler):
 		# 3) Apply static values last (explicit user constants should win)
 		doc_data.update(static_values)
 
+		new_doc = frappe.get_doc(doc_data)
+		self._apply_table_mappings(new_doc, table_mappings, context)
+
 		if is_async:
-			# Enqueue document creation
+			full_doc_data = new_doc.as_dict()
 			frappe.enqueue(
 				"flexirule.ruleflow.core.action_handlers.document_action._async_create_doc",
 				queue="default",
-				doc_data=doc_data,
+				doc_data=full_doc_data,
 				ignore_permissions=ignore_permissions,
+				enqueue_after_commit=True,
 			)
 			return {"enqueued": True, "doctype": reference_doctype}
 
-		# Synchronous creation
-		new_doc = frappe.get_doc(doc_data)
-		self._apply_table_mappings(new_doc, table_mappings, context)
 		new_doc.insert(ignore_permissions=ignore_permissions)
-
 		return new_doc.as_dict()
+
+	def _resolve_target_docname(self, action, config, context):
+		"""
+		Resolve target record identity with explicit precedence:
+		1) action.reference_docname
+		2) config.docname_expression
+		3) config.docname
+		"""
+		docname = action.reference_docname
+		if not docname and config.get("docname_expression"):
+			docname = self._safe_eval(config["docname_expression"], context)
+		if not docname and config.get("docname"):
+			docname = self._resolve_value_expression(config["docname"], context)
+		return docname
 
 	def _update_existing(self, reference_doctype, config, context, action, ignore_permissions):
 		"""Update an existing document with field mappings."""
-		docname = action.reference_docname or config.get("docname")
-
-		# Support dynamic docname from expression
-		if not docname and config.get("docname_expression"):
-			docname = self._safe_eval(config["docname_expression"], context)
+		docname = self._resolve_target_docname(action, config, context)
 
 		if not docname:
 			frappe.throw(_("No document name specified for Update Existing"))
@@ -463,10 +481,16 @@ class DocumentActionHandler(ActionHandler):
 	def _safe_eval(self, expression, context):
 		"""Evaluate expressions using SafeFrappeAPI from context."""
 		safe_frappe = context.get("frappe") or frappe
+		doc = context.get("doc")
+		if isinstance(doc, dict):
+			doc = frappe._dict(doc)
+		old_doc = context.get("old_doc")
+		if isinstance(old_doc, dict):
+			old_doc = frappe._dict(old_doc)
 		eval_locals = {
-			"doc": context.get("doc"),
-			"old_doc": context.get("old_doc"),
-			"vars": context.get("vars", {}),
+			"doc": doc,
+			"old_doc": old_doc,
+			"vars": frappe._dict(context.get("vars", {})),
 			"item": context.get("item"),
 			"loop": context.get("loop"),
 		}
@@ -673,6 +697,15 @@ class DocumentActionHandler(ActionHandler):
 			return value
 		return frappe.render_template(value, self._template_context(context))  # nosemgrep: frappe-ssti
 
+	def _render_text(self, raw_value, context):
+		"""Resolve text values supporting both {var} expression evaluation and Jinja {{ }} templates."""
+		if raw_value is None or not isinstance(raw_value, str):
+			return raw_value
+		resolved = self._resolve_value_expression(raw_value, context)
+		if resolved and isinstance(resolved, str) and ("{{" in resolved or "{%" in resolved):
+			resolved = self._render_scalar(resolved, context)
+		return resolved
+
 	def _create_todo(self, reference_doctype, config, context, ignore_permissions):
 		"""Create a linked ToDo using the current context document."""
 		if reference_doctype != "ToDo":
@@ -682,17 +715,9 @@ class DocumentActionHandler(ActionHandler):
 		if not doc:
 			frappe.throw(_("Create ToDo mode requires a context document"))
 
-		raw_assigned = config.get("assigned_to")
-		# Support dynamic resolution: {variable} syntax first, then Jinja {{ }} templates
-		assigned_to = self._resolve_value_expression(raw_assigned, context) if raw_assigned else None
-		if (
-			assigned_to
-			and isinstance(assigned_to, str)
-			and ("{{" in str(raw_assigned) or "{%" in str(raw_assigned))
-		):
-			assigned_to = self._render_scalar(raw_assigned, context)
-		description = self._render_scalar(config.get("description"), context)
-		priority = self._render_scalar(config.get("priority") or "Medium", context)
+		assigned_to = self._render_text(config.get("assigned_to"), context)
+		description = self._render_text(config.get("description"), context)
+		priority = self._render_text(config.get("priority") or "Medium", context)
 
 		if not assigned_to:
 			frappe.throw(_("Create ToDo mode requires assigned_to in config"))
@@ -721,8 +746,8 @@ class DocumentActionHandler(ActionHandler):
 		if not doc:
 			frappe.throw(_("Add Comment mode requires a context document"))
 
-		comment_text = self._resolve_value_expression(config.get("comment_text", ""), context)
-		comment_type = self._resolve_value_expression(config.get("comment_type") or "Comment", context)
+		comment_text = self._render_text(config.get("comment_text", ""), context)
+		comment_type = self._render_text(config.get("comment_type") or "Comment", context)
 
 		if not comment_text:
 			frappe.throw(_("Add Comment mode requires comment_text in config"))
@@ -741,14 +766,7 @@ class DocumentActionHandler(ActionHandler):
 
 	def _delete_record(self, reference_doctype, config, context, action, ignore_permissions):
 		"""Deletes an existing document."""
-		docname = action.reference_docname
-
-		if not docname:
-			# Fallback to config explicitly mapping docname
-			if config.get("docname_expression"):
-				docname = self._safe_eval(config.get("docname_expression"), context)
-			else:
-				docname = self._resolve_value_expression(config.get("docname"), context)
+		docname = self._resolve_target_docname(action, config, context)
 
 		if not docname:
 			frappe.throw(_("Record name is required for Delete Record mode"))
