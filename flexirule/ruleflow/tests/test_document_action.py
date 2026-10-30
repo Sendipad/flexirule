@@ -101,6 +101,7 @@ class TestDocumentActionPhase1(FrappeTestCase):
 			overrides = op_contracts[op].action_overrides
 			ref_docname_def = next((o for o in overrides if o.get("fieldname") == "reference_docname"), None)
 			self.assertIsNotNone(ref_docname_def)
+			assert ref_docname_def is not None
 			self.assertNotEqual(ref_docname_def.get("reqd"), 1)
 
 		# Verify Contract DTO output includes fixed_doctype and required_config_keys
