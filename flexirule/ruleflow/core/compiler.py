@@ -162,6 +162,9 @@ class ConditionCompiler:
 
 	def _compile_node(self, node, scopes=None):
 		if not isinstance(node, dict):
+			raise ValueError(f"Invalid condition node type: {type(node).__name__}")
+
+		if not node:
 			return ""
 
 		if scopes is None:
@@ -180,33 +183,26 @@ class ConditionCompiler:
 		if "left" in node:
 			return self._compile_condition(node, scopes)
 
-		# Fallback/Empty
-		return ""
+		raise ValueError("Invalid or unknown legacy condition node structure")
 
 	def _compile_group(self, node, scopes):
 		subs = node.get("conditions", [])
-		if not subs:
-			return ""
+		if not isinstance(subs, list) or not subs:
+			raise ValueError("Legacy condition group requires a non-empty list of conditions")
 
 		default_op = node.get("op", node.get("logical_operator", "and")).lower()
 		if default_op not in ["and", "or"]:
-			default_op = "and"
+			raise ValueError(f"Unknown logical operator in group: {default_op}")
 
 		result_parts: list[str] = []
 		for i, sub in enumerate(subs):
 			compiled_sub = self._compile_node(sub, scopes)
 			if not compiled_sub:
-				continue
+				raise ValueError(f"Child condition at index {i} produced an empty expression")
 
 			if not result_parts:
-				# First node, just add it
 				result_parts.append(compiled_sub)
 			else:
-				# Subsequent nodes, get operator from PREVIOUS node for joining
-				# Actually, standard behavior is that the item itself says how it joins with the previous one,
-				# or the previous one says how it joins with the next.
-				# In flexirule, we use condition.get('logical_operator') to join with the NEXT.
-				# So we look at the operator of the previous node.
 				prev_node = subs[i - 1]
 				op = prev_node.get("logical_operator", default_op).lower()
 				if op not in ["and", "or"]:
@@ -215,7 +211,7 @@ class ConditionCompiler:
 				result_parts.extend([" ", op, " ", compiled_sub])
 
 		if not result_parts:
-			return ""
+			raise ValueError("Legacy group produced an empty expression")
 
 		return f"({''.join(result_parts)})"
 

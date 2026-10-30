@@ -251,16 +251,18 @@ class AssignmentHandler(ActionHandler):
 			from flexirule.ruleflow.core.condition_payload import detect_canonical_condition_payload
 
 			raw_guard = compiled.get("when_condition")
+			legacy_guard_keys = ("pythonExpression", "when_expression", "when")
+			has_legacy_expr = any(compiled.get(key) not in (None, "") for key in legacy_guard_keys)
+
 			if raw_guard not in (None, ""):
+				if has_legacy_expr:
+					raise ConditionValidationError(
+						"multiple_guard_formats",
+						f"assignments[{index}]",
+						"An assignment row cannot mix when_condition with other guard fields",
+					)
 				is_canonical, canonical_guard = detect_canonical_condition_payload(raw_guard)
 				if is_canonical:
-					legacy_guard_keys = ("pythonExpression", "when_expression", "when")
-					if any(compiled.get(key) not in (None, "") for key in legacy_guard_keys):
-						raise ConditionValidationError(
-							"multiple_guard_formats",
-							f"assignments[{index}]",
-							"An assignment row cannot mix canonical and legacy guard formats",
-						)
 					validate_condition_node(canonical_guard)
 					compiled["when_condition_canonical"] = canonical_guard
 					compiled["when_expression"] = ""
@@ -278,16 +280,18 @@ class AssignmentHandler(ActionHandler):
 
 	@classmethod
 	def _compile_when_expression(cls, row: dict, row_index: int = 0) -> str:
-		python_expr = row.get("pythonExpression")
-		if python_expr:
-			return python_expr
-
-		when_expression = (row.get("when_expression") or row.get("when") or "").strip()
-		if when_expression:
-			return when_expression
-
 		when_condition = row.get("when_condition")
 		if when_condition not in (None, ""):
+			legacy_guard_keys = ("pythonExpression", "when_expression", "when")
+			if any(row.get(key) not in (None, "") for key in legacy_guard_keys):
+				from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
+				raise ConditionValidationError(
+					"multiple_guard_formats",
+					f"assignments[{row_index}]",
+					"An assignment row cannot mix when_condition with other guard fields",
+				)
+
 			if isinstance(when_condition, str):
 				val_str = when_condition.strip()
 				if val_str.startswith(("{", "[")):
@@ -302,7 +306,6 @@ class AssignmentHandler(ActionHandler):
 							"Assignment guard JSON is malformed",
 						) from exc
 
-					# Pass parsed structured payload to legacy compiler
 					when_condition = parsed_json
 
 			from flexirule.ruleflow.core.condition_payload import detect_canonical_condition_payload
@@ -339,6 +342,14 @@ class AssignmentHandler(ActionHandler):
 					"Legacy assignment guard produced an empty or unconditional true expression",
 				)
 			return compiled
+
+		python_expr = row.get("pythonExpression")
+		if python_expr:
+			return python_expr
+
+		when_expression = (row.get("when_expression") or row.get("when") or "").strip()
+		if when_expression:
+			return when_expression
 
 		return ""
 

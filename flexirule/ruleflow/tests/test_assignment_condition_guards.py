@@ -145,6 +145,61 @@ class TestAssignmentConditionGuards(unittest.TestCase):
 			AssignmentHandler._get_compiled_plan(config)
 		self.assertEqual(raised.exception.code, "invalid_legacy_guard")
 
+	def test_invalid_when_condition_is_not_bypassed_by_when_expression(self):
+		config = (
+			'[{"target":"doc.status","value":"Closed",'
+			'"when_condition":{"unexpected":"shape"},"when_expression":"True"}]'
+		)
+		with self.assertRaises(ConditionValidationError) as raised:
+			AssignmentHandler._get_compiled_plan(config)
+		self.assertEqual(raised.exception.code, "multiple_guard_formats")
+
+	def test_partially_invalid_legacy_group_is_rejected(self):
+		config = (
+			'[{"target":"doc.status",'
+			'"when_condition":{"op":"and","conditions":['
+			'{"left":{"ref":"doc.status"},"op":"==","right":{"value":"Open"}},'
+			'{"unexpected":"shape"}'
+			"]}}]"
+		)
+		with self.assertRaises(ConditionValidationError) as raised:
+			AssignmentHandler._get_compiled_plan(config)
+		self.assertEqual(raised.exception.code, "invalid_legacy_guard")
+
+	def test_runtime_assignment_execution_does_not_mutate_doc_when_later_row_has_invalid_guard(self):
+		from types import SimpleNamespace
+
+		from flexirule.ruleflow.core.engine import RuleEngine
+
+		config = [
+			{"target": "doc.status", "value": "Closed"},
+			{"target": "doc.remarks", "when_condition": {"unexpected": "shape"}},
+		]
+		action = SimpleNamespace(
+			is_enabled=True,
+			name="act-1",
+			action_id="act-1",
+			action_type="Assignment",
+			action_label="Assignment Action",
+			config=config,
+		)
+		rule = SimpleNamespace(
+			name="test-rule",
+			actions=[action],
+			document_type="ToDo",
+		)
+		engine = RuleEngine(rule)
+		doc = {"status": "Open", "remarks": "Initial"}
+		context = {"doc": doc}
+		handler = AssignmentHandler()
+
+		with self.assertRaises(ConditionValidationError) as raised:
+			handler.execute(action, context, engine)
+
+		self.assertEqual(raised.exception.code, "invalid_legacy_guard")
+		self.assertEqual(doc["status"], "Open")
+		self.assertEqual(doc["remarks"], "Initial")
+
 
 if __name__ == "__main__":
 	unittest.main()
