@@ -48,7 +48,7 @@ function parse(value, defaultDoctype, path = []) {
 			children: Array.isArray(value.children)
 				? value.children.map((child, index) =>
 						parse(child, defaultDoctype, [...path, index])
-				  )
+					)
 				: [],
 		};
 	}

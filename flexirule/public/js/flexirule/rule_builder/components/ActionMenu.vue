@@ -122,7 +122,7 @@ async function updateMenuPosition() {
 						elements.floating.style.maxWidth = `${Math.max(0, availableWidth)}px`;
 						elements.floating.style.maxHeight = `${Math.max(
 							0,
-						Math.min(280, availableHeight)
+							Math.min(280, availableHeight)
 						)}px`;
 					},
 				}),
@@ -204,7 +204,8 @@ onBeforeUnmount(() => {
 	background: var(--fxr-surface, #fff);
 	color: var(--fxr-text-secondary, #4b5563);
 	cursor: pointer;
-	transition: background-color var(--fxr-transition-fast, 120ms ease),
+	transition:
+		background-color var(--fxr-transition-fast, 120ms ease),
 		border-color var(--fxr-transition-fast, 120ms ease),
 		color var(--fxr-transition-fast, 120ms ease);
 }
@@ -250,7 +251,8 @@ onBeforeUnmount(() => {
 	font-size: var(--fxr-text-xs, 12px);
 	text-align: left;
 	cursor: pointer;
-	transition: background-color var(--fxr-transition-fast, 120ms ease),
+	transition:
+		background-color var(--fxr-transition-fast, 120ms ease),
 		color var(--fxr-transition-fast, 120ms ease);
 }
 
