@@ -74,7 +74,9 @@ function syncEdges(cases) {
 	const nodeId = props.node.id;
 
 	// Remove all existing conditional edges from this node
-	graphStore.edges = graphStore.edges.filter((e) => !(e.source === nodeId && e.sourceHandle !== "default"));
+	graphStore.edges = graphStore.edges.filter(
+		(e) => !(e.source === nodeId && e.sourceHandle !== "default")
+	);
 
 	// Add new edges for each case
 	Object.entries(cases).forEach(([val, target]) => {
