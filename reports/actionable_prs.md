@@ -2,31 +2,32 @@
 
 ## Executive Summary
 
-This report identifies and evaluates all **actionable Pull Requests** in the FlexiRule repository starting from PR #469 onwards. Actionable PRs are defined as active PRs that require maintainer review, approval, testing, or merging.
+This report analyzes and classifies all **actionable Pull Requests** in the FlexiRule repository starting from PR #469 onwards. Actionable PRs are active pull requests requiring maintainer review, architectural decision, code review, or merge integration.
 
 ### Filtering Criteria Applied
-1. **Status:** Strictly `Open` (or `Draft`).
+1. **Status:** Strictly `Open` or `Draft`.
 2. **Resolution State:** Unmerged (`merged_at` is `null`) and Unclosed (`closed_at` is `null`).
-3. **Non-Empty File Edits:** Must contain edited/added source files with non-zero line changes (PRs #505 and #521 were excluded as zero-file edit PR artifacts).
-4. **Architectural Evaluation:** Analyzed for dependencies on deprecated legacy implementations versus alignment with modern FlexiRule architecture.
+3. **Non-Empty File Edits:** Contains non-empty file additions or modifications (PRs #505 and #521 were excluded as zero-file change artifacts).
+4. **Legacy Dependency Assessment:** Evaluated against FlexiRule's architectural standards to determine whether the PR relies on deprecated legacy mechanisms or modern architecture.
 
 ### Summary Statistics
-- **Total Open Actionable PRs Analyzed:** 40
+- **Total Actionable PRs:** 43
 - **Draft PRs:** 1 (PR #469)
-- **Ready for Review (Non-Draft):** 39
-- **Legacy Dependency Status:** **0 PRs depend on deprecated legacy architecture**. 100% of actionable PRs either actively clean up legacy code (e.g., migrating to domain Pinia stores, replacing custom grids with `GenericGrid`), propose deprecating legacy patterns (e.g., Loop embedded conditions), or build directly on modern AST and Headless UI foundations.
+- **Ready for Review (Non-Draft):** 42
+- **Legacy Dependency Finding:** **0 PRs depend on deprecated legacy code**. All actionable PRs either introduce modern AST/Headless UI paradigms, actively refactor legacy boilerplate away, or recommend deprecating legacy features.
 
 ---
 
-## Actionable PR Quick Reference Matrix
+## Actionable PRs Grouped by Base Branch
 
-| PR # | Title | Author | Draft | Files Edited | Legacy Dependency Status |
+Grouping actionable PRs by target base branch provides immediate visibility into stack hierarchies:
+
+### Target Base: `develop` (34 Actionable PRs)
+| PR # | Title | Author | Draft | Files Edited | Legacy Status |
 | --- | --- | --- | --- | --- | --- |
 | #469 | feat: implement canonical condition backend | `@flexirule` | Yes | 36 files | Modern AST Architecture |
 | #475 | Add Daily Scheduled Audit Workflow and Deliver Audit Report | `@testwitharkan` | No | 4 files | Independent Workflow |
 | #477 | feat: configure daily scheduled audit workflow and initial findings report | `@testwitharkan` | No | 4 files | Independent Workflow |
-| #481 | feat: integrate frappe.rename_doc with flexirule JSON references | `@testwitharkan` | No | 3 files | Modern Frappe Hook |
-| #482 | Implement Canonical Condition Builder Using Generic TreeBuilder | `@Sendipad` | No | 11 files | Modern UI Component |
 | #483 | Unify Tree Builder and GenericGrid Row Actions into Headless UI Menu | `@ruzaqiarkan-eng` | No | 12 files | Modern UI Component |
 | #484 | Centralize and Unify Keyboard Shortcuts Across Generic Grid and Tree Builder | `@ruzaqiarkan-eng` | No | 9 files | Centralized Utility |
 | #485 | Configure Daily Scheduled Audit and Publish Daily Audit Report | `@testwitharkan` | No | 3 files | Independent Workflow |
@@ -36,12 +37,8 @@ This report identifies and evaluates all **actionable Pull Requests** in the Fle
 | #490 | refactor: reuse GenericGrid with header in AssignmentConfig | `@testwitharkan` | No | 4 files | Legacy Cleanup / Refactor |
 | #491 | refactor: refactor AssignmentConfig to use GenericGrid with header slot | `@Sendipad` | No | 3 files | Legacy Cleanup / Refactor |
 | #492 | feat: unify TreeBuilder and GenericGrid actions and keyboard shortcuts | `@majdruzaqi` | No | 14 files | Modern Architectural Standard |
-| #494 | Fix Linter Failures and Refine Action Menu Safety | `@ruzaqiarkan-eng` | No | 6 files | Modern Maintenance |
-| #495 | fix(rule-builder): fix eslint error and annotate diagnostic logs | `@testwitharkan` | No | 20 files | Modern Maintenance |
-| #496 | Fix Prettier failure and Mypy type errors | `@Sendipad` | No | 3 files | Modern Maintenance |
 | #497 | Fix Document Action Phase 1 Contracts, Resolution, and Async Mappings | `@ruzaqiarkan-eng` | No | 2 files | Modern Backend Contracts |
 | #498 | feat(ruleflow): implement Phase 1 of Document Action configuration and validation | `@testwitharkan` | No | 3 files | Modern Backend Contracts |
-| #499 | Align Document Action backend contracts and runtime validation (Phase 1) | `@Sendipad` | No | 4 files | Modern Backend Contracts |
 | #500 | docs: add deep architectural analysis on Loop action embedded conditions | `@testwitharkan` | No | 1 files | Legacy Deprecation Analysis |
 | #501 | Refactor legacy store references to domain Pinia stores | `@ruzaqiarkan-eng` | No | 21 files | Legacy Cleanup / Refactor |
 | #502 | docs: add Rule DocType form consistency audit report | `@testwitharkan` | No | 3 files | Form Standardization Audit |
@@ -57,48 +54,119 @@ This report identifies and evaluates all **actionable Pull Requests** in the Fle
 | #513 | docs(proposal): add UI/UX redesign proposal for Rule Action modal | `@testwitharkan` | No | 1 files | Modern UI Proposal |
 | #514 | Add Canvas Switch Node & Dynamic Edge Routing Redesign Proposal | `@ruzaqiarkan-eng` | No | 1 files | Modern UI Proposal |
 | #515 | Add architectural specification for VueFlow Switch Action Node | `@Sendipad` | No | 1 files | Modern UI Proposal |
-| #516 | docs: add Pull Request Analysis Report (PRs #469 - #515) | `@Sendipad` | No | 1 files | Documentation Report |
+| #516 | docs: add Pull Request Analysis Report (PRs #469 - #upward ) | `@Sendipad` | No | 1 files | Documentation Report |
 | #517 | Deep Technical Analysis of Frappe Framework Template Rendering Architecture | `@flexirule` | No | 1 files | Framework Deep-Dive |
 | #518 | Deep Technical Analysis: Frappe Template Rendering & Optimization | `@Sendipad` | No | 3 files | Framework Deep-Dive |
 | #519 | Frappe v15 and v16 Query Compatibility Plan | `@Sendipad` | No | 2 files | Framework Migration Plan |
+| #524 | docs(canvas): add switch node & dynamic edge routing proposal | `@testwitharkan` | No | 1 files | Modern UI Proposal |
+
+### Target Base: `feat/canonical-condition-backend` (5 Actionable PRs)
+| PR # | Title | Author | Draft | Files Edited | Legacy Status |
+| --- | --- | --- | --- | --- | --- |
+| #481 | feat: integrate frappe.rename_doc with flexirule JSON references | `@testwitharkan` | No | 3 files | Modern Frappe Hook |
+| #482 | Implement Canonical Condition Builder Using Generic TreeBuilder | `@Sendipad` | No | 11 files | Modern UI Component |
 | #520 | docs: add canonical condition war room and implementation report | `@Sendipad` | No | 3 files | Canonical AST War Room |
+| #522 | Implement PR #469 Canonical Condition Backend Blocking Corrections | `@Sendipad` | No | 11 files | Urgent Defect Correction |
+| #523 | fix(canonical): resolve assignment guard fail-open and collection metadata defects | `@flexirule` | No | 7 files | Urgent Defect Correction |
+
+### Target Base: `feat/consolidate-tree-grid-actions-shortcuts-20261030` (4 Actionable PRs)
+| PR # | Title | Author | Draft | Files Edited | Legacy Status |
+| --- | --- | --- | --- | --- | --- |
+| #494 | Fix Linter Failures and Refine Action Menu Safety | `@ruzaqiarkan-eng` | No | 6 files | Modern Maintenance |
+| #495 | fix(rule-builder): fix eslint error and annotate diagnostic logs | `@testwitharkan` | No | 20 files | Modern Maintenance |
+| #496 | Fix Prettier failure and Mypy type errors | `@Sendipad` | No | 3 files | Modern Maintenance |
+| #499 | Align Document Action backend contracts and runtime validation (Phase 1) | `@Sendipad` | No | 4 files | Modern Backend Contracts |
 
 ---
 
-## Detailed Actionable PR Analysis & Legacy Dependency Evaluation
+## Actionable Competing PR Clusters & Similar Implementations
+
+Maintainers should review the following parallel PRs together, as they provide alternative or competing implementations:
+
+### Urgent Defect Correction: Canonical Condition Evaluator Guard Fail-Open & Collection Defects
+**Competing PRs:** PR #522, PR #523
+PR #522 and PR #523 both correct critical issues in PR #469: fixing the security flaw where Assignment guards failed open rather than closed, and fixing child-table collection field metadata traversal. PR #522 additionally updates benchmark test assertions.
+
+### Switch Action Node & Canvas Dynamic Edge Routing Proposals
+**Competing PRs:** PR #514, PR #515, PR #524
+PR #514, PR #515, and PR #524 propose architectures for the VueFlow canvas Switch Action Node. PR #524 consolidates the complete War Room debate transcript and routing engine blueprint.
+
+### Rule Action Configuration Modal Progressive Disclosure Redesign
+**Competing PRs:** PR #512, PR #513
+PR #512 and PR #513 propose a 4-stage progressive disclosure stepper for `RuleActionModal.vue` to simplify complex action configuration.
+
+### FlexiRule UI/UX Stability & Adversarial War Room Audits
+**Competing PRs:** PR #510, PR #511
+PR #510 and PR #511 deliver live War Room debate transcripts and comprehensive UI stability audit reports covering race conditions and control states.
+
+### Rule DocType Form Consistency & Client Script Audits
+**Competing PRs:** PR #502, PR #504
+PR #502 and PR #504 evaluate standard DocType client scripts (`rule.js`), identifying form locking bugs (`apply_active_lock`) and trigger dependency issues.
+
+### Sub-Rule Engine Architecture & Contract Builder Proposals
+**Competing PRs:** PR #506, PR #507
+PR #506 and PR #507 evaluate the SubRuleHandler execution engine, cycle detection, recursion depth limits, and visual `SubRuleContractBuilder` UI.
+
+### Loop Action Embedded Condition Deprecation Analyses
+**Competing PRs:** PR #500, PR #503
+PR #500 and PR #503 provide deep architectural analysis demonstrating why the embedded condition step in Loop actions should be deprecated in favor of discrete Condition nodes.
+
+### Document Action Phase 1 Contracts, Resolution & Async Mapping
+**Competing PRs:** PR #497, PR #498, PR #499
+PR #497, PR #498, and PR #499 implement Phase 1 of Document Actions: unifying target document resolution precedence (`reference_docname` > `docname_expression` > `docname`) and Jinja template expression rendering.
+
+### AssignmentConfig Refactoring to Shared GenericGrid with Header
+**Competing PRs:** PR #488, PR #490, PR #491
+PR #488, PR #490, and PR #491 refactor `AssignmentConfig.vue` to eliminate duplicate table boilerplate by reusing `GenericGrid.vue` with an added `#header` slot.
+
+### Unified Keyboard Shortcut Registry across GenericGrid & TreeBuilder
+**Competing PRs:** PR #484, PR #486
+PR #484 and PR #486 centralize keyboard shortcut handling via `useKeyboardRegistry` and `keyboard_shortcuts.mjs` (`Ctrl+Shift+E`).
+
+### Headless UI Contextual Action Dropdown Menu (`ActionMenu.vue`)
+**Competing PRs:** PR #483, PR #487
+PR #483 and PR #487 replace inline action buttons across TreeBuilder and GenericGrid with an accessible `@headlessui/vue` dropdown menu.
+
+---
+
+## Detailed Actionable PR Analysis & Legacy Dependency Assessment
 
 ### PR #469: feat: implement canonical condition backend
 - **Author:** `@flexirule`
+- **Target Base Branch:** `develop`
 - **Draft State:** Yes
 - **Created Date:** `2026-10-27`
 - **Files Modified (36):** `.github/summarize_ci_reports.py`, `.github/test_summarize_ci_reports.py`, `.github/workflows/ci.yml`, `.github/workflows/cypress-ui-tests.yml`, `flexirule/ruleflow/api.py` (+31 more)
 - **Summary:** ## Scope Implements the backend condition-engine plan in PR #460 only. This PR intentionally ignores other PRs referenced in PR #460's description and does not change frontend builders, Query Records filter semantics, DocTypes, or application dependencies. The current diff does include MariaDB client SSL setup changes in .github/workflows/ci.yml and .github/workflows/cypress-ui-tests.yml; see the maintainer gate below to justify or separate those changes. ## Implementation - Adds a strict direct-node canonical condition contract, typed validation/evaluation errors, stable operator IDs, FlexValue validation, fieldtype checks where metadata is available, and bounded path/tree/payload/template/collection limits. - Adds a typed evaluator with ordered short-circuit semantics, missing-vs-null handling, strict runtime type behavior, read-only metadata predicates, bounded nested collection evaluation, immutable compiled plans, and a bounded cache that never retains runtime context or results.
 - **Legacy Dependency & Architectural Assessment:**
   - **Classification:** `Modern AST Architecture`
-  - **Analysis:** Implements the modern Canonical AST Condition Engine (`flexirule/ruleflow/core/canonical_evaluator.py`), replacing legacy `safe_eval` string expression evaluation with strict, AST-based short-circuit evaluation.
+  - **Analysis:** Implements the modern Canonical AST Condition Engine (`flexirule/ruleflow/core/canonical_evaluator.py`), replacing legacy `safe_eval` string expressions with strict AST evaluation.
 
 ### PR #475: Add Daily Scheduled Audit Workflow and Deliver Audit Report
 - **Author:** `@testwitharkan`
+- **Target Base Branch:** `develop`
 - **Draft State:** No
 - **Created Date:** `2026-10-28`
 - **Files Modified (4):** `.github/JULES_AUTOMATION.md`, `.github/workflows/ci.yml`, `.github/workflows/jules-task.yml`, `reports/daily_audit_report.md`
 - **Summary:** Configured `.github/workflows/jules-task.yml` with a daily scheduled cron trigger (`0 2 * * *`) targeting the `develop` branch, updated `.github/JULES_AUTOMATION.md`, and added `reports/daily_audit_report.md` with comprehensive findings, evidence, native Frappe compatibility analysis, and test results.
 - **Legacy Dependency & Architectural Assessment:**
   - **Classification:** `Independent Workflow`
-  - **Analysis:** GitHub Actions daily scheduled audit workflow configuration (`.github/workflows/jules-task.yml`); zero dependency on legacy runtime implementations.
+  - **Analysis:** GitHub Actions scheduled audit workflow (`.github/workflows/jules-task.yml`); zero dependency on legacy code.
 
 ### PR #477: feat: configure daily scheduled audit workflow and initial findings report
 - **Author:** `@testwitharkan`
+- **Target Base Branch:** `develop`
 - **Draft State:** No
 - **Created Date:** `2026-10-28`
 - **Files Modified (4):** `.github/workflows/ci.yml`, `.github/workflows/jules-task.yml`, `reports/audit/AUDIT_REPORT_2025-05-23.md`, `reports/audit/README.md`
 - **Summary:** This change sets up the daily scheduled audit workflow and outputs the initial findings report for FlexiRule. Key additions & updates: - Updated `.github/workflows/jules-task.yml` with a daily `0 2 * * *` UTC cron schedule targeting `develop`. - Added a default comprehensive audit prompt for headless/scheduled runs covering Python backend, JS frontend, RuleFlow, contract schemas, Frappe API compatibility, security, performance, and test coverage. - Created `reports/audit/README.md` defining audit methodology, severity guidelines, and continuous report tracking instructions.
 - **Legacy Dependency & Architectural Assessment:**
   - **Classification:** `Independent Workflow`
-  - **Analysis:** Daily scheduled audit workflow configuration and report documentation (`reports/audit/`); independent of legacy code.
+  - **Analysis:** Scheduled audit workflow and report documentation (`reports/audit/`); independent of legacy code.
 
 ### PR #481: feat: integrate frappe.rename_doc with flexirule JSON references
 - **Author:** `@testwitharkan`
+- **Target Base Branch:** `feat/canonical-condition-backend`
 - **Draft State:** No
 - **Created Date:** `2026-10-29`
 - **Files Modified (3):** `flexirule/ruleflow/hooks.py`, `flexirule/ruleflow/tests/test_rename_handler.py`, `flexirule/ruleflow/utils/rename_handler.py`
@@ -109,16 +177,18 @@ This report identifies and evaluates all **actionable Pull Requests** in the Fle
 
 ### PR #482: Implement Canonical Condition Builder Using Generic TreeBuilder
 - **Author:** `@Sendipad`
+- **Target Base Branch:** `feat/canonical-condition-backend`
 - **Draft State:** No
 - **Created Date:** `2026-10-29`
 - **Files Modified (11):** `flexirule/public/js/flexirule/rule_builder/components/condition_builder/CanonicalConditionBuilder.vue`, `flexirule/public/js/flexirule/rule_builder/components/condition_builder/CollectionPredicateGroup.vue`, `flexirule/public/js/flexirule/rule_builder/components/condition_builder/ConditionBuilder.vue`, `flexirule/public/js/flexirule/rule_builder/components/condition_builder/ConditionLeaf.vue`, `flexirule/public/js/flexirule/rule_builder/components/condition_builder/ConditionLeafSummary.vue` (+6 more)
 - **Summary:** Implemented the new canonical Condition Builder frontend using generic TreeBuilder components, complete with AST adapter, contract client, validation, and consumer migration across ConditionStep, AssignmentConfig, TextGeneratorControl, and CollectionResolver.
 - **Legacy Dependency & Architectural Assessment:**
   - **Classification:** `Modern UI Component`
-  - **Analysis:** Replaces legacy condition builder components with a generic `TreeBuilder` AST adapter and modern schema contract validation.
+  - **Analysis:** Replaces legacy condition builder with generic `TreeBuilder` AST adapter and schema validation.
 
 ### PR #483: Unify Tree Builder and GenericGrid Row Actions into Headless UI Menu
 - **Author:** `@ruzaqiarkan-eng`
+- **Target Base Branch:** `develop`
 - **Draft State:** No
 - **Created Date:** `2026-10-29`
 - **Files Modified (12):** `.github/workflows/ci.yml`, `.github/workflows/cypress-ui-tests.yml`, `flexirule/public/js/flexirule/rule_builder/components/tree_builder/TreeBuilder.vue`, `flexirule/public/js/flexirule/rule_builder/components/tree_builder/TreeBuilderCollection.vue`, `flexirule/public/js/flexirule/rule_builder/components/tree_builder/TreeBuilderGroup.vue` (+7 more)
@@ -129,6 +199,7 @@ This report identifies and evaluates all **actionable Pull Requests** in the Fle
 
 ### PR #484: Centralize and Unify Keyboard Shortcuts Across Generic Grid and Tree Builder
 - **Author:** `@ruzaqiarkan-eng`
+- **Target Base Branch:** `develop`
 - **Draft State:** No
 - **Created Date:** `2026-10-29`
 - **Files Modified (9):** `.github/workflows/ci.yml`, `.github/workflows/cypress-ui-tests.yml`, `flexirule/public/js/flexirule/rule_builder/components/tree_builder/TreeBuilder.vue`, `flexirule/public/js/flexirule/rule_builder/components/tree_builder/TreeBuilderLeaf.vue`, `flexirule/public/js/flexirule/rule_builder/composables/useKeyboardRegistry.js` (+4 more)
@@ -139,16 +210,18 @@ This report identifies and evaluates all **actionable Pull Requests** in the Fle
 
 ### PR #485: Configure Daily Scheduled Audit and Publish Daily Audit Report
 - **Author:** `@testwitharkan`
+- **Target Base Branch:** `develop`
 - **Draft State:** No
 - **Created Date:** `2026-10-29`
 - **Files Modified (3):** `.github/workflows/ci.yml`, `.github/workflows/jules-task.yml`, `reports/audit/2026-10-29.md`
 - **Summary:** Implemented daily scheduled audit trigger in GitHub Actions workflow (.github/workflows/jules-task.yml) with cron '0 2 * * *' targeting develop branch. Published comprehensive evidence-backed daily audit report under reports/audit/2026-10-29.md covering Python backend, JS/Vue frontend, RuleFlow execution, Doctype lifecycle, permissions, and native Frappe API comparison. All test suites verified passing (652 backend tests, 33 frontend unit tests).
 - **Legacy Dependency & Architectural Assessment:**
   - **Classification:** `Independent Workflow`
-  - **Analysis:** Automated daily audit workflow runner and report publisher; independent of legacy execution engines.
+  - **Analysis:** Automated daily audit runner and report publisher; independent of legacy execution engines.
 
 ### PR #486: Centralize and Unify Keyboard Shortcuts Across Generic Grid and Tree Builder
 - **Author:** `@Sendipad`
+- **Target Base Branch:** `develop`
 - **Draft State:** No
 - **Created Date:** `2026-10-29`
 - **Files Modified (8):** `flexirule/public/js/flexirule/rule_builder/components/tree_builder/TreeBuilder.vue`, `flexirule/public/js/flexirule/rule_builder/components/tree_builder/TreeBuilderLeaf.vue`, `flexirule/public/js/flexirule/rule_builder/controls/GenericGrid.vue`, `flexirule/public/js/flexirule/rule_builder/controls/generic_grid_model.mjs`, `flexirule/public/js/flexirule/rule_builder/utils/keyboard_shortcuts.mjs` (+3 more)
@@ -159,6 +232,7 @@ This report identifies and evaluates all **actionable Pull Requests** in the Fle
 
 ### PR #487: Unify Tree Builder and GenericGrid Row Actions into Headless UI Menu
 - **Author:** `@Sendipad`
+- **Target Base Branch:** `develop`
 - **Draft State:** No
 - **Created Date:** `2026-10-29`
 - **Files Modified (12):** `flexirule/public/js/flexirule/rule_builder/components/ActionMenu.vue`, `flexirule/public/js/flexirule/rule_builder/components/rule_config/query_filters/QueryFilterTree.vue`, `flexirule/public/js/flexirule/rule_builder/components/tree_builder/TreeBuilder.vue`, `flexirule/public/js/flexirule/rule_builder/components/tree_builder/TreeBuilderCollection.vue`, `flexirule/public/js/flexirule/rule_builder/components/tree_builder/TreeBuilderGroup.vue` (+7 more)
@@ -169,16 +243,18 @@ This report identifies and evaluates all **actionable Pull Requests** in the Fle
 
 ### PR #488: Refactor AssignmentConfig to reuse GenericGrid with Header
 - **Author:** `@ruzaqiarkan-eng`
+- **Target Base Branch:** `develop`
 - **Draft State:** No
 - **Created Date:** `2026-10-29`
 - **Files Modified (3):** `flexirule/public/js/flexirule/rule_builder/components/rule_config/types/AssignmentConfig.vue`, `flexirule/public/js/flexirule/rule_builder/controls/GenericGrid.vue`, `tests/frontend/flexirule/rule_builder/controls/assignment_grid.test.mjs`
 - **Summary:** Refactored AssignmentConfig.vue to reuse GenericGrid.vue and its new generic #header slot, standardizing grid UI, primary action ('Add Assignment'), and row actions ('move', 'remove') while removing duplicated grid implementation and preserving backward compatibility and validation logic.
 - **Legacy Dependency & Architectural Assessment:**
   - **Classification:** `Legacy Cleanup / Refactor`
-  - **Analysis:** Refactors `AssignmentConfig.vue` to eliminate duplicate grid logic in favor of the shared `GenericGrid` component.
+  - **Analysis:** Refactors `AssignmentConfig.vue` to eliminate duplicate grid logic in favor of shared `GenericGrid`.
 
 ### PR #490: refactor: reuse GenericGrid with header in AssignmentConfig
 - **Author:** `@testwitharkan`
+- **Target Base Branch:** `develop`
 - **Draft State:** No
 - **Created Date:** `2026-10-29`
 - **Files Modified (4):** `flexirule/public/js/flexirule/rule_builder/components/rule_config/types/AssignmentConfig.vue`, `flexirule/public/js/flexirule/rule_builder/controls/GenericGrid.vue`, `tests/frontend/flexirule/rule_builder/components/rule_config/assignment_config.test.mjs`, `tests/frontend/flexirule/rule_builder/controls/generic_grid_header.test.mjs`
@@ -189,6 +265,7 @@ This report identifies and evaluates all **actionable Pull Requests** in the Fle
 
 ### PR #491: refactor: refactor AssignmentConfig to use GenericGrid with header slot
 - **Author:** `@Sendipad`
+- **Target Base Branch:** `develop`
 - **Draft State:** No
 - **Created Date:** `2026-10-29`
 - **Files Modified (3):** `flexirule/public/js/flexirule/rule_builder/components/rule_config/types/AssignmentConfig.vue`, `flexirule/public/js/flexirule/rule_builder/controls/GenericGrid.vue`, `tests/frontend/flexirule/rule_builder/components/rule_config/types/assignment_config.test.mjs`
@@ -199,6 +276,7 @@ This report identifies and evaluates all **actionable Pull Requests** in the Fle
 
 ### PR #492: feat: unify TreeBuilder and GenericGrid actions and keyboard shortcuts
 - **Author:** `@majdruzaqi`
+- **Target Base Branch:** `develop`
 - **Draft State:** No
 - **Created Date:** `2026-10-29`
 - **Files Modified (14):** `flexirule/public/js/flexirule/rule_builder/components/ActionMenu.vue`, `flexirule/public/js/flexirule/rule_builder/components/rule_config/query_filters/QueryFilterTree.vue`, `flexirule/public/js/flexirule/rule_builder/components/tree_builder/TreeBuilder.vue`, `flexirule/public/js/flexirule/rule_builder/components/tree_builder/TreeBuilderCollection.vue`, `flexirule/public/js/flexirule/rule_builder/components/tree_builder/TreeBuilderGroup.vue` (+9 more)
@@ -209,6 +287,7 @@ This report identifies and evaluates all **actionable Pull Requests** in the Fle
 
 ### PR #494: Fix Linter Failures and Refine Action Menu Safety
 - **Author:** `@ruzaqiarkan-eng`
+- **Target Base Branch:** `feat/consolidate-tree-grid-actions-shortcuts-20261030`
 - **Draft State:** No
 - **Created Date:** `2026-10-30`
 - **Files Modified (6):** `cypress/integration/fetch_records_regressions.cy.js`, `cypress/integration/flexirule_builder_regressions.cy.js`, `cypress/integration/flexirule_smoke.cy.js`, `eslint.config.mjs`, `flexirule/public/js/flexirule/rule_builder/components/ActionMenu.vue` (+1 more)
@@ -219,16 +298,18 @@ This report identifies and evaluates all **actionable Pull Requests** in the Fle
 
 ### PR #495: fix(rule-builder): fix eslint error and annotate diagnostic logs
 - **Author:** `@testwitharkan`
+- **Target Base Branch:** `feat/consolidate-tree-grid-actions-shortcuts-20261030`
 - **Draft State:** No
 - **Created Date:** `2026-10-30`
 - **Files Modified (20):** `.eslintrc`, `README.md`, `cypress/integration/workspace_and_list.js`, `reports/fetch-records-consolidated-report.md`, `tests/frontend/flexirule/rule_builder/components/rule_config/query_filters/filter_leaf_summary.test.mjs` (+15 more)
 - **Summary:** Fix ESLint afterEach global error and annotate frontend test diagnostic logs so yarn lint runs cleanly with zero errors while maintaining 100% pass rate on backend and frontend unit tests.
 - **Legacy Dependency & Architectural Assessment:**
   - **Classification:** `Modern Maintenance`
-  - **Analysis:** Resolves ESLint global variable issues and annotates test diagnostic logging for frontend unit test suites.
+  - **Analysis:** Resolves ESLint global variable issues and annotates test diagnostic logging for frontend unit tests.
 
 ### PR #496: Fix Prettier failure and Mypy type errors
 - **Author:** `@Sendipad`
+- **Target Base Branch:** `feat/consolidate-tree-grid-actions-shortcuts-20261030`
 - **Draft State:** No
 - **Created Date:** `2026-10-30`
 - **Files Modified (3):** `flexirule/public/js/flexirule/rule_builder/components/ActionMenu.vue`, `flexirule/ruleflow/core/action_handlers/document_action.py`, `flexirule/ruleflow/tests/test_action_return_schema_contract.py`
@@ -239,16 +320,18 @@ This report identifies and evaluates all **actionable Pull Requests** in the Fle
 
 ### PR #497: Fix Document Action Phase 1 Contracts, Resolution, and Async Mappings
 - **Author:** `@ruzaqiarkan-eng`
+- **Target Base Branch:** `develop`
 - **Draft State:** No
 - **Created Date:** `2026-10-30`
 - **Files Modified (2):** `flexirule/ruleflow/core/action_handlers/document_action.py`, `flexirule/ruleflow/tests/test_document_action_phase1.py`
 - **Summary:** Implements Phase 1 of GitHub issue #493 for Document Action: 1. Corrected Add Comment operation contract override to remove reference_docname requirement and default reference_doctype to Comment (and ToDo for Create ToDo). 2. Standardized target record name resolution precedence (action.reference_docname > config.docname_expression > config.docname) and added conditional mandatory dependency for reference_docname across Update Existing and Delete Record. 3. Implemented _resolve_text_template in DocumentActionHandler to align text template/expression resolution across Create ToDo and Add Comment. 4. Added module-level _async_create_doc worker to ensure child-table mappings are applied during async Create New document execution.
 - **Legacy Dependency & Architectural Assessment:**
   - **Classification:** `Modern Backend Contracts`
-  - **Analysis:** Fixes Document Action Phase 1 contracts, target document resolution precedence (`reference_docname` > `docname_expression` > `docname`), and Jinja rendering.
+  - **Analysis:** Fixes Document Action Phase 1 contracts, target resolution precedence (`reference_docname` > `docname_expression` > `docname`), and Jinja rendering.
 
 ### PR #498: feat(ruleflow): implement Phase 1 of Document Action configuration and validation
 - **Author:** `@testwitharkan`
+- **Target Base Branch:** `develop`
 - **Draft State:** No
 - **Created Date:** `2026-10-30`
 - **Files Modified (3):** `flexirule/ruleflow/core/action_handlers/document_action.py`, `flexirule/ruleflow/tests/condition_benchmark/benchmark_runner.py`, `flexirule/ruleflow/tests/test_document_action_phase1.py`
@@ -259,6 +342,7 @@ This report identifies and evaluates all **actionable Pull Requests** in the Fle
 
 ### PR #499: Align Document Action backend contracts and runtime validation (Phase 1)
 - **Author:** `@Sendipad`
+- **Target Base Branch:** `feat/consolidate-tree-grid-actions-shortcuts-20261030`
 - **Draft State:** No
 - **Created Date:** `2026-10-30`
 - **Files Modified (4):** `flexirule/public/js/flexirule/rule_builder/components/ActionMenu.vue`, `flexirule/ruleflow/core/action_handlers/__init__.py`, `flexirule/ruleflow/core/action_handlers/document_action.py`, `flexirule/ruleflow/tests/test_document_action.py`
@@ -269,6 +353,7 @@ This report identifies and evaluates all **actionable Pull Requests** in the Fle
 
 ### PR #500: docs: add deep architectural analysis on Loop action embedded conditions
 - **Author:** `@testwitharkan`
+- **Target Base Branch:** `develop`
 - **Draft State:** No
 - **Created Date:** `2026-10-30`
 - **Files Modified (1):** `reports/loop_action_condition_analysis.md`
@@ -279,6 +364,7 @@ This report identifies and evaluates all **actionable Pull Requests** in the Fle
 
 ### PR #501: Refactor legacy store references to domain Pinia stores
 - **Author:** `@ruzaqiarkan-eng`
+- **Target Base Branch:** `develop`
 - **Draft State:** No
 - **Created Date:** `2026-10-30`
 - **Files Modified (21):** `flexirule/public/js/flexirule/rule_builder/components/AddNodeEdge.vue`, `flexirule/public/js/flexirule/rule_builder/components/Sidebar.vue`, `flexirule/public/js/flexirule/rule_builder/components/node_configs/LoopNodeConfig.vue`, `flexirule/public/js/flexirule/rule_builder/components/rule_config/ActionSettings.vue`, `flexirule/public/js/flexirule/rule_builder/components/rule_config/types/ConditionStep.vue` (+16 more)
@@ -289,6 +375,7 @@ This report identifies and evaluates all **actionable Pull Requests** in the Fle
 
 ### PR #502: docs: add Rule DocType form consistency audit report
 - **Author:** `@testwitharkan`
+- **Target Base Branch:** `develop`
 - **Draft State:** No
 - **Created Date:** `2026-10-30`
 - **Files Modified (3):** `flexirule/ruleflow/core/contract_utils.py`, `flexirule/ruleflow/doctype/rule/rule.js`, `reports/rule_doctype_form_consistency_audit.md`
@@ -299,6 +386,7 @@ This report identifies and evaluates all **actionable Pull Requests** in the Fle
 
 ### PR #503: Deep Analysis Report on Loop Action Embedded Condition
 - **Author:** `@Sendipad`
+- **Target Base Branch:** `develop`
 - **Draft State:** No
 - **Created Date:** `2026-10-30`
 - **Files Modified (1):** `reports/loop_action_embedded_condition_analysis.md`
@@ -309,6 +397,7 @@ This report identifies and evaluates all **actionable Pull Requests** in the Fle
 
 ### PR #504: Add Frappe standard Rule Doc Form consistency audit report
 - **Author:** `@ruzaqiarkan-eng`
+- **Target Base Branch:** `develop`
 - **Draft State:** No
 - **Created Date:** `2026-10-30`
 - **Files Modified (1):** `reports/rule_form_consistency_audit_report.md`
@@ -319,6 +408,7 @@ This report identifies and evaluates all **actionable Pull Requests** in the Fle
 
 ### PR #506: docs: add sub-rule analysis and config ui implementation plan
 - **Author:** `@testwitharkan`
+- **Target Base Branch:** `develop`
 - **Draft State:** No
 - **Created Date:** `2026-10-30`
 - **Files Modified (1):** `reports/sub-rules/sub-rule-config-ui-proposal-and-implementation-plan.md`
@@ -329,6 +419,7 @@ This report identifies and evaluates all **actionable Pull Requests** in the Fle
 
 ### PR #507: Sub-Rule Deep Analysis and Production Implementation Plan
 - **Author:** `@Sendipad`
+- **Target Base Branch:** `develop`
 - **Draft State:** No
 - **Created Date:** `2026-10-30`
 - **Files Modified (1):** `reports/sub-rules/sub_rule_deep_analysis_and_implementation_plan.md`
@@ -339,6 +430,7 @@ This report identifies and evaluates all **actionable Pull Requests** in the Fle
 
 ### PR #508: Fix rule form dashboard connections stats for sub-rules and logs
 - **Author:** `@Sendipad`
+- **Target Base Branch:** `develop`
 - **Draft State:** No
 - **Created Date:** `2026-10-30`
 - **Files Modified (3):** `flexirule/ruleflow/doctype/rule/rule.js`, `flexirule/ruleflow/doctype/rule/rule.json`, `flexirule/ruleflow/doctype/rule/rule_dashboard.py`
@@ -349,6 +441,7 @@ This report identifies and evaluates all **actionable Pull Requests** in the Fle
 
 ### PR #509: fix(rule-form): fix form locking, primary action, and action buttons consistency
 - **Author:** `@Sendipad`
+- **Target Base Branch:** `develop`
 - **Draft State:** No
 - **Created Date:** `2026-10-30`
 - **Files Modified (2):** `flexirule/ruleflow/doctype/rule/rule.js`, `reports/rule_doc_form_audit_and_remediation_plan.md`
@@ -359,6 +452,7 @@ This report identifies and evaluates all **actionable Pull Requests** in the Fle
 
 ### PR #510: docs: compile adversarial QA and UI UX stability audit report for FlexiRule
 - **Author:** `@testwitharkan`
+- **Target Base Branch:** `develop`
 - **Draft State:** No
 - **Created Date:** `2026-10-30`
 - **Files Modified (6):** `reports/action_node_ui_ux_deep_analysis_and_plan.md`, `reports/adversarial_qa_ui_ux_stability_audit.md`, `reports/proposal_a_canvas_node_redesign.md`, `reports/proposal_b_direction_responsive_node_redesign.md`, `reports/proposal_b_implementation_plan.md` (+1 more)
@@ -369,6 +463,7 @@ This report identifies and evaluates all **actionable Pull Requests** in the Fle
 
 ### PR #511: Add FlexiRule UI/UX & Integration Audit Report
 - **Author:** `@ruzaqiarkan-eng`
+- **Target Base Branch:** `develop`
 - **Draft State:** No
 - **Created Date:** `2026-10-30`
 - **Files Modified (2):** `reports/action-type-config-components-audit.md`, `reports/ui-ux-integration-audit.md`
@@ -379,6 +474,7 @@ This report identifies and evaluates all **actionable Pull Requests** in the Fle
 
 ### PR #512: Add Action Modal Redesign Proposal
 - **Author:** `@ruzaqiarkan-eng`
+- **Target Base Branch:** `develop`
 - **Draft State:** No
 - **Created Date:** `2026-10-30`
 - **Files Modified (1):** `reports/proposal/rule-action-modal-redesign-proposal.md`
@@ -389,6 +485,7 @@ This report identifies and evaluates all **actionable Pull Requests** in the Fle
 
 ### PR #513: docs(proposal): add UI/UX redesign proposal for Rule Action modal
 - **Author:** `@testwitharkan`
+- **Target Base Branch:** `develop`
 - **Draft State:** No
 - **Created Date:** `2026-10-30`
 - **Files Modified (1):** `reports/proposal/ui_ux_redesign_proposal.md`
@@ -399,6 +496,7 @@ This report identifies and evaluates all **actionable Pull Requests** in the Fle
 
 ### PR #514: Add Canvas Switch Node & Dynamic Edge Routing Redesign Proposal
 - **Author:** `@ruzaqiarkan-eng`
+- **Target Base Branch:** `develop`
 - **Draft State:** No
 - **Created Date:** `2026-10-30`
 - **Files Modified (1):** `reports/proposal/switch-node-edge-implementation-proposal.md`
@@ -409,6 +507,7 @@ This report identifies and evaluates all **actionable Pull Requests** in the Fle
 
 ### PR #515: Add architectural specification for VueFlow Switch Action Node
 - **Author:** `@Sendipad`
+- **Target Base Branch:** `develop`
 - **Draft State:** No
 - **Created Date:** `2026-10-30`
 - **Files Modified (1):** `reports/proposal/rule-builder-switch-node-proposal.md`
@@ -417,18 +516,20 @@ This report identifies and evaluates all **actionable Pull Requests** in the Fle
   - **Classification:** `Modern UI Proposal`
   - **Analysis:** Exhaustive architectural specification and data-flow model for VueFlow Switch Action Node.
 
-### PR #516: docs: add Pull Request Analysis Report (PRs #469 - #515)
+### PR #516: docs: add Pull Request Analysis Report (PRs #469 - #upward )
 - **Author:** `@Sendipad`
+- **Target Base Branch:** `develop`
 - **Draft State:** No
 - **Created Date:** `2026-10-30`
 - **Files Modified (1):** `reports/index.md`
-- **Summary:** Generated a comprehensive synthesis report of PRs #469 through #515 at `reports/index.md` featuring executive summary metrics, strategic themes, breakdown matrix table, and grouped detailed PR technical analysis.
+- **Summary:** Generated a comprehensive synthesis report of PRs #469 through #523 at `reports/index.md` featuring executive summary metrics, strategic themes, breakdown matrix table, and grouped detailed PR technical analysis.
 - **Legacy Dependency & Architectural Assessment:**
   - **Classification:** `Documentation Report`
   - **Analysis:** Pull Request Analysis Report synthesizing repository PR activity from PR #469 through PR #515.
 
 ### PR #517: Deep Technical Analysis of Frappe Framework Template Rendering Architecture
 - **Author:** `@flexirule`
+- **Target Base Branch:** `develop`
 - **Draft State:** No
 - **Created Date:** `2026-10-30`
 - **Files Modified (1):** `reports/frappe_template_rendering_analysis.md`
@@ -439,6 +540,7 @@ This report identifies and evaluates all **actionable Pull Requests** in the Fle
 
 ### PR #518: Deep Technical Analysis: Frappe Template Rendering & Optimization
 - **Author:** `@Sendipad`
+- **Target Base Branch:** `develop`
 - **Draft State:** No
 - **Created Date:** `2026-10-30`
 - **Files Modified (3):** `reports/flexirule_templating/flexirule_template_system_improvement_and_optimization_roadmap.md`, `reports/flexirule_templating/frappe_template_rendering_optimization_analysis.md`, `reports/flexirule_templating/frappe_v16_template_rendering_optimizations.md`
@@ -449,6 +551,7 @@ This report identifies and evaluates all **actionable Pull Requests** in the Fle
 
 ### PR #519: Frappe v15 and v16 Query Compatibility Plan
 - **Author:** `@Sendipad`
+- **Target Base Branch:** `develop`
 - **Draft State:** No
 - **Created Date:** `2026-10-30`
 - **Files Modified (2):** `reports/v15-get_query/v15_v16_query_compatibility_deliberation.md`, `reports/v15-get_query/v15_v16_query_compatibility_implementation.md`
@@ -459,6 +562,7 @@ This report identifies and evaluates all **actionable Pull Requests** in the Fle
 
 ### PR #520: docs: add canonical condition war room and implementation report
 - **Author:** `@Sendipad`
+- **Target Base Branch:** `feat/canonical-condition-backend`
 - **Draft State:** No
 - **Created Date:** `2026-10-30`
 - **Files Modified (3):** `reports/canonical-condition-implementation-30-10/README.md`, `reports/canonical-condition-implementation-30-10/benchmark_and_architecture_deliberation.md`, `reports/canonical-condition-implementation-30-10/benchmark_performance_analysis_and_optimization.md`
@@ -466,3 +570,36 @@ This report identifies and evaluates all **actionable Pull Requests** in the Fle
 - **Legacy Dependency & Architectural Assessment:**
   - **Classification:** `Canonical AST War Room`
   - **Analysis:** Canonical condition war room transcript, JSON AST v1.0.0 specification, Python evaluator module design, and Frappe integration hooks.
+
+### PR #522: Implement PR #469 Canonical Condition Backend Blocking Corrections
+- **Author:** `@Sendipad`
+- **Target Base Branch:** `feat/canonical-condition-backend`
+- **Draft State:** No
+- **Created Date:** `2026-10-30`
+- **Files Modified (11):** `flexirule/ruleflow/core/action_handlers/assignment.py`, `flexirule/ruleflow/core/compiler.py`, `flexirule/ruleflow/core/condition_contract.py`, `flexirule/ruleflow/core/condition_evaluator.py`, `flexirule/ruleflow/core/value_resolver.py` (+6 more)
+- **Summary:** ## Summary of Changes Implement the two blocking corrections required for PR #469 Canonical Condition Backend in strictly enforced order: 1. **Phase 1: Assignment Guard Fail-Closed Correction** - Refactored `AssignmentHandler._compile_plan` and `_compile_when_expression` in `flexirule/ruleflow/core/action_handlers/assignment.py`. - JSON strings in `when_condition` are parsed prior to guard classification. Valid canonical conditions compile into `when_condition_canonical` structure, while valid legacy conditions compile into standard Python expressions.
+- **Legacy Dependency & Architectural Assessment:**
+  - **Classification:** `Urgent Defect Correction`
+  - **Analysis:** Fixes critical runtime bugs in canonical evaluator: ensures Assignment guards fail-closed and corrects child-table collection field metadata resolution.
+
+### PR #523: fix(canonical): resolve assignment guard fail-open and collection metadata defects
+- **Author:** `@flexirule`
+- **Target Base Branch:** `feat/canonical-condition-backend`
+- **Draft State:** No
+- **Created Date:** `2026-10-30`
+- **Files Modified (7):** `flexirule/ruleflow/core/action_handlers/assignment.py`, `flexirule/ruleflow/core/compiler.py`, `flexirule/ruleflow/core/condition_contract.py`, `flexirule/ruleflow/core/condition_evaluator.py`, `flexirule/ruleflow/core/value_resolver.py` (+2 more)
+- **Summary:** Implement the two outstanding blocking corrections for PR #469: 1. Fix Assignment guard fail-open vulnerability by introducing `ConditionCompiler.compile_legacy_guard` to strictly validate canonical, legacy, and JSON-encoded guards, rejecting malformed, empty, or unknown shapes with typed errors and enforcing atomic plan preflight. 2. Fix CollectionResolver child-DocType metadata validation by resolving child-table DocType metadata from parent DocType during execution and passing `scope_doctypes` to `validate_condition_node`, `prepare_condition`, and `compile_condition`. 3. Add comprehensive regression tests in `test_assignment_condition_guards.py` and `test_collection_resolver.py`.
+- **Legacy Dependency & Architectural Assessment:**
+  - **Classification:** `Urgent Defect Correction`
+  - **Analysis:** Resolves assignment guard fail-open security vulnerability and collection metadata defects in canonical evaluator.
+
+### PR #524: docs(canvas): add switch node & dynamic edge routing proposal
+- **Author:** `@testwitharkan`
+- **Target Base Branch:** `develop`
+- **Draft State:** No
+- **Created Date:** `2026-10-30`
+- **Files Modified (1):** `reports/proposal/switch-node-edge-implementation-proposal.md`
+- **Summary:** Proposes an adversarial QA architectural panel debate (Phase 1) and a comprehensive, production-ready technical architecture proposal (Phase 2) for a Switch Action Type Node on the Vue Flow canvas. Includes custom node design, dynamic handle management, orthogonal parallel smoothstep edge routing, Pinia graph synchronization, and Frappe backend serialization contracts.
+- **Legacy Dependency & Architectural Assessment:**
+  - **Classification:** `Modern UI Proposal`
+  - **Analysis:** Consolidated Switch node & dynamic edge routing proposal with War Room debate transcript.
