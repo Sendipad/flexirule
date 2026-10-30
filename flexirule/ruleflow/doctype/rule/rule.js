@@ -82,8 +82,8 @@ frappe.ui.form.on("Rule", {
 
 		frm._was_active = frm.doc.is_active;
 
-		frm.page.clear_custom_actions();
-		frm.add_custom_button(__("Visual Builder"), () => {
+		frm.page.clear_primary_action();
+		frm.page.set_primary_action(__("Visual Builder"), () => {
 			if (frm.is_dirty()) {
 				frappe.confirm(
 					__("You have unsaved changes. Save document before opening Visual Builder?"),
@@ -101,6 +101,7 @@ frappe.ui.form.on("Rule", {
 			}
 		});
 
+		frm.page.clear_custom_actions();
 		if (frm.doc.is_active === 1) {
 			frm.add_custom_button(__("Amend Rule"), () => amend_rule(frm), __("Actions"));
 		}
