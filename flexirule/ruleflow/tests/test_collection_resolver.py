@@ -199,3 +199,82 @@ class TestCollectionResolver(unittest.TestCase):
 		compiled = ValueResolver.compile(config_payload)
 		self.assertIsInstance(compiled, CollectionResolver)
 		self.assertEqual(compiled.resolve(self.context), ["ITEM-A", "ITEM-B", "ITEM-C", "ITEM-A"])
+
+	def test_canonical_row_predicates_validate_child_doctype_from_mapping_doc(self):
+		from types import SimpleNamespace
+		from unittest.mock import patch
+
+		from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
+		parent_meta = SimpleNamespace(
+			get_field=lambda fieldname: (
+				SimpleNamespace(fieldtype="Table", options="Test Order Item")
+				if fieldname == "items"
+				else None
+			)
+		)
+
+		def child_field(fieldname):
+			if fieldname == "item_code":
+				return SimpleNamespace(fieldtype="Data")
+			if fieldname == "qty":
+				return SimpleNamespace(fieldtype="Float")
+			return None
+
+		child_meta = SimpleNamespace(get_field=child_field)
+
+		def get_meta(doctype):
+			if doctype == "Test Order":
+				return parent_meta
+			if doctype == "Test Order Item":
+				return child_meta
+			raise ValueError(f"Unexpected DocType: {doctype}")
+
+		context = {
+			# Deliberately omit context["doctype"]: metadata must be resolved from mapping docs too.
+			"doc": {
+				"doctype": "Test Order",
+				"items": [
+					{"item_code": "ITEM-001", "qty": 10},
+					{"item_code": "ITEM-002", "qty": 25},
+				],
+			}
+		}
+		invalid_condition = {
+			"type": "comparison",
+			"operator": "gt",
+			"left": {"mode": "variable", "path": {"scope": "row", "segments": ["item_code"]}},
+			"right": {"mode": "static", "value_type": "integer", "value": 10},
+		}
+		valid_condition = {
+			"type": "comparison",
+			"operator": "gt",
+			"left": {"mode": "variable", "path": {"scope": "row", "segments": ["qty"]}},
+			"right": {"mode": "static", "value_type": "integer", "value": 10},
+		}
+
+		with patch("frappe.get_meta", side_effect=get_meta):
+			invalid_resolver = CollectionResolver(
+				source="doc.items", operation="count", condition=invalid_condition
+			)
+			with self.assertRaises(ConditionValidationError) as raised:
+				invalid_resolver.resolve(context)
+			self.assertEqual(raised.exception.code, "fieldtype_not_supported")
+
+			valid_resolver = CollectionResolver(
+				source="doc.items", operation="count", condition=valid_condition
+			)
+			self.assertEqual(valid_resolver.resolve(context), 1)
+
+	def test_canonical_collection_source_unknown_field_fails_closed_with_mapping_doc(self):
+		from types import SimpleNamespace
+		from unittest.mock import patch
+
+		from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
+		with patch("frappe.get_meta", return_value=SimpleNamespace(get_field=lambda _fieldname: None)):
+			resolver = CollectionResolver(source="doc.missing_table", operation="count")
+			with self.assertRaises(ConditionValidationError) as raised:
+				resolver.resolve({"doc": {"doctype": "Test Order"}})
+			self.assertEqual(raised.exception.code, "unknown_field")
+
