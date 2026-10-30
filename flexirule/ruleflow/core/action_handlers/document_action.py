@@ -262,11 +262,13 @@ class DocumentActionHandler(ActionHandler):
 
 		# Apply input mapping (Context -> Config)
 		if plan.get("has_input_mapping"):
-			config = apply_input_mapping(context, plan.get("input_mapping"), config)
+			input_mapping = plan.get("input_mapping")
+			if input_mapping:
+				config = apply_input_mapping(context, input_mapping, config)
 		else:
 			action_config = frappe.parse_json(getattr(action, "config", "{}") or "{}")
-			if action_config.get("input_mapping"):
-				config = apply_input_mapping(context, action_config.get("input_mapping"), config)
+			if isinstance(action_config, dict) and action_config.get("input_mapping"):
+				config = apply_input_mapping(context, action_config["input_mapping"], config)
 
 		# Dispatch to mode handler
 		if mode == "Create New":
