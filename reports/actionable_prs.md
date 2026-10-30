@@ -18,9 +18,87 @@ This report analyzes and classifies all **actionable Pull Requests** in the Flex
 
 ---
 
+## Actionable Stacked PR Hierarchy (Nested Parent-Child Branches)
+
+The tree below illustrates stacked actionable branches where child PRs build directly on top of open parent PRs:
+
+```text
+develop
+├── [Parent] PR #469: feat: implement canonical condition backend (branch: feat/canonical-condition-backend) [Draft]
+│   ├── [Child] PR #481: feat: integrate frappe.rename_doc with flexirule JSON references
+│   ├── [Child] PR #482: Implement Canonical Condition Builder Using Generic TreeBuilder
+│   ├── [Child] PR #520: docs: add canonical condition war room and implementation report
+│   ├── [Child] PR #522: Implement PR #469 Canonical Condition Backend Blocking Corrections [Sibling to #523]
+│   └── [Child] PR #523: fix(canonical): resolve assignment guard fail-open and collection defects [Sibling to #522]
+│
+├── [Parent] PR #492: feat: unify TreeBuilder and GenericGrid actions and shortcuts (branch: feat/consolidate-tree-grid-actions-shortcuts-20261030)
+│   ├── [Child] PR #494: Fix Linter Failures and Refine Action Menu Safety [Sibling to #495, #496]
+│   ├── [Child] PR #495: fix(rule-builder): fix eslint error and annotate diagnostic logs [Sibling to #494, #496]
+│   ├── [Child] PR #496: Fix Prettier failure and Mypy type errors [Sibling to #494, #495]
+│   └── [Child] PR #499: Align Document Action backend contracts and runtime validation (Phase 1) [Sibling to #497, #498]
+│
+└── [Independent PRs targeting develop] (#475, #477, #483-#491, #497-#498, #500-#504, #506-#519, #524)
+```
+
+---
+
+## Actionable Sibling PR Clusters (Parallel Implementations of the Same Goal)
+
+Maintainers should review the following parallel PRs together, as they provide alternative or competing implementations aimed at identical objectives:
+
+### Sibling Group: Urgent Defect Correction: Canonical Condition Evaluator Guard Fail-Open & Collection Defects
+**Sibling PRs:** PR #522, PR #523
+PR #522 and PR #523 are direct siblings addressing critical blocking issues in PR #469: fixing the security flaw where Assignment guards failed open rather than closed, and fixing child-table collection field metadata traversal. PR #522 additionally updates benchmark test assertions.
+
+### Sibling Group: Switch Action Node & Canvas Dynamic Edge Routing Proposals
+**Sibling PRs:** PR #514, PR #515, PR #524
+PR #514, PR #515, and PR #524 are sibling proposals for the VueFlow canvas Switch Action Node. PR #524 consolidates the complete War Room debate transcript and routing engine blueprint.
+
+### Sibling Group: Rule Action Configuration Modal Progressive Disclosure Redesign
+**Sibling PRs:** PR #512, PR #513
+PR #512 and PR #513 are sibling proposals proposing a 4-stage progressive disclosure stepper for `RuleActionModal.vue` to simplify complex action configuration.
+
+### Sibling Group: FlexiRule UI/UX Stability & Adversarial War Room Audits
+**Sibling PRs:** PR #510, PR #511
+PR #510 and PR #511 are sibling audit reports delivering live War Room debate transcripts and comprehensive UI stability audit reports covering race conditions and control states.
+
+### Sibling Group: Rule DocType Form Consistency & Client Script Audits
+**Sibling PRs:** PR #502, PR #504
+PR #502 and PR #504 are sibling audits evaluating standard DocType client scripts (`rule.js`), identifying form locking bugs (`apply_active_lock`) and trigger dependency issues.
+
+### Sibling Group: Sub-Rule Engine Architecture & Contract Builder Proposals
+**Sibling PRs:** PR #506, PR #507
+PR #506 and PR #507 are sibling analyses evaluating the SubRuleHandler execution engine, cycle detection, recursion depth limits, and visual `SubRuleContractBuilder` UI.
+
+### Sibling Group: Loop Action Embedded Condition Deprecation Analyses
+**Sibling PRs:** PR #500, PR #503
+PR #500 and PR #503 are sibling architectural studies demonstrating why the embedded condition step in Loop actions should be deprecated in favor of discrete Condition nodes.
+
+### Sibling Group: Document Action Phase 1 Contracts, Resolution & Async Mapping
+**Sibling PRs:** PR #497, PR #498, PR #499
+PR #497, PR #498, and PR #499 are sibling implementations of Phase 1 for Document Actions: unifying target document resolution precedence (`reference_docname` > `docname_expression` > `docname`) and Jinja template expression rendering.
+
+### Sibling Group: AssignmentConfig Refactoring to Shared GenericGrid with Header
+**Sibling PRs:** PR #488, PR #490, PR #491
+PR #488, PR #490, and PR #491 are sibling refactorings of `AssignmentConfig.vue` to eliminate duplicate table boilerplate by reusing `GenericGrid.vue` with an added `#header` slot.
+
+### Sibling Group: Unified Keyboard Shortcut Registry across GenericGrid & TreeBuilder
+**Sibling PRs:** PR #484, PR #486
+PR #484 and PR #486 are sibling PRs centralizing keyboard shortcut handling via `useKeyboardRegistry` and `keyboard_shortcuts.mjs` (`Ctrl+Shift+E`).
+
+### Sibling Group: Headless UI Contextual Action Dropdown Menu (`ActionMenu.vue`)
+**Sibling PRs:** PR #483, PR #487
+PR #483 and PR #487 are sibling PRs replacing inline action buttons across TreeBuilder and GenericGrid with an accessible `@headlessui/vue` dropdown menu.
+
+### Sibling Group: Frontend Quality & Linter Compliance (ESLint, Prettier, Mypy)
+**Sibling PRs:** PR #494, PR #495, PR #496
+PR #494, PR #495, and PR #496 are sibling maintenance PRs resolving linter issues on the consolidated branch `feat/consolidate-tree-grid-actions-shortcuts-20261030`.
+
+---
+
 ## Actionable PRs Grouped by Base Branch
 
-Grouping actionable PRs by target base branch provides immediate visibility into stack hierarchies:
+Summary matrix grouped by target branch:
 
 ### Target Base: `develop` (34 Actionable PRs)
 | PR # | Title | Author | Draft | Files Edited | Legacy Status |
@@ -76,56 +154,6 @@ Grouping actionable PRs by target base branch provides immediate visibility into
 | #495 | fix(rule-builder): fix eslint error and annotate diagnostic logs | `@testwitharkan` | No | 20 files | Modern Maintenance |
 | #496 | Fix Prettier failure and Mypy type errors | `@Sendipad` | No | 3 files | Modern Maintenance |
 | #499 | Align Document Action backend contracts and runtime validation (Phase 1) | `@Sendipad` | No | 4 files | Modern Backend Contracts |
-
----
-
-## Actionable Competing PR Clusters & Similar Implementations
-
-Maintainers should review the following parallel PRs together, as they provide alternative or competing implementations:
-
-### Urgent Defect Correction: Canonical Condition Evaluator Guard Fail-Open & Collection Defects
-**Competing PRs:** PR #522, PR #523
-PR #522 and PR #523 both correct critical issues in PR #469: fixing the security flaw where Assignment guards failed open rather than closed, and fixing child-table collection field metadata traversal. PR #522 additionally updates benchmark test assertions.
-
-### Switch Action Node & Canvas Dynamic Edge Routing Proposals
-**Competing PRs:** PR #514, PR #515, PR #524
-PR #514, PR #515, and PR #524 propose architectures for the VueFlow canvas Switch Action Node. PR #524 consolidates the complete War Room debate transcript and routing engine blueprint.
-
-### Rule Action Configuration Modal Progressive Disclosure Redesign
-**Competing PRs:** PR #512, PR #513
-PR #512 and PR #513 propose a 4-stage progressive disclosure stepper for `RuleActionModal.vue` to simplify complex action configuration.
-
-### FlexiRule UI/UX Stability & Adversarial War Room Audits
-**Competing PRs:** PR #510, PR #511
-PR #510 and PR #511 deliver live War Room debate transcripts and comprehensive UI stability audit reports covering race conditions and control states.
-
-### Rule DocType Form Consistency & Client Script Audits
-**Competing PRs:** PR #502, PR #504
-PR #502 and PR #504 evaluate standard DocType client scripts (`rule.js`), identifying form locking bugs (`apply_active_lock`) and trigger dependency issues.
-
-### Sub-Rule Engine Architecture & Contract Builder Proposals
-**Competing PRs:** PR #506, PR #507
-PR #506 and PR #507 evaluate the SubRuleHandler execution engine, cycle detection, recursion depth limits, and visual `SubRuleContractBuilder` UI.
-
-### Loop Action Embedded Condition Deprecation Analyses
-**Competing PRs:** PR #500, PR #503
-PR #500 and PR #503 provide deep architectural analysis demonstrating why the embedded condition step in Loop actions should be deprecated in favor of discrete Condition nodes.
-
-### Document Action Phase 1 Contracts, Resolution & Async Mapping
-**Competing PRs:** PR #497, PR #498, PR #499
-PR #497, PR #498, and PR #499 implement Phase 1 of Document Actions: unifying target document resolution precedence (`reference_docname` > `docname_expression` > `docname`) and Jinja template expression rendering.
-
-### AssignmentConfig Refactoring to Shared GenericGrid with Header
-**Competing PRs:** PR #488, PR #490, PR #491
-PR #488, PR #490, and PR #491 refactor `AssignmentConfig.vue` to eliminate duplicate table boilerplate by reusing `GenericGrid.vue` with an added `#header` slot.
-
-### Unified Keyboard Shortcut Registry across GenericGrid & TreeBuilder
-**Competing PRs:** PR #484, PR #486
-PR #484 and PR #486 centralize keyboard shortcut handling via `useKeyboardRegistry` and `keyboard_shortcuts.mjs` (`Ctrl+Shift+E`).
-
-### Headless UI Contextual Action Dropdown Menu (`ActionMenu.vue`)
-**Competing PRs:** PR #483, PR #487
-PR #483 and PR #487 replace inline action buttons across TreeBuilder and GenericGrid with an accessible `@headlessui/vue` dropdown menu.
 
 ---
 

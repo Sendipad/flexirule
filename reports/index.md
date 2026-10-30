@@ -74,11 +74,214 @@ This report provides a comprehensive synthesis and technical analysis of all **5
 
 ---
 
-## Grouping by Base Branch
+## Nested & Stacked PR Hierarchy (Stacked Branches)
 
-Analyzing PRs by target base branch clarifies release integration pathways and stacked branch dependencies:
+When a pull request's base branch corresponds to the branch of another pull request, they form a **stacked branch hierarchy**. Below is the complete dependency tree showing parent PRs, nested dependent child PRs, and multi-tier sub-stacks:
 
-### Target Base: `develop` (36 PRs)
+```text
+develop
+├── PR #469: feat: implement canonical condition backend (branch: feat/canonical-condition-backend) [Open]
+│   ├── PR #470: style: apply ruff linter and formatter fixes [Merged]
+│   ├── PR #471: docs: add code review findings report for PR #470 [Closed]
+│   ├── PR #473: Canonical Condition Backend Code Review [Closed]
+│   ├── PR #474: Benchmark PR #469 Canonical Condition Backend [Merged]
+│   │   └── PR #476: refactor(condition-benchmark): 5-approach comparison [Merged]
+│   ├── PR #478: Reuse validated canonical condition artifacts at runtime [Merged]
+│   │   └── PR #479: fix(ci): resolve benchmark test error and strengthen report [Merged]
+│   ├── PR #481: feat: integrate frappe.rename_doc with flexirule JSON references [Open]
+│   ├── PR #482: Implement Canonical Condition Builder Using Generic TreeBuilder [Open]
+│   ├── PR #505: fix(rename_doc): update embedded JSON references on rename [Open]
+│   ├── PR #520: docs: add canonical condition war room and implementation report [Open]
+│   ├── PR #522: Implement PR #469 Canonical Condition Backend Blocking Corrections [Open] (Sibling to #523)
+│   └── PR #523: fix(canonical): resolve assignment guard fail-open and collection defects [Open] (Sibling to #522)
+│
+├── PR #492: feat: unify TreeBuilder and GenericGrid actions and shortcuts [Open] (branch: feat/consolidate-tree-grid-actions-shortcuts-20261030)
+│   ├── PR #494: Fix Linter Failures and Refine Action Menu Safety [Open] (Sibling to #495, #496)
+│   ├── PR #495: fix(rule-builder): fix eslint error and annotate diagnostic logs [Open] (Sibling to #494, #496)
+│   ├── PR #496: Fix Prettier failure and Mypy type errors [Open] (Sibling to #494, #495)
+│   └── PR #499: Align Document Action backend contracts and validation (Phase 1) [Open] (Sibling to #497, #498)
+│
+└── Direct PRs targeting develop (e.g., #475, #477, #483-#491, #497-#498, #500-#504, #506-#519, #521, #524)
+```
+
+---
+
+## Sibling PR Clusters (Parallel Implementations of the Same Goal)
+
+When multiple pull requests provide alternative, competing, or complementary implementations aiming for the exact same objective, they are grouped below as **sibling PRs**:
+
+### Sibling Cluster: Canonical Condition Evaluator Defect Remediation & Blocking Fixes
+**Sibling PRs:** PR #522, PR #523
+
+Sibling implementations solving the same blocker: PR #522 and PR #523 both correct critical issues in the canonical condition evaluator by ensuring Assignment guards fail-closed (returning False upon evaluation failure) rather than fail-open, and fixing child-table collection field metadata resolution for filters.
+
+| Sibling PR # | Author | Target Base | Status | Implementation Nuance |
+| --- | --- | --- | --- | --- |
+| #522 | `@Sendipad` | `feat/canonical-condition-backend` | Open | Canonical condition blocking corrections: Assignment guard fail-closed and collection field metadata. |
+| #523 | `@flexirule` | `feat/canonical-condition-backend` | Open | Fix assignment guard fail-open security bug and collection metadata defects in canonical evaluator. |
+
+### Sibling Cluster: Canonical Condition War Room Specifications & Implementation Specs
+**Sibling PRs:** PR #520, PR #521
+
+Sibling deliverables presenting the Canonical Condition War Room deliberation, JSON AST v1.0.0 specification schema, and Python backend evaluator module design. PR #520 targets `feat/canonical-condition-backend`, while PR #521 targets `develop`.
+
+| Sibling PR # | Author | Target Base | Status | Implementation Nuance |
+| --- | --- | --- | --- | --- |
+| #520 | `@Sendipad` | `feat/canonical-condition-backend` | Open | Canonical condition war room transcript, JSON AST v1.0.0, and evaluator module. |
+| #521 | `@Sendipad` | `develop` | Open | Canonical condition backend implementation specs, war room review, and hooks. |
+
+### Sibling Cluster: Canvas Switch Action Node & Dynamic Edge Routing Redesign
+**Sibling PRs:** PR #514, PR #515, PR #524
+
+Sibling proposals for the Vue Flow Switch Action Node. PR #514 and PR #524 provide the complete War Room debate transcript and routing engine blueprint, while PR #515 details the underlying data flow and VueFlow handle specification.
+
+| Sibling PR # | Author | Target Base | Status | Implementation Nuance |
+| --- | --- | --- | --- | --- |
+| #514 | `@ruzaqiarkan-eng` | `develop` | Open | Switch Action Node and dynamic Vue Flow edge routing redesign proposal. |
+| #515 | `@Sendipad` | `develop` | Open | VueFlow Switch Action Node architectural specification and data flow. |
+| #524 | `@testwitharkan` | `develop` | Open | Consolidated Switch node & dynamic edge routing proposal with War Room debate transcript. |
+
+### Sibling Cluster: Rule Action Configuration Modal Progressive Disclosure Redesign
+**Sibling PRs:** PR #512, PR #513
+
+Sibling proposals proposing a 4-stage progressive disclosure stepper (Intent -> Core Target -> Parameters -> Validation) to reduce cognitive load in `RuleActionModal.vue`.
+
+| Sibling PR # | Author | Target Base | Status | Implementation Nuance |
+| --- | --- | --- | --- | --- |
+| #512 | `@ruzaqiarkan-eng` | `develop` | Open | Action Modal 4-stage progressive disclosure redesign proposal. |
+| #513 | `@testwitharkan` | `develop` | Open | UI/UX redesign proposal for Rule Action modal with progressive disclosure. |
+
+### Sibling Cluster: FlexiRule UI/UX Stability & Adversarial War Room Audits
+**Sibling PRs:** PR #510, PR #511
+
+Sibling deliverables providing adversarial QA debate transcripts and UI stability audit reports identifying integration edge cases and race conditions across Rule Builder components.
+
+| Sibling PR # | Author | Target Base | Status | Implementation Nuance |
+| --- | --- | --- | --- | --- |
+| #510 | `@testwitharkan` | `develop` | Open | Adversarial QA debate transcript and UI/UX integration audit report. |
+| #511 | `@ruzaqiarkan-eng` | `develop` | Open | FlexiRule UI/UX & Integration Audit Report with War Room debate transcript. |
+
+### Sibling Cluster: Rule DocType Form Consistency & Client Script Audits
+**Sibling PRs:** PR #502, PR #504
+
+Sibling audits of Frappe standard DocType client scripts (`rule.js`), identifying form locking bugs (`apply_active_lock`), primary save button overrides, and trigger dependency issues.
+
+| Sibling PR # | Author | Target Base | Status | Implementation Nuance |
+| --- | --- | --- | --- | --- |
+| #502 | `@testwitharkan` | `develop` | Open | Audit report on Rule DocType form consistency and client-side scripts. |
+| #504 | `@ruzaqiarkan-eng` | `develop` | Open | Frappe standard Rule Doc Form consistency audit and remediation plan. |
+
+### Sibling Cluster: Sub-Rule Engine Architecture & Contract Builder Proposals
+**Sibling PRs:** PR #506, PR #507
+
+Sibling architectural evaluations of the SubRuleHandler execution engine, cycle detection, recursion depth limits, and proposed visual `SubRuleContractBuilder` UI.
+
+| Sibling PR # | Author | Target Base | Status | Implementation Nuance |
+| --- | --- | --- | --- | --- |
+| #506 | `@testwitharkan` | `develop` | Open | Sub-rule execution engine analysis and SubRuleContractBuilder proposal. |
+| #507 | `@Sendipad` | `develop` | Open | Sub-rule depth/cycle analysis and production UI implementation plan. |
+
+### Sibling Cluster: Loop Action Embedded Condition Deprecation Analyses
+**Sibling PRs:** PR #500, PR #503
+
+Sibling studies analyzing the redundant embedded condition step in Loop actions, recommending deprecation in favor of discrete Condition nodes.
+
+| Sibling PR # | Author | Target Base | Status | Implementation Nuance |
+| --- | --- | --- | --- | --- |
+| #500 | `@testwitharkan` | `develop` | Open | Architectural analysis and deprecation proposal for Loop embedded conditions. |
+| #503 | `@Sendipad` | `develop` | Open | Deep architectural report on Loop action embedded condition step. |
+
+### Sibling Cluster: Document Action Phase 1 Contracts, Target Resolution & Async Mapping
+**Sibling PRs:** PR #497, PR #498, PR #499
+
+Sibling implementations of Phase 1 for Document Actions. All three align operation contracts (Create, Update, Delete, Add Comment, Create ToDo) and unify target record name resolution precedence (`reference_docname` > `docname_expression` > `docname`).
+
+| Sibling PR # | Author | Target Base | Status | Implementation Nuance |
+| --- | --- | --- | --- | --- |
+| #497 | `@ruzaqiarkan-eng` | `develop` | Open | Document Action Phase 1 contract fixes, target resolution, and async worker. |
+| #498 | `@testwitharkan` | `develop` | Open | Phase 1 Document Action operation contracts, validation, and Jinja rendering. |
+| #499 | `@Sendipad` | `feat/consolidate-tree-grid-actions-shortcuts-20261030` | Open | Backend contract alignment and runtime validation for Document Action Phase 1. |
+
+### Sibling Cluster: AssignmentConfig Refactoring to Shared GenericGrid with Header
+**Sibling PRs:** PR #488, PR #490, PR #491
+
+Sibling refactorings of `AssignmentConfig.vue` to eliminate duplicate table boilerplate by reusing `GenericGrid.vue` with an added `#header` slot.
+
+| Sibling PR # | Author | Target Base | Status | Implementation Nuance |
+| --- | --- | --- | --- | --- |
+| #488 | `@ruzaqiarkan-eng` | `develop` | Open | Refactoring AssignmentConfig to use GenericGrid with header slot. |
+| #490 | `@testwitharkan` | `develop` | Open | GenericGrid header slot extension and AssignmentConfig UI refactor. |
+| #491 | `@Sendipad` | `develop` | Open | AssignmentConfig refactoring to share GenericGrid and header slot. |
+
+### Sibling Cluster: Unified Keyboard Shortcut Registry across GenericGrid & TreeBuilder
+**Sibling PRs:** PR #484, PR #486
+
+Sibling PRs introducing centralized keyboard shortcut handling via `useKeyboardRegistry` and `keyboard_shortcuts.mjs`, binding `Ctrl+Shift+E` view transitions.
+
+| Sibling PR # | Author | Target Base | Status | Implementation Nuance |
+| --- | --- | --- | --- | --- |
+| #484 | `@ruzaqiarkan-eng` | `develop` | Open | Centralized keyboard shortcut registry (`Ctrl+Shift+E`) for view toggling. |
+| #486 | `@Sendipad` | `develop` | Open | Shortcut registry unification across GenericGrid and TreeBuilder. |
+
+### Sibling Cluster: Headless UI Contextual Action Dropdown Menu (`ActionMenu.vue`)
+**Sibling PRs:** PR #483, PR #487
+
+Sibling implementations replacing inline action buttons across TreeBuilder and GenericGrid with an accessible `@headlessui/vue` dropdown menu.
+
+| Sibling PR # | Author | Target Base | Status | Implementation Nuance |
+| --- | --- | --- | --- | --- |
+| #483 | `@ruzaqiarkan-eng` | `develop` | Open | Headless UI action dropdown menu for TreeBuilder and GenericGrid. |
+| #487 | `@Sendipad` | `develop` | Open | Headless UI dropdown menu unification for row actions in TreeBuilder & GenericGrid. |
+
+### Sibling Cluster: Daily Scheduled Audit Workflow Configuration & Reports
+**Sibling PRs:** PR #475, PR #477, PR #485
+
+Sibling iterative PRs setting up the `.github/workflows/jules-task.yml` cron trigger (`0 2 * * *`) and publishing initial daily audit reports under `reports/audit/`.
+
+| Sibling PR # | Author | Target Base | Status | Implementation Nuance |
+| --- | --- | --- | --- | --- |
+| #475 | `@testwitharkan` | `develop` | Open | GitHub Actions daily scheduled audit workflow and initial findings report. |
+| #477 | `@testwitharkan` | `develop` | Open | Configuration for daily scheduled audit workflow and initial audit report. |
+| #485 | `@testwitharkan` | `develop` | Open | Daily scheduled audit runner workflow and automated findings publisher. |
+
+### Sibling Cluster: frappe.rename_doc Embedded JSON Reference Integrity
+**Sibling PRs:** PR #481, PR #505
+
+Sibling implementations integrating standard Frappe document renaming with schema-aware recursive JSON path updates across FlexiRule rule definitions.
+
+| Sibling PR # | Author | Target Base | Status | Implementation Nuance |
+| --- | --- | --- | --- | --- |
+| #481 | `@testwitharkan` | `feat/canonical-condition-backend` | Open | Integration of `frappe.rename_doc` with embedded FlexiRule JSON references. |
+| #505 | `@Sendipad` | `feat/canonical-condition-backend` | Open | Server-side `frappe.rename_doc` hook and schema-aware JSON reference updater. |
+
+### Sibling Cluster: Frappe Framework Jinja Template Rendering Deep Architecture
+**Sibling PRs:** PR #517, PR #518
+
+Sibling architectural investigations into Frappe's Jinja template compilation, sandboxing, and caching topology across notifications and print formats.
+
+| Sibling PR # | Author | Target Base | Status | Implementation Nuance |
+| --- | --- | --- | --- | --- |
+| #517 | `@flexirule` | `develop` | Open | Deep architectural analysis of Frappe Framework template rendering engine. |
+| #518 | `@Sendipad` | `develop` | Open | Frappe template rendering performance, string compilation overhead, and caching. |
+
+### Sibling Cluster: Frontend Quality & Linter Compliance (ESLint, Prettier, Mypy)
+**Sibling PRs:** PR #494, PR #495, PR #496
+
+Sibling maintenance PRs resolving ESLint globals (`afterEach`), Floating UI DOM detachment guards in `ActionMenu.vue`, Prettier syntax formatting, and Mypy typing.
+
+| Sibling PR # | Author | Target Base | Status | Implementation Nuance |
+| --- | --- | --- | --- | --- |
+| #494 | `@ruzaqiarkan-eng` | `feat/consolidate-tree-grid-actions-shortcuts-20261030` | Open | ESLint fix for `afterEach` global, Floating UI guard, and key alias parsing. |
+| #495 | `@testwitharkan` | `feat/consolidate-tree-grid-actions-shortcuts-20261030` | Open | ESLint global declaration fix and frontend test diagnostic log annotations. |
+| #496 | `@Sendipad` | `feat/consolidate-tree-grid-actions-shortcuts-20261030` | Open | Prettier formatting fix for ActionMenu and Mypy typing fixes for DocumentAction. |
+
+---
+
+## Base Branch Grouping Summary
+
+Summary of pull requests grouped by their target base branch:
+
+### Base Branch: `develop` (36 PRs)
 | PR # | Title | Author | Status |
 | --- | --- | --- | --- |
 | #469 | feat: implement canonical condition backend | `@flexirule` | Open |
@@ -118,7 +321,7 @@ Analyzing PRs by target base branch clarifies release integration pathways and s
 | #521 | feat: canonical condition backend implementation specs and war room review | `@Sendipad` | Open |
 | #524 | docs(canvas): add switch node & dynamic edge routing proposal | `@testwitharkan` | Open |
 
-### Target Base: `feat/canonical-condition-backend` (11 PRs)
+### Base Branch: `feat/canonical-condition-backend` (11 PRs)
 | PR # | Title | Author | Status |
 | --- | --- | --- | --- |
 | #470 | style: apply ruff linter and formatter fixes | `@testwitharkan` | **Merged** |
@@ -133,7 +336,7 @@ Analyzing PRs by target base branch clarifies release integration pathways and s
 | #522 | Implement PR #469 Canonical Condition Backend Blocking Corrections | `@Sendipad` | Open |
 | #523 | fix(canonical): resolve assignment guard fail-open and collection metadata defects | `@flexirule` | Open |
 
-### Target Base: `feat/consolidate-tree-grid-actions-shortcuts-20261030` (4 PRs)
+### Base Branch: `feat/consolidate-tree-grid-actions-shortcuts-20261030` (4 PRs)
 | PR # | Title | Author | Status |
 | --- | --- | --- | --- |
 | #494 | Fix Linter Failures and Refine Action Menu Safety | `@ruzaqiarkan-eng` | Open |
@@ -141,202 +344,31 @@ Analyzing PRs by target base branch clarifies release integration pathways and s
 | #496 | Fix Prettier failure and Mypy type errors | `@Sendipad` | Open |
 | #499 | Align Document Action backend contracts and runtime validation (Phase 1) | `@Sendipad` | Open |
 
-### Target Base: `feat/canonical-condition-plan` (1 PRs)
+### Base Branch: `feat/canonical-condition-plan` (1 PRs)
 | PR # | Title | Author | Status |
 | --- | --- | --- | --- |
 | #472 | fix: resolve condition operator contains coercion and output alias validation | `@Sendipad` | **Merged** |
 
-### Target Base: `benchmark/canonical-condition-pr469-13258699710874809974` (1 PRs)
+### Base Branch: `benchmark/canonical-condition-pr469-13258699710874809974` (1 PRs)
 | PR # | Title | Author | Status |
 | --- | --- | --- | --- |
 | #476 | refactor(condition-benchmark): implement fair five-approach comparison and review remediation | `@Sendipad` | **Merged** |
 
-### Target Base: `perf/prepared-canonical-condition-runtime` (1 PRs)
+### Base Branch: `perf/prepared-canonical-condition-runtime` (1 PRs)
 | PR # | Title | Author | Status |
 | --- | --- | --- | --- |
 | #479 | fix(ci): resolve benchmark test error and strengthen report summarizer | `@testwitharkan` | **Merged** |
 
 ---
 
-## Related & Similar PR Clusters (Alternative Implementations)
-
-Several PRs were submitted in parallel to address identical technical requirements or explore competing implementation approaches:
-
-### Canonical Condition Evaluator Defect Remediation & Blocking Fixes
-**Associated PRs:** PR #522, PR #523
-
-Both PRs address critical production defects in the canonical condition evaluator: PR #522 and PR #523 both ensure Assignment guards fail-closed (returning False upon evaluation failure) rather than fail-open, and fix collection field metadata resolution for child table filters.
-
-| PR # | Author | Target Base | Status | Implementation Details |
-| --- | --- | --- | --- | --- |
-| #522 | `@Sendipad` | `feat/canonical-condition-backend` | Open | Canonical condition blocking corrections: Assignment guard fail-closed and collection field metadata. |
-| #523 | `@flexirule` | `feat/canonical-condition-backend` | Open | Fix assignment guard fail-open security bug and collection metadata defects in canonical evaluator. |
-
-### Canonical Condition War Room Specifications & Implementation Specs
-**Associated PRs:** PR #520, PR #521
-
-Both PRs document the Canonical Condition War Room deliberation, JSON AST v1.0.0 specification schema, and Python backend evaluator module design. PR #520 targets `feat/canonical-condition-backend`, while PR #521 targets `develop`.
-
-| PR # | Author | Target Base | Status | Implementation Details |
-| --- | --- | --- | --- | --- |
-| #520 | `@Sendipad` | `feat/canonical-condition-backend` | Open | Canonical condition war room transcript, JSON AST v1.0.0, and evaluator module. |
-| #521 | `@Sendipad` | `develop` | Open | Canonical condition backend implementation specs, war room review, and hooks. |
-
-### Canvas Switch Action Node & Dynamic Edge Routing Redesign
-**Associated PRs:** PR #514, PR #515, PR #524
-
-Parallel architectural proposals for the Vue Flow Switch Action Node. PR #514 and PR #524 provide the complete War Room debate transcript and routing engine blueprint, while PR #515 details the underlying data flow and VueFlow handle specification.
-
-| PR # | Author | Target Base | Status | Implementation Details |
-| --- | --- | --- | --- | --- |
-| #514 | `@ruzaqiarkan-eng` | `develop` | Open | Switch Action Node and dynamic Vue Flow edge routing redesign proposal. |
-| #515 | `@Sendipad` | `develop` | Open | VueFlow Switch Action Node architectural specification and data flow. |
-| #524 | `@testwitharkan` | `develop` | Open | Consolidated Switch node & dynamic edge routing proposal with War Room debate transcript. |
-
-### Rule Action Configuration Modal Progressive Disclosure Redesign
-**Associated PRs:** PR #512, PR #513
-
-Competing proposals proposing a 4-stage progressive disclosure stepper (Intent -> Core Target -> Parameters -> Validation) to reduce cognitive load in `RuleActionModal.vue`.
-
-| PR # | Author | Target Base | Status | Implementation Details |
-| --- | --- | --- | --- | --- |
-| #512 | `@ruzaqiarkan-eng` | `develop` | Open | Action Modal 4-stage progressive disclosure redesign proposal. |
-| #513 | `@testwitharkan` | `develop` | Open | UI/UX redesign proposal for Rule Action modal with progressive disclosure. |
-
-### FlexiRule UI/UX Stability & Adversarial War Room Audits
-**Associated PRs:** PR #510, PR #511
-
-Adversarial QA debate transcripts and UI stability audit reports identifying integration edge cases and race conditions across Rule Builder components.
-
-| PR # | Author | Target Base | Status | Implementation Details |
-| --- | --- | --- | --- | --- |
-| #510 | `@testwitharkan` | `develop` | Open | Adversarial QA debate transcript and UI/UX integration audit report. |
-| #511 | `@ruzaqiarkan-eng` | `develop` | Open | FlexiRule UI/UX & Integration Audit Report with War Room debate transcript. |
-
-### Rule DocType Form Consistency & Client Script Audits
-**Associated PRs:** PR #502, PR #504
-
-Parallel audits of Frappe standard DocType client scripts (`rule.js`), identifying form locking bugs (`apply_active_lock`), primary save button overrides, and trigger dependency issues.
-
-| PR # | Author | Target Base | Status | Implementation Details |
-| --- | --- | --- | --- | --- |
-| #502 | `@testwitharkan` | `develop` | Open | Audit report on Rule DocType form consistency and client-side scripts. |
-| #504 | `@ruzaqiarkan-eng` | `develop` | Open | Frappe standard Rule Doc Form consistency audit and remediation plan. |
-
-### Sub-Rule Engine Architecture & Contract Builder Proposals
-**Associated PRs:** PR #506, PR #507
-
-Architectural evaluations of the SubRuleHandler execution engine, cycle detection, recursion depth limits, and proposed visual `SubRuleContractBuilder` UI.
-
-| PR # | Author | Target Base | Status | Implementation Details |
-| --- | --- | --- | --- | --- |
-| #506 | `@testwitharkan` | `develop` | Open | Sub-rule execution engine analysis and SubRuleContractBuilder proposal. |
-| #507 | `@Sendipad` | `develop` | Open | Sub-rule depth/cycle analysis and production UI implementation plan. |
-
-### Loop Action Embedded Condition Deprecation Analyses
-**Associated PRs:** PR #500, PR #503
-
-Architectural studies analyzing the redundant embedded condition step in Loop actions, recommending deprecation in favor of discrete Condition nodes.
-
-| PR # | Author | Target Base | Status | Implementation Details |
-| --- | --- | --- | --- | --- |
-| #500 | `@testwitharkan` | `develop` | Open | Architectural analysis and deprecation proposal for Loop embedded conditions. |
-| #503 | `@Sendipad` | `develop` | Open | Deep architectural report on Loop action embedded condition step. |
-
-### Document Action Phase 1 Contracts, Target Resolution & Async Mapping
-**Associated PRs:** PR #497, PR #498, PR #499
-
-Competing implementations of Phase 1 for Document Actions. All three align operation contracts (Create, Update, Delete, Add Comment, Create ToDo) and unify target record name resolution precedence (`reference_docname` > `docname_expression` > `docname`).
-
-| PR # | Author | Target Base | Status | Implementation Details |
-| --- | --- | --- | --- | --- |
-| #497 | `@ruzaqiarkan-eng` | `develop` | Open | Document Action Phase 1 contract fixes, target resolution, and async worker. |
-| #498 | `@testwitharkan` | `develop` | Open | Phase 1 Document Action operation contracts, validation, and Jinja rendering. |
-| #499 | `@Sendipad` | `feat/consolidate-tree-grid-actions-shortcuts-20261030` | Open | Backend contract alignment and runtime validation for Document Action Phase 1. |
-
-### AssignmentConfig Refactoring to Shared GenericGrid with Header
-**Associated PRs:** PR #488, PR #490, PR #491
-
-Competing refactorings of `AssignmentConfig.vue` to eliminate duplicate table boilerplate by reusing `GenericGrid.vue` with an added `#header` slot.
-
-| PR # | Author | Target Base | Status | Implementation Details |
-| --- | --- | --- | --- | --- |
-| #488 | `@ruzaqiarkan-eng` | `develop` | Open | Refactoring AssignmentConfig to use GenericGrid with header slot. |
-| #490 | `@testwitharkan` | `develop` | Open | GenericGrid header slot extension and AssignmentConfig UI refactor. |
-| #491 | `@Sendipad` | `develop` | Open | AssignmentConfig refactoring to share GenericGrid and header slot. |
-
-### Unified Keyboard Shortcut Registry across GenericGrid & TreeBuilder
-**Associated PRs:** PR #484, PR #486
-
-Parallel PRs introducing centralized keyboard shortcut handling via `useKeyboardRegistry` and `keyboard_shortcuts.mjs`, binding `Ctrl+Shift+E` view transitions.
-
-| PR # | Author | Target Base | Status | Implementation Details |
-| --- | --- | --- | --- | --- |
-| #484 | `@ruzaqiarkan-eng` | `develop` | Open | Centralized keyboard shortcut registry (`Ctrl+Shift+E`) for view toggling. |
-| #486 | `@Sendipad` | `develop` | Open | Shortcut registry unification across GenericGrid and TreeBuilder. |
-
-### Headless UI Contextual Action Dropdown Menu (`ActionMenu.vue`)
-**Associated PRs:** PR #483, PR #487
-
-Competing implementations replacing inline action buttons across TreeBuilder and GenericGrid with an accessible `@headlessui/vue` dropdown menu.
-
-| PR # | Author | Target Base | Status | Implementation Details |
-| --- | --- | --- | --- | --- |
-| #483 | `@ruzaqiarkan-eng` | `develop` | Open | Headless UI action dropdown menu for TreeBuilder and GenericGrid. |
-| #487 | `@Sendipad` | `develop` | Open | Headless UI dropdown menu unification for row actions in TreeBuilder & GenericGrid. |
-
-### Daily Scheduled Audit Workflow Configuration & Reports
-**Associated PRs:** PR #475, PR #477, PR #485
-
-Iterative PRs setting up the `.github/workflows/jules-task.yml` cron trigger (`0 2 * * *`) and publishing initial daily audit reports under `reports/audit/`.
-
-| PR # | Author | Target Base | Status | Implementation Details |
-| --- | --- | --- | --- | --- |
-| #475 | `@testwitharkan` | `develop` | Open | GitHub Actions daily scheduled audit workflow and initial findings report. |
-| #477 | `@testwitharkan` | `develop` | Open | Configuration for daily scheduled audit workflow and initial audit report. |
-| #485 | `@testwitharkan` | `develop` | Open | Daily scheduled audit runner workflow and automated findings publisher. |
-
-### frappe.rename_doc Embedded JSON Reference Integrity
-**Associated PRs:** PR #481, PR #505
-
-Competing implementations integrating standard Frappe document renaming with schema-aware recursive JSON path updates across FlexiRule rule definitions.
-
-| PR # | Author | Target Base | Status | Implementation Details |
-| --- | --- | --- | --- | --- |
-| #481 | `@testwitharkan` | `feat/canonical-condition-backend` | Open | Integration of `frappe.rename_doc` with embedded FlexiRule JSON references. |
-| #505 | `@Sendipad` | `feat/canonical-condition-backend` | Open | Server-side `frappe.rename_doc` hook and schema-aware JSON reference updater. |
-
-### Frappe Framework Jinja Template Rendering Deep Architecture
-**Associated PRs:** PR #517, PR #518
-
-Comprehensive architectural investigations into Frappe's Jinja template compilation, sandboxing, and caching topology across notifications and print formats.
-
-| PR # | Author | Target Base | Status | Implementation Details |
-| --- | --- | --- | --- | --- |
-| #517 | `@flexirule` | `develop` | Open | Deep architectural analysis of Frappe Framework template rendering engine. |
-| #518 | `@Sendipad` | `develop` | Open | Frappe template rendering performance, string compilation overhead, and caching. |
-
-### Frontend Quality & Linter Compliance (ESLint, Prettier, Mypy)
-**Associated PRs:** PR #494, PR #495, PR #496
-
-Complementary PRs resolving ESLint globals (`afterEach`), Floating UI DOM detachment guards in `ActionMenu.vue`, Prettier syntax formatting, and Mypy typing.
-
-| PR # | Author | Target Base | Status | Implementation Details |
-| --- | --- | --- | --- | --- |
-| #494 | `@ruzaqiarkan-eng` | `feat/consolidate-tree-grid-actions-shortcuts-20261030` | Open | ESLint fix for `afterEach` global, Floating UI guard, and key alias parsing. |
-| #495 | `@testwitharkan` | `feat/consolidate-tree-grid-actions-shortcuts-20261030` | Open | ESLint global declaration fix and frontend test diagnostic log annotations. |
-| #496 | `@Sendipad` | `feat/consolidate-tree-grid-actions-shortcuts-20261030` | Open | Prettier formatting fix for ActionMenu and Mypy typing fixes for DocumentAction. |
-
----
-
 ## Report & Proposal PR Sub-Categorization
 
-A significant portion of recent repository activity involves formal architectural reports, audit findings, war room deliberations, and enhancement proposals. These are sub-categorized below:
+Documentation and architectural pull requests classified by technical intent:
 
 ### Sub-Category: Found Bugs & Stability Audits (6 PRs)
 *Audits documenting runtime bugs, UI race conditions, form locking flaws, and stability concerns across Rule Builder and standard Frappe forms.*
 
-| PR # | Title | Author | Status | Primary Contribution |
+| PR # | Title | Author | Status | Contribution |
 | --- | --- | --- | --- | --- |
 | #471 | docs: add code review findings report for PR #470 | `@Sendipad` | Closed | Code review findings and architectural review for PR #470. |
 | #473 | Canonical Condition Backend Code Review | `@Sendipad` | Closed | Code review analysis and recommendations for Canonical Condition Backend. |
@@ -348,7 +380,7 @@ A significant portion of recent repository activity involves formal architectura
 ### Sub-Category: Urgent Implementation Plans & Core Architecture (5 PRs)
 *Architectural execution blueprints and specifications for Sub-Rules, Frappe v15/v16 Query Engine migration, and Canonical Condition JSON AST.*
 
-| PR # | Title | Author | Status | Primary Contribution |
+| PR # | Title | Author | Status | Contribution |
 | --- | --- | --- | --- | --- |
 | #506 | docs: add sub-rule analysis and config ui implementation plan | `@testwitharkan` | Open | Sub-rule execution engine analysis and SubRuleContractBuilder proposal. |
 | #507 | Sub-Rule Deep Analysis and Production Implementation Plan | `@Sendipad` | Open | Sub-rule depth/cycle analysis and production UI implementation plan. |
@@ -359,7 +391,7 @@ A significant portion of recent repository activity involves formal architectura
 ### Sub-Category: UI/UX Redesign & Canvas Enhancements (5 PRs)
 *User experience proposals introducing progressive disclosure action modals and Vue Flow dynamic edge routing for Switch action nodes.*
 
-| PR # | Title | Author | Status | Primary Contribution |
+| PR # | Title | Author | Status | Contribution |
 | --- | --- | --- | --- | --- |
 | #512 | Add Action Modal Redesign Proposal | `@ruzaqiarkan-eng` | Open | Action Modal 4-stage progressive disclosure redesign proposal. |
 | #513 | docs(proposal): add UI/UX redesign proposal for Rule Action modal | `@testwitharkan` | Open | UI/UX redesign proposal for Rule Action modal with progressive disclosure. |
@@ -370,7 +402,7 @@ A significant portion of recent repository activity involves formal architectura
 ### Sub-Category: Performance Benchmarks & Optimization Analyses (6 PRs)
 *Formal benchmarks comparing condition evaluation paradigms, Jinja template rendering compilation latency, and Loop action execution profiling.*
 
-| PR # | Title | Author | Status | Primary Contribution |
+| PR # | Title | Author | Status | Contribution |
 | --- | --- | --- | --- | --- |
 | #474 | Benchmark PR #469 Canonical Condition Backend and Document Production Selection | `@Sendipad` | **Merged** | Benchmark evaluation of 5 condition evaluation approaches. |
 | #476 | refactor(condition-benchmark): implement fair five-approach comparison and review remediation | `@Sendipad` | **Merged** | Refactored condition benchmark harness with fair 5-approach comparison. |
@@ -382,7 +414,7 @@ A significant portion of recent repository activity involves formal architectura
 ### Sub-Category: Daily Scheduled Audit Reports (3 PRs)
 *Automated daily audit reports reviewing codebase hygiene, Frappe native API compatibility, and test coverage.*
 
-| PR # | Title | Author | Status | Primary Contribution |
+| PR # | Title | Author | Status | Contribution |
 | --- | --- | --- | --- | --- |
 | #475 | Add Daily Scheduled Audit Workflow and Deliver Audit Report | `@testwitharkan` | Open | GitHub Actions daily scheduled audit workflow and initial findings report. |
 | #477 | feat: configure daily scheduled audit workflow and initial findings report | `@testwitharkan` | Open | Configuration for daily scheduled audit workflow and initial audit report. |
@@ -391,7 +423,7 @@ A significant portion of recent repository activity involves formal architectura
 ### Sub-Category: Meta PR Synthesis & Repository Tracking (1 PRs)
 *High-level historical synthesis reports tracking repository pull requests, milestones, and architectural convergence.*
 
-| PR # | Title | Author | Status | Primary Contribution |
+| PR # | Title | Author | Status | Contribution |
 | --- | --- | --- | --- | --- |
 | #516 | docs: add Pull Request Analysis Report (PRs #469 - #upward ) | `@Sendipad` | Open | Repository Pull Request Analysis Report synthesizing PRs #469 through #515. |
 
