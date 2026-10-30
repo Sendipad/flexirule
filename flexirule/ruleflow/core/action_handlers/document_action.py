@@ -34,7 +34,7 @@ from flexirule.ruleflow.utils.mapping import apply_input_mapping
 
 
 @frappe.whitelist()
-def _async_create_doc(doc_data, ignore_permissions=False):
+def _async_create_doc(doc_data: dict, ignore_permissions: bool = False) -> dict:
 	doc = frappe.get_doc(doc_data)
 	doc.insert(ignore_permissions=ignore_permissions)
 	return doc.as_dict()
@@ -411,6 +411,7 @@ class DocumentActionHandler(ActionHandler):
 				queue="default",
 				doc_data=full_doc_data,
 				ignore_permissions=ignore_permissions,
+				enqueue_after_commit=True,
 			)
 			return {"enqueued": True, "doctype": reference_doctype}
 
