@@ -174,7 +174,11 @@ class DocumentActionHandler(ActionHandler):
 					{"fieldname": "action_type", "default": "Document Action"},
 					{"fieldname": "operation", "default": "Update Existing"},
 					reference_doctype_override(),
-					{"fieldname": "reference_docname", "depends_on": "eval:doc.reference_doctype", "reqd": 1},
+					{
+						"fieldname": "reference_docname",
+						"depends_on": "eval:doc.reference_doctype",
+						"description": "Target document name (or specify Docname Expression / docname in config)",
+					},
 					config_depends_on_doctype(description="⚠️ Fields to update"),
 					{
 						"fieldname": "mutation_mode",
@@ -192,7 +196,11 @@ class DocumentActionHandler(ActionHandler):
 					{"fieldname": "action_type", "default": "Document Action"},
 					{"fieldname": "operation", "default": "Delete Record"},
 					reference_doctype_override(),
-					{"fieldname": "reference_docname", "depends_on": "eval:doc.reference_doctype", "reqd": 1},
+					{
+						"fieldname": "reference_docname",
+						"depends_on": "eval:doc.reference_doctype",
+						"description": "Target document name (or specify Docname Expression / docname in config)",
+					},
 					{"fieldname": "return_type", "default": "Yes / No", "read_only": 1},
 					{"fieldname": "description", "description": "⚠️ Permanently deletes a document record"},
 				],
@@ -229,7 +237,6 @@ class DocumentActionHandler(ActionHandler):
 					{"fieldname": "action_type", "default": "Document Action"},
 					{"fieldname": "operation", "default": "Add Comment"},
 					reference_doctype_override(),
-					{"fieldname": "reference_docname", "depends_on": "eval:doc.reference_doctype", "reqd": 1},
 					config_depends_on_doctype(description="⚠️ Comment content and settings"),
 					{
 						"fieldname": "mutation_mode",
@@ -296,13 +303,16 @@ class DocumentActionHandler(ActionHandler):
 			errors.append(_("Reference DocType is required"))
 
 		mode = action.operation
-		if mode in ("Update Existing", "Delete Record") and not action.reference_docname:
+		if mode in ("Update Existing", "Delete Record"):
 			config = self._parse_config(action.config)
-			if not config.get("docname") and not config.get("docname_expression"):
+			has_docname = bool(action.reference_docname)
+			has_expr = bool(config.get("docname_expression"))
+			has_cfg_name = bool(config.get("docname"))
+			if not (has_docname or has_expr or has_cfg_name):
 				errors.append(
 					_(
-						"{0} mode requires either a Reference Document "
-						"or a docname/docname_expression in config"
+						"{0} mode requires a target record specified via Reference Document, "
+						"Docname Expression, or docname in config"
 					).format(mode)
 				)
 		elif mode == "Create ToDo":
@@ -319,6 +329,40 @@ class DocumentActionHandler(ActionHandler):
 			config = self._parse_config(action.config)
 			if not config.get("comment_text"):
 				errors.append(_("Add Comment mode requires comment_text in config"))
+		elif mode in ("Create New", "Update Existing"):
+			config = self._parse_config(action.config)
+			ui_mapper = config.get("resource_mapper_ui")
+			if isinstance(ui_mapper, dict):
+				scalars = ui_mapper.get("scalars") or []
+				for idx, row in enumerate(scalars):
+					if not isinstance(row, dict):
+						continue
+					target = row.get("target")
+					stype = row.get("source_type") or "path"
+					val = (
+						row.get("path")
+						if stype == "path"
+						else (row.get("expr") if stype == "expr" else row.get("literal"))
+					)
+					if target and (val is None or val == ""):
+						errors.append(
+							_(
+								"Resource Mapper scalar row #{0} targeting '{1}' is missing a source value"
+							).format(idx + 1, target)
+						)
+				tables = ui_mapper.get("tables") or []
+				for idx, tbl in enumerate(tables):
+					if not isinstance(tbl, dict):
+						continue
+					t_field = tbl.get("target_table")
+					s_path = tbl.get("source_path")
+					if t_field and not s_path:
+						errors.append(
+							_(
+								"Resource Mapper table row #{0} targeting '{1}' is missing a source path"
+							).format(idx + 1, t_field)
+						)
+
 		return errors
 
 	def _parse_config(self, config_str):
@@ -393,30 +437,43 @@ class DocumentActionHandler(ActionHandler):
 		# 3) Apply static values last (explicit user constants should win)
 		doc_data.update(static_values)
 
+		new_doc = frappe.get_doc(doc_data)
+		self._apply_table_mappings(new_doc, table_mappings, context)
+
 		if is_async:
-			# Enqueue document creation
+			# Enqueue document creation with pre-applied table mappings
 			frappe.enqueue(
 				"flexirule.ruleflow.core.action_handlers.document_action._async_create_doc",
 				queue="default",
-				doc_data=doc_data,
+				doc_data=new_doc.as_dict(),
 				ignore_permissions=ignore_permissions,
+				enqueue_after_commit=True,
 			)
 			return {"enqueued": True, "doctype": reference_doctype}
 
-		# Synchronous creation
-		new_doc = frappe.get_doc(doc_data)
-		self._apply_table_mappings(new_doc, table_mappings, context)
 		new_doc.insert(ignore_permissions=ignore_permissions)
-
 		return new_doc.as_dict()
+
+	def _resolve_target_docname(self, action, config, context):
+		"""
+		Resolve target record docname with standard precedence:
+		1) action.reference_docname
+		2) config.docname_expression
+		3) config.docname
+		"""
+		docname = getattr(action, "reference_docname", None)
+		if not docname and config.get("docname_expression"):
+			try:
+				docname = self._safe_eval(config["docname_expression"], context)
+			except Exception as e:
+				frappe.logger().warning(f"Failed to resolve docname_expression: {e}")
+		if not docname and config.get("docname"):
+			docname = self._resolve_value_expression(config.get("docname"), context)
+		return docname
 
 	def _update_existing(self, reference_doctype, config, context, action, ignore_permissions):
 		"""Update an existing document with field mappings."""
-		docname = action.reference_docname or config.get("docname")
-
-		# Support dynamic docname from expression
-		if not docname and config.get("docname_expression"):
-			docname = self._safe_eval(config["docname_expression"], context)
+		docname = self._resolve_target_docname(action, config, context)
 
 		if not docname:
 			frappe.throw(_("No document name specified for Update Existing"))
@@ -721,8 +778,14 @@ class DocumentActionHandler(ActionHandler):
 		if not doc:
 			frappe.throw(_("Add Comment mode requires a context document"))
 
-		comment_text = self._resolve_value_expression(config.get("comment_text", ""), context)
-		comment_type = self._resolve_value_expression(config.get("comment_type") or "Comment", context)
+		raw_text = config.get("comment_text", "")
+		if isinstance(raw_text, str) and ("{{" in raw_text or "{%" in raw_text):
+			comment_text = self._render_scalar(raw_text, context)
+		else:
+			comment_text = self._resolve_value_expression(raw_text, context)
+
+		raw_type = config.get("comment_type") or "Comment"
+		comment_type = self._resolve_value_expression(raw_type, context) or "Comment"
 
 		if not comment_text:
 			frappe.throw(_("Add Comment mode requires comment_text in config"))
@@ -741,14 +804,7 @@ class DocumentActionHandler(ActionHandler):
 
 	def _delete_record(self, reference_doctype, config, context, action, ignore_permissions):
 		"""Deletes an existing document."""
-		docname = action.reference_docname
-
-		if not docname:
-			# Fallback to config explicitly mapping docname
-			if config.get("docname_expression"):
-				docname = self._safe_eval(config.get("docname_expression"), context)
-			else:
-				docname = self._resolve_value_expression(config.get("docname"), context)
+		docname = self._resolve_target_docname(action, config, context)
 
 		if not docname:
 			frappe.throw(_("Record name is required for Delete Record mode"))
@@ -772,3 +828,12 @@ class DocumentActionHandler(ActionHandler):
 
 # Register handler
 HandlerRegistry.register(DocumentActionHandler())
+
+
+def _async_create_doc(doc_data, ignore_permissions=False):
+	"""Background worker to insert an enqueued document creation payload."""
+	if not isinstance(doc_data, dict) or not doc_data.get("doctype"):
+		frappe.throw(_("Invalid document payload for async create"))
+	doc = frappe.get_doc(doc_data)
+	doc.insert(ignore_permissions=ignore_permissions)
+	return doc.as_dict()

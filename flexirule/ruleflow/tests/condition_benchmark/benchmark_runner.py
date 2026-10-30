@@ -142,7 +142,7 @@ class BenchmarkRunner:
 				continue
 			if len(samples) != sample_count:
 				prep.error = (
-					"Preparation did not succeed in every repeated sample " f"({len(samples)}/{sample_count})"
+					f"Preparation did not succeed in every repeated sample ({len(samples)}/{sample_count})"
 				)
 				continue
 			prep.preparation_time_seconds = statistics.median(samples)
@@ -197,7 +197,7 @@ class BenchmarkRunner:
 				error = f"Evaluation error: {result.error}"
 				break
 			if result.result != expected:
-				error = "Timed result mismatch: " f"expected {expected!r}, got {result.result!r}"
+				error = f"Timed result mismatch: expected {expected!r}, got {result.result!r}"
 				break
 			core_seconds += result.execution_time_seconds
 			successful += 1
