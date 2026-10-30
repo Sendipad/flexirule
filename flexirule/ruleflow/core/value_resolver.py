@@ -568,7 +568,10 @@ class CollectionResolver(CompiledResolver):
 
 	def resolve(self, context: dict) -> Any:
 		doc = context.get("doc")
-		condition_doctype = getattr(doc, "doctype", None) or context.get("doctype")
+		condition_doctype = getattr(doc, "doctype", None)
+		if not condition_doctype and isinstance(doc, dict):
+			condition_doctype = doc.get("doctype")
+		condition_doctype = condition_doctype or context.get("doctype")
 
 		child_doctype = self._resolve_child_doctype(condition_doctype)
 		scope_doctypes: dict[str, str | None] | None = {"row": child_doctype} if child_doctype else None
