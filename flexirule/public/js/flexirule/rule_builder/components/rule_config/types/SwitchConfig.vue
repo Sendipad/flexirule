@@ -13,7 +13,7 @@
 
 <script setup>
 import { computed, ref, onBeforeUpdate } from "vue";
-import { useStore } from "../../../stores";
+import { useRuleStore, useGraphStore } from "../../../stores";
 import { fromCodeString } from "../../../utils/serialization";
 import SwitchNodeConfig from "../../node_configs/SwitchNodeConfig.vue";
 
@@ -22,7 +22,8 @@ const props = defineProps({
 	showValidation: { type: Boolean, default: false },
 });
 
-const store = useStore();
+const ruleStore = useRuleStore();
+const graphStore = useGraphStore();
 const controlRefs = ref([]);
 
 onBeforeUpdate(() => {
@@ -34,7 +35,7 @@ function setControlRef(el) {
 }
 
 const availableNodes = computed(() => {
-	return (store.nodes || [])
+	return (graphStore.nodes || [])
 		.filter((n) => n.id !== props.node.id && n.id !== "start")
 		.map((n) => ({
 			id: n.id,
@@ -43,7 +44,7 @@ const availableNodes = computed(() => {
 });
 
 function getNodeLabel(id) {
-	const n = (store.nodes || []).find((el) => el.id === id);
+	const n = (graphStore.nodes || []).find((el) => el.id === id);
 	return n ? n.data?.action_label || n.label || n.id : id;
 }
 
@@ -63,9 +64,9 @@ function updateJsonConfig(key, val) {
 		syncEdges(val);
 	}
 
-	const isDraft = !store.nodes.some((n) => n === props.node);
+	const isDraft = !graphStore.nodes.some((n) => n === props.node);
 	if (!isDraft) {
-		store.mark_dirty();
+		ruleStore.mark_dirty();
 	}
 }
 
@@ -73,12 +74,12 @@ function syncEdges(cases) {
 	const nodeId = props.node.id;
 
 	// Remove all existing conditional edges from this node
-	store.edges = store.edges.filter((e) => !(e.source === nodeId && e.sourceHandle !== "default"));
+	graphStore.edges = graphStore.edges.filter((e) => !(e.source === nodeId && e.sourceHandle !== "default"));
 
 	// Add new edges for each case
 	Object.entries(cases).forEach(([val, target]) => {
 		if (target) {
-			store.edges.push({
+			graphStore.edges.push({
 				id: `e-${nodeId}-${target}-${val}`,
 				source: nodeId,
 				target: target,

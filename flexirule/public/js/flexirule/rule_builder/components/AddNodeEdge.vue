@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, watch } from "vue";
 import { BaseEdge, getSmoothStepPath, EdgeLabelRenderer, useVueFlow } from "@vue-flow/core";
-import { useStore } from "../stores";
+import { useRuleStore } from "../stores";
 import ActionZone from "./ActionZone.vue";
 
 defineOptions({ inheritAttrs: false });
@@ -24,7 +24,7 @@ const props = defineProps({
 });
 
 const emit = defineEmits(["insert-node"]);
-const store = useStore();
+const ruleStore = useRuleStore();
 const { onPaneScroll, onPaneContextMenu, onMove, isConnecting } = useVueFlow();
 
 const showPopover = ref(false);
@@ -48,11 +48,11 @@ const isLoopBodyEdge = computed(() => {
 	return props.data?.loopBody === true;
 });
 
-const isHorizontal = computed(() => store.settings?.layout_direction !== "Top to Bottom");
+const isHorizontal = computed(() => ruleStore.settings?.layout_direction !== "Top to Bottom");
 
 const isEnabled = computed(() => {
-	if (!store.settings) return true;
-	if (store.settings.enable_edge_insertion === 0) return false;
+	if (!ruleStore.settings) return true;
+	if (ruleStore.settings.enable_edge_insertion === 0) return false;
 	return true;
 });
 
@@ -137,7 +137,7 @@ function onPaste() {
 		:marker-end="markerEnd"
 		data-edge-type="add"
 	/>
-	<EdgeLabelRenderer v-if="isEnabled && !store.is_read_only">
+	<EdgeLabelRenderer v-if="isEnabled && !ruleStore.is_read_only">
 		<div
 			:style="{
 				pointerEvents: isConnecting ? 'none' : 'all',
