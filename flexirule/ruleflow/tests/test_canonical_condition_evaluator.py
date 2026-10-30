@@ -14,6 +14,7 @@ from typing import Any
 from unittest.mock import patch
 
 from flexirule.ruleflow.core.condition_errors import ConditionEvaluationError, ConditionValidationError
+from flexirule.ruleflow.core.condition_contract import validate_condition_node
 from flexirule.ruleflow.core.condition_evaluator import (
 	_evaluate_node,
 	clear_condition_plan_cache,
@@ -456,6 +457,161 @@ class TestCanonicalConditionEvaluator(unittest.TestCase):
 					"right": static("integer", 1),
 				}
 			)
+
+
+
+	def test_collection_resolver_resolves_child_doctype(self):
+		class FakeParentMeta:
+			def get_field(self, fieldname):
+				if fieldname == "items":
+					return SimpleNamespace(fieldname="items", fieldtype="Table", options="Test Order Item")
+				return None
+
+		with patch("frappe.get_meta", side_effect=lambda dt: FakeParentMeta() if dt == "Test Order" else None):
+			resolver = CollectionResolver("doc.items")
+			child = resolver._resolve_child_doctype("Test Order")
+			self.assertEqual(child, "Test Order Item")
+
+	def test_row_predicate_rejects_gt_on_child_data_field(self):
+		class FakeChildMeta:
+			def get_field(self, fieldname):
+				if fieldname == "item_code":
+					return SimpleNamespace(fieldname="item_code", fieldtype="Data")
+				return None
+
+		class FakeParentMeta:
+			def get_field(self, fieldname):
+				if fieldname == "items":
+					return SimpleNamespace(fieldname="items", fieldtype="Table", options="Test Order Item")
+				return None
+
+		def fake_get_meta(dt):
+			if dt == "Test Order":
+				return FakeParentMeta()
+			if dt == "Test Order Item":
+				return FakeChildMeta()
+			from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+			raise ConditionValidationError("unknown_doctype", "$", f"DocType {dt} not found")
+
+		predicate = compare("gt", variable("row", "item_code"), static("integer", 100))
+		resolver = CollectionResolver("doc.items", operation="count", condition=predicate)
+		context = {
+			"doctype": "Test Order",
+			"doc": {"doctype": "Test Order", "items": [{"item_code": "ITEM-001"}]},
+		}
+		with patch("frappe.get_meta", side_effect=fake_get_meta):
+			with self.assertRaises(ConditionValidationError) as raised:
+				resolver.resolve(context)
+			self.assertEqual(raised.exception.code, "fieldtype_not_supported")
+
+	def test_row_predicate_accepts_gt_on_child_numeric_field(self):
+		class FakeChildMeta:
+			def get_field(self, fieldname):
+				if fieldname == "qty":
+					return SimpleNamespace(fieldname="qty", fieldtype="Float")
+				return None
+
+		class FakeParentMeta:
+			def get_field(self, fieldname):
+				if fieldname == "items":
+					return SimpleNamespace(fieldname="items", fieldtype="Table", options="Test Order Item")
+				return None
+
+		def fake_get_meta(dt):
+			if dt == "Test Order":
+				return FakeParentMeta()
+			if dt == "Test Order Item":
+				return FakeChildMeta()
+			from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+			raise ConditionValidationError("unknown_doctype", "$", f"DocType {dt} not found")
+
+		predicate = compare("gt", variable("row", "qty"), static("integer", 10))
+		resolver = CollectionResolver("doc.items", operation="count", condition=predicate)
+		context = {
+			"doctype": "Test Order",
+			"doc": {
+				"doctype": "Test Order",
+				"items": [{"qty": 5, "item_code": "ITEM-001"}, {"qty": 15, "item_code": "ITEM-002"}],
+			},
+		}
+		with patch("frappe.get_meta", side_effect=fake_get_meta):
+			self.assertEqual(resolver.resolve(context), 1)
+
+	def test_row_fieldtype_validation_uses_shared_operator_registry(self):
+		class FakeChildMeta:
+			def get_field(self, fieldname):
+				if fieldname == "item_code":
+					return SimpleNamespace(fieldname="item_code", fieldtype="Data")
+				return None
+
+		node = compare("gt", variable("row", "item_code"), static("integer", 100))
+		with patch("frappe.get_meta", return_value=FakeChildMeta()):
+			with self.assertRaises(ConditionValidationError) as raised:
+				validate_condition_node(node, scope_doctypes={"row": "Test Order Item"})
+			self.assertEqual(raised.exception.code, "fieldtype_not_supported")
+
+	def test_child_metadata_is_revalidated_during_preparation(self):
+		class FakeChildMeta:
+			def get_field(self, fieldname):
+				if fieldname == "qty":
+					return SimpleNamespace(fieldname="qty", fieldtype="Float")
+				return None
+
+		node = compare("gt", variable("row", "qty"), static("integer", 5))
+		with patch("frappe.get_meta", return_value=FakeChildMeta()):
+			prepared = prepare_condition(node, scope_doctypes={"row": "Test Order Item"})
+			self.assertEqual(prepared.scope_doctypes, {"row": "Test Order Item"})
+
+	def test_prepared_condition_rejects_incompatible_metadata_scope(self):
+		node = compare("gt", static("integer", 10), static("integer", 5))
+		prepared = prepare_condition(node, scope_doctypes={"row": "Test Order Item"})
+		context = {
+			"row": {"doctype": "Other Child Item", "qty": 10},
+		}
+		with self.assertRaises(ConditionValidationError) as raised:
+			evaluate_prepared_condition(prepared, context)
+		self.assertEqual(raised.exception.code, "condition_doctype_mismatch")
+
+	def test_nested_collection_metadata_scopes_remain_correct(self):
+		class FakeChildMeta:
+			def get_field(self, fieldname):
+				if fieldname == "item_code":
+					return SimpleNamespace(fieldname="item_code", fieldtype="Data")
+				return None
+
+		class FakeParentMeta:
+			def get_field(self, fieldname):
+				if fieldname == "items":
+					return SimpleNamespace(fieldname="items", fieldtype="Table", options="Test Order Item")
+				return None
+
+		def fake_get_meta(dt):
+			if dt == "Test Order":
+				return FakeParentMeta()
+			if dt == "Test Order Item":
+				return FakeChildMeta()
+			from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+			raise ConditionValidationError("unknown_doctype", "$", f"DocType {dt} not found")
+
+		node = {
+			"type": "collection_predicate",
+			"quantifier": "any",
+			"source": {"scope": "doc", "segments": ["items"]},
+			"as": "item_row",
+			"where": compare("gt", variable("item_row", "item_code"), static("integer", 100)),
+		}
+		with patch("frappe.get_meta", side_effect=fake_get_meta):
+			with self.assertRaises(ConditionValidationError) as raised:
+				validate_condition_node(node, doctype="Test Order")
+			self.assertEqual(raised.exception.code, "fieldtype_not_supported")
+
+	def test_non_doctype_backed_collection_preserves_supported_behavior(self):
+		resolver = CollectionResolver("vars.my_list")
+		self.assertIsNone(resolver._resolve_child_doctype("Sales Invoice"))
+		predicate = compare("gt", variable("row", "qty"), static("integer", 5))
+		resolver_with_cond = CollectionResolver("vars.my_list", operation="count", condition=predicate)
+		context = {"vars": {"my_list": [{"qty": 2}, {"qty": 8}]}}
+		self.assertEqual(resolver_with_cond.resolve(context), 1)
 
 
 if __name__ == "__main__":

@@ -503,6 +503,68 @@ class CollectionResolver(CompiledResolver):
 				cond_list = self.condition if isinstance(self.condition, list) else [self.condition]
 				self._compiled_evaluator = ConditionEvaluator(json.dumps(cond_list))
 
+	def _resolve_child_doctype(self, parent_doctype: str | None) -> str | None:
+		if not parent_doctype or not self.source:
+			return None
+		source_str = str(self.source).strip()
+		if source_str.startswith("doc."):
+			segments = source_str.split(".")[1:]
+			scope = "doc"
+		elif source_str.startswith("vars."):
+			return None
+		elif "." in source_str:
+			parts = source_str.split(".")
+			scope = parts[0]
+			segments = parts[1:]
+		else:
+			scope = "doc"
+			segments = [source_str]
+
+		if scope != "doc":
+			return None
+
+		import frappe
+		from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
+		try:
+			meta = frappe.get_meta(parent_doctype)
+			current_meta = meta
+			field = None
+			for seg in segments:
+				field = current_meta.get_field(seg)
+				if not field:
+					raise ConditionValidationError(
+						"unknown_field",
+						"$.source",
+						f"Collection source field '{seg}' does not exist on DocType '{parent_doctype}'",
+					)
+				if seg != segments[-1]:
+					if field.fieldtype in {"Table", "Table MultiSelect"}:
+						current_meta = frappe.get_meta(field.options)
+					else:
+						raise ConditionValidationError(
+							"invalid_collection_source",
+							"$.source",
+							"Collection source path continues through a scalar field",
+						)
+			if field and field.fieldtype in {"Table", "Table MultiSelect"}:
+				return field.options
+			elif field:
+				raise ConditionValidationError(
+					"collection_source_not_table",
+					"$.source",
+					f"Collection source '{self.source}' must reference a table/list field",
+				)
+		except ConditionValidationError:
+			raise
+		except Exception as exc:
+			raise ConditionValidationError(
+				"unknown_doctype",
+				"$.source",
+				f"Could not resolve metadata for DocType '{parent_doctype}'",
+			) from exc
+		return None
+
 	def resolve(self, context: dict) -> Any:
 		rows = get_context_value(context, self.source)
 		if rows is None or not isinstance(rows, list):
@@ -534,9 +596,14 @@ class CollectionResolver(CompiledResolver):
 		if self._canonical_condition is not None:
 			from flexirule.ruleflow.core.condition_evaluator import prepare_condition
 
-			# Prepare once for this collection resolution, not once for every row.
-			# Preparation revalidates against current metadata; artifacts are not persisted.
-			prepared_condition = prepare_condition(self._canonical_condition, doctype=condition_doctype)
+			child_doctype = self._resolve_child_doctype(condition_doctype)
+			scope_doctypes = {"row": child_doctype} if child_doctype else None
+
+			prepared_condition = prepare_condition(
+				self._canonical_condition,
+				doctype=condition_doctype,
+				scope_doctypes=scope_doctypes,
+			)
 
 		def _matches(r) -> bool:
 			if self._canonical_condition is not None:

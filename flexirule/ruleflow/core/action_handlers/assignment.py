@@ -265,15 +265,15 @@ class AssignmentHandler(ActionHandler):
 					compiled["when_condition_canonical"] = canonical_guard
 					compiled["when_expression"] = ""
 				else:
-					compiled["when_expression"] = AssignmentHandler._compile_when_expression(compiled)
+					compiled["when_expression"] = AssignmentHandler._compile_when_expression(compiled, row_index=index)
 			else:
-				compiled["when_expression"] = AssignmentHandler._compile_when_expression(compiled)
+				compiled["when_expression"] = AssignmentHandler._compile_when_expression(compiled, row_index=index)
 			compiled_rows.append(compiled)
 
 		return tuple(compiled_rows)
 
 	@classmethod
-	def _compile_when_expression(cls, row: dict) -> str:
+	def _compile_when_expression(cls, row: dict, row_index: int = 0) -> str:
 		python_expr = row.get("pythonExpression")
 		if python_expr:
 			return python_expr
@@ -283,7 +283,23 @@ class AssignmentHandler(ActionHandler):
 			return when_expression
 
 		when_condition = row.get("when_condition")
-		if isinstance(when_condition, dict | list):
+		if when_condition not in (None, ""):
+			if isinstance(when_condition, str):
+				val_str = when_condition.strip()
+				if val_str.startswith(("{", "[")):
+					from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+					try:
+						parsed_json = json.loads(val_str)
+					except Exception as exc:
+						raise ConditionValidationError(
+							"invalid_json",
+							f"assignments[{row_index}].when_condition",
+							"Assignment guard JSON is malformed",
+						) from exc
+
+					# Pass parsed structured payload to legacy compiler
+					when_condition = parsed_json
+
 			from flexirule.ruleflow.core.condition_payload import detect_canonical_condition_payload
 
 			is_canonical, canonical_node = detect_canonical_condition_payload(when_condition)
@@ -292,17 +308,31 @@ class AssignmentHandler(ActionHandler):
 
 				raise ConditionValidationError(
 					"canonical_guard_requires_plan",
-					"$",
+					f"assignments[{row_index}]",
 					"Canonical assignment guards must be handled as structured nodes, not Python expressions",
 				)
 
 			from flexirule.ruleflow.core.compiler import ConditionCompiler
 
-			compiled = ConditionCompiler().compile(when_condition)
-			if not compiled:
-				from flexirule.ruleflow.core.exceptions import MethodExecutionError
+			try:
+				compiled = ConditionCompiler().compile(when_condition)
+			except Exception as exc:
+				from flexirule.ruleflow.core.condition_errors import ConditionValidationError
 
-				raise MethodExecutionError("Legacy assignment guard produced an empty expression")
+				raise ConditionValidationError(
+					"invalid_legacy_guard",
+					f"assignments[{row_index}].when_condition",
+					f"Legacy assignment guard is invalid: {exc}",
+				) from exc
+
+			if not compiled or compiled == "True":
+				from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
+				raise ConditionValidationError(
+					"invalid_legacy_guard",
+					f"assignments[{row_index}].when_condition",
+					"Legacy assignment guard produced an empty or unconditional true expression",
+				)
 			return compiled
 
 		return ""

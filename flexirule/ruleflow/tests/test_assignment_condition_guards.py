@@ -3,6 +3,7 @@
 
 """Strict Assignment-config compilation tests (no database fixtures required)."""
 
+import json
 import unittest
 
 from flexirule.ruleflow.core.action_handlers.assignment import AssignmentHandler
@@ -63,6 +64,80 @@ class TestAssignmentConditionGuards(unittest.TestCase):
 		after = AssignmentHandler._get_compiled_plan_cached.cache_info().currsize
 		self.assertEqual(len(plan), 1)
 		self.assertEqual(before, after)
+
+	def test_unknown_legacy_guard_shape_is_rejected(self):
+		config = '[{"target":"doc.status","when_condition":{"unexpected":"shape"}}]'
+		with self.assertRaises(ConditionValidationError) as raised:
+			AssignmentHandler._get_compiled_plan(config)
+		self.assertEqual(raised.exception.code, "invalid_legacy_guard")
+
+	def test_empty_legacy_group_is_rejected(self):
+		config = '[{"target":"doc.status","when_condition":{"op":"and","conditions":[]}}]'
+		with self.assertRaises(ConditionValidationError) as raised:
+			AssignmentHandler._get_compiled_plan(config)
+		self.assertEqual(raised.exception.code, "invalid_legacy_guard")
+
+	def test_json_encoded_canonical_guard_is_parsed_and_validated(self):
+		canonical_guard = {
+			"type": "comparison",
+			"operator": "eq",
+			"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["status"]}},
+			"right": {"mode": "static", "value_type": "string", "value": "Open"},
+		}
+		config = json.dumps([{
+			"target": "doc.status",
+			"operator": "set",
+			"value": "Closed",
+			"when_condition": json.dumps(canonical_guard),
+		}])
+		plan = AssignmentHandler._get_compiled_plan(config)
+		self.assertEqual(len(plan), 1)
+		self.assertIn("when_condition_canonical", plan[0])
+
+	def test_json_encoded_legacy_guard_is_parsed(self):
+		legacy_guard = {
+			"left": {"ref": "doc.status"},
+			"op": "==",
+			"right": {"value": "Open"},
+		}
+		config = json.dumps([{
+			"target": "doc.status",
+			"when_condition": json.dumps(legacy_guard),
+		}])
+		plan = AssignmentHandler._get_compiled_plan(config)
+		self.assertEqual(len(plan), 1)
+		self.assertEqual(plan[0]["when_expression"], "doc.get('status') == 'Open'")
+
+	def test_malformed_json_encoded_guard_is_rejected(self):
+		config = '[{"target":"doc.status","when_condition":"{not valid json"}]'
+		with self.assertRaises(ConditionValidationError) as raised:
+			AssignmentHandler._get_compiled_plan(config)
+		self.assertEqual(raised.exception.code, "invalid_json")
+
+	def test_unsupported_when_condition_string_is_rejected(self):
+		config = '[{"target":"doc.status","when_condition":"[invalid condition json string]"}]'
+		with self.assertRaises(ConditionValidationError) as raised:
+			AssignmentHandler._get_compiled_plan(config)
+		self.assertEqual(raised.exception.code, "invalid_json")
+
+	def test_valid_supported_legacy_guard_still_compiles(self):
+		config = (
+			'[{"target":"doc.status","when_condition":{"left":{"ref":"doc.status"},"op":"==","right":{"value":"Open"}}}]'
+		)
+		plan = AssignmentHandler._get_compiled_plan(config)
+		self.assertEqual(len(plan), 1)
+		self.assertEqual(plan[0]["when_expression"], "doc.get('status') == 'Open'")
+
+	def test_invalid_later_guard_prevents_earlier_assignment_mutation(self):
+		config = (
+			'['
+			'{"target":"doc.status","value":"Closed"},'
+			'{"target":"doc.remarks","when_condition":{"unexpected":"shape"}}'
+			']'
+		)
+		with self.assertRaises(ConditionValidationError) as raised:
+			AssignmentHandler._get_compiled_plan(config)
+		self.assertEqual(raised.exception.code, "invalid_legacy_guard")
 
 
 if __name__ == "__main__":
