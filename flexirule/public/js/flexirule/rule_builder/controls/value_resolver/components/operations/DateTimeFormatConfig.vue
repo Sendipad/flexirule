@@ -21,7 +21,7 @@
 
 <script setup>
 import { computed } from "vue";
-import { useStore } from "../../../../stores";
+import { useMetaStore, useRuleStore } from "../../../../stores";
 import { __ } from "../../utils";
 import ComboBoxControl from "../../../ComboBoxControl.vue";
 import DataControl from "../../../DataControl.vue";
@@ -38,12 +38,13 @@ const props = defineProps({
 	readOnly: Boolean,
 });
 
-const store = useStore();
+const metaStore = useMetaStore();
+const ruleStore = useRuleStore();
 
 const dateFieldOptions = computed(() => {
-	const dt = store.rule_doc?.document_type || props.doctype;
+	const dt = ruleStore.rule_doc?.document_type || props.doctype;
 	if (!dt) return [];
-	const fields = store.doc_meta[dt];
+	const fields = metaStore.doc_meta[dt];
 	if (!fields || !Array.isArray(fields)) return [];
 	return fields
 		.filter((f) =>

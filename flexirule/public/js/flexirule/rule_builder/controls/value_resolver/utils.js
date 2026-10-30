@@ -8,14 +8,14 @@ export { toDocExpression };
  * Validates if a field exists in the given doctype metadata
  * @param {string} fieldname
  * @param {string} doctype
- * @param {Object} store - Pinia store
+ * @param {Object} metaStore - Meta Pinia store
  * @returns {boolean}
  */
-export function validateField(fieldname, doctype, store) {
+export function validateField(fieldname, doctype, metaStore) {
 	if (!fieldname || !doctype) return true;
 	if (fieldname.startsWith("vars.") || fieldname.startsWith("doc.")) return true;
 
-	const fields = store.doc_meta[doctype];
+	const fields = metaStore?.doc_meta?.[doctype];
 	if (!fields) return true;
 
 	return fields.some((f) => f.fieldname === fieldname);

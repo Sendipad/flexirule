@@ -1,8 +1,11 @@
 import { reactive, ref, computed, watch, onMounted, provide } from "vue";
-import { useStore } from "../stores";
+import { useRuleStore, useGraphStore, useMetaStore, useStore } from "../stores";
 import { fromCodeString } from "../utils/serialization";
 
 export function useActionConfig(props, options = {}) {
+	const ruleStore = useRuleStore();
+	const graphStore = useGraphStore();
+	const metaStore = useMetaStore();
 	const store = useStore();
 	const config = reactive({});
 	const docMeta = ref(null);
@@ -42,12 +45,12 @@ export function useActionConfig(props, options = {}) {
 		}
 		if (actionType === "Query Records") {
 			if (op === "Query Report") return "Report";
-			return store.rule_doc?.document_type || "";
+			return ruleStore.rule_doc?.document_type || "";
 		}
 
 		const TRIGGER_DOC_TYPES = ["Assignment", "Entry Action", "Notify", "Document Action"];
 		if (!actionType || TRIGGER_DOC_TYPES.includes(actionType)) {
-			return store.rule_doc?.document_type || "";
+			return ruleStore.rule_doc?.document_type || "";
 		}
 		return "";
 	});
@@ -66,7 +69,6 @@ export function useActionConfig(props, options = {}) {
 		}
 		try {
 			loading.value = true;
-			const metaStore = store;
 			await metaStore.fetch_metadata(doctype);
 
 			// Merge defaults with caller-provided options
@@ -90,7 +92,7 @@ export function useActionConfig(props, options = {}) {
 			return;
 		}
 		try {
-			variable_options.value = await store.getAvailableVariables(props.node.id);
+			variable_options.value = await graphStore.getAvailableVariables(props.node.id);
 		} catch (e) {
 			variable_options.value = [];
 		}
@@ -152,7 +154,7 @@ export function useActionConfig(props, options = {}) {
 			// Explicitly store as Object
 			props.node.data.config =
 				typeof new_config === "string" ? fromCodeString(new_config) : new_config;
-			store.mark_dirty();
+			ruleStore.mark_dirty();
 		}
 	}
 
@@ -164,9 +166,9 @@ export function useActionConfig(props, options = {}) {
 
 		// Avoid marking dirty if we are modifying a draft node (inside a modal)
 		// or if we are currently in a read-only state.
-		const isDraft = !store.nodes.some((n) => n === props.node);
+		const isDraft = !graphStore.nodes.some((n) => n === props.node);
 		if (!props.readOnly && !isDraft) {
-			store.mark_dirty();
+			ruleStore.mark_dirty();
 		}
 	}
 
@@ -184,7 +186,7 @@ export function useActionConfig(props, options = {}) {
 
 	// Also refresh when nodes in the store change (e.g. alias rename, new upstream node)
 	watch(
-		() => store.nodes,
+		() => graphStore.nodes,
 		() => refresh_variables(),
 		{ deep: true }
 	);
@@ -213,6 +215,9 @@ export function useActionConfig(props, options = {}) {
 
 	return {
 		store,
+		ruleStore,
+		graphStore,
+		metaStore,
 		config,
 		doctype_fields,
 		variable_options,

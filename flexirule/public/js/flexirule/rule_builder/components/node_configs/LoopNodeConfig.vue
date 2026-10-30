@@ -32,7 +32,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch, onBeforeUpdate } from "vue";
-import { useStore } from "../../stores";
+import { useRuleStore, useGraphStore } from "../../stores";
 import ControlFactory from "../../controls/ControlFactory.vue";
 import ComboBoxControl from "../../controls/ComboBoxControl.vue";
 
@@ -41,7 +41,8 @@ const props = defineProps({
 	showValidation: { type: Boolean, default: false },
 });
 
-const store = useStore();
+const ruleStore = useRuleStore();
+const graphStore = useGraphStore();
 const docFields = ref([]);
 const loading = ref(false);
 
@@ -70,7 +71,7 @@ async function loadFields() {
 	if (!props.node?.id) return;
 	loading.value = true;
 	try {
-		docFields.value = await store.getAvailableVariables(props.node.id);
+		docFields.value = await graphStore.getAvailableVariables(props.node.id);
 	} catch (e) {
 		console.error("Failed to load fields for LoopNodeConfig", e);
 	} finally {
@@ -95,7 +96,7 @@ watch(() => props.node?.id, loadFields);
 // Refresh only when node return_variables or action_types change (not on every drag/resize)
 watch(
 	() =>
-		store.nodes
+		graphStore.nodes
 			?.map((n) => `${n.id}:${n.data?.return_variable}:${n.data?.action_type}`)
 			.join(","),
 	loadFields
@@ -104,7 +105,7 @@ watch(
 function updateReturnVariable(val) {
 	if (props.node?.data) {
 		props.node.data.return_variable = val;
-		store.mark_dirty();
+		ruleStore.mark_dirty();
 	}
 }
 
