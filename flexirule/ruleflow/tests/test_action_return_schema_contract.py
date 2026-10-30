@@ -1,6 +1,8 @@
 # Copyright (c) 2026, FlexiRule and contributors
 # For license information, please see license.txt
 
+from typing import Any
+
 from frappe.tests.utils import FrappeTestCase
 
 from flexirule.ruleflow.core.action_handlers import HandlerRegistry
@@ -483,12 +485,13 @@ class TestActionReturnSchemaContract(FrappeTestCase):
 				self.assertTrue(_has_resolved_output_schema({"type": schema_type}))
 				self.assertTrue(_has_resolved_output_schema('{"type": "' + schema_type + '"}'))
 
-		for invalid_schema in (
+		invalid_schemas: list[Any] = [
 			{"type": "unknown"},
 			{"type": ""},
 			{"type": []},
 			{"type": "object", "properties": {}},
-		):
+		]
+		for invalid_schema in invalid_schemas:
 			with self.subTest(invalid_schema=invalid_schema):
 				self.assertFalse(_has_resolved_output_schema(invalid_schema))
 
