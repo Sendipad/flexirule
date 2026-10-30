@@ -72,9 +72,22 @@ frappe.ui.form.on("Rule", {
 			return;
 		}
 
+		if (frm.doc.is_active) {
+			frm.set_value("status", "Active");
+		} else if (frm.doc.status === "Active") {
+			frm.set_value("status", "Disabled");
+		}
+
 		apply_active_lock(frm);
 		frm.refresh_fields();
 		frm._was_active = frm.doc.is_active;
+	},
+
+	exposed_as_subrule(frm) {
+		if (!frm.doc.exposed_as_subrule) {
+			if (frm.doc.input_schema) frm.set_value("input_schema", null);
+			if (frm.doc.output_schema) frm.set_value("output_schema", null);
+		}
 	},
 
 	refresh(frm) {
@@ -84,12 +97,54 @@ frappe.ui.form.on("Rule", {
 
 		frm.page.clear_primary_action();
 		frm.page.set_primary_action(__("Visual Builder"), () => {
-			frappe.set_route("rule-builder", frm.doc.name);
+			if (frm.is_dirty()) {
+				frappe.confirm(
+					__("You have unsaved changes. Save before opening Visual Builder?"),
+					() => frm.save().then(() => frappe.set_route("rule-builder", frm.doc.name)),
+					() => frappe.set_route("rule-builder", frm.doc.name)
+				);
+			} else {
+				frappe.set_route("rule-builder", frm.doc.name);
+			}
 		});
 
 		frm.page.clear_custom_actions();
-		frm.add_custom_button(__("Amend Rule"), () => amend_rule(frm), __("Actions"));
-		frm.add_custom_button(__("Debug Rule"), () => test_rule(frm), __("Actions"));
+		if (
+			frm.doc.status === "Active" ||
+			frm.doc.status === "Disabled" ||
+			frm.doc.status === "Archived"
+		) {
+			frm.add_custom_button(
+				__("Amend Rule"),
+				() => {
+					if (frm.is_dirty()) {
+						frappe.confirm(
+							__("You have unsaved changes. Save before creating an amendment?"),
+							() => frm.save().then(() => amend_rule(frm)),
+							() => amend_rule(frm)
+						);
+					} else {
+						amend_rule(frm);
+					}
+				},
+				__("Actions")
+			);
+		}
+		frm.add_custom_button(
+			__("Debug Rule"),
+			() => {
+				if (frm.is_dirty()) {
+					frappe.confirm(
+						__("You have unsaved changes. Save before debugging rule?"),
+						() => frm.save().then(() => test_rule(frm)),
+						() => test_rule(frm)
+					);
+				} else {
+					test_rule(frm);
+				}
+			},
+			__("Actions")
+		);
 		frm.add_custom_button(__("Clear Cache"), () => clear_rule_cache(frm), __("Actions"));
 
 		apply_trigger_type_contract(frm);
@@ -167,6 +222,7 @@ function apply_active_lock(frm) {
 	});
 
 	frm.set_df_property("is_active", "read_only", 0);
+	frm.set_df_property("actions", "read_only", is_active ? 1 : 0);
 
 	Object.values(frm.fields_dict).forEach((f) => {
 		if (!f.grid) return;
@@ -186,6 +242,7 @@ function apply_active_lock(frm) {
 }
 
 function show_deactivation_dialog(frm) {
+	let action_taken = false;
 	const d = new frappe.ui.Dialog({
 		title: __("Deactivate Rule"),
 		fields: [
@@ -197,12 +254,14 @@ function show_deactivation_dialog(frm) {
 		],
 		primary_action_label: __("Edit Current Rule"),
 		primary_action() {
+			action_taken = true;
 			d.hide();
 			// Temporarily bypass the "was_active" check to prevent an infinite dialog loop
 			frm._was_active = 0;
 
 			// Explicitly set value and refresh to ensure UI state syncs
-			frm.set_value("is_active", 0).then(() => {
+			frm.set_value("is_active", 0);
+			frm.set_value("status", "Disabled").then(() => {
 				apply_active_lock(frm);
 				frm.refresh_fields();
 				frappe.show_alert({ message: __("Rule unlocked"), indicator: "blue" });
@@ -210,8 +269,15 @@ function show_deactivation_dialog(frm) {
 		},
 		secondary_action_label: __("Create Amendment & Edit"),
 		secondary_action() {
+			action_taken = true;
 			d.hide();
 			create_amendment_and_edit(frm);
+		},
+		on_hide() {
+			if (!action_taken && frm.doc.is_active === 1) {
+				frm._was_active = 1;
+				apply_active_lock(frm);
+			}
 		},
 	});
 
@@ -242,6 +308,7 @@ function apply_trigger_type_contract(frm, options = {}) {
 	const managedFields = [
 		"document_type",
 		"trigger_event",
+		"watched_fields",
 		"trigger_condition",
 		"compiled_expression",
 	];
