@@ -567,6 +567,22 @@ class CollectionResolver(CompiledResolver):
 		return None
 
 	def resolve(self, context: dict) -> Any:
+		doc = context.get("doc")
+		condition_doctype = getattr(doc, "doctype", None) or context.get("doctype")
+
+		child_doctype = self._resolve_child_doctype(condition_doctype)
+		scope_doctypes: dict[str, str | None] | None = {"row": child_doctype} if child_doctype else None
+
+		prepared_condition = None
+		if self._canonical_condition is not None:
+			from flexirule.ruleflow.core.condition_evaluator import prepare_condition
+
+			prepared_condition = prepare_condition(
+				self._canonical_condition,
+				doctype=condition_doctype,
+				scope_doctypes=scope_doctypes,
+			)
+
 		rows = get_context_value(context, self.source)
 		if rows is None or not isinstance(rows, list):
 			if self.operation == "count":
@@ -590,21 +606,7 @@ class CollectionResolver(CompiledResolver):
 				)
 			)
 
-		doc = context.get("doc")
 		condition_evaluation_budget = {"collection_row_visits": 0}
-		prepared_condition = None
-		condition_doctype = getattr(doc, "doctype", None) or context.get("doctype")
-		if self._canonical_condition is not None:
-			from flexirule.ruleflow.core.condition_evaluator import prepare_condition
-
-			child_doctype = self._resolve_child_doctype(condition_doctype)
-			scope_doctypes: dict[str, str | None] | None = {"row": child_doctype} if child_doctype else None
-
-			prepared_condition = prepare_condition(
-				self._canonical_condition,
-				doctype=condition_doctype,
-				scope_doctypes=scope_doctypes,
-			)
 
 		def _matches(r) -> bool:
 			if self._canonical_condition is not None:

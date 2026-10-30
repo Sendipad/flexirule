@@ -1353,6 +1353,15 @@ class Rule(Document):
 					if not isinstance(row, dict):
 						continue
 
+					if "when_condition_canonical" in row:
+						from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
+						raise ConditionValidationError(
+							"unsupported_assignment_guard",
+							f"assignments[{index}]",
+							"Internal field when_condition_canonical cannot be supplied in configuration",
+						)
+
 					legacy_guard_keys = ("pythonExpression", "when_expression", "when")
 					if any(row.get(key) not in (None, "") for key in legacy_guard_keys):
 						from flexirule.ruleflow.core.condition_errors import ConditionValidationError

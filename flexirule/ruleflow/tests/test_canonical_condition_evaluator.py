@@ -616,6 +616,54 @@ class TestCanonicalConditionEvaluator(unittest.TestCase):
 		context = {"vars": {"my_list": [{"qty": 2}, {"qty": 8}]}}
 		self.assertEqual(resolver_with_cond.resolve(context), 1)
 
+	def test_collection_resolver_validates_condition_even_if_rows_are_empty_or_missing(self):
+		class FakeChildMeta:
+			def get_field(self, fieldname):
+				if fieldname == "item_code":
+					return SimpleNamespace(fieldname="item_code", fieldtype="Data")
+				return None
+
+		class FakeParentMeta:
+			def get_field(self, fieldname):
+				if fieldname == "items":
+					return SimpleNamespace(fieldname="items", fieldtype="Table", options="Test Order Item")
+				return None
+
+		def fake_get_meta(dt):
+			if dt == "Test Order":
+				return FakeParentMeta()
+			if dt == "Test Order Item":
+				return FakeChildMeta()
+			from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
+			raise ConditionValidationError("unknown_doctype", "$", f"DocType {dt} not found")
+
+		predicate = compare("gt", variable("row", "item_code"), static("integer", 100))
+		resolver = CollectionResolver("doc.items", operation="count", condition=predicate)
+		context = {
+			"doctype": "Test Order",
+			"doc": {"doctype": "Test Order", "items": []},
+		}
+		with patch("frappe.get_meta", side_effect=fake_get_meta):
+			with self.assertRaises(ConditionValidationError) as raised:
+				resolver.resolve(context)
+			self.assertEqual(raised.exception.code, "fieldtype_not_supported")
+
+	def test_collection_resolver_validates_source_field_even_if_doc_has_no_such_field(self):
+		class FakeParentMeta:
+			def get_field(self, fieldname):
+				return None
+
+		resolver = CollectionResolver("doc.non_existent_field", operation="count")
+		context = {
+			"doctype": "Test Order",
+			"doc": {"doctype": "Test Order"},
+		}
+		with patch("frappe.get_meta", side_effect=lambda dt: FakeParentMeta()):
+			with self.assertRaises(ConditionValidationError) as raised:
+				resolver.resolve(context)
+			self.assertEqual(raised.exception.code, "unknown_field")
+
 
 if __name__ == "__main__":
 	unittest.main()

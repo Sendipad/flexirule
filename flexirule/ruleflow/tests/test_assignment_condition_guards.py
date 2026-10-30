@@ -168,6 +168,44 @@ class TestAssignmentConditionGuards(unittest.TestCase):
 		self.assertEqual(doc["status"], "Open")
 		self.assertEqual(doc["remarks"], "Initial")
 
+	def test_supplied_when_condition_canonical_is_rejected(self):
+		config = '[{"target":"doc.status","when_condition_canonical":{"unexpected":"shape"}}]'
+		with self.assertRaises(ConditionValidationError) as raised:
+			AssignmentHandler._get_compiled_plan(config)
+		self.assertEqual(raised.exception.code, "unsupported_assignment_guard")
+
+	def test_runtime_assignment_execution_does_not_mutate_doc_when_later_row_supplies_when_condition_canonical(
+		self,
+	):
+		config = [
+			{"target": "doc.status", "value": "Closed"},
+			{"target": "doc.remarks", "when_condition_canonical": {"unexpected": "shape"}},
+		]
+		action = SimpleNamespace(
+			is_enabled=True,
+			name="act-1",
+			action_id="act-1",
+			action_type="Assignment",
+			action_label="Assignment Action",
+			config=config,
+		)
+		rule = SimpleNamespace(
+			name="test-rule",
+			actions=[action],
+			document_type="ToDo",
+		)
+		engine = RuleEngine(rule)
+		doc = {"status": "Open", "remarks": "Initial"}
+		context = {"doc": doc}
+		handler = AssignmentHandler()
+
+		with self.assertRaises(ConditionValidationError) as raised:
+			handler.execute(action, context, engine)
+
+		self.assertEqual(raised.exception.code, "unsupported_assignment_guard")
+		self.assertEqual(doc["status"], "Open")
+		self.assertEqual(doc["remarks"], "Initial")
+
 
 if __name__ == "__main__":
 	unittest.main()

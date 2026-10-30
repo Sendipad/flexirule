@@ -236,6 +236,13 @@ class AssignmentHandler(ActionHandler):
 				)
 			compiled = dict(row)
 
+			if "when_condition_canonical" in row:
+				raise ConditionValidationError(
+					"unsupported_assignment_guard",
+					f"assignments[{index}]",
+					"Internal field when_condition_canonical cannot be supplied in configuration",
+				)
+
 			legacy_guard_keys = ("pythonExpression", "when_expression", "when")
 			if any(compiled.get(key) not in (None, "") for key in legacy_guard_keys):
 				raise ConditionValidationError(
