@@ -109,30 +109,42 @@ frappe.ui.form.on("Rule", {
 		});
 
 		frm.page.clear_custom_actions();
-		if (frm.doc.status === "Active" || frm.doc.status === "Disabled" || frm.doc.status === "Archived") {
-			frm.add_custom_button(__("Amend Rule"), () => {
+		if (
+			frm.doc.status === "Active" ||
+			frm.doc.status === "Disabled" ||
+			frm.doc.status === "Archived"
+		) {
+			frm.add_custom_button(
+				__("Amend Rule"),
+				() => {
+					if (frm.is_dirty()) {
+						frappe.confirm(
+							__("You have unsaved changes. Save before creating an amendment?"),
+							() => frm.save().then(() => amend_rule(frm)),
+							() => amend_rule(frm)
+						);
+					} else {
+						amend_rule(frm);
+					}
+				},
+				__("Actions")
+			);
+		}
+		frm.add_custom_button(
+			__("Debug Rule"),
+			() => {
 				if (frm.is_dirty()) {
 					frappe.confirm(
-						__("You have unsaved changes. Save before creating an amendment?"),
-						() => frm.save().then(() => amend_rule(frm)),
-						() => amend_rule(frm)
+						__("You have unsaved changes. Save before debugging rule?"),
+						() => frm.save().then(() => test_rule(frm)),
+						() => test_rule(frm)
 					);
 				} else {
-					amend_rule(frm);
+					test_rule(frm);
 				}
-			}, __("Actions"));
-		}
-		frm.add_custom_button(__("Debug Rule"), () => {
-			if (frm.is_dirty()) {
-				frappe.confirm(
-					__("You have unsaved changes. Save before debugging rule?"),
-					() => frm.save().then(() => test_rule(frm)),
-					() => test_rule(frm)
-				);
-			} else {
-				test_rule(frm);
-			}
-		}, __("Actions"));
+			},
+			__("Actions")
+		);
 		frm.add_custom_button(__("Clear Cache"), () => clear_rule_cache(frm), __("Actions"));
 
 		apply_trigger_type_contract(frm);
