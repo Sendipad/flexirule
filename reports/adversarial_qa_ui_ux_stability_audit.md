@@ -58,6 +58,8 @@ During deep adversarial testing of FlexiRule's visual rule orchestrator (Vue 3, 
 | `BUG-02` | `useGraphStore.getAvailableVariables` | High | Unmemoized recursive BFS graph traversal in upstream variable context resolution. | Browser UI thread freezes (100% CPU lock up to 4+ seconds) when editing conditions in graphs with cyclic or loop structures. |
 | `BUG-03` | `useRuleStore.save_changes` / REST API | High | Asynchronous validation precheck state leak allowing premature reset of `is_dirty` and `initial_state`. | Users lose unsaved graph edits or leave invalid draft states on server without visual indication of clean/dirty state sync. |
 | `BUG-04` | Node Upgrade (`upgrade_selector_node`) | Medium | Atomic node replacement creates reactivity flashes and drops edge animation data on sub-scaffold nodes. | Vue Flow canvas triggers full graph re-render on selector upgrade, losing node focus and dropping edge transition properties. |
+| `BUG-05` | Python AST Root Visitor Scope | Medium | False-positive validation throws in `_validate_allowed_roots` when parsing inline Python lambda parameters. | Valid expressions using local lambda parameters in Jinja segments fail backend compilation during save. |
+| `BUG-06` | Version Transition Concurrency | Medium | Read-then-write race condition in `validate_single_active_version` during rapid version activation requests. | Under concurrent API activation requests, multiple rule versions for the same `base_rule_name` gain `is_active=1`. |
 
 ---
 
@@ -77,6 +79,12 @@ During deep adversarial testing of FlexiRule's visual rule orchestrator (Vue 3, 
 4. Type rapidly into the context variable search bar.
 5. **Observed Behavior**: Browser thread freezes for 3–5 seconds; console logs indicate hundreds of redundant call stacks in `isDownstreamOfHandle` and `getAvailableVariables`.
 6. **Expected Behavior**: Variable lookups must respond in < 16ms using memoized execution link caches.
+
+#### PoC for `BUG-05`: Python AST Root Visitor Scope False-Positive
+1. Configure an Assignment or Text Generator node with a Python expression utilizing a list comprehension or lambda, e.g., `any(x > 10 for x in doc.items)`.
+2. Save the Rule document.
+3. **Observed Behavior**: `_validate_allowed_roots` raises `frappe.throw("expression uses unsupported context roots: x")` because `RootVisitor` treats `x` as a top-level variable name rather than a bound comprehension variable.
+4. **Expected Behavior**: AST visitor must track bound comprehension/lambda parameter scopes.
 
 ---
 
@@ -147,3 +155,40 @@ function highlightValidationErrors(errorList) {
     }
 }
 ```
+
+#### Fix 4: AST Visitor Comprehension Scope Tracking in `rule.py`
+In `Rule._extract_expression_roots`, maintain a set of locally bound variables inside comprehensions and lambdas:
+
+```python
+class RootVisitor(ast.NodeVisitor):
+    def __init__(self):
+        self.roots = set()
+        self.local_scopes = [set()]
+
+    def visit_ListComp(self, node):
+        local_vars = set()
+        for gen in node.generators:
+            if isinstance(gen.target, ast.Name):
+                local_vars.add(gen.target.id)
+        self.local_scopes.append(local_vars)
+        self.generic_visit(node)
+        self.local_scopes.pop()
+
+    def visit_Name(self, node):
+        if not any(node.id in scope for scope in self.local_scopes):
+            self.roots.add(node.id)
+```
+
+---
+
+## PHASE 3: DEEP BACKEND & INTEGRATION RISK ANALYSIS
+
+### 1. Trigger Alignment Context Traps
+In `Rule.validate_trigger_alignment`, rules triggered by "After" events (e.g. `After Insert`, `On Submit`, `On Cancel`) are forbidden from executing document-modifying operations (such as `Assignment` to `doc.*` fields or `Process` operations with `writes_to == "Document"`).
+- **Failure Cascade**: When a `Callable Event` sub-rule is created, it has no `trigger_event` bound. It can contain document mutations. However, if an author inserts a `Sub-Rule` action into an `After Save` parent rule, calling `validate_trigger_alignment` traverses into the sub-rule and throws a validation error during parent save.
+- **Remediation**: The frontend `useGraphStore` / `Sub-Rule` configuration modal must proactively query target sub-rule actions and highlight trigger-alignment mismatches in real time before the user attempts to commit the parent rule.
+
+### 2. In-Memory DFS Cycle Detection vs Dynamic Sub-Rule Targeting
+In `Rule.validate_no_sub_rule_cycles`, sub-rule references are statically audited using `Rule Action` DB filters and an in-memory DFS.
+- **Risk**: If sub-rule targeting is configured dynamically via context expressions or runtime variables (e.g., `vars.sub_rule_name`), static DB cycle detection is bypassed.
+- **Remediation**: Enforce runtime recursion depth tracking inside `RuleCoordinator.execute_sub_rule` with a maximum call stack depth guard (e.g., `MAX_SUBRULE_STACK_DEPTH = 15`) and throw a structured `FlexiRuleRecursionError` if exceeded.
