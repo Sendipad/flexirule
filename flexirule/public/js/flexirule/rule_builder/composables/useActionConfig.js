@@ -1,11 +1,12 @@
 import { reactive, ref, computed, watch, onMounted, provide } from "vue";
-import { useRuleStore, useGraphStore, useMetaStore } from "../stores";
+import { useRuleStore, useGraphStore, useMetaStore, useStore } from "../stores";
 import { fromCodeString } from "../utils/serialization";
 
 export function useActionConfig(props, options = {}) {
 	const ruleStore = useRuleStore();
 	const graphStore = useGraphStore();
 	const metaStore = useMetaStore();
+	const store = useStore();
 	const config = reactive({});
 	const docMeta = ref(null);
 	const doctype_fields = ref([]);
@@ -213,6 +214,7 @@ export function useActionConfig(props, options = {}) {
 	}
 
 	return {
+		store,
 		ruleStore,
 		graphStore,
 		metaStore,
