@@ -320,7 +320,7 @@ async function refreshVariableFields() {
 	}
 
 	try {
-		const available = await ruleStore.getAvailableVariables(nodeId);
+		const available = await graphStore.getAvailableVariables(nodeId);
 		variableFields.value = available || [];
 	} catch (e) {
 		variableFields.value = [];

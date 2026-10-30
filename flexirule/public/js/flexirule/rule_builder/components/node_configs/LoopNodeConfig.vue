@@ -71,7 +71,7 @@ async function loadFields() {
 	if (!props.node?.id) return;
 	loading.value = true;
 	try {
-		docFields.value = await ruleStore.getAvailableVariables(props.node.id);
+		docFields.value = await graphStore.getAvailableVariables(props.node.id);
 	} catch (e) {
 		console.error("Failed to load fields for LoopNodeConfig", e);
 	} finally {

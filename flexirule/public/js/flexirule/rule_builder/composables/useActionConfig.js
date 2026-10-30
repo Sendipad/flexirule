@@ -92,7 +92,7 @@ export function useActionConfig(props, options = {}) {
 			return;
 		}
 		try {
-			variable_options.value = await ruleStore.getAvailableVariables(props.node.id);
+			variable_options.value = await graphStore.getAvailableVariables(props.node.id);
 		} catch (e) {
 			variable_options.value = [];
 		}
