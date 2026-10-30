@@ -409,6 +409,7 @@ class DocumentActionHandler(ActionHandler):
 				table_mappings=table_mappings,
 				context=context,
 				ignore_permissions=ignore_permissions,
+				enqueue_after_commit=True,
 			)
 			return {"enqueued": True, "doctype": reference_doctype}
 
