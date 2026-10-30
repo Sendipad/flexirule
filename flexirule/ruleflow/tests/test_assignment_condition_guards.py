@@ -133,12 +133,12 @@ class TestAssignmentConditionGuards(unittest.TestCase):
 	def test_invalid_later_guard_prevents_earlier_assignment_mutation(self):
 		# Row 1 is valid, Row 2 has an invalid guard. Whole plan must fail preflight compilation.
 		config = (
-			'['
+			"["
 			'{"target":"doc.status","operator":"set","value":"Pending"},'
 			'{"target":"doc.priority","operator":"set","value":"High",'
 			'"when_condition":{"type":"comparison","operator":"bad_operator",'
 			'"left":{"mode":"static","value_type":"string","value":"Open"}}}'
-			']'
+			"]"
 		)
 		with self.assertRaises(ConditionValidationError) as raised:
 			AssignmentHandler._get_compiled_plan(config)

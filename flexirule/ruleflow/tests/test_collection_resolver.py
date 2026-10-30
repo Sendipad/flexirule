@@ -240,9 +240,7 @@ class TestCollectionResolver(unittest.TestCase):
 				"left": {"mode": "variable", "path": {"scope": "row", "segments": ["item_code"]}},
 				"right": {"mode": "static", "value_type": "integer", "value": 100},
 			}
-			res_invalid = CollectionResolver(
-				source="doc.items", operation="filter", condition=invalid_cond
-			)
+			res_invalid = CollectionResolver(source="doc.items", operation="filter", condition=invalid_cond)
 			ctx = {
 				"doctype": "Sales Invoice",
 				"doc": frappe._dict({"doctype": "Sales Invoice", "items": [{"item_code": "A", "qty": 10}]}),

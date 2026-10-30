@@ -241,7 +241,9 @@ class ConditionCompiler:
 		except ConditionValidationError:
 			raise
 		except Exception as exc:
-			raise ConditionValidationError("invalid_json", path, "Structured condition JSON is malformed") from exc
+			raise ConditionValidationError(
+				"invalid_json", path, "Structured condition JSON is malformed"
+			) from exc
 
 		if parsed in (None, ""):
 			return ""
@@ -366,7 +368,9 @@ class ConditionCompiler:
 		if "value" in operand or "mode" in operand:
 			return
 
-		raise ConditionValidationError("invalid_operand", path, "Operand must specify 'ref', 'value', or 'mode'")
+		raise ConditionValidationError(
+			"invalid_operand", path, "Operand must specify 'ref', 'value', or 'mode'"
+		)
 
 	def _compile_group(self, node, scopes):
 		subs = node.get("conditions", [])
