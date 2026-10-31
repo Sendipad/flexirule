@@ -22,13 +22,17 @@
 			}}
 		</div>
 
+		<div v-if="conditionLoadError" class="alert alert-danger py-2 px-3 small" role="alert">
+			<i class="fa fa-exclamation-triangle mr-1"></i>
+			{{ conditionLoadError }}
+		</div>
 		<div class="condition-builder-container">
 			<ConditionBuilder
 				ref="conditionBuilderRef"
 				:modelValue="localConditions"
 				:docFields="docFields"
 				:variableOptions="combinedVariableOptions"
-				:readOnly="readOnly || read_only"
+				:readOnly="readOnly || read_only || Boolean(conditionLoadError)"
 				:showValidation="showValidation"
 				:isMandatory="
 					props.node?.data?.action_type === 'Condition' ||
@@ -81,6 +85,7 @@ const localConditions = ref({ type: "group", operator: "and", children: [] });
 const showOldDoc = ref(false);
 const variableFields = ref([]);
 const conditionBuilderRef = ref(null);
+const conditionLoadError = ref(null);
 
 const isEntryNode = computed(() => {
 	return props.node?.type === "start" || props.node?.data?.action_type === "Entry Action";
@@ -98,27 +103,29 @@ watch(
 		});
 	},
 	(val) => {
-		if (val) {
-			const normalized = normalizeConditionNode(val);
+		try {
+			const normalized = val ? normalizeConditionNode(val) : { type: "group", operator: "and", children: [] };
+			conditionLoadError.value = null;
 			if (JSON.stringify(normalized) !== JSON.stringify(localConditions.value)) {
 				localConditions.value = normalized;
 			}
-		} else {
-			localConditions.value = { type: "group", operator: "and", children: [] };
+		} catch (error) {
+			conditionLoadError.value = __("The saved condition is invalid and was not changed. Repair or migrate it before editing.");
 		}
 	},
 	{ immediate: true }
 );
 
 function updateConditions(val) {
+	if (conditionLoadError.value) return;
 	localConditions.value = val;
 	save();
 }
 
 function save() {
-	if (!props.node?.data) return;
-	const validation = conditionBuilderRef.value?.validate();
-	if (validation && !validation.isValid) return;
+	if (!props.node?.data || conditionLoadError.value || !conditionBuilderRef.value) return;
+	const validation = conditionBuilderRef.value.validate();
+	if (!validation?.isValid) return;
 
 	if (props.node.type === "start") {
 		props.node.data.trigger_condition = localConditions.value;
@@ -198,10 +205,13 @@ onMounted(async () => {
 });
 
 function validate() {
-	if (conditionBuilderRef.value) {
-		return conditionBuilderRef.value.validate();
+	if (conditionLoadError.value) {
+		return { isValid: false, errors: [conditionLoadError.value] };
 	}
-	return { isValid: true, errors: [] };
+	if (!conditionBuilderRef.value) {
+		return { isValid: false, errors: [__("Condition editor is not ready.")] };
+	}
+	return conditionBuilderRef.value.validate();
 }
 
 defineExpose({
