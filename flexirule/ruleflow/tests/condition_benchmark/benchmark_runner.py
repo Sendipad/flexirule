@@ -810,7 +810,7 @@ class BenchmarkRunner:
 		# this is diagnostic evidence, not a production memory guarantee.
 		memory_scenario = workloads["complex_nested_tree"]
 		memory_payload = memory_scenario["payload"]
-		memory_results = {}
+		memory_results: dict[str, Any] = {}
 		for label, candidate in [("compiled_plan", plan_cand), ("direct_ast", ast_cand)]:
 			tracemalloc.start()
 			try:
