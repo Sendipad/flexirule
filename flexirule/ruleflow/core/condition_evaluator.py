@@ -49,6 +49,7 @@ class _PreparedCanonicalCondition:
 
 	plan: tuple
 	doctype: str | None
+	scope_doctypes: tuple[tuple[str, str | None], ...] | None
 	condition_digest: str
 	semantics_version: int
 	evaluator_version: int
@@ -146,9 +147,13 @@ def _get_compiled_plan(
 	payload_digest: str,
 	registry_fingerprint: str,
 	doctype: str | None,
+	scope_doctypes: dict[str, str | None] | None = None,
 	*,
 	validated_fresh: bool,
 ) -> tuple:
+	scope_doctypes_key = (
+		tuple(sorted((k, v or "") for k, v in scope_doctypes.items())) if scope_doctypes else ()
+	)
 	cache_key = (
 		payload_digest,
 		payload_json,
@@ -156,6 +161,7 @@ def _get_compiled_plan(
 		EVALUATOR_CACHE_VERSION,
 		registry_fingerprint,
 		doctype or "",
+		scope_doctypes_key,
 		validated_fresh,
 	)
 	# Do not retain unusually large source strings in the process-local LRU.
@@ -165,7 +171,12 @@ def _get_compiled_plan(
 	return _compile_cached(*cache_key)
 
 
-def compile_condition(node: Any, *, doctype: str | None = None) -> tuple:
+def compile_condition(
+	node: Any,
+	*,
+	doctype: str | None = None,
+	scope_doctypes: dict[str, str | None] | None = None,
+) -> tuple:
 	"""Validate and compile a canonical node into a reusable immutable execution plan."""
 	_, payload_json, payload_bytes, payload_digest, registry_fingerprint = _canonicalize_condition(node)
 	return _get_compiled_plan(
@@ -174,18 +185,24 @@ def compile_condition(node: Any, *, doctype: str | None = None) -> tuple:
 		payload_digest,
 		registry_fingerprint,
 		doctype,
+		scope_doctypes,
 		validated_fresh=False,
 	)
 
 
-def prepare_condition(node: Any, *, doctype: str | None = None) -> _PreparedCanonicalCondition:
+def prepare_condition(
+	node: Any,
+	*,
+	doctype: str | None = None,
+	scope_doctypes: dict[str, str | None] | None = None,
+) -> _PreparedCanonicalCondition:
 	"""Validate once and create an opaque plan artifact for repeated evaluation.
 
 	The condition is revalidated on every preparation, even when its structural plan
 	is cached, so a changed DocType schema cannot inherit an earlier validation result.
 	Prepared artifacts are in-process objects and must not be serialized or put in Redis.
 	"""
-	condition_node, payload_json, payload_bytes, payload_digest, registry_fingerprint = (
+	_condition_node, payload_json, payload_bytes, payload_digest, registry_fingerprint = (
 		_canonicalize_condition(node)
 	)
 	# Validate the exact snapshot that was digested and will be compiled; do not validate
@@ -195,18 +212,23 @@ def prepare_condition(node: Any, *, doctype: str | None = None) -> _PreparedCano
 	except Exception as exc:
 		raise ConditionValidationError("invalid_json", "$", "Condition JSON is malformed") from exc
 	# Revalidate against current DocType metadata before reusing any cached plan.
-	validate_condition_node(validated_node, doctype=doctype)
+	validate_condition_node(validated_node, doctype=doctype, scope_doctypes=scope_doctypes)
 	plan = _get_compiled_plan(
 		payload_json,
 		payload_bytes,
 		payload_digest,
 		registry_fingerprint,
 		doctype,
+		scope_doctypes,
 		validated_fresh=True,
+	)
+	scope_doctypes_frozen = (
+		tuple(sorted((k, v) for k, v in scope_doctypes.items())) if scope_doctypes else None
 	)
 	prepared = _PreparedCanonicalCondition(
 		plan=plan,
 		doctype=doctype or None,
+		scope_doctypes=scope_doctypes_frozen,
 		condition_digest=payload_digest,
 		semantics_version=CONDITION_SEMANTICS_VERSION,
 		evaluator_version=EVALUATOR_CACHE_VERSION,
@@ -225,6 +247,7 @@ def _compile_cached(
 	cache_version: int,
 	registry_fingerprint: str,
 	doctype: str,
+	scope_doctypes_key: tuple,
 	validated_fresh: bool,
 ) -> tuple:
 	# payload_digest is part of the cache identity by design. Keep payload_json too
@@ -244,7 +267,8 @@ def _compile_cached(
 	except Exception as exc:
 		raise ConditionValidationError("invalid_json", "$", "Condition JSON is malformed") from exc
 	if not validated_fresh:
-		validate_condition_node(node, doctype=doctype or None)
+		scope_doctypes = dict(scope_doctypes_key) if scope_doctypes_key else None
+		validate_condition_node(node, doctype=doctype or None, scope_doctypes=scope_doctypes)
 	return _compile_node(node, "$")
 
 
@@ -367,11 +391,12 @@ def evaluate_condition(
 	context: dict | None = None,
 	*,
 	doctype: str | None = None,
+	scope_doctypes: dict[str, str | None] | None = None,
 	_evaluation_budget: dict[str, int] | None = None,
 ) -> bool:
 	"""Evaluate one canonical node through the validating public entry point."""
 	effective_doctype = _context_doctype(context, doctype)
-	plan = compile_condition(node, doctype=effective_doctype)
+	plan = compile_condition(node, doctype=effective_doctype, scope_doctypes=scope_doctypes)
 	return _evaluate_plan(
 		plan,
 		context,
@@ -430,6 +455,21 @@ def evaluate_prepared_condition(
 		)
 	else:
 		effective_doctype = prepared.doctype
+
+	if prepared.scope_doctypes:
+		for scope, s_doctype in prepared.scope_doctypes:
+			if s_doctype and isinstance(context, dict):
+				ctx_root = context.get(scope)
+				ctx_doctype = getattr(ctx_root, "doctype", None) or (
+					ctx_root.get("doctype") if isinstance(ctx_root, dict) else None
+				)
+				if ctx_doctype and ctx_doctype != s_doctype:
+					raise ConditionValidationError(
+						"condition_doctype_mismatch",
+						"$",
+						f"Prepared condition scope '{scope}' belongs to a different DocType ('{s_doctype}' vs '{ctx_doctype}')",
+					)
+
 	return _evaluate_plan(
 		prepared.plan,
 		context,
@@ -612,7 +652,7 @@ def _evaluate_value(plan: tuple, context: dict) -> Any:
 
 
 def _fieldtype_for_context(scope: str, segments: tuple[str, ...], context: dict) -> str | None:
-	if not segments or scope not in {"doc", "old_doc", "row"} and scope not in context:
+	if not segments or (scope not in {"doc", "old_doc", "row"} and scope not in context):
 		return None
 	from flexirule.ruleflow.core.condition_contract import resolve_fieldtype_for_path
 

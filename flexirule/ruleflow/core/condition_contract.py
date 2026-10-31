@@ -265,7 +265,7 @@ def resolve_fieldtype_for_path(scope: str, segments: tuple[str, ...], doctype: s
 	Returns None for scopes whose metadata is not statically available. A provided
 	DocType with an invalid known document path fails closed at validation time.
 	"""
-	if not doctype or scope not in {"doc", "old_doc", "row"} and scope in BASE_SCOPES:
+	if not doctype or (scope not in {"doc", "old_doc", "row"} and scope in BASE_SCOPES):
 		return None
 	current_doctype = doctype
 	fieldtype = None
@@ -402,7 +402,12 @@ def _known_fieldtype_check(
 		)
 
 
-def validate_condition_node(node: Any, *, doctype: str | None = None) -> None:
+def validate_condition_node(
+	node: Any,
+	*,
+	doctype: str | None = None,
+	scope_doctypes: dict[str, str | None] | None = None,
+) -> None:
 	"""Strictly validate a canonical direct-node condition; never repair or mutate it."""
 	try:
 		encoded = json.dumps(
@@ -415,14 +420,18 @@ def validate_condition_node(node: Any, *, doctype: str | None = None) -> None:
 	if len(encoded) > MAX_CONDITION_PAYLOAD_BYTES:
 		_fail("condition_payload_too_large", "$", "Condition payload exceeds the configured byte limit")
 	counter = {"nodes": 0}
-	scope_doctypes: dict[str, str | None] = {"doc": doctype, "old_doc": doctype}
+	initial_scope_doctypes: dict[str, str | None] = {"doc": doctype, "old_doc": doctype}
+	if scope_doctypes:
+		for k, v in scope_doctypes.items():
+			if v is not None or k not in initial_scope_doctypes:
+				initial_scope_doctypes[k] = v
 	_validate_node(
 		node,
 		path="$",
 		depth=1,
 		counter=counter,
-		allowed_scopes=set(BASE_SCOPES),
-		scope_doctypes=scope_doctypes,
+		allowed_scopes=set(BASE_SCOPES) | set(initial_scope_doctypes.keys()),
+		scope_doctypes=initial_scope_doctypes,
 	)
 
 
