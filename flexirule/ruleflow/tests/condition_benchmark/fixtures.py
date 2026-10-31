@@ -705,4 +705,45 @@ def get_canonical_scaling_workloads() -> dict[str, Any]:
 		"collection_size": 100,
 	}
 
+
+	# 6. Static operand on the left and dynamic variable on the right
+	workloads["dynamic_operands_static_left"] = {
+		"description": "Static threshold on left, document amount on right (100 < doc.amount)",
+		"payload": {
+			"type": "comparison",
+			"operator": "lt",
+			"left": {"mode": "static", "value_type": "integer", "value": 100},
+			"right": {"mode": "variable", "path": {"scope": "doc", "segments": ["amount"]}},
+		},
+		"matching_doc": {"amount": 150},
+		"non_matching_doc": {"amount": 50},
+		"expected": True,
+	}
+
+	# 7. Template operand with a lazily resolved variable segment
+	workloads["template_operand"] = {
+		"description": "Template operand interpolating doc.name",
+		"payload": {
+			"type": "comparison",
+			"operator": "eq",
+			"left": {
+				"mode": "template",
+				"segments": [
+					{"type": "text", "value": "Invoice "},
+					{
+						"type": "value",
+						"value": {
+							"mode": "variable",
+							"path": {"scope": "doc", "segments": ["name"]},
+						},
+					},
+				],
+			},
+			"right": {"mode": "static", "value_type": "string", "value": "Invoice INV-001"},
+		},
+		"matching_doc": {"name": "INV-001"},
+		"non_matching_doc": {"name": "INV-002"},
+		"expected": True,
+	}
+
 	return workloads
