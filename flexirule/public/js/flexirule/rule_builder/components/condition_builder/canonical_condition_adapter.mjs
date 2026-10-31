@@ -10,7 +10,20 @@ const LEGACY_OPERATOR_MAP = {
 };
 
 export function normalizeFlexValue(value) {
-	if (value && typeof value === "object" && value.mode) return value;
+	if (value && typeof value === "object" && value.mode === "variable") {
+		if (value.path && typeof value.path === "object" && Array.isArray(value.path.segments)) return value;
+		return { mode: "variable", path: textToCanonicalPath(value.value ?? value.path) };
+	}
+	if (value && typeof value === "object" && value.mode === "static" && value.value_type) {
+		return value;
+	}
+	if (value && typeof value === "object" && value.mode === "resolver") {
+		if (typeof value.family === "string" && typeof value.operation === "string" && value.config && typeof value.config === "object") return value;
+		throw new TypeError("Legacy resolver operands must be migrated to an explicitly registered canonical resolver.");
+	}
+	if (value && typeof value === "object" && value.mode) {
+		throw new TypeError(`Unsupported FlexValue mode: ${String(value.mode)}`);
+	}
 	if (value && typeof value === "object" && value.value_type === "variable") {
 		return { mode: "variable", path: textToCanonicalPath(value.path) };
 	}
@@ -60,7 +73,8 @@ export function normalizeConditionNode(node) {
 	if (node.type !== "comparison" && !("operator" in node) && !("op" in node)) {
 		throw new TypeError("Unsupported condition payload; expected a canonical or migratable condition node.");
 	}
-	const operator = node.operator ?? LEGACY_OPERATOR_MAP[node.op] ?? node.op;
+	const rawOperator = node.operator ?? node.op;
+	const operator = LEGACY_OPERATOR_MAP[rawOperator] ?? rawOperator;
 	const right = node.right !== undefined ? node.right : node.value;
 	const left = node.left !== undefined
 		? normalizeFlexValue(node.left)
