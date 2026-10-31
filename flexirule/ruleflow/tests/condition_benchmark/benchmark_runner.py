@@ -9,6 +9,7 @@ import platform
 import statistics
 import subprocess
 import time
+import tracemalloc
 from pathlib import Path
 from typing import Any
 
@@ -659,13 +660,14 @@ class BenchmarkRunner:
 
 			col_size = w.get("collection_size", 0)
 			base_iters = self.iterations_per_batch
-			if col_size >= 10000:
-				eval_iterations = max(1, min(base_iters, 50))
-			elif col_size >= 1000:
-				eval_iterations = max(1, min(base_iters, 200))
-			elif col_size >= 100:
-				eval_iterations = max(1, min(base_iters, 1000))
+			# Keep the total nominal collection-row visits bounded across all batches,
+			# and use the same iteration count for both candidates for a fair comparison.
+			if col_size:
+				row_visit_budget = 100_000
+				budgeted_iters = max(1, row_visit_budget // (col_size * max(1, self.num_batches)))
+				eval_iterations = max(1, min(base_iters, budgeted_iters))
 			else:
+				row_visit_budget = None
 				eval_iterations = max(1, base_iters)
 
 			for _ in range(min(self.warmup_iterations, 10)):
@@ -704,6 +706,8 @@ class BenchmarkRunner:
 				"is_correct": is_correct,
 				"expected": expected,
 				"collection_size": col_size,
+				"evaluation_iterations_per_batch": eval_iterations,
+				"nominal_row_visit_budget": row_visit_budget,
 				"plan_cold_prep_us": round(plan_cold_prep_us, 2),
 				"plan_warm_prep_us": round(plan_warm_prep_us, 2),
 				"ast_cold_prep_us": round(ast_cold_prep_us, 2),
@@ -801,6 +805,32 @@ class BenchmarkRunner:
 				"faster_candidate_warm": "AST" if ast_cost_warm < plan_cost_warm else "Compiled Plan",
 			}
 		comparison_results["amortized"] = amortized_table
+
+		# Approximate retained preparation allocation. Run outside latency measurements;
+		# this is diagnostic evidence, not a production memory guarantee.
+		memory_scenario = workloads["complex_nested_tree"]
+		memory_payload = memory_scenario["payload"]
+		memory_results = {}
+		for label, candidate in [("compiled_plan", plan_cand), ("direct_ast", ast_cand)]:
+			tracemalloc.start()
+			try:
+				before_current, _ = tracemalloc.get_traced_memory()
+				prepared_memory = candidate.prepare(memory_payload)
+				current_bytes, peak_bytes = tracemalloc.get_traced_memory()
+				if prepared_memory.error:
+					memory_results[label] = {"error": prepared_memory.error}
+				else:
+					memory_results[label] = {
+						"retained_allocation_bytes": max(0, current_bytes - before_current),
+						"peak_allocation_bytes": max(0, peak_bytes - before_current),
+					}
+			finally:
+				tracemalloc.stop()
+		comparison_results["memory_profiling"] = {
+			"sample_scenario": "complex_nested_tree",
+			"note": "Single-run tracemalloc diagnostic; allocation figures are approximate and not production memory guarantees.",
+			"candidates": memory_results,
+		}
 
 		return comparison_results
 
