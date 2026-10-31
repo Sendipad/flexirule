@@ -2,6 +2,74 @@
 
 const SCOPES = new Set(["doc", "old_doc", "vars", "item", "loop", "row", "caller", "rule", "doctype"]);
 
+const LEGACY_OPERATOR_MAP = {
+	"==": "eq", "=": "eq", "!=": "ne", "<>": "ne", ">": "gt", ">=": "gte", "<": "lt", "<=": "lte",
+	in: "in", "not in": "not_in", contains: "contains", "not contains": "not_contains",
+	starts_with: "starts_with", ends_with: "ends_with", is_empty: "is_empty", is_not_empty: "is_not_empty",
+	is_set: "is_set", is_not_set: "is_not_set", is_null: "is_null", is_not_null: "is_not_null",
+};
+
+export function normalizeFlexValue(value) {
+	if (value && typeof value === "object" && value.mode) return value;
+	if (value && typeof value === "object" && value.value_type === "variable") {
+		return { mode: "variable", path: textToCanonicalPath(value.path) };
+	}
+	if (value && typeof value === "object" && value.value_type === "static") {
+		return { mode: "static", ...inferStaticType(value.value) };
+	}
+	if (value && typeof value === "object" && value.value_type === "resolver") {
+		throw new TypeError("Legacy resolver operands must be migrated to an explicitly registered canonical resolver.");
+	}
+	if (typeof value === "string") {
+		const trimmed = value.trim();
+		const first = trimmed.split(".")[0];
+		if (trimmed.includes(".") && SCOPES.has(first) && first !== "doctype") {
+			return { mode: "variable", path: textToCanonicalPath(trimmed) };
+		}
+		return { mode: "static", value_type: "string", value };
+	}
+	return { mode: "static", ...inferStaticType(value) };
+}
+
+export function normalizeConditionNode(node) {
+	assertObject(node, "Condition node");
+	if (node.type === "group" || (Array.isArray(node.conditions) && typeof node.op === "string")) {
+		const children = node.children ?? node.conditions;
+		if (!Array.isArray(children)) throw new TypeError("Condition group children must be an array.");
+		return {
+			type: "group",
+			operator: node.operator ?? node.op,
+			children: children.map(normalizeConditionNode),
+		};
+	}
+	if (node.type === "collection_predicate" || node.quantifier || node.collection || node.source) {
+		const source = node.source ?? node.collection;
+		const canonicalSource = source?.mode ? source : normalizeFlexValue(source);
+		return {
+			type: "collection_predicate",
+			quantifier: node.quantifier ?? "any",
+			source: canonicalSource,
+			as: node.as ?? node.alias ?? "item",
+			where: normalizeConditionNode(node.where ?? node.predicate ?? {
+				type: "group", operator: "and", children: node.conditions ?? [],
+			}),
+		};
+	}
+	if (node.type !== "comparison" && !("operator" in node) && !("op" in node)) {
+		throw new TypeError("Unsupported condition payload; expected a canonical or migratable condition node.");
+	}
+	const operator = node.operator ?? LEGACY_OPERATOR_MAP[node.op] ?? node.op;
+	const left = node.left ?? node.field;
+	const right = node.right !== undefined ? node.right : node.value;
+	const result = {
+		type: "comparison",
+		operator,
+		left: normalizeFlexValue(left),
+	};
+	if (right !== undefined && right !== null) result.right = normalizeFlexValue(right);
+	return result;
+}
+
 function newId() {
 	return globalThis.frappe?.utils?.get_random?.(12) || `condition-${globalThis.crypto?.randomUUID?.() || Math.random().toString(36).slice(2)}`;
 }
