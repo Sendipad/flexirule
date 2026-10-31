@@ -26,6 +26,8 @@
 		<template v-else>
 			<TreeBuilder
 				:modelValue="uiTreeState"
+				:allowCollections="true"
+				:collectionFactory="() => ({ quantifier: 'any', collection: { mode: 'variable', value: '' }, alias: 'item' })"
 				:docFields="docFields"
 				:variableOptions="combinedVariableOptions"
 				:readOnly="readOnly"
@@ -108,7 +110,7 @@ const emit = defineEmits(["update:modelValue"]);
 
 const contractOperators = ref([]);
 const contractError = ref(null);
-const isLoadingContract = ref(false);
+const isLoadingContract = ref(true);
 
 const uiTreeState = ref(hydrateToTreeBuilder(props.modelValue));
 
@@ -119,7 +121,10 @@ async function loadContract(force = false) {
 	contractError.value = null;
 	try {
 		const contract = await fetchConditionContract({ forceRefresh: force });
-		contractOperators.value = contract?.operators || [];
+		if (!Array.isArray(contract?.operators) || contract.operators.length === 0) {
+			throw new Error("The backend condition contract did not provide any operators.");
+		}
+		contractOperators.value = contract.operators;
 	} catch (err) {
 		contractError.value = err?.message || err || "Contract API request failed.";
 		contractOperators.value = [];
@@ -136,8 +141,16 @@ onMounted(() => {
 watch(
 	() => props.modelValue,
 	(newVal) => {
-		const currentCanonical = serializeToCanonicalAst(uiTreeState.value);
-		if (JSON.stringify(newVal) !== JSON.stringify(currentCanonical)) {
+		if (!contractOperators.value.length) {
+			uiTreeState.value = hydrateToTreeBuilder(newVal);
+			return;
+		}
+		try {
+			const currentCanonical = serializeToCanonicalAst(uiTreeState.value, { operators: contractOperators.value });
+			if (JSON.stringify(newVal) !== JSON.stringify(currentCanonical)) {
+				uiTreeState.value = hydrateToTreeBuilder(newVal);
+			}
+		} catch {
 			uiTreeState.value = hydrateToTreeBuilder(newVal);
 		}
 	},
@@ -146,19 +159,23 @@ watch(
 
 function onUpdateUiTreeState(newState) {
 	uiTreeState.value = newState;
-	if (contractError.value) {
-		// Do not emit serialized AST if contract loading failed
+	if (contractError.value || !contractOperators.value.length) {
+		// Do not emit data unless the authoritative backend contract is available.
 		return;
 	}
-	const canonicalAst = serializeToCanonicalAst(newState);
-	emit("update:modelValue", canonicalAst);
+	try {
+		const canonicalAst = serializeToCanonicalAst(newState, { operators: contractOperators.value });
+		emit("update:modelValue", canonicalAst);
+	} catch {
+		// Intermediate editor state is allowed; validation blocks persistence until complete.
+	}
 }
 
 function validate() {
-	if (contractError.value) {
+	if (contractError.value || !contractOperators.value.length) {
 		return {
 			isValid: false,
-			errors: ["Cannot validate or save condition while server contract failed to load."],
+			errors: ["Cannot validate or save condition until the canonical server contract is available."],
 		};
 	}
 
