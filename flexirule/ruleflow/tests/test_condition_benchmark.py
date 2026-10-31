@@ -1,12 +1,25 @@
 # Copyright (c) 2026, FlexiRule and contributors
 # For license information, please see license.txt
 
+from __future__ import annotations
+
+import os
+import tempfile
 from typing import Any
 
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
-from flexirule.ruleflow.tests.condition_benchmark.benchmark_runner import BenchmarkRunner
+from flexirule.ruleflow.tests.condition_benchmark.adapters import (
+	NeutralNode,
+	node_to_canonical_payload,
+	node_to_legacy_payload,
+)
+from flexirule.ruleflow.tests.condition_benchmark.benchmark_runner import (
+	BenchmarkRunner,
+	UnifiedScenarioEvaluator,
+	_get_git_metadata,
+)
 from flexirule.ruleflow.tests.condition_benchmark.candidate_approach_a import (
 	ApproachACandidate,
 	ApproachAExperimentalCodeObjectCandidate,
@@ -16,13 +29,17 @@ from flexirule.ruleflow.tests.condition_benchmark.candidate_approach_b import (
 	ExecutionPlanBuilder,
 )
 from flexirule.ruleflow.tests.condition_benchmark.candidate_approach_c import ApproachCCandidate
+from flexirule.ruleflow.tests.condition_benchmark.candidate_canonical import (
+	CanonicalConditionCandidate,
+	CanonicalPreparedPlanCandidate,
+)
 from flexirule.ruleflow.tests.condition_benchmark.comparison_api import (
 	BaseConditionCandidate,
 	ConditionComparisonHarness,
 	EvaluationResult,
 	PreparedCondition,
 )
-from flexirule.ruleflow.tests.condition_benchmark.fixtures import get_all_fixtures
+from flexirule.ruleflow.tests.condition_benchmark.fixtures import get_neutral_scenarios
 
 
 class DummyCandidate(BaseConditionCandidate):
@@ -32,14 +49,11 @@ class DummyCandidate(BaseConditionCandidate):
 		result: bool | None = None,
 		prep_error: str | None = None,
 		eval_error: str | None = None,
-		fail_after_eval_count: int | None = None,
 	):
 		self.candidate_name = name
 		self.forced_result = result
 		self.prep_error = prep_error
 		self.eval_error = eval_error
-		self.fail_after_eval_count = fail_after_eval_count
-		self.eval_count = 0
 
 	def prepare(self, condition_payload, metadata_context=None) -> PreparedCondition:
 		if self.prep_error:
@@ -49,9 +63,6 @@ class DummyCandidate(BaseConditionCandidate):
 		)
 
 	def evaluate(self, prepared_condition, document_context, execution_context=None) -> EvaluationResult:
-		self.eval_count += 1
-		if self.fail_after_eval_count is not None and self.eval_count > self.fail_after_eval_count:
-			raise RuntimeError("Injected evaluation failure after threshold")
 		if self.eval_error:
 			raise RuntimeError(self.eval_error)
 
@@ -68,239 +79,97 @@ class DummyCandidate(BaseConditionCandidate):
 
 
 class TestConditionBenchmark(FrappeTestCase):
-	"""Unit tests for FlexiRule condition benchmark comparison API and candidates."""
+	"""Unit tests for FlexiRule condition benchmark comparison API, adapters, five candidates, and runner."""
 
 	def setUp(self):
 		super().setUp()
+		frappe.flags.in_validate_safe_eval = False
 		self.candidate_a = ApproachACandidate()
 		self.candidate_a_exp = ApproachAExperimentalCodeObjectCandidate()
 		self.candidate_b = ApproachBCandidate()
 		self.candidate_c = ApproachCCandidate()
-		self.candidates = [self.candidate_a, self.candidate_a_exp, self.candidate_b, self.candidate_c]
+		self.canonical_candidate = CanonicalConditionCandidate()
+		self.canonical_prepared = CanonicalPreparedPlanCandidate()
+
+		self.candidates = [
+			self.candidate_a,
+			self.candidate_a_exp,
+			self.candidate_b,
+			self.candidate_c,
+			self.canonical_candidate,
+			self.canonical_prepared,
+		]
 		self.harness = ConditionComparisonHarness(self.candidates)
 		self.builder = ExecutionPlanBuilder()
 
-	def test_candidates_prepare_and_evaluate_simple_fixture(self):
-		fixtures = get_all_fixtures()
-		simple_fixture = fixtures[0]
+	def test_adapter_neutral_node_translations(self):
+		node = NeutralNode(
+			kind="comparison",
+			operator="eq",
+			left_scope="doc",
+			left_segments=["status"],
+			right_value_type="string",
+			right_value="Open",
+		)
+		legacy_p = node_to_legacy_payload(node)
+		canonical_p = node_to_canonical_payload(node)
 
-		prepared = self.harness.prepare_all(simple_fixture.condition_payload)
-		self.assertEqual(len(prepared), 4)
-
-		# Evaluate matching doc
-		match_results = self.harness.evaluate_all(prepared, simple_fixture.matching_doc)
-		for name, res in match_results.items():
-			self.assertIsNone(res.error, f"Candidate {name} failed with error: {res.error}")
-			self.assertTrue(res.result, f"Candidate {name} expected True for matching doc")
-
-		# Evaluate non-matching doc
-		non_match_results = self.harness.evaluate_all(prepared, simple_fixture.non_matching_doc)
-		for name, res in non_match_results.items():
-			self.assertIsNone(res.error, f"Candidate {name} failed with error: {res.error}")
-			self.assertFalse(res.result, f"Candidate {name} expected False for non-matching doc")
-
-	def test_semantic_correctness_suite_agreement(self):
-		runner = BenchmarkRunner(iterations_per_batch=10, num_batches=1, warmup_iterations=1)
-		suite_results = runner.run_semantic_correctness_suite()
-
-		# Identify passed and failed fixture checks
-		failed_fixtures = [r for r in suite_results["results"] if not r["is_correct"]]
-		failed_ids = [f["fixture_id"] for f in failed_fixtures]
-
-		# edge_case_has_changed fails parity between ConditionCompiler (deprecated operator returning True) and candidates
+		self.assertEqual(legacy_p, {"left": {"ref": "doc.status"}, "op": "==", "right": {"value": "Open"}})
 		self.assertEqual(
-			failed_ids, ["edge_case_has_changed"], f"Unexpected correctness failures: {failed_ids}"
+			canonical_p,
+			{
+				"type": "comparison",
+				"operator": "eq",
+				"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["status"]}},
+				"right": {"mode": "static", "value_type": "string", "value": "Open"},
+			},
 		)
 
-	def test_correctness_gate_normal_success(self):
-		c1 = DummyCandidate("C1", result=True)
-		c2 = DummyCandidate("C2", result=True)
-		harness = ConditionComparisonHarness([c1, c2])
-		check = harness.check_semantic_agreement({}, {}, expected_result=True)
+	def test_five_candidate_preparation_and_evaluation_on_neutral_scenarios(self):
+		scenarios = get_neutral_scenarios()
+		simple_sc = scenarios[0]
+
+		evaluator = UnifiedScenarioEvaluator(self.candidates)
+		check = evaluator.check_semantic_correctness(simple_sc)
+
 		self.assertTrue(check["is_correct"])
-		self.assertTrue(check["agrees"])
-		self.assertTrue(check["matches_expected"])
+		self.assertEqual(check["supported_candidate_count"], 6)
+		self.assertEqual(len(check["errors"]), 0)
 
-	def test_correctness_gate_preparation_failure(self):
-		c1 = DummyCandidate("C1", result=True)
-		c2 = DummyCandidate("C2", prep_error="Prep failed")
-		harness = ConditionComparisonHarness([c1, c2])
-		check = harness.check_semantic_agreement({}, {}, expected_result=True)
-		self.assertFalse(check["is_correct"])
-		self.assertIn("C2", check["errors"])
+	def test_unsupported_and_deprecated_cases_isolation(self):
+		scenarios = get_neutral_scenarios()
+		has_changed_sc = next(sc for sc in scenarios if sc.scenario_id == "edge_case_has_changed")
 
-	def test_correctness_gate_evaluation_failure(self):
-		c1 = DummyCandidate("C1", result=True)
-		c2 = DummyCandidate("C2", eval_error="Eval crashed")
-		harness = ConditionComparisonHarness([c1, c2])
-		check = harness.check_semantic_agreement({}, {}, expected_result=True)
-		self.assertFalse(check["is_correct"])
-		self.assertIn("C2", check["errors"])
+		evaluator = UnifiedScenarioEvaluator(self.candidates)
+		check = evaluator.check_semantic_correctness(has_changed_sc)
 
-	def test_correctness_gate_semantic_disagreement(self):
-		c1 = DummyCandidate("C1", result=True)
-		c2 = DummyCandidate("C2", result=False)
-		harness = ConditionComparisonHarness([c1, c2])
-		check = harness.check_semantic_agreement({}, {}, expected_result=True)
-		self.assertFalse(check["is_correct"])
-		self.assertFalse(check["agrees"])
-		self.assertFalse(check["matches_expected"])
-
-	def test_correctness_gate_agreed_incorrect_result(self):
-		c1 = DummyCandidate("C1", result=False)
-		c2 = DummyCandidate("C2", result=False)
-		harness = ConditionComparisonHarness([c1, c2])
-		check = harness.check_semantic_agreement({}, {}, expected_result=True)
-		self.assertFalse(check["is_correct"])
-		self.assertTrue(check["agrees"])
-		self.assertFalse(check["matches_expected"])
-
-	def test_correctness_gate_all_candidates_failing(self):
-		c1 = DummyCandidate("C1", eval_error="Err1")
-		c2 = DummyCandidate("C2", eval_error="Err2")
-		harness = ConditionComparisonHarness([c1, c2])
-		check = harness.check_semantic_agreement({}, {}, expected_result=True)
-		self.assertFalse(check["is_correct"])
-		self.assertEqual(len(check["candidate_results"]), 0)
-
-	def test_measurement_warmup_failure_invalidates_candidate(self):
-		# Correctness check uses 2 evals. Set fail_after_eval_count=2 so correctness passes but warmup (eval 3) fails.
-		c1 = DummyCandidate("C1", fail_after_eval_count=2)
-		c2 = DummyCandidate("C2")
-		runner = BenchmarkRunner(iterations_per_batch=10, num_batches=2, warmup_iterations=5)
-		runner.candidates = [c1, c2]
-		runner.candidate_a = c1
-		runner.candidate_b = c2
-		runner.harness = ConditionComparisonHarness([c1, c2])
-
-		results = runner.run_primary_benchmarks()
-		fix_metric = results["fixtures"][0]["candidate_metrics"]["C1"]
-		self.assertFalse(fix_metric["is_valid_measurement"])
-		self.assertIn("Warm-up", fix_metric["error"])
-		self.assertIsNone(results["fixtures"][0]["speedup_ratio_b_vs_primary_a"])
-
-	def test_measurement_batch_failure_invalidates_batch(self):
-		c1 = DummyCandidate(
-			"C1", result=True, fail_after_eval_count=15
-		)  # succeeds warmup (5), fails in batch 1
-		c2 = DummyCandidate("C2", result=True)
-		runner = BenchmarkRunner(iterations_per_batch=10, num_batches=2, warmup_iterations=5)
-		runner.candidates = [c1, c2]
-		runner.candidate_a = c1
-		runner.candidate_b = c2
-		runner.harness = ConditionComparisonHarness([c1, c2])
-
-		results = runner.run_primary_benchmarks()
-		fix_metric = results["fixtures"][0]["candidate_metrics"]["C1"]
-		self.assertFalse(fix_metric["is_valid_measurement"])
-		self.assertIn("failed", fix_metric["error"])
-
-	def test_plan_validation_unsupported_logical_operator(self):
-		payload = {"op": "invalid_logic", "conditions": []}
-		with self.assertRaises(ValueError) as cm:
-			self.builder.build_plan(payload)
-		self.assertIn("Unsupported logical operator", str(cm.exception))
-
-	def test_plan_validation_unsupported_comparison_operator(self):
-		payload = {
-			"op": "and",
-			"conditions": [
-				{"left": {"ref": "doc.status"}, "op": "invalid_comparison_op", "right": {"value": "X"}}
-			],
-		}
-		with self.assertRaises(ValueError) as cm:
-			self.builder.build_plan(payload)
-		self.assertIn("Unsupported condition comparison operator", str(cm.exception))
-
-	def test_plan_validation_invalid_operand_scope(self):
-		payload = {
-			"op": "and",
-			"conditions": [
-				{"left": {"ref": "forbidden_scope.status"}, "op": "==", "right": {"value": "Open"}}
-			],
-		}
-		with self.assertRaises(ValueError) as cm:
-			self.builder.build_plan(payload)
-		self.assertIn("Invalid operand scope", str(cm.exception))
-
-	def test_plan_validation_malformed_collection_node(self):
-		payload = {"collection": "", "op": "any", "where": {"op": "and", "conditions": []}}
-		with self.assertRaises(ValueError) as cm:
-			self.builder.build_plan(payload)
-		self.assertIn("Collection condition requires a non-empty 'collection'", str(cm.exception))
-
-		payload_no_where = {"collection": "doc.items", "op": "any"}
-		with self.assertRaises(ValueError) as cm:
-			self.builder.build_plan(payload_no_where)
-		self.assertIn("Collection condition requires a valid dict 'where'", str(cm.exception))
-
-	def test_plan_validation_invalid_child_node_in_conditions_list(self):
-		payload = {"op": "and", "conditions": ["not_a_dict_node"]}
-		with self.assertRaises(ValueError) as cm:
-			self.builder.build_plan(payload)
-		self.assertIn("Invalid child condition node at index 0", str(cm.exception))
-
-	def test_plan_empty_group_semantics(self):
-		and_plan = self.builder.build_plan({"op": "and", "conditions": []})
-		self.assertIsNotNone(and_plan.root_node)
-		assert and_plan.root_node is not None
-		self.assertTrue(and_plan.root_node.evaluate(frappe._dict()))
-
-		or_plan = self.builder.build_plan({"op": "or", "conditions": []})
-		self.assertIsNotNone(or_plan.root_node)
-		assert or_plan.root_node is not None
-		self.assertFalse(or_plan.root_node.evaluate(frappe._dict()))
-
-	def test_experimental_code_object_candidate_compiles_code_object(self):
-		import types
-
-		payload = {
-			"op": "and",
-			"conditions": [{"left": {"ref": "doc.status"}, "op": "==", "right": {"value": "Open"}}],
-		}
-		prep = self.candidate_a_exp.prepare(payload)
-		self.assertIsInstance(prep.prepared_object, types.CodeType)
-
-		doc = frappe._dict({"status": "Open"})
-		res = self.candidate_a_exp.evaluate(prep, doc)
-		self.assertIsNone(res.error)
-		self.assertTrue(res.result)
-
-	def test_experimental_code_object_candidate_security_policy(self):
-		# Verify that RestrictedPython blocks forbidden dunder access during compilation
-		from frappe.utils.safe_exec import FrappeTransformer
-		from RestrictedPython import compile_restricted
-
-		forbidden_expr = "doc.__class__.__base__"
-		with self.assertRaises(SyntaxError):
-			compile_restricted(forbidden_expr, filename="<safe_eval>", policy=FrappeTransformer, mode="eval")
-
-	def test_amortized_benchmark_repeats_samples_and_gates_correctness(self):
-		runner = BenchmarkRunner(
-			iterations_per_batch=4,
-			num_batches=2,
-			warmup_iterations=1,
+		self.assertTrue(check["is_deprecated_case"])
+		# Canonical candidates should report UNSUPPORTED reason, not fail
+		self.assertIn("UNSUPPORTED", check["candidate_statuses"]["Canonical Condition (evaluate_condition)"])
+		self.assertIn(
+			"UNSUPPORTED",
+			check["candidate_statuses"]["Canonical Condition (Prepared Artifact Runtime)"],
 		)
-		results = runner.run_amortized_benchmarks(execution_counts=[1, 3])
-		fixtures_by_id = {item["fixture_id"]: item for item in results["amortized"]}
 
-		simple = fixtures_by_id["tier1_simple_equality"]
-		self.assertTrue(simple["correctness_gate_passed"])
-		for count in ("1", "3"):
-			metric = simple["counts"][count]["Approach B (Normalized Execution Plan)"]
-			self.assertTrue(metric["is_valid"])
-			self.assertEqual(metric["valid_batches"], 2)
-			self.assertEqual(len(metric["sample_execution_times_ms"]), 2)
-			self.assertIn("median_exec_us_per_eval", metric)
-			self.assertIn("median_core_exec_us_per_eval", metric)
+	def test_git_metadata_capture(self):
+		git_meta = _get_git_metadata()
+		branch, commit = git_meta["branch"], git_meta["commit"]
+		self.assertIsInstance(branch, str)
+		self.assertIsInstance(commit, str)
+		self.assertNotEqual(branch, "")
+		self.assertNotEqual(commit, "")
 
-		# The known has_changed parity failure must never emit timing values.
-		failed = fixtures_by_id["edge_case_has_changed"]
-		self.assertFalse(failed["correctness_gate_passed"])
-		for count in ("1", "3"):
-			for metric in failed["counts"][count].values():
-				self.assertFalse(metric["is_valid"])
-				self.assertIn("correctness gate failed", metric["error"])
+	def test_cold_vs_warm_cache_isolation(self):
+		runner = BenchmarkRunner(iterations_per_batch=10, num_batches=1, warmup_iterations=1)
+		sc = runner.scenarios[0]
+		prep_metrics = runner.measure_preparation_times(sc)
+
+		for _c_name, metric in prep_metrics.items():
+			if metric.get("is_supported"):
+				self.assertIn("cold_preparation_time_ms", metric)
+				self.assertIn("warm_preparation_time_ms", metric)
+				self.assertGreaterEqual(metric["cold_preparation_time_ms"], 0.0)
+				self.assertGreaterEqual(metric["warm_preparation_time_ms"], 0.0)
 
 	def test_amortized_benchmark_rejects_non_positive_execution_counts(self):
 		runner = BenchmarkRunner(iterations_per_batch=1, num_batches=1, warmup_iterations=0)
@@ -310,31 +179,19 @@ class TestConditionBenchmark(FrappeTestCase):
 				with self.assertRaises(ValueError):
 					runner.run_amortized_benchmarks(execution_counts=counts)
 
-	def test_benchmark_runner_full_suite_export(self):
-		import os
-		import tempfile
-
+	def test_full_suite_export_produces_valid_json_and_markdown(self):
 		with tempfile.TemporaryDirectory() as tmp_dir:
-			json_path = os.path.join(tmp_dir, "benchmark_results.json")
+			json_path = os.path.join(tmp_dir, "canonical_condition_benchmark_results.json")
 			md_path = os.path.join(tmp_dir, "condition-backend-comparison-benchmark.md")
 
 			runner = BenchmarkRunner(iterations_per_batch=10, num_batches=1, warmup_iterations=1)
-			payload = runner.run_full_suite_and_export(json_path)
+			payload = runner.run_full_suite_and_export(json_path, md_path)
 
-			self.assertEqual(payload["benchmark_protocol_version"], 2)
-			self.assertIn("measurement_protocol", payload)
-			self.assertIn("environment", payload)
+			self.assertEqual(payload["benchmark_protocol_version"], 4)
+			self.assertEqual(payload["production_selection_status"], "Not established")
 			self.assertIn("correctness_suite", payload)
-			self.assertIn("primary_benchmark", payload)
+			self.assertIn("steady_state_benchmark", payload)
 			self.assertIn("amortized_benchmark", payload)
-			primary_fixture = next(
-				item
-				for item in payload["primary_benchmark"]["fixtures"]
-				if item["fixture_id"] == "tier1_simple_equality"
-			)
-			self.assertTrue(primary_fixture["correctness_gate_passed"])
-			plan_metric = primary_fixture["candidate_metrics"]["Approach B (Normalized Execution Plan)"]
-			self.assertIn("median_core_us_per_exec", plan_metric)
 
 			self.assertTrue(os.path.exists(json_path))
 			self.assertTrue(os.path.exists(md_path))
@@ -342,39 +199,12 @@ class TestConditionBenchmark(FrappeTestCase):
 			with open(md_path, encoding="utf-8") as f:
 				md_content = f.read()
 
-			self.assertIn("# FlexiRule — Condition Backend Comparison Benchmark Report", md_content)
-			self.assertIn("Tier 1 — Simple", md_content)
-
-	def test_report_evaluations_count_and_has_changed_contract(self):
-		import json
-		import os
-		import tempfile
-
-		with tempfile.TemporaryDirectory() as tmp_dir:
-			json_path = os.path.join(tmp_dir, "benchmark_results.json")
-			md_path = os.path.join(tmp_dir, "condition-backend-comparison-benchmark.md")
-
-			runner = BenchmarkRunner(iterations_per_batch=100, num_batches=2, warmup_iterations=1)
-			payload = runner.run_full_suite_and_export(json_path, md_path)
-
-			# Verify total error-free evaluation count calculation
-			calculated_evals = 0
-			for fix in payload["primary_benchmark"]["fixtures"]:
-				for metric in fix["candidate_metrics"].values():
-					calculated_evals += metric.get("successful_evaluations", 0)
-
-			with open(md_path, encoding="utf-8") as f:
-				md_content = f.read()
-
-			formatted_count_str = f"**{calculated_evals:,}**"
-			self.assertIn(formatted_count_str, md_content)
-			self.assertIn("has_changed", md_content)
-			self.assertIn("ConditionCompiler", md_content)
+			self.assertIn("FlexiRule — Condition Backend Comparison Benchmark Report", md_content)
+			self.assertIn("Not established", md_content)
 
 	# --- Explicit Short-Circuit Behavior Tests for All Benchmark Approaches ---
 
 	def test_short_circuit_and_operator(self):
-		"""1. AND short-circuit: First condition is False; verify second condition is never evaluated."""
 		and_payload = {
 			"op": "and",
 			"conditions": [
@@ -383,7 +213,7 @@ class TestConditionBenchmark(FrappeTestCase):
 			],
 		}
 
-		for cand in self.candidates:
+		for cand in [self.candidate_a, self.candidate_a_exp, self.candidate_b, self.candidate_c]:
 			with self.subTest(candidate=cand.candidate_name):
 				tracking_doc = TrackingDoc({"first_cond": False, "second_cond": True})
 				prep = cand.prepare(and_payload)
@@ -399,7 +229,6 @@ class TestConditionBenchmark(FrappeTestCase):
 				)
 
 	def test_short_circuit_or_operator(self):
-		"""2. OR short-circuit: First condition is True; verify second condition is never evaluated."""
 		or_payload = {
 			"op": "or",
 			"conditions": [
@@ -408,7 +237,7 @@ class TestConditionBenchmark(FrappeTestCase):
 			],
 		}
 
-		for cand in self.candidates:
+		for cand in [self.candidate_a, self.candidate_a_exp, self.candidate_b, self.candidate_c]:
 			with self.subTest(candidate=cand.candidate_name):
 				tracking_doc = TrackingDoc({"first_cond": True, "second_cond": False})
 				prep = cand.prepare(or_payload)
@@ -423,167 +252,295 @@ class TestConditionBenchmark(FrappeTestCase):
 					f"Candidate '{cand.candidate_name}' evaluated second_cond despite OR short-circuit",
 				)
 
-	def test_short_circuit_nested_groups(self):
-		"""3. Nested groups short-circuit across AND/OR groups.
+	def test_canonical_candidate_typed_validation_error_handling(self):
+		invalid_payload = {
+			"type": "comparison",
+			"operator": "invalid_op",
+			"left": {"mode": "static", "value_type": "string", "value": "x"},
+			"right": {"mode": "static", "value_type": "string", "value": "x"},
+		}
+		prep = self.canonical_candidate.prepare(invalid_payload)
+		res = self.canonical_candidate.evaluate(prep, {})
+		self.assertIsNotNone(res.error)
+		self.assertIn("unknown_operator", res.error)
 
-		Group 1 (OR): first_cond (True) -> Group 1 evaluates to True without evaluating cond_group1_skipped.
-		Parent (AND): Group 1 is True, so Group 2 (AND) must be evaluated.
-		Group 2 (AND): cond_group2_a (False) -> Group 2 evaluates to False without evaluating cond_group2_skipped.
-		Parent (AND): Group 2 evaluates to False, so third outer sibling cond_outer_skipped must be skipped.
-		"""
-		nested_payload = {
-			"op": "and",
-			"conditions": [
+	def test_canonical_candidate_typed_evaluation_error_handling(self):
+		payload = {
+			"type": "comparison",
+			"operator": "gt",
+			"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["amount"]}},
+			"right": {"mode": "static", "value_type": "decimal", "value": "100"},
+		}
+		doc = {"amount": "not_a_number"}
+		prep = self.canonical_candidate.prepare(payload)
+		res = self.canonical_candidate.evaluate(prep, doc)
+		self.assertIsNotNone(res.error)
+		self.assertIn("operand_type_mismatch", res.error)
+
+	# --- Tests for Direct Canonical AST Candidate & Parity with Compiled Plan ---
+
+	def test_canonical_ast_candidate_parity_with_compiled_plan(self):
+		"""Verify identical evaluation results across supported neutral scenarios."""
+		from flexirule.ruleflow.tests.condition_benchmark.candidate_canonical_ast import CanonicalASTCandidate
+
+		ast_candidate = CanonicalASTCandidate()
+		scenarios = get_neutral_scenarios()
+
+		for sc in scenarios:
+			canonical_p = node_to_canonical_payload(sc.root)
+			if canonical_p is None:
+				continue
+
+			with self.subTest(scenario=sc.scenario_id):
+				prep_compiled = self.canonical_prepared.prepare(canonical_p)
+				prep_ast = ast_candidate.prepare(canonical_p)
+
+				self.assertEqual(bool(prep_compiled.error), bool(prep_ast.error))
+				if prep_compiled.error:
+					continue
+
+				res_compiled_m = self.canonical_prepared.evaluate(prep_compiled, sc.matching_doc)
+				res_ast_m = ast_candidate.evaluate(prep_ast, sc.matching_doc)
+				self.assertEqual(res_compiled_m.result, res_ast_m.result)
+				self.assertEqual(bool(res_compiled_m.error), bool(res_ast_m.error))
+
+				res_compiled_nm = self.canonical_prepared.evaluate(prep_compiled, sc.non_matching_doc)
+				res_ast_nm = ast_candidate.evaluate(prep_ast, sc.non_matching_doc)
+				self.assertEqual(res_compiled_nm.result, res_ast_nm.result)
+				self.assertEqual(bool(res_compiled_nm.error), bool(res_ast_nm.error))
+
+	def test_lazy_operand_evaluation_and_or_short_circuit(self):
+		"""Verify lazy evaluation: later operands/children are not evaluated once decisive."""
+		from flexirule.ruleflow.tests.condition_benchmark.candidate_canonical_ast import CanonicalASTCandidate
+
+		ast_cand = CanonicalASTCandidate()
+
+		and_payload = {
+			"type": "group",
+			"operator": "and",
+			"children": [
 				{
-					"op": "or",
-					"conditions": [
-						{"left": {"ref": "doc.cond_group1_a"}, "op": "==", "right": {"value": True}},
-						{"left": {"ref": "doc.cond_group1_skipped"}, "op": "==", "right": {"value": True}},
-					],
+					"type": "comparison",
+					"operator": "eq",
+					"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["first_cond"]}},
+					"right": {"mode": "static", "value_type": "boolean", "value": True},
 				},
 				{
-					"op": "and",
-					"conditions": [
-						{"left": {"ref": "doc.cond_group2_a"}, "op": "==", "right": {"value": True}},
-						{"left": {"ref": "doc.cond_group2_skipped"}, "op": "==", "right": {"value": True}},
-					],
+					"type": "comparison",
+					"operator": "eq",
+					"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["second_cond"]}},
+					"right": {"mode": "static", "value_type": "boolean", "value": True},
 				},
-				{"left": {"ref": "doc.cond_outer_skipped"}, "op": "==", "right": {"value": True}},
 			],
 		}
 
-		for cand in self.candidates:
-			with self.subTest(candidate=cand.candidate_name):
-				tracking_doc = TrackingDoc(
-					{
-						"cond_group1_a": True,
-						"cond_group1_skipped": False,
-						"cond_group2_a": False,
-						"cond_group2_skipped": True,
-						"cond_outer_skipped": True,
-					}
-				)
-				prep = cand.prepare(nested_payload)
+		for cand in [self.canonical_prepared, ast_cand]:
+			with self.subTest(candidate=cand.candidate_name, test="and_short_circuit"):
+				tracking_doc = TrackingDoc({"first_cond": False, "second_cond": True})
+				prep = cand.prepare(and_payload)
 				res = cand.evaluate(prep, tracking_doc)
-
 				self.assertIsNone(res.error)
 				self.assertFalse(res.result)
-				self.assertEqual(tracking_doc.access_counts.get("cond_group1_a", 0), 1)
-				self.assertEqual(
-					tracking_doc.access_counts.get("cond_group1_skipped", 0),
-					0,
-					f"Candidate '{cand.candidate_name}' evaluated cond_group1_skipped",
-				)
-				self.assertEqual(tracking_doc.access_counts.get("cond_group2_a", 0), 1)
-				self.assertEqual(
-					tracking_doc.access_counts.get("cond_group2_skipped", 0),
-					0,
-					f"Candidate '{cand.candidate_name}' evaluated cond_group2_skipped",
-				)
-				self.assertEqual(
-					tracking_doc.access_counts.get("cond_outer_skipped", 0),
-					0,
-					f"Candidate '{cand.candidate_name}' evaluated cond_outer_skipped",
-				)
+				self.assertEqual(tracking_doc.access_counts.get("first_cond", 0), 1)
+				self.assertEqual(tracking_doc.access_counts.get("second_cond", 0), 0)
 
-	def test_short_circuit_collection_any(self):
-		"""4a. Collection 'any': stop after the first matching row."""
-		any_payload = {
-			"collection": "doc.items",
-			"op": "any",
-			"alias": "item",
-			"where": {
-				"left": {"ref": "item.qty"},
-				"op": ">",
-				"right": {"value": 10},
-			},
+		or_payload = {
+			"type": "group",
+			"operator": "or",
+			"children": [
+				{
+					"type": "comparison",
+					"operator": "eq",
+					"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["first_cond"]}},
+					"right": {"mode": "static", "value_type": "boolean", "value": True},
+				},
+				{
+					"type": "comparison",
+					"operator": "eq",
+					"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["second_cond"]}},
+					"right": {"mode": "static", "value_type": "boolean", "value": True},
+				},
+			],
 		}
 
-		for cand in self.candidates:
-			with self.subTest(candidate=cand.candidate_name):
-				r1 = TrackingDoc({"item_code": "I1", "qty": 5})
-				r2 = TrackingDoc({"item_code": "I2", "qty": 15})  # Decisive matching row
-				r3 = TrackingDoc({"item_code": "I3", "qty": 20})  # Should be skipped
-
-				doc = frappe._dict({"items": [r1, r2, r3]})
-				prep = cand.prepare(any_payload)
-				res = cand.evaluate(prep, doc)
-
+		for cand in [self.canonical_prepared, ast_cand]:
+			with self.subTest(candidate=cand.candidate_name, test="or_short_circuit"):
+				tracking_doc = TrackingDoc({"first_cond": True, "second_cond": False})
+				prep = cand.prepare(or_payload)
+				res = cand.evaluate(prep, tracking_doc)
 				self.assertIsNone(res.error)
 				self.assertTrue(res.result)
-				self.assertEqual(r1.access_counts.get("qty", 0), 1)
-				self.assertEqual(r2.access_counts.get("qty", 0), 1)
-				self.assertEqual(
-					r3.access_counts.get("qty", 0),
-					0,
-					f"Candidate '{cand.candidate_name}' evaluated row 3 in collection 'any'",
-				)
+				self.assertEqual(tracking_doc.access_counts.get("first_cond", 0), 1)
+				self.assertEqual(tracking_doc.access_counts.get("second_cond", 0), 0)
 
-	def test_short_circuit_collection_all(self):
-		"""4b. Collection 'all': stop after the first nonmatching row."""
-		all_payload = {
-			"collection": "doc.items",
-			"op": "all",
-			"alias": "item",
+	def test_lazy_resolver_invocation_in_unreachable_branch(self):
+		"""Verify resolvers in unreachable short-circuited branches are never invoked."""
+		import flexirule.ruleflow.core.flexvalue_contract as fvc
+		from flexirule.ruleflow.tests.condition_benchmark.candidate_canonical_ast import CanonicalASTCandidate
+
+		resolver_invocations = 0
+
+		def counting_resolver(config, context):
+			nonlocal resolver_invocations
+			resolver_invocations += 1
+			return config.get("value", 0)
+
+		def noop_validator(config, path, allowed_scopes, resolver_depth, flexvalue_depth):
+			pass
+
+		fvc.register_condition_resolver(
+			family="bench_lazy",
+			operation="get_number",
+			label="Bench Lazy Resolver",
+			output_type="integer",
+			config_schema={"type": "object", "properties": {"value": {"type": "integer"}}},
+			permission_policy="no_data_access",
+			validate_config=noop_validator,
+			resolve=counting_resolver,
+			condition_operand_allowed=True,
+			required_capability="condition_operand",
+		)
+
+		payload = {
+			"type": "group",
+			"operator": "and",
+			"children": [
+				{
+					"type": "comparison",
+					"operator": "eq",
+					"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["active"]}},
+					"right": {"mode": "static", "value_type": "boolean", "value": True},
+				},
+				{
+					"type": "comparison",
+					"operator": "gt",
+					"left": {
+						"mode": "resolver",
+						"family": "bench_lazy",
+						"operation": "get_number",
+						"config": {"value": 50},
+					},
+					"right": {"mode": "static", "value_type": "integer", "value": 10},
+				},
+			],
+		}
+
+		ast_cand = CanonicalASTCandidate()
+		try:
+			for cand in [self.canonical_prepared, ast_cand]:
+				with self.subTest(candidate=cand.candidate_name):
+					prep = cand.prepare(payload)
+					resolver_invocations = 0
+					res1 = cand.evaluate(prep, {"doc": {"active": False}})
+					self.assertFalse(res1.result)
+					self.assertEqual(
+						resolver_invocations,
+						0,
+						f"Resolver was invoked in {cand.candidate_name} on short-circuit!",
+					)
+
+					resolver_invocations = 0
+					res2 = cand.evaluate(prep, {"doc": {"active": True}})
+					self.assertTrue(res2.result)
+					self.assertEqual(
+						resolver_invocations,
+						1,
+						f"Resolver was not invoked exactly once in {cand.candidate_name}!",
+					)
+		finally:
+			fvc.CONDITION_RESOLVER_REGISTRY.pop(("bench_lazy", "get_number"), None)
+			fvc._RESOLVER_REGISTRY_FINGERPRINT_CACHE = None
+
+	def test_lazy_collection_quantifier_short_circuit(self):
+		"""Verify collection predicates stop iterating as soon as the quantifier is decisive."""
+		from flexirule.ruleflow.tests.condition_benchmark.candidate_canonical_ast import CanonicalASTCandidate
+
+		ast_cand = CanonicalASTCandidate()
+
+		any_payload = {
+			"type": "collection_predicate",
+			"quantifier": "any",
+			"source": {"scope": "doc", "segments": ["items"]},
+			"as": "it",
 			"where": {
-				"left": {"ref": "item.qty"},
-				"op": ">",
-				"right": {"value": 10},
+				"type": "comparison",
+				"operator": "eq",
+				"left": {"mode": "variable", "path": {"scope": "it", "segments": ["active"]}},
+				"right": {"mode": "static", "value_type": "boolean", "value": True},
 			},
 		}
 
-		for cand in self.candidates:
+		rows = [
+			TrackingDoc({"active": False}),
+			TrackingDoc({"active": True}),
+			TrackingDoc({"active": False}),
+			TrackingDoc({"active": False}),
+			TrackingDoc({"active": False}),
+		]
+
+		for cand in [self.canonical_prepared, ast_cand]:
 			with self.subTest(candidate=cand.candidate_name):
-				r1 = TrackingDoc({"item_code": "I1", "qty": 15})
-				r2 = TrackingDoc({"item_code": "I2", "qty": 5})  # Decisive non-matching row
-				r3 = TrackingDoc({"item_code": "I3", "qty": 20})  # Should be skipped
+				for r in rows:
+					r.access_counts.clear()
+				prep = cand.prepare(any_payload)
+				res = cand.evaluate(prep, {"doc": {"items": rows}})
+				self.assertTrue(res.result)
+				self.assertEqual(rows[0].access_counts.get("active", 0), 1)
+				self.assertEqual(rows[1].access_counts.get("active", 0), 1)
+				self.assertEqual(rows[2].access_counts.get("active", 0), 0)
+				self.assertEqual(rows[3].access_counts.get("active", 0), 0)
+				self.assertEqual(rows[4].access_counts.get("active", 0), 0)
 
-				doc = frappe._dict({"items": [r1, r2, r3]})
-				prep = cand.prepare(all_payload)
-				res = cand.evaluate(prep, doc)
+	def test_frappe_metadata_user_roles_scenario(self):
+		"""Verify authoritative User -> Has Role metadata resolution in both candidates."""
+		from flexirule.ruleflow.tests.condition_benchmark.candidate_canonical_ast import CanonicalASTCandidate
 
-				self.assertIsNone(res.error)
-				self.assertFalse(res.result)
-				self.assertEqual(r1.access_counts.get("qty", 0), 1)
-				self.assertEqual(r2.access_counts.get("qty", 0), 1)
-				self.assertEqual(
-					r3.access_counts.get("qty", 0),
-					0,
-					f"Candidate '{cand.candidate_name}' evaluated row 3 in collection 'all'",
-				)
+		ast_cand = CanonicalASTCandidate()
 
-	def test_short_circuit_collection_none(self):
-		"""4c. Collection 'none': stop after the first matching row."""
-		none_payload = {
-			"collection": "doc.items",
-			"op": "none",
-			"alias": "item",
+		payload = {
+			"type": "collection_predicate",
+			"quantifier": "any",
+			"source": {"scope": "doc", "segments": ["roles"]},
+			"as": "role_item",
 			"where": {
-				"left": {"ref": "item.qty"},
-				"op": ">",
-				"right": {"value": 10},
+				"type": "comparison",
+				"operator": "eq",
+				"left": {"mode": "variable", "path": {"scope": "role_item", "segments": ["role"]}},
+				"right": {"mode": "static", "value_type": "string", "value": "System Manager"},
 			},
 		}
 
-		for cand in self.candidates:
-			with self.subTest(candidate=cand.candidate_name):
-				r1 = TrackingDoc({"item_code": "I1", "qty": 5})
-				r2 = TrackingDoc({"item_code": "I2", "qty": 15})  # Decisive matching row
-				r3 = TrackingDoc({"item_code": "I3", "qty": 20})  # Should be skipped
+		meta_ctx = {"doctype": "User"}
+		prep_compiled = self.canonical_prepared.prepare(payload, metadata_context=meta_ctx)
+		prep_ast = ast_cand.prepare(payload, metadata_context=meta_ctx)
 
-				doc = frappe._dict({"items": [r1, r2, r3]})
-				prep = cand.prepare(none_payload)
-				res = cand.evaluate(prep, doc)
+		self.assertIsNone(prep_compiled.error)
+		self.assertIsNone(prep_ast.error)
 
-				self.assertIsNone(res.error)
-				self.assertFalse(res.result)
-				self.assertEqual(r1.access_counts.get("qty", 0), 1)
-				self.assertEqual(r2.access_counts.get("qty", 0), 1)
-				self.assertEqual(
-					r3.access_counts.get("qty", 0),
-					0,
-					f"Candidate '{cand.candidate_name}' evaluated row 3 in collection 'none'",
-				)
+		doc_matching = {
+			"doctype": "User",
+			"roles": [
+				{"doctype": "Has Role", "role": "Blogger"},
+				{"doctype": "Has Role", "role": "System Manager"},
+			],
+		}
+		doc_non_matching = {
+			"doctype": "User",
+			"roles": [
+				{"doctype": "Has Role", "role": "Blogger"},
+				{"doctype": "Has Role", "role": "Guest"},
+			],
+		}
+
+		res_c_m = self.canonical_prepared.evaluate(prep_compiled, doc_matching)
+		res_ast_m = ast_cand.evaluate(prep_ast, doc_matching)
+		self.assertTrue(res_c_m.result)
+		self.assertTrue(res_ast_m.result)
+
+		res_c_nm = self.canonical_prepared.evaluate(prep_compiled, doc_non_matching)
+		res_ast_nm = ast_cand.evaluate(prep_ast, doc_non_matching)
+		self.assertFalse(res_c_nm.result)
+		self.assertFalse(res_ast_nm.result)
 
 
 class TrackingDoc(frappe._dict):

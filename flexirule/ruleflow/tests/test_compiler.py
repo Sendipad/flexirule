@@ -276,8 +276,10 @@ class TestConditionCompiler(FrappeTestCase):
 
 	def test_compile_malformed_json_raises_value_error(self):
 		"""Test compiling malformed JSON condition tree raises ValueError."""
+		from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
 		malformed_json = '{"op": "and", "conditions": ['
-		with self.assertRaises(ValueError):
+		with self.assertRaises((ValueError, ConditionValidationError)):
 			self.compiler.compile(malformed_json)
 
 	def test_compile_valid_raw_expression_string(self):
@@ -303,5 +305,7 @@ class TestConditionCompiler(FrappeTestCase):
 
 	def test_compile_unsupported_type_raises_value_error(self):
 		"""Test compiling non-dict/non-list/non-string object raises ValueError."""
-		with self.assertRaises(ValueError):
+		from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
+		with self.assertRaises((ValueError, ConditionValidationError)):
 			self.compiler.compile(123)

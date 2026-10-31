@@ -1,6 +1,7 @@
 # Copyright (c) 2026, FlexiRule and contributors
 # For license information, please see license.txt
 
+import copy
 import json
 from functools import lru_cache
 from typing import Any
@@ -75,22 +76,52 @@ class AssignmentHandler(ActionHandler):
 		plan = get_action_plan(engine.rule, action)
 		assignments = plan.get("rows")
 		if not isinstance(assignments, list):
-			config_key = self._to_config_cache_key(getattr(action, "config", "[]") or "[]")
 			try:
+				config_key = self._to_config_cache_key(getattr(action, "config", None))
 				assignments = list(self._get_compiled_plan(config_key))
-			except Exception:
+			except Exception as exc:
+				from flexirule.ruleflow.core.condition_errors import ConditionError
+
+				if isinstance(exc, ConditionError):
+					engine._log(
+						"ERROR",
+						_("Assignment guard is invalid [{0} at {1}]").format(exc.code, exc.path),
+					)
+					raise
 				engine._log("ERROR", _("Assignment action config is not valid JSON"))
 				raise MethodExecutionError(_("Assignment action config is not valid JSON array"))
 
 		event_name = context.get("event_name")
+		doctype = getattr(getattr(engine, "rule", None), "document_type", None)
+		if not doctype and isinstance(context, dict):
+			doc_obj = context.get("doc")
+			doctype = getattr(doc_obj, "doctype", None) or (
+				doc_obj.get("doctype") if isinstance(doc_obj, dict) else None
+			)
+
+		# ==========================================
+		# Phase A: Preflight Invariant Validation
+		# ==========================================
+		# Validate every row's canonical guard against authoritative DocType metadata,
+		# system paths, event restrictions, and prepare guards before ANY row mutates document state.
+		prepared_rows: list[dict[str, Any]] = []
+		action_key = str(getattr(action, "name", None) or getattr(action, "action_id", None) or id(action))
+		prepare_guard = getattr(engine, "_get_prepared_condition_for_payload", None)
+
+		from flexirule.ruleflow.core.condition_evaluator import (
+			compile_condition,
+			evaluate_condition,
+			evaluate_prepared_condition,
+		)
 
 		for idx, assignment in enumerate(assignments):
 			target_path = assignment.get("target")
 			operator_key = assignment.get("operator", "set")
-			when_expression = assignment.get("when_expression") or ""
+			canonical_guard = assignment.get("when_condition_canonical")
 
 			if not target_path:
 				engine._log("WARNING", _("Assignment index {0} missing target path, skipping").format(idx))
+				prepared_rows.append({"skip": True})
 				continue
 
 			# 1. System path protection
@@ -99,66 +130,189 @@ class AssignmentHandler(ActionHandler):
 			# 2. Event restriction check
 			self._validate_event_restrictions(target_path, event_name)
 
-			# 2.5 Optional row-level execution guard
-			if when_expression and not engine._evaluate_python_condition(when_expression, context):
+			# 3. Validate guard against DocType metadata and prepare execution plan
+			prepared_guard = None
+			if canonical_guard is not None:
+				if callable(prepare_guard):
+					prepared_guard = prepare_guard(
+						("assignment_guard", action_key, idx), canonical_guard, doctype
+					)
+				else:
+					# Compile/validate against authoritative DocType metadata upfront
+					compile_condition(canonical_guard, doctype=doctype)
+
+			# 4. Validate operator exists
+			op_instance = AssignmentOperatorRegistry.get(operator_key)
+
+			prepared_rows.append(
+				{
+					"skip": False,
+					"idx": idx,
+					"assignment": assignment,
+					"target_path": target_path,
+					"operator": op_instance,
+					"canonical_guard": canonical_guard,
+					"prepared_guard": prepared_guard,
+				}
+			)
+
+		# ==========================================
+		# Phase B: Staged Working-Copy Execution
+		# ==========================================
+		# Simulate assignments sequentially against a working copy of doc/vars,
+		# preserving inter-row dependencies while ensuring that any resolver or operator
+		# failure in a later row discards all staged changes before the real doc is touched.
+		real_doc = context.get("doc")
+		staged_doc = copy.deepcopy(real_doc) if real_doc is not None else None
+		staged_vars = copy.deepcopy(context.get("vars", {}))
+
+		staged_context = dict(context)
+		if staged_doc is not None:
+			staged_context["doc"] = staged_doc
+		staged_context["vars"] = staged_vars
+
+		applied_mutations: list[tuple[str, Any]] = []
+
+		for item in prepared_rows:
+			if item.get("skip"):
 				continue
 
-			# 3. Get operator
-			operator = AssignmentOperatorRegistry.get(operator_key)
+			assignment = item["assignment"]
+			target_path = item["target_path"]
+			op = item["operator"]
+			canonical_guard = item["canonical_guard"]
+			prepared_guard = item["prepared_guard"]
+			idx = item["idx"]
 
-			# Fetch current value for apply
-			current_value = self._get_current_value(target_path, context)
+			# Check row guard against staged context
+			if canonical_guard is not None:
+				if prepared_guard is not None:
+					matches = evaluate_prepared_condition(prepared_guard, staged_context, doctype=doctype)
+				else:
+					matches = evaluate_condition(canonical_guard, staged_context, doctype=doctype)
+				if not matches:
+					continue
 
-			# 4. Evaluate value if required
+			# Fetch current value from staged context
+			current_value = self._get_current_value(target_path, staged_context)
+
+			# Evaluate value against staged context if required
 			operand_value = None
-			if operator.metadata.get("requires_value"):
-				# Inject current value so the format/normalization helper can access it
-				context_copy = dict(context)
+			if op.metadata.get("requires_value"):
+				context_copy = dict(staged_context)
 				context_copy["value"] = current_value
 
-				# Compile and resolve using the unified ValueResolver!
 				from flexirule.ruleflow.core.value_resolver import get_compiled_resolver
 
 				resolver = get_compiled_resolver(action, f"assign_{idx}", assignment.get("value"))
 				operand_value = resolver.resolve(context_copy)
 
-			# 6. Optional: Validate Target Type (deferred for runtime, but operator can check if needed)
-			# (In a real implementation, we'd fetch the Frappe metadata for doc.* fields here)
-			# operator.validate(target_type, operand_value)
+			# Apply operation to staged value
+			new_value = op.apply(current_value, operand_value, staged_context)
 
-			# 7. Apply operation
-			new_value = operator.apply(current_value, operand_value, context)
+			# Commit to staged context so subsequent rows see updated values
+			self._set_value(target_path, new_value, staged_context, engine)
+			applied_mutations.append((target_path, new_value))
 
-			# 8. Commit to context via ContextManager or directly
+		# ==========================================
+		# Phase C: Atomic Commit to Real Document
+		# ==========================================
+		# Only reached when every row has evaluated and resolved without error.
+		for target_path, new_value in applied_mutations:
 			self._set_value(target_path, new_value, context, engine)
 
 		return None, getattr(action, "next_step_if_true", None)
 
 	def _to_config_cache_key(self, config) -> str:
+		from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
+		max_bytes = 2_000_000
 		if isinstance(config, str):
-			return config
-		try:
-			return json.dumps(config)
-		except Exception:
-			return "[]"
+			config_key = config
+		else:
+			try:
+				config_key = json.dumps(
+					config, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
+				)
+			except (TypeError, ValueError, RecursionError) as exc:
+				raise ConditionValidationError(
+					"invalid_assignment_config",
+					"$",
+					"Assignment config must be a finite JSON value",
+				) from exc
+
+		if len(config_key.encode("utf-8")) > max_bytes:
+			raise ConditionValidationError(
+				"assignment_config_too_large",
+				"$",
+				"Assignment config exceeds the configured byte limit",
+			)
+		return config_key
 
 	@staticmethod
-	@lru_cache(maxsize=1024)
 	def _get_compiled_plan(config_key: str) -> tuple[dict[str, Any], ...]:
+		"""Compile assignment rows strictly; large configs bypass the process LRU."""
+		from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
+		if not isinstance(config_key, str):
+			raise ConditionValidationError(
+				"invalid_assignment_config", "$", "Assignment config must be a JSON string"
+			)
+		if len(config_key.encode("utf-8")) > 2_000_000:
+			raise ConditionValidationError(
+				"assignment_config_too_large", "$", "Assignment config exceeds the configured byte limit"
+			)
+		if len(config_key.encode("utf-8")) <= 65_536:
+			cached_plan = AssignmentHandler._get_compiled_plan_cached(config_key)
+			# The cache owns its immutable-by-convention plan; callers receive copies.
+			return tuple(copy.deepcopy(row) for row in cached_plan)
+		return AssignmentHandler._compile_plan(config_key)
+
+	@staticmethod
+	@lru_cache(maxsize=256)
+	def _get_compiled_plan_cached(config_key: str) -> tuple[dict[str, Any], ...]:
+		return AssignmentHandler._compile_plan(config_key)
+
+	@staticmethod
+	def _compile_plan(config_key: str) -> tuple[dict[str, Any], ...]:
+		from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
 		try:
-			rows = json.loads(config_key or "[]")
-		except Exception:
-			rows = []
+			rows = json.loads(config_key)
+		except (TypeError, ValueError, json.JSONDecodeError, RecursionError) as exc:
+			raise ConditionValidationError(
+				"invalid_assignment_json", "$", "Assignment config contains malformed JSON"
+			) from exc
 		if not isinstance(rows, list):
-			rows = []
+			raise ConditionValidationError(
+				"assignment_config_not_list", "$", "Assignment config must be a JSON array"
+			)
 
 		compiled_rows: list[dict[str, Any]] = []
-		for row in rows:
+		for index, row in enumerate(rows):
 			if not isinstance(row, dict):
-				continue
+				raise ConditionValidationError(
+					"invalid_assignment_row",
+					f"assignments[{index}]",
+					"Each assignment must be a JSON object",
+				)
 			compiled = dict(row)
-			# Canonicalize operand payload for unified runtime evaluation
-			# (legacy rows may store structured payload under value_template_ui/value_template_json).
+
+			if "when_condition_canonical" in row:
+				raise ConditionValidationError(
+					"unsupported_assignment_guard",
+					f"assignments[{index}]",
+					"Internal field when_condition_canonical cannot be supplied in configuration",
+				)
+
+			legacy_guard_keys = ("pythonExpression", "when_expression", "when")
+			if any(key in compiled for key in legacy_guard_keys):
+				raise ConditionValidationError(
+					"unsupported_assignment_guard",
+					f"assignments[{index}]",
+					"Legacy guard expression fields are not supported in Assignment actions",
+				)
+
 			if compiled.get("value") is None:
 				if compiled.get("value_template_ui") is not None:
 					compiled["value"] = compiled.get("value_template_ui")
@@ -166,31 +320,25 @@ class AssignmentHandler(ActionHandler):
 					compiled["value"] = compiled.get("value_template_json")
 				elif compiled.get("value_template") is not None:
 					compiled["value"] = compiled.get("value_template")
-			compiled["when_expression"] = AssignmentHandler._compile_when_expression(compiled)
+
+			from flexirule.ruleflow.core.condition_contract import validate_condition_node
+			from flexirule.ruleflow.core.condition_payload import detect_canonical_condition_payload
+
+			raw_guard = compiled.get("when_condition")
+			if raw_guard not in (None, ""):
+				is_canonical, canonical_guard = detect_canonical_condition_payload(raw_guard)
+				if not is_canonical or canonical_guard is None:
+					raise ConditionValidationError(
+						"unsupported_assignment_guard",
+						f"assignments[{index}].when_condition",
+						"Assignment action guards must be canonical direct nodes",
+					)
+				validate_condition_node(canonical_guard)
+				compiled["when_condition_canonical"] = canonical_guard
+
 			compiled_rows.append(compiled)
 
 		return tuple(compiled_rows)
-
-	@classmethod
-	def _compile_when_expression(cls, row: dict) -> str:
-		python_expr = row.get("pythonExpression")
-		if python_expr:
-			return python_expr
-
-		when_expression = (row.get("when_expression") or row.get("when") or "").strip()
-		if when_expression:
-			return when_expression
-
-		when_condition = row.get("when_condition")
-		if isinstance(when_condition, dict | list):
-			try:
-				from flexirule.ruleflow.core.compiler import ConditionCompiler
-
-				return ConditionCompiler().compile(when_condition) or ""
-			except Exception:
-				return ""
-
-		return ""
 
 	@staticmethod
 	def _compile_structured_value_to_jinja(val: dict) -> str:

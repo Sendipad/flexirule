@@ -35,6 +35,7 @@ jobs:
     outputs:
       frontend: ${{ github.event_name == 'workflow_dispatch' && 'true' || steps.filter.outputs.frontend }}
       backend: ${{ github.event_name == 'workflow_dispatch' && 'true' || steps.filter.outputs.backend }}
+      condition_runtime: ${{ github.event_name == 'workflow_dispatch' && 'true' || steps.filter.outputs.condition_runtime }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -69,6 +70,16 @@ jobs:
               - 'package.json'
               - 'package-lock.json'
               - 'yarn.lock'
+            condition_runtime:
+              - 'flexirule/ruleflow/core/condition_*.py'
+              - 'flexirule/ruleflow/core/flexvalue_contract.py'
+              - 'flexirule/ruleflow/core/value_resolver.py'
+              - 'flexirule/ruleflow/core/action_handlers/condition.py'
+              - 'flexirule/ruleflow/core/action_handlers/assignment.py'
+              - 'flexirule/ruleflow/core/engine.py'
+              - 'flexirule/ruleflow/tests/test_canonical_condition_evaluator.py'
+              - 'flexirule/ruleflow/tests/condition_benchmark/**'
+              - '.github/workflows/ci.yml'
 
   build:
     needs: changes
@@ -167,6 +178,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Prepare CI diagnostic directories
+        run: |
+          rm -rf /tmp/flexirule-ci-reports
+          mkdir -p /tmp/flexirule-ci-reports/test-results /tmp/flexirule-ci-reports/condition-runtime
+
       - name: Checkout Frappe 15 source
         uses: actions/checkout@v4
         with:
@@ -186,6 +202,12 @@ jobs:
             pyproject.toml
             frappe-src/pyproject.toml
 
+      - name: Test CI report failure diagnostics
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/artifacts/ci-reports"
+          python -B "$GITHUB_WORKSPACE/.github/test_summarize_ci_reports.py" 2>&1 \
+            | tee "$GITHUB_WORKSPACE/artifacts/ci-reports/report-self-test.log"
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -201,6 +223,8 @@ jobs:
           else
             echo "MariaDB client is already available; skipping package installation."
           fi
+          sudo mkdir -p /etc/mysql/conf.d
+          echo -e "[client]\nskip-ssl" | sudo tee /etc/mysql/conf.d/disable-ssl.cnf
 
       - name: Ensure Frappe uses the non-TLS MariaDB client
         run: |
@@ -258,21 +282,88 @@ jobs:
           PY
 
       - name: Migrate test site
+        id: migrate_test_site
         working-directory: /home/runner/frappe-bench
         run: bench --site test_site migrate
         env:
           TYPE: server
 
-      - name: Run tests
+      - name: Run tests (capture JUnit XML and full log)
+        id: run_tests
         working-directory: /home/runner/frappe-bench
         run: |
+          set -euo pipefail
           bench --site test_site set-config allow_tests true
-          # FlexiRule's tests are distributed across feature packages rather
-          # than a single flexirule.tests package; use Frappe's serial app runner.
-          bench --site test_site run-tests --app flexirule
+          # Keep the original test exit code while report generation continues.
+          set +e
+          bench --site test_site run-tests --app flexirule \
+            --junit-xml-output /tmp/flexirule-ci-reports/test-results/server-tests.xml \
+            2>&1 | tee /tmp/flexirule-ci-reports/test-results/server-tests.log
+          test_exit_code=${PIPESTATUS[0]}
+          set -e
+          printf '%s\n' "$test_exit_code" > /tmp/flexirule-ci-reports/test-results/server-tests.exitcode
+          echo "exit_code=$test_exit_code" >> "$GITHUB_OUTPUT"
         env:
           TYPE: server
 
+
+      - name: Run condition runtime benchmark
+        id: condition_benchmark
+        if: ${{ !cancelled() && needs.changes.outputs.condition_runtime == 'true' && steps.migrate_test_site.outcome == 'success' }}
+        working-directory: ${{ github.workspace }}
+        env:
+          CI: "Yes"
+          FRAPPE_SITE_NAME: test_site
+          FRAPPE_BENCH_PATH: /home/runner/frappe-bench
+          CONDITION_BENCHMARK_JSON_PATH: /tmp/flexirule-ci-reports/condition-runtime/canonical_condition_benchmark_results.json
+          CONDITION_BENCHMARK_MARKDOWN_PATH: /tmp/flexirule-ci-reports/condition-runtime/condition-backend-comparison-benchmark.md
+          CONDITION_BENCHMARK_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          set +e
+          /home/runner/frappe-bench/env/bin/python \
+            "$GITHUB_WORKSPACE/flexirule/ruleflow/tests/condition_benchmark/benchmark_runner.py" \
+            2>&1 | tee /tmp/flexirule-ci-reports/condition-runtime/benchmark.log
+          benchmark_exit_code=${PIPESTATUS[0]}
+          set -e
+          printf '%s\n' "$benchmark_exit_code" > /tmp/flexirule-ci-reports/condition-runtime/benchmark.exitcode
+          # Defer failure to the final gate so the log and any generated reports upload first.
+
+      - name: Summarize backend tests and condition benchmark
+        id: summarize_reports
+        if: always()
+        env:
+          CONDITION_RUNTIME_ENABLED: ${{ needs.changes.outputs.condition_runtime }}
+          TEST_STEP_OUTCOME: ${{ steps.run_tests.outcome }}
+          BENCHMARK_STEP_OUTCOME: ${{ steps.condition_benchmark.outcome }}
+          MIGRATE_STEP_OUTCOME: ${{ steps.migrate_test_site.outcome }}
+          EXPECTED_BENCHMARK_COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/artifacts/ci-reports"
+          if [ -d /tmp/flexirule-ci-reports ]; then
+            cp -a /tmp/flexirule-ci-reports/. "$GITHUB_WORKSPACE/artifacts/ci-reports/"
+          fi
+          python "$GITHUB_WORKSPACE/.github/summarize_ci_reports.py"
+
+      - name: Upload backend test and condition benchmark reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-condition-reports-${{ github.run_id }}
+          path: artifacts/ci-reports/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Fail job if tests or benchmark validation failed
+        if: always()
+        env:
+          REPORT_SUMMARY_OUTCOME: ${{ steps.summarize_reports.outcome }}
+        run: |
+          if [ -f "$GITHUB_WORKSPACE/artifacts/ci-reports/ci-summary-failed" ] || [ "$REPORT_SUMMARY_OUTCOME" != "success" ]; then
+            echo "Frappe tests, report generation, or benchmark validation failed. See this run's logs and the uploaded backend-test-condition-reports artifact."
+            exit 1
+          fi
 
   tests_frappe_16_nested_set:
     needs: changes
@@ -337,6 +428,8 @@ jobs:
           else
             echo "MariaDB client is already available; skipping package installation."
           fi
+          sudo mkdir -p /etc/mysql/conf.d
+          echo -e "[client]\nskip-ssl" | sudo tee /etc/mysql/conf.d/disable-ssl.cnf
 
       - name: Ensure Frappe uses the non-TLS MariaDB client
         run: |

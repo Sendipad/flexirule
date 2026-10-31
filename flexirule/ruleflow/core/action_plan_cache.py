@@ -11,7 +11,7 @@ import frappe
 
 from flexirule.ruleflow.core.contracts import normalize_action_type
 
-CACHE_VERSION = 3
+CACHE_VERSION = 4
 CACHE_KEY_PREFIX = "flexirule_action_plan_v1"
 LOCAL_CACHE_KEY = "flexirule_action_plan_cache"
 
@@ -99,13 +99,14 @@ def get_rule_version_hash(rule_doc) -> str:
 
 def _compile_rule_action_plan(rule_doc, rule_hash: str) -> dict[str, Any]:
 	actions: dict[str, dict[str, Any]] = {}
+	doctype = getattr(rule_doc, "document_type", None)
 
 	for action in getattr(rule_doc, "actions", []) or []:
 		action_type = normalize_action_type(getattr(action, "action_type", None))
 		compiled: dict[str, Any] = {}
 
 		if action_type == "Assignment":
-			compiled = _compile_assignment_action(action)
+			compiled = _compile_assignment_action(action, doctype=doctype)
 		elif action_type == "Notify":
 			compiled = _compile_notify_action(action)
 		elif action_type == "Document Action":
@@ -122,39 +123,26 @@ def _compile_rule_action_plan(rule_doc, rule_hash: str) -> dict[str, Any]:
 	}
 
 
-def _compile_assignment_action(action) -> dict[str, Any]:
+def _compile_assignment_action(action, doctype: str | None = None) -> dict[str, Any]:
 	from flexirule.ruleflow.core.action_handlers.assignment import AssignmentHandler
+	from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+	from flexirule.ruleflow.core.condition_evaluator import compile_condition
 
-	config_key = getattr(action, "config", "[]") or "[]"
-	compiled_plan_getter = getattr(AssignmentHandler, "_get_compiled_plan", None)
-	if callable(compiled_plan_getter):
-		compiled_rows = compiled_plan_getter(str(config_key))
-	else:
-		# Safe fallback for mixed-version/runtime import edge-cases.
-		try:
-			rows = json.loads(str(config_key) or "[]")
-		except Exception:
-			rows = []
-		if not isinstance(rows, list):
-			rows = []
-		compiled_rows = []
-		for row in rows:
-			if not isinstance(row, dict):
-				continue
-			compiled = dict(row)
-			if compiled.get("value") is None:
-				if compiled.get("value_template_ui") is not None:
-					compiled["value"] = compiled.get("value_template_ui")
-				elif compiled.get("value_template_json") is not None:
-					compiled["value"] = compiled.get("value_template_json")
-				elif compiled.get("value_template") is not None:
-					compiled["value"] = compiled.get("value_template")
-			compiled["when_expression"] = (
-				compiled.get("pythonExpression")
-				or (compiled.get("when_expression") or compiled.get("when") or "").strip()
-			)
-			compiled_rows.append(compiled)
-		compiled_rows = tuple(compiled_rows)
+	config = getattr(action, "config", None)
+	if config in (None, ""):
+		raise ConditionValidationError(
+			"assignment_config_required", "$", "Assignment actions require a JSON array config"
+		)
+	config_key = AssignmentHandler()._to_config_cache_key(config)
+	compiled_rows = AssignmentHandler._get_compiled_plan(config_key)
+
+	# If doctype is known at compilation time, pre-validate canonical guards against authoritative metadata
+	if doctype:
+		for row in compiled_rows:
+			canonical_guard = row.get("when_condition_canonical")
+			if canonical_guard is not None:
+				compile_condition(canonical_guard, doctype=doctype)
+
 	return {"action_type": "Assignment", "rows": list(compiled_rows)}
 
 

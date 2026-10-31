@@ -7,7 +7,68 @@ import json
 from collections.abc import Mapping
 from typing import Any
 
+from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+from flexirule.ruleflow.core.flexvalue_contract import MAX_CONDITION_PAYLOAD_BYTES
+
 CONDITION_CONFIG_KEYS = ("condition", "condition_tree", "condition_json")
+
+
+def detect_canonical_condition_payload(value: Any) -> tuple[bool, dict | None]:
+	"""Detect a canonical direct-node payload without guessing or legacy fallback.
+
+	An object with a type discriminant is always treated as canonical, even when
+	the type is unknown; strict validation then rejects it. Historical envelopes
+	are deliberately rejected rather than silently unwrapped or reinterpreted.
+	"""
+	candidate = value
+	if isinstance(candidate, Mapping):
+		if "type" in candidate:
+			return True, dict(candidate)
+		try:
+			encoded = json.dumps(
+				candidate, sort_keys=True, ensure_ascii=False, separators=(",", ":"), allow_nan=False
+			).encode("utf-8")
+		except (TypeError, ValueError, RecursionError) as exc:
+			raise ConditionValidationError(
+				"invalid_json_value", "$", "Condition payload must be a finite, acyclic JSON value"
+			) from exc
+		if len(encoded) > MAX_CONDITION_PAYLOAD_BYTES:
+			raise ConditionValidationError(
+				"condition_payload_too_large", "$", "Condition payload exceeds the configured byte limit"
+			)
+		if {"schema", "version", "root"} & set(candidate):
+			raise ConditionValidationError(
+				"unsupported_condition_envelope",
+				"$",
+				"Canonical conditions must be stored as a direct node without an envelope",
+			)
+		return False, None
+
+	if not isinstance(candidate, str):
+		return False, None
+	text = candidate.strip()
+	if len(text.encode("utf-8")) > MAX_CONDITION_PAYLOAD_BYTES:
+		raise ConditionValidationError(
+			"condition_payload_too_large", "$", "Condition payload exceeds the configured byte limit"
+		)
+	if not text or text[0] not in "{[":
+		return False, None
+	try:
+		parsed = json.loads(text)
+		if isinstance(parsed, str) and parsed.strip().startswith(("{", "[")):
+			parsed = json.loads(parsed)
+	except Exception as exc:
+		raise ConditionValidationError("invalid_json", "$", "Structured condition JSON is malformed") from exc
+	if isinstance(parsed, Mapping):
+		if "type" in parsed:
+			return True, dict(parsed)
+		if {"schema", "version", "root"} & set(parsed):
+			raise ConditionValidationError(
+				"unsupported_condition_envelope",
+				"$",
+				"Canonical conditions must be stored as a direct node without an envelope",
+			)
+	return False, None
 
 
 def parse_condition_payload(value: Any) -> dict | list | str | None:
@@ -30,7 +91,13 @@ def parse_condition_payload(value: Any) -> dict | list | str | None:
 		return list(value)
 
 	if not isinstance(value, str):
-		raise ValueError(f"Unsupported condition payload type: {type(value).__name__}")
+		raise ConditionValidationError(
+			"invalid_condition_payload_type", "$", "Condition payload must be an object, array, or string"
+		)
+	if len(value.encode("utf-8")) > MAX_CONDITION_PAYLOAD_BYTES:
+		raise ConditionValidationError(
+			"condition_payload_too_large", "$", "Condition payload exceeds the configured byte limit"
+		)
 
 	val_str = value.strip()
 	if not val_str:
@@ -52,7 +119,9 @@ def parse_condition_payload(value: Any) -> dict | list | str | None:
 			if isinstance(parsed, str) and parsed.strip():
 				return parsed.strip()
 		except Exception as exc:
-			raise ValueError(f"Invalid JSON format in condition payload: {exc!s}") from exc
+			raise ConditionValidationError(
+				"invalid_json", "$", "Structured condition JSON is malformed"
+			) from exc
 
 	return val_str
 
@@ -70,6 +139,17 @@ def extract_condition_payload_from_config(config_value: Any) -> dict | list | st
 
 	if not isinstance(config_payload, Mapping):
 		return None
+
+	# Canonical conditions are persisted as the direct node, not under a wrapper.
+	# Even an unknown type is returned to strict validation and cannot reach legacy compilation.
+	if "type" in config_payload:
+		return dict(config_payload)
+	if {"schema", "version", "root"} & set(config_payload):
+		raise ConditionValidationError(
+			"unsupported_condition_envelope",
+			"$",
+			"Canonical conditions must be stored as a direct node without an envelope",
+		)
 
 	for key in CONDITION_CONFIG_KEYS:
 		if key not in config_payload:

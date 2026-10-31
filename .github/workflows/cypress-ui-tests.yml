@@ -101,6 +101,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y mariadb-client xvfb
+          sudo mkdir -p /etc/mysql/conf.d
+          echo -e "[client]\nskip-ssl" | sudo tee /etc/mysql/conf.d/disable-ssl.cnf
 
       - name: Ensure Frappe uses the non-TLS MariaDB client
         run: |
