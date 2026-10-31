@@ -705,6 +705,7 @@ def get_canonical_scaling_workloads() -> dict[str, Any]:
 		"collection_size": 100,
 	}
 
+
 	# 6. Static operand on the left and dynamic variable on the right
 	workloads["dynamic_operands_static_left"] = {
 		"description": "Static threshold on left, document amount on right (100 < doc.amount)",
