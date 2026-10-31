@@ -59,7 +59,7 @@ export function normalizeConditionNode(node) {
 		const source = node.source ?? node.collection;
 		const canonicalSource = source?.mode === "variable" && source.path?.scope && Array.isArray(source.path?.segments)
 			? source
-			: normalizeFlexValue(source);
+			: { mode: "variable", path: textToCanonicalPath(typeof source === "string" ? source : source?.value ?? source?.path) };
 		return {
 			type: "collection_predicate",
 			quantifier: node.quantifier ?? "any",
@@ -244,10 +244,10 @@ function uiNodeToAst(node, operators = []) {
 			source: uiFlexValueToCanonical(node.collection),
 			as: node.alias,
 			where: (() => {
-			const children = (node.children || []).map((child) => uiNodeToAst(child, operators));
-			if (children.length === 1) return children[0];
-			return { type: "group", operator: "and", children };
-		})(),
+				const children = (node.children || []).map((child) => uiNodeToAst(child, operators));
+				if (children.length === 1) return children[0];
+				return { type: "group", operator: "and", children };
+			})(),
 		};
 	}
 	throw new TypeError(`Unsupported TreeBuilder node type: ${String(node.type)}`);
