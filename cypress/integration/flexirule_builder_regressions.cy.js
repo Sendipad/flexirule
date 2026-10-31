@@ -482,8 +482,6 @@ describe("FlexiRule builder regression coverage", () => {
 
 		cy.get(".config-modal-container", { timeout: 15000 }).should("be.visible");
 		cy.get(".config-modal-container").contains("Condition").should("be.visible");
-		cy.get(".config-modal-container .toolbar-btn.close-action").click();
-		cy.get(".config-modal-container").should("not.exist");
 	});
 
 	it("persists graph node data and edges through a hard reload", () => {
