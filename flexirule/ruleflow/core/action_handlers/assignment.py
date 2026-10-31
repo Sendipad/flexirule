@@ -104,7 +104,7 @@ class AssignmentHandler(ActionHandler):
 		# ==========================================
 		# Validate every row's canonical guard against authoritative DocType metadata,
 		# system paths, event restrictions, and prepare guards before ANY row mutates document state.
-		prepared_rows = []
+		prepared_rows: list[dict[str, Any]] = []
 		action_key = str(getattr(action, "name", None) or getattr(action, "action_id", None) or id(action))
 		prepare_guard = getattr(engine, "_get_prepared_condition_for_payload", None)
 
@@ -142,7 +142,7 @@ class AssignmentHandler(ActionHandler):
 					compile_condition(canonical_guard, doctype=doctype)
 
 			# 4. Validate operator exists
-			operator = AssignmentOperatorRegistry.get(operator_key)
+			op_instance = AssignmentOperatorRegistry.get(operator_key)
 
 			prepared_rows.append(
 				{
@@ -150,7 +150,7 @@ class AssignmentHandler(ActionHandler):
 					"idx": idx,
 					"assignment": assignment,
 					"target_path": target_path,
-					"operator": operator,
+					"operator": op_instance,
 					"canonical_guard": canonical_guard,
 					"prepared_guard": prepared_guard,
 				}
@@ -166,7 +166,7 @@ class AssignmentHandler(ActionHandler):
 
 			assignment = item["assignment"]
 			target_path = item["target_path"]
-			operator = item["operator"]
+			op = item["operator"]
 			canonical_guard = item["canonical_guard"]
 			prepared_guard = item["prepared_guard"]
 			idx = item["idx"]
@@ -185,7 +185,7 @@ class AssignmentHandler(ActionHandler):
 
 			# Evaluate value if required
 			operand_value = None
-			if operator.metadata.get("requires_value"):
+			if op.metadata.get("requires_value"):
 				context_copy = dict(context)
 				context_copy["value"] = current_value
 
@@ -195,7 +195,7 @@ class AssignmentHandler(ActionHandler):
 				operand_value = resolver.resolve(context_copy)
 
 			# Apply operation
-			new_value = operator.apply(current_value, operand_value, context)
+			new_value = op.apply(current_value, operand_value, context)
 
 			# Commit to context
 			self._set_value(target_path, new_value, context, engine)
