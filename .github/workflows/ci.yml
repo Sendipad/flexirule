@@ -317,6 +317,7 @@ jobs:
           FRAPPE_BENCH_PATH: /home/runner/frappe-bench
           CONDITION_BENCHMARK_JSON_PATH: /tmp/flexirule-ci-reports/condition-runtime/canonical_condition_benchmark_results.json
           CONDITION_BENCHMARK_MARKDOWN_PATH: /tmp/flexirule-ci-reports/condition-runtime/condition-backend-comparison-benchmark.md
+          CONDITION_BENCHMARK_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           set +e
