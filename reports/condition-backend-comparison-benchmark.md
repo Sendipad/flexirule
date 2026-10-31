@@ -1,8 +1,8 @@
 # FlexiRule — Condition Backend Comparison Benchmark Report
 
-**Date:** 2026-10-31T15:42:33Z
-**Branch:** `jules-15497228258288256306-bee649d9`
-**Commit:** `43715e2258b9c6ee52526bc20cba06d98ddd9eff`
+**Date:** 2026-10-31T17:03:00Z
+**Branch:** `feat/benchmark-canonical-ast-vs-plan`
+**Commit:** `3a9cd50b8d5ff047a0269693d0152d6646b4bcec`
 **Working Tree Dirty:** `Yes`
 **Provenance Note:** Working tree contains uncommitted changes; benchmark provenance captures the checkout commit plus working-tree state.
 **Python:** 3.12.13
@@ -41,36 +41,36 @@ Both candidates produce **100% identical outputs and error codes** across all si
 
 | Workload | Size | Compiled Prep (Cold/Warm μs) | AST Prep (Cold/Warm μs) | Compiled Eval (Median μs) | Compiled Eval (P95 μs) | AST Eval (Median μs) | AST Eval (P95 μs) | AST / Plan Ratio | Correctness |
 |---|---|---|---|---|---|---|---|---|---|
-| `simple_numeric` | 0 | 277.5 / 93.2 | 181.8 / 130.0 | 10.912 | 10.947 | 10.923 | 11.046 | 1.00x | PASS |
-| `dynamic_operands_var_vs_var` | 0 | 251.9 / 103.0 | 102.8 / 86.3 | 12.601 | 12.683 | 12.191 | 12.208 | 0.97x | PASS |
-| `complex_nested_tree` | 0 | 452.2 / 289.9 | 235.0 / 226.1 | 26.505 | 26.853 | 41.023 | 41.321 | 1.55x | PASS |
-| `collection_any_10_early` | 10 | 299.5 / 120.8 | 121.5 / 98.2 | 14.461 | 14.730 | 14.935 | 15.058 | 1.03x | PASS |
-| `collection_any_10_late` | 10 | 274.6 / 192.9 | 165.8 / 101.5 | 74.276 | 75.255 | 84.661 | 85.318 | 1.14x | PASS |
-| `collection_any_10_none` | 10 | 286.1 / 166.8 | 112.3 / 97.8 | 75.054 | 75.513 | 84.972 | 85.021 | 1.13x | PASS |
-| `collection_any_100_early` | 100 | 280.4 / 117.1 | 117.2 / 96.5 | 14.276 | 15.166 | 14.625 | 14.907 | 1.02x | PASS |
-| `collection_any_100_late` | 100 | 323.2 / 136.5 | 110.4 / 96.6 | 670.914 | 671.351 | 783.466 | 792.773 | 1.17x | PASS |
-| `collection_any_100_none` | 100 | 308.2 / 117.8 | 112.1 / 157.3 | 675.937 | 675.942 | 792.500 | 799.351 | 1.17x | PASS |
-| `collection_any_1000_early` | 1000 | 275.1 / 170.9 | 107.8 / 97.1 | 14.516 | 15.025 | 14.604 | 14.757 | 1.01x | PASS |
-| `collection_any_1000_late` | 1000 | 276.3 / 117.6 | 105.9 / 95.2 | 6683.581 | 6705.144 | 7866.247 | 7895.348 | 1.18x | PASS |
-| `collection_any_1000_none` | 1000 | 305.2 / 119.3 | 174.2 / 156.1 | 6697.427 | 6712.987 | 7873.505 | 7879.454 | 1.18x | PASS |
-| `collection_any_10000_early` | 10000 | 356.2 / 168.3 | 119.0 / 125.3 | 15.517 | 16.590 | 14.666 | 17.146 | 0.95x | PASS |
-| `collection_any_10000_late` | 10000 | 246.4 / 159.4 | 118.3 / 97.0 | 66847.054 | 66864.040 | 78593.800 | 106611.531 | 1.18x | PASS |
-| `collection_any_10000_none` | 10000 | 361.7 / 123.7 | 110.1 / 96.8 | 66596.628 | 66691.551 | 77899.836 | 78195.431 | 1.17x | PASS |
-| `collection_all_100_early_break` | 100 | 347.8 / 137.2 | 109.5 / 97.7 | 14.932 | 15.083 | 14.690 | 15.114 | 0.98x | PASS |
+| `simple_numeric` | 0 | 266.8 / 92.3 | 92.7 / 77.7 | 11.303 | 11.399 | 11.269 | 11.272 | 1.00x | PASS |
+| `dynamic_operands_var_vs_var` | 0 | 249.7 / 145.6 | 151.6 / 78.2 | 12.762 | 12.942 | 12.588 | 12.931 | 0.99x | PASS |
+| `complex_nested_tree` | 0 | 480.8 / 231.3 | 289.1 / 218.4 | 27.078 | 27.143 | 40.798 | 41.518 | 1.51x | PASS |
+| `collection_any_10_early` | 10 | 288.3 / 118.6 | 110.9 / 98.0 | 14.788 | 14.804 | 14.757 | 14.998 | 1.00x | PASS |
+| `collection_any_10_late` | 10 | 271.5 / 113.4 | 106.0 / 95.2 | 83.492 | 84.954 | 96.949 | 102.302 | 1.16x | PASS |
+| `collection_any_10_none` | 10 | 334.8 / 180.5 | 118.5 / 98.1 | 73.981 | 88.451 | 87.415 | 144.927 | 1.18x | PASS |
+| `collection_any_100_early` | 100 | 344.4 / 134.5 | 109.2 / 96.8 | 14.650 | 15.066 | 14.827 | 14.861 | 1.01x | PASS |
+| `collection_any_100_late` | 100 | 331.0 / 131.2 | 187.7 / 107.3 | 671.167 | 675.479 | 770.838 | 789.524 | 1.15x | PASS |
+| `collection_any_100_none` | 100 | 338.0 / 128.5 | 106.3 / 96.9 | 668.408 | 671.606 | 772.169 | 777.247 | 1.16x | PASS |
+| `collection_any_1000_early` | 1000 | 342.3 / 124.2 | 109.1 / 95.7 | 14.789 | 14.882 | 14.828 | 15.026 | 1.00x | PASS |
+| `collection_any_1000_late` | 1000 | 240.7 / 147.5 | 118.4 / 97.5 | 6569.435 | 6572.349 | 7733.568 | 7740.817 | 1.18x | PASS |
+| `collection_any_1000_none` | 1000 | 343.9 / 130.6 | 108.3 / 97.7 | 6601.606 | 6604.098 | 7700.163 | 7741.559 | 1.17x | PASS |
+| `collection_any_10000_early` | 10000 | 298.1 / 115.8 | 161.3 / 108.8 | 14.874 | 17.247 | 14.920 | 15.370 | 1.00x | PASS |
+| `collection_any_10000_late` | 10000 | 222.4 / 112.2 | 104.0 / 95.6 | 66339.734 | 66493.471 | 77733.255 | 78257.388 | 1.17x | PASS |
+| `collection_any_10000_none` | 10000 | 313.0 / 225.3 | 124.5 / 117.7 | 65853.980 | 66754.809 | 76891.899 | 77047.380 | 1.17x | PASS |
+| `collection_all_100_early_break` | 100 | 336.1 / 117.8 | 107.3 / 104.6 | 14.901 | 14.943 | 14.913 | 14.914 | 1.00x | PASS |
 
 ### 5. Amortized Cost (Preparation + N Evaluations)
 
 | Execution Count | Compiled Plan (Cold μs) | AST Interpreter (Cold μs) | Compiled Plan (Warm μs) | AST Interpreter (Warm μs) | Faster (Cold) | Faster (Warm) |
 |---|---|---|---|---|---|---|
-| **N=1** | 478.69 | 276.03 | 316.38 | 267.08 | AST | AST |
-| **N=10** | 71.72 | 64.52 | 55.49 | 63.63 | AST | Compiled Plan |
-| **N=100** | 31.03 | 43.37 | 29.40 | 43.28 | Compiled Plan | Compiled Plan |
-| **N=1000** | 26.96 | 41.26 | 26.79 | 41.25 | Compiled Plan | Compiled Plan |
+| **N=1** | 507.87 | 329.95 | 258.43 | 259.24 | AST | Compiled Plan |
+| **N=10** | 75.16 | 69.71 | 50.21 | 62.64 | AST | Compiled Plan |
+| **N=100** | 31.89 | 43.69 | 29.39 | 42.98 | Compiled Plan | Compiled Plan |
+| **N=1000** | 27.56 | 41.09 | 27.31 | 41.02 | Compiled Plan | Compiled Plan |
 
 ### 6. Realistic Frappe Metadata Verification
 - **Metadata Scenario:** `User -> Has Role (parent field roles, child field role)`
-- **Compiled Plan Preparation:** `955.55 μs` | **Evaluation Median:** `1.085 μs`
-- **Direct AST Preparation:** `515.74 μs` | **Evaluation Median:** `1.035 μs`
+- **Compiled Plan Preparation:** `1077.14 μs` | **Evaluation Median:** `1.056 μs`
+- **Direct AST Preparation:** `617.99 μs` | **Evaluation Median:** `1.074 μs`
 
 ### 7. Memory, Cache, and Maintenance Trade-offs
 - **Direct Canonical AST:** Simpler architectural model without secondary AST compiler or tuple layout dependencies. Saves compilation step entirely. Cold preparation is noticeably faster. Runtime evaluation is slightly slower due to dictionary key lookups vs tuple index access.
@@ -122,15 +122,15 @@ All candidate evaluators were evaluated against neutral business scenarios. Supp
 
 | Scenario ID | Tier | Approach A (`safe_eval`) | Approach B (`plan`) | Approach C (`json_tree`) | Canonical Runtime (`evaluate_condition`) | *Diagnostic: A Exp (`code_obj`)* | *Prepared Artifact Runtime* |
 |---|---|---|---|---|---|---|---|
-| `simple_equality` | Tier 1 — Simple | 175.972 µs/op | 3.647 µs/op | 5.314 µs/op | 28.97 µs/op | 10.492 µs/op | 11.852 µs/op |
-| `typical_business_rule` | Tier 2 — Typical Business Rule | 419.247 µs/op | 6.173 µs/op | 10.333 µs/op | 57.327 µs/op | 12.537 µs/op | 21.86 µs/op |
-| `nested_and_or_groups` | Tier 3 — Nested Groups | 555.51 µs/op | 6.624 µs/op | 11.729 µs/op | 67.938 µs/op | 12.943 µs/op | 22.345 µs/op |
-| `deep_nested_complex` | Tier 4 — Deep Nested Complex | 1161.662 µs/op | 10.299 µs/op | 18.08 µs/op | 112.638 µs/op | 17.372 µs/op | 40.265 µs/op |
-| `collection_predicate` | Tier 5 — Collection Predicate | 725.477 µs/op | 10.684 µs/op | 17.23 µs/op | 79.311 µs/op | 17.466 µs/op | 35.395 µs/op |
-| `edge_case_membership_in_not_in` | Edge Case — Membership | 383.784 µs/op | 4.998 µs/op | 7.615 µs/op | 49.947 µs/op | 11.089 µs/op | 20.728 µs/op |
-| `edge_case_contains_not_contains` | Edge Case — Substring | 597.948 µs/op | 5.722 µs/op | 8.988 µs/op | 40.739 µs/op | 15.227 µs/op | 13.552 µs/op |
-| `edge_case_has_changed` | Edge Case — Field Change | 61.509 µs/op | 3.561 µs/op | 5.375 µs/op | UNSUPPORTED | 8.481 µs/op | UNSUPPORTED |
-| `edge_case_none_vs_missing_field` | Edge Case — Missing Field | 314.716 µs/op | 2.969 µs/op | 4.273 µs/op | 21.844 µs/op | 11.085 µs/op | 8.064 µs/op |
+| `simple_equality` | Tier 1 — Simple | 175.61 µs/op | 3.589 µs/op | 5.247 µs/op | 28.678 µs/op | 11.423 µs/op | 12.05 µs/op |
+| `typical_business_rule` | Tier 2 — Typical Business Rule | 430.508 µs/op | 6.826 µs/op | 11.034 µs/op | 60.153 µs/op | 13.791 µs/op | 24.078 µs/op |
+| `nested_and_or_groups` | Tier 3 — Nested Groups | 557.326 µs/op | 6.541 µs/op | 11.296 µs/op | 66.4 µs/op | 12.587 µs/op | 21.767 µs/op |
+| `deep_nested_complex` | Tier 4 — Deep Nested Complex | 1153.665 µs/op | 10.119 µs/op | 17.31 µs/op | 114.152 µs/op | 16.716 µs/op | 40.379 µs/op |
+| `collection_predicate` | Tier 5 — Collection Predicate | 733.458 µs/op | 10.626 µs/op | 16.809 µs/op | 80.276 µs/op | 17.596 µs/op | 36.098 µs/op |
+| `edge_case_membership_in_not_in` | Edge Case — Membership | 391.76 µs/op | 4.934 µs/op | 7.734 µs/op | 50.066 µs/op | 11.126 µs/op | 20.998 µs/op |
+| `edge_case_contains_not_contains` | Edge Case — Substring | 595.512 µs/op | 5.726 µs/op | 9.266 µs/op | 39.907 µs/op | 15.036 µs/op | 13.459 µs/op |
+| `edge_case_has_changed` | Edge Case — Field Change | 59.774 µs/op | 3.854 µs/op | 5.816 µs/op | UNSUPPORTED | 9.089 µs/op | UNSUPPORTED |
+| `edge_case_none_vs_missing_field` | Edge Case — Missing Field | 312.996 µs/op | 2.875 µs/op | 4.108 µs/op | 21.656 µs/op | 11.238 µs/op | 8.005 µs/op |
 
 ---
 
@@ -138,58 +138,58 @@ All candidate evaluators were evaluated against neutral business scenarios. Supp
 
 | Scenario ID | Candidate | Cold Preparation (ms) | Warm Preparation (ms) |
 |---|---|---|---|
-| `simple_equality` | Approach A (frappe.safe_eval) | 0.1587 ms | 0.1105 ms |
-| `simple_equality` | Approach B (Normalized Execution Plan) | 0.0181 ms | 0.0124 ms |
-| `simple_equality` | Approach C (Direct JSON Tree Evaluator) | 0.0038 ms | 0.0025 ms |
-| `simple_equality` | Canonical Condition (evaluate_condition) | 0.1145 ms | 0.0235 ms |
-| `simple_equality` | Approach A (Experimental Restricted Code Object) | 0.2148 ms | 0.2037 ms |
-| `simple_equality` | Canonical Condition (Prepared Artifact Runtime) | 0.2618 ms | 0.1063 ms |
-| `typical_business_rule` | Approach A (frappe.safe_eval) | 0.3874 ms | 0.2137 ms |
-| `typical_business_rule` | Approach B (Normalized Execution Plan) | 0.0394 ms | 0.0196 ms |
-| `typical_business_rule` | Approach C (Direct JSON Tree Evaluator) | 0.0056 ms | 0.0026 ms |
-| `typical_business_rule` | Canonical Condition (evaluate_condition) | 0.2951 ms | 0.0922 ms |
-| `typical_business_rule` | Approach A (Experimental Restricted Code Object) | 0.5922 ms | 0.5306 ms |
-| `typical_business_rule` | Canonical Condition (Prepared Artifact Runtime) | 0.2277 ms | 0.1929 ms |
-| `nested_and_or_groups` | Approach A (frappe.safe_eval) | 0.4768 ms | 0.2687 ms |
-| `nested_and_or_groups` | Approach B (Normalized Execution Plan) | 0.0488 ms | 0.0243 ms |
-| `nested_and_or_groups` | Approach C (Direct JSON Tree Evaluator) | 0.005 ms | 0.0027 ms |
-| `nested_and_or_groups` | Canonical Condition (evaluate_condition) | 0.3911 ms | 0.0608 ms |
-| `nested_and_or_groups` | Approach A (Experimental Restricted Code Object) | 0.871 ms | 0.7421 ms |
-| `nested_and_or_groups` | Canonical Condition (Prepared Artifact Runtime) | 0.2827 ms | 0.22 ms |
-| `deep_nested_complex` | Approach A (frappe.safe_eval) | 0.7444 ms | 0.6284 ms |
-| `deep_nested_complex` | Approach B (Normalized Execution Plan) | 0.0754 ms | 0.0397 ms |
-| `deep_nested_complex` | Approach C (Direct JSON Tree Evaluator) | 0.0058 ms | 0.0026 ms |
-| `deep_nested_complex` | Canonical Condition (evaluate_condition) | 0.5516 ms | 0.0869 ms |
-| `deep_nested_complex` | Approach A (Experimental Restricted Code Object) | 1.5368 ms | 1.4314 ms |
-| `deep_nested_complex` | Canonical Condition (Prepared Artifact Runtime) | 0.4585 ms | 0.4135 ms |
-| `collection_predicate` | Approach A (frappe.safe_eval) | 0.5139 ms | 0.306 ms |
-| `collection_predicate` | Approach B (Normalized Execution Plan) | 0.0564 ms | 0.0251 ms |
-| `collection_predicate` | Approach C (Direct JSON Tree Evaluator) | 0.0055 ms | 0.0024 ms |
-| `collection_predicate` | Canonical Condition (evaluate_condition) | 0.3149 ms | 0.049 ms |
-| `collection_predicate` | Approach A (Experimental Restricted Code Object) | 0.8838 ms | 0.9888 ms |
-| `collection_predicate` | Canonical Condition (Prepared Artifact Runtime) | 0.3326 ms | 0.2063 ms |
-| `edge_case_membership_in_not_in` | Approach A (frappe.safe_eval) | 0.3956 ms | 0.2091 ms |
-| `edge_case_membership_in_not_in` | Approach B (Normalized Execution Plan) | 0.0343 ms | 0.0156 ms |
-| `edge_case_membership_in_not_in` | Approach C (Direct JSON Tree Evaluator) | 0.0057 ms | 0.0026 ms |
-| `edge_case_membership_in_not_in` | Canonical Condition (evaluate_condition) | 0.2429 ms | 0.0369 ms |
-| `edge_case_membership_in_not_in` | Approach A (Experimental Restricted Code Object) | 0.5471 ms | 0.4882 ms |
-| `edge_case_membership_in_not_in` | Canonical Condition (Prepared Artifact Runtime) | 0.2195 ms | 0.1404 ms |
-| `edge_case_contains_not_contains` | Approach A (frappe.safe_eval) | 0.4568 ms | 0.2821 ms |
-| `edge_case_contains_not_contains` | Approach B (Normalized Execution Plan) | 0.0384 ms | 0.0159 ms |
-| `edge_case_contains_not_contains` | Approach C (Direct JSON Tree Evaluator) | 0.0058 ms | 0.0027 ms |
-| `edge_case_contains_not_contains` | Canonical Condition (evaluate_condition) | 0.2524 ms | 0.036 ms |
-| `edge_case_contains_not_contains` | Approach A (Experimental Restricted Code Object) | 0.8201 ms | 0.7646 ms |
-| `edge_case_contains_not_contains` | Canonical Condition (Prepared Artifact Runtime) | 0.1791 ms | 0.1333 ms |
-| `edge_case_has_changed` | Approach A (frappe.safe_eval) | 0.1584 ms | 0.0511 ms |
-| `edge_case_has_changed` | Approach B (Normalized Execution Plan) | 0.0226 ms | 0.0091 ms |
-| `edge_case_has_changed` | Approach C (Direct JSON Tree Evaluator) | 0.0057 ms | 0.0025 ms |
-| `edge_case_has_changed` | Approach A (Experimental Restricted Code Object) | 0.141 ms | 0.0896 ms |
-| `edge_case_none_vs_missing_field` | Approach A (frappe.safe_eval) | 0.3397 ms | 0.1542 ms |
-| `edge_case_none_vs_missing_field` | Approach B (Normalized Execution Plan) | 0.0255 ms | 0.0098 ms |
-| `edge_case_none_vs_missing_field` | Approach C (Direct JSON Tree Evaluator) | 0.0053 ms | 0.0027 ms |
-| `edge_case_none_vs_missing_field` | Canonical Condition (evaluate_condition) | 0.1498 ms | 0.0228 ms |
-| `edge_case_none_vs_missing_field` | Approach A (Experimental Restricted Code Object) | 0.4284 ms | 0.4128 ms |
-| `edge_case_none_vs_missing_field` | Canonical Condition (Prepared Artifact Runtime) | 0.0995 ms | 0.0715 ms |
+| `simple_equality` | Approach A (frappe.safe_eval) | 0.1682 ms | 0.0906 ms |
+| `simple_equality` | Approach B (Normalized Execution Plan) | 0.0277 ms | 0.0106 ms |
+| `simple_equality` | Approach C (Direct JSON Tree Evaluator) | 0.0037 ms | 0.0024 ms |
+| `simple_equality` | Canonical Condition (evaluate_condition) | 0.1131 ms | 0.024 ms |
+| `simple_equality` | Approach A (Experimental Restricted Code Object) | 0.2157 ms | 0.2792 ms |
+| `simple_equality` | Canonical Condition (Prepared Artifact Runtime) | 0.1491 ms | 0.0878 ms |
+| `typical_business_rule` | Approach A (frappe.safe_eval) | 0.4395 ms | 0.2153 ms |
+| `typical_business_rule` | Approach B (Normalized Execution Plan) | 0.0415 ms | 0.0202 ms |
+| `typical_business_rule` | Approach C (Direct JSON Tree Evaluator) | 0.0052 ms | 0.0025 ms |
+| `typical_business_rule` | Canonical Condition (evaluate_condition) | 0.2938 ms | 0.0987 ms |
+| `typical_business_rule` | Approach A (Experimental Restricted Code Object) | 0.5885 ms | 0.526 ms |
+| `typical_business_rule` | Canonical Condition (Prepared Artifact Runtime) | 0.2458 ms | 0.1791 ms |
+| `nested_and_or_groups` | Approach A (frappe.safe_eval) | 0.5204 ms | 0.3394 ms |
+| `nested_and_or_groups` | Approach B (Normalized Execution Plan) | 0.0484 ms | 0.0244 ms |
+| `nested_and_or_groups` | Approach C (Direct JSON Tree Evaluator) | 0.0049 ms | 0.0027 ms |
+| `nested_and_or_groups` | Canonical Condition (evaluate_condition) | 0.3973 ms | 0.0584 ms |
+| `nested_and_or_groups` | Approach A (Experimental Restricted Code Object) | 0.7037 ms | 0.723 ms |
+| `nested_and_or_groups` | Canonical Condition (Prepared Artifact Runtime) | 0.2832 ms | 0.2395 ms |
+| `deep_nested_complex` | Approach A (frappe.safe_eval) | 0.8035 ms | 0.5861 ms |
+| `deep_nested_complex` | Approach B (Normalized Execution Plan) | 0.0747 ms | 0.0454 ms |
+| `deep_nested_complex` | Approach C (Direct JSON Tree Evaluator) | 0.0055 ms | 0.0025 ms |
+| `deep_nested_complex` | Canonical Condition (evaluate_condition) | 0.5378 ms | 0.0816 ms |
+| `deep_nested_complex` | Approach A (Experimental Restricted Code Object) | 1.5375 ms | 1.388 ms |
+| `deep_nested_complex` | Canonical Condition (Prepared Artifact Runtime) | 0.5072 ms | 0.42 ms |
+| `collection_predicate` | Approach A (frappe.safe_eval) | 0.5489 ms | 0.3174 ms |
+| `collection_predicate` | Approach B (Normalized Execution Plan) | 0.0571 ms | 0.0254 ms |
+| `collection_predicate` | Approach C (Direct JSON Tree Evaluator) | 0.0048 ms | 0.0024 ms |
+| `collection_predicate` | Canonical Condition (evaluate_condition) | 0.3338 ms | 0.0493 ms |
+| `collection_predicate` | Approach A (Experimental Restricted Code Object) | 0.9704 ms | 0.914 ms |
+| `collection_predicate` | Canonical Condition (Prepared Artifact Runtime) | 0.3239 ms | 0.2091 ms |
+| `edge_case_membership_in_not_in` | Approach A (frappe.safe_eval) | 0.4199 ms | 0.2798 ms |
+| `edge_case_membership_in_not_in` | Approach B (Normalized Execution Plan) | 0.0366 ms | 0.0162 ms |
+| `edge_case_membership_in_not_in` | Approach C (Direct JSON Tree Evaluator) | 0.0058 ms | 0.0024 ms |
+| `edge_case_membership_in_not_in` | Canonical Condition (evaluate_condition) | 0.3075 ms | 0.0419 ms |
+| `edge_case_membership_in_not_in` | Approach A (Experimental Restricted Code Object) | 0.6038 ms | 0.4734 ms |
+| `edge_case_membership_in_not_in` | Canonical Condition (Prepared Artifact Runtime) | 0.2071 ms | 0.144 ms |
+| `edge_case_contains_not_contains` | Approach A (frappe.safe_eval) | 0.5296 ms | 0.3423 ms |
+| `edge_case_contains_not_contains` | Approach B (Normalized Execution Plan) | 0.0385 ms | 0.0155 ms |
+| `edge_case_contains_not_contains` | Approach C (Direct JSON Tree Evaluator) | 0.0053 ms | 0.0027 ms |
+| `edge_case_contains_not_contains` | Canonical Condition (evaluate_condition) | 0.2774 ms | 0.0387 ms |
+| `edge_case_contains_not_contains` | Approach A (Experimental Restricted Code Object) | 0.7244 ms | 0.8175 ms |
+| `edge_case_contains_not_contains` | Canonical Condition (Prepared Artifact Runtime) | 0.1868 ms | 0.1298 ms |
+| `edge_case_has_changed` | Approach A (frappe.safe_eval) | 0.2094 ms | 0.0595 ms |
+| `edge_case_has_changed` | Approach B (Normalized Execution Plan) | 0.0235 ms | 0.0097 ms |
+| `edge_case_has_changed` | Approach C (Direct JSON Tree Evaluator) | 0.0052 ms | 0.0028 ms |
+| `edge_case_has_changed` | Approach A (Experimental Restricted Code Object) | 0.1318 ms | 0.0884 ms |
+| `edge_case_none_vs_missing_field` | Approach A (frappe.safe_eval) | 0.3111 ms | 0.1483 ms |
+| `edge_case_none_vs_missing_field` | Approach B (Normalized Execution Plan) | 0.0919 ms | 0.0163 ms |
+| `edge_case_none_vs_missing_field` | Approach C (Direct JSON Tree Evaluator) | 0.0058 ms | 0.0031 ms |
+| `edge_case_none_vs_missing_field` | Canonical Condition (evaluate_condition) | 0.1658 ms | 0.0666 ms |
+| `edge_case_none_vs_missing_field` | Approach A (Experimental Restricted Code Object) | 0.4809 ms | 0.3814 ms |
+| `edge_case_none_vs_missing_field` | Canonical Condition (Prepared Artifact Runtime) | 0.1186 ms | 0.0741 ms |
 
 ---
 

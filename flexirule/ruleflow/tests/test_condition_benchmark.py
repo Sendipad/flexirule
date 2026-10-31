@@ -277,13 +277,12 @@ class TestConditionBenchmark(FrappeTestCase):
 		self.assertIsNotNone(res.error)
 		self.assertIn("operand_type_mismatch", res.error)
 
-
-
 	# --- Tests for Direct Canonical AST Candidate & Parity with Compiled Plan ---
 
 	def test_canonical_ast_candidate_parity_with_compiled_plan(self):
 		"""Verify identical evaluation results across supported neutral scenarios."""
 		from flexirule.ruleflow.tests.condition_benchmark.candidate_canonical_ast import CanonicalASTCandidate
+
 		ast_candidate = CanonicalASTCandidate()
 		scenarios = get_neutral_scenarios()
 
@@ -313,6 +312,7 @@ class TestConditionBenchmark(FrappeTestCase):
 	def test_lazy_operand_evaluation_and_or_short_circuit(self):
 		"""Verify lazy evaluation: later operands/children are not evaluated once decisive."""
 		from flexirule.ruleflow.tests.condition_benchmark.candidate_canonical_ast import CanonicalASTCandidate
+
 		ast_cand = CanonicalASTCandidate()
 
 		and_payload = {
@@ -433,19 +433,28 @@ class TestConditionBenchmark(FrappeTestCase):
 					resolver_invocations = 0
 					res1 = cand.evaluate(prep, {"doc": {"active": False}})
 					self.assertFalse(res1.result)
-					self.assertEqual(resolver_invocations, 0, f"Resolver was invoked in {cand.candidate_name} on short-circuit!")
+					self.assertEqual(
+						resolver_invocations,
+						0,
+						f"Resolver was invoked in {cand.candidate_name} on short-circuit!",
+					)
 
 					resolver_invocations = 0
 					res2 = cand.evaluate(prep, {"doc": {"active": True}})
 					self.assertTrue(res2.result)
-					self.assertEqual(resolver_invocations, 1, f"Resolver was not invoked exactly once in {cand.candidate_name}!")
+					self.assertEqual(
+						resolver_invocations,
+						1,
+						f"Resolver was not invoked exactly once in {cand.candidate_name}!",
+					)
 		finally:
 			fvc.CONDITION_RESOLVER_REGISTRY.pop(("bench_lazy", "get_number"), None)
-			fvc._REGISTRY_FINGERPRINT_CACHE = None
+			fvc._RESOLVER_REGISTRY_FINGERPRINT_CACHE = None
 
 	def test_lazy_collection_quantifier_short_circuit(self):
 		"""Verify collection predicates stop iterating as soon as the quantifier is decisive."""
 		from flexirule.ruleflow.tests.condition_benchmark.candidate_canonical_ast import CanonicalASTCandidate
+
 		ast_cand = CanonicalASTCandidate()
 
 		any_payload = {
@@ -485,6 +494,7 @@ class TestConditionBenchmark(FrappeTestCase):
 	def test_frappe_metadata_user_roles_scenario(self):
 		"""Verify authoritative User -> Has Role metadata resolution in both candidates."""
 		from flexirule.ruleflow.tests.condition_benchmark.candidate_canonical_ast import CanonicalASTCandidate
+
 		ast_cand = CanonicalASTCandidate()
 
 		payload = {

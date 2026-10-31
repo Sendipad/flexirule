@@ -92,11 +92,15 @@ def prepare_canonical_ast(
 	try:
 		payload_json = json.dumps(raw_node, sort_keys=True, separators=(",", ":"))
 	except (TypeError, ValueError) as exc:
-		raise ConditionValidationError("invalid_json", "$", "Condition payload is not JSON-serializable") from exc
+		raise ConditionValidationError(
+			"invalid_json", "$", "Condition payload is not JSON-serializable"
+		) from exc
 
 	payload_bytes = payload_json.encode("utf-8")
 	if len(payload_bytes) > CONDITION_LIMITS["payload_bytes"]:
-		raise ConditionValidationError("payload_too_large", "$", "Condition payload exceeds the configured byte limit")
+		raise ConditionValidationError(
+			"payload_too_large", "$", "Condition payload exceeds the configured byte limit"
+		)
 
 	payload_digest = hashlib.sha256(payload_bytes).hexdigest()
 	registry_fingerprint = resolver_registry_fingerprint()
@@ -131,10 +135,7 @@ def evaluate_prepared_canonical_ast(
 	_evaluation_budget: dict[str, int] | None = None,
 ) -> bool:
 	"""Directly interpret a validated canonical AST without compiling into a tuple plan."""
-	if (
-		not isinstance(prepared, _PreparedCanonicalAST)
-		or prepared._seal is not _DIRECT_AST_SEAL
-	):
+	if not isinstance(prepared, _PreparedCanonicalAST) or prepared._seal is not _DIRECT_AST_SEAL:
 		raise ConditionValidationError(
 			"untrusted_prepared_condition",
 			"$",
@@ -334,7 +335,9 @@ def _evaluate_ast_node(node: dict[str, Any], context: dict | _EvaluationContext,
 				return False
 		return True
 
-	raise ConditionEvaluationError("invalid_execution_plan", "$", f"Unknown canonical condition node type: {node_type}")
+	raise ConditionEvaluationError(
+		"invalid_execution_plan", "$", f"Unknown canonical condition node type: {node_type}"
+	)
 
 
 def _evaluate_ast_value(val_def: dict[str, Any], context: dict, path: str) -> Any:
@@ -409,7 +412,9 @@ def _evaluate_ast_value(val_def: dict[str, Any], context: dict, path: str) -> An
 				"resolver_failed", path, "Condition resolver operation failed"
 			) from exc
 
-	raise ConditionEvaluationError("invalid_flexvalue_plan", path, f"Unknown canonical FlexValue mode: {mode}")
+	raise ConditionEvaluationError(
+		"invalid_flexvalue_plan", path, f"Unknown canonical FlexValue mode: {mode}"
+	)
 
 
 def _build_canonical_context(document_context: Any, execution_context: dict | None = None) -> dict:
@@ -440,7 +445,9 @@ class CanonicalASTCandidate(BaseConditionCandidate):
 		doctype = metadata_context.get("doctype") if metadata_context else None
 		scope_doctypes = metadata_context.get("scope_doctypes") if metadata_context else None
 		try:
-			prepared = prepare_canonical_ast(condition_payload, doctype=doctype, scope_doctypes=scope_doctypes)
+			prepared = prepare_canonical_ast(
+				condition_payload, doctype=doctype, scope_doctypes=scope_doctypes
+			)
 			prep_time = time.perf_counter() - start_time
 			return PreparedCondition(
 				candidate_name=self.candidate_name,

@@ -115,8 +115,8 @@ class ConditionHandler(ActionHandler):
 		try:
 			payload = get_condition_payload(action)
 			if payload in (None, ""):
-				# Drafts intentionally tolerate incomplete setup, but activation / full mode must reject
-				if mode == "full" or is_active:
+				# Drafts intentionally tolerate incomplete setup, but activation / full mode must reject unless compiled_expression is present
+				if (mode == "full" or is_active) and not getattr(action, "compiled_expression", None):
 					errors.append(
 						_("Condition '{0}' requires a condition before activation.").format(
 							getattr(action, "action_label", None)

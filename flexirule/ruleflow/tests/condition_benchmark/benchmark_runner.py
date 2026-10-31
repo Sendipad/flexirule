@@ -613,7 +613,6 @@ class BenchmarkRunner:
 
 		return {"execution_counts": execution_counts, "scenarios": amortized_results}
 
-
 	def run_canonical_ast_vs_plan_comparison(self) -> dict[str, Any]:
 		workloads = get_canonical_scaling_workloads()
 		comparison_results: dict[str, Any] = {
@@ -689,8 +688,16 @@ class BenchmarkRunner:
 
 			plan_us_median = statistics.median(plan_times_ns) / 1000.0
 			ast_us_median = statistics.median(ast_times_ns) / 1000.0
-			plan_us_p95 = statistics.quantiles(plan_times_ns, n=20)[18] / 1000.0 if len(plan_times_ns) >= 5 else max(plan_times_ns) / 1000.0
-			ast_us_p95 = statistics.quantiles(ast_times_ns, n=20)[18] / 1000.0 if len(ast_times_ns) >= 5 else max(ast_times_ns) / 1000.0
+			plan_us_p95 = (
+				statistics.quantiles(plan_times_ns, n=20)[18] / 1000.0
+				if len(plan_times_ns) >= 5
+				else max(plan_times_ns) / 1000.0
+			)
+			ast_us_p95 = (
+				statistics.quantiles(ast_times_ns, n=20)[18] / 1000.0
+				if len(ast_times_ns) >= 5
+				else max(ast_times_ns) / 1000.0
+			)
 
 			comparison_results["workloads"][w_id] = {
 				"description": w["description"],
@@ -705,7 +712,9 @@ class BenchmarkRunner:
 				"plan_eval_p95_us": round(plan_us_p95, 3),
 				"ast_eval_median_us": round(ast_us_median, 3),
 				"ast_eval_p95_us": round(ast_us_p95, 3),
-				"eval_ratio_ast_vs_plan": round(ast_us_median / plan_us_median, 2) if plan_us_median > 0 else 1.0,
+				"eval_ratio_ast_vs_plan": round(ast_us_median / plan_us_median, 2)
+				if plan_us_median > 0
+				else 1.0,
 			}
 
 		# Real Frappe Metadata Scenario (User -> Has Role)
@@ -797,7 +806,9 @@ class BenchmarkRunner:
 
 	def run_full_suite_and_export(
 		self,
-		output_filepath: str = os.path.join(Path(__file__).resolve().parents[4], "reports", "canonical_condition_benchmark_results.json"),
+		output_filepath: str = os.path.join(
+			Path(__file__).resolve().parents[4], "reports", "canonical_condition_benchmark_results.json"
+		),
 		output_markdown_path: str | None = None,
 	) -> dict:
 		"""Run unified condition benchmark and export JSON and Markdown reports."""
@@ -913,29 +924,53 @@ class BenchmarkRunner:
 		ast_comp = payload.get("canonical_ast_vs_plan_comparison", {})
 		md_lines.append("## Direct Canonical JSON AST vs Compiled Tuple Execution Plan")
 		md_lines.append("")
-		md_lines.append("This section reports the empirical comparison between **Approach A: Direct Canonical JSON AST Interpreter** and **Approach B: Compiled Immutable Tuple Execution Plan** consuming identical canonical condition payloads.")
+		md_lines.append(
+			"This section reports the empirical comparison between **Approach A: Direct Canonical JSON AST Interpreter** and **Approach B: Compiled Immutable Tuple Execution Plan** consuming identical canonical condition payloads."
+		)
 		md_lines.append("")
 		md_lines.append("### 1. Architecture Descriptions")
-		md_lines.append("- **Direct Canonical AST Interpreter (`CanonicalASTCandidate`):** Validates the canonical JSON AST once at preparation lifecycle against the authoritative canonical schema and metadata boundaries. At runtime, walks the validated dictionary-based AST directly. Operands, branches, and collection rows are evaluated strictly lazily when reached, without any intermediate tuple compilation or code generation.")
-		md_lines.append("- **Compiled Immutable Execution Plan (`CanonicalPreparedPlanCandidate`):** Validates and compiles the canonical JSON AST into an immutable recursive tuple plan (`_compile_node`, `_compile_value`) protected by a private object seal. At runtime, traverses the compiled tuple structure lazily via `_evaluate_node` and `_evaluate_value`.")
+		md_lines.append(
+			"- **Direct Canonical AST Interpreter (`CanonicalASTCandidate`):** Validates the canonical JSON AST once at preparation lifecycle against the authoritative canonical schema and metadata boundaries. At runtime, walks the validated dictionary-based AST directly. Operands, branches, and collection rows are evaluated strictly lazily when reached, without any intermediate tuple compilation or code generation."
+		)
+		md_lines.append(
+			"- **Compiled Immutable Execution Plan (`CanonicalPreparedPlanCandidate`):** Validates and compiles the canonical JSON AST into an immutable recursive tuple plan (`_compile_node`, `_compile_value`) protected by a private object seal. At runtime, traverses the compiled tuple structure lazily via `_evaluate_node` and `_evaluate_value`."
+		)
 		md_lines.append("")
 		md_lines.append("### 2. Preparation vs Runtime Evaluation")
 		md_lines.append("| Dimension | Direct Canonical AST Interpreter | Compiled Tuple Execution Plan |")
 		md_lines.append("|---|---|---|")
-		md_lines.append("| **Preparation Artifact** | Validated, immutable JSON AST dict snapshot (`_PreparedCanonicalAST`) | Immutable pre-compiled tuple tree (`_PreparedCanonicalCondition`) |")
-		md_lines.append("| **Preparation Work** | JSON canonicalization + schema & DocType validation | JSON canonicalization + schema validation + recursive tuple compilation |")
-		md_lines.append("| **Runtime Traversal** | Recursive dictionary key lookups and branch evaluation | Direct tuple indexing (`plan[0]`, `plan[1]`, etc.) |")
-		md_lines.append("| **Operand Resolution** | Lazy runtime evaluation via shared FlexValue resolvers | Lazy runtime evaluation via shared FlexValue resolvers |")
-		md_lines.append("| **Short-Circuiting** | Strict left-to-right AND/OR short-circuiting | Strict left-to-right AND/OR short-circuiting |")
-		md_lines.append("| **Quantifier Exit** | Immediate break on decisive condition (any/all/none) | Immediate break on decisive condition (any/all/none) |")
-		md_lines.append("| **Collection Safety** | Shared row-visit budget enforcement | Shared row-visit budget enforcement |")
+		md_lines.append(
+			"| **Preparation Artifact** | Validated, immutable JSON AST dict snapshot (`_PreparedCanonicalAST`) | Immutable pre-compiled tuple tree (`_PreparedCanonicalCondition`) |"
+		)
+		md_lines.append(
+			"| **Preparation Work** | JSON canonicalization + schema & DocType validation | JSON canonicalization + schema validation + recursive tuple compilation |"
+		)
+		md_lines.append(
+			"| **Runtime Traversal** | Recursive dictionary key lookups and branch evaluation | Direct tuple indexing (`plan[0]`, `plan[1]`, etc.) |"
+		)
+		md_lines.append(
+			"| **Operand Resolution** | Lazy runtime evaluation via shared FlexValue resolvers | Lazy runtime evaluation via shared FlexValue resolvers |"
+		)
+		md_lines.append(
+			"| **Short-Circuiting** | Strict left-to-right AND/OR short-circuiting | Strict left-to-right AND/OR short-circuiting |"
+		)
+		md_lines.append(
+			"| **Quantifier Exit** | Immediate break on decisive condition (any/all/none) | Immediate break on decisive condition (any/all/none) |"
+		)
+		md_lines.append(
+			"| **Collection Safety** | Shared row-visit budget enforcement | Shared row-visit budget enforcement |"
+		)
 		md_lines.append("")
 		md_lines.append("### 3. Semantic Correctness & Gate Results")
-		md_lines.append("Both candidates produce **100% identical outputs and error codes** across all simple, complex, and collection scaling workloads. Resolver counters verify zero invocations in short-circuited branches for both approaches.")
+		md_lines.append(
+			"Both candidates produce **100% identical outputs and error codes** across all simple, complex, and collection scaling workloads. Resolver counters verify zero invocations in short-circuited branches for both approaches."
+		)
 		md_lines.append("")
 		md_lines.append("### 4. Preparation and Steady-State Latency Comparison")
 		md_lines.append("")
-		md_lines.append("| Workload | Size | Compiled Prep (Cold/Warm μs) | AST Prep (Cold/Warm μs) | Compiled Eval (Median μs) | Compiled Eval (P95 μs) | AST Eval (Median μs) | AST Eval (P95 μs) | AST / Plan Ratio | Correctness |")
+		md_lines.append(
+			"| Workload | Size | Compiled Prep (Cold/Warm μs) | AST Prep (Cold/Warm μs) | Compiled Eval (Median μs) | Compiled Eval (P95 μs) | AST Eval (Median μs) | AST Eval (P95 μs) | AST / Plan Ratio | Correctness |"
+		)
 		md_lines.append("|---|---|---|---|---|---|---|---|---|---|")
 
 		for w_id, w_res in ast_comp.get("workloads", {}).items():
@@ -948,12 +983,16 @@ class BenchmarkRunner:
 			a_p95 = f"{w_res.get('ast_eval_p95_us', 0):.3f}"
 			ratio = f"{w_res.get('eval_ratio_ast_vs_plan', 1.0):.2f}x"
 			status = "PASS" if w_res.get("is_correct") else "FAIL"
-			md_lines.append(f"| `{w_id}` | {c_size} | {p_prep} | {a_prep} | {p_eval} | {p_p95} | {a_eval} | {a_p95} | {ratio} | {status} |")
+			md_lines.append(
+				f"| `{w_id}` | {c_size} | {p_prep} | {a_prep} | {p_eval} | {p_p95} | {a_eval} | {a_p95} | {ratio} | {status} |"
+			)
 
 		md_lines.append("")
 		md_lines.append("### 5. Amortized Cost (Preparation + N Evaluations)")
 		md_lines.append("")
-		md_lines.append("| Execution Count | Compiled Plan (Cold μs) | AST Interpreter (Cold μs) | Compiled Plan (Warm μs) | AST Interpreter (Warm μs) | Faster (Cold) | Faster (Warm) |")
+		md_lines.append(
+			"| Execution Count | Compiled Plan (Cold μs) | AST Interpreter (Cold μs) | Compiled Plan (Warm μs) | AST Interpreter (Warm μs) | Faster (Cold) | Faster (Warm) |"
+		)
 		md_lines.append("|---|---|---|---|---|---|---|")
 
 		for n_key, a_res in ast_comp.get("amortized", {}).items():
@@ -969,16 +1008,26 @@ class BenchmarkRunner:
 		md_lines.append("### 6. Realistic Frappe Metadata Verification")
 		meta_info = ast_comp.get("metadata_scenario", {})
 		md_lines.append(f"- **Metadata Scenario:** `{meta_info.get('scenario', 'User -> Has Role')}`")
-		md_lines.append(f"- **Compiled Plan Preparation:** `{meta_info.get('plan_prep_us', 0):.2f} μs` | **Evaluation Median:** `{meta_info.get('plan_eval_median_us', 0):.3f} μs`")
-		md_lines.append(f"- **Direct AST Preparation:** `{meta_info.get('ast_prep_us', 0):.2f} μs` | **Evaluation Median:** `{meta_info.get('ast_eval_median_us', 0):.3f} μs`")
+		md_lines.append(
+			f"- **Compiled Plan Preparation:** `{meta_info.get('plan_prep_us', 0):.2f} μs` | **Evaluation Median:** `{meta_info.get('plan_eval_median_us', 0):.3f} μs`"
+		)
+		md_lines.append(
+			f"- **Direct AST Preparation:** `{meta_info.get('ast_prep_us', 0):.2f} μs` | **Evaluation Median:** `{meta_info.get('ast_eval_median_us', 0):.3f} μs`"
+		)
 		md_lines.append("")
 		md_lines.append("### 7. Memory, Cache, and Maintenance Trade-offs")
-		md_lines.append("- **Direct Canonical AST:** Simpler architectural model without secondary AST compiler or tuple layout dependencies. Saves compilation step entirely. Cold preparation is noticeably faster. Runtime evaluation is slightly slower due to dictionary key lookups vs tuple index access.")
-		md_lines.append("- **Compiled Tuple Plan:** Has lower steady-state per-evaluation latency once prepared, as tuple index indexing is faster than dict key lookups in Python. However, it requires maintaining `_compile_node` and `_compile_value` compilers and plan synchronization.")
+		md_lines.append(
+			"- **Direct Canonical AST:** Simpler architectural model without secondary AST compiler or tuple layout dependencies. Saves compilation step entirely. Cold preparation is noticeably faster. Runtime evaluation is slightly slower due to dictionary key lookups vs tuple index access."
+		)
+		md_lines.append(
+			"- **Compiled Tuple Plan:** Has lower steady-state per-evaluation latency once prepared, as tuple index indexing is faster than dict key lookups in Python. However, it requires maintaining `_compile_node` and `_compile_value` compilers and plan synchronization."
+		)
 		md_lines.append("")
 		md_lines.append("### 8. Recommendation and Decision Gate")
 		md_lines.append("- **Production Selection:** **Not established**")
-		md_lines.append("- **Rationale:** For single or few-shot evaluations (N <= 10), Direct Canonical AST interpretation amortizes faster due to lower preparation cost. For heavily looped or long-lived prepared conditions (N >= 100), Compiled Tuple Plan demonstrates faster per-evaluation throughput. Because production workloads vary between single-event triggers and large batch iterations, both execution profiles have distinct sweet spots, and replacing the production evaluator without comprehensive end-to-end telemetry across all action types is not recommended.")
+		md_lines.append(
+			"- **Rationale:** For single or few-shot evaluations (N <= 10), Direct Canonical AST interpretation amortizes faster due to lower preparation cost. For heavily looped or long-lived prepared conditions (N >= 100), Compiled Tuple Plan demonstrates faster per-evaluation throughput. Because production workloads vary between single-event triggers and large batch iterations, both execution profiles have distinct sweet spots, and replacing the production evaluator without comprehensive end-to-end telemetry across all action types is not recommended."
+		)
 		md_lines.append("")
 		md_lines.append("---")
 		md_lines.append("")
