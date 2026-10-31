@@ -136,20 +136,21 @@ export function hydrateToTreeBuilder(ast) {
 	return astToUiNode(ast);
 }
 
-function uiNodeToAst(node) {
+function uiNodeToAst(node, operators = []) {
 	if (!node || typeof node !== "object") throw new TypeError("Tree node is invalid.");
 	if (node.type === "group") {
 		return {
 			type: "group",
 			operator: node.operator,
-			children: (node.children || []).map(uiNodeToAst),
+			children: (node.children || []).map((child) => uiNodeToAst(child, operators)),
 		};
 	}
 	if (node.type === "leaf") {
 		const domain = node.domain || {};
 		const ast = { type: "comparison", operator: domain.op, left: uiFlexValueToCanonical(domain.left) };
-		const unary = new Set(["is_set", "is_not_set", "is_empty", "is_not_empty", "is_null", "is_not_null", "is_submittable"]);
-		if (!unary.has(domain.op)) ast.right = uiFlexValueToCanonical(domain.right);
+		const operator = operators.find((item) => item?.id === domain.op);
+		if (!operator) throw new TypeError(`Unsupported canonical condition operator: ${String(domain.op)}`);
+		if (operator.arity === 2) ast.right = uiFlexValueToCanonical(domain.right);
 		return ast;
 	}
 	if (node.type === "collection") {
@@ -158,15 +159,19 @@ function uiNodeToAst(node) {
 			quantifier: node.quantifier,
 			source: uiFlexValueToCanonical(node.collection),
 			as: node.alias,
-			where: { type: "group", operator: "and", children: (node.children || []).map(uiNodeToAst) },
+			where: (() => {
+			const children = (node.children || []).map((child) => uiNodeToAst(child, operators));
+			if (children.length === 1) return children[0];
+			return { type: "group", operator: "and", children };
+		})(),
 		};
 	}
 	throw new TypeError(`Unsupported TreeBuilder node type: ${String(node.type)}`);
 }
 
 /** Serialize to the exact backend AST contract; ephemeral TreeBuilder fields are discarded. */
-export function serializeToCanonicalAst(uiNode) {
+export function serializeToCanonicalAst(uiNode, options = {}) {
 	if (!uiNode || typeof uiNode !== "object") return null;
 	if (uiNode.type === "group" && (!Array.isArray(uiNode.children) || uiNode.children.length === 0)) return null;
-	return uiNodeToAst(uiNode);
+	return uiNodeToAst(uiNode, options.operators || []);
 }
