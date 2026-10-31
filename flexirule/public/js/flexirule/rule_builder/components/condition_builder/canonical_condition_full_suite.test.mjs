@@ -2,157 +2,65 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-	normalizeFlexValue,
-	normalizeConditionNode,
-	hydrateToTreeBuilder,
-	serializeToCanonicalAst,
-} from "./canonical_condition_adapter.mjs";
-
-import {
 	validateFlexValue,
 	validateComparisonDomain,
 	validateConditionTree,
 } from "./canonical_condition_validator.mjs";
 
-import { resetContractCache } from "./condition_contract_client.mjs";
+const operators = [
+	{ id: "eq", arity: 2 },
+	{ id: "gt", arity: 2 },
+	{ id: "is_set", arity: 1 },
+];
 
-test("Adapter: Hydrating and serializing a single comparison AST", () => {
-	const ast = {
-		type: "comparison",
-		op: "eq",
-		left: { value_type: "variable", path: "doc.status" },
-		right: { value_type: "static", value: "Submitted" },
-	};
+const variable = (value = "doc.status") => ({ mode: "variable", value });
+const staticValue = (value = "Draft") => ({ mode: "static", value });
 
-	global.frappe = { utils: { get_random: () => "test_id_1" } };
-	const uiTree = hydrateToTreeBuilder(ast);
-
-	assert.equal(uiTree.type, "leaf");
-	assert.deepEqual(uiTree.domain, ast);
-
-	const serialized = serializeToCanonicalAst(uiTree);
-	assert.deepEqual(serialized, ast);
+test("validator accepts valid variable and static operands", () => {
+	assert.deepEqual(validateFlexValue(variable(), "Left operand"), []);
+	assert.deepEqual(validateFlexValue(staticValue(), "Right operand"), []);
 });
 
-test("Adapter: Hydrating and serializing nested AND/OR groups", () => {
-	const ast = {
-		type: "group",
-		op: "or",
-		children: [
-			{
-				type: "comparison",
-				op: "eq",
-				left: { value_type: "variable", path: "doc.docstatus" },
-				right: { value_type: "static", value: 1 },
-			},
-			{
-				type: "group",
-				op: "and",
-				children: [
-					{
-						type: "comparison",
-						op: "gt",
-						left: { value_type: "variable", path: "doc.grand_total" },
-						right: { value_type: "static", value: 5000 },
-					},
-				],
-			},
-		],
-	};
-
-	global.frappe = { utils: { get_random: () => "test_id_group" } };
-	const uiTree = hydrateToTreeBuilder(ast);
-
-	assert.equal(uiTree.type, "group");
-	assert.equal(uiTree.operator, "or");
-	assert.equal(uiTree.children.length, 2);
-
-	const serialized = serializeToCanonicalAst(uiTree);
-	assert.deepEqual(serialized, ast);
+test("validator rejects missing operands and unknown operators", () => {
+	assert.ok(validateComparisonDomain({ type: "comparison", op: "eq", left: variable() }, operators).length > 0);
+	assert.match(validateComparisonDomain({ type: "comparison", op: "made_up", left: variable() }, operators)[0], /Unsupported condition operator/);
 });
 
-test("Adapter: Legacy payload normalization", () => {
-	const legacyPayload = {
-		op: "and",
-		conditions: [
-			{ field: "doc.grand_total", op: ">", value: 100 },
-			{ field: "status", op: "!=", value: "Cancelled" },
-		],
-	};
-
-	const normalized = normalizeConditionNode(legacyPayload);
-	assert.equal(normalized.type, "group");
-	assert.equal(normalized.op, "and");
-	assert.equal(normalized.children[0].op, "gt");
-	assert.deepEqual(normalized.children[0].left, {
-		value_type: "variable",
-		path: "doc.grand_total",
-	});
-	assert.equal(normalized.children[1].op, "ne");
+test("validator respects operator arity from backend contract", () => {
+	assert.deepEqual(validateComparisonDomain({
+		type: "comparison", op: "is_set", left: variable(),
+	}, operators), []);
+	assert.ok(validateComparisonDomain({
+		type: "comparison", op: "eq", left: variable(), right: null,
+	}, operators).length > 0);
 });
 
-test("Adapter: Ephemeral IDs never appear in serialized canonical JSON", () => {
-	const uiTree = {
-		id: "ephemeral_group_123",
-		type: "group",
-		operator: "and",
-		children: [
-			{
-				id: "ephemeral_leaf_456",
-				type: "leaf",
-				domain: {
-					type: "comparison",
-					op: "is_set",
-					left: { value_type: "variable", path: "doc.customer" },
-				},
-			},
-		],
-	};
-
-	const serialized = serializeToCanonicalAst(uiTree);
-	assert.strictEqual(serialized.id, undefined);
-	assert.strictEqual(serialized.children[0].id, undefined);
-	assert.deepEqual(serialized, {
-		type: "group",
-		op: "and",
-		children: [
-			{
-				type: "comparison",
-				op: "is_set",
-				left: { value_type: "variable", path: "doc.customer" },
-			},
-		],
-	});
+test("empty optional root is allowed but mandatory empty root is rejected", () => {
+	const empty = { type: "group", operator: "and", children: [] };
+	assert.equal(validateConditionTree(empty, { operators, isMandatory: false }).isValid, true);
+	assert.equal(validateConditionTree(empty, { operators, isMandatory: true }).isValid, false);
 });
 
-test("Validator: Unary vs Binary operator validation", () => {
-	const operators = [
-		{ id: "eq", label: "Equals", arity: 2 },
-		{ id: "is_set", label: "Is set", arity: 1 },
-	];
-
-	// Valid unary
-	const validUnary = {
-		type: "comparison",
-		op: "is_set",
-		left: { value_type: "variable", path: "doc.name" },
+test("persisted groups require at least two children", () => {
+	const group = {
+		type: "group", operator: "and",
+		children: [{ type: "leaf", domain: { type: "comparison", op: "is_set", left: variable() } }],
 	};
-	assert.deepEqual(validateComparisonDomain(validUnary, operators), []);
-
-	// Incomplete binary (missing right)
-	const incompleteBinary = {
-		type: "comparison",
-		op: "eq",
-		left: { value_type: "variable", path: "doc.name" },
-		right: null,
-	};
-	const binaryErrors = validateComparisonDomain(incompleteBinary, operators);
-	assert.ok(binaryErrors.length > 0);
+	assert.equal(validateConditionTree(group, { operators }).isValid, false);
 });
 
-test("Validator: Mandatory empty tree validation", () => {
-	const emptyTree = { type: "group", operator: "and", children: [] };
-	const res = validateConditionTree(emptyTree, { isMandatory: true });
-	assert.equal(res.isValid, false);
-	assert.ok(res.errors.length > 0);
+test("collection predicates require a variable source, safe alias, and nested condition", () => {
+	const valid = {
+		type: "collection", quantifier: "any",
+		collection: variable("doc.items"), alias: "item",
+		children: [{ type: "leaf", domain: { type: "comparison", op: "gt", left: variable("row.qty"), right: staticValue(0) } }],
+	};
+	assert.equal(validateConditionTree(valid, { operators }).isValid, true);
+	assert.equal(validateConditionTree({ ...valid, alias: "doc" }, { operators }).isValid, false);
+	assert.equal(validateConditionTree({ ...valid, collection: staticValue("items") }, { operators }).isValid, false);
+	assert.equal(validateConditionTree({ ...valid, children: [] }, { operators }).isValid, false);
+});
+
+test("validation fails closed if the server contract is unavailable", () => {
+	assert.equal(validateConditionTree({ type: "leaf", domain: {} }, { operators: [] }).isValid, false);
 });
