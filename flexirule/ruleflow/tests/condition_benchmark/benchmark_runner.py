@@ -889,7 +889,7 @@ class BenchmarkRunner:
 		}
 
 		full_payload = {
-			"benchmark_protocol_version": 3,
+			"benchmark_protocol_version": 4,
 			"benchmark_target": "Condition Backend Comparison Benchmark",
 			"production_selection_status": "Not established",
 			"production_gate_reason": (
@@ -898,7 +898,7 @@ class BenchmarkRunner:
 			),
 			"measurement_protocol": (
 				"Cold prep measured after cache clear; warm prep measured on primed instance; "
-				"steady-state timed in 5 batches of alternating docs; amortized cost incorporates cold prep."
+				"steady-state timed in alternating batches; amortized cost incorporates cold prep; collection workloads share a nominal 100,000 row-visit budget; preparation allocation is sampled separately with tracemalloc."
 			),
 			"environment": env_info,
 			"correctness_suite": correctness_summary,
@@ -1055,6 +1055,17 @@ class BenchmarkRunner:
 		md_lines.append(
 			"- **Compiled Tuple Plan:** Has lower steady-state per-evaluation latency once prepared, as tuple index indexing is faster than dict key lookups in Python. However, it requires maintaining `_compile_node` and `_compile_value` compilers and plan synchronization."
 		)
+		memory_info = ast_comp.get("memory_profiling", {})
+		memory_candidates = memory_info.get("candidates", {})
+		md_lines.append("")
+		md_lines.append(f"- **Memory sample:** `{memory_info.get('sample_scenario', 'N/A')}`")
+		md_lines.append(
+			f"- **Compiled Plan retained / peak allocation:** `{memory_candidates.get('compiled_plan', {}).get('retained_allocation_bytes', 'N/A')} / {memory_candidates.get('compiled_plan', {}).get('peak_allocation_bytes', 'N/A')} bytes`"
+		)
+		md_lines.append(
+			f"- **Direct AST retained / peak allocation:** `{memory_candidates.get('direct_ast', {}).get('retained_allocation_bytes', 'N/A')} / {memory_candidates.get('direct_ast', {}).get('peak_allocation_bytes', 'N/A')} bytes`"
+		)
+		md_lines.append(f"- **Interpretation:** {memory_info.get('note', 'No memory diagnostic available.')}")
 		md_lines.append("")
 		md_lines.append("### 8. Recommendation and Decision Gate")
 		md_lines.append("- **Production Selection:** **Not established**")
