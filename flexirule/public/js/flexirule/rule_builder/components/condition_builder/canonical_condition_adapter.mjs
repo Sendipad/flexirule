@@ -1,251 +1,172 @@
-/**
- * canonical_condition_adapter.mjs
- * Adapter between Canonical Condition AST and Generic TreeBuilder UI Model.
- */
+/** Adapter between the canonical condition contract and TreeBuilder's UI model. */
 
-// Mapping of legacy comparison operator symbols/aliases to canonical operator IDs
-const LEGACY_OPERATOR_MAP = {
-	"==": "eq",
-	"=": "eq",
-	"!=": "ne",
-	"<>": "ne",
-	">": "gt",
-	">=": "gte",
-	"<": "lt",
-	"<=": "lte",
-	in: "in",
-	"not in": "not_in",
-	contains: "contains",
-	"not contains": "not_contains",
-	starts_with: "starts_with",
-	ends_with: "ends_with",
-	is_empty: "is_empty",
-	is_not_empty: "is_not_empty",
-	is_set: "is_set",
-	is_not_set: "is_not_set",
-	is_null: "is_null",
-	is_not_null: "is_not_null",
-};
+const SCOPES = new Set(["doc", "old_doc", "vars", "item", "loop", "row", "caller", "rule", "doctype"]);
 
-/**
- * Coerces raw/legacy left or right value inputs into a canonical FlexValue object.
- */
-export function normalizeFlexValue(val) {
-	if (val === null || val === undefined) {
-		return { value_type: "static", value: null };
+function newId() {
+	return globalThis.frappe?.utils?.get_random?.(12) || `condition-${globalThis.crypto?.randomUUID?.() || Math.random().toString(36).slice(2)}`;
+}
+
+function assertObject(value, label) {
+	if (!value || typeof value !== "object" || Array.isArray(value)) {
+		throw new TypeError(`${label} must be an object.`);
 	}
+}
 
-	if (typeof val === "object" && val.value_type) {
-		return val;
+function canonicalPathToText(path) {
+	assertObject(path, "Canonical variable path");
+	const { scope, segments } = path;
+	if (!SCOPES.has(scope) || !Array.isArray(segments) || !segments.length ||
+		segments.some((segment) => typeof segment !== "string" || !/^[A-Za-z0-9_]+$/.test(segment) || segment.includes("__"))) {
+		throw new TypeError("Canonical variable path is invalid.");
 	}
+	return [scope, ...segments].join(".");
+}
 
-	// Legacy string field path or variable (e.g., "doc.status", "customer_group", "vars.total")
-	if (typeof val === "string") {
-		const trimmed = val.trim();
-		if (
-			trimmed.startsWith("doc.") ||
-			trimmed.startsWith("old_doc.") ||
-			trimmed.startsWith("vars.") ||
-			trimmed.startsWith("caller.") ||
-			trimmed.startsWith("rule.") ||
-			trimmed.startsWith("context.") ||
-			trimmed.includes(".")
-		) {
-			return { value_type: "variable", path: trimmed };
+function textToCanonicalPath(value) {
+	if (typeof value !== "string" || !value.trim()) {
+		throw new TypeError("Variable path is required.");
+	}
+	const parts = value.trim().split(".");
+	let scope = parts.length > 1 && SCOPES.has(parts[0]) ? parts.shift() : "doc";
+	if (scope === "doctype") {
+		throw new TypeError("The doctype scope is not a field-value scope.");
+	}
+	if (!parts.length || parts.some((part) => !/^[A-Za-z0-9_]+$/.test(part) || part.includes("__"))) {
+		throw new TypeError("Variable path contains an invalid segment.");
+	}
+	return { scope, segments: parts };
+}
+
+function inferStaticType(value) {
+	if (value === null || value === undefined) return { value_type: "null", value: null };
+	if (typeof value === "boolean") return { value_type: "boolean", value };
+	if (typeof value === "number") {
+		if (!Number.isFinite(value)) throw new TypeError("Static numeric values must be finite.");
+		return Number.isInteger(value)
+			? { value_type: "integer", value }
+			: { value_type: "decimal", value: String(value) };
+	}
+	if (typeof value === "string") return { value_type: "string", value };
+	if (Array.isArray(value)) return { value_type: "list", value };
+	if (typeof value === "object") return { value_type: "object", value };
+	throw new TypeError("Unsupported static value type.");
+}
+
+/** Convert the canonical FlexValue contract into the shape FlexValueControl can edit. */
+export function canonicalFlexValueToUi(value) {
+	assertObject(value, "FlexValue");
+	switch (value.mode) {
+		case "static":
+			return { mode: "static", value: value.value };
+		case "variable":
+			return { mode: "variable", value: canonicalPathToText(value.path) };
+		case "resolver":
+			return { mode: "resolver", family: value.family, operation: value.operation, config: value.config };
+		default:
+			throw new TypeError(`Unsupported canonical FlexValue mode: ${String(value.mode)}`);
+	}
+}
+
+/** Convert FlexValueControl output into a strict canonical FlexValue. */
+export function uiFlexValueToCanonical(value) {
+	assertObject(value, "Operand");
+	switch (value.mode) {
+		case "static": {
+			if (Object.hasOwn(value, "value_type")) {
+				const typed = { mode: "static", value_type: value.value_type, value: value.value };
+				if (!["string", "integer", "decimal", "boolean", "null", "date", "datetime", "time", "list", "object"].includes(typed.value_type)) {
+					throw new TypeError("Static operand has an unsupported value type.");
+				}
+				if (typed.value_type === "decimal" && typeof typed.value !== "string") {
+					typed.value = String(typed.value);
+				}
+				return typed;
+			}
+			return { mode: "static", ...inferStaticType(value.value) };
 		}
-		// Pure string literal
-		return { value_type: "static", value: trimmed };
+		case "variable":
+			return { mode: "variable", path: textToCanonicalPath(value.value ?? value.path) };
+		case "resolver":
+			if (typeof value.family !== "string" || !value.family || typeof value.operation !== "string" || !value.operation || !value.config || typeof value.config !== "object" || Array.isArray(value.config)) {
+				throw new TypeError("Resolver operands must use an explicitly supported family, operation, and configuration.");
+			}
+			return { mode: "resolver", family: value.family, operation: value.operation, config: value.config };
+		default:
+			throw new TypeError(`Unsupported operand mode: ${String(value.mode)}`);
 	}
-
-	// Primitive static value
-	return { value_type: "static", value: val };
-}
-
-/**
- * Normalizes a raw/legacy condition node payload into canonical AST shape before adapter processing.
- */
-export function normalizeConditionNode(node) {
-	if (!node || typeof node !== "object") {
-		return null;
-	}
-
-	// Group node format (canonical or legacy)
-	if (node.type === "group" || (node.op && (node.conditions || node.children))) {
-		const rawChildren = node.conditions || node.children || [];
-		const normalizedChildren = rawChildren
-			.map((child) => normalizeConditionNode(child))
-			.filter(Boolean);
-
-		return {
-			type: "group",
-			op: (node.op || "and").toLowerCase(),
-			children: normalizedChildren,
-		};
-	}
-
-	// Collection predicate format
-	if (node.type === "collection_predicate" || node.quantifier || node.collection) {
-		const quantifier = (node.quantifier || "any").toLowerCase();
-		const collectionPath = normalizeFlexValue(node.collection || node.source || "");
-		const alias = node.alias || "item";
-		const rawWhere = node.where || node.conditions || node.predicate;
-		const normalizedWhere = rawWhere
-			? normalizeConditionNode(rawWhere)
-			: { type: "group", op: "and", children: [] };
-
-		return {
-			type: "collection_predicate",
-			quantifier,
-			collection: collectionPath,
-			alias,
-			where: normalizedWhere,
-		};
-	}
-
-	// Comparison format
-	const rawOp = node.op || node.operator || "eq";
-	const canonicalOp = LEGACY_OPERATOR_MAP[rawOp] || rawOp;
-
-	const left = normalizeFlexValue(node.left !== undefined ? node.left : node.field);
-	const right =
-		node.right !== undefined
-			? normalizeFlexValue(node.right)
-			: node.value !== undefined
-			? normalizeFlexValue(node.value)
-			: null;
-
-	return {
-		type: "comparison",
-		op: canonicalOp,
-		left,
-		right,
-	};
-}
-
-/**
- * Hydrates a canonical (or normalized legacy) Condition AST into a Generic TreeBuilder UI state tree.
- *
- * Generic TreeBuilder state node formats:
- * - Group node: { id, type: 'group', operator: 'and'|'or', children: [...] }
- * - Leaf node: { id, type: 'leaf', domain: { type: 'comparison', op, left, right } }
- * - Collection group: { id, type: 'collection', quantifier, collection, alias, children: [...] }
- */
-export function hydrateToTreeBuilder(ast) {
-	if (!ast) {
-		return {
-			id: frappe.utils.get_random(12),
-			type: "group",
-			operator: "and",
-			children: [],
-		};
-	}
-
-	const normalized = normalizeConditionNode(ast);
-	if (!normalized) {
-		return {
-			id: frappe.utils.get_random(12),
-			type: "group",
-			operator: "and",
-			children: [],
-		};
-	}
-
-	return astToUiNode(normalized);
 }
 
 function astToUiNode(node) {
-	const id = frappe.utils.get_random(12);
-
+	assertObject(node, "Condition node");
+	const id = newId();
 	if (node.type === "group") {
-		return {
-			id,
-			type: "group",
-			operator: (node.op || "and").toLowerCase(),
-			children: (node.children || []).map((child) => astToUiNode(child)),
-		};
+		if (!["and", "or"].includes(node.operator) || !Array.isArray(node.children)) {
+			throw new TypeError("Canonical group requires operator and children.");
+		}
+		return { id, type: "group", operator: node.operator, children: node.children.map(astToUiNode) };
 	}
-
+	if (node.type === "comparison") {
+		if (typeof node.operator !== "string" || !node.left) {
+			throw new TypeError("Canonical comparison requires operator and left operand.");
+		}
+		const domain = { type: "comparison", op: node.operator, left: canonicalFlexValueToUi(node.left) };
+		if (Object.hasOwn(node, "right")) domain.right = canonicalFlexValueToUi(node.right);
+		return { id, type: "leaf", domain };
+	}
 	if (node.type === "collection_predicate") {
-		const childGroup = astToUiNode(node.where || { type: "group", op: "and", children: [] });
+		if (!["any", "all", "none"].includes(node.quantifier) || typeof node.as !== "string" || !node.source || !node.where) {
+			throw new TypeError("Canonical collection predicate is incomplete.");
+		}
+		if (node.source.mode !== "variable") {
+			throw new TypeError("Collection source must be a variable path.");
+		}
+		const where = astToUiNode(node.where);
 		return {
-			id,
-			type: "collection",
-			quantifier: node.quantifier || "any",
-			collection: node.collection || { value_type: "variable", path: "" },
-			alias: node.alias || "item",
-			children: childGroup.type === "group" ? childGroup.children : [childGroup],
+			id, type: "collection", quantifier: node.quantifier,
+			collection: canonicalFlexValueToUi(node.source), alias: node.as,
+			children: where.type === "group" ? where.children : [where],
 		};
 	}
-
-	// Comparison
-	return {
-		id,
-		type: "leaf",
-		domain: {
-			type: "comparison",
-			op: node.op || "eq",
-			left: node.left || { value_type: "static", value: "" },
-			right: node.right,
-		},
-	};
+	throw new TypeError(`Unsupported canonical condition node type: ${String(node.type)}`);
 }
 
-/**
- * Serializes a Generic TreeBuilder UI state tree back to a strict Canonical Condition AST.
- * Ephemeral UI fields (`id`, wrapper fields) are completely purged.
- */
-export function serializeToCanonicalAst(uiNode) {
-	if (!uiNode || typeof uiNode !== "object") {
-		return null;
-	}
+/** Hydrate a canonical AST. Invalid input throws instead of silently becoming an empty condition. */
+export function hydrateToTreeBuilder(ast) {
+	if (ast == null) return { id: newId(), type: "group", operator: "and", children: [] };
+	return astToUiNode(ast);
+}
 
-	if (uiNode.type === "group") {
-		const children = (uiNode.children || [])
-			.map((child) => serializeToCanonicalAst(child))
-			.filter(Boolean);
-
-		// If root group is empty, return an empty group AST
+function uiNodeToAst(node) {
+	if (!node || typeof node !== "object") throw new TypeError("Tree node is invalid.");
+	if (node.type === "group") {
 		return {
 			type: "group",
-			op: (uiNode.operator || "and").toLowerCase(),
-			children,
+			operator: node.operator,
+			children: (node.children || []).map(uiNodeToAst),
 		};
 	}
-
-	if (uiNode.type === "collection") {
-		const childNodes = (uiNode.children || [])
-			.map((child) => serializeToCanonicalAst(child))
-			.filter(Boolean);
-
-		const whereGroup = {
-			type: "group",
-			op: "and",
-			children: childNodes,
-		};
-
-		return {
-			type: "collection_predicate",
-			quantifier: uiNode.quantifier || "any",
-			collection: uiNode.collection || { value_type: "variable", path: "" },
-			alias: uiNode.alias || "item",
-			where: whereGroup,
-		};
-	}
-
-	if (uiNode.type === "leaf") {
-		const domain = uiNode.domain || {};
-		const ast = {
-			type: "comparison",
-			op: domain.op || "eq",
-			left: domain.left || { value_type: "static", value: "" },
-		};
-
-		if (domain.right !== undefined && domain.right !== null) {
-			ast.right = domain.right;
-		}
-
+	if (node.type === "leaf") {
+		const domain = node.domain || {};
+		const ast = { type: "comparison", operator: domain.op, left: uiFlexValueToCanonical(domain.left) };
+		const unary = new Set(["is_set", "is_not_set", "is_empty", "is_not_empty", "is_null", "is_not_null", "is_submittable"]);
+		if (!unary.has(domain.op)) ast.right = uiFlexValueToCanonical(domain.right);
 		return ast;
 	}
+	if (node.type === "collection") {
+		return {
+			type: "collection_predicate",
+			quantifier: node.quantifier,
+			source: uiFlexValueToCanonical(node.collection),
+			as: node.alias,
+			where: { type: "group", operator: "and", children: (node.children || []).map(uiNodeToAst) },
+		};
+	}
+	throw new TypeError(`Unsupported TreeBuilder node type: ${String(node.type)}`);
+}
 
-	return null;
+/** Serialize to the exact backend AST contract; ephemeral TreeBuilder fields are discarded. */
+export function serializeToCanonicalAst(uiNode) {
+	if (!uiNode || typeof uiNode !== "object") return null;
+	if (uiNode.type === "group" && (!Array.isArray(uiNode.children) || uiNode.children.length === 0)) return null;
+	return uiNodeToAst(uiNode);
 }
