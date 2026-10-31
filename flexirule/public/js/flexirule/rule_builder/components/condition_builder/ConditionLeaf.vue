@@ -103,8 +103,21 @@ const validationErrors = computed(() => {
 
 const hasError = computed(() => validationErrors.value.length > 0);
 
+function preserveStaticType(value, previous) {
+	if (value?.mode !== "static" || !previous?.value_type || previous.value_type === "null") return value;
+	const type = previous.value_type;
+	if (type === "decimal") return { ...value, value_type: type, value: String(value.value ?? "") };
+	if (type === "integer" && value.value !== "" && Number.isInteger(Number(value.value))) {
+		return { ...value, value_type: type, value: Number(value.value) };
+	}
+	if (["string", "boolean", "date", "datetime", "time", "list", "object"].includes(type)) {
+		return { ...value, value_type: type };
+	}
+	return value;
+}
+
 function onUpdateLeft(val) {
-	const updated = { ...localDomain.value, left: val };
+	const updated = { ...localDomain.value, left: preserveStaticType(val, localDomain.value.left) };
 	emit("update:domain", updated);
 }
 
@@ -123,7 +136,7 @@ function onUpdateOp(newOp) {
 }
 
 function onUpdateRight(val) {
-	const updated = { ...localDomain.value, right: val };
+	const updated = { ...localDomain.value, right: preserveStaticType(val, localDomain.value.right) };
 	emit("update:domain", updated);
 }
 </script>
