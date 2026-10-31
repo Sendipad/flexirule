@@ -8,68 +8,106 @@ import {
 	serializeToCanonicalAst,
 } from "./canonical_condition_adapter.mjs";
 
-test("normalizeFlexValue transforms string paths to variable FlexValue", () => {
-	const result = normalizeFlexValue("doc.status");
-	assert.deepEqual(result, { value_type: "variable", path: "doc.status" });
-});
+const operators = [
+	{ id: "eq", arity: 2 },
+	{ id: "gt", arity: 2 },
+	{ id: "is_set", arity: 1 },
+];
 
-test("normalizeFlexValue transforms primitive static values to static FlexValue", () => {
-	const result = normalizeFlexValue("Active");
-	assert.deepEqual(result, { value_type: "static", value: "Active" });
-});
+global.frappe = { utils: { get_random: () => "test-id" } };
 
-test("normalizeConditionNode converts legacy == operator symbol to canonical eq ID", () => {
-	const legacyNode = { field: "status", op: "==", value: "Draft" };
-	const normalized = normalizeConditionNode(legacyNode);
-	assert.equal(normalized.type, "comparison");
-	assert.equal(normalized.op, "eq");
-	assert.deepEqual(normalized.left, { value_type: "static", value: "status" });
-	assert.deepEqual(normalized.right, { value_type: "static", value: "Draft" });
-});
-
-test("hydrateToTreeBuilder & serializeToCanonicalAst roundtrip preserves canonical structure and purges UI ids", () => {
-	const canonicalAst = {
+test("canonical comparison round-trips with backend operator and FlexValue fields", () => {
+	const ast = {
 		type: "group",
-		op: "and",
+		operator: "and",
 		children: [
 			{
 				type: "comparison",
-				op: "gt",
-				left: { value_type: "variable", path: "grand_total" },
-				right: { value_type: "static", value: 1000 },
+				operator: "eq",
+				left: { mode: "variable", path: { scope: "doc", segments: ["status"] } },
+				right: { mode: "static", value_type: "string", value: "Submitted" },
 			},
 			{
-				type: "collection_predicate",
-				quantifier: "any",
-				collection: { value_type: "variable", path: "items" },
-				alias: "item",
-				where: {
-					type: "group",
-					op: "and",
-					children: [
-						{
-							type: "comparison",
-							op: "gte",
-							left: { value_type: "variable", path: "item.qty" },
-							right: { value_type: "static", value: 10 },
-						},
-					],
-				},
+				type: "comparison",
+				operator: "gt",
+				left: { mode: "variable", path: { scope: "doc", segments: ["grand_total"] } },
+				right: { mode: "static", value_type: "integer", value: 100 },
 			},
 		],
 	};
+	const ui = hydrateToTreeBuilder(ast);
+	const serialized = serializeToCanonicalAst(ui, { operators });
+	assert.deepEqual(serialized, ast);
+	assert.equal(serialized.children[0].operator, "eq");
+	assert.equal("op" in serialized.children[0], false);
+});
 
-	// Hydrate to TreeBuilder UI state
-	global.frappe = {
-		utils: { get_random: () => "ui_id_" + Math.random().toString(36).substring(2) },
+test("collection source and single nested predicate use the canonical collection contract", () => {
+	const ast = {
+		type: "collection_predicate",
+		quantifier: "any",
+		source: { mode: "variable", path: { scope: "doc", segments: ["items"] } },
+		as: "item",
+		where: {
+			type: "comparison",
+			operator: "gt",
+			left: { mode: "variable", path: { scope: "row", segments: ["qty"] } },
+			right: { mode: "static", value_type: "integer", value: 0 },
+		},
 	};
-	const uiTree = hydrateToTreeBuilder(canonicalAst);
+	const ui = hydrateToTreeBuilder(ast);
+	assert.equal(ui.type, "collection");
+	const serialized = serializeToCanonicalAst(ui, { operators });
+	assert.deepEqual(serialized, ast);
+	assert.equal(serialized.source.path.scope, "doc");
+	assert.deepEqual(serialized.source.path.segments, ["items"]);
+});
 
-	// Verify ephemeral UI ID is attached
-	assert.ok(uiTree.id);
+test("legacy persisted condition data is normalized into canonical keys for migration", () => {
+	const migrated = normalizeConditionNode({
+		op: "and",
+		conditions: [
+			{ field: "doc.grand_total", op: ">", value: 100 },
+			{ field: "status", op: "!=", value: "Cancelled" },
+		],
+	});
+	assert.deepEqual(migrated, {
+		type: "group",
+		operator: "and",
+		children: [
+			{
+				type: "comparison",
+				operator: "gt",
+				left: { mode: "variable", path: { scope: "doc", segments: ["grand_total"] } },
+				right: { mode: "static", value_type: "integer", value: 100 },
+			},
+			{
+				type: "comparison",
+				operator: "ne",
+				left: { mode: "static", value_type: "string", value: "status" },
+				right: { mode: "static", value_type: "string", value: "Cancelled" },
+			},
+		],
+	});
+});
 
-	// Serialize back to canonical AST
-	const serialized = serializeToCanonicalAst(uiTree);
+test("unsupported canonical node types fail instead of becoming an empty tree", () => {
+	assert.throws(() => hydrateToTreeBuilder({ type: "expression", value: "True" }), /Unsupported canonical condition node type/);
+});
 
-	assert.deepEqual(serialized, canonicalAst);
+test("serializer requires the authoritative operator contract", () => {
+	const ui = { type: "leaf", domain: { type: "comparison", op: "custom", left: { mode: "static", value: "x" } } };
+	assert.throws(() => serializeToCanonicalAst(ui, { operators }), /Unsupported canonical condition operator/);
+});
+
+test("legacy FlexValue values are converted to strict canonical modes", () => {
+	assert.deepEqual(normalizeFlexValue("doc.status"), {
+		mode: "variable",
+		path: { scope: "doc", segments: ["status"] },
+	});
+	assert.deepEqual(normalizeFlexValue("Active"), {
+		mode: "static",
+		value_type: "string",
+		value: "Active",
+	});
 });
