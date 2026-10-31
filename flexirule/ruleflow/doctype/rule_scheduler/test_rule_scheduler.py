@@ -246,7 +246,7 @@ class TestRuleScheduler(FrappeTestCase):
 
 		# Change to a custom cron that runs in the distant future or distinctly offset
 		scheduler.frequency = "Cron"
-		scheduler.cron_expression = "0 12 15 * *"  # 15th of the month at 12:00
+		scheduler.cron_format = "0 12 15 * *"  # 15th of the month at 12:00
 		scheduler.save(ignore_permissions=True)
 
 		scheduler = frappe.get_doc("Rule Scheduler", scheduler.name)
