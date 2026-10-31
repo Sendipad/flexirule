@@ -187,7 +187,7 @@ class TestConditionBenchmark(FrappeTestCase):
 			runner = BenchmarkRunner(iterations_per_batch=10, num_batches=1, warmup_iterations=1)
 			payload = runner.run_full_suite_and_export(json_path, md_path)
 
-			self.assertEqual(payload["benchmark_protocol_version"], 3)
+			self.assertEqual(payload["benchmark_protocol_version"], 4)
 			self.assertEqual(payload["production_selection_status"], "Not established")
 			self.assertIn("correctness_suite", payload)
 			self.assertIn("steady_state_benchmark", payload)
