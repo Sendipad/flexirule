@@ -187,7 +187,7 @@ class TestConditionBenchmark(FrappeTestCase):
 			runner = BenchmarkRunner(iterations_per_batch=10, num_batches=1, warmup_iterations=1)
 			payload = runner.run_full_suite_and_export(json_path, md_path)
 
-			self.assertEqual(payload["benchmark_protocol_version"], 3)
+			self.assertEqual(payload["benchmark_protocol_version"], 4)
 			self.assertEqual(payload["production_selection_status"], "Not established")
 			self.assertIn("correctness_suite", payload)
 			self.assertIn("steady_state_benchmark", payload)
@@ -276,6 +276,271 @@ class TestConditionBenchmark(FrappeTestCase):
 		res = self.canonical_candidate.evaluate(prep, doc)
 		self.assertIsNotNone(res.error)
 		self.assertIn("operand_type_mismatch", res.error)
+
+	# --- Tests for Direct Canonical AST Candidate & Parity with Compiled Plan ---
+
+	def test_canonical_ast_candidate_parity_with_compiled_plan(self):
+		"""Verify identical evaluation results across supported neutral scenarios."""
+		from flexirule.ruleflow.tests.condition_benchmark.candidate_canonical_ast import CanonicalASTCandidate
+
+		ast_candidate = CanonicalASTCandidate()
+		scenarios = get_neutral_scenarios()
+
+		for sc in scenarios:
+			canonical_p = node_to_canonical_payload(sc.root)
+			if canonical_p is None:
+				continue
+
+			with self.subTest(scenario=sc.scenario_id):
+				prep_compiled = self.canonical_prepared.prepare(canonical_p)
+				prep_ast = ast_candidate.prepare(canonical_p)
+
+				self.assertEqual(bool(prep_compiled.error), bool(prep_ast.error))
+				if prep_compiled.error:
+					continue
+
+				res_compiled_m = self.canonical_prepared.evaluate(prep_compiled, sc.matching_doc)
+				res_ast_m = ast_candidate.evaluate(prep_ast, sc.matching_doc)
+				self.assertEqual(res_compiled_m.result, res_ast_m.result)
+				self.assertEqual(bool(res_compiled_m.error), bool(res_ast_m.error))
+
+				res_compiled_nm = self.canonical_prepared.evaluate(prep_compiled, sc.non_matching_doc)
+				res_ast_nm = ast_candidate.evaluate(prep_ast, sc.non_matching_doc)
+				self.assertEqual(res_compiled_nm.result, res_ast_nm.result)
+				self.assertEqual(bool(res_compiled_nm.error), bool(res_ast_nm.error))
+
+	def test_lazy_operand_evaluation_and_or_short_circuit(self):
+		"""Verify lazy evaluation: later operands/children are not evaluated once decisive."""
+		from flexirule.ruleflow.tests.condition_benchmark.candidate_canonical_ast import CanonicalASTCandidate
+
+		ast_cand = CanonicalASTCandidate()
+
+		and_payload = {
+			"type": "group",
+			"operator": "and",
+			"children": [
+				{
+					"type": "comparison",
+					"operator": "eq",
+					"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["first_cond"]}},
+					"right": {"mode": "static", "value_type": "boolean", "value": True},
+				},
+				{
+					"type": "comparison",
+					"operator": "eq",
+					"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["second_cond"]}},
+					"right": {"mode": "static", "value_type": "boolean", "value": True},
+				},
+			],
+		}
+
+		for cand in [self.canonical_prepared, ast_cand]:
+			with self.subTest(candidate=cand.candidate_name, test="and_short_circuit"):
+				tracking_doc = TrackingDoc({"first_cond": False, "second_cond": True})
+				prep = cand.prepare(and_payload)
+				res = cand.evaluate(prep, tracking_doc)
+				self.assertIsNone(res.error)
+				self.assertFalse(res.result)
+				self.assertEqual(tracking_doc.access_counts.get("first_cond", 0), 1)
+				self.assertEqual(tracking_doc.access_counts.get("second_cond", 0), 0)
+
+		or_payload = {
+			"type": "group",
+			"operator": "or",
+			"children": [
+				{
+					"type": "comparison",
+					"operator": "eq",
+					"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["first_cond"]}},
+					"right": {"mode": "static", "value_type": "boolean", "value": True},
+				},
+				{
+					"type": "comparison",
+					"operator": "eq",
+					"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["second_cond"]}},
+					"right": {"mode": "static", "value_type": "boolean", "value": True},
+				},
+			],
+		}
+
+		for cand in [self.canonical_prepared, ast_cand]:
+			with self.subTest(candidate=cand.candidate_name, test="or_short_circuit"):
+				tracking_doc = TrackingDoc({"first_cond": True, "second_cond": False})
+				prep = cand.prepare(or_payload)
+				res = cand.evaluate(prep, tracking_doc)
+				self.assertIsNone(res.error)
+				self.assertTrue(res.result)
+				self.assertEqual(tracking_doc.access_counts.get("first_cond", 0), 1)
+				self.assertEqual(tracking_doc.access_counts.get("second_cond", 0), 0)
+
+	def test_lazy_resolver_invocation_in_unreachable_branch(self):
+		"""Verify resolvers in unreachable short-circuited branches are never invoked."""
+		import flexirule.ruleflow.core.flexvalue_contract as fvc
+		from flexirule.ruleflow.tests.condition_benchmark.candidate_canonical_ast import CanonicalASTCandidate
+
+		resolver_invocations = 0
+
+		def counting_resolver(config, context):
+			nonlocal resolver_invocations
+			resolver_invocations += 1
+			return config.get("value", 0)
+
+		def noop_validator(config, path, allowed_scopes, resolver_depth, flexvalue_depth):
+			pass
+
+		fvc.register_condition_resolver(
+			family="bench_lazy",
+			operation="get_number",
+			label="Bench Lazy Resolver",
+			output_type="integer",
+			config_schema={"type": "object", "properties": {"value": {"type": "integer"}}},
+			permission_policy="no_data_access",
+			validate_config=noop_validator,
+			resolve=counting_resolver,
+			condition_operand_allowed=True,
+			required_capability="condition_operand",
+		)
+
+		payload = {
+			"type": "group",
+			"operator": "and",
+			"children": [
+				{
+					"type": "comparison",
+					"operator": "eq",
+					"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["active"]}},
+					"right": {"mode": "static", "value_type": "boolean", "value": True},
+				},
+				{
+					"type": "comparison",
+					"operator": "gt",
+					"left": {
+						"mode": "resolver",
+						"family": "bench_lazy",
+						"operation": "get_number",
+						"config": {"value": 50},
+					},
+					"right": {"mode": "static", "value_type": "integer", "value": 10},
+				},
+			],
+		}
+
+		ast_cand = CanonicalASTCandidate()
+		try:
+			for cand in [self.canonical_prepared, ast_cand]:
+				with self.subTest(candidate=cand.candidate_name):
+					prep = cand.prepare(payload)
+					resolver_invocations = 0
+					res1 = cand.evaluate(prep, {"doc": {"active": False}})
+					self.assertFalse(res1.result)
+					self.assertEqual(
+						resolver_invocations,
+						0,
+						f"Resolver was invoked in {cand.candidate_name} on short-circuit!",
+					)
+
+					resolver_invocations = 0
+					res2 = cand.evaluate(prep, {"doc": {"active": True}})
+					self.assertTrue(res2.result)
+					self.assertEqual(
+						resolver_invocations,
+						1,
+						f"Resolver was not invoked exactly once in {cand.candidate_name}!",
+					)
+		finally:
+			fvc.CONDITION_RESOLVER_REGISTRY.pop(("bench_lazy", "get_number"), None)
+			fvc._RESOLVER_REGISTRY_FINGERPRINT_CACHE = None
+
+	def test_lazy_collection_quantifier_short_circuit(self):
+		"""Verify collection predicates stop iterating as soon as the quantifier is decisive."""
+		from flexirule.ruleflow.tests.condition_benchmark.candidate_canonical_ast import CanonicalASTCandidate
+
+		ast_cand = CanonicalASTCandidate()
+
+		any_payload = {
+			"type": "collection_predicate",
+			"quantifier": "any",
+			"source": {"scope": "doc", "segments": ["items"]},
+			"as": "it",
+			"where": {
+				"type": "comparison",
+				"operator": "eq",
+				"left": {"mode": "variable", "path": {"scope": "it", "segments": ["active"]}},
+				"right": {"mode": "static", "value_type": "boolean", "value": True},
+			},
+		}
+
+		rows = [
+			TrackingDoc({"active": False}),
+			TrackingDoc({"active": True}),
+			TrackingDoc({"active": False}),
+			TrackingDoc({"active": False}),
+			TrackingDoc({"active": False}),
+		]
+
+		for cand in [self.canonical_prepared, ast_cand]:
+			with self.subTest(candidate=cand.candidate_name):
+				for r in rows:
+					r.access_counts.clear()
+				prep = cand.prepare(any_payload)
+				res = cand.evaluate(prep, {"doc": {"items": rows}})
+				self.assertTrue(res.result)
+				self.assertEqual(rows[0].access_counts.get("active", 0), 1)
+				self.assertEqual(rows[1].access_counts.get("active", 0), 1)
+				self.assertEqual(rows[2].access_counts.get("active", 0), 0)
+				self.assertEqual(rows[3].access_counts.get("active", 0), 0)
+				self.assertEqual(rows[4].access_counts.get("active", 0), 0)
+
+	def test_frappe_metadata_user_roles_scenario(self):
+		"""Verify authoritative User -> Has Role metadata resolution in both candidates."""
+		from flexirule.ruleflow.tests.condition_benchmark.candidate_canonical_ast import CanonicalASTCandidate
+
+		ast_cand = CanonicalASTCandidate()
+
+		payload = {
+			"type": "collection_predicate",
+			"quantifier": "any",
+			"source": {"scope": "doc", "segments": ["roles"]},
+			"as": "role_item",
+			"where": {
+				"type": "comparison",
+				"operator": "eq",
+				"left": {"mode": "variable", "path": {"scope": "role_item", "segments": ["role"]}},
+				"right": {"mode": "static", "value_type": "string", "value": "System Manager"},
+			},
+		}
+
+		meta_ctx = {"doctype": "User"}
+		prep_compiled = self.canonical_prepared.prepare(payload, metadata_context=meta_ctx)
+		prep_ast = ast_cand.prepare(payload, metadata_context=meta_ctx)
+
+		self.assertIsNone(prep_compiled.error)
+		self.assertIsNone(prep_ast.error)
+
+		doc_matching = {
+			"doctype": "User",
+			"roles": [
+				{"doctype": "Has Role", "role": "Blogger"},
+				{"doctype": "Has Role", "role": "System Manager"},
+			],
+		}
+		doc_non_matching = {
+			"doctype": "User",
+			"roles": [
+				{"doctype": "Has Role", "role": "Blogger"},
+				{"doctype": "Has Role", "role": "Guest"},
+			],
+		}
+
+		res_c_m = self.canonical_prepared.evaluate(prep_compiled, doc_matching)
+		res_ast_m = ast_cand.evaluate(prep_ast, doc_matching)
+		self.assertTrue(res_c_m.result)
+		self.assertTrue(res_ast_m.result)
+
+		res_c_nm = self.canonical_prepared.evaluate(prep_compiled, doc_non_matching)
+		res_ast_nm = ast_cand.evaluate(prep_ast, doc_non_matching)
+		self.assertFalse(res_c_nm.result)
+		self.assertFalse(res_ast_nm.result)
 
 
 class TrackingDoc(frappe._dict):

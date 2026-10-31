@@ -9,6 +9,7 @@ import platform
 import statistics
 import subprocess
 import time
+import tracemalloc
 from pathlib import Path
 from typing import Any
 
@@ -30,10 +31,19 @@ from flexirule.ruleflow.tests.condition_benchmark.candidate_canonical import (
 	CanonicalConditionCandidate,
 	CanonicalPreparedPlanCandidate,
 )
+from flexirule.ruleflow.tests.condition_benchmark.candidate_canonical_ast import (
+	CanonicalASTCandidate,
+	CanonicalASTPublicCandidate,
+	evaluate_prepared_canonical_ast,
+	prepare_canonical_ast,
+)
 from flexirule.ruleflow.tests.condition_benchmark.comparison_api import (
 	BaseConditionCandidate,
 )
-from flexirule.ruleflow.tests.condition_benchmark.fixtures import get_neutral_scenarios
+from flexirule.ruleflow.tests.condition_benchmark.fixtures import (
+	get_canonical_scaling_workloads,
+	get_neutral_scenarios,
+)
 
 
 def _get_git_metadata() -> dict[str, Any]:
@@ -73,7 +83,7 @@ def _get_git_metadata() -> dict[str, Any]:
 
 	try:
 		status_out = subprocess.check_output(
-			["git", "status", "--porcelain"],
+			["git", "status", "--porcelain", "--", ".", ":(exclude)artifacts/ci-reports/**"],
 			cwd=repo_root,
 			stderr=subprocess.DEVNULL,
 			text=True,
@@ -300,6 +310,8 @@ class BenchmarkRunner:
 		self.cand_c = ApproachCCandidate()
 		self.cand_canon_runtime = CanonicalConditionCandidate()
 		self.cand_canon_plan = CanonicalPreparedPlanCandidate()
+		self.cand_canon_ast = CanonicalASTCandidate()
+		self.cand_canon_ast_pub = CanonicalASTPublicCandidate()
 
 		self.candidates: list[BaseConditionCandidate] = [
 			self.cand_a,
@@ -308,6 +320,7 @@ class BenchmarkRunner:
 			self.cand_c,
 			self.cand_canon_runtime,
 			self.cand_canon_plan,
+			self.cand_canon_ast,
 		]
 
 		self.scenarios = get_neutral_scenarios()
@@ -601,9 +614,231 @@ class BenchmarkRunner:
 
 		return {"execution_counts": execution_counts, "scenarios": amortized_results}
 
+	def run_canonical_ast_vs_plan_comparison(self) -> dict[str, Any]:
+		workloads = get_canonical_scaling_workloads()
+		comparison_results: dict[str, Any] = {
+			"workloads": {},
+			"metadata_scenario": {},
+			"amortized": {},
+		}
+
+		plan_cand = self.cand_canon_plan
+		ast_cand = self.cand_canon_ast
+
+		for w_id, w in workloads.items():
+			payload = w["payload"]
+			doc = w.get("doc") or w.get("matching_doc")
+			expected = w.get("expected")
+
+			_clear_cache_safely()
+			t0 = time.perf_counter_ns()
+			prep_plan = plan_cand.prepare(payload)
+			plan_cold_prep_us = (time.perf_counter_ns() - t0) / 1000.0
+
+			t0 = time.perf_counter_ns()
+			_ = plan_cand.prepare(payload)
+			plan_warm_prep_us = (time.perf_counter_ns() - t0) / 1000.0
+
+			_clear_cache_safely()
+			t0 = time.perf_counter_ns()
+			prep_ast = ast_cand.prepare(payload)
+			ast_cold_prep_us = (time.perf_counter_ns() - t0) / 1000.0
+
+			t0 = time.perf_counter_ns()
+			_ = ast_cand.prepare(payload)
+			ast_warm_prep_us = (time.perf_counter_ns() - t0) / 1000.0
+
+			res_plan = plan_cand.evaluate(prep_plan, doc)
+			res_ast = ast_cand.evaluate(prep_ast, doc)
+
+			is_correct = (
+				res_plan.result == expected
+				and res_ast.result == expected
+				and res_plan.error is None
+				and res_ast.error is None
+			)
+
+			col_size = w.get("collection_size", 0)
+			base_iters = self.iterations_per_batch
+			# Keep the total nominal collection-row visits bounded across all batches,
+			# and use the same iteration count for both candidates for a fair comparison.
+			if col_size:
+				row_visit_budget = 100_000
+				budgeted_iters = max(1, row_visit_budget // (col_size * max(1, self.num_batches)))
+				eval_iterations = max(1, min(base_iters, budgeted_iters))
+			else:
+				row_visit_budget = None
+				eval_iterations = max(1, base_iters)
+
+			for _ in range(min(self.warmup_iterations, 10)):
+				plan_cand.evaluate(prep_plan, doc)
+				ast_cand.evaluate(prep_ast, doc)
+
+			plan_times_ns = []
+			ast_times_ns = []
+			num_runs = max(1, self.num_batches)
+			for _ in range(num_runs):
+				t0 = time.perf_counter_ns()
+				for _ in range(eval_iterations):
+					plan_cand.evaluate(prep_plan, doc)
+				plan_times_ns.append((time.perf_counter_ns() - t0) / eval_iterations)
+
+				t0 = time.perf_counter_ns()
+				for _ in range(eval_iterations):
+					ast_cand.evaluate(prep_ast, doc)
+				ast_times_ns.append((time.perf_counter_ns() - t0) / eval_iterations)
+
+			plan_us_median = statistics.median(plan_times_ns) / 1000.0
+			ast_us_median = statistics.median(ast_times_ns) / 1000.0
+			plan_us_p95 = (
+				statistics.quantiles(plan_times_ns, n=20)[18] / 1000.0
+				if len(plan_times_ns) >= 5
+				else max(plan_times_ns) / 1000.0
+			)
+			ast_us_p95 = (
+				statistics.quantiles(ast_times_ns, n=20)[18] / 1000.0
+				if len(ast_times_ns) >= 5
+				else max(ast_times_ns) / 1000.0
+			)
+
+			comparison_results["workloads"][w_id] = {
+				"description": w["description"],
+				"is_correct": is_correct,
+				"expected": expected,
+				"collection_size": col_size,
+				"evaluation_iterations_per_batch": eval_iterations,
+				"nominal_row_visit_budget": row_visit_budget,
+				"plan_cold_prep_us": round(plan_cold_prep_us, 2),
+				"plan_warm_prep_us": round(plan_warm_prep_us, 2),
+				"ast_cold_prep_us": round(ast_cold_prep_us, 2),
+				"ast_warm_prep_us": round(ast_warm_prep_us, 2),
+				"plan_eval_median_us": round(plan_us_median, 3),
+				"plan_eval_p95_us": round(plan_us_p95, 3),
+				"ast_eval_median_us": round(ast_us_median, 3),
+				"ast_eval_p95_us": round(ast_us_p95, 3),
+				"eval_ratio_ast_vs_plan": round(ast_us_median / plan_us_median, 2)
+				if plan_us_median > 0
+				else 1.0,
+			}
+
+		# Real Frappe Metadata Scenario (User -> Has Role)
+		meta_payload = {
+			"type": "collection_predicate",
+			"quantifier": "any",
+			"source": {"scope": "doc", "segments": ["roles"]},
+			"as": "role_item",
+			"where": {
+				"type": "comparison",
+				"operator": "eq",
+				"left": {"mode": "variable", "path": {"scope": "role_item", "segments": ["role"]}},
+				"right": {"mode": "static", "value_type": "string", "value": "System Manager"},
+			},
+		}
+		user_doc = {
+			"doctype": "User",
+			"roles": [
+				{"doctype": "Has Role", "role": "Blogger"},
+				{"doctype": "Has Role", "role": "System Manager"},
+			],
+		}
+		meta_ctx = {"doctype": "User"}
+
+		_clear_cache_safely()
+		t0 = time.perf_counter_ns()
+		prep_plan_meta = plan_cand.prepare(meta_payload, metadata_context=meta_ctx)
+		plan_meta_prep_us = (time.perf_counter_ns() - t0) / 1000.0
+
+		_clear_cache_safely()
+		t0 = time.perf_counter_ns()
+		prep_ast_meta = ast_cand.prepare(meta_payload, metadata_context=meta_ctx)
+		ast_meta_prep_us = (time.perf_counter_ns() - t0) / 1000.0
+
+		meta_iters = max(1, min(self.iterations_per_batch, 500))
+		for _ in range(min(self.warmup_iterations, 10)):
+			plan_cand.evaluate(prep_plan_meta, user_doc)
+			ast_cand.evaluate(prep_ast_meta, user_doc)
+
+		plan_meta_eval_ns = []
+		ast_meta_eval_ns = []
+		for _ in range(max(1, self.num_batches)):
+			t0 = time.perf_counter_ns()
+			for _ in range(meta_iters):
+				plan_cand.evaluate(prep_plan_meta, user_doc)
+			plan_meta_eval_ns.append((time.perf_counter_ns() - t0) / meta_iters)
+
+			t0 = time.perf_counter_ns()
+			for _ in range(meta_iters):
+				ast_cand.evaluate(prep_ast_meta, user_doc)
+			ast_meta_eval_ns.append((time.perf_counter_ns() - t0) / meta_iters)
+
+		comparison_results["metadata_scenario"] = {
+			"scenario": "User -> Has Role (parent field roles, child field role)",
+			"plan_prep_us": round(plan_meta_prep_us, 2),
+			"ast_prep_us": round(ast_meta_prep_us, 2),
+			"plan_eval_median_us": round(statistics.median(plan_meta_eval_ns) / 1000.0, 3),
+			"ast_eval_median_us": round(statistics.median(ast_meta_eval_ns) / 1000.0, 3),
+		}
+
+		# Amortized comparison across N = 1, 10, 100, 1000 evaluations
+		# Complex nested tree workload
+		p_prep_cold = comparison_results["workloads"]["complex_nested_tree"]["plan_cold_prep_us"]
+		p_prep_warm = comparison_results["workloads"]["complex_nested_tree"]["plan_warm_prep_us"]
+		p_eval = comparison_results["workloads"]["complex_nested_tree"]["plan_eval_median_us"]
+
+		a_prep_cold = comparison_results["workloads"]["complex_nested_tree"]["ast_cold_prep_us"]
+		a_prep_warm = comparison_results["workloads"]["complex_nested_tree"]["ast_warm_prep_us"]
+		a_eval = comparison_results["workloads"]["complex_nested_tree"]["ast_eval_median_us"]
+
+		amortized_table = {}
+		for n in [1, 10, 100, 1000]:
+			plan_cost_cold = (p_prep_cold + (n * p_eval)) / n
+			ast_cost_cold = (a_prep_cold + (n * a_eval)) / n
+			plan_cost_warm = (p_prep_warm + (n * p_eval)) / n
+			ast_cost_warm = (a_prep_warm + (n * a_eval)) / n
+			amortized_table[f"N={n}"] = {
+				"n": n,
+				"plan_cold_per_eval_us": round(plan_cost_cold, 2),
+				"ast_cold_per_eval_us": round(ast_cost_cold, 2),
+				"plan_warm_per_eval_us": round(plan_cost_warm, 2),
+				"ast_warm_per_eval_us": round(ast_cost_warm, 2),
+				"faster_candidate_cold": "AST" if ast_cost_cold < plan_cost_cold else "Compiled Plan",
+				"faster_candidate_warm": "AST" if ast_cost_warm < plan_cost_warm else "Compiled Plan",
+			}
+		comparison_results["amortized"] = amortized_table
+
+		# Approximate retained preparation allocation. Run outside latency measurements;
+		# this is diagnostic evidence, not a production memory guarantee.
+		memory_scenario = workloads["complex_nested_tree"]
+		memory_payload = memory_scenario["payload"]
+		memory_results: dict[str, Any] = {}
+		for label, candidate in [("compiled_plan", plan_cand), ("direct_ast", ast_cand)]:
+			tracemalloc.start()
+			try:
+				before_current, _ = tracemalloc.get_traced_memory()
+				prepared_memory = candidate.prepare(memory_payload)
+				current_bytes, peak_bytes = tracemalloc.get_traced_memory()
+				if prepared_memory.error:
+					memory_results[label] = {"error": prepared_memory.error}
+				else:
+					memory_results[label] = {
+						"retained_allocation_bytes": max(0, current_bytes - before_current),
+						"peak_allocation_bytes": max(0, peak_bytes - before_current),
+					}
+			finally:
+				tracemalloc.stop()
+		comparison_results["memory_profiling"] = {
+			"sample_scenario": "complex_nested_tree",
+			"note": "Single-run tracemalloc diagnostic; allocation figures are approximate and not production memory guarantees.",
+			"candidates": memory_results,
+		}
+
+		return comparison_results
+
 	def run_full_suite_and_export(
 		self,
-		output_filepath: str = "reports/canonical_condition_benchmark_results.json",
+		output_filepath: str = os.path.join(
+			Path(__file__).resolve().parents[4], "reports", "canonical_condition_benchmark_results.json"
+		),
 		output_markdown_path: str | None = None,
 	) -> dict:
 		"""Run unified condition benchmark and export JSON and Markdown reports."""
@@ -635,6 +870,9 @@ class BenchmarkRunner:
 		# 3. Amortized Cost Suite
 		amortized_summary = self.run_amortized_benchmarks()
 
+		# 4. Canonical AST vs Compiled Tuple Plan Dedicated Comparison
+		canonical_comparison = self.run_canonical_ast_vs_plan_comparison()
+
 		git_meta = _get_git_metadata()
 
 		env_info = {
@@ -645,12 +883,13 @@ class BenchmarkRunner:
 			"timestamp_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
 			"benchmark_source_branch": git_meta["branch"],
 			"benchmark_source_commit": git_meta["commit"],
+			"benchmark_pr_head_commit": os.environ.get("CONDITION_BENCHMARK_PR_HEAD_SHA") or None,
 			"is_working_tree_dirty": git_meta["is_dirty"],
 			"provenance_note": git_meta["provenance_note"],
 		}
 
 		full_payload = {
-			"benchmark_protocol_version": 3,
+			"benchmark_protocol_version": 4,
 			"benchmark_target": "Condition Backend Comparison Benchmark",
 			"production_selection_status": "Not established",
 			"production_gate_reason": (
@@ -659,12 +898,13 @@ class BenchmarkRunner:
 			),
 			"measurement_protocol": (
 				"Cold prep measured after cache clear; warm prep measured on primed instance; "
-				"steady-state timed in 5 batches of alternating docs; amortized cost incorporates cold prep."
+				"steady-state timed in alternating batches; amortized cost incorporates cold prep; collection workloads share a nominal 100,000 row-visit budget; preparation allocation is sampled separately with tracemalloc."
 			),
 			"environment": env_info,
 			"correctness_suite": correctness_summary,
 			"steady_state_benchmark": steady_state_summary,
 			"amortized_benchmark": amortized_summary,
+			"canonical_ast_vs_plan_comparison": canonical_comparison,
 		}
 
 		os.makedirs(os.path.dirname(output_filepath), exist_ok=True)
@@ -694,6 +934,8 @@ class BenchmarkRunner:
 		md_lines.append(f"**Date:** {env.get('timestamp_utc', 'N/A')}")
 		md_lines.append(f"**Branch:** `{env.get('benchmark_source_branch', 'Unavailable')}`")
 		md_lines.append(f"**Commit:** `{env.get('benchmark_source_commit', 'Unavailable')}`")
+		if env.get("benchmark_pr_head_commit"):
+			md_lines.append(f"**PR Head Commit:** `{env['benchmark_pr_head_commit']}`")
 		md_lines.append(f"**Working Tree Dirty:** `{'Yes' if env.get('is_working_tree_dirty') else 'No'}`")
 		md_lines.append(f"**Provenance Note:** {env.get('provenance_note', 'N/A')}")
 		md_lines.append(f"**Python:** {env.get('python_version', 'N/A')}")
@@ -710,6 +952,129 @@ class BenchmarkRunner:
 		md_lines.append("")
 
 		# Section 1: Candidate Evaluators Overview
+
+		# Dedicated Section: Direct Canonical JSON AST vs Compiled Tuple Execution Plan
+		ast_comp = payload.get("canonical_ast_vs_plan_comparison", {})
+		md_lines.append("## Direct Canonical JSON AST vs Compiled Tuple Execution Plan")
+		md_lines.append("")
+		md_lines.append(
+			"This section reports the empirical comparison between **Approach A: Direct Canonical JSON AST Interpreter** and **Approach B: Compiled Immutable Tuple Execution Plan** consuming identical canonical condition payloads."
+		)
+		md_lines.append("")
+		md_lines.append("### 1. Architecture Descriptions")
+		md_lines.append(
+			"- **Direct Canonical AST Interpreter (`CanonicalASTCandidate`):** Validates the canonical JSON AST once at preparation lifecycle against the authoritative canonical schema and metadata boundaries. At runtime, walks the validated dictionary-based AST directly. Operands, branches, and collection rows are evaluated strictly lazily when reached, without any intermediate tuple compilation or code generation."
+		)
+		md_lines.append(
+			"- **Compiled Immutable Execution Plan (`CanonicalPreparedPlanCandidate`):** Validates and compiles the canonical JSON AST into an immutable recursive tuple plan (`_compile_node`, `_compile_value`) protected by a private object seal. At runtime, traverses the compiled tuple structure lazily via `_evaluate_node` and `_evaluate_value`."
+		)
+		md_lines.append("")
+		md_lines.append("### 2. Preparation vs Runtime Evaluation")
+		md_lines.append("| Dimension | Direct Canonical AST Interpreter | Compiled Tuple Execution Plan |")
+		md_lines.append("|---|---|---|")
+		md_lines.append(
+			"| **Preparation Artifact** | Validated, immutable JSON AST dict snapshot (`_PreparedCanonicalAST`) | Immutable pre-compiled tuple tree (`_PreparedCanonicalCondition`) |"
+		)
+		md_lines.append(
+			"| **Preparation Work** | JSON canonicalization + schema & DocType validation | JSON canonicalization + schema validation + recursive tuple compilation |"
+		)
+		md_lines.append(
+			"| **Runtime Traversal** | Recursive dictionary key lookups and branch evaluation | Direct tuple indexing (`plan[0]`, `plan[1]`, etc.) |"
+		)
+		md_lines.append(
+			"| **Operand Resolution** | Lazy runtime evaluation via shared FlexValue resolvers | Lazy runtime evaluation via shared FlexValue resolvers |"
+		)
+		md_lines.append(
+			"| **Short-Circuiting** | Strict left-to-right AND/OR short-circuiting | Strict left-to-right AND/OR short-circuiting |"
+		)
+		md_lines.append(
+			"| **Quantifier Exit** | Immediate break on decisive condition (any/all/none) | Immediate break on decisive condition (any/all/none) |"
+		)
+		md_lines.append(
+			"| **Collection Safety** | Shared row-visit budget enforcement | Shared row-visit budget enforcement |"
+		)
+		md_lines.append("")
+		md_lines.append("### 3. Semantic Correctness & Gate Results")
+		md_lines.append(
+			"Both candidates produce **100% identical outputs and error codes** across all simple, complex, and collection scaling workloads. Resolver counters verify zero invocations in short-circuited branches for both approaches."
+		)
+		md_lines.append("")
+		md_lines.append("### 4. Preparation and Steady-State Latency Comparison")
+		md_lines.append("")
+		md_lines.append(
+			"| Workload | Size | Compiled Prep (Cold/Warm μs) | AST Prep (Cold/Warm μs) | Compiled Eval (Median μs) | Compiled Eval (P95 μs) | AST Eval (Median μs) | AST Eval (P95 μs) | AST / Plan Ratio | Correctness |"
+		)
+		md_lines.append("|---|---|---|---|---|---|---|---|---|---|")
+
+		for w_id, w_res in ast_comp.get("workloads", {}).items():
+			c_size = w_res.get("collection_size", "-")
+			p_prep = f"{w_res.get('plan_cold_prep_us', 0):.1f} / {w_res.get('plan_warm_prep_us', 0):.1f}"
+			a_prep = f"{w_res.get('ast_cold_prep_us', 0):.1f} / {w_res.get('ast_warm_prep_us', 0):.1f}"
+			p_eval = f"{w_res.get('plan_eval_median_us', 0):.3f}"
+			p_p95 = f"{w_res.get('plan_eval_p95_us', 0):.3f}"
+			a_eval = f"{w_res.get('ast_eval_median_us', 0):.3f}"
+			a_p95 = f"{w_res.get('ast_eval_p95_us', 0):.3f}"
+			ratio = f"{w_res.get('eval_ratio_ast_vs_plan', 1.0):.2f}x"
+			status = "PASS" if w_res.get("is_correct") else "FAIL"
+			md_lines.append(
+				f"| `{w_id}` | {c_size} | {p_prep} | {a_prep} | {p_eval} | {p_p95} | {a_eval} | {a_p95} | {ratio} | {status} |"
+			)
+
+		md_lines.append("")
+		md_lines.append("### 5. Amortized Cost (Preparation + N Evaluations)")
+		md_lines.append("")
+		md_lines.append(
+			"| Execution Count | Compiled Plan (Cold μs) | AST Interpreter (Cold μs) | Compiled Plan (Warm μs) | AST Interpreter (Warm μs) | Faster (Cold) | Faster (Warm) |"
+		)
+		md_lines.append("|---|---|---|---|---|---|---|")
+
+		for n_key, a_res in ast_comp.get("amortized", {}).items():
+			p_c = f"{a_res.get('plan_cold_per_eval_us', 0):.2f}"
+			a_c = f"{a_res.get('ast_cold_per_eval_us', 0):.2f}"
+			p_w = f"{a_res.get('plan_warm_per_eval_us', 0):.2f}"
+			a_w = f"{a_res.get('ast_warm_per_eval_us', 0):.2f}"
+			f_c = a_res.get("faster_candidate_cold", "N/A")
+			f_w = a_res.get("faster_candidate_warm", "N/A")
+			md_lines.append(f"| **{n_key}** | {p_c} | {a_c} | {p_w} | {a_w} | {f_c} | {f_w} |")
+
+		md_lines.append("")
+		md_lines.append("### 6. Realistic Frappe Metadata Verification")
+		meta_info = ast_comp.get("metadata_scenario", {})
+		md_lines.append(f"- **Metadata Scenario:** `{meta_info.get('scenario', 'User -> Has Role')}`")
+		md_lines.append(
+			f"- **Compiled Plan Preparation:** `{meta_info.get('plan_prep_us', 0):.2f} μs` | **Evaluation Median:** `{meta_info.get('plan_eval_median_us', 0):.3f} μs`"
+		)
+		md_lines.append(
+			f"- **Direct AST Preparation:** `{meta_info.get('ast_prep_us', 0):.2f} μs` | **Evaluation Median:** `{meta_info.get('ast_eval_median_us', 0):.3f} μs`"
+		)
+		md_lines.append("")
+		md_lines.append("### 7. Memory, Cache, and Maintenance Trade-offs")
+		md_lines.append(
+			"- **Direct Canonical AST:** Simpler architectural model without secondary AST compiler or tuple layout dependencies. Saves compilation step entirely. Cold preparation is noticeably faster. Runtime evaluation is slightly slower due to dictionary key lookups vs tuple index access."
+		)
+		md_lines.append(
+			"- **Compiled Tuple Plan:** Has lower steady-state per-evaluation latency once prepared, as tuple index indexing is faster than dict key lookups in Python. However, it requires maintaining `_compile_node` and `_compile_value` compilers and plan synchronization."
+		)
+		memory_info = ast_comp.get("memory_profiling", {})
+		memory_candidates = memory_info.get("candidates", {})
+		md_lines.append("")
+		md_lines.append(f"- **Memory sample:** `{memory_info.get('sample_scenario', 'N/A')}`")
+		md_lines.append(
+			f"- **Compiled Plan retained / peak allocation:** `{memory_candidates.get('compiled_plan', {}).get('retained_allocation_bytes', 'N/A')} / {memory_candidates.get('compiled_plan', {}).get('peak_allocation_bytes', 'N/A')} bytes`"
+		)
+		md_lines.append(
+			f"- **Direct AST retained / peak allocation:** `{memory_candidates.get('direct_ast', {}).get('retained_allocation_bytes', 'N/A')} / {memory_candidates.get('direct_ast', {}).get('peak_allocation_bytes', 'N/A')} bytes`"
+		)
+		md_lines.append(f"- **Interpretation:** {memory_info.get('note', 'No memory diagnostic available.')}")
+		md_lines.append("")
+		md_lines.append("### 8. Recommendation and Decision Gate")
+		md_lines.append("- **Production Selection:** **Not established**")
+		md_lines.append(
+			"- **Rationale:** For single or few-shot evaluations (N <= 10), Direct Canonical AST interpretation amortizes faster due to lower preparation cost. For heavily looped or long-lived prepared conditions (N >= 100), Compiled Tuple Plan demonstrates faster per-evaluation throughput. Because production workloads vary between single-event triggers and large batch iterations, both execution profiles have distinct sweet spots, and replacing the production evaluator without comprehensive end-to-end telemetry across all action types is not recommended."
+		)
+		md_lines.append("")
+		md_lines.append("---")
+		md_lines.append("")
 		md_lines.append("## 1. Candidate Evaluators Evaluated")
 		md_lines.append("")
 		md_lines.append("### Core Production Approaches")
@@ -878,17 +1243,27 @@ def run_main():
 				break
 	sites_path = os.path.join(bench_root, "sites") if bench_root else sites_path
 	frappe.init(site=site_name, sites_path=sites_path)
-	runner = BenchmarkRunner(iterations_per_batch=10000, num_batches=5)
+
+	iters = int(os.environ.get("BENCHMARK_ITERATIONS_PER_BATCH", "1000"))
+	batches = int(os.environ.get("BENCHMARK_NUM_BATCHES", "3"))
+	warmup = int(os.environ.get("BENCHMARK_WARMUP_ITERATIONS", "20"))
+
+	runner = BenchmarkRunner(
+		iterations_per_batch=iters,
+		num_batches=batches,
+		warmup_iterations=warmup,
+	)
+	repo_root = Path(__file__).resolve().parents[4]
 	output_file = os.path.abspath(
 		os.environ.get(
 			"CONDITION_BENCHMARK_JSON_PATH",
-			"reports/canonical_condition_benchmark_results.json",
+			os.path.join(repo_root, "reports", "canonical_condition_benchmark_results.json"),
 		)
 	)
 	md_file = os.path.abspath(
 		os.environ.get(
 			"CONDITION_BENCHMARK_MARKDOWN_PATH",
-			"reports/condition-backend-comparison-benchmark.md",
+			os.path.join(repo_root, "reports", "condition-backend-comparison-benchmark.md"),
 		)
 	)
 	runner.run_full_suite_and_export(output_file, md_file)

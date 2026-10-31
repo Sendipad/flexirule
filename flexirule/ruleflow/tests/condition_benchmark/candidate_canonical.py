@@ -123,7 +123,9 @@ class CanonicalPreparedPlanCandidate(BaseConditionCandidate):
 	def prepare(self, condition_payload: Any, metadata_context: dict | None = None) -> PreparedCondition:
 		start_time = time.perf_counter()
 		try:
-			prepared = prepare_condition(condition_payload)
+			doctype = metadata_context.get("doctype") if metadata_context else None
+			scope_doctypes = metadata_context.get("scope_doctypes") if metadata_context else None
+			prepared = prepare_condition(condition_payload, doctype=doctype, scope_doctypes=scope_doctypes)
 			prep_time = time.perf_counter() - start_time
 
 			return PreparedCondition(
