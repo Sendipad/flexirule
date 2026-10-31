@@ -84,7 +84,7 @@ test("legacy persisted condition data is normalized into canonical keys for migr
 			{
 				type: "comparison",
 				operator: "ne",
-				left: { mode: "static", value_type: "string", value: "status" },
+				left: { mode: "variable", path: { scope: "doc", segments: ["status"] } },
 				right: { mode: "static", value_type: "string", value: "Cancelled" },
 			},
 		],
