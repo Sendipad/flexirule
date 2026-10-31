@@ -82,7 +82,7 @@ def _get_git_metadata() -> dict[str, Any]:
 
 	try:
 		status_out = subprocess.check_output(
-			["git", "status", "--porcelain"],
+			["git", "status", "--porcelain", "--", ".", ":(exclude)artifacts/ci-reports/**"],
 			cwd=repo_root,
 			stderr=subprocess.DEVNULL,
 			text=True,
@@ -853,6 +853,7 @@ class BenchmarkRunner:
 			"timestamp_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
 			"benchmark_source_branch": git_meta["branch"],
 			"benchmark_source_commit": git_meta["commit"],
+			"benchmark_pr_head_commit": os.environ.get("CONDITION_BENCHMARK_PR_HEAD_SHA") or None,
 			"is_working_tree_dirty": git_meta["is_dirty"],
 			"provenance_note": git_meta["provenance_note"],
 		}
@@ -903,6 +904,8 @@ class BenchmarkRunner:
 		md_lines.append(f"**Date:** {env.get('timestamp_utc', 'N/A')}")
 		md_lines.append(f"**Branch:** `{env.get('benchmark_source_branch', 'Unavailable')}`")
 		md_lines.append(f"**Commit:** `{env.get('benchmark_source_commit', 'Unavailable')}`")
+		if env.get("benchmark_pr_head_commit"):
+			md_lines.append(f"**PR Head Commit:** `{env['benchmark_pr_head_commit']}`")
 		md_lines.append(f"**Working Tree Dirty:** `{'Yes' if env.get('is_working_tree_dirty') else 'No'}`")
 		md_lines.append(f"**Provenance Note:** {env.get('provenance_note', 'N/A')}")
 		md_lines.append(f"**Python:** {env.get('python_version', 'N/A')}")
