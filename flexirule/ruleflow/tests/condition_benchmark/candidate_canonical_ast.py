@@ -244,12 +244,20 @@ class DirectCanonicalASTCandidate(BaseConditionCandidate):
 					if self._evaluate_node(child, context, child_path):
 						return True
 				return False
-			raise ConditionEvaluationError("unknown_group_operator", f"{path}.operator", f"Unknown group operator {op}")
+			raise ConditionEvaluationError(
+				"unknown_group_operator", f"{path}.operator", f"Unknown group operator {op}"
+			)
 
 		# 2. Comparison Node: Strict lazy evaluation of left and right operands
 		if node_type == "comparison":
 			op = node.get("operator")
+			if not isinstance(op, str):
+				raise ConditionEvaluationError("unknown_operator", f"{path}.operator", "Invalid operator")
 			left_val_node = node.get("left")
+			if not isinstance(left_val_node, dict):
+				raise ConditionEvaluationError(
+					"invalid_flex_value", f"{path}.left", "Left operand must be an object"
+				)
 			left_path = f"{path}.left"
 
 			left = self._evaluate_flex_value(left_val_node, context, left_path)
@@ -275,12 +283,16 @@ class DirectCanonicalASTCandidate(BaseConditionCandidate):
 
 			# Arity 2 operators: lazy evaluation of right operand
 			if op in UNARY_OPERATORS:
-				raise ConditionEvaluationError("invalid_operator_arity", path, f"Operator {op} does not accept a right operand")
+				raise ConditionEvaluationError(
+					"invalid_operator_arity", path, f"Operator {op} does not accept a right operand"
+				)
 
 			right_val_node = node.get("right")
 			right_path = f"{path}.right"
-			if right_val_node is None:
-				raise ConditionEvaluationError("invalid_operator_arity", path, "Operator requires a right operand")
+			if not isinstance(right_val_node, dict):
+				raise ConditionEvaluationError(
+					"invalid_operator_arity", path, "Operator requires a right operand object"
+				)
 
 			right = self._evaluate_flex_value(right_val_node, context, right_path)
 			if right is MISSING:
@@ -302,9 +314,13 @@ class DirectCanonicalASTCandidate(BaseConditionCandidate):
 
 			rows = resolve_variable(source_scope, source_segments, context, source_path)
 			if rows is MISSING:
-				raise ConditionEvaluationError("missing_collection", source_path, "Collection source path is missing")
+				raise ConditionEvaluationError(
+					"missing_collection", source_path, "Collection source path is missing"
+				)
 			if not isinstance(rows, list | tuple):
-				raise ConditionEvaluationError("invalid_collection", source_path, "Collection source must resolve to a list")
+				raise ConditionEvaluationError(
+					"invalid_collection", source_path, "Collection source must resolve to a list"
+				)
 			if len(rows) > CONDITION_LIMITS["collection_rows"]:
 				raise ConditionEvaluationError(
 					"collection_limit_exceeded",
@@ -340,9 +356,13 @@ class DirectCanonicalASTCandidate(BaseConditionCandidate):
 					if self._evaluate_node(where_node, row_context, where_path):
 						return False
 				return True
-			raise ConditionEvaluationError("unknown_collection_quantifier", f"{path}.quantifier", f"Unknown quantifier {quantifier}")
+			raise ConditionEvaluationError(
+				"unknown_collection_quantifier", f"{path}.quantifier", f"Unknown quantifier {quantifier}"
+			)
 
-		raise ConditionEvaluationError("invalid_condition_node", path, f"Unknown condition node type: {node_type}")
+		raise ConditionEvaluationError(
+			"invalid_condition_node", path, f"Unknown condition node type: {node_type}"
+		)
 
 	def _evaluate_flex_value(
 		self,
@@ -429,4 +449,6 @@ class DirectCanonicalASTCandidate(BaseConditionCandidate):
 					"resolver_failed", path, "Condition resolver operation failed"
 				) from exc
 
-		raise ConditionEvaluationError("unknown_flex_value_mode", f"{path}.mode", f"Unknown FlexValue mode: {mode}")
+		raise ConditionEvaluationError(
+			"unknown_flex_value_mode", f"{path}.mode", f"Unknown FlexValue mode: {mode}"
+		)

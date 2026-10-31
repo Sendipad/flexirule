@@ -737,7 +737,9 @@ def get_collection_scaling_scenarios() -> list[NeutralScenario]:
 
 		# 4. Quantifier 'none' - Full Scan No Match
 		none_matching_rows = [frappe._dict({"id": i, "val": 10}) for i in range(size)]
-		none_late_fail_rows = [frappe._dict({"id": i, "val": 100 if i == size - 1 else 10}) for i in range(size)]
+		none_late_fail_rows = [
+			frappe._dict({"id": i, "val": 100 if i == size - 1 else 10}) for i in range(size)
+		]
 		scenarios.append(
 			NeutralScenario(
 				scenario_id=f"collection_scaling_none_{size}",

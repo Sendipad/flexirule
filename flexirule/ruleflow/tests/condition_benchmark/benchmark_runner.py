@@ -677,16 +677,12 @@ class BenchmarkRunner:
 			# E. Compiled Plan Cold Preparation
 			_clear_cache_safely()
 			start = time.perf_counter_ns()
-			self.cand_canon_plan.prepare(
-				canonical_payload, metadata_context=sc.metadata_context
-			)
+			self.cand_canon_plan.prepare(canonical_payload, metadata_context=sc.metadata_context)
 			plan_prep_cold_us = (time.perf_counter_ns() - start) / 1000.0
 
 			# F. Compiled Plan Warm Preparation
 			start = time.perf_counter_ns()
-			self.cand_canon_plan.prepare(
-				canonical_payload, metadata_context=sc.metadata_context
-			)
+			self.cand_canon_plan.prepare(canonical_payload, metadata_context=sc.metadata_context)
 			plan_prep_warm_us = (time.perf_counter_ns() - start) / 1000.0
 
 			component_measurements.append(
@@ -1020,9 +1016,7 @@ class BenchmarkRunner:
 		)
 		md_lines.append("")
 		md_lines.append("### 2. Component Cost Breakdown (Microseconds)")
-		md_lines.append(
-			"Measures the exact cost of each stage in the condition evaluation pipeline:"
-		)
+		md_lines.append("Measures the exact cost of each stage in the condition evaluation pipeline:")
 		md_lines.append("")
 		md_lines.append(
 			"| Scenario ID | Tier | JSON Serialization | Structural Validation | Metadata Validation | Direct AST Prep | Plan Cold Prep | Plan Warm Prep |"
@@ -1121,7 +1115,13 @@ def run_main():
 				bench_root = candidate
 				break
 	sites_path = os.path.join(bench_root, "sites") if bench_root else sites_path
+	if os.path.isdir(sites_path):
+		os.chdir(sites_path)
 	frappe.init(site=site_name, sites_path=sites_path)
+	try:
+		frappe.connect()
+	except Exception:
+		pass
 	runner = BenchmarkRunner(iterations_per_batch=1000, num_batches=3, warmup_iterations=10)
 	import flexirule
 
