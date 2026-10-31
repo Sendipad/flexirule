@@ -206,6 +206,104 @@ class TestAssignmentConditionGuards(unittest.TestCase):
 		self.assertEqual(doc["status"], "Open")
 		self.assertEqual(doc["remarks"], "Initial")
 
+	def test_runtime_assignment_execution_preflight_blocks_mutation_on_later_invalid_doctype_field(self):
+		# Row 1 would mutate doc.status to 'Closed', but Row 2 has a guard with an invalid field on ToDo
+		invalid_field_guard = {
+			"type": "comparison",
+			"operator": "eq",
+			"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["non_existent_todo_field"]}},
+			"right": {"mode": "static", "value_type": "string", "value": "test"},
+		}
+		config = [
+			{"target": "doc.status", "value": "Closed"},
+			{"target": "doc.description", "value": "New Description", "when_condition": invalid_field_guard},
+		]
+		action = SimpleNamespace(
+			is_enabled=True,
+			name="act-preflight-1",
+			action_id="act-preflight-1",
+			action_type="Assignment",
+			action_label="Assignment Preflight Test",
+			config=config,
+		)
+		rule = SimpleNamespace(
+			name="test-rule-preflight",
+			actions=[action],
+			document_type="ToDo",
+		)
+		engine = RuleEngine(rule)
+		doc = {"doctype": "ToDo", "status": "Open", "description": "Original Description"}
+		context = {"doc": doc}
+		handler = AssignmentHandler()
+
+		with self.assertRaises(ConditionValidationError) as raised:
+			handler.execute(action, context, engine)
+
+		self.assertEqual(raised.exception.code, "unknown_field")
+		# Crucial check: row 1 must NOT have mutated doc.status before row 2 failed preflight!
+		self.assertEqual(doc["status"], "Open")
+		self.assertEqual(doc["description"], "Original Description")
+
+	def test_runtime_assignment_execution_preflight_blocks_mutation_with_cached_action_plan(self):
+		from unittest.mock import patch
+
+		from flexirule.ruleflow.core.action_plan_cache import clear_rule_action_plan_cache
+
+		clear_rule_action_plan_cache()
+		invalid_operator_guard = {
+			"type": "comparison",
+			"operator": "gt",
+			"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["description"]}},
+			"right": {"mode": "static", "value_type": "string", "value": "test"},
+		}
+		config = [
+			{"target": "doc.status", "value": "Closed"},
+			{
+				"target": "doc.description",
+				"value": "New Description",
+				"when_condition": invalid_operator_guard,
+			},
+		]
+		action = SimpleNamespace(
+			is_enabled=True,
+			name="act-preflight-cached",
+			action_id="act-preflight-cached",
+			action_type="Assignment",
+			action_label="Assignment Preflight Cached Test",
+			config=config,
+		)
+		rule = SimpleNamespace(
+			name="test-rule-preflight-cached",
+			actions=[action],
+			document_type="ToDo",
+		)
+		engine = RuleEngine(rule)
+		doc = {"doctype": "ToDo", "status": "Open", "description": "Original Description"}
+		context = {"doc": doc}
+		handler = AssignmentHandler()
+
+		# Even if get_action_plan returns a plan without DocType pre-validation, runtime preflight catches it
+		fake_plan = {
+			"rows": [
+				{"target": "doc.status", "operator": "set", "value": "Closed"},
+				{
+					"target": "doc.description",
+					"operator": "set",
+					"value": "New Description",
+					"when_condition_canonical": invalid_operator_guard,
+				},
+			]
+		}
+		with patch(
+			"flexirule.ruleflow.core.action_handlers.assignment.get_action_plan", return_value=fake_plan
+		):
+			with self.assertRaises(ConditionValidationError) as raised:
+				handler.execute(action, context, engine)
+
+		self.assertEqual(raised.exception.code, "operand_type_mismatch")
+		self.assertEqual(doc["status"], "Open")
+		self.assertEqual(doc["description"], "Original Description")
+
 
 if __name__ == "__main__":
 	unittest.main()
