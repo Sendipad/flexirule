@@ -103,39 +103,13 @@ class ConditionHandler(ActionHandler):
 	def validate(self, action, context):
 		"""Validate without treating canonical JSON as a compiled Python expression."""
 		errors: list[str] = []
-		mode = context.get("mode") if isinstance(context, dict) else None
-		rule = context.get("rule") if isinstance(context, dict) else None
-		is_active = False
-		if rule:
-			is_active = bool(
-				getattr(rule, "is_active", None)
-				or (rule.get("is_active") if isinstance(rule, dict) else False)
-			)
-
 		try:
 			payload = get_condition_payload(action)
-			if payload in (None, ""):
-				# Drafts intentionally tolerate incomplete setup, but activation / full mode must reject
-				if mode == "full" or is_active:
-					errors.append(
-						_("Condition '{0}' requires a condition before activation.").format(
-							getattr(action, "action_label", None)
-							or getattr(action, "action_id", None)
-							or _("Condition")
-						)
-					)
+			if payload is None:
 				return errors
 			is_canonical, canonical_node = detect_canonical_condition_payload(payload)
 			if is_canonical:
-				if canonical_node is None:
-					errors.append(
-						_("Condition '{0}' has a malformed canonical condition payload.").format(
-							getattr(action, "action_label", None)
-							or getattr(action, "action_id", None)
-							or _("Condition")
-						)
-					)
-					return errors
+				rule = context.get("rule") if isinstance(context, dict) else None
 				doctype = getattr(rule, "document_type", None) or (
 					rule.get("document_type") if isinstance(rule, dict) else None
 				)
@@ -144,20 +118,13 @@ class ConditionHandler(ActionHandler):
 			if not getattr(action, "compiled_expression", None):
 				errors.append(
 					_("Condition '{0}' needs a compiled legacy expression or a valid canonical node.").format(
-						getattr(action, "action_label", None)
-						or getattr(action, "action_id", None)
-						or _("Condition")
+						action.action_label
 					)
 				)
 		except ConditionError as exc:
 			errors.append(
 				_("Condition '{0}' is invalid [{1} at {2}]: {3}").format(
-					getattr(action, "action_label", None)
-					or getattr(action, "action_id", None)
-					or _("Condition"),
-					exc.code,
-					exc.path,
-					exc.message,
+					action.action_label, exc.code, exc.path, exc.message
 				)
 			)
 		return errors
