@@ -236,7 +236,8 @@ class TestRuleScheduler(FrappeTestCase):
 		self.assertIsNotNone(scheduler.next_execution_at)
 
 		# Change frequency and verify it updates
-		scheduler.frequency = "Monthly"
+		scheduler.frequency = "Cron"
+		scheduler.cron_format = "15 * * * *"
 		scheduler.save(ignore_permissions=True)
 
 		# Re-load from database to ensure we're checking the saved state and avoiding object caching issues
@@ -244,7 +245,8 @@ class TestRuleScheduler(FrappeTestCase):
 		old_next = scheduler.next_execution_at
 		self.assertIsNotNone(old_next)
 
-		scheduler.frequency = "Hourly"
+		scheduler.frequency = "Cron"
+		scheduler.cron_format = "30 * * * *"
 		scheduler.save(ignore_permissions=True)
 
 		scheduler = frappe.get_doc("Rule Scheduler", scheduler.name)

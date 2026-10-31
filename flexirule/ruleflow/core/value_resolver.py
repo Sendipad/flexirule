@@ -549,7 +549,23 @@ class CollectionResolver(CompiledResolver):
 							"Collection source path continues through a scalar field",
 						)
 			if field and field.fieldtype in {"Table", "Table MultiSelect"}:
-				return field.options
+				child_dt = field.options
+				if not child_dt:
+					raise ConditionValidationError(
+						"unknown_doctype",
+						"$.source",
+						f"Child DocType is not configured for table field '{field.fieldname}'",
+					)
+				# Authoritative check: child DocType must exist
+				try:
+					frappe.get_meta(child_dt)
+				except Exception as exc:
+					raise ConditionValidationError(
+						"unknown_doctype",
+						"$.source",
+						f"Could not resolve metadata for child DocType '{child_dt}'",
+					) from exc
+				return child_dt
 			elif field:
 				raise ConditionValidationError(
 					"collection_source_not_table",
@@ -572,6 +588,23 @@ class CollectionResolver(CompiledResolver):
 		if not condition_doctype and isinstance(doc, dict):
 			condition_doctype = doc.get("doctype")
 		condition_doctype = condition_doctype or context.get("doctype")
+
+		source_str = str(self.source or "").strip()
+		is_doc_backed = source_str.startswith("doc.") or (
+			not source_str.startswith("vars.") and "." not in source_str
+		)
+		has_condition = bool(
+			self._canonical_condition is not None or self._compiled_evaluator or self.condition
+		)
+
+		if is_doc_backed and has_condition and not condition_doctype:
+			from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
+			raise ConditionValidationError(
+				"unknown_doctype",
+				"$.source",
+				f"Parent DocType metadata is required to validate collection predicate for '{self.source}'",
+			)
 
 		child_doctype = self._resolve_child_doctype(condition_doctype)
 		scope_doctypes: dict[str, str | None] | None = {"row": child_doctype} if child_doctype else None
