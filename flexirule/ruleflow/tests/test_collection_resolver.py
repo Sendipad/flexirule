@@ -278,8 +278,6 @@ class TestCollectionResolver(unittest.TestCase):
 				resolver.resolve({"doc": {"doctype": "Test Order"}})
 			self.assertEqual(raised.exception.code, "unknown_field")
 
-
-
 	def test_table_multiselect_child_doctype_validates_row_fieldtype(self):
 		from types import SimpleNamespace
 		from unittest.mock import patch
@@ -294,9 +292,7 @@ class TestCollectionResolver(unittest.TestCase):
 			)
 		)
 		child_meta = SimpleNamespace(
-			get_field=lambda fieldname: (
-				SimpleNamespace(fieldtype="Data") if fieldname == "tag_name" else None
-			)
+			get_field=lambda fieldname: SimpleNamespace(fieldtype="Data") if fieldname == "tag_name" else None
 		)
 
 		def get_meta(doctype):
@@ -313,7 +309,7 @@ class TestCollectionResolver(unittest.TestCase):
 				"mode": "variable",
 				"path": {"scope": "row", "segments": ["tag_name"]},
 			},
-			"right": {"mode": "static", "value_type": "string", "value": "M"},
+			"right": {"mode": "static", "value_type": "integer", "value": 10},
 		}
 		resolver = CollectionResolver(source="doc.tags", operation="filter", condition=condition)
 		context = {
