@@ -30,6 +30,9 @@ class BenchmarkFixture:
 	expected_non_matching_result: bool = False
 	leaf_count: int = 1
 	nesting_depth: int = 1
+	metadata_context: dict | None = None
+	collection_row_count: int = 0
+	short_circuit_behavior: str = "none"
 
 
 def get_neutral_scenarios() -> list[NeutralScenario]:
@@ -377,6 +380,8 @@ def get_neutral_scenarios() -> list[NeutralScenario]:
 			),
 			leaf_count=3,
 			nesting_depth=2,
+			collection_row_count=2,
+			short_circuit_behavior="late_match",
 		)
 	)
 
@@ -492,6 +497,276 @@ def get_neutral_scenarios() -> list[NeutralScenario]:
 		)
 	)
 
+	# --- Additional Canonical Focused Scenarios ---
+
+	# 10. Dynamic Operands: Variable on Left, Variable on Right
+	scenarios.append(
+		NeutralScenario(
+			scenario_id="dynamic_operands_both_sides",
+			tier="Dynamic Operands — Both Variables",
+			description="Comparison comparing customer balance with credit limit",
+			root=NeutralNode(
+				kind="comparison",
+				operator="gt",
+				left_scope="doc",
+				left_segments=["current_balance"],
+				right_mode="variable",
+				right_scope="doc",
+				right_segments=["credit_limit"],
+			),
+			matching_doc=frappe._dict({"current_balance": 5000, "credit_limit": 4000}),
+			non_matching_doc=frappe._dict({"current_balance": 3000, "credit_limit": 4000}),
+			leaf_count=1,
+			nesting_depth=1,
+		)
+	)
+
+	# 11. Dynamic Operands: Static on Left, Variable on Right
+	scenarios.append(
+		NeutralScenario(
+			scenario_id="dynamic_operands_static_left",
+			tier="Dynamic Operands — Static Left",
+			description="Comparison comparing static threshold with dynamic document score",
+			root=NeutralNode(
+				kind="comparison",
+				operator="lt",
+				left_mode="static",
+				left_value_type="integer",
+				left_value=50,
+				right_mode="variable",
+				right_scope="doc",
+				right_segments=["score"],
+			),
+			matching_doc=frappe._dict({"score": 85}),
+			non_matching_doc=frappe._dict({"score": 30}),
+			leaf_count=1,
+			nesting_depth=1,
+		)
+	)
+
+	# 12. Dynamic Operands: Template Operand
+	scenarios.append(
+		NeutralScenario(
+			scenario_id="dynamic_operands_template",
+			tier="Dynamic Operands — Template",
+			description="Comparison matching dynamic template string against static prefix",
+			root=NeutralNode(
+				kind="comparison",
+				operator="starts_with",
+				left_raw_payload={
+					"mode": "template",
+					"segments": [
+						{"type": "text", "value": "REQ-"},
+						{
+							"type": "value",
+							"value": {
+								"mode": "variable",
+								"path": {"scope": "doc", "segments": ["category"]},
+							},
+						},
+					],
+				},
+				right_mode="static",
+				right_value_type="string",
+				right_value="REQ-URGENT",
+			),
+			matching_doc=frappe._dict({"category": "URGENT_MAINTENANCE"}),
+			non_matching_doc=frappe._dict({"category": "ROUTINE"}),
+			leaf_count=1,
+			nesting_depth=1,
+		)
+	)
+
+	# 13. Realistic Frappe Metadata: User and Has Role
+	scenarios.append(
+		NeutralScenario(
+			scenario_id="frappe_metadata_user_roles",
+			tier="Frappe Metadata — User Roles",
+			description="Authoritative User DocType metadata check with Has Role child table",
+			root=NeutralNode(
+				kind="collection_predicate",
+				quantifier="any",
+				source_scope="doc",
+				source_segments=["roles"],
+				alias="r",
+				where=NeutralNode(
+					kind="comparison",
+					operator="eq",
+					left_scope="r",
+					left_segments=["role"],
+					right_value_type="string",
+					right_value="System Manager",
+				),
+			),
+			matching_doc=frappe._dict(
+				{
+					"doctype": "User",
+					"name": "test_user@example.com",
+					"roles": [
+						frappe._dict({"role": "Employee"}),
+						frappe._dict({"role": "System Manager"}),
+					],
+				}
+			),
+			non_matching_doc=frappe._dict(
+				{
+					"doctype": "User",
+					"name": "guest@example.com",
+					"roles": [
+						frappe._dict({"role": "Guest"}),
+						frappe._dict({"role": "Blogger"}),
+					],
+				}
+			),
+			leaf_count=1,
+			nesting_depth=1,
+			metadata_context={"doctype": "User"},
+			collection_row_count=2,
+			short_circuit_behavior="late_match",
+		)
+	)
+
+	return scenarios
+
+
+def get_collection_scaling_scenarios() -> list[NeutralScenario]:
+	"""Return collection scaling workloads with 10, 100, 1000, and 10000 rows.
+
+	Includes early_match, late_match, and no_match scenarios.
+	"""
+	scenarios = []
+
+	sizes = [10, 100, 1000, 10000]
+
+	for size in sizes:
+		# 1. Quantifier 'any' - Early Match (row 0 matches)
+		early_match_rows = [frappe._dict({"id": i, "val": 100 if i == 0 else 10}) for i in range(size)]
+		no_match_rows = [frappe._dict({"id": i, "val": 10}) for i in range(size)]
+
+		scenarios.append(
+			NeutralScenario(
+				scenario_id=f"collection_scaling_any_early_match_{size}",
+				tier=f"Collection Scaling — any ({size} rows)",
+				description=f"Collection any check with early match at row 0 across {size} rows",
+				root=NeutralNode(
+					kind="collection_predicate",
+					quantifier="any",
+					source_scope="doc",
+					source_segments=["items"],
+					alias="it",
+					where=NeutralNode(
+						kind="comparison",
+						operator="gt",
+						left_scope="it",
+						left_segments=["val"],
+						right_value_type="integer",
+						right_value=50,
+					),
+				),
+				matching_doc=frappe._dict({"items": early_match_rows}),
+				non_matching_doc=frappe._dict({"items": no_match_rows}),
+				leaf_count=1,
+				nesting_depth=1,
+				collection_row_count=size,
+				short_circuit_behavior="early_match",
+			)
+		)
+
+		# 2. Quantifier 'any' - Late Match (last row matches)
+		late_match_rows = [frappe._dict({"id": i, "val": 100 if i == size - 1 else 10}) for i in range(size)]
+		scenarios.append(
+			NeutralScenario(
+				scenario_id=f"collection_scaling_any_late_match_{size}",
+				tier=f"Collection Scaling — any ({size} rows)",
+				description=f"Collection any check with late match at row {size - 1} across {size} rows",
+				root=NeutralNode(
+					kind="collection_predicate",
+					quantifier="any",
+					source_scope="doc",
+					source_segments=["items"],
+					alias="it",
+					where=NeutralNode(
+						kind="comparison",
+						operator="gt",
+						left_scope="it",
+						left_segments=["val"],
+						right_value_type="integer",
+						right_value=50,
+					),
+				),
+				matching_doc=frappe._dict({"items": late_match_rows}),
+				non_matching_doc=frappe._dict({"items": no_match_rows}),
+				leaf_count=1,
+				nesting_depth=1,
+				collection_row_count=size,
+				short_circuit_behavior="late_match",
+			)
+		)
+
+		# 3. Quantifier 'all' - Early Short-Circuit (row 0 fails)
+		all_matching_rows = [frappe._dict({"id": i, "val": 100}) for i in range(size)]
+		all_early_fail_rows = [frappe._dict({"id": i, "val": 10 if i == 0 else 100}) for i in range(size)]
+		scenarios.append(
+			NeutralScenario(
+				scenario_id=f"collection_scaling_all_early_fail_{size}",
+				tier=f"Collection Scaling — all ({size} rows)",
+				description=f"Collection all check with early failure at row 0 across {size} rows",
+				root=NeutralNode(
+					kind="collection_predicate",
+					quantifier="all",
+					source_scope="doc",
+					source_segments=["items"],
+					alias="it",
+					where=NeutralNode(
+						kind="comparison",
+						operator="gt",
+						left_scope="it",
+						left_segments=["val"],
+						right_value_type="integer",
+						right_value=50,
+					),
+				),
+				matching_doc=frappe._dict({"items": all_matching_rows}),
+				non_matching_doc=frappe._dict({"items": all_early_fail_rows}),
+				leaf_count=1,
+				nesting_depth=1,
+				collection_row_count=size,
+				short_circuit_behavior="early_match",
+			)
+		)
+
+		# 4. Quantifier 'none' - Full Scan No Match
+		none_matching_rows = [frappe._dict({"id": i, "val": 10}) for i in range(size)]
+		none_late_fail_rows = [frappe._dict({"id": i, "val": 100 if i == size - 1 else 10}) for i in range(size)]
+		scenarios.append(
+			NeutralScenario(
+				scenario_id=f"collection_scaling_none_{size}",
+				tier=f"Collection Scaling — none ({size} rows)",
+				description=f"Collection none check requiring scan of {size} rows",
+				root=NeutralNode(
+					kind="collection_predicate",
+					quantifier="none",
+					source_scope="doc",
+					source_segments=["items"],
+					alias="it",
+					where=NeutralNode(
+						kind="comparison",
+						operator="gt",
+						left_scope="it",
+						left_segments=["val"],
+						right_value_type="integer",
+						right_value=50,
+					),
+				),
+				matching_doc=frappe._dict({"items": none_matching_rows}),
+				non_matching_doc=frappe._dict({"items": none_late_fail_rows}),
+				leaf_count=1,
+				nesting_depth=1,
+				collection_row_count=size,
+				short_circuit_behavior="no_match",
+			)
+		)
+
 	return scenarios
 
 
@@ -500,6 +775,8 @@ def get_all_fixtures() -> list[BenchmarkFixture]:
 	fixtures = []
 	for sc in get_neutral_scenarios():
 		legacy_payload = node_to_legacy_payload(sc.root)
+		if legacy_payload is None:
+			continue
 		fixtures.append(
 			BenchmarkFixture(
 				fixture_id=sc.scenario_id,

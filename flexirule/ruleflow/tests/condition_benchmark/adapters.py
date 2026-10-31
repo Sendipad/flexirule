@@ -13,12 +13,18 @@ class NeutralNode:
 
 	kind: str  # 'comparison', 'group', 'collection_predicate'
 	operator: str = ""  # 'eq', 'ne', 'gt', 'gte', 'lt', 'lte', 'in', 'not_in', 'contains', 'not_contains', 'is_set', 'is_not_set', 'is_null', 'is_not_null', 'is_empty', 'is_not_empty', 'length_gt', 'length_gte', 'length_eq', 'length_lt', 'length_lte', 'has_changed', 'is_submittable', 'has_field'
-	left_scope: str | None = None  # 'doc', 'item', 'row', 'old_doc'
+	left_mode: str = "variable"  # 'variable', 'static', 'template', 'resolver'
+	left_scope: str | None = None  # 'doc', 'item', 'row', 'old_doc', 'vars'
 	left_segments: list[str] = field(default_factory=list)
+	left_value_type: str | None = None
+	left_value: Any = None
+	left_raw_payload: dict | None = None  # Explicit FlexValue dict override if needed
+	right_mode: str = "static"  # 'static', 'variable', 'template', 'resolver'
 	right_value_type: str | None = None  # 'string', 'integer', 'decimal', 'boolean', 'list', 'null'
 	right_value: Any = None
 	right_scope: str | None = None
 	right_segments: list[str] = field(default_factory=list)
+	right_raw_payload: dict | None = None  # Explicit FlexValue dict override if needed
 	children: list[NeutralNode] = field(default_factory=list)
 	quantifier: str | None = None  # 'any', 'all', 'none'
 	source_scope: str | None = None
@@ -43,6 +49,9 @@ class NeutralScenario:
 	nesting_depth: int = 1
 	is_invalid_test: bool = False
 	expected_error_code: str | None = None
+	metadata_context: dict | None = None  # e.g. {"doctype": "User"}
+	collection_row_count: int = 0
+	short_circuit_behavior: str = "none"  # 'early_match', 'late_match', 'no_match', 'none'
 
 
 # Operator translation tables
@@ -59,6 +68,8 @@ LEGACY_OP_MAP = {
 	"not_contains": "not_contains",
 	"is_set": "is_set",
 	"is_not_set": "is_not_set",
+	"is_null": "is_null",
+	"is_not_null": "is_not_null",
 	"is_empty": "is_empty",
 	"is_not_empty": "is_not_empty",
 	"length_eq": "length_eq",
@@ -85,13 +96,27 @@ def node_to_legacy_payload(node: NeutralNode) -> dict | None:
 		}
 
 	if node.kind == "comparison":
-		left_ref = (
-			f"{node.left_scope}.{'.'.join(node.left_segments)}"
-			if node.left_scope and node.left_segments
-			else ""
-		)
+		if (
+			node.left_raw_payload
+			or node.right_raw_payload
+			or node.left_mode in {"template", "resolver"}
+			or node.right_mode in {"template", "resolver"}
+		):
+			# Legacy candidate formats do not support templates/resolvers directly
+			return None
+
+		if node.left_mode == "static":
+			left_payload = {"value": node.left_value}
+		else:
+			left_ref = (
+				f"{node.left_scope}.{'.'.join(node.left_segments)}"
+				if node.left_scope and node.left_segments
+				else ""
+			)
+			left_payload = {"ref": left_ref}
+
 		payload: dict[str, Any] = {
-			"left": {"ref": left_ref},
+			"left": left_payload,
 			"op": LEGACY_OP_MAP.get(node.operator, node.operator),
 		}
 		if node.operator not in {
@@ -104,7 +129,7 @@ def node_to_legacy_payload(node: NeutralNode) -> dict | None:
 			"has_changed",
 			"is_submittable",
 		}:
-			if node.right_scope and node.right_segments:
+			if node.right_mode == "variable" and node.right_scope and node.right_segments:
 				payload["right"] = {"ref": f"{node.right_scope}.{'.'.join(node.right_segments)}"}
 			else:
 				# Coerce numeric strings for legacy evaluators that do not cast strings automatically
@@ -150,17 +175,29 @@ def node_to_canonical_payload(node: NeutralNode) -> dict | None:
 		}
 
 	if node.kind == "comparison":
-		payload = {
-			"type": "comparison",
-			"operator": node.operator,
-			"left": {
+		if node.left_raw_payload:
+			left_payload = dict(node.left_raw_payload)
+		elif node.left_mode == "static":
+			left_payload = {
+				"mode": "static",
+				"value_type": node.left_value_type or "string",
+				"value": node.left_value,
+			}
+		else:
+			left_payload = {
 				"mode": "variable",
 				"path": {
 					"scope": node.left_scope or "doc",
 					"segments": list(node.left_segments),
 				},
-			},
+			}
+
+		payload = {
+			"type": "comparison",
+			"operator": node.operator,
+			"left": left_payload,
 		}
+
 		if node.operator not in {
 			"is_set",
 			"is_not_set",
@@ -170,7 +207,9 @@ def node_to_canonical_payload(node: NeutralNode) -> dict | None:
 			"is_not_empty",
 			"is_submittable",
 		}:
-			if node.right_scope and node.right_segments:
+			if node.right_raw_payload:
+				payload["right"] = dict(node.right_raw_payload)
+			elif node.right_mode == "variable" and node.right_scope and node.right_segments:
 				payload["right"] = {
 					"mode": "variable",
 					"path": {

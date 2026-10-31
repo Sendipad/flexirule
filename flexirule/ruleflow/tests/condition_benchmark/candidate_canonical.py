@@ -48,8 +48,10 @@ class CanonicalConditionCandidate(BaseConditionCandidate):
 
 	def prepare(self, condition_payload: Any, metadata_context: dict | None = None) -> PreparedCondition:
 		start_time = time.perf_counter()
+		doctype = metadata_context.get("doctype") if metadata_context else None
+		scope_doctypes = metadata_context.get("scope_doctypes") if metadata_context else None
 		try:
-			plan = compile_condition(condition_payload)
+			plan = compile_condition(condition_payload, doctype=doctype, scope_doctypes=scope_doctypes)
 			prep_time = time.perf_counter() - start_time
 
 			return PreparedCondition(
@@ -122,8 +124,10 @@ class CanonicalPreparedPlanCandidate(BaseConditionCandidate):
 
 	def prepare(self, condition_payload: Any, metadata_context: dict | None = None) -> PreparedCondition:
 		start_time = time.perf_counter()
+		doctype = metadata_context.get("doctype") if metadata_context else None
+		scope_doctypes = metadata_context.get("scope_doctypes") if metadata_context else None
 		try:
-			prepared = prepare_condition(condition_payload)
+			prepared = prepare_condition(condition_payload, doctype=doctype, scope_doctypes=scope_doctypes)
 			prep_time = time.perf_counter() - start_time
 
 			return PreparedCondition(

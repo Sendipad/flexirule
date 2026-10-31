@@ -33,6 +33,9 @@ from flexirule.ruleflow.tests.condition_benchmark.candidate_canonical import (
 	CanonicalConditionCandidate,
 	CanonicalPreparedPlanCandidate,
 )
+from flexirule.ruleflow.tests.condition_benchmark.candidate_canonical_ast import (
+	DirectCanonicalASTCandidate,
+)
 from flexirule.ruleflow.tests.condition_benchmark.comparison_api import (
 	BaseConditionCandidate,
 	ConditionComparisonHarness,
@@ -90,6 +93,7 @@ class TestConditionBenchmark(FrappeTestCase):
 		self.candidate_c = ApproachCCandidate()
 		self.canonical_candidate = CanonicalConditionCandidate()
 		self.canonical_prepared = CanonicalPreparedPlanCandidate()
+		self.canonical_ast = DirectCanonicalASTCandidate()
 
 		self.candidates = [
 			self.candidate_a,
@@ -98,6 +102,7 @@ class TestConditionBenchmark(FrappeTestCase):
 			self.candidate_c,
 			self.canonical_candidate,
 			self.canonical_prepared,
+			self.canonical_ast,
 		]
 		self.harness = ConditionComparisonHarness(self.candidates)
 		self.builder = ExecutionPlanBuilder()
@@ -133,7 +138,7 @@ class TestConditionBenchmark(FrappeTestCase):
 		check = evaluator.check_semantic_correctness(simple_sc)
 
 		self.assertTrue(check["is_correct"])
-		self.assertEqual(check["supported_candidate_count"], 6)
+		self.assertEqual(check["supported_candidate_count"], 7)
 		self.assertEqual(len(check["errors"]), 0)
 
 	def test_unsupported_and_deprecated_cases_isolation(self):
@@ -187,11 +192,12 @@ class TestConditionBenchmark(FrappeTestCase):
 			runner = BenchmarkRunner(iterations_per_batch=10, num_batches=1, warmup_iterations=1)
 			payload = runner.run_full_suite_and_export(json_path, md_path)
 
-			self.assertEqual(payload["benchmark_protocol_version"], 3)
+			self.assertEqual(payload["benchmark_protocol_version"], 4)
 			self.assertEqual(payload["production_selection_status"], "Not established")
 			self.assertIn("correctness_suite", payload)
 			self.assertIn("steady_state_benchmark", payload)
 			self.assertIn("amortized_benchmark", payload)
+			self.assertIn("direct_ast_vs_compiled_plan", payload)
 
 			self.assertTrue(os.path.exists(json_path))
 			self.assertTrue(os.path.exists(md_path))
@@ -200,7 +206,289 @@ class TestConditionBenchmark(FrappeTestCase):
 				md_content = f.read()
 
 			self.assertIn("FlexiRule — Condition Backend Comparison Benchmark Report", md_content)
+			self.assertIn("## Direct Canonical AST vs Compiled Tuple Plan", md_content)
 			self.assertIn("Not established", md_content)
+
+	# --- Correctness Parity Between Direct Canonical AST and Compiled Tuple Plan ---
+
+	def test_direct_ast_vs_compiled_plan_semantic_parity(self):
+		scenarios = get_neutral_scenarios()
+		for sc in scenarios:
+			if sc.scenario_id == "edge_case_has_changed":
+				continue
+			payload = node_to_canonical_payload(sc.root)
+			with self.subTest(scenario=sc.scenario_id):
+				prep_ast = self.canonical_ast.prepare(payload, metadata_context=sc.metadata_context)
+				prep_plan = self.canonical_prepared.prepare(payload, metadata_context=sc.metadata_context)
+
+				self.assertIsNone(prep_ast.error)
+				self.assertIsNone(prep_plan.error)
+
+				res_ast_match = self.canonical_ast.evaluate(prep_ast, sc.matching_doc)
+				res_plan_match = self.canonical_prepared.evaluate(prep_plan, sc.matching_doc)
+				self.assertEqual(res_ast_match.result, res_plan_match.result)
+				self.assertEqual(res_ast_match.result, sc.expected_matching_result)
+
+				res_ast_non = self.canonical_ast.evaluate(prep_ast, sc.non_matching_doc)
+				res_plan_non = self.canonical_prepared.evaluate(prep_plan, sc.non_matching_doc)
+				self.assertEqual(res_ast_non.result, res_plan_non.result)
+				self.assertEqual(res_ast_non.result, sc.expected_non_matching_result)
+
+	# --- Observable Tests for Genuine Lazy Operand Evaluation ---
+
+	def test_short_circuit_and_lazy_evaluation(self):
+		canonical_and_payload = {
+			"type": "group",
+			"operator": "and",
+			"children": [
+				{
+					"type": "comparison",
+					"operator": "eq",
+					"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["first_cond"]}},
+					"right": {"mode": "static", "value_type": "boolean", "value": True},
+				},
+				{
+					"type": "comparison",
+					"operator": "eq",
+					"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["second_cond"]}},
+					"right": {"mode": "static", "value_type": "boolean", "value": True},
+				},
+			],
+		}
+
+		for cand in [self.canonical_ast, self.canonical_prepared]:
+			with self.subTest(candidate=cand.candidate_name):
+				tracking_doc = TrackingDoc({"first_cond": False, "second_cond": True})
+				prep = cand.prepare(canonical_and_payload)
+				res = cand.evaluate(prep, tracking_doc)
+
+				self.assertIsNone(res.error)
+				self.assertFalse(res.result)
+				self.assertEqual(tracking_doc.access_counts.get("first_cond", 0), 1)
+				self.assertEqual(
+					tracking_doc.access_counts.get("second_cond", 0),
+					0,
+					f"Candidate '{cand.candidate_name}' evaluated second_cond despite AND short-circuit",
+				)
+
+	def test_short_circuit_or_lazy_evaluation(self):
+		canonical_or_payload = {
+			"type": "group",
+			"operator": "or",
+			"children": [
+				{
+					"type": "comparison",
+					"operator": "eq",
+					"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["first_cond"]}},
+					"right": {"mode": "static", "value_type": "boolean", "value": True},
+				},
+				{
+					"type": "comparison",
+					"operator": "eq",
+					"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["second_cond"]}},
+					"right": {"mode": "static", "value_type": "boolean", "value": True},
+				},
+			],
+		}
+
+		for cand in [self.canonical_ast, self.canonical_prepared]:
+			with self.subTest(candidate=cand.candidate_name):
+				tracking_doc = TrackingDoc({"first_cond": True, "second_cond": False})
+				prep = cand.prepare(canonical_or_payload)
+				res = cand.evaluate(prep, tracking_doc)
+
+				self.assertIsNone(res.error)
+				self.assertTrue(res.result)
+				self.assertEqual(tracking_doc.access_counts.get("first_cond", 0), 1)
+				self.assertEqual(
+					tracking_doc.access_counts.get("second_cond", 0),
+					0,
+					f"Candidate '{cand.candidate_name}' evaluated second_cond despite OR short-circuit",
+				)
+
+	def test_unary_operator_does_not_evaluate_right_operand(self):
+		canonical_unary = {
+			"type": "comparison",
+			"operator": "is_set",
+			"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["status"]}},
+		}
+		for cand in [self.canonical_ast, self.canonical_prepared]:
+			with self.subTest(candidate=cand.candidate_name):
+				tracking_doc = TrackingDoc({"status": "Open", "unused_field": "val"})
+				prep = cand.prepare(canonical_unary)
+				res = cand.evaluate(prep, tracking_doc)
+				self.assertTrue(res.result)
+				self.assertEqual(tracking_doc.access_counts.get("unused_field", 0), 0)
+
+	def test_collection_predicate_quantifier_early_termination(self):
+		collection_any = {
+			"type": "collection_predicate",
+			"quantifier": "any",
+			"source": {"scope": "doc", "segments": ["items"]},
+			"as": "it",
+			"where": {
+				"type": "comparison",
+				"operator": "gt",
+				"left": {"mode": "variable", "path": {"scope": "it", "segments": ["qty"]}},
+				"right": {"mode": "static", "value_type": "integer", "value": 10},
+			},
+		}
+
+		for cand in [self.canonical_ast, self.canonical_prepared]:
+			with self.subTest(candidate=cand.candidate_name):
+				row0 = TrackingDoc({"qty": 20})  # Matches immediately!
+				row1 = TrackingDoc({"qty": 5})
+				row2 = TrackingDoc({"qty": 30})
+				doc = frappe._dict({"items": [row0, row1, row2]})
+
+				prep = cand.prepare(collection_any)
+				res = cand.evaluate(prep, doc)
+
+				self.assertTrue(res.result)
+				self.assertEqual(row0.access_counts.get("qty", 0), 1)
+				self.assertEqual(
+					row1.access_counts.get("qty", 0),
+					0,
+					f"Candidate '{cand.candidate_name}' evaluated row1 despite quantifier 'any' match at row0",
+				)
+				self.assertEqual(row2.access_counts.get("qty", 0), 0)
+
+	def test_test_only_resolver_lazy_invocation_and_propagation(self):
+		"""Register a deterministic test-only resolver with an invocation counter.
+
+		Verifies that an unreachable branch never calls the resolver, reachable branch calls it,
+		and errors propagate correctly.
+		"""
+		from flexirule.ruleflow.core.flexvalue_contract import (
+			CONDITION_RESOLVER_REGISTRY,
+			register_condition_resolver,
+		)
+
+		call_counter = {"count": 0}
+
+		def dummy_validate(config, path, allowed_scopes, resolver_depth, flexvalue_depth):
+			pass
+
+		def dummy_resolve(config, context):
+			call_counter["count"] += 1
+			if config.get("fail"):
+				raise ValueError("Simulated resolver failure")
+			return config.get("return_val", "TEST_VAL")
+
+		reg_key = ("test_family", "counter_op")
+		original_entry = CONDITION_RESOLVER_REGISTRY.get(reg_key)
+		try:
+			register_condition_resolver(
+				family="test_family",
+				operation="counter_op",
+				label="Test Counter Resolver",
+				output_type="string",
+				config_schema={"type": "object"},
+				permission_policy="no_data_access",
+				validate_config=dummy_validate,
+				resolve=dummy_resolve,
+				condition_operand_allowed=True,
+			)
+
+			# 1. Unreachable branch in AND group: First condition is False
+			unreachable_payload = {
+				"type": "group",
+				"operator": "and",
+				"children": [
+					{
+						"type": "comparison",
+						"operator": "eq",
+						"left": {"mode": "static", "value_type": "boolean", "value": False},
+						"right": {"mode": "static", "value_type": "boolean", "value": True},
+					},
+					{
+						"type": "comparison",
+						"operator": "eq",
+						"left": {
+							"mode": "resolver",
+							"family": "test_family",
+							"operation": "counter_op",
+							"config": {"return_val": "RESOLVED"},
+						},
+						"right": {"mode": "static", "value_type": "string", "value": "RESOLVED"},
+					},
+				],
+			}
+
+			for cand in [self.canonical_ast, self.canonical_prepared]:
+				with self.subTest(candidate=cand.candidate_name, test="unreachable"):
+					call_counter["count"] = 0
+					prep = cand.prepare(unreachable_payload)
+					res = cand.evaluate(prep, {})
+					self.assertFalse(res.result)
+					self.assertEqual(
+						call_counter["count"],
+						0,
+						f"Candidate '{cand.candidate_name}' invoked resolver in unreachable branch",
+					)
+
+			# 2. Reachable branch: Resolver is invoked
+			reachable_payload = {
+				"type": "group",
+				"operator": "and",
+				"children": [
+					{
+						"type": "comparison",
+						"operator": "eq",
+						"left": {"mode": "static", "value_type": "boolean", "value": True},
+						"right": {"mode": "static", "value_type": "boolean", "value": True},
+					},
+					{
+						"type": "comparison",
+						"operator": "eq",
+						"left": {
+							"mode": "resolver",
+							"family": "test_family",
+							"operation": "counter_op",
+							"config": {"return_val": "RESOLVED"},
+						},
+						"right": {"mode": "static", "value_type": "string", "value": "RESOLVED"},
+					},
+				],
+			}
+
+			for cand in [self.canonical_ast, self.canonical_prepared]:
+				with self.subTest(candidate=cand.candidate_name, test="reachable"):
+					call_counter["count"] = 0
+					prep = cand.prepare(reachable_payload)
+					res = cand.evaluate(prep, {})
+					self.assertTrue(res.result)
+					self.assertEqual(
+						call_counter["count"],
+						1,
+						f"Candidate '{cand.candidate_name}' did not invoke resolver in reachable branch",
+					)
+
+			# 3. Failing resolver: Error is propagated
+			failing_payload = {
+				"type": "comparison",
+				"operator": "eq",
+				"left": {
+					"mode": "resolver",
+					"family": "test_family",
+					"operation": "counter_op",
+					"config": {"fail": True},
+				},
+				"right": {"mode": "static", "value_type": "string", "value": "RESOLVED"},
+			}
+
+			for cand in [self.canonical_ast, self.canonical_prepared]:
+				with self.subTest(candidate=cand.candidate_name, test="failing"):
+					prep = cand.prepare(failing_payload)
+					res = cand.evaluate(prep, {})
+					self.assertIsNotNone(res.error)
+					self.assertIn("resolver_failed", res.error)
+
+		finally:
+			if original_entry is None:
+				CONDITION_RESOLVER_REGISTRY.pop(reg_key, None)
+			else:
+				CONDITION_RESOLVER_REGISTRY[reg_key] = original_entry
 
 	# --- Explicit Short-Circuit Behavior Tests for All Benchmark Approaches ---
 
