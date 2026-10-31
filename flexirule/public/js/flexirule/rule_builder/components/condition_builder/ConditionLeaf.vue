@@ -85,24 +85,7 @@ const localDomain = computed(
 	() => props.domain || { type: "comparison", op: "eq", left: null, right: null }
 );
 
-const operatorOptions = computed(() => {
-	if (props.operators && props.operators.length > 0) {
-		return props.operators;
-	}
-	// Fallback minimum default list if contract is still initializing
-	return [
-		{ id: "eq", label: "Equals", arity: 2 },
-		{ id: "ne", label: "Does not equal", arity: 2 },
-		{ id: "gt", label: "Greater than", arity: 2 },
-		{ id: "gte", label: "Greater than or equal", arity: 2 },
-		{ id: "lt", label: "Less than", arity: 2 },
-		{ id: "lte", label: "Less than or equal", arity: 2 },
-		{ id: "is_empty", label: "Is empty", arity: 1 },
-		{ id: "is_not_empty", label: "Is not empty", arity: 1 },
-		{ id: "is_set", label: "Is set", arity: 1 },
-		{ id: "is_not_set", label: "Is not set", arity: 1 },
-	];
-});
+const operatorOptions = computed(() => props.operators || []);
 
 const currentOperatorMeta = computed(() => {
 	return operatorOptions.value.find((op) => op.id === localDomain.value.op);
@@ -133,7 +116,7 @@ function onUpdateOp(newOp) {
 	if (meta && meta.arity === 1) {
 		delete updated.right;
 	} else if (updated.right === undefined) {
-		updated.right = { value_type: "static", value: "" };
+		updated.right = { mode: "static", value: "" };
 	}
 
 	emit("update:domain", updated);
