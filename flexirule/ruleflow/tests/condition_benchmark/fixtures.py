@@ -540,3 +540,169 @@ def get_canonical_fixtures() -> list[BenchmarkFixture]:
 			)
 		)
 	return fixtures
+
+
+def get_canonical_scaling_workloads() -> dict[str, Any]:
+	"""Return dedicated Canonical condition comparison workloads.
+
+	Includes simple, complex nested, dynamic operands, variable-vs-variable,
+	and collection scale fixtures (10, 100, 1000, 10000 rows) with early, late,
+	and no-match scenarios respecting production row budgets.
+	"""
+	workloads = {}
+
+	# 1. Simple condition
+	workloads["simple_numeric"] = {
+		"description": "Simple numeric comparison (doc.amount > 1000)",
+		"payload": {
+			"type": "comparison",
+			"operator": "gt",
+			"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["amount"]}},
+			"right": {"mode": "static", "value_type": "decimal", "value": "1000"},
+		},
+		"matching_doc": {"amount": 1500},
+		"non_matching_doc": {"amount": 500},
+		"expected": True,
+	}
+
+	# 2. Dynamic variable on both sides
+	workloads["dynamic_operands_var_vs_var"] = {
+		"description": "Dynamic variable on both sides (doc.spent > doc.limit)",
+		"payload": {
+			"type": "comparison",
+			"operator": "gt",
+			"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["spent"]}},
+			"right": {"mode": "variable", "path": {"scope": "doc", "segments": ["limit"]}},
+		},
+		"matching_doc": {"spent": 2500, "limit": 2000},
+		"non_matching_doc": {"spent": 1500, "limit": 2000},
+		"expected": True,
+	}
+
+	# 3. Complex deeply nested condition with early/late short-circuiting
+	workloads["complex_nested_tree"] = {
+		"description": "Complex nested condition with multiple groups and comparisons",
+		"payload": {
+			"type": "group",
+			"operator": "and",
+			"children": [
+				{
+					"type": "group",
+					"operator": "or",
+					"children": [
+						{
+							"type": "comparison",
+							"operator": "eq",
+							"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["priority"]}},
+							"right": {"mode": "static", "value_type": "string", "value": "Urgent"},
+						},
+						{
+							"type": "comparison",
+							"operator": "gt",
+							"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["amount"]}},
+							"right": {"mode": "static", "value_type": "decimal", "value": "5000"},
+						},
+					],
+				},
+				{
+					"type": "group",
+					"operator": "and",
+					"children": [
+						{
+							"type": "comparison",
+							"operator": "eq",
+							"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["status"]}},
+							"right": {"mode": "static", "value_type": "string", "value": "Open"},
+						},
+						{
+							"type": "comparison",
+							"operator": "in",
+							"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["category"]}},
+							"right": {
+								"mode": "static",
+								"value_type": "list",
+								"value": ["Hardware", "Software", "Support"],
+							},
+						},
+					],
+				},
+			],
+		},
+		"matching_doc": {
+			"priority": "Urgent",
+			"amount": 100,
+			"status": "Open",
+			"category": "Software",
+		},
+		"non_matching_doc": {
+			"priority": "Low",
+			"amount": 100,
+			"status": "Open",
+			"category": "Software",
+		},
+		"expected": True,
+	}
+
+	# 4. Collection Workloads at scale: 10, 100, 1,000, and 10,000 rows
+	collection_base_payload = {
+		"type": "collection_predicate",
+		"quantifier": "any",
+		"source": {"scope": "doc", "segments": ["items"]},
+		"as": "child_row",
+		"where": {
+			"type": "comparison",
+			"operator": "eq",
+			"left": {"mode": "variable", "path": {"scope": "child_row", "segments": ["flag"]}},
+			"right": {"mode": "static", "value_type": "string", "value": "TARGET"},
+		},
+	}
+
+	for size in [10, 100, 1000, 10000]:
+		early_items = [{"flag": "TARGET" if i == 0 else "NORMAL"} for i in range(size)]
+		workloads[f"collection_any_{size}_early"] = {
+			"description": f"Collection 'any' {size} rows (early match on 1st row)",
+			"payload": collection_base_payload,
+			"doc": {"items": early_items},
+			"expected": True,
+			"collection_size": size,
+		}
+
+		late_items = [{"flag": "TARGET" if i == (size - 1) else "NORMAL"} for i in range(size)]
+		workloads[f"collection_any_{size}_late"] = {
+			"description": f"Collection 'any' {size} rows (late match on row {size})",
+			"payload": collection_base_payload,
+			"doc": {"items": late_items},
+			"expected": True,
+			"collection_size": size,
+		}
+
+		no_match_items = [{"flag": "NORMAL"} for _ in range(size)]
+		workloads[f"collection_any_{size}_none"] = {
+			"description": f"Collection 'any' {size} rows (no match / full scan)",
+			"payload": collection_base_payload,
+			"doc": {"items": no_match_items},
+			"expected": False,
+			"collection_size": size,
+		}
+
+	# 5. Collection 'all' quantifier (stops at first non-match)
+	workloads["collection_all_100_early_break"] = {
+		"description": "Collection 'all' 100 rows (breaks on 1st row)",
+		"payload": {
+			"type": "collection_predicate",
+			"quantifier": "all",
+			"source": {"scope": "doc", "segments": ["items"]},
+			"as": "child_row",
+			"where": {
+				"type": "comparison",
+				"operator": "eq",
+				"left": {"mode": "variable", "path": {"scope": "child_row", "segments": ["status"]}},
+				"right": {"mode": "static", "value_type": "string", "value": "Valid"},
+			},
+		},
+		"doc": {"items": [{"status": "Invalid" if i == 0 else "Valid"} for i in range(100)]},
+		"expected": False,
+		"collection_size": 100,
+	}
+
+	return workloads
