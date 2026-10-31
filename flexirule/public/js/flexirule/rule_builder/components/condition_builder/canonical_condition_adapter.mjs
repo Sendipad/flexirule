@@ -127,7 +127,7 @@ export function canonicalFlexValueToUi(value) {
 	assertObject(value, "FlexValue");
 	switch (value.mode) {
 		case "static":
-			return { mode: "static", value: value.value };
+			return { mode: "static", value_type: value.value_type, value: value.value };
 		case "variable":
 			return { mode: "variable", value: canonicalPathToText(value.path) };
 		case "resolver":
