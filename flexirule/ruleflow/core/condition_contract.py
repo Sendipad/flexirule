@@ -597,14 +597,6 @@ def _validate_node(
 						)
 				if field and field.fieldtype in {"Table", "Table MultiSelect"}:
 					child_doctype = field.options
-					if not child_doctype:
-						_fail(
-							"unknown_doctype",
-							f"{path}.source",
-							f"Child DocType is not configured for table field '{field.fieldname}'",
-						)
-					# Authoritative check: child DocType must exist in Frappe metadata
-					_meta_for(child_doctype, f"{path}.source")
 				elif field and field.fieldtype not in {"Table", "Table MultiSelect"}:
 					_fail(
 						"collection_source_not_table",
@@ -613,12 +605,6 @@ def _validate_node(
 					)
 			except ConditionValidationError:
 				raise
-			except Exception:
-				_fail(
-					"unknown_doctype",
-					f"{path}.source",
-					f"Could not resolve metadata for DocType '{parent_doctype}'",
-				)
 		nested_scopes = set(allowed_scopes)
 		nested_scopes.add(alias)
 		nested_doctypes = dict(scope_doctypes)

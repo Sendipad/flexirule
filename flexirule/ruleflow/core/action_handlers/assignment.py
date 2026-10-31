@@ -92,27 +92,6 @@ class AssignmentHandler(ActionHandler):
 				raise MethodExecutionError(_("Assignment action config is not valid JSON array"))
 
 		event_name = context.get("event_name")
-		doctype = getattr(getattr(engine, "rule", None), "document_type", None)
-		if not doctype and isinstance(context, dict):
-			doc_obj = context.get("doc")
-			doctype = getattr(doc_obj, "doctype", None) or (
-				doc_obj.get("doctype") if isinstance(doc_obj, dict) else None
-			)
-
-		# ==========================================
-		# Phase A: Preflight Invariant Validation
-		# ==========================================
-		# Validate every row's canonical guard against authoritative DocType metadata,
-		# system paths, event restrictions, and prepare guards before ANY row mutates document state.
-		prepared_rows: list[dict[str, Any]] = []
-		action_key = str(getattr(action, "name", None) or getattr(action, "action_id", None) or id(action))
-		prepare_guard = getattr(engine, "_get_prepared_condition_for_payload", None)
-
-		from flexirule.ruleflow.core.condition_evaluator import (
-			compile_condition,
-			evaluate_condition,
-			evaluate_prepared_condition,
-		)
 
 		for idx, assignment in enumerate(assignments):
 			target_path = assignment.get("target")
@@ -121,7 +100,6 @@ class AssignmentHandler(ActionHandler):
 
 			if not target_path:
 				engine._log("WARNING", _("Assignment index {0} missing target path, skipping").format(idx))
-				prepared_rows.append({"skip": True})
 				continue
 
 			# 1. System path protection
@@ -130,74 +108,55 @@ class AssignmentHandler(ActionHandler):
 			# 2. Event restriction check
 			self._validate_event_restrictions(target_path, event_name)
 
-			# 3. Validate guard against DocType metadata and prepare execution plan
-			prepared_guard = None
+			# 2.5 Optional row-level execution guard
 			if canonical_guard is not None:
+				from flexirule.ruleflow.core.condition_evaluator import (
+					evaluate_condition,
+					evaluate_prepared_condition,
+				)
+
+				doctype = getattr(getattr(engine, "rule", None), "document_type", None)
+				prepare_guard = getattr(engine, "_get_prepared_condition_for_payload", None)
 				if callable(prepare_guard):
+					action_key = str(
+						getattr(action, "name", None) or getattr(action, "action_id", None) or id(action)
+					)
 					prepared_guard = prepare_guard(
 						("assignment_guard", action_key, idx), canonical_guard, doctype
 					)
-				else:
-					# Compile/validate against authoritative DocType metadata upfront
-					compile_condition(canonical_guard, doctype=doctype)
-
-			# 4. Validate operator exists
-			op_instance = AssignmentOperatorRegistry.get(operator_key)
-
-			prepared_rows.append(
-				{
-					"skip": False,
-					"idx": idx,
-					"assignment": assignment,
-					"target_path": target_path,
-					"operator": op_instance,
-					"canonical_guard": canonical_guard,
-					"prepared_guard": prepared_guard,
-				}
-			)
-
-		# ==========================================
-		# Phase B: Sequential Execution & Mutation
-		# ==========================================
-		# Only reached when ALL rows have completely and safely passed Phase A preflight.
-		for item in prepared_rows:
-			if item.get("skip"):
-				continue
-
-			assignment = item["assignment"]
-			target_path = item["target_path"]
-			op = item["operator"]
-			canonical_guard = item["canonical_guard"]
-			prepared_guard = item["prepared_guard"]
-			idx = item["idx"]
-
-			# Check row guard
-			if canonical_guard is not None:
-				if prepared_guard is not None:
 					matches = evaluate_prepared_condition(prepared_guard, context, doctype=doctype)
 				else:
 					matches = evaluate_condition(canonical_guard, context, doctype=doctype)
 				if not matches:
 					continue
 
+			# 3. Get operator
+			operator = AssignmentOperatorRegistry.get(operator_key)
+
 			# Fetch current value for apply
 			current_value = self._get_current_value(target_path, context)
 
-			# Evaluate value if required
+			# 4. Evaluate value if required
 			operand_value = None
-			if op.metadata.get("requires_value"):
+			if operator.metadata.get("requires_value"):
+				# Inject current value so the format/normalization helper can access it
 				context_copy = dict(context)
 				context_copy["value"] = current_value
 
+				# Compile and resolve using the unified ValueResolver!
 				from flexirule.ruleflow.core.value_resolver import get_compiled_resolver
 
 				resolver = get_compiled_resolver(action, f"assign_{idx}", assignment.get("value"))
 				operand_value = resolver.resolve(context_copy)
 
-			# Apply operation
-			new_value = op.apply(current_value, operand_value, context)
+			# 6. Optional: Validate Target Type (deferred for runtime, but operator can check if needed)
+			# (In a real implementation, we'd fetch the Frappe metadata for doc.* fields here)
+			# operator.validate(target_type, operand_value)
 
-			# Commit to context
+			# 7. Apply operation
+			new_value = operator.apply(current_value, operand_value, context)
+
+			# 8. Commit to context via ContextManager or directly
 			self._set_value(target_path, new_value, context, engine)
 
 		return None, getattr(action, "next_step_if_true", None)

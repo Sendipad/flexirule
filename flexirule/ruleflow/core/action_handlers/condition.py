@@ -105,17 +105,10 @@ class ConditionHandler(ActionHandler):
 		errors: list[str] = []
 		try:
 			payload = get_condition_payload(action)
-			if payload in (None, ""):
+			if payload is None:
 				return errors
 			is_canonical, canonical_node = detect_canonical_condition_payload(payload)
 			if is_canonical:
-				if canonical_node is None:
-					errors.append(
-						_("Condition '{0}' has a malformed canonical condition payload.").format(
-							action.action_label
-						)
-					)
-					return errors
 				rule = context.get("rule") if isinstance(context, dict) else None
 				doctype = getattr(rule, "document_type", None) or (
 					rule.get("document_type") if isinstance(rule, dict) else None

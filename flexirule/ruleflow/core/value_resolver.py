@@ -549,23 +549,7 @@ class CollectionResolver(CompiledResolver):
 							"Collection source path continues through a scalar field",
 						)
 			if field and field.fieldtype in {"Table", "Table MultiSelect"}:
-				child_dt = field.options
-				if not child_dt:
-					raise ConditionValidationError(
-						"unknown_doctype",
-						"$.source",
-						f"Child DocType is not configured for table field '{field.fieldname}'",
-					)
-				# Authoritative check: child DocType must exist
-				try:
-					frappe.get_meta(child_dt)
-				except Exception as exc:
-					raise ConditionValidationError(
-						"unknown_doctype",
-						"$.source",
-						f"Could not resolve metadata for child DocType '{child_dt}'",
-					) from exc
-				return child_dt
+				return field.options
 			elif field:
 				raise ConditionValidationError(
 					"collection_source_not_table",
