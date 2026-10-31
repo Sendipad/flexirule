@@ -157,9 +157,22 @@ class AssignmentHandler(ActionHandler):
 			)
 
 		# ==========================================
-		# Phase B: Sequential Execution & Mutation
+		# Phase B: Staged Working-Copy Execution
 		# ==========================================
-		# Only reached when ALL rows have completely and safely passed Phase A preflight.
+		# Simulate assignments sequentially against a working copy of doc/vars,
+		# preserving inter-row dependencies while ensuring that any resolver or operator
+		# failure in a later row discards all staged changes before the real doc is touched.
+		real_doc = context.get("doc")
+		staged_doc = copy.deepcopy(real_doc) if real_doc is not None else None
+		staged_vars = copy.deepcopy(context.get("vars", {}))
+
+		staged_context = dict(context)
+		if staged_doc is not None:
+			staged_context["doc"] = staged_doc
+		staged_context["vars"] = staged_vars
+
+		applied_mutations: list[tuple[str, Any]] = []
+
 		for item in prepared_rows:
 			if item.get("skip"):
 				continue
@@ -171,22 +184,22 @@ class AssignmentHandler(ActionHandler):
 			prepared_guard = item["prepared_guard"]
 			idx = item["idx"]
 
-			# Check row guard
+			# Check row guard against staged context
 			if canonical_guard is not None:
 				if prepared_guard is not None:
-					matches = evaluate_prepared_condition(prepared_guard, context, doctype=doctype)
+					matches = evaluate_prepared_condition(prepared_guard, staged_context, doctype=doctype)
 				else:
-					matches = evaluate_condition(canonical_guard, context, doctype=doctype)
+					matches = evaluate_condition(canonical_guard, staged_context, doctype=doctype)
 				if not matches:
 					continue
 
-			# Fetch current value for apply
-			current_value = self._get_current_value(target_path, context)
+			# Fetch current value from staged context
+			current_value = self._get_current_value(target_path, staged_context)
 
-			# Evaluate value if required
+			# Evaluate value against staged context if required
 			operand_value = None
 			if op.metadata.get("requires_value"):
-				context_copy = dict(context)
+				context_copy = dict(staged_context)
 				context_copy["value"] = current_value
 
 				from flexirule.ruleflow.core.value_resolver import get_compiled_resolver
@@ -194,10 +207,18 @@ class AssignmentHandler(ActionHandler):
 				resolver = get_compiled_resolver(action, f"assign_{idx}", assignment.get("value"))
 				operand_value = resolver.resolve(context_copy)
 
-			# Apply operation
-			new_value = op.apply(current_value, operand_value, context)
+			# Apply operation to staged value
+			new_value = op.apply(current_value, operand_value, staged_context)
 
-			# Commit to context
+			# Commit to staged context so subsequent rows see updated values
+			self._set_value(target_path, new_value, staged_context, engine)
+			applied_mutations.append((target_path, new_value))
+
+		# ==========================================
+		# Phase C: Atomic Commit to Real Document
+		# ==========================================
+		# Only reached when every row has evaluated and resolved without error.
+		for target_path, new_value in applied_mutations:
 			self._set_value(target_path, new_value, context, engine)
 
 		return None, getattr(action, "next_step_if_true", None)
@@ -285,7 +306,7 @@ class AssignmentHandler(ActionHandler):
 				)
 
 			legacy_guard_keys = ("pythonExpression", "when_expression", "when")
-			if any(compiled.get(key) not in (None, "") for key in legacy_guard_keys):
+			if any(key in compiled for key in legacy_guard_keys):
 				raise ConditionValidationError(
 					"unsupported_assignment_guard",
 					f"assignments[{index}]",

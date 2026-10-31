@@ -1363,7 +1363,7 @@ class Rule(Document):
 						)
 
 					legacy_guard_keys = ("pythonExpression", "when_expression", "when")
-					if any(row.get(key) not in (None, "") for key in legacy_guard_keys):
+					if any(key in row for key in legacy_guard_keys):
 						from flexirule.ruleflow.core.condition_errors import ConditionValidationError
 
 						raise ConditionValidationError(

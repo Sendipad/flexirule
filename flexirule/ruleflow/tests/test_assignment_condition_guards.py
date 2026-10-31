@@ -46,6 +46,14 @@ class TestAssignmentConditionGuards(unittest.TestCase):
 			AssignmentHandler._get_compiled_plan(config)
 		self.assertEqual(raised.exception.code, "unsupported_assignment_guard")
 
+	def test_blank_legacy_expression_fields_are_rejected_on_presence(self):
+		for key in ("pythonExpression", "when_expression", "when"):
+			for empty_val in ("", None, "   "):
+				config = json.dumps([{"target": "doc.status", key: empty_val}])
+				with self.assertRaises(ConditionValidationError) as raised:
+					AssignmentHandler._get_compiled_plan(config)
+				self.assertEqual(raised.exception.code, "unsupported_assignment_guard")
+
 	def test_legacy_dict_guard_is_rejected(self):
 		config = json.dumps(
 			[
@@ -303,6 +311,57 @@ class TestAssignmentConditionGuards(unittest.TestCase):
 		self.assertEqual(raised.exception.code, "operand_type_mismatch")
 		self.assertEqual(doc["status"], "Open")
 		self.assertEqual(doc["description"], "Original Description")
+
+	def test_assignment_batch_atomicity_discards_earlier_mutations_when_later_resolver_fails(self):
+		from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
+		# Row 1 sets doc.status = 'Closed'
+		# Row 2 tries to resolve a collection with a predicate but lacks parent DocType, raising ConditionValidationError
+		failing_resolver_value = {
+			"mode": "resolver",
+			"config": {
+				"kind": "collection",
+				"source": "doc.items",
+				"operation": "count",
+				"condition": {
+					"type": "comparison",
+					"operator": "gt",
+					"left": {"mode": "variable", "path": {"scope": "row", "segments": ["qty"]}},
+					"right": {"mode": "static", "value_type": "integer", "value": 5},
+				},
+			},
+		}
+		config = [
+			{"target": "doc.status", "value": "Closed"},
+			{"target": "doc.description", "value": failing_resolver_value},
+		]
+		action = SimpleNamespace(
+			is_enabled=True,
+			name="act-atomicity-fail",
+			action_id="act-atomicity-fail",
+			action_type="Assignment",
+			action_label="Assignment Batch Atomicity Test",
+			config=config,
+		)
+		rule = SimpleNamespace(
+			name="test-rule-atomicity",
+			actions=[action],
+			debug_mode=False,
+			# Intentionally None document_type so the CollectionResolver inside row 2 fails closed
+			document_type=None,
+		)
+		engine = RuleEngine(rule)
+		doc = {"status": "Open", "description": "Original", "items": [{"qty": 10}]}
+		context = {"doc": doc}
+		handler = AssignmentHandler()
+
+		with self.assertRaises(ConditionValidationError) as raised:
+			handler.execute(action, context, engine)
+
+		self.assertEqual(raised.exception.code, "unknown_doctype")
+		# Verify complete batch atomicity: row 1 mutation MUST NOT be committed to doc!
+		self.assertEqual(doc["status"], "Open")
+		self.assertEqual(doc["description"], "Original")
 
 
 if __name__ == "__main__":

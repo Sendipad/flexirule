@@ -589,6 +589,23 @@ class CollectionResolver(CompiledResolver):
 			condition_doctype = doc.get("doctype")
 		condition_doctype = condition_doctype or context.get("doctype")
 
+		source_str = str(self.source or "").strip()
+		is_doc_backed = source_str.startswith("doc.") or (
+			not source_str.startswith("vars.") and "." not in source_str
+		)
+		has_condition = bool(
+			self._canonical_condition is not None or self._compiled_evaluator or self.condition
+		)
+
+		if is_doc_backed and has_condition and not condition_doctype:
+			from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
+			raise ConditionValidationError(
+				"unknown_doctype",
+				"$.source",
+				f"Parent DocType metadata is required to validate collection predicate for '{self.source}'",
+			)
+
 		child_doctype = self._resolve_child_doctype(condition_doctype)
 		scope_doctypes: dict[str, str | None] | None = {"row": child_doctype} if child_doctype else None
 

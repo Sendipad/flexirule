@@ -231,20 +231,47 @@ class TestCanonicalConditionEvaluator(unittest.TestCase):
 		self.assertTrue(evaluate_condition(all_empty, {"doc": {"items": []}}))
 
 	def test_collection_resolver_applies_canonical_predicate_for_count_any_all(self):
+		from types import SimpleNamespace
+		from unittest.mock import patch
+
+		parent_meta = SimpleNamespace(
+			get_field=lambda fieldname: (
+				SimpleNamespace(fieldname="items", fieldtype="Table", options="Test Order Item")
+				if fieldname == "items"
+				else None
+			)
+		)
+		child_meta = SimpleNamespace(
+			get_field=lambda fieldname: (
+				SimpleNamespace(fieldname="amount", fieldtype="Float") if fieldname == "amount" else None
+			)
+		)
+
+		def fake_get_meta(dt):
+			if dt == "Test Order":
+				return parent_meta
+			if dt == "Test Order Item":
+				return child_meta
+			raise ValueError(f"Unknown DocType {dt}")
+
 		predicate = compare(
 			"gt",
 			variable("row", "amount"),
 			static("integer", 2),
 		)
-		context = {"doc": {"items": [{"amount": 1}, {"amount": 3}]}}
+		context = {
+			"doctype": "Test Order",
+			"doc": {"doctype": "Test Order", "items": [{"amount": 1}, {"amount": 3}]},
+		}
 
-		count = CollectionResolver("doc.items", operation="count", condition=predicate)
-		any_match = CollectionResolver("doc.items", operation="any", condition=predicate)
-		all_match = CollectionResolver("doc.items", operation="all", condition=predicate)
+		with patch("frappe.get_meta", side_effect=fake_get_meta):
+			count = CollectionResolver("doc.items", operation="count", condition=predicate)
+			any_match = CollectionResolver("doc.items", operation="any", condition=predicate)
+			all_match = CollectionResolver("doc.items", operation="all", condition=predicate)
 
-		self.assertEqual(count.resolve(context), 1)
-		self.assertTrue(any_match.resolve(context))
-		self.assertFalse(all_match.resolve(context))
+			self.assertEqual(count.resolve(context), 1)
+			self.assertTrue(any_match.resolve(context))
+			self.assertFalse(all_match.resolve(context))
 
 	def test_nested_collection_predicates_share_total_row_visit_budget(self):
 		inner = {
@@ -412,9 +439,35 @@ class TestCanonicalConditionEvaluator(unittest.TestCase):
 			operation="count",
 			condition=predicate,
 		)
-		context = {"doc": {"items": [{"amount": 1}, {"amount": 3}, {"amount": 4}]}}
+		from types import SimpleNamespace
+
+		parent_meta = SimpleNamespace(
+			get_field=lambda fieldname: (
+				SimpleNamespace(fieldname="items", fieldtype="Table", options="Test Order Item")
+				if fieldname == "items"
+				else None
+			)
+		)
+		child_meta = SimpleNamespace(
+			get_field=lambda fieldname: (
+				SimpleNamespace(fieldname="amount", fieldtype="Float") if fieldname == "amount" else None
+			)
+		)
+
+		def fake_get_meta(dt):
+			if dt == "Test Order":
+				return parent_meta
+			if dt == "Test Order Item":
+				return child_meta
+			raise ValueError(f"Unknown DocType {dt}")
+
+		context = {
+			"doctype": "Test Order",
+			"doc": {"doctype": "Test Order", "items": [{"amount": 1}, {"amount": 3}, {"amount": 4}]},
+		}
 
 		with (
+			patch("frappe.get_meta", side_effect=fake_get_meta),
 			patch(
 				"flexirule.ruleflow.core.condition_evaluator.prepare_condition",
 				wraps=prepare_condition,
