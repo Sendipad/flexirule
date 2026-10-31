@@ -49,10 +49,10 @@ jobs:
             frontend:
               - 'flexirule/public/**'
               - 'flexirule/templates/**'
-              - '**/*.js'
-              - '**/*.vue'
-              - '**/*.css'
-              - '**/*.scss'
+              - 'flexirule/**/*.js'
+              - 'flexirule/**/*.vue'
+              - 'flexirule/**/*.css'
+              - 'flexirule/**/*.scss'
               - 'package.json'
               - 'package-lock.json'
               - 'yarn.lock'
@@ -60,7 +60,9 @@ jobs:
               - 'pyproject.toml'
               - '.github/workflows/**'
             backend:
-              - '**/*.py'
+              - 'flexirule/**/*.py'
+              - 'setup.py'
+              - 'setup.cfg'
               - 'flexirule/**/*.json'
               - 'requirements.txt'
               - 'pyproject.toml'
@@ -224,12 +226,27 @@ jobs:
           sudo mkdir -p /etc/mysql/conf.d
           echo -e "[client]\nskip-ssl" | sudo tee /etc/mysql/conf.d/disable-ssl.cnf
 
+      - name: Ensure Frappe uses the non-TLS MariaDB client
+        run: |
+          MARIADB_REAL_CLIENT="$(command -v mariadb)"
+          test -x "$MARIADB_REAL_CLIENT"
+          for client_name in mariadb mysql; do
+            sudo tee "/usr/local/bin/$client_name" >/dev/null <<EOF
+          #!/usr/bin/env bash
+          exec "$MARIADB_REAL_CLIENT" --skip-ssl "\$@"
+          EOF
+            sudo chmod +x "/usr/local/bin/$client_name"
+          done
+          # Frappe 15 prefers `mariadb` over `mysql` in frappe.database.get_command().
+          test "$(command -v mariadb)" = "/usr/local/bin/mariadb"
+          mariadb --host 127.0.0.1 --port 3306 -u root -proot -e "SELECT VERSION()"
+
       - name: Initialize Bench and database
         run: |
           python -m pip install frappe-bench
           bench init --skip-redis-config-generation --skip-assets --python "$(which python)" --frappe-path "$GITHUB_WORKSPACE/frappe-src" ~/frappe-bench
-          mariadb --skip-ssl --host 127.0.0.1 --port 3306 -u root -proot -e "SET GLOBAL character_set_server = 'utf8mb4'"
-          mariadb --skip-ssl --host 127.0.0.1 --port 3306 -u root -proot -e "SET GLOBAL collation_server = 'utf8mb4_unicode_ci'"
+          mariadb --host 127.0.0.1 --port 3306 --skip-ssl -u root -proot -e "SET GLOBAL character_set_server = 'utf8mb4'"
+          mariadb --host 127.0.0.1 --port 3306 --skip-ssl -u root -proot -e "SET GLOBAL collation_server = 'utf8mb4_unicode_ci'"
 
       - name: Install app and create test site
         working-directory: /home/runner/frappe-bench
@@ -413,12 +430,27 @@ jobs:
           sudo mkdir -p /etc/mysql/conf.d
           echo -e "[client]\nskip-ssl" | sudo tee /etc/mysql/conf.d/disable-ssl.cnf
 
+      - name: Ensure Frappe uses the non-TLS MariaDB client
+        run: |
+          MARIADB_REAL_CLIENT="$(command -v mariadb)"
+          test -x "$MARIADB_REAL_CLIENT"
+          for client_name in mariadb mysql; do
+            sudo tee "/usr/local/bin/$client_name" >/dev/null <<EOF
+          #!/usr/bin/env bash
+          exec "$MARIADB_REAL_CLIENT" --skip-ssl "\$@"
+          EOF
+            sudo chmod +x "/usr/local/bin/$client_name"
+          done
+          # Frappe 15 prefers `mariadb` over `mysql` in frappe.database.get_command().
+          test "$(command -v mariadb)" = "/usr/local/bin/mariadb"
+          mariadb --host 127.0.0.1 --port 3306 -u root -proot -e "SELECT VERSION()"
+
       - name: Initialize Bench and database
         run: |
           python -m pip install frappe-bench
           bench init --skip-redis-config-generation --skip-assets --python "$(which python)" --frappe-path "$GITHUB_WORKSPACE/frappe-src" ~/frappe-bench
-          mariadb --host 127.0.0.1 --port 3306 -u root -proot -e "SET GLOBAL character_set_server = 'utf8mb4'"
-          mariadb --host 127.0.0.1 --port 3306 -u root -proot -e "SET GLOBAL collation_server = 'utf8mb4_unicode_ci'"
+          mariadb --host 127.0.0.1 --port 3306 --skip-ssl -u root -proot -e "SET GLOBAL character_set_server = 'utf8mb4'"
+          mariadb --host 127.0.0.1 --port 3306 --skip-ssl -u root -proot -e "SET GLOBAL collation_server = 'utf8mb4_unicode_ci'"
 
       - name: Install app and create test site
         working-directory: /home/runner/frappe-bench
