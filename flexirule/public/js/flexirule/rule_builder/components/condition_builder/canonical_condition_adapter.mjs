@@ -44,7 +44,9 @@ export function normalizeConditionNode(node) {
 	}
 	if (node.type === "collection_predicate" || node.quantifier || node.collection || node.source) {
 		const source = node.source ?? node.collection;
-		const canonicalSource = source?.mode ? source : normalizeFlexValue(source);
+		const canonicalSource = source?.mode === "variable" && source.path?.scope && Array.isArray(source.path?.segments)
+			? source
+			: normalizeFlexValue(source);
 		return {
 			type: "collection_predicate",
 			quantifier: node.quantifier ?? "any",
