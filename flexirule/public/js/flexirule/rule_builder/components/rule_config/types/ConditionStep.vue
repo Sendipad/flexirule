@@ -109,7 +109,7 @@ watch(
 			if (JSON.stringify(normalized) !== JSON.stringify(localConditions.value)) {
 				localConditions.value = normalized;
 			}
-		} catch (error) {
+		} catch {
 			conditionLoadError.value = __("The saved condition is invalid and was not changed. Repair or migrate it before editing.");
 		}
 	},
