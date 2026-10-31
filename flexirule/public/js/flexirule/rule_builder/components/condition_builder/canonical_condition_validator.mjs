@@ -1,120 +1,90 @@
-/**
- * canonical_condition_validator.mjs
- * Validation utilities for Canonical Condition AST and Generic TreeBuilder UI model.
- */
+/** UI validation driven only by the backend's canonical condition contract. */
 
-/**
- * Validates a single FlexValue operand object.
- */
-export function validateFlexValue(flexValue, fieldName = "Operand") {
-	if (!flexValue || typeof flexValue !== "object") {
-		return `${fieldName} is missing or invalid.`;
-	}
+const SCOPES = new Set(["doc", "old_doc", "vars", "item", "loop", "row", "caller", "rule"]);
 
-	if (!flexValue.value_type) {
-		return `${fieldName} must specify a valid value type.`;
-	}
-
-	if (flexValue.value_type === "variable" && (!flexValue.path || !flexValue.path.trim())) {
-		return `${fieldName} requires a variable path.`;
-	}
-
-	if (flexValue.value_type === "resolver" && !flexValue.resolver) {
-		return `${fieldName} requires a configured resolver function.`;
-	}
-
-	return null;
-}
-
-/**
- * Validates a comparison domain object against the operator contract.
- *
- * @param {Object} domain - Leaf domain containing { type: 'comparison', op, left, right }
- * @param {Array} operators - Operators array from contract DTO
- * @returns {Array<string>} Array of error message strings
- */
-export function validateComparisonDomain(domain, operators = []) {
+export function validateFlexValue(value, label = "Operand") {
 	const errors = [];
-
-	if (!domain || domain.type !== "comparison") {
-		errors.push("Invalid comparison data.");
-		return errors;
-	}
-
-	if (!domain.op) {
-		errors.push("Comparison operator is required.");
-	}
-
-	const leftErr = validateFlexValue(domain.left, "Left operand");
-	if (leftErr) {
-		errors.push(leftErr);
-	}
-
-	// Lookup operator arity from contract
-	const opMeta = operators.find((o) => o.id === domain.op);
-	const arity = opMeta ? opMeta.arity : 2; // Default arity 2 if contract uninitialized
-
-	if (arity === 2) {
-		const rightErr = validateFlexValue(domain.right, "Right operand");
-		if (rightErr) {
-			errors.push(rightErr);
+	if (!value || typeof value !== "object" || Array.isArray(value)) return [`${label} is missing or invalid.`];
+	if (!["static", "variable", "resolver"].includes(value.mode)) return [`${label} has an unsupported value mode.`];
+	if (value.mode === "variable") {
+		const path = value.value ?? value.path;
+		if (typeof path !== "string" || !path.trim()) errors.push(`${label} requires a variable path.`);
+		else {
+			const parts = path.trim().split(".");
+			if (parts.length > 1 && SCOPES.has(parts[0])) parts.shift();
+			if (!parts.length || parts.some((part) => !/^[A-Za-z0-9_]+$/.test(part) || part.includes("__"))) {
+				errors.push(`${label} contains an invalid variable path.`);
+			}
 		}
 	}
-
+	if (value.mode === "resolver" && (
+		typeof value.family !== "string" || !value.family ||
+		typeof value.operation !== "string" || !value.operation ||
+		!value.config || typeof value.config !== "object" || Array.isArray(value.config)
+	)) errors.push(`${label} requires an explicitly configured canonical resolver.`);
+	if (value.mode === "static" && value.value !== null && value.value !== undefined &&
+		typeof value.value === "number" && !Number.isFinite(value.value)) {
+		errors.push(`${label} must be a finite number.`);
+	}
 	return errors;
 }
 
-/**
- * Validates a UI tree node (or canonical AST) recursively.
- *
- * @param {Object} uiNode - TreeBuilder UI node or canonical AST node
- * @param {Object} options
- * @param {Array} [options.operators=[]] - Contract operators
- * @param {boolean} [options.isMandatory=false] - Whether a non-empty condition is mandatory
- * @returns {Object} { isValid: boolean, errors: Array<string> }
- */
-export function validateConditionTree(uiNode, options = {}) {
+export function validateComparisonDomain(domain, operators = []) {
+	const errors = [];
+	if (!domain || domain.type !== "comparison") return ["Invalid comparison data."];
+	const opMeta = operators.find((operator) => operator?.id === domain.op);
+	if (!opMeta) return [domain.op ? `Unsupported condition operator: ${domain.op}.` : "Comparison operator is required."];
+	errors.push(...validateFlexValue(domain.left, "Left operand"));
+	if (opMeta.arity === 2) errors.push(...validateFlexValue(domain.right, "Right operand"));
+	else if (Object.hasOwn(domain, "right") && domain.right != null) errors.push("Unary operators must not have a right operand.");
+	return errors;
+}
+
+/** Validate the editable TreeBuilder model before it is serialized or saved. */
+export function validateConditionTree(root, options = {}) {
 	const { operators = [], isMandatory = false } = options;
 	const errors = [];
-
-	if (!uiNode) {
-		if (isMandatory) {
-			return { isValid: false, errors: ["Condition is required."] };
-		}
-		return { isValid: true, errors: [] };
+	if (!Array.isArray(operators) || operators.length === 0) {
+		return { isValid: false, errors: ["The canonical condition contract is unavailable."] };
 	}
+	if (!root) return { isValid: !isMandatory, errors: isMandatory ? ["Condition is required."] : [] };
 
-	function walk(node, path = "") {
-		if (!node) return;
-
+	function walk(node, path = "$", rootNode = false) {
+		if (!node || typeof node !== "object") {
+			errors.push(`${path}: condition node is invalid.`);
+			return;
+		}
 		if (node.type === "group") {
-			const children = node.children || [];
-			if (children.length === 0 && isMandatory && path === "") {
-				errors.push("At least one condition rule is required.");
+			if (!["and", "or"].includes(node.operator)) errors.push(`${path}: group operator must be AND or OR.`);
+			const children = Array.isArray(node.children) ? node.children : [];
+			if (children.length < 2 && !(rootNode && children.length === 0 && !isMandatory)) {
+				errors.push(`${path}: a persisted group requires at least two children.`);
 			}
-			children.forEach((child, idx) => walk(child, `${path}.children[${idx}]`));
-		} else if (node.type === "collection") {
-			if (
-				!node.collection ||
-				(node.collection.value_type === "variable" && !node.collection.path)
-			) {
-				errors.push("Collection path is required for collection predicate.");
-			}
-			const children = node.children || [];
-			if (children.length === 0) {
-				errors.push("Collection predicate requires at least one nested condition.");
-			}
-			children.forEach((child, idx) => walk(child, `${path}.collection[${idx}]`));
-		} else if (node.type === "leaf" || node.domain) {
-			const leafErrors = validateComparisonDomain(node.domain || node, operators);
-			leafErrors.forEach((err) => errors.push(err));
+			children.forEach((child, index) => walk(child, `${path}.children[${index}]`));
+			return;
 		}
+		if (node.type === "leaf") {
+			for (const error of validateComparisonDomain(node.domain, operators)) errors.push(`${path}: ${error}`);
+			return;
+		}
+		if (node.type === "collection") {
+			if (!["any", "all", "none"].includes(node.quantifier)) errors.push(`${path}: collection quantifier is invalid.`);
+			if (typeof node.alias !== "string" || !/^[A-Za-z][A-Za-z0-9_]*$/.test(node.alias) || node.alias.includes("__") || SCOPES.has(node.alias)) {
+				errors.push(`${path}: collection alias is invalid or reserved.`);
+			}
+			if (!node.collection || node.collection.mode !== "variable" || !(node.collection.value ?? node.collection.path)) {
+				errors.push(`${path}: collection source must be a variable path.`);
+			} else {
+				errors.push(...validateFlexValue(node.collection, "Collection source").map((error) => `${path}: ${error}`));
+			}
+			const children = Array.isArray(node.children) ? node.children : [];
+			if (!children.length) errors.push(`${path}: collection predicate requires a nested condition.`);
+			children.forEach((child, index) => walk(child, `${path}.collection[${index}]`));
+			return;
+		}
+		errors.push(`${path}: unsupported tree node type.`);
 	}
 
-	walk(uiNode);
-
-	return {
-		isValid: errors.length === 0,
-		errors,
-	};
+	walk(root, "$", true);
+	return { isValid: errors.length === 0, errors };
 }
