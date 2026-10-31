@@ -31,8 +31,20 @@ export async function fetchConditionContract(options = {}) {
 			});
 
 			const contract = response?.message;
-			if (!contract || !Array.isArray(contract.operators)) {
-				throw new Error("Invalid condition contract structure returned by backend.");
+			if (
+				!contract ||
+				contract.api_version !== "1" ||
+				!Array.isArray(contract.operators) ||
+				contract.operators.length === 0 ||
+				contract.operators.some((operator) =>
+					!operator ||
+					typeof operator.id !== "string" ||
+					!operator.id ||
+					typeof operator.label !== "string" ||
+					![1, 2].includes(operator.arity)
+				)
+			) {
+				throw new Error("Invalid or incomplete canonical condition contract returned by backend.");
 			}
 
 			cachedContract = contract;
