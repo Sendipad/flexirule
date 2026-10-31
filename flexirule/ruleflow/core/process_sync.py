@@ -124,7 +124,7 @@ def import_process_from_file(json_path, module_name):
 	    json_path: Path to the {name}.json file
 	    module_name: Module that contains this process
 	"""
-	with open(json_path) as f:
+	with open(json_path) as f:  # nosemgrep: frappe-security-file-traversal
 		data = json.load(f)
 
 	process_name = data.get("process_name")

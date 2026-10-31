@@ -43,8 +43,12 @@ def summarize_junit(report_root: Path, lines: list[str], issues: list[str], test
 			)
 			for label, records in (("Failure", failures), ("Error", errors)):
 				for case, item in records[:10]:
-					name = f"{case.attrib.get('classname', '')}.{case.attrib.get('name', 'unknown')}".strip(".")
-					detail = (item.text or item.attrib.get("message") or "No traceback provided").strip()[:8000]
+					name = f"{case.attrib.get('classname', '')}.{case.attrib.get('name', 'unknown')}".strip(
+						"."
+					)
+					detail = (item.text or item.attrib.get("message") or "No traceback provided").strip()[
+						:8000
+					]
 					lines.extend(
 						[
 							"",
@@ -67,7 +71,9 @@ def summarize_junit(report_root: Path, lines: list[str], issues: list[str], test
 		if test_outcome != "success":
 			issues.append(f"The Frappe test command did not complete (step outcome: {test_outcome}).")
 		else:
-			issues.append("The Frappe test command completed without producing the configured JUnit XML report.")
+			issues.append(
+				"The Frappe test command completed without producing the configured JUnit XML report."
+			)
 
 	if exit_file.exists():
 		code = int(exit_file.read_text(encoding="utf-8").strip())
@@ -167,7 +173,9 @@ def summarize_benchmark(
 			)
 			lines.append(f"| {scenario_id} | {public_value} | {prepared_value} |")
 		if markdown_report.exists():
-			lines.extend(["", "Full Markdown report, raw JSON, and benchmark log are in the uploaded artifact."])
+			lines.extend(
+				["", "Full Markdown report, raw JSON, and benchmark log are in the uploaded artifact."]
+			)
 	except (json.JSONDecodeError, OSError, TypeError) as exc:
 		lines.append(f"- Could not read benchmark JSON: {exc}")
 		issues.append("The benchmark JSON report is invalid.")

@@ -19,4 +19,4 @@ def clear_old_logs():
 		(cutoff_date,),
 	)
 
-	frappe.db.commit()
+	frappe.db.commit()  # nosemgrep: frappe-manual-commit

@@ -1441,6 +1441,7 @@ class RuleEngine:
 				frappe.enqueue(
 					"flexirule.ruleflow.utils.logging.persist_execution_log",
 					queue="short",
+					enqueue_after_commit=True,
 					now=frappe.flags.in_test,
 					log_data=log_data,
 				)

@@ -400,6 +400,7 @@ class DocumentActionHandler(ActionHandler):
 				queue="default",
 				doc_data=doc_data,
 				ignore_permissions=ignore_permissions,
+				enqueue_after_commit=True,
 			)
 			return {"enqueued": True, "doctype": reference_doctype}
 

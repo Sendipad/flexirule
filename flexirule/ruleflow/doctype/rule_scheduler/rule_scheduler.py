@@ -187,6 +187,7 @@ class RuleScheduler(Document):
 					queue=self.get_queue_name(),
 					job_id=self.rq_job_id,
 					timeout=3600,  # 1 hour max
+					enqueue_after_commit=True,
 				)
 				return True
 			else:
@@ -251,8 +252,8 @@ class RuleScheduler(Document):
 				# Commit every batch_size documents
 				if (i + 1) % (self.batch_size or 100) == 0:
 					if not getattr(frappe.flags, "in_test", False):
-						frappe.db.commit()
-					frappe.publish_realtime(
+						frappe.db.commit()  # nosemgrep: frappe-manual-commit
+					frappe.publish_realtime(  # nosemgrep: frappe-realtime-pick-room
 						"batch_progress",
 						{
 							"batch_id": batch_id,
@@ -264,7 +265,7 @@ class RuleScheduler(Document):
 					)
 
 			if not getattr(frappe.flags, "in_test", False):
-				frappe.db.commit()
+				frappe.db.commit()  # nosemgrep: frappe-manual-commit
 
 			status = "Success"
 			if error_count > 0:

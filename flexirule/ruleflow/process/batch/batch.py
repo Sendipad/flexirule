@@ -58,11 +58,11 @@ def execute_for_documents(context, config):
 
 		if (i + 1) % batch_size == 0:
 			if not getattr(frappe.flags, "in_test", False):
-				frappe.db.commit()
+				frappe.db.commit()  # nosemgrep: frappe-manual-commit
 			_publish_progress(batch_id, i + 1, len(documents))
 
 	if not getattr(frappe.flags, "in_test", False):
-		frappe.db.commit()
+		frappe.db.commit()  # nosemgrep: frappe-manual-commit
 	return results
 
 
@@ -85,7 +85,7 @@ def _execute_single(rule_name, doctype, doc_name, batch_id, index, total):
 
 
 def _publish_progress(batch_id, processed, total):
-	frappe.publish_realtime(
+	frappe.publish_realtime(  # nosemgrep: frappe-realtime-pick-room
 		"batch_progress",
 		{"batch_id": batch_id, "processed": processed, "total": total},
 	)

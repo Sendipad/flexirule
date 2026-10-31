@@ -28,7 +28,7 @@ class TestCIReportSummarizer(unittest.TestCase):
 				'<testsuites><testsuite tests="2" failures="0" errors="0">'
 				'<testcase classname="test_sample" name="test_one"/>'
 				'<testcase classname="test_sample" name="test_two"/>'
-				'</testsuite></testsuites>',
+				"</testsuite></testsuites>",
 				encoding="utf-8",
 			)
 			(test_results / "server-tests.exitcode").write_text("0\n", encoding="utf-8")
@@ -62,7 +62,7 @@ class TestCIReportSummarizer(unittest.TestCase):
 				'<testsuites><testsuite tests="1" failures="1" errors="0">'
 				'<testcase classname="test_sample" name="test_expected_failure">'
 				'<failure message="expected failure">AssertionError: sample traceback</failure>'
-				'</testcase></testsuite></testsuites>',
+				"</testcase></testsuite></testsuites>",
 				encoding="utf-8",
 			)
 			(test_results / "server-tests.exitcode").write_text("1\n", encoding="utf-8")

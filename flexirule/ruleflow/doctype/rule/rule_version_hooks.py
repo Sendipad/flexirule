@@ -8,6 +8,7 @@ Rule versioning hooks - uses Frappe's built-in Version tracking
 import json
 
 import frappe
+from frappe import _
 
 
 def get_rule_versions(rule_name, limit=20):
@@ -49,7 +50,7 @@ def restore_rule_version(rule_name, version_name):
 	version = frappe.get_doc("Version", version_name)
 
 	if version.ref_doctype != "Rule" or version.docname != rule_name:
-		frappe.throw("Invalid version for this rule")
+		frappe.throw(_("Invalid version for this rule"))
 
 	# Get saved state
 	data = json.loads(version.data)
