@@ -77,7 +77,7 @@ const props = defineProps({
 });
 
 const store = useStore();
-const localConditions = ref({ type: "group", op: "and", children: [] });
+const localConditions = ref({ type: "group", operator: "and", children: [] });
 const showOldDoc = ref(false);
 const variableFields = ref([]);
 const conditionBuilderRef = ref(null);
@@ -104,7 +104,7 @@ watch(
 				localConditions.value = normalized;
 			}
 		} else {
-			localConditions.value = { type: "group", op: "and", children: [] };
+			localConditions.value = { type: "group", operator: "and", children: [] };
 		}
 	},
 	{ immediate: true }
@@ -117,6 +117,8 @@ function updateConditions(val) {
 
 function save() {
 	if (!props.node?.data) return;
+	const validation = conditionBuilderRef.value?.validate();
+	if (validation && !validation.isValid) return;
 
 	if (props.node.type === "start") {
 		props.node.data.trigger_condition = localConditions.value;
