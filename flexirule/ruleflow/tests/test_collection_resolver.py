@@ -309,7 +309,7 @@ class TestCollectionResolver(unittest.TestCase):
 				"mode": "variable",
 				"path": {"scope": "row", "segments": ["tag_name"]},
 			},
-			"right": {"mode": "static", "value_type": "string", "value": "M"},
+			"right": {"mode": "static", "value_type": "integer", "value": 10},
 		}
 		resolver = CollectionResolver(source="doc.tags", operation="filter", condition=condition)
 		context = {
