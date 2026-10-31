@@ -22,8 +22,21 @@ export function validateFlexValue(value, label = "Operand") {
 		typeof value.operation !== "string" || !value.operation ||
 		!value.config || typeof value.config !== "object" || Array.isArray(value.config)
 	)) errors.push(`${label} requires an explicitly configured canonical resolver.`);
-	if (value.mode === "static" && value.value !== null && value.value !== undefined &&
-		typeof value.value === "number" && !Number.isFinite(value.value)) {
+	if (value.mode === "static" && Object.hasOwn(value, "value_type")) {
+		const type = value.value_type;
+		const val = value.value;
+		if (type === "string" && typeof val !== "string") errors.push(`${label} must be a string.`);
+		else if (type === "integer" && !(Number.isInteger(val) && typeof val === "number")) errors.push(`${label} must be an integer.`);
+		else if (type === "decimal" && !(typeof val === "string" && val.trim() !== "" && Number.isFinite(Number(val)))) errors.push(`${label} must be a finite decimal string.`);
+		else if (type === "boolean" && typeof val !== "boolean") errors.push(`${label} must be a boolean.`);
+		else if (type === "null" && val !== null) errors.push(`${label} must be null.`);
+		else if (type === "date" && !(typeof val === "string" && /^\\d{4}-\\d{2}-\\d{2}$/.test(val))) errors.push(`${label} must be an ISO date.`);
+		else if (type === "datetime" && !(typeof val === "string" && !Number.isNaN(Date.parse(val)))) errors.push(`${label} must be an ISO datetime.`);
+		else if (type === "time" && !(typeof val === "string" && /^\\d{2}:\\d{2}(:\\d{2}(\\.\\d+)?)?$/.test(val))) errors.push(`${label} must be an ISO time.`);
+		else if (type === "list" && !Array.isArray(val)) errors.push(`${label} must be a list.`);
+		else if (type === "object" && (!val || typeof val !== "object" || Array.isArray(val))) errors.push(`${label} must be an object.`);
+	}
+	if (value.mode === "static" && typeof value.value === "number" && !Number.isFinite(value.value)) {
 		errors.push(`${label} must be a finite number.`);
 	}
 	return errors;
