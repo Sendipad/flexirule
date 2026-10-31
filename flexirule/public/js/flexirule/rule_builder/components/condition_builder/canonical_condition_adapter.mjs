@@ -61,13 +61,13 @@ export function normalizeConditionNode(node) {
 		throw new TypeError("Unsupported condition payload; expected a canonical or migratable condition node.");
 	}
 	const operator = node.operator ?? LEGACY_OPERATOR_MAP[node.op] ?? node.op;
-	const left = node.left ?? node.field;
 	const right = node.right !== undefined ? node.right : node.value;
-	const result = {
-		type: "comparison",
-		operator,
-		left: normalizeFlexValue(left),
-	};
+	const left = node.left !== undefined
+		? normalizeFlexValue(node.left)
+		: typeof node.field === "string"
+			? { mode: "variable", path: textToCanonicalPath(node.field) }
+			: normalizeFlexValue(node.field);
+	const result = { type: "comparison", operator, left };
 	if (right !== undefined && right !== null) result.right = normalizeFlexValue(right);
 	return result;
 }
