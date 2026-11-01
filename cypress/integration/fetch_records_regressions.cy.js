@@ -1,4 +1,3 @@
-/* global afterEach */
 import { isConsoleRegressionMessage } from "../support/regression_guards.mjs";
 import { ruleBuilderPage } from "../support/pages/RuleBuilderPage";
 
