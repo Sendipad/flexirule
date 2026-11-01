@@ -379,11 +379,10 @@ describe("Fetch Records builder regressions", () => {
 				const updatedOrder = $updatedNodes
 					.toArray()
 					.map((node) => node.getAttribute("data-node-id"));
-				expect(updatedOrder, "one action moves the first leaf down by one position").to.deep.equal([
-					initialOrder[1],
-					initialOrder[0],
-					initialOrder[2],
-				]);
+				expect(
+					updatedOrder,
+					"one action moves the first leaf down by one position"
+				).to.deep.equal([initialOrder[1], initialOrder[0], initialOrder[2]]);
 			});
 		});
 	});
