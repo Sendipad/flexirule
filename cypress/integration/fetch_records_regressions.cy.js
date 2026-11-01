@@ -393,10 +393,15 @@ describe("Fetch Records builder regressions", () => {
 				(node) => node.data?.action_id === "query_1"
 			);
 			expect(actionNode, "loaded Fetch Records graph node").to.exist;
-			expect(Number(actionNode?.data?.ignore_permissions), "valid persisted baseline").to.eq(1);
+			expect(Number(actionNode?.data?.ignore_permissions), "valid persisted baseline").to.eq(
+				1
+			);
 
 			actionNode.data.ignore_permissions = 0;
-			expect(Number(actionNode.data.ignore_permissions), "simulated legacy graph value").to.eq(0);
+			expect(
+				Number(actionNode.data.ignore_permissions),
+				"simulated legacy graph value"
+			).to.eq(0);
 		});
 
 		// The action editor still displays the Frappe 15-required bypass. Saving
