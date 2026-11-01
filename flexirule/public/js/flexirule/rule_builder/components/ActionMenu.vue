@@ -1,12 +1,5 @@
 <template>
-	<Menu
-		as="div"
-		class="fxr-action-menu"
-		v-slot="{ open }"
-		@pointerdown.stop
-		@click.stop
-		@dblclick.stop
-	>
+	<Menu as="div" class="fxr-action-menu" @pointerdown.stop @click.stop @dblclick.stop>
 		<MenuButton
 			ref="buttonRef"
 			type="button"
@@ -25,7 +18,6 @@
 
 		<Teleport to="body" :disabled="!teleport">
 			<MenuItems
-				v-if="open && visibleItems.length"
 				:ref="setMenuRef"
 				class="fxr-action-menu__items"
 				:class="[`fxr-action-menu__items--${align}`, menuClass]"
