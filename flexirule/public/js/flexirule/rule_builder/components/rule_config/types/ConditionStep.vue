@@ -9,7 +9,11 @@
 			</div>
 			<div class="header-actions">
 				<label class="old-doc-toggle fxr-checkbox-label fxr-checkbox-label--sm">
-					<input type="checkbox" v-model="showOldDoc" class="fxr-checkbox-input fxr-checkbox-input--sm" />
+					<input
+						type="checkbox"
+						v-model="showOldDoc"
+						class="fxr-checkbox-input fxr-checkbox-input--sm"
+					/>
 					<span class="toggle-label">{{ __("Show Old Doc Fields") }}</span>
 				</label>
 			</div>

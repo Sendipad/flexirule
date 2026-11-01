@@ -39,18 +39,12 @@ assert.ok(
 	controlsCss.includes(".fxr-checkbox-label"),
 	"controls.css must declare .fxr-checkbox-label"
 );
-assert.ok(
-	controlsCss.includes(".fxr-switch"),
-	"controls.css must declare .fxr-switch"
-);
+assert.ok(controlsCss.includes(".fxr-switch"), "controls.css must declare .fxr-switch");
 assert.ok(
 	controlsCss.includes(".fxr-switch__slider"),
 	"controls.css must declare .fxr-switch__slider"
 );
-assert.ok(
-	controlsCss.includes(".fxr-switch--sm"),
-	"controls.css must declare .fxr-switch--sm"
-);
+assert.ok(controlsCss.includes(".fxr-switch--sm"), "controls.css must declare .fxr-switch--sm");
 
 // 2. Verify CheckControl.vue adheres to design contract
 const checkControlPath = path.join(
@@ -76,10 +70,7 @@ assert.ok(
 	checkControlVue.includes("indeterminate"),
 	"CheckControl must support indeterminate prop and state"
 );
-assert.ok(
-	checkControlVue.includes("size:"),
-	"CheckControl must support size prop"
-);
+assert.ok(checkControlVue.includes("size:"), "CheckControl must support size prop");
 
 // 3. Verify no lingering legacy .fxr-checkbox styles in ConditionStep.vue
 const conditionStepPath = path.join(
@@ -117,10 +108,7 @@ assert.ok(
 	!subRuleVue.includes("custom-switch"),
 	"SubRuleNodeConfig must not use bootstrap custom-switch"
 );
-assert.ok(
-	subRuleVue.includes("fxr-switch"),
-	"SubRuleNodeConfig must use unified .fxr-switch"
-);
+assert.ok(subRuleVue.includes("fxr-switch"), "SubRuleNodeConfig must use unified .fxr-switch");
 
 // 6. CheckControl validation logic behavioral test
 function testCheckControlValidation(df, modelValue) {

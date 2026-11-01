@@ -11,7 +11,10 @@
 		<!-- Mode & Options Bar -->
 		<div class="rm-options-bar">
 			<div class="rm-option-group">
-				<label class="rm-check fxr-checkbox-label fxr-checkbox-label--sm" :class="{ 'is-disabled': readOnly }">
+				<label
+					class="rm-check fxr-checkbox-label fxr-checkbox-label--sm"
+					:class="{ 'is-disabled': readOnly }"
+				>
 					<input
 						type="checkbox"
 						class="fxr-checkbox-input fxr-checkbox-input--sm"
@@ -33,7 +36,10 @@
 				/>
 			</div>
 			<div class="rm-option-group">
-				<label class="rm-check fxr-checkbox-label fxr-checkbox-label--sm" :class="{ 'is-disabled': readOnly }">
+				<label
+					class="rm-check fxr-checkbox-label fxr-checkbox-label--sm"
+					:class="{ 'is-disabled': readOnly }"
+				>
 					<input
 						type="checkbox"
 						class="fxr-checkbox-input fxr-checkbox-input--sm"
@@ -506,7 +512,10 @@
 
 				<!-- Table Options -->
 				<div class="rm-table-options">
-					<label class="rm-check fxr-checkbox-label fxr-checkbox-label--sm" :class="{ 'is-disabled': readOnly }">
+					<label
+						class="rm-check fxr-checkbox-label fxr-checkbox-label--sm"
+						:class="{ 'is-disabled': readOnly }"
+					>
 						<input
 							type="checkbox"
 							class="fxr-checkbox-input fxr-checkbox-input--sm"
@@ -515,7 +524,10 @@
 						/>
 						<span class="rm-label-sm">{{ __("Replace existing rows") }}</span>
 					</label>
-					<label class="rm-check fxr-checkbox-label fxr-checkbox-label--sm" :class="{ 'is-disabled': readOnly }">
+					<label
+						class="rm-check fxr-checkbox-label fxr-checkbox-label--sm"
+						:class="{ 'is-disabled': readOnly }"
+					>
 						<input
 							type="checkbox"
 							class="fxr-checkbox-input fxr-checkbox-input--sm"
