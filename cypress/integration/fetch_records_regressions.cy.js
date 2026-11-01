@@ -202,30 +202,6 @@ describe("Fetch Records builder regressions", () => {
 		ruleBuilderPage.setConfigField("Custom Limit", String(value));
 	}
 
-	function setPersistedActionField(actionId, fieldname, value) {
-		return cy.window().then((win) =>
-			win.frappe
-				.call({
-					method: "frappe.client.get",
-					args: { doctype: "Rule", name: ruleName },
-				})
-				.then((response) => {
-					const action = response?.message?.actions?.find((row) => row.action_id === actionId);
-					expect(action, `persisted action ${actionId}`).to.exist;
-					expect(action?.name, `persisted child-row name for ${actionId}`).to.be.a("string");
-					return win.frappe.call({
-						method: "frappe.client.set_value",
-						args: {
-							doctype: "Rule Action",
-							name: action.name,
-							fieldname,
-							value,
-						},
-					});
-				})
-		);
-	}
-
 	function clearPermissionAuditReason() {
 		cy.get(
 			'.config-modal-container [data-fxr-fieldname="permission_audit_reason"] textarea, .config-modal-container [data-fxr-fieldname="permission_audit_reason"] input',
@@ -403,23 +379,37 @@ describe("Fetch Records builder regressions", () => {
 		});
 	});
 
-	it("repairs a pre-existing Frappe 15 Fetch Records row with a disabled persisted bypass", () => {
+	it("repairs a legacy Frappe 15 Fetch Records node with a disabled loaded bypass", () => {
 		createFetchRecordsRuleAndOpenBuilder();
 
-		// Reproduce a rule saved before the permission-flag serializer fix.
-		// Keep a meaningful audit reason so the test isolates the missing flag.
-		setPersistedActionField("query_1", "ignore_permissions", 0);
-		cy.reload();
-		cy.get(".vue-flow", { timeout: 30000 }).should("be.visible");
-		persistedRule().then((doc) => {
-			const action = doc.actions.find((row) => row.action_id === "query_1");
-			expect(Number(action.ignore_permissions)).to.eq(0);
-			expect(action.permission_audit_reason).to.eq(DEFAULT_AUDIT_REASON);
+		// A real persisted false flag cannot be created through the normal Rule API:
+		// Rule.validate correctly rejects that state on Frappe 15. Simulate the old
+		// stored payload at the read boundary instead, while keeping the database row
+		// valid. The builder must normalize the loaded graph node before Rule save.
+		let injectedLegacyFlag = false;
+		cy.intercept("POST", "**/api/method/frappe.client.get", (request) => {
+			request.continue((response) => {
+				const rule = response.body?.message;
+				if (injectedLegacyFlag || rule?.doctype !== "Rule" || rule?.name !== ruleName) {
+					return;
+				}
+
+				const action = rule.actions?.find((row) => row.action_id === "query_1");
+				expect(action, "Fetch Records action in loaded Rule payload").to.exist;
+				expect(Number(action?.ignore_permissions), "valid persisted baseline").to.eq(1);
+				action.ignore_permissions = 0;
+				injectedLegacyFlag = true;
+			});
 		});
 
-		// Opening the existing action displays the Frappe 15-required bypass.
-		// Saving the whole Rule must persist it even when the cached contract
-		// metadata did not supply the operation default.
+		cy.reload();
+		cy.get(".vue-flow", { timeout: 30000 }).should("be.visible");
+		cy.then(() => {
+			expect(injectedLegacyFlag, "legacy permission flag injected into the loaded Rule").to.eq(true);
+		});
+
+		// Opening the action keeps the UI's Frappe 15 bypass visible. Saving the
+		// whole Rule must normalize the loaded false value and persist the canonical 1.
 		openActionConfig("Fetch Records 1", true);
 		setFetchRecordsLimit(24);
 		cy.get(".config-modal-container .save-action").should("be.visible").click();
@@ -428,7 +418,10 @@ describe("Fetch Records builder regressions", () => {
 
 		persistedRule().then((doc) => {
 			const action = doc.actions.find((row) => row.action_id === "query_1");
-			expect(Number(action.ignore_permissions), "normalized persisted permission bypass").to.eq(1);
+			expect(
+				Number(action.ignore_permissions),
+				"normalized persisted permission bypass"
+			).to.eq(1);
 			expect(action.permission_audit_reason).to.eq(DEFAULT_AUDIT_REASON);
 		});
 	});
