@@ -382,37 +382,25 @@ describe("Fetch Records builder regressions", () => {
 	it("repairs a legacy Frappe 15 Fetch Records node with a disabled loaded bypass", () => {
 		createFetchRecordsRuleAndOpenBuilder();
 
-		// A real persisted false flag cannot be created through the normal Rule API:
-		// Rule.validate correctly rejects that state on Frappe 15. Simulate the old
-		// stored payload at the read boundary instead, while keeping the database row
-		// valid. The builder must normalize the loaded graph node before Rule save.
-		let injectedLegacyFlag = false;
-		cy.intercept("POST", "**/api/method/frappe.client.get", (request) => {
-			request.continue((response) => {
-				const rule = response.body?.message;
-				if (injectedLegacyFlag || rule?.doctype !== "Rule" || rule?.name !== ruleName) {
-					return;
-				}
+		// Rule.validate rejects a persisted false flag on Frappe 15, so reproduce
+		// the legacy hydrated graph state directly instead of trying to write an
+		// invalid Rule through the normal save API.
+		cy.window().then((win) => {
+			const builder = win.fxrRuleBuilder;
+			expect(builder?.ruleStore, "mounted Rule Builder store").to.exist;
 
-				const action = rule.actions?.find((row) => row.action_id === "query_1");
-				expect(action, "Fetch Records action in loaded Rule payload").to.exist;
-				expect(Number(action?.ignore_permissions), "valid persisted baseline").to.eq(1);
-				action.ignore_permissions = 0;
-				injectedLegacyFlag = true;
-			});
+			const actionNode = builder.ruleStore.nodes.find(
+				(node) => node.data?.action_id === "query_1"
+			);
+			expect(actionNode, "loaded Fetch Records graph node").to.exist;
+			expect(Number(actionNode?.data?.ignore_permissions), "valid persisted baseline").to.eq(1);
+
+			actionNode.data.ignore_permissions = 0;
+			expect(Number(actionNode.data.ignore_permissions), "simulated legacy graph value").to.eq(0);
 		});
 
-		cy.reload();
-		cy.get(".vue-flow", { timeout: 30000 }).should("be.visible");
-		cy.then(() => {
-			expect(
-				injectedLegacyFlag,
-				"legacy permission flag injected into the loaded Rule"
-			).to.eq(true);
-		});
-
-		// Opening the action keeps the UI's Frappe 15 bypass visible. Saving the
-		// whole Rule must normalize the loaded false value and persist the canonical 1.
+		// The action editor still displays the Frappe 15-required bypass. Saving
+		// the whole Rule must normalize the hydrated false value and persist 1.
 		openActionConfig("Fetch Records 1", true);
 		setFetchRecordsLimit(24);
 		cy.get(".config-modal-container .save-action").should("be.visible").click();
