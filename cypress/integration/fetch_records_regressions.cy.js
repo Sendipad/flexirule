@@ -329,6 +329,11 @@ describe("Fetch Records builder regressions", () => {
 			"be.visible"
 		);
 		cy.contains(".config-modal-container", "Fetch Records").should("be.visible");
+
+		// Both shared controls must mount in the same initial configuration view.
+		cy.get(".config-modal-container .return-result-grid").should("be.visible");
+		cy.get(".config-modal-container .tree-builder").should("be.visible");
+		cy.get(".config-modal-container .tree-builder__empty").should("be.visible");
 	});
 
 	it("inserts a filter row in Fetch Records action configuration", () => {
