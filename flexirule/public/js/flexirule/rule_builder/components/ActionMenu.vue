@@ -106,7 +106,14 @@ function resolveElement(value) {
 async function updateMenuPosition() {
 	const reference = resolveElement(buttonRef.value);
 	const floating = resolveElement(menuElement.value);
-	if (!reference?.getBoundingClientRect || !floating?.getBoundingClientRect) return;
+	if (
+		!reference?.getBoundingClientRect ||
+		!floating?.getBoundingClientRect ||
+		reference.isConnected === false ||
+		floating.isConnected === false
+	) {
+		return;
+	}
 
 	try {
 		const { x, y } = await computePosition(reference, floating, {
@@ -128,7 +135,13 @@ async function updateMenuPosition() {
 				}),
 			],
 		});
-		if (resolveElement(menuElement.value) !== floating) return;
+		if (
+			reference.isConnected === false ||
+			floating.isConnected === false ||
+			resolveElement(menuElement.value) !== floating
+		) {
+			return;
+		}
 		menuStyle.value = {
 			position: "fixed",
 			top: `${y}px`,
@@ -137,7 +150,15 @@ async function updateMenuPosition() {
 			visibility: "visible",
 		};
 	} catch {
-		// Keep the menu usable if positioning fails after the menu has mounted.
+		// A position request may reject after Teleport has detached the menu.
+		// Never run the fallback against stale DOM references.
+		if (
+			reference.isConnected === false ||
+			floating.isConnected === false ||
+			resolveElement(menuElement.value) !== floating
+		) {
+			return;
+		}
 		const anchorRect = reference.getBoundingClientRect();
 		const viewportWidth = document.documentElement?.clientWidth || window.innerWidth;
 		const viewportHeight = document.documentElement?.clientHeight || window.innerHeight;
