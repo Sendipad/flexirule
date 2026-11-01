@@ -395,7 +395,6 @@ describe("Fetch Records builder regressions", () => {
 			.click();
 		cy.contains("button.fxr-action-menu__item", "Delete").click();
 		cy.get(nodeSelector).should("have.length", 2);
-		});
 	});
 
 	it("saves a changed Fetch Records configuration on the first modal click and persists it", () => {
