@@ -38,6 +38,7 @@ from flexirule.ruleflow.core.contracts import (
 	normalize_action_type,
 )
 from flexirule.ruleflow.core.process_contract_v2 import resolve_process_operation_contract_v2
+from flexirule.ruleflow.utils.frappe_query_compat import QUERY_CAPABILITIES
 from flexirule.ruleflow.utils.graph_validator import validate_graph_integrity
 
 # Valid validation modes
@@ -59,6 +60,7 @@ def validate_rule_definition(rule_doc, mode="full", target_rule_override=None) -
 		mode = "full"
 
 	rule = _coerce_rule_doc(rule_doc)
+	_normalize_fetch_records_permission_defaults(rule)
 	errors: list[str] = []
 	warnings: list[str] = []
 
@@ -245,6 +247,27 @@ def _validate_trigger_requirements(rule_doc, errors: list[str]) -> None:
 	for fieldname in trigger_contract.get("required_fields", []):
 		if _is_empty(_safe_get(rule_doc, fieldname)):
 			errors.append(_("Missing required trigger field: {0}").format(fieldname))
+
+
+def _normalize_fetch_records_permission_defaults(rule_doc) -> None:
+	"""Apply Frappe 15's mandatory audited bypass to Fetch Records actions.
+
+	Frappe 15's Query Builder API cannot enforce record-level read permissions.
+	The UI locks this setting on that version, but Rule documents can also be
+	saved through Frappe's standard Desk form endpoint, outside the Rule Builder
+	serializer. Normalize at the shared backend validation boundary so every
+	save path applies the same operation contract. The audit reason is never
+	synthesized; the normal action-contract validator still requires it.
+	"""
+	if QUERY_CAPABILITIES.supports_ignore_permissions:
+		return
+
+	for action in _safe_get(rule_doc, "actions", []) or []:
+		if (
+			normalize_action_type(_safe_get(action, "action_type")) == "Query Records"
+			and _safe_get(action, "operation") == "Fetch Records"
+		):
+			_safe_set(action, "ignore_permissions", 1)
 
 
 def _normalize_hidden_trigger_fields(rule_doc) -> None:
