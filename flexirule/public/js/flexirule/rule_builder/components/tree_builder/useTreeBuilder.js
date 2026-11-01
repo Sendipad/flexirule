@@ -2,6 +2,7 @@ import { computed, nextTick, reactive, ref, watch } from "vue";
 import {
 	cloneTree,
 	findNode,
+	findParent,
 	findPath,
 	isContainerNode,
 	normalizeTree,
@@ -159,6 +160,14 @@ export function useTreeBuilder({
 		return mutate((tree) => commands.moveNode(tree, id, targetId, position));
 	}
 
+	function moveNodeUp(id) {
+		return mutate((tree) => commands.moveNodeUp(tree, id));
+	}
+
+	function moveNodeDown(id) {
+		return mutate((tree) => commands.moveNodeDown(tree, id));
+	}
+
 	function setOperator(id, operator) {
 		if (!operators.value.includes(operator)) return false;
 		return mutate((tree) => commands.setOperator(tree, id, operator));
@@ -285,6 +294,8 @@ export function useTreeBuilder({
 		addGroup,
 		removeNode,
 		moveNode,
+		moveNodeUp,
+		moveNodeDown,
 		setOperator,
 		replaceNode,
 		reset,

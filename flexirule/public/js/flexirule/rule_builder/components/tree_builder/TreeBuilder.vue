@@ -73,6 +73,7 @@
 import { computed, provide, ref, useSlots } from "vue";
 import TreeBuilderNode from "./TreeBuilderNode.vue";
 import { useTreeBuilder } from "./useTreeBuilder.js";
+import { useRuleStore } from "../../stores/useRuleStore.js";
 
 const props = defineProps({
 	modelValue: {
@@ -80,6 +81,8 @@ const props = defineProps({
 		default: () => ({ id: "root", type: "group", operator: "and", children: [] }),
 	},
 	readOnly: Boolean,
+	canEdit: { type: Boolean, default: undefined },
+	ruleEditable: { type: Boolean, default: undefined },
 	allowGroups: { type: Boolean, default: true },
 	allowCollections: { type: Boolean, default: false },
 	groupOperators: { type: Array, default: () => ["and", "or"] },
@@ -117,6 +120,29 @@ const api = useTreeBuilder({
 	validateCollection: props.validateCollection,
 });
 
+const resolvedCanEdit = computed(() => {
+	if (typeof props.canEdit === "boolean") return props.canEdit;
+	if (typeof props.ruleEditable === "boolean") return props.ruleEditable;
+	try {
+		const ruleStore = useRuleStore();
+		if (ruleStore && ruleStore.rule_doc) {
+			if (ruleStore.is_read_only) return false;
+			if (typeof frappe !== "undefined") {
+				if (typeof frappe.model?.can_write === "function") {
+					return frappe.model.can_write("Rule");
+				}
+				if (typeof frappe.perm?.has_perm === "function") {
+					return frappe.perm.has_perm("Rule", 0, "write");
+				}
+			}
+			return true;
+		}
+	} catch (e) {
+		// Fail closed if store/permission check cannot be performed
+	}
+	return false;
+});
+
 const hasSummarySlot = computed(() => Boolean(slots["leaf-summary"]));
 provide("treeBuilderContext", {
 	...api,
@@ -125,6 +151,7 @@ provide("treeBuilderContext", {
 	isLeafNew: computed(() => props.isLeafNew),
 	isLeafValid: computed(() => props.isLeafValid),
 	hasSummarySlot,
+	canEdit: resolvedCanEdit,
 });
 const { root, operators, addLeaf, addCollection, addGroup, removeNode, setOperator } = api;
 const operatorLabel = (op) => props.operatorLabel(op);
@@ -156,7 +183,7 @@ function onRootDrop(e) {
 	api.endDrag();
 }
 
-defineExpose({ ...api });
+defineExpose({ ...api, canEdit: resolvedCanEdit });
 </script>
 <style scoped>
 .tree-builder {
