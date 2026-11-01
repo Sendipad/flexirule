@@ -1,5 +1,5 @@
 import { ref, reactive, computed, watch, nextTick } from "vue";
-import { useGraphStore, useRuleStore, useStore, useUIStore } from "../stores";
+import { useGraphStore, useRuleStore, useUIStore } from "../stores";
 import { validateAgainstContract } from "../../core/contracts.js";
 import { deepClone } from "../utils/serialization.js";
 import { stableStringify } from "../utils/stable_serialization.mjs";
@@ -22,7 +22,6 @@ export function useRuleConfig(props, emit) {
 	const ruleStore = useRuleStore();
 	const graphStore = useGraphStore();
 	const uiStore = useUIStore();
-	const store = useStore();
 	const draftNode = ref(null);
 	const showValidation = ref(false);
 	const config = computed(() => draftNode.value?.data || {});
@@ -293,11 +292,11 @@ export function useRuleConfig(props, emit) {
 
 					// Redraw nested nodes when Sub-Rule LinkControl target changes
 					if (sourceNode.data.action_type === "Sub-Rule" && oldValue !== newValue) {
-						// store.expand_sub_rule_in_graph removed per user request
+						// expand_sub_rule_in_graph removed per user request
 					}
 
-					store.touch_node(sourceNode.id);
-					store.commit_graph_edit();
+					graphStore.touch_node(sourceNode.id);
+					ruleStore.commit_graph_edit();
 				},
 			});
 		} finally {

@@ -112,8 +112,7 @@
 
 <script setup>
 import { computed, ref, watch } from "vue";
-import { useStore } from "../../../stores";
-import { useMetaStore } from "../../../stores/useMetaStore";
+import { useMetaStore, useRuleStore } from "../../../stores";
 import { __ } from "../utils";
 import ComboBoxControl from "../../ComboBoxControl.vue";
 import SelectControl from "../../SelectControl.vue";
@@ -147,8 +146,8 @@ const props = defineProps({
 	},
 });
 
-const store = useStore();
 const metaStore = useMetaStore();
+const ruleStore = useRuleStore();
 const conditionModalOpen = ref(false);
 
 const operationOptions = [
@@ -165,11 +164,11 @@ const operationOptions = [
 ];
 
 const sourceOptions = computed(() => {
-	const dt = store.rule_doc?.document_type || props.doctype;
+	const dt = ruleStore.rule_doc?.document_type || props.doctype;
 	const options = [];
 
 	if (dt) {
-		const fields = metaStore.doc_meta[dt] || store.doc_meta[dt];
+		const fields = metaStore.doc_meta[dt];
 		if (fields && Array.isArray(fields)) {
 			fields
 				.filter((f) => f.fieldtype === "Table")
@@ -199,16 +198,16 @@ const sourceOptions = computed(() => {
 });
 
 watch(
-	() => [props.modelValue.source, props.doctype, store.rule_doc?.document_type],
+	() => [props.modelValue.source, props.doctype, ruleStore.rule_doc?.document_type],
 	async ([newSource]) => {
-		const dt = store.rule_doc?.document_type || props.doctype;
+		const dt = ruleStore.rule_doc?.document_type || props.doctype;
 		if (dt && !metaStore.doc_meta[dt]) {
 			await metaStore.fetch_metadata(dt);
 		}
 		if (!newSource) return;
 
 		const cleanTable = String(newSource).replace(/^(doc|vars|old_doc)\./, "");
-		const fields = metaStore.doc_meta[dt] || store.doc_meta[dt];
+		const fields = metaStore.doc_meta[dt];
 		if (!fields || !Array.isArray(fields)) return;
 
 		const tableField = fields.find(
@@ -227,10 +226,10 @@ const childMeta = computed(() => {
 	if (!source) return null;
 
 	const cleanTable = source.replace(/^(doc|vars|old_doc)\./, "");
-	const dt = store.rule_doc?.document_type || props.doctype;
+	const dt = ruleStore.rule_doc?.document_type || props.doctype;
 	if (!dt) return null;
 
-	const fields = metaStore.doc_meta[dt] || store.doc_meta[dt];
+	const fields = metaStore.doc_meta[dt];
 	if (!fields || !Array.isArray(fields)) return null;
 
 	const tableField = fields.find(
@@ -239,7 +238,7 @@ const childMeta = computed(() => {
 	if (!tableField || !tableField.options) return null;
 
 	const childDoctype = tableField.options;
-	return metaStore.doc_meta[childDoctype] || store.doc_meta[childDoctype] || null;
+	return metaStore.doc_meta[childDoctype] || null;
 });
 
 const targetFieldOptions = computed(() => {

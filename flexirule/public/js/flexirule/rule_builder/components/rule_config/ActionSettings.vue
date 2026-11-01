@@ -62,7 +62,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUpdate } from "vue";
-import { useStore } from "../../stores";
+import { useRuleStore, useGraphStore } from "../../stores";
 import ControlFactory from "../../controls/ControlFactory.vue";
 import ComboBoxControl from "../../controls/ComboBoxControl.vue";
 import {
@@ -82,7 +82,8 @@ const props = defineProps({
 
 const emit = defineEmits(["update:field", "open:conditions", "open:config"]);
 
-const store = useStore();
+const ruleStore = useRuleStore();
+const graphStore = useGraphStore();
 const { getPolicyField, getPolicyValue } = useNodeConfigPolicy({
 	actionType: () => props.node?.data?.action_type || "",
 	operation: () => props.node?.data?.operation || "",
@@ -159,7 +160,7 @@ function evaluateDependsOn(expression) {
 
 	if (expression.startsWith("eval:")) {
 		try {
-			const parent = store.rule_doc;
+			const parent = ruleStore.rule_doc;
 			return frappe.utils.eval(expression.substr(5), { doc, parent });
 		} catch (e) {
 			return false;
@@ -191,7 +192,7 @@ function getNormalizedValue(df) {
 function getDisplayValue(df) {
 	const val = props.node?.data?.[df.fieldname];
 	if (df.options === "action_id" && val) {
-		const targetNode = (store.nodes || []).find((n) => n.id === val);
+		const targetNode = (graphStore.nodes || []).find((n) => n.id === val);
 		return targetNode ? targetNode.data?.action_label || targetNode.label || val : val;
 	}
 	return getNormalizedValue(df);
@@ -205,7 +206,7 @@ function updateNormalizedValue(df, value) {
 
 	// Resolve Label back to ID if it's an action_id field
 	if (df.options === "action_id" && nextValue) {
-		const target = (store.nodes || []).find(
+		const target = (graphStore.nodes || []).find(
 			(n) => n.id === nextValue || (n.data?.action_label || n.label) === nextValue
 		);
 		if (target) {
@@ -222,7 +223,7 @@ function updateNormalizedValue(df, value) {
 	// Handle flow control edge reconnection
 	if (df.fieldname === "next_step_if_true" || df.fieldname === "next_step_if_false") {
 		const branch = df.fieldname === "next_step_if_true" ? "true" : "false";
-		store.reconnect_node_edge?.(props.node?.id, branch, nextValue);
+		graphStore.reconnect_node_edge?.(props.node?.id, branch, nextValue);
 	}
 }
 
@@ -314,7 +315,7 @@ async function getAutocompleteOptions(df, txt) {
 
 	if (df.options === "action_id") {
 		const currentId = props.node?.data?.action_id;
-		return (store.nodes || [])
+		return (graphStore.nodes || [])
 			.filter((n) => n.id !== currentId && n.type !== "start" && n.id !== "root")
 			.map((n) => ({
 				value: n.id,

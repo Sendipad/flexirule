@@ -7,9 +7,9 @@
 
 		<div class="sidebar-content" v-if="selectedNode">
 			<!-- Validation Errors -->
-			<div v-if="store.validation_errors?.length" class="sidebar-errors mb-3">
+			<div v-if="ruleStore.validation_errors?.length" class="sidebar-errors mb-3">
 				<div
-					v-for="(err, idx) in store.validation_errors"
+					v-for="(err, idx) in ruleStore.validation_errors"
 					:key="idx"
 					class="d-flex align-items-start gap-2 text-danger small mb-1"
 				>
@@ -22,7 +22,7 @@
 			<template v-if="selectedNode.type === 'start'">
 				<StartNodeProperties
 					:nodeData="selectedNode.data"
-					:readOnly="store.is_read_only"
+					:readOnly="ruleStore.is_read_only"
 					@update:field="update_start_field"
 					@open:conditions="open_condition_dialog"
 				/>
@@ -53,7 +53,7 @@
 					v-if="
 						isConfigurable &&
 						selectedNode.type !== 'selector' &&
-						store.settings?.action_config_mode === 'Dialog'
+						ruleStore.settings?.action_config_mode === 'Dialog'
 					"
 				>
 					<button class="btn btn-sm btn-primary-light w-100" @click="open_config_dialog">
@@ -65,11 +65,11 @@
 				<ActionFieldProperties
 					v-if="
 						selectedNode.type !== 'selector' &&
-						(store.settings?.action_config_mode === 'Sidebar' ||
-							!store.settings?.action_config_mode)
+						(ruleStore.settings?.action_config_mode === 'Sidebar' ||
+							!ruleStore.settings?.action_config_mode)
 					"
 					:nodeData="selectedNode.data"
-					:readOnly="store.is_read_only"
+					:readOnly="ruleStore.is_read_only"
 					@update:field="update_action_field"
 					@open:conditions="open_condition_dialog"
 					@open:config="open_config_dialog"
@@ -80,7 +80,7 @@
 				<button
 					class="btn btn-sm btn-danger w-100"
 					@click="delete_node"
-					:disabled="store.is_read_only"
+					:disabled="ruleStore.is_read_only"
 				>
 					<i class="fa fa-trash"></i> {{ __("Delete") }}
 				</button>
@@ -104,8 +104,6 @@ const emit = defineEmits(["close"]);
 const ruleStore = useRuleStore();
 const graphStore = useGraphStore();
 const uiStore = useUIStore();
-// Legacy support for remaining store. calls
-const store = uiStore;
 
 // Selected node from store - find the original reference for reactivity
 const selectedNode = computed(() => {
@@ -179,11 +177,11 @@ function update_action_field(fieldname, value) {
 		selectedNode.value.data.action_type === "Sub-Rule" &&
 		oldValue !== value
 	) {
-		// store.expand_sub_rule_in_graph removed per user request
+		// expand_sub_rule_in_graph removed per user request
 	}
 
-	store.touch_node(selectedNode.value.id);
-	store.mark_dirty();
+	graphStore.touch_node(selectedNode.value.id);
+	ruleStore.mark_dirty();
 }
 
 function map_action_type(actionType) {
