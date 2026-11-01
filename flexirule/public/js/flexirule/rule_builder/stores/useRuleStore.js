@@ -10,10 +10,7 @@
  */
 import { defineStore } from "pinia";
 import { ref, computed, nextTick } from "vue";
-import {
-	normalizeActionType,
-	loadContractsFromBackend,
-} from "../../core/contracts";
+import { normalizeActionType, loadContractsFromBackend } from "../../core/contracts";
 import { getConditionPayload } from "../utils/condition_payload";
 import { deepClone } from "../utils/serialization";
 import { normalizeResolvedOutputSchema } from "../../utils/output_schema.js";
