@@ -69,6 +69,22 @@ export function moveNode(tree, id, targetId, pos = -1) {
 	return true;
 }
 
+export function moveUp(tree, id) {
+	const parent = findParent(tree, id);
+	if (!parent) return false;
+	const index = parent.children.findIndex((child) => child.id === id);
+	if (index <= 0) return false;
+	return moveNode(tree, id, parent.id, index - 1);
+}
+
+export function moveDown(tree, id) {
+	const parent = findParent(tree, id);
+	if (!parent) return false;
+	const index = parent.children.findIndex((child) => child.id === id);
+	if (index < 0 || index >= parent.children.length - 1) return false;
+	return moveNode(tree, id, parent.id, index + 2);
+}
+
 export function setOperator(tree, id, operator) {
 	const group = findNode(tree, id);
 	if (!group || group.type !== "group") return false;

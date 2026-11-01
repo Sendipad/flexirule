@@ -32,6 +32,10 @@
 			</div>
 		</div>
 		<div
+			role="tree"
+			:aria-label="ariaLabel"
+			tabindex="0"
+			@keydown="handleTreeKeydown"
 			class="tree-builder__content"
 			:class="{ 'tree-builder__content--drop-target': rootDragOver }"
 			@dragover="onRootDragOver"
@@ -71,6 +75,12 @@
 </template>
 <script setup>
 import { computed, provide, ref, useSlots } from "vue";
+import { findNode } from "./tree_builder_utils.mjs";
+import {
+	getInlinePresentation,
+	resolvePresentationMode,
+} from "../../controls/inline_presentation_policy.mjs";
+import { isInputTarget, matchesShortcut } from "../../utils/keyboard_shortcuts.mjs";
 import TreeBuilderNode from "./TreeBuilderNode.vue";
 import { useTreeBuilder } from "./useTreeBuilder.js";
 
@@ -99,6 +109,9 @@ const props = defineProps({
 	editorLayout: { type: String, default: "replace" },
 	isLeafNew: { type: Function, default: null },
 	isLeafValid: { type: Function, default: null },
+	canEditRule: { type: Boolean, default: false },
+	ariaLabel: { type: String, default: () => __("Condition tree") },
+	editShortcut: { type: String, default: "Ctrl+Shift+E" },
 });
 const emit = defineEmits(["update:modelValue", "change", "validation-error"]);
 const slots = useSlots();
@@ -117,6 +130,8 @@ const api = useTreeBuilder({
 	validateCollection: props.validateCollection,
 });
 
+const resolvedCanEditRule = computed(() => Boolean(props.canEditRule));
+
 const hasSummarySlot = computed(() => Boolean(slots["leaf-summary"]));
 provide("treeBuilderContext", {
 	...api,
@@ -124,12 +139,119 @@ provide("treeBuilderContext", {
 	editorLayout: computed(() => props.editorLayout),
 	isLeafNew: computed(() => props.isLeafNew),
 	isLeafValid: computed(() => props.isLeafValid),
+	canEditRule: resolvedCanEditRule,
 	hasSummarySlot,
 });
-const { root, operators, addLeaf, addCollection, addGroup, removeNode, setOperator } = api;
+const {
+	root,
+	operators,
+	addLeaf,
+	addCollection,
+	addGroup,
+	removeNode,
+	setOperator,
+	selectedNodeId,
+	focusedNodeId,
+	editingNodeId,
+	setEditing,
+	finishEditing,
+} = api;
 const operatorLabel = (op) => props.operatorLabel(op);
 const visibleNode = (node) => props.visibleNode(node) !== false;
 const rootDragOver = ref(false);
+
+function getLeafState(node) {
+	const isNew = api.isTransientNew?.(node.id)
+		? true
+		: typeof props.isLeafNew === "function"
+		? Boolean(props.isLeafNew(node))
+		: typeof api.isLeafNew?.value === "function"
+		? Boolean(api.isLeafNew.value(node))
+		: Boolean(node?.isNew);
+	const isValid =
+		typeof props.isLeafValid === "function"
+			? Boolean(props.isLeafValid(node))
+			: typeof api.isLeafValid?.value === "function"
+			? Boolean(api.isLeafValid.value(node))
+			: node?.isValid !== false;
+	return { isNew, isValid };
+}
+
+function handleTreeKeydown(event) {
+	if (event.defaultPrevented || event.isComposing) return;
+	const target = event.target;
+	const nodeElement = target?.closest?.("[data-node-id]");
+	const nodeId = nodeElement?.getAttribute("data-node-id") || null;
+
+	if (
+		matchesShortcut(event, props.editShortcut) &&
+		!isInputTarget(target) &&
+		!target?.closest?.("button, a, [role='button']")
+	) {
+		if (props.readOnly && !resolvedCanEditRule.value) return;
+		const activeId =
+			nodeId || editingNodeId.value || focusedNodeId.value || selectedNodeId.value;
+		const node = activeId ? findNode(root, activeId) : null;
+		if (!node || node.type !== "leaf" || !hasSummarySlot.value) return;
+		const mode = resolvePresentationMode(props.presentationMode);
+		if (mode === "form") return;
+		const { isNew, isValid } = getLeafState(node);
+		if (editingNodeId.value === activeId) {
+			if (mode === "hybrid" && !isValid) return;
+			event.preventDefault();
+			event.stopPropagation();
+			finishEditing(activeId);
+		} else {
+			const policy = getInlinePresentation({
+				mode,
+				isNew,
+				isValid,
+				isEditing: false,
+				readOnly: false,
+				hasSummary: true,
+			});
+			if (!policy.canToggle) return;
+			event.preventDefault();
+			event.stopPropagation();
+			setEditing(activeId);
+		}
+		return;
+	}
+
+	if (isInputTarget(target) || target?.closest?.("button, a, [role='button']")) return;
+	if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+	const treeItems = Array.from(event.currentTarget.querySelectorAll(".tree-node[data-node-id]"));
+	if (!treeItems.length) return;
+	const currentIndex = nodeElement
+		? treeItems.indexOf(nodeElement)
+		: treeItems.findIndex(
+				(element) => element.getAttribute("data-node-id") === focusedNodeId.value
+		  );
+	let nextIndex = null;
+	if (event.key === "ArrowDown") {
+		nextIndex = currentIndex < 0 ? 0 : Math.min(treeItems.length - 1, currentIndex + 1);
+	} else if (event.key === "ArrowUp") {
+		nextIndex = currentIndex < 0 ? treeItems.length - 1 : Math.max(0, currentIndex - 1);
+	} else if (event.key === "Home") nextIndex = 0;
+	else if (event.key === "End") nextIndex = treeItems.length - 1;
+	else if (event.key === " " || event.key === "Spacebar") {
+		const activeId = nodeId || focusedNodeId.value || selectedNodeId.value;
+		if (!activeId) return;
+		event.preventDefault();
+		event.stopPropagation();
+		api.selectNode(activeId);
+		api.focusNode(activeId);
+		return;
+	}
+	if (nextIndex === null) return;
+	const nextElement = treeItems[nextIndex];
+	const nextId = nextElement?.getAttribute("data-node-id");
+	if (!nextId) return;
+	event.preventDefault();
+	event.stopPropagation();
+	api.focusNode(nextId);
+	nextElement.focus({ preventScroll: true });
+}
 
 function onRootDragOver(e) {
 	const draggedId = api.dragState.nodeId || e.dataTransfer?.getData("text/plain");

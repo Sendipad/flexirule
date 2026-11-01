@@ -85,4 +85,5 @@ function createNode(id, data = {}) {
 	assert.equal(isConfigDraftEntryDirty(refreshed), false);
 }
 
+// eslint-disable-next-line no-console
 console.log("Config draft session tests passed");

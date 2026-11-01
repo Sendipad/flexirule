@@ -95,4 +95,5 @@ function getPrimaryActionLabel({ is_dirty, is_active }) {
 	assert.equal(getPrimaryActionLabel({ is_dirty: computeIsDirty(), is_active }), "Save Rule");
 }
 
+// eslint-disable-next-line no-console
 console.log("rule dirty-state lifecycle and primary action tests passed");

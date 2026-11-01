@@ -1,4 +1,3 @@
-/* global afterEach */
 import { isConsoleRegressionMessage } from "../support/regression_guards.mjs";
 
 describe("FlexiRule builder regression coverage", () => {
@@ -627,6 +626,17 @@ describe("FlexiRule builder regression coverage", () => {
 				"an incomplete action should not be persisted"
 			).to.eq(false);
 		});
+	});
+
+	it("recognizes Vue component lifecycle null-reference errors as regressions", () => {
+		expect(
+			isConsoleRegressionMessage(
+				"TypeError: Cannot read properties of null (reading 'emitsOptions')"
+			)
+		).to.eq(true);
+		expect(
+			isConsoleRegressionMessage("TypeError: Cannot read properties of null (reading 'refs')")
+		).to.eq(true);
 	});
 
 	it("verifies console regression guard detects known grid and schema console errors", () => {
