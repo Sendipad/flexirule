@@ -267,7 +267,7 @@ export const useRuleStore = defineStore("rule-builder-rule", () => {
 				// The audit reason remains user-supplied and is validated immediately below.
 				const frappeVersion = frappe.boot?.versions?.frappe;
 				const requiresFrappe15FetchRecordsBypass =
-					typeof frappeVersion === "string" && /^15(?:\\.|$)/.test(frappeVersion);
+					typeof frappeVersion === "string" && /^15(?:\.|$)/.test(frappeVersion);
 				if (
 					requiresFrappe15FetchRecordsBypass &&
 					doc.action_type === "Query Records" &&
