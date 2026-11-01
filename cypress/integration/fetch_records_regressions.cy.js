@@ -348,6 +348,46 @@ describe("Fetch Records builder regressions", () => {
 		cy.get(".config-modal-container .filter-row").should("have.length", 1).and("be.visible");
 	});
 
+	it("moves a TreeBuilder filter leaf exactly one position from its action menu", () => {
+		createFetchRecordsRuleAndOpenBuilder();
+		openActionConfig("Fetch Records 1", true);
+		cy.contains(".config-modal-container h6", "Filters").should("be.visible");
+
+		for (let index = 0; index < 3; index += 1) {
+			cy.get(".config-modal-container .tree-builder__actions button")
+				.contains("Filter")
+				.click();
+		}
+
+		const nodeSelector = ".config-modal-container .tree-node[data-node-id]";
+		cy.get(nodeSelector).should("have.length", 3);
+		cy.get(
+			".config-modal-container .tree-leaf__actions button.fxr-action-menu__trigger[aria-label='Leaf Actions']"
+		).should("have.length", 3);
+
+		cy.get(nodeSelector).then(($nodes) => {
+			const initialOrder = $nodes.toArray().map((node) => node.getAttribute("data-node-id"));
+
+			cy.get(
+				".config-modal-container .tree-leaf__actions button.fxr-action-menu__trigger[aria-label='Leaf Actions']"
+			)
+				.first()
+				.click();
+			cy.contains("button.fxr-action-menu__item", "Move down").click();
+
+			cy.get(nodeSelector).should(($updatedNodes) => {
+				const updatedOrder = $updatedNodes
+					.toArray()
+					.map((node) => node.getAttribute("data-node-id"));
+				expect(updatedOrder, "one action moves the first leaf down by one position").to.deep.equal([
+					initialOrder[1],
+					initialOrder[0],
+					initialOrder[2],
+				]);
+			});
+		});
+	});
+
 	it("saves a changed Fetch Records configuration on the first modal click and persists it", () => {
 		createFetchRecordsRuleAndOpenBuilder();
 		openActionConfig("Fetch Records 1", true);
