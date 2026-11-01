@@ -11,8 +11,16 @@
 		<!-- Mode & Options Bar -->
 		<div class="rm-options-bar">
 			<div class="rm-option-group">
-				<label class="rm-check">
-					<input type="checkbox" v-model="ui.copy_same_fields" :disabled="readOnly" />
+				<label
+					class="rm-check fxr-checkbox-label fxr-checkbox-label--sm"
+					:class="{ 'is-disabled': readOnly }"
+				>
+					<input
+						type="checkbox"
+						class="fxr-checkbox-input fxr-checkbox-input--sm"
+						v-model="ui.copy_same_fields"
+						:disabled="readOnly"
+					/>
 					<span class="rm-label-sm">{{ __("Auto-copy matching fields") }}</span>
 				</label>
 			</div>
@@ -28,8 +36,16 @@
 				/>
 			</div>
 			<div class="rm-option-group">
-				<label class="rm-check">
-					<input type="checkbox" v-model="ui.save_document" :disabled="readOnly" />
+				<label
+					class="rm-check fxr-checkbox-label fxr-checkbox-label--sm"
+					:class="{ 'is-disabled': readOnly }"
+				>
+					<input
+						type="checkbox"
+						class="fxr-checkbox-input fxr-checkbox-input--sm"
+						v-model="ui.save_document"
+						:disabled="readOnly"
+					/>
 					<span class="rm-label-sm">{{ __("Save Document") }}</span>
 				</label>
 			</div>
@@ -81,8 +97,10 @@
 				<div style="display: flex; align-items: center; gap: 6px">
 					<input
 						type="checkbox"
+						class="fxr-checkbox-input fxr-checkbox-input--sm"
 						:checked="selectedPreviews.size === scalarAutoMapPreview.length"
 						@change="toggleAllPreviews"
+						:aria-label="__('Select All Previews')"
 					/>
 					{{ __("Auto-map Preview") }}
 					<span class="rm-badge">{{ scalarAutoMapPreview.length }}</span>
@@ -106,8 +124,10 @@
 					<div class="rm-cell rm-cell-check">
 						<input
 							type="checkbox"
+							class="fxr-checkbox-input fxr-checkbox-input--sm"
 							:checked="selectedPreviews.has(idx)"
 							@change="toggleSelectPreview(idx)"
+							:aria-label="__('Select Preview Row')"
 						/>
 					</div>
 					<div
@@ -170,10 +190,12 @@
 					<input
 						v-if="filteredScalars.length > 0"
 						type="checkbox"
+						class="fxr-checkbox-input fxr-checkbox-input--sm"
 						:checked="
 							selectedScalars.size >= pagedScalars.length && pagedScalars.length > 0
 						"
 						@change="toggleAllScalars"
+						:aria-label="__('Select All Fields')"
 					/>
 					<h6><i class="fa fa-columns"></i> {{ __("Field Mappings") }}</h6>
 					<button
@@ -208,8 +230,10 @@
 				<div class="rm-cell rm-cell-check">
 					<input
 						type="checkbox"
+						class="fxr-checkbox-input fxr-checkbox-input--sm"
 						:checked="selectedScalars.has(row._id)"
 						@change="toggleSelectScalar(row._id)"
+						:aria-label="__('Select Field Mapping Row')"
 					/>
 				</div>
 				<!-- Target -->
@@ -334,8 +358,10 @@
 					<input
 						v-if="ui.tables.length > 0"
 						type="checkbox"
+						class="fxr-checkbox-input fxr-checkbox-input--sm"
 						:checked="selectedTables.size === ui.tables.length && ui.tables.length > 0"
 						@change="toggleAllTables"
+						:aria-label="__('Select All Child Tables')"
 					/>
 					<h6><i class="fa fa-table"></i> {{ __("Child Table Mappings") }}</h6>
 					<button
@@ -361,9 +387,10 @@
 					<div class="rm-table-header-fields">
 						<input
 							type="checkbox"
+							class="fxr-checkbox-input fxr-checkbox-input--sm"
 							:checked="selectedTables.has(tIdx)"
 							@change="toggleSelectTable(tIdx)"
-							style="margin-top: 5px"
+							:aria-label="__('Select Child Table')"
 						/>
 						<SelectControl
 							class="fxr-select"
@@ -485,12 +512,28 @@
 
 				<!-- Table Options -->
 				<div class="rm-table-options">
-					<label class="rm-check">
-						<input type="checkbox" v-model="table.reset_value" :disabled="readOnly" />
+					<label
+						class="rm-check fxr-checkbox-label fxr-checkbox-label--sm"
+						:class="{ 'is-disabled': readOnly }"
+					>
+						<input
+							type="checkbox"
+							class="fxr-checkbox-input fxr-checkbox-input--sm"
+							v-model="table.reset_value"
+							:disabled="readOnly"
+						/>
 						<span class="rm-label-sm">{{ __("Replace existing rows") }}</span>
 					</label>
-					<label class="rm-check">
-						<input type="checkbox" v-model="table.add_if_empty" :disabled="readOnly" />
+					<label
+						class="rm-check fxr-checkbox-label fxr-checkbox-label--sm"
+						:class="{ 'is-disabled': readOnly }"
+					>
+						<input
+							type="checkbox"
+							class="fxr-checkbox-input fxr-checkbox-input--sm"
+							v-model="table.add_if_empty"
+							:disabled="readOnly"
+						/>
 						<span class="rm-label-sm">{{ __("Only if empty") }}</span>
 					</label>
 					<input
@@ -514,12 +557,14 @@
 							<input
 								v-if="getFilteredTableRows(table, tIdx).length > 0"
 								type="checkbox"
+								class="fxr-checkbox-input fxr-checkbox-input--sm"
 								:checked="
 									selectedTableRows[tIdx]?.size >=
 										getPagedTableRows(table, tIdx).length &&
 									getPagedTableRows(table, tIdx).length > 0
 								"
 								@change="toggleAllTableRows(tIdx, table)"
+								:aria-label="__('Select All Table Rows')"
 							/>
 							<span class="rm-label-sm">{{ __("Row Field Mapping") }}</span>
 							<button
@@ -562,8 +607,10 @@
 						<div class="rm-cell rm-cell-check">
 							<input
 								type="checkbox"
+								class="fxr-checkbox-input fxr-checkbox-input--sm"
 								:checked="selectedTableRows[tIdx]?.has(row._id)"
 								@change="toggleSelectTableRow(tIdx, row._id)"
+								:aria-label="__('Select Table Row')"
 							/>
 						</div>
 						<div class="rm-cell rm-cell-target">

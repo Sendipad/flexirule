@@ -362,24 +362,30 @@ onMounted(async () => {
 
 		<!-- Debug Mode -->
 		<div class="form-group inline-field">
-			<label class="control-label">{{ __("Debug Mode") }}</label>
-			<input
-				type="checkbox"
-				:checked="!!nodeData?.debug_mode"
-				:disabled="readOnly"
-				@change="update_field('debug_mode', $event.target.checked ? 1 : 0)"
-			/>
+			<label class="control-label fxr-checkbox-label" :class="{ 'is-disabled': readOnly }">
+				<input
+					type="checkbox"
+					class="fxr-checkbox-input"
+					:checked="!!nodeData?.debug_mode"
+					:disabled="readOnly"
+					@change="update_field('debug_mode', $event.target.checked ? 1 : 0)"
+				/>
+				<span>{{ __("Debug Mode") }}</span>
+			</label>
 		</div>
 
 		<!-- Exposed As Sub-Rule -->
 		<div class="form-group inline-field">
-			<label class="control-label">{{ __("Exposed As Sub-Rule") }}</label>
-			<input
-				type="checkbox"
-				:checked="!!nodeData?.exposed_as_subrule"
-				:disabled="readOnly"
-				@change="update_field('exposed_as_subrule', $event.target.checked ? 1 : 0)"
-			/>
+			<label class="control-label fxr-checkbox-label" :class="{ 'is-disabled': readOnly }">
+				<input
+					type="checkbox"
+					class="fxr-checkbox-input"
+					:checked="!!nodeData?.exposed_as_subrule"
+					:disabled="readOnly"
+					@change="update_field('exposed_as_subrule', $event.target.checked ? 1 : 0)"
+				/>
+				<span>{{ __("Exposed As Sub-Rule") }}</span>
+			</label>
 		</div>
 
 		<!-- Description -->

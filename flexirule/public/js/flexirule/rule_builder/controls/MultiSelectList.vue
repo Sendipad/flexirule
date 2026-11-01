@@ -701,8 +701,10 @@ onBeforeUnmount(() => {
 				>
 					<input
 						type="checkbox"
+						class="fxr-checkbox-input fxr-checkbox-input--sm"
 						:checked="selectedValues.includes(String(opt.value))"
 						@click.stop="selectOption(opt.value)"
+						:aria-label="opt.label || opt.value"
 					/>
 					<div v-if="opt.icon" class="option-icon">
 						<i :class="opt.icon"></i>
@@ -803,8 +805,10 @@ onBeforeUnmount(() => {
 						>
 							<input
 								type="checkbox"
+								class="fxr-checkbox-input fxr-checkbox-input--sm"
 								:checked="selectedValues.includes(String(opt.value))"
 								@click.stop="selectOption(opt.value)"
+								:aria-label="opt.label || opt.value"
 							/>
 							<div v-if="opt.icon" class="option-icon">
 								<i :class="opt.icon"></i>
