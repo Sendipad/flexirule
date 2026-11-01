@@ -190,39 +190,27 @@ const menuItems = computed(() => [
 		label: __("Edit"),
 		icon: "fa fa-pencil",
 		disabled: isEditing.value,
-		handler: () => {
-			startEditing();
-			emit("edit");
-		},
+		handler: () => emit("edit"),
 	},
 	{
 		id: "select",
 		label: __("Select"),
 		icon: "fa fa-mouse-pointer",
-		handler: () => {
-			api?.selectNode?.(props.node.id);
-			emit("select");
-		},
+		handler: () => emit("select"),
 	},
 	{
 		id: "move-up",
 		label: __("Move up"),
 		icon: "fa fa-chevron-up",
 		disabled: props.isFirstSibling,
-		handler: () => {
-			api?.moveUp?.(props.node.id);
-			emit("move-up");
-		},
+		handler: () => emit("move-up"),
 	},
 	{
 		id: "move-down",
 		label: __("Move down"),
 		icon: "fa fa-chevron-down",
 		disabled: props.isLastSibling,
-		handler: () => {
-			api?.moveDown?.(props.node.id);
-			emit("move-down");
-		},
+		handler: () => emit("move-down"),
 	},
 	{
 		id: "delete",
@@ -242,7 +230,6 @@ function startEditing() {
 
 function triggerContextualEdit() {
 	if (!resolvedCanEditRule.value) return;
-	startEditing();
 	emit("edit");
 }
 
