@@ -67,6 +67,7 @@ const depthResult = validateTree(tooDeep, { maxDepth: 1 });
 assert.equal(depthResult.valid, false);
 assert.ok(depthResult.errors.some((error) => error.code === "max_depth"));
 
+// eslint-disable-next-line no-console
 console.log("tree builder core tests passed");
 
 const collectionRoot = createGroup("and", []);

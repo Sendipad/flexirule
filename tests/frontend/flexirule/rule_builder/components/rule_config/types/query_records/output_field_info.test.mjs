@@ -24,4 +24,5 @@ assert.deepEqual(resolveFieldInfo(fieldMetadata, "Invoice", ""), {});
 assert.deepEqual(resolveFieldInfo(fieldMetadata, "Invoice", "missing_field"), {});
 assert.deepEqual(resolveFieldInfo(fieldMetadata, "Invoice", "customer.bad_field"), {});
 
+// eslint-disable-next-line no-console
 console.log("output field metadata tests passed");

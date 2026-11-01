@@ -26,4 +26,5 @@ assert.equal(getSiblingDropIntent("parent", -1, "before"), null);
 assert.equal(getSiblingDropIntent("parent", 1.5, "after"), null);
 assert.equal(getSiblingDropIntent("parent", 0, "inside"), null);
 
+// eslint-disable-next-line no-console
 console.log("tree builder drag model tests passed");
