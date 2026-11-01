@@ -66,7 +66,7 @@ frappe.ui.form.on("Rule", {
 	},
 
 	is_active(frm) {
-		if (frm.doc.is_active === 0 && frm._was_active) {
+		if (frm.doc.is_active === 0 && frm._was_active && !frm.is_new()) {
 			frm.set_value("is_active", 1);
 			show_deactivation_dialog(frm);
 			return;
@@ -84,11 +84,27 @@ frappe.ui.form.on("Rule", {
 
 		frm.page.clear_primary_action();
 		frm.page.set_primary_action(__("Visual Builder"), () => {
-			frappe.set_route("rule-builder", frm.doc.name);
+			if (frm.is_dirty()) {
+				frappe.confirm(
+					__("You have unsaved changes. Save document before opening Visual Builder?"),
+					() => {
+						frm.save().then(() => {
+							frappe.set_route("rule-builder", frm.doc.name);
+						});
+					},
+					() => {
+						frappe.set_route("rule-builder", frm.doc.name);
+					}
+				);
+			} else {
+				frappe.set_route("rule-builder", frm.doc.name);
+			}
 		});
 
 		frm.page.clear_custom_actions();
-		frm.add_custom_button(__("Amend Rule"), () => amend_rule(frm), __("Actions"));
+		if (frm.doc.is_active === 1) {
+			frm.add_custom_button(__("Amend Rule"), () => amend_rule(frm), __("Actions"));
+		}
 		frm.add_custom_button(__("Debug Rule"), () => test_rule(frm), __("Actions"));
 		frm.add_custom_button(__("Clear Cache"), () => clear_rule_cache(frm), __("Actions"));
 
@@ -159,29 +175,30 @@ frappe.ui.form.on("Rule Action", {
 });
 
 function apply_active_lock(frm) {
-	const is_active = !!frm.doc.is_active;
+	const is_active_locked = !!frm.doc.is_active && !frm.is_new();
 
 	frm.fields.forEach((field) => {
 		if (!field.df || field.df.fieldname === "is_active") return;
-		frm.set_df_property(field.df.fieldname, "read_only", is_active ? 1 : 0);
+		frm.set_df_property(field.df.fieldname, "read_only", is_active_locked ? 1 : 0);
 	});
 
 	frm.set_df_property("is_active", "read_only", 0);
 
 	Object.values(frm.fields_dict).forEach((f) => {
 		if (!f.grid) return;
-		f.grid.cannot_add_rows = is_active;
-		f.grid.cannot_delete_rows = is_active;
-		f.grid.only_sortable = is_active;
-		f.grid.wrapper.find(".grid-row, .grid-add-row").toggleClass("disabled", is_active);
+		f.grid.cannot_add_rows = is_active_locked;
+		f.grid.cannot_delete_rows = is_active_locked;
+		f.grid.only_sortable = is_active_locked;
+		f.grid.wrapper.find(".grid-row, .grid-add-row").toggleClass("disabled", is_active_locked);
 	});
 
-	frm.dashboard.clear_headline();
-	if (is_active) {
+	if (is_active_locked) {
 		frm.dashboard.set_headline_alert(
 			__("This rule is active and locked. Deactivate it to edit."),
 			"orange"
 		);
+	} else if (!frm.doc.is_active) {
+		frm.dashboard.clear_headline();
 	}
 }
 
@@ -267,10 +284,13 @@ function apply_trigger_type_contract(frm, options = {}) {
 		}
 	});
 }
+
 function update_dashboard_indicators(frm) {
 	if (!frm.dashboard) return;
 
-	frm.dashboard.clear_headline();
+	if (!frm.doc.is_active || frm.is_new()) {
+		frm.dashboard.clear_headline();
+	}
 
 	if (frm.dashboard.indicator_area) {
 		frm.dashboard.indicator_area.empty();
@@ -320,10 +340,15 @@ function update_dashboard_indicators(frm) {
 		},
 	});
 }
+
 function test_rule(frm) {
 	const last_docname = localStorage.getItem(`flexirule-debug-last-doc-${frm.doc.name}`);
 	const last_sim_user = localStorage.getItem(`flexirule_debug_user_${frm.doc.name}`);
 	const last_sim_role = localStorage.getItem(`flexirule_debug_role_${frm.doc.name}`);
+
+	const is_doctype_event = frm.doc.trigger_type === "DocType Event";
+	const has_doc_type = !!frm.doc.document_type;
+	const is_doc_reqd = is_doctype_event || has_doc_type;
 
 	let d = new frappe.ui.Dialog({
 		title: __("Debug Rule"),
@@ -344,7 +369,7 @@ function test_rule(frm) {
 				label: __("Document Type"),
 				options: "DocType",
 				default: frm.doc.document_type,
-				reqd: 1,
+				reqd: is_doc_reqd ? 1 : 0,
 			},
 			{
 				fieldtype: "Dynamic Link",
@@ -352,7 +377,7 @@ function test_rule(frm) {
 				label: __("Document"),
 				options: "doctype",
 				default: last_docname,
-				reqd: 1,
+				reqd: is_doc_reqd ? 1 : 0,
 			},
 			{
 				fieldtype: "Link",
@@ -421,6 +446,7 @@ function test_rule(frm) {
 	});
 	d.show();
 }
+
 function get_grid_row_field(grid_row, fieldname) {
 	if (!grid_row || !fieldname) return null;
 
