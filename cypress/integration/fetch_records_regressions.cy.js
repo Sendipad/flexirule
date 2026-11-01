@@ -365,6 +365,10 @@ describe("Fetch Records builder regressions", () => {
 			expect(Number(config.limit), "saved Fetch Records limit").to.eq(35);
 			const action = doc.actions.find((row) => row.action_id === "query_1");
 			expect(action.permission_audit_reason).to.eq(DEFAULT_AUDIT_REASON);
+			expect(
+				Number(action.ignore_permissions),
+				"persisted Fetch Records permission bypass flag"
+			).to.eq(1);
 		});
 
 		cy.reload();
