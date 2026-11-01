@@ -70,7 +70,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, ref } from "vue";
 import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/vue";
 import { autoUpdate, computePosition, flip, offset, shift, size } from "@floating-ui/dom";
 
@@ -172,8 +172,17 @@ function setMenuRef(value) {
 
 function handleItemClick(item) {
 	if (!item || item.disabled) return;
-	if (typeof item.handler === "function") item.handler(item);
-	emit("select", item.id, item);
+
+	// Let Headless UI finish closing the menu before a handler changes the
+	// tree/grid. Delete and edit actions can otherwise unmount or replace this
+	// MenuItem while its click event is still being processed.
+	const dispatch = () => {
+		if (typeof item.handler === "function") item.handler(item);
+		emit("select", item.id, item);
+	};
+	void nextTick(() => {
+		void nextTick(dispatch);
+	});
 }
 
 onBeforeUnmount(() => {
