@@ -13,6 +13,7 @@ const props = defineProps({
 	index: { type: Number, required: true },
 	parent: { type: Object, required: true },
 	readOnly: Boolean,
+	canEditRule: { type: Boolean, default: undefined },
 	allowGroups: Boolean,
 	allowCollections: Boolean,
 	collectionLabel: { type: String, default: "Collection" },
@@ -25,16 +26,27 @@ const props = defineProps({
 	isLeafValid: { type: Function, default: null },
 });
 
-const emit = defineEmits(["remove", "operator"]);
+const emit = defineEmits(["remove", "operator", "select", "edit", "move-up", "move-down"]);
 const api = inject("treeBuilderContext", null);
 const dragOver = ref(false);
 const dropPosition = ref(null);
 const nodeDragging = ref(false);
+
 const kind = computed(() => props.node.type);
 const children = computed(() => props.node.children || []);
 const isDraggableNode = computed(
 	() => isLeafNode(props.node) || isGroupNode(props.node) || isCollectionNode(props.node)
 );
+
+const isFirstSibling = computed(() => props.index === 0);
+const isLastSibling = computed(() => props.index === (props.parent?.children?.length || 1) - 1);
+
+const resolvedCanEditRule = computed(() => {
+	if (props.canEditRule !== undefined) return Boolean(props.canEditRule);
+	if (api?.canEditRule !== undefined) return Boolean(api.canEditRule.value ?? api.canEditRule);
+	return false;
+});
+
 let dragOriginWasInteractive = false;
 const interactiveSelector = [
 	"button",
@@ -63,8 +75,6 @@ function rememberDragOrigin(e) {
 }
 
 function startNodeDrag(e) {
-	// Only the node whose draggable surface initiated this event may own the drag.
-	// Stop propagation so an ancestor group cannot replace a leaf's drag ID.
 	e.stopPropagation();
 	if (props.readOnly || !isDraggableNode.value || dragOriginWasInteractive) {
 		e.preventDefault();
@@ -155,7 +165,6 @@ function dragOverNode(e) {
 	const draggedId = api?.dragState?.nodeId || e.dataTransfer?.getData("text/plain");
 	if (props.readOnly || !draggedId) return;
 	if (draggedId === props.node.id) {
-		// Never reinterpret hovering over the source row as a valid sibling/inside drop.
 		e.stopPropagation();
 		clearDropIndicator();
 		if (e.dataTransfer) e.dataTransfer.dropEffect = "none";
@@ -177,8 +186,6 @@ function dragOverNode(e) {
 }
 
 function dragLeave(e) {
-	// dragleave also fires when the pointer crosses into this node's own children.
-	// Keep the target active for those internal transitions.
 	if (e.relatedTarget instanceof Node && e.currentTarget.contains(e.relatedTarget)) return;
 	dragOver.value = false;
 	dropPosition.value = null;
@@ -196,6 +203,28 @@ function drop(e) {
 		else api.moveNode(draggedId, intent.targetId, intent.position);
 	}
 	api?.endDrag();
+}
+
+function onSelect() {
+	api?.selectNode?.(props.node.id);
+	emit("select", props.node.id);
+}
+
+function onEdit() {
+	if (isLeafNode(props.node)) {
+		api?.setEditing?.(props.node.id);
+	}
+	emit("edit", props.node.id);
+}
+
+function onMoveUp() {
+	api?.moveUp?.(props.node.id);
+	emit("move-up", props.node.id);
+}
+
+function onMoveDown() {
+	api?.moveDown?.(props.node.id);
+	emit("move-down", props.node.id);
 }
 </script>
 
@@ -240,14 +269,21 @@ function drop(e) {
 				:operators="groupOperators"
 				:operatorLabel="operatorLabel"
 				:readOnly="readOnly"
+				:canEditRule="resolvedCanEditRule"
 				:allowGroups="allowGroups"
 				:allowCollections="allowCollections"
 				:collectionLabel="collectionLabel"
+				:isFirstSibling="isFirstSibling"
+				:isLastSibling="isLastSibling"
 				@operator="$emit('operator', $event)"
 				@add-leaf="api?.addLeaf(node.id)"
 				@add-group="api?.addGroup(node.id)"
 				@add-collection="api?.addCollection(node.id)"
 				@remove="$emit('remove')"
+				@select="onSelect"
+				@edit="onEdit"
+				@move-up="onMoveUp"
+				@move-down="onMoveDown"
 			>
 				<template #children>
 					<TreeBuilderNode
@@ -257,6 +293,7 @@ function drop(e) {
 						:index="i"
 						:parent="node"
 						:readOnly="readOnly"
+						:canEditRule="resolvedCanEditRule"
 						:allowGroups="allowGroups"
 						:allowCollections="allowCollections"
 						:collectionLabel="collectionLabel"
@@ -285,12 +322,19 @@ function drop(e) {
 				:node="node"
 				:label="collectionLabel"
 				:readOnly="readOnly"
+				:canEditRule="resolvedCanEditRule"
 				:allowGroups="allowGroups"
 				:allowCollections="allowCollections"
+				:isFirstSibling="isFirstSibling"
+				:isLastSibling="isLastSibling"
 				@add-leaf="api?.addLeaf(node.id)"
 				@add-group="api?.addGroup(node.id)"
 				@add-collection="api?.addCollection(node.id)"
 				@remove="$emit('remove')"
+				@select="onSelect"
+				@edit="onEdit"
+				@move-up="onMoveUp"
+				@move-down="onMoveDown"
 			>
 				<template #label="{ node: collectionNode }">
 					<slot name="collection" :node="collectionNode">
@@ -305,6 +349,7 @@ function drop(e) {
 						:index="i"
 						:parent="node"
 						:readOnly="readOnly"
+						:canEditRule="resolvedCanEditRule"
 						:allowGroups="allowGroups"
 						:allowCollections="allowCollections"
 						:collectionLabel="collectionLabel"
@@ -335,11 +380,18 @@ function drop(e) {
 				:index="index"
 				:parent="parent"
 				:readOnly="readOnly"
+				:canEditRule="resolvedCanEditRule"
+				:isFirstSibling="isFirstSibling"
+				:isLastSibling="isLastSibling"
 				:presentationMode="presentationMode"
 				:editorLayout="editorLayout"
 				:isLeafNew="isLeafNew"
 				:isLeafValid="isLeafValid"
 				@remove="$emit('remove')"
+				@select="onSelect"
+				@edit="onEdit"
+				@move-up="onMoveUp"
+				@move-down="onMoveDown"
 			>
 				<template #default="p"><slot v-bind="p" /></template>
 				<template #leaf="p"><slot name="leaf" v-bind="p" /></template>
