@@ -1,5 +1,6 @@
 <script setup>
-import { ref, useSlots, computed } from "vue";
+import { ref, useSlots, computed, watch } from "vue";
+
 const props = defineProps({
 	df: Object,
 	fieldname: String,
@@ -7,13 +8,19 @@ const props = defineProps({
 	read_only: Boolean,
 	hideLabel: Boolean,
 	showValidation: { type: Boolean, default: false },
+	indeterminate: { type: Boolean, default: false },
+	size: { type: String, default: "md" }, // 'md' | 'sm'
 });
-const emit = defineEmits(["update:modelValue"]);
-let slots = useSlots();
+
+const emit = defineEmits(["update:modelValue", "change"]);
+const slots = useSlots();
+const inputRef = ref(null);
+
+const isChecked = computed(() => !!props.modelValue);
 
 const isValid = computed(() => {
 	if (!props.df?.reqd) return true;
-	return !!props.modelValue;
+	return isChecked.value;
 });
 
 function validate() {
@@ -26,15 +33,34 @@ function validate() {
 
 defineExpose({ validate });
 const showTooltip = ref(false);
+
+function handleChange(event) {
+	const checked = event.target.checked;
+	// Frappe often uses 0 / 1 for Check fields when initialized as number
+	const newValue = typeof props.modelValue === "number" ? (checked ? 1 : 0) : checked;
+	emit("update:modelValue", newValue);
+	emit("change", newValue);
+}
+
+watch(
+	() => props.indeterminate,
+	(val) => {
+		if (inputRef.value) {
+			inputRef.value.indeterminate = !!val;
+		}
+	},
+	{ immediate: true }
+);
 </script>
 
 <template>
 	<div
-		class="control fxr-control checkbox"
+		class="fxr-control fxr-check-control"
 		:class="{
-			editable: slots.label,
+			'is-editable': slots.label,
 			'no-label': hideLabel,
 			'has-error': showValidation && !isValid,
+			'is-disabled': read_only,
 		}"
 		v-fxr-fieldname="df?.fieldname || fieldname || null"
 		@mouseenter="showTooltip = true"
@@ -42,24 +68,35 @@ const showTooltip = ref(false);
 		@focusin="showTooltip = true"
 		@focusout="showTooltip = false"
 	>
-		<!-- checkbox -->
-		<label v-if="slots.label" class="field-controls">
-			<div class="checkbox fxr-checkbox">
-				<input type="checkbox" disabled />
-				<slot name="label" />
-			</div>
+		<!-- Custom Slot Label / Actions -->
+		<label v-if="slots.label" class="field-controls fxr-checkbox-label">
+			<input
+				ref="inputRef"
+				type="checkbox"
+				class="fxr-checkbox-input"
+				:class="{ 'fxr-checkbox-input--sm': size === 'sm' }"
+				:checked="isChecked"
+				:disabled="read_only"
+				@change="handleChange"
+			/>
+			<slot name="label" />
 			<slot name="actions" />
 		</label>
-		<label v-else class="checkbox-label-container fxr-checkbox">
+
+		<!-- Standard Label -->
+		<label v-else class="fxr-checkbox-label" :class="{ 'is-disabled': read_only }">
 			<input
+				ref="inputRef"
 				type="checkbox"
-				:checked="modelValue"
+				class="fxr-checkbox-input"
+				:class="{ 'fxr-checkbox-input--sm': size === 'sm' }"
+				:checked="isChecked"
 				:disabled="read_only"
-				@change="(event) => $emit('update:modelValue', event.target.checked)"
+				@change="handleChange"
 			/>
-			<span v-if="df?.label && !hideLabel" class="label-area" :class="{ reqd: df.reqd }">{{
-				__(df.label)
-			}}</span>
+			<span v-if="df?.label && !hideLabel" class="label-area" :class="{ reqd: df.reqd }">
+				{{ __(df.label) }}
+			</span>
 		</label>
 
 		<!-- Tooltip Popup for Grid / Hidden Label Mode -->
@@ -68,12 +105,12 @@ const showTooltip = ref(false);
 			<div class="tooltip-body" v-if="df.description">{{ __(df.description) }}</div>
 		</div>
 
-		<!-- standard description -->
+		<!-- Standard description -->
 		<div v-if="df.description && !hideLabel" class="description">
 			{{ __(df.description) }}
 		</div>
 
-		<!-- validation error -->
+		<!-- Validation error -->
 		<div v-if="showValidation && !isValid" class="fxr-error-msg">
 			{{ __("{0} must be checked").replace("{0}", df?.label || __("Field")) }}
 		</div>
@@ -82,68 +119,33 @@ const showTooltip = ref(false);
 
 <style scoped>
 /* ─── CheckControl – Unified Design ─── */
-.fxr-control {
+.fxr-check-control {
 	position: relative;
-	min-height: var(--fxr-input-height);
+	min-height: var(--fxr-input-height, 32px);
 	display: flex;
 	flex-direction: column;
 	align-items: flex-start;
 	justify-content: center;
 }
 
-.fxr-checkbox {
-	display: flex;
+.fxr-checkbox-label {
+	display: inline-flex;
 	align-items: center;
-	gap: var(--fxr-space-3);
+	gap: var(--fxr-space-3, 8px);
 	cursor: pointer;
 	margin: 0 !important;
 	user-select: none;
 }
 
-.fxr-checkbox input {
-	-webkit-appearance: none;
-	appearance: none;
-	width: 16px;
-	height: 16px;
-	cursor: pointer;
-	margin: 0 !important;
-	border: 1.5px solid var(--fxr-border-strong, #94a3b8);
-	border-radius: var(--fxr-radius-sm, 4px);
-	outline: none;
-	background-color: var(--fxr-bg-input, #ffffff);
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	transition: all var(--fxr-transition-fast, 0.15s) ease;
-	flex-shrink: 0;
-}
-
-.fxr-checkbox input:hover:not(:disabled) {
-	border-color: var(--fxr-accent, #2490ef);
-}
-
-.fxr-checkbox input:focus-visible,
-.fxr-checkbox input:focus {
-	border-color: var(--fxr-accent, #2490ef) !important;
-	box-shadow: 0 0 0 3px rgba(36, 144, 239, 0.25) !important;
-}
-
-.fxr-checkbox input:checked {
-	background-color: var(--fxr-accent, #2490ef) !important;
-	border-color: var(--fxr-accent, #2490ef) !important;
-}
-
-.fxr-checkbox input:checked::after {
-	content: "✓";
-	color: #ffffff;
-	font-size: 11px;
-	font-weight: bold;
+.fxr-checkbox-label.is-disabled {
+	cursor: not-allowed;
+	color: var(--fxr-text-muted);
 }
 
 .label-area {
-	font-size: var(--fxr-text-base);
+	font-size: var(--fxr-text-base, 14px);
 	color: var(--fxr-text);
-	font-weight: var(--fxr-weight-medium);
+	font-weight: var(--fxr-weight-medium, 500);
 	line-height: 1.4;
 }
 
@@ -153,11 +155,11 @@ const showTooltip = ref(false);
 }
 
 .description {
-	font-size: var(--fxr-text-xs);
+	font-size: var(--fxr-text-xs, 12px);
 	color: var(--fxr-text-muted);
-	margin-top: var(--fxr-space-1);
+	margin-top: var(--fxr-space-1, 4px);
 	line-height: 1.4;
-	padding-left: calc(16px + var(--fxr-space-3));
+	padding-left: calc(16px + var(--fxr-space-3, 8px));
 }
 
 /* Tooltip */
@@ -166,7 +168,7 @@ const showTooltip = ref(false);
 	bottom: 100%;
 	left: 50%;
 	transform: translateX(-50%);
-	background-color: var(--fxr-bg-dark);
+	background-color: var(--fxr-bg-dark, #1e293b);
 	color: #ffffff;
 	padding: var(--fxr-space-3) var(--fxr-space-4);
 	border-radius: var(--fxr-radius-md);

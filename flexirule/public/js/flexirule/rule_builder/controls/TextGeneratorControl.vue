@@ -316,10 +316,10 @@
 
 			<div class="footer-right">
 				<div class="tgc-preview-toggle mr-3" v-if="mode === 'visual'">
-					<span class="tgc-switch-label mr-1">{{ __("Preview") }}</span>
-					<label class="tgc-switch mini">
+					<label class="fxr-switch fxr-switch--sm">
 						<input type="checkbox" v-model="previewMode" />
-						<span class="tgc-slider"></span>
+						<span class="fxr-switch__slider"></span>
+						<span class="fxr-switch__label tgc-switch-label">{{ __("Preview") }}</span>
 					</label>
 				</div>
 				<div class="stats-mini">

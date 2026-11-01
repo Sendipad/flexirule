@@ -3,17 +3,17 @@
 		<div class="form-group relative" v-fxr-fieldname="'rule'">
 			<div class="d-flex justify-content-between align-items-center mb-1">
 				<label class="mb-0">{{ __("Select Rule") }}</label>
-				<div class="custom-control custom-switch custom-switch-sm">
+				<label class="fxr-switch fxr-switch--sm">
 					<input
 						type="checkbox"
-						class="custom-control-input"
 						id="filterCompatible"
 						v-model="onlyCompatible"
 					/>
-					<label class="custom-control-label small" for="filterCompatible">{{
+					<span class="fxr-switch__slider"></span>
+					<span class="fxr-switch__label">{{
 						__("Only Compatible")
-					}}</label>
-				</div>
+					}}</span>
+				</label>
 			</div>
 			<div class="input-group">
 				<input

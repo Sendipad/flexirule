@@ -275,6 +275,7 @@ defineExpose({ validate });
 							<div v-else-if="col.fieldtype === 'Check'" class="text-center">
 								<input
 									type="checkbox"
+									class="fxr-checkbox-input fxr-checkbox-input--sm"
 									:checked="row[col.fieldname]"
 									@change="
 										updateCell(
@@ -284,6 +285,7 @@ defineExpose({ validate });
 										)
 									"
 									:disabled="read_only"
+									:aria-label="col.label || col.fieldname"
 								/>
 							</div>
 

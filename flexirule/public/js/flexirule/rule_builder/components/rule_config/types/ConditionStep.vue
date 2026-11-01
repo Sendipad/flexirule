@@ -8,8 +8,8 @@
 				</h5>
 			</div>
 			<div class="header-actions">
-				<label class="old-doc-toggle">
-					<input type="checkbox" v-model="showOldDoc" class="fxr-checkbox" />
+				<label class="old-doc-toggle fxr-checkbox-label fxr-checkbox-label--sm">
+					<input type="checkbox" v-model="showOldDoc" class="fxr-checkbox-input fxr-checkbox-input--sm" />
 					<span class="toggle-label">{{ __("Show Old Doc Fields") }}</span>
 				</label>
 			</div>
@@ -415,13 +415,6 @@ defineExpose({
 	font-size: var(--fxr-text-xs);
 	color: var(--fxr-text-soft);
 	font-weight: var(--fxr-weight-medium);
-}
-
-.fxr-checkbox {
-	width: 14px;
-	height: 14px;
-	margin: 0;
-	cursor: pointer;
 }
 
 .condition-builder-container {
