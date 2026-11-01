@@ -405,7 +405,10 @@ describe("Fetch Records builder regressions", () => {
 		cy.reload();
 		cy.get(".vue-flow", { timeout: 30000 }).should("be.visible");
 		cy.then(() => {
-			expect(injectedLegacyFlag, "legacy permission flag injected into the loaded Rule").to.eq(true);
+			expect(
+				injectedLegacyFlag,
+				"legacy permission flag injected into the loaded Rule"
+			).to.eq(true);
 		});
 
 		// Opening the action keeps the UI's Frappe 15 bypass visible. Saving the
