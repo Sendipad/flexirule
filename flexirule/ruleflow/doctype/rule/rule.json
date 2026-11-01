@@ -372,11 +372,8 @@
  "links": [
   {
    "group": "Related Rules",
-   "is_child_table": 1,
    "link_doctype": "Rule",
-   "link_fieldname": "rule",
-   "parent_doctype": "Rule",
-   "table_fieldname": "actions"
+   "link_fieldname": "rule"
   },
   {
    "group": "Logs & Schedulers",
