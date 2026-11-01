@@ -385,6 +385,17 @@ describe("Fetch Records builder regressions", () => {
 				).to.deep.equal([initialOrder[1], initialOrder[0], initialOrder[2]]);
 			});
 		});
+
+		// Deleting a leaf unmounts the menu that dispatched the action. The
+		// shared console guard must catch Vue refs/emitsOptions teardown errors.
+		cy.get(
+			".config-modal-container .tree-leaf__actions button.fxr-action-menu__trigger[aria-label='Leaf Actions']"
+		)
+			.last()
+			.click();
+		cy.contains("button.fxr-action-menu__item", "Delete").click();
+		cy.get(nodeSelector).should("have.length", 2);
+		});
 	});
 
 	it("saves a changed Fetch Records configuration on the first modal click and persists it", () => {
