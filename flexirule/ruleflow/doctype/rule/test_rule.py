@@ -50,6 +50,76 @@ class TestRule(FrappeTestCase):
 		with self.assertRaisesRegex(frappe.ValidationError, "does not exist on DocType"):
 			rule.validate()
 
+	def test_fetch_records_frappe15_bypass_is_normalized_on_standard_rule_save(self):
+		"""Standard Desk form saves must apply the Frappe 15 Fetch Records default."""
+		from unittest.mock import patch
+
+		from flexirule.ruleflow.utils.frappe_query_compat import FrappeQueryCapabilities
+
+		legacy_query_capabilities = FrappeQueryCapabilities(supports_ignore_permissions=False)
+		rule = frappe.get_doc(
+			{
+				"doctype": "Rule",
+				"rule_name": "Rule Fetch Records Permission Default",
+				"document_type": "User",
+				"trigger_type": "DocType Event",
+				"trigger_event": "Before Save",
+				"actions": [
+					{
+						"action_id": "root",
+						"action_label": "Start",
+						"action_type": "Entry Action",
+						"is_enabled": 1,
+						"next_step_if_true": "fetch_users",
+					},
+					{
+						"action_id": "fetch_users",
+						"action_label": "Fetch Users",
+						"action_type": "Query Records",
+						"operation": "Fetch Records",
+						"reference_doctype": "User",
+						"mutation_mode": "Set Context Variable",
+						"return_type": "List of Records",
+						"return_variable": "queried_users",
+						"ignore_permissions": 0,
+						"permission_audit_reason": "Approved Frappe 15 Fetch Records test",
+						"config": frappe.as_json({"fields": ["name"], "limit": 10}),
+						"is_enabled": 1,
+						"next_step_if_true": "end",
+					},
+					{
+						"action_id": "end",
+						"action_label": "End",
+						"action_type": "Stop",
+						"operation": "Success",
+						"is_enabled": 1,
+					},
+				],
+			}
+		)
+
+		with (
+			patch(
+				"flexirule.ruleflow.core.validation_service.QUERY_CAPABILITIES",
+				legacy_query_capabilities,
+			),
+			patch(
+				"flexirule.ruleflow.core.action_handlers.query_records.QUERY_CAPABILITIES",
+				legacy_query_capabilities,
+			),
+		):
+			rule.validate()
+
+			fetch_action = next(action for action in rule.actions if action.action_id == "fetch_users")
+			self.assertEqual(int(fetch_action.ignore_permissions), 1)
+
+			# The backend supplies the technical default, never the audit reason.
+			fetch_action.permission_audit_reason = ""
+			with self.assertRaisesRegex(frappe.ValidationError, "Permission Audit Reason"):
+				rule.validate()
+
+			self.assertEqual(int(fetch_action.ignore_permissions), 1)
+
 	def test_consolidated_terminal_stop_success(self):
 		"""Verify Stop Success action saves correctly without template"""
 		rule = frappe.get_doc(
