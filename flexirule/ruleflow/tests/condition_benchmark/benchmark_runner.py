@@ -668,8 +668,10 @@ class BenchmarkRunner:
 			try:
 				prepared = candidate.prepare(payload, metadata_context=metadata_context)
 			except Exception as exc:
-				return None, (time.perf_counter_ns() - start_ns) / 1000.0, (
-					f"Preparation raised {type(exc).__name__}: {exc}"
+				return (
+					None,
+					(time.perf_counter_ns() - start_ns) / 1000.0,
+					f"Preparation raised {type(exc).__name__}: {exc}",
 				)
 			elapsed_us = (time.perf_counter_ns() - start_ns) / 1000.0
 			error = getattr(prepared, "error", None)
@@ -690,7 +692,9 @@ class BenchmarkRunner:
 				return result, f"Incorrect result: {actual!r} != {expected!r}"
 			return result, None
 
-		def break_even_count(plan_prep_us: float, ast_prep_us: float, plan_eval_us: float, ast_eval_us: float):
+		def break_even_count(
+			plan_prep_us: float, ast_prep_us: float, plan_eval_us: float, ast_eval_us: float
+		):
 			"""Return first reuse count where the compiled plan estimate beats direct AST."""
 			for reuse_count in range(1, 1_000_001):
 				plan_cost = (plan_prep_us / reuse_count) + plan_eval_us
@@ -707,26 +711,20 @@ class BenchmarkRunner:
 			base_iterations = self.iterations_per_batch
 			if collection_size:
 				row_visit_budget = 100_000
-				budgeted_iterations = max(
-					1, row_visit_budget // (collection_size * num_samples)
-				)
+				budgeted_iterations = max(1, row_visit_budget // (collection_size * num_samples))
 				evaluation_iterations = max(1, min(base_iterations, budgeted_iterations))
 			else:
 				row_visit_budget = None
 				evaluation_iterations = max(1, base_iterations)
 
-			preparation_samples = {
+			preparation_samples: dict[str, dict[str, list[float]]] = {
 				label: {"cold": [], "warm": []} for label in candidate_labels
 			}
 			prepared_samples: list[dict[str, Any]] = []
 			preparation_failure = None
 
 			for sample_index in range(num_samples):
-				order = (
-					candidate_labels
-					if sample_index % 2 == 0
-					else tuple(reversed(candidate_labels))
-				)
+				order = candidate_labels if sample_index % 2 == 0 else tuple(reversed(candidate_labels))
 				sample_prepared: dict[str, Any] = {}
 				for label in order:
 					candidate = candidates[label]
@@ -771,18 +769,12 @@ class BenchmarkRunner:
 			for sample in prepared_samples:
 				sample_index = sample["sample_index"]
 				prepared_by_label = sample["prepared"]
-				order = (
-					candidate_labels
-					if sample_index % 2 == 0
-					else tuple(reversed(candidate_labels))
-				)
+				order = candidate_labels if sample_index % 2 == 0 else tuple(reversed(candidate_labels))
 
 				for label in order:
 					candidate = candidates[label]
 					for _ in range(warmup_count):
-						_, error = evaluate_checked(
-							candidate, prepared_by_label[label], document, expected
-						)
+						_, error = evaluate_checked(candidate, prepared_by_label[label], document, expected)
 						if error:
 							evaluation_failure = f"{label}: warm-up {error}"
 							break
@@ -920,11 +912,7 @@ class BenchmarkRunner:
 		meta_preparation: dict[str, Any] = {}
 		meta_failure = None
 
-		for label in (
-			candidate_labels
-			if num_samples % 2 == 1
-			else tuple(reversed(candidate_labels))
-		):
+		for label in candidate_labels if num_samples % 2 == 1 else tuple(reversed(candidate_labels)):
 			candidate = candidates[label]
 			if not _clear_cache_safely():
 				meta_failure = f"{label}: condition-plan cache clear failed before metadata preparation"
@@ -966,16 +954,12 @@ class BenchmarkRunner:
 				"warm_sql_queries": warm_sql_queries,
 			}
 
-		meta_eval_samples: dict[str, list[float]] = {
-			label: [] for label in candidate_labels
-		}
+		meta_eval_samples: dict[str, list[float]] = {label: [] for label in candidate_labels}
 		if not meta_failure:
 			meta_warmup_count = min(max(0, self.warmup_iterations), 10)
 			for label in candidate_labels:
 				for _ in range(meta_warmup_count):
-					_, error = evaluate_checked(
-						candidates[label], meta_prepared[label], meta_document, True
-					)
+					_, error = evaluate_checked(candidates[label], meta_prepared[label], meta_document, True)
 					if error:
 						meta_failure = f"{label}: metadata scenario warm-up {error}"
 						break
@@ -990,7 +974,7 @@ class BenchmarkRunner:
 					if sample_index % 2 == 0
 					else tuple(reversed(candidate_labels))
 				)
-				timings: dict[str, float] = {}
+				meta_timings: dict[str, float] = {}
 				for label in order:
 					start_ns = time.perf_counter_ns()
 					for _ in range(meta_iterations):
@@ -1003,11 +987,11 @@ class BenchmarkRunner:
 					elapsed_us = (time.perf_counter_ns() - start_ns) / 1000.0
 					if meta_failure:
 						break
-					timings[label] = elapsed_us / meta_iterations
+					meta_timings[label] = elapsed_us / meta_iterations
 				if meta_failure:
 					break
 				for label in candidate_labels:
-					meta_eval_samples[label].append(timings[label])
+					meta_eval_samples[label].append(meta_timings[label])
 
 		meta_evaluation_distributions = {
 			label: summarize(meta_eval_samples[label]) for label in candidate_labels
@@ -1058,12 +1042,8 @@ class BenchmarkRunner:
 					"ast_cold_per_eval_us": round(ast_cost_cold, 2),
 					"plan_warm_per_eval_us": round(plan_cost_warm, 2),
 					"ast_warm_per_eval_us": round(ast_cost_warm, 2),
-					"faster_candidate_cold": "AST"
-					if ast_cost_cold < plan_cost_cold
-					else "Compiled Plan",
-					"faster_candidate_warm": "AST"
-					if ast_cost_warm < plan_cost_warm
-					else "Compiled Plan",
+					"faster_candidate_cold": "AST" if ast_cost_cold < plan_cost_cold else "Compiled Plan",
+					"faster_candidate_warm": "AST" if ast_cost_warm < plan_cost_warm else "Compiled Plan",
 				}
 		else:
 			comparison_results["amortized"] = {
@@ -1266,16 +1246,16 @@ class BenchmarkRunner:
 		md_lines.append("")
 		md_lines.append("### 3. Semantic Correctness & Measurement Validity")
 		workload_results = ast_comp.get("workloads", {})
-		valid_workloads = [
-			item for item in workload_results.values() if item.get("is_valid_measurement")
-		]
+		valid_workloads = [item for item in workload_results.values() if item.get("is_valid_measurement")]
 		correct_workloads = [item for item in valid_workloads if item.get("is_correct")]
 		invalid_workloads = [
 			item for item in workload_results.values() if not item.get("is_valid_measurement")
 		]
 		md_lines.append(f"- **Valid paired workloads:** {len(valid_workloads)} / {len(workload_results)}.")
 		md_lines.append(f"- **Correct valid workloads:** {len(correct_workloads)} / {len(valid_workloads)}.")
-		md_lines.append(f"- **Invalid measurements:** {len(invalid_workloads)}. These are excluded from performance comparisons.")
+		md_lines.append(
+			f"- **Invalid measurements:** {len(invalid_workloads)}. These are excluded from performance comparisons."
+		)
 		for workload_id, measurement in workload_results.items():
 			if not measurement.get("is_valid_measurement"):
 				md_lines.append(
@@ -1301,11 +1281,11 @@ class BenchmarkRunner:
 			a_eval_value = w_res.get("ast_eval_median_us")
 			a_p95_value = w_res.get("ast_eval_p95_us")
 			ratio_value = w_res.get("eval_ratio_ast_vs_plan")
-			p_eval = f"{p_eval_value:.3f}" if isinstance(p_eval_value, (int, float)) else "N/A"
-			p_p95 = f"{p_p95_value:.3f}" if isinstance(p_p95_value, (int, float)) else "N/A"
-			a_eval = f"{a_eval_value:.3f}" if isinstance(a_eval_value, (int, float)) else "N/A"
-			a_p95 = f"{a_p95_value:.3f}" if isinstance(a_p95_value, (int, float)) else "N/A"
-			ratio = f"{ratio_value:.2f}x" if isinstance(ratio_value, (int, float)) else "N/A"
+			p_eval = f"{p_eval_value:.3f}" if isinstance(p_eval_value, int | float) else "N/A"
+			p_p95 = f"{p_p95_value:.3f}" if isinstance(p_p95_value, int | float) else "N/A"
+			a_eval = f"{a_eval_value:.3f}" if isinstance(a_eval_value, int | float) else "N/A"
+			a_p95 = f"{a_p95_value:.3f}" if isinstance(a_p95_value, int | float) else "N/A"
+			ratio = f"{ratio_value:.2f}x" if isinstance(ratio_value, int | float) else "N/A"
 			if not w_res.get("is_valid_measurement"):
 				status = "INVALID"
 			else:
