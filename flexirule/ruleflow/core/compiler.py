@@ -129,7 +129,7 @@ class ConditionCompiler:
 	}
 
 	def compile(self, conditions) -> str:
-		if not conditions:
+		if conditions is None or (isinstance(conditions, str) and not conditions.strip()):
 			return ""
 
 		from flexirule.ruleflow.core.condition_payload import parse_condition_payload
@@ -145,8 +145,12 @@ class ConditionCompiler:
 			return parsed
 
 		if isinstance(parsed, list):
+			if not parsed:
+				raise ValueError("Legacy condition list cannot be empty")
 			conditions_tree = {"op": "and", "conditions": parsed}
 		elif isinstance(parsed, dict):
+			if not parsed:
+				raise ValueError("Legacy condition dictionary cannot be empty")
 			conditions_tree = parsed
 		else:
 			raise ValueError(f"Unsupported condition payload type: {type(conditions).__name__}")
@@ -154,18 +158,19 @@ class ConditionCompiler:
 		compiled = self._compile_node(
 			conditions_tree, scopes={"doc", "old_doc", "row", "vars", "item", "caller", "rule", "doctype"}
 		)
-		result = compiled if compiled else "True"
-		is_valid, err = self.validate(result)
+		if not compiled:
+			raise ValueError("Condition compilation resulted in an empty expression")
+		is_valid, err = self.validate(compiled)
 		if not is_valid:
 			raise ValueError(f"Invalid compiled condition expression: {err}")
-		return result
+		return compiled
 
 	def _compile_node(self, node, scopes=None):
 		if not isinstance(node, dict):
 			raise ValueError(f"Invalid condition node type: {type(node).__name__}")
 
 		if not node:
-			return ""
+			raise ValueError("Legacy condition node cannot be empty")
 
 		if scopes is None:
 			scopes = {"doc", "old_doc", "row", "vars", "item", "caller", "rule", "doctype"}
