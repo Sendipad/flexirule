@@ -615,113 +615,274 @@ class BenchmarkRunner:
 		return {"execution_counts": execution_counts, "scenarios": amortized_results}
 
 	def run_canonical_ast_vs_plan_comparison(self) -> dict[str, Any]:
+		"""Compare the compiled plan and direct AST using verified, paired measurements.
+
+		Every cold preparation requires a successful cache clear. Every warm-up and
+		timed evaluation is checked for errors and semantic correctness. Candidate
+		order alternates per paired sample to reduce systematic order bias.
+		"""
+		from unittest.mock import patch
+
 		workloads = get_canonical_scaling_workloads()
 		comparison_results: dict[str, Any] = {
 			"workloads": {},
 			"metadata_scenario": {},
 			"amortized": {},
+			"measurement_protocol": {
+				"paired_samples": max(1, self.num_batches),
+				"candidate_order": "alternating compiled-plan-first and direct-AST-first",
+				"timed_result_validation": "every invocation checked for error and expected result",
+				"cache_isolation": "each cold preparation requires a successful condition-plan cache clear",
+				"amortized_method": "estimate from repeated preparation and paired steady-state medians",
+			},
 		}
 
 		plan_cand = self.cand_canon_plan
 		ast_cand = self.cand_canon_ast
+		candidates = {
+			"compiled_plan": plan_cand,
+			"direct_ast": ast_cand,
+		}
+		candidate_labels = ("compiled_plan", "direct_ast")
+		num_samples = max(1, self.num_batches)
 
-		for w_id, w in workloads.items():
-			payload = w["payload"]
-			doc = w.get("doc") or w.get("matching_doc")
-			expected = w.get("expected")
-
-			_clear_cache_safely()
-			t0 = time.perf_counter_ns()
-			prep_plan = plan_cand.prepare(payload)
-			plan_cold_prep_us = (time.perf_counter_ns() - t0) / 1000.0
-
-			t0 = time.perf_counter_ns()
-			_ = plan_cand.prepare(payload)
-			plan_warm_prep_us = (time.perf_counter_ns() - t0) / 1000.0
-
-			_clear_cache_safely()
-			t0 = time.perf_counter_ns()
-			prep_ast = ast_cand.prepare(payload)
-			ast_cold_prep_us = (time.perf_counter_ns() - t0) / 1000.0
-
-			t0 = time.perf_counter_ns()
-			_ = ast_cand.prepare(payload)
-			ast_warm_prep_us = (time.perf_counter_ns() - t0) / 1000.0
-
-			res_plan = plan_cand.evaluate(prep_plan, doc)
-			res_ast = ast_cand.evaluate(prep_ast, doc)
-
-			is_correct = (
-				res_plan.result == expected
-				and res_ast.result == expected
-				and res_plan.error is None
-				and res_ast.error is None
-			)
-
-			col_size = w.get("collection_size", 0)
-			base_iters = self.iterations_per_batch
-			# Keep the total nominal collection-row visits bounded across all batches,
-			# and use the same iteration count for both candidates for a fair comparison.
-			if col_size:
-				row_visit_budget = 100_000
-				budgeted_iters = max(1, row_visit_budget // (col_size * max(1, self.num_batches)))
-				eval_iterations = max(1, min(base_iters, budgeted_iters))
-			else:
-				row_visit_budget = None
-				eval_iterations = max(1, base_iters)
-
-			for _ in range(min(self.warmup_iterations, 10)):
-				plan_cand.evaluate(prep_plan, doc)
-				ast_cand.evaluate(prep_ast, doc)
-
-			plan_times_ns = []
-			ast_times_ns = []
-			num_runs = max(1, self.num_batches)
-			for _ in range(num_runs):
-				t0 = time.perf_counter_ns()
-				for _ in range(eval_iterations):
-					plan_cand.evaluate(prep_plan, doc)
-				plan_times_ns.append((time.perf_counter_ns() - t0) / eval_iterations)
-
-				t0 = time.perf_counter_ns()
-				for _ in range(eval_iterations):
-					ast_cand.evaluate(prep_ast, doc)
-				ast_times_ns.append((time.perf_counter_ns() - t0) / eval_iterations)
-
-			plan_us_median = statistics.median(plan_times_ns) / 1000.0
-			ast_us_median = statistics.median(ast_times_ns) / 1000.0
-			plan_us_p95 = (
-				statistics.quantiles(plan_times_ns, n=20)[18] / 1000.0
-				if len(plan_times_ns) >= 5
-				else max(plan_times_ns) / 1000.0
-			)
-			ast_us_p95 = (
-				statistics.quantiles(ast_times_ns, n=20)[18] / 1000.0
-				if len(ast_times_ns) >= 5
-				else max(ast_times_ns) / 1000.0
-			)
-
-			comparison_results["workloads"][w_id] = {
-				"description": w["description"],
-				"is_correct": is_correct,
-				"expected": expected,
-				"collection_size": col_size,
-				"evaluation_iterations_per_batch": eval_iterations,
-				"nominal_row_visit_budget": row_visit_budget,
-				"plan_cold_prep_us": round(plan_cold_prep_us, 2),
-				"plan_warm_prep_us": round(plan_warm_prep_us, 2),
-				"ast_cold_prep_us": round(ast_cold_prep_us, 2),
-				"ast_warm_prep_us": round(ast_warm_prep_us, 2),
-				"plan_eval_median_us": round(plan_us_median, 3),
-				"plan_eval_p95_us": round(plan_us_p95, 3),
-				"ast_eval_median_us": round(ast_us_median, 3),
-				"ast_eval_p95_us": round(ast_us_p95, 3),
-				"eval_ratio_ast_vs_plan": round(ast_us_median / plan_us_median, 2)
-				if plan_us_median > 0
-				else 1.0,
+		def summarize(values: list[float]) -> dict[str, Any]:
+			ordered = sorted(values)
+			if not ordered:
+				return {"samples": [], "median": None, "p95": None, "stdev": None}
+			p95_index = min(len(ordered) - 1, max(0, int(len(ordered) * 0.95)))
+			return {
+				"samples": [round(value, 3) for value in values],
+				"median": round(statistics.median(ordered), 3),
+				"p95": round(ordered[p95_index], 3),
+				"stdev": round(statistics.stdev(ordered), 3) if len(ordered) > 1 else 0.0,
+				"min": round(ordered[0], 3),
+				"max": round(ordered[-1], 3),
 			}
 
-		# Real Frappe Metadata Scenario (User -> Has Role)
+		def prepare_candidate(candidate, payload, metadata_context=None):
+			start_ns = time.perf_counter_ns()
+			try:
+				prepared = candidate.prepare(payload, metadata_context=metadata_context)
+			except Exception as exc:
+				return None, (time.perf_counter_ns() - start_ns) / 1000.0, (
+					f"Preparation raised {type(exc).__name__}: {exc}"
+				)
+			elapsed_us = (time.perf_counter_ns() - start_ns) / 1000.0
+			error = getattr(prepared, "error", None)
+			if error:
+				return None, elapsed_us, f"Preparation error: {error}"
+			return prepared, elapsed_us, None
+
+		def evaluate_checked(candidate, prepared, document, expected):
+			try:
+				result = candidate.evaluate(prepared, document)
+			except Exception as exc:
+				return None, f"Evaluation raised {type(exc).__name__}: {exc}"
+			error = getattr(result, "error", None)
+			if error:
+				return result, f"Evaluation error: {error}"
+			actual = getattr(result, "result", None)
+			if expected is not None and actual != expected:
+				return result, f"Incorrect result: {actual!r} != {expected!r}"
+			return result, None
+
+		def break_even_count(plan_prep_us: float, ast_prep_us: float, plan_eval_us: float, ast_eval_us: float):
+			"""Return first reuse count where the compiled plan estimate beats direct AST."""
+			for reuse_count in range(1, 1_000_001):
+				plan_cost = (plan_prep_us / reuse_count) + plan_eval_us
+				ast_cost = (ast_prep_us / reuse_count) + ast_eval_us
+				if plan_cost < ast_cost:
+					return reuse_count
+			return None
+
+		for workload_id, workload in workloads.items():
+			payload = workload["payload"]
+			document = workload.get("doc") or workload.get("matching_doc")
+			expected = workload.get("expected")
+			collection_size = workload.get("collection_size", 0)
+			base_iterations = self.iterations_per_batch
+			if collection_size:
+				row_visit_budget = 100_000
+				budgeted_iterations = max(
+					1, row_visit_budget // (collection_size * num_samples)
+				)
+				evaluation_iterations = max(1, min(base_iterations, budgeted_iterations))
+			else:
+				row_visit_budget = None
+				evaluation_iterations = max(1, base_iterations)
+
+			preparation_samples = {
+				label: {"cold": [], "warm": []} for label in candidate_labels
+			}
+			prepared_samples: list[dict[str, Any]] = []
+			preparation_failure = None
+
+			for sample_index in range(num_samples):
+				order = (
+					candidate_labels
+					if sample_index % 2 == 0
+					else tuple(reversed(candidate_labels))
+				)
+				sample_prepared: dict[str, Any] = {}
+				for label in order:
+					candidate = candidates[label]
+					if not _clear_cache_safely():
+						preparation_failure = (
+							f"{label}: cache isolation could not be established before cold preparation"
+						)
+						break
+
+					cold_prepared, cold_us, error = prepare_candidate(candidate, payload)
+					if error:
+						preparation_failure = f"{label}: {error}"
+						break
+					warm_prepared, warm_us, error = prepare_candidate(candidate, payload)
+					if error:
+						preparation_failure = f"{label}: warm {error}"
+						break
+
+					preparation_samples[label]["cold"].append(cold_us)
+					preparation_samples[label]["warm"].append(warm_us)
+					sample_prepared[label] = warm_prepared
+
+				if preparation_failure:
+					break
+				prepared_samples.append(
+					{"sample_index": sample_index, "prepared": sample_prepared, "order": list(order)}
+				)
+
+			if preparation_failure:
+				comparison_results["workloads"][workload_id] = {
+					"is_valid_measurement": False,
+					"is_correct": False,
+					"reason": preparation_failure,
+					"cache_isolation_verified": False,
+					"preparation_samples": preparation_samples,
+				}
+				continue
+
+			paired_samples: list[dict[str, Any]] = []
+			evaluation_failure = None
+			warmup_count = min(max(0, self.warmup_iterations), 10)
+			for sample in prepared_samples:
+				sample_index = sample["sample_index"]
+				prepared_by_label = sample["prepared"]
+				order = (
+					candidate_labels
+					if sample_index % 2 == 0
+					else tuple(reversed(candidate_labels))
+				)
+
+				for label in order:
+					candidate = candidates[label]
+					for _ in range(warmup_count):
+						_, error = evaluate_checked(
+							candidate, prepared_by_label[label], document, expected
+						)
+						if error:
+							evaluation_failure = f"{label}: warm-up {error}"
+							break
+					if evaluation_failure:
+						break
+				if evaluation_failure:
+					break
+
+				timings: dict[str, float] = {}
+				for label in order:
+					candidate = candidates[label]
+					start_ns = time.perf_counter_ns()
+					for _ in range(evaluation_iterations):
+						_, error = evaluate_checked(
+							candidate, prepared_by_label[label], document, expected
+						)
+						if error:
+							evaluation_failure = f"{label}: timed batch {error}"
+							break
+					elapsed_us = (time.perf_counter_ns() - start_ns) / 1000.0
+					if evaluation_failure:
+						break
+					timings[label] = elapsed_us / evaluation_iterations
+				if evaluation_failure:
+					break
+
+				paired_samples.append(
+					{
+						"sample_index": sample_index,
+						"candidate_order": list(order),
+						"plan_eval_us": round(timings["compiled_plan"], 3),
+						"ast_eval_us": round(timings["direct_ast"], 3),
+					}
+				)
+
+			if evaluation_failure:
+				comparison_results["workloads"][workload_id] = {
+					"is_valid_measurement": False,
+					"is_correct": False,
+					"reason": evaluation_failure,
+					"cache_isolation_verified": True,
+					"preparation_samples": preparation_samples,
+					"paired_samples": paired_samples,
+				}
+				continue
+
+			plan_cold = summarize(preparation_samples["compiled_plan"]["cold"])
+			plan_warm = summarize(preparation_samples["compiled_plan"]["warm"])
+			ast_cold = summarize(preparation_samples["direct_ast"]["cold"])
+			ast_warm = summarize(preparation_samples["direct_ast"]["warm"])
+			plan_eval = summarize([sample["plan_eval_us"] for sample in paired_samples])
+			ast_eval = summarize([sample["ast_eval_us"] for sample in paired_samples])
+
+			plan_cold_median = plan_cold["median"] or 0.0
+			ast_cold_median = ast_cold["median"] or 0.0
+			plan_eval_median = plan_eval["median"] or 0.0
+			ast_eval_median = ast_eval["median"] or 0.0
+			plan_warm_median = plan_warm["median"] or 0.0
+			ast_warm_median = ast_warm["median"] or 0.0
+
+			workload_metrics = {
+				"is_valid_measurement": True,
+				"is_correct": True,
+				"cache_isolation_verified": True,
+				"description": workload["description"],
+				"expected": expected,
+				"collection_size": collection_size,
+				"evaluation_iterations_per_batch": evaluation_iterations,
+				"nominal_row_visit_budget": row_visit_budget,
+				"plan_cold_prep_us": round(plan_cold_median, 2),
+				"plan_warm_prep_us": round(plan_warm_median, 2),
+				"ast_cold_prep_us": round(ast_cold_median, 2),
+				"ast_warm_prep_us": round(ast_warm_median, 2),
+				"plan_eval_median_us": plan_eval_median,
+				"plan_eval_p95_us": plan_eval["p95"],
+				"ast_eval_median_us": ast_eval_median,
+				"ast_eval_p95_us": ast_eval["p95"],
+				"eval_ratio_ast_vs_plan": round(ast_eval_median / plan_eval_median, 2)
+				if plan_eval_median > 0
+				else None,
+				"preparation_distributions": {
+					"compiled_plan_cold_us": plan_cold,
+					"compiled_plan_warm_us": plan_warm,
+					"direct_ast_cold_us": ast_cold,
+					"direct_ast_warm_us": ast_warm,
+				},
+				"evaluation_distributions": {
+					"compiled_plan_us": plan_eval,
+					"direct_ast_us": ast_eval,
+				},
+				"paired_samples": paired_samples,
+				"break_even_reuse_count_cold": break_even_count(
+					plan_cold_median, ast_cold_median, plan_eval_median, ast_eval_median
+				),
+				"break_even_reuse_count_warm": break_even_count(
+					plan_warm_median, ast_warm_median, plan_eval_median, ast_eval_median
+				),
+			}
+			comparison_results["workloads"][workload_id] = workload_metrics
+
+		# Real Frappe metadata scenario: User.roles -> Has Role.role.
+		# The child alias is mapped explicitly so both candidates validate against
+		# actual parent and child DocType metadata, not dictionary-only assumptions.
 		meta_payload = {
 			"type": "collection_predicate",
 			"quantifier": "any",
@@ -730,102 +891,197 @@ class BenchmarkRunner:
 			"where": {
 				"type": "comparison",
 				"operator": "eq",
-				"left": {"mode": "variable", "path": {"scope": "role_item", "segments": ["role"]}},
-				"right": {"mode": "static", "value_type": "string", "value": "System Manager"},
+				"left": {
+					"mode": "variable",
+					"path": {"scope": "role_item", "segments": ["role"]},
+				},
+				"right": {
+					"mode": "static",
+					"value_type": "string",
+					"value": "System Manager",
+				},
 			},
 		}
-		user_doc = {
+		meta_document = {
 			"doctype": "User",
 			"roles": [
 				{"doctype": "Has Role", "role": "Blogger"},
 				{"doctype": "Has Role", "role": "System Manager"},
 			],
 		}
-		meta_ctx = {"doctype": "User"}
+		metadata_context = {
+			"doctype": "User",
+			"scope_doctypes": {"role_item": "Has Role"},
+		}
+		meta_prepared: dict[str, Any] = {}
+		meta_preparation: dict[str, Any] = {}
+		meta_failure = None
 
-		_clear_cache_safely()
-		t0 = time.perf_counter_ns()
-		prep_plan_meta = plan_cand.prepare(meta_payload, metadata_context=meta_ctx)
-		plan_meta_prep_us = (time.perf_counter_ns() - t0) / 1000.0
+		for label in (
+			candidate_labels
+			if num_samples % 2 == 1
+			else tuple(reversed(candidate_labels))
+		):
+			candidate = candidates[label]
+			if not _clear_cache_safely():
+				meta_failure = f"{label}: condition-plan cache clear failed before metadata preparation"
+				break
+			try:
+				frappe.clear_cache(doctype="User")
+				frappe.clear_cache(doctype="Has Role")
+			except Exception as exc:
+				meta_failure = f"Frappe DocType metadata cache clear failed: {type(exc).__name__}: {exc}"
+				break
 
-		_clear_cache_safely()
-		t0 = time.perf_counter_ns()
-		prep_ast_meta = ast_cand.prepare(meta_payload, metadata_context=meta_ctx)
-		ast_meta_prep_us = (time.perf_counter_ns() - t0) / 1000.0
+			with patch("frappe.get_meta", wraps=frappe.get_meta) as get_meta_spy:
+				with patch.object(frappe.db, "sql", wraps=frappe.db.sql) as sql_spy:
+					cold_prepared, cold_us, error = prepare_candidate(
+						candidate, meta_payload, metadata_context
+					)
+					cold_get_meta_calls = get_meta_spy.call_count
+					cold_sql_queries = sql_spy.call_count
+					if error:
+						meta_failure = f"{label}: cold metadata preparation {error}"
+						break
 
-		meta_iters = max(1, min(self.iterations_per_batch, 500))
-		for _ in range(min(self.warmup_iterations, 10)):
-			plan_cand.evaluate(prep_plan_meta, user_doc)
-			ast_cand.evaluate(prep_ast_meta, user_doc)
+					warm_prepared, warm_us, error = prepare_candidate(
+						candidate, meta_payload, metadata_context
+					)
+					warm_get_meta_calls = get_meta_spy.call_count - cold_get_meta_calls
+					warm_sql_queries = sql_spy.call_count - cold_sql_queries
+					if error:
+						meta_failure = f"{label}: warm metadata preparation {error}"
+						break
 
-		plan_meta_eval_ns = []
-		ast_meta_eval_ns = []
-		for _ in range(max(1, self.num_batches)):
-			t0 = time.perf_counter_ns()
-			for _ in range(meta_iters):
-				plan_cand.evaluate(prep_plan_meta, user_doc)
-			plan_meta_eval_ns.append((time.perf_counter_ns() - t0) / meta_iters)
+			meta_prepared[label] = warm_prepared
+			meta_preparation[label] = {
+				"cold_prep_us": round(cold_us, 2),
+				"warm_prep_us": round(warm_us, 2),
+				"cold_get_meta_calls": cold_get_meta_calls,
+				"warm_get_meta_calls": warm_get_meta_calls,
+				"cold_sql_queries": cold_sql_queries,
+				"warm_sql_queries": warm_sql_queries,
+			}
 
-			t0 = time.perf_counter_ns()
-			for _ in range(meta_iters):
-				ast_cand.evaluate(prep_ast_meta, user_doc)
-			ast_meta_eval_ns.append((time.perf_counter_ns() - t0) / meta_iters)
+		meta_eval_samples: dict[str, list[float]] = {
+			label: [] for label in candidate_labels
+		}
+		if not meta_failure:
+			meta_warmup_count = min(max(0, self.warmup_iterations), 10)
+			for label in candidate_labels:
+				for _ in range(meta_warmup_count):
+					_, error = evaluate_checked(
+						candidates[label], meta_prepared[label], meta_document, True
+					)
+					if error:
+						meta_failure = f"{label}: metadata scenario warm-up {error}"
+						break
+				if meta_failure:
+					break
+
+		if not meta_failure:
+			meta_iterations = max(1, min(self.iterations_per_batch, 500))
+			for sample_index in range(num_samples):
+				order = (
+					candidate_labels
+					if sample_index % 2 == 0
+					else tuple(reversed(candidate_labels))
+				)
+				timings: dict[str, float] = {}
+				for label in order:
+					start_ns = time.perf_counter_ns()
+					for _ in range(meta_iterations):
+						_, error = evaluate_checked(
+							candidates[label], meta_prepared[label], meta_document, True
+						)
+						if error:
+							meta_failure = f"{label}: timed metadata evaluation {error}"
+							break
+					elapsed_us = (time.perf_counter_ns() - start_ns) / 1000.0
+					if meta_failure:
+						break
+					timings[label] = elapsed_us / meta_iterations
+				if meta_failure:
+					break
+				for label in candidate_labels:
+					meta_eval_samples[label].append(timings[label])
 
 		comparison_results["metadata_scenario"] = {
-			"scenario": "User -> Has Role (parent field roles, child field role)",
-			"plan_prep_us": round(plan_meta_prep_us, 2),
-			"ast_prep_us": round(ast_meta_prep_us, 2),
-			"plan_eval_median_us": round(statistics.median(plan_meta_eval_ns) / 1000.0, 3),
-			"ast_eval_median_us": round(statistics.median(ast_meta_eval_ns) / 1000.0, 3),
+			"scenario": "User.roles -> Has Role.role (real Frappe parent/child metadata)",
+			"doctype": "User",
+			"child_doctype": "Has Role",
+			"scope_doctypes": metadata_context["scope_doctypes"],
+			"is_valid_measurement": meta_failure is None,
+			"reason": meta_failure,
+			"preparation": meta_preparation,
+			"evaluation_distributions": {
+				label: summarize(meta_eval_samples[label]) for label in candidate_labels
+			},
+			"metadata_access_instrumentation": (
+				"frappe.get_meta call counts and frappe.db.sql query counts, measured separately for cold and warm preparation"
+			),
 		}
 
-		# Amortized comparison across N = 1, 10, 100, 1000 evaluations
-		# Complex nested tree workload
-		p_prep_cold = comparison_results["workloads"]["complex_nested_tree"]["plan_cold_prep_us"]
-		p_prep_warm = comparison_results["workloads"]["complex_nested_tree"]["plan_warm_prep_us"]
-		p_eval = comparison_results["workloads"]["complex_nested_tree"]["plan_eval_median_us"]
-
-		a_prep_cold = comparison_results["workloads"]["complex_nested_tree"]["ast_cold_prep_us"]
-		a_prep_warm = comparison_results["workloads"]["complex_nested_tree"]["ast_warm_prep_us"]
-		a_eval = comparison_results["workloads"]["complex_nested_tree"]["ast_eval_median_us"]
-
-		amortized_table = {}
-		for n in [1, 10, 100, 1000]:
-			plan_cost_cold = (p_prep_cold + (n * p_eval)) / n
-			ast_cost_cold = (a_prep_cold + (n * a_eval)) / n
-			plan_cost_warm = (p_prep_warm + (n * p_eval)) / n
-			ast_cost_warm = (a_prep_warm + (n * a_eval)) / n
-			amortized_table[f"N={n}"] = {
-				"n": n,
-				"plan_cold_per_eval_us": round(plan_cost_cold, 2),
-				"ast_cold_per_eval_us": round(ast_cost_cold, 2),
-				"plan_warm_per_eval_us": round(plan_cost_warm, 2),
-				"ast_warm_per_eval_us": round(ast_cost_warm, 2),
-				"faster_candidate_cold": "AST" if ast_cost_cold < plan_cost_cold else "Compiled Plan",
-				"faster_candidate_warm": "AST" if ast_cost_warm < plan_cost_warm else "Compiled Plan",
+		# Amortized figures are estimates based on repeated preparation and paired
+		# steady-state medians; they are not treated as end-to-end production results.
+		complex_metrics = comparison_results["workloads"].get("complex_nested_tree")
+		if complex_metrics and complex_metrics.get("is_valid_measurement"):
+			p_prep_cold = complex_metrics["plan_cold_prep_us"]
+			p_prep_warm = complex_metrics["plan_warm_prep_us"]
+			p_eval = complex_metrics["plan_eval_median_us"]
+			a_prep_cold = complex_metrics["ast_cold_prep_us"]
+			a_prep_warm = complex_metrics["ast_warm_prep_us"]
+			a_eval = complex_metrics["ast_eval_median_us"]
+			for reuse_count in (1, 10, 100, 1000):
+				plan_cost_cold = (p_prep_cold / reuse_count) + p_eval
+				ast_cost_cold = (a_prep_cold / reuse_count) + a_eval
+				plan_cost_warm = (p_prep_warm / reuse_count) + p_eval
+				ast_cost_warm = (a_prep_warm / reuse_count) + a_eval
+				comparison_results["amortized"][f"N={reuse_count}"] = {
+					"n": reuse_count,
+					"method": "estimate_from_repeated_medians",
+					"plan_cold_per_eval_us": round(plan_cost_cold, 2),
+					"ast_cold_per_eval_us": round(ast_cost_cold, 2),
+					"plan_warm_per_eval_us": round(plan_cost_warm, 2),
+					"ast_warm_per_eval_us": round(ast_cost_warm, 2),
+					"faster_candidate_cold": "AST"
+					if ast_cost_cold < plan_cost_cold
+					else "Compiled Plan",
+					"faster_candidate_warm": "AST"
+					if ast_cost_warm < plan_cost_warm
+					else "Compiled Plan",
+				}
+		else:
+			comparison_results["amortized"] = {
+				"status": "Not measured",
+				"reason": "complex_nested_tree did not produce a valid paired measurement",
 			}
-		comparison_results["amortized"] = amortized_table
 
-		# Approximate retained preparation allocation. Run outside latency measurements;
-		# this is diagnostic evidence, not a production memory guarantee.
-		memory_scenario = workloads["complex_nested_tree"]
-		memory_payload = memory_scenario["payload"]
+		# Allocation diagnostics are deliberately isolated from latency samples.
+		memory_workload = workloads.get("complex_nested_tree")
 		memory_results: dict[str, Any] = {}
-		for label, candidate in [("compiled_plan", plan_cand), ("direct_ast", ast_cand)]:
-			tracemalloc.start()
-			try:
-				before_current, _ = tracemalloc.get_traced_memory()
-				prepared_memory = candidate.prepare(memory_payload)
-				current_bytes, peak_bytes = tracemalloc.get_traced_memory()
-				if prepared_memory.error:
-					memory_results[label] = {"error": prepared_memory.error}
-				else:
+		if memory_workload:
+			memory_payload = memory_workload["payload"]
+			for label, candidate in candidates.items():
+				if not _clear_cache_safely():
 					memory_results[label] = {
-						"retained_allocation_bytes": max(0, current_bytes - before_current),
-						"peak_allocation_bytes": max(0, peak_bytes - before_current),
+						"error": "Cache isolation could not be established before allocation diagnostic."
 					}
-			finally:
-				tracemalloc.stop()
+					continue
+				tracemalloc.start()
+				try:
+					before_current, _ = tracemalloc.get_traced_memory()
+					prepared_memory, _, error = prepare_candidate(candidate, memory_payload)
+					current_bytes, peak_bytes = tracemalloc.get_traced_memory()
+					if error:
+						memory_results[label] = {"error": error}
+					else:
+						memory_results[label] = {
+							"retained_allocation_bytes": max(0, current_bytes - before_current),
+							"peak_allocation_bytes": max(0, peak_bytes - before_current),
+						}
+				finally:
+					tracemalloc.stop()
 		comparison_results["memory_profiling"] = {
 			"sample_scenario": "complex_nested_tree",
 			"note": "Single-run tracemalloc diagnostic; allocation figures are approximate and not production memory guarantees.",
