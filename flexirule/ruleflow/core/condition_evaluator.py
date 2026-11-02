@@ -66,16 +66,17 @@ _PREPARED_CONDITION_ARTIFACTS: WeakValueDictionary[int, _PreparedCanonicalCondit
 class _EvaluationContext(dict):
 	"""Dict-compatible user context with private, non-enumerable evaluation state."""
 
-	__slots__ = ("collection_row_budget",)
+	__slots__ = ("collection_row_budget", "scope_doctypes")
 
-	def __init__(self, source=None, budget=None):
+	def __init__(self, source=None, budget=None, scope_doctypes=None):
 		super().__init__(source or {})
 		self.collection_row_budget = budget if budget is not None else {"collection_row_visits": 0}
+		self.scope_doctypes = dict(scope_doctypes or {})
 
 
 def _child_context(context: dict | _EvaluationContext) -> _EvaluationContext:
 	if isinstance(context, _EvaluationContext):
-		return _EvaluationContext(context, context.collection_row_budget)
+		return _EvaluationContext(context, context.collection_row_budget, context.scope_doctypes)
 	return _EvaluationContext(context)
 
 
@@ -367,10 +368,12 @@ def _evaluate_plan(
 	*,
 	doctype: str | None = None,
 	_evaluation_budget: dict[str, int] | None = None,
+	scope_doctypes: dict[str, str | None] | None = None,
 ) -> bool:
 	ctx = _EvaluationContext(
 		context or {},
 		_evaluation_budget if isinstance(_evaluation_budget, dict) else None,
+		scope_doctypes,
 	)
 	if doctype:
 		ctx["doctype"] = doctype
@@ -402,6 +405,7 @@ def evaluate_condition(
 		context,
 		doctype=effective_doctype,
 		_evaluation_budget=_evaluation_budget,
+		scope_doctypes=scope_doctypes,
 	)
 
 
@@ -475,6 +479,7 @@ def evaluate_prepared_condition(
 		context,
 		doctype=effective_doctype,
 		_evaluation_budget=_evaluation_budget,
+		scope_doctypes=dict(prepared.scope_doctypes or ()),
 	)
 
 
@@ -657,7 +662,13 @@ def _fieldtype_for_context(scope: str, segments: tuple[str, ...], context: dict)
 	from flexirule.ruleflow.core.condition_contract import resolve_fieldtype_for_path
 
 	root = context.get(scope)
-	doctype = getattr(root, "doctype", None)
+	root_doctype = getattr(root, "doctype", None)
+	scope_doctype = context.scope_doctypes.get(scope) if isinstance(context, _EvaluationContext) else None
+	if root_doctype and scope_doctype and root_doctype != scope_doctype:
+		raise ConditionEvaluationError(
+			"condition_doctype_mismatch", path, "Execution scope DocType disagrees with validated metadata"
+		)
+	doctype = root_doctype or scope_doctype
 	if scope in {"doc", "old_doc"}:
 		doctype = doctype or context.get("doctype")
 	try:
