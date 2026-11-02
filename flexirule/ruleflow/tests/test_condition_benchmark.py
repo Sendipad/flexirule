@@ -191,9 +191,7 @@ class TestConditionBenchmark(FrappeTestCase):
 				with self.assertRaisesRegex(RuntimeError, "benchmark failed"):
 					benchmark_runner.run_main()
 
-			init.assert_called_once_with(
-				site="benchmark.test", sites_path=os.path.join(bench_root, "sites")
-			)
+			init.assert_called_once_with(site="benchmark.test", sites_path=os.path.join(bench_root, "sites"))
 			connect.assert_called_once_with()
 			destroy.assert_called_once_with()
 			runner.run_full_suite_and_export.assert_called_once_with(
