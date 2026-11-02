@@ -1542,9 +1542,14 @@ def run_main():
 				bench_root = candidate
 				break
 	sites_path = os.path.join(bench_root, "sites") if bench_root else sites_path
-	if bench_root:
-		os.makedirs(os.path.join(bench_root, "logs"), exist_ok=True)
 	frappe.init(site=site_name, sites_path=sites_path)
+	working_directory = os.getcwd()
+	bench_log_dir = os.path.abspath(os.path.join(working_directory, "..", "logs"))
+	os.makedirs(bench_log_dir, exist_ok=True)
+	active_site = getattr(frappe.local, "site", None)
+	if active_site:
+		site_log_dir = os.path.abspath(os.path.join(working_directory, active_site, "logs"))
+		os.makedirs(site_log_dir, exist_ok=True)
 	frappe.connect()
 	try:
 		iters = int(os.environ.get("BENCHMARK_ITERATIONS_PER_BATCH", "1000"))
