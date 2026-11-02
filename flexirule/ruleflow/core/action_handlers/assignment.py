@@ -271,9 +271,7 @@ class AssignmentHandler(ActionHandler):
 
 	@staticmethod
 	@lru_cache(maxsize=256)
-	def _get_compiled_plan_cached(
-		config_key: str, doctype: str | None = None
-	) -> tuple[dict[str, Any], ...]:
+	def _get_compiled_plan_cached(config_key: str, doctype: str | None = None) -> tuple[dict[str, Any], ...]:
 		return AssignmentHandler._compile_plan(config_key, doctype=doctype)
 
 	@staticmethod
