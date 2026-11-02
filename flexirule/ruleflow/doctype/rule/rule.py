@@ -1490,9 +1490,9 @@ class Rule(Document):
 			)
 		except ConditionError as exc:
 			frappe.throw(
-				_(
-					"Action '{0}': Invalid Assignment guard [{1} at {2}]: {3}"
-				).format(action.action_label, exc.code, exc.path, exc.message)
+				_("Action '{0}': Invalid Assignment guard [{1} at {2}]: {3}").format(
+					action.action_label, exc.code, exc.path, exc.message
+				)
 			)
 
 		# Validate fields
