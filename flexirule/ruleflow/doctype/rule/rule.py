@@ -1460,6 +1460,12 @@ class Rule(Document):
 		"""Validate Assignment action configuration."""
 		config_str = action.get("config") if hasattr(action, "get") else getattr(action, "config", "[]")
 		if not config_str:
+			if self.is_active:
+				frappe.throw(
+					_("Action '{0}': Active Assignment actions require configuration").format(
+						action.action_label
+					)
+				)
 			return
 
 		try:
