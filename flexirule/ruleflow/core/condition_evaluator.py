@@ -681,7 +681,17 @@ def _resolve_collection_child_doctype(
 		return None
 
 	root = context.get(source_scope)
-	parent_doctype = getattr(root, "doctype", None) or context.scope_doctypes.get(source_scope)
+	root_doctype = getattr(root, "doctype", None)
+	if not root_doctype and isinstance(root, dict):
+		root_doctype = root.get("doctype")
+	scope_doctype = context.scope_doctypes.get(source_scope)
+	if root_doctype and scope_doctype and root_doctype != scope_doctype:
+		raise ConditionEvaluationError(
+			"condition_doctype_mismatch",
+			path,
+			"Collection row DocType disagrees with validated metadata",
+		)
+	parent_doctype = root_doctype or scope_doctype
 	if source_scope in {"doc", "old_doc"}:
 		parent_doctype = parent_doctype or context.get("doctype")
 	if not parent_doctype:
@@ -726,6 +736,8 @@ def _fieldtype_for_context(
 
 	root = context.get(scope)
 	root_doctype = getattr(root, "doctype", None)
+	if not root_doctype and isinstance(root, dict):
+		root_doctype = root.get("doctype")
 	scope_doctype = context.scope_doctypes.get(scope) if isinstance(context, _EvaluationContext) else None
 	if root_doctype and scope_doctype and root_doctype != scope_doctype:
 		raise ConditionEvaluationError(
