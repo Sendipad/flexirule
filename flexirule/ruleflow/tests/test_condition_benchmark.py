@@ -159,35 +159,46 @@ class TestConditionBenchmark(FrappeTestCase):
 		self.assertNotEqual(branch, "")
 		self.assertNotEqual(commit, "")
 
-	def test_run_main_connects_and_always_destroys_frappe_site(self):
+	def test_run_main_prepares_log_directory_and_always_destroys_frappe_site(self):
 		from unittest.mock import Mock, patch
 
 		from flexirule.ruleflow.tests.condition_benchmark import benchmark_runner
 
-		runner = Mock()
-		runner.run_full_suite_and_export.side_effect = RuntimeError("benchmark failed")
-		with (
-			patch.dict(
-				os.environ,
-				{
-					"FRAPPE_BENCH_PATH": "/tmp/flexirule-benchmark-test",
-					"FRAPPE_SITE_NAME": "benchmark.test",
-					"CONDITION_BENCHMARK_JSON_PATH": "/tmp/benchmark.json",
-					"CONDITION_BENCHMARK_MARKDOWN_PATH": "/tmp/benchmark.md",
-				},
-			),
-			patch.object(benchmark_runner.frappe, "init") as init,
-			patch.object(benchmark_runner.frappe, "connect") as connect,
-			patch.object(benchmark_runner.frappe, "destroy") as destroy,
-			patch.object(benchmark_runner, "BenchmarkRunner", return_value=runner),
-		):
-			with self.assertRaisesRegex(RuntimeError, "benchmark failed"):
-				benchmark_runner.run_main()
+		with tempfile.TemporaryDirectory() as bench_root:
+			runner = Mock()
+			runner.run_full_suite_and_export.side_effect = RuntimeError("benchmark failed")
 
-		init.assert_called_once_with(site="benchmark.test", sites_path="/tmp/flexirule-benchmark-test/sites")
-		connect.assert_called_once_with()
-		destroy.assert_called_once_with()
-		runner.run_full_suite_and_export.assert_called_once_with("/tmp/benchmark.json", "/tmp/benchmark.md")
+			def assert_logs_directory_exists():
+				self.assertTrue(os.path.isdir(os.path.join(bench_root, "logs")))
+
+			with (
+				patch.dict(
+					os.environ,
+					{
+						"FRAPPE_BENCH_PATH": bench_root,
+						"FRAPPE_SITE_NAME": "benchmark.test",
+						"CONDITION_BENCHMARK_JSON_PATH": "/tmp/benchmark.json",
+						"CONDITION_BENCHMARK_MARKDOWN_PATH": "/tmp/benchmark.md",
+					},
+				),
+				patch.object(benchmark_runner.frappe, "init") as init,
+				patch.object(
+					benchmark_runner.frappe, "connect", side_effect=assert_logs_directory_exists
+				) as connect,
+				patch.object(benchmark_runner.frappe, "destroy") as destroy,
+				patch.object(benchmark_runner, "BenchmarkRunner", return_value=runner),
+			):
+				with self.assertRaisesRegex(RuntimeError, "benchmark failed"):
+					benchmark_runner.run_main()
+
+			init.assert_called_once_with(
+				site="benchmark.test", sites_path=os.path.join(bench_root, "sites")
+			)
+			connect.assert_called_once_with()
+			destroy.assert_called_once_with()
+			runner.run_full_suite_and_export.assert_called_once_with(
+				"/tmp/benchmark.json", "/tmp/benchmark.md"
+			)
 
 	def test_cold_vs_warm_cache_isolation(self):
 		runner = BenchmarkRunner(iterations_per_batch=10, num_batches=1, warmup_iterations=1)
