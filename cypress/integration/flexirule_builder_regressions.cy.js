@@ -240,10 +240,9 @@ describe("FlexiRule builder regression coverage", () => {
 		cy.contains(".vue-flow__node", bodyLabel, { timeout: 15000 }).should("be.visible");
 		configureAssignmentForLoopBody(bodyLabel);
 
-		cy.intercept(
-			"POST",
-			"**/api/method/flexirule.ruleflow.api.validate_rule_document"
-		).as("validateRule");
+		cy.intercept("POST", "**/api/method/flexirule.ruleflow.api.validate_rule_document").as(
+			"validateRule"
+		);
 		cy.intercept("POST", "**/api/method/frappe.client.save").as("saveRule");
 		cy.contains("button", "Save Rule", { timeout: 15000 }).click({ force: true });
 		cy.wait("@validateRule").then(({ request }) => {
