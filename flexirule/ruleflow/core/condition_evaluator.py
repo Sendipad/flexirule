@@ -606,7 +606,7 @@ def _evaluate_value(plan: tuple, context: dict) -> Any:
 		value = resolve_variable(scope, segments, context, path)
 		if value is MISSING:
 			return MISSING
-		return _coerce_field_value(value, _fieldtype_for_context(scope, segments, context), path)
+		return _coerce_field_value(value, _fieldtype_for_context(scope, segments, context, path), path)
 	if kind == "template":
 		segments, path = plan[1], plan[2]
 		parts = []
@@ -656,7 +656,9 @@ def _evaluate_value(plan: tuple, context: dict) -> Any:
 	raise ConditionEvaluationError("invalid_flexvalue_plan", "$", "Unknown compiled FlexValue")
 
 
-def _fieldtype_for_context(scope: str, segments: tuple[str, ...], context: dict) -> str | None:
+def _fieldtype_for_context(
+	scope: str, segments: tuple[str, ...], context: dict, path: str = "$"
+) -> str | None:
 	if not segments or (scope not in {"doc", "old_doc", "row"} and scope not in context):
 		return None
 	from flexirule.ruleflow.core.condition_contract import resolve_fieldtype_for_path
