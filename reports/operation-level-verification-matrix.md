@@ -17,9 +17,10 @@
   - **DISABLED**: 2 operations (`Switch`, `Loop` on builder UI gate)
   - **EXPERIMENTAL**: 0 operations
 - **Confirmed P0/P1 Findings**:
-  - **TXN-001 (Severity P1 — High Priority)**: Missing Savepoint Initialization in General `_execute_graph()` Action Execution Causes Uncoordinated Full Transaction Rollback on `on_error == "Rollback"`.
-  - **REL-001 (Severity P1 — High Priority)**: Release Gating Asymmetry Between Frontend Hardcoded Denylist (`variable_validator.js`) and Backend DTO Contract (`contract_utils.py` / `contract_dto.py`).
-  - **QRY-001 (Severity P1 — High Priority)**: Frappe Query Builder Record-Level Permission Enforcement Asymmetry on Frappe v15 / v16 (`can_ignore_permissions` Fail-Closed Behavior).
+  - **PRC-368 (Severity P0 — Release Blocker, Issue #368)**: Make Process filesystem sync deterministic, change-aware, and deletion-safe during bench migration.
+  - **TXN-001 (Severity P1 — High Priority, Issue #359)**: Missing Savepoint Initialization in General `_execute_graph()` Action Execution Causes Uncoordinated Full Transaction Rollback on `on_error == "Rollback"`.
+  - **REL-001 (Severity P1 — High Priority, Issue #360)**: Release Gating Asymmetry Between Frontend Hardcoded Denylist (`variable_validator.js`) and Backend DTO Contract (`contract_utils.py` / `contract_dto.py`).
+  - **QRY-001 (Severity P2 — Medium / Accepted v15 Limitation, Issue #361)**: Frappe Query Builder Record-Level Permission Enforcement Asymmetry on Frappe v15 / v16 (Fail-Closed Behavior).
 - **RC1 Recommendation**: **READY AFTER LISTED BLOCKERS ARE CLOSED**. FlexiRule possesses robust, modern architecture across its core actions, declarative Process V2 contract, and unified ValueResolver. However, before declaring RC1, the savepoint lifecycle in `engine.py` must be normalized, the release-gating contract between frontend and backend DTOs unified, and the Frappe v15 permission bypass explicitly documented.
 
 ---
@@ -377,7 +378,7 @@ The following authoritative inventory was discovered directly from repository so
 
 ### Finding QRY-001
 - **Affected Operation**: `Query Records` (`Fetch Records`)
-- **Severity**: P1 (High Priority)
+- **Severity**: P2 (Medium Priority / Accepted v15 Limitation — Tracked under Issue #361)
 - **Source Location**: `flexirule/ruleflow/utils/frappe_query_compat.py` (lines 200–220), `flexirule/ruleflow/core/action_handlers/query_records.py` (lines 525–540)
 - **Evidence**:
   Frappe v15's Query Builder engine (`frappe.qb.get_query`) does not support native `ignore_permissions` parameter checking. In `frappe_query_compat.py`:
@@ -396,6 +397,16 @@ The following authoritative inventory was discovered directly from repository so
 - **RC1 Disposition**: **Documented Limitation for RC1**.
 
 ---
+
+
+### Finding PRC-368 (Tracked in Issue #368)
+- **Affected Operation**: Process Filesystem Synchronization (WARN: Command not being executed in bench directory / )
+- **Severity**: P0 (Release Blocker — Tracked in Issue #368)
+- **Source Location**:
+- **Evidence**: As identified in Issue #368,  scans Process JSON definitions across apps. It currently lacks deterministic file-change awareness (rewriting unchanged definitions on repeated bench migrate) and orphan deletion safety for removed standard operations/files while preserving custom non-standard Processes.
+- **User / Business Impact**: Repeated bench migrate can rewrite unmodified records or leave orphaned standard process operations.
+- **Recommended Correction**: Implement Frappe-aligned file-backed synchronization model: hash/change-aware reconciliation, child operation diffing, and standard-only orphan pruning.
+- **RC1 Disposition**: **Must be resolved before RC1 (P0 Prerequisite)**.
 
 ## Section G — Accepted Limitations and Deferrals
 
