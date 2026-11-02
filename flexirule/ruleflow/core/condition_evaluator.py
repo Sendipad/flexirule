@@ -13,6 +13,8 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+
+import frappe
 from dataclasses import dataclass
 from datetime import date, datetime, time
 from decimal import Decimal, InvalidOperation
@@ -572,7 +574,9 @@ def _evaluate_node(plan: tuple, context: dict | _EvaluationContext) -> bool:
 				f"{path}.source",
 				"Collection source exceeds the configured row limit",
 			)
-		child_doctype = _resolve_collection_child_doctype(source_scope, source_segments, context, f"{path}.source")
+		child_doctype = _resolve_collection_child_doctype(
+			source_scope, source_segments, context, f"{path}.source"
+		)
 
 		def _make_row_context(row):
 			row_context = _child_context(context)
@@ -690,7 +694,9 @@ def _resolve_collection_child_doctype(
 			field = meta.get_field(segment)
 			if not field:
 				raise ConditionValidationError(
-					"unknown_field", path, f"Collection source field '{segment}' is not present on '{parent_doctype}'"
+					"unknown_field",
+					path,
+					f"Collection source field '{segment}' is not present on '{parent_doctype}'",
 				)
 			if index < len(source_segments) - 1:
 				if field.fieldtype not in {"Table", "Table MultiSelect"} or not field.options:
@@ -709,7 +715,6 @@ def _resolve_collection_child_doctype(
 		raise ConditionEvaluationError(
 			"unknown_doctype", path, "Could not resolve metadata for nested collection source"
 		) from exc
-
 
 
 def _fieldtype_for_context(
