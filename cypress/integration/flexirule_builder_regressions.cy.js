@@ -259,9 +259,10 @@ describe("FlexiRule builder regression coverage", () => {
 			const rows = actionConfig(assignmentAction);
 			expect(rows, "nested body Assignment rows").to.be.an("array").and.not.empty;
 			["pythonExpression", "when_expression", "when"].forEach((key) => {
-				expect(rows[0], `canonical Assignment omits legacy guard field ${key}`).not.to.have.property(
-					key
-				);
+				expect(
+					rows[0],
+					`canonical Assignment omits legacy guard field ${key}`
+				).not.to.have.property(key);
 			});
 		});
 		cy.wait("@saveRule");
