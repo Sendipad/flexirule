@@ -52,6 +52,7 @@ def _get_git_metadata() -> dict[str, Any]:
 	branch = "Unavailable"
 	commit = "Unavailable"
 	is_dirty = True
+	working_tree_changes: list[str] = []
 	provenance_note = "Git provenance could not be fully verified."
 
 	try:
@@ -88,7 +89,8 @@ def _get_git_metadata() -> dict[str, Any]:
 			stderr=subprocess.DEVNULL,
 			text=True,
 		).strip()
-		is_dirty = bool(status_out)
+		working_tree_changes = [line[3:] for line in status_out.splitlines() if len(line) > 3]
+		is_dirty = bool(working_tree_changes)
 		if is_dirty:
 			provenance_note = (
 				"Working tree contains uncommitted changes; benchmark provenance captures "
@@ -111,6 +113,7 @@ def _get_git_metadata() -> dict[str, Any]:
 		"branch": branch,
 		"commit": commit,
 		"is_dirty": is_dirty,
+		"working_tree_changes": working_tree_changes,
 		"provenance_note": provenance_note,
 	}
 
@@ -1129,6 +1132,7 @@ class BenchmarkRunner:
 			"benchmark_source_commit": git_meta["commit"],
 			"benchmark_pr_head_commit": os.environ.get("CONDITION_BENCHMARK_PR_HEAD_SHA") or None,
 			"is_working_tree_dirty": git_meta["is_dirty"],
+			"working_tree_changes": git_meta["working_tree_changes"],
 			"provenance_note": git_meta["provenance_note"],
 		}
 
@@ -1182,6 +1186,8 @@ class BenchmarkRunner:
 			md_lines.append(f"**PR Head Commit:** `{env['benchmark_pr_head_commit']}`")
 		md_lines.append(f"**Working Tree Dirty:** `{'Yes' if env.get('is_working_tree_dirty') else 'No'}`")
 		md_lines.append(f"**Provenance Note:** {env.get('provenance_note', 'N/A')}")
+		for changed_path in env.get("working_tree_changes", []):
+			md_lines.append(f"- **Working tree path:** `{changed_path}`")
 		md_lines.append(f"**Python:** {env.get('python_version', 'N/A')}")
 		md_lines.append(f"**Frappe Framework:** {env.get('frappe_version', 'N/A')}")
 		md_lines.append("")
@@ -1537,31 +1543,34 @@ def run_main():
 				break
 	sites_path = os.path.join(bench_root, "sites") if bench_root else sites_path
 	frappe.init(site=site_name, sites_path=sites_path)
+	frappe.connect()
+	try:
+		iters = int(os.environ.get("BENCHMARK_ITERATIONS_PER_BATCH", "1000"))
+		batches = int(os.environ.get("BENCHMARK_NUM_BATCHES", "3"))
+		warmup = int(os.environ.get("BENCHMARK_WARMUP_ITERATIONS", "20"))
 
-	iters = int(os.environ.get("BENCHMARK_ITERATIONS_PER_BATCH", "1000"))
-	batches = int(os.environ.get("BENCHMARK_NUM_BATCHES", "3"))
-	warmup = int(os.environ.get("BENCHMARK_WARMUP_ITERATIONS", "20"))
-
-	runner = BenchmarkRunner(
-		iterations_per_batch=iters,
-		num_batches=batches,
-		warmup_iterations=warmup,
-	)
-	repo_root = Path(__file__).resolve().parents[4]
-	output_file = os.path.abspath(
-		os.environ.get(
-			"CONDITION_BENCHMARK_JSON_PATH",
-			os.path.join(repo_root, "reports", "canonical_condition_benchmark_results.json"),
+		runner = BenchmarkRunner(
+			iterations_per_batch=iters,
+			num_batches=batches,
+			warmup_iterations=warmup,
 		)
-	)
-	md_file = os.path.abspath(
-		os.environ.get(
-			"CONDITION_BENCHMARK_MARKDOWN_PATH",
-			os.path.join(repo_root, "reports", "condition-backend-comparison-benchmark.md"),
+		repo_root = Path(__file__).resolve().parents[4]
+		output_file = os.path.abspath(
+			os.environ.get(
+				"CONDITION_BENCHMARK_JSON_PATH",
+				os.path.join(repo_root, "reports", "canonical_condition_benchmark_results.json"),
+			)
 		)
-	)
-	runner.run_full_suite_and_export(output_file, md_file)
-	print(f"Condition benchmark complete. JSON saved to {output_file}, Markdown saved to {md_file}")
+		md_file = os.path.abspath(
+			os.environ.get(
+				"CONDITION_BENCHMARK_MARKDOWN_PATH",
+				os.path.join(repo_root, "reports", "condition-backend-comparison-benchmark.md"),
+			)
+		)
+		runner.run_full_suite_and_export(output_file, md_file)
+		print(f"Condition benchmark complete. JSON saved to {output_file}, Markdown saved to {md_file}")
+	finally:
+		frappe.destroy()
 
 
 if __name__ == "__main__":
