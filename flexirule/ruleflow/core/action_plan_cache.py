@@ -134,7 +134,7 @@ def _compile_assignment_action(action, doctype: str | None = None) -> dict[str, 
 			"assignment_config_required", "$", "Assignment actions require a JSON array config"
 		)
 	config_key = AssignmentHandler()._to_config_cache_key(config)
-	compiled_rows = AssignmentHandler._get_compiled_plan(config_key)
+	compiled_rows = AssignmentHandler._get_compiled_plan(config_key, doctype=doctype)
 
 	# If doctype is known at compilation time, pre-validate canonical guards against authoritative metadata
 	if doctype:
