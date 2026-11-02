@@ -269,15 +269,15 @@ class TestCanonicalConditionEvaluator(unittest.TestCase):
 		inner = {
 			"type": "collection_predicate",
 			"quantifier": "any",
-			"source": {"scope": "item", "segments": ["charges"]},
-			"as": "charge",
-			"where": compare("gt", variable("charge", "amount"), static("integer", 1)),
+			"source": {"scope": "entry", "segments": ["charges"]},
+			"as": "charge_row",
+			"where": compare("gt", variable("charge_row", "amount"), static("integer", 1)),
 		}
 		node = {
 			"type": "collection_predicate",
 			"quantifier": "any",
 			"source": {"scope": "doc", "segments": ["items"]},
-			"as": "item",
+			"as": "entry",
 			"where": inner,
 		}
 		context = {
@@ -306,13 +306,13 @@ class TestCanonicalConditionEvaluator(unittest.TestCase):
 			"type": "collection_predicate",
 			"quantifier": "any",
 			"source": {"scope": "doc", "segments": ["items"]},
-			"as": "item",
+			"as": "entry",
 			"where": {
 				"type": "collection_predicate",
 				"quantifier": "any",
-				"source": {"scope": "item", "segments": ["charges"]},
-				"as": "charge",
-				"where": compare("gt", variable("charge", "amount"), static("integer", 1)),
+				"source": {"scope": "entry", "segments": ["charges"]},
+				"as": "charge_row",
+				"where": compare("gt", variable("charge_row", "amount"), static("integer", 1)),
 			},
 		}
 		context = {
