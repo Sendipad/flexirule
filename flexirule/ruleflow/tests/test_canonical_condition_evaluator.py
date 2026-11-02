@@ -289,6 +289,45 @@ class TestCanonicalConditionEvaluator(unittest.TestCase):
 		with patch("frappe.get_meta", side_effect=fake_get_meta):
 			self.assertTrue(evaluate_condition(node, context))
 
+	def test_nested_collection_rejects_mapping_row_with_mismatched_doctype(self):
+		def fields(mapping):
+			return SimpleNamespace(get_field=lambda fieldname: mapping.get(fieldname))
+
+		def fake_get_meta(doctype):
+			if doctype == "Test Parent":
+				return fields({"items": SimpleNamespace(fieldtype="Table", options="Test Item")})
+			if doctype == "Test Item":
+				return fields({"charges": SimpleNamespace(fieldtype="Table", options="Test Charge")})
+			if doctype == "Test Charge":
+				return fields({"amount": SimpleNamespace(fieldtype="Float")})
+			raise ValueError(f"Unknown DocType {doctype}")
+
+		node = {
+			"type": "collection_predicate",
+			"quantifier": "any",
+			"source": {"scope": "doc", "segments": ["items"]},
+			"as": "item",
+			"where": {
+				"type": "collection_predicate",
+				"quantifier": "any",
+				"source": {"scope": "item", "segments": ["charges"]},
+				"as": "charge",
+				"where": compare("gt", variable("charge", "amount"), static("integer", 1)),
+			},
+		}
+		context = {
+			"doc": {
+				"doctype": "Test Parent",
+				"items": [
+					{"doctype": "Wrong Item", "charges": [{"amount": "2.5"}]},
+				],
+			}
+		}
+		with patch("frappe.get_meta", side_effect=fake_get_meta):
+			with self.assertRaises(ConditionEvaluationError) as raised:
+				evaluate_condition(node, context)
+		self.assertEqual(raised.exception.code, "condition_doctype_mismatch")
+
 	def test_collection_resolver_applies_canonical_predicate_for_count_any_all(self):
 		from types import SimpleNamespace
 		from unittest.mock import patch
