@@ -7,12 +7,42 @@ import json
 import unittest
 from types import SimpleNamespace
 
+import frappe
+
 from flexirule.ruleflow.core.action_handlers.assignment import AssignmentHandler
 from flexirule.ruleflow.core.condition_errors import ConditionValidationError
 from flexirule.ruleflow.core.engine import RuleEngine
 
 
 class TestAssignmentConditionGuards(unittest.TestCase):
+	def test_invalid_guard_is_rejected_by_rule_save_validation(self):
+		from flexirule.ruleflow.doctype.rule.rule import Rule
+
+		fake_rule = SimpleNamespace(
+			document_type=None,
+			is_active=0,
+			trigger_event="Before Save",
+		)
+		invalid_action = SimpleNamespace(
+			action_label="Guarded Assignment",
+			config=json.dumps(
+				[
+					{
+						"target": "vars.result",
+						"when_condition": {
+							"type": "comparison",
+							"operator": "unknown_operator",
+							"left": {"mode": "static", "value_type": "integer", "value": 1},
+							"right": {"mode": "static", "value_type": "integer", "value": 2},
+						},
+					}
+				]
+			),
+		)
+
+		with self.assertRaises(frappe.ValidationError):
+			Rule._validate_assignment(fake_rule, invalid_action)
+
 	def test_malformed_assignment_json_is_not_treated_as_empty_plan(self):
 		with self.assertRaises(ConditionValidationError) as raised:
 			AssignmentHandler._get_compiled_plan("{not-json")
