@@ -25,7 +25,10 @@ def compile_rule(rule_doc) -> dict[str, Any]:
 		"rule": rule_doc.name,
 		"rule_version": rule_doc.version or 1,
 		"trigger": _compile_trigger(rule_doc),
-		"actions": [_compile_action(action) for action in (rule_doc.actions or [])],
+		"actions": [
+			_compile_action(action, doctype=rule_doc.document_type or None)
+			for action in (rule_doc.actions or [])
+		],
 	}
 	artifact["hash"] = hash_artifact(artifact)
 	artifact["compiled_at"] = str(now_datetime())
@@ -88,7 +91,7 @@ def _compile_trigger(rule_doc) -> dict[str, Any]:
 	}
 
 
-def _compile_action(action) -> dict[str, Any]:
+def _compile_action(action, doctype: str | None = None) -> dict[str, Any]:
 	action_type = normalize_action_type(action.action_type)
 	config = _parse_json_value(action.get("config"))
 	compiled: dict[str, Any] = {
@@ -120,7 +123,7 @@ def _compile_action(action) -> dict[str, Any]:
 		raw_condition = get_condition_payload(action)
 		is_canonical, canonical_node = detect_canonical_condition_payload(raw_condition)
 		if is_canonical:
-			validate_condition_node(canonical_node)
+			validate_condition_node(canonical_node, doctype=doctype)
 			compiled["condition"] = {
 				"mode": "canonical",
 				"node": canonical_node,
@@ -143,7 +146,7 @@ def _compile_action(action) -> dict[str, Any]:
 				"assignment_config_required", "$", "Assignment actions require a JSON array config"
 			)
 		config_key = AssignmentHandler()._to_config_cache_key(raw_config)
-		compiled["assignment_plan"] = list(AssignmentHandler._get_compiled_plan(config_key))
+		compiled["assignment_plan"] = list(AssignmentHandler._get_compiled_plan(config_key, doctype=doctype))
 
 	if action_type == "Notify":
 		compiled["template_spec"] = {
