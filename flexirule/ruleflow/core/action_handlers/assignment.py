@@ -99,12 +99,6 @@ class AssignmentHandler(ActionHandler):
 				raise MethodExecutionError(_("Assignment action config is not valid JSON array"))
 
 		event_name = context.get("event_name")
-		doctype = getattr(getattr(engine, "rule", None), "document_type", None)
-		if not doctype and isinstance(context, dict):
-			doc_obj = context.get("doc")
-			doctype = getattr(doc_obj, "doctype", None) or (
-				doc_obj.get("doctype") if isinstance(doc_obj, dict) else None
-			)
 
 		# ==========================================
 		# Phase A: Preflight Invariant Validation
