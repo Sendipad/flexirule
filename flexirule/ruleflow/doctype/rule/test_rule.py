@@ -457,7 +457,6 @@ class TestRule(FrappeTestCase):
 		assert rule_link_found is not None
 		self.assertEqual(rule_link_found.get("count"), 1)
 
-
 	def test_assignment_lifecycle_draft_vs_active(self):
 		"""Blank Assignment config is allowed in Draft but rejected on activation."""
 		draft_rule = frappe.get_doc(
