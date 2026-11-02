@@ -1145,7 +1145,7 @@ class BenchmarkRunner:
 		}
 
 		full_payload = {
-			"benchmark_protocol_version": 4,
+			"benchmark_protocol_version": 5,
 			"benchmark_target": "Condition Backend Comparison Benchmark",
 			"production_selection_status": "Not established",
 			"production_gate_reason": (
