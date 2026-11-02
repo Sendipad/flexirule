@@ -5,7 +5,8 @@
 - **Audit Date**: 2026-11-01
 - **Repository**: [https://github.com/Sendipad/flexirule](https://github.com/Sendipad/flexirule)
 - **Audited Commit SHA**: `504840d3bf3ec012a2c0ed5c7859bc7a7fd1b3c2`
-- **Target Branch**: `develop`
+- **Audit Target (as recorded by the audit)**: `develop` (the associated PR currently targets `feat/canonical-condition-backend`).
+- **Review Scope Note (2026-11-02)**: The audited SHA is `504840d3bf3ec012a2c0ed5c7859bc7a7fd1b3c2`. The PR base (`8f1b1884a235940d2ef5da625490a9668c27e896`) is 39 commits ahead of that SHA, while the PR head is only one commit ahead of the audited SHA. The report is therefore a historical snapshot, not a complete re-audit of the current PR base. Operation totals and test results below must remain scoped to the audited SHA until re-run against the intended release candidate.
 - **Audit Scope**: Comprehensive source code audit and empirical verification of every supported FlexiRule RuleFlow Action Type and individual operation, covering frontend registration, configuration UI components, backend contracts, schema validation, runtime handlers, authorization boundaries, error and transaction handling, and test coverage.
 - **Discovered Action Types**: 13
 - **Discovered Individual Operations**: 43 (31 core Action Type operations across 13 Action Types + 12 Process operations across 4 Process modules)
@@ -18,7 +19,7 @@
   - **EXPERIMENTAL**: 0 operations
 - **Confirmed P0 Findings**: 0
 - **Confirmed P1 Findings**: 1 (`SWT-001`: Switch Action Contract / Fallback Mismatch & Graph Validation Blindspot)
-- **Confirmed P2 Findings**: 2 (`WIT-001`: Wait Action Worker Thread Blocking via `time.sleep()`, `NOT-001`: Email & Provider External Side-Effects Non-Rollbackable)
+- **P2 Findings Requiring Release Treatment**: 2 (`WIT-001`: Wait blocks the executing worker thread via `time.sleep()`, `NOT-001`: Realtime / provider notifications may escape the database transaction; Email is queued by default in Frappe v15).
 - **RC1 Recommendation**: **READY AFTER LISTED BLOCKERS ARE CLOSED** (Resolve `SWT-001` or officially gate `Switch` action before tagging RC1).
 
 ---
@@ -85,7 +86,7 @@ Discovered strictly from source inspection of `flexirule/ruleflow/core/action_ha
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Entry Action** | Entry Action | PASS | PASS | PASS | PASS | PASS | PASS | **PASS** | — |
 | **Condition** | Condition | PASS | PASS | PASS | PASS | PASS | PASS | **PASS** | — |
-| **Switch** | Switch | PARTIAL | PASS | PARTIAL | PASS | PASS | PARTIAL | **PARTIAL** | `SWT-001` |
+| **Switch** | Switch | PARTIAL | UNVERIFIED | PARTIAL | PASS | PASS | UNVERIFIED | **PARTIAL** | `SWT-001` |
 | **Loop** | Loop | PASS | PASS | PASS | PASS | PASS | PASS | **PASS** | — |
 | **Stop** | Success | PASS | PASS | PASS | PASS | PASS | PASS | **PASS** | — |
 | **Stop** | Error | PASS | PASS | PASS | PASS | PASS | PASS | **PASS** | — |
@@ -150,13 +151,12 @@ Discovered strictly from source inspection of `flexirule/ruleflow/core/action_ha
 - **Tests**: Tested in `test_canonical_condition_evaluator.py` (34 tests), `test_condition_contract.py`, `test_engine_comprehensive.py`. Status: **PASS**.
 
 #### Switch
-- **Contract**: Multi-branch router. ActionContract declares `has_next_true=False`, `has_next_false=True`. Config contains `expression` and `cases` dict mapping value string to target action id.
-- **Execution Path**: `flexirule/ruleflow/core/action_handlers/switch.py` (`SwitchHandler.execute`), evaluates expression via `engine._evaluate_python_value(expression, context)`, then looks up target in `cases[val]` or falls back to `action.next_step_if_true`.
-- **Validation Defect**: `SwitchHandler` uses `action.next_step_if_true` as default fallback, but contract declares `has_next_true=False` and `has_next_false=True`. In addition, `graph_validator.validate_graph_integrity` does not inspect `config.cases` targets when calculating reachability and recursion stacks, potentially triggering false-positive cycle or orphan errors on valid switch flows (Finding `SWT-001`).
-- **Security**: Evaluates expression with `frappe.safe_eval`.
-- **Failure Behavior**: Unhandled expression syntax or runtime errors throw `ValidationError`.
-- **Tests**: Minimal tests in `test_engine_comprehensive.py:test_engine_execute_switch_action` and `test_advanced_rule_flows.py`. Status: **PARTIAL**.
-
+- **Contract**: Multi-branch router. The current `ActionContract` declares `has_next_true=False`, `has_next_false=True`, but runtime routing does not follow a generic false edge. Config contains `expression` and `cases` mapping evaluated values to action IDs.
+- **Execution Path**: `SwitchHandler.execute` evaluates the expression through `engine._evaluate_python_value(...)`, routes a match through `config.cases[val]` / `config.cases[str(val)]`, and uses `action.next_step_if_true` as the fallback when there is no matching case (or when the expression/config is absent). A `cases["default"]` entry is not a special fallback; it is only a case for the literal evaluated value `"default"`.
+- **Validation Defect**: `graph_validator.get_neighbors` sees `next_step_if_true` and, because of the current contract flag, `next_step_if_false`, but does not read `config.cases`. It can therefore treat a non-runtime false pointer as an edge while missing actual case edges for reachability, cycle detection, and reference validation. On the current PR base, `_loop_body_returns_to_loop` has a Switch-specific case-target traversal, but the global `_validate_flow_constraints` outgoing graph and `graph_validator.validate_graph_integrity` still do not model all Switch routes (`SWT-001`).
+- **Security**: The handler delegates expression evaluation to `RuleEngine._evaluate_python_value` (which delegates to the engine's `eval_value` helper); `SwitchHandler` does not call `frappe.safe_eval` directly.
+- **Failure Behavior**: Expression evaluation failures are logged and re-raised. An unmatched value follows `next_step_if_true`; there is no separate implicit `cases["default"]` semantic.
+- **Tests**: `test_engine_comprehensive.py:test_engine_execute_switch_action` is explicitly skipped with `self.skipTest("Switch action is disabled for the v0.1 release surface")`. The Switch fixture in `test_advanced_rule_flows.py` is included for action-type catalog coverage with empty `cases`; that test does not execute Switch routing. Runtime routing and end-to-end graph validation are therefore **UNVERIFIED by the cited tests**. Status: **PARTIAL**.
 #### Loop
 - **Contract**: Iterates over collection. `has_next_true=True` (body path), `has_next_false=True` (after last / complete path). Requires `config` and `return_variable` (item alias).
 - **Execution Path**: `flexirule/ruleflow/core/action_handlers/loop.py` (`LoopHandler.execute`). Maintains iteration state in `context["vars"]["_loops"][action_id]`. Exposes current item under alias and metadata under `context["vars"]["loop"]` (`index`, `first`, `last`, `length`).
@@ -348,17 +348,16 @@ All Process operations are registered under declarative Process Contract V2 (`fl
 
 #### Notify
 - **Contract**: Multi-channel notifications. Requires `value_template` and `operation`. Modes:
-  1. `Toast`: Realtime browser alert (`frappe.msgprint(..., alert=True)`).
+  1. `Toast`: Browser alert (`frappe.msgprint(..., alert=True)`).
   2. `System`: Realtime websocket publish (`frappe.publish_realtime`).
-  3. `Email`: Dispatches email via `frappe.sendmail`. Requires `recipients` and `subject`.
-  4. `System Notification`: Creates persistent `Notification Log` document for target user. Requires `subject`.
-  5. `Provider`: Dispatches to external hook provider (`flexirule_notification_providers`). Requires `provider` and `recipient`.
-- **Execution Path**: `flexirule/ruleflow/core/action_handlers/simple_actions.py` (`NotifyHandler.execute`). Renders message with `SafeFrappeAPI`.
+  3. `Email`: Calls `frappe.sendmail`; requires `recipients` and `subject`.
+  4. `System Notification`: Creates a persistent `Notification Log` document for the target user.
+  5. `Provider`: Calls a hook-registered provider (`flexirule_notification_providers`) synchronously; requires `provider` and `recipient`.
+- **Execution Path**: `NotifyHandler.execute` renders the message and dispatches by mode. In Frappe v15, `frappe.sendmail` defaults to `delayed=True` and creates an Email Queue entry; this handler does not request immediate sending. `frappe.publish_realtime` defaults to `after_commit=False`, and the current handler does not override that default. Provider hooks are invoked synchronously.
 - **Validation**: Enforces required config keys per mode in `validation_service.py` and `NotifyHandler.validate()`.
-- **Security**: Jinja templates evaluated with safe globals. Prevents script injection.
-- **Limitation (Finding `NOT-001`)**: Email and Provider external dispatches cannot be rolled back if subsequent database actions fail.
-- **Tests**: Unit tests in `test_compiled_controls.py` and integration tests in `test_advanced_rule_flows.py`. Status: **PASS**.
-
+- **Security**: Jinja templates are rendered using the handler's restricted template context. Provider behavior depends on the installed hook implementation.
+- **Transaction Behavior (Finding `NOT-001`)**: Email is queued by default rather than sent immediately; its Email Queue record participates in the current database transaction. `System Notification` inserts a database record. By contrast, `System` realtime publication currently occurs before commit unless changed to `after_commit=True`; a provider hook may also perform a non-transactional external side effect. Do not describe all Email / Provider calls as immediate SMTP / HTTP dispatches.
+- **Tests**: Unit tests in `test_compiled_controls.py` and integration tests in `test_advanced_rule_flows.py`. These do not, by themselves, prove rollback behavior for every notification mode. Status: **PARTIAL**.
 ---
 
 ## Section E — Cross-Operation Integration Matrix
@@ -374,7 +373,7 @@ All Process operations are registered under declarative Process Contract V2 (`fl
 | **7** | Isolated Sub-Rule Execution | Parent Rule → Sub-Rule → Return Variable | Sub-rule executes with isolated vars; returns results to parent without contaminating parent context. | Verified: `SubRuleContextVars` enforces copy-on-write namespace isolation. | `test_real_rules.py:test_subrule_isolation_with_return_variable` | None |
 | **8** | Configured Error Policy Handling | Action Failure → On Error (Continue / Retry / Rollback) | Error in non-critical action either continues, retries with backoff, or halts execution. | Verified: `on_error="Continue"` proceeds to `next_step_if_true`; `"Retry"` performs exponential backoff. | `test_real_rules.py:test_rule_05_error_handling_continue` | None |
 | **9** | Document Action Savepoint Rollback | Document Action Failure → Transaction Rollback | Failure during document mutation triggers savepoint rollback, preventing partial DB commits. | Verified: Engine creates action savepoint and rolls back MariaDB state on error. | `test_engine.py:test_engine_process_execution` | None |
-| **10** | External Side-Effect on Downstream Failure | Notify (Email/Provider) → Subsequent Failure | Email is sent via SMTP before subsequent action fails; DB rolls back but email cannot be unsent. | Verified: Database changes revert, but external network dispatch persists. | Hand-traced in `simple_actions.py` | `NOT-001` |
+| **10** | Notification side effect followed by downstream failure | Notify (System realtime / Provider / Email) → Subsequent Failure | Database transaction rolls back. | `System` realtime currently publishes with `after_commit=False`; provider hook runs synchronously and may already have performed an external action. Frappe v15 Email uses `frappe.sendmail(delayed=True)` by default in this handler, so an Email Queue row is created rather than immediate SMTP delivery; a rollback before commit should roll back that row. | Source trace of `NotifyHandler` and Frappe v15 `sendmail` / `publish_realtime` defaults; no dedicated per-mode rollback test cited. | `NOT-001` |
 
 ---
 
@@ -382,7 +381,7 @@ All Process operations are registered under declarative Process Contract V2 (`fl
 
 | Finding ID | Affected Operation | Severity | Evidence & Location | Business / Technical Impact | Recommended Correction | Required Test to Close | RC1 Disposition |
 | :--- | :--- | :---: | :--- | :--- | :--- | :--- | :---: |
-| **SWT-001** | `Switch` Action | **P1** | `flexirule/ruleflow/core/action_handlers/switch.py:27` (`has_next_true=False`, `has_next_false=True`) vs `switch.py:76` (`action.next_step_if_true`). In `flexirule/ruleflow/utils/graph_validator.py:16`, `get_neighbors` only reads `next_step_if_true` and `next_step_if_false`, ignoring `config.cases` targets. | Active rules with Switch nodes can fail graph validation with false-positive orphan or dead-end errors. At runtime, the fallback destination uses `next_step_if_true` while contract specifies `has_next_true=False`. | Align contract to `has_next_true=True` (as default/fallback path); update `graph_validator.py` to inspect `config.cases` targets during cycle and reachability checks. | Integration test verifying an active rule with multi-branch Switch paths passes graph validation and executes fallback correctly. | **Must be resolved or Switch gated before RC1** |
+| **SWT-001** | `Switch` Action | **P1** | `switch.py:27-28` declares `has_next_true=False`, `has_next_false=True`, while `switch.py:72` falls back to `next_step_if_true`. `graph_validator.py:20-27` builds neighbors only from ordinary next-step fields; reference validation at `graph_validator.py:56-60` also omits `config.cases`. The PR-base `validation_service.py` has a special case-target traversal only in `_loop_body_returns_to_loop`; its global `_validate_flow_constraints` adjacency still uses next-step fields only. | Active rules can have valid Switch case targets omitted from reachability, and case-edge cycles or missing targets can escape validation. The generic false pointer may be treated as reachable even though `SwitchHandler` does not execute it. | Define Switch routing as all configured `cases` targets plus the `next_step_if_true` fallback. Apply that same adjacency to missing-reference checks, cycle detection, global reachability, and loop-return analysis. Do not treat `next_step_if_false` as a Switch runtime edge unless handler semantics are changed too. Align the published contract / frontend metadata with the custom case-and-default routing model instead of mechanically flipping a boolean. | Add active-rule integration tests for multiple distinct case targets, default fallback, missing case target rejection, cycle detection through a case edge, and proof that an unused false pointer is not treated as a runtime route. | **Must be resolved or Switch gated before RC1** |
 
 ---
 
@@ -390,14 +389,16 @@ All Process operations are registered under declarative Process Contract V2 (`fl
 
 | Limitation ID | Affected Operation | Current Behavior | Why Acceptable for RC1 | User Impact & Workaround | Documentation Requirement | Follow-up Recommendation |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **WIT-001** | `Wait` Action | Uses synchronous `time.sleep(duration)` in `simple_actions.py:161`. | Acceptable for short delays (1-10 seconds) or scheduler jobs; long delays in web workers are user error. | Users configuring large wait times in synchronous DocType events will block web workers. | Document that `Wait` is synchronous and recommend durations under 10 seconds. | Implement asynchronous delayed execution via Frappe scheduler / Redis background worker in v1.1. |
-| **NOT-001** | `Notify` (Email & Provider) | External network dispatches (SMTP, HTTP webhook) occur immediately during execution. | Standard Frappe framework behavior (external API calls cannot be rolled back by MariaDB). | If a subsequent action fails after an email is sent, the email cannot be revoked. | Add warning in UI builder: "External notifications are immediate and cannot be rolled back." | Place notification actions near the end of flows, or implement two-phase commit queue. |
+| **WIT-001** | `Wait` Action | Uses synchronous `time.sleep(duration)` in `simple_actions.py:153-155`. | This is a known synchronous delay, not a non-blocking wait. Short bounded delays may be tolerable, but the current implementation consumes the executing worker thread. | A long wait blocks a Gunicorn request worker in synchronous DocType events or consumes background-worker capacity when run in a job. Moving the same `sleep` into a background job does not make it non-blocking. | State clearly that Wait blocks the current worker; do not recommend long delays or imply that scheduler jobs avoid worker occupancy. | A future durable wait must persist/resume rule execution state through delayed scheduling rather than sleep inside a worker. |
+| **NOT-001** | `Notify` (System realtime / Provider; not default Email delivery) | `System` calls `frappe.publish_realtime` with default `after_commit=False`; Provider invokes its hook synchronously. Email calls Frappe v15 `frappe.sendmail` with default `delayed=True`, which queues an Email Queue record. | Realtime publication and provider hooks can have effects outside the database transaction. Email is queued by default in this handler and should not be classified as immediate SMTP dispatch without a separate `now` / `delayed=False` path. | Realtime messages cannot be retracted after publication; provider behavior depends on the installed hook and may be non-transactional. An Email Queue row created within the transaction should roll back with it if the rule transaction aborts before commit. | Document the exact behavior per mode. Consider using Frappe's native `frappe.publish_realtime(..., after_commit=True)` for transaction-consistent realtime events; document provider hooks as potentially non-transactional. | Add tests for transactional queue rollback, realtime after-commit behavior, and provider failure/side-effect contracts. |
 | **QRY-001** | `Query Records` (Fetch Records) | Frappe v15 Query Builder lacks row-level permission enforcement. FlexiRule fails closed unless `ignore_permissions=1` is explicitly set with audit reason. | Enforces strict security by default; fails safe rather than leaking unauthorized data. | Users must provide an audit reason when querying with Query Builder on Frappe v15. | Document that Frappe v15 Fetch Records requires `ignore_permissions` with an audit reason. | Leverage Frappe v16 native QB permission hooks when available. |
 | **ASN-001** | `Assignment` (Deep Document Paths) | Restricts `doc.*` mutations to root document fields (`len(parts) == 2`). Deep dotted paths throw `MethodExecutionError`. | Prevents unintended child-table corruption; child-table rows should be manipulated via `Loop` or `append` operator. | Assigning to `doc.child_table.field` directly is blocked. | Document that child-table row updates require Loop iteration. | Implement safe child-row indexing in v1.1. |
 
 ---
 
 ## Section H — Test Execution Record
+
+**Evidence scope (2026-11-02)**: The counts below are the audit's recorded results for commit `504840d3bf3ec012a2c0ed5c7859bc7a7fd1b3c2`; no raw test logs or workflow artifacts for those runs were attached to this PR, so they are not independently reproduced here. The PR-head CI run `41458445864` completed the change-detection job but skipped the Frappe 15 server, Frappe 16 nested-set integration, and frontend jobs because this is a report-only change. The separate lint run `41458445971` passed its linter, dependency, and fast JavaScript-unit-test jobs. Therefore PR-head CI does **not** validate the claimed 720 backend or 33 frontend tests, and those historical counts do not establish test coverage on the PR base that is 39 commits newer.
 
 All test suites were executed on the target environment against commit `504840d3bf3ec012a2c0ed5c7859bc7a7fd1b3c2`.
 
@@ -431,15 +432,14 @@ All test suites were executed on the target environment against commit `504840d3
 
 ## Section I — Final Release Recommendation
 
-### **READY AFTER LISTED BLOCKERS ARE CLOSED**
+### **NOT A CURRENT RC1 SIGN-OFF**
 
 #### Rationale & Outstanding Conditions:
-1. **Core Maturity**: 42 out of 43 operations exhibit robust implementation-contract parity, solid permission guards (failing closed with audited bypass requirements), transaction savepoint isolation, and comprehensive test coverage (720 backend tests and 33 frontend tests passing).
-2. **Blocker Closure Required**:
-   - **`SWT-001`**: Correct the `Switch` Action Contract (`has_next_true=True`, matching runtime fallback) and update `graph_validator.py` to trace `config.cases` edges during rule activation checks. Alternatively, add `Switch` to `RELEASE_DISABLED_ACTION_TYPES` if multi-branch visual edges are deferred to v1.1.
-3. **Documentation Sign-Off**:
-   - Document the synchronous behavior of `Wait` (`WIT-001`).
-   - Document external notification non-rollback characteristics (`NOT-001`).
-   - Document Frappe v15 `Fetch Records` permission audit reason requirement (`QRY-001`).
+1. **Snapshot limitation**: This matrix records an audit of commit `504840d3bf3ec012a2c0ed5c7859bc7a7fd1b3c2`. The PR base is 39 commits newer, so the totals and test run record must not be presented as a verification of the current PR base or a release candidate until the audit is repeated on the exact candidate SHA.
+2. **Switch blocker (`SWT-001`)**: The runtime uses configured case targets plus `next_step_if_true` fallback, while the generic graph validators do not consistently include those case edges. The recommended fix must update all graph-validation paths and validate missing targets / cycles; the `ActionContract` boolean alone cannot describe dynamic case edges.
+3. **Switch test gap**: The cited comprehensive Switch runtime test is skipped, and the advanced-flow test only includes a Switch fixture for catalog coverage. Add and run real routing and graph-validation integration tests before marking Switch verified.
+4. **Notification classification (`NOT-001`)**: Correct the release documentation for Frappe v15 defaults: Email is queued by `frappe.sendmail(delayed=True)`, realtime publication defaults to pre-commit, and Provider hooks are synchronous and app-defined. Use `after_commit=True` for transaction-consistent realtime publication where appropriate.
+5. **Operational limitation (`WIT-001`)**: Document that `time.sleep()` occupies the calling web or background worker; a background job does not make a long synchronous sleep non-blocking.
+6. **Re-run evidence**: Run the backend and frontend suites on the exact release-candidate commit, retain machine-readable logs / artifacts, and re-audit the 43-operation matrix against that same source revision. Keep Frappe-version-specific Fetch Records permission constraints documented.
 
-Once `SWT-001` is resolved or gated, FlexiRule is architecturally ready for its first Release Candidate (RC1).
+Until these conditions are satisfied, this report should be treated as an audit snapshot and issue register, not an RC1 readiness approval.
