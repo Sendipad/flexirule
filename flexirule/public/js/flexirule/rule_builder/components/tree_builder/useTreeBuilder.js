@@ -159,6 +159,14 @@ export function useTreeBuilder({
 		return mutate((tree) => commands.moveNode(tree, id, targetId, position));
 	}
 
+	function duplicateNode(id) {
+		if (readOnly) return null;
+		const node = findNode(root, id);
+		if (!node) return null;
+		const duplicated = mutate((tree) => commands.duplicateNode(tree, id));
+		return duplicated;
+	}
+
 	function setOperator(id, operator) {
 		if (!operators.value.includes(operator)) return false;
 		return mutate((tree) => commands.setOperator(tree, id, operator));
@@ -285,6 +293,7 @@ export function useTreeBuilder({
 		addGroup,
 		removeNode,
 		moveNode,
+		duplicateNode,
 		setOperator,
 		replaceNode,
 		reset,

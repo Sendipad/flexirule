@@ -84,3 +84,25 @@ export function replaceNode(tree, id, replacement) {
 	parent.children[index] = cloneTree(replacement);
 	return true;
 }
+
+export function duplicateNode(tree, id) {
+	const node = findNode(tree, id);
+	const parent = findParent(tree, id);
+	if (!node || !parent) return null;
+	const index = parent.children.findIndex((child) => child.id === id);
+	if (index < 0) return null;
+
+	const cloned = cloneTree(node);
+	if (cloned.type === "leaf") {
+		cloned.id = createLeaf().id;
+	} else if (cloned.type === "group") {
+		cloned.id = createGroup().id;
+	} else if (cloned.type === "collection") {
+		cloned.id = createCollection().id;
+	} else {
+		cloned.id = "node-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 7);
+	}
+
+	parent.children.splice(index + 1, 0, cloned);
+	return cloned;
+}
