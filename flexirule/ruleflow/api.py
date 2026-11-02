@@ -509,7 +509,7 @@ def _test_rule_for_doc(
 
 		info_msg = _("Rule '{0}' executed successfully").format(rule.rule_name)
 
-		if rule.compiled_expression:
+		if rule.get("trigger_condition"):
 			info_msg += " " + _("(trigger filters were bypassed for manual test)")
 
 		return {
@@ -617,6 +617,19 @@ def clear_cache(doctype: str | None = None):
 
 
 @frappe.whitelist()
+def get_condition_contract():
+	"""Return the backend-owned canonical condition/FlexValue contract.
+
+	The DTO version is independent of the persisted, direct-node condition JSON.
+	Only authenticated rule-builder users may retrieve this contract.
+	"""
+	_require_api_access()
+	from flexirule.ruleflow.core.condition_contract import condition_contract_dto
+
+	return condition_contract_dto()
+
+
+@frappe.whitelist()
 def get_operator_config():
 	"""
 	Get fieldtype-to-operators mapping and operator labels for Condition Builder.
@@ -665,33 +678,33 @@ def get_contract_dto():
 
 @frappe.whitelist()
 def validate_rule_document(doc: str | dict, mode: str = "full"):
-	"""Validate a rule payload and return structured errors/warnings.
-
-	Args:
-	    doc: Rule document (JSON string or dict)
-	    mode: Validation mode — 'full' | 'draft' | 'node'
-	        - 'full':  Complete validation for activation
-	        - 'draft': Relaxed for building (skips activation checks)
-	        - 'node':  Single-action validation
-	"""
+	"""Validate a rule payload and return structured errors/warnings."""
 	_require_api_access()
 	payload = json.loads(doc) if isinstance(doc, str) else (doc or {})
 
 	from flexirule.ruleflow.core.validation_service import validate_rule_definition
 
-	# Align API precheck with actual save pipeline:
-	# compile trigger/action conditions before running validators.
+	# Prefer the same coercion + compilation pipeline used by Rule.save(). Once a
+	# Rule document exists, compilation errors must be returned—not hidden by a
+	# permissive fallback to raw payload validation.
 	if isinstance(payload, dict):
+		rule_payload = dict(payload)
+		rule_payload.setdefault("doctype", "Rule")
 		try:
-			rule_payload = dict(payload)
-			rule_payload.setdefault("doctype", "Rule")
 			rule_doc = frappe.get_doc(rule_payload)
+		except Exception:
+			return validate_rule_definition(payload, mode=mode)
+
+		try:
 			if hasattr(rule_doc, "compile_conditions"):
 				rule_doc.compile_conditions()
-			return validate_rule_definition(rule_doc, mode=mode)
-		except Exception:
-			# Fallback to payload validation to preserve prior behavior if coercion fails.
-			pass
+		except Exception as exc:
+			return {
+				"valid": False,
+				"errors": [str(exc)],
+				"warnings": [],
+			}
+		return validate_rule_definition(rule_doc, mode=mode)
 
 	return validate_rule_definition(payload, mode=mode)
 
@@ -1576,6 +1589,7 @@ def get_execution_preview(rule_name: str, docname: str):
 	# Walk the graph evaluating conditions to predict the path
 	predicted_path = []
 	skipped_actions = []
+	evaluation_errors = []
 	actions_by_id = {a.action_id: a for a in (rule.actions or [])}
 
 	# Start from the entry action
@@ -1613,24 +1627,87 @@ def get_execution_preview(rule_name: str, docname: str):
 		if contract and contract.get("terminal"):
 			break
 
-		# For conditions, try to evaluate which branch
-		if action.action_type == "Condition" and action.compiled_expression:
-			try:
-				from flexirule.ruleflow.core.evaluator import evaluate_condition
+		# Evaluate the same condition contract as runtime. An evaluation error
+		# stops prediction instead of guessing a branch.
+		if action.action_type == "Condition":
+			from flexirule.ruleflow.core.condition_errors import ConditionError, ConditionValidationError
+			from flexirule.ruleflow.core.condition_payload import (
+				detect_canonical_condition_payload,
+				get_condition_payload,
+			)
 
-				result = evaluate_condition(
-					action.compiled_expression, {"doc": doc, "old_doc": None, "frappe": frappe}
-				)
+			try:
+				payload = get_condition_payload(action)
+				is_canonical, canonical_node = detect_canonical_condition_payload(payload)
+				if is_canonical:
+					from flexirule.ruleflow.core.condition_evaluator import evaluate_condition
+
+					result = evaluate_condition(
+						canonical_node,
+						{
+							"doc": doc,
+							"old_doc": None,
+							"vars": {},
+							"caller": {},
+							"rule": {
+								"name": rule.name,
+								"trigger_type": rule.trigger_type,
+								"trigger_event": rule.trigger_event,
+								"document_type": rule.document_type,
+							},
+							"doctype": rule.document_type or getattr(doc, "doctype", None),
+						},
+						doctype=rule.document_type or getattr(doc, "doctype", None),
+					)
+				elif action.compiled_expression:
+					from flexirule.ruleflow.core.evaluator import (
+						evaluate_condition as evaluate_legacy_condition,
+					)
+
+					result = evaluate_legacy_condition(
+						action.compiled_expression, {"doc": doc, "old_doc": None, "frappe": frappe}
+					)
+				elif payload is not None:
+					raise ConditionValidationError(
+						"legacy_condition_not_compiled",
+						"$",
+						"Legacy condition has no compiled expression",
+					)
+				else:
+					raise ConditionValidationError(
+						"condition_required",
+						"$",
+						"Condition action has no configured condition",
+					)
 				current_id = action.next_step_if_true if result else action.next_step_if_false
+			except ConditionError as exc:
+				evaluation_errors.append(
+					{
+						"action_id": current_id,
+						"code": exc.code,
+						"path": exc.path,
+						"message": exc.message,
+					}
+				)
+				break
 			except Exception:
-				# If evaluation fails, follow the true path
-				current_id = action.next_step_if_true
+				evaluation_errors.append(
+					{
+						"action_id": current_id,
+						"code": "condition_preview_error",
+						"path": "$",
+						"message": _("Condition could not be evaluated safely"),
+					}
+				)
+				break
 		else:
 			current_id = action.next_step_if_true
 
 	return {
 		"eligible": True,
-		"reason": _("Rule is eligible"),
+		"reason": _("Rule is eligible") if not evaluation_errors else _("Condition preview is incomplete"),
+		"preview_complete": not evaluation_errors,
+		"evaluation_errors": evaluation_errors,
 		"predicted_path": predicted_path,
 		"skipped_actions": skipped_actions,
 	}

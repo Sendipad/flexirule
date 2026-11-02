@@ -283,9 +283,40 @@ class ActionHandler(ABC):
 			if not compiled_expr_or_payload:
 				return False
 
-			from flexirule.ruleflow.core.compiler import ConditionCompiler
+			is_canonical = False
+			canonical_node = None
+			if isinstance(compiled_expr_or_payload, dict | list | str):
+				from flexirule.ruleflow.core.condition_payload import detect_canonical_condition_payload
+
+				is_canonical, canonical_node = detect_canonical_condition_payload(compiled_expr_or_payload)
+			if is_canonical:
+				from flexirule.ruleflow.core.condition_evaluator import evaluate_condition
+
+				condition_context = dict(context or {})
+				condition_context.setdefault("doc", condition_context.get("doc"))
+				condition_context.setdefault("vars", condition_context.get("vars", {}))
+				if engine:
+					rule_doc = engine.rule
+					condition_context["rule"] = {
+						"name": getattr(rule_doc, "name", None),
+						"trigger_type": getattr(rule_doc, "trigger_type", None),
+						"trigger_event": getattr(rule_doc, "trigger_event", None),
+						"document_type": getattr(rule_doc, "document_type", None),
+					}
+					condition_context.setdefault(
+						"doctype",
+						getattr(rule_doc, "document_type", None)
+						or getattr(condition_context.get("doc"), "doctype", None),
+					)
+				return evaluate_condition(
+					canonical_node,
+					condition_context,
+					doctype=condition_context.get("doctype"),
+				)
 
 			if isinstance(compiled_expr_or_payload, dict | list):
+				from flexirule.ruleflow.core.compiler import ConditionCompiler
+
 				compiled_expr = ConditionCompiler().compile(compiled_expr_or_payload)
 			else:
 				compiled_expr = str(compiled_expr_or_payload)

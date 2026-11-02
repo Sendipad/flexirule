@@ -7,6 +7,7 @@ from typing import Any
 import frappe
 from frappe import _
 
+from flexirule.ruleflow.core.flexvalue_contract import MAX_COLLECTION_ROWS as CONDITION_MAX_COLLECTION_ROWS
 from flexirule.ruleflow.utils.field_resolver import FieldResolver
 
 
@@ -470,7 +471,7 @@ class CollectionResolver(CompiledResolver):
 	values from child table collections or list variables.
 	"""
 
-	MAX_COLLECTION_ROWS = 10000
+	MAX_COLLECTION_ROWS = CONDITION_MAX_COLLECTION_ROWS
 
 	def __init__(
 		self,
@@ -485,15 +486,139 @@ class CollectionResolver(CompiledResolver):
 			self.operation = "first"  # Map UI alias directly to first matching row
 		self.condition = condition
 		self.target_field = target_field
+		self._canonical_condition = None
 		self._compiled_evaluator = None
 
 		if self.condition:
-			from flexirule.ruleflow.core.evaluator import ConditionEvaluator
+			from flexirule.ruleflow.core.condition_contract import validate_condition_node
+			from flexirule.ruleflow.core.condition_payload import detect_canonical_condition_payload
 
-			cond_list = self.condition if isinstance(self.condition, list) else [self.condition]
-			self._compiled_evaluator = ConditionEvaluator(json.dumps(cond_list))
+			is_canonical, canonical_node = detect_canonical_condition_payload(self.condition)
+			if is_canonical:
+				validate_condition_node(canonical_node)
+				self._canonical_condition = canonical_node
+			else:
+				from flexirule.ruleflow.core.evaluator import ConditionEvaluator
+
+				cond_list = self.condition if isinstance(self.condition, list) else [self.condition]
+				self._compiled_evaluator = ConditionEvaluator(json.dumps(cond_list))
+
+	def _resolve_child_doctype(self, parent_doctype: str | None) -> str | None:
+		if not parent_doctype or not self.source:
+			return None
+		source_str = str(self.source).strip()
+		if source_str.startswith("doc."):
+			segments = source_str.split(".")[1:]
+			scope = "doc"
+		elif source_str.startswith("vars."):
+			return None
+		elif "." in source_str:
+			parts = source_str.split(".")
+			scope = parts[0]
+			segments = parts[1:]
+		else:
+			scope = "doc"
+			segments = [source_str]
+
+		if scope != "doc":
+			return None
+
+		import frappe
+
+		from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
+		try:
+			meta = frappe.get_meta(parent_doctype)
+			current_meta = meta
+			field = None
+			for seg in segments:
+				field = current_meta.get_field(seg)
+				if not field:
+					raise ConditionValidationError(
+						"unknown_field",
+						"$.source",
+						f"Collection source field '{seg}' does not exist on DocType '{parent_doctype}'",
+					)
+				if seg != segments[-1]:
+					if field.fieldtype in {"Table", "Table MultiSelect"}:
+						current_meta = frappe.get_meta(field.options)
+					else:
+						raise ConditionValidationError(
+							"invalid_collection_source",
+							"$.source",
+							"Collection source path continues through a scalar field",
+						)
+			if field and field.fieldtype in {"Table", "Table MultiSelect"}:
+				child_dt = field.options
+				if not child_dt:
+					raise ConditionValidationError(
+						"unknown_doctype",
+						"$.source",
+						f"Child DocType is not configured for table field '{field.fieldname}'",
+					)
+				# Authoritative check: child DocType must exist
+				try:
+					frappe.get_meta(child_dt)
+				except Exception as exc:
+					raise ConditionValidationError(
+						"unknown_doctype",
+						"$.source",
+						f"Could not resolve metadata for child DocType '{child_dt}'",
+					) from exc
+				return child_dt
+			elif field:
+				raise ConditionValidationError(
+					"collection_source_not_table",
+					"$.source",
+					f"Collection source '{self.source}' must reference a table/list field",
+				)
+		except ConditionValidationError:
+			raise
+		except Exception as exc:
+			raise ConditionValidationError(
+				"unknown_doctype",
+				"$.source",
+				f"Could not resolve metadata for DocType '{parent_doctype}'",
+			) from exc
+		return None
 
 	def resolve(self, context: dict) -> Any:
+		doc = context.get("doc")
+		condition_doctype = getattr(doc, "doctype", None)
+		if not condition_doctype and isinstance(doc, dict):
+			condition_doctype = doc.get("doctype")
+		condition_doctype = condition_doctype or context.get("doctype")
+
+		source_str = str(self.source or "").strip()
+		is_doc_backed = source_str.startswith("doc.") or (
+			not source_str.startswith("vars.") and "." not in source_str
+		)
+		has_condition = bool(
+			self._canonical_condition is not None or self._compiled_evaluator or self.condition
+		)
+
+		if is_doc_backed and has_condition and not condition_doctype:
+			from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
+			raise ConditionValidationError(
+				"unknown_doctype",
+				"$.source",
+				f"Parent DocType metadata is required to validate collection predicate for '{self.source}'",
+			)
+
+		child_doctype = self._resolve_child_doctype(condition_doctype)
+		scope_doctypes: dict[str, str | None] | None = {"row": child_doctype} if child_doctype else None
+
+		prepared_condition = None
+		if self._canonical_condition is not None:
+			from flexirule.ruleflow.core.condition_evaluator import prepare_condition
+
+			prepared_condition = prepare_condition(
+				self._canonical_condition,
+				doctype=condition_doctype,
+				scope_doctypes=scope_doctypes,
+			)
+
 		rows = get_context_value(context, self.source)
 		if rows is None or not isinstance(rows, list):
 			if self.operation == "count":
@@ -517,9 +642,25 @@ class CollectionResolver(CompiledResolver):
 				)
 			)
 
-		doc = context.get("doc")
+		condition_evaluation_budget = {"collection_row_visits": 0}
 
 		def _matches(r) -> bool:
+			if self._canonical_condition is not None:
+				from flexirule.ruleflow.core.condition_evaluator import (
+					consume_collection_row_visit,
+					evaluate_prepared_condition,
+				)
+
+				consume_collection_row_visit(condition_evaluation_budget, "CollectionResolver.condition")
+				row_context = dict(context)
+				row_context["doc"] = doc
+				row_context["row"] = r
+				return evaluate_prepared_condition(
+					prepared_condition,
+					row_context,
+					doctype=condition_doctype,
+					_evaluation_budget=condition_evaluation_budget,
+				)
 			if not self._compiled_evaluator:
 				return True
 			return self._compiled_evaluator.evaluate(doc, row=r)
@@ -527,7 +668,7 @@ class CollectionResolver(CompiledResolver):
 		op = self.operation
 
 		if op == "count":
-			if not self._compiled_evaluator:
+			if self._canonical_condition is None and not self._compiled_evaluator:
 				return len(rows)
 			return sum(1 for r in rows if _matches(r))
 
@@ -545,12 +686,12 @@ class CollectionResolver(CompiledResolver):
 				return sum(values) / len(values) if values else 0.0
 
 		if op == "any":
-			if not self._compiled_evaluator:
+			if self._canonical_condition is None and not self._compiled_evaluator:
 				return len(rows) > 0
 			return any(_matches(r) for r in rows)
 
 		if op == "all":
-			if not self._compiled_evaluator:
+			if self._canonical_condition is None and not self._compiled_evaluator:
 				return True
 			return all(_matches(r) for r in rows)
 

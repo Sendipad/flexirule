@@ -442,13 +442,20 @@ watch(
 				structuredVal.config = config;
 			}
 
+			const legacyGuard = {};
+			for (const key of ["pythonExpression", "when_expression", "when"]) {
+				const value = a[key];
+				if (value !== undefined && value !== null && value !== "") {
+					legacyGuard[key] = value;
+				}
+			}
+
 			return {
 				name,
 				target: a.target || "",
 				operator: a.operator || "set",
 				when_condition: a.when_condition || null,
-				when_expression: a.when_expression || a.when || "",
-				pythonExpression: a.pythonExpression || "",
+				legacy_guard: Object.keys(legacyGuard).length ? legacyGuard : null,
 				value: structuredVal,
 			};
 		});
@@ -504,15 +511,29 @@ const targetOptions = computed(() => {
 // ─── Mutations ────────────────────────────────────────────────────────────────
 
 function syncToNode() {
-	const clean = assignments.value.map((a) => ({
-		name: a.name || makeRandomString(9),
-		target: a.target,
-		operator: a.operator,
-		when_condition: a.when_condition || null,
-		when_expression: a.when_condition ? "" : a.when_expression || "",
-		pythonExpression: a.pythonExpression || "",
-		value: a.value,
-	}));
+	const clean = assignments.value.map((a) => {
+		const row = {
+			name: a.name || makeRandomString(9),
+			target: a.target,
+			operator: a.operator,
+			when_condition: a.when_condition || null,
+			value: a.value,
+		};
+
+		// Preserve non-empty legacy guards so the strict backend can reject them
+		// with an actionable migration error. Never emit empty legacy keys: their
+		// mere presence is forbidden by the canonical Assignment contract.
+		if (a.legacy_guard && typeof a.legacy_guard === "object") {
+			for (const key of ["pythonExpression", "when_expression", "when"]) {
+				const value = a.legacy_guard[key];
+				if (value !== undefined && value !== null && value !== "") {
+					row[key] = value;
+				}
+			}
+		}
+
+		return row;
+	});
 	// Standard: update_action_field handles 'config' as Object
 	update_action_field("config", clean);
 
@@ -528,8 +549,7 @@ function addAssignment() {
 		target: "",
 		operator: "set",
 		when_condition: null,
-		when_expression: "",
-		pythonExpression: "",
+		legacy_guard: null,
 		value: { mode: "static", value: "" },
 	});
 	syncToNode();
@@ -589,11 +609,12 @@ function hasWhenCondition(assignment) {
 }
 
 function getWhenConditionStatus(assignment) {
+	if (assignment?.legacy_guard) return { isInvalid: true, isLegacy: true };
 	if (!hasWhenCondition(assignment)) return { isInvalid: false };
 
 	const res = validateConditions(assignment.when_condition, true, true);
 
-	return { isInvalid: !res.valid };
+	return { isInvalid: !res.valid, isLegacy: false };
 }
 
 const whenConditionDocFields = computed(() =>
@@ -661,14 +682,14 @@ function updateDraft(val) {
 	const tree = val;
 	const hasConditions = !!(tree && Array.isArray(tree.conditions) && tree.conditions.length);
 	assignments.value[whenEditor.value.index].when_condition = hasConditions ? tree : null;
-	assignments.value[whenEditor.value.index].when_expression = "";
+	assignments.value[whenEditor.value.index].legacy_guard = null;
 	syncToNode();
 }
 
 function clearWhenCondition() {
 	if (whenEditor.value.index < 0) return;
 	assignments.value[whenEditor.value.index].when_condition = null;
-	assignments.value[whenEditor.value.index].when_expression = "";
+	assignments.value[whenEditor.value.index].legacy_guard = null;
 	whenEditor.value.draft = { op: "and", conditions: [] };
 	syncToNode();
 }
@@ -720,6 +741,17 @@ async function validate() {
 	// 2. Logic-based Validation
 	assignments.value.forEach((a, idx) => {
 		const n = idx + 1;
+
+		// Legacy expression guards are intentionally not auto-converted. Require
+		// users to rebuild them with the canonical Run If editor before saving.
+		if (a.legacy_guard) {
+			errors.push(
+				__(
+					"Assignment #{0}: Legacy Run If expressions must be rebuilt with the canonical condition editor.",
+					[n]
+				)
+			);
+		}
 
 		// Target path validation
 		if (a.target && !a.target.startsWith("doc.") && !a.target.startsWith("vars.")) {
