@@ -12,7 +12,7 @@
  "custom_blocks": [],
  "docstatus": 0,
  "doctype": "Workspace",
- "hide_custom": 0,
+ "hide_custom": 1,
  "icon": "workflow",
  "idx": 10,
  "indicator_color": "green",
@@ -98,7 +98,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-10-04 17:02:09.062008",
+ "modified": "2026-11-01 17:02:09.062008",
  "modified_by": "Administrator",
  "module": "Ruleflow",
  "name": "RuleFlow",

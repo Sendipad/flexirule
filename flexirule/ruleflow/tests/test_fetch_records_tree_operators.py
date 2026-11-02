@@ -10,6 +10,7 @@ from frappe.database.utils import NestedSetHierarchy
 from frappe.tests.utils import FrappeTestCase
 
 from flexirule.ruleflow.core.action_handlers.query_records import QueryRecordsHandler
+from flexirule.ruleflow.tests.test_helpers import safe_cleanup_test_resources
 from flexirule.ruleflow.utils.frappe_query_compat import execute_query
 
 
@@ -32,16 +33,11 @@ class TestFetchRecordsTreeOperators(FrappeTestCase):
 
 	@classmethod
 	def _cleanup_resources(cls):
-		for doctype, docname in reversed(cls._created_records):
-			if frappe.db.exists(doctype, docname):
-				frappe.delete_doc(doctype, docname, force=True, ignore_permissions=True)
-		cls._created_records.clear()
-
-		for dt in reversed(cls._created_doctypes):
-			if frappe.db.exists("DocType", dt):
-				frappe.delete_doc(dt, force=True, ignore_permissions=True)
-		cls._created_doctypes.clear()
-		frappe.db.commit()
+		try:
+			safe_cleanup_test_resources(doctypes=cls._created_doctypes, records=cls._created_records)
+		finally:
+			cls._created_records.clear()
+			cls._created_doctypes.clear()
 
 	@classmethod
 	def _setup_tree_doctype(cls):
