@@ -171,6 +171,119 @@ class TestConditionBenchmark(FrappeTestCase):
 				self.assertGreaterEqual(metric["cold_preparation_time_ms"], 0.0)
 				self.assertGreaterEqual(metric["warm_preparation_time_ms"], 0.0)
 
+	def test_canonical_comparison_invalidates_failed_cache_isolation(self):
+		from unittest.mock import patch
+
+		from flexirule.ruleflow.tests.condition_benchmark import benchmark_runner
+
+		runner = BenchmarkRunner(iterations_per_batch=1, num_batches=1, warmup_iterations=0)
+		workload = {
+			"payload": {
+				"type": "comparison",
+				"operator": "eq",
+				"left": {
+					"mode": "variable",
+					"path": {"scope": "doc", "segments": ["status"]},
+				},
+				"right": {"mode": "static", "value_type": "string", "value": "Open"},
+			},
+			"doc": {"status": "Open"},
+			"expected": True,
+			"description": "Cache-isolation regression workload",
+		}
+		with patch.object(
+			benchmark_runner, "get_canonical_scaling_workloads", return_value={"cache_test": workload}
+		), patch.object(benchmark_runner, "_clear_cache_safely", return_value=False):
+			result = runner.run_canonical_ast_vs_plan_comparison()
+
+		measurement = result["workloads"]["cache_test"]
+		self.assertFalse(measurement["is_valid_measurement"])
+		self.assertFalse(measurement["cache_isolation_verified"])
+		self.assertIn("cache isolation", measurement["reason"])
+
+	def test_canonical_comparison_rotates_candidate_order_and_records_distributions(self):
+		from unittest.mock import patch
+
+		from flexirule.ruleflow.tests.condition_benchmark import benchmark_runner
+
+		runner = BenchmarkRunner(iterations_per_batch=1, num_batches=2, warmup_iterations=1)
+		workload = {
+			"payload": {
+				"type": "comparison",
+				"operator": "eq",
+				"left": {
+					"mode": "variable",
+					"path": {"scope": "doc", "segments": ["status"]},
+				},
+				"right": {"mode": "static", "value_type": "string", "value": "Open"},
+			},
+			"doc": {"status": "Open"},
+			"expected": True,
+			"description": "Paired-order regression workload",
+		}
+		with patch.object(
+			benchmark_runner, "get_canonical_scaling_workloads", return_value={"paired_test": workload}
+		), patch.object(benchmark_runner, "_clear_cache_safely", return_value=True):
+			result = runner.run_canonical_ast_vs_plan_comparison()
+
+		measurement = result["workloads"]["paired_test"]
+		self.assertTrue(measurement["is_valid_measurement"], measurement.get("reason"))
+		self.assertEqual(
+			measurement["paired_samples"][0]["candidate_order"],
+			["compiled_plan", "direct_ast"],
+		)
+		self.assertEqual(
+			measurement["paired_samples"][1]["candidate_order"],
+			["direct_ast", "compiled_plan"],
+		)
+		self.assertIn("p95", measurement["evaluation_distributions"]["compiled_plan_us"])
+		self.assertEqual(len(measurement["evaluation_distributions"]["direct_ast_us"]["samples"]), 2)
+
+	def test_canonical_comparison_rejects_incorrect_timed_evaluation(self):
+		from unittest.mock import patch
+
+		from flexirule.ruleflow.tests.condition_benchmark import benchmark_runner
+
+		runner = BenchmarkRunner(iterations_per_batch=2, num_batches=1, warmup_iterations=1)
+		workload = {
+			"payload": {
+				"type": "comparison",
+				"operator": "eq",
+				"left": {
+					"mode": "variable",
+					"path": {"scope": "doc", "segments": ["status"]},
+				},
+				"right": {"mode": "static", "value_type": "string", "value": "Open"},
+			},
+			"doc": {"status": "Open"},
+			"expected": True,
+			"description": "Timed-result validation regression workload",
+		}
+		original_evaluate = runner.cand_canon_ast.evaluate
+		evaluation_calls = {"count": 0}
+
+		def incorrect_after_warmup(prepared, document, execution_context=None):
+			evaluation_calls["count"] += 1
+			result = original_evaluate(prepared, document, execution_context)
+			if evaluation_calls["count"] > 1:
+				return result.__class__(
+					candidate_name=result.candidate_name,
+					result=False,
+					execution_time_seconds=result.execution_time_seconds,
+					error=None,
+				)
+			return result
+
+		runner.cand_canon_ast.evaluate = incorrect_after_warmup
+		with patch.object(
+			benchmark_runner, "get_canonical_scaling_workloads", return_value={"timed_test": workload}
+		), patch.object(benchmark_runner, "_clear_cache_safely", return_value=True):
+			result = runner.run_canonical_ast_vs_plan_comparison()
+
+		measurement = result["workloads"]["timed_test"]
+		self.assertFalse(measurement["is_valid_measurement"])
+		self.assertIn("Incorrect result", measurement["reason"])
+
 	def test_amortized_benchmark_rejects_non_positive_execution_counts(self):
 		runner = BenchmarkRunner(iterations_per_batch=1, num_batches=1, warmup_iterations=0)
 		invalid_counts: list[list[Any]] = [[0], [-1], [1, 0], [True], [False], [1, True]]
