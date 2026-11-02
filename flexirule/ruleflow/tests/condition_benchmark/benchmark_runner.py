@@ -733,7 +733,7 @@ class BenchmarkRunner:
 						)
 						break
 
-					cold_prepared, cold_us, error = prepare_candidate(candidate, payload)
+					_, cold_us, error = prepare_candidate(candidate, payload)
 					if error:
 						preparation_failure = f"{label}: {error}"
 						break
@@ -1006,6 +1006,13 @@ class BenchmarkRunner:
 				for label in candidate_labels:
 					meta_eval_samples[label].append(timings[label])
 
+		meta_evaluation_distributions = {
+			label: summarize(meta_eval_samples[label]) for label in candidate_labels
+		}
+		plan_meta_prep = meta_preparation.get("compiled_plan", {})
+		ast_meta_prep = meta_preparation.get("direct_ast", {})
+		plan_meta_eval = meta_evaluation_distributions["compiled_plan"]
+		ast_meta_eval = meta_evaluation_distributions["direct_ast"]
 		comparison_results["metadata_scenario"] = {
 			"scenario": "User.roles -> Has Role.role (real Frappe parent/child metadata)",
 			"doctype": "User",
@@ -1014,9 +1021,13 @@ class BenchmarkRunner:
 			"is_valid_measurement": meta_failure is None,
 			"reason": meta_failure,
 			"preparation": meta_preparation,
-			"evaluation_distributions": {
-				label: summarize(meta_eval_samples[label]) for label in candidate_labels
-			},
+			"evaluation_distributions": meta_evaluation_distributions,
+			# Scalar aliases remain for the Markdown renderer; full distributions
+			# and cold/warm metadata instrumentation are exposed above.
+			"plan_prep_us": plan_meta_prep.get("cold_prep_us", 0.0),
+			"ast_prep_us": ast_meta_prep.get("cold_prep_us", 0.0),
+			"plan_eval_median_us": plan_meta_eval.get("median") or 0.0,
+			"ast_eval_median_us": ast_meta_eval.get("median") or 0.0,
 			"metadata_access_instrumentation": (
 				"frappe.get_meta call counts and frappe.db.sql query counts, measured separately for cold and warm preparation"
 			),
@@ -1071,7 +1082,7 @@ class BenchmarkRunner:
 				tracemalloc.start()
 				try:
 					before_current, _ = tracemalloc.get_traced_memory()
-					prepared_memory, _, error = prepare_candidate(candidate, memory_payload)
+					_, _, error = prepare_candidate(candidate, memory_payload)
 					current_bytes, peak_bytes = tracemalloc.get_traced_memory()
 					if error:
 						memory_results[label] = {"error": error}
