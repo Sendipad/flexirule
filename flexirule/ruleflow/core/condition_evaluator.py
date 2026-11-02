@@ -180,6 +180,14 @@ def compile_condition(
 ) -> tuple:
 	"""Validate and compile a canonical node into a reusable immutable execution plan."""
 	_, payload_json, payload_bytes, payload_digest, registry_fingerprint = _canonicalize_condition(node)
+	# The public compile/evaluate path is used by trigger and Sub-Rule consumers.
+	# Revalidate the exact serialized snapshot on every call so an LRU hit cannot
+	# preserve stale Fieldtype/DocType compatibility after metadata changes.
+	try:
+		validated_node = json.loads(payload_json)
+	except (TypeError, ValueError, RecursionError) as exc:
+		raise ConditionValidationError("invalid_json", "$", "Condition JSON is malformed") from exc
+	validate_condition_node(validated_node, doctype=doctype, scope_doctypes=scope_doctypes)
 	return _get_compiled_plan(
 		payload_json,
 		payload_bytes,
@@ -187,7 +195,7 @@ def compile_condition(
 		registry_fingerprint,
 		doctype,
 		scope_doctypes,
-		validated_fresh=False,
+		validated_fresh=True,
 	)
 
 
