@@ -1542,6 +1542,8 @@ def run_main():
 				bench_root = candidate
 				break
 	sites_path = os.path.join(bench_root, "sites") if bench_root else sites_path
+	if bench_root:
+		os.makedirs(os.path.join(bench_root, "logs"), exist_ok=True)
 	frappe.init(site=site_name, sites_path=sites_path)
 	frappe.connect()
 	try:
