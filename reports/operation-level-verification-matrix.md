@@ -11,8 +11,8 @@
 - **Discovered Action Types**: 13
 - **Discovered Individual Operations**: 43 (31 core Action Type operations across 13 Action Types + 12 Process operations across 4 Process modules)
 - **Status Breakdown**:
-  - **PASS**: 42 operations
-  - **PARTIAL**: 1 operation (`Switch`)
+  - **PASS**: 38 operations
+  - **PARTIAL**: 5 operations (`Switch`, `Wait`, `Notify.System`, `Notify.Email`, `Notify.Provider`)
   - **FAIL**: 0 operations
   - **UNVERIFIED**: 0 operations
   - **DISABLED**: 0 operations
@@ -91,7 +91,7 @@ Discovered strictly from source inspection of `flexirule/ruleflow/core/action_ha
 | **Stop** | Success | PASS | PASS | PASS | PASS | PASS | PASS | **PASS** | — |
 | **Stop** | Error | PASS | PASS | PASS | PASS | PASS | PASS | **PASS** | — |
 | **Raise Error** | Raise Error | PASS | PASS | PASS | PASS | PASS | PASS | **PASS** | — |
-| **Wait** | Wait | PASS | PASS | PASS | PASS | PARTIAL | PASS | **PASS** | `WIT-001` |
+| **Wait** | Wait | PASS | PASS | PASS | PASS | PARTIAL | PASS | **PARTIAL** | `WIT-001` |
 | **Assignment** | Assignment | PASS | PASS | PASS | PASS | PASS | PASS | **PASS** | — |
 | **Sub-Rule** | Sub-Rule | PASS | PASS | PASS | PASS | PASS | PASS | **PASS** | — |
 | **Document Action** | Create New | PASS | PASS | PASS | PASS | PASS | PASS | **PASS** | — |
@@ -111,10 +111,10 @@ Discovered strictly from source inspection of `flexirule/ruleflow/core/action_ha
 | **Query Records** | Max | PASS | PASS | PASS | PASS | PASS | PASS | **PASS** | — |
 | **Query Records** | Group By | PASS | PASS | PASS | PASS | PASS | PASS | **PASS** | — |
 | **Notify** | Toast | PASS | PASS | PASS | PASS | PASS | PASS | **PASS** | — |
-| **Notify** | System | PASS | PASS | PASS | PASS | PASS | PASS | **PASS** | — |
-| **Notify** | Email | PASS | PASS | PASS | PASS | PARTIAL | PASS | **PASS** | `NOT-001` |
+| **Notify** | System | PASS | PASS | PASS | PASS | PARTIAL | PASS | **PARTIAL** | `NOT-001` |
+| **Notify** | Email | PASS | PASS | PASS | PASS | PARTIAL | PASS | **PARTIAL** | `NOT-001` |
 | **Notify** | System Notification | PASS | PASS | PASS | PASS | PASS | PASS | **PASS** | — |
-| **Notify** | Provider | PASS | PASS | PASS | PASS | PARTIAL | PASS | **PASS** | `NOT-001` |
+| **Notify** | Provider | PASS | PASS | PASS | PASS | PARTIAL | PASS | **PARTIAL** | `NOT-001` |
 | **Process** | `value_in_range` | PASS | PASS | PASS | PASS | PASS | PASS | **PASS** | — |
 | **Process** | `conditional_required`| PASS | PASS | PASS | PASS | PASS | PASS | **PASS** | — |
 | **Process** | `child_table_rows` | PASS | PASS | PASS | PASS | PASS | PASS | **PASS** | — |
