@@ -17,7 +17,7 @@
   - **DISABLED**: 2 operations (`Switch`, `Loop` on builder UI gate)
   - **EXPERIMENTAL**: 0 operations
 - **Confirmed P0/P1 Findings**:
-  - **PRC-368 (Severity P0 — Release Blocker, Tracked in Issue #368)**: Process filesystem sync in `flexirule/ruleflow/core/process_sync.py` relies on a timestamp-only change detector (`_should_sync_existing_process()`) which can skip content updates when timestamps are stale, and needs deterministic change-aware reconciliation for RC1.
+  - **PRC-368 (Severity P0 — Release Blocker, Tracked in Issue #368)**: Process filesystem synchronization in `flexirule/ruleflow/core/process_sync.py` (`_should_sync_existing_process()`) relies solely on comparing the JSON's embedded `modified` timestamp with the database record using `>=`. If source content changes while its embedded `modified` timestamp is older than or equal to the database record, necessary synchronization is skipped.
   - **TXN-001 (Severity P1 — High Priority, Tracked in Issue #359)**: Missing Savepoint Initialization in General `_execute_graph()` Action Execution Causes Uncoordinated Full Transaction Rollback on `on_error == "Rollback"`.
   - **REL-001 (Severity P1 — High Priority, Tracked in Issue #360)**: Release Gating Asymmetry Between Frontend Hardcoded Denylist (`variable_validator.js`) and Backend DTO / Server Enforcement (`contract_utils.py`, `validation_service.py`, `engine.py`).
 - **Accepted Limitations / P2 Items**:
@@ -59,9 +59,9 @@ The following authoritative inventory was discovered directly from repository so
 | **Query Records** | Min | Data Actions | Available | Active | Pass | `QueryRecordsHandler` | PASS | Agent 3 |
 | **Query Records** | Max | Data Actions | Available | Active | Pass | `QueryRecordsHandler` | PASS | Agent 3 |
 | **Query Records** | Group By | Data Actions | Available | Active | Pass | `QueryRecordsHandler` | PASS | Agent 3 |
-| **Document Action** | Create New | Data Actions | Available | Active | Pass | `DocumentActionHandler` | PASS | Agent 4 |
-| **Document Action** | Update Existing | Data Actions | Available | Active | Pass | `DocumentActionHandler` | PASS | Agent 4 |
-| **Document Action** | Delete Record | Data Actions | Available | Active | Pass | `DocumentActionHandler` | PASS | Agent 4 |
+| **Document Action** | Create New | Data Actions | Available | Active | Pass | `DocumentActionHandler` | PARTIAL | Agent 4 |
+| **Document Action** | Update Existing | Data Actions | Available | Active | Pass | `DocumentActionHandler` | PARTIAL | **PARTIAL** |
+| **Document Action** | Delete Record | Data Actions | Available | Active | Pass | `DocumentActionHandler` | PARTIAL | **PARTIAL** |
 | **Document Action** | Create ToDo | Data Actions | Available | Active | Pass | `DocumentActionHandler` | PASS | Agent 4 |
 | **Document Action** | Add Comment | Data Actions | Available | Active | Pass | `DocumentActionHandler` | PASS | Agent 4 |
 | **Notify** | Toast | Communication | Available | Active | Pass | `NotifyHandler` | PASS | Agent 6 |
@@ -86,7 +86,7 @@ The following authoritative inventory was discovered directly from repository so
 
 ## Section C — Operation-Level Verification Matrix
 
-*Scoring Rule*: Overall Status reflects end-to-end release readiness. An operation is marked `PASS` when its core runtime implementation, contracts, validation, security boundaries, and adequate tests are verified. When test coverage does not exercise advanced branch options or complex fuzzy heuristics, the Tests dimension is marked `PARTIAL`, resulting in an overall status of `PARTIAL`. For `Document Action`, runtime execution and document validation pass, while the ambient transaction rollback behavior under `on_error == 'Rollback'` is affected by TXN-001.
+*Scoring Rule*: Overall Status reflects end-to-end release readiness. An operation is marked `PASS` when all evaluated dimensions—including visual contracts, runtime execution, validation, authorization, error/transaction behavior, and test coverage—are fully verified. When any critical dimension is `PARTIAL` or `UNVERIFIED` (such as `Error / Txn Behavior` in Document Action operations due to TXN-001, or `Tests` in deduplication heuristics), the Overall Status is marked `PARTIAL` to maintain strict end-to-end release standards until outstanding blockers are resolved.
 
 | Action Type | Operation | UI / Contract | Runtime | Validation | Security | Error / Txn Behavior | Tests | Overall Status | Finding IDs |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -117,9 +117,9 @@ The following authoritative inventory was discovered directly from repository so
 | **Query Records** | Min | PASS | PASS | PASS | PASS | PASS | PASS | **PASS** | — |
 | **Query Records** | Max | PASS | PASS | PASS | PASS | PASS | PASS | **PASS** | — |
 | **Query Records** | Group By | PASS | PASS | PASS | PASS | PASS | PASS | **PASS** | — |
-| **Document Action** | Create New | PASS | PASS | PASS | PASS | PARTIAL | PASS | **PASS** | TXN-001 |
-| **Document Action** | Update Existing | PASS | PASS | PASS | PASS | PARTIAL | PASS | **PASS** | TXN-001 |
-| **Document Action** | Delete Record | PASS | PASS | PASS | PASS | PARTIAL | PASS | **PASS** | TXN-001 |
+| **Document Action** | Create New | PASS | PASS | PASS | PASS | PARTIAL | PASS | **PARTIAL** | TXN-001 |
+| **Document Action** | Update Existing | PASS | PASS | PASS | PASS | PARTIAL | PASS | **PARTIAL** | TXN-001 |
+| **Document Action** | Delete Record | PASS | PASS | PASS | PASS | PARTIAL | PASS | **PARTIAL** | TXN-001 |
 | **Document Action** | Create ToDo | PASS | PASS | PASS | PASS | PASS | PASS | **PASS** | — |
 | **Document Action** | Add Comment | PASS | PASS | PASS | PASS | PASS | PASS | **PASS** | — |
 | **Notify** | Toast | PASS | PASS | PASS | PASS | PASS | PASS | **PASS** | — |
@@ -273,13 +273,13 @@ The following authoritative inventory was discovered directly from repository so
 - **Shared Architecture**: `flexirule/ruleflow/core/action_handlers/document_action.py` (`DocumentActionHandler`).
 - **D.11.1 Create New**:
   - *Contract*: Creates and inserts a new document (`frappe.get_doc(doc_data).insert()`). Supports scalar field mappings, child table mappings (`_apply_table_mappings`), and async queueing.
-  - *Status*: **PASS**.
+  - *Status*: **PARTIAL** (Local insertion logic and validation pass, but end-to-end transaction rollback under `on_error == 'Rollback'` is blocked by TXN-001).
 - **D.11.2 Update Existing**:
   - *Contract*: Loads existing doc (`frappe.get_doc(reference_doctype, docname)`), checks `doc.check_permission("write")`, applies scalar and table mappings, and saves.
-  - *Status*: **PASS**.
+  - *Status*: **PARTIAL** (Write permission checks and mapping pass; overall status held at PARTIAL due to savepoint rollback defect TXN-001).
 - **D.11.3 Delete Record**:
   - *Contract*: Deletes target document via `frappe.delete_doc` after checking `frappe.has_permission(reference_doctype, "delete")`.
-  - *Status*: **PASS**.
+  - *Status*: **PARTIAL** (Delete permission check and record removal pass; overall status held at PARTIAL due to savepoint rollback defect TXN-001).
 - **D.11.4 Create ToDo**:
   - *Contract*: Creates a linked `ToDo` document for context doc with rendered `assigned_to`, `description`, and `priority`.
   - *Status*: **PASS**.
@@ -333,19 +333,26 @@ The following authoritative inventory was discovered directly from repository so
 ### Finding PRC-368 (Tracked in Issue #368)
 - **Affected Operation**: Process Filesystem Synchronization (`bench migrate` / `after_migrate`)
 - **Severity**: P0 (Release Blocker — Tracked in Issue #368)
-- **Source Location**: `flexirule/ruleflow/core/process_sync.py` (specifically `_should_sync_existing_process` lines 30–45, and `sync_processes` lines 50–90)
+- **Source Location**: `flexirule/ruleflow/core/process_sync.py` (`sync_processes_for_app` lines 37–85, `_resolve_source_modified` lines 269–278, `_should_sync_existing_process` lines 280–290)
 - **Evidence**:
-  In `process_sync.py`, stale operation pruning and standard Process deletion exist (`_prune_missing_standard_processes`). However, the existing process update gate relies strictly on comparing timestamps via `_should_sync_existing_process()`:
+  In `process_sync.py`, `_resolve_source_modified()` reads the embedded `modified` string field from the Process JSON metadata (it does not read the filesystem mtime). Then `_should_sync_existing_process()` gates the update:
   ```python
   def _should_sync_existing_process(doc, source_modified) -> bool:
+      """Sync only when source is newer than DB record."""
       if not source_modified:
           return True
-      return get_datetime(source_modified) > get_datetime(doc.modified)
+
+      try:
+          target_modified = get_datetime(doc.modified)
+      except Exception:
+          return True
+
+      return source_modified >= target_modified
   ```
-  If a file-backed Process definition is modified without updating its embedded `modified` timestamp (or if git checkout leaves the file mtime older than the database record), `bench migrate` skips importing the modified operations and schema overrides. Furthermore, missing test coverage for non-standard process isolation and idempotent multi-app sync prevents verifying change-aware reconciliation.
-- **User / Business Impact**: Updates to standard Process operations in new releases or app updates may not synchronize to the database during migration.
-- **Recommended Correction**: Adopt Frappe-aligned sync principles: compute a deterministic definition hash (or migration hash) over the Process and its child operations. Only skip sync when the hash matches. Ensure custom Processes remain strictly protected from pruning.
-- **Test Required**: Add migration sync tests verifying that content modifications with identical timestamps still trigger an update, and that running sync twice produces zero DB writes.
+  While `process_sync.py` correctly handles removing child operations missing from the JSON and standard Process pruning (`_prune_missing_standard_processes`), the timestamp-only gate creates a material defect: if a Process JSON's operations or contract definitions are modified in the codebase without bumping its embedded `modified` timestamp, or if the embedded timestamp is older than or equal to the database record's `modified` timestamp, `_should_sync_existing_process()` returns `False`. Consequently, `bench migrate` (`sync_processes_for_app()`) silently skips synchronizing the modified Process operations.
+- **User / Business Impact**: Updates to standard Process operations or contract schemas in new releases will fail to synchronize to existing installations during `bench migrate` if the JSON's embedded `modified` timestamp is not strictly updated.
+- **Recommended Correction**: Adopt Frappe-aligned deterministic synchronization (e.g. content hash comparison or definition diffing) so that content changes are reliably detected and synchronized regardless of the embedded timestamp, while ensuring idempotent repeated migrations produce zero database writes.
+- **Test Required**: Regression tests asserting that content modifications with stale or equal embedded timestamps still update the database, and that identical definitions produce zero database writes.
 - **RC1 Disposition**: **Must be resolved before RC1 (P0 Prerequisite)**.
 
 ---
