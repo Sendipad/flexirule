@@ -11,6 +11,8 @@ from frappe.query_builder.utils import PseudoColumnMapper
 from frappe.tests.utils import FrappeTestCase
 from pypika import Field
 
+from flexirule.ruleflow.tests.test_helpers import safe_cleanup_test_resources
+
 
 class TestFrappeQBCapabilities(FrappeTestCase):
 	"""
@@ -46,16 +48,11 @@ class TestFrappeQBCapabilities(FrappeTestCase):
 
 	@classmethod
 	def _cleanup_resources(cls):
-		for doctype, docname in reversed(cls._created_records):
-			if frappe.db.exists(doctype, docname):
-				frappe.delete_doc(doctype, docname, force=True, ignore_permissions=True)
-		cls._created_records.clear()
-
-		for dt in reversed(cls._created_doctypes):
-			if frappe.db.exists("DocType", dt):
-				frappe.delete_doc(dt, force=True, ignore_permissions=True)
-		cls._created_doctypes.clear()
-		frappe.db.commit()
+		try:
+			safe_cleanup_test_resources(doctypes=cls._created_doctypes, records=cls._created_records)
+		finally:
+			cls._created_records.clear()
+			cls._created_doctypes.clear()
 
 	@classmethod
 	def _setup_test_doctypes(cls):
