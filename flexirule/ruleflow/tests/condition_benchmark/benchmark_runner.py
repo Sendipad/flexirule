@@ -788,9 +788,7 @@ class BenchmarkRunner:
 					candidate = candidates[label]
 					start_ns = time.perf_counter_ns()
 					for _ in range(evaluation_iterations):
-						_, error = evaluate_checked(
-							candidate, prepared_by_label[label], document, expected
-						)
+						_, error = evaluate_checked(candidate, prepared_by_label[label], document, expected)
 						if error:
 							evaluation_failure = f"{label}: timed batch {error}"
 							break
@@ -969,11 +967,7 @@ class BenchmarkRunner:
 		if not meta_failure:
 			meta_iterations = max(1, min(self.iterations_per_batch, 500))
 			for sample_index in range(num_samples):
-				order = (
-					candidate_labels
-					if sample_index % 2 == 0
-					else tuple(reversed(candidate_labels))
-				)
+				order = candidate_labels if sample_index % 2 == 0 else tuple(reversed(candidate_labels))
 				meta_timings: dict[str, float] = {}
 				for label in order:
 					start_ns = time.perf_counter_ns()
