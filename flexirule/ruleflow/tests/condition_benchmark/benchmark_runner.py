@@ -1261,9 +1261,25 @@ class BenchmarkRunner:
 			"| **Collection Safety** | Shared row-visit budget enforcement | Shared row-visit budget enforcement |"
 		)
 		md_lines.append("")
-		md_lines.append("### 3. Semantic Correctness & Gate Results")
+		md_lines.append("### 3. Semantic Correctness & Measurement Validity")
+		workload_results = ast_comp.get("workloads", {})
+		valid_workloads = [
+			item for item in workload_results.values() if item.get("is_valid_measurement")
+		]
+		correct_workloads = [item for item in valid_workloads if item.get("is_correct")]
+		invalid_workloads = [
+			item for item in workload_results.values() if not item.get("is_valid_measurement")
+		]
+		md_lines.append(f"- **Valid paired workloads:** {len(valid_workloads)} / {len(workload_results)}.")
+		md_lines.append(f"- **Correct valid workloads:** {len(correct_workloads)} / {len(valid_workloads)}.")
+		md_lines.append(f"- **Invalid measurements:** {len(invalid_workloads)}. These are excluded from performance comparisons.")
+		for workload_id, measurement in workload_results.items():
+			if not measurement.get("is_valid_measurement"):
+				md_lines.append(
+					f"- {workload_id} invalid: {measurement.get('reason', 'No reason supplied')}."
+				)
 		md_lines.append(
-			"Both candidates produce **100% identical outputs and error codes** across all simple, complex, and collection scaling workloads. Resolver counters verify zero invocations in short-circuited branches for both approaches."
+			"- A workload is marked correct only after both candidates pass preparation, warm-up, and every timed result check."
 		)
 		md_lines.append("")
 		md_lines.append("### 4. Preparation and Steady-State Latency Comparison")
@@ -1277,12 +1293,20 @@ class BenchmarkRunner:
 			c_size = w_res.get("collection_size", "-")
 			p_prep = f"{w_res.get('plan_cold_prep_us', 0):.1f} / {w_res.get('plan_warm_prep_us', 0):.1f}"
 			a_prep = f"{w_res.get('ast_cold_prep_us', 0):.1f} / {w_res.get('ast_warm_prep_us', 0):.1f}"
-			p_eval = f"{w_res.get('plan_eval_median_us', 0):.3f}"
-			p_p95 = f"{w_res.get('plan_eval_p95_us', 0):.3f}"
-			a_eval = f"{w_res.get('ast_eval_median_us', 0):.3f}"
-			a_p95 = f"{w_res.get('ast_eval_p95_us', 0):.3f}"
-			ratio = f"{w_res.get('eval_ratio_ast_vs_plan', 1.0):.2f}x"
-			status = "PASS" if w_res.get("is_correct") else "FAIL"
+			p_eval_value = w_res.get("plan_eval_median_us")
+			p_p95_value = w_res.get("plan_eval_p95_us")
+			a_eval_value = w_res.get("ast_eval_median_us")
+			a_p95_value = w_res.get("ast_eval_p95_us")
+			ratio_value = w_res.get("eval_ratio_ast_vs_plan")
+			p_eval = f"{p_eval_value:.3f}" if isinstance(p_eval_value, (int, float)) else "N/A"
+			p_p95 = f"{p_p95_value:.3f}" if isinstance(p_p95_value, (int, float)) else "N/A"
+			a_eval = f"{a_eval_value:.3f}" if isinstance(a_eval_value, (int, float)) else "N/A"
+			a_p95 = f"{a_p95_value:.3f}" if isinstance(a_p95_value, (int, float)) else "N/A"
+			ratio = f"{ratio_value:.2f}x" if isinstance(ratio_value, (int, float)) else "N/A"
+			if not w_res.get("is_valid_measurement"):
+				status = "INVALID"
+			else:
+				status = "PASS" if w_res.get("is_correct") else "FAIL"
 			md_lines.append(
 				f"| `{w_id}` | {c_size} | {p_prep} | {a_prep} | {p_eval} | {p_p95} | {a_eval} | {a_p95} | {ratio} | {status} |"
 			)
@@ -1295,7 +1319,12 @@ class BenchmarkRunner:
 		)
 		md_lines.append("|---|---|---|---|---|---|---|")
 
-		for n_key, a_res in ast_comp.get("amortized", {}).items():
+		amortized_results = ast_comp.get("amortized", {})
+		valid_amortized_rows = 0
+		for n_key, a_res in amortized_results.items():
+			if not isinstance(a_res, dict) or "n" not in a_res:
+				continue
+			valid_amortized_rows += 1
 			p_c = f"{a_res.get('plan_cold_per_eval_us', 0):.2f}"
 			a_c = f"{a_res.get('ast_cold_per_eval_us', 0):.2f}"
 			p_w = f"{a_res.get('plan_warm_per_eval_us', 0):.2f}"
@@ -1303,24 +1332,45 @@ class BenchmarkRunner:
 			f_c = a_res.get("faster_candidate_cold", "N/A")
 			f_w = a_res.get("faster_candidate_warm", "N/A")
 			md_lines.append(f"| **{n_key}** | {p_c} | {a_c} | {p_w} | {a_w} | {f_c} | {f_w} |")
+		if not valid_amortized_rows:
+			md_lines.append("| Not measured | N/A | N/A | N/A | N/A | N/A | N/A |")
+			if amortized_results.get("reason"):
+				md_lines.append(f"Reason: {amortized_results['reason']}")
 
 		md_lines.append("")
 		md_lines.append("### 6. Realistic Frappe Metadata Verification")
 		meta_info = ast_comp.get("metadata_scenario", {})
-		md_lines.append(f"- **Metadata Scenario:** `{meta_info.get('scenario', 'User -> Has Role')}`")
+		md_lines.append(f"- **Metadata Scenario:** {meta_info.get('scenario', 'User -> Has Role')}")
+		md_lines.append(f"- **Metadata Measurement Valid:** {meta_info.get('is_valid_measurement', False)}")
 		md_lines.append(
-			f"- **Compiled Plan Preparation:** `{meta_info.get('plan_prep_us', 0):.2f} μs` | **Evaluation Median:** `{meta_info.get('plan_eval_median_us', 0):.3f} μs`"
+			f"- **Compiled Plan Cold Preparation:** {meta_info.get('plan_prep_us', 0):.2f} μs | "
+			f"**Evaluation Median:** {meta_info.get('plan_eval_median_us', 0):.3f} μs"
 		)
 		md_lines.append(
-			f"- **Direct AST Preparation:** `{meta_info.get('ast_prep_us', 0):.2f} μs` | **Evaluation Median:** `{meta_info.get('ast_eval_median_us', 0):.3f} μs`"
+			f"- **Direct AST Cold Preparation:** {meta_info.get('ast_prep_us', 0):.2f} μs | "
+			f"**Evaluation Median:** {meta_info.get('ast_eval_median_us', 0):.3f} μs"
 		)
+		md_lines.append(
+			f"- **Metadata instrumentation:** {meta_info.get('metadata_access_instrumentation', 'Unavailable')}."
+		)
+		for candidate_name, metrics in meta_info.get("preparation", {}).items():
+			md_lines.append(
+				f"- **{candidate_name} metadata access — cold/warm get_meta calls:** "
+				f"{metrics.get('cold_get_meta_calls', 'N/A')} / {metrics.get('warm_get_meta_calls', 'N/A')}; "
+				f"SQL queries: {metrics.get('cold_sql_queries', 'N/A')} / {metrics.get('warm_sql_queries', 'N/A')}."
+			)
+		if meta_info.get("reason"):
+			md_lines.append(f"- **Metadata measurement invalid reason:** {meta_info['reason']}")
 		md_lines.append("")
 		md_lines.append("### 7. Memory, Cache, and Maintenance Trade-offs")
 		md_lines.append(
-			"- **Direct Canonical AST:** Simpler architectural model without secondary AST compiler or tuple layout dependencies. Saves compilation step entirely. Cold preparation is noticeably faster. Runtime evaluation is slightly slower due to dictionary key lookups vs tuple index access."
+			"- **Direct Canonical AST:** Retains the canonical JSON tree for direct interpretation, avoiding a separate tuple-plan compilation stage."
 		)
 		md_lines.append(
-			"- **Compiled Tuple Plan:** Has lower steady-state per-evaluation latency once prepared, as tuple index indexing is faster than dict key lookups in Python. However, it requires maintaining `_compile_node` and `_compile_value` compilers and plan synchronization."
+			"- **Compiled Tuple Plan:** Builds an immutable tuple representation before execution, trading additional preparation work for a different runtime traversal structure."
+		)
+		md_lines.append(
+			"- These are architectural trade-offs, not performance conclusions. Interpret the measured distributions only after semantic, metadata, security, and production-workload gates pass."
 		)
 		memory_info = ast_comp.get("memory_profiling", {})
 		memory_candidates = memory_info.get("candidates", {})
@@ -1337,7 +1387,7 @@ class BenchmarkRunner:
 		md_lines.append("### 8. Recommendation and Decision Gate")
 		md_lines.append("- **Production Selection:** **Not established**")
 		md_lines.append(
-			"- **Rationale:** For single or few-shot evaluations (N <= 10), Direct Canonical AST interpretation amortizes faster due to lower preparation cost. For heavily looped or long-lived prepared conditions (N >= 100), Compiled Tuple Plan demonstrates faster per-evaluation throughput. Because production workloads vary between single-event triggers and large batch iterations, both execution profiles have distinct sweet spots, and replacing the production evaluator without comprehensive end-to-end telemetry across all action types is not recommended."
+			"- **Rationale:** No production performance budget or workload-derived reuse distribution has been agreed. This harness provides paired microbenchmark diagnostics; it does not establish an architecture winner or substitute for end-to-end Frappe workloads and the remaining correctness/security gates."
 		)
 		md_lines.append("")
 		md_lines.append("---")
