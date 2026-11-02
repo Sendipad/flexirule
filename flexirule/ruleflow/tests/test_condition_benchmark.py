@@ -191,9 +191,12 @@ class TestConditionBenchmark(FrappeTestCase):
 			"expected": True,
 			"description": "Cache-isolation regression workload",
 		}
-		with patch.object(
-			benchmark_runner, "get_canonical_scaling_workloads", return_value={"cache_test": workload}
-		), patch.object(benchmark_runner, "_clear_cache_safely", return_value=False):
+		with (
+			patch.object(
+				benchmark_runner, "get_canonical_scaling_workloads", return_value={"cache_test": workload}
+			),
+			patch.object(benchmark_runner, "_clear_cache_safely", return_value=False),
+		):
 			result = runner.run_canonical_ast_vs_plan_comparison()
 
 		measurement = result["workloads"]["cache_test"]
@@ -221,9 +224,12 @@ class TestConditionBenchmark(FrappeTestCase):
 			"expected": True,
 			"description": "Paired-order regression workload",
 		}
-		with patch.object(
-			benchmark_runner, "get_canonical_scaling_workloads", return_value={"paired_test": workload}
-		), patch.object(benchmark_runner, "_clear_cache_safely", return_value=True):
+		with (
+			patch.object(
+				benchmark_runner, "get_canonical_scaling_workloads", return_value={"paired_test": workload}
+			),
+			patch.object(benchmark_runner, "_clear_cache_safely", return_value=True),
+		):
 			result = runner.run_canonical_ast_vs_plan_comparison()
 
 		measurement = result["workloads"]["paired_test"]
@@ -274,11 +280,13 @@ class TestConditionBenchmark(FrappeTestCase):
 				)
 			return result
 
-		with patch.object(
-			runner.cand_canon_ast, "evaluate", side_effect=incorrect_after_warmup
-		), patch.object(
-			benchmark_runner, "get_canonical_scaling_workloads", return_value={"timed_test": workload}
-		), patch.object(benchmark_runner, "_clear_cache_safely", return_value=True):
+		with (
+			patch.object(runner.cand_canon_ast, "evaluate", side_effect=incorrect_after_warmup),
+			patch.object(
+				benchmark_runner, "get_canonical_scaling_workloads", return_value={"timed_test": workload}
+			),
+			patch.object(benchmark_runner, "_clear_cache_safely", return_value=True),
+		):
 			result = runner.run_canonical_ast_vs_plan_comparison()
 
 		measurement = result["workloads"]["timed_test"]
