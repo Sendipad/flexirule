@@ -25,26 +25,12 @@
 				/>
 			</div>
 			<div class="tree-leaf__actions">
-				<button
-					v-if="inlinePresentation.canToggle"
-					type="button"
-					class="tree-leaf__action tree-leaf__edit"
-					:title="__('Edit')"
-					:aria-label="__('Edit')"
-					@click="startEditing"
-				>
-					<i class="fa fa-pencil" aria-hidden="true"></i>
-				</button>
-				<button
-					v-if="!readOnly"
-					type="button"
-					class="tree-leaf__action tree-leaf__remove"
-					:title="__('Remove')"
-					:aria-label="__('Remove')"
-					@click="$emit('remove')"
-				>
-					<i class="fa fa-trash" aria-hidden="true"></i>
-				</button>
+				<ActionMenu
+					:items="menuItems"
+					:title="__('Leaf actions')"
+					:aria-label="__('Leaf actions')"
+					@action="handleMenuAction"
+				/>
 			</div>
 		</div>
 
@@ -75,26 +61,12 @@
 					/>
 				</div>
 				<div class="tree-leaf__actions">
-					<button
-						v-if="canFinishEditing"
-						type="button"
-						class="tree-leaf__action tree-leaf__finish"
-						:title="__('Finish editing / Show summary')"
-						:aria-label="__('Finish editing / Show summary')"
-						@click="stopEditing"
-					>
-						<i class="fa fa-check" aria-hidden="true"></i>
-					</button>
-					<button
-						v-if="!readOnly"
-						type="button"
-						class="tree-leaf__action tree-leaf__remove"
-						:title="__('Remove')"
-						:aria-label="__('Remove')"
-						@click="$emit('remove')"
-					>
-						<i class="fa fa-trash" aria-hidden="true"></i>
-					</button>
+					<ActionMenu
+						:items="menuItems"
+						:title="__('Leaf actions')"
+						:aria-label="__('Leaf actions')"
+						@action="handleMenuAction"
+					/>
 				</div>
 			</div>
 		</div>
@@ -103,6 +75,8 @@
 
 <script setup>
 import { computed, inject, useSlots } from "vue";
+import ActionMenu from "../../controls/ActionMenu.vue";
+import { copyText } from "../../../utils/clipboard.js";
 import {
 	getInlinePresentation,
 	resolvePresentationMode,
@@ -120,7 +94,7 @@ const props = defineProps({
 	isLeafValid: { type: Function, default: undefined },
 });
 
-defineEmits(["remove"]);
+const emit = defineEmits(["remove"]);
 
 const api = inject("treeBuilderContext", null);
 const slots = useSlots();
@@ -212,6 +186,114 @@ function onDoubleClickSummary(event) {
 	}
 	startEditing();
 }
+
+const siblings = computed(() => props.parent?.children || []);
+const isFirst = computed(() => props.index === 0);
+const isLast = computed(() => props.index === siblings.value.length - 1);
+
+const menuItems = computed(() => {
+	const isSummary = inlinePresentation.value.presentation === "summary";
+	const canToggle = isSummary ? inlinePresentation.value.canToggle : canFinishEditing.value;
+
+	return [
+		{
+			id: "edit",
+			action: isSummary ? "edit" : "finish",
+			label: isSummary ? __("Edit") : __("Finish editing"),
+			icon: isSummary ? "fa fa-pencil" : "fa fa-check",
+			disabled: props.readOnly || !canToggle,
+		},
+		{
+			id: "move-up",
+			action: "move-up",
+			label: __("Move Up"),
+			icon: "fa fa-arrow-up",
+			disabled: props.readOnly || isFirst.value,
+		},
+		{
+			id: "move-down",
+			action: "move-down",
+			label: __("Move Down"),
+			icon: "fa fa-arrow-down",
+			disabled: props.readOnly || isLast.value,
+		},
+		{
+			id: "duplicate",
+			action: "duplicate",
+			label: __("Duplicate"),
+			icon: "fa fa-clone",
+			disabled: props.readOnly,
+		},
+		{
+			id: "copy",
+			action: "copy",
+			label: __("Copy"),
+			icon: "fa fa-copy",
+			disabled: false,
+		},
+		{
+			divider: true,
+		},
+		{
+			id: "delete",
+			action: "remove",
+			label: __("Delete"),
+			icon: "fa fa-trash",
+			danger: true,
+			disabled: props.readOnly,
+		},
+	];
+});
+
+function moveUp() {
+	if (props.readOnly || isFirst.value || !props.parent?.id) return;
+	api?.moveNode(props.node.id, props.parent.id, props.index - 1);
+}
+
+function moveDown() {
+	if (props.readOnly || isLast.value || !props.parent?.id) return;
+	api?.moveNode(props.node.id, props.parent.id, props.index + 1);
+}
+
+function duplicate() {
+	if (props.readOnly) return;
+	if (typeof api?.duplicateNode === "function") {
+		api.duplicateNode(props.node.id);
+	}
+}
+
+function copy() {
+	const text = JSON.stringify(props.node, null, 2);
+	copyText(text);
+}
+
+function handleMenuAction(action) {
+	switch (action) {
+		case "edit":
+			startEditing();
+			break;
+		case "finish":
+			stopEditing();
+			break;
+		case "move-up":
+			moveUp();
+			break;
+		case "move-down":
+			moveDown();
+			break;
+		case "duplicate":
+			duplicate();
+			break;
+		case "copy":
+			copy();
+			break;
+		case "remove":
+			if (!props.readOnly) {
+				emit("remove");
+			}
+			break;
+	}
+}
 </script>
 
 <style scoped>
@@ -273,7 +355,8 @@ function onDoubleClickSummary(event) {
 	background: transparent;
 	color: var(--fxr-text-secondary, #4b5563);
 	cursor: pointer;
-	transition: background-color var(--fxr-transition-fast, 120ms ease),
+	transition:
+		background-color var(--fxr-transition-fast, 120ms ease),
 		border-color var(--fxr-transition-fast, 120ms ease),
 		color var(--fxr-transition-fast, 120ms ease);
 }

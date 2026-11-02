@@ -50,90 +50,13 @@
 						{{ entry.index + 1 }}
 					</button>
 
-					<div
-						v-if="
-							!readOnly &&
-							showRowActions &&
-							(availableRowActions.includes('edit') ||
-								availableRowActions.includes('move') ||
-								availableRowActions.includes('remove'))
-						"
-						class="fxr-generic-grid-row-actions"
-					>
-						<button
-							v-if="
-								availableRowActions.includes('edit') &&
-								(getRowPresentation(entry).presentation === 'summary'
-									? getRowPresentation(entry).canToggle
-									: canFinishRowEditing(entry))
-							"
-							type="button"
-							class="fxr-grid-icon-button"
-							:title="
-								getRowPresentation(entry).presentation === 'editor'
-									? __('Switch to readable row') + ' (' + editShortcut + ')'
-									: __('Edit row') + ' (' + editShortcut + ')'
-							"
-							:aria-label="
-								getRowPresentation(entry).presentation === 'editor'
-									? __('Switch to readable row')
-									: __('Edit row')
-							"
-							:aria-keyshortcuts="editShortcut"
-							@click="
-								requestRowAction(
-									getRowPresentation(entry).presentation === 'editor'
-										? 'view'
-										: 'edit',
-									entry
-								)
-							"
-						>
-							<i
-								:class="
-									getRowPresentation(entry).presentation === 'editor'
-										? 'fa fa-check'
-										: 'fa fa-pencil'
-								"
-								aria-hidden="true"
-							></i>
-						</button>
-						<div
-							v-if="availableRowActions.includes('move')"
-							class="fxr-generic-grid-reorder"
-							:aria-label="__('Move row')"
-						>
-							<button
-								type="button"
-								class="fxr-grid-icon-button"
-								:disabled="entry.index === 0"
-								:title="__('Move row up')"
-								:aria-label="__('Move row up')"
-								@click="requestRowAction('move-up', entry)"
-							>
-								<i class="fa fa-chevron-up" aria-hidden="true"></i>
-							</button>
-							<button
-								type="button"
-								class="fxr-grid-icon-button"
-								:disabled="entry.index === sourceRows.length - 1"
-								:title="__('Move row down')"
-								:aria-label="__('Move row down')"
-								@click="requestRowAction('move-down', entry)"
-							>
-								<i class="fa fa-chevron-down" aria-hidden="true"></i>
-							</button>
-						</div>
-						<button
-							v-if="availableRowActions.includes('remove')"
-							type="button"
-							class="fxr-grid-icon-button is-danger"
-							:title="__('Remove row')"
-							:aria-label="__('Remove row')"
-							@click="requestRowAction('remove', entry)"
-						>
-							<i class="fa fa-trash" aria-hidden="true"></i>
-						</button>
+					<div v-if="!readOnly && showRowActions" class="fxr-generic-grid-row-actions">
+						<ActionMenu
+							:items="getRowMenuItems(entry)"
+							:title="__('Row actions')"
+							:aria-label="__('Row actions')"
+							@action="handleRowMenuAction($event, entry)"
+						/>
 					</div>
 				</div>
 
@@ -379,7 +302,7 @@
 							? __('Copy selected rows (Ctrl/Cmd+C)')
 							: __(
 									'Provide cloneRow to enable copy/paste with a custom rowKey resolver'
-							  )
+								)
 					"
 					@click="copySelectedRows"
 				>
@@ -396,7 +319,7 @@
 							? __('Paste rows (Ctrl/Cmd+V)')
 							: __(
 									'Provide cloneRow to enable copy/paste with a custom rowKey resolver'
-							  )
+								)
 					"
 					@click="pasteRows"
 				>
@@ -417,6 +340,7 @@
 
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useSlots, watch } from "vue";
+import ActionMenu from "./ActionMenu.vue";
 import { getInlinePresentation, resolvePresentationMode } from "./inline_presentation_policy.mjs";
 import {
 	GRID_CLIPBOARD_FORMAT,
@@ -853,6 +777,130 @@ function requestRowAction(action, entry) {
 	});
 }
 
+function getRowMenuItems(entry) {
+	const presentation = getRowPresentation(entry);
+	const isEditor = presentation.presentation === "editor";
+	const canToggleEdit = isEditor ? canFinishRowEditing(entry) : presentation.canToggle;
+	const isFirst = entry.index === 0;
+	const isLast = entry.index === sourceRows.value.length - 1;
+
+	const items = [
+		{
+			id: "edit",
+			action: isEditor ? "view" : "edit",
+			label: isEditor ? __("Done editing") : __("Edit"),
+			icon: isEditor ? "fa fa-check" : "fa fa-pencil",
+			shortcut: props.editShortcut,
+			disabled: !props.availableRowActions.includes("edit") || !canToggleEdit,
+		},
+		{
+			id: "move-up",
+			action: "move-up",
+			label: __("Move Up"),
+			icon: "fa fa-arrow-up",
+			disabled: !props.availableRowActions.includes("move") || isFirst,
+		},
+		{
+			id: "move-down",
+			action: "move-down",
+			label: __("Move Down"),
+			icon: "fa fa-arrow-down",
+			disabled: !props.availableRowActions.includes("move") || isLast,
+		},
+		{
+			id: "duplicate",
+			action: "duplicate",
+			label: __("Duplicate"),
+			icon: "fa fa-clone",
+			disabled: props.readOnly,
+		},
+		{
+			id: "copy",
+			action: "copy",
+			label: __("Copy"),
+			icon: "fa fa-copy",
+			disabled: false,
+		},
+		{
+			divider: true,
+		},
+		{
+			id: "delete",
+			action: "remove",
+			label: __("Delete"),
+			icon: "fa fa-trash",
+			danger: true,
+			disabled: !props.availableRowActions.includes("remove"),
+		},
+	];
+
+	return items;
+}
+
+async function duplicateRow(entry) {
+	if (props.readOnly) return;
+	const nextRows = [...sourceList.value];
+	const cloned = clonePastedRow(entry.row, entry.index);
+	if (!cloned) return;
+	const insertIndex = entry.index + 1;
+	nextRows.splice(insertIndex, 0, cloned);
+	emitRowsUpdate(nextRows);
+	await nextTick();
+	feedback.value = __("Duplicated row.");
+	emit("row-action", {
+		action: "duplicate",
+		row: cloned,
+		sourceRow: entry.row,
+		index: insertIndex,
+		sourceIndex: entry.index,
+	});
+}
+
+async function copySingleRow(entry) {
+	const text = JSON.stringify(
+		{ format: GRID_CLIPBOARD_FORMAT, version: 1, rows: [entry.row] },
+		null,
+		2
+	);
+	internalClipboard.value = text;
+	try {
+		if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) {
+			throw new Error("Clipboard API is not available in this context.");
+		}
+		await navigator.clipboard.writeText(text);
+		if (window.frappe) {
+			frappe.show_alert({ message: __("Copied to clipboard"), indicator: "blue" }, 2);
+		}
+		feedback.value = __("Copied row to the clipboard.");
+	} catch (error) {
+		feedback.value = __("Copied row locally; browser clipboard access is unavailable.");
+		emit("clipboard-error", error);
+	}
+	emit("copy", [entry.row]);
+}
+
+function handleRowMenuAction(action, entry) {
+	if (props.readOnly && action !== "copy") return;
+	switch (action) {
+		case "view":
+		case "edit":
+		case "move-up":
+		case "move-down":
+		case "remove":
+			requestRowAction(action, entry);
+			break;
+		case "duplicate":
+			duplicateRow(entry);
+			break;
+		case "copy":
+			copySingleRow(entry);
+			break;
+		default:
+			requestRowAction(action, entry);
+			break;
+	}
+}
+
 function requestPrimaryAction(afterIndex = null) {
 	if (props.readOnly || !activePrimaryAction.value) return;
 	emit("primary-action", {
@@ -1223,8 +1271,8 @@ async function handleKeydown(event) {
 		const targetEntries = selectedEntries.length
 			? selectedEntries
 			: activeEntry
-			? [activeEntry]
-			: [];
+				? [activeEntry]
+				: [];
 		if (targetEntries.length) {
 			event.preventDefault();
 			const action = getBulkEditAction(
@@ -1609,7 +1657,10 @@ defineExpose({
 	font: inherit;
 	font-size: var(--fxr-text-xs, 11px);
 	cursor: pointer;
-	transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+	transition:
+		background-color 120ms ease,
+		border-color 120ms ease,
+		color 120ms ease;
 }
 
 .fxr-grid-button--quiet {
@@ -1686,7 +1737,10 @@ defineExpose({
 	border: 1px solid var(--fxr-border-subtle, #e5e7eb);
 	border-radius: var(--fxr-radius-md, 6px);
 	background: var(--fxr-surface, #fff);
-	transition: border-color 120ms ease, background-color 120ms ease, box-shadow 120ms ease;
+	transition:
+		border-color 120ms ease,
+		background-color 120ms ease,
+		box-shadow 120ms ease;
 }
 
 .fxr-generic-grid-row-toolbar {
