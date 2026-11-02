@@ -694,17 +694,15 @@ def _resolve_collection_child_doctype(
 				)
 			if index < len(source_segments) - 1:
 				if field.fieldtype not in {"Table", "Table MultiSelect"} or not field.options:
-					raise ConditionValidationError(
-						"invalid_collection_source", path, "Collection source path crosses a non-table field"
-					)
+					return None
 				meta = frappe.get_meta(field.options)
 
 		if field and field.fieldtype in {"Table", "Table MultiSelect"} and field.options:
 			frappe.get_meta(field.options)
 			return field.options
-		raise ConditionValidationError(
-			"invalid_collection_source", path, "Collection source must reference a configured table field"
-		)
+		# A collection may also be a list stored in a non-Table field or a
+		# variable; in that case there is no child DocType to attach to its rows.
+		return None
 	except ConditionValidationError as exc:
 		raise ConditionEvaluationError(exc.code, exc.path, exc.message) from exc
 	except Exception as exc:
