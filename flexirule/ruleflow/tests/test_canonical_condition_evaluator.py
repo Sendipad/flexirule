@@ -184,6 +184,29 @@ class TestCanonicalConditionEvaluator(unittest.TestCase):
 				)
 			)
 
+	def test_evaluate_condition_revalidates_fieldtype_after_plan_cache_hit(self):
+		fieldtype = {"value": "Int"}
+
+		def fake_get_meta(_doctype):
+			return SimpleNamespace(
+				get_field=lambda fieldname: (
+					SimpleNamespace(fieldtype=fieldtype["value"]) if fieldname == "status" else None
+				)
+			)
+
+		node = compare("gt", variable("doc", "status"), static("integer", 1))
+		context = {"doc": {"doctype": "Metadata Cache Test", "status": 2}}
+
+		with patch("frappe.get_meta", side_effect=fake_get_meta):
+			self.assertTrue(evaluate_condition(node, context))
+
+		# The plan is now cached. A DocType schema change must still be validated.
+		fieldtype["value"] = "Data"
+		with patch("frappe.get_meta", side_effect=fake_get_meta):
+			with self.assertRaises(ConditionValidationError) as raised:
+				evaluate_condition(node, context)
+		self.assertEqual(raised.exception.code, "fieldtype_not_supported")
+
 	def test_compiled_static_plan_is_immutable_after_input_mutation(self):
 		node = compare(
 			"eq",
