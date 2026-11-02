@@ -2,26 +2,27 @@
 
 ## Section A — Executive Summary
 
-- **Audit Date**: 2026-11-01
+- **Audit Date**: 2026-11-01 (Updated 2026-11-02 to align with RC1 tracking issues #358, #359, #360, #361, #368)
 - **Repository**: `https://github.com/Sendipad/flexirule`
 - **Target Branch**: `develop`
 - **Audited Commit SHA**: `1f7bdb71fdd9328a2de40088869c42c1d9274dcb`
 - **Audit Scope**: End-to-end multi-agent static and dynamic verification of all visual RuleFlow Action Types, individual operation options, process adapters, assignment operators, validation boundaries, permissions, transactions, and test coverage.
 - **Action Types Discovered**: 13 Action Types (`Entry Action`, `Condition`, `Assignment`, `Query Records`, `Document Action`, `Process`, `Loop`, `Switch`, `Stop`, `Wait`, `Raise Error`, `Notify`, `Sub-Rule`).
-- **Discovered Operations / Variants Assessed**: 44 total discrete operations across all action types (11 Query Records, 5 Document Action, 12 Process Operations across 4 Processes, 5 Notify modes, 2 Stop modes, 7 Assignment operators, plus 2 individual control flow operations for Condition and Entry Action).
+- **Discovered Operations / Variants Assessed**: 49 total discrete operations across all action types (including 11 Query Records, 5 Document Action, 12 Process Operations across 4 Processes, 5 Notify modes, 2 Stop modes, 7 Assignment operators, Condition, Entry Action, Loop, Switch, Wait, Raise Error, and Sub-Rule).
 - **Operation Assessment Counts**:
-  - **PASS**: 25 operations
-  - **PARTIAL**: 11 operations
+  - **PASS**: 39 operations
+  - **PARTIAL**: 5 operations
   - **FAIL**: 0 operations
-  - **UNVERIFIED**: 6 operations
+  - **UNVERIFIED**: 3 operations
   - **DISABLED**: 2 operations (`Switch`, `Loop` on builder UI gate)
   - **EXPERIMENTAL**: 0 operations
 - **Confirmed P0/P1 Findings**:
-  - **PRC-368 (Severity P0 — Release Blocker, Issue #368)**: Make Process filesystem sync deterministic, change-aware, and deletion-safe during bench migration.
-  - **TXN-001 (Severity P1 — High Priority, Issue #359)**: Missing Savepoint Initialization in General `_execute_graph()` Action Execution Causes Uncoordinated Full Transaction Rollback on `on_error == "Rollback"`.
-  - **REL-001 (Severity P1 — High Priority, Issue #360)**: Release Gating Asymmetry Between Frontend Hardcoded Denylist (`variable_validator.js`) and Backend DTO Contract (`contract_utils.py` / `contract_dto.py`).
-  - **QRY-001 (Severity P2 — Medium / Accepted v15 Limitation, Issue #361)**: Frappe Query Builder Record-Level Permission Enforcement Asymmetry on Frappe v15 / v16 (Fail-Closed Behavior).
-- **RC1 Recommendation**: **READY AFTER LISTED BLOCKERS ARE CLOSED**. FlexiRule possesses robust, modern architecture across its core actions, declarative Process V2 contract, and unified ValueResolver. However, before declaring RC1, the savepoint lifecycle in `engine.py` must be normalized, the release-gating contract between frontend and backend DTOs unified, and the Frappe v15 permission bypass explicitly documented.
+  - **PRC-368 (Severity P0 — Release Blocker, Tracked in Issue #368)**: Process filesystem sync in `flexirule/ruleflow/core/process_sync.py` relies on a timestamp-only change detector (`_should_sync_existing_process()`) which can skip content updates when timestamps are stale, and needs deterministic change-aware reconciliation for RC1.
+  - **TXN-001 (Severity P1 — High Priority, Tracked in Issue #359)**: Missing Savepoint Initialization in General `_execute_graph()` Action Execution Causes Uncoordinated Full Transaction Rollback on `on_error == "Rollback"`.
+  - **REL-001 (Severity P1 — High Priority, Tracked in Issue #360)**: Release Gating Asymmetry Between Frontend Hardcoded Denylist (`variable_validator.js`) and Backend DTO / Server Enforcement (`contract_utils.py`, `validation_service.py`, `engine.py`).
+- **Accepted Limitations / P2 Items**:
+  - **QRY-001 (Severity P2 — Medium / Accepted v15 Limitation, Tracked in Issue #361)**: Frappe Query Builder Record-Level Permission Enforcement Asymmetry on Frappe v15 / v16 (`can_ignore_permissions` Fail-Closed Behavior).
+- **RC1 Recommendation**: **READY AFTER LISTED BLOCKERS ARE CLOSED**. FlexiRule possesses robust, modern architecture across its core actions, declarative Process V2 contract, and unified ValueResolver. However, before declaring RC1, the Process synchronization change detector (PRC-368 / #368) must be made deterministic, the savepoint lifecycle in `engine.py` (TXN-001 / #359) must be normalized, and the release-gating contract between frontend and backend DTOs/validators (REL-001 / #360) must be unified.
 
 ---
 
@@ -85,6 +86,8 @@ The following authoritative inventory was discovered directly from repository so
 
 ## Section C — Operation-Level Verification Matrix
 
+*Scoring Rule*: Overall Status reflects end-to-end release readiness. An operation is marked `PASS` when its core runtime implementation, contracts, validation, security boundaries, and adequate tests are verified. When test coverage does not exercise advanced branch options or complex fuzzy heuristics, the Tests dimension is marked `PARTIAL`, resulting in an overall status of `PARTIAL`. For `Document Action`, runtime execution and document validation pass, while the ambient transaction rollback behavior under `on_error == 'Rollback'` is affected by TXN-001.
+
 | Action Type | Operation | UI / Contract | Runtime | Validation | Security | Error / Txn Behavior | Tests | Overall Status | Finding IDs |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Entry Action** | Start Node | PASS | PASS | PASS | PASS | PASS | PASS | **PASS** | — |
@@ -130,9 +133,9 @@ The following authoritative inventory was discovered directly from repository so
 | **Process (Validation)** | `composite_uniqueness` | PASS | PASS | PASS | PASS | PASS | PASS | **PASS** | — |
 | **Process (Validation)** | `role_check` | PASS | PASS | PASS | PASS | PASS | PASS | **PASS** | — |
 | **Process (Validation)** | `on_field_change` | PASS | PASS | PASS | PASS | PASS | PASS | **PASS** | — |
-| **Process (Dedupe)** | `find_duplicates_in_child_table` | PASS | PASS | PASS | PASS | PASS | PASS | **PARTIAL** | — |
-| **Process (Dedupe)** | `find_matching_records` | PASS | PASS | PASS | PASS | PASS | PASS | **PARTIAL** | — |
-| **Process (Enrichment)** | `calculate_value` | PASS | PASS | PASS | PASS | PASS | PASS | **PARTIAL** | — |
+| **Process (Dedupe)** | `find_duplicates_in_child_table` | PASS | PASS | PASS | PASS | PASS | PARTIAL | **PARTIAL** | — |
+| **Process (Dedupe)** | `find_matching_records` | PASS | PASS | PASS | PASS | PASS | PARTIAL | **PARTIAL** | — |
+| **Process (Enrichment)** | `calculate_value` | PASS | PASS | PASS | PASS | PASS | PARTIAL | **PARTIAL** | — |
 | **Process (Enrichment)** | `linked_doc_autocomplete` | PARTIAL | PARTIAL | PASS | PASS | PASS | UNVERIFIED | **UNVERIFIED** | PRC-001 |
 | **Process (Enrichment)** | `copy_from_template` | PARTIAL | PARTIAL | PASS | PASS | PASS | UNVERIFIED | **UNVERIFIED** | PRC-001 |
 | **Process (Batch)** | `execute_for_documents` | PARTIAL | PARTIAL | PASS | PASS | PASS | UNVERIFIED | **UNVERIFIED** | PRC-002 |
@@ -168,7 +171,7 @@ The following authoritative inventory was discovered directly from repository so
 - **Security**: Expression evaluated with `engine._evaluate_python_value` (`frappe.safe_eval`).
 - **Failure Behavior**: Falls back to `next_step_if_true` if unconfigured or unmatched.
 - **Tests**: `flexirule/ruleflow/tests/test_engine_comprehensive.py` (`test_engine_execute_switch_action` marked skipped: `"Switch action is disabled for the v0.1 release surface"`).
-- **Status & Rationale**: **DISABLED**. Gated in frontend `variable_validator.js`. As documented in Finding REL-001, backend contract DTO needs to be synchronized so it remains strictly disabled until multi-handle visual graph routing is formalized.
+- **Status & Rationale**: **DISABLED**. Gated in frontend `variable_validator.js`. As documented in Finding REL-001, backend contract DTO and server-side checks need to be synchronized so it remains strictly disabled until multi-handle visual graph routing is formalized.
 - **Open Gaps**: Edge serialization and UI routing for arbitrary case branches.
 
 ### D.4 Loop
@@ -292,11 +295,11 @@ The following authoritative inventory was discovered directly from repository so
   - Status: **PASS**.
 - **D.12.7-D.12.8 Deduplication Process (`dedupe` adapter)**:
   - Operations: `find_duplicates_in_child_table`, `find_matching_records`.
-  - Status: **PARTIAL** (Core matching logic works; complex fuzzy thresholds require integration tests).
+  - Status: **PARTIAL** (Core matching logic works; complex fuzzy thresholds and edge cases require additional integration test suites).
 - **D.12.9-D.12.11 Enrichment Process (`lookup` adapter)**:
-  - Operations: `calculate_value` (**PARTIAL**), `linked_doc_autocomplete` (**UNVERIFIED**), `copy_from_template` (**UNVERIFIED**).
+  - Operations: `calculate_value` (**PARTIAL**), `linked_doc_autocomplete` (**UNVERIFIED** / PRC-001), `copy_from_template` (**UNVERIFIED** / PRC-001).
 - **D.12.12 Batch Process (`batch` adapter)**:
-  - Operation: `execute_for_documents` (**UNVERIFIED**). Requires background worker queue testing.
+  - Operation: `execute_for_documents` (**UNVERIFIED** / PRC-002). Requires background worker queue verification.
 
 ### D.13 Notify (5 Operations)
 - **Shared Architecture**: `flexirule/ruleflow/core/action_handlers/simple_actions.py` (`NotifyHandler`).
@@ -304,7 +307,7 @@ The following authoritative inventory was discovered directly from repository so
 - **System**: `frappe.publish_realtime("msgprint", ...)`. Status: **PASS**.
 - **Email**: `frappe.sendmail(...)` with recipients, subject, and optional PDF attachment. Status: **PASS**.
 - **System Notification**: Creates `Notification Log` document row. Status: **PASS**.
-- **Provider**: Hook-based dispatch (`flexirule_notification_providers`). Status: **PARTIAL** (hook registration mechanism exists; third-party provider adapters unverified).
+- **Provider**: Hook-based dispatch (`flexirule_notification_providers`). Status: **PARTIAL** (hook registration mechanism exists; third-party provider adapters unverified, documented under NTF-001).
 
 ---
 
@@ -327,102 +330,103 @@ The following authoritative inventory was discovered directly from repository so
 
 ## Section F — RC1 Release Blockers
 
-### Finding TXN-001
+### Finding PRC-368 (Tracked in Issue #368)
+- **Affected Operation**: Process Filesystem Synchronization (`bench migrate` / `after_migrate`)
+- **Severity**: P0 (Release Blocker — Tracked in Issue #368)
+- **Source Location**: `flexirule/ruleflow/core/process_sync.py` (specifically `_should_sync_existing_process` lines 30–45, and `sync_processes` lines 50–90)
+- **Evidence**:
+  In `process_sync.py`, stale operation pruning and standard Process deletion exist (`_prune_missing_standard_processes`). However, the existing process update gate relies strictly on comparing timestamps via `_should_sync_existing_process()`:
+  ```python
+  def _should_sync_existing_process(doc, source_modified) -> bool:
+      if not source_modified:
+          return True
+      return get_datetime(source_modified) > get_datetime(doc.modified)
+  ```
+  If a file-backed Process definition is modified without updating its embedded `modified` timestamp (or if git checkout leaves the file mtime older than the database record), `bench migrate` skips importing the modified operations and schema overrides. Furthermore, missing test coverage for non-standard process isolation and idempotent multi-app sync prevents verifying change-aware reconciliation.
+- **User / Business Impact**: Updates to standard Process operations in new releases or app updates may not synchronize to the database during migration.
+- **Recommended Correction**: Adopt Frappe-aligned sync principles: compute a deterministic definition hash (or migration hash) over the Process and its child operations. Only skip sync when the hash matches. Ensure custom Processes remain strictly protected from pruning.
+- **Test Required**: Add migration sync tests verifying that content modifications with identical timestamps still trigger an update, and that running sync twice produces zero DB writes.
+- **RC1 Disposition**: **Must be resolved before RC1 (P0 Prerequisite)**.
+
+---
+
+### Finding TXN-001 (Tracked in Issue #359)
 - **Affected Operation**: RuleEngine graph traversal / all actions configuring `on_error == "Rollback"`
-- **Severity**: P1 (High Priority)
+- **Severity**: P1 (High Priority — Tracked in Issue #359)
 - **Source Location**: `flexirule/ruleflow/core/engine.py` (lines 530–565, 650–670)
 - **Evidence**:
-  In `_execute_graph()`, line 653:
+  In `RuleEngine._execute_graph()`, line 653:
   ```python
   elif current.on_error == "Rollback":
       savepoint_name = f"flexirule_action_{current.action_id or current.name}"
-      ...
-      frappe.db.rollback(save_point=savepoint_name)
+      self._log("ERROR", _("Error in action {0}, rolling back to savepoint: {1}").format(current.action_label, str(e)))
+      try:
+          frappe.db.rollback(save_point=savepoint_name)
+      except Exception as rollback_err:
+          frappe.db.rollback()
   ```
   However, unlike `_call_process_with_retry` (which explicitly creates `frappe.db.savepoint(savepoint_name)` before calling the process), the general execution loop in `_execute_graph()` does **not** invoke `frappe.db.savepoint(savepoint_name)` prior to executing `handler.execute()`. When an exception occurs and rollback is requested, the savepoint does not exist in MariaDB/PostgreSQL, causing an inner `DatabaseError` which triggers the fallback `frappe.db.rollback()`. This unexpectedly rolls back the entire database transaction instead of just the failed action.
 - **User / Business Impact**: Rules using `on_error: Rollback` cannot perform fine-grained step rollbacks; they inadvertently abort all earlier database operations in the transaction.
 - **Recommended Correction**: In `_execute_graph()`, before executing `handler.execute()`, check if `getattr(current, "on_error", None) == "Rollback"`. If so, create `frappe.db.savepoint(savepoint_name)` inside a try-finally block and release it (`frappe.db.release_savepoint(savepoint_name)`) on successful completion.
-- **Test Required**: Add a regression test executing an action with `on_error: "Rollback"` that fails, asserting that prior database writes remain intact and no savepoint error is logged.
+- **Test Required**: Add a regression test executing an action with `on_error: "Rollback"` that fails, asserting that prior database writes survive while writes made by the failed action are reverted.
 - **RC1 Disposition**: **Must be resolved before RC1**.
 
 ---
 
-### Finding REL-001
+### Finding REL-001 (Tracked in Issue #360)
 - **Affected Operation**: `Loop`, `Switch` Action Types
-- **Severity**: P1 (High Priority)
+- **Severity**: P1 (High Priority — Tracked in Issue #360)
 - **Source Location**:
-  - `flexirule/public/js/flexirule/utils/variable_validator.js` (line 23)
-  - `flexirule/public/js/flexirule/core/contracts.js` (lines 53, 110, 1193)
-  - `flexirule/ruleflow/core/contract_utils.py` (line 64)
-  - `flexirule/ruleflow/core/contract_dto.py` (line 64)
+  - Backend Contract Utility: `flexirule/ruleflow/core/contract_utils.py` (line 64: `RELEASE_DISABLED_ACTION_TYPES: set[str] = set()`)
+  - Server-Side Validation: `flexirule/ruleflow/core/validation_service.py` (lines 37, 98, 211: calls `is_release_disabled_action(action_type)`)
+  - Runtime Engine Enforcement: `flexirule/ruleflow/core/engine.py` (lines 31, 423: calls `is_release_disabled_action(a.action_type)`)
+  - Contract DTO Serialization: `flexirule/ruleflow/core/contract_dto.py` (line 64: `"release_disabled_action_types": sorted(list(RELEASE_DISABLED_ACTION_TYPES))`)
+  - Frontend Fallback & DTO Consumption: `flexirule/public/js/flexirule/utils/variable_validator.js` (line 23), `flexirule/public/js/flexirule/core/contracts.js` (lines 53, 110, 1193)
 - **Evidence**:
-  `variable_validator.js` defines:
+  `variable_validator.js` defines a client-side hardcoded set:
   ```javascript
   const RELEASE_DISABLED_ACTION_TYPES = new Set(["Loop", "Switch"]);
   ```
-  Meanwhile, `contract_utils.py` defines:
+  However, backend `contract_utils.py` defines:
   ```python
   RELEASE_DISABLED_ACTION_TYPES: set[str] = set()
   ```
-  And when frontend contracts load the backend DTO via `get_contract_dto()`, `contracts.js` does:
-  ```javascript
-  RELEASE_DISABLED_ACTION_TYPES = new Set(dto.release_disabled_action_types);
-  ```
-  This creates an architectural divergence where the frontend hardcoded denylist disagrees with the backend DTO payload. If `Switch` and `Loop` are intended to be gated for RC1, the backend DTO must supply them in `release_disabled_action_types`.
+  Because the backend set is empty, `is_release_disabled_action()` returns `False` on the server. When `validation_service.py` validates a rule at save time or activation time, and when `engine.py` validates disabled action nodes before running, neither rejects `Loop` or `Switch`. Furthermore, when `contracts.js` hydrates from backend DTO (`RELEASE_DISABLED_ACTION_TYPES = new Set(dto.release_disabled_action_types)`), it overwrites the frontend set with an empty set. This creates an architectural divergence where the server fails to gate off incomplete or unrouted actions.
 - **User / Business Impact**: Inconsistent UI availability and validation behavior between cached sessions, direct API invocations, and desk navigation.
-- **Recommended Correction**: Synchronize `RELEASE_DISABLED_ACTION_TYPES` in `contract_utils.py` to include `{"Loop", "Switch"}` as the single source of truth for the RC1 release surface.
-- **Test Required**: Backend test ensuring `get_contract_dto()["release_disabled_action_types"]` returns `['Loop', 'Switch']` and frontend contract reflects this.
+- **Recommended Correction**: Synchronize `RELEASE_DISABLED_ACTION_TYPES` in `contract_utils.py` to include `{"Loop", "Switch"}` as the single canonical source of truth for the RC1 release surface.
+- **Test Required**: Backend test ensuring `get_contract_dto()["release_disabled_action_types"]` returns `['Loop', 'Switch']` and server validation rejects them.
 - **RC1 Disposition**: **Must be resolved before RC1**.
 
 ---
 
-### Finding QRY-001
-- **Affected Operation**: `Query Records` (`Fetch Records`)
-- **Severity**: P2 (Medium Priority / Accepted v15 Limitation — Tracked under Issue #361)
-- **Source Location**: `flexirule/ruleflow/utils/frappe_query_compat.py` (lines 200–220), `flexirule/ruleflow/core/action_handlers/query_records.py` (lines 525–540)
-- **Evidence**:
-  Frappe v15's Query Builder engine (`frappe.qb.get_query`) does not support native `ignore_permissions` parameter checking. In `frappe_query_compat.py`:
-  ```python
-  if not native_permissions and not ignore_permissions:
-      raise frappe.ValidationError(
-          "Fetch Records cannot enforce record-level read permissions through the installed "
-          "Frappe Query Builder API. On this Frappe version, enable Skip Permissions and provide "
-          "a permission audit reason, or use a query mode based on frappe.get_list."
-      )
-  ```
-  While the fail-closed behavior is correct for security, users configuring `Fetch Records` on Frappe v15 without `skip_permissions` encounter validation errors during rule activation and execution.
-- **User / Business Impact**: Users migrating from `Query List` to `Fetch Records` on Frappe v15 experience unexpected blocked executions unless they configure an explicit audit reason.
-- **Recommended Correction**: Update visual builder UI documentation and help tooltips to clearly explain the Frappe v15 Query Builder security constraint, and offer one-click configuration of `Query List` for permission-enforced queries.
-- **Test Required**: Covered by existing test `test_fetch_records_normalization.py`.
-- **RC1 Disposition**: **Documented Limitation for RC1**.
-
----
-
-
-### Finding PRC-368 (Tracked in Issue #368)
-- **Affected Operation**: Process Filesystem Synchronization (WARN: Command not being executed in bench directory / )
-- **Severity**: P0 (Release Blocker — Tracked in Issue #368)
-- **Source Location**:
-- **Evidence**: As identified in Issue #368,  scans Process JSON definitions across apps. It currently lacks deterministic file-change awareness (rewriting unchanged definitions on repeated bench migrate) and orphan deletion safety for removed standard operations/files while preserving custom non-standard Processes.
-- **User / Business Impact**: Repeated bench migrate can rewrite unmodified records or leave orphaned standard process operations.
-- **Recommended Correction**: Implement Frappe-aligned file-backed synchronization model: hash/change-aware reconciliation, child operation diffing, and standard-only orphan pruning.
-- **RC1 Disposition**: **Must be resolved before RC1 (P0 Prerequisite)**.
-
 ## Section G — Accepted Limitations and Deferrals
 
-1. **Synchronous Sleep in Wait Action (WAI-001)**:
+1. **Frappe v15 Query Builder Permission Fail-Closed Behavior (QRY-001 / Tracked in Issue #361)**:
+   - *Severity*: P2 (Accepted Frappe v15 Limitation)
+   - *Source Location*: `flexirule/ruleflow/utils/frappe_query_compat.py` (lines 200–225)
+   - *Current Behavior*: Frappe v15's `frappe.database.query.Engine.get_query()` does not support the `ignore_permissions` argument, whereas Frappe v16 natively exposes it. FlexiRule detects this capability: on v16 it passes the permission flag natively; on v15 it intentionally fails closed unless the audited bypass (`can_ignore_permissions`) is configured.
+   - *RC1 Disposition*: This is an intentional security design choice, not a defect. It must not be bypassed by falling back to `frappe.get_list`, because Query Builder and `get_list` differ in aggregation, joins, and filter syntax. Documented for RC1; users desiring permission-enforced queries on v15 use `Query List`.
+
+2. **Synchronous Sleep in Wait Action (WAI-001)**:
+   - *Severity*: P3 (Accepted Limitation)
    - *Current Behavior*: `WaitHandler.execute()` uses Python `time.sleep()`, which synchronously blocks the gunicorn/bench worker.
    - *RC1 Justification*: Acceptable for micro-delays (< 5s) in synchronous hooks. Long delays should be documented as discouraged.
    - *Recommendation for Post-RC1*: Implement a durable async pause/resume mechanism using Frappe scheduler and background jobs.
 
-2. **Irreversible External Side Effects in Transaction Rollback (SE-001)**:
+3. **External Side Effects Persistence on Rollback (SE-001)**:
+   - *Severity*: P3 (Accepted Limitation)
    - *Current Behavior*: Actions that produce external side effects (e.g. sending real emails via `Notify`, calling external webhook providers) cannot be rolled back if a subsequent action in the rule fails.
    - *RC1 Justification*: Standard across distributed automation platforms.
-   - *Requirement*: Clearly documented in user guides.
 
-3. **Gated Switch and Loop Visual Node Routing (SWT-001)**:
-   - *Current Behavior*: Multi-edge Vue Flow handles and dynamic case router are deferred behind the release gate.
-   - *RC1 Justification*: Prevents malformed graph definitions in initial release.
+4. **Third-Party Notification Providers (NTF-001)**:
+   - *Severity*: P3 (Accepted Limitation / Unverified Provider Adapters)
+   - *Current Behavior*: `NotifyHandler` supports a `Provider` mode dispatched via Frappe hook `flexirule_notification_providers`. Core hook dispatch logic is present, but third-party external provider packages are external integrations unverified in core.
+   - *RC1 Disposition*: Defer third-party provider certifications to post-RC1.
+
+5. **Unverified Advanced Process Operations (PRC-001, PRC-002)**:
+   - *Severity*: P3 (Accepted Limitation / Deferred to Full Test Harness)
+   - *Current Behavior*: Enrichment operations `linked_doc_autocomplete` and `copy_from_template` (PRC-001) and Batch operation `execute_for_documents` (PRC-002) have valid V2 declarative contracts but lack end-to-end integration test fixtures in the core test suite.
+   - *RC1 Disposition*: Handlers and schemas are registered; complete end-to-end integration tests deferred to post-RC1 test hardening.
 
 ---
 
@@ -443,46 +447,22 @@ Targeted test suites were executed in the local Frappe Bench development environ
   - Graph dirty state, layout merge, stable serialization, and workspace guard.
 
 ### 2. Backend Automated Test Suites (`bench run-tests`)
-- **flexirule.ruleflow.tests.test_action_return_schema_contract**:
-  - Command: `bench --site test_site run-tests --module flexirule.ruleflow.tests.test_action_return_schema_contract`
-  - Exit Code: `0` (Ran 26 tests in 0.142s — OK)
-- **flexirule.ruleflow.tests.test_process_contract_v2**:
-  - Command: `bench --site test_site run-tests --module flexirule.ruleflow.tests.test_process_contract_v2`
-  - Exit Code: `0` (Ran 4 tests in 0.331s — OK)
-- **flexirule.ruleflow.tests.test_sub_rule_contract**:
-  - Command: `bench --site test_site run-tests --module flexirule.ruleflow.tests.test_sub_rule_contract`
-  - Exit Code: `0` (Ran 5 tests in 0.006s — OK)
-- **flexirule.ruleflow.tests.test_fetch_records**:
-  - Command: `bench --site test_site run-tests --module flexirule.ruleflow.tests.test_fetch_records`
-  - Exit Code: `0` (Ran 29 tests in 2.086s — OK)
-- **flexirule.ruleflow.tests.test_query_records_canonical_filters**:
-  - Command: `bench --site test_site run-tests --module flexirule.ruleflow.tests.test_query_records_canonical_filters`
-  - Exit Code: `0` (Ran 1 test in 0.035s — OK)
-- **flexirule.ruleflow.tests.test_query_records_refactor**:
-  - Command: `bench --site test_site run-tests --module flexirule.ruleflow.tests.test_query_records_refactor`
-  - Exit Code: `0` (Ran 17 tests in 3.590s — OK)
-- **flexirule.ruleflow.tests.test_assignment_resolver**:
-  - Command: `bench --site test_site run-tests --module flexirule.ruleflow.tests.test_assignment_resolver`
-  - Exit Code: `0` (Ran 12 tests in 0.120s — OK)
-- **flexirule.ruleflow.tests.test_permissions**:
-  - Command: `bench --site test_site run-tests --module flexirule.ruleflow.tests.test_permissions`
-  - Exit Code: `0` (Ran 10 tests in 4.916s — OK)
-- **flexirule.ruleflow.tests.test_advanced_rule_flows**:
-  - Command: `bench --site test_site run-tests --module flexirule.ruleflow.tests.test_advanced_rule_flows`
-  - Exit Code: `0` (Ran 5 tests in 3.869s — OK)
-- **flexirule.ruleflow.tests.test_engine_complex_flows**:
-  - Command: `bench --site test_site run-tests --module flexirule.ruleflow.tests.test_engine_complex_flows`
-  - Exit Code: `0` (Ran 3 tests in 2.328s — OK)
-- **flexirule.ruleflow.tests.test_loop_flow_constraints**:
-  - Command: `bench --site test_site run-tests --module flexirule.ruleflow.tests.test_loop_flow_constraints`
-  - Exit Code: `0` (Ran 9 tests in 0.417s — OK)
-- **flexirule.ruleflow.tests.test_process_sync**:
-  - Command: `bench --site test_site run-tests --module flexirule.ruleflow.tests.test_process_sync`
-  - Exit Code: `0` (Ran 17 tests in 1.929s — OK)
-- **flexirule.ruleflow.tests.test_rule_versioning**:
-  - Command: `bench --site test_site run-tests --module flexirule.ruleflow.tests.test_rule_versioning`
-  - Exit Code: `0` (Ran 17 tests in 3.222s — OK)
-- **Total Backend Tests Executed & Passed**: 149 tests across 13 test modules; 0 failures; 0 errors.
+Executed across 13 test modules covering action handlers, query engine, process runtime, sub-rules, and versioning:
+1. `flexirule.ruleflow.tests.test_action_return_schema_contract`: 26 tests (0.142s — OK)
+2. `flexirule.ruleflow.tests.test_process_contract_v2`: 4 tests (0.331s — OK)
+3. `flexirule.ruleflow.tests.test_sub_rule_contract`: 5 tests (0.006s — OK)
+4. `flexirule.ruleflow.tests.test_fetch_records`: 29 tests (2.086s — OK)
+5. `flexirule.ruleflow.tests.test_query_records_canonical_filters`: 1 test (0.035s — OK)
+6. `flexirule.ruleflow.tests.test_query_records_refactor`: 17 tests (3.590s — OK)
+7. `flexirule.ruleflow.tests.test_assignment_resolver`: 12 tests (0.120s — OK)
+8. `flexirule.ruleflow.tests.test_permissions`: 10 tests (4.916s — OK)
+9. `flexirule.ruleflow.tests.test_advanced_rule_flows`: 5 tests (3.869s — OK)
+10. `flexirule.ruleflow.tests.test_engine_complex_flows`: 3 tests (2.328s — OK)
+11. `flexirule.ruleflow.tests.test_loop_flow_constraints`: 9 tests (0.417s — OK)
+12. `flexirule.ruleflow.tests.test_process_sync`: 17 tests (1.929s — OK)
+13. `flexirule.ruleflow.tests.test_rule_versioning`: 17 tests (3.222s — OK)
+
+- **Total Backend Tests Executed & Passed**: Exactly 155 tests across 13 test modules; 0 failures; 0 errors.
 
 ### 3. Static Code Quality & Linter Checks
 - **Command**: `/home/jules/.local/bin/ruff check flexirule/`
@@ -495,8 +475,9 @@ Targeted test suites were executed in the local Frappe Bench development environ
 **Recommendation**: **READY AFTER LISTED BLOCKERS ARE CLOSED**
 
 ### Outstanding Conditions for RC1:
-1. **Resolve TXN-001**: Implement proper savepoint wrapping in `flexirule/ruleflow/core/engine.py` around action execution when `on_error == "Rollback"`, avoiding unhandled database exceptions and uncoordinated full rollbacks.
-2. **Resolve REL-001**: Synchronize `RELEASE_DISABLED_ACTION_TYPES` in `flexirule/ruleflow/core/contract_utils.py` to match the frontend gating list (`["Loop", "Switch"]`), ensuring contract DTO hydration enforces release gating server-side.
-3. **Documentation Alignment**: Include documentation for QRY-001 (Frappe v15 Query Builder permission bypass) and WAI-001 (synchronous execution of Wait action).
+1. **Resolve PRC-368 (P0 Blocker, Issue #368)**: Make Process filesystem synchronization deterministic and change-aware during `bench migrate`, replacing timestamp-only checks with content/hash reconciliation and testing standard process pruning.
+2. **Resolve TXN-001 (P1 Blocker, Issue #359)**: Implement proper savepoint wrapping in `flexirule/ruleflow/core/engine.py` around action execution when `on_error == "Rollback"`, avoiding unhandled database exceptions and uncoordinated full rollbacks.
+3. **Resolve REL-001 (P1 Blocker, Issue #360)**: Synchronize `RELEASE_DISABLED_ACTION_TYPES` in `flexirule/ruleflow/core/contract_utils.py` to match the frontend gating list (`["Loop", "Switch"]`), ensuring contract DTO hydration and server-side validators (`validation_service.py`, `engine.py`) strictly enforce release gating.
+4. **Documentation Alignment (Issue #361)**: Maintain documentation for QRY-001 (Frappe v15 Query Builder fail-closed behavior) and WAI-001 (synchronous execution of Wait action).
 
 Once these targeted corrections are in place, the FlexiRule core automation engine is architecturally sound and ready for Release Candidate 1.
