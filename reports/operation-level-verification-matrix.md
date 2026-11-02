@@ -20,7 +20,7 @@
 - **Confirmed P0 Findings**: 0
 - **Confirmed P1 Findings**: 2 (`REL-001`: Loop/Switch release-gate drift, tracked in [issue #360](https://github.com/Sendipad/flexirule/issues/360); `SWT-001`: Switch canvas/runtime routing and graph-validation mismatch)
 - **P2 Findings Requiring Release Treatment**: 2 (`WIT-001`: Wait blocks the executing worker thread via `time.sleep()`, `NOT-001`: Realtime / provider notifications may escape the database transaction; Email is queued by default in Frappe v15).
-- **RC1 Recommendation**: **READY AFTER LISTED BLOCKERS ARE CLOSED** (Resolve `SWT-001` or officially gate `Switch` action before tagging RC1).
+- **RC1 Recommendation**: **NOT READY** until `REL-001` and `SWT-001` are resolved, or both `Loop` and `Switch` are kept server-side gated for RC1.
 
 ---
 
@@ -166,7 +166,7 @@ Discovered strictly from source inspection of `flexirule/ruleflow/core/action_ha
 - **Failure Behavior**: Errors in loop body abort or follow action error policy. Loop state cleaned up on completion.
 - **Tests**: `test_loop_flow_constraints.py`, `test_engine_comprehensive.py:test_engine_execute_loop_action`. Status: **PASS**.
 
-- **Release Gate (`REL-001`)**: The frontend `utils/variable_validator.js` hardcodes `Loop` and `Switch` as release-disabled, but backend `contract_utils.RELEASE_DISABLED_ACTION_TYPES` is empty; the contract DTO sends that empty list to `contracts.js`. Therefore frontend validation rejects Loop while the backend canonical helper used by validation/runtime does not. This is an existing P1 RC1 gate inconsistency tracked in [issue #360](https://github.com/Sendipad/flexirule/issues/360). Keep Loop gated server-side until the backend set, DTO, frontend and runtime share one authoritative release policy.
+- **Release Gate (`REL-001`)**: The frontend `utils/variable_validator.js` hardcodes `Loop` and `Switch` as release-disabled, but backend `contract_utils.RELEASE_DISABLED_ACTION_TYPES` is empty; the contract DTO sends that empty list to `contracts.js`. Therefore frontend validation rejects Loop and Switch while the backend canonical helper used by validation/runtime does not. This is an existing P1 RC1 gate inconsistency tracked in [issue #360](https://github.com/Sendipad/flexirule/issues/360). Keep Loop gated server-side until the backend set, DTO, frontend and runtime share one authoritative release policy.
 
 #### Stop
 - **Contract**: Terminal action. `terminal=True`, `has_next_true=False`, `has_next_false=False`. Modes: `Success` and `Error`.
