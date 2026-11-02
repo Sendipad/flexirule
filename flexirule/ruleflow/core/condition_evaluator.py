@@ -572,30 +572,32 @@ def _evaluate_node(plan: tuple, context: dict | _EvaluationContext) -> bool:
 				f"{path}.source",
 				"Collection source exceeds the configured row limit",
 			)
+		child_doctype = _resolve_collection_child_doctype(source_scope, source_segments, context, f"{path}.source")
+
+		def _make_row_context(row):
+			row_context = _child_context(context)
+			row_context["row"] = row
+			row_context[alias] = row
+			if child_doctype:
+				row_context.scope_doctypes["row"] = child_doctype
+				row_context.scope_doctypes[alias] = child_doctype
+			return row_context
+
 		if quantifier == "any":
 			for row in rows:
 				_consume_collection_row_budget(context, f"{path}.source")
-				row_context = _child_context(context)
-				row_context["row"] = row
-				row_context[alias] = row
-				if _evaluate_node(where_plan, row_context):
+				if _evaluate_node(where_plan, _make_row_context(row)):
 					return True
 			return False
 		if quantifier == "all":
 			for row in rows:
 				_consume_collection_row_budget(context, f"{path}.source")
-				row_context = _child_context(context)
-				row_context["row"] = row
-				row_context[alias] = row
-				if not _evaluate_node(where_plan, row_context):
+				if not _evaluate_node(where_plan, _make_row_context(row)):
 					return False
 			return True
 		for row in rows:
 			_consume_collection_row_budget(context, f"{path}.source")
-			row_context = _child_context(context)
-			row_context["row"] = row
-			row_context[alias] = row
-			if _evaluate_node(where_plan, row_context):
+			if _evaluate_node(where_plan, _make_row_context(row)):
 				return False
 		return True
 
@@ -662,6 +664,54 @@ def _evaluate_value(plan: tuple, context: dict) -> Any:
 				"resolver_failed", path, "Condition resolver operation failed"
 			) from exc
 	raise ConditionEvaluationError("invalid_flexvalue_plan", "$", "Unknown compiled FlexValue")
+
+
+def _resolve_collection_child_doctype(
+	source_scope: str,
+	source_segments: tuple[str, ...],
+	context: dict,
+	path: str,
+) -> str | None:
+	"""Resolve a nested collection's child DocType for mapping-backed rows."""
+	if not source_segments or not isinstance(context, _EvaluationContext):
+		return None
+
+	root = context.get(source_scope)
+	parent_doctype = getattr(root, "doctype", None) or context.scope_doctypes.get(source_scope)
+	if source_scope in {"doc", "old_doc"}:
+		parent_doctype = parent_doctype or context.get("doctype")
+	if not parent_doctype:
+		return None
+
+	try:
+		meta = frappe.get_meta(parent_doctype)
+		field = None
+		for index, segment in enumerate(source_segments):
+			field = meta.get_field(segment)
+			if not field:
+				raise ConditionValidationError(
+					"unknown_field", path, f"Collection source field '{segment}' is not present on '{parent_doctype}'"
+				)
+			if index < len(source_segments) - 1:
+				if field.fieldtype not in {"Table", "Table MultiSelect"} or not field.options:
+					raise ConditionValidationError(
+						"invalid_collection_source", path, "Collection source path crosses a non-table field"
+					)
+				meta = frappe.get_meta(field.options)
+
+		if field and field.fieldtype in {"Table", "Table MultiSelect"} and field.options:
+			frappe.get_meta(field.options)
+			return field.options
+		raise ConditionValidationError(
+			"invalid_collection_source", path, "Collection source must reference a configured table field"
+		)
+	except ConditionValidationError as exc:
+		raise ConditionEvaluationError(exc.code, exc.path, exc.message) from exc
+	except Exception as exc:
+		raise ConditionEvaluationError(
+			"unknown_doctype", path, "Could not resolve metadata for nested collection source"
+		) from exc
+
 
 
 def _fieldtype_for_context(
