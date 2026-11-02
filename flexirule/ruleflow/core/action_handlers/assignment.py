@@ -73,12 +73,19 @@ class AssignmentHandler(ActionHandler):
 		    }
 		]
 		"""
+		doctype = getattr(getattr(engine, "rule", None), "document_type", None)
+		if not doctype and isinstance(context, dict):
+			doc_obj = context.get("doc")
+			doctype = getattr(doc_obj, "doctype", None) or (
+				doc_obj.get("doctype") if isinstance(doc_obj, dict) else None
+			)
+
 		plan = get_action_plan(engine.rule, action)
 		assignments = plan.get("rows")
 		if not isinstance(assignments, list):
 			try:
 				config_key = self._to_config_cache_key(getattr(action, "config", None))
-				assignments = list(self._get_compiled_plan(config_key))
+				assignments = list(self._get_compiled_plan(config_key, doctype=doctype))
 			except Exception as exc:
 				from flexirule.ruleflow.core.condition_errors import ConditionError
 
@@ -250,7 +257,7 @@ class AssignmentHandler(ActionHandler):
 		return config_key
 
 	@staticmethod
-	def _get_compiled_plan(config_key: str) -> tuple[dict[str, Any], ...]:
+	def _get_compiled_plan(config_key: str, doctype: str | None = None) -> tuple[dict[str, Any], ...]:
 		"""Compile assignment rows strictly; large configs bypass the process LRU."""
 		from flexirule.ruleflow.core.condition_errors import ConditionValidationError
 
@@ -263,18 +270,20 @@ class AssignmentHandler(ActionHandler):
 				"assignment_config_too_large", "$", "Assignment config exceeds the configured byte limit"
 			)
 		if len(config_key.encode("utf-8")) <= 65_536:
-			cached_plan = AssignmentHandler._get_compiled_plan_cached(config_key)
+			cached_plan = AssignmentHandler._get_compiled_plan_cached(config_key, doctype=doctype)
 			# The cache owns its immutable-by-convention plan; callers receive copies.
 			return tuple(copy.deepcopy(row) for row in cached_plan)
-		return AssignmentHandler._compile_plan(config_key)
+		return AssignmentHandler._compile_plan(config_key, doctype=doctype)
 
 	@staticmethod
 	@lru_cache(maxsize=256)
-	def _get_compiled_plan_cached(config_key: str) -> tuple[dict[str, Any], ...]:
-		return AssignmentHandler._compile_plan(config_key)
+	def _get_compiled_plan_cached(
+		config_key: str, doctype: str | None = None
+	) -> tuple[dict[str, Any], ...]:
+		return AssignmentHandler._compile_plan(config_key, doctype=doctype)
 
 	@staticmethod
-	def _compile_plan(config_key: str) -> tuple[dict[str, Any], ...]:
+	def _compile_plan(config_key: str, doctype: str | None = None) -> tuple[dict[str, Any], ...]:
 		from flexirule.ruleflow.core.condition_errors import ConditionValidationError
 
 		try:
@@ -333,7 +342,7 @@ class AssignmentHandler(ActionHandler):
 						f"assignments[{index}].when_condition",
 						"Assignment action guards must be canonical direct nodes",
 					)
-				validate_condition_node(canonical_guard)
+				validate_condition_node(canonical_guard, doctype=doctype)
 				compiled["when_condition_canonical"] = canonical_guard
 
 			compiled_rows.append(compiled)
