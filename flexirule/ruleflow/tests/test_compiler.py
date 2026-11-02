@@ -265,9 +265,14 @@ class TestConditionCompiler(FrappeTestCase):
 		self.assertEqual(result, expected)
 
 	def test_compile_empty_conditions(self):
-		"""Test compiling empty conditions"""
-		result = self.compiler.compile([])
-		self.assertEqual(result, "")
+		"""Test compiling empty list condition raises ValueError."""
+		with self.assertRaises(ValueError):
+			self.compiler.compile([])
+
+	def test_compile_empty_dict_condition(self):
+		"""Test compiling empty dict condition raises ValueError."""
+		with self.assertRaises(ValueError):
+			self.compiler.compile({})
 
 	def test_compile_none_conditions(self):
 		"""Test compiling None conditions"""
