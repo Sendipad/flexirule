@@ -284,7 +284,7 @@ class TestCollectionResolver(unittest.TestCase):
 				"doctype": "Test Order",
 				"items": [
 					{"item_code": "ITEM-001", "qty": 10},
-					{"item_code": "ITEM-002", "qty": 25},
+					{"item_code": "ITEM-002", "qty": "25.5"},
 				],
 			}
 		}
