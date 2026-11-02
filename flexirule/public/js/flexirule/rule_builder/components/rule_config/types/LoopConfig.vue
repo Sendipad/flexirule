@@ -13,7 +13,7 @@
 
 <script setup>
 import { ref, onBeforeUpdate } from "vue";
-import { useStore } from "../../../stores";
+import { useRuleStore, useGraphStore } from "../../../stores";
 import { fromCodeString } from "../../../utils/serialization";
 import LoopNodeConfig from "../../node_configs/LoopNodeConfig.vue";
 import ConditionStep from "./ConditionStep.vue";
@@ -23,7 +23,8 @@ const props = defineProps({
 	showValidation: { type: Boolean, default: false },
 });
 
-const store = useStore();
+const ruleStore = useRuleStore();
+const graphStore = useGraphStore();
 const controlRefs = ref([]);
 
 onBeforeUpdate(() => {
@@ -45,9 +46,9 @@ function updateJsonConfig(key, val) {
 	config[key] = val;
 	props.node.data.config = config;
 
-	const isDraft = !store.nodes.some((n) => n === props.node);
+	const isDraft = !graphStore.nodes.some((n) => n === props.node);
 	if (!isDraft) {
-		store.mark_dirty();
+		ruleStore.mark_dirty();
 	}
 }
 

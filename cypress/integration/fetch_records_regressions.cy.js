@@ -365,6 +365,10 @@ describe("Fetch Records builder regressions", () => {
 			expect(Number(config.limit), "saved Fetch Records limit").to.eq(35);
 			const action = doc.actions.find((row) => row.action_id === "query_1");
 			expect(action.permission_audit_reason).to.eq(DEFAULT_AUDIT_REASON);
+			expect(
+				Number(action.ignore_permissions),
+				"persisted Fetch Records permission bypass flag"
+			).to.eq(1);
 		});
 
 		cy.reload();
@@ -372,6 +376,49 @@ describe("Fetch Records builder regressions", () => {
 		cy.contains(".vue-flow__node", "Fetch Records 1").should("be.visible");
 		persistedRule().then((doc) => {
 			expect(Number(parsedActionConfig(doc, "query_1").limit)).to.eq(35);
+		});
+	});
+
+	it("repairs a legacy Frappe 15 Fetch Records node with a disabled loaded bypass", () => {
+		createFetchRecordsRuleAndOpenBuilder();
+
+		// Rule.validate rejects a persisted false flag on Frappe 15, so reproduce
+		// the legacy hydrated graph state directly instead of trying to write an
+		// invalid Rule through the normal save API.
+		cy.window().then((win) => {
+			const builder = win.fxrRuleBuilder;
+			expect(builder?.ruleStore, "mounted Rule Builder store").to.exist;
+
+			const actionNode = builder.ruleStore.nodes.find(
+				(node) => node.data?.action_id === "query_1"
+			);
+			expect(actionNode, "loaded Fetch Records graph node").to.exist;
+			expect(Number(actionNode?.data?.ignore_permissions), "valid persisted baseline").to.eq(
+				1
+			);
+
+			actionNode.data.ignore_permissions = 0;
+			expect(
+				Number(actionNode.data.ignore_permissions),
+				"simulated legacy graph value"
+			).to.eq(0);
+		});
+
+		// The action editor still displays the Frappe 15-required bypass. Saving
+		// the whole Rule must normalize the hydrated false value and persist 1.
+		openActionConfig("Fetch Records 1", true);
+		setFetchRecordsLimit(24);
+		cy.get(".config-modal-container .save-action").should("be.visible").click();
+		cy.get(".config-modal-container").should("not.exist");
+		saveRuleAndWait("saveLegacyFetchRecordsPermissionFlag");
+
+		persistedRule().then((doc) => {
+			const action = doc.actions.find((row) => row.action_id === "query_1");
+			expect(
+				Number(action.ignore_permissions),
+				"normalized persisted permission bypass"
+			).to.eq(1);
+			expect(action.permission_audit_reason).to.eq(DEFAULT_AUDIT_REASON);
 		});
 	});
 

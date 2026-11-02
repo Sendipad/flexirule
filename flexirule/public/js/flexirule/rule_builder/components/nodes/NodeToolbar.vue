@@ -48,7 +48,13 @@ function onDelete() {
 	>
 		<div class="toolbar-content">
 			<div class="toolbar-item checkbox-item">
-				<input type="checkbox" v-model="isSelected" @click.stop />
+				<input
+					type="checkbox"
+					class="fxr-checkbox-input fxr-checkbox-input--sm"
+					v-model="isSelected"
+					@click.stop
+					:aria-label="__('Select Node')"
+				/>
 			</div>
 			<div class="divider"></div>
 			<button
@@ -122,12 +128,9 @@ function onDelete() {
 
 .checkbox-item {
 	width: 24px;
-}
-
-.checkbox-item input {
-	cursor: pointer;
-	width: 14px;
-	height: 14px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
 }
 
 .action-btn:hover {
