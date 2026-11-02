@@ -41,7 +41,7 @@ class TestAssignmentConditionGuards(unittest.TestCase):
 		)
 
 		with self.assertRaises(frappe.ValidationError):
-			Rule._validate_assignment(fake_rule, invalid_action)
+			Rule._validate_assignment(fake_rule, invalid_action)  # type: ignore[arg-type]
 
 	def test_malformed_assignment_json_is_not_treated_as_empty_plan(self):
 		with self.assertRaises(ConditionValidationError) as raised:
