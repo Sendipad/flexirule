@@ -338,6 +338,7 @@ jobs:
           BENCHMARK_STEP_OUTCOME: ${{ steps.condition_benchmark.outcome }}
           MIGRATE_STEP_OUTCOME: ${{ steps.migrate_test_site.outcome }}
           EXPECTED_BENCHMARK_COMMIT: ${{ github.sha }}
+          CONDITION_BENCHMARK_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           mkdir -p "$GITHUB_WORKSPACE/artifacts/ci-reports"
