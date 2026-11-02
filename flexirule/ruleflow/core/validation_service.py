@@ -577,6 +577,10 @@ def _validate_assignment_inline(rule_doc, action, action_label: str, errors: lis
 	"""
 	config_str = _safe_get(action, "config")
 	if not config_str:
+		if _safe_get(rule_doc, "is_active"):
+			errors.append(
+				_("Action '{0}': Active Assignment actions require configuration").format(action_label)
+			)
 		return
 
 	try:

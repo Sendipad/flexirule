@@ -1,6 +1,7 @@
+import json
+
 # Copyright (c) 2026, Abdo Ruzaqi and Contributors
 # See license.txt
-
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
@@ -385,7 +386,7 @@ class TestRule(FrappeTestCase):
 		self.assertIsNotNone(artifact)
 		assert artifact is not None  # type narrowing for mypy
 		self.assertEqual(artifact.get("rule"), rule.name)
-		self.assertEqual(artifact.get("artifact_version"), 1)
+		self.assertEqual(artifact.get("artifact_version"), 2)
 
 	def test_rule_dashboard_data_and_counts(self):
 		"""Verify that Rule dashboard metadata and get_open_count work as expected."""
@@ -454,3 +455,45 @@ class TestRule(FrappeTestCase):
 		self.assertIsNotNone(rule_link_found)
 		assert rule_link_found is not None
 		self.assertEqual(rule_link_found.get("count"), 1)
+
+	def test_assignment_lifecycle_draft_vs_active(self):
+		"""Test that blank assignment config is permitted for draft rules but rejected for active rules."""
+		draft_rule = frappe.get_doc(
+			{
+				"doctype": "Rule",
+				"rule_name": "Test Draft Assignment Rule",
+				"trigger_type": "DocType Event",
+				"document_type": "ToDo",
+				"trigger_event": "Before Insert",
+				"is_active": 0,
+				"actions": [
+					{
+						"action_id": "assign-1",
+						"action_label": "Draft Assignment",
+						"action_type": "Assignment",
+						"config": "",
+					}
+				],
+			}
+		)
+		# Saving as draft should succeed
+		draft_rule.insert(ignore_permissions=True)
+		self.assertEqual(draft_rule.is_active, 0)
+
+		# Attempting to activate with blank assignment config must fail
+		draft_rule.reload()
+		draft_rule.is_active = 1
+		with self.assertRaises(frappe.ValidationError):
+			draft_rule.save(ignore_permissions=True)
+
+		# Providing valid assignment config allows activation
+		draft_rule.reload()
+		draft_rule.is_active = 1
+		for a in draft_rule.actions:
+			if a.action_type == "Assignment":
+				a.config = json.dumps([{"target": "doc.status", "value": "Closed"}])
+		draft_rule.save(ignore_permissions=True)
+		self.assertEqual(draft_rule.is_active, 1)
+
+		# Cleanup
+		draft_rule.delete(ignore_permissions=True)
