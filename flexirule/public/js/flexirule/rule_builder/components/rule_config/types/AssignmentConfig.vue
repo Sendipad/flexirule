@@ -746,7 +746,10 @@ async function validate() {
 		// users to rebuild them with the canonical Run If editor before saving.
 		if (a.legacy_guard) {
 			errors.push(
-				__("Assignment #{0}: Legacy Run If expressions must be rebuilt with the canonical condition editor.", [n])
+				__(
+					"Assignment #{0}: Legacy Run If expressions must be rebuilt with the canonical condition editor.",
+					[n]
+				)
 			);
 		}
 
