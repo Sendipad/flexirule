@@ -75,6 +75,19 @@ describe("FlexiRule builder regression coverage", () => {
 		return cy.request("/api/resource/Rule/" + encodeURIComponent(ruleName)).its("body.data");
 	}
 
+	function parseRequestBody(body) {
+		if (!body) return {};
+		if (typeof body !== "string") return body;
+
+		try {
+			return JSON.parse(body);
+		} catch {
+			// Frappe may send POST arguments as application/x-www-form-urlencoded.
+			// Decode the form fields before parsing the JSON document value.
+			return Object.fromEntries(new URLSearchParams(body).entries());
+		}
+	}
+
 	function actionConfig(action) {
 		try {
 			return typeof action.config === "string"
@@ -246,8 +259,7 @@ describe("FlexiRule builder regression coverage", () => {
 		cy.intercept("POST", "**/api/method/frappe.client.save").as("saveRule");
 		cy.contains("button", "Save Rule", { timeout: 15000 }).click({ force: true });
 		cy.wait("@validateRule").then(({ request }) => {
-			const requestBody =
-				typeof request.body === "string" ? JSON.parse(request.body) : request.body || {};
+			const requestBody = parseRequestBody(request.body);
 			const validationDoc = requestBody.args?.doc ?? requestBody.doc;
 			const doc =
 				typeof validationDoc === "string" ? JSON.parse(validationDoc) : validationDoc || {};
