@@ -121,10 +121,13 @@ def _clear_cache_safely() -> bool:
 	Returns True if cache clear succeeded, False if cache isolation could not be verified/established.
 	"""
 	try:
-		from flexirule.ruleflow.core.condition_evaluator import clear_condition_plan_cache
+		from flexirule.ruleflow.core.condition_evaluator import (
+			clear_condition_plan_cache,
+			condition_plan_cache_info,
+		)
 
 		clear_condition_plan_cache()
-		return True
+		return condition_plan_cache_info().currsize == 0
 	except Exception:
 		return False
 
