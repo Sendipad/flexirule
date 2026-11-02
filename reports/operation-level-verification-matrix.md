@@ -11,14 +11,14 @@
 - **Discovered Action Types**: 13
 - **Discovered Individual Operations**: 43 (31 core Action Type operations across 13 Action Types + 12 Process operations across 4 Process modules)
 - **Status Breakdown**:
-  - **PASS**: 38 operations
-  - **PARTIAL**: 5 operations (`Switch`, `Wait`, `Notify.System`, `Notify.Email`, `Notify.Provider`)
+  - **PASS**: 37 operations
+  - **PARTIAL**: 6 operations (`Loop`, `Switch`, `Wait`, `Notify.System`, `Notify.Email`, `Notify.Provider`)
   - **FAIL**: 0 operations
   - **UNVERIFIED**: 0 operations
   - **DISABLED**: 0 operations
   - **EXPERIMENTAL**: 0 operations
 - **Confirmed P0 Findings**: 0
-- **Confirmed P1 Findings**: 1 (`SWT-001`: Switch Action Contract / Fallback Mismatch & Graph Validation Blindspot)
+- **Confirmed P1 Findings**: 2 (`REL-001`: Loop/Switch release-gate drift, tracked in [issue #360](https://github.com/Sendipad/flexirule/issues/360); `SWT-001`: Switch canvas/runtime routing and graph-validation mismatch)
 - **P2 Findings Requiring Release Treatment**: 2 (`WIT-001`: Wait blocks the executing worker thread via `time.sleep()`, `NOT-001`: Realtime / provider notifications may escape the database transaction; Email is queued by default in Frappe v15).
 - **RC1 Recommendation**: **READY AFTER LISTED BLOCKERS ARE CLOSED** (Resolve `SWT-001` or officially gate `Switch` action before tagging RC1).
 
@@ -76,7 +76,7 @@ Discovered strictly from source inspection of `flexirule/ruleflow/core/action_ha
 
 *Note on Legacy & Deprecated Operations*:
 - `Query Records / Query API`: Explicitly rejected during validation (`validation_service.py:345`: `Action '{0}' uses removed mode Query API`). Fully removed from current catalog.
-- `RELEASE_DISABLED_ACTION_TYPES`: Empty in `contract_utils.py`, indicating all 13 core Action Types are open for release evaluation.
+- **Release-gate drift (`REL-001`, tracked by [issue #360](https://github.com/Sendipad/flexirule/issues/360))**: `contract_utils.RELEASE_DISABLED_ACTION_TYPES` is empty and the backend contract DTO passes that empty set to `contracts.js`; however, `utils/variable_validator.js:23,312-319` independently hardcodes `Loop` and `Switch` as disabled. The frontend rejects these actions while backend validation/runtime helpers do not. This is a client-only gate, not server enforcement. Do not claim Loop and Switch are formally disabled or release-ready until the backend canonical set, DTO, frontend validation and runtime agree.
 
 ---
 
@@ -86,8 +86,8 @@ Discovered strictly from source inspection of `flexirule/ruleflow/core/action_ha
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Entry Action** | Entry Action | PASS | PASS | PASS | PASS | PASS | PASS | **PASS** | — |
 | **Condition** | Condition | PASS | PASS | PASS | PASS | PASS | PASS | **PASS** | — |
-| **Switch** | Switch | PARTIAL | UNVERIFIED | PARTIAL | PASS | PASS | UNVERIFIED | **PARTIAL** | `SWT-001` |
-| **Loop** | Loop | PASS | PASS | PASS | PASS | PASS | PASS | **PASS** | — |
+| **Switch** | Switch | PARTIAL | UNVERIFIED | PARTIAL | PASS | PASS | UNVERIFIED | **PARTIAL** | `REL-001`, `SWT-001` |
+| **Loop** | Loop | PARTIAL | PASS | PARTIAL | PASS | PASS | PASS | **PARTIAL** | `REL-001` |
 | **Stop** | Success | PASS | PASS | PASS | PASS | PASS | PASS | **PASS** | — |
 | **Stop** | Error | PASS | PASS | PASS | PASS | PASS | PASS | **PASS** | — |
 | **Raise Error** | Raise Error | PASS | PASS | PASS | PASS | PASS | PASS | **PASS** | — |
@@ -165,6 +165,8 @@ Discovered strictly from source inspection of `flexirule/ruleflow/core/action_ha
 - **Security**: Memory iteration bounded by max node visit limits in `RuleEngine` (`max_visits_per_node=1000`).
 - **Failure Behavior**: Errors in loop body abort or follow action error policy. Loop state cleaned up on completion.
 - **Tests**: `test_loop_flow_constraints.py`, `test_engine_comprehensive.py:test_engine_execute_loop_action`. Status: **PASS**.
+
+- **Release Gate (`REL-001`)**: The frontend `utils/variable_validator.js` hardcodes `Loop` and `Switch` as release-disabled, but backend `contract_utils.RELEASE_DISABLED_ACTION_TYPES` is empty; the contract DTO sends that empty list to `contracts.js`. Therefore frontend validation rejects Loop while the backend canonical helper used by validation/runtime does not. This is an existing P1 RC1 gate inconsistency tracked in [issue #360](https://github.com/Sendipad/flexirule/issues/360). Keep Loop gated server-side until the backend set, DTO, frontend and runtime share one authoritative release policy.
 
 #### Stop
 - **Contract**: Terminal action. `terminal=True`, `has_next_true=False`, `has_next_false=False`. Modes: `Success` and `Error`.
@@ -382,6 +384,7 @@ All Process operations are registered under declarative Process Contract V2 (`fl
 
 | Finding ID | Affected Operation | Severity | Evidence & Location | Business / Technical Impact | Recommended Correction | Required Test to Close | RC1 Disposition |
 | :--- | :--- | :---: | :--- | :--- | :--- | :--- | :---: |
+| **REL-001** | Loop and Switch release availability | **P1** | `contract_utils.py:64` leaves `RELEASE_DISABLED_ACTION_TYPES` empty; `is_release_disabled_action()` checks that set and the contract DTO serializes it. `utils/variable_validator.js:23,312-319` independently hardcodes `Loop` and `Switch`; `contracts.js:109-111` consumes the empty DTO list. Existing project tracking: [issue #360](https://github.com/Sendipad/flexirule/issues/360). | Frontend validation blocks Loop/Switch, but backend validation/runtime do not reject them through the canonical release gate. A request that bypasses client validation can still submit or execute them; Switch additionally has the structural defects in `SWT-001`. | Keep Loop and Switch in the backend canonical release-disabled set for RC1; derive DTO and frontend state from that one source; remove the independent hardcoded frontend set; reject both at backend activation and runtime boundaries. | Backend tests for `validate_rule_definition` and runtime rejection; DTO serialization test; frontend tests proving the client consumes the same backend gate; regression tests for bypassed/direct requests. | **Keep both gated until the complete behavior is deliberately released** |
 | **SWT-001** | `Switch` Action | **P1** | `switch.py:27-28` declares `has_next_true=False`, `has_next_false=True`, while `switch.py:72` falls back to `next_step_if_true`. `App.vue:83-85` maps `node-switch` to `ProcessNode`; `ProcessNode.vue:146-152` renders only the `default` source handle, while `SwitchConfig.vue:82-89` emits case edges with `sourceHandle` equal to the case value. `graph_validator.py:20-27` omits `config.cases`; reference validation at `graph_validator.py:56-60` also omits case targets. The PR-base `_validate_flow_constraints` global adjacency is still next-step-only; only `_loop_body_returns_to_loop` has a Switch-specific case traversal. | The canvas has no matching output handle for its configured case edges. Active rules can have valid case targets omitted from reachability, and case-edge cycles or missing targets can escape validation. The generic false pointer is not a runtime route. | Align the contract to `has_next_true=True`, `has_next_false=False`; implement a dedicated Switch node with dynamic case handles and a distinct default handle, using stable branch IDs (with compatibility for existing `config.cases` data). Centralize routing adjacency so case targets plus the `next_step_if_true` fallback are used for missing-reference checks, cycle detection, global reachability, and loop-return analysis. | Add frontend tests for rendered case/default handles and edge serialization; backend integration tests for multiple case targets, fallback, missing target rejection, case-edge cycle detection, and exclusion of the unused false pointer. | **Must be resolved or Switch gated before RC1** |
 
 ---
@@ -437,10 +440,11 @@ All test suites were executed on the target environment against commit `504840d3
 
 #### Rationale & Outstanding Conditions:
 1. **Snapshot limitation**: This matrix records an audit of commit `504840d3bf3ec012a2c0ed5c7859bc7a7fd1b3c2`. The PR base is 39 commits newer, so the totals and test run record must not be presented as a verification of the current PR base or a release candidate until the audit is repeated on the exact candidate SHA.
-2. **Switch blocker (`SWT-001`)**: The runtime uses configured case targets plus `next_step_if_true` fallback, but the canvas maps Switch to `ProcessNode` with only a `default` source handle while `SwitchConfig` emits case-value handles. The recommended fix needs a dedicated Switch node with stable dynamic branch handles, a distinct default handle, corrected contract flags, and one shared backend adjacency model covering every graph-validation path.
-3. **Switch test gap**: The cited comprehensive Switch runtime test is skipped, and the advanced-flow test only includes a Switch fixture for catalog coverage. Add and run real routing and graph-validation integration tests before marking Switch verified.
-4. **Notification classification (`NOT-001`)**: Preserve the Frappe v15 distinction: standard Email is queued by default, but the bulk / separately queued path can enqueue before commit because `frappe.enqueue` defaults `enqueue_after_commit=False`; realtime publication also defaults to pre-commit, and Provider hooks are synchronous and app-defined. Test these paths independently and use `after_commit=True` for transaction-consistent realtime publication where appropriate.
-5. **Operational limitation (`WIT-001`)**: Document that `time.sleep()` occupies the calling web or background worker; a background job does not make a long synchronous sleep non-blocking.
-6. **Re-run evidence**: Run the backend and frontend suites on the exact release-candidate commit, retain machine-readable logs / artifacts, and re-audit the 43-operation matrix against that same source revision. Keep Frappe-version-specific Fetch Records permission constraints documented.
+2. **Release-gate blocker (`REL-001`, tracked in #360)**: Loop and Switch are hardcoded as disabled in frontend validation, but the backend release-disabled set and DTO are empty. Keep both gated in the backend for RC1 and make the DTO/frontend consume the same canonical policy.
+3. **Switch blocker (`SWT-001`)**: The runtime uses configured case targets plus `next_step_if_true` fallback, but the canvas maps Switch to `ProcessNode` with only a `default` source handle while `SwitchConfig` emits case-value handles. The recommended fix needs a dedicated Switch node with stable dynamic branch handles, a distinct default handle, corrected contract flags, and one shared backend adjacency model covering every graph-validation path.
+4. **Switch test gap**: The cited comprehensive Switch runtime test is skipped, and the advanced-flow test only includes a Switch fixture for catalog coverage. Add and run real routing and graph-validation integration tests before marking Switch verified.
+5. **Notification classification (`NOT-001`)**: Preserve the Frappe v15 distinction: standard Email is queued by default, but the bulk / separately queued path can enqueue before commit because `frappe.enqueue` defaults `enqueue_after_commit=False`; realtime publication also defaults to pre-commit, and Provider hooks are synchronous and app-defined. Test these paths independently and use `after_commit=True` for transaction-consistent realtime publication where appropriate.
+6. **Operational limitation (`WIT-001`)**: Document that `time.sleep()` occupies the calling web or background worker; a background job does not make a long synchronous sleep non-blocking.
+7. **Re-run evidence**: Run the backend and frontend suites on the exact release-candidate commit, retain machine-readable logs / artifacts, and re-audit the 43-operation matrix against that same source revision. Keep Frappe-version-specific Fetch Records permission constraints documented.
 
 Until these conditions are satisfied, this report should be treated as an audit snapshot and issue register, not an RC1 readiness approval.
