@@ -13,14 +13,14 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-
-import frappe
 from dataclasses import dataclass
 from datetime import date, datetime, time
 from decimal import Decimal, InvalidOperation
 from functools import lru_cache
 from typing import Any, NoReturn
 from weakref import WeakValueDictionary
+
+import frappe
 
 from flexirule.ruleflow.core.condition_contract import (
 	CONDITION_SEMANTICS_VERSION,
