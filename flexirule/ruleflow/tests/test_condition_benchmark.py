@@ -184,14 +184,10 @@ class TestConditionBenchmark(FrappeTestCase):
 			with self.assertRaisesRegex(RuntimeError, "benchmark failed"):
 				benchmark_runner.run_main()
 
-		init.assert_called_once_with(
-			site="benchmark.test", sites_path="/tmp/flexirule-benchmark-test/sites"
-		)
+		init.assert_called_once_with(site="benchmark.test", sites_path="/tmp/flexirule-benchmark-test/sites")
 		connect.assert_called_once_with()
 		destroy.assert_called_once_with()
-		runner.run_full_suite_and_export.assert_called_once_with(
-			"/tmp/benchmark.json", "/tmp/benchmark.md"
-		)
+		runner.run_full_suite_and_export.assert_called_once_with("/tmp/benchmark.json", "/tmp/benchmark.md")
 
 	def test_cold_vs_warm_cache_isolation(self):
 		runner = BenchmarkRunner(iterations_per_batch=10, num_batches=1, warmup_iterations=1)
