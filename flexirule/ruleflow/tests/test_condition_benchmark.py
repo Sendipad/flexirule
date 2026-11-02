@@ -159,17 +159,23 @@ class TestConditionBenchmark(FrappeTestCase):
 		self.assertNotEqual(branch, "")
 		self.assertNotEqual(commit, "")
 
-	def test_run_main_prepares_log_directory_and_always_destroys_frappe_site(self):
+	def test_run_main_prepares_frappe_log_directories_and_destroys_site(self):
 		from unittest.mock import Mock, patch
 
 		from flexirule.ruleflow.tests.condition_benchmark import benchmark_runner
 
-		with tempfile.TemporaryDirectory() as bench_root:
+		with tempfile.TemporaryDirectory() as temp_dir:
+			bench_root = os.path.join(temp_dir, "bench")
+			working_directory = os.path.join(temp_dir, "checkout")
+			os.makedirs(working_directory)
+			bench_log_dir = os.path.join(temp_dir, "logs")
+			site_log_dir = os.path.join(working_directory, "benchmark.test", "logs")
 			runner = Mock()
 			runner.run_full_suite_and_export.side_effect = RuntimeError("benchmark failed")
 
-			def assert_logs_directory_exists():
-				self.assertTrue(os.path.isdir(os.path.join(bench_root, "logs")))
+			def assert_log_directories_exist():
+				self.assertTrue(os.path.isdir(bench_log_dir))
+				self.assertTrue(os.path.isdir(site_log_dir))
 
 			with (
 				patch.dict(
@@ -181,9 +187,11 @@ class TestConditionBenchmark(FrappeTestCase):
 						"CONDITION_BENCHMARK_MARKDOWN_PATH": "/tmp/benchmark.md",
 					},
 				),
+				patch.object(benchmark_runner.os, "getcwd", return_value=working_directory),
+				patch.object(benchmark_runner.frappe, "local", Mock(site="benchmark.test")),
 				patch.object(benchmark_runner.frappe, "init") as init,
 				patch.object(
-					benchmark_runner.frappe, "connect", side_effect=assert_logs_directory_exists
+					benchmark_runner.frappe, "connect", side_effect=assert_log_directories_exist
 				) as connect,
 				patch.object(benchmark_runner.frappe, "destroy") as destroy,
 				patch.object(benchmark_runner, "BenchmarkRunner", return_value=runner),
@@ -191,7 +199,9 @@ class TestConditionBenchmark(FrappeTestCase):
 				with self.assertRaisesRegex(RuntimeError, "benchmark failed"):
 					benchmark_runner.run_main()
 
-			init.assert_called_once_with(site="benchmark.test", sites_path=os.path.join(bench_root, "sites"))
+			init.assert_called_once_with(
+				site="benchmark.test", sites_path=os.path.join(bench_root, "sites")
+			)
 			connect.assert_called_once_with()
 			destroy.assert_called_once_with()
 			runner.run_full_suite_and_export.assert_called_once_with(
