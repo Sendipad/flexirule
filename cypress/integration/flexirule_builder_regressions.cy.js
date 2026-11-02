@@ -247,7 +247,12 @@ describe("FlexiRule builder regression coverage", () => {
 		cy.intercept("POST", "**/api/method/frappe.client.save").as("saveRule");
 		cy.contains("button", "Save Rule", { timeout: 15000 }).click({ force: true });
 		cy.wait("@validateRule").then(({ request }) => {
-			const actions = request.body?.args?.doc?.actions || [];
+			const requestBody =
+				typeof request.body === "string" ? JSON.parse(request.body) : request.body || {};
+			const validationDoc = requestBody.args?.doc ?? requestBody.doc;
+			const doc =
+				typeof validationDoc === "string" ? JSON.parse(validationDoc) : validationDoc || {};
+			const actions = Array.isArray(doc.actions) ? doc.actions : [];
 			const assignmentAction = actions.find(
 				(action) => action.action_type === "Assignment" && action.action_label === bodyLabel
 			);
