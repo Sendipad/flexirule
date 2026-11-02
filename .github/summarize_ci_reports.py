@@ -127,16 +127,42 @@ def summarize_benchmark(
 		environment = payload.get("environment", {})
 		source_commit = environment.get("benchmark_source_commit", "unknown")
 		dirty = bool(environment.get("is_working_tree_dirty", True))
+		working_tree_changes = environment.get("working_tree_changes", [])
+		pr_head_commit = environment.get("benchmark_pr_head_commit")
+		expected_pr_head = os.environ.get("CONDITION_BENCHMARK_PR_HEAD_SHA")
 		lines.append(f"- Benchmark source commit: {source_commit}.")
 		lines.append(f"- Expected workflow commit: {expected_commit}.")
+		lines.append(f"- PR head commit: {pr_head_commit or 'Unavailable'}.")
 		lines.append(f"- Working tree dirty: {dirty}.")
+		for changed_path in working_tree_changes:
+			lines.append(f"- Working tree path: `{changed_path}`.")
 		if expected_commit and source_commit != expected_commit:
 			issues.append("Benchmark provenance commit does not match the workflow head SHA.")
-		# In CI environment, allow benchmark timing reports if dirty state is solely from non-source diagnostic/runtime artifact files.
+		if expected_pr_head and pr_head_commit != expected_pr_head:
+			issues.append("Benchmark provenance PR head does not match the pull request head SHA.")
+		if dirty and not working_tree_changes:
+			issues.append("Benchmark working tree is marked dirty but no changed paths were recorded.")
+		# CI may create ignored build/runtime files, but the artifact must disclose
+		# every unignored change. Source changes remain an explicit maintainer gate.
 		if dirty and os.environ.get("CI") != "true" and os.environ.get("GITHUB_ACTIONS") != "true":
 			issues.append("Benchmark ran with a dirty working tree; its timing report is not accepted.")
 		if not correctness.get("all_supported_correct", False):
 			issues.append("At least one supported benchmark scenario failed semantic correctness.")
+
+		comparison = payload.get("canonical_ast_vs_plan_comparison", {})
+		workloads = comparison.get("workloads", {})
+		if not workloads:
+			issues.append("Canonical AST/plan comparison produced no workload measurements.")
+		for workload_id, measurement in workloads.items():
+			if not measurement.get("is_valid_measurement") or not measurement.get("is_correct"):
+				issues.append(
+					f"Canonical AST/plan comparison measurement invalid for {workload_id}: "
+					f"{measurement.get('reason', 'measurement not marked valid and correct')}."
+				)
+		metadata_scenario = comparison.get("metadata_scenario", {})
+		if not metadata_scenario.get("is_valid_measurement"):
+			metadata_reason = metadata_scenario.get("reason") or "no valid metadata measurement was produced"
+			issues.append(f"Canonical AST/plan Frappe metadata scenario invalid: {metadata_reason}.")
 
 		public_key = "Canonical Condition (evaluate_condition)"
 		prepared_key = "Canonical Condition (Prepared Artifact Runtime)"
