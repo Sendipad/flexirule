@@ -274,8 +274,9 @@ class TestConditionBenchmark(FrappeTestCase):
 				)
 			return result
 
-		runner.cand_canon_ast.evaluate = incorrect_after_warmup
 		with patch.object(
+			runner.cand_canon_ast, "evaluate", side_effect=incorrect_after_warmup
+		), patch.object(
 			benchmark_runner, "get_canonical_scaling_workloads", return_value={"timed_test": workload}
 		), patch.object(benchmark_runner, "_clear_cache_safely", return_value=True):
 			result = runner.run_canonical_ast_vs_plan_comparison()
