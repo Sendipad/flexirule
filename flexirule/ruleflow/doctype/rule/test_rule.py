@@ -458,7 +458,7 @@ class TestRule(FrappeTestCase):
 		self.assertEqual(rule_link_found.get("count"), 1)
 
 	def test_assignment_lifecycle_draft_vs_active(self):
-		"""Blank Assignment config is allowed in Draft but rejected on activation."""
+		"""Drafts may be incomplete, but incomplete Assignment plans cannot execute or activate."""
 		draft_rule = frappe.get_doc(
 			{
 				"doctype": "Rule",
@@ -479,6 +479,20 @@ class TestRule(FrappeTestCase):
 		)
 		draft_rule.insert(ignore_permissions=True)
 		self.assertEqual(draft_rule.is_active, 0)
+
+		# An incomplete Draft is editable, not executable. The runtime plan compiler
+		# must reject its empty Assignment config with the same typed error used by
+		# the runtime guard instead of silently normalizing it to a no-op.
+		from flexirule.ruleflow.core.action_plan_cache import (
+			clear_rule_action_plan_cache,
+			get_rule_action_plan,
+		)
+		from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
+		clear_rule_action_plan_cache(draft_rule.name)
+		with self.assertRaises(ConditionValidationError) as raised:
+			get_rule_action_plan(draft_rule)
+		self.assertEqual(raised.exception.code, "assignment_config_required")
 
 		draft_rule.reload()
 		draft_rule.is_active = 1
