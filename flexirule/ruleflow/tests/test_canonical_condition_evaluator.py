@@ -184,6 +184,29 @@ class TestCanonicalConditionEvaluator(unittest.TestCase):
 				)
 			)
 
+	def test_evaluate_condition_revalidates_fieldtype_after_plan_cache_hit(self):
+		fieldtype = {"value": "Int"}
+
+		def fake_get_meta(_doctype):
+			return SimpleNamespace(
+				get_field=lambda fieldname: (
+					SimpleNamespace(fieldtype=fieldtype["value"]) if fieldname == "status" else None
+				)
+			)
+
+		node = compare("gt", variable("doc", "status"), static("integer", 1))
+		context = {"doc": {"doctype": "Metadata Cache Test", "status": 2}}
+
+		with patch("frappe.get_meta", side_effect=fake_get_meta):
+			self.assertTrue(evaluate_condition(node, context))
+
+		# The plan is now cached. A DocType schema change must still be validated.
+		fieldtype["value"] = "Data"
+		with patch("frappe.get_meta", side_effect=fake_get_meta):
+			with self.assertRaises(ConditionValidationError) as raised:
+				evaluate_condition(node, context)
+		self.assertEqual(raised.exception.code, "fieldtype_not_supported")
+
 	def test_compiled_static_plan_is_immutable_after_input_mutation(self):
 		node = compare(
 			"eq",
@@ -229,6 +252,81 @@ class TestCanonicalConditionEvaluator(unittest.TestCase):
 		self.assertTrue(evaluate_condition(none_empty, {"doc": {"items": []}}))
 		all_empty = {**base, "quantifier": "all"}
 		self.assertTrue(evaluate_condition(all_empty, {"doc": {"items": []}}))
+
+	def test_nested_collection_predicate_preserves_child_metadata_for_mapping_rows(self):
+		def fields(mapping):
+			return SimpleNamespace(get_field=lambda fieldname: mapping.get(fieldname))
+
+		def fake_get_meta(doctype):
+			if doctype == "Test Parent":
+				return fields({"items": SimpleNamespace(fieldtype="Table", options="Test Item")})
+			if doctype == "Test Item":
+				return fields({"charges": SimpleNamespace(fieldtype="Table", options="Test Charge")})
+			if doctype == "Test Charge":
+				return fields({"amount": SimpleNamespace(fieldtype="Float")})
+			raise ValueError(f"Unknown DocType {doctype}")
+
+		inner = {
+			"type": "collection_predicate",
+			"quantifier": "any",
+			"source": {"scope": "entry", "segments": ["charges"]},
+			"as": "charge_row",
+			"where": compare("gt", variable("charge_row", "amount"), static("integer", 1)),
+		}
+		node = {
+			"type": "collection_predicate",
+			"quantifier": "any",
+			"source": {"scope": "doc", "segments": ["items"]},
+			"as": "entry",
+			"where": inner,
+		}
+		context = {
+			"doc": {
+				"doctype": "Test Parent",
+				"items": [{"charges": [{"amount": "2.5"}]}],
+			}
+		}
+		with patch("frappe.get_meta", side_effect=fake_get_meta):
+			self.assertTrue(evaluate_condition(node, context))
+
+	def test_nested_collection_rejects_mapping_row_with_mismatched_doctype(self):
+		def fields(mapping):
+			return SimpleNamespace(get_field=lambda fieldname: mapping.get(fieldname))
+
+		def fake_get_meta(doctype):
+			if doctype == "Test Parent":
+				return fields({"items": SimpleNamespace(fieldtype="Table", options="Test Item")})
+			if doctype == "Test Item":
+				return fields({"charges": SimpleNamespace(fieldtype="Table", options="Test Charge")})
+			if doctype == "Test Charge":
+				return fields({"amount": SimpleNamespace(fieldtype="Float")})
+			raise ValueError(f"Unknown DocType {doctype}")
+
+		node = {
+			"type": "collection_predicate",
+			"quantifier": "any",
+			"source": {"scope": "doc", "segments": ["items"]},
+			"as": "entry",
+			"where": {
+				"type": "collection_predicate",
+				"quantifier": "any",
+				"source": {"scope": "entry", "segments": ["charges"]},
+				"as": "charge_row",
+				"where": compare("gt", variable("charge_row", "amount"), static("integer", 1)),
+			},
+		}
+		context = {
+			"doc": {
+				"doctype": "Test Parent",
+				"items": [
+					{"doctype": "Wrong Item", "charges": [{"amount": "2.5"}]},
+				],
+			}
+		}
+		with patch("frappe.get_meta", side_effect=fake_get_meta):
+			with self.assertRaises(ConditionEvaluationError) as raised:
+				evaluate_condition(node, context)
+		self.assertEqual(raised.exception.code, "condition_doctype_mismatch")
 
 	def test_collection_resolver_applies_canonical_predicate_for_count_any_all(self):
 		from types import SimpleNamespace

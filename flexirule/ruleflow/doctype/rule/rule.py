@@ -1477,6 +1477,24 @@ class Rule(Document):
 		except Exception:
 			frappe.throw(_("Action '{0}': Invalid JSON in Assignment config").format(action.action_label))
 
+		# Validate canonical/legacy run-if guards at save time, not only when the
+		# runtime action plan is first built. Use the same strict compiler as execution;
+		# this remains uncached so changed DocType metadata is checked on every save.
+		from flexirule.ruleflow.core.action_handlers.assignment import AssignmentHandler
+		from flexirule.ruleflow.core.condition_errors import ConditionError
+
+		try:
+			AssignmentHandler._compile_plan(
+				json.dumps(assignments, ensure_ascii=False, allow_nan=False),
+				doctype=self.document_type or None,
+			)
+		except ConditionError as exc:
+			frappe.throw(
+				_("Action '{0}': Invalid Assignment guard [{1} at {2}]: {3}").format(
+					action.action_label, exc.code, exc.path, exc.message
+				)
+			)
+
 		# Validate fields
 		for row in assignments:
 			target = row.get("target")

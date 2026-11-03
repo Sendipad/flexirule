@@ -20,6 +20,8 @@ from functools import lru_cache
 from typing import Any, NoReturn
 from weakref import WeakValueDictionary
 
+import frappe
+
 from flexirule.ruleflow.core.condition_contract import (
 	CONDITION_SEMANTICS_VERSION,
 	UNARY_OPERATORS,
@@ -66,16 +68,17 @@ _PREPARED_CONDITION_ARTIFACTS: WeakValueDictionary[int, _PreparedCanonicalCondit
 class _EvaluationContext(dict):
 	"""Dict-compatible user context with private, non-enumerable evaluation state."""
 
-	__slots__ = ("collection_row_budget",)
+	__slots__ = ("collection_row_budget", "scope_doctypes")
 
-	def __init__(self, source=None, budget=None):
+	def __init__(self, source=None, budget=None, scope_doctypes=None):
 		super().__init__(source or {})
 		self.collection_row_budget = budget if budget is not None else {"collection_row_visits": 0}
+		self.scope_doctypes = dict(scope_doctypes or {})
 
 
 def _child_context(context: dict | _EvaluationContext) -> _EvaluationContext:
 	if isinstance(context, _EvaluationContext):
-		return _EvaluationContext(context, context.collection_row_budget)
+		return _EvaluationContext(context, context.collection_row_budget, context.scope_doctypes)
 	return _EvaluationContext(context)
 
 
@@ -179,6 +182,14 @@ def compile_condition(
 ) -> tuple:
 	"""Validate and compile a canonical node into a reusable immutable execution plan."""
 	_, payload_json, payload_bytes, payload_digest, registry_fingerprint = _canonicalize_condition(node)
+	# The public compile/evaluate path is used by trigger and Sub-Rule consumers.
+	# Revalidate the exact serialized snapshot on every call so an LRU hit cannot
+	# preserve stale Fieldtype/DocType compatibility after metadata changes.
+	try:
+		validated_node = json.loads(payload_json)
+	except (TypeError, ValueError, RecursionError) as exc:
+		raise ConditionValidationError("invalid_json", "$", "Condition JSON is malformed") from exc
+	validate_condition_node(validated_node, doctype=doctype, scope_doctypes=scope_doctypes)
 	return _get_compiled_plan(
 		payload_json,
 		payload_bytes,
@@ -186,7 +197,7 @@ def compile_condition(
 		registry_fingerprint,
 		doctype,
 		scope_doctypes,
-		validated_fresh=False,
+		validated_fresh=True,
 	)
 
 
@@ -367,10 +378,12 @@ def _evaluate_plan(
 	*,
 	doctype: str | None = None,
 	_evaluation_budget: dict[str, int] | None = None,
+	scope_doctypes: dict[str, str | None] | None = None,
 ) -> bool:
 	ctx = _EvaluationContext(
 		context or {},
 		_evaluation_budget if isinstance(_evaluation_budget, dict) else None,
+		scope_doctypes,
 	)
 	if doctype:
 		ctx["doctype"] = doctype
@@ -402,6 +415,7 @@ def evaluate_condition(
 		context,
 		doctype=effective_doctype,
 		_evaluation_budget=_evaluation_budget,
+		scope_doctypes=scope_doctypes,
 	)
 
 
@@ -475,6 +489,7 @@ def evaluate_prepared_condition(
 		context,
 		doctype=effective_doctype,
 		_evaluation_budget=_evaluation_budget,
+		scope_doctypes=dict(prepared.scope_doctypes or ()),
 	)
 
 
@@ -559,30 +574,34 @@ def _evaluate_node(plan: tuple, context: dict | _EvaluationContext) -> bool:
 				f"{path}.source",
 				"Collection source exceeds the configured row limit",
 			)
+		child_doctype = _resolve_collection_child_doctype(
+			source_scope, source_segments, context, f"{path}.source"
+		)
+
+		def _make_row_context(row):
+			row_context = _child_context(context)
+			row_context["row"] = row
+			row_context[alias] = row
+			if child_doctype:
+				row_context.scope_doctypes["row"] = child_doctype
+				row_context.scope_doctypes[alias] = child_doctype
+			return row_context
+
 		if quantifier == "any":
 			for row in rows:
 				_consume_collection_row_budget(context, f"{path}.source")
-				row_context = _child_context(context)
-				row_context["row"] = row
-				row_context[alias] = row
-				if _evaluate_node(where_plan, row_context):
+				if _evaluate_node(where_plan, _make_row_context(row)):
 					return True
 			return False
 		if quantifier == "all":
 			for row in rows:
 				_consume_collection_row_budget(context, f"{path}.source")
-				row_context = _child_context(context)
-				row_context["row"] = row
-				row_context[alias] = row
-				if not _evaluate_node(where_plan, row_context):
+				if not _evaluate_node(where_plan, _make_row_context(row)):
 					return False
 			return True
 		for row in rows:
 			_consume_collection_row_budget(context, f"{path}.source")
-			row_context = _child_context(context)
-			row_context["row"] = row
-			row_context[alias] = row
-			if _evaluate_node(where_plan, row_context):
+			if _evaluate_node(where_plan, _make_row_context(row)):
 				return False
 		return True
 
@@ -601,7 +620,7 @@ def _evaluate_value(plan: tuple, context: dict) -> Any:
 		value = resolve_variable(scope, segments, context, path)
 		if value is MISSING:
 			return MISSING
-		return _coerce_field_value(value, _fieldtype_for_context(scope, segments, context), path)
+		return _coerce_field_value(value, _fieldtype_for_context(scope, segments, context, path), path)
 	if kind == "template":
 		segments, path = plan[1], plan[2]
 		parts = []
@@ -651,13 +670,80 @@ def _evaluate_value(plan: tuple, context: dict) -> Any:
 	raise ConditionEvaluationError("invalid_flexvalue_plan", "$", "Unknown compiled FlexValue")
 
 
-def _fieldtype_for_context(scope: str, segments: tuple[str, ...], context: dict) -> str | None:
+def _resolve_collection_child_doctype(
+	source_scope: str,
+	source_segments: tuple[str, ...],
+	context: dict,
+	path: str,
+) -> str | None:
+	"""Resolve a nested collection's child DocType for mapping-backed rows."""
+	if not source_segments or not isinstance(context, _EvaluationContext):
+		return None
+
+	root = context.get(source_scope)
+	root_doctype = getattr(root, "doctype", None)
+	if not root_doctype and isinstance(root, dict):
+		root_doctype = root.get("doctype")
+	scope_doctype = context.scope_doctypes.get(source_scope)
+	if root_doctype and scope_doctype and root_doctype != scope_doctype:
+		raise ConditionEvaluationError(
+			"condition_doctype_mismatch",
+			path,
+			"Collection row DocType disagrees with validated metadata",
+		)
+	parent_doctype = root_doctype or scope_doctype
+	if source_scope in {"doc", "old_doc"}:
+		parent_doctype = parent_doctype or context.get("doctype")
+	if not parent_doctype:
+		return None
+
+	try:
+		meta = frappe.get_meta(parent_doctype)
+		field = None
+		for index, segment in enumerate(source_segments):
+			field = meta.get_field(segment)
+			if not field:
+				raise ConditionValidationError(
+					"unknown_field",
+					path,
+					f"Collection source field '{segment}' is not present on '{parent_doctype}'",
+				)
+			if index < len(source_segments) - 1:
+				if field.fieldtype not in {"Table", "Table MultiSelect"} or not field.options:
+					return None
+				meta = frappe.get_meta(field.options)
+
+		if field and field.fieldtype in {"Table", "Table MultiSelect"} and field.options:
+			frappe.get_meta(field.options)
+			return field.options
+		# A collection may also be a list stored in a non-Table field or a
+		# variable; in that case there is no child DocType to attach to its rows.
+		return None
+	except ConditionValidationError as exc:
+		raise ConditionEvaluationError(exc.code, exc.path, exc.message) from exc
+	except Exception as exc:
+		raise ConditionEvaluationError(
+			"unknown_doctype", path, "Could not resolve metadata for nested collection source"
+		) from exc
+
+
+def _fieldtype_for_context(
+	scope: str, segments: tuple[str, ...], context: dict, path: str = "$"
+) -> str | None:
 	if not segments or (scope not in {"doc", "old_doc", "row"} and scope not in context):
 		return None
 	from flexirule.ruleflow.core.condition_contract import resolve_fieldtype_for_path
 
 	root = context.get(scope)
-	doctype = getattr(root, "doctype", None)
+	root_doctype = getattr(root, "doctype", None)
+	if not root_doctype and isinstance(root, dict):
+		root_doctype = root.get("doctype")
+	scope_doctype = context.scope_doctypes.get(scope) if isinstance(context, _EvaluationContext) else None
+	if root_doctype and scope_doctype and root_doctype != scope_doctype:
+		raise ConditionEvaluationError(
+			"condition_doctype_mismatch", path, "Execution scope DocType disagrees with validated metadata"
+		)
+	doctype = root_doctype or scope_doctype
 	if scope in {"doc", "old_doc"}:
 		doctype = doctype or context.get("doctype")
 	try:

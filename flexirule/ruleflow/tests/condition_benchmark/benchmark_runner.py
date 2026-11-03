@@ -905,10 +905,7 @@ class BenchmarkRunner:
 				{"doctype": "Has Role", "role": "System Manager"},
 			],
 		}
-		metadata_context = {
-			"doctype": "User",
-			"scope_doctypes": {"role_item": "Has Role"},
-		}
+		metadata_context = {"doctype": "User"}
 		meta_prepared: dict[str, Any] = {}
 		meta_preparation: dict[str, Any] = {}
 		meta_failure = None
@@ -1001,7 +998,10 @@ class BenchmarkRunner:
 			"scenario": "User.roles -> Has Role.role (real Frappe parent/child metadata)",
 			"doctype": "User",
 			"child_doctype": "Has Role",
-			"scope_doctypes": metadata_context["scope_doctypes"],
+			"source_doctype": metadata_context["doctype"],
+			"collection_source_field": "roles",
+			"collection_alias": meta_payload["as"],
+			"child_doctype_expected": "Has Role",
 			"is_valid_measurement": meta_failure is None,
 			"reason": meta_failure,
 			"preparation": meta_preparation,
