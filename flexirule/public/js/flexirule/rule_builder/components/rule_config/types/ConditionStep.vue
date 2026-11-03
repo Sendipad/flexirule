@@ -1,18 +1,21 @@
 <template>
 	<div class="condition-step">
 		<div class="condition-step-header">
+			<h5>
+				{{
+					isEntryNode
+						? __("Entry Condition Configuration")
+						: __("Condition Configuration")
+				}}
+			</h5>
+
 			<div class="d-flex align-items-center gap-2">
-				<i class="fa fa-code-fork text-primary"></i>
-				<h5 class="mb-0">
-					{{ isEntryNode ? __("Entry Condition (Execution Gate)") : __("Conditions") }}
-				</h5>
-			</div>
-			<div class="header-actions">
-				<label class="old-doc-toggle fxr-checkbox-label fxr-checkbox-label--sm">
+				<label class="old-doc-toggle">
 					<input
 						type="checkbox"
 						v-model="showOldDoc"
-						class="fxr-checkbox-input fxr-checkbox-input--sm"
+						:disabled="readOnly || read_only"
+						class="mr-1 fxr-checkbox-input"
 					/>
 					<span class="toggle-label">{{ __("Show Old Doc Fields") }}</span>
 				</label>
@@ -29,24 +32,22 @@
 		</div>
 
 		<div class="condition-builder-container">
-			<ConditionBuilder
-				ref="conditionBuilderRef"
-				:modelValue="localConditions"
+			<CanonicalConditionBuilder
+				ref="canonicalBuilderRef"
+				:modelValue="localCanonicalCondition"
 				:docFields="docFields"
 				:variableOptions="combinedVariableOptions"
 				:readOnly="readOnly || read_only"
-				:showValidation="showValidation"
-				:isMandatory="
-					props.node?.data?.action_type === 'Condition' ||
-					props.node?.type === 'Condition'
-				"
+				:isMandatory="isConditionMandatory"
+				:currentDocType="currentDocType"
+				:store="ruleStore"
 				@update:modelValue="updateConditions"
 			/>
 		</div>
 
-		<div v-if="localConditions.conditions?.length" class="condition-step-footer mt-3">
+		<div v-if="localCanonicalCondition" class="condition-step-footer mt-3">
 			<div class="alert alert-info py-2 px-3 small mb-0">
-				<i class="fa fa-info-circle"></i>
+				<i class="fa fa-info-circle mr-1"></i>
 				<template v-if="isEntryNode">
 					{{
 						__(
@@ -65,9 +66,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from "vue";
 import { useRuleStore, useGraphStore, useMetaStore } from "../../../stores";
-import { fromCodeString } from "../../../utils/serialization";
-import ConditionBuilder from "../../condition_builder/ConditionBuilder.vue";
-import { validateConditions } from "../../condition_builder/condition_validator.js";
+import CanonicalConditionBuilder from "../../condition_builder/CanonicalConditionBuilder.vue";
 import { getConditionPayload } from "../../../utils/condition_payload";
 
 const props = defineProps({
@@ -80,58 +79,24 @@ const props = defineProps({
 const ruleStore = useRuleStore();
 const graphStore = useGraphStore();
 const metaStore = useMetaStore();
-const localConditions = ref({ op: "and", conditions: [] });
+
+const localCanonicalCondition = ref(null);
 const showOldDoc = ref(false);
 const variableFields = ref([]);
-const conditionBuilderRef = ref(null);
+const canonicalBuilderRef = ref(null);
 
 const isEntryNode = computed(() => {
 	return props.node?.type === "start" || props.node?.data?.action_type === "Entry Action";
 });
 
-/**
- * Hydrates conditions with ephemeral IDs for Vue reactivity.
- */
-function hydrate(tree) {
-	if (!tree || typeof tree !== "object") return tree;
-	const hydrated = Array.isArray(tree) ? [...tree] : { ...tree };
+const isConditionMandatory = computed(() => {
+	return props.node?.data?.action_type === "Condition" || props.node?.type === "Condition";
+});
 
-	if (!hydrated.id) {
-		hydrated.id = frappe.utils.get_random(12);
-	}
+const currentDocType = computed(() => {
+	return props.node?.data?.document_type || ruleStore.rule_doc?.document_type || "";
+});
 
-	if (hydrated.conditions && Array.isArray(hydrated.conditions)) {
-		hydrated.conditions = hydrated.conditions.map((c) => hydrate(c));
-	}
-
-	if (hydrated.where) {
-		hydrated.where = hydrate(hydrated.where);
-	}
-
-	return hydrated;
-}
-
-/**
- * Strips ephemeral IDs before saving.
- */
-function dehydrate(tree) {
-	if (!tree || typeof tree !== "object") return tree;
-	const clean = Array.isArray(tree) ? [...tree] : { ...tree };
-
-	if (clean.id) delete clean.id;
-
-	if (clean.conditions && Array.isArray(clean.conditions)) {
-		clean.conditions = clean.conditions.map((c) => dehydrate(c));
-	}
-
-	if (clean.where) {
-		clean.where = dehydrate(clean.where);
-	}
-
-	return clean;
-}
-
-// Initial hydration
 watch(
 	() => {
 		if (props.node?.type === "start") {
@@ -143,45 +108,29 @@ watch(
 		});
 	},
 	(val) => {
-		if (val) {
-			const parsed = typeof val === "string" ? fromCodeString(val) : val;
-
-			const currentClean = dehydrate(localConditions.value);
-			if (JSON.stringify(parsed) === JSON.stringify(currentClean)) {
-				return;
-			}
-
-			localConditions.value = hydrate(parsed);
-		} else {
-			localConditions.value = { id: frappe.utils.get_random(12), op: "and", conditions: [] };
+		if (JSON.stringify(val) !== JSON.stringify(localCanonicalCondition.value)) {
+			localCanonicalCondition.value = val || null;
 		}
 	},
 	{ immediate: true }
 );
 
 function updateConditions(val) {
-	localConditions.value = val;
+	localCanonicalCondition.value = val;
 	save();
 }
 
 function save() {
 	if (!props.node?.data) return;
 
-	// Strip IDs
-	const clean = dehydrate(localConditions.value);
-
 	if (props.node.type === "start") {
-		props.node.data.trigger_condition = clean;
+		props.node.data.trigger_condition = localCanonicalCondition.value;
 	} else {
-		props.node.data.config = clean;
+		props.node.data.config = localCanonicalCondition.value;
 		props.node.data.condition_json = null;
 	}
-	// DO NOT mark dirty here. useRuleConfig will handle it on modal Save.
 }
 
-/**
- * Compute fields available for conditions.
- */
 const docFields = computed(() => {
 	const dedupe = new Map();
 	const pushField = (field) => {
@@ -189,7 +138,7 @@ const docFields = computed(() => {
 		dedupe.set(field.value, field);
 	};
 
-	ruleStore.doc_fields.forEach(pushField);
+	(ruleStore.doc_fields || []).forEach(pushField);
 	variableFields.value.forEach(pushField);
 	let fields = Array.from(dedupe.values());
 
@@ -214,10 +163,10 @@ const docFields = computed(() => {
 			fieldtype: "Link",
 			options: "DocType",
 			operators: [
-				"==",
-				"!=",
+				"eq",
+				"ne",
 				"in",
-				"not in",
+				"not_in",
 				"is_set",
 				"is_not_set",
 				"is_submittable",
@@ -248,10 +197,10 @@ const docFields = computed(() => {
 			fieldtype: "Link",
 			options: "DocType",
 			operators: [
-				"==",
-				"!=",
+				"eq",
+				"ne",
 				"in",
-				"not in",
+				"not_in",
 				"is_set",
 				"is_not_set",
 				"is_submittable",
@@ -282,10 +231,10 @@ const docFields = computed(() => {
 			fieldtype: "Link",
 			options: "DocType",
 			operators: [
-				"==",
-				"!=",
+				"eq",
+				"ne",
 				"in",
-				"not in",
+				"not_in",
 				"is_set",
 				"is_not_set",
 				"is_submittable",
@@ -307,10 +256,7 @@ const combinedVariableOptions = computed(() => {
 		dedupe.set(key, v);
 	};
 
-	// 1. Context fields (doc.*, caller.*, rule.*)
 	docFields.value.forEach(pushOption);
-
-	// 2. Runtime variables (vars.*)
 	variableFields.value.forEach(pushOption);
 
 	return Array.from(dedupe.values());
@@ -331,13 +277,12 @@ async function refreshVariableFields() {
 	}
 }
 
-// Load metadata on mount if needed
 onMounted(async () => {
 	const node = props.node;
 	if (!node) return;
 
 	const doctype = node.data?.document_type || ruleStore.rule_doc?.document_type;
-	if (doctype && !ruleStore.doc_fields.length) {
+	if (doctype && !ruleStore.doc_fields?.length) {
 		await metaStore.fetch_metadata(doctype);
 	}
 	await refreshVariableFields();
@@ -362,15 +307,10 @@ watch(
 );
 
 function validate() {
-	if (conditionBuilderRef.value) {
-		return conditionBuilderRef.value.validate();
+	if (canonicalBuilderRef.value) {
+		return canonicalBuilderRef.value.validate();
 	}
-	const type = props.node?.data?.action_type || props.node?.type;
-	// Only 'Condition' nodes MUST have a condition defined.
-	// For all other nodes, conditions are optional execution filters.
-	const isMandatory = type === "Condition";
-	const result = validateConditions(localConditions.value, true, isMandatory);
-	return result;
+	return { valid: true, errors: [] };
 }
 
 defineExpose({
@@ -425,10 +365,5 @@ defineExpose({
 .condition-builder-container {
 	position: relative;
 	z-index: 10;
-}
-
-.condition-builder-container :deep(.condition-builder) {
-	padding: 0;
-	background: transparent;
 }
 </style>

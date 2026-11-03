@@ -19,6 +19,13 @@ function safeJsonParse(value, fallback = null) {
 function isConditionPayloadShape(value) {
 	if (Array.isArray(value)) return true;
 	if (!value || typeof value !== "object") return false;
+	if (
+		value.type === "comparison" ||
+		value.type === "group" ||
+		value.type === "collection_predicate"
+	) {
+		return true;
+	}
 	return (
 		Array.isArray(value.conditions) ||
 		Boolean(value.left) ||
@@ -30,6 +37,14 @@ export function getConditionPayloadFromConfig(configValue) {
 	const config = safeJsonParse(configValue, null);
 	if (Array.isArray(config)) return config;
 	if (!config || typeof config !== "object") return null;
+
+	if (
+		config.type === "comparison" ||
+		config.type === "group" ||
+		config.type === "collection_predicate"
+	) {
+		return config;
+	}
 
 	for (const key of ["condition", "condition_tree", "condition_json"]) {
 		if (!(key in config)) continue;

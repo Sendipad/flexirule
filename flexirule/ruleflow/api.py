@@ -630,6 +630,33 @@ def get_condition_contract():
 
 
 @frappe.whitelist()
+def validate_condition(condition, doctype=None):
+	"""Authoritative side-effect-free validation for a canonical condition node.
+
+	Returns {"valid": True} or raises/returns error info.
+	"""
+	_require_api_access()
+	import json
+
+	from flexirule.ruleflow.core.condition_contract import validate_condition_node
+	from flexirule.ruleflow.core.condition_errors import ConditionError
+
+	if isinstance(condition, str):
+		condition = json.loads(condition)
+
+	try:
+		validate_condition_node(condition, doctype=doctype or None)
+		return {"valid": True, "errors": []}
+	except ConditionError as exc:
+		return {
+			"valid": False,
+			"errors": [{"code": exc.code, "path": exc.path, "message": exc.message}],
+		}
+	except Exception as exc:
+		return {"valid": False, "errors": [{"code": "validation_error", "path": "$", "message": str(exc)}]}
+
+
+@frappe.whitelist()
 def get_operator_config():
 	"""
 	Get fieldtype-to-operators mapping and operator labels for Condition Builder.
