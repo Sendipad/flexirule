@@ -630,7 +630,7 @@ def get_condition_contract():
 
 
 @frappe.whitelist()
-def validate_condition(condition, doctype=None):
+def validate_condition(condition: str | dict, doctype: str | None = None):
 	"""Authoritative side-effect-free validation for a canonical condition node.
 
 	Returns {"valid": True} or raises/returns error info.
