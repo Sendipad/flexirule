@@ -4,6 +4,7 @@
 
 | Finding ID | Severity | Area | File / Location | Finding Summary | Status | Confidence |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **FR-SCHED-001** | **INFO** | CI/Automation | `.github/workflows/jules-task.yml` | Daily scheduled Jules audit workflow cron configuration | **Fixed** | High |
 | **FR-SEC-001** | **CRITICAL** | Security | `flexirule/ruleflow/core/permissions.py:186` | AST validation stub in `validate_safe_eval` allows Python sandbox escape via dunder attributes | **Fixed** | High |
 | **FR-SEC-002** | **CRITICAL** | Security | `flexirule/ruleflow/core/action_handlers/document_action.py:642` | Unsanitized Jinja template rendering (`_render_scalar`) permits Server-Side Template Injection (SSTI) | **Fixed** | High |
 | **FR-SEC-003** | **HIGH** | Security | `flexirule/ruleflow/core/engine.py:165` | `SafeFrappeAPI.format_value` accepts unvalidated `df` dict, bypassing read-only restrictions | **Fixed** | High |
