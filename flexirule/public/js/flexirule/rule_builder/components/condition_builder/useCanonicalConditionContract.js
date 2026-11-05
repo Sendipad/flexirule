@@ -4,6 +4,8 @@
  */
 
 import { ref, computed } from "vue";
+import { normalizeConditionContract } from "./canonical_condition_contract_normalization.mjs";
+export { normalizeConditionContract };
 
 let cachedContract = null;
 let fetchPromise = null;
@@ -29,15 +31,19 @@ export function useCanonicalConditionContract() {
 		fetchPromise = (async () => {
 			try {
 				if (typeof frappe === "undefined" || !frappe.call) {
-					const mockContract = {
-						api_version: "1",
-						operators: {},
-						limits: { depth: 16, nodes: 128, path_segments: 8 },
-						flexvalue_modes: { static: [], variable: {}, resolver: {}, template: {} },
-					};
-					cachedContract = mockContract;
-					contractState.value = mockContract;
-					return mockContract;
+					// In test environments or when frappe is unavailable, check window.__FLEXIRULE_CONTRACT__
+					if (typeof window !== "undefined" && window.__FLEXIRULE_CONTRACT__) {
+						const normalized = normalizeConditionContract(window.__FLEXIRULE_CONTRACT__);
+						cachedContract = normalized;
+						contractState.value = normalized;
+						return normalized;
+					}
+					// Fail closed when no contract is available
+					const err = new Error("Canonical condition contract is unavailable (frappe.call not found)");
+					error.value = err.message;
+					cachedContract = null;
+					contractState.value = null;
+					throw err;
 				}
 
 				const response = await frappe.call({
@@ -45,12 +51,15 @@ export function useCanonicalConditionContract() {
 				});
 
 				const result = response.message || response;
-				cachedContract = result;
-				contractState.value = result;
-				return result;
+				const normalized = normalizeConditionContract(result);
+				cachedContract = normalized;
+				contractState.value = normalized;
+				return normalized;
 			} catch (err) {
 				const msg = err?.message || "Failed to load canonical condition contract";
 				error.value = msg;
+				cachedContract = null;
+				contractState.value = null;
 				console.error("[FlexiRule] get_condition_contract failed:", err);
 				throw err;
 			} finally {
@@ -63,6 +72,7 @@ export function useCanonicalConditionContract() {
 	}
 
 	const operators = computed(() => contractState.value?.operators || {});
+	const operatorList = computed(() => contractState.value?.operatorList || []);
 	const limits = computed(() => contractState.value?.limits || {});
 	const flexvalueModes = computed(() => contractState.value?.flexvalue_modes || {});
 
@@ -72,6 +82,7 @@ export function useCanonicalConditionContract() {
 		error,
 		loadContract,
 		operators,
+		operatorList,
 		limits,
 		flexvalueModes,
 	};

@@ -1,16 +1,16 @@
 <template>
 	<div class="canonical-collection-header">
-		<!-- Match quantifier -->
+		<!-- Match quantifier (Collection-level: Any / All / None) -->
 		<div class="col-item match-col">
-			<label class="fxr-label">{{ __("Match") }}</label>
+			<label class="fxr-label">{{ __("Check table") }}</label>
 			<SelectControl
 				class="fxr-select"
 				:df="{
 					fieldtype: 'Select',
 					options: [
-						{ label: __('Any'), value: 'any' },
-						{ label: __('All'), value: 'all' },
-						{ label: __('None'), value: 'none' },
+						{ label: __('At least one row'), value: 'any' },
+						{ label: __('Every row'), value: 'all' },
+						{ label: __('No rows'), value: 'none' },
 					],
 					reqd: 1,
 				}"
@@ -38,32 +38,46 @@
 			/>
 		</div>
 
-		<!-- Row Alias -->
-		<div class="col-item alias-col">
-			<label class="fxr-label">{{ __("Alias") }}</label>
-			<input
-				type="text"
-				v-model="node.alias"
-				class="fxr-input form-control"
-				placeholder="row"
-				:disabled="readOnly"
-				@input="onAliasChange"
+		<!-- Row-level condition quantifier (when multiple child conditions exist) -->
+		<div v-if="hasMultipleChildConditions" class="col-item row-quantifier-col">
+			<label class="fxr-label">{{ __("Row condition logic") }}</label>
+			<SelectControl
+				class="fxr-select"
+				:df="{
+					fieldtype: 'Select',
+					options: [
+						{ label: __('Match all conditions'), value: 'and' },
+						{ label: __('Match any condition'), value: 'or' },
+					],
+					reqd: 1,
+				}"
+				:modelValue="node.rowQuantifier || 'and'"
+				:read_only="readOnly"
+				:hideLabel="true"
+				@update:modelValue="updateRowQuantifier"
 			/>
 		</div>
 	</div>
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, onMounted } from "vue";
 import SelectControl from "../../controls/SelectControl.vue";
+import { generateCollectionAlias } from "./canonical_condition_adapter.mjs";
 
 const props = defineProps({
 	node: { type: Object, required: true },
 	docFields: { type: Array, default: () => [] },
 	readOnly: { type: Boolean, default: false },
+	store: { type: Object, default: null },
 });
 
-const emit = defineEmits(["update:node", "change"]);
+const emit = defineEmits(["update:node", "change", "child-fields-loaded"]);
+
+const hasMultipleChildConditions = computed(() => {
+	const ch = props.node.children;
+	return Array.isArray(ch) && ch.length > 1;
+});
 
 const tableFieldOptions = computed(() => {
 	const fields = props.docFields || [];
@@ -72,11 +86,18 @@ const tableFieldOptions = computed(() => {
 		.map((f) => ({
 			label: f.label || f.fieldname,
 			value: f.value || `doc.${f.fieldname}`,
+			options: f.options,
+			fieldname: f.fieldname,
 		}));
 });
 
 function updateQuantifier(val) {
 	props.node.quantifier = val;
+	emit("change", props.node);
+}
+
+function updateRowQuantifier(val) {
+	props.node.rowQuantifier = val;
 	emit("change", props.node);
 }
 
@@ -87,15 +108,59 @@ function updateCollectionPath(path) {
 	const segments = parts.length > 1 ? parts.slice(1) : parts.length === 1 ? [parts[0]] : [];
 	props.node.source = { scope, segments };
 
-	if (!props.node.alias && segments.length) {
-		props.node.alias = segments[segments.length - 1].replace(/[^a-zA-Z0-9_]/g, "_");
-	}
+	// Deterministic alias generation (hidden from UI)
+	const tableFieldname = segments.length ? segments[segments.length - 1] : "items";
+	props.node.alias = generateCollectionAlias(tableFieldname);
+
+	resolveAndPropagateChildFields();
 	emit("change", props.node);
 }
 
-function onAliasChange() {
-	emit("change", props.node);
+async function resolveAndPropagateChildFields() {
+	const selected = tableFieldOptions.value.find((f) => f.value === props.node.collection);
+	if (!selected || !selected.options) return;
+
+	const childDocType = selected.options;
+	props.node.childDocType = childDocType;
+
+	let childFields = [];
+	try {
+		if (typeof frappe !== "undefined" && frappe.call) {
+			const res = await frappe.call({
+				method: "flexirule.ruleflow.api.get_doctype_fields",
+				args: { doctype: childDocType },
+			});
+			const data = res.message || res;
+			childFields = (data.parent_fields || []).map((f) => ({
+				...f,
+				value: `${props.node.alias}.${f.value}`,
+				label: `${f.label} (${props.node.alias})`,
+				scope: props.node.alias,
+				doctype: childDocType,
+			}));
+		}
+	} catch (e) {
+		console.warn("Failed to fetch child doctype fields:", e);
+	}
+
+	emit("child-fields-loaded", {
+		collectionId: props.node.id,
+		childDocType,
+		childFields,
+		alias: props.node.alias,
+	});
 }
+
+onMounted(() => {
+	if (props.node.collection) {
+		if (!props.node.alias || props.node.alias === "row") {
+			const parts = props.node.collection.split(".").filter(Boolean);
+			const tableFieldname = parts.length ? parts[parts.length - 1] : "items";
+			props.node.alias = generateCollectionAlias(tableFieldname);
+		}
+		resolveAndPropagateChildFields();
+	}
+});
 </script>
 
 <style scoped>
@@ -112,10 +177,10 @@ function onAliasChange() {
 	min-width: 0;
 }
 .match-col {
-	width: 100px;
+	width: 160px;
 }
-.alias-col {
-	width: 120px;
+.row-quantifier-col {
+	width: 180px;
 }
 .fxr-label {
 	font-size: var(--fxr-text-xs, 11px);
@@ -129,7 +194,7 @@ function onAliasChange() {
 		align-items: stretch;
 	}
 	.match-col,
-	.alias-col {
+	.row-quantifier-col {
 		width: 100%;
 	}
 }

@@ -13,6 +13,55 @@ import { TREE_NODE_TYPES, DEFAULT_GROUP_OPERATORS } from "../tree_builder/tree_b
 import { createNodeId } from "../tree_builder/tree_builder_utils.mjs";
 
 /**
+ * Backend reserved scopes and aliases. Cannot be used as collection aliases.
+ */
+export const RESERVED_ALIASES = new Set([
+	"doc",
+	"old_doc",
+	"vars",
+	"item",
+	"loop",
+	"row",
+	"caller",
+	"rule",
+	"doctype",
+	"and",
+	"or",
+	"any",
+	"all",
+	"none",
+]);
+
+/**
+ * Generates a safe, deterministic collection alias from a table field name.
+ * Avoids reserved aliases (such as 'row') and handles collisions deterministically.
+ */
+export function generateCollectionAlias(tableFieldName, existingAliases = new Set()) {
+	let raw = (tableFieldName || "item").trim();
+	if (raw.includes(".")) {
+		const parts = raw.split(".");
+		raw = parts[parts.length - 1];
+	}
+	let cleaned = raw.replace(/[^a-zA-Z0-9_]/g, "_").replace(/_+/g, "_").replace(/^_|_$/g, "");
+	if (!cleaned || /^[0-9]/.test(cleaned)) {
+		cleaned = `tbl_${cleaned}`;
+	}
+
+	let candidate = `${cleaned}_row`;
+	if (candidate === "row" || RESERVED_ALIASES.has(candidate)) {
+		candidate = `${cleaned}_item`;
+	}
+
+	let finalAlias = candidate;
+	let counter = 1;
+	while (RESERVED_ALIASES.has(finalAlias) || existingAliases.has(finalAlias)) {
+		counter += 1;
+		finalAlias = `${candidate}_${counter}`;
+	}
+	return finalAlias;
+}
+
+/**
  * Deterministic legacy operator to canonical operator mapping.
  */
 export const LEGACY_OPERATOR_MAP = Object.freeze({
@@ -202,10 +251,71 @@ export function inferCanonicalValueType(val, fieldtype = null) {
 }
 
 /**
- * Converts a legacy right operand or raw value into a canonical FlexValue.
+ * Safely parses integer without silent truncation or NaN fallback to 0.
+ * Throws TypeError / RangeError if invalid integer string.
+ */
+export function safeCoerceInteger(val) {
+	if (typeof val === "number") {
+		if (!Number.isFinite(val)) throw new TypeError(`Non-finite number cannot be coerced to integer: ${val}`);
+		return Math.trunc(val);
+	}
+	if (typeof val === "string") {
+		const trimmed = val.trim();
+		if (!/^-?\d+$/.test(trimmed)) {
+			throw new TypeError(`Invalid integer format: '${val}'`);
+		}
+		const parsed = Number(trimmed);
+		if (!Number.isSafeInteger(parsed)) {
+			throw new RangeError(`Integer out of safe range: '${val}'`);
+		}
+		return parsed;
+	}
+	throw new TypeError(`Cannot coerce value of type ${typeof val} to integer`);
+}
+
+/**
+ * Safely parses decimal without losing precision or silent coercion.
+ */
+export function safeCoerceDecimal(val) {
+	if (typeof val === "number") {
+		if (!Number.isFinite(val)) throw new TypeError(`Non-finite number cannot be coerced to decimal: ${val}`);
+		return String(val);
+	}
+	if (typeof val === "string") {
+		const trimmed = val.trim();
+		if (!/^-?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(trimmed)) {
+			throw new TypeError(`Invalid decimal format: '${val}'`);
+		}
+		return trimmed;
+	}
+	throw new TypeError(`Cannot coerce value of type ${typeof val} to decimal`);
+}
+
+/**
+ * Safely parses boolean string or value strictly.
+ */
+export function safeCoerceBoolean(val) {
+	if (typeof val === "boolean") return val;
+	if (typeof val === "string") {
+		const lower = val.trim().toLowerCase();
+		if (lower === "true" || lower === "1") return true;
+		if (lower === "false" || lower === "0") return false;
+		throw new TypeError(`Invalid boolean string: '${val}'`);
+	}
+	if (typeof val === "number") {
+		if (val === 1) return true;
+		if (val === 0) return false;
+		throw new TypeError(`Invalid boolean numeric value: ${val}`);
+	}
+	throw new TypeError(`Cannot coerce value of type ${typeof val} to boolean`);
+}
+
+/**
+ * Converts a right operand or raw value into a canonical FlexValue.
+ * Preserves 2-item arrays verbatim unless authoritative fieldtype confirms Link tuple.
  */
 export function toCanonicalFlexValue(rawRight, fieldtype = null) {
-	if (!rawRight && rawRight !== 0 && rawRight !== false && rawRight !== "") {
+	if (rawRight === undefined || rawRight === null) {
 		return {
 			mode: "static",
 			value_type: "null",
@@ -237,11 +347,23 @@ export function toCanonicalFlexValue(rawRight, fieldtype = null) {
 			}
 			let formattedValue = v;
 			if (vt === "decimal") {
-				formattedValue = v !== null && v !== undefined ? String(v) : "0";
+				try {
+					formattedValue = safeCoerceDecimal(v);
+				} catch {
+					formattedValue = String(v ?? "0");
+				}
 			} else if (vt === "integer") {
-				formattedValue = typeof v === "number" ? Math.trunc(v) : parseInt(v, 10) || 0;
+				try {
+					formattedValue = safeCoerceInteger(v);
+				} catch {
+					formattedValue = typeof v === "number" ? Math.trunc(v) : parseInt(v, 10) || 0;
+				}
 			} else if (vt === "boolean") {
-				formattedValue = Boolean(v);
+				try {
+					formattedValue = safeCoerceBoolean(v);
+				} catch {
+					formattedValue = Boolean(v);
+				}
 			} else if (vt === "null") {
 				formattedValue = null;
 			}
@@ -272,11 +394,15 @@ export function toCanonicalFlexValue(rawRight, fieldtype = null) {
 		val = rawRight.value;
 	}
 
+	// Only unwrap a 2-item array if authoritative Link metadata is provided AND it is a legacy Link tuple [DocType, Name].
+	// In canonical conditions, ordinary 2-item arrays without Link metadata (or membership lists) must NEVER be unwrapped.
+	const isLinkField = fieldtype && (fieldtype === "Link" || fieldtype === "Dynamic Link");
 	if (
+		isLinkField &&
 		Array.isArray(val) &&
 		val.length === 2 &&
 		typeof val[0] === "string" &&
-		!Array.isArray(val[1])
+		typeof val[1] === "string"
 	) {
 		val = val[1];
 	}
@@ -288,9 +414,17 @@ export function toCanonicalFlexValue(rawRight, fieldtype = null) {
 	const vt = inferCanonicalValueType(val, fieldtype);
 	let formatted = val;
 	if (vt === "decimal") {
-		formatted = val !== null && val !== undefined ? String(val) : "0";
+		try {
+			formatted = safeCoerceDecimal(val);
+		} catch {
+			formatted = String(val ?? "0");
+		}
 	} else if (vt === "integer" && typeof val === "string") {
-		formatted = parseInt(val, 10) || 0;
+		try {
+			formatted = safeCoerceInteger(val);
+		} catch {
+			formatted = parseInt(val, 10) || 0;
+		}
 	}
 
 	return {
@@ -355,9 +489,11 @@ function deserializeCanonicalCollection(node) {
 
 	const whereNode = node.where;
 	let children = [];
+	let rowQuantifier = "and"; // 'and' -> Match all conditions; 'or' -> Match any condition
 
 	if (whereNode) {
 		if (whereNode.type === "group" && Array.isArray(whereNode.children)) {
+			rowQuantifier = whereNode.operator === "or" ? "or" : "and";
 			children = whereNode.children.map((c) => deserializeNode(c));
 		} else {
 			children = [deserializeNode(whereNode)];
@@ -370,7 +506,8 @@ function deserializeCanonicalCollection(node) {
 		quantifier: node.quantifier || "any",
 		collection: collectionPath,
 		source: deepClone(source),
-		alias: node.as || "row",
+		alias: node.as || generateCollectionAlias(collectionPath),
+		rowQuantifier,
 		children,
 	};
 }
@@ -414,12 +551,13 @@ function deserializeCanonicalNode(node) {
 		return deserializeCanonicalCollection(node);
 	}
 
+	// Unknown canonical node type
 	return {
 		id: createNodeId("leaf"),
 		type: TREE_NODE_TYPES.LEAF,
 		operator: "eq",
 		is_unsupported: true,
-		unsupported_reason: `Unknown condition node type '${node.type}'`,
+		unsupported_reason: `Unknown condition node type '${node.type || "unspecified"}'`,
 		original_payload: deepClone(node),
 	};
 }
@@ -474,15 +612,21 @@ function convertLegacyLeaf(legacy) {
 function convertLegacyCollection(legacy) {
 	const quantifier = legacy.op || "any";
 	const collection = legacy.collection || "";
-	const alias = legacy.alias || "row";
 
 	const parts = collection.split(".").filter(Boolean);
 	const scope = parts.length > 1 ? parts[0] : "doc";
 	const segments = parts.length > 1 ? parts.slice(1) : parts.length === 1 ? [parts[0]] : [];
 
+	let rawAlias = legacy.alias || "";
+	if (!rawAlias || RESERVED_ALIASES.has(rawAlias)) {
+		rawAlias = generateCollectionAlias(collection);
+	}
+
 	let children = [];
+	let rowQuantifier = "and";
 	if (legacy.where) {
 		if (Array.isArray(legacy.where.conditions)) {
+			rowQuantifier = legacy.where.op === "or" ? "or" : "and";
 			children = legacy.where.conditions.map((c) => deserializeLegacyNode(c));
 		} else if (legacy.where.left) {
 			children = [convertLegacyLeaf(legacy.where)];
@@ -495,7 +639,8 @@ function convertLegacyCollection(legacy) {
 		quantifier: ["any", "all", "none"].includes(quantifier) ? quantifier : "any",
 		collection,
 		source: { scope, segments },
-		alias,
+		alias: rawAlias,
+		rowQuantifier,
 		children,
 		legacy_migrated: true,
 	};
@@ -585,8 +730,12 @@ export function deserializeConditionTree(payload) {
 		}
 		try {
 			data = JSON.parse(trimmed);
-			if (typeof data === "string" && data.trim().startsWith(("{", "["))) {
-				data = JSON.parse(data);
+			// Fix: Correct double-encoded JSON check (explicit checks for '{' or '[')
+			if (typeof data === "string") {
+				const innerTrimmed = data.trim();
+				if (innerTrimmed.startsWith("{") || innerTrimmed.startsWith("[")) {
+					data = JSON.parse(innerTrimmed);
+				}
 			}
 		} catch {
 			return {
@@ -648,6 +797,25 @@ export function deserializeConditionTree(payload) {
 			operator: "and",
 			children: [deserializeLegacyNode(data)],
 			legacy_migrated: true,
+		};
+	}
+
+	// Unknown or malformed object root
+	if (isPlainObject(data)) {
+		return {
+			id: "root",
+			type: TREE_NODE_TYPES.GROUP,
+			operator: "and",
+			children: [
+				{
+					id: createNodeId("leaf"),
+					type: TREE_NODE_TYPES.LEAF,
+					operator: "eq",
+					is_unsupported: true,
+					unsupported_reason: `Unsupported root condition structure: ${data.type || "unknown"}`,
+					original_payload: deepClone(data),
+				},
+			],
 		};
 	}
 
@@ -715,7 +883,11 @@ function serializeCollectionToCanonical(colNode) {
 		source = deepClone(source);
 	}
 
-	const alias = colNode.alias || "row";
+	let alias = colNode.alias || "";
+	if (!alias || alias === "row") {
+		alias = generateCollectionAlias(colNode.collection || "items");
+	}
+
 	const quantifier = ["any", "all", "none"].includes(colNode.quantifier)
 		? colNode.quantifier
 		: "any";
@@ -723,12 +895,14 @@ function serializeCollectionToCanonical(colNode) {
 	const children = Array.isArray(colNode.children) ? colNode.children : [];
 	let where = null;
 
+	const rowQuantifier = colNode.rowQuantifier === "or" ? "or" : "and";
+
 	if (children.length === 1) {
 		where = serializeNodeToCanonical(children[0]);
 	} else if (children.length >= 2) {
 		where = {
 			type: "group",
-			operator: "and",
+			operator: rowQuantifier,
 			children: children.map((c) => serializeNodeToCanonical(c)).filter(Boolean),
 		};
 	}

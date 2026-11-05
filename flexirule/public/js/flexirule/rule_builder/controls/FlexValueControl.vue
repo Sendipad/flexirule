@@ -91,6 +91,18 @@
 				</div>
 			</div>
 
+			<!-- Visible Source Picker Trigger (for variables/fields) -->
+			<div v-if="!isReadOnly && availableVariableOptions.length" class="fvc-source-browse-wrap">
+				<button
+					type="button"
+					class="fvc-browse-btn"
+					:title="__('Browse available fields and values')"
+					@click.stop="toggleSourcePicker"
+				>
+					<i class="fa fa-list-ul"></i>
+				</button>
+			</div>
+
 			<!-- Mode Toggle Button -->
 			<div v-if="isStaticSupported && !isReadOnly" class="fvc-mode-toggle-wrap">
 				<button
@@ -112,6 +124,24 @@
 		<div v-if="showValidation && !isValid" class="fxr-error-msg">
 			{{ __("{0} is required").replace("{0}", context?.df?.label || __("Field")) }}
 		</div>
+
+		<!-- ── Source Picker Popover (Teleported) ── -->
+		<Teleport to="body">
+			<div
+				v-if="isSourcePickerOpen"
+				class="fxr-picker-popover-backdrop"
+				@click.self="isSourcePickerOpen = false"
+			>
+				<div class="fxr-picker-popover-container" :style="pickerPopoverStyle">
+					<SourcePickerPopover
+						:options="availableVariableOptions"
+						:currentValue="currentFlexValue"
+						@select="onSourceSelected"
+						@close="isSourcePickerOpen = false"
+					/>
+				</div>
+			</div>
+		</Teleport>
 
 		<!-- ── Token Editor Modal ── -->
 		<Teleport to="body">
@@ -352,6 +382,7 @@ import ControlFactory from "./ControlFactory.vue";
 import MultiSelectList from "./MultiSelectList.vue";
 import ValueResolverControl from "./ValueResolverControl.vue";
 import ResolverTokenView from "./ResolverTokenView.vue";
+import SourcePickerPopover from "./SourcePickerPopover.vue";
 
 const props = defineProps({
 	modelValue: { type: [Object, String, Number, Boolean], default: null },
@@ -366,15 +397,6 @@ const props = defineProps({
 	doc: { type: Object, default: null },
 	showValidation: { type: Boolean, default: false },
 	invalid: { type: Boolean, default: false },
-	/**
-	 * Structured context:
-	 * {
-	 *   df: { fieldtype, options, fieldname, ... },
-	 *   operator: 'set',
-	 *   referenceDoctype: 'Customer', // fallback if not in df
-	 *   onUpdate: Function // optional callback
-	 * }
-	 */
 	context: { type: Object, default: () => ({}) },
 });
 
@@ -392,13 +414,12 @@ const TEXT_FIELDTYPES = new Set([
 ]);
 const isMultiSelect = computed(() => {
 	const ft = fieldType.value;
-	// Native multi-select fieldtypes are always rendered as MultiSelectList
 	if (["MultiSelect", "MultiSelectList", "Table MultiSelect", "MultiCheck"].includes(ft)) {
 		return true;
 	}
 
 	const op = props.context?.operator;
-	const isListOp = ["in", "not in", "in list", "not in list"].includes(
+	const isListOp = ["in", "not in", "not_in", "in list", "not in list"].includes(
 		String(op || "").toLowerCase()
 	);
 	if (!isListOp) return false;
@@ -408,7 +429,7 @@ const isMultiSelect = computed(() => {
 
 const isMultiSelectInline = computed(() => {
 	const op = props.context?.operator;
-	const isListOp = ["in", "not in", "in list", "not in list"].includes(
+	const isListOp = ["in", "not in", "not_in", "in list", "not in list"].includes(
 		String(op || "").toLowerCase()
 	);
 	if (!isListOp) return false;
@@ -425,6 +446,57 @@ const uid =
 
 const controlRef = ref(null);
 const formulaTextareaRef = ref(null);
+
+// Source Picker Popover State
+const isSourcePickerOpen = ref(false);
+const pickerPopoverStyle = ref({});
+
+function toggleSourcePicker() {
+	if (isReadOnly.value || props.disabled) return;
+	if (isSourcePickerOpen.value) {
+		isSourcePickerOpen.value = false;
+		return;
+	}
+
+	if (controlRef.value) {
+		const rect = controlRef.value.getBoundingClientRect();
+		pickerPopoverStyle.value = {
+			position: "fixed",
+			top: `${rect.bottom + 4}px`,
+			left: `${Math.max(10, rect.left)}px`,
+			zIndex: 14500,
+		};
+	}
+	isSourcePickerOpen.value = true;
+}
+
+const currentFlexValue = computed(() => {
+	return coerceStructuredValue(serialize());
+});
+
+function onSourceSelected(item) {
+	isSourcePickerOpen.value = false;
+	const val = item.value || item;
+	const path = String(val).startsWith("@") ? String(val).substring(1) : String(val);
+
+	// Split into scope and segments
+	const parts = path.split(".");
+	const knownScopes = new Set(["doc", "old_doc", "vars", "caller", "rule", "doctype"]);
+	const scope = knownScopes.has(parts[0]) ? parts[0] : parts.length > 1 ? parts[0] : "doc";
+	const segments = knownScopes.has(parts[0]) || parts.length > 1 ? parts.slice(1) : parts;
+
+	isDynamicMode.value = true;
+	lastEmittedJSON = "";
+	editor.commands.setContent("");
+	editor.commands.insertContent({
+		type: "variableToken",
+		attrs: {
+			path: `${scope}.${segments.join(".")}`,
+			label: item.friendlyLabel || item.label || `${scope}.${segments.join(".")}`,
+		},
+	});
+	emitChanges();
+}
 
 // Modal state
 const activeTokenType = ref(null);
@@ -447,7 +519,6 @@ const referenceDoctype = computed(() => {
 
 	const opts = fieldOptions.value;
 
-	// For MultiSelectList / Dynamic Link, df.options may reference a sibling filter field
 	if (opts && typeof opts === "string" && props.context?.filters) {
 		const filterVal = props.context.filters[opts];
 		if (filterVal !== undefined && filterVal !== null) {
@@ -639,7 +710,7 @@ const ResolverToken = Node.create({
 			family: { default: "" },
 			operation: { default: "" },
 			config: { default: null },
-			resolver: { default: "" }, // legacy compat
+			resolver: { default: "" },
 		};
 	},
 
@@ -697,7 +768,6 @@ function createSuggestionRenderer() {
 	return {
 		onStart: (props) => {
 			isSuggestionOpen.value = true;
-			// Destroy any existing popups to prevent duplicates
 			activeTippyPopups.forEach((p) => {
 				if (p) {
 					if (Array.isArray(p)) {
@@ -744,7 +814,6 @@ function createSuggestionRenderer() {
 				try {
 					popup.destroy();
 				} catch (e) {
-					// Ignore error during popup destruction
 				}
 				const idx = activeTippyPopups.indexOf(popup);
 				if (idx > -1) activeTippyPopups.splice(idx, 1);
@@ -754,7 +823,6 @@ function createSuggestionRenderer() {
 				try {
 					component.destroy();
 				} catch (e) {
-					// Ignore error during component destruction
 				}
 				component = null;
 			}
@@ -1110,7 +1178,6 @@ function serialize() {
 		return { mode: "static", value_type: currentFieldType, value: "" };
 	}
 
-	// If there's exactly one token and nothing else, use its mode
 	if (content.length === 1 && content[0].type !== "text") {
 		const node = content[0];
 		const typeName = node.type.name || node.type;
@@ -1147,7 +1214,6 @@ function serialize() {
 		}
 	}
 
-	// Mixed content or multiple tokens -> canonical template mode with structured segments
 	const segments = content.map((item) => {
 		const typeName = item.type?.name || item.type;
 		if (typeName === "text") {
@@ -1284,7 +1350,7 @@ function emitChanges() {
 	const output = coerceStructuredValue(serialize());
 	const json = JSON.stringify(output);
 
-	if (json === lastEmittedJSON) return; // idempotency guard: prevent feedback loops
+	if (json === lastEmittedJSON) return;
 	lastEmittedJSON = json;
 	emit("update:modelValue", output);
 	emit("update", output);
@@ -1309,19 +1375,16 @@ function onWrapClick() {
 function toggleDynamicMode() {
 	if (isReadOnly.value || props.disabled) return;
 	if (isDynamicMode.value) {
-		// Switching TO static: only allow if editor content is pure text
 		const struct = serialize();
 		if (struct.mode === "static") {
 			isDynamicMode.value = false;
 			staticValue.value = struct.value ?? "";
 			emitChanges();
 		}
-		// If variable/resolver in editor → refuse to switch, value stays safe
 	} else {
-		// Switching TO dynamic
 		isDynamicMode.value = true;
 		const prev = staticValue.value;
-		lastEmittedJSON = ""; // force re-emit after content change
+		lastEmittedJSON = "";
 		editor.commands.setContent(prev != null ? String(prev) : "");
 		nextTick(() => editor.commands.focus());
 	}
@@ -1334,7 +1397,7 @@ function onStaticKeydown(e) {
 		e.preventDefault();
 		e.stopPropagation();
 		isDynamicMode.value = true;
-		lastEmittedJSON = ""; // allow next emitChanges to propagate
+		lastEmittedJSON = "";
 		nextTick(() => {
 			editor.commands.setContent("");
 			editor.commands.focus();
@@ -1347,14 +1410,13 @@ function updateStaticValue(val) {
 	if (isVariableSyntax(val)) {
 		const path = val.startsWith("@") ? val.substring(1) : val;
 		isDynamicMode.value = true;
-		lastEmittedJSON = ""; // allow next emitChanges to propagate
+		lastEmittedJSON = "";
 		nextTick(() => {
 			editor.commands.setContent("");
 			editor.commands.insertContent({
 				type: "variableToken",
 				attrs: { path, label: path },
 			});
-			// editor.onUpdate → emitChanges() handles the rest
 		});
 		return;
 	}
@@ -1441,7 +1503,7 @@ function handleBuilderUpdate(config, details) {
 }
 
 function saveTokenEditor() {
-	lastEmittedJSON = ""; // force re-emit after editor content change
+	lastEmittedJSON = "";
 	if (activeTokenType.value === "json") {
 		editor.commands.setContent(tokenDraftAttrs.value.value);
 		emitChanges();
@@ -1491,11 +1553,11 @@ watch(
 	(val) => {
 		const normalized = coerceStructuredValue(val);
 		const json = JSON.stringify(normalized);
-		if (json === lastEmittedJSON) return; // our own emission, skip
+		if (json === lastEmittedJSON) return;
 		if (normalized.mode !== "static") {
 			isDynamicMode.value = true;
 			editor.commands.setContent(deserialize(normalized));
-			lastEmittedJSON = json; // prevent editor.onUpdate from re-emitting
+			lastEmittedJSON = json;
 		} else {
 			isDynamicMode.value = false;
 			staticValue.value = normalized.value ?? "";
@@ -1551,7 +1613,6 @@ onBeforeUnmount(() => {
 	box-shadow: var(--fxr-shadow-focus);
 }
 
-/* Deep override to remove internal borders from nested controls in static mode */
 .fvc-static-container :deep(.combobox-wrapper),
 .fvc-static-container :deep(.form-control),
 .fvc-static-container :deep(.fxr-input),
@@ -1567,7 +1628,6 @@ onBeforeUnmount(() => {
 	border-radius: inherit !important;
 }
 
-/* Ensure nested control wrapper and input groups stretch to fill the static container */
 .fvc-static-container :deep(.fxr-control),
 .fvc-static-container :deep(.fxr-input-group),
 .fvc-static-container :deep(.combobox-container) {
@@ -1611,8 +1671,9 @@ onBeforeUnmount(() => {
 	width: 100%;
 	position: relative;
 }
+.fvc-source-browse-wrap,
 .fvc-mode-toggle-wrap {
-	padding-right: 6px;
+	padding-right: 4px;
 	border-left: 1px solid var(--fxr-border-subtle);
 	margin-left: 4px;
 	height: 24px;
@@ -1620,6 +1681,7 @@ onBeforeUnmount(() => {
 	align-items: center;
 	flex-shrink: 0;
 }
+.fvc-browse-btn,
 .fvc-toggle-btn {
 	background: transparent;
 	border: none;
@@ -1633,9 +1695,17 @@ onBeforeUnmount(() => {
 	border-radius: 4px;
 	transition: all 0.2s;
 }
+.fvc-browse-btn:hover,
 .fvc-toggle-btn:hover {
 	background-color: var(--fxr-bg-hover);
 	color: var(--fxr-accent);
+}
+
+.fxr-picker-popover-backdrop {
+	position: fixed;
+	inset: 0;
+	z-index: 14400;
+	background: transparent;
 }
 
 .fvc-empty-hint {
@@ -1679,11 +1749,11 @@ onBeforeUnmount(() => {
 	align-items: center;
 	white-space: pre-wrap;
 	overflow-x: auto;
-	scrollbar-width: none; /* Firefox */
+	scrollbar-width: none;
 }
 
 .fvc-tiptap-editor :deep(.ProseMirror)::-webkit-scrollbar {
-	display: none; /* Safari and Chrome */
+	display: none;
 }
 
 .fvc-inline-actions {
@@ -1849,8 +1919,6 @@ onBeforeUnmount(() => {
 	font-size: 12px;
 }
 
-/* Keep the visible shell in an error state even when nested static controls
-   * intentionally have their own borders removed. */
 .fvc-wrap.has-error .fvc-main-field {
 	border-color: var(--fxr-border-danger, var(--fxr-text-danger)) !important;
 	box-shadow: 0 0 0 1px var(--fxr-border-danger, var(--fxr-text-danger)) !important;

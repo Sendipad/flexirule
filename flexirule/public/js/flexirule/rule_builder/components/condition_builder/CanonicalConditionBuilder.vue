@@ -47,23 +47,25 @@
 					:node="node"
 					:docFields="docFields"
 					:readOnly="readOnly"
+					:store="store"
 					@change="onSubNodeChange"
+					@child-fields-loaded="onChildFieldsLoaded"
 				/>
 			</template>
 
 			<template #leaf-summary="{ node }">
-				<CanonicalConditionLeafSummary :node="node" :contract="contract" />
+				<CanonicalConditionLeafSummary :node="node" :contract="contract" :docFields="getLeafDocFields(node)" />
 			</template>
 
 			<template #leaf="{ node }">
 				<CanonicalConditionLeaf
 					:node="node"
 					:contract="contract"
-					:docFields="docFields"
-					:variableOptions="variableOptions"
+					:docFields="getLeafDocFields(node)"
+					:variableOptions="getLeafVariableOptions(node)"
 					:readOnly="readOnly"
 					:store="store"
-					:currentDocType="currentDocType"
+					:currentDocType="getLeafDocType(node)"
 					:errors="getNodeErrors(node.id)"
 					@change="onSubNodeChange"
 					@remove="treeBuilderRef?.removeNode(node.id)"
@@ -107,8 +109,65 @@ const { contract, error: contractError, loadContract } = useCanonicalConditionCo
 const treeModel = ref(deserializeConditionTree(props.modelValue));
 const validationErrors = ref([]);
 const nodeErrorsMap = ref(new Map());
+const collectionMetadataMap = ref(new Map());
 
 const unsupportedDiagnostics = computed(() => findUnsupportedDiagnostics(treeModel.value));
+
+function onChildFieldsLoaded(payload) {
+	if (payload && payload.collectionId) {
+		collectionMetadataMap.value.set(payload.collectionId, payload);
+	}
+}
+
+function findParentCollection(nodeId, tree = treeModel.value) {
+	if (!tree || !tree.children) return null;
+	for (const child of tree.children) {
+		if (child.type === "collection") {
+			if (child.children?.some((c) => c.id === nodeId)) {
+				return child;
+			}
+			const found = findParentCollection(nodeId, child);
+			if (found) return found;
+		} else if (child.type === "group") {
+			const found = findParentCollection(nodeId, child);
+			if (found) return found;
+		}
+	}
+	return null;
+}
+
+function getLeafDocFields(node) {
+	const parentCol = findParentCollection(node?.id);
+	if (parentCol) {
+		const meta = collectionMetadataMap.value.get(parentCol.id);
+		if (meta && meta.childFields?.length) {
+			return meta.childFields;
+		}
+	}
+	return props.docFields;
+}
+
+function getLeafVariableOptions(node) {
+	const parentCol = findParentCollection(node?.id);
+	if (parentCol) {
+		const meta = collectionMetadataMap.value.get(parentCol.id);
+		if (meta && meta.childFields?.length) {
+			return meta.childFields;
+		}
+	}
+	return props.variableOptions;
+}
+
+function getLeafDocType(node) {
+	const parentCol = findParentCollection(node?.id);
+	if (parentCol) {
+		const meta = collectionMetadataMap.value.get(parentCol.id);
+		if (meta && meta.childDocType) {
+			return meta.childDocType;
+		}
+	}
+	return props.currentDocType;
+}
 
 onMounted(() => {
 	loadContract().catch(() => {});
@@ -150,7 +209,7 @@ function createCollection() {
 		quantifier: "any",
 		collection: "",
 		source: { scope: "doc", segments: [] },
-		alias: "row",
+		alias: "items_row",
 		children: [createLeaf()],
 	};
 }
@@ -174,21 +233,99 @@ function getNodeErrors(nodeId) {
 	return nodeErrorsMap.value.get(nodeId) || [];
 }
 
-function validate() {
-	const result = validateCanonicalCondition(treeModel.value, {
+let lastValidationRequestId = 0;
+
+async function validate() {
+	const localResult = validateCanonicalCondition(treeModel.value, {
 		contract: contract.value,
 		isMandatory: props.isMandatory,
 	});
 
-	validationErrors.value = result.errors;
-	nodeErrorsMap.value = result.nodeErrors;
+	validationErrors.value = localResult.errors;
+	nodeErrorsMap.value = localResult.nodeErrors;
 
-	emit("validation", result);
-	return result;
+	if (!localResult.valid) {
+		emit("validation", localResult);
+		return localResult;
+	}
+
+	const payload = serializeConditionTree(treeModel.value);
+	if (!payload) {
+		if (props.isMandatory) {
+			const emptyRes = { valid: false, errors: ["Condition is required."], nodeErrors: new Map() };
+			emit("validation", emptyRes);
+			return emptyRes;
+		}
+		emit("validation", { valid: true, errors: [], nodeErrors: new Map() });
+		return { valid: true, errors: [], nodeErrors: new Map() };
+	}
+
+	const currentRequestId = ++lastValidationRequestId;
+
+	try {
+		if (typeof frappe === "undefined" || !frappe.call) {
+			if (typeof window !== "undefined" && window.__FLEXIRULE_TEST_MODE__) {
+				return localResult;
+			}
+			const outageRes = {
+				valid: false,
+				errors: ["Backend condition validator is unavailable. Save blocked (fail-closed)."],
+				nodeErrors: new Map(),
+			};
+			validationErrors.value = outageRes.errors;
+			emit("validation", outageRes);
+			return outageRes;
+		}
+
+		const response = await frappe.call({
+			method: "flexirule.ruleflow.api.validate_condition",
+			args: {
+				condition: JSON.stringify(payload),
+				doctype: props.currentDocType || undefined,
+			},
+		});
+
+		if (currentRequestId !== lastValidationRequestId) {
+			return localResult;
+		}
+
+		const data = response.message || response;
+		if (!data || !data.valid) {
+			const backendErrors = Array.isArray(data?.errors) ? data.errors : ["Condition failed backend validation."];
+			const res = {
+				valid: false,
+				errors: backendErrors,
+				nodeErrors: nodeErrorsMap.value,
+				details: data?.details || [],
+			};
+			validationErrors.value = res.errors;
+			emit("validation", res);
+			return res;
+		}
+
+		const successRes = { valid: true, errors: [], nodeErrors: new Map() };
+		validationErrors.value = [];
+		emit("validation", successRes);
+		return successRes;
+	} catch (err) {
+		if (currentRequestId !== lastValidationRequestId) {
+			return localResult;
+		}
+		const msg = err?.message || "Failed to reach backend condition validator. Save blocked (fail-closed).";
+		const outageRes = {
+			valid: false,
+			errors: [msg],
+			nodeErrors: new Map(),
+		};
+		validationErrors.value = outageRes.errors;
+		emit("validation", outageRes);
+		return outageRes;
+	}
 }
 
 defineExpose({
 	validate,
+	validateSync: () => validateCanonicalCondition(treeModel.value, { contract: contract.value, isMandatory: props.isMandatory }),
 	getCanonicalPayload: () => serializeConditionTree(treeModel.value),
 	getTree: () => treeModel.value,
 });
