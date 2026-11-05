@@ -1,12 +1,13 @@
 # Copyright (c) 2026, FlexiRule and contributors
 # For license information, please see license.txt
 
+import datetime
 import hashlib
 import json
 import math
 import re
 from collections.abc import Callable, Mapping
-from datetime import date, datetime, time
+from datetime import date, time
 from decimal import Decimal, InvalidOperation
 from typing import Any, ClassVar
 
@@ -31,16 +32,18 @@ from flexirule.ruleflow.core.flexvalue_contract import (
 	_validate_json_value,
 	_validate_path,
 	format_template_value,
+	invalidate_resolver_registry_fingerprint,
 	parse_static_value,
 	resolve_variable,
-	safe_read_segment,
-	invalidate_resolver_registry_fingerprint,
 	resolver_contract_dto,
 	resolver_registry_fingerprint,
-	validate_flex_value as canonical_validate_flex_value,
+	safe_read_segment,
 )
 from flexirule.ruleflow.core.flexvalue_contract import (
 	MAX_COLLECTION_ROWS as CONDITION_MAX_COLLECTION_ROWS,
+)
+from flexirule.ruleflow.core.flexvalue_contract import (
+	validate_flex_value as canonical_validate_flex_value,
 )
 from flexirule.ruleflow.utils.field_resolver import FieldResolver
 
@@ -204,8 +207,6 @@ class DateFormulaResolver(CompiledResolver):
 		if offset == 0 or not self.offset_unit:
 			return base_date
 
-		import datetime
-
 		unit = self.offset_unit.lower()
 
 		if isinstance(base_date, datetime.time):
@@ -352,8 +353,6 @@ class DateExtractResolver(CompiledResolver):
 		if val is None or val == "":
 			return None
 
-		import datetime
-
 		if isinstance(val, str):
 			val_str = val.strip()
 			if " " in val_str or "T" in val_str:
@@ -402,8 +401,6 @@ class DateBoundaryResolver(CompiledResolver):
 		val = self.source_compiled.resolve(context)
 		if val is None or val == "":
 			return None
-
-		import datetime
 
 		is_datetime = False
 		is_time_only = False

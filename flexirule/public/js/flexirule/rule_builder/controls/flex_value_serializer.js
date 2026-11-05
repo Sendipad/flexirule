@@ -43,8 +43,8 @@ export function coerceStructuredValue(val, currentFieldType = "Data") {
 			const segments = Array.isArray(rawPath.segments)
 				? rawPath.segments
 				: typeof rawPath === "string"
-					? rawPath.split(".").slice(1)
-					: [];
+				? rawPath.split(".").slice(1)
+				: [];
 			return {
 				mode: "variable",
 				path: { scope, segments },

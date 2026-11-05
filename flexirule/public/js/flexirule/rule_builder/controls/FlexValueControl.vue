@@ -945,7 +945,7 @@ const isEditorEmpty = computed(() => editor.isEmpty);
 
 const isValid = computed(() => {
 	if (!props.context?.df?.reqd) return true;
-	const struct = coerceStructuredValue(serialize());
+	const struct = coerceValue(serialize());
 	if (struct.mode === "static") {
 		if (Array.isArray(struct.value)) {
 			return (
@@ -988,125 +988,9 @@ defineExpose({ validate });
 
 // ── Serialization ──
 
-function coerceStructuredValue(val) {
-	const currentFieldType = fieldType.value || "Data";
-
-	if (val && typeof val === "object" && val.mode) {
-		if (["formula", "format", "normalize", "normalization"].includes(val.mode)) {
-			const config = { ...(val.config || {}) };
-			let fam = val.family || config.family;
-			let op = val.operation || config.operation;
-
-			if (!fam || !op) {
-				if (val.mode === "formula") {
-					if (config.kind === "date_time" || config.base_type || config.offset_unit) {
-						fam = "date_time";
-						op = "calculate";
-					} else if (config.str_op || config.kind === "text") {
-						fam = "text";
-						op = "combine";
-					} else {
-						fam = "math";
-						op = "formula";
-					}
-				} else if (["normalize", "normalization"].includes(val.mode)) {
-					fam = "text";
-					op = "normalize";
-				} else if (val.mode === "format") {
-					if (config.fmt_op === "format_date" || config.kind === "date_time") {
-						fam = "date_time";
-						op = "format";
-					} else {
-						fam = "text";
-						op = "format";
-					}
-				}
-			}
-
-			return {
-				mode: "resolver",
-				family: fam || "text",
-				operation: op || "combine",
-				value_type: val.value_type || currentFieldType,
-				config: config.config && typeof config.config === "object" ? config.config : config,
-			};
-		}
-		if (val.mode === "variable") {
-			if (val.path && typeof val.path === "object") {
-				const scope = val.path.scope || "doc";
-				const segments = Array.isArray(val.path.segments) ? [...val.path.segments] : [];
-				return {
-					mode: "variable",
-					path: { scope, segments },
-				};
-			}
-			const pathStr = String(val.path || val.value || "");
-			const parts = pathStr.split(".");
-			const scope = parts[0] || "doc";
-			const segments = parts.slice(1);
-			return {
-				mode: "variable",
-				path: { scope, segments },
-			};
-		}
-		if (val.mode === "resolver") {
-			const rawConfig = val.config || {};
-			let family = val.family || rawConfig.family;
-			let operation = val.operation || rawConfig.operation;
-			let config = rawConfig;
-
-			if (!family) {
-				if (rawConfig.kind === "math_formula") {
-					family = "math";
-					operation = operation || "formula";
-				} else if (
-					rawConfig.kind === "collection" ||
-					rawConfig.kind === "child_aggregation"
-				) {
-					family = "collection";
-					operation = operation || rawConfig.operation || rawConfig.agg_op || "any";
-				} else if (rawConfig.kind === "lookup" || rawConfig.kind === "fetch") {
-					family = "lookup";
-					operation = operation || "fetch";
-				} else if (rawConfig.kind === "system_context") {
-					family = "system_context";
-					operation = operation || "get";
-				} else if (rawConfig.kind) {
-					family = rawConfig.kind;
-				}
-			}
-
-			if (config.config && typeof config.config === "object") {
-				config = config.config;
-			}
-
-			return {
-				mode: "resolver",
-				family: family || "text",
-				operation: operation || "combine",
-				value_type: val.value_type || currentFieldType,
-				config,
-			};
-		}
-		if (val.mode === "template") {
-			return { mode: "template", segments: Array.isArray(val.segments) ? val.segments : [] };
-		}
-		if (val.mode === "expression") {
-			return { mode: "expression", value: Array.isArray(val.value) ? val.value : [] };
-		}
-		return {
-			mode: "static",
-			value_type: val.value_type || currentFieldType,
-			value: val.value,
-		};
-	}
-
-	if (val === null || val === undefined) {
-		return { mode: "static", value_type: currentFieldType, value: "" };
-	}
-	return { mode: "static", value_type: currentFieldType, value: val };
+function coerceValue(val) {
+	return coerceValue(val, fieldType.value || "Data");
 }
-
 function serialize() {
 	const currentFieldType = fieldType.value || "Data";
 
@@ -1128,7 +1012,7 @@ function deserialize(val) {
 }
 
 function emitChanges() {
-	const output = coerceStructuredValue(serialize());
+	const output = coerceValue(serialize());
 	const json = JSON.stringify(output);
 
 	if (json === lastEmittedJSON) return; // idempotency guard: prevent feedback loops
@@ -1276,7 +1160,7 @@ function handleBuilderUpdate(config, details) {
 					fieldType: fieldType.value,
 					referenceDoctype: referenceDoctype.value,
 					context: props.context,
-				})
+			  })
 			: props.context?.resolverDefaults;
 	const mergedConfig =
 		defaults && typeof defaults === "object" ? { ...defaults, ...config } : config;
@@ -1336,7 +1220,7 @@ function renameConfigKey(oldKey, newKey) {
 watch(
 	() => props.modelValue,
 	(val) => {
-		const normalized = coerceStructuredValue(val);
+		const normalized = coerceValue(val);
 		const json = JSON.stringify(normalized);
 		if (json === lastEmittedJSON) return; // our own emission, skip
 		if (normalized.mode !== "static") {

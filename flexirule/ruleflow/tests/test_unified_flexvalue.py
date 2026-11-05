@@ -286,9 +286,7 @@ class TestUnifiedFlexValueArchitecture(FrappeTestCase):
 
 		# Reject boolean
 		with self.assertRaises(ConditionValidationError):
-			ValueResolver.compile_flex_value(
-				{"mode": "static", "value_type": "Duration", "value": True}
-			)
+			ValueResolver.compile_flex_value({"mode": "static", "value_type": "Duration", "value": True})
 
 		# Reject string ISO time
 		with self.assertRaises(ConditionValidationError):
@@ -298,27 +296,20 @@ class TestUnifiedFlexValueArchitecture(FrappeTestCase):
 
 	def test_check_field_strictly_accepts_integer_zero_or_one(self):
 		# Integer 0 and 1 are accepted
-		compiled_0 = ValueResolver.compile_flex_value(
-			{"mode": "static", "value_type": "Check", "value": 0}
-		)
+		compiled_0 = ValueResolver.compile_flex_value({"mode": "static", "value_type": "Check", "value": 0})
 		self.assertEqual(compiled_0.resolve({}), 0)
-		compiled_1 = ValueResolver.compile_flex_value(
-			{"mode": "static", "value_type": "Check", "value": 1}
-		)
+		compiled_1 = ValueResolver.compile_flex_value({"mode": "static", "value_type": "Check", "value": 1})
 		self.assertEqual(compiled_1.resolve({}), 1)
 
 		# Booleans True and False must be rejected
 		with self.assertRaises(ConditionValidationError):
-			ValueResolver.compile_flex_value(
-				{"mode": "static", "value_type": "Check", "value": True}
-			)
+			ValueResolver.compile_flex_value({"mode": "static", "value_type": "Check", "value": True})
 		with self.assertRaises(ConditionValidationError):
-			ValueResolver.compile_flex_value(
-				{"mode": "static", "value_type": "Check", "value": False}
-			)
+			ValueResolver.compile_flex_value({"mode": "static", "value_type": "Check", "value": False})
 
 	def test_date_time_dynamic_resolvers_in_conditions(self):
 		import frappe
+
 		from flexirule.ruleflow.core.condition_evaluator import evaluate_condition
 
 		# 1. date_time.current with date token
@@ -377,7 +368,8 @@ class TestUnifiedFlexValueArchitecture(FrappeTestCase):
 
 		# Strictly reject non-canonical conditions
 		with self.assertRaises(ConditionValidationError):
-			CollectionResolver(source="doc.items", operation="any", condition="items.qty > 0")
+			invalid_str_cond: Any = "items.qty > 0"
+			CollectionResolver(source="doc.items", operation="any", condition=invalid_str_cond)
 
 		with self.assertRaises(ConditionValidationError):
 			CollectionResolver(
@@ -399,7 +391,7 @@ class TestUnifiedFlexValueArchitecture(FrappeTestCase):
 				config_schema={},
 				permission_policy="no_data_access",
 				validate_config=lambda *a: None,
-				factory=lambda *a: None,
+				factory=None,  # type: ignore[arg-type]
 			)
 
 		# Insecure condition operand permission policy rejection
@@ -412,7 +404,7 @@ class TestUnifiedFlexValueArchitecture(FrappeTestCase):
 				config_schema={},
 				permission_policy="authorized_read",
 				validate_config=lambda *a: None,
-				factory=lambda *a: None,
+				factory=None,  # type: ignore[arg-type]
 				condition_operand_allowed=True,
 			)
 

@@ -378,7 +378,11 @@ def infer_flex_value_type(value: Any, *, resolver_depth: int = 0) -> str | None:
 		if not entry:
 			return None
 		config = value.get("config")
-		if isinstance(config, dict) and "resolve_output_type" in entry and callable(entry["resolve_output_type"]):
+		if (
+			isinstance(config, dict)
+			and "resolve_output_type" in entry
+			and callable(entry["resolve_output_type"])
+		):
 			return entry["resolve_output_type"](config)
 		return entry.get("output_type")
 	return None
@@ -533,11 +537,17 @@ def validate_flex_value(
 			_fail("resolver_depth_exceeded", path, "Resolver nesting exceeds the configured limit")
 		entry = CONDITION_RESOLVER_REGISTRY.get((value["family"], value["operation"]))
 		if not entry:
-			_fail("resolver_not_allowed", path, f"Resolver {value['family']}.{value['operation']} is not registered")
+			_fail(
+				"resolver_not_allowed",
+				path,
+				f"Resolver {value['family']}.{value['operation']} is not registered",
+			)
 
 		if consumer == "condition" or consumer is None:
 			if not entry.get("condition_operand_allowed"):
-				_fail("resolver_not_allowed", path, "Resolver operation is not approved as a condition operand")
+				_fail(
+					"resolver_not_allowed", path, "Resolver operation is not approved as a condition operand"
+				)
 
 		supported = entry.get("supported_consumers", {"all"})
 		if consumer and "all" not in supported and consumer not in supported:
