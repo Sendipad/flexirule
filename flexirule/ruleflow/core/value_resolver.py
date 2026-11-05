@@ -2193,7 +2193,7 @@ def _register_builtins():
 
 	# text.normalize
 	def _val_text_normalize(cfg, path, allowed_scopes, r_depth, fv_depth):
-		_exact_keys(cfg, set(), {"norm_field", "norm_profile", "norm_pipeline", "norm_op"}, path)
+		_exact_keys(cfg, set(), {"norm_field", "norm_profile", "norm_pipeline", "norm_op", "kind"}, path)
 		if cfg.get("norm_field"):
 			_validate_path_str(str(cfg["norm_field"]), "norm_field", path, allowed_scopes)
 		if "norm_pipeline" in cfg and cfg["norm_pipeline"] is not None:

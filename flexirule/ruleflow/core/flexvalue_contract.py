@@ -122,8 +122,7 @@ def _load_frappe_field_types() -> tuple[frozenset[str], frozenset[str]]:
 		from frappe.model import no_value_fields, table_fields
 
 		docfield_path = frappe.get_app_path("frappe", "core", "doctype", "docfield", "docfield.json")
-		with open(docfield_path, encoding="utf-8") as f:
-			df_data = json.load(f)
+		df_data = frappe.get_file_json(docfield_path)
 
 		fieldtypes: list[str] | None = None
 		for field in df_data.get("fields", []):
