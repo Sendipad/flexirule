@@ -347,7 +347,12 @@ import {
 	getAllowedBuilderKinds,
 } from "../../core/formula_registry";
 import { compileToCode, compileToLabel } from "../../core/builder_utils.js";
-import { escapeAttr, unescapeAttr, coerceStructuredValue as helperCoerce, deserializeFlexValue } from "./flex_value_helpers.mjs";
+import {
+	escapeAttr,
+	unescapeAttr,
+	coerceStructuredValue as helperCoerce,
+	deserializeFlexValue,
+} from "./flex_value_helpers.mjs";
 import MentionList from "./MentionList.vue";
 import ControlFactory from "./ControlFactory.vue";
 import MultiSelectList from "./MultiSelectList.vue";
@@ -1231,7 +1236,7 @@ function handleBuilderUpdate(config, details) {
 					fieldType: fieldType.value,
 					referenceDoctype: referenceDoctype.value,
 					context: props.context,
-			  })
+				})
 			: props.context?.resolverDefaults;
 	const mergedConfig =
 		defaults && typeof defaults === "object" ? { ...defaults, ...config } : config;

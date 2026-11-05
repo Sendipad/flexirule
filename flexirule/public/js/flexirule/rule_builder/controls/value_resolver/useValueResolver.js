@@ -32,7 +32,12 @@ export function useValueResolver(props, emit) {
 			let kind = val.kind;
 			let innerConfig = val.config && typeof val.config === "object" ? val.config : {};
 
-			if (family === "math" || kind === "math" || kind === "math_formula" || family === "math_formula") {
+			if (
+				family === "math" ||
+				kind === "math" ||
+				kind === "math_formula" ||
+				family === "math_formula"
+			) {
 				family = "math";
 				kind = "math_formula";
 				val = {
@@ -40,8 +45,18 @@ export function useValueResolver(props, emit) {
 					math_op: val.math_op ?? innerConfig.math_op ?? "+",
 					field_b_type: val.field_b_type ?? innerConfig.field_b_type ?? "field",
 					field_b: val.field_b ?? innerConfig.field_b ?? "",
-					constant_b: val.constant_b !== undefined ? val.constant_b : innerConfig.constant_b !== undefined ? innerConfig.constant_b : 0,
-					precision: val.precision !== undefined ? val.precision : innerConfig.precision !== undefined ? innerConfig.precision : 2,
+					constant_b:
+						val.constant_b !== undefined
+							? val.constant_b
+							: innerConfig.constant_b !== undefined
+								? innerConfig.constant_b
+								: 0,
+					precision:
+						val.precision !== undefined
+							? val.precision
+							: innerConfig.precision !== undefined
+								? innerConfig.precision
+								: 2,
 				};
 			} else if (kind === "child_aggregation" || family === "child_aggregation") {
 				family = "collection";

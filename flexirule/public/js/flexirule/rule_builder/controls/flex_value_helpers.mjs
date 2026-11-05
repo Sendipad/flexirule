@@ -20,7 +20,9 @@ export function unescapeAttr(str) {
 
 export function coerceStructuredValue(val, currentFieldType = "Data") {
 	if (val && typeof val === "object" && val.mode) {
-		if (["formula", "math_formula", "format", "normalize", "normalization"].includes(val.mode)) {
+		if (
+			["formula", "math_formula", "format", "normalize", "normalization"].includes(val.mode)
+		) {
 			const config = { ...(val.config || {}) };
 			let family = "text";
 			let operation = "combine";

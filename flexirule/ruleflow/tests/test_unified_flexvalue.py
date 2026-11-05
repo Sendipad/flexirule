@@ -37,10 +37,14 @@ class TestUnifiedFlexValueArchitecture(FrappeTestCase):
 			ValueResolver.compile_flex_value({"mode": "static", "value_type": "Check", "value": "yes"})
 
 		# Extended Frappe Fieldtypes
-		compiled_phone = ValueResolver.compile_flex_value({"mode": "static", "value_type": "Phone", "value": "+1234567890"})
+		compiled_phone = ValueResolver.compile_flex_value(
+			{"mode": "static", "value_type": "Phone", "value": "+1234567890"}
+		)
 		self.assertEqual(compiled_phone.resolve({}), "+1234567890")
 
-		compiled_rating = ValueResolver.compile_flex_value({"mode": "static", "value_type": "Rating", "value": "0.8"})
+		compiled_rating = ValueResolver.compile_flex_value(
+			{"mode": "static", "value_type": "Rating", "value": "0.8"}
+		)
 		self.assertEqual(compiled_rating.resolve({}), "0.8")
 
 	def test_canonical_variable_resolution(self):

@@ -1822,19 +1822,37 @@ def _register_builtins():
 			if not re.fullmatch(r"[A-Za-z0-9_]+", val) or "__" in val:
 				_fail("invalid_path_segment", path, f"Unsafe or empty path segment '{val}'")
 
+	# Common optional metadata keys that legacy builders/tests may include in config
+	_METADATA_KEYS = {"kind", "family", "operation"}
+
 	def validate_date_current(cfg, path, allowed_scopes, rdepth, fdepth):
 		_check_dict(cfg, path)
-		_exact_keys(cfg, set(), {"token"}, path)
+		_exact_keys(cfg, set(), {"token"} | _METADATA_KEYS, path)
 		token = cfg.get("token")
 		if token is not None and token not in ("date", "datetime", "time", "now"):
 			_fail("invalid_date_current_token", f"{path}.token", "Invalid current date/time token")
 
 	def validate_date_calculate(cfg, path, allowed_scopes, rdepth, fdepth):
 		_check_dict(cfg, path)
-		allowed_keys = {"base_type", "base_field", "offset_value", "offset_unit", "offset_sign", "source"}
+		allowed_keys = {
+			"base_type",
+			"base_field",
+			"offset_value",
+			"offset_unit",
+			"offset_sign",
+			"source",
+		} | _METADATA_KEYS
 		_exact_keys(cfg, set(), allowed_keys, path)
 		base_type = cfg.get("base_type")
-		if base_type is not None and base_type not in ("today", "current_date", "current_datetime", "now", "current_time", "doc_field", "field"):
+		if base_type is not None and base_type not in (
+			"today",
+			"current_date",
+			"current_datetime",
+			"now",
+			"current_time",
+			"doc_field",
+			"field",
+		):
 			_fail("invalid_base_type", f"{path}.base_type", f"Invalid date base_type: {base_type}")
 		if cfg.get("base_field"):
 			_check_field_path(cfg.get("base_field"), f"{path}.base_field", allowed_scopes)
@@ -1842,18 +1860,46 @@ def _register_builtins():
 		if sign is not None and sign not in ("+", "-"):
 			_fail("invalid_offset_sign", f"{path}.offset_sign", "Offset sign must be '+' or '-'")
 		unit = cfg.get("offset_unit")
-		if unit is not None and unit.lower() not in ("days", "months", "years", "hours", "minutes", "seconds"):
+		if unit is not None and unit.lower() not in (
+			"days",
+			"months",
+			"years",
+			"hours",
+			"minutes",
+			"seconds",
+		):
 			_fail("invalid_offset_unit", f"{path}.offset_unit", f"Invalid offset unit: {unit}")
 		src = cfg.get("source")
 		if src is not None and isinstance(src, dict) and "mode" in src:
-			ValueResolver.validate_flex_value(src, path=f"{path}.source", allowed_scopes=allowed_scopes, resolver_depth=rdepth, flexvalue_depth=fdepth)
+			ValueResolver.validate_flex_value(
+				src,
+				path=f"{path}.source",
+				allowed_scopes=allowed_scopes,
+				resolver_depth=rdepth,
+				flexvalue_depth=fdepth,
+			)
 
 	def validate_date_diff(cfg, path, allowed_scopes, rdepth, fdepth):
 		_check_dict(cfg, path)
-		allowed_keys = {"diff_start_type", "diff_start_field", "diff_end_type", "diff_end_field", "diff_unit", "start_source", "end_source"}
+		allowed_keys = {
+			"diff_start_type",
+			"diff_start_field",
+			"diff_end_type",
+			"diff_end_field",
+			"diff_unit",
+			"start_source",
+			"end_source",
+		} | _METADATA_KEYS
 		_exact_keys(cfg, set(), allowed_keys, path)
 		unit = cfg.get("diff_unit")
-		if unit is not None and unit.lower() not in ("days", "months", "years", "hours", "minutes", "seconds"):
+		if unit is not None and unit.lower() not in (
+			"days",
+			"months",
+			"years",
+			"hours",
+			"minutes",
+			"seconds",
+		):
 			_fail("invalid_diff_unit", f"{path}.diff_unit", f"Invalid diff unit: {unit}")
 		if cfg.get("diff_start_field"):
 			_check_field_path(cfg.get("diff_start_field"), f"{path}.diff_start_field", allowed_scopes)
@@ -1862,28 +1908,56 @@ def _register_builtins():
 		for src_key in ("start_source", "end_source"):
 			src = cfg.get(src_key)
 			if src is not None and isinstance(src, dict) and "mode" in src:
-				ValueResolver.validate_flex_value(src, path=f"{path}.{src_key}", allowed_scopes=allowed_scopes, resolver_depth=rdepth, flexvalue_depth=fdepth)
+				ValueResolver.validate_flex_value(
+					src,
+					path=f"{path}.{src_key}",
+					allowed_scopes=allowed_scopes,
+					resolver_depth=rdepth,
+					flexvalue_depth=fdepth,
+				)
 
 	def validate_date_extract(cfg, path, allowed_scopes, rdepth, fdepth):
 		_check_dict(cfg, path)
-		_exact_keys(cfg, set(), {"source", "base_field", "component"}, path)
+		_exact_keys(cfg, set(), {"source", "base_field", "component"} | _METADATA_KEYS, path)
 		comp = cfg.get("component")
-		if comp is not None and comp.lower() not in ("year", "month", "day", "weekday", "quarter", "hour", "minute", "second"):
+		if comp is not None and comp.lower() not in (
+			"year",
+			"month",
+			"day",
+			"weekday",
+			"quarter",
+			"hour",
+			"minute",
+			"second",
+		):
 			_fail("invalid_date_component", f"{path}.component", f"Invalid date component: {comp}")
 		if cfg.get("base_field"):
 			_check_field_path(cfg.get("base_field"), f"{path}.base_field", allowed_scopes)
 		src = cfg.get("source")
 		if src is not None and isinstance(src, dict) and "mode" in src:
-			ValueResolver.validate_flex_value(src, path=f"{path}.source", allowed_scopes=allowed_scopes, resolver_depth=rdepth, flexvalue_depth=fdepth)
+			ValueResolver.validate_flex_value(
+				src,
+				path=f"{path}.source",
+				allowed_scopes=allowed_scopes,
+				resolver_depth=rdepth,
+				flexvalue_depth=fdepth,
+			)
 
 	def validate_date_boundary(cfg, path, allowed_scopes, rdepth, fdepth):
 		_check_dict(cfg, path)
-		_exact_keys(cfg, set(), {"source", "base_field", "boundary_type"}, path)
+		_exact_keys(cfg, set(), {"source", "base_field", "boundary_type"} | _METADATA_KEYS, path)
 		btype = cfg.get("boundary_type")
 		valid_boundaries = (
-			"start_of_day", "end_of_day", "start_of_week", "end_of_week",
-			"start_of_month", "end_of_month", "start_of_quarter", "end_of_quarter",
-			"start_of_year", "end_of_year",
+			"start_of_day",
+			"end_of_day",
+			"start_of_week",
+			"end_of_week",
+			"start_of_month",
+			"end_of_month",
+			"start_of_quarter",
+			"end_of_quarter",
+			"start_of_year",
+			"end_of_year",
 		)
 		if btype is not None and btype.lower() not in valid_boundaries:
 			_fail("invalid_boundary_type", f"{path}.boundary_type", f"Invalid boundary type: {btype}")
@@ -1891,17 +1965,30 @@ def _register_builtins():
 			_check_field_path(cfg.get("base_field"), f"{path}.base_field", allowed_scopes)
 		src = cfg.get("source")
 		if src is not None and isinstance(src, dict) and "mode" in src:
-			ValueResolver.validate_flex_value(src, path=f"{path}.source", allowed_scopes=allowed_scopes, resolver_depth=rdepth, flexvalue_depth=fdepth)
+			ValueResolver.validate_flex_value(
+				src,
+				path=f"{path}.source",
+				allowed_scopes=allowed_scopes,
+				resolver_depth=rdepth,
+				flexvalue_depth=fdepth,
+			)
 
 	def validate_format(cfg, path, allowed_scopes, rdepth, fdepth):
 		_check_dict(cfg, path)
-		_exact_keys(cfg, set(), {"fmt_field", "fmt_config"}, path)
+		_exact_keys(cfg, set(), {"fmt_field", "fmt_config"} | _METADATA_KEYS, path)
 		if cfg.get("fmt_field"):
 			_check_field_path(cfg.get("fmt_field"), f"{path}.fmt_field", allowed_scopes)
 
 	def validate_math_formula(cfg, path, allowed_scopes, rdepth, fdepth):
 		_check_dict(cfg, path)
-		allowed_keys = {"field_a", "math_op", "field_b_type", "field_b", "constant_b", "precision"}
+		allowed_keys = {
+			"field_a",
+			"math_op",
+			"field_b_type",
+			"field_b",
+			"constant_b",
+			"precision",
+		} | _METADATA_KEYS
 		_exact_keys(cfg, set(), allowed_keys, path)
 		op = cfg.get("math_op", "+")
 		if op not in ("+", "-", "*", "/"):
@@ -1910,7 +1997,9 @@ def _register_builtins():
 			_check_field_path(cfg.get("field_a"), f"{path}.field_a", allowed_scopes)
 		fb_type = cfg.get("field_b_type", "field")
 		if fb_type not in ("field", "constant"):
-			_fail("invalid_field_b_type", f"{path}.field_b_type", "field_b_type must be 'field' or 'constant'")
+			_fail(
+				"invalid_field_b_type", f"{path}.field_b_type", "field_b_type must be 'field' or 'constant'"
+			)
 		if fb_type == "field" and cfg.get("field_b"):
 			_check_field_path(cfg.get("field_b"), f"{path}.field_b", allowed_scopes)
 		prec = cfg.get("precision")
@@ -1919,7 +2008,7 @@ def _register_builtins():
 
 	def validate_text_combine(cfg, path, allowed_scopes, rdepth, fdepth):
 		_check_dict(cfg, path)
-		allowed_keys = {"str_a", "str_a_type", "str_b", "str_b_type"}
+		allowed_keys = {"str_a", "str_a_type", "str_b", "str_b_type"} | _METADATA_KEYS
 		_exact_keys(cfg, set(), allowed_keys, path)
 		if cfg.get("str_a_type") == "field" and cfg.get("str_a"):
 			_check_field_path(cfg.get("str_a"), f"{path}.str_a", allowed_scopes)
@@ -1928,30 +2017,46 @@ def _register_builtins():
 
 	def validate_text_case(cfg, path, allowed_scopes, rdepth, fdepth):
 		_check_dict(cfg, path)
-		_exact_keys(cfg, set(), {"field", "case_mode"}, path)
+		_exact_keys(cfg, set(), {"field", "case_mode"} | _METADATA_KEYS, path)
 		if cfg.get("field"):
 			_check_field_path(cfg.get("field"), f"{path}.field", allowed_scopes)
 		cm = cfg.get("case_mode")
-		if cm is not None and cm.lower() not in ("uppercase", "lowercase", "titlecase", "upper", "lower", "title"):
+		if cm is not None and cm.lower() not in (
+			"uppercase",
+			"lowercase",
+			"titlecase",
+			"upper",
+			"lower",
+			"title",
+		):
 			_fail("invalid_case_mode", f"{path}.case_mode", f"Invalid case mode: {cm}")
 
 	def validate_text_normalize(cfg, path, allowed_scopes, rdepth, fdepth):
 		_check_dict(cfg, path)
-		_exact_keys(cfg, set(), {"norm_field", "norm_profile", "norm_pipeline", "norm_op"}, path)
+		_exact_keys(
+			cfg, set(), {"norm_field", "norm_profile", "norm_pipeline", "norm_op"} | _METADATA_KEYS, path
+		)
 		if cfg.get("norm_field"):
 			_check_field_path(cfg.get("norm_field"), f"{path}.norm_field", allowed_scopes)
 
 	def validate_lookup_fetch(cfg, path, allowed_scopes, rdepth, fdepth):
 		_check_dict(cfg, path)
 		allowed_keys = {
-			"doctype_mode", "target_doctype", "linked_doctype",
-			"doctype_source", "record_field", "link_field",
-			"record_source_type", "fetch_field"
-		}
+			"doctype_mode",
+			"target_doctype",
+			"linked_doctype",
+			"doctype_source",
+			"record_field",
+			"link_field",
+			"record_source_type",
+			"fetch_field",
+		} | _METADATA_KEYS
 		_exact_keys(cfg, set(), allowed_keys, path)
 		mode = cfg.get("doctype_mode", "static")
 		if mode not in ("static", "dynamic"):
-			_fail("invalid_doctype_mode", f"{path}.doctype_mode", "doctype_mode must be 'static' or 'dynamic'")
+			_fail(
+				"invalid_doctype_mode", f"{path}.doctype_mode", "doctype_mode must be 'static' or 'dynamic'"
+			)
 		if mode == "dynamic" and cfg.get("doctype_source"):
 			_check_field_path(cfg.get("doctype_source"), f"{path}.doctype_source", allowed_scopes)
 		rec = cfg.get("record_field") or cfg.get("link_field")
@@ -1963,7 +2068,15 @@ def _register_builtins():
 
 	def validate_collection(cfg, path, allowed_scopes, rdepth, fdepth):
 		_check_dict(cfg, path)
-		allowed_keys = {"source", "agg_table", "target_field", "agg_field", "condition", "operation", "agg_op"}
+		allowed_keys = {
+			"source",
+			"agg_table",
+			"target_field",
+			"agg_field",
+			"condition",
+			"operation",
+			"agg_op",
+		} | _METADATA_KEYS
 		_exact_keys(cfg, set(), allowed_keys, path)
 		src = cfg.get("source") or cfg.get("agg_table")
 		if src:
@@ -1974,17 +2087,26 @@ def _register_builtins():
 		cond = cfg.get("condition")
 		if cond is not None:
 			if not isinstance(cond, dict):
-				_fail("invalid_collection_condition", f"{path}.condition", "Collection condition must be an object")
+				_fail(
+					"invalid_collection_condition",
+					f"{path}.condition",
+					"Collection condition must be an object",
+				)
 			from flexirule.ruleflow.core.condition_contract import validate_condition_node
 			from flexirule.ruleflow.core.condition_payload import detect_canonical_condition_payload
+
 			is_canonical, cnode = detect_canonical_condition_payload(cond)
 			if not is_canonical or not cnode:
-				_fail("invalid_collection_condition", f"{path}.condition", "Collection condition must be a valid canonical condition")
+				_fail(
+					"invalid_collection_condition",
+					f"{path}.condition",
+					"Collection condition must be a valid canonical condition",
+				)
 			validate_condition_node(cnode)
 
 	def validate_system_context(cfg, path, allowed_scopes, rdepth, fdepth):
 		_check_dict(cfg, path)
-		_exact_keys(cfg, set(), {"sys_token", "sys_role"}, path)
+		_exact_keys(cfg, set(), {"sys_token", "sys_role"} | _METADATA_KEYS, path)
 		tok = cfg.get("sys_token")
 		if tok is not None and tok not in ("user", "role_check"):
 			_fail("invalid_sys_token", f"{path}.sys_token", "sys_token must be 'user' or 'role_check'")

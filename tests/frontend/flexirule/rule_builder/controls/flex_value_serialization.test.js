@@ -22,7 +22,11 @@ test("FlexValue canonical serialization contracts", () => {
 	assert.equal(variablePayload.mode, "variable");
 	assert.equal(variablePayload.path.scope, "doc");
 	assert.deepEqual(variablePayload.path.segments, ["grand_total"]);
-	assert.equal("value" in variablePayload, false, "value property must not exist on variable payload");
+	assert.equal(
+		"value" in variablePayload,
+		false,
+		"value property must not exist on variable payload"
+	);
 	assert.deepEqual(Object.keys(variablePayload).sort(), ["mode", "path"]);
 
 	// Resolver Operation
@@ -66,7 +70,10 @@ test("FlexValue canonical serialization contracts", () => {
 	assert.deepEqual(templatePayload.segments[1].value.path, { scope: "doc", segments: ["name"] });
 });
 
-import { deserializeFlexValue, unescapeAttr } from "../../../../../flexirule/public/js/flexirule/rule_builder/controls/flex_value_helpers.mjs";
+import {
+	deserializeFlexValue,
+	unescapeAttr,
+} from "../../../../../flexirule/public/js/flexirule/rule_builder/controls/flex_value_helpers.mjs";
 
 test("Resolver identity serialize -> deserialize -> serialize equality", () => {
 	const original = {
@@ -111,7 +118,11 @@ test("Resolver identity serialize -> deserialize -> serialize equality", () => {
 		config: parsedAttrs.config,
 	};
 
-	assert.deepEqual(reserialized, original, "Resolver identity must be strictly preserved across roundtrip");
+	assert.deepEqual(
+		reserialized,
+		original,
+		"Resolver identity must be strictly preserved across roundtrip"
+	);
 });
 
 test("Template mode deserialization unpacks into tokens and text", () => {
