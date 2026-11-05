@@ -555,7 +555,15 @@ def _evaluate_node(plan: tuple, context: dict | _EvaluationContext) -> bool:
 			raise ConditionEvaluationError("missing_operand", right_plan[-1], "Right operand path is missing")
 		if operator_id == "has_field":
 			return _compare_metadata(operator_id, left, right, path)
-		return _compare(operator_id, left, right, path)
+
+		left_ft = left_plan[1] if left_plan[0] == "static" else None
+		right_ft = right_plan[1] if right_plan[0] == "static" else None
+		if left_plan[0] == "variable":
+			left_ft = _fieldtype_for_context(left_plan[1], left_plan[2], context, left_plan[3])
+		if right_plan[0] == "variable":
+			right_ft = _fieldtype_for_context(right_plan[1], right_plan[2], context, right_plan[3])
+
+		return _compare(operator_id, left, right, path, left_fieldtype=left_ft, right_fieldtype=right_ft)
 
 	if kind == "collection_predicate":
 		_, quantifier, source_scope, source_segments, alias, where_plan, path = plan
@@ -895,8 +903,34 @@ def _assert_runtime_equality_types(left: Any, right: Any, path: str) -> None:
 		)
 
 
-def _compare(operator_id: str, left: Any, right: Any, path: str) -> bool:
+def _compare(
+	operator_id: str,
+	left: Any,
+	right: Any,
+	path: str,
+	left_fieldtype: str | None = None,
+	right_fieldtype: str | None = None,
+) -> bool:
 	if operator_id in {"eq", "ne"}:
+		is_check_context = left_fieldtype == "Check" or right_fieldtype == "Check"
+		if is_check_context and left is not None and right is not None:
+
+			def _to_check_int(v: Any, p: str) -> int:
+				if v is True or v == 1 or v == "1":
+					return 1
+				if v is False or v == 0 or v == "0":
+					return 0
+				raise ConditionEvaluationError(
+					"operand_type_mismatch",
+					p,
+					f"Check field comparison requires 0/1 or True/False (got {v!r})",
+				)
+
+			l_norm = _to_check_int(left, f"{path}.left")
+			r_norm = _to_check_int(right, f"{path}.right")
+			equal = l_norm == r_norm
+			return equal if operator_id == "eq" else not equal
+
 		_assert_runtime_equality_types(left, right, path)
 		equal = _strict_equal(left, right, path)
 		return equal if operator_id == "eq" else not equal

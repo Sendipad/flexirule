@@ -62,9 +62,64 @@ VALUE_TYPES = frozenset(
 	}
 )
 
-# Resolver operations are deny-by-default. Adding an entry requires a reviewed,
-# deterministic, read-only implementation and explicit config/output validation.
-CONDITION_RESOLVER_REGISTRY: dict[tuple[str, str], dict[str, Any]] = {}
+
+class _ResolverRegistryProxy(dict):
+	"""Proxy dict preserving backward compatibility for CONDITION_RESOLVER_REGISTRY while delegating to ValueResolver."""
+
+	def __getitem__(self, key):
+		from flexirule.ruleflow.core.value_resolver import ValueResolver
+
+		entry = ValueResolver.get_resolver_entry(*key)
+		if entry is None:
+			raise KeyError(key)
+		return entry
+
+	def get(self, key, default=None):
+		from flexirule.ruleflow.core.value_resolver import ValueResolver
+
+		entry = ValueResolver.get_resolver_entry(*key)
+		return entry if entry is not None else default
+
+	def __contains__(self, key):
+		from flexirule.ruleflow.core.value_resolver import ValueResolver
+
+		return ValueResolver.get_resolver_entry(*key) is not None
+
+	def __setitem__(self, key, value):
+		from flexirule.ruleflow.core.value_resolver import ValueResolver
+
+		ValueResolver._REGISTRY[key] = value
+		ValueResolver._FINGERPRINT_CACHE = None
+
+	def pop(self, key, default=None):
+		from flexirule.ruleflow.core.value_resolver import ValueResolver
+
+		val = ValueResolver._REGISTRY.pop(key, default)
+		ValueResolver._FINGERPRINT_CACHE = None
+		return val
+
+	def items(self):
+		from flexirule.ruleflow.core.value_resolver import ValueResolver
+
+		return ValueResolver._REGISTRY.items()
+
+	def values(self):
+		from flexirule.ruleflow.core.value_resolver import ValueResolver
+
+		return ValueResolver._REGISTRY.values()
+
+	def keys(self):
+		from flexirule.ruleflow.core.value_resolver import ValueResolver
+
+		return ValueResolver._REGISTRY.keys()
+
+	def __len__(self):
+		from flexirule.ruleflow.core.value_resolver import ValueResolver
+
+		return len(ValueResolver._REGISTRY)
+
+
+CONDITION_RESOLVER_REGISTRY = _ResolverRegistryProxy()
 _RESOLVER_REGISTRY_FINGERPRINT_CACHE: str | None = None
 
 
@@ -81,92 +136,41 @@ def register_condition_resolver(
 	condition_operand_allowed: bool = False,
 	required_capability: str = "condition_operand",
 ):
-	"""Register a reviewed resolver operation for canonical conditions.
+	"""Register a resolver operation in the authoritative ValueResolver registry."""
+	from flexirule.ruleflow.core.value_resolver import ValueResolver
 
-	validate_config must validate exact keys and nested FlexValues, carrying both the
-	current resolver depth and FlexValue depth into validate_flex_value(). resolve must
-	be read-only, bounded, deterministic for a given context, and must not cache context
-	or resolved values. An operation may only be enabled when its permission policy is
-	"no_data_access"; database-backed resolvers require a separately reviewed adapter.
-	"""
-	if (
-		not isinstance(family, str)
-		or not family
-		or not isinstance(operation, str)
-		or not operation
-		or not isinstance(label, str)
-		or not label
-		or not isinstance(output_type, str)
-		or output_type not in VALUE_TYPES
-		or not isinstance(config_schema, dict)
-		or not isinstance(permission_policy, str)
-		or not permission_policy
-		or not isinstance(condition_operand_allowed, bool)
-		or not isinstance(required_capability, str)
-		or not required_capability
-	):
-		raise ValueError("Invalid canonical condition resolver registration")
-	try:
-		config_schema_copy = json.loads(
-			json.dumps(config_schema, sort_keys=True, allow_nan=False, separators=(",", ":"))
-		)
-	except (TypeError, ValueError, RecursionError) as exc:
-		raise ValueError("Resolver config_schema must be JSON-serializable") from exc
-	if not callable(validate_config) or not callable(resolve):
-		raise ValueError("Resolver validators and resolvers must be callable")
 	if condition_operand_allowed and permission_policy != "no_data_access":
 		raise ValueError(
 			"Condition operands may only enable resolvers with permission_policy='no_data_access'"
 		)
-	global _RESOLVER_REGISTRY_FINGERPRINT_CACHE
-	key = (family, operation)
-	if key in CONDITION_RESOLVER_REGISTRY:
-		raise ValueError(f"Canonical condition resolver already registered: {family}.{operation}")
-	CONDITION_RESOLVER_REGISTRY[key] = {
-		"family": family,
-		"operation": operation,
-		"label": label,
-		"output_type": output_type,
-		"config_schema": config_schema_copy,
-		"permission_policy": permission_policy,
-		"required_capability": required_capability,
-		"condition_operand_allowed": bool(condition_operand_allowed),
-		"validate_config": validate_config,
-		"resolve": resolve,
-	}
-	_RESOLVER_REGISTRY_FINGERPRINT_CACHE = None
+
+	ValueResolver.register_resolver(
+		family=family,
+		operation=operation,
+		label=label,
+		output_type=output_type,
+		config_schema=config_schema,
+		permission_policy=permission_policy,
+		validate_config=validate_config,
+		resolve=resolve,
+		allowed_consumers={"condition"} if condition_operand_allowed else set(),
+		condition_operand_allowed=condition_operand_allowed,
+		required_capability=required_capability,
+	)
 
 
 def resolver_registry_fingerprint() -> str:
-	"""Stable cache key material; implementation callables stay private."""
-	global _RESOLVER_REGISTRY_FINGERPRINT_CACHE
-	if _RESOLVER_REGISTRY_FINGERPRINT_CACHE is None:
-		payload = json.dumps(
-			resolver_contract_dto(),
-			sort_keys=True,
-			ensure_ascii=False,
-			separators=(",", ":"),
-			allow_nan=False,
-		)
-		_RESOLVER_REGISTRY_FINGERPRINT_CACHE = hashlib.sha256(payload.encode("utf-8")).hexdigest()
-	return _RESOLVER_REGISTRY_FINGERPRINT_CACHE
+	"""Stable cache key material delegated to ValueResolver."""
+	from flexirule.ruleflow.core.value_resolver import ValueResolver
+
+	return ValueResolver.registry_fingerprint()
 
 
 def resolver_contract_dto() -> list[dict[str, Any]]:
-	"""Return public metadata only; internal functions are never exposed."""
-	return [
-		{
-			"family": item["family"],
-			"operation": item["operation"],
-			"label": item["label"],
-			"output_type": item["output_type"],
-			"config_schema": json.loads(json.dumps(item["config_schema"], sort_keys=True)),
-			"permission_policy": item["permission_policy"],
-			"required_capability": item["required_capability"],
-			"condition_operand_allowed": bool(item["condition_operand_allowed"]),
-		}
-		for _, item in sorted(CONDITION_RESOLVER_REGISTRY.items())
-	]
+	"""Return public metadata only delegated to ValueResolver."""
+	from flexirule.ruleflow.core.value_resolver import ValueResolver
+
+	return ValueResolver.resolver_contract_dto()
 
 
 def _fail(code: str, path: str, message: str) -> NoReturn:
@@ -264,6 +268,7 @@ def validate_flex_value(
 	allowed_scopes: set[str] | None = None,
 	resolver_depth: int = 0,
 	flexvalue_depth: int = 0,
+	consumer: str = "condition",
 ) -> str | None:
 	"""Validate one canonical FlexValue without mutating it; return known output type."""
 	if flexvalue_depth > MAX_FLEXVALUE_DEPTH:

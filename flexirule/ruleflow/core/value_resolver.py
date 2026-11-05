@@ -2,7 +2,7 @@
 # For license information, please see license.txt
 
 import json
-from typing import Any
+from typing import Any, ClassVar
 
 import frappe
 from frappe import _
@@ -1019,8 +1019,145 @@ class ExpressionResolver(CompiledResolver):
 class ValueResolver:
 	"""
 	Unified compiler & runtime registry for FlexValue systems.
-	Converts dynamic configuration schemas into optimized CompiledResolver graphs.
+	Authoritative registry for resolver operations, configuration schemas,
+	consumer authorization, compilation, and runtime resolution.
 	"""
+
+	_REGISTRY: ClassVar[dict[tuple[str, str], dict[str, Any]]] = {}
+	_FINGERPRINT_CACHE: ClassVar[str | None] = None
+
+	@classmethod
+	def register_resolver(
+		cls,
+		family: str,
+		operation: str,
+		*,
+		label: str,
+		output_type: str,
+		config_schema: dict[str, Any],
+		permission_policy: str = "no_data_access",
+		validate_config: Any = None,
+		factory: Any = None,
+		resolve: Any = None,
+		allowed_consumers: set[str] | None = None,
+		condition_operand_allowed: bool = False,
+		required_capability: str = "general",
+	) -> None:
+		from flexirule.ruleflow.core.flexvalue_contract import VALUE_TYPES
+
+		if (
+			not isinstance(family, str)
+			or not family
+			or not isinstance(operation, str)
+			or not operation
+			or not isinstance(label, str)
+			or not label
+			or not isinstance(output_type, str)
+			or output_type not in VALUE_TYPES
+			or not isinstance(config_schema, dict)
+			or not isinstance(permission_policy, str)
+		):
+			raise ValueError(f"Invalid resolver registration for {family}.{operation}")
+
+		try:
+			schema_copy = json.loads(
+				json.dumps(config_schema, sort_keys=True, allow_nan=False, separators=(",", ":"))
+			)
+		except (TypeError, ValueError, RecursionError) as exc:
+			raise ValueError("Resolver config_schema must be JSON-serializable") from exc
+
+		key = (family, operation)
+		if key in cls._REGISTRY:
+			raise ValueError(f"Resolver already registered: {family}.{operation}")
+
+		consumers = set(allowed_consumers) if allowed_consumers else {"assignment", "action"}
+		if condition_operand_allowed:
+			consumers.add("condition")
+
+		cls._REGISTRY[key] = {
+			"family": family,
+			"operation": operation,
+			"label": label,
+			"output_type": output_type,
+			"config_schema": schema_copy,
+			"permission_policy": permission_policy,
+			"allowed_consumers": consumers,
+			"condition_operand_allowed": bool(condition_operand_allowed),
+			"required_capability": required_capability,
+			"validate_config": validate_config,
+			"factory": factory,
+			"resolve": resolve,
+		}
+		cls._FINGERPRINT_CACHE = None
+
+	@classmethod
+	def unregister_resolver(cls, family: str, operation: str) -> None:
+		key = (family, operation)
+		cls._REGISTRY.pop(key, None)
+		cls._FINGERPRINT_CACHE = None
+
+	@classmethod
+	def get_resolver_entry(cls, family: str, operation: str) -> dict[str, Any] | None:
+		return cls._REGISTRY.get((family, operation))
+
+	@classmethod
+	def resolver_contract_dto(cls) -> list[dict[str, Any]]:
+		"""Return public metadata only; callables stay private."""
+		result = []
+		for _reg_key, item in sorted(cls._REGISTRY.items()):
+			result.append(
+				{
+					"family": item["family"],
+					"operation": item["operation"],
+					"label": item["label"],
+					"output_type": item["output_type"],
+					"config_schema": json.loads(json.dumps(item["config_schema"], sort_keys=True)),
+					"permission_policy": item["permission_policy"],
+					"allowed_consumers": sorted(list(item.get("allowed_consumers", []))),
+					"condition_operand_allowed": bool(item.get("condition_operand_allowed", False)),
+					"required_capability": item.get("required_capability", "general"),
+				}
+			)
+		return result
+
+	@classmethod
+	def registry_fingerprint(cls) -> str:
+		import hashlib
+
+		if cls._FINGERPRINT_CACHE is None:
+			payload = json.dumps(
+				cls.resolver_contract_dto(),
+				sort_keys=True,
+				ensure_ascii=False,
+				separators=(",", ":"),
+				allow_nan=False,
+			)
+			cls._FINGERPRINT_CACHE = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+		return cls._FINGERPRINT_CACHE
+
+	@classmethod
+	def validate_flex_value(
+		cls,
+		flex_value: Any,
+		path: str = "$",
+		allowed_scopes: set[str] | None = None,
+		consumer: str = "condition",
+	) -> str | None:
+		from flexirule.ruleflow.core.flexvalue_contract import validate_flex_value as _validate
+
+		return _validate(flex_value, path=path, allowed_scopes=allowed_scopes, consumer=consumer)
+
+	@classmethod
+	def compile_flex_value(
+		cls,
+		flex_value: Any,
+		path: str = "$",
+		context_metadata: dict[str, Any] | None = None,
+		consumer: str = "condition",
+	) -> CompiledResolver:
+		allowed_scopes = context_metadata.get("allowed_scopes") if context_metadata else None
+		cls.validate_flex_value(flex_value, path=path, allowed_scopes=allowed_scopes, consumer=consumer)
+		return cls.compile(flex_value)
 
 	@staticmethod
 	def compile(val: Any) -> CompiledResolver:
