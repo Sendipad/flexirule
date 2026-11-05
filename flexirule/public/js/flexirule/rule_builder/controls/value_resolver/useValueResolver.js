@@ -32,7 +32,18 @@ export function useValueResolver(props, emit) {
 			let kind = val.kind;
 			let innerConfig = val.config && typeof val.config === "object" ? val.config : {};
 
-			if (kind === "child_aggregation" || family === "child_aggregation") {
+			if (family === "math" || kind === "math" || kind === "math_formula" || family === "math_formula") {
+				family = "math";
+				kind = "math_formula";
+				val = {
+					field_a: val.field_a ?? innerConfig.field_a ?? "",
+					math_op: val.math_op ?? innerConfig.math_op ?? "+",
+					field_b_type: val.field_b_type ?? innerConfig.field_b_type ?? "field",
+					field_b: val.field_b ?? innerConfig.field_b ?? "",
+					constant_b: val.constant_b !== undefined ? val.constant_b : innerConfig.constant_b !== undefined ? innerConfig.constant_b : 0,
+					precision: val.precision !== undefined ? val.precision : innerConfig.precision !== undefined ? innerConfig.precision : 2,
+				};
+			} else if (kind === "child_aggregation" || family === "child_aggregation") {
 				family = "collection";
 				kind = "collection";
 				val = {
@@ -136,7 +147,22 @@ export function useValueResolver(props, emit) {
 			if (!strategy) return;
 
 			let config;
-			if (newKind === "collection") {
+			if (newKind === "math_formula") {
+				const { field_a, math_op, field_b_type, field_b, constant_b, precision } = newState;
+				config = {
+					family: "math",
+					operation: "formula",
+					kind: "math_formula",
+					config: {
+						field_a: field_a || "",
+						math_op: math_op || "+",
+						field_b_type: field_b_type || "field",
+						field_b: field_b || "",
+						constant_b: constant_b !== undefined ? constant_b : 0,
+						precision: precision !== undefined ? precision : 2,
+					},
+				};
+			} else if (newKind === "collection") {
 				const { source, operation, target_field, condition } = newState;
 				config = {
 					family: "collection",

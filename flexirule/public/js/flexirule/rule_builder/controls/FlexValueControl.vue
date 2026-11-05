@@ -347,6 +347,7 @@ import {
 	getAllowedBuilderKinds,
 } from "../../core/formula_registry";
 import { compileToCode, compileToLabel } from "../../core/builder_utils.js";
+import { escapeAttr, unescapeAttr, coerceStructuredValue as helperCoerce, deserializeFlexValue } from "./flex_value_helpers.mjs";
 import MentionList from "./MentionList.vue";
 import ControlFactory from "./ControlFactory.vue";
 import MultiSelectList from "./MultiSelectList.vue";
@@ -967,73 +968,7 @@ defineExpose({ validate });
 // ── Serialization ──
 
 function coerceStructuredValue(val) {
-	const currentFieldType = fieldType.value || "Data";
-
-	if (val && typeof val === "object" && val.mode) {
-		if (["formula", "format", "normalize", "normalization"].includes(val.mode)) {
-			const config = { ...(val.config || {}) };
-			if (!config.kind) {
-				if (val.mode === "formula") config.kind = "math_formula";
-				if (["format", "normalize", "normalization"].includes(val.mode)) {
-					config.kind = "text";
-				}
-			}
-			return {
-				mode: "resolver",
-				family: config.family || config.kind || "text",
-				operation: config.operation || "combine",
-				value_type: val.value_type || currentFieldType,
-				config,
-			};
-		}
-		if (val.mode === "variable") {
-			if (val.path && typeof val.path === "object") {
-				return {
-					mode: "variable",
-					path: val.path,
-					value:
-						val.value ||
-						(val.path.segments
-							? `${val.path.scope}.${val.path.segments.join(".")}`
-							: ""),
-				};
-			}
-			const pathStr = String(val.value || val.path || "");
-			const parts = pathStr.split(".");
-			const scope = parts[0] || "doc";
-			const segments = parts.slice(1);
-			return {
-				mode: "variable",
-				path: { scope, segments },
-				value: pathStr,
-			};
-		}
-		if (val.mode === "resolver") {
-			const config = val.config || {};
-			const family = val.family || config.family || config.kind || "text";
-			const operation = val.operation || config.operation || "combine";
-			return {
-				mode: "resolver",
-				family,
-				operation,
-				value_type: val.value_type || currentFieldType,
-				config,
-			};
-		}
-		if (val.mode === "expression") {
-			return { mode: "expression", value: Array.isArray(val.value) ? val.value : [] };
-		}
-		return {
-			mode: "static",
-			value_type: val.value_type || currentFieldType,
-			value: val.value,
-		};
-	}
-
-	if (val === null || val === undefined) {
-		return { mode: "static", value_type: currentFieldType, value: "" };
-	}
-	return { mode: "static", value_type: currentFieldType, value: val };
+	return helperCoerce(val, fieldType.value || "Data");
 }
 
 function serialize() {
@@ -1066,46 +1001,74 @@ function serialize() {
 			return {
 				mode: "variable",
 				path: { scope, segments },
-				value: rawPath,
 			};
 		}
 		if (typeName === "resolverToken") {
 			const config = node.attrs.config || {};
-			const family = config.family || config.kind || "text";
-			const operation = config.operation || "combine";
+			const family = node.attrs.family || config.family || config.kind || "text";
+			const operation = node.attrs.operation || config.operation || "combine";
+			const valueType = node.attrs.value_type || currentFieldType;
 			return {
 				mode: "resolver",
 				family,
 				operation,
-				value_type: currentFieldType,
+				value_type: valueType,
 				config,
 			};
 		}
 	}
 
-	// Mixed content or multiple tokens -> expression mode
-	const tokens = content.map((item) => {
-		if (item.type === "text") return { type: "text", value: item.text };
+	// If all items are pure text, serialize as static
+	const allText = content.every((item) => (item.type?.name || item.type) === "text");
+	if (allText) {
+		const combinedText = content.map((item) => item.text || "").join("");
+		return {
+			mode: "static",
+			value_type: currentFieldType,
+			value: combinedText,
+		};
+	}
 
-		// For mixed mode, the expression MUST be wrapped in {} if it was a builder code
-		let expr = item.attrs.expression || item.attrs.path || "";
-		if (item.type === "variableToken") expr = `{${expr}}`;
-		// if expression already has {}, it's likely correct.
-		// Builder output from compileToCode already includes {}.
+	// Mixed content or multiple tokens -> canonical template mode
+	const segments = content
+		.map((item) => {
+			const typeName = item.type?.name || item.type;
+			if (typeName === "text") {
+				return { type: "text", value: item.text || "" };
+			}
+			if (typeName === "variableToken") {
+				const rawPath = String(item.attrs?.path || "");
+				const parts = rawPath.split(".");
+				const scope = parts[0] || "doc";
+				const pathSegments = parts.slice(1);
+				return {
+					type: "value",
+					value: {
+						mode: "variable",
+						path: { scope, segments: pathSegments },
+					},
+				};
+			}
+			if (typeName === "resolverToken") {
+				const config = item.attrs?.config || {};
+				const family = item.attrs?.family || config.family || config.kind || "text";
+				const operation = item.attrs?.operation || config.operation || "combine";
+				return {
+					type: "value",
+					value: {
+						mode: "resolver",
+						family,
+						operation,
+						value_type: item.attrs?.value_type || currentFieldType,
+						config,
+					},
+				};
+			}
+			return null;
+		})
+		.filter(Boolean);
 
-		return { type: item.type, attrs: { ...item.attrs, expression: expr } };
-	});
-
-	return { mode: "expression", value: tokens };
-}
-
-function escapeAttr(str) {
-	return String(str || "")
-		.replace(/&/g, "&amp;")
-		.replace(/"/g, "&quot;")
-		.replace(/'/g, "&#39;")
-		.replace(/</g, "&lt;")
-		.replace(/>/g, "&gt;");
+	return { mode: "template", segments };
 }
 
 function isVariableSyntax(val) {
@@ -1116,50 +1079,7 @@ function isVariableSyntax(val) {
 }
 
 function deserialize(val) {
-	if (!val) return "";
-	const structured = coerceStructuredValue(val);
-
-	if (structured.mode === "variable")
-		return `<span data-token-type="variable" data-path="${escapeAttr(
-			structured.value
-		)}" data-label=""></span>`;
-
-	if (structured.mode === "resolver") {
-		return `<span data-token-type="resolver" data-expression="${escapeAttr(
-			structured.value
-		)}" data-label="" data-config='${escapeAttr(
-			JSON.stringify(structured.config || null)
-		)}'></span>`;
-	}
-
-	if (structured.mode === "expression" && Array.isArray(structured.value)) {
-		return structured.value
-			.map((item) => {
-				const typeName = item.type?.name || item.type;
-				if (typeName === "text") return item.value;
-				if (typeName === "variableToken")
-					return `<span data-token-type="variable" data-path="${escapeAttr(
-						item.attrs.path
-					)}" data-label="${escapeAttr(item.attrs.label)}"></span>`;
-				if (
-					["resolverToken", "formulaToken", "normalizeToken", "formatToken"].includes(
-						typeName
-					)
-				) {
-					return `<span data-token-type="resolver" data-expression="${escapeAttr(
-						item.attrs.expression || item.attrs.resolver || ""
-					)}" data-label="${escapeAttr(
-						item.attrs.label || ""
-					)}" data-config='${escapeAttr(
-						JSON.stringify(item.attrs.config || null)
-					)}'></span>`;
-				}
-				return "";
-			})
-			.join("");
-	}
-
-	return structured.value ?? "";
+	return deserializeFlexValue(val, fieldType.value || "Data");
 }
 
 function emitChanges() {

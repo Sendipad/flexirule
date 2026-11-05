@@ -36,6 +36,13 @@ class TestUnifiedFlexValueArchitecture(FrappeTestCase):
 		with self.assertRaises(ConditionValidationError):
 			ValueResolver.compile_flex_value({"mode": "static", "value_type": "Check", "value": "yes"})
 
+		# Extended Frappe Fieldtypes
+		compiled_phone = ValueResolver.compile_flex_value({"mode": "static", "value_type": "Phone", "value": "+1234567890"})
+		self.assertEqual(compiled_phone.resolve({}), "+1234567890")
+
+		compiled_rating = ValueResolver.compile_flex_value({"mode": "static", "value_type": "Rating", "value": "0.8"})
+		self.assertEqual(compiled_rating.resolve({}), "0.8")
+
 	def test_canonical_variable_resolution(self):
 		payload = {
 			"mode": "variable",
@@ -91,6 +98,38 @@ class TestUnifiedFlexValueArchitecture(FrappeTestCase):
 		}
 		with self.assertRaises(ConditionValidationError):
 			ValueResolver.compile_flex_value(payload)
+
+	def test_builtin_resolver_exact_validation(self):
+		# Invalid math operator
+		bad_math = {
+			"mode": "resolver",
+			"family": "math",
+			"operation": "formula",
+			"value_type": "Float",
+			"config": {
+				"field_a": "doc.qty",
+				"math_op": "%",  # Invalid op
+			},
+		}
+		with self.assertRaises(ConditionValidationError) as cm:
+			ValueResolver.compile_flex_value(bad_math)
+		self.assertEqual(cm.exception.code, "invalid_math_op")
+
+		# Unknown config key in math formula
+		bad_keys = {
+			"mode": "resolver",
+			"family": "math",
+			"operation": "formula",
+			"value_type": "Float",
+			"config": {
+				"field_a": "doc.qty",
+				"math_op": "+",
+				"unsupported_key": 123,
+			},
+		}
+		with self.assertRaises(ConditionValidationError) as cm:
+			ValueResolver.compile_flex_value(bad_keys)
+		self.assertEqual(cm.exception.code, "unknown_key")
 
 	def test_short_circuit_and_lazy_evaluation(self):
 		invocations = 0

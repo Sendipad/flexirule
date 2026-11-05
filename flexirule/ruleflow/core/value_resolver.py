@@ -1408,8 +1408,9 @@ class ValueResolver:
 					compiled_segments.append(("value", child_compiled))
 			return CanonicalTemplateResolver(tuple(compiled_segments))
 
-		# Legacy fallback compilation for non-canonical structures during phase migration
-		return cls.compile(flex_value)
+		# Strict canonical enforcement: do not silently fall back to legacy compilation
+		cls.validate_flex_value(flex_value, path=path, consumer=consumer)
+		_fail("unknown_flex_value_mode", f"{path}.mode", f"Unsupported FlexValue mode: {mode}")
 
 	@staticmethod
 	def compile(val: Any) -> CompiledResolver:
@@ -1795,10 +1796,198 @@ def get_compiled_resolver(action, key: str, value_payload: Any) -> CompiledResol
 
 
 def _register_builtins():
-	# Helper no-op config validator
-	def validate_any(config, path, allowed_scopes, resolver_depth, flexvalue_depth):
-		if not isinstance(config, dict):
+	# Exact validators for built-in resolvers
+
+	def _check_dict(cfg: Any, path: str) -> None:
+		if not isinstance(cfg, dict):
 			_fail("invalid_resolver_config", path, "Resolver config must be an object")
+
+	def _check_field_path(fld: Any, path: str, allowed_scopes: set[str], allow_empty: bool = False) -> None:
+		if allow_empty and (fld is None or fld == ""):
+			return
+		if not isinstance(fld, str) or not fld.strip():
+			_fail("invalid_field_path", path, "Field path must be a non-empty string")
+		val = fld.strip()
+		# If dot-notated, validate scope and segments
+		if "." in val:
+			parts = val.split(".")
+			scope = parts[0]
+			segments = parts[1:]
+			if scope not in allowed_scopes:
+				_fail("unknown_scope", f"{path}.scope", f"Field path scope '{scope}' is not allowed")
+			for seg in segments:
+				if not seg or not re.fullmatch(r"[A-Za-z0-9_]+", seg) or "__" in seg:
+					_fail("invalid_path_segment", path, f"Unsafe or empty path segment '{seg}'")
+		else:
+			if not re.fullmatch(r"[A-Za-z0-9_]+", val) or "__" in val:
+				_fail("invalid_path_segment", path, f"Unsafe or empty path segment '{val}'")
+
+	def validate_date_current(cfg, path, allowed_scopes, rdepth, fdepth):
+		_check_dict(cfg, path)
+		_exact_keys(cfg, set(), {"token"}, path)
+		token = cfg.get("token")
+		if token is not None and token not in ("date", "datetime", "time", "now"):
+			_fail("invalid_date_current_token", f"{path}.token", "Invalid current date/time token")
+
+	def validate_date_calculate(cfg, path, allowed_scopes, rdepth, fdepth):
+		_check_dict(cfg, path)
+		allowed_keys = {"base_type", "base_field", "offset_value", "offset_unit", "offset_sign", "source"}
+		_exact_keys(cfg, set(), allowed_keys, path)
+		base_type = cfg.get("base_type")
+		if base_type is not None and base_type not in ("today", "current_date", "current_datetime", "now", "current_time", "doc_field", "field"):
+			_fail("invalid_base_type", f"{path}.base_type", f"Invalid date base_type: {base_type}")
+		if cfg.get("base_field"):
+			_check_field_path(cfg.get("base_field"), f"{path}.base_field", allowed_scopes)
+		sign = cfg.get("offset_sign")
+		if sign is not None and sign not in ("+", "-"):
+			_fail("invalid_offset_sign", f"{path}.offset_sign", "Offset sign must be '+' or '-'")
+		unit = cfg.get("offset_unit")
+		if unit is not None and unit.lower() not in ("days", "months", "years", "hours", "minutes", "seconds"):
+			_fail("invalid_offset_unit", f"{path}.offset_unit", f"Invalid offset unit: {unit}")
+		src = cfg.get("source")
+		if src is not None and isinstance(src, dict) and "mode" in src:
+			ValueResolver.validate_flex_value(src, path=f"{path}.source", allowed_scopes=allowed_scopes, resolver_depth=rdepth, flexvalue_depth=fdepth)
+
+	def validate_date_diff(cfg, path, allowed_scopes, rdepth, fdepth):
+		_check_dict(cfg, path)
+		allowed_keys = {"diff_start_type", "diff_start_field", "diff_end_type", "diff_end_field", "diff_unit", "start_source", "end_source"}
+		_exact_keys(cfg, set(), allowed_keys, path)
+		unit = cfg.get("diff_unit")
+		if unit is not None and unit.lower() not in ("days", "months", "years", "hours", "minutes", "seconds"):
+			_fail("invalid_diff_unit", f"{path}.diff_unit", f"Invalid diff unit: {unit}")
+		if cfg.get("diff_start_field"):
+			_check_field_path(cfg.get("diff_start_field"), f"{path}.diff_start_field", allowed_scopes)
+		if cfg.get("diff_end_field"):
+			_check_field_path(cfg.get("diff_end_field"), f"{path}.diff_end_field", allowed_scopes)
+		for src_key in ("start_source", "end_source"):
+			src = cfg.get(src_key)
+			if src is not None and isinstance(src, dict) and "mode" in src:
+				ValueResolver.validate_flex_value(src, path=f"{path}.{src_key}", allowed_scopes=allowed_scopes, resolver_depth=rdepth, flexvalue_depth=fdepth)
+
+	def validate_date_extract(cfg, path, allowed_scopes, rdepth, fdepth):
+		_check_dict(cfg, path)
+		_exact_keys(cfg, set(), {"source", "base_field", "component"}, path)
+		comp = cfg.get("component")
+		if comp is not None and comp.lower() not in ("year", "month", "day", "weekday", "quarter", "hour", "minute", "second"):
+			_fail("invalid_date_component", f"{path}.component", f"Invalid date component: {comp}")
+		if cfg.get("base_field"):
+			_check_field_path(cfg.get("base_field"), f"{path}.base_field", allowed_scopes)
+		src = cfg.get("source")
+		if src is not None and isinstance(src, dict) and "mode" in src:
+			ValueResolver.validate_flex_value(src, path=f"{path}.source", allowed_scopes=allowed_scopes, resolver_depth=rdepth, flexvalue_depth=fdepth)
+
+	def validate_date_boundary(cfg, path, allowed_scopes, rdepth, fdepth):
+		_check_dict(cfg, path)
+		_exact_keys(cfg, set(), {"source", "base_field", "boundary_type"}, path)
+		btype = cfg.get("boundary_type")
+		valid_boundaries = (
+			"start_of_day", "end_of_day", "start_of_week", "end_of_week",
+			"start_of_month", "end_of_month", "start_of_quarter", "end_of_quarter",
+			"start_of_year", "end_of_year",
+		)
+		if btype is not None and btype.lower() not in valid_boundaries:
+			_fail("invalid_boundary_type", f"{path}.boundary_type", f"Invalid boundary type: {btype}")
+		if cfg.get("base_field"):
+			_check_field_path(cfg.get("base_field"), f"{path}.base_field", allowed_scopes)
+		src = cfg.get("source")
+		if src is not None and isinstance(src, dict) and "mode" in src:
+			ValueResolver.validate_flex_value(src, path=f"{path}.source", allowed_scopes=allowed_scopes, resolver_depth=rdepth, flexvalue_depth=fdepth)
+
+	def validate_format(cfg, path, allowed_scopes, rdepth, fdepth):
+		_check_dict(cfg, path)
+		_exact_keys(cfg, set(), {"fmt_field", "fmt_config"}, path)
+		if cfg.get("fmt_field"):
+			_check_field_path(cfg.get("fmt_field"), f"{path}.fmt_field", allowed_scopes)
+
+	def validate_math_formula(cfg, path, allowed_scopes, rdepth, fdepth):
+		_check_dict(cfg, path)
+		allowed_keys = {"field_a", "math_op", "field_b_type", "field_b", "constant_b", "precision"}
+		_exact_keys(cfg, set(), allowed_keys, path)
+		op = cfg.get("math_op", "+")
+		if op not in ("+", "-", "*", "/"):
+			_fail("invalid_math_op", f"{path}.math_op", f"Invalid math operator: {op}")
+		if cfg.get("field_a"):
+			_check_field_path(cfg.get("field_a"), f"{path}.field_a", allowed_scopes)
+		fb_type = cfg.get("field_b_type", "field")
+		if fb_type not in ("field", "constant"):
+			_fail("invalid_field_b_type", f"{path}.field_b_type", "field_b_type must be 'field' or 'constant'")
+		if fb_type == "field" and cfg.get("field_b"):
+			_check_field_path(cfg.get("field_b"), f"{path}.field_b", allowed_scopes)
+		prec = cfg.get("precision")
+		if prec is not None and not isinstance(prec, int):
+			_fail("invalid_precision", f"{path}.precision", "Precision must be an integer")
+
+	def validate_text_combine(cfg, path, allowed_scopes, rdepth, fdepth):
+		_check_dict(cfg, path)
+		allowed_keys = {"str_a", "str_a_type", "str_b", "str_b_type"}
+		_exact_keys(cfg, set(), allowed_keys, path)
+		if cfg.get("str_a_type") == "field" and cfg.get("str_a"):
+			_check_field_path(cfg.get("str_a"), f"{path}.str_a", allowed_scopes)
+		if cfg.get("str_b_type") == "field" and cfg.get("str_b"):
+			_check_field_path(cfg.get("str_b"), f"{path}.str_b", allowed_scopes)
+
+	def validate_text_case(cfg, path, allowed_scopes, rdepth, fdepth):
+		_check_dict(cfg, path)
+		_exact_keys(cfg, set(), {"field", "case_mode"}, path)
+		if cfg.get("field"):
+			_check_field_path(cfg.get("field"), f"{path}.field", allowed_scopes)
+		cm = cfg.get("case_mode")
+		if cm is not None and cm.lower() not in ("uppercase", "lowercase", "titlecase", "upper", "lower", "title"):
+			_fail("invalid_case_mode", f"{path}.case_mode", f"Invalid case mode: {cm}")
+
+	def validate_text_normalize(cfg, path, allowed_scopes, rdepth, fdepth):
+		_check_dict(cfg, path)
+		_exact_keys(cfg, set(), {"norm_field", "norm_profile", "norm_pipeline", "norm_op"}, path)
+		if cfg.get("norm_field"):
+			_check_field_path(cfg.get("norm_field"), f"{path}.norm_field", allowed_scopes)
+
+	def validate_lookup_fetch(cfg, path, allowed_scopes, rdepth, fdepth):
+		_check_dict(cfg, path)
+		allowed_keys = {
+			"doctype_mode", "target_doctype", "linked_doctype",
+			"doctype_source", "record_field", "link_field",
+			"record_source_type", "fetch_field"
+		}
+		_exact_keys(cfg, set(), allowed_keys, path)
+		mode = cfg.get("doctype_mode", "static")
+		if mode not in ("static", "dynamic"):
+			_fail("invalid_doctype_mode", f"{path}.doctype_mode", "doctype_mode must be 'static' or 'dynamic'")
+		if mode == "dynamic" and cfg.get("doctype_source"):
+			_check_field_path(cfg.get("doctype_source"), f"{path}.doctype_source", allowed_scopes)
+		rec = cfg.get("record_field") or cfg.get("link_field")
+		if rec:
+			_check_field_path(rec, f"{path}.record_field", allowed_scopes)
+		ff = cfg.get("fetch_field")
+		if ff and (not isinstance(ff, str) or not re.fullmatch(r"[A-Za-z0-9_]+", ff)):
+			_fail("invalid_fetch_field", f"{path}.fetch_field", "Invalid fetch field name")
+
+	def validate_collection(cfg, path, allowed_scopes, rdepth, fdepth):
+		_check_dict(cfg, path)
+		allowed_keys = {"source", "agg_table", "target_field", "agg_field", "condition", "operation", "agg_op"}
+		_exact_keys(cfg, set(), allowed_keys, path)
+		src = cfg.get("source") or cfg.get("agg_table")
+		if src:
+			_check_field_path(src, f"{path}.source", allowed_scopes)
+		tf = cfg.get("target_field") or cfg.get("agg_field")
+		if tf and (not isinstance(tf, str) or not re.fullmatch(r"[A-Za-z0-9_]+", tf)):
+			_fail("invalid_target_field", f"{path}.target_field", "Invalid collection target field")
+		cond = cfg.get("condition")
+		if cond is not None:
+			if not isinstance(cond, dict):
+				_fail("invalid_collection_condition", f"{path}.condition", "Collection condition must be an object")
+			from flexirule.ruleflow.core.condition_contract import validate_condition_node
+			from flexirule.ruleflow.core.condition_payload import detect_canonical_condition_payload
+			is_canonical, cnode = detect_canonical_condition_payload(cond)
+			if not is_canonical or not cnode:
+				_fail("invalid_collection_condition", f"{path}.condition", "Collection condition must be a valid canonical condition")
+			validate_condition_node(cnode)
+
+	def validate_system_context(cfg, path, allowed_scopes, rdepth, fdepth):
+		_check_dict(cfg, path)
+		_exact_keys(cfg, set(), {"sys_token", "sys_role"}, path)
+		tok = cfg.get("sys_token")
+		if tok is not None and tok not in ("user", "role_check"):
+			_fail("invalid_sys_token", f"{path}.sys_token", "sys_token must be 'user' or 'role_check'")
 
 	# date_time.current
 	ValueResolver.register_resolver(
@@ -1808,7 +1997,7 @@ def _register_builtins():
 		output_type="Date",
 		config_schema={"type": "object", "properties": {"token": {"type": "string"}}},
 		permission_policy="no_data_access",
-		validate_config=validate_any,
+		validate_config=validate_date_current,
 		factory=lambda cfg, meta: DateCurrentResolver(cfg.get("token") or "date"),
 		condition_operand_allowed=True,
 	)
@@ -1821,7 +2010,7 @@ def _register_builtins():
 		output_type="Date",
 		config_schema={"type": "object"},
 		permission_policy="no_data_access",
-		validate_config=validate_any,
+		validate_config=validate_date_calculate,
 		factory=lambda cfg, meta: DateFormulaResolver(
 			base_type=cfg.get("base_type"),
 			base_field=cfg.get("base_field"),
@@ -1841,7 +2030,7 @@ def _register_builtins():
 		output_type="Int",
 		config_schema={"type": "object"},
 		permission_policy="no_data_access",
-		validate_config=validate_any,
+		validate_config=validate_date_diff,
 		factory=lambda cfg, meta: DateDiffResolver(
 			diff_start_type=cfg.get("diff_start_type"),
 			diff_start_field=cfg.get("diff_start_field"),
@@ -1862,7 +2051,7 @@ def _register_builtins():
 		output_type="Int",
 		config_schema={"type": "object"},
 		permission_policy="no_data_access",
-		validate_config=validate_any,
+		validate_config=validate_date_extract,
 		factory=lambda cfg, meta: DateExtractResolver(
 			source=cfg.get("source") or cfg.get("base_field"),
 			component=cfg.get("component", "year"),
@@ -1878,7 +2067,7 @@ def _register_builtins():
 		output_type="Date",
 		config_schema={"type": "object"},
 		permission_policy="no_data_access",
-		validate_config=validate_any,
+		validate_config=validate_date_boundary,
 		factory=lambda cfg, meta: DateBoundaryResolver(
 			source=cfg.get("source") or cfg.get("base_field"),
 			boundary_type=cfg.get("boundary_type", "start_of_month"),
@@ -1894,7 +2083,7 @@ def _register_builtins():
 		output_type="Data",
 		config_schema={"type": "object"},
 		permission_policy="no_data_access",
-		validate_config=validate_any,
+		validate_config=validate_format,
 		factory=lambda cfg, meta: FormatResolver(
 			fmt_op="format_date",
 			fmt_field=cfg.get("fmt_field"),
@@ -1911,7 +2100,7 @@ def _register_builtins():
 		output_type="Float",
 		config_schema={"type": "object"},
 		permission_policy="no_data_access",
-		validate_config=validate_any,
+		validate_config=validate_math_formula,
 		factory=lambda cfg, meta: MathFormulaResolver(
 			field_a=cfg.get("field_a"),
 			math_op=cfg.get("math_op", "+"),
@@ -1931,7 +2120,7 @@ def _register_builtins():
 		output_type="Data",
 		config_schema={"type": "object"},
 		permission_policy="no_data_access",
-		validate_config=validate_any,
+		validate_config=validate_text_combine,
 		factory=lambda cfg, meta: StringFormulaResolver(
 			str_op="concat",
 			str_a_type=cfg.get("str_a_type", "field"),
@@ -1950,7 +2139,7 @@ def _register_builtins():
 		output_type="Data",
 		config_schema={"type": "object"},
 		permission_policy="no_data_access",
-		validate_config=validate_any,
+		validate_config=validate_text_case,
 		factory=lambda cfg, meta: StringFormulaResolver(
 			str_op=cfg.get("case_mode", "uppercase"),
 			str_a_type="field",
@@ -1969,7 +2158,7 @@ def _register_builtins():
 		output_type="Data",
 		config_schema={"type": "object"},
 		permission_policy="no_data_access",
-		validate_config=validate_any,
+		validate_config=validate_text_normalize,
 		factory=lambda cfg, meta: NormalizationResolver(
 			norm_field=cfg.get("norm_field"),
 			norm_profile=cfg.get("norm_profile"),
@@ -1987,7 +2176,7 @@ def _register_builtins():
 		output_type="Data",
 		config_schema={"type": "object"},
 		permission_policy="no_data_access",
-		validate_config=validate_any,
+		validate_config=validate_format,
 		factory=lambda cfg, meta: FormatResolver(
 			fmt_op="format",
 			fmt_field=cfg.get("fmt_field"),
@@ -2004,7 +2193,7 @@ def _register_builtins():
 		output_type="Data",
 		config_schema={"type": "object"},
 		permission_policy="authorized_read",
-		validate_config=validate_any,
+		validate_config=validate_lookup_fetch,
 		factory=lambda cfg, meta: LookupResolver(
 			doctype_mode=cfg.get("doctype_mode", "static"),
 			target_doctype=cfg.get("target_doctype") or cfg.get("linked_doctype"),
@@ -2041,7 +2230,7 @@ def _register_builtins():
 			output_type=out_type,
 			config_schema={"type": "object"},
 			permission_policy="no_data_access",
-			validate_config=validate_any,
+			validate_config=validate_collection,
 			factory=_make_col_factory(col_op),
 			condition_operand_allowed=True,
 		)
@@ -2054,7 +2243,7 @@ def _register_builtins():
 		output_type="Data",
 		config_schema={"type": "object"},
 		permission_policy="no_data_access",
-		validate_config=validate_any,
+		validate_config=validate_system_context,
 		factory=lambda cfg, meta: SystemContextResolver(
 			sys_token=cfg.get("sys_token", "user"),
 			sys_role=cfg.get("sys_role", ""),
