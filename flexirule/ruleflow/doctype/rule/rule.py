@@ -1489,9 +1489,12 @@ class Rule(Document):
 				doctype=self.document_type or None,
 			)
 		except ConditionError as exc:
+			error_category = (
+				_("Assignment value operand") if "value" in str(exc.path) else _("Assignment guard")
+			)
 			frappe.throw(
-				_("Action '{0}': Invalid Assignment guard [{1} at {2}]: {3}").format(
-					action.action_label, exc.code, exc.path, exc.message
+				_("Action '{0}': Invalid {1} [{2} at {3}]: {4}").format(
+					action.action_label, error_category, exc.code, exc.path, exc.message
 				)
 			)
 

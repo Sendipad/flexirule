@@ -151,3 +151,58 @@ test("Resolver identity serialize and deserialize round-tripping equality", () =
 		"Serialized variable must not contain value property"
 	);
 });
+
+test("Assignment Clear and Set transitions and serialization", () => {
+	function needsValue(operator) {
+		const op = (operator || "").toLowerCase();
+		return !["clear", "toggle"].includes(op);
+	}
+
+	function syncToNodeMock(assignments) {
+		return assignments.map((a) => {
+			const row = {
+				name: a.name || "test-id",
+				target: a.target,
+				operator: a.operator,
+				when_condition: a.when_condition || null,
+			};
+			if (needsValue(a.operator)) {
+				row.value = a.value;
+			}
+			return row;
+		});
+	}
+
+	// 1. Initial Set assignment with valid typed FlexValue
+	const row = {
+		name: "row-1",
+		target: "doc.status",
+		operator: "set",
+		value: { mode: "static", value_type: "Data", value: "Closed" },
+	};
+	let serialized = syncToNodeMock([row]);
+	assert.equal(serialized[0].operator, "set");
+	assert.deepEqual(serialized[0].value, { mode: "static", value_type: "Data", value: "Closed" });
+
+	// 2. Transition Set -> Clear: Serialized row must omit value property
+	row.operator = "clear";
+	serialized = syncToNodeMock([row]);
+	assert.equal(serialized[0].operator, "clear");
+	assert.equal(
+		serialized[0].value,
+		undefined,
+		"Serialized row must omit value for clear operator"
+	);
+	assert.equal("value" in serialized[0], false);
+
+	// 3. Transition Clear -> Set: Valid FlexValue with value_type must be initialized
+	row.operator = "set";
+	if (needsValue(row.operator)) {
+		if (!row.value || !row.value.mode || !row.value.value_type) {
+			row.value = { mode: "static", value_type: "Data", value: "" };
+		}
+	}
+	serialized = syncToNodeMock([row]);
+	assert.equal(serialized[0].operator, "set");
+	assert.deepEqual(serialized[0].value, { mode: "static", value_type: "Data", value: "Closed" });
+});

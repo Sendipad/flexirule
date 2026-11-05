@@ -341,14 +341,24 @@ class AssignmentHandler(ActionHandler):
 				validate_condition_node(canonical_guard, doctype=doctype)
 				compiled["when_condition_canonical"] = canonical_guard
 
-			# Pre-compile FlexValue value operand if present
-			val_payload = compiled.get("value")
-			if isinstance(val_payload, dict) and "mode" in val_payload:
-				from flexirule.ruleflow.core.value_resolver import ValueResolver
+			# Pre-compile FlexValue value operand only if operator requires a value
+			operator_key = compiled.get("operator", "set")
+			try:
+				from flexirule.ruleflow.core.operators import AssignmentOperatorRegistry
 
-				compiled["_compiled_value"] = ValueResolver.compile_flex_value(
-					val_payload, consumer="assignment"
-				)
+				operator = AssignmentOperatorRegistry.get(operator_key)
+				requires_val = operator.metadata.get("requires_value", True)
+			except Exception:
+				requires_val = True
+
+			if requires_val:
+				val_payload = compiled.get("value")
+				if isinstance(val_payload, dict) and "mode" in val_payload:
+					from flexirule.ruleflow.core.value_resolver import ValueResolver
+
+					compiled["_compiled_value"] = ValueResolver.compile_flex_value(
+						val_payload, consumer="assignment"
+					)
 
 			compiled_rows.append(compiled)
 
