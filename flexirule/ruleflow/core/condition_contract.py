@@ -187,8 +187,37 @@ def _exact_keys(value: Mapping, required: set[str], path: str) -> None:
 		_fail("unknown_key", path, f"Unknown key(s): {', '.join(sorted(unknown))}")
 
 
+def _normalize_contract_type(t: str | None) -> str | None:
+	if t is None:
+		return None
+	if t in {"Data", "Small Text", "Text", "Text Editor", "Code", "Select", "Link", "Dynamic Link"}:
+		return "string"
+	if t in {"Int"}:
+		return "integer"
+	if t in {"Float", "Currency", "Percent"}:
+		return "decimal"
+	if t in {"Check", "boolean"}:
+		return "boolean"
+	if t in {"Date"}:
+		return "date"
+	if t in {"Datetime"}:
+		return "datetime"
+	if t in {"Time", "Duration"}:
+		return "time"
+	if t in {"Table", "Table MultiSelect"}:
+		return "list"
+	if t in {"JSON"}:
+		return "object"
+	return t
+
+
 def _known_type_compatible(actual: str | None, accepted: tuple[str, ...]) -> bool:
-	return actual is None or actual in accepted
+	if actual is None:
+		return True
+	if actual in accepted:
+		return True
+	norm = _normalize_contract_type(actual)
+	return norm in accepted
 
 
 def _validate_membership_items(left_type: str | None, right_value: Any, path: str) -> None:
@@ -221,6 +250,8 @@ def _validate_membership_items(left_type: str | None, right_value: Any, path: st
 def _types_compatible(left_type: str | None, right_type: str | None, operator_id: str, path: str) -> None:
 	if left_type is None or right_type is None:
 		return
+	left_type = _normalize_contract_type(left_type)
+	right_type = _normalize_contract_type(right_type)
 	if operator_id in {"eq", "ne"}:
 		if left_type == "null" or right_type == "null":
 			return

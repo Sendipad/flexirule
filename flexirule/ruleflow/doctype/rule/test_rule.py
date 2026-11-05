@@ -342,7 +342,7 @@ class TestRule(FrappeTestCase):
 							{
 								"target": "doc.first_name",
 								"operator": "set",
-								"value": {"mode": "static", "value": ""},
+								"value": {"mode": "static", "value_type": "Data", "value": ""},
 								"value_source": "literal",
 								"value_literal": "",
 							}

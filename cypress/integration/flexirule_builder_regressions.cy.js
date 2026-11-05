@@ -258,7 +258,7 @@ describe("FlexiRule builder regression coverage", () => {
 		);
 		cy.intercept("POST", "**/api/method/frappe.client.save").as("saveRule");
 		cy.contains("button", "Save Rule", { timeout: 15000 }).click({ force: true });
-		cy.wait("@validateRule").then(({ request }) => {
+		cy.wait("@validateRule").then(({ request, response }) => {
 			const requestBody = parseRequestBody(request.body);
 			const validationDoc = requestBody.args?.doc ?? requestBody.doc;
 			const doc =
@@ -270,6 +270,16 @@ describe("FlexiRule builder regression coverage", () => {
 			expect(assignmentAction, "nested body Assignment is included in validation").to.exist;
 			const rows = actionConfig(assignmentAction);
 			expect(rows, "nested body Assignment rows").to.be.an("array").and.not.empty;
+
+			expect(rows[0].operator).to.eq("clear");
+			expect(rows[0]).not.to.have.property("value");
+
+			const result = response?.body?.message ?? response?.body;
+			expect(
+				result?.valid,
+				`Backend validation errors: ${(result?.errors || []).join("; ")}`
+			).to.eq(true);
+
 			["pythonExpression", "when_expression", "when"].forEach((key) => {
 				expect(
 					rows[0],
@@ -277,7 +287,7 @@ describe("FlexiRule builder regression coverage", () => {
 				).not.to.have.property(key);
 			});
 		});
-		cy.wait("@saveRule");
+		cy.wait("@saveRule").its("response.statusCode").should("eq", 200);
 
 		persistedRule().then((doc) => {
 			const loops = doc.actions.filter((action) => action.action_type === "Loop");
