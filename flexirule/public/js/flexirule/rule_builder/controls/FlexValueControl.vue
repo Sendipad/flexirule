@@ -636,6 +636,8 @@ const ResolverToken = Node.create({
 		return {
 			expression: { default: "" },
 			label: { default: "" },
+			family: { default: "" },
+			operation: { default: "" },
 			config: { default: null },
 			resolver: { default: "" }, // legacy compat
 		};
@@ -656,6 +658,8 @@ const ResolverToken = Node.create({
 				expression: dom.getAttribute("data-expression") || "",
 				resolver: dom.getAttribute("data-resolver") || "",
 				label: dom.getAttribute("data-label") || "",
+				family: dom.getAttribute("data-family") || "",
+				operation: dom.getAttribute("data-operation") || "",
 				config: config,
 			};
 		};
@@ -668,12 +672,13 @@ const ResolverToken = Node.create({
 	},
 
 	renderHTML({ node, HTMLAttributes }) {
-		const kind = node.attrs.config?.kind || "resolver";
 		return [
 			"span",
 			mergeAttributes(HTMLAttributes, {
 				"data-token-type": "resolver",
 				"data-config": JSON.stringify(node.attrs.config),
+				"data-family": node.attrs.family || "",
+				"data-operation": node.attrs.operation || "",
 				"data-expression": node.attrs.expression,
 				"data-label": node.attrs.label,
 			}),
@@ -948,8 +953,9 @@ const isValid = computed(() => {
 		if (typeof struct.value === "string") return struct.value.trim() !== "";
 		return struct.value !== undefined && struct.value !== null && struct.value !== "";
 	}
-	if (struct.mode === "variable") return !!struct.value;
+	if (struct.mode === "variable") return !!(struct.path?.scope && struct.path?.segments?.length);
 	if (struct.mode === "resolver") return !!struct.value;
+	if (struct.mode === "template") return Array.isArray(struct.segments) && struct.segments.length > 0;
 	if (struct.mode === "expression") return Array.isArray(struct.value) && struct.value.length > 0;
 	return true;
 });
@@ -972,53 +978,99 @@ function coerceStructuredValue(val) {
 	if (val && typeof val === "object" && val.mode) {
 		if (["formula", "format", "normalize", "normalization"].includes(val.mode)) {
 			const config = { ...(val.config || {}) };
-			if (!config.kind) {
-				if (val.mode === "formula") config.kind = "math_formula";
-				if (["format", "normalize", "normalization"].includes(val.mode)) {
-					config.kind = "text";
+			let fam = val.family || config.family;
+			let op = val.operation || config.operation;
+
+			if (!fam || !op) {
+				if (val.mode === "formula") {
+					if (config.kind === "date_time" || config.base_type || config.offset_unit) {
+						fam = "date_time";
+						op = "calculate";
+					} else if (config.str_op || config.kind === "text") {
+						fam = "text";
+						op = "combine";
+					} else {
+						fam = "math";
+						op = "formula";
+					}
+				} else if (["normalize", "normalization"].includes(val.mode)) {
+					fam = "text";
+					op = "normalize";
+				} else if (val.mode === "format") {
+					if (config.fmt_op === "format_date" || config.kind === "date_time") {
+						fam = "date_time";
+						op = "format";
+					} else {
+						fam = "text";
+						op = "format";
+					}
 				}
 			}
+
 			return {
 				mode: "resolver",
-				family: config.family || config.kind || "text",
-				operation: config.operation || "combine",
+				family: fam || "text",
+				operation: op || "combine",
 				value_type: val.value_type || currentFieldType,
-				config,
+				config: config.config && typeof config.config === "object" ? config.config : config,
 			};
 		}
 		if (val.mode === "variable") {
 			if (val.path && typeof val.path === "object") {
+				const scope = val.path.scope || "doc";
+				const segments = Array.isArray(val.path.segments) ? [...val.path.segments] : [];
 				return {
 					mode: "variable",
-					path: val.path,
-					value:
-						val.value ||
-						(val.path.segments
-							? `${val.path.scope}.${val.path.segments.join(".")}`
-							: ""),
+					path: { scope, segments },
 				};
 			}
-			const pathStr = String(val.value || val.path || "");
+			const pathStr = String(val.path || val.value || "");
 			const parts = pathStr.split(".");
 			const scope = parts[0] || "doc";
 			const segments = parts.slice(1);
 			return {
 				mode: "variable",
 				path: { scope, segments },
-				value: pathStr,
 			};
 		}
 		if (val.mode === "resolver") {
-			const config = val.config || {};
-			const family = val.family || config.family || config.kind || "text";
-			const operation = val.operation || config.operation || "combine";
+			const rawConfig = val.config || {};
+			let family = val.family || rawConfig.family;
+			let operation = val.operation || rawConfig.operation;
+			let config = rawConfig;
+
+			if (!family) {
+				if (rawConfig.kind === "math_formula") {
+					family = "math";
+					operation = operation || "formula";
+				} else if (rawConfig.kind === "collection" || rawConfig.kind === "child_aggregation") {
+					family = "collection";
+					operation = operation || rawConfig.operation || rawConfig.agg_op || "any";
+				} else if (rawConfig.kind === "lookup" || rawConfig.kind === "fetch") {
+					family = "lookup";
+					operation = operation || "fetch";
+				} else if (rawConfig.kind === "system_context") {
+					family = "system_context";
+					operation = operation || "get";
+				} else if (rawConfig.kind) {
+					family = rawConfig.kind;
+				}
+			}
+
+			if (config.config && typeof config.config === "object") {
+				config = config.config;
+			}
+
 			return {
 				mode: "resolver",
-				family,
-				operation,
+				family: family || "text",
+				operation: operation || "combine",
 				value_type: val.value_type || currentFieldType,
 				config,
 			};
+		}
+		if (val.mode === "template") {
+			return { mode: "template", segments: Array.isArray(val.segments) ? val.segments : [] };
 		}
 		if (val.mode === "expression") {
 			return { mode: "expression", value: Array.isArray(val.value) ? val.value : [] };
@@ -1066,37 +1118,62 @@ function serialize() {
 			return {
 				mode: "variable",
 				path: { scope, segments },
-				value: rawPath,
 			};
 		}
 		if (typeName === "resolverToken") {
 			const config = node.attrs.config || {};
-			const family = config.family || config.kind || "text";
-			const operation = config.operation || "combine";
+			const family = node.attrs.family || config.family || (config.kind === "math_formula" ? "math" : config.kind) || "text";
+			const operation = node.attrs.operation || config.operation || (family === "math" ? "formula" : (config.kind === "lookup" ? "fetch" : "combine"));
+			const innerConfig = config.config && typeof config.config === "object" ? config.config : config;
 			return {
 				mode: "resolver",
 				family,
 				operation,
 				value_type: currentFieldType,
-				config,
+				config: innerConfig,
 			};
 		}
 	}
 
-	// Mixed content or multiple tokens -> expression mode
-	const tokens = content.map((item) => {
-		if (item.type === "text") return { type: "text", value: item.text };
-
-		// For mixed mode, the expression MUST be wrapped in {} if it was a builder code
-		let expr = item.attrs.expression || item.attrs.path || "";
-		if (item.type === "variableToken") expr = `{${expr}}`;
-		// if expression already has {}, it's likely correct.
-		// Builder output from compileToCode already includes {}.
-
-		return { type: item.type, attrs: { ...item.attrs, expression: expr } };
+	// Mixed content or multiple tokens -> canonical template mode with structured segments
+	const segments = content.map((item) => {
+		const typeName = item.type?.name || item.type;
+		if (typeName === "text") {
+			return { type: "text", value: item.text || "" };
+		}
+		if (typeName === "variableToken") {
+			const rawPath = String(item.attrs.path || "");
+			const parts = rawPath.split(".");
+			const scope = parts[0] || "doc";
+			const segs = parts.slice(1);
+			return {
+				type: "value",
+				value: {
+					mode: "variable",
+					path: { scope, segments: segs },
+				},
+			};
+		}
+		if (typeName === "resolverToken") {
+			const cfg = item.attrs.config || {};
+			const fam = item.attrs.family || cfg.family || (cfg.kind === "math_formula" ? "math" : cfg.kind) || "text";
+			const op = item.attrs.operation || cfg.operation || (fam === "math" ? "formula" : (cfg.kind === "lookup" ? "fetch" : "combine"));
+			const innerCfg = cfg.config && typeof cfg.config === "object" ? cfg.config : cfg;
+			return {
+				type: "value",
+				value: {
+					mode: "resolver",
+					family: fam,
+					operation: op,
+					value_type: currentFieldType,
+					config: innerCfg,
+				},
+			};
+		}
+		return { type: "text", value: "" };
 	});
 
-	return { mode: "expression", value: tokens };
+	return { mode: "template", segments };
 }
 
 function escapeAttr(str) {
@@ -1119,17 +1196,39 @@ function deserialize(val) {
 	if (!val) return "";
 	const structured = coerceStructuredValue(val);
 
-	if (structured.mode === "variable")
+	if (structured.mode === "variable") {
+		const displayPath =
+			structured.path?.scope && structured.path?.segments?.length
+				? `${structured.path.scope}.${structured.path.segments.join(".")}`
+				: String(structured.path || "");
 		return `<span data-token-type="variable" data-path="${escapeAttr(
-			structured.value
+			displayPath
 		)}" data-label=""></span>`;
+	}
 
 	if (structured.mode === "resolver") {
-		return `<span data-token-type="resolver" data-expression="${escapeAttr(
-			structured.value
+		return `<span data-token-type="resolver" data-family="${escapeAttr(
+			structured.family || ""
+		)}" data-operation="${escapeAttr(
+			structured.operation || ""
+		)}" data-expression="${escapeAttr(
+			structured.value || ""
 		)}" data-label="" data-config='${escapeAttr(
 			JSON.stringify(structured.config || null)
 		)}'></span>`;
+	}
+
+	if (structured.mode === "template" && Array.isArray(structured.segments)) {
+		return structured.segments
+			.map((segment) => {
+				if (!segment || typeof segment !== "object") return "";
+				if (segment.type === "text") return segment.value || "";
+				if (segment.type === "value" && segment.value) {
+					return deserialize(segment.value);
+				}
+				return "";
+			})
+			.join("");
 	}
 
 	if (structured.mode === "expression" && Array.isArray(structured.value)) {
