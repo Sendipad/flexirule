@@ -258,7 +258,7 @@ describe("FlexiRule builder regression coverage", () => {
 		);
 		cy.intercept("POST", "**/api/method/frappe.client.save").as("saveRule");
 		cy.contains("button", "Save Rule", { timeout: 15000 }).click({ force: true });
-		cy.wait("@validateRule", { timeout: 30000 }).then(({ request }) => {
+		cy.wait("@validateRule").then(({ request }) => {
 			const requestBody = parseRequestBody(request.body);
 			const validationDoc = requestBody.args?.doc ?? requestBody.doc;
 			const doc =
@@ -277,7 +277,7 @@ describe("FlexiRule builder regression coverage", () => {
 				).not.to.have.property(key);
 			});
 		});
-		cy.wait("@saveRule", { timeout: 30000 });
+		cy.wait("@saveRule");
 
 		persistedRule().then((doc) => {
 			const loops = doc.actions.filter((action) => action.action_type === "Loop");

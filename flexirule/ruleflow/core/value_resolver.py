@@ -1849,7 +1849,7 @@ def _register_builtins():
 		_exact_keys(
 			cfg,
 			set(),
-			{"base_type", "base_field", "offset_value", "offset_unit", "offset_sign", "source"},
+			{"base_type", "base_field", "offset_value", "offset_unit", "offset_sign", "source", "kind"},
 			path,
 		)
 		if "base_type" in cfg and cfg["base_type"] not in {
@@ -2099,7 +2099,10 @@ def _register_builtins():
 	# math.formula
 	def _val_math_formula(cfg, path, allowed_scopes, r_depth, fv_depth):
 		_exact_keys(
-			cfg, set(), {"field_a", "math_op", "field_b_type", "field_b", "constant_b", "precision"}, path
+			cfg,
+			set(),
+			{"field_a", "math_op", "field_b_type", "field_b", "constant_b", "precision", "kind"},
+			path,
 		)
 		if "math_op" in cfg and cfg["math_op"] not in {"+", "-", "*", "/", None}:
 			_fail("invalid_math_op", f"{path}.math_op", f"Invalid math_op: {cfg['math_op']}")
@@ -2134,7 +2137,7 @@ def _register_builtins():
 
 	# text.combine
 	def _val_text_combine(cfg, path, allowed_scopes, r_depth, fv_depth):
-		_exact_keys(cfg, set(), {"str_op", "str_a_type", "str_a", "str_b_type", "str_b"}, path)
+		_exact_keys(cfg, set(), {"str_op", "str_a_type", "str_a", "str_b_type", "str_b", "kind"}, path)
 		if cfg.get("str_a_type") == "field" and cfg.get("str_a"):
 			_validate_path_str(str(cfg["str_a"]), "str_a", path, allowed_scopes)
 		if cfg.get("str_b_type") == "field" and cfg.get("str_b"):
@@ -2257,6 +2260,7 @@ def _register_builtins():
 				"link_field",
 				"fetch_field",
 				"record_source_type",
+				"kind",
 			},
 			path,
 		)
@@ -2347,7 +2351,7 @@ def _register_builtins():
 
 	# system_context.get
 	def _val_system_context(cfg, path, allowed_scopes, r_depth, fv_depth):
-		_exact_keys(cfg, set(), {"sys_token", "sys_role"}, path)
+		_exact_keys(cfg, set(), {"sys_token", "sys_role", "kind"}, path)
 		tok = cfg.get("sys_token", "user")
 		if tok not in {"user", "role_check", None}:
 			_fail("invalid_sys_token", f"{path}.sys_token", f"Invalid sys_token: {tok}")
