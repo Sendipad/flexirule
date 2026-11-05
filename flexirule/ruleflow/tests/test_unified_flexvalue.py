@@ -275,3 +275,141 @@ class TestUnifiedFlexValueArchitecture(FrappeTestCase):
 		self.assertIn("Int", FRAPPE_VALUE_TYPES)
 		self.assertIn("Float", FRAPPE_VALUE_TYPES)
 		self.assertIn("Table", FRAPPE_VALUE_TYPES)
+
+	def test_duration_representation_as_integer_seconds(self):
+		# Duration represents integer seconds, excluding booleans and strings
+		compiled = ValueResolver.compile_flex_value(
+			{"mode": "static", "value_type": "Duration", "value": 3600}
+		)
+		self.assertIsInstance(compiled, StaticResolver)
+		self.assertEqual(compiled.resolve({}), 3600)
+
+		# Reject boolean
+		with self.assertRaises(ConditionValidationError):
+			ValueResolver.compile_flex_value({"mode": "static", "value_type": "Duration", "value": True})
+
+		# Reject string ISO time
+		with self.assertRaises(ConditionValidationError):
+			ValueResolver.compile_flex_value(
+				{"mode": "static", "value_type": "Duration", "value": "01:00:00"}
+			)
+
+	def test_check_field_strictly_accepts_integer_zero_or_one(self):
+		# Integer 0 and 1 are accepted
+		compiled_0 = ValueResolver.compile_flex_value({"mode": "static", "value_type": "Check", "value": 0})
+		self.assertEqual(compiled_0.resolve({}), 0)
+		compiled_1 = ValueResolver.compile_flex_value({"mode": "static", "value_type": "Check", "value": 1})
+		self.assertEqual(compiled_1.resolve({}), 1)
+
+		# Booleans True and False must be rejected
+		with self.assertRaises(ConditionValidationError):
+			ValueResolver.compile_flex_value({"mode": "static", "value_type": "Check", "value": True})
+		with self.assertRaises(ConditionValidationError):
+			ValueResolver.compile_flex_value({"mode": "static", "value_type": "Check", "value": False})
+
+	def test_date_time_dynamic_resolvers_in_conditions(self):
+		import frappe
+
+		from flexirule.ruleflow.core.condition_evaluator import evaluate_condition
+
+		# 1. date_time.current with date token
+		cond_date = {
+			"type": "comparison",
+			"operator": "eq",
+			"left": {
+				"mode": "resolver",
+				"family": "date_time",
+				"operation": "current",
+				"config": {"token": "date"},
+			},
+			"right": {"mode": "static", "value_type": "Date", "value": frappe.utils.nowdate()},
+		}
+		self.assertTrue(evaluate_condition(cond_date, {}))
+
+		# 2. date_time.current with time token
+		cond_time = {
+			"type": "comparison",
+			"operator": "ne",
+			"left": {
+				"mode": "resolver",
+				"family": "date_time",
+				"operation": "current",
+				"config": {"token": "time"},
+			},
+			"right": {"mode": "static", "value_type": "Time", "value": "00:00:00"},
+		}
+		self.assertTrue(evaluate_condition(cond_time, {}))
+
+		# 3. system_context.get with role_check returns boolean
+		cond_role = {
+			"type": "comparison",
+			"operator": "eq",
+			"left": {
+				"mode": "resolver",
+				"family": "system_context",
+				"operation": "get",
+				"config": {"sys_token": "role_check", "sys_role": "NonExistentRoleXYZ"},
+			},
+			"right": {"mode": "static", "value_type": "boolean", "value": False},
+		}
+		self.assertTrue(evaluate_condition(cond_role, {}))
+
+	def test_collection_resolver_last_and_fail_closed_condition(self):
+		from flexirule.ruleflow.core.value_resolver import CollectionResolver
+
+		items = [
+			{"item_code": "A", "qty": 1},
+			{"item_code": "B", "qty": 2},
+			{"item_code": "C", "qty": 3},
+		]
+		col_last = CollectionResolver(source="doc.items", operation="last")
+		res = col_last.resolve({"doc": {"items": items}})
+		self.assertEqual(res, {"item_code": "C", "qty": 3})
+
+		# Strictly reject non-canonical conditions
+		with self.assertRaises(ConditionValidationError):
+			invalid_str_cond: Any = "items.qty > 0"
+			CollectionResolver(source="doc.items", operation="any", condition=invalid_str_cond)
+
+		with self.assertRaises(ConditionValidationError):
+			CollectionResolver(
+				source="doc.items",
+				operation="any",
+				condition={"fieldname": "qty", "operator": ">", "value": 0},
+			)
+
+	def test_resolver_registration_invariants_and_unification(self):
+		import flexirule.ruleflow.core.flexvalue_contract as fvc
+
+		# Duplicate registration rejection without allow_override
+		with self.assertRaises(ValueError):
+			ValueResolver.register_resolver(
+				"date_time",
+				"current",
+				label="Duplicate Date Current",
+				output_type="Date",
+				config_schema={},
+				permission_policy="no_data_access",
+				validate_config=lambda *a: None,
+				factory=None,  # type: ignore[arg-type]
+			)
+
+		# Insecure condition operand permission policy rejection
+		with self.assertRaises(ValueError):
+			ValueResolver.register_resolver(
+				"test_insecure",
+				"read_db",
+				label="Insecure",
+				output_type="Data",
+				config_schema={},
+				permission_policy="authorized_read",
+				validate_config=lambda *a: None,
+				factory=None,  # type: ignore[arg-type]
+				condition_operand_allowed=True,
+			)
+
+		# Fingerprints unified
+		self.assertEqual(
+			ValueResolver.registry_fingerprint(),
+			fvc.resolver_registry_fingerprint(),
+		)

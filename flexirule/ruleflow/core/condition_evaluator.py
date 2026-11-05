@@ -661,8 +661,14 @@ def _evaluate_value(plan: tuple, context: dict) -> Any:
 			else:
 				resolved = entry["resolve"](_thaw_json(frozen_config), context)
 			actual_type = _runtime_value_type(resolved, path)
-			declared_out = entry["output_type"]
+			raw_cfg = _thaw_json(frozen_config)
+			if "resolve_output_type" in entry and callable(entry["resolve_output_type"]):
+				declared_out = entry["resolve_output_type"](raw_cfg)
+			else:
+				declared_out = entry["output_type"]
+
 			if declared_out in {
+				"string",
 				"Data",
 				"Small Text",
 				"Text",
@@ -671,20 +677,40 @@ def _evaluate_value(plan: tuple, context: dict) -> Any:
 				"Select",
 				"Link",
 				"Dynamic Link",
+				"Autocomplete",
+				"Attach",
+				"Attach Image",
+				"Barcode",
+				"Color",
+				"Geolocation",
+				"HTML Editor",
+				"Icon",
+				"Long Text",
+				"Markdown Editor",
+				"Password",
+				"Phone",
+				"Read Only",
+				"Signature",
 			}:
 				expected_out = "string"
-			elif declared_out in {"Int", "Check"}:
-				expected_out = (
-					"integer"
-					if actual_type == "integer"
-					else ("boolean" if declared_out == "Check" else "integer")
-				)
-			elif declared_out in {"Float", "Currency", "Percent"}:
+			elif declared_out in {"integer", "Int", "Rating", "Duration"}:
+				expected_out = "integer"
+			elif declared_out in {"boolean", "Check"}:
+				expected_out = "boolean" if actual_type == "boolean" else "integer"
+			elif declared_out in {"decimal", "Float", "Currency", "Percent"}:
 				expected_out = "decimal"
-			elif declared_out in {"Table", "Table MultiSelect"}:
+			elif declared_out in {"date", "Date"}:
+				expected_out = "date"
+			elif declared_out in {"datetime", "Datetime"}:
+				expected_out = "datetime"
+			elif declared_out in {"time", "Time"}:
+				expected_out = "time"
+			elif declared_out in {"list", "Table", "Table MultiSelect"}:
 				expected_out = "list"
-			elif declared_out == "JSON":
+			elif declared_out in {"object", "JSON"}:
 				expected_out = actual_type
+			elif declared_out == "null":
+				expected_out = "null"
 			else:
 				expected_out = declared_out
 
@@ -818,6 +844,10 @@ def _coerce_field_value(value: Any, fieldtype: str | None, path: str) -> Any:
 			if isinstance(value, time):
 				return value
 			return time.fromisoformat(str(value))
+		if fieldtype == "Duration":
+			if isinstance(value, bool):
+				raise ValueError
+			return int(value)
 	except (ValueError, TypeError, InvalidOperation) as exc:
 		raise ConditionEvaluationError(
 			"invalid_field_value", path, "Field value cannot be converted to its declared type"

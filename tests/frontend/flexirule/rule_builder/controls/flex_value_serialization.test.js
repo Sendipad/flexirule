@@ -1,5 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import {
+	escapeAttr,
+	escapeHtml,
+	coerceStructuredValue,
+	deserializeFlexValue,
+	serializeContentNodes,
+} from "../../../../../flexirule/public/js/flexirule/rule_builder/controls/flex_value_serializer.js";
 
 test("FlexValue canonical serialization contracts", () => {
 	// Static mode with Frappe-native fieldtypes
@@ -65,56 +72,7 @@ test("FlexValue canonical serialization contracts", () => {
 	});
 });
 
-test("Resolver identity serialize and deserialize round-tripping equality", () => {
-	function escapeAttr(str) {
-		return String(str || "")
-			.replace(/&/g, "&amp;")
-			.replace(/"/g, "&quot;")
-			.replace(/'/g, "&#39;")
-			.replace(/</g, "&lt;")
-			.replace(/>/g, "&gt;");
-	}
-
-	function deserializeMock(val) {
-		if (val.mode === "variable") {
-			const displayPath = `${val.path.scope}.${val.path.segments.join(".")}`;
-			return `<span data-token-type="variable" data-path="${escapeAttr(
-				displayPath
-			)}"></span>`;
-		}
-		if (val.mode === "resolver") {
-			return `<span data-token-type="resolver" data-family="${escapeAttr(
-				val.family
-			)}" data-operation="${escapeAttr(val.operation)}" data-config='${escapeAttr(
-				JSON.stringify(val.config)
-			)}'></span>`;
-		}
-		if (val.mode === "template") {
-			return val.segments
-				.map((seg) => (seg.type === "text" ? seg.value : deserializeMock(seg.value)))
-				.join("");
-		}
-		return "";
-	}
-
-	function serializeMockToken(attrs) {
-		if (attrs.type === "variable") {
-			const parts = attrs.path.split(".");
-			return {
-				mode: "variable",
-				path: { scope: parts[0], segments: parts.slice(1) },
-			};
-		}
-		if (attrs.type === "resolver") {
-			return {
-				mode: "resolver",
-				family: attrs.family,
-				operation: attrs.operation,
-				config: attrs.config,
-			};
-		}
-	}
-
+test("Production flex_value_serializer deserialize round-tripping & HTML escaping", () => {
 	// 1. Resolver round-tripping
 	const resolverOriginal = {
 		mode: "resolver",
@@ -122,34 +80,105 @@ test("Resolver identity serialize and deserialize round-tripping equality", () =
 		operation: "formula",
 		config: { field_a: "doc.qty", math_op: "*", constant_b: 2 },
 	};
-	const html = deserializeMock(resolverOriginal);
+	const html = deserializeFlexValue(resolverOriginal);
+	assert.ok(html.includes('data-token-type="resolver"'));
 	assert.ok(html.includes('data-family="math"'));
 	assert.ok(html.includes('data-operation="formula"'));
 
 	const tokenAttrs = {
-		type: "resolver",
-		family: "math",
-		operation: "formula",
-		config: { field_a: "doc.qty", math_op: "*", constant_b: 2 },
+		attrs: {
+			family: "math",
+			operation: "formula",
+			config: { field_a: "doc.qty", math_op: "*", constant_b: 2 },
+		},
+		type: { name: "resolverToken" },
 	};
-	const reserialized = serializeMockToken(tokenAttrs);
-	assert.deepEqual(reserialized, resolverOriginal);
+	const reserialized = serializeContentNodes([tokenAttrs]);
+	assert.deepEqual(reserialized.config, resolverOriginal.config);
+	assert.equal(reserialized.family, resolverOriginal.family);
+	assert.equal(reserialized.operation, resolverOriginal.operation);
+	assert.equal(reserialized.mode, "resolver");
 
 	// 2. Variable round-tripping
 	const varOriginal = {
 		mode: "variable",
 		path: { scope: "doc", segments: ["customer", "name"] },
 	};
-	const varHtml = deserializeMock(varOriginal);
+	const varHtml = deserializeFlexValue(varOriginal);
+	assert.ok(varHtml.includes('data-token-type="variable"'));
 	assert.ok(varHtml.includes('data-path="doc.customer.name"'));
-	const varAttrs = { type: "variable", path: "doc.customer.name" };
-	const varReserialized = serializeMockToken(varAttrs);
+
+	const varToken = {
+		type: { name: "variableToken" },
+		attrs: { path: "doc.customer.name" },
+	};
+	const varReserialized = serializeContentNodes([varToken]);
 	assert.deepEqual(varReserialized, varOriginal);
 	assert.equal(
 		varReserialized.value,
 		undefined,
 		"Serialized variable must not contain value property"
 	);
+
+	// 3. Template HTML escaping (P2 finding prevention)
+	const maliciousTemplate = {
+		mode: "template",
+		segments: [
+			{ type: "text", value: "Use <script>alert(1)</script> & <b>priority</b>" },
+			{
+				type: "value",
+				value: {
+					mode: "variable",
+					path: { scope: "doc", segments: ["customer"] },
+				},
+			},
+		],
+	};
+	const deserializedHtml = deserializeFlexValue(maliciousTemplate);
+	assert.ok(!deserializedHtml.includes("<script>"));
+	assert.ok(deserializedHtml.includes("&lt;script&gt;"));
+	assert.ok(deserializedHtml.includes("&amp;"));
+	assert.ok(deserializedHtml.includes("&lt;b&gt;priority&lt;/b&gt;"));
+});
+
+test("Required resolver payload structural validation", () => {
+	function isStructValid(struct) {
+		if (!struct || typeof struct !== "object") return false;
+		if (struct.mode === "variable")
+			return !!(struct.path?.scope && struct.path?.segments?.length);
+		if (struct.mode === "resolver") {
+			return !!(
+				struct.family &&
+				struct.operation &&
+				struct.config &&
+				typeof struct.config === "object"
+			);
+		}
+		if (struct.mode === "template")
+			return Array.isArray(struct.segments) && struct.segments.length > 0;
+		return true;
+	}
+
+	const canonicalResolver = {
+		mode: "resolver",
+		family: "math",
+		operation: "formula",
+		value_type: "Float",
+		config: {
+			field_a: "doc.qty",
+			math_op: "*",
+			constant_b: 2,
+		},
+	};
+	assert.equal(isStructValid(canonicalResolver), true);
+
+	const incompleteResolver = {
+		mode: "resolver",
+		family: "",
+		operation: "formula",
+		config: {},
+	};
+	assert.equal(isStructValid(incompleteResolver), false);
 });
 
 test("Assignment Clear and Set transitions and serialization", () => {

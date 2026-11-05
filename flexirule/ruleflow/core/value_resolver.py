@@ -1,12 +1,13 @@
 # Copyright (c) 2026, FlexiRule and contributors
 # For license information, please see license.txt
 
+import datetime
 import hashlib
 import json
 import math
 import re
 from collections.abc import Callable, Mapping
-from datetime import date, datetime, time
+from datetime import date, time
 from decimal import Decimal, InvalidOperation
 from typing import Any, ClassVar
 
@@ -31,12 +32,18 @@ from flexirule.ruleflow.core.flexvalue_contract import (
 	_validate_json_value,
 	_validate_path,
 	format_template_value,
+	invalidate_resolver_registry_fingerprint,
 	parse_static_value,
 	resolve_variable,
+	resolver_contract_dto,
+	resolver_registry_fingerprint,
 	safe_read_segment,
 )
 from flexirule.ruleflow.core.flexvalue_contract import (
 	MAX_COLLECTION_ROWS as CONDITION_MAX_COLLECTION_ROWS,
+)
+from flexirule.ruleflow.core.flexvalue_contract import (
+	validate_flex_value as canonical_validate_flex_value,
 )
 from flexirule.ruleflow.utils.field_resolver import FieldResolver
 
@@ -200,8 +207,6 @@ class DateFormulaResolver(CompiledResolver):
 		if offset == 0 or not self.offset_unit:
 			return base_date
 
-		import datetime
-
 		unit = self.offset_unit.lower()
 
 		if isinstance(base_date, datetime.time):
@@ -348,8 +353,6 @@ class DateExtractResolver(CompiledResolver):
 		if val is None or val == "":
 			return None
 
-		import datetime
-
 		if isinstance(val, str):
 			val_str = val.strip()
 			if " " in val_str or "T" in val_str:
@@ -398,8 +401,6 @@ class DateBoundaryResolver(CompiledResolver):
 		val = self.source_compiled.resolve(context)
 		if val is None or val == "":
 			return None
-
-		import datetime
 
 		is_datetime = False
 		is_time_only = False
@@ -524,14 +525,14 @@ class CollectionResolver(CompiledResolver):
 			from flexirule.ruleflow.core.condition_payload import detect_canonical_condition_payload
 
 			is_canonical, canonical_node = detect_canonical_condition_payload(self.condition)
-			if is_canonical:
-				validate_condition_node(canonical_node)
-				self._canonical_condition = canonical_node
-			else:
-				from flexirule.ruleflow.core.evaluator import ConditionEvaluator
-
-				cond_list = self.condition if isinstance(self.condition, list) else [self.condition]
-				self._compiled_evaluator = ConditionEvaluator(json.dumps(cond_list))
+			if not is_canonical or canonical_node is None:
+				raise ConditionValidationError(
+					"invalid_collection_condition",
+					"$.condition",
+					"Collection condition must be a valid canonical condition AST structure",
+				)
+			validate_condition_node(canonical_node)
+			self._canonical_condition = canonical_node
 
 	def _resolve_child_doctype(self, parent_doctype: str | None) -> str | None:
 		if not parent_doctype or not self.source:
@@ -689,14 +690,12 @@ class CollectionResolver(CompiledResolver):
 					doctype=condition_doctype,
 					_evaluation_budget=condition_evaluation_budget,
 				)
-			if not self._compiled_evaluator:
-				return True
-			return self._compiled_evaluator.evaluate(doc, row=r)
+			return True
 
 		op = self.operation
 
 		if op == "count":
-			if self._canonical_condition is None and not self._compiled_evaluator:
+			if self._canonical_condition is None:
 				return len(rows)
 			return sum(1 for r in rows if _matches(r))
 
@@ -714,17 +713,23 @@ class CollectionResolver(CompiledResolver):
 				return sum(values) / len(values) if values else 0.0
 
 		if op == "any":
-			if self._canonical_condition is None and not self._compiled_evaluator:
+			if self._canonical_condition is None:
 				return len(rows) > 0
 			return any(_matches(r) for r in rows)
 
 		if op == "all":
-			if self._canonical_condition is None and not self._compiled_evaluator:
+			if self._canonical_condition is None:
 				return True
 			return all(_matches(r) for r in rows)
 
 		if op == "first":
 			for r in rows:
+				if _matches(r):
+					return r
+			return None
+
+		if op == "last":
+			for r in reversed(rows):
 				if _matches(r):
 					return r
 			return None
@@ -1051,7 +1056,6 @@ class ValueResolver:
 	"""
 
 	REGISTRY = CONDITION_RESOLVER_REGISTRY
-	_REGISTRY_FINGERPRINT_CACHE: ClassVar[str | None] = None
 
 	@classmethod
 	def register_resolver(
@@ -1068,6 +1072,8 @@ class ValueResolver:
 		supported_consumers: set[str] | None = None,
 		condition_operand_allowed: bool = False,
 		required_capability: str = "condition_operand",
+		resolve_output_type: Callable[[dict], str] | None = None,
+		allow_override: bool = False,
 	):
 		"""Register a reviewed resolver operation."""
 		if (
@@ -1085,6 +1091,7 @@ class ValueResolver:
 			or not isinstance(condition_operand_allowed, bool)
 			or not isinstance(required_capability, str)
 			or not required_capability
+			or (resolve_output_type is not None and not callable(resolve_output_type))
 		):
 			raise ValueError("Invalid resolver registration")
 		try:
@@ -1095,9 +1102,16 @@ class ValueResolver:
 			raise ValueError("Resolver config_schema must be JSON-serializable") from exc
 		if not callable(validate_config) or not callable(factory):
 			raise ValueError("Resolver validator and factory must be callable")
+		if condition_operand_allowed and permission_policy != "no_data_access":
+			raise ValueError(
+				"Condition operands may only enable resolvers with permission_policy='no_data_access'"
+			)
 
 		key = (family, operation)
-		cls.REGISTRY[key] = {
+		if key in cls.REGISTRY and not allow_override:
+			raise ValueError(f"Resolver already registered: {family}.{operation}")
+
+		entry_data = {
 			"family": family,
 			"operation": operation,
 			"label": label,
@@ -1111,39 +1125,21 @@ class ValueResolver:
 			"factory": factory,
 			"resolve": lambda cfg, ctx: factory(cfg, None).resolve(ctx),
 		}
-		cls._REGISTRY_FINGERPRINT_CACHE = None
+		if resolve_output_type is not None:
+			entry_data["resolve_output_type"] = resolve_output_type
+
+		cls.REGISTRY[key] = entry_data
+		invalidate_resolver_registry_fingerprint()
 
 	@classmethod
 	def registry_fingerprint(cls) -> str:
 		"""Stable cache key material; implementation callables stay private."""
-		if cls._REGISTRY_FINGERPRINT_CACHE is None:
-			payload = json.dumps(
-				cls.resolver_contract_dto(),
-				sort_keys=True,
-				ensure_ascii=False,
-				separators=(",", ":"),
-				allow_nan=False,
-			)
-			cls._REGISTRY_FINGERPRINT_CACHE = hashlib.sha256(payload.encode("utf-8")).hexdigest()
-		return cls._REGISTRY_FINGERPRINT_CACHE
+		return resolver_registry_fingerprint()
 
 	@classmethod
 	def resolver_contract_dto(cls) -> list[dict[str, Any]]:
 		"""Return public metadata only; internal functions are never exposed."""
-		return [
-			{
-				"family": item["family"],
-				"operation": item["operation"],
-				"label": item["label"],
-				"output_type": item["output_type"],
-				"config_schema": json.loads(json.dumps(item["config_schema"], sort_keys=True)),
-				"permission_policy": item["permission_policy"],
-				"required_capability": item["required_capability"],
-				"condition_operand_allowed": bool(item["condition_operand_allowed"]),
-				"supported_consumers": sorted(item.get("supported_consumers", ["all"])),
-			}
-			for _, item in sorted(cls.REGISTRY.items())
-		]
+		return resolver_contract_dto()
 
 	@classmethod
 	def validate_flex_value(
@@ -1156,198 +1152,15 @@ class ValueResolver:
 		resolver_depth: int = 0,
 		flexvalue_depth: int = 0,
 	) -> str | None:
-		"""Validate canonical FlexValue structure and return known output type."""
-		if flexvalue_depth > MAX_FLEXVALUE_DEPTH:
-			_fail("flexvalue_depth_exceeded", path, "Nested FlexValue exceeds the configured depth limit")
-		if not isinstance(value, Mapping):
-			_fail("invalid_flex_value", path, "FlexValue must be an object")
-
-		allowed = set(allowed_scopes or BASE_SCOPES)
-		mode = value.get("mode")
-
-		if mode == "static":
-			_exact_keys(value, {"mode", "value_type", "value"}, set(), path)
-			value_type = value.get("value_type")
-			val = value.get("value")
-			if not isinstance(value_type, str) or value_type not in VALUE_TYPES:
-				_fail("unknown_value_type", f"{path}.value_type", "Unsupported static value type")
-
-			if val is None:
-				if value_type == "null":
-					return "null"
-				return str(value_type)
-
-			if value_type in {
-				"string",
-				"Data",
-				"Small Text",
-				"Text",
-				"Text Editor",
-				"Code",
-				"Select",
-				"Link",
-				"Dynamic Link",
-			} and not isinstance(val, str):
-				_fail("invalid_static_type", f"{path}.value", "Expected a string")
-			elif value_type in {"integer", "Int"} and not (
-				isinstance(val, int) and not isinstance(val, bool)
-			):
-				_fail("invalid_static_type", f"{path}.value", "Expected an integer (not a boolean)")
-			elif value_type == "decimal":
-				if not isinstance(val, str):
-					_fail(
-						"invalid_static_type", f"{path}.value", "Decimal values must be serialized as strings"
-					)
-				try:
-					number = Decimal(val)
-				except (InvalidOperation, ValueError):
-					_fail("invalid_decimal", f"{path}.value", "Decimal value is not valid")
-				if not number.is_finite():
-					_fail("invalid_decimal", f"{path}.value", "Decimal value must be finite")
-			elif value_type in {"Float", "Currency", "Percent"}:
-				if isinstance(val, int | float) and not isinstance(val, bool):
-					if isinstance(val, float) and not math.isfinite(val):
-						_fail("invalid_decimal", f"{path}.value", "Decimal value must be finite")
-				elif isinstance(val, str):
-					try:
-						number = Decimal(val)
-					except (InvalidOperation, ValueError):
-						_fail("invalid_decimal", f"{path}.value", "Decimal value is not valid")
-					if not number.is_finite():
-						_fail("invalid_decimal", f"{path}.value", "Decimal value must be finite")
-				else:
-					_fail(
-						"invalid_static_type",
-						f"{path}.value",
-						"Numeric values must be numbers or decimal strings",
-					)
-			elif value_type == "boolean" and not isinstance(val, bool):
-				_fail("invalid_static_type", f"{path}.value", "Expected a boolean")
-			elif value_type == "Check" and val not in (0, 1):
-				_fail("invalid_static_type", f"{path}.value", "Check values must be Frappe-compatible 0 or 1")
-			elif value_type == "null" and val is not None:
-				_fail("invalid_static_type", f"{path}.value", "Null values must be JSON null")
-			elif value_type in {"date", "Date"}:
-				if not isinstance(val, str):
-					_fail("invalid_static_type", f"{path}.value", "Dates must be ISO strings")
-				try:
-					if date.fromisoformat(val).isoformat() != val:
-						raise ValueError
-				except ValueError:
-					_fail("invalid_date", f"{path}.value", "Expected an ISO date in YYYY-MM-DD format")
-			elif value_type in {"datetime", "Datetime"}:
-				if not isinstance(val, str):
-					_fail("invalid_static_type", f"{path}.value", "Datetimes must be ISO strings")
-				try:
-					datetime.fromisoformat(val[:-1] + "+00:00" if val.endswith("Z") else val)
-				except ValueError:
-					_fail("invalid_datetime", f"{path}.value", "Expected a valid ISO datetime")
-			elif value_type in {"time", "Time", "Duration"}:
-				if not isinstance(val, str):
-					_fail("invalid_static_type", f"{path}.value", "Times must be ISO strings")
-				try:
-					time.fromisoformat(val)
-				except ValueError:
-					_fail("invalid_time", f"{path}.value", "Expected a valid ISO time")
-			elif value_type in {"list", "Table", "Table MultiSelect"}:
-				if not isinstance(val, list):
-					_fail("invalid_static_type", f"{path}.value", "Expected a list")
-				_validate_json_value(val, f"{path}.value")
-			elif value_type in {"object", "JSON"}:
-				if not isinstance(val, dict | list | str | int | float | bool):
-					_fail("invalid_static_type", f"{path}.value", "Expected a valid JSON value")
-				_validate_json_value(val, f"{path}.value")
-			return str(value_type)
-
-		if mode == "variable":
-			_exact_keys(value, {"mode", "path"}, set(), path)
-			_validate_path(value.get("path"), f"{path}.path", allowed)
-			return None
-
-		if mode == "resolver":
-			_exact_keys(value, {"mode", "family", "operation", "config"}, {"value_type"}, path)
-			family = value.get("family")
-			operation = value.get("operation")
-			if not isinstance(family, str) or not family:
-				_fail("invalid_resolver_family", f"{path}.family", "Resolver family is required")
-			if not isinstance(operation, str) or not operation:
-				_fail("invalid_resolver_operation", f"{path}.operation", "Resolver operation is required")
-			if resolver_depth >= MAX_RESOLVER_DEPTH:
-				_fail("resolver_depth_exceeded", path, "Resolver nesting exceeds the configured limit")
-
-			entry = cls.REGISTRY.get((family, operation))
-			if not entry:
-				_fail("resolver_not_allowed", path, f"Resolver {family}.{operation} is not registered")
-
-			if consumer == "condition" and not entry.get("condition_operand_allowed"):
-				_fail(
-					"resolver_not_allowed", path, "Resolver operation is not approved as a condition operand"
-				)
-
-			supported = entry.get("supported_consumers", {"all"})
-			if consumer and "all" not in supported and consumer not in supported:
-				if not (consumer == "condition" and entry.get("condition_operand_allowed")):
-					_fail(
-						"resolver_consumer_unsupported", path, f"Resolver not allowed for consumer {consumer}"
-					)
-
-			config = value.get("config")
-			if not isinstance(config, dict):
-				_fail("invalid_resolver_config", f"{path}.config", "Resolver config must be an object")
-
-			declared_vt = value.get("value_type")
-			if declared_vt and declared_vt not in VALUE_TYPES:
-				_fail("unknown_value_type", f"{path}.value_type", "Unknown declared resolver output type")
-
-			entry["validate_config"](
-				config, f"{path}.config", allowed, resolver_depth + 1, flexvalue_depth + 1
-			)
-			return entry["output_type"]
-
-		if mode == "template":
-			_exact_keys(value, {"mode", "segments"}, set(), path)
-			segments = value.get("segments")
-			if not isinstance(segments, list) or not segments or len(segments) > MAX_TEMPLATE_SEGMENTS:
-				_fail(
-					"invalid_template_segments",
-					f"{path}.segments",
-					"Template segments must be a non-empty bounded list",
-				)
-			for index, segment in enumerate(segments):
-				segment_path = f"{path}.segments[{index}]"
-				if not isinstance(segment, Mapping):
-					_fail("invalid_template_segment", segment_path, "Template segment must be an object")
-				if segment.get("type") == "text":
-					_exact_keys(segment, {"type", "value"}, set(), segment_path)
-					if not isinstance(segment.get("value"), str):
-						_fail(
-							"invalid_template_text",
-							f"{segment_path}.value",
-							"Text segment value must be a string",
-						)
-				elif segment.get("type") == "value":
-					_exact_keys(segment, {"type", "value"}, set(), segment_path)
-					output_type = cls.validate_flex_value(
-						segment.get("value"),
-						path=f"{segment_path}.value",
-						allowed_scopes=allowed,
-						consumer=consumer,
-						resolver_depth=resolver_depth,
-						flexvalue_depth=flexvalue_depth + 1,
-					)
-					if output_type in {"list", "object", "Table", "Table MultiSelect"}:
-						_fail(
-							"invalid_template_value_type",
-							f"{segment_path}.value",
-							"Template values must be scalar",
-						)
-				else:
-					_fail(
-						"unknown_template_segment", f"{segment_path}.type", "Expected text or value segment"
-					)
-			return "Data"
-
-		_fail("unknown_flex_value_mode", f"{path}.mode", "Unsupported FlexValue mode")
+		"""Validate canonical FlexValue structure delegating to authoritative contract."""
+		return canonical_validate_flex_value(
+			value,
+			path=path,
+			allowed_scopes=allowed_scopes,
+			consumer=consumer,
+			resolver_depth=resolver_depth,
+			flexvalue_depth=flexvalue_depth,
+		)
 
 	@classmethod
 	def compile_flex_value(
@@ -1832,6 +1645,14 @@ def _register_builtins():
 		if token is not None and token not in {"date", "datetime", "now", "time"}:
 			_fail("invalid_token", f"{path}.token", f"Unsupported token for date_time.current: {token}")
 
+	def _out_dt_current(cfg: dict) -> str:
+		tok = (cfg.get("token") or "date").lower()
+		if tok in ("datetime", "now"):
+			return "Datetime"
+		if tok == "time":
+			return "Time"
+		return "Date"
+
 	ValueResolver.register_resolver(
 		"date_time",
 		"current",
@@ -1840,6 +1661,7 @@ def _register_builtins():
 		config_schema={"type": "object", "properties": {"token": {"type": "string"}}},
 		permission_policy="no_data_access",
 		validate_config=_val_dt_current,
+		resolve_output_type=_out_dt_current,
 		factory=lambda cfg, meta: DateCurrentResolver(cfg.get("token") or "date"),
 		condition_operand_allowed=True,
 	)
@@ -1901,6 +1723,16 @@ def _register_builtins():
 					"Offset value must be numeric, string, or FlexValue",
 				)
 
+	def _out_dt_calculate(cfg: dict) -> str:
+		base_type = cfg.get("base_type")
+		if base_type in ("current_datetime", "now"):
+			return "Datetime"
+		if base_type == "current_time":
+			return "Time"
+		if cfg.get("offset_unit") in {"hours", "minutes", "seconds"}:
+			return "Datetime"
+		return "Date"
+
 	ValueResolver.register_resolver(
 		"date_time",
 		"calculate",
@@ -1909,6 +1741,7 @@ def _register_builtins():
 		config_schema={"type": "object"},
 		permission_policy="no_data_access",
 		validate_config=_val_dt_calculate,
+		resolve_output_type=_out_dt_calculate,
 		factory=lambda cfg, meta: DateFormulaResolver(
 			base_type=cfg.get("base_type"),
 			base_field=cfg.get("base_field"),
@@ -2057,6 +1890,12 @@ def _register_builtins():
 				elif isinstance(cfg[src_key], str):
 					_validate_path_str(cfg[src_key], src_key, path, allowed_scopes)
 
+	def _out_dt_boundary(cfg: dict) -> str:
+		btype = (cfg.get("boundary_type") or "start_of_month").lower()
+		if btype in {"start_of_day", "end_of_day"}:
+			return "Date"
+		return "Date"
+
 	ValueResolver.register_resolver(
 		"date_time",
 		"boundary",
@@ -2065,6 +1904,7 @@ def _register_builtins():
 		config_schema={"type": "object"},
 		permission_policy="no_data_access",
 		validate_config=_val_dt_boundary,
+		resolve_output_type=_out_dt_boundary,
 		factory=lambda cfg, meta: DateBoundaryResolver(
 			source=cfg.get("source") or cfg.get("base_field"),
 			boundary_type=cfg.get("boundary_type", "start_of_month"),
@@ -2316,8 +2156,13 @@ def _register_builtins():
 			from flexirule.ruleflow.core.condition_payload import detect_canonical_condition_payload
 
 			is_canonical, canonical_node = detect_canonical_condition_payload(cfg["condition"])
-			if is_canonical and canonical_node:
-				validate_condition_node(canonical_node)
+			if not is_canonical or canonical_node is None:
+				raise ConditionValidationError(
+					"invalid_collection_condition",
+					f"{path}.condition",
+					"Collection condition must be a valid canonical condition AST structure",
+				)
+			validate_condition_node(canonical_node)
 
 	def _make_col_factory(op_name: str) -> Callable[[dict, Any], CompiledResolver]:
 		def _factory(cfg: dict, meta: Any) -> CompiledResolver:
@@ -2332,11 +2177,17 @@ def _register_builtins():
 
 	# collection operations
 	for col_op in ["any", "all", "count", "sum", "avg", "first", "last", "filter", "pluck", "unique"]:
-		out_type = (
-			"Float"
-			if col_op in ("sum", "avg")
-			else ("Int" if col_op == "count" else ("Check" if col_op in ("any", "all") else "Table"))
-		)
+		if col_op in ("sum", "avg"):
+			out_type = "Float"
+		elif col_op == "count":
+			out_type = "Int"
+		elif col_op in ("any", "all"):
+			out_type = "Check"
+		elif col_op in ("first", "last"):
+			out_type = "JSON"
+		else:
+			out_type = "Table"
+
 		ValueResolver.register_resolver(
 			"collection",
 			col_op,
@@ -2356,6 +2207,12 @@ def _register_builtins():
 		if tok not in {"user", "role_check", None}:
 			_fail("invalid_sys_token", f"{path}.sys_token", f"Invalid sys_token: {tok}")
 
+	def _out_system_context(cfg: dict) -> str:
+		tok = cfg.get("sys_token", "user")
+		if tok == "role_check":
+			return "Check"
+		return "Data"
+
 	ValueResolver.register_resolver(
 		"system_context",
 		"get",
@@ -2364,6 +2221,7 @@ def _register_builtins():
 		config_schema={"type": "object"},
 		permission_policy="no_data_access",
 		validate_config=_val_system_context,
+		resolve_output_type=_out_system_context,
 		factory=lambda cfg, meta: SystemContextResolver(
 			sys_token=cfg.get("sys_token", "user"),
 			sys_role=cfg.get("sys_role", ""),
