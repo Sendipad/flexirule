@@ -517,8 +517,11 @@ function syncToNode() {
 			target: a.target,
 			operator: a.operator,
 			when_condition: a.when_condition || null,
-			value: a.value,
 		};
+
+		if (needsValue(a.operator)) {
+			row.value = a.value;
+		}
 
 		// Preserve non-empty legacy guards so the strict backend can reject them
 		// with an actionable migration error. Never emit empty legacy keys: their
@@ -550,7 +553,7 @@ function addAssignment() {
 		operator: "set",
 		when_condition: null,
 		legacy_guard: null,
-		value: { mode: "static", value: "" },
+		value: { mode: "static", value_type: "Data", value: "" },
 	});
 	syncToNode();
 }
@@ -708,8 +711,21 @@ function getDefaultResolverKind(target) {
 
 function onOperatorChange(index, value) {
 	assignments.value[index].operator = value;
-	if (!needsValue(value)) {
-		assignments.value[index].value = { mode: "static", value: "" };
+	if (needsValue(value)) {
+		const currentVal = assignments.value[index].value;
+		if (
+			!currentVal ||
+			typeof currentVal !== "object" ||
+			!currentVal.mode ||
+			!currentVal.value_type
+		) {
+			const targetFieldtype = getTargetFieldtype(assignments.value[index].target);
+			assignments.value[index].value = {
+				mode: "static",
+				value_type: targetFieldtype || "Data",
+				value: typeof currentVal === "string" ? currentVal : "",
+			};
+		}
 	}
 	syncToNode();
 }

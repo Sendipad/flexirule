@@ -39,6 +39,7 @@ from flexirule.ruleflow.core.flexvalue_contract import (
 	resolve_variable,
 	resolver_registry_fingerprint,
 )
+from flexirule.ruleflow.core.value_resolver import ValueResolver
 
 EVALUATOR_CACHE_VERSION = 1
 MAX_CACHEABLE_CONDITION_BYTES = 65536
@@ -338,12 +339,14 @@ def _compile_value(value: dict, path: str) -> tuple:
 		path_value = value["path"]
 		return ("variable", path_value["scope"], tuple(path_value["segments"]), path)
 	if mode == "resolver":
+		compiled_resolver = ValueResolver.compile_flex_value(value, path=path, consumer="condition")
 		return (
 			"resolver",
 			value["family"],
 			value["operation"],
 			_freeze_json(value["config"]),
 			path,
+			compiled_resolver,
 		)
 	if mode == "template":
 		segments = []
@@ -645,16 +648,47 @@ def _evaluate_value(plan: tuple, context: dict) -> Any:
 			parts.append(part)
 		return "".join(parts)
 	if kind == "resolver":
-		_, family, operation, frozen_config, path = plan
+		family, operation, frozen_config, path = plan[1], plan[2], plan[3], plan[4]
+		compiled_res = plan[5] if len(plan) > 5 else None
 		entry = CONDITION_RESOLVER_REGISTRY.get((family, operation))
 		if not entry or not entry.get("condition_operand_allowed"):
 			raise ConditionEvaluationError(
 				"resolver_not_allowed", path, "Resolver operation is no longer approved"
 			)
 		try:
-			resolved = entry["resolve"](_thaw_json(frozen_config), context)
+			if compiled_res is not None:
+				resolved = compiled_res.resolve(context)
+			else:
+				resolved = entry["resolve"](_thaw_json(frozen_config), context)
 			actual_type = _runtime_value_type(resolved, path)
-			if actual_type != entry["output_type"]:
+			declared_out = entry["output_type"]
+			if declared_out in {
+				"Data",
+				"Small Text",
+				"Text",
+				"Text Editor",
+				"Code",
+				"Select",
+				"Link",
+				"Dynamic Link",
+			}:
+				expected_out = "string"
+			elif declared_out in {"Int", "Check"}:
+				expected_out = (
+					"integer"
+					if actual_type == "integer"
+					else ("boolean" if declared_out == "Check" else "integer")
+				)
+			elif declared_out in {"Float", "Currency", "Percent"}:
+				expected_out = "decimal"
+			elif declared_out in {"Table", "Table MultiSelect"}:
+				expected_out = "list"
+			elif declared_out == "JSON":
+				expected_out = actual_type
+			else:
+				expected_out = declared_out
+
+			if actual_type != expected_out and actual_type != declared_out:
 				raise ConditionEvaluationError(
 					"resolver_output_type_mismatch",
 					path,

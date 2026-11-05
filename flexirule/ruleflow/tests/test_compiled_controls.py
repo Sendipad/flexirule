@@ -204,7 +204,11 @@ class TestCompiledControls(FrappeTestCase):
 							{
 								"target": "doc.description",
 								"operator": "set",
-								"value_template_ui": {"mode": "static", "value": "Compiled Literal"},
+								"value_template_ui": {
+									"mode": "static",
+									"value_type": "Data",
+									"value": "Compiled Literal",
+								},
 								"when_condition": {
 									"type": "comparison",
 									"operator": "eq",
@@ -257,7 +261,11 @@ class TestCompiledControls(FrappeTestCase):
 							{
 								"target": "doc.description",
 								"operator": "set",
-								"value_template_ui": {"mode": "static", "value": "Should Not Run"},
+								"value_template_ui": {
+									"mode": "static",
+									"value_type": "Data",
+									"value": "Should Not Run",
+								},
 								"when_condition": {
 									"type": "comparison",
 									"operator": "eq",
@@ -271,7 +279,11 @@ class TestCompiledControls(FrappeTestCase):
 							{
 								"target": "doc.description",
 								"operator": "set",
-								"value_template_ui": {"mode": "static", "value": "Executed"},
+								"value_template_ui": {
+									"mode": "static",
+									"value_type": "Data",
+									"value": "Executed",
+								},
 							},
 						]
 					),
@@ -370,7 +382,7 @@ class TestCompiledControls(FrappeTestCase):
 							{
 								"target": "doc.description",
 								"operator": "set",
-								"value_template_ui": {"mode": "static", "value": "A"},
+								"value_template_ui": {"mode": "static", "value_type": "Data", "value": "A"},
 							}
 						]
 					),
@@ -386,7 +398,7 @@ class TestCompiledControls(FrappeTestCase):
 				{
 					"target": "doc.description",
 					"operator": "set",
-					"value_template_ui": {"mode": "static", "value": "B"},
+					"value_template_ui": {"mode": "static", "value_type": "Data", "value": "B"},
 				}
 			]
 		)

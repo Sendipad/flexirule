@@ -203,10 +203,14 @@ class AssignmentHandler(ActionHandler):
 				context_copy = dict(staged_context)
 				context_copy["value"] = current_value
 
-				from flexirule.ruleflow.core.value_resolver import get_compiled_resolver
+				compiled_val = assignment.get("_compiled_value")
+				if compiled_val is not None:
+					operand_value = compiled_val.resolve(context_copy)
+				else:
+					from flexirule.ruleflow.core.value_resolver import get_compiled_resolver
 
-				resolver = get_compiled_resolver(action, f"assign_{idx}", assignment.get("value"))
-				operand_value = resolver.resolve(context_copy)
+					resolver = get_compiled_resolver(action, f"assign_{idx}", assignment.get("value"))
+					operand_value = resolver.resolve(context_copy)
 
 			# Apply operation to staged value
 			new_value = op.apply(current_value, operand_value, staged_context)
@@ -336,6 +340,25 @@ class AssignmentHandler(ActionHandler):
 					)
 				validate_condition_node(canonical_guard, doctype=doctype)
 				compiled["when_condition_canonical"] = canonical_guard
+
+			# Pre-compile FlexValue value operand only if operator requires a value
+			operator_key = compiled.get("operator", "set")
+			try:
+				from flexirule.ruleflow.core.operators import AssignmentOperatorRegistry
+
+				operator = AssignmentOperatorRegistry.get(operator_key)
+				requires_val = operator.metadata.get("requires_value", True)
+			except Exception:
+				requires_val = True
+
+			if requires_val:
+				val_payload = compiled.get("value")
+				if isinstance(val_payload, dict) and "mode" in val_payload:
+					from flexirule.ruleflow.core.value_resolver import ValueResolver
+
+					compiled["_compiled_value"] = ValueResolver.compile_flex_value(
+						val_payload, consumer="assignment"
+					)
 
 			compiled_rows.append(compiled)
 
