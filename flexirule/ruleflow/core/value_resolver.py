@@ -1093,8 +1093,18 @@ class ValueResolver:
 	@classmethod
 	def unregister_resolver(cls, family: str, operation: str) -> None:
 		key = (family, operation)
-		cls._REGISTRY.pop(key, None)
+		cls.pop_resolver_entry(key)
+
+	@classmethod
+	def set_resolver_entry(cls, key: tuple[str, str], value: dict[str, Any]) -> None:
+		cls._REGISTRY[key] = value
 		cls._FINGERPRINT_CACHE = None
+
+	@classmethod
+	def pop_resolver_entry(cls, key: tuple[str, str], default: Any = None) -> Any:
+		val = cls._REGISTRY.pop(key, default)
+		cls._FINGERPRINT_CACHE = None
+		return val
 
 	@classmethod
 	def get_resolver_entry(cls, family: str, operation: str) -> dict[str, Any] | None:

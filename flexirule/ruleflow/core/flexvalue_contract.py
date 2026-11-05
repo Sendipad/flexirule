@@ -88,15 +88,12 @@ class _ResolverRegistryProxy(dict):
 	def __setitem__(self, key, value):
 		from flexirule.ruleflow.core.value_resolver import ValueResolver
 
-		ValueResolver._REGISTRY[key] = value
-		ValueResolver._FINGERPRINT_CACHE = None
+		ValueResolver.set_resolver_entry(key, value)
 
 	def pop(self, key, default=None):
 		from flexirule.ruleflow.core.value_resolver import ValueResolver
 
-		val = ValueResolver._REGISTRY.pop(key, default)
-		ValueResolver._FINGERPRINT_CACHE = None
-		return val
+		return ValueResolver.pop_resolver_entry(key, default)
 
 	def items(self):
 		from flexirule.ruleflow.core.value_resolver import ValueResolver
