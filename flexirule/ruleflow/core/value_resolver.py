@@ -1,12 +1,12 @@
 # Copyright (c) 2026, FlexiRule and contributors
 # For license information, please see license.txt
-
 import json
 from typing import Any
 
 import frappe
 from frappe import _
 
+from flexirule.ruleflow.core.condition_errors import ConditionEvaluationError
 from flexirule.ruleflow.core.flexvalue_contract import MAX_COLLECTION_ROWS as CONDITION_MAX_COLLECTION_ROWS
 from flexirule.ruleflow.utils.field_resolver import FieldResolver
 
@@ -1146,6 +1146,24 @@ class ValueResolver:
 		if family == "text" or kind == "text":
 			op = config.get("operation") or inner_dict.get("operation") or "combine"
 
+			if op == "template":
+				segs = []
+				for idx, s in enumerate(inner_dict.get("segments") or config.get("segments") or []):
+					if s.get("type") == "text":
+						segs.append(("text", s.get("value", ""), f"$.segments[{idx}]"))
+					else:
+						v = s.get("value")
+						c: CompiledResolver
+						if isinstance(v, dict) and v.get("mode") == "variable":
+							p = v.get("path", {})
+							scope = p.get("scope", "doc") if isinstance(p, dict) else "doc"
+							segs_list = p.get("segments", []) if isinstance(p, dict) else [p]
+							path_str = f"{scope}.{'.'.join(segs_list)}" if segs_list else scope
+							c = VariableResolver(path_str)
+						else:
+							c = ValueResolver.compile(v)
+						segs.append(("value", c, f"$.segments[{idx}]"))
+				return TemplateResolver(tuple(segs))
 			if op == "combine":
 				return StringFormulaResolver(
 					str_op="concat",
@@ -1318,3 +1336,32 @@ def get_compiled_resolver(action, key: str, value_payload: Any) -> CompiledResol
 		frappe.local.flexirule_compiled_resolvers[cache_key] = ValueResolver.compile(value_payload)
 
 	return frappe.local.flexirule_compiled_resolvers[cache_key]
+
+
+class TemplateResolver(CompiledResolver):
+	"""Canonical text.template resolver with bounded recursive FlexValue dynamic segments."""
+
+	def __init__(self, segments: tuple[tuple[str, Any, str], ...]):
+		self.segments = segments
+
+	def resolve(self, context: dict) -> str:
+		parts = []
+		output_length = 0
+		for seg_type, seg_val, path in self.segments:
+			if seg_type == "text":
+				part = seg_val
+			else:
+				resolved = seg_val.resolve(context)
+				from flexirule.ruleflow.core.flexvalue_contract import format_template_value
+
+				part = format_template_value(resolved, path)
+
+			output_length += len(part)
+			if output_length > 1_000_000:
+				raise ConditionEvaluationError(
+					"template_output_too_large",
+					path,
+					"Resolved template exceeds the configured output limit",
+				)
+			parts.append(part)
+		return "".join(parts)

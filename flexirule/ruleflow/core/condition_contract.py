@@ -83,19 +83,28 @@ def _spec(
 SCALAR_TYPES = ("string", "integer", "decimal", "boolean", "null", "date", "datetime", "time")
 MEMBERSHIP_TYPES = ("string", "integer", "decimal", "boolean", "null")
 COMPARABLE_TYPES = (*SCALAR_TYPES, "list", "object")
-NUMERIC_TYPES = ("integer", "decimal")
+NUMERIC_TYPES = (*NUMERIC_FIELD_TYPES, "integer", "decimal")
 SIZED_TYPES = ("string", "list", "object")
 
 # This is the only live canonical operator registry. Legacy aliases are migration-only.
 OPERATOR_REGISTRY: dict[str, OperatorSpec] = {
-	"eq": _spec("eq", "Equals", 2, COMPARABLE_TYPES, COMPARABLE_TYPES, legacy_aliases=("==",)),
-	"ne": _spec("ne", "Does not equal", 2, COMPARABLE_TYPES, COMPARABLE_TYPES, legacy_aliases=("!=",)),
+	"eq": _spec(
+		"eq", "Equals", 2, (*COMPARABLE_TYPES, "Check"), (*COMPARABLE_TYPES, "Check"), legacy_aliases=("==",)
+	),
+	"ne": _spec(
+		"ne",
+		"Does not equal",
+		2,
+		(*COMPARABLE_TYPES, "Check"),
+		(*COMPARABLE_TYPES, "Check"),
+		legacy_aliases=("!=",),
+	),
 	"gt": _spec(
 		"gt",
 		"Greater than",
 		2,
-		(*NUMERIC_TYPES, "date", "datetime", "time"),
-		(*NUMERIC_TYPES, "date", "datetime", "time"),
+		(*ORDERED_FIELD_TYPES, "integer", "decimal", "date", "datetime", "time"),
+		(*ORDERED_FIELD_TYPES, "integer", "decimal", "date", "datetime", "time"),
 		ORDERED_FIELD_TYPES,
 		(">",),
 	),
@@ -103,8 +112,8 @@ OPERATOR_REGISTRY: dict[str, OperatorSpec] = {
 		"gte",
 		"Greater than or equal",
 		2,
-		(*NUMERIC_TYPES, "date", "datetime", "time"),
-		(*NUMERIC_TYPES, "date", "datetime", "time"),
+		(*ORDERED_FIELD_TYPES, "integer", "decimal", "date", "datetime", "time"),
+		(*ORDERED_FIELD_TYPES, "integer", "decimal", "date", "datetime", "time"),
 		ORDERED_FIELD_TYPES,
 		(">=",),
 	),

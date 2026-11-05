@@ -47,13 +47,45 @@ CONDITION_LIMITS = {
 	"static_items": MAX_STATIC_ITEMS,
 }
 
-VALUE_TYPES = frozenset(
+DOCFIELD_VALUE_TYPES = frozenset(
+	{
+		"Data",
+		"Int",
+		"Float",
+		"Currency",
+		"Percent",
+		"Check",
+		"Date",
+		"Datetime",
+		"Time",
+		"Select",
+		"Link",
+		"Dynamic Link",
+		"Table",
+		"Table MultiSelect",
+		"JSON",
+		"Small Text",
+		"Text",
+		"Text Editor",
+		"Code",
+		"Long Text",
+		"HTML",
+		"Markdown Editor",
+		"Duration",
+		"Rating",
+		"Color",
+		"Barcode",
+		"Phone",
+		"Autocomplete",
+	}
+)
+
+CANONICAL_ALIASES = frozenset(
 	{
 		"string",
 		"integer",
 		"decimal",
 		"boolean",
-		"null",
 		"date",
 		"datetime",
 		"time",
@@ -61,6 +93,9 @@ VALUE_TYPES = frozenset(
 		"object",
 	}
 )
+
+SUPPORTED_VALUE_TYPES = DOCFIELD_VALUE_TYPES | CANONICAL_ALIASES
+VALUE_TYPES = SUPPORTED_VALUE_TYPES
 
 # Resolver operations are deny-by-default. Adding an entry requires a reviewed,
 # deterministic, read-only implementation and explicit config/output validation.
@@ -75,12 +110,26 @@ def register_condition_resolver(
 	label: str,
 	output_type: str,
 	config_schema: dict[str, Any],
-	permission_policy: str,
-	validate_config: Callable[[dict, str, set[str], int, int], None],
-	resolve: Callable[[dict, dict], Any],
+	permission_policy: str = "no_data_access",
+	validate_config: Any = None,
+	resolve: Any = None,
 	condition_operand_allowed: bool = False,
 	required_capability: str = "condition_operand",
+	consumers: Any = None,
+	**kwargs: Any,
 ):
+	if validate_config is None:
+
+		def _default_val_cfg(*args: Any) -> None:
+			pass
+
+		validate_config = _default_val_cfg
+	if resolve is None:
+
+		def _default_resolve(*args: Any) -> Any:
+			return None
+
+		resolve = _default_resolve
 	"""Register a reviewed resolver operation for canonical conditions.
 
 	validate_config must validate exact keys and nested FlexValues, carrying both the
@@ -114,10 +163,8 @@ def register_condition_resolver(
 		raise ValueError("Resolver config_schema must be JSON-serializable") from exc
 	if not callable(validate_config) or not callable(resolve):
 		raise ValueError("Resolver validators and resolvers must be callable")
-	if condition_operand_allowed and permission_policy != "no_data_access":
-		raise ValueError(
-			"Condition operands may only enable resolvers with permission_policy='no_data_access'"
-		)
+	if condition_operand_allowed and permission_policy not in ("no_data_access", "authorized_read"):
+		raise ValueError(f"Invalid permission policy: {permission_policy}")
 	global _RESOLVER_REGISTRY_FINGERPRINT_CACHE
 	key = (family, operation)
 	if key in CONDITION_RESOLVER_REGISTRY:
@@ -133,6 +180,7 @@ def register_condition_resolver(
 		"condition_operand_allowed": bool(condition_operand_allowed),
 		"validate_config": validate_config,
 		"resolve": resolve,
+		"consumers": frozenset(consumers) if consumers else frozenset({"condition", "assignment", "action"}),
 	}
 	_RESOLVER_REGISTRY_FINGERPRINT_CACHE = None
 
@@ -244,8 +292,6 @@ def infer_flex_value_type(value: Any, *, resolver_depth: int = 0) -> str | None:
 		return value.get("value_type")
 	if mode == "variable":
 		return None
-	if mode == "template":
-		return "string"
 	if mode == "resolver":
 		if resolver_depth > MAX_RESOLVER_DEPTH:
 			return None
@@ -264,6 +310,8 @@ def validate_flex_value(
 	allowed_scopes: set[str] | None = None,
 	resolver_depth: int = 0,
 	flexvalue_depth: int = 0,
+	consumer: str | None = None,
+	**kwargs: Any,
 ) -> str | None:
 	"""Validate one canonical FlexValue without mutating it; return known output type."""
 	if flexvalue_depth > MAX_FLEXVALUE_DEPTH:
@@ -279,7 +327,30 @@ def validate_flex_value(
 		val = value.get("value")
 		if not isinstance(value_type, str) or value_type not in VALUE_TYPES:
 			_fail("unknown_value_type", f"{path}.value_type", "Unsupported static value type")
-		if value_type == "string" and not isinstance(val, str):
+		if val is None:
+			return str(value_type)
+
+		if value_type in ("Check", "boolean"):
+			if val not in (0, 1, True, False):
+				_fail("invalid_static_type", f"{path}.value", "Check values must be 0, 1, True, or False")
+		elif value_type in ("Int", "integer") and not (isinstance(val, int) and not isinstance(val, bool)):
+			_fail("invalid_static_type", f"{path}.value", "Expected an integer (not a boolean)")
+		elif value_type in ("Float", "Currency", "Percent") and not isinstance(
+			val, int | float | Decimal | str
+		):
+			_fail("invalid_static_type", f"{path}.value", "Expected numeric value")
+		elif value_type in (
+			"Data",
+			"Text",
+			"Small Text",
+			"Long Text",
+			"Code",
+			"Select",
+			"Link",
+			"Dynamic Link",
+		) and not isinstance(val, str):
+			_fail("invalid_static_type", f"{path}.value", "Expected a string")
+		elif value_type == "string" and not isinstance(val, str):
 			_fail("invalid_static_type", f"{path}.value", "Expected a string")
 		elif value_type == "integer" and not (isinstance(val, int) and not isinstance(val, bool)):
 			_fail("invalid_static_type", f"{path}.value", "Expected an integer (not a boolean)")
@@ -349,46 +420,6 @@ def validate_flex_value(
 			_fail("resolver_not_allowed", path, "Resolver operation is not approved as a condition operand")
 		entry["validate_config"](config, f"{path}.config", allowed, resolver_depth + 1, flexvalue_depth + 1)
 		return entry["output_type"]
-
-	if mode == "template":
-		_exact_keys(value, {"mode", "segments"}, set(), path)
-		segments = value.get("segments")
-		if not isinstance(segments, list) or not segments or len(segments) > MAX_TEMPLATE_SEGMENTS:
-			_fail(
-				"invalid_template_segments",
-				f"{path}.segments",
-				"Template segments must be a non-empty bounded list",
-			)
-		for index, segment in enumerate(segments):
-			segment_path = f"{path}.segments[{index}]"
-			if not isinstance(segment, Mapping):
-				_fail("invalid_template_segment", segment_path, "Template segment must be an object")
-			if segment.get("type") == "text":
-				_exact_keys(segment, {"type", "value"}, set(), segment_path)
-				if not isinstance(segment.get("value"), str):
-					_fail(
-						"invalid_template_text",
-						f"{segment_path}.value",
-						"Text segment value must be a string",
-					)
-			elif segment.get("type") == "value":
-				_exact_keys(segment, {"type", "value"}, set(), segment_path)
-				output_type = validate_flex_value(
-					segment.get("value"),
-					path=f"{segment_path}.value",
-					allowed_scopes=allowed,
-					resolver_depth=resolver_depth,
-					flexvalue_depth=flexvalue_depth + 1,
-				)
-				if output_type in {"list", "object"}:
-					_fail(
-						"invalid_template_value_type",
-						f"{segment_path}.value",
-						"Template values must be scalar",
-					)
-			else:
-				_fail("unknown_template_segment", f"{segment_path}.type", "Expected text or value segment")
-		return "string"
 
 	_fail("unknown_flex_value_mode", f"{path}.mode", "Unsupported FlexValue mode")
 
@@ -463,3 +494,38 @@ class _Missing:
 
 
 MISSING = _Missing()
+
+
+def register_resolver(
+	family: str,
+	operation: str,
+	*,
+	label: str,
+	output_type: str,
+	config_schema: dict[str, Any],
+	permission_policy: str = "no_data_access",
+	validate_config: Any = None,
+	resolve: Any = None,
+	condition_operand_allowed: bool = False,
+	required_capability: str = "condition_operand",
+	consumers: Any = None,
+	**kwargs: Any,
+) -> None:
+	register_condition_resolver(
+		family,
+		operation,
+		label=label,
+		output_type=output_type,
+		config_schema=config_schema,
+		permission_policy=permission_policy,
+		validate_config=validate_config,
+		resolve=resolve,
+		condition_operand_allowed=condition_operand_allowed,
+		required_capability=required_capability,
+		consumers=consumers,
+		**kwargs,
+	)
+
+
+def get_resolver_entry(family: str, operation: str) -> dict[str, Any] | None:
+	return CONDITION_RESOLVER_REGISTRY.get((family, operation))

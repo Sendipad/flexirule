@@ -51,7 +51,11 @@ frappe.listview_settings["Rule"] = {
 
 	onload: function (listview) {
 		// Ensure contracts are loaded for backend metadata resolution
-		if (flexirule && flexirule.contracts && flexirule.contracts.loadContractsFromBackend) {
+		if (
+			typeof flexirule !== "undefined" &&
+			flexirule.contracts &&
+			flexirule.contracts.loadContractsFromBackend
+		) {
 			flexirule.contracts.loadContractsFromBackend().catch((e) => {
 				console.warn("FlexiRule contracts deferred load:", e);
 			});

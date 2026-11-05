@@ -654,7 +654,17 @@ def _evaluate_value(plan: tuple, context: dict) -> Any:
 		try:
 			resolved = entry["resolve"](_thaw_json(frozen_config), context)
 			actual_type = _runtime_value_type(resolved, path)
-			if actual_type != entry["output_type"]:
+			norm_map = {
+				"decimal": "Float",
+				"integer": "Int",
+				"string": "Data",
+				"boolean": "Check",
+				"list": "Table",
+				"object": "JSON",
+			}
+			act_norm = norm_map.get(actual_type, actual_type)
+			exp_norm = norm_map.get(entry["output_type"], entry["output_type"])
+			if act_norm != exp_norm and not ({act_norm, exp_norm} <= {"Int", "Float"}):
 				raise ConditionEvaluationError(
 					"resolver_output_type_mismatch",
 					path,
