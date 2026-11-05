@@ -1,0 +1,178 @@
+{
+  "$schema_note": "Shared fixtures for the canonical condition contract; payloads are direct nodes without schema/version/root envelopes.",
+  "valid": {
+    "root_comparison": {
+      "type": "comparison",
+      "operator": "eq",
+      "left": {
+        "mode": "variable",
+        "path": {
+          "scope": "doc",
+          "segments": [
+            "status"
+          ]
+        }
+      },
+      "right": {
+        "mode": "static",
+        "value_type": "string",
+        "value": "Open"
+      }
+    },
+    "nested_and_or": {
+      "type": "group",
+      "operator": "and",
+      "children": [
+        {
+          "type": "comparison",
+          "operator": "eq",
+          "left": {
+            "mode": "variable",
+            "path": {
+              "scope": "doc",
+              "segments": [
+                "status"
+              ]
+            }
+          },
+          "right": {
+            "mode": "static",
+            "value_type": "string",
+            "value": "Open"
+          }
+        },
+        {
+          "type": "group",
+          "operator": "or",
+          "children": [
+            {
+              "type": "comparison",
+              "operator": "gt",
+              "left": {
+                "mode": "variable",
+                "path": {
+                  "scope": "doc",
+                  "segments": [
+                    "total"
+                  ]
+                }
+              },
+              "right": {
+                "mode": "static",
+                "value_type": "decimal",
+                "value": "1000"
+              }
+            },
+            {
+              "type": "comparison",
+              "operator": "eq",
+              "left": {
+                "mode": "variable",
+                "path": {
+                  "scope": "doc",
+                  "segments": [
+                    "priority"
+                  ]
+                }
+              },
+              "right": {
+                "mode": "static",
+                "value_type": "boolean",
+                "value": true
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "root_collection_any": {
+      "type": "collection_predicate",
+      "quantifier": "any",
+      "source": {
+        "scope": "doc",
+        "segments": [
+          "items"
+        ]
+      },
+      "as": "item_row",
+      "where": {
+        "type": "comparison",
+        "operator": "gt",
+        "left": {
+          "mode": "variable",
+          "path": {
+            "scope": "item_row",
+            "segments": [
+              "amount"
+            ]
+          }
+        },
+        "right": {
+          "mode": "static",
+          "value_type": "decimal",
+          "value": "2"
+        }
+      }
+    }
+  },
+  "invalid": {
+    "empty_group": {
+      "type": "group",
+      "operator": "and",
+      "children": []
+    },
+    "unary_group": {
+      "type": "group",
+      "operator": "or",
+      "children": [
+        {
+          "type": "comparison",
+          "operator": "eq",
+          "left": {
+            "mode": "static",
+            "value_type": "string",
+            "value": "a"
+          },
+          "right": {
+            "mode": "static",
+            "value_type": "string",
+            "value": "a"
+          }
+        }
+      ]
+    },
+    "unknown_operator": {
+      "type": "comparison",
+      "operator": "==",
+      "left": {
+        "mode": "static",
+        "value_type": "integer",
+        "value": 1
+      },
+      "right": {
+        "mode": "static",
+        "value_type": "integer",
+        "value": 1
+      }
+    },
+    "unknown_node": {
+      "type": "predicate_v99",
+      "operator": "eq"
+    },
+    "extra_key": {
+      "type": "comparison",
+      "operator": "eq",
+      "left": {
+        "mode": "static",
+        "value_type": "string",
+        "value": "a"
+      },
+      "right": {
+        "mode": "static",
+        "value_type": "string",
+        "value": "a"
+      },
+      "surprise": true
+    }
+  }
+}

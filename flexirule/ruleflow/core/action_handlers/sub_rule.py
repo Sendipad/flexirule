@@ -239,7 +239,12 @@ class SubRuleHandler(ActionHandler):
 
 			# Evaluate trigger condition if not skipped
 			if not skip_conditions and sub_rule_doc.trigger_condition:
-				if not sub_rule_doc.compiled_expression:
+				from flexirule.ruleflow.core.condition_payload import detect_canonical_condition_payload
+
+				is_canonical_condition, canonical_condition = detect_canonical_condition_payload(
+					sub_rule_doc.trigger_condition
+				)
+				if not is_canonical_condition and not sub_rule_doc.compiled_expression:
 					from flexirule.ruleflow.core.compiler import ConditionCompiler
 
 					sub_rule_doc.compiled_expression = ConditionCompiler().compile(
@@ -279,9 +284,18 @@ class SubRuleHandler(ActionHandler):
 					or getattr(caller_doc, "doctype", None)
 					or sub_rule_doc.document_type
 				)
-				is_eligible = engine._evaluate_python_condition(
-					sub_rule_doc.compiled_expression, eligibility_context
-				)
+				if is_canonical_condition:
+					from flexirule.ruleflow.core.condition_evaluator import evaluate_condition
+
+					is_eligible = evaluate_condition(
+						canonical_condition,
+						eligibility_context,
+						doctype=eligibility_context.get("doctype"),
+					)
+				else:
+					is_eligible = engine._evaluate_python_condition(
+						sub_rule_doc.compiled_expression, eligibility_context
+					)
 				if not is_eligible:
 					engine._log(
 						"INFO",

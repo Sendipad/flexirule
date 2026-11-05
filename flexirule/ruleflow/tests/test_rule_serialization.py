@@ -421,9 +421,9 @@ class TestRuleSerialization(FrappeTestCase):
 		with self.assertRaises(frappe.ValidationError):
 			malformed_builder.build()
 
-		# 4. Explicitly empty condition ({}) -> compiles to "True" and executes true branch
+		# 5. Explicitly empty legacy condition dictionaries must fail closed.
 		rule_empty_name = f"{self._test_prefix}_Empty_Cond"
-		rule_empty = (
+		empty_builder = (
 			RuleBuilder(rule_empty_name)
 			.document_type("ToDo")
 			.active(1)
@@ -437,14 +437,7 @@ class TestRuleSerialization(FrappeTestCase):
 			)
 			.stop("Match Stop", action_id="stop_true")
 			.stop("Mismatch Stop", action_id="stop_false")
-			.build()
 		)
-
-		reloaded_empty = frappe.get_doc("Rule", rule_empty.name)
-		cond_action_empty = next(a for a in reloaded_empty.actions if a.action_id == "cond_empty")
-		self.assertEqual(cond_action_empty.compiled_expression, "True")
-
-		RuleEngine(reloaded_empty).execute(todo_match)
-		res_empty = getattr(frappe.local, "execution_payload", {})
-		self.assertEqual(res_empty.get("status"), "Success")
-		self.assertIn("Match Stop", [s.get("action") for s in res_empty.get("path_trace", [])])
+		with self.assertRaises(frappe.ValidationError):
+			empty_builder.build()
+		self.assertFalse(frappe.db.exists("Rule", rule_empty_name))

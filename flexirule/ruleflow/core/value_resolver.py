@@ -1,12 +1,43 @@
 # Copyright (c) 2026, FlexiRule and contributors
 # For license information, please see license.txt
 
+import hashlib
 import json
-from typing import Any
+import math
+import re
+from collections.abc import Callable, Mapping
+from datetime import date, datetime, time
+from decimal import Decimal, InvalidOperation
+from typing import Any, ClassVar
 
 import frappe
 from frappe import _
 
+from flexirule.ruleflow.core.condition_errors import ConditionEvaluationError, ConditionValidationError
+from flexirule.ruleflow.core.flexvalue_contract import (
+	BASE_SCOPES,
+	CONDITION_RESOLVER_REGISTRY,
+	FRAPPE_VALUE_TYPES,
+	MAX_FLEXVALUE_DEPTH,
+	MAX_PATH_SEGMENTS,
+	MAX_RESOLVER_DEPTH,
+	MAX_STATIC_ITEMS,
+	MAX_TEMPLATE_OUTPUT_CHARS,
+	MAX_TEMPLATE_SEGMENTS,
+	MISSING,
+	VALUE_TYPES,
+	_exact_keys,
+	_fail,
+	_validate_json_value,
+	_validate_path,
+	format_template_value,
+	parse_static_value,
+	resolve_variable,
+	safe_read_segment,
+)
+from flexirule.ruleflow.core.flexvalue_contract import (
+	MAX_COLLECTION_ROWS as CONDITION_MAX_COLLECTION_ROWS,
+)
 from flexirule.ruleflow.utils.field_resolver import FieldResolver
 
 
@@ -470,7 +501,7 @@ class CollectionResolver(CompiledResolver):
 	values from child table collections or list variables.
 	"""
 
-	MAX_COLLECTION_ROWS = 10000
+	MAX_COLLECTION_ROWS = CONDITION_MAX_COLLECTION_ROWS
 
 	def __init__(
 		self,
@@ -485,15 +516,137 @@ class CollectionResolver(CompiledResolver):
 			self.operation = "first"  # Map UI alias directly to first matching row
 		self.condition = condition
 		self.target_field = target_field
+		self._canonical_condition = None
 		self._compiled_evaluator = None
 
 		if self.condition:
-			from flexirule.ruleflow.core.evaluator import ConditionEvaluator
+			from flexirule.ruleflow.core.condition_contract import validate_condition_node
+			from flexirule.ruleflow.core.condition_payload import detect_canonical_condition_payload
 
-			cond_list = self.condition if isinstance(self.condition, list) else [self.condition]
-			self._compiled_evaluator = ConditionEvaluator(json.dumps(cond_list))
+			is_canonical, canonical_node = detect_canonical_condition_payload(self.condition)
+			if is_canonical:
+				validate_condition_node(canonical_node)
+				self._canonical_condition = canonical_node
+			else:
+				from flexirule.ruleflow.core.evaluator import ConditionEvaluator
+
+				cond_list = self.condition if isinstance(self.condition, list) else [self.condition]
+				self._compiled_evaluator = ConditionEvaluator(json.dumps(cond_list))
+
+	def _resolve_child_doctype(self, parent_doctype: str | None) -> str | None:
+		if not parent_doctype or not self.source:
+			return None
+		source_str = str(self.source).strip()
+		if source_str.startswith("doc."):
+			segments = source_str.split(".")[1:]
+			scope = "doc"
+		elif source_str.startswith("vars."):
+			return None
+		elif "." in source_str:
+			parts = source_str.split(".")
+			scope = parts[0]
+			segments = parts[1:]
+		else:
+			scope = "doc"
+			segments = [source_str]
+
+		if scope != "doc":
+			return None
+
+		import frappe
+
+		try:
+			meta = frappe.get_meta(parent_doctype)
+			current_meta = meta
+			field = None
+			for seg in segments:
+				field = current_meta.get_field(seg)
+				if not field:
+					raise ConditionValidationError(
+						"unknown_field",
+						"$.source",
+						f"Collection source field '{seg}' does not exist on DocType '{parent_doctype}'",
+					)
+				if seg != segments[-1]:
+					if field.fieldtype in {"Table", "Table MultiSelect"}:
+						current_meta = frappe.get_meta(field.options)
+					else:
+						raise ConditionValidationError(
+							"invalid_collection_source",
+							"$.source",
+							"Collection source path continues through a scalar field",
+						)
+			if field and field.fieldtype in {"Table", "Table MultiSelect"}:
+				child_dt = field.options
+				if not child_dt:
+					raise ConditionValidationError(
+						"unknown_doctype",
+						"$.source",
+						f"Child DocType is not configured for table field '{field.fieldname}'",
+					)
+				# Authoritative check: child DocType must exist
+				try:
+					frappe.get_meta(child_dt)
+				except Exception as exc:
+					raise ConditionValidationError(
+						"unknown_doctype",
+						"$.source",
+						f"Could not resolve metadata for child DocType '{child_dt}'",
+					) from exc
+				return child_dt
+			elif field:
+				raise ConditionValidationError(
+					"collection_source_not_table",
+					"$.source",
+					f"Collection source '{self.source}' must reference a table/list field",
+				)
+		except ConditionValidationError:
+			raise
+		except Exception as exc:
+			raise ConditionValidationError(
+				"unknown_doctype",
+				"$.source",
+				f"Could not resolve metadata for DocType '{parent_doctype}'",
+			) from exc
+		return None
 
 	def resolve(self, context: dict) -> Any:
+		doc = context.get("doc")
+		condition_doctype = getattr(doc, "doctype", None)
+		if not condition_doctype and isinstance(doc, dict):
+			condition_doctype = doc.get("doctype")
+		condition_doctype = condition_doctype or context.get("doctype")
+
+		source_str = str(self.source or "").strip()
+		is_doc_backed = source_str.startswith("doc.") or (
+			not source_str.startswith("vars.") and "." not in source_str
+		)
+		has_condition = bool(
+			self._canonical_condition is not None or self._compiled_evaluator or self.condition
+		)
+
+		if is_doc_backed and has_condition and not condition_doctype:
+			from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
+			raise ConditionValidationError(
+				"unknown_doctype",
+				"$.source",
+				f"Parent DocType metadata is required to validate collection predicate for '{self.source}'",
+			)
+
+		child_doctype = self._resolve_child_doctype(condition_doctype)
+		scope_doctypes: dict[str, str | None] | None = {"row": child_doctype} if child_doctype else None
+
+		prepared_condition = None
+		if self._canonical_condition is not None:
+			from flexirule.ruleflow.core.condition_evaluator import prepare_condition
+
+			prepared_condition = prepare_condition(
+				self._canonical_condition,
+				doctype=condition_doctype,
+				scope_doctypes=scope_doctypes,
+			)
+
 		rows = get_context_value(context, self.source)
 		if rows is None or not isinstance(rows, list):
 			if self.operation == "count":
@@ -517,9 +670,25 @@ class CollectionResolver(CompiledResolver):
 				)
 			)
 
-		doc = context.get("doc")
+		condition_evaluation_budget = {"collection_row_visits": 0}
 
 		def _matches(r) -> bool:
+			if self._canonical_condition is not None:
+				from flexirule.ruleflow.core.condition_evaluator import (
+					consume_collection_row_visit,
+					evaluate_prepared_condition,
+				)
+
+				consume_collection_row_visit(condition_evaluation_budget, "CollectionResolver.condition")
+				row_context = dict(context)
+				row_context["doc"] = doc
+				row_context["row"] = r
+				return evaluate_prepared_condition(
+					prepared_condition,
+					row_context,
+					doctype=condition_doctype,
+					_evaluation_budget=condition_evaluation_budget,
+				)
 			if not self._compiled_evaluator:
 				return True
 			return self._compiled_evaluator.evaluate(doc, row=r)
@@ -527,7 +696,7 @@ class CollectionResolver(CompiledResolver):
 		op = self.operation
 
 		if op == "count":
-			if not self._compiled_evaluator:
+			if self._canonical_condition is None and not self._compiled_evaluator:
 				return len(rows)
 			return sum(1 for r in rows if _matches(r))
 
@@ -545,12 +714,12 @@ class CollectionResolver(CompiledResolver):
 				return sum(values) / len(values) if values else 0.0
 
 		if op == "any":
-			if not self._compiled_evaluator:
+			if self._canonical_condition is None and not self._compiled_evaluator:
 				return len(rows) > 0
 			return any(_matches(r) for r in rows)
 
 		if op == "all":
-			if not self._compiled_evaluator:
+			if self._canonical_condition is None and not self._compiled_evaluator:
 				return True
 			return all(_matches(r) for r in rows)
 
@@ -878,11 +1047,373 @@ class ExpressionResolver(CompiledResolver):
 class ValueResolver:
 	"""
 	Unified compiler & runtime registry for FlexValue systems.
-	Converts dynamic configuration schemas into optimized CompiledResolver graphs.
+	Single authoritative registry, validation, compilation, and runtime resolution pipeline.
 	"""
+
+	REGISTRY = CONDITION_RESOLVER_REGISTRY
+	_REGISTRY_FINGERPRINT_CACHE: ClassVar[str | None] = None
+
+	@classmethod
+	def register_resolver(
+		cls,
+		family: str,
+		operation: str,
+		*,
+		label: str,
+		output_type: str,
+		config_schema: dict[str, Any],
+		permission_policy: str,
+		validate_config: Callable[[dict, str, set[str], int, int], None],
+		factory: Callable[[dict, Any], CompiledResolver],
+		supported_consumers: set[str] | None = None,
+		condition_operand_allowed: bool = False,
+		required_capability: str = "condition_operand",
+	):
+		"""Register a reviewed resolver operation."""
+		if (
+			not isinstance(family, str)
+			or not family
+			or not isinstance(operation, str)
+			or not operation
+			or not isinstance(label, str)
+			or not label
+			or not isinstance(output_type, str)
+			or output_type not in VALUE_TYPES
+			or not isinstance(config_schema, dict)
+			or not isinstance(permission_policy, str)
+			or not permission_policy
+			or not isinstance(condition_operand_allowed, bool)
+			or not isinstance(required_capability, str)
+			or not required_capability
+		):
+			raise ValueError("Invalid resolver registration")
+		try:
+			config_schema_copy = json.loads(
+				json.dumps(config_schema, sort_keys=True, allow_nan=False, separators=(",", ":"))
+			)
+		except (TypeError, ValueError, RecursionError) as exc:
+			raise ValueError("Resolver config_schema must be JSON-serializable") from exc
+		if not callable(validate_config) or not callable(factory):
+			raise ValueError("Resolver validator and factory must be callable")
+
+		key = (family, operation)
+		cls.REGISTRY[key] = {
+			"family": family,
+			"operation": operation,
+			"label": label,
+			"output_type": output_type,
+			"config_schema": config_schema_copy,
+			"permission_policy": permission_policy,
+			"required_capability": required_capability,
+			"condition_operand_allowed": bool(condition_operand_allowed),
+			"supported_consumers": set(supported_consumers or {"all"}),
+			"validate_config": validate_config,
+			"factory": factory,
+			"resolve": lambda cfg, ctx: factory(cfg, None).resolve(ctx),
+		}
+		cls._REGISTRY_FINGERPRINT_CACHE = None
+
+	@classmethod
+	def registry_fingerprint(cls) -> str:
+		"""Stable cache key material; implementation callables stay private."""
+		if cls._REGISTRY_FINGERPRINT_CACHE is None:
+			payload = json.dumps(
+				cls.resolver_contract_dto(),
+				sort_keys=True,
+				ensure_ascii=False,
+				separators=(",", ":"),
+				allow_nan=False,
+			)
+			cls._REGISTRY_FINGERPRINT_CACHE = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+		return cls._REGISTRY_FINGERPRINT_CACHE
+
+	@classmethod
+	def resolver_contract_dto(cls) -> list[dict[str, Any]]:
+		"""Return public metadata only; internal functions are never exposed."""
+		return [
+			{
+				"family": item["family"],
+				"operation": item["operation"],
+				"label": item["label"],
+				"output_type": item["output_type"],
+				"config_schema": json.loads(json.dumps(item["config_schema"], sort_keys=True)),
+				"permission_policy": item["permission_policy"],
+				"required_capability": item["required_capability"],
+				"condition_operand_allowed": bool(item["condition_operand_allowed"]),
+				"supported_consumers": sorted(item.get("supported_consumers", ["all"])),
+			}
+			for _, item in sorted(cls.REGISTRY.items())
+		]
+
+	@classmethod
+	def validate_flex_value(
+		cls,
+		value: Any,
+		*,
+		path: str = "$",
+		allowed_scopes: set[str] | None = None,
+		consumer: str | None = None,
+		resolver_depth: int = 0,
+		flexvalue_depth: int = 0,
+	) -> str | None:
+		"""Validate canonical FlexValue structure and return known output type."""
+		if flexvalue_depth > MAX_FLEXVALUE_DEPTH:
+			_fail("flexvalue_depth_exceeded", path, "Nested FlexValue exceeds the configured depth limit")
+		if not isinstance(value, Mapping):
+			_fail("invalid_flex_value", path, "FlexValue must be an object")
+
+		allowed = set(allowed_scopes or BASE_SCOPES)
+		mode = value.get("mode")
+
+		if mode == "static":
+			_exact_keys(value, {"mode", "value_type", "value"}, set(), path)
+			value_type = value.get("value_type")
+			val = value.get("value")
+			if not isinstance(value_type, str) or value_type not in VALUE_TYPES:
+				_fail("unknown_value_type", f"{path}.value_type", "Unsupported static value type")
+
+			if val is None:
+				if value_type == "null":
+					return "null"
+				return str(value_type)
+
+			if value_type in {
+				"string",
+				"Data",
+				"Small Text",
+				"Text",
+				"Text Editor",
+				"Code",
+				"Select",
+				"Link",
+				"Dynamic Link",
+			} and not isinstance(val, str):
+				_fail("invalid_static_type", f"{path}.value", "Expected a string")
+			elif value_type in {"integer", "Int"} and not (
+				isinstance(val, int) and not isinstance(val, bool)
+			):
+				_fail("invalid_static_type", f"{path}.value", "Expected an integer (not a boolean)")
+			elif value_type == "decimal":
+				if not isinstance(val, str):
+					_fail(
+						"invalid_static_type", f"{path}.value", "Decimal values must be serialized as strings"
+					)
+				try:
+					number = Decimal(val)
+				except (InvalidOperation, ValueError):
+					_fail("invalid_decimal", f"{path}.value", "Decimal value is not valid")
+				if not number.is_finite():
+					_fail("invalid_decimal", f"{path}.value", "Decimal value must be finite")
+			elif value_type in {"Float", "Currency", "Percent"}:
+				if isinstance(val, int | float) and not isinstance(val, bool):
+					if isinstance(val, float) and not math.isfinite(val):
+						_fail("invalid_decimal", f"{path}.value", "Decimal value must be finite")
+				elif isinstance(val, str):
+					try:
+						number = Decimal(val)
+					except (InvalidOperation, ValueError):
+						_fail("invalid_decimal", f"{path}.value", "Decimal value is not valid")
+					if not number.is_finite():
+						_fail("invalid_decimal", f"{path}.value", "Decimal value must be finite")
+				else:
+					_fail(
+						"invalid_static_type",
+						f"{path}.value",
+						"Numeric values must be numbers or decimal strings",
+					)
+			elif value_type == "boolean" and not isinstance(val, bool):
+				_fail("invalid_static_type", f"{path}.value", "Expected a boolean")
+			elif value_type == "Check" and val not in (0, 1):
+				_fail("invalid_static_type", f"{path}.value", "Check values must be Frappe-compatible 0 or 1")
+			elif value_type == "null" and val is not None:
+				_fail("invalid_static_type", f"{path}.value", "Null values must be JSON null")
+			elif value_type in {"date", "Date"}:
+				if not isinstance(val, str):
+					_fail("invalid_static_type", f"{path}.value", "Dates must be ISO strings")
+				try:
+					if date.fromisoformat(val).isoformat() != val:
+						raise ValueError
+				except ValueError:
+					_fail("invalid_date", f"{path}.value", "Expected an ISO date in YYYY-MM-DD format")
+			elif value_type in {"datetime", "Datetime"}:
+				if not isinstance(val, str):
+					_fail("invalid_static_type", f"{path}.value", "Datetimes must be ISO strings")
+				try:
+					datetime.fromisoformat(val[:-1] + "+00:00" if val.endswith("Z") else val)
+				except ValueError:
+					_fail("invalid_datetime", f"{path}.value", "Expected a valid ISO datetime")
+			elif value_type in {"time", "Time", "Duration"}:
+				if not isinstance(val, str):
+					_fail("invalid_static_type", f"{path}.value", "Times must be ISO strings")
+				try:
+					time.fromisoformat(val)
+				except ValueError:
+					_fail("invalid_time", f"{path}.value", "Expected a valid ISO time")
+			elif value_type in {"list", "Table", "Table MultiSelect"}:
+				if not isinstance(val, list):
+					_fail("invalid_static_type", f"{path}.value", "Expected a list")
+				_validate_json_value(val, f"{path}.value")
+			elif value_type in {"object", "JSON"}:
+				if not isinstance(val, dict | list | str | int | float | bool):
+					_fail("invalid_static_type", f"{path}.value", "Expected a valid JSON value")
+				_validate_json_value(val, f"{path}.value")
+			return str(value_type)
+
+		if mode == "variable":
+			_exact_keys(value, {"mode", "path"}, set(), path)
+			_validate_path(value.get("path"), f"{path}.path", allowed)
+			return None
+
+		if mode == "resolver":
+			_exact_keys(value, {"mode", "family", "operation", "config"}, {"value_type"}, path)
+			family = value.get("family")
+			operation = value.get("operation")
+			if not isinstance(family, str) or not family:
+				_fail("invalid_resolver_family", f"{path}.family", "Resolver family is required")
+			if not isinstance(operation, str) or not operation:
+				_fail("invalid_resolver_operation", f"{path}.operation", "Resolver operation is required")
+			if resolver_depth >= MAX_RESOLVER_DEPTH:
+				_fail("resolver_depth_exceeded", path, "Resolver nesting exceeds the configured limit")
+
+			entry = cls.REGISTRY.get((family, operation))
+			if not entry:
+				_fail("resolver_not_allowed", path, f"Resolver {family}.{operation} is not registered")
+
+			if consumer == "condition" and not entry.get("condition_operand_allowed"):
+				_fail(
+					"resolver_not_allowed", path, "Resolver operation is not approved as a condition operand"
+				)
+
+			supported = entry.get("supported_consumers", {"all"})
+			if consumer and "all" not in supported and consumer not in supported:
+				if not (consumer == "condition" and entry.get("condition_operand_allowed")):
+					_fail(
+						"resolver_consumer_unsupported", path, f"Resolver not allowed for consumer {consumer}"
+					)
+
+			config = value.get("config")
+			if not isinstance(config, dict):
+				_fail("invalid_resolver_config", f"{path}.config", "Resolver config must be an object")
+
+			declared_vt = value.get("value_type")
+			if declared_vt and declared_vt not in VALUE_TYPES:
+				_fail("unknown_value_type", f"{path}.value_type", "Unknown declared resolver output type")
+
+			entry["validate_config"](
+				config, f"{path}.config", allowed, resolver_depth + 1, flexvalue_depth + 1
+			)
+			return entry["output_type"]
+
+		if mode == "template":
+			_exact_keys(value, {"mode", "segments"}, set(), path)
+			segments = value.get("segments")
+			if not isinstance(segments, list) or not segments or len(segments) > MAX_TEMPLATE_SEGMENTS:
+				_fail(
+					"invalid_template_segments",
+					f"{path}.segments",
+					"Template segments must be a non-empty bounded list",
+				)
+			for index, segment in enumerate(segments):
+				segment_path = f"{path}.segments[{index}]"
+				if not isinstance(segment, Mapping):
+					_fail("invalid_template_segment", segment_path, "Template segment must be an object")
+				if segment.get("type") == "text":
+					_exact_keys(segment, {"type", "value"}, set(), segment_path)
+					if not isinstance(segment.get("value"), str):
+						_fail(
+							"invalid_template_text",
+							f"{segment_path}.value",
+							"Text segment value must be a string",
+						)
+				elif segment.get("type") == "value":
+					_exact_keys(segment, {"type", "value"}, set(), segment_path)
+					output_type = cls.validate_flex_value(
+						segment.get("value"),
+						path=f"{segment_path}.value",
+						allowed_scopes=allowed,
+						consumer=consumer,
+						resolver_depth=resolver_depth,
+						flexvalue_depth=flexvalue_depth + 1,
+					)
+					if output_type in {"list", "object", "Table", "Table MultiSelect"}:
+						_fail(
+							"invalid_template_value_type",
+							f"{segment_path}.value",
+							"Template values must be scalar",
+						)
+				else:
+					_fail(
+						"unknown_template_segment", f"{segment_path}.type", "Expected text or value segment"
+					)
+			return "Data"
+
+		_fail("unknown_flex_value_mode", f"{path}.mode", "Unsupported FlexValue mode")
+
+	@classmethod
+	def compile_flex_value(
+		cls,
+		flex_value: Any,
+		*,
+		context_metadata: dict[str, Any] | None = None,
+		path: str = "$",
+		consumer: str | None = None,
+	) -> CompiledResolver:
+		"""
+		Authoritative compilation pipeline for canonical FlexValue.
+		Validates structure and compiles once into an immutable CompiledResolver.
+		"""
+		if not isinstance(flex_value, Mapping):
+			if flex_value is None:
+				return StaticResolver(None)
+			return StaticResolver(flex_value)
+
+		mode = flex_value.get("mode")
+
+		# Direct compilation of canonical modes
+		if mode == "static":
+			cls.validate_flex_value(flex_value, path=path, consumer=consumer)
+			value_type = flex_value.get("value_type", "Data")
+			parsed = parse_static_value(value_type, flex_value.get("value"))
+			return StaticResolver(parsed)
+
+		if mode == "variable":
+			cls.validate_flex_value(flex_value, path=path, consumer=consumer)
+			path_val = flex_value.get("path", {})
+			scope = path_val.get("scope")
+			segments = tuple(path_val.get("segments") or ())
+			return CanonicalVariableResolver(scope, segments)
+
+		if mode == "resolver":
+			cls.validate_flex_value(flex_value, path=path, consumer=consumer)
+			family = flex_value["family"]
+			operation = flex_value["operation"]
+			config = flex_value.get("config", {})
+			entry = cls.REGISTRY[(family, operation)]
+			return entry["factory"](config, context_metadata)
+
+		if mode == "template":
+			cls.validate_flex_value(flex_value, path=path, consumer=consumer)
+			compiled_segments: list[tuple[str, Any]] = []
+			for idx, segment in enumerate(flex_value.get("segments", [])):
+				seg_type = segment.get("type")
+				if seg_type == "text":
+					compiled_segments.append(("text", segment.get("value", "")))
+				else:
+					child_compiled = cls.compile_flex_value(
+						segment.get("value"),
+						context_metadata=context_metadata,
+						path=f"{path}.segments[{idx}].value",
+						consumer=consumer,
+					)
+					compiled_segments.append(("value", child_compiled))
+			return CanonicalTemplateResolver(tuple(compiled_segments))
+
+		# Strict canonical compilation: unknown modes or structures fail directly
+		_fail("unknown_flex_value_mode", f"{path}.mode", f"Unsupported FlexValue mode: {mode}")
 
 	@staticmethod
 	def compile(val: Any) -> CompiledResolver:
+		"""Legacy compile entrypoint preserved for backward compatibility during migration."""
 		if val is None:
 			return NoneResolver()
 
@@ -893,8 +1424,28 @@ class ValueResolver:
 				return StaticResolver(val.get("value"))
 
 			if mode == "variable":
-				path = val.get("path") or val.get("value") or ""
-				return VariableResolver(path)
+				path = val.get("path")
+				if isinstance(path, dict) and "scope" in path:
+					return CanonicalVariableResolver(path["scope"], tuple(path.get("segments", ())))
+				path_str = val.get("path") or val.get("value") or ""
+				return VariableResolver(path_str)
+
+			if mode == "resolver":
+				family = val.get("family")
+				operation = val.get("operation")
+				config = val.get("config")
+				if isinstance(config, dict):
+					inner_family = family or config.get("family") or config.get("kind")
+					inner_op = operation or config.get("operation") or config.get("agg_op")
+					merged = {**config}
+					if inner_family:
+						merged["family"] = inner_family
+					if inner_op:
+						merged["operation"] = inner_op
+					return ValueResolver.compile_resolver_config(merged)
+				if family and operation and (family, operation) in ValueResolver.REGISTRY:
+					return ValueResolver.REGISTRY[(family, operation)]["factory"](val, None)
+				return ValueResolver.compile_resolver_config(val)
 
 			if mode == "expression":
 				segments: list[CompiledResolver] = []
@@ -918,7 +1469,7 @@ class ValueResolver:
 				return ExpressionResolver(segments)
 
 			if (
-				mode in ("resolver", "formatter", "normalize", "format", "normalization")
+				mode in ("formatter", "normalize", "format", "normalization")
 				or "kind" in val
 				or "family" in val
 			):
@@ -960,16 +1511,22 @@ class ValueResolver:
 		inner_dict: dict[str, Any] = raw_inner if isinstance(raw_inner, dict) else {}
 
 		family = config.get("family") or inner_dict.get("family")
+		operation = config.get("operation") or inner_dict.get("operation")
 		kind = config.get("kind") or inner_dict.get("kind")
+
+		# Check if registered in unified REGISTRY
+		if family and operation and (family, operation) in ValueResolver.REGISTRY:
+			cfg = inner_dict if raw_inner else config
+			return ValueResolver.REGISTRY[(family, operation)]["factory"](cfg, None)
 
 		if family == "collection" or kind == "collection":
 			source = inner_dict.get("source") or config.get("source")
-			operation = inner_dict.get("operation") or config.get("operation") or "any"
+			op = inner_dict.get("operation") or config.get("operation") or "any"
 			condition = inner_dict.get("condition") if "condition" in inner_dict else config.get("condition")
 			target_field = inner_dict.get("target_field") or config.get("target_field")
 			return CollectionResolver(
 				source=source,
-				operation=operation,
+				operation=op,
 				condition=condition,
 				target_field=target_field,
 			)
@@ -987,7 +1544,7 @@ class ValueResolver:
 				or config.get("agg_field")
 				or config.get("target_field")
 			)
-			operation = (
+			op = (
 				inner_dict.get("operation")
 				or inner_dict.get("agg_op")
 				or config.get("agg_op")
@@ -997,7 +1554,7 @@ class ValueResolver:
 			condition = inner_dict.get("condition") if "condition" in inner_dict else config.get("condition")
 			return CollectionResolver(
 				source=source,
-				operation=operation,
+				operation=op,
 				condition=condition,
 				target_field=target_field,
 			)
@@ -1165,15 +1722,654 @@ class ValueResolver:
 		return NoneResolver()
 
 
+class CanonicalVariableResolver(CompiledResolver):
+	"""Fast, structured variable resolution without dot-string parsing at runtime."""
+
+	__slots__ = ("scope", "segments")
+
+	def __init__(self, scope: str, segments: tuple[str, ...]):
+		self.scope = scope
+		self.segments = segments
+
+	def resolve(self, context: dict) -> Any:
+		return resolve_variable(self.scope, self.segments, context)
+
+
+class CanonicalTemplateResolver(CompiledResolver):
+	"""Fast template resolver concatenating pre-compiled text and scalar values."""
+
+	__slots__ = ("segments",)
+
+	def __init__(self, segments: tuple[tuple[str, Any], ...]):
+		self.segments = segments
+
+	def resolve(self, context: dict) -> str:
+		parts: list[str] = []
+		output_length = 0
+		for seg_type, seg_val in self.segments:
+			if seg_type == "text":
+				parts.append(seg_val)
+				output_length += len(seg_val)
+			else:
+				resolved = seg_val.resolve(context)
+				if resolved is MISSING or resolved is None:
+					part = ""
+				else:
+					part = format_template_value(resolved)
+				parts.append(part)
+				output_length += len(part)
+
+			if output_length > MAX_TEMPLATE_OUTPUT_CHARS:
+				raise ConditionEvaluationError(
+					"template_output_too_large",
+					"$",
+					"Resolved template exceeds the configured output limit",
+				)
+		return "".join(parts)
+
+
 def get_compiled_resolver(action, key: str, value_payload: Any) -> CompiledResolver:
 	"""
 	Retrieve or create a request-local compiled ValueResolver object for extreme execution efficiency.
+	Accounts for action, key, and registry fingerprint.
 	"""
 	if not hasattr(frappe.local, "flexirule_compiled_resolvers"):
 		frappe.local.flexirule_compiled_resolvers = {}
 
-	cache_key = f"{getattr(action, 'name', 'action')}_{key}"
+	action_name = getattr(action, "name", "action") or "action"
+	fp = ValueResolver.registry_fingerprint()
+	cache_key = f"{action_name}_{key}_{fp}"
+
 	if cache_key not in frappe.local.flexirule_compiled_resolvers:
-		frappe.local.flexirule_compiled_resolvers[cache_key] = ValueResolver.compile(value_payload)
+		if isinstance(value_payload, dict) and "mode" in value_payload:
+			mode = value_payload.get("mode")
+			is_canonical = (
+				(mode == "static" and "value_type" in value_payload)
+				or (mode == "variable" and isinstance(value_payload.get("path"), dict))
+				or (mode == "resolver" and "family" in value_payload and "operation" in value_payload)
+				or (mode == "template" and "segments" in value_payload)
+			)
+			if is_canonical:
+				# Strict canonical compilation without fallback
+				frappe.local.flexirule_compiled_resolvers[cache_key] = ValueResolver.compile_flex_value(
+					value_payload
+				)
+			else:
+				# Explicit legacy payload conversion
+				frappe.local.flexirule_compiled_resolvers[cache_key] = ValueResolver.compile(value_payload)
+		else:
+			frappe.local.flexirule_compiled_resolvers[cache_key] = ValueResolver.compile(value_payload)
 
 	return frappe.local.flexirule_compiled_resolvers[cache_key]
+
+
+def _register_builtins():
+	# Concrete operation-specific config validators
+
+	def _validate_path_str(p_val: Any, field_name: str, path: str, allowed_scopes: set[str]):
+		if not isinstance(p_val, str) or not p_val.strip():
+			_fail(
+				"invalid_field_path",
+				f"{path}.{field_name}",
+				f"Field {field_name} must be a non-empty string path",
+			)
+		parts = p_val.strip().split(".")
+		scope = parts[0]
+		if scope not in allowed_scopes:
+			_fail("unknown_scope", f"{path}.{field_name}", f"Scope '{scope}' is not allowed in {field_name}")
+		for seg in parts[1:]:
+			if not seg or not re.fullmatch(r"[A-Za-z0-9_]+", seg) or "__" in seg:
+				_fail(
+					"invalid_path_segment",
+					f"{path}.{field_name}",
+					f"Invalid path segment in {field_name}: '{seg}'",
+				)
+
+	# date_time.current
+	def _val_dt_current(cfg, path, allowed_scopes, r_depth, fv_depth):
+		_exact_keys(cfg, set(), {"token"}, path)
+		token = cfg.get("token", "date")
+		if token is not None and token not in {"date", "datetime", "now", "time"}:
+			_fail("invalid_token", f"{path}.token", f"Unsupported token for date_time.current: {token}")
+
+	ValueResolver.register_resolver(
+		"date_time",
+		"current",
+		label="Current Date/Time",
+		output_type="Date",
+		config_schema={"type": "object", "properties": {"token": {"type": "string"}}},
+		permission_policy="no_data_access",
+		validate_config=_val_dt_current,
+		factory=lambda cfg, meta: DateCurrentResolver(cfg.get("token") or "date"),
+		condition_operand_allowed=True,
+	)
+
+	# date_time.calculate
+	def _val_dt_calculate(cfg, path, allowed_scopes, r_depth, fv_depth):
+		_exact_keys(
+			cfg,
+			set(),
+			{"base_type", "base_field", "offset_value", "offset_unit", "offset_sign", "source", "kind"},
+			path,
+		)
+		if "base_type" in cfg and cfg["base_type"] not in {
+			"today",
+			"current_date",
+			"current_datetime",
+			"now",
+			"current_time",
+			"doc_field",
+			None,
+		}:
+			_fail("invalid_base_type", f"{path}.base_type", f"Invalid base_type: {cfg['base_type']}")
+		if "offset_unit" in cfg and cfg["offset_unit"] not in {
+			"days",
+			"months",
+			"years",
+			"hours",
+			"minutes",
+			"seconds",
+			None,
+		}:
+			_fail("invalid_offset_unit", f"{path}.offset_unit", f"Invalid offset_unit: {cfg['offset_unit']}")
+		if "offset_sign" in cfg and cfg["offset_sign"] not in {"+", "-", None}:
+			_fail("invalid_offset_sign", f"{path}.offset_sign", f"Invalid offset_sign: {cfg['offset_sign']}")
+		if "source" in cfg and cfg["source"] is not None:
+			if isinstance(cfg["source"], dict) and "mode" in cfg["source"]:
+				ValueResolver.validate_flex_value(
+					cfg["source"],
+					path=f"{path}.source",
+					allowed_scopes=allowed_scopes,
+					resolver_depth=r_depth,
+					flexvalue_depth=fv_depth,
+				)
+			elif isinstance(cfg["source"], str):
+				_validate_path_str(cfg["source"], "source", path, allowed_scopes)
+		if "offset_value" in cfg and cfg["offset_value"] is not None:
+			if isinstance(cfg["offset_value"], dict) and "mode" in cfg["offset_value"]:
+				ValueResolver.validate_flex_value(
+					cfg["offset_value"],
+					path=f"{path}.offset_value",
+					allowed_scopes=allowed_scopes,
+					resolver_depth=r_depth,
+					flexvalue_depth=fv_depth,
+				)
+			elif not isinstance(cfg["offset_value"], int | float | str):
+				_fail(
+					"invalid_offset_value",
+					f"{path}.offset_value",
+					"Offset value must be numeric, string, or FlexValue",
+				)
+
+	ValueResolver.register_resolver(
+		"date_time",
+		"calculate",
+		label="Calculate Date/Time",
+		output_type="Date",
+		config_schema={"type": "object"},
+		permission_policy="no_data_access",
+		validate_config=_val_dt_calculate,
+		factory=lambda cfg, meta: DateFormulaResolver(
+			base_type=cfg.get("base_type"),
+			base_field=cfg.get("base_field"),
+			offset_value=cfg.get("offset_value", 0),
+			offset_unit=cfg.get("offset_unit", "days"),
+			offset_sign=cfg.get("offset_sign", "+"),
+			source=cfg.get("source"),
+		),
+		condition_operand_allowed=True,
+	)
+
+	# date_time.diff
+	def _val_dt_diff(cfg, path, allowed_scopes, r_depth, fv_depth):
+		_exact_keys(
+			cfg,
+			set(),
+			{
+				"diff_start_type",
+				"diff_start_field",
+				"diff_end_type",
+				"diff_end_field",
+				"diff_unit",
+				"start_source",
+				"end_source",
+			},
+			path,
+		)
+		if "diff_unit" in cfg and cfg["diff_unit"] not in {
+			"days",
+			"months",
+			"years",
+			"hours",
+			"minutes",
+			"seconds",
+			None,
+		}:
+			_fail("invalid_diff_unit", f"{path}.diff_unit", f"Invalid diff_unit: {cfg['diff_unit']}")
+		for src_key in ("start_source", "end_source"):
+			if src_key in cfg and cfg[src_key] is not None:
+				if isinstance(cfg[src_key], dict) and "mode" in cfg[src_key]:
+					ValueResolver.validate_flex_value(
+						cfg[src_key],
+						path=f"{path}.{src_key}",
+						allowed_scopes=allowed_scopes,
+						resolver_depth=r_depth,
+						flexvalue_depth=fv_depth,
+					)
+				elif isinstance(cfg[src_key], str):
+					_validate_path_str(cfg[src_key], src_key, path, allowed_scopes)
+
+	ValueResolver.register_resolver(
+		"date_time",
+		"diff",
+		label="Date Difference",
+		output_type="Int",
+		config_schema={"type": "object"},
+		permission_policy="no_data_access",
+		validate_config=_val_dt_diff,
+		factory=lambda cfg, meta: DateDiffResolver(
+			diff_start_type=cfg.get("diff_start_type"),
+			diff_start_field=cfg.get("diff_start_field"),
+			diff_end_type=cfg.get("diff_end_type"),
+			diff_end_field=cfg.get("diff_end_field"),
+			diff_unit=cfg.get("diff_unit", "days"),
+			start_source=cfg.get("start_source"),
+			end_source=cfg.get("end_source"),
+		),
+		condition_operand_allowed=True,
+	)
+
+	# date_time.extract
+	def _val_dt_extract(cfg, path, allowed_scopes, r_depth, fv_depth):
+		_exact_keys(cfg, set(), {"source", "base_field", "component"}, path)
+		if "component" in cfg and cfg["component"] not in {
+			"year",
+			"month",
+			"day",
+			"weekday",
+			"quarter",
+			"hour",
+			"minute",
+			"second",
+			None,
+		}:
+			_fail("invalid_component", f"{path}.component", f"Invalid extract component: {cfg['component']}")
+		for src_key in ("source", "base_field"):
+			if src_key in cfg and cfg[src_key] is not None:
+				if isinstance(cfg[src_key], dict) and "mode" in cfg[src_key]:
+					ValueResolver.validate_flex_value(
+						cfg[src_key],
+						path=f"{path}.{src_key}",
+						allowed_scopes=allowed_scopes,
+						resolver_depth=r_depth,
+						flexvalue_depth=fv_depth,
+					)
+				elif isinstance(cfg[src_key], str):
+					_validate_path_str(cfg[src_key], src_key, path, allowed_scopes)
+
+	ValueResolver.register_resolver(
+		"date_time",
+		"extract",
+		label="Extract Date Component",
+		output_type="Int",
+		config_schema={"type": "object"},
+		permission_policy="no_data_access",
+		validate_config=_val_dt_extract,
+		factory=lambda cfg, meta: DateExtractResolver(
+			source=cfg.get("source") or cfg.get("base_field"),
+			component=cfg.get("component", "year"),
+		),
+		condition_operand_allowed=True,
+	)
+
+	# date_time.boundary
+	def _val_dt_boundary(cfg, path, allowed_scopes, r_depth, fv_depth):
+		_exact_keys(cfg, set(), {"source", "base_field", "boundary_type"}, path)
+		allowed_btypes = {
+			"start_of_day",
+			"end_of_day",
+			"start_of_week",
+			"end_of_week",
+			"start_of_month",
+			"end_of_month",
+			"start_of_quarter",
+			"end_of_quarter",
+			"start_of_year",
+			"end_of_year",
+			None,
+		}
+		if "boundary_type" in cfg and cfg["boundary_type"] not in allowed_btypes:
+			_fail(
+				"invalid_boundary_type",
+				f"{path}.boundary_type",
+				f"Invalid boundary_type: {cfg['boundary_type']}",
+			)
+		for src_key in ("source", "base_field"):
+			if src_key in cfg and cfg[src_key] is not None:
+				if isinstance(cfg[src_key], dict) and "mode" in cfg[src_key]:
+					ValueResolver.validate_flex_value(
+						cfg[src_key],
+						path=f"{path}.{src_key}",
+						allowed_scopes=allowed_scopes,
+						resolver_depth=r_depth,
+						flexvalue_depth=fv_depth,
+					)
+				elif isinstance(cfg[src_key], str):
+					_validate_path_str(cfg[src_key], src_key, path, allowed_scopes)
+
+	ValueResolver.register_resolver(
+		"date_time",
+		"boundary",
+		label="Date Boundary",
+		output_type="Date",
+		config_schema={"type": "object"},
+		permission_policy="no_data_access",
+		validate_config=_val_dt_boundary,
+		factory=lambda cfg, meta: DateBoundaryResolver(
+			source=cfg.get("source") or cfg.get("base_field"),
+			boundary_type=cfg.get("boundary_type", "start_of_month"),
+		),
+		condition_operand_allowed=True,
+	)
+
+	# date_time.format
+	def _val_dt_format(cfg, path, allowed_scopes, r_depth, fv_depth):
+		_exact_keys(cfg, set(), {"fmt_field", "fmt_config", "source"}, path)
+		if "fmt_field" in cfg and cfg["fmt_field"] is not None:
+			_validate_path_str(str(cfg["fmt_field"]), "fmt_field", path, allowed_scopes)
+		if "fmt_config" in cfg and cfg["fmt_config"] is not None and not isinstance(cfg["fmt_config"], str):
+			_fail("invalid_fmt_config", f"{path}.fmt_config", "Format configuration must be a string")
+
+	ValueResolver.register_resolver(
+		"date_time",
+		"format",
+		label="Format Date",
+		output_type="Data",
+		config_schema={"type": "object"},
+		permission_policy="no_data_access",
+		validate_config=_val_dt_format,
+		factory=lambda cfg, meta: FormatResolver(
+			fmt_op="format_date",
+			fmt_field=cfg.get("fmt_field"),
+			fmt_config=cfg.get("fmt_config", "YYYY-MM-DD"),
+		),
+		condition_operand_allowed=True,
+	)
+
+	# math.formula
+	def _val_math_formula(cfg, path, allowed_scopes, r_depth, fv_depth):
+		_exact_keys(
+			cfg,
+			set(),
+			{"field_a", "math_op", "field_b_type", "field_b", "constant_b", "precision", "kind"},
+			path,
+		)
+		if "math_op" in cfg and cfg["math_op"] not in {"+", "-", "*", "/", None}:
+			_fail("invalid_math_op", f"{path}.math_op", f"Invalid math_op: {cfg['math_op']}")
+		if cfg.get("field_a"):
+			_validate_path_str(str(cfg["field_a"]), "field_a", path, allowed_scopes)
+		if cfg.get("field_b_type") == "field" and cfg.get("field_b"):
+			_validate_path_str(str(cfg["field_b"]), "field_b", path, allowed_scopes)
+		if "precision" in cfg and cfg["precision"] is not None:
+			if not isinstance(cfg["precision"], int) or cfg["precision"] < 0 or cfg["precision"] > 10:
+				_fail(
+					"invalid_precision", f"{path}.precision", "Precision must be an integer between 0 and 10"
+				)
+
+	ValueResolver.register_resolver(
+		"math",
+		"formula",
+		label="Math Formula",
+		output_type="Float",
+		config_schema={"type": "object"},
+		permission_policy="no_data_access",
+		validate_config=_val_math_formula,
+		factory=lambda cfg, meta: MathFormulaResolver(
+			field_a=cfg.get("field_a"),
+			math_op=cfg.get("math_op", "+"),
+			field_b_type=cfg.get("field_b_type", "field"),
+			field_b=cfg.get("field_b"),
+			constant_b=cfg.get("constant_b", 0),
+			precision=cfg.get("precision", 2),
+		),
+		condition_operand_allowed=True,
+	)
+
+	# text.combine
+	def _val_text_combine(cfg, path, allowed_scopes, r_depth, fv_depth):
+		_exact_keys(cfg, set(), {"str_op", "str_a_type", "str_a", "str_b_type", "str_b", "kind"}, path)
+		if cfg.get("str_a_type") == "field" and cfg.get("str_a"):
+			_validate_path_str(str(cfg["str_a"]), "str_a", path, allowed_scopes)
+		if cfg.get("str_b_type") == "field" and cfg.get("str_b"):
+			_validate_path_str(str(cfg["str_b"]), "str_b", path, allowed_scopes)
+
+	ValueResolver.register_resolver(
+		"text",
+		"combine",
+		label="Text Combine",
+		output_type="Data",
+		config_schema={"type": "object"},
+		permission_policy="no_data_access",
+		validate_config=_val_text_combine,
+		factory=lambda cfg, meta: StringFormulaResolver(
+			str_op="concat",
+			str_a_type=cfg.get("str_a_type", "field"),
+			str_a=cfg.get("str_a"),
+			str_b_type=cfg.get("str_b_type", "constant"),
+			str_b=cfg.get("str_b"),
+		),
+		condition_operand_allowed=True,
+	)
+
+	# text.case
+	def _val_text_case(cfg, path, allowed_scopes, r_depth, fv_depth):
+		_exact_keys(cfg, set(), {"case_mode", "field"}, path)
+		if "case_mode" in cfg and cfg["case_mode"] not in {
+			"uppercase",
+			"lowercase",
+			"titlecase",
+			"upper",
+			"lower",
+			None,
+		}:
+			_fail("invalid_case_mode", f"{path}.case_mode", f"Invalid case_mode: {cfg['case_mode']}")
+		if cfg.get("field"):
+			_validate_path_str(str(cfg["field"]), "field", path, allowed_scopes)
+
+	ValueResolver.register_resolver(
+		"text",
+		"case",
+		label="Text Case",
+		output_type="Data",
+		config_schema={"type": "object"},
+		permission_policy="no_data_access",
+		validate_config=_val_text_case,
+		factory=lambda cfg, meta: StringFormulaResolver(
+			str_op=cfg.get("case_mode", "uppercase"),
+			str_a_type="field",
+			str_a=cfg.get("field"),
+			str_b_type="constant",
+			str_b="",
+		),
+		condition_operand_allowed=True,
+	)
+
+	# text.normalize
+	def _val_text_normalize(cfg, path, allowed_scopes, r_depth, fv_depth):
+		_exact_keys(cfg, set(), {"norm_field", "norm_profile", "norm_pipeline", "norm_op", "kind"}, path)
+		if cfg.get("norm_field"):
+			_validate_path_str(str(cfg["norm_field"]), "norm_field", path, allowed_scopes)
+		if "norm_pipeline" in cfg and cfg["norm_pipeline"] is not None:
+			if not isinstance(cfg["norm_pipeline"], list):
+				_fail(
+					"invalid_norm_pipeline", f"{path}.norm_pipeline", "Normalization pipeline must be a list"
+				)
+
+	ValueResolver.register_resolver(
+		"text",
+		"normalize",
+		label="Text Normalize",
+		output_type="Data",
+		config_schema={"type": "object"},
+		permission_policy="no_data_access",
+		validate_config=_val_text_normalize,
+		factory=lambda cfg, meta: NormalizationResolver(
+			norm_field=cfg.get("norm_field"),
+			norm_profile=cfg.get("norm_profile"),
+			norm_pipeline=cfg.get("norm_pipeline"),
+			norm_op=cfg.get("norm_op"),
+		),
+		condition_operand_allowed=True,
+	)
+
+	# text.format
+	def _val_text_format(cfg, path, allowed_scopes, r_depth, fv_depth):
+		_exact_keys(cfg, set(), {"fmt_field", "fmt_config"}, path)
+		if cfg.get("fmt_field"):
+			_validate_path_str(str(cfg["fmt_field"]), "fmt_field", path, allowed_scopes)
+		if "fmt_config" in cfg and cfg["fmt_config"] is not None and not isinstance(cfg["fmt_config"], str):
+			_fail("invalid_fmt_config", f"{path}.fmt_config", "fmt_config must be a string")
+
+	ValueResolver.register_resolver(
+		"text",
+		"format",
+		label="Text Format",
+		output_type="Data",
+		config_schema={"type": "object"},
+		permission_policy="no_data_access",
+		validate_config=_val_text_format,
+		factory=lambda cfg, meta: FormatResolver(
+			fmt_op="format",
+			fmt_field=cfg.get("fmt_field"),
+			fmt_config=cfg.get("fmt_config", ""),
+		),
+		condition_operand_allowed=True,
+	)
+
+	# lookup.fetch
+	def _val_lookup_fetch(cfg, path, allowed_scopes, r_depth, fv_depth):
+		_exact_keys(
+			cfg,
+			set(),
+			{
+				"doctype_mode",
+				"target_doctype",
+				"linked_doctype",
+				"doctype_source",
+				"record_field",
+				"link_field",
+				"fetch_field",
+				"record_source_type",
+				"kind",
+			},
+			path,
+		)
+		mode = cfg.get("doctype_mode", "static")
+		if mode not in {"static", "dynamic", None}:
+			_fail("invalid_doctype_mode", f"{path}.doctype_mode", f"Invalid doctype_mode: {mode}")
+		if mode == "dynamic" and not cfg.get("doctype_source"):
+			_fail(
+				"missing_doctype_source",
+				f"{path}.doctype_source",
+				"doctype_source is required for dynamic mode",
+			)
+		elif mode != "dynamic" and not (cfg.get("target_doctype") or cfg.get("linked_doctype")):
+			_fail(
+				"missing_target_doctype",
+				f"{path}.target_doctype",
+				"target_doctype is required for static lookup",
+			)
+		rec_field = cfg.get("record_field") or cfg.get("link_field")
+		if rec_field:
+			_validate_path_str(str(rec_field), "record_field", path, allowed_scopes)
+		fetch_fld = cfg.get("fetch_field")
+		if not fetch_fld or not isinstance(fetch_fld, str):
+			_fail("missing_fetch_field", f"{path}.fetch_field", "fetch_field is required")
+
+	ValueResolver.register_resolver(
+		"lookup",
+		"fetch",
+		label="Lookup Record Field",
+		output_type="Data",
+		config_schema={"type": "object"},
+		permission_policy="authorized_read",
+		validate_config=_val_lookup_fetch,
+		factory=lambda cfg, meta: LookupResolver(
+			doctype_mode=cfg.get("doctype_mode", "static"),
+			target_doctype=cfg.get("target_doctype") or cfg.get("linked_doctype"),
+			doctype_source=cfg.get("doctype_source"),
+			record_field=cfg.get("record_field") or cfg.get("link_field"),
+			fetch_field=cfg.get("fetch_field"),
+		),
+		supported_consumers={"assignment", "query_records", "action"},
+		condition_operand_allowed=False,
+	)
+
+	def _val_collection(cfg, path, allowed_scopes, r_depth, fv_depth):
+		_exact_keys(
+			cfg, set(), {"source", "condition", "target_field", "agg_field", "operation", "kind"}, path
+		)
+		if cfg.get("source"):
+			_validate_path_str(str(cfg["source"]), "source", path, allowed_scopes)
+		if cfg.get("condition"):
+			from flexirule.ruleflow.core.condition_contract import validate_condition_node
+			from flexirule.ruleflow.core.condition_payload import detect_canonical_condition_payload
+
+			is_canonical, canonical_node = detect_canonical_condition_payload(cfg["condition"])
+			if is_canonical and canonical_node:
+				validate_condition_node(canonical_node)
+
+	def _make_col_factory(op_name: str) -> Callable[[dict, Any], CompiledResolver]:
+		def _factory(cfg: dict, meta: Any) -> CompiledResolver:
+			return CollectionResolver(
+				source=cfg.get("source"),
+				operation=op_name,
+				condition=cfg.get("condition"),
+				target_field=cfg.get("target_field") or cfg.get("agg_field"),
+			)
+
+		return _factory
+
+	# collection operations
+	for col_op in ["any", "all", "count", "sum", "avg", "first", "last", "filter", "pluck", "unique"]:
+		out_type = (
+			"Float"
+			if col_op in ("sum", "avg")
+			else ("Int" if col_op == "count" else ("Check" if col_op in ("any", "all") else "Table"))
+		)
+		ValueResolver.register_resolver(
+			"collection",
+			col_op,
+			label=f"Collection {col_op.capitalize()}",
+			output_type=out_type,
+			config_schema={"type": "object"},
+			permission_policy="no_data_access",
+			validate_config=_val_collection,
+			factory=_make_col_factory(col_op),
+			condition_operand_allowed=True,
+		)
+
+	# system_context.get
+	def _val_system_context(cfg, path, allowed_scopes, r_depth, fv_depth):
+		_exact_keys(cfg, set(), {"sys_token", "sys_role", "kind"}, path)
+		tok = cfg.get("sys_token", "user")
+		if tok not in {"user", "role_check", None}:
+			_fail("invalid_sys_token", f"{path}.sys_token", f"Invalid sys_token: {tok}")
+
+	ValueResolver.register_resolver(
+		"system_context",
+		"get",
+		label="System Context",
+		output_type="Data",
+		config_schema={"type": "object"},
+		permission_policy="no_data_access",
+		validate_config=_val_system_context,
+		factory=lambda cfg, meta: SystemContextResolver(
+			sys_token=cfg.get("sys_token", "user"),
+			sys_role=cfg.get("sys_role", ""),
+		),
+		condition_operand_allowed=True,
+	)
+
+
+_register_builtins()
