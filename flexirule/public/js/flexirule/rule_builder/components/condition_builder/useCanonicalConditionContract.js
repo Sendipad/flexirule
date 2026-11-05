@@ -33,13 +33,17 @@ export function useCanonicalConditionContract() {
 				if (typeof frappe === "undefined" || !frappe.call) {
 					// In test environments or when frappe is unavailable, check window.__FLEXIRULE_CONTRACT__
 					if (typeof window !== "undefined" && window.__FLEXIRULE_CONTRACT__) {
-						const normalized = normalizeConditionContract(window.__FLEXIRULE_CONTRACT__);
+						const normalized = normalizeConditionContract(
+							window.__FLEXIRULE_CONTRACT__
+						);
 						cachedContract = normalized;
 						contractState.value = normalized;
 						return normalized;
 					}
 					// Fail closed when no contract is available
-					const err = new Error("Canonical condition contract is unavailable (frappe.call not found)");
+					const err = new Error(
+						"Canonical condition contract is unavailable (frappe.call not found)"
+					);
 					error.value = err.message;
 					cachedContract = null;
 					contractState.value = null;

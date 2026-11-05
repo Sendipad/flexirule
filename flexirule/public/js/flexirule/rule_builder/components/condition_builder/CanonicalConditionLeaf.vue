@@ -5,6 +5,8 @@
 			v-if="node.is_unsupported"
 			:node="node"
 			:readOnly="readOnly"
+			:isSoleCondition="isSoleCondition"
+			:isEntryNode="isEntryNode"
 			@replace="onReplaceUnsupported"
 			@remove="$emit('remove')"
 		/>
@@ -61,7 +63,10 @@
 					/>
 				</div>
 				<div v-else class="condition-col empty-col">
-					<div v-if="node._draft_right" class="unary-draft-indicator small text-muted d-flex align-items-center justify-content-between px-2 py-1 bg-light rounded">
+					<div
+						v-if="node._draft_right"
+						class="unary-draft-indicator small text-muted d-flex align-items-center justify-content-between px-2 py-1 bg-light rounded"
+					>
 						<span>{{ __("Value preserved in draft") }}</span>
 						<button
 							type="button"
@@ -87,7 +92,10 @@
 			</div>
 
 			<!-- Incompatibility Warning -->
-			<div v-if="incompatibilityWarning" class="alert alert-warning py-1 px-2 small mt-2 mb-0 d-flex align-items-center justify-content-between">
+			<div
+				v-if="incompatibilityWarning"
+				class="alert alert-warning py-1 px-2 small mt-2 mb-0 d-flex align-items-center justify-content-between"
+			>
 				<div>
 					<i class="fa fa-exclamation-triangle mr-1"></i>
 					<span>{{ incompatibilityWarning }}</span>
@@ -132,6 +140,8 @@ const props = defineProps({
 	store: { type: Object, default: null },
 	currentDocType: { type: String, default: "" },
 	errors: { type: Array, default: () => [] },
+	isSoleCondition: { type: Boolean, default: false },
+	isEntryNode: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["update:modelValue", "change", "remove", "replace"]);
@@ -146,7 +156,12 @@ const isUnary = computed(() => {
 const leftOperandDescriptor = computed(() => {
 	const left = props.node.left;
 	if (!left) {
-		return { fieldtype: "Data", value_type: "string", doctype: props.currentDocType, options: null };
+		return {
+			fieldtype: "Data",
+			value_type: "string",
+			doctype: props.currentDocType,
+			options: null,
+		};
 	}
 
 	if (left.mode === "variable") {
@@ -158,7 +173,11 @@ const leftOperandDescriptor = computed(() => {
 		const allFields = [...props.docFields, ...props.variableOptions];
 		const match = allFields.find((f) => {
 			const v = f.value || f;
-			return v === fullPath || (scope === "doc" && v === segs[0]) || (scope === "row" && v === `row.${segs[0]}`);
+			return (
+				v === fullPath ||
+				(scope === "doc" && v === segs[0]) ||
+				(scope === "row" && v === `row.${segs[0]}`)
+			);
 		});
 
 		if (match) {
@@ -243,7 +262,10 @@ const operatorOptions = computed(() => {
 	let candidates = [];
 	if (contractOps && Object.keys(contractOps).length > 0) {
 		candidates = Object.values(contractOps);
-	} else if (Array.isArray(props.contract?.operatorList) && props.contract.operatorList.length > 0) {
+	} else if (
+		Array.isArray(props.contract?.operatorList) &&
+		props.contract.operatorList.length > 0
+	) {
 		candidates = props.contract.operatorList;
 	} else {
 		candidates = [
@@ -273,16 +295,18 @@ const operatorOptions = computed(() => {
 			if (!opSpec.fieldtypes.includes(ft)) return false;
 		}
 		if (opSpec.accepted_left_types && Array.isArray(opSpec.accepted_left_types)) {
-			if (!opSpec.accepted_left_types.includes(vt) && !opSpec.accepted_left_types.includes("string")) {
+			if (!opSpec.accepted_left_types.includes(vt)) {
 				return false;
 			}
 		}
 		return true;
 	});
 
-	const listToMap = filtered.length > 0 ? filtered : candidates;
+	if (filtered.length === 0) {
+		return [{ label: __("No compatible comparisons"), value: "" }];
+	}
 
-	return listToMap.map((op) => ({
+	return filtered.map((op) => ({
 		label: FRIENDLY_OPERATOR_LABELS[op.id] || op.label || op.id,
 		value: op.id,
 	}));
@@ -334,7 +358,9 @@ function checkIncompatibility() {
 	if (acceptedRightTypes.length > 0 && right.mode === "static") {
 		const vt = right.value_type || "string";
 		if (!acceptedRightTypes.includes(vt) && vt !== "null") {
-			incompatibilityWarning.value = __("This value may not be compatible with the selected comparison. Please review it.");
+			incompatibilityWarning.value = __(
+				"This value may not be compatible with the selected comparison. Please review it."
+			);
 			return;
 		}
 	}
@@ -391,7 +417,8 @@ function onLeftOperandChange() {
 
 function onOperatorChange(newOp) {
 	props.node.operator = newOp;
-	const isNewUnary = UNARY_OPERATORS.has(newOp) || props.contract?.operators?.[newOp]?.arity === 1;
+	const isNewUnary =
+		UNARY_OPERATORS.has(newOp) || props.contract?.operators?.[newOp]?.arity === 1;
 
 	if (isNewUnary) {
 		if (props.node.right) {
@@ -404,7 +431,11 @@ function onOperatorChange(newOp) {
 				props.node.right = props.node._draft_right;
 				delete props.node._draft_right;
 			} else {
-				props.node.right = { mode: "static", value_type: leftOperandDescriptor.value.value_type || "string", value: "" };
+				props.node.right = {
+					mode: "static",
+					value_type: leftOperandDescriptor.value.value_type || "string",
+					value: "",
+				};
 			}
 		}
 	}
@@ -418,7 +449,11 @@ function clearPreservedDraftRight() {
 }
 
 function resetRightOperand() {
-	props.node.right = { mode: "static", value_type: leftOperandDescriptor.value.value_type || "string", value: "" };
+	props.node.right = {
+		mode: "static",
+		value_type: leftOperandDescriptor.value.value_type || "string",
+		value: "",
+	};
 	incompatibilityWarning.value = "";
 	emit("change", props.node);
 }
@@ -433,9 +468,12 @@ function onReplaceUnsupported() {
 	emit("change", props.node);
 }
 
-watch(() => props.node.operator, () => {
-	checkIncompatibility();
-});
+watch(
+	() => props.node.operator,
+	() => {
+		checkIncompatibility();
+	}
+);
 </script>
 
 <style scoped>
@@ -444,7 +482,9 @@ watch(() => props.node.operator, () => {
 	border: 1px solid var(--fxr-border, #e5e7eb);
 	border-radius: var(--fxr-radius-md, 6px);
 	padding: var(--fxr-space-1, 4px) var(--fxr-space-2, 8px);
-	transition: border-color var(--fxr-transition-fast), background-color var(--fxr-transition-fast);
+	transition:
+		border-color var(--fxr-transition-fast),
+		background-color var(--fxr-transition-fast);
 }
 
 .canonical-condition-leaf:hover {

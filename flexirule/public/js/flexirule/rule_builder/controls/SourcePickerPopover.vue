@@ -19,7 +19,11 @@
 					@keydown.up.prevent="focusPrevItem"
 				/>
 				<div class="input-group-append" v-if="searchQuery">
-					<button class="btn btn-outline-secondary" type="button" @click="searchQuery = ''">
+					<button
+						class="btn btn-outline-secondary"
+						type="button"
+						@click="searchQuery = ''"
+					>
 						<i class="fa fa-times"></i>
 					</button>
 				</div>
@@ -33,7 +37,9 @@
 			</div>
 
 			<div v-for="group in filteredGroups" :key="group.name" class="source-group mb-2">
-				<div class="group-header px-2 py-1 small font-weight-bold text-uppercase text-secondary">
+				<div
+					class="group-header px-2 py-1 small font-weight-bold text-uppercase text-secondary"
+				>
 					<i :class="group.icon" class="mr-1"></i>
 					{{ group.label }}
 				</div>
@@ -49,7 +55,10 @@
 							<span class="item-label font-weight-medium text-truncate mr-2">
 								{{ item.friendlyLabel || item.label || item.value }}
 							</span>
-							<span v-if="item.fieldtype" class="badge badge-light text-muted small mr-1">
+							<span
+								v-if="item.fieldtype"
+								class="badge badge-light text-muted small mr-1"
+							>
 								{{ item.fieldtype }}
 							</span>
 						</div>
@@ -62,9 +71,15 @@
 		</div>
 
 		<!-- Footer -->
-		<div class="p-2 border-top bg-light d-flex align-items-center justify-content-between small text-muted">
+		<div
+			class="p-2 border-top bg-light d-flex align-items-center justify-content-between small text-muted"
+		>
 			<span><kbd class="small">@</kbd> {{ __("or click to select") }}</span>
-			<button type="button" class="btn btn-link btn-xs text-secondary p-0" @click="$emit('close')">
+			<button
+				type="button"
+				class="btn btn-link btn-xs text-secondary p-0"
+				@click="$emit('close')"
+			>
 				{{ __("Close") }}
 			</button>
 		</div>
@@ -135,7 +150,12 @@ const categorizedOptions = computed(() => {
 			docItems.push(item);
 		} else if (strVal.startsWith("vars.") || strVal.startsWith("steps.")) {
 			stepItems.push(item);
-		} else if (opt.is_context || strVal.startsWith("rule.") || strVal.startsWith("caller.") || strVal === "doctype") {
+		} else if (
+			opt.is_context ||
+			strVal.startsWith("rule.") ||
+			strVal.startsWith("caller.") ||
+			strVal === "doctype"
+		) {
 			contextItems.push(item);
 		} else {
 			otherItems.push(item);
@@ -144,19 +164,44 @@ const categorizedOptions = computed(() => {
 
 	const groups = [];
 	if (docItems.length) {
-		groups.push({ name: "doc", label: __("This Document"), icon: "fa fa-file-text-o", items: docItems });
+		groups.push({
+			name: "doc",
+			label: __("This Document"),
+			icon: "fa fa-file-text-o",
+			items: docItems,
+		});
 	}
 	if (oldDocItems.length) {
-		groups.push({ name: "old_doc", label: __("Previous Document (old_doc)"), icon: "fa fa-history", items: oldDocItems });
+		groups.push({
+			name: "old_doc",
+			label: __("Previous Document (old_doc)"),
+			icon: "fa fa-history",
+			items: oldDocItems,
+		});
 	}
 	if (stepItems.length) {
-		groups.push({ name: "vars", label: __("Predecessor Step Outputs"), icon: "fa fa-cubes", items: stepItems });
+		groups.push({
+			name: "vars",
+			label: __("Predecessor Step Outputs"),
+			icon: "fa fa-cubes",
+			items: stepItems,
+		});
 	}
 	if (contextItems.length) {
-		groups.push({ name: "context", label: __("Rule & Context Details"), icon: "fa fa-info-circle", items: contextItems });
+		groups.push({
+			name: "context",
+			label: __("Rule & Context Details"),
+			icon: "fa fa-info-circle",
+			items: contextItems,
+		});
 	}
 	if (otherItems.length) {
-		groups.push({ name: "other", label: __("Other Approved Sources"), icon: "fa fa-sliders", items: otherItems });
+		groups.push({
+			name: "other",
+			label: __("Other Approved Sources"),
+			icon: "fa fa-sliders",
+			items: otherItems,
+		});
 	}
 
 	return groups;

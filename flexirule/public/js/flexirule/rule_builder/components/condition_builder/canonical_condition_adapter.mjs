@@ -42,7 +42,10 @@ export function generateCollectionAlias(tableFieldName, existingAliases = new Se
 		const parts = raw.split(".");
 		raw = parts[parts.length - 1];
 	}
-	let cleaned = raw.replace(/[^a-zA-Z0-9_]/g, "_").replace(/_+/g, "_").replace(/^_|_$/g, "");
+	let cleaned = raw
+		.replace(/[^a-zA-Z0-9_]/g, "_")
+		.replace(/_+/g, "_")
+		.replace(/^_|_$/g, "");
 	if (!cleaned || /^[0-9]/.test(cleaned)) {
 		cleaned = `tbl_${cleaned}`;
 	}
@@ -256,7 +259,8 @@ export function inferCanonicalValueType(val, fieldtype = null) {
  */
 export function safeCoerceInteger(val) {
 	if (typeof val === "number") {
-		if (!Number.isFinite(val)) throw new TypeError(`Non-finite number cannot be coerced to integer: ${val}`);
+		if (!Number.isFinite(val))
+			throw new TypeError(`Non-finite number cannot be coerced to integer: ${val}`);
 		return Math.trunc(val);
 	}
 	if (typeof val === "string") {
@@ -278,7 +282,8 @@ export function safeCoerceInteger(val) {
  */
 export function safeCoerceDecimal(val) {
 	if (typeof val === "number") {
-		if (!Number.isFinite(val)) throw new TypeError(`Non-finite number cannot be coerced to decimal: ${val}`);
+		if (!Number.isFinite(val))
+			throw new TypeError(`Non-finite number cannot be coerced to decimal: ${val}`);
 		return String(val);
 	}
 	if (typeof val === "string") {
@@ -473,8 +478,8 @@ function deserializeCanonicalComparison(node) {
 		right: isPlainObject(node.right)
 			? deepClone(node.right)
 			: UNARY_OPERATORS.has(node.operator)
-			? null
-			: { mode: "static", value_type: "string", value: "" },
+				? null
+				: { mode: "static", value_type: "string", value: "" },
 	};
 }
 

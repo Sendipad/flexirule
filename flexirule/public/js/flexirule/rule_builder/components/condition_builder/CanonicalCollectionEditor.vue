@@ -57,11 +57,33 @@
 				@update:modelValue="updateRowQuantifier"
 			/>
 		</div>
+
+		<!-- Metadata Loading & Error Status -->
+		<div
+			v-if="metaStatus === 'loading'"
+			class="col-12 py-1 px-2 small text-muted d-flex align-items-center"
+		>
+			<i class="fa fa-spinner fa-spin mr-2"></i>
+			<span>{{ __("Loading child table fields...") }}</span>
+		</div>
+		<div
+			v-else-if="metaStatus === 'failed'"
+			class="col-12 py-1 px-2 small alert alert-danger d-flex align-items-center justify-content-between mb-0"
+		>
+			<span>{{ __("Could not load child fields: ") }}{{ metaError }}</span>
+			<button
+				type="button"
+				class="btn btn-xs btn-outline-danger"
+				@click="resolveAndPropagateChildFields"
+			>
+				{{ __("Retry") }}
+			</button>
+		</div>
 	</div>
 </template>
 
 <script setup>
-import { computed, onMounted } from "vue";
+import { ref, computed, onMounted } from "vue";
 import SelectControl from "../../controls/SelectControl.vue";
 import { generateCollectionAlias } from "./canonical_condition_adapter.mjs";
 
@@ -73,6 +95,9 @@ const props = defineProps({
 });
 
 const emit = defineEmits(["update:node", "change", "child-fields-loaded"]);
+
+const metaStatus = ref("idle"); // 'idle' | 'loading' | 'loaded' | 'failed'
+const metaError = ref(null);
 
 const hasMultipleChildConditions = computed(() => {
 	const ch = props.node.children;
@@ -118,10 +143,16 @@ function updateCollectionPath(path) {
 
 async function resolveAndPropagateChildFields() {
 	const selected = tableFieldOptions.value.find((f) => f.value === props.node.collection);
-	if (!selected || !selected.options) return;
+	if (!selected || !selected.options) {
+		metaStatus.value = "idle";
+		metaError.value = null;
+		return;
+	}
 
 	const childDocType = selected.options;
 	props.node.childDocType = childDocType;
+	metaStatus.value = "loading";
+	metaError.value = null;
 
 	let childFields = [];
 	try {
@@ -138,17 +169,31 @@ async function resolveAndPropagateChildFields() {
 				scope: props.node.alias,
 				doctype: childDocType,
 			}));
+			metaStatus.value = "loaded";
+		} else {
+			metaStatus.value = "loaded";
 		}
-	} catch (e) {
-		console.warn("Failed to fetch child doctype fields:", e);
-	}
 
-	emit("child-fields-loaded", {
-		collectionId: props.node.id,
-		childDocType,
-		childFields,
-		alias: props.node.alias,
-	});
+		emit("child-fields-loaded", {
+			collectionId: props.node.id,
+			childDocType,
+			childFields,
+			alias: props.node.alias,
+			status: metaStatus.value,
+		});
+	} catch (e) {
+		const msg = e?.message || "Failed to fetch child doctype fields";
+		metaStatus.value = "failed";
+		metaError.value = msg;
+		emit("child-fields-loaded", {
+			collectionId: props.node.id,
+			childDocType,
+			childFields: [],
+			alias: props.node.alias,
+			status: "failed",
+			error: msg,
+		});
+	}
 }
 
 onMounted(() => {

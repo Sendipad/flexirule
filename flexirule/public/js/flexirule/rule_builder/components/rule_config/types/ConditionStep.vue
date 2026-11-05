@@ -23,16 +23,26 @@
 		</div>
 
 		<!-- Variable / Metadata Loading & Error States -->
-		<div v-if="isLoadingVariables" class="alert alert-info py-1 px-2 small my-1 d-flex align-items-center">
+		<div
+			v-if="isLoadingVariables"
+			class="alert alert-info py-1 px-2 small my-1 d-flex align-items-center"
+		>
 			<i class="fa fa-spinner fa-spin mr-2"></i>
 			<span>{{ __("Loading available fields and values...") }}</span>
 		</div>
-		<div v-else-if="variableLoadError" class="alert alert-danger py-1 px-2 small my-1 d-flex align-items-center justify-content-between">
+		<div
+			v-else-if="variableLoadError"
+			class="alert alert-danger py-1 px-2 small my-1 d-flex align-items-center justify-content-between"
+		>
 			<div>
 				<i class="fa fa-exclamation-circle mr-1"></i>
 				<span>{{ __("Could not load values: ") }}{{ variableLoadError }}</span>
 			</div>
-			<button type="button" class="btn btn-xs btn-outline-danger" @click="refreshVariableFields">
+			<button
+				type="button"
+				class="btn btn-xs btn-outline-danger"
+				@click="refreshVariableFields"
+			>
 				{{ __("Retry") }}
 			</button>
 		</div>
@@ -56,6 +66,7 @@
 				:isMandatory="isConditionMandatory"
 				:currentDocType="currentDocType"
 				:store="ruleStore"
+				:isEntryNode="isEntryNode"
 				@update:modelValue="updateConditions"
 			/>
 		</div>
@@ -335,7 +346,10 @@ async function validate() {
 	if (canonicalBuilderRef.value) {
 		return await canonicalBuilderRef.value.validate();
 	}
-	return { valid: false, errors: [__("Condition builder component is unavailable. Validation failed.")] };
+	return {
+		valid: false,
+		errors: [__("Condition builder component is unavailable. Validation failed.")],
+	};
 }
 
 defineExpose({

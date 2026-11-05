@@ -92,7 +92,10 @@
 			</div>
 
 			<!-- Visible Source Picker Trigger (for variables/fields) -->
-			<div v-if="!isReadOnly && availableVariableOptions.length" class="fvc-source-browse-wrap">
+			<div
+				v-if="!isReadOnly && availableVariableOptions.length"
+				class="fvc-source-browse-wrap"
+			>
 				<button
 					type="button"
 					class="fvc-browse-btn"
@@ -813,8 +816,7 @@ function createSuggestionRenderer() {
 			if (popup) {
 				try {
 					popup.destroy();
-				} catch (e) {
-				}
+				} catch (e) {}
 				const idx = activeTippyPopups.indexOf(popup);
 				if (idx > -1) activeTippyPopups.splice(idx, 1);
 				popup = null;
@@ -822,8 +824,7 @@ function createSuggestionRenderer() {
 			if (component) {
 				try {
 					component.destroy();
-				} catch (e) {
-				}
+				} catch (e) {}
 				component = null;
 			}
 		},
@@ -1491,7 +1492,7 @@ function handleBuilderUpdate(config, details) {
 					fieldType: fieldType.value,
 					referenceDoctype: referenceDoctype.value,
 					context: props.context,
-			  })
+				})
 			: props.context?.resolverDefaults;
 	const mergedConfig =
 		defaults && typeof defaults === "object" ? { ...defaults, ...config } : config;

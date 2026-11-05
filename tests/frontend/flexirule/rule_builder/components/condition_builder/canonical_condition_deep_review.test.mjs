@@ -71,7 +71,13 @@ test("contract: normalizeConditionContract maps operator DTO array to ID lookup 
 		api_version: "1",
 		limits: { condition_depth: 8, condition_nodes: 64, path_segments: 6 },
 		operators: [
-			{ id: "eq", label: "Equals", arity: 2, accepted_left_types: ["string", "decimal"], accepted_right_types: ["string", "decimal"] },
+			{
+				id: "eq",
+				label: "Equals",
+				arity: 2,
+				accepted_left_types: ["string", "decimal"],
+				accepted_right_types: ["string", "decimal"],
+			},
 			{ id: "is_set", label: "Is set", arity: 1, accepted_left_types: ["string"] },
 		],
 	};

@@ -1,8 +1,12 @@
 <template>
 	<div class="canonical-leaf-summary">
 		<span class="leaf-operand font-weight-medium">{{ leftSummary }}</span>
-		<span class="leaf-operator font-weight-semibold mx-1 text-primary">{{ operatorLabel }}</span>
-		<span v-if="!isUnary" class="leaf-operand font-weight-medium text-dark">{{ rightSummary }}</span>
+		<span class="leaf-operator font-weight-semibold mx-1 text-primary">{{
+			operatorLabel
+		}}</span>
+		<span v-if="!isUnary" class="leaf-operand font-weight-medium text-dark">{{
+			rightSummary
+		}}</span>
 	</div>
 </template>
 
@@ -53,7 +57,7 @@ const operatorLabel = computed(() => {
 });
 
 function resolveFriendlyFieldLabel(pathStr) {
-	if (!pathStr) return "";
+	if (!pathStr) return __("Select field");
 	const fields = props.docFields || [];
 	const match = fields.find((f) => {
 		const val = f.value || f;
@@ -74,13 +78,31 @@ function resolveFriendlyFieldLabel(pathStr) {
 		const field = parts.slice(1).join(" ");
 		const capitalized = field.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
 		if (scope === "old_doc") return `Previous ${capitalized}`;
+		if (scope === "row") return capitalized;
 		return capitalized;
 	}
 	return pathStr.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
 }
 
+const FRIENDLY_RESOLVER_NAMES = {
+	"math.formula": "Calculation",
+	"date.calculate": "Date calculation",
+	"date.diff": "Time difference",
+	"date.format": "Formatted date",
+	"text.combine": "Combined text",
+	"text.format": "Formatted text",
+	"text.normalize": "Normalized text",
+	"lookup.fetch": "Linked record lookup",
+	"collection.any": "Matching table item",
+	"collection.all": "All table items",
+	"collection.none": "No table items",
+	"system_context.get": "System setting",
+};
+
 function summarizeFlexValue(val, isLeft = false) {
-	if (!val || typeof val !== "object") return String(val ?? "");
+	if (!val || typeof val !== "object") {
+		return val != null && val !== "" ? String(val) : __("(empty)");
+	}
 
 	if (val.mode === "variable") {
 		const path = val.path || {};
@@ -94,28 +116,32 @@ function summarizeFlexValue(val, isLeft = false) {
 		if (val.value === null) return "None";
 		if (typeof val.value === "boolean") return val.value ? "Yes" : "No";
 		if (Array.isArray(val.value)) {
-			return val.value.join(", ");
+			return val.value.length ? val.value.join(", ") : __("(empty list)");
 		}
-		return String(val.value ?? "");
+		return val.value !== "" && val.value !== undefined ? String(val.value) : __("(empty)");
 	}
 
 	if (val.mode === "resolver") {
+		const key = `${val.family || ""}.${val.operation || ""}`;
+		const friendlyName = FRIENDLY_RESOLVER_NAMES[key];
+		if (friendlyName) return `[${friendlyName}]`;
 		const fam = val.family ? val.family.replace(/_/g, " ") : "calculation";
-		const op = val.operation ? val.operation.replace(/_/g, " ") : "";
-		return `[${fam}${op ? " - " + op : ""}]`;
+		return `[${fam}]`;
 	}
 
 	if (val.mode === "template") {
 		if (Array.isArray(val.segments)) {
 			const text = val.segments
-				.map((s) => (s.type === "text" ? s.value : s.value ? summarizeFlexValue(s.value) : ""))
+				.map((s) =>
+					s.type === "text" ? s.value : s.value ? summarizeFlexValue(s.value) : ""
+				)
 				.join("");
 			if (text.trim()) return `"${text}"`;
 		}
 		return "[Template]";
 	}
 
-	return JSON.stringify(val);
+	return __("(unconfigured)");
 }
 
 const leftSummary = computed(() => summarizeFlexValue(props.node.left, true));
