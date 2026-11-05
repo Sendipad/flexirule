@@ -47,7 +47,32 @@ CONDITION_LIMITS = {
 	"static_items": MAX_STATIC_ITEMS,
 }
 
-VALUE_TYPES = frozenset(
+FRAPPE_VALUE_TYPES = frozenset(
+	{
+		"Data",
+		"Small Text",
+		"Text",
+		"Text Editor",
+		"Code",
+		"Select",
+		"Link",
+		"Dynamic Link",
+		"Int",
+		"Float",
+		"Currency",
+		"Percent",
+		"Check",
+		"Date",
+		"Datetime",
+		"Time",
+		"Duration",
+		"Table",
+		"Table MultiSelect",
+		"JSON",
+	}
+)
+
+VALUE_TYPES = FRAPPE_VALUE_TYPES | frozenset(
 	{
 		"string",
 		"integer",
@@ -122,6 +147,14 @@ def register_condition_resolver(
 	key = (family, operation)
 	if key in CONDITION_RESOLVER_REGISTRY:
 		raise ValueError(f"Canonical condition resolver already registered: {family}.{operation}")
+
+	class _AdHocResolver:
+		def __init__(self, cfg):
+			self.cfg = cfg
+
+		def resolve(self, ctx):
+			return resolve(self.cfg, ctx)
+
 	CONDITION_RESOLVER_REGISTRY[key] = {
 		"family": family,
 		"operation": operation,
@@ -131,8 +164,10 @@ def register_condition_resolver(
 		"permission_policy": permission_policy,
 		"required_capability": required_capability,
 		"condition_operand_allowed": bool(condition_operand_allowed),
+		"supported_consumers": {"condition"},
 		"validate_config": validate_config,
 		"resolve": resolve,
+		"factory": lambda cfg, meta: _AdHocResolver(cfg),
 	}
 	_RESOLVER_REGISTRY_FINGERPRINT_CACHE = None
 
@@ -279,9 +314,25 @@ def validate_flex_value(
 		val = value.get("value")
 		if not isinstance(value_type, str) or value_type not in VALUE_TYPES:
 			_fail("unknown_value_type", f"{path}.value_type", "Unsupported static value type")
-		if value_type == "string" and not isinstance(val, str):
+		# Handle nullable values
+		if val is None:
+			if value_type == "null":
+				return "null"
+			return str(value_type)
+
+		if value_type in {
+			"string",
+			"Data",
+			"Small Text",
+			"Text",
+			"Text Editor",
+			"Code",
+			"Select",
+			"Link",
+			"Dynamic Link",
+		} and not isinstance(val, str):
 			_fail("invalid_static_type", f"{path}.value", "Expected a string")
-		elif value_type == "integer" and not (isinstance(val, int) and not isinstance(val, bool)):
+		elif value_type in {"integer", "Int"} and not (isinstance(val, int) and not isinstance(val, bool)):
 			_fail("invalid_static_type", f"{path}.value", "Expected an integer (not a boolean)")
 		elif value_type == "decimal":
 			if not isinstance(val, str):
@@ -292,11 +343,30 @@ def validate_flex_value(
 				_fail("invalid_decimal", f"{path}.value", "Decimal value is not valid")
 			if not number.is_finite():
 				_fail("invalid_decimal", f"{path}.value", "Decimal value must be finite")
+		elif value_type in {"Float", "Currency", "Percent"}:
+			if isinstance(val, int | float) and not isinstance(val, bool):
+				if isinstance(val, float) and not math.isfinite(val):
+					_fail("invalid_decimal", f"{path}.value", "Decimal value must be finite")
+			elif isinstance(val, str):
+				try:
+					number = Decimal(val)
+				except (InvalidOperation, ValueError):
+					_fail("invalid_decimal", f"{path}.value", "Decimal value is not valid")
+				if not number.is_finite():
+					_fail("invalid_decimal", f"{path}.value", "Decimal value must be finite")
+			else:
+				_fail(
+					"invalid_static_type",
+					f"{path}.value",
+					"Numeric values must be numbers or decimal strings",
+				)
 		elif value_type == "boolean" and not isinstance(val, bool):
 			_fail("invalid_static_type", f"{path}.value", "Expected a boolean")
+		elif value_type == "Check" and val not in (0, 1):
+			_fail("invalid_static_type", f"{path}.value", "Check values must be Frappe-compatible 0 or 1")
 		elif value_type == "null" and val is not None:
 			_fail("invalid_static_type", f"{path}.value", "Null values must be JSON null")
-		elif value_type == "date":
+		elif value_type in {"date", "Date"}:
 			if not isinstance(val, str):
 				_fail("invalid_static_type", f"{path}.value", "Dates must be ISO strings")
 			try:
@@ -304,25 +374,27 @@ def validate_flex_value(
 					raise ValueError
 			except ValueError:
 				_fail("invalid_date", f"{path}.value", "Expected an ISO date in YYYY-MM-DD format")
-		elif value_type == "datetime":
+		elif value_type in {"datetime", "Datetime"}:
 			if not isinstance(val, str):
 				_fail("invalid_static_type", f"{path}.value", "Datetimes must be ISO strings")
 			try:
 				datetime.fromisoformat(val[:-1] + "+00:00" if val.endswith("Z") else val)
 			except ValueError:
 				_fail("invalid_datetime", f"{path}.value", "Expected a valid ISO datetime")
-		elif value_type == "time":
+		elif value_type in {"time", "Time", "Duration"}:
 			if not isinstance(val, str):
 				_fail("invalid_static_type", f"{path}.value", "Times must be ISO strings")
 			try:
 				time.fromisoformat(val)
 			except ValueError:
 				_fail("invalid_time", f"{path}.value", "Expected a valid ISO time")
-		elif value_type in {"list", "object"}:
-			if value_type == "list" and not isinstance(val, list):
+		elif value_type in {"list", "Table", "Table MultiSelect"}:
+			if not isinstance(val, list):
 				_fail("invalid_static_type", f"{path}.value", "Expected a list")
-			if value_type == "object" and not isinstance(val, dict):
-				_fail("invalid_static_type", f"{path}.value", "Expected an object")
+			_validate_json_value(val, f"{path}.value")
+		elif value_type in {"object", "JSON"}:
+			if not isinstance(val, dict | list | str | int | float | bool):
+				_fail("invalid_static_type", f"{path}.value", "Expected a valid JSON value")
 			_validate_json_value(val, f"{path}.value")
 		return str(value_type)
 
@@ -332,7 +404,10 @@ def validate_flex_value(
 		return None
 
 	if mode == "resolver":
-		_exact_keys(value, {"mode", "family", "operation", "config"}, set(), path)
+		_exact_keys(value, {"mode", "family", "operation", "config"}, {"value_type"}, path)
+		declared_type = value.get("value_type")
+		if declared_type and declared_type not in VALUE_TYPES:
+			_fail("unknown_value_type", f"{path}.value_type", "Unsupported resolver value type")
 		if not isinstance(value.get("family"), str) or not value.get("family"):
 			_fail("invalid_resolver_family", f"{path}.family", "Resolver family is required")
 		if not isinstance(value.get("operation"), str) or not value.get("operation"):
@@ -395,14 +470,31 @@ def validate_flex_value(
 
 def parse_static_value(value_type: str, value: Any) -> Any:
 	"""Convert a validated static payload to its typed runtime representation."""
-	if value_type == "decimal":
+	if value is None:
+		return None
+	if value_type in {"decimal", "Currency", "Percent", "Float"}:
+		if isinstance(value, Decimal):
+			return value
+		if isinstance(value, int | float):
+			return Decimal(str(value))
 		return Decimal(value)
-	if value_type == "date":
-		return date.fromisoformat(value)
-	if value_type == "datetime":
-		return datetime.fromisoformat(value[:-1] + "+00:00" if value.endswith("Z") else value)
-	if value_type == "time":
-		return time.fromisoformat(value)
+	if value_type in {"date", "Date"}:
+		if isinstance(value, date) and not isinstance(value, datetime):
+			return value
+		return date.fromisoformat(str(value))
+	if value_type in {"datetime", "Datetime"}:
+		if isinstance(value, datetime):
+			return value
+		val_str = str(value)
+		return datetime.fromisoformat(val_str[:-1] + "+00:00" if val_str.endswith("Z") else val_str)
+	if value_type in {"time", "Time", "Duration"}:
+		if isinstance(value, time):
+			return value
+		return time.fromisoformat(str(value))
+	if value_type in {"integer", "Int"}:
+		return int(value)
+	if value_type == "Check":
+		return 1 if value else 0
 	return value
 
 

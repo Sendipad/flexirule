@@ -349,6 +349,9 @@ class TestAssignmentConditionGuards(unittest.TestCase):
 		# Row 2 tries to resolve a collection with a predicate but lacks parent DocType, raising ConditionValidationError
 		failing_resolver_value = {
 			"mode": "resolver",
+			"family": "collection",
+			"operation": "count",
+			"value_type": "Int",
 			"config": {
 				"kind": "collection",
 				"source": "doc.items",

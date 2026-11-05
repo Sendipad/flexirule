@@ -967,8 +967,9 @@ defineExpose({ validate });
 // ── Serialization ──
 
 function coerceStructuredValue(val) {
+	const currentFieldType = fieldType.value || "Data";
+
 	if (val && typeof val === "object" && val.mode) {
-		// Legacy specialized modes are collapsed to resolver mode.
 		if (["formula", "format", "normalize", "normalization"].includes(val.mode)) {
 			const config = { ...(val.config || {}) };
 			if (!config.kind) {
@@ -979,60 +980,105 @@ function coerceStructuredValue(val) {
 			}
 			return {
 				mode: "resolver",
-				value: val.value || val.expression || val.resolver || compileToCode(config) || "",
+				family: config.family || config.kind || "text",
+				operation: config.operation || "combine",
+				value_type: val.value_type || currentFieldType,
 				config,
 			};
 		}
 		if (val.mode === "variable") {
-			return { mode: "variable", value: val.value || val.path || "" };
+			if (val.path && typeof val.path === "object") {
+				return {
+					mode: "variable",
+					path: val.path,
+					value:
+						val.value ||
+						(val.path.segments
+							? `${val.path.scope}.${val.path.segments.join(".")}`
+							: ""),
+				};
+			}
+			const pathStr = String(val.value || val.path || "");
+			const parts = pathStr.split(".");
+			const scope = parts[0] || "doc";
+			const segments = parts.slice(1);
+			return {
+				mode: "variable",
+				path: { scope, segments },
+				value: pathStr,
+			};
 		}
 		if (val.mode === "resolver") {
-			const config = val.config || null;
-			const expr = val.value || val.expression || val.resolver || "";
-			return config
-				? { mode: "resolver", value: expr, config }
-				: { mode: "resolver", value: expr };
+			const config = val.config || {};
+			const family = val.family || config.family || config.kind || "text";
+			const operation = val.operation || config.operation || "combine";
+			return {
+				mode: "resolver",
+				family,
+				operation,
+				value_type: val.value_type || currentFieldType,
+				config,
+			};
 		}
 		if (val.mode === "expression") {
 			return { mode: "expression", value: Array.isArray(val.value) ? val.value : [] };
 		}
-		return { mode: "static", value: val.value };
+		return {
+			mode: "static",
+			value_type: val.value_type || currentFieldType,
+			value: val.value,
+		};
 	}
 
 	if (val === null || val === undefined) {
-		return { mode: "static", value: "" };
+		return { mode: "static", value_type: currentFieldType, value: "" };
 	}
-	return { mode: "static", value: val };
+	return { mode: "static", value_type: currentFieldType, value: val };
 }
 
 function serialize() {
+	const currentFieldType = fieldType.value || "Data";
+
 	if (editor.isEmpty && !isDynamicMode.value) {
-		return { mode: "static", value: staticValue.value };
+		return {
+			mode: "static",
+			value_type: currentFieldType,
+			value: staticValue.value,
+		};
 	}
 
 	const doc = editor.getJSON();
 	const content = doc.content?.[0]?.content || [];
 
-	if (content.length === 0) return { mode: "static", value: "" };
+	if (content.length === 0) {
+		return { mode: "static", value_type: currentFieldType, value: "" };
+	}
 
 	// If there's exactly one token and nothing else, use its mode
 	if (content.length === 1 && content[0].type !== "text") {
 		const node = content[0];
 		const typeName = node.type.name || node.type;
 		if (typeName === "variableToken") {
+			const rawPath = String(node.attrs.path || "");
+			const parts = rawPath.split(".");
+			const scope = parts[0] || "doc";
+			const segments = parts.slice(1);
 			return {
 				mode: "variable",
-				value: node.attrs.path,
+				path: { scope, segments },
+				value: rawPath,
 			};
 		}
 		if (typeName === "resolverToken") {
-			const config = node.attrs.config || null;
-			const expression =
-				node.attrs.expression || node.attrs.resolver || compileToCode(config || {}) || "";
+			const config = node.attrs.config || {};
+			const family = config.family || config.kind || "text";
+			const operation = config.operation || "combine";
 			return {
 				mode: "resolver",
-				value: expression,
-				...(config ? { config } : {}),
+				family,
+				operation,
+				value_type: currentFieldType,
+				config,
 			};
 		}
 	}
