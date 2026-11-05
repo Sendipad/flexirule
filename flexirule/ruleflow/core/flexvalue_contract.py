@@ -47,30 +47,103 @@ CONDITION_LIMITS = {
 	"static_items": MAX_STATIC_ITEMS,
 }
 
-FRAPPE_VALUE_TYPES = frozenset(
+# Authoritative Frappe DocField fieldtype catalogue (v15.123.1)
+ALL_FRAPPE_FIELD_TYPES = frozenset(
 	{
-		"Data",
-		"Small Text",
-		"Text",
-		"Text Editor",
-		"Code",
-		"Select",
-		"Link",
-		"Dynamic Link",
-		"Int",
-		"Float",
-		"Currency",
-		"Percent",
+		"Autocomplete",
+		"Attach",
+		"Attach Image",
+		"Attachment Gallery",
+		"Barcode",
+		"Button",
 		"Check",
+		"Code",
+		"Color",
+		"Column Break",
+		"Currency",
+		"Data",
 		"Date",
 		"Datetime",
-		"Time",
 		"Duration",
+		"Dynamic Link",
+		"Float",
+		"Fold",
+		"Geolocation",
+		"Heading",
+		"HTML",
+		"HTML Editor",
+		"Icon",
+		"Image",
+		"Int",
+		"JSON",
+		"Link",
+		"Long Text",
+		"Markdown Editor",
+		"Password",
+		"Percent",
+		"Phone",
+		"Read Only",
+		"Rating",
+		"Section Break",
+		"Select",
+		"Signature",
+		"Small Text",
+		"Tab Break",
 		"Table",
 		"Table MultiSelect",
-		"JSON",
+		"Text",
+		"Text Editor",
+		"Time",
 	}
 )
+
+# Structural/non-value fieldtypes that do not hold persistent data values
+FRAPPE_STRUCTURAL_FIELD_TYPES = frozenset(
+	{
+		"Attachment Gallery",
+		"Button",
+		"Column Break",
+		"Fold",
+		"HTML",
+		"Heading",
+		"Image",
+		"Section Break",
+		"Tab Break",
+	}
+)
+
+
+def _load_frappe_field_types() -> tuple[frozenset[str], frozenset[str]]:
+	"""Derive authoritative fieldtypes from Frappe metadata when available, or fall back to version-aligned constants."""
+	try:
+		import json
+
+		import frappe
+		from frappe.model import no_value_fields, table_fields
+
+		docfield_path = frappe.get_app_path("frappe", "core", "doctype", "docfield", "docfield.json")
+		df_data = frappe.get_file_json(docfield_path)
+
+		fieldtypes: list[str] | None = None
+		for field in df_data.get("fields", []):
+			if field.get("fieldname") == "fieldtype":
+				fieldtypes = [opt.strip() for opt in field.get("options", "").split("\n") if opt.strip()]
+				break
+
+		all_types = frozenset(fieldtypes) if fieldtypes else ALL_FRAPPE_FIELD_TYPES
+		structural = (
+			(frozenset(no_value_fields) - frozenset(table_fields))
+			if no_value_fields
+			else FRAPPE_STRUCTURAL_FIELD_TYPES
+		)
+		value_types = all_types - structural
+		return all_types, value_types
+	except Exception:
+		return ALL_FRAPPE_FIELD_TYPES, ALL_FRAPPE_FIELD_TYPES - FRAPPE_STRUCTURAL_FIELD_TYPES
+
+
+_ALL_TYPES, _VALUE_TYPES = _load_frappe_field_types()
+FRAPPE_VALUE_TYPES: frozenset[str] = _VALUE_TYPES
 
 VALUE_TYPES = FRAPPE_VALUE_TYPES | frozenset(
 	{

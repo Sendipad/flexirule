@@ -204,3 +204,74 @@ class TestUnifiedFlexValueArchitecture(FrappeTestCase):
 		res = evaluate_condition(payload_exec, {})
 		self.assertTrue(res)
 		self.assertEqual(invocations, 1, "Resolver was not executed when condition reached it!")
+
+	def test_variable_strictly_rejects_extra_value_property(self):
+		# Finding 1: Backend strict validator rejects variable payloads containing "value"
+		payload_with_value = {
+			"mode": "variable",
+			"path": {"scope": "doc", "segments": ["customer"]},
+			"value": "doc.customer",
+		}
+		with self.assertRaises(ConditionValidationError) as cm:
+			ValueResolver.compile_flex_value(payload_with_value)
+		self.assertEqual(cm.exception.code, "unknown_key")
+
+	def test_template_mode_compilation_and_resolution(self):
+		# Finding 3: Canonical template mode with text and value segments
+		payload = {
+			"mode": "template",
+			"segments": [
+				{"type": "text", "value": "Order for: "},
+				{
+					"type": "value",
+					"value": {
+						"mode": "variable",
+						"path": {"scope": "doc", "segments": ["customer_name"]},
+					},
+				},
+				{"type": "text", "value": " is ready."},
+			],
+		}
+		compiled = ValueResolver.compile_flex_value(payload)
+		ctx = {"doc": {"customer_name": "Acme Inc"}}
+		self.assertEqual(compiled.resolve(ctx), "Order for: Acme Inc is ready.")
+
+	def test_builtin_resolvers_strict_validation(self):
+		# Finding 4 & 5: Built-in resolvers reject unknown configuration keys
+		payload_invalid_cfg = {
+			"mode": "resolver",
+			"family": "date_time",
+			"operation": "current",
+			"config": {"invalid_extra_key": 123},
+		}
+		with self.assertRaises(ConditionValidationError) as cm:
+			ValueResolver.compile_flex_value(payload_invalid_cfg)
+		self.assertEqual(cm.exception.code, "unknown_key")
+
+		# Unknown mode fails closed without silent legacy fallback
+		payload_unknown_mode = {
+			"mode": "unsupported_mode",
+			"value": "xyz",
+		}
+		with self.assertRaises(ConditionValidationError) as cm:
+			ValueResolver.compile_flex_value(payload_unknown_mode)
+		self.assertEqual(cm.exception.code, "unknown_flex_value_mode")
+
+	def test_frappe_fieldtype_catalogue_parity(self):
+		# Finding 6: All 44 standard DocField options recognized, structural fieldtypes separated
+		from flexirule.ruleflow.core.flexvalue_contract import (
+			ALL_FRAPPE_FIELD_TYPES,
+			FRAPPE_STRUCTURAL_FIELD_TYPES,
+			FRAPPE_VALUE_TYPES,
+		)
+
+		self.assertEqual(len(ALL_FRAPPE_FIELD_TYPES), 44)
+		self.assertIn("Section Break", FRAPPE_STRUCTURAL_FIELD_TYPES)
+		self.assertIn("Column Break", FRAPPE_STRUCTURAL_FIELD_TYPES)
+		self.assertIn("Tab Break", FRAPPE_STRUCTURAL_FIELD_TYPES)
+		self.assertIn("Button", FRAPPE_STRUCTURAL_FIELD_TYPES)
+		self.assertNotIn("Section Break", FRAPPE_VALUE_TYPES)
+		self.assertIn("Data", FRAPPE_VALUE_TYPES)
+		self.assertIn("Int", FRAPPE_VALUE_TYPES)
+		self.assertIn("Float", FRAPPE_VALUE_TYPES)
+		self.assertIn("Table", FRAPPE_VALUE_TYPES)

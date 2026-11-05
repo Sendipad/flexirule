@@ -2,7 +2,10 @@
 	<node-view-wrapper class="resolver-token-wrapper" :class="{ 'is-selected': selected }">
 		<ValueResolverControl
 			viewMode="popover"
-			:modelValue="node.attrs.config"
+			:modelValue="currentModelValue"
+			:family="node.attrs.family"
+			:operation="node.attrs.operation"
+			:valueType="node.attrs.value_type"
 			:doctype="extension.options.doctype"
 			:readOnly="extension.options.readOnly"
 			:context="extension.options.context"
@@ -15,12 +18,33 @@
 import { nodeViewProps, NodeViewWrapper } from "@tiptap/vue-3";
 import ValueResolverControl from "./ValueResolverControl.vue";
 
+import { computed } from "vue";
+
 const props = defineProps(nodeViewProps);
 
+const currentModelValue = computed(() => {
+	const raw = props.node?.attrs?.config;
+	if (raw && typeof raw === "object") {
+		return {
+			...raw,
+			family: props.node?.attrs?.family || raw.family,
+			operation: props.node?.attrs?.operation || raw.operation,
+			value_type: props.node?.attrs?.value_type || raw.value_type,
+		};
+	}
+	return raw;
+});
+
 const handleUpdate = (config, details) => {
-	// Directly update attributes with both config and details (label, expression)
+	const fam = config?.family || props.node?.attrs?.family || "";
+	const op = config?.operation || props.node?.attrs?.operation || "";
+	const vType = config?.value_type || props.node?.attrs?.value_type || "";
+
 	props.updateAttributes({
 		config: config,
+		family: fam,
+		operation: op,
+		value_type: vType,
 		label: details?.label || "",
 		expression: details?.expression || "",
 	});

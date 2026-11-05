@@ -396,6 +396,49 @@ class TestAssignmentConditionGuards(unittest.TestCase):
 		self.assertEqual(doc["status"], "Open")
 		self.assertEqual(doc["description"], "Original")
 
+	def test_assignment_operator_without_value_compiles_successfully(self):
+		# Clear Assignment without value
+		clear_config = json.dumps([{"target": "doc.status", "operator": "clear"}])
+		plan_clear = AssignmentHandler._get_compiled_plan(clear_config)
+		self.assertEqual(len(plan_clear), 1)
+		self.assertEqual(plan_clear[0]["operator"], "clear")
+
+		# Toggle Assignment without value
+		toggle_config = json.dumps([{"target": "doc.status", "operator": "toggle"}])
+		plan_toggle = AssignmentHandler._get_compiled_plan(toggle_config)
+		self.assertEqual(len(plan_toggle), 1)
+		self.assertEqual(plan_toggle[0]["operator"], "toggle")
+
+		# Clear with old blank placeholder must compile without validating unused value
+		clear_placeholder_config = json.dumps(
+			[{"target": "doc.status", "operator": "clear", "value": {"mode": "static", "value": ""}}]
+		)
+		plan_placeholder = AssignmentHandler._get_compiled_plan(clear_placeholder_config)
+		self.assertEqual(len(plan_placeholder), 1)
+
+	def test_assignment_set_operator_requires_valid_value_type(self):
+		# Set without value_type must be rejected
+		invalid_set_config = json.dumps(
+			[{"target": "doc.status", "operator": "set", "value": {"mode": "static", "value": "Open"}}]
+		)
+		with self.assertRaises(ConditionValidationError) as cm:
+			AssignmentHandler._get_compiled_plan(invalid_set_config)
+		self.assertEqual(cm.exception.code, "missing_key")
+
+		# Set with valid typed FlexValue compiles successfully
+		valid_set_config = json.dumps(
+			[
+				{
+					"target": "doc.status",
+					"operator": "set",
+					"value": {"mode": "static", "value_type": "Data", "value": "Open"},
+				}
+			]
+		)
+		plan_valid_set = AssignmentHandler._get_compiled_plan(valid_set_config)
+		self.assertEqual(len(plan_valid_set), 1)
+		self.assertIn("_compiled_value", plan_valid_set[0])
+
 
 if __name__ == "__main__":
 	unittest.main()
