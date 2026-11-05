@@ -348,6 +348,14 @@ import {
 } from "../../core/formula_registry";
 import { compileToCode, compileToLabel } from "../../core/builder_utils.js";
 import MentionList from "./MentionList.vue";
+import {
+	escapeAttr,
+	escapeHtml,
+	isVariableSyntax,
+	coerceStructuredValue,
+	deserializeFlexValue,
+	serializeContentNodes,
+} from "./flex_value_serializer.js";
 import ControlFactory from "./ControlFactory.vue";
 import MultiSelectList from "./MultiSelectList.vue";
 import ValueResolverControl from "./ValueResolverControl.vue";
@@ -954,7 +962,14 @@ const isValid = computed(() => {
 		return struct.value !== undefined && struct.value !== null && struct.value !== "";
 	}
 	if (struct.mode === "variable") return !!(struct.path?.scope && struct.path?.segments?.length);
-	if (struct.mode === "resolver") return !!struct.value;
+	if (struct.mode === "resolver") {
+		return !!(
+			struct.family &&
+			struct.operation &&
+			struct.config &&
+			typeof struct.config === "object"
+		);
+	}
 	if (struct.mode === "template")
 		return Array.isArray(struct.segments) && struct.segments.length > 0;
 	if (struct.mode === "expression") return Array.isArray(struct.value) && struct.value.length > 0;
@@ -1105,179 +1120,11 @@ function serialize() {
 
 	const doc = editor.getJSON();
 	const content = doc.content?.[0]?.content || [];
-
-	if (content.length === 0) {
-		return { mode: "static", value_type: currentFieldType, value: "" };
-	}
-
-	// If there's exactly one token and nothing else, use its mode
-	if (content.length === 1 && content[0].type !== "text") {
-		const node = content[0];
-		const typeName = node.type.name || node.type;
-		if (typeName === "variableToken") {
-			const rawPath = String(node.attrs.path || "");
-			const parts = rawPath.split(".");
-			const scope = parts[0] || "doc";
-			const segments = parts.slice(1);
-			return {
-				mode: "variable",
-				path: { scope, segments },
-			};
-		}
-		if (typeName === "resolverToken") {
-			const config = node.attrs.config || {};
-			const family =
-				node.attrs.family ||
-				config.family ||
-				(config.kind === "math_formula" ? "math" : config.kind) ||
-				"text";
-			const operation =
-				node.attrs.operation ||
-				config.operation ||
-				(family === "math" ? "formula" : config.kind === "lookup" ? "fetch" : "combine");
-			const innerConfig =
-				config.config && typeof config.config === "object" ? config.config : config;
-			return {
-				mode: "resolver",
-				family,
-				operation,
-				value_type: currentFieldType,
-				config: innerConfig,
-			};
-		}
-	}
-
-	// Mixed content or multiple tokens -> canonical template mode with structured segments
-	const segments = content.map((item) => {
-		const typeName = item.type?.name || item.type;
-		if (typeName === "text") {
-			return { type: "text", value: item.text || "" };
-		}
-		if (typeName === "variableToken") {
-			const rawPath = String(item.attrs.path || "");
-			const parts = rawPath.split(".");
-			const scope = parts[0] || "doc";
-			const segs = parts.slice(1);
-			return {
-				type: "value",
-				value: {
-					mode: "variable",
-					path: { scope, segments: segs },
-				},
-			};
-		}
-		if (typeName === "resolverToken") {
-			const cfg = item.attrs.config || {};
-			const fam =
-				item.attrs.family ||
-				cfg.family ||
-				(cfg.kind === "math_formula" ? "math" : cfg.kind) ||
-				"text";
-			const op =
-				item.attrs.operation ||
-				cfg.operation ||
-				(fam === "math" ? "formula" : cfg.kind === "lookup" ? "fetch" : "combine");
-			const innerCfg = cfg.config && typeof cfg.config === "object" ? cfg.config : cfg;
-			return {
-				type: "value",
-				value: {
-					mode: "resolver",
-					family: fam,
-					operation: op,
-					value_type: currentFieldType,
-					config: innerCfg,
-				},
-			};
-		}
-		return { type: "text", value: "" };
-	});
-
-	return { mode: "template", segments };
-}
-
-function escapeAttr(str) {
-	return String(str || "")
-		.replace(/&/g, "&amp;")
-		.replace(/"/g, "&quot;")
-		.replace(/'/g, "&#39;")
-		.replace(/</g, "&lt;")
-		.replace(/>/g, "&gt;");
-}
-
-function isVariableSyntax(val) {
-	return (
-		typeof val === "string" &&
-		(val.startsWith("@") || val.startsWith("doc.") || val.startsWith("vars."))
-	);
+	return serializeContentNodes(content, currentFieldType);
 }
 
 function deserialize(val) {
-	if (!val) return "";
-	const structured = coerceStructuredValue(val);
-
-	if (structured.mode === "variable") {
-		const displayPath =
-			structured.path?.scope && structured.path?.segments?.length
-				? `${structured.path.scope}.${structured.path.segments.join(".")}`
-				: String(structured.path || "");
-		return `<span data-token-type="variable" data-path="${escapeAttr(
-			displayPath
-		)}" data-label=""></span>`;
-	}
-
-	if (structured.mode === "resolver") {
-		return `<span data-token-type="resolver" data-family="${escapeAttr(
-			structured.family || ""
-		)}" data-operation="${escapeAttr(
-			structured.operation || ""
-		)}" data-expression="${escapeAttr(
-			structured.value || ""
-		)}" data-label="" data-config='${escapeAttr(
-			JSON.stringify(structured.config || null)
-		)}'></span>`;
-	}
-
-	if (structured.mode === "template" && Array.isArray(structured.segments)) {
-		return structured.segments
-			.map((segment) => {
-				if (!segment || typeof segment !== "object") return "";
-				if (segment.type === "text") return segment.value || "";
-				if (segment.type === "value" && segment.value) {
-					return deserialize(segment.value);
-				}
-				return "";
-			})
-			.join("");
-	}
-
-	if (structured.mode === "expression" && Array.isArray(structured.value)) {
-		return structured.value
-			.map((item) => {
-				const typeName = item.type?.name || item.type;
-				if (typeName === "text") return item.value;
-				if (typeName === "variableToken")
-					return `<span data-token-type="variable" data-path="${escapeAttr(
-						item.attrs.path
-					)}" data-label="${escapeAttr(item.attrs.label)}"></span>`;
-				if (
-					["resolverToken", "formulaToken", "normalizeToken", "formatToken"].includes(
-						typeName
-					)
-				) {
-					return `<span data-token-type="resolver" data-expression="${escapeAttr(
-						item.attrs.expression || item.attrs.resolver || ""
-					)}" data-label="${escapeAttr(
-						item.attrs.label || ""
-					)}" data-config='${escapeAttr(
-						JSON.stringify(item.attrs.config || null)
-					)}'></span>`;
-				}
-				return "";
-			})
-			.join("");
-	}
-
-	return structured.value ?? "";
+	return deserializeFlexValue(val, fieldType.value || "Data");
 }
 
 function emitChanges() {
@@ -1429,7 +1276,7 @@ function handleBuilderUpdate(config, details) {
 					fieldType: fieldType.value,
 					referenceDoctype: referenceDoctype.value,
 					context: props.context,
-			  })
+				})
 			: props.context?.resolverDefaults;
 	const mergedConfig =
 		defaults && typeof defaults === "object" ? { ...defaults, ...config } : config;

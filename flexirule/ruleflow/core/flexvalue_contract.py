@@ -166,6 +166,12 @@ CONDITION_RESOLVER_REGISTRY: dict[tuple[str, str], dict[str, Any]] = {}
 _RESOLVER_REGISTRY_FINGERPRINT_CACHE: str | None = None
 
 
+def invalidate_resolver_registry_fingerprint() -> None:
+	"""Invalidate the cached resolver registry fingerprint."""
+	global _RESOLVER_REGISTRY_FINGERPRINT_CACHE
+	_RESOLVER_REGISTRY_FINGERPRINT_CACHE = None
+
+
 def register_condition_resolver(
 	family: str,
 	operation: str,
@@ -178,6 +184,9 @@ def register_condition_resolver(
 	resolve: Callable[[dict, dict], Any],
 	condition_operand_allowed: bool = False,
 	required_capability: str = "condition_operand",
+	resolve_output_type: Callable[[dict], str] | None = None,
+	supported_consumers: set[str] | None = None,
+	allow_override: bool = False,
 ):
 	"""Register a reviewed resolver operation for canonical conditions.
 
@@ -202,6 +211,7 @@ def register_condition_resolver(
 		or not isinstance(condition_operand_allowed, bool)
 		or not isinstance(required_capability, str)
 		or not required_capability
+		or (resolve_output_type is not None and not callable(resolve_output_type))
 	):
 		raise ValueError("Invalid canonical condition resolver registration")
 	try:
@@ -216,9 +226,8 @@ def register_condition_resolver(
 		raise ValueError(
 			"Condition operands may only enable resolvers with permission_policy='no_data_access'"
 		)
-	global _RESOLVER_REGISTRY_FINGERPRINT_CACHE
 	key = (family, operation)
-	if key in CONDITION_RESOLVER_REGISTRY:
+	if key in CONDITION_RESOLVER_REGISTRY and not allow_override:
 		raise ValueError(f"Canonical condition resolver already registered: {family}.{operation}")
 
 	class _AdHocResolver:
@@ -228,7 +237,7 @@ def register_condition_resolver(
 		def resolve(self, ctx):
 			return resolve(self.cfg, ctx)
 
-	CONDITION_RESOLVER_REGISTRY[key] = {
+	entry_data = {
 		"family": family,
 		"operation": operation,
 		"label": label,
@@ -237,12 +246,16 @@ def register_condition_resolver(
 		"permission_policy": permission_policy,
 		"required_capability": required_capability,
 		"condition_operand_allowed": bool(condition_operand_allowed),
-		"supported_consumers": {"condition"},
+		"supported_consumers": set(supported_consumers or {"condition"}),
 		"validate_config": validate_config,
 		"resolve": resolve,
 		"factory": lambda cfg, meta: _AdHocResolver(cfg),
 	}
-	_RESOLVER_REGISTRY_FINGERPRINT_CACHE = None
+	if resolve_output_type is not None:
+		entry_data["resolve_output_type"] = resolve_output_type
+
+	CONDITION_RESOLVER_REGISTRY[key] = entry_data
+	invalidate_resolver_registry_fingerprint()
 
 
 def resolver_registry_fingerprint() -> str:
@@ -272,6 +285,7 @@ def resolver_contract_dto() -> list[dict[str, Any]]:
 			"permission_policy": item["permission_policy"],
 			"required_capability": item["required_capability"],
 			"condition_operand_allowed": bool(item["condition_operand_allowed"]),
+			"supported_consumers": sorted(item.get("supported_consumers", ["all"])),
 		}
 		for _, item in sorted(CONDITION_RESOLVER_REGISTRY.items())
 	]
@@ -361,7 +375,12 @@ def infer_flex_value_type(value: Any, *, resolver_depth: int = 0) -> str | None:
 		if not isinstance(family, str) or not isinstance(operation, str):
 			return None
 		entry = CONDITION_RESOLVER_REGISTRY.get((family, operation))
-		return entry.get("output_type") if entry else None
+		if not entry:
+			return None
+		config = value.get("config")
+		if isinstance(config, dict) and "resolve_output_type" in entry and callable(entry["resolve_output_type"]):
+			return entry["resolve_output_type"](config)
+		return entry.get("output_type")
 	return None
 
 
@@ -370,6 +389,7 @@ def validate_flex_value(
 	*,
 	path: str = "$",
 	allowed_scopes: set[str] | None = None,
+	consumer: str | None = None,
 	resolver_depth: int = 0,
 	flexvalue_depth: int = 0,
 ) -> str | None:
@@ -403,10 +423,29 @@ def validate_flex_value(
 			"Select",
 			"Link",
 			"Dynamic Link",
-		} and not isinstance(val, str):
-			_fail("invalid_static_type", f"{path}.value", "Expected a string")
-		elif value_type in {"integer", "Int"} and not (isinstance(val, int) and not isinstance(val, bool)):
-			_fail("invalid_static_type", f"{path}.value", "Expected an integer (not a boolean)")
+			"Autocomplete",
+			"Attach",
+			"Attach Image",
+			"Barcode",
+			"Color",
+			"Geolocation",
+			"HTML Editor",
+			"Icon",
+			"Long Text",
+			"Markdown Editor",
+			"Password",
+			"Phone",
+			"Read Only",
+			"Signature",
+		}:
+			if not isinstance(val, str):
+				_fail("invalid_static_type", f"{path}.value", "Expected a string")
+		elif value_type in {"integer", "Int", "Rating"}:
+			if not (isinstance(val, int) and not isinstance(val, bool)):
+				_fail("invalid_static_type", f"{path}.value", "Expected an integer (not a boolean)")
+		elif value_type == "Duration":
+			if not (isinstance(val, int) and not isinstance(val, bool)):
+				_fail("invalid_static_type", f"{path}.value", "Duration must be an integer number of seconds")
 		elif value_type == "decimal":
 			if not isinstance(val, str):
 				_fail("invalid_static_type", f"{path}.value", "Decimal values must be serialized as strings")
@@ -433,12 +472,15 @@ def validate_flex_value(
 					f"{path}.value",
 					"Numeric values must be numbers or decimal strings",
 				)
-		elif value_type == "boolean" and not isinstance(val, bool):
-			_fail("invalid_static_type", f"{path}.value", "Expected a boolean")
-		elif value_type == "Check" and val not in (0, 1):
-			_fail("invalid_static_type", f"{path}.value", "Check values must be Frappe-compatible 0 or 1")
-		elif value_type == "null" and val is not None:
-			_fail("invalid_static_type", f"{path}.value", "Null values must be JSON null")
+		elif value_type == "boolean":
+			if not isinstance(val, bool):
+				_fail("invalid_static_type", f"{path}.value", "Expected a boolean")
+		elif value_type == "Check":
+			if not (isinstance(val, int) and not isinstance(val, bool) and val in (0, 1)):
+				_fail("invalid_static_type", f"{path}.value", "Check values must be Frappe-compatible 0 or 1")
+		elif value_type == "null":
+			if val is not None:
+				_fail("invalid_static_type", f"{path}.value", "Null values must be JSON null")
 		elif value_type in {"date", "Date"}:
 			if not isinstance(val, str):
 				_fail("invalid_static_type", f"{path}.value", "Dates must be ISO strings")
@@ -454,7 +496,7 @@ def validate_flex_value(
 				datetime.fromisoformat(val[:-1] + "+00:00" if val.endswith("Z") else val)
 			except ValueError:
 				_fail("invalid_datetime", f"{path}.value", "Expected a valid ISO datetime")
-		elif value_type in {"time", "Time", "Duration"}:
+		elif value_type in {"time", "Time"}:
 			if not isinstance(val, str):
 				_fail("invalid_static_type", f"{path}.value", "Times must be ISO strings")
 			try:
@@ -469,6 +511,8 @@ def validate_flex_value(
 			if not isinstance(val, dict | list | str | int | float | bool):
 				_fail("invalid_static_type", f"{path}.value", "Expected a valid JSON value")
 			_validate_json_value(val, f"{path}.value")
+		else:
+			_fail("unsupported_value_type", f"{path}.value_type", f"Fieldtype {value_type} is not supported")
 		return str(value_type)
 
 	if mode == "variable":
@@ -488,14 +532,24 @@ def validate_flex_value(
 		if resolver_depth >= MAX_RESOLVER_DEPTH:
 			_fail("resolver_depth_exceeded", path, "Resolver nesting exceeds the configured limit")
 		entry = CONDITION_RESOLVER_REGISTRY.get((value["family"], value["operation"]))
-		if not entry or not entry.get("condition_operand_allowed"):
-			_fail("resolver_not_allowed", path, "Resolver operation is not approved as a condition operand")
+		if not entry:
+			_fail("resolver_not_allowed", path, f"Resolver {value['family']}.{value['operation']} is not registered")
+
+		if consumer == "condition" or consumer is None:
+			if not entry.get("condition_operand_allowed"):
+				_fail("resolver_not_allowed", path, "Resolver operation is not approved as a condition operand")
+
+		supported = entry.get("supported_consumers", {"all"})
+		if consumer and "all" not in supported and consumer not in supported:
+			if not (consumer == "condition" and entry.get("condition_operand_allowed")):
+				_fail("resolver_consumer_unsupported", path, f"Resolver not allowed for consumer {consumer}")
+
 		config = value.get("config")
 		if not isinstance(config, dict):
 			_fail("invalid_resolver_config", f"{path}.config", "Resolver config must be an object")
-		if entry is None:
-			_fail("resolver_not_allowed", path, "Resolver operation is not approved as a condition operand")
 		entry["validate_config"](config, f"{path}.config", allowed, resolver_depth + 1, flexvalue_depth + 1)
+		if "resolve_output_type" in entry and callable(entry["resolve_output_type"]):
+			return entry["resolve_output_type"](config)
 		return entry["output_type"]
 
 	if mode == "template":
@@ -525,10 +579,11 @@ def validate_flex_value(
 					segment.get("value"),
 					path=f"{segment_path}.value",
 					allowed_scopes=allowed,
+					consumer=consumer,
 					resolver_depth=resolver_depth,
 					flexvalue_depth=flexvalue_depth + 1,
 				)
-				if output_type in {"list", "object"}:
+				if output_type in {"list", "object", "Table", "Table MultiSelect"}:
 					_fail(
 						"invalid_template_value_type",
 						f"{segment_path}.value",
@@ -560,11 +615,11 @@ def parse_static_value(value_type: str, value: Any) -> Any:
 			return value
 		val_str = str(value)
 		return datetime.fromisoformat(val_str[:-1] + "+00:00" if val_str.endswith("Z") else val_str)
-	if value_type in {"time", "Time", "Duration"}:
+	if value_type in {"time", "Time"}:
 		if isinstance(value, time):
 			return value
 		return time.fromisoformat(str(value))
-	if value_type in {"integer", "Int"}:
+	if value_type in {"integer", "Int", "Rating", "Duration"}:
 		return int(value)
 	if value_type == "Check":
 		return 1 if value else 0
