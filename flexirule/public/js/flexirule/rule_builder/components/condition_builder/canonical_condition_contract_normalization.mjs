@@ -48,6 +48,31 @@ export function normalizeConditionContract(rawContract) {
 	}
 
 	const rawLimits = rawContract.limits || {};
+	const nodeTypes = rawContract.node_types || {};
+	const flexvalueModes = rawContract.flexvalue_modes || {};
+	const fieldtypeValueTypes = rawContract.fieldtype_value_types;
+	const rawDepth = rawLimits.condition_depth ?? rawLimits.depth;
+	const rawNodes = rawLimits.condition_nodes ?? rawLimits.nodes;
+	const hasCompleteContract =
+		Boolean(rawContract.api_version) &&
+		Boolean(rawContract.semantics_version) &&
+		Boolean(nodeTypes.group && nodeTypes.comparison && nodeTypes.collection_predicate) &&
+		Array.isArray(flexvalueModes.static) &&
+		Array.isArray(flexvalueModes.variable?.scopes) &&
+		Boolean(flexvalueModes.resolver && typeof flexvalueModes.resolver === "object") &&
+		Boolean(flexvalueModes.template && typeof flexvalueModes.template === "object") &&
+		Boolean(
+			fieldtypeValueTypes &&
+				typeof fieldtypeValueTypes === "object" &&
+				Object.keys(fieldtypeValueTypes).length
+		) &&
+		Number.isInteger(rawDepth) &&
+		rawDepth > 0 &&
+		Number.isInteger(rawNodes) &&
+		rawNodes > 0 &&
+		operatorList.length > 0;
+	if (!hasCompleteContract) return null;
+
 	const normalizedLimits = {
 		...rawLimits,
 		condition_depth: rawLimits.condition_depth ?? rawLimits.depth ?? 16,
@@ -65,6 +90,7 @@ export function normalizeConditionContract(rawContract) {
 		operators: operatorMap,
 		operatorList,
 		limits: normalizedLimits,
-		flexvalue_modes: rawContract.flexvalue_modes || {},
+		flexvalue_modes: flexvalueModes,
+		fieldtype_value_types: fieldtypeValueTypes,
 	};
 }

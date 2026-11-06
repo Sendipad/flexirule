@@ -95,8 +95,53 @@ export function validateCanonicalCondition(tree, { contract = null, isMandatory 
 
 		const type = node.type;
 
+		if (node.is_incomplete_draft && (type === "leaf" || type === "comparison")) {
+			const left = node.left;
+			const leftReady = Boolean(
+				left &&
+					left.mode &&
+					(left.mode !== "variable" ||
+						(left.path?.scope === "doctype" &&
+							Array.isArray(left.path?.segments) &&
+							left.path.segments.length === 0) ||
+						(left.path?.scope &&
+							Array.isArray(left.path?.segments) &&
+							left.path.segments.length > 0))
+			);
+			if (!leftReady) addError("Choose a value source.", node.id);
+			if (!node.operator) {
+				addError("Choose how the value should match.", node.id);
+			} else {
+				const unary =
+					UNARY_OPERATORS.has(node.operator) ||
+					contract?.operators?.[node.operator]?.arity === 1;
+				const right = node.right;
+				const rightReady = Boolean(
+					right &&
+						right.mode &&
+						(right.mode !== "static" ||
+							(right.value_type === "list"
+								? Array.isArray(right.value) && right.value.length > 0
+								: right.value === null ||
+								  (right.value !== undefined && right.value !== ""))) &&
+						(right.mode !== "variable" ||
+							(right.path?.scope &&
+								(right.path.scope === "doctype" ||
+									(Array.isArray(right.path.segments) &&
+										right.path.segments.length > 0))))
+				);
+				if (!unary && !rightReady) addError("Choose a comparison value.", node.id);
+			}
+			return;
+		}
+
 		// 1. Comparison node (or leaf in TreeBuilder)
 		if (type === "comparison" || type === "leaf") {
+			if (node._invalid_right_error || node._draft_invalid_right !== undefined) {
+				addError(node._invalid_right_error || "Invalid right operand value.", node.id);
+				return;
+			}
+
 			const operator = node.operator;
 			if (!operator) {
 				addError("Comparison operator is required.", node.id);

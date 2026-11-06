@@ -47,6 +47,7 @@
 					:node="node"
 					:docFields="getCollectionDocFields(node)"
 					:ancestorAliases="getAncestorAliases(node)"
+					:siblingAliases="getSiblingAliases(node)"
 					:readOnly="readOnly"
 					:store="store"
 					@change="onSubNodeChange"
@@ -93,6 +94,7 @@ import {
 	deserializeConditionTree,
 	serializeConditionTree,
 	findUnsupportedDiagnostics,
+	getCollectionSiblingAliases,
 } from "./canonical_condition_adapter.mjs";
 import { validateCanonicalCondition } from "./canonical_condition_validation.mjs";
 import { createNodeId } from "../tree_builder/tree_builder_utils.mjs";
@@ -120,6 +122,10 @@ const nodeErrorsMap = ref(new Map());
 const collectionMetadataMap = ref(new Map());
 
 const unsupportedDiagnostics = computed(() => findUnsupportedDiagnostics(treeModel.value));
+
+function serializeCurrentTree() {
+	return serializeConditionTree(treeModel.value, contract.value?.operators || {});
+}
 
 const isSoleCondition = computed(() => {
 	const children = treeModel.value?.children || [];
@@ -162,6 +168,11 @@ function getAncestorAliases(node) {
 	if (!node?.id) return [];
 	const ancestors = findAncestorCollections(node.id, treeModel.value);
 	return ancestors.map((a) => a.alias).filter(Boolean);
+}
+
+function getSiblingAliases(node) {
+	if (!node?.id) return [];
+	return getCollectionSiblingAliases(treeModel.value, node.id);
 }
 
 function getCollectionDocFields(node) {
@@ -233,7 +244,7 @@ onMounted(() => {
 watch(
 	() => props.modelValue,
 	(newVal) => {
-		const currentCanonical = serializeConditionTree(treeModel.value);
+		const currentCanonical = serializeCurrentTree();
 		if (JSON.stringify(newVal) === JSON.stringify(currentCanonical)) {
 			return;
 		}
@@ -246,16 +257,10 @@ function createLeaf() {
 	return {
 		id: createNodeId("leaf"),
 		type: "leaf",
-		operator: "eq",
-		left: {
-			mode: "variable",
-			path: { scope: "doc", segments: [] },
-		},
-		right: {
-			mode: "static",
-			value_type: "string",
-			value: "",
-		},
+		operator: "",
+		left: null,
+		right: null,
+		is_incomplete_draft: true,
 	};
 }
 
@@ -272,7 +277,7 @@ function createCollection() {
 }
 
 function emitSerialized() {
-	const canonical = serializeConditionTree(treeModel.value);
+	const canonical = serializeCurrentTree();
 	emit("update:modelValue", canonical);
 	emit("change", canonical);
 }
@@ -315,7 +320,7 @@ async function validate() {
 		return localResult;
 	}
 
-	const payload = serializeConditionTree(treeModel.value);
+	const payload = serializeCurrentTree();
 	if (!payload) {
 		if (props.isMandatory) {
 			validatedPayloadJson = null;
@@ -330,6 +335,20 @@ async function validate() {
 		validatedPayloadJson = "null";
 		emit("validation", { valid: true, errors: [], nodeErrors: new Map() });
 		return { valid: true, errors: [], nodeErrors: new Map() };
+	}
+
+	if (!contract.value) {
+		const contractRes = {
+			valid: false,
+			errors: [
+				"Canonical condition contract is not ready. Retry loading the contract before saving.",
+			],
+			nodeErrors: new Map(),
+		};
+		validationErrors.value = contractRes.errors;
+		validatedPayloadJson = null;
+		emit("validation", contractRes);
+		return contractRes;
 	}
 
 	const currentRequestId = ++lastValidationRequestId;
@@ -361,7 +380,7 @@ async function validate() {
 		});
 
 		// Stale-response protection: if request ID changed or tree mutated in flight, fail closed
-		const currentPayload = serializeConditionTree(treeModel.value);
+		const currentPayload = serializeCurrentTree();
 		const currentJson = JSON.stringify(currentPayload);
 		if (currentRequestId !== lastValidationRequestId || payloadJson !== currentJson) {
 			const staleRes = {
@@ -398,7 +417,7 @@ async function validate() {
 		emit("validation", successRes);
 		return successRes;
 	} catch (err) {
-		const currentPayload = serializeConditionTree(treeModel.value);
+		const currentPayload = serializeCurrentTree();
 		const currentJson = JSON.stringify(currentPayload);
 		if (currentRequestId !== lastValidationRequestId || payloadJson !== currentJson) {
 			const staleRes = {
@@ -434,7 +453,7 @@ defineExpose({
 			contract: contract.value,
 			isMandatory: props.isMandatory,
 		}),
-	getCanonicalPayload: () => serializeConditionTree(treeModel.value),
+	getCanonicalPayload: () => serializeCurrentTree(),
 	getTree: () => treeModel.value,
 });
 </script>

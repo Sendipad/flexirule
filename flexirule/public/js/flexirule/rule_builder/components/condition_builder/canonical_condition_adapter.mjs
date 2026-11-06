@@ -65,6 +65,30 @@ export function generateCollectionAlias(tableFieldName, existingAliases = new Se
 }
 
 /**
+ * Return aliases belonging to collections with the same lexical parent.
+ * The parent may be the root, a group, or a collection's child group.
+ */
+export function getCollectionSiblingAliases(tree, nodeId) {
+	function findParent(current) {
+		if (!current || !Array.isArray(current.children)) return null;
+		for (const child of current.children) {
+			if (child?.id === nodeId) return current;
+			const parent = findParent(child);
+			if (parent) return parent;
+		}
+		return null;
+	}
+
+	const parent = findParent(tree);
+	return (parent?.children || [])
+		.filter(
+			(child) => child && child.id !== nodeId && child.type === TREE_NODE_TYPES.COLLECTION
+		)
+		.map((child) => child.alias)
+		.filter(Boolean);
+}
+
+/**
  * Deterministic legacy operator to canonical operator mapping.
  */
 export const LEGACY_OPERATOR_MAP = Object.freeze({
@@ -261,7 +285,9 @@ export function safeCoerceInteger(val) {
 	if (typeof val === "number") {
 		if (!Number.isFinite(val))
 			throw new TypeError(`Non-finite number cannot be coerced to integer: ${val}`);
-		return Math.trunc(val);
+		if (!Number.isInteger(val))
+			throw new TypeError(`Fractional number cannot be coerced to integer: ${val}`);
+		return val;
 	}
 	if (typeof val === "string") {
 		const trimmed = val.trim();
@@ -317,9 +343,10 @@ export function safeCoerceBoolean(val) {
 
 /**
  * Converts a right operand or raw value into a canonical FlexValue.
- * Preserves 2-item arrays verbatim unless authoritative fieldtype confirms Link tuple.
+ * Preserves 2-item arrays verbatim unless authoritative fieldtype confirms Link tuple
+ * AND the operator is not a membership list operator ('in', 'not_in').
  */
-export function toCanonicalFlexValue(rawRight, fieldtype = null) {
+export function toCanonicalFlexValue(rawRight, fieldtype = null, operator = null) {
 	if (rawRight === undefined || rawRight === null) {
 		return {
 			mode: "static",
@@ -347,28 +374,24 @@ export function toCanonicalFlexValue(rawRight, fieldtype = null) {
 		if (mode === "static") {
 			const v = rawRight.value;
 			let vt = rawRight.value_type;
-			if (!vt) {
+			if (vt === "MultiSelectList" || vt === "MultiSelect") {
+				vt = "list";
+			} else if (!vt || (fieldtype && vt === fieldtype)) {
+				// FlexValueControl reports the selected Frappe DocField type. Convert
+				// that UI metadata to the backend's canonical value type using the
+				// actual value (arrays remain lists, including Link memberships).
 				vt = inferCanonicalValueType(v, fieldtype);
+			}
+			if (vt === "list" && !Array.isArray(v)) {
+				throw new TypeError("List FlexValue requires an array value");
 			}
 			let formattedValue = v;
 			if (vt === "decimal") {
-				try {
-					formattedValue = safeCoerceDecimal(v);
-				} catch {
-					formattedValue = String(v ?? "0");
-				}
+				formattedValue = safeCoerceDecimal(v);
 			} else if (vt === "integer") {
-				try {
-					formattedValue = safeCoerceInteger(v);
-				} catch {
-					formattedValue = typeof v === "number" ? Math.trunc(v) : parseInt(v, 10) || 0;
-				}
+				formattedValue = safeCoerceInteger(v);
 			} else if (vt === "boolean") {
-				try {
-					formattedValue = safeCoerceBoolean(v);
-				} catch {
-					formattedValue = Boolean(v);
-				}
+				formattedValue = safeCoerceBoolean(v);
 			} else if (vt === "null") {
 				formattedValue = null;
 			}
@@ -399,10 +422,13 @@ export function toCanonicalFlexValue(rawRight, fieldtype = null) {
 		val = rawRight.value;
 	}
 
-	// Only unwrap a 2-item array if authoritative Link metadata is provided AND it is a legacy Link tuple [DocType, Name].
-	// In canonical conditions, ordinary 2-item arrays without Link metadata (or membership lists) must NEVER be unwrapped.
+	// Only unwrap a 2-item array if authoritative Link metadata is provided AND it is a legacy Link tuple [DocType, Name]
+	// AND the operator is NOT a membership comparison ('in', 'not_in').
+	// Membership lists for Link fields must NEVER be interpreted as Link tuples.
+	const isMembershipOp = operator === "in" || operator === "not_in";
 	const isLinkField = fieldtype && (fieldtype === "Link" || fieldtype === "Dynamic Link");
 	if (
+		!isMembershipOp &&
 		isLinkField &&
 		Array.isArray(val) &&
 		val.length === 2 &&
@@ -413,23 +439,17 @@ export function toCanonicalFlexValue(rawRight, fieldtype = null) {
 	}
 
 	if (isPlainObject(val) && val.mode) {
-		return toCanonicalFlexValue(val, fieldtype);
+		return toCanonicalFlexValue(val, fieldtype, operator);
 	}
 
 	const vt = inferCanonicalValueType(val, fieldtype);
 	let formatted = val;
 	if (vt === "decimal") {
-		try {
-			formatted = safeCoerceDecimal(val);
-		} catch {
-			formatted = String(val ?? "0");
-		}
-	} else if (vt === "integer" && typeof val === "string") {
-		try {
-			formatted = safeCoerceInteger(val);
-		} catch {
-			formatted = parseInt(val, 10) || 0;
-		}
+		formatted = safeCoerceDecimal(val);
+	} else if (vt === "integer") {
+		formatted = safeCoerceInteger(val);
+	} else if (vt === "boolean") {
+		formatted = safeCoerceBoolean(val);
 	}
 
 	return {
@@ -486,6 +506,48 @@ function deserializeCanonicalComparison(node) {
 /**
  * Deserializes a canonical collection predicate into a TreeBuilder collection node.
  */
+/**
+ * Recursively updates variable scope references within a subtree from oldAlias to newAlias.
+ */
+export function updateSubtreeScopeReferences(node, oldAlias, newAlias) {
+	if (!node || typeof node !== "object" || !oldAlias || !newAlias || oldAlias === newAlias) {
+		return;
+	}
+
+	if (node.type === TREE_NODE_TYPES.LEAF || node.type === "comparison") {
+		if (node.left?.mode === "variable" && node.left.path?.scope === oldAlias) {
+			node.left.path.scope = newAlias;
+		}
+		if (node.right?.mode === "variable" && node.right.path?.scope === oldAlias) {
+			node.right.path.scope = newAlias;
+		}
+		return;
+	}
+
+	if (node.type === TREE_NODE_TYPES.COLLECTION || node.type === "collection_predicate") {
+		if (node.source?.scope === oldAlias) {
+			node.source.scope = newAlias;
+		}
+		if (node.children && Array.isArray(node.children)) {
+			for (const child of node.children) {
+				updateSubtreeScopeReferences(child, oldAlias, newAlias);
+			}
+		}
+		if (node.where) {
+			updateSubtreeScopeReferences(node.where, oldAlias, newAlias);
+		}
+		return;
+	}
+
+	if (node.type === TREE_NODE_TYPES.GROUP || node.type === "group") {
+		if (node.children && Array.isArray(node.children)) {
+			for (const child of node.children) {
+				updateSubtreeScopeReferences(child, oldAlias, newAlias);
+			}
+		}
+	}
+}
+
 function deserializeCanonicalCollection(node) {
 	const source = node.source || {};
 	const scope = source.scope || "doc";
@@ -505,13 +567,29 @@ function deserializeCanonicalCollection(node) {
 		}
 	}
 
+	let alias = node.as;
+	const isInvalidAlias =
+		!alias ||
+		RESERVED_ALIASES.has(alias) ||
+		!/^[A-Za-z][A-Za-z0-9_]*$/.test(alias) ||
+		alias.includes("__");
+	if (isInvalidAlias) {
+		const oldAlias = alias;
+		alias = generateCollectionAlias(collectionPath);
+		if (oldAlias) {
+			for (const child of children) {
+				updateSubtreeScopeReferences(child, oldAlias, alias);
+			}
+		}
+	}
+
 	return {
 		id: createNodeId("collection"),
 		type: TREE_NODE_TYPES.COLLECTION,
 		quantifier: node.quantifier || "any",
 		collection: collectionPath,
 		source: deepClone(source),
-		alias: node.as || generateCollectionAlias(collectionPath),
+		alias,
 		rowQuantifier,
 		children,
 	};
@@ -598,7 +676,7 @@ function convertLegacyLeaf(legacy) {
 
 	let right = null;
 	if (!UNARY_OPERATORS.has(canonicalOp)) {
-		right = toCanonicalFlexValue(legacy.right);
+		right = toCanonicalFlexValue(legacy.right, null, canonicalOp);
 	}
 
 	return {
@@ -837,13 +915,46 @@ export function deserializeConditionTree(payload) {
 /**
  * Serializes a TreeBuilder leaf node into a Canonical Comparison AST node.
  */
-function serializeLeafToCanonical(leaf) {
+function hasSelectedVariablePath(value) {
+	if (!isPlainObject(value) || value.mode !== "variable") return true;
+	const path = value.path;
+	if (!isPlainObject(path) || typeof path.scope !== "string" || !path.scope) return false;
+	if (path.scope === "doctype") return Array.isArray(path.segments) && path.segments.length === 0;
+	return (
+		Array.isArray(path.segments) &&
+		path.segments.length > 0 &&
+		path.segments.every((segment) => typeof segment === "string" && segment.length > 0)
+	);
+}
+
+function hasCompleteFlexValue(value) {
+	if (!isPlainObject(value) || !value.mode) return false;
+	if (value.mode === "static") {
+		if (value.value_type === "list")
+			return Array.isArray(value.value) && value.value.length > 0;
+		return value.value === null || (value.value !== undefined && value.value !== "");
+	}
+	if (value.mode === "variable") return hasSelectedVariablePath(value);
+	if (value.mode === "resolver") return Boolean(value.family && value.operation);
+	if (value.mode === "template")
+		return Array.isArray(value.segments) && value.segments.length > 0;
+	return false;
+}
+
+function serializeLeafToCanonical(leaf, operatorSpecs = {}) {
 	if (leaf.is_unsupported && leaf.original_payload) {
 		return deepClone(leaf.original_payload);
 	}
 
-	const operator = leaf.operator || "eq";
-	const isUnary = UNARY_OPERATORS.has(operator);
+	const operator = leaf.operator;
+	if (!operator) return null;
+	const isUnary = UNARY_OPERATORS.has(operator) || operatorSpecs?.[operator]?.arity === 1;
+	if (
+		leaf.is_incomplete_draft &&
+		(!hasCompleteFlexValue(leaf.left) || (!isUnary && !hasCompleteFlexValue(leaf.right)))
+	) {
+		return null;
+	}
 
 	let left = leaf.left;
 	if (!isPlainObject(left) || !left.mode) {
@@ -852,29 +963,17 @@ function serializeLeafToCanonical(leaf) {
 		left = deepClone(left);
 	}
 
-	const node = {
-		type: "comparison",
-		operator,
-		left,
-	};
-
+	const node = { type: "comparison", operator, left };
 	if (!isUnary) {
-		let right = leaf.right;
-		if (!isPlainObject(right) || !right.mode) {
-			right = toCanonicalFlexValue(right);
-		} else {
-			right = deepClone(right);
-		}
-		node.right = right;
+		node.right = toCanonicalFlexValue(leaf.right, null, operator);
 	}
-
 	return node;
 }
 
 /**
  * Serializes a TreeBuilder collection node into a Canonical Collection Predicate AST node.
  */
-function serializeCollectionToCanonical(colNode) {
+function serializeCollectionToCanonical(colNode, operatorSpecs = {}) {
 	if (colNode.is_unsupported && colNode.original_payload) {
 		return deepClone(colNode.original_payload);
 	}
@@ -891,7 +990,12 @@ function serializeCollectionToCanonical(colNode) {
 	}
 
 	let alias = colNode.alias || "";
-	if (!alias || alias === "row") {
+	if (
+		!alias ||
+		RESERVED_ALIASES.has(alias) ||
+		!/^[A-Za-z][A-Za-z0-9_]*$/.test(alias) ||
+		alias.includes("__")
+	) {
 		alias = generateCollectionAlias(colNode.collection || "items");
 	}
 
@@ -905,12 +1009,14 @@ function serializeCollectionToCanonical(colNode) {
 	const rowQuantifier = colNode.rowQuantifier === "or" ? "or" : "and";
 
 	if (children.length === 1) {
-		where = serializeNodeToCanonical(children[0]);
+		where = serializeNodeToCanonical(children[0], operatorSpecs);
 	} else if (children.length >= 2) {
 		where = {
 			type: "group",
 			operator: rowQuantifier,
-			children: children.map((c) => serializeNodeToCanonical(c)).filter(Boolean),
+			children: children
+				.map((c) => serializeNodeToCanonical(c, operatorSpecs))
+				.filter(Boolean),
 		};
 	}
 
@@ -926,13 +1032,13 @@ function serializeCollectionToCanonical(colNode) {
 /**
  * Serializes a TreeBuilder group node into a Canonical Group AST node.
  */
-function serializeGroupToCanonical(groupNode) {
+function serializeGroupToCanonical(groupNode, operatorSpecs = {}) {
 	if (groupNode.is_unsupported && groupNode.original_payload) {
 		return deepClone(groupNode.original_payload);
 	}
 
 	const children = Array.isArray(groupNode.children)
-		? groupNode.children.map((c) => serializeNodeToCanonical(c)).filter(Boolean)
+		? groupNode.children.map((c) => serializeNodeToCanonical(c, operatorSpecs)).filter(Boolean)
 		: [];
 
 	return {
@@ -945,17 +1051,17 @@ function serializeGroupToCanonical(groupNode) {
 /**
  * Serializes any TreeBuilder node into canonical AST.
  */
-function serializeNodeToCanonical(node) {
+function serializeNodeToCanonical(node, operatorSpecs = {}) {
 	if (!node || typeof node !== "object") return null;
 
 	if (node.type === TREE_NODE_TYPES.LEAF) {
-		return serializeLeafToCanonical(node);
+		return serializeLeafToCanonical(node, operatorSpecs);
 	}
 	if (node.type === TREE_NODE_TYPES.COLLECTION) {
-		return serializeCollectionToCanonical(node);
+		return serializeCollectionToCanonical(node, operatorSpecs);
 	}
 	if (node.type === TREE_NODE_TYPES.GROUP) {
-		return serializeGroupToCanonical(node);
+		return serializeGroupToCanonical(node, operatorSpecs);
 	}
 	return null;
 }
@@ -963,11 +1069,13 @@ function serializeNodeToCanonical(node) {
 /**
  * Serializes the TreeBuilder root into canonical AST or null.
  */
-export function serializeConditionTree(treeRoot) {
+export function serializeConditionTree(treeRoot, operatorSpecs = {}) {
 	if (!treeRoot || typeof treeRoot !== "object") return null;
 
 	const children = Array.isArray(treeRoot.children)
-		? treeRoot.children.map((child) => serializeNodeToCanonical(child)).filter(Boolean)
+		? treeRoot.children
+				.map((child) => serializeNodeToCanonical(child, operatorSpecs))
+				.filter(Boolean)
 		: [];
 
 	if (children.length === 0) {
