@@ -175,9 +175,11 @@ const leftOperandDescriptor = computed(() => {
 		const allFields = [...props.docFields, ...props.variableOptions];
 		const match = allFields.find((field) => {
 			const value = field?.value ?? field;
-			return value === fullPath ||
+			return (
+				value === fullPath ||
 				(scope === "doc" && (value === segments[0] || field?.fieldname === segments[0])) ||
-				(scope !== "doc" && value === scope + "." + segments.join("."));
+				(scope !== "doc" && value === scope + "." + segments.join("."))
+			);
 		});
 		if (match) {
 			const fieldtype = match.fieldtype || "Data";
@@ -187,7 +189,11 @@ const leftOperandDescriptor = computed(() => {
 				fieldtype,
 				value_types: valueTypes,
 				value_type: valueTypes.includes("decimal") ? "decimal" : valueTypes[0] || null,
-				doctype: match.doctype || (["Link", "Dynamic Link"].includes(fieldtype) ? match.options : props.currentDocType),
+				doctype:
+					match.doctype ||
+					(["Link", "Dynamic Link"].includes(fieldtype)
+						? match.options
+						: props.currentDocType),
 				fieldname: match.fieldname || segments[segments.length - 1] || null,
 				options: match.options || null,
 				label: match.label || match.friendlyLabel || fullPath,
@@ -199,8 +205,8 @@ const leftOperandDescriptor = computed(() => {
 
 	if (left?.mode === "static") {
 		const valueType = left.value_type || null;
-		const matchingFieldtype = Object.entries(fieldtypeValueTypes).find(([, types]) =>
-			Array.isArray(types) && types.includes(valueType)
+		const matchingFieldtype = Object.entries(fieldtypeValueTypes).find(
+			([, types]) => Array.isArray(types) && types.includes(valueType)
 		)?.[0];
 		return {
 			...base,
@@ -418,8 +424,11 @@ const rightValueModel = computed({
 				leftOperandDescriptor.value.fieldtype,
 				props.node.operator
 			);
-			if (["in", "not_in"].includes(props.node.operator) && canonical.mode === "static" &&
-				(canonical.value_type !== "list" || !Array.isArray(canonical.value))) {
+			if (
+				["in", "not_in"].includes(props.node.operator) &&
+				canonical.mode === "static" &&
+				(canonical.value_type !== "list" || !Array.isArray(canonical.value))
+			) {
 				throw new TypeError("Membership comparisons require a list of values");
 			}
 			props.node.right = canonical;

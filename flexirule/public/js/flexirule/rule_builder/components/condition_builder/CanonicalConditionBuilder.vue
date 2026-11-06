@@ -340,7 +340,9 @@ async function validate() {
 	if (!contract.value) {
 		const contractRes = {
 			valid: false,
-			errors: ["Canonical condition contract is not ready. Retry loading the contract before saving."],
+			errors: [
+				"Canonical condition contract is not ready. Retry loading the contract before saving.",
+			],
 			nodeErrors: new Map(),
 		};
 		validationErrors.value = contractRes.errors;

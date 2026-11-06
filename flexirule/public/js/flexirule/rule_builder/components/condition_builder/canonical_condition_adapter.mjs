@@ -81,7 +81,9 @@ export function getCollectionSiblingAliases(tree, nodeId) {
 
 	const parent = findParent(tree);
 	return (parent?.children || [])
-		.filter((child) => child && child.id !== nodeId && child.type === TREE_NODE_TYPES.COLLECTION)
+		.filter(
+			(child) => child && child.id !== nodeId && child.type === TREE_NODE_TYPES.COLLECTION
+		)
 		.map((child) => child.alias)
 		.filter(Boolean);
 }
@@ -918,19 +920,24 @@ function hasSelectedVariablePath(value) {
 	const path = value.path;
 	if (!isPlainObject(path) || typeof path.scope !== "string" || !path.scope) return false;
 	if (path.scope === "doctype") return Array.isArray(path.segments) && path.segments.length === 0;
-	return Array.isArray(path.segments) && path.segments.length > 0 &&
-		path.segments.every((segment) => typeof segment === "string" && segment.length > 0);
+	return (
+		Array.isArray(path.segments) &&
+		path.segments.length > 0 &&
+		path.segments.every((segment) => typeof segment === "string" && segment.length > 0)
+	);
 }
 
 function hasCompleteFlexValue(value) {
 	if (!isPlainObject(value) || !value.mode) return false;
 	if (value.mode === "static") {
-		if (value.value_type === "list") return Array.isArray(value.value) && value.value.length > 0;
+		if (value.value_type === "list")
+			return Array.isArray(value.value) && value.value.length > 0;
 		return value.value === null || (value.value !== undefined && value.value !== "");
 	}
 	if (value.mode === "variable") return hasSelectedVariablePath(value);
 	if (value.mode === "resolver") return Boolean(value.family && value.operation);
-	if (value.mode === "template") return Array.isArray(value.segments) && value.segments.length > 0;
+	if (value.mode === "template")
+		return Array.isArray(value.segments) && value.segments.length > 0;
 	return false;
 }
 
@@ -942,7 +949,10 @@ function serializeLeafToCanonical(leaf, operatorSpecs = {}) {
 	const operator = leaf.operator;
 	if (!operator) return null;
 	const isUnary = UNARY_OPERATORS.has(operator) || operatorSpecs?.[operator]?.arity === 1;
-	if (leaf.is_incomplete_draft && (!hasCompleteFlexValue(leaf.left) || (!isUnary && !hasCompleteFlexValue(leaf.right)))) {
+	if (
+		leaf.is_incomplete_draft &&
+		(!hasCompleteFlexValue(leaf.left) || (!isUnary && !hasCompleteFlexValue(leaf.right)))
+	) {
 		return null;
 	}
 
@@ -1004,7 +1014,9 @@ function serializeCollectionToCanonical(colNode, operatorSpecs = {}) {
 		where = {
 			type: "group",
 			operator: rowQuantifier,
-			children: children.map((c) => serializeNodeToCanonical(c, operatorSpecs)).filter(Boolean),
+			children: children
+				.map((c) => serializeNodeToCanonical(c, operatorSpecs))
+				.filter(Boolean),
 		};
 	}
 
@@ -1061,7 +1073,9 @@ export function serializeConditionTree(treeRoot, operatorSpecs = {}) {
 	if (!treeRoot || typeof treeRoot !== "object") return null;
 
 	const children = Array.isArray(treeRoot.children)
-		? treeRoot.children.map((child) => serializeNodeToCanonical(child, operatorSpecs)).filter(Boolean)
+		? treeRoot.children
+				.map((child) => serializeNodeToCanonical(child, operatorSpecs))
+				.filter(Boolean)
 		: [];
 
 	if (children.length === 0) {
