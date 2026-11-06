@@ -1548,6 +1548,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			// 1. Deep sync conditions to config before normalization
 			if (node.data.action_type === "Condition") {
 				const payload = getConditionPayload({
+					action_type: node.data.action_type,
 					config: node.data.config,
 					condition_json: node.data.condition_json,
 				});
@@ -1673,6 +1674,7 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 			const conditionPayload =
 				actionTypeRaw === "Condition"
 					? getConditionPayload({
+							action_type: actionTypeRaw,
 							config: configData,
 							condition_json: action.condition_json,
 					  })

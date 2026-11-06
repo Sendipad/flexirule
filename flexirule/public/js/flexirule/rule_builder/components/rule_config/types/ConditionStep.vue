@@ -131,6 +131,7 @@ watch(
 			return props.node?.data?.trigger_condition;
 		}
 		return getConditionPayload({
+			action_type: props.node?.data?.action_type,
 			config: props.node?.data?.config,
 			condition_json: props.node?.data?.condition_json,
 		});

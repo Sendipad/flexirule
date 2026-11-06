@@ -1,4 +1,5 @@
 /**
+import { getConditionPayload } from "../rule_builder/utils/condition_payload.js";
  * FlexiRule contract module — frontend mirror of backend DTO.
  *
  * SINGLE SOURCE OF TRUTH: flexirule/ruleflow/core/contracts.py (backend)
@@ -1102,8 +1103,7 @@ export function validateAgainstContract(nodeData) {
 	if (actionType === "Condition" || actionType === "Loop") {
 		const config = parseJsonSafe(nodeData.config, {});
 		if (actionType === "Condition") {
-			const { getConditionPayload } = window.flexirule?.utils?.condition_payload || {};
-			const payload = getConditionPayload ? getConditionPayload(nodeData) : config.conditions;
+			const payload = getConditionPayload({ ...nodeData, action_type: actionType });
 
 			if (!payload || (Array.isArray(payload) && payload.length === 0)) {
 				errors.push(__("At least one condition is required"));

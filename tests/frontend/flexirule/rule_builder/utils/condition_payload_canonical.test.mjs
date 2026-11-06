@@ -63,22 +63,29 @@ test("condition_payload: preserves unknown root condition objects and non-empty 
 		custom_field: "special_value",
 	};
 
-	assert.deepEqual(getConditionPayloadFromConfig(unknownRoot), unknownRoot);
-	assert.deepEqual(getConditionPayload({ config: unknownRoot }), unknownRoot);
-	assert.equal(hasConditionPayload({ config: unknownRoot }), true);
+	assert.equal(getConditionPayloadFromConfig(unknownRoot), null);
+	assert.equal(getConditionPayload({ config: unknownRoot, action_type: "Fetch Records" }), null);
+	assert.deepEqual(getConditionPayload({ config: unknownRoot, action_type: "Condition" }), unknownRoot);
+	assert.equal(hasConditionPayload({ config: unknownRoot, action_type: "Condition" }), true);
 
 	const unknownArray = [
 		{ custom_type: "foo", val: 1 },
 		{ custom_type: "bar", val: 2 },
 	];
-	assert.deepEqual(getConditionPayloadFromConfig(unknownArray), unknownArray);
-	assert.deepEqual(getConditionPayload({ config: unknownArray }), unknownArray);
+	assert.equal(getConditionPayloadFromConfig(unknownArray), null);
+	assert.deepEqual(getConditionPayload({ config: unknownArray, action_type: "Condition" }), unknownArray);
 
 	// Distinguishes non-condition action configs (e.g. assignments)
 	const assignmentConfig = {
 		assignments: [{ target: "status", value: "Closed" }],
 	};
 	assert.equal(getConditionPayloadFromConfig(assignmentConfig), null);
+	assert.equal(getConditionPayload({ config: { iterator: "doc.items" }, action_type: "Loop" }), null);
+	assert.equal(getConditionPayload({ config: { filters: [{ field: "status", value: "Open" }] }, action_type: "Fetch Records" }), null);
+
+	const malformed = "{\"type\":\"comparison\",";
+	assert.equal(getConditionPayload({ config: malformed, action_type: "Fetch Records" }), null);
+	assert.equal(getConditionPayload({ config: malformed, action_type: "Condition" }), malformed);
 
 	// Genuinely empty object or null
 	assert.equal(getConditionPayloadFromConfig({}), null);
