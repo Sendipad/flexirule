@@ -150,10 +150,23 @@ test("contract: normalizeConditionContract maps operator DTO array to ID lookup 
 		node_types: {
 			group: { required_keys: ["type", "operator", "children"] },
 			comparison: { required_keys: ["type", "operator", "left"] },
-			collection_predicate: { required_keys: ["type", "quantifier", "source", "as", "where"] },
+			collection_predicate: {
+				required_keys: ["type", "quantifier", "source", "as", "where"],
+			},
 		},
 		flexvalue_modes: {
-			static: ["string", "integer", "decimal", "boolean", "date", "datetime", "time", "list", "object", "null"],
+			static: [
+				"string",
+				"integer",
+				"decimal",
+				"boolean",
+				"date",
+				"datetime",
+				"time",
+				"list",
+				"object",
+				"null",
+			],
 			variable: { scopes: ["doc", "old_doc", "vars", "caller", "rule", "doctype"] },
 			resolver: { families: [] },
 			template: { segments: ["text", "value"], maximum_segments: 64 },
@@ -263,24 +276,47 @@ test("adapter: structured FlexValueControl membership models normalize to canoni
 		"in"
 	);
 	assert.deepEqual(uiMultiSelect, { mode: "static", value_type: "list", value: ["A", "B"] });
-	assert.throws(() => toCanonicalFlexValue({ mode: "static", value_type: "MultiSelectList", value: "A" }, "Link", "in"), TypeError);
+	assert.throws(
+		() =>
+			toCanonicalFlexValue(
+				{ mode: "static", value_type: "MultiSelectList", value: "A" },
+				"Link",
+				"in"
+			),
+		TypeError
+	);
 });
 
 test("adapter: incomplete drafts are omitted and unary operators serialize without right", () => {
 	const incomplete = {
-		id: "leaf-draft", type: "leaf", operator: "", left: null, right: null, is_incomplete_draft: true,
+		id: "leaf-draft",
+		type: "leaf",
+		operator: "",
+		left: null,
+		right: null,
+		is_incomplete_draft: true,
 	};
-	assert.equal(serializeConditionTree({ id: "root", type: "group", children: [incomplete] }), null);
+	assert.equal(
+		serializeConditionTree({ id: "root", type: "group", children: [incomplete] }),
+		null
+	);
 
 	const unaryDraft = {
-		id: "leaf-unary", type: "leaf", operator: "is_not_empty",
+		id: "leaf-unary",
+		type: "leaf",
+		operator: "is_not_empty",
 		left: { mode: "variable", path: { scope: "doc", segments: ["full_name"] } },
-		right: null, is_incomplete_draft: true,
+		right: null,
+		is_incomplete_draft: true,
 	};
-	assert.deepEqual(serializeConditionTree({ id: "root", type: "group", children: [unaryDraft] }), {
-		type: "comparison", operator: "is_not_empty",
-		left: { mode: "variable", path: { scope: "doc", segments: ["full_name"] } },
-	});
+	assert.deepEqual(
+		serializeConditionTree({ id: "root", type: "group", children: [unaryDraft] }),
+		{
+			type: "comparison",
+			operator: "is_not_empty",
+			left: { mode: "variable", path: { scope: "doc", segments: ["full_name"] } },
+		}
+	);
 });
 
 test("adapter: doctype variable source round-trips with no empty path segment", () => {
@@ -290,18 +326,45 @@ test("adapter: doctype variable source round-trips with no empty path segment", 
 });
 
 test("adapter: sibling collection aliases are found in their actual lexical parent", () => {
-	const tree = { id: "root", type: "group", children: [
-		{ id: "root-group", type: "group", children: [
-			{ id: "col-a", type: "collection", alias: "items_row", children: [] },
-			{ id: "col-b", type: "collection", alias: "items_row_2", children: [] },
-		] },
-		{ id: "outer", type: "collection", alias: "orders_row", children: [
-			{ id: "nested-group", type: "group", children: [
-				{ id: "nested-a", type: "collection", alias: "lines_row", children: [] },
-				{ id: "nested-b", type: "collection", alias: "lines_row_2", children: [] },
-			] },
-		] },
-	] };
+	const tree = {
+		id: "root",
+		type: "group",
+		children: [
+			{
+				id: "root-group",
+				type: "group",
+				children: [
+					{ id: "col-a", type: "collection", alias: "items_row", children: [] },
+					{ id: "col-b", type: "collection", alias: "items_row_2", children: [] },
+				],
+			},
+			{
+				id: "outer",
+				type: "collection",
+				alias: "orders_row",
+				children: [
+					{
+						id: "nested-group",
+						type: "group",
+						children: [
+							{
+								id: "nested-a",
+								type: "collection",
+								alias: "lines_row",
+								children: [],
+							},
+							{
+								id: "nested-b",
+								type: "collection",
+								alias: "lines_row_2",
+								children: [],
+							},
+						],
+					},
+				],
+			},
+		],
+	};
 	assert.deepEqual(getCollectionSiblingAliases(tree, "col-a"), ["items_row_2"]);
 	assert.deepEqual(getCollectionSiblingAliases(tree, "nested-a"), ["lines_row_2"]);
 });

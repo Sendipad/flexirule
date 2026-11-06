@@ -66,7 +66,10 @@ test("condition_payload: preserves unknown root condition objects and non-empty 
 
 	assert.equal(getConditionPayloadFromConfig(unknownRoot), null);
 	assert.equal(getConditionPayload({ config: unknownRoot, action_type: "Fetch Records" }), null);
-	assert.deepEqual(getConditionPayload({ config: unknownRoot, action_type: "Condition" }), unknownRoot);
+	assert.deepEqual(
+		getConditionPayload({ config: unknownRoot, action_type: "Condition" }),
+		unknownRoot
+	);
 	assert.equal(hasConditionPayload({ config: unknownRoot, action_type: "Condition" }), true);
 
 	const unknownArray = [
@@ -74,15 +77,27 @@ test("condition_payload: preserves unknown root condition objects and non-empty 
 		{ custom_type: "bar", val: 2 },
 	];
 	assert.equal(getConditionPayloadFromConfig(unknownArray), null);
-	assert.deepEqual(getConditionPayload({ config: unknownArray, action_type: "Condition" }), unknownArray);
+	assert.deepEqual(
+		getConditionPayload({ config: unknownArray, action_type: "Condition" }),
+		unknownArray
+	);
 
 	// Distinguishes non-condition action configs (e.g. assignments)
 	const assignmentConfig = {
 		assignments: [{ target: "status", value: "Closed" }],
 	};
 	assert.equal(getConditionPayloadFromConfig(assignmentConfig), null);
-	assert.equal(getConditionPayload({ config: { iterator: "doc.items" }, action_type: "Loop" }), null);
-	assert.equal(getConditionPayload({ config: { filters: [{ field: "status", value: "Open" }] }, action_type: "Fetch Records" }), null);
+	assert.equal(
+		getConditionPayload({ config: { iterator: "doc.items" }, action_type: "Loop" }),
+		null
+	);
+	assert.equal(
+		getConditionPayload({
+			config: { filters: [{ field: "status", value: "Open" }] },
+			action_type: "Fetch Records",
+		}),
+		null
+	);
 	assert.equal(
 		getConditionPayload({
 			action_type: "Loop",
@@ -112,5 +127,8 @@ test("condition_payload: validateAgainstContract accepts a direct canonical Cond
 	};
 	const result = validateAgainstContract(nodeData);
 	assert.equal(result.valid, true, JSON.stringify(result.errors));
-	assert.equal(result.errors.some((error) => error.includes("At least one condition is required")), false);
+	assert.equal(
+		result.errors.some((error) => error.includes("At least one condition is required")),
+		false
+	);
 });
