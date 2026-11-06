@@ -307,7 +307,7 @@ test("adapter: sibling collection aliases are found in their actual lexical pare
 });
 
 test("adapter: malformed stored JSON remains an unsupported, round-trippable value", () => {
-	const malformed = "{\\\"type\\\":\\\"comparison\\\",";
+	const malformed = '{"type":"comparison",';
 	const tree = deserializeConditionTree(malformed);
 	assert.equal(tree.children[0].is_unsupported, true);
 	assert.equal(tree.children[0].original_payload, malformed);

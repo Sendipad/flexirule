@@ -58,13 +58,17 @@ function isNonEmptyUnknownStructuredValue(value) {
  * unrelated action configs (notably Fetch Records and Loop) from being
  * misinterpreted as unsupported condition ASTs.
  */
-export function getConditionPayloadFromConfig(configValue, { preserveUnknown = false, preserveMalformed = false } = {}) {
+export function getConditionPayloadFromConfig(configValue, {
+	preserveUnknown = false,
+	preserveMalformed = false,
+	allowCanonicalRoot = true,
+} = {}) {
 	const parsed = parseSerialized(configValue);
 	if (parsed.malformed) return preserveMalformed ? configValue : null;
 
 	const config = parsed.value;
 	if (config === null || config === undefined) return null;
-	if (isCanonicalRoot(config) || isKnownLegacyCondition(config)) return config;
+	if ((allowCanonicalRoot && isCanonicalRoot(config)) || isKnownLegacyCondition(config)) return config;
 
 	if (config && typeof config === "object" && !Array.isArray(config)) {
 		for (const key of ["condition", "condition_tree", "condition_json"]) {
@@ -92,6 +96,7 @@ export function getConditionPayload(actionLike = {}) {
 	const options = {
 		preserveUnknown: isConditionAction,
 		preserveMalformed: isConditionAction,
+		allowCanonicalRoot: !actionType || isConditionAction,
 	};
 
 	const fromConfig = getConditionPayloadFromConfig(actionLike.config, options);
@@ -101,7 +106,9 @@ export function getConditionPayload(actionLike = {}) {
 	if (legacy.malformed) return isConditionAction ? actionLike.condition_json : null;
 	if (legacy.value === null) return null;
 
-	if (isCanonicalRoot(legacy.value) || isKnownLegacyCondition(legacy.value)) return legacy.value;
+	if ((options.allowCanonicalRoot && isCanonicalRoot(legacy.value)) || isKnownLegacyCondition(legacy.value)) {
+		return legacy.value;
+	}
 	return options.preserveUnknown && isNonEmptyUnknownStructuredValue(legacy.value)
 		? legacy.value
 		: null;

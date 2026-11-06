@@ -83,6 +83,13 @@ test("condition_payload: preserves unknown root condition objects and non-empty 
 	assert.equal(getConditionPayloadFromConfig(assignmentConfig), null);
 	assert.equal(getConditionPayload({ config: { iterator: "doc.items" }, action_type: "Loop" }), null);
 	assert.equal(getConditionPayload({ config: { filters: [{ field: "status", value: "Open" }] }, action_type: "Fetch Records" }), null);
+	assert.equal(
+		getConditionPayload({
+			action_type: "Loop",
+			config: { type: "group", operator: "and", children: [] },
+		}),
+		null
+	);
 
 	const malformed = "{\"type\":\"comparison\",";
 	assert.equal(getConditionPayload({ config: malformed, action_type: "Fetch Records" }), null);
