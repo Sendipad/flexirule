@@ -630,6 +630,49 @@ def get_condition_contract():
 
 
 @frappe.whitelist()
+def validate_condition(condition: str | dict, doctype: str | None = None):
+	"""Authoritative side-effect-free validation for a canonical condition node.
+
+	Returns:
+	    dict: {
+	        "valid": bool,
+	        "errors": list[str],
+	        "details": list[dict[str, Any]]  # code, path, message
+	    }
+	"""
+	_require_api_access()
+	import json
+
+	from flexirule.ruleflow.core.condition_contract import validate_condition_node
+	from flexirule.ruleflow.core.condition_errors import ConditionError
+
+	try:
+		payload = json.loads(condition) if isinstance(condition, str) else condition
+		validate_condition_node(payload, doctype=doctype or None)
+		return {"valid": True, "errors": [], "details": []}
+	except ConditionError as exc:
+		return {
+			"valid": False,
+			"errors": [exc.message],
+			"details": [{"code": exc.code, "path": exc.path, "message": exc.message}],
+		}
+	except (json.JSONDecodeError, TypeError, ValueError) as exc:
+		msg = f"Malformed condition payload: {exc}"
+		return {
+			"valid": False,
+			"errors": [msg],
+			"details": [{"code": "malformed_json", "path": "$", "message": msg}],
+		}
+	except Exception as exc:
+		msg = str(exc)
+		return {
+			"valid": False,
+			"errors": [msg],
+			"details": [{"code": "validation_error", "path": "$", "message": msg}],
+		}
+
+
+@frappe.whitelist()
 def get_operator_config():
 	"""
 	Get fieldtype-to-operators mapping and operator labels for Condition Builder.
