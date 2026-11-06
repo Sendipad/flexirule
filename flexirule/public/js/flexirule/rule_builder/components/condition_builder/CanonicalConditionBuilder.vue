@@ -45,26 +45,35 @@
 			<template #collection="{ node }">
 				<CanonicalCollectionEditor
 					:node="node"
-					:docFields="docFields"
+					:docFields="getCollectionDocFields(node)"
+					:ancestorAliases="getAncestorAliases(node)"
 					:readOnly="readOnly"
+					:store="store"
 					@change="onSubNodeChange"
+					@child-fields-loaded="onChildFieldsLoaded"
 				/>
 			</template>
 
 			<template #leaf-summary="{ node }">
-				<CanonicalConditionLeafSummary :node="node" :contract="contract" />
+				<CanonicalConditionLeafSummary
+					:node="node"
+					:contract="contract"
+					:docFields="getLeafDocFields(node)"
+				/>
 			</template>
 
 			<template #leaf="{ node }">
 				<CanonicalConditionLeaf
 					:node="node"
 					:contract="contract"
-					:docFields="docFields"
-					:variableOptions="variableOptions"
+					:docFields="getLeafDocFields(node)"
+					:variableOptions="getLeafVariableOptions(node)"
 					:readOnly="readOnly"
 					:store="store"
-					:currentDocType="currentDocType"
+					:currentDocType="getLeafDocType(node)"
 					:errors="getNodeErrors(node.id)"
+					:isSoleCondition="isSoleCondition"
+					:isEntryNode="isEntryNode"
 					@change="onSubNodeChange"
 					@remove="treeBuilderRef?.removeNode(node.id)"
 				/>
@@ -97,6 +106,7 @@ const props = defineProps({
 	currentDocType: { type: String, default: "" },
 	store: { type: Object, default: null },
 	presentationMode: { type: String, default: "hybrid" },
+	isEntryNode: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["update:modelValue", "change", "validation"]);
@@ -107,8 +117,114 @@ const { contract, error: contractError, loadContract } = useCanonicalConditionCo
 const treeModel = ref(deserializeConditionTree(props.modelValue));
 const validationErrors = ref([]);
 const nodeErrorsMap = ref(new Map());
+const collectionMetadataMap = ref(new Map());
 
 const unsupportedDiagnostics = computed(() => findUnsupportedDiagnostics(treeModel.value));
+
+const isSoleCondition = computed(() => {
+	const children = treeModel.value?.children || [];
+	return children.length === 1;
+});
+
+function onChildFieldsLoaded(payload) {
+	if (payload && payload.collectionId) {
+		collectionMetadataMap.value.set(payload.collectionId, payload);
+	}
+}
+
+function findAncestorCollections(nodeId, tree = treeModel.value, ancestors = []) {
+	if (!tree || !tree.children) return [];
+	for (const child of tree.children) {
+		if (child.id === nodeId) {
+			return ancestors;
+		}
+		if (child.type === "collection") {
+			const nested = findAncestorCollections(nodeId, child, [...ancestors, child]);
+			if (nested.length || child.children?.some((c) => c.id === nodeId)) {
+				return nested.length ? nested : [...ancestors, child];
+			}
+		} else if (child.type === "group") {
+			const nested = findAncestorCollections(nodeId, child, ancestors);
+			if (nested.length || child.children?.some((c) => c.id === nodeId)) {
+				return nested.length ? nested : ancestors;
+			}
+		}
+	}
+	return [];
+}
+
+function findParentCollection(nodeId, tree = treeModel.value) {
+	const ancestors = findAncestorCollections(nodeId, tree);
+	return ancestors.length ? ancestors[ancestors.length - 1] : null;
+}
+
+function getAncestorAliases(node) {
+	if (!node?.id) return [];
+	const ancestors = findAncestorCollections(node.id, treeModel.value);
+	return ancestors.map((a) => a.alias).filter(Boolean);
+}
+
+function getCollectionDocFields(node) {
+	const ancestors = findAncestorCollections(node?.id, treeModel.value);
+	if (ancestors.length > 0) {
+		const immediateEnclosing = ancestors[ancestors.length - 1];
+		const meta = collectionMetadataMap.value.get(immediateEnclosing.id);
+		if (meta && meta.status === "loaded") {
+			return meta.childFields || [];
+		}
+		if (meta && (meta.status === "loading" || meta.status === "failed")) {
+			return [];
+		}
+		return meta?.childFields || [];
+	}
+	return props.docFields;
+}
+
+function getLeafDocFields(node) {
+	const parentCol = findParentCollection(node?.id);
+	if (parentCol) {
+		const meta = collectionMetadataMap.value.get(parentCol.id);
+		// Return child fields if loaded, or empty array if failed/loading (never substitute parent fields)
+		if (meta && meta.status === "loaded") {
+			return meta.childFields || [];
+		}
+		if (meta && (meta.status === "loading" || meta.status === "failed")) {
+			return [];
+		}
+		return meta?.childFields || [];
+	}
+	return props.docFields;
+}
+
+function getLeafVariableOptions(node) {
+	const parentCol = findParentCollection(node?.id);
+	if (parentCol) {
+		const meta = collectionMetadataMap.value.get(parentCol.id);
+		const childFields = meta?.status === "loaded" ? meta.childFields || [] : [];
+		// Combine child-row fields with general runtime variables (predecessors, rule context) without losing access
+		const dedupe = new Map();
+		childFields.forEach((f) => dedupe.set(f.value || f, f));
+		(props.variableOptions || []).forEach((v) => {
+			const key = v.value || v;
+			if (!dedupe.has(key)) {
+				dedupe.set(key, v);
+			}
+		});
+		return Array.from(dedupe.values());
+	}
+	return props.variableOptions;
+}
+
+function getLeafDocType(node) {
+	const parentCol = findParentCollection(node?.id);
+	if (parentCol) {
+		const meta = collectionMetadataMap.value.get(parentCol.id);
+		if (meta && meta.childDocType) {
+			return meta.childDocType;
+		}
+	}
+	return props.currentDocType;
+}
 
 onMounted(() => {
 	loadContract().catch(() => {});
@@ -150,18 +266,9 @@ function createCollection() {
 		quantifier: "any",
 		collection: "",
 		source: { scope: "doc", segments: [] },
-		alias: "row",
+		alias: "items_row",
 		children: [createLeaf()],
 	};
-}
-
-function onTreeUpdate(newTree) {
-	treeModel.value = newTree;
-	emitSerialized();
-}
-
-function onSubNodeChange() {
-	emitSerialized();
 }
 
 function emitSerialized() {
@@ -174,21 +281,159 @@ function getNodeErrors(nodeId) {
 	return nodeErrorsMap.value.get(nodeId) || [];
 }
 
-function validate() {
-	const result = validateCanonicalCondition(treeModel.value, {
+let lastValidationRequestId = 0;
+let validatedPayloadJson = null;
+
+function invalidateValidation() {
+	lastValidationRequestId += 1;
+	validatedPayloadJson = null;
+}
+
+function onTreeUpdate(newTree) {
+	invalidateValidation();
+	treeModel.value = newTree;
+	emitSerialized();
+}
+
+function onSubNodeChange() {
+	invalidateValidation();
+	emitSerialized();
+}
+
+async function validate() {
+	const localResult = validateCanonicalCondition(treeModel.value, {
 		contract: contract.value,
 		isMandatory: props.isMandatory,
 	});
 
-	validationErrors.value = result.errors;
-	nodeErrorsMap.value = result.nodeErrors;
+	validationErrors.value = localResult.errors;
+	nodeErrorsMap.value = localResult.nodeErrors;
 
-	emit("validation", result);
-	return result;
+	if (!localResult.valid) {
+		validatedPayloadJson = null;
+		emit("validation", localResult);
+		return localResult;
+	}
+
+	const payload = serializeConditionTree(treeModel.value);
+	if (!payload) {
+		if (props.isMandatory) {
+			validatedPayloadJson = null;
+			const emptyRes = {
+				valid: false,
+				errors: ["Condition is required."],
+				nodeErrors: new Map(),
+			};
+			emit("validation", emptyRes);
+			return emptyRes;
+		}
+		validatedPayloadJson = "null";
+		emit("validation", { valid: true, errors: [], nodeErrors: new Map() });
+		return { valid: true, errors: [], nodeErrors: new Map() };
+	}
+
+	const currentRequestId = ++lastValidationRequestId;
+	const payloadJson = JSON.stringify(payload);
+
+	try {
+		if (typeof frappe === "undefined" || !frappe.call) {
+			if (typeof window !== "undefined" && window.__FLEXIRULE_TEST_MODE__) {
+				validatedPayloadJson = payloadJson;
+				return localResult;
+			}
+			const outageRes = {
+				valid: false,
+				errors: ["Backend condition validator is unavailable. Save blocked (fail-closed)."],
+				nodeErrors: new Map(),
+			};
+			validationErrors.value = outageRes.errors;
+			validatedPayloadJson = null;
+			emit("validation", outageRes);
+			return outageRes;
+		}
+
+		const response = await frappe.call({
+			method: "flexirule.ruleflow.api.validate_condition",
+			args: {
+				condition: payloadJson,
+				doctype: props.currentDocType || undefined,
+			},
+		});
+
+		// Stale-response protection: if request ID changed or tree mutated in flight, fail closed
+		const currentPayload = serializeConditionTree(treeModel.value);
+		const currentJson = JSON.stringify(currentPayload);
+		if (currentRequestId !== lastValidationRequestId || payloadJson !== currentJson) {
+			const staleRes = {
+				valid: false,
+				errors: ["Condition changed while validation was in progress. Please re-validate."],
+				nodeErrors: new Map(),
+			};
+			validationErrors.value = staleRes.errors;
+			validatedPayloadJson = null;
+			emit("validation", staleRes);
+			return staleRes;
+		}
+
+		const data = response.message || response;
+		if (!data || !data.valid) {
+			const backendErrors = Array.isArray(data?.errors)
+				? data.errors
+				: ["Condition failed backend validation."];
+			const res = {
+				valid: false,
+				errors: backendErrors,
+				nodeErrors: nodeErrorsMap.value,
+				details: data?.details || [],
+			};
+			validationErrors.value = res.errors;
+			validatedPayloadJson = null;
+			emit("validation", res);
+			return res;
+		}
+
+		validatedPayloadJson = payloadJson;
+		const successRes = { valid: true, errors: [], nodeErrors: new Map() };
+		validationErrors.value = [];
+		emit("validation", successRes);
+		return successRes;
+	} catch (err) {
+		const currentPayload = serializeConditionTree(treeModel.value);
+		const currentJson = JSON.stringify(currentPayload);
+		if (currentRequestId !== lastValidationRequestId || payloadJson !== currentJson) {
+			const staleRes = {
+				valid: false,
+				errors: ["Condition changed while validation was in progress. Please re-validate."],
+				nodeErrors: new Map(),
+			};
+			validationErrors.value = staleRes.errors;
+			validatedPayloadJson = null;
+			emit("validation", staleRes);
+			return staleRes;
+		}
+
+		const msg =
+			err?.message ||
+			"Failed to reach backend condition validator. Save blocked (fail-closed).";
+		const outageRes = {
+			valid: false,
+			errors: [msg],
+			nodeErrors: new Map(),
+		};
+		validationErrors.value = outageRes.errors;
+		validatedPayloadJson = null;
+		emit("validation", outageRes);
+		return outageRes;
+	}
 }
 
 defineExpose({
 	validate,
+	validateSync: () =>
+		validateCanonicalCondition(treeModel.value, {
+			contract: contract.value,
+			isMandatory: props.isMandatory,
+		}),
 	getCanonicalPayload: () => serializeConditionTree(treeModel.value),
 	getTree: () => treeModel.value,
 });

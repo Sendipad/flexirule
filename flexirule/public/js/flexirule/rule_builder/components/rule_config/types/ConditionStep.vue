@@ -22,6 +22,31 @@
 			</div>
 		</div>
 
+		<!-- Variable / Metadata Loading & Error States -->
+		<div
+			v-if="isLoadingVariables"
+			class="alert alert-info py-1 px-2 small my-1 d-flex align-items-center"
+		>
+			<i class="fa fa-spinner fa-spin mr-2"></i>
+			<span>{{ __("Loading available fields and values...") }}</span>
+		</div>
+		<div
+			v-else-if="variableLoadError"
+			class="alert alert-danger py-1 px-2 small my-1 d-flex align-items-center justify-content-between"
+		>
+			<div>
+				<i class="fa fa-exclamation-circle mr-1"></i>
+				<span>{{ __("Could not load values: ") }}{{ variableLoadError }}</span>
+			</div>
+			<button
+				type="button"
+				class="btn btn-xs btn-outline-danger"
+				@click="refreshVariableFields"
+			>
+				{{ __("Retry") }}
+			</button>
+		</div>
+
 		<div v-if="isEntryNode" class="alert alert-warning py-2 px-3 small my-2">
 			<i class="fa fa-filter mr-1"></i>
 			{{
@@ -41,6 +66,7 @@
 				:isMandatory="isConditionMandatory"
 				:currentDocType="currentDocType"
 				:store="ruleStore"
+				:isEntryNode="isEntryNode"
 				@update:modelValue="updateConditions"
 			/>
 		</div>
@@ -84,6 +110,8 @@ const localCanonicalCondition = ref(null);
 const showOldDoc = ref(false);
 const variableFields = ref([]);
 const canonicalBuilderRef = ref(null);
+const isLoadingVariables = ref(false);
+const variableLoadError = ref(null);
 
 const isEntryNode = computed(() => {
 	return props.node?.type === "start" || props.node?.data?.action_type === "Entry Action";
@@ -266,14 +294,22 @@ async function refreshVariableFields() {
 	const nodeId = props.node?.id;
 	if (!nodeId || props.node?.type === "start") {
 		variableFields.value = [];
+		variableLoadError.value = null;
+		isLoadingVariables.value = false;
 		return;
 	}
 
+	isLoadingVariables.value = true;
+	variableLoadError.value = null;
 	try {
 		const available = await graphStore.getAvailableVariables(nodeId);
 		variableFields.value = available || [];
 	} catch (e) {
+		const msg = e?.message || "Failed to load variables";
+		variableLoadError.value = msg;
 		variableFields.value = [];
+	} finally {
+		isLoadingVariables.value = false;
 	}
 }
 
@@ -306,11 +342,14 @@ watch(
 	{ deep: true }
 );
 
-function validate() {
+async function validate() {
 	if (canonicalBuilderRef.value) {
-		return canonicalBuilderRef.value.validate();
+		return await canonicalBuilderRef.value.validate();
 	}
-	return { valid: true, errors: [] };
+	return {
+		valid: false,
+		errors: [__("Condition builder component is unavailable. Validation failed.")],
+	};
 }
 
 defineExpose({

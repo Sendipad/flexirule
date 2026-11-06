@@ -1,8 +1,12 @@
 <template>
 	<div class="canonical-leaf-summary">
-		<span class="leaf-operand font-monospace">{{ leftSummary }}</span>
-		<span class="leaf-operator badge">{{ operatorLabel }}</span>
-		<span v-if="!isUnary" class="leaf-operand font-monospace">{{ rightSummary }}</span>
+		<span class="leaf-operand font-weight-medium">{{ leftSummary }}</span>
+		<span class="leaf-operator font-weight-semibold mx-1 text-primary">{{
+			operatorLabel
+		}}</span>
+		<span v-if="!isUnary" class="leaf-operand font-weight-medium text-dark">{{
+			rightSummary
+		}}</span>
 	</div>
 </template>
 
@@ -13,62 +17,150 @@ import { UNARY_OPERATORS } from "./canonical_condition_adapter.mjs";
 const props = defineProps({
 	node: { type: Object, required: true },
 	contract: { type: Object, default: () => ({}) },
+	docFields: { type: Array, default: () => [] },
 });
 
 const isUnary = computed(() => {
 	const op = props.node.operator;
-	return UNARY_OPERATORS.has(op) || props.contract?.operators?.[op]?.arity === 1;
+	const spec = props.contract?.operators?.[op];
+	return UNARY_OPERATORS.has(op) || spec?.arity === 1;
 });
+
+const FRIENDLY_OPERATOR_WORDS = {
+	eq: "is",
+	ne: "is not",
+	gt: "is greater than",
+	gte: "is greater than or equal",
+	lt: "is less than",
+	lte: "is less than or equal",
+	in: "is one of",
+	not_in: "is not one of",
+	contains: "contains",
+	not_contains: "does not contain",
+	starts_with: "starts with",
+	ends_with: "ends with",
+	is_set: "is set",
+	is_not_set: "is not set",
+	is_empty: "is empty",
+	is_not_empty: "is not empty",
+	is_submittable: "is submittable",
+	has_field: "has field",
+};
 
 const operatorLabel = computed(() => {
 	const op = props.node.operator;
-	return props.contract?.operators?.[op]?.label || op || "==";
+	if (FRIENDLY_OPERATOR_WORDS[op]) {
+		return FRIENDLY_OPERATOR_WORDS[op];
+	}
+	const spec = props.contract?.operators?.[op];
+	return spec?.label || op || "is";
 });
 
-function summarizeFlexValue(val) {
-	if (!val || typeof val !== "object") return String(val ?? "");
+function resolveFriendlyFieldLabel(pathStr) {
+	if (!pathStr) return __("Select field");
+	const fields = props.docFields || [];
+	const match = fields.find((f) => {
+		const val = f.value || f;
+		return val === pathStr || val === pathStr.replace(/^(doc|old_doc|vars|row)\./, "");
+	});
+	if (match) {
+		const label = match.label || match.value;
+		const parenMatch = label.match(/\(([^)]+)\)/);
+		if (parenMatch && parenMatch[1]) {
+			return parenMatch[1].trim();
+		}
+		return label.replace(/^(doc|old_doc|vars|caller|rule)\./, "");
+	}
+
+	const parts = pathStr.split(".").filter(Boolean);
+	if (parts.length > 1) {
+		const scope = parts[0];
+		const field = parts.slice(1).join(" ");
+		const capitalized = field.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+		if (scope === "old_doc") return `Previous ${capitalized}`;
+		if (scope === "row") return capitalized;
+		return capitalized;
+	}
+	return pathStr.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+}
+
+const FRIENDLY_RESOLVER_NAMES = {
+	"math.formula": "Calculation",
+	"date.calculate": "Date calculation",
+	"date.diff": "Time difference",
+	"date.format": "Formatted date",
+	"text.combine": "Combined text",
+	"text.format": "Formatted text",
+	"text.normalize": "Normalized text",
+	"lookup.fetch": "Linked record lookup",
+	"collection.any": "Matching table item",
+	"collection.all": "All table items",
+	"collection.none": "No table items",
+	"system_context.get": "System setting",
+};
+
+function summarizeFlexValue(val, isLeft = false) {
+	if (!val || typeof val !== "object") {
+		return val != null && val !== "" ? String(val) : __("(empty)");
+	}
+
 	if (val.mode === "variable") {
 		const path = val.path || {};
 		const scope = path.scope || "doc";
 		const segments = Array.isArray(path.segments) ? path.segments : [];
-		return segments.length ? `${scope}.${segments.join(".")}` : scope;
+		const rawPath = segments.length ? `${scope}.${segments.join(".")}` : scope;
+		return resolveFriendlyFieldLabel(rawPath);
 	}
+
 	if (val.mode === "static") {
-		if (val.value === null) return "null";
-		if (typeof val.value === "boolean") return val.value ? "true" : "false";
-		return String(val.value ?? "");
+		if (val.value === null) return "None";
+		if (typeof val.value === "boolean") return val.value ? "Yes" : "No";
+		if (Array.isArray(val.value)) {
+			return val.value.length ? val.value.join(", ") : __("(empty list)");
+		}
+		return val.value !== "" && val.value !== undefined ? String(val.value) : __("(empty)");
 	}
+
 	if (val.mode === "resolver") {
-		return `resolver(${val.family || ""}.${val.operation || ""})`;
+		const key = `${val.family || ""}.${val.operation || ""}`;
+		const friendlyName = FRIENDLY_RESOLVER_NAMES[key];
+		if (friendlyName) return `[${friendlyName}]`;
+		const fam = val.family ? val.family.replace(/_/g, " ") : "calculation";
+		return `[${fam}]`;
 	}
+
 	if (val.mode === "template") {
-		return "template(...)";
+		if (Array.isArray(val.segments)) {
+			const text = val.segments
+				.map((s) =>
+					s.type === "text" ? s.value : s.value ? summarizeFlexValue(s.value) : ""
+				)
+				.join("");
+			if (text.trim()) return `"${text}"`;
+		}
+		return "[Template]";
 	}
-	return JSON.stringify(val);
+
+	return __("(unconfigured)");
 }
 
-const leftSummary = computed(() => summarizeFlexValue(props.node.left));
-const rightSummary = computed(() => summarizeFlexValue(props.node.right));
+const leftSummary = computed(() => summarizeFlexValue(props.node.left, true));
+const rightSummary = computed(() => summarizeFlexValue(props.node.right, false));
 </script>
 
 <style scoped>
 .canonical-leaf-summary {
 	display: inline-flex;
 	align-items: center;
-	gap: var(--fxr-space-2, 6px);
-	font-size: var(--fxr-text-sm, 12px);
+	gap: var(--fxr-space-1, 4px);
+	font-size: var(--fxr-text-sm, 13px);
 	color: var(--fxr-text-strong, #1f2937);
 	padding: 2px 4px;
-	border-radius: var(--fxr-radius-sm, 4px);
 }
 .leaf-operator {
-	background-color: var(--fxr-surface-2, #f3f4f6);
 	color: var(--fxr-accent, #2563eb);
-	font-weight: var(--fxr-weight-bold, 700);
-	padding: 2px 6px;
-	border-radius: 4px;
 }
 .leaf-operand {
-	color: var(--fxr-text-secondary, #4b5563);
+	color: var(--fxr-text-strong, #111827);
 }
 </style>
