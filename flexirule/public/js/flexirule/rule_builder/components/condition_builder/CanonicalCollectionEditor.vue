@@ -140,10 +140,19 @@ function updateCollectionPath(path) {
 	const segments = parts.length > 1 ? parts.slice(1) : parts.length === 1 ? [parts[0]] : [];
 	props.node.source = { scope, segments };
 
-	// Deterministic alias generation with ancestor alias awareness (hidden from UI)
 	const tableFieldname = segments.length ? segments[segments.length - 1] : "items";
-	const existingAliases = new Set(props.ancestorAliases || []);
-	props.node.alias = generateCollectionAlias(tableFieldname, existingAliases);
+	const existingAliases = new Set([
+		...(props.ancestorAliases || []),
+		...(props.siblingAliases || []),
+	]);
+	const previousAlias = props.node.alias;
+	const nextAlias = generateCollectionAlias(tableFieldname, existingAliases);
+	if (previousAlias && previousAlias !== nextAlias && Array.isArray(props.node.children)) {
+		for (const child of props.node.children) {
+			updateSubtreeScopeReferences(child, previousAlias, nextAlias);
+		}
+	}
+	props.node.alias = nextAlias;
 
 	resolveAndPropagateChildFields();
 	emit("change", props.node);

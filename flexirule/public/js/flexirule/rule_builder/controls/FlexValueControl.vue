@@ -491,11 +491,12 @@ function onSourceSelected(item) {
 	isDynamicMode.value = true;
 	lastEmittedJSON = "";
 	editor.commands.setContent("");
+	const canonicalPath = segments.length ? scope + "." + segments.join(".") : scope;
 	editor.commands.insertContent({
 		type: "variableToken",
 		attrs: {
-			path: `${scope}.${segments.join(".")}`,
-			label: item.friendlyLabel || item.label || `${scope}.${segments.join(".")}`,
+			path: canonicalPath,
+			label: item.friendlyLabel || item.label || canonicalPath,
 		},
 	});
 	emitChanges();
@@ -1283,13 +1284,19 @@ function deserialize(val) {
 	const structured = coerceStructuredValue(val);
 
 	if (structured.mode === "variable") {
-		const displayPath =
-			structured.path?.scope && structured.path?.segments?.length
-				? `${structured.path.scope}.${structured.path.segments.join(".")}`
-				: String(structured.path || "");
-		return `<span data-token-type="variable" data-path="${escapeAttr(
-			displayPath
-		)}" data-label=""></span>`;
+		const path = structured.path;
+		let displayPath = "";
+		if (typeof path === "string") {
+			displayPath = path.trim();
+		} else if (path && typeof path === "object" && typeof path.scope === "string") {
+			const segments = Array.isArray(path.segments)
+				? path.segments.filter((segment) => typeof segment === "string" && segment.length > 0)
+				: [];
+			if (segments.length) displayPath = path.scope + "." + segments.join(".");
+			else if (path.scope === "doctype") displayPath = "doctype";
+		}
+		if (!displayPath) return "";
+		return `<span data-token-type="variable" data-path="${escapeAttr(displayPath)}" data-label=""></span>`;
 	}
 
 	if (structured.mode === "resolver") {
