@@ -478,8 +478,8 @@ function deserializeCanonicalComparison(node) {
 		right: isPlainObject(node.right)
 			? deepClone(node.right)
 			: UNARY_OPERATORS.has(node.operator)
-				? null
-				: { mode: "static", value_type: "string", value: "" },
+			? null
+			: { mode: "static", value_type: "string", value: "" },
 	};
 }
 
@@ -817,7 +817,9 @@ export function deserializeConditionTree(payload) {
 					type: TREE_NODE_TYPES.LEAF,
 					operator: "eq",
 					is_unsupported: true,
-					unsupported_reason: `Unsupported root condition structure: ${data.type || "unknown"}`,
+					unsupported_reason: `Unsupported root condition structure: ${
+						data.type || "unknown"
+					}`,
 					original_payload: deepClone(data),
 				},
 			],

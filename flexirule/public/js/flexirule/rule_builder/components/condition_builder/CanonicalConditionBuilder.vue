@@ -45,7 +45,8 @@
 			<template #collection="{ node }">
 				<CanonicalCollectionEditor
 					:node="node"
-					:docFields="docFields"
+					:docFields="getCollectionDocFields(node)"
+					:ancestorAliases="getAncestorAliases(node)"
 					:readOnly="readOnly"
 					:store="store"
 					@change="onSubNodeChange"
@@ -131,21 +132,52 @@ function onChildFieldsLoaded(payload) {
 	}
 }
 
-function findParentCollection(nodeId, tree = treeModel.value) {
-	if (!tree || !tree.children) return null;
+function findAncestorCollections(nodeId, tree = treeModel.value, ancestors = []) {
+	if (!tree || !tree.children) return [];
 	for (const child of tree.children) {
+		if (child.id === nodeId) {
+			return ancestors;
+		}
 		if (child.type === "collection") {
-			if (child.children?.some((c) => c.id === nodeId)) {
-				return child;
+			const nested = findAncestorCollections(nodeId, child, [...ancestors, child]);
+			if (nested.length || child.children?.some((c) => c.id === nodeId)) {
+				return nested.length ? nested : [...ancestors, child];
 			}
-			const found = findParentCollection(nodeId, child);
-			if (found) return found;
 		} else if (child.type === "group") {
-			const found = findParentCollection(nodeId, child);
-			if (found) return found;
+			const nested = findAncestorCollections(nodeId, child, ancestors);
+			if (nested.length || child.children?.some((c) => c.id === nodeId)) {
+				return nested.length ? nested : ancestors;
+			}
 		}
 	}
-	return null;
+	return [];
+}
+
+function findParentCollection(nodeId, tree = treeModel.value) {
+	const ancestors = findAncestorCollections(nodeId, tree);
+	return ancestors.length ? ancestors[ancestors.length - 1] : null;
+}
+
+function getAncestorAliases(node) {
+	if (!node?.id) return [];
+	const ancestors = findAncestorCollections(node.id, treeModel.value);
+	return ancestors.map((a) => a.alias).filter(Boolean);
+}
+
+function getCollectionDocFields(node) {
+	const ancestors = findAncestorCollections(node?.id, treeModel.value);
+	if (ancestors.length > 0) {
+		const immediateEnclosing = ancestors[ancestors.length - 1];
+		const meta = collectionMetadataMap.value.get(immediateEnclosing.id);
+		if (meta && meta.status === "loaded") {
+			return meta.childFields || [];
+		}
+		if (meta && (meta.status === "loading" || meta.status === "failed")) {
+			return [];
+		}
+		return meta?.childFields || [];
+	}
+	return props.docFields;
 }
 
 function getLeafDocFields(node) {

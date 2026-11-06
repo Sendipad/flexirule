@@ -1492,7 +1492,7 @@ function handleBuilderUpdate(config, details) {
 					fieldType: fieldType.value,
 					referenceDoctype: referenceDoctype.value,
 					context: props.context,
-				})
+			  })
 			: props.context?.resolverDefaults;
 	const mergedConfig =
 		defaults && typeof defaults === "object" ? { ...defaults, ...config } : config;

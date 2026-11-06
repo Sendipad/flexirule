@@ -90,6 +90,7 @@ import { generateCollectionAlias } from "./canonical_condition_adapter.mjs";
 const props = defineProps({
 	node: { type: Object, required: true },
 	docFields: { type: Array, default: () => [] },
+	ancestorAliases: { type: Array, default: () => [] },
 	readOnly: { type: Boolean, default: false },
 	store: { type: Object, default: null },
 });
@@ -98,6 +99,7 @@ const emit = defineEmits(["update:node", "change", "child-fields-loaded"]);
 
 const metaStatus = ref("idle"); // 'idle' | 'loading' | 'loaded' | 'failed'
 const metaError = ref(null);
+let activeRequestId = 0;
 
 const hasMultipleChildConditions = computed(() => {
 	const ch = props.node.children;
@@ -133,15 +135,17 @@ function updateCollectionPath(path) {
 	const segments = parts.length > 1 ? parts.slice(1) : parts.length === 1 ? [parts[0]] : [];
 	props.node.source = { scope, segments };
 
-	// Deterministic alias generation (hidden from UI)
+	// Deterministic alias generation with ancestor alias awareness (hidden from UI)
 	const tableFieldname = segments.length ? segments[segments.length - 1] : "items";
-	props.node.alias = generateCollectionAlias(tableFieldname);
+	const existingAliases = new Set(props.ancestorAliases || []);
+	props.node.alias = generateCollectionAlias(tableFieldname, existingAliases);
 
 	resolveAndPropagateChildFields();
 	emit("change", props.node);
 }
 
 async function resolveAndPropagateChildFields() {
+	const currentRequestId = ++activeRequestId;
 	const selected = tableFieldOptions.value.find((f) => f.value === props.node.collection);
 	if (!selected || !selected.options) {
 		metaStatus.value = "idle";
@@ -149,8 +153,12 @@ async function resolveAndPropagateChildFields() {
 		return;
 	}
 
-	const childDocType = selected.options;
-	props.node.childDocType = childDocType;
+	// Capture snapshot of request identity before awaiting async calls
+	const capturedCollection = props.node.collection;
+	const capturedChildDocType = selected.options;
+	const capturedAlias = props.node.alias;
+
+	props.node.childDocType = capturedChildDocType;
 	metaStatus.value = "loading";
 	metaError.value = null;
 
@@ -159,37 +167,61 @@ async function resolveAndPropagateChildFields() {
 		if (typeof frappe !== "undefined" && frappe.call) {
 			const res = await frappe.call({
 				method: "flexirule.ruleflow.api.get_doctype_fields",
-				args: { doctype: childDocType },
+				args: { doctype: capturedChildDocType },
 			});
+
+			// Stale response protection: if selection or alias changed in flight, discard response
+			if (
+				currentRequestId !== activeRequestId ||
+				props.node.collection !== capturedCollection ||
+				props.node.alias !== capturedAlias
+			) {
+				return;
+			}
+
 			const data = res.message || res;
 			childFields = (data.parent_fields || []).map((f) => ({
 				...f,
-				value: `${props.node.alias}.${f.value}`,
-				label: `${f.label} (${props.node.alias})`,
-				scope: props.node.alias,
-				doctype: childDocType,
+				value: `${capturedAlias}.${f.value}`,
+				label: `${f.label} (${capturedAlias})`,
+				scope: capturedAlias,
+				doctype: capturedChildDocType,
 			}));
 			metaStatus.value = "loaded";
 		} else {
+			if (
+				currentRequestId !== activeRequestId ||
+				props.node.collection !== capturedCollection ||
+				props.node.alias !== capturedAlias
+			) {
+				return;
+			}
 			metaStatus.value = "loaded";
 		}
 
 		emit("child-fields-loaded", {
 			collectionId: props.node.id,
-			childDocType,
+			childDocType: capturedChildDocType,
 			childFields,
-			alias: props.node.alias,
+			alias: capturedAlias,
 			status: metaStatus.value,
 		});
 	} catch (e) {
+		if (
+			currentRequestId !== activeRequestId ||
+			props.node.collection !== capturedCollection ||
+			props.node.alias !== capturedAlias
+		) {
+			return;
+		}
 		const msg = e?.message || "Failed to fetch child doctype fields";
 		metaStatus.value = "failed";
 		metaError.value = msg;
 		emit("child-fields-loaded", {
 			collectionId: props.node.id,
-			childDocType,
+			childDocType: capturedChildDocType,
 			childFields: [],
-			alias: props.node.alias,
+			alias: capturedAlias,
 			status: "failed",
 			error: msg,
 		});
@@ -198,10 +230,15 @@ async function resolveAndPropagateChildFields() {
 
 onMounted(() => {
 	if (props.node.collection) {
-		if (!props.node.alias || props.node.alias === "row") {
+		const existingAliases = new Set(props.ancestorAliases || []);
+		if (
+			!props.node.alias ||
+			props.node.alias === "row" ||
+			existingAliases.has(props.node.alias)
+		) {
 			const parts = props.node.collection.split(".").filter(Boolean);
 			const tableFieldname = parts.length ? parts[parts.length - 1] : "items";
-			props.node.alias = generateCollectionAlias(tableFieldname);
+			props.node.alias = generateCollectionAlias(tableFieldname, existingAliases);
 		}
 		resolveAndPropagateChildFields();
 	}

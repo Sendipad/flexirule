@@ -17,7 +17,21 @@ function safeJsonParse(value, fallback = null) {
 }
 
 function isConditionPayloadShape(value) {
-	if (Array.isArray(value)) return true;
+	if (Array.isArray(value)) {
+		if (value.length === 0) return true;
+		return value.some(
+			(item) =>
+				item &&
+				typeof item === "object" &&
+				(item.type === "comparison" ||
+					item.type === "group" ||
+					item.type === "collection_predicate" ||
+					Boolean(item.conditions) ||
+					Boolean(item.left) ||
+					Boolean(item.op) ||
+					(Boolean(item.collection) && Boolean(item.where)))
+		);
+	}
 	if (!value || typeof value !== "object") return false;
 	if (
 		value.type === "comparison" ||
@@ -35,7 +49,9 @@ function isConditionPayloadShape(value) {
 
 export function getConditionPayloadFromConfig(configValue) {
 	const config = safeJsonParse(configValue, null);
-	if (Array.isArray(config)) return config;
+	if (Array.isArray(config)) {
+		return isConditionPayloadShape(config) ? config : null;
+	}
 	if (!config || typeof config !== "object") return null;
 
 	if (
