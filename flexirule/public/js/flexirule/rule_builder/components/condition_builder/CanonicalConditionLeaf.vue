@@ -18,11 +18,8 @@
 				<div class="condition-col operand-col left-col">
 					<FlexValueControl
 						v-model="leftValueModel"
-						:context="{
-							referenceDoctype: currentDocType,
-							isLeftOperand: true,
-							onUpdate: onLeftOperandChange,
-						}"
+						:context="leftControlContext"
+						placeholder="Choose a value source"
 						:engine="store"
 						:doc="store?.rule_doc"
 						:variableOptions="variableOptions"
@@ -54,6 +51,7 @@
 					<FlexValueControl
 						v-model="rightValueModel"
 						:context="rightControlContext"
+						placeholder="Choose a comparison value"
 						:engine="store"
 						:doc="store?.rule_doc"
 						:variableOptions="variableOptions"
@@ -152,86 +150,83 @@ const isUnary = computed(() => {
 	return UNARY_OPERATORS.has(op) || spec?.arity === 1;
 });
 
-// Runtime operand descriptor resolved from left operand
+// Resolve operand metadata from Frappe DocField metadata and the backend-owned type contract.
 const leftOperandDescriptor = computed(() => {
 	const left = props.node.left;
-	if (!left) {
-		return {
-			fieldtype: "Data",
-			value_type: "string",
-			doctype: props.currentDocType,
-			options: null,
-		};
-	}
+	const fieldtypeValueTypes = props.contract?.fieldtype_value_types || {};
+	const base = {
+		fieldtype: "Data",
+		value_type: fieldtypeValueTypes.Data?.[0] || "string",
+		value_types: fieldtypeValueTypes.Data || [],
+		doctype: props.currentDocType,
+		fieldname: null,
+		options: null,
+		label: "",
+		source_identity: null,
+		allowed_modes: props.contract?.flexvalue_modes || {},
+	};
 
-	if (left.mode === "variable") {
+	if (left?.mode === "variable") {
 		const path = left.path || {};
 		const scope = path.scope || "doc";
-		const segs = path.segments || [];
-		const fullPath = segs.length ? `${scope}.${segs.join(".")}` : scope;
-
+		const segments = Array.isArray(path.segments) ? path.segments : [];
+		const fullPath = segments.length ? scope + "." + segments.join(".") : scope;
 		const allFields = [...props.docFields, ...props.variableOptions];
-		const match = allFields.find((f) => {
-			const v = f.value || f;
-			return (
-				v === fullPath ||
-				(scope === "doc" && v === segs[0]) ||
-				(scope === "row" && v === `row.${segs[0]}`)
-			);
+		const match = allFields.find((field) => {
+			const value = field?.value ?? field;
+			return value === fullPath ||
+				(scope === "doc" && (value === segments[0] || field?.fieldname === segments[0])) ||
+				(scope !== "doc" && value === scope + "." + segments.join("."));
 		});
-
 		if (match) {
-			const ft = match.fieldtype || "Data";
+			const fieldtype = match.fieldtype || "Data";
+			const valueTypes = fieldtypeValueTypes[fieldtype] || [];
 			return {
-				fieldtype: ft,
+				...base,
+				fieldtype,
+				value_types: valueTypes,
+				value_type: valueTypes.includes("decimal") ? "decimal" : valueTypes[0] || null,
+				doctype: match.doctype || (fieldtype === "Link" ? match.options : props.currentDocType),
+				fieldname: match.fieldname || segments[segments.length - 1] || null,
 				options: match.options || null,
-				doctype: match.doctype || (ft === "Link" ? match.options : props.currentDocType),
-				value_type: mapFieldtypeToValueType(ft),
-				label: match.label || fullPath,
+				label: match.label || match.friendlyLabel || fullPath,
+				source_identity: { scope, segments: [...segments] },
 			};
 		}
+		return { ...base, source_identity: { scope, segments: [...segments] }, label: fullPath };
 	}
 
-	if (left.mode === "static") {
+	if (left?.mode === "static") {
+		const valueType = left.value_type || null;
+		const matchingFieldtype = Object.entries(fieldtypeValueTypes).find(([, types]) =>
+			Array.isArray(types) && types.includes(valueType)
+		)?.[0];
 		return {
-			fieldtype: mapValueTypeToFieldtype(left.value_type),
-			value_type: left.value_type || "string",
-			doctype: props.currentDocType,
-			options: null,
+			...base,
+			fieldtype: matchingFieldtype || "Data",
+			value_type: valueType || base.value_type,
+			value_types: valueType ? [valueType] : base.value_types,
 		};
 	}
-
-	return {
-		fieldtype: "Data",
-		value_type: "string",
-		doctype: props.currentDocType,
-		options: null,
-	};
+	return base;
 });
 
-function mapFieldtypeToValueType(ft) {
-	if (!ft) return "string";
-	if (["Int"].includes(ft)) return "integer";
-	if (["Float", "Currency", "Percent"].includes(ft)) return "decimal";
-	if (["Check"].includes(ft)) return "boolean";
-	if (["Date"].includes(ft)) return "date";
-	if (["Datetime"].includes(ft)) return "datetime";
-	if (["Time"].includes(ft)) return "time";
-	if (["Table", "Table MultiSelect"].includes(ft)) return "list";
-	return "string";
-}
-
-function mapValueTypeToFieldtype(vt) {
-	if (vt === "integer") return "Int";
-	if (vt === "decimal") return "Currency";
-	if (vt === "boolean") return "Check";
-	if (vt === "date") return "Date";
-	if (vt === "datetime") return "Datetime";
-	if (vt === "time") return "Time";
-	if (vt === "list") return "Table MultiSelect";
-	return "Data";
-}
-
+const leftControlContext = computed(() => {
+	const desc = leftOperandDescriptor.value;
+	return {
+		df: {
+			fieldtype: desc.fieldtype,
+			fieldname: desc.fieldname || undefined,
+			options: desc.options,
+			label: desc.label,
+			reqd: 1,
+		},
+		referenceDoctype: desc.doctype,
+		resolvedOperand: desc,
+		isLeftOperand: true,
+		onUpdate: onLeftOperandChange,
+	};
+});
 const FRIENDLY_OPERATOR_LABELS = {
 	eq: "is",
 	ne: "is not",
@@ -257,7 +252,7 @@ const operatorOptions = computed(() => {
 	const contractOps = props.contract?.operators;
 	const desc = leftOperandDescriptor.value;
 	const ft = desc.fieldtype;
-	const vt = desc.value_type;
+	const valueTypes = desc.value_types || (desc.value_type ? [desc.value_type] : []);
 
 	let candidates = [];
 	if (contractOps && Object.keys(contractOps).length > 0) {
@@ -295,7 +290,7 @@ const operatorOptions = computed(() => {
 			if (!opSpec.fieldtypes.includes(ft)) return false;
 		}
 		if (opSpec.accepted_left_types && Array.isArray(opSpec.accepted_left_types)) {
-			if (!opSpec.accepted_left_types.includes(vt)) {
+			if (!valueTypes.some((valueType) => opSpec.accepted_left_types.includes(valueType))) {
 				return false;
 			}
 		}
@@ -386,7 +381,7 @@ const hasError = computed(() => nodeErrors.value.length > 0 || props.node.is_uns
 
 const leftValueModel = computed({
 	get() {
-		return props.node.left || { mode: "variable", path: { scope: "doc", segments: [] } };
+		return props.node.left || "";
 	},
 	set(val) {
 		let canonical = val;
@@ -405,7 +400,7 @@ const rightValueModel = computed({
 		if (props.node._draft_invalid_right !== undefined) {
 			return props.node._draft_invalid_right;
 		}
-		return props.node.right || { mode: "static", value_type: "string", value: "" };
+		return props.node.right || "";
 	},
 	set(val) {
 		let canonical = val;
@@ -414,22 +409,14 @@ const rightValueModel = computed({
 		delete props.node._invalid_right_error;
 
 		try {
-			if (val && typeof val === "object" && !val.mode) {
-				canonical = toCanonicalFlexValue(
-					val,
-					leftOperandDescriptor.value.fieldtype,
-					props.node.operator
-				);
-			} else if (
-				typeof val === "string" ||
-				typeof val === "number" ||
-				typeof val === "boolean"
-			) {
-				canonical = toCanonicalFlexValue(
-					val,
-					leftOperandDescriptor.value.fieldtype,
-					props.node.operator
-				);
+			canonical = toCanonicalFlexValue(
+				val,
+				leftOperandDescriptor.value.fieldtype,
+				props.node.operator
+			);
+			if (["in", "not_in"].includes(props.node.operator) && canonical.mode === "static" &&
+				(canonical.value_type !== "list" || !Array.isArray(canonical.value))) {
+				throw new TypeError("Membership comparisons require a list of values");
 			}
 			props.node.right = canonical;
 		} catch (err) {
@@ -496,9 +483,10 @@ function resetRightOperand() {
 
 function onReplaceUnsupported() {
 	props.node.is_unsupported = false;
-	props.node.operator = "eq";
-	props.node.left = { mode: "variable", path: { scope: "doc", segments: [] } };
-	props.node.right = { mode: "static", value_type: "string", value: "" };
+	props.node.is_incomplete_draft = true;
+	props.node.operator = "";
+	props.node.left = null;
+	props.node.right = null;
 	delete props.node.original_payload;
 	delete props.node.unsupported_reason;
 	emit("change", props.node);
