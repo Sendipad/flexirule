@@ -106,7 +106,7 @@ test("condition_payload: preserves unknown root condition objects and non-empty 
 		null
 	);
 
-	const malformed = "{\"type\":\"comparison\",";
+	const malformed = '{"type":"comparison",'
 	assert.equal(getConditionPayload({ config: malformed, action_type: "Fetch Records" }), null);
 	assert.equal(getConditionPayload({ config: malformed, action_type: "Condition" }), malformed);
 
