@@ -29,7 +29,7 @@ function parseSerialized(value) {
 function isCanonicalRoot(value) {
 	return Boolean(
 		value &&
-				typeof value === "object" &&
+			typeof value === "object" &&
 			!Array.isArray(value) &&
 			["comparison", "group", "collection_predicate"].includes(value.type)
 	);
