@@ -80,9 +80,11 @@
 						</button>
 					</div>
 					<div class="condition-builder-wrap">
-						<ConditionBuilder
+						<CanonicalConditionBuilder
+							ref="canonicalConditionBuilderRef"
 							v-model="conditionModel"
 							:docFields="rowFieldOptions"
+							:currentDocType="childDocTypeName"
 							:readOnly="readOnly"
 							:variableOptions="variableOptions"
 							:isMandatory="false"
@@ -116,7 +118,7 @@ import { useMetaStore, useRuleStore } from "../../../stores";
 import { __ } from "../utils";
 import ComboBoxControl from "../../ComboBoxControl.vue";
 import SelectControl from "../../SelectControl.vue";
-import ConditionBuilder from "../../../components/condition_builder/ConditionBuilder.vue";
+import CanonicalConditionBuilder from "../../../components/condition_builder/CanonicalConditionBuilder.vue";
 
 const props = defineProps({
 	modelValue: {
@@ -149,6 +151,7 @@ const props = defineProps({
 const metaStore = useMetaStore();
 const ruleStore = useRuleStore();
 const conditionModalOpen = ref(false);
+const canonicalConditionBuilderRef = ref(null);
 
 const operationOptions = [
 	{ value: "sum", label: __("Sum Numeric Values (sum)") },
@@ -221,24 +224,27 @@ watch(
 	{ immediate: true }
 );
 
-const childMeta = computed(() => {
+const childDocTypeName = computed(() => {
 	const source = props.modelValue.source || "";
-	if (!source) return null;
+	if (!source) return "";
 
 	const cleanTable = source.replace(/^(doc|vars|old_doc)\./, "");
 	const dt = ruleStore.rule_doc?.document_type || props.doctype;
-	if (!dt) return null;
+	if (!dt) return "";
 
 	const fields = metaStore.doc_meta[dt];
-	if (!fields || !Array.isArray(fields)) return null;
+	if (!fields || !Array.isArray(fields)) return "";
 
 	const tableField = fields.find(
 		(f) => f.fieldtype === "Table" && (f.fieldname === cleanTable || f.fieldname === source)
 	);
-	if (!tableField || !tableField.options) return null;
+	return tableField?.options || "";
+});
 
-	const childDoctype = tableField.options;
-	return metaStore.doc_meta[childDoctype] || null;
+const childMeta = computed(() => {
+	const dtName = childDocTypeName.value;
+	if (!dtName) return null;
+	return metaStore.doc_meta[dtName] || null;
 });
 
 const targetFieldOptions = computed(() => {
@@ -267,54 +273,26 @@ const hasCondition = computed(() => {
 	const cond = props.modelValue.condition;
 	if (!cond) return false;
 	if (Array.isArray(cond)) return cond.length > 0;
-	if (typeof cond === "object") return Boolean(cond.conditions?.length || cond.left || cond.op);
+	if (typeof cond === "object") return Boolean(cond.type || cond.children?.length || cond.left || cond.op);
 	return false;
 });
 
 const conditionModel = computed({
 	get() {
-		const cond = props.modelValue.condition;
-		if (!cond) return { op: "and", conditions: [] };
-		if (typeof cond === "object" && !Array.isArray(cond) && cond.conditions) {
-			return cond;
-		}
-		if (Array.isArray(cond)) {
-			return { op: "and", conditions: cond };
-		}
-		if (typeof cond === "object") {
-			return { op: "and", conditions: [cond] };
-		}
-		return { op: "and", conditions: [] };
+		return props.modelValue.condition || null;
 	},
 	set(val) {
-		props.modelValue.condition = val && val.conditions?.length > 0 ? val : null;
+		props.modelValue.condition = val || null;
 	},
 });
 
 function openConditionModal() {
 	if (props.readOnly) return;
-	if (!hasCondition.value) {
-		enableCondition();
-	}
 	conditionModalOpen.value = true;
 }
 
 function closeConditionModal() {
 	conditionModalOpen.value = false;
-}
-
-function enableCondition() {
-	const defaultRef = rowFieldOptions.value[0]?.value || "row.";
-	props.modelValue.condition = {
-		op: "and",
-		conditions: [
-			{
-				left: { ref: defaultRef },
-				op: "==",
-				right: { value: "" },
-			},
-		],
-	};
 }
 
 function clearCondition() {

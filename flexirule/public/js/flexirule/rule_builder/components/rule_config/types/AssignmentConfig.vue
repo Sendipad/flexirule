@@ -269,7 +269,7 @@ import { fromCodeString, deepClone } from "../../../utils/serialization";
 import { useActionConfig } from "../../../composables/useActionConfig";
 import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
 import FlexValueControl from "../../../controls/FlexValueControl.vue";
-import ConditionBuilder from "../../condition_builder/ConditionBuilder.vue";
+import CanonicalConditionBuilder from "../../condition_builder/CanonicalConditionBuilder.vue";
 import { validateConditions } from "../../condition_builder/condition_validator.js";
 import { compileSegmentsToJinja } from "../../../utils/text_generator";
 import { ASSIGNMENT_OPERATOR_METADATA } from "../../../../core/contracts.js";

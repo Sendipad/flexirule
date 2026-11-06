@@ -11,15 +11,15 @@
 			@remove="$emit('remove')"
 		/>
 
-		<!-- Normal Condition Editor Row -->
+		<!-- Normal Condition Editor Row: Left -> Operator -> Right -->
 		<template v-else>
 			<div class="condition-main-row">
-				<!-- Left Operand (FlexValueControl) -->
+				<!-- 1. Left Operand (FlexValueControl with searchable source selector) -->
 				<div class="condition-col operand-col left-col">
 					<FlexValueControl
 						v-model="leftValueModel"
 						:context="leftControlContext"
-						placeholder="Choose a value source"
+						:placeholder="__('Choose a value source...')"
 						:engine="store"
 						:doc="store?.rule_doc"
 						:variableOptions="variableOptions"
@@ -29,7 +29,7 @@
 					/>
 				</div>
 
-				<!-- Operator Select -->
+				<!-- 2. Operator Select: Disabled until left operand is chosen, shows only compatible operators from backend DTO -->
 				<div class="condition-col operator-col">
 					<SelectControl
 						class="operator-select"
@@ -41,18 +41,18 @@
 						}"
 						:modelValue="node.operator"
 						:read_only="readOnly"
-						:disabled="readOnly || !node.left"
+						:disabled="readOnly || !hasLeftOperand"
 						:hideLabel="true"
 						@update:modelValue="onOperatorChange"
 					/>
 				</div>
 
-				<!-- Right Operand (FlexValueControl with metadata descriptor) -->
-				<div v-if="node.operator && !isUnary" class="condition-col operand-col right-col">
+				<!-- 3. Right Operand: Hidden if unary or no operator. Initializes blank without implicit 0/false -->
+				<div v-if="hasLeftOperand && node.operator && !isUnary" class="condition-col operand-col right-col">
 					<FlexValueControl
 						v-model="rightValueModel"
 						:context="rightControlContext"
-						placeholder="Choose a comparison value"
+						:placeholder="__('Enter comparison value...')"
 						:engine="store"
 						:doc="store?.rule_doc"
 						:variableOptions="variableOptions"
@@ -90,25 +90,6 @@
 				</div>
 			</div>
 
-			<!-- Incompatibility Warning -->
-			<div
-				v-if="incompatibilityWarning"
-				class="alert alert-warning py-1 px-2 small mt-2 mb-0 d-flex align-items-center justify-content-between"
-			>
-				<div>
-					<i class="fa fa-exclamation-triangle mr-1"></i>
-					<span>{{ incompatibilityWarning }}</span>
-				</div>
-				<button
-					v-if="!readOnly"
-					type="button"
-					class="btn btn-xs btn-outline-warning ml-2"
-					@click="resetRightOperand"
-				>
-					{{ __("Clear Value") }}
-				</button>
-			</div>
-
 			<!-- Errors List -->
 			<div v-if="nodeErrors.length" class="node-errors mt-1">
 				<div v-for="(err, idx) in nodeErrors" :key="idx" class="text-danger small">
@@ -120,7 +101,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from "vue";
+import { computed } from "vue";
 import FlexValueControl from "../../controls/FlexValueControl.vue";
 import SelectControl from "../../controls/SelectControl.vue";
 import UnsupportedConditionCard from "./UnsupportedConditionCard.vue";
@@ -145,20 +126,40 @@ const props = defineProps({
 
 const emit = defineEmits(["update:modelValue", "change", "remove", "replace"]);
 
+const hasLeftOperand = computed(() => {
+	const left = props.node.left;
+	if (!left) return false;
+	if (typeof left === "string") return left.trim().length > 0;
+	if (typeof left === "object") {
+		if (left.mode === "variable") {
+			return !!(left.path?.scope && (left.path?.segments?.length || left.path.scope === "doctype"));
+		}
+		if (left.mode === "static") {
+			return left.value !== undefined && left.value !== null && left.value !== "";
+		}
+		if (left.mode === "resolver") {
+			return !!(left.family && left.operation);
+		}
+		return true;
+	}
+	return false;
+});
+
 const isUnary = computed(() => {
 	const op = props.node.operator;
+	if (!op) return false;
 	const spec = props.contract?.operators?.[op];
 	return UNARY_OPERATORS.has(op) || spec?.arity === 1;
 });
 
-// Resolve operand metadata from Frappe DocField metadata and the backend-owned type contract.
+// Resolve operand metadata descriptor from Frappe DocField metadata and the backend-owned contract.
 const leftOperandDescriptor = computed(() => {
 	const left = props.node.left;
 	const fieldtypeValueTypes = props.contract?.fieldtype_value_types || {};
 	const base = {
 		fieldtype: "Data",
 		value_type: fieldtypeValueTypes.Data?.[0] || "string",
-		value_types: fieldtypeValueTypes.Data || [],
+		value_types: fieldtypeValueTypes.Data || ["string"],
 		doctype: props.currentDocType,
 		fieldname: null,
 		options: null,
@@ -166,6 +167,8 @@ const leftOperandDescriptor = computed(() => {
 		source_identity: null,
 		allowed_modes: props.contract?.flexvalue_modes || {},
 	};
+
+	if (!left) return base;
 
 	if (left?.mode === "variable") {
 		const path = left.path || {};
@@ -183,12 +186,12 @@ const leftOperandDescriptor = computed(() => {
 		});
 		if (match) {
 			const fieldtype = match.fieldtype || "Data";
-			const valueTypes = fieldtypeValueTypes[fieldtype] || [];
+			const valueTypes = fieldtypeValueTypes[fieldtype] || ["string"];
 			return {
 				...base,
 				fieldtype,
 				value_types: valueTypes,
-				value_type: valueTypes.includes("decimal") ? "decimal" : valueTypes[0] || null,
+				value_type: valueTypes.includes("decimal") ? "decimal" : valueTypes[0] || "string",
 				doctype:
 					match.doctype ||
 					(["Link", "Dynamic Link"].includes(fieldtype)
@@ -203,8 +206,19 @@ const leftOperandDescriptor = computed(() => {
 		return { ...base, source_identity: { scope, segments: [...segments] }, label: fullPath };
 	}
 
+	if (left?.mode === "resolver") {
+		const resType = left.value_type || "string";
+		return {
+			...base,
+			fieldtype: resType === "integer" ? "Int" : resType === "decimal" ? "Float" : "Data",
+			value_type: resType,
+			value_types: [resType],
+			label: `${left.family}.${left.operation}`,
+		};
+	}
+
 	if (left?.mode === "static") {
-		const valueType = left.value_type || null;
+		const valueType = left.value_type || "string";
 		const matchingFieldtype = Object.entries(fieldtypeValueTypes).find(
 			([, types]) => Array.isArray(types) && types.includes(valueType)
 		)?.[0];
@@ -234,28 +248,13 @@ const leftControlContext = computed(() => {
 		onUpdate: onLeftOperandChange,
 	};
 });
-const FRIENDLY_OPERATOR_LABELS = {
-	eq: "is",
-	ne: "is not",
-	gt: "is greater than",
-	gte: "is greater than or equal",
-	lt: "is less than",
-	lte: "is less than or equal",
-	in: "is one of",
-	not_in: "is not one of",
-	contains: "contains",
-	not_contains: "does not contain",
-	starts_with: "starts_with",
-	ends_with: "ends_with",
-	is_set: "is set",
-	is_not_set: "is not set",
-	is_empty: "is empty",
-	is_not_empty: "is not empty",
-	is_submittable: "is submittable",
-	has_field: "has field",
-};
 
+// Exclusively use backend operator registry DTO
 const operatorOptions = computed(() => {
+	if (!hasLeftOperand.value) {
+		return [{ label: __("Select a left value first"), value: "" }];
+	}
+
 	const contractOps = props.contract?.operators;
 	const desc = leftOperandDescriptor.value;
 	const ft = desc.fieldtype;
@@ -264,32 +263,8 @@ const operatorOptions = computed(() => {
 	let candidates = [];
 	if (contractOps && Object.keys(contractOps).length > 0) {
 		candidates = Object.values(contractOps);
-	} else if (
-		Array.isArray(props.contract?.operatorList) &&
-		props.contract.operatorList.length > 0
-	) {
+	} else if (Array.isArray(props.contract?.operatorList) && props.contract.operatorList.length > 0) {
 		candidates = props.contract.operatorList;
-	} else {
-		candidates = [
-			{ id: "eq", label: "is", arity: 2 },
-			{ id: "ne", label: "is not", arity: 2 },
-			{ id: "gt", label: "is greater than", arity: 2 },
-			{ id: "gte", label: "is greater than or equal", arity: 2 },
-			{ id: "lt", label: "is less than", arity: 2 },
-			{ id: "lte", label: "is less than or equal", arity: 2 },
-			{ id: "in", label: "is one of", arity: 2 },
-			{ id: "not_in", label: "is not one of", arity: 2 },
-			{ id: "contains", label: "contains", arity: 2 },
-			{ id: "not_contains", label: "does not contain", arity: 2 },
-			{ id: "starts_with", label: "starts with", arity: 2 },
-			{ id: "ends_with", label: "ends with", arity: 2 },
-			{ id: "is_set", label: "is set", arity: 1 },
-			{ id: "is_not_set", label: "is not set", arity: 1 },
-			{ id: "is_empty", label: "is empty", arity: 1 },
-			{ id: "is_not_empty", label: "is not empty", arity: 1 },
-			{ id: "is_submittable", label: "is submittable", arity: 1 },
-			{ id: "has_field", label: "has field", arity: 2 },
-		];
 	}
 
 	const filtered = candidates.filter((opSpec) => {
@@ -309,9 +284,9 @@ const operatorOptions = computed(() => {
 	}
 
 	return [
-		{ label: __("Choose how the value should match"), value: "" },
+		{ label: __("Choose comparison..."), value: "" },
 		...filtered.map((op) => ({
-			label: FRIENDLY_OPERATOR_LABELS[op.id] || op.label || op.id,
+			label: op.label || op.id,
 			value: op.id,
 		})),
 	];
@@ -320,7 +295,6 @@ const operatorOptions = computed(() => {
 const rightControlContext = computed(() => {
 	const desc = leftOperandDescriptor.value;
 	const op = props.node.operator;
-	const isListOp = op === "in" || op === "not_in";
 
 	const df = {
 		fieldtype: desc.fieldtype,
@@ -339,50 +313,14 @@ const rightControlContext = computed(() => {
 		operator: op,
 		referenceDoctype: refDocType,
 		filters: {},
+		allowResolvers: true,
 	};
 });
 
-const incompatibilityWarning = ref("");
-
-function checkIncompatibility() {
-	if (isUnary.value) {
-		incompatibilityWarning.value = "";
-		return;
-	}
-
-	const op = props.node.operator;
-	const opSpec = props.contract?.operators?.[op];
-	const right = props.node.right;
-
-	if (!right || !opSpec) {
-		incompatibilityWarning.value = "";
-		return;
-	}
-
-	const acceptedRightTypes = opSpec.accepted_right_types || [];
-	if (acceptedRightTypes.length > 0 && right.mode === "static") {
-		const vt = right.value_type || "string";
-		if (!acceptedRightTypes.includes(vt) && vt !== "null") {
-			incompatibilityWarning.value = __(
-				"This value may not be compatible with the selected comparison. Please review it."
-			);
-			return;
-		}
-	}
-	incompatibilityWarning.value = "";
-}
-
-const rightCoercionError = ref("");
-
 const nodeErrors = computed(() => {
 	const errs = [...(props.errors || [])];
-	if (rightCoercionError.value) {
-		errs.push(rightCoercionError.value);
-	} else if (props.node._invalid_right_error) {
+	if (props.node._invalid_right_error) {
 		errs.push(props.node._invalid_right_error);
-	}
-	if (incompatibilityWarning.value) {
-		errs.push(incompatibilityWarning.value);
 	}
 	return errs;
 });
@@ -391,7 +329,7 @@ const hasError = computed(() => nodeErrors.value.length > 0 || props.node.is_uns
 
 const leftValueModel = computed({
 	get() {
-		return props.node.left || "";
+		return props.node.left || null;
 	},
 	set(val) {
 		let canonical = val;
@@ -401,6 +339,16 @@ const leftValueModel = computed({
 			canonical = toCanonicalFlexValue(val);
 		}
 		props.node.left = canonical;
+
+		// When left changes, verify if current operator remains compatible; if not, reset operator
+		if (props.node.operator) {
+			const compatible = operatorOptions.value.some((o) => o.value === props.node.operator);
+			if (!compatible) {
+				props.node.operator = "";
+				props.node.right = null;
+			}
+		}
+
 		emit("change", props.node);
 	},
 });
@@ -410,11 +358,10 @@ const rightValueModel = computed({
 		if (props.node._draft_invalid_right !== undefined) {
 			return props.node._draft_invalid_right;
 		}
-		return props.node.right || "";
+		return props.node.right || null;
 	},
 	set(val) {
 		let canonical = val;
-		rightCoercionError.value = "";
 		delete props.node._draft_invalid_right;
 		delete props.node._invalid_right_error;
 
@@ -424,27 +371,17 @@ const rightValueModel = computed({
 				leftOperandDescriptor.value.fieldtype,
 				props.node.operator
 			);
-			if (
-				["in", "not_in"].includes(props.node.operator) &&
-				canonical.mode === "static" &&
-				(canonical.value_type !== "list" || !Array.isArray(canonical.value))
-			) {
-				throw new TypeError("Membership comparisons require a list of values");
-			}
 			props.node.right = canonical;
 		} catch (err) {
 			const errMsg = err?.message || "Invalid value format for declared fieldtype";
-			rightCoercionError.value = errMsg;
 			props.node._draft_invalid_right = val;
 			props.node._invalid_right_error = errMsg;
 		}
-		checkIncompatibility();
 		emit("change", props.node);
 	},
 });
 
 function onLeftOperandChange() {
-	checkIncompatibility();
 	emit("change", props.node);
 }
 
@@ -459,38 +396,27 @@ function onOperatorChange(newOp) {
 			props.node.right = null;
 		}
 	} else {
-		if (!props.node.right) {
-			if (props.node._draft_right) {
-				props.node.right = props.node._draft_right;
-				delete props.node._draft_right;
-			} else {
-				props.node.right = {
-					mode: "static",
-					value_type: leftOperandDescriptor.value.value_type || "string",
-					value: "",
-				};
-			}
+		// Initialize blank static value ready for input without implicit defaults
+		const isMembership = newOp === "in" || newOp === "not_in";
+		if (isMembership) {
+			props.node.right = {
+				mode: "static",
+				value_type: "list",
+				value: [],
+			};
+		} else {
+			props.node.right = {
+				mode: "static",
+				value_type: leftOperandDescriptor.value.value_type || "string",
+				value: "",
+			};
 		}
 	}
-	checkIncompatibility();
 	emit("change", props.node);
 }
 
 function clearPreservedDraftRight() {
 	delete props.node._draft_right;
-	emit("change", props.node);
-}
-
-function resetRightOperand() {
-	delete props.node._draft_invalid_right;
-	delete props.node._invalid_right_error;
-	rightCoercionError.value = "";
-	props.node.right = {
-		mode: "static",
-		value_type: leftOperandDescriptor.value.value_type || "string",
-		value: "",
-	};
-	incompatibilityWarning.value = "";
 	emit("change", props.node);
 }
 
@@ -504,13 +430,6 @@ function onReplaceUnsupported() {
 	delete props.node.unsupported_reason;
 	emit("change", props.node);
 }
-
-watch(
-	() => props.node.operator,
-	() => {
-		checkIncompatibility();
-	}
-);
 </script>
 
 <style scoped>
