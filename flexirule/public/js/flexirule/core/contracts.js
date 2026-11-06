@@ -1,5 +1,4 @@
 /**
-import { getConditionPayload } from "../rule_builder/utils/condition_payload.js";
  * FlexiRule contract module — frontend mirror of backend DTO.
  *
  * SINGLE SOURCE OF TRUTH: flexirule/ruleflow/core/contracts.py (backend)
@@ -23,6 +22,8 @@ import { getConditionPayload } from "../rule_builder/utils/condition_payload.js"
  *     refresh checks if contract_version_hash changed. On mismatch the
  *     in-memory state is updated and the cache replaced.
  */
+
+import { getConditionPayload } from "../rule_builder/utils/condition_payload.js";
 
 // ── Module-level state — populated exclusively from backend DTO ──────────────
 
