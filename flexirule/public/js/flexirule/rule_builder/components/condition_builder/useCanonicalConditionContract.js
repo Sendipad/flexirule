@@ -33,9 +33,13 @@ export function useCanonicalConditionContract() {
 				if (typeof frappe === "undefined" || !frappe.call) {
 					// In test environments or when frappe is unavailable, check window.__FLEXIRULE_CONTRACT__
 					if (typeof window !== "undefined" && window.__FLEXIRULE_CONTRACT__) {
-						const normalized = normalizeConditionContract(window.__FLEXIRULE_CONTRACT__);
+						const normalized = normalizeConditionContract(
+							window.__FLEXIRULE_CONTRACT__
+						);
 						if (!normalized) {
-							throw new Error("Canonical condition contract is incomplete or invalid");
+							throw new Error(
+								"Canonical condition contract is incomplete or invalid"
+							);
 						}
 						cachedContract = normalized;
 						contractState.value = normalized;
@@ -58,7 +62,9 @@ export function useCanonicalConditionContract() {
 				const result = response.message || response;
 				const normalized = normalizeConditionContract(result);
 				if (!normalized) {
-					throw new Error("Canonical condition contract is incomplete or invalid");
+					throw new Error(
+								"Canonical condition contract is incomplete or invalid"
+							);
 				}
 				cachedContract = normalized;
 				contractState.value = normalized;

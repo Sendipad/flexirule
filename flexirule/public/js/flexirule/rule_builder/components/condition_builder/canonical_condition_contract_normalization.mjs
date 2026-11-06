@@ -61,9 +61,15 @@ export function normalizeConditionContract(rawContract) {
 		Array.isArray(flexvalueModes.variable?.scopes) &&
 		Boolean(flexvalueModes.resolver && typeof flexvalueModes.resolver === "object") &&
 		Boolean(flexvalueModes.template && typeof flexvalueModes.template === "object") &&
-		Boolean(fieldtypeValueTypes && typeof fieldtypeValueTypes === "object" && Object.keys(fieldtypeValueTypes).length) &&
-		Number.isInteger(rawDepth) && rawDepth > 0 &&
-		Number.isInteger(rawNodes) && rawNodes > 0 &&
+		Boolean(
+			fieldtypeValueTypes &&
+				typeof fieldtypeValueTypes === "object" &&
+				Object.keys(fieldtypeValueTypes).length
+		) &&
+		Number.isInteger(rawDepth) &&
+		rawDepth > 0 &&
+		Number.isInteger(rawNodes) &&
+		rawNodes > 0 &&
 		operatorList.length > 0;
 	if (!hasCompleteContract) return null;
 

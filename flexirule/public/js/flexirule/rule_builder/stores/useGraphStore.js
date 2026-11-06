@@ -1556,7 +1556,11 @@ export const useGraphStore = defineStore("rule-builder-graph", () => {
 					node.data.config = payload;
 					node.data.condition_json = null;
 				}
-				if (node.data.config === null || node.data.config === undefined || node.data.config === "") {
+				if (
+					node.data.config === null ||
+					node.data.config === undefined ||
+					node.data.config === ""
+				) {
 					node.data.config = { op: "and", conditions: [] };
 				}
 			}

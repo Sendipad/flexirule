@@ -1290,13 +1290,17 @@ function deserialize(val) {
 			displayPath = path.trim();
 		} else if (path && typeof path === "object" && typeof path.scope === "string") {
 			const segments = Array.isArray(path.segments)
-				? path.segments.filter((segment) => typeof segment === "string" && segment.length > 0)
+				? path.segments.filter(
+						(segment) => typeof segment === "string" && segment.length > 0
+				  )
 				: [];
 			if (segments.length) displayPath = path.scope + "." + segments.join(".");
 			else if (path.scope === "doctype") displayPath = "doctype";
 		}
 		if (!displayPath) return "";
-		return `<span data-token-type="variable" data-path="${escapeAttr(displayPath)}" data-label=""></span>`;
+		return `<span data-token-type="variable" data-path="${escapeAttr(
+			displayPath
+		)}" data-label=""></span>`;
 	}
 
 	if (structured.mode === "resolver") {
