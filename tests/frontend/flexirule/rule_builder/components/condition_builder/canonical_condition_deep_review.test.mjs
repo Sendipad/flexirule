@@ -31,6 +31,34 @@ test("adapter: generateCollectionAlias avoids reserved aliases and generates saf
 	const existing = new Set(["items_row"]);
 	const aliasCollision = generateCollectionAlias("items", existing);
 	assert.equal(aliasCollision, "items_row_2");
+
+	// Test full RESERVED_ALIASES repair on deserialization
+	for (const reserved of ["row", "item", "doc", "old_doc", "vars", "loop"]) {
+		const legacyWithReserved = {
+			type: "collection_predicate",
+			quantifier: "any",
+			source: { scope: "doc", segments: ["items"] },
+			as: reserved,
+			where: {
+				type: "comparison",
+				operator: "eq",
+				left: { mode: "variable", path: { scope: reserved, segments: ["item_code"] } },
+				right: { mode: "static", value_type: "string", value: "ITEM-001" },
+			},
+		};
+
+		const deserialized = deserializeConditionTree(legacyWithReserved);
+		const colNode = deserialized.children[0];
+		assert.notEqual(colNode.alias, reserved);
+		assert.ok(!RESERVED_ALIASES.has(colNode.alias));
+		// Subtree variable references are updated to the repaired alias
+		assert.equal(colNode.children[0].left.path.scope, colNode.alias);
+
+		// Re-serialization persists the repaired condition
+		const reserialized = serializeConditionTree(deserialized);
+		assert.equal(reserialized.as, colNode.alias);
+		assert.equal(reserialized.where.left.path.scope, colNode.alias);
+	}
 });
 
 test("adapter: toCanonicalFlexValue preserves 2-item arrays without corruption", () => {
@@ -41,11 +69,51 @@ test("adapter: toCanonicalFlexValue preserves 2-item arrays without corruption",
 		value: ["Open", "Closed"],
 	});
 
-	const tupleVal = toCanonicalFlexValue(["Customer", "Cust-001"], "Link");
+	const tupleVal = toCanonicalFlexValue(["Customer", "Cust-001"], "Link", "eq");
 	assert.deepEqual(tupleVal, {
 		mode: "static",
 		value_type: "string",
 		value: "Cust-001",
+	});
+
+	// Two-item Link membership list with 'in' operator MUST NOT be unwrapped
+	const linkMembership2 = toCanonicalFlexValue(["Customer A", "Customer B"], "Link", "in");
+	assert.deepEqual(linkMembership2, {
+		mode: "static",
+		value_type: "list",
+		value: ["Customer A", "Customer B"],
+	});
+
+	// Two-item Link membership list with 'not_in' operator
+	const linkMembership2NotIn = toCanonicalFlexValue(
+		["Customer A", "Customer B"],
+		"Link",
+		"not_in"
+	);
+	assert.deepEqual(linkMembership2NotIn, {
+		mode: "static",
+		value_type: "list",
+		value: ["Customer A", "Customer B"],
+	});
+
+	// Three-item Link membership list with 'in' operator
+	const linkMembership3 = toCanonicalFlexValue(
+		["Customer A", "Customer B", "Customer C"],
+		"Link",
+		"in"
+	);
+	assert.deepEqual(linkMembership3, {
+		mode: "static",
+		value_type: "list",
+		value: ["Customer A", "Customer B", "Customer C"],
+	});
+
+	// Dynamic Link field with 'in' operator
+	const dynamicLinkMembership = toCanonicalFlexValue(["Doc A", "Doc B"], "Dynamic Link", "in");
+	assert.deepEqual(dynamicLinkMembership, {
+		mode: "static",
+		value_type: "list",
+		value: ["Doc A", "Doc B"],
 	});
 });
 
@@ -54,6 +122,7 @@ test("adapter: strict coercion helpers reject invalid data without silent zeroin
 	assert.equal(safeCoerceInteger("456"), 456);
 	assert.throws(() => safeCoerceInteger("abc"), TypeError);
 	assert.throws(() => safeCoerceInteger("12.34"), TypeError);
+	assert.throws(() => safeCoerceInteger(12.34), TypeError);
 
 	assert.equal(safeCoerceDecimal("12.34"), "12.34");
 	assert.equal(safeCoerceDecimal(50), "50");
@@ -64,6 +133,13 @@ test("adapter: strict coercion helpers reject invalid data without silent zeroin
 	assert.equal(safeCoerceBoolean("true"), true);
 	assert.equal(safeCoerceBoolean("false"), false);
 	assert.throws(() => safeCoerceBoolean("invalid_bool"), TypeError);
+
+	// Production toCanonicalFlexValue path refuses invalid values and throws instead of falling back
+	assert.throws(() => toCanonicalFlexValue("12.34", "Int"), TypeError);
+	assert.throws(() => toCanonicalFlexValue(12.34, "Int"), TypeError);
+	assert.throws(() => toCanonicalFlexValue("abc", "Int"), TypeError);
+	assert.throws(() => toCanonicalFlexValue("invalid", "Currency"), TypeError);
+	assert.throws(() => toCanonicalFlexValue("invalid_bool", "Check"), TypeError);
 });
 
 test("contract: normalizeConditionContract maps operator DTO array to ID lookup map", () => {

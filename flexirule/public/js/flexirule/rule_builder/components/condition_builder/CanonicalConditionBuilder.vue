@@ -47,6 +47,7 @@
 					:node="node"
 					:docFields="getCollectionDocFields(node)"
 					:ancestorAliases="getAncestorAliases(node)"
+					:siblingAliases="getSiblingAliases(node)"
 					:readOnly="readOnly"
 					:store="store"
 					@change="onSubNodeChange"
@@ -162,6 +163,16 @@ function getAncestorAliases(node) {
 	if (!node?.id) return [];
 	const ancestors = findAncestorCollections(node.id, treeModel.value);
 	return ancestors.map((a) => a.alias).filter(Boolean);
+}
+
+function getSiblingAliases(node) {
+	if (!node?.id) return [];
+	const parentCol = findParentCollection(node.id);
+	const parentList = parentCol ? parentCol.children || [] : treeModel.value?.children || [];
+	return parentList
+		.filter((child) => child && child.id !== node.id && child.type === "collection")
+		.map((child) => child.alias)
+		.filter(Boolean);
 }
 
 function getCollectionDocFields(node) {

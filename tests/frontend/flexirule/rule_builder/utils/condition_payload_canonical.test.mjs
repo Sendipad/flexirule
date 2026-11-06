@@ -56,3 +56,31 @@ test("condition_payload: preserves backward compatibility for legacy shapes", ()
 	assert.deepEqual(getConditionPayload({ config: legacyConfig }), legacyConfig.condition);
 	assert.equal(hasConditionPayload({ config: legacyConfig }), true);
 });
+
+test("condition_payload: preserves unknown root condition objects and non-empty unknown arrays", () => {
+	const unknownRoot = {
+		type: "unknown_custom_condition_v99",
+		custom_field: "special_value",
+	};
+
+	assert.deepEqual(getConditionPayloadFromConfig(unknownRoot), unknownRoot);
+	assert.deepEqual(getConditionPayload({ config: unknownRoot }), unknownRoot);
+	assert.equal(hasConditionPayload({ config: unknownRoot }), true);
+
+	const unknownArray = [
+		{ custom_type: "foo", val: 1 },
+		{ custom_type: "bar", val: 2 },
+	];
+	assert.deepEqual(getConditionPayloadFromConfig(unknownArray), unknownArray);
+	assert.deepEqual(getConditionPayload({ config: unknownArray }), unknownArray);
+
+	// Distinguishes non-condition action configs (e.g. assignments)
+	const assignmentConfig = {
+		assignments: [{ target: "status", value: "Closed" }],
+	};
+	assert.equal(getConditionPayloadFromConfig(assignmentConfig), null);
+
+	// Genuinely empty object or null
+	assert.equal(getConditionPayloadFromConfig({}), null);
+	assert.equal(getConditionPayloadFromConfig(null), null);
+});

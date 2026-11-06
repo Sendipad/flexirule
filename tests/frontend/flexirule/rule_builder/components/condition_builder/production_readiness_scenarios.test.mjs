@@ -130,13 +130,13 @@ test("production_readiness: collection predicate with 0, 1, and multiple childre
 				type: "collection",
 				quantifier: "all",
 				collection: "doc.items",
-				alias: "item",
+				alias: "items_row",
 				children: [
 					{
 						id: "leaf-item-1",
 						type: "leaf",
 						operator: "gt",
-						left: { mode: "variable", path: { scope: "item", segments: ["qty"] } },
+						left: { mode: "variable", path: { scope: "items_row", segments: ["qty"] } },
 						right: { mode: "static", value_type: "integer", value: 10 },
 					},
 				],
@@ -146,7 +146,7 @@ test("production_readiness: collection predicate with 0, 1, and multiple childre
 	const payload1 = serializeConditionTree(col1Child);
 	assert.equal(payload1.type, "collection_predicate");
 	assert.equal(payload1.quantifier, "all");
-	assert.equal(payload1.as, "item");
+	assert.equal(payload1.as, "items_row");
 	assert.equal(payload1.where.type, "comparison");
 	assert.equal(payload1.where.operator, "gt");
 
@@ -160,20 +160,23 @@ test("production_readiness: collection predicate with 0, 1, and multiple childre
 				type: "collection",
 				quantifier: "none",
 				collection: "doc.items",
-				alias: "item",
+				alias: "items_row",
 				children: [
 					{
 						id: "leaf-item-1",
 						type: "leaf",
 						operator: "gt",
-						left: { mode: "variable", path: { scope: "item", segments: ["qty"] } },
+						left: { mode: "variable", path: { scope: "items_row", segments: ["qty"] } },
 						right: { mode: "static", value_type: "integer", value: 10 },
 					},
 					{
 						id: "leaf-item-2",
 						type: "leaf",
 						operator: "eq",
-						left: { mode: "variable", path: { scope: "item", segments: ["is_free"] } },
+						left: {
+							mode: "variable",
+							path: { scope: "items_row", segments: ["is_free"] },
+						},
 						right: { mode: "static", value_type: "boolean", value: true },
 					},
 				],

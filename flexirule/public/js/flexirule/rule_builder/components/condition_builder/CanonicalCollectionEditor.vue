@@ -85,12 +85,17 @@
 <script setup>
 import { ref, computed, onMounted } from "vue";
 import SelectControl from "../../controls/SelectControl.vue";
-import { generateCollectionAlias } from "./canonical_condition_adapter.mjs";
+import {
+	generateCollectionAlias,
+	RESERVED_ALIASES,
+	updateSubtreeScopeReferences,
+} from "./canonical_condition_adapter.mjs";
 
 const props = defineProps({
 	node: { type: Object, required: true },
 	docFields: { type: Array, default: () => [] },
 	ancestorAliases: { type: Array, default: () => [] },
+	siblingAliases: { type: Array, default: () => [] },
 	readOnly: { type: Boolean, default: false },
 	store: { type: Object, default: null },
 });
@@ -230,15 +235,29 @@ async function resolveAndPropagateChildFields() {
 
 onMounted(() => {
 	if (props.node.collection) {
-		const existingAliases = new Set(props.ancestorAliases || []);
-		if (
-			!props.node.alias ||
-			props.node.alias === "row" ||
-			existingAliases.has(props.node.alias)
-		) {
+		const existingAliases = new Set([
+			...(props.ancestorAliases || []),
+			...(props.siblingAliases || []),
+		]);
+		const currentAlias = props.node.alias;
+		const isInvalidAlias =
+			!currentAlias ||
+			RESERVED_ALIASES.has(currentAlias) ||
+			existingAliases.has(currentAlias) ||
+			!/^[A-Za-z][A-Za-z0-9_]*$/.test(currentAlias) ||
+			currentAlias.includes("__");
+
+		if (isInvalidAlias) {
 			const parts = props.node.collection.split(".").filter(Boolean);
 			const tableFieldname = parts.length ? parts[parts.length - 1] : "items";
-			props.node.alias = generateCollectionAlias(tableFieldname, existingAliases);
+			const newAlias = generateCollectionAlias(tableFieldname, existingAliases);
+			props.node.alias = newAlias;
+			if (currentAlias && props.node.children) {
+				for (const child of props.node.children) {
+					updateSubtreeScopeReferences(child, currentAlias, newAlias);
+				}
+			}
+			emit("change", props.node);
 		}
 		resolveAndPropagateChildFields();
 	}

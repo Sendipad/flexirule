@@ -97,6 +97,11 @@ export function validateCanonicalCondition(tree, { contract = null, isMandatory 
 
 		// 1. Comparison node (or leaf in TreeBuilder)
 		if (type === "comparison" || type === "leaf") {
+			if (node._invalid_right_error || node._draft_invalid_right !== undefined) {
+				addError(node._invalid_right_error || "Invalid right operand value.", node.id);
+				return;
+			}
+
 			const operator = node.operator;
 			if (!operator) {
 				addError("Comparison operator is required.", node.id);

@@ -261,7 +261,9 @@ export function safeCoerceInteger(val) {
 	if (typeof val === "number") {
 		if (!Number.isFinite(val))
 			throw new TypeError(`Non-finite number cannot be coerced to integer: ${val}`);
-		return Math.trunc(val);
+		if (!Number.isInteger(val))
+			throw new TypeError(`Fractional number cannot be coerced to integer: ${val}`);
+		return val;
 	}
 	if (typeof val === "string") {
 		const trimmed = val.trim();
@@ -317,9 +319,10 @@ export function safeCoerceBoolean(val) {
 
 /**
  * Converts a right operand or raw value into a canonical FlexValue.
- * Preserves 2-item arrays verbatim unless authoritative fieldtype confirms Link tuple.
+ * Preserves 2-item arrays verbatim unless authoritative fieldtype confirms Link tuple
+ * AND the operator is not a membership list operator ('in', 'not_in').
  */
-export function toCanonicalFlexValue(rawRight, fieldtype = null) {
+export function toCanonicalFlexValue(rawRight, fieldtype = null, operator = null) {
 	if (rawRight === undefined || rawRight === null) {
 		return {
 			mode: "static",
@@ -352,23 +355,11 @@ export function toCanonicalFlexValue(rawRight, fieldtype = null) {
 			}
 			let formattedValue = v;
 			if (vt === "decimal") {
-				try {
-					formattedValue = safeCoerceDecimal(v);
-				} catch {
-					formattedValue = String(v ?? "0");
-				}
+				formattedValue = safeCoerceDecimal(v);
 			} else if (vt === "integer") {
-				try {
-					formattedValue = safeCoerceInteger(v);
-				} catch {
-					formattedValue = typeof v === "number" ? Math.trunc(v) : parseInt(v, 10) || 0;
-				}
+				formattedValue = safeCoerceInteger(v);
 			} else if (vt === "boolean") {
-				try {
-					formattedValue = safeCoerceBoolean(v);
-				} catch {
-					formattedValue = Boolean(v);
-				}
+				formattedValue = safeCoerceBoolean(v);
 			} else if (vt === "null") {
 				formattedValue = null;
 			}
@@ -399,10 +390,13 @@ export function toCanonicalFlexValue(rawRight, fieldtype = null) {
 		val = rawRight.value;
 	}
 
-	// Only unwrap a 2-item array if authoritative Link metadata is provided AND it is a legacy Link tuple [DocType, Name].
-	// In canonical conditions, ordinary 2-item arrays without Link metadata (or membership lists) must NEVER be unwrapped.
+	// Only unwrap a 2-item array if authoritative Link metadata is provided AND it is a legacy Link tuple [DocType, Name]
+	// AND the operator is NOT a membership comparison ('in', 'not_in').
+	// Membership lists for Link fields must NEVER be interpreted as Link tuples.
+	const isMembershipOp = operator === "in" || operator === "not_in";
 	const isLinkField = fieldtype && (fieldtype === "Link" || fieldtype === "Dynamic Link");
 	if (
+		!isMembershipOp &&
 		isLinkField &&
 		Array.isArray(val) &&
 		val.length === 2 &&
@@ -413,23 +407,17 @@ export function toCanonicalFlexValue(rawRight, fieldtype = null) {
 	}
 
 	if (isPlainObject(val) && val.mode) {
-		return toCanonicalFlexValue(val, fieldtype);
+		return toCanonicalFlexValue(val, fieldtype, operator);
 	}
 
 	const vt = inferCanonicalValueType(val, fieldtype);
 	let formatted = val;
 	if (vt === "decimal") {
-		try {
-			formatted = safeCoerceDecimal(val);
-		} catch {
-			formatted = String(val ?? "0");
-		}
-	} else if (vt === "integer" && typeof val === "string") {
-		try {
-			formatted = safeCoerceInteger(val);
-		} catch {
-			formatted = parseInt(val, 10) || 0;
-		}
+		formatted = safeCoerceDecimal(val);
+	} else if (vt === "integer") {
+		formatted = safeCoerceInteger(val);
+	} else if (vt === "boolean") {
+		formatted = safeCoerceBoolean(val);
 	}
 
 	return {
@@ -486,6 +474,48 @@ function deserializeCanonicalComparison(node) {
 /**
  * Deserializes a canonical collection predicate into a TreeBuilder collection node.
  */
+/**
+ * Recursively updates variable scope references within a subtree from oldAlias to newAlias.
+ */
+export function updateSubtreeScopeReferences(node, oldAlias, newAlias) {
+	if (!node || typeof node !== "object" || !oldAlias || !newAlias || oldAlias === newAlias) {
+		return;
+	}
+
+	if (node.type === TREE_NODE_TYPES.LEAF || node.type === "comparison") {
+		if (node.left?.mode === "variable" && node.left.path?.scope === oldAlias) {
+			node.left.path.scope = newAlias;
+		}
+		if (node.right?.mode === "variable" && node.right.path?.scope === oldAlias) {
+			node.right.path.scope = newAlias;
+		}
+		return;
+	}
+
+	if (node.type === TREE_NODE_TYPES.COLLECTION || node.type === "collection_predicate") {
+		if (node.source?.scope === oldAlias) {
+			node.source.scope = newAlias;
+		}
+		if (node.children && Array.isArray(node.children)) {
+			for (const child of node.children) {
+				updateSubtreeScopeReferences(child, oldAlias, newAlias);
+			}
+		}
+		if (node.where) {
+			updateSubtreeScopeReferences(node.where, oldAlias, newAlias);
+		}
+		return;
+	}
+
+	if (node.type === TREE_NODE_TYPES.GROUP || node.type === "group") {
+		if (node.children && Array.isArray(node.children)) {
+			for (const child of node.children) {
+				updateSubtreeScopeReferences(child, oldAlias, newAlias);
+			}
+		}
+	}
+}
+
 function deserializeCanonicalCollection(node) {
 	const source = node.source || {};
 	const scope = source.scope || "doc";
@@ -505,13 +535,29 @@ function deserializeCanonicalCollection(node) {
 		}
 	}
 
+	let alias = node.as;
+	const isInvalidAlias =
+		!alias ||
+		RESERVED_ALIASES.has(alias) ||
+		!/^[A-Za-z][A-Za-z0-9_]*$/.test(alias) ||
+		alias.includes("__");
+	if (isInvalidAlias) {
+		const oldAlias = alias;
+		alias = generateCollectionAlias(collectionPath);
+		if (oldAlias) {
+			for (const child of children) {
+				updateSubtreeScopeReferences(child, oldAlias, alias);
+			}
+		}
+	}
+
 	return {
 		id: createNodeId("collection"),
 		type: TREE_NODE_TYPES.COLLECTION,
 		quantifier: node.quantifier || "any",
 		collection: collectionPath,
 		source: deepClone(source),
-		alias: node.as || generateCollectionAlias(collectionPath),
+		alias,
 		rowQuantifier,
 		children,
 	};
@@ -598,7 +644,7 @@ function convertLegacyLeaf(legacy) {
 
 	let right = null;
 	if (!UNARY_OPERATORS.has(canonicalOp)) {
-		right = toCanonicalFlexValue(legacy.right);
+		right = toCanonicalFlexValue(legacy.right, null, canonicalOp);
 	}
 
 	return {
@@ -861,7 +907,7 @@ function serializeLeafToCanonical(leaf) {
 	if (!isUnary) {
 		let right = leaf.right;
 		if (!isPlainObject(right) || !right.mode) {
-			right = toCanonicalFlexValue(right);
+			right = toCanonicalFlexValue(right, null, operator);
 		} else {
 			right = deepClone(right);
 		}
@@ -891,7 +937,12 @@ function serializeCollectionToCanonical(colNode) {
 	}
 
 	let alias = colNode.alias || "";
-	if (!alias || alias === "row") {
+	if (
+		!alias ||
+		RESERVED_ALIASES.has(alias) ||
+		!/^[A-Za-z][A-Za-z0-9_]*$/.test(alias) ||
+		alias.includes("__")
+	) {
 		alias = generateCollectionAlias(colNode.collection || "items");
 	}
 

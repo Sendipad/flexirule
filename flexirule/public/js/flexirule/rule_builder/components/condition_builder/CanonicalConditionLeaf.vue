@@ -367,8 +367,15 @@ function checkIncompatibility() {
 	incompatibilityWarning.value = "";
 }
 
+const rightCoercionError = ref("");
+
 const nodeErrors = computed(() => {
 	const errs = [...(props.errors || [])];
+	if (rightCoercionError.value) {
+		errs.push(rightCoercionError.value);
+	} else if (props.node._invalid_right_error) {
+		errs.push(props.node._invalid_right_error);
+	}
 	if (incompatibilityWarning.value) {
 		errs.push(incompatibilityWarning.value);
 	}
@@ -395,16 +402,42 @@ const leftValueModel = computed({
 
 const rightValueModel = computed({
 	get() {
+		if (props.node._draft_invalid_right !== undefined) {
+			return props.node._draft_invalid_right;
+		}
 		return props.node.right || { mode: "static", value_type: "string", value: "" };
 	},
 	set(val) {
 		let canonical = val;
-		if (val && typeof val === "object" && !val.mode) {
-			canonical = toCanonicalFlexValue(val, leftOperandDescriptor.value.fieldtype);
-		} else if (typeof val === "string" || typeof val === "number" || typeof val === "boolean") {
-			canonical = toCanonicalFlexValue(val, leftOperandDescriptor.value.fieldtype);
+		rightCoercionError.value = "";
+		delete props.node._draft_invalid_right;
+		delete props.node._invalid_right_error;
+
+		try {
+			if (val && typeof val === "object" && !val.mode) {
+				canonical = toCanonicalFlexValue(
+					val,
+					leftOperandDescriptor.value.fieldtype,
+					props.node.operator
+				);
+			} else if (
+				typeof val === "string" ||
+				typeof val === "number" ||
+				typeof val === "boolean"
+			) {
+				canonical = toCanonicalFlexValue(
+					val,
+					leftOperandDescriptor.value.fieldtype,
+					props.node.operator
+				);
+			}
+			props.node.right = canonical;
+		} catch (err) {
+			const errMsg = err?.message || "Invalid value format for declared fieldtype";
+			rightCoercionError.value = errMsg;
+			props.node._draft_invalid_right = val;
+			props.node._invalid_right_error = errMsg;
 		}
-		props.node.right = canonical;
 		checkIncompatibility();
 		emit("change", props.node);
 	},
@@ -449,6 +482,9 @@ function clearPreservedDraftRight() {
 }
 
 function resetRightOperand() {
+	delete props.node._draft_invalid_right;
+	delete props.node._invalid_right_error;
+	rightCoercionError.value = "";
 	props.node.right = {
 		mode: "static",
 		value_type: leftOperandDescriptor.value.value_type || "string",
