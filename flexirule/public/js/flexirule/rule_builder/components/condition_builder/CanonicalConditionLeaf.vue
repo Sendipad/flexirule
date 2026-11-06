@@ -186,7 +186,7 @@ const leftOperandDescriptor = computed(() => {
 				fieldtype,
 				value_types: valueTypes,
 				value_type: valueTypes.includes("decimal") ? "decimal" : valueTypes[0] || null,
-				doctype: match.doctype || (fieldtype === "Link" ? match.options : props.currentDocType),
+				doctype: match.doctype || (["Link", "Dynamic Link"].includes(fieldtype) ? match.options : props.currentDocType),
 				fieldname: match.fieldname || segments[segments.length - 1] || null,
 				options: match.options || null,
 				label: match.label || match.friendlyLabel || fullPath,
@@ -313,7 +313,7 @@ const rightControlContext = computed(() => {
 	const isListOp = op === "in" || op === "not_in";
 
 	const df = {
-		fieldtype: isListOp ? "MultiSelectList" : desc.fieldtype,
+		fieldtype: desc.fieldtype,
 		options: desc.options,
 		label: desc.label,
 		reqd: 1,

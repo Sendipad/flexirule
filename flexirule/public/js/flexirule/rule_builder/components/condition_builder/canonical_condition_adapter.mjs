@@ -372,8 +372,12 @@ export function toCanonicalFlexValue(rawRight, fieldtype = null, operator = null
 		if (mode === "static") {
 			const v = rawRight.value;
 			let vt = rawRight.value_type;
-			if (vt === "MultiSelectList" || vt === "MultiSelect") vt = "list";
-			if (!vt) {
+			if (vt === "MultiSelectList" || vt === "MultiSelect") {
+				vt = "list";
+			} else if (!vt || (fieldtype && vt === fieldtype)) {
+				// FlexValueControl reports the selected Frappe DocField type. Convert
+				// that UI metadata to the backend's canonical value type using the
+				// actual value (arrays remain lists, including Link memberships).
 				vt = inferCanonicalValueType(v, fieldtype);
 			}
 			if (vt === "list" && !Array.isArray(v)) {
