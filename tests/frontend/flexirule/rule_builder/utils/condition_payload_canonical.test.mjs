@@ -6,6 +6,7 @@ import {
 	getConditionPayload,
 	hasConditionPayload,
 } from "../../../../../flexirule/public/js/flexirule/rule_builder/utils/condition_payload.js";
+import { validateAgainstContract } from "../../../../../flexirule/public/js/flexirule/core/contracts.js";
 
 test("condition_payload: recognizes direct canonical comparison node", () => {
 	const canonical = {
@@ -90,4 +91,19 @@ test("condition_payload: preserves unknown root condition objects and non-empty 
 	// Genuinely empty object or null
 	assert.equal(getConditionPayloadFromConfig({}), null);
 	assert.equal(getConditionPayloadFromConfig(null), null);
+});
+
+test("condition_payload: validateAgainstContract accepts a direct canonical Condition root", () => {
+	const nodeData = {
+		action_type: "Condition",
+		config: {
+			type: "comparison",
+			operator: "eq",
+			left: { mode: "variable", path: { scope: "doc", segments: ["status"] } },
+			right: { mode: "static", value_type: "string", value: "Open" },
+		},
+	};
+	const result = validateAgainstContract(nodeData);
+	assert.equal(result.valid, true, JSON.stringify(result.errors));
+	assert.equal(result.errors.some((error) => error.includes("At least one condition is required")), false);
 });

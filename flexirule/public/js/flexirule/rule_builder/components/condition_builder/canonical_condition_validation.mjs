@@ -113,7 +113,7 @@ export function validateCanonicalCondition(tree, { contract = null, isMandatory 
 				const rightReady = Boolean(
 					right &&
 					right.mode &&
-					(right.mode !== "static" || right.value === null || (right.value !== undefined && right.value !== "")) &&
+					(right.mode !== "static" || (right.value_type === "list" ? Array.isArray(right.value) && right.value.length > 0 : right.value === null || (right.value !== undefined && right.value !== ""))) &&
 					(right.mode !== "variable" ||
 						(right.path?.scope && (right.path.scope === "doctype" || (Array.isArray(right.path.segments) && right.path.segments.length > 0))))
 				);

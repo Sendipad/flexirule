@@ -924,7 +924,10 @@ function hasSelectedVariablePath(value) {
 
 function hasCompleteFlexValue(value) {
 	if (!isPlainObject(value) || !value.mode) return false;
-	if (value.mode === "static") return value.value === null || (value.value !== undefined && value.value !== "");
+	if (value.mode === "static") {
+		if (value.value_type === "list") return Array.isArray(value.value) && value.value.length > 0;
+		return value.value === null || (value.value !== undefined && value.value !== "");
+	}
 	if (value.mode === "variable") return hasSelectedVariablePath(value);
 	if (value.mode === "resolver") return Boolean(value.family && value.operation);
 	if (value.mode === "template") return Array.isArray(value.segments) && value.segments.length > 0;

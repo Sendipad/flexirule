@@ -41,13 +41,14 @@
 						}"
 						:modelValue="node.operator"
 						:read_only="readOnly"
+						:disabled="readOnly || !node.left"
 						:hideLabel="true"
 						@update:modelValue="onOperatorChange"
 					/>
 				</div>
 
 				<!-- Right Operand (FlexValueControl with metadata descriptor) -->
-				<div v-if="!isUnary" class="condition-col operand-col right-col">
+				<div v-if="node.operator && !isUnary" class="condition-col operand-col right-col">
 					<FlexValueControl
 						v-model="rightValueModel"
 						:context="rightControlContext"
@@ -301,10 +302,13 @@ const operatorOptions = computed(() => {
 		return [{ label: __("No compatible comparisons"), value: "" }];
 	}
 
-	return filtered.map((op) => ({
-		label: FRIENDLY_OPERATOR_LABELS[op.id] || op.label || op.id,
-		value: op.id,
-	}));
+	return [
+		{ label: __("Choose how the value should match"), value: "" },
+		...filtered.map((op) => ({
+			label: FRIENDLY_OPERATOR_LABELS[op.id] || op.label || op.id,
+			value: op.id,
+		})),
+	];
 });
 
 const rightControlContext = computed(() => {
