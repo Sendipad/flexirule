@@ -273,7 +273,8 @@ const hasCondition = computed(() => {
 	const cond = props.modelValue.condition;
 	if (!cond) return false;
 	if (Array.isArray(cond)) return cond.length > 0;
-	if (typeof cond === "object") return Boolean(cond.type || cond.children?.length || cond.left || cond.op);
+	if (typeof cond === "object")
+		return Boolean(cond.type || cond.children?.length || cond.left || cond.op);
 	return false;
 });
 

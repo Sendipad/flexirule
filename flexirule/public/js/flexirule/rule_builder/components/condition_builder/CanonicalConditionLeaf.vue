@@ -48,7 +48,10 @@
 				</div>
 
 				<!-- 3. Right Operand: Hidden if unary or no operator. Initializes blank without implicit 0/false -->
-				<div v-if="hasLeftOperand && node.operator && !isUnary" class="condition-col operand-col right-col">
+				<div
+					v-if="hasLeftOperand && node.operator && !isUnary"
+					class="condition-col operand-col right-col"
+				>
 					<FlexValueControl
 						v-model="rightValueModel"
 						:context="rightControlContext"
@@ -132,7 +135,10 @@ const hasLeftOperand = computed(() => {
 	if (typeof left === "string") return left.trim().length > 0;
 	if (typeof left === "object") {
 		if (left.mode === "variable") {
-			return !!(left.path?.scope && (left.path?.segments?.length || left.path.scope === "doctype"));
+			return !!(
+				left.path?.scope &&
+				(left.path?.segments?.length || left.path.scope === "doctype")
+			);
 		}
 		if (left.mode === "static") {
 			return left.value !== undefined && left.value !== null && left.value !== "";
@@ -263,7 +269,10 @@ const operatorOptions = computed(() => {
 	let candidates = [];
 	if (contractOps && Object.keys(contractOps).length > 0) {
 		candidates = Object.values(contractOps);
-	} else if (Array.isArray(props.contract?.operatorList) && props.contract.operatorList.length > 0) {
+	} else if (
+		Array.isArray(props.contract?.operatorList) &&
+		props.contract.operatorList.length > 0
+	) {
 		candidates = props.contract.operatorList;
 	}
 

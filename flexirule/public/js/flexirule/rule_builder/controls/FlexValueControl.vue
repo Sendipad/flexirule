@@ -166,7 +166,9 @@
 					@click="switchToStatic"
 				>
 					<i class="fa fa-font mr-2 text-muted"></i>
-					<span class="flex-1 font-weight-bold">{{ __("Enter Fixed / Static Value") }}</span>
+					<span class="flex-1 font-weight-bold">{{
+						__("Enter Fixed / Static Value")
+					}}</span>
 				</div>
 
 				<!-- Categories & Items -->
@@ -216,7 +218,10 @@
 						@click="selectResolver(res)"
 					>
 						<div class="d-flex align-items-center text-truncate flex-1">
-							<i :class="res.icon || 'fa fa-calculator'" class="mr-2 text-primary"></i>
+							<i
+								:class="res.icon || 'fa fa-calculator'"
+								class="mr-2 text-primary"
+							></i>
 							<span class="item-label font-weight-medium text-truncate mr-2">
 								{{ res.label }}
 							</span>
@@ -666,13 +671,13 @@ const currentResolverLabel = computed(() => {
 
 const currentTemplatePreview = computed(() => {
 	if (!templateSegments.value?.length) return "";
-	return templateSegments.value
-		.map((s) => (s.type === "text" ? s.value : "[Dynamic]"))
-		.join("");
+	return templateSegments.value.map((s) => (s.type === "text" ? s.value : "[Dynamic]")).join("");
 });
 
 const resolverModalTitle = computed(() => {
-	return __("Configure {0}.{1}").replace("{0}", resolverDraftFamily.value).replace("{1}", resolverDraftOperation.value);
+	return __("Configure {0}.{1}")
+		.replace("{0}", resolverDraftFamily.value)
+		.replace("{1}", resolverDraftOperation.value);
 });
 
 // ── Dropdown & Selection Handlers ──
@@ -956,7 +961,8 @@ const isValid = computed(() => {
 			return (
 				struct.value.length > 0 &&
 				struct.value.every(
-					(v) => v !== undefined && v !== null && !(typeof v === "string" && v.trim() === "")
+					(v) =>
+						v !== undefined && v !== null && !(typeof v === "string" && v.trim() === "")
 				)
 			);
 		}

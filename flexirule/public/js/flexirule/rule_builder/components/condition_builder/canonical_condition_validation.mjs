@@ -87,8 +87,7 @@ export function validateCanonicalCondition(tree, { contract = null, isMandatory 
 			// 1. Left operand check
 			const left = node.left;
 			const hasLeft = Boolean(
-				left &&
-					(typeof left === "string" ? left.trim().length > 0 : left.mode)
+				left && (typeof left === "string" ? left.trim().length > 0 : left.mode)
 			);
 			if (!hasLeft) {
 				addError("Left operand is required (choose a value source).", node.id);
@@ -112,11 +111,15 @@ export function validateCanonicalCondition(tree, { contract = null, isMandatory 
 							: right.mode === "static"
 							? right.value_type === "list"
 								? Array.isArray(right.value) && right.value.length > 0
-								: right.value === null || (right.value !== undefined && right.value !== "")
+								: right.value === null ||
+								  (right.value !== undefined && right.value !== "")
 							: right.mode)
 				);
 				if (!hasRight) {
-					addError("Right operand value is required (choose a comparison value).", node.id);
+					addError(
+						"Right operand value is required (choose a comparison value).",
+						node.id
+					);
 				}
 			}
 			return;
