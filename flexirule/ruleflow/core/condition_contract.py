@@ -129,9 +129,7 @@ OPERATOR_REGISTRY: dict[str, OperatorSpec] = {
 	"in": _spec("in", "is one of", 2, MEMBERSHIP_TYPES, ("list",), legacy_aliases=("in",)),
 	"not_in": _spec("not_in", "is not one of", 2, MEMBERSHIP_TYPES, ("list",), legacy_aliases=("not in",)),
 	"contains": _spec("contains", "contains", 2, ("string",), ("string",), TEXT_FIELD_TYPES),
-	"not_contains": _spec(
-		"not_contains", "does not contain", 2, ("string",), ("string",), TEXT_FIELD_TYPES
-	),
+	"not_contains": _spec("not_contains", "does not contain", 2, ("string",), ("string",), TEXT_FIELD_TYPES),
 	"starts_with": _spec("starts_with", "starts with", 2, ("string",), ("string",), TEXT_FIELD_TYPES),
 	"ends_with": _spec("ends_with", "ends with", 2, ("string",), ("string",), TEXT_FIELD_TYPES),
 	"is_set": _spec("is_set", "is set", 1, COMPARABLE_TYPES, fieldtypes=ALL_FIELD_TYPES),

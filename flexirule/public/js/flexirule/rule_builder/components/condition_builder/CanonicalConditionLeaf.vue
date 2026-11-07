@@ -84,9 +84,7 @@ function onReplaceUnsupported() {
 	border: 1px solid var(--fxr-border, #e5e7eb);
 	border-radius: var(--fxr-radius-md, 6px);
 	padding: var(--fxr-space-1, 4px) var(--fxr-space-2, 8px);
-	transition:
-		border-color var(--fxr-transition-fast),
-		background-color var(--fxr-transition-fast);
+	transition: border-color var(--fxr-transition-fast), background-color var(--fxr-transition-fast);
 }
 
 .canonical-condition-leaf:hover {
