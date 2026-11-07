@@ -29,38 +29,70 @@ export function buildSourceCatalogue({
 
 	// 1. Process Document Fields
 	for (const f of docFields) {
-		const fieldname = f.fieldname || f.value || f.id || "";
-		if (!fieldname) continue;
-		const rawLabel = f.label || fieldname;
+		const rawVal = f.fieldname || f.value || f.id || "";
+		if (!rawVal) continue;
+
+		// Preserve already-qualified scopes (e.g. old_doc.status, vars.total, item.qty)
+		const strVal = String(rawVal).startsWith("@")
+			? String(rawVal).substring(1)
+			: String(rawVal);
+		const parts = strVal.split(".").filter(Boolean);
+		const knownScopes = new Set([
+			"doc",
+			"old_doc",
+			"vars",
+			"caller",
+			"rule",
+			"doctype",
+			"row",
+			"item",
+			"loop",
+		]);
+
+		let scope = "doc";
+		let segments = parts;
+		if (knownScopes.has(parts[0])) {
+			scope = parts[0];
+			segments = parts.slice(1);
+		} else if (parts.length > 1) {
+			scope = parts[0];
+			segments = parts.slice(1);
+		}
+
+		const canonicalPath = segments.length ? `${scope}.${segments.join(".")}` : scope;
+		// Deduplicate strictly by canonical identity
+		const canonicalKey = `path:${canonicalPath}`;
+		if (seenKeys.has(canonicalKey)) continue;
+		seenKeys.add(canonicalKey);
+
+		const rawLabel =
+			f.label || (segments.length ? segments[segments.length - 1] : canonicalPath);
 		const translatedLabel = translate(rawLabel);
-		const canonicalPath = `doc.${fieldname}`;
-		const key = `field:${canonicalPath}`;
-		if (seenKeys.has(key)) continue;
-		seenKeys.add(key);
 
 		catalogue.push({
 			id: canonicalPath,
-			sourceType: "field",
-			category: "fields",
-			categoryLabel: translate("Document Fields"),
-			icon: "fa fa-file-text-o",
+			sourceType: scope === "doc" ? "field" : "variable",
+			category: scope === "doc" ? "fields" : "variables",
+			categoryLabel: scope === "doc" ? translate("Document Fields") : translate("Variables"),
+			icon: scope === "doc" ? "fa fa-file-text-o" : "fa fa-cube",
 			primaryLabel: translatedLabel || rawLabel,
 			rawLabel: rawLabel,
 			secondaryText: canonicalPath,
 			canonicalPath: canonicalPath,
-			fieldname: fieldname,
+			fieldname: segments.length ? segments[segments.length - 1] : null,
 			fieldtype: f.fieldtype || "Data",
 			options: f.options || null,
 			searchTerms: [
-				fieldname.toLowerCase(),
 				canonicalPath.toLowerCase(),
+				strVal.toLowerCase(),
+				segments.join(".").toLowerCase(),
 				rawLabel.toLowerCase(),
 				(translatedLabel || "").toLowerCase(),
-				cleanFriendlyLabel(rawLabel, fieldname).toLowerCase(),
+				cleanFriendlyLabel(rawLabel, canonicalPath).toLowerCase(),
 			],
 			payload: {
 				mode: "variable",
-				path: { scope: "doc", segments: [fieldname] },
+				path: { scope, segments },
 			},
 		});
 	}
@@ -70,7 +102,7 @@ export function buildSourceCatalogue({
 		const val = v.value || v.id || v;
 		if (!val) continue;
 		const rawPath = String(val).startsWith("@") ? String(val).substring(1) : String(val);
-		const parts = rawPath.split(".");
+		const parts = rawPath.split(".").filter(Boolean);
 		const knownScopes = new Set([
 			"doc",
 			"old_doc",
@@ -86,19 +118,20 @@ export function buildSourceCatalogue({
 		const segments = knownScopes.has(parts[0]) || parts.length > 1 ? parts.slice(1) : parts;
 		const canonicalPath = segments.length ? `${scope}.${segments.join(".")}` : scope;
 
-		const key = `var:${canonicalPath}`;
-		if (seenKeys.has(key)) continue;
-		seenKeys.add(key);
+		// Deduplicate strictly by canonical identity across both fields and variableOptions
+		const canonicalKey = `path:${canonicalPath}`;
+		if (seenKeys.has(canonicalKey)) continue;
+		seenKeys.add(canonicalKey);
 
 		const rawLabel = v.label || cleanFriendlyLabel(v.friendlyLabel || rawPath, rawPath);
 		const translatedLabel = translate(rawLabel);
 
 		catalogue.push({
 			id: canonicalPath,
-			sourceType: "variable",
-			category: "variables",
-			categoryLabel: translate("Variables"),
-			icon: "fa fa-cube",
+			sourceType: scope === "doc" ? "field" : "variable",
+			category: scope === "doc" ? "fields" : "variables",
+			categoryLabel: scope === "doc" ? translate("Document Fields") : translate("Variables"),
+			icon: scope === "doc" ? "fa fa-file-text-o" : "fa fa-cube",
 			primaryLabel: translatedLabel || rawLabel,
 			rawLabel: rawLabel,
 			secondaryText: canonicalPath,

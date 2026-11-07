@@ -17,24 +17,47 @@
 				<!-- Left Operand (FlexValueControl) -->
 				<div class="condition-col operand-col left-col">
 					<FlexValueControl
+						ref="leftControlRef"
 						v-model="leftValueModel"
 						:context="leftControlContext"
 						:docFields="docFields"
 						:variableOptions="variableOptions"
-						emptyPresentation="searchable_button"
-						:emptyButtonLabel="__('Choose field, variable or resolver')"
-						placeholder="Choose a value source"
+						:placeholder="__('Choose a field, variable, or resolver (@)...')"
 						:engine="store"
 						:doc="store?.rule_doc"
 						:readOnly="readOnly"
 						:disabled="readOnly"
-						class="w-100 min-w-0"
+						class="w-100 min-w-0 left-operand-control"
 					/>
 				</div>
 
 				<!-- Operator Select -->
 				<div class="condition-col operator-col">
+					<div
+						v-if="contractLoading"
+						class="operator-loading-state text-muted small d-flex align-items-center"
+					>
+						<i class="fa fa-spinner fa-spin mr-1"></i>
+						<span>{{ __("Loading comparisons...") }}</span>
+					</div>
+					<div
+						v-else-if="contractError"
+						class="operator-error-state small text-danger d-flex align-items-center justify-content-between"
+					>
+						<span
+							><i class="fa fa-exclamation-circle mr-1"></i
+							>{{ __("Error loading operators") }}</span
+						>
+						<button
+							type="button"
+							class="btn btn-link btn-xs p-0 text-primary ml-1"
+							@click="$emit('retry-contract')"
+						>
+							{{ __("Retry") }}
+						</button>
+					</div>
 					<SelectControl
+						v-else
 						class="operator-select"
 						:df="{
 							fieldtype: 'Select',
@@ -44,7 +67,7 @@
 						}"
 						:modelValue="node.operator"
 						:read_only="readOnly"
-						:disabled="readOnly || !node.left"
+						:disabled="readOnly || !node.left || isContractUnavailable"
 						:hideLabel="true"
 						@update:modelValue="onOperatorChange"
 					/>
@@ -117,7 +140,6 @@ import FlexValueControl from "../../controls/FlexValueControl.vue";
 import SelectControl from "../../controls/SelectControl.vue";
 import UnsupportedConditionCard from "./UnsupportedConditionCard.vue";
 import {
-	UNARY_OPERATORS,
 	toCanonicalFlexValue,
 	fieldExpressionToCanonicalVariable,
 } from "./canonical_condition_adapter.mjs";
@@ -125,6 +147,8 @@ import {
 const props = defineProps({
 	node: { type: Object, required: true },
 	contract: { type: Object, default: () => ({}) },
+	contractLoading: { type: Boolean, default: false },
+	contractError: { type: String, default: "" },
 	docFields: { type: Array, default: () => [] },
 	variableOptions: { type: Array, default: () => [] },
 	readOnly: { type: Boolean, default: false },
@@ -135,12 +159,13 @@ const props = defineProps({
 	isEntryNode: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(["update:modelValue", "change", "remove", "replace"]);
+const emit = defineEmits(["update:modelValue", "change", "remove", "replace", "retry-contract"]);
 
 const isUnary = computed(() => {
 	const op = props.node.operator;
+	if (!op) return false;
 	const spec = props.contract?.operators?.[op];
-	return UNARY_OPERATORS.has(op) || spec?.arity === 1;
+	return spec?.arity === 1;
 });
 
 // Resolve operand metadata from Frappe DocField metadata and the backend-owned type contract.
@@ -235,6 +260,15 @@ function formatOperatorLabel(label) {
 	const upper = first.toUpperCase();
 	return upper !== first.toLowerCase() ? upper + translated.slice(1) : translated;
 }
+
+const isContractUnavailable = computed(() => {
+	const contractOps = props.contract?.operators;
+	const list = props.contract?.operatorList;
+	return !(
+		(contractOps && Object.keys(contractOps).length > 0) ||
+		(Array.isArray(list) && list.length > 0)
+	);
+});
 
 const operatorOptions = computed(() => {
 	const contractOps = props.contract?.operators;
@@ -423,8 +457,8 @@ function onLeftOperandChange() {
 
 function onOperatorChange(newOp) {
 	props.node.operator = newOp;
-	const isNewUnary =
-		UNARY_OPERATORS.has(newOp) || props.contract?.operators?.[newOp]?.arity === 1;
+	const opSpec = props.contract?.operators?.[newOp];
+	const isNewUnary = opSpec?.arity === 1;
 
 	if (isNewUnary) {
 		if (props.node.right) {

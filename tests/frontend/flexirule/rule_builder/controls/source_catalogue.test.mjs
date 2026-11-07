@@ -5,14 +5,16 @@ import {
 	searchSourceCatalogue,
 } from "../../../../../flexirule/public/js/flexirule/rule_builder/controls/source_catalogue.mjs";
 
-test("source_catalogue: builds unified catalogue from fields, variables, and resolvers", () => {
+test("source_catalogue: builds unified catalogue and deduplicates overlapping doc fields", () => {
 	const docFields = [
 		{ fieldname: "customer_name", label: "Customer Name", fieldtype: "Data" },
 		{ fieldname: "grand_total", label: "Grand Total", fieldtype: "Currency" },
 	];
 	const variableOptions = [
+		{ value: "doc.customer_name", label: "doc.customer_name (Customer Name)" }, // Duplicate of docFields!
 		{ value: "vars.discount_rate", label: "Discount Rate" },
-		{ value: "doc.posting_date", label: "doc.posting_date (Posting Date)" },
+		{ value: "old_doc.status", label: "Previous Status" },
+		{ value: "row.qty", label: "Child Row Qty" },
 	];
 	const resolvers = [
 		{
@@ -38,12 +40,25 @@ test("source_catalogue: builds unified catalogue from fields, variables, and res
 		allowedResolverKinds: ["date_time", "math_formula"],
 	});
 
-	// 2 fields + 2 variables + 2 resolvers = 6 items
-	assert.equal(catalogue.length, 6);
-	const customerItem = catalogue.find((item) => item.fieldname === "customer_name");
-	assert.ok(customerItem);
-	assert.equal(customerItem.primaryLabel, "Customer Name");
-	assert.equal(customerItem.canonicalPath, "doc.customer_name");
+	// Overlapping doc.customer_name is deduplicated:
+	// 2 fields (customer_name, grand_total)
+	// + 3 unique variables (vars.discount_rate, old_doc.status, row.qty)
+	// + 2 resolvers = 7 items
+	assert.equal(catalogue.length, 7);
+
+	const customerItems = catalogue.filter((item) => item.canonicalPath === "doc.customer_name");
+	assert.equal(customerItems.length, 1);
+
+	// Qualified scopes are strictly preserved
+	const oldDocItem = catalogue.find((i) => i.canonicalPath === "old_doc.status");
+	assert.ok(oldDocItem);
+	assert.equal(oldDocItem.scope, "old_doc");
+	assert.deepEqual(oldDocItem.payload.path, { scope: "old_doc", segments: ["status"] });
+
+	const rowItem = catalogue.find((i) => i.canonicalPath === "row.qty");
+	assert.ok(rowItem);
+	assert.equal(rowItem.scope, "row");
+	assert.deepEqual(rowItem.payload.path, { scope: "row", segments: ["qty"] });
 });
 
 test("source_catalogue: searches by translated label, fieldname, and canonical path", () => {

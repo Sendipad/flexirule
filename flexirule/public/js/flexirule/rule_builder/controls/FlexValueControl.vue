@@ -10,24 +10,8 @@
 		v-fxr-fieldname="context?.df?.fieldname || fieldname || null"
 		@keydown.capture="onStaticKeydown"
 	>
-		<!-- ── Searchable Empty State (when emptyPresentation === 'searchable_button') ── -->
-		<div
-			v-if="showSearchableEmptyButton"
-			class="fvc-searchable-empty-btn"
-			tabindex="0"
-			role="button"
-			:title="__('Click to choose field, variable or resolver, or type @')"
-			@click="onEmptyButtonClick"
-			@keydown.enter.prevent="onEmptyButtonClick"
-			@keydown.space.prevent="onEmptyButtonClick"
-		>
-			<i class="fa fa-plus-circle mr-1"></i>
-			<span>{{ emptyButtonLabel || __("Choose field, variable or resolver") }}</span>
-		</div>
-
 		<!-- ── Main Control Area ── -->
 		<div
-			v-else
 			class="fvc-main-field"
 			:class="{
 				'is-dynamic': isDynamicMode || !isStaticSupported,
@@ -75,22 +59,15 @@
 					<!-- Contextual placeholder -->
 					<div
 						v-if="!isReadOnly && isEditorEmpty && !isEditorFocused"
-						class="fvc-empty-hint"
+						class="fvc-empty-placeholder"
 					>
-						<span class="hint-part">|</span> {{ __("static") }}
-						<span class="hint-sep">·</span>
-						<span class="hint-at">@</span>{{ __("variable") }}
-						<span class="hint-sep">·</span>
-						<span class="hint-slash">/</span>{{ __("resolver") }}
+						{{ placeholder || __("Choose a field, variable, or resolver (@)...") }}
 					</div>
 					<div
 						v-else-if="!isReadOnly && isEditorEmpty && isEditorFocused"
 						class="fvc-focus-hint"
 					>
-						{{
-							placeholder ||
-							__("Type Value or @ for Variable or / for advanced Resolver")
-						}}
+						{{ placeholder || __("Type Value or @ for Variable or Resolver") }}
 					</div>
 				</div>
 			</div>
@@ -141,6 +118,7 @@ import ResolverTokenView from "./ResolverTokenView.vue";
 import { resolveStaticPresentation } from "./static_presentation_policy.mjs";
 import { buildSourceCatalogue, searchSourceCatalogue } from "./source_catalogue.mjs";
 import { getAllStrategies } from "./value_resolver/strategies.js";
+import { adaptStrategiesForCatalogue } from "./resolver_catalogue_adapter.mjs";
 
 const props = defineProps({
 	modelValue: { type: [Object, String, Number, Boolean], default: null },
@@ -158,8 +136,6 @@ const props = defineProps({
 	invalid: { type: Boolean, default: false },
 	context: { type: Object, default: () => ({}) },
 	staticPresentation: { type: Object, default: null },
-	emptyPresentation: { type: String, default: "default" },
-	emptyButtonLabel: { type: String, default: "" },
 });
 
 const emit = defineEmits(["update:modelValue", "update"]);
@@ -186,49 +162,17 @@ const uid =
 
 const controlRef = ref(null);
 
-const isControlEmpty = computed(() => {
-	const struct = coerceStructuredValue(serialize());
-	if (struct.mode === "static") {
-		return struct.value === "" || struct.value === null || struct.value === undefined;
-	}
-	if (struct.mode === "variable") {
-		return !struct.path?.segments?.length && struct.path?.scope !== "doctype";
-	}
-	if (struct.mode === "resolver") {
-		return !struct.family;
-	}
-	if (struct.mode === "template") {
-		return !struct.segments?.length;
-	}
-	return false;
-});
-
-const showSearchableEmptyButton = computed(() => {
-	return (
-		props.emptyPresentation === "searchable_button" &&
-		isControlEmpty.value &&
-		!isReadOnly.value &&
-		!isDynamicMode.value
-	);
-});
-
-function onEmptyButtonClick() {
-	if (isReadOnly.value || props.disabled) return;
-	isDynamicMode.value = true;
-	lastEmittedJSON = "";
-	nextTick(() => {
-		editor.commands.setContent("");
-		editor.commands.focus();
-		editor.commands.insertContent("@");
-	});
-}
-
 const sourceCatalogue = computed(() => {
-	const resolvers = getAllStrategies();
+	const rawStrategies = getAllStrategies();
+	const adaptedResolvers = adaptStrategiesForCatalogue(rawStrategies, {
+		context: resolverContext.value,
+		doctype: triggerDoctype.value,
+		fieldType: fieldType.value,
+	});
 	return buildSourceCatalogue({
 		docFields: props.docFields,
 		variableOptions: availableVariableOptions.value,
-		resolvers: resolvers,
+		resolvers: adaptedResolvers,
 		fieldType: fieldType.value,
 		allowedResolverKinds: allowedBuilderKinds.value,
 		currentDocType: triggerDoctype.value,
@@ -361,7 +305,7 @@ const allowedBuilderKinds = computed(() => {
 
 const staticDf = computed(() => {
 	const cfg = resolvedStaticConfig.value;
-	let ft = fieldType.value;
+	let ft = fieldType.value || "Data";
 	let opts = cfg.options;
 
 	if (cfg.control === "link") {
@@ -372,7 +316,9 @@ const staticDf = computed(() => {
 	} else if (cfg.control === "multi-select") {
 		ft = "MultiSelect";
 	} else if (cfg.control === "input") {
-		ft = "Data";
+		// Preserve native fieldtype (e.g. Int, Float, Currency, Percent, Check, Date, Datetime, Time)
+		// rather than coercing everything to Data!
+		ft = fieldType.value || "Data";
 	}
 
 	return {
@@ -447,6 +393,7 @@ const ResolverToken = Node.create({
 			operation: { default: "" },
 			config: { default: null },
 			resolver: { default: "" },
+			autoOpen: { default: false },
 		};
 	},
 
@@ -1212,32 +1159,17 @@ onBeforeUnmount(() => {
 	flex-direction: column;
 	width: 100%;
 }
-.fvc-searchable-empty-btn {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	width: 100%;
-	height: var(--fxr-input-height, 32px);
-	border: 1px dashed var(--fxr-border-subtle, #cbd5e1);
-	border-radius: var(--fxr-radius-sm, 6px);
-	background-color: var(--fxr-surface-soft, #f8fafc);
-	color: var(--fxr-text-secondary, #64748b);
-	font-size: 12px;
-	font-weight: 500;
-	cursor: pointer;
-	transition: all 0.2s ease;
-	user-select: none;
-}
-
-.fvc-searchable-empty-btn:hover {
-	border-color: var(--fxr-accent, #2563eb);
-	color: var(--fxr-accent, #2563eb);
-	background-color: var(--fxr-accent-soft, #eff6ff);
-}
-
-.fvc-searchable-empty-btn:focus-visible {
-	outline: 2px solid var(--fxr-accent, #2563eb);
-	outline-offset: 1px;
+.fvc-empty-placeholder {
+	position: absolute;
+	top: 50%;
+	transform: translateY(-50%);
+	left: 0;
+	color: var(--fxr-text-faint, #94a3b8);
+	font-size: var(--fxr-input-font-size, 12px);
+	pointer-events: none;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 .fvc-main-field {

@@ -21,6 +21,23 @@ test("static_presentation: defaults according to field metadata", () => {
 	assert.equal(resLink.doctype, "Customer");
 });
 
+test("static_presentation: native fieldtypes preserve input control without destroying fieldtype", () => {
+	const nativeTypes = [
+		"Int",
+		"Float",
+		"Currency",
+		"Percent",
+		"Check",
+		"Date",
+		"Datetime",
+		"Time",
+	];
+	for (const ft of nativeTypes) {
+		const res = resolveStaticPresentation({ fieldType: ft });
+		assert.equal(res.control, "input");
+	}
+});
+
 test("static_presentation: operator-specific requirement overrides default fieldtype", () => {
 	const res = resolveStaticPresentation({
 		fieldType: "Data",
