@@ -8,20 +8,34 @@
 			'has-error': invalid || (showValidation && !isValid),
 		}"
 		v-fxr-fieldname="context?.df?.fieldname || fieldname || null"
-		@keydown.capture="onStaticKeydown"
 	>
 		<!-- ── Main Control Area ── -->
 		<div
 			class="fvc-main-field"
 			:class="{
-				'is-dynamic': isDynamicMode || !isStaticSupported,
-				'is-static-link': !isDynamicMode && isLinkType,
+				'is-dynamic': currentMode !== 'static',
 				'is-multi-select': isMultiSelect,
 			}"
-			@click="onWrapClick"
 		>
-			<!-- Static Mode (via ControlFactory or MultiSelectList) -->
-			<div v-if="!isDynamicMode && isStaticSupported" class="fvc-static-container flex-1">
+			<!-- 1. Source/Mode Pill Button: indicates current mode & opens embedded dropdown -->
+			<div class="fvc-source-badge-wrap">
+				<button
+					type="button"
+					class="fvc-source-pill"
+					:class="sourcePillClass"
+					:disabled="isReadOnly || disabled"
+					:title="__('Select source or calculation')"
+					@click.stop="toggleDropdown"
+				>
+					<i :class="sourcePillIcon"></i>
+					<span class="fvc-source-pill-text">{{ sourcePillLabel }}</span>
+					<i v-if="!isReadOnly && !disabled" class="fa fa-caret-down ml-1"></i>
+				</button>
+			</div>
+
+			<!-- 2. Value Input Area depending on currentMode -->
+			<!-- A. Static Mode -->
+			<div v-if="currentMode === 'static'" class="fvc-editor-container flex-1">
 				<MultiSelectList
 					v-if="isMultiSelectInline"
 					:df="staticDf"
@@ -51,341 +65,240 @@
 				/>
 			</div>
 
-			<!-- Dynamic Mode (Tiptap Editor) -->
-			<div v-show="isDynamicMode || !isStaticSupported" class="fvc-editor-container flex-1">
-				<div class="fvc-editor-wrapper">
-					<editor-content :editor="editor" class="fvc-tiptap-editor" />
-
-					<!-- Inline Actions (JSON Preview) -->
-					<div class="fvc-inline-actions" v-if="!isReadOnly && !isEditorEmpty">
-						<button
-							class="fvc-action-btn"
-							type="button"
-							:title="__('JSON Preview')"
-							@click.stop="openTokenEditor(null, null, 'json')"
-						>
-							<i class="fa fa-code"></i>
-						</button>
-					</div>
-
-					<!-- Contextual placeholder -->
-					<div
-						v-if="!isReadOnly && isEditorEmpty && !isEditorFocused"
-						class="fvc-empty-hint"
-					>
-						<span class="hint-part">|</span> {{ __("static") }}
-						<span class="hint-sep">·</span>
-						<span class="hint-at">@</span>{{ __("variable") }}
-						<span class="hint-sep">·</span>
-						<span class="hint-slash">/</span>{{ __("resolver") }}
-					</div>
-					<div
-						v-else-if="!isReadOnly && isEditorEmpty && isEditorFocused"
-						class="fvc-focus-hint"
-					>
-						{{
-							placeholder ||
-							__("Type Value or @ for Variable or / for advanced Resolver")
-						}}
-					</div>
-				</div>
-			</div>
-
-			<!-- Visible Source Picker Trigger (for variables/fields) -->
+			<!-- B. Variable Mode (displays selected variable path, click opens source dropdown) -->
 			<div
-				v-if="!isReadOnly && availableVariableOptions.length"
-				class="fvc-source-browse-wrap"
+				v-else-if="currentMode === 'variable'"
+				class="fvc-editor-container flex-1 fvc-variable-display"
+				@click="!isReadOnly && !disabled && openDropdown()"
 			>
+				<span class="token-chip token-variable text-truncate">
+					<i class="fa fa-cube mr-1"></i>
+					{{ currentVariableLabel }}
+				</span>
 				<button
+					v-if="!isReadOnly && !disabled"
 					type="button"
-					class="fvc-browse-btn"
-					:title="__('Browse available fields and values')"
-					@click.stop="toggleSourcePicker"
+					class="fvc-clear-source-btn"
+					:title="__('Clear source / Switch to fixed value')"
+					@click.stop="switchToStatic"
 				>
-					<i class="fa fa-list-ul"></i>
+					<i class="fa fa-times"></i>
 				</button>
 			</div>
 
-			<!-- Mode Toggle Button -->
-			<div v-if="isStaticSupported && !isReadOnly" class="fvc-mode-toggle-wrap">
+			<!-- C. Resolver Mode (guided resolver configuration) -->
+			<div
+				v-else-if="currentMode === 'resolver'"
+				class="fvc-editor-container flex-1 fvc-resolver-display"
+				@click="!isReadOnly && !disabled && openResolverEditor()"
+			>
+				<span class="token-chip token-resolver text-truncate">
+					<i class="fa fa-bolt mr-1"></i>
+					{{ currentResolverLabel }}
+				</span>
+				<div class="d-flex align-items-center fxr-gap-1" v-if="!isReadOnly && !disabled">
+					<button
+						type="button"
+						class="fvc-action-btn"
+						:title="__('Configure resolver')"
+						@click.stop="openResolverEditor"
+					>
+						<i class="fa fa-pencil"></i>
+					</button>
+					<button
+						type="button"
+						class="fvc-clear-source-btn"
+						:title="__('Clear resolver / Switch to fixed value')"
+						@click.stop="switchToStatic"
+					>
+						<i class="fa fa-times"></i>
+					</button>
+				</div>
+			</div>
+
+			<!-- D. Template Mode (fallback structured template display) -->
+			<div
+				v-else-if="currentMode === 'template'"
+				class="fvc-editor-container flex-1 fvc-template-display"
+			>
+				<span class="fvc-template-preview text-truncate">
+					{{ currentTemplatePreview }}
+				</span>
 				<button
+					v-if="!isReadOnly && !disabled"
 					type="button"
-					class="fvc-toggle-btn"
-					:title="
-						isDynamicMode
-							? __('Switch to Static Value')
-							: __('Switch to Expression / Formula')
-					"
-					@click.stop="toggleDynamicMode"
+					class="fvc-clear-source-btn"
+					:title="__('Clear template / Switch to fixed value')"
+					@click.stop="switchToStatic"
 				>
-					<i :class="isDynamicMode ? 'fa fa-keyboard-o' : 'fa fa-bolt'"></i>
+					<i class="fa fa-times"></i>
 				</button>
 			</div>
 		</div>
 
-		<!-- validation error -->
-		<div v-if="showValidation && !isValid" class="fxr-error-msg">
-			{{ __("{0} is required").replace("{0}", context?.df?.label || __("Field")) }}
-		</div>
-
-		<!-- ── Source Picker Popover (Teleported) ── -->
-		<Teleport to="body">
-			<div
-				v-if="isSourcePickerOpen"
-				class="fxr-picker-popover-backdrop"
-				@click.self="isSourcePickerOpen = false"
-			>
-				<div class="fxr-picker-popover-container" :style="pickerPopoverStyle">
-					<SourcePickerPopover
-						:options="availableVariableOptions"
-						:currentValue="currentFlexValue"
-						@select="onSourceSelected"
-						@close="isSourcePickerOpen = false"
-					/>
-				</div>
+		<!-- ── Embedded Searchable Source Dropdown (Compact, attached directly to control) ── -->
+		<div v-if="isDropdownOpen" class="fvc-embedded-dropdown" ref="dropdownRef">
+			<div class="fvc-dropdown-search">
+				<i class="fa fa-search text-muted mr-1"></i>
+				<input
+					ref="searchInputRef"
+					type="text"
+					v-model="searchQuery"
+					class="fvc-search-input"
+					:placeholder="__('Search fields, variables, resolvers...')"
+					@keydown.esc.stop="closeDropdown"
+				/>
+				<button
+					v-if="searchQuery"
+					type="button"
+					class="fvc-icon-btn"
+					@click="searchQuery = ''"
+				>
+					<i class="fa fa-times"></i>
+				</button>
 			</div>
-		</Teleport>
 
-		<!-- ── Token Editor Modal ── -->
-		<Teleport to="body">
-			<div
-				v-if="activeTokenType"
-				class="fxr-token-modal-overlay"
-				@click.self="closeTokenEditor"
-			>
-				<div class="fxr-token-modal-container">
-					<!-- Header -->
-					<div class="fxr-token-modal-header">
-						<div class="d-flex align-items-center" style="gap: 8px">
+			<div class="fvc-dropdown-body">
+				<!-- Switch to Fixed Value option if not static -->
+				<div
+					v-if="currentMode !== 'static'"
+					class="fvc-dropdown-item fvc-item-fixed"
+					@click="switchToStatic"
+				>
+					<i class="fa fa-font mr-2 text-muted"></i>
+					<span class="flex-1 font-weight-bold">{{
+						__("Enter Fixed / Static Value")
+					}}</span>
+				</div>
+
+				<!-- Categories & Items -->
+				<div v-if="filteredGroups.length === 0" class="fvc-empty-msg">
+					{{ __("No matching sources found") }}
+				</div>
+
+				<div v-for="group in filteredGroups" :key="group.name" class="fvc-group">
+					<div class="fvc-group-header">
+						<i :class="group.icon" class="mr-1"></i>
+						{{ group.label }}
+					</div>
+					<div
+						v-for="item in group.items"
+						:key="item.value"
+						class="fvc-dropdown-item"
+						:class="{ 'is-selected': isItemSelected(item) }"
+						@click="selectItem(item)"
+					>
+						<div class="d-flex align-items-center text-truncate flex-1">
+							<span class="item-label font-weight-medium text-truncate mr-2">
+								{{ item.friendlyLabel || item.label || item.value }}
+							</span>
+							<span
+								v-if="item.fieldtype"
+								class="badge badge-light text-muted small mr-1"
+							>
+								{{ item.fieldtype }}
+							</span>
+						</div>
+						<span class="item-path text-muted font-monospace small">
+							{{ item.value }}
+						</span>
+					</div>
+				</div>
+
+				<!-- Approved Resolvers Group (if allowed) -->
+				<div v-if="approvedResolverOptions.length" class="fvc-group">
+					<div class="fvc-group-header">
+						<i class="fa fa-bolt mr-1"></i>
+						{{ __("Calculations & Resolvers") }}
+					</div>
+					<div
+						v-for="res in approvedResolverOptions"
+						:key="res.key"
+						class="fvc-dropdown-item"
+						@click="selectResolver(res)"
+					>
+						<div class="d-flex align-items-center text-truncate flex-1">
 							<i
-								:class="activeTokenPresentation.icon"
-								style="font-size: 14px; color: #64748b"
+								:class="res.icon || 'fa fa-calculator'"
+								class="mr-2 text-primary"
 							></i>
-							<span style="font-weight: 600; font-size: 14px">{{
-								activeTokenPresentation.title
-							}}</span>
+							<span class="item-label font-weight-medium text-truncate mr-2">
+								{{ res.label }}
+							</span>
+						</div>
+						<span class="item-path text-muted font-monospace small">
+							{{ res.family }}.{{ res.operation }}
+						</span>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- ── Guided Resolver Config Modal (Teleported) ── -->
+		<Teleport to="body">
+			<div
+				v-if="isResolverModalOpen"
+				class="fxr-resolver-modal-overlay"
+				@click.self="isResolverModalOpen = false"
+			>
+				<div class="fxr-resolver-modal-card">
+					<div class="fxr-resolver-modal-header">
+						<div class="d-flex align-items-center fxr-gap-2">
+							<i class="fa fa-bolt text-primary"></i>
+							<h6 class="mb-0 font-weight-bold">{{ resolverModalTitle }}</h6>
 						</div>
 						<button
 							type="button"
 							class="fvc-action-btn"
-							@click="closeTokenEditor"
-							:title="__('Close')"
+							@click="isResolverModalOpen = false"
 						>
 							<i class="fa fa-times"></i>
 						</button>
 					</div>
-
-					<!-- Body -->
-					<div class="fxr-token-modal-body">
-						<!-- JSON Editor Mode -->
-						<template v-if="activeTokenType === 'json'">
-							<textarea
-								class="json-textarea"
-								v-model="tokenDraftAttrs.value"
-								:placeholder="__('Paste or edit JSON/Expression here...')"
-							></textarea>
-							<div
-								v-if="jsonParseError"
-								class="text-danger mt-1"
-								style="font-size: 12px"
-							>
-								{{ jsonParseError }}
-							</div>
-						</template>
-
-						<!-- Visual Builder / Manual Editor -->
-						<template v-else>
-							<!-- Mode Toggle: Builder vs Manual -->
-							<div class="d-flex align-items-center justify-content-between mb-3">
-								<span class="fxr-label-sm mb-0">{{ __("Edit Mode") }}</span>
-								<div class="d-flex align-items-center" style="gap: 6px">
-									<button
-										type="button"
-										class="fvc-action-btn"
-										:style="
-											!isManualMode
-												? 'color: var(--fxr-accent); font-weight: 700'
-												: ''
-										"
-										@click="isManualMode = false"
-									>
-										<i class="fa fa-th-large mr-1"></i> {{ __("Visual") }}
-									</button>
-									<span style="color: #cbd5e1">|</span>
-									<button
-										type="button"
-										class="fvc-action-btn"
-										:style="
-											isManualMode
-												? 'color: var(--fxr-accent); font-weight: 700'
-												: ''
-										"
-										@click="isManualMode = true"
-									>
-										<i class="fa fa-code mr-1"></i> {{ __("Manual") }}
-									</button>
-								</div>
-							</div>
-
-							<!-- Visual Builder -->
-							<div v-if="!isManualMode">
-								<ValueResolverControl
-									viewMode="inline"
-									:modelValue="tokenDraftAttrs.config"
-									:doctype="triggerDoctype"
-									:context="resolverContext"
-									:variableOptions="availableVariableOptions"
-									:allowedKinds="allowedBuilderKinds"
-									@update:modelValue="handleBuilderUpdate"
-								/>
-								<div v-if="builderErrors.length" class="mt-3">
-									<div
-										v-for="err in builderErrors"
-										:key="err"
-										class="text-danger fxr-text-xs"
-									>
-										<i class="fa fa-exclamation-triangle mr-1"></i> {{ err }}
-									</div>
-								</div>
-							</div>
-
-							<!-- Manual Formula Editor -->
-							<div v-else>
-								<div class="d-flex flex-column" style="gap: 8px">
-									<label class="fxr-label-sm">{{ __("Expression") }}</label>
-									<textarea
-										ref="formulaTextareaRef"
-										class="formula-textarea"
-										v-model="tokenDraftAttrs.expression"
-										:placeholder="
-											__('e.g. frappe.utils.add_days(doc.posting_date, 7)')
-										"
-									></textarea>
-								</div>
-
-								<!-- Variable pills -->
-								<div
-									v-if="
-										availableVariableOptions && availableVariableOptions.length
-									"
-									class="mt-2"
-								>
-									<label class="fxr-label-sm">{{ __("Insert Variable") }}</label>
-									<div class="variables-pill-grid">
-										<button
-											v-for="v in availableVariableOptions"
-											:key="v.value || v"
-											type="button"
-											class="var-pill-btn"
-											@click="insertVarInFormula(v)"
-										>
-											{{ v.label || v }}
-										</button>
-									</div>
-								</div>
-
-								<!-- Config params for resolver -->
-								<div class="mt-3" v-if="activeTokenType === 'resolver'">
-									<div
-										class="d-flex align-items-center justify-content-between mb-2"
-									>
-										<label class="fxr-label-sm mb-0">{{ __("Config") }}</label>
-										<button
-											type="button"
-											class="fvc-action-btn"
-											@click="addConfigParam"
-										>
-											<i class="fa fa-plus mr-1"></i> {{ __("Add Param") }}
-										</button>
-									</div>
-									<div
-										v-if="
-											tokenDraftAttrs.config &&
-											typeof tokenDraftAttrs.config === 'object'
-										"
-										class="d-flex flex-column"
-										style="gap: 6px"
-									>
-										<div
-											v-for="(val, key) in tokenDraftAttrs.config"
-											:key="key"
-											class="d-flex align-items-center"
-											style="gap: 6px"
-										>
-											<input
-												type="text"
-												class="fxr-input"
-												style="width: 120px; font-size: 12px"
-												:value="key"
-												@change="renameConfigKey(key, $event.target.value)"
-												:placeholder="__('key')"
-											/>
-											<input
-												type="text"
-												class="fxr-input flex-1"
-												style="font-size: 12px"
-												v-model="tokenDraftAttrs.config[key]"
-												:placeholder="__('value')"
-											/>
-											<button
-												type="button"
-												class="fvc-action-btn"
-												@click="removeConfigKey(key)"
-											>
-												<i class="fa fa-trash"></i>
-											</button>
-										</div>
-									</div>
-								</div>
-							</div>
-						</template>
+					<div class="fxr-resolver-modal-body">
+						<ValueResolverControl
+							viewMode="inline"
+							:modelValue="resolverDraftConfig"
+							:doctype="triggerDoctype"
+							:context="resolverContext"
+							:variableOptions="availableVariableOptions"
+							:allowedKinds="allowedBuilderKinds"
+							@update:modelValue="onResolverBuilderUpdate"
+						/>
 					</div>
-
-					<!-- Footer -->
-					<div class="fxr-token-modal-footer">
+					<div class="fxr-resolver-modal-footer">
 						<button
 							type="button"
 							class="fxr-btn fxr-btn--secondary"
-							@click="closeTokenEditor"
+							@click="isResolverModalOpen = false"
 						>
 							{{ __("Cancel") }}
 						</button>
 						<button
 							type="button"
 							class="fxr-btn fxr-btn--primary"
-							@click="saveTokenEditor"
-							:disabled="!isManualMode && !isBuilderValid"
+							@click="saveResolverConfig"
 						>
-							{{ __("Save") }}
+							{{ __("Done") }}
 						</button>
 					</div>
 				</div>
 			</div>
 		</Teleport>
+
+		<!-- validation error -->
+		<div v-if="showValidation && !isValid" class="fxr-error-msg">
+			{{ __("{0} is required").replace("{0}", context?.df?.label || __("Field")) }}
+		</div>
 	</div>
 </template>
 
 <script setup>
-import { computed, ref, watch, onBeforeUnmount, nextTick } from "vue";
-import { Editor, EditorContent, VueRenderer, VueNodeViewRenderer } from "@tiptap/vue-3";
-import { StarterKit } from "@tiptap/starter-kit";
-import { Node, mergeAttributes } from "@tiptap/core";
-import Mention from "@tiptap/extension-mention";
-import { PluginKey } from "@tiptap/pm/state";
-import tippy from "tippy.js";
-
-import {
-	getCommandsForFieldtype,
-	getFormulasForFieldtype,
-	getAllowedBuilderKinds,
-} from "../../core/formula_registry";
-import { compileToCode, compileToLabel } from "../../core/builder_utils.js";
-import MentionList from "./MentionList.vue";
+import { computed, ref, watch, onMounted, onBeforeUnmount, nextTick } from "vue";
 import ControlFactory from "./ControlFactory.vue";
 import MultiSelectList from "./MultiSelectList.vue";
 import ValueResolverControl from "./ValueResolverControl.vue";
-import ResolverTokenView from "./ResolverTokenView.vue";
-import SourcePickerPopover from "./SourcePickerPopover.vue";
+import { getAllowedBuilderKinds } from "../../core/formula_registry";
 
 const props = defineProps({
 	modelValue: { type: [Object, String, Number, Boolean], default: null },
@@ -403,126 +316,42 @@ const props = defineProps({
 	context: { type: Object, default: () => ({}) },
 });
 
-const emit = defineEmits(["update:modelValue", "update"]);
+const emit = defineEmits(["update:modelValue", "update", "change"]);
 
 const isReadOnly = computed(() => !!props.readOnly || !!props.read_only);
-const TEXT_FIELDTYPES = new Set([
-	"Data",
-	"Small Text",
-	"Text",
-	"Long Text",
-	"Code",
-	"Text Editor",
-	"JSON",
-]);
-const isMultiSelect = computed(() => {
-	const ft = fieldType.value;
-	if (["MultiSelect", "MultiSelectList", "Table MultiSelect", "MultiCheck"].includes(ft)) {
-		return true;
-	}
 
-	const op = props.context?.operator;
-	const isListOp = ["in", "not in", "not_in", "in list", "not in list"].includes(
-		String(op || "").toLowerCase()
-	);
-	if (!isListOp) return false;
-
-	return ft === "Select" || TEXT_FIELDTYPES.has(ft) || ft === "Link" || ft === "Dynamic Link";
-});
-
-const isMultiSelectInline = computed(() => {
-	const op = props.context?.operator;
-	const isListOp = ["in", "not in", "not_in", "in list", "not in list"].includes(
-		String(op || "").toLowerCase()
-	);
-	if (!isListOp) return false;
-
-	const ft = fieldType.value;
-	return ft === "Select" || TEXT_FIELDTYPES.has(ft) || ft === "Link" || ft === "Dynamic Link";
-});
-const isDynamicMode = ref(false);
-const isEditorFocused = ref(false);
-const isSuggestionOpen = ref(false);
-const activeTippyPopups = [];
-const uid =
-	Math.random().toString(36).substring(2, 15) + "_" + Math.random().toString(36).substring(2, 15);
-
+// ── Dropdown / Search State ──
 const controlRef = ref(null);
-const formulaTextareaRef = ref(null);
+const dropdownRef = ref(null);
+const searchInputRef = ref(null);
+const isDropdownOpen = ref(false);
+const searchQuery = ref("");
 
-// Source Picker Popover State
-const isSourcePickerOpen = ref(false);
-const pickerPopoverStyle = ref({});
+// ── Resolver Modal State ──
+const isResolverModalOpen = ref(false);
+const resolverDraftConfig = ref({});
+const resolverDraftFamily = ref("math");
+const resolverDraftOperation = ref("formula");
 
-function toggleSourcePicker() {
-	if (isReadOnly.value || props.disabled) return;
-	if (isSourcePickerOpen.value) {
-		isSourcePickerOpen.value = false;
-		return;
-	}
-
-	if (controlRef.value) {
-		const rect = controlRef.value.getBoundingClientRect();
-		pickerPopoverStyle.value = {
-			position: "fixed",
-			top: `${rect.bottom + 4}px`,
-			left: `${Math.max(10, rect.left)}px`,
-			zIndex: 14500,
-		};
-	}
-	isSourcePickerOpen.value = true;
-}
-
-const currentFlexValue = computed(() => {
-	return coerceStructuredValue(serialize());
-});
-
-function onSourceSelected(item) {
-	isSourcePickerOpen.value = false;
-	const val = item.value || item;
-	const path = String(val).startsWith("@") ? String(val).substring(1) : String(val);
-
-	// Split into scope and segments
-	const parts = path.split(".");
-	const knownScopes = new Set(["doc", "old_doc", "vars", "caller", "rule", "doctype"]);
-	const scope = knownScopes.has(parts[0]) ? parts[0] : parts.length > 1 ? parts[0] : "doc";
-	const segments = knownScopes.has(parts[0]) || parts.length > 1 ? parts.slice(1) : parts;
-
-	isDynamicMode.value = true;
-	lastEmittedJSON = "";
-	editor.commands.setContent("");
-	const canonicalPath = segments.length ? scope + "." + segments.join(".") : scope;
-	editor.commands.insertContent({
-		type: "variableToken",
-		attrs: {
-			path: canonicalPath,
-			label: item.friendlyLabel || item.label || canonicalPath,
-		},
-	});
-	emitChanges();
-}
-
-// Modal state
-const activeTokenType = ref(null);
-const activeTokenNode = ref(null);
-const activeTokenPos = ref(null);
-const tokenDraftAttrs = ref({});
-const jsonParseError = ref("");
-const isBuilderValid = ref(true);
-const builderErrors = ref([]);
-
-// Static Mode Helpers
+// ── Mode & Value State ──
+// Canonical modes: 'static' | 'variable' | 'resolver' | 'template'
+const currentMode = ref("static");
 const staticValue = ref("");
+const variablePath = ref({ scope: "doc", segments: [] });
+const variableLabel = ref("");
+const resolverPayload = ref(null);
+const templateSegments = ref([]);
 
+let lastEmittedJSON = "";
+
+// ── Type metadata helpers ──
 const fieldType = computed(() => props.context?.df?.fieldtype || "Data");
 const fieldOptions = computed(() => props.context?.df?.options || []);
 const referenceDoctype = computed(() => {
 	if (fieldType.value === "Link" && fieldOptions.value) {
 		return fieldOptions.value;
 	}
-
 	const opts = fieldOptions.value;
-
 	if (opts && typeof opts === "string" && props.context?.filters) {
 		const filterVal = props.context.filters[opts];
 		if (filterVal !== undefined && filterVal !== null) {
@@ -534,7 +363,6 @@ const referenceDoctype = computed(() => {
 			}
 		}
 	}
-
 	return props.context?.referenceDoctype || opts || "";
 });
 
@@ -562,87 +390,45 @@ const isLinkType = computed(() => {
 	);
 });
 
-const PURE_TEXT_FIELDTYPES = new Set(["Code", "Text Editor", "JSON"]);
+const TEXT_FIELDTYPES = new Set([
+	"Data",
+	"Small Text",
+	"Text",
+	"Long Text",
+	"Code",
+	"Text Editor",
+	"JSON",
+]);
 
-const isStaticSupported = computed(() => {
-	if (isMultiSelect.value) return true;
-	return !PURE_TEXT_FIELDTYPES.has(fieldType.value);
+const isMultiSelect = computed(() => {
+	const ft = fieldType.value;
+	if (["MultiSelect", "MultiSelectList", "Table MultiSelect", "MultiCheck"].includes(ft)) {
+		return true;
+	}
+	const op = props.context?.operator;
+	const isListOp = ["in", "not in", "not_in", "in list", "not in list"].includes(
+		String(op || "").toLowerCase()
+	);
+	if (!isListOp) return false;
+	return ft === "Select" || TEXT_FIELDTYPES.has(ft) || ft === "Link" || ft === "Dynamic Link";
 });
 
-const RESOLVER_LEVEL_KIND_MAP = {
-	basic: ["system_context", "text"],
-	standard: ["date_time", "system_context", "text"],
-	advanced: ["date_time", "math_formula", "collection", "system_context", "text"],
-	full: null,
-};
-
-const configuredResolverLevel = computed(() => {
-	return String(
-		props.context?.resolverLevel ||
-			props.context?.allowedResolverLevel ||
-			props.engine?.settings?.value_resolver_level ||
-			props.engine?.settings?.resolver_level ||
-			"full"
-	)
-		.toLowerCase()
-		.trim();
-});
-
-const availableVariableOptions = computed(() => {
-	let options = Array.isArray(props.variableOptions) ? [...props.variableOptions] : [];
-
-	if (typeof props.context?.getVariableOptions === "function") {
-		options = props.context.getVariableOptions(options, {
-			fieldType: fieldType.value,
-			context: props.context,
-		});
-	}
-
-	if (typeof props.context?.filterVariableOptions === "function") {
-		options = options.filter((item) =>
-			props.context.filterVariableOptions(item, {
-				fieldType: fieldType.value,
-				context: props.context,
-			})
-		);
-	}
-
-	return Array.isArray(options) ? options : [];
-});
-
-const allowedBuilderKinds = computed(() => {
-	let kinds =
-		Array.isArray(props.context?.allowedKinds) && props.context.allowedKinds.length
-			? [...props.context.allowedKinds]
-			: getAllowedBuilderKinds(fieldType.value);
-
-	if (typeof props.context?.getAllowedKinds === "function") {
-		kinds = props.context.getAllowedKinds(kinds, {
-			fieldType: fieldType.value,
-			context: props.context,
-		});
-	}
-
-	const levelKinds = RESOLVER_LEVEL_KIND_MAP[configuredResolverLevel.value];
-	if (Array.isArray(levelKinds)) {
-		if (Array.isArray(kinds)) {
-			kinds = kinds.filter((kind) => levelKinds.includes(kind));
-		} else {
-			kinds = [...levelKinds];
-		}
-	}
-
-	return Array.isArray(kinds) && kinds.length ? kinds : null;
+const isMultiSelectInline = computed(() => {
+	const op = props.context?.operator;
+	const isListOp = ["in", "not in", "not_in", "in list", "not in list"].includes(
+		String(op || "").toLowerCase()
+	);
+	if (!isListOp) return false;
+	const ft = fieldType.value;
+	return ft === "Select" || TEXT_FIELDTYPES.has(ft) || ft === "Link" || ft === "Dynamic Link";
 });
 
 const staticDf = computed(() => {
 	let ft = fieldType.value;
 	let opts = fieldOptions.value;
-
 	if (ft === "Link") {
 		opts = referenceDoctype.value;
 	}
-
 	return {
 		...props.context?.df,
 		fieldtype: ft,
@@ -653,395 +439,382 @@ const staticDf = computed(() => {
 	};
 });
 
-// ── Tiptap Extensions ──
-
-const VariableToken = Node.create({
-	name: "variableToken",
-	group: "inline",
-	inline: true,
-	selectable: true,
-	atom: true,
-	addAttributes() {
-		return {
-			path: {
-				default: "",
-				parseHTML: (element) =>
-					element.getAttribute("data-path") || element.getAttribute("path") || "",
-				renderHTML: (attrs) => ({ "data-path": attrs.path || "" }),
-			},
-			label: {
-				default: "",
-				parseHTML: (element) =>
-					element.getAttribute("data-label") || element.getAttribute("label") || "",
-				renderHTML: (attrs) => ({ "data-label": attrs.label || "" }),
-			},
-		};
-	},
-	parseHTML() {
-		return [{ tag: 'span[data-token-type="variable"]' }];
-	},
-	renderHTML({ node, HTMLAttributes }) {
-		return [
-			"span",
-			mergeAttributes(HTMLAttributes, {
-				"data-token-type": "variable",
-				class: "token-chip token-variable",
-			}),
-			`👤 ${node.attrs.label || node.attrs.path}`,
-		];
-	},
+// ── Available variable options ──
+const availableVariableOptions = computed(() => {
+	let options = Array.isArray(props.variableOptions) ? [...props.variableOptions] : [];
+	if (typeof props.context?.getVariableOptions === "function") {
+		options = props.context.getVariableOptions(options, {
+			fieldType: fieldType.value,
+			context: props.context,
+		});
+	}
+	if (typeof props.context?.filterVariableOptions === "function") {
+		options = options.filter((item) =>
+			props.context.filterVariableOptions(item, {
+				fieldType: fieldType.value,
+				context: props.context,
+			})
+		);
+	}
+	return Array.isArray(options) ? options : [];
 });
 
-const ResolverToken = Node.create({
-	name: "resolverToken",
-	group: "inline",
-	inline: true,
-	selectable: true,
-	atom: true,
-
-	addOptions() {
-		return {
-			doctype: "",
-			readOnly: false,
-			context: {},
-		};
-	},
-
-	addAttributes() {
-		return {
-			expression: { default: "" },
-			label: { default: "" },
-			family: { default: "" },
-			operation: { default: "" },
-			config: { default: null },
-			resolver: { default: "" },
-		};
-	},
-
-	parseHTML() {
-		const getAttrs = (dom) => {
-			const configRaw = dom.getAttribute("data-config");
-			let config = null;
-			if (configRaw) {
-				try {
-					config = JSON.parse(configRaw);
-				} catch (e) {
-					config = null;
-				}
-			}
-			return {
-				expression: dom.getAttribute("data-expression") || "",
-				resolver: dom.getAttribute("data-resolver") || "",
-				label: dom.getAttribute("data-label") || "",
-				family: dom.getAttribute("data-family") || "",
-				operation: dom.getAttribute("data-operation") || "",
-				config: config,
-			};
-		};
-		return [
-			{ tag: 'span[data-token-type="resolver"]', getAttrs },
-			{ tag: 'span[data-token-type="formula"]', getAttrs },
-			{ tag: 'span[data-token-type="normalize"]', getAttrs },
-			{ tag: 'span[data-token-type="format"]', getAttrs },
-		];
-	},
-
-	renderHTML({ node, HTMLAttributes }) {
-		return [
-			"span",
-			mergeAttributes(HTMLAttributes, {
-				"data-token-type": "resolver",
-				"data-config": JSON.stringify(node.attrs.config),
-				"data-family": node.attrs.family || "",
-				"data-operation": node.attrs.operation || "",
-				"data-expression": node.attrs.expression,
-				"data-label": node.attrs.label,
-			}),
-			0,
-		];
-	},
-
-	addNodeView() {
-		return VueNodeViewRenderer(ResolverTokenView);
-	},
+const allowedBuilderKinds = computed(() => {
+	let kinds =
+		Array.isArray(props.context?.allowedKinds) && props.context.allowedKinds.length
+			? [...props.context.allowedKinds]
+			: getAllowedBuilderKinds(fieldType.value);
+	if (typeof props.context?.getAllowedKinds === "function") {
+		kinds = props.context.getAllowedKinds(kinds, {
+			fieldType: fieldType.value,
+			context: props.context,
+		});
+	}
+	return Array.isArray(kinds) && kinds.length ? kinds : null;
 });
 
-function createSuggestionRenderer() {
-	let component;
-	let popup;
+// Approved Resolvers mapped to options
+const approvedResolverOptions = computed(() => {
+	if (props.context?.allowResolvers === false) return [];
+	const kinds = allowedBuilderKinds.value || ["math_formula", "text", "date_time", "lookup"];
+	const options = [];
+	if (kinds.includes("math_formula")) {
+		options.push({
+			key: "math_formula",
+			family: "math",
+			operation: "formula",
+			label: __("Math Formula"),
+			icon: "fa fa-calculator",
+		});
+	}
+	if (kinds.includes("text")) {
+		options.push({
+			key: "text_combine",
+			family: "text",
+			operation: "combine",
+			label: __("Text Combine"),
+			icon: "fa fa-font",
+		});
+	}
+	if (kinds.includes("date_time")) {
+		options.push({
+			key: "date_time_calculate",
+			family: "date_time",
+			operation: "calculate",
+			label: __("Date/Time Calculation"),
+			icon: "fa fa-calendar",
+		});
+	}
+	if (kinds.includes("lookup")) {
+		options.push({
+			key: "lookup_fetch",
+			family: "lookup",
+			operation: "fetch",
+			label: __("Record Lookup"),
+			icon: "fa fa-search",
+		});
+	}
+	return options;
+});
+
+// Grouped variable sources for compact embedded dropdown
+const categorizedGroups = computed(() => {
+	const raw = availableVariableOptions.value;
+	const docItems = [];
+	const oldDocItems = [];
+	const stepItems = [];
+	const contextItems = [];
+	const otherItems = [];
+
+	for (const opt of raw) {
+		const val = opt.value || opt;
+		const label = opt.label || val;
+		const strVal = String(val);
+
+		const item = {
+			...opt,
+			value: strVal,
+			label: label,
+			friendlyLabel: cleanFriendlyLabel(label, strVal),
+		};
+
+		if (strVal.startsWith("old_doc.")) {
+			oldDocItems.push(item);
+		} else if (strVal.startsWith("doc.") || (!strVal.includes(".") && !opt.is_context)) {
+			docItems.push(item);
+		} else if (strVal.startsWith("vars.") || strVal.startsWith("steps.")) {
+			stepItems.push(item);
+		} else if (
+			opt.is_context ||
+			strVal.startsWith("rule.") ||
+			strVal.startsWith("caller.") ||
+			strVal === "doctype"
+		) {
+			contextItems.push(item);
+		} else {
+			otherItems.push(item);
+		}
+	}
+
+	const groups = [];
+	if (docItems.length) {
+		groups.push({
+			name: "doc",
+			label: __("Document Fields"),
+			icon: "fa fa-file-text-o",
+			items: docItems,
+		});
+	}
+	if (oldDocItems.length) {
+		groups.push({
+			name: "old_doc",
+			label: __("Previous Document (old_doc)"),
+			icon: "fa fa-history",
+			items: oldDocItems,
+		});
+	}
+	if (stepItems.length) {
+		groups.push({
+			name: "vars",
+			label: __("Step Outputs & Variables"),
+			icon: "fa fa-cubes",
+			items: stepItems,
+		});
+	}
+	if (contextItems.length) {
+		groups.push({
+			name: "context",
+			label: __("Rule & System Context"),
+			icon: "fa fa-info-circle",
+			items: contextItems,
+		});
+	}
+	if (otherItems.length) {
+		groups.push({
+			name: "other",
+			label: __("Other Sources"),
+			icon: "fa fa-sliders",
+			items: otherItems,
+		});
+	}
+	return groups;
+});
+
+function cleanFriendlyLabel(label, value) {
+	if (!label) return value;
+	const parenMatch = label.match(/\(([^)]+)\)/);
+	if (parenMatch && parenMatch[1]) {
+		return parenMatch[1].trim();
+	}
+	return label.replace(/^(doc|old_doc|vars|caller|rule)\./, "");
+}
+
+const filteredGroups = computed(() => {
+	const q = searchQuery.value.toLowerCase().trim();
+	if (!q) return categorizedGroups.value;
+
+	const result = [];
+	for (const group of categorizedGroups.value) {
+		const matching = group.items.filter((item) => {
+			return (
+				item.value.toLowerCase().includes(q) ||
+				(item.label && item.label.toLowerCase().includes(q)) ||
+				(item.friendlyLabel && item.friendlyLabel.toLowerCase().includes(q)) ||
+				(item.fieldtype && item.fieldtype.toLowerCase().includes(q))
+			);
+		});
+		if (matching.length) {
+			result.push({
+				...group,
+				items: matching,
+			});
+		}
+	}
+	return result;
+});
+
+// ── Source Pill Display Helpers ──
+const sourcePillClass = computed(() => {
+	if (currentMode.value === "variable") return "is-var";
+	if (currentMode.value === "resolver") return "is-resolver";
+	if (currentMode.value === "template") return "is-template";
+	return "is-static";
+});
+
+const sourcePillIcon = computed(() => {
+	if (currentMode.value === "variable") return "fa fa-cube";
+	if (currentMode.value === "resolver") return "fa fa-bolt";
+	if (currentMode.value === "template") return "fa fa-code";
+	return "fa fa-font";
+});
+
+const sourcePillLabel = computed(() => {
+	if (currentMode.value === "variable") return __("Field/Var");
+	if (currentMode.value === "resolver") return __("Calculation");
+	if (currentMode.value === "template") return __("Template");
+	return __("Fixed");
+});
+
+const currentVariableLabel = computed(() => {
+	if (variableLabel.value) return variableLabel.value;
+	const p = variablePath.value;
+	const segs = p?.segments || [];
+	return segs.length ? `${p.scope || "doc"}.${segs.join(".")}` : p?.scope || "";
+});
+
+const currentResolverLabel = computed(() => {
+	if (!resolverPayload.value) return __("Calculation");
+	const fam = resolverPayload.value.family || "";
+	const op = resolverPayload.value.operation || "";
+	return `${fam}.${op}`;
+});
+
+const currentTemplatePreview = computed(() => {
+	if (!templateSegments.value?.length) return "";
+	return templateSegments.value.map((s) => (s.type === "text" ? s.value : "[Dynamic]")).join("");
+});
+
+const resolverModalTitle = computed(() => {
+	return __("Configure {0}.{1}")
+		.replace("{0}", resolverDraftFamily.value)
+		.replace("{1}", resolverDraftOperation.value);
+});
+
+// ── Dropdown & Selection Handlers ──
+function toggleDropdown() {
+	if (isReadOnly.value || props.disabled) return;
+	if (isDropdownOpen.value) {
+		closeDropdown();
+	} else {
+		openDropdown();
+	}
+}
+
+function openDropdown() {
+	if (isReadOnly.value || props.disabled) return;
+	isDropdownOpen.value = true;
+	searchQuery.value = "";
+	nextTick(() => {
+		searchInputRef.value?.focus();
+	});
+}
+
+function closeDropdown() {
+	isDropdownOpen.value = false;
+	searchQuery.value = "";
+}
+
+function isItemSelected(item) {
+	if (currentMode.value !== "variable") return false;
+	const path = variablePath.value;
+	const pathStr = path.segments?.length ? `${path.scope}.${path.segments.join(".")}` : path.scope;
+	return item.value === pathStr || item.value === path.segments?.join(".");
+}
+
+function selectItem(item) {
+	const val = item.value || item;
+	const pathStr = String(val).startsWith("@") ? String(val).substring(1) : String(val);
+	const parts = pathStr.split(".");
+	const knownScopes = new Set(["doc", "old_doc", "vars", "caller", "rule", "doctype"]);
+	const scope = knownScopes.has(parts[0]) ? parts[0] : parts.length > 1 ? parts[0] : "doc";
+	const segments = knownScopes.has(parts[0]) || parts.length > 1 ? parts.slice(1) : parts;
+
+	currentMode.value = "variable";
+	variablePath.value = { scope, segments };
+	variableLabel.value = item.friendlyLabel || item.label || pathStr;
+	closeDropdown();
+	emitChanges();
+}
+
+function selectResolver(res) {
+	closeDropdown();
+	resolverDraftFamily.value = res.family;
+	resolverDraftOperation.value = res.operation;
+	resolverDraftConfig.value = { kind: res.key };
+	isResolverModalOpen.value = true;
+}
+
+function openResolverEditor() {
+	if (isReadOnly.value || props.disabled) return;
+	if (resolverPayload.value) {
+		resolverDraftFamily.value = resolverPayload.value.family || "math";
+		resolverDraftOperation.value = resolverPayload.value.operation || "formula";
+		resolverDraftConfig.value = resolverPayload.value.config || {};
+	}
+	isResolverModalOpen.value = true;
+}
+
+function onResolverBuilderUpdate(config) {
+	resolverDraftConfig.value = config;
+}
+
+function saveResolverConfig() {
+	currentMode.value = "resolver";
+	resolverPayload.value = {
+		mode: "resolver",
+		family: resolverDraftFamily.value,
+		operation: resolverDraftOperation.value,
+		value_type: fieldType.value || "Data",
+		config: resolverDraftConfig.value,
+	};
+	isResolverModalOpen.value = false;
+	emitChanges();
+}
+
+function switchToStatic() {
+	currentMode.value = "static";
+	if (isMultiSelect.value) {
+		if (!Array.isArray(staticValue.value)) staticValue.value = [];
+	} else if (typeof staticValue.value !== "string" && typeof staticValue.value !== "number") {
+		staticValue.value = "";
+	}
+	closeDropdown();
+	emitChanges();
+}
+
+function updateStaticValue(val) {
+	staticValue.value = val;
+	emitChanges();
+}
+
+// ── Serialization & Deserialization ──
+function serialize() {
+	const currentFieldType = fieldType.value || "Data";
+
+	if (currentMode.value === "variable") {
+		const scope = variablePath.value?.scope || "doc";
+		const segments = Array.isArray(variablePath.value?.segments)
+			? [...variablePath.value.segments]
+			: [];
+		return {
+			mode: "variable",
+			path: { scope, segments },
+		};
+	}
+
+	if (currentMode.value === "resolver") {
+		return {
+			mode: "resolver",
+			family: resolverPayload.value?.family || "text",
+			operation: resolverPayload.value?.operation || "combine",
+			value_type: resolverPayload.value?.value_type || currentFieldType,
+			config: resolverPayload.value?.config || {},
+		};
+	}
+
+	if (currentMode.value === "template") {
+		return {
+			mode: "template",
+			segments: Array.isArray(templateSegments.value) ? templateSegments.value : [],
+		};
+	}
+
 	return {
-		onStart: (props) => {
-			isSuggestionOpen.value = true;
-			activeTippyPopups.forEach((p) => {
-				if (p) {
-					if (Array.isArray(p)) {
-						p.forEach((pi) => pi?.destroy?.());
-					} else if (typeof p.destroy === "function") {
-						p.destroy();
-					}
-				}
-			});
-			activeTippyPopups.length = 0;
-
-			component = new VueRenderer(MentionList, { props, editor: props.editor });
-			if (!props.clientRect) return;
-			popup = tippy(document.createElement("div"), {
-				getReferenceClientRect: props.clientRect,
-				appendTo: () => document.body,
-				content: component.element,
-				showOnCreate: true,
-				interactive: true,
-				trigger: "manual",
-				placement: "bottom-start",
-				zIndex: 14000,
-			});
-			activeTippyPopups.push(popup);
-		},
-		onUpdate(props) {
-			component?.updateProps(props);
-			if (!props.clientRect) return;
-			popup?.setProps({ getReferenceClientRect: props.clientRect });
-		},
-		onKeyDown(props) {
-			if (props.event.key === "Escape") {
-				props.event.preventDefault();
-				props.event.stopPropagation();
-				props.event.stopImmediatePropagation();
-				popup?.hide();
-				return true;
-			}
-			return component?.ref?.onKeyDown(props);
-		},
-		onExit() {
-			isSuggestionOpen.value = false;
-			if (popup) {
-				try {
-					popup.destroy();
-				} catch (e) {}
-				const idx = activeTippyPopups.indexOf(popup);
-				if (idx > -1) activeTippyPopups.splice(idx, 1);
-				popup = null;
-			}
-			if (component) {
-				try {
-					component.destroy();
-				} catch (e) {}
-				component = null;
-			}
-		},
+		mode: "static",
+		value_type: currentFieldType,
+		value: staticValue.value,
 	};
 }
-
-let lastEmittedJSON = "";
-
-const VariableTrigger = Mention.extend({ name: `variableTrigger_${uid}` });
-const CommandTrigger = Mention.extend({ name: `commandTrigger_${uid}` });
-
-const editor = new Editor({
-	extensions: [
-		StarterKit.configure({
-			heading: false,
-			codeBlock: false,
-			blockquote: false,
-			bulletList: false,
-			orderedList: false,
-			listItem: false,
-			horizontalRule: false,
-		}),
-		VariableToken,
-		ResolverToken.configure({
-			doctype: referenceDoctype.value,
-			readOnly: isReadOnly.value,
-			context: resolverContext.value,
-		}),
-		VariableTrigger.configure({
-			suggestion: {
-				char: "@",
-				pluginKey: new PluginKey(`variableTrigger_${uid}`),
-				render: () => createSuggestionRenderer(),
-				items: ({ query }) => {
-					const q = query.toLowerCase();
-					const base = [
-						{ id: "doc", label: "doc", type: "variable", icon: "📄" },
-						{ id: "vars", label: "vars", type: "variable", icon: "📦" },
-					];
-					const options = [
-						...base,
-						...availableVariableOptions.value.map((v) => ({
-							id: v.value || v,
-							label: v.label || v,
-							type: "variable",
-							icon: "fa fa-cube",
-						})),
-					];
-					return options
-						.filter(
-							(v) =>
-								v.id.toLowerCase().includes(q) || v.label.toLowerCase().includes(q)
-						)
-						.slice(0, 20);
-				},
-				command: ({ editor, range, props }) => {
-					editor
-						.chain()
-						.focus()
-						.insertContentAt(range, [
-							{
-								type: "variableToken",
-								attrs: { path: props.id, label: props.label },
-							},
-						])
-						.run();
-				},
-			},
-		}),
-		CommandTrigger.configure({
-			suggestion: {
-				char: "/",
-				pluginKey: new PluginKey(`commandTrigger_${uid}`),
-				render: () => createSuggestionRenderer(),
-				items: ({ query }) => {
-					const q = query.toLowerCase();
-					let commands = getCommandsForFieldtype(fieldType.value);
-					let formulas = getFormulasForFieldtype(fieldType.value);
-
-					if (typeof props.context?.filterCommands === "function") {
-						commands = commands.filter((cmd) =>
-							props.context.filterCommands(cmd, {
-								fieldType: fieldType.value,
-								context: props.context,
-							})
-						);
-					}
-					if (typeof props.context?.filterFormulas === "function") {
-						formulas = formulas.filter((formula) =>
-							props.context.filterFormulas(formula, {
-								fieldType: fieldType.value,
-								context: props.context,
-							})
-						);
-					}
-
-					const mappedFormulas = formulas.map((f) => ({
-						id: f.id,
-						label: f.label,
-						type: "logic",
-						icon: "fa fa-calculator",
-						description: f.description,
-					}));
-
-					return [...commands, ...mappedFormulas].filter((c) =>
-						c.label.toLowerCase().includes(q)
-					);
-				},
-				command: ({ editor, range, props }) => {
-					if (props.id === "clear") {
-						editor.chain().focus().setContent("").run();
-						return;
-					}
-
-					const commands = getCommandsForFieldtype(fieldType.value);
-					const isCommand = commands.find((c) => c.id === props.id);
-
-					if (isCommand) {
-						const preferredKindMap = {
-							formula: "math_formula",
-							normalize: "text",
-							formatter: "text",
-							resolver: "text",
-							fetch: "lookup",
-							lookup: "lookup",
-						};
-						const allowedKinds = Array.isArray(allowedBuilderKinds.value)
-							? allowedBuilderKinds.value
-							: [];
-						let initialKind = preferredKindMap[props.id] || "text";
-						if (allowedKinds.length && !allowedKinds.includes(initialKind)) {
-							initialKind = allowedKinds[0];
-						}
-
-						editor
-							.chain()
-							.focus()
-							.insertContentAt(range, [
-								{
-									type: "resolverToken",
-									attrs: { config: { kind: initialKind } },
-								},
-							])
-							.run();
-					} else {
-						editor.chain().focus().insertContentAt(range, `${props.label}()`).run();
-					}
-				},
-			},
-		}),
-	],
-	editable: !isReadOnly.value,
-	editorProps: {
-		handleKeyDown(view, event) {
-			if (event.key === "Enter") {
-				if (isSuggestionOpen.value) return false;
-				event.preventDefault();
-				emit("submit");
-				return true;
-			}
-			return false;
-		},
-		transformPastedText(text) {
-			return text.replace(/[\r\n]+/g, " ");
-		},
-	},
-	onUpdate: () => {
-		emitChanges();
-	},
-	onFocus: () => {
-		isEditorFocused.value = true;
-	},
-	onBlur: () => {
-		isEditorFocused.value = false;
-	},
-});
-
-const isEditorEmpty = computed(() => editor.isEmpty);
-
-const isValid = computed(() => {
-	if (!props.context?.df?.reqd) return true;
-	const struct = coerceStructuredValue(serialize());
-	if (struct.mode === "static") {
-		if (Array.isArray(struct.value)) {
-			return (
-				struct.value.length > 0 &&
-				struct.value.every(
-					(value) =>
-						value !== undefined &&
-						value !== null &&
-						!(typeof value === "string" && value.trim() === "")
-				)
-			);
-		}
-		if (typeof struct.value === "string") return struct.value.trim() !== "";
-		return struct.value !== undefined && struct.value !== null && struct.value !== "";
-	}
-	if (struct.mode === "variable") return !!(struct.path?.scope && struct.path?.segments?.length);
-	if (struct.mode === "resolver") return !!struct.value;
-	if (struct.mode === "template")
-		return Array.isArray(struct.segments) && struct.segments.length > 0;
-	if (struct.mode === "expression") return Array.isArray(struct.value) && struct.value.length > 0;
-	return true;
-});
-
-function validate() {
-	const errors = [];
-	if (!isValid.value) {
-		errors.push(__("{0} is required").replace("{0}", props.context?.df?.label || __("Field")));
-	}
-	return { valid: errors.length === 0, errors };
-}
-
-defineExpose({ validate });
-
-// ── Serialization ──
 
 function coerceStructuredValue(val) {
 	const currentFieldType = fieldType.value || "Data";
@@ -1146,9 +919,6 @@ function coerceStructuredValue(val) {
 		if (val.mode === "template") {
 			return { mode: "template", segments: Array.isArray(val.segments) ? val.segments : [] };
 		}
-		if (val.mode === "expression") {
-			return { mode: "expression", value: Array.isArray(val.value) ? val.value : [] };
-		}
 		return {
 			mode: "static",
 			value_type: val.value_type || currentFieldType,
@@ -1162,210 +932,14 @@ function coerceStructuredValue(val) {
 	return { mode: "static", value_type: currentFieldType, value: val };
 }
 
-function serialize() {
-	const currentFieldType = fieldType.value || "Data";
-
-	if (editor.isEmpty && !isDynamicMode.value) {
-		return {
-			mode: "static",
-			value_type: currentFieldType,
-			value: staticValue.value,
-		};
-	}
-
-	const doc = editor.getJSON();
-	const content = doc.content?.[0]?.content || [];
-
-	if (content.length === 0) {
-		return { mode: "static", value_type: currentFieldType, value: "" };
-	}
-
-	if (content.length === 1 && content[0].type !== "text") {
-		const node = content[0];
-		const typeName = node.type.name || node.type;
-		if (typeName === "variableToken") {
-			const rawPath = String(node.attrs.path || "");
-			const parts = rawPath.split(".");
-			const scope = parts[0] || "doc";
-			const segments = parts.slice(1);
-			return {
-				mode: "variable",
-				path: { scope, segments },
-			};
-		}
-		if (typeName === "resolverToken") {
-			const config = node.attrs.config || {};
-			const family =
-				node.attrs.family ||
-				config.family ||
-				(config.kind === "math_formula" ? "math" : config.kind) ||
-				"text";
-			const operation =
-				node.attrs.operation ||
-				config.operation ||
-				(family === "math" ? "formula" : config.kind === "lookup" ? "fetch" : "combine");
-			const innerConfig =
-				config.config && typeof config.config === "object" ? config.config : config;
-			return {
-				mode: "resolver",
-				family,
-				operation,
-				value_type: currentFieldType,
-				config: innerConfig,
-			};
-		}
-	}
-
-	const segments = content.map((item) => {
-		const typeName = item.type?.name || item.type;
-		if (typeName === "text") {
-			return { type: "text", value: item.text || "" };
-		}
-		if (typeName === "variableToken") {
-			const rawPath = String(item.attrs.path || "");
-			const parts = rawPath.split(".");
-			const scope = parts[0] || "doc";
-			const segs = parts.slice(1);
-			return {
-				type: "value",
-				value: {
-					mode: "variable",
-					path: { scope, segments: segs },
-				},
-			};
-		}
-		if (typeName === "resolverToken") {
-			const cfg = item.attrs.config || {};
-			const fam =
-				item.attrs.family ||
-				cfg.family ||
-				(cfg.kind === "math_formula" ? "math" : cfg.kind) ||
-				"text";
-			const op =
-				item.attrs.operation ||
-				cfg.operation ||
-				(fam === "math" ? "formula" : cfg.kind === "lookup" ? "fetch" : "combine");
-			const innerCfg = cfg.config && typeof cfg.config === "object" ? cfg.config : cfg;
-			return {
-				type: "value",
-				value: {
-					mode: "resolver",
-					family: fam,
-					operation: op,
-					value_type: currentFieldType,
-					config: innerCfg,
-				},
-			};
-		}
-		return { type: "text", value: "" };
-	});
-
-	return { mode: "template", segments };
-}
-
-function escapeAttr(str) {
-	return String(str || "")
-		.replace(/&/g, "&amp;")
-		.replace(/"/g, "&quot;")
-		.replace(/'/g, "&#39;")
-		.replace(/</g, "&lt;")
-		.replace(/>/g, "&gt;");
-}
-
-function isVariableSyntax(val) {
-	return (
-		typeof val === "string" &&
-		(val.startsWith("@") || val.startsWith("doc.") || val.startsWith("vars."))
-	);
-}
-
-function deserialize(val) {
-	if (!val) return "";
-	const structured = coerceStructuredValue(val);
-
-	if (structured.mode === "variable") {
-		const path = structured.path;
-		let displayPath = "";
-		if (typeof path === "string") {
-			displayPath = path.trim();
-		} else if (path && typeof path === "object" && typeof path.scope === "string") {
-			const segments = Array.isArray(path.segments)
-				? path.segments.filter(
-						(segment) => typeof segment === "string" && segment.length > 0
-				  )
-				: [];
-			if (segments.length) displayPath = path.scope + "." + segments.join(".");
-			else if (path.scope === "doctype") displayPath = "doctype";
-		}
-		if (!displayPath) return "";
-		return `<span data-token-type="variable" data-path="${escapeAttr(
-			displayPath
-		)}" data-label=""></span>`;
-	}
-
-	if (structured.mode === "resolver") {
-		return `<span data-token-type="resolver" data-family="${escapeAttr(
-			structured.family || ""
-		)}" data-operation="${escapeAttr(
-			structured.operation || ""
-		)}" data-expression="${escapeAttr(
-			structured.value || ""
-		)}" data-label="" data-config='${escapeAttr(
-			JSON.stringify(structured.config || null)
-		)}'></span>`;
-	}
-
-	if (structured.mode === "template" && Array.isArray(structured.segments)) {
-		return structured.segments
-			.map((segment) => {
-				if (!segment || typeof segment !== "object") return "";
-				if (segment.type === "text") return segment.value || "";
-				if (segment.type === "value" && segment.value) {
-					return deserialize(segment.value);
-				}
-				return "";
-			})
-			.join("");
-	}
-
-	if (structured.mode === "expression" && Array.isArray(structured.value)) {
-		return structured.value
-			.map((item) => {
-				const typeName = item.type?.name || item.type;
-				if (typeName === "text") return item.value;
-				if (typeName === "variableToken")
-					return `<span data-token-type="variable" data-path="${escapeAttr(
-						item.attrs.path
-					)}" data-label="${escapeAttr(item.attrs.label)}"></span>`;
-				if (
-					["resolverToken", "formulaToken", "normalizeToken", "formatToken"].includes(
-						typeName
-					)
-				) {
-					return `<span data-token-type="resolver" data-expression="${escapeAttr(
-						item.attrs.expression || item.attrs.resolver || ""
-					)}" data-label="${escapeAttr(
-						item.attrs.label || ""
-					)}" data-config='${escapeAttr(
-						JSON.stringify(item.attrs.config || null)
-					)}'></span>`;
-				}
-				return "";
-			})
-			.join("");
-	}
-
-	return structured.value ?? "";
-}
-
 function emitChanges() {
-	const output = coerceStructuredValue(serialize());
+	const output = serialize();
 	const json = JSON.stringify(output);
-
 	if (json === lastEmittedJSON) return;
 	lastEmittedJSON = json;
 	emit("update:modelValue", output);
 	emit("update", output);
+	emit("change", output);
 	try {
 		if (typeof props.context?.onUpdate === "function") {
 			props.context.onUpdate(output);
@@ -1378,218 +952,89 @@ function emitChanges() {
 	}
 }
 
-// ── Orchestration ──
-
-function onWrapClick() {
-	if (isDynamicMode.value || !isStaticSupported.value) editor.commands.focus();
-}
-
-function toggleDynamicMode() {
-	if (isReadOnly.value || props.disabled) return;
-	if (isDynamicMode.value) {
-		const struct = serialize();
-		if (struct.mode === "static") {
-			isDynamicMode.value = false;
-			staticValue.value = struct.value ?? "";
-			emitChanges();
+// ── Validation ──
+const isValid = computed(() => {
+	if (!props.context?.df?.reqd) return true;
+	const struct = serialize();
+	if (struct.mode === "static") {
+		if (Array.isArray(struct.value)) {
+			return (
+				struct.value.length > 0 &&
+				struct.value.every(
+					(v) =>
+						v !== undefined && v !== null && !(typeof v === "string" && v.trim() === "")
+				)
+			);
 		}
-	} else {
-		isDynamicMode.value = true;
-		const prev = staticValue.value;
-		lastEmittedJSON = "";
-		editor.commands.setContent(prev != null ? String(prev) : "");
-		nextTick(() => editor.commands.focus());
+		if (typeof struct.value === "string") return struct.value.trim() !== "";
+		return struct.value !== undefined && struct.value !== null && struct.value !== "";
 	}
-}
-
-function onStaticKeydown(e) {
-	if (isReadOnly.value || props.disabled || isDynamicMode.value || !isStaticSupported.value)
-		return;
-	if (e.key === "@" || e.key === "/") {
-		e.preventDefault();
-		e.stopPropagation();
-		isDynamicMode.value = true;
-		lastEmittedJSON = "";
-		nextTick(() => {
-			editor.commands.setContent("");
-			editor.commands.focus();
-			editor.commands.insertContent(e.key);
-		});
+	if (struct.mode === "variable") {
+		return !!(struct.path?.scope && struct.path?.segments?.length);
 	}
-}
-
-function updateStaticValue(val) {
-	if (isVariableSyntax(val)) {
-		const path = val.startsWith("@") ? val.substring(1) : val;
-		isDynamicMode.value = true;
-		lastEmittedJSON = "";
-		nextTick(() => {
-			editor.commands.setContent("");
-			editor.commands.insertContent({
-				type: "variableToken",
-				attrs: { path, label: path },
-			});
-		});
-		return;
+	if (struct.mode === "resolver") {
+		return !!(struct.family && struct.operation);
 	}
-	staticValue.value = val;
-	emitChanges();
-}
-
-// ── Token Editor ──
-
-const isManualMode = ref(false);
-
-const activeTokenPresentation = computed(() => {
-	const map = {
-		formula: { title: __("Configure Formula"), icon: "fa fa-calculator" },
-		resolver: { title: __("Configure Resolver"), icon: "fa fa-bolt" },
-		normalize: { title: __("Configure Normalization"), icon: "fa fa-refresh" },
-		format: { title: __("Configure Format"), icon: "fa fa-paint-brush" },
-		fetch: { title: __("Record Lookup"), icon: "fa fa-search" },
-		lookup: { title: __("Record Lookup"), icon: "fa fa-search" },
-		json: { title: __("JSON Editor"), icon: "fa fa-code" },
-	};
-	return map[activeTokenType.value] || { title: __("Token Configuration"), icon: "fa fa-cog" };
+	if (struct.mode === "template") {
+		return Array.isArray(struct.segments) && struct.segments.length > 0;
+	}
+	return true;
 });
 
-function openTokenEditor(node, pos, typeOverride = null) {
-	if (isReadOnly.value) return;
-	activeTokenNode.value = node;
-	activeTokenPos.value = pos;
-	isManualMode.value = false;
-
-	if (typeOverride) {
-		activeTokenType.value = typeOverride;
-		tokenDraftAttrs.value = { value: editor.getText() };
-		return;
+function validate() {
+	const errors = [];
+	if (!isValid.value) {
+		errors.push(__("{0} is required").replace("{0}", props.context?.df?.label || __("Field")));
 	}
-
-	if (node.type.name === "resolverToken") {
-		const kind = node.attrs.config?.kind;
-		if (["text", "fetch"].includes(kind)) {
-			if (kind === "text") activeTokenType.value = "resolver";
-			else activeTokenType.value = "fetch";
-		} else if (kind?.includes("formula") || kind?.includes("aggregation")) {
-			activeTokenType.value = "formula";
-		} else {
-			activeTokenType.value = "resolver";
-		}
-
-		tokenDraftAttrs.value = {
-			expression: node.attrs.expression,
-			resolver: node.attrs.resolver,
-			label: node.attrs.label,
-			config: node.attrs.config || null,
-		};
-	}
-
-	if (activeTokenType.value && !tokenDraftAttrs.value.config) {
-		isManualMode.value = true;
-	}
+	return { valid: errors.length === 0, errors };
 }
 
-function closeTokenEditor() {
-	activeTokenType.value = null;
-	tokenDraftAttrs.value = {};
-	builderErrors.value = [];
-	isBuilderValid.value = true;
-}
+defineExpose({ validate });
 
-function handleBuilderUpdate(config, details) {
-	const defaults =
-		typeof props.context?.resolverDefaults === "function"
-			? props.context.resolverDefaults({
-					fieldType: fieldType.value,
-					referenceDoctype: referenceDoctype.value,
-					context: props.context,
-			  })
-			: props.context?.resolverDefaults;
-	const mergedConfig =
-		defaults && typeof defaults === "object" ? { ...defaults, ...config } : config;
-	tokenDraftAttrs.value.config = mergedConfig;
-	tokenDraftAttrs.value.expression = details?.expression || compileToCode(mergedConfig);
-	tokenDraftAttrs.value.label = details?.label || compileToLabel(mergedConfig);
-	isBuilderValid.value = details?.isValid ?? true;
-	builderErrors.value = details?.errors || [];
-}
-
-function saveTokenEditor() {
-	lastEmittedJSON = "";
-	if (activeTokenType.value === "json") {
-		editor.commands.setContent(tokenDraftAttrs.value.value);
-		emitChanges();
-	} else {
-		if (isManualMode.value) {
-			tokenDraftAttrs.value.config = null;
-		}
-
-		editor
-			.chain()
-			.focus()
-			.setNodeSelection(activeTokenPos.value)
-			.updateAttributes(activeTokenNode.value.type.name, tokenDraftAttrs.value)
-			.run();
-		emitChanges();
-	}
-	closeTokenEditor();
-}
-
-function insertVarInFormula(v) {
-	const textarea = formulaTextareaRef.value;
-	const start = textarea.selectionStart;
-	const insert = v.value || v;
-	tokenDraftAttrs.value.expression =
-		textarea.value.slice(0, start) + insert + textarea.value.slice(textarea.selectionEnd);
-}
-
-function addConfigParam() {
-	if (!tokenDraftAttrs.value.config) tokenDraftAttrs.value.config = {};
-	const key = `param_${Object.keys(tokenDraftAttrs.value.config).length + 1}`;
-	tokenDraftAttrs.value.config[key] = "";
-}
-
-function removeConfigKey(key) {
-	delete tokenDraftAttrs.value.config[key];
-}
-
-function renameConfigKey(oldKey, newKey) {
-	if (!newKey || oldKey === newKey) return;
-	const val = tokenDraftAttrs.value.config[oldKey];
-	delete tokenDraftAttrs.value.config[oldKey];
-	tokenDraftAttrs.value.config[newKey] = val;
-}
-
+// ── Watch modelValue changes ──
 watch(
 	() => props.modelValue,
 	(val) => {
 		const normalized = coerceStructuredValue(val);
 		const json = JSON.stringify(normalized);
 		if (json === lastEmittedJSON) return;
-		if (normalized.mode !== "static") {
-			isDynamicMode.value = true;
-			editor.commands.setContent(deserialize(normalized));
-			lastEmittedJSON = json;
+		lastEmittedJSON = json;
+
+		if (normalized.mode === "variable") {
+			currentMode.value = "variable";
+			variablePath.value = normalized.path || { scope: "doc", segments: [] };
+			const pathStr = variablePath.value.segments?.length
+				? `${variablePath.value.scope}.${variablePath.value.segments.join(".")}`
+				: variablePath.value.scope;
+			const match = availableVariableOptions.value.find((o) => (o.value || o) === pathStr);
+			variableLabel.value = match?.friendlyLabel || match?.label || pathStr;
+		} else if (normalized.mode === "resolver") {
+			currentMode.value = "resolver";
+			resolverPayload.value = normalized;
+		} else if (normalized.mode === "template") {
+			currentMode.value = "template";
+			templateSegments.value = normalized.segments || [];
 		} else {
-			isDynamicMode.value = false;
+			currentMode.value = "static";
 			staticValue.value = normalized.value ?? "";
 		}
 	},
 	{ immediate: true }
 );
 
+function handleClickOutside(e) {
+	if (!isDropdownOpen.value) return;
+	if (controlRef.value?.contains(e.target)) return;
+	if (dropdownRef.value?.contains(e.target)) return;
+	closeDropdown();
+}
+
+onMounted(() => {
+	document.addEventListener("click", handleClickOutside);
+});
+
 onBeforeUnmount(() => {
-	activeTippyPopups.forEach((popup) => {
-		if (popup) {
-			if (Array.isArray(popup)) {
-				popup.forEach((p) => p?.destroy?.());
-			} else if (typeof popup.destroy === "function") {
-				popup.destroy();
-			}
-		}
-	});
-	activeTippyPopups.length = 0;
-	editor.destroy();
+	document.removeEventListener("click", handleClickOutside);
 });
 </script>
 
@@ -1598,39 +1043,140 @@ onBeforeUnmount(() => {
 	display: flex;
 	flex-direction: column;
 	width: 100%;
+	position: relative;
 }
+
 .fvc-main-field {
 	display: flex;
 	align-items: center;
 	width: 100%;
 	height: var(--fxr-input-height, 32px);
 	min-height: var(--fxr-input-height, 32px);
-	max-height: var(--fxr-input-height, 32px);
-	overflow: hidden;
-	border: 1px solid var(--fxr-border);
-	border-radius: var(--fxr-radius-sm);
-	background-color: var(--fxr-bg-input);
-	transition: all 0.2s ease;
+	border: 1px solid var(--fxr-border, #d1d5db);
+	border-radius: var(--fxr-radius-sm, 4px);
+	background-color: var(--fxr-bg-input, #ffffff);
+	transition: all 0.15s ease;
 }
 
 .fvc-main-field.is-multi-select {
 	height: auto !important;
 	min-height: var(--fxr-input-height, 32px) !important;
-	max-height: none !important;
-	overflow: visible !important;
 }
 
 .fvc-main-field:focus-within {
-	border-color: var(--fxr-accent);
-	box-shadow: var(--fxr-shadow-focus);
+	border-color: var(--fxr-accent, #2490ef);
+	box-shadow: 0 0 0 2px color-mix(in srgb, var(--fxr-accent, #2490ef) 20%, transparent);
 }
 
-.fvc-static-container :deep(.combobox-wrapper),
-.fvc-static-container :deep(.form-control),
-.fvc-static-container :deep(.fxr-input),
-.fvc-static-container :deep(.fxr-input-group),
-.fvc-static-container :deep(.fxr-select),
-.fvc-static-container :deep(.multi-select-trigger) {
+.fvc-source-badge-wrap {
+	padding: 2px 4px 2px 6px;
+	display: flex;
+	align-items: center;
+	flex-shrink: 0;
+	border-right: 1px solid var(--fxr-border-subtle, #f3f4f6);
+}
+
+.fvc-source-pill {
+	display: inline-flex;
+	align-items: center;
+	padding: 2px 6px;
+	border-radius: 4px;
+	font-size: 11px;
+	font-weight: 600;
+	cursor: pointer;
+	border: 1px solid transparent;
+	background: transparent;
+	color: var(--fxr-text-muted, #64748b);
+	transition: all 0.15s ease;
+	line-height: 1.2;
+}
+
+.fvc-source-pill:hover:not(:disabled) {
+	background-color: var(--fxr-bg-hover, #f1f5f9);
+	color: var(--fxr-text-strong, #0f172a);
+}
+
+.fvc-source-pill.is-var {
+	background-color: var(--fxr-badge-bool, #dcfce7);
+	color: var(--fxr-badge-bool-text, #166534);
+	border-color: rgba(16, 185, 129, 0.2);
+}
+
+.fvc-source-pill.is-resolver {
+	background-color: var(--fxr-badge-resolver, #fef3c7);
+	color: var(--fxr-badge-resolver-text, #92400e);
+	border-color: rgba(217, 119, 6, 0.2);
+}
+
+.fvc-source-pill.is-template {
+	background-color: var(--fxr-badge-formatter, #fce7f3);
+	color: var(--fxr-badge-formatter-text, #9d174d);
+	border-color: rgba(219, 39, 119, 0.2);
+}
+
+.fvc-source-pill-text {
+	margin: 0 4px;
+}
+
+.fvc-editor-container {
+	padding: 2px 6px;
+	flex: 1;
+	display: flex;
+	align-items: center;
+	min-width: 0;
+	overflow: hidden;
+}
+
+.fvc-variable-display,
+.fvc-resolver-display,
+.fvc-template-display {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	cursor: pointer;
+	padding-right: 6px;
+}
+
+.fvc-clear-source-btn {
+	background: transparent;
+	border: none;
+	color: var(--fxr-text-muted, #94a3b8);
+	cursor: pointer;
+	font-size: 12px;
+	padding: 2px 4px;
+	border-radius: 4px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.fvc-clear-source-btn:hover {
+	color: var(--fxr-text-danger, #ef4444);
+	background-color: var(--fxr-danger-soft, #fee2e2);
+}
+
+.fvc-action-btn {
+	background: transparent;
+	border: none;
+	color: var(--fxr-text-muted, #94a3b8);
+	cursor: pointer;
+	font-size: 12px;
+	padding: 2px 4px;
+	border-radius: 4px;
+}
+
+.fvc-action-btn:hover {
+	color: var(--fxr-accent, #2490ef);
+	background-color: var(--fxr-bg-hover, #f1f5f9);
+}
+
+/* Static controls interior adjustments */
+.fvc-editor-container :deep(.combobox-wrapper),
+.fvc-editor-container :deep(.form-control),
+.fvc-editor-container :deep(.fxr-input),
+.fvc-editor-container :deep(.fxr-input-group),
+.fvc-editor-container :deep(.fxr-select),
+.fvc-editor-container :deep(.multi-select-trigger) {
 	border: none !important;
 	box-shadow: none !important;
 	background: transparent !important;
@@ -1640,164 +1186,115 @@ onBeforeUnmount(() => {
 	border-radius: inherit !important;
 }
 
-.fvc-static-container :deep(.fxr-control),
-.fvc-static-container :deep(.fxr-input-group),
-.fvc-static-container :deep(.combobox-container) {
+.fvc-editor-container :deep(.fxr-control),
+.fvc-editor-container :deep(.fxr-input-group),
+.fvc-editor-container :deep(.combobox-container) {
 	width: 100% !important;
 	flex: 1 !important;
 	min-width: 0 !important;
 }
 
-.fvc-static-container :deep(.fxr-input),
-.fvc-static-container :deep(.fxr-select),
-.fvc-static-container :deep(.combobox-input),
-.fvc-static-container :deep(.awesomplete input) {
-	padding: 0 10px !important;
-	font-weight: var(--fxr-weight-bold) !important;
-	color: var(--fxr-text-strong) !important;
-	height: var(--fxr-input-height, 32px) !important;
+.fvc-editor-container :deep(.fxr-input),
+.fvc-editor-container :deep(.fxr-select),
+.fvc-editor-container :deep(.combobox-input),
+.fvc-editor-container :deep(.awesomplete input) {
+	padding: 0 6px !important;
+	font-weight: var(--fxr-weight-bold, 600) !important;
+	color: var(--fxr-text-strong, #1f2937) !important;
+	height: var(--fxr-input-height, 30px) !important;
 }
 
-.fvc-main-field:focus-within {
-	border-color: var(--fxr-accent, #2490ef);
-	box-shadow: 0 0 0 2px color-mix(in srgb, var(--fxr-accent, #2490ef) 20%, transparent);
-	position: relative;
-	z-index: 10;
-}
-
-.fvc-static-container {
-	display: flex;
-	align-items: center;
-	flex: 1;
-	height: 100%;
-	min-width: 0;
-	overflow: hidden;
-}
-.fvc-editor-container {
-	padding: 2px 8px;
-	flex: 1;
-	position: relative;
-	overflow: hidden;
-}
-.fvc-editor-wrapper {
+/* ── Embedded Dropdown (compact, clean, attached to control) ── */
+.fvc-embedded-dropdown {
+	position: absolute;
+	top: 100%;
+	left: 0;
 	width: 100%;
-	position: relative;
+	min-width: 280px;
+	max-width: 440px;
+	max-height: 280px;
+	background: var(--fxr-bg-surface, #ffffff);
+	border: 1px solid var(--fxr-border, #cbd5e1);
+	border-radius: 6px;
+	margin-top: 2px;
+	z-index: 15000;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
 }
-.fvc-source-browse-wrap,
-.fvc-mode-toggle-wrap {
-	padding-right: 4px;
-	border-left: 1px solid var(--fxr-border-subtle);
-	margin-left: 4px;
-	height: 24px;
+
+.fvc-dropdown-search {
 	display: flex;
 	align-items: center;
-	flex-shrink: 0;
+	padding: 6px 8px;
+	border-bottom: 1px solid var(--fxr-border-subtle, #f1f5f9);
+	background: var(--fxr-surface-2, #f8fafc);
 }
-.fvc-browse-btn,
-.fvc-toggle-btn {
+
+.fvc-search-input {
+	flex: 1;
+	border: none;
+	background: transparent;
+	font-size: 12px;
+	outline: none;
+	color: var(--fxr-text, #1e293b);
+}
+
+.fvc-icon-btn {
 	background: transparent;
 	border: none;
+	color: var(--fxr-text-muted, #94a3b8);
 	cursor: pointer;
-	color: var(--fxr-text-soft);
-	width: 24px;
-	height: 24px;
+	padding: 2px;
+}
+
+.fvc-dropdown-body {
+	flex: 1;
+	overflow-y: auto;
+	padding: 4px;
+}
+
+.fvc-item-fixed {
+	background-color: var(--fxr-surface-2, #f8fafc);
+	border-bottom: 1px solid var(--fxr-border-subtle, #e2e8f0);
+	margin-bottom: 4px;
+}
+
+.fvc-dropdown-item {
 	display: flex;
 	align-items: center;
-	justify-content: center;
-	border-radius: 4px;
-	transition: all 0.2s;
-}
-.fvc-browse-btn:hover,
-.fvc-toggle-btn:hover {
-	background-color: var(--fxr-bg-hover);
-	color: var(--fxr-accent);
-}
-
-.fxr-picker-popover-backdrop {
-	position: fixed;
-	inset: 0;
-	z-index: 14400;
-	background: transparent;
-}
-
-.fvc-empty-hint {
-	position: absolute;
-	top: 50%;
-	transform: translateY(-50%);
-	left: 0;
-	color: var(--fxr-text-faint);
-	font-size: 11px;
-	pointer-events: none;
-	white-space: nowrap;
-	font-family: var(--fxr-font-mono);
-}
-.fvc-empty-hint .hint-part {
-	color: var(--fxr-text-soft);
-	font-weight: 700;
-}
-.fvc-empty-hint .hint-at {
-	color: #059669;
-	font-weight: 700;
-}
-.fvc-empty-hint .hint-slash {
-	color: #7c3aed;
-	font-weight: 700;
-}
-.fvc-focus-hint {
-	position: absolute;
-	top: 50%;
-	transform: translateY(-50%);
-	left: 0;
-	color: var(--fxr-text-faint);
-	font-size: 12px;
-	font-style: italic;
-	pointer-events: none;
-}
-.fvc-tiptap-editor :deep(.ProseMirror) {
-	outline: none;
-	font-size: var(--fxr-input-font-size);
-	min-height: 20px;
-	display: flex;
-	align-items: center;
-	white-space: pre-wrap;
-	overflow-x: auto;
-	scrollbar-width: none;
-}
-
-.fvc-tiptap-editor :deep(.ProseMirror)::-webkit-scrollbar {
-	display: none;
-}
-
-.fvc-inline-actions {
-	position: absolute;
-	right: 0;
-	top: 50%;
-	transform: translateY(-50%);
-	display: flex;
-	padding-right: 4px;
-	background: linear-gradient(to left, var(--fxr-bg-input) 80%, transparent);
-	z-index: 5;
-}
-
-.fvc-action-btn {
-	background: transparent;
-	border: none !important;
-	outline: none !important;
-	box-shadow: none !important;
-	color: var(--fxr-text-muted);
-	cursor: pointer;
-	padding: 2px 4px;
+	justify-content: space-between;
+	padding: 5px 8px;
 	border-radius: 4px;
 	font-size: 12px;
-	transition: all 0.2s;
-	display: flex;
-	align-items: center;
-	justify-content: center;
+	cursor: pointer;
+	transition: background-color 0.15s ease;
 }
 
-.fvc-action-btn:hover {
-	color: var(--fxr-accent);
-	background-color: var(--fxr-bg-hover);
+.fvc-dropdown-item:hover {
+	background-color: var(--fxr-bg-hover, #f1f5f9);
+}
+
+.fvc-dropdown-item.is-selected {
+	background-color: var(--fxr-accent-soft, #eff6ff);
+	color: var(--fxr-accent, #2563eb);
+}
+
+.fvc-group-header {
+	font-size: 10px;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	color: var(--fxr-text-secondary, #64748b);
+	padding: 4px 8px 2px 8px;
+}
+
+.fvc-empty-msg {
+	padding: 12px;
+	font-size: 12px;
+	color: var(--fxr-text-muted, #94a3b8);
+	text-align: center;
 }
 
 :deep(.token-chip) {
@@ -1806,137 +1303,71 @@ onBeforeUnmount(() => {
 	font-size: 11px;
 	font-weight: 600;
 	margin: 0 2px;
-	cursor: pointer;
 	display: inline-flex;
 	align-items: center;
-	transition: all 0.2s;
 }
-:deep(.token-chip:hover) {
-	filter: brightness(0.95);
-	transform: scale(1.02);
-}
+
 :deep(.token-variable) {
-	background-color: var(--fxr-badge-bool);
-	color: var(--fxr-badge-bool-text);
+	background-color: var(--fxr-badge-bool, #dcfce7);
+	color: var(--fxr-badge-bool-text, #166534);
 	border: 1px solid rgba(16, 185, 129, 0.2);
 }
-:deep(.token-formula) {
-	background-color: var(--fxr-badge-var);
-	color: var(--fxr-badge-var-text);
-	border: 1px solid rgba(124, 58, 237, 0.2);
-}
-:deep(.token-normalize) {
-	background-color: var(--fxr-badge-normalize);
-	color: var(--fxr-badge-normalize-text);
-	border: 1px solid rgba(37, 99, 235, 0.2);
-}
-:deep(.token-format) {
-	background-color: var(--fxr-badge-formatter);
-	color: var(--fxr-badge-formatter-text);
-	border: 1px solid rgba(219, 39, 119, 0.2);
-}
+
 :deep(.token-resolver) {
-	background-color: var(--fxr-badge-resolver);
-	color: var(--fxr-badge-resolver-text);
+	background-color: var(--fxr-badge-resolver, #fef3c7);
+	color: var(--fxr-badge-resolver-text, #92400e);
 	border: 1px solid rgba(217, 119, 6, 0.2);
 }
 
-.fxr-token-modal-overlay {
+.fxr-resolver-modal-overlay {
 	position: fixed;
 	inset: 0;
-	background-color: rgba(0, 0, 0, 0.5);
-	backdrop-filter: blur(8px);
-	z-index: 13000;
+	background-color: rgba(0, 0, 0, 0.4);
+	z-index: 20000;
 	display: flex;
 	justify-content: center;
 	align-items: center;
 	padding: 16px;
 }
-.fxr-token-modal-container {
-	background-color: var(--fxr-surface-elevated);
-	border-radius: 12px;
+
+.fxr-resolver-modal-card {
+	background-color: var(--fxr-surface-elevated, #ffffff);
+	border-radius: 10px;
 	width: 100%;
-	max-width: 580px;
+	max-width: 520px;
 	overflow: hidden;
-	box-shadow: var(--fxr-shadow-lg);
-	border: 1px solid var(--fxr-border-subtle);
+	box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+	border: 1px solid var(--fxr-border-subtle, #e2e8f0);
 }
-.fxr-token-modal-header {
-	height: 52px;
+
+.fxr-resolver-modal-header {
+	height: 48px;
 	padding: 0 16px;
-	border-bottom: 1px solid var(--fxr-border-subtle);
+	border-bottom: 1px solid var(--fxr-border-subtle, #e2e8f0);
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
 }
-.fxr-token-modal-body {
+
+.fxr-resolver-modal-body {
 	padding: 16px;
-	max-height: 70vh;
+	max-height: 65vh;
 	overflow-y: auto;
 }
-.fxr-token-modal-footer {
-	height: 56px;
+
+.fxr-resolver-modal-footer {
+	height: 52px;
 	padding: 0 16px;
-	border-top: 1px solid var(--fxr-border-subtle);
+	border-top: 1px solid var(--fxr-border-subtle, #e2e8f0);
 	display: flex;
 	justify-content: flex-end;
 	gap: 8px;
-	background-color: var(--fxr-surface-2);
+	background-color: var(--fxr-surface-2, #f8fafc);
 	align-items: center;
 }
 
-.formula-textarea {
-	width: 100%;
-	min-height: 120px;
-	font-family: var(--fxr-font-mono);
-	padding: 8px;
-	border: 1px solid var(--fxr-border-subtle);
-	border-radius: 6px;
-	font-size: 13px;
-	line-height: 1.5;
-	background-color: var(--fxr-bg-input);
-	color: var(--fxr-text);
-}
-.variables-pill-grid {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 6px;
-	margin-top: 8px;
-	max-height: 140px;
-	overflow-y: auto;
-	padding: 4px;
-	border: 1px solid var(--fxr-border-subtle);
-	border-radius: 6px;
-	background-color: var(--fxr-surface-soft);
-}
-.var-pill-btn {
-	background-color: var(--fxr-bg-card);
-	border: 1px solid var(--fxr-border-subtle);
-	padding: 3px 8px;
-	border-radius: 4px;
-	font-size: 11px;
-	font-weight: 600;
-	color: var(--fxr-text);
-	cursor: pointer;
-	transition: all 0.2s;
-}
-.var-pill-btn:hover {
-	background-color: var(--fxr-bg-hover);
-	border-color: var(--fxr-accent);
-}
-.json-textarea {
-	width: 100%;
-	min-height: 200px;
-	font-family: monospace;
-	font-size: 12px;
-}
-
 .fvc-wrap.has-error .fvc-main-field {
-	border-color: var(--fxr-border-danger, var(--fxr-text-danger)) !important;
-	box-shadow: 0 0 0 1px var(--fxr-border-danger, var(--fxr-text-danger)) !important;
-}
-.fvc-wrap.has-error .fvc-main-field:focus-within {
-	border-color: var(--fxr-border-danger, var(--fxr-text-danger)) !important;
-	box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.15) !important;
+	border-color: var(--fxr-border-danger, var(--fxr-text-danger, #ef4444)) !important;
+	box-shadow: 0 0 0 1px var(--fxr-border-danger, var(--fxr-text-danger, #ef4444)) !important;
 }
 </style>
