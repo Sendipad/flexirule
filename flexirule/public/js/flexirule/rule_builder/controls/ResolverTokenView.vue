@@ -1,6 +1,7 @@
 <template>
 	<node-view-wrapper class="resolver-token-wrapper" :class="{ 'is-selected': selected }">
 		<ValueResolverControl
+			ref="resolverControlRef"
 			viewMode="popover"
 			:modelValue="currentModelValue"
 			:family="node.attrs.family"
@@ -18,9 +19,19 @@
 import { nodeViewProps, NodeViewWrapper } from "@tiptap/vue-3";
 import ValueResolverControl from "./ValueResolverControl.vue";
 
-import { computed } from "vue";
+import { computed, ref, onMounted, nextTick } from "vue";
 
 const props = defineProps(nodeViewProps);
+const resolverControlRef = ref(null);
+
+onMounted(() => {
+	if (props.node?.attrs?.autoOpen && !props.extension.options.readOnly) {
+		nextTick(() => {
+			resolverControlRef.value?.open?.();
+			props.updateAttributes({ autoOpen: false });
+		});
+	}
+});
 
 const currentModelValue = computed(() => {
 	const raw = props.node?.attrs?.config;

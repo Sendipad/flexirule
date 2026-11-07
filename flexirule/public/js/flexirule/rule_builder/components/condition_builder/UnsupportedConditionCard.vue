@@ -52,16 +52,6 @@
 				<i class="fa fa-refresh mr-1"></i>
 				{{ __("Replace with a new condition") }}
 			</button>
-
-			<button
-				v-if="allowRemoval"
-				type="button"
-				class="btn btn-xs btn-outline-danger"
-				@click="confirmRemove"
-			>
-				<i class="fa fa-trash mr-1"></i>
-				{{ __("Remove") }}
-			</button>
 		</div>
 	</div>
 </template>
