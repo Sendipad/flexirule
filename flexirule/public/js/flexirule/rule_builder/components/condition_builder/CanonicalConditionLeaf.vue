@@ -17,21 +17,47 @@
 				<!-- Left Operand (FlexValueControl) -->
 				<div class="condition-col operand-col left-col">
 					<FlexValueControl
+						ref="leftControlRef"
 						v-model="leftValueModel"
 						:context="leftControlContext"
-						placeholder="Choose a value source"
+						:docFields="docFields"
+						:variableOptions="variableOptions"
+						:placeholder="__('Choose a field, variable, or resolver (@)...')"
 						:engine="store"
 						:doc="store?.rule_doc"
-						:variableOptions="variableOptions"
 						:readOnly="readOnly"
 						:disabled="readOnly"
-						class="w-100 min-w-0"
+						class="w-100 min-w-0 left-operand-control"
 					/>
 				</div>
 
 				<!-- Operator Select -->
 				<div class="condition-col operator-col">
+					<div
+						v-if="contractLoading"
+						class="operator-loading-state text-muted small d-flex align-items-center"
+					>
+						<i class="fa fa-spinner fa-spin mr-1"></i>
+						<span>{{ __("Loading comparisons...") }}</span>
+					</div>
+					<div
+						v-else-if="contractError"
+						class="operator-error-state small text-danger d-flex align-items-center justify-content-between"
+					>
+						<span
+							><i class="fa fa-exclamation-circle mr-1"></i
+							>{{ __("Error loading operators") }}</span
+						>
+						<button
+							type="button"
+							class="btn btn-link btn-xs p-0 text-primary ml-1"
+							@click="$emit('retry-contract')"
+						>
+							{{ __("Retry") }}
+						</button>
+					</div>
 					<SelectControl
+						v-else
 						class="operator-select"
 						:df="{
 							fieldtype: 'Select',
@@ -41,7 +67,7 @@
 						}"
 						:modelValue="node.operator"
 						:read_only="readOnly"
-						:disabled="readOnly || !node.left"
+						:disabled="readOnly || !node.left || isContractUnavailable"
 						:hideLabel="true"
 						@update:modelValue="onOperatorChange"
 					/>
@@ -52,10 +78,11 @@
 					<FlexValueControl
 						v-model="rightValueModel"
 						:context="rightControlContext"
+						:docFields="docFields"
+						:variableOptions="variableOptions"
 						placeholder="Choose a comparison value"
 						:engine="store"
 						:doc="store?.rule_doc"
-						:variableOptions="variableOptions"
 						:readOnly="readOnly"
 						:disabled="readOnly"
 						class="w-100 min-w-0"
@@ -75,18 +102,6 @@
 							{{ __("Clear") }}
 						</button>
 					</div>
-				</div>
-
-				<!-- Action (Remove) -->
-				<div v-if="!readOnly" class="condition-col action-col">
-					<button
-						type="button"
-						class="fxr-btn fxr-btn--icon fxr-btn--danger"
-						@click="$emit('remove')"
-						:title="__('Remove')"
-					>
-						<i class="fa fa-trash"></i>
-					</button>
 				</div>
 			</div>
 
@@ -125,7 +140,6 @@ import FlexValueControl from "../../controls/FlexValueControl.vue";
 import SelectControl from "../../controls/SelectControl.vue";
 import UnsupportedConditionCard from "./UnsupportedConditionCard.vue";
 import {
-	UNARY_OPERATORS,
 	toCanonicalFlexValue,
 	fieldExpressionToCanonicalVariable,
 } from "./canonical_condition_adapter.mjs";
@@ -133,6 +147,8 @@ import {
 const props = defineProps({
 	node: { type: Object, required: true },
 	contract: { type: Object, default: () => ({}) },
+	contractLoading: { type: Boolean, default: false },
+	contractError: { type: String, default: "" },
 	docFields: { type: Array, default: () => [] },
 	variableOptions: { type: Array, default: () => [] },
 	readOnly: { type: Boolean, default: false },
@@ -143,12 +159,13 @@ const props = defineProps({
 	isEntryNode: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(["update:modelValue", "change", "remove", "replace"]);
+const emit = defineEmits(["update:modelValue", "change", "remove", "replace", "retry-contract"]);
 
 const isUnary = computed(() => {
 	const op = props.node.operator;
+	if (!op) return false;
 	const spec = props.contract?.operators?.[op];
-	return UNARY_OPERATORS.has(op) || spec?.arity === 1;
+	return spec?.arity === 1;
 });
 
 // Resolve operand metadata from Frappe DocField metadata and the backend-owned type contract.
@@ -234,26 +251,24 @@ const leftControlContext = computed(() => {
 		onUpdate: onLeftOperandChange,
 	};
 });
-const FRIENDLY_OPERATOR_LABELS = {
-	eq: "is",
-	ne: "is not",
-	gt: "is greater than",
-	gte: "is greater than or equal",
-	lt: "is less than",
-	lte: "is less than or equal",
-	in: "is one of",
-	not_in: "is not one of",
-	contains: "contains",
-	not_contains: "does not contain",
-	starts_with: "starts_with",
-	ends_with: "ends_with",
-	is_set: "is set",
-	is_not_set: "is not set",
-	is_empty: "is empty",
-	is_not_empty: "is not empty",
-	is_submittable: "is submittable",
-	has_field: "has field",
-};
+function formatOperatorLabel(label) {
+	if (!label) return "";
+	const translated = globalThis.__ ? globalThis.__(label) : label;
+	if (typeof translated !== "string" || !translated.length) return "";
+	// Locale-safe capitalization of the first character if case conversion is supported
+	const first = translated.charAt(0);
+	const upper = first.toUpperCase();
+	return upper !== first.toLowerCase() ? upper + translated.slice(1) : translated;
+}
+
+const isContractUnavailable = computed(() => {
+	const contractOps = props.contract?.operators;
+	const list = props.contract?.operatorList;
+	return !(
+		(contractOps && Object.keys(contractOps).length > 0) ||
+		(Array.isArray(list) && list.length > 0)
+	);
+});
 
 const operatorOptions = computed(() => {
 	const contractOps = props.contract?.operators;
@@ -270,26 +285,8 @@ const operatorOptions = computed(() => {
 	) {
 		candidates = props.contract.operatorList;
 	} else {
-		candidates = [
-			{ id: "eq", label: "is", arity: 2 },
-			{ id: "ne", label: "is not", arity: 2 },
-			{ id: "gt", label: "is greater than", arity: 2 },
-			{ id: "gte", label: "is greater than or equal", arity: 2 },
-			{ id: "lt", label: "is less than", arity: 2 },
-			{ id: "lte", label: "is less than or equal", arity: 2 },
-			{ id: "in", label: "is one of", arity: 2 },
-			{ id: "not_in", label: "is not one of", arity: 2 },
-			{ id: "contains", label: "contains", arity: 2 },
-			{ id: "not_contains", label: "does not contain", arity: 2 },
-			{ id: "starts_with", label: "starts with", arity: 2 },
-			{ id: "ends_with", label: "ends with", arity: 2 },
-			{ id: "is_set", label: "is set", arity: 1 },
-			{ id: "is_not_set", label: "is not set", arity: 1 },
-			{ id: "is_empty", label: "is empty", arity: 1 },
-			{ id: "is_not_empty", label: "is not empty", arity: 1 },
-			{ id: "is_submittable", label: "is submittable", arity: 1 },
-			{ id: "has_field", label: "has field", arity: 2 },
-		];
+		// Contract unavailable - fail closed without guessing fallback operators
+		return [{ label: __("Loading comparisons..."), value: "" }];
 	}
 
 	const filtered = candidates.filter((opSpec) => {
@@ -308,10 +305,20 @@ const operatorOptions = computed(() => {
 		return [{ label: __("No compatible comparisons"), value: "" }];
 	}
 
+	// Deduplicate choices by canonical ID
+	const seenIds = new Set();
+	const uniqueFiltered = [];
+	for (const op of filtered) {
+		if (!seenIds.has(op.id)) {
+			seenIds.add(op.id);
+			uniqueFiltered.push(op);
+		}
+	}
+
 	return [
 		{ label: __("Choose how the value should match"), value: "" },
-		...filtered.map((op) => ({
-			label: FRIENDLY_OPERATOR_LABELS[op.id] || op.label || op.id,
+		...uniqueFiltered.map((op) => ({
+			label: formatOperatorLabel(op.label || op.id),
 			value: op.id,
 		})),
 	];
@@ -450,8 +457,8 @@ function onLeftOperandChange() {
 
 function onOperatorChange(newOp) {
 	props.node.operator = newOp;
-	const isNewUnary =
-		UNARY_OPERATORS.has(newOp) || props.contract?.operators?.[newOp]?.arity === 1;
+	const opSpec = props.contract?.operators?.[newOp];
+	const isNewUnary = opSpec?.arity === 1;
 
 	if (isNewUnary) {
 		if (props.node.right) {
@@ -534,7 +541,7 @@ watch(
 
 .condition-main-row {
 	display: grid;
-	grid-template-columns: 1.8fr 1.2fr 2.4fr auto;
+	grid-template-columns: 1.8fr 1.2fr 2.4fr;
 	gap: var(--fxr-space-2, 8px);
 	align-items: center;
 	position: relative;
@@ -551,15 +558,6 @@ watch(
 	font-weight: var(--fxr-weight-semibold, 600);
 	color: var(--fxr-text-strong, #1f2937);
 	background-color: var(--fxr-surface-2, #f3f4f6);
-}
-
-.action-col .fxr-btn--danger {
-	color: var(--fxr-text-danger, #ef4444);
-	opacity: 0.8;
-}
-
-.action-col .fxr-btn--danger:hover {
-	opacity: 1;
 }
 
 @media (max-width: 768px) {
