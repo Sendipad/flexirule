@@ -109,6 +109,7 @@ import {
 	getCommandsForFieldtype,
 	getFormulasForFieldtype,
 	getAllowedBuilderKinds,
+	getFunctionIcon,
 } from "../../core/formula_registry";
 import { compileToCode, compileToLabel } from "../../core/builder_utils.js";
 import MentionList from "./MentionList.vue";
@@ -610,7 +611,7 @@ const editor = new Editor({
 						id: f.id,
 						label: f.label,
 						type: "logic",
-						icon: "fa fa-calculator",
+						icon: f.icon || getFunctionIcon(f.id, "fa fa-calculator"),
 						description: f.description,
 					}));
 

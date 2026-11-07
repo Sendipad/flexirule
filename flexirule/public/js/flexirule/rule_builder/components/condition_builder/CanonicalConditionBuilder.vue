@@ -292,6 +292,13 @@ let validatedPayloadJson = null;
 function invalidateValidation() {
 	lastValidationRequestId += 1;
 	validatedPayloadJson = null;
+	// Immediately recompute local validation so resolved errors disappear and new errors update reactively
+	const local = validateCanonicalCondition(treeModel.value, {
+		contract: contract.value,
+		isMandatory: props.isMandatory,
+	});
+	validationErrors.value = local.errors;
+	nodeErrorsMap.value = local.nodeErrors;
 }
 
 function onTreeUpdate(newTree) {

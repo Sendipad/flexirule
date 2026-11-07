@@ -143,6 +143,7 @@ import {
 	toCanonicalFlexValue,
 	fieldExpressionToCanonicalVariable,
 } from "./canonical_condition_adapter.mjs";
+import { isLeafComplete } from "./canonical_condition_validation.mjs";
 
 const props = defineProps({
 	node: { type: Object, required: true },
@@ -396,6 +397,14 @@ const nodeErrors = computed(() => {
 
 const hasError = computed(() => nodeErrors.value.length > 0 || props.node.is_unsupported);
 
+function syncDraftStatus() {
+	if (isLeafComplete(props.node, props.contract)) {
+		delete props.node.is_incomplete_draft;
+	} else {
+		props.node.is_incomplete_draft = true;
+	}
+}
+
 const leftValueModel = computed({
 	get() {
 		return props.node.left || "";
@@ -408,6 +417,7 @@ const leftValueModel = computed({
 			canonical = toCanonicalFlexValue(val);
 		}
 		props.node.left = canonical;
+		syncDraftStatus();
 		emit("change", props.node);
 	},
 });
@@ -445,12 +455,14 @@ const rightValueModel = computed({
 			props.node._draft_invalid_right = val;
 			props.node._invalid_right_error = errMsg;
 		}
+		syncDraftStatus();
 		checkIncompatibility();
 		emit("change", props.node);
 	},
 });
 
 function onLeftOperandChange() {
+	syncDraftStatus();
 	checkIncompatibility();
 	emit("change", props.node);
 }
@@ -479,6 +491,7 @@ function onOperatorChange(newOp) {
 			}
 		}
 	}
+	syncDraftStatus();
 	checkIncompatibility();
 	emit("change", props.node);
 }
