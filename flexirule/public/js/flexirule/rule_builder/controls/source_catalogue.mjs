@@ -29,7 +29,9 @@ export function buildSourceCatalogue({
 
 	// 1. Process Document Fields
 	for (const f of docFields) {
-		const rawVal = f.fieldname || f.value || f.id || "";
+		// Prefer the qualified value when present (e.g. "old_doc.status", "caller.user", "rule.id")
+		// rather than f.fieldname ("status") which would incorrectly default to "doc.status".
+		const rawVal = f.value || f.fieldname || f.id || "";
 		if (!rawVal) continue;
 
 		// Preserve already-qualified scopes (e.g. old_doc.status, vars.total, item.qty)
@@ -167,8 +169,12 @@ export function buildSourceCatalogue({
 		const description = r.description ? translate(r.description) : "";
 		const rawDescription = r.description || "";
 
-		// Context compatibility
-		const isKindAllowed = !allowedResolverKinds || allowedResolverKinds.includes(kind);
+		// Context compatibility with normalization for legacy "fetch" and canonical "lookup"
+		const normalizedAllowed = Array.isArray(allowedResolverKinds)
+			? allowedResolverKinds.map((k) => (k === "fetch" ? "lookup" : k))
+			: null;
+		const normalizedKind = kind === "fetch" ? "lookup" : kind;
+		const isKindAllowed = !normalizedAllowed || normalizedAllowed.includes(normalizedKind);
 		const isCompatible = isKindAllowed;
 
 		catalogue.push({

@@ -34,7 +34,16 @@ export function resolveStaticPresentation({
 		if (explicit.filters !== undefined) filters = explicit.filters;
 		if (explicit.placeholder !== undefined) placeholder = explicit.placeholder;
 	} else if (isMembershipOp) {
-		control = "multi-select";
+		// Only use multi-select (option-picker) when a real option source exists (Link, Select, or explicitly provided options)
+		const hasOptions =
+			(Array.isArray(options) && options.length > 0) ||
+			(typeof options === "string" && options.trim().length > 0) ||
+			Boolean(doctype) ||
+			["Select", "Link", "Dynamic Link", "MultiSelect", "MultiSelectList"].includes(
+				fieldType
+			);
+
+		control = hasOptions ? "multi-select" : "input";
 	} else if (
 		fieldType === "Select" ||
 		fieldType === "MultiSelect" ||

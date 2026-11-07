@@ -39,12 +39,22 @@ test("static_presentation: native fieldtypes preserve input control without dest
 });
 
 test("static_presentation: operator-specific requirement overrides default fieldtype", () => {
-	const res = resolveStaticPresentation({
-		fieldType: "Data",
+	// For fields with option sources (e.g. Select or Link), membership uses multi-select option picker
+	const resSelect = resolveStaticPresentation({
+		fieldType: "Select",
+		fieldOptions: ["Draft", "Submitted"],
 		context: { operator: "in" },
 	});
-	assert.equal(res.control, "multi-select");
-	assert.equal(res.isMultiSelect, true);
+	assert.equal(resSelect.control, "multi-select");
+	assert.equal(resSelect.isMultiSelect, true);
+
+	// For free-value types without options (e.g. Int, Float, Currency, Data), membership uses free-form input
+	const resInt = resolveStaticPresentation({
+		fieldType: "Int",
+		context: { operator: "in" },
+	});
+	assert.equal(resInt.control, "input");
+	assert.equal(resInt.isMultiSelect, false);
 });
 
 test("static_presentation: explicit consumer override takes highest precedence", () => {

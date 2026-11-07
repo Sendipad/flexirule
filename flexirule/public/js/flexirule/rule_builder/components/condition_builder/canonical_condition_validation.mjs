@@ -279,7 +279,15 @@ export function validateCanonicalCondition(tree, { contract = null, isMandatory 
 			}
 
 			const source = node.source;
-			if (!source && !node.collection) {
+			const hasValidSource =
+				(typeof node.collection === "string" && node.collection.trim().length > 0) ||
+				(source &&
+					typeof source === "object" &&
+					Array.isArray(source.segments) &&
+					source.segments.length > 0) ||
+				(typeof source === "string" && source.trim().length > 0);
+
+			if (!hasValidSource) {
 				addError("Collection source table is required.", node.id);
 			}
 

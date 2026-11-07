@@ -123,7 +123,17 @@ const collectionMetadataMap = ref(new Map());
 
 const unsupportedDiagnostics = computed(() => findUnsupportedDiagnostics(treeModel.value));
 
+function syncTreeFromBuilder() {
+	if (treeBuilderRef.value?.getTree) {
+		const liveTree = treeBuilderRef.value.getTree();
+		if (liveTree) {
+			treeModel.value = liveTree;
+		}
+	}
+}
+
 function serializeCurrentTree() {
+	syncTreeFromBuilder();
 	return serializeConditionTree(treeModel.value, contract.value?.operators || {});
 }
 
@@ -302,17 +312,20 @@ function invalidateValidation() {
 }
 
 function onTreeUpdate(newTree) {
-	invalidateValidation();
+	// Assign newTree first so validation runs against the newly installed tree structure
 	treeModel.value = newTree;
+	invalidateValidation();
 	emitSerialized();
 }
 
 function onSubNodeChange() {
+	syncTreeFromBuilder();
 	invalidateValidation();
 	emitSerialized();
 }
 
 async function validate() {
+	syncTreeFromBuilder();
 	const localResult = validateCanonicalCondition(treeModel.value, {
 		contract: contract.value,
 		isMandatory: props.isMandatory,

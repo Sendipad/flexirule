@@ -29,31 +29,33 @@ export function normalizeStrategyDefaultState(kind, strategyState = {}) {
 
 	if (kind === "date_time") {
 		operation = operation || "calculate";
-		config = config || state;
+		// Preserve the strategy's expected envelope { operation, config }
+		config = state.config || state;
 	} else if (kind === "text") {
 		operation = operation || "combine";
-		config = config || state;
+		config = state.config || state;
 	} else if (kind === "collection") {
 		operation = operation || state.operation || "any";
-		config = config || state;
+		config = state;
 	} else if (kind === "math_formula") {
 		operation = operation || "formula";
-		config = config || state;
+		config = state;
 	} else if (kind === "lookup" || kind === "fetch") {
 		operation = operation || "fetch";
-		config = config || state;
+		config = state;
 	} else if (kind === "system_context") {
 		operation = operation || (state.sys_token === "role_check" ? "role_check" : "get");
-		config = config || state;
+		config = state;
 	} else {
 		operation = operation || "default";
-		config = config || state;
+		config = state.config || state;
 	}
 
 	return {
 		family,
 		operation,
 		config,
+		fullState: state,
 	};
 }
 
@@ -74,6 +76,23 @@ export function adaptStrategiesForCatalogue(strategies = [], contextProps = {}) 
 
 		const normalized = normalizeStrategyDefaultState(kind, rawState);
 
+		// Retain the expected { family, operation, config } shape while ensuring direct property access compatibility
+		const innerConfig =
+			normalized.config && typeof normalized.config === "object" ? normalized.config : {};
+		const payloadConfig =
+			kind === "date_time" || kind === "text"
+				? {
+						...innerConfig,
+						family: normalized.family,
+						operation: normalized.operation,
+						config: innerConfig,
+				  }
+				: {
+						...innerConfig,
+						family: normalized.family,
+						operation: normalized.operation,
+				  };
+
 		return {
 			kind,
 			label: strategy.label || kind,
@@ -81,7 +100,7 @@ export function adaptStrategiesForCatalogue(strategies = [], contextProps = {}) 
 			description: strategy.description || "",
 			family: normalized.family,
 			operation: normalized.operation,
-			defaultConfig: normalized.config,
+			defaultConfig: payloadConfig,
 		};
 	});
 }
