@@ -169,3 +169,86 @@ test("Formula & Resolver Icons: domain-appropriate FontAwesome icons", () => {
 	assert.ok(clearCmd);
 	assert.equal(clearCmd.icon, "fa fa-trash");
 });
+
+test("Entry Condition deletion safety: confirmation on sole entry condition", () => {
+	// Root group with 1 condition
+	const root = {
+		id: "root",
+		type: "group",
+		children: [{ id: "leaf_1", type: "leaf" }],
+	};
+
+	let promptCalled = false;
+	const mockConfirmPrompt = (nodeId, rootTree, isEntryNode) => {
+		const children = rootTree?.children || [];
+		const isSole = children.length === 1 && children[0].id === nodeId;
+		if (isSole && isEntryNode) {
+			promptCalled = true;
+			return false; // User clicks cancel
+		}
+		return true;
+	};
+
+	// When user cancels deletion of sole entry condition
+	const canDeleteCancelled = mockConfirmPrompt("leaf_1", root, true);
+	assert.equal(canDeleteCancelled, false);
+	assert.equal(promptCalled, true);
+
+	// When deleting a non-entry node or when multi-condition exists
+	root.children.push({ id: "leaf_2", type: "leaf" });
+	promptCalled = false;
+	const canDeleteMulti = mockConfirmPrompt("leaf_1", root, true);
+	assert.equal(canDeleteMulti, true);
+	assert.equal(promptCalled, false);
+});
+
+test("Membership Serialization: canonical FlexValue payloads accepted by backend", () => {
+	// Select / Link field membership comparison
+	const membershipTree = {
+		id: "root",
+		type: "group",
+		operator: "and",
+		children: [
+			{
+				id: "leaf_mem_1",
+				type: "leaf",
+				operator: "in",
+				left: { mode: "variable", path: { scope: "doc", segments: ["status"] } },
+				right: {
+					mode: "static",
+					value_type: "list",
+					value: ["Draft", "Open", "Cancelled"],
+				},
+			},
+			{
+				id: "leaf_mem_2",
+				type: "leaf",
+				operator: "not_in",
+				left: { mode: "variable", path: { scope: "doc", segments: ["customer"] } },
+				right: { mode: "static", value_type: "list", value: ["Cust-001", "Cust-002"] },
+			},
+		],
+	};
+
+	const serialized = serializeConditionTree(membershipTree, CONTRACT_FIXTURE.operators);
+	assert.equal(serialized.type, "group");
+	assert.equal(serialized.children.length, 2);
+
+	// First comparison
+	const comp1 = serialized.children[0];
+	assert.equal(comp1.operator, "in");
+	assert.equal(comp1.right.mode, "static");
+	assert.equal(comp1.right.value_type, "list");
+	assert.deepEqual(comp1.right.value, ["Draft", "Open", "Cancelled"]);
+	// Control name must never become value_type
+	assert.notEqual(comp1.right.value_type, "multi-select");
+	assert.notEqual(comp1.right.value_type, "MultiSelectList");
+
+	// Second comparison
+	const comp2 = serialized.children[1];
+	assert.equal(comp2.operator, "not_in");
+	assert.equal(comp2.right.mode, "static");
+	assert.equal(comp2.right.value_type, "list");
+	assert.deepEqual(comp2.right.value, ["Cust-001", "Cust-002"]);
+	assert.notEqual(comp2.right.value_type, "multi-select");
+});

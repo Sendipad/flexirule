@@ -40,6 +40,7 @@
 			:collectionFactory="createCollection"
 			:operatorLabel="(op) => (op === 'and' ? __('AND') : __('OR'))"
 			:presentationMode="presentationMode"
+			:beforeRemove="confirmNodeRemoval"
 			@update:modelValue="onTreeUpdate"
 		>
 			<template #collection="{ node }">
@@ -141,6 +142,34 @@ const isSoleCondition = computed(() => {
 	const children = treeModel.value?.children || [];
 	return children.length === 1;
 });
+
+function confirmNodeRemoval(nodeId, root) {
+	// If it is the sole condition of an Entry Action, removal removes all filtering (unconditional execution)
+	const children = root?.children || [];
+	const isSole = children.length === 1 && children[0].id === nodeId;
+
+	let msg = "";
+	if (isSole && props.isEntryNode) {
+		msg = __(
+			"WARNING: Removing the only Entry Condition will remove all trigger filtering, causing the rule to run unconditionally for all documents! Are you sure you want to delete it?"
+		);
+	}
+
+	if (!msg) return true;
+
+	if (typeof frappe !== "undefined" && frappe.confirm) {
+		return new Promise((resolve) => {
+			frappe.confirm(
+				msg,
+				() => resolve(true),
+				() => resolve(false)
+			);
+		});
+	} else if (typeof window !== "undefined" && window.confirm) {
+		return window.confirm(msg);
+	}
+	return true;
+}
 
 function onChildFieldsLoaded(payload) {
 	if (payload && payload.collectionId) {

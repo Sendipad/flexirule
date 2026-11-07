@@ -99,6 +99,7 @@ const props = defineProps({
 	editorLayout: { type: String, default: "replace" },
 	isLeafNew: { type: Function, default: null },
 	isLeafValid: { type: Function, default: null },
+	beforeRemove: { type: Function, default: null },
 });
 const emit = defineEmits(["update:modelValue", "change", "validation-error"]);
 const slots = useSlots();
@@ -117,16 +118,31 @@ const api = useTreeBuilder({
 	validateCollection: props.validateCollection,
 });
 
+function removeNode(id) {
+	if (typeof props.beforeRemove === "function") {
+		const canRemove = props.beforeRemove(id, api.root);
+		if (canRemove === false) return;
+		if (canRemove instanceof Promise) {
+			canRemove.then((confirmed) => {
+				if (confirmed !== false) api.removeNode(id);
+			});
+			return;
+		}
+	}
+	return api.removeNode(id);
+}
+
 const hasSummarySlot = computed(() => Boolean(slots["leaf-summary"]));
 provide("treeBuilderContext", {
 	...api,
+	removeNode,
 	presentationMode: computed(() => props.presentationMode),
 	editorLayout: computed(() => props.editorLayout),
 	isLeafNew: computed(() => props.isLeafNew),
 	isLeafValid: computed(() => props.isLeafValid),
 	hasSummarySlot,
 });
-const { root, operators, addLeaf, addCollection, addGroup, removeNode, setOperator } = api;
+const { root, operators, addLeaf, addCollection, addGroup, setOperator } = api;
 const operatorLabel = (op) => props.operatorLabel(op);
 const visibleNode = (node) => props.visibleNode(node) !== false;
 const rootDragOver = ref(false);
@@ -156,7 +172,10 @@ function onRootDrop(e) {
 	api.endDrag();
 }
 
-defineExpose({ ...api });
+defineExpose({
+	...api,
+	removeNode,
+});
 </script>
 <style scoped>
 .tree-builder {
