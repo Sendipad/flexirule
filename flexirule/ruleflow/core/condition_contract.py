@@ -718,6 +718,9 @@ def condition_contract_dto() -> dict[str, Any]:
 			"template": {"segments": ["text", "value"], "maximum_segments": MAX_TEMPLATE_SEGMENTS},
 		},
 		"operators": operator_contract_dto(),
+		"fieldtype_value_types": {
+			fieldtype: list(value_types) for fieldtype, value_types in FIELD_TYPE_VALUE_TYPES.items()
+		},
 		"limits": dict(CONDITION_LIMITS),
 		"semantics_version": CONDITION_SEMANTICS_VERSION,
 	}
