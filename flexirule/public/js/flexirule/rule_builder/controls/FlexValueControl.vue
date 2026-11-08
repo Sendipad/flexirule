@@ -25,11 +25,12 @@
 				<MultiSelectList
 					v-if="isMultiSelectInline"
 					:df="staticDf"
-					:modelValue="staticValue"
+					:modelValue="formattedMultiSelectValue"
 					:documentType="isLinkType ? referenceDoctype : undefined"
 					:options="isLinkType ? undefined : fieldOptions"
 					:filters="context?.filters || {}"
 					:get_data="context?.df?.get_data || undefined"
+					:allowCustomValue="true"
 					displayMode="badges"
 					:badgeCollapseAfter="2"
 					:allowWrap="false"
@@ -154,6 +155,19 @@ const resolvedStaticConfig = computed(() => {
 
 const isMultiSelect = computed(() => resolvedStaticConfig.value.isMultiSelect);
 const isMultiSelectInline = computed(() => resolvedStaticConfig.value.isMultiSelect);
+
+const formattedMultiSelectValue = computed(() => {
+	if (Array.isArray(staticValue.value)) {
+		return staticValue.value.map(String);
+	}
+	if (typeof staticValue.value === "string" && staticValue.value.trim().length > 0) {
+		return staticValue.value
+			.split(",")
+			.map((s) => s.trim())
+			.filter(Boolean);
+	}
+	return [];
+});
 const isDynamicMode = ref(false);
 const isEditorFocused = ref(false);
 const isSuggestionOpen = ref(false);
@@ -847,10 +861,51 @@ function coerceStructuredValue(val) {
 	return { mode: "static", value_type: currentFieldType, value: val };
 }
 
+function parseListElements(val, targetFieldType) {
+	let rawList = [];
+	if (Array.isArray(val)) {
+		rawList = val;
+	} else if (typeof val === "string") {
+		rawList = val
+			.split(",")
+			.map((s) => s.trim())
+			.filter(Boolean);
+	} else if (val !== null && val !== undefined && val !== "") {
+		rawList = [val];
+	}
+
+	const isInt = targetFieldType === "Int" || targetFieldType === "integer";
+	const isFloat = ["Float", "Currency", "Percent", "decimal"].includes(targetFieldType);
+
+	return rawList.map((item) => {
+		if (typeof item === "string") {
+			const trimmed = item.trim();
+			if (isInt) {
+				const parsed = parseInt(trimmed, 10);
+				return isNaN(parsed) ? trimmed : parsed;
+			}
+			if (isFloat) {
+				const parsed = parseFloat(trimmed);
+				return isNaN(parsed) ? trimmed : parsed;
+			}
+			return trimmed;
+		}
+		return item;
+	});
+}
+
 function serialize() {
 	const currentFieldType = fieldType.value || "Data";
 
 	if (editor.isEmpty && !isDynamicMode.value) {
+		if (isMultiSelect.value) {
+			const parsedItems = parseListElements(staticValue.value, currentFieldType);
+			return {
+				mode: "static",
+				value_type: "list",
+				value: parsedItems,
+			};
+		}
 		return {
 			mode: "static",
 			value_type: currentFieldType,

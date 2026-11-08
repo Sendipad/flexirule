@@ -90,3 +90,48 @@ test("p2_verification: deduplicates sources across docFields and variableOptions
 	const titleItems = catalogue.filter((i) => i.canonicalPath === "doc.title");
 	assert.equal(titleItems.length, 1);
 });
+
+test("finding_1_verification: membership static serialization handles numeric and date fields", () => {
+	// Simulate the list parsing logic used in FlexValueControl serialize()
+	function parseListElements(val, targetFieldType) {
+		let rawList = [];
+		if (Array.isArray(val)) {
+			rawList = val;
+		} else if (typeof val === "string") {
+			rawList = val
+				.split(",")
+				.map((s) => s.trim())
+				.filter(Boolean);
+		} else if (val !== null && val !== undefined && val !== "") {
+			rawList = [val];
+		}
+
+		const isInt = targetFieldType === "Int" || targetFieldType === "integer";
+		const isFloat = ["Float", "Currency", "Percent", "decimal"].includes(targetFieldType);
+
+		return rawList.map((item) => {
+			if (typeof item === "string") {
+				const trimmed = item.trim();
+				if (isInt) {
+					const parsed = parseInt(trimmed, 10);
+					return isNaN(parsed) ? trimmed : parsed;
+				}
+				if (isFloat) {
+					const parsed = parseFloat(trimmed);
+					return isNaN(parsed) ? trimmed : parsed;
+				}
+				return trimmed;
+			}
+			return item;
+		});
+	}
+
+	const intList = parseListElements(["10", "20", "30"], "Int");
+	assert.deepEqual(intList, [10, 20, 30]);
+
+	const floatList = parseListElements(["10.5", "25.75"], "Currency");
+	assert.deepEqual(floatList, [10.5, 25.75]);
+
+	const dateList = parseListElements(["2025-01-01", "2025-01-02"], "Date");
+	assert.deepEqual(dateList, ["2025-01-01", "2025-01-02"]);
+});

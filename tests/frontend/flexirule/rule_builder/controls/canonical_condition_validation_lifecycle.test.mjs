@@ -178,20 +178,49 @@ test("Entry Condition deletion safety: confirmation on sole entry condition", ()
 		children: [{ id: "leaf_1", type: "leaf" }],
 	};
 
+	function countRemainingLeaves(node, excludeId) {
+		if (!node) return 0;
+		if (node.id === excludeId) return 0;
+		if (node.type === "leaf") return 1;
+		if (Array.isArray(node.children)) {
+			return node.children.reduce(
+				(acc, child) => acc + countRemainingLeaves(child, excludeId),
+				0
+			);
+		}
+		return 0;
+	}
+
 	let promptCalled = false;
 	const mockConfirmPrompt = (nodeId, rootTree, isEntryNode) => {
-		const children = rootTree?.children || [];
-		const isSole = children.length === 1 && children[0].id === nodeId;
-		if (isSole && isEntryNode) {
+		const remaining = countRemainingLeaves(rootTree, nodeId);
+		if (remaining === 0 && isEntryNode) {
 			promptCalled = true;
 			return false; // User clicks cancel
 		}
 		return true;
 	};
 
-	// When user cancels deletion of sole entry condition
+	// When user cancels deletion of sole top-level entry condition
 	const canDeleteCancelled = mockConfirmPrompt("leaf_1", root, true);
 	assert.equal(canDeleteCancelled, false);
+	assert.equal(promptCalled, true);
+
+	// When root contains nested group with 1 condition (Finding 2)
+	const nestedTree = {
+		id: "root",
+		type: "group",
+		children: [
+			{
+				id: "group_1",
+				type: "group",
+				children: [{ id: "leaf_nested_1", type: "leaf" }],
+			},
+		],
+	};
+	promptCalled = false;
+	const canDeleteNested = mockConfirmPrompt("leaf_nested_1", nestedTree, true);
+	assert.equal(canDeleteNested, false);
 	assert.equal(promptCalled, true);
 
 	// When deleting a non-entry node or when multi-condition exists

@@ -39,7 +39,7 @@ test("static_presentation: native fieldtypes preserve input control without dest
 });
 
 test("static_presentation: operator-specific requirement overrides default fieldtype", () => {
-	// For fields with option sources (e.g. Select or Link), membership uses multi-select option picker
+	// For all membership comparisons (in, not_in), a list-capable input (multi-select) is provided
 	const resSelect = resolveStaticPresentation({
 		fieldType: "Select",
 		fieldOptions: ["Draft", "Submitted"],
@@ -48,13 +48,29 @@ test("static_presentation: operator-specific requirement overrides default field
 	assert.equal(resSelect.control, "multi-select");
 	assert.equal(resSelect.isMultiSelect, true);
 
-	// For free-value types without options (e.g. Int, Float, Currency, Data), membership uses free-form input
 	const resInt = resolveStaticPresentation({
 		fieldType: "Int",
 		context: { operator: "in" },
 	});
-	assert.equal(resInt.control, "input");
-	assert.equal(resInt.isMultiSelect, false);
+	assert.equal(resInt.control, "multi-select");
+	assert.equal(resInt.isMultiSelect, true);
+});
+
+test("static_presentation: auto configuration preserves supplied options and doctype", () => {
+	const resAutoOpts = resolveStaticPresentation({
+		fieldType: "Data",
+		staticPresentation: { control: "auto", options: ["A", "B"] },
+	});
+	assert.equal(resAutoOpts.control, "select");
+	assert.deepEqual(resAutoOpts.options, ["A", "B"]);
+
+	const resAutoDoc = resolveStaticPresentation({
+		fieldType: "Data",
+		staticPresentation: { control: "auto", doctype: "Customer", filters: { is_active: 1 } },
+	});
+	assert.equal(resAutoDoc.control, "link");
+	assert.equal(resAutoDoc.doctype, "Customer");
+	assert.deepEqual(resAutoDoc.filters, { is_active: 1 });
 });
 
 test("static_presentation: explicit consumer override takes highest precedence", () => {

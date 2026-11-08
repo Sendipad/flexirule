@@ -138,18 +138,32 @@ function serializeCurrentTree() {
 	return serializeConditionTree(treeModel.value, contract.value?.operators || {});
 }
 
+function countRemainingLeaves(node, excludeId) {
+	if (!node) return 0;
+	if (node.id === excludeId) return 0;
+	if (node.type === "leaf") return 1;
+	if (Array.isArray(node.children)) {
+		return node.children.reduce(
+			(acc, child) => acc + countRemainingLeaves(child, excludeId),
+			0
+		);
+	}
+	return 0;
+}
+
 const isSoleCondition = computed(() => {
-	const children = treeModel.value?.children || [];
-	return children.length === 1;
+	const remaining = countRemainingLeaves(treeModel.value, null);
+	return remaining === 1;
 });
 
 function confirmNodeRemoval(nodeId, root) {
-	// If it is the sole condition of an Entry Action, removal removes all filtering (unconditional execution)
-	const children = root?.children || [];
-	const isSole = children.length === 1 && children[0].id === nodeId;
+	// If removal leaves 0 conditions anywhere in an Entry Action, removal removes all filtering (unconditional execution)
+	const currentTree = treeModel.value || root;
+	const remainingLeaves = countRemainingLeaves(currentTree, nodeId);
+	const willBeEmpty = remainingLeaves === 0;
 
 	let msg = "";
-	if (isSole && props.isEntryNode) {
+	if (willBeEmpty && props.isEntryNode) {
 		msg = __(
 			"WARNING: Removing the only Entry Condition will remove all trigger filtering, causing the rule to run unconditionally for all documents! Are you sure you want to delete it?"
 		);

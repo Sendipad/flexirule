@@ -20,37 +20,33 @@ export function resolveStaticPresentation({
 	const op = String(context?.operator || "").toLowerCase();
 	const isMembershipOp = ["in", "not in", "not_in", "in list", "not in list"].includes(op);
 
+	// Resolve explicit metadata independently of the selected control so "auto" does not lose supplied metadata
+	let options = explicit?.options !== undefined ? explicit.options : fieldOptions;
+	let doctype = explicit?.doctype !== undefined ? explicit.doctype : referenceDoctype;
+	let filters = explicit?.filters !== undefined ? explicit.filters : context?.filters || {};
+	let placeholder =
+		explicit?.placeholder !== undefined ? explicit.placeholder : context?.placeholder || "";
+
 	// Determine control type
 	let control = "input";
-	let options = fieldOptions;
-	let doctype = referenceDoctype;
-	let filters = context?.filters || {};
-	let placeholder = context?.placeholder || "";
 
 	if (explicit?.control && explicit.control !== "auto") {
 		control = explicit.control;
-		if (explicit.options !== undefined) options = explicit.options;
-		if (explicit.doctype !== undefined) doctype = explicit.doctype;
-		if (explicit.filters !== undefined) filters = explicit.filters;
-		if (explicit.placeholder !== undefined) placeholder = explicit.placeholder;
 	} else if (isMembershipOp) {
-		// Only use multi-select (option-picker) when a real option source exists (Link, Select, or explicitly provided options)
-		const hasOptions =
-			(Array.isArray(options) && options.length > 0) ||
-			(typeof options === "string" && options.trim().length > 0) ||
-			Boolean(doctype) ||
-			["Select", "Link", "Dynamic Link", "MultiSelect", "MultiSelectList"].includes(
-				fieldType
-			);
-
-		control = hasOptions ? "multi-select" : "input";
+		// Membership operators require list-capable entry
+		control = "multi-select";
 	} else if (
 		fieldType === "Select" ||
 		fieldType === "MultiSelect" ||
-		fieldType === "MultiSelectList"
+		fieldType === "MultiSelectList" ||
+		(Array.isArray(options) && options.length > 0) ||
+		(typeof options === "string" && options.trim().length > 0)
 	) {
-		control = fieldType === "Select" ? "select" : "multi-select";
-	} else if (fieldType === "Link" || fieldType === "Dynamic Link") {
+		control =
+			fieldType === "MultiSelect" || fieldType === "MultiSelectList"
+				? "multi-select"
+				: "select";
+	} else if (fieldType === "Link" || fieldType === "Dynamic Link" || Boolean(doctype)) {
 		control = "link";
 	} else {
 		control = "input";
