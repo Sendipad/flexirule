@@ -26,6 +26,7 @@ const props = defineProps({
 	badgeCollapseAfter: { type: Number, default: 4 },
 	allowWrap: { type: Boolean, default: true },
 	allowInvertSelection: { type: Boolean, default: true },
+	allowCustomValue: { type: Boolean, default: false },
 	dropdownMinWidth: { type: Number, default: 260 },
 	dropdownMaxWidth: { type: Number, default: 760 },
 	dropdownMaxHeight: { type: Number, default: 380 },
@@ -323,6 +324,17 @@ function selectOption(value) {
 	emitValue(next);
 }
 
+function addCustomValue(val) {
+	const trimmed = String(val || "").trim();
+	if (!trimmed) return;
+	const next = [...selectedValues.value];
+	if (!next.includes(trimmed)) {
+		next.push(trimmed);
+		emitValue(next);
+	}
+	query.value = "";
+}
+
 function removeValue(value) {
 	if (!canInteract.value) return;
 	emitValue(selectedValues.value.filter((v) => v !== String(value)));
@@ -422,9 +434,10 @@ function onKeydown(event) {
 	if (event.key === "Enter") {
 		event.preventDefault();
 		const options = filteredOptions.value || [];
-		if (activeIndex.value > -1) {
-			const selected = options[activeIndex.value];
-			if (selected) selectOption(selected.value);
+		if (activeIndex.value > -1 && options[activeIndex.value]) {
+			selectOption(options[activeIndex.value].value);
+		} else if (props.allowCustomValue && query.value.trim()) {
+			addCustomValue(query.value);
 		}
 		return;
 	}
@@ -777,7 +790,19 @@ onBeforeUnmount(() => {
 						{{ error || errorMessage }}
 					</div>
 					<div class="dropdown-state" v-else-if="!filteredOptions.length">
-						{{ __("No options found") }}
+						<div v-if="allowCustomValue && query.trim()">
+							<button
+								type="button"
+								class="btn btn-xs btn-outline-primary"
+								@click="addCustomValue(query)"
+							>
+								<i class="fa fa-plus mr-1"></i>
+								{{ __('Add "{0}"').replace("{0}", query.trim()) }}
+							</button>
+						</div>
+						<div v-else>
+							{{ __("No options found") }}
+						</div>
 					</div>
 
 					<div

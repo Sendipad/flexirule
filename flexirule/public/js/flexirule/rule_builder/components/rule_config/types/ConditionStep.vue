@@ -152,11 +152,25 @@ function updateConditions(val) {
 function save() {
 	if (!props.node?.data) return;
 
+	// For mandatory conditions (e.g. Condition Action), do not overwrite a previously valid
+	// saved config with null simply because an incomplete draft is in progress.
+	// Only persist null if the tree is legitimately empty (i.e. all conditions removed).
+	const builderTree = canonicalBuilderRef.value?.getTree?.();
+	const hasChildren = Array.isArray(builderTree?.children) && builderTree.children.length > 0;
+
 	if (props.node.type === "start") {
 		props.node.data.trigger_condition = localCanonicalCondition.value;
 	} else {
-		props.node.data.config = localCanonicalCondition.value;
-		props.node.data.condition_json = null;
+		if (localCanonicalCondition.value !== null) {
+			props.node.data.config = localCanonicalCondition.value;
+			props.node.data.condition_json = null;
+		} else if (!hasChildren) {
+			// Explicit empty condition
+			props.node.data.config = null;
+			props.node.data.condition_json = null;
+		}
+		// If hasChildren is true but localCanonicalCondition is null (due to incomplete draft),
+		// preserve props.node.data.config so existing valid configuration is not clobbered.
 	}
 }
 

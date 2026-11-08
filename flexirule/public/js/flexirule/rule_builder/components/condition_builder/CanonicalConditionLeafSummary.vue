@@ -12,7 +12,7 @@
 
 <script setup>
 import { computed } from "vue";
-import { UNARY_OPERATORS } from "./canonical_condition_adapter.mjs";
+import { isOperatorUnary } from "./canonical_condition_validation.mjs";
 
 const props = defineProps({
 	node: { type: Object, required: true },
@@ -21,9 +21,7 @@ const props = defineProps({
 });
 
 const isUnary = computed(() => {
-	const op = props.node.operator;
-	const spec = props.contract?.operators?.[op];
-	return UNARY_OPERATORS.has(op) || spec?.arity === 1;
+	return isOperatorUnary(props.node?.operator, props.contract);
 });
 
 const FRIENDLY_OPERATOR_WORDS = {

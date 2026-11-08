@@ -25,11 +25,12 @@
 				<MultiSelectList
 					v-if="isMultiSelectInline"
 					:df="staticDf"
-					:modelValue="staticValue"
+					:modelValue="formattedMultiSelectValue"
 					:documentType="isLinkType ? referenceDoctype : undefined"
 					:options="isLinkType ? undefined : fieldOptions"
 					:filters="context?.filters || {}"
 					:get_data="context?.df?.get_data || undefined"
+					:allowCustomValue="true"
 					displayMode="badges"
 					:badgeCollapseAfter="2"
 					:allowWrap="false"
@@ -56,54 +57,20 @@
 				<div class="fvc-editor-wrapper">
 					<editor-content :editor="editor" class="fvc-tiptap-editor" />
 
-					<!-- Inline Actions (JSON Preview) -->
-					<div class="fvc-inline-actions" v-if="!isReadOnly && !isEditorEmpty">
-						<button
-							class="fvc-action-btn"
-							type="button"
-							:title="__('JSON Preview')"
-							@click.stop="openTokenEditor(null, null, 'json')"
-						>
-							<i class="fa fa-code"></i>
-						</button>
-					</div>
-
 					<!-- Contextual placeholder -->
 					<div
 						v-if="!isReadOnly && isEditorEmpty && !isEditorFocused"
-						class="fvc-empty-hint"
+						class="fvc-empty-placeholder"
 					>
-						<span class="hint-part">|</span> {{ __("static") }}
-						<span class="hint-sep">·</span>
-						<span class="hint-at">@</span>{{ __("variable") }}
-						<span class="hint-sep">·</span>
-						<span class="hint-slash">/</span>{{ __("resolver") }}
+						{{ placeholder || __("Choose a field, variable, or resolver (@)...") }}
 					</div>
 					<div
 						v-else-if="!isReadOnly && isEditorEmpty && isEditorFocused"
 						class="fvc-focus-hint"
 					>
-						{{
-							placeholder ||
-							__("Type Value or @ for Variable or / for advanced Resolver")
-						}}
+						{{ placeholder || __("Type Value or @ for Variable or Resolver") }}
 					</div>
 				</div>
-			</div>
-
-			<!-- Visible Source Picker Trigger (for variables/fields) -->
-			<div
-				v-if="!isReadOnly && availableVariableOptions.length"
-				class="fvc-source-browse-wrap"
-			>
-				<button
-					type="button"
-					class="fvc-browse-btn"
-					:title="__('Browse available fields and values')"
-					@click.stop="toggleSourcePicker"
-				>
-					<i class="fa fa-list-ul"></i>
-				</button>
 			</div>
 
 			<!-- Mode Toggle Button -->
@@ -127,241 +94,6 @@
 		<div v-if="showValidation && !isValid" class="fxr-error-msg">
 			{{ __("{0} is required").replace("{0}", context?.df?.label || __("Field")) }}
 		</div>
-
-		<!-- ── Source Picker Popover (Teleported) ── -->
-		<Teleport to="body">
-			<div
-				v-if="isSourcePickerOpen"
-				class="fxr-picker-popover-backdrop"
-				@click.self="isSourcePickerOpen = false"
-			>
-				<div class="fxr-picker-popover-container" :style="pickerPopoverStyle">
-					<SourcePickerPopover
-						:options="availableVariableOptions"
-						:currentValue="currentFlexValue"
-						@select="onSourceSelected"
-						@close="isSourcePickerOpen = false"
-					/>
-				</div>
-			</div>
-		</Teleport>
-
-		<!-- ── Token Editor Modal ── -->
-		<Teleport to="body">
-			<div
-				v-if="activeTokenType"
-				class="fxr-token-modal-overlay"
-				@click.self="closeTokenEditor"
-			>
-				<div class="fxr-token-modal-container">
-					<!-- Header -->
-					<div class="fxr-token-modal-header">
-						<div class="d-flex align-items-center" style="gap: 8px">
-							<i
-								:class="activeTokenPresentation.icon"
-								style="font-size: 14px; color: #64748b"
-							></i>
-							<span style="font-weight: 600; font-size: 14px">{{
-								activeTokenPresentation.title
-							}}</span>
-						</div>
-						<button
-							type="button"
-							class="fvc-action-btn"
-							@click="closeTokenEditor"
-							:title="__('Close')"
-						>
-							<i class="fa fa-times"></i>
-						</button>
-					</div>
-
-					<!-- Body -->
-					<div class="fxr-token-modal-body">
-						<!-- JSON Editor Mode -->
-						<template v-if="activeTokenType === 'json'">
-							<textarea
-								class="json-textarea"
-								v-model="tokenDraftAttrs.value"
-								:placeholder="__('Paste or edit JSON/Expression here...')"
-							></textarea>
-							<div
-								v-if="jsonParseError"
-								class="text-danger mt-1"
-								style="font-size: 12px"
-							>
-								{{ jsonParseError }}
-							</div>
-						</template>
-
-						<!-- Visual Builder / Manual Editor -->
-						<template v-else>
-							<!-- Mode Toggle: Builder vs Manual -->
-							<div class="d-flex align-items-center justify-content-between mb-3">
-								<span class="fxr-label-sm mb-0">{{ __("Edit Mode") }}</span>
-								<div class="d-flex align-items-center" style="gap: 6px">
-									<button
-										type="button"
-										class="fvc-action-btn"
-										:style="
-											!isManualMode
-												? 'color: var(--fxr-accent); font-weight: 700'
-												: ''
-										"
-										@click="isManualMode = false"
-									>
-										<i class="fa fa-th-large mr-1"></i> {{ __("Visual") }}
-									</button>
-									<span style="color: #cbd5e1">|</span>
-									<button
-										type="button"
-										class="fvc-action-btn"
-										:style="
-											isManualMode
-												? 'color: var(--fxr-accent); font-weight: 700'
-												: ''
-										"
-										@click="isManualMode = true"
-									>
-										<i class="fa fa-code mr-1"></i> {{ __("Manual") }}
-									</button>
-								</div>
-							</div>
-
-							<!-- Visual Builder -->
-							<div v-if="!isManualMode">
-								<ValueResolverControl
-									viewMode="inline"
-									:modelValue="tokenDraftAttrs.config"
-									:doctype="triggerDoctype"
-									:context="resolverContext"
-									:variableOptions="availableVariableOptions"
-									:allowedKinds="allowedBuilderKinds"
-									@update:modelValue="handleBuilderUpdate"
-								/>
-								<div v-if="builderErrors.length" class="mt-3">
-									<div
-										v-for="err in builderErrors"
-										:key="err"
-										class="text-danger fxr-text-xs"
-									>
-										<i class="fa fa-exclamation-triangle mr-1"></i> {{ err }}
-									</div>
-								</div>
-							</div>
-
-							<!-- Manual Formula Editor -->
-							<div v-else>
-								<div class="d-flex flex-column" style="gap: 8px">
-									<label class="fxr-label-sm">{{ __("Expression") }}</label>
-									<textarea
-										ref="formulaTextareaRef"
-										class="formula-textarea"
-										v-model="tokenDraftAttrs.expression"
-										:placeholder="
-											__('e.g. frappe.utils.add_days(doc.posting_date, 7)')
-										"
-									></textarea>
-								</div>
-
-								<!-- Variable pills -->
-								<div
-									v-if="
-										availableVariableOptions && availableVariableOptions.length
-									"
-									class="mt-2"
-								>
-									<label class="fxr-label-sm">{{ __("Insert Variable") }}</label>
-									<div class="variables-pill-grid">
-										<button
-											v-for="v in availableVariableOptions"
-											:key="v.value || v"
-											type="button"
-											class="var-pill-btn"
-											@click="insertVarInFormula(v)"
-										>
-											{{ v.label || v }}
-										</button>
-									</div>
-								</div>
-
-								<!-- Config params for resolver -->
-								<div class="mt-3" v-if="activeTokenType === 'resolver'">
-									<div
-										class="d-flex align-items-center justify-content-between mb-2"
-									>
-										<label class="fxr-label-sm mb-0">{{ __("Config") }}</label>
-										<button
-											type="button"
-											class="fvc-action-btn"
-											@click="addConfigParam"
-										>
-											<i class="fa fa-plus mr-1"></i> {{ __("Add Param") }}
-										</button>
-									</div>
-									<div
-										v-if="
-											tokenDraftAttrs.config &&
-											typeof tokenDraftAttrs.config === 'object'
-										"
-										class="d-flex flex-column"
-										style="gap: 6px"
-									>
-										<div
-											v-for="(val, key) in tokenDraftAttrs.config"
-											:key="key"
-											class="d-flex align-items-center"
-											style="gap: 6px"
-										>
-											<input
-												type="text"
-												class="fxr-input"
-												style="width: 120px; font-size: 12px"
-												:value="key"
-												@change="renameConfigKey(key, $event.target.value)"
-												:placeholder="__('key')"
-											/>
-											<input
-												type="text"
-												class="fxr-input flex-1"
-												style="font-size: 12px"
-												v-model="tokenDraftAttrs.config[key]"
-												:placeholder="__('value')"
-											/>
-											<button
-												type="button"
-												class="fvc-action-btn"
-												@click="removeConfigKey(key)"
-											>
-												<i class="fa fa-trash"></i>
-											</button>
-										</div>
-									</div>
-								</div>
-							</div>
-						</template>
-					</div>
-
-					<!-- Footer -->
-					<div class="fxr-token-modal-footer">
-						<button
-							type="button"
-							class="fxr-btn fxr-btn--secondary"
-							@click="closeTokenEditor"
-						>
-							{{ __("Cancel") }}
-						</button>
-						<button
-							type="button"
-							class="fxr-btn fxr-btn--primary"
-							@click="saveTokenEditor"
-							:disabled="!isManualMode && !isBuilderValid"
-						>
-							{{ __("Save") }}
-						</button>
-					</div>
-				</div>
-			</div>
-		</Teleport>
 	</div>
 </template>
 
@@ -378,19 +110,23 @@ import {
 	getCommandsForFieldtype,
 	getFormulasForFieldtype,
 	getAllowedBuilderKinds,
+	getFunctionIcon,
 } from "../../core/formula_registry";
 import { compileToCode, compileToLabel } from "../../core/builder_utils.js";
 import MentionList from "./MentionList.vue";
 import ControlFactory from "./ControlFactory.vue";
 import MultiSelectList from "./MultiSelectList.vue";
-import ValueResolverControl from "./ValueResolverControl.vue";
 import ResolverTokenView from "./ResolverTokenView.vue";
-import SourcePickerPopover from "./SourcePickerPopover.vue";
+import { resolveStaticPresentation } from "./static_presentation_policy.mjs";
+import { buildSourceCatalogue, searchSourceCatalogue } from "./source_catalogue.mjs";
+import { getAllStrategies } from "./value_resolver/strategies.js";
+import { adaptStrategiesForCatalogue } from "./resolver_catalogue_adapter.mjs";
 
 const props = defineProps({
 	modelValue: { type: [Object, String, Number, Boolean], default: null },
 	fieldname: String,
 	variableOptions: { type: Array, default: () => [] },
+	docFields: { type: Array, default: () => [] },
 	readOnly: { type: Boolean, default: false },
 	read_only: { type: Boolean, default: false },
 	placeholder: { type: String, default: "" },
@@ -401,44 +137,36 @@ const props = defineProps({
 	showValidation: { type: Boolean, default: false },
 	invalid: { type: Boolean, default: false },
 	context: { type: Object, default: () => ({}) },
+	staticPresentation: { type: Object, default: null },
 });
 
 const emit = defineEmits(["update:modelValue", "update"]);
 
 const isReadOnly = computed(() => !!props.readOnly || !!props.read_only);
-const TEXT_FIELDTYPES = new Set([
-	"Data",
-	"Small Text",
-	"Text",
-	"Long Text",
-	"Code",
-	"Text Editor",
-	"JSON",
-]);
-const isMultiSelect = computed(() => {
-	const ft = fieldType.value;
-	if (["MultiSelect", "MultiSelectList", "Table MultiSelect", "MultiCheck"].includes(ft)) {
-		return true;
-	}
-
-	const op = props.context?.operator;
-	const isListOp = ["in", "not in", "not_in", "in list", "not in list"].includes(
-		String(op || "").toLowerCase()
-	);
-	if (!isListOp) return false;
-
-	return ft === "Select" || TEXT_FIELDTYPES.has(ft) || ft === "Link" || ft === "Dynamic Link";
+const resolvedStaticConfig = computed(() => {
+	return resolveStaticPresentation({
+		staticPresentation: props.staticPresentation,
+		context: props.context,
+		fieldType: fieldType.value,
+		fieldOptions: fieldOptions.value,
+		referenceDoctype: referenceDoctype.value,
+	});
 });
 
-const isMultiSelectInline = computed(() => {
-	const op = props.context?.operator;
-	const isListOp = ["in", "not in", "not_in", "in list", "not in list"].includes(
-		String(op || "").toLowerCase()
-	);
-	if (!isListOp) return false;
+const isMultiSelect = computed(() => resolvedStaticConfig.value.isMultiSelect);
+const isMultiSelectInline = computed(() => resolvedStaticConfig.value.isMultiSelect);
 
-	const ft = fieldType.value;
-	return ft === "Select" || TEXT_FIELDTYPES.has(ft) || ft === "Link" || ft === "Dynamic Link";
+const formattedMultiSelectValue = computed(() => {
+	if (Array.isArray(staticValue.value)) {
+		return staticValue.value.map(String);
+	}
+	if (typeof staticValue.value === "string" && staticValue.value.trim().length > 0) {
+		return staticValue.value
+			.split(",")
+			.map((s) => s.trim())
+			.filter(Boolean);
+	}
+	return [];
 });
 const isDynamicMode = ref(false);
 const isEditorFocused = ref(false);
@@ -448,68 +176,23 @@ const uid =
 	Math.random().toString(36).substring(2, 15) + "_" + Math.random().toString(36).substring(2, 15);
 
 const controlRef = ref(null);
-const formulaTextareaRef = ref(null);
 
-// Source Picker Popover State
-const isSourcePickerOpen = ref(false);
-const pickerPopoverStyle = ref({});
-
-function toggleSourcePicker() {
-	if (isReadOnly.value || props.disabled) return;
-	if (isSourcePickerOpen.value) {
-		isSourcePickerOpen.value = false;
-		return;
-	}
-
-	if (controlRef.value) {
-		const rect = controlRef.value.getBoundingClientRect();
-		pickerPopoverStyle.value = {
-			position: "fixed",
-			top: `${rect.bottom + 4}px`,
-			left: `${Math.max(10, rect.left)}px`,
-			zIndex: 14500,
-		};
-	}
-	isSourcePickerOpen.value = true;
-}
-
-const currentFlexValue = computed(() => {
-	return coerceStructuredValue(serialize());
-});
-
-function onSourceSelected(item) {
-	isSourcePickerOpen.value = false;
-	const val = item.value || item;
-	const path = String(val).startsWith("@") ? String(val).substring(1) : String(val);
-
-	// Split into scope and segments
-	const parts = path.split(".");
-	const knownScopes = new Set(["doc", "old_doc", "vars", "caller", "rule", "doctype"]);
-	const scope = knownScopes.has(parts[0]) ? parts[0] : parts.length > 1 ? parts[0] : "doc";
-	const segments = knownScopes.has(parts[0]) || parts.length > 1 ? parts.slice(1) : parts;
-
-	isDynamicMode.value = true;
-	lastEmittedJSON = "";
-	editor.commands.setContent("");
-	const canonicalPath = segments.length ? scope + "." + segments.join(".") : scope;
-	editor.commands.insertContent({
-		type: "variableToken",
-		attrs: {
-			path: canonicalPath,
-			label: item.friendlyLabel || item.label || canonicalPath,
-		},
+const sourceCatalogue = computed(() => {
+	const rawStrategies = getAllStrategies();
+	const adaptedResolvers = adaptStrategiesForCatalogue(rawStrategies, {
+		context: resolverContext.value,
+		doctype: triggerDoctype.value,
+		fieldType: fieldType.value,
 	});
-	emitChanges();
-}
-
-// Modal state
-const activeTokenType = ref(null);
-const activeTokenNode = ref(null);
-const activeTokenPos = ref(null);
-const tokenDraftAttrs = ref({});
-const jsonParseError = ref("");
-const isBuilderValid = ref(true);
-const builderErrors = ref([]);
+	return buildSourceCatalogue({
+		docFields: props.docFields,
+		variableOptions: availableVariableOptions.value,
+		resolvers: adaptedResolvers,
+		fieldType: fieldType.value,
+		allowedResolverKinds: allowedBuilderKinds.value,
+		currentDocType: triggerDoctype.value,
+	});
+});
 
 // Static Mode Helpers
 const staticValue = ref("");
@@ -636,11 +319,21 @@ const allowedBuilderKinds = computed(() => {
 });
 
 const staticDf = computed(() => {
-	let ft = fieldType.value;
-	let opts = fieldOptions.value;
+	const cfg = resolvedStaticConfig.value;
+	let ft = fieldType.value || "Data";
+	let opts = cfg.options;
 
-	if (ft === "Link") {
-		opts = referenceDoctype.value;
+	if (cfg.control === "link") {
+		ft = "Link";
+		opts = cfg.doctype || referenceDoctype.value;
+	} else if (cfg.control === "select") {
+		ft = "Select";
+	} else if (cfg.control === "multi-select") {
+		ft = "MultiSelect";
+	} else if (cfg.control === "input") {
+		// Preserve native fieldtype (e.g. Int, Float, Currency, Percent, Check, Date, Datetime, Time)
+		// rather than coercing everything to Data!
+		ft = fieldType.value || "Data";
 	}
 
 	return {
@@ -649,7 +342,7 @@ const staticDf = computed(() => {
 		label: "",
 		options: opts,
 		read_only: props.disabled || isReadOnly.value,
-		placeholder: props.placeholder,
+		placeholder: cfg.placeholder || props.placeholder,
 	};
 });
 
@@ -715,6 +408,7 @@ const ResolverToken = Node.create({
 			operation: { default: "" },
 			config: { default: null },
 			resolver: { default: "" },
+			autoOpen: { default: false },
 		};
 	},
 
@@ -860,38 +554,43 @@ const editor = new Editor({
 				pluginKey: new PluginKey(`variableTrigger_${uid}`),
 				render: () => createSuggestionRenderer(),
 				items: ({ query }) => {
-					const q = query.toLowerCase();
-					const base = [
-						{ id: "doc", label: "doc", type: "variable", icon: "📄" },
-						{ id: "vars", label: "vars", type: "variable", icon: "📦" },
-					];
-					const options = [
-						...base,
-						...availableVariableOptions.value.map((v) => ({
-							id: v.value || v,
-							label: v.label || v,
-							type: "variable",
-							icon: "fa fa-cube",
-						})),
-					];
-					return options
-						.filter(
-							(v) =>
-								v.id.toLowerCase().includes(q) || v.label.toLowerCase().includes(q)
-						)
-						.slice(0, 20);
+					return searchSourceCatalogue(sourceCatalogue.value, query, {
+						preferredFieldType: fieldType.value,
+					}).slice(0, 25);
 				},
 				command: ({ editor, range, props }) => {
-					editor
-						.chain()
-						.focus()
-						.insertContentAt(range, [
-							{
-								type: "variableToken",
-								attrs: { path: props.id, label: props.label },
-							},
-						])
-						.run();
+					if (props.sourceType === "resolver") {
+						editor
+							.chain()
+							.focus()
+							.insertContentAt(range, [
+								{
+									type: "resolverToken",
+									attrs: {
+										family: props.family,
+										operation: props.operation,
+										config: props.payload?.config || {},
+										label: props.primaryLabel,
+										autoOpen: true,
+									},
+								},
+							])
+							.run();
+					} else {
+						editor
+							.chain()
+							.focus()
+							.insertContentAt(range, [
+								{
+									type: "variableToken",
+									attrs: {
+										path: props.canonicalPath || props.id,
+										label: props.primaryLabel || props.label,
+									},
+								},
+							])
+							.run();
+					}
 				},
 			},
 		}),
@@ -926,7 +625,7 @@ const editor = new Editor({
 						id: f.id,
 						label: f.label,
 						type: "logic",
-						icon: "fa fa-calculator",
+						icon: f.icon || getFunctionIcon(f.id, "fa fa-calculator"),
 						description: f.description,
 					}));
 
@@ -1162,10 +861,51 @@ function coerceStructuredValue(val) {
 	return { mode: "static", value_type: currentFieldType, value: val };
 }
 
+function parseListElements(val, targetFieldType) {
+	let rawList = [];
+	if (Array.isArray(val)) {
+		rawList = val;
+	} else if (typeof val === "string") {
+		rawList = val
+			.split(",")
+			.map((s) => s.trim())
+			.filter(Boolean);
+	} else if (val !== null && val !== undefined && val !== "") {
+		rawList = [val];
+	}
+
+	const isInt = targetFieldType === "Int" || targetFieldType === "integer";
+	const isFloat = ["Float", "Currency", "Percent", "decimal"].includes(targetFieldType);
+
+	return rawList.map((item) => {
+		if (typeof item === "string") {
+			const trimmed = item.trim();
+			if (isInt) {
+				const parsed = parseInt(trimmed, 10);
+				return isNaN(parsed) ? trimmed : parsed;
+			}
+			if (isFloat) {
+				const parsed = parseFloat(trimmed);
+				return isNaN(parsed) ? trimmed : parsed;
+			}
+			return trimmed;
+		}
+		return item;
+	});
+}
+
 function serialize() {
 	const currentFieldType = fieldType.value || "Data";
 
 	if (editor.isEmpty && !isDynamicMode.value) {
+		if (isMultiSelect.value) {
+			const parsedItems = parseListElements(staticValue.value, currentFieldType);
+			return {
+				mode: "static",
+				value_type: "list",
+				value: parsedItems,
+			};
+		}
 		return {
 			mode: "static",
 			value_type: currentFieldType,
@@ -1436,130 +1176,6 @@ function updateStaticValue(val) {
 	emitChanges();
 }
 
-// ── Token Editor ──
-
-const isManualMode = ref(false);
-
-const activeTokenPresentation = computed(() => {
-	const map = {
-		formula: { title: __("Configure Formula"), icon: "fa fa-calculator" },
-		resolver: { title: __("Configure Resolver"), icon: "fa fa-bolt" },
-		normalize: { title: __("Configure Normalization"), icon: "fa fa-refresh" },
-		format: { title: __("Configure Format"), icon: "fa fa-paint-brush" },
-		fetch: { title: __("Record Lookup"), icon: "fa fa-search" },
-		lookup: { title: __("Record Lookup"), icon: "fa fa-search" },
-		json: { title: __("JSON Editor"), icon: "fa fa-code" },
-	};
-	return map[activeTokenType.value] || { title: __("Token Configuration"), icon: "fa fa-cog" };
-});
-
-function openTokenEditor(node, pos, typeOverride = null) {
-	if (isReadOnly.value) return;
-	activeTokenNode.value = node;
-	activeTokenPos.value = pos;
-	isManualMode.value = false;
-
-	if (typeOverride) {
-		activeTokenType.value = typeOverride;
-		tokenDraftAttrs.value = { value: editor.getText() };
-		return;
-	}
-
-	if (node.type.name === "resolverToken") {
-		const kind = node.attrs.config?.kind;
-		if (["text", "fetch"].includes(kind)) {
-			if (kind === "text") activeTokenType.value = "resolver";
-			else activeTokenType.value = "fetch";
-		} else if (kind?.includes("formula") || kind?.includes("aggregation")) {
-			activeTokenType.value = "formula";
-		} else {
-			activeTokenType.value = "resolver";
-		}
-
-		tokenDraftAttrs.value = {
-			expression: node.attrs.expression,
-			resolver: node.attrs.resolver,
-			label: node.attrs.label,
-			config: node.attrs.config || null,
-		};
-	}
-
-	if (activeTokenType.value && !tokenDraftAttrs.value.config) {
-		isManualMode.value = true;
-	}
-}
-
-function closeTokenEditor() {
-	activeTokenType.value = null;
-	tokenDraftAttrs.value = {};
-	builderErrors.value = [];
-	isBuilderValid.value = true;
-}
-
-function handleBuilderUpdate(config, details) {
-	const defaults =
-		typeof props.context?.resolverDefaults === "function"
-			? props.context.resolverDefaults({
-					fieldType: fieldType.value,
-					referenceDoctype: referenceDoctype.value,
-					context: props.context,
-			  })
-			: props.context?.resolverDefaults;
-	const mergedConfig =
-		defaults && typeof defaults === "object" ? { ...defaults, ...config } : config;
-	tokenDraftAttrs.value.config = mergedConfig;
-	tokenDraftAttrs.value.expression = details?.expression || compileToCode(mergedConfig);
-	tokenDraftAttrs.value.label = details?.label || compileToLabel(mergedConfig);
-	isBuilderValid.value = details?.isValid ?? true;
-	builderErrors.value = details?.errors || [];
-}
-
-function saveTokenEditor() {
-	lastEmittedJSON = "";
-	if (activeTokenType.value === "json") {
-		editor.commands.setContent(tokenDraftAttrs.value.value);
-		emitChanges();
-	} else {
-		if (isManualMode.value) {
-			tokenDraftAttrs.value.config = null;
-		}
-
-		editor
-			.chain()
-			.focus()
-			.setNodeSelection(activeTokenPos.value)
-			.updateAttributes(activeTokenNode.value.type.name, tokenDraftAttrs.value)
-			.run();
-		emitChanges();
-	}
-	closeTokenEditor();
-}
-
-function insertVarInFormula(v) {
-	const textarea = formulaTextareaRef.value;
-	const start = textarea.selectionStart;
-	const insert = v.value || v;
-	tokenDraftAttrs.value.expression =
-		textarea.value.slice(0, start) + insert + textarea.value.slice(textarea.selectionEnd);
-}
-
-function addConfigParam() {
-	if (!tokenDraftAttrs.value.config) tokenDraftAttrs.value.config = {};
-	const key = `param_${Object.keys(tokenDraftAttrs.value.config).length + 1}`;
-	tokenDraftAttrs.value.config[key] = "";
-}
-
-function removeConfigKey(key) {
-	delete tokenDraftAttrs.value.config[key];
-}
-
-function renameConfigKey(oldKey, newKey) {
-	if (!newKey || oldKey === newKey) return;
-	const val = tokenDraftAttrs.value.config[oldKey];
-	delete tokenDraftAttrs.value.config[oldKey];
-	tokenDraftAttrs.value.config[newKey] = val;
-}
-
 watch(
 	() => props.modelValue,
 	(val) => {
@@ -1599,6 +1215,19 @@ onBeforeUnmount(() => {
 	flex-direction: column;
 	width: 100%;
 }
+.fvc-empty-placeholder {
+	position: absolute;
+	top: 50%;
+	transform: translateY(-50%);
+	left: 0;
+	color: var(--fxr-text-faint, #94a3b8);
+	font-size: var(--fxr-input-font-size, 12px);
+	pointer-events: none;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
 .fvc-main-field {
 	display: flex;
 	align-items: center;

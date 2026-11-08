@@ -3,18 +3,121 @@
  *
  * Validates a Canonical Condition AST or TreeBuilder model against the backend contract:
  * - Structural constraints (depth, max nodes, min 2 children per group, collection alias)
- * - Operator validity and arity (unary vs binary)
+ * - Operator validity and arity strictly from contract (arity === 1 vs binary)
  * - Required FlexValue mode and path constraints
  * - Distinguishing required condition actions from optional execution/entry filters
  */
 
-import { UNARY_OPERATORS } from "./canonical_condition_adapter.mjs";
+import {
+	fieldExpressionToCanonicalVariable,
+	toCanonicalFlexValue,
+} from "./canonical_condition_adapter.mjs";
 
 const DEFAULT_LIMITS = {
 	depth: 16,
 	nodes: 128,
 	path_segments: 8,
 };
+
+/**
+ * Determines if an operator is unary based strictly on the backend contract metadata.
+ * Fails closed if the contract is provided and the operator is absent or arity != 1.
+ */
+export function isOperatorUnary(operator, contractOrOperators = null) {
+	if (!operator) return false;
+	const operators = contractOrOperators?.operators || contractOrOperators;
+	if (operators && Object.keys(operators).length > 0) {
+		const spec = operators[operator];
+		return spec?.arity === 1;
+	}
+	// Fallback to recognized canonical unary operators if contract object is not supplied in test
+	const DEFAULT_UNARY = new Set([
+		"is_set",
+		"is_not_set",
+		"is_null",
+		"is_not_null",
+		"is_empty",
+		"is_not_empty",
+		"is_submittable",
+	]);
+	return DEFAULT_UNARY.has(operator);
+}
+
+/**
+ * Checks if a left or right value qualifies as a complete FlexValue.
+ */
+export function isOperandComplete(val, { isLeft = false, contract = null } = {}) {
+	if (!val) return false;
+	let normalized = val;
+	if (typeof val === "string") {
+		normalized = isLeft
+			? fieldExpressionToCanonicalVariable(val)
+			: { mode: "static", value: val };
+	} else if (typeof val === "object" && !val.mode) {
+		normalized = toCanonicalFlexValue(val);
+	}
+
+	if (!normalized || typeof normalized !== "object" || !normalized.mode) {
+		return false;
+	}
+
+	const mode = normalized.mode;
+	if (mode === "variable") {
+		const path = normalized.path;
+		if (!path || typeof path !== "object" || !path.scope) return false;
+		if (path.scope === "doctype") {
+			return Array.isArray(path.segments) && path.segments.length === 0;
+		}
+		return (
+			Array.isArray(path.segments) &&
+			path.segments.length > 0 &&
+			path.segments.every((s) => typeof s === "string" && s.trim().length > 0)
+		);
+	}
+
+	if (mode === "static") {
+		if (normalized.value_type === "list") {
+			return Array.isArray(normalized.value) && normalized.value.length > 0;
+		}
+		return (
+			normalized.value === null || (normalized.value !== undefined && normalized.value !== "")
+		);
+	}
+
+	if (mode === "resolver") {
+		return Boolean(normalized.family && normalized.operation);
+	}
+
+	if (mode === "template") {
+		return Array.isArray(normalized.segments) && normalized.segments.length > 0;
+	}
+
+	return false;
+}
+
+/**
+ * Evaluates whether a condition leaf has all required parts complete.
+ */
+export function isLeafComplete(leaf, contract = null) {
+	if (!leaf || typeof leaf !== "object") return false;
+	if (leaf.is_unsupported) return true;
+
+	const leftReady = isOperandComplete(leaf.left, { isLeft: true, contract });
+	if (!leftReady) return false;
+
+	const operator = leaf.operator;
+	if (!operator) return false;
+
+	const operators = contract?.operators || {};
+	if (contract && Object.keys(operators).length > 0 && !operators[operator]) {
+		return false;
+	}
+
+	const unary = isOperatorUnary(operator, contract);
+	if (unary) return true;
+
+	return isOperandComplete(leaf.right, { isLeft: false, contract });
+}
 
 /**
  * Validates a TreeBuilder UI node or canonical AST condition.
@@ -76,11 +179,11 @@ export function validateCanonicalCondition(tree, { contract = null, isMandatory 
 		}
 
 		totalNodes += 1;
-		if (depth > (limits.depth || 16)) {
+		if (depth > (limits.depth || limits.condition_depth || 16)) {
 			addError("Condition tree exceeds maximum nesting depth.", node.id);
 			return;
 		}
-		if (totalNodes > (limits.nodes || 128)) {
+		if (totalNodes > (limits.nodes || limits.condition_nodes || 128)) {
 			addError("Condition tree exceeds maximum node count.", node.id);
 			return;
 		}
@@ -96,40 +199,14 @@ export function validateCanonicalCondition(tree, { contract = null, isMandatory 
 		const type = node.type;
 
 		if (node.is_incomplete_draft && (type === "leaf" || type === "comparison")) {
-			const left = node.left;
-			const leftReady = Boolean(
-				left &&
-					left.mode &&
-					(left.mode !== "variable" ||
-						(left.path?.scope === "doctype" &&
-							Array.isArray(left.path?.segments) &&
-							left.path.segments.length === 0) ||
-						(left.path?.scope &&
-							Array.isArray(left.path?.segments) &&
-							left.path.segments.length > 0))
-			);
+			const leftReady = isOperandComplete(node.left, { isLeft: true, contract });
 			if (!leftReady) addError("Choose a value source.", node.id);
+
 			if (!node.operator) {
 				addError("Choose how the value should match.", node.id);
 			} else {
-				const unary =
-					UNARY_OPERATORS.has(node.operator) ||
-					contract?.operators?.[node.operator]?.arity === 1;
-				const right = node.right;
-				const rightReady = Boolean(
-					right &&
-						right.mode &&
-						(right.mode !== "static" ||
-							(right.value_type === "list"
-								? Array.isArray(right.value) && right.value.length > 0
-								: right.value === null ||
-								  (right.value !== undefined && right.value !== ""))) &&
-						(right.mode !== "variable" ||
-							(right.path?.scope &&
-								(right.path.scope === "doctype" ||
-									(Array.isArray(right.path.segments) &&
-										right.path.segments.length > 0))))
-				);
+				const unary = isOperatorUnary(node.operator, contract);
+				const rightReady = isOperandComplete(node.right, { isLeft: false, contract });
 				if (!unary && !rightReady) addError("Choose a comparison value.", node.id);
 			}
 			return;
@@ -145,10 +222,7 @@ export function validateCanonicalCondition(tree, { contract = null, isMandatory 
 			const operator = node.operator;
 			if (!operator) {
 				addError("Comparison operator is required.", node.id);
-			}
-
-			// Validate operator against contract if loaded
-			if (contract && Object.keys(operators).length > 0) {
+			} else if (contract && Object.keys(operators).length > 0) {
 				if (!operators[operator]) {
 					addError(
 						`Operator '${operator}' is not supported by backend contract.`,
@@ -158,37 +232,17 @@ export function validateCanonicalCondition(tree, { contract = null, isMandatory 
 			}
 
 			// Left operand validation
-			const left = node.left;
-			if (!left) {
+			const leftReady = isOperandComplete(node.left, { isLeft: true, contract });
+			if (!leftReady) {
 				addError("Left operand is required.", node.id);
-			} else if (left.mode === "variable") {
-				const path = left.path;
-				if (!path || !path.scope) {
-					addError("Left operand variable scope is required.", node.id);
-				} else if (
-					path.scope !== "doctype" &&
-					(!Array.isArray(path.segments) || path.segments.length === 0)
-				) {
-					addError("Left operand must select a document field or variable.", node.id);
-				}
 			}
 
 			// Right operand validation (for binary operators)
-			const isUnary =
-				UNARY_OPERATORS.has(operator) || contract?.operators?.[operator]?.arity === 1;
+			const isUnary = isOperatorUnary(operator, contract);
 			if (!isUnary) {
-				const right = node.right;
-				if (!right) {
+				const rightReady = isOperandComplete(node.right, { isLeft: false, contract });
+				if (!rightReady) {
 					addError("Right operand value is required.", node.id);
-				} else if (right.mode === "variable") {
-					const path = right.path;
-					if (!path || !path.scope) {
-						addError("Right operand variable scope is required.", node.id);
-					}
-				} else if (right.mode === "static") {
-					if (right.value === "" || right.value === undefined) {
-						addError("Right operand static value is required.", node.id);
-					}
 				}
 			}
 			return;
@@ -225,7 +279,15 @@ export function validateCanonicalCondition(tree, { contract = null, isMandatory 
 			}
 
 			const source = node.source;
-			if (!source && !node.collection) {
+			const hasValidSource =
+				(typeof node.collection === "string" && node.collection.trim().length > 0) ||
+				(source &&
+					typeof source === "object" &&
+					Array.isArray(source.segments) &&
+					source.segments.length > 0) ||
+				(typeof source === "string" && source.trim().length > 0);
+
+			if (!hasValidSource) {
 				addError("Collection source table is required.", node.id);
 			}
 

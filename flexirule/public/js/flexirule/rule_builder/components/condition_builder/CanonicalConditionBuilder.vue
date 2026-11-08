@@ -40,6 +40,7 @@
 			:collectionFactory="createCollection"
 			:operatorLabel="(op) => (op === 'and' ? __('AND') : __('OR'))"
 			:presentationMode="presentationMode"
+			:beforeRemove="confirmNodeRemoval"
 			@update:modelValue="onTreeUpdate"
 		>
 			<template #collection="{ node }">
@@ -123,14 +124,66 @@ const collectionMetadataMap = ref(new Map());
 
 const unsupportedDiagnostics = computed(() => findUnsupportedDiagnostics(treeModel.value));
 
+function syncTreeFromBuilder() {
+	if (treeBuilderRef.value?.getTree) {
+		const liveTree = treeBuilderRef.value.getTree();
+		if (liveTree) {
+			treeModel.value = liveTree;
+		}
+	}
+}
+
 function serializeCurrentTree() {
+	syncTreeFromBuilder();
 	return serializeConditionTree(treeModel.value, contract.value?.operators || {});
 }
 
+function countRemainingLeaves(node, excludeId) {
+	if (!node) return 0;
+	if (node.id === excludeId) return 0;
+	if (node.type === "leaf") return 1;
+	if (Array.isArray(node.children)) {
+		return node.children.reduce(
+			(acc, child) => acc + countRemainingLeaves(child, excludeId),
+			0
+		);
+	}
+	return 0;
+}
+
 const isSoleCondition = computed(() => {
-	const children = treeModel.value?.children || [];
-	return children.length === 1;
+	const remaining = countRemainingLeaves(treeModel.value, null);
+	return remaining === 1;
 });
+
+function confirmNodeRemoval(nodeId, root) {
+	// If removal leaves 0 conditions anywhere in an Entry Action, removal removes all filtering (unconditional execution)
+	const currentTree = treeModel.value || root;
+	const remainingLeaves = countRemainingLeaves(currentTree, nodeId);
+	const willBeEmpty = remainingLeaves === 0;
+
+	let msg = "";
+	if (willBeEmpty && props.isEntryNode) {
+		msg = __(
+			"WARNING: Removing the only Entry Condition will remove all trigger filtering, causing the rule to run unconditionally for all documents! Are you sure you want to delete it?"
+		);
+	}
+
+	if (!msg) return true;
+
+	if (typeof frappe !== "undefined" && frappe.confirm) {
+		return new Promise((resolve) => {
+			frappe.confirm(
+				msg,
+				() => resolve(true),
+				() => resolve(false)
+			);
+		});
+	} else if (typeof window !== "undefined" && window.confirm) {
+		return window.confirm(msg);
+	}
+	return true;
+}
 
 function onChildFieldsLoaded(payload) {
 	if (payload && payload.collectionId) {
@@ -292,20 +345,30 @@ let validatedPayloadJson = null;
 function invalidateValidation() {
 	lastValidationRequestId += 1;
 	validatedPayloadJson = null;
+	// Immediately recompute local validation so resolved errors disappear and new errors update reactively
+	const local = validateCanonicalCondition(treeModel.value, {
+		contract: contract.value,
+		isMandatory: props.isMandatory,
+	});
+	validationErrors.value = local.errors;
+	nodeErrorsMap.value = local.nodeErrors;
 }
 
 function onTreeUpdate(newTree) {
-	invalidateValidation();
+	// Assign newTree first so validation runs against the newly installed tree structure
 	treeModel.value = newTree;
+	invalidateValidation();
 	emitSerialized();
 }
 
 function onSubNodeChange() {
+	syncTreeFromBuilder();
 	invalidateValidation();
 	emitSerialized();
 }
 
 async function validate() {
+	syncTreeFromBuilder();
 	const localResult = validateCanonicalCondition(treeModel.value, {
 		contract: contract.value,
 		isMandatory: props.isMandatory,
