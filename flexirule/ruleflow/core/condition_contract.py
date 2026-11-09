@@ -31,21 +31,23 @@ TEXT_FIELD_TYPES = (
 	"Data",
 	"Small Text",
 	"Text",
+	"Long Text",
 	"Text Editor",
+	"HTML Editor",
+	"Markdown Editor",
 	"Code",
 	"Select",
 	"Link",
 	"Dynamic Link",
+	"Phone",
+	"Barcode",
+	"Autocomplete",
+	"Password",
 )
-NUMERIC_FIELD_TYPES = ("Int", "Float", "Currency", "Percent")
-ORDERED_FIELD_TYPES = (*NUMERIC_FIELD_TYPES, "Date", "Datetime", "Time")
+NUMERIC_FIELD_TYPES = ("Int", "Float", "Currency", "Percent", "Rating")
+ORDERED_FIELD_TYPES = (*NUMERIC_FIELD_TYPES, "Date", "Datetime", "Time", "Duration")
 EMPTY_FIELD_TYPES = (
-	"Data",
-	"Small Text",
-	"Text",
-	"Text Editor",
-	"Code",
-	"Select",
+	*TEXT_FIELD_TYPES,
 	"Table",
 	"Table MultiSelect",
 	"JSON",
@@ -190,23 +192,40 @@ def _exact_keys(value: Mapping, required: set[str], path: str) -> None:
 def _normalize_contract_type(t: str | None) -> str | None:
 	if t is None:
 		return None
-	if t in {"Data", "Small Text", "Text", "Text Editor", "Code", "Select", "Link", "Dynamic Link"}:
+	if t in {
+		"Data",
+		"Small Text",
+		"Text",
+		"Long Text",
+		"Text Editor",
+		"HTML Editor",
+		"Markdown Editor",
+		"Code",
+		"Select",
+		"Link",
+		"Dynamic Link",
+		"Phone",
+		"Barcode",
+		"Autocomplete",
+		"Password",
+		"string",
+	}:
 		return "string"
-	if t in {"Int"}:
+	if t in {"Int", "Duration", "Rating", "integer"}:
 		return "integer"
-	if t in {"Float", "Currency", "Percent"}:
+	if t in {"Float", "Currency", "Percent", "decimal"}:
 		return "decimal"
 	if t in {"Check", "boolean"}:
 		return "boolean"
-	if t in {"Date"}:
+	if t in {"Date", "date"}:
 		return "date"
-	if t in {"Datetime"}:
+	if t in {"Datetime", "datetime"}:
 		return "datetime"
-	if t in {"Time", "Duration"}:
+	if t in {"Time", "time"}:
 		return "time"
-	if t in {"Table", "Table MultiSelect"}:
+	if t in {"Table", "Table MultiSelect", "list"}:
 		return "list"
-	if t in {"JSON"}:
+	if t in {"JSON", "object"}:
 		return "object"
 	return t
 
@@ -225,17 +244,20 @@ def _validate_membership_items(left_type: str | None, right_value: Any, path: st
 		return
 	if not isinstance(right_value, Mapping):
 		return
-	if right_value.get("mode") != "static" or right_value.get("value_type") != "list":
+	if right_value.get("mode") != "static" or right_value.get("value_type") not in {"list", "JSON"}:
 		return
 	items = right_value.get("value")
 	if not isinstance(items, list):
+		return
+	norm_left = _normalize_contract_type(left_type)
+	if not norm_left:
 		return
 	accepted = {
 		"string": {"string", "null"},
 		"integer": {"integer", "decimal", "null"},
 		"decimal": {"integer", "decimal", "null"},
 		"boolean": {"boolean", "null"},
-	}.get(left_type)
+	}.get(norm_left)
 	if accepted is None:
 		return
 	for index, item in enumerate(items):
@@ -328,25 +350,34 @@ def resolve_fieldtype_for_path(scope: str, segments: tuple[str, ...], doctype: s
 
 
 FIELD_TYPE_VALUE_TYPES = {
-	"Data": ("string",),
-	"Small Text": ("string",),
-	"Text": ("string",),
-	"Text Editor": ("string",),
-	"Code": ("string",),
-	"Select": ("string",),
-	"Link": ("string",),
-	"Dynamic Link": ("string",),
-	"Int": ("integer",),
-	"Float": ("integer", "decimal"),
-	"Currency": ("integer", "decimal"),
-	"Percent": ("integer", "decimal"),
-	"Check": ("boolean",),
-	"Date": ("date",),
-	"Datetime": ("datetime",),
-	"Time": ("time",),
-	"Table": ("list",),
-	"Table MultiSelect": ("list",),
-	"JSON": ("string", "list", "object"),
+	"Data": ("string", "Data"),
+	"Small Text": ("string", "Small Text", "Data", "Text"),
+	"Text": ("string", "Text", "Data", "Small Text", "Long Text"),
+	"Long Text": ("string", "Long Text", "Text", "Data"),
+	"Text Editor": ("string", "Text Editor", "Data", "Text"),
+	"HTML Editor": ("string", "HTML Editor", "Data", "Text"),
+	"Markdown Editor": ("string", "Markdown Editor", "Data", "Text"),
+	"Code": ("string", "Code", "Data"),
+	"Select": ("string", "Select", "Data"),
+	"Link": ("string", "Link", "Data"),
+	"Dynamic Link": ("string", "Dynamic Link", "Data"),
+	"Phone": ("string", "Phone", "Data"),
+	"Barcode": ("string", "Barcode", "Data"),
+	"Autocomplete": ("string", "Autocomplete", "Data"),
+	"Password": ("string", "Password", "Data"),
+	"Int": ("integer", "Int"),
+	"Duration": ("integer", "Duration", "Int"),
+	"Rating": ("integer", "Rating", "Int"),
+	"Float": ("integer", "decimal", "Float", "Int"),
+	"Currency": ("integer", "decimal", "Currency", "Float", "Int"),
+	"Percent": ("integer", "decimal", "Percent", "Float", "Int"),
+	"Check": ("boolean", "Check"),
+	"Date": ("date", "Date"),
+	"Datetime": ("datetime", "Datetime"),
+	"Time": ("time", "Time"),
+	"Table": ("list", "Table", "JSON"),
+	"Table MultiSelect": ("list", "Table MultiSelect", "JSON"),
+	"JSON": ("string", "list", "object", "JSON", "Data"),
 }
 
 
@@ -408,7 +439,7 @@ def _known_fieldtype_check(
 		if (
 			isinstance(right_value, Mapping)
 			and right_value.get("mode") == "static"
-			and right_value.get("value_type") == "list"
+			and right_value.get("value_type") in {"list", "JSON"}
 		):
 			items = right_value.get("value", [])
 			if expected_types and any(

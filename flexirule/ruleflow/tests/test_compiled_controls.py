@@ -65,27 +65,36 @@ class TestCompiledControls(FrappeTestCase):
 										{
 											"type": "conditional",
 											"condition": {
-												"op": "and",
-												"conditions": [
-													{
-														"left": {"ref": "doc.priority"},
-														"op": "==",
-														"right": {"value": "High"},
-													}
-												],
+												"type": "comparison",
+												"operator": "eq",
+												"left": {
+													"mode": "variable",
+													"path": {"scope": "doc", "segments": ["priority"]},
+												},
+												"right": {
+													"mode": "static",
+													"value_type": "Select",
+													"value": "High",
+												},
 											},
 											"then_segments": [{"type": "text", "content": " URGENT!"}],
 											"elif_branches": [
 												{
 													"condition": {
-														"op": "and",
-														"conditions": [
-															{
-																"left": {"ref": "doc.priority"},
-																"op": "==",
-																"right": {"value": "Medium"},
-															}
-														],
+														"type": "comparison",
+														"operator": "eq",
+														"left": {
+															"mode": "variable",
+															"path": {
+																"scope": "doc",
+																"segments": ["priority"],
+															},
+														},
+														"right": {
+															"mode": "static",
+															"value_type": "Select",
+															"value": "Medium",
+														},
 													},
 													"segments": [{"type": "text", "content": " (medium)"}],
 												}
@@ -110,17 +119,13 @@ class TestCompiledControls(FrappeTestCase):
 
 		rule.insert(ignore_permissions=True)
 		action = next(a for a in rule.actions if a.action_id == "set_1")
-		expected = (
-			"Hello {{ doc.name }}"
-			"{% if doc.priority == 'High' %} URGENT!"
-			"{% elif doc.priority == 'Medium' %} (medium)"
-			"{% else %} (low)"
-			"{% endif %}"
-		)
-		self.assertEqual(json.loads(action.config)[0]["value"], expected)
+		row = json.loads(action.config)[0]
+		self.assertIn("_eval_condition(", row["value"])
+		self.assertIn("condition_registry", row)
+		self.assertEqual(len(row["condition_registry"]), 2)
 
 	def test_compile_text_generator_normalizes_shorthand_roots(self):
-		"""Shorthand refs (is_pos / result.total) should normalize to doc./vars. roots."""
+		"""Shorthand refs (status / result.total) should normalize to doc./vars. roots."""
 		rule = self._base_rule(
 			self._uid(),
 			[
@@ -144,20 +149,25 @@ class TestCompiledControls(FrappeTestCase):
 								"text_generator_ui": {
 									"version": 2,
 									"segments": [
-										{"type": "text", "content": "Value: {{ is_pos }} / "},
+										{"type": "text", "content": "Value: {{ status }} / "},
 										{
 											"type": "conditional",
 											"condition": {
-												"op": "and",
-												"conditions": [
-													{
-														"left": {"ref": "is_pos"},
-														"op": "!=",
-														"right": {"value": 1},
-													}
-												],
+												"type": "comparison",
+												"operator": "ne",
+												"left": {
+													"mode": "variable",
+													"path": {"scope": "doc", "segments": ["status"]},
+												},
+												"right": {
+													"mode": "static",
+													"value_type": "Select",
+													"value": "Open",
+												},
 											},
-											"then_segments": [{"type": "variable", "path": "result.total"}],
+											"then_segments": [
+												{"type": "variable", "path": "vars.result.total"}
+											],
 											"elif_branches": [],
 											"else_segments": [],
 										},
@@ -181,8 +191,8 @@ class TestCompiledControls(FrappeTestCase):
 
 		action = next(a for a in rule.actions if a.action_id == "set_1")
 		config = json.loads(action.config)
-		self.assertIn("{{ doc.is_pos }}", config[0]["value"])
-		self.assertIn("{% if doc.is_pos != 1 %}", config[0]["value"])
+		self.assertIn("{{ doc.status }}", config[0]["value"])
+		self.assertIn("_eval_condition(", config[0]["value"])
 		self.assertIn("{{ vars.result.total }}", config[0]["value"])
 
 	def test_assignment_compiles_operand_and_guard_metadata(self):

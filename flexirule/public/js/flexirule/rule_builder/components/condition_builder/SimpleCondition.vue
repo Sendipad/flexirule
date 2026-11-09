@@ -1,7 +1,9 @@
 <script setup>
 /**
- * SimpleCondition - Leaf condition editor (left op right)
- * Uses backend-driven operator configuration
+ * DEPRECATED: SimpleCondition - Leaf condition editor (left op right).
+ * Canonical replacement: CanonicalConditionLeaf.vue.
+ * New code must not import or depend on this component.
+ * Physical removal is deferred to a future dedicated cleanup change.
  */
 import ControlFactory from "../../controls/ControlFactory.vue";
 import FlexValueControl from "../../controls/FlexValueControl.vue";

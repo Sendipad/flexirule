@@ -1,7 +1,10 @@
 <script setup>
 import { inject, ref, computed } from "vue";
 /**
- * ConditionGroupUI - Nested group editor with AND/OR toggle
+ * DEPRECATED: ConditionGroupUI - Nested group editor with AND/OR toggle.
+ * Canonical replacement: TreeBuilder.vue / CanonicalConditionBuilder.vue.
+ * New code must not import or depend on this component.
+ * Physical removal is deferred to a future dedicated cleanup change.
  */
 import ConditionNode from "./ConditionNode.vue";
 

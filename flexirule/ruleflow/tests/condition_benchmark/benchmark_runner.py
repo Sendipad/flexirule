@@ -924,7 +924,7 @@ class BenchmarkRunner:
 
 			with patch("frappe.get_meta", wraps=frappe.get_meta) as get_meta_spy:
 				with patch.object(frappe.db, "sql", wraps=frappe.db.sql) as sql_spy:
-					cold_prepared, cold_us, error = prepare_candidate(
+					_cold_prepared, cold_us, error = prepare_candidate(
 						candidate, meta_payload, metadata_context
 					)
 					cold_get_meta_calls = get_meta_spy.call_count

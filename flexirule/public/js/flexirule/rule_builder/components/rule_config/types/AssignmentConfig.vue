@@ -234,12 +234,14 @@
 						</button>
 					</div>
 					<div class="condition-builder-wrap">
-						<ConditionBuilder
+						<CanonicalConditionBuilder
 							ref="conditionBuilderRef"
 							:modelValue="whenEditor.draft"
 							:docFields="whenConditionDocFields"
 							:variableOptions="variable_options"
+							:currentDocType="docType"
 							:readOnly="false"
+							:isMandatory="false"
 							@update:modelValue="updateDraft"
 						/>
 					</div>
@@ -269,8 +271,8 @@ import { fromCodeString, deepClone } from "../../../utils/serialization";
 import { useActionConfig } from "../../../composables/useActionConfig";
 import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
 import FlexValueControl from "../../../controls/FlexValueControl.vue";
-import ConditionBuilder from "../../condition_builder/ConditionBuilder.vue";
-import { validateConditions } from "../../condition_builder/condition_validator.js";
+import CanonicalConditionBuilder from "../../condition_builder/CanonicalConditionBuilder.vue";
+import { isCanonicalConditionPayload } from "../../condition_builder/canonical_condition_adapter.mjs";
 import { compileSegmentsToJinja } from "../../../utils/text_generator";
 import { ASSIGNMENT_OPERATOR_METADATA } from "../../../../core/contracts.js";
 
@@ -604,20 +606,24 @@ function onTargetChange(index, value) {
 }
 
 function hasWhenCondition(assignment) {
-	return !!(
-		assignment?.when_condition &&
-		Array.isArray(assignment.when_condition.conditions) &&
-		assignment.when_condition.conditions.length > 0
-	);
+	if (!assignment?.when_condition) return false;
+	const cond = assignment.when_condition;
+	if (isCanonicalConditionPayload(cond)) {
+		if (cond.type === "group") return Array.isArray(cond.children) && cond.children.length > 0;
+		return true;
+	}
+	return typeof cond === "object";
 }
 
 function getWhenConditionStatus(assignment) {
 	if (assignment?.legacy_guard) return { isInvalid: true, isLegacy: true };
 	if (!hasWhenCondition(assignment)) return { isInvalid: false };
 
-	const res = validateConditions(assignment.when_condition, true, true);
-
-	return { isInvalid: !res.valid, isLegacy: false };
+	const cond = assignment.when_condition;
+	if (!isCanonicalConditionPayload(cond)) {
+		return { isInvalid: true, isLegacy: true };
+	}
+	return { isInvalid: false, isLegacy: false };
 }
 
 const whenConditionDocFields = computed(() =>
@@ -632,11 +638,10 @@ const whenConditionDocFields = computed(() =>
 
 function openWhenConditionEditor(index) {
 	const current = assignments.value[index];
-	const fallback = { op: "and", conditions: [] };
 	whenEditor.value = {
 		open: true,
 		index,
-		draft: deepClone(current?.when_condition || fallback),
+		draft: deepClone(current?.when_condition || null),
 	};
 
 	// If shortcut to invalid condition, trigger validation immediately in the builder
@@ -682,9 +687,7 @@ onBeforeUnmount(() => {
 function updateDraft(val) {
 	if (whenEditor.value.index < 0) return;
 	whenEditor.value.draft = val;
-	const tree = val;
-	const hasConditions = !!(tree && Array.isArray(tree.conditions) && tree.conditions.length);
-	assignments.value[whenEditor.value.index].when_condition = hasConditions ? tree : null;
+	assignments.value[whenEditor.value.index].when_condition = val || null;
 	assignments.value[whenEditor.value.index].legacy_guard = null;
 	syncToNode();
 }
@@ -693,7 +696,7 @@ function clearWhenCondition() {
 	if (whenEditor.value.index < 0) return;
 	assignments.value[whenEditor.value.index].when_condition = null;
 	assignments.value[whenEditor.value.index].legacy_guard = null;
-	whenEditor.value.draft = { op: "and", conditions: [] };
+	whenEditor.value.draft = null;
 	syncToNode();
 }
 function getDefaultResolverKind(target) {
@@ -776,15 +779,15 @@ async function validate() {
 
 		// Validate nested conditions if editor is open for THIS assignment
 		if (whenEditor.value.open && whenEditor.value.index === idx && conditionBuilderRef.value) {
-			const res = conditionBuilderRef.value.validate();
+			const res = conditionBuilderRef.value.validateSync
+				? conditionBuilderRef.value.validateSync()
+				: { valid: true, errors: [] };
 			if (!res.valid) {
 				errors.push(...res.errors.map((e) => __("Assignment #{0} Condition: {1}", [n, e])));
 			}
 		} else if (a.when_condition) {
-			// Deep validation of existing conditions
-			const res = validateConditions(a.when_condition, true, true);
-			if (!res.valid) {
-				errors.push(...res.errors.map((e) => __("Assignment #{0} Condition: {1}", [n, e])));
+			if (!isCanonicalConditionPayload(a.when_condition)) {
+				errors.push(__("Assignment #{0} Condition must be a canonical condition", [n]));
 			}
 		}
 	});

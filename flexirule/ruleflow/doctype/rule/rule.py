@@ -4,6 +4,7 @@
 import ast
 import json
 import re
+from typing import Any
 
 import frappe
 from frappe import _
@@ -648,9 +649,17 @@ class Rule(Document):
 					text_ui = assignment.get("text_generator_ui")
 					if isinstance(text_ui, dict):
 						segments = text_ui.get("segments") or []
+						condition_registry: dict[str, Any] = {}
 						compiled = self._compile_segments_v2(
-							segments, action.action_label or action.action_id, known_var_roots
+							segments,
+							action.action_label or action.action_id,
+							known_var_roots,
+							condition_registry=condition_registry,
 						)
+						if condition_registry:
+							text_ui["condition_registry"] = condition_registry
+							assignment["condition_registry"] = condition_registry
+							changed = True
 						if not (isinstance(assignment.get("value"), dict) and "mode" in assignment["value"]):
 							assignment["value"] = compiled
 							assignment["value_template"] = compiled
@@ -675,9 +684,17 @@ class Rule(Document):
 
 			segments = text_ui.get("segments") or []
 			known_var_roots = self._collect_known_return_variables(self.actions)
+			tg_condition_registry: dict[str, Any] = {}
 			compiled = self._compile_segments_v2(
-				segments, action.action_label or action.action_id, known_var_roots
+				segments,
+				action.action_label or action.action_id,
+				known_var_roots,
+				condition_registry=tg_condition_registry,
 			)
+
+			if tg_condition_registry:
+				text_ui["condition_registry"] = tg_condition_registry
+				config["condition_registry"] = tg_condition_registry
 
 			action.value_template = compiled
 			action.config = json.dumps(config)
@@ -795,10 +812,27 @@ class Rule(Document):
 			return path
 		return f"vars.{path}"
 
-	def _compile_segments_v2(self, segments, action_label, known_var_roots=None, extra_allowed_roots=None):
-		"""Compile v2 segment list to Jinja template string."""
+	def _compile_segments_v2(
+		self,
+		segments,
+		action_label,
+		known_var_roots=None,
+		extra_allowed_roots=None,
+		condition_registry=None,
+		loop_vars=None,
+	):
+		"""Compile v2 segment list to Jinja template string with canonical condition evaluation."""
 		if not isinstance(segments, list):
 			return ""
+
+		if condition_registry is None:
+			condition_registry = {}
+		if loop_vars is None:
+			loop_vars = []
+
+		from flexirule.ruleflow.core.condition_contract import validate_condition_node
+		from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+		from flexirule.ruleflow.core.condition_payload import detect_canonical_condition_payload
 
 		known_var_roots = known_var_roots or set()
 		out = []
@@ -835,61 +869,77 @@ class Rule(Document):
 
 			if seg_type == "conditional":
 				condition = segment.get("condition")
-				if isinstance(condition, dict):
-					# ConditionBuilder tree — compile to expression
-					cond_expr = self._compile_condition_tree(condition, known_var_roots, extra_allowed_roots)
-					extra_roots = self._collect_condition_aliases(condition)
-					if extra_allowed_roots:
-						extra_roots.update(extra_allowed_roots)
-				elif isinstance(condition, str):
-					cond_expr = condition.strip()
-					extra_roots = None
+				if not condition:
+					# Empty condition defaults to True
+					cond_call = "True"
 				else:
-					cond_expr = "True"
-					extra_roots = None
-
-				if cond_expr:
-					self._validate_allowed_roots(
-						cond_expr,
-						_("Action '{0}' conditional expression").format(action_label),
-						extra_roots=extra_roots,
-					)
+					is_canonical, canonical_node = detect_canonical_condition_payload(condition)
+					if not is_canonical or canonical_node is None:
+						# If legacy condition tree, try compiling legacy or fail closed
+						# To ensure pure canonical architecture, we validate canonical node
+						raise ConditionValidationError(
+							"unsupported_template_condition",
+							"$",
+							f"Template conditional segment in '{action_label}' must be a canonical condition AST",
+						)
+					validate_condition_node(canonical_node, doctype=self.document_type or None)
+					cond_id = f"cond_{len(condition_registry) + 1}_{frappe.generate_hash(length=6)}"
+					condition_registry[cond_id] = canonical_node
+					kwargs_str = ", ".join(f"{v}={v}" for v in loop_vars)
+					if kwargs_str:
+						cond_call = f'_eval_condition("{cond_id}", {kwargs_str})'
+					else:
+						cond_call = f'_eval_condition("{cond_id}")'
 
 				then_block = self._compile_segments_v2(
-					segment.get("then_segments") or [], action_label, known_var_roots, extra_allowed_roots
+					segment.get("then_segments") or [],
+					action_label,
+					known_var_roots,
+					extra_allowed_roots,
+					condition_registry=condition_registry,
+					loop_vars=loop_vars,
 				)
-				block = "{% if " + (cond_expr or "True") + " %}" + then_block
+				block = "{% if " + cond_call + " %}" + then_block
 
 				for elif_b in segment.get("elif_branches") or []:
 					elif_cond = elif_b.get("condition")
-					if isinstance(elif_cond, dict):
-						elif_expr = self._compile_condition_tree(
-							elif_cond, known_var_roots, extra_allowed_roots
-						)
-						elif_extra_roots = self._collect_condition_aliases(elif_cond)
-						if extra_allowed_roots:
-							elif_extra_roots.update(extra_allowed_roots)
-					elif isinstance(elif_cond, str):
-						elif_expr = elif_cond.strip()
-						elif_extra_roots = None
+					if not elif_cond:
+						elif_call = "True"
 					else:
-						elif_expr = "True"
-						elif_extra_roots = None
+						is_canonical, canonical_node = detect_canonical_condition_payload(elif_cond)
+						if not is_canonical or canonical_node is None:
+							raise ConditionValidationError(
+								"unsupported_template_condition",
+								"$",
+								f"Template elif branch in '{action_label}' must be a canonical condition AST",
+							)
+						validate_condition_node(canonical_node, doctype=self.document_type or None)
+						elif_cond_id = f"cond_{len(condition_registry) + 1}_{frappe.generate_hash(length=6)}"
+						condition_registry[elif_cond_id] = canonical_node
+						kwargs_str = ", ".join(f"{v}={v}" for v in loop_vars)
+						if kwargs_str:
+							elif_call = f'_eval_condition("{elif_cond_id}", {kwargs_str})'
+						else:
+							elif_call = f'_eval_condition("{elif_cond_id}")'
 
-					if elif_expr:
-						self._validate_allowed_roots(
-							elif_expr,
-							_("Action '{0}' elif expression").format(action_label),
-							extra_roots=elif_extra_roots,
-						)
 					elif_content = self._compile_segments_v2(
-						elif_b.get("segments") or [], action_label, known_var_roots, extra_allowed_roots
+						elif_b.get("segments") or [],
+						action_label,
+						known_var_roots,
+						extra_allowed_roots,
+						condition_registry=condition_registry,
+						loop_vars=loop_vars,
 					)
-					block += "{% elif " + (elif_expr or "True") + " %}" + elif_content
+					block += "{% elif " + elif_call + " %}" + elif_content
 
 				# else
 				else_block = self._compile_segments_v2(
-					segment.get("else_segments") or [], action_label, known_var_roots, extra_allowed_roots
+					segment.get("else_segments") or [],
+					action_label,
+					known_var_roots,
+					extra_allowed_roots,
+					condition_registry=condition_registry,
+					loop_vars=loop_vars,
 				)
 				if else_block:
 					block += "{% else %}" + else_block
@@ -906,9 +956,17 @@ class Rule(Document):
 
 				loop_allowed = set(extra_allowed_roots) if extra_allowed_roots else set()
 				loop_allowed.add(iterator)
+				child_loop_vars = list(loop_vars)
+				if iterator not in child_loop_vars:
+					child_loop_vars.append(iterator)
 
 				loop_block = self._compile_segments_v2(
-					segment.get("segments") or [], action_label, known_var_roots, loop_allowed
+					segment.get("segments") or [],
+					action_label,
+					known_var_roots,
+					loop_allowed,
+					condition_registry=condition_registry,
+					loop_vars=child_loop_vars,
 				)
 
 				out.append(f"{{% for {iterator} in {iterable} %}}{loop_block}{{% endfor %}}")
@@ -917,7 +975,13 @@ class Rule(Document):
 		return "".join(out)
 
 	def _compile_condition_tree(self, node, known_var_roots=None, extra_allowed_roots=None):
-		"""Compile a ConditionBuilder JSON tree to a Python boolean expression."""
+		"""DEPRECATED: Compile a legacy ConditionBuilder JSON tree to a Python boolean expression.
+
+		Canonical conditions must be validated via `condition_contract.validate_condition_node`
+		and evaluated via `condition_evaluator.evaluate_prepared_condition` using `_eval_condition`.
+		New code must not import, call, or depend on this deprecated function.
+		Physical removal is deferred to a future dedicated cleanup change.
+		"""
 		if not node or not isinstance(node, dict):
 			return "True"
 		known_var_roots = known_var_roots or set()

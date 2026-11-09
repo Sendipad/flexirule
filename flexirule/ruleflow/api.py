@@ -675,8 +675,11 @@ def validate_condition(condition: str | dict, doctype: str | None = None):
 @frappe.whitelist()
 def get_operator_config():
 	"""
-	Get fieldtype-to-operators mapping and operator labels for Condition Builder.
-	Returns centralized config from ConditionCompiler.
+	DEPRECATED: Get legacy fieldtype-to-operators mapping and operator labels.
+
+	Canonical conditions must use `get_condition_contract()` instead.
+	New code must not call or depend on this endpoint.
+	Physical removal is deferred to a future dedicated cleanup change.
 	"""
 	_require_api_access()
 	return {

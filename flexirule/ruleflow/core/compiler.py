@@ -7,12 +7,12 @@ from frappe import _
 
 class ConditionCompiler:
 	"""
-	Compiles Standardized JSON conditions into optimized Python expressions.
-	Schema:
-	- Group: { "op": "and|or", "conditions": [...] }
-	- Condition: { "left": Operand, "op": "==", "right": Operand }
-	- Collection: { "op": "any|all", "collection": "path", "alias": "x", "where": Group }
-	- Operand: { "ref": "scope.path" } | { "value": <literal> }
+	DEPRECATED: Compiles legacy JSON conditions into Python expressions.
+
+	Canonical conditions must be validated via `condition_contract.validate_condition_node`
+	and evaluated via `condition_evaluator.evaluate_condition` or `prepare_condition`.
+	New code must not import, call, or depend on ConditionCompiler.
+	Physical removal is deferred to a future dedicated cleanup change.
 	"""
 
 	OPERATOR_MAP: ClassVar[dict[str, str]] = {
