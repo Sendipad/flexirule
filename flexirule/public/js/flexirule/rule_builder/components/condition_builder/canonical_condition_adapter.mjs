@@ -255,11 +255,33 @@ export function inferCanonicalValueType(val, fieldtype = null) {
 	if (fieldtype) {
 		const ft = String(fieldtype).toLowerCase();
 		if (ft === "check") return "boolean";
-		if (ft === "int") return "integer";
+		if (ft === "int" || ft === "duration" || ft === "rating") return "integer";
 		if (ft === "currency" || ft === "float" || ft === "percent") return "decimal";
 		if (ft === "date") return "date";
 		if (ft === "datetime") return "datetime";
 		if (ft === "time") return "time";
+		if (
+			[
+				"data",
+				"link",
+				"dynamic link",
+				"select",
+				"small text",
+				"text",
+				"long text",
+				"text editor",
+				"html editor",
+				"markdown editor",
+				"code",
+				"phone",
+				"barcode",
+				"autocomplete",
+				"password",
+				"string",
+			].includes(ft)
+		) {
+			return "string";
+		}
 	}
 
 	if (typeof val === "number") {

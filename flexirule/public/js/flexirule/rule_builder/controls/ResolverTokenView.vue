@@ -1,18 +1,86 @@
 <template>
 	<node-view-wrapper class="resolver-token-wrapper" :class="{ 'is-selected': selected }">
-		<span class="inline-resolver-token" :title="tokenTitle">
+		<!-- Operation-only presentation for Condition Left Operand or when explicitly configured -->
+		<span v-if="isOperationOnly" class="inline-resolver-token" :title="tokenTitle">
 			<i v-if="tokenIcon" :class="tokenIcon" class="resolver-token-icon"></i>
 			<span class="resolver-operation-name">{{ operationDisplayName }}</span>
 		</span>
+
+		<!-- Standard Configurable Popover for Assignment, Query Records, Filters, etc. -->
+		<ValueResolverControl
+			v-else
+			ref="resolverControlRef"
+			viewMode="popover"
+			:modelValue="currentModelValue"
+			:family="node.attrs.family"
+			:operation="node.attrs.operation"
+			:valueType="node.attrs.value_type"
+			:doctype="extension.options.doctype"
+			:readOnly="extension.options.readOnly"
+			:context="extension.options.context"
+			@update:modelValue="handleUpdate"
+		/>
 	</node-view-wrapper>
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, ref, onMounted, nextTick } from "vue";
 import { nodeViewProps, NodeViewWrapper } from "@tiptap/vue-3";
+import ValueResolverControl from "./ValueResolverControl.vue";
 import { getFunctionIcon } from "../../core/formula_registry";
 
 const props = defineProps(nodeViewProps);
+const resolverControlRef = ref(null);
+
+const isOperationOnly = computed(() => {
+	const ctx = props.extension?.options?.context || {};
+	return !!(
+		ctx.isLeftOperand ||
+		ctx.presentationPolicy === "operation_only" ||
+		ctx.tokenPresentation === "operation_only"
+	);
+});
+
+onMounted(() => {
+	if (
+		!isOperationOnly.value &&
+		props.node?.attrs?.autoOpen &&
+		!props.extension.options.readOnly
+	) {
+		nextTick(() => {
+			resolverControlRef.value?.open?.();
+			props.updateAttributes({ autoOpen: false });
+		});
+	}
+});
+
+const currentModelValue = computed(() => {
+	const raw = props.node?.attrs?.config;
+	if (raw && typeof raw === "object") {
+		return {
+			...raw,
+			family: props.node?.attrs?.family || raw.family,
+			operation: props.node?.attrs?.operation || raw.operation,
+			value_type: props.node?.attrs?.value_type || raw.value_type,
+		};
+	}
+	return raw;
+});
+
+const handleUpdate = (config, details) => {
+	const fam = config?.family || props.node?.attrs?.family || "";
+	const op = config?.operation || props.node?.attrs?.operation || "";
+	const vType = config?.value_type || props.node?.attrs?.value_type || "";
+
+	props.updateAttributes({
+		config: config,
+		family: fam,
+		operation: op,
+		value_type: vType,
+		label: details?.label || "",
+		expression: details?.expression || "",
+	});
+};
 
 const operationName = computed(() => {
 	const raw = props.node?.attrs?.config;
@@ -53,6 +121,10 @@ const tokenTitle = computed(() => {
 	vertical-align: middle;
 	line-height: 1;
 	margin: 0 2px;
+}
+
+.resolver-token-wrapper.is-selected :deep(.fxr-token) {
+	outline: 2px solid var(--fxr-accent, #2563eb);
 }
 
 .inline-resolver-token {
