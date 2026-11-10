@@ -221,11 +221,15 @@ export function buildSourceCatalogue({
  * Searches and scores items from the catalogue.
  * Exact prefix on primaryLabel or canonicalPath scores highest, followed by exact word matches, substring matches.
  */
-export function searchSourceCatalogue(catalogue, query = "", { preferredFieldType = null } = {}) {
+export function searchSourceCatalogue(
+	catalogue,
+	query = "",
+	{ preferredFieldType = null, isLeftOperand = false } = {}
+) {
 	const q = query.trim().toLowerCase();
 	if (!q) {
-		// Return all items grouped with compatible resolvers first
-		return sortCatalogueItems([...catalogue], preferredFieldType);
+		// Return all items grouped with compatible resolvers first, or field-first for left operand
+		return sortCatalogueItems([...catalogue], preferredFieldType, isLeftOperand);
 	}
 
 	const scored = [];
@@ -245,6 +249,16 @@ export function searchSourceCatalogue(catalogue, query = "", { preferredFieldTyp
 		}
 
 		if (bestScore > 0) {
+			// Category priority boost for left operand
+			if (isLeftOperand) {
+				const scope = item.payload?.path?.scope || item.scope || "";
+				if (item.sourceType === "field" || ["row", "item", "loop"].includes(scope)) {
+					bestScore += 15;
+				} else if (item.sourceType === "resolver") {
+					bestScore -= 10;
+				}
+			}
+
 			// Compatibility boost
 			if (item.sourceType === "resolver") {
 				if (item.isCompatible) bestScore += 10;
@@ -262,8 +276,23 @@ export function searchSourceCatalogue(catalogue, query = "", { preferredFieldTyp
 	return scored.map((s) => s.item);
 }
 
-function sortCatalogueItems(items, preferredFieldType) {
+function sortCatalogueItems(items, preferredFieldType, isLeftOperand = false) {
 	return items.sort((a, b) => {
+		if (isLeftOperand) {
+			// Contextual ranking for left operand: contextual row/item/loop variables & fields first
+			const getLeftPriority = (item) => {
+				const scope = item.payload?.path?.scope || item.scope || "";
+				if (["row", "item", "loop"].includes(scope)) return 1;
+				if (item.category === "fields") return 2;
+				if (item.category === "variables") return 3;
+				if (item.category === "resolvers") return 4;
+				return 99;
+			};
+			const pA = getLeftPriority(a);
+			const pB = getLeftPriority(b);
+			if (pA !== pB) return pA - pB;
+		}
+
 		// Category order: fields -> variables -> resolvers
 		const catOrder = { fields: 1, variables: 2, resolvers: 3 };
 		const aOrder = catOrder[a.category] || 99;

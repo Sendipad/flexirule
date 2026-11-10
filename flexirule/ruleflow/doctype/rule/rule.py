@@ -883,7 +883,12 @@ class Rule(Document):
 							f"Template conditional segment in '{action_label}' must be a canonical condition AST",
 						)
 					validate_condition_node(canonical_node, doctype=self.document_type or None)
-					cond_id = f"cond_{len(condition_registry) + 1}_{frappe.generate_hash(length=6)}"
+					import hashlib
+
+					node_hash = hashlib.sha256(
+						json.dumps(canonical_node, sort_keys=True, separators=(",", ":")).encode("utf-8")
+					).hexdigest()[:8]
+					cond_id = f"cond_{len(condition_registry) + 1}_{node_hash}"
 					condition_registry[cond_id] = canonical_node
 					kwargs_str = ", ".join(f"{v}={v}" for v in loop_vars)
 					if kwargs_str:
@@ -914,7 +919,12 @@ class Rule(Document):
 								f"Template elif branch in '{action_label}' must be a canonical condition AST",
 							)
 						validate_condition_node(canonical_node, doctype=self.document_type or None)
-						elif_cond_id = f"cond_{len(condition_registry) + 1}_{frappe.generate_hash(length=6)}"
+						import hashlib
+
+						elif_hash = hashlib.sha256(
+							json.dumps(canonical_node, sort_keys=True, separators=(",", ":")).encode("utf-8")
+						).hexdigest()[:8]
+						elif_cond_id = f"cond_{len(condition_registry) + 1}_{elif_hash}"
 						condition_registry[elif_cond_id] = canonical_node
 						kwargs_str = ", ".join(f"{v}={v}" for v in loop_vars)
 						if kwargs_str:

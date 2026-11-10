@@ -273,6 +273,7 @@ import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
 import FlexValueControl from "../../../controls/FlexValueControl.vue";
 import CanonicalConditionBuilder from "../../condition_builder/CanonicalConditionBuilder.vue";
 import { isCanonicalConditionPayload } from "../../condition_builder/canonical_condition_adapter.mjs";
+import { validateCanonicalCondition } from "../../condition_builder/canonical_condition_validation.mjs";
 import { compileSegmentsToJinja } from "../../../utils/text_generator";
 import { ASSIGNMENT_OPERATOR_METADATA } from "../../../../core/contracts.js";
 
@@ -623,6 +624,10 @@ function getWhenConditionStatus(assignment) {
 	if (!isCanonicalConditionPayload(cond)) {
 		return { isInvalid: true, isLegacy: true };
 	}
+	const res = validateCanonicalCondition(cond, { isMandatory: true });
+	if (!res.valid) {
+		return { isInvalid: true, isLegacy: false, errors: res.errors };
+	}
 	return { isInvalid: false, isLegacy: false };
 }
 
@@ -777,7 +782,7 @@ async function validate() {
 			errors.push(__("Assignment #{0}: Target must start with 'doc.' or 'vars.'", [n]));
 		}
 
-		// Validate nested conditions if editor is open for THIS assignment
+		// Validate nested conditions whether editor modal is open or closed
 		if (whenEditor.value.open && whenEditor.value.index === idx && conditionBuilderRef.value) {
 			const res = conditionBuilderRef.value.validateSync
 				? conditionBuilderRef.value.validateSync()
@@ -788,6 +793,13 @@ async function validate() {
 		} else if (a.when_condition) {
 			if (!isCanonicalConditionPayload(a.when_condition)) {
 				errors.push(__("Assignment #{0} Condition must be a canonical condition", [n]));
+			} else {
+				const res = validateCanonicalCondition(a.when_condition, { isMandatory: true });
+				if (!res.valid) {
+					errors.push(
+						...res.errors.map((e) => __("Assignment #{0} Condition: {1}", [n, e]))
+					);
+				}
 			}
 		}
 	});

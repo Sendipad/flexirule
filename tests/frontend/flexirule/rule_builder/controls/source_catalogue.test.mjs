@@ -127,3 +127,44 @@ test("source_catalogue: prioritizes compatible resolvers and exact/prefix matche
 	assert.equal(searchAll[0].kind, "math_formula");
 	assert.equal(searchAll[1].kind, "date_time");
 });
+
+test("source_catalogue: prioritizes fields and contextual row/item/loop variables when isLeftOperand is true", () => {
+	const catalogue = [
+		{
+			id: "math.formula",
+			primaryLabel: "Formula",
+			sourceType: "resolver",
+			category: "resolvers",
+			searchTerms: ["formula"],
+		},
+		{
+			id: "doc.status",
+			primaryLabel: "Status",
+			sourceType: "field",
+			category: "fields",
+			searchTerms: ["status"],
+		},
+		{
+			id: "row.amount",
+			primaryLabel: "Row Amount",
+			sourceType: "variable",
+			scope: "row",
+			category: "variables",
+			searchTerms: ["row amount"],
+		},
+		{
+			id: "vars.counter",
+			primaryLabel: "Counter",
+			sourceType: "variable",
+			scope: "vars",
+			category: "variables",
+			searchTerms: ["counter"],
+		},
+	];
+
+	const sortedLeft = searchSourceCatalogue(catalogue, "", { isLeftOperand: true });
+	assert.strictEqual(sortedLeft[0].id, "row.amount");
+	assert.strictEqual(sortedLeft[1].id, "doc.status");
+	assert.strictEqual(sortedLeft[2].id, "vars.counter");
+	assert.strictEqual(sortedLeft[3].id, "math.formula");
+});

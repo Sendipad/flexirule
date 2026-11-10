@@ -1,76 +1,83 @@
 <template>
 	<node-view-wrapper class="resolver-token-wrapper" :class="{ 'is-selected': selected }">
-		<ValueResolverControl
-			ref="resolverControlRef"
-			viewMode="popover"
-			:modelValue="currentModelValue"
-			:family="node.attrs.family"
-			:operation="node.attrs.operation"
-			:valueType="node.attrs.value_type"
-			:doctype="extension.options.doctype"
-			:readOnly="extension.options.readOnly"
-			:context="extension.options.context"
-			@update:modelValue="handleUpdate"
-		/>
+		<span class="inline-resolver-token" :title="tokenTitle">
+			<i v-if="tokenIcon" :class="tokenIcon" class="resolver-token-icon"></i>
+			<span class="resolver-operation-name">{{ operationDisplayName }}</span>
+		</span>
 	</node-view-wrapper>
 </template>
 
 <script setup>
+import { computed } from "vue";
 import { nodeViewProps, NodeViewWrapper } from "@tiptap/vue-3";
-import ValueResolverControl from "./ValueResolverControl.vue";
-
-import { computed, ref, onMounted, nextTick } from "vue";
+import { getFunctionIcon } from "../../core/formula_registry";
 
 const props = defineProps(nodeViewProps);
-const resolverControlRef = ref(null);
 
-onMounted(() => {
-	if (props.node?.attrs?.autoOpen && !props.extension.options.readOnly) {
-		nextTick(() => {
-			resolverControlRef.value?.open?.();
-			props.updateAttributes({ autoOpen: false });
-		});
-	}
-});
-
-const currentModelValue = computed(() => {
+const operationName = computed(() => {
 	const raw = props.node?.attrs?.config;
-	if (raw && typeof raw === "object") {
-		return {
-			...raw,
-			family: props.node?.attrs?.family || raw.family,
-			operation: props.node?.attrs?.operation || raw.operation,
-			value_type: props.node?.attrs?.value_type || raw.value_type,
-		};
-	}
-	return raw;
+	const op =
+		props.node?.attrs?.operation ||
+		(raw && typeof raw === "object" ? raw.operation || raw.agg_op : "") ||
+		props.node?.attrs?.family ||
+		(raw && typeof raw === "object" ? raw.family || raw.kind : "") ||
+		"resolver";
+	return String(op);
 });
 
-const handleUpdate = (config, details) => {
-	const fam = config?.family || props.node?.attrs?.family || "";
-	const op = config?.operation || props.node?.attrs?.operation || "";
-	const vType = config?.value_type || props.node?.attrs?.value_type || "";
+const operationDisplayName = computed(() => {
+	const op = operationName.value;
+	return op.replace(/_/g, " ");
+});
 
-	props.updateAttributes({
-		config: config,
-		family: fam,
-		operation: op,
-		value_type: vType,
-		label: details?.label || "",
-		expression: details?.expression || "",
-	});
-};
+const tokenIcon = computed(() => {
+	const fam = props.node?.attrs?.family || props.node?.attrs?.config?.family || "";
+	const op = props.node?.attrs?.operation || props.node?.attrs?.config?.operation || "";
+	if (fam === "math" || op === "formula") return "fa fa-calculator";
+	if (fam === "date_time" || fam === "date") return "fa fa-calendar";
+	if (fam === "lookup") return "fa fa-search";
+	if (fam === "collection") return "fa fa-list-ol";
+	if (fam === "text") return "fa fa-font";
+	return getFunctionIcon(op, "fa fa-bolt");
+});
+
+const tokenTitle = computed(() => {
+	const fam = props.node?.attrs?.family || props.node?.attrs?.config?.family || "";
+	return fam ? `${fam}.${operationName.value}` : operationName.value;
+});
 </script>
 
 <style scoped>
 .resolver-token-wrapper {
 	display: inline-block;
-	vertical-align: top;
+	vertical-align: middle;
 	line-height: 1;
-	margin-top: 1px;
+	margin: 0 2px;
 }
 
-.resolver-token-wrapper.is-selected :deep(.fxr-token) {
-	outline: 2px solid var(--fxr-accent);
+.inline-resolver-token {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 2px 7px;
+	border-radius: 4px;
+	background: var(--fxr-surface-subtle, #f1f5f9);
+	color: var(--fxr-accent, #2563eb);
+	border: 1px solid var(--fxr-border, #e2e8f0);
+	font-family: var(--fxr-font-mono, monospace);
+	font-size: 11px;
+	font-weight: 600;
+	user-select: all;
+	cursor: default;
+}
+
+.resolver-token-icon {
+	font-size: 10px;
+	opacity: 0.85;
+}
+
+.resolver-token-wrapper.is-selected .inline-resolver-token {
+	outline: 2px solid var(--fxr-accent, #2563eb);
+	border-color: var(--fxr-accent, #2563eb);
 }
 </style>

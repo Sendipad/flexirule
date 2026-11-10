@@ -462,6 +462,19 @@ const rightValueModel = computed({
 });
 
 function onLeftOperandChange() {
+	const currentOp = props.node.operator;
+	const availableOps = operatorOptions.value.map((o) => o.value).filter(Boolean);
+
+	if (!currentOp || !availableOps.includes(currentOp)) {
+		if (availableOps.length > 0) {
+			const preferredOp = availableOps.includes("eq") ? "eq" : availableOps[0];
+			onOperatorChange(preferredOp);
+			return;
+		} else {
+			props.node.operator = "";
+		}
+	}
+
 	syncDraftStatus();
 	checkIncompatibility();
 	emit("change", props.node);

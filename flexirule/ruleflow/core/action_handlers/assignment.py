@@ -202,6 +202,13 @@ class AssignmentHandler(ActionHandler):
 			if op.metadata.get("requires_value"):
 				context_copy = dict(staged_context)
 				context_copy["value"] = current_value
+				cond_reg = (
+					assignment.get("condition_registry")
+					or (assignment.get("text_generator_ui") or {}).get("condition_registry")
+					or getattr(action, "condition_registry", None)
+				)
+				if cond_reg:
+					context_copy["_condition_registry"] = cond_reg
 
 				compiled_val = assignment.get("_compiled_value")
 				if compiled_val is not None:

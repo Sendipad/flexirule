@@ -561,6 +561,15 @@ def _validate_node(
 				path=f"{path}.right",
 				allowed_scopes=allowed_scopes,
 			)
+			# Distinguish JSON array from JSON object for membership operator compatibility
+			if operator_id in {"in", "not_in"}:
+				right_node = node.get("right")
+				if isinstance(right_node, Mapping) and right_node.get("mode") == "static":
+					if right_node.get("value_type") == "JSON":
+						if isinstance(right_node.get("value"), list):
+							right_type = "list"
+						else:
+							right_type = "object"
 		if not _known_type_compatible(left_type, spec.left_types):
 			_fail(
 				"operand_type_mismatch", f"{path}.left", "Left operand type is not supported by this operator"

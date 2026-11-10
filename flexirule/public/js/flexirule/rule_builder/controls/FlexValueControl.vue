@@ -556,6 +556,7 @@ const editor = new Editor({
 				items: ({ query }) => {
 					return searchSourceCatalogue(sourceCatalogue.value, query, {
 						preferredFieldType: fieldType.value,
+						isLeftOperand: !!props.context?.isLeftOperand,
 					}).slice(0, 25);
 				},
 				command: ({ editor, range, props }) => {
@@ -571,7 +572,7 @@ const editor = new Editor({
 										operation: props.operation,
 										config: props.payload?.config || {},
 										label: props.primaryLabel,
-										autoOpen: true,
+										autoOpen: false,
 									},
 								},
 							])
@@ -1181,7 +1182,8 @@ watch(
 	(val) => {
 		const normalized = coerceStructuredValue(val);
 		const json = JSON.stringify(normalized);
-		if (json === lastEmittedJSON) return;
+		if (json === lastEmittedJSON && isDynamicMode.value === (normalized.mode !== "static"))
+			return;
 		if (normalized.mode !== "static") {
 			isDynamicMode.value = true;
 			editor.commands.setContent(deserialize(normalized));
@@ -1189,9 +1191,10 @@ watch(
 		} else {
 			isDynamicMode.value = false;
 			staticValue.value = normalized.value ?? "";
+			lastEmittedJSON = json;
 		}
 	},
-	{ immediate: true }
+	{ immediate: true, deep: true }
 );
 
 onBeforeUnmount(() => {
