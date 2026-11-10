@@ -35,16 +35,13 @@
 				>
 					<i class="fa fa-pencil" aria-hidden="true"></i>
 				</button>
-				<button
-					v-if="!readOnly"
-					type="button"
-					class="tree-leaf__action tree-leaf__remove"
-					:title="__('Remove')"
-					:aria-label="__('Remove')"
-					@click="$emit('remove')"
-				>
-					<i class="fa fa-trash" aria-hidden="true"></i>
-				</button>
+				<RowActionsMenu
+					:actions="nodeActions"
+					:context="nodeContext"
+					:disabled="readOnly"
+					:buttonTitle="__('Condition options')"
+					:buttonAriaLabel="__('Condition options')"
+				/>
 			</div>
 		</div>
 
@@ -85,16 +82,13 @@
 					>
 						<i class="fa fa-check" aria-hidden="true"></i>
 					</button>
-					<button
-						v-if="!readOnly"
-						type="button"
-						class="tree-leaf__action tree-leaf__remove"
-						:title="__('Remove')"
-						:aria-label="__('Remove')"
-						@click="$emit('remove')"
-					>
-						<i class="fa fa-trash" aria-hidden="true"></i>
-					</button>
+					<RowActionsMenu
+						:actions="nodeActions"
+						:context="nodeContext"
+						:disabled="readOnly"
+						:buttonTitle="__('Condition options')"
+						:buttonAriaLabel="__('Condition options')"
+					/>
 				</div>
 			</div>
 		</div>
@@ -103,6 +97,8 @@
 
 <script setup>
 import { computed, inject, useSlots } from "vue";
+import RowActionsMenu from "../common/RowActionsMenu.vue";
+import { useTreeBuilderActions } from "./useTreeBuilderActions.js";
 import {
 	getInlinePresentation,
 	resolvePresentationMode,
@@ -212,6 +208,24 @@ function onDoubleClickSummary(event) {
 	}
 	startEditing();
 }
+
+const { getNodeActionList } = useTreeBuilderActions({
+	treeApi: api,
+	readOnly: computed(() => props.readOnly),
+	beforeRemove: computed(() => api?.beforeRemove?.value || api?.beforeRemove),
+});
+
+const nodeContext = computed(() => ({
+	node: props.node,
+	parent: props.parent,
+	index: props.index,
+	isEditing: isEditing.value,
+	hasSummarySlot: hasSummarySlot.value,
+	canToggle: inlinePresentation.value.canToggle,
+	canFinishEditing: canFinishEditing.value,
+}));
+
+const nodeActions = computed(() => getNodeActionList(nodeContext.value));
 </script>
 
 <style scoped>

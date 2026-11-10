@@ -1,5 +1,11 @@
 <template>
-	<div class="tree-builder fxr-accent-scope">
+	<div
+		ref="rootRef"
+		class="tree-builder fxr-accent-scope"
+		tabindex="0"
+		@focusin="onFocusIn"
+		@focusout="onFocusOut"
+	>
 		<div class="tree-builder__header">
 			<div class="tree-builder__logic">
 				<button
@@ -70,9 +76,12 @@
 	</div>
 </template>
 <script setup>
-import { computed, provide, ref, useSlots } from "vue";
+import { computed, onBeforeUnmount, onMounted, provide, ref, useSlots } from "vue";
 import TreeBuilderNode from "./TreeBuilderNode.vue";
 import { useTreeBuilder } from "./useTreeBuilder.js";
+import { useKeyboardRegistry } from "../../composables/useKeyboardRegistry.js";
+import { cloneTree } from "./tree_builder_utils.mjs";
+import { regenerateNodeIds } from "./useTreeBuilderActions.js";
 
 const props = defineProps({
 	modelValue: {
@@ -142,6 +151,72 @@ provide("treeBuilderContext", {
 	isLeafValid: computed(() => props.isLeafValid),
 	hasSummarySlot,
 });
+const rootRef = ref(null);
+const instanceId = Math.random().toString(36).slice(2, 9);
+const treeContextName = "tree:" + instanceId;
+const { registerShortcut, pushContext, popContext } = useKeyboardRegistry();
+const unregisterShortcuts = ref([]);
+
+function onFocusIn() {
+	pushContext(treeContextName);
+}
+
+function onFocusOut(e) {
+	if (!rootRef.value?.contains(e.relatedTarget)) {
+		popContext(treeContextName);
+	}
+}
+
+onMounted(() => {
+	unregisterShortcuts.value = [
+		registerShortcut({
+			key: "Delete",
+			context: treeContextName,
+			priority: 15,
+			callback: () => {
+				if (props.readOnly) return;
+				const selectedId = api.selectedNodeId?.value || api.editingNodeId?.value;
+				if (selectedId && selectedId !== "root") {
+					removeNode(selectedId);
+				}
+			},
+		}),
+		registerShortcut({
+			key: "ArrowDown",
+			alt: true,
+			shift: true,
+			context: treeContextName,
+			priority: 15,
+			callback: () => {
+				if (props.readOnly) return;
+				const selectedId = api.selectedNodeId?.value || api.editingNodeId?.value;
+				if (!selectedId || selectedId === "root") return;
+				const node = api.selectedNode?.value;
+				if (node) {
+					const clone = cloneTree(node);
+					regenerateNodeIds(clone);
+					const parent =
+						typeof api.findParent === "function" ? api.findParent(node.id) : null;
+					if (parent && Array.isArray(parent.children)) {
+						const idx = parent.children.findIndex((c) => c.id === node.id);
+						parent.children.splice(
+							idx >= 0 ? idx + 1 : parent.children.length,
+							0,
+							clone
+						);
+						api.selectNode(clone.id);
+					}
+				}
+			},
+		}),
+	];
+});
+
+onBeforeUnmount(() => {
+	popContext(treeContextName);
+	unregisterShortcuts.value.forEach((unreg) => unreg());
+});
+
 const { root, operators, addLeaf, addCollection, addGroup, setOperator } = api;
 const operatorLabel = (op) => props.operatorLabel(op);
 const visibleNode = (node) => props.visibleNode(node) !== false;
