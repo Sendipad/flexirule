@@ -224,3 +224,51 @@ class TestTextGeneratorCanonicalConditions(FrappeTestCase):
 		ctx_mismatch = {"vars": {"val": "FIRST"}, "_condition_registry": registry2}
 		with self.assertRaises(ConditionValidationError):
 			frappe.render_template(tmpl1, self.handler._build_template_context(ctx_mismatch))
+
+	def test_loop_with_custom_iterator_and_doctype_metadata(self):
+		"""Verify loop with custom alias validates condition against child DocType metadata."""
+		rule = frappe.new_doc("Rule")
+		rule.name = "Test Loop Custom Alias"
+		rule.document_type = "User"
+		segments = [
+			{
+				"type": "loop",
+				"iterator": "user_role",
+				"iterable": "doc.roles",
+				"segments": [
+					{
+						"type": "conditional",
+						"condition": {
+							"type": "comparison",
+							"operator": "eq",
+							"left": {
+								"mode": "variable",
+								"path": {"scope": "user_role", "segments": ["role"]},
+							},
+							"right": {"mode": "static", "value_type": "Data", "value": "System Manager"},
+						},
+						"then_segments": [{"type": "text", "content": "Admin"}],
+					}
+				],
+			}
+		]
+		cond_reg: dict[str, Any] = {}
+		compiled = rule._compile_segments_v2(segments, "Action 1", condition_registry=cond_reg)
+		self.assertIn("{% for user_role in doc.roles %}", compiled)
+		self.assertEqual(len(cond_reg), 1)
+
+	def test_loop_invalid_iterator_name_rejected(self):
+		"""Verify loop iterator with invalid or reserved identifier throws an error."""
+		rule = frappe.new_doc("Rule")
+		rule.name = "Test Loop Invalid Iter"
+		rule.document_type = "User"
+		segments = [
+			{
+				"type": "loop",
+				"iterator": "doc",  # Reserved alias
+				"iterable": "doc.roles",
+				"segments": [{"type": "text", "content": "Hi"}],
+			}
+		]
+		with self.assertRaises(frappe.exceptions.ValidationError):
+			rule._compile_segments_v2(segments, "Action 1")

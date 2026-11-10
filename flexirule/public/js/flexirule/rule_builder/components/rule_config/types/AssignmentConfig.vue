@@ -804,6 +804,40 @@ async function validate() {
 		}
 	});
 
+	// Authoritative backend validation across all assignments with when_condition
+	if (typeof frappe !== "undefined" && frappe.call) {
+		for (let idx = 0; idx < assignments.value.length; idx++) {
+			const a = assignments.value[idx];
+			const n = idx + 1;
+			if (a.when_condition && isCanonicalConditionPayload(a.when_condition)) {
+				try {
+					const response = await frappe.call({
+						method: "flexirule.ruleflow.api.validate_condition",
+						args: {
+							condition: JSON.stringify(a.when_condition),
+							doctype: docType.value || undefined,
+						},
+					});
+					const data = response.message || response;
+					if (!data.valid) {
+						const errList = data.errors || ["Invalid canonical condition"];
+						errors.push(
+							...errList.map((e) => __("Assignment #{0} Condition: {1}", [n, e]))
+						);
+					}
+				} catch (err) {
+					// Fail closed on service/network errors
+					errors.push(
+						__("Assignment #{0} Condition: Backend validation service error ({1})", [
+							n,
+							err?.message || "unavailable",
+						])
+					);
+				}
+			}
+		}
+	}
+
 	if (assignments.value.length === 0) {
 		errors.push(__("Please add at least one assignment."));
 	}

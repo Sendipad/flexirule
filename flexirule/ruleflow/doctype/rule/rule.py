@@ -820,6 +820,7 @@ class Rule(Document):
 		extra_allowed_roots=None,
 		condition_registry=None,
 		loop_vars=None,
+		loop_scope_doctypes=None,
 	):
 		"""Compile v2 segment list to Jinja template string with canonical condition evaluation."""
 		if not isinstance(segments, list):
@@ -829,8 +830,12 @@ class Rule(Document):
 			condition_registry = {}
 		if loop_vars is None:
 			loop_vars = []
+		if loop_scope_doctypes is None:
+			loop_scope_doctypes = {}
 
-		from flexirule.ruleflow.core.condition_contract import validate_condition_node
+		import re
+
+		from flexirule.ruleflow.core.condition_contract import RESERVED_ALIASES, validate_condition_node
 		from flexirule.ruleflow.core.condition_errors import ConditionValidationError
 		from flexirule.ruleflow.core.condition_payload import detect_canonical_condition_payload
 
@@ -882,7 +887,11 @@ class Rule(Document):
 							"$",
 							f"Template conditional segment in '{action_label}' must be a canonical condition AST",
 						)
-					validate_condition_node(canonical_node, doctype=self.document_type or None)
+					validate_condition_node(
+						canonical_node,
+						doctype=self.document_type or None,
+						scope_doctypes=loop_scope_doctypes or None,
+					)
 					import hashlib
 
 					node_hash = hashlib.sha256(
@@ -903,6 +912,7 @@ class Rule(Document):
 					extra_allowed_roots,
 					condition_registry=condition_registry,
 					loop_vars=loop_vars,
+					loop_scope_doctypes=loop_scope_doctypes,
 				)
 				block = "{% if " + cond_call + " %}" + then_block
 
@@ -918,7 +928,11 @@ class Rule(Document):
 								"$",
 								f"Template elif branch in '{action_label}' must be a canonical condition AST",
 							)
-						validate_condition_node(canonical_node, doctype=self.document_type or None)
+						validate_condition_node(
+							canonical_node,
+							doctype=self.document_type or None,
+							scope_doctypes=loop_scope_doctypes or None,
+						)
 						import hashlib
 
 						elif_hash = hashlib.sha256(
@@ -939,6 +953,7 @@ class Rule(Document):
 						extra_allowed_roots,
 						condition_registry=condition_registry,
 						loop_vars=loop_vars,
+						loop_scope_doctypes=loop_scope_doctypes,
 					)
 					block += "{% elif " + elif_call + " %}" + elif_content
 
@@ -950,6 +965,7 @@ class Rule(Document):
 					extra_allowed_roots,
 					condition_registry=condition_registry,
 					loop_vars=loop_vars,
+					loop_scope_doctypes=loop_scope_doctypes,
 				)
 				if else_block:
 					block += "{% else %}" + else_block
@@ -960,15 +976,44 @@ class Rule(Document):
 
 			if seg_type == "loop":
 				iterator = (segment.get("iterator") or "item").strip()
+				reserved_loop_names = (RESERVED_ALIASES - {"row", "item"}) | {"and", "or", "in", "is", "not"}
+				if (
+					not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", iterator)
+					or iterator in reserved_loop_names
+					or iterator.startswith("__")
+				):
+					frappe.throw(
+						_(
+							"Loop iterator '{0}' in action '{1}' must be a valid, unreserved identifier"
+						).format(iterator, action_label)
+					)
+
 				iterable = self._normalize_context_ref(
 					segment.get("iterable") or "[]", known_var_roots, extra_allowed_roots
 				)
+
+				# Resolve child DocType for iterable if it points to a DocField Table on self.document_type
+				child_dt = None
+				if iterable and self.document_type and iterable.startswith("doc."):
+					field_name = iterable.split(".", 1)[1].split(".")[0]
+					try:
+						meta = frappe.get_meta(self.document_type)
+						f = meta.get_field(field_name)
+						if f and f.fieldtype in ("Table", "Table MultiSelect"):
+							child_dt = f.options
+					except Exception:
+						pass
 
 				loop_allowed = set(extra_allowed_roots) if extra_allowed_roots else set()
 				loop_allowed.add(iterator)
 				child_loop_vars = list(loop_vars)
 				if iterator not in child_loop_vars:
 					child_loop_vars.append(iterator)
+
+				child_scope_doctypes = dict(loop_scope_doctypes)
+				child_scope_doctypes[iterator] = child_dt
+				if "row" not in child_scope_doctypes and child_dt:
+					child_scope_doctypes["row"] = child_dt
 
 				loop_block = self._compile_segments_v2(
 					segment.get("segments") or [],
@@ -977,6 +1022,7 @@ class Rule(Document):
 					loop_allowed,
 					condition_registry=condition_registry,
 					loop_vars=child_loop_vars,
+					loop_scope_doctypes=child_scope_doctypes,
 				)
 
 				out.append(f"{{% for {iterator} in {iterable} %}}{loop_block}{{% endfor %}}")

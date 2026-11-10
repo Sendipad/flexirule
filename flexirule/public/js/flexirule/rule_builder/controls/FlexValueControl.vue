@@ -557,6 +557,9 @@ const editor = new Editor({
 					return searchSourceCatalogue(sourceCatalogue.value, query, {
 						preferredFieldType: fieldType.value,
 						isLeftOperand: !!props.context?.isLeftOperand,
+						conditionContract: props.context?.conditionContract || null,
+						scopeStack:
+							props.context?.scopeStack || props.context?.activeIterators || [],
 					}).slice(0, 25);
 				},
 				command: ({ editor, range, props }) => {
@@ -601,38 +604,30 @@ const editor = new Editor({
 				pluginKey: new PluginKey(`commandTrigger_${uid}`),
 				render: () => createSuggestionRenderer(),
 				items: ({ query }) => {
-					const q = query.toLowerCase();
-					let commands = getCommandsForFieldtype(fieldType.value);
-					let formulas = getFormulasForFieldtype(fieldType.value);
-
-					if (typeof props.context?.filterCommands === "function") {
-						commands = commands.filter((cmd) =>
-							props.context.filterCommands(cmd, {
-								fieldType: fieldType.value,
-								context: props.context,
-							})
-						);
-					}
-					if (typeof props.context?.filterFormulas === "function") {
-						formulas = formulas.filter((formula) =>
-							props.context.filterFormulas(formula, {
-								fieldType: fieldType.value,
-								context: props.context,
-							})
-						);
-					}
-
-					const mappedFormulas = formulas.map((f) => ({
-						id: f.id,
-						label: f.label,
-						type: "logic",
-						icon: f.icon || getFunctionIcon(f.id, "fa fa-calculator"),
-						description: f.description,
-					}));
-
-					return [...commands, ...mappedFormulas].filter((c) =>
-						c.label.toLowerCase().includes(q)
+					// Use canonical resolvers from sourceCatalogue, filtered by search query
+					const resolvers = sourceCatalogue.value.filter(
+						(i) => i.sourceType === "resolver"
 					);
+					const results = searchSourceCatalogue(resolvers, query, {
+						preferredFieldType: fieldType.value,
+						isLeftOperand: !!props.context?.isLeftOperand,
+						allowedResolverOperandsOnly: !!props.context?.isLeftOperand,
+					});
+
+					// Add standard clear utility
+					if (!query || "clear".includes(query.toLowerCase())) {
+						results.push({
+							id: "clear",
+							sourceType: "command",
+							category: "commands",
+							categoryLabel: __("Commands"),
+							icon: "fa fa-trash",
+							primaryLabel: __("Clear"),
+							rawLabel: "Clear",
+							secondaryText: __("Clear input content"),
+						});
+					}
+					return results.slice(0, 25);
 				},
 				command: ({ editor, range, props }) => {
 					if (props.id === "clear") {
@@ -640,39 +635,23 @@ const editor = new Editor({
 						return;
 					}
 
-					const commands = getCommandsForFieldtype(fieldType.value);
-					const isCommand = commands.find((c) => c.id === props.id);
-
-					if (isCommand) {
-						const preferredKindMap = {
-							formula: "math_formula",
-							normalize: "text",
-							formatter: "text",
-							resolver: "text",
-							fetch: "lookup",
-							lookup: "lookup",
-						};
-						const allowedKinds = Array.isArray(allowedBuilderKinds.value)
-							? allowedBuilderKinds.value
-							: [];
-						let initialKind = preferredKindMap[props.id] || "text";
-						if (allowedKinds.length && !allowedKinds.includes(initialKind)) {
-							initialKind = allowedKinds[0];
-						}
-
-						editor
-							.chain()
-							.focus()
-							.insertContentAt(range, [
-								{
-									type: "resolverToken",
-									attrs: { config: { kind: initialKind } },
+					// Insert full canonical resolver payload
+					editor
+						.chain()
+						.focus()
+						.insertContentAt(range, [
+							{
+								type: "resolverToken",
+								attrs: {
+									family: props.family,
+									operation: props.operation,
+									config: props.payload?.config || {},
+									label: props.primaryLabel,
+									autoOpen: false,
 								},
-							])
-							.run();
-					} else {
-						editor.chain().focus().insertContentAt(range, `${props.label}()`).run();
-					}
+							},
+						])
+						.run();
 				},
 			},
 		}),
@@ -724,7 +703,16 @@ const isValid = computed(() => {
 		return struct.value !== undefined && struct.value !== null && struct.value !== "";
 	}
 	if (struct.mode === "variable") return !!(struct.path?.scope && struct.path?.segments?.length);
-	if (struct.mode === "resolver") return !!struct.value;
+	if (struct.mode === "resolver") {
+		return (
+			!!(
+				struct.family &&
+				struct.operation &&
+				struct.config &&
+				typeof struct.config === "object"
+			) || !!struct.value
+		);
+	}
 	if (struct.mode === "template")
 		return Array.isArray(struct.segments) && struct.segments.length > 0;
 	if (struct.mode === "expression") return Array.isArray(struct.value) && struct.value.length > 0;
@@ -1177,6 +1165,14 @@ function updateStaticValue(val) {
 	emitChanges();
 }
 
+const isFieldFirst = computed(() => {
+	return !!(
+		props.context?.isLeftOperand ||
+		props.context?.fieldFirst ||
+		props.staticPresentation?.fieldFirst
+	);
+});
+
 watch(
 	() => props.modelValue,
 	(val) => {
@@ -1189,8 +1185,19 @@ watch(
 			editor.commands.setContent(deserialize(normalized));
 			lastEmittedJSON = json;
 		} else {
-			isDynamicMode.value = false;
-			staticValue.value = normalized.value ?? "";
+			// In field-first mode with an empty or unset value, present the dynamic field selector
+			if (
+				isFieldFirst.value &&
+				(normalized.value === "" ||
+					normalized.value === null ||
+					normalized.value === undefined)
+			) {
+				isDynamicMode.value = true;
+				editor.commands.setContent("");
+			} else {
+				isDynamicMode.value = false;
+				staticValue.value = normalized.value ?? "";
+			}
 			lastEmittedJSON = json;
 		}
 	},
