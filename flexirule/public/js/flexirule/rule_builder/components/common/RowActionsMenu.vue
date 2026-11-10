@@ -53,9 +53,15 @@
 								aria-hidden="true"
 							></i>
 							<span class="fxr-row-actions-menu__label">{{ item.label }}</span>
-							<kbd v-if="item.shortcut" class="fxr-row-actions-menu__shortcut">
-								{{ item.shortcut }}
-							</kbd>
+							<span v-if="item.shortcut" class="fxr-row-actions-menu__shortcut-group">
+								<kbd
+									v-for="(key, kIdx) in formatShortcutKeys(item.shortcut)"
+									:key="kIdx"
+									class="fxr-row-actions-menu__shortcut"
+								>
+									{{ key }}
+								</kbd>
+							</span>
 						</button>
 					</template>
 				</div>
@@ -91,11 +97,27 @@ const {
 	toggleDropdown,
 } = useFloatingDropdown({
 	matchTriggerWidth: false,
-	minWidth: 190,
-	maxWidth: 280,
-	offset: 4,
+	minWidth: 220,
+	maxWidth: 360,
+	offset: 6,
 	zIndex: 25000,
 });
+
+function formatShortcutKeys(shortcut) {
+	if (!shortcut) return [];
+	return String(shortcut)
+		.split("+")
+		.map((part) => part.trim())
+		.filter(Boolean)
+		.map((k) => {
+			if (k.toLowerCase() === "arrowdown") return "↓";
+			if (k.toLowerCase() === "arrowup") return "↑";
+			if (k.toLowerCase() === "arrowleft") return "←";
+			if (k.toLowerCase() === "arrowright") return "→";
+			if (k.toLowerCase() === "enter") return "↵";
+			return k;
+		});
+}
 
 const visibleActions = computed(() => {
 	const result = [];
@@ -258,36 +280,39 @@ defineExpose({
 	position: fixed;
 	background: var(--fxr-surface, #fff);
 	border: 1px solid var(--fxr-border-subtle, #d1d5db);
-	border-radius: var(--fxr-radius-md, 6px);
-	box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+	border-radius: var(--fxr-radius-md, 8px);
+	box-shadow: 0 10px 30px rgba(15, 23, 42, 0.16), 0 2px 6px rgba(15, 23, 42, 0.08);
 	outline: none;
 	animation: fxr-menu-pop 100ms cubic-bezier(0.16, 1, 0.3, 1);
+	box-sizing: border-box;
 }
 
 .fxr-row-actions-menu__items {
 	display: flex;
 	flex-direction: column;
-	padding: 4px;
-	gap: 1px;
+	padding: 6px;
+	gap: 2px;
+	box-sizing: border-box;
 }
 
 .fxr-row-actions-menu__item {
 	display: flex;
 	align-items: center;
-	gap: 8px;
+	gap: 10px;
 	width: 100%;
-	min-height: 28px;
-	padding: 5px 8px;
+	min-height: 32px;
+	padding: 6px 10px;
 	border: 0;
-	border-radius: var(--fxr-radius-sm, 4px);
+	border-radius: var(--fxr-radius-sm, 6px);
 	background: transparent;
 	color: var(--fxr-text, #111827);
 	font: inherit;
-	font-size: var(--fxr-text-xs, 11px);
+	font-size: var(--fxr-text-sm, 12px);
 	font-weight: var(--fxr-weight-medium, 500);
 	text-align: left;
 	cursor: pointer;
-	transition: background-color 80ms ease, color 80ms ease;
+	box-sizing: border-box;
+	transition: background-color 90ms ease, color 90ms ease;
 }
 
 .fxr-row-actions-menu__item:hover:not(:disabled),
@@ -313,9 +338,11 @@ defineExpose({
 }
 
 .fxr-row-actions-menu__icon {
-	width: 14px;
+	width: 16px;
+	flex: 0 0 16px;
 	text-align: center;
 	color: var(--fxr-text-muted, #6b7280);
+	font-size: 13px;
 }
 
 .fxr-row-actions-menu__item.is-danger .fxr-row-actions-menu__icon {
@@ -325,24 +352,39 @@ defineExpose({
 .fxr-row-actions-menu__label {
 	flex: 1 1 auto;
 	min-width: 0;
+	margin-right: 12px;
 	white-space: nowrap;
 }
 
-.fxr-row-actions-menu__shortcut {
+.fxr-row-actions-menu__shortcut-group {
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
 	margin-left: auto;
-	padding: 1px 4px;
+	flex: 0 0 auto;
+}
+
+.fxr-row-actions-menu__shortcut {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 18px;
+	padding: 2px 5px;
 	border: 1px solid var(--fxr-border-subtle, #e5e7eb);
-	border-radius: 3px;
+	border-bottom-color: var(--fxr-border-strong, #cbd5e1);
+	border-radius: 4px;
 	background: var(--fxr-surface-soft, #f9fafb);
 	color: var(--fxr-text-muted, #6b7280);
 	font-family: inherit;
 	font-size: 10px;
+	font-weight: var(--fxr-weight-semibold, 600);
 	line-height: 1.2;
+	box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
 }
 
 .fxr-row-actions-menu__divider {
 	height: 1px;
-	margin: 3px 0;
+	margin: 4px 2px;
 	background: var(--fxr-border-subtle, #e5e7eb);
 }
 
