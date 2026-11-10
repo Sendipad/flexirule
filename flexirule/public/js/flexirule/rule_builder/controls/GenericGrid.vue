@@ -125,7 +125,7 @@
 							</button>
 						</div>
 						<button
-							v-if="availableRowActions.includes('remove')"
+							v-if="showInlineDelete && availableRowActions.includes('remove')"
 							type="button"
 							class="fxr-grid-icon-button is-danger"
 							:title="__('Remove row')"
@@ -134,6 +134,13 @@
 						>
 							<i class="fa fa-trash" aria-hidden="true"></i>
 						</button>
+						<RowActionsMenu
+							:actions="getRowActions(entry, pageIndex)"
+							:context="getRowActionContext(entry, pageIndex)"
+							:disabled="readOnly"
+							:buttonTitle="__('Row options')"
+							:buttonAriaLabel="__('Row options for row {0}', [entry.index + 1])"
+						/>
 					</div>
 				</div>
 
@@ -418,6 +425,10 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useSlots, watch } from "vue";
 import { getInlinePresentation, resolvePresentationMode } from "./inline_presentation_policy.mjs";
+import RowActionsMenu from "../components/common/RowActionsMenu.vue";
+import { useGenericGridActions } from "./useGenericGridActions.js";
+import { useKeyboardRegistry } from "../composables/useKeyboardRegistry.js";
+import { isInputOrEditorTarget } from "../composables/command_action_types.mjs";
 import {
 	GRID_CLIPBOARD_FORMAT,
 	getRowKey,
@@ -471,6 +482,7 @@ const props = defineProps({
 	editShortcut: { type: String, default: "Ctrl+Shift+E" },
 	editStateKey: { type: String, default: "isEditing" },
 	cloneRow: { type: Function, default: null },
+	showInlineDelete: { type: Boolean, default: false },
 });
 
 const emit = defineEmits([
@@ -513,6 +525,11 @@ const dragSelection = ref({
 	modifier: false,
 	wasSelected: false,
 });
+
+const instanceId = Math.random().toString(36).slice(2, 9);
+const gridContextName = "grid:" + instanceId;
+const { registerShortcut, pushContext, popContext } = useKeyboardRegistry();
+const unregisterShortcuts = ref([]);
 
 const isDataGrid = computed(() => props.rows !== null || props.modelValue !== null);
 // A computed row key depends on caller-owned identity. Without cloneRow the grid
@@ -633,6 +650,7 @@ watch(
 );
 onMounted(() => {
 	loadPrimaryActionPreference();
+	setupKeyboardShortcuts();
 	if (typeof window === "undefined") return;
 	window.addEventListener("pointerup", endDragSelection);
 	window.addEventListener("pointercancel", endDragSelection);
@@ -643,6 +661,7 @@ onBeforeUnmount(() => {
 	window.removeEventListener("pointerup", endDragSelection);
 	window.removeEventListener("pointercancel", endDragSelection);
 	document.removeEventListener("pointerdown", handleOutsideMenuPointerDown);
+	cleanupKeyboardShortcuts();
 });
 
 watch(
@@ -790,6 +809,113 @@ function getRowPresentation(entry) {
 		readOnly: props.readOnly,
 		hasSummary: hasSummarySlot.value,
 	});
+}
+
+const gridActionsApi = {
+	requestRowAction,
+	requestPrimaryAction,
+	requestBulkDelete,
+	copySelectedRows,
+	toggleRowSelection,
+	duplicateRow,
+	selectionEnabled: computed(() => props.selection),
+	hasPrimaryAction: computed(() => Boolean(activePrimaryAction.value)),
+};
+
+const { getRowActionList } = useGenericGridActions({
+	gridApi: gridActionsApi,
+	canCopyPaste,
+	readOnly: computed(() => props.readOnly),
+	availableRowActions: computed(() => props.availableRowActions),
+	editShortcut: computed(() => props.editShortcut),
+});
+
+function getRowActionContext(entry, pageIndex) {
+	const presentation = getRowPresentation(entry);
+	return {
+		entry,
+		pageIndex,
+		isEditing: presentation.presentation === "editor",
+		canToggle: presentation.canToggle,
+		canFinishEditing: canFinishRowEditing(entry),
+		isSelected: isSelected(entry.key),
+		selectedCount: selectedRows.value.length,
+	};
+}
+
+function getRowActions(entry, pageIndex) {
+	const ctx = getRowActionContext(entry, pageIndex);
+	return getRowActionList(ctx);
+}
+
+function duplicateRow(entry) {
+	if (props.readOnly || !canCopyPaste.value || !entry) return;
+	const clone = clonePastedRow(entry.row, entry.index);
+	if (!clone) return;
+	const nextRows = [...sourceList.value];
+	const insertIndex = entry.index + 1;
+	nextRows.splice(insertIndex, 0, clone);
+	emitRowsUpdate(nextRows);
+	nextTick(() => {
+		const newEntry = sourceRows.value.find((e) => e.index === insertIndex);
+		if (newEntry) {
+			setSelectedKeys([newEntry.key]);
+			activeRowIndex.value = insertIndex;
+		}
+	});
+}
+
+function setupKeyboardShortcuts() {
+	if (!isDataGrid.value) return;
+	rootRef.value?.addEventListener("focusin", handleGridFocusIn);
+	rootRef.value?.addEventListener("focusout", handleGridFocusOut);
+
+	unregisterShortcuts.value = [
+		registerShortcut({
+			key: "Delete",
+			context: gridContextName,
+			priority: 15,
+			callback: () => {
+				if (props.readOnly) return;
+				if (selectedRows.value.length > 1) {
+					requestBulkDelete();
+				} else if (activeRowIndex.value !== null) {
+					const entry = sourceRows.value.find((e) => e.index === activeRowIndex.value);
+					if (entry) requestRowAction("remove", entry);
+				}
+			},
+		}),
+		registerShortcut({
+			key: "ArrowDown",
+			alt: true,
+			shift: true,
+			context: gridContextName,
+			priority: 15,
+			callback: () => {
+				if (props.readOnly || !canCopyPaste.value) return;
+				const activeEntry = sourceRows.value.find((e) => e.index === activeRowIndex.value);
+				if (activeEntry) duplicateRow(activeEntry);
+			},
+		}),
+	];
+}
+
+function cleanupKeyboardShortcuts() {
+	rootRef.value?.removeEventListener("focusin", handleGridFocusIn);
+	rootRef.value?.removeEventListener("focusout", handleGridFocusOut);
+	popContext(gridContextName);
+	unregisterShortcuts.value.forEach((unreg) => unreg());
+	unregisterShortcuts.value = [];
+}
+
+function handleGridFocusIn() {
+	pushContext(gridContextName);
+}
+
+function handleGridFocusOut(e) {
+	if (!rootRef.value?.contains(e.relatedTarget)) {
+		popContext(gridContextName);
+	}
 }
 
 function summaryToggleAction(entry) {
@@ -1315,6 +1441,22 @@ async function handleKeydown(event) {
 			return;
 		}
 	}
+
+	// Shift+F10 opens row options menu for active row
+	if (
+		event.shiftKey &&
+		(event.key === "F10" || event.key === "ContextMenu") &&
+		!isInputOrEditorTarget(target)
+	) {
+		const rowEl = target?.closest?.("[data-row-index]");
+		if (rowEl) {
+			const menuTrigger = rowEl.querySelector(".fxr-row-actions-menu__trigger");
+			if (menuTrigger) {
+				event.preventDefault();
+				menuTrigger.click();
+			}
+		}
+	}
 }
 
 defineExpose({
@@ -1322,6 +1464,7 @@ defineExpose({
 	pasteRows,
 	selectedRows,
 	goToIndex,
+	duplicateRow,
 });
 </script>
 

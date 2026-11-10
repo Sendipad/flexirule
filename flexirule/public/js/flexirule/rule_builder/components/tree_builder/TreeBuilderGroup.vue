@@ -35,21 +35,27 @@
 				>
 					<i class="fa fa-sitemap"></i>
 				</button>
-				<button
-					type="button"
-					class="fxr-btn fxr-btn--icon fxr-btn--danger"
-					@click="$emit('remove')"
-				>
-					<i class="fa fa-times"></i>
-				</button>
+				<RowActionsMenu
+					:actions="groupActions"
+					:context="groupContext"
+					:disabled="readOnly"
+					:buttonTitle="__('Group options')"
+					:buttonAriaLabel="__('Group options')"
+				/>
 			</div>
 		</div>
 		<div class="tree-group__children"><slot name="children" /></div>
 	</div>
 </template>
 <script setup>
-defineProps({
+import { computed, inject } from "vue";
+import RowActionsMenu from "../common/RowActionsMenu.vue";
+import { useTreeBuilderActions } from "./useTreeBuilderActions.js";
+
+const props = defineProps({
 	node: { type: Object, required: true },
+	parent: { type: Object, default: () => ({ id: "root" }) },
+	index: { type: Number, default: 0 },
 	operators: { type: Array, default: () => ["and", "or"] },
 	operatorLabel: { type: Function, default: (v) => v },
 	readOnly: Boolean,
@@ -58,6 +64,22 @@ defineProps({
 	collectionLabel: { type: String, default: "Collection" },
 });
 defineEmits(["operator", "add-leaf", "add-group", "add-collection", "remove"]);
+
+const api = inject("treeBuilderContext", null);
+
+const { getNodeActionList } = useTreeBuilderActions({
+	treeApi: api,
+	readOnly: computed(() => props.readOnly),
+	beforeRemove: computed(() => api?.beforeRemove?.value || api?.beforeRemove),
+});
+
+const groupContext = computed(() => ({
+	node: props.node,
+	parent: props.parent,
+	index: props.index,
+}));
+
+const groupActions = computed(() => getNodeActionList(groupContext.value));
 </script>
 <style scoped>
 .tree-group {
