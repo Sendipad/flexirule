@@ -170,12 +170,36 @@ function onFocusOut(e) {
 onMounted(() => {
 	unregisterShortcuts.value = [
 		registerShortcut({
+			key: "e",
+			ctrl: true,
+			shift: true,
+			context: treeContextName,
+			priority: 16,
+			allowInInputs: true,
+			callback: () => {
+				if (props.readOnly) return;
+				const targetId =
+					api.focusedNodeId?.value ||
+					api.editingNodeId?.value ||
+					api.selectedNodeId?.value;
+				if (!targetId || targetId === "root") return;
+				if (api.editingNodeId?.value === targetId) {
+					api.finishEditing(targetId);
+				} else {
+					api.setEditing(targetId);
+				}
+			},
+		}),
+		registerShortcut({
 			key: "Delete",
 			context: treeContextName,
 			priority: 15,
 			callback: () => {
 				if (props.readOnly) return;
-				const selectedId = api.selectedNodeId?.value || api.editingNodeId?.value;
+				const selectedId =
+					api.focusedNodeId?.value ||
+					api.selectedNodeId?.value ||
+					api.editingNodeId?.value;
 				if (selectedId && selectedId !== "root") {
 					removeNode(selectedId);
 				}

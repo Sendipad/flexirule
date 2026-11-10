@@ -6,6 +6,9 @@
 			'is-summary-mode': inlinePresentation.presentation === 'summary',
 			'is-editor-mode': inlinePresentation.presentation === 'editor',
 		}"
+		tabindex="0"
+		@focusin="onFocusLeaf"
+		@click="onFocusLeaf"
 	>
 		<div
 			v-if="inlinePresentation.presentation === 'summary'"
@@ -176,6 +179,12 @@ const canFinishEditing = computed(() => {
 	if (mode === "hybrid") return isEditing.value && isValid.value;
 	return false;
 });
+
+function onFocusLeaf() {
+	if (typeof api?.focusNode === "function") {
+		api.focusNode(props.node.id);
+	}
+}
 
 function startEditing() {
 	if (props.readOnly) return;
