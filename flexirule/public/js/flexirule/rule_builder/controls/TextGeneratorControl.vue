@@ -120,11 +120,12 @@
 							<div class="panel-grid">
 								<template v-if="activeLogicNode.attrs.type === 'conditional'">
 									<div class="grid-item full-width">
-										<ConditionBuilder
+										<CanonicalConditionBuilder
 											:modelValue="activeLogicNode.attrs.condition"
 											:docFields="activeNodeRoots"
 											:variableOptions="activeNodeRoots"
 											:readOnly="readOnly"
+											:isMandatory="true"
 											@update:modelValue="onConditionUpdate"
 										/>
 									</div>
@@ -347,16 +348,16 @@ import {
 	TranslationMark,
 } from "../utils/tiptap_extensions";
 import MentionList from "./MentionList.vue";
-import ConditionBuilder from "../components/condition_builder/ConditionBuilder.vue";
+import CanonicalConditionBuilder from "../components/condition_builder/CanonicalConditionBuilder.vue";
 import ComboBoxControl from "./ComboBoxControl.vue";
-import { validateConditions } from "../components/condition_builder/condition_validator.js";
+import { validateCanonicalCondition } from "../components/condition_builder/canonical_condition_validation.mjs";
+import { isCanonicalConditionPayload } from "../components/condition_builder/canonical_condition_adapter.mjs";
 
 import {
 	compileSegmentsToJinja,
 	parseJinjaToSegments,
 	convertSegmentsToHtml,
 	convertHtmlToSegments,
-	serializeCondition,
 } from "../utils/text_generator";
 import { setActiveTGC } from "../utils/tgc_focus";
 import { resolveAvailableVariables } from "../utils/variable_resolver";
@@ -713,13 +714,15 @@ function validate() {
 	const validateSegs = (nodes) => {
 		for (const node of nodes) {
 			if (node.type === "conditional") {
-				const res = validateConditions(
-					node.condition || { op: "and", conditions: [] },
-					true,
-					true
-				);
-				if (!res.valid) {
-					errors.push(__("Condition in Rich Text is invalid"));
+				if (!node.condition) {
+					errors.push(__("Condition in Rich Text is required"));
+				} else if (!isCanonicalConditionPayload(node.condition)) {
+					errors.push(__("Condition in Rich Text must be a valid canonical condition"));
+				} else {
+					const res = validateCanonicalCondition(node.condition, { isMandatory: true });
+					if (!res.valid) {
+						errors.push(__("Condition in Rich Text is invalid"));
+					}
 				}
 				if (node.then_segments) validateSegs(node.then_segments);
 				if (node.else_segments) validateSegs(node.else_segments);
@@ -747,16 +750,32 @@ function getFieldLabel(path) {
 	return opt ? opt.label || path : path;
 }
 
+function formatCanonicalConditionLabel(condition) {
+	if (!condition || typeof condition !== "object") return "";
+	if (condition.type === "comparison") {
+		const left = condition.left;
+		if (left?.mode === "variable" && left.path) {
+			const scope = left.path.scope || "doc";
+			const segs = Array.isArray(left.path.segments) ? left.path.segments : [];
+			const full = segs.length ? `${scope}.${segs.join(".")}` : scope;
+			return getFieldLabel(full);
+		}
+	} else if (
+		condition.type === "group" &&
+		Array.isArray(condition.children) &&
+		condition.children.length > 0
+	) {
+		return formatCanonicalConditionLabel(condition.children[0]);
+	}
+	return "";
+}
+
 function updateActiveNode(attrs) {
 	if (!activeLogicNode.value) return;
 	const { pos } = activeLogicNode.value;
 
 	if (attrs.condition) {
-		let fieldLabel = "";
-		if (attrs.condition?.left?.ref) fieldLabel = getFieldLabel(attrs.condition.left.ref);
-		else if (attrs.condition?.conditions?.[0]?.left?.ref)
-			fieldLabel = getFieldLabel(attrs.condition.conditions[0].left.ref);
-		attrs.label = fieldLabel;
+		attrs.label = formatCanonicalConditionLabel(attrs.condition);
 	} else if (attrs.iterable) {
 		attrs.label = getFieldLabel(attrs.iterable);
 	}
@@ -765,7 +784,7 @@ function updateActiveNode(attrs) {
 	editor.chain().focus().setNodeSelection(pos).updateAttributes("logic", attrs).run();
 }
 function onConditionUpdate(condition) {
-	updateActiveNode({ condition, _raw_expr: serializeCondition(condition) });
+	updateActiveNode({ condition });
 }
 function deleteActiveNode() {
 	if (!activeLogicNode.value) return;

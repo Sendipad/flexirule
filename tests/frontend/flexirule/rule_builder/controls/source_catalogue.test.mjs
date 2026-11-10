@@ -127,3 +127,81 @@ test("source_catalogue: prioritizes compatible resolvers and exact/prefix matche
 	assert.equal(searchAll[0].kind, "math_formula");
 	assert.equal(searchAll[1].kind, "date_time");
 });
+
+test("source_catalogue: prioritizes fields and contextual row/item/loop variables when isLeftOperand is true", () => {
+	const catalogue = [
+		{
+			id: "math.formula",
+			primaryLabel: "Formula",
+			sourceType: "resolver",
+			category: "resolvers",
+			searchTerms: ["formula"],
+		},
+		{
+			id: "doc.status",
+			primaryLabel: "Status",
+			sourceType: "field",
+			category: "fields",
+			searchTerms: ["status"],
+		},
+		{
+			id: "row.amount",
+			primaryLabel: "Row Amount",
+			sourceType: "variable",
+			scope: "row",
+			category: "variables",
+			searchTerms: ["row amount"],
+		},
+		{
+			id: "vars.counter",
+			primaryLabel: "Counter",
+			sourceType: "variable",
+			scope: "vars",
+			category: "variables",
+			searchTerms: ["counter"],
+		},
+	];
+
+	const sortedLeft = searchSourceCatalogue(catalogue, "", { isLeftOperand: true });
+	assert.strictEqual(sortedLeft[0].id, "row.amount");
+	assert.strictEqual(sortedLeft[1].id, "doc.status");
+	assert.strictEqual(sortedLeft[2].id, "vars.counter");
+	assert.strictEqual(sortedLeft[3].id, "math.formula");
+});
+
+test("source_catalogue: ranks active loop scope stack ahead of outer scopes and fields", () => {
+	const catalogue = [
+		{
+			id: "doc.customer",
+			primaryLabel: "Customer",
+			sourceType: "field",
+			category: "fields",
+			searchTerms: ["customer"],
+		},
+		{
+			id: "invoice_row.rate",
+			primaryLabel: "Rate",
+			sourceType: "variable",
+			scope: "invoice_row",
+			category: "variables",
+			searchTerms: ["rate"],
+		},
+		{
+			id: "tax_item.tax",
+			primaryLabel: "Tax",
+			sourceType: "variable",
+			scope: "tax_item",
+			category: "variables",
+			searchTerms: ["tax"],
+		},
+	];
+
+	// Scope stack with outer 'invoice_row' and innermost 'tax_item'
+	const sorted = searchSourceCatalogue(catalogue, "", {
+		isLeftOperand: true,
+		scopeStack: ["invoice_row", "tax_item"],
+	});
+	assert.strictEqual(sorted[0].id, "tax_item.tax");
+	assert.strictEqual(sorted[1].id, "invoice_row.rate");
+	assert.strictEqual(sorted[2].id, "doc.customer");
+});

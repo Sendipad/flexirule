@@ -233,6 +233,30 @@ const leftOperandDescriptor = computed(() => {
 			value_types: valueType ? [valueType] : base.value_types,
 		};
 	}
+
+	if (left?.mode === "resolver") {
+		const fam = left.family;
+		const op = left.operation;
+		const declaredVt = left.value_type;
+		const resolvers = props.contract?.flexvalue_modes?.resolver || [];
+		const spec = Array.isArray(resolvers)
+			? resolvers.find((r) => r.family === fam && r.operation === op)
+			: null;
+
+		let outputFt = spec?.output_type || declaredVt || "Data";
+		// Normalize output type if it's already a semantic alias (e.g. Float -> decimal, Int -> integer)
+		const valueTypes = fieldtypeValueTypes[outputFt] || [outputFt.toLowerCase()];
+		const semanticVt = valueTypes[0] || "string";
+
+		return {
+			...base,
+			fieldtype: outputFt,
+			value_type: semanticVt,
+			value_types: valueTypes,
+			label: spec?.label || `${fam}.${op}`,
+		};
+	}
+
 	return base;
 });
 
@@ -249,6 +273,8 @@ const leftControlContext = computed(() => {
 		referenceDoctype: desc.doctype,
 		resolvedOperand: desc,
 		isLeftOperand: true,
+		conditionContract: props.contract,
+		presentationPolicy: "operation_only",
 		onUpdate: onLeftOperandChange,
 	};
 });
@@ -462,6 +488,19 @@ const rightValueModel = computed({
 });
 
 function onLeftOperandChange() {
+	const currentOp = props.node.operator;
+	const availableOps = operatorOptions.value.map((o) => o.value).filter(Boolean);
+
+	if (!currentOp || !availableOps.includes(currentOp)) {
+		if (availableOps.length > 0) {
+			const preferredOp = availableOps.includes("eq") ? "eq" : availableOps[0];
+			onOperatorChange(preferredOp);
+			return;
+		} else {
+			props.node.operator = "";
+		}
+	}
+
 	syncDraftStatus();
 	checkIncompatibility();
 	emit("change", props.node);

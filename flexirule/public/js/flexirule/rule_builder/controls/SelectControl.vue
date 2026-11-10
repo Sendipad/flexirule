@@ -9,6 +9,7 @@ const props = defineProps({
 	df: Object,
 	modelValue: [String, Number],
 	read_only: Boolean,
+	disabled: Boolean,
 	no_label: Boolean,
 	hideLabel: { type: Boolean, default: false },
 	hideDescription: { type: Boolean, default: false },
@@ -81,7 +82,7 @@ defineExpose({ validate });
 		:df="df"
 		:model-value="modelValue"
 		:options="options"
-		:read_only="read_only || df?.read_only"
+		:read_only="read_only || disabled || df?.read_only"
 		:hide-label="hideLabel || no_label"
 		:hide-description="hideDescription"
 		:show-validation="showValidation"

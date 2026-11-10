@@ -405,7 +405,9 @@ def validate_flex_value(
 			"Dynamic Link",
 		} and not isinstance(val, str):
 			_fail("invalid_static_type", f"{path}.value", "Expected a string")
-		elif value_type in {"integer", "Int"} and not (isinstance(val, int) and not isinstance(val, bool)):
+		elif value_type in {"integer", "Int", "Rating", "Duration"} and not (
+			isinstance(val, int) and not isinstance(val, bool)
+		):
 			_fail("invalid_static_type", f"{path}.value", "Expected an integer (not a boolean)")
 		elif value_type == "decimal":
 			if not isinstance(val, str):
@@ -454,7 +456,7 @@ def validate_flex_value(
 				datetime.fromisoformat(val[:-1] + "+00:00" if val.endswith("Z") else val)
 			except ValueError:
 				_fail("invalid_datetime", f"{path}.value", "Expected a valid ISO datetime")
-		elif value_type in {"time", "Time", "Duration"}:
+		elif value_type in {"time", "Time"}:
 			if not isinstance(val, str):
 				_fail("invalid_static_type", f"{path}.value", "Times must be ISO strings")
 			try:
