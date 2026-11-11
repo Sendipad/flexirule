@@ -242,6 +242,7 @@
 							:currentDocType="docType"
 							:readOnly="false"
 							:isMandatory="false"
+							:showValidation="showValidation"
 							@update:modelValue="updateDraft"
 						/>
 					</div>

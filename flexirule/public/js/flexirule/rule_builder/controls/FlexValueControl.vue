@@ -28,7 +28,7 @@
 					:modelValue="formattedMultiSelectValue"
 					:documentType="isLinkType ? referenceDoctype : undefined"
 					:options="isLinkType ? undefined : fieldOptions"
-					:filters="context?.filters || {}"
+					:filters="context?.filters"
 					:get_data="context?.df?.get_data || undefined"
 					:allowCustomValue="true"
 					displayMode="badges"
@@ -90,6 +90,31 @@
 			</div>
 		</div>
 
+		<!-- Field-first source palette: fields and variables are available as soon as the operand is empty. -->
+		<div v-if="isSourcePaletteVisible" class="fvc-source-palette" @mousedown.stop>
+			<div class="fvc-source-palette__search">
+				<i class="fa fa-search" aria-hidden="true"></i>
+				<input
+					ref="sourcePaletteInput"
+					v-model="sourcePaletteQuery"
+					type="search"
+					:placeholder="__('Search fields and variables...')"
+					:aria-label="__('Search fields and variables')"
+					@keydown="handleSourcePaletteKeydown"
+				/>
+				<button
+					type="button"
+					class="fvc-source-palette__close"
+					:title="__('Close')"
+					:aria-label="__('Close')"
+					@click="sourcePaletteOpen = false"
+				>
+					<i class="fa fa-times" aria-hidden="true"></i>
+				</button>
+			</div>
+			<MentionList :items="sourcePaletteItems" :command="selectSourcePaletteItem" />
+		</div>
+
 		<!-- validation error -->
 		<div v-if="showValidation && !isValid" class="fxr-error-msg">
 			{{ __("{0} is required").replace("{0}", context?.df?.label || __("Field")) }}
@@ -118,6 +143,7 @@ import ControlFactory from "./ControlFactory.vue";
 import MultiSelectList from "./MultiSelectList.vue";
 import ResolverTokenView from "./ResolverTokenView.vue";
 import { resolveStaticPresentation } from "./static_presentation_policy.mjs";
+import { parseListElements } from "./flexvalue_serialization.mjs";
 import { buildSourceCatalogue, searchSourceCatalogue } from "./source_catalogue.mjs";
 import { getAllStrategies } from "./value_resolver/strategies.js";
 import { adaptStrategiesForCatalogue } from "./resolver_catalogue_adapter.mjs";
@@ -125,6 +151,7 @@ import { adaptStrategiesForCatalogue } from "./resolver_catalogue_adapter.mjs";
 const props = defineProps({
 	modelValue: { type: [Object, String, Number, Boolean], default: null },
 	fieldname: String,
+	doctype: { type: String, default: "" },
 	variableOptions: { type: Array, default: () => [] },
 	docFields: { type: Array, default: () => [] },
 	readOnly: { type: Boolean, default: false },
@@ -194,11 +221,32 @@ const sourceCatalogue = computed(() => {
 	});
 });
 
+function resolveResolverOutputType(family, operation) {
+	const resolverSpecs = props.context?.conditionContract?.flexvalue_modes?.resolver;
+	if (Array.isArray(resolverSpecs)) {
+		const spec = resolverSpecs.find(
+			(entry) => entry.family === family && entry.operation === operation
+		);
+		if (spec?.output_type) return spec.output_type;
+	}
+	return fieldType.value || "Data";
+}
+
 // Static Mode Helpers
 const staticValue = ref("");
 
 const fieldType = computed(() => props.context?.df?.fieldtype || "Data");
-const fieldOptions = computed(() => props.context?.df?.options || []);
+const fieldOptions = computed(() => {
+	const options = props.context?.df?.options || [];
+	const operator = String(props.context?.operator || "").toLowerCase();
+	if (fieldType.value === "Check" && ["in", "not_in"].includes(operator)) {
+		return [
+			[1, __("Yes")],
+			[0, __("No")],
+		];
+	}
+	return options;
+});
 const referenceDoctype = computed(() => {
 	if (fieldType.value === "Link" && fieldOptions.value) {
 		return fieldOptions.value;
@@ -222,7 +270,14 @@ const referenceDoctype = computed(() => {
 });
 
 const triggerDoctype = computed(() => {
-	return props.doctype || props.engine?.rule_doc?.document_type || "";
+	return (
+		props.doctype ||
+		props.context?.currentDocType ||
+		props.context?.triggerDoctype ||
+		props.context?.doctype ||
+		props.engine?.rule_doc?.document_type ||
+		""
+	);
 });
 
 const resolverContext = computed(() => {
@@ -406,6 +461,7 @@ const ResolverToken = Node.create({
 			label: { default: "" },
 			family: { default: "" },
 			operation: { default: "" },
+			value_type: { default: "" },
 			config: { default: null },
 			resolver: { default: "" },
 			autoOpen: { default: false },
@@ -544,7 +600,7 @@ const editor = new Editor({
 		}),
 		VariableToken,
 		ResolverToken.configure({
-			doctype: referenceDoctype.value,
+			doctype: triggerDoctype.value,
 			readOnly: isReadOnly.value,
 			context: resolverContext.value,
 		}),
@@ -573,9 +629,13 @@ const editor = new Editor({
 									attrs: {
 										family: props.family,
 										operation: props.operation,
+										value_type: resolveResolverOutputType(
+											props.family,
+											props.operation
+										),
 										config: props.payload?.config || {},
 										label: props.primaryLabel,
-										autoOpen: false,
+										autoOpen: true,
 									},
 								},
 							])
@@ -612,6 +672,7 @@ const editor = new Editor({
 						preferredFieldType: fieldType.value,
 						isLeftOperand: !!props.context?.isLeftOperand,
 						allowedResolverOperandsOnly: !!props.context?.isLeftOperand,
+						conditionContract: props.context?.conditionContract || null,
 					});
 
 					// Add standard clear utility
@@ -645,9 +706,13 @@ const editor = new Editor({
 								attrs: {
 									family: props.family,
 									operation: props.operation,
+									value_type: resolveResolverOutputType(
+										props.family,
+										props.operation
+									),
 									config: props.payload?.config || {},
 									label: props.primaryLabel,
-									autoOpen: false,
+									autoOpen: true,
 								},
 							},
 						])
@@ -850,39 +915,6 @@ function coerceStructuredValue(val) {
 	return { mode: "static", value_type: currentFieldType, value: val };
 }
 
-function parseListElements(val, targetFieldType) {
-	let rawList = [];
-	if (Array.isArray(val)) {
-		rawList = val;
-	} else if (typeof val === "string") {
-		rawList = val
-			.split(",")
-			.map((s) => s.trim())
-			.filter(Boolean);
-	} else if (val !== null && val !== undefined && val !== "") {
-		rawList = [val];
-	}
-
-	const isInt = targetFieldType === "Int" || targetFieldType === "integer";
-	const isFloat = ["Float", "Currency", "Percent", "decimal"].includes(targetFieldType);
-
-	return rawList.map((item) => {
-		if (typeof item === "string") {
-			const trimmed = item.trim();
-			if (isInt) {
-				const parsed = parseInt(trimmed, 10);
-				return isNaN(parsed) ? trimmed : parsed;
-			}
-			if (isFloat) {
-				const parsed = parseFloat(trimmed);
-				return isNaN(parsed) ? trimmed : parsed;
-			}
-			return trimmed;
-		}
-		return item;
-	});
-}
-
 function serialize() {
 	const currentFieldType = fieldType.value || "Data";
 
@@ -939,7 +971,7 @@ function serialize() {
 				mode: "resolver",
 				family,
 				operation,
-				value_type: currentFieldType,
+				value_type: node.attrs.value_type || currentFieldType,
 				config: innerConfig,
 			};
 		}
@@ -981,7 +1013,7 @@ function serialize() {
 					mode: "resolver",
 					family: fam,
 					operation: op,
-					value_type: currentFieldType,
+					value_type: item.attrs.value_type || currentFieldType,
 					config: innerCfg,
 				},
 			};
@@ -1110,6 +1142,10 @@ function emitChanges() {
 // ── Orchestration ──
 
 function onWrapClick() {
+	if (isFieldFirst.value && isEditorEmpty.value && !isReadOnly.value && !props.disabled) {
+		sourcePaletteOpen.value = true;
+		return;
+	}
 	if (isDynamicMode.value || !isStaticSupported.value) editor.commands.focus();
 }
 
@@ -1173,6 +1209,100 @@ const isFieldFirst = computed(() => {
 	);
 });
 
+const sourcePaletteOpen = ref(false);
+const sourcePaletteQuery = ref("");
+const sourcePaletteInput = ref(null);
+
+const sourcePaletteItems = computed(() =>
+	searchSourceCatalogue(sourceCatalogue.value, sourcePaletteQuery.value, {
+		preferredFieldType: fieldType.value,
+		isLeftOperand: true,
+		conditionContract: props.context?.conditionContract || null,
+		scopeStack: props.context?.scopeStack || props.context?.activeIterators || [],
+	}).slice(0, 50)
+);
+
+const isSourcePaletteVisible = computed(
+	() =>
+		isFieldFirst.value &&
+		sourcePaletteOpen.value &&
+		isEditorEmpty.value &&
+		!isReadOnly.value &&
+		!props.disabled
+);
+
+watch(isSourcePaletteVisible, (visible) => {
+	if (visible) nextTick(() => sourcePaletteInput.value?.focus());
+});
+
+watch(
+	[isFieldFirst, isEditorEmpty, isReadOnly, () => props.disabled],
+	([fieldFirst, empty, readOnly, disabled]) => {
+		if (fieldFirst && empty && !readOnly && !disabled) {
+			sourcePaletteOpen.value = true;
+		} else {
+			sourcePaletteOpen.value = false;
+			sourcePaletteQuery.value = "";
+		}
+	},
+	{ immediate: true }
+);
+
+function handleSourcePaletteKeydown(event) {
+	if (event.key === "Escape") {
+		event.preventDefault();
+		sourcePaletteOpen.value = false;
+		return;
+	}
+	if (event.key === "Enter" && sourcePaletteItems.value.length) {
+		event.preventDefault();
+		selectSourcePaletteItem(sourcePaletteItems.value[0]);
+	}
+}
+
+function selectSourcePaletteItem(item) {
+	if (!item || isReadOnly.value || props.disabled) return;
+
+	const editorChain = editor.chain().focus().clearContent();
+	if (item.sourceType === "resolver") {
+		const family = item.family || item.payload?.family || "";
+		const operation = item.operation || item.payload?.operation || "";
+		const resolverSpecs = props.context?.conditionContract?.flexvalue_modes?.resolver;
+		const resolverSpec = Array.isArray(resolverSpecs)
+			? resolverSpecs.find(
+					(entry) => entry.family === family && entry.operation === operation
+			  )
+			: null;
+		editorChain
+			.insertContent({
+				type: "resolverToken",
+				attrs: {
+					family,
+					operation,
+					value_type: resolveResolverOutputType(family, operation),
+					config: item.payload?.config || {},
+					label: item.primaryLabel || item.rawLabel || family + "." + operation,
+					autoOpen: true,
+				},
+			})
+			.run();
+	} else {
+		const canonicalPath = item.canonicalPath || item.id;
+		editorChain
+			.insertContent({
+				type: "variableToken",
+				attrs: {
+					path: canonicalPath,
+					label: item.primaryLabel || item.rawLabel || canonicalPath,
+				},
+			})
+			.run();
+	}
+
+	sourcePaletteOpen.value = false;
+	sourcePaletteQuery.value = "";
+}
+
 watch(
 	() => props.modelValue,
 	(val) => {
@@ -1224,6 +1354,59 @@ onBeforeUnmount(() => {
 	display: flex;
 	flex-direction: column;
 	width: 100%;
+	position: relative;
+}
+
+.fvc-source-palette {
+	position: absolute;
+	top: calc(var(--fxr-input-height, 32px) + 6px);
+	left: 0;
+	width: min(440px, 96vw);
+	max-width: 100%;
+	max-height: min(440px, 65vh);
+	overflow: hidden;
+	z-index: 16000;
+	background: var(--fxr-surface-elevated, #fff);
+	border: 1px solid var(--fxr-border-subtle, #e2e8f0);
+	border-radius: var(--fxr-radius-md, 8px);
+	box-shadow: var(--fxr-shadow-lg, 0 12px 32px rgba(15, 23, 42, 0.18));
+}
+
+.fvc-source-palette__search {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 10px;
+	border-bottom: 1px solid var(--fxr-border-subtle, #e2e8f0);
+	color: var(--fxr-text-muted, #64748b);
+}
+
+.fvc-source-palette__search input {
+	flex: 1;
+	min-width: 0;
+	border: 0;
+	outline: 0;
+	background: transparent;
+	color: var(--fxr-text-strong, #1e293b);
+	font: inherit;
+	font-size: 12px;
+}
+
+.fvc-source-palette__close {
+	border: 0;
+	padding: 2px 4px;
+	background: transparent;
+	color: inherit;
+	cursor: pointer;
+}
+
+.fvc-source-palette :deep(.tg-mention-list) {
+	min-width: 0;
+	max-width: none;
+	max-height: min(360px, 55vh);
+	border: 0;
+	border-radius: 0;
+	box-shadow: none;
 }
 .fvc-empty-placeholder {
 	position: absolute;

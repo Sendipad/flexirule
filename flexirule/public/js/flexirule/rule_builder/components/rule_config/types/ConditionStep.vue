@@ -10,7 +10,7 @@
 			</h5>
 
 			<div class="d-flex align-items-center gap-2">
-				<label class="old-doc-toggle">
+				<label v-if="supportsOldDoc" class="old-doc-toggle">
 					<input
 						type="checkbox"
 						v-model="showOldDoc"
@@ -64,6 +64,7 @@
 				:variableOptions="combinedVariableOptions"
 				:readOnly="readOnly || read_only"
 				:isMandatory="isConditionMandatory"
+				:showValidation="showValidation"
 				:currentDocType="currentDocType"
 				:store="ruleStore"
 				:isEntryNode="isEntryNode"
@@ -107,7 +108,9 @@ const graphStore = useGraphStore();
 const metaStore = useMetaStore();
 
 const localCanonicalCondition = ref(null);
-const showOldDoc = ref(false);
+const showOldDoc = ref(true);
+const supportsOldDoc = computed(() => ruleStore.rule_doc?.trigger_type === "DocType Event");
+const supportsCallerContext = computed(() => ruleStore.rule_doc?.trigger_type === "Callable Event");
 const variableFields = ref([]);
 const canonicalBuilderRef = ref(null);
 const isLoadingVariables = ref(false);
@@ -185,8 +188,8 @@ const docFields = computed(() => {
 	variableFields.value.forEach(pushField);
 	let fields = Array.from(dedupe.values());
 
-	if (showOldDoc.value) {
-		const doctype = ruleStore.rule_doc?.document_type;
+	if (supportsOldDoc.value && showOldDoc.value) {
+		const doctype = currentDocType.value || ruleStore.rule_doc?.document_type;
 		if (doctype) {
 			const oldFields = metaStore.get_fields_for_doctype(doctype, {
 				alias: "old_doc",
@@ -224,6 +227,7 @@ const docFields = computed(() => {
 			fieldtype: "Select",
 			options: triggerTypeOptions,
 			is_context: true,
+			is_caller: true,
 		},
 		{
 			label: "caller.trigger_event (Caller Trigger Event)",
@@ -232,9 +236,10 @@ const docFields = computed(() => {
 			fieldtype: "Select",
 			options: triggerEventOptions,
 			is_context: true,
+			is_caller: true,
 		},
 		{
-			label: "caller.document_type (Caller DocType)",
+			label: "caller.document_type (Caller Rule DocType)",
 			value: "caller.document_type",
 			fieldname: "caller_document_type",
 			fieldtype: "Link",
@@ -250,6 +255,26 @@ const docFields = computed(() => {
 				"has_field",
 			],
 			is_context: true,
+			is_caller: true,
+		},
+		{
+			label: "caller.doctype (Caller Document DocType)",
+			value: "caller.doctype",
+			fieldname: "caller_doctype",
+			fieldtype: "Link",
+			options: "DocType",
+			operators: [
+				"eq",
+				"ne",
+				"in",
+				"not_in",
+				"is_set",
+				"is_not_set",
+				"is_submittable",
+				"has_field",
+			],
+			is_context: true,
+			is_caller: true,
 		},
 		{
 			label: "rule.trigger_type (Target Trigger Type)",
@@ -286,7 +311,10 @@ const docFields = computed(() => {
 			is_context: true,
 		},
 	];
-	fields = [...fields, ...contextFields];
+	fields = [
+		...fields,
+		...contextFields.filter((field) => !field.is_caller || supportsCallerContext.value),
+	];
 
 	return fields.sort((a, b) => a.label.localeCompare(b.label));
 });

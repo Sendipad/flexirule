@@ -16,6 +16,7 @@ const props = defineProps({
 	hideLabel: { type: Boolean, default: false },
 	placeholder: { type: String, default: "" },
 	documentType: { type: String, default: "" },
+	filters: { type: Object, default: null },
 	expanded: { type: Boolean, default: false },
 	disabled: { type: Boolean, default: false },
 	loadingState: { type: Boolean, default: false },
@@ -144,7 +145,7 @@ const {
 		return await metaStore.search_link_options({
 			doctype: target_dt,
 			txt: search || "",
-			filters: props.df?.filters || {},
+			filters: props.filters || props.df?.filters || {},
 			start,
 			page_length: pageSize,
 		});
@@ -536,6 +537,15 @@ watch(
 		if (canInteract.value) clearAll();
 		if (showExpanded.value || isDropdownOpen.value) fetchOptions(query.value || "");
 	}
+);
+
+watch(
+	() => props.filters,
+	() => {
+		reset();
+		if (showExpanded.value || isDropdownOpen.value) fetchOptions(query.value || "");
+	},
+	{ deep: true }
 );
 
 watch(

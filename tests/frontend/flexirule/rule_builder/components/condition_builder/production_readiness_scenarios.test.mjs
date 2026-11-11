@@ -207,8 +207,8 @@ test("production_readiness: strict FlexValue types preservation", () => {
 	const boolVal = toCanonicalFlexValue(false, "Check");
 	assert.deepEqual(boolVal, {
 		mode: "static",
-		value_type: "boolean",
-		value: false,
+		value_type: "Check",
+		value: 0,
 	});
 
 	const nullVal = toCanonicalFlexValue(null);

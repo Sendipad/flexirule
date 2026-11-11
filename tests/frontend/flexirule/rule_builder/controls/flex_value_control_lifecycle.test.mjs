@@ -87,3 +87,35 @@ test("lifecycle: Link field with target DocType preserves exact string identity 
 	assert.strictEqual(canon.value, "2026-11-08");
 	assert.strictEqual(canon.value_type, "string"); // Preserved as string, never converted to date
 });
+
+test("lifecycle: an explicitly empty backend resolver allow-list hides every condition resolver", () => {
+	const catalogue = [
+		{
+			id: "math_formula",
+			family: "math",
+			operation: "formula",
+			sourceType: "resolver",
+			category: "resolvers",
+			searchTerms: ["math", "formula"],
+		},
+		{
+			id: "date_time",
+			family: "date_time",
+			operation: "calculate",
+			sourceType: "resolver",
+			category: "resolvers",
+			searchTerms: ["date", "calculate"],
+		},
+		{ id: "doc.status", sourceType: "field", category: "fields", searchTerms: ["status"] },
+	];
+
+	const results = searchSourceCatalogue(catalogue, "", {
+		isLeftOperand: true,
+		conditionContract: { flexvalue_modes: { resolver: [] } },
+	});
+
+	assert.deepEqual(
+		results.map((item) => item.id),
+		["doc.status"]
+	);
+});
