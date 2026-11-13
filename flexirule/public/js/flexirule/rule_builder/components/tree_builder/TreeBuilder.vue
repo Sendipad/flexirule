@@ -1,5 +1,5 @@
 <template>
-	<div class="tree-builder fxr-accent-scope">
+	<div class="tree-builder fxr-accent-scope" tabindex="0" @keydown="handleKeydown">
 		<div class="tree-builder__header">
 			<div class="tree-builder__logic">
 				<button
@@ -73,8 +73,11 @@
 import { computed, provide, ref, useSlots } from "vue";
 import TreeBuilderNode from "./TreeBuilderNode.vue";
 import { useTreeBuilder } from "./useTreeBuilder.js";
+import { matchesShortcut, isInputTarget } from "../../utils/keyboard_shortcuts.mjs";
+import { getInlinePresentation } from "../../controls/inline_presentation_policy.mjs";
 
 const props = defineProps({
+	editShortcut: { type: String, default: "Ctrl+Shift+E" },
 	modelValue: {
 		type: Object,
 		default: () => ({ id: "root", type: "group", operator: "and", children: [] }),
@@ -154,6 +157,80 @@ function onRootDrop(e) {
 		else api.moveNode(draggedId, root.id);
 	}
 	api.endDrag();
+}
+
+function handleKeydown(event) {
+	const target = event.target;
+
+	if (matchesShortcut(event, props.editShortcut)) {
+		if (props.readOnly) return;
+		const leafElement = target?.closest?.("[data-node-id]");
+		const nodeId = leafElement
+			? leafElement.getAttribute("data-node-id")
+			: api.editingNodeId.value || api.focusedNodeId.value || api.selectedNodeId.value;
+
+		if (nodeId) {
+			const presentation = getInlinePresentation({
+				mode: props.presentationMode,
+				isEditing: api.editingNodeId.value === nodeId,
+				readOnly: props.readOnly,
+				hasSummary: hasSummarySlot.value,
+			});
+
+			if (presentation.canToggle) {
+				event.preventDefault();
+				event.stopPropagation();
+				if (api.editingNodeId.value === nodeId) {
+					api.finishEditing(nodeId);
+				} else {
+					api.setEditing(nodeId);
+				}
+			}
+		}
+		return;
+	}
+
+	if (!isInputTarget(target) && !event.altKey && !event.ctrlKey && !event.metaKey) {
+		const nodes = Array.from(event.currentTarget.querySelectorAll("[data-node-id]"));
+		if (!nodes.length) return;
+		const currentIndex = nodes.indexOf(target.closest("[data-node-id]"));
+
+		if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+			event.preventDefault();
+			let nextIndex = 0;
+			if (currentIndex >= 0) {
+				nextIndex =
+					event.key === "ArrowDown"
+						? Math.min(nodes.length - 1, currentIndex + 1)
+						: Math.max(0, currentIndex - 1);
+			}
+			const targetNode = nodes[nextIndex];
+			targetNode?.focus?.();
+			const targetId = targetNode?.getAttribute("data-node-id");
+			if (targetId) api.focusNode(targetId);
+			return;
+		}
+
+		if (event.key === "Home" || event.key === "End") {
+			event.preventDefault();
+			const targetIndex = event.key === "Home" ? 0 : nodes.length - 1;
+			const targetNode = nodes[targetIndex];
+			targetNode?.focus?.();
+			const targetId = targetNode?.getAttribute("data-node-id");
+			if (targetId) api.focusNode(targetId);
+			return;
+		}
+
+		if (event.key === " ") {
+			event.preventDefault();
+			const leafElement = target.closest("[data-node-id]");
+			const targetId = leafElement?.getAttribute("data-node-id");
+			if (targetId) {
+				api.selectNode(targetId);
+			}
+			return;
+		}
+	}
 }
 
 defineExpose({ ...api });
