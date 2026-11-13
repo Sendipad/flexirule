@@ -261,7 +261,10 @@ def _validate_membership_items(left_type: str | None, right_value: Any, path: st
 	if accepted is None:
 		return
 	for index, item in enumerate(items):
-		compatible = _is_check_membership_item(item) if left_type == "Check" else _json_runtime_type(item) in accepted
+		if left_type == "Check":
+			compatible = _is_check_membership_item(item)
+		else:
+			compatible = _json_runtime_type(item) in accepted
 		if not compatible:
 			_fail(
 				"operand_type_mismatch",
@@ -402,9 +405,9 @@ def _json_runtime_type(value: Any) -> str:
 
 def _is_check_membership_item(value: Any) -> bool:
 	"""Check list members use Frappe's canonical integer domain: 0 or 1."""
-	return value is None or (
-		isinstance(value, int) and not isinstance(value, bool) and value in (0, 1)
-	)
+	if value is None:
+		return True
+	return isinstance(value, int) and not isinstance(value, bool) and value in (0, 1)
 
 
 def _known_fieldtype_check(
