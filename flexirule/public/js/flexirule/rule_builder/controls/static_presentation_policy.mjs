@@ -2,8 +2,15 @@
  * Fieldtypes whose option values represent remote records in a DocType.
  * MultiSelect is a local list; MultiSelectList is backed by a DocType.
  */
-export function isRemoteRecordFieldType(fieldType) {
-	return ["Link", "Dynamic Link", "MultiSelectList"].includes(String(fieldType || ""));
+export function isRemoteRecordFieldType(fieldType, options = null) {
+	const type = String(fieldType || "");
+	if (["Link", "Dynamic Link", "MultiSelectList"].includes(type)) return true;
+	if (type !== "MultiSelect" || typeof options !== "string") return false;
+
+	// Frappe's MultiSelect is also used with a DocType name in some builder contexts.
+	// Delimited strings and arrays are local option lists; a single string is a
+	// remote DocType reference, matching MultiSelectList's option-source behavior.
+	return Boolean(options.trim()) && !/[\\n,;]/.test(options);
 }
 
 /**
