@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { searchSourceCatalogue } from "../../../../../flexirule/public/js/flexirule/rule_builder/controls/source_catalogue.mjs";
 import { toCanonicalFlexValue } from "../../../../../flexirule/public/js/flexirule/rule_builder/components/condition_builder/canonical_condition_adapter.mjs";
+import { ControlRegistry } from "../../../../../flexirule/public/js/flexirule/core/control_registry.js";
 
 test("lifecycle: field-first and resolver suggestion policy filters out unauthorized operands", () => {
 	const mockContract = {
@@ -118,4 +119,13 @@ test("lifecycle: an explicitly empty backend resolver allow-list hides every con
 		results.map((item) => item.id),
 		["doc.status"]
 	);
+});
+
+
+test("lifecycle: Check DocField resolves through the existing native CheckControl mapping", () => {
+	const resolved = ControlRegistry.resolve(
+		{ fieldtype: "Check", label: "Enabled" },
+		{ doc: { doctype: "Sales Invoice" } }
+	);
+	assert.equal(resolved.component, "CheckControl");
 });
