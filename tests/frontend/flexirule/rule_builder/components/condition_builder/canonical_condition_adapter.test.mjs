@@ -73,11 +73,7 @@ test("canonical_condition_adapter: toCanonicalFlexValue handles static types, de
 	});
 
 	assert.deepEqual(
-		toCanonicalFlexValue(
-			{ mode: "static", value_type: "boolean", value: true },
-			"Check",
-			"eq"
-		),
+		toCanonicalFlexValue({ mode: "static", value_type: "boolean", value: true }, "Check", "eq"),
 		{ mode: "static", value_type: "Check", value: 1 }
 	);
 	assert.deepEqual(
