@@ -76,24 +76,24 @@ class TestCanonicalConditionContract(unittest.TestCase):
 			validate_flex_value({"mode": "static", "value_type": "integer", "value": True})
 
 	def test_check_membership_uses_only_frappe_zero_one_integers(self):
-		for values in ([1, 0], [1], [0], []):
+		for valid_items in ([1, 0], [1], [0], []):
 			node = {
 				"type": "comparison",
 				"operator": "in",
 				"left": {"mode": "static", "value_type": "Check", "value": 1},
-				"right": {"mode": "static", "value_type": "list", "value": values},
+				"right": {"mode": "static", "value_type": "list", "value": valid_items},
 			}
-			with self.subTest(values=values):
+			with self.subTest(values=valid_items):
 				validate_condition_node(node)
 
-		for values in ([2], [-1], [True], [False], [1.0], ["1"], ["Yes"]):
+		for invalid_items in ([2], [-1], [True], [False], [1.0], ["1"], ["Yes"]):
 			node = {
 				"type": "comparison",
 				"operator": "in",
 				"left": {"mode": "static", "value_type": "Check", "value": 1},
-				"right": {"mode": "static", "value_type": "list", "value": values},
+				"right": {"mode": "static", "value_type": "list", "value": invalid_items},
 			}
-			with self.subTest(values=values), self.assertRaises(ConditionValidationError):
+			with self.subTest(values=invalid_items), self.assertRaises(ConditionValidationError):
 				validate_condition_node(node)
 
 	def test_check_field_metadata_uses_the_same_membership_domain(self):
