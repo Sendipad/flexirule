@@ -121,7 +121,6 @@ test("lifecycle: an explicitly empty backend resolver allow-list hides every con
 	);
 });
 
-
 test("lifecycle: Check DocField resolves through the existing native CheckControl mapping", () => {
 	const resolved = ControlRegistry.resolve(
 		{ fieldtype: "Check", label: "Enabled" },
