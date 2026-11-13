@@ -1,3 +1,4 @@
+/* global afterEach */
 describe("FlexiRule Rule List & Workspace E2E Suite", () => {
 	let createdRuleName = null;
 

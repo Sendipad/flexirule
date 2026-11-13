@@ -1,4 +1,3 @@
-/* global afterEach */
 import { isConsoleRegressionMessage } from "../support/regression_guards.mjs";
 import { ruleBuilderPage } from "../support/pages/RuleBuilderPage";
 
@@ -330,6 +329,11 @@ describe("Fetch Records builder regressions", () => {
 			"be.visible"
 		);
 		cy.contains(".config-modal-container", "Fetch Records").should("be.visible");
+
+		// Both shared controls must mount in the same initial configuration view.
+		cy.get(".config-modal-container .return-result-grid").should("be.visible");
+		cy.get(".config-modal-container .tree-builder").should("be.visible");
+		cy.get(".config-modal-container .tree-builder__empty").should("be.visible");
 	});
 
 	it("inserts a filter row in Fetch Records action configuration", () => {
@@ -347,6 +351,55 @@ describe("Fetch Records builder regressions", () => {
 		cy.contains(".config-modal-container h6", "Filters").should("be.visible");
 		cy.get(".config-modal-container .tree-builder__actions button").contains("Filter").click();
 		cy.get(".config-modal-container .filter-row").should("have.length", 1).and("be.visible");
+	});
+
+	it("moves a TreeBuilder filter leaf exactly one position from its action menu", () => {
+		createFetchRecordsRuleAndOpenBuilder();
+		openActionConfig("Fetch Records 1", true);
+		cy.contains(".config-modal-container h6", "Filters").should("be.visible");
+
+		for (let index = 0; index < 3; index += 1) {
+			cy.get(".config-modal-container .tree-builder__actions button")
+				.contains("Filter")
+				.click();
+		}
+
+		const nodeSelector = ".config-modal-container .tree-node[data-node-id]";
+		cy.get(nodeSelector).should("have.length", 3);
+		cy.get(
+			".config-modal-container .tree-leaf__actions button.fxr-action-menu__trigger[aria-label='Leaf Actions']"
+		).should("have.length", 3);
+
+		cy.get(nodeSelector).then(($nodes) => {
+			const initialOrder = $nodes.toArray().map((node) => node.getAttribute("data-node-id"));
+
+			cy.get(
+				".config-modal-container .tree-leaf__actions button.fxr-action-menu__trigger[aria-label='Leaf Actions']"
+			)
+				.first()
+				.click();
+			cy.contains("button.fxr-action-menu__item", "Move down").click();
+
+			cy.get(nodeSelector).should(($updatedNodes) => {
+				const updatedOrder = $updatedNodes
+					.toArray()
+					.map((node) => node.getAttribute("data-node-id"));
+				expect(
+					updatedOrder,
+					"one action moves the first leaf down by one position"
+				).to.deep.equal([initialOrder[1], initialOrder[0], initialOrder[2]]);
+			});
+		});
+
+		// Deleting a leaf unmounts the menu that dispatched the action. The
+		// shared console guard must catch Vue refs/emitsOptions teardown errors.
+		cy.get(
+			".config-modal-container .tree-leaf__actions button.fxr-action-menu__trigger[aria-label='Leaf Actions']"
+		)
+			.last()
+			.click();
+		cy.contains("button.fxr-action-menu__item", "Delete").click();
+		cy.get(nodeSelector).should("have.length", 2);
 	});
 
 	it("saves a changed Fetch Records configuration on the first modal click and persists it", () => {

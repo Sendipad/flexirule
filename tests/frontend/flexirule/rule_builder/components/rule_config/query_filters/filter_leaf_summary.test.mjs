@@ -186,4 +186,5 @@ const nestedDef = resolveFilterFieldDef("customer.customer_group", "Sales Order"
 assert.equal(nestedDef.fieldtype, "Link");
 assert.equal(nestedDef.label, "Customer · Customer Group");
 
+// eslint-disable-next-line no-console
 console.log("filter leaf summary unit tests passed");
