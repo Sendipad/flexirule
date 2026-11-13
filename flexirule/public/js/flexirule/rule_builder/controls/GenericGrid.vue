@@ -17,6 +17,9 @@
 		@pointerup="endDragSelection"
 		@pointercancel="endDragSelection"
 	>
+		<div v-if="slots.header" class="fxr-generic-grid-header">
+			<slot name="header" />
+		</div>
 		<div class="fxr-generic-grid-rows">
 			<div v-if="!filteredRows.length" class="fxr-generic-grid-empty">
 				<slot name="empty">{{ __("No matching rows.") }}</slot>
@@ -1657,6 +1660,10 @@ defineExpose({
 .fxr-generic-grid-row-index:focus-visible {
 	outline: 2px solid var(--fxr-border-focus, #3b82f6);
 	outline-offset: 1px;
+}
+
+.fxr-generic-grid-header {
+	margin-bottom: var(--fxr-space-1, 4px);
 }
 
 .fxr-generic-grid-rows {
