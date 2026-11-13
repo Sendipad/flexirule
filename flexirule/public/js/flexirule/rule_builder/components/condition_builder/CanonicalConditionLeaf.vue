@@ -229,7 +229,7 @@ const leftOperandDescriptor = computed(() => {
 						? "Check"
 						: valueTypes.includes("decimal")
 							? "decimal"
-							: valueTypes[0] || null,
+						: valueTypes[0] || null,
 				doctype:
 					match.doctype ||
 					(["Link", "Dynamic Link"].includes(fieldtype)
