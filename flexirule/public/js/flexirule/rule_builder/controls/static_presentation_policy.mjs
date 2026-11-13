@@ -19,6 +19,7 @@ export function resolveStaticPresentation({
 
 	const op = String(context?.operator || "").toLowerCase();
 	const isMembershipOp = ["in", "not in", "not_in", "in list", "not in list"].includes(op);
+	const isSelectField = ["Select", "MultiSelect", "MultiSelectList"].includes(fieldType);
 
 	// Resolve explicit metadata independently of the selected control so "auto" does not lose supplied metadata
 	let options = explicit?.options !== undefined ? explicit.options : fieldOptions;
@@ -35,13 +36,15 @@ export function resolveStaticPresentation({
 	} else if (isMembershipOp) {
 		// Membership operators require list-capable entry
 		control = "multi-select";
-	} else if (fieldType === "Link" || fieldType === "Dynamic Link" || Boolean(doctype)) {
-		// A Link's string options value is its target DocType, not a Select option list.
+	} else if (
+		fieldType === "Link" ||
+		fieldType === "Dynamic Link" ||
+		(Boolean(doctype) && !isSelectField)
+	) {
+		// Only Link field metadata (or an explicit non-Select DocType override) selects LinkControl.
 		control = "link";
 	} else if (
-		fieldType === "Select" ||
-		fieldType === "MultiSelect" ||
-		fieldType === "MultiSelectList" ||
+		isSelectField ||
 		(Array.isArray(options) && options.length > 0) ||
 		(typeof options === "string" && options.trim().length > 0)
 	) {
