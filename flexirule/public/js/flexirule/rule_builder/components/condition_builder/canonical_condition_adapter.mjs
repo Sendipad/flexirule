@@ -414,6 +414,12 @@ export function toCanonicalFlexValue(rawRight, fieldtype = null, operator = null
 			let vt = rawRight.value_type;
 			if (vt === "MultiSelectList" || vt === "MultiSelect") {
 				vt = "list";
+			} else if (
+				String(fieldtype || "").toLowerCase() === "check" &&
+				(vt === "boolean" || vt === "Check")
+			) {
+				// Frappe Check values have a distinct canonical 0/1 representation.
+				vt = "Check";
 			} else if (!vt || (fieldtype && vt === fieldtype)) {
 				// FlexValueControl reports the selected Frappe DocField type. Convert
 				// that UI metadata to the backend's canonical value type using the
