@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { resolveStaticPresentation } from "../../../../../flexirule/public/js/flexirule/rule_builder/controls/static_presentation_policy.mjs";
+import { ControlRegistry } from "../../../../../flexirule/public/js/flexirule/core/control_registry.js";
 
 test("static_presentation: defaults according to field metadata", () => {
 	const resData = resolveStaticPresentation({ fieldType: "Data" });
@@ -169,4 +170,15 @@ test("static_presentation: Dynamic Link retains its resolved target DocType for 
 	});
 	assert.equal(membership.control, "multi-select");
 	assert.equal(membership.doctype, "Customer");
+});
+
+
+test("static_presentation: Check equality is routed to the native CheckControl", () => {
+	const checked = ControlRegistry.resolve({ fieldtype: "Check" }, { modelValue: 1 });
+	const unchecked = ControlRegistry.resolve({ fieldtype: "Check" }, { modelValue: 0 });
+
+	assert.equal(checked.component, "CheckControl");
+	assert.equal(checked.props.modelValue, true);
+	assert.equal(unchecked.component, "CheckControl");
+	assert.equal(unchecked.props.modelValue, false);
 });
