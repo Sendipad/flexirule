@@ -252,11 +252,38 @@ const fieldOptions = computed(() => {
 	return options;
 });
 const referenceDoctype = computed(() => {
-	if (fieldType.value === "Link" && fieldOptions.value) {
-		return fieldOptions.value;
+	const opts = fieldOptions.value;
+
+	if (fieldType.value === "Link" && opts) {
+		return opts;
 	}
 
-	const opts = fieldOptions.value;
+	if (fieldType.value === "Dynamic Link") {
+		// Dynamic Link.options names the field containing the target DocType; it is
+		// not itself a DocType. Resolve that field's current value when available.
+		const targetField = typeof opts === "string" ? opts.trim() : "";
+		const documentSources = [
+			props.doc,
+			props.context?.doc,
+			props.engine?.doc,
+			props.engine?.rule_doc,
+		];
+		for (const source of documentSources) {
+			const value = targetField && source && typeof source === "object" ? source[targetField] : null;
+			if (typeof value === "string" && value.trim()) return value.trim();
+		}
+
+		const controlContext = props.context?.controlContext;
+		const contextValue =
+			targetField && typeof controlContext?.getFieldValue === "function"
+				? controlContext.getFieldValue(targetField)
+				: null;
+		if (contextValue && typeof contextValue === "object" && contextValue.mode === "static") {
+			return String(contextValue.value || "");
+		}
+		if (typeof contextValue === "string" && contextValue.trim()) return contextValue.trim();
+		return props.context?.dynamicDoctype || "";
+	}
 
 	if (opts && typeof opts === "string" && props.context?.filters) {
 		const filterVal = props.context.filters[opts];
@@ -1265,10 +1292,6 @@ function selectSourcePaletteItem(item) {
 	if (item.sourceType === "resolver") {
 		const family = item.family || item.payload?.family || "";
 		const operation = item.operation || item.payload?.operation || "";
-		const resolverSpecs = props.context?.conditionContract?.flexvalue_modes?.resolver;
-		const resolverSpec = Array.isArray(resolverSpecs)
-			? resolverSpecs.find((entry) => entry.family === family && entry.operation === operation)
-			: null;
 		editorChain
 			.insertContent({
 				type: "resolverToken",
