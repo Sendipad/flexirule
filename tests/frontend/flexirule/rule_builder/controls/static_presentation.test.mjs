@@ -101,3 +101,53 @@ test("static_presentation: explicit consumer override takes highest precedence",
 	assert.equal(resContext.doctype, "Supplier");
 	assert.deepEqual(resContext.filters, { status: "Active" });
 });
+
+
+test("static_presentation: Link equality resolves to LinkControl, not a Select using the DocType name", () => {
+	const presentation = resolveStaticPresentation({
+		fieldType: "Link",
+		fieldOptions: "Customer",
+		referenceDoctype: "Customer",
+		context: { operator: "eq" },
+	});
+	assert.equal(presentation.control, "link");
+	assert.equal(presentation.doctype, "Customer");
+});
+
+test("static_presentation: Link membership operators preserve the target DocType for remote multi-select", () => {
+	for (const operator of ["in", "not_in"]) {
+		const presentation = resolveStaticPresentation({
+			fieldType: "Link",
+			fieldOptions: "Customer",
+			referenceDoctype: "Customer",
+			context: { operator },
+		});
+		assert.equal(presentation.control, "multi-select");
+		assert.equal(presentation.doctype, "Customer");
+		assert.equal(presentation.isMultiSelect, true);
+	}
+});
+
+test("static_presentation: Check uses its native control for equality", () => {
+	const presentation = resolveStaticPresentation({
+		fieldType: "Check",
+		context: { operator: "eq" },
+	});
+	assert.equal(presentation.control, "input");
+	assert.equal(presentation.isMultiSelect, false);
+});
+
+
+test("static_presentation: Check membership can choose multiple boolean values", () => {
+	const presentation = resolveStaticPresentation({
+		fieldType: "Check",
+		fieldOptions: [
+			[1, "Yes"],
+			[0, "No"],
+		],
+		context: { operator: "in" },
+	});
+	assert.equal(presentation.control, "multi-select");
+	assert.equal(presentation.isMultiSelect, true);
+	assert.deepEqual(presentation.options, [[1, "Yes"], [0, "No"]]);
+});

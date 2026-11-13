@@ -126,6 +126,7 @@
 											:variableOptions="activeNodeRoots"
 											:readOnly="readOnly"
 											:isMandatory="true"
+											:showValidation="showValidation"
 											@update:modelValue="onConditionUpdate"
 										/>
 									</div>

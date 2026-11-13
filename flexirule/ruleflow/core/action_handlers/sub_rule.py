@@ -237,6 +237,17 @@ class SubRuleHandler(ActionHandler):
 				),
 			)
 
+			# Carry caller rule/document metadata into the child context even when the
+			# target condition is absent or explicitly skipped.
+			caller_doc = context.get("doc")
+			caller_rule_meta = {
+				"name": engine.rule.name,
+				"trigger_type": engine.rule.trigger_type,
+				"trigger_event": context.get("event_name") or engine.rule.trigger_event,
+				"document_type": engine.rule.document_type,
+				"doctype": getattr(caller_doc, "doctype", None),
+			}
+
 			# Evaluate trigger condition if not skipped
 			if not skip_conditions and sub_rule_doc.trigger_condition:
 				from flexirule.ruleflow.core.condition_payload import detect_canonical_condition_payload
@@ -251,12 +262,6 @@ class SubRuleHandler(ActionHandler):
 						sub_rule_doc.trigger_condition
 					)
 
-				caller_rule_meta = {
-					"name": engine.rule.name,
-					"trigger_type": engine.rule.trigger_type,
-					"trigger_event": context.get("event_name") or engine.rule.trigger_event,
-					"document_type": engine.rule.document_type,
-				}
 				target_rule_meta = {
 					"name": sub_rule_doc.name,
 					"trigger_type": sub_rule_doc.trigger_type,
@@ -264,7 +269,6 @@ class SubRuleHandler(ActionHandler):
 					"document_type": sub_rule_doc.document_type,
 				}
 				eligibility_vars = dict(context.get("vars", {}) or {})
-				caller_doc = context.get("doc")
 				eligibility_vars.update(
 					{
 						"_caller_rule": engine.rule.name,
@@ -329,6 +333,7 @@ class SubRuleHandler(ActionHandler):
 
 			sub_context = context.copy()
 			sub_context["_sub_rule_depth"] = current_depth + 1
+			sub_context["caller"] = caller_rule_meta
 			sub_context["vars"] = SubRuleVarsOverlay(context.get("vars", {}))
 			sub_context["meta"] = context.get("meta", {}).copy()
 			sub_context["meta"]["parent_rule"] = engine.rule.name

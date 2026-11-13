@@ -237,12 +237,18 @@ export function searchSourceCatalogue(
 	// Enforce backend condition resolver policy when in condition operand context
 	if (isLeftOperand || allowedResolverOperandsOnly) {
 		const allowedResolvers = conditionContract?.flexvalue_modes?.resolver;
+		const hasConditionContract =
+			conditionContract !== null &&
+			conditionContract !== undefined &&
+			typeof conditionContract === "object";
+		const hasExplicitResolverPolicy =
+			Array.isArray(allowedResolvers) || hasConditionContract;
 		const allowedSet = new Set(
 			Array.isArray(allowedResolvers)
 				? allowedResolvers
 						.filter(
 							(r) =>
-								r.condition_operand_allowed !== false &&
+								r.condition_operand_allowed === true &&
 								r.permission_policy === "no_data_access"
 						)
 						.map((r) => `${r.family}.${r.operation}`)
@@ -251,16 +257,11 @@ export function searchSourceCatalogue(
 
 		workingCatalogue = workingCatalogue.filter((item) => {
 			if (item.sourceType !== "resolver") return true;
-			// If conditionContract metadata is provided, check explicit authorization
-			if (allowedSet.size > 0) {
-				const key = `${item.family}.${item.operation}`;
-				return allowedSet.has(key);
+			if (hasExplicitResolverPolicy) {
+				return allowedSet.has(`${item.family}.${item.operation}`);
 			}
-			// Fallback: lookup/fetch is not allowed as condition operand
-			if (item.family === "lookup" || item.kind === "lookup" || item.kind === "fetch") {
-				return false;
-			}
-			return true;
+			// Generic consumers without a condition contract retain the legacy safe fallback.
+			return item.family !== "lookup" && item.kind !== "lookup" && item.kind !== "fetch";
 		});
 	}
 

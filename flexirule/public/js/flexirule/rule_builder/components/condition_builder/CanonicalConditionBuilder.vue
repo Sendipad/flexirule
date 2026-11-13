@@ -74,6 +74,7 @@
 					:store="store"
 					:currentDocType="getLeafDocType(node)"
 					:errors="getNodeErrors(node.id)"
+					:showValidation="validationAttempted"
 					:isSoleCondition="isSoleCondition"
 					:isEntryNode="isEntryNode"
 					@change="onSubNodeChange"
@@ -107,9 +108,11 @@ const props = defineProps({
 	readOnly: { type: Boolean, default: false },
 	isMandatory: { type: Boolean, default: false },
 	currentDocType: { type: String, default: "" },
+	collectionSource: { type: String, default: "" },
 	store: { type: Object, default: null },
 	presentationMode: { type: String, default: "hybrid" },
 	isEntryNode: { type: Boolean, default: false },
+	showValidation: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["update:modelValue", "change", "validation"]);
@@ -120,6 +123,7 @@ const { contract, error: contractError, loadContract } = useCanonicalConditionCo
 const treeModel = ref(deserializeConditionTree(props.modelValue));
 const validationErrors = ref([]);
 const nodeErrorsMap = ref(new Map());
+const validationAttempted = ref(!!props.showValidation);
 const collectionMetadataMap = ref(new Map());
 
 const unsupportedDiagnostics = computed(() => findUnsupportedDiagnostics(treeModel.value));
@@ -336,22 +340,53 @@ function emitSerialized() {
 }
 
 function getNodeErrors(nodeId) {
+	if (!validationAttempted.value) return [];
 	return nodeErrorsMap.value.get(nodeId) || [];
 }
 
 let lastValidationRequestId = 0;
 let validatedPayloadJson = null;
 
-function invalidateValidation() {
-	lastValidationRequestId += 1;
-	validatedPayloadJson = null;
-	// Immediately recompute local validation so resolved errors disappear and new errors update reactively
+function refreshLocalValidation() {
 	const local = validateCanonicalCondition(treeModel.value, {
 		contract: contract.value,
 		isMandatory: props.isMandatory,
 	});
 	validationErrors.value = local.errors;
 	nodeErrorsMap.value = local.nodeErrors;
+	return local;
+}
+
+watch(
+	() => props.showValidation,
+	(visible) => {
+		validationAttempted.value = !!visible;
+		if (visible) {
+			refreshLocalValidation();
+		} else {
+			validationErrors.value = [];
+			nodeErrorsMap.value = new Map();
+		}
+	},
+	{ immediate: true }
+);
+
+watch(contract, () => {
+	if (validationAttempted.value) refreshLocalValidation();
+});
+
+function invalidateValidation() {
+	lastValidationRequestId += 1;
+	validatedPayloadJson = null;
+	// Keep validation quiet during drafting. Once the owning form has explicitly
+	// requested validation, keep its feedback current while the user fixes errors.
+	if (validationAttempted.value || props.showValidation) {
+		validationAttempted.value = true;
+		refreshLocalValidation();
+	} else {
+		validationErrors.value = [];
+		nodeErrorsMap.value = new Map();
+	}
 }
 
 function onTreeUpdate(newTree) {
@@ -369,10 +404,8 @@ function onSubNodeChange() {
 
 async function validate() {
 	syncTreeFromBuilder();
-	const localResult = validateCanonicalCondition(treeModel.value, {
-		contract: contract.value,
-		isMandatory: props.isMandatory,
-	});
+	validationAttempted.value = true;
+	const localResult = refreshLocalValidation();
 
 	validationErrors.value = localResult.errors;
 	nodeErrorsMap.value = localResult.nodeErrors;
@@ -439,6 +472,7 @@ async function validate() {
 			args: {
 				condition: payloadJson,
 				doctype: props.currentDocType || undefined,
+				collection_source: props.collectionSource || undefined,
 			},
 		});
 

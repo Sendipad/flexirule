@@ -249,12 +249,13 @@ export function canonicalVariableToFieldExpression(flexValue) {
  */
 export function inferCanonicalValueType(val, fieldtype = null) {
 	if (val === null || val === undefined) return "null";
+	if (String(fieldtype || "").toLowerCase() === "check") return "Check";
 	if (typeof val === "boolean") return "boolean";
 	if (Array.isArray(val)) return "list";
 
 	if (fieldtype) {
 		const ft = String(fieldtype).toLowerCase();
-		if (ft === "check") return "boolean";
+		if (ft === "check") return "Check";
 		if (ft === "int" || ft === "duration" || ft === "rating") return "integer";
 		if (ft === "currency" || ft === "float" || ft === "percent") return "decimal";
 		if (ft === "date") return "date";
@@ -364,6 +365,21 @@ export function safeCoerceBoolean(val) {
 }
 
 /**
+ * Normalize Frappe Check values to the canonical integer domain (0 or 1).
+ * The native UI control may emit booleans; they must not leak into saved payloads.
+ */
+export function safeCoerceCheck(val) {
+	if (val === true || val === 1) return 1;
+	if (val === false || val === 0) return 0;
+	if (typeof val === "string") {
+		const normalized = val.trim().toLowerCase();
+		if (["1", "yes", "true", "on"].includes(normalized)) return 1;
+		if (["0", "no", "false", "off"].includes(normalized)) return 0;
+	}
+	throw new TypeError("Check values must be Frappe-compatible 0 or 1");
+}
+
+/**
  * Converts a right operand or raw value into a canonical FlexValue.
  * Preserves 2-item arrays verbatim unless authoritative fieldtype confirms Link tuple
  * AND the operator is not a membership list operator ('in', 'not_in').
@@ -414,6 +430,8 @@ export function toCanonicalFlexValue(rawRight, fieldtype = null, operator = null
 				formattedValue = safeCoerceInteger(v);
 			} else if (vt === "boolean") {
 				formattedValue = safeCoerceBoolean(v);
+			} else if (vt === "Check") {
+				formattedValue = safeCoerceCheck(v);
 			} else if (vt === "null") {
 				formattedValue = null;
 			}
@@ -472,6 +490,8 @@ export function toCanonicalFlexValue(rawRight, fieldtype = null, operator = null
 		formatted = safeCoerceInteger(val);
 	} else if (vt === "boolean") {
 		formatted = safeCoerceBoolean(val);
+	} else if (vt === "Check") {
+		formatted = safeCoerceCheck(val);
 	}
 
 	return {

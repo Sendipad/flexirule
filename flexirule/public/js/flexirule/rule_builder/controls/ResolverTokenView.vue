@@ -35,7 +35,6 @@ const resolverControlRef = ref(null);
 const isOperationOnly = computed(() => {
 	const ctx = props.extension?.options?.context || {};
 	return !!(
-		ctx.isLeftOperand ||
 		ctx.presentationPolicy === "operation_only" ||
 		ctx.tokenPresentation === "operation_only"
 	);
@@ -56,15 +55,21 @@ onMounted(() => {
 
 const currentModelValue = computed(() => {
 	const raw = props.node?.attrs?.config;
-	if (raw && typeof raw === "object") {
-		return {
-			...raw,
-			family: props.node?.attrs?.family || raw.family,
-			operation: props.node?.attrs?.operation || raw.operation,
-			value_type: props.node?.attrs?.value_type || raw.value_type,
-		};
-	}
-	return raw;
+	const family = props.node?.attrs?.family || raw?.family || "";
+	const operation = props.node?.attrs?.operation || raw?.operation || "";
+	const config =
+		raw && typeof raw === "object" && raw.config && typeof raw.config === "object"
+			? raw.config
+			: raw && typeof raw === "object"
+				? raw
+				: {};
+
+	return {
+		family,
+		operation,
+		value_type: props.node?.attrs?.value_type || raw?.value_type || "",
+		config,
+	};
 });
 
 const handleUpdate = (config, details) => {

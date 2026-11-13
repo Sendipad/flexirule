@@ -20,6 +20,7 @@
 						ref="leftControlRef"
 						v-model="leftValueModel"
 						:context="leftControlContext"
+						:doctype="currentDocType"
 						:docFields="docFields"
 						:variableOptions="variableOptions"
 						:placeholder="__('Choose a field, variable, or resolver (@)...')"
@@ -27,6 +28,7 @@
 						:doc="store?.rule_doc"
 						:readOnly="readOnly"
 						:disabled="readOnly"
+						:showValidation="showValidation"
 						class="w-100 min-w-0 left-operand-control"
 					/>
 				</div>
@@ -78,6 +80,7 @@
 					<FlexValueControl
 						v-model="rightValueModel"
 						:context="rightControlContext"
+						:doctype="currentDocType"
 						:docFields="docFields"
 						:variableOptions="variableOptions"
 						placeholder="Choose a comparison value"
@@ -85,6 +88,7 @@
 						:doc="store?.rule_doc"
 						:readOnly="readOnly"
 						:disabled="readOnly"
+						:showValidation="showValidation"
 						class="w-100 min-w-0"
 					/>
 				</div>
@@ -107,7 +111,7 @@
 
 			<!-- Incompatibility Warning -->
 			<div
-				v-if="incompatibilityWarning"
+				v-if="showValidation && incompatibilityWarning"
 				class="alert alert-warning py-1 px-2 small mt-2 mb-0 d-flex align-items-center justify-content-between"
 			>
 				<div>
@@ -158,6 +162,7 @@ const props = defineProps({
 	errors: { type: Array, default: () => [] },
 	isSoleCondition: { type: Boolean, default: false },
 	isEntryNode: { type: Boolean, default: false },
+	showValidation: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["update:modelValue", "change", "remove", "replace", "retry-contract"]);
@@ -170,6 +175,18 @@ const isUnary = computed(() => {
 });
 
 // Resolve operand metadata from Frappe DocField metadata and the backend-owned type contract.
+function normalizeLinkFilters(rawFilters) {
+	if (!rawFilters) return null;
+	if (typeof rawFilters === "string") {
+		try {
+			return JSON.parse(rawFilters);
+		} catch {
+			return null;
+		}
+	}
+	return typeof rawFilters === "object" ? rawFilters : null;
+}
+
 const leftOperandDescriptor = computed(() => {
 	const left = props.node.left;
 	const fieldtypeValueTypes = props.contract?.fieldtype_value_types || {};
@@ -180,6 +197,7 @@ const leftOperandDescriptor = computed(() => {
 		doctype: props.currentDocType,
 		fieldname: null,
 		options: null,
+		filters: null,
 		label: "",
 		source_identity: null,
 		allowed_modes: props.contract?.flexvalue_modes || {},
@@ -214,6 +232,7 @@ const leftOperandDescriptor = computed(() => {
 						: props.currentDocType),
 				fieldname: match.fieldname || segments[segments.length - 1] || null,
 				options: match.options || null,
+				filters: normalizeLinkFilters(match.link_filters || match.filters),
 				label: match.label || match.friendlyLabel || fullPath,
 				source_identity: { scope, segments: [...segments] },
 			};
@@ -274,7 +293,6 @@ const leftControlContext = computed(() => {
 		resolvedOperand: desc,
 		isLeftOperand: true,
 		conditionContract: props.contract,
-		presentationPolicy: "operation_only",
 		onUpdate: onLeftOperandChange,
 	};
 });
@@ -359,6 +377,8 @@ const rightControlContext = computed(() => {
 	const df = {
 		fieldtype: desc.fieldtype,
 		options: desc.options,
+		filters: desc.filters,
+		link_filters: desc.filters,
 		label: desc.label,
 		reqd: 1,
 	};
@@ -372,7 +392,7 @@ const rightControlContext = computed(() => {
 		df,
 		operator: op,
 		referenceDoctype: refDocType,
-		filters: {},
+		filters: desc.filters || null,
 	};
 });
 
@@ -409,6 +429,7 @@ function checkIncompatibility() {
 const rightCoercionError = ref("");
 
 const nodeErrors = computed(() => {
+	if (!props.showValidation) return [];
 	const errs = [...(props.errors || [])];
 	if (rightCoercionError.value) {
 		errs.push(rightCoercionError.value);
@@ -421,7 +442,9 @@ const nodeErrors = computed(() => {
 	return errs;
 });
 
-const hasError = computed(() => nodeErrors.value.length > 0 || props.node.is_unsupported);
+const hasError = computed(
+	() => (props.showValidation && nodeErrors.value.length > 0) || props.node.is_unsupported
+);
 
 function syncDraftStatus() {
 	if (isLeafComplete(props.node, props.contract)) {

@@ -35,6 +35,9 @@ export function resolveStaticPresentation({
 	} else if (isMembershipOp) {
 		// Membership operators require list-capable entry
 		control = "multi-select";
+	} else if (fieldType === "Link" || fieldType === "Dynamic Link" || Boolean(doctype)) {
+		// A Link's string options value is its target DocType, not a Select option list.
+		control = "link";
 	} else if (
 		fieldType === "Select" ||
 		fieldType === "MultiSelect" ||
@@ -46,8 +49,6 @@ export function resolveStaticPresentation({
 			fieldType === "MultiSelect" || fieldType === "MultiSelectList"
 				? "multi-select"
 				: "select";
-	} else if (fieldType === "Link" || fieldType === "Dynamic Link" || Boolean(doctype)) {
-		control = "link";
 	} else {
 		control = "input";
 	}
