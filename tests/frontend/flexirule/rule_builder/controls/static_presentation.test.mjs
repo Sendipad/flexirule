@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { resolveStaticPresentation } from "../../../../../flexirule/public/js/flexirule/rule_builder/controls/static_presentation_policy.mjs";
+import {
+	isRemoteRecordFieldType,
+	resolveStaticPresentation,
+} from "../../../../../flexirule/public/js/flexirule/rule_builder/controls/static_presentation_policy.mjs";
 import { ControlRegistry } from "../../../../../flexirule/public/js/flexirule/core/control_registry.js";
 
 test("static_presentation: defaults according to field metadata", () => {
@@ -181,4 +184,21 @@ test("static_presentation: Check equality is routed to the native CheckControl",
 	assert.equal(checked.props.modelValue, true);
 	assert.equal(unchecked.component, "CheckControl");
 	assert.equal(unchecked.props.modelValue, false);
+});
+
+
+test("static_presentation: remote record fields are distinct from local MultiSelect", () => {
+	assert.equal(isRemoteRecordFieldType("Link"), true);
+	assert.equal(isRemoteRecordFieldType("Dynamic Link"), true);
+	assert.equal(isRemoteRecordFieldType("MultiSelectList"), true);
+	assert.equal(isRemoteRecordFieldType("MultiSelect"), false);
+	assert.equal(isRemoteRecordFieldType("Select"), false);
+
+	const local = resolveStaticPresentation({
+		fieldType: "MultiSelect",
+		fieldOptions: "Red\\nGreen\\nBlue",
+		context: { operator: "in" },
+	});
+	assert.equal(local.control, "multi-select");
+	assert.equal(local.isMultiSelect, true);
 });
