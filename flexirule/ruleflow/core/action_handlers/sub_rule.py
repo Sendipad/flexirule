@@ -280,7 +280,7 @@ class SubRuleHandler(ActionHandler):
 						"_caller_trigger_type": engine.rule.trigger_type,
 						"_caller_trigger_event": context.get("event_name") or engine.rule.trigger_event,
 						"_caller_document_type": engine.rule.document_type,
-						"_caller_doc_type": getattr(caller_doc, "doctype", None),
+						"_caller_doc_type": caller_doc_doctype,
 					}
 				)
 
@@ -290,7 +290,7 @@ class SubRuleHandler(ActionHandler):
 				eligibility_context["rule"] = target_rule_meta
 				eligibility_context["doctype"] = (
 					engine.rule.document_type
-					or getattr(caller_doc, "doctype", None)
+					or caller_doc_doctype
 					or sub_rule_doc.document_type
 				)
 				if is_canonical_condition:
