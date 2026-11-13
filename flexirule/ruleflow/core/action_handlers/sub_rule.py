@@ -240,12 +240,17 @@ class SubRuleHandler(ActionHandler):
 			# Carry caller rule/document metadata into the child context even when the
 			# target condition is absent or explicitly skipped.
 			caller_doc = context.get("doc")
+			caller_doc_doctype = (
+				caller_doc.get("doctype")
+				if isinstance(caller_doc, dict)
+				else getattr(caller_doc, "doctype", None)
+			)
 			caller_rule_meta = {
 				"name": engine.rule.name,
 				"trigger_type": engine.rule.trigger_type,
 				"trigger_event": context.get("event_name") or engine.rule.trigger_event,
 				"document_type": engine.rule.document_type,
-				"doctype": getattr(caller_doc, "doctype", None),
+				"doctype": caller_doc_doctype,
 			}
 
 			# Evaluate trigger condition if not skipped
