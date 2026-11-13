@@ -72,6 +72,23 @@ test("canonical_condition_adapter: toCanonicalFlexValue handles static types, de
 		value: 1,
 	});
 
+	assert.deepEqual(
+		toCanonicalFlexValue(
+			{ mode: "static", value_type: "boolean", value: true },
+			"Check",
+			"eq"
+		),
+		{ mode: "static", value_type: "Check", value: 1 }
+	);
+	assert.deepEqual(
+		toCanonicalFlexValue(
+			{ mode: "static", value_type: "boolean", value: false },
+			"Check",
+			"eq"
+		),
+		{ mode: "static", value_type: "Check", value: 0 }
+	);
+
 	const tupleVal = toCanonicalFlexValue(["Customer", "Cust-001"], "Link");
 	assert.deepEqual(tupleVal, {
 		mode: "static",
