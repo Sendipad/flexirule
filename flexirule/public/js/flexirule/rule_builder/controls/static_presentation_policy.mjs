@@ -1,4 +1,12 @@
 /**
+ * Fieldtypes whose option values represent remote records in a DocType.
+ * MultiSelect is a local list; MultiSelectList is backed by a DocType.
+ */
+export function isRemoteRecordFieldType(fieldType) {
+	return ["Link", "Dynamic Link", "MultiSelectList"].includes(String(fieldType || ""));
+}
+
+/**
  * Pure ES module defining the static input presentation resolution policy.
  * Precedence:
  * 1. Explicit staticPresentation prop
