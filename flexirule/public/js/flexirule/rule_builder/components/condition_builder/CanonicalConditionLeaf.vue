@@ -228,7 +228,7 @@ const leftOperandDescriptor = computed(() => {
 					fieldtype === "Check" && valueTypes.includes("Check")
 						? "Check"
 						: valueTypes.includes("decimal")
-							? "decimal"
+						? "decimal"
 						: valueTypes[0] || null,
 				doctype:
 					match.doctype ||
