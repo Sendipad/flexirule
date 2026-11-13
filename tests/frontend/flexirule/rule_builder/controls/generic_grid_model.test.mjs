@@ -139,3 +139,45 @@ assert.equal(
 );
 assert.equal(getPrimaryActionAfterIndex(-1, []), null);
 assert.equal(getPrimaryActionAfterIndex(null, [1, -2, 1.5]), 1);
+
+// Row Action menu item availability and boundary tests
+function computeRowMenuItems({ index, total, availableRowActions, selection, isEditing }) {
+	const items = [];
+	if (availableRowActions.includes("edit")) {
+		items.push({
+			id: "edit",
+			label: isEditing ? "Switch to readable row" : "Edit",
+		});
+	}
+	if (selection) {
+		items.push({ id: "select", label: "Select" });
+	}
+	if (availableRowActions.includes("move")) {
+		items.push({ id: "move-up", disabled: index === 0 });
+		items.push({ id: "move-down", disabled: index === total - 1 });
+	}
+	if (availableRowActions.includes("remove")) {
+		items.push({ id: "delete", danger: true });
+	}
+	return items;
+}
+
+const firstRowItems = computeRowMenuItems({
+	index: 0,
+	total: 3,
+	availableRowActions: ["edit", "move", "remove"],
+	selection: true,
+	isEditing: false,
+});
+assert.equal(firstRowItems.find((i) => i.id === "move-up").disabled, true);
+assert.equal(firstRowItems.find((i) => i.id === "move-down").disabled, false);
+
+const lastRowItems = computeRowMenuItems({
+	index: 2,
+	total: 3,
+	availableRowActions: ["edit", "move", "remove"],
+	selection: true,
+	isEditing: false,
+});
+assert.equal(lastRowItems.find((i) => i.id === "move-up").disabled, false);
+assert.equal(lastRowItems.find((i) => i.id === "move-down").disabled, true);
