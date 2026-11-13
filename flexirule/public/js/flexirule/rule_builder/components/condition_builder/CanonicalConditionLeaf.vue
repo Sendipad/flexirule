@@ -224,7 +224,12 @@ const leftOperandDescriptor = computed(() => {
 				...base,
 				fieldtype,
 				value_types: valueTypes,
-				value_type: valueTypes.includes("decimal") ? "decimal" : valueTypes[0] || null,
+				value_type:
+					fieldtype === "Check" && valueTypes.includes("Check")
+						? "Check"
+						: valueTypes.includes("decimal")
+							? "decimal"
+							: valueTypes[0] || null,
 				doctype:
 					match.doctype ||
 					(["Link", "Dynamic Link"].includes(fieldtype)
