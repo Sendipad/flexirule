@@ -201,6 +201,9 @@ jobs:
           else
             echo "MariaDB client is already available; skipping package installation."
           fi
+          sudo mkdir -p /etc/mysql/conf.d
+          echo -e "[client]
+skip-ssl" | sudo tee /etc/mysql/conf.d/disable-ssl.cnf
 
       - name: Ensure Frappe uses the non-TLS MariaDB client
         run: |
@@ -337,6 +340,9 @@ jobs:
           else
             echo "MariaDB client is already available; skipping package installation."
           fi
+          sudo mkdir -p /etc/mysql/conf.d
+          echo -e "[client]
+skip-ssl" | sudo tee /etc/mysql/conf.d/disable-ssl.cnf
 
       - name: Ensure Frappe uses the non-TLS MariaDB client
         run: |

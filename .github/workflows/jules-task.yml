@@ -1,6 +1,9 @@
 name: Start Jules Task
 
 on:
+  # Daily scheduled audit on develop branch
+  schedule:
+    - cron: "0 2 * * *"
   # The GitHub connector can hand off a task through an authorized /jules comment.
   issue_comment:
     types: [created]
@@ -8,12 +11,12 @@ on:
   workflow_dispatch:
     inputs:
       prompt:
-        description: "Complete task prompt for Jules"
-        required: true
+        description: "Complete task prompt for Jules (optional for default audit)"
+        required: false
         type: string
       base_branch:
         description: "Repository branch Jules should start from"
-        required: true
+        required: false
         type: string
         default: develop
       task_title:
@@ -36,6 +39,7 @@ jobs:
   start-jules:
     name: Create Jules session
     if: >-
+      github.event_name == 'schedule' ||
       github.event_name == 'workflow_dispatch' ||
       (
         github.event_name == 'issue_comment' &&
@@ -57,46 +61,74 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
-          python - <<'PY'
+          python3 - <<'PY'
           import json
           import os
           import re
           import subprocess
+          import sys
           import urllib.error
           import urllib.parse
           import urllib.request
           from pathlib import Path
 
+          DEFAULT_AUDIT_PROMPT = """Perform a daily comprehensive architecture, code quality, performance, security, and Frappe compatibility audit of FlexiRule on the develop branch.
+
+          Your audit must systematically cover:
+          1. Python backend modules, API methods, controllers, services, utilities, and action handlers.
+          2. Vue/JS frontend components, composables, state management, and contract-driven UI logic.
+          3. RuleFlow execution, canonical condition evaluation, compilation, validation, and runtime behavior.
+          4. Contracts, schemas, metadata-driven UI (e.g. FlexValueControl, Action Type UI, trigger contracts).
+          5. Native Frappe Framework API compatibility: Compare custom implementations against native Frappe v15/v16 APIs (e.g. Query Builder, document lifecycle hooks, permissions, background jobs, schema validation, caching, transaction management). Identify custom logic that duplicates or wraps native Frappe mechanisms unnecessarily.
+          6. Correctness, bugs, race conditions, edge cases, error handling, permission bypasses, transaction management, and security risks.
+          7. Code smells, duplication, dead code, legacy implementations, oversized functions, and magic constants.
+          8. Performance, scalability, N+1 query patterns, unnecessary rendering, and unindexed or unbounded queries.
+          9. Test coverage, missing regression tests, flaky tests, and CI/CD reliability.
+          10. Documentation consistency between implementation and guidance.
+
+          Deliverables:
+          - Generate or update the structured audit report in `reports/audit/AUDIT_REPORT_YYYY-MM-DD.md` and `reports/audit/README.md`.
+          - Categorize findings by severity (Critical, High, Medium, Low). Include affected file/lines, evidence, root cause, impact, recommended remediation, relevant tests, and verification status.
+          - Avoid repeating already resolved findings; track status and highlight new findings."""
+
           event_name = os.environ["EVENT_NAME"]
           if event_name == "issue_comment":
               lines = os.environ.get("COMMENT_BODY", "").splitlines()
               if not lines:
-                  raise SystemExit("Use /jules on the first line, followed by the task prompt.")
+                  sys.exit("Use /jules on the first line, followed by the task prompt.")
               command = lines[0].strip()
               match = re.fullmatch(r"/jules(?:\s+--base-branch\s+(\S+))?(?:\s+run)?", command)
               if not match:
-                  raise SystemExit("Use '/jules' or '/jules --base-branch <branch>' on the first line.")
+                  sys.exit("Use '/jules' or '/jules --base-branch <branch>' on the first line.")
               branch = match.group(1) or "develop"
               prompt = "\n".join(lines[1:]).strip()
               title = (os.environ.get("ISSUE_TITLE") or "FlexiRule task").strip()
+          elif event_name == "schedule":
+              branch = "develop"
+              prompt = DEFAULT_AUDIT_PROMPT
+              title = "Daily FlexiRule Audit"
           else:
               prompt = os.environ.get("INPUT_PROMPT", "").strip()
               title = (os.environ.get("INPUT_TITLE") or "FlexiRule task").strip()
               branch = (os.environ.get("INPUT_BRANCH") or "develop").strip()
+              if not prompt:
+                  prompt = DEFAULT_AUDIT_PROMPT
+                  if title == "FlexiRule task":
+                      title = "FlexiRule Audit"
 
           if not prompt:
-              raise SystemExit("The Jules prompt is empty.")
+              sys.exit("The Jules prompt is empty.")
           if len(prompt) > 20000:
-              raise SystemExit("The Jules prompt exceeds the 20,000-character limit.")
+              sys.exit("The Jules prompt exceeds the 20,000-character limit.")
           if not branch or len(branch) > 255 or branch.startswith("-"):
-              raise SystemExit("The base branch name is invalid.")
+              sys.exit("The base branch name is invalid.")
           try:
               subprocess.run(
                   ["git", "check-ref-format", "--branch", branch],
                   check=True, capture_output=True, text=True,
               )
           except subprocess.CalledProcessError:
-              raise SystemExit("The base branch is not a valid Git branch name.")
+              sys.exit("The base branch is not a valid Git branch name.")
 
           # Verify the requested branch exists in this repository before contacting Jules.
           owner_repo = os.environ["GITHUB_REPOSITORY"]
@@ -115,10 +147,10 @@ jobs:
                   branch_data = json.load(response)
           except urllib.error.HTTPError as exc:
               if exc.code == 404:
-                  raise SystemExit(f"Base branch '{branch}' does not exist in {owner_repo}.")
-              raise SystemExit(f"Could not verify base branch (GitHub API HTTP {exc.code}).")
+                  sys.exit(f"Base branch '{branch}' does not exist in {owner_repo}.")
+              sys.exit(f"Could not verify base branch (GitHub API HTTP {exc.code}).")
           except (urllib.error.URLError, TimeoutError):
-              raise SystemExit("Could not verify the base branch with the GitHub API.")
+              sys.exit("Could not verify the base branch with the GitHub API.")
 
           title = " ".join(title.split())[:120] or "FlexiRule task"
           payload = {
@@ -148,7 +180,7 @@ jobs:
         run: |
           if [ -z "${JULES_API_KEY:-}" ]; then
             echo "::error::The JULES_API_KEY repository secret is not configured."
-            exit 1
+            python3 -c "import sys; sys.exit(1)"
           fi
 
           http_code="$(curl --silent --show-error \
@@ -162,12 +194,13 @@ jobs:
 
           if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
             echo "::error::Jules API returned HTTP $http_code. Response details are omitted to avoid leaking sensitive data."
-            exit 1
+            python3 -c "import sys; sys.exit(1)"
           fi
 
-          python - <<'PY'
+          python3 - <<'PY'
           import json
           import os
+          import sys
           from pathlib import Path
 
           response = json.loads(Path("jules-response.json").read_text(encoding="utf-8"))
@@ -176,7 +209,7 @@ jobs:
               f"https://jules.google.com/session/{session_id}" if session_id else ""
           )
           if not session_id:
-              raise SystemExit("Jules API returned success but no session ID.")
+              sys.exit("Jules API returned success but no session ID.")
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
               output.write(f"session_id={session_id}\n")
               output.write(f"session_url={session_url}\n")
@@ -199,9 +232,10 @@ jobs:
           SESSION_URL: ${{ steps.create.outputs.session_url }}
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          python - <<'PY'
+          python3 - <<'PY'
           import json
           import os
+          import sys
           import urllib.error
           import urllib.request
 
@@ -220,12 +254,12 @@ jobs:
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as output:
               output.write(summary)
           if os.environ["EVENT_NAME"] != "issue_comment":
-              raise SystemExit(0)
+              sys.exit(0)
 
           repository = os.environ["REPOSITORY"]
           issue_number = os.environ["ISSUE_NUMBER"]
           if not issue_number or issue_number == "None":
-              raise SystemExit(0)
+              sys.exit(0)
           url = f"https://api.github.com/repos/{repository}/issues/{issue_number}/comments"
           request = urllib.request.Request(
               url,
