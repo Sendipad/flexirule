@@ -300,7 +300,11 @@ const referenceDoctype = computed(() => {
 		}
 	}
 
-	if (["Select", "MultiSelect", "Check"].includes(fieldType.value)) {
+	if (
+		fieldType.value === "Select" ||
+		fieldType.value === "Check" ||
+		(fieldType.value === "MultiSelect" && !isRemoteRecordFieldType(fieldType.value, opts))
+	) {
 		return props.context?.referenceDoctype || "";
 	}
 	return props.context?.referenceDoctype || (Array.isArray(opts) ? "" : opts || "");
@@ -330,7 +334,9 @@ const resolverContext = computed(() => {
 	};
 });
 
-const isLinkType = computed(() => isRemoteRecordFieldType(fieldType.value));
+const isLinkType = computed(() =>
+	isRemoteRecordFieldType(fieldType.value, fieldOptions.value)
+);
 
 const PURE_TEXT_FIELDTYPES = new Set(["Code", "Text Editor", "JSON"]);
 
