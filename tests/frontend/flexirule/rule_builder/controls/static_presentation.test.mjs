@@ -151,3 +151,22 @@ test("static_presentation: Check membership can choose multiple boolean values",
 	assert.equal(presentation.isMultiSelect, true);
 	assert.deepEqual(presentation.options, [[1, "Yes"], [0, "No"]]);
 });
+
+
+test("static_presentation: Dynamic Link retains its resolved target DocType for equality and membership", () => {
+	const equality = resolveStaticPresentation({
+		fieldType: "Dynamic Link",
+		referenceDoctype: "Customer",
+		context: { operator: "eq" },
+	});
+	assert.equal(equality.control, "link");
+	assert.equal(equality.doctype, "Customer");
+
+	const membership = resolveStaticPresentation({
+		fieldType: "Dynamic Link",
+		referenceDoctype: "Customer",
+		context: { operator: "in" },
+	});
+	assert.equal(membership.control, "multi-select");
+	assert.equal(membership.doctype, "Customer");
+});
