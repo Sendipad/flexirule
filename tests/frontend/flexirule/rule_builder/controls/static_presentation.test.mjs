@@ -33,8 +33,15 @@ test("static_presentation: native fieldtypes preserve input control without dest
 		"Time",
 	];
 	for (const ft of nativeTypes) {
-		const res = resolveStaticPresentation({ fieldType: ft });
-		assert.equal(res.control, "input");
+		const res = resolveStaticPresentation({
+			fieldType: ft,
+			// CanonicalConditionLeaf passes the current parent DocType for field resolution.
+			// That context must not make a non-Link field render as LinkControl.
+			referenceDoctype: "Sales Invoice",
+			context: { operator: "eq" },
+		});
+		assert.equal(res.control, "input", ft + " must retain its native control");
+		assert.equal(res.isLink, false, ft + " must not be inferred as a Link");
 	}
 });
 
