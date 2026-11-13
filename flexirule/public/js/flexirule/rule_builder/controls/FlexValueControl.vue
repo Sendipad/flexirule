@@ -146,7 +146,10 @@ import MentionList from "./MentionList.vue";
 import ControlFactory from "./ControlFactory.vue";
 import MultiSelectList from "./MultiSelectList.vue";
 import ResolverTokenView from "./ResolverTokenView.vue";
-import { resolveStaticPresentation } from "./static_presentation_policy.mjs";
+import {
+	isRemoteRecordFieldType,
+	resolveStaticPresentation,
+} from "./static_presentation_policy.mjs";
 import { parseListElements } from "./flexvalue_serialization.mjs";
 import { buildSourceCatalogue, searchSourceCatalogue } from "./source_catalogue.mjs";
 import { getAllStrategies } from "./value_resolver/strategies.js";
@@ -297,6 +300,9 @@ const referenceDoctype = computed(() => {
 		}
 	}
 
+	if (["Select", "MultiSelect", "Check"].includes(fieldType.value)) {
+		return props.context?.referenceDoctype || "";
+	}
 	return props.context?.referenceDoctype || (Array.isArray(opts) ? "" : opts || "");
 });
 
@@ -324,12 +330,7 @@ const resolverContext = computed(() => {
 	};
 });
 
-const isLinkType = computed(() => {
-	const ft = fieldType.value;
-	return (
-		ft === "Link" || ft === "Dynamic Link" || ft === "MultiSelectList" || ft === "MultiSelect"
-	);
-});
+const isLinkType = computed(() => isRemoteRecordFieldType(fieldType.value));
 
 const PURE_TEXT_FIELDTYPES = new Set(["Code", "Text Editor", "JSON"]);
 
