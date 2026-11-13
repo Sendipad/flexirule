@@ -90,31 +90,6 @@
 			</div>
 		</div>
 
-		<!-- Field-first source palette: fields and variables are available as soon as the operand is empty. -->
-		<div v-if="isSourcePaletteVisible" class="fvc-source-palette" @mousedown.stop>
-			<div class="fvc-source-palette__search">
-				<i class="fa fa-search" aria-hidden="true"></i>
-				<input
-					ref="sourcePaletteInput"
-					v-model="sourcePaletteQuery"
-					type="search"
-					:placeholder="__('Search fields and variables...')"
-					:aria-label="__('Search fields and variables')"
-					@keydown="handleSourcePaletteKeydown"
-				/>
-				<button
-					type="button"
-					class="fvc-source-palette__close"
-					:title="__('Close')"
-					:aria-label="__('Close')"
-					@click="sourcePaletteOpen = false"
-				>
-					<i class="fa fa-times" aria-hidden="true"></i>
-				</button>
-			</div>
-			<MentionList :items="sourcePaletteItems" :command="selectSourcePaletteItem" />
-		</div>
-
 		<!-- validation error -->
 		<div v-if="showValidation && !isValid" class="fxr-error-msg">
 			{{ __("{0} is required").replace("{0}", context?.df?.label || __("Field")) }}
@@ -1142,10 +1117,6 @@ function emitChanges() {
 // ── Orchestration ──
 
 function onWrapClick() {
-	if (isFieldFirst.value && isEditorEmpty.value && !isReadOnly.value && !props.disabled) {
-		sourcePaletteOpen.value = true;
-		return;
-	}
 	if (isDynamicMode.value || !isStaticSupported.value) editor.commands.focus();
 }
 
@@ -1209,99 +1180,6 @@ const isFieldFirst = computed(() => {
 	);
 });
 
-const sourcePaletteOpen = ref(false);
-const sourcePaletteQuery = ref("");
-const sourcePaletteInput = ref(null);
-
-const sourcePaletteItems = computed(() =>
-	searchSourceCatalogue(sourceCatalogue.value, sourcePaletteQuery.value, {
-		preferredFieldType: fieldType.value,
-		isLeftOperand: true,
-		conditionContract: props.context?.conditionContract || null,
-		scopeStack: props.context?.scopeStack || props.context?.activeIterators || [],
-	}).slice(0, 50)
-);
-
-const isSourcePaletteVisible = computed(
-	() =>
-		isFieldFirst.value &&
-		sourcePaletteOpen.value &&
-		isEditorEmpty.value &&
-		!isReadOnly.value &&
-		!props.disabled
-);
-
-watch(isSourcePaletteVisible, (visible) => {
-	if (visible) nextTick(() => sourcePaletteInput.value?.focus());
-});
-
-watch(
-	[isFieldFirst, isEditorEmpty, isReadOnly, () => props.disabled],
-	([fieldFirst, empty, readOnly, disabled]) => {
-		if (fieldFirst && empty && !readOnly && !disabled) {
-			sourcePaletteOpen.value = true;
-		} else {
-			sourcePaletteOpen.value = false;
-			sourcePaletteQuery.value = "";
-		}
-	},
-	{ immediate: true }
-);
-
-function handleSourcePaletteKeydown(event) {
-	if (event.key === "Escape") {
-		event.preventDefault();
-		sourcePaletteOpen.value = false;
-		return;
-	}
-	if (event.key === "Enter" && sourcePaletteItems.value.length) {
-		event.preventDefault();
-		selectSourcePaletteItem(sourcePaletteItems.value[0]);
-	}
-}
-
-function selectSourcePaletteItem(item) {
-	if (!item || isReadOnly.value || props.disabled) return;
-
-	const editorChain = editor.chain().focus().clearContent();
-	if (item.sourceType === "resolver") {
-		const family = item.family || item.payload?.family || "";
-		const operation = item.operation || item.payload?.operation || "";
-		const resolverSpecs = props.context?.conditionContract?.flexvalue_modes?.resolver;
-		const resolverSpec = Array.isArray(resolverSpecs)
-			? resolverSpecs.find(
-					(entry) => entry.family === family && entry.operation === operation
-			  )
-			: null;
-		editorChain
-			.insertContent({
-				type: "resolverToken",
-				attrs: {
-					family,
-					operation,
-					value_type: resolveResolverOutputType(family, operation),
-					config: item.payload?.config || {},
-					label: item.primaryLabel || item.rawLabel || family + "." + operation,
-					autoOpen: true,
-				},
-			})
-			.run();
-	} else {
-		const canonicalPath = item.canonicalPath || item.id;
-		editorChain
-			.insertContent({
-				type: "variableToken",
-				attrs: {
-					path: canonicalPath,
-					label: item.primaryLabel || item.rawLabel || canonicalPath,
-				},
-			})
-			.run();
-	}
-
-	sourcePaletteOpen.value = false;
-	sourcePaletteQuery.value = "";
-}
 
 watch(
 	() => props.modelValue,
@@ -1354,60 +1232,9 @@ onBeforeUnmount(() => {
 	display: flex;
 	flex-direction: column;
 	width: 100%;
-	position: relative;
 }
 
-.fvc-source-palette {
-	position: absolute;
-	top: calc(var(--fxr-input-height, 32px) + 6px);
-	left: 0;
-	width: min(440px, 96vw);
-	max-width: 100%;
-	max-height: min(440px, 65vh);
-	overflow: hidden;
-	z-index: 16000;
-	background: var(--fxr-surface-elevated, #fff);
-	border: 1px solid var(--fxr-border-subtle, #e2e8f0);
-	border-radius: var(--fxr-radius-md, 8px);
-	box-shadow: var(--fxr-shadow-lg, 0 12px 32px rgba(15, 23, 42, 0.18));
-}
 
-.fvc-source-palette__search {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	padding: 8px 10px;
-	border-bottom: 1px solid var(--fxr-border-subtle, #e2e8f0);
-	color: var(--fxr-text-muted, #64748b);
-}
-
-.fvc-source-palette__search input {
-	flex: 1;
-	min-width: 0;
-	border: 0;
-	outline: 0;
-	background: transparent;
-	color: var(--fxr-text-strong, #1e293b);
-	font: inherit;
-	font-size: 12px;
-}
-
-.fvc-source-palette__close {
-	border: 0;
-	padding: 2px 4px;
-	background: transparent;
-	color: inherit;
-	cursor: pointer;
-}
-
-.fvc-source-palette :deep(.tg-mention-list) {
-	min-width: 0;
-	max-width: none;
-	max-height: min(360px, 55vh);
-	border: 0;
-	border-radius: 0;
-	box-shadow: none;
-}
 .fvc-empty-placeholder {
 	position: absolute;
 	top: 50%;
