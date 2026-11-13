@@ -384,7 +384,7 @@ class ActionHandler(ABC):
 					inner_expr = value[1 : len(value) - 1]
 					return self._safe_eval(inner_expr, context)
 
-				# Fallback: template-like replacement for embedded {vars}
+				# Fallback: template-like replacement for embedded {vars} ignoring Jinja {{ }} brackets
 				import re
 
 				def replace(match):
@@ -394,7 +394,7 @@ class ActionHandler(ABC):
 					except Exception:
 						return match.group(0)
 
-				return re.sub(r"{(.*?)}", replace, value)
+				return re.sub(r"(?<!\{)\{([^{}]+)\}(?!\})", replace, value)
 			except Exception:
 				return value
 		return value
