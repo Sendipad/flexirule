@@ -201,6 +201,13 @@ const resolverFieldname = computed(() => {
 watch(() => props.modelValue, syncFromProps, { deep: true });
 watch(() => props.doctype, syncFromProps);
 watch(
+	[() => props.family, () => props.operation, activeKind],
+	() => {
+		validationAttempted.value = false;
+		deepValidationErrors.value = [];
+	}
+);
+watch(
 	[localState, activeKind],
 	() => {
 		deepValidationErrors.value = [];
