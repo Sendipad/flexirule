@@ -5,12 +5,14 @@
 			'is-editing': isEditing,
 			'is-summary-mode': inlinePresentation.presentation === 'summary',
 			'is-editor-mode': inlinePresentation.presentation === 'editor',
+			'is-read-only': readOnly,
+			'has-context-edit': canEditInReadOnly,
 		}"
 	>
 		<div
 			v-if="inlinePresentation.presentation === 'summary'"
 			class="tree-leaf__summary"
-			:class="{ 'is-toggleable': inlinePresentation.canToggle }"
+			:class="{ 'is-toggleable': inlinePresentation.canToggle && !readOnly }"
 			@dblclick="onDoubleClickSummary"
 		>
 			<div class="tree-leaf__summary-content">
@@ -26,25 +28,21 @@
 			</div>
 			<div class="tree-leaf__actions">
 				<button
-					v-if="inlinePresentation.canToggle"
+					v-if="canEditInReadOnly"
 					type="button"
-					class="tree-leaf__action tree-leaf__edit"
+					class="tree-leaf__action tree-leaf__context-edit"
 					:title="__('Edit')"
 					:aria-label="__('Edit')"
-					@click="startEditing"
+					@click.stop.prevent="startEditing"
 				>
 					<i class="fa fa-pencil" aria-hidden="true"></i>
 				</button>
-				<button
-					v-if="!readOnly"
-					type="button"
-					class="tree-leaf__action tree-leaf__remove"
-					:title="__('Remove')"
-					:aria-label="__('Remove')"
-					@click="$emit('remove')"
-				>
-					<i class="fa fa-trash" aria-hidden="true"></i>
-				</button>
+				<ActionMenu
+					v-if="leafMenuActions.length"
+					:actions="leafMenuActions"
+					size="xs"
+					:label="__('Leaf Actions')"
+				/>
 			</div>
 		</div>
 
@@ -81,20 +79,16 @@
 						class="tree-leaf__action tree-leaf__finish"
 						:title="__('Finish editing / Show summary')"
 						:aria-label="__('Finish editing / Show summary')"
-						@click="stopEditing"
+						@click.stop.prevent="stopEditing"
 					>
 						<i class="fa fa-check" aria-hidden="true"></i>
 					</button>
-					<button
-						v-if="!readOnly"
-						type="button"
-						class="tree-leaf__action tree-leaf__remove"
-						:title="__('Remove')"
-						:aria-label="__('Remove')"
-						@click="$emit('remove')"
-					>
-						<i class="fa fa-trash" aria-hidden="true"></i>
-					</button>
+					<ActionMenu
+						v-if="leafMenuActions.length"
+						:actions="leafMenuActions"
+						size="xs"
+						:label="__('Leaf Actions')"
+					/>
 				</div>
 			</div>
 		</div>
@@ -107,6 +101,7 @@ import {
 	getInlinePresentation,
 	resolvePresentationMode,
 } from "../../controls/inline_presentation_policy.mjs";
+import ActionMenu from "../../controls/ActionMenu.vue";
 
 const props = defineProps({
 	node: { type: Object, required: true },
@@ -120,7 +115,7 @@ const props = defineProps({
 	isLeafValid: { type: Function, default: undefined },
 });
 
-defineEmits(["remove"]);
+const emit = defineEmits(["remove", "move-up", "move-down", "select"]);
 
 const api = inject("treeBuilderContext", null);
 const slots = useSlots();
@@ -132,6 +127,15 @@ const hasSummarySlot = computed(() =>
 const isEditing = computed(() => {
 	const editingId = api?.editingNodeId?.value ?? api?.editingNodeId;
 	return editingId === props.node.id;
+});
+
+const canEditRule = computed(() => {
+	const val = api?.canEdit?.value ?? api?.canEdit;
+	return Boolean(val);
+});
+
+const canEditInReadOnly = computed(() => {
+	return Boolean(props.readOnly && canEditRule.value && inlinePresentation.value.canToggle);
 });
 
 const isTransientNew = computed(() => {
@@ -181,8 +185,94 @@ const canFinishEditing = computed(() => {
 	return false;
 });
 
+const isFirst = computed(() => props.index <= 0);
+const isLast = computed(() => {
+	const count = props.parent?.children?.length ?? 0;
+	return props.index >= count - 1;
+});
+
+const leafMenuActions = computed(() => {
+	const items = [];
+
+	if (inlinePresentation.value.presentation === "summary") {
+		if (inlinePresentation.value.canToggle && (!props.readOnly || canEditRule.value)) {
+			items.push({
+				id: "edit",
+				label: __("Edit"),
+				icon: "fa fa-pencil",
+				onClick: () => {
+					startEditing();
+				},
+			});
+		}
+	} else if (inlinePresentation.value.presentation === "editor") {
+		if (canFinishEditing.value) {
+			items.push({
+				id: "finish",
+				label: __("Finish editing"),
+				icon: "fa fa-check",
+				onClick: () => {
+					stopEditing();
+				},
+			});
+		}
+	}
+
+	if (typeof api?.selectNode === "function") {
+		items.push({
+			id: "select",
+			label: __("Select"),
+			icon: "fa fa-mouse-pointer",
+			onClick: () => {
+				api.selectNode(props.node.id);
+				emit("select", props.node.id);
+			},
+		});
+	}
+
+	if (!props.readOnly) {
+		items.push({
+			id: "move-up",
+			label: __("Move up"),
+			icon: "fa fa-arrow-up",
+			disabled: isFirst.value,
+			onClick: () => {
+				if (typeof api?.moveNodeUp === "function") {
+					api.moveNodeUp(props.node.id);
+				}
+				emit("move-up", props.node.id);
+			},
+		});
+
+		items.push({
+			id: "move-down",
+			label: __("Move down"),
+			icon: "fa fa-arrow-down",
+			disabled: isLast.value,
+			onClick: () => {
+				if (typeof api?.moveNodeDown === "function") {
+					api.moveNodeDown(props.node.id);
+				}
+				emit("move-down", props.node.id);
+			},
+		});
+
+		items.push({
+			id: "delete",
+			label: __("Delete"),
+			icon: "fa fa-trash",
+			danger: true,
+			onClick: () => {
+				emit("remove");
+			},
+		});
+	}
+
+	return items;
+});
+
 function startEditing() {
-	if (props.readOnly) return;
+	if (props.readOnly && !canEditRule.value) return;
 	if (typeof api?.setEditing === "function") {
 		api.setEditing(props.node.id);
 	}
@@ -200,6 +290,7 @@ function stopEditing() {
 }
 
 function onDoubleClickSummary(event) {
+	if (props.readOnly && !canEditRule.value) return;
 	if (!inlinePresentation.value.canToggle) return;
 	const target = event.target;
 	if (
@@ -216,6 +307,7 @@ function onDoubleClickSummary(event) {
 
 <style scoped>
 .tree-leaf {
+	position: relative;
 	width: 100%;
 	min-width: 0;
 	cursor: grab;
@@ -263,9 +355,9 @@ function onDoubleClickSummary(event) {
 	align-self: center;
 	align-items: center;
 	justify-content: center;
-	width: 28px;
-	min-width: 28px;
-	height: var(--fxr-input-height, 32px);
+	width: 26px;
+	min-width: 26px;
+	height: 26px;
 	margin: 0;
 	padding: 0;
 	border: 1px solid transparent;
@@ -273,9 +365,8 @@ function onDoubleClickSummary(event) {
 	background: transparent;
 	color: var(--fxr-text-secondary, #4b5563);
 	cursor: pointer;
-	transition: background-color var(--fxr-transition-fast, 120ms ease),
-		border-color var(--fxr-transition-fast, 120ms ease),
-		color var(--fxr-transition-fast, 120ms ease);
+	transition: opacity 120ms ease, background-color 120ms ease, border-color 120ms ease,
+		color 120ms ease;
 }
 
 .tree-leaf__action:hover,
@@ -285,15 +376,17 @@ function onDoubleClickSummary(event) {
 	color: var(--fxr-text, #111827);
 }
 
-.tree-leaf__remove {
-	color: var(--fxr-text-danger, #dc2626);
+.tree-leaf__context-edit {
+	opacity: 0;
+	pointer-events: none;
 }
 
-.tree-leaf__remove:hover,
-.tree-leaf__remove:focus-visible {
-	border-color: var(--fxr-border-danger, #dc2626);
-	background: var(--fxr-bg-danger, #fef2f2);
-	color: var(--fxr-text-danger, #dc2626);
+.tree-leaf.has-context-edit:hover .tree-leaf__context-edit,
+.tree-leaf.has-context-edit:focus-within .tree-leaf__context-edit,
+.tree-leaf__context-edit:hover,
+.tree-leaf__context-edit:focus-visible {
+	opacity: 1;
+	pointer-events: auto;
 }
 
 .tree-leaf__finish {
