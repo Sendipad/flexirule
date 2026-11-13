@@ -2,6 +2,19 @@
 
 The `Start Jules Task` workflow starts a Jules API session for `Sendipad/flexirule` and asks Jules to create a pull request automatically when its patch is ready. It never approves or merges a PR.
 
+## Scheduled Daily Audit
+
+The workflow runs automatically on a daily schedule (`cron: '0 2 * * *'`) targeting the latest `develop` branch.
+During scheduled execution:
+- The workflow constructs a prompt requesting a deep architecture, code quality, and Frappe compatibility audit.
+- It verifies that the `develop` branch exists and triggers a Jules session using the repository's `JULES_API_KEY` secret.
+- Findings and reports are output directly into `reports/` via automated PR created by Jules.
+
+**Prerequisites & Operational Notes:**
+- Requires the `JULES_API_KEY` secret configured in repository secrets.
+- Overlapping runs and duplicate executions are managed via `concurrency` groups (`jules-task-${{ github.run_id }}`).
+- Scheduled runs target the default `develop` branch to prevent auditing stale feature branches.
+
 ## Manual dispatch
 
 1. Open **Actions → Start Jules Task → Run workflow**.
