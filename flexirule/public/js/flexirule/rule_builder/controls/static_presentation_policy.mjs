@@ -39,7 +39,7 @@ export function resolveStaticPresentation({
 	} else if (
 		fieldType === "Link" ||
 		fieldType === "Dynamic Link" ||
-		(Boolean(doctype) && !isSelectField)
+		(Boolean(explicit?.doctype) && !isSelectField)
 	) {
 		// Only Link field metadata (or an explicit non-Select DocType override) selects LinkControl.
 		control = "link";
