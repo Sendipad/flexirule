@@ -1180,7 +1180,6 @@ const isFieldFirst = computed(() => {
 	);
 });
 
-
 watch(
 	() => props.modelValue,
 	(val) => {
@@ -1233,7 +1232,6 @@ onBeforeUnmount(() => {
 	flex-direction: column;
 	width: 100%;
 }
-
 
 .fvc-empty-placeholder {
 	position: absolute;
