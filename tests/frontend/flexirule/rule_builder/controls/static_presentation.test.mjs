@@ -152,3 +152,28 @@ test("static_presentation: Check membership can choose multiple boolean values",
 		[0, "No"],
 	]);
 });
+
+test("static_presentation: Select keeps its options control when options are a newline-separated string", () => {
+	const options = "Draft\nSubmitted\nCancelled";
+	const presentation = resolveStaticPresentation({
+		fieldType: "Select",
+		fieldOptions: options,
+		referenceDoctype: options,
+		context: { operator: "eq" },
+	});
+	assert.equal(presentation.control, "select");
+	assert.equal(presentation.isLink, false);
+	assert.equal(presentation.options, options);
+});
+
+test("static_presentation: Select membership stays multi-select despite a truthy options string", () => {
+	const options = "Draft\nSubmitted";
+	const presentation = resolveStaticPresentation({
+		fieldType: "Select",
+		fieldOptions: options,
+		referenceDoctype: options,
+		context: { operator: "in" },
+	});
+	assert.equal(presentation.control, "multi-select");
+	assert.equal(presentation.isLink, false);
+});
