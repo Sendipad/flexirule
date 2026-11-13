@@ -403,6 +403,7 @@ def _json_runtime_type(value: Any) -> str:
 		return "object"
 	return "unsupported"
 
+
 def _is_check_membership_item(value: Any) -> bool:
 	"""Check list members use Frappe's canonical integer domain: 0 or 1."""
 	return value is None or (type(value) is int and value in (0, 1))
