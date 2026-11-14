@@ -391,6 +391,134 @@ describe("FlexiRule builder regression coverage", () => {
 		});
 	});
 
+	it("persists and executes a canonical Assignment Run If after reload", () => {
+		createRuleAndOpenBuilder();
+		const label = "Canonical Run If " + Date.now();
+		addNodeFromEdgeMenu("Assignment");
+		cy.get(".labeling-container input")
+			.should("be.visible")
+			.clear()
+			.type(label);
+		cy.get(".labeling-container button.btn-primary").should("be.visible").click();
+
+		cy.contains(".vue-flow__node", label).should("be.visible").dblclick({ force: true });
+		cy.contains("Batch Assignments", { timeout: 15000 }).should("be.visible");
+		cy.contains("button", "Add Assignment").should("be.visible").click();
+
+		// Configure a real DocField mutation. The guard below only permits it for
+		// a Contact whose first_name is exactly "Match".
+		cy.get(".assignment-grid-row .grid-col-target .combobox-button-trigger")
+			.should("be.visible")
+			.click({ force: true });
+		cy.get(".fxr-dropdown:visible .fxr-dropdown-item")
+			.contains(/^First Name/)
+			.click({ force: true });
+		cy.get(".assignment-grid-row .grid-col-value .fvc-static-container input")
+			.should("be.visible")
+			.clear()
+			.type("Updated by Run If");
+
+		cy.get(".when-toggle-btn").should("contain.text", "Always Run").click({ force: true });
+		cy.get(".fxr-modal-card", { timeout: 15000 }).should("be.visible");
+		cy.get(".fxr-modal-card .tree-builder__actions button")
+			.contains("Condition")
+			.click({ force: true });
+
+		// Use the canonical operand source catalogue to choose doc.first_name.
+		cy.get(".canonical-condition-leaf .left-operand-control .fvc-toggle-btn")
+			.should("be.visible")
+			.click({ force: true });
+		cy.get(
+			".canonical-condition-leaf .left-operand-control .tiptap[contenteditable='true']"
+		)
+			.should("be.visible")
+			.click()
+			.type("@first_name");
+		cy.get(".tg-mention-list .tg-mention-item", { timeout: 10000 })
+			.contains("First Name")
+			.click({ force: true });
+
+		// Selecting the left operand chooses the compatible equality operator.
+		cy.get(".canonical-condition-leaf .right-col .fvc-static-container input")
+			.should("be.visible")
+			.clear()
+			.type("Match");
+		cy.get(".fxr-modal-card button").contains("Close").click({ force: true });
+		cy.get(".fxr-modal-card").should("not.exist");
+		cy.get(".when-toggle-btn").should("contain.text", "Condition Set");
+
+		cy.intercept("POST", "**/api/method/frappe.client.save").as("saveRule");
+		cy.get(".config-modal-container .save-action").should("be.visible").click({ force: true });
+		cy.get(".config-modal-container").should("not.exist");
+		cy.contains("button", "Save Rule", { timeout: 15000 }).click({ force: true });
+		cy.wait("@saveRule");
+
+		persistedRule().then((doc) => {
+			const assignment = doc.actions.find(
+				(action) => action.action_type === "Assignment" && action.action_label === label
+			);
+			expect(assignment, "configured Assignment is persisted").to.exist;
+			const rows = actionConfig(assignment);
+			expect(rows, "Assignment rows").to.be.an("array").and.have.length(1);
+			const guard = rows[0].when_condition;
+			expect(guard, "Run If is stored in the canonical when_condition field").to.be.an("object");
+			expect(guard.type).to.eq("comparison");
+			expect(guard.left).to.deep.include({
+				mode: "variable",
+				path: { scope: "doc", segments: ["first_name"] },
+			});
+			expect(guard.right).to.deep.include({
+				mode: "static",
+				value_type: "Data",
+				value: "Match",
+			});
+			expect(rows[0]).not.to.have.any.keys("when", "when_expression", "pythonExpression");
+		});
+
+		// Reload proves the canonical guard survives Rule serialization/hydration.
+		cy.reload();
+		cy.get(".vue-flow", { timeout: 30000 }).should("be.visible");
+		cy.contains(".vue-flow__node", label).should("be.visible").dblclick({ force: true });
+		cy.get(".when-toggle-btn", { timeout: 15000 }).should("contain.text", "Condition Set");
+		cy.get(".when-toggle-btn").click({ force: true });
+		cy.get(".fxr-modal-card .canonical-condition-leaf").should("be.visible");
+		cy.get(".fxr-modal-card button").contains("Close").click({ force: true });
+		cy.get(".config-modal-container .save-action").click({ force: true });
+
+		const testRun = (firstName) =>
+			cy.window().then((win) =>
+				win.frappe.call({
+					method: "flexirule.ruleflow.api.test_rule",
+					args: {
+						rule_name: ruleName,
+						document_json: JSON.stringify({
+							doctype: "Contact",
+							first_name: firstName,
+							last_name: "Run If Regression",
+						}),
+						dry_run: 1,
+						skip_log_enqueue: 1,
+					},
+				})
+			);
+
+		testRun("Match").then((response) => {
+			const result = response.message;
+			expect(result.success, "matching document execution succeeds").to.eq(true);
+			expect(result.execution.messages.join("\n")).to.include(
+				"Assignment: Set doc.first_name = Updated by Run If"
+			);
+		});
+
+		testRun("Does Not Match").then((response) => {
+			const result = response.message;
+			expect(result.success, "non-matching document execution succeeds").to.eq(true);
+			expect(result.execution.messages.join("\n")).not.to.include(
+				"Assignment: Set doc.first_name = Updated by Run If"
+			);
+		});
+	});
+
 	it("opens Assignment configuration and exposes the required assignment controls", () => {
 		createRuleAndOpenBuilder();
 		addNodeFromEdgeMenu("Assignment");
