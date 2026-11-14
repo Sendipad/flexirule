@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { resolveStaticPresentation } from "../../../../../flexirule/public/js/flexirule/rule_builder/controls/static_presentation_policy.mjs";
+import {
+	isRemoteRecordFieldType,
+	resolveDynamicLinkDoctype,
+	resolveStaticPresentation,
+} from "../../../../../flexirule/public/js/flexirule/rule_builder/controls/static_presentation_policy.mjs";
 
 test("static_presentation: defaults according to field metadata", () => {
 	const resData = resolveStaticPresentation({ fieldType: "Data" });
@@ -183,4 +187,50 @@ test("static_presentation: Select membership stays multi-select despite a truthy
 	});
 	assert.equal(presentation.control, "multi-select");
 	assert.equal(presentation.isLink, false);
+});
+
+
+test("static_presentation: remote record fieldtypes are distinct from local MultiSelect choices", () => {
+	assert.equal(isRemoteRecordFieldType("Link"), true);
+	assert.equal(isRemoteRecordFieldType("Dynamic Link"), true);
+	assert.equal(isRemoteRecordFieldType("MultiSelectList"), true);
+	assert.equal(isRemoteRecordFieldType("MultiSelect"), false);
+	assert.equal(isRemoteRecordFieldType("Select"), false);
+
+	const localMultiSelect = resolveStaticPresentation({
+		fieldType: "MultiSelect",
+		fieldOptions: "Red\\nGreen\\nBlue",
+		context: { operator: "eq" },
+	});
+	assert.equal(localMultiSelect.control, "multi-select");
+	assert.equal(localMultiSelect.isLink, false);
+});
+
+test("static_presentation: Dynamic Link resolves its target from the controlling field value", () => {
+	assert.equal(
+		resolveDynamicLinkDoctype({
+			options: "party_type",
+			context: { doc: { party_type: "Customer" } },
+		}),
+		"Customer"
+	);
+	assert.equal(
+		resolveDynamicLinkDoctype({
+			options: "party_type",
+			context: {
+				controlContext: {
+					getFieldValue: () => ({ mode: "static", value: "Supplier" }),
+				},
+			},
+		}),
+		"Supplier"
+	);
+	assert.equal(
+		resolveDynamicLinkDoctype({
+			options: "party_type",
+			context: {},
+		}),
+		"",
+		"an unresolved controlling field must not be mistaken for a DocType"
+	);
 });
