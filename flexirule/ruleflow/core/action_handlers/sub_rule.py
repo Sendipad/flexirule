@@ -46,8 +46,8 @@ class SubRuleVarsOverlay(dict):
 
 	- Reads fall back to parent vars.
 	- Writes stay local to sub-rule execution.
-	- Mutable parent values are shallow-copied on first access to avoid
-	  mutating parent context state.
+	- Mutable parent containers are recursively copied on first access to avoid
+	  nested mutations leaking into parent context state.
 	"""
 
 	def __init__(self, parent_vars=None):

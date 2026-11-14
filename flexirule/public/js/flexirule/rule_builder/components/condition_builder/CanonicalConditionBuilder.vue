@@ -100,7 +100,10 @@ import {
 	getCollectionSiblingAliases,
 } from "./canonical_condition_adapter.mjs";
 import { validateCanonicalCondition } from "./canonical_condition_validation.mjs";
-import { getCollectionMetadataIssues, getResolvedCollectionDocType } from "./collection_metadata_validation.mjs";
+import {
+	getCollectionMetadataIssues,
+	getResolvedCollectionDocType,
+} from "./collection_metadata_validation.mjs";
 import { createNodeId } from "../tree_builder/tree_builder_utils.mjs";
 
 const props = defineProps({

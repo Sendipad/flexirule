@@ -122,6 +122,7 @@ import { parseListElements } from "./flexvalue_serialization.mjs";
 import { buildSourceCatalogue, searchSourceCatalogue } from "./source_catalogue.mjs";
 import { getAllStrategies } from "./value_resolver/strategies.js";
 import { adaptStrategiesForCatalogue } from "./resolver_catalogue_adapter.mjs";
+import { createResolverValidationRegistry } from "./resolver_validation_registry.mjs";
 
 const props = defineProps({
 	modelValue: { type: [Object, String, Number, Boolean], default: null },
@@ -178,13 +179,8 @@ const uid =
 	Math.random().toString(36).substring(2, 15) + "_" + Math.random().toString(36).substring(2, 15);
 
 const controlRef = ref(null);
-const resolverValidationRegistry = new Set();
-
-function registerResolverValidator(validator) {
-	if (typeof validator !== "function") return () => {};
-	resolverValidationRegistry.add(validator);
-	return () => resolverValidationRegistry.delete(validator);
-}
+const resolverValidationRegistry = createResolverValidationRegistry();
+const registerResolverValidator = resolverValidationRegistry.register;
 
 const sourceCatalogue = computed(() => {
 	const rawStrategies = getAllStrategies();
@@ -772,12 +768,8 @@ async function validate() {
 	if (!isValid.value) {
 		errors.push(__("{0} is required").replace("{0}", props.context?.df?.label || __("Field")));
 	}
-	const nestedResults = await Promise.all(
-		Array.from(resolverValidationRegistry, (validator) => validator())
-	);
-	for (const result of nestedResults) {
-		if (result?.valid === false) errors.push(...(result.errors || [__("Nested resolver validation failed.")]));
-	}
+	const nestedResult = await resolverValidationRegistry.validate();
+	if (!nestedResult.valid) errors.push(...nestedResult.errors);
 	return { valid: errors.length === 0, errors };
 }
 
