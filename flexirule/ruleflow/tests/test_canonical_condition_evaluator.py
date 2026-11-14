@@ -195,14 +195,10 @@ class TestCanonicalConditionEvaluator(unittest.TestCase):
 		context = {"doc": {"doctype": "Check Semantics Test", "enabled": "1"}}
 		with patch("frappe.get_meta", side_effect=fake_get_meta):
 			self.assertTrue(
-				evaluate_condition(
-					compare("eq", variable("doc", "enabled"), static("Check", 1)), context
-				)
+				evaluate_condition(compare("eq", variable("doc", "enabled"), static("Check", 1)), context)
 			)
 			self.assertTrue(
-				evaluate_condition(
-					compare("in", variable("doc", "enabled"), static("list", [0, 1])), context
-				)
+				evaluate_condition(compare("in", variable("doc", "enabled"), static("list", [0, 1])), context)
 			)
 			self.assertTrue(
 				evaluate_condition(
