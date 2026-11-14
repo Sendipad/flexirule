@@ -267,6 +267,8 @@ const referenceDoctype = computed(() => {
 
 	return props.context?.referenceDoctype || (Array.isArray(opts) ? "" : opts || "");
 });
+
+const triggerDoctype = computed(() => {
 	return (
 		props.doctype ||
 		props.context?.currentDocType ||
