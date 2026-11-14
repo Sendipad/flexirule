@@ -395,10 +395,7 @@ describe("FlexiRule builder regression coverage", () => {
 		createRuleAndOpenBuilder();
 		const label = "Canonical Run If " + Date.now();
 		addNodeFromEdgeMenu("Assignment");
-		cy.get(".labeling-container input")
-			.should("be.visible")
-			.clear()
-			.type(label);
+		cy.get(".labeling-container input").should("be.visible").clear().type(label);
 		cy.get(".labeling-container button.btn-primary").should("be.visible").click();
 
 		cy.contains(".vue-flow__node", label).should("be.visible").dblclick({ force: true });
@@ -428,9 +425,7 @@ describe("FlexiRule builder regression coverage", () => {
 		cy.get(".canonical-condition-leaf .left-operand-control .fvc-toggle-btn")
 			.should("be.visible")
 			.click({ force: true });
-		cy.get(
-			".canonical-condition-leaf .left-operand-control .tiptap[contenteditable='true']"
-		)
+		cy.get(".canonical-condition-leaf .left-operand-control .tiptap[contenteditable='true']")
 			.should("be.visible")
 			.click()
 			.type("@first_name");
@@ -461,7 +456,9 @@ describe("FlexiRule builder regression coverage", () => {
 			const rows = actionConfig(assignment);
 			expect(rows, "Assignment rows").to.be.an("array").and.have.length(1);
 			const guard = rows[0].when_condition;
-			expect(guard, "Run If is stored in the canonical when_condition field").to.be.an("object");
+			expect(guard, "Run If is stored in the canonical when_condition field").to.be.an(
+				"object"
+			);
 			expect(guard.type).to.eq("comparison");
 			expect(guard.left).to.deep.include({
 				mode: "variable",
