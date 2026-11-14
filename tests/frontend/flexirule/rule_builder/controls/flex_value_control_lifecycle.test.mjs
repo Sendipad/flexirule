@@ -88,7 +88,6 @@ test("lifecycle: Link field with target DocType preserves exact string identity 
 	assert.strictEqual(canon.value_type, "string"); // Preserved as string, never converted to date
 });
 
-
 test("lifecycle: an explicitly empty backend resolver allow-list hides every condition resolver", () => {
 	const catalogue = [
 		{
@@ -115,5 +114,8 @@ test("lifecycle: an explicitly empty backend resolver allow-list hides every con
 		conditionContract: { flexvalue_modes: { resolver: [] } },
 	});
 
-	assert.deepEqual(results.map((item) => item.id), ["doc.status"]);
+	assert.deepEqual(
+		results.map((item) => item.id),
+		["doc.status"]
+	);
 });

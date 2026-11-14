@@ -91,11 +91,7 @@
 		</div>
 
 		<!-- Field-first source palette: fields and variables are available as soon as the operand is empty. -->
-		<div
-			v-if="isSourcePaletteVisible"
-			class="fvc-source-palette"
-			@mousedown.stop
-		>
+		<div v-if="isSourcePaletteVisible" class="fvc-source-palette" @mousedown.stop>
 			<div class="fvc-source-palette__search">
 				<i class="fa fa-search" aria-hidden="true"></i>
 				<input
@@ -272,7 +268,8 @@ const referenceDoctype = computed(() => {
 			props.engine?.rule_doc,
 		];
 		for (const source of documentSources) {
-			const value = targetField && source && typeof source === "object" ? source[targetField] : null;
+			const value =
+				targetField && source && typeof source === "object" ? source[targetField] : null;
 			if (typeof value === "string" && value.trim()) return value.trim();
 		}
 
@@ -334,9 +331,7 @@ const resolverContext = computed(() => {
 	};
 });
 
-const isLinkType = computed(() =>
-	isRemoteRecordFieldType(fieldType.value, fieldOptions.value)
-);
+const isLinkType = computed(() => isRemoteRecordFieldType(fieldType.value, fieldOptions.value));
 
 const PURE_TEXT_FIELDTYPES = new Set(["Code", "Text Editor", "JSON"]);
 
@@ -667,7 +662,10 @@ const editor = new Editor({
 									attrs: {
 										family: props.family,
 										operation: props.operation,
-										value_type: resolveResolverOutputType(props.family, props.operation),
+										value_type: resolveResolverOutputType(
+											props.family,
+											props.operation
+										),
 										config: props.payload?.config || {},
 										label: props.primaryLabel,
 										autoOpen: true,
@@ -741,7 +739,10 @@ const editor = new Editor({
 								attrs: {
 									family: props.family,
 									operation: props.operation,
-									value_type: resolveResolverOutputType(props.family, props.operation),
+									value_type: resolveResolverOutputType(
+										props.family,
+										props.operation
+									),
 									config: props.payload?.config || {},
 									label: props.primaryLabel,
 									autoOpen: true,

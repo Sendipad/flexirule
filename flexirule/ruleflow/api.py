@@ -652,7 +652,7 @@ def validate_condition(
 
 	try:
 		payload = json.loads(condition) if isinstance(condition, str) else condition
-		scope_doctypes = None
+		scope_doctypes: dict[str, str | None] | None = None
 		if collection_source and doctype:
 			# The row scope is metadata-backed only when the collection source is
 			# a child table on the selected parent DocType. The resolver performs

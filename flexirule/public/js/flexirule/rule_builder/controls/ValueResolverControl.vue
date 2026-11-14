@@ -91,8 +91,15 @@
 						<i class="fa fa-info-circle mr-1 text-muted"></i>
 						<span>{{ __(activeStrategy.description) }}</span>
 					</div>
-					<div v-if="validationAttempted && allValidationErrors.length" class="fxr-validation-errors">
-						<div v-for="err in allValidationErrors" :key="err" class="text-danger fxr-text-xs">
+					<div
+						v-if="validationAttempted && allValidationErrors.length"
+						class="fxr-validation-errors"
+					>
+						<div
+							v-for="err in allValidationErrors"
+							:key="err"
+							class="text-danger fxr-text-xs"
+						>
 							<i class="fa fa-exclamation-triangle mr-1"></i> {{ err }}
 						</div>
 					</div>
@@ -200,13 +207,10 @@ const resolverFieldname = computed(() => {
 
 watch(() => props.modelValue, syncFromProps, { deep: true });
 watch(() => props.doctype, syncFromProps);
-watch(
-	[() => props.family, () => props.operation, activeKind],
-	() => {
-		validationAttempted.value = false;
-		deepValidationErrors.value = [];
-	}
-);
+watch([() => props.family, () => props.operation, activeKind], () => {
+	validationAttempted.value = false;
+	deepValidationErrors.value = [];
+});
 watch(
 	[localState, activeKind],
 	() => {

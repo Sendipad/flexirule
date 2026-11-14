@@ -35,8 +35,7 @@ const resolverControlRef = ref(null);
 const isOperationOnly = computed(() => {
 	const ctx = props.extension?.options?.context || {};
 	return !!(
-		ctx.presentationPolicy === "operation_only" ||
-		ctx.tokenPresentation === "operation_only"
+		ctx.presentationPolicy === "operation_only" || ctx.tokenPresentation === "operation_only"
 	);
 });
 
@@ -61,8 +60,8 @@ const currentModelValue = computed(() => {
 		raw && typeof raw === "object" && raw.config && typeof raw.config === "object"
 			? raw.config
 			: raw && typeof raw === "object"
-				? raw
-				: {};
+			? raw
+			: {};
 
 	return {
 		family,

@@ -110,9 +110,7 @@ const metaStore = useMetaStore();
 const localCanonicalCondition = ref(null);
 const showOldDoc = ref(true);
 const supportsOldDoc = computed(() => ruleStore.rule_doc?.trigger_type === "DocType Event");
-const supportsCallerContext = computed(
-	() => ruleStore.rule_doc?.trigger_type === "Callable Event"
-);
+const supportsCallerContext = computed(() => ruleStore.rule_doc?.trigger_type === "Callable Event");
 const variableFields = ref([]);
 const canonicalBuilderRef = ref(null);
 const isLoadingVariables = ref(false);

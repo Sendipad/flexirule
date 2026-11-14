@@ -330,8 +330,8 @@ registerStrategy("collection", {
 					result?.valid === true
 						? []
 						: Array.isArray(result?.errors) && result.errors.length
-							? result.errors
-							: [__("Collection filter condition failed backend validation.")],
+						? result.errors
+						: [__("Collection filter condition failed backend validation.")],
 			};
 		} catch (error) {
 			console.error("Collection filter condition validation failed:", error);

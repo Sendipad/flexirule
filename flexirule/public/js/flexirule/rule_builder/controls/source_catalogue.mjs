@@ -241,8 +241,7 @@ export function searchSourceCatalogue(
 			conditionContract !== null &&
 			conditionContract !== undefined &&
 			typeof conditionContract === "object";
-		const hasExplicitResolverPolicy =
-			Array.isArray(allowedResolvers) || hasConditionContract;
+		const hasExplicitResolverPolicy = Array.isArray(allowedResolvers) || hasConditionContract;
 		const allowedSet = new Set(
 			Array.isArray(allowedResolvers)
 				? allowedResolvers

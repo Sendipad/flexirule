@@ -138,7 +138,6 @@ test("finding_1_verification: membership static serialization handles numeric an
 	assert.deepEqual(dateList, ["2025-01-01", "2025-01-02"]);
 });
 
-
 test("resolver adapter: all families normalize defaults to a family/operation/config envelope", () => {
 	const strategies = [
 		{
@@ -172,7 +171,6 @@ test("resolver adapter: all families normalize defaults to a family/operation/co
 	});
 });
 
-
 test("membership serialization: Check choices remain canonical integer values", () => {
 	assert.deepEqual(parseListElements(["1", "0"], "Check"), [1, 0]);
 	assert.deepEqual(parseListElements(["Yes", "No"], "Check"), [1, 0]);
@@ -198,7 +196,6 @@ test("resolver adapter: collection operation is not duplicated inside resolver c
 	assert.deepEqual(collection.defaultConfig.config, { source: "doc.items", target_field: "" });
 });
 
-
 test("Check operand serialization: CheckControl booleans become canonical integer payloads", () => {
 	assert.deepEqual(
 		toCanonicalFlexValue({ mode: "static", value_type: "Check", value: true }, "Check"),
@@ -208,10 +205,11 @@ test("Check operand serialization: CheckControl booleans become canonical intege
 		toCanonicalFlexValue({ mode: "static", value_type: "Check", value: false }, "Check"),
 		{ mode: "static", value_type: "Check", value: 0 }
 	);
-	assert.deepEqual(
-		toCanonicalFlexValue(true, "Check"),
-		{ mode: "static", value_type: "Check", value: 1 }
-	);
+	assert.deepEqual(toCanonicalFlexValue(true, "Check"), {
+		mode: "static",
+		value_type: "Check",
+		value: 1,
+	});
 	assert.throws(
 		() => toCanonicalFlexValue({ mode: "static", value_type: "Check", value: 2 }, "Check"),
 		/Check values must be Frappe-compatible 0 or 1/

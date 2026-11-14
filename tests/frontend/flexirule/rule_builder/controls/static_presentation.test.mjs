@@ -106,7 +106,6 @@ test("static_presentation: explicit consumer override takes highest precedence",
 	assert.deepEqual(resContext.filters, { status: "Active" });
 });
 
-
 test("static_presentation: Link equality resolves to LinkControl, not a Select using the DocType name", () => {
 	const presentation = resolveStaticPresentation({
 		fieldType: "Link",
@@ -141,7 +140,6 @@ test("static_presentation: Check uses its native control for equality", () => {
 	assert.equal(presentation.isMultiSelect, false);
 });
 
-
 test("static_presentation: Check membership can choose multiple boolean values", () => {
 	const presentation = resolveStaticPresentation({
 		fieldType: "Check",
@@ -153,9 +151,11 @@ test("static_presentation: Check membership can choose multiple boolean values",
 	});
 	assert.equal(presentation.control, "multi-select");
 	assert.equal(presentation.isMultiSelect, true);
-	assert.deepEqual(presentation.options, [[1, "Yes"], [0, "No"]]);
+	assert.deepEqual(presentation.options, [
+		[1, "Yes"],
+		[0, "No"],
+	]);
 });
-
 
 test("static_presentation: Dynamic Link retains its resolved target DocType for equality and membership", () => {
 	const equality = resolveStaticPresentation({
@@ -175,7 +175,6 @@ test("static_presentation: Dynamic Link retains its resolved target DocType for 
 	assert.equal(membership.doctype, "Customer");
 });
 
-
 test("static_presentation: Check equality is routed to the native CheckControl", () => {
 	const checked = ControlRegistry.resolve({ fieldtype: "Check" }, { modelValue: 1 });
 	const unchecked = ControlRegistry.resolve({ fieldtype: "Check" }, { modelValue: 0 });
@@ -185,7 +184,6 @@ test("static_presentation: Check equality is routed to the native CheckControl",
 	assert.equal(unchecked.component, "CheckControl");
 	assert.equal(unchecked.props.modelValue, false);
 });
-
 
 test("static_presentation: remote record fields are distinct from local MultiSelect", () => {
 	assert.equal(isRemoteRecordFieldType("Link"), true);

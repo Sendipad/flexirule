@@ -289,9 +289,7 @@ class SubRuleHandler(ActionHandler):
 				eligibility_context["caller"] = caller_rule_meta
 				eligibility_context["rule"] = target_rule_meta
 				eligibility_context["doctype"] = (
-					engine.rule.document_type
-					or caller_doc_doctype
-					or sub_rule_doc.document_type
+					engine.rule.document_type or caller_doc_doctype or sub_rule_doc.document_type
 				)
 				if is_canonical_condition:
 					from flexirule.ruleflow.core.condition_evaluator import evaluate_condition
