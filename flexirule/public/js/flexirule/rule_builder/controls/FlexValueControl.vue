@@ -239,7 +239,12 @@ const referenceDoctype = computed(() => {
 	if (fieldType.value === "Dynamic Link") {
 		return resolveDynamicLinkDoctype({
 			options: opts,
-			context: props.context,
+			context: {
+				...props.context,
+				doc:
+					props.context?.doc ||
+					(props.doc?.doctype === triggerDoctype.value ? props.doc : null),
+			},
 			engine: props.engine,
 		});
 	}
