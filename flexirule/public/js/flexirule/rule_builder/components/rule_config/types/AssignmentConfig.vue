@@ -348,9 +348,9 @@ function getTargetFieldtype(target) {
 function getTargetDoctype(target) {
 	if (!target) return null;
 	const opt = targetOptions.value.find((o) => o.value === target);
-	if (!opt || !["Link", "Dynamic Link", "MultiSelectList"].includes(opt.fieldtype)) {
-		return null;
-	}
+	// Dynamic Link.options is the name of its controlling field, not a target DocType.
+	// Assignment target metadata alone cannot resolve that runtime value safely.
+	if (!opt || opt.fieldtype !== "Link") return null;
 	return opt.options || null;
 }
 
