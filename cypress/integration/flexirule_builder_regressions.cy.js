@@ -479,6 +479,16 @@ describe("FlexiRule builder regression coverage", () => {
 		cy.get(".when-toggle-btn", { timeout: 15000 }).should("contain.text", "Condition Set");
 		cy.get(".when-toggle-btn").click({ force: true });
 		cy.get(".fxr-modal-card .canonical-condition-leaf").should("be.visible");
+		// FlexValue hydrates in static mode after reload; explicitly switch to
+		// expression mode before asserting that its Tiptap editor is visible.
+		cy.get(
+			".fxr-modal-card .canonical-condition-leaf .left-operand-control .fvc-toggle-btn"
+		)
+			.should("be.visible")
+			.click({ force: true });
+		cy.get(
+			".fxr-modal-card .canonical-condition-leaf .left-operand-control .tiptap[contenteditable='true']"
+		).should("be.visible");
 		cy.get(".fxr-modal-card button").contains("Close").click({ force: true });
 		cy.get(".config-modal-container .save-action").click({ force: true });
 
