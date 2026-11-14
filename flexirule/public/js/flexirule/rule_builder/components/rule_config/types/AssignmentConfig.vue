@@ -348,7 +348,10 @@ function getTargetFieldtype(target) {
 function getTargetDoctype(target) {
 	if (!target) return null;
 	const opt = targetOptions.value.find((o) => o.value === target);
-	return opt?.options || null;
+	if (!opt || !["Link", "Dynamic Link", "MultiSelectList"].includes(opt.fieldtype)) {
+		return null;
+	}
+	return opt.options || null;
 }
 
 /**
