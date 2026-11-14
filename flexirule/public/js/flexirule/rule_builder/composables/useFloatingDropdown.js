@@ -29,11 +29,23 @@ export function useFloatingDropdown(config = {}) {
 		const rect = triggerRef.value.getBoundingClientRect();
 		const viewportWidth = window.innerWidth;
 		const viewportHeight = window.innerHeight;
-		const width = resolveWidth(rect, viewportWidth);
+		const dropdownWidth = dropdownRef.value?.offsetWidth || 0;
+		const effectiveWidth = matchTriggerWidth
+			? resolveWidth(rect, viewportWidth)
+			: Math.min(
+					Math.max(minWidth, dropdownWidth || minWidth),
+					Math.min(maxWidth, viewportWidth - viewportPadding * 2)
+			  );
 
 		const clampLeftMin = viewportPadding;
-		const clampLeftMax = Math.max(clampLeftMin, viewportWidth - width - viewportPadding);
-		const left = Math.min(Math.max(rect.left, clampLeftMin), clampLeftMax);
+		// If trigger is aligned towards the right side of the screen, align dropdown to right of trigger
+		const alignRight = rect.left + effectiveWidth > viewportWidth - viewportPadding;
+		const preferredLeft = alignRight ? rect.right - effectiveWidth : rect.left;
+		const clampLeftMax = Math.max(
+			clampLeftMin,
+			viewportWidth - effectiveWidth - viewportPadding
+		);
+		const left = Math.min(Math.max(preferredLeft, clampLeftMin), clampLeftMax);
 
 		const availableBottom = viewportHeight - rect.bottom - offset - viewportPadding;
 		const availableTop = rect.top - offset - viewportPadding;
@@ -64,9 +76,9 @@ export function useFloatingDropdown(config = {}) {
 			position: "fixed",
 			left: `${left}px`,
 			top: `${top}px`,
-			width: `${width}px`,
-			minWidth: `${Math.min(width, Math.max(minWidth, rect.width))}px`,
-			maxWidth: `${Math.min(maxWidth, viewportWidth - viewportPadding * 2)}px`,
+			width: matchTriggerWidth ? `${effectiveWidth}px` : "max-content",
+			minWidth: `${Math.min(effectiveWidth, Math.max(minWidth, rect.width))}px`,
+			maxWidth: `${Math.min(maxWidth, Math.max(180, viewportWidth - viewportPadding * 2))}px`,
 			maxHeight: `${effectiveMaxHeight}px`,
 			zIndex,
 		};

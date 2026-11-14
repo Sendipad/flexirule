@@ -4,6 +4,7 @@
 import ast
 import json
 import re
+from typing import Any
 
 import frappe
 from frappe import _
@@ -636,10 +637,6 @@ class Rule(Document):
 				# Handle batch assignment compilation
 				changed = False
 				known_var_roots = self._collect_known_return_variables(self.actions)
-				from flexirule.ruleflow.core.compiler import ConditionCompiler
-
-				condition_compiler = ConditionCompiler()
-
 				for assignment in config:
 					if not isinstance(assignment, dict):
 						continue
@@ -652,22 +649,21 @@ class Rule(Document):
 					text_ui = assignment.get("text_generator_ui")
 					if isinstance(text_ui, dict):
 						segments = text_ui.get("segments") or []
+						condition_registry: dict[str, Any] = {}
 						compiled = self._compile_segments_v2(
-							segments, action.action_label or action.action_id, known_var_roots
+							segments,
+							action.action_label or action.action_id,
+							known_var_roots,
+							condition_registry=condition_registry,
 						)
+						if condition_registry:
+							text_ui["condition_registry"] = condition_registry
+							assignment["condition_registry"] = condition_registry
+							changed = True
 						if not (isinstance(assignment.get("value"), dict) and "mode" in assignment["value"]):
 							assignment["value"] = compiled
 							assignment["value_template"] = compiled
 							changed = True
-
-					compiled_when = self._compile_assignment_when_expression(
-						assignment,
-						condition_compiler,
-						action_label=action.action_label or action.action_id or _("Assignment"),
-					)
-					if assignment.get("pythonExpression") != compiled_when:
-						assignment["pythonExpression"] = compiled_when
-						changed = True
 
 					compiled_operand = self._compile_assignment_operand_metadata(assignment, known_var_roots)
 					for key, value in compiled_operand.items():
@@ -688,9 +684,17 @@ class Rule(Document):
 
 			segments = text_ui.get("segments") or []
 			known_var_roots = self._collect_known_return_variables(self.actions)
+			tg_condition_registry: dict[str, Any] = {}
 			compiled = self._compile_segments_v2(
-				segments, action.action_label or action.action_id, known_var_roots
+				segments,
+				action.action_label or action.action_id,
+				known_var_roots,
+				condition_registry=tg_condition_registry,
 			)
+
+			if tg_condition_registry:
+				text_ui["condition_registry"] = tg_condition_registry
+				config["condition_registry"] = tg_condition_registry
 
 			action.value_template = compiled
 			action.config = json.dumps(config)
@@ -797,30 +801,6 @@ class Rule(Document):
 			"value_template": None,
 		}
 
-	def _compile_assignment_when_expression(
-		self,
-		assignment: dict,
-		condition_compiler,
-		action_label: str,
-	) -> str:
-		when_condition = assignment.get("when_condition")
-		if isinstance(when_condition, dict | list):
-			compiled_when = condition_compiler.compile(when_condition)
-			is_valid, error = condition_compiler.validate(compiled_when)
-			if not is_valid:
-				frappe.throw(
-					_("Action '{0}' assignment condition is invalid: {1}").format(action_label, error)
-				)
-			return compiled_when or ""
-
-		when_expression = (assignment.get("when_expression") or assignment.get("when") or "").strip()
-		if when_expression:
-			self._validate_allowed_roots(
-				when_expression,
-				_("Action '{0}' assignment expression").format(action_label),
-			)
-		return when_expression
-
 	@staticmethod
 	def _normalize_assignment_context_path(path: str | None) -> str | None:
 		if not path:
@@ -832,10 +812,32 @@ class Rule(Document):
 			return path
 		return f"vars.{path}"
 
-	def _compile_segments_v2(self, segments, action_label, known_var_roots=None, extra_allowed_roots=None):
-		"""Compile v2 segment list to Jinja template string."""
+	def _compile_segments_v2(
+		self,
+		segments,
+		action_label,
+		known_var_roots=None,
+		extra_allowed_roots=None,
+		condition_registry=None,
+		loop_vars=None,
+		loop_scope_doctypes=None,
+	):
+		"""Compile v2 segment list to Jinja template string with canonical condition evaluation."""
 		if not isinstance(segments, list):
 			return ""
+
+		if condition_registry is None:
+			condition_registry = {}
+		if loop_vars is None:
+			loop_vars = []
+		if loop_scope_doctypes is None:
+			loop_scope_doctypes = {}
+
+		import re
+
+		from flexirule.ruleflow.core.condition_contract import RESERVED_ALIASES, validate_condition_node
+		from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+		from flexirule.ruleflow.core.condition_payload import detect_canonical_condition_payload
 
 		known_var_roots = known_var_roots or set()
 		out = []
@@ -872,61 +874,104 @@ class Rule(Document):
 
 			if seg_type == "conditional":
 				condition = segment.get("condition")
-				if isinstance(condition, dict):
-					# ConditionBuilder tree — compile to expression
-					cond_expr = self._compile_condition_tree(condition, known_var_roots, extra_allowed_roots)
-					extra_roots = self._collect_condition_aliases(condition)
-					if extra_allowed_roots:
-						extra_roots.update(extra_allowed_roots)
-				elif isinstance(condition, str):
-					cond_expr = condition.strip()
-					extra_roots = None
+				if not condition:
+					# Empty condition defaults to True
+					cond_call = "True"
 				else:
-					cond_expr = "True"
-					extra_roots = None
-
-				if cond_expr:
-					self._validate_allowed_roots(
-						cond_expr,
-						_("Action '{0}' conditional expression").format(action_label),
-						extra_roots=extra_roots,
+					is_canonical, canonical_node = detect_canonical_condition_payload(condition)
+					if not is_canonical or canonical_node is None:
+						# If legacy condition tree, try compiling legacy or fail closed
+						# To ensure pure canonical architecture, we validate canonical node
+						raise ConditionValidationError(
+							"unsupported_template_condition",
+							"$",
+							f"Template conditional segment in '{action_label}' must be a canonical condition AST",
+						)
+					validate_condition_node(
+						canonical_node,
+						doctype=self.document_type or None,
+						scope_doctypes=loop_scope_doctypes or None,
 					)
+					import hashlib
+
+					node_hash = hashlib.sha256(
+						json.dumps(canonical_node, sort_keys=True, separators=(",", ":")).encode("utf-8")
+					).hexdigest()[:8]
+					cond_id = f"cond_{len(condition_registry) + 1}_{node_hash}"
+					condition_registry[cond_id] = {
+						"condition": canonical_node,
+						"scope_doctypes": dict(loop_scope_doctypes or {}),
+					}
+					kwargs_str = ", ".join(f"{v}={v}" for v in loop_vars)
+					if kwargs_str:
+						cond_call = f'_eval_condition("{cond_id}", {kwargs_str})'
+					else:
+						cond_call = f'_eval_condition("{cond_id}")'
 
 				then_block = self._compile_segments_v2(
-					segment.get("then_segments") or [], action_label, known_var_roots, extra_allowed_roots
+					segment.get("then_segments") or [],
+					action_label,
+					known_var_roots,
+					extra_allowed_roots,
+					condition_registry=condition_registry,
+					loop_vars=loop_vars,
+					loop_scope_doctypes=loop_scope_doctypes,
 				)
-				block = "{% if " + (cond_expr or "True") + " %}" + then_block
+				block = "{% if " + cond_call + " %}" + then_block
 
 				for elif_b in segment.get("elif_branches") or []:
 					elif_cond = elif_b.get("condition")
-					if isinstance(elif_cond, dict):
-						elif_expr = self._compile_condition_tree(
-							elif_cond, known_var_roots, extra_allowed_roots
-						)
-						elif_extra_roots = self._collect_condition_aliases(elif_cond)
-						if extra_allowed_roots:
-							elif_extra_roots.update(extra_allowed_roots)
-					elif isinstance(elif_cond, str):
-						elif_expr = elif_cond.strip()
-						elif_extra_roots = None
+					if not elif_cond:
+						elif_call = "True"
 					else:
-						elif_expr = "True"
-						elif_extra_roots = None
-
-					if elif_expr:
-						self._validate_allowed_roots(
-							elif_expr,
-							_("Action '{0}' elif expression").format(action_label),
-							extra_roots=elif_extra_roots,
+						is_canonical, canonical_node = detect_canonical_condition_payload(elif_cond)
+						if not is_canonical or canonical_node is None:
+							raise ConditionValidationError(
+								"unsupported_template_condition",
+								"$",
+								f"Template elif branch in '{action_label}' must be a canonical condition AST",
+							)
+						validate_condition_node(
+							canonical_node,
+							doctype=self.document_type or None,
+							scope_doctypes=loop_scope_doctypes or None,
 						)
+						import hashlib
+
+						elif_hash = hashlib.sha256(
+							json.dumps(canonical_node, sort_keys=True, separators=(",", ":")).encode("utf-8")
+						).hexdigest()[:8]
+						elif_cond_id = f"cond_{len(condition_registry) + 1}_{elif_hash}"
+						condition_registry[elif_cond_id] = {
+							"condition": canonical_node,
+							"scope_doctypes": dict(loop_scope_doctypes or {}),
+						}
+						kwargs_str = ", ".join(f"{v}={v}" for v in loop_vars)
+						if kwargs_str:
+							elif_call = f'_eval_condition("{elif_cond_id}", {kwargs_str})'
+						else:
+							elif_call = f'_eval_condition("{elif_cond_id}")'
+
 					elif_content = self._compile_segments_v2(
-						elif_b.get("segments") or [], action_label, known_var_roots, extra_allowed_roots
+						elif_b.get("segments") or [],
+						action_label,
+						known_var_roots,
+						extra_allowed_roots,
+						condition_registry=condition_registry,
+						loop_vars=loop_vars,
+						loop_scope_doctypes=loop_scope_doctypes,
 					)
-					block += "{% elif " + (elif_expr or "True") + " %}" + elif_content
+					block += "{% elif " + elif_call + " %}" + elif_content
 
 				# else
 				else_block = self._compile_segments_v2(
-					segment.get("else_segments") or [], action_label, known_var_roots, extra_allowed_roots
+					segment.get("else_segments") or [],
+					action_label,
+					known_var_roots,
+					extra_allowed_roots,
+					condition_registry=condition_registry,
+					loop_vars=loop_vars,
+					loop_scope_doctypes=loop_scope_doctypes,
 				)
 				if else_block:
 					block += "{% else %}" + else_block
@@ -937,15 +982,53 @@ class Rule(Document):
 
 			if seg_type == "loop":
 				iterator = (segment.get("iterator") or "item").strip()
+				reserved_loop_names = (RESERVED_ALIASES - {"row", "item"}) | {"and", "or", "in", "is", "not"}
+				if (
+					not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", iterator)
+					or iterator in reserved_loop_names
+					or iterator.startswith("__")
+				):
+					frappe.throw(
+						_(
+							"Loop iterator '{0}' in action '{1}' must be a valid, unreserved identifier"
+						).format(iterator, action_label)
+					)
+
 				iterable = self._normalize_context_ref(
 					segment.get("iterable") or "[]", known_var_roots, extra_allowed_roots
 				)
 
+				# Resolve child DocType for iterable if it points to a DocField Table on self.document_type
+				child_dt = None
+				if iterable and self.document_type and iterable.startswith("doc."):
+					field_name = iterable.split(".", 1)[1].split(".")[0]
+					try:
+						meta = frappe.get_meta(self.document_type)
+						f = meta.get_field(field_name)
+						if f and f.fieldtype in ("Table", "Table MultiSelect"):
+							child_dt = f.options
+					except Exception:
+						pass
+
 				loop_allowed = set(extra_allowed_roots) if extra_allowed_roots else set()
 				loop_allowed.add(iterator)
+				child_loop_vars = list(loop_vars)
+				if iterator not in child_loop_vars:
+					child_loop_vars.append(iterator)
+
+				child_scope_doctypes = dict(loop_scope_doctypes)
+				child_scope_doctypes[iterator] = child_dt
+				if "row" not in child_scope_doctypes and child_dt:
+					child_scope_doctypes["row"] = child_dt
 
 				loop_block = self._compile_segments_v2(
-					segment.get("segments") or [], action_label, known_var_roots, loop_allowed
+					segment.get("segments") or [],
+					action_label,
+					known_var_roots,
+					loop_allowed,
+					condition_registry=condition_registry,
+					loop_vars=child_loop_vars,
+					loop_scope_doctypes=child_scope_doctypes,
 				)
 
 				out.append(f"{{% for {iterator} in {iterable} %}}{loop_block}{{% endfor %}}")
@@ -954,7 +1037,13 @@ class Rule(Document):
 		return "".join(out)
 
 	def _compile_condition_tree(self, node, known_var_roots=None, extra_allowed_roots=None):
-		"""Compile a ConditionBuilder JSON tree to a Python boolean expression."""
+		"""DEPRECATED: Compile a legacy ConditionBuilder JSON tree to a Python boolean expression.
+
+		Canonical conditions must be validated via `condition_contract.validate_condition_node`
+		and evaluated via `condition_evaluator.evaluate_prepared_condition` using `_eval_condition`.
+		New code must not import, call, or depend on this deprecated function.
+		Physical removal is deferred to a future dedicated cleanup change.
+		"""
 		if not node or not isinstance(node, dict):
 			return "True"
 		known_var_roots = known_var_roots or set()
@@ -1281,8 +1370,16 @@ class Rule(Document):
 			action.config = json.dumps(config)
 
 	def compile_conditions(self):
+		"""Validate canonical conditions directly and compile legacy forms only.
+
+		Canonical direct-node JSON stays the source of truth; it is never converted
+		into Python source or persisted into compiled_expression.
+		"""
 		from flexirule.ruleflow.core.compiler import ConditionCompiler
+		from flexirule.ruleflow.core.condition_contract import validate_condition_node
+		from flexirule.ruleflow.core.condition_errors import ConditionError, ConditionValidationError
 		from flexirule.ruleflow.core.condition_payload import (
+			detect_canonical_condition_payload,
 			get_condition_payload,
 			parse_condition_payload,
 			set_condition_payload_on_action,
@@ -1291,22 +1388,32 @@ class Rule(Document):
 
 		compiler = ConditionCompiler()
 
-		# Compile Trigger
+		# Trigger condition: absence means no filter; a present canonical node is
+		# validated but deliberately has no generated-Python representation.
 		if self.trigger_condition:
 			try:
-				compiled_expression = compiler.compile(self.trigger_condition)
-				self.compiled_expression = compiled_expression
-				is_valid, error = compiler.validate(compiled_expression)
-				if not is_valid:
-					frappe.throw(_("Invalid Trigger Condition: {0}").format(error))
-			except ValueError as e:
-				frappe.throw(_("Error compiling Trigger Condition: {0}").format(str(e)))
+				is_canonical, canonical_node = detect_canonical_condition_payload(self.trigger_condition)
+				if is_canonical:
+					validate_condition_node(canonical_node, doctype=self.document_type or None)
+					self.compiled_expression = None
+				else:
+					legacy_payload = parse_condition_payload(self.trigger_condition)
+					compiled_expression = compiler.compile(legacy_payload)
+					self.compiled_expression = compiled_expression
+					is_valid, error = compiler.validate(compiled_expression)
+					if not is_valid:
+						frappe.throw(_("Invalid Trigger Condition: {0}").format(error))
+			except ConditionError as exc:
+				frappe.throw(
+					_("Invalid Trigger Condition [{0} at {1}]: {2}").format(exc.code, exc.path, exc.message)
+				)
 			except Exception as e:
 				frappe.throw(_("Error compiling Trigger Condition: {0}").format(str(e)))
 		else:
 			self.compiled_expression = None
 
-		# Compile Action Conditions
+		# Condition actions use the same canonical node and validator. The legacy
+		# adapter remains only for old payloads while migration is in progress.
 		for action in self.actions:
 			if normalize_action_type(action.action_type) != "Condition":
 				continue
@@ -1314,7 +1421,6 @@ class Rule(Document):
 			try:
 				condition_payload = get_condition_payload(action)
 				if condition_payload is None:
-					# Keep strict behavior for malformed/non-empty JSON strings
 					raw_config = action.get("config")
 					raw_legacy = action.get("condition_json")
 					if raw_config not in (None, ""):
@@ -1326,24 +1432,95 @@ class Rule(Document):
 					action.compiled_expression = None
 					continue
 
-				action.compiled_expression = compiler.compile(condition_payload)
+				is_canonical, canonical_node = detect_canonical_condition_payload(condition_payload)
+				if is_canonical:
+					if canonical_node is None:
+						raise ConditionValidationError(
+							"invalid_condition_payload", "$", "Canonical condition payload is missing"
+						)
+					validate_condition_node(canonical_node, doctype=self.document_type or None)
+					set_condition_payload_on_action(action, canonical_node)
+					action.compiled_expression = None
+					continue
 
-				# Persist canonical payload in config for deprecated-condition_json migration.
+				action.compiled_expression = compiler.compile(condition_payload)
 				parsed_payload = parse_condition_payload(condition_payload)
 				if parsed_payload is not None:
 					set_condition_payload_on_action(action, parsed_payload)
 
-				# Validate compiled expression
 				is_valid, error = compiler.validate(action.compiled_expression)
 				if not is_valid:
 					frappe.throw(_("Invalid Condition in Action {0}: {1}").format(action.action_label, error))
-			except ValueError as e:
+			except ConditionError as exc:
 				frappe.throw(
-					_("Error compiling Action {0} Condition: {1}").format(action.action_label, str(e))
+					_("Invalid Condition in Action {0} [{1} at {2}]: {3}").format(
+						action.action_label, exc.code, exc.path, exc.message
+					)
 				)
 			except Exception as e:
 				frappe.throw(
 					_("Error compiling Action {0} Condition: {1}").format(action.action_label, str(e))
+				)
+
+		# Assignment guards are conditions too. Validate canonical guards at save time
+		# so a malformed guard cannot first fail after earlier assignment mutations.
+		for action in self.actions:
+			if normalize_action_type(action.action_type) != "Assignment":
+				continue
+			raw_config = action.get("config")
+			try:
+				if isinstance(raw_config, str):
+					assignment_rows = json.loads(raw_config) if raw_config.strip() else []
+				else:
+					assignment_rows = raw_config
+				if not isinstance(assignment_rows, list):
+					continue
+				for index, row in enumerate(assignment_rows):
+					if not isinstance(row, dict):
+						continue
+
+					if "when_condition_canonical" in row:
+						from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
+						raise ConditionValidationError(
+							"unsupported_assignment_guard",
+							f"assignments[{index}]",
+							"Internal field when_condition_canonical cannot be supplied in configuration",
+						)
+
+					legacy_guard_keys = ("pythonExpression", "when_expression", "when")
+					if any(row.get(key) not in (None, "") for key in legacy_guard_keys):
+						from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
+						raise ConditionValidationError(
+							"unsupported_assignment_guard",
+							f"assignments[{index}]",
+							"Legacy expression guard fields are not supported in Assignment actions",
+						)
+
+					raw_guard = row.get("when_condition")
+					if raw_guard not in (None, ""):
+						is_canonical, canonical_guard = detect_canonical_condition_payload(raw_guard)
+						if not is_canonical or canonical_guard is None:
+							from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
+							raise ConditionValidationError(
+								"unsupported_assignment_guard",
+								f"assignments[{index}].when_condition",
+								"Assignment action guards must be canonical direct nodes",
+							)
+						validate_condition_node(canonical_guard, doctype=self.document_type or None)
+			except ConditionError as exc:
+				frappe.throw(
+					_("Invalid Assignment guard in Action {0} [{1} at {2}]: {3}").format(
+						action.action_label, exc.code, exc.path, exc.message
+					)
+				)
+			except Exception as exc:
+				frappe.throw(
+					_("Invalid Assignment configuration in Action {0}: {1}").format(
+						action.action_label, str(exc)
+					)
 				)
 
 	def _validate_action_config(self, action):
@@ -1409,6 +1586,12 @@ class Rule(Document):
 		"""Validate Assignment action configuration."""
 		config_str = action.get("config") if hasattr(action, "get") else getattr(action, "config", "[]")
 		if not config_str:
+			if self.is_active:
+				frappe.throw(
+					_("Action '{0}': Active Assignment actions require configuration").format(
+						action.action_label
+					)
+				)
 			return
 
 		try:
@@ -1419,6 +1602,27 @@ class Rule(Document):
 				)
 		except Exception:
 			frappe.throw(_("Action '{0}': Invalid JSON in Assignment config").format(action.action_label))
+
+		# Validate canonical/legacy run-if guards at save time, not only when the
+		# runtime action plan is first built. Use the same strict compiler as execution;
+		# this remains uncached so changed DocType metadata is checked on every save.
+		from flexirule.ruleflow.core.action_handlers.assignment import AssignmentHandler
+		from flexirule.ruleflow.core.condition_errors import ConditionError
+
+		try:
+			AssignmentHandler._compile_plan(
+				json.dumps(assignments, ensure_ascii=False, allow_nan=False),
+				doctype=self.document_type or None,
+			)
+		except ConditionError as exc:
+			error_category = (
+				_("Assignment value operand") if "value" in str(exc.path) else _("Assignment guard")
+			)
+			frappe.throw(
+				_("Action '{0}': Invalid {1} [{2} at {3}]: {4}").format(
+					action.action_label, error_category, exc.code, exc.path, exc.message
+				)
+			)
 
 		# Validate fields
 		for row in assignments:

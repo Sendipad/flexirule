@@ -1,7 +1,10 @@
 <script setup>
 import { computed, inject, onMounted, provide, reactive, ref, watch } from "vue";
 /**
- * CollectionUI - Child table iterator editor
+ * DEPRECATED: CollectionUI - Child table iterator editor.
+ * Canonical replacement: CanonicalCollectionEditor.vue.
+ * New code must not import or depend on this component.
+ * Physical removal is deferred to a future dedicated cleanup change.
  */
 import ConditionNode from "./ConditionNode.vue";
 import SelectControl from "../../controls/SelectControl.vue";

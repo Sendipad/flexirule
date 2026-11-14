@@ -16,6 +16,7 @@ const props = defineProps({
 	hideLabel: { type: Boolean, default: false },
 	placeholder: { type: String, default: "" },
 	documentType: { type: String, default: "" },
+	filters: { type: Object, default: null },
 	expanded: { type: Boolean, default: false },
 	disabled: { type: Boolean, default: false },
 	loadingState: { type: Boolean, default: false },
@@ -26,6 +27,7 @@ const props = defineProps({
 	badgeCollapseAfter: { type: Number, default: 4 },
 	allowWrap: { type: Boolean, default: true },
 	allowInvertSelection: { type: Boolean, default: true },
+	allowCustomValue: { type: Boolean, default: false },
 	dropdownMinWidth: { type: Number, default: 260 },
 	dropdownMaxWidth: { type: Number, default: 760 },
 	dropdownMaxHeight: { type: Number, default: 380 },
@@ -143,7 +145,7 @@ const {
 		return await metaStore.search_link_options({
 			doctype: target_dt,
 			txt: search || "",
-			filters: props.df?.filters || {},
+			filters: props.filters || props.df?.filters || {},
 			start,
 			page_length: pageSize,
 		});
@@ -323,6 +325,17 @@ function selectOption(value) {
 	emitValue(next);
 }
 
+function addCustomValue(val) {
+	const trimmed = String(val || "").trim();
+	if (!trimmed) return;
+	const next = [...selectedValues.value];
+	if (!next.includes(trimmed)) {
+		next.push(trimmed);
+		emitValue(next);
+	}
+	query.value = "";
+}
+
 function removeValue(value) {
 	if (!canInteract.value) return;
 	emitValue(selectedValues.value.filter((v) => v !== String(value)));
@@ -422,9 +435,10 @@ function onKeydown(event) {
 	if (event.key === "Enter") {
 		event.preventDefault();
 		const options = filteredOptions.value || [];
-		if (activeIndex.value > -1) {
-			const selected = options[activeIndex.value];
-			if (selected) selectOption(selected.value);
+		if (activeIndex.value > -1 && options[activeIndex.value]) {
+			selectOption(options[activeIndex.value].value);
+		} else if (props.allowCustomValue && query.value.trim()) {
+			addCustomValue(query.value);
 		}
 		return;
 	}
@@ -523,6 +537,15 @@ watch(
 		if (canInteract.value) clearAll();
 		if (showExpanded.value || isDropdownOpen.value) fetchOptions(query.value || "");
 	}
+);
+
+watch(
+	() => props.filters,
+	() => {
+		reset();
+		if (showExpanded.value || isDropdownOpen.value) fetchOptions(query.value || "");
+	},
+	{ deep: true }
 );
 
 watch(
@@ -777,7 +800,19 @@ onBeforeUnmount(() => {
 						{{ error || errorMessage }}
 					</div>
 					<div class="dropdown-state" v-else-if="!filteredOptions.length">
-						{{ __("No options found") }}
+						<div v-if="allowCustomValue && query.trim()">
+							<button
+								type="button"
+								class="btn btn-xs btn-outline-primary"
+								@click="addCustomValue(query)"
+							>
+								<i class="fa fa-plus mr-1"></i>
+								{{ __('Add "{0}"').replace("{0}", query.trim()) }}
+							</button>
+						</div>
+						<div v-else>
+							{{ __("No options found") }}
+						</div>
 					</div>
 
 					<div

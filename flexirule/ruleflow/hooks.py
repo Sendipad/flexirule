@@ -129,7 +129,12 @@ def clear_rule_cache(doc=None, method=None, *args, **kwargs):
 	"""Selective runtime-registry invalidation for Rule lifecycle changes."""
 	from flexirule.ruleflow.core.action_plan_cache import clear_rule_action_plan_cache
 	from flexirule.ruleflow.core.compile_service import clear_compiled_artifact_cache
+	from flexirule.ruleflow.core.condition_evaluator import clear_condition_plan_cache
 	from flexirule.ruleflow.core.coordinator import RuleCoordinator
+
+	# Plans are payload-keyed, but clear them during Rule lifecycle changes so
+	# registry/metadata contract adjustments cannot leave request-local stale plans.
+	clear_condition_plan_cache()
 
 	if not doc:
 		clear_rule_action_plan_cache()

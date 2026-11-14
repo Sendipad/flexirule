@@ -7,12 +7,12 @@ from frappe import _
 
 class ConditionCompiler:
 	"""
-	Compiles Standardized JSON conditions into optimized Python expressions.
-	Schema:
-	- Group: { "op": "and|or", "conditions": [...] }
-	- Condition: { "left": Operand, "op": "==", "right": Operand }
-	- Collection: { "op": "any|all", "collection": "path", "alias": "x", "where": Group }
-	- Operand: { "ref": "scope.path" } | { "value": <literal> }
+	DEPRECATED: Compiles legacy JSON conditions into Python expressions.
+
+	Canonical conditions must be validated via `condition_contract.validate_condition_node`
+	and evaluated via `condition_evaluator.evaluate_condition` or `prepare_condition`.
+	New code must not import, call, or depend on ConditionCompiler.
+	Physical removal is deferred to a future dedicated cleanup change.
 	"""
 
 	OPERATOR_MAP: ClassVar[dict[str, str]] = {
@@ -129,7 +129,7 @@ class ConditionCompiler:
 	}
 
 	def compile(self, conditions) -> str:
-		if not conditions:
+		if conditions is None or (isinstance(conditions, str) and not conditions.strip()):
 			return ""
 
 		from flexirule.ruleflow.core.condition_payload import parse_condition_payload
@@ -145,8 +145,12 @@ class ConditionCompiler:
 			return parsed
 
 		if isinstance(parsed, list):
+			if not parsed:
+				raise ValueError("Legacy condition list cannot be empty")
 			conditions_tree = {"op": "and", "conditions": parsed}
 		elif isinstance(parsed, dict):
+			if not parsed:
+				raise ValueError("Legacy condition dictionary cannot be empty")
 			conditions_tree = parsed
 		else:
 			raise ValueError(f"Unsupported condition payload type: {type(conditions).__name__}")
@@ -154,15 +158,19 @@ class ConditionCompiler:
 		compiled = self._compile_node(
 			conditions_tree, scopes={"doc", "old_doc", "row", "vars", "item", "caller", "rule", "doctype"}
 		)
-		result = compiled if compiled else "True"
-		is_valid, err = self.validate(result)
+		if not compiled:
+			raise ValueError("Condition compilation resulted in an empty expression")
+		is_valid, err = self.validate(compiled)
 		if not is_valid:
 			raise ValueError(f"Invalid compiled condition expression: {err}")
-		return result
+		return compiled
 
 	def _compile_node(self, node, scopes=None):
 		if not isinstance(node, dict):
-			return ""
+			raise ValueError(f"Invalid condition node type: {type(node).__name__}")
+
+		if not node:
+			raise ValueError("Legacy condition node cannot be empty")
 
 		if scopes is None:
 			scopes = {"doc", "old_doc", "row", "vars", "item", "caller", "rule", "doctype"}
@@ -180,33 +188,26 @@ class ConditionCompiler:
 		if "left" in node:
 			return self._compile_condition(node, scopes)
 
-		# Fallback/Empty
-		return ""
+		raise ValueError("Invalid or unknown legacy condition node structure")
 
 	def _compile_group(self, node, scopes):
 		subs = node.get("conditions", [])
-		if not subs:
-			return ""
+		if not isinstance(subs, list) or not subs:
+			raise ValueError("Legacy condition group requires a non-empty list of conditions")
 
 		default_op = node.get("op", node.get("logical_operator", "and")).lower()
 		if default_op not in ["and", "or"]:
-			default_op = "and"
+			raise ValueError(f"Unknown logical operator in group: {default_op}")
 
 		result_parts: list[str] = []
 		for i, sub in enumerate(subs):
 			compiled_sub = self._compile_node(sub, scopes)
 			if not compiled_sub:
-				continue
+				raise ValueError(f"Child condition at index {i} produced an empty expression")
 
 			if not result_parts:
-				# First node, just add it
 				result_parts.append(compiled_sub)
 			else:
-				# Subsequent nodes, get operator from PREVIOUS node for joining
-				# Actually, standard behavior is that the item itself says how it joins with the previous one,
-				# or the previous one says how it joins with the next.
-				# In flexirule, we use condition.get('logical_operator') to join with the NEXT.
-				# So we look at the operator of the previous node.
 				prev_node = subs[i - 1]
 				op = prev_node.get("logical_operator", default_op).lower()
 				if op not in ["and", "or"]:
@@ -215,7 +216,7 @@ class ConditionCompiler:
 				result_parts.extend([" ", op, " ", compiled_sub])
 
 		if not result_parts:
-			return ""
+			raise ValueError("Legacy group produced an empty expression")
 
 		return f"({''.join(result_parts)})"
 

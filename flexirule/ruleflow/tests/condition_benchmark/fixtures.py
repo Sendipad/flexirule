@@ -4,9 +4,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 import frappe
+
+from flexirule.ruleflow.tests.condition_benchmark.adapters import (
+	NeutralNode,
+	NeutralScenario,
+	node_to_canonical_payload,
+	node_to_legacy_payload,
+)
 
 
 @dataclass
@@ -25,498 +32,717 @@ class BenchmarkFixture:
 	nesting_depth: int = 1
 
 
-def get_all_fixtures() -> list[BenchmarkFixture]:
-	"""Return standard benchmark fixture corpus across all complexity tiers."""
-	fixtures = []
+def get_neutral_scenarios() -> list[NeutralScenario]:
+	"""Return standard neutral business scenarios covering representative rule categories."""
+	scenarios = []
 
-	# --- Tier 1: Simple Condition ---
-	tier1 = BenchmarkFixture(
-		fixture_id="tier1_simple_equality",
-		tier="Tier 1 — Simple",
-		description="Single leaf comparison for status equality",
-		condition_payload={
-			"op": "and",
-			"conditions": [
+	# 1. Simple Equality
+	scenarios.append(
+		NeutralScenario(
+			scenario_id="simple_equality",
+			tier="Tier 1 — Simple",
+			description="Single leaf comparison for status equality",
+			root=NeutralNode(
+				kind="comparison",
+				operator="eq",
+				left_scope="doc",
+				left_segments=["status"],
+				right_value_type="string",
+				right_value="Open",
+			),
+			matching_doc=frappe._dict({"status": "Open"}),
+			non_matching_doc=frappe._dict({"status": "Closed"}),
+			leaf_count=1,
+			nesting_depth=1,
+		)
+	)
+
+	# 2. Typical Business Rule
+	scenarios.append(
+		NeutralScenario(
+			scenario_id="typical_business_rule",
+			tier="Tier 2 — Typical Business Rule",
+			description="Three leaf conditions joined by AND",
+			root=NeutralNode(
+				kind="group",
+				operator="and",
+				children=[
+					NeutralNode(
+						kind="comparison",
+						operator="eq",
+						left_scope="doc",
+						left_segments=["status"],
+						right_value_type="string",
+						right_value="Submitted",
+					),
+					NeutralNode(
+						kind="comparison",
+						operator="gt",
+						left_scope="doc",
+						left_segments=["grand_total"],
+						right_value_type="decimal",
+						right_value="1000",
+					),
+					NeutralNode(
+						kind="comparison",
+						operator="eq",
+						left_scope="doc",
+						left_segments=["customer_group"],
+						right_value_type="string",
+						right_value="Commercial",
+					),
+				],
+			),
+			matching_doc=frappe._dict(
 				{
-					"left": {"ref": "doc.status"},
-					"op": "==",
-					"right": {"value": "Open"},
+					"status": "Submitted",
+					"grand_total": 1500,
+					"customer_group": "Commercial",
 				}
-			],
-		},
-		matching_doc=frappe._dict({"status": "Open", "doctype": "ToDo"}),
-		non_matching_doc=frappe._dict({"status": "Closed", "doctype": "ToDo"}),
-		leaf_count=1,
-		nesting_depth=1,
+			),
+			non_matching_doc=frappe._dict(
+				{
+					"status": "Submitted",
+					"grand_total": 800,
+					"customer_group": "Commercial",
+				}
+			),
+			leaf_count=3,
+			nesting_depth=1,
+		)
 	)
-	fixtures.append(tier1)
 
-	# --- Tier 2: Typical Business Rule ---
-	tier2 = BenchmarkFixture(
-		fixture_id="tier2_typical_business_rule",
-		tier="Tier 2 — Typical Business Rule",
-		description="Three leaf conditions joined by AND",
-		condition_payload={
-			"op": "and",
-			"conditions": [
-				{
-					"left": {"ref": "doc.status"},
-					"op": "==",
-					"right": {"value": "Submitted"},
-				},
-				{
-					"left": {"ref": "doc.grand_total"},
-					"op": ">",
-					"right": {"value": 1000},
-				},
-				{
-					"left": {"ref": "doc.customer_group"},
-					"op": "==",
-					"right": {"value": "Commercial"},
-				},
-			],
-		},
-		matching_doc=frappe._dict(
-			{
-				"status": "Submitted",
-				"grand_total": 1500,
-				"customer_group": "Commercial",
-				"doctype": "Sales Order",
-			}
-		),
-		non_matching_doc=frappe._dict(
-			{
-				"status": "Submitted",
-				"grand_total": 800,
-				"customer_group": "Commercial",
-				"doctype": "Sales Order",
-			}
-		),
-		leaf_count=3,
-		nesting_depth=1,
-	)
-	fixtures.append(tier2)
-
-	# --- Tier 3: Nested AND/OR Groups ---
-	tier3 = BenchmarkFixture(
-		fixture_id="tier3_nested_and_or_groups",
-		tier="Tier 3 — Nested Groups",
-		description="Nested AND/OR groups for status and total/priority",
-		condition_payload={
-			"op": "and",
-			"conditions": [
-				{
-					"op": "or",
-					"conditions": [
-						{
-							"left": {"ref": "doc.status"},
-							"op": "==",
-							"right": {"value": "Draft"},
-						},
-						{
-							"left": {"ref": "doc.status"},
-							"op": "==",
-							"right": {"value": "Submitted"},
-						},
-					],
-				},
-				{
-					"op": "or",
-					"conditions": [
-						{
-							"left": {"ref": "doc.grand_total"},
-							"op": ">=",
-							"right": {"value": 5000},
-						},
-						{
-							"left": {"ref": "doc.priority"},
-							"op": "==",
-							"right": {"value": "High"},
-						},
-					],
-				},
-			],
-		},
-		matching_doc=frappe._dict(
-			{
-				"status": "Submitted",
-				"grand_total": 6000,
-				"priority": "Medium",
-				"doctype": "Sales Order",
-			}
-		),
-		non_matching_doc=frappe._dict(
-			{
-				"status": "Cancelled",
-				"grand_total": 6000,
-				"priority": "High",
-				"doctype": "Sales Order",
-			}
-		),
-		leaf_count=4,
-		nesting_depth=2,
-	)
-	fixtures.append(tier3)
-
-	# --- Tier 4: Deep Nested Complex Rule ---
-	tier4 = BenchmarkFixture(
-		fixture_id="tier4_deep_nested_complex",
-		tier="Tier 4 — Deep Nested Complex",
-		description="10 leaf conditions across 3 nested levels with mixed operators",
-		condition_payload={
-			"op": "and",
-			"conditions": [
-				{
-					"left": {"ref": "doc.docstatus"},
-					"op": "==",
-					"right": {"value": 1},
-				},
-				{
-					"op": "or",
-					"conditions": [
-						{
-							"left": {"ref": "doc.territory"},
-							"op": "in",
-							"right": {"value": ["North", "East", "West"]},
-						},
-						{
-							"left": {"ref": "doc.is_prime_customer"},
-							"op": "==",
-							"right": {"value": 1},
-						},
-					],
-				},
-				{
-					"op": "and",
-					"conditions": [
-						{
-							"left": {"ref": "doc.net_amount"},
-							"op": ">",
-							"right": {"value": 500},
-						},
-						{
-							"left": {"ref": "doc.discount_percentage"},
-							"op": "<=",
-							"right": {"value": 15},
-						},
-						{
-							"op": "or",
-							"conditions": [
-								{
-									"left": {"ref": "doc.workflow_state"},
-									"op": "==",
-									"right": {"value": "Approved"},
-								},
-								{
-									"left": {"ref": "doc.auto_approved"},
-									"op": "==",
-									"right": {"value": 1},
-								},
-							],
-						},
-					],
-				},
-				{
-					"left": {"ref": "doc.notes"},
-					"op": "is_set",
-				},
-			],
-		},
-		matching_doc=frappe._dict(
-			{
-				"docstatus": 1,
-				"territory": "North",
-				"is_prime_customer": 0,
-				"net_amount": 750,
-				"discount_percentage": 10,
-				"workflow_state": "Approved",
-				"auto_approved": 0,
-				"notes": "Verified rule context",
-				"doctype": "Sales Invoice",
-			}
-		),
-		non_matching_doc=frappe._dict(
-			{
-				"docstatus": 1,
-				"territory": "South",
-				"is_prime_customer": 0,
-				"net_amount": 750,
-				"discount_percentage": 10,
-				"workflow_state": "Approved",
-				"auto_approved": 0,
-				"notes": "Verified rule context",
-				"doctype": "Sales Invoice",
-			}
-		),
-		leaf_count=8,
-		nesting_depth=3,
-	)
-	fixtures.append(tier4)
-
-	# --- Tier 5: Collection Child Records ---
-	tier5 = BenchmarkFixture(
-		fixture_id="tier5_collection_child_records",
-		tier="Tier 5 — Collection / Child Records",
-		description="Collection condition checking items child table with 'any' logic",
-		condition_payload={
-			"op": "and",
-			"conditions": [
-				{
-					"left": {"ref": "doc.status"},
-					"op": "==",
-					"right": {"value": "Submitted"},
-				},
-				{
-					"collection": "doc.items",
-					"op": "any",
-					"alias": "item",
-					"where": {
-						"op": "and",
-						"conditions": [
-							{
-								"left": {"ref": "item.qty"},
-								"op": ">",
-								"right": {"value": 10},
-							},
-							{
-								"left": {"ref": "item.rate"},
-								"op": ">=",
-								"right": {"value": 100},
-							},
+	# 3. Nested AND/OR Groups
+	scenarios.append(
+		NeutralScenario(
+			scenario_id="nested_and_or_groups",
+			tier="Tier 3 — Nested Groups",
+			description="Nested AND/OR groups for status and total/priority",
+			root=NeutralNode(
+				kind="group",
+				operator="and",
+				children=[
+					NeutralNode(
+						kind="group",
+						operator="or",
+						children=[
+							NeutralNode(
+								kind="comparison",
+								operator="eq",
+								left_scope="doc",
+								left_segments=["status"],
+								right_value_type="string",
+								right_value="Draft",
+							),
+							NeutralNode(
+								kind="comparison",
+								operator="eq",
+								left_scope="doc",
+								left_segments=["status"],
+								right_value_type="string",
+								right_value="Submitted",
+							),
 						],
-					},
-				},
-			],
-		},
-		matching_doc=frappe._dict(
-			{
-				"status": "Submitted",
-				"items": [
-					frappe._dict({"item_code": "ITEM-1", "qty": 5, "rate": 50}),
-					frappe._dict({"item_code": "ITEM-2", "qty": 15, "rate": 120}),
+					),
+					NeutralNode(
+						kind="group",
+						operator="or",
+						children=[
+							NeutralNode(
+								kind="comparison",
+								operator="gte",
+								left_scope="doc",
+								left_segments=["grand_total"],
+								right_value_type="decimal",
+								right_value="5000",
+							),
+							NeutralNode(
+								kind="comparison",
+								operator="eq",
+								left_scope="doc",
+								left_segments=["priority"],
+								right_value_type="boolean",
+								right_value=True,
+							),
+						],
+					),
 				],
-				"doctype": "Sales Order",
-			}
-		),
-		non_matching_doc=frappe._dict(
-			{
-				"status": "Submitted",
-				"items": [
-					frappe._dict({"item_code": "ITEM-1", "qty": 5, "rate": 50}),
-					frappe._dict({"item_code": "ITEM-2", "qty": 8, "rate": 120}),
+			),
+			matching_doc=frappe._dict(
+				{
+					"status": "Submitted",
+					"grand_total": 6000,
+					"priority": False,
+				}
+			),
+			non_matching_doc=frappe._dict(
+				{
+					"status": "Cancelled",
+					"grand_total": 6000,
+					"priority": True,
+				}
+			),
+			leaf_count=4,
+			nesting_depth=2,
+		)
+	)
+
+	# 4. Deep Nested Complex Rule
+	scenarios.append(
+		NeutralScenario(
+			scenario_id="deep_nested_complex",
+			tier="Tier 4 — Deep Nested Complex",
+			description="8 leaf conditions across 3 nested levels",
+			root=NeutralNode(
+				kind="group",
+				operator="and",
+				children=[
+					NeutralNode(
+						kind="comparison",
+						operator="eq",
+						left_scope="doc",
+						left_segments=["docstatus"],
+						right_value_type="integer",
+						right_value=1,
+					),
+					NeutralNode(
+						kind="group",
+						operator="or",
+						children=[
+							NeutralNode(
+								kind="comparison",
+								operator="in",
+								left_scope="doc",
+								left_segments=["territory"],
+								right_value_type="list",
+								right_value=["North", "East", "West"],
+							),
+							NeutralNode(
+								kind="comparison",
+								operator="eq",
+								left_scope="doc",
+								left_segments=["is_prime_customer"],
+								right_value_type="boolean",
+								right_value=True,
+							),
+						],
+					),
+					NeutralNode(
+						kind="group",
+						operator="and",
+						children=[
+							NeutralNode(
+								kind="comparison",
+								operator="gt",
+								left_scope="doc",
+								left_segments=["net_amount"],
+								right_value_type="decimal",
+								right_value="500",
+							),
+							NeutralNode(
+								kind="comparison",
+								operator="lte",
+								left_scope="doc",
+								left_segments=["discount_percentage"],
+								right_value_type="decimal",
+								right_value="15",
+							),
+							NeutralNode(
+								kind="group",
+								operator="or",
+								children=[
+									NeutralNode(
+										kind="comparison",
+										operator="eq",
+										left_scope="doc",
+										left_segments=["workflow_state"],
+										right_value_type="string",
+										right_value="Approved",
+									),
+									NeutralNode(
+										kind="comparison",
+										operator="eq",
+										left_scope="doc",
+										left_segments=["auto_approved"],
+										right_value_type="boolean",
+										right_value=True,
+									),
+								],
+							),
+						],
+					),
+					NeutralNode(
+						kind="comparison",
+						operator="is_set",
+						left_scope="doc",
+						left_segments=["notes"],
+					),
 				],
-				"doctype": "Sales Order",
-			}
-		),
-		leaf_count=3,
-		nesting_depth=2,
-	)
-	fixtures.append(tier5)
-
-	# --- Edge Case 1: Null vs Empty String ---
-	edge1 = BenchmarkFixture(
-		fixture_id="edge_case_is_set_null_empty",
-		tier="Edge Case — Null / Empty",
-		description="Checking is_set with null vs empty string vs non-empty string",
-		condition_payload={
-			"op": "and",
-			"conditions": [
+			),
+			matching_doc=frappe._dict(
 				{
-					"left": {"ref": "doc.remarks"},
-					"op": "is_set",
+					"docstatus": 1,
+					"territory": "North",
+					"is_prime_customer": False,
+					"net_amount": 750,
+					"discount_percentage": 10,
+					"workflow_state": "Approved",
+					"auto_approved": False,
+					"notes": "Verified rule context",
 				}
-			],
-		},
-		matching_doc=frappe._dict({"remarks": "Some notes"}),
-		non_matching_doc=frappe._dict({"remarks": ""}),
-		leaf_count=1,
-		nesting_depth=1,
-	)
-	fixtures.append(edge1)
-
-	# --- Edge Case 2: Link Tuple ---
-	edge2 = BenchmarkFixture(
-		fixture_id="edge_case_link_tuple",
-		tier="Edge Case — Link Tuple",
-		description="Link tuple comparison for Customer link field",
-		condition_payload={
-			"op": "and",
-			"conditions": [
+			),
+			non_matching_doc=frappe._dict(
 				{
-					"left": {"ref": "doc.customer"},
-					"op": "==",
-					"right": {"value": ["Customer", "CUST-00001"]},
+					"docstatus": 1,
+					"territory": "South",
+					"is_prime_customer": False,
+					"net_amount": 750,
+					"discount_percentage": 10,
+					"workflow_state": "Approved",
+					"auto_approved": False,
+					"notes": "Verified rule context",
 				}
-			],
-		},
-		matching_doc=frappe._dict({"customer": "CUST-00001"}),
-		non_matching_doc=frappe._dict({"customer": "CUST-00002"}),
-		leaf_count=1,
-		nesting_depth=1,
+			),
+			leaf_count=8,
+			nesting_depth=3,
+		)
 	)
-	fixtures.append(edge2)
 
-	# --- Edge Case 3: Membership ('in' / 'not_in') ---
-	edge3 = BenchmarkFixture(
-		fixture_id="edge_case_membership_in_not_in",
-		tier="Edge Case — Membership",
-		description="Checking 'in' and 'not_in' with list operand",
-		condition_payload={
-			"op": "and",
-			"conditions": [
+	# 5. Collection Predicate (any)
+	scenarios.append(
+		NeutralScenario(
+			scenario_id="collection_predicate",
+			tier="Tier 5 — Collection Predicate",
+			description="Collection condition checking items child table with 'any' quantifier",
+			root=NeutralNode(
+				kind="group",
+				operator="and",
+				children=[
+					NeutralNode(
+						kind="comparison",
+						operator="eq",
+						left_scope="doc",
+						left_segments=["status"],
+						right_value_type="string",
+						right_value="Submitted",
+					),
+					NeutralNode(
+						kind="collection_predicate",
+						quantifier="any",
+						source_scope="doc",
+						source_segments=["items"],
+						alias="item_row",
+						where=NeutralNode(
+							kind="group",
+							operator="and",
+							children=[
+								NeutralNode(
+									kind="comparison",
+									operator="gt",
+									left_scope="item_row",
+									left_segments=["qty"],
+									right_value_type="integer",
+									right_value=10,
+								),
+								NeutralNode(
+									kind="comparison",
+									operator="gte",
+									left_scope="item_row",
+									left_segments=["rate"],
+									right_value_type="decimal",
+									right_value="100",
+								),
+							],
+						),
+					),
+				],
+			),
+			matching_doc=frappe._dict(
 				{
-					"left": {"ref": "doc.status"},
-					"op": "in",
-					"right": {"value": ["Open", "Pending", "Draft"]},
-				},
-				{
-					"left": {"ref": "doc.priority"},
-					"op": "not in",
-					"right": {"value": ["Low", "Trivial"]},
-				},
-			],
-		},
-		matching_doc=frappe._dict({"status": "Pending", "priority": "High"}),
-		non_matching_doc=frappe._dict({"status": "Closed", "priority": "High"}),
-		leaf_count=2,
-		nesting_depth=1,
-	)
-	fixtures.append(edge3)
-
-	# --- Edge Case 4: Substring Contains ---
-	edge4 = BenchmarkFixture(
-		fixture_id="edge_case_contains_not_contains",
-		tier="Edge Case — Substring",
-		description="Checking 'contains' and 'not_contains' on string fields",
-		condition_payload={
-			"op": "and",
-			"conditions": [
-				{
-					"left": {"ref": "doc.subject"},
-					"op": "contains",
-					"right": {"value": "URGENT"},
-				},
-				{
-					"left": {"ref": "doc.subject"},
-					"op": "not_contains",
-					"right": {"value": "SPAM"},
-				},
-			],
-		},
-		matching_doc=frappe._dict({"subject": "URGENT: Server issue"}),
-		non_matching_doc=frappe._dict({"subject": "URGENT: SPAM detected"}),
-		leaf_count=2,
-		nesting_depth=1,
-	)
-	fixtures.append(edge4)
-
-	# --- Edge Case 5: Collection All / None ---
-	edge5 = BenchmarkFixture(
-		fixture_id="edge_case_collection_all_and_none",
-		tier="Edge Case — Collection All/None",
-		description="Collection condition verifying 'all' items are verified",
-		condition_payload={
-			"op": "and",
-			"conditions": [
-				{
-					"collection": "doc.items",
-					"op": "all",
-					"alias": "item",
-					"where": {
-						"left": {"ref": "item.is_verified"},
-						"op": "==",
-						"right": {"value": 1},
-					},
+					"status": "Submitted",
+					"items": [
+						frappe._dict({"item_code": "ITEM-1", "qty": 5, "rate": 50}),
+						frappe._dict({"item_code": "ITEM-2", "qty": 15, "rate": 120}),
+					],
 				}
-			],
-		},
-		matching_doc=frappe._dict(
-			{
-				"items": [
-					frappe._dict({"item_code": "I1", "is_verified": 1}),
-					frappe._dict({"item_code": "I2", "is_verified": 1}),
-				]
-			}
-		),
-		non_matching_doc=frappe._dict(
-			{
-				"items": [
-					frappe._dict({"item_code": "I1", "is_verified": 1}),
-					frappe._dict({"item_code": "I2", "is_verified": 0}),
-				]
-			}
-		),
-		leaf_count=1,
-		nesting_depth=2,
-	)
-	fixtures.append(edge5)
-
-	# --- Edge Case 6: Length Operators ---
-	edge6 = BenchmarkFixture(
-		fixture_id="edge_case_length_gt_eq",
-		tier="Edge Case — Length",
-		description="Checking length_gt and length_eq on text fields",
-		condition_payload={
-			"op": "and",
-			"conditions": [
+			),
+			non_matching_doc=frappe._dict(
 				{
-					"left": {"ref": "doc.title"},
-					"op": "length_gt",
-					"right": {"value": 5},
+					"status": "Submitted",
+					"items": [
+						frappe._dict({"item_code": "ITEM-1", "qty": 5, "rate": 50}),
+						frappe._dict({"item_code": "ITEM-2", "qty": 8, "rate": 120}),
+					],
 				}
-			],
-		},
-		matching_doc=frappe._dict({"title": "Detailed Title"}),
-		non_matching_doc=frappe._dict({"title": "Tiny"}),
-		leaf_count=1,
-		nesting_depth=1,
+			),
+			leaf_count=3,
+			nesting_depth=2,
+		)
 	)
-	fixtures.append(edge6)
 
-	# --- Edge Case 7: has_changed Operator ---
-	edge7 = BenchmarkFixture(
-		fixture_id="edge_case_has_changed",
-		tier="Edge Case — Field Change",
-		description="Checking has_changed operator comparing doc and old_doc",
-		condition_payload={
-			"op": "and",
-			"conditions": [
-				{
-					"left": {"ref": "doc.status"},
-					"op": "has_changed",
-				}
-			],
-		},
-		matching_doc=frappe._dict(
-			{"status": "Submitted", "_doc_before_save": frappe._dict({"status": "Draft"})}
-		),
-		non_matching_doc=frappe._dict(
-			{"status": "Submitted", "_doc_before_save": frappe._dict({"status": "Submitted"})}
-		),
-		leaf_count=1,
-		nesting_depth=1,
+	# 6. Edge Case: Membership
+	scenarios.append(
+		NeutralScenario(
+			scenario_id="edge_case_membership_in_not_in",
+			tier="Edge Case — Membership",
+			description="Membership in and not_in operators",
+			root=NeutralNode(
+				kind="group",
+				operator="and",
+				children=[
+					NeutralNode(
+						kind="comparison",
+						operator="in",
+						left_scope="doc",
+						left_segments=["status"],
+						right_value_type="list",
+						right_value=["Open", "Pending", "Draft"],
+					),
+					NeutralNode(
+						kind="comparison",
+						operator="not_in",
+						left_scope="doc",
+						left_segments=["priority"],
+						right_value_type="list",
+						right_value=["Low", "Trivial"],
+					),
+				],
+			),
+			matching_doc=frappe._dict({"status": "Pending", "priority": "High"}),
+			non_matching_doc=frappe._dict({"status": "Closed", "priority": "High"}),
+			leaf_count=2,
+			nesting_depth=1,
+		)
 	)
-	fixtures.append(edge7)
 
-	# --- Edge Case 8: None vs Missing Field ---
-	edge8 = BenchmarkFixture(
-		fixture_id="edge_case_none_vs_missing_field",
-		tier="Edge Case — Missing Field",
-		description="Checking is_not_set on missing field versus set field",
-		condition_payload={
-			"op": "and",
-			"conditions": [
-				{
-					"left": {"ref": "doc.missing_field"},
-					"op": "is_not_set",
-				}
-			],
-		},
-		matching_doc=frappe._dict({}),
-		non_matching_doc=frappe._dict({"missing_field": "Present"}),
-		leaf_count=1,
-		nesting_depth=1,
+	# 7. Edge Case: Text & Length
+	scenarios.append(
+		NeutralScenario(
+			scenario_id="edge_case_contains_not_contains",
+			tier="Edge Case — Substring",
+			description="Contains substring and not_contains operators",
+			root=NeutralNode(
+				kind="group",
+				operator="and",
+				children=[
+					NeutralNode(
+						kind="comparison",
+						operator="contains",
+						left_scope="doc",
+						left_segments=["subject"],
+						right_value_type="string",
+						right_value="URGENT",
+					),
+					NeutralNode(
+						kind="comparison",
+						operator="not_contains",
+						left_scope="doc",
+						left_segments=["subject"],
+						right_value_type="string",
+						right_value="SPAM",
+					),
+				],
+			),
+			matching_doc=frappe._dict({"subject": "URGENT: Server issue"}),
+			non_matching_doc=frappe._dict({"subject": "URGENT: SPAM detected"}),
+			leaf_count=2,
+			nesting_depth=1,
+		)
 	)
-	fixtures.append(edge8)
 
+	# 8. Edge Case: Field Change
+	scenarios.append(
+		NeutralScenario(
+			scenario_id="edge_case_has_changed",
+			tier="Edge Case — Field Change",
+			description="Checking has_changed operator comparing doc and old_doc",
+			root=NeutralNode(
+				kind="comparison",
+				operator="has_changed",
+				left_scope="doc",
+				left_segments=["status"],
+			),
+			matching_doc=frappe._dict(
+				{"status": "Submitted", "_doc_before_save": frappe._dict({"status": "Draft"})}
+			),
+			non_matching_doc=frappe._dict(
+				{"status": "Submitted", "_doc_before_save": frappe._dict({"status": "Submitted"})}
+			),
+			leaf_count=1,
+			nesting_depth=1,
+		)
+	)
+
+	# 9. Edge Case: Missing vs Set
+	scenarios.append(
+		NeutralScenario(
+			scenario_id="edge_case_none_vs_missing_field",
+			tier="Edge Case — Missing Field",
+			description="Checking is_not_set on missing field versus set field",
+			root=NeutralNode(
+				kind="comparison",
+				operator="is_not_set",
+				left_scope="doc",
+				left_segments=["missing_field"],
+			),
+			matching_doc=frappe._dict({}),
+			non_matching_doc=frappe._dict({"missing_field": "Present"}),
+			leaf_count=1,
+			nesting_depth=1,
+		)
+	)
+
+	return scenarios
+
+
+def get_all_fixtures() -> list[BenchmarkFixture]:
+	"""Return legacy benchmark fixtures derived from shared neutral scenarios."""
+	fixtures = []
+	for sc in get_neutral_scenarios():
+		legacy_payload = node_to_legacy_payload(sc.root)
+		fixtures.append(
+			BenchmarkFixture(
+				fixture_id=sc.scenario_id,
+				tier=sc.tier,
+				description=sc.description,
+				condition_payload=legacy_payload,
+				matching_doc=sc.matching_doc,
+				non_matching_doc=sc.non_matching_doc,
+				expected_matching_result=sc.expected_matching_result,
+				expected_non_matching_result=sc.expected_non_matching_result,
+				leaf_count=sc.leaf_count,
+				nesting_depth=sc.nesting_depth,
+			)
+		)
 	return fixtures
+
+
+def get_canonical_fixtures() -> list[BenchmarkFixture]:
+	"""Return PR #469 canonical benchmark fixtures derived from shared neutral scenarios."""
+	fixtures = []
+	for sc in get_neutral_scenarios():
+		# Exclude has_changed from canonical fixtures since has_changed is not in canonical operator contract
+		if sc.scenario_id == "edge_case_has_changed":
+			continue
+		canonical_payload = node_to_canonical_payload(sc.root)
+		fixtures.append(
+			BenchmarkFixture(
+				fixture_id=f"canonical_{sc.scenario_id}",
+				tier=f"Canonical {sc.tier}",
+				description=sc.description,
+				condition_payload=canonical_payload,
+				matching_doc=sc.matching_doc,
+				non_matching_doc=sc.non_matching_doc,
+				expected_matching_result=sc.expected_matching_result,
+				expected_non_matching_result=sc.expected_non_matching_result,
+				leaf_count=sc.leaf_count,
+				nesting_depth=sc.nesting_depth,
+			)
+		)
+	return fixtures
+
+
+def get_canonical_scaling_workloads() -> dict[str, Any]:
+	"""Return dedicated Canonical condition comparison workloads.
+
+	Includes simple, complex nested, dynamic operands, variable-vs-variable,
+	and collection scale fixtures (10, 100, 1000, 10000 rows) with early, late,
+	and no-match scenarios respecting production row budgets.
+	"""
+	workloads = {}
+
+	# 1. Simple condition
+	workloads["simple_numeric"] = {
+		"description": "Simple numeric comparison (doc.amount > 1000)",
+		"payload": {
+			"type": "comparison",
+			"operator": "gt",
+			"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["amount"]}},
+			"right": {"mode": "static", "value_type": "decimal", "value": "1000"},
+		},
+		"matching_doc": {"amount": 1500},
+		"non_matching_doc": {"amount": 500},
+		"expected": True,
+	}
+
+	# 2. Dynamic variable on both sides
+	workloads["dynamic_operands_var_vs_var"] = {
+		"description": "Dynamic variable on both sides (doc.spent > doc.limit)",
+		"payload": {
+			"type": "comparison",
+			"operator": "gt",
+			"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["spent"]}},
+			"right": {"mode": "variable", "path": {"scope": "doc", "segments": ["limit"]}},
+		},
+		"matching_doc": {"spent": 2500, "limit": 2000},
+		"non_matching_doc": {"spent": 1500, "limit": 2000},
+		"expected": True,
+	}
+
+	# 3. Complex deeply nested condition with early/late short-circuiting
+	workloads["complex_nested_tree"] = {
+		"description": "Complex nested condition with multiple groups and comparisons",
+		"payload": {
+			"type": "group",
+			"operator": "and",
+			"children": [
+				{
+					"type": "group",
+					"operator": "or",
+					"children": [
+						{
+							"type": "comparison",
+							"operator": "eq",
+							"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["priority"]}},
+							"right": {"mode": "static", "value_type": "string", "value": "Urgent"},
+						},
+						{
+							"type": "comparison",
+							"operator": "gt",
+							"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["amount"]}},
+							"right": {"mode": "static", "value_type": "decimal", "value": "5000"},
+						},
+					],
+				},
+				{
+					"type": "group",
+					"operator": "and",
+					"children": [
+						{
+							"type": "comparison",
+							"operator": "eq",
+							"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["status"]}},
+							"right": {"mode": "static", "value_type": "string", "value": "Open"},
+						},
+						{
+							"type": "comparison",
+							"operator": "in",
+							"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["category"]}},
+							"right": {
+								"mode": "static",
+								"value_type": "list",
+								"value": ["Hardware", "Software", "Support"],
+							},
+						},
+					],
+				},
+			],
+		},
+		"matching_doc": {
+			"priority": "Urgent",
+			"amount": 100,
+			"status": "Open",
+			"category": "Software",
+		},
+		"non_matching_doc": {
+			"priority": "Low",
+			"amount": 100,
+			"status": "Open",
+			"category": "Software",
+		},
+		"expected": True,
+	}
+
+	# 4. Collection Workloads at scale: 10, 100, 1,000, and 10,000 rows
+	collection_base_payload = {
+		"type": "collection_predicate",
+		"quantifier": "any",
+		"source": {"scope": "doc", "segments": ["items"]},
+		"as": "child_row",
+		"where": {
+			"type": "comparison",
+			"operator": "eq",
+			"left": {"mode": "variable", "path": {"scope": "child_row", "segments": ["flag"]}},
+			"right": {"mode": "static", "value_type": "string", "value": "TARGET"},
+		},
+	}
+
+	for size in [10, 100, 1000, 10000]:
+		early_items = [{"flag": "TARGET" if i == 0 else "NORMAL"} for i in range(size)]
+		workloads[f"collection_any_{size}_early"] = {
+			"description": f"Collection 'any' {size} rows (early match on 1st row)",
+			"payload": collection_base_payload,
+			"doc": {"items": early_items},
+			"expected": True,
+			"collection_size": size,
+		}
+
+		late_items = [{"flag": "TARGET" if i == (size - 1) else "NORMAL"} for i in range(size)]
+		workloads[f"collection_any_{size}_late"] = {
+			"description": f"Collection 'any' {size} rows (late match on row {size})",
+			"payload": collection_base_payload,
+			"doc": {"items": late_items},
+			"expected": True,
+			"collection_size": size,
+		}
+
+		no_match_items = [{"flag": "NORMAL"} for _ in range(size)]
+		workloads[f"collection_any_{size}_none"] = {
+			"description": f"Collection 'any' {size} rows (no match / full scan)",
+			"payload": collection_base_payload,
+			"doc": {"items": no_match_items},
+			"expected": False,
+			"collection_size": size,
+		}
+
+	# 5. Collection 'all' quantifier (stops at first non-match)
+	workloads["collection_all_100_early_break"] = {
+		"description": "Collection 'all' 100 rows (breaks on 1st row)",
+		"payload": {
+			"type": "collection_predicate",
+			"quantifier": "all",
+			"source": {"scope": "doc", "segments": ["items"]},
+			"as": "child_row",
+			"where": {
+				"type": "comparison",
+				"operator": "eq",
+				"left": {"mode": "variable", "path": {"scope": "child_row", "segments": ["status"]}},
+				"right": {"mode": "static", "value_type": "string", "value": "Valid"},
+			},
+		},
+		"doc": {"items": [{"status": "Invalid" if i == 0 else "Valid"} for i in range(100)]},
+		"expected": False,
+		"collection_size": 100,
+	}
+
+	# 6. Static operand on the left and dynamic variable on the right
+	workloads["dynamic_operands_static_left"] = {
+		"description": "Static threshold on left, document amount on right (100 < doc.amount)",
+		"payload": {
+			"type": "comparison",
+			"operator": "lt",
+			"left": {"mode": "static", "value_type": "integer", "value": 100},
+			"right": {"mode": "variable", "path": {"scope": "doc", "segments": ["amount"]}},
+		},
+		"matching_doc": {"amount": 150},
+		"non_matching_doc": {"amount": 50},
+		"expected": True,
+	}
+
+	# 7. Template operand with a lazily resolved variable segment
+	workloads["template_operand"] = {
+		"description": "Template operand interpolating doc.name",
+		"payload": {
+			"type": "comparison",
+			"operator": "eq",
+			"left": {
+				"mode": "template",
+				"segments": [
+					{"type": "text", "value": "Invoice "},
+					{
+						"type": "value",
+						"value": {
+							"mode": "variable",
+							"path": {"scope": "doc", "segments": ["name"]},
+						},
+					},
+				],
+			},
+			"right": {"mode": "static", "value_type": "string", "value": "Invoice INV-001"},
+		},
+		"matching_doc": {"name": "INV-001"},
+		"non_matching_doc": {"name": "INV-002"},
+		"expected": True,
+	}
+
+	return workloads

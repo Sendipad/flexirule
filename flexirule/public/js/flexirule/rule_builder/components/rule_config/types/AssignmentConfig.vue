@@ -234,12 +234,15 @@
 						</button>
 					</div>
 					<div class="condition-builder-wrap">
-						<ConditionBuilder
+						<CanonicalConditionBuilder
 							ref="conditionBuilderRef"
 							:modelValue="whenEditor.draft"
 							:docFields="whenConditionDocFields"
 							:variableOptions="variable_options"
+							:currentDocType="docType"
 							:readOnly="false"
+							:isMandatory="false"
+							:showValidation="showValidation"
 							@update:modelValue="updateDraft"
 						/>
 					</div>
@@ -269,8 +272,9 @@ import { fromCodeString, deepClone } from "../../../utils/serialization";
 import { useActionConfig } from "../../../composables/useActionConfig";
 import ComboBoxControl from "../../../controls/ComboBoxControl.vue";
 import FlexValueControl from "../../../controls/FlexValueControl.vue";
-import ConditionBuilder from "../../condition_builder/ConditionBuilder.vue";
-import { validateConditions } from "../../condition_builder/condition_validator.js";
+import CanonicalConditionBuilder from "../../condition_builder/CanonicalConditionBuilder.vue";
+import { isCanonicalConditionPayload } from "../../condition_builder/canonical_condition_adapter.mjs";
+import { validateCanonicalCondition } from "../../condition_builder/canonical_condition_validation.mjs";
 import { compileSegmentsToJinja } from "../../../utils/text_generator";
 import { ASSIGNMENT_OPERATOR_METADATA } from "../../../../core/contracts.js";
 
@@ -344,7 +348,10 @@ function getTargetFieldtype(target) {
 function getTargetDoctype(target) {
 	if (!target) return null;
 	const opt = targetOptions.value.find((o) => o.value === target);
-	return opt?.options || null;
+	// Dynamic Link.options is the name of its controlling field, not a target DocType.
+	// Assignment target metadata alone cannot resolve that runtime value safely.
+	if (!opt || opt.fieldtype !== "Link") return null;
+	return opt.options || null;
 }
 
 /**
@@ -442,13 +449,20 @@ watch(
 				structuredVal.config = config;
 			}
 
+			const legacyGuard = {};
+			for (const key of ["pythonExpression", "when_expression", "when"]) {
+				const value = a[key];
+				if (value !== undefined && value !== null && value !== "") {
+					legacyGuard[key] = value;
+				}
+			}
+
 			return {
 				name,
 				target: a.target || "",
 				operator: a.operator || "set",
 				when_condition: a.when_condition || null,
-				when_expression: a.when_expression || a.when || "",
-				pythonExpression: a.pythonExpression || "",
+				legacy_guard: Object.keys(legacyGuard).length ? legacyGuard : null,
 				value: structuredVal,
 			};
 		});
@@ -504,15 +518,32 @@ const targetOptions = computed(() => {
 // ─── Mutations ────────────────────────────────────────────────────────────────
 
 function syncToNode() {
-	const clean = assignments.value.map((a) => ({
-		name: a.name || makeRandomString(9),
-		target: a.target,
-		operator: a.operator,
-		when_condition: a.when_condition || null,
-		when_expression: a.when_condition ? "" : a.when_expression || "",
-		pythonExpression: a.pythonExpression || "",
-		value: a.value,
-	}));
+	const clean = assignments.value.map((a) => {
+		const row = {
+			name: a.name || makeRandomString(9),
+			target: a.target,
+			operator: a.operator,
+			when_condition: a.when_condition || null,
+		};
+
+		if (needsValue(a.operator)) {
+			row.value = a.value;
+		}
+
+		// Preserve non-empty legacy guards so the strict backend can reject them
+		// with an actionable migration error. Never emit empty legacy keys: their
+		// mere presence is forbidden by the canonical Assignment contract.
+		if (a.legacy_guard && typeof a.legacy_guard === "object") {
+			for (const key of ["pythonExpression", "when_expression", "when"]) {
+				const value = a.legacy_guard[key];
+				if (value !== undefined && value !== null && value !== "") {
+					row[key] = value;
+				}
+			}
+		}
+
+		return row;
+	});
 	// Standard: update_action_field handles 'config' as Object
 	update_action_field("config", clean);
 
@@ -528,9 +559,8 @@ function addAssignment() {
 		target: "",
 		operator: "set",
 		when_condition: null,
-		when_expression: "",
-		pythonExpression: "",
-		value: { mode: "static", value: "" },
+		legacy_guard: null,
+		value: { mode: "static", value_type: "Data", value: "" },
 	});
 	syncToNode();
 }
@@ -581,19 +611,28 @@ function onTargetChange(index, value) {
 }
 
 function hasWhenCondition(assignment) {
-	return !!(
-		assignment?.when_condition &&
-		Array.isArray(assignment.when_condition.conditions) &&
-		assignment.when_condition.conditions.length > 0
-	);
+	if (!assignment?.when_condition) return false;
+	const cond = assignment.when_condition;
+	if (isCanonicalConditionPayload(cond)) {
+		if (cond.type === "group") return Array.isArray(cond.children) && cond.children.length > 0;
+		return true;
+	}
+	return typeof cond === "object";
 }
 
 function getWhenConditionStatus(assignment) {
+	if (assignment?.legacy_guard) return { isInvalid: true, isLegacy: true };
 	if (!hasWhenCondition(assignment)) return { isInvalid: false };
 
-	const res = validateConditions(assignment.when_condition, true, true);
-
-	return { isInvalid: !res.valid };
+	const cond = assignment.when_condition;
+	if (!isCanonicalConditionPayload(cond)) {
+		return { isInvalid: true, isLegacy: true };
+	}
+	const res = validateCanonicalCondition(cond, { isMandatory: true });
+	if (!res.valid) {
+		return { isInvalid: true, isLegacy: false, errors: res.errors };
+	}
+	return { isInvalid: false, isLegacy: false };
 }
 
 const whenConditionDocFields = computed(() =>
@@ -608,11 +647,10 @@ const whenConditionDocFields = computed(() =>
 
 function openWhenConditionEditor(index) {
 	const current = assignments.value[index];
-	const fallback = { op: "and", conditions: [] };
 	whenEditor.value = {
 		open: true,
 		index,
-		draft: deepClone(current?.when_condition || fallback),
+		draft: deepClone(current?.when_condition || null),
 	};
 
 	// If shortcut to invalid condition, trigger validation immediately in the builder
@@ -658,18 +696,16 @@ onBeforeUnmount(() => {
 function updateDraft(val) {
 	if (whenEditor.value.index < 0) return;
 	whenEditor.value.draft = val;
-	const tree = val;
-	const hasConditions = !!(tree && Array.isArray(tree.conditions) && tree.conditions.length);
-	assignments.value[whenEditor.value.index].when_condition = hasConditions ? tree : null;
-	assignments.value[whenEditor.value.index].when_expression = "";
+	assignments.value[whenEditor.value.index].when_condition = val || null;
+	assignments.value[whenEditor.value.index].legacy_guard = null;
 	syncToNode();
 }
 
 function clearWhenCondition() {
 	if (whenEditor.value.index < 0) return;
 	assignments.value[whenEditor.value.index].when_condition = null;
-	assignments.value[whenEditor.value.index].when_expression = "";
-	whenEditor.value.draft = { op: "and", conditions: [] };
+	assignments.value[whenEditor.value.index].legacy_guard = null;
+	whenEditor.value.draft = null;
 	syncToNode();
 }
 function getDefaultResolverKind(target) {
@@ -687,8 +723,21 @@ function getDefaultResolverKind(target) {
 
 function onOperatorChange(index, value) {
 	assignments.value[index].operator = value;
-	if (!needsValue(value)) {
-		assignments.value[index].value = { mode: "static", value: "" };
+	if (needsValue(value)) {
+		const currentVal = assignments.value[index].value;
+		if (
+			!currentVal ||
+			typeof currentVal !== "object" ||
+			!currentVal.mode ||
+			!currentVal.value_type
+		) {
+			const targetFieldtype = getTargetFieldtype(assignments.value[index].target);
+			assignments.value[index].value = {
+				mode: "static",
+				value_type: targetFieldtype || "Data",
+				value: typeof currentVal === "string" ? currentVal : "",
+			};
+		}
 	}
 	syncToNode();
 }
@@ -721,25 +770,77 @@ async function validate() {
 	assignments.value.forEach((a, idx) => {
 		const n = idx + 1;
 
+		// Legacy expression guards are intentionally not auto-converted. Require
+		// users to rebuild them with the canonical Run If editor before saving.
+		if (a.legacy_guard) {
+			errors.push(
+				__(
+					"Assignment #{0}: Legacy Run If expressions must be rebuilt with the canonical condition editor.",
+					[n]
+				)
+			);
+		}
+
 		// Target path validation
 		if (a.target && !a.target.startsWith("doc.") && !a.target.startsWith("vars.")) {
 			errors.push(__("Assignment #{0}: Target must start with 'doc.' or 'vars.'", [n]));
 		}
 
-		// Validate nested conditions if editor is open for THIS assignment
+		// Validate nested conditions whether editor modal is open or closed
 		if (whenEditor.value.open && whenEditor.value.index === idx && conditionBuilderRef.value) {
-			const res = conditionBuilderRef.value.validate();
+			const res = conditionBuilderRef.value.validateSync
+				? conditionBuilderRef.value.validateSync()
+				: { valid: true, errors: [] };
 			if (!res.valid) {
 				errors.push(...res.errors.map((e) => __("Assignment #{0} Condition: {1}", [n, e])));
 			}
 		} else if (a.when_condition) {
-			// Deep validation of existing conditions
-			const res = validateConditions(a.when_condition, true, true);
-			if (!res.valid) {
-				errors.push(...res.errors.map((e) => __("Assignment #{0} Condition: {1}", [n, e])));
+			if (!isCanonicalConditionPayload(a.when_condition)) {
+				errors.push(__("Assignment #{0} Condition must be a canonical condition", [n]));
+			} else {
+				const res = validateCanonicalCondition(a.when_condition, { isMandatory: true });
+				if (!res.valid) {
+					errors.push(
+						...res.errors.map((e) => __("Assignment #{0} Condition: {1}", [n, e]))
+					);
+				}
 			}
 		}
 	});
+
+	// Authoritative backend validation across all assignments with when_condition
+	if (typeof frappe !== "undefined" && frappe.call) {
+		for (let idx = 0; idx < assignments.value.length; idx++) {
+			const a = assignments.value[idx];
+			const n = idx + 1;
+			if (a.when_condition && isCanonicalConditionPayload(a.when_condition)) {
+				try {
+					const response = await frappe.call({
+						method: "flexirule.ruleflow.api.validate_condition",
+						args: {
+							condition: JSON.stringify(a.when_condition),
+							doctype: docType.value || undefined,
+						},
+					});
+					const data = response.message || response;
+					if (!data.valid) {
+						const errList = data.errors || ["Invalid canonical condition"];
+						errors.push(
+							...errList.map((e) => __("Assignment #{0} Condition: {1}", [n, e]))
+						);
+					}
+				} catch (err) {
+					// Fail closed on service/network errors
+					errors.push(
+						__("Assignment #{0} Condition: Backend validation service error ({1})", [
+							n,
+							err?.message || "unavailable",
+						])
+					);
+				}
+			}
+		}
+	}
 
 	if (assignments.value.length === 0) {
 		errors.push(__("Please add at least one assignment."));

@@ -1,5 +1,11 @@
 <template>
-	<div class="tree-builder fxr-accent-scope">
+	<div
+		ref="rootRef"
+		class="tree-builder fxr-accent-scope"
+		tabindex="0"
+		@focusin="onFocusIn"
+		@focusout="onFocusOut"
+	>
 		<div class="tree-builder__header">
 			<div class="tree-builder__logic">
 				<button
@@ -70,9 +76,12 @@
 	</div>
 </template>
 <script setup>
-import { computed, provide, ref, useSlots } from "vue";
+import { computed, onBeforeUnmount, onMounted, provide, ref, useSlots } from "vue";
 import TreeBuilderNode from "./TreeBuilderNode.vue";
 import { useTreeBuilder } from "./useTreeBuilder.js";
+import { useKeyboardRegistry } from "../../composables/useKeyboardRegistry.js";
+import { cloneTree } from "./tree_builder_utils.mjs";
+import { regenerateNodeIds } from "./useTreeBuilderActions.js";
 
 const props = defineProps({
 	modelValue: {
@@ -99,6 +108,7 @@ const props = defineProps({
 	editorLayout: { type: String, default: "replace" },
 	isLeafNew: { type: Function, default: null },
 	isLeafValid: { type: Function, default: null },
+	beforeRemove: { type: Function, default: null },
 });
 const emit = defineEmits(["update:modelValue", "change", "validation-error"]);
 const slots = useSlots();
@@ -117,16 +127,121 @@ const api = useTreeBuilder({
 	validateCollection: props.validateCollection,
 });
 
+function removeNode(id) {
+	if (typeof props.beforeRemove === "function") {
+		const canRemove = props.beforeRemove(id, api.root);
+		if (canRemove === false) return;
+		if (canRemove instanceof Promise) {
+			canRemove.then((confirmed) => {
+				if (confirmed !== false) api.removeNode(id);
+			});
+			return;
+		}
+	}
+	return api.removeNode(id);
+}
+
 const hasSummarySlot = computed(() => Boolean(slots["leaf-summary"]));
 provide("treeBuilderContext", {
 	...api,
+	removeNode,
 	presentationMode: computed(() => props.presentationMode),
 	editorLayout: computed(() => props.editorLayout),
 	isLeafNew: computed(() => props.isLeafNew),
 	isLeafValid: computed(() => props.isLeafValid),
 	hasSummarySlot,
 });
-const { root, operators, addLeaf, addCollection, addGroup, removeNode, setOperator } = api;
+const rootRef = ref(null);
+const instanceId = Math.random().toString(36).slice(2, 9);
+const treeContextName = "tree:" + instanceId;
+const { registerShortcut, pushContext, popContext } = useKeyboardRegistry();
+const unregisterShortcuts = ref([]);
+
+function onFocusIn() {
+	pushContext(treeContextName);
+}
+
+function onFocusOut(e) {
+	if (!rootRef.value?.contains(e.relatedTarget)) {
+		popContext(treeContextName);
+	}
+}
+
+onMounted(() => {
+	unregisterShortcuts.value = [
+		registerShortcut({
+			key: "e",
+			ctrl: true,
+			shift: true,
+			context: treeContextName,
+			priority: 16,
+			allowInInputs: true,
+			callback: () => {
+				if (props.readOnly) return;
+				const targetId =
+					api.focusedNodeId?.value ||
+					api.editingNodeId?.value ||
+					api.selectedNodeId?.value;
+				if (!targetId || targetId === "root") return;
+				if (api.editingNodeId?.value === targetId) {
+					api.finishEditing(targetId);
+				} else {
+					api.setEditing(targetId);
+				}
+			},
+		}),
+		registerShortcut({
+			key: "Delete",
+			context: treeContextName,
+			priority: 15,
+			callback: () => {
+				if (props.readOnly) return;
+				const selectedId =
+					api.focusedNodeId?.value ||
+					api.selectedNodeId?.value ||
+					api.editingNodeId?.value;
+				if (selectedId && selectedId !== "root") {
+					removeNode(selectedId);
+				}
+			},
+		}),
+		registerShortcut({
+			key: "ArrowDown",
+			alt: true,
+			shift: true,
+			context: treeContextName,
+			priority: 15,
+			callback: () => {
+				if (props.readOnly) return;
+				const selectedId = api.selectedNodeId?.value || api.editingNodeId?.value;
+				if (!selectedId || selectedId === "root") return;
+				const node = api.selectedNode?.value;
+				if (node) {
+					const clone = cloneTree(node);
+					regenerateNodeIds(clone);
+					const parent =
+						typeof api.findParent === "function" ? api.findParent(node.id) : null;
+					if (parent && Array.isArray(parent.children)) {
+						const idx = parent.children.findIndex((c) => c.id === node.id);
+						parent.children.splice(
+							idx >= 0 ? idx + 1 : parent.children.length,
+							0,
+							clone
+						);
+						api.selectNode(clone.id);
+					}
+				}
+			},
+		}),
+	];
+});
+
+onBeforeUnmount(() => {
+	popContext(treeContextName);
+	unregisterShortcuts.value.forEach((unreg) => unreg());
+});
+
+const { root, operators, addLeaf, addCollection, addGroup, setOperator } = api;
 const operatorLabel = (op) => props.operatorLabel(op);
 const visibleNode = (node) => props.visibleNode(node) !== false;
 const rootDragOver = ref(false);
@@ -156,7 +271,10 @@ function onRootDrop(e) {
 	api.endDrag();
 }
 
-defineExpose({ ...api });
+defineExpose({
+	...api,
+	removeNode,
+});
 </script>
 <style scoped>
 .tree-builder {

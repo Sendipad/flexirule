@@ -1,6 +1,8 @@
 # Copyright (c) 2026, Abdo Ruzaqi and Contributors
 # See license.txt
 
+import json
+
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
@@ -209,6 +211,40 @@ class TestRule(FrappeTestCase):
 		with self.assertRaisesRegex(frappe.ValidationError, "is a Condition but no condition is defined"):
 			rule.validate()
 
+	def test_shared_validation_passes_rule_doctype_to_condition_handlers(self):
+		from flexirule.ruleflow.core.validation_service import validate_rule_definition
+
+		rule = frappe.get_doc(
+			{
+				"doctype": "Rule",
+				"rule_name": "Rule Condition Handler Metadata Context",
+				"document_type": "User",
+				"trigger_type": "DocType Event",
+				"trigger_event": "Before Save",
+				"actions": [
+					{
+						"action_id": "condition_1",
+						"action_label": "Unknown User Field",
+						"action_type": "Condition",
+						"config": json.dumps(
+							{
+								"type": "comparison",
+								"operator": "eq",
+								"left": {
+									"mode": "variable",
+									"path": {"scope": "doc", "segments": ["field_that_does_not_exist"]},
+								},
+								"right": {"mode": "static", "value_type": "Data", "value": "x"},
+							}
+						),
+					}
+				],
+			}
+		)
+		result = validate_rule_definition(rule, mode="draft")
+		self.assertFalse(result["valid"])
+		self.assertTrue(any("unknown_field" in error for error in result["errors"]))
+
 	def test_service_matches_form_validation_for_async_output_mapping(self):
 		"""Async output mapping should fail consistently through API and form validation."""
 		payload = {
@@ -340,7 +376,7 @@ class TestRule(FrappeTestCase):
 							{
 								"target": "doc.first_name",
 								"operator": "set",
-								"value": {"mode": "static", "value": ""},
+								"value": {"mode": "static", "value_type": "Data", "value": ""},
 								"value_source": "literal",
 								"value_literal": "",
 							}
@@ -385,7 +421,7 @@ class TestRule(FrappeTestCase):
 		self.assertIsNotNone(artifact)
 		assert artifact is not None  # type narrowing for mypy
 		self.assertEqual(artifact.get("rule"), rule.name)
-		self.assertEqual(artifact.get("artifact_version"), 1)
+		self.assertEqual(artifact.get("artifact_version"), 2)
 
 	def test_rule_dashboard_data_and_counts(self):
 		"""Verify that Rule dashboard metadata and get_open_count work as expected."""
@@ -454,3 +490,54 @@ class TestRule(FrappeTestCase):
 		self.assertIsNotNone(rule_link_found)
 		assert rule_link_found is not None
 		self.assertEqual(rule_link_found.get("count"), 1)
+
+	def test_assignment_lifecycle_draft_vs_active(self):
+		"""Drafts may be incomplete, but incomplete Assignment plans cannot execute or activate."""
+		draft_rule = frappe.get_doc(
+			{
+				"doctype": "Rule",
+				"rule_name": "Test Draft Assignment Lifecycle",
+				"trigger_type": "DocType Event",
+				"document_type": "ToDo",
+				"trigger_event": "Before Insert",
+				"is_active": 0,
+				"actions": [
+					{
+						"action_id": "assign-lifecycle-1",
+						"action_label": "Draft Assignment",
+						"action_type": "Assignment",
+						"config": "",
+					}
+				],
+			}
+		)
+		draft_rule.insert(ignore_permissions=True)
+		self.assertEqual(draft_rule.is_active, 0)
+
+		# An incomplete Draft is editable, not executable. The runtime plan compiler
+		# must reject its empty Assignment config with the same typed error used by
+		# the runtime guard instead of silently normalizing it to a no-op.
+		from flexirule.ruleflow.core.action_plan_cache import (
+			clear_rule_action_plan_cache,
+			get_rule_action_plan,
+		)
+		from flexirule.ruleflow.core.condition_errors import ConditionValidationError
+
+		clear_rule_action_plan_cache(draft_rule.name)
+		with self.assertRaises(ConditionValidationError) as raised:
+			get_rule_action_plan(draft_rule)
+		self.assertEqual(raised.exception.code, "assignment_config_required")
+
+		draft_rule.reload()
+		draft_rule.is_active = 1
+		with self.assertRaises(frappe.ValidationError):
+			draft_rule.save(ignore_permissions=True)
+
+		draft_rule.reload()
+		draft_rule.is_active = 1
+		for action in draft_rule.actions:
+			if action.action_type == "Assignment":
+				action.config = json.dumps([{"target": "doc.status", "value": "Closed"}])
+		draft_rule.save(ignore_permissions=True)
+		self.assertEqual(draft_rule.is_active, 1)
+		draft_rule.delete(ignore_permissions=True)

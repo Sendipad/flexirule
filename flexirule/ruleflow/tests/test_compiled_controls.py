@@ -65,27 +65,36 @@ class TestCompiledControls(FrappeTestCase):
 										{
 											"type": "conditional",
 											"condition": {
-												"op": "and",
-												"conditions": [
-													{
-														"left": {"ref": "doc.priority"},
-														"op": "==",
-														"right": {"value": "High"},
-													}
-												],
+												"type": "comparison",
+												"operator": "eq",
+												"left": {
+													"mode": "variable",
+													"path": {"scope": "doc", "segments": ["priority"]},
+												},
+												"right": {
+													"mode": "static",
+													"value_type": "Select",
+													"value": "High",
+												},
 											},
 											"then_segments": [{"type": "text", "content": " URGENT!"}],
 											"elif_branches": [
 												{
 													"condition": {
-														"op": "and",
-														"conditions": [
-															{
-																"left": {"ref": "doc.priority"},
-																"op": "==",
-																"right": {"value": "Medium"},
-															}
-														],
+														"type": "comparison",
+														"operator": "eq",
+														"left": {
+															"mode": "variable",
+															"path": {
+																"scope": "doc",
+																"segments": ["priority"],
+															},
+														},
+														"right": {
+															"mode": "static",
+															"value_type": "Select",
+															"value": "Medium",
+														},
 													},
 													"segments": [{"type": "text", "content": " (medium)"}],
 												}
@@ -110,17 +119,13 @@ class TestCompiledControls(FrappeTestCase):
 
 		rule.insert(ignore_permissions=True)
 		action = next(a for a in rule.actions if a.action_id == "set_1")
-		expected = (
-			"Hello {{ doc.name }}"
-			"{% if doc.priority == 'High' %} URGENT!"
-			"{% elif doc.priority == 'Medium' %} (medium)"
-			"{% else %} (low)"
-			"{% endif %}"
-		)
-		self.assertEqual(json.loads(action.config)[0]["value"], expected)
+		row = json.loads(action.config)[0]
+		self.assertIn("_eval_condition(", row["value"])
+		self.assertIn("condition_registry", row)
+		self.assertEqual(len(row["condition_registry"]), 2)
 
 	def test_compile_text_generator_normalizes_shorthand_roots(self):
-		"""Shorthand refs (is_pos / result.total) should normalize to doc./vars. roots."""
+		"""Shorthand refs (status / result.total) should normalize to doc./vars. roots."""
 		rule = self._base_rule(
 			self._uid(),
 			[
@@ -144,20 +149,25 @@ class TestCompiledControls(FrappeTestCase):
 								"text_generator_ui": {
 									"version": 2,
 									"segments": [
-										{"type": "text", "content": "Value: {{ is_pos }} / "},
+										{"type": "text", "content": "Value: {{ status }} / "},
 										{
 											"type": "conditional",
 											"condition": {
-												"op": "and",
-												"conditions": [
-													{
-														"left": {"ref": "is_pos"},
-														"op": "!=",
-														"right": {"value": 1},
-													}
-												],
+												"type": "comparison",
+												"operator": "ne",
+												"left": {
+													"mode": "variable",
+													"path": {"scope": "doc", "segments": ["status"]},
+												},
+												"right": {
+													"mode": "static",
+													"value_type": "Select",
+													"value": "Open",
+												},
 											},
-											"then_segments": [{"type": "variable", "path": "result.total"}],
+											"then_segments": [
+												{"type": "variable", "path": "vars.result.total"}
+											],
 											"elif_branches": [],
 											"else_segments": [],
 										},
@@ -181,8 +191,8 @@ class TestCompiledControls(FrappeTestCase):
 
 		action = next(a for a in rule.actions if a.action_id == "set_1")
 		config = json.loads(action.config)
-		self.assertIn("{{ doc.is_pos }}", config[0]["value"])
-		self.assertIn("{% if doc.is_pos != 1 %}", config[0]["value"])
+		self.assertIn("{{ doc.status }}", config[0]["value"])
+		self.assertIn("_eval_condition(", config[0]["value"])
 		self.assertIn("{{ vars.result.total }}", config[0]["value"])
 
 	def test_assignment_compiles_operand_and_guard_metadata(self):
@@ -204,16 +214,19 @@ class TestCompiledControls(FrappeTestCase):
 							{
 								"target": "doc.description",
 								"operator": "set",
-								"value_template_ui": {"mode": "static", "value": "Compiled Literal"},
+								"value_template_ui": {
+									"mode": "static",
+									"value_type": "Data",
+									"value": "Compiled Literal",
+								},
 								"when_condition": {
-									"op": "and",
-									"conditions": [
-										{
-											"left": {"ref": "doc.status"},
-											"op": "==",
-											"right": {"value": "Open"},
-										}
-									],
+									"type": "comparison",
+									"operator": "eq",
+									"left": {
+										"mode": "variable",
+										"path": {"scope": "doc", "segments": ["status"]},
+									},
+									"right": {"mode": "static", "value_type": "string", "value": "Open"},
 								},
 							}
 						]
@@ -234,9 +247,8 @@ class TestCompiledControls(FrappeTestCase):
 		row = json.loads(action.config)[0]
 		self.assertEqual(row.get("value_source"), "literal")
 		self.assertEqual(row.get("value_literal"), "Compiled Literal")
-		python_expression = row.get("pythonExpression", "")
-		self.assertIn("Open", python_expression)
-		self.assertIn("status", python_expression)
+		self.assertIn("when_condition", row)
+		self.assertEqual(row["when_condition"]["type"], "comparison")
 
 	def test_assignment_row_when_expression_skips_row(self):
 		todo = frappe.get_doc({"doctype": "ToDo", "description": "Initial"}).insert(ignore_permissions=True)
@@ -259,13 +271,29 @@ class TestCompiledControls(FrappeTestCase):
 							{
 								"target": "doc.description",
 								"operator": "set",
-								"value_template_ui": {"mode": "static", "value": "Should Not Run"},
-								"when_expression": "doc.status == 'Closed'",
+								"value_template_ui": {
+									"mode": "static",
+									"value_type": "Data",
+									"value": "Should Not Run",
+								},
+								"when_condition": {
+									"type": "comparison",
+									"operator": "eq",
+									"left": {
+										"mode": "variable",
+										"path": {"scope": "doc", "segments": ["status"]},
+									},
+									"right": {"mode": "static", "value_type": "string", "value": "Closed"},
+								},
 							},
 							{
 								"target": "doc.description",
 								"operator": "set",
-								"value_template_ui": {"mode": "static", "value": "Executed"},
+								"value_template_ui": {
+									"mode": "static",
+									"value_type": "Data",
+									"value": "Executed",
+								},
 							},
 						]
 					),
@@ -364,7 +392,7 @@ class TestCompiledControls(FrappeTestCase):
 							{
 								"target": "doc.description",
 								"operator": "set",
-								"value_template_ui": {"mode": "static", "value": "A"},
+								"value_template_ui": {"mode": "static", "value_type": "Data", "value": "A"},
 							}
 						]
 					),
@@ -380,7 +408,7 @@ class TestCompiledControls(FrappeTestCase):
 				{
 					"target": "doc.description",
 					"operator": "set",
-					"value_template_ui": {"mode": "static", "value": "B"},
+					"value_template_ui": {"mode": "static", "value_type": "Data", "value": "B"},
 				}
 			]
 		)

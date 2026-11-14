@@ -212,3 +212,39 @@ class TestAssignmentResolver(unittest.TestCase):
 		val = {"mode": "variable", "path": "non_existent"}
 		resolver = ValueResolver.compile(val)
 		self.assertIsNone(resolver.resolve(self.context))
+
+	def test_assignment_text_generator_conditional_segment_execution(self):
+		"""Verify Assignment with compiled text_generator_ui evaluates canonical conditions via condition_registry."""
+		action = frappe._dict(
+			{
+				"name": "act_tg_1",
+				"action_type": "Assignment",
+				"action_id": "act_tg_1",
+			}
+		)
+		canonical_condition = {
+			"type": "comparison",
+			"operator": "eq",
+			"left": {"mode": "variable", "path": {"scope": "doc", "segments": ["title"]}},
+			"right": {"mode": "static", "value_type": "Data", "value": "Important"},
+		}
+		cond_id = "cond_1_test"
+		assignment_def = {
+			"target": "doc.content",
+			"operator": "set",
+			"value": f'Priority is {{% if _eval_condition("{cond_id}") %}}High{{% else %}}Normal{{% endif %}}',
+			"condition_registry": {
+				cond_id: canonical_condition,
+			},
+		}
+		handler = AssignmentHandler()
+		context = {"doc": {"doctype": "Note", "title": "Important", "content": ""}, "vars": {}}
+		action.config = [assignment_def]
+
+		handler.execute(action, context, self.engine)
+		self.assertEqual(context["doc"]["content"], "Priority is High")
+
+		# Non-matching branch
+		context["doc"]["title"] = "Regular"
+		handler.execute(action, context, self.engine)
+		self.assertEqual(context["doc"]["content"], "Priority is Normal")
