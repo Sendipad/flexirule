@@ -359,8 +359,22 @@ class ActionHandler(ABC):
 			)
 
 			if cond_id not in prepared_cache:
-				node = condition_registry[cond_id]
-				prepared_cache[cond_id] = prepare_condition(node, doctype=doc_type)
+				registry_entry = condition_registry[cond_id]
+				if (
+					isinstance(registry_entry, dict)
+					and "condition" in registry_entry
+					and "scope_doctypes" in registry_entry
+				):
+					node = registry_entry["condition"]
+					scope_doctypes = registry_entry.get("scope_doctypes") or None
+				else:
+					# Preserve compatibility with registries serialized before scope metadata
+					# was attached to canonical template conditions.
+					node = registry_entry
+					scope_doctypes = None
+				prepared_cache[cond_id] = prepare_condition(
+					node, doctype=doc_type, scope_doctypes=scope_doctypes
+				)
 
 			prepared = prepared_cache[cond_id]
 			if rule_doc:

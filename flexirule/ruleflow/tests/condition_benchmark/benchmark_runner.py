@@ -84,7 +84,16 @@ def _get_git_metadata() -> dict[str, Any]:
 
 	try:
 		status_out = subprocess.check_output(
-			["git", "status", "--porcelain", "--", ".", ":(exclude)artifacts/ci-reports/**"],
+			[
+				"git",
+				"status",
+				"--porcelain",
+				"--",
+				".",
+				":(exclude)artifacts/ci-reports/**",
+				":(exclude)frappe-src/**",
+				":(exclude)test_site/**",
+			],
 			cwd=repo_root,
 			stderr=subprocess.DEVNULL,
 			text=True,
@@ -98,7 +107,8 @@ def _get_git_metadata() -> dict[str, Any]:
 			)
 		else:
 			provenance_note = (
-				"Git commit and clean working tree were verified from the benchmark repository root."
+				"Git commit and application working tree were verified; CI-generated Frappe checkout "
+				"and test-site paths are excluded from application-source cleanliness."
 			)
 	except (OSError, subprocess.CalledProcessError):
 		is_dirty = True

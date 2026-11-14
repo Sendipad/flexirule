@@ -793,11 +793,20 @@ def _coerce_field_value(value: Any, fieldtype: str | None, path: str) -> Any:
 	try:
 		if fieldtype == "Check":
 			if value in (0, 1, "0", "1", False, True):
-				return bool(int(value))
+				# Frappe stores Check fields as integer 0/1. Keep the canonical
+				# runtime type aligned with FlexValue's Check representation.
+				return int(value)
 			raise ValueError
-		if fieldtype == "Int":
+		if fieldtype in {"Int", "Duration"}:
 			if isinstance(value, bool):
 				raise ValueError
+			if fieldtype == "Duration":
+				# Frappe Duration controls and stores an integer count of seconds;
+				# it is not a clock-time field.
+				number = Decimal(str(value))
+				if not number.is_finite() or number != number.to_integral_value():
+					raise ValueError
+				return int(number)
 			return int(value)
 		if fieldtype in {"Float", "Currency", "Percent"}:
 			if isinstance(value, bool):

@@ -184,6 +184,53 @@ class TestCanonicalConditionEvaluator(unittest.TestCase):
 				)
 			)
 
+	def test_check_field_uses_frappe_integer_semantics_for_equality_and_membership(self):
+		def fake_get_meta(_doctype):
+			return SimpleNamespace(
+				get_field=lambda fieldname: (
+					SimpleNamespace(fieldtype="Check") if fieldname == "enabled" else None
+				)
+			)
+
+		context = {"doc": {"doctype": "Check Semantics Test", "enabled": "1"}}
+		with patch("frappe.get_meta", side_effect=fake_get_meta):
+			self.assertTrue(
+				evaluate_condition(
+					compare("eq", variable("doc", "enabled"), static("Check", 1)), context
+				)
+			)
+			self.assertTrue(
+				evaluate_condition(
+					compare("in", variable("doc", "enabled"), static("list", [0, 1])), context
+				)
+			)
+			self.assertTrue(
+				evaluate_condition(
+					compare("not_in", variable("doc", "enabled"), static("list", [0])), context
+				)
+			)
+
+	def test_duration_field_uses_integer_seconds_for_comparison(self):
+		def fake_get_meta(_doctype):
+			return SimpleNamespace(
+				get_field=lambda fieldname: (
+					SimpleNamespace(fieldtype="Duration") if fieldname == "elapsed" else None
+				)
+			)
+
+		context = {"doc": {"doctype": "Duration Semantics Test", "elapsed": "3600"}}
+		with patch("frappe.get_meta", side_effect=fake_get_meta):
+			self.assertTrue(
+				evaluate_condition(
+					compare("gt", variable("doc", "elapsed"), static("Duration", 1800)), context
+				)
+			)
+			self.assertTrue(
+				evaluate_condition(
+					compare("eq", variable("doc", "elapsed"), static("Duration", 3600)), context
+				)
+			)
+
 	def test_evaluate_condition_revalidates_fieldtype_after_plan_cache_hit(self):
 		fieldtype = {"value": "Int"}
 

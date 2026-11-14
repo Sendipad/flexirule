@@ -3,7 +3,9 @@
 
 import json
 import unittest
+from types import SimpleNamespace
 from typing import Any
+from unittest.mock import patch
 
 import frappe
 from frappe.tests.utils import FrappeTestCase
@@ -256,6 +258,72 @@ class TestTextGeneratorCanonicalConditions(FrappeTestCase):
 		compiled = rule._compile_segments_v2(segments, "Action 1", condition_registry=cond_reg)
 		self.assertIn("{% for user_role in doc.roles %}", compiled)
 		self.assertEqual(len(cond_reg), 1)
+
+	def test_loop_condition_preserves_child_doctype_for_mapping_rows_at_runtime(self):
+		rule = frappe.new_doc("Rule")
+		rule.document_type = "Test Condition Parent"
+		segments = [
+			{
+				"type": "loop",
+				"iterator": "item",
+				"iterable": "doc.items",
+				"segments": [
+					{
+						"type": "conditional",
+						"condition": {
+							"type": "comparison",
+							"operator": "eq",
+							"left": {
+								"mode": "variable",
+								"path": {"scope": "item", "segments": ["enabled"]},
+							},
+							"right": {"mode": "static", "value_type": "Check", "value": 1},
+						},
+						"then_segments": [{"type": "text", "content": "ENABLED"}],
+						"else_segments": [{"type": "text", "content": "DISABLED"}],
+					}
+				],
+			}
+		]
+
+		def fake_get_meta(doctype):
+			if doctype == "Test Condition Parent":
+				return SimpleNamespace(
+					get_field=lambda fieldname: (
+						SimpleNamespace(fieldtype="Table", options="Test Condition Child")
+						if fieldname == "items"
+						else None
+					)
+				)
+			if doctype == "Test Condition Child":
+				return SimpleNamespace(
+					get_field=lambda fieldname: (
+						SimpleNamespace(fieldtype="Check") if fieldname == "enabled" else None
+					)
+				)
+			raise AssertionError(f"Unexpected DocType metadata lookup: {doctype}")
+
+		condition_registry: dict[str, Any] = {}
+		with patch("frappe.get_meta", side_effect=fake_get_meta):
+			compiled = rule._compile_segments_v2(
+				segments, "Mapped Child Row Condition", condition_registry=condition_registry
+			)
+			entry = next(iter(condition_registry.values()))
+			self.assertEqual(
+				entry["scope_doctypes"],
+				{"item": "Test Condition Child", "row": "Test Condition Child"},
+			)
+			context = {
+				"doc": {
+					"doctype": "Test Condition Parent",
+					"items": [{"enabled": "1"}, {"enabled": "0"}],
+				},
+				"vars": {},
+				"_condition_registry": condition_registry,
+			}
+			rendered = frappe.render_template(compiled, self.handler._build_template_context(context))
+
+		self.assertEqual(rendered, "ENABLEDDISABLED")
 
 	def test_loop_invalid_iterator_name_rejected(self):
 		"""Verify loop iterator with invalid or reserved identifier throws an error."""

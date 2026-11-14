@@ -898,7 +898,10 @@ class Rule(Document):
 						json.dumps(canonical_node, sort_keys=True, separators=(",", ":")).encode("utf-8")
 					).hexdigest()[:8]
 					cond_id = f"cond_{len(condition_registry) + 1}_{node_hash}"
-					condition_registry[cond_id] = canonical_node
+					condition_registry[cond_id] = {
+						"condition": canonical_node,
+						"scope_doctypes": dict(loop_scope_doctypes or {}),
+				}
 					kwargs_str = ", ".join(f"{v}={v}" for v in loop_vars)
 					if kwargs_str:
 						cond_call = f'_eval_condition("{cond_id}", {kwargs_str})'
@@ -939,7 +942,10 @@ class Rule(Document):
 							json.dumps(canonical_node, sort_keys=True, separators=(",", ":")).encode("utf-8")
 						).hexdigest()[:8]
 						elif_cond_id = f"cond_{len(condition_registry) + 1}_{elif_hash}"
-						condition_registry[elif_cond_id] = canonical_node
+						condition_registry[elif_cond_id] = {
+							"condition": canonical_node,
+							"scope_doctypes": dict(loop_scope_doctypes or {}),
+						}
 						kwargs_str = ", ".join(f"{v}={v}" for v in loop_vars)
 						if kwargs_str:
 							elif_call = f'_eval_condition("{elif_cond_id}", {kwargs_str})'

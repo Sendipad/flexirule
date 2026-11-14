@@ -118,7 +118,7 @@ def validate_rule_definition(rule_doc, mode="full", target_rule_override=None) -
 
 		handler = HandlerRegistry.get(action_type)
 		if handler:
-			handler_errors = handler.validate(action, {"doc": None, "vars": {}}) or []
+			handler_errors = handler.validate(action, {"doc": None, "vars": {}, "rule": rule}) or []
 			handler_context = action_type
 			if action_type == "Query Records" and _safe_get(action, "operation"):
 				handler_context = f"{action_type} / {_safe_get(action, 'operation')}"
@@ -219,7 +219,7 @@ def _validate_single_action(rule, action, errors, warnings) -> dict:
 
 	handler = HandlerRegistry.get(action_type)
 	if handler:
-		handler_errors = handler.validate(action, {"doc": None, "vars": {}}) or []
+		handler_errors = handler.validate(action, {"doc": None, "vars": {}, "rule": rule}) or []
 		handler_context = action_type
 		if action_type == "Query Records" and _safe_get(action, "operation"):
 			handler_context = f"{action_type} / {_safe_get(action, 'operation')}"

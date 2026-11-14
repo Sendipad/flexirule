@@ -211,6 +211,40 @@ class TestRule(FrappeTestCase):
 		with self.assertRaisesRegex(frappe.ValidationError, "is a Condition but no condition is defined"):
 			rule.validate()
 
+	def test_shared_validation_passes_rule_doctype_to_condition_handlers(self):
+		from flexirule.ruleflow.core.validation_service import validate_rule_definition
+
+		rule = frappe.get_doc(
+			{
+				"doctype": "Rule",
+				"rule_name": "Rule Condition Handler Metadata Context",
+				"document_type": "User",
+				"trigger_type": "DocType Event",
+				"trigger_event": "Before Save",
+				"actions": [
+					{
+						"action_id": "condition_1",
+						"action_label": "Unknown User Field",
+						"action_type": "Condition",
+						"config": json.dumps(
+							{
+								"type": "comparison",
+								"operator": "eq",
+								"left": {
+									"mode": "variable",
+									"path": {"scope": "doc", "segments": ["field_that_does_not_exist"]},
+								},
+								"right": {"mode": "static", "value_type": "Data", "value": "x"},
+							}
+						),
+					}
+				],
+			}
+		)
+		result = validate_rule_definition(rule, mode="draft")
+		self.assertFalse(result["valid"])
+		self.assertTrue(any("unknown_field" in error for error in result["errors"]))
+
 	def test_service_matches_form_validation_for_async_output_mapping(self):
 		"""Async output mapping should fail consistently through API and form validation."""
 		payload = {

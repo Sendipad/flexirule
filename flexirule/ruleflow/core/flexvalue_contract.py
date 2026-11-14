@@ -564,10 +564,15 @@ def parse_static_value(value_type: str, value: Any) -> Any:
 			return value
 		val_str = str(value)
 		return datetime.fromisoformat(val_str[:-1] + "+00:00" if val_str.endswith("Z") else val_str)
-	if value_type in {"time", "Time", "Duration"}:
+	if value_type in {"time", "Time"}:
 		if isinstance(value, time):
 			return value
 		return time.fromisoformat(str(value))
+	if value_type == "Duration":
+		# Frappe Duration is stored as integer seconds, unlike Time.
+		if isinstance(value, bool):
+			raise ValueError("Duration values must be integer seconds")
+		return int(value)
 	if value_type in {"integer", "Int"}:
 		return int(value)
 	if value_type == "Check":

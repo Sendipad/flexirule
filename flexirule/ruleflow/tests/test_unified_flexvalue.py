@@ -32,6 +32,12 @@ class TestUnifiedFlexValueArchitecture(FrappeTestCase):
 		compiled = ValueResolver.compile_flex_value({"mode": "static", "value_type": "Check", "value": 1})
 		self.assertEqual(compiled.resolve({}), 1)
 
+		# Frappe Duration is represented as integer seconds, not datetime.time.
+		compiled = ValueResolver.compile_flex_value(
+			{"mode": "static", "value_type": "Duration", "value": 3600}
+		)
+		self.assertEqual(compiled.resolve({}), 3600)
+
 		# Invalid Check (e.g. string "yes") should raise
 		with self.assertRaises(ConditionValidationError):
 			ValueResolver.compile_flex_value({"mode": "static", "value_type": "Check", "value": "yes"})
