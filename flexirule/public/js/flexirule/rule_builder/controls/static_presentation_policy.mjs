@@ -6,7 +6,9 @@
 export function isRemoteRecordFieldType(fieldType, referenceDoctype = "") {
 	const type = String(fieldType || "");
 	if (["Link", "Dynamic Link", "MultiSelectList"].includes(type)) return true;
-	return type === "MultiSelect" && typeof referenceDoctype === "string" && !!referenceDoctype.trim();
+	return (
+		type === "MultiSelect" && typeof referenceDoctype === "string" && !!referenceDoctype.trim()
+	);
 }
 
 /**

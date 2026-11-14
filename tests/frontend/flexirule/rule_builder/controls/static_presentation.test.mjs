@@ -189,7 +189,6 @@ test("static_presentation: Select membership stays multi-select despite a truthy
 	assert.equal(presentation.isLink, false);
 });
 
-
 test("static_presentation: remote record fieldtypes are distinct from local MultiSelect choices", () => {
 	assert.equal(isRemoteRecordFieldType("Link"), true);
 	assert.equal(isRemoteRecordFieldType("Dynamic Link"), true);
