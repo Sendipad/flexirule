@@ -4,9 +4,7 @@
  */
 export function getResolvedCollectionDocType(collectionNode, metadataById) {
 	const metadata = metadataById?.get(collectionNode?.id);
-	return metadata?.status === "loaded" && metadata.childDocType
-		? metadata.childDocType
-		: "";
+	return metadata?.status === "loaded" && metadata.childDocType ? metadata.childDocType : "";
 }
 
 export function getCollectionMetadataIssues(tree, metadataById) {
@@ -22,7 +20,7 @@ export function getCollectionMetadataIssues(tree, metadataById) {
 						metadata?.status === "loading"
 							? "Waiting for the selected child table DocType metadata to load."
 							: metadata?.error ||
-								"Child table DocType metadata is unavailable. Retry metadata loading before saving."
+									"Child table DocType metadata is unavailable. Retry metadata loading before saving."
 					);
 				}
 			}

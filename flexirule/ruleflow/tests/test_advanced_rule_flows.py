@@ -3,8 +3,8 @@ import json
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
-from flexirule.ruleflow.core.coordinator import RuleCoordinator
 from flexirule.ruleflow.core.action_handlers.sub_rule import SubRuleVarsOverlay
+from flexirule.ruleflow.core.coordinator import RuleCoordinator
 
 
 def _j(value):
@@ -539,7 +539,9 @@ class TestAdvancedRuleFlows(FrappeTestCase):
 		}
 
 	def test_sub_rule_vars_overlay_isolates_nested_mutable_values(self):
-		parent_vars = {
+		from typing import Any
+
+		parent_vars: dict[str, Any] = {
 			"settings": {"nested": {"enabled": True}},
 			"rows": [{"values": [1, 2]}],
 			"tags": {"original"},

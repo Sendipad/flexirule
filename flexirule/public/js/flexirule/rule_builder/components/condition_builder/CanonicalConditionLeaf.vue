@@ -609,7 +609,9 @@ async function validate() {
 			.map((control) => control.validate())
 	);
 	const errors = results.flatMap((result) =>
-		result?.valid === false ? result.errors || [__("Invalid value resolver configuration.")] : []
+		result?.valid === false
+			? result.errors || [__("Invalid value resolver configuration.")]
+			: []
 	);
 	return { valid: errors.length === 0, errors };
 }

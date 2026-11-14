@@ -423,7 +423,10 @@ async function validate() {
 	const nestedControlErrors = nestedControlResults.flatMap((result) =>
 		result?.valid === false ? result.errors || [__("A nested value resolver is invalid.")] : []
 	);
-	const metadataErrors = getCollectionMetadataIssues(treeModel.value, collectionMetadataMap.value);
+	const metadataErrors = getCollectionMetadataIssues(
+		treeModel.value,
+		collectionMetadataMap.value
+	);
 	const localResult = refreshLocalValidation();
 	if (nestedControlErrors.length || metadataErrors.length) {
 		const blockedResult = {

@@ -16,11 +16,17 @@ const collection = {
 test("child DocType resolves only after child metadata is loaded", () => {
 	assert.equal(getResolvedCollectionDocType(collection, new Map()), "");
 	assert.equal(
-		getResolvedCollectionDocType(collection, new Map([["items", { status: "loading", childDocType: "Sales Invoice Item" }]])),
+		getResolvedCollectionDocType(
+			collection,
+			new Map([["items", { status: "loading", childDocType: "Sales Invoice Item" }]])
+		),
 		""
 	);
 	assert.equal(
-		getResolvedCollectionDocType(collection, new Map([["items", { status: "loaded", childDocType: "Sales Invoice Item" }]])),
+		getResolvedCollectionDocType(
+			collection,
+			new Map([["items", { status: "loaded", childDocType: "Sales Invoice Item" }]])
+		),
 		"Sales Invoice Item"
 	);
 });
@@ -28,11 +34,17 @@ test("child DocType resolves only after child metadata is loaded", () => {
 test("unresolved or failed child metadata blocks condition validation", () => {
 	assert.equal(getCollectionMetadataIssues(collection, new Map()).length, 1);
 	assert.match(
-		getCollectionMetadataIssues(collection, new Map([["items", { status: "failed", error: "metadata request failed" }]]))[0],
+		getCollectionMetadataIssues(
+			collection,
+			new Map([["items", { status: "failed", error: "metadata request failed" }]])
+		)[0],
 		/metadata request failed/
 	);
 	assert.deepEqual(
-		getCollectionMetadataIssues(collection, new Map([["items", { status: "loaded", childDocType: "Sales Invoice Item" }]])),
+		getCollectionMetadataIssues(
+			collection,
+			new Map([["items", { status: "loaded", childDocType: "Sales Invoice Item" }]])
+		),
 		[]
 	);
 });
