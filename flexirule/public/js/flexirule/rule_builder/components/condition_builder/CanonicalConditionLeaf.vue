@@ -235,9 +235,7 @@ const leftOperandDescriptor = computed(() => {
 						: valueTypes[0] || null,
 				doctype:
 					match.doctype ||
-					(["Link", "Dynamic Link"].includes(fieldtype)
-						? match.options
-						: props.currentDocType),
+					(fieldtype === "Link" ? match.options : props.currentDocType),
 				fieldname: match.fieldname || segments[segments.length - 1] || null,
 				options: match.options || null,
 				filters: normalizeLinkFilters(match.link_filters || match.filters),
