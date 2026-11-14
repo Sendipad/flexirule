@@ -313,6 +313,25 @@ class TestTextGeneratorCanonicalConditions(FrappeTestCase):
 				entry["scope_doctypes"],
 				{"item": "Test Condition Child", "row": "Test Condition Child"},
 			)
+			self.assertIn("item=item", compiled)
+			from flexirule.ruleflow.core.condition_evaluator import evaluate_condition
+
+			child_context = {
+				"doc": {
+					"doctype": "Test Condition Parent",
+					"child_rows": [{"enabled": "1"}, {"enabled": "0"}],
+				},
+				"vars": {},
+				"item": {"enabled": "1"},
+			}
+			self.assertTrue(
+				evaluate_condition(
+					entry["condition"],
+					child_context,
+					doctype="Test Condition Parent",
+					scope_doctypes=entry["scope_doctypes"],
+				)
+			)
 			context = {
 				"doc": {
 					"doctype": "Test Condition Parent",

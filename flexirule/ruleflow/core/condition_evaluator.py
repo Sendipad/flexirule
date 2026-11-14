@@ -934,7 +934,9 @@ def _assert_runtime_equality_types(left: Any, right: Any, path: str) -> None:
 		return
 	if left_type != right_type:
 		raise ConditionEvaluationError(
-			"operand_type_mismatch", path, "Equality operands have incompatible runtime types"
+			"operand_type_mismatch",
+			path,
+			f"Equality operands have incompatible runtime types ({left_type} vs {right_type})",
 		)
 
 
