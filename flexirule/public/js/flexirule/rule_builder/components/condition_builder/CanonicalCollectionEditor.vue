@@ -162,8 +162,16 @@ async function resolveAndPropagateChildFields() {
 	const currentRequestId = ++activeRequestId;
 	const selected = tableFieldOptions.value.find((f) => f.value === props.node.collection);
 	if (!selected || !selected.options) {
-		metaStatus.value = "idle";
-		metaError.value = null;
+		metaStatus.value = "failed";
+		metaError.value = __("Select a valid child table field to resolve its DocType.");
+		emit("child-fields-loaded", {
+			collectionId: props.node.id,
+			childDocType: "",
+			childFields: [],
+			alias: props.node.alias,
+			status: "failed",
+			error: metaError.value,
+		});
 		return;
 	}
 
@@ -203,14 +211,7 @@ async function resolveAndPropagateChildFields() {
 			}));
 			metaStatus.value = "loaded";
 		} else {
-			if (
-				currentRequestId !== activeRequestId ||
-				props.node.collection !== capturedCollection ||
-				props.node.alias !== capturedAlias
-			) {
-				return;
-			}
-			metaStatus.value = "loaded";
+			throw new Error("Frappe metadata API is unavailable; child fields cannot be verified.");
 		}
 
 		emit("child-fields-loaded", {
@@ -228,7 +229,7 @@ async function resolveAndPropagateChildFields() {
 		) {
 			return;
 		}
-		const msg = e?.message || "Failed to fetch child doctype fields";
+		const msg = e?.message || __("Failed to fetch child DocType fields.");
 		metaStatus.value = "failed";
 		metaError.value = msg;
 		emit("child-fields-loaded", {

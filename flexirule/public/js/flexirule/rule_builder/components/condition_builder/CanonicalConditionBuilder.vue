@@ -66,6 +66,7 @@
 
 			<template #leaf="{ node }">
 				<CanonicalConditionLeaf
+					:ref="(el) => setLeafComponentRef(node.id, el)"
 					:node="node"
 					:contract="contract"
 					:docFields="getLeafDocFields(node)"
@@ -99,6 +100,7 @@ import {
 	getCollectionSiblingAliases,
 } from "./canonical_condition_adapter.mjs";
 import { validateCanonicalCondition } from "./canonical_condition_validation.mjs";
+import { getCollectionMetadataIssues, getResolvedCollectionDocType } from "./collection_metadata_validation.mjs";
 import { createNodeId } from "../tree_builder/tree_builder_utils.mjs";
 
 const props = defineProps({
@@ -125,6 +127,12 @@ const validationErrors = ref([]);
 const nodeErrorsMap = ref(new Map());
 const validationAttempted = ref(!!props.showValidation);
 const collectionMetadataMap = ref(new Map());
+const leafComponentRefs = new Map();
+
+function setLeafComponentRef(nodeId, component) {
+	if (component) leafComponentRefs.set(nodeId, component);
+	else leafComponentRefs.delete(nodeId);
+}
 
 const unsupportedDiagnostics = computed(() => findUnsupportedDiagnostics(treeModel.value));
 
@@ -286,10 +294,7 @@ function getLeafVariableOptions(node) {
 function getLeafDocType(node) {
 	const parentCol = findParentCollection(node?.id);
 	if (parentCol) {
-		const meta = collectionMetadataMap.value.get(parentCol.id);
-		if (meta && meta.childDocType) {
-			return meta.childDocType;
-		}
+		return getResolvedCollectionDocType(parentCol, collectionMetadataMap.value);
 	}
 	return props.currentDocType;
 }
@@ -405,7 +410,29 @@ function onSubNodeChange() {
 async function validate() {
 	syncTreeFromBuilder();
 	validationAttempted.value = true;
+
+	// Validate mounted leaf controls recursively before the parent payload can be saved.
+	const nestedControlResults = await Promise.all(
+		Array.from(leafComponentRefs.values(), (component) =>
+			component?.validate ? component.validate() : { valid: true, errors: [] }
+		)
+	);
+	const nestedControlErrors = nestedControlResults.flatMap((result) =>
+		result?.valid === false ? result.errors || [__("A nested value resolver is invalid.")] : []
+	);
+	const metadataErrors = getCollectionMetadataIssues(treeModel.value, collectionMetadataMap.value);
 	const localResult = refreshLocalValidation();
+	if (nestedControlErrors.length || metadataErrors.length) {
+		const blockedResult = {
+			...localResult,
+			valid: false,
+			errors: [...localResult.errors, ...metadataErrors, ...nestedControlErrors],
+		};
+		validationErrors.value = blockedResult.errors;
+		validatedPayloadJson = null;
+		emit("validation", blockedResult);
+		return blockedResult;
+	}
 
 	validationErrors.value = localResult.errors;
 	nodeErrorsMap.value = localResult.nodeErrors;

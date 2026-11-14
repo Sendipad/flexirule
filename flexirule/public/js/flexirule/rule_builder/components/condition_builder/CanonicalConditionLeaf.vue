@@ -78,6 +78,7 @@
 				<!-- Right Operand (FlexValueControl with metadata descriptor) -->
 				<div v-if="node.operator && !isUnary" class="condition-col operand-col right-col">
 					<FlexValueControl
+						ref="rightControlRef"
 						v-model="rightValueModel"
 						:context="rightControlContext"
 						:doctype="currentDocType"
@@ -166,6 +167,8 @@ const props = defineProps({
 });
 
 const emit = defineEmits(["update:modelValue", "change", "remove", "replace", "retry-contract"]);
+const leftControlRef = ref(null);
+const rightControlRef = ref(null);
 
 const isUnary = computed(() => {
 	const op = props.node.operator;
@@ -598,6 +601,20 @@ watch(
 		checkIncompatibility();
 	}
 );
+
+async function validate() {
+	const results = await Promise.all(
+		[leftControlRef.value, rightControlRef.value]
+			.filter((control) => control?.validate)
+			.map((control) => control.validate())
+	);
+	const errors = results.flatMap((result) =>
+		result?.valid === false ? result.errors || [__("Invalid value resolver configuration.")] : []
+	);
+	return { valid: errors.length === 0, errors };
+}
+
+defineExpose({ validate });
 </script>
 
 <style scoped>

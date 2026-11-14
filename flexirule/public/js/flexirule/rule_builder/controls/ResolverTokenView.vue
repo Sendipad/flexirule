@@ -24,13 +24,14 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted, nextTick } from "vue";
+import { computed, ref, onMounted, onBeforeUnmount, nextTick } from "vue";
 import { nodeViewProps, NodeViewWrapper } from "@tiptap/vue-3";
 import ValueResolverControl from "./ValueResolverControl.vue";
 import { getFunctionIcon } from "../../core/formula_registry";
 
 const props = defineProps(nodeViewProps);
 const resolverControlRef = ref(null);
+let unregisterResolverValidator = null;
 
 const isOperationOnly = computed(() => {
 	const ctx = props.extension?.options?.context || {};
@@ -40,6 +41,13 @@ const isOperationOnly = computed(() => {
 });
 
 onMounted(() => {
+	const registerValidator = props.extension?.options?.context?.registerResolverValidator;
+	if (!isOperationOnly.value && typeof registerValidator === "function") {
+		unregisterResolverValidator = registerValidator(async () => {
+			return resolverControlRef.value?.validate?.() || { valid: true, errors: [] };
+		});
+	}
+
 	if (
 		!isOperationOnly.value &&
 		props.node?.attrs?.autoOpen &&
@@ -50,6 +58,11 @@ onMounted(() => {
 			props.updateAttributes({ autoOpen: false });
 		});
 	}
+});
+
+onBeforeUnmount(() => {
+	unregisterResolverValidator?.();
+	unregisterResolverValidator = null;
 });
 
 const currentModelValue = computed(() => {

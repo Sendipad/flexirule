@@ -178,6 +178,13 @@ const uid =
 	Math.random().toString(36).substring(2, 15) + "_" + Math.random().toString(36).substring(2, 15);
 
 const controlRef = ref(null);
+const resolverValidationRegistry = new Set();
+
+function registerResolverValidator(validator) {
+	if (typeof validator !== "function") return () => {};
+	resolverValidationRegistry.add(validator);
+	return () => resolverValidationRegistry.delete(validator);
+}
 
 const sourceCatalogue = computed(() => {
 	const rawStrategies = getAllStrategies();
@@ -265,6 +272,7 @@ const resolverContext = computed(() => {
 		target: props.context?.target || fieldname,
 		referenceDoctype: referenceDoctype.value,
 		triggerDoctype: triggerDoctype.value,
+		registerResolverValidator,
 	};
 });
 
@@ -759,10 +767,16 @@ const isValid = computed(() => {
 	return true;
 });
 
-function validate() {
+async function validate() {
 	const errors = [];
 	if (!isValid.value) {
 		errors.push(__("{0} is required").replace("{0}", props.context?.df?.label || __("Field")));
+	}
+	const nestedResults = await Promise.all(
+		Array.from(resolverValidationRegistry, (validator) => validator())
+	);
+	for (const result of nestedResults) {
+		if (result?.valid === false) errors.push(...(result.errors || [__("Nested resolver validation failed.")]));
 	}
 	return { valid: errors.length === 0, errors };
 }
