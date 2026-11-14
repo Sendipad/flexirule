@@ -286,12 +286,7 @@ const resolverContext = computed(() => {
 	};
 });
 
-const isLinkType = computed(() => {
-	const ft = fieldType.value;
-	return (
-		ft === "Link" || ft === "Dynamic Link" || ft === "MultiSelectList" || ft === "MultiSelect"
-	);
-});
+const isLinkType = computed(() => isRemoteRecordFieldType(fieldType.value));
 
 const PURE_TEXT_FIELDTYPES = new Set(["Code", "Text Editor", "JSON"]);
 
