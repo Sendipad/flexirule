@@ -117,7 +117,11 @@ import MentionList from "./MentionList.vue";
 import ControlFactory from "./ControlFactory.vue";
 import MultiSelectList from "./MultiSelectList.vue";
 import ResolverTokenView from "./ResolverTokenView.vue";
-import { resolveStaticPresentation } from "./static_presentation_policy.mjs";
+import {
+	isRemoteRecordFieldType,
+	resolveDynamicLinkDoctype,
+	resolveStaticPresentation,
+} from "./static_presentation_policy.mjs";
 import { parseListElements } from "./flexvalue_serialization.mjs";
 import { buildSourceCatalogue, searchSourceCatalogue } from "./source_catalogue.mjs";
 import { getAllStrategies } from "./value_resolver/strategies.js";
@@ -226,11 +230,19 @@ const fieldOptions = computed(() => {
 	return options;
 });
 const referenceDoctype = computed(() => {
-	if (fieldType.value === "Link" && fieldOptions.value) {
-		return fieldOptions.value;
+	const opts = fieldOptions.value;
+
+	if (fieldType.value === "Link") {
+		return typeof opts === "string" ? opts.trim() : "";
 	}
 
-	const opts = fieldOptions.value;
+	if (fieldType.value === "Dynamic Link") {
+		return resolveDynamicLinkDoctype({
+			options: opts,
+			context: props.context,
+			engine: props.engine,
+		});
+	}
 
 	if (opts && typeof opts === "string" && props.context?.filters) {
 		const filterVal = props.context.filters[opts];
@@ -244,10 +256,12 @@ const referenceDoctype = computed(() => {
 		}
 	}
 
-	return props.context?.referenceDoctype || opts || "";
-});
+	if (["Select", "Check", "MultiSelect"].includes(fieldType.value)) {
+		return props.context?.referenceDoctype || "";
+	}
 
-const triggerDoctype = computed(() => {
+	return props.context?.referenceDoctype || (Array.isArray(opts) ? "" : opts || "");
+});
 	return (
 		props.doctype ||
 		props.context?.currentDocType ||
