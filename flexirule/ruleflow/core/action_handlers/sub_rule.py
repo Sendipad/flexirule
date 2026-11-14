@@ -83,7 +83,7 @@ class SubRuleVarsOverlay(dict):
 
 	def _promote_parent_value(self, key):
 		value = self._parent.get(key)
-		if isinstance(value, (dict, list, tuple, set)):
+		if isinstance(value, dict | list | tuple | set):
 			local_value = _clone_context_containers(value)
 			dict.__setitem__(self, key, local_value)
 			return local_value
