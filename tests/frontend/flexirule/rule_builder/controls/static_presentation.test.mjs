@@ -195,6 +195,7 @@ test("static_presentation: remote record fieldtypes are distinct from local Mult
 	assert.equal(isRemoteRecordFieldType("Dynamic Link"), true);
 	assert.equal(isRemoteRecordFieldType("MultiSelectList"), true);
 	assert.equal(isRemoteRecordFieldType("MultiSelect"), false);
+	assert.equal(isRemoteRecordFieldType("MultiSelect", "Customer"), true);
 	assert.equal(isRemoteRecordFieldType("Select"), false);
 
 	const localMultiSelect = resolveStaticPresentation({
