@@ -291,7 +291,9 @@ const resolverContext = computed(() => {
 	};
 });
 
-const isLinkType = computed(() => isRemoteRecordFieldType(fieldType.value));
+const isLinkType = computed(() =>
+	isRemoteRecordFieldType(fieldType.value, props.context?.referenceDoctype)
+);
 
 const PURE_TEXT_FIELDTYPES = new Set(["Code", "Text Editor", "JSON"]);
 
