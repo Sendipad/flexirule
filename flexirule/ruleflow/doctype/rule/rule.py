@@ -901,7 +901,7 @@ class Rule(Document):
 					condition_registry[cond_id] = {
 						"condition": canonical_node,
 						"scope_doctypes": dict(loop_scope_doctypes or {}),
-				}
+					}
 					kwargs_str = ", ".join(f"{v}={v}" for v in loop_vars)
 					if kwargs_str:
 						cond_call = f'_eval_condition("{cond_id}", {kwargs_str})'
